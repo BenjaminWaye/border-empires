@@ -1,5 +1,4 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
-import { OBSERVATORY_PROTECTION_RADIUS } from "../client-constants.js";
 import type { Tile } from "../client-types.js";
 
 const wrappedDelta = (a: number, b: number, size: number): number => Math.min(Math.abs(a - b), size - Math.abs(a - b));
@@ -11,25 +10,6 @@ type ObservatoryViewWithCooldown = NonNullable<Tile["observatory"]> & { cooldown
 
 export const observatoryProtectionActive = (tile: Pick<ObservatoryViewWithCooldown, "cooldownUntil">, nowMs: number): boolean =>
   (tile.cooldownUntil ?? 0) <= nowMs;
-
-export const hostileObservatoryProtectingTileAt = (
-  tiles: Iterable<Tile>,
-  me: string,
-  allies: string[],
-  target: Tile,
-  nowMs: number
-): Tile | undefined => {
-  for (const candidate of tiles) {
-    if (!candidate.observatory || candidate.observatory.status !== "active") continue;
-    if (!candidate.ownerId || candidate.ownerId === me || allies.includes(candidate.ownerId)) continue;
-    // A tower only protects its owner's own tiles (server: isTileShieldedByEnemyObservatory).
-    if (target.ownerId !== candidate.ownerId) continue;
-    if (candidate.fogged) continue;
-    if (!observatoryProtectionActive(candidate.observatory, nowMs)) continue;
-    if (chebyshevDistanceWrapped(candidate.x, candidate.y, target.x, target.y) <= OBSERVATORY_PROTECTION_RADIUS) return candidate;
-  }
-  return undefined;
-};
 
 export const readyOwnedObservatoryCooldownRemainingMs = (
   tiles: Iterable<Tile>,

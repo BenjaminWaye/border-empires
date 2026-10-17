@@ -1,3 +1,4 @@
+import { currentAiTechPriority } from "./ai-tech-priorities.js";
 import { techGoldCostForResearchedCount } from "@border-empires/shared";
 import {
   domainEntryById,
@@ -31,23 +32,12 @@ export const chooseAiTechChoiceForPlayer = (
     .filter((tech): tech is TechCatalogEntry => Boolean(tech))
     .map((tech) => {
       let score = 0;
-      if (tech.id === "toolmaking") score += 80;
-      if (tech.id === "agriculture" && (flags.has("active_town") || (counts.FARM ?? 0) > 0 || (counts.FISH ?? 0) > 0)) score += 55;
-      if (tech.id === "trade" && flags.has("active_town")) score += 50;
-      if (tech.id === "trade" && flags.has("active_dock")) score += 40;
-      if (tech.id === "tribal-warfare" && (counts.TITANIUM ?? 0) > 0) score += 40;
-      if (tech.id === "tribal-warfare" && (flags.has("active_town") || flags.has("active_dock"))) score += 28;
-      if (tech.id === "cartography" && (counts.GEMS ?? 0) > 0) score += 30;
-      if (tech.id === "mining" && (flags.has("active_titanium_site") || flags.has("active_crystal_site"))) score += 55;
-      if (tech.id === "masonry" && flags.has("active_town")) score += 45;
-      if (tech.id === "masonry" && flags.has("active_dock")) score += 25;
-      if (tech.id === "leatherworking" && (counts.UMBRITE ?? 0) > 0) score += 35;
-      if (tech.id === "harborcraft" && flags.has("active_dock")) score += 65;
-      if (tech.id === "maritime-trade" && flags.has("active_dock")) score += 55;
-      if (tech.id === "port-infrastructure" && flags.has("active_dock")) score += 45;
-      if (tech.id === "coinage" && flags.has("active_town")) score += 55;
-      if (tech.id === "banking" && flags.has("active_town")) score += 45;
-      if (tech.id === "civil-service" && flags.has("active_town")) score += 35;
+      score += currentAiTechPriority(tech.id, {
+        hasTown: flags.has("active_town"), hasDock: flags.has("active_dock"),
+        hasFoodSite: (counts.FARM ?? 0) + (counts.FISH ?? 0) > 0,
+        hasCrystalSite: (counts.GEMS ?? 0) > 0,
+        hasTitaniumSite: (counts.TITANIUM ?? 0) > 0
+      });
       score += Math.max(0, 24 - techDepth(tech.id) * 6);
       const resourceCost = toResources(tech.cost);
       const goldCost = techGoldCostForResearchedCount(player.techIds.length);

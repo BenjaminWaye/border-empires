@@ -148,7 +148,7 @@ describe("automation preplan command", () => {
 
     expect(result.command).toMatchObject({
       type: "CHOOSE_TECH",
-      payloadJson: JSON.stringify({ techId: "agriculture" })
+      payloadJson: JSON.stringify({ techId: "trade" })
     });
     expect(result.diagnostic.preplanReason).toBe("choose_tech");
   });

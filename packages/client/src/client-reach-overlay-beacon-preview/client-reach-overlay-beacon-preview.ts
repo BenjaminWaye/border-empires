@@ -1,5 +1,7 @@
+import { tileKey } from "@border-empires/shared";
 import { tileKeysAroundAnchor } from "../client-reach-overlay/client-reach-overlay-anchor-disk.js";
 import type { ReachBoundaryDeps } from "../client-reach-overlay/client-reach-overlay.js";
+import type { Tile } from "../client-types.js";
 
 // Split out of client-reach-overlay.ts (500-line file cap, AGENTS.md): this
 // beacon-siting ghost preview is a fully separate concern from the
@@ -12,11 +14,20 @@ import type { ReachBoundaryDeps } from "../client-reach-overlay/client-reach-ove
  * coords; call once per candidate tile while the structure-placement UI has
  * a pending selection (see client-action-flow.ts's structure placement
  * flow for where a pending build target is tracked).
+ *
+ * Pass `tiles` to land-gate the disk the way real reach is (coastal water
+ * included, nothing beyond it); unknown tiles count as land. Without it the
+ * preview is the pure geometric square and shades ground across water that
+ * the beacon would never actually reach.
  */
-export const computeOutpostReachPreview = (centerX: number, centerY: number): Set<string> => {
-  const reach = new Set<string>();
-  for (const key of tileKeysAroundAnchor({ x: centerX, y: centerY, kind: "OUTPOST" })) reach.add(key);
-  return reach;
+export const computeOutpostReachPreview = (centerX: number, centerY: number, tiles?: ReadonlyMap<string, Pick<Tile, "terrain">>): Set<string> => {
+  const isLand = tiles
+    ? (x: number, y: number): boolean => {
+        const tile = tiles.get(tileKey(x, y));
+        return tile ? tile.terrain === "LAND" : true;
+      }
+    : undefined;
+  return new Set(tileKeysAroundAnchor({ x: centerX, y: centerY, kind: "OUTPOST" }, isLand));
 };
 
 const PREVIEW_BOUNDARY_COLOR = "rgba(150, 220, 255, 0.9)";

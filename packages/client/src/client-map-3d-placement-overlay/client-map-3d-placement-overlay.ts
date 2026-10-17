@@ -28,6 +28,8 @@ import {
   tileIsPlacementBeneficiary
 } from "../client-structure-effects/client-structure-effects.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { createBeaconPlacementOverlay, tileCornerMeanY } from "../client-map-3d-beacon-placement-overlay/client-map-3d-beacon-placement-overlay.js";
+import { REACH_RADIUS_BY_KIND } from "../client-reach-overlay/client-reach-overlay-anchor-disk.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
 
 const RANGE_RISE_ABOVE_HEIGHTFIELD = 0.012;
@@ -58,7 +60,9 @@ export type PlacementRangeOverlay = {
 // Renders the building-placement radius ring (yellow when valid, red when
 // invalid) plus a green highlight on every tile within radius that would
 // benefit from the structure being placed (MINE tiles for Ore Refinery,
-// HYDROGARDEN tiles for Hydroworks). Beneficiary highlighting is bounded to
+// HYDROGARDEN tiles for Hydroworks). A Relay Beacon gets its reach-radius ring
+// here too, with its new-reach tint drawn by
+// client-map-3d-beacon-placement-overlay.ts. Beneficiary highlighting is bounded to
 // MAX_BENEFICIARY_TILES (441 at the current largest radius, 10) regardless
 // of world/map size.
 export const createPlacementRangeOverlay = (scene: Scene): PlacementRangeOverlay => {
@@ -95,6 +99,7 @@ export const createPlacementRangeOverlay = (scene: Scene): PlacementRangeOverlay
   benefitFill.visible = false;
 
   scene.add(marker, fill, benefitFill);
+  const beaconOverlay = createBeaconPlacementOverlay(scene);
 
   const tempMatrix = new Matrix4();
 
@@ -117,11 +122,7 @@ export const createPlacementRangeOverlay = (scene: Scene): PlacementRangeOverlay
         if (!tileIsPlacementBeneficiary(tile, structureType, deps.state.me)) continue;
         const localX = toroidDelta(deps.sceneOrigin.camX, wx, WORLD_WIDTH) + 0.5;
         const localZ = toroidDelta(deps.sceneOrigin.camY, wy, WORLD_HEIGHT) + 0.5;
-        const wxNext = wx + 1 >= WORLD_WIDTH ? 0 : wx + 1;
-        const wyNext = wy + 1 >= WORLD_HEIGHT ? 0 : wy + 1;
-        const surfaceY =
-          (deps.cornerYAt(wx, wy) + deps.cornerYAt(wxNext, wy) + deps.cornerYAt(wx, wyNext) + deps.cornerYAt(wxNext, wyNext)) / 4;
-        tempMatrix.makeTranslation(localX, surfaceY + BENEFICIARY_RISE_ABOVE_HEIGHTFIELD, localZ);
+        tempMatrix.makeTranslation(localX, tileCornerMeanY(deps.cornerYAt, wx, wy) + BENEFICIARY_RISE_ABOVE_HEIGHTFIELD, localZ);
         benefitFill.setMatrixAt(count, tempMatrix);
         count += 1;
       }
@@ -140,15 +141,17 @@ export const createPlacementRangeOverlay = (scene: Scene): PlacementRangeOverlay
     fill.visible = false;
     benefitFill.visible = false;
     benefitFill.count = 0;
+    beaconOverlay.sync(deps);
     if (!deps.state.buildingPlacement.active) return;
     const { x, y, structureType } = deps.state.buildingPlacement;
-    if (structureType !== "HYDROWORKS" && structureType !== "ORE_REFINERY" && structureType !== "AFC") return;
+    if (structureType === "") return;
     const tile = deps.state.tiles.get(deps.keyFor(x, y));
     if (deps.tileVisibilityStateAt(x, y, tile) !== "visible") return;
     const valid = deps.isPlacementValidForTile(tile);
-    const radius = structureType === "AFC" ? 0.5 : placementRadius(structureType);
+    const radius =
+      structureType === "AFC" ? 0.5 : structureType === "RELAY_BEACON" ? REACH_RADIUS_BY_KIND.OUTPOST : placementRadius(structureType);
 
-    if (structureType !== "AFC") syncBeneficiaryHighlights(deps, structureType, x, y, radius);
+    if (structureType === "HYDROWORKS" || structureType === "ORE_REFINERY") syncBeneficiaryHighlights(deps, structureType, x, y, radius);
 
     marker.material = valid ? validMaterial : invalidMaterial;
     fill.material = valid ? validFillMaterial : invalidFillMaterial;

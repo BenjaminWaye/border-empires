@@ -66,6 +66,9 @@ export type DomainPlayer = {
   // boundary (apps/simulation/src/runtime-manpower.ts accrueManpower).
   manpowerBanked?: number;
   manpowerCapSnapshot?: number;
+  // Set once the one-time landing manpower reserve has been granted
+  // (packages/shared/src/landing-manpower-reserve.ts), so it is never granted twice.
+  landingReserveGranted?: boolean;
   wonderVisionRadiusBonus?: number;
   wonderDockGoldMultiplier?: number;
   wonderDockAttackMultiplier?: number;
@@ -178,7 +181,6 @@ export type DomainTileState = {
             | "supportCurrent"
             | "supportMax"
             | "goldPerMinute"
-            | "cap"
             | "isFed"
             | "population"
             | "maxPopulation"

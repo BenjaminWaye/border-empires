@@ -171,7 +171,7 @@ describe("rewrite stack reach on connect", () => {
    * previous connection's socket. The PreparePlayer hello only reaches the
    * older sockets (it fires before the new one is attached), so the new
    * session got nothing until the border next changed. The gateway now
-   * replays the latest REACH_UPDATE it relayed (reach-update-replay.ts).
+   * replays the latest REACH_UPDATE it relayed (player-message-replay.ts).
    */
   it("delivers the reach border to a second session while the player is already subscribed", async () => {
     const simulation = await createSimulationService({ host: "127.0.0.1", port: 0, log: silentLog });

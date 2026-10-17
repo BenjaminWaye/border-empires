@@ -20,6 +20,7 @@ export type AiDiplomacyStanceInput = {
     musterManpower: number;
     /** Leaderboard score; undefined when the snapshot carried no self entry. */
     score: number | undefined;
+    foodSlotDeficit?: number;
     foodStock: number;
     /** Production minus upkeep, per minute. */
     foodNetPerMinute: number;
@@ -70,7 +71,7 @@ export const computeAiDiplomacyStance = (input: AiDiplomacyStanceInput): AiDiplo
 
   const fightingStrength = input.ai.manpower + input.ai.musterManpower;
   const exhausted = input.ai.manpowerCap > 0 && fightingStrength / input.ai.manpowerCap <= EXHAUSTED_MANPOWER_RATIO;
-  const starving =
+  const starving = input.ai.foodSlotDeficit !== undefined ? input.ai.foodSlotDeficit > 0 :
     input.ai.foodStock <= 0
       ? input.ai.foodNetPerMinute < 0
       : input.ai.foodNetPerMinute < 0 && input.ai.foodStock / -input.ai.foodNetPerMinute < FOOD_CRISIS_MINUTES;

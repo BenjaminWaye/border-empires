@@ -4,7 +4,7 @@
 // that take their dependencies explicitly via RuntimeManpowerEconomyContext,
 // mirroring the build*CommandContext pattern used in Stage 1/2. No numeric
 // formula or rounding behavior was changed — only moved.
-import { MANPOWER_EPSILON } from "@border-empires/shared";
+import { LANDING_MANPOWER_RESERVE, MANPOWER_EPSILON } from "@border-empires/shared";
 import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { RuntimePlayer } from "../runtime-types.js";
@@ -18,7 +18,7 @@ import {
   playerManpowerRegenPerMinuteFromSummary
 } from "../runtime-manpower.js";
 import { TITANIUM_LEVY_REGEN_FREEZE_KEY } from "../runtime-titanium-levy-command.js";
-import { manpowerCeiling, settleWaystationManpowerOverflow } from "../runtime-manpower-ceiling.js";
+import { grantOverflowManpower, manpowerCeiling, settleWaystationManpowerOverflow } from "../runtime-manpower-ceiling.js";
 import * as wonderEffects from "../runtime-natural-wonders.js";
 import { buildPlayerDefensibilityMetrics, type PlayerDefensibilityMetrics } from "../player-defensibility-metrics.js";
 import { buildPlayerUpdateEconomySnapshot, type PlayerUpdateEconomySnapshot } from "../player-update-economy/player-update-economy.js";
@@ -115,6 +115,20 @@ export function applyManpowerRegenForPlayer(
   refreshManpowerOnlyForPlayer(ctx, player, nowMs);
 }
 
+// A player's first manpower settle is the start of their empire: a new human
+// just joined, or an AI empire at season start (persisted players already
+// carry manpowerUpdatedAt, so nobody existing gets it). Every new empire lands
+// with the one-time LANDING_MANPOWER_RESERVE, allowed above the cap like a
+// Waystation grant. landingReserveGranted is persisted and also set on records
+// rebuilt from existing territory (runtime-gross-income-repair.ts), so it can
+// never be granted twice. Barbarians are not empires (their cap is
+// effectively unlimited -- see playerManpowerCap).
+const grantLandingManpowerReserve = (player: RuntimePlayer, cap: number): void => {
+  if (player.id.startsWith("barbarian-") || player.landingReserveGranted) return;
+  grantOverflowManpower(player, LANDING_MANPOWER_RESERVE, cap);
+  player.landingReserveGranted = true;
+};
+
 /**
  * Manpower-only variant of {@link applyManpowerRegenForPlayer} that skips the
  * economy-accrual side effect. The accrual is O(territory tiles) per call
@@ -134,6 +148,7 @@ export function refreshManpowerOnlyForPlayer(
   if (!Number.isFinite(player.manpower)) {
     player.manpower = cap;
     delete player.manpowerBanked;
+    grantLandingManpowerReserve(player, cap);
     player.manpowerUpdatedAt = nowMs;
     player.manpowerCapSnapshot = cap;
     return;
@@ -144,6 +159,7 @@ export function refreshManpowerOnlyForPlayer(
   }
   if (!Number.isFinite(player.manpowerUpdatedAt)) {
     player.manpower = Math.max(0, Math.min(manpowerCeiling(player, cap), player.manpower));
+    grantLandingManpowerReserve(player, cap);
     settleWaystationManpowerOverflow(player, cap);
     player.manpowerUpdatedAt = nowMs;
     player.manpowerCapSnapshot = cap;

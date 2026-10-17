@@ -1,13 +1,13 @@
 // Which look the incursion pocket edge uses where a rival pocket borders the
-// viewer's own land (see client-incursion-breach-layout.ts). Candidate
-// "breach" looks are being compared in-game before one replaces the straight
-// strip, so for now this is an admin-only switch (Settings > Admin):
+// viewer's own land (see client-incursion-breach-layout.ts). The spikes are
+// the default for everyone; the other looks stay selectable on Settings >
+// Admin for comparison:
 //
-//  - "straight": the original solid strip just inside the pocket (default).
-//  - "spikes":   an inked, gently meandering front line in the attacker's
-//                colour round the pocket, with tall, even triangular teeth
-//                pointing into my land and a soft glow of the attacker's
-//                colour spreading out in front (Hearts of Iron IV front lines).
+//  - "spikes":   (default) an inked, gently meandering front line in the
+//                attacker's colour round the pocket, square at the corners,
+//                with tall, even triangular teeth pointing into my land
+//                (Hearts of Iron IV front lines).
+//  - "straight": the original solid strip just inside the pocket.
 //  - "ember":    a thin glowing fissure along the boundary with a soft
 //                flickering glow either side (Total War: Warhammer
 //                corruption fronts, Diablo lava seams).
@@ -47,7 +47,9 @@ const storedStyle = (): IncursionBreachStyle | undefined => {
   }
 };
 
-let style: IncursionBreachStyle = urlOverride() ?? storedStyle() ?? "straight";
+export const DEFAULT_INCURSION_BREACH_STYLE: IncursionBreachStyle = "spikes";
+
+let style: IncursionBreachStyle = urlOverride() ?? storedStyle() ?? DEFAULT_INCURSION_BREACH_STYLE;
 
 export const incursionBreachStyle = (): IncursionBreachStyle => style;
 

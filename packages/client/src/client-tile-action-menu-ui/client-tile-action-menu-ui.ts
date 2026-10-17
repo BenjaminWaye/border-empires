@@ -1,14 +1,14 @@
 import { captureMusterScrollAnchor, restoreMusterScrollAnchor } from "../client-muster-combat-reports/client-muster-combat-scroll.js";
 import { locationThemeForTile } from "./client-location-theme.js";
-import { injectMusterCombatReports, wireMusterReports, openMusterReportIds, restoreOpenMusterReports } from "../client-muster-combat-reports/client-muster-combat-reports-ui.js";
+import { wireMusterReports, openMusterReportIds, restoreOpenMusterReports } from "../client-muster-combat-reports/client-muster-combat-reports-ui.js";
 import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, WORLD_HEIGHT, WORLD_WIDTH, applyOddsScale, commitOddsMultiplier, wrapCoord } from "@border-empires/shared";
 import { tileActionMenuHtml } from "../client-tile-menu-html.js";
 import { playLocationTheme } from "../client-audio/client-audio.js";
 import { tileMenuRenderSignature } from "../client-tile-menu-render-signature/client-tile-menu-render-signature.js";
 import { rememberTileMenuScrollTop, restoreTileMenuScrollTop } from "../client-tile-menu-scroll/client-tile-menu-scroll.js";
 import { injectWaypointActions } from "../client-waypoint-menu-actions/client-waypoint-menu-actions.js";
-import { injectDebugDownloadRow } from "../client-tile-menu-debug-row/client-tile-menu-debug-row.js";
-import { injectDockNavigatorRow, wireDockNavigatorButtons } from "../client-dock-navigator/client-dock-navigator.js";
+import { injectTileMenuExtras } from "../client-tile-menu-injections/client-tile-menu-injections.js";
+import { wireDockNavigatorButtons } from "../client-dock-navigator/client-dock-navigator.js";
 import { resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { isDormantFrontierTile } from "../client-reach-overlay/client-reach-overlay.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
@@ -65,13 +65,7 @@ export const renderTileActionMenu = (
   if (state.tileActionMenu.mode === "single" && state.tileActionMenu.currentTileKey) {
     const menuTile = state.tiles.get(state.tileActionMenu.currentTileKey);
     if (menuTile) {
-      injectWaypointActions(view, menuTile, state, {
-        keyFor: deps.keyFor,
-        pickOriginForTarget: deps.pickOriginForTarget
-      });
-      injectDebugDownloadRow(view, menuTile, state.authEmail);
-      injectDockNavigatorRow(view, menuTile, state);
-      injectMusterCombatReports(view, menuTile, state);
+      injectTileMenuExtras(view, menuTile, state, { keyFor: deps.keyFor, pickOriginForTarget: deps.pickOriginForTarget });
     }
   }
   const previousScrollBody = deps.tileActionMenuEl.querySelector<HTMLElement>("[data-tile-menu-scroll]");

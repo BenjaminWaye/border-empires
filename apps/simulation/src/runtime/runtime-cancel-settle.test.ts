@@ -10,7 +10,8 @@ describe("CANCEL_SETTLE", () => {
     try {
       const runtime = new SimulationRuntime({
         now: () => 1_000,
-        initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 500 })]]),
+        // manpowerUpdatedAt: an established empire, so no one-time landing reserve.
+        initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 500, manpowerUpdatedAt: 1_000 })]]),
         initialState: {
           tiles: [
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },

@@ -77,7 +77,6 @@ export const isCompleteTownSummary = (town: Partial<NonNullable<Tile["town"]>> |
       isFiniteNumber(town.supportCurrent) &&
       isFiniteNumber(town.supportMax) &&
       isFiniteNumber(town.goldPerMinute) &&
-      isFiniteNumber(town.cap) &&
       typeof town.isFed === "boolean" &&
       isFiniteNumber(town.population) &&
       isFiniteNumber(town.maxPopulation) &&

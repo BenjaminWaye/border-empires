@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   chooseFoodConsumingStructureToDisable,
-  chooseLowValueBeaconToAbandon,
   chooseLowValueBeaconToDisable,
   chooseManuallyDisabledBeaconToReenable,
   chooseTownToAbandon,
@@ -161,45 +160,6 @@ describe("chooseLowValueBeaconToDisable", () => {
   });
 });
 
-describe("chooseLowValueBeaconToAbandon", () => {
-  it("returns undefined without a tile lookup (can't evaluate reach value)", () => {
-    expect(chooseLowValueBeaconToAbandon([tile(1, 1)], PLAYER_ID, undefined)).toBeUndefined();
-  });
-
-  it("returns undefined when this player owns no active beacon", () => {
-    expect(chooseLowValueBeaconToAbandon([], PLAYER_ID, new Map())).toBeUndefined();
-  });
-
-  it("returns undefined when the player owns more than RELAY_BEACON_FREE_FOOD_SLOT_COUNT (5) active beacons — that's chooseLowValueBeaconToDisable's job, since disabling one of those actually helps", () => {
-    const sixBeacons = paddingBeacons(6);
-    expect(chooseLowValueBeaconToAbandon(sixBeacons, PLAYER_ID, tilesByKeyOf(sixBeacons))).toBeUndefined();
-  });
-
-  it("abandons the least-valuable beacon's tile when disabling it couldn't free a FOOD slot (5 or fewer owned)", () => {
-    const beacon = tile(10, 10);
-    const emptyLand = { x: 11, y: 10, terrain: "LAND" as const };
-    const tiles = [beacon, emptyLand];
-    expect(chooseLowValueBeaconToAbandon(tiles, PLAYER_ID, tilesByKeyOf(tiles))).toEqual({ x: 10, y: 10, kind: "abandon_beacon" });
-  });
-
-  it("picks the same least-bad beacon chooseLowValueBeaconToDisable would have, just as an abandon target", () => {
-    const solelyCoveredFarm = { x: 1, y: 0, terrain: "LAND" as const, resource: "FARM" as const };
-    const soleBeacon = tile(0, 0);
-    const redundantFarm = { x: 21, y: 20, terrain: "LAND" as const, resource: "FARM" as const };
-    const redundantBeacon = tile(20, 20);
-    const town: AutomationPlannerTile = {
-      x: 22,
-      y: 20,
-      ownerId: PLAYER_ID,
-      ownershipState: "SETTLED",
-      terrain: "LAND",
-      town: { populationTier: "SETTLEMENT" }
-    };
-    const tiles = [soleBeacon, solelyCoveredFarm, redundantBeacon, redundantFarm, town];
-    expect(chooseLowValueBeaconToAbandon(tiles, PLAYER_ID, tilesByKeyOf(tiles))).toEqual({ x: 20, y: 20, kind: "abandon_beacon" });
-  });
-});
-
 describe("chooseManuallyDisabledBeaconToReenable", () => {
   it("returns undefined when no beacon is manually disabled", () => {
     expect(chooseManuallyDisabledBeaconToReenable([tile(10, 10)], PLAYER_ID)).toBeUndefined();
@@ -245,11 +205,11 @@ describe("foodSlotReliefFromPlannerInput", () => {
     expect(foodSlotReliefFromPlannerInput([], PLAYER_ID, undefined, undefined, undefined, undefined).exhausted).toBe(false);
   });
 
-  it("abandons the low-value beacon (not disable — 1 beacon is within the free waiver) over the FOOD-consuming-structure fallback", () => {
+  it("preserves a free beacon when abandoning it would free no FOOD", () => {
     const beacon = tile(2, 3);
     const dormant = new Set(["2,3"]);
     const result = foodSlotReliefFromPlannerInput([beacon], PLAYER_ID, dormant, tilesByKeyOf([beacon]), 3, 3);
-    expect(result).toEqual({ reliefTarget: { x: 2, y: 3, kind: "abandon_beacon" }, exhausted: true, reenableTarget: undefined });
+    expect(result).toEqual({ reliefTarget: undefined, exhausted: true, reenableTarget: undefined });
   });
 
   it("prefers disabling the low-value beacon over the FOOD-consuming-structure fallback once beacon count exceeds the free waiver", () => {

@@ -25,7 +25,7 @@ import {
 import { clearFrontierStatusAlert } from "../client-frontier-status/client-frontier-status.js";
 import { createLateFrontierAckHandlers } from "../client-frontier-late-ack/client-frontier-late-ack.js";
 import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, combatSnapshotFromLockedResult, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
-import { resetIntegrityWarningIfRecovered } from "../client-hud/client-integrity-warning-storage.js";
+import { applyPlayerUpdateIntegrity } from "../client-integrity-pct/client-player-update-integrity.js";
 import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, focusFromAlert, raidResultFeedEntry } from "../client-alerts/client-alerts.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, hasGatewayOverlayField, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
 import { applyCommonTileFields, combatResultIncomingTile, recordTileRevisionChange, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
@@ -34,6 +34,8 @@ import { revealEmpireStatsFeedText } from "../client-empire-intel/client-empire-
 import { applyRespawnNoticeToState, normalizeRespawnNotice } from "../client-respawn-notice/client-respawn-notice.js";
 import { applyTechUpdateToState, updateTechAffordabilityPulses } from "../client-tech-update-state/client-tech-update-state.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, fogRevealLog, recordClientDebugEvent, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "../client-debug/client-debug.js";
+import { createDebugTileStateLogger } from "./client-network-debug-tile-log.js";
+import { applyAetherShieldsMessage } from "../client-aether-tower-protection/client-aether-shield-state.js";
 import { recordSocketDisconnect } from "../client-connection-diagnostics/client-connection-diagnostics.js";
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule, resetAttackPreviewState } from "../client-queue-logic/client-queue-logic.js";
 import { applyAutoSettlementQueueFromServer } from "../client-development-queue/client-development-queue.js";
@@ -245,31 +247,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   const maybeRequestTileDetail = (tile: any): void =>
     maybeRequestTileDetailImpl(tile, { state, keyFor, requestTileDetailIfNeeded: deps.requestTileDetailIfNeeded });
 
-  const logDebugTileState = (scope: string, tile: any, extra?: Record<string, unknown>): void => {
-    if (!tile || !tileMatchesDebugKey(tile.x, tile.y, 1, { fallbackTile: state.selected })) return;
-    debugTileLog(scope, {
-      x: tile.x,
-      y: tile.y,
-      detailLevel: tile.detailLevel,
-      ownerId: tile.ownerId,
-      ownershipState: tile.ownershipState,
-      resource: tile.resource,
-      economicStructure: tile.economicStructure
-        ? {
-            type: tile.economicStructure.type,
-            status: tile.economicStructure.status
-          }
-        : undefined,
-      town: tile.town
-        ? {
-            hasMintworks: tile.town.hasMintworks,
-            hasIncubationEngine: tile.town.hasIncubationEngine,
-            populationTier: tile.town.populationTier
-          }
-        : undefined,
-      ...(extra ?? {})
-    });
-  };
+  const logDebugTileState = createDebugTileStateLogger(() => state.selected);
 
   const logFrontierTimeline = (
     scope: string,
@@ -1136,6 +1114,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "JOIN_SEASON_ACK") { state.joinSeasonPending = false; if (msg.spawned) { state.needsSeasonJoin = false; state.joinSeasonOverlayOpen = false; applyJoinSeasonSpawnRecenter(state, parseJoinSeasonAckSpawnTile(msg.spawnTile), requestViewRefreshSafely); } renderHud(); return; }
     // Authoritative reach (client-reach-authoritative.ts) — replaces the old client-side approximation.
     if (msg.type === "REACH_UPDATE") { if (applyServerReachUpdate(state, msg as Record<string, unknown>)) renderHud(); return; }
+    // Other players' Aether Tower shields (client-aether-shield-state.ts); the map reads it on its next frame.
+    if (msg.type === "AETHER_SHIELDS") { applyAetherShieldsMessage(state, msg as Record<string, unknown>); return; }
     if (msg.type === "PLAYER_UPDATE") {
       applySettlementRepairDiagnostic(msg as Record<string, unknown>);
       const prevGold = state.gold;
@@ -1231,17 +1211,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.stamina = msg.stamina as number;
       if (typeof (msg.Ts as number | undefined) === "number") state.settledT = msg.Ts as number;
       if (typeof (msg.Es as number | undefined) === "number") state.settledE = msg.Es as number;
-      state.defensibilityPct = typeof msg.integrityPct === "number" && Number.isFinite(msg.integrityPct as number) ? Math.max(0, Math.min(100, msg.integrityPct as number)) : defensibilityPctFromTE(state.settledT, state.settledE);
-      if (resetIntegrityWarningIfRecovered(state.defensibilityPct, state.authEmail)) state.integrityWarningDismissed = false;
-      if (state.defensibilityPct > prevDefensibility + 0.05) {
-        state.defensibilityAnimUntil = Date.now() + 550;
-        state.defensibilityAnimDir = 1;
-      } else if (state.defensibilityPct < prevDefensibility - 0.05) {
-        state.defensibilityAnimUntil = Date.now() + 550;
-        state.defensibilityAnimDir = -1;
-      } else if (Date.now() >= state.defensibilityAnimUntil) {
-        state.defensibilityAnimDir = 0;
-      }
+      applyPlayerUpdateIntegrity(state, msg, prevDefensibility, () => defensibilityPctFromTE(state.settledT, state.settledE));
       state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
       state.developmentProcessLimit = (msg.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
       if (typeof msg.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();

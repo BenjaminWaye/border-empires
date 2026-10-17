@@ -60,7 +60,7 @@ describe("rejection cooldown", () => {
     const state = createActionAdmissionState();
     const command = { type: "BUILD_ECONOMIC_STRUCTURE" as const, payloadJson: JSON.stringify({ x: 2, y: 3, structureType: "INCUBATION_ENGINE" }) };
     recordActionAdmission(state, "p1", command, 7, "INSUFFICIENT_SLOT");
-    expect(activeActionAdmissionsForPlayer(state, "p1", 7)?.get("BUILD_ECONOMIC_STRUCTURE:2,3")?.rejectionCode).toBe("INSUFFICIENT_SLOT");
+    expect(activeActionAdmissionsForPlayer(state, "p1", 7)?.get("BUILD_ECONOMIC_STRUCTURE:2,3:INCUBATION_ENGINE")?.rejectionCode).toBe("INSUFFICIENT_SLOT");
     expect(activeActionAdmissionsForPlayer(state, "p1", 8)).toBeUndefined();
   });
 

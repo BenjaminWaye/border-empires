@@ -1,3 +1,4 @@
+import { seedAiColors } from "./seed-ai-colors.js";
 import { PerformanceObserver } from "node:perf_hooks";
 
 import websocket from "@fastify/websocket";
@@ -25,7 +26,7 @@ import { registerGatewayHttpRoutes } from "../http-routes/http-routes.js";
 import { buildServerStartingErrorPayload, createSimBacklogStatusPoller } from "../sim-backlog-status/sim-backlog-status.js";
 import { createGatewayMetrics } from "../metrics/metrics.js";
 import { createGatewayActivityCalibrationStore } from "../activity-calibration-store/activity-calibration-store-factory.js";
-import { pickSuggestedPalette, assignUniqueColor, RESERVED_COLORS } from "../player-color-allocation/player-color-allocation.js";
+import { pickSuggestedPalette } from "../player-color-allocation/player-color-allocation.js";
 import { createPlayerSubscriptions } from "../player-subscriptions/player-subscriptions.js";
 import { createPlayerProfileOverrides } from "../player-profile-overrides.js";
 import type { StoredPlayerProfile } from "../player-profile-store/player-profile-store.js";
@@ -108,7 +109,7 @@ const loginPhase = createLoginPhaseNotifier(sendJson);
 
 import { sleep, canToggleFogForEmail, seasonalDefaultAiPlayerIds } from "./gateway-app-helpers.js";
 import { createSimulationRpcRetry, resolveSimulationRpcRetryConfig } from "../simulation-rpc-retry/simulation-rpc-retry.js";
-import { createReachUpdateReplay } from "../reach-update-replay/reach-update-replay.js";
+import { createPlayerMessageReplay, isReplayedPlayerMessage } from "../player-message-replay/player-message-replay.js";
 import {
   jsonSafeTileDeltaBatch,
   optionalCommandMetadata,
@@ -695,7 +696,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     unsubscribePlayer: (playerId, subscriptionKey) => simulationClient.unsubscribePlayer(playerId, subscriptionKey),
     subscriptionNamespace: liveSubscriptionNamespace
   });
-  const reachUpdateReplay = createReachUpdateReplay<import("ws").WebSocket>({ maxEntries: 20_000, onSizeChange: (n) => gatewayMetrics.setReachReplayEntries(n), onEvict: () => gatewayMetrics.incrementReachReplayEvictionsTotal() }); // see reach-update-replay.ts
+  const playerMessageReplay = createPlayerMessageReplay<import("ws").WebSocket>({ maxEntries: 20_000, onSizeChange: (n) => gatewayMetrics.setReachReplayEntries(n), onEvict: () => gatewayMetrics.incrementReachReplayEvictionsTotal() }); // see player-message-replay.ts
   const tileDetailFetchByKey = new Map<string, Promise<PlayerSubscriptionSnapshot | undefined>>();
   const fetchTileDetailFromSim = async (
     playerId: string,
@@ -758,16 +759,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     ...seasonalAiPlayerIds
   ]);
 
-  // -- Phase 6: AI empire color seeding -----------------------------------
-  // Assign each AI a unique colour from BASE_PALETTE and register it in
-  // profileOverrides so the taken-set sees it immediately.
-  const aiTaken = new Set<string>(RESERVED_COLORS);
-  for (const aiId of [...seededAiPlayerIds].sort()) {
-    const color = assignUniqueColor(aiId, aiTaken);
-    aiTaken.add(color);
-    await profileStore.setTileColor(aiId, color);
-    profileOverrides.upsert(aiId, { tileColor: color });
-  }
+  await seedAiColors(seededAiPlayerIds, async (id, color) => {
+    await profileStore.setTileColor(id, color);
+    profileOverrides.upsert(id, { tileColor: color });
+  });
 
   // -- Phase 4: buildTakenColorSet helper (see player-color-allocation/build-taken-color-set.ts)
   const buildTakenColorSet = (excludePlayerId: string): Promise<Set<string>> => buildTakenColorSetFrom(excludePlayerId, { profileStore, profileOverrides });
@@ -1283,7 +1278,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           syncGatewaySnapshotMetricsFromCache(session.playerId);
         }
         event.payload = recoveredPayload;
-        if (event.messageType === "REACH_UPDATE") reachUpdateReplay.observe(event.playerId, recoveredPayload, sockets);
+        if (isReplayedPlayerMessage(recoveredPayload)) playerMessageReplay.observe(event.playerId, recoveredPayload, sockets); // REACH_UPDATE / AETHER_SHIELDS
       }
       if (event.eventType === "TECH_UPDATE" || event.eventType === "DOMAIN_UPDATE") {
         playerSubscriptions.updateSnapshot(event.playerId, (snapshot) =>
@@ -1628,6 +1623,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   simulationHealthTimer = setInterval(() => {
     void refreshSimulationHealth();
   }, 2_000);
+  const aiDiplomacyTimer = startRecurringTask(() => void diplomacySocket.tickProactive(), 15_000, { runImmediately: false });
   const allianceBreakFinalize = startRecurringTask(() => diplomacySocket.runAllianceMaintenance(), 60_000), truceExpirySync = startRecurringTask(() => void syncExpiredTruces(), 60_000);
   // Season rollover never auto-starts on a timer -- a new season only begins
   // once players vote via START_NEW_SEASON (see SEASON_START_VOTE_THRESHOLD
@@ -1712,6 +1708,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
   app.addHook("onClose", async () => {
     if (simulationHealthTimer) clearInterval(simulationHealthTimer);
+    aiDiplomacyTimer.stop(); diplomacySocket.stopProactive();
     allianceBreakFinalize.stop(); truceExpirySync.stop(); pendingSeasonNotifyTimer.stop(); stopGalaxyCycleScheduler(); stopGalaxySenateScheduler(); stopGalaxyFleetScheduler(); stopGalaxyDukeScheduler();
     if (gatewayMetricsTimer) clearInterval(gatewayMetricsTimer);
     if (gatewayEventLoopTimer) clearInterval(gatewayEventLoopTimer);
@@ -2077,8 +2074,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               markSimulationReady();
               authTrace.endStep("live_subscribe");
               loginTracer.stage("live_subscribe_end");
-              // ensureSubscribed skips the SubscribePlayer RPC (and so the sim's reach push) when this player already has a socket -- replay the latest border instead.
-              if (reachUpdateReplay.replayTo(playerIdentity.playerId, socket, queueOrSendSessionPayload)) gatewayMetrics.incrementReachReplaySentTotal();
+              // ensureSubscribed skips the SubscribePlayer RPC (and so the sim's reach / Aether shield push) when this player already has a socket -- replay the latest ones instead.
+              if (playerMessageReplay.replayTo(playerIdentity.playerId, socket, queueOrSendSessionPayload)) gatewayMetrics.incrementReachReplaySentTotal();
             } catch (error) {
               loginTracer.stage("live_subscribe_failed", { error: error instanceof Error ? error.message : String(error) });
               recordGatewayEvent("error", "gateway_auth_subscribe_failed", {
@@ -2682,7 +2679,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           const remainingSockets = [...playerSubscriptions.socketsForPlayer(closingPlayerId)];
           if (!remainingSockets.some((s) => sessionsBySocket.get(s)?.fogDisabled === true)) fogLiveRefreshLastStartedAtByPlayerId.delete(closingPlayerId);
           evictSeededPlayerId(closingPlayerId);
-          if (remainingSockets.length === 0) { commandRateLimiter.releasePlayer(closingPlayerId); reachUpdateReplay.forget(closingPlayerId); }
+          if (remainingSockets.length === 0) { commandRateLimiter.releasePlayer(closingPlayerId); playerMessageReplay.forget(closingPlayerId); }
         }).catch((error) => app.log.error({ err: error, playerId: closingPlayerId }, "failed to unsubscribe player"));
       });
     });

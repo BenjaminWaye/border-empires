@@ -1,5 +1,6 @@
 import { createManifestFitInput } from "./client-manifest-detail/client-manifest-fit-input.js";
-import { defensivenessMultiplier, type ProspectSignature } from "@border-empires/shared";
+import type { ProspectSignature } from "@border-empires/shared";
+import { integrityPctFromSettledCounts } from "./client-integrity-pct/client-integrity-pct.js";
 import type { StructureModifier } from "@border-empires/game-domain";
 import { currentDomainChoiceTier } from "./client-tech-html/client-tech-html.js";
 import { renderDomainProgressCard as renderDomainProgressCardFromModule } from "./client-domain-progress-card.js";
@@ -45,10 +46,8 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
   const { state, techPickEl, mobileTechPickEl } = deps;
   const clampTechTier = (tier: number): number => Math.max(1, Math.min(7, Math.round(tier)));
 
-  const defensibilityPctFromTE = (t: number | undefined, e: number | undefined): number => {
-    if (typeof t !== "number" || Number.isNaN(t) || typeof e !== "number" || Number.isNaN(e)) return state.defensibilityPct;
-    return Math.max(0, Math.min(100, defensivenessMultiplier(t, e) * 100));
-  };
+  const defensibilityPctFromTE = (t: number | undefined, e: number | undefined): number =>
+    integrityPctFromSettledCounts(t, e, state.defensibilityPct);
 
   const techTier = (id: string, byId: Map<string, TechInfo>, memo: Map<string, number>): number => {
     const cached = memo.get(id);

@@ -343,7 +343,7 @@ describe("AI progression choice prefers affordable options over higher-scored un
     expect(choice!.goldCost).toBe(40);
     expect(choice!.affordable).toBe(true);
     // All reachable techs cost the same; the highest-scored one wins.
-    expect(choice!.id).toBe("masonry");
+    expect(choice!.id).toBe("organized-supply");
   });
 
   it("still surfaces the highest-scored unaffordable tech when nothing is affordable", () => {
@@ -362,7 +362,7 @@ describe("AI progression choice prefers affordable options over higher-scored un
     expect(choice!.affordable).toBe(false);
     // Diagnostic still gets the most-wanted tech so preplan can report
     // tech_unaffordable accurately.
-    expect(choice!.id).toBe("masonry");
+    expect(choice!.id).toBe("organized-supply");
     expect(choice!.score).toBeGreaterThan(0);
   });
 

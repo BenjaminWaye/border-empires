@@ -11,6 +11,8 @@ import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garriso
 // and delete them here and from the per-feature files below.
 import { RECENT_CLIENT_CHANGELOG_ENTRIES } from "./client-changelog-data-october.js";
 import { TILE_YIELD_REMOVAL_CHANGELOG } from "./client-changelog-tile-yield-removal.js";
+import { AI_PROGRESSION_AETHER_CHANGELOG } from "./client-changelog-ai-progression-aether.js";
+import { FAIRER_AI_DEALS_CHANGELOG } from "./client-changelog-fairer-ai-deals.js";
 import { OVERLAY_PERSISTENCE_CHANGELOG } from "./client-changelog-overlay-persistence.js";
 import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
 import { RIVERS_MOUNTAINS_CHANGELOG } from "./client-changelog-rivers-mountains.js";
@@ -34,6 +36,7 @@ import { CLIENT_CHANGELOG_ENTRIES_ALLIANCE_TAB_REDESIGN } from "./client-changel
 import { CLIENT_CHANGELOG_ENTRIES_DIPLOMACY_TILE_ACTION } from "./client-changelog-diplomacy-tile-action.js";
 import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-fit.js";
 import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./client-changelog-waystation-auto-claim-activation.js";
+import { CLIENT_CHANGELOG_ENTRIES_OCT_12 } from "./client-changelog-data-oct-12.js";
 import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
 import { CLIENT_CHANGELOG_ENTRIES_COMPACT_MET_PLAYERS } from "./client-changelog-compact-met-players.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog-town-growth-loading.js";
@@ -89,31 +92,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["Selecting a dock no longer reveals hidden connections on the minimap or either map renderer", "Dock navigation only visits discovered destinations; garrisoning a dock reveals its links", "3D dock routes update as soon as linked docks are discovered, even while the same dock stays selected"]
   },
   {
-    createdAt: 1791643448668, // Date.now() frozen for this entry, as required by the changelog gate.
-    introducedIn: "2026.10.10.1",
-    title: "Better starter sites and accurate checklist goals",
-    why: "A nearby town was not always reachable, and claiming food without garrisoning it looked like progress even though it supplied no food slots.",
-    changes: [
-      "New worlds require 50 spaced starter sites with first food within three land steps and AFC reach, four food slots within six, and a town within eight; live joins recheck neutral routes and amenities before using those sites",
-      "The existing town-first checklist still highlights town and food tiles directly in both map renderers; only garrisoned food counts as usable food slots",
-      "Your AFC's reach is included in local target selection, and pending targets stop highlighting until their action resolves",
-      "Upgraded towns and lightweight town data count correctly, and enemy towns are not suggested as neutral expansion goals"
-    ]
-  },
-  {
-    createdAt: 1791527749820, // frozen Date.now() value for this release
-    introducedIn: "2026.10.09.1",
-    title: "Manpower refills every 4 hours, shown as a gauge",
-    why: "Manpower crept up a few points a minute, so \"can I afford this attack yet?\" meant watching a number tick, and a short wait for one more attack felt like a constant chore.",
-    changes: [
-      "Manpower is now paid out in one refill every 4 hours instead of ticking up continuously. Your total regeneration is unchanged, it just lands in chunks; each player's refill moment is staggered, so yours is not the same as everyone else's",
-      "The Manpower chip is now a brass gauge: the fill shows what you can spend right now (ember when below an ordinary attack, green when full, shimmering above the cap), copper plating shows manpower already staged in muster flags, and a countdown shows when the next refill lands",
-      "The Manpower panel now shows what one refill pays, when the next refill is, and how long until you are full",
-      "The Development chip is now a row of gears, one per slot: busy slots spin, free slots sit still, and a full set glows copper. It takes much less room on the top bar",
-      "All top-bar chips (Player, Coin, Manpower, Integrity, Development) now match the brass-and-leather style of the resource pills, and on phones Integrity and Development line up with the other chips"
-    ]
-  },
-  {
     createdAt: 1791837136490, // Date.now() frozen for this entry
     introducedIn: "2026.10.12.1",
     title: "Soldiers now show when you attack enemy frontier land",
@@ -150,27 +128,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The clouds now roll back off newly explored land in one smooth, slower motion, even when the land comes into view a bit at a time or you move the camera",
       "Trees, mountains and hills appear as the clouds part over them, instead of popping up through the cloud"
-    ]
-  },
-  {
-    createdAt: 1791579529000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.09.1",
-    title: "Top ribbon hover highlight no longer blinks",
-    why: "The gold hover border on the top-bar chips flickered because the bar redraws often and each redraw restarted the fade-in.",
-    changes: [
-      "Hovering a top-bar chip now keeps a steady highlight"
-    ]
-  },
-  {
-    createdAt: 1791581686000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.09.2",
-    title: "Choose your effort when launching an attack",
-    why: "Committing extra manpower to a fight was only possible through March To. Launch Attack always sent the minimum.",
-    changes: [
-      "Launch Attack on a settled enemy tile now opens the Normal / Extra / Double effort picker March To uses, with a live win chance",
-      "Attacks on several tiles (box-select or Attack Connected Region) get one picker that applies to each settled target",
-      "Expand To & Attack asks for an effort level too; the waypoint's final attack uses it, even while you're offline",
-      "Frontier and barbarian targets still attack on the first click, since extra manpower doesn't improve odds there"
     ]
   },
   {
@@ -251,38 +208,56 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...AFC_MODULE_TAB_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION,
+  ...CLIENT_CHANGELOG_ENTRIES_OCT_12,
   ...CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT,
   ...CLIENT_CHANGELOG_ENTRIES_COMPACT_MET_PLAYERS,
   {
-    createdAt: 1791803592000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.12.1",
-    title: "Resource clues now show on the map",
-    why: "Land near Titanium, Umbrite and Crystal carries a clue (ferrous dust, blackwood canopy, refractive ground), but the clues were lost on every server restart, never sent when you logged in, and drawn too faintly to see. Occupation-survey reports from conquered towns also vanished after a few dozen other events.",
+    createdAt: 1791921253260, // frozen Date.now() value for this release
+    introducedIn: "2026.10.13.1",
+    title: "Empire Integrity moves to the Economy panel",
+    why: "Playtesters watched Empire Integrity fall as they expanded and read it as being punished. In fact it was still a bonus, and some updates briefly showed it lower than it really was.",
     changes: [
-      "Clue tiles now get a clear tint on both the 3D and 2D maps: rust for Titanium, violet for Umbrite, ice-cyan for Crystal",
-      "Selecting a clue tile explains it in the tile overview, e.g. \"Ferrous dust: Titanium deposits are likely within a few tiles\"",
-      "Garrisoning a neutral town now surveys the land around it: nearby clues become a report like \"Titanium likely north-east of this town\" (capturing an enemy town no longer does)",
-      "Survey reports are no longer pushed out of your event log by later events"
+      "Empire Integrity now lives in the Economy panel; the top bar only shows it, with a warning, once it drops below 50% and actually reduces your coin and growth",
+      "Fixed integrity sometimes showing lower than it really was (e.g. 80% for a small new empire) after changing your profile or colour, toggling auto-garrison, or using an ability"
     ]
   },
   {
-    createdAt: 1791804620000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.12.2",
-    title: "Manifest panel: clearer details, Good pick badge, clickable owned list",
-    why: "The tech details were boxes inside boxes, listed the same unlocks three times, scrolled the whole panel so the name and Unlock button slid out of view, and never said whether a pick fit your empire. Your owned techs were a list you couldn't click.",
+    createdAt: 1791927499454, // frozen Date.now() value for this release
+    introducedIn: "2026.10.13.1",
+    title: "Top bar icons are labelled",
+    why: "Playtesters couldn't tell what the icons in the top-right corner opened without hovering over each one.",
     changes: [
-      "The Technology Tree is now the Manifest panel; each entry shows its type, e.g. \"AFC Module · War · Tier 1\"",
-      "Details are one clean card: name and status stay at the top, the Unlock button (with its cost) stays at the bottom, and only the middle scrolls",
-      "\"What you get\" lists every building, ability, revealed resource and bonus once, with a short description",
-      "A Good pick badge appears when it fits your empire right now -- signs of its resource near your land, a survey from a neutral town you garrisoned, or a building you can start immediately; a note warns when everything it unlocks needs a resource you don't hold yet",
-      "\"Leads to\" shows the next Manifests, what else each still needs, and how many more come after",
-      "Your Manifests are grouped by branch as buttons; tap one to see what it gave you",
-      "Rigging Works Module now lists the Umbrite Rig it unlocks"
+      "Manifest, Allies, Ranks, Activity, Sharding and Settings now show their name under the icon on desktop",
+      "The Alerts (bell) button has been removed from the top bar and the mobile menu while the alerts feed is reworked -- the Activity dashboard is where to see what happened"
     ]
   },
   ...OCTOBER_STRUCTURE_ART_CHANGELOG,
   ...TILE_YIELD_REMOVAL_CHANGELOG,
+  ...AI_PROGRESSION_AETHER_CHANGELOG,
+  ...FAIRER_AI_DEALS_CHANGELOG,
   ...OVERLAY_PERSISTENCE_CHANGELOG,
+  {
+    createdAt: 1792187006316, // frozen Date.now() value for this release
+    introducedIn: "2026.10.16.1",
+    title: "New empires land with a manpower reserve",
+    why: "New players ran out of manpower within the first 15-20 minutes, and manpower only refills every few hours.",
+    changes: [
+      "Every new empire -- yours when you join, and AI empires when a season starts -- lands with a one-time +1,000 manpower on top of its starting manpower",
+      "The reserve can sit above your manpower cap; regeneration pauses until you have spent back below the cap"
+    ]
+  },
+  {
+    createdAt: 1791905157542, // frozen Date.now() value for this release
+    introducedIn: "2026.10.13.1",
+    title: "Relay Beacons show where to build them",
+    why: "Playtesters placed Relay Beacons by trial and error -- dropping them inside reach they already had, or cancelling and re-placing them -- and the new-player checklist said to build a beacon without showing where.",
+    changes: [
+      "When nothing worth taking is in reach, the new-player checklist now marks the tile to build your Relay Beacon on, aimed at the nearest town or food you still need",
+      "On that marked tile, Build Relay Beacon is tagged ★ Recommended and listed first",
+      "Choosing Build Relay Beacon now lets you pick the spot first, with the new land it would reach shaded before you confirm",
+      "Works on both the 3D and 2D maps"
+    ]
+  },
   {
     createdAt: 1792006774817, // Date.now() captured when this entry was written.
     introducedIn: "2026.10.14.3",
@@ -478,18 +453,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1792107390391, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.16.1",
-    title: "Fairer AI deals",
-    why: "A few gaps in the new trade screen let deals go wrong: a slow payment could take your coin without the deal, and an AI's old counter-offer could be accepted after you'd attacked it.",
+    createdAt: 1792203815485,
+    introducedIn: "2026.10.17.1",
+    title: "Enemy breakthroughs get a spiked front line",
+    why: "Enemy tiles taken inside your reach only had a plain outline, which didn't read as a break-in.",
     changes: [
-      "If a deal's payment goes through after it was reported as failed, the coin and Shards are paid straight back",
-      "An AI checks its counter-offer again when you accept it, and withdraws it if you've attacked it since or its price has gone up",
-      "An AI that is outmatched but taking your land no longer pays you for peace; it charges for it instead",
-      "An AI that can't yet tell how big its alliance would be declines for now instead of guessing",
-      "The trade screen keeps your coin, the verdict and the top-up suggestion up to date while it's open"
+      "On the 3D map, enemy land inside your reach is now outlined by a thin front line in the attacker's colour, with tall spikes pointing into your land",
+      "Spikes only appear where the enemy touches your own land, and the line stops at the old border when they push across it",
+      "The 2D map keeps the plain outline for now"
     ]
-  },
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

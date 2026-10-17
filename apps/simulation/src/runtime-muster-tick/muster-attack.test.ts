@@ -13,6 +13,9 @@ const makePlayer = (id: string) => ({
   isAi: false,
   points: 10_000,
   manpower: 150,
+  // Established empire (runtime clock is 1_000), so the one-time landing
+  // manpower reserve for brand-new empires doesn't skew the pool assertions.
+  manpowerUpdatedAt: 1_000,
   techIds: new Set<string>(),
   domainIds: new Set<string>(),
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },

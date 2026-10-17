@@ -1,5 +1,6 @@
 // Persists the "Empire Integrity" warning dismissal so it doesn't nag the
-// player on every login while integrity stays below 90%. The dismissal
+// player on every login while integrity stays in the penalty range
+// (below INTEGRITY_PENALTY_PCT). The dismissal
 // decays after 30 days (approximately a season), at which point the tooltip
 // is eligible to show again even if integrity never recovered above the
 // threshold.
@@ -11,6 +12,7 @@
 // dismissal doesn't persist" or "persists for the wrong person" depending on
 // which account dismissed it last.
 
+import { INTEGRITY_PENALTY_PCT } from "@border-empires/shared";
 import { debugAuthIdentityKeyForEmail } from "../client-debug/client-debug.js";
 
 const INTEGRITY_WARNING_STORAGE_KEY = "be-integrity-warning-dismissed-at";
@@ -63,13 +65,19 @@ export const wireIntegrityWarningDismissButtons = (
   });
 };
 
-// Resets the persisted dismissal once integrity recovers to >=90%, so the
-// warning reappears promptly the next time integrity drops below 90%.
+// Resets the persisted dismissal once integrity has clearly recovered out of
+// the penalty range, so the warning reappears promptly the next time
+// integrity starts costing coin and growth. The margin above
+// INTEGRITY_PENALTY_PCT keeps an empire hovering around 50% (common once the
+// new-empire grace floor has faded) from re-arming a dismissed warning on
+// every 49%/50% wobble.
+const INTEGRITY_WARNING_REARM_MARGIN_PCT = 10;
+
 export const resetIntegrityWarningIfRecovered = (
   defensibilityPct: number,
   authEmail?: string | null
 ): boolean => {
-  if (defensibilityPct < 90) return false;
+  if (defensibilityPct < INTEGRITY_PENALTY_PCT + INTEGRITY_WARNING_REARM_MARGIN_PCT) return false;
   clearIntegrityWarningDismissed(authEmail);
   return true;
 };

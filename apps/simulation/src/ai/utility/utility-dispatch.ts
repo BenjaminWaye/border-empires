@@ -260,18 +260,18 @@ const executeClass = <TTile extends AutomationPlannerTile>(
     }
 
     case "FREE_FOOD_SLOT": {
-      // Three dispatch branches for food-slot-relief.ts's tiers — see that
+      // Dispatch branches for food-slot-relief.ts's tiers — see that
       // file. "disable" (tiers 1-2) always disables, never demolishes: it
       // frees the FOOD slot just as completely as REMOVE_STRUCTURE would,
       // but is reversible, so there's no upside to demolition. "abandon_town"
-      // and "abandon_beacon" (tier 3 and tier 1a) both use UNCAPTURE_TILE —
+      // (tier 3) uses UNCAPTURE_TILE —
       // once there's nothing left to usefully disable, releasing the
       // territory is the only lever left. A reenable target only ever
       // appears when there's no relief target (foodSlotsExhausted is false
       // in that case) — see foodSlotReliefFromPlannerInput.
       const target = state.foodSlotReliefTarget;
       if (target) {
-        if (target.kind === "abandon_town" || target.kind === "abandon_beacon") {
+        if (target.kind === "abandon_town") {
           return buildPlannerCommand(context, "UNCAPTURE_TILE", { x: target.x, y: target.y });
         }
         return buildPlannerCommand(context, "SET_CONVERTER_STRUCTURE_ENABLED", {

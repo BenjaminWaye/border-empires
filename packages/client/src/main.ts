@@ -24,6 +24,7 @@ import "./client-rally-link-settings-style.css";
 import "./client-bug-report-style.css";
 import "./client-resource-icons/client-resource-icons-style.css";
 import "./client-nav-icons/client-nav-icons-style.css";
+import "./client-nav-icons/client-nav-icons-labels-style.css";
 import "./client-build-menu-icons/client-build-menu-icons-style.css";
 import "./client-ability-icons/client-ability-icons-style.css";
 import "./client-hud-settings-discord-style.css";

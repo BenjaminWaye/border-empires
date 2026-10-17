@@ -35,6 +35,7 @@
 
 import type { Tile } from "../client-types.js";
 import { onboardingChecklistState, completeOnboardingChecklist, type OnboardingChecklistState } from "./client-onboarding-checklist.js";
+import { setOnboardingRelayBeaconSite } from "./client-onboarding-relay-beacon-recommendation.js";
 import { hasOnboardingChecklistAutoOpened, markOnboardingChecklistAutoOpened } from "./client-onboarding-checklist-storage.js";
 
 const BUBBLE_ID = "onboarding-checklist-bubble";
@@ -63,8 +64,12 @@ const remainingSteps = (state: OnboardingChecklistState): number =>
   [state.townFound, state.townExpanded, state.foodFound, state.foodExpanded].filter((done) => !done).length;
 
 /** The relay-beacon blocker isn't its own permanent goal (it's transient, and ambiguous about which goal it's blocking on its own) -- rendered as a note under the 4 real goals instead of a 5th checkbox row. */
-const relayBeaconNote = (state: OnboardingChecklistState): string | null =>
-  state.step === "EXPAND_RELAY_BEACON" ? "Nothing in reach -- build a Relay Beacon to expand your reach" : null;
+const relayBeaconNote = (state: OnboardingChecklistState): string | null => {
+  if (state.step !== "EXPAND_RELAY_BEACON") return null;
+  return state.relayBeaconSite
+    ? `Nothing in reach -- build a Relay Beacon on the marked tile (${state.relayBeaconSite.x}, ${state.relayBeaconSite.y}) to expand your reach`
+    : "Nothing in reach -- build a Relay Beacon to expand your reach";
+};
 
 const goalRow = (label: string, done: boolean, opts: { indent?: boolean; extraLabelClass?: string } = {}): string =>
   `<li class="onb-goal${done ? " onb-goal-done" : ""}${opts.indent ? " onb-goal-indent" : ""}">
@@ -201,6 +206,9 @@ export const renderOnboardingChecklistOverlay = (
   deferred = false
 ): Array<{ x: number; y: number }> => {
   const state = onboardingChecklistState(tiles, playerId, authEmail);
+  // Drives the "★ Recommended" badge on the marked tile's Build Relay Beacon
+  // action -- only while that marker is actually on screen.
+  setOnboardingRelayBeaconSite(state.step === "EXPAND_RELAY_BEACON" && !deferred ? state.relayBeaconSite : undefined);
 
   if (state.step === "DONE") {
     if (lastCompletedStep !== "DONE") completeOnboardingChecklist(state, authEmail);
@@ -226,6 +234,7 @@ export const resetOnboardingChecklistOverlayForTests = (): void => {
   autoCollapsed = false;
   lastRemaining = null;
   lastCompletedStep = null;
+  setOnboardingRelayBeaconSite(undefined);
 };
 
 const escapeHtml = (value: string): string =>

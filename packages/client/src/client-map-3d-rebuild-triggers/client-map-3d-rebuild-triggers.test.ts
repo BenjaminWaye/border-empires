@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 
 import { applyServerReachUpdate, clearServerReach } from "../client-reach-authoritative/client-reach-authoritative.js";
@@ -22,7 +22,14 @@ const createState = (): TriggerState => ({
   incomingAttacksByTile: new Map(),
   crystalTargeting: { active: false, ability: "aether_bridge", validTargets: new Set(), originByTarget: new Map() },
   serverReach: undefined,
-  serverReachRevision: 0
+  serverReachRevision: 0,
+  selected: undefined,
+  tileActionMenu: { visible: false, x: 0, y: 0, mode: "single", bulkKeys: [], currentTileKey: "", activeTab: "overview", scrollTopByTab: {}, renderSignature: "" },
+  tilesRevision: 0,
+  chunkFullCount: 0,
+  allies: [],
+  dormantStructures: [],
+  aetherShieldTowers: undefined
 });
 
 describe("3D map rebuild triggers", () => {
@@ -86,6 +93,31 @@ describe("3D map rebuild triggers", () => {
     const built = captureMap3DRebuildTriggers(state, keyFor, true);
     state.crystalTargeting.active = true;
     expect(map3DRebuildTriggersChanged(built, captureMap3DRebuildTriggers(state, keyFor, true))).toBe(true);
+  });
+
+  it("asks for a rebuild when an Aether Tower is selected, so its protection field shows without a pan", () => {
+    const state = createState();
+    state.tiles.set("4,4", { x: 4, y: 4, terrain: "LAND", ownerId: "enemy", observatory: { ownerId: "enemy", status: "active" } });
+    const built = captureMap3DRebuildTriggers(state, keyFor, true);
+    state.selected = { x: 4, y: 4 };
+    const afterSelect = captureMap3DRebuildTriggers(state, keyFor, true);
+    expect(map3DRebuildTriggersChanged(built, afterSelect)).toBe(true);
+    expect(map3DRebuildTriggersChanged(afterSelect, captureMap3DRebuildTriggers(state, keyFor, true))).toBe(false);
+  });
+
+  it("asks for a rebuild when a shown tower comes off cooldown, which carries no tile delta of its own", () => {
+    const state = createState();
+    const cooldownUntil = Date.now() + 60_000;
+    state.tiles.set("4,4", { x: 4, y: 4, terrain: "LAND", ownerId: "enemy", observatory: { ownerId: "enemy", status: "active", cooldownUntil } });
+    state.crystalTargeting.active = true;
+    const built = captureMap3DRebuildTriggers(state, keyFor, true);
+    vi.useFakeTimers();
+    vi.setSystemTime(cooldownUntil + 1);
+    try {
+      expect(map3DRebuildTriggersChanged(built, captureMap3DRebuildTriggers(state, keyFor, true))).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

@@ -95,7 +95,7 @@ them growing. The largest:
 
 | Lines | File |
 |---:|---|
-| 3,783 | `apps/simulation/src/runtime/runtime.ts` (was 3,990; see progress below) |
+| 3,552 | `apps/simulation/src/runtime/runtime.ts` (was 3,990; see progress below) |
 | 2,881 | `apps/simulation/src/simulation-service/simulation-service.ts` |
 | 2,726 | `apps/realtime-gateway/src/gateway-app/gateway-app.ts` |
 | 2,723 | `packages/client/src/client-network/client-network.ts` |
@@ -124,29 +124,34 @@ assigns `state`. Tests that poked the old private fields through
 `as unknown as {...}` casts need their path updated
 (`automationAdvisor.victoryPathByPlayer`, for example).
 
-Progress (PR "split SimulationRuntime, step 1", 3,990 → 3,783 lines):
+Progress (#2385 step 1: 3,990 → 3,783 lines; step 2: → 3,552 lines, after merging develop):
 
 | Owner | File | Took over |
 |---|---|---|
 | `RuntimeAutomationAdvisor` | `apps/simulation/src/ai/runtime-automation-advisor.ts` | the six per-player AI memory maps, the respawn throttle, `explainNextAutomationCommand`, spatial-focus feedback |
 | `RuntimeShardRain` | `apps/simulation/src/runtime-shard-rain-state.ts` | the eight shard-rain fields, the context closure, tick/hello/welcome, boot recovery of live FALL sites |
 | `RuntimeJobQueue` | `apps/simulation/src/runtime-job-queue-state.ts` | the four job lanes, the drain state, the scheduling and metrics hooks |
+| `RuntimeEconomyCaches` (step 2) | `apps/simulation/src/runtime-economy-caches/runtime-economy-caches.ts` | the ~20 per-player economy, upkeep, town-network, manpower-bonus, defensibility and resource-slot caches with their AI coalescing state, the tile-write invalidation call and the coalesced resource-slot read |
+| `RuntimeOwnerTileIndexes` (step 2) | `apps/simulation/src/runtime-owner-tile-indexes/runtime-owner-tile-indexes.ts` | the 14 per-owner frontier, anchor and structure tile indexes, their tile-write refresh and their boot seeding |
 
-Next clusters, roughly in order of size and independence:
+Next steps, roughly in order:
 
-1. **Economy caches**: `economySnapshot*`, `defensibilityMetrics*`, the
-   `resourceSlotSupply/Demand/Dormancy` cache, dirty and last-rebuilt maps,
-   `upkeepAccrual*`, `manpowerStructureBonusCache`, `tileYieldContextCache`,
-   `townNetworkCache`, `townConnectivityState`. The `refreshEconomyCachesForTileChange`
-   call in `replaceTileState` and `economyCacheContext` move with them.
-2. **Structure-by-owner indexes** (`frontierTilesByOwner`, `activeFortAnchorsByOwner`,
-   `musterTilesByOwner` and about ten more), fed by `refreshRuntimeTileIndexesForChange`.
-3. **Shrink the large context builders** (`lockResolutionContext`,
-   `exportContext`, `progressionCommandContext`, `structureCommandContext`)
-   once the clusters above own their fields: a builder can then pass an owner
-   object instead of listing its maps one by one.
-4. `replaceTileState` (160 lines) and the constructor (about 320 lines) are
-   last; they touch almost every cluster and shrink as the clusters move out.
+1. **Shrink the large context builders** (`lockResolutionContext`,
+   `exportContext`, `progressionCommandContext`, `structureCommandContext`,
+   `abilityCommandContext`). Now that the economy caches and owner indexes
+   each have one owner, a consumer context can take that owner (or a `Pick`
+   of it) instead of listing its maps one by one. This changes the consumer
+   modules' context types and their tests, so do one context per step.
+2. **More clusters**: the muster state (`musterReservedByKey`,
+   `musterAdvanceCooldowns`, `watchedMusterTileByPlayer`, `musterTicker`),
+   the planner tile-key caches (`plannerPlayerTileKeyCacheByPlayer` and
+   the topology version/dirty maps), and the neutral-beacon and
+   expansion-objective state.
+3. **Constructor** (about 280 lines): the two boot passes over every tile
+   can move into a boot-hydration module once most of what they seed has an
+   owner.
+4. `replaceTileState` (about 125 lines) last; it touches almost every
+   cluster and shrinks as they move out.
 
 Merging `develop` often is essential, because this file changes in most PRs.
 Re-run the deps-field scan (method step 3) as you go, because several

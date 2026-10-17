@@ -1,9 +1,9 @@
 import { updateManifestDetail, renderMobileManifestOverlay } from "../client-manifest-detail/client-manifest-detail-dom.js";
 import { signOut, type Auth } from "firebase/auth";
-import type { ChosenTrickleResource } from "@border-empires/shared";
+import { INTEGRITY_PENALTY_PCT, type ChosenTrickleResource } from "@border-empires/shared";
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "../client-crystal-ability-info/client-crystal-ability-info.js";
 import { revealEmpireStatsDossierHtml, wireEmpireIntelOverlay } from "../client-empire-intel/client-empire-intel.js";
-import { integrityWarningTipHtml, selfPlayerChipHtml } from "./client-stat-chips.js";
+import { integrityChipHtml, selfPlayerChipHtml } from "./client-stat-chips.js";
 import { manpowerGaugeChipHtml, ownStagedManpower } from "../client-manpower-gauge/client-manpower-gauge.js";
 import { nextManpowerRefillForPlayer } from "../client-manpower-gauge/client-manpower-refill.js";
 import { devGearsChipHtml } from "../client-dev-gears/client-dev-gears.js";
@@ -236,16 +236,12 @@ export const renderClientHud = (deps: HudDeps): void => {
   const goldRateText = `${netGoldPerDay > 0 ? "+" : ""}${netGoldPerDay.toFixed(1)}/day`;
   const mobileGoldRateText = `${netGoldPerDay > 0 ? "+" : ""}${netGoldPerDay.toFixed(0)}/day`;
   const goldRateClass = rateToneClass(netGoldPerDay);
-  const showIntegrityWarning = state.defensibilityPct < 90 && !state.integrityWarningDismissed && !isIntegrityWarningDismissed(state.authEmail);
-  const integrityWarningHtml = integrityWarningTipHtml(showIntegrityWarning);
+  const showIntegrityWarning = state.defensibilityPct < INTEGRITY_PENALTY_PCT && !state.integrityWarningDismissed && !isIntegrityWarningDismissed(state.authEmail);
   dom.statsChipsEl.innerHTML = `
     ${mobile ? "" : selfPlayerChipHtml(connClass, state.meName, state.leaderboard)}
     <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Coin</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${mobile ? mobileGoldRateText : goldRateText}</em></strong></button>
     ${manpowerGaugeChipHtml({ manpower: state.manpower, manpowerCap: state.manpowerCap, staged: ownStagedManpower(state.tiles.values(), state.me, Date.now()), regenPerMinute: state.manpowerRegenPerMinute, logisticsPerMinute: state.logisticsThroughputPerMinute, nextRefillAtMs: nextManpowerRefillForPlayer(state.me, Date.now()), nowMs: Date.now(), formatAmount: formatManpowerAmount })}
-    <div class="stat-chip-def-wrap">
-      <button class="stat-chip stat-chip-def${defClass}${showIntegrityWarning ? " warning" : ""}" type="button" data-defensibility-open="true" title="Compact empires with fewer exposed sides earn an income and growth bonus. Tap for a breakdown."><span>${mobile ? "Integrity" : "Empire Integrity"}</span><strong>${Math.round(state.defensibilityPct)}%</strong></button>
-      ${integrityWarningHtml}
-    </div>
+    ${integrityChipHtml({ pct: state.defensibilityPct, defClass, showWarning: showIntegrityWarning, mobile })}
     ${devGearsChipHtml({ busy: development.busy, limit: development.limit, mobile })}
     ${state.showWeakDefensibility ? `<button class="stat-chip stat-chip-weak-def" type="button" data-toggle-weak-def="true"><span>Integrity</span><strong>Hide Weak</strong></button>` : ""}
     ${imperialWardChipHtml(state)}
@@ -268,12 +264,6 @@ export const renderClientHud = (deps: HudDeps): void => {
     };
   });
   bindImperialWardChip(dom.statsChipsEl, sendGameMessage);
-  const defensibilityButtons = dom.statsChipsEl.querySelectorAll("[data-defensibility-open]") as NodeListOf<HTMLButtonElement>;
-  defensibilityButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      setActivePanel("defensibility");
-    };
-  });
   const statPanelButtons = dom.statsChipsEl.querySelectorAll("[data-panel]") as NodeListOf<HTMLButtonElement>;
   statPanelButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
@@ -328,9 +318,9 @@ export const renderClientHud = (deps: HudDeps): void => {
     const validCount = state.crystalTargeting.validTargets.size;
     const detail =
       ability === "aether_bridge"
-        ? "Pick a coastal land tile. The server links the nearest garrisoned coast and opens a temporary sea lane."
+        ? "Pick a coastal land tile. The server links the nearest garrisoned coast and opens a temporary sea lane. Enemy land glowing red inside a red outline is shielded by an Aether Tower and can't be landed on."
         : ability === "siphon"
-          ? "Pick an enemy town or resource tile. One of your Aether Towers drains the 3x3 around it (resource slots move to you) until you cancel it from that tower."
+          ? "Pick an enemy town or resource tile. One of your Aether Towers drains the 3x3 around it (resource slots move to you) until you cancel it from that tower. Land glowing red inside a red outline is shielded by an enemy Aether Tower and can't be siphoned."
           : "Pick an enemy land tile to shatter into mountain and erase whatever was built there.";
     const status = selectedOrigin
       ? `Origin ${selectedOrigin.x}, ${selectedOrigin.y} → Target ${state.selected?.x}, ${state.selected?.y}`
@@ -695,6 +685,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   const economyPanelHtml = safeValue("renderEconomyPanelHtml", fallbackCard("Economy"), () =>
     renderEconomyPanelHtml({
       focus: state.economyFocus,
+      integrityPct: state.defensibilityPct,
       gold: state.gold,
       me: state.me,
       incomePerMinute: state.incomePerMinute,
@@ -865,7 +856,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     };
   });
   renderProfileEditOverlay({ state, dom, sendGameMessage, pushFeed, firebaseAuth, renderHud: () => renderClientHud(deps) });
-  bindAudioSettingsControls(dom.hud, () => renderClientHud(deps)); bindHintsSettingsControls(dom.hud, state.authEmail); bindSiegeTowerRotationSettingsControls(dom.hud, () => renderClientHud(deps)); bindRendererSettingsControls(dom.hud); bindEmailNotificationsSettingsControls(dom.hud); bindPhotoModeSettingsControls(dom.hud, state, () => renderClientHud(deps)); bindAdminSettingsControls(dom.hud, { state, sendGameMessage, requestViewRefresh, rerender: () => renderClientHud(deps) });
+  bindAudioSettingsControls(dom.hud, () => renderClientHud(deps)); bindHintsSettingsControls(dom.hud, state.authEmail); bindSiegeTowerRotationSettingsControls(dom.hud, () => renderClientHud(deps)); bindRendererSettingsControls(dom.hud); bindEmailNotificationsSettingsControls(dom.hud); bindPhotoModeSettingsControls(dom.hud, state, () => renderClientHud(deps)); bindAdminSettingsControls(dom.hud, { state, sendGameMessage, requestViewRefresh, rerender: () => renderClientHud(deps), openPanel: setActivePanel });
   const economyFocusButtons = dom.hud.querySelectorAll("[data-economy-focus]") as NodeListOf<HTMLButtonElement>;
   economyFocusButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
@@ -873,6 +864,12 @@ export const renderClientHud = (deps: HudDeps): void => {
       if (!focus) return;
       state.economyFocus = focus;
       renderClientHud(deps);
+    };
+  });
+  const defensibilityButtons = dom.hud.querySelectorAll("[data-defensibility-open]") as NodeListOf<HTMLButtonElement>; // top-bar chip + Economy panel card (wired after the panel HTML is in)
+  defensibilityButtons.forEach((btn: HTMLButtonElement) => {
+    btn.onclick = () => {
+      setActivePanel("defensibility");
     };
   });
   // Shared binder for the settings panel's JSON-bundle download buttons.

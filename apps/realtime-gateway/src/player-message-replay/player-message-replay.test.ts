@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createReachUpdateReplay, type ReachUpdatePayload } from "./reach-update-replay.js";
+import { createPlayerMessageReplay, type ReplayedPlayerMessage } from "./player-message-replay.js";
 
 type FakeSocket = { id: string };
 
@@ -9,21 +9,21 @@ const reach = (revision: number, tileKeys: string[] = ["1,1"]): Record<string, u
 const createHarness = (maxEntries = 10) => {
   const sizes: number[] = [];
   let evictions = 0;
-  const replay = createReachUpdateReplay<FakeSocket>({
+  const replay = createPlayerMessageReplay<FakeSocket>({
     maxEntries,
     onSizeChange: (n) => sizes.push(n),
     onEvict: () => {
       evictions += 1;
     }
   });
-  const sent: Array<{ socket: FakeSocket; payload: ReachUpdatePayload }> = [];
-  const send = (socket: FakeSocket, payload: ReachUpdatePayload): void => {
+  const sent: Array<{ socket: FakeSocket; payload: ReplayedPlayerMessage }> = [];
+  const send = (socket: FakeSocket, payload: ReplayedPlayerMessage): void => {
     sent.push({ socket, payload });
   };
   return { replay, sizes, sent, send, evictions: () => evictions };
 };
 
-describe("createReachUpdateReplay", () => {
+describe("createPlayerMessageReplay", () => {
   it("replays the latest REACH_UPDATE to a socket that joined after it was relayed", () => {
     const { replay, sent, send } = createHarness();
     const existing = { id: "tab-1" };
@@ -60,11 +60,32 @@ describe("createReachUpdateReplay", () => {
     expect(sent).toHaveLength(0);
   });
 
-  it("ignores non-REACH_UPDATE payloads", () => {
+  it("ignores payloads of other types and malformed replayed ones", () => {
     const { replay } = createHarness();
     replay.observe("p1", { type: "PLAYER_UPDATE", gold: 5 }, []);
     replay.observe("p1", { type: "REACH_UPDATE", revision: 1 }, []);
+    replay.observe("p1", { type: "AETHER_SHIELDS" }, []);
     expect(replay.size()).toBe(0);
+  });
+
+  it("keeps the latest REACH_UPDATE and AETHER_SHIELDS side by side and replays each one a socket is missing", () => {
+    const { replay, sent, send } = createHarness();
+    const existing = { id: "tab-1" };
+    const joining = { id: "tab-2" };
+    const shields = (ownerId: string): Record<string, unknown> => ({ type: "AETHER_SHIELDS", towers: [{ x: 1, y: 2, ownerId }] });
+    replay.observe("p1", reach(3), [existing]);
+    replay.observe("p1", shields("old"), [existing]);
+    replay.observe("p1", shields("enemy"), [existing]);
+
+    expect(replay.size()).toBe(1);
+    expect(replay.replayTo("p1", joining, send)).toBe(true);
+    expect(sent).toEqual([
+      { socket: joining, payload: reach(3) },
+      { socket: joining, payload: shields("enemy") }
+    ]);
+    // A later shields push reached the new tab already: only that one is skipped.
+    replay.observe("p1", shields("third"), [existing, joining]);
+    expect(replay.replayTo("p1", joining, send)).toBe(false);
   });
 
   it("drops a player's entry on forget so a later session cannot get a stale border", () => {

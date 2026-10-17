@@ -84,18 +84,17 @@ describe("structure command planner", () => {
     ]);
     const basePlayer = { id: "ai-1", points: 1_000, manpower: 1_000, techIds: ["leatherworking", "siegecraft"] };
 
-    // 50 supply passes the old hardcoded "< 45" check, but SIEGE_TOWER (the
-    // tier siegecraft unlocks) needs 90 supply AND 60 iron — must not propose.
+    // The upgraded tier needs UMBRITE and TITANIUM capacity.
     expect(chooseBestSiegeBatteryBuild(
-      { ...basePlayer, strategicResources: { UMBRITE: 50 } },
+      { ...basePlayer, slotSupplyByResource: { UMBRITE: 1, TITANIUM: 0 }, slotDemandByResource: {} },
       [candidate],
       tilesByKey,
       [candidate]
     )).toBeUndefined();
 
-    // SIEGE_TOWER's real cost: 90 supply, 60 iron, 1800 gold.
+    // With enough slots, zero retired stockpile balances are legal.
     expect(chooseBestSiegeBatteryBuild(
-      { ...basePlayer, points: 1_800, strategicResources: { UMBRITE: 90, TITANIUM: 60 } },
+      { ...basePlayer, points: 1_800, strategicResources: {}, slotSupplyByResource: { UMBRITE: 10, TITANIUM: 10 }, slotDemandByResource: {} },
       [candidate],
       tilesByKey,
       [candidate]
@@ -129,11 +128,10 @@ describe("structure command planner", () => {
       points: 1_000,
       manpower: 1_000,
       techIds: ["leatherworking"],
-      // Genuinely insufficient supply (not a count-scaling artifact — see
-      // the tier-awareness tests above; SIEGE_BATTERY's flat cost is 45
-      // supply and this player has 0) — the AI must fall through to
-      // something else, not repeatedly propose an unaffordable build.
+      // No UMBRITE slot: choose something else instead of submitting a
+      // doomed build, regardless of retired stockpile balances.
       strategicResources: { UMBRITE: 0 },
+      slotSupplyByResource: { UMBRITE: 0 }, slotDemandByResource: { UMBRITE: 0 },
       settledTileCount: 5,
       townCount: 1,
       incomePerMinute: 12,

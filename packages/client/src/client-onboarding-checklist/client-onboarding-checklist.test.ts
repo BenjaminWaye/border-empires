@@ -107,7 +107,7 @@ describe("onboardingChecklistState", () => {
     expect(state.foodExpanded).toBe(true);
   });
 
-  it("moves to EXPAND_RELAY_BEACON instead of EXPAND_TOWN when a neutral town exists but is outside reach, without highlighting the player's own SETTLEMENT-tier spawn", () => {
+  it("moves to EXPAND_RELAY_BEACON instead of EXPAND_TOWN when a neutral town exists but is outside reach, highlighting only the beacon site (never the spawn as a target)", () => {
     const tiles = tilesMap([
       ownTown(0, 0, "SETTLEMENT"),
       // Radius-3 reach from (0,0) tops out at 3 tiles away; this one is 10.
@@ -116,13 +116,57 @@ describe("onboardingChecklistState", () => {
     const state = onboardingChecklistState(tiles, ME);
     expect(state.step).toBe("EXPAND_RELAY_BEACON");
     // The player owns nothing TOWN-tier-or-up yet -- only their starting
-    // SETTLEMENT -- so there's no valid anchor to highlight. Highlighting
-    // the player's own low-tier spawn tile as if it were a target reads as
-    // a bug, not an anchor.
-    expect(state.highlightTiles).toEqual([]);
+    // SETTLEMENT -- so there's no town anchor to highlight. The spawn is the
+    // only tile a beacon can go on, so it's highlighted as the beacon site
+    // (relayBeaconSite), not as an Expand To target.
+    expect(state.relayBeaconSite).toEqual({ x: 0, y: 0 });
+    expect(state.highlightTiles).toEqual([{ x: 0, y: 0 }]);
     // Still "found" (known to exist) even though it's out of reach to expand to.
     expect(state.townFound).toBe(true);
     expect(state.townExpanded).toBe(false);
+  });
+
+  it("marks the owned tile closest to an out-of-reach town as the Relay Beacon site when no town is nearby", () => {
+    // Playtest regression: the EXPAND_RELAY_BEACON step used to highlight
+    // ownTownTierAnchors, which is always empty before the first town is
+    // taken -- a new player was told to build a beacon with nothing on the
+    // map saying where.
+    const tiles = tilesMap([
+      ownTown(0, 0, "SETTLEMENT"),
+      tile(1, 0, { ownerId: ME, ownershipState: "SETTLED" as const }),
+      tile(2, 0, { ownerId: ME, ownershipState: "SETTLED" as const }),
+      tile(3, 0, { ownerId: ME, ownershipState: "SETTLED" as const }),
+      tile(12, 0, { town: { type: "MARKET", populationTier: "TOWN" } as never })
+    ]);
+    const state = onboardingChecklistState(tiles, ME);
+    expect(state.step).toBe("EXPAND_RELAY_BEACON");
+    expect(state.relayBeaconSite).toEqual({ x: 3, y: 0 });
+    expect(state.highlightTiles).toEqual([{ x: 3, y: 0 }]);
+    expect(state.highlightTiles).not.toContainEqual({ x: 12, y: 0 });
+  });
+
+  it("prefers a Relay Beacon site whose reach would cover the town outright", () => {
+    const tiles = tilesMap([
+      ownTown(0, 0, "SETTLEMENT"),
+      tile(0, 1, { ownerId: ME, ownershipState: "SETTLED" as const }),
+      tile(3, 0, { ownerId: ME, ownershipState: "SETTLED" as const }),
+      // 5 tiles from (3,0) -- inside a beacon's radius-5 disk there, not from (0,1).
+      tile(8, 0, { town: { type: "MARKET", populationTier: "TOWN" } as never })
+    ]);
+    expect(onboardingChecklistState(tiles, ME).relayBeaconSite).toEqual({ x: 3, y: 0 });
+  });
+
+  it("aims the Relay Beacon site at out-of-reach food once the town is taken, keeping the town highlighted", () => {
+    const tiles = tilesMap([
+      ownTown(0, 0),
+      tile(0, 3, { ownerId: ME, ownershipState: "SETTLED" as const }),
+      tile(3, 0, { ownerId: ME, ownershipState: "SETTLED" as const }),
+      tile(0, 9, { resource: "FISH" }) // out of the town's radius-3 reach, 6 from (0,3)
+    ]);
+    const state = onboardingChecklistState(tiles, ME);
+    expect(state.step).toBe("EXPAND_RELAY_BEACON");
+    expect(state.relayBeaconSite).toEqual({ x: 0, y: 3 });
+    expect(state.highlightTiles).toEqual([{ x: 0, y: 0 }, { x: 0, y: 3 }]);
   });
 
   it("reports the real foodSlotsClaimed total on the out-of-reach EXPAND_RELAY_BEACON branch too, not a hardcoded 0", () => {

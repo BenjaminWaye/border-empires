@@ -76,6 +76,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           ...(typeof player.manpowerUpdatedAt === "number" ? { manpowerUpdatedAt: player.manpowerUpdatedAt } : {}),
           ...(typeof player.manpowerBanked === "number" && player.manpowerBanked > 0 ? { manpowerBanked: player.manpowerBanked } : {}),
           ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
+          ...(player.landingReserveGranted ? { landingReserveGranted: true } : {}),
           techIds: [...player.techIds].sort(),
           domainIds: [...(player.domainIds ?? [])].sort(),
           ...(player.chosenTrickleResource ? { chosenTrickleResource: player.chosenTrickleResource } : {}),

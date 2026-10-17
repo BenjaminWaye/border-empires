@@ -15,6 +15,8 @@ import { padTerrainWindow, requiredTerrainWindow, tileChangeIsWindowRelevant, te
 import { EMPTY_MAP_3D_REBUILD_TRIGGERS, captureMap3DRebuildTriggers, map3DRebuildTriggersChanged } from "../client-map-3d-rebuild-triggers/client-map-3d-rebuild-triggers.js";
 import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
 import { createSelectionRangeOverlays } from "../client-map-3d-selection-range-overlays/client-map-3d-selection-range-overlays.js";
+import { createOwnershipDebugEmitter } from "../client-map-3d-ownership-debug/client-map-3d-ownership-debug.js";
+import { createAetherProtectionOverlay3D } from "../client-map-3d-aether-protection-overlay.js";
 import { createFrontierClaimPlatePool, disposeFrontierClaimPlatePool } from "../client-map-3d-frontier-claim-plate/client-map-3d-frontier-claim-plate.js";
 
 import { applyPerspectiveCamera, createPerspectiveCamera } from "../client-map-3d-perspective-camera/client-map-3d-perspective-camera.js";
@@ -199,6 +201,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const observatoryCooldownBadgeOverlay = createObservatoryCooldownBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const upgradeReadyBadgeOverlay = createUpgradeReadyBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const musterOverlay = createMusterOverlay(scene); const winChancePaintOverlay = createWinChancePaintOverlay(scene); const arrowOverlay = createArrowOverlay(scene); const shieldAreaOverlay = createShieldAreaOverlay(scene); // F1: right-click-drag arrow gesture visual; F3: known-shield coverage-area overlay (client-known-shield-flags.ts)
+  const aetherProtectionOverlay = createAetherProtectionOverlay3D(scene, MAX_VISIBLE_TILES); // Aether Tower protection field wash (client-aether-tower-protection.ts)
   const battleOverlayFx = createPopupMarineOverlayFx(scene);
   const supplyLineOverlay = createSupplyLineOverlay(scene); const musterTransitOverlay = createMusterTransitOverlay(scene);
   const aetherBridgePylonOverlay = createAetherBridgePylonOverlay(scene, MAX_BRIDGE_PYLONS); const aetherWallPylonOverlay = createAetherWallPylonOverlay(scene, MAX_WALL_PYLONS); const aetherWallArcOverlay = createAetherWallArcOverlay(scene, MAX_WALL_ARCS);
@@ -342,24 +345,11 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   // delta from this origin (applyCamera) so panning still reads live.
   const sceneOrigin = { camX: deps.state.camX, camY: deps.state.camY };
   let rafId: number | undefined;
-  let lastOwnershipDebugSignature = "";
-  const ownershipDebugWindow = (): (Window & { __be3dOwnershipDebug?: unknown }) | undefined =>
-    typeof window !== "undefined" ? (window as Window & { __be3dOwnershipDebug?: unknown }) : undefined;
-  const shouldDebugOwnership = (): boolean =>
-    typeof window !== "undefined" && window.location.hostname === "localhost";
+  const emitOwnershipDebug = createOwnershipDebugEmitter();
 
   const terrainForWorldTile = (wx: number, wy: number): Tile["terrain"] => {
     const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
     return terrainWithAfcLandingHold(deps.state.afcJoinDrop, wx, wy, tile?.terrain ?? deps.terrainAt(wx, wy)); // footprint mountains stay until the join drop lands
-  };
-  const emitOwnershipDebug = (payload: Record<string, unknown>): void => {
-    if (!shouldDebugOwnership()) return;
-    const signature = JSON.stringify(payload);
-    if (signature === lastOwnershipDebugSignature) return;
-    lastOwnershipDebugSignature = signature;
-    const debugTarget = ownershipDebugWindow();
-    if (debugTarget) debugTarget.__be3dOwnershipDebug = payload;
-    console.info("[3d-ownership-debug]", payload);
   };
   // visualLandBiomeAt re-derives the same deterministic mechanical biome a
   // visible tile's tile.landBiome would carry, plus (from worldgenVersion 8)
@@ -782,6 +772,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     observatoryCooldownBadgeOverlay.clear();
     upgradeReadyBadgeOverlay.clear();
     musterOverlay.clear(); winChancePaintOverlay.clear(); if (deps.state.winChancePaint && performance.now() > deps.state.winChancePaint.expiresAt && !deps.state.pendingArrowGestureConfirm) deps.state.winChancePaint = undefined; shieldAreaOverlay.clear(); const knownShieldFlags = collectKnownShieldFlags(deps.state.tiles.values()); // F3: recomputed once per frame; cheap (bounded by live muster-flag count, not tile count)
+    aetherProtectionOverlay.begin(deps.state, deps.keyFor);
     supplyLineOverlay.clear();
     dockOverlay.clear();
     waterSurface.clear();
@@ -1100,6 +1091,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           const advance = tile.muster.mode === "ADVANCE";
           musterOverlay.addMuster(x, z, surfaceY, fillRatio, ownerColor, advance, wx, wy);
         } /* F0/F3, client-win-chance-paint-trigger.ts + client-known-shield-flags.ts: */ { const winChancePaintEntry = deps.state.winChancePaint?.entries.find((e) => e.x === wx && e.y === wy); if (winChancePaintEntry) winChancePaintOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY: flatOverlayY, color: winChancePaintEntry.color, winChance: winChancePaintEntry.winChance }); const shieldCoverage = isShieldCoverageShownOn(deps.state.arrowGesture, tile?.ownerId, deps.state.me) ? tileShieldCoverage(wx, wy, knownShieldFlags) : undefined; /* only while dragging the attack arrow, and only on enemy-owned tiles */ if (shieldCoverage) shieldAreaOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY: flatOverlayY, ownerColor: deps.effectiveOverlayColor(shieldCoverage.ownerId) }); }
+        aetherProtectionOverlay.addTile(tile, x, z, flatOverlayY);
         const demoStructureEntry = structureDemoEntryFor(wx, wy, window.camX, window.camY);
         if (demoStructureEntry && terrain === "LAND") {
           if (demoStructureEntry.kind === "UMBRITE_RIG") {
@@ -1253,6 +1245,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     observatoryCooldownBadgeOverlay.commit();
     upgradeReadyBadgeOverlay.commit();
     musterOverlay.commit(); winChancePaintOverlay.commit(); shieldAreaOverlay.commit();
+    aetherProtectionOverlay.commit();
     syncCaptureOverlays(
       deps.state,
       deps.keyFor,
@@ -1542,6 +1535,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     observatoryCooldownBadgeOverlay.dispose();
     upgradeReadyBadgeOverlay.dispose();
     musterOverlay.dispose(); winChancePaintOverlay.dispose(); arrowOverlay.dispose(); shieldAreaOverlay.dispose();
+    aetherProtectionOverlay.dispose();
     battleOverlayFx.dispose();
     supplyLineOverlay.dispose(); musterTransitOverlay.dispose();
     aetherBridgePylonOverlay.dispose(); aetherWallPylonOverlay.dispose(); aetherWallArcOverlay.dispose();

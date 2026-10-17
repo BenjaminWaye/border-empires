@@ -6,6 +6,7 @@ import {
   tileIsPlacementBeneficiary
 } from "../client-structure-effects/client-structure-effects.js";
 import { computeOutpostReachPreview } from "../client-reach-overlay-beacon-preview/client-reach-overlay-beacon-preview.js";
+import { resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
 
 // Outpost-family structures (RELAY_BEACON/SIEGE_BATTERY/SIEGE_TOWER/
 // DREAD_TOWER) all project a radius-5 reach disk once active (see
@@ -15,6 +16,7 @@ import { computeOutpostReachPreview } from "../client-reach-overlay-beacon-previ
 // the reach overlay plan.
 const OUTPOST_FAMILY_STRUCTURE_TYPES = new Set(["RELAY_BEACON", "SIEGE_BATTERY", "SIEGE_TOWER", "DREAD_TOWER"]);
 const REACH_PREVIEW_STROKE_STYLE = "rgba(150, 220, 255, 0.9)";
+const REACH_PREVIEW_INVALID_STROKE_STYLE = "rgba(220, 80, 80, 0.9)";
 const REACH_PREVIEW_NEW_FILL_STYLE = "rgba(150, 220, 255, 0.10)";
 
 export type PlacementPreview2DDeps = {
@@ -65,7 +67,7 @@ const renderPlacementBeneficiaryTiles = (
 };
 
 // Ghost-outlines the new reach disk an outpost-family structure would add.
-// Tiles already inside the player's current reach (state.myReach — see
+// Tiles already inside the player's current reach (resolveMyReachCached — see
 // client-reach-overlay.ts's MOCK-DATA SEAM) are left alone so the ghost
 // only highlights *newly* reachable ground, which is the actual siting
 // decision the player is making.
@@ -76,11 +78,11 @@ const renderOutpostReachGhostPreview = (
   halfW: number,
   halfH: number
 ): void => {
-  const { x, y } = state.buildingPlacement;
+  const { x, y, structureType: st } = state.buildingPlacement;
   const placementTile = state.tiles.get(deps.keyFor(x, y));
   if (deps.tileVisibilityStateAt(x, y, placementTile) !== "visible") return;
-  const preview = computeOutpostReachPreview(x, y);
-  const existingReach = state.myReach;
+  const preview = computeOutpostReachPreview(x, y, state.tiles); // land-gated like real reach
+  const existingReach = resolveMyReachCached(state); // same source as the true-3D beacon preview
   for (const key of preview) {
     const [kxRaw, kyRaw] = key.split(",");
     const kx = Number(kxRaw);
@@ -96,8 +98,9 @@ const renderOutpostReachGhostPreview = (
   const center = deps.worldToScreen(x, y, size, halfW, halfH);
   const ringRadius = 5.5; // OUTPOST_REACH_RADIUS (5) + 0.5 tile margin, matches the square-ring convention below
   const squareSize = ringRadius * 2 * size;
+  const valid = st !== "RELAY_BEACON" || deps.isPlacementValidForTile(placementTile);
   deps.ctx.save();
-  deps.ctx.strokeStyle = REACH_PREVIEW_STROKE_STYLE;
+  deps.ctx.strokeStyle = valid ? REACH_PREVIEW_STROKE_STYLE : REACH_PREVIEW_INVALID_STROKE_STYLE;
   deps.ctx.setLineDash([6, 4]);
   deps.ctx.lineWidth = 2;
   deps.ctx.strokeRect(center.sx - squareSize / 2, center.sy - squareSize / 2, squareSize, squareSize);
