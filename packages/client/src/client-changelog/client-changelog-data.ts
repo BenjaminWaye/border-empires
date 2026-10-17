@@ -147,17 +147,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING,
   ...CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY,
   {
-    createdAt: 1791750801000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.11.2",
-    title: "Docks link to nearby docks, with a way to jump along their routes",
-    why: "Dock routes often led to a far-away dock instead of a close one, and following a long dashed route meant a lot of scrolling while the line broke up along the way.",
-    changes: [
-      "From next season, each dock links to its nearest dock on another island, measured by actual sea distance",
-      "A dock's tile menu now has a Connected docks row: use ◀ ▶ to jump the camera to each linked dock and Back to return",
-      "The dashed dock route line no longer breaks or jumps when it wraps around the map edge or leaves the area around you"
-    ]
-  },
-  {
     createdAt: 1792009197862, // Date.now() captured when this entry was written.
     introducedIn: "2026.10.14.3",
     title: "AI empires weigh your truce and alliance offers",
