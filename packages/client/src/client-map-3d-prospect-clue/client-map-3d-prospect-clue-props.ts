@@ -1,6 +1,6 @@
 // True-3D props for the worldgen prospect clues (client-prospect-clue.ts), so
-// a clue tile shows the thing its name describes instead of only a colour
-// tint: gaunt violet-black blackwood trees, rust-red ferrous flecks, and
+// a clue tile shows the thing its name describes (there is no ground tint):
+// gaunt violet-black blackwood trees, rust-red ferrous flecks, and
 // glinting cyan crystal shards. The 2D-canvas twin is
 // client-prospect-signature-overlay.ts; keep the two in step (AGENTS.md
 // renderer parity). Blackwood on a tile that already grows forest does not

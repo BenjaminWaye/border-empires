@@ -1,11 +1,6 @@
 import type { ProspectSignature } from "@border-empires/shared";
-import { prospectClueColor, prospectClueJitter, prospectCluePropCount, prospectCluePropOffset, prospectCluePropsAllowed } from "./client-prospect-clue/client-prospect-clue.js";
+import { prospectClueJitter, prospectCluePropCount, prospectCluePropOffset, prospectCluePropsAllowed } from "./client-prospect-clue/client-prospect-clue.js";
 import type { Tile } from "./client-types.js";
-
-const hexToRgba = (hex: string, alpha: number): string => {
-  const value = Number.parseInt(hex.slice(1), 16);
-  return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${alpha})`;
-};
 
 /** What the 2D forest overlay needs to draw a tile's clue (see client-map-facade.ts). */
 export type ProspectClueDraw = {
@@ -16,9 +11,6 @@ export type ProspectClueDraw = {
 
 export const prospectClueDrawFor = (tile: Tile | undefined): ProspectClueDraw | undefined =>
   tile?.prospectSignature ? { signature: tile.prospectSignature, propsAllowed: prospectCluePropsAllowed(tile) } : undefined;
-
-// Light ground wash under the props, matching the true-3D PROSPECT_CLUE_OPACITY's role.
-const CLUE_TINT_ALPHA = 0.18;
 
 const drawFerrousFlecks = (ctx: CanvasRenderingContext2D, wx: number, wy: number, px: number, py: number, size: number): void => {
   const count = prospectCluePropCount("FERROUS_DUST", wx, wy);
@@ -69,18 +61,14 @@ const drawCrystalShards = (ctx: CanvasRenderingContext2D, wx: number, wy: number
 };
 
 /**
- * Clue ground wash plus the ferrous/refractive props. Blackwood's props are
+ * The ferrous/refractive props (no ground tint: a coloured wash read as territory and confused players). Blackwood's props are
  * trees, so the forest overlay draws those itself (client-map-render-forest-overlay.ts).
  * 2D twin of the true-3D client-map-3d-prospect-clue/ layer. Never marks the deposit tile.
  */
 export const drawProspectSignatureOverlay = (ctx: CanvasRenderingContext2D, clue: ProspectClueDraw | undefined, wx: number, wy: number, px: number, py: number, size: number): void => {
-  if (!clue || size < 10) return;
+  if (!clue?.propsAllowed || size < 10) return;
   ctx.save();
-  ctx.fillStyle = hexToRgba(prospectClueColor(clue.signature), CLUE_TINT_ALPHA);
-  ctx.fillRect(px, py, size, size);
-  if (clue.propsAllowed) {
-    if (clue.signature === "FERROUS_DUST") drawFerrousFlecks(ctx, wx, wy, px, py, size);
-    else if (clue.signature === "REFRACTIVE_GROUND") drawCrystalShards(ctx, wx, wy, px, py, size);
-  }
+  if (clue.signature === "FERROUS_DUST") drawFerrousFlecks(ctx, wx, wy, px, py, size);
+  else if (clue.signature === "REFRACTIVE_GROUND") drawCrystalShards(ctx, wx, wy, px, py, size);
   ctx.restore();
 };

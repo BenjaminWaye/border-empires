@@ -472,7 +472,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Blackwood canopy: trees on the tile turn violet-black, and open ground grows gaunt blackwood trees",
       "Ferrous dust: rust-red flecks are scattered over the ground",
       "Refractive ground: small glinting crystal shards poke out of the soil",
-      "The colour wash under each clue is fainter now that the props show it; works on both the 3D and 2D maps"
+      "The coloured patch under clue tiles is gone, and the tile menu only explains a clue on tiles that show it; works on both the 3D and 2D maps"
     ]
   }
 ];

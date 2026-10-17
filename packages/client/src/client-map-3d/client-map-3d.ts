@@ -880,7 +880,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         const wxNext = deps.wrapX(wx + 1);
         const wyNext = deps.wrapY(wy + 1);
         const { surfaceY, flatOverlayY } = tileSurfaceHeights({ heightfield, wx, wy, wxNext, wyNext, rise: OVERLAY_RISE_ABOVE_HEIGHTFIELD, isHillsAt: isHillsTile, wrapX: deps.wrapX, wrapY: deps.wrapY, roadDirsAt: hillCutAt });
-        prospectClues.addTile({ tile, terrain, visibility, x, z, wx, wy, wxNext, wyNext, surfaceY, treesOnTile: shouldDrawForestInstance(forestTile, tile) || shouldDrawLightGrassScatterInstance(lightGrassScatterTile, tile), cornerYAt: heightfield.cornerYAt, wrapX: deps.wrapX, wrapY: deps.wrapY, roadDirsAt: hillCutAt });
+        prospectClues.addTile({ tile, terrain, visibility, x, z, wx, wy, surfaceY, treesOnTile: shouldDrawForestInstance(forestTile, tile) || shouldDrawLightGrassScatterInstance(lightGrassScatterTile, tile) });
         if (visibility === "fogged" && !revealWholeMapInTrue3DMode) {
           // Fogged (remembered) tiles show their terrain as an aged survey
           // print -- land under fogDarkenOverlay's sepia wash, water
