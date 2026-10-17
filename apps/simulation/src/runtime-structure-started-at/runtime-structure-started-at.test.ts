@@ -58,7 +58,7 @@ describe("structure startedAt stamping", () => {
         clientSeq: 1,
         issuedAt: BUILD_AT_MS,
         type: "BUILD_ECONOMIC_STRUCTURE",
-        payloadJson: JSON.stringify({ x: 16, y: 16, structureType: "MINTWORKS" })
+        payloadJson: JSON.stringify({ x: 16, y: 16, structureType: "MANUFACTORY" })
       });
       await Promise.resolve();
 
@@ -68,7 +68,7 @@ describe("structure startedAt stamping", () => {
       expect(building?.status).toBe("under_construction");
       expect(building?.startedAt).toBe(BUILD_AT_MS);
       // The window the client divides by is the real build duration, not a flat constant.
-      expect((building?.completesAt ?? 0) - (building?.startedAt ?? 0)).toBe(structureBuildDurationMs("MINTWORKS"));
+      expect((building?.completesAt ?? 0) - (building?.startedAt ?? 0)).toBe(structureBuildDurationMs("MANUFACTORY"));
 
       advanceTo((building?.completesAt ?? 0) + 1);
       await vi.advanceTimersByTimeAsync((building?.completesAt ?? 0) - BUILD_AT_MS + 1);

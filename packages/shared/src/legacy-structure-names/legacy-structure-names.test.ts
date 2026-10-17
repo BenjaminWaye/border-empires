@@ -7,6 +7,13 @@ import {
 } from "./legacy-structure-names.js";
 
 describe("upgradeLegacyStructureToken", () => {
+  it("migrates manufactories without renaming the Imperial Exchange tech", () => {
+    expect(upgradeLegacyStructureToken("MINTWORKS")).toBe("MANUFACTORY");
+    expect(upgradeLegacyStructureToken("build_mintworks")).toBe("build_manufactory");
+    expect(upgradeLegacyStructureToken("mintworksCount")).toBe("manufactoryCount");
+    expect(upgradeLegacyStructureToken("unlockMintworks")).toBe("unlockManufactory");
+    expect(upgradeLegacyStructureToken("urban-mintworks")).toBe("urban-mintworks");
+  });
   it("upgrades old structure ids in every identifier style", () => {
     expect(upgradeLegacyStructureToken("CARAVANARY")).toBe("TRADE_NEXUS");
     expect(upgradeLegacyStructureToken("AETHER_TOWER")).toBe("AMBARIC_TRANSFORMER");
@@ -36,6 +43,19 @@ describe("upgradeLegacyStructureToken", () => {
 });
 
 describe("upgradeLegacyStructureNames", () => {
+  it("migrates saved factories, town summaries and queued builds together", () => {
+    expect(upgradeLegacyStructureNames({
+      economicStructure: { type: "MINTWORKS", status: "active" },
+      town: { hasMintworks: true, mintworksCount: 6 },
+      payloadJson: '{"structureType":"MINTWORKS"}',
+      techIds: ["trade", "urban-mintworks"]
+    })).toEqual({
+      economicStructure: { type: "MANUFACTORY", status: "active" },
+      town: { hasManufactory: true, manufactoryCount: 6 },
+      payloadJson: '{"structureType":"MANUFACTORY"}',
+      techIds: ["trade", "urban-mintworks"]
+    });
+  });
   it("upgrades keys and values in nested persisted state, but not free text", () => {
     const legacy = {
       tiles: [{ economicStructure: { type: "CARAVANARY" }, siegeOutpost: { variant: "SIEGE_OUTPOST" }, fort: { variant: "WOODEN_FORT" } }],

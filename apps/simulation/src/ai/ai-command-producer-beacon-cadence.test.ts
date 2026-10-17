@@ -20,7 +20,7 @@ describe("ai command producer — beacon cadence wiring", () => {
         clientSeq: seq,
         issuedAt,
         type: "BUILD_ECONOMIC_STRUCTURE" as const,
-        payloadJson: JSON.stringify({ x: 0, y: 0, structureType: "MINTWORKS" })
+        payloadJson: JSON.stringify({ x: 0, y: 0, structureType: "MANUFACTORY" })
       },
       diagnostic: { playerId, sessionPrefix: "ai-runtime" as const }
     }));

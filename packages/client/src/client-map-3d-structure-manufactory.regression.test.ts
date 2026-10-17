@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CylinderGeometry, InstancedMesh, Scene } from "three";
+import { BoxGeometry, CylinderGeometry, InstancedMesh, Scene } from "three";
 import { CONSTRUCTION_PHASES, type ConstructionSite } from "./client-construction-phase/client-construction-phase.js";
 import { createContactShadowOverlay } from "./client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
 import { createStructureOverlay } from "./client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
@@ -15,19 +15,23 @@ const flywheelMesh = (scene: Scene): InstancedMesh | undefined =>
       (mesh.geometry as CylinderGeometry).parameters.height === 0.05
   );
 
-describe("mintworks structure overlay", () => {
-  it("commits an assembled mint with a visible flywheel", () => {
+describe("manufactory structure overlay", () => {
+  it("commits an assembled manufactory with a visible flywheel", () => {
     const scene = new Scene();
     const overlay = createStructureOverlay(scene, 3, createContactShadowOverlay(scene, 3));
 
-    overlay.addInstance(0, 0, 0, "MINTWORKS");
-    overlay.addInstance(2, 0, 0, "MINTWORKS");
-    overlay.addInstance(4, 0, 0, "MINTWORKS");
+    overlay.addInstance(0, 0, 0, "MANUFACTORY");
+    overlay.addInstance(2, 0, 0, "MANUFACTORY");
+    overlay.addInstance(4, 0, 0, "MANUFACTORY");
     overlay.commit();
 
     const renderedPieces = instancedMeshes(scene).reduce((total, mesh) => total + mesh.count, 0);
     expect(renderedPieces).toBeGreaterThan(0);
     expect(flywheelMesh(scene)?.count).toBe(3);
+    const roofs = instancedMeshes(scene).find((mesh) => mesh.geometry instanceof BoxGeometry && mesh.geometry.parameters.width === 0.56);
+    const cargo = instancedMeshes(scene).find((mesh) => mesh.geometry instanceof BoxGeometry && mesh.geometry.parameters.width === 0.115);
+    expect(roofs?.count).toBe(9);
+    expect(cargo?.count).toBe(9);
 
     overlay.dispose();
   });
@@ -37,13 +41,13 @@ describe("mintworks structure overlay", () => {
     const overlay = createStructureOverlay(scene, 3, createContactShadowOverlay(scene, 3));
     const site: ConstructionSite = {
       x: 0, y: 0, afcOffset: undefined, direction, field: "economicStructure",
-      structureType: "MINTWORKS", ownerId: "me", fraction: 0.9,
+      structureType: "MANUFACTORY", ownerId: "me", fraction: 0.9,
       visibleBands: CONSTRUCTION_PHASES, phase: CONSTRUCTION_PHASES - 1,
       startedAtMs: 0, completesAtMs: 60_000, crew: 2, stalled: false,
       nextPhaseAtMs: undefined
     };
-    overlay.addInstance(0, 0, 0, "MINTWORKS", undefined, site);
-    overlay.addInstance(2, 0, 0, "MINTWORKS");
+    overlay.addInstance(0, 0, 0, "MANUFACTORY", undefined, site);
+    overlay.addInstance(2, 0, 0, "MANUFACTORY");
     overlay.commit();
     const wheel = flywheelMesh(scene)!;
     const before = Array.from(wheel.instanceMatrix.array.slice(0, 32));
@@ -52,7 +56,7 @@ describe("mintworks structure overlay", () => {
     expect(Array.from(wheel.instanceMatrix.array.slice(0, 16))).toEqual(before.slice(0, 16));
     expect(Array.from(wheel.instanceMatrix.array.slice(16, 32))).not.toEqual(before.slice(16, 32));
     overlay.clear();
-    overlay.addInstance(0, 0, 0, "MINTWORKS");
+    overlay.addInstance(0, 0, 0, "MANUFACTORY");
     overlay.commit();
     const completed = Array.from(wheel.instanceMatrix.array.slice(0, 16));
     overlay.update(5000);
@@ -64,8 +68,8 @@ describe("mintworks structure overlay", () => {
     const scene = new Scene();
     const overlay = createStructureOverlay(scene, 8, createContactShadowOverlay(scene, 8));
 
-    overlay.addInstance(0, 0, 0, "MINTWORKS");
-    overlay.addInstance(2, 0, 0, "MINTWORKS");
+    overlay.addInstance(0, 0, 0, "MANUFACTORY");
+    overlay.addInstance(2, 0, 0, "MANUFACTORY");
     overlay.commit();
 
     const flywheel = flywheelMesh(scene);
@@ -96,7 +100,7 @@ describe("mintworks structure overlay", () => {
     const scene = new Scene();
     const overlay = createStructureOverlay(scene, 2, createContactShadowOverlay(scene, 2));
 
-    overlay.addInstance(0, 0, 0, "MINTWORKS");
+    overlay.addInstance(0, 0, 0, "MANUFACTORY");
     overlay.commit();
     overlay.update(1000);
 
@@ -116,12 +120,12 @@ describe("mintworks structure overlay", () => {
     overlay.dispose();
   });
 
-  it("spins two mints on different tiles out of phase", () => {
+  it("spins two manufactories on different tiles out of phase", () => {
     const scene = new Scene();
     const overlay = createStructureOverlay(scene, 4, createContactShadowOverlay(scene, 4));
 
-    overlay.addInstance(0, 0, 0, "MINTWORKS");
-    overlay.addInstance(2, 0, 0, "MINTWORKS");
+    overlay.addInstance(0, 0, 0, "MANUFACTORY");
+    overlay.addInstance(2, 0, 0, "MANUFACTORY");
     overlay.commit();
     overlay.update(1000);
 
@@ -138,7 +142,7 @@ describe("mintworks structure overlay", () => {
     const scene = new Scene();
     const overlay = createStructureOverlay(scene, 1, createContactShadowOverlay(scene, 1));
 
-    overlay.addInstance(0, 0, 0, "MINTWORKS");
+    overlay.addInstance(0, 0, 0, "MANUFACTORY");
     overlay.commit();
     overlay.clear();
     overlay.commit();

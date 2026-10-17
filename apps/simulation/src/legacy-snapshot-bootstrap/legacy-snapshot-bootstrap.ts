@@ -14,7 +14,7 @@ import type {
   VictoryPressureTracker
 } from "@border-empires/game-domain";
 import {
-  mintworksGoldProductionMultiplier,
+  manufactoryGoldProductionMultiplier,
   PASSIVE_INCOME_MULT,
   POPULATION_GROWTH_BASE_RATE,
   incubationEngineGrowthMultiplier,
@@ -215,22 +215,22 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
     const supportRatio = support.supportMax <= 0 ? 1 : support.supportCurrent / support.supportMax;
     const fedTownKeys = ownerId ? fedTownKeysByPlayer.get(ownerId) : undefined;
     const isFed = Boolean(ownerId && fedTownKeys?.has(town.tileKey));
-    const mintworksCount = ownerId
+    const manufactoryCount = ownerId
       ? countedStructuresAtTown(
           town.tileKey,
           ownerId,
-          "MINTWORKS",
+          "MANUFACTORY",
           ownershipByTile,
           ownershipStateByTile,
           structuresByTile,
           meta.world
         )
       : 0;
-    const hasMintworks = mintworksCount > 0;
+    const hasManufactory = manufactoryCount > 0;
     // No town-level Clearing House signal exists on this legacy reconnect
     // path (pre-existing gap — Clearing House was never wired into this
-    // formula even before mintworks-stacking). Detected here the same way
-    // Mintworks itself is, via the local support-ring scan, rather than
+    // formula even before manufactory-stacking). Detected here the same way
+    // Manufactory itself is, via the local support-ring scan, rather than
     // leaving it permanently false.
     const clearingHouseActive =
       Boolean(ownerId) &&
@@ -268,7 +268,7 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
                   supportRatio *
                   townPopulationMultiplier(town) *
                   (1 + town.connectedTownBonus) *
-                  mintworksGoldProductionMultiplier(mintworksCount, clearingHouseActive) *
+                  manufactoryGoldProductionMultiplier(manufactoryCount, clearingHouseActive) *
                   incomeMod *
                   PASSIVE_INCOME_MULT
               );
@@ -305,9 +305,9 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
       populationGrowthPerMinute: Number(populationGrowthPerMinute.toFixed(4)),
       connectedTownCount: town.connectedTownCount,
       connectedTownBonus: town.connectedTownBonus,
-      hasMintworks,
-      mintworksActive: hasMintworks && isFed,
-      mintworksCount,
+      hasManufactory,
+      manufactoryActive: hasManufactory && isFed,
+      manufactoryCount,
       hasIncubationEngine,
       incubationEngineActive: hasIncubationEngine,
       foodUpkeepPerMinute: townFoodUpkeepPerMinute(town),

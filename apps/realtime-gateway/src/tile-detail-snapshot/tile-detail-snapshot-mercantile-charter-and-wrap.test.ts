@@ -103,10 +103,10 @@ describe("buildSnapshotTileDetail — Mercantile Charter (first three towns)", (
 // Regression for the bug reported after PR #1712: a town on the map's east
 // edge has a support-ring neighbor that only exists via horizontal
 // wraparound (x = WORLD_WIDTH - 1's east neighbor is x = 0), but this file's
-// local keyFor built plain "x,y" keys instead of wrapping, so a Mintworks
+// local keyFor built plain "x,y" keys instead of wrapping, so a Manufactory
 // built on the wrapped tile was silently never counted for the edge town.
 describe("buildSnapshotTileDetail — support ring wraps at the map's x edge", () => {
-  it("counts a Mintworks on a support tile reachable only via wraparound", () => {
+  it("counts a Manufactory on a support tile reachable only via wraparound", () => {
     const edgeX = WORLD_WIDTH - 1;
     const snapshot: PlayerSubscriptionSnapshot = {
       playerId: "player-1",
@@ -137,7 +137,7 @@ describe("buildSnapshotTileDetail — support ring wraps at the map's x edge", (
           terrain: "LAND",
           ownerId: "player-1",
           ownershipState: "SETTLED",
-          economicStructureJson: JSON.stringify({ type: "MINTWORKS", status: "active" })
+          economicStructureJson: JSON.stringify({ type: "MANUFACTORY", status: "active" })
         }
       ]
     };
@@ -145,7 +145,7 @@ describe("buildSnapshotTileDetail — support ring wraps at the map's x edge", (
     const detail = buildSnapshotTileDetail(snapshot, "player-1", edgeX, 48);
     const town = detail?.townJson ? (JSON.parse(detail.townJson as string) as Record<string, unknown>) : undefined;
     expect(town).toBeDefined();
-    expect(town?.hasMintworks).toBe(true);
-    expect(town?.mintworksCount).toBe(1);
+    expect(town?.hasManufactory).toBe(true);
+    expect(town?.manufactoryCount).toBe(1);
   });
 });

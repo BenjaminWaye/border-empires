@@ -4,7 +4,7 @@
 // so they all share one table.
 
 const STRUCTURE_INFO_ART: Readonly<Record<string, string>> = {
-  MINTWORKS: "/overlays/mintworks-overlay.svg",
+  MANUFACTORY: "/overlays/manufactory-overlay.svg",
   INCUBATION_ENGINE: "/overlays/incubation-engine-overlay.svg",
   CENSUS_HALL: "/overlays/census-hall-overlay.svg",
   OBSERVATORY: "/overlays/observatory-overlay.svg",

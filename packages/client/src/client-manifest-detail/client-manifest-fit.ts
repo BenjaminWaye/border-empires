@@ -38,7 +38,7 @@ const BUILDABLE_UNLOCKS: Readonly<Record<string, BuildableStructureType>> = {
   unlockHydroworksUpgrade: "HYDROWORKS",
   unlockUmbriteRig: "UMBRITE_RIG",
   unlockMine: "MINE",
-  unlockMintworks: "MINTWORKS",
+  unlockManufactory: "MANUFACTORY",
   unlockIncubationEngine: "INCUBATION_ENGINE",
   unlockCensusHall: "CENSUS_HALL",
   unlockClearingHouse: "CLEARING_HOUSE",

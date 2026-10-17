@@ -229,7 +229,7 @@ describe("handleCancelStructureBuildCommand refunds", () => {
     const tile = makeTile({
       economicStructure: {
         ownerId: PLAYER_ID,
-        type: "MINTWORKS",
+        type: "MANUFACTORY",
         status: "removing",
         previousStatus: "active",
         startedAt: 2_000,
@@ -397,13 +397,13 @@ describe("completion handlers flush reach updates", () => {
 
   it("records one exact completion impact and never duplicates it when a stale callback re-fires", () => {
     const player = makePlayer({ points: 500 });
-    const tile = makeTile({ economicStructure: { ownerId: PLAYER_ID, type: "MINTWORKS", status: "under_construction", completesAt: 5_000 } });
+    const tile = makeTile({ economicStructure: { ownerId: PLAYER_ID, type: "MANUFACTORY", status: "under_construction", completesAt: 5_000 } });
     const { context, personalImpacts } = createContext(player, tile);
 
-    completeStructureBuild(context, simulationTileKey(5, 5), PLAYER_ID, "MINTWORKS", "build-impact");
-    completeStructureBuild(context, simulationTileKey(5, 5), PLAYER_ID, "MINTWORKS", "build-impact");
+    completeStructureBuild(context, simulationTileKey(5, 5), PLAYER_ID, "MANUFACTORY", "build-impact");
+    completeStructureBuild(context, simulationTileKey(5, 5), PLAYER_ID, "MANUFACTORY", "build-impact");
 
-    expect(personalImpacts).toEqual([expect.objectContaining({ kind: "BUILDING_COMPLETED", playerId: PLAYER_ID, structureType: "MINTWORKS", instantGold: 10 })]);
+    expect(personalImpacts).toEqual([expect.objectContaining({ kind: "BUILDING_COMPLETED", playerId: PLAYER_ID, structureType: "MANUFACTORY", instantGold: 10 })]);
   });
 
   it("completeStructureRemoval flushes reach updates for its own commandId", () => {

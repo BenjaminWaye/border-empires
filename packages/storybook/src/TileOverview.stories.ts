@@ -16,7 +16,7 @@ const ME = "me";
 const town: NonNullable<Tile["town"]> = {
   name: "Rivergate", type: "MARKET", baseGoldPerMinute: 0.4, supportCurrent: 4, supportMax: 8, goldPerMinute: 0.5, cap: 0, isFed: true,
   population: 23_410, maxPopulation: 100_000, populationGrowthPerMinute: 7.47, populationTier: "TOWN", connectedTownCount: 1, connectedTownBonus: 0.1,
-  hasMintworks: false, mintworksActive: false, hasIncubationEngine: false, incubationEngineActive: false
+  hasManufactory: false, manufactoryActive: false, hasIncubationEngine: false, incubationEngineActive: false
 };
 const land = (over: Partial<Tile>): Tile => ({ x: 585, y: 270, terrain: "LAND", ...over }) as Tile;
 const mine = { ownerId: ME } as const;
@@ -30,7 +30,7 @@ const EXAMPLES: Example[] = [
   { label: "Resource · my frontier", note: "Resource node is the lead", tile: land({ ...mine, ownershipState: "FRONTIER", resource: "TITANIUM" }) },
   { label: "Town · settled", note: "Town stat grid", tile: land({ ...mine, ownershipState: "SETTLED", town, yieldRate: { goldPerMinute: 0.5 } } as Partial<Tile>) },
   { label: "Town support tile", note: "Support-tile line for the town it feeds", tile: land({ ...mine, ownershipState: "SETTLED" }), supportFor: land({ x: 586, y: 270, ...mine, ownershipState: "SETTLED", town }) },
-  { label: "Building on settled tile", note: "Built: leads", tile: land({ ...mine, ownershipState: "SETTLED", economicStructure: { ownerId: ME, type: "MINTWORKS", status: "active" } }) },
+  { label: "Building on settled tile", note: "Built: leads", tile: land({ ...mine, ownershipState: "SETTLED", economicStructure: { ownerId: ME, type: "MANUFACTORY", status: "active" } }) },
   { label: "Fort", note: "", tile: land({ ...mine, ownershipState: "SETTLED", fort: { ownerId: ME, status: "active", variant: "FORT" } }) },
   { label: "Siege Battery", note: "", tile: land({ ...mine, ownershipState: "SETTLED", siegeBattery: { ownerId: ME, status: "active", variant: "SIEGE_BATTERY" } }) },
   { label: "Natural wonder · my frontier", note: "Wonder leads", tile: land({ ...mine, ownershipState: "FRONTIER", naturalWonder: { type: "FOUNDRY_HEART" } }) },

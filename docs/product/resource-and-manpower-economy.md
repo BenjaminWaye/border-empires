@@ -100,6 +100,13 @@ slot until removal completes.
 
 ## Gold and town support
 
+- Manufactories are repeatable town-industry buildings, replacing Mintworks.
+  Each occupies 1 FOOD slot and retains the same income: +10 Coin on
+  completion, +1 Coin/day, and an additive +10% town income per copy
+  (+35% with an active local or connected Clearing House). The Industrial
+  Tooling Consignment delivers machine tools and installation equipment;
+  it is a consignment, not an AFC module, and does not occupy a module slot.
+
 - Gold is passive per-minute income, rescaled by `GOLD_RESCALE_DIVISOR = 288`.
   Baseline town income is `2 / 288` gold/minute and a dock is `0.5 / 288`;
   other modifiers and network effects are calculated in the economy module.

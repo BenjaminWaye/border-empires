@@ -666,7 +666,7 @@ describe("ai command producer", () => {
             clientSeq,
             issuedAt,
             type: "BUILD_ECONOMIC_STRUCTURE" as const,
-            payloadJson: JSON.stringify({ x: 1, y: 1, structureType: "MINTWORKS" })
+            payloadJson: JSON.stringify({ x: 1, y: 1, structureType: "MANUFACTORY" })
           },
           diagnostic: {
             playerId,

@@ -56,7 +56,7 @@ describe("buildTileYieldView", () => {
         const y = townTile.y + dy;
         tiles.set(
           `${x},${y}`,
-          settled(x, y, dx === 1 && dy === 0 ? { economicStructure: { type: "MINTWORKS", status: "active", ownerId: player.id } } : {})
+          settled(x, y, dx === 1 && dy === 0 ? { economicStructure: { type: "MANUFACTORY", status: "active", ownerId: player.id } } : {})
         );
       }
     }

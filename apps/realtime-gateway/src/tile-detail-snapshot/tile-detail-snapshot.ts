@@ -13,8 +13,8 @@ import {
   AETHER_CONDENSER_GOLD_UPKEEP_PER_DAY,
   UMBRITE_WORKS_GOLD_UPKEEP_PER_DAY,
   TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
-  MINTWORKS_FLAT_GOLD_BONUS_PER_MIN,
-  mintworksGoldProductionMultiplier,
+  MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN,
+  manufactoryGoldProductionMultiplier,
   PASSIVE_INCOME_MULT,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TOWN_BASE_GOLD_PER_MIN,
@@ -52,13 +52,13 @@ const fallbackTownGoldPerMinute = (input: {
   supportMax: number;
   populationTier: string;
   connectedTownBonus: number;
-  mintworksCount: number;
+  manufactoryCount: number;
   clearingHouseActive: boolean;
-  // Mintworks-style attribution (see economy-network-converter-support.ts /
+  // Manufactory-style attribution (see economy-network-converter-support.ts /
   // live-town-summary.ts): gold/minute from active EXCHANGE-mode converters
   // (Aether Condenser/Titanium Works/Umbrite Works) in this town's support
   // ring. Excluded for SETTLEMENT-tier towns via the early return below,
-  // same gate MINTWORKS_FLAT_GOLD_BONUS_PER_MIN already uses.
+  // same gate MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN already uses.
   converterGoldPerMinute: number;
   // Mercantile Charter (see firstThreeTownMultipliersForTile's doc comment):
   // 1 when inactive/not one of the player's first three towns.
@@ -74,10 +74,10 @@ const fallbackTownGoldPerMinute = (input: {
       supportRatio *
       townPopulationMultiplier(input.populationTier) *
       (1 + input.connectedTownBonus) *
-      mintworksGoldProductionMultiplier(input.mintworksCount, input.clearingHouseActive) *
+      manufactoryGoldProductionMultiplier(input.manufactoryCount, input.clearingHouseActive) *
       input.firstThreeTownGoldMult *
       PASSIVE_INCOME_MULT
-    ) + MINTWORKS_FLAT_GOLD_BONUS_PER_MIN * input.mintworksCount + input.converterGoldPerMinute
+    ) + MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN * input.manufactoryCount + input.converterGoldPerMinute
   );
 };
 
@@ -235,7 +235,7 @@ export const buildSnapshotTileDetail = (
           populationTier,
           connectedTownBonus:
             typeof parsedTown?.connectedTownBonus === "number" ? parsedTown.connectedTownBonus : 0,
-          mintworksCount: supportStructures.mintworksCount,
+          manufactoryCount: supportStructures.manufactoryCount,
           clearingHouseActive: supportStructures.clearingHouseActive,
           converterGoldPerMinute: supportStructures.converterGoldPerMinute,
           firstThreeTownGoldMult,
@@ -272,9 +272,9 @@ export const buildSnapshotTileDetail = (
         supportCurrent: supportSummary.supportCurrent,
         supportMax: supportSummary.supportMax,
         isFed,
-        hasMintworks: supportStructures.hasMintworks,
-        mintworksActive: supportStructures.hasMintworks && isFed,
-        mintworksCount: supportStructures.mintworksCount,
+        hasManufactory: supportStructures.hasManufactory,
+        manufactoryActive: supportStructures.hasManufactory && isFed,
+        manufactoryCount: supportStructures.manufactoryCount,
         hasIncubationEngine: supportStructures.hasIncubationEngine,
         incubationEngineActive: supportStructures.hasIncubationEngine,
         baseGoldPerMinute,

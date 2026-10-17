@@ -70,7 +70,7 @@ There are no unit pieces. Combat is **tile-ownership transitions**:
 
 - **One structure per tile** (mutex). Must be placed on a `SETTLED` tile owned by the builder.
 - **Categories**:
-  - Economic: Hydrogarden, Umbrite Rig, Mine, Incubation Engine, Mintworks, Bank, Synthesizers (Umbrite/Titanium Works/Crystal), Fuel Plant, Trade Nexus, Ore Refinery, Governance (Ministry Hall, Ancillary Depot, Harbor Exchange, Resonance Grid).
+  - Economic: Hydrogarden, Umbrite Rig, Mine, Incubation Engine, Manufactory, Bank, Synthesizers (Umbrite/Titanium Works/Crystal), Fuel Plant, Trade Nexus, Ore Refinery, Governance (Ministry Hall, Ancillary Depot, Harbor Exchange, Resonance Grid).
   - Military: Fort, Siege Battery, Observatory.
   - Monuments (late-game, ultra-high cost, built in 4 stages with shard cost): Imperial Exchange, Sovereign Siege Engine, Aegis Dome, Astral Dock.
 - **Unlocks**: tech-gated. Costs scale incrementally or exponentially with existing count, in coin + strategic resources.

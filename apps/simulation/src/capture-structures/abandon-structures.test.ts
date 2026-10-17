@@ -20,12 +20,12 @@ describe("abandonedStructureFields", () => {
       tileWith({
         fort: { ownerId: "p1", status: "active" },
         observatory: { ownerId: "p1", status: "active" },
-        economicStructure: { ownerId: "p1", type: "MINTWORKS", status: "active" }
+        economicStructure: { ownerId: "p1", type: "MANUFACTORY", status: "active" }
       } as Partial<DomainTileState>)
     );
     expect(kept.fort?.status).toBe("active");
     expect(kept.observatory?.status).toBe("active");
-    expect(kept.economicStructure?.type).toBe("MINTWORKS");
+    expect(kept.economicStructure?.type).toBe("MANUFACTORY");
   });
 
   // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md):
@@ -53,7 +53,7 @@ describe("abandonedStructureFields", () => {
       tileWith({
         fort: { ownerId: "p1", status: "under_construction" },
         observatory: { ownerId: "p1", status: "under_construction" },
-        economicStructure: { ownerId: "p1", type: "MINTWORKS", status: "under_construction" }
+        economicStructure: { ownerId: "p1", type: "MANUFACTORY", status: "under_construction" }
       } as Partial<DomainTileState>)
     );
     expect(kept.fort).toBeUndefined();

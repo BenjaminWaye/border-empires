@@ -142,7 +142,7 @@ describe("aggregatePersonalActivity", () => {
       impact({ id: "waystation", kind: "WAYSTATION_ACTIVATED", grantedEffect: "RESOURCE_SLOT", grantedResource: "FOOD" } as PersonalImpactEvent),
       impact({ id: "town-won", kind: "TOWN_CAPTURED", townTier: "TOWN", townSurvived: true, populationBefore: 1_000, populationAfter: 500, capturedStructureTypes: [] } as PersonalImpactEvent),
       impact({ id: "town-lost", kind: "TOWN_LOST", townTier: "SETTLEMENT", townSurvived: false, populationBefore: 300, populationAfter: 150, capturedStructureTypes: [] } as PersonalImpactEvent),
-      impact({ id: "building", kind: "BUILDING_COMPLETED", structureType: "MINTWORKS", instantGold: 100 } as PersonalImpactEvent),
+      impact({ id: "building", kind: "BUILDING_COMPLETED", structureType: "MANUFACTORY", instantGold: 100 } as PersonalImpactEvent),
       impact({ id: "other", playerId: "player-2", kind: "BUILDING_COMPLETED", structureType: "INCUBATION_ENGINE" } as PersonalImpactEvent)
     ];
     const timeline = aggregatePersonalActivity("player-1", { from: 0, to: 10_000 }, [], [], impacts);

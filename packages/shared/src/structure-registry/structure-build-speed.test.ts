@@ -8,7 +8,7 @@ describe("structureBuildSpeedEffectKey", () => {
     expect(structureBuildSpeedEffectKey("PALISADE")).toBe("fortBuildSpeedMult");
     expect(structureBuildSpeedEffectKey("SIEGE_BATTERY")).toBe("outpostDeploymentSpeedMult");
     expect(structureBuildSpeedEffectKey("DREAD_TOWER")).toBe("outpostDeploymentSpeedMult");
-    expect(structureBuildSpeedEffectKey("MINTWORKS")).toBe("economicStructureBuildSpeedMult");
+    expect(structureBuildSpeedEffectKey("MANUFACTORY")).toBe("economicStructureBuildSpeedMult");
   });
 
   test("Relay Beacon and Aether Tower have no speed lever", () => {

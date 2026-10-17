@@ -81,7 +81,7 @@ describe("structure piece builder construction gate", () => {
     }
   });
 
-  // A family that re-poses its pieces every frame (Mintworks' flywheel) needs to know which ones are still growing.
+  // A family that re-poses its pieces every frame (Manufactory' flywheel) needs to know which ones are still growing.
   it("reports whether the last piece was cut short", () => {
     const { builder } = setup();
     builder.setGate(0.3);

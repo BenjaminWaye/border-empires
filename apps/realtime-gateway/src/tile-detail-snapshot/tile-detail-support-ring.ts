@@ -59,11 +59,11 @@ export const derivedTownSupportStructures = (
   x: number,
   y: number
 ): {
-  hasMintworks: boolean;
-  mintworksCount: number;
+  hasManufactory: boolean;
+  manufactoryCount: number;
   hasIncubationEngine: boolean;
   clearingHouseActive: boolean;
-  // Mintworks-style attribution: gold/minute from active EXCHANGE-mode
+  // Manufactory-style attribution: gold/minute from active EXCHANGE-mode
   // converters (Aether Condenser/Titanium Works/Umbrite Works) in the
   // support ring — see fallbackTownGoldPerMinute's matching param.
   converterGoldPerMinute: number;
@@ -78,15 +78,15 @@ export const derivedTownSupportStructures = (
   // converter earns no gold and shouldn't show a "Sell Off gold" line).
   aggregateCounts: Partial<Record<ModifierStructureType, number>>;
 } => {
-  let mintworksCount = 0;
+  let manufactoryCount = 0;
   let hasIncubationEngine = false;
-  // mintworks-stacking task: no town-level Clearing House signal previously
+  // manufactory-stacking task: no town-level Clearing House signal previously
   // existed on this fallback path — detected here the same support-ring way
-  // Mintworks/Incubation Engine already are, rather than left permanently false.
+  // Manufactory/Incubation Engine already are, rather than left permanently false.
   let clearingHouseActive = false;
   let converterGoldPerMinute = 0;
   const aggregateCounts: Partial<Record<ModifierStructureType, number>> = {};
-  // Several TOWN_MODIFIER_AGGREGATE_TYPES members (Mintworks, Ancillary Depot,
+  // Several TOWN_MODIFIER_AGGREGATE_TYPES members (Manufactory, Ancillary Depot,
   // Weapons Workshop, Titanium/Umbrite Weapons Factory, Titanium/Umbrite
   // Works, Clearing House, Ancillary Factory) have "same_tile"/"town_support"
   // placementMode (structure-placement-metadata.json), meaning they can be
@@ -97,7 +97,7 @@ export const derivedTownSupportStructures = (
     if (!candidate || candidate.ownerId !== ownerId || candidate.ownershipState !== "SETTLED") continue;
     const structure = parseStructure<{ type?: string; status?: string; converterMode?: string }>(candidate.economicStructureJson);
     if (!structure || structure.status !== "active" || !structure.type) continue;
-    if (structure.type === "MINTWORKS") mintworksCount += 1;
+    if (structure.type === "MANUFACTORY") manufactoryCount += 1;
     if (structure.type === "INCUBATION_ENGINE") hasIncubationEngine = true;
     if (structure.type === "CLEARING_HOUSE") clearingHouseActive = true;
     if (CONVERTER_TOWN_MODIFIER_TYPE_SET.has(structure.type)) {
@@ -111,7 +111,7 @@ export const derivedTownSupportStructures = (
       aggregateCounts[type] = (aggregateCounts[type] ?? 0) + 1;
     }
   }
-  return { hasMintworks: mintworksCount > 0, mintworksCount, hasIncubationEngine, clearingHouseActive, converterGoldPerMinute, aggregateCounts };
+  return { hasManufactory: manufactoryCount > 0, manufactoryCount, hasIncubationEngine, clearingHouseActive, converterGoldPerMinute, aggregateCounts };
 };
 
 export const derivedTownIsFed = (

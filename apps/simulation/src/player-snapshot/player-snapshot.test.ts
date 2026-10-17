@@ -29,8 +29,8 @@ describe("buildPlayerSubscriptionSnapshot", () => {
             isFed: false,
             connectedTownCount: 0,
             connectedTownBonus: 0,
-            hasMintworks: false,
-            mintworksActive: false,
+            hasManufactory: false,
+            manufactoryActive: false,
             hasIncubationEngine: false,
             incubationEngineActive: false,
           }),
@@ -658,10 +658,10 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         },
         { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
         { x: 9, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "CLEARING_HOUSE", status: "active" }) },
-        { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "MINTWORKS", status: "active" }) },
+        { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "MANUFACTORY", status: "active" }) },
         { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "INCUBATION_ENGINE", status: "active" }) },
         { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "TRADE_NEXUS", status: "active" }) },
-        // §5.4: FOOD slot supply — town(2) + MINTWORKS/TRADE_NEXUS/INCUBATION_ENGINE/CLEARING_HOUSE
+        // §5.4: FOOD slot supply — town(2) + MANUFACTORY/TRADE_NEXUS/INCUBATION_ENGINE/CLEARING_HOUSE
         // (1 each) = 6 demand; the FARM tile above only gives 1, so these
         // support structures need real supply to not go dormant.
         { x: 8, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" },
@@ -697,21 +697,21 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         supportCurrent: 5,
         supportMax: 5,
         isFed: true,
-        hasMintworks: true, hasIncubationEngine: true,
-        mintworksActive: true, incubationEngineActive: true,
+        hasManufactory: true, hasIncubationEngine: true,
+        manufactoryActive: true, incubationEngineActive: true,
         hasClearingHouse: true, clearingHouseActive: true,
         goldPerMinute: expect.any(Number),
         // §5.4: FOOD is slot-based — town food upkeep is retired to 0.
         foodUpkeepPerMinute: 0
       })
     );
-    // mintworks-stacking task: isCompleteTownSummary now also requires
-    // mintworksCount (snapshot-economy-helpers.ts), which this fixture's
+    // manufactory-stacking task: isCompleteTownSummary now also requires
+    // manufactoryCount (snapshot-economy-helpers.ts), which this fixture's
     // hand-authored townJson blob doesn't carry — that now correctly forces
     // a live recompute instead of short-circuiting on the canned "complete"
     // JSON, which in turn recomputes connectedTownCount/connectedTownBonus
     // from the real (single-town, no network) tile set instead of trusting
-    // the fixture's inconsistent stored values. 1 active Mintworks with an
+    // the fixture's inconsistent stored values. 1 active Manufactory with an
     // active Clearing House: 0.006944 * 1.35 + flat bonus 1/1440 (see the
     // live-town-summary.ts duplicate-formula fix).
     expect(town?.goldPerMinute).toBeCloseTo(0.010069, 4);
@@ -898,9 +898,9 @@ describe("buildPlayerSubscriptionSnapshot", () => {
             isFed: true,
             connectedTownCount: 0,
             connectedTownBonus: 0,
-            hasMintworks: false,
-            mintworksActive: false,
-            mintworksCount: 0,
+            hasManufactory: false,
+            manufactoryActive: false,
+            manufactoryCount: 0,
             hasIncubationEngine: false,
             incubationEngineActive: false,
             foodUpkeepPerMinute: 0.1

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="Manufactory">
+  <ellipse cx="65" cy="108" rx="55" ry="13" fill="#171e1c" opacity=".25"/>
+  <path d="M9 92 65 70 120 92 64 119Z" fill="#827968" stroke="#373c35" stroke-width="2"/>
+  <path d="M19 56 62 38 99 56 99 94 58 111 19 92Z" fill="#76513e" stroke="#302f2d" stroke-width="2"/>
+  <path d="M58 73 99 56 99 94 58 111Z" fill="#533c30"/>
+  <path d="M19 56 19 41 32 48 32 34 45 41 45 27 60 35 99 54 58 73Z" fill="#475353" stroke="#29312f" stroke-width="2"/>
+  <path d="M20 43 31 49 31 56 20 50ZM33 36 44 42 44 49 33 43ZM46 29 59 36 59 43 46 37Z" fill="#bad4cd" stroke="#303c37"/>
+  <path d="M32 49 71 68M45 42 84 61M60 35 99 54" stroke="#89978b" stroke-width="2"/>
+  <path d="M68 40V14l9-3v33M84 47V24l8-3v30" fill="#353631" stroke="#232b27" stroke-width="2"/>
+  <path d="m67 14 10-3m6 13 10-3" stroke="#b08a45" stroke-width="4"/>
+  <path d="M25 64 35 69V81L25 76ZM40 72 50 77V89L40 84Z" fill="#e2b66b" stroke="#34352d" stroke-width="2"/>
+  <path d="M65 79 82 72V98l-17 7Z" fill="#232b27" stroke="#a3865a" stroke-width="2"/>
+  <path d="m68 89 10-4v10l-10 4Z" fill="#98aaa6"/>
+  <path d="m67 99 16-6 13 6-16 7Z" fill="#98aaa6" stroke="#303832"/>
+  <ellipse cx="98" cy="79" rx="12" ry="17" fill="#242a27" stroke="#b08a45" stroke-width="4"/>
+  <path d="M98 63v32M87 73l22 12m-20 5 18-22" stroke="#b08a45" stroke-width="2"/>
+  <ellipse cx="98" cy="79" rx="3" ry="4" fill="#98aaa6"/>
+  <path d="m24 97 13-5 14 7-13 5Z" fill="#98aaa6" stroke="#333a33"/>
+  <path d="m79 108 10-5 10 5v11l-10 5-10-5Z" fill="#98764b" stroke="#38382d" stroke-width="1.5"/>
+  <path d="m96 100 10-5 10 5v11l-10 5-10-5Z" fill="#98764b" stroke="#38382d" stroke-width="1.5"/>
+  <path d="m84 105 10 5v11m7-23 10 5v11" fill="none" stroke="#4b493a" stroke-width="2"/>
+</svg>

@@ -27,8 +27,8 @@ export type StructureModifier = {
   // numbers like a manpower cap bonus, or a percent-per-copy number like
   // Weapons Workshop's empire attack bonus — see `unit`). Set
   // `alreadyAggregated: true` when rawValue was computed from a live count
-  // already (e.g. Mintworks's nonlinear stacking via
-  // mintworksGoldProductionMultiplier) so the aggregator uses it as-is
+  // already (e.g. Manufactory's nonlinear stacking via
+  // manufactoryGoldProductionMultiplier) so the aggregator uses it as-is
   // instead of multiplying again.
   rawValue?: number;
   // "flat" (default) renders the aggregate as a plain +N; "percent" renders
@@ -42,14 +42,14 @@ export type StructureModifier = {
 };
 
 export type ModifierTileContext = {
-  town?: { mintworksCount?: number; clearingHouseActive?: boolean };
+  town?: { manufactoryCount?: number; clearingHouseActive?: boolean };
   resource?: string | undefined;
   converterMode?: ConverterMode;
 };
 
 export type ModifierContext = { tile?: ModifierTileContext };
 
-// One heading ("6 Mintworks") plus every stat total that building type
+// One heading ("6 Manufactories") plus every stat total that building type
 // contributes, combined across all its active copies in a town's support
 // ring (see townModifierTotalsFromCounts in
 // structure-modifier-catalog-town-aggregate.ts). Grouped per building type

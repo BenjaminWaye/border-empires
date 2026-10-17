@@ -57,8 +57,8 @@ describe("menuOverviewForTile — town stat grid", () => {
           populationTier: "TOWN",
           connectedTownCount: 0,
           connectedTownBonus: 0,
-          hasMintworks: false,
-          mintworksActive: false,
+          hasManufactory: false,
+          manufactoryActive: false,
           hasIncubationEngine: false,
           incubationEngineActive: false
         },
@@ -98,8 +98,8 @@ describe("menuOverviewForTile — town stat grid", () => {
           populationTier: "TOWN",
           connectedTownCount: 0,
           connectedTownBonus: 0,
-          hasMintworks: false,
-          mintworksActive: false,
+          hasManufactory: false,
+          manufactoryActive: false,
           hasIncubationEngine: false,
           incubationEngineActive: false
         },
@@ -140,8 +140,8 @@ describe("menuOverviewForTile — town stat grid", () => {
           populationTier: "TOWN",
           connectedTownCount: 0,
           connectedTownBonus: 0,
-          hasMintworks: false,
-          mintworksActive: false,
+          hasManufactory: false,
+          manufactoryActive: false,
           hasIncubationEngine: false,
           incubationEngineActive: false
         },
@@ -178,8 +178,8 @@ describe("menuOverviewForTile — town stat grid", () => {
           populationTier: "TOWN",
           connectedTownCount: 0,
           connectedTownBonus: 0,
-          hasMintworks: false,
-          mintworksActive: false,
+          hasManufactory: false,
+          manufactoryActive: false,
           hasIncubationEngine: false,
           incubationEngineActive: false
         },
@@ -226,8 +226,8 @@ describe("menuOverviewForTile — town stat grid", () => {
           populationTier: "SETTLEMENT",
           connectedTownCount: 0,
           connectedTownBonus: 0,
-          hasMintworks: false,
-          mintworksActive: false,
+          hasManufactory: false,
+          manufactoryActive: false,
           hasIncubationEngine: false,
           incubationEngineActive: false
         },
@@ -264,8 +264,8 @@ describe("menuOverviewForTile — town stat grid", () => {
           populationTier: "TOWN",
           connectedTownCount: 0,
           connectedTownBonus: 0,
-          hasMintworks: false,
-          mintworksActive: false,
+          hasManufactory: false,
+          manufactoryActive: false,
           hasIncubationEngine: false,
           incubationEngineActive: false
         },
@@ -305,8 +305,8 @@ describe("menuOverviewForTile — town stat grid", () => {
           populationTier: "TOWN",
           connectedTownCount: 0,
           connectedTownBonus: 0,
-          hasMintworks: false,
-          mintworksActive: false,
+          hasManufactory: false,
+          manufactoryActive: false,
           hasIncubationEngine: false,
           incubationEngineActive: false
         },
@@ -350,8 +350,8 @@ describe("menuOverviewForTile — town stat grid", () => {
           populationTier: "TOWN",
           connectedTownCount: 0,
           connectedTownBonus: 0,
-          hasMintworks: false,
-          mintworksActive: false,
+          hasManufactory: false,
+          manufactoryActive: false,
           hasIncubationEngine: false,
           incubationEngineActive: false
         },
@@ -389,8 +389,8 @@ describe("menuOverviewForTile — town stat grid", () => {
           populationTier: "METROPOLIS",
           connectedTownCount: 2,
           connectedTownBonus: 0.2,
-          hasMintworks: false,
-          mintworksActive: false,
+          hasManufactory: false,
+          manufactoryActive: false,
           hasIncubationEngine: false,
           incubationEngineActive: false
         }

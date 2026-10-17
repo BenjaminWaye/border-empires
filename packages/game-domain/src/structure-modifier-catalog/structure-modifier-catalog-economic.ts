@@ -9,23 +9,23 @@ import {
 } from "@border-empires/shared";
 import {
   EXCHANGE_GOLD_PER_SLOT_PER_DAY, ORE_REFINERY_OUTPUT_MULT, MINISTRY_HALL_RADIUS, INCUBATION_ENGINE_ONGOING_GROWTH_MULT,
-  ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE, MINTWORKS_FLAT_GOLD_BONUS_PER_MIN, MINTWORKS_GOLD_PRODUCTION_BONUS,
-  MINTWORKS_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE, MINTWORKS_INSTANT_GOLD_BONUS,
+  ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE, MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN, MANUFACTORY_GOLD_PRODUCTION_BONUS,
+  MANUFACTORY_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE, MANUFACTORY_INSTANT_GOLD_BONUS,
   NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY, UPKEEP_MINUTES_PER_DAY
 } from "../server-game-constants/server-game-constants.js";
 import { multiplierPercentLabel, percentLabel, type ModifierContext, type ModifierStructureType, type StructureModifier } from "./structure-modifier-catalog-types.js";
 
-const mintworksModifiers = (ctx: ModifierContext): StructureModifier[] => {
-  const count = ctx.tile?.town?.mintworksCount;
+const manufactoryModifiers = (ctx: ModifierContext): StructureModifier[] => {
+  const count = ctx.tile?.town?.manufactoryCount;
   const clearingHouseActive = Boolean(ctx.tile?.town?.clearingHouseActive);
-  const perCopyPercent = (clearingHouseActive ? MINTWORKS_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE : MINTWORKS_GOLD_PRODUCTION_BONUS) * 100;
-  const goldPerDay = Math.round(MINTWORKS_FLAT_GOLD_BONUS_PER_MIN * UPKEEP_MINUTES_PER_DAY);
+  const perCopyPercent = (clearingHouseActive ? MANUFACTORY_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE : MANUFACTORY_GOLD_PRODUCTION_BONUS) * 100;
+  const goldPerDay = Math.round(MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN * UPKEEP_MINUTES_PER_DAY);
   const hasLiveCount = typeof count === "number" && count > 0;
   const stackedValueText = hasLiveCount
     ? `${percentLabel(perCopyPercent * count)} town coin production`
-    : `${percentLabel(perCopyPercent)} town coin production per Mintworks`;
+    : `${percentLabel(perCopyPercent)} town coin production per Manufactory`;
   return [
-    { statLabel: "Instant coin", valueText: `+${MINTWORKS_INSTANT_GOLD_BONUS} (once, on completion)`, tone: "positive", isTownWide: true },
+    { statLabel: "Instant coin", valueText: `+${MANUFACTORY_INSTANT_GOLD_BONUS} (once, on completion)`, tone: "positive", isTownWide: true },
     { statLabel: "Coin", valueText: `+${goldPerDay}/day`, tone: "positive", isTownWide: true, rawValue: goldPerDay },
     // Nonlinear stacking (each copy is worth more with an active Clearing
     // House) means the aggregate total can't be derived by multiplying a
@@ -81,7 +81,7 @@ const synthesizerModifiers = (type: ModifierStructureType, ctx: ModifierContext)
     // rawValue (flat per-instance gold/day) lets townModifierTotalsFromCounts
     // aggregate this into the town-wide modifier list when the structure is
     // in a town's support ring (its gold is folded into that town's own
-    // production there, same as Mintworks) — see TOWN_MODIFIER_AGGREGATE_TYPES.
+    // production there, same as Manufactory) — see TOWN_MODIFIER_AGGREGATE_TYPES.
     return [{ statLabel: "Sell Off coin", valueText: `+${goldPerDay}/day`, tone: "positive", isTownWide: true, rawValue: goldPerDay }];
   }
   return [{ statLabel: "Refine mode supplies", valueText: `+1 ${resource} slot`, tone: "positive", isTownWide: false }];
@@ -109,7 +109,7 @@ export const economicStructureModifiers = (type: ModifierStructureType, ctx: Mod
     return [{ statLabel: "UMBRITE slot", valueText: `+${TILE_SLOT_BOOST_STRUCTURES.UMBRITE_RIG}`, tone: "positive", isTownWide: false }];
   }
   if (type === "MINE") return mineModifiers(ctx);
-  if (type === "MINTWORKS") return mintworksModifiers(ctx);
+  if (type === "MANUFACTORY") return manufactoryModifiers(ctx);
   if (type === "INCUBATION_ENGINE") {
     return [
       { statLabel: "Population", valueText: `+${INCUBATION_ENGINE_INSTANT_POPULATION_BURST.toLocaleString()} (once, on completion)`, tone: "positive", isTownWide: true },
@@ -124,11 +124,11 @@ export const economicStructureModifiers = (type: ModifierStructureType, ctx: Mod
   }
   if (type === "CLEARING_HOUSE") {
     // "+25%" alone read as +25% of gold production, when it's really a jump
-    // from +10% to +35% gold bonus per Mintworks copy — spell out both ends
+    // from +10% to +35% gold bonus per Manufactory copy — spell out both ends
     // so the size of the buff is unambiguous.
     return [{
-      statLabel: "Mintworks coin bonus per copy",
-      valueText: `${percentLabel(MINTWORKS_GOLD_PRODUCTION_BONUS * 100)} → ${percentLabel(MINTWORKS_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE * 100)}`,
+      statLabel: "Manufactory coin bonus per copy",
+      valueText: `${percentLabel(MANUFACTORY_GOLD_PRODUCTION_BONUS * 100)} → ${percentLabel(MANUFACTORY_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE * 100)}`,
       tone: "positive",
       isTownWide: true
     }];

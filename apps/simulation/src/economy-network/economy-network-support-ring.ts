@@ -80,12 +80,12 @@ export const hasSupportedStructure = (
 /**
  * Counting sibling of hasSupportedStructure, for structures whose bonus
  * STACKS with the number of active instances rather than gating on "any one
- * exists" (mintworks-stacking task: Mintworks's town gold production bonus is now
- * additive per-mintworks). Active-only (no includeUnderConstruction param —
+ * exists" (manufactory-stacking task: Manufactory's town gold production bonus is now
+ * additive per-manufactory). Active-only (no includeUnderConstruction param —
  * uniqueness checks that need under_construction stay on the boolean
  * hasSupportedStructure above; nothing needs an under-construction count).
  *
- * Mintworks's structure-placement-metadata.json placementMode is "same_tile"
+ * Manufactory's structure-placement-metadata.json placementMode is "same_tile"
  * (verified — NOT "town_support"; it shares that placement mode with
  * ANCILLARY_DEPOT/IRON_WEAPONS_FACTORY/FUR_WEAPONS_FACTORY), meaning a copy can
  * sit directly ON the town tile itself as well as on any support tile in its

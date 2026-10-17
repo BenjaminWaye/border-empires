@@ -17,7 +17,7 @@ export type RuntimeTileYieldEconomyContext = {
   fedTownKeys: Set<string>;
   firstThreeTownKeys: Set<string>;
   // §5.4: dormant economicStructure tile keys ("x,y") for this player — a
-  // dormant Mintworks/Bank/Trade Nexus/Clearing House stops granting its gold
+  // dormant Manufactory/Bank/Trade Nexus/Clearing House stops granting its gold
   // bonus. Threaded into refreshTownEconomyFields via enrichTileWithTownContext.
   dormantEconomicStructureKeys: ReadonlySet<string>;
 };

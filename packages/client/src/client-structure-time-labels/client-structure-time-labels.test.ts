@@ -13,12 +13,12 @@ describe("structure-info build and removal times", () => {
 
   it("removes at 0.5s per manpower point of the structure", () => {
     expect(structureInfoRemovalMs("TITANIUM_BASTION")).toBe(FORT_TIER_LADDER.TITANIUM_BASTION.manpower * 500);
-    expect(structureInfoRemovalMs("MINTWORKS")).toBe(structureBuildManpowerCost("MINTWORKS") * 500);
+    expect(structureInfoRemovalMs("MANUFACTORY")).toBe(structureBuildManpowerCost("MANUFACTORY") * 500);
   });
 
   it("shows the removal time on the structure info card", () => {
-    const html = renderStructureInfoOverlay("MINTWORKS", () => ({
-      title: "Mintworks", detail: "", effects: [], modifiers: [], glyph: "", placement: "Town", costBits: [], buildTimeLabel: "2m 30s"
+    const html = renderStructureInfoOverlay("MANUFACTORY", () => ({
+      title: "Manufactory", detail: "", effects: [], modifiers: [], glyph: "", placement: "Town", costBits: [], buildTimeLabel: "2m 30s"
     }));
     expect(html).toContain("<span>Removal time</span><strong>1m 15s</strong>");
   });

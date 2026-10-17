@@ -2,8 +2,8 @@ import {
   CONVERTER_TOWN_MODIFIER_AGGREGATE_TYPES,
   LONG_PEACE_GROWTH_MULT,
   LONG_PEACE_MS,
-  MINTWORKS_FLAT_GOLD_BONUS_PER_MIN,
-  mintworksGoldProductionMultiplier,
+  MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN,
+  manufactoryGoldProductionMultiplier,
   converterExchangeGoldPerMinute,
   PASSIVE_INCOME_MULT,
   POPULATION_GROWTH_BASE_RATE,
@@ -73,7 +73,7 @@ export const hasSupportedStructure = (
   const y = Number(rawY);
   if (!Number.isInteger(x) || !Number.isInteger(y)) return false;
   const allowed = Array.isArray(structureType) ? new Set(structureType) : new Set([structureType as string]);
-  // Several allowed structure types (Mintworks, Ancillary Depot, Weapons
+  // Several allowed structure types (Manufactory, Ancillary Depot, Weapons
   // Workshop, etc.) have "same_tile"/"town_support" placementMode
   // (structure-placement-metadata.json) — legal directly on the town's own
   // tile, not just its support ring — see economy-network.ts's
@@ -111,10 +111,10 @@ export const hasSupportedStructure = (
 /**
  * Counting sibling of hasSupportedStructure above (same wire-shaped
  * RuntimeState tiles) for structures whose bonus stacks per active instance
- * rather than gating on "any one exists" — mintworks-stacking task:
- * Mintworks's town gold production bonus is additive per active Mintworks
+ * rather than gating on "any one exists" — manufactory-stacking task:
+ * Manufactory's town gold production bonus is additive per active Manufactory
  * in the support ring. Mirrors economy-network.ts's DomainTileState
- * countSupportedStructures' dual on-tile + support-ring check (Mintworks and
+ * countSupportedStructures' dual on-tile + support-ring check (Manufactory and
  * several other TOWN_MODIFIER_AGGREGATE_TYPES members have "same_tile"/
  * "town_support" placementMode and can legally sit directly on the town's
  * own tile — the loop below used to only scan the ring, silently missing an
@@ -166,7 +166,7 @@ export const countSupportedStructures = (
  * on RuntimeState wire tiles, mirroring this file's own hasSupportedStructure/
  * countSupportedStructures loop shape (support-ring only, no on-tile check).
  * Sums the gold/minute of every active EXCHANGE-mode converter in the town's
- * support ring (Mintworks-style attribution: that gold becomes part of this
+ * support ring (Manufactory-style attribution: that gold becomes part of this
  * town's own production instead of a separate empire-wide income line), and
  * returns per-type counts alongside the total so townModifierTotalsForTown
  * can surface a "N Aether Condensers -> Sell Off gold" modifier group.
@@ -288,7 +288,7 @@ export const buildTownSummary = (
   firstThreeTownKeys?: ReadonlySet<string>,
   nearbyWarTownKeys?: ReadonlySet<string>,
   // §5.4: dormant economicStructure tile keys ("x,y") for this player — a
-  // dormant Mintworks/Bank/Trade Nexus/Clearing House/Incubation Engine stops granting
+  // dormant Manufactory/Bank/Trade Nexus/Clearing House/Incubation Engine stops granting
   // its bonus.
   dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
 ): Tile["town"] | undefined => {
@@ -315,8 +315,8 @@ export const buildTownSummary = (
     : { supportCurrent: 0, supportMax: 0 };
   const supportRatio = support.supportMax <= 0 ? 1 : support.supportCurrent / support.supportMax;
   const isFed = tile.ownerId ? fedTownKeys.has(tileKey) : false;
-  const mintworksCount = tile.ownerId ? countSupportedStructures(tileKey, tile.ownerId, "MINTWORKS", tilesByKey, dormantEconomicStructureKeys) : 0;
-  const hasMintworks = mintworksCount > 0;
+  const manufactoryCount = tile.ownerId ? countSupportedStructures(tileKey, tile.ownerId, "MANUFACTORY", tilesByKey, dormantEconomicStructureKeys) : 0;
+  const hasManufactory = manufactoryCount > 0;
   const hasIncubationEngine = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "INCUBATION_ENGINE", tilesByKey, dormantEconomicStructureKeys));
   // Incubation Engine grants an instant one-time population burst
   // on completion (INCUBATION_ENGINE_INSTANT_POPULATION_BURST,
@@ -339,10 +339,10 @@ export const buildTownSummary = (
   const terrain = townTerrainModifiers(terrainProfileId, coastal);
   const baseGoldPerMinute = (isSettlement ? SETTLEMENT_BASE_GOLD_PER_MIN : TOWN_BASE_GOLD_PER_MIN) * terrain.goldMultiplier;
   // Aether Condenser/Titanium Works/Umbrite Works (and Advanced tiers) built
-  // in this town's support ring: like Mintworks, their EXCHANGE-mode gold
+  // in this town's support ring: like Manufactory, their EXCHANGE-mode gold
   // becomes part of THIS town's own production instead of separate empire
   // income — see supportedConverterGoldPerMinute above. Excluded for
-  // SETTLEMENT-tier towns, matching the Mintworks flat bonus's own gate
+  // SETTLEMENT-tier towns, matching the Manufactory flat bonus's own gate
   // (isSettlement returns before either bonus is ever added).
   const converterSupport =
     tile.ownerId && tile.ownershipState === "SETTLED" && !isSettlement
@@ -360,11 +360,11 @@ export const buildTownSummary = (
               supportRatio *
               townPopulationMultiplier(populationTier) *
               (1 + (townPartial.connectedTownBonus ?? 0)) *
-              mintworksGoldProductionMultiplier(mintworksCount, clearingHouseActive) *
+              manufactoryGoldProductionMultiplier(manufactoryCount, clearingHouseActive) *
               firstThreeTownMult *
               incomeMultiplier *
               PASSIVE_INCOME_MULT
-            ) + MINTWORKS_FLAT_GOLD_BONUS_PER_MIN * mintworksCount + converterSupport.total;
+            ) + MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN * manufactoryCount + converterSupport.total;
   const populationView = resolvedTownPopulation(townPartial, tile.x, tile.y, populationTier);
   if (!populationView && !hasCompleteAuthoritativeTown) return undefined;
   const population = populationView?.population ?? townPartial.population!;
@@ -452,9 +452,9 @@ export const buildTownSummary = (
     // others — the bonus was applying invisibly. Only sent when active.
     ...(firstThreeTownMult !== 1 ? { firstThreeTownGoldMult: firstThreeTownMult } : {}),
     ...(firstThreeTownPopGrowthMult !== 1 ? { firstThreeTownPopGrowthMult } : {}),
-    hasMintworks,
-    mintworksActive: hasMintworks && isFed,
-    mintworksCount,
+    hasManufactory,
+    manufactoryActive: hasManufactory && isFed,
+    manufactoryCount,
     hasIncubationEngine,
     incubationEngineActive: hasIncubationEngine,
     ...(clearingHouseActive ? { hasClearingHouse: true, clearingHouseActive: true, clearingHouseTownNames } : {}),

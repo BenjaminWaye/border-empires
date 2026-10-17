@@ -37,8 +37,8 @@ const unfedTownTile = (overrides: TileOverrides = {}): Tile => {
     populationTier: "TOWN",
     connectedTownCount: 0,
     connectedTownBonus: 0,
-    hasMintworks: false,
-    mintworksActive: false,
+    hasManufactory: false,
+    manufactoryActive: false,
     hasIncubationEngine: false,
     incubationEngineActive: false,
       ...townOverrides
