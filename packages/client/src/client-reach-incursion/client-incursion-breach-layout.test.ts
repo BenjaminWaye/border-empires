@@ -17,6 +17,7 @@ describe("incursionBreachLayout", () => {
     expect(incursionBreachLayout("straight", kinds)).toEqual({
       straightEdges: { north: true, east: false, south: true, west: true },
       front: [],
+      frontEdges: { north: false, east: false, south: false, west: false },
       band: [],
       veilSides: []
     });
@@ -31,6 +32,7 @@ describe("incursionBreachLayout", () => {
   it("replaces the strip with the front line all round for spikes, with teeth only on the sides facing my land", () => {
     const layout = incursionBreachLayout("spikes", kinds, 10, 20);
     expect(layout.straightEdges).toEqual({ north: false, east: false, south: false, west: false });
+    expect(layout.frontEdges).toEqual({ north: true, east: false, south: true, west: true });
     const toothTips = layout.front.filter((piece) => piece.points.length === 3).map((piece) => piece.points[2]!);
     // Teeth reach out past the north and west sides (mine) but never past the unowned south side.
     expect(toothTips.some((p) => p.y < -0.6)).toBe(true);

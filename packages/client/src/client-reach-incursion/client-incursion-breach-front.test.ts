@@ -144,4 +144,26 @@ describe("organicSideFront", () => {
     // ...and only 3 of the 4 teeth: the one at the inside corner is dropped.
     expect(toothOutlines(pieces)).toHaveLength(3);
   });
+
+  it("keeps the tooth at an inner corner the side ends on: only the side starting there drops one", () => {
+    // The pocket continues north-east and east: the north side's end is the inner corner, so the east side (starting there) drops its tooth instead.
+    const kinds = around({ "1,-1": "pocket", "1,0": "pocket" });
+    expect(toothOutlines(organicSideFront(NORTH, true, 0, 0, kinds))).toHaveLength(4);
+  });
+
+  it("treats a pocket tile touching only diagonally as an outer corner, not an inner one", () => {
+    const capCount = (pieces: ReturnType<typeof organicSideFront>): number =>
+      pieces.filter((p) => p.points.length === 4 && Math.hypot(p.points[0]!.x - p.points[2]!.x, p.points[0]!.y - p.points[2]!.y) < 0.1).length;
+    const lone = organicSideFront(NORTH, true, 0, 0, around({}));
+    const diagonal = organicSideFront(NORTH, true, 0, 0, around({ "-1,-1": "pocket" }));
+    expect(capCount(diagonal)).toBe(capCount(lone));
+    expect(toothOutlines(diagonal)).toHaveLength(4);
+  });
+
+  it("tapers into the old border when it lies diagonally across a straight run", () => {
+    // The pocket continues west, but the rival's own land sits north-west: the front ends at the old border there.
+    const kinds = around({ "-1,0": "pocket", "-1,-1": "rival" });
+    const line = organicSideFront(NORTH, false, 0, 0, kinds).filter((p) => p.points.length === 4);
+    expect(Math.hypot(line[0]!.points[0]!.x - line[0]!.points[3]!.x, line[0]!.points[0]!.y - line[0]!.points[3]!.y)).toBeLessThan(0.003);
+  });
 });

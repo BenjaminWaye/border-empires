@@ -20,8 +20,8 @@ import type { IncursionBreachStyle } from "../client-reach-incursion/client-incu
 /** Band quads (one per tile near a breached boundary) and veil quads (one per breached side). */
 const MAX_BAND_QUADS = 4096;
 const MAX_VEIL_QUADS = 2048;
-/** Front-line pieces: line segments, corner caps and tooth triangles (stored as degenerate quads); about 17 per breached side, so ~700 sides on screen. */
-const MAX_FRONT_QUADS = 12288;
+/** Front-line pieces: line segments, corner caps and tooth triangles (stored as degenerate quads); about 17 per breached side, so ~1400 sides on screen. Past that, tiles fall back to plain strips. */
+const MAX_FRONT_QUADS = 24576;
 /** The front line sits just above the pocket's edge strips. */
 const FRONT_LIFT = 0.004;
 const BAND_LIFT = 0.003;
@@ -252,57 +252,61 @@ export type IncursionBreachTile = {
 
 export type IncursionBreachFx3D = {
   readonly clear: () => void;
-  /** `theirs` = the attacker's colour; `mark` = the pocket's outline colour (black on light attackers, white on dark). */
-  readonly add: (x: number, z: number, surfaceY: number, breach: IncursionBreachTile, theirs: Color, mark: Color) => void;
+  /**
+   * `theirs` = the attacker's colour; `mark` = the pocket's outline colour
+   * (black on light attackers, white on dark). Returns false when the tile's
+   * front line didn't fit (nothing of it is drawn), so the caller can fall
+   * back to plain strips.
+   */
+  readonly add: (x: number, z: number, surfaceY: number, breach: IncursionBreachTile, theirs: Color, mark: Color) => boolean;
   readonly commit: () => void;
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
 };
 
 /** A group of meshes sharing one material, created the first time something is drawn with it. */
-type Kit = { readonly streams: readonly QuadStream[]; readonly material: ShaderMaterial | MeshBasicMaterial };
+type Kit<S extends string> = { readonly material: ShaderMaterial | MeshBasicMaterial; readonly streams: Readonly<Record<S, QuadStream>> };
 
 export const createIncursionBreachFx3D = (parent: Group): IncursionBreachFx3D => {
   // Each look's buffers (up to a few MB) and shader are only created once a
   // tile actually uses that look, so the default spikes never pay for the
   // ember/ink/veil shaders, and nobody pays for anything with no pocket on screen.
-  const kits: Kit[] = [];
-  const makeKit = <T extends Kit>(kit: T): T => {
-    for (const stream of kit.streams) parent.add(stream.mesh);
-    kits.push(kit);
-    return kit;
+  const created: Kit<string>[] = [];
+  const lazyKit = <S extends string>(make: () => Kit<S>): { readonly get: () => Kit<S>; readonly peek: () => Kit<S> | undefined } => {
+    let kit: Kit<S> | undefined;
+    return {
+      get: () => {
+        if (!kit) {
+          kit = make();
+          for (const stream of Object.values<QuadStream>(kit.streams)) parent.add(stream.mesh);
+          created.push(kit);
+        }
+        return kit;
+      },
+      peek: () => kit
+    };
   };
-  let bandKit: (Kit & { readonly band: QuadStream; readonly material: ShaderMaterial }) | undefined;
-  let veilKit: (Kit & { readonly veil: QuadStream; readonly material: ShaderMaterial }) | undefined;
-  let frontKit: (Kit & { readonly outline: QuadStream; readonly fill: QuadStream }) | undefined;
-  const bandStream = (): QuadStream => {
-    if (!bandKit) {
-      const material = createMaterial(BAND_VERTEX, BAND_FRAGMENT, NormalBlending);
-      const band = createQuadStream(MAX_BAND_QUADS, material, { position: 3, aLocal: 2, aWorld: 2, aBand: 3, aTheirs: 3 }, 10);
-      bandKit = makeKit({ streams: [band], material, band });
-    }
-    return bandKit.band;
-  };
-  const veilStream = (): QuadStream => {
-    if (!veilKit) {
-      // Additive, so the veil reads as light rather than a tinted sheet, even over the striped pocket.
-      const material = createMaterial(VEIL_VERTEX, VEIL_FRAGMENT, AdditiveBlending);
-      const veil = createQuadStream(MAX_VEIL_QUADS, material, { position: 3, aVeil: 2, aTheirs: 3 }, 11);
-      veilKit = makeKit({ streams: [veil], material, veil });
-    }
-    return veilKit.veil;
-  };
-  const frontStreams = (): { readonly outline: QuadStream; readonly fill: QuadStream } => {
-    if (!frontKit) {
-      // Unlit flat colour, like the edge strips. Every outline draws before every
-      // fill, so where pieces overlap the rim only shows round the whole shape.
-      const material = new MeshBasicMaterial({ toneMapped: false, vertexColors: true, transparent: true, depthWrite: false, side: DoubleSide });
-      const outline = createQuadStream(MAX_FRONT_QUADS, material, { position: 3, color: 3 }, 12);
-      const fill = createQuadStream(MAX_FRONT_QUADS, material, { position: 3, color: 3 }, 13);
-      frontKit = makeKit({ streams: [outline, fill], material, outline, fill });
-    }
-    return frontKit;
-  };
+  const bandKit = lazyKit(() => {
+    const material = createMaterial(BAND_VERTEX, BAND_FRAGMENT, NormalBlending);
+    return { material, streams: { band: createQuadStream(MAX_BAND_QUADS, material, { position: 3, aLocal: 2, aWorld: 2, aBand: 3, aTheirs: 3 }, 10) } };
+  });
+  const veilKit = lazyKit(() => {
+    // Additive, so the veil reads as light rather than a tinted sheet, even over the striped pocket.
+    const material = createMaterial(VEIL_VERTEX, VEIL_FRAGMENT, AdditiveBlending);
+    return { material, streams: { veil: createQuadStream(MAX_VEIL_QUADS, material, { position: 3, aVeil: 2, aTheirs: 3 }, 11) } };
+  });
+  const frontKit = lazyKit(() => {
+    // Unlit flat colour, like the edge strips. Every outline draws before every
+    // fill, so where pieces overlap the rim only shows round the whole shape.
+    const material = new MeshBasicMaterial({ toneMapped: false, vertexColors: true, transparent: true, depthWrite: false, side: DoubleSide });
+    return {
+      material,
+      streams: {
+        outline: createQuadStream(MAX_FRONT_QUADS, material, { position: 3, color: 3 }, 12),
+        fill: createQuadStream(MAX_FRONT_QUADS, material, { position: 3, color: 3 }, 13)
+      }
+    };
+  });
   // My tiles border several pocket tiles; each world tile gets one band quad per rebuild.
   const bandTilesThisRebuild = new Set<string>();
 
@@ -314,19 +318,23 @@ export const createIncursionBreachFx3D = (parent: Group): IncursionBreachFx3D =>
 
   const add: IncursionBreachFx3D["add"] = (x, z, surfaceY, breach, theirs, mark) => {
     const colour = [theirs.r, theirs.g, theirs.b];
+    const markColour = [mark.r, mark.g, mark.b];
     const frontY = surfaceY + FRONT_LIFT;
+    let frontFits = true;
     if (breach.layout.front.length > 0) {
-      const { outline, fill } = frontStreams();
-      for (const piece of breach.layout.front) {
-        const written =
-          writeQuad(outline, { position: quadCorners(piece.outline, x, frontY, z), color: [mark.r, mark.g, mark.b] }) &&
+      const { outline, fill } = frontKit.get().streams;
+      // All or nothing per tile, so a full buffer never leaves half a front line.
+      frontFits = fill.count + breach.layout.front.length <= fill.maxQuads;
+      if (frontFits) {
+        for (const piece of breach.layout.front) {
+          writeQuad(outline, { position: quadCorners(piece.outline, x, frontY, z), color: markColour });
           writeQuad(fill, { position: quadCorners(piece.points, x, frontY, z), color: colour });
-        if (!written) break;
+        }
       }
     }
     const style = STYLE_CODE[breach.style];
     if (style !== undefined && breach.layout.band.length > 0) {
-      const band = bandStream();
+      const { band } = bandKit.get().streams;
       const y = surfaceY + BAND_LIFT;
       for (const tile of breach.layout.band) {
         const worldX = breach.worldX + tile.dx;
@@ -347,8 +355,8 @@ export const createIncursionBreachFx3D = (parent: Group): IncursionBreachFx3D =>
         if (!written) break;
       }
     }
-    if (breach.layout.veilSides.length === 0) return;
-    const veil = veilStream();
+    if (breach.layout.veilSides.length === 0) return frontFits;
+    const { veil } = veilKit.get().streams;
     for (const key of breach.layout.veilSides) {
       const side = VEIL_SIDES[key];
       const along0 = side.alongX ? breach.worldX + side.from[0] : breach.worldY + side.from[1];
@@ -363,9 +371,10 @@ export const createIncursionBreachFx3D = (parent: Group): IncursionBreachFx3D =>
       });
       if (!written) break;
     }
+    return frontFits;
   };
 
-  const allStreams = (): QuadStream[] => kits.flatMap((kit) => kit.streams);
+  const allStreams = (): QuadStream[] => created.flatMap((kit) => Object.values<QuadStream>(kit.streams));
   return {
     clear: () => {
       for (const stream of allStreams()) stream.count = 0;
@@ -378,21 +387,19 @@ export const createIncursionBreachFx3D = (parent: Group): IncursionBreachFx3D =>
     update: (nowMs) => {
       // Wrapped so the float stays precise in long sessions; the shaders only use slow drifts of it.
       const t = (nowMs / 1000) % 3600;
-      if (bandKit) bandKit.material.uniforms.uTime!.value = t;
-      if (veilKit) veilKit.material.uniforms.uTime!.value = t;
+      for (const kit of [bandKit.peek(), veilKit.peek()]) {
+        if (kit?.material instanceof ShaderMaterial) kit.material.uniforms.uTime!.value = t;
+      }
     },
     dispose: () => {
-      for (const kit of kits) {
-        for (const stream of kit.streams) {
+      for (const kit of created) {
+        for (const stream of Object.values<QuadStream>(kit.streams)) {
           parent.remove(stream.mesh);
           stream.geometry.dispose();
         }
         kit.material.dispose();
       }
-      kits.length = 0;
-      bandKit = undefined;
-      veilKit = undefined;
-      frontKit = undefined;
+      created.length = 0;
     }
   };
 };

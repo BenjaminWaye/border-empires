@@ -8,12 +8,14 @@
 //     pixels they blend to the average colour instead of shimmering. UVs run
 //     0..1 per tile and the stripe count per tile is whole, so neighbouring
 //     tiles' stripes line up.
-//   - solid strips just inside every pocket edge in a colour contrasting with
-//     the intruder's fill (incursionMarkColor), so the pocket has a crisp
-//     outline inside the viewer's bright reach border.
-//   - optionally, an animated "breach" look (spikes / ember / ink / veil) on the
-//     boundary with the viewer's own land, in place of the strip there --
-//     see client-map-3d-incursion-breach-fx.ts.
+//   - the pocket's edge (client-incursion-breach-layout.ts decides which look
+//     goes where): by default the spiked front line all round the pocket, or
+//     an ember / ink / veil look on the sides facing the viewer's land
+//     (client-map-3d-incursion-breach-fx.ts); every other side, and every
+//     side on the old "straight" style, gets a solid strip just inside the
+//     pocket in a colour contrasting with the intruder's fill
+//     (incursionMarkColor). If the front-line buffer is full, a tile falls
+//     back to the strips so it never loses its outline.
 // Rebuilt from the throttled terrain rebuild (clear/add/commit), like the
 // dormant-frontier tint it sits beside in client-map-3d-aether-survey-line.ts.
 
@@ -183,15 +185,20 @@ export const createIncursionOverlay3D = (parent: Group, maxTiles: number): Incur
     mine.set(normalizeColorForThree(hatchColors.mine));
     if (!writeQuad(hatch, x0, x1, z0, z1, surfaceY, [theirs, mine])) return;
     edge.set(normalizeColorForThree(edgeColor));
-    const y = surfaceY + EDGE_LIFT;
-    if (tileEdges.north) writeQuad(edges, x0, x1, z0, z0 + EDGE_WIDTH, y, [edge]);
-    if (tileEdges.south) writeQuad(edges, x0, x1, z1 - EDGE_WIDTH, z1, y, [edge]);
-    if (tileEdges.west) writeQuad(edges, x0, x0 + EDGE_WIDTH, z0, z1, y, [edge]);
-    if (tileEdges.east) writeQuad(edges, x1 - EDGE_WIDTH, x1, z0, z1, y, [edge]);
+    let strips = tileEdges;
     if (breach && breach.style !== "straight") {
       breachFx ??= createIncursionBreachFx3D(parent);
-      breachFx.add(x, z, surfaceY, breach, theirs, edge);
+      // A full front-line buffer draws nothing for this tile: give it the plain strips instead.
+      if (!breachFx.add(x, z, surfaceY, breach, theirs, edge)) {
+        const f = breach.layout.frontEdges;
+        strips = { north: strips.north || f.north, east: strips.east || f.east, south: strips.south || f.south, west: strips.west || f.west };
+      }
     }
+    const y = surfaceY + EDGE_LIFT;
+    if (strips.north) writeQuad(edges, x0, x1, z0, z0 + EDGE_WIDTH, y, [edge]);
+    if (strips.south) writeQuad(edges, x0, x1, z1 - EDGE_WIDTH, z1, y, [edge]);
+    if (strips.west) writeQuad(edges, x0, x0 + EDGE_WIDTH, z0, z1, y, [edge]);
+    if (strips.east) writeQuad(edges, x1 - EDGE_WIDTH, x1, z0, z1, y, [edge]);
   };
 
   return {

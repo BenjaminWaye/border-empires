@@ -27,7 +27,7 @@ describe("createIncursionOverlay3D", () => {
     const group = new Group();
     const overlay = createIncursionOverlay3D(group, 2);
     const noEdges = { north: false, east: false, south: false, west: false };
-    const straight = { straightEdges: { north: true, east: true, south: true, west: true }, front: [], band: [], veilSides: [] };
+    const straight = { straightEdges: { north: true, east: true, south: true, west: true }, front: [], frontEdges: { north: false, east: false, south: false, west: false }, band: [], veilSides: [] };
     overlay.addTile(0, 0, 0, { theirs: "#ff0000", mine: "#00ff00" }, "#ffffff", straight.straightEdges, { style: "straight", worldX: 0, worldY: 0, layout: straight });
     overlay.commit();
     overlay.update(1000);
@@ -47,9 +47,9 @@ describe("createIncursionOverlay3D", () => {
     const hatch = { theirs: "#ff0000", mine: "#00ff00" };
     // Two pocket tiles side by side, both listing the same tile of mine north of the seam.
     const shared = { dx: 0, dy: -1, side: 1 as const, mask: 0b0100_0000 };
-    overlay.addTile(0, 0, 0, hatch, "#ffffff", noEdges, { style: "ember", worldX: 10, worldY: 10, layout: { straightEdges: noEdges, front: [], band: [shared], veilSides: [] } });
-    overlay.addTile(1, 0, 0, hatch, "#ffffff", noEdges, { style: "ember", worldX: 11, worldY: 10, layout: { straightEdges: noEdges, front: [], band: [{ ...shared, dx: -1 }], veilSides: [] } });
-    overlay.addTile(2, 0, 0, hatch, "#ffffff", noEdges, { style: "veil", worldX: 12, worldY: 10, layout: { straightEdges: noEdges, front: [], band: [], veilSides: ["north", "east"] } });
+    overlay.addTile(0, 0, 0, hatch, "#ffffff", noEdges, { style: "ember", worldX: 10, worldY: 10, layout: { straightEdges: noEdges, front: [], frontEdges: noEdges, band: [shared], veilSides: [] } });
+    overlay.addTile(1, 0, 0, hatch, "#ffffff", noEdges, { style: "ember", worldX: 11, worldY: 10, layout: { straightEdges: noEdges, front: [], frontEdges: noEdges, band: [{ ...shared, dx: -1 }], veilSides: [] } });
+    overlay.addTile(2, 0, 0, hatch, "#ffffff", noEdges, { style: "veil", worldX: 12, worldY: 10, layout: { straightEdges: noEdges, front: [], frontEdges: noEdges, band: [], veilSides: ["north", "east"] } });
     overlay.commit();
     const [, , band, veil] = group.children as Mesh[];
     expect(drawnQuads(band!)).toBe(1);
@@ -79,7 +79,7 @@ describe("createIncursionOverlay3D", () => {
       style: "spikes",
       worldX: 2,
       worldY: 3,
-      layout: { straightEdges: noEdges, front: [line, tooth], band: [], veilSides: [] }
+      layout: { straightEdges: noEdges, front: [line, tooth], frontEdges: { north: true, east: false, south: false, west: false }, band: [], veilSides: [] }
     });
     overlay.commit();
     // Spikes only create their own two meshes (outline + fill), after hatch and edge strips.
@@ -114,6 +114,33 @@ describe("createIncursionOverlay3D", () => {
     overlay.commit();
     expect(drawnQuads(hatch!)).toBe(1);
     expect(drawnQuads(edges!)).toBe(4);
+    overlay.dispose();
+  });
+
+  it("falls back to the plain strips on a tile whose front line no longer fits", () => {
+    const group = new Group();
+    const overlay = createIncursionOverlay3D(group, 2);
+    const [, edges] = group.children as Mesh[];
+    const noEdges = { north: false, east: false, south: false, west: false };
+    const corners = [{ x: -0.5, y: -0.52 }, { x: 0.5, y: -0.52 }, { x: 0.5, y: -0.48 }, { x: -0.5, y: -0.48 }];
+    const quad = { points: corners, outline: corners };
+    const layoutOf = (pieces: number) => ({
+      straightEdges: noEdges,
+      front: Array.from({ length: pieces }, () => quad),
+      frontEdges: { north: true, east: false, south: false, west: true },
+      band: [],
+      veilSides: []
+    });
+    const hatch = { theirs: "#ff0000", mine: "#00ff00" };
+    overlay.addTile(0, 0, 0, hatch, "#ffffff", noEdges, { style: "spikes", worldX: 0, worldY: 0, layout: layoutOf(1) });
+    overlay.commit();
+    expect(drawnQuads(edges!)).toBe(0);
+    // Far more line than the front buffer holds: all or nothing, so this tile gets its two strips instead.
+    overlay.addTile(1, 0, 0, hatch, "#ffffff", noEdges, { style: "spikes", worldX: 1, worldY: 0, layout: layoutOf(30000) });
+    overlay.commit();
+    expect(drawnQuads(edges!)).toBe(2);
+    const front = group.children[3] as Mesh;
+    expect(drawnQuads(front)).toBe(1);
     overlay.dispose();
   });
 });

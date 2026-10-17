@@ -100,18 +100,29 @@ const unit = (p: BreachPoint): BreachPoint => {
 type CornerTurn = "straight" | "outer" | "inner" | "border";
 
 /**
- * How the boundary continues past one end of a side: on along the next tile,
- * round an outer corner, round an inner one -- or into the rival's own land
- * behind the old border ("border"), where the front line simply ends, run
- * right up to the corner, since no incursion tile carries it on.
+ * How the boundary continues past one end of a side. `next` is the tile beside
+ * this one along the side, `diagonal` the tile across from that:
+ *   - next is pocket, diagonal isn't: on along the next tile ("straight");
+ *   - next and diagonal both pocket: round an inner corner ("inner");
+ *   - next isn't pocket: round this tile's outer corner ("outer") -- also when
+ *     the diagonal is pocket, since a tile touching only at the corner point
+ *     has its own outer corner there;
+ *   - the line would carry on into the rival's own land behind the old border
+ *     ("border"), where it simply ends, run right up to the corner, since no
+ *     incursion tile carries it on.
  */
 const cornerTurn = (side: FrontSide, along: 1 | -1, kindAt: (dx: number, dy: number) => FrontNeighbourKind): CornerTurn => {
-  const diagonal = kindAt(side.dx + side.t.x * along, side.dy + side.t.y * along);
   const next = kindAt(side.t.x * along, side.t.y * along);
-  if (diagonal === "rival" || next === "rival") return "border";
-  if (diagonal === "pocket") return "inner";
-  return next === "pocket" ? "straight" : "outer";
+  if (next === "rival") return "border";
+  if (next !== "pocket") return "outer";
+  const diagonal = kindAt(side.dx + side.t.x * along, side.dy + side.t.y * along);
+  if (diagonal === "rival") return "border";
+  return diagonal === "pocket" ? "inner" : "straight";
 };
+
+/** Unit tangent of the warped line at `base`, heading along `tangent` (finite difference). */
+const warpedTangent = (warp: (p: BreachPoint) => BreachPoint, base: BreachPoint, tangent: BreachPoint): BreachPoint =>
+  unit(add(warp(add(base, tangent, 0.01)), warp(add(base, tangent, -0.01)), -1));
 
 /** Thick polyline with mitred joints (per-vertex averaged normals), each vertex at its own half-width, plus its rim. */
 const strip = (pts: readonly BreachPoint[], halfWidths: readonly number[]): BreachFrontPiece[] => {
@@ -139,9 +150,8 @@ const swellAt =
  * corners pushed out by OUTLINE_WIDTH (mitred, capped at the sharp tip).
  */
 const tooth = (warp: (p: BreachPoint) => BreachPoint, base: BreachPoint, tangent: BreachPoint, outward: BreachPoint): BreachFrontPiece[] => {
-  const eps = 0.01;
   const centre = warp(base);
-  const t = unit(add(warp(add(base, tangent, eps)), warp(add(base, tangent, -eps)), -1));
+  const t = warpedTangent(warp, base, tangent);
   let n = { x: -t.y, y: t.x };
   if (n.x * outward.x + n.y * outward.y < 0) n = { x: -n.x, y: -n.y };
   const boundary = [add(centre, t, -TOOTH_HALF_BASE), add(centre, n, LINE_WIDTH / 2 + TOOTH_HEIGHT), add(centre, t, TOOTH_HALF_BASE)];
@@ -187,7 +197,8 @@ export const organicSideFront = (
 
   // Stroke width: the world-space swell, tapering to a point over BORDER_TAPER at an end that meets the old border.
   const swell = swellAt(worldX, worldY);
-  const along = path.map((_, i) => path.slice(1, i + 1).reduce((sum, p, k) => sum + Math.hypot(p.x - path[k]!.x, p.y - path[k]!.y), 0));
+  const along: number[] = [];
+  path.forEach((p, i) => along.push(i === 0 ? 0 : along[i - 1]! + Math.hypot(p.x - path[i - 1]!.x, p.y - path[i - 1]!.y)));
   const total = along[along.length - 1] ?? 0;
   const taper = (d: number): number => smooth(Math.min(1, d / BORDER_TAPER));
   const halfWidths = path.map((p, i) => {
@@ -201,7 +212,7 @@ export const organicSideFront = (
     // Square cap over the corner, aligned with this stretch, sized to the
     // stroke there (the same world point for both stretches, so it fits both).
     const centre = warp(side.a);
-    const t = unit(add(warp(at(0.01)), warp(at(-0.01)), -1));
+    const t = warpedTangent(warp, side.a, side.t);
     const n = { x: -t.y, y: t.x };
     const square = (h: number): BreachPoint[] => [add(add(centre, t, -h), n, -h), add(add(centre, t, h), n, -h), add(add(centre, t, h), n, h), add(add(centre, t, -h), n, h)];
     const h = swell(side.a);
@@ -209,9 +220,10 @@ export const organicSideFront = (
   }
   if (!withTeeth) return pieces;
   for (let i = 0; i < TEETH_PER_SIDE; i += 1) {
-    // At an inside corner the neighbouring stretch's end tooth points into the
-    // same tile of mine, so drop the end teeth there or the two cross.
-    if ((i === 0 && startTurn === "inner") || (i === TEETH_PER_SIDE - 1 && endTurn === "inner")) continue;
+    // At an inside corner the stretch that ends there and the one that starts
+    // there both have an end tooth pointing into the same tile of mine; drop
+    // just the starting stretch's, which is enough to stop them crossing.
+    if (i === 0 && startTurn === "inner") continue;
     pieces.push(...tooth(warp, at((i + 0.5) / TEETH_PER_SIDE), side.t, out));
   }
   return pieces;
