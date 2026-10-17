@@ -473,6 +473,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "You still can't garrison it, and if its chain of frontier back to your settled land is cut anywhere, everything past the cut is lost at once",
       "Its tile menu now says Beyond your reach and explains this, instead of a countdown"
     ]
+  },
+  {
+    createdAt: 1792267552682,
+    introducedIn: "2026.10.17.1",
+    title: "Supply lines show how thin your far frontier is",
+    why: "Frontier beyond your reach lives only as long as its chain back to your settled land holds, and nothing on the map showed that chain or where it was weakest.",
+    changes: [
+      "Faint arrows now flow from the edge of your reach into any frontier past it, fading the further out it goes",
+      "Where the line narrows to a single tile, the arrows turn amber and a pulsing diamond marks the pinch: lose that tile and everything past it goes",
+      "Tap a pinch tile to see how many tiles depend on it",
+      "Works on both the 3D and the 2D map"
+    ]
   }
 ];
 

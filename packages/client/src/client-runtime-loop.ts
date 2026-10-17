@@ -47,6 +47,9 @@ import { devQueueBadgeIndex } from "./client-dev-queue-badge-index/client-dev-qu
 import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
 import { clampedTileHalfExtents, resolveTileBudget } from "./client-map-3d-tile-budget/client-map-3d-tile-budget.js";
 import { drawTileGround2D } from "./client-map-render-2d-tile-ground/client-map-render-2d-tile-ground.js";
+import { drawShardRainFx2D } from "./client-shard-rain-fx-2d/client-shard-rain-fx-2d.js";
+import { drawFrontierSupply2D } from "./client-frontier-supply/client-frontier-supply-2d.js";
+import { frontierSupplyModelForState } from "./client-frontier-supply/client-frontier-supply-state.js";
 import { drawSiphonOverlay2D } from "./client-siphon-overlay-2d/client-siphon-overlay-2d.js"; import { drawArrowGesture2D, drawShieldAreaTile2D, drawWinChanceLabel2D, winChancePaintColorForTile2D } from "./client-map-render-2d-combat-overlays.js"; import { collectKnownShieldFlags, tileShieldCoverage } from "./client-known-shield-flags.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
@@ -1363,25 +1366,22 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
     }
 
-    pruneShardRainPings(state);
-    if (state.shardRainFxUntil > nowMs) {
-      const fxProgress = Math.max(0, (state.shardRainFxUntil - nowMs) / 8_000);
-      deps.ctx.save();
-      deps.ctx.globalCompositeOperation = "screen";
-      for (let i = 0; i < 18; i += 1) {
-        const x = ((i * 97 + nowMs * 0.08) % deps.canvas.width);
-        const y = ((i * 59 + nowMs * 0.21) % deps.canvas.height);
-        const len = 24 + (i % 5) * 10;
-        const alpha = (0.08 + (i % 3) * 0.03) * fxProgress;
-        deps.ctx.strokeStyle = `rgba(102, 224, 255, ${alpha})`;
-        deps.ctx.lineWidth = 1 + (i % 2);
-        deps.ctx.beginPath();
-        deps.ctx.moveTo(x, y);
-        deps.ctx.lineTo(x - 8, y + len);
-        deps.ctx.stroke();
-      }
-      deps.ctx.restore();
+    // Frontier supply lines (2D; the 3D path draws client-map-3d-frontier-supply-overlay.ts): chevrons into frontier beyond reach, amber chokepoints.
+    if (!isTrue3DRendererActive()) {
+      drawFrontierSupply2D(deps.ctx, frontierSupplyModelForState(state), {
+        tileCenter: (x, y) => deps.worldToScreen(x, y, size, halfW, halfH),
+        wrapDeltaX: (from, to) => deps.toroidDelta(from, to, WORLD_WIDTH),
+        wrapDeltaY: (from, to) => deps.toroidDelta(from, to, WORLD_HEIGHT),
+        size,
+        viewportWidth: deps.canvas.width,
+        viewportHeight: deps.canvas.height,
+        ownerColor: deps.effectiveOverlayColor(state.me),
+        nowMs
+      });
     }
+
+    pruneShardRainPings(state);
+    drawShardRainFx2D(deps.ctx, deps.canvas, state.shardRainFxUntil, nowMs);
     const fxMs = phaseMs();
 
     deps.drawMiniMap();

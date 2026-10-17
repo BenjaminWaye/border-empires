@@ -91,7 +91,7 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
   OUT_OF_REACH_EXPAND: {
     id: "OUT_OF_REACH_EXPAND",
     title: "Beyond Your Reach",
-    body: "This land sits outside your reach. You can hold it, but you can't Garrison it, and it is only as strong as its supply line: if the chain of frontier back to your settled land is cut anywhere, everything past the cut is lost at once. Extend your reach with a nearby Town, Dock, or Outpost to make it yours for good."
+    body: "This land sits outside your reach. You can hold it, but you can't Garrison it, and it is only as strong as its supply line: if the chain of frontier back to your settled land is cut anywhere, everything past the cut is lost at once. The arrows show that supply line; amber arrows and a pulsing diamond mark where one lost tile would cut it. Extend your reach with a nearby Town, Dock, or Outpost to make it yours for good."
   },
   WAYSTATION: {
     id: "WAYSTATION",

@@ -54,6 +54,9 @@ import { createMusterOverlay } from "../client-map-3d-muster-overlay.js"; import
 import { createPopupMarineOverlayFx } from "../client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import { syncCaptureOverlays, syncBattleOverlayFx, syncMusterTransitOverlay } from "../client-map-3d-capture-overlays.js"; import { syncFrontierClaimPlates, activeFrontierAttackClaimTargetKeys } from "../client-map-3d-frontier-claim-plates.js"; import { createSiegeTowerOverlay } from "../client-map-3d-siege-tower-overlay.js"; import { siegeTowerRotationMode } from "../client-siege-tower-rotation-mode.js"; import { latestOngoingBattleTarget } from "../client-battle-overlay/client-battle-overlay.js";
 import { createSupplyLineOverlay } from "../client-map-3d-supply-line-overlay.js"; import { createMusterTransitOverlay } from "../client-map-3d-muster-transit-overlay.js";
+import { createAetherBridgePylonSync } from "../client-map-3d-aether-bridge-pylon-sync.js";
+import { createFrontierSupplyOverlay } from "../client-map-3d-frontier-supply-overlay.js";
+import { frontierSupplyModelForState } from "../client-frontier-supply/client-frontier-supply-state.js";
 import { createAetherBridgePylonOverlay } from "../client-map-3d-aether-bridge-pylon-overlay.js"; import { createAetherWallPylonOverlay } from "../client-map-3d-aether-wall-pylon-overlay.js"; import { createAetherWallArcOverlay } from "../client-map-3d-aether-wall-arc-overlay.js"; import { createAetherWallPylonSync } from "../client-map-3d-aether-wall-pylon-sync.js";
 import { createSurveySweepPingOverlay } from "../client-map-3d-survey-sweep-ping-overlay.js"; import { createOnboardingChecklistHighlightOverlay } from "../client-map-3d-onboarding-checklist-highlight.js";
 import { createAnchoredFxLayers } from "../client-map-3d-anchored-fx/client-map-3d-anchored-fx-layers.js"; import { isAfcHiddenForJoinDrop, isForestTileWithAfcLandingHold, terrainWithAfcLandingHold } from "../client-afc-join-drop/client-afc-join-drop-state.js"; import { createCameraShakeFx } from "../client-map-3d-camera-shake-fx/client-map-3d-camera-shake-fx.js";
@@ -204,6 +207,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const aetherProtectionOverlay = createAetherProtectionOverlay3D(scene, MAX_VISIBLE_TILES); // Aether Tower protection field wash (client-aether-tower-protection.ts)
   const battleOverlayFx = createPopupMarineOverlayFx(scene);
   const supplyLineOverlay = createSupplyLineOverlay(scene); const musterTransitOverlay = createMusterTransitOverlay(scene);
+  const frontierSupplyOverlay = createFrontierSupplyOverlay(scene);
   const aetherBridgePylonOverlay = createAetherBridgePylonOverlay(scene, MAX_BRIDGE_PYLONS); const aetherWallPylonOverlay = createAetherWallPylonOverlay(scene, MAX_WALL_PYLONS); const aetherWallArcOverlay = createAetherWallArcOverlay(scene, MAX_WALL_ARCS);
   // One-shot effects live under a world-anchored root so they stay on their tile while the camera pans (client-map-3d-anchored-fx-layers.ts).
   const anchoredFx = createAnchoredFxLayers(scene, atmosphere.buildingEnvironmentTexture);
@@ -628,35 +632,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       unsettleFx, afcModuleDeliveryFx, afcDropFx
     }
   });
-  const syncAetherBridgePylons = (nowMs: number): void => {
-    aetherBridgePylonOverlay.beginFrame();
-    const now = Date.now();
-    for (const bridge of deps.state.activeAetherBridges) {
-      if (bridge.endsAt <= now) continue;
-      const fromX = toroidDelta(sceneOrigin.camX, bridge.from.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-      const fromZ = toroidDelta(sceneOrigin.camY, bridge.from.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
-      const toX = toroidDelta(sceneOrigin.camX, bridge.to.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-      const toZ = toroidDelta(sceneOrigin.camY, bridge.to.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
-      // Rotate each pylon so its twin spires straddle the lane (the energy
-      // gate opens toward the far coast).
-      const faceAngle = Math.atan2(toX - fromX, toZ - fromZ);
-      aetherBridgePylonOverlay.place(
-        fromX,
-        aetherBridgeTileSurfaceY(bridge.from.x, bridge.from.y) + MARKER_RISE_ABOVE_HEIGHTFIELD,
-        fromZ,
-        faceAngle,
-        nowMs
-      );
-      aetherBridgePylonOverlay.place(
-        toX,
-        aetherBridgeTileSurfaceY(bridge.to.x, bridge.to.y) + MARKER_RISE_ABOVE_HEIGHTFIELD,
-        toZ,
-        faceAngle + Math.PI,
-        nowMs
-      );
-    }
-    aetherBridgePylonOverlay.endFrame();
-  }; const syncAetherWallPylons = createAetherWallPylonSync(aetherWallPylonOverlay, aetherWallArcOverlay, heightfield.cornerYAt, deps.wrapX, deps.wrapY, sceneOrigin);
+  const syncAetherBridgePylons = createAetherBridgePylonSync(aetherBridgePylonOverlay, { tileCenterOffset: TILE_CENTER_OFFSET, markerRise: MARKER_RISE_ABOVE_HEIGHTFIELD, tileSurfaceY: aetherBridgeTileSurfaceY, sceneOrigin });
+  const syncAetherWallPylons = createAetherWallPylonSync(aetherWallPylonOverlay, aetherWallArcOverlay, heightfield.cornerYAt, deps.wrapX, deps.wrapY, sceneOrigin);
 
   // Dirty-check inputs for applyCamera(): worldToScreen/worldTileRawFromPointer
   // (below) call applyCamera() before every use to stay correct regardless of
@@ -1433,7 +1410,15 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     syncFrontierClaimPlates(deps.state, deps.keyFor, heightfield, frontierClaimPlates, sceneOrigin.camX, sceneOrigin.camY, MARKER_RISE_ABOVE_HEIGHTFIELD, deps.wrapX, deps.wrapY, (x,y)=>isHillsTile(x,y)&&terrainForWorldTile(x,y)!=="MOUNTAIN");
     selectionRangeOverlays.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin }); syncDockRoutes(deps.state, sceneOrigin, deps.resolveDockSeaRoute, deps.isDockRouteVisibleForPlayer);
     placementOverlay.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin });
-    syncAetherBridgePylons(nowMs); syncAetherWallPylons(deps.state.activeAetherWalls, nowMs);
+    syncAetherBridgePylons(deps.state.activeAetherBridges, nowMs); syncAetherWallPylons(deps.state.activeAetherWalls, nowMs);
+    // Frontier supply lines (3D; the 2D path is client-frontier-supply-2d.ts): chevrons into frontier beyond reach, amber chokepoints.
+    frontierSupplyOverlay.sync(
+      frontierSupplyModelForState(deps.state),
+      (x, y) => ({ sceneX: toroidDelta(sceneOrigin.camX, x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(x, y) }),
+      `${sceneOrigin.camX},${sceneOrigin.camY}`,
+      deps.effectiveOverlayColor(deps.state.me),
+      nowMs
+    );
     syncAetherLanceFxQueue();
     syncSurveySweepFxQueue();
     syncSurveySweepPings();
@@ -1505,6 +1490,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     (hoverMarker.material as LineBasicMaterial).dispose();
     selectionRangeOverlays.dispose();
     crystalTargetingOverlay.dispose();
+    frontierSupplyOverlay.dispose();
     for (const { marker, material } of townSupportMarkers) {
       marker.geometry.dispose();
       material.dispose();

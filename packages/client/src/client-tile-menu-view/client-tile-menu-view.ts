@@ -1,3 +1,5 @@
+import { frontierSupplyChokepointForState, type PartialFrontierSupplyState } from "../client-frontier-supply/client-frontier-supply-state.js";
+import { withSupplyChokepointStatus } from "../client-frontier-supply/client-frontier-supply-menu.js";
 import { battleOverviewLines, battleMenuHeaderStatus } from "../client-battle-progress/client-tracked-battle-progress.js";
 import {
   isFortDefending,
@@ -401,7 +403,7 @@ export const tileMenuViewForTile = (
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     isTileOwnedByAlly: (tile: Tile) => boolean;
     combatBreakdownForTile?: (tile: Tile) => TileCombatBreakdown | undefined; musterCommit?: MusterCommitView | undefined;
-    state: { me: string; dukePlayers?: ReadonlySet<string>; techCatalog?: readonly TechInfo[] } & Partial<ReachAuthoritativeState>;
+    state: { me: string; dukePlayers?: ReadonlySet<string>; techCatalog?: readonly TechInfo[] } & Partial<ReachAuthoritativeState> & PartialFrontierSupplyState;
     /**
      * True when this tile is the target of the player's own in-progress
      * frontier expansion — not owned yet, but about to be. Actions/tabs are
@@ -463,7 +465,11 @@ export const tileMenuViewForTile = (
   const ownershipHelpKind: OwnershipHelpKind | undefined = tile.terrain !== "LAND" ? undefined : !tile.ownerId ? "unclaimed" : tile.ownerId === deps.state.me ? (tile.ownershipState === "FRONTIER" ? "frontier" : "settled") : undefined;
   const subtitleHtml = isForeignLandOwner ? [tileOwnerLabelHtml(ownerLabel, tile.ownerId, ownerLabelIsAlly, Boolean(tile.ownerId && deps.state.dukePlayers?.has(tile.ownerId))), regionLabel ?? ""].filter(Boolean).join(" · ") : ownershipHelpKind ? ownershipHelpSubtitleHtml(ownershipHelpKind, ownerLabel, regionLabel) : undefined;
   const { titleLabel, townCharacter } = tileMenuTitleForTile(tile, deps.prettyToken, deps.terrainLabel);
-  const reachState = deps.state; const headerStatus: TileMenuHeaderStatus | undefined = (tile.ownerId === reachState.me && reachState.tiles ? ownTileHeaderStatus(reachState as ReachAuthoritativeState, tile, deps.playerNameForOwner) : tileMenuHeaderStatusForTile(tile, Date.now(), undefined, undefined, tile.ownerId === reachState.me)) ?? battleMenuHeaderStatus(incomingAttack ?? capture); return {
+  const reachState = deps.state;
+  // Own supply chokepoint (client-frontier-supply): warns that losing this one tile cuts off the frontier past it.
+  const supplyChokepoint = tile.ownerId === reachState.me ? frontierSupplyChokepointForState(reachState, tile) : undefined;
+  const ownOrOtherStatus = tile.ownerId === reachState.me && reachState.tiles ? ownTileHeaderStatus(reachState as ReachAuthoritativeState, tile, deps.playerNameForOwner) : tileMenuHeaderStatusForTile(tile, Date.now(), undefined, undefined, tile.ownerId === reachState.me);
+  const headerStatus: TileMenuHeaderStatus | undefined = withSupplyChokepointStatus(ownOrOtherStatus, supplyChokepoint) ?? battleMenuHeaderStatus(incomingAttack ?? capture); return {
     title: `${titleLabel} (${tile.x}, ${tile.y})`,
     ...(townCharacter ? { townCharacter } : {}),
     subtitle: tileMenuSubtitleText(ownerLabel, regionLabel),
