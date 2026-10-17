@@ -36,8 +36,11 @@ describe("isRelayBeaconSiteCandidate", () => {
     expect(candidate(land(0, 0))).toBe(true); // neutral: expand + garrison + build
   });
 
-  it("rejects neutral land outside reach, fogged, or held by a rival's reach", () => {
+  it("rejects neutral or frontier land outside reach, and neutral land fogged or held by a rival's reach", () => {
     expect(candidate(land(0, 0), new Set())).toBe(false);
+    // Owned frontier outside reach too: the tile menu shows its beacon as "Outside your reach".
+    expect(candidate(owned(0, 0, { ownershipState: "FRONTIER" }), new Set())).toBe(false);
+    expect(candidate(owned(0, 0), new Set())).toBe(true); // settled ground is always buildable
     expect(candidate(land(0, 0, { fogged: true }))).toBe(false);
     expect(candidate(land(0, 0, { reachOwnerId: "rival" }))).toBe(false);
   });

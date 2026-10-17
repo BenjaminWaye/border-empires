@@ -84,13 +84,12 @@ const hasNoBlockingStructure = (tile: Tile): boolean =>
  */
 export const isRelayBeaconSiteCandidate = (tile: Tile | undefined, playerId: string, reach: ReadonlySet<string>): boolean => {
   if (!tile || !hasNoBlockingStructure(tile)) return false;
-  if (tile.ownerId === playerId) return tile.ownershipState === "SETTLED" || tile.ownershipState === "FRONTIER";
-  return (
-    !tile.ownerId &&
-    !tile.fogged &&
-    reach.has(tileKey(tile.x, tile.y)) &&
-    (!tile.reachOwnerId || tile.reachOwnerId === playerId)
-  );
+  const inReach = reach.has(tileKey(tile.x, tile.y));
+  if (tile.ownerId === playerId) {
+    // The menu disables the frontier beacon outside reach ("Outside your reach", withReachGate).
+    return tile.ownershipState === "SETTLED" || (tile.ownershipState === "FRONTIER" && inReach);
+  }
+  return !tile.ownerId && !tile.fogged && inReach && (!tile.reachOwnerId || tile.reachOwnerId === playerId);
 };
 
 /** The reach disk a beacon at (x, y) would add -- same land-gated math computeLocalReachSet uses for real anchors. */
