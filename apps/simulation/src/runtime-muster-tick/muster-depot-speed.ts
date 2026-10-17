@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { MUSTER_DEPOT_SPEED_MULT, OUTPOST_DEPOT_RADIUS, RAIL_DEPOT_BOOSTED_MUSTER_MULT, RAIL_DEPOT_MUSTER_RADIUS } from "@border-empires/shared";
+import { MUSTER_DEPOT_SPEED_MULT, OUTPOST_DEPOT_RADIUS, NEURAL_WORKS_BOOSTED_MUSTER_MULT, NEURAL_WORKS_MUSTER_RADIUS } from "@border-empires/shared";
 import { chebyshevDistanceSimple, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { MusterTickInput } from "./runtime-muster-tick.js";
@@ -8,8 +8,8 @@ export type Position = { x: number; y: number };
 
 /**
  * Returns the muster speed multiplier for a tile:
- *   - RAIL_DEPOT_BOOSTED_MUSTER_MULT if an outpost within OUTPOST_DEPOT_RADIUS
- *     is itself within RAIL_DEPOT_MUSTER_RADIUS of a Rail Depot
+ *   - NEURAL_WORKS_BOOSTED_MUSTER_MULT if an outpost within OUTPOST_DEPOT_RADIUS
+ *     is itself within NEURAL_WORKS_MUSTER_RADIUS of a Neural Works
  *   - MUSTER_DEPOT_SPEED_MULT if an outpost is within OUTPOST_DEPOT_RADIUS but
  *     none of the nearby outposts are depot-backed
  *   - 1.0 if no outpost is nearby
@@ -35,8 +35,8 @@ export const musterSpeedMultiplier = (
 
   for (const outpost of nearbyOutposts) {
     for (const depot of depotPositions) {
-      if (chebyshevDistanceSimple(outpost.x, outpost.y, depot.x, depot.y) <= RAIL_DEPOT_MUSTER_RADIUS) {
-        return RAIL_DEPOT_BOOSTED_MUSTER_MULT;
+      if (chebyshevDistanceSimple(outpost.x, outpost.y, depot.x, depot.y) <= NEURAL_WORKS_MUSTER_RADIUS) {
+        return NEURAL_WORKS_BOOSTED_MUSTER_MULT;
       }
     }
   }
@@ -53,13 +53,13 @@ const outpostsWithinRadius = (tile: DomainTileState, outpostKeys: Set<string>): 
   return found;
 };
 
-/** Non-dormant siege outpost / relay beacon tile keys for a player (muster-speed proximity source). */
+/** Non-dormant siege battery / relay beacon tile keys for a player (muster-speed proximity source). */
 export const outpostTileKeysForPlayer = (input: MusterTickInput, playerId: string): Set<string> => {
   const keys = new Set<string>();
-  const siege = input.activeSiegeOutpostsByOwner.get(playerId);
+  const siege = input.activeSiegeBatteriesByOwner.get(playerId);
   if (siege) {
     for (const key of siege) {
-      if (!input.isStructureDormant(playerId, key, "siegeOutpost")) keys.add(key);
+      if (!input.isStructureDormant(playerId, key, "siegeBattery")) keys.add(key);
     }
   }
   const light = input.activeRelayBeaconsByOwner.get(playerId);

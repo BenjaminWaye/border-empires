@@ -41,7 +41,7 @@ describe("createTilesFromInitialState", () => {
     const tile = result.get("1,2");
     expect(tile?.fort).toEqual(fort);
     expect(tile?.observatory).toBeUndefined();
-    expect(tile?.siegeOutpost).toBeUndefined();
+    expect(tile?.siegeBattery).toBeUndefined();
     expect(tile?.economicStructure).toBeUndefined();
   });
 
@@ -54,16 +54,16 @@ describe("createTilesFromInitialState", () => {
     expect(tile?.fort).toBeUndefined();
   });
 
-  it("hydrates siegeOutpost from legacy shape", () => {
-    const siegeOutpost = {
+  it("hydrates siegeBattery from legacy shape", () => {
+    const siegeBattery = {
       ownerId: "p1",
       status: "active" as const,
-      variant: "SIEGE_OUTPOST" as const
+      variant: "SIEGE_BATTERY" as const
     };
-    const state = minimalState([{ ...baseTile, ownerId: "p1", ownershipState: "SETTLED" as const, siegeOutpost }]);
+    const state = minimalState([{ ...baseTile, ownerId: "p1", ownershipState: "SETTLED" as const, siegeBattery }]);
     const result = createTilesFromInitialState(state, new Map(), false);
     const tile = result.get("1,2");
-    expect(tile?.siegeOutpost).toEqual(siegeOutpost);
+    expect(tile?.siegeBattery).toEqual(siegeBattery);
   });
 
   it("hydrates economicStructure from legacy shape", () => {
@@ -174,6 +174,16 @@ describe("createPlayersFromRecoveredState", () => {
     const result = createPlayersFromRecoveredState(state);
     expect(result?.get("p1")?.autoSettle).toEqual(answered);
     expect(result?.get("legacy")?.autoSettle).toEqual(DEFAULT_AUTO_SETTLE_PREFS);
+  });
+
+  it("restores a player who owned the retired Echo-Reader Crew with Augury Office, which now carries Survey Sweep", () => {
+    const state: RecoveredSimulationState = { ...minimalState([]), players: [{ id: "p1", techIds: ["crystal-lattices", "surveying"] }] };
+    expect(createPlayersFromRecoveredState(state)?.get("p1")?.techIds).toEqual(new Set(["crystal-lattices", "beacon-towers"]));
+  });
+
+  it("keeps an Augury Office owner's Manifest count when they also owned the retired Echo-Reader Crew", () => {
+    const state: RecoveredSimulationState = { ...minimalState([]), players: [{ id: "p1", techIds: ["crystal-lattices", "surveying", "beacon-towers"] }] };
+    expect(createPlayersFromRecoveredState(state)?.get("p1")?.techIds.size).toBe(3);
   });
 
   it("defaults to an empty truces set when the snapshot has none", () => {

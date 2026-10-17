@@ -15,7 +15,7 @@ import {
   cancelActiveOutpostAttackLocks,
   completeStructureRemoval,
   handleCancelFortBuildCommand,
-  handleCancelSiegeOutpostBuildCommand,
+  handleCancelSiegeBatteryBuildCommand,
   handleCancelStructureBuildCommand,
   handleSetMusterCommand
 } from "./runtime-structure-lifecycle-command-handlers.js";
@@ -170,22 +170,22 @@ describe("handleCancelFortBuildCommand refunds", () => {
   });
 });
 
-describe("handleCancelSiegeOutpostBuildCommand refunds", () => {
+describe("handleCancelSiegeBatteryBuildCommand refunds", () => {
   it("refunds gold and manpower for the stored siege tier (UMBRITE/TITANIUM are retired stockpile keys -- never spent, per Step 5 item 3)", () => {
     const player = makePlayer({ points: 20, manpower: 5 });
     const tile = makeTile({
-      siegeOutpost: { ownerId: PLAYER_ID, status: "under_construction", variant: "SIEGE_TOWER", completesAt: 5_000 }
+      siegeBattery: { ownerId: PLAYER_ID, status: "under_construction", variant: "SIEGE_TOWER", completesAt: 5_000 }
     });
     const { context, tiles } = createContext(player, tile);
 
-    handleCancelSiegeOutpostBuildCommand(context, makeCommand({ type: "CANCEL_SIEGE_OUTPOST_BUILD" }));
+    handleCancelSiegeBatteryBuildCommand(context, makeCommand({ type: "CANCEL_SIEGE_BATTERY_BUILD" }));
 
     const tier = SIEGE_TIER_LADDER.SIEGE_TOWER;
     expect(player.points).toBe(20 + tier.gold);
     expect(player.manpower).toBe(5 + tier.manpower);
     expect(player.strategicResources?.UMBRITE).toBeUndefined();
     expect(player.strategicResources?.TITANIUM).toBeUndefined();
-    expect(tiles.get(simulationTileKey(5, 5))?.siegeOutpost).toBeUndefined();
+    expect(tiles.get(simulationTileKey(5, 5))?.siegeBattery).toBeUndefined();
   });
 });
 
@@ -193,20 +193,20 @@ describe("handleCancelStructureBuildCommand refunds", () => {
   it("refunds gold (accounting for the owned-count index already including this build) and manpower for an economic structure; FOOD is a retired stockpile key, never refunded (Step 5 item 3)", () => {
     const player = makePlayer({ points: 500, manpower: 0 });
     const tile = makeTile({
-      economicStructure: { ownerId: PLAYER_ID, type: "GRANARY", status: "under_construction", completesAt: 5_000 }
+      economicStructure: { ownerId: PLAYER_ID, type: "INCUBATION_ENGINE", status: "under_construction", completesAt: 5_000 }
     });
     const { context, ownedStructureCounts, tiles } = createContext(player, tile);
     // The owned-structure index bumps as soon as construction starts, so by cancel
     // time it already counts this under-construction structure. Simulate a player who
-    // already has one completed GRANARY plus this second (cancelled) one: index reads 2.
-    ownedStructureCounts.set(PLAYER_ID, new Map([["GRANARY", 2]]));
+    // already has one completed INCUBATION_ENGINE plus this second (cancelled) one: index reads 2.
+    ownedStructureCounts.set(PLAYER_ID, new Map([["INCUBATION_ENGINE", 2]]));
 
     handleCancelStructureBuildCommand(context, makeCommand());
 
-    const expectedGold = structureBuildGoldCost("GRANARY", 1); // existingCount - 1
-    const expectedManpower = structureBuildManpowerCost("GRANARY");
-    const costDef = structureCostDefinition("GRANARY");
-    expect(costDef.resourceCost?.resource).toBe("FOOD"); // sanity: GRANARY's only cost key is a retired one
+    const expectedGold = structureBuildGoldCost("INCUBATION_ENGINE", 1); // existingCount - 1
+    const expectedManpower = structureBuildManpowerCost("INCUBATION_ENGINE");
+    const costDef = structureCostDefinition("INCUBATION_ENGINE");
+    expect(costDef.resourceCost?.resource).toBe("FOOD"); // sanity: INCUBATION_ENGINE's only cost key is a retired one
     expect(player.points).toBe(500 + expectedGold);
     expect(player.manpower).toBe(expectedManpower);
     expect(player.strategicResources?.FOOD).toBeUndefined();
@@ -253,13 +253,13 @@ describe("handleCancelStructureBuildCommand refunds", () => {
   it("leaves a stale scheduleAfter build-completion callback as a safe no-op after cancel", () => {
     const player = makePlayer({ points: 500, manpower: 0 });
     const tile = makeTile({
-      economicStructure: { ownerId: PLAYER_ID, type: "GRANARY", status: "under_construction", completesAt: 5_000 }
+      economicStructure: { ownerId: PLAYER_ID, type: "INCUBATION_ENGINE", status: "under_construction", completesAt: 5_000 }
     });
     const { context, tiles } = createContext(player, tile);
 
     // Simulate the original build having scheduled its completion callback, exactly
     // as handleBuildStructureCommand does via context.scheduleAfter(...).
-    const staleCompletion = () => context.completeStructureBuild(simulationTileKey(5, 5), PLAYER_ID, "GRANARY", "build-cmd-1");
+    const staleCompletion = () => context.completeStructureBuild(simulationTileKey(5, 5), PLAYER_ID, "INCUBATION_ENGINE", "build-cmd-1");
 
     handleCancelStructureBuildCommand(context, makeCommand());
     const goldAfterCancel = player.points;

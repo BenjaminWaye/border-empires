@@ -2,7 +2,7 @@
 // (over the 500-line file-size limit) to keep that file from growing
 // further.
 //
-// The siege ladder (SIEGE_OUTPOST/SIEGE_TOWER/DREAD_TOWER) is the one
+// The siege ladder (SIEGE_BATTERY/SIEGE_TOWER/DREAD_TOWER) is the one
 // buildable family that never needs SETTLED at all -- it builds directly on
 // FRONTIER ground (see structureSkipsSettledRequirement and the OUTPOST-kind
 // skip in runtime-structure-command-handlers.ts), so this action gets its
@@ -33,14 +33,14 @@ export const siegeCampAction = (
   hasRelayBeacon: boolean
 ): TileActionDef | undefined => {
   if (tile.ownerId !== state.me || tile.fort || tile.observatory) return undefined;
-  if (!(tile.siegeOutpost || !tile.economicStructure || hasRelayBeacon)) return undefined;
+  if (!(tile.siegeBattery || !tile.economicStructure || hasRelayBeacon)) return undefined;
 
   const siegeVariant = nextSiegeVariantForTile(state, tile);
   if (!siegeVariant) return undefined;
 
-  const hasTech = tile.siegeOutpost ? true : state.techIds.includes("leatherworking");
-  const canUseTile = Boolean(tile.siegeOutpost) || !tile.economicStructure || hasRelayBeacon;
-  const hasFreeSlots = hasFreeResourceSlots(state, siegeVariant.variant, tile.siegeOutpost?.variant);
+  const hasTech = tile.siegeBattery ? true : state.techIds.includes("leatherworking");
+  const canUseTile = Boolean(tile.siegeBattery) || !tile.economicStructure || hasRelayBeacon;
+  const hasFreeSlots = hasFreeResourceSlots(state, siegeVariant.variant, tile.siegeBattery?.variant);
   // tile.reachOwnerId mirrors the server's per-tile reachBorderOwnerAt
   // exactly (always-emitted, like ownerId) -- undefined means no one's
   // reach covers this tile at all, the only case the siege ladder rejects.
@@ -50,7 +50,7 @@ export const siegeCampAction = (
 
   return {
     id: "build_siege_camp",
-    label: tile.siegeOutpost || hasRelayBeacon ? `Upgrade to ${siegeVariant.label}` : `Build ${siegeVariant.label}`,
+    label: tile.siegeBattery || hasRelayBeacon ? `Upgrade to ${siegeVariant.label}` : `Build ${siegeVariant.label}`,
     // No settle-first detail suffix here -- unlike every other build action,
     // the siege ladder never settles the tile first.
     detail: deps.buildDetailTextForAction("build_siege_camp", tile),
@@ -59,13 +59,13 @@ export const siegeCampAction = (
         deps,
         state,
         tile,
-        "SIEGE_OUTPOST",
+        "SIEGE_BATTERY",
         hasTech && hasFreeSlots && canUseTile,
         !hasTech
           ? "Requires Tanner's Craft"
           : !canUseTile
             ? "Tile already has structure"
-            : missingResourceSlotReason(state, siegeVariant.variant, tile.siegeOutpost?.variant) ?? "Unavailable",
+            : missingResourceSlotReason(state, siegeVariant.variant, tile.siegeBattery?.variant) ?? "Unavailable",
         `${siegeVariant.summary} • ${buildTimeLabel(siegeBuildMsForState(state, siegeVariant.variant))} • atk x${siegeVariant.attackMult.toFixed(2)}${siegeVariant.upkeepSuffix}`,
         siegeVariant.gold
       )),

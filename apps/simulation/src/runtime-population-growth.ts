@@ -5,27 +5,27 @@ import {
   NEARBY_WAR_PAUSE_MS,
   NEARBY_WAR_RADIUS,
   POPULATION_GROWTH_BASE_RATE,
-  granaryGrowthMultiplier,
+  incubationEngineGrowthMultiplier,
   SETTLEMENT_GROWTH_RATE_MULT,
   type DomainTileState
 } from "@border-empires/game-domain";
 import { buildFedTownKeys, hasSupportedStructure } from "./player-update-economy/player-update-economy.js";
 import { firstThreeTownKeysForPlayer, firstThreeTownsPopulationGrowthMultiplierForPlayer } from "./economy-network/economy-network.js";
-import type { LockRecord, RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
+import type { RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { CombatLockTileReader } from "./combat-lock-index/combat-lock-index.js";
 
-export function granaryGrowthMultForTile(input: {
+export function incubationEngineGrowthMultForTile(input: {
   tile: DomainTileState;
   playerId: string;
   tiles: ReadonlyMap<string, DomainTileState>;
   // §5.4: dormant economicStructure tile keys ("x,y") for this player — a
-  // dormant Granary stops granting its growth bonus.
+  // dormant Incubation Engine stops granting its growth bonus.
   dormantEconomicStructureKeys?: ReadonlySet<string>;
 }): number {
   const dormantEconomicStructureKeys = input.dormantEconomicStructureKeys ?? new Set<string>();
-  const hasGranary = hasSupportedStructure(input.playerId, input.tile, "GRANARY", input.tiles, false, dormantEconomicStructureKeys);
-  return granaryGrowthMultiplier(hasGranary);
+  const hasIncubationEngine = hasSupportedStructure(input.playerId, input.tile, "INCUBATION_ENGINE", input.tiles, false, dormantEconomicStructureKeys);
+  return incubationEngineGrowthMultiplier(hasIncubationEngine);
 }
 
 export function tickPopulationGrowth(input: {
@@ -45,8 +45,8 @@ export function tickPopulationGrowth(input: {
   // fed check (there's only one food mechanic now: slots).
   foodDormantTownKeysForPlayer: (playerId: string) => ReadonlySet<string>;
   // §5.4: dormant economicStructure tile keys ("x,y") for this player
-  // (Runtime.dormantEconomicStructureKeysForPlayer) — a dormant Granary/Seed
-  // Granary doesn't grant its growth bonus.
+  // (Runtime.dormantEconomicStructureKeysForPlayer) — a dormant Incubation Engine/Seed
+  // Incubation Engine doesn't grant its growth bonus.
   dormantEconomicStructureKeysForPlayer: (playerId: string) => ReadonlySet<string>;
 }): {
   growthStalledNoFood: number;
@@ -158,7 +158,9 @@ export function tickPopulationGrowth(input: {
       // tile or the player reconnects.
       const freshIsFed = fedTownKeys.has(tileKey);
       if (town.isFed !== freshIsFed) {
-        town = { ...town, isFed: freshIsFed };
+        // An unfed town's rate is 0; a newly fed one gets its real rate
+        // stamped by the growth branch below in this same iteration.
+        town = { ...town, isFed: freshIsFed, ...(freshIsFed ? {} : { populationGrowthPerMinute: 0 }) };
         const healedTile = { ...tile, town };
         input.tiles.set(tileKey, healedTile);
         input.invalidateTileStringifyCache(tileKey);
@@ -190,7 +192,7 @@ export function tickPopulationGrowth(input: {
       if (isNearActiveWar) {
         const pausedUntil = input.nowMs + NEARBY_WAR_PAUSE_MS;
         if ((town.nearbyWarPausedUntil ?? 0) < pausedUntil) {
-          const updatedTown = { ...town, nearbyWarPausedUntil: pausedUntil, nearbyWarLastAt: input.nowMs };
+          const updatedTown = { ...town, nearbyWarPausedUntil: pausedUntil, nearbyWarLastAt: input.nowMs, populationGrowthPerMinute: 0 };
           const updatedTile = { ...tile, town: updatedTown };
           input.tiles.set(tileKey, updatedTile);
           input.invalidateTileStringifyCache(tileKey);
@@ -215,7 +217,7 @@ export function tickPopulationGrowth(input: {
         continue;
       }
 
-      const granaryGrowthMult = granaryGrowthMultForTile({ tile, playerId: player.id, tiles: input.tiles, dormantEconomicStructureKeys });
+      const incubationEngineGrowthMult = incubationEngineGrowthMultForTile({ tile, playerId: player.id, tiles: input.tiles, dormantEconomicStructureKeys });
       const firstThreeMult = firstThreeKeys.has(tileKey) ? firstThreePopMult : 1;
       const hasLongPeace = !town.nearbyWarLastAt || input.nowMs - town.nearbyWarLastAt >= LONG_PEACE_MS;
       const longPeaceMult = hasLongPeace ? LONG_PEACE_GROWTH_MULT : 1;
@@ -231,7 +233,7 @@ export function tickPopulationGrowth(input: {
         town.population *
         POPULATION_GROWTH_BASE_RATE *
         settlementRateMult *
-        granaryGrowthMult *
+        incubationEngineGrowthMult *
         firstThreeMult *
         longPeaceMult *
         integrityGrowthMult *
@@ -241,7 +243,12 @@ export function tickPopulationGrowth(input: {
 
       const newPopulation = Math.min(town.maxPopulation, town.population + growth);
       const { nearbyWarPausedUntil: _clearPause, ...townWithoutPause } = town;
-      const updatedTown = { ...townWithoutPause, population: newPopulation };
+      // Stamp the rate this tick actually applied. This delta (sent every
+      // tick for every growing town) replaces the client's whole town
+      // summary, so a stored record without the rate made the client's
+      // town overview read "0.00/m — growth paused" until its next
+      // tile-detail fetch.
+      const updatedTown = { ...townWithoutPause, population: newPopulation, populationGrowthPerMinute: Number(growthPerMinute.toFixed(4)) };
       const updatedTile = { ...tile, town: updatedTown };
       input.tiles.set(tileKey, updatedTile);
       input.invalidateTileStringifyCache(tileKey);

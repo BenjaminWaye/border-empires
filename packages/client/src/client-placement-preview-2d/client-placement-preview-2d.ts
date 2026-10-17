@@ -8,13 +8,13 @@ import {
 import { computeOutpostReachPreview } from "../client-reach-overlay-beacon-preview/client-reach-overlay-beacon-preview.js";
 import { resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
 
-// Outpost-family structures (RELAY_BEACON/SIEGE_OUTPOST/SIEGE_TOWER/
+// Outpost-family structures (RELAY_BEACON/SIEGE_BATTERY/SIEGE_TOWER/
 // DREAD_TOWER) all project a radius-5 reach disk once active (see
 // packages/shared/src/reach/reach.ts). While the player is siting one of
 // these via the building-placement flow, ghost-preview the new reach disk
 // it would add so beacon siting is an informed spatial choice — item 5 of
 // the reach overlay plan.
-const OUTPOST_FAMILY_STRUCTURE_TYPES = new Set(["RELAY_BEACON", "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER"]);
+const OUTPOST_FAMILY_STRUCTURE_TYPES = new Set(["RELAY_BEACON", "SIEGE_BATTERY", "SIEGE_TOWER", "DREAD_TOWER"]);
 const REACH_PREVIEW_STROKE_STYLE = "rgba(150, 220, 255, 0.9)";
 const REACH_PREVIEW_INVALID_STROKE_STYLE = "rgba(220, 80, 80, 0.9)";
 const REACH_PREVIEW_NEW_FILL_STYLE = "rgba(150, 220, 255, 0.10)";
@@ -33,11 +33,11 @@ const BENEFICIARY_FILL_STYLE = "rgba(80, 220, 110, 0.35)";
 const BENEFICIARY_STROKE_STYLE = "rgba(80, 220, 110, 0.85)";
 
 // Bounded to (2*radius+1)^2 tiles (max 441 for the largest current radius,
-// Waterworks at 10) — a fixed, small iteration independent of world/map size.
+// Hydroworks at 10) — a fixed, small iteration independent of world/map size.
 const renderPlacementBeneficiaryTiles = (
   state: ClientState,
   deps: PlacementPreview2DDeps,
-  structureType: "WATERWORKS" | "FOUNDRY",
+  structureType: "HYDROWORKS" | "ORE_REFINERY",
   centerX: number,
   centerY: number,
   radius: number,
@@ -133,7 +133,7 @@ export const renderBuildingPlacementPreview2D = (
     deps.ctx.restore();
     return;
   }
-  if (st !== "WATERWORKS" && st !== "FOUNDRY") return;
+  if (st !== "HYDROWORKS" && st !== "ORE_REFINERY") return;
   const { x, y } = state.buildingPlacement;
   const placementTile = state.tiles.get(deps.keyFor(x, y));
   if (deps.tileVisibilityStateAt(x, y, placementTile) !== "visible") return;

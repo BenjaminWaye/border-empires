@@ -459,13 +459,13 @@ describe("renderEconomyPanelHtml", () => {
 
   // Regression coverage: an Aether Condenser flipped into Sell Off (EXCHANGE)
   // mode reports its gold bucket labeled with the raw persisted structure
-  // type (CRYSTAL_SYNTHESIZER, see player-update-economy.ts), not a display
+  // type (AETHER_CONDENSER, see player-update-economy.ts), not a display
   // name. The panel used to render that raw label verbatim in the shared-
   // breakdown path, so the income looked like it wasn't there at all unless
   // you knew to look for the internal type string.
   it("renders a structure-labeled GOLD income bucket under its display name, not its raw type", () => {
     const economyBreakdown = emptyEconomyBreakdown();
-    economyBreakdown.GOLD.sources = [{ label: "CRYSTAL_SYNTHESIZER", amountPerMinute: 5, count: 1 }];
+    economyBreakdown.GOLD.sources = [{ label: "AETHER_CONDENSER", amountPerMinute: 5, count: 1 }];
 
     const html = renderEconomyPanelHtml({
       focus: "GOLD",
@@ -494,6 +494,6 @@ describe("renderEconomyPanelHtml", () => {
     });
 
     expect(html).toContain("Aether Condenser");
-    expect(html).not.toContain("CRYSTAL_SYNTHESIZER");
+    expect(html).not.toContain("AETHER_CONDENSER");
   });
 });

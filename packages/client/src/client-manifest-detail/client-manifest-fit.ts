@@ -1,10 +1,11 @@
 // "Good pick" signals for a Manifest you haven't taken yet. Every reason is a
-// fact read from your own empire's state -- never a design judgement -- so the
-// badge only appears when something concrete makes the Manifest pay off now:
+// signal read from your own empire's state. The badge appears when a
+// concrete opportunity makes the Manifest pay off now:
 //   1. Resource lead: it reveals a resource and you have a survey report for
 //      it, or prospect clues for it lie within a few tiles of your land.
 //   2. Build right away: one of its structures fits your free resource slots
-//      and current manpower.
+//      and current manpower, with a usable owned build site. Food expansion
+//      also requires tight Food capacity.
 // The opposite case ("Not useful yet") is shown when every structure it
 // unlocks needs a resource you have no slots of at all.
 import {
@@ -28,29 +29,29 @@ import type { TechInfo, Tile } from "../client-types.js";
 const BUILDABLE_UNLOCKS: Readonly<Record<string, BuildableStructureType>> = {
   unlockForts: "FORT",
   unlockObservatory: "OBSERVATORY",
-  unlockSiegeOutposts: "SIEGE_OUTPOST",
-  unlockFarmstead: "FARMSTEAD",
-  unlockWaterworksUpgrade: "WATERWORKS",
+  unlockSiegeBatteries: "SIEGE_BATTERY",
+  unlockHydrogarden: "HYDROGARDEN",
+  unlockHydroworksUpgrade: "HYDROWORKS",
   unlockUmbriteRig: "UMBRITE_RIG",
   unlockMine: "MINE",
   unlockMintworks: "MINTWORKS",
-  unlockGranary: "GRANARY",
+  unlockIncubationEngine: "INCUBATION_ENGINE",
   unlockCensusHall: "CENSUS_HALL",
   unlockClearingHouse: "CLEARING_HOUSE",
-  unlockCaravanary: "CARAVANARY",
-  unlockUmbriteSynthesizer: "UMBRITE_SYNTHESIZER",
+  unlockTradeNexus: "TRADE_NEXUS",
+  unlockUmbriteWorks: "UMBRITE_WORKS",
   unlockTitaniumWorks: "TITANIUM_WORKS",
-  unlockCrystalSynthesizer: "CRYSTAL_SYNTHESIZER",
-  unlockFoundry: "FOUNDRY",
-  unlockAetherTower: "AETHER_TOWER",
-  unlockCustomsHouse: "CUSTOMS_HOUSE",
-  unlockGovernorsOffice: "GOVERNORS_OFFICE",
-  unlockGarrisonHall: "GARRISON_HALL",
-  unlockAirport: "AIRPORT",
-  unlockRadarSystem: "RADAR_SYSTEM",
-  unlockRailDepot: "RAIL_DEPOT",
-  unlockLogisticsGuild: "LOGISTICS_GUILD",
-  unlockAssemblyWorks: "ASSEMBLY_WORKS",
+  unlockAetherCondenser: "AETHER_CONDENSER",
+  unlockOreRefinery: "ORE_REFINERY",
+  unlockAmbaricTransformer: "AMBARIC_TRANSFORMER",
+  unlockHarborExchange: "HARBOR_EXCHANGE",
+  unlockMinistryHall: "MINISTRY_HALL",
+  unlockAncillaryDepot: "ANCILLARY_DEPOT",
+  unlockSkyDock: "SKY_DOCK",
+  unlockResonanceGrid: "RESONANCE_GRID",
+  unlockNeuralWorks: "NEURAL_WORKS",
+  unlockAncillaryFactory: "ANCILLARY_FACTORY",
+  unlockReserveLattice: "RESERVE_LATTICE",
   unlockTitaniumWeaponsFactory: "TITANIUM_WEAPONS_FACTORY",
   unlockUmbriteWeaponsFactory: "UMBRITE_WEAPONS_FACTORY"
 };
@@ -68,6 +69,8 @@ export const CLUE_NEARBY_RADIUS = 4;
 
 export type ManifestFitInput = {
   manpower: number;
+  hasBuildSite: (type: BuildableStructureType, tech: TechInfo) => boolean;
+  ownsFish: boolean;
   resourceSlots: { supply: Record<SlotResource, number>; demand: Record<SlotResource, number> };
   // hasProspectClueNearTerritory over the client's tiles; injected so the
   // caller can memoise it per tile revision (it scans every known tile).
@@ -81,8 +84,7 @@ export type ManifestFit = {
 };
 
 // True when a clue tile you can see sits within CLUE_NEARBY_RADIUS of a tile
-// you own (clue tiles inside your own land count). Runs only when a
-// resource-revealing Manifest's detail is open, over tiles the client already
+// you own (clue tiles inside your own land count). Runs over tiles the client already
 // holds -- it never reveals anything the map does not show, and the badge
 // deliberately says only "nearby", not where.
 export const hasProspectClueNearTerritory = (tiles: Iterable<Tile>, me: string, signature: ProspectSignature): boolean => {
@@ -144,10 +146,18 @@ export const manifestFit = (tech: TechInfo, input: ManifestFitInput): ManifestFi
   const lead = resourceLeadReason(tech, input);
   if (lead) reasons.push(lead);
   const buildables = unlockedBuildables(tech);
+  // One spare Food slot or less is an immediate capacity need. Surplus Food
+  // is still described under What you get, but is not a recommendation.
+  const needsFood = freeSlots(input, "FOOD") <= 1;
+  if (tech.id === "agriculture" && input.ownsFish && needsFood) {
+    reasons.push("Your Fish tiles gain +1 Food slot each, helping your tight Food capacity");
+  }
   const buildNow = buildables.find(
     (type) =>
+      (!["HYDROGARDEN", "HYDROWORKS"].includes(type) || needsFood) &&
       input.manpower >= structureBuildManpowerCost(type) &&
-      structureSlotRequirements(type).every((requirement) => freeSlots(input, requirement.resource) >= requirement.count)
+      structureSlotRequirements(type).every((requirement) => freeSlots(input, requirement.resource) >= requirement.count) &&
+      input.hasBuildSite(type, tech)
   );
   if (buildNow) reasons.push(`You can build ${withArticle(structureName(buildNow))} right away`);
   // The resource this Manifest reveals never counts as missing: the Manifest

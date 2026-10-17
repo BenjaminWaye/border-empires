@@ -100,18 +100,15 @@ export const initClientDom = () => {
   const techDetailCardEl = requireElement<HTMLDivElement>("#tech-detail-card");
   const techOwnedEl = requireElement<HTMLDivElement>("#tech-owned");
   const techChoiceDetailsEl = requireElement<HTMLDivElement>("#tech-choice-details");
-  const allianceTargetEl = requireElement<HTMLInputElement>("#alliance-target");
-  const allianceTargetOptionsEl = requireElement<HTMLDataListElement>("#alliance-target-options");
   const alliesListEl = requireElement<HTMLDivElement>("#allies-list");
-  const allianceRequestsEl = requireElement<HTMLDivElement>("#alliance-requests");
   const alliancePlayerInspectEl = requireElement<HTMLDivElement>("#alliance-player-inspect");
   const missionsEl = requireElement<HTMLDivElement>("#panel-missions");
   const leaderboardEl = requireElement<HTMLDivElement>("#leaderboard");
-  const allianceSendBtn = requireElement<HTMLButtonElement>("#alliance-send");
   const techChooseBtn = requireElement<HTMLButtonElement>("#tech-choose");
-  const techTreeExpandToggleEl = requireElement<HTMLButtonElement>("#tech-tree-expand-toggle");
   const mobileSheetEl = requireElement<HTMLDivElement>("#mobile-sheet");
-  const mobileSheetHeadEl = requireElement<HTMLDivElement>("#mobile-sheet-head");
+  const mobileSheetTitleEl = requireElement<HTMLSpanElement>("#mobile-sheet-title");
+  const techViewToggleEl = requireElement<HTMLButtonElement>("#tech-view-toggle");
+  const mobileTechViewToggleEl = requireElement<HTMLButtonElement>("#mobile-tech-view-toggle");
   const mobileCoreEl = requireElement<HTMLDivElement>("#mobile-core");
   const mobilePanelCoreEl = requireElement<HTMLDivElement>("#mobile-panel-core");
   const mobilePanelMissionsEl = requireElement<HTMLDivElement>("#mobile-panel-missions"), mobilePanelTechEl = requireElement<HTMLDivElement>("#mobile-panel-tech"), mobilePanelDomainsEl = requireElement<HTMLDivElement>("#mobile-panel-domains"),
@@ -122,16 +119,12 @@ export const initClientDom = () => {
   const mobileLeaderboardEl = requireElement<HTMLDivElement>("#mobile-leaderboard");
   const mobileTechPickEl = requireElement<HTMLSelectElement>("#mobile-tech-pick");
   const mobileTechChooseBtn = requireElement<HTMLButtonElement>("#mobile-tech-choose");
-  const mobileTechTreeExpandToggleEl = requireElement<HTMLButtonElement>("#mobile-tech-tree-expand-toggle");
   const mobileTechPointsEl = requireElement<HTMLDivElement>("#mobile-tech-points");
   const mobileTechCurrentModsEl = requireElement<HTMLDivElement>("#mobile-tech-current-mods");
   const mobileTechChoicesGridEl = requireElement<HTMLDivElement>("#mobile-tech-choices-grid");
   const mobileTechDetailCardEl = requireElement<HTMLDivElement>("#mobile-tech-detail-card");
   const mobileTechOwnedEl = requireElement<HTMLDivElement>("#mobile-tech-owned");
   const mobileTechChoiceDetailsEl = requireElement<HTMLDivElement>("#mobile-tech-choice-details");
-  const mobileAllianceTargetEl = requireElement<HTMLInputElement>("#mobile-alliance-target");
-  const mobileAllianceSendBtn = requireElement<HTMLButtonElement>("#mobile-alliance-send");
-  const mobileAllianceRequestsEl = requireElement<HTMLDivElement>("#mobile-alliance-requests");
   const mobileAlliesListEl = requireElement<HTMLDivElement>("#mobile-allies-list");
   const mobileAlliancePlayerInspectEl = requireElement<HTMLDivElement>("#mobile-alliance-player-inspect");
   const centerMeBtn = requireElement<HTMLButtonElement>("#center-me");
@@ -151,10 +144,6 @@ export const initClientDom = () => {
 
   return {
     alliancePlayerInspectEl,
-    allianceRequestsEl,
-    allianceSendBtn,
-    allianceTargetEl,
-    allianceTargetOptionsEl,
     alliesListEl,
     authColorPresetButtons,
     authDisplayNameEl,
@@ -224,9 +213,6 @@ export const initClientDom = () => {
     miniMapWrapEl,
     missionsEl,
     mobileAlliancePlayerInspectEl,
-    mobileAllianceRequestsEl,
-    mobileAllianceSendBtn,
-    mobileAllianceTargetEl,
     mobileAlliesListEl,
     mobileCoreEl,
     mobileCoreHelpEl,
@@ -244,7 +230,7 @@ export const initClientDom = () => {
     mobilePanelTechEl,
     mobilePanelDomainsEl,
     mobileSheetEl,
-    mobileSheetHeadEl,
+    mobileSheetTitleEl,
     mobileTechChoiceDetailsEl,
     mobileTechChoicesGridEl,
     mobileTechChooseBtn,
@@ -293,11 +279,11 @@ export const initClientDom = () => {
     techChooseBtn,
     techCurrentModsEl,
     techDetailCardEl,
-    techTreeExpandToggleEl,
     techOwnedEl,
     techPickEl,
     techPointsEl,
+    techViewToggleEl,
     tileActionMenuEl,
-    mobileTechTreeExpandToggleEl
+    mobileTechViewToggleEl
   };
 };

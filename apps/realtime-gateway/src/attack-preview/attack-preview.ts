@@ -1,5 +1,4 @@
 import {
-  BREAKTHROUGH_ENABLED,
   buildFrontierCombatPreview,
   defendingFortVariant,
   isFortDefending,
@@ -30,9 +29,10 @@ type PreviewTile = {
   dockId?: string | undefined;
   townType?: string | undefined;
   economicStructureJson?: string | undefined;
-  siegeOutpostJson?: string | undefined;
+  siegeBatteryJson?: string | undefined;
   fortJson?: string | undefined;
   breachShockUntil?: number | undefined;
+  captureHoldUntil?: number | undefined;
 };
 
 const previewTileKey = (x: number, y: number): string => `${x},${y}`;
@@ -56,12 +56,12 @@ const parseStructureJson = <T>(json: string | undefined): T | undefined => {
 export const buildPreviewTileMap = (tiles: PreviewTile[]): Map<string, PreviewTileWithAura> => {
   const map = new Map<string, PreviewTileWithAura>();
   for (const tile of tiles) {
-    const siegeOutpost = parseStructureJson<{ ownerId?: string; status?: string }>(tile.siegeOutpostJson);
+    const siegeBattery = parseStructureJson<{ ownerId?: string; status?: string }>(tile.siegeBatteryJson);
     const economicStructure = parseStructureJson<{ ownerId?: string; type?: string; status?: string }>(tile.economicStructureJson);
     const fort = parseStructureJson<{ ownerId?: string; status?: string; variant?: FortVariant; upgradingFrom?: FortVariant }>(tile.fortJson);
     map.set(previewTileKey(tile.x, tile.y), {
       ...tile,
-      ...(siegeOutpost ? { siegeOutpost } : {}),
+      ...(siegeBattery ? { siegeBattery } : {}),
       ...(economicStructure ? { economicStructure } : {}),
       ...(fort ? { fort } : {})
     });
@@ -171,7 +171,10 @@ export const attackPreviewResult = async (
       attackerOutpostMult,
       defenderOwnerId: target.ownerId,
       ...factoryModifiers,
-      ...(techModifiers ?? {}), ...(BREAKTHROUGH_ENABLED ? { nowMs: Date.now() } : {}),
+      // Always pass nowMs, same as the sim's resolveAttackCombat: the
+      // capture-hold window is time-based, and breach shock is already gated
+      // at its source (the sim only stamps breachShockUntil when enabled).
+      ...(techModifiers ?? {}), nowMs: Date.now(),
     }
   );
   return {

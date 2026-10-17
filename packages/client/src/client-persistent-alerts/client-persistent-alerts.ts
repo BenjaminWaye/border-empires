@@ -5,10 +5,12 @@ import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-al
 import type { Tile } from "../client-types.js";
 import { musterStatusText } from "../client-side-panel-html/client-side-panel-html.js";
 import { occupationSurveyController } from "../client-occupation-survey.js";
+import { pickLocatorSlots } from "./client-persistent-alert-locator-slots.js";
+import { hostileMusterDetail, hostileMusterNearBorder, type HostileMusterAlertState, type HostileMusterNearBorder } from "../client-hostile-muster-alerts/client-hostile-muster-alerts.js";
 
 export type NotificationCategory = "persistent_alert" | "action_feedback" | "history" | "debug";
 
-export type PersistentAlertKind = "town_unfed" | "muster_active" | "waypoint_manpower_paused" | "shard_rain";
+export type PersistentAlertKind = "town_unfed" | "muster_active" | "hostile_muster" | "waypoint_manpower_paused" | "shard_rain";
 
 export type PersistentAlert = {
   id: string;
@@ -18,6 +20,8 @@ export type PersistentAlert = {
   x: number;
   y: number;
   severity: "warn" | "error";
+  // Set on hostile_muster alerts, for the one-time "new flag" toast.
+  hostileMuster?: HostileMusterNearBorder;
 };
 
 export type PersistentAlertLocator = {
@@ -32,6 +36,9 @@ export type PersistentAlertLocator = {
 
 type PersistentAlertState = Pick<ClientState, "me" | "tiles" | "waypoint" | "persistentAlertLocators"> & {
   shardRainStatus?: ClientState["shardRainStatus"] | undefined;
+  techIds?: ClientState["techIds"];
+  authSessionReady?: boolean;
+  profileSetupRequired?: boolean;
 };
 
 const townLabel = (tile: Tile): string => tile.town?.name || tile.townName || `Town ${tile.x}, ${tile.y}`;
@@ -87,7 +94,7 @@ export const notificationCategoryForServerError = (code: string): NotificationCa
   // player asked for, not a failure worth a toast.
   if (code === "NO_ACTIVE_CAPTURE") return "debug";
   if (code.startsWith("TECH_") || code.startsWith("DOMAIN_")) return "action_feedback";
-  if (code === "COLLECT_EMPTY" || code === "COLLECT_COOLDOWN") return "action_feedback";
+  if (code === "COLLECT_EMPTY") return "action_feedback";
   return "action_feedback";
 };
 
@@ -110,7 +117,7 @@ const shardSiteCollected = (tiles: Pick<ClientState, "tiles">["tiles"], x: numbe
 };
 
 export const persistentAlertsForState = (
-  state: Pick<ClientState, "me" | "tiles" | "waypoint"> & { shardRainStatus?: ClientShardRainAlert | undefined },
+  state: Pick<ClientState, "me" | "tiles" | "waypoint"> & HostileMusterAlertState & { shardRainStatus?: ClientShardRainAlert | undefined },
   nowMs: number = Date.now()
 ): PersistentAlert[] => {
   const alerts: PersistentAlert[] = [];
@@ -135,6 +142,19 @@ export const persistentAlertsForState = (
         x: tile.x,
         y: tile.y,
         severity: "warn"
+      });
+    }
+    const hostileMuster = hostileMusterNearBorder(state, tile, nowMs);
+    if (hostileMuster) {
+      alerts.push({
+        id: `hostile_muster:${tile.x},${tile.y}`,
+        kind: "hostile_muster",
+        title: "Enemy muster flag",
+        detail: hostileMusterDetail(hostileMuster),
+        x: tile.x,
+        y: tile.y,
+        severity: hostileMuster.mode === "HOLD" ? "warn" : "error",
+        hostileMuster
       });
     }
   }
@@ -361,7 +381,7 @@ export const drawPersistentAlertLocators = (
   }
 ): void => {
   occupationSurveyController.installViewHandler((report) => { state.camX = report.x; state.camY = report.y; });
-  occupationSurveyController.sync({ camX: state.camX, camY: state.camY, camSubX: 0, camSubY: 0, selected: undefined }, deps.worldToScreen, deps.size, deps.halfW, deps.halfH);
+  occupationSurveyController.sync({ camX: state.camX, camY: state.camY, camSubX: 0, camSubY: 0, selected: undefined, techIds: state.techIds ?? [], presentationReady: state.authSessionReady !== false && !state.profileSetupRequired }, deps.worldToScreen, deps.size, deps.halfW, deps.halfH);
   const allAlerts = deps.precomputedAlerts ?? persistentAlertsForState(state);
   const alerts = nearestPersistentAlerts(
     allAlerts,
@@ -376,14 +396,15 @@ export const drawPersistentAlertLocators = (
   const margin = 34;
   const inset = 30;
   ctx.save();
-  let drawnCount = 0;
-  for (const alert of alerts) {
+  // On-screen alerts get their own in-world indicator (e.g. the 3D
+  // bobbing badge over a shard rain site in client-map-3d.ts, or the
+  // muster flag model itself) rather than a HUD locator here.
+  const offScreen = alerts.flatMap((alert) => {
     const projected = deps.worldToScreen(alert.x, alert.y, deps.size, deps.halfW, deps.halfH);
-    // On-screen alerts get their own in-world indicator (e.g. the 3D
-    // bobbing badge over a shard rain site in client-map-3d.ts, or the
-    // muster flag model itself) rather than a HUD locator here.
-    if (isOnScreen(projected, canvas, margin)) continue;
-    if (drawnCount >= 3) continue;
+    return isOnScreen(projected, canvas, margin) ? [] : [{ alert, projected }];
+  });
+  // Enemy muster flags near the border claim locator slots ahead of nearer alerts.
+  for (const { alert, projected } of pickLocatorSlots(offScreen, (candidate) => candidate.alert.kind === "hostile_muster")) {
     const edge = locatorEdgePoint(projected, canvas, inset);
     const pulse = 0.78 + Math.sin(deps.nowMs / 260) * 0.12;
     const radius = 22;
@@ -405,12 +426,13 @@ export const drawPersistentAlertLocators = (
     // draw it, then rotate back before drawing the glyph.
     ctx.rotate(edge.angle);
     ctx.fillStyle = "rgba(17, 23, 34, 0.92)";
-    ctx.strokeStyle = "rgba(255, 209, 102, 0.92)";
+    // Red rim for an enemy flag staging next to you, gold for your own alerts.
+    ctx.strokeStyle = alert.kind === "hostile_muster" ? "rgba(255, 92, 92, 0.95)" : "rgba(255, 209, 102, 0.92)";
     ctx.lineWidth = 2.5;
     ctx.lineJoin = "round";
     drawLocatorPinBody(ctx, radius);
     ctx.rotate(-edge.angle);
-    if (alert.kind === "muster_active") {
+    if (alert.kind === "muster_active" || alert.kind === "hostile_muster") {
       drawCrossedSwordsGlyph(ctx, radius * 0.5);
     } else if (alert.kind === "shard_rain") {
       drawShardGlyph(ctx, radius * 0.5);
@@ -424,7 +446,6 @@ export const drawPersistentAlertLocators = (
       ctx.fillText("!", 0, radius * 0.02);
     }
     ctx.restore();
-    drawnCount += 1;
   }
   ctx.restore();
 };

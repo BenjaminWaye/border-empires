@@ -8,12 +8,12 @@ import {
   SIEGE_TIER_LADDER,
   fortBuildDurationMs,
   fortRemovalDurationMs,
-  siegeOutpostBuildDurationMs,
-  siegeOutpostRemovalDurationMs,
+  siegeBatteryBuildDurationMs,
+  siegeBatteryRemovalDurationMs,
   structureBuildDurationMs,
   structureRemovalDurationMs,
   type FortVariant,
-  type SiegeOutpostVariant
+  type SiegeBatteryVariant
 } from "@border-empires/shared";
 import type { StructureInfoKey } from "../client-map-display.js";
 import { structureBaseKey } from "../client-structure-cost-bits.js";
@@ -24,11 +24,11 @@ import { buildMsWithSpeedForState, type BuildSpeedState } from "../client-build-
 export type { BuildSpeedState };
 
 const isFortVariant = (key: string): key is FortVariant => Object.hasOwn(FORT_TIER_LADDER, key);
-const isSiegeVariant = (key: string): key is SiegeOutpostVariant => Object.hasOwn(SIEGE_TIER_LADDER, key);
+const isSiegeVariant = (key: string): key is SiegeBatteryVariant => Object.hasOwn(SIEGE_TIER_LADDER, key);
 
 const baseBuildMs = (key: StructureInfoKey, ownedCount: number): number => {
   if (isFortVariant(key)) return fortBuildDurationMs(key);
-  if (isSiegeVariant(key)) return siegeOutpostBuildDurationMs(key);
+  if (isSiegeVariant(key)) return siegeBatteryBuildDurationMs(key);
   return structureBuildDurationMs(structureBaseKey(key), ownedCount);
 };
 
@@ -40,7 +40,7 @@ export const structureInfoBuildMs = (key: StructureInfoKey, ownedCount: number, 
 
 export const structureInfoRemovalMs = (key: StructureInfoKey): number => {
   if (isFortVariant(key)) return fortRemovalDurationMs(key);
-  if (isSiegeVariant(key)) return siegeOutpostRemovalDurationMs(key);
+  if (isSiegeVariant(key)) return siegeBatteryRemovalDurationMs(key);
   return structureRemovalDurationMs(structureBaseKey(key));
 };
 
@@ -48,7 +48,7 @@ export const structureInfoRemovalMs = (key: StructureInfoKey): number => {
 export const structureLabelForRemoval = (tile: Tile): { label: string; durationMs: number } | undefined => {
   if (tile.fort) return { label: FORT_VARIANT_LABELS[tile.fort.variant ?? "FORT"], durationMs: fortRemovalDurationMs(tile.fort.variant) };
   if (tile.observatory) return { label: "Aether Tower", durationMs: structureRemovalDurationMs("OBSERVATORY") };
-  if (tile.siegeOutpost) return { label: "Siege Battery", durationMs: siegeOutpostRemovalDurationMs(tile.siegeOutpost.variant) };
+  if (tile.siegeBattery) return { label: "Siege Battery", durationMs: siegeBatteryRemovalDurationMs(tile.siegeBattery.variant) };
   if (tile.economicStructure) return { label: economicStructureName(tile.economicStructure.type), durationMs: structureRemovalDurationMs(tile.economicStructure.type) };
   return undefined;
 };

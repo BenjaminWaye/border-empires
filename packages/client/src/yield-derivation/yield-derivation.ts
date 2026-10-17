@@ -1,34 +1,26 @@
 /**
- * Client-side yield derivation.
+ * Client-side yield-rate derivation.
  *
  * Imports constants from @border-empires/game-domain (shared package) to avoid
- * drift with apps/simulation/src/tile-yield-view.ts. Derives yieldRate and
- * yieldCap from tile data that is already present in the bootstrap payload
- * (townJson, resource, dockId, economicStructure), so they no longer need to
- * be sent as per-tile fields (PR A of bootstrap-payload-shrink).
+ * drift with apps/simulation/src/tile-yield-view.ts. Derives a tile's gold
+ * yieldRate from tile data that is already present in the bootstrap payload
+ * (townJson, dockId), so it doesn't need to be sent as a per-tile field
+ * (PR A of bootstrap-payload-shrink). Tiles only produce gold directly —
+ * strategic resources are slot-based — and never store yield.
  */
 
 import {
-  ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
-  ADVANCED_TITANIUM_WORKS_TITANIUM_PER_DAY,
-  ADVANCED_UMBRITE_SYNTHESIZER_UMBRITE_PER_DAY,
-  CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
   DOCK_CONNECTION_BONUS_PER_LINK_DEFAULT,
   DOCK_INCOME_PER_MIN,
   HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK,
   PASSIVE_INCOME_MULT,
-  SETTLEMENT_BASE_GOLD_PER_MIN,
-  STRUCTURE_OUTPUT_MULT,
-  TILE_YIELD_CAP_GOLD,
-  TILE_YIELD_CAP_RESOURCE,
-  TITANIUM_WORKS_TITANIUM_PER_DAY,
-  UMBRITE_SYNTHESIZER_UMBRITE_PER_DAY
+  SETTLEMENT_BASE_GOLD_PER_MIN
 } from "@border-empires/game-domain";
 
 // Mirrors dockBaseGoldPerMinuteForPlayer's shape (apps/simulation/src/economy-network/economy-network.ts):
 // base income + a per-connected-dock connection bonus, plus a flat
 // per-connected-dock Harbor Exchange bonus when supported by an active,
-// owned CUSTOMS_HOUSE. The client cannot see per-player tech multipliers
+// owned HARBOR_EXCHANGE. The client cannot see per-player tech multipliers
 // (dockGoldOutputMultiplierForPlayer, wonderDockGoldMultiplier), so this
 // uses the default connection-bonus rate absent tech overrides — a known
 // approximation, same limitation as the rest of this module's dock income
@@ -48,61 +40,13 @@ export const dockDisplayGoldPerMinute = (
   return base + harborExchangeBonus;
 };
 
-// Matches apps/simulation/src/tile-yield-view.ts:strategicDailyFromResource
-const strategicDailyFromResource = (resource: string | undefined): Record<string, number> => {
-  switch (resource) {
-    case "FARM":
-      return { FOOD: 48 };
-    case "FISH":
-      return { FOOD: 72 };
-    case "TITANIUM":
-      return { TITANIUM: 60 };
-    case "UMBRITE":
-      return { UMBRITE: 60 };
-    case "GEMS":
-      return { CRYSTAL: 36 };
-    default:
-      return {};
-  }
-};
-
-// Matches apps/simulation/src/tile-yield-view.ts:converterDailyOutput. These
-// structure types (ADVANCED synths, MINE/UMBRITE_RIG, FOUNDRY-boosted MINE) require
-// server-authoritative yieldRate/yieldCap (see tileYieldNeedsServerAuthority
-// on the sim side) — this fallback only runs before the server value arrives
-// or as a last resort, so it now matches the corrected server constants
-// rather than intentionally under-reporting.
-const converterDailyOutput = (structureType: string | undefined): Record<string, number> => {
-  switch (structureType) {
-    case "UMBRITE_SYNTHESIZER":
-      return { UMBRITE: UMBRITE_SYNTHESIZER_UMBRITE_PER_DAY };
-    case "ADVANCED_UMBRITE_SYNTHESIZER":
-      return { UMBRITE: ADVANCED_UMBRITE_SYNTHESIZER_UMBRITE_PER_DAY };
-    case "TITANIUM_WORKS":
-      return { TITANIUM: TITANIUM_WORKS_TITANIUM_PER_DAY };
-    case "ADVANCED_TITANIUM_WORKS":
-      return { TITANIUM: ADVANCED_TITANIUM_WORKS_TITANIUM_PER_DAY };
-    case "CRYSTAL_SYNTHESIZER":
-      return { CRYSTAL: CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
-    case "ADVANCED_CRYSTAL_SYNTHESIZER":
-      return { CRYSTAL: ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
-    case "FARMSTEAD":
-      return { FOOD: 48 * 0.5 };
-    default:
-      return {};
-  }
-};
-
-export type TileYieldRate = { goldPerMinute: number; strategicPerDay: Record<string, number> };
-export type TileYieldCap = { gold: number; strategicEach: number };
-
 type YieldInput = {
-  town?: { goldPerMinute?: number; cap?: number; populationTier?: string } | null;
+  town?: { goldPerMinute?: number; populationTier?: string } | null;
   dockId?: string | null;
-  resource?: string;
-  economicStructure?: { type?: string; status?: string } | null;
   sabotage?: { endsAt: number; outputMultiplier: number } | null;
 };
+
+export type TileYieldRate = { goldPerMinute: number };
 
 export const deriveTileYieldRate = (
   tile: YieldInput,
@@ -137,85 +81,18 @@ export const deriveTileYieldRate = (
   const outputMultiplier = tile.sabotage && tile.sabotage.endsAt > Date.now() ? Math.max(0, Math.min(1, tile.sabotage.outputMultiplier)) : 1;
   const goldPerMinute = (townGoldPerMinute + dockGoldPerMinute) * outputMultiplier;
 
-  const strategicPerDay: Record<string, number> = {
-    ...strategicDailyFromResource(tile.resource)
-  };
-
-  if (tile.economicStructure?.status === "active" && tile.economicStructure.type) {
-    const converterOutput = converterDailyOutput(tile.economicStructure.type);
-    // FARMSTEAD on a non-FARM tile (e.g. FISH) gets no food bonus — strip it.
-    if (tile.economicStructure.type === "FARMSTEAD" && tile.resource !== "FARM") {
-      delete converterOutput.FOOD;
-    }
-    // Additive merge so FARMSTEAD on a FARM tile gives 48+24=72, not 24.
-    for (const [key, value] of Object.entries(converterOutput)) {
-      strategicPerDay[key] = (strategicPerDay[key] ?? 0) + value;
-    }
-    // MINE/UMBRITE_RIG: active structure multiplies the tile's base resource output
-    // by STRUCTURE_OUTPUT_MULT (matches server tile-yield-view.ts). Foundry's
-    // additional radius boost on MINE cannot be derived locally (no topology
-    // data) and stays server-authoritative.
-    if (tile.economicStructure.type === "MINE" || tile.economicStructure.type === "UMBRITE_RIG") {
-      for (const key of Object.keys(strategicPerDay)) {
-        strategicPerDay[key] = (strategicPerDay[key] ?? 0) * STRUCTURE_OUTPUT_MULT;
-      }
-    }
-  }
-
-  for (const key of Object.keys(strategicPerDay)) {
-    strategicPerDay[key] = (strategicPerDay[key] ?? 0) * outputMultiplier;
-  }
-
-  if (goldPerMinute < 0.0001 && Object.keys(strategicPerDay).length === 0) return undefined;
-
-  return {
-    goldPerMinute: roundPositive(goldPerMinute, 4),
-    strategicPerDay: Object.fromEntries(
-      Object.entries(strategicPerDay)
-        .filter(([, value]) => Number(value) > 0.0001)
-        .map(([resource, value]) => [resource, roundPositive(Number(value), 4)])
-    )
-  };
+  if (goldPerMinute < 0.0001) return undefined;
+  return { goldPerMinute: roundPositive(goldPerMinute, 4) };
 };
 
-export const deriveTileYieldCap = (
-  tile: YieldInput,
-  yieldRate?: TileYieldRate,
-  incomeMultiplier = 1.0
-): TileYieldCap | undefined => {
-  const rate = yieldRate ?? deriveTileYieldRate(tile, incomeMultiplier);
-  if (!rate) return undefined;
-
-  const { goldPerMinute, strategicPerDay } = rate;
-  const maxDaily = Math.max(0, ...Object.values(strategicPerDay).map((v) => Number(v) || 0));
-
-  const goldCap =
-    typeof tile.town?.cap === "number"
-      ? tile.town.cap
-      : goldPerMinute > 0.0001
-        ? goldPerMinute * 60 * 8
-        : TILE_YIELD_CAP_GOLD;
-
-  const strategicEach = maxDaily > 0 ? maxDaily / 3 : TILE_YIELD_CAP_RESOURCE;
-
-  return {
-    gold: roundPositive(goldCap, 3),
-    strategicEach: roundPositive(strategicEach, 3)
-  };
-};
-
-/** Derive and attach yieldRate / yieldCap to a tile object if missing. */
-export const ensureTileYield = <T extends YieldInput & { yieldRate?: TileYieldRate; yieldCap?: TileYieldCap }>(
+/** Derive and attach yieldRate to a tile object if missing. */
+export const ensureTileYield = <T extends YieldInput & { yieldRate?: TileYieldRate }>(
   tile: T,
   incomeMultiplier = 1.0
 ): T => {
   if (!tile.yieldRate) {
     const rate = deriveTileYieldRate(tile, incomeMultiplier);
     if (rate) (tile as Record<string, unknown>).yieldRate = rate;
-  }
-  if (!tile.yieldCap) {
-    const cap = deriveTileYieldCap(tile, tile.yieldRate, incomeMultiplier);
-    if (cap) (tile as Record<string, unknown>).yieldCap = cap;
   }
   return tile;
 };

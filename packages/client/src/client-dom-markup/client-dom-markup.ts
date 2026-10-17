@@ -265,13 +265,15 @@ export const hudMarkup = `
   <aside id="side-panel">
     <div id="side-panel-head">
       <h3 id="panel-title">Panel</h3>
+      <button id="tech-view-toggle" class="panel-btn manifest-view-toggle" type="button">Tree view</button>
       <button id="panel-close">Close</button>
     </div>
     <div id="side-panel-body">
       <section id="panel-missions" class="panel-body" hidden></section>
-      <section id="panel-tech" class="panel-body">
-        <div class="tech-section-tabs tech-section-tabs-single">
-          <button id="tech-tree-expand-toggle" class="panel-btn tech-tree-expand-toggle" type="button">Expand Tree</button>
+      <section id="panel-tech" class="panel-body" data-manifest-tab="available">
+        <div class="tech-section-tabs manifest-tabs" role="tablist">
+          <button class="panel-btn manifest-tab active" type="button" role="tab" aria-selected="true" data-manifest-tab-btn="available">Available</button>
+          <button class="panel-btn manifest-tab" type="button" role="tab" aria-selected="false" data-manifest-tab-btn="owned">Owned</button>
         </div>
         <div id="tech-research-section" class="tech-section-panel">
           <div id="tech-current-mods"></div>
@@ -292,13 +294,7 @@ export const hudMarkup = `
         <div id="panel-domains-content"></div>
       </section>
       <section id="panel-alliance" class="panel-body alliance-panel">
-        <div class="alliance-form-section">
-          <input id="alliance-target" placeholder="ally player name" list="alliance-target-options" autocomplete="off" />
-          <button id="alliance-send" class="panel-btn" type="button">Send</button>
-        </div>
-        <datalist id="alliance-target-options"></datalist>
         <div id="allies-list" class="alliance-section-stack"></div>
-        <div id="alliance-requests" class="alliance-section-stack"></div>
         <div id="alliance-player-inspect" class="alliance-player-inspect-slot"></div>
       </section>
       <section id="panel-defensibility" class="panel-body"></section>
@@ -315,11 +311,15 @@ export const hudMarkup = `
   </aside>
 
   <div id="mobile-sheet">
-    <div id="mobile-sheet-head">Panel</div>
+    <div id="mobile-sheet-head">
+      <span id="mobile-sheet-title">Panel</span>
+      <button id="mobile-tech-view-toggle" class="panel-btn manifest-view-toggle" type="button">Tree view</button>
+    </div>
     <section id="mobile-panel-missions" class="mobile-panel" hidden></section>
-    <section id="mobile-panel-tech" class="mobile-panel">
-      <div class="tech-section-tabs tech-section-tabs-single">
-        <button id="mobile-tech-tree-expand-toggle" class="panel-btn tech-tree-expand-toggle" type="button">Expand Tree</button>
+    <section id="mobile-panel-tech" class="mobile-panel" data-manifest-tab="available">
+      <div class="tech-section-tabs manifest-tabs" role="tablist">
+        <button class="panel-btn manifest-tab active" type="button" role="tab" aria-selected="true" data-manifest-tab-btn="available">Available</button>
+        <button class="panel-btn manifest-tab" type="button" role="tab" aria-selected="false" data-manifest-tab-btn="owned">Owned</button>
       </div>
       <div id="mobile-tech-research-section" class="tech-section-panel">
         <div id="mobile-tech-current-mods"></div>
@@ -338,12 +338,7 @@ export const hudMarkup = `
     </section>
     <section id="mobile-panel-domains" class="mobile-panel"></section>
     <section id="mobile-panel-social" class="mobile-panel alliance-panel">
-      <div class="alliance-form-section">
-        <input id="mobile-alliance-target" placeholder="ally player name" list="alliance-target-options" autocomplete="off" />
-        <button id="mobile-alliance-send" class="panel-btn" type="button">Send</button>
-      </div>
       <div id="mobile-allies-list" class="alliance-section-stack"></div>
-      <div id="mobile-alliance-requests" class="alliance-section-stack"></div>
       <div id="mobile-alliance-player-inspect" class="alliance-player-inspect-slot"></div>
     </section>
     <section id="mobile-panel-defensibility" class="mobile-panel"></section>

@@ -81,14 +81,6 @@ export const translation = (mesh: InstancedMesh, instance: number): Vector3 => {
   return new Vector3(a[o + 12]!, a[o + 13]!, a[o + 14]!);
 };
 
-// A rod's local +Y carries its length, so the second matrix column reads the
-// piece's scaled axis.
-export const yAxisColumn = (mesh: InstancedMesh, instance: number): Vector3 => {
-  const a = mesh.instanceMatrix.array;
-  const o = instance * 16;
-  return new Vector3(a[o + 4]!, a[o + 5]!, a[o + 6]!);
-};
-
 // Ring tori align their hole along the piece direction, so the third matrix
 // column is the ring's scaled normal.
 export const zAxisColumn = (mesh: InstancedMesh, instance: number): Vector3 => {

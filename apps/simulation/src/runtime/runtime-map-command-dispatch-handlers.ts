@@ -1,15 +1,16 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import {
   handleAegisLockCommand as handleAegisLockCommandImpl,
-  handleAirportBombardCommand as handleAirportBombardCommandImpl,
+  handleSkyDockBombardCommand as handleSkyDockBombardCommandImpl,
   handleAstralDockLaunchCommand as handleAstralDockLaunchCommandImpl,
   handleCreateMountainCommand as handleCreateMountainCommandImpl,
   handleRemoveMountainCommand as handleRemoveMountainCommandImpl,
-  handleWorldEngineStrikeCommand as handleWorldEngineStrikeCommandImpl,
+  handleSovereignSiegeEngineStrikeCommand as handleSovereignSiegeEngineStrikeCommandImpl,
   type RuntimeMapCommandContext
 } from "../runtime-map-command-handlers.js";
 import { handleRetortRecastCommand as handleRetortRecastCommandImpl } from "../runtime-retort-recast-command-handler.js";
 import { handleSyncTruceCommand as handleSyncTruceCommandImpl } from "../runtime-truce-sync-command.js";
+import { handleDiplomacySettlementCommand as handleDiplomacySettlementCommandImpl } from "../runtime-diplomacy-settlement-command.js";
 import { handleImperialExchangeLevyCommand as handleImperialExchangeLevyCommandImpl } from "../runtime-imperial-exchange-levy-command.js";
 import { handleTitaniumLevyMusterCommand as handleTitaniumLevyMusterCommandImpl } from "../runtime-titanium-levy-command.js";
 import { handleSetAutoSettlePrefsCommand as handleSetAutoSettlePrefsCommandImpl } from "../runtime-auto-settle-prefs-command-handler.js";
@@ -24,13 +25,14 @@ export const buildMapCommandDispatchHandlers = (mapCommandContext: () => Runtime
   handleCreateMountainCommand: (command: CommandEnvelope) => handleCreateMountainCommandImpl(mapCommandContext(), command),
   handleRemoveMountainCommand: (command: CommandEnvelope) => handleRemoveMountainCommandImpl(mapCommandContext(), command),
   handleRetortRecastCommand: (command: CommandEnvelope) => handleRetortRecastCommandImpl(mapCommandContext(), command),
-  handleAirportBombardCommand: (command: CommandEnvelope) => handleAirportBombardCommandImpl(mapCommandContext(), command),
+  handleSkyDockBombardCommand: (command: CommandEnvelope) => handleSkyDockBombardCommandImpl(mapCommandContext(), command),
   handleImperialExchangeLevyCommand: (command: CommandEnvelope) => handleImperialExchangeLevyCommandImpl(mapCommandContext(), command),
-  handleWorldEngineStrikeCommand: (command: CommandEnvelope) => handleWorldEngineStrikeCommandImpl(mapCommandContext(), command),
+  handleSovereignSiegeEngineStrikeCommand: (command: CommandEnvelope) => handleSovereignSiegeEngineStrikeCommandImpl(mapCommandContext(), command),
   handleAegisLockCommand: (command: CommandEnvelope) => handleAegisLockCommandImpl(mapCommandContext(), command),
   handleAstralDockLaunchCommand: (command: CommandEnvelope) => handleAstralDockLaunchCommandImpl(mapCommandContext(), command),
   handleTitaniumLevyMusterCommand: (command: CommandEnvelope) => handleTitaniumLevyMusterCommandImpl(mapCommandContext(), command),
   handleActivateImperialWardCommand: (command: CommandEnvelope) => handleActivateImperialWardCommandImpl(mapCommandContext(), command),
   handleSetAutoSettlePrefsCommand: (command: CommandEnvelope) => handleSetAutoSettlePrefsCommandImpl(mapCommandContext(), command),
-  handleSyncTruceCommand: (command: CommandEnvelope) => handleSyncTruceCommandImpl(mapCommandContext(), command)
+  handleSyncTruceCommand: (command: CommandEnvelope) => handleSyncTruceCommandImpl(mapCommandContext(), command),
+  handleDiplomacySettlementCommand: (command: CommandEnvelope) => handleDiplomacySettlementCommandImpl(mapCommandContext(), command)
 });

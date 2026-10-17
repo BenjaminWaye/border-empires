@@ -3694,13 +3694,6 @@ body {
   color: #f5fbff;
 }
 
-.tech-tree-expand-toggle {
-  min-height: 38px;
-  padding: 0 14px;
-  border-radius: 11px;
-  white-space: nowrap;
-}
-
 .tech-section-panel {
   display: grid;
   gap: 12px;
@@ -3974,11 +3967,6 @@ body {
   gap: 16px;
 }
 
-.tech-tree-shell-head strong {
-  font-size: 24px;
-  color: #f4f9ff;
-}
-
 .tech-tree-shell-head p {
   margin: 6px 0 0;
 }
@@ -4177,10 +4165,6 @@ body {
   gap: 6px;
   border-color: rgba(137, 182, 240, 0.28);
   background: linear-gradient(180deg, rgba(9, 19, 34, 0.82), rgba(5, 12, 23, 0.74));
-}
-
-.tech-section-tabs-single {
-  align-items: center;
 }
 
 .tech-section-heading {
@@ -4831,16 +4815,10 @@ body {
   margin: -10px;
 }
 
-.alliance-form-section,
 .alliance-section-block,
 .alliance-player-inspect-slot:not(:empty) {
   padding: 18px 16px;
   border-bottom: 1px solid #21262d;
-}
-
-.alliance-form-section {
-  display: grid;
-  gap: 16px;
 }
 
 #hud #panel-alliance input,
@@ -5880,14 +5858,6 @@ button:disabled,
     display: grid;
   }
 
-  .tech-tree-shell-head strong {
-    font-size: 20px;
-  }
-
-  .tech-tree-expand-toggle {
-    grid-column: 1 / -1;
-  }
-
   .tech-tree-graph-scroll {
     min-height: 360px;
     touch-action: none;
@@ -5977,7 +5947,6 @@ button:disabled,
     min-height: 50px;
   }
 
-  .alliance-form-section,
   .alliance-section-block,
   .alliance-player-inspect-slot:not(:empty) {
     padding: 16px;

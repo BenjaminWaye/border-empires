@@ -28,7 +28,7 @@ const setOpacity = (material: Mesh["material"], opacity: number): void => {
 
 /**
  * Single-point activation pulse shared by monument abilities that fire from
- * a fixed structure tile (World Engine Strike, Imperial Exchange Levy).
+ * a fixed structure tile (Sovereign Siege Engine Strike, Imperial Exchange Levy).
  * `color` distinguishes abilities visually without needing a bespoke effect each.
  */
 export const createMonumentPulseFxLayer = (scene: Object3D, color: string, name: string): MonumentPulseFxLayer => {

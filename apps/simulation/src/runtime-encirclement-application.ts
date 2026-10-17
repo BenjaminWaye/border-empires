@@ -189,7 +189,7 @@ export function clearCutOffFrontierTiles(
       frontierDecayKind: undefined,
       fort: undefined,
       observatory: undefined,
-      siegeOutpost: undefined,
+      siegeBattery: undefined,
       economicStructure: undefined,
       muster: undefined,
       sabotage: undefined,

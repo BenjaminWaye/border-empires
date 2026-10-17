@@ -38,23 +38,5 @@ export const buildLabTerrainRuntime = (
     regionTypeAt,
     clusterByTile,
     landBiomeAt,
-    grassShadeAt,
-    FRONTIER_CLAIM_MS: 0,
-    // Unused by cluster/dock placement — stubbed only to satisfy the shared deps type.
-    townsByTile: new Map(),
-    docksByTile: new Map(),
-    fortsByTile: new Map(),
-    siegeOutpostsByTile: new Map(),
-    observatoriesByTile: new Map(),
-    economicStructuresByTile: new Map(),
-    playerTile: () => ({ x: 0, y: 0, terrain: "SEA", lastChangedAt: 0 }),
-    AIRPORT_BOMBARD_MIN_FIELD_TILES: 2,
-    AIRPORT_BOMBARD_MAX_FIELD_TILES: 4,
-    activeSeason: { worldSeed: seed },
-    clustersById,
-    ownership: new Map(),
-    getOrInitResourceCounts: () => ({} as never),
-    rebuildEconomyIndexForPlayer: () => {},
-    sendPlayerUpdate: () => {},
-    sendVisibleTileDeltaAt: () => {}
+    grassShadeAt
   });

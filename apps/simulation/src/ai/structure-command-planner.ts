@@ -1,7 +1,10 @@
+import { hasInstalledAiBuildModule } from "./ai-build-unlocks.js";
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 import {
   bestFortTierForTech,
   bestSiegeTierForTech,
+  RELAY_BEACON_FREE_FOOD_SLOT_COUNT,
+  SYNTHESIZER_STRUCTURE_TYPES,
   structureBuildGoldCost,
   structureBuildManpowerCostScaled,
   structureCostDefinition,
@@ -9,6 +12,7 @@ import {
   structureSlotRequirements,
   TECH_REQUIREMENTS_BY_STRUCTURE,
   type EconomicStructureType,
+  type SlotResource,
   type Terrain
 } from "@border-empires/shared";
 
@@ -35,6 +39,10 @@ export type StructurePlannerPlayer = {
   townCount?: number;
   incomePerMinute?: number;
   ownedStructureCounts?: PlannerOwnedStructureCounts;
+  slotSupplyByResource?: Partial<Record<SlotResource, number>>;
+  installedModuleTechIds?: readonly string[] | undefined;
+  slotDemandByResource?: Partial<Record<SlotResource, number>>;
+  blockedActionKeys?: ReadonlyMap<string, string>;
 };
 
 export type StructurePlannerTile = {
@@ -53,7 +61,7 @@ export type StructurePlannerTile = {
   } | null | undefined;
   fort?: { ownerId?: string | undefined; status?: string | undefined } | null | undefined;
   observatory?: { ownerId?: string | undefined; status?: string | undefined } | null | undefined;
-  siegeOutpost?: { ownerId?: string | undefined; status?: string | undefined } | null | undefined;
+  siegeBattery?: { ownerId?: string | undefined; status?: string | undefined } | null | undefined;
   economicStructure?: { ownerId?: string | undefined; type?: EconomicStructureType | undefined; status?: string | undefined } | null | undefined;
 };
 
@@ -68,13 +76,13 @@ export const tileKeyOf = (x: number, y: number): string => `${x},${y}`;
 
 export type OwnedStructureCounts = {
   FORT: number;
-  SIEGE_OUTPOST: number;
+  SIEGE_BATTERY: number;
   economic: Map<EconomicStructureType, number>;
 };
 
 export const EMPTY_OWNED_STRUCTURE_COUNTS: OwnedStructureCounts = {
   FORT: 0,
-  SIEGE_OUTPOST: 0,
+  SIEGE_BATTERY: 0,
   economic: new Map()
 };
 
@@ -84,12 +92,12 @@ export const tallyOwnedStructures = (
 ): OwnedStructureCounts => {
   const counts: OwnedStructureCounts = {
     FORT: 0,
-    SIEGE_OUTPOST: 0,
+    SIEGE_BATTERY: 0,
     economic: new Map()
   };
   for (const tile of tiles) {
     if (tile.fort?.ownerId === playerId) counts.FORT += 1;
-    if (tile.siegeOutpost?.ownerId === playerId) counts.SIEGE_OUTPOST += 1;
+    if (tile.siegeBattery?.ownerId === playerId) counts.SIEGE_BATTERY += 1;
     const econ = tile.economicStructure;
     if (econ?.ownerId === playerId && econ.type) {
       counts.economic.set(econ.type, (counts.economic.get(econ.type) ?? 0) + 1);
@@ -104,12 +112,12 @@ const economicCount = (counts: OwnedStructureCounts, type: EconomicStructureType
 export const plannedOwnedStructureCount = (
   player: StructurePlannerPlayer,
   fallbackCounts: OwnedStructureCounts,
-  structureKind: "FORT" | "SIEGE_OUTPOST" | EconomicStructureType
+  structureKind: "FORT" | "SIEGE_BATTERY" | EconomicStructureType
 ): number => {
   const cached = player.ownedStructureCounts?.[structureKind];
   if (typeof cached === "number") return cached;
   if (structureKind === "FORT") return fallbackCounts.FORT;
-  if (structureKind === "SIEGE_OUTPOST") return fallbackCounts.SIEGE_OUTPOST;
+  if (structureKind === "SIEGE_BATTERY") return fallbackCounts.SIEGE_BATTERY;
   return economicCount(fallbackCounts, structureKind);
 };
 
@@ -132,10 +140,10 @@ const supportedDockCount = (playerId: string, tile: StructurePlannerTile, tilesB
 };
 
 export const tileOpenForStructure = (tile: StructurePlannerTile): boolean =>
-  !tile.observatory && !tile.siegeOutpost && !tile.economicStructure;
+  !tile.observatory && !tile.siegeBattery && !tile.economicStructure;
 
 export const structureVisibleOnTile = (
-  structureType: "FORT" | "SIEGE_OUTPOST" | EconomicStructureType,
+  structureType: "FORT" | "SIEGE_BATTERY" | EconomicStructureType,
   playerId: string,
   tile: StructurePlannerTile,
   tilesByKey: TileLookup
@@ -186,18 +194,35 @@ export const canAffordStructure = (
   // it to both places).
   const requiredTechId = TECH_REQUIREMENTS_BY_STRUCTURE[structureType];
   if (requiredTechId && !techSet.has(requiredTechId)) return false;
+  if (!hasInstalledAiBuildModule(player.installedModuleTechIds, requiredTechId)) return false;
   if (!canAffordGold(player, structureBuildGoldCost(structureType, existingOwnedCount))) return false;
   // Same existingOwnedCount the runtime scales by (it passes
   // ownedStructureCountForPlayer into structureBuildManpowerCostScaled), so
   // Relay Beacon's first-N-free rule stays in lockstep here.
   if (!canAffordManpower(player, structureBuildManpowerCostScaled(structureType, existingOwnedCount))) return false;
+  // Match hasFreeResourceSlots: synthesizers and the first five relay
+  // beacons remain buildable during a deficit. No per-candidate tile scan.
+  if (player.slotSupplyByResource && player.slotDemandByResource &&
+      !SYNTHESIZER_STRUCTURE_TYPES.includes(structureType) &&
+      !(structureType === "RELAY_BEACON" && existingOwnedCount < RELAY_BEACON_FREE_FOOD_SLOT_COUNT)) {
+    for (const requirement of structureSlotRequirements(structureType)) {
+      const free = (player.slotSupplyByResource[requirement.resource] ?? 0) -
+        (player.slotDemandByResource[requirement.resource] ?? 0);
+      if (free < requirement.count) return false;
+    }
+  }
+  // FOOD/TITANIUM/CRYSTAL/UMBRITE stockpile spending was retired at build
+  // time (stripRetiredStockpileCost). Checking it here prevented legal
+  // FOOD-source builds even though they require no resource slots at all.
   const resourceCost = structureCostDefinition(structureType).resourceCost;
-  if (!resourceCost) return true;
+  if (!resourceCost || resourceCost.resource !== "SHARD") return true;
   return resourceStock(player, resourceCost.resource) >= resourceCost.amount;
 };
 
 const foodCoverageLow = (player: StructurePlannerPlayer): boolean =>
-  resourceStock(player, "FOOD") <= Math.max(24, (player.townCount ?? 0) * 12);
+  player.slotSupplyByResource && player.slotDemandByResource
+    ? (player.slotSupplyByResource.FOOD ?? 0) <= (player.slotDemandByResource.FOOD ?? 0)
+    : resourceStock(player, "FOOD") <= Math.max(24, (player.townCount ?? 0) * 12);
 
 export const chooseBestEconomicBuild = (
   player: StructurePlannerPlayer,
@@ -223,7 +248,7 @@ export const chooseBestEconomicBuild = (
     if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
     if (!tileOpenForStructure(tile)) continue;
     const candidates: Array<{ type: EconomicStructureType; score: number }> = [];
-    // Town-support structures (MINTWORKS/GRANARY) build on an open,
+    // Town-support structures (MINTWORKS/INCUBATION_ENGINE) build on an open,
     // already-SETTLED neighbor tile assigned to this town
     // (resolveTownSupportTarget in runtime-structure-command-handlers.ts),
     // never on the town tile itself. Computed once per tile — the neighbor
@@ -234,11 +259,11 @@ export const chooseBestEconomicBuild = (
     let existingSupportStructureTypes: ReadonlySet<EconomicStructureType> | undefined;
     const townKey = tileKeyOf(tile.x, tile.y);
     if (tile.resource === "FARM") {
-      // FARMSTEAD is FARM-only (structure-placement-metadata.json's
+      // HYDROGARDEN is FARM-only (structure-placement-metadata.json's
       // resourceTypes) — it has no effect on fish production (§5.3), so a
       // FISH candidate here would always fail structureVisibleOnTile below
       // and just waste the affordability check on every tick.
-      candidates.push({ type: "FARMSTEAD", score: foodLow ? 190 : 70 });
+      candidates.push({ type: "HYDROGARDEN", score: foodLow ? 190 : 70 });
     } else if (tile.resource === "UMBRITE") {
       candidates.push({ type: "UMBRITE_RIG", score: econWeak ? 58 : 42 });
     } else if (tile.resource === "TITANIUM" || tile.resource === "GEMS") {
@@ -256,8 +281,8 @@ export const chooseBestEconomicBuild = (
         // Computed once per tile, not per candidate type — see
         // economicStructureTypesForSupportedTown's docs in town-support-lookup.ts.
         existingSupportStructureTypes = economicStructureTypesForSupportedTown(tilesByKey, player.id, townKey);
-        candidates.push({ type: foodLow ? "GRANARY" : "MINTWORKS", score: foodLow ? 160 : 54 });
-        candidates.push({ type: "GRANARY", score: foodLow ? 132 : 20 });
+        candidates.push({ type: foodLow ? "INCUBATION_ENGINE" : "MINTWORKS", score: foodLow ? 160 : 54 });
+        candidates.push({ type: "INCUBATION_ENGINE", score: foodLow ? 132 : 20 });
         if (needVector) {
           for (const entry of ECONOMIC_STRUCTURE_CATALOG) {
             if (entry.placement !== "town_support") continue;
@@ -273,9 +298,9 @@ export const chooseBestEconomicBuild = (
       }
     }
     // Plain open land — no resource, not a town tile — is where the
-    // catalog's open_settled entries (WATERWORKS/GOVERNORS_OFFICE) get
+    // catalog's open_settled entries (HYDROWORKS/MINISTRY_HALL) get
     // considered. Deliberately excluded from resource/town tiles above:
-    // FARMSTEAD belongs on a farm tile more than Waterworks does, and this
+    // HYDROGARDEN belongs on a farm tile more than Hydroworks does, and this
     // keeps that tile's candidates to the single branch that already matched
     // it rather than layering a second, unrelated evaluation on top.
     if (needVector && !tile.resource && !tile.town) {
@@ -287,6 +312,7 @@ export const chooseBestEconomicBuild = (
     }
     for (const candidate of candidates) {
       const existingOwnedCount = plannedOwnedStructureCount(player, counts, candidate.type);
+      if (player.blockedActionKeys?.has(`BUILD_ECONOMIC_STRUCTURE:${tile.x},${tile.y}:${candidate.type}`)) continue;
       if (!canAffordStructure(player, techSet, candidate.type, existingOwnedCount)) continue;
       if (!structureVisibleOnTile(candidate.type, player.id, tile, tilesByKey)) continue;
       if (
@@ -297,8 +323,8 @@ export const chooseBestEconomicBuild = (
       }
       // A town needing MORE support capacity overall (supportCurrent <
       // supportMax, checked above) does not mean it's missing THIS specific
-      // type — it might already have a GRANARY and just need a Mintworks.
-      // The runtime rejects a duplicate ("town already has granary") via
+      // type — it might already have a INCUBATION_ENGINE and just need a Mintworks.
+      // The runtime rejects a duplicate ("town already has incubation engine") via
       // economicStructureForSupportedTown; without this same check here the
       // AI kept proposing a structure type the town already had, on repeat,
       // every rejection-cooldown cycle, forever (see town-support-lookup.ts).
@@ -326,7 +352,7 @@ export const chooseBestFortBuild = (
   // used before the TITANIUM cost moved to slots.
   freeTitaniumSlots?: number
 ): StructurePlannerTile | undefined => {
-  if (!playerTechSet(player).has("masonry")) return undefined;
+  if (!playerTechSet(player).has("masonry") || !hasInstalledAiBuildModule(player.installedModuleTechIds, "masonry")) return undefined;
   // Gold requirement must match the tier the runtime will actually build
   // (runtime-structure-command-handlers.ts always resolves a fresh fort via
   // bestFortTierForTech, never the flat base-FORT cost) — using the flat
@@ -383,27 +409,30 @@ export const chooseBestFortBuild = (
   return best && best.score >= 70 ? best.tile : undefined;
 };
 
-export const chooseBestSiegeOutpostBuild = (
+export const chooseBestSiegeBatteryBuild = (
   player: StructurePlannerPlayer,
   ownedTiles: readonly StructurePlannerTile[],
   tilesByKey: TileLookup,
   candidateTiles: readonly StructurePlannerTile[] = ownedTiles
 ): StructurePlannerTile | undefined => {
-  if (!playerTechSet(player).has("leatherworking")) return undefined;
-  // Same tier-awareness fix as chooseBestFortBuild above: siegecraft/
-  // standing-army tech means the runtime builds SIEGE_TOWER/DREAD_TOWER
-  // (90/140 umbrite, 60/120 titanium, 1800/4200 gold), not the flat base cost.
+  if (!playerTechSet(player).has("leatherworking") || !hasInstalledAiBuildModule(player.installedModuleTechIds, "leatherworking")) return undefined;
+  // Match the actual built tier. Retired UMBRITE/TITANIUM stockpiles do
+  // not gate construction; their capacity is occupied for the tower's life.
   const siegeTier = bestSiegeTierForTech((id) => playerTechSet(player).has(id));
-  if (resourceStock(player, "UMBRITE") < siegeTier.umbrite) return undefined;
-  if (siegeTier.titanium > 0 && resourceStock(player, "TITANIUM") < siegeTier.titanium) return undefined;
+  if (player.slotSupplyByResource && player.slotDemandByResource) {
+    for (const requirement of structureSlotRequirements(siegeTier.variant)) {
+      const free = (player.slotSupplyByResource[requirement.resource] ?? 0) - (player.slotDemandByResource[requirement.resource] ?? 0);
+      if (free < requirement.count) return undefined;
+    }
+  }
   if (!canAffordGold(player, siegeTier.gold)) return undefined;
   if (!canAffordManpower(player, siegeTier.manpower)) return undefined;
 
   let best: { tile: StructurePlannerTile; score: number } | undefined;
   for (const tile of candidateTiles) {
     if (tile.ownerId !== player.id || tile.terrain !== "LAND") continue;
-    if (tile.fort || tile.observatory || tile.siegeOutpost || tile.economicStructure) continue;
-    if (!structureVisibleOnTile("SIEGE_OUTPOST", player.id, tile, tilesByKey)) continue;
+    if (tile.fort || tile.observatory || tile.siegeBattery || tile.economicStructure) continue;
+    if (!structureVisibleOnTile("SIEGE_BATTERY", player.id, tile, tilesByKey)) continue;
     let hostileAdjacency = 0;
     let townPressure = 0;
     let economicPressure = 0;
@@ -422,4 +451,3 @@ export const chooseBestSiegeOutpostBuild = (
   }
   return best && best.score >= 180 ? best.tile : undefined;
 };
-

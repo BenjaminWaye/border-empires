@@ -14,10 +14,13 @@ const EXPECTED_OVERLAY_JSON_FIELDS = [
   "naturalWonderJson",
   "fortJson",
   "observatoryJson",
-  "siegeOutpostJson",
+  "siegeBatteryJson",
   "economicStructureJson",
   "sabotageJson",
-  "musterJson"
+  "watchtowerJson",
+  "waystationJson",
+  "musterJson",
+  "afcJson"
 ] as const;
 
 /**
@@ -40,17 +43,19 @@ const fullyLoadedTile: DomainTileState = {
   naturalWonder: { type: "DEEPWATER_ENGINE" },
   fort: { ownerId: "p1", status: "active" },
   observatory: { ownerId: "p1", status: "active" },
-  siegeOutpost: { ownerId: "p1", status: "active" },
-  economicStructure: { ownerId: "p1", type: "FOUNDRY", status: "active" },
+  siegeBattery: { ownerId: "p1", status: "active" },
+  economicStructure: { ownerId: "p1", type: "ORE_REFINERY", status: "active" },
   sabotage: { ownerId: "p2", endsAt: 1000, outputMultiplier: 0.5 },
-  muster: { ownerId: "p1", amount: 10, mode: "HOLD", updatedAt: 0 }
+  watchtower: { activated: true, activatedByPlayerId: "p1" },
+  waystation: { activated: false },
+  muster: { ownerId: "p1", amount: 10, mode: "HOLD", updatedAt: 0 },
+  afc: { ownerId: "p1", status: "active", activatedAt: 0 }
 };
 
 const makeTileDeltaFromStateDeps = (): TileDeltaFromStateDeps => ({
   players: new Map(),
   tileDeltaStringifyCache: new TileDeltaStringifyCache(),
   now: () => 0,
-  tileYieldCollectedAt: () => undefined,
   tileYieldEconomyContextForPlayer: () => {
     throw new Error("not expected: fullyLoadedTile has no player registered");
   },

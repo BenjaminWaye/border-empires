@@ -26,7 +26,6 @@ const makeDeps = (onContextResolve: () => void): TileDeltaFromStateDeps => ({
   players: new Map([[player.id, player]]),
   tileDeltaStringifyCache: new TileDeltaStringifyCache(),
   now: () => 0,
-  tileYieldCollectedAt: () => undefined,
   tileYieldEconomyContextForPlayer: () => {
     onContextResolve();
     return {
@@ -34,8 +33,6 @@ const makeDeps = (onContextResolve: () => void): TileDeltaFromStateDeps => ({
       townNetwork: new Map(),
       fedTownKeys: new Set(),
       firstThreeTownKeys: new Set(),
-      waterworksKeys: new Set(),
-      foundryKeys: new Set(),
       dormantEconomicStructureKeys: new Set()
     } satisfies RuntimeTileYieldEconomyContext;
   },
@@ -59,7 +56,7 @@ describe("tileDeltaFromState — economy context resolution", () => {
     const deps = makeDeps(() => { resolves += 1; });
     tileDeltaFromState(deps, { ...plainTile, town: { type: "MARKET", populationTier: "TOWN", population: 1000, maxPopulation: 25_000 } });
     expect(resolves).toBe(1);
-    tileDeltaFromState(deps, { ...plainTile, x: 11, resource: "FARM", economicStructure: { ownerId: player.id, type: "FARMSTEAD", status: "active" } });
+    tileDeltaFromState(deps, { ...plainTile, x: 11, resource: "FARM", economicStructure: { ownerId: player.id, type: "HYDROGARDEN", status: "active" } });
     expect(resolves).toBe(2);
   });
 

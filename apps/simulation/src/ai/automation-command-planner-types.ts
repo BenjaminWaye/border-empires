@@ -1,3 +1,5 @@
+import type { AiTacticalTileFields } from "./ai-tactical-tile.js";
+import type { AiTacticalView } from "./ai-tactical-view.js";
 /**
  * Public types, constants, and small helpers for the automation command planner.
  *
@@ -40,7 +42,8 @@ export const AUTOMATION_NOOP_REASONS = [
   "wait_and_recover",
   "BLOCKED_NO_REACHABLE_BEACON_SITE",
   "BLOCKED_NO_FOOD_SLOT_RELIEF",
-  "BLOCKED_NO_FRONTIER_OR_ENEMY_TARGET"
+  "BLOCKED_NO_FRONTIER_OR_ENEMY_TARGET",
+  "BLOCKED_ACTION_RETRY"
 ] as const;
 
 export const AUTOMATION_PREPLAN_REASONS = [
@@ -67,15 +70,18 @@ export type AutomationPreplanReason = (typeof AUTOMATION_PREPLAN_REASONS)[number
 export type AutomationPreplanProgressState = (typeof AUTOMATION_PREPLAN_PROGRESS_STATES)[number];
 export type AutomationSessionPrefix = "ai-runtime" | "system-runtime";
 
-export type AutomationPlannerTile = {
+export type AutomationPlannerTile = AiTacticalTileFields & {
+  naturalWonder?: boolean | DomainTileState["naturalWonder"];
   x: number;
   y: number;
   terrain: Terrain;
   ownerId?: string | undefined;
   ownershipState?: DomainTileState["ownershipState"] | undefined;
+  afc?: { ownerId?: string } | undefined;
   resource?: DomainTileState["resource"] | undefined;
   dockId?: string | undefined;
   town?: {
+    population?: number | undefined;
     supportMax?: number | undefined;
     supportCurrent?: number | undefined;
     type?: "MARKET" | "FARMING";
@@ -84,11 +90,14 @@ export type AutomationPlannerTile = {
   } | null | undefined;
   fort?: { ownerId?: string; status?: string } | null | undefined;
   observatory?: { ownerId?: string; status?: string } | null | undefined;
-  siegeOutpost?: { ownerId?: string; status?: string } | null | undefined;
+  siegeBattery?: { ownerId?: string; status?: string } | null | undefined;
   economicStructure?: { ownerId?: string; type?: EconomicStructureType; status?: string; inactiveReason?: string | undefined } | null | undefined;
 };
 
 export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
+  canConsumeSurveyResults?: boolean;
+  tacticalView?: AiTacticalView | undefined;
+  installedModuleTechIds?: readonly string[] | undefined;
   playerId: string;
   points: number;
   manpower: number;
@@ -134,6 +143,8 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   /** Number of muster flags this player currently has active. */
   activeMusterCount?: number;
   /** Tile keys of this player's currently active muster flags. */ musterTileKeys?: ReadonlySet<string>;
+  /** Allies and truce partners; their tiles are never attack or muster targets. */
+  nonHostilePlayerIds?: ReadonlySet<string>;
   /** Manpower staged inside this player's muster flags; counts toward the AI war reserve (see spendableManpowerForPlanner). */
   musterStagedManpower?: number;
   /** Per-decision-class rejection cooldowns — true means the class is on cooldown. */
@@ -172,7 +183,7 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
    * specifically on FOOD (Runtime.foodDormantEconomicStructureKeysForPlayer)
    * — feeds food-slot-relief.ts's chooseFoodConsumingStructureToDisable, the
    * FREE_FOOD_SLOT decision class's fallback disable target when FOOD slots
-   * are fully exhausted, no FARMSTEAD/WATERWORKS/GRANARY build can grow
+   * are fully exhausted, no HYDROGARDEN/HYDROWORKS/INCUBATION_ENGINE build can grow
    * supply, and no RELAY_BEACON exists to disable instead. Preferred when
    * present, but no longer required — see that function's doc comment.
    */
@@ -253,6 +264,9 @@ export type AutomationPlannerDiagnostic = {
    *  scoreBuildBeacon graduated consideration and RELAY_BEACON_SITE_VALUE_FLOOR/CEILING. */
   relayBeaconSiteValue?: number;
   // Utility AI fields — populated on every result from the main planner.
+  tacticalOmittedOriginCount?: number | undefined;
+  tacticalVisibleTileCount?: number | undefined;
+  tacticalAction?: CommandEnvelope["type"];
   utilityWinner?: DecisionClass;
   utilityWinnerScore?: number;
   utilityRunnerUp?: DecisionClass;

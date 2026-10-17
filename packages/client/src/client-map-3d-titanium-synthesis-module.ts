@@ -35,7 +35,7 @@
 //   └── Rear_Coupling       — one heavy rear AFC coupling: thick steel stub,
 //         brass collar ring and a cyan contact tip
 //
-// Construction is a pressure crucible, not a forge and not a foundry: the
+// Construction is a pressure crucible, not a forge and not a ore refinery: the
 // vessel is closed and heavily banded, the heat is seen only as a thin
 // incandescent line through a slit, and there is no open bowl, no exposed pool
 // and no spill. That is the whole separation from the Titanium Forge Module —
@@ -67,7 +67,6 @@ import {
   TIT_CAP,
   TIT_CRUCIBLE,
   TIT_INJECTOR,
-  TIT_PIPE,
   TIT_POD,
   TIT_SLIT,
   TIT_VALVE

@@ -10,8 +10,6 @@ import {
   getDomainTilesByKey,
   buildSettledDomainTilesByPlayerId,
   buildFirstThreeTownKeysByPlayer,
-  buildWaterworksKeysByPlayer,
-  buildFoundryKeysByPlayer,
   townKeysWithNearbyWar
 } from "../snapshot-tile-cache.js";
 import { buildTownSummary } from "../live-town-summary.js";
@@ -19,7 +17,6 @@ import type { EconomyPlayer } from "../economy-network/economy-network.js";
 import {
   buildFedTownKeysByPlayer,
   buildResourceSlotDormancyByPlayer,
-  buildResourceSlotDormancyByPlayerAsync,
   dormantEconomicStructureKeysFromDormancy
 } from "../snapshot-economy-helpers.js";
 
@@ -27,8 +24,6 @@ import {
 export { buildLivePlayerEconomySnapshot } from "../live-economy-snapshot.js";
 
 type EnrichmentContext = {
-  collectedAtByTile: Map<string, number>;
-  playerYieldCollectionEpochByPlayer: Map<string, number>;
   tilesByKey: Map<string, RuntimeState["tiles"][number]>;
   domainTilesByKey: Map<string, DomainTileState>;
   dockLinksByDockTileKey: ReturnType<typeof buildDockLinksByDockTileKey>;
@@ -38,8 +33,6 @@ type EnrichmentContext = {
   nearbyWarTownKeys: ReturnType<typeof townKeysWithNearbyWar>;
   fedTownKeysByPlayer: LivePlayerEconomySnapshot["fedTownKeysByPlayer"];
   fedTownKeys: LivePlayerEconomySnapshot["fedTownKeys"];
-  waterworksKeysByPlayer: Map<string, Set<string>>;
-  foundryKeysByPlayer: Map<string, Set<string>>;
   // §5.4: dormant economicStructure tile keys ("x,y") per player.
   dormantEconomicStructureKeysByPlayer: Map<string, ReadonlySet<string>>;
 };
@@ -58,54 +51,37 @@ const toSharedVisibilityTownSummary = (town: DomainTileState["town"] | undefined
   } as DomainTileState["town"];
 };
 
+// yieldRate is derived client-side EXCEPT for dock tiles, whose income the
+// client can't re-derive (dock-link topology) — see
+// tileYieldNeedsServerAuthority. Only built when it will be emitted.
 const buildSnapshotTileYieldFields = (
   tile: RuntimeState["tiles"][number],
-  collectedAtByTile: ReadonlyMap<string, number>,
-  playerYieldCollectionEpochByPlayer: ReadonlyMap<string, number>,
   town: DomainTileState["town"] | undefined,
-  context?: {
+  context: {
     player?: EconomyPlayer | undefined;
     fedTownKeys?: ReadonlySet<string> | undefined;
     firstThreeTownKeys?: ReadonlySet<string> | undefined;
-    waterworksKeys?: ReadonlySet<string> | undefined;
-    foundryKeys?: ReadonlySet<string> | undefined;
     tiles: ReadonlyMap<string, DomainTileState>;
     dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   }
 ) => {
+  if (!tileYieldNeedsServerAuthority(tile)) return {};
   const yieldTile: DomainTileState = {
     x: tile.x,
     y: tile.y,
     terrain: tile.terrain ?? "LAND",
-    ...(tile.resource ? { resource: tile.resource as DomainTileState["resource"] } : {}),
     ...(tile.dockId ? { dockId: tile.dockId } : {}),
     ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
     ...(tile.ownershipState ? { ownershipState: tile.ownershipState as DomainTileState["ownershipState"] } : {}),
-    ...(town ? { town } : tile.townJson ? { town: JSON.parse(tile.townJson) as DomainTileState["town"] } : {}),
-    ...(tile.economicStructureJson ? { economicStructure: JSON.parse(tile.economicStructureJson) as DomainTileState["economicStructure"] } : {})
+    ...(town ? { town } : tile.townJson ? { town: JSON.parse(tile.townJson) as DomainTileState["town"] } : {})
   };
-  const tileAnchor = collectedAtByTile.get(keyFor(tile.x, tile.y));
-  const playerAnchor = tile.ownerId ? playerYieldCollectionEpochByPlayer.get(tile.ownerId) : undefined;
-  const collectedAt =
-    typeof tileAnchor === "number" && typeof playerAnchor === "number" ? Math.max(tileAnchor, playerAnchor) : tileAnchor ?? playerAnchor;
-  const yieldView = buildTileYieldView(yieldTile, collectedAt, Date.now(), context);
-  return {
-    ...(yieldView?.yield ? { yield: yieldView.yield } : {}),
-    // yieldRate/yieldCap are derived client-side EXCEPT for tiles where the
-    // client cannot re-derive the boosted value locally (radius/neighbor
-    // bonuses, ADVANCED synth constants, dock-topology income) — see
-    // tileYieldNeedsServerAuthority and docs/plans/2026-07-06-radius-yield-delivery.md.
-    ...(yieldView && tileYieldNeedsServerAuthority(yieldTile) ? { yieldRate: yieldView.yieldRate, yieldCap: yieldView.yieldCap } : {})
-  };
+  const yieldView = buildTileYieldView(yieldTile, Date.now(), context);
+  return yieldView ? { yieldRate: yieldView.yieldRate } : {};
 };
 
 export const enrichSnapshotTilesForGlobalVisibility = (
   runtimeState: RuntimeState
 ): RuntimeState["tiles"] => {
-  const collectedAtByTile = new Map((runtimeState.tileYieldCollectedAtByTile ?? []).map((entry) => [entry.tileKey, entry.collectedAt] as const));
-  const playerYieldCollectionEpochByPlayer = new Map(
-    (runtimeState.playerYieldCollectionEpochByPlayer ?? []).map((entry) => [entry.playerId, entry.collectedAt] as const)
-  );
   const tilesByKey = new Map(runtimeState.tiles.map((entry) => [keyFor(entry.x, entry.y), entry] as const));
   const domainTilesByKey = getDomainTilesByKey(runtimeState);
   const settledDomainTilesByPlayerId = buildSettledDomainTilesByPlayerId(runtimeState, domainTilesByKey);
@@ -128,8 +104,6 @@ export const enrichSnapshotTilesForGlobalVisibility = (
   const firstThreeTownKeysByPlayer = buildFirstThreeTownKeysByPlayer(runtimeState);
   const nearbyWarTownKeys = townKeysWithNearbyWar(runtimeState);
   const fedTownKeysByPlayer = buildFedTownKeysByPlayer(runtimeState, dormancyByPlayer);
-  const waterworksKeysByPlayer = buildWaterworksKeysByPlayer(runtimeState);
-  const foundryKeysByPlayer = buildFoundryKeysByPlayer(runtimeState);
   return [...runtimeState.tiles]
     .sort((left, right) => (left.x - right.x) || (left.y - right.y))
     .map((tile) => {
@@ -148,12 +122,10 @@ export const enrichSnapshotTilesForGlobalVisibility = (
         (tile.ownerId ? dormantEconomicStructureKeysByPlayer.get(tile.ownerId) : undefined) ?? new Set<string>()
       );
       const town = toSharedVisibilityTownSummary(fullTown);
-      const yieldFields = buildSnapshotTileYieldFields(tile, collectedAtByTile, playerYieldCollectionEpochByPlayer, fullTown, {
+      const yieldFields = buildSnapshotTileYieldFields(tile, fullTown, {
         ...(economyPlayer ? { player: economyPlayer } : {}),
         fedTownKeys,
         ...(tile.ownerId ? { firstThreeTownKeys: firstThreeTownKeysByPlayer.get(tile.ownerId) } : {}),
-        ...(tile.ownerId ? { waterworksKeys: waterworksKeysByPlayer.get(tile.ownerId) } : {}),
-        ...(tile.ownerId ? { foundryKeys: foundryKeysByPlayer.get(tile.ownerId) } : {}),
         tiles: domainTilesByKey,
         dockLinksByDockTileKey
       });
@@ -181,10 +153,6 @@ const buildEnrichmentContext = (
   playerEconomy: LivePlayerEconomySnapshot,
   visibleTiles: RuntimeState["tiles"]
 ): EnrichmentContext => {
-  const collectedAtByTile = new Map((runtimeState.tileYieldCollectedAtByTile ?? []).map((entry) => [entry.tileKey, entry.collectedAt] as const));
-  const playerYieldCollectionEpochByPlayer = new Map(
-    (runtimeState.playerYieldCollectionEpochByPlayer ?? []).map((entry) => [entry.playerId, entry.collectedAt] as const)
-  );
   const tilesByKey = new Map(runtimeState.tiles.map((entry) => [keyFor(entry.x, entry.y), entry] as const));
   const domainTilesByKey = getDomainTilesByKey(runtimeState);
   const settledDomainTilesByPlayerId = buildSettledDomainTilesByPlayerId(runtimeState, domainTilesByKey);
@@ -209,11 +177,7 @@ const buildEnrichmentContext = (
   }
   const firstThreeTownKeysByPlayer = buildFirstThreeTownKeysByPlayer(runtimeState);
   const nearbyWarTownKeys = townKeysWithNearbyWar(runtimeState);
-  const waterworksKeysByPlayer = buildWaterworksKeysByPlayer(runtimeState);
-  const foundryKeysByPlayer = buildFoundryKeysByPlayer(runtimeState);
   return {
-    collectedAtByTile,
-    playerYieldCollectionEpochByPlayer,
     tilesByKey,
     domainTilesByKey,
     dormantEconomicStructureKeysByPlayer,
@@ -223,9 +187,7 @@ const buildEnrichmentContext = (
     firstThreeTownKeysByPlayer,
     nearbyWarTownKeys,
     fedTownKeysByPlayer: playerEconomy.fedTownKeysByPlayer,
-    fedTownKeys: playerEconomy.fedTownKeys,
-    waterworksKeysByPlayer,
-    foundryKeysByPlayer
+    fedTownKeys: playerEconomy.fedTownKeys
   };
 };
 
@@ -249,14 +211,12 @@ const buildEnrichedTile = (
     ctx.nearbyWarTownKeys,
     (tile.ownerId ? ctx.dormantEconomicStructureKeysByPlayer.get(tile.ownerId) : undefined) ?? new Set<string>()
   );
-  const yieldFields = buildSnapshotTileYieldFields(tile, ctx.collectedAtByTile, ctx.playerYieldCollectionEpochByPlayer, town, {
+  const yieldFields = buildSnapshotTileYieldFields(tile, town, {
     ...(economyPlayer ? { player: economyPlayer } : {}),
     ...(tile.ownerId
       ? { fedTownKeys: tile.ownerId === playerId ? ctx.fedTownKeys : (ctx.fedTownKeysByPlayer.get(tile.ownerId) ?? new Set<string>()) }
       : {}),
     ...(tile.ownerId ? { firstThreeTownKeys: ctx.firstThreeTownKeysByPlayer.get(tile.ownerId) } : {}),
-    ...(tile.ownerId ? { waterworksKeys: ctx.waterworksKeysByPlayer.get(tile.ownerId) } : {}),
-    ...(tile.ownerId ? { foundryKeys: ctx.foundryKeysByPlayer.get(tile.ownerId) } : {}),
     tiles: ctx.domainTilesByKey,
     dockLinksByDockTileKey: ctx.dockLinksByDockTileKey
   });

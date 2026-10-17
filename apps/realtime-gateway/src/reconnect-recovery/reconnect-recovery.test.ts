@@ -15,19 +15,19 @@ const payloadForReconnectCommand = (type: (typeof RECONNECT_COMMAND_TYPES)[numbe
     case "EXPAND":
     case "CAST_AETHER_BRIDGE":
     case "CAST_AETHER_WALL":
-    case "AIRPORT_BOMBARD":
-    case "WORLD_ENGINE_STRIKE":
+    case "SKY_DOCK_BOMBARD":
+    case "SOVEREIGN_SIEGE_ENGINE_STRIKE":
     case "IMPERIAL_EXCHANGE_LEVY":
       return { fromX: 10, fromY: 10, toX: 11, toY: 10 };
     case "SETTLE":
     case "BUILD_FORT":
     case "BUILD_OBSERVATORY":
-    case "BUILD_SIEGE_OUTPOST":
+    case "BUILD_SIEGE_BATTERY":
     case "BUILD_ECONOMIC_STRUCTURE":
     case "CANCEL_FORT_BUILD":
     case "CANCEL_STRUCTURE_BUILD":
     case "CANCEL_SETTLE":
-    case "CANCEL_SIEGE_OUTPOST_BUILD":
+    case "CANCEL_SIEGE_BATTERY_BUILD":
     case "REMOVE_STRUCTURE":
     case "CANCEL_CAPTURE":
     case "UNCAPTURE_TILE":
@@ -38,14 +38,12 @@ const payloadForReconnectCommand = (type: (typeof RECONNECT_COMMAND_TYPES)[numbe
     case "REMOVE_MOUNTAIN":
     case "COLLECT_SHARD":
       return { x: 10, y: 10 };
-    case "COLLECT_VISIBLE":
-      return {};
     case "CHOOSE_TECH":
       return { techId: "agriculture" };
     case "CHOOSE_DOMAIN":
       return { domainId: "frontier-doctrine" };
     case "SET_CONVERTER_STRUCTURE_ENABLED":
-    case "SET_SIEGE_OUTPOST_AUTO_ATTACK":
+    case "SET_SIEGE_BATTERY_AUTO_ATTACK":
       return { x: 10, y: 10, enabled: index % 2 === 0 };
     case "REVEAL_EMPIRE":
     case "REVEAL_EMPIRE_STATS":

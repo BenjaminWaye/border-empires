@@ -162,7 +162,7 @@ export const Field: Story = {
 // Side-by-side with the light-brown, squat Siege Battery (watchtower +
 // catapult), proving the brass trading hub reads as a prosperous commercial
 // centre rather than a military fortification it must not be confused with.
-export const NexusVsSiegeOutpost: Story = {
+export const NexusVsSiegeBattery: Story = {
   render: () => {
     const stage = glintStage({ cameraDistance: 7 });
     const ground = createGrassGround(4, 0);
@@ -172,7 +172,7 @@ export const NexusVsSiegeOutpost: Story = {
     for (let i = 0; i < 3; i += 1) {
       const x = (i - 1) * 2.2;
       nexus.addInstance(x - 1.0, 0, 0, i, 0);
-      outpost.addInstance(x + 1.0, 0, 0, "SIEGE_OUTPOST", "CLOSED");
+      outpost.addInstance(x + 1.0, 0, 0, "SIEGE_BATTERY", "CLOSED");
     }
     nexus.commit();
     outpost.commit();

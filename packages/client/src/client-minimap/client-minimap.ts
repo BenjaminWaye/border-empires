@@ -1,6 +1,6 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { drawAetherBridgeLane, hexWithAlpha } from "../client-map-render/client-map-render.js";
-import { resourceIconForKey } from "../client-map-display.js";
+import { drawResourceIconOnCanvas } from "../client-resource-icons/client-resource-icons.js";
 import { computeMiniMapViewBox } from "../client-minimap-view-box.js";
 import { townIdentityForTile, tileHasTownIdentity } from "../client-town-identity.js";
 import { visibleShardSiteForTile, type ClientShardRainPing } from "../client-shard-rain-pings/client-shard-rain-pings.js";
@@ -15,16 +15,12 @@ export type MiniMapContentCache = {
   box?: { x0: number; y0: number; w: number; h: number };
 };
 
-export const miniMapTownMarkerPalette = (
-  tile: Tile,
-  hasCollectableYield: boolean
-): { outer: string; inner: string; radius: number } => {
+export const miniMapTownMarkerPalette = (tile: Tile): { outer: string; inner: string; radius: number } => {
   const outer = "rgba(6, 10, 18, 0.86)";
-  const radius = hasCollectableYield ? 3.6 : 3.2;
+  const radius = 3.2;
   let inner = "rgba(196, 169, 255, 0.94)";
   const town = townIdentityForTile(tile);
-  if (hasCollectableYield) inner = "rgba(255, 220, 118, 0.96)";
-  else if (town?.type === "MARKET") inner = "rgba(255, 214, 112, 0.94)";
+  if (town?.type === "MARKET") inner = "rgba(255, 214, 112, 0.94)";
   else if (town?.type === "FARMING") inner = "rgba(157, 236, 130, 0.94)";
   return { outer, inner, radius };
 };
@@ -116,7 +112,6 @@ export const drawMiniMap = (options: {
   tileVisibilityStateAt: (x: number, y: number, tile?: Tile) => "visible" | "fogged" | "unexplored";
   effectiveOverlayColor: (ownerId: string) => string;
   isDockRouteVisibleForPlayer: (pair: DockPair) => boolean;
-  hasCollectableYield: (tile: Tile | undefined) => boolean;
   replayCurrentEvent: () => StrategicReplayEvent | undefined;
 }): boolean => {
   // Camera/zoom moves need an immediate redraw of the viewport indicator for input
@@ -259,14 +254,14 @@ export const drawMiniMap = (options: {
       if (!inBox(tile.x, tile.y)) continue;
       const tx = Math.floor(wxToPx(tile.x));
       const ty = Math.floor(wyToPy(tile.y));
-      const palette = miniMapTownMarkerPalette(tile, options.hasCollectableYield(tile));
+      const palette = miniMapTownMarkerPalette(tile);
       cctx.fillStyle = palette.outer;
       cctx.beginPath();
       cctx.arc(tx, ty, palette.radius, 0, Math.PI * 2);
       cctx.fill();
       cctx.fillStyle = palette.inner;
       cctx.beginPath();
-      cctx.arc(tx, ty, options.hasCollectableYield(tile) ? 2.1 : 1.8, 0, Math.PI * 2);
+      cctx.arc(tx, ty, 1.8, 0, Math.PI * 2);
       cctx.fill();
     }
 
@@ -296,8 +291,14 @@ export const drawMiniMap = (options: {
       if (!inBox(tile.x, tile.y)) continue;
       const tx = Math.floor(wxToPx(tile.x));
       const ty = Math.floor(wyToPy(tile.y));
-      cctx.fillStyle = shardSite.kind === "FALL" ? "rgba(255, 244, 176, 0.98)" : "rgba(147, 235, 255, 0.96)";
-      cctx.fillText(resourceIconForKey("SHARD"), tx, ty);
+      // The halo keeps the old tint cue: warm for a falling shard, cyan for a landed site.
+      const tint = shardSite.kind === "FALL" ? "255, 244, 176" : "147, 235, 255";
+      cctx.fillStyle = `rgba(${tint}, 0.45)`;
+      cctx.beginPath();
+      cctx.arc(tx, ty, 5, 0, Math.PI * 2);
+      cctx.fill();
+      cctx.fillStyle = `rgba(${tint}, 0.98)`;
+      drawResourceIconOnCanvas(cctx, "SHARD", tx, ty, 11, "8px monospace");
     }
     const rainStatus = options.state.shardRainStatus;
     const rainOngoing = rainStatus?.phase === "started" && options.nowMs < rainStatus.expiresAt;

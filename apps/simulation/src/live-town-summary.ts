@@ -7,7 +7,7 @@ import {
   converterExchangeGoldPerMinute,
   PASSIVE_INCOME_MULT,
   POPULATION_GROWTH_BASE_RATE,
-  granaryGrowthMultiplier,
+  incubationEngineGrowthMultiplier,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   SETTLEMENT_GROWTH_RATE_MULT,
   TOWN_BASE_GOLD_PER_MIN,
@@ -73,7 +73,7 @@ export const hasSupportedStructure = (
   const y = Number(rawY);
   if (!Number.isInteger(x) || !Number.isInteger(y)) return false;
   const allowed = Array.isArray(structureType) ? new Set(structureType) : new Set([structureType as string]);
-  // Several allowed structure types (Mintworks, Garrison Hall, Weapons
+  // Several allowed structure types (Mintworks, Ancillary Depot, Weapons
   // Workshop, etc.) have "same_tile"/"town_support" placementMode
   // (structure-placement-metadata.json) — legal directly on the town's own
   // tile, not just its support ring — see economy-network.ts's
@@ -288,7 +288,7 @@ export const buildTownSummary = (
   firstThreeTownKeys?: ReadonlySet<string>,
   nearbyWarTownKeys?: ReadonlySet<string>,
   // §5.4: dormant economicStructure tile keys ("x,y") for this player — a
-  // dormant Mintworks/Bank/Caravanary/Clearing House/Granary stops granting
+  // dormant Mintworks/Bank/Trade Nexus/Clearing House/Incubation Engine stops granting
   // its bonus.
   dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
 ): Tile["town"] | undefined => {
@@ -317,13 +317,13 @@ export const buildTownSummary = (
   const isFed = tile.ownerId ? fedTownKeys.has(tileKey) : false;
   const mintworksCount = tile.ownerId ? countSupportedStructures(tileKey, tile.ownerId, "MINTWORKS", tilesByKey, dormantEconomicStructureKeys) : 0;
   const hasMintworks = mintworksCount > 0;
-  const hasGranary = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "GRANARY", tilesByKey, dormantEconomicStructureKeys));
-  // Incubation Engine (Granary) grants an instant one-time population burst
-  // on completion (GRANARY_INSTANT_POPULATION_BURST,
+  const hasIncubationEngine = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "INCUBATION_ENGINE", tilesByKey, dormantEconomicStructureKeys));
+  // Incubation Engine grants an instant one-time population burst
+  // on completion (INCUBATION_ENGINE_INSTANT_POPULATION_BURST,
   // runtime-structure-command-handlers.ts) PLUS a flat ongoing growth-rate
-  // multiplier (GRANARY_ONGOING_GROWTH_MULT) — see granaryGrowthMultiplier's
+  // multiplier (INCUBATION_ENGINE_ONGOING_GROWTH_MULT) — see incubationEngineGrowthMultiplier's
   // doc comment in server-game-constants.ts for the full history.
-  const granaryGrowthMult = granaryGrowthMultiplier(hasGranary);
+  const incubationEngineGrowthMult = incubationEngineGrowthMultiplier(hasIncubationEngine);
   const clearingHouseTownNames = tile.ownerId ? clearingHouseSourceTownNames(tileKey, tile.ownerId, tilesByKey, townNetwork, dormantEconomicStructureKeys) : [], clearingHouseActive = clearingHouseTownNames.length > 0;
   const incomeMultiplier = player?.incomeMultiplier ?? 1;
   const economyPlayer = snapshotEconomyPlayer(player);
@@ -380,11 +380,19 @@ export const buildTownSummary = (
       : population *
         POPULATION_GROWTH_BASE_RATE *
         (populationTier === "SETTLEMENT" ? SETTLEMENT_GROWTH_RATE_MULT : 1) *
-        granaryGrowthMult *
+        incubationEngineGrowthMult *
         firstThreeTownPopGrowthMult *
         (hasLongPeace ? LONG_PEACE_GROWTH_MULT : 1) *
         logisticFactor;
-  const baseGrowth = isInCaptureShock ? 0 : naturalGrowth;
+  // The population-growth tick stamps the rate it actually applied
+  // (runtime-population-growth.ts), which also folds in the owner's
+  // empire-integrity multiplier this snapshot path can't see. Prefer it
+  // whenever the town is growing so every surface shows the real rate;
+  // the recompute stays as the fallback for a not-yet-ticked town.
+  const tickAppliedGrowth = townPartial.populationGrowthPerMinute;
+  const growingGrowth = typeof tickAppliedGrowth === "number" && Number.isFinite(tickAppliedGrowth) && tickAppliedGrowth > 0 ? tickAppliedGrowth : naturalGrowth;
+  // A nearby-war pause stops growth in the tick, so it reads 0 here too.
+  const baseGrowth = isInCaptureShock || hasNearbyWar || naturalGrowth <= 0 ? 0 : growingGrowth;
   // Modifier precedence:
   //   1. Recently captured (capture-shock smoke is active even when growth is
   //      already zero, so surface the blocker explicitly instead of falling
@@ -393,17 +401,14 @@ export const buildTownSummary = (
   //   3. Long time peace (positive — 24 h of no nearby combat near this town).
   const growthModifiers = isInCaptureShock
     ? [{ label: "Recently captured" as const, deltaPerMinute: -Number(naturalGrowth.toFixed(4)) }]
-    : hasNearbyWar && baseGrowth > 0
-      ? [{ label: "Nearby war" as const, deltaPerMinute: -Number(baseGrowth.toFixed(4)) }]
+    : hasNearbyWar && naturalGrowth > 0
+      ? [{ label: "Nearby war" as const, deltaPerMinute: -Number(naturalGrowth.toFixed(4)) }]
       : hasLongPeace && baseGrowth > 0
         ? [{
             label: "Long time peace" as const,
             deltaPerMinute: Number((baseGrowth * (1 - 1 / LONG_PEACE_GROWTH_MULT)).toFixed(4))
           }]
         : [];
-  const cap = isSettlement
-    ? goldPerMinute * 60 * 8
-    : goldPerMinute * 60 * 8 * mintworksGoldProductionMultiplier(mintworksCount, clearingHouseActive);
   const nextPopulationTierUpgrade = tile.ownerId && tile.ownershipState === "SETTLED"
     ? nextTownGrowthUpgrade(populationTier, population)
     : undefined;
@@ -430,7 +435,6 @@ export const buildTownSummary = (
     supportCurrent: support.supportCurrent,
     supportMax: support.supportMax,
     goldPerMinute: Number(goldPerMinute.toFixed(4)),
-    cap: Number(cap.toFixed(4)),
     isFed,
     population,
     maxPopulation,
@@ -451,8 +455,8 @@ export const buildTownSummary = (
     hasMintworks,
     mintworksActive: hasMintworks && isFed,
     mintworksCount,
-    hasGranary,
-    granaryActive: hasGranary,
+    hasIncubationEngine,
+    incubationEngineActive: hasIncubationEngine,
     ...(clearingHouseActive ? { hasClearingHouse: true, clearingHouseActive: true, clearingHouseTownNames } : {}),
     foodUpkeepPerMinute: townFoodUpkeepPerMinute(populationTier),
     ...(typeof captureShockUntil === "number" ? { captureShockUntil } : {}),

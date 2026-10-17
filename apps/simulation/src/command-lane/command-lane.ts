@@ -12,7 +12,7 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "SETTLE":
     case "BUILD_FORT":
     case "BUILD_OBSERVATORY":
-    case "BUILD_SIEGE_OUTPOST":
+    case "BUILD_SIEGE_BATTERY":
     case "SET_MUSTER":
     case "CLEAR_MUSTER":
     case "UPGRADE_MUSTER_CAP":
@@ -22,7 +22,7 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "RUSH_BUY":
     case "CANCEL_SETTLE":
     case "REMOVE_STRUCTURE":
-    case "CANCEL_SIEGE_OUTPOST_BUILD":
+    case "CANCEL_SIEGE_BATTERY_BUILD":
     case "CANCEL_CAPTURE":
     case "UNCAPTURE_TILE":
     case "SET_CONVERTER_STRUCTURE_ENABLED":
@@ -43,15 +43,14 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "RETORT_RECAST":
     case "BUILD_AFC":
     case "REDEPLOY_AFC_MODULE":
-    case "AIRPORT_BOMBARD":
+    case "SKY_DOCK_BOMBARD":
     case "IMPERIAL_EXCHANGE_LEVY":
     case "AEGIS_LOCK":
     case "ASTRAL_DOCK_LAUNCH":
     case "ACTIVATE_IMPERIAL_WARD":
-    case "WORLD_ENGINE_STRIKE":
+    case "SOVEREIGN_SIEGE_ENGINE_STRIKE":
     case "TITANIUM_LEVY_MUSTER":
       return "human_interactive";
-    case "COLLECT_VISIBLE":
     case "COLLECT_SHARD":
     case "CHOOSE_TECH":
     case "CHOOSE_DOMAIN":

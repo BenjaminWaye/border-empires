@@ -108,7 +108,6 @@ const render = (args: Args): HTMLElement => {
       tileVisibilityStateAt: () => "visible",
       effectiveOverlayColor: () => "#7fd1ff",
       isDockRouteVisibleForPlayer: () => false,
-      hasCollectableYield: () => false,
       replayCurrentEvent: () => undefined
     });
   };

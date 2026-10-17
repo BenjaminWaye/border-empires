@@ -1,4 +1,4 @@
-import type { FrontierDecayKind, MusterState, NaturalWonderType, ObservatorySiphonMode, ProspectSignature, Terrain, WaystationTileState } from "@border-empires/shared";
+import type { DiplomacyTerms, FrontierDecayKind, MusterState, NaturalWonderType, ObservatorySiphonMode, ProspectSignature, Terrain, WaystationTileState } from "@border-empires/shared";
 import type { ClientTileEconomicStructure } from "./client-tile-economic-structure-type.js";
 import type { ClientTownWireSummary } from "./client-tile-town-type.js";
 import type { ClientTileFort } from "./client-tile-fort-type.js";
@@ -6,57 +6,57 @@ import type { ClientTileFort } from "./client-tile-fort-type.js";
 export type OptimisticStructureKind =
   | "FORT"
   | "OBSERVATORY"
-  | "SIEGE_OUTPOST"
+  | "SIEGE_BATTERY"
   | "ASTRAL_DOCK_PART_1"
   | "ASTRAL_DOCK_PART_2"
   | "ASTRAL_DOCK_PART_3"
   | "ASTRAL_DOCK"
-  | "FARMSTEAD"
-  | "WATERWORKS"
+  | "HYDROGARDEN"
+  | "HYDROWORKS"
   | "UMBRITE_RIG"
   | "MINE"
   | "MINTWORKS"
-  | "GRANARY"
+  | "INCUBATION_ENGINE"
   | "CENSUS_HALL"
   | "CLEARING_HOUSE"
-  | "AIRPORT"
-  | "AETHER_TOWER"
-  | "WOODEN_FORT"
+  | "SKY_DOCK"
+  | "AMBARIC_TRANSFORMER"
+  | "PALISADE"
   | "RELAY_BEACON"
-  | "UMBRITE_SYNTHESIZER"
-  | "ADVANCED_UMBRITE_SYNTHESIZER"
+  | "UMBRITE_WORKS"
+  | "HIGH_YIELD_UMBRITE_WORKS"
   | "TITANIUM_WORKS"
-  | "ADVANCED_TITANIUM_WORKS"
-  | "CRYSTAL_SYNTHESIZER"
-  | "ADVANCED_CRYSTAL_SYNTHESIZER"
-  | "CARAVANARY"
-  | "FOUNDRY"
-  | "GARRISON_HALL"
-  | "CUSTOMS_HOUSE"
-  | "RAIL_DEPOT"
-  | "GOVERNORS_OFFICE"
-  | "RADAR_SYSTEM"
+  | "HIGH_YIELD_TITANIUM_WORKS"
+  | "AETHER_CONDENSER"
+  | "HIGH_YIELD_AETHER_CONDENSER"
+  | "TRADE_NEXUS"
+  | "ORE_REFINERY"
+  | "ANCILLARY_DEPOT"
+  | "HARBOR_EXCHANGE"
+  | "NEURAL_WORKS"
+  | "MINISTRY_HALL"
+  | "RESONANCE_GRID"
   | "QUARTERMASTERS_OFFICE"
-  | "LOGISTICS_GUILD"
-  | "ASSEMBLY_WORKS"
+  | "ANCILLARY_FACTORY"
+  | "RESERVE_LATTICE"
   | "IMPERIAL_EXCHANGE_PART_1"
   | "IMPERIAL_EXCHANGE_PART_2"
   | "IMPERIAL_EXCHANGE_PART_3"
-  | "WORLD_ENGINE_PART_1"
-  | "WORLD_ENGINE_PART_2"
-  | "WORLD_ENGINE_PART_3"
+  | "SOVEREIGN_SIEGE_ENGINE_PART_1"
+  | "SOVEREIGN_SIEGE_ENGINE_PART_2"
+  | "SOVEREIGN_SIEGE_ENGINE_PART_3"
   | "AEGIS_DOME_PART_1"
   | "AEGIS_DOME_PART_2"
   | "AEGIS_DOME_PART_3"
-  | "POPULATION_BUREAU_PART_1"
-  | "POPULATION_BUREAU_PART_2"
-  | "POPULATION_BUREAU_PART_3"
+  | "CENSUS_DIRECTORATE_PART_1"
+  | "CENSUS_DIRECTORATE_PART_2"
+  | "CENSUS_DIRECTORATE_PART_3"
   | "TITANIUM_LEVY_PART_1"
   | "TITANIUM_LEVY_PART_2"
   | "TITANIUM_LEVY_PART_3"
   | "IMPERIAL_EXCHANGE"
-  | "WORLD_ENGINE" | "AEGIS_DOME"
-  | "POPULATION_BUREAU"
+  | "SOVEREIGN_SIEGE_ENGINE" | "AEGIS_DOME"
+  | "CENSUS_DIRECTORATE"
   | "TITANIUM_LEVY"
   | "WEAPONS_WORKSHOP"
   | "TITANIUM_WEAPONS_FACTORY"
@@ -82,6 +82,8 @@ export type Tile = {
   reachOwnerId?: string;
   capital?: boolean;
   breachShockUntil?: number;
+  /** Post-capture hold window end (shared capture-hold.ts): FRONTIER defends, troops stand on it. */
+  captureHoldUntil?: number;
   frontierDecayAt?: number;
   frontierDecayKind?: FrontierDecayKind;
   clusterId?: string;
@@ -114,10 +116,10 @@ export type Tile = {
   town?: ClientTownWireSummary;
   fort?: ClientTileFort;
   observatory?: { ownerId: string; status: "under_construction" | "active" | "inactive" | "removing"; completesAt?: number; startedAt?: number; pausedAt?: number; cooldownUntil?: number; siphon?: ObservatorySiphonMode };
-  siegeOutpost?: {
+  siegeBattery?: {
     ownerId: string;
     status: "under_construction" | "active" | "removing";
-    variant?: "SIEGE_OUTPOST" | "SIEGE_TOWER" | "DREAD_TOWER";
+    variant?: "SIEGE_BATTERY" | "SIEGE_TOWER" | "DREAD_TOWER";
     completesAt?: number;
     startedAt?: number;
     pausedAt?: number;
@@ -132,32 +134,32 @@ export type Tile = {
     lastCapturedAt?: number | null;
     lastStructureType?:
       | "FORT"
-      | "SIEGE_OUTPOST"
+      | "SIEGE_BATTERY"
       | "OBSERVATORY"
-      | "FARMSTEAD"
-      | "WATERWORKS"
+      | "HYDROGARDEN"
+      | "HYDROWORKS"
       | "UMBRITE_RIG"
       | "MINE"
       | "MINTWORKS"
-      | "GRANARY"
+      | "INCUBATION_ENGINE"
       | "CENSUS_HALL"
       | "CLEARING_HOUSE"
-      | "AIRPORT"
-      | "WOODEN_FORT"
+      | "SKY_DOCK"
+      | "PALISADE"
       | "RELAY_BEACON"
-      | "UMBRITE_SYNTHESIZER"
-      | "ADVANCED_UMBRITE_SYNTHESIZER"
+      | "UMBRITE_WORKS"
+      | "HIGH_YIELD_UMBRITE_WORKS"
       | "TITANIUM_WORKS"
-      | "ADVANCED_TITANIUM_WORKS"
-      | "CRYSTAL_SYNTHESIZER"
-      | "ADVANCED_CRYSTAL_SYNTHESIZER"
-      | "CARAVANARY"
-      | "FOUNDRY"
-      | "GARRISON_HALL"
-      | "CUSTOMS_HOUSE"
-      | "RAIL_DEPOT"
-      | "GOVERNORS_OFFICE"
-      | "RADAR_SYSTEM"
+      | "HIGH_YIELD_TITANIUM_WORKS"
+      | "AETHER_CONDENSER"
+      | "HIGH_YIELD_AETHER_CONDENSER"
+      | "TRADE_NEXUS"
+      | "ORE_REFINERY"
+      | "ANCILLARY_DEPOT"
+      | "HARBOR_EXCHANGE"
+      | "NEURAL_WORKS"
+      | "MINISTRY_HALL"
+      | "RESONANCE_GRID"
       | "ASTRAL_DOCK_PART_1"
       | "ASTRAL_DOCK_PART_2"
       | "ASTRAL_DOCK_PART_3"
@@ -165,32 +167,32 @@ export type Tile = {
       | null;
     structureHistory: Array<
       | "FORT"
-      | "SIEGE_OUTPOST"
+      | "SIEGE_BATTERY"
       | "OBSERVATORY"
-      | "FARMSTEAD"
-      | "WATERWORKS"
+      | "HYDROGARDEN"
+      | "HYDROWORKS"
       | "UMBRITE_RIG"
       | "MINE"
       | "MINTWORKS"
-      | "GRANARY"
+      | "INCUBATION_ENGINE"
       | "CENSUS_HALL"
       | "CLEARING_HOUSE"
-      | "AIRPORT"
-      | "WOODEN_FORT"
+      | "SKY_DOCK"
+      | "PALISADE"
       | "RELAY_BEACON"
-      | "UMBRITE_SYNTHESIZER"
-      | "ADVANCED_UMBRITE_SYNTHESIZER"
+      | "UMBRITE_WORKS"
+      | "HIGH_YIELD_UMBRITE_WORKS"
       | "TITANIUM_WORKS"
-      | "ADVANCED_TITANIUM_WORKS"
-      | "CRYSTAL_SYNTHESIZER"
-      | "ADVANCED_CRYSTAL_SYNTHESIZER"
-      | "CARAVANARY"
-      | "FOUNDRY"
-      | "GARRISON_HALL"
-      | "CUSTOMS_HOUSE"
-      | "RAIL_DEPOT"
-      | "GOVERNORS_OFFICE"
-      | "RADAR_SYSTEM"
+      | "HIGH_YIELD_TITANIUM_WORKS"
+      | "AETHER_CONDENSER"
+      | "HIGH_YIELD_AETHER_CONDENSER"
+      | "TRADE_NEXUS"
+      | "ORE_REFINERY"
+      | "ANCILLARY_DEPOT"
+      | "HARBOR_EXCHANGE"
+      | "NEURAL_WORKS"
+      | "MINISTRY_HALL"
+      | "RESONANCE_GRID"
       | "ASTRAL_DOCK_PART_1"
       | "ASTRAL_DOCK_PART_2"
       | "ASTRAL_DOCK_PART_3"
@@ -199,9 +201,7 @@ export type Tile = {
     wasMountainCreatedByPlayer?: boolean;
     wasMountainRemovedByPlayer?: boolean;
   };
-  yield?: { gold?: number; strategic?: Record<string, number> };
-  yieldRate?: { goldPerMinute?: number; strategicPerDay?: Record<string, number> };
-  yieldCap?: { gold: number; strategicEach: number };
+  yieldRate?: { goldPerMinute?: number };
   optimisticPending?: "expand" | "settle" | "structure_build" | "structure_cancel" | "structure_remove";
   muster?: MusterState;
   /** Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md). */
@@ -246,6 +246,8 @@ export type AllianceRequest = {
   expiresAt?: number;
   fromName?: string;
   toName?: string;
+  /** Coin/Shards the deal moves, from the proposer's side. */
+  terms?: DiplomacyTerms;
 };
 
 export type ActiveAllianceBreakView = {
@@ -269,6 +271,7 @@ export type TruceRequest = {
   durationHours: 12 | 24;
   fromName?: string;
   toName?: string;
+  terms?: DiplomacyTerms;
 };
 
 export type ActiveTruceView = {
@@ -278,7 +281,6 @@ export type ActiveTruceView = {
   endsAt: number;
   createdByPlayerId: string;
 };
-export type { TruceBreakView } from "./client-player-profile/client-player-profile-types.js";
 export type PlayerRespawnReasonCode = "eliminated" | "auth_recovery" | "startup_recovery";
 export type PlayerRespawnNotice = {
   id: string;
@@ -362,23 +364,23 @@ export type StrategicReplayEvent = {
   to?: { x: number; y: number };
   structureType?:
     | "FORT"
-    | "SIEGE_OUTPOST"
+    | "SIEGE_BATTERY"
     | "OBSERVATORY"
-    | "FARMSTEAD"
+    | "HYDROGARDEN"
     | "UMBRITE_RIG"
     | "MINE"
     | "MINTWORKS"
-    | "GRANARY"
-    | "AIRPORT"
-    | "UMBRITE_SYNTHESIZER"
+    | "INCUBATION_ENGINE"
+    | "SKY_DOCK"
+    | "UMBRITE_WORKS"
     | "TITANIUM_WORKS"
-    | "CRYSTAL_SYNTHESIZER"
-    | "CARAVANARY"
-    | "FOUNDRY"
-    | "GARRISON_HALL"
-    | "CUSTOMS_HOUSE"
-    | "GOVERNORS_OFFICE"
-    | "RADAR_SYSTEM";
+    | "AETHER_CONDENSER"
+    | "TRADE_NEXUS"
+    | "ORE_REFINERY"
+    | "ANCILLARY_DEPOT"
+    | "HARBOR_EXCHANGE"
+    | "MINISTRY_HALL"
+    | "RESONANCE_GRID";
   objectiveId?: string;
   objectiveName?: string;
   isBookmark?: boolean;
@@ -393,7 +395,7 @@ export type { TechInfo, DomainInfo, PendingResearch } from "./client-tech-info-t
 // LeaderboardMetricEntry, SeasonStatsView, SeasonWinnerView, MissionState)
 // moved to client-leaderboard-season-types.ts (file-line cap) -- re-exported
 // here so existing importers of this path don't need to change.
-export type { LeaderboardOverallEntry, LeaderboardMetricEntry, SeasonStatsView, SeasonWinnerView, ScoreHistorySeriesView, ScoreHistoryPointView, MissionState } from "./client-leaderboard-season-types.js";
+export type { LeaderboardOverallEntry, LeaderboardMetricEntry, SeasonStatsView, SeasonWinnerView, ScoreHistorySeriesView, MissionState } from "./client-leaderboard-season-types.js";
 
 export type FeedType = "combat" | "mission" | "error" | "info" | "alliance" | "tech";
 export type FeedSeverity = "info" | "success" | "warn" | "error";
@@ -411,20 +413,11 @@ export type FeedEntry = {
 };
 
 export type DockPair = { ax: number; ay: number; bx: number; by: number; route?: Array<{ x: number; y: number }> };
-export type CrystalTargetingAbility = "aether_bridge" | "aether_wall" | "siphon" | "world_engine_strike" | "aether_emp" | "airport_bombard" | "imperial_exchange_levy";
+export type CrystalTargetingAbility = "aether_bridge" | "aether_wall" | "siphon" | "sovereign_siege_engine_strike" | "aether_emp" | "sky_dock_bombard" | "imperial_exchange_levy";
 
 export type TileVisibilityState = "unexplored" | "fogged" | "visible";
 
 export type { SurveySweepPingKind, SurveySweepPing } from "./client-types-survey-sweep.js";
-
-export type TerrainTextureId =
-  | "SEA_DEEP"
-  | "SEA_COAST"
-  | "SAND"
-  | "GRASS_LIGHT"
-  | "GRASS_DARK"
-  | "MOUNTAIN"
-  | "TUNDRA";
 
 export type { TileActionDef } from "./client-tile-action-def-types.js";
 

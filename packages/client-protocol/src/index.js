@@ -6,11 +6,10 @@ export const DurableCommandTypeSchema = z.enum([
     "SETTLE",
     "BUILD_FORT",
     "BUILD_OBSERVATORY",
-    "BUILD_SIEGE_OUTPOST",
+    "BUILD_SIEGE_BATTERY",
     "BUILD_ECONOMIC_STRUCTURE",
     "CANCEL_CAPTURE",
     "COLLECT_TILE",
-    "COLLECT_VISIBLE",
     "CHOOSE_TECH",
     "CHOOSE_DOMAIN"
 ]);

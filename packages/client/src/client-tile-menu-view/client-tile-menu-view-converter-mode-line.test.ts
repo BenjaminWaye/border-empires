@@ -17,7 +17,7 @@ const activeSynthTile: Tile = {
   terrain: "LAND",
   ownerId: "me",
   ownershipState: "SETTLED",
-  economicStructure: { ownerId: "me", type: "UMBRITE_SYNTHESIZER", status: "active" },
+  economicStructure: { ownerId: "me", type: "UMBRITE_WORKS", status: "active" },
   upkeepEntries: [{ label: "Fur Synthesizer", perMinute: { GOLD: 5 } }]
 };
 

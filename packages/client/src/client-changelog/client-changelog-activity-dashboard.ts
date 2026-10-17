@@ -8,11 +8,20 @@ export const CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD: ClientChangelogEntry[]
     createdAt: 1791818706351 /* Date.now() frozen for the changelog gate */,
     introducedIn: "2026.10.12.2",
     title: "Current building names everywhere",
-    why: "Several screens still showed old or internal building names, like CARAVANARY in the Yours activity view or Granary in tile history.",
+    why: "Several screens still showed old or internal building names, like TRADE_NEXUS in the Yours activity view or Incubation Engine in tile history.",
     changes: [
       "Yours activity view, build queue and in-progress builds now use in-game names like Trade Nexus",
       "Waystation tech grants in Yours show the tech's name",
       "Tile history, error messages, economy breakdown and help text use the current names (Aether Tower, Sky Dock, Hydroworks, Sovereign Siege Engine and others)"
+    ]
+  },
+  {
+    createdAt: 1792204070169 /* Date.now() frozen for the changelog gate */,
+    introducedIn: "2026.10.17.1",
+    title: "AI empires named properly in your activity",
+    why: "The Yours activity view called AI empires by a placeholder like AI 5 instead of the name shown on the leaderboard.",
+    changes: [
+      "Battles and territory changes in Yours now name AI empires the same way the leaderboard does"
     ]
   }
 ];

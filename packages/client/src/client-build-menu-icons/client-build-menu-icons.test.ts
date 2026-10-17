@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import type { TileActionDef } from "../client-types.js";
 import { BUILDING_CATEGORY_ORDER } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
 import { BUILD_MENU_ART_CROP } from "./client-build-menu-art-crop.js";
-import { buildActionArtUrl, buildActionIconHtml, buildingCategoryIconHtml } from "./client-build-menu-icons.js";
+import { buildActionArtUrl, buildActionIconHtml, buildingCategoryIconHtml, structureArtIconHtml } from "./client-build-menu-icons.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const publicFile = (url: string): string => resolve(here, "../../public", url.slice(1));
@@ -17,9 +17,9 @@ const buildActionIds = (): TileActionDef["id"][] => {
 };
 
 describe("build menu category icons", () => {
-  it("ships a PNG at every size for every category", () => {
+  it("ships the simple SVG for every category", () => {
     for (const category of BUILDING_CATEGORY_ORDER) {
-      const srcs = [...buildingCategoryIconHtml(category).matchAll(/\/icons\/build-categories\/[a-z_]+-\d+\.png/g)].map((m) => m[0]);
+      const srcs = [...buildingCategoryIconHtml(category).matchAll(/\/icons\/simple\/[a-z-]+\.svg/g)].map((m) => m[0]);
       expect(srcs.length, category).toBeGreaterThan(0);
       for (const src of srcs) expect(existsSync(publicFile(src)), src).toBe(true);
     }
@@ -50,8 +50,21 @@ describe("build menu building art", () => {
   it("shows the building's own map art for buildings that have it", () => {
     expect(buildActionArtUrl("build_mintworks")).toBe("/overlays/mintworks-overlay.svg");
     expect(buildActionArtUrl("build_fortification")).toBe("/overlays/fort-ring-overlay-closed.svg");
-    expect(buildActionIconHtml("build_farmstead")).toContain('src="/overlays/farm-farmstead-overlay-1.svg"');
-    expect(buildActionArtUrl("upgrade_titanium_works")).toBe("/overlays/advanced-titanium-works-overlay.svg");
+    expect(buildActionArtUrl("upgrade_titanium_works")).toBe("/overlays/high-yield-titanium-works-overlay.svg");
+  });
+
+  it("matches the 2D map's art for Hydrogarden and Hydroworks after the Farmstead rename", () => {
+    // Hydrogarden (the renamed Farmstead) draws the hydroponic dome on the map;
+    // Hydroworks (the renamed Waterworks) keeps the old hydrogarden overlay.
+    expect(buildActionIconHtml("build_hydrogarden")).toContain('src="/overlays/farm-hydroponic-overlay-1.svg"');
+    expect(buildActionIconHtml("build_hydroworks")).toContain('src="/overlays/farm-hydrogarden-overlay-1.svg"');
+  });
+
+  it("gives structure-type callers the same cropped thumbnail", () => {
+    expect(structureArtIconHtml("MINTWORKS", "manifest-gain__art")).toBe(buildActionIconHtml("build_mintworks")?.replace("tile-action-art", "manifest-gain__art"));
+    expect(structureArtIconHtml("THUNDER_BASTION", "x")).toContain('src="/overlays/fort-ring-overlay-closed.svg"');
+    expect(structureArtIconHtml("DREAD_TOWER", "x")).toContain('src="/overlays/siege-battery-overlay.svg"');
+    expect(structureArtIconHtml("NOT_A_STRUCTURE", "x")).toBeUndefined();
   });
 
   it("returns nothing for actions that build nothing, so the glyph stays", () => {
@@ -74,7 +87,6 @@ describe("build menu building art", () => {
         "build_titanium_levy_part_1",
         "build_titanium_levy_part_2",
         "build_titanium_levy_part_3",
-        "build_waterworks",
         "build_weapons_workshop",
       ]
     `);

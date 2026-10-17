@@ -346,7 +346,7 @@ describe("galaxy routes", () => {
       foodPerMinute: 78,
       crystalPerMinute: 2,
       totalPopulation: 900,
-      monumentalBuildings: { WORLD_ENGINE: 1 }
+      monumentalBuildings: { SOVEREIGN_SIEGE_ENGINE: 1 }
     };
     const app = buildApp({
       archives: [wonArchive({ winner: { playerId: "player-1", playerName: "Nauticus", crownedAt: 1_000, objectiveId: "DIPLOMATIC_DOMINANCE", objectiveName: "Diplomatic Dominance", stats } })],

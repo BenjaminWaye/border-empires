@@ -41,14 +41,14 @@ import {
   type WaystationTileState
 } from "@border-empires/shared";
 import type { DomainAfcState } from "../domain-afc-state.js";
-import type { DomainEconomicStructureState, DomainFortState, DomainObservatoryState, DomainSiegeOutpostState } from "../domain-tile-structure-states.js";
+import type { DomainEconomicStructureState, DomainFortState, DomainObservatoryState, DomainSiegeBatteryState } from "../domain-tile-structure-states.js";
 
 export const fortAttackManpowerMultiplier = (tile: Pick<DomainTileState, "fort">): number => {
   if (!isFortDefending(tile.fort)) return 1;
   const variant = defendingFortVariant(tile.fort);
   if (variant === "THUNDER_BASTION") return 20;
   if (variant === "TITANIUM_BASTION") return 10;
-  if (variant === "WOODEN_FORT") return 1.5;
+  if (variant === "PALISADE") return 1.5;
   return 5;
 };
 
@@ -168,6 +168,9 @@ export type DomainTileState = {
   // FRONTIER_AUTO_HEAL_MS.
   healAt?: number | undefined;
   breachShockUntil?: number | undefined;
+  // Post-capture hold window end (shared capture-hold.ts): a freshly captured
+  // FRONTIER tile defends until then instead of being a free retake.
+  captureHoldUntil?: number | undefined;
   town?:
     | (Pick<NonNullable<Tile["town"]>, "type" | "populationTier"> &
         Partial<
@@ -178,7 +181,6 @@ export type DomainTileState = {
             | "supportCurrent"
             | "supportMax"
             | "goldPerMinute"
-            | "cap"
             | "isFed"
             | "population"
             | "maxPopulation"
@@ -195,8 +197,8 @@ export type DomainTileState = {
             | "hasMintworks"
             | "mintworksActive"
             | "mintworksCount"
-            | "hasGranary"
-            | "granaryActive"
+            | "hasIncubationEngine"
+            | "incubationEngineActive"
             | "foodUpkeepPerMinute"
             | "captureShockUntil"
             | "populationBeforeCapture"
@@ -211,7 +213,7 @@ export type DomainTileState = {
     | undefined;
   fort?: DomainFortState | undefined;
   observatory?: DomainObservatoryState | undefined;
-  siegeOutpost?: DomainSiegeOutpostState | undefined;
+  siegeBattery?: DomainSiegeBatteryState | undefined;
   // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md).
   afc?: DomainAfcState | undefined;
   economicStructure?: DomainEconomicStructureState | undefined;
@@ -392,7 +394,7 @@ export const validateFrontierCommand = (
     return {
       ok: false,
       code: "INSUFFICIENT_GOLD",
-      message: input.actionType === "ATTACK" ? "insufficient gold for attack" : "insufficient gold for frontier claim"
+      message: input.actionType === "ATTACK" ? "insufficient coin for attack" : "insufficient coin for frontier claim"
     };
   }
   if (musterAttack && !isBarbarianAttack) {

@@ -21,7 +21,7 @@ import {
 export const OBSERVATORY_VISION_BONUS = SHARED_OBSERVATORY_VISION_BONUS;
 export const OBSERVATORY_PROTECTION_RADIUS = SHARED_OBSERVATORY_PROTECTION_RADIUS;
 export const OBSERVATORY_CAST_RADIUS = SHARED_OBSERVATORY_CAST_RADIUS;
-export const AIRPORT_BOMBARD_RADIUS = 30;
+export const SKY_DOCK_BOMBARD_RADIUS = 30;
 export const MIN_ZOOM = 10;
 export const MAX_ZOOM = 192;
 export const DEFAULT_ZOOM = 22;
@@ -66,7 +66,6 @@ export const MUSTER_FLAG_REQUEST_TIMEOUT_MS = 5_000;
 export const canAffordCost = (gold: number, cost: number): boolean => gold + GOLD_COST_EPSILON >= cost;
 
 export const formatGoldAmount = (gold: number): string => gold.toFixed(2);
-export const formatManpowerAmount = (manpower: number): string => manpower.toFixed(0);
 
 export const isForestTile = isForestTileAt;
 export const isHillsTile = isHillsTileAt;

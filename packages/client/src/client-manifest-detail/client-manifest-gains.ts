@@ -4,10 +4,13 @@
 // Abilities & actions, Resource revealed) that listed the same unlocks two
 // or three times.
 import { AGRICULTURE_FISH_FOOD_SLOT_BONUS } from "@border-empires/shared";
+import { structureArtIconHtml } from "../client-build-menu-icons/client-build-menu-icons.js";
+import { abilityIconHtml } from "../client-ability-icons/client-ability-icons.js";
 import { crystalAbilityInfoButtonHtml, relatedCrystalAbilitiesForTech } from "../client-crystal-ability-info/client-crystal-ability-info.js";
 import { effectSummaryLabel } from "../client-tech-html/client-tech-html.js";
 import { relatedStructureTypesForTech } from "../client-tech-detail-ui/client-tech-structure-unlocks.js";
 import { relatedStrategicResourcesForTech, resourceDiscoveryInfo } from "../client-resource-discovery-info.js";
+import { resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
 import { MONUMENT_COMPONENT_KEYS, STRUCTURE_DISPLAY_NAMES, type StructureInfoKey } from "../client-map-display.js";
 import type { TechInfo } from "../client-types.js";
 
@@ -15,6 +18,8 @@ export type ManifestGainKind = "structure" | "ability" | "resource" | "effect";
 
 export type ManifestGainRow = {
   kind: ManifestGainKind;
+  // Trusted HTML: the row's icon (building art, ability icon, resource icon).
+  icon: string;
   // Trusted HTML built from catalog data and the shared info-button helpers.
   html: string;
   detail?: string;
@@ -24,6 +29,12 @@ export type ManifestGainDeps = {
   structureInfoButtonHtml: (type: StructureInfoKey, label?: string) => string;
   structureDetail?: (type: StructureInfoKey) => string | undefined;
 };
+
+const iconImg = (src: string): string => `<img class="manifest-gain__img" src="${src}" alt="" aria-hidden="true" draggable="false" decoding="async">`;
+
+// Buildings show their own map art (the build menu's thumbnails); any
+// without art fall back to the build menu's Infrastructure icon.
+const structureIcon = (type: StructureInfoKey): string => structureArtIconHtml(type, "manifest-gain__art") ?? iconImg("/icons/simple/infrastructure.svg");
 
 const firstSentence = (text: string | undefined): string | undefined => {
   if (!text) return undefined;
@@ -47,24 +58,25 @@ export const manifestGainRows = (tech: TechInfo, deps: ManifestGainDeps): Manife
   for (const type of relatedStructureTypesForTech(tech)) {
     if (MONUMENT_COMPONENT_KEYS.has(type)) continue;
     const detail = firstSentence(deps.structureDetail?.(type));
-    rows.push({ kind: "structure", html: `Build ${deps.structureInfoButtonHtml(type)}`, ...(detail ? { detail } : {}) });
+    rows.push({ kind: "structure", icon: structureIcon(type), html: `Build ${deps.structureInfoButtonHtml(type)}`, ...(detail ? { detail } : {}) });
   }
   for (const key of relatedCrystalAbilitiesForTech(tech)) {
-    rows.push({ kind: "ability", html: `Ability: ${crystalAbilityInfoButtonHtml(key)}` });
+    rows.push({ kind: "ability", icon: abilityIconHtml(key, "manifest-gain__img"), html: `Ability: ${crystalAbilityInfoButtonHtml(key)}` });
   }
   for (const resource of relatedStrategicResourcesForTech(tech)) {
     const label = resource.charAt(0) + resource.slice(1).toLowerCase();
-    rows.push({ kind: "resource", html: `Reveals ${label} deposits on the map`, detail: resourceDiscoveryInfo(resource).whereToFind });
+    rows.push({ kind: "resource", icon: resourceIconHtml(resource), html: `Reveals ${label} deposits on the map`, detail: resourceDiscoveryInfo(resource).whereToFind });
   }
+  const effectIcon = `<span class="manifest-gain__plus">+</span>`;
   for (const [key, value] of Object.entries(tech.effects ?? {})) {
     if (isCoveredUnlockKey(key, value)) continue;
     const label = effectSummaryLabel(key, value);
-    if (label) rows.push({ kind: "effect", html: label });
+    if (label) rows.push({ kind: "effect", icon: effectIcon, html: label });
   }
   // Hydrogarden's structure row covers the building; its fish-tile bonus is a
   // separate passive effect of the same unlock key.
-  if (tech.effects?.unlockFarmstead === true) rows.push({ kind: "effect", html: `+${AGRICULTURE_FISH_FOOD_SLOT_BONUS} FOOD slot on every owned fish tile` });
-  if (tech.grantsPowerup) rows.push({ kind: "effect", html: `Powerup: ${tech.grantsPowerup.id} +${tech.grantsPowerup.charges}` });
+  if (tech.effects?.unlockHydrogarden === true) rows.push({ kind: "effect", icon: effectIcon, html: `+${AGRICULTURE_FISH_FOOD_SLOT_BONUS} FOOD slot on every owned fish tile` });
+  if (tech.grantsPowerup) rows.push({ kind: "effect", icon: effectIcon, html: `Powerup: ${tech.grantsPowerup.id} +${tech.grantsPowerup.charges}` });
   return rows;
 };
 

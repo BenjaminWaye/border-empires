@@ -1,4 +1,4 @@
-import type { CommandEnvelope, LockedFrontierCombatResult, SimulationEvent } from "@border-empires/sim-protocol";
+import type { CommandEnvelope, LockedFrontierCombatResult, SimulationEvent, TileOverlayJsonFields } from "@border-empires/sim-protocol";
 import type { FrontierDecayKind, Terrain, VisibilityState } from "@border-empires/shared";
 import type { DomainPlayer, DomainStrategicResourceKey, FrontierCommandType } from "@border-empires/game-domain";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
@@ -16,27 +16,13 @@ export type RuntimeTileYieldEconomyContext = {
   townNetwork: ReturnType<typeof buildConnectedTownNetworkForPlayer>;
   fedTownKeys: Set<string>;
   firstThreeTownKeys: Set<string>;
-  /** Precomputed tile keys of active WATERWORKS structures owned by this player. */
-  waterworksKeys: Set<string>;
-  /** Precomputed tile keys of active FOUNDRY structures owned by this player. */
-  foundryKeys: Set<string>;
   // §5.4: dormant economicStructure tile keys ("x,y") for this player — a
-  // dormant Mintworks/Bank/Caravanary/Clearing House stops granting its gold
+  // dormant Mintworks/Bank/Trade Nexus/Clearing House stops granting its gold
   // bonus. Threaded into refreshTownEconomyFields via enrichTileWithTownContext.
   dormantEconomicStructureKeys: ReadonlySet<string>;
 };
 
-export const UPKEEP_STRATEGIC_KEYS = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"] as const;
-export type UpkeepStrategicKey = (typeof UPKEEP_STRATEGIC_KEYS)[number];
-export type UpkeepNeed = { gold: number } & Record<UpkeepStrategicKey, number>;
-
-export const hasOutstandingUpkeepNeed = (need: UpkeepNeed): boolean => {
-  if (need.gold > 0.0001) return true;
-  for (const resource of UPKEEP_STRATEGIC_KEYS) {
-    if (need[resource] > 0.0001) return true;
-  }
-  return false;
-};
+export type UpkeepNeed = { gold: number } & Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>;
 
 /**
  * Distinguishes player-issued frontier locks from passive defensive fire
@@ -106,6 +92,10 @@ export type LockedCombatResolution = {
   // the attacker's side) since the shield tile's live amount may have moved
   // between the two.
   shield?: { tileKey: string; x: number; y: number; matched: number };
+  // A FRONTIER target still inside its capture-hold window when the attack
+  // was rolled (shared capture-hold.ts): a real fight, so resolution emits a
+  // battle broadcast even if the hold has expired by the time it resolves.
+  defendedFrontier?: boolean;
 };
 
 export type AetherWallDirection = "N" | "E" | "S" | "W";
@@ -287,6 +277,10 @@ export type SimulationRuntimeOptions = {
   onMusterRemoteBlocked?: () => void;
   onMusterRemoteBlockedBarbarian?: () => void;
   onAutoFillTiles?: (count: number) => void;
+  /** Fires each time an inactive human's converter gold upkeep is netted
+   *  against income (runtime-upkeep-accrual.ts). Zero forever while offline
+   *  converter owners exist means the offset never engages. */
+  onUpkeepNettedWhileIncomePaused?: (playerId: string) => void;
   /** Fires each time the tile-shedding tick skips emitPlayerStateUpdate for an
    *  AI player (no WS subscribers — see PR #732 for the same rationale
    *  applied to lock resolution). Zero forever means the skip never engages. */
@@ -315,25 +309,12 @@ export type SimulationTileWireDelta = {
   frontierDecayAt?: number | undefined;
   frontierDecayKind?: FrontierDecayKind | undefined;
   breachShockUntil?: number | undefined;
-  fortJson?: string | undefined;
-  observatoryJson?: string | undefined;
-  siegeOutpostJson?: string | undefined;
-  economicStructureJson?: string | undefined;
-  sabotageJson?: string | undefined;
-  musterJson?: string | undefined;
+  captureHoldUntil?: number | undefined;
   townJson?: string;
   townType?: "MARKET" | "FARMING";
   townName?: string;
   townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-  naturalWonderJson?: string | undefined;
-  shardSiteJson?: string | undefined;
-  watchtowerJson?: string | undefined;
-  waystationJson?: string | undefined;
-  /** Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md). */
-  afcJson?: string | undefined;
-  yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> };
-  yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> };
-  yieldCap?: { gold: number; strategicEach: number };
+  yieldRate?: { goldPerMinute?: number };
   /** Fog-of-war authority tag — see VisibilityState in @border-empires/shared. */
   visibilityState?: VisibilityState;
   ownershipClearOnly?: boolean;
@@ -351,4 +332,4 @@ export type SimulationTileWireDelta = {
   // capture: both the attacker and the previous owner may lack live coverage
   // of the tile) -- one delta object, not one per forced viewer.
   forceVisibleForPlayerId?: string | readonly string[] | undefined;
-};
+} & TileOverlayJsonFields;

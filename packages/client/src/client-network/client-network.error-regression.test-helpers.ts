@@ -47,7 +47,7 @@ export const createState = () =>
     actionCurrent: { x: 60, y: 302 },
     frontierSyncWaitUntilByTarget: new Map<string, number>(),
     frontierLateAckUntilByTarget: new Map<string, number>(),
-    autoSettleTargets: new Set<string>(["60,302"]), autoBuildTargets: new Map<string, string>([["60,302", "FARMSTEAD"]]),
+    autoSettleTargets: new Set<string>(["60,302"]), autoBuildTargets: new Map<string, string>([["60,302", "HYDROGARDEN"]]),
     attackPreviewPendingKey: "60,302->61,302",
     attackPreview: { valid: true },
     attackPreviewCacheByKey: new Map<string, unknown>(),
@@ -75,7 +75,6 @@ export const createState = () =>
     playerColors: new Map(),
     playerVisualStyles: new Map(),
     playerShieldUntil: new Map(),
-    pendingCollectTileDelta: new Map(),
     settleProgressByTile: new Map([
       [
         "12,18",
@@ -224,8 +223,6 @@ export const bindWithDeps = (state: any, ws: FakeWebSocket, overrides: Record<st
     clearSettlementProgressByKey,
     formatCooldownShort: vi.fn(() => "1s"),
     reconcileActionQueue,
-    revertOptimisticTileCollectDelta: vi.fn(),
-    clearPendingCollectTileDelta: vi.fn(),
     playerNameForOwner: vi.fn(),
     settlementProgressForTile: vi.fn(() => undefined),
     ...overrides

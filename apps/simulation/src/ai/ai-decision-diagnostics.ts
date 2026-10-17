@@ -61,6 +61,9 @@ export type AiDecisionDiagnostic = {
   strategicFrontierTileCountInput: number;
   frontierTileCountInput: number;
   winner: string | undefined;
+  tacticalOmittedOriginCount: AutomationPlannerDiagnostic["tacticalOmittedOriginCount"];
+  tacticalVisibleTileCount: AutomationPlannerDiagnostic["tacticalVisibleTileCount"];
+  tacticalAction: AutomationPlannerDiagnostic["tacticalAction"];
   winnerScore: number | undefined;
   noCommandReason: string | undefined;
   gates: AutomationPlannerDiagnostic["utilityGates"];
@@ -140,6 +143,9 @@ export const recordAiDecisionDiagnosticFromPlanner = (
     strategicFrontierTileCountInput: diagnostic.strategicFrontierTileCountInput ?? 0,
     frontierTileCountInput: diagnostic.frontierTileCountInput ?? 0,
     winner: diagnostic.utilityWinner,
+    tacticalAction: diagnostic.tacticalAction,
+    tacticalOmittedOriginCount: diagnostic.tacticalOmittedOriginCount,
+    tacticalVisibleTileCount: diagnostic.tacticalVisibleTileCount,
     winnerScore: diagnostic.utilityWinnerScore,
     noCommandReason: diagnostic.noCommandReason,
     gates: diagnostic.utilityGates,

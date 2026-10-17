@@ -131,7 +131,7 @@ describe("client gateway sync", () => {
     expect(deps.state.incomingAttacksByTile.size).toBe(0);
   });
 
-  it("preserves yield fields from gateway initial state and later tile deltas", () => {
+  it("preserves yieldRate from gateway initial state and later tile deltas", () => {
     const deps = createDeps();
 
     applyGatewayInitialState(deps, {
@@ -142,38 +142,16 @@ describe("client gateway sync", () => {
           terrain: "LAND",
           ownerId: "me",
           ownershipState: "SETTLED",
-          yield: { gold: 2.5, strategic: { FOOD: 1.25 } },
-          yieldRate: { goldPerMinute: 1, strategicPerDay: { FOOD: 48 } },
-          yieldCap: { gold: 480, strategicEach: 16 }
+          yieldRate: { goldPerMinute: 1 }
         }
       ]
     });
 
-    expect(deps.state.tiles.get("10,12")).toEqual(
-      expect.objectContaining({
-        yield: { gold: 2.5, strategic: { FOOD: 1.25 } },
-        yieldRate: { goldPerMinute: 1, strategicPerDay: { FOOD: 48 } },
-        yieldCap: { gold: 480, strategicEach: 16 }
-      })
-    );
+    expect(deps.state.tiles.get("10,12")).toEqual(expect.objectContaining({ yieldRate: { goldPerMinute: 1 } }));
 
-    applyGatewayTileDeltaBatch(deps, [
-      {
-        x: 10,
-        y: 12,
-        yield: { gold: 0.75, strategic: { FOOD: 0.25 } },
-        yieldRate: { goldPerMinute: 1, strategicPerDay: { FOOD: 48 } },
-        yieldCap: { gold: 480, strategicEach: 16 }
-      }
-    ]);
+    applyGatewayTileDeltaBatch(deps, [{ x: 10, y: 12, yieldRate: { goldPerMinute: 2 } }]);
 
-    expect(deps.state.tiles.get("10,12")).toEqual(
-      expect.objectContaining({
-        yield: { gold: 0.75, strategic: { FOOD: 0.25 } },
-        yieldRate: { goldPerMinute: 1, strategicPerDay: { FOOD: 48 } },
-        yieldCap: { gold: 480, strategicEach: 16 }
-      })
-    );
+    expect(deps.state.tiles.get("10,12")).toEqual(expect.objectContaining({ yieldRate: { goldPerMinute: 2 } }));
   });
 
   it("applies and clears frontier decay timers from gateway tile deltas", () => {
@@ -272,18 +250,18 @@ describe("client gateway sync", () => {
         x: 49,
         y: 219,
         detailLevel: "full",
-        upkeepEntries: [{ label: "Wooden Fort", perMinute: { GOLD: 0.05 } }],
-        history: { previousOwners: ["me"], captureCount: 1, structureHistory: ["WOODEN_FORT"] },
-        economicStructureJson: JSON.stringify({ ownerId: "me", type: "WOODEN_FORT", status: "active" })
+        upkeepEntries: [{ label: "Palisade", perMinute: { GOLD: 0.05 } }],
+        history: { previousOwners: ["me"], captureCount: 1, structureHistory: ["PALISADE"] },
+        economicStructureJson: JSON.stringify({ ownerId: "me", type: "PALISADE", status: "active" })
       }
     ]);
 
     expect(deps.state.tiles.get("49,219")).toEqual(
       expect.objectContaining({
         detailLevel: "full",
-        upkeepEntries: [{ label: "Wooden Fort", perMinute: { GOLD: 0.05 } }],
-        history: { previousOwners: ["me"], captureCount: 1, structureHistory: ["WOODEN_FORT"] },
-        economicStructure: { ownerId: "me", type: "WOODEN_FORT", status: "active" }
+        upkeepEntries: [{ label: "Palisade", perMinute: { GOLD: 0.05 } }],
+        history: { previousOwners: ["me"], captureCount: 1, structureHistory: ["PALISADE"] },
+        economicStructure: { ownerId: "me", type: "PALISADE", status: "active" }
       })
     );
   });

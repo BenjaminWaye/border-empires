@@ -22,165 +22,89 @@ const settledTilesForPlayerFrom = (tiles: readonly DomainTileState[]) => (player
   tiles.filter((tile) => tile.ownerId === playerId);
 
 describe("radiusYieldRefreshBeneficiaryTiles", () => {
-  it("re-emits the owner's FARMSTEAD tiles within WATERWORKS_RADIUS when a WATERWORKS becomes active", () => {
-    const farmstead = settledTile(5, 5, {
+  // Regression: Hydroworks/Ore Refinery radius boosts only fed the retired
+  // per-tile strategic yield, so their beneficiaries carry no server-computed
+  // value — re-emitting them on every source toggle was wasted broadcast.
+  it("does not re-emit HYDROGARDEN or MINE tiles when a HYDROWORKS or ORE_REFINERY changes", () => {
+    const hydrogarden = settledTile(5, 5, {
       resource: "FARM",
-      economicStructure: { type: "FARMSTEAD", status: "active", ownerId: PLAYER_ID }
+      economicStructure: { type: "HYDROGARDEN", status: "active", ownerId: PLAYER_ID }
     });
-    const previousWaterworks = settledTile(10, 5, {
-      economicStructure: { type: "WATERWORKS", status: "under_construction", ownerId: PLAYER_ID }
-    });
-    const nextWaterworks = settledTile(10, 5, {
-      economicStructure: { type: "WATERWORKS", status: "active", ownerId: PLAYER_ID }
-    });
-    const tiles = new Map<string, DomainTileState>([
-      ["5,5", farmstead],
-      ["10,5", nextWaterworks]
-    ]);
-
-    const beneficiaries = radiusYieldRefreshBeneficiaryTiles({
-      tileKey: "10,5",
-      previous: previousWaterworks,
-      next: nextWaterworks,
-      tiles,
-      dockLinksByDockTileKey: new Map(),
-      settledTilesForPlayer: settledTilesForPlayerFrom([farmstead, nextWaterworks])
-    });
-
-    expect(beneficiaries.map((t) => `${t.x},${t.y}`)).toEqual(["5,5"]);
-  });
-
-  it("re-emits the same FARMSTEAD when the WATERWORKS is removed (going inactive)", () => {
-    const farmstead = settledTile(5, 5, {
-      resource: "FARM",
-      economicStructure: { type: "FARMSTEAD", status: "active", ownerId: PLAYER_ID }
-    });
-    const previousWaterworks = settledTile(10, 5, {
-      economicStructure: { type: "WATERWORKS", status: "active", ownerId: PLAYER_ID }
-    });
-    const nextWaterworksGone: DomainTileState = { x: 10, y: 5, terrain: "LAND", ownerId: PLAYER_ID, ownershipState: "SETTLED" };
-    const tiles = new Map<string, DomainTileState>([
-      ["5,5", farmstead],
-      ["10,5", nextWaterworksGone]
-    ]);
-
-    const beneficiaries = radiusYieldRefreshBeneficiaryTiles({
-      tileKey: "10,5",
-      previous: previousWaterworks,
-      next: nextWaterworksGone,
-      tiles,
-      dockLinksByDockTileKey: new Map(),
-      settledTilesForPlayer: settledTilesForPlayerFrom([farmstead, nextWaterworksGone])
-    });
-
-    expect(beneficiaries.map((t) => `${t.x},${t.y}`)).toEqual(["5,5"]);
-  });
-
-  it("does not include a FARMSTEAD outside WATERWORKS_RADIUS", () => {
-    const farFarmstead = settledTile(100, 100, {
-      resource: "FARM",
-      economicStructure: { type: "FARMSTEAD", status: "active", ownerId: PLAYER_ID }
-    });
-    const previousWaterworks = settledTile(10, 5, {
-      economicStructure: { type: "WATERWORKS", status: "under_construction", ownerId: PLAYER_ID }
-    });
-    const nextWaterworks = settledTile(10, 5, {
-      economicStructure: { type: "WATERWORKS", status: "active", ownerId: PLAYER_ID }
-    });
-    const tiles = new Map<string, DomainTileState>([
-      ["100,100", farFarmstead],
-      ["10,5", nextWaterworks]
-    ]);
-
-    const beneficiaries = radiusYieldRefreshBeneficiaryTiles({
-      tileKey: "10,5",
-      previous: previousWaterworks,
-      next: nextWaterworks,
-      tiles,
-      dockLinksByDockTileKey: new Map(),
-      settledTilesForPlayer: settledTilesForPlayerFrom([farFarmstead, nextWaterworks])
-    });
-
-    expect(beneficiaries).toEqual([]);
-  });
-
-  it("re-emits the owner's MINE tiles within FOUNDRY_RADIUS when a FOUNDRY becomes active", () => {
     const mine = settledTile(8, 5, {
       resource: "TITANIUM",
       economicStructure: { type: "MINE", status: "active", ownerId: PLAYER_ID }
     });
-    const previousFoundry = settledTile(5, 5, {
-      economicStructure: { type: "FOUNDRY", status: "under_construction", ownerId: PLAYER_ID }
-    });
-    const nextFoundry = settledTile(5, 5, {
-      economicStructure: { type: "FOUNDRY", status: "active", ownerId: PLAYER_ID }
-    });
-    const tiles = new Map<string, DomainTileState>([
-      ["8,5", mine],
-      ["5,5", nextFoundry]
-    ]);
+    for (const type of ["HYDROWORKS", "ORE_REFINERY"] as const) {
+      const previous = settledTile(6, 5, { economicStructure: { type, status: "under_construction", ownerId: PLAYER_ID } });
+      const next = settledTile(6, 5, { economicStructure: { type, status: "active", ownerId: PLAYER_ID } });
+      const tiles = new Map<string, DomainTileState>([
+        ["5,5", hydrogarden],
+        ["8,5", mine],
+        ["6,5", next]
+      ]);
 
-    const beneficiaries = radiusYieldRefreshBeneficiaryTiles({
-      tileKey: "5,5",
-      previous: previousFoundry,
-      next: nextFoundry,
-      tiles,
-      dockLinksByDockTileKey: new Map(),
-      settledTilesForPlayer: settledTilesForPlayerFrom([mine, nextFoundry])
-    });
+      const beneficiaries = radiusYieldRefreshBeneficiaryTiles({
+        tileKey: "6,5",
+        previous,
+        next,
+        tiles,
+        dockLinksByDockTileKey: new Map(),
+        settledTilesForPlayer: settledTilesForPlayerFrom([hydrogarden, mine, next])
+      });
 
-    expect(beneficiaries.map((t) => `${t.x},${t.y}`)).toEqual(["8,5"]);
+      expect(beneficiaries).toEqual([]);
+    }
   });
 
-  it("re-emits the adjacent owned dock when a CUSTOMS_HOUSE (Harbor Exchange) becomes active", () => {
+  it("re-emits the adjacent owned dock when a HARBOR_EXCHANGE (Harbor Exchange) becomes active", () => {
     const dock = settledTile(6, 5, { dockId: "dock-a" });
-    const previousCustomsHouse = settledTile(5, 5, {
-      economicStructure: { type: "CUSTOMS_HOUSE", status: "under_construction", ownerId: PLAYER_ID }
+    const previousHarborExchange = settledTile(5, 5, {
+      economicStructure: { type: "HARBOR_EXCHANGE", status: "under_construction", ownerId: PLAYER_ID }
     });
-    const nextCustomsHouse = settledTile(5, 5, {
-      economicStructure: { type: "CUSTOMS_HOUSE", status: "active", ownerId: PLAYER_ID }
+    const nextHarborExchange = settledTile(5, 5, {
+      economicStructure: { type: "HARBOR_EXCHANGE", status: "active", ownerId: PLAYER_ID }
     });
     const tiles = new Map<string, DomainTileState>([
       ["6,5", dock],
-      ["5,5", nextCustomsHouse]
+      ["5,5", nextHarborExchange]
     ]);
 
     const beneficiaries = radiusYieldRefreshBeneficiaryTiles({
       tileKey: "5,5",
-      previous: previousCustomsHouse,
-      next: nextCustomsHouse,
+      previous: previousHarborExchange,
+      next: nextHarborExchange,
       tiles,
       dockLinksByDockTileKey: new Map(),
-      settledTilesForPlayer: settledTilesForPlayerFrom([dock, nextCustomsHouse])
+      settledTilesForPlayer: settledTilesForPlayerFrom([dock, nextHarborExchange])
     });
 
     expect(beneficiaries.map((t) => `${t.x},${t.y}`)).toEqual(["6,5"]);
   });
 
-  it("re-emits an adjacent owned dock across the world's x-seam (wraps like dockSupportedByCustomsHouse)", () => {
-    // A dock at x=WORLD_WIDTH-1 and a Customs House at x=0 are adjacent via
+  it("re-emits an adjacent owned dock across the world's x-seam (wraps like dockSupportedByHarborExchange)", () => {
+    // A dock at x=WORLD_WIDTH-1 and a Harbor Exchange at x=0 are adjacent via
     // wraparound (Chebyshev distance 1), even though the raw
     // |(WORLD_WIDTH-1)-0| = WORLD_WIDTH-1 is not.
     const seamX = WORLD_WIDTH - 1;
     const dock = settledTile(seamX, 5, { dockId: "dock-a" });
-    const previousCustomsHouse = settledTile(0, 5, {
-      economicStructure: { type: "CUSTOMS_HOUSE", status: "under_construction", ownerId: PLAYER_ID }
+    const previousHarborExchange = settledTile(0, 5, {
+      economicStructure: { type: "HARBOR_EXCHANGE", status: "under_construction", ownerId: PLAYER_ID }
     });
-    const nextCustomsHouse = settledTile(0, 5, {
-      economicStructure: { type: "CUSTOMS_HOUSE", status: "active", ownerId: PLAYER_ID }
+    const nextHarborExchange = settledTile(0, 5, {
+      economicStructure: { type: "HARBOR_EXCHANGE", status: "active", ownerId: PLAYER_ID }
     });
     const tiles = new Map<string, DomainTileState>([
       [`${seamX},5`, dock],
-      ["0,5", nextCustomsHouse]
+      ["0,5", nextHarborExchange]
     ]);
 
     const beneficiaries = radiusYieldRefreshBeneficiaryTiles({
       tileKey: "0,5",
-      previous: previousCustomsHouse,
-      next: nextCustomsHouse,
+      previous: previousHarborExchange,
+      next: nextHarborExchange,
       tiles,
       dockLinksByDockTileKey: new Map(),
-      settledTilesForPlayer: settledTilesForPlayerFrom([dock, nextCustomsHouse])
+      settledTilesForPlayer: settledTilesForPlayerFrom([dock, nextHarborExchange])
     });
 
     expect(beneficiaries.map((t) => `${t.x},${t.y}`)).toEqual([`${seamX},5`]);
@@ -209,44 +133,6 @@ describe("radiusYieldRefreshBeneficiaryTiles", () => {
     });
 
     expect(beneficiaries.map((t) => `${t.x},${t.y}`)).toEqual(["1,1"]);
-  });
-
-  it("refreshes both old and new beneficiaries when a tile's structure type swaps directly between two projecting types", () => {
-    // A direct WATERWORKS -> FOUNDRY swap in one mutation (no intermediate
-    // removal) must not be treated as a no-op just because both are
-    // "some active projecting source" -- the Farmstead should lose its
-    // boost and the Mine should gain one, in the same refresh.
-    const farmstead = settledTile(5, 5, {
-      resource: "FARM",
-      economicStructure: { type: "FARMSTEAD", status: "active", ownerId: PLAYER_ID }
-    });
-    const mine = settledTile(8, 5, {
-      resource: "TITANIUM",
-      economicStructure: { type: "MINE", status: "active", ownerId: PLAYER_ID }
-    });
-    const previousWaterworks = settledTile(6, 5, {
-      economicStructure: { type: "WATERWORKS", status: "active", ownerId: PLAYER_ID }
-    });
-    const nextFoundry = settledTile(6, 5, {
-      economicStructure: { type: "FOUNDRY", status: "active", ownerId: PLAYER_ID }
-    });
-    const tiles = new Map<string, DomainTileState>([
-      ["5,5", farmstead],
-      ["8,5", mine],
-      ["6,5", nextFoundry]
-    ]);
-
-    const beneficiaries = radiusYieldRefreshBeneficiaryTiles({
-      tileKey: "6,5",
-      previous: previousWaterworks,
-      next: nextFoundry,
-      tiles,
-      dockLinksByDockTileKey: new Map(),
-      settledTilesForPlayer: settledTilesForPlayerFrom([farmstead, mine, nextFoundry])
-    });
-
-    const keys = beneficiaries.map((t) => `${t.x},${t.y}`).sort();
-    expect(keys).toEqual(["5,5", "8,5"]);
   });
 
   it("returns an empty array (fast no-op) for an unrelated mutation with no projecting source or dock change", () => {

@@ -74,8 +74,6 @@ const bind = (state: any, ws: FakeWebSocket): void => {
     clearSettlementProgressByKey: vi.fn(),
     formatCooldownShort: vi.fn(() => "1s"),
     reconcileActionQueue: vi.fn(),
-    revertOptimisticTileCollectDelta: vi.fn(),
-    clearPendingCollectTileDelta: vi.fn(),
     playerNameForOwner: vi.fn(),
     applyOptimisticTileState: vi.fn(),
     sendGameMessage: vi.fn(() => true)

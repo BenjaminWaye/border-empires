@@ -9,10 +9,12 @@ import { injectWaypointActions, type WaypointMenuDeps } from "../client-waypoint
 import { injectDebugDownloadRow } from "../client-tile-menu-debug-row/client-tile-menu-debug-row.js";
 import { injectDockNavigatorRow } from "../client-dock-navigator/client-dock-navigator.js";
 import { injectOnboardingRelayBeaconRecommendation } from "../client-onboarding-checklist/client-onboarding-relay-beacon-recommendation.js";
+import { injectMusterCombatReports } from "../client-muster-combat-reports/client-muster-combat-reports-ui.js";
 
 export const injectTileMenuExtras = (view: TileMenuView, tile: Tile, state: ClientState, deps: WaypointMenuDeps): void => {
   injectWaypointActions(view, tile, state, deps);
   injectDebugDownloadRow(view, tile, state.authEmail);
   injectDockNavigatorRow(view, tile, state);
+  injectMusterCombatReports(view, tile, state);
   injectOnboardingRelayBeaconRecommendation(view, tile);
 };

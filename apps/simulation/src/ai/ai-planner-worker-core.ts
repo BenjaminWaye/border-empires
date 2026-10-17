@@ -1,3 +1,4 @@
+import { readAiSurveyObjective } from "./ai-survey-objective.js";
 /**
  * AI planner worker core — the actual planning logic that used to run
  * directly inside ai-planner-worker.ts's top-level `parentPort` handler.
@@ -156,6 +157,8 @@ export const createAiPlannerWorkerCore = (post: (msg: Record<string, unknown>) =
         playerId,
         points: player.points,
         manpower: player.manpower,
+        ...(player.slotSupplyByResource ? { slotSupplyByResource: player.slotSupplyByResource } : {}),
+        ...(player.slotDemandByResource ? { slotDemandByResource: player.slotDemandByResource } : {}),
         ...(player.techIds ? { techIds: player.techIds } : {}),
         ...(player.domainIds ? { domainIds: player.domainIds } : {}),
         ...(player.strategicResources ? { strategicResources: player.strategicResources } : {}),
@@ -221,6 +224,9 @@ export const createAiPlannerWorkerCore = (post: (msg: Record<string, unknown>) =
       playerId,
       points: player.points,
       manpower: player.manpower,
+      ...(player.installedModuleTechIds ? { installedModuleTechIds: player.installedModuleTechIds } : {}),
+      canConsumeSurveyResults: true,
+      ...(player.tacticalView ? { tacticalView: player.tacticalView } : {}),
       ...(reachLookup ? { reachLookup } : {}),
       ...(spatialFocusFront ? { spatialFocusFront } : {}),
       ...(player.techIds ? { techIds: player.techIds } : {}),
@@ -261,9 +267,10 @@ export const createAiPlannerWorkerCore = (post: (msg: Record<string, unknown>) =
         : {}),
       ...(options?.decisionCooldowns ? { decisionCooldowns: options.decisionCooldowns } : {}),
       ...(options?.blockedActionKeys ? { blockedActionKeys: options.blockedActionKeys } : {}),
-      ...(player.expansionObjective ? { expansionObjective: player.expansionObjective } : {}),
+      ...(player.surveyObjective && player.surveyObjective.expiresAt > issuedAt ? { expansionObjective: { x: player.surveyObjective.x, y: player.surveyObjective.y, kind: "neutral_value" as const } } : player.expansionObjective ? { expansionObjective: player.expansionObjective } : {}),
       ...(typeof player.activeMusterCount === "number" ? { activeMusterCount: player.activeMusterCount } : {}),
       ...(player.musterTileKeys ? { musterTileKeys: new Set(player.musterTileKeys) } : {}),
+      ...(player.nonHostilePlayerIds?.length ? { nonHostilePlayerIds: new Set(player.nonHostilePlayerIds) } : {}),
       ...(typeof player.musterStagedManpower === "number" ? { musterStagedManpower: player.musterStagedManpower } : {}),
       // Phase 1 of docs/ai-structure-building-rewrite-plan.md (§9): pass
       // through only if the sync_players payload actually carried them (see
@@ -455,6 +462,12 @@ export const createAiPlannerWorkerCore = (post: (msg: Record<string, unknown>) =
         break;
       }
 
+      case "survey_result": {
+        const player = playersById.get(String(message.playerId));
+        const goal = typeof message.payloadJson === "string" ? readAiSurveyObjective(message.payloadJson, Date.now()) : undefined;
+        if (player && goal) player.surveyObjective = goal;
+        break;
+      }
       case "tile_deltas": {
         const tileDeltas = (message.tileDeltas as SimulationTileDelta[]) ?? [];
         for (const tileDelta of tileDeltas) {

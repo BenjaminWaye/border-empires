@@ -69,6 +69,14 @@ const hatchWallXGeo = geo(new BoxGeometry(0.28, 0.5, 0.06)); // shaft wall (long
 const hatchFloorGeo = geo(new BoxGeometry(0.2, 0.02, 0.2)); // glowing well base
 const hatchGlowGeo = geo(new BoxGeometry(0.022, 0.02, 0.32)); // edge glow (long Z)
 const hatchGlowXGeo = geo(new BoxGeometry(0.32, 0.02, 0.022)); // edge glow (long X)
+// Solid well-head collar just inside the frame, dropping from under the rim.
+// On flat ground it is entirely below the surface; on a hill the hatch is
+// seated on the dome's highest point under its footprint (hillFootprintTopY)
+// and the collar fills the gap down to the lower parts of the dome, so the
+// hatch reads as a well head set into the slope instead of a plate floating
+// on exposed shaft walls. Taller than the worst dome drop across the frame.
+export const HATCH_COLLAR_HEIGHT = 0.24;
+const hatchCollarGeo = geo(new BoxGeometry(0.34, HATCH_COLLAR_HEIGHT, 0.34));
 
 // Ionic battery — a flat glowing cell seated flush in the hatch floor, so it
 // reads as a soft luminous surface waiting for a building rather than a
@@ -148,6 +156,7 @@ export const createTownSupportTileOverlay = (scene: Scene, maxTiles: number): To
   make("hatchWall", hatchWallGeo, steelMaterial, C * 2);
   make("hatchWallX", hatchWallXGeo, steelMaterial, C * 2);
   make("hatchFrame", hatchFrameGeo, brassMaterial, C);
+  make("hatchCollar", hatchCollarGeo, steelMaterial, C);
   // Lit (settled) and dark (unsettled) variants of every glowing piece.
   make("hatchFloorLit", hatchFloorGeo, hatchGlowMaterial, C);
   make("hatchGlowLit", hatchGlowGeo, hatchGlowMaterial, C * 2);
@@ -213,6 +222,8 @@ export const createTownSupportTileOverlay = (scene: Scene, maxTiles: number): To
     addPiece(floorKey, wx, wz, sy, 0, -0.43, 0, theta);
     // Metallic frame around the hatch mouth, level with the ground.
     addPiece("hatchFrame", wx, wz, sy, 0, 0.04, 0, theta);
+    // Collar top tucked just under the frame (frame bottom is at 0.029).
+    addPiece("hatchCollar", wx, wz, sy, 0, 0.03 - HATCH_COLLAR_HEIGHT / 2, 0, theta);
     // Flat battery cell seated flush inside the pit, glowing up through the
     // hatch opening once settled.
     addPiece(batteryKey, wx, wz, sy, 0, -0.06, 0, theta);
@@ -254,7 +265,7 @@ export const createTownSupportTileOverlay = (scene: Scene, maxTiles: number): To
     scene.remove(group);
     for (const slot of slots.values()) slot.mesh.dispose();
     [
-      hatchFrameGeo, hatchWallGeo, hatchWallXGeo, hatchFloorGeo,
+      hatchFrameGeo, hatchCollarGeo, hatchWallGeo, hatchWallXGeo, hatchFloorGeo,
       hatchGlowGeo, hatchGlowXGeo, batteryGlowGeo
     ].forEach((g) => g.dispose());
     [

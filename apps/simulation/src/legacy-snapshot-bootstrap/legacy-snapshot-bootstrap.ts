@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { DEFAULT_AUTO_SETTLE_PREFS, setWorldSeed, terrainAt } from "@border-empires/shared";
+import { DEFAULT_AUTO_SETTLE_PREFS, setWorldSeed, terrainAt, upgradeLegacyStructureNames } from "@border-empires/shared";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type {
   SnapshotSystemsSection,
@@ -11,14 +11,13 @@ import type {
   SnapshotPlayersSection,
   SnapshotTerritorySection,
   DomainStrategicResourceKey,
-  TileYieldBuffer,
   VictoryPressureTracker
 } from "@border-empires/game-domain";
 import {
   mintworksGoldProductionMultiplier,
   PASSIVE_INCOME_MULT,
   POPULATION_GROWTH_BASE_RATE,
-  granaryGrowthMultiplier,
+  incubationEngineGrowthMultiplier,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TOWN_BASE_GOLD_PER_MIN
 } from "@border-empires/game-domain";
@@ -40,6 +39,7 @@ import {
   activeEconomicStructuresByTile,
   fedTownKeysByPlayerFromSnapshot
 } from "./legacy-snapshot-town-support.js";
+import { migrateRetiredTechIds } from "../retired-tech-ids/retired-tech-ids.js";
 
 export type LegacySnapshotAuthIdentity = {
   uid: string;
@@ -116,7 +116,7 @@ const isAiPlayer = (playerId: string, authIdentities: LegacySnapshotAuthIdentity
 
 const readSnapshotJson = <T>(snapshotDir: string, filename: string): T => {
   const file = path.join(snapshotDir, filename);
-  return JSON.parse(fs.readFileSync(file, "utf8")) as T;
+  return upgradeLegacyStructureNames(JSON.parse(fs.readFileSync(file, "utf8")) as T);
 };
 
 const emptyStrategic = (): Record<DomainStrategicResourceKey, number> => ({
@@ -166,7 +166,6 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
 
   const ownershipByTile = new Map<string, string>(territory.ownership ?? []);
   const ownershipStateByTile = new Map<string, string>(territory.ownershipState ?? []);
-  const tileYieldByTile = new Map<string, TileYieldBuffer>(economy.tileYield ?? []);
   const townCaptureShockUntilByTile = new Map<string, number>(territory.townCaptureShock ?? []);
   const townGrowthShockUntilByTile = new Map<string, number>(territory.townGrowthShock ?? []);
   const playerEconomies = buildLegacySnapshotPlayerEconomies({
@@ -244,12 +243,12 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
         structuresByTile,
         meta.world
       );
-    const hasGranary =
+    const hasIncubationEngine =
       Boolean(ownerId) &&
       supportedStructureAtTown(
         town.tileKey,
         ownerId!,
-        "GRANARY",
+        "INCUBATION_ENGINE",
         ownershipByTile,
         ownershipStateByTile,
         structuresByTile,
@@ -279,7 +278,7 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
         : (() => {
             const logisticFactor = 1 - town.population / Math.max(1, town.maxPopulation);
             if (logisticFactor <= 0) return 0;
-            const growthMult = (tier === "SETTLEMENT" ? 4 : 1) * granaryGrowthMultiplier(hasGranary);
+            const growthMult = (tier === "SETTLEMENT" ? 4 : 1) * incubationEngineGrowthMultiplier(hasIncubationEngine);
             return town.population * POPULATION_GROWTH_BASE_RATE * growthMult * logisticFactor;
           })();
     const growthModifiers = townGrowthModifiersForSnapshot({
@@ -292,10 +291,6 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
       townCaptureShockUntilByTile,
       townGrowthShockUntilByTile
     });
-    const cap =
-      tier === "SETTLEMENT"
-        ? goldPerMinute * 60 * 8
-        : goldPerMinute * 60 * 8 * mintworksGoldProductionMultiplier(mintworksCount, clearingHouseActive);
     tile.town = {
       ...(town.name ? { name: town.name } : {}),
       type: town.type,
@@ -304,7 +299,6 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
       supportCurrent: support.supportCurrent,
       supportMax: support.supportMax,
       goldPerMinute: Number(goldPerMinute.toFixed(4)),
-      cap: Number(cap.toFixed(4)),
       isFed,
       population: town.population,
       maxPopulation: town.maxPopulation,
@@ -314,8 +308,8 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
       hasMintworks,
       mintworksActive: hasMintworks && isFed,
       mintworksCount,
-      hasGranary,
-      granaryActive: hasGranary,
+      hasIncubationEngine,
+      incubationEngineActive: hasIncubationEngine,
       foodUpkeepPerMinute: townFoodUpkeepPerMinute(town),
       ...(growthModifiers.length > 0 ? { growthModifiers } : {})
     };
@@ -339,7 +333,7 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
     const capitalTile = typeof player.capitalTileKey === "string" ? parseTileKey(player.capitalTileKey) : undefined;
     const spawnOrigin = typeof player.spawnOrigin === "string" ? parseTileKey(player.spawnOrigin) : undefined;
     const isAi = isAiPlayer(player.id, authIdentities, player.name);
-    const techIds = [...player.techIds];
+    const techIds = [...migrateRetiredTechIds(player.techIds)];
     const domainIds = [...(player.domainIds ?? [])];
     const playerEconomy = playerEconomies.get(player.id);
     playerProfiles.set(player.id, {

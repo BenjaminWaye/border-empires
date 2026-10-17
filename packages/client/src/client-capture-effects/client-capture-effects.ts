@@ -3,11 +3,13 @@ import { isForestTile } from "../client-constants.js";
 import { formatShardSiteBearing, nearestShardSiteBearing, shardRainAlertDetail, type ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import { shouldFinalizePredictedCombat } from "../client-predicted-combat/client-predicted-combat.js";
 import { BATTLE_OVERLAY_TOTAL_MS } from "../client-map-3d-popup-marine/popup-marine-overlay-fx.js";
-import { victoryHoldAlertDetail, victoryHoldAlertTitle, victoryHoldBannerText } from "../client-victory-alert/client-victory-alert.js";
+import { victoryHoldAlertDetail, victoryHoldAlertTitle } from "../client-victory-alert/client-victory-alert.js";
 import { predictedMusterAmount } from "../client-muster-prediction/client-muster-prediction.js";
 import { createPopupBlockedCheck, type PopupGateState } from "../client-map-unobstructed/client-popup-gate.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
+import { setTextWithResourceIcons } from "../client-resource-icons/client-resource-icons.js";
+import { frontierAttackIsUndefended } from "../client-capture-hold/client-capture-hold.js";
 
 // Capped just *below* `required`, never at or above it: promotion out of
 // pendingMusterAttacks is driven by the real (non-extrapolated) amount, so
@@ -79,7 +81,7 @@ export const renderCaptureProgress = (
     deps.captureTitleEl.textContent = state.captureAlert.title;
     deps.captureTimeEl.textContent = state.captureAlert.manpowerLoss ? `-${state.captureAlert.manpowerLoss} MP` : "";
     deps.captureTimeEl.classList.toggle("capture-loss", Boolean(state.captureAlert.manpowerLoss));
-    deps.captureTargetEl.textContent = state.captureAlert.detail;
+    setTextWithResourceIcons(deps.captureTargetEl, state.captureAlert.detail);
     if (typeof state.captureAlert.focusX === "number" && typeof state.captureAlert.focusY === "number") {
       deps.captureGotoBtn.style.display = "inline-flex";
       deps.captureGotoBtn.dataset.feedFocusX = String(state.captureAlert.focusX);
@@ -144,7 +146,7 @@ export const renderCaptureProgress = (
     // reason. The claim-plate/expand-style animation it gets instead
     // (client-map-3d-frontier-claim-plates.ts) is already timed to
     // resolvesAt, same as this progress bar.
-    const targetIsKnownFrontier = state.tiles.get(captureTargetKey)?.ownershipState === "FRONTIER";
+    const targetIsKnownFrontier = frontierAttackIsUndefended(state.tiles.get(captureTargetKey), state.capture.combatSnapshot?.winChance);
     const activeBattle = state.activeBattles.get(captureTargetKey);
     const battleFxDoneAt = activeBattle
       ? activeBattle.endAt
@@ -385,8 +387,6 @@ export const drawStartingExpansionArrow = (
   ctx.fill();
   ctx.restore();
 };
-
-export const triangularWave = (t: number): number => 1 - Math.abs(((t % 1) * 2) - 1);
 
 // 2D settle dots share the 3D wander path (see client-ancillary-wander.ts); the
 // loader snaps the result to whole pixels.

@@ -22,7 +22,7 @@ describe("automation action admission", () => {
   it("turns INSUFFICIENT_SLOT into one reversible FOOD-slot recovery command", () => {
     const town = tile(0, 0, {
       ownerId: "ai-1", ownershipState: "SETTLED", town: { populationTier: "TOWN" },
-      economicStructure: { ownerId: "ai-1", type: "GRANARY", status: "active" }
+      economicStructure: { ownerId: "ai-1", type: "INCUBATION_ENGINE", status: "active" }
     });
     const result = planAutomationCommand({
       playerId: "ai-1", points: 500, manpower: 500, hasActiveLock: false,

@@ -1,5 +1,5 @@
-import { type FrontierDecayKind, type ProspectSignature, type Terrain } from "@border-empires/shared";
-import type { SimulationEvent } from "@border-empires/sim-protocol";
+import { type FrontierDecayKind, type ProspectSignature } from "@border-empires/shared";
+import type { SimulationEvent, TileOverlayJsonFields, TileOverlayProtoFields } from "@border-empires/sim-protocol";
 import { overlayCamelClearFields, overlaySnakeClearFields, overlaySnakeTruthyFields } from "./proto-overlay-fields.js";
 
 export type TileDeltaBatchTile = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"][number];
@@ -46,22 +46,12 @@ export type ProtoSimulationEvent = {
     town_type?: string | undefined;
     town_name?: string | undefined;
     town_population_tier?: string | undefined;
-    fort_json?: string | undefined;
-    observatory_json?: string | undefined;
-    siege_outpost_json?: string | undefined;
-    economic_structure_json?: string | undefined;
-    sabotage_json?: string | undefined;
-    shard_site_json?: string | undefined;
-    natural_wonder_json?: string | undefined;
-    watchtower_json?: string | undefined;
-    waystation_json?: string | undefined;
-    muster_json?: string | undefined;
-    afc_json?: string | undefined;
     breach_shock_until?: number | undefined;
+    capture_hold_until?: number | undefined;
     visibility_state?: string | undefined;
     ownership_clear_only?: boolean;
     combat_json?: string | undefined;
-  }>;
+  } & TileOverlayProtoFields>;
   tileDeltas?: Array<{
     x: number;
     y: number;
@@ -78,59 +68,15 @@ export type ProtoSimulationEvent = {
     townType?: string | undefined;
     townName?: string | undefined;
     townPopulationTier?: string | undefined;
-    fortJson?: string | undefined;
-    observatoryJson?: string | undefined;
-    siegeOutpostJson?: string | undefined;
-    economicStructureJson?: string | undefined;
-    sabotageJson?: string | undefined;
-    shardSiteJson?: string | undefined;
-    naturalWonderJson?: string | undefined;
-    watchtowerJson?: string | undefined;
-    waystationJson?: string | undefined;
-    musterJson?: string | undefined;
-    afcJson?: string | undefined;
     breachShockUntil?: number | null | undefined;
-    yield?: {
-      gold?: number;
-      strategic?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
-    } | undefined;
-    yieldRate?: {
-      goldPerMinute?: number;
-      strategicPerDay?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
-    } | undefined;
-    yieldCap?: { gold: number; strategicEach: number } | undefined;
+    captureHoldUntil?: number | null | undefined;
+    yieldRate?: { goldPerMinute?: number } | undefined;
     visibilityState?: string | undefined;
     ownershipClearOnly?: boolean | undefined;
     combatJson?: string | undefined;
-  }>;
+  } & TileOverlayJsonFields>;
   count?: number;
   cancelled_command_ids?: string[];
-};
-
-export type SimulationTileDelta = {
-  x: number;
-  y: number;
-  terrain?: Terrain;
-  resource?: string | undefined;
-  dockId?: string | undefined;
-  ownerId?: string | undefined;
-  ownershipState?: string | undefined;
-  frontierDecayAt?: number | undefined;
-  frontierDecayKind?: FrontierDecayKind | undefined;
-  townJson?: string | undefined;
-  townType?: "MARKET" | "FARMING";
-  townName?: string | undefined;
-  townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-  fortJson?: string | undefined;
-  observatoryJson?: string | undefined;
-  siegeOutpostJson?: string | undefined;
-  economicStructureJson?: string | undefined;
-  sabotageJson?: string | undefined;
-  shardSiteJson?: string | undefined;
-  naturalWonderJson?: string | undefined;
-  watchtowerJson?: string | undefined;
-  waystationJson?: string | undefined;
-  afcJson?: string | undefined;
 };
 
 // Event types that exist purely for in-sim bookkeeping (replay anchors,
@@ -140,10 +86,7 @@ export type SimulationTileDelta = {
 // as empty-code COMMAND_REJECTED. Filter them at the wire boundary so the
 // gateway never sees them in the first place.
 export const WIRE_INTERNAL_EVENT_TYPES: ReadonlySet<SimulationEvent["eventType"]> = new Set([
-  "SETTLEMENT_STARTED",
-  "TILE_YIELD_ANCHOR_UPDATED",
-  "TILE_YIELD_ANCHOR_BATCH",
-  "PLAYER_YIELD_COLLECTION_EPOCH_UPDATED"
+  "SETTLEMENT_STARTED"
 ]);
 
 export const isWireInternalEvent = (event: SimulationEvent): boolean =>
@@ -207,13 +150,12 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...(tile.townType ? { town_type: tile.townType } : {}),
           ...(tile.townName ? { town_name: tile.townName } : {}),
           ...(tile.townPopulationTier ? { town_population_tier: tile.townPopulationTier } : {}),
-          ...overlaySnakeClearFields(tile as unknown as Record<string, unknown>),
+          ...overlaySnakeClearFields(tile),
           ...("breachShockUntil" in tile ? { breach_shock_until: tile.breachShockUntil ?? 0 } : {}),
+          ...("captureHoldUntil" in tile ? { capture_hold_until: tile.captureHoldUntil ?? 0 } : {}),
           ...("visibilityState" in tile && tile.visibilityState ? { visibility_state: tile.visibilityState } : {}),
           ...(tile.ownershipClearOnly ? { ownership_clear_only: true } : {}),
-          ...("yield" in tile && tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
           ...("yieldRate" in tile && tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
-          ...("yieldCap" in tile && tile.yieldCap ? { yield_cap_json: JSON.stringify(tile.yieldCap) } : {}),
           ...("combatJson" in tile && tile.combatJson ? { combat_json: tile.combatJson } : {})
         }))
       : [],
@@ -236,13 +178,12 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...(tile.townType ? { townType: tile.townType } : {}),
           ...(tile.townName ? { townName: tile.townName } : {}),
           ...(tile.townPopulationTier ? { townPopulationTier: tile.townPopulationTier } : {}),
-          ...overlayCamelClearFields(tile as unknown as Record<string, unknown>),
+          ...overlayCamelClearFields(tile),
           ...("breachShockUntil" in tile ? { breachShockUntil: tile.breachShockUntil ?? null } : {}),
+          ...("captureHoldUntil" in tile ? { captureHoldUntil: tile.captureHoldUntil ?? null } : {}),
           ...("visibilityState" in tile && tile.visibilityState ? { visibilityState: tile.visibilityState } : {}),
           ...(tile.ownershipClearOnly ? { ownershipClearOnly: true } : {}),
-          ...("yield" in tile ? { yield: tile.yield } : {}),
           ...("yieldRate" in tile ? { yieldRate: tile.yieldRate } : {}),
-          ...("yieldCap" in tile ? { yieldCap: tile.yieldCap } : {}),
           ...("combatJson" in tile && tile.combatJson ? { combatJson: tile.combatJson } : {})
         }))
       }
@@ -262,16 +203,10 @@ export const toFullSnapshotProtoTile = (tile: {
   reachOwnerId?: string | undefined;
   frontierDecayAt?: number | undefined; frontierDecayKind?: string | undefined;
   townJson?: string | undefined; townType?: string | undefined; townName?: string | undefined; townPopulationTier?: string | undefined;
-  fortJson?: string | undefined; observatoryJson?: string | undefined; siegeOutpostJson?: string | undefined;
-  economicStructureJson?: string | undefined; sabotageJson?: string | undefined; shardSiteJson?: string | undefined;
-  naturalWonderJson?: string | undefined;
-  watchtowerJson?: string | undefined;
-  waystationJson?: string | undefined;
-  musterJson?: string | undefined;
-  afcJson?: string | undefined;
   breachShockUntil?: number | undefined;
-  yield?: unknown; yieldRate?: unknown; yieldCap?: unknown;
-}) => ({
+  captureHoldUntil?: number | undefined;
+  yieldRate?: unknown;
+} & TileOverlayJsonFields) => ({
   x: tile.x,
   y: tile.y,
   ...(tile.terrain ? { terrain: tile.terrain } : {}),
@@ -287,9 +222,8 @@ export const toFullSnapshotProtoTile = (tile: {
   ...(tile.townType ? { town_type: tile.townType } : {}),
   ...(tile.townName ? { town_name: tile.townName } : {}),
   ...(tile.townPopulationTier ? { town_population_tier: tile.townPopulationTier } : {}),
-  ...overlaySnakeTruthyFields(tile as unknown as Record<string, unknown>),
+  ...overlaySnakeTruthyFields(tile),
   ...(typeof tile.breachShockUntil === "number" ? { breach_shock_until: tile.breachShockUntil } : {}),
-  ...(tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
-  ...(tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
-  ...(tile.yieldCap ? { yield_cap_json: JSON.stringify(tile.yieldCap) } : {})
+  ...(typeof tile.captureHoldUntil === "number" ? { capture_hold_until: tile.captureHoldUntil } : {}),
+  ...(tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {})
 });

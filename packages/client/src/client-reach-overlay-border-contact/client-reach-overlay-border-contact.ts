@@ -27,18 +27,6 @@ import type { TileCoord } from "../client-reach-overlay/client-reach-overlay.js"
 export type BorderContactSegment = { from: TileCoord; to: TileCoord; ownerIdA: string; ownerIdB: string };
 export type BorderContactPylon = TileCoord & { ownerIdA: string; ownerIdB: string };
 
-/** Exported so render-loop code can look up membership for an individual
- *  owner-tagged segment/pylon without re-deriving the contact set itself --
- *  see client-map-3d.ts's renderReachOverlay3DPylons. Segments are stored
- *  clipped to the actual overlap, so a rendered segment matches this key
- *  only when it exactly IS a contact seam (the pylon/segment render loop
- *  still draws each owner's original, unclipped wall otherwise). */
-export const undirectedSegmentKey = (from: TileCoord, to: TileCoord): string => {
-  const a = `${from.x},${from.y}`;
-  const b = `${to.x},${to.y}`;
-  return a <= b ? `${a}|${b}` : `${b}|${a}`;
-};
-
 export const pointKey = (p: TileCoord): string => `${p.x},${p.y}`;
 
 type AxisInterval = { axis: "h" | "v"; line: number; lo: number; hi: number };

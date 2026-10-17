@@ -8,7 +8,7 @@ import type { RuntimeCombatSupportContext } from "./runtime-combat-support.js";
 
 export const barbarianProgressGain = (target: DomainTileState | undefined): number => {
   if (!target?.ownerId || target.ownerId === "barbarian-1") return 0;
-  return target.resource || target.town || target.fort || target.siegeOutpost || target.dockId ? 2 : 1;
+  return target.resource || target.town || target.fort || target.siegeBattery || target.dockId ? 2 : 1;
 };
 
 export type BarbarianWalkContext = Pick<

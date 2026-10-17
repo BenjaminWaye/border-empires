@@ -58,7 +58,6 @@ import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-
 import {
   RL_BAR,
   RL_BAR_AZIMUTHS,
-  RL_CLAMP,
   RL_CLAMP_Z,
   RL_CONDUIT,
   RL_DRUM,
@@ -68,7 +67,6 @@ import {
   RL_NODE,
   RL_NODE_Z,
   RL_POD,
-  RL_RIB,
   RL_RIB_Z,
   RL_TOWER_TOP,
   createReserveLatticeParts

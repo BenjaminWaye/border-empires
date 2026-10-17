@@ -20,7 +20,6 @@ import { MOBILE_LOGIN_ZOOM } from "../client-constants.js";
 import { setDebugAuthEmail } from "../client-debug/client-debug.js";
 import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-diagnostics.js";
 import { clearStoredMapReveal, getMapRevealEnabled } from "../client-map-reveal/client-map-reveal.js";
-import type { RealtimeSocket } from "../client-socket-types.js";
 import { logSignUpConversion, logSignUpIfNewUser } from "./client-auth-flow-analytics.js";
 import { createSocketAuthenticator } from "./client-authenticate-socket.js";
 import { createSsoSignInHandler, DISCORD_PROVIDER_ID, signInProviderLabel, TWITCH_PROVIDER_ID } from "./client-auth-flow-sso.js";
@@ -344,6 +343,10 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     if (firebaseAuth) {
       void setPersistence(firebaseAuth, browserLocalPersistence);
       onAuthStateChanged(firebaseAuth, async (user) => {
+        // The localhost dev login (?devPlayerId=) authenticates the socket with
+        // the raw player id and never has a Firebase user, so Firebase's
+        // "signed out" callback must not tear down that already-ready session.
+        if (!user && devAuthPlayerId) return;
         if (!user) {
           setDebugAuthEmail("");
           state.mapRevealEligible = false;

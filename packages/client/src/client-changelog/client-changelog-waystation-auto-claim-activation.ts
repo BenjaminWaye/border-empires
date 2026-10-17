@@ -7,8 +7,7 @@ export const CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION: ClientCh
     title: "Waystations next to your towns now activate",
     why: "A waystation that was free-claimed beside one of your towns stayed \"Dormant\" under your ownership and never gave its bonus.",
     changes: [
-      "Waystations and watchtowers claimed automatically next to your towns now activate and grant their bonus, like ones you capture yourself",
-      "Waystations you already own that were left Dormant activate automatically"
+      "Waystations and watchtowers claimed automatically next to your towns now activate and grant their bonus, like ones you capture yourself"
     ]
   }
 ];

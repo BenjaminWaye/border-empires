@@ -170,14 +170,6 @@ const tileWithPendingBuild = () =>
     (t) => t.ownerId === state.playerId && t.pendingBuildType
   ) ?? null;
 
-const tileWithResource = () =>
-  [...state.tilesByKey.values()].find(
-    (t) => t.ownerId === state.playerId &&
-      t.resource &&
-      t.resource !== "NONE" &&
-      t.ownershipState === "SETTLED"
-  ) ?? null;
-
 const anyEnemyTile = () =>
   [...state.tilesByKey.values()].find(
     (t) => t.ownerId && t.ownerId !== state.playerId && t.terrain === "LAND"
@@ -394,15 +386,6 @@ const tryStep = async (description, fn) => {
 
 // Individual command generators
 
-const stepCollectVisible = async () =>
-  sendAndWait("COLLECT_VISIBLE", {}, "collect-visible");
-
-const stepCollectTile = async () => {
-  const tile = tileWithResource();
-  if (!tile) return null;
-  return sendAndWait("COLLECT_TILE", { x: tile.x, y: tile.y }, "collect-tile");
-};
-
 const stepExpand = async () => {
   const candidates = frontierTiles();
   if (candidates.length === 0) return null;
@@ -475,17 +458,17 @@ const stepBuildEconomicStructure = async () => {
   return sendAndWait("BUILD_ECONOMIC_STRUCTURE", { x: tile.x, y: tile.y }, "build-economic-structure");
 };
 
-const stepBuildSiegeOutpost = async () => {
+const stepBuildSiegeBattery = async () => {
   const candidates = settledTiles().filter((t) => !Array.isArray(t.structures) || t.structures.length === 0);
   if (candidates.length === 0) return null;
   const tile = candidates[0];
-  return sendAndWait("BUILD_SIEGE_OUTPOST", { x: tile.x, y: tile.y }, "build-siege-outpost");
+  return sendAndWait("BUILD_SIEGE_BATTERY", { x: tile.x, y: tile.y }, "build-siege-battery");
 };
 
-const stepCancelSiegeOutpostBuild = async () => {
+const stepCancelSiegeBatteryBuild = async () => {
   const tile = tileWithPendingBuild();
   if (!tile) return null;
-  return sendAndWait("CANCEL_SIEGE_OUTPOST_BUILD", { x: tile.x, y: tile.y }, "cancel-siege-outpost-build");
+  return sendAndWait("CANCEL_SIEGE_BATTERY_BUILD", { x: tile.x, y: tile.y }, "cancel-siege-battery-build");
 };
 
 const stepRemoveStructure = async () => {
@@ -568,11 +551,11 @@ const stepPurgeSiphon = async () => {
   return sendAndWait("PURGE_SIPHON", { x: tile.x, y: tile.y }, "purge-siphon");
 };
 
-const stepAirportBombard = async () => {
-  const airport = tileWithStructure("AIRPORT");
+const stepSkyDockBombard = async () => {
+  const skyDock = tileWithStructure("SKY_DOCK");
   const enemy = anyEnemyTile();
-  if (!airport || !enemy) return null;
-  return sendAndWait("AIRPORT_BOMBARD", { fromX: airport.x, fromY: airport.y, toX: enemy.x, toY: enemy.y }, "airport-bombard");
+  if (!skyDock || !enemy) return null;
+  return sendAndWait("SKY_DOCK_BOMBARD", { fromX: skyDock.x, fromY: skyDock.y, toX: enemy.x, toY: enemy.y }, "sky-dock-bombard");
 };
 
 const stepCreateMountain = async () => {
@@ -590,7 +573,7 @@ const stepRemoveMountain = async () => {
 };
 
 const stepBreakthroughAttack = async () => {
-  const outpost = tileWithStructure("SIEGE_OUTPOST");
+  const outpost = tileWithStructure("SIEGE_BATTERY");
   const candidates = enemyAdjacentTiles();
   if (!outpost || candidates.length === 0) return null;
   const { target } = candidates[0];
@@ -603,9 +586,6 @@ const stepBreakthroughAttack = async () => {
 
 const buildPlaybook = () => [
   // Phase 0: Initial resource collection
-  ["COLLECT_VISIBLE (initial)", stepCollectVisible],
-  ["COLLECT_TILE (initial)", stepCollectTile],
-  ["COLLECT_VISIBLE (2)", stepCollectVisible],
 
   // Phase 1: Expansion — drive frontier growth
   ["EXPAND (1)", stepExpand],
@@ -631,12 +611,10 @@ const buildPlaybook = () => [
   ["BUILD_OBSERVATORY (then cancel)", stepBuildObservatory],
   ["CANCEL_STRUCTURE_BUILD", stepCancelStructureBuild],
   ["BUILD_ECONOMIC_STRUCTURE", stepBuildEconomicStructure],
-  ["BUILD_SIEGE_OUTPOST (then cancel)", stepBuildSiegeOutpost],
-  ["CANCEL_SIEGE_OUTPOST_BUILD", stepCancelSiegeOutpostBuild],
+  ["BUILD_SIEGE_BATTERY (then cancel)", stepBuildSiegeBattery],
+  ["CANCEL_SIEGE_BATTERY_BUILD", stepCancelSiegeBatteryBuild],
 
   // Phase 5: Mid-game collection and combat
-  ["COLLECT_VISIBLE (3)", stepCollectVisible],
-  ["COLLECT_TILE (2)", stepCollectTile],
   ["COLLECT_SHARD (1)", stepCollectShard],
   ["ATTACK (1)", stepAttack],
   ["ATTACK (2)", stepAttack],
@@ -671,24 +649,21 @@ const buildPlaybook = () => [
   ["CAST_AETHER_WALL", stepCastAetherWall],
   ["SIPHON_TILE", stepSiphonTile],
   ["PURGE_SIPHON", stepPurgeSiphon],
-  ["AIRPORT_BOMBARD", stepAirportBombard],
+  ["SKY_DOCK_BOMBARD", stepSkyDockBombard],
   ["CREATE_MOUNTAIN", stepCreateMountain],
   ["REMOVE_MOUNTAIN", stepRemoveMountain],
 
   // Phase 11: Top-up to hit minCommands
-  ["COLLECT_VISIBLE (4)", stepCollectVisible],
   ["EXPAND (11)", stepExpand],
   ["EXPAND (12)", stepExpand],
   ["EXPAND (13)", stepExpand],
   ["EXPAND (14)", stepExpand],
   ["EXPAND (15)", stepExpand],
   ["SETTLE (6)", stepSettle],
-  ["COLLECT_TILE (3)", stepCollectTile],
   ["ATTACK (4)", stepAttack],
   ["ATTACK (5)", stepAttack],
   ["CHOOSE_TECH (5)", stepChooseTech],
   ["COLLECT_SHARD (2)", stepCollectShard],
-  ["COLLECT_VISIBLE (5)", stepCollectVisible],
   ["EXPAND (16)", stepExpand],
   ["EXPAND (17)", stepExpand],
 ];

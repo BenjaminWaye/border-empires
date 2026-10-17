@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   DREAD_TOWER_ATTACK_MULT,
-  SIEGE_OUTPOST_ATTACK_MULT,
+  SIEGE_BATTERY_ATTACK_MULT,
   SIEGE_TOWER_ATTACK_MULT,
   WORLD_HEIGHT,
   WORLD_WIDTH
@@ -10,18 +10,18 @@ import {
 import { OUTPOST_AURA_RADIUS, type OutpostAuraTileFacts, type OutpostPosition, scanOutpostMult, targetOutpostMult, tileOutpostMult } from "./outpost-aura.js";
 
 describe("tileOutpostMult — per-variant multipliers", () => {
-  it("VariantMult: SIEGE_OUTPOST → 1.6", () => {
+  it("VariantMult: SIEGE_BATTERY → 1.6", () => {
     const tile: OutpostAuraTileFacts = {
       ownerId: "p1",
-      siegeOutpost: { ownerId: "p1", status: "active", variant: "SIEGE_OUTPOST" }
+      siegeBattery: { ownerId: "p1", status: "active", variant: "SIEGE_BATTERY" }
     };
-    expect(tileOutpostMult(tile, "p1")).toEqual({ mult: SIEGE_OUTPOST_ATTACK_MULT });
+    expect(tileOutpostMult(tile, "p1")).toEqual({ mult: SIEGE_BATTERY_ATTACK_MULT });
   });
 
   it("VariantMult: SIEGE_TOWER → 1.8", () => {
     const tile: OutpostAuraTileFacts = {
       ownerId: "p1",
-      siegeOutpost: { ownerId: "p1", status: "active", variant: "SIEGE_TOWER" }
+      siegeBattery: { ownerId: "p1", status: "active", variant: "SIEGE_TOWER" }
     };
     expect(tileOutpostMult(tile, "p1")).toEqual({ mult: SIEGE_TOWER_ATTACK_MULT });
   });
@@ -29,7 +29,7 @@ describe("tileOutpostMult — per-variant multipliers", () => {
   it("VariantMult: DREAD_TOWER → 2.0", () => {
     const tile: OutpostAuraTileFacts = {
       ownerId: "p1",
-      siegeOutpost: { ownerId: "p1", status: "active", variant: "DREAD_TOWER" }
+      siegeBattery: { ownerId: "p1", status: "active", variant: "DREAD_TOWER" }
     };
     expect(tileOutpostMult(tile, "p1")).toEqual({ mult: DREAD_TOWER_ATTACK_MULT });
   });
@@ -42,18 +42,18 @@ describe("tileOutpostMult — per-variant multipliers", () => {
     expect(tileOutpostMult(tile, "p1")).toEqual({ mult: 1 });
   });
 
-  it("VariantMult: undefined siege variant defaults to SIEGE_OUTPOST mult", () => {
+  it("VariantMult: undefined siege variant defaults to SIEGE_BATTERY mult", () => {
     const tile: OutpostAuraTileFacts = {
       ownerId: "p1",
-      siegeOutpost: { ownerId: "p1", status: "active" }
+      siegeBattery: { ownerId: "p1", status: "active" }
     };
-    expect(tileOutpostMult(tile, "p1")).toEqual({ mult: SIEGE_OUTPOST_ATTACK_MULT });
+    expect(tileOutpostMult(tile, "p1")).toEqual({ mult: SIEGE_BATTERY_ATTACK_MULT });
   });
 
-  it("a siege outpost on a FRONTIER (unsettled) tile still contributes its attack aura", () => {
+  it("a siege battery on a FRONTIER (unsettled) tile still contributes its attack aura", () => {
     const tile: OutpostAuraTileFacts = {
       ownerId: "p1",
-      siegeOutpost: { ownerId: "p1", status: "active", variant: "SIEGE_TOWER" }
+      siegeBattery: { ownerId: "p1", status: "active", variant: "SIEGE_TOWER" }
     };
     expect(tileOutpostMult(tile, "p1")).toEqual({ mult: SIEGE_TOWER_ATTACK_MULT });
   });
@@ -61,7 +61,7 @@ describe("tileOutpostMult — per-variant multipliers", () => {
   it("returns 1 when the tile is not owned by the player", () => {
     const tile: OutpostAuraTileFacts = {
       ownerId: "other",
-      siegeOutpost: { ownerId: "other", status: "active" }
+      siegeBattery: { ownerId: "other", status: "active" }
     };
     expect(tileOutpostMult(tile, "p1")).toEqual({ mult: 1 });
   });
@@ -69,7 +69,7 @@ describe("tileOutpostMult — per-variant multipliers", () => {
   it("ignores constructing outposts", () => {
     const tile: OutpostAuraTileFacts = {
       ownerId: "p1",
-      siegeOutpost: { ownerId: "p1", status: "under_construction" },
+      siegeBattery: { ownerId: "p1", status: "under_construction" },
       economicStructure: { ownerId: "p1", type: "RELAY_BEACON", status: "under_construction" }
     };
     expect(tileOutpostMult(tile, "p1")).toEqual({ mult: 1 });
@@ -91,22 +91,22 @@ describe("scanOutpostMult — target-based radius-5 aura", () => {
   };
   const lookup = (x: number, y: number) => tilesByKey.get(`${x},${y}`);
 
-  it("Aura1: target within radius 5 of friendly siege outpost → bonus applied (origin irrelevant)", () => {
+  it("Aura1: target within radius 5 of friendly siege battery → bonus applied (origin irrelevant)", () => {
     tilesByKey.clear();
-    // Siege outpost at (10, 10). Target at (14, 10) — exactly 4 tiles away (within radius 5).
+    // Siege Battery at (10, 10). Target at (14, 10) — exactly 4 tiles away (within radius 5).
     seed(10, 10, {
       ownerId: "p1",
-      siegeOutpost: { ownerId: "p1", status: "active", variant: "SIEGE_OUTPOST" }
+      siegeBattery: { ownerId: "p1", status: "active", variant: "SIEGE_BATTERY" }
     });
     // Target is at (14, 10); attacker scans around target position
-    expect(scanOutpostMult("p1", 14, 10, lookup)).toBeCloseTo(SIEGE_OUTPOST_ATTACK_MULT, 6);
+    expect(scanOutpostMult("p1", 14, 10, lookup)).toBeCloseTo(SIEGE_BATTERY_ATTACK_MULT, 6);
   });
 
   it("Aura2: target outside any friendly aura → no bonus (mult = 1)", () => {
     tilesByKey.clear();
     seed(10, 10, {
       ownerId: "p1",
-      siegeOutpost: { ownerId: "p1", status: "active", variant: "SIEGE_OUTPOST" }
+      siegeBattery: { ownerId: "p1", status: "active", variant: "SIEGE_BATTERY" }
     });
     // Target at (16, 10) — 6 tiles from outpost, outside radius 5
     expect(scanOutpostMult("p1", 16, 10, lookup)).toBe(1);
@@ -122,26 +122,26 @@ describe("scanOutpostMult — target-based radius-5 aura", () => {
     expect(scanOutpostMult("p1", 13, 10, lookup)).toBe(1);
   });
 
-  it("Aura4: SIEGE_OUTPOST contributes an aura even alongside a non-contributing RELAY_BEACON", () => {
+  it("Aura4: SIEGE_BATTERY contributes an aura even alongside a non-contributing RELAY_BEACON", () => {
     tilesByKey.clear();
     seed(10, 10, {
       ownerId: "p1",
-      siegeOutpost: { ownerId: "p1", status: "active", variant: "SIEGE_OUTPOST" }
+      siegeBattery: { ownerId: "p1", status: "active", variant: "SIEGE_BATTERY" }
     });
     seed(11, 10, {
       ownerId: "p1",
       economicStructure: { ownerId: "p1", type: "RELAY_BEACON", status: "active" }
     });
-    // Target at (12, 10) — within radius of both. SIEGE_OUTPOST should win.
-    expect(scanOutpostMult("p1", 12, 10, lookup)).toBeCloseTo(SIEGE_OUTPOST_ATTACK_MULT, 6);
+    // Target at (12, 10) — within radius of both. SIEGE_BATTERY should win.
+    expect(scanOutpostMult("p1", 12, 10, lookup)).toBeCloseTo(SIEGE_BATTERY_ATTACK_MULT, 6);
   });
 
   it("Aura5: enemy outpost's aura does NOT buff attacks against the enemy player's tiles", () => {
     tilesByKey.clear();
-    // Player-2 has a siege outpost at (10,10)
+    // Player-2 has a siege battery at (10,10)
     seed(10, 10, {
       ownerId: "p2",
-      siegeOutpost: { ownerId: "p2", status: "active", variant: "SIEGE_OUTPOST" }
+      siegeBattery: { ownerId: "p2", status: "active", variant: "SIEGE_BATTERY" }
     });
     // Player-1 attacks a tile at (12,10) — enemy outpost should not buff p1
     expect(scanOutpostMult("p1", 12, 10, lookup)).toBe(1);
@@ -152,12 +152,12 @@ describe("scanOutpostMult — target-based radius-5 aura", () => {
     // Outpost near the world edge
     seed(0, 0, {
       ownerId: "p1",
-      siegeOutpost: { ownerId: "p1", status: "active", variant: "SIEGE_OUTPOST" }
+      siegeBattery: { ownerId: "p1", status: "active", variant: "SIEGE_BATTERY" }
     });
     // Target at the wrapped edge: (WORLD_WIDTH - 1, WORLD_HEIGHT - 1) is distance 1,1 via wrapping
-    expect(scanOutpostMult("p1", WORLD_WIDTH - 1, WORLD_HEIGHT - 1, lookup)).toBeCloseTo(SIEGE_OUTPOST_ATTACK_MULT, 6);
+    expect(scanOutpostMult("p1", WORLD_WIDTH - 1, WORLD_HEIGHT - 1, lookup)).toBeCloseTo(SIEGE_BATTERY_ATTACK_MULT, 6);
     // Target at (2, 0): distance 2 from outpost, within radius 5
-    expect(scanOutpostMult("p1", 2, 0, lookup)).toBeCloseTo(SIEGE_OUTPOST_ATTACK_MULT, 6);
+    expect(scanOutpostMult("p1", 2, 0, lookup)).toBeCloseTo(SIEGE_BATTERY_ATTACK_MULT, 6);
     // Target at (6, 0): distance 6 from outpost, outside radius 5
     expect(scanOutpostMult("p1", 6, 0, lookup)).toBe(1);
   });
@@ -175,15 +175,15 @@ describe("scanOutpostMult — target-based radius-5 aura", () => {
     expect(scanOutpostMult("p1", 12, 10, lookup)).toBe(1);
   });
 
-  it("DREAD_TOWER in overlapping scenario wins over SIEGE_OUTPOST and RELAY_BEACON", () => {
+  it("DREAD_TOWER in overlapping scenario wins over SIEGE_BATTERY and RELAY_BEACON", () => {
     tilesByKey.clear();
     seed(10, 10, {
       ownerId: "p1",
-      siegeOutpost: { ownerId: "p1", status: "active", variant: "DREAD_TOWER" }
+      siegeBattery: { ownerId: "p1", status: "active", variant: "DREAD_TOWER" }
     });
     seed(11, 10, {
       ownerId: "p1",
-      siegeOutpost: { ownerId: "p1", status: "active", variant: "SIEGE_OUTPOST" }
+      siegeBattery: { ownerId: "p1", status: "active", variant: "SIEGE_BATTERY" }
     });
     seed(12, 10, {
       ownerId: "p1",
@@ -196,17 +196,17 @@ describe("scanOutpostMult — target-based radius-5 aura", () => {
 });
 
 describe("targetOutpostMult — outpost-list iteration", () => {
-  it("TOM1: single SIEGE_OUTPOST within radius → correct multiplier", () => {
+  it("TOM1: single SIEGE_BATTERY within radius → correct multiplier", () => {
     const outposts: OutpostPosition[] = [
-      { x: 10, y: 10, variant: "SIEGE_OUTPOST" }
+      { x: 10, y: 10, variant: "SIEGE_BATTERY" }
     ];
     // Target at (14, 10): Chebyshev distance = 4 ≤ 5
-    expect(targetOutpostMult(outposts, 14, 10)).toBeCloseTo(SIEGE_OUTPOST_ATTACK_MULT, 6);
+    expect(targetOutpostMult(outposts, 14, 10)).toBeCloseTo(SIEGE_BATTERY_ATTACK_MULT, 6);
   });
 
   it("TOM2: target outside radius → no bonus (mult = 1)", () => {
     const outposts: OutpostPosition[] = [
-      { x: 10, y: 10, variant: "SIEGE_OUTPOST" }
+      { x: 10, y: 10, variant: "SIEGE_BATTERY" }
     ];
     // Target at (16, 10): Chebyshev distance = 6 > 5
     expect(targetOutpostMult(outposts, 16, 10)).toBe(1);
@@ -215,9 +215,9 @@ describe("targetOutpostMult — outpost-list iteration", () => {
   it("TOM4: overlapping auras — max multiplier wins", () => {
     const outposts: OutpostPosition[] = [
       { x: 10, y: 10, variant: "SIEGE_TOWER" },
-      { x: 11, y: 10, variant: "SIEGE_OUTPOST" }
+      { x: 11, y: 10, variant: "SIEGE_BATTERY" }
     ];
-    // Both within radius of target (12, 10): SIEGE_TOWER (1.8) beats SIEGE_OUTPOST (1.6)
+    // Both within radius of target (12, 10): SIEGE_TOWER (1.8) beats SIEGE_BATTERY (1.6)
     expect(targetOutpostMult(outposts, 12, 10)).toBeCloseTo(SIEGE_TOWER_ATTACK_MULT, 6);
   });
 
@@ -226,7 +226,7 @@ describe("targetOutpostMult — outpost-list iteration", () => {
     // even when a higher-mult outpost isn't possible.
     const outposts: OutpostPosition[] = [
       { x: 10, y: 10, variant: "DREAD_TOWER" },
-      { x: 11, y: 10, variant: "SIEGE_OUTPOST" }
+      { x: 11, y: 10, variant: "SIEGE_BATTERY" }
     ];
     // Target at (12, 10): DREAD_TOWER (2.0) wins and triggers early return.
     expect(targetOutpostMult(outposts, 12, 10)).toBeCloseTo(DREAD_TOWER_ATTACK_MULT, 6);
@@ -238,10 +238,10 @@ describe("targetOutpostMult — outpost-list iteration", () => {
 
   it("TOM7: world-wrap — outpost at (0, 0), target at far edge is within radius 1 via wrap", () => {
     const outposts: OutpostPosition[] = [
-      { x: 0, y: 0, variant: "SIEGE_OUTPOST" }
+      { x: 0, y: 0, variant: "SIEGE_BATTERY" }
     ];
     // Chebyshev wrap: distance from (0,0) to (WORLD_WIDTH-1, WORLD_HEIGHT-1) = 1 via wrap
-    expect(targetOutpostMult(outposts, WORLD_WIDTH - 1, WORLD_HEIGHT - 1)).toBeCloseTo(SIEGE_OUTPOST_ATTACK_MULT, 6);
+    expect(targetOutpostMult(outposts, WORLD_WIDTH - 1, WORLD_HEIGHT - 1)).toBeCloseTo(SIEGE_BATTERY_ATTACK_MULT, 6);
   });
 
   it("TOM8: SIEGE_TOWER within radius → correct multiplier", () => {

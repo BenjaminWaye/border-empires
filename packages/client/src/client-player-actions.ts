@@ -17,18 +17,6 @@ export type PlayerActionDeps = {
   sendGameMessage: (payload: unknown, message?: string) => boolean;
 };
 
-export const sendAllianceRequestFromUi = (target: string, deps: PlayerActionDeps): void => {
-  const trimmed = target.trim();
-  if (!trimmed) return;
-  deps.sendGameMessage({ type: "ALLIANCE_REQUEST", targetPlayerName: trimmed }, "Finish sign-in before sending alliance requests.");
-};
-
-export const sendTruceRequestFromUi = (targetPlayerName: string, durationHours: 12 | 24, deps: PlayerActionDeps): void => {
-  const trimmed = targetPlayerName.trim();
-  if (!trimmed) return;
-  deps.sendGameMessage({ type: "TRUCE_REQUEST", targetPlayerName: trimmed, durationHours }, "Finish sign-in before sending truce offers.");
-};
-
 export const breakAllianceFromUi = (target: string, deps: PlayerActionDeps): void => {
   const trimmed = target.trim();
   if (!trimmed) return;
@@ -208,7 +196,7 @@ export const explainActionFailureFromServer = (
   if (code === "SETTLE_INVALID") return `Cannot garrison: ${message}.`;
   if (code === "FORT_BUILD_INVALID") return `Cannot build fort: ${message}.`;
   if (code === "OBSERVATORY_BUILD_INVALID") return `Cannot build Aether Tower: ${message}.`;
-  if (code === "SIEGE_OUTPOST_BUILD_INVALID") return `Cannot build Siege Battery: ${message}.`;
+  if (code === "SIEGE_BATTERY_BUILD_INVALID") return `Cannot build Siege Battery: ${message}.`;
   if (code === "ECONOMIC_STRUCTURE_BUILD_INVALID") return `Cannot build structure: ${message}.`;
   if (code === "STRUCTURE_REMOVE_INVALID") return `Cannot remove structure: ${message}.`;
   if (code === "REVEAL_EMPIRE_INVALID") return `Cannot reveal empire: ${message}.`;
@@ -262,7 +250,6 @@ export const explainActionFailureFromServer = (
   if (code === "TECH_INVALID") return `Research failed: ${message}.`;
   if (code === "COLLECT_EMPTY") return "Collect failed: there is nothing to collect on this tile yet.";
   if (code === "COLLECT_NOT_OWNED") return "Collect failed: that tile is no longer owned by you.";
-  if (code === "COLLECT_COOLDOWN") return `Collect failed: ${message}.`;
   if (message.includes("development slots are busy")) {
     return `Cannot start development: ${message}. You can run up to ${DEVELOPMENT_PROCESS_LIMIT} at once.`;
   }

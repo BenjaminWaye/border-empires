@@ -38,7 +38,7 @@ type NormalizedGatewayTileUpdate = {
   townDataPartial?: boolean;
   fort?: Tile["fort"] | undefined;
   observatory?: Tile["observatory"] | undefined;
-  siegeOutpost?: Tile["siegeOutpost"] | undefined;
+  siegeBattery?: Tile["siegeBattery"] | undefined;
   economicStructure?: Tile["economicStructure"] | undefined;
   sabotage?: Tile["sabotage"] | undefined;
   shardSite?: Tile["shardSite"] | undefined; naturalWonder?: Tile["naturalWonder"] | undefined;
@@ -51,14 +51,39 @@ type NormalizedGatewayTileUpdate = {
   reachOwnerId?: Tile["reachOwnerId"] | undefined;
   frontierDecayAt?: Tile["frontierDecayAt"] | undefined;
   frontierDecayKind?: Tile["frontierDecayKind"] | undefined;
-  yield?: Tile["yield"] | undefined;
+  captureHoldUntil?: Tile["captureHoldUntil"] | undefined;
   yieldRate?: Tile["yieldRate"] | undefined;
-  yieldCap?: Tile["yieldCap"] | undefined;
   upkeepEntries?: Tile["upkeepEntries"] | undefined;
   history?: Tile["history"] | undefined;
   landBiome?: Tile["landBiome"] | undefined;
   regionType?: Tile["regionType"] | undefined;
 };
+
+// One parser per tile-overlay JSON field the gateway sends. Each returns the
+// NormalizedGatewayTileUpdate field it fills (an empty or missing value parses
+// to undefined, which is an explicit clear). The keys must match
+// TILE_OVERLAY_WIRE_FIELDS in @border-empires/sim-protocol; the client does not
+// import sim-protocol at build time, so client-gateway-overlay-fields.test.ts
+// enforces that instead -- a new overlay fails that test until it is added here.
+const GATEWAY_OVERLAY_PARSERS = {
+  shardSiteJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ shardSite: parseGatewayStructureJson<NonNullable<Tile["shardSite"]>>(json) }),
+  naturalWonderJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ naturalWonder: parseGatewayStructureJson<NonNullable<Tile["naturalWonder"]>>(json) }),
+  fortJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ fort: parseGatewayStructureJson<Tile["fort"]>(json) }),
+  observatoryJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ observatory: parseGatewayStructureJson<Tile["observatory"]>(json) }),
+  siegeBatteryJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ siegeBattery: parseGatewayStructureJson<Tile["siegeBattery"]>(json) }),
+  economicStructureJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ economicStructure: parseGatewayStructureJson<Tile["economicStructure"]>(json) }),
+  sabotageJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ sabotage: parseGatewayStructureJson<Tile["sabotage"]>(json) }),
+  watchtowerJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ watchtower: parseGatewayStructureJson<NonNullable<Tile["watchtower"]>>(json) }),
+  waystationJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ waystation: parseGatewayStructureJson<NonNullable<Tile["waystation"]>>(json) }),
+  musterJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ muster: parseGatewayStructureJson<Tile["muster"]>(json) }),
+  afcJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ afc: parseGatewayStructureJson<Tile["afc"]>(json) })
+};
+
+export type GatewayOverlayJsonField = keyof typeof GATEWAY_OVERLAY_PARSERS;
+export const GATEWAY_OVERLAY_JSON_FIELDS = Object.keys(GATEWAY_OVERLAY_PARSERS) as GatewayOverlayJsonField[];
+
+/** True when a gateway tile update carries any overlay field (and so needs normalizeGatewayTileUpdate). */
+export const hasGatewayOverlayField = (update: object): boolean => GATEWAY_OVERLAY_JSON_FIELDS.some((field) => field in update);
 
 export type GatewayTileUpdate = {
   x: number;
@@ -73,30 +98,19 @@ export type GatewayTileUpdate = {
   reachOwnerId?: string | null;
   frontierDecayAt?: number | null;
   frontierDecayKind?: Tile["frontierDecayKind"] | null;
+  captureHoldUntil?: number | null;
   townJson?: string;
   townType?: "MARKET" | "FARMING";
   townName?: string;
   townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-  fortJson?: string;
-  observatoryJson?: string;
-  siegeOutpostJson?: string;
-  economicStructureJson?: string;
-  sabotageJson?: string;
-  shardSiteJson?: string; naturalWonderJson?: string;
-  watchtowerJson?: string;
-  waystationJson?: string;
-  musterJson?: string;
-  afcJson?: string;
-  yield?: Tile["yield"];
   yieldRate?: Tile["yieldRate"];
-  yieldCap?: Tile["yieldCap"];
   upkeepEntries?: Tile["upkeepEntries"];
   history?: Tile["history"];
   landBiome?: Tile["landBiome"];
   regionType?: Tile["regionType"];
   visibilityState?: VisibilityState;
   ownershipClearOnly?: boolean; combatJson?: string;
-};
+} & { [F in GatewayOverlayJsonField]?: string };
 
 type GatewayTileSyncDeps = {
   state: Pick<ClientState, "tiles" | "tilesRevision" | "tilesRevisionChangedKeys" | "tilesRevisionOverflowed" | "incomingAttacksByTile" | "discoveredTiles"> & {
@@ -136,18 +150,9 @@ export const normalizeGatewayTileUpdate = (
     const townIdentity = gatewayTownIdentity(update, args.existing, normalized.town);
     if (townIdentity) Object.assign(normalized, townIdentity);
   }
-  if ("fortJson" in update) normalized.fort = parseGatewayStructureJson<Tile["fort"]>(update.fortJson);
-  if ("observatoryJson" in update) normalized.observatory = parseGatewayStructureJson<Tile["observatory"]>(update.observatoryJson);
-  if ("siegeOutpostJson" in update) normalized.siegeOutpost = parseGatewayStructureJson<Tile["siegeOutpost"]>(update.siegeOutpostJson);
-  if ("economicStructureJson" in update) {
-    normalized.economicStructure = parseGatewayStructureJson<Tile["economicStructure"]>(update.economicStructureJson);
+  for (const field of GATEWAY_OVERLAY_JSON_FIELDS) {
+    if (field in update) Object.assign(normalized, GATEWAY_OVERLAY_PARSERS[field](update[field]));
   }
-  if ("sabotageJson" in update) normalized.sabotage = parseGatewayStructureJson<Tile["sabotage"]>(update.sabotageJson);
-  if ("shardSiteJson" in update) normalized.shardSite = parseGatewayStructureJson<NonNullable<Tile["shardSite"]>>(update.shardSiteJson);
-  if ("naturalWonderJson" in update) normalized.naturalWonder = parseGatewayStructureJson<NonNullable<Tile["naturalWonder"]>>(update.naturalWonderJson); if ("watchtowerJson" in update) normalized.watchtower = parseGatewayStructureJson<NonNullable<Tile["watchtower"]>>(update.watchtowerJson);
-  if ("waystationJson" in update) normalized.waystation = parseGatewayStructureJson<NonNullable<Tile["waystation"]>>(update.waystationJson);
-  if ("musterJson" in update) normalized.muster = parseGatewayStructureJson<Tile["muster"]>(update.musterJson);
-  if ("afcJson" in update) normalized.afc = parseGatewayStructureJson<Tile["afc"]>(update.afcJson);
   if ("ownerId" in update) normalized.ownerId = typeof update.ownerId === "string" ? update.ownerId : undefined;
   if ("reachOwnerId" in update) normalized.reachOwnerId = typeof update.reachOwnerId === "string" ? update.reachOwnerId : undefined;
   if ("ownershipState" in update) {
@@ -167,9 +172,10 @@ export const normalizeGatewayTileUpdate = (
         ? update.frontierDecayKind
         : undefined;
   }
-  if ("yield" in update) normalized.yield = update.yield;
+  if ("captureHoldUntil" in update) {
+    normalized.captureHoldUntil = typeof update.captureHoldUntil === "number" && update.captureHoldUntil > 0 ? update.captureHoldUntil : undefined;
+  }
   if ("yieldRate" in update) normalized.yieldRate = update.yieldRate;
-  if ("yieldCap" in update) normalized.yieldCap = update.yieldCap;
   if ("upkeepEntries" in update) normalized.upkeepEntries = update.upkeepEntries;
   if ("history" in update) normalized.history = update.history;
   if ("landBiome" in update) normalized.landBiome = update.landBiome;
@@ -272,7 +278,7 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   }
   // Confirmed-identical fields (ownerId/ownershipState/frontierDecayAt/
   // frontierDecayKind/shardSite/town/fort/observatory/economicStructure/
-  // siegeOutpost/sabotage/muster/yield/yieldRate/yieldCap/upkeepEntries/
+  // siegeBattery/sabotage/muster/yieldRate/upkeepEntries/
   // history) merged via the shared helper -- see client-tile-merge.ts.
   applyCommonTileFields(existing, merged, normalizedGateway, { me: deps.state.me });
 
@@ -329,7 +335,6 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
     ("resource" in normalizedGateway && normalizedGateway.resource !== existing?.resource) ||
     ("dockId" in normalizedGateway && normalizedGateway.dockId !== existing?.dockId);
   if (staleYieldInputsChanged && !("yieldRate" in normalizedGateway)) delete resolved.yieldRate;
-  if (staleYieldInputsChanged && !("yieldCap" in normalizedGateway)) delete resolved.yieldCap;
   const ownIncomeMultiplier =
     resolved.ownerId && deps.state.me && resolved.ownerId === deps.state.me
       ? deps.state.mods?.income ?? 1.0
@@ -338,7 +343,7 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   ensureTileYield(resolved as Parameters<typeof ensureTileYield>[0], ownIncomeMultiplier);
   deps.state.tiles.set(tileKey, resolved);
   // Computed against the PRE-ensureTileYield snapshot: that call unconditionally
-  // recomputes yield/yieldRate/yieldCap on every single tile update as part of
+  // recomputes yieldRate on every single tile update as part of
   // the ordinary economy tick, which would otherwise make almost every gateway
   // delta look "changed" and defeat the whole point of this check.
   if (!skipRevision && revisionRelevant) { deps.state.tilesRevision += 1; recordTileRevisionChange(deps.state, update.x, update.y); }

@@ -9,6 +9,8 @@ import { RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
 import { createInitialActivityDashboardState } from "./client-state-activity-dashboard-defaults.js";
 import { cameraLocationInitialState, readUrlTileFocus } from "./client-camera-storage.js";
 import { createInitialReachState } from "./client-reach-state-defaults.js";
+import { createInitialTileActionMenuState } from "./client-tile-action-menu-state-defaults.js";
+import { createInitialAetherShieldState } from "../client-aether-tower-protection/client-aether-shield-state.js";
 import { createInitialSocialState } from "./client-state-social-defaults.js"; import { createInitialSiegeBombardmentState } from "./client-state-siege-bombardment-defaults.js"; import { createInitialAfcDeliveryState } from "./client-state-afc-delivery-defaults.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, MUSTER_MAX_TILES, type BuildableStructureType, type ChosenTrickleResource, type FrontierCombatSideBreakdown, type SlotResource } from "@border-empires/shared";
@@ -17,7 +19,7 @@ import type { VictoryHoldAlert } from "../client-victory-alert/client-victory-al
 import { createInitialAttackDispatchState } from "./client-state-attack-dispatch-defaults.js";
 import type { MusterRateSample } from "../client-muster-prediction/client-muster-prediction.js";
 import { createInitialBattleOverlayState } from "./client-state-battle-overlay-defaults.js";
-import type { WorldEngineStrikeHistoryRecord } from "../client-world-engine-strike-history/client-world-engine-strike-history.js";
+import type { SovereignSiegeEngineStrikeHistoryRecord } from "../client-sovereign-siege-engine-strike-history/client-sovereign-siege-engine-strike-history.js";
 import type {
   AllianceRequest,
   ActiveAetherBridgeView,
@@ -41,12 +43,9 @@ import type {
   TechInfo,
   Tile,
   TruceRequest,
-  TileActionDef,
-  TileMenuTab,
   TileTimedProgress,
   OptimisticStructureKind, CaptureCombatSnapshot
 } from "../client-types.js";
-import type { WaypointPlan } from "../client-waypoint-planner/client-waypoint-planner.js";
 export type { ClientWaypoint } from "./client-waypoint-state.js";
 import type { ClientWaypoint } from "./client-waypoint-state.js"; import type { ClientEventLogEntry } from "../client-event-log-html.js";
 
@@ -198,7 +197,7 @@ export const createInitialState = () => ({
       | "create_mountain"
       | "remove_mountain"
       | "imperial_exchange_levy"
-      | "world_engine_strike"
+      | "sovereign_siege_engine_strike"
       | "stormfront"
       | "aegis_lock"
       | "aether_emp"
@@ -237,19 +236,19 @@ export const createInitialState = () => ({
   revealEmpireFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   revealEmpireStatsFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   bombardFxQueue: [] as Array<{ x: number; y: number; queuedAt: number; tiles: Array<{ dx: number; dy: number; outcome: "hit" | "miss" }> }>, ...createInitialSiegeBombardmentState(),
-  worldEngineStrikeFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
+  sovereignSiegeEngineStrikeFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   // Drives the global camera-shake trigger (client-map-3d-camera-shake-fx.ts) —
-  // pushed once per newly-seen WORLD_ENGINE_STRIKE_ANNOUNCEMENT broadcast, for
+  // pushed once per newly-seen SOVEREIGN_SIEGE_ENGINE_STRIKE_ANNOUNCEMENT broadcast, for
   // every connected client (not just the caster/target), never replayed from
   // 12h history so it only ever fires live, once, at the moment of the strike.
-  worldEngineStrikeShakeQueue: [] as Array<{ strikeId: string; queuedAt: number }>,
+  sovereignSiegeEngineStrikeShakeQueue: [] as Array<{ strikeId: string; queuedAt: number }>,
   // strikeId dedup set shared by the live broadcast handler and the 12h
   // history backfill, so a strike already seen live isn't replayed as a
   // toast/popup/shake when history is fetched on reconnect.
-  worldEngineStrikeSeenIds: new Set<string>(),
+  sovereignSiegeEngineStrikeSeenIds: new Set<string>(),
   // Most-recent-first, capped list backing the Activity Feed's world-events
   // history section — populated both live and from the 12h history fetch.
-  worldEngineStrikeAnnouncements: [] as WorldEngineStrikeHistoryRecord[],
+  sovereignSiegeEngineStrikeAnnouncements: [] as SovereignSiegeEngineStrikeHistoryRecord[],
   imperialExchangeLevyFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   aegisLockFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   astralDockLaunchFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
@@ -270,7 +269,7 @@ export const createInitialState = () => ({
   feedAttentionUntil: 0,
   persistentAlertLocators: [] as Array<{
     id: string;
-    kind: "town_unfed" | "muster_active" | "waypoint_manpower_paused" | "shard_rain";
+    kind: "town_unfed" | "muster_active" | "hostile_muster" | "waypoint_manpower_paused" | "shard_rain";
     x: number;
     y: number;
     screenX: number;
@@ -308,14 +307,6 @@ export const createInitialState = () => ({
   optimisticTileSnapshots: new Map<string, Tile | undefined>(),
   captureAlert: undefined as { title: string; detail: string; until: number; tone: "success" | "error" | "warn"; manpowerLoss?: number; focusX?: number; focusY?: number; actionLabel?: string } | undefined,
   settlementRepairDiagnosticKey: "" as string,
-  pendingCollectTileDelta: new Map<
-    string,
-    {
-      gold: number;
-      strategic: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>;
-      previousYield?: { gold: number; strategic: Record<string, number> };
-    }
-  >(),
   pendingShardCollect: undefined as { tileKey: string; shardSite: NonNullable<Tile["shardSite"]> } | undefined,
   leaderboard: {
     overall: [] as LeaderboardOverallEntry[],
@@ -341,6 +332,7 @@ export const createInitialState = () => ({
   ...createInitialSpaceViewState(),
   showWeakDefensibility: false,
   ...createInitialReachState(),
+  ...createInitialAetherShieldState(),
   ...createInitialShardRainState(),
   victoryHoldAlert: undefined as VictoryHoldAlert | undefined, victoryHoldAlertCollapsed: false, acknowledgedVictoryHoldAlertKeys: new Set<string>(), // never fully hides while a hold is active — see client-victory-alert.ts
   respawnNotice: undefined as PlayerRespawnNotice | undefined,
@@ -351,7 +343,7 @@ export const createInitialState = () => ({
   structureInfoKey: "" as string, crystalAbilityInfoKey: "" as string,
   economyFocus: "ALL" as "ALL" | "GOLD" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE",
   unreadAttackAlerts: 0,
-  techSection: "research" as "research" | "domains",
+  techSection: "available" as "available" | "owned", // Manifest panel tab, see client-manifest-tabs.ts
   techTreeExpanded: false,
   techUiSelectedId: "" as string,
   techDetailOpen: false,
@@ -518,20 +510,10 @@ export const createInitialState = () => ({
   // between sparse server-pushed tile deltas. Re-anchored on every delta.
   musterAmountRateByTile: new Map<string, MusterRateSample>(),
   hasOwnedTileInCache: false,
-  tileActionMenu: {
-    visible: false,
-    x: 0,
-    y: 0,
-    mode: "single" as "single" | "bulk",
-    bulkKeys: [] as string[],
-    currentTileKey: "",
-    activeTab: "overview" as TileMenuTab,
-    scrollTopByTab: {} as Partial<Record<TileMenuTab, number>>,
-    renderSignature: ""
-  },
+  tileActionMenu: createInitialTileActionMenuState(),
   buildingPlacement: {
     active: false,
-    structureType: "" as "WATERWORKS" | "FOUNDRY" | "AFC" | "RELAY_BEACON" | "",
+    structureType: "" as "HYDROWORKS" | "ORE_REFINERY" | "AFC" | "RELAY_BEACON" | "",
     x: 0,
     y: 0
   },
@@ -547,7 +529,7 @@ export const createInitialState = () => ({
     direction: "N" as "N" | "E" | "S" | "W",
     length: 1 as 1 | 2 | 3
   },
-  airportTargeting: { active: false, originKey: "", validTargets: new Set<string>() },
+  skyDockTargeting: { active: false, originKey: "", validTargets: new Set<string>() },
   musterMarchTargeting: { active: false, originX: 0, originY: 0 }, winChancePaint: undefined as { targetX: number; targetY: number; expiresAt: number; entries: { x: number; y: number; winChance: number; color: string }[] } | undefined, arrowGesture: undefined as { origin: { x: number; y: number }; target: { x: number; y: number } } | undefined, pendingArrowGestureConfirm: undefined as { origin: { x: number; y: number }; target: { x: number; y: number } } | undefined, // F: win-chance paint hook + arrow endpoints + confirm-hook seam (client-win-chance-paint-trigger.ts / client-arrow-gesture-confirm.ts)
   warMusicHoldUntil: 0, // ms-until war music holds past the last combat signal — see client-war-music-signal.ts
   ...createInitialActivityDashboardState(),

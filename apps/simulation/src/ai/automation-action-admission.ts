@@ -3,16 +3,9 @@ import type { AutomationNoopReason, AutomationPlannerDiagnostic, AutomationPlann
 import type { FoodSlotReliefPlan } from "./food-slot-relief.js";
 
 export const cooldownsForAdmissions = <TTile extends AutomationPlannerTile>(input: AutomationPlannerInput<TTile>) => {
-  const cooldowns = { ...(input.decisionCooldowns ?? {}) };
-  for (const [actionKey, code] of input.blockedActionKeys ?? []) {
-    if (code !== "INSUFFICIENT_SLOT") continue;
-    if (actionKey.startsWith("BUILD_ECONOMIC_STRUCTURE:")) {
-      cooldowns.BUILD_ECONOMY = true;
-      cooldowns.BUILD_BEACON = true;
-    }
-    if (actionKey.startsWith("UPGRADE_TOWN_TIER:")) cooldowns.UPGRADE_TOWN_TIER = true;
-  }
-  return cooldowns;
+  // A rejected economic build must not suppress unrelated FOOD producers
+  // or an exempt relay. Concrete selectors skip only the rejected action.
+  return { ...(input.decisionCooldowns ?? {}) };
 };
 
 export const applyActionAdmission = <TTile extends AutomationPlannerTile>(options: {
@@ -27,7 +20,7 @@ export const applyActionAdmission = <TTile extends AutomationPlannerTile>(option
     return {
       diagnostic: {
         ...result.diagnostic,
-        noCommandReason: blockedCode === "INSUFFICIENT_SLOT" ? "BLOCKED_NO_FOOD_SLOT_RELIEF" : "BLOCKED_NO_REACHABLE_BEACON_SITE"
+        noCommandReason: blockedCode === "INSUFFICIENT_SLOT" && foodSlotBlocked ? "BLOCKED_NO_FOOD_SLOT_RELIEF" : "BLOCKED_ACTION_RETRY"
       }
     };
   }

@@ -12,11 +12,13 @@ export const GUEST_DIPLOMACY_LOCKED_RESULT: Extract<SocialActionResult, { ok: fa
 // request and accept is enough — a guest can neither start nor complete one,
 // so no alliance or truce involving a guest can form. Reject, cancel and
 // break stay available so a guest can still clear offers aimed at them.
-export const lockedForGuests = <Args extends unknown[]>(
+// Result may be async: accepting an offer with terms waits on the simulation
+// to move the coin/Shards first.
+export const lockedForGuests = <Args extends unknown[], Result extends SocialActionResult | Promise<SocialActionResult>>(
   session: { isGuest?: boolean },
-  action: (...args: Args) => SocialActionResult,
+  action: (...args: Args) => Result,
   metrics: { incrementGuestDiplomacyBlockedTotal: () => void }
-): ((...args: Args) => SocialActionResult) =>
+): ((...args: Args) => Result | SocialActionResult) =>
   session.isGuest === true
     ? () => {
         metrics.incrementGuestDiplomacyBlockedTotal();

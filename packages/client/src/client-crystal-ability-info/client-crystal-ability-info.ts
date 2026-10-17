@@ -1,3 +1,4 @@
+import { abilityIconHtml } from "../client-ability-icons/client-ability-icons.js";
 import type { TechInfo } from "../client-types.js";
 
 export type CrystalAbilityInfoKey =
@@ -20,7 +21,6 @@ export type CrystalAbilityInfoKey =
 export type CrystalAbilityInfoView = {
   title: string;
   detail: string;
-  glyph: string;
   target: string;
   costBits: string[];
   cooldownLabel?: string;
@@ -103,7 +103,6 @@ export const crystalAbilityInfoForKey = (
     return {
       title: "Reveal Empire",
       detail: "Reveals one hostile empire's territory until you cancel it. Only one empire can be actively revealed at a time.",
-      glyph: "◉",
       target: "Tap any hostile tile owned by the empire you want to track.",
       costBits: []
     };
@@ -112,7 +111,6 @@ export const crystalAbilityInfoForKey = (
     return {
       title: "Survey Sweep",
       detail: "Pulses one of your active Aether Towers to mark hidden resource sites and towns without revealing tile details.",
-      glyph: "⌖",
       target: "Owned active Aether Tower. Pings towns and resource sites outside current vision in a centered 50x50 survey area.",
       costBits: [],
       cooldownLabel: deps.formatCooldownShort(SURVEY_SWEEP_COOLDOWN_MS)
@@ -122,7 +120,6 @@ export const crystalAbilityInfoForKey = (
     return {
       title: "Aether Purge",
       detail: "Purge enemy control from a tile, turning it neutral.",
-      glyph: "✦",
       target: "Enemy garrisoned or frontier tile within Aether Tower range.",
       costBits: [],
       cooldownLabel: deps.formatCooldownShort(AETHER_LANCE_COOLDOWN_MS)
@@ -132,7 +129,6 @@ export const crystalAbilityInfoForKey = (
     return {
       title: "Aether Bridge",
       detail: "Opens a temporary assault route from one of your garrisoned coastal tiles to a coastal land target across up to 4 sea tiles.",
-      glyph: "⟷",
       target: "Target coastal land reachable from one of your garrisoned coastal tiles.",
       costBits: [],
       cooldownLabel: deps.formatCooldownShort(AETHER_BRIDGE_COOLDOWN_MS),
@@ -143,7 +139,6 @@ export const crystalAbilityInfoForKey = (
     return {
       title: "Retort Transmutation",
       detail: "Rewrites one exposed resource vein into a different industrial class, turning food, umbrite, titanium, or crystal ground into whatever your empire needs next.",
-      glyph: "⚗",
       target: "Any land resource tile within Aether Tower range that has no town, dock, fort, Aether Tower, siege line, or economic structure on it.",
       costBits: [],
       cooldownLabel: deps.formatCooldownShort(RETORT_RECAST_COOLDOWN_MS)
@@ -153,7 +148,6 @@ export const crystalAbilityInfoForKey = (
     return {
       title: "Reveal Empire Stats",
       detail: "Extracts a one-time intelligence snapshot of a hostile empire's economy, stockpiles, manpower, and territory totals.",
-      glyph: "◈",
       target: "Select a hostile tile, then cast to inspect that empire.",
       costBits: [],
       cooldownLabel: deps.formatCooldownShort(REVEAL_EMPIRE_STATS_COOLDOWN_MS)
@@ -163,7 +157,6 @@ export const crystalAbilityInfoForKey = (
     return {
       title: "Aether Wall",
       detail: "Projects a temporary crystal wall along up to 3 border edges. Nothing can cross those edges in either direction until it expires.",
-      glyph: "║",
       target: "Select one of your garrisoned border tiles, then cast. If more than one facing is valid, choose the glowing arrow direction.",
       costBits: [],
       cooldownLabel: deps.formatCooldownShort(AETHER_WALL_COOLDOWN_MS),
@@ -174,9 +167,8 @@ export const crystalAbilityInfoForKey = (
     return {
       title: "Siphon",
       detail:
-        "Locks one of your Aether Towers into siphon mode on an enemy town or resource tile and its enemy town/resource neighbours. Siphoned resource tiles' slots count for you instead of their owner (their structures may go dormant, yours may wake up); siphoned towns produce nothing. Lasts until you cancel it from the tower, the owner switches on an Aether Tower covering the tiles, your tower is lost or switched off, or a tile changes hands. The tower can't cast anything else meanwhile.",
-      glyph: "☍",
-      target: "Enemy town or resource tile in range of one of your ready Aether Towers, not already covered by its owner's own Aether Tower.",
+        "Locks one of your Aether Towers into siphon mode on an enemy town or resource tile and its enemy town/resource neighbours. Siphoned resource tiles' slots count for you instead of their owner (their structures may go dormant, yours may wake up); siphoned towns produce nothing. Lasts until you cancel it from the tower, an Aether Tower of the owner's covering the tiles is back online (switched on, off cooldown and powered), your tower is lost or switched off, or a tile changes hands. The tower can't cast anything else meanwhile.",
+      target: "Enemy town or resource tile in range of one of your ready Aether Towers, not currently shielded by its owner's own Aether Tower (a tower on cooldown or unpowered isn't shielding).",
       costBits: [],
       cooldownLabel: `${deps.formatCooldownShort(SIPHON_COOLDOWN_MS)} after it ends`,
       durationLabel: "Until cancelled"
@@ -186,7 +178,6 @@ export const crystalAbilityInfoForKey = (
     return {
       title: "Aether EMP",
       detail: "Blasts an enemy tile with a crystal surge, knocking out every Ambaric Transformer that empire holds nearby -- and everything those Transformers power (Sky Docks, Resonance Grids, monuments) with them.",
-      glyph: "⚡",
       target: "Enemy owned tile within Aether Tower range, near one or more Ambaric Transformers.",
       costBits: [],
       cooldownLabel: deps.formatCooldownShort(AETHER_EMP_COOLDOWN_MS),
@@ -197,7 +188,6 @@ export const crystalAbilityInfoForKey = (
     return {
       title: "City Overclock",
       detail: "Drives one of your major cities into a short industrial frenzy, boosting its linked urban network for 15 minutes.",
-      glyph: "⌘",
       target: "Owned City, Great City, or Monumental City. The target city and its directly connected towns run overclocked.",
       costBits: [],
       cooldownLabel: deps.formatCooldownShort(CITY_OVERCLOCK_COOLDOWN_MS),
@@ -208,7 +198,6 @@ export const crystalAbilityInfoForKey = (
     return {
       title: "Stormfront",
       detail: "Drops an aether storm over a region, blinding vision and shutting down hostile bombardment and Aether Tower pressure inside it.",
-      glyph: "☈",
       target: "Cast from an active Resonance Grid to cover a 30-tile region around the target grid.",
       costBits: [],
       cooldownLabel: deps.formatCooldownShort(STORMFRONT_COOLDOWN_MS),
@@ -219,7 +208,6 @@ export const crystalAbilityInfoForKey = (
     return {
       title: "Aegis Lock",
       detail: "Hardens the Aegis Dome into a temporary untouchable core. During the lock, hostile attacks cannot change ownership and hostile structure-breaking abilities fail in the dome's radius.",
-      glyph: "⬡",
       target: "Activate from your powered Aegis Dome to lock the surrounding 25-tile region.",
       costBits: [],
       cooldownLabel: deps.formatCooldownShort(AEGIS_LOCK_COOLDOWN_MS),
@@ -230,7 +218,6 @@ export const crystalAbilityInfoForKey = (
     return {
       title: "Launch Satellite",
       detail: "Launches an aether satellite into orbit from a powered Astral Dock. While it stays aloft, your empire sees the entire map.",
-      glyph: "🜨",
       target: "Activate from your powered Astral Dock monument.",
       costBits: [],
       cooldownLabel: deps.formatCooldownShort(ASTRAL_DOCK_COOLDOWN_MS),
@@ -241,7 +228,6 @@ export const crystalAbilityInfoForKey = (
     return {
       title: "Create Mountain",
       detail: "Raises impassable mountain terrain to block routes and reshape the frontline.",
-      glyph: "⛰",
       target: "Land tile within 2 tiles of your territory. Cannot target towns, docks, or structured tiles.",
       costBits: [],
       cooldownLabel: deps.formatCooldownShort(TERRAIN_SHAPING_COOLDOWN_MS)
@@ -250,7 +236,6 @@ export const crystalAbilityInfoForKey = (
   return {
     title: "Remove Mountain",
     detail: "Clears a mountain to reopen a pass near your territory.",
-    glyph: "⌵",
     target: "Mountain tile within 2 tiles of your territory.",
     costBits: [],
     cooldownLabel: deps.formatCooldownShort(TERRAIN_SHAPING_COOLDOWN_MS)
@@ -279,7 +264,7 @@ export const renderCrystalAbilityInfoOverlay = (
       <button class="structure-info-close" type="button" aria-label="Close crystal ability details" data-crystal-ability-info-close="button">×</button>
       <div class="structure-info-scroll">
         <div class="structure-info-hero">
-          <div class="structure-info-art"><div class="structure-info-glyph" aria-hidden="true">${info.glyph}</div></div>
+          <div class="structure-info-art has-image">${abilityIconHtml(key, "structure-info-image ability-info-image")}</div>
           <div class="structure-info-head">
             <div class="structure-info-kicker">Ability</div>
             <h3 id="crystal-ability-info-title">${info.title}</h3>

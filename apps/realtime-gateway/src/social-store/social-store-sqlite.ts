@@ -14,6 +14,7 @@ import {
   type SocialTruceBreakRecord,
   type SocialTruceRequest
 } from "../social-state/social-state.js";
+import type { SocialOfferCooldown, SocialOfferKind } from "../social-state/social-offer-cooldowns.js";
 import type { GatewaySocialStore, SocialStoreSnapshot } from "./social-store.js";
 import { orderedPair, pairKey } from "./social-store.js";
 import {
@@ -111,7 +112,23 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
         broken_at INTEGER NOT NULL
       );
       CREATE INDEX IF NOT EXISTS social_truce_breaks_player_idx ON social_truce_breaks (player_id);
+      CREATE TABLE IF NOT EXISTS social_offer_cooldowns (
+        kind TEXT NOT NULL,
+        from_player_id TEXT NOT NULL,
+        to_player_id TEXT NOT NULL,
+        until INTEGER NOT NULL,
+        PRIMARY KEY (kind, from_player_id, to_player_id)
+      );
+      CREATE INDEX IF NOT EXISTS social_offer_cooldowns_until_idx ON social_offer_cooldowns (until);
     `);
+    // Offer terms (coin/Shards a deal moves) were added after these tables shipped.
+    for (const table of ["social_alliance_requests", "social_truce_requests"]) {
+      try {
+        this.db.exec(`ALTER TABLE ${table} ADD COLUMN terms_json TEXT;`);
+      } catch {
+        // Column already exists from a previous applySchema() call.
+      }
+    }
   }
 
   loadSnapshot(): SocialStoreSnapshot {
@@ -121,7 +138,7 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
       .all() as AllianceRow[];
     const allianceRequestRows = this.db
       .prepare(
-        `SELECT id, from_player_id, to_player_id, created_at, from_name, to_name FROM social_alliance_requests`
+        `SELECT id, from_player_id, to_player_id, created_at, from_name, to_name, terms_json FROM social_alliance_requests`
       )
       .all() as AllianceRequestRow[];
     const allianceBreakRows = this.db
@@ -136,7 +153,7 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
       .all() as CompletedAllianceBreakRow[];
     const truceRequestRows = this.db
       .prepare(
-        `SELECT id, from_player_id, to_player_id, created_at, expires_at, duration_hours, from_name, to_name FROM social_truce_requests`
+        `SELECT id, from_player_id, to_player_id, created_at, expires_at, duration_hours, from_name, to_name, terms_json FROM social_truce_requests`
       )
       .all() as TruceRequestRow[];
     const activeTruceRows = this.db
@@ -150,6 +167,9 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
     const truceBreakRows = this.db
       .prepare(`SELECT player_id, target_player_id, target_player_name, broken_at FROM social_truce_breaks`)
       .all() as TruceBreakRow[];
+    const offerCooldownRows = this.db
+      .prepare(`SELECT kind, from_player_id, to_player_id, until FROM social_offer_cooldowns`)
+      .all() as Array<{ kind: string; from_player_id: string; to_player_id: string; until: number }>;
 
     const alliesByPlayer = new Map<string, Set<string>>();
     for (const row of allianceRows) {
@@ -166,10 +186,10 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
         allies: [...(alliesByPlayer.get(row.player_id) ?? [])]
       })),
       allianceRecords: allianceRows.map((row) => ({ playerAId: row.player_a_id, playerBId: row.player_b_id, createdAt: row.created_at })),
-      allianceRequests: allianceRequestRows.map(allianceRequestFromRow),
+      allianceRequests: allianceRequestRows.flatMap(allianceRequestFromRow),
       activeAllianceBreaks: allianceBreakRows.map(allianceBreakFromRow),
       completedAllianceBreaks: completedAllianceBreakRows.map(completedAllianceBreakFromRow),
-      truceRequests: truceRequestRows.map(truceRequestFromRow),
+      truceRequests: truceRequestRows.flatMap(truceRequestFromRow),
       activeTruces: activeTruceRows.map(activeTruceFromRow),
       truceLockouts: truceLockoutRows.map((row) => ({ playerId: row.player_id, lockoutUntil: row.lockout_until })),
       truceBreaks: truceBreakRows.map((row) => ({
@@ -177,7 +197,11 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
         targetPlayerId: row.target_player_id,
         targetPlayerName: row.target_player_name,
         brokenAt: row.broken_at
-      }))
+      })),
+      offerCooldowns: offerCooldownRows.flatMap((row): SocialOfferCooldown[] => {
+        const kind: SocialOfferKind | undefined = row.kind === "truce" || row.kind === "alliance" ? row.kind : undefined;
+        return kind ? [{ kind, fromPlayerId: row.from_player_id, toPlayerId: row.to_player_id, until: row.until }] : [];
+      })
     };
   }
 
@@ -196,14 +220,15 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
   saveAllianceRequest(request: SocialAllianceRequest): void {
     this.db
       .prepare(
-        `INSERT INTO social_alliance_requests (id, from_player_id, to_player_id, created_at, from_name, to_name)
-         VALUES (?, ?, ?, ?, ?, ?)
+        `INSERT INTO social_alliance_requests (id, from_player_id, to_player_id, created_at, from_name, to_name, terms_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            from_player_id = excluded.from_player_id,
            to_player_id = excluded.to_player_id,
            created_at = excluded.created_at,
            from_name = excluded.from_name,
-           to_name = excluded.to_name`
+           to_name = excluded.to_name,
+           terms_json = excluded.terms_json`
       )
       .run(
         request.id,
@@ -211,7 +236,8 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
         request.toPlayerId,
         request.createdAt,
         request.fromName ?? null,
-        request.toName ?? null
+        request.toName ?? null,
+        request.terms ? JSON.stringify(request.terms) : null
       );
   }
 
@@ -280,8 +306,8 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
   saveTruceRequest(request: SocialTruceRequest): void {
     this.db
       .prepare(
-        `INSERT INTO social_truce_requests (id, from_player_id, to_player_id, created_at, expires_at, duration_hours, from_name, to_name)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO social_truce_requests (id, from_player_id, to_player_id, created_at, expires_at, duration_hours, from_name, to_name, terms_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            from_player_id = excluded.from_player_id,
            to_player_id = excluded.to_player_id,
@@ -289,7 +315,8 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
            expires_at = excluded.expires_at,
            duration_hours = excluded.duration_hours,
            from_name = excluded.from_name,
-           to_name = excluded.to_name`
+           to_name = excluded.to_name,
+           terms_json = excluded.terms_json`
       )
       .run(
         request.id,
@@ -299,7 +326,8 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
         request.expiresAt,
         request.durationHours,
         request.fromName ?? null,
-        request.toName ?? null
+        request.toName ?? null,
+        request.terms ? JSON.stringify(request.terms) : null
       );
   }
 
@@ -378,7 +406,18 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
       .run(playerId, playerId, MAX_TRUCE_BREAKS_PER_PLAYER);
   }
 
+  saveOfferCooldown(cooldown: SocialOfferCooldown): void {
+    this.db
+      .prepare(
+        `INSERT INTO social_offer_cooldowns (kind, from_player_id, to_player_id, until)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(kind, from_player_id, to_player_id) DO UPDATE SET until = excluded.until`
+      )
+      .run(cooldown.kind, cooldown.fromPlayerId, cooldown.toPlayerId, cooldown.until);
+  }
+
   pruneExpired(now: number): void {
+    this.db.prepare(`DELETE FROM social_offer_cooldowns WHERE until <= ?`).run(now);
     this.db.prepare(`DELETE FROM social_truce_requests WHERE expires_at <= ?`).run(now);
     this.db.prepare(`DELETE FROM social_active_truces WHERE ends_at <= ?`).run(now);
     this.db.prepare(`DELETE FROM social_completed_alliance_breaks WHERE notification_expires_at <= ?`).run(now);
@@ -394,5 +433,6 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
     this.db.exec(`DELETE FROM social_active_truces`);
     this.db.exec(`DELETE FROM social_truce_lockouts`);
     this.db.exec(`DELETE FROM social_truce_breaks`);
+    this.db.exec(`DELETE FROM social_offer_cooldowns`);
   }
 }

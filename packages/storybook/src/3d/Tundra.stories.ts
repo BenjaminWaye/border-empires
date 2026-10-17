@@ -20,7 +20,7 @@ import { createStage, wrapWithCleanup } from "../three-stage.js";
 // out of scope to fix here, but worth not repeating in a new file).
 const CENTER = 100;
 
-type TerrainPattern = "all-tundra" | "tundra-grass-checker" | "polar-gradient" | "tundra-coastline";
+type TerrainPattern = "all-tundra" | "tundra-grass-checker" | "polar-gradient" | "tundra-coastline" | "snow-patch" | "polar-snow-gradient" | "snow-coastline";
 
 type Args = {
   pattern: TerrainPattern;
@@ -49,6 +49,23 @@ const tileKindForPattern = (pattern: TerrainPattern) => (wx: number, wy: number)
       if (y < -1) return "COASTAL_SEA";
       return "TUNDRA";
     }
+    // SNOW is the coldest end of the tundra field (visualLandBiomeAt), so
+    // in the real game it always sits inside tundra, as patches.
+    case "snow-patch":
+      return x * x + y * y * 1.6 < 40 ? "SNOW" : "TUNDRA";
+    case "polar-snow-gradient": {
+      if (y < -6) return "SNOW";
+      if (y < 0) return "TUNDRA";
+      if (y < 5) return "GRASS";
+      return "SAND";
+    }
+    // Snow and tundra both meeting the shore: the coast corners blend
+    // toward the warm beach colour, which must not read as snow.
+    case "snow-coastline": {
+      if (y < -3) return "SEA";
+      if (y < -1) return "COASTAL_SEA";
+      return x < 0 ? "SNOW" : "TUNDRA";
+    }
   }
 };
 
@@ -73,7 +90,7 @@ const render = (args: Args): HTMLElement => {
     tileKindAt
   });
 
-  const water = args.pattern === "tundra-coastline" ? createWaterSurface(stage.scene, 25 * 25) : null;
+  const water = args.pattern === "tundra-coastline" || args.pattern === "snow-coastline" ? createWaterSurface(stage.scene, 25 * 25) : null;
   let rafId = 0;
   if (water) {
     for (let dz = -12; dz <= 12; dz += 1) {
@@ -112,7 +129,10 @@ const meta: Meta<Args> = {
     }
   },
   argTypes: {
-    pattern: { control: "inline-radio", options: ["all-tundra", "tundra-grass-checker", "polar-gradient", "tundra-coastline"] },
+    pattern: {
+      control: "inline-radio",
+      options: ["all-tundra", "tundra-grass-checker", "polar-gradient", "tundra-coastline", "snow-patch", "polar-snow-gradient", "snow-coastline"]
+    },
     showGridlines: { control: "boolean" },
     cameraDistance: { control: { type: "range", min: 10, max: 60, step: 2 } },
     cameraTilt: { control: { type: "range", min: 0.05, max: 1.4, step: 0.05 } }
@@ -133,6 +153,11 @@ export const AllTundra: Story = {};
 export const TundraGrassChecker: Story = { args: { pattern: "tundra-grass-checker", showGridlines: true } };
 export const PolarGradient: Story = { args: { pattern: "polar-gradient", cameraDistance: 30 } };
 export const TundraCoastline: Story = { args: { pattern: "tundra-coastline" } };
+// SNOW: same tundra texture path, told apart in the shader by its near-white
+// vertex colour (client-map-3d-snow-mask.ts).
+export const SnowPatch: Story = { args: { pattern: "snow-patch" } };
+export const PolarSnowGradient: Story = { args: { pattern: "polar-snow-gradient", cameraDistance: 30 } };
+export const SnowCoastline: Story = { args: { pattern: "snow-coastline" } };
 
 // Confirms the hills-eligibility fix: a TUNDRA tile that's mechanically a
 // hill (isHillsTileAt never checked biome) now actually renders its dome

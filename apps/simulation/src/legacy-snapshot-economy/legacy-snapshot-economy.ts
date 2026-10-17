@@ -1,35 +1,35 @@
 import {
-  ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
-  ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  ADVANCED_UMBRITE_SYNTHESIZER_UMBRITE_PER_DAY,
-  ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
-  ADVANCED_TITANIUM_WORKS_TITANIUM_PER_DAY,
-  AIRPORT_CRYSTAL_UPKEEP_PER_MIN,
+  HIGH_YIELD_AETHER_CONDENSER_CRYSTAL_PER_DAY,
+  HIGH_YIELD_AETHER_CONDENSER_GOLD_UPKEEP_PER_DAY,
+  HIGH_YIELD_UMBRITE_WORKS_GOLD_UPKEEP_PER_DAY,
+  HIGH_YIELD_UMBRITE_WORKS_UMBRITE_PER_DAY,
+  HIGH_YIELD_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
+  HIGH_YIELD_TITANIUM_WORKS_TITANIUM_PER_DAY,
+  SKY_DOCK_CRYSTAL_UPKEEP_PER_MIN,
   UMBRITE_RIG_GOLD_UPKEEP,
-  CARAVANARY_FOOD_UPKEEP,
-  CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
-  CUSTOMS_HOUSE_GOLD_UPKEEP,
+  TRADE_NEXUS_FOOD_UPKEEP,
+  AETHER_CONDENSER_GOLD_UPKEEP_PER_DAY,
+  AETHER_CONDENSER_CRYSTAL_PER_DAY,
+  HARBOR_EXCHANGE_GOLD_UPKEEP,
   DOCK_INCOME_PER_MIN,
-  FARMSTEAD_GOLD_UPKEEP,
-  UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  UMBRITE_SYNTHESIZER_UMBRITE_PER_DAY,
-  FOUNDRY_OUTPUT_MULT,
-  FOUNDRY_RADIUS,
-  FOUNDRY_GOLD_UPKEEP,
-  WATERWORKS_OUTPUT_MULT,
-  WATERWORKS_RADIUS,
-  GARRISON_HALL_GOLD_UPKEEP,
-  GOVERNORS_OFFICE_GOLD_UPKEEP,
-  GRANARY_GOLD_UPKEEP,
+  HYDROGARDEN_GOLD_UPKEEP,
+  UMBRITE_WORKS_GOLD_UPKEEP_PER_DAY,
+  UMBRITE_WORKS_UMBRITE_PER_DAY,
+  ORE_REFINERY_OUTPUT_MULT,
+  ORE_REFINERY_RADIUS,
+  ORE_REFINERY_GOLD_UPKEEP,
+  HYDROWORKS_OUTPUT_MULT,
+  HYDROWORKS_RADIUS,
+  ANCILLARY_DEPOT_GOLD_UPKEEP,
+  MINISTRY_HALL_GOLD_UPKEEP,
+  INCUBATION_ENGINE_GOLD_UPKEEP,
   TITANIUM_WORKS_TITANIUM_PER_DAY,
   TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
   MINTWORKS_FOOD_UPKEEP,
   mintworksGoldProductionMultiplier,
   MINE_GOLD_UPKEEP,
   PASSIVE_INCOME_MULT,
-  RADAR_SYSTEM_GOLD_UPKEEP,
+  RESONANCE_GRID_GOLD_UPKEEP,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   STRUCTURE_OUTPUT_MULT,
   TOWN_BASE_GOLD_PER_MIN,
@@ -83,15 +83,6 @@ const emptyStrategic = (): Record<DomainStrategicResourceKey, number> => ({
   CRYSTAL: 0,
   UMBRITE: 0,
   SHARD: 0
-});
-
-const emptyEconomyBreakdown = (): EconomyBreakdown => ({
-  GOLD: { sources: [], sinks: [] },
-  FOOD: { sources: [], sinks: [] },
-  TITANIUM: { sources: [], sinks: [] },
-  CRYSTAL: { sources: [], sinks: [] },
-  UMBRITE: { sources: [], sinks: [] },
-  SHARD: { sources: [], sinks: [] }
 });
 
 const sortedBuckets = (buckets: Map<string, EconomyBucket>): EconomyBucket[] =>
@@ -184,12 +175,12 @@ const strategicDailyFromResource = (resource: string | undefined): number => {
 const converterStructureOutputFor = (
   structureType: string
 ): Partial<Record<DomainStrategicResourceKey, number>> | undefined => {
-  if (structureType === "UMBRITE_SYNTHESIZER") return { UMBRITE: UMBRITE_SYNTHESIZER_UMBRITE_PER_DAY };
-  if (structureType === "ADVANCED_UMBRITE_SYNTHESIZER") return { UMBRITE: ADVANCED_UMBRITE_SYNTHESIZER_UMBRITE_PER_DAY };
+  if (structureType === "UMBRITE_WORKS") return { UMBRITE: UMBRITE_WORKS_UMBRITE_PER_DAY };
+  if (structureType === "HIGH_YIELD_UMBRITE_WORKS") return { UMBRITE: HIGH_YIELD_UMBRITE_WORKS_UMBRITE_PER_DAY };
   if (structureType === "TITANIUM_WORKS") return { TITANIUM: TITANIUM_WORKS_TITANIUM_PER_DAY };
-  if (structureType === "ADVANCED_TITANIUM_WORKS") return { TITANIUM: ADVANCED_TITANIUM_WORKS_TITANIUM_PER_DAY };
-  if (structureType === "CRYSTAL_SYNTHESIZER") return { CRYSTAL: CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
-  if (structureType === "ADVANCED_CRYSTAL_SYNTHESIZER") return { CRYSTAL: ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
+  if (structureType === "HIGH_YIELD_TITANIUM_WORKS") return { TITANIUM: HIGH_YIELD_TITANIUM_WORKS_TITANIUM_PER_DAY };
+  if (structureType === "AETHER_CONDENSER") return { CRYSTAL: AETHER_CONDENSER_CRYSTAL_PER_DAY };
+  if (structureType === "HIGH_YIELD_AETHER_CONDENSER") return { CRYSTAL: HIGH_YIELD_AETHER_CONDENSER_CRYSTAL_PER_DAY };
   return undefined;
 };
 
@@ -201,21 +192,21 @@ const economicStructureOutputMultAt = (
   const structure = structuresByTile.get(tileKey);
   if (!structure || structure.ownerId !== ownerId || structure.status !== "active") return 1;
   if (
-    structure.type === "GRANARY" ||
+    structure.type === "INCUBATION_ENGINE" ||
     structure.type === "MINTWORKS" ||
-    structure.type === "AIRPORT" ||
-    structure.type === "WOODEN_FORT" ||
+    structure.type === "SKY_DOCK" ||
+    structure.type === "PALISADE" ||
     structure.type === "RELAY_BEACON" ||
-    structure.type === "UMBRITE_SYNTHESIZER" ||
-    structure.type === "ADVANCED_UMBRITE_SYNTHESIZER" ||
+    structure.type === "UMBRITE_WORKS" ||
+    structure.type === "HIGH_YIELD_UMBRITE_WORKS" ||
     structure.type === "TITANIUM_WORKS" ||
-    structure.type === "ADVANCED_TITANIUM_WORKS" ||
-    structure.type === "CRYSTAL_SYNTHESIZER" ||
-    structure.type === "ADVANCED_CRYSTAL_SYNTHESIZER" ||
-    structure.type === "FOUNDRY" ||
-    structure.type === "WATERWORKS" ||
-    structure.type === "GOVERNORS_OFFICE" ||
-    structure.type === "RADAR_SYSTEM"
+    structure.type === "HIGH_YIELD_TITANIUM_WORKS" ||
+    structure.type === "AETHER_CONDENSER" ||
+    structure.type === "HIGH_YIELD_AETHER_CONDENSER" ||
+    structure.type === "ORE_REFINERY" ||
+    structure.type === "HYDROWORKS" ||
+    structure.type === "MINISTRY_HALL" ||
+    structure.type === "RESONANCE_GRID"
   ) {
     return 1;
   }
@@ -224,25 +215,25 @@ const economicStructureOutputMultAt = (
     const origin = parseTileKey(tileKey);
     if (origin) {
       for (const [candidateTileKey, candidate] of structuresByTile) {
-        if (candidate.ownerId !== ownerId || candidate.status !== "active" || candidate.type !== "FOUNDRY") continue;
+        if (candidate.ownerId !== ownerId || candidate.status !== "active" || candidate.type !== "ORE_REFINERY") continue;
         const candidateCoords = parseTileKey(candidateTileKey);
         if (!candidateCoords) continue;
-        if (chebyshevDistance(origin, candidateCoords) <= FOUNDRY_RADIUS) {
-          multiplier *= FOUNDRY_OUTPUT_MULT;
+        if (chebyshevDistance(origin, candidateCoords) <= ORE_REFINERY_RADIUS) {
+          multiplier *= ORE_REFINERY_OUTPUT_MULT;
           break;
         }
       }
     }
   }
-  if (structure.type === "FARMSTEAD") {
+  if (structure.type === "HYDROGARDEN") {
     const origin = parseTileKey(tileKey);
     if (origin) {
       for (const [candidateTileKey, candidate] of structuresByTile) {
-        if (candidate.ownerId !== ownerId || candidate.status !== "active" || candidate.type !== "WATERWORKS") continue;
+        if (candidate.ownerId !== ownerId || candidate.status !== "active" || candidate.type !== "HYDROWORKS") continue;
         const candidateCoords = parseTileKey(candidateTileKey);
         if (!candidateCoords) continue;
-        if (chebyshevDistance(origin, candidateCoords) <= WATERWORKS_RADIUS) {
-          multiplier *= WATERWORKS_OUTPUT_MULT;
+        if (chebyshevDistance(origin, candidateCoords) <= HYDROWORKS_RADIUS) {
+          multiplier *= HYDROWORKS_OUTPUT_MULT;
           break;
         }
       }
@@ -253,38 +244,38 @@ const economicStructureOutputMultAt = (
 
 const goldUpkeepPerMinuteForStructure = (structureType: string): number => {
   switch (structureType) {
-    case "FARMSTEAD": return FARMSTEAD_GOLD_UPKEEP / 10;
+    case "HYDROGARDEN": return HYDROGARDEN_GOLD_UPKEEP / 10;
     case "UMBRITE_RIG": return UMBRITE_RIG_GOLD_UPKEEP / 10;
     case "MINE": return MINE_GOLD_UPKEEP / 10;
-    case "GRANARY": return GRANARY_GOLD_UPKEEP / 10;
+    case "INCUBATION_ENGINE": return INCUBATION_ENGINE_GOLD_UPKEEP / 10;
     // This switch previously
-    // had BOTH the base and Advanced Umbrite Synthesizer cases returning
+    // had BOTH the base and High Yield Umbrite Works cases returning
     // UMBRITE_RIG_GOLD_UPKEEP instead of their own rate — a third, previously-
     // unfound instance of the exact "Advanced synthesizer costs less to
     // run than the thing it upgrades" bug class §6.4 already flagged for
     // the live-code/live-screenshot discrepancy. Fixed to each synthesizer's
     // own §6.4-decided gold/day figure.
-    case "UMBRITE_SYNTHESIZER": return UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY;
-    case "ADVANCED_UMBRITE_SYNTHESIZER": return ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY;
+    case "UMBRITE_WORKS": return UMBRITE_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY;
+    case "HIGH_YIELD_UMBRITE_WORKS": return HIGH_YIELD_UMBRITE_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY;
     case "TITANIUM_WORKS": return TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY;
-    case "ADVANCED_TITANIUM_WORKS": return ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY;
-    case "CRYSTAL_SYNTHESIZER": return CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY;
-    case "ADVANCED_CRYSTAL_SYNTHESIZER": return ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY;
-    case "FOUNDRY": return FOUNDRY_GOLD_UPKEEP / 10;
-    case "GARRISON_HALL": return GARRISON_HALL_GOLD_UPKEEP / 10;
-    case "CUSTOMS_HOUSE": return CUSTOMS_HOUSE_GOLD_UPKEEP / 10;
-    case "GOVERNORS_OFFICE": return GOVERNORS_OFFICE_GOLD_UPKEEP / 10;
-    case "RADAR_SYSTEM": return RADAR_SYSTEM_GOLD_UPKEEP / 10;
+    case "HIGH_YIELD_TITANIUM_WORKS": return HIGH_YIELD_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY;
+    case "AETHER_CONDENSER": return AETHER_CONDENSER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY;
+    case "HIGH_YIELD_AETHER_CONDENSER": return HIGH_YIELD_AETHER_CONDENSER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY;
+    case "ORE_REFINERY": return ORE_REFINERY_GOLD_UPKEEP / 10;
+    case "ANCILLARY_DEPOT": return ANCILLARY_DEPOT_GOLD_UPKEEP / 10;
+    case "HARBOR_EXCHANGE": return HARBOR_EXCHANGE_GOLD_UPKEEP / 10;
+    case "MINISTRY_HALL": return MINISTRY_HALL_GOLD_UPKEEP / 10;
+    case "RESONANCE_GRID": return RESONANCE_GRID_GOLD_UPKEEP / 10;
     default: return 0;
   }
 };
 
-// §upkeep-rebalance: Relay Beacon/Wooden Fort and the Fort/Siege ladders all carry a flat 1 FOOD (0.1/min) upkeep.
-const MILITARY_FOOD_UPKEEP_TYPES = new Set(["WOODEN_FORT", "RELAY_BEACON", "FORT", "TITANIUM_BASTION", "THUNDER_BASTION", "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER"]);
+// §upkeep-rebalance: Relay Beacon/Palisade and the Fort/Siege ladders all carry a flat 1 FOOD (0.1/min) upkeep.
+const MILITARY_FOOD_UPKEEP_TYPES = new Set(["PALISADE", "RELAY_BEACON", "FORT", "TITANIUM_BASTION", "THUNDER_BASTION", "SIEGE_BATTERY", "SIEGE_TOWER", "DREAD_TOWER"]);
 
 const foodUpkeepPerMinuteForStructure = (structureType: string): number => {
   if (structureType === "MINTWORKS") return MINTWORKS_FOOD_UPKEEP / 10;
-  if (structureType === "CARAVANARY") return CARAVANARY_FOOD_UPKEEP / 10;
+  if (structureType === "TRADE_NEXUS") return TRADE_NEXUS_FOOD_UPKEEP / 10;
   if (MILITARY_FOOD_UPKEEP_TYPES.has(structureType)) return 0.1;
   return 0;
 };
@@ -465,7 +456,6 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
     const activeSettledTileKeys = player.territoryTiles.filter((tileKey) => ownershipStateByTile.get(tileKey) === "SETTLED");
 
     const townFoodNeeds = ownedTowns.map((town) => ({ town, need: townFoodUpkeepPerMinute(town) }));
-    const totalFoodNeed = townFoodNeeds.reduce((total, entry) => total + entry.need, 0);
     let remainingFood = Math.max(0, strategicResources.FOOD + strategicProduction.FOOD);
     const fedTownKeys = new Set<string>();
     for (const entry of townFoodNeeds) {
@@ -476,7 +466,6 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
         remainingFood = Math.max(0, remainingFood - entry.need);
       }
     }
-    const foodCoverage = totalFoodNeed <= 0 ? 1 : Math.max(0, Math.min(1, (strategicResources.FOOD + strategicProduction.FOOD) / totalFoodNeed));
 
     let goldIncome = 0;
     let townIncome = 0;
@@ -556,7 +545,7 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
         if (!linked) continue;
         if (ownershipByTile.get(linked.tileKey) === playerId && ownershipStateByTile.get(linked.tileKey) === "SETTLED") connectedCount += 1;
       }
-      const customsMult = supportedStructureAtDock(dock.tileKey, playerId, "CUSTOMS_HOUSE", ownershipByTile, ownershipStateByTile, structuresByTile, args.world) ? 1.5 : 1;
+      const customsMult = supportedStructureAtDock(dock.tileKey, playerId, "HARBOR_EXCHANGE", ownershipByTile, ownershipStateByTile, structuresByTile, args.world) ? 1.5 : 1;
       dockIncome += DOCK_INCOME_PER_MIN * (1 + 0.5 * connectedCount) * customsMult * (player.mods?.income ?? 1) * PASSIVE_INCOME_MULT;
     }
 
@@ -583,9 +572,9 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
         upkeep.food += foodUpkeep;
         addBucket(sinkBuckets.FOOD, `${structureLabel(structure.type)} upkeep`, foodUpkeep, { count: 1 });
       }
-      if (structure.type === "AIRPORT") {
-        upkeep.crystal += AIRPORT_CRYSTAL_UPKEEP_PER_MIN;
-        addBucket(sinkBuckets.CRYSTAL, `${structureLabel("AIRPORT")} upkeep`, AIRPORT_CRYSTAL_UPKEEP_PER_MIN, { count: 1 });
+      if (structure.type === "SKY_DOCK") {
+        upkeep.crystal += SKY_DOCK_CRYSTAL_UPKEEP_PER_MIN;
+        addBucket(sinkBuckets.CRYSTAL, `${structureLabel("SKY_DOCK")} upkeep`, SKY_DOCK_CRYSTAL_UPKEEP_PER_MIN, { count: 1 });
       }
     }
 

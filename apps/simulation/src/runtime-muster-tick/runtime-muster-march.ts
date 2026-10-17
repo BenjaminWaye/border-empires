@@ -15,9 +15,9 @@ const LINE_DEVIATION_EPSILON = 1e-9;
 /** True when route `a` strictly beats `b` under MARCH's straightest-route ranking. */
 const isStraighterRoute = (a: MarchRouteScore, b: MarchRouteScore): boolean => {
   if (a.routeLength !== b.routeLength) return a.routeLength < b.routeLength;
-  if (a.hitsSettled !== b.hitsSettled) return !a.hitsSettled;
   if (a.remainingToTarget !== b.remainingToTarget) return a.remainingToTarget < b.remainingToTarget;
-  return a.lineDeviation < b.lineDeviation - LINE_DEVIATION_EPSILON;
+  if (Math.abs(a.lineDeviation - b.lineDeviation) > LINE_DEVIATION_EPSILON) return a.lineDeviation < b.lineDeviation;
+  return a.hitsSettled !== b.hitsSettled && !a.hitsSettled;
 };
 
 /**
@@ -39,19 +39,22 @@ const isStraighterRoute = (a: MarchRouteScore, b: MarchRouteScore): boolean => {
  *      of the shortest flag -> candidate -> target route, so a candidate that
  *      needs a detour -- e.g. marching far along owned ground to find a
  *      shortcut fight -- loses to one on the direct line.
- *   2. Frontier over settled: among equally short routes, a candidate that
- *      isn't a SETTLED enemy tile (enemy frontier, barbarian, or neutral
- *      land) wins, since settled ground is a real fight that can fail. It is
- *      only a tiebreak -- MARCH never takes a longer route to dodge settled
- *      ground; the player picks a different target for that.
- *   3. Remaining distance to the target: among equally short routes, the
+ *   2. Remaining distance to the target: among equally short routes, the
  *      candidate furthest along the route wins. Without this, the earlier
  *      hop-counting version tie-broke by BFS discovery order and picked a
  *      sideways detour over the straight continuation down an owned corridor
  *      (see muster-march-routing.test.ts's corridor regression).
- *   4. Perpendicular distance from the straight flag -> target line
+ *   3. Perpendicular distance from the straight flag -> target line
  *      (deviationFromMarchLine): Chebyshev movement has many equally short
  *      routes, so this keeps the march on the ruler-drawn line.
+ *   4. Frontier over settled: among routes equally short *and* equally
+ *      straight, a candidate that isn't a SETTLED enemy tile (enemy
+ *      frontier, barbarian, or neutral land) wins, since settled ground is a
+ *      real fight that can fail. It must stay below line deviation: ranked
+ *      above it, every diagonal neutral tile beside an enemy border tied the
+ *      settled tile on the line and won, so a march ordered into enemy
+ *      territory skirted around it across neutral land instead of going in
+ *      (see muster-march-routing.test.ts's skirting regression).
  *
  * Attack and expand candidates share the same ranking; an attack wins an
  * exact tie.

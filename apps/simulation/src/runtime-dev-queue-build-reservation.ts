@@ -105,7 +105,7 @@ function estimateDevQueueBuildReservation(
     manpowerCost = fortTier.manpower;
     slotStructureType = fortTier.variant;
   } else if (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON") {
-    const siegeTier = target.siegeOutpost ? (nextSiegeTierForUpgrade(target.siegeOutpost.variant, hasTech) ?? bestSiegeTierForTech(hasTech)) : bestSiegeTierForTech(hasTech);
+    const siegeTier = target.siegeBattery ? (nextSiegeTierForUpgrade(target.siegeBattery.variant, hasTech) ?? bestSiegeTierForTech(hasTech)) : bestSiegeTierForTech(hasTech);
     manpowerCost = siegeTier.manpower;
     slotStructureType = siegeTier.variant;
   } else {

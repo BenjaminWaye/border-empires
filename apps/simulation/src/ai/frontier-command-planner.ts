@@ -1,4 +1,5 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
+import { isUndefendedFrontierTile } from "@border-empires/shared";
 
 import type { SettlementCandidateEvaluation } from "./ai-settlement-priority.js";
 import { evaluateSettlementCandidate } from "./ai-settlement-priority.js";
@@ -11,7 +12,6 @@ import {
   coastlineDiscoveryValue,
   createFrontierCommand,
   DIRECTION_BIAS_WEIGHT,
-  type FrontierClass,
   type FrontierSelection,
   isBetterSelection,
   NARROW_ANALYZE_MAX_CANDIDATES,
@@ -24,8 +24,6 @@ import {
   strategicFrontierTargetScore,
   tileKeyOf
 } from "./frontier-scoring.js";
-
-export type { FrontierClass } from "./frontier-scoring.js";
 
 /**
  * Minimal reach-lookup surface the frontier planner needs — deliberately not
@@ -43,6 +41,8 @@ export interface ReachLookup {
 }
 
 type FrontierAffordability = {
+  /** Clock for the capture-hold check; defaults to Date.now(). */
+  nowMs?: number;
   canAttack?: boolean;
   canExpand?: boolean;
   needsFood?: boolean;
@@ -58,6 +58,12 @@ type FrontierAffordability = {
    * behavior until the real runtime-backed lookup is wired in.
    */
   reachLookup?: ReachLookup;
+  /**
+   * Allies and truce partners. Their tiles are skipped outright -- not attack
+   * targets (the server rejects the attack) and not expand targets (owned) --
+   * so the AI neither attacks nor plants a muster flag against a truce.
+   */
+  nonHostilePlayerIds?: ReadonlySet<string>;
   /** When set, adds a directional bias toward this tile when scoring neutral expand candidates. */
   expansionObjective?: { x: number; y: number; kind: "neutral_value" | "enemy" };
   /** PR 1 measurement callback — emits per-phase durations from inside
@@ -127,6 +133,7 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
   const expansionObjective = affordability.expansionObjective;
   const emitTiming = affordability.onAnalyzeTiming;
   const preferFogEfficientExpansion = affordability.preferFogEfficientExpansion ?? false;
+  const nowMs = affordability.nowMs ?? Date.now();
   const iterStartedAt = performance.now();
   const originCandidateKeyCache = new Map<string, string[]>();
   const cachedCandidateKeysForOrigin = (from: PlannerTile): string[] => {
@@ -204,6 +211,7 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
       neighborCandidateTotal += 1;
       if (!target) missingNeighborTileCount += 1;
       if (!target || target.terrain !== "LAND" || target.ownerId === playerId) continue;
+      if (target.ownerId && affordability.nonHostilePlayerIds?.has(target.ownerId)) continue;
       if (target.ownerId) {
         enemyTargets.add(targetKey);
         if (target.ownerId === "barbarian-1" || target.ownershipState === "BARBARIAN") {
@@ -225,7 +233,8 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
             emitTiming?.("analyze_neighbor_lookups", neighborMs);
             const result =
               strategicFrontierTargetScore(target, needsFood) +
-              (target.ownershipState === "FRONTIER" ? 120 : 0) +
+              // Only undefended frontier is a free capture; a capture-held tile rolls real combat.
+              (isUndefendedFrontierTile(target, nowMs) ? 120 : 0) +
               neighborOwned * 95 +
               neighborCoastline * 0.35;
             const scoreMs = performance.now() - scoreStartedAt;

@@ -1,68 +1,28 @@
 /**
- * Regression tests for PR #440 follow-up fixes and for
- * docs/plans/2026-07-06-radius-yield-delivery.md Phase 4/5:
- * 1. Advanced converter yields now use their own (higher) constants —
- *    matching the server-side fix in tile-yield-view.ts — instead of the
- *    basic constants the sim previously fell back to.
- * 2. MINE/UMBRITE_RIG apply STRUCTURE_OUTPUT_MULT (x1.5) locally too.
- * 3. Income multiplier is not applied to enemy tiles (unit-level: multiplier=1 path)
+ * Regression tests for client-side yieldRate derivation:
+ * 1. Tiles only carry a derived gold rate — resource/converter tiles no longer
+ *    get an invented per-day strategic production (FOOD/TITANIUM/...) that the
+ *    server retired in favour of slot-based supply.
+ * 2. Income multiplier is not applied to enemy tiles (unit-level: multiplier=1 path)
  */
 
 import { describe, expect, it } from "vitest";
 
 import { deriveTileYieldRate, ensureTileYield } from "./yield-derivation.js";
 
-describe("deriveTileYieldRate — advanced converter parity with corrected server constants", () => {
-  it("returns the advanced UMBRITE constant (21.6) for ADVANCED_UMBRITE_SYNTHESIZER, not the basic one (18)", () => {
-    const rate = deriveTileYieldRate({
-      economicStructure: { type: "ADVANCED_UMBRITE_SYNTHESIZER", status: "active" }
-    });
-    expect(rate).toBeDefined();
-    expect(rate!.strategicPerDay.UMBRITE).toBe(21.6);
+describe("deriveTileYieldRate — no per-tile strategic production", () => {
+  it("derives nothing for a bare resource tile (was FOOD 48/day before strategic yield retired)", () => {
+    expect(deriveTileYieldRate({ resource: "FARM" } as Parameters<typeof deriveTileYieldRate>[0])).toBeUndefined();
   });
 
-  it("returns the advanced TITANIUM constant (21.6) for ADVANCED_TITANIUM_WORKS, not the basic one (18)", () => {
-    const rate = deriveTileYieldRate({
-      economicStructure: { type: "ADVANCED_TITANIUM_WORKS", status: "active" }
-    });
-    expect(rate).toBeDefined();
-    expect(rate!.strategicPerDay.TITANIUM).toBe(21.6);
+  it("derives nothing for an active converter tile with no town or dock", () => {
+    const tile = { economicStructure: { type: "HIGH_YIELD_UMBRITE_WORKS", status: "active" } };
+    expect(deriveTileYieldRate(tile as Parameters<typeof deriveTileYieldRate>[0])).toBeUndefined();
   });
 
-  it("returns the advanced CRYSTAL constant (14.4) for ADVANCED_CRYSTAL_SYNTHESIZER, not the basic one (12)", () => {
-    const rate = deriveTileYieldRate({
-      economicStructure: { type: "ADVANCED_CRYSTAL_SYNTHESIZER", status: "active" }
-    });
-    expect(rate).toBeDefined();
-    expect(rate!.strategicPerDay.CRYSTAL).toBe(14.4);
-  });
-
-  it("inactive advanced converter contributes no yield", () => {
-    const rate = deriveTileYieldRate({
-      economicStructure: { type: "ADVANCED_UMBRITE_SYNTHESIZER", status: "building" }
-    });
-    // No town, no resource, no dock, inactive converter → undefined
-    expect(rate).toBeUndefined();
-  });
-});
-
-describe("deriveTileYieldRate — MINE/UMBRITE_RIG output multiplier (Phase 5 local fallback fix)", () => {
-  it("applies STRUCTURE_OUTPUT_MULT (x1.5) to base TITANIUM output for an active MINE: 60 -> 90/day", () => {
-    const rate = deriveTileYieldRate({
-      resource: "TITANIUM",
-      economicStructure: { type: "MINE", status: "active" }
-    });
-    expect(rate).toBeDefined();
-    expect(rate!.strategicPerDay.TITANIUM).toBe(90);
-  });
-
-  it("applies STRUCTURE_OUTPUT_MULT (x1.5) to base UMBRITE output for an active UMBRITE_RIG: 60 -> 90/day", () => {
-    const rate = deriveTileYieldRate({
-      resource: "UMBRITE",
-      economicStructure: { type: "UMBRITE_RIG", status: "active" }
-    });
-    expect(rate).toBeDefined();
-    expect(rate!.strategicPerDay.UMBRITE).toBe(90);
+  it("returns only a gold rate", () => {
+    const rate = deriveTileYieldRate({ town: { goldPerMinute: 3, populationTier: "CITY" } });
+    expect(rate).toEqual({ goldPerMinute: 3 });
   });
 });
 
@@ -121,28 +81,22 @@ describe("deriveTileYieldRate — income multiplier (PR #440, Issue 1)", () => {
   it("suppresses visible yield while Siphon is active", () => {
     const rate = deriveTileYieldRate({
       town: { goldPerMinute: 4, populationTier: "CITY" },
-      resource: "GEMS",
       sabotage: { endsAt: Date.now() + 60_000, outputMultiplier: 0 }
     });
-    expect(rate!.goldPerMinute).toBe(0);
-    expect(rate!.strategicPerDay.CRYSTAL).toBeUndefined();
+    expect(rate).toBeUndefined();
   });
 });
 
 describe("ensureTileYield", () => {
-  it("sets yieldRate and yieldCap on a bare tile", () => {
-    const tile = {
-      town: { populationTier: "SETTLEMENT" as const },
-      resource: "UMBRITE" as const
-    };
+  it("sets only yieldRate on a bare tile — no stored-yield cap", () => {
+    const tile = { town: { populationTier: "SETTLEMENT" as const } };
     const result = ensureTileYield(tile);
     expect((result as Record<string, unknown>).yieldRate).toBeDefined();
-    expect((result as Record<string, unknown>).yieldCap).toBeDefined();
-    expect((result as Record<string, unknown>).yieldRate).toBeDefined();
+    expect((result as Record<string, unknown>).yieldCap).toBeUndefined();
   });
 
   it("does not recompute yieldRate if already present", () => {
-    const existingRate = { goldPerMinute: 999, strategicPerDay: {} };
+    const existingRate = { goldPerMinute: 999 };
     const tile = { yieldRate: existingRate };
     const result = ensureTileYield(tile);
     expect(result.yieldRate).toBe(existingRate);

@@ -59,7 +59,7 @@ describe("buildSnapshotTileDetail — converter town-support gold attribution", 
       tiles: [
         {
           x: 240, y: 149, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-          economicStructureJson: JSON.stringify({ type: "CRYSTAL_SYNTHESIZER", status: "active", converterMode: "EXCHANGE" })
+          economicStructureJson: JSON.stringify({ type: "AETHER_CONDENSER", status: "active", converterMode: "EXCHANGE" })
         },
         ...baseTiles()
       ]
@@ -81,7 +81,7 @@ describe("buildSnapshotTileDetail — converter town-support gold attribution", 
       tiles: [
         {
           x: 240, y: 149, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-          economicStructureJson: JSON.stringify({ type: "CRYSTAL_SYNTHESIZER", status: "active" })
+          economicStructureJson: JSON.stringify({ type: "AETHER_CONDENSER", status: "active" })
         },
         ...baseTiles()
       ]
@@ -97,7 +97,7 @@ describe("buildSnapshotTileDetail — converter town-support gold attribution", 
       tiles: [
         {
           x: 240, y: 149, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-          economicStructureJson: JSON.stringify({ type: "CRYSTAL_SYNTHESIZER", status: "active", converterMode: "EXCHANGE" })
+          economicStructureJson: JSON.stringify({ type: "AETHER_CONDENSER", status: "active", converterMode: "EXCHANGE" })
         },
         ...baseTiles()
       ]
@@ -106,7 +106,7 @@ describe("buildSnapshotTileDetail — converter town-support gold attribution", 
     const town = JSON.parse(detail?.townJson as string) as Record<string, unknown>;
     expect(town.townModifierTotals).toContainEqual({
       heading: "1 Aether Condenser",
-      modifiers: [{ statLabel: "Sell Off gold", valueText: "+10", tone: "positive" }]
+      modifiers: [{ statLabel: "Sell Off coin", valueText: "+10", tone: "positive" }]
     });
   });
 });

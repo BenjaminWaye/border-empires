@@ -49,7 +49,7 @@ const wrapY = (y: number): number => ((y % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD
 /**
  * Can this player put a Relay Beacon on this tile right now? Mirrors the
  * tile menu's own guard (client-tile-action-logic.ts's build_relay_beacon
- * block: no siege outpost, observatory or economic structure) plus the
+ * block: no siege battery, observatory or economic structure) plus the
  * server's placement checks for a settled build (owned, settled, land).
  */
 export const isRelayBeaconPlacementTile = (tile: Tile | undefined, playerId: string): boolean =>
@@ -60,7 +60,7 @@ export const isRelayBeaconPlacementTile = (tile: Tile | undefined, playerId: str
       tile.terrain === "LAND" &&
       !tile.optimisticPending &&
       !tile.economicStructure &&
-      !tile.siegeOutpost &&
+      !tile.siegeBattery &&
       !tile.observatory
   );
 

@@ -3,8 +3,8 @@
  * SimulationRuntime's constructor used to compute each recovered player's
  * manpower cap (via applyManpowerRegen -> playerManpowerCap ->
  * cachedManpowerStructureBonusForPlayer) in a loop that ran BEFORE
- * this.tiles was hydrated, so garrisonHallTilesByOwner/railDepotTilesByOwner/
- * assemblyWorksTilesByOwner/logisticsGuildTilesByOwner were all still empty
+ * this.tiles was hydrated, so ancillaryDepotTilesByOwner/neuralWorksTilesByOwner/
+ * reserveLatticeTilesByOwner/ancillaryFactoryTilesByOwner were all still empty
  * at that point.
  *
  * That early call did two bad things:
@@ -20,9 +20,9 @@
  * post-boot tile mutation invalidated it (replaceTileState ->
  * refreshEconomyCachesForTileChange). At that point refreshManpowerOnly
  * recomputed the TRUE (higher) cap, saw `cap > previousCap`, and handed the
- * player their entire Garrison Hall/Rail Depot/Assembly Works/Logistics
+ * player their entire Ancillary Depot/Neural Works/Reserve Lattice/Logistics
  * Guild cap bonus as free manpower — indistinguishable from the intended
- * "build a Garrison Hall, get the extra manpower immediately" mechanic
+ * "build a Ancillary Depot, get the extra manpower immediately" mechanic
  * (§4.4). Combined with (2) above, a player near their true cap would get
  * clamped down at boot and then snapped straight back up to the full true
  * cap on their first command after a deploy.
@@ -47,31 +47,31 @@
  * contributions on top of what this test sets up.
  */
 import { describe, expect, it } from "vitest";
-import { GARRISON_HALL_MANPOWER_CAP_BONUS, STARTING_CAPITAL_MANPOWER_CAP } from "@border-empires/shared";
+import { ANCILLARY_DEPOT_MANPOWER_CAP_BONUS, STARTING_CAPITAL_MANPOWER_CAP } from "@border-empires/shared";
 
 import { SimulationRuntime } from "./runtime.js";
 
 const TEST_PLAYER_ID = "boot-order-test-player";
 
-// §5/§12: an active Garrison Hall still draws 1 FOOD + 1 CRYSTAL resource
+// §5/§12: an active Ancillary Depot still draws 1 FOOD + 1 CRYSTAL resource
 // slot — without supply for both, §5.4 marks it dormant and its cap bonus
 // (along with everything else under test here) silently doesn't apply. Mirrors
 // runtime-manpower-structure-bonus.test.ts's own setup for the same reason.
-const garrisonHallOwnerTiles = [
+const ancillaryDepotOwnerTiles = [
   {
     x: 16,
     y: 16,
     terrain: "LAND" as const,
     ownerId: TEST_PLAYER_ID,
     ownershipState: "SETTLED" as const,
-    economicStructure: { ownerId: TEST_PLAYER_ID, type: "GARRISON_HALL" as const, status: "active" as const }
+    economicStructure: { ownerId: TEST_PLAYER_ID, type: "ANCILLARY_DEPOT" as const, status: "active" as const }
   },
   { x: 17, y: 16, terrain: "LAND" as const, ownerId: TEST_PLAYER_ID, ownershipState: "SETTLED" as const, resource: "FARM" as const }
 ];
 
 describe("manpower boot-order regression", () => {
   it("does not snap a recovered player's manpower to cap once post-boot tile mutations invalidate the structure-bonus cache", () => {
-    const trueCap = STARTING_CAPITAL_MANPOWER_CAP + GARRISON_HALL_MANPOWER_CAP_BONUS;
+    const trueCap = STARTING_CAPITAL_MANPOWER_CAP + ANCILLARY_DEPOT_MANPOWER_CAP_BONUS;
     // Well below the true (structure-inclusive) cap, but ABOVE what a
     // structure-bonus-free boot-time read would compute
     // (STARTING_CAPITAL_MANPOWER_CAP) — this is exactly the shape that
@@ -90,7 +90,7 @@ describe("manpower boot-order regression", () => {
             id: TEST_PLAYER_ID,
             manpower: belowTrueCapButAboveStartingCapital,
             // Persisted from before the restart, i.e. the TRUE cap including
-            // the already-built Garrison Hall's bonus.
+            // the already-built Ancillary Depot's bonus.
             manpowerCapSnapshot: trueCap,
             // Same instant as `now` above: zero elapsed time, so regen can't
             // perturb the exact-equality assertions below.
@@ -98,7 +98,7 @@ describe("manpower boot-order regression", () => {
             strategicResources: { CRYSTAL: 1_000 }
           }
         ],
-        tiles: garrisonHallOwnerTiles,
+        tiles: ancillaryDepotOwnerTiles,
         activeLocks: []
       }
     });
@@ -117,8 +117,8 @@ describe("manpower boot-order regression", () => {
     // this player in production. Pre-fix, this is the trigger point where
     // the bogus low->true cap delta got added to player.manpower.
     (
-      runtime as unknown as { manpowerStructureBonusCacheByPlayer: Map<string, unknown> }
-    ).manpowerStructureBonusCacheByPlayer.delete(TEST_PLAYER_ID);
+      runtime as unknown as { economyCaches: { manpowerStructureBonusCacheByPlayer: Map<string, unknown> } }
+    ).economyCaches.manpowerStructureBonusCacheByPlayer.delete(TEST_PLAYER_ID);
 
     runtime.exportPlayerDebugSnapshot(); // triggers refreshManpowerOnly as a side effect
     const afterInvalidation = runtime.exportState().players.find((p) => p.id === TEST_PLAYER_ID)!;
@@ -137,13 +137,13 @@ describe("manpower boot-order regression", () => {
             manpower: 400,
             // Deliberately wrong/stale, to force a disagreement with what
             // boot hydration computes (STARTING_CAPITAL_MANPOWER_CAP +
-            // GARRISON_HALL_MANPOWER_CAP_BONUS) and exercise the counter.
+            // ANCILLARY_DEPOT_MANPOWER_CAP_BONUS) and exercise the counter.
             manpowerCapSnapshot: STARTING_CAPITAL_MANPOWER_CAP,
             manpowerUpdatedAt: 1_000,
             strategicResources: { CRYSTAL: 1_000 }
           }
         ],
-        tiles: garrisonHallOwnerTiles,
+        tiles: ancillaryDepotOwnerTiles,
         activeLocks: []
       }
     });

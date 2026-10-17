@@ -1,6 +1,6 @@
 // Aether Resonance Core (ARC) module — a compact AFC module that fabricates and
 // calibrates aether-based structures and devices: the resonance-focusing
-// machinery later installed on Umbrite Rigs, Siege Outposts and Umbrite
+// machinery later installed on Umbrite Rigs, Siege Batteries and Umbrite
 // Weapons Factories.
 //
 // Local space: +X is FORWARD — the outward radial direction of the socket (its
@@ -79,7 +79,6 @@ export const createAetherResonanceModuleOverlay = (scene: Scene, maxInstances: n
   const steelMaterial = new MeshStandardMaterial({ color: "#17181d", roughness: 0.62, metalness: 0.5, flatShading: true });
   const brassMaterial = new MeshStandardMaterial({ color: "#8b6c3d", roughness: 0.42, metalness: 0.85, flatShading: true });
   const brassDarkMaterial = new MeshStandardMaterial({ color: "#6f5733", roughness: 0.5, metalness: 0.8, flatShading: true });
-  const pipeMaterial = new MeshStandardMaterial({ color: "#1d1f25", roughness: 0.68, metalness: 0.35, flatShading: true });
   // Strong cyan resonance energy (emissive; no orange in this family).
   const cyanMaterial = new MeshStandardMaterial({
     color: "#05222a",

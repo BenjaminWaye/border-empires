@@ -5,7 +5,7 @@
 // finishing something nearly done is cheap and finishing something just
 // started costs close to the full rush price. At remainingMs === totalMs
 // (a build/settle that just started) this reduces exactly to §6.3's anchor
-// table: Settle (20 manpower) -> 10 gold, Farmstead (80) -> 40 gold,
+// table: Settle (20 manpower) -> 10 gold, Hydrogarden (80) -> 40 gold,
 // Bank/Fort (300) -> 150 gold.
 export const RUSH_BUY_GOLD_PER_MANPOWER = 0.5;
 

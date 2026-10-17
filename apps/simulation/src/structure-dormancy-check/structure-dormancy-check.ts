@@ -10,15 +10,15 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import { structureSlotRequirements, type SlotStructureType } from "@border-empires/shared";
 import type { ResourceSlotDormancy } from "./../resource-slot-view/resource-slot-view.js";
 
-export type DormancyStructureField = "fort" | "observatory" | "siegeOutpost" | "economicStructure";
+export type DormancyStructureField = "fort" | "observatory" | "siegeBattery" | "economicStructure";
 
 /** The slot-catalog key a tile's structure field maps to (fort/siege carry a variant, economic a type). */
 export const slotStructureTypeForField = (
   structure: NonNullable<DomainTileState[DormancyStructureField]>,
   field: DormancyStructureField
 ): SlotStructureType => {
-  if (field === "fort" || field === "siegeOutpost") {
-    return ((structure as { variant?: string }).variant ?? (field === "fort" ? "FORT" : "SIEGE_OUTPOST")) as SlotStructureType;
+  if (field === "fort" || field === "siegeBattery") {
+    return ((structure as { variant?: string }).variant ?? (field === "fort" ? "FORT" : "SIEGE_BATTERY")) as SlotStructureType;
   }
   if (field === "observatory") return "OBSERVATORY" as SlotStructureType;
   return (structure as { type: string }).type as SlotStructureType;

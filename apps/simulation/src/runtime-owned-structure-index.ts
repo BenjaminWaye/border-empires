@@ -60,11 +60,11 @@ export function refreshOwnedStructureCountIndexForTile(input: {
     if (prevObsOwner) adjustOwnedStructureCount(prevObsOwner, "OBSERVATORY", -1);
     if (nextObsOwner) adjustOwnedStructureCount(nextObsOwner, "OBSERVATORY", 1);
   }
-  const prevSiegeOwner = previous?.siegeOutpost?.ownerId;
-  const nextSiegeOwner = next.siegeOutpost?.ownerId;
+  const prevSiegeOwner = previous?.siegeBattery?.ownerId;
+  const nextSiegeOwner = next.siegeBattery?.ownerId;
   if (prevSiegeOwner !== nextSiegeOwner) {
-    if (prevSiegeOwner) adjustOwnedStructureCount(prevSiegeOwner, "SIEGE_OUTPOST", -1);
-    if (nextSiegeOwner) adjustOwnedStructureCount(nextSiegeOwner, "SIEGE_OUTPOST", 1);
+    if (prevSiegeOwner) adjustOwnedStructureCount(prevSiegeOwner, "SIEGE_BATTERY", -1);
+    if (nextSiegeOwner) adjustOwnedStructureCount(nextSiegeOwner, "SIEGE_BATTERY", 1);
   }
   const prevEcoOwner = previous?.economicStructure?.ownerId;
   const prevEcoType = previous?.economicStructure?.type as BuildableStructureType | undefined;

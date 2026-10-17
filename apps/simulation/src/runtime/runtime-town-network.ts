@@ -19,9 +19,9 @@ import {
   enrichTownWithConnectedNetwork,
   firstThreeTownKeysForPlayer,
   firstThreeTownsGoldOutputMultiplierForPlayer,
-  railDepotAlreadyInNetwork,
-  assemblyWorksAlreadyInNetwork,
-  censusHallConnectedGranaryCountForPlayer,
+  neuralWorksAlreadyInNetwork,
+  reserveLatticeAlreadyInNetwork,
+  censusHallConnectedIncubationEngineCountForPlayer,
   type ConnectedTownNetworkEntry
 } from "../economy-network/economy-network.js";
 import {
@@ -29,7 +29,6 @@ import {
   refreshTownEconomyFields
 } from "../player-update-economy/player-update-economy.js";
 import { createTownConnectivityState, type TownConnectivityState } from "../economy-network/town-connectivity-incremental.js";
-import { radiusStructureKeysForSettledTiles } from "../tile-yield-view/tile-yield-view.js";
 import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
 import type { RuntimePlayer, RuntimeTileYieldEconomyContext } from "../runtime-types.js";
 import type { MainThreadTaskTracker } from "../main-thread-task-tracker/main-thread-task-tracker.js";
@@ -111,26 +110,26 @@ export function rebuildTownNetworkUninstrumented(
   return network;
 }
 
-// §4.4: "only one Rail Depot may be built per connected-town network" —
+// §4.4: "only one Neural Works may be built per connected-town network" —
 // checked at build time (see resolveTownSupportTarget in
 // runtime-structure-command-handlers.ts).
-export function railDepotAlreadyInNetworkForPlayer(ctx: RuntimeTownNetworkContext, playerId: string, townKey: string): boolean {
+export function neuralWorksAlreadyInNetworkForPlayer(ctx: RuntimeTownNetworkContext, playerId: string, townKey: string): boolean {
   const player = ctx.players.get(playerId);
   if (!player) return false;
   const settledTiles = ctx.settledTilesForPlayer(playerId);
   const townNetwork = cachedTownNetworkForPlayer(ctx, player, settledTiles, 0);
-  return railDepotAlreadyInNetwork(playerId, townKey, ctx.tiles, townNetwork);
+  return neuralWorksAlreadyInNetwork(playerId, townKey, ctx.tiles, townNetwork);
 }
 
-// Assembly Works (tech-tree redesign): "only one Assembly Works may be
-// built per connected-town network" — mirrors railDepotAlreadyInNetworkForPlayer
+// Reserve Lattice (tech-tree redesign): "only one Reserve Lattice may be
+// built per connected-town network" — mirrors neuralWorksAlreadyInNetworkForPlayer
 // exactly, retargeted.
-export function assemblyWorksAlreadyInNetworkForPlayer(ctx: RuntimeTownNetworkContext, playerId: string, townKey: string): boolean {
+export function reserveLatticeAlreadyInNetworkForPlayer(ctx: RuntimeTownNetworkContext, playerId: string, townKey: string): boolean {
   const player = ctx.players.get(playerId);
   if (!player) return false;
   const settledTiles = ctx.settledTilesForPlayer(playerId);
   const townNetwork = cachedTownNetworkForPlayer(ctx, player, settledTiles, 0);
-  return assemblyWorksAlreadyInNetwork(playerId, townKey, ctx.tiles, townNetwork);
+  return reserveLatticeAlreadyInNetwork(playerId, townKey, ctx.tiles, townNetwork);
 }
 
 // Quartermaster's Office (tech-tree redesign): true when the player owns
@@ -151,13 +150,13 @@ export function hasNearbyQuartermastersOfficeForPlayer(ctx: RuntimeTownNetworkCo
 }
 
 // Census Hall (tech-tree redesign): connected-network Incubation Engine
-// (Granary) count, for the +20,000 population per connected city bonus.
-export function censusHallConnectedGranaryBonusCountForPlayer(ctx: RuntimeTownNetworkContext, playerId: string, townKey: string): number {
+// (Incubation Engine) count, for the +20,000 population per connected city bonus.
+export function censusHallConnectedIncubationEngineBonusCountForPlayer(ctx: RuntimeTownNetworkContext, playerId: string, townKey: string): number {
   const player = ctx.players.get(playerId);
   if (!player) return 0;
   const settledTiles = ctx.settledTilesForPlayer(playerId);
   const townNetwork = cachedTownNetworkForPlayer(ctx, player, settledTiles, 0);
-  return censusHallConnectedGranaryCountForPlayer(playerId, ctx.tiles, townNetwork, townKey, ctx.dormantEconomicStructureKeysForPlayer(playerId));
+  return censusHallConnectedIncubationEngineCountForPlayer(playerId, ctx.tiles, townNetwork, townKey, ctx.dormantEconomicStructureKeysForPlayer(playerId));
 }
 
 export function tileYieldEconomyContextForPlayer(ctx: RuntimeTownNetworkContext, player: DomainPlayer): RuntimeTileYieldEconomyContext {
@@ -165,7 +164,6 @@ export function tileYieldEconomyContextForPlayer(ctx: RuntimeTownNetworkContext,
   if (cached) return cached;
   const rebuild = (): RuntimeTileYieldEconomyContext => {
     const settledTiles = ctx.settledTilesForPlayer(player.id);
-    const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledTiles);
     const context: RuntimeTileYieldEconomyContext = {
       player,
       townNetwork: cachedTownNetworkForPlayer(ctx, player, settledTiles, 16),
@@ -176,8 +174,6 @@ export function tileYieldEconomyContextForPlayer(ctx: RuntimeTownNetworkContext,
       firstThreeTownKeys: firstThreeTownsGoldOutputMultiplierForPlayer(player) !== 1
         ? firstThreeTownKeysForPlayer(player.id, orderedTownTilesForPlayer(ctx, player.id).map(t => [`${t.x},${t.y}`, t.town?.populationTier] as const))
         : new Set<string>(),
-      waterworksKeys,
-      foundryKeys,
       dormantEconomicStructureKeys: ctx.dormantEconomicStructureKeysForPlayer(player.id)
     };
     ctx.tileYieldContextCacheByPlayer.set(player.id, context);

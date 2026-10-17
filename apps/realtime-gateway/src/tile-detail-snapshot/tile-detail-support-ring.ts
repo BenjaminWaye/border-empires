@@ -61,7 +61,7 @@ export const derivedTownSupportStructures = (
 ): {
   hasMintworks: boolean;
   mintworksCount: number;
-  hasGranary: boolean;
+  hasIncubationEngine: boolean;
   clearingHouseActive: boolean;
   // Mintworks-style attribution: gold/minute from active EXCHANGE-mode
   // converters (Aether Condenser/Titanium Works/Umbrite Works) in the
@@ -79,16 +79,16 @@ export const derivedTownSupportStructures = (
   aggregateCounts: Partial<Record<ModifierStructureType, number>>;
 } => {
   let mintworksCount = 0;
-  let hasGranary = false;
+  let hasIncubationEngine = false;
   // mintworks-stacking task: no town-level Clearing House signal previously
   // existed on this fallback path — detected here the same support-ring way
-  // Mintworks/Granary already are, rather than left permanently false.
+  // Mintworks/Incubation Engine already are, rather than left permanently false.
   let clearingHouseActive = false;
   let converterGoldPerMinute = 0;
   const aggregateCounts: Partial<Record<ModifierStructureType, number>> = {};
-  // Several TOWN_MODIFIER_AGGREGATE_TYPES members (Mintworks, Garrison Hall,
+  // Several TOWN_MODIFIER_AGGREGATE_TYPES members (Mintworks, Ancillary Depot,
   // Weapons Workshop, Titanium/Umbrite Weapons Factory, Titanium/Umbrite
-  // Works, Clearing House, Logistics Guild) have "same_tile"/"town_support"
+  // Works, Clearing House, Ancillary Factory) have "same_tile"/"town_support"
   // placementMode (structure-placement-metadata.json), meaning they can be
   // legally built directly on the town's own settled tile, not only on its
   // support-ring neighbors. Check the town's own tile first, then the ring,
@@ -98,7 +98,7 @@ export const derivedTownSupportStructures = (
     const structure = parseStructure<{ type?: string; status?: string; converterMode?: string }>(candidate.economicStructureJson);
     if (!structure || structure.status !== "active" || !structure.type) continue;
     if (structure.type === "MINTWORKS") mintworksCount += 1;
-    if (structure.type === "GRANARY") hasGranary = true;
+    if (structure.type === "INCUBATION_ENGINE") hasIncubationEngine = true;
     if (structure.type === "CLEARING_HOUSE") clearingHouseActive = true;
     if (CONVERTER_TOWN_MODIFIER_TYPE_SET.has(structure.type)) {
       const amountPerMinute = converterExchangeGoldPerMinute(structure.type, structure.converterMode);
@@ -111,7 +111,7 @@ export const derivedTownSupportStructures = (
       aggregateCounts[type] = (aggregateCounts[type] ?? 0) + 1;
     }
   }
-  return { hasMintworks: mintworksCount > 0, mintworksCount, hasGranary, clearingHouseActive, converterGoldPerMinute, aggregateCounts };
+  return { hasMintworks: mintworksCount > 0, mintworksCount, hasIncubationEngine, clearingHouseActive, converterGoldPerMinute, aggregateCounts };
 };
 
 export const derivedTownIsFed = (

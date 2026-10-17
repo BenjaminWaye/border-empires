@@ -363,9 +363,7 @@ describe("simulation event stream supervisor", () => {
               town_type: "FARMING",
               town_name: "Nauticus",
               town_population_tier: "SETTLEMENT",
-              yield: { gold: 0.5, strategic: { FOOD: 4 } },
-              yieldRate: { goldPerMinute: 1, strategicPerDay: { FOOD: 48 } },
-              yieldCap: { gold: 480, strategicEach: 16 }
+              yieldRate: { goldPerMinute: 1 }
             }
           ]
         })
@@ -398,9 +396,7 @@ describe("simulation event stream supervisor", () => {
           townType: "FARMING",
           townName: "Nauticus",
           townPopulationTier: "SETTLEMENT",
-          yield: { gold: 0.5, strategic: { FOOD: 4 } },
-          yieldRate: { goldPerMinute: 1, strategicPerDay: { FOOD: 48 } },
-          yieldCap: { gold: 480, strategicEach: 16 }
+          yieldRate: { goldPerMinute: 1 }
         }
       ]
     });
@@ -531,7 +527,7 @@ describe("simulation event stream supervisor", () => {
             ownership_state: "SETTLED",
             fort_json: "",
             observatory_json: "",
-            siege_outpost_json: "",
+            siege_battery_json: "",
             economic_structure_json: ""
           }
         ]
@@ -550,7 +546,7 @@ describe("simulation event stream supervisor", () => {
               ownershipState: "SETTLED",
               fortJson: undefined,
               observatoryJson: undefined,
-              siegeOutpostJson: undefined,
+              siegeBatteryJson: undefined,
               economicStructureJson: undefined
             }
           ]

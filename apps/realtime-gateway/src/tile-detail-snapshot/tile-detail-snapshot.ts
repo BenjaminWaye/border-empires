@@ -4,21 +4,19 @@ import { firstThreeTownMultipliersForSnapshotTile } from "./tile-detail-first-th
 import { converterModeOf, resolvedTownCoastal, townTerrainModifiers, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY, type ConverterMode } from "@border-empires/shared";
 import { nextPopulationTierUpgradeForSnapshotTown } from "./tile-detail-next-population-tier-upgrade.js";
 import { derivedTownIsFed, derivedTownSupportStructures, supportSummaryForTown } from "./tile-detail-support-ring.js";
+import { snapshotTownGrowth } from "./tile-detail-town-growth.js";
 
 import {
-  ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
-  CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  HIGH_YIELD_AETHER_CONDENSER_GOLD_UPKEEP_PER_DAY,
+  HIGH_YIELD_UMBRITE_WORKS_GOLD_UPKEEP_PER_DAY,
+  HIGH_YIELD_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
+  AETHER_CONDENSER_GOLD_UPKEEP_PER_DAY,
+  UMBRITE_WORKS_GOLD_UPKEEP_PER_DAY,
   TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
   MINTWORKS_FLAT_GOLD_BONUS_PER_MIN,
   mintworksGoldProductionMultiplier,
   PASSIVE_INCOME_MULT,
-  POPULATION_GROWTH_BASE_RATE,
-  granaryGrowthMultiplier,
   SETTLEMENT_BASE_GOLD_PER_MIN,
-  SETTLEMENT_GROWTH_RATE_MULT,
   TOWN_BASE_GOLD_PER_MIN,
   townFoodUpkeepPerMinute,
   townModifierTotalsFromCounts,
@@ -38,7 +36,7 @@ type YieldSourceTile = Parameters<typeof buildTileYieldView>[0];
 // "keyFor(tile.x, tile.y)" map-building convention too.
 const keyFor = (x: number, y: number): string => `${wrapX(x, WORLD_WIDTH)},${wrapY(y, WORLD_HEIGHT)}`;
 
-// Keep this in sync with buildTownSummary's gpm/cap branches in
+// Keep this in sync with buildTownSummary's goldPerMinute branch in
 // apps/simulation/src/live-snapshot-view.ts (around lines 720-770). Used to
 // backfill goldPerMinute when the snapshot tile's townJson is missing it —
 // without this, the gateway-cached tile-detail path serves
@@ -83,9 +81,6 @@ const fallbackTownGoldPerMinute = (input: {
   );
 };
 
-const fallbackTownCap = (goldPerMinute: number, isSettlement: boolean, mintworksCount: number, clearingHouseActive: boolean): number =>
-  isSettlement ? goldPerMinute * 60 * 8 : goldPerMinute * 60 * 8 * mintworksGoldProductionMultiplier(mintworksCount, clearingHouseActive);
-
 const parseTown = (tile: SnapshotTile): Partial<import("@border-empires/shared").Tile["town"]> | undefined => {
   if (!tile?.townJson) return undefined;
   try {
@@ -111,30 +106,6 @@ const snapshotFoodCoverage = (snapshot: PlayerSubscriptionSnapshot | undefined):
   return typeof foodCoverage === "number" && Number.isFinite(foodCoverage) ? foodCoverage : undefined;
 };
 
-const townPopulationGrowthPerMinute = (input: {
-  isFed: boolean;
-  population: number | undefined;
-  maxPopulation: number | undefined;
-  populationTier: string;
-  hasGranary: boolean;
-  // Mercantile Charter (see firstThreeTownMultipliersForTile's doc comment):
-  // 1 when inactive/not one of the player's first three towns.
-  firstThreeTownPopGrowthMult: number;
-}): number | undefined => {
-  if (!input.isFed) return 0;
-  if (typeof input.population !== "number" || typeof input.maxPopulation !== "number") return undefined;
-  const logisticFactor = 1 - input.population / Math.max(1, input.maxPopulation);
-  if (logisticFactor <= 0) return 0;
-  const growth =
-    input.population *
-    POPULATION_GROWTH_BASE_RATE *
-    (input.populationTier === "SETTLEMENT" ? SETTLEMENT_GROWTH_RATE_MULT : 1) *
-    granaryGrowthMultiplier(input.hasGranary) *
-    input.firstThreeTownPopGrowthMult *
-    logisticFactor;
-  return Number(growth.toFixed(4));
-};
-
 const structureUpkeepPerMinute = (structureType: string, converterMode: ConverterMode): Partial<Record<"GOLD" | "FOOD" | "CRYSTAL" | "TITANIUM" | "UMBRITE", number>> => {
   // Every structure except the synthesizer family (Umbrite/Titanium/Crystal +
   // Advanced tiers, §6.4) has zero ongoing upkeep: FOOD/TITANIUM/CRYSTAL/UMBRITE
@@ -145,12 +116,12 @@ const structureUpkeepPerMinute = (structureType: string, converterMode: Converte
   // the authoritative source this mirrors).
   if (converterMode === "EXCHANGE") return {};
   switch (structureType) {
-    case "UMBRITE_SYNTHESIZER": return { GOLD: UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
-    case "ADVANCED_UMBRITE_SYNTHESIZER": return { GOLD: ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "UMBRITE_WORKS": return { GOLD: UMBRITE_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "HIGH_YIELD_UMBRITE_WORKS": return { GOLD: HIGH_YIELD_UMBRITE_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     case "TITANIUM_WORKS": return { GOLD: TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
-    case "ADVANCED_TITANIUM_WORKS": return { GOLD: ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
-    case "CRYSTAL_SYNTHESIZER": return { GOLD: CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
-    case "ADVANCED_CRYSTAL_SYNTHESIZER": return { GOLD: ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "HIGH_YIELD_TITANIUM_WORKS": return { GOLD: HIGH_YIELD_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "AETHER_CONDENSER": return { GOLD: AETHER_CONDENSER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "HIGH_YIELD_AETHER_CONDENSER": return { GOLD: HIGH_YIELD_AETHER_CONDENSER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     default: return {};
   }
 };
@@ -270,31 +241,14 @@ export const buildSnapshotTileDetail = (
           firstThreeTownGoldMult,
           terrainGoldMultiplier
         });
-  // Only backfill cap when goldPerMinute is positive. For unfed TOWN-tier
-  // tiles the live-snapshot formula multiplies through 0, which on the wire
-  // would clobber buildTileYieldView's default TILE_YIELD_CAP_GOLD fallback
-  // (24) with a hard 0 cap — preserving the existing "undefined → default"
-  // behavior for unfed tiles avoids a stored-yield-buffer regression.
-  const cap =
-    typeof parsedTown?.cap === "number" && Number.isFinite(parsedTown.cap)
-      ? parsedTown.cap
-      : goldPerMinute > 0
-        ? fallbackTownCap(goldPerMinute, populationTierIsSettlement, supportStructures.mintworksCount, supportStructures.clearingHouseActive)
-        : undefined;
-  const populationGrowthPerMinute =
-    townPopulationGrowthPerMinute({
-      isFed,
-      population: parsedTown?.population,
-      maxPopulation: parsedTown?.maxPopulation,
-      populationTier,
-      hasGranary: supportStructures.hasGranary,
-      firstThreeTownPopGrowthMult
-    }) ?? parsedTown?.populationGrowthPerMinute;
-  const growthModifiers =
-    parsedTown?.growthModifiers ??
-    (typeof populationGrowthPerMinute === "number" && populationGrowthPerMinute > 0
-      ? [{ label: "Long time peace" as const, deltaPerMinute: populationGrowthPerMinute }]
-      : undefined);
+  const { populationGrowthPerMinute, growthModifiers } = snapshotTownGrowth({
+    parsedTown,
+    isFed,
+    populationTier,
+    hasIncubationEngine: supportStructures.hasIncubationEngine,
+    firstThreeTownPopGrowthMult,
+    nowMs: Date.now()
+  });
   const hasTown = Boolean(tile.townType || parsedTown);
   const townFoodUpkeep = hasTown ? townFoodUpkeepPerMinute(populationTier) : 0;
   // Unified building modifier display (stage 2): compute townModifierTotals
@@ -321,14 +275,13 @@ export const buildSnapshotTileDetail = (
         hasMintworks: supportStructures.hasMintworks,
         mintworksActive: supportStructures.hasMintworks && isFed,
         mintworksCount: supportStructures.mintworksCount,
-        hasGranary: supportStructures.hasGranary,
-        granaryActive: supportStructures.hasGranary,
+        hasIncubationEngine: supportStructures.hasIncubationEngine,
+        incubationEngineActive: supportStructures.hasIncubationEngine,
         baseGoldPerMinute,
         foodUpkeepPerMinute: townFoodUpkeep,
         ...(typeof goldPerMinute === "number" ? { goldPerMinute } : {}),
-        ...(typeof cap === "number" ? { cap } : {}),
         ...(typeof populationGrowthPerMinute === "number" ? { populationGrowthPerMinute } : {}),
-        ...(growthModifiers ? { growthModifiers } : {}),
+        growthModifiers,
         ...(townModifierTotals.length > 0 ? { townModifierTotals } : {}),
         ...(nextPopulationTierUpgrade ? { nextPopulationTierUpgrade } : {}),
         // Mercantile Charter: only sent when active, matching
@@ -347,7 +300,7 @@ export const buildSnapshotTileDetail = (
   const structures = [
     economicStructure,
     parseStructure<{ type?: string; variant?: string; status?: string }>(tile.fortJson),
-    parseStructure<{ type?: string; variant?: string; status?: string }>(tile.siegeOutpostJson),
+    parseStructure<{ type?: string; variant?: string; status?: string }>(tile.siegeBatteryJson),
     parseStructure<{ type?: string; status?: string }>(tile.observatoryJson),
   ].filter((value): value is { type?: string; variant?: string; status?: string; converterMode?: ConverterMode } => Boolean(value));
   for (const structure of structures) {
@@ -367,8 +320,6 @@ export const buildSnapshotTileDetail = (
   if (upkeepEntries.length > 0) update.upkeepEntries = upkeepEntries;
 
   // Keep tile-detail production metadata consistent with the derived town state.
-  // Stored yield buffers come from the authoritative snapshot when present; they
-  // cannot be reconstructed accurately here without the last-collected timestamp.
   const domainTile: YieldSourceTile = {
     x: tile.x,
     y: tile.y,
@@ -380,25 +331,8 @@ export const buildSnapshotTileDetail = (
     ...(town ? { town: town as YieldSourceTile["town"] } : {}),
     ...(economicStructure ? { economicStructure: economicStructure as YieldSourceTile["economicStructure"] } : {})
   };
-  // Collect active Waterworks positions for the owning player so the radius
-  // boost is reflected in the displayed yield rate (not just in accrual).
-  const waterworksKeys = new Set<string>();
-  for (const snapshotTile of (snapshot?.tiles ?? [])) {
-    if (snapshotTile.ownerId !== playerId || snapshotTile.ownershipState !== "SETTLED") continue;
-    const ws = parseStructure<{ type?: string; status?: string }>(snapshotTile.economicStructureJson);
-    if (ws?.type === "WATERWORKS" && ws.status === "active") {
-      waterworksKeys.add(keyFor(snapshotTile.x, snapshotTile.y));
-    }
-  }
-  const now = Date.now();
-  const fallbackYieldView = buildTileYieldView(domainTile, now, now, {
-    waterworksKeys: waterworksKeys.size > 0 ? waterworksKeys : undefined
-  });
+  const fallbackYieldView = buildTileYieldView(domainTile, Date.now());
   if (fallbackYieldView?.yieldRate) update.yieldRate = fallbackYieldView.yieldRate;
-  if (fallbackYieldView?.yieldCap) update.yieldCap = fallbackYieldView.yieldCap;
-  if (!("yield" in update) && fallbackYieldView?.yield) {
-    update.yield = fallbackYieldView.yield;
-  }
 
   return update;
 };

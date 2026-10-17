@@ -89,7 +89,7 @@ describe("silent waypoint capture flow", () => {
   });
 
   it("combatResolutionAlert path skips the popup for a silent EXPAND success only", () => {
-    const source = clientSource("../client-network/client-network.ts");
+    const source = clientSource("../client-network/client-combat-result-notifications.ts");
     // The silent-skip on the combat-resolution branch must scope to
     // attackType === "EXPAND" AND a success tone — ATTACK results and
     // failed-tone alerts still fire even during a waypoint.

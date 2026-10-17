@@ -48,22 +48,6 @@ export const pendingSettlementMatches = (
       record.goldCost === expected.goldCost
   );
 
-export const cancelPendingSettlementIfOwnerChanged = (input: {
-  pendingSettlementsByTile: Map<string, PendingSettlementRecord>;
-  tileKey: string;
-  nextOwnerId: string | undefined;
-  commandId: string;
-  summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
-  markPlannerPlayerTileCollectionDirty: (playerId: string) => void;
-  emitPlayerStateUpdate: (command: { commandId: string; playerId: string }) => void;
-}): PendingSettlementRecord | undefined => {
-  const pendingSettlement = input.pendingSettlementsByTile.get(input.tileKey);
-  if (!pendingSettlement || pendingSettlement.ownerId === input.nextOwnerId) return undefined;
-  removePendingSettlement(input);
-  input.emitPlayerStateUpdate({ commandId: input.commandId, playerId: pendingSettlement.ownerId });
-  return pendingSettlement;
-};
-
 export type RecoveredSettlementContext = {
   now: () => number;
   scheduleAfter: (delayMs: number, task: () => void) => void;
@@ -71,7 +55,6 @@ export type RecoveredSettlementContext = {
   pendingSettlementsByTile: Map<string, PendingSettlementRecord>;
   addPendingSettlement: (record: PendingSettlementRecord) => void;
   removePendingSettlement: (tileKey: string) => PendingSettlementRecord | undefined;
-  setTileYieldCollectedAt: (commandId: string, playerId: string, tileKey: string, collectedAt: number) => void;
   replaceTileState: (tileKey: string, tile: DomainTileState) => void;
   devQueueCommandContext: () => RuntimeDevQueueCommandContext;
   emitEvent: (event: SimulationEvent) => void;
@@ -122,7 +105,6 @@ export const scheduleRecoveredPendingSettlements = (
         ...(latest.town ? { town: latest.town } : {})
       };
       const recoveredSettleCommandId = `recovered-settle:${pendingSettlement.tileKey}`;
-      context.setTileYieldCollectedAt(recoveredSettleCommandId, pendingSettlement.ownerId, pendingSettlement.tileKey, context.now());
       context.replaceTileState(pendingSettlement.tileKey, settledTile);
       tryDrainClaimContinuationBuildTail(context.devQueueCommandContext(), pendingSettlement.ownerId, pendingSettlement.tileKey, settledTile.x, settledTile.y);
       const tileAfterBuildTail = resolveTileAfterBuildTail(context.tiles, pendingSettlement.tileKey, settledTile);

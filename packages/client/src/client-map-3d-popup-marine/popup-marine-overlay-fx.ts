@@ -28,30 +28,19 @@
 // and sampling them in a vertex shader), not micro-tuning here.
 // Muzzle-flash and laser bolts stay InstancedMesh — they have no bones.
 //
+// Also draws the capture-hold garrison (popup-marine-garrison.ts): the squad
+// that took a tile standing on it for the hold window, which then defends
+// it in any fight there.
+//
 // True-3D renderer only (see client-map-3d/client-map-3d.ts's
 // isTrue3DRendererActive() gate) — the 2D canvas renderer has no equivalent
-// animation and never did; see AGENTS.md's renderer-parity note and the PR
+// animation and never did (the garrison gets a 2D marker instead, see
+// client-map-2d-capture-hold-overlay.ts); see AGENTS.md's renderer-parity note and the PR
 // description for why that's a documented scope decision, not a
 // regression.
-import {
-  AnimationMixer,
-  Color,
-  Matrix4,
-  MeshStandardMaterial,
-  Object3D,
-  Quaternion,
-  Scene,
-  SkinnedMesh,
-  Vector3,
-  type AnimationAction
-} from "three";
-import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
-import {
-  MARINE_CLIP_NAMES,
-  firstSkinnedMesh,
-  loadPopupMarineTemplate,
-  type PopupMarineTemplate
-} from "./popup-marine-asset.js";
+import { Matrix4, Quaternion, Scene, Vector3 } from "three";
+import { loadPopupMarineTemplate } from "./popup-marine-asset.js";
+import { createMarineSlot, disposeMarineSlot, playMarineStance, type MarineSlot } from "./popup-marine-slot.js";
 import {
   APPROACH_MS,
   MARINES_PER_SIDE,
@@ -61,9 +50,9 @@ import {
   clampLocal,
   type BattleOverlayRenderEntry,
   type BattleOverlaySkirmishEntry,
-  type MarinePose,
-  type MarineStance
+  type MarinePose
 } from "./popup-marine-timeline.js";
+import { computeGarrisonPose, garrisonStartFor, type GarrisonRenderEntry } from "./popup-marine-garrison.js";
 import { battleSiegeVictim, createSiegeKillTracker, skirmishSiegeVictim, tileHashSeed } from "./popup-marine-siege-victim.js";
 import {
   computeBattleBolts,
@@ -74,7 +63,6 @@ import {
 import { createFlashMesh } from "./popup-marine-effect-meshes.js";
 import { createShotRenderer } from "./popup-marine-shot-render.js";
 import { createBattleStrikeFxLayer, STRIKE_LEAD_MS } from "./popup-marine-strike-fx.js";
-import { attachOcclusionSilhouette, MARINE_RENDER_ORDER, type MarineSilhouette } from "./popup-marine-occlusion-silhouette.js";
 
 export {
   LINEUP_MS,
@@ -113,42 +101,8 @@ const FWD_AXIS = new Vector3(0, 0, 1);
 // Up to 3 fire pulses can be in flight per marine at once (one per fireAt);
 // the shot renderer sizes its own bolt/spark pools from this.
 const MAX_BOLTS = MAX_MARINES * 2 * 3;
-// Rig bone the muzzle flash is pinned to (the Mixamo humanoid's pistol hand).
-const HAND_BONE_NAME = "RightHand";
-// Seconds of crossfade when a marine changes stance (running -> firing, etc).
-const STANCE_FADE_S = 0.18;
-
-type MarineSlot = {
-  /** Whole cloned model root — the asset carries its scale on its own root
-   * node, so the group (not the bare SkinnedMesh) is what gets placed. */
-  root: Object3D;
-  material: MeshStandardMaterial;
-  /** Team-tinted x-ray pass, seen only where something hides the marine. */
-  silhouette: MarineSilhouette;
-  mixer: AnimationMixer;
-  actions: Record<MarineStance, AnimationAction>;
-  /** Bone the muzzle flash hangs off, if the rig exposes a hand. */
-  handBone: Object3D | undefined;
-  /** Phase offset (seconds) so marines don't loop in lockstep. */
-  phase: number;
-};
 
 export type BattleOverlayFx = ReturnType<typeof createPopupMarineOverlayFx>;
-
-const buildMaterial = (): MeshStandardMaterial =>
-  // vertexColors:true multiplies the per-region greyscale painted by
-  // bake-popup-marine-titan-model.py's paint pass (bright armor plates on
-  // shoulders/chest, mid-tone torso and upper limbs, dark under-suit on
-  // forearms/shins, near-black helmet, gloves, pistol and boots) against
-  // both this material's own .color (set per-marine per-frame below — the
-  // attacker/defender tint, replacing InstancedMesh.setColorAt now that
-  // each marine has its own material) and the scene's real lighting.
-  //
-  // That paint is deliberately greyscale, never hued: every value is
-  // literally "how much team color does this part show", so the squad stays
-  // readable as blue-vs-red at gameplay zoom instead of the kit's own colors
-  // competing with the side tint.
-  new MeshStandardMaterial({ color: "#ffffff", vertexColors: true, roughness: 0.4, metalness: 0.4 });
 
 export function createPopupMarineOverlayFx(scene: Scene) {
   const flashFx = createFlashMesh(scene, FLASH_SIZE, MAX_MARINES * 2);
@@ -164,60 +118,16 @@ export function createPopupMarineOverlayFx(scene: Scene) {
 
   let disposed = false;
 
-  const makeSlot = (template: PopupMarineTemplate, index: number): MarineSlot => {
-    const root = cloneSkinned(template.root) as Object3D;
-    const material = buildMaterial();
-    const mesh = firstSkinnedMesh(root);
-    mesh.material = material;
-    mesh.frustumCulled = false;
-    mesh.renderOrder = MARINE_RENDER_ORDER;
-    const silhouette = attachOcclusionSilhouette(mesh);
-    root.visible = false;
-    const mixer = new AnimationMixer(root);
-    const actionFor = (clipName: string): AnimationAction => {
-      const action = mixer.clipAction(template.clips.get(clipName)!);
-      action.play(); // enabled here; per-frame weights below pick the live one
-      action.enabled = false;
-      return action;
-    };
-    const actions: Record<MarineStance, AnimationAction> = {
-      run: actionFor(MARINE_CLIP_NAMES.run),
-      stand: actionFor(MARINE_CLIP_NAMES.stand),
-      kneel: actionFor(MARINE_CLIP_NAMES.kneel)
-    };
-    scene.add(root);
-    return {
-      root,
-      material,
-      silhouette,
-      mixer,
-      actions,
-      handBone: root.getObjectByName(HAND_BONE_NAME),
-      // Spread the loop phase across the squad so a firing line doesn't
-      // breathe/step in perfect unison.
-      phase: (index % MARINES_PER_SIDE) * 0.37
-    };
-  };
 
   let attackerPool: MarineSlot[] = [];
   let defenderPool: MarineSlot[] = [];
 
-  const disposeSlot = (slot: MarineSlot): void => {
-    slot.mixer.stopAllAction();
-    slot.mixer.uncacheRoot(slot.root);
-    scene.remove(slot.root);
-    slot.root.traverse((child) => {
-      if (child instanceof SkinnedMesh) child.geometry.dispose();
-    });
-    slot.material.dispose();
-    slot.silhouette.material.dispose();
-  };
 
   loadPopupMarineTemplate()
     .then((template) => {
       if (disposed) return;
-      attackerPool = Array.from({ length: MAX_MARINES }, (_, i) => makeSlot(template, i));
-      defenderPool = Array.from({ length: MAX_MARINES }, (_, i) => makeSlot(template, i));
+      attackerPool = Array.from({ length: MAX_MARINES }, (_, i) => createMarineSlot(scene, template, i));
+      defenderPool = Array.from({ length: MAX_MARINES }, (_, i) => createMarineSlot(scene, template, i));
     })
     .catch((err: unknown) => {
       // Nothing renders rather than crashing the whole 3D map: the overlay's
@@ -226,7 +136,6 @@ export function createPopupMarineOverlayFx(scene: Scene) {
       console.error("popup-marine model failed to load; battle marines will not render", err);
     });
 
-  const tmpColor = new Color();
   const tmpQuat = new Quaternion();
   const fallQuat = new Quaternion();
   const flashPos = new Vector3();
@@ -256,23 +165,6 @@ export function createPopupMarineOverlayFx(scene: Scene) {
     strikeFx.spawn(tileX, tileZ, tileY, nowMs);
   };
 
-  /** Drives this marine's clip selection. Clip TIME is derived straight from
-   * nowMs rather than accumulated frame deltas, so a scrub or a mid-siege
-   * rejoin lands on the same frame of the same loop instead of wherever a
-   * stateful playhead happened to drift to — the same
-   * pure-function-of-the-clock rule the rest of this overlay follows. */
-  const playStance = (slot: MarineSlot, stance: MarineStance, nowMs: number): void => {
-    for (const name of ["run", "stand", "kneel"] as const) {
-      const action = slot.actions[name];
-      const live = name === stance;
-      action.enabled = live;
-      action.setEffectiveWeight(live ? 1 : 0);
-      if (!live) continue;
-      const duration = action.getClip().duration;
-      action.time = duration > 0 ? (nowMs * 0.001 + slot.phase) % duration : 0;
-    }
-    slot.mixer.update(0);
-  };
 
   const writeMarine = (
     slot: MarineSlot,
@@ -299,7 +191,7 @@ export function createPopupMarineOverlayFx(scene: Scene) {
     // A falling marine is sinking out of the fight on purpose; don't x-ray
     // it back up through the ground (see popup-marine-occlusion-silhouette.ts).
     slot.silhouette.visible = pose.fallT <= 0;
-    playStance(slot, pose.stance, nowMs);
+    playMarineStance(slot, pose.stance, nowMs);
     slot.root.updateMatrixWorld(true);
   };
 
@@ -324,9 +216,12 @@ export function createPopupMarineOverlayFx(scene: Scene) {
     // The tile a siege tower is currently locked onto (see
     // client-map-3d-siege-tower-overlay.ts), if any real tower exists on the
     // map — undefined when there is no tower to attribute a kill shot to.
-    siegeTowerTarget?: { x: number; y: number }
+    siegeTowerTarget?: { x: number; y: number },
+    // Capture-held tiles' standing squads (popup-marine-garrison.ts), drawn
+    // after real fights so they never take a slot a battle needs.
+    garrisons: GarrisonRenderEntry[] = []
   ): void => {
-    if (battles.length === 0 && skirmishes.length === 0) { clear(); return; }
+    if (battles.length === 0 && skirmishes.length === 0 && garrisons.length === 0) { clear(); return; }
     const siegeTargetHash = siegeTowerTarget ? tileHashSeed(siegeTowerTarget.x, siegeTowerTarget.y) : undefined;
 
     // Prune stale strike dedup entries (a battle that resolved/expired
@@ -389,7 +284,8 @@ export function createPopupMarineOverlayFx(scene: Scene) {
 
         shots.beginSide(side);
         for (let i = 0; i < MARINES_PER_SIDE; i++) {
-          const pose = computeBattlePose(b, side, i, nowMs, entryLocalX, entryLocalZ, perpX, perpZ, fwdX, fwdZ, battleVictim?.index);
+          const garrisonStart = isAttacker ? undefined : garrisonStartFor(b.defenderGarrison, b.hashSeed, i);
+          const pose = computeBattlePose(b, side, i, nowMs, entryLocalX, entryLocalZ, perpX, perpZ, fwdX, fwdZ, battleVictim?.index, garrisonStart);
           const writeIndex = isAttacker ? atkWrite : defWrite;
           writeOne(pool, writeIndex, color, tileX, tileY, tileZ, pose);
           // A marine that is dead/collapsed this frame has stopped shooting.
@@ -442,7 +338,8 @@ export function createPopupMarineOverlayFx(scene: Scene) {
 
         shots.beginSide(side);
         for (let i = 0; i < MARINES_PER_SIDE; i++) {
-          const pose = computeSkirmishPose(b, side, i, nowMs, entryLocalX, entryLocalZ, perpX, perpZ, fwdX, fwdZ, skirmishVictim?.index);
+          const garrisonStart = isAttacker ? undefined : garrisonStartFor(b.defenderGarrison, b.hashSeed, i);
+          const pose = computeSkirmishPose(b, side, i, nowMs, entryLocalX, entryLocalZ, perpX, perpZ, fwdX, fwdZ, skirmishVictim?.index, garrisonStart);
           const writeIndex = isAttacker ? atkWrite : defWrite;
           writeOne(pool, writeIndex, color, tileX, tileY, tileZ, pose);
           const down = pose.fallT > 0 || pose.scale <= 0;
@@ -460,6 +357,14 @@ export function createPopupMarineOverlayFx(scene: Scene) {
       shots.emit(b.hashSeed, b.attackerColor, b.defenderColor);
     }
 
+    for (let g = 0; g < garrisons.length && slotCount < MAX_CONCURRENT_BATTLES; g++, slotCount++) {
+      const garrison = garrisons[g]!;
+      for (let i = 0; i < MARINES_PER_SIDE; i++) {
+        writeOne(defenderPool, defWrite, garrison.color, garrison.tgtWorldX, garrison.tgtSurfaceY, garrison.tgtWorldZ, computeGarrisonPose(garrison, i, nowMs));
+        defWrite++;
+      }
+    }
+
     flashFx.commit(flashWrite);
     shots.commit();
     strikeFx.update(nowMs);
@@ -470,8 +375,8 @@ export function createPopupMarineOverlayFx(scene: Scene) {
     flashFx.dispose();
     shots.dispose();
     strikeFx.dispose();
-    for (const slot of attackerPool) disposeSlot(slot);
-    for (const slot of defenderPool) disposeSlot(slot);
+    for (const slot of attackerPool) disposeMarineSlot(scene, slot);
+    for (const slot of defenderPool) disposeMarineSlot(scene, slot);
     attackerPool = [];
     defenderPool = [];
   };

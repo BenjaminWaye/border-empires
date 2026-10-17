@@ -5,41 +5,6 @@ import { buildPlayerSubscriptionSnapshot } from "./player-snapshot.js";
 import { SimulationRuntime } from "../runtime/runtime.js";
 
 describe("buildPlayerSubscriptionSnapshot", () => {
-  it("falls back to seed tiles when the runtime export is unexpectedly empty", () => {
-    expect(
-      buildPlayerSubscriptionSnapshot(
-        "player-1",
-        { tiles: [], players: [], pendingSettlements: [], activeLocks: [] },
-        [
-          // SETTLED (not FRONTIER) so the fallback-tiles vision dilation below
-          // reaches the neighboring SEA tile — a FRONTIER claim holds no
-          // standing vision beyond itself, so this fixture would otherwise
-          // only prove the anchor tile's own fields pass through.
-          { x: 10, y: 10, terrain: "LAND", resource: "FARM", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "SETTLEMENT", name: "Nauticus" } },
-          { x: 10, y: 11, terrain: "SEA" }
-        ]
-      )
-    ).toEqual(
-      expect.objectContaining({
-        playerId: "player-1",
-        tiles: [
-          expect.objectContaining({
-            x: 10,
-            y: 10,
-            terrain: "LAND",
-            resource: "FARM",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            townType: "FARMING",
-            townName: "Nauticus",
-            townPopulationTier: "SETTLEMENT"
-          }),
-          { x: 10, y: 11, terrain: "SEA" }
-        ]
-      })
-    );
-  });
-
   it("refreshes stale complete town growth summaries from live rewrite state", () => {
     const snapshot = buildPlayerSubscriptionSnapshot("player-1", {
       tiles: [
@@ -66,8 +31,8 @@ describe("buildPlayerSubscriptionSnapshot", () => {
             connectedTownBonus: 0,
             hasMintworks: false,
             mintworksActive: false,
-            hasGranary: false,
-            granaryActive: false,
+            hasIncubationEngine: false,
+            incubationEngineActive: false,
           }),
           townType: "MARKET",
           townName: "Old Growth",
@@ -284,7 +249,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
       ],
       pendingSettlements: [],
       activeLocks: []
-    }, undefined, { fullVisibility: true });
+    }, { fullVisibility: true });
 
     expect(snapshot.tiles).toEqual([
       expect.objectContaining({ x: 10, y: 10, ownerId: "player-1" }),
@@ -320,7 +285,6 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         pendingSettlements: [],
         activeLocks: []
       },
-      undefined,
       { fullVisibility: true, sharedFullVisibilityTiles: sharedTiles }
     );
 
@@ -387,7 +351,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         { dockId: "dock-a", tileKey: "10,10", pairedDockId: "dock-b" },
         { dockId: "dock-b", tileKey: "90,90", pairedDockId: "dock-a", connectedDockIds: ["dock-a"] }
       ]
-    }, undefined, {
+    }, {
       seasonState: {
         seasonId: "season-managed",
         seasonSequence: 2,
@@ -618,7 +582,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
       ]
     };
 
-    const snapshot = buildPlayerSubscriptionSnapshot("player-1", visibleRuntimeState, undefined, {
+    const snapshot = buildPlayerSubscriptionSnapshot("player-1", visibleRuntimeState, {
       worldStatusRuntimeState: fullRuntimeState
     });
 
@@ -661,7 +625,6 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         pendingSettlements: [],
         activeLocks: []
       },
-      undefined,
       { includeWorldStatus: false }
     );
 
@@ -696,9 +659,9 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
         { x: 9, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "CLEARING_HOUSE", status: "active" }) },
         { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "MINTWORKS", status: "active" }) },
-        { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "GRANARY", status: "active" }) },
-        { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "CARAVANARY", status: "active" }) },
-        // §5.4: FOOD slot supply — town(2) + MINTWORKS/CARAVANARY/GRANARY/CLEARING_HOUSE
+        { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "INCUBATION_ENGINE", status: "active" }) },
+        { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "TRADE_NEXUS", status: "active" }) },
+        // §5.4: FOOD slot supply — town(2) + MINTWORKS/TRADE_NEXUS/INCUBATION_ENGINE/CLEARING_HOUSE
         // (1 each) = 6 demand; the FARM tile above only gives 1, so these
         // support structures need real supply to not go dormant.
         { x: 8, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" },
@@ -734,8 +697,8 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         supportCurrent: 5,
         supportMax: 5,
         isFed: true,
-        hasMintworks: true, hasGranary: true,
-        mintworksActive: true, granaryActive: true,
+        hasMintworks: true, hasIncubationEngine: true,
+        mintworksActive: true, incubationEngineActive: true,
         hasClearingHouse: true, clearingHouseActive: true,
         goldPerMinute: expect.any(Number),
         // §5.4: FOOD is slot-based — town food upkeep is retired to 0.
@@ -938,8 +901,8 @@ describe("buildPlayerSubscriptionSnapshot", () => {
             hasMintworks: false,
             mintworksActive: false,
             mintworksCount: 0,
-            hasGranary: false,
-            granaryActive: false,
+            hasIncubationEngine: false,
+            incubationEngineActive: false,
             foodUpkeepPerMinute: 0.1
           }),
           townType: "MARKET",

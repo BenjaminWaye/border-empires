@@ -28,7 +28,7 @@ running, and floated five hypotheses:
 | A | Bigger gains early | Tile yields are flat by resource type regardless of when claimed (`tile-yield-view.ts:50-66`: FARM 48 FOOD/day, FISH 72, IRON 60, WOOD/FUR 60 SUPPLY, GEMS 36 CRYSTAL). No mechanic scales value up or down with game age — the "feels bigger early" effect is ordinary diminishing marginal utility, not a designed curve. |
 | B | Cost is high **relative to what you have** early, trivial later | **Confirmed structurally.** `FRONTIER_CLAIM_COST = 1` gold and `SETTLE_COST = 4` gold are flat forever (`packages/shared/src/config.ts:15,18`) — your 5th tile costs the same as your 500th. Meanwhile gold income scales with town tier/network bonuses. `docs/archive/design-history-2026/gold-sinks-and-converters-2026-03.md` makes the same directional point ("gold stops being the limiter"), but its supporting arithmetic is now stale — see §8 below — so cite the live structure costs, not that doc's numbers, when this needs a concrete figure. Since absolute claim/settle cost never rises while income grows, its weight *relative to income* strictly decays — this is the real mechanism behind "no longer feels like a decision." |
 | C | Optimization competes with expansion | **Confirmed and mechanical, not just psychological.** Settling a claimed tile and building/upgrading a structure draw from the *same* `DEVELOPMENT_PROCESS_LIMIT` queue (base 3, `config.ts:32`) via `activeDevelopmentProcessCount` (`player-runtime-summary.ts:274-289`). The tech tree already has four "+1 development slot" doctrines — `frontier-doctrine` (tier 1), `supply-state` (tier 3), `imperial-roads-domain` (tier 4), `imperial-expansion` (tier 5) (`packages/game-domain/data/domain-tree.json`) — so a fully-teched player can reach 7 slots, not 3. **The March gold-sinks doc's "hard cap of 3" framing is stale.** The live contention is real, but partially already mitigated by tech the player may not be prioritizing or may not understand is relevant to this exact tradeoff. |
-| D | Already have enough | **Confirmed, several distinct ceilings**: empire strategic-resource storage cap = `income × 12h` (`runtime-empire-storage.ts:14-33`), per-tile yield buffers (`TILE_YIELD_CAP_GOLD=24`, `TILE_YIELD_CAP_RESOURCE=6`), per-town population caps, gold not stored beyond town cap. Converter structures (Fur/Crystal Synthesizer, Ironworks + Advanced tiers) are intentionally weak (~30-40% of a real tile's output per `server-game-constants.ts:119-124`, matching `docs/archive/design-history-2026/gold-sinks-and-converters-2026-03.md`'s explicit design rule not to let "rich + safe + tall" beat "controls the map") — but at scale, many converters can still let a rich, landlocked empire approximate sufficiency without new land, just less gold-efficiently. |
+| D | Already have enough | **Confirmed, several distinct ceilings**: empire strategic-resource storage cap = `income × 12h` (`runtime-empire-storage.ts:14-33`), per-tile yield buffers (`TILE_YIELD_CAP_GOLD=24`, `TILE_YIELD_CAP_RESOURCE=6`), per-town population caps, gold not stored beyond town cap. Converter structures (Fur/Aether Condenser, Ironworks + Advanced tiers) are intentionally weak (~30-40% of a real tile's output per `server-game-constants.ts:119-124`, matching `docs/archive/design-history-2026/gold-sinks-and-converters-2026-03.md`'s explicit design rule not to let "rich + safe + tall" beat "controls the map") — but at scale, many converters can still let a rich, landlocked empire approximate sufficiency without new land, just less gold-efficiently. |
 | E | Repetitive | **Confirmed.** The claim action is identical every time (pay 1 gold, wait 1.25s, or 4× on forest). Only 238 resource clusters exist (`CLUSTER_COUNT_MIN/MAX = 238`, `config.ts:113-114`), each 4-8 tiles, in a 450×450 = 202,500-tile world — the overwhelming majority of claimable land carries no resource payload at all. No dedicated "where to explore" suggestion system exists; the closest thing, the Domain Progress Card (`client-domain-progress-card.ts:18-23`), only ever prompts about shard caches for doctrine progress, not general expansion. |
 
 **Net finding:** of the five, only A is "not really a problem" (it's just normal
@@ -65,7 +65,7 @@ Ranked by how directly each would attack the mid-game plateau (not just early mo
 
 ### B — flat cost decaying to thoughtlessness
 - **Tuning:** give `SETTLE` a small manpower cost that scales with settlement tier (currently `EXPAND`/`SETTLE` cost 0 manpower — only `ATTACK` does, per `manpowerRequirements()` in `packages/game-domain/src/index/index.ts:233-242`). Manpower caps scale by tier (150 → 2,400) but regen is weight-discounted per settlement index (`manpowerRegenWeightForSettlementIndex`, `config.ts:62-66`), so tying expansion to manpower keeps it competing against your attack budget throughout the game, unlike gold which every doc confirms outruns every sink.
-- **New system:** apply the same incremental/doubling scaling pattern already used for Fort/Siege/Observatory/Airport (`structure-costs.ts:183-188`) to `FRONTIER_CLAIM_COST`/`SETTLE_COST`, at a much gentler rate, so relative cost stays roughly constant instead of decaying toward zero. Needs careful tuning so early expansion isn't punished — the existing military-structure curves are a starting reference, not a direct copy.
+- **New system:** apply the same incremental/doubling scaling pattern already used for Fort/Siege/Observatory/Sky Dock (`structure-costs.ts:183-188`) to `FRONTIER_CLAIM_COST`/`SETTLE_COST`, at a much gentler rate, so relative cost stays roughly constant instead of decaying toward zero. Needs careful tuning so early expansion isn't punished — the existing military-structure curves are a starting reference, not a direct copy.
 
 ### C — optimization competes with expansion for the same queue
 - **Tuning (near-free):** the four "+1 dev slot" doctrines already exist (§2 above) — audit whether the client actually explains *why* researching them helps ("lets you settle while building" is not obviously implied by "Frontier Doctrine" as a name) and whether their tech-tree placement lines up with when players start feeling the C symptom.
@@ -73,7 +73,7 @@ Ranked by how directly each would attack the mid-game plateau (not just early mo
 
 ### D — resource sufficiency removes motivation
 - **Tuning:** build a live victory-path-proximity readout (reusing the Domain Progress Card pattern in `client-domain-progress-card.ts`) for `RESOURCE_MONOPOLY` (80% share) and `MARITIME_SUPREMACY` (55% docks) per resource/type — turns "I have enough" into "I'm N tiles from monopoly," using thresholds that already exist in `server-game-constants.ts`.
-- **New system:** extend real demand for an under-leveraged existing resource. `OIL` is a strategic resource type (`docs/game-mechanics.md` §3) currently gated almost entirely behind tier-6 Plastics/Airport — pulling OIL demand into more mid-tier structures would create genuine, continuing need for land without inventing a new resource type from scratch (an Anno-style lever using what already exists).
+- **New system:** extend real demand for an under-leveraged existing resource. `OIL` is a strategic resource type (`docs/game-mechanics.md` §3) currently gated almost entirely behind tier-6 Plastics/Sky Dock — pulling OIL demand into more mid-tier structures would create genuine, continuing need for land without inventing a new resource type from scratch (an Anno-style lever using what already exists).
 
 ### E — repetitive expansion action
 - **Tuning:** surface which barbarian tiles are "juicy" (resource/town/fort/dock-holding, i.e. the ones already worth +2 progress per `runtime.ts:5976`) in the client, since the system already privileges them mechanically but never tells the player.
@@ -161,18 +161,18 @@ wrong. Keep this pattern in mind: **verify tile-yield/cost/formula claims
 against the actual file before repeating them**, even when they come from
 another doc in this repo — this repo's own docs are not guaranteed current.
 
-- `docs/archive/design-history-2026/gold-sinks-and-converters-2026-03.md` states Farmstead=400 gold,
+- `docs/archive/design-history-2026/gold-sinks-and-converters-2026-03.md` states Hydrogarden=400 gold,
   Market=600, Bank=700. **Live code** (`structure-costs.ts:37,41,45`) has
-  Farmstead=**700**, Market=**2,200**, Bank=**3,200** — 2–3× higher. That
-  doc's "612 farmsteads/day" throughput arithmetic is stale (current cost
+  Hydrogarden=**700**, Market=**2,200**, Bank=**3,200** — 2–3× higher. That
+  doc's "612 hydrogardens/day" throughput arithmetic is stale (current cost
   implies ~349/day at the same income). The directional conclusion (gold
   outpaces spend capacity) likely still holds; the specific figures don't.
 - Same doc states "1 FARM = 72 FOOD/day, 1 FISH = 48 FOOD/day." **Live code**
   (`tile-yield-view.ts:52-55`) has base FARM = **48**/day, base FISH =
   **72**/day — the reverse. The doc's 72 for FARM appears to be a farm *with
-  an active Farmstead* (48 + 24 bonus, per the code's own comment at
+  an active Hydrogarden* (48 + 24 bonus, per the code's own comment at
   `tile-yield-view.ts:256`) without being labeled as such; its 48 for FISH
-  doesn't correspond to anything, since FISH gets no Farmstead bonus at all
+  doesn't correspond to anything, since FISH gets no Hydrogarden bonus at all
   (`tile-yield-view.ts:84`, "FISH gets nothing"). Use `tile-yield-view.ts`
   directly, not that doc, for yield figures.
 - Confirmed accurate on direct read (safe to cite): `FRONTIER_CLAIM_COST=1`,

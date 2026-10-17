@@ -38,12 +38,17 @@ export type ClientTownWireSummary = {
   hasMintworks: boolean;
   mintworksActive: boolean;
   mintworksCount?: number;
-  hasGranary: boolean;
-  granaryActive: boolean;
+  hasIncubationEngine: boolean;
+  incubationEngineActive: boolean;
   hasClearingHouse?: boolean; clearingHouseActive?: boolean; clearingHouseTownNames?: string[];
   foodUpkeepPerMinute?: number;
   captureShockUntil?: number;
   populationBeforeCapture?: number;
+  // Stored-record timers the sim's growth tick sets on a nearby-war pause.
+  // They ride every town payload (growthModifiers only ride the full town
+  // summary), so the client can explain the pause between tile-detail fetches.
+  nearbyWarPausedUntil?: number;
+  nearbyWarLastAt?: number;
   growthModifiers?: Array<{ label: "Recently captured" | "Nearby war" | "Long time peace"; deltaPerMinute: number }>;
   nextPopulationTierUpgrade?: {
     targetTier: "CITY" | "GREAT_CITY" | "METROPOLIS";

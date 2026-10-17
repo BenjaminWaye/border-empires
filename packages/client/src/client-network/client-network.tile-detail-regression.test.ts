@@ -58,7 +58,6 @@ const createState = () =>
     playerColors: new Map(),
     playerVisualStyles: new Map(),
     playerShieldUntil: new Map(),
-    pendingCollectTileDelta: new Map(),
     settleProgressByTile: new Map(),
     feed: [],
     developmentQueue: [],
@@ -193,8 +192,6 @@ const bindTileDetailRegressionDeps = (state: any, ws: FakeWebSocket) => {
     clearSettlementProgressByKey: vi.fn(),
     formatCooldownShort: vi.fn(() => "1s"),
     reconcileActionQueue: vi.fn(),
-    revertOptimisticTileCollectDelta: vi.fn(),
-    clearPendingCollectTileDelta: vi.fn(),
     playerNameForOwner: vi.fn(),
     settlementProgressForTile: vi.fn(() => undefined)
   } as any);
@@ -262,8 +259,6 @@ describe("client network tile detail regression", () => {
       clearSettlementProgressByKey: vi.fn(),
       formatCooldownShort: vi.fn(() => "1s"),
       reconcileActionQueue: vi.fn(),
-      revertOptimisticTileCollectDelta: vi.fn(),
-      clearPendingCollectTileDelta: vi.fn(),
       playerNameForOwner: vi.fn(),
       settlementProgressForTile: vi.fn(() => undefined)
     } as any);
@@ -344,8 +339,6 @@ describe("client network tile detail regression", () => {
       clearSettlementProgressByKey: vi.fn(),
       formatCooldownShort: vi.fn(() => "1s"),
       reconcileActionQueue: vi.fn(),
-      revertOptimisticTileCollectDelta: vi.fn(),
-      clearPendingCollectTileDelta: vi.fn(),
       playerNameForOwner: vi.fn()
       ,
       settlementProgressForTile: vi.fn(() => undefined)
@@ -456,8 +449,6 @@ describe("client network tile detail regression", () => {
       clearSettlementProgressByKey: vi.fn(),
       formatCooldownShort: vi.fn(() => "1s"),
       reconcileActionQueue: vi.fn(),
-      revertOptimisticTileCollectDelta: vi.fn(),
-      clearPendingCollectTileDelta: vi.fn(),
       playerNameForOwner: vi.fn(),
       settlementProgressForTile: vi.fn(() => undefined)
     } as any);
@@ -488,8 +479,8 @@ describe("client network tile detail regression", () => {
               connectedTownBonus: 0,
               hasMintworks: false,
               mintworksActive: false,
-              hasGranary: false,
-              granaryActive: false,
+              hasIncubationEngine: false,
+              incubationEngineActive: false,
             })
           }
         ]

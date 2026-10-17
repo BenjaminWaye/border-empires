@@ -1,7 +1,6 @@
 import {
   FORT_BUILD_MS,
-  FORT_DEFENSE_MULT,
-  WOODEN_FORT_BUILD_MS,
+  PALISADE_BUILD_MS,
 } from "./config.js";
 import {
   FORT_TIER_LADDER,
@@ -25,13 +24,13 @@ const fortPlacement: StructureSpec["placement"] = [
   // The per-handler predicate varies (settled/resource/town/support/dock).
 ];
 
-// §12.1: the fort ladder's TITANIUM (and WOODEN_FORT's FOOD) cost is already
+// §12.1: the fort ladder's TITANIUM (and PALISADE's FOOD) cost is already
 // charged as a resource-slot occupation (structure-slots.ts) — no
-// separate per-minute drain on top of that, same as Observatory/Airport.
+// separate per-minute drain on top of that, same as Observatory/Sky Dock.
 
 function fortSpec(variant: FortVariant): StructureSpec {
   const tier = FORT_TIER_LADDER[variant];
-  // Wooden Fort has no tech requirement — always available from the start.
+  // Palisade has no tech requirement — always available from the start.
   const techIds: string[] = [];
   if (variant === "FORT") techIds.push("masonry");
   if (variant === "TITANIUM_BASTION") techIds.push("masonry", "fortified-walls");
@@ -55,11 +54,11 @@ function fortSpec(variant: FortVariant): StructureSpec {
   };
 }
 
-// WOODEN_FORT (Palisade) is fort-ladder tier 0 and lives in tile.fort like
+// PALISADE (Palisade) is fort-ladder tier 0 and lives in tile.fort like
 // every other fortification, so it stacks on a Relay Beacon / Harbor Exchange
 // exactly as a Fort does (docs/structure-slot-unification-plan.md, PR 1).
 export const FORT_SPECS: Record<FortVariant, StructureSpec> = {
-  WOODEN_FORT: { ...fortSpec("WOODEN_FORT"), buildMs: WOODEN_FORT_BUILD_MS },
+  PALISADE: { ...fortSpec("PALISADE"), buildMs: PALISADE_BUILD_MS },
   FORT: fortSpec("FORT"),
   TITANIUM_BASTION: fortSpec("TITANIUM_BASTION"),
   THUNDER_BASTION: fortSpec("THUNDER_BASTION"),

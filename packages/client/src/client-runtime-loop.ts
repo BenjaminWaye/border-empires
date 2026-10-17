@@ -26,20 +26,17 @@ import { buildRoadNetwork, type RoadDirections } from "./client-road-network/cli
 import { drawQueuedCornerBadge, queuedCornerBadgeLayout } from "./client-queue-badges/client-queue-badges.js";
 import { drawTileOwnershipAndBreachBorder } from "./client-tile-borders/client-tile-borders.js";
 import { resolveMyReachCached } from "./client-reach-authoritative/client-reach-authoritative.js";
-import {
-  drawDormantFrontierTreatment,
-  drawReachBoundaryLine,
-  isDormantFrontierTile
-} from "./client-reach-overlay/client-reach-overlay.js";
-import { drawPersistentAlertLocators, persistentAlertsForState, type PersistentAlert } from "./client-persistent-alerts/client-persistent-alerts.js"; import { drawOnboardingChecklistHighlights } from "./client-onboarding-checklist/client-onboarding-checklist-highlight.js";
+import { drawReachBoundaryLine } from "./client-reach-overlay/client-reach-overlay.js";
+import { drawReachTileTreatments2D } from "./client-reach-incursion/client-reach-incursion-2d.js";
+import { createPersistentAlertsFrame } from "./client-persistent-alerts/client-persistent-alerts-frame.js"; import { drawOnboardingChecklistHighlights } from "./client-onboarding-checklist/client-onboarding-checklist-highlight.js";
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
-import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js"; import { drawWaystation2D } from "./client-map-2d-waystation-overlay.js"; import { drawAfcTile2D } from "./client-afc-join-drop/client-map-2d-afc-join-drop.js";
-import { drawNaturalWonderOverlay2D, naturalWonderOverlayForTile } from "./client-map-2d-natural-wonder-overlay.js";
+import { drawTileFeatureOverlays2D } from "./client-map-2d-tile-feature-overlays.js";
 import { drawTownSupportPlot2D } from "./client-map-2d-town-support-tile-overlay.js";
 import { townSupportPlotMapFor2D } from "./client-town-support-plot-lookup.js";
 import { fireDueMusterTransits } from "./client-muster-transit/client-muster-transit.js";
 import { drawMusterSupplyLines2D } from "./client-muster-supply-lines-2d.js";
-import { createStalledConstructionRefresher } from "./client-construction-stall-refresh/client-construction-stall-refresh.js";
+import { createConstructionCountdownOverlay2D } from "./client-construction-countdown/client-construction-countdown-overlay-2d.js";
+import { aetherProtectionField, drawAetherProtectionTile2D, isAetherProtectionFieldShown } from "./client-aether-tower-protection/client-aether-tower-protection.js";
 import { isSeasonLobbyFullscreenActive } from "./client-season-lobby-fullscreen.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileMenuView, TileVisibilityState, TileTimedProgress } from "./client-types.js";
@@ -51,13 +48,6 @@ import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent,
 import { clampedTileHalfExtents, resolveTileBudget } from "./client-map-3d-tile-budget/client-map-3d-tile-budget.js";
 import { drawTileGround2D } from "./client-map-render-2d-tile-ground/client-map-render-2d-tile-ground.js";
 import { drawSiphonOverlay2D } from "./client-siphon-overlay-2d/client-siphon-overlay-2d.js"; import { drawArrowGesture2D, drawShieldAreaTile2D, drawWinChanceLabel2D, winChancePaintColorForTile2D } from "./client-map-render-2d-combat-overlays.js"; import { collectKnownShieldFlags, tileShieldCoverage } from "./client-known-shield-flags.js";
-
-// Persistent-alert tile scan is O(all tiles ever discovered this session,
-// up to WORLD_WIDTH*WORLD_HEIGHT) and measured at ~5.78ms avg / 20.5ms p99
-// on mobile when run every frame. Town-unfed / muster-active status only
-// changes on human timescales, so recomputing on a ~220ms cadence is
-// visually lossless while cutting scan frequency by ~80-90%.
-const PERSISTENT_ALERTS_RECOMPUTE_INTERVAL_MS = 220;
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -118,7 +108,6 @@ type StartClientRuntimeLoopDeps = {
   shardOverlayForTile: (tile: Tile) => HTMLImageElement | undefined;
   drawShardFallback: (tile: Tile, px: number, py: number, size: number) => void;
   drawTownOverlay: (tile: Tile, px: number, py: number, size: number) => void;
-  hasCollectableYield: (tile: Tile | undefined) => boolean;
   structureAccentColor: (ownerId: string, fallback: string) => string;
   structureOverlayImages: Record<string, HTMLImageElement>;
   constructionRemainingMsForTile: (tile: Tile) => number | undefined;
@@ -183,24 +172,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   let roadNetwork = new Map<string, RoadDirections>();
   const lastRenderedTileStateByKey = new Map<string, string>();
   let roadNetworkBuiltAt = 0;
-  let persistentAlertsCache: PersistentAlert[] = [];
-  let persistentAlertsComputedAt = 0;
-  const maybeRefreshStalledConstruction = createStalledConstructionRefresher({
-    requestTileDetailIfNeeded: deps.requestTileDetailIfNeeded
-  });
-  const drawConstructionCountdownOverlay = (t: Tile, wk: string, px: number, py: number, size: number): void => {
-    const remainingConstructionMs = deps.constructionRemainingMsForTile(t);
-    if (remainingConstructionMs === undefined) return;
-    maybeRefreshStalledConstruction(t, wk, remainingConstructionMs);
-    if (size < 18) return;
-    const timerLabel = deps.formatCountdownClock(remainingConstructionMs);
-    deps.ctx.fillStyle = "rgba(6, 10, 18, 0.82)";
-    deps.ctx.fillRect(px + 2, py + size - 12, Math.min(size - 4, 30), 10);
-    deps.ctx.fillStyle = "rgba(236, 243, 255, 0.92)";
-    deps.ctx.font = "9px monospace";
-    deps.ctx.textBaseline = "top";
-    deps.ctx.fillText(timerLabel, px + 4, py + size - 11);
-  };
+  const drawPersistentAlertsFrame = createPersistentAlertsFrame(state);
+  const drawConstructionCountdownOverlay = createConstructionCountdownOverlay2D(deps);
   const requestVisibleTileDetails = createVisibleTileDetailRequester({
     state,
     keyFor: deps.keyFor,
@@ -258,6 +231,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     // Reach overlay: resolveMyReachCached recomputes only when tiles or the
     // server reach actually changed (same cache the 3D renderer uses).
     const myReach = isTrue3DRendererActive() ? state.myReach : resolveMyReachCached(state);
+    const reachTileDeps2D = { me: state.me, tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, ownerColor: deps.effectiveOverlayColor }; // hoisted: drawReachTileTreatments2D runs per visible tile per frame
+    const tileFeatureDeps2D = { ctx: deps.ctx, structureAccentColor: deps.structureAccentColor, effectiveOverlayColor: deps.effectiveOverlayColor, afcJoinDrop: state.afcJoinDrop, afcModuleDeliveryLandedAt: state.afcModuleDeliveryLandedAt }; // hoisted: drawTileFeatureOverlays2D runs per visible tile per frame
     const crystalTargetingActive = state.crystalTargeting.active;
     const crystalTone = crystalTargetingActive ? deps.crystalTargetingTone(state.crystalTargeting.ability) : "amber";
     const debugWindow = typeof window !== "undefined" ? (window as Window & { __be3dCanvasOverlayDebug?: unknown }) : undefined;
@@ -290,6 +265,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       roadNetworkBuiltAt = nowMs;
     }
     const overlayTiles: VisibleRenderTile[] = []; if (!isTrue3DRendererActive() && state.winChancePaint && performance.now() > state.winChancePaint.expiresAt && !state.pendingArrowGestureConfirm) state.winChancePaint = undefined; const knownShieldFlags2D = !isTrue3DRendererActive() ? collectKnownShieldFlags(state.tiles.values()) : []; // F4: 2D counterparts of F0's expiry sweep + F3's per-frame known-flag scan (client-map-3d.ts)
+    const aetherProtection2D = !isTrue3DRendererActive() && isAetherProtectionFieldShown(state, deps.keyFor) ? aetherProtectionField(state, Date.now()) : undefined; // Aether Tower protection field, 2D parity of client-map-3d-aether-protection-overlay.ts
     const syntheticOverlayTileAt = (wx: number, wy: number, tile: Tile | undefined): Tile | undefined => {
       if (tile) return undefined;
       if (!isTrue3DRendererActive() || !revealWholeMapInTrue3DMode) return undefined;
@@ -415,19 +391,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
       if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
 
-      if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.waystation && !isTrue3DRendererActive()) drawWaystation2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.afc && !isTrue3DRendererActive()) drawAfcTile2D(deps.ctx, t, px, py, size, nowMs, state.afcModuleDeliveryLandedAt.get(wk), state.afcJoinDrop);
-      if (t && vis === "visible" && t.naturalWonder && !isTrue3DRendererActive()) drawNaturalWonderOverlay2D(deps.ctx, naturalWonderOverlayForTile(t), t.ownerId ?? "", px, py, size, deps.structureAccentColor);
+      drawTileFeatureOverlays2D(tileFeatureDeps2D, t, wk, vis, px, py, size, nowMs);
       if (vis === "visible" && !isTrue3DRendererActive() && townSupportPlots.has(wk)) drawTownSupportPlot2D(deps.ctx, px, py, size, townSupportPlots.get(wk)!); if (!isTrue3DRendererActive() && vis === "visible") { const shieldCoverage2D = tileShieldCoverage(wx, wy, knownShieldFlags2D); if (shieldCoverage2D) drawShieldAreaTile2D(deps.ctx, deps.effectiveOverlayColor(shieldCoverage2D.ownerId), px, py, size); const winChanceLabel2D = winChancePaintColorForTile2D(state.winChancePaint, wx, wy); if (winChanceLabel2D) drawWinChanceLabel2D(deps.ctx, winChanceLabel2D, px, py, size); } // F4: 2D win-chance paint (F0) + shield-area (F3) parity
-      if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
-        const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(nowMs / 230));
-        const marker = Math.max(4, Math.floor(size * 0.22));
-        const mx = px + 3;
-        const my = py + 3;
-        deps.ctx.fillStyle = `rgba(15, 18, 28, ${0.68 + pulse * 0.18})`;
-        deps.ctx.fillRect(mx - 1, my - 1, marker + 2, marker + 2);
-        deps.ctx.fillStyle = `rgba(255, 220, 90, ${0.75 + pulse * 0.25})`;
-        deps.ctx.fillRect(mx, my, marker, marker);
-      }
+      if (!isTrue3DRendererActive() && vis === "visible") drawAetherProtectionTile2D(deps.ctx, t, aetherProtection2D, state.tiles, deps.keyFor, px, py, size);
 
       if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") {
         drawTileFortificationOverlays2D(deps.ctx, t, px, py, size,
@@ -472,7 +438,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         // image / fallback so the canvas stays clean over them.
         // isStructureHandledBy3D() is the authoritative check, covering
         // both the generic instanced-mesh set and structures (like the
-        // Umbrite rig/factory and CARAVANARY) rendered via a dedicated
+        // Umbrite rig/factory and TRADE_NEXUS) rendered via a dedicated
         // branch in client-map-3d.ts.
         const handled3DStructure =
           isTrue3DRendererActive() &&
@@ -482,7 +448,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         if (t.economicStructure.type === "RELAY_BEACON" || handled3DStructure) {
         } else if (overlay && overlay.complete && overlay.naturalWidth) {
           deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
-        } else if (t.economicStructure.type === "FARMSTEAD" && !hasBuiltResourceOverlay) {
+        } else if (t.economicStructure.type === "HYDROGARDEN" && !hasBuiltResourceOverlay) {
           deps.ctx.fillStyle = deps.structureAccentColor(
             t.ownerId ?? "",
             active ? "rgba(192, 229, 117, 0.95)" : "rgba(148, 176, 104, 0.72)"
@@ -608,12 +574,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       // Fixed-borders-via-reach overlay. Boundary renders over fogged tiles
       // too (a fixed claim, not fog-dependent) but stays hidden over unexplored.
       if (!isTrue3DRendererActive() && myReach && t && vis !== "unexplored") {
-        if (vis === "visible" && t.ownerId === state.me && isDormantFrontierTile(t)) {
-          drawDormantFrontierTreatment(deps.ctx, px, py, size);
-        }
+        if (vis === "visible") drawReachTileTreatments2D(deps.ctx, t, wx, wy, px, py, size, myReach, reachTileDeps2D); // dormant frontier + rival incursions -- client-reach-incursion-2d.ts
         if (t.ownerId === state.me) {
-          drawReachBoundaryLine(deps.ctx, wx, wy, px, py, size, myReach, {
-            tiles: state.tiles,
+          drawReachBoundaryLine(deps.ctx, wx, wy, px, py, size, myReach, deps.effectiveOverlayColor(state.me), {
             keyFor: deps.keyFor,
             wrapX: deps.wrapX,
             wrapY: deps.wrapY
@@ -930,19 +893,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
         if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
 
-        if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.waystation && !isTrue3DRendererActive()) drawWaystation2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.afc && !isTrue3DRendererActive()) drawAfcTile2D(deps.ctx, t, px, py, size, nowMs, state.afcModuleDeliveryLandedAt.get(wk), state.afcJoinDrop);
-
-        if (t && vis === "visible" && t.naturalWonder && !isTrue3DRendererActive()) drawNaturalWonderOverlay2D(deps.ctx, naturalWonderOverlayForTile(t), t.ownerId ?? "", px, py, size, deps.structureAccentColor);
-        if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
-          const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(nowMs / 230));
-          const marker = Math.max(4, Math.floor(size * 0.22));
-          const mx = px + 3;
-          const my = py + 3;
-          deps.ctx.fillStyle = `rgba(15, 18, 28, ${0.68 + pulse * 0.18})`;
-          deps.ctx.fillRect(mx - 1, my - 1, marker + 2, marker + 2);
-          deps.ctx.fillStyle = `rgba(255, 220, 90, ${0.75 + pulse * 0.25})`;
-          deps.ctx.fillRect(mx, my, marker, marker);
-        }
+        drawTileFeatureOverlays2D(tileFeatureDeps2D, t, wk, vis, px, py, size, nowMs);
 
         if (t && vis === "visible" && t.fort) {
           deps.ctx.fillStyle = deps.structureAccentColor(
@@ -952,10 +903,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           const dot = Math.max(3, Math.floor(size * 0.25));
           deps.ctx.fillRect(px + size - dot - 2, py + 2, dot, dot);
         }
-        if (t && vis === "visible" && t.siegeOutpost) {
+        if (t && vis === "visible" && t.siegeBattery) {
           deps.ctx.fillStyle = deps.structureAccentColor(
             t.ownerId ?? "",
-            t.siegeOutpost.status === "active" ? "rgba(255, 123, 0, 0.85)" : "rgba(255, 196, 122, 0.78)"
+            t.siegeBattery.status === "active" ? "rgba(255, 123, 0, 0.85)" : "rgba(255, 196, 122, 0.78)"
           );
           const dot = Math.max(3, Math.floor(size * 0.25));
           deps.ctx.fillRect(px + size - dot - 2, py + size - dot - 2, dot, dot);
@@ -985,7 +936,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           if (handled3DStructure2) {
           } else if (overlay && overlay.complete && overlay.naturalWidth) {
             deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
-          } else if (t.economicStructure.type === "FARMSTEAD" && !hasBuiltResourceOverlay) {
+          } else if (t.economicStructure.type === "HYDROGARDEN" && !hasBuiltResourceOverlay) {
             deps.ctx.fillStyle = deps.structureAccentColor(
               t.ownerId ?? "",
               active ? "rgba(192, 229, 117, 0.95)" : "rgba(148, 176, 104, 0.72)"
@@ -1069,12 +1020,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
         // Fixed-borders-via-reach overlay -- see the main pass above.
         if (!isTrue3DRendererActive() && myReach && t && vis !== "unexplored") {
-          if (vis === "visible" && t.ownerId === state.me && isDormantFrontierTile(t)) {
-            drawDormantFrontierTreatment(deps.ctx, px, py, size);
-          }
+          if (vis === "visible") drawReachTileTreatments2D(deps.ctx, t, wx, wy, px, py, size, myReach, reachTileDeps2D); // dormant frontier + rival incursions -- client-reach-incursion-2d.ts
           if (t.ownerId === state.me) {
-            drawReachBoundaryLine(deps.ctx, wx, wy, px, py, size, myReach, {
-              tiles: state.tiles,
+            drawReachBoundaryLine(deps.ctx, wx, wy, px, py, size, myReach, deps.effectiveOverlayColor(state.me), {
               keyFor: deps.keyFor,
               wrapX: deps.wrapX,
               wrapY: deps.wrapY
@@ -1437,20 +1385,14 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const fxMs = phaseMs();
 
     deps.drawMiniMap();
-    if (persistentAlertsComputedAt === 0 || nowMs - persistentAlertsComputedAt >= PERSISTENT_ALERTS_RECOMPUTE_INTERVAL_MS) {
-      persistentAlertsCache = persistentAlertsForState(state);
-      persistentAlertsComputedAt = nowMs;
-    }
-    drawPersistentAlertLocators(state, {
+    drawPersistentAlertsFrame(nowMs, {
       ctx: deps.ctx,
       canvas: deps.canvas,
       worldToScreen: deps.worldToScreen,
       toroidDelta: deps.toroidDelta,
       size,
       halfW,
-      halfH,
-      nowMs,
-      precomputedAlerts: persistentAlertsCache
+      halfH
     }); if (!isTrue3DRendererActive()) drawOnboardingChecklistHighlights(state.onboardingHighlightTiles, { ctx: deps.ctx, worldToScreen: deps.worldToScreen, size, halfW, halfH, nowMs });
     const minimapAlertsMs = phaseMs();
     requestVisibleTileDetails(overlayTiles, state.camX, state.camY);

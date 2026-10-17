@@ -1,3 +1,5 @@
+import { AETHER_ABILITY_ICONS_CHANGELOG } from "./client-changelog-aether-ability-icons.js";
+import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-art-october.js";
 import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
@@ -8,10 +10,15 @@ import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garriso
 // client-changelog-data-earlier-N.ts (historical record, left unreferenced)
 // and delete them here and from the per-feature files below.
 import { RECENT_CLIENT_CHANGELOG_ENTRIES } from "./client-changelog-data-october.js";
+import { TILE_YIELD_REMOVAL_CHANGELOG } from "./client-changelog-tile-yield-removal.js";
+import { AI_PROGRESSION_AETHER_CHANGELOG } from "./client-changelog-ai-progression-aether.js";
+import { FAIRER_AI_DEALS_CHANGELOG } from "./client-changelog-fairer-ai-deals.js";
+import { OVERLAY_PERSISTENCE_CHANGELOG } from "./client-changelog-overlay-persistence.js";
 import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
 import { RIVERS_MOUNTAINS_CHANGELOG } from "./client-changelog-rivers-mountains.js";
 import { GARRISON_OUTSIDE_REACH_CHANGELOG } from "./client-changelog-garrison-outside-reach.js";
 import { MANPOWER_BATCH_LABEL_CHANGELOG } from "./client-changelog-manpower-batch-label.js";
+import { RESTART_TILE_STATE_CHANGELOG } from "./client-changelog-restart-tile-state.js";
 import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-recent-groups.js";
 import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
 import { CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD } from "./client-changelog-activity-dashboard.js";
@@ -25,9 +32,15 @@ import { CLIENT_CHANGELOG_ENTRIES_SEPT_24_26 } from "./client-changelog-data-sep
 import { CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS } from "./client-changelog-fast-builds.js";
 import { CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS } from "./client-changelog-build-speed-menus.js";
 import { CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON } from "./client-changelog-hint-center-button.js";
+import { CLIENT_CHANGELOG_ENTRIES_ALLIANCE_TAB_REDESIGN } from "./client-changelog-alliance-tab-redesign.js";
+import { CLIENT_CHANGELOG_ENTRIES_DIPLOMACY_TILE_ACTION } from "./client-changelog-diplomacy-tile-action.js";
 import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-fit.js";
 import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./client-changelog-waystation-auto-claim-activation.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_12 } from "./client-changelog-data-oct-12.js";
+import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
+import { CLIENT_CHANGELOG_ENTRIES_COMPACT_MET_PLAYERS } from "./client-changelog-compact-met-players.js";
+import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog-town-growth-loading.js";
+import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY } from "./client-changelog-town-growth-war-integrity.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -37,32 +50,46 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
-  ...AUTO_GARRISON_REQUEUE_CHANGELOG,
-  ...RIVERS_MOUNTAINS_CHANGELOG,
   {
-    createdAt: 1791643448668, // Date.now() frozen for this entry, as required by the changelog gate.
-    introducedIn: "2026.10.10.1",
-    title: "Better starter sites and accurate checklist goals",
-    why: "A nearby town was not always reachable, and claiming food without garrisoning it looked like progress even though it supplied no food slots.",
+    createdAt: 1792044007050, // Date.now() frozen for the changelog gate.
+    introducedIn: "2026.10.15.1",
+    title: "Warnings for enemy muster flags near your border",
+    why: "An enemy could stage troops on a muster flag right next to your land, and you only found out once the attack landed.",
     changes: [
-      "New worlds require 50 spaced starter sites with first food within three land steps and AFC reach, four food slots within six, and a town within eight; live joins recheck neutral routes and amenities before using those sites",
-      "The existing town-first checklist still highlights town and food tiles directly in both map renderers; only garrisoned food counts as usable food slots",
-      "Your AFC's reach is included in local target selection, and pending targets stop highlighting until their action resolves",
-      "Upgraded towns and lightweight town data count correctly, and enemy towns are not suggested as neutral expansion goals"
+      "A warning pops up when an enemy muster flag appears within 4 tiles of your territory, or an existing one switches to Advance or March, with a button to center on it",
+      "Enemy flags near your border get a red off-screen pointer in both map renderers, ahead of your own alerts while still leaving room for them",
+      "Flags of allies and truce partners don't trigger warnings"
     ]
   },
   {
-    createdAt: 1791527749820, // frozen Date.now() value for this release
-    introducedIn: "2026.10.09.1",
-    title: "Manpower refills every 4 hours, shown as a gauge",
-    why: "Manpower crept up a few points a minute, so \"can I afford this attack yet?\" meant watching a number tick, and a short wait for one more attack felt like a constant chore.",
-    changes: [
-      "Manpower is now paid out in one refill every 4 hours instead of ticking up continuously. Your total regeneration is unchanged, it just lands in chunks; each player's refill moment is staggered, so yours is not the same as everyone else's",
-      "The Manpower chip is now a brass gauge: the fill shows what you can spend right now (ember when below an ordinary attack, green when full, shimmering above the cap), copper plating shows manpower already staged in muster flags, and a countdown shows when the next refill lands",
-      "The Manpower panel now shows what one refill pays, when the next refill is, and how long until you are full",
-      "The Development chip is now a row of gears, one per slot: busy slots spin, free slots sit still, and a full set glows copper. It takes much less room on the top bar",
-      "All top-bar chips (Player, Coin, Manpower, Integrity, Development) now match the brass-and-leather style of the resource pills, and on phones Integrity and Development line up with the other chips"
-    ]
+    createdAt: 1791970358363, // Date.now() frozen for the changelog gate.
+    introducedIn: "2026.10.14.3",
+    title: "Enemy frontier warnings refer to their owner's reach",
+    why: "An enemy tile's decay timer incorrectly said beyond your reach even when it was within yours.",
+    changes: ["Enemy frontier decay warnings now refer to the tile owner's reach in both map renderers"]
+  },
+  {
+    createdAt: 1791969768256, // Frozen Date.now() timestamp for the changelog gate.
+    introducedIn: "2026.10.14.2",
+    title: "Waystation rewards show current technology names",
+    why: "The tile overview showed old technology names such as Leatherworking instead of their current Manifest names.",
+    changes: ["All Waystation technology rewards now use the current tech catalog name in the tile overview, including previously activated sites"]
+  },
+  ...AUTO_GARRISON_REQUEUE_CHANGELOG,
+  ...RIVERS_MOUNTAINS_CHANGELOG,
+  {
+    createdAt: 1791969340091, // Date.now() captured once for this release.
+    introducedIn: "2026.10.14.4",
+    title: "Manifest details stay where you scroll",
+    why: "Live game updates kept rebuilding Manifest details and jumping the menu back to the top.",
+    changes: ["Mobile and desktop Manifest details keep their scroll position while coin and unlock status update"]
+  },
+  {
+    createdAt: 1791970194502,
+    introducedIn: "2026.10.14.2",
+    title: "Hidden dock connections stay hidden",
+    why: "Selecting an enemy dock lit up undiscovered linked docks on the minimap and offered navigation into fog.",
+    changes: ["Selecting a dock no longer reveals hidden connections on the minimap or either map renderer", "Dock navigation only visits discovered destinations; garrisoning a dock reveals its links", "3D dock routes update as soon as linked docks are discovered, even while the same dock stays selected"]
   },
   {
     createdAt: 1791837136490, // Date.now() frozen for this entry
@@ -72,258 +99,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Your soldiers now step onto the enemy frontier tile you attack and stand there until it is yours, in the 3D map (the 2D map draws no soldiers for attacks)"
     ]
-  },
-  {
-    createdAt: 1791311818491, // Date.now() frozen for this entry
-    introducedIn: "2026.10.06.1",
-    title: "Relay Beacons and forts are built piece by piece",
-    why: "A Relay Beacon or fort under construction looked the same as a finished one, so a multi-hour build gave no sign of progress.",
-    changes: [
-      "A Relay Beacon being built now grows in four phases in both the 3D and 2D maps (with scaffolding around it in 3D): the legs and column rise, and the mirror array is fitted last",
-      "Forts, Palisades and Bastions being built rise wall by wall in four phases, with a crew working inside the walls (and scaffolding in 3D); removing one plays it in reverse",
-      "Upgrading a fort keeps the standing fort fully drawn, since it keeps defending, and shows the crew and scaffolding working around it",
-      "Tall structures, such as towers, now rise gradually through the build phases instead of showing at full height straight away",
-      "Construction crews are now the same small black dots as when settling, and stop where they stand while a build is paused; a stack of glowing fabricated parts sits at the site",
-      "At the start of every phase a pod of freshly fabricated parts now flies in from your Automated Fabrication Complex, instead of dropping from orbit; the farther the site is from it, the longer the flight",
-      "The first five Relay Beacons are still placed instantly, so only later, slower builds show the animation"
-    ]
-  },
-  {
-    createdAt: 1791315189192, // Date.now() frozen for this entry
-    introducedIn: "2026.10.06.1",
-    title: "AI stops building redundant coastal relays",
-    why: "Existing relay coverage hid known water from the AI’s ocean filter, so it mistook offshore fog for new land.",
-    changes: ["AI relay placement now recognizes ocean inside existing reach while preserving exploration toward unseen land"]
-  },
-  {
-    createdAt: 1791208703442, // Date.now() frozen for this entry
-    introducedIn: "2026.10.05.3",
-    title: "Border Empires icon now appears everywhere",
-    why: "Some browsers and search results used an old fallback icon instead of the Border Empires castle.",
-    changes: [
-      "The fallback browser icon now uses the Border Empires castle, matching the primary icon"
-    ]
-  },
-  {
-    createdAt: 1791195855000, // Date.now() frozen for this entry
-    introducedIn: "2026.10.05.1",
-    title: "Muster flags attack launch tiles",
-    why: "Advance and March flags treated any tile an attack had launched from as locked, so on a busy front they reported no target even with enemies all around.",
-    changes: [
-      "Advance and March muster flags can now fire on the tile an enemy attack launched from",
-      "A flag can launch from a tile that already launched another of your attacks; a tile that is itself under attack is still skipped"
-    ]
-  },
-  {
-    createdAt: 1791142179429, // Date.now() frozen for this entry
-    introducedIn: "2026.10.04.2",
-    title: "Your reach now scouts the land it covers",
-    why: "Reach could extend across neutral ground without revealing it, so losing frontier tiles could leave you unable to see territory your towns, docks and outposts still allowed you to claim.",
-    changes: [
-      "Every tile inside your current reach now has one tile of vision",
-      "You can see one tile beyond the outer edge of that reach, even when no frontier tiles remain",
-      "Frontier tiles keep their existing scouting vision"
-    ]
-  },
-  {
-    createdAt: 1791002214000, // Date.now() frozen for this entry
-    introducedIn: "2026.10.03.1",
-    title: "Cleaner starting grounds and no trees under towns or docks",
-    why: "A new empire's Automated Fabrication Complex could land on, or right next to, a town, dock or resource, and trees could be left standing on town and dock tiles.",
-    changes: [
-      "Your Automated Fabrication Complex now only lands where its tile and all 8 neighbouring tiles are free of towns, docks and resources, so you settle those yourself",
-      "If a crowded map has no such clear spot left, your Automated Fabrication Complex still lands, crushing any unclaimed towns and resources in its 3x3 footprint (never docks or anything another House owns)",
-      "Trees are now cleared from every town and dock tile"
-    ]
-  },
-  {
-    createdAt: 1791196311458, // Date.now() frozen for this entry
-    introducedIn: "2026.10.05.2",
-    title: "Watch structures get built",
-    why: "Structures take hours to build, but a tile under construction looked the same as a finished one, so there was nothing to tell a slow build from a stuck one.",
-    changes: [
-      "Economic structures under construction now rise in four phases (foundation, frame, cladding, fit-out) with scaffolding around them, in both the 3D and 2D maps",
-      "A stack of glowing parts sits beside each site and shrinks as the ancillary crew carries it over, and fresh parts drop in from orbit at the start of every phase",
-      "The crew moves in lockstep and freezes when a build is overdue; removing a structure plays the phases in reverse",
-      "In the 3D map, forts, siege camps, Aether Towers, Relay Beacons, Umbrite rigs and factories, and Caravanaries still show fully built while under construction"
-    ]
-  },
-  {
-    createdAt: 1791140199531, // Date.now() frozen for this entry
-    introducedIn: "2026.10.04.1",
-    title: "Safer spawns and full AFC reach",
-    why: "New players could spawn with barbarians on their doorstep, and a barbarian-held town nearby could cut away part of the AFC's reach.",
-    changes: [
-      "When your AFC lands, any barbarians inside its reach are cleared away so you start on open ground",
-      "Barbarian-held towns, docks and outposts no longer claim reach, so they can't take reach tiles around your AFC",
-      "On a very crowded map, new spawns still prefer a site with no barbarians within a few tiles"
-    ]
-  },
-  {
-    createdAt: 1791140183000, // Date.now() frozen for this entry
-    introducedIn: "2026.10.04.1",
-    title: "Counter-attack the tile an attack launched from",
-    why: "Locking the tile an enemy attack came from left defenders unable to answer while their frontier was being taken, and two attacks from one tile could cancel each other.",
-    changes: [
-      "You can attack the tile an enemy attack launched from while their attack is still pending; only the tile being attacked is locked",
-      "Several attacks launched from the same tile now all resolve; previously the earlier ones could be dropped without a result",
-      "If the launch tile changes hands mid-fight, the original attack still resolves, and a failed attack no longer hands a captured launch tile to the defender",
-      "Barbarians leave the tile they attack from the moment their attack starts, so it can't be captured to leave them alive on your tile"
-    ]
-  },
-  {
-    createdAt: 1791142473309, // Date.now() frozen for this entry
-    introducedIn: "2026.10.04.1",
-    title: "More reliable new seasons",
-    why: "A crowded small world could reject a new season while placing its final AI starting settlements.",
-    changes: [
-      "New seasons now use remaining valid land for starting settlements after preferred spacing options are exhausted"
-    ]
-  },
-  {
-    createdAt: 1791005011469, // Date.now() frozen for this entry
-    introducedIn: "2026.10.03.1",
-    title: "AI infrastructure and clearer tile details",
-    why: "AI empires missed the AFC grant that runs on human login, and tile details omitted foreign settlement status and some battles.",
-    changes: [
-      "AI empires missing an AFC receive one when the server starts or a season begins; it appears in both the 3D and 2D maps",
-      "Foreign tile details identify settled and frontier territory",
-      "Tile details show muster battles and distinguish resolved combat animations from ongoing attacks"
-    ]
-  },
-  {
-    createdAt: 1791166249102, // frozen Date.now() value for this release
-    introducedIn: "2026.10.05.1",
-    title: "Fewer unexpected game server restarts",
-    why: "The game server slowly used more and more memory and ran out roughly every 18 hours, restarting for a minute or two and dropping everyone's connection.",
-    changes: [
-      "Fixed a memory leak in the simulation server that kept every past command and update in memory",
-      "The server should now stay up much longer between restarts"
-    ]
-  },
-  {
-    createdAt: 1791140687838, // Date.now() frozen for this entry
-    introducedIn: "2026.10.04.1",
-    title: "New 3D models for towns and cities",
-    why: "Towns, cities, great cities and metropolises now have hand-detailed steampunk models instead of the simple box buildings, so each tier reads clearly on the map.",
-    changes: [
-      "Town, City, Great City and Metropolis tiles in the 3D map are drawn with textured steampunk models that grow taller and busier with each tier",
-      "Settlements keep their existing look; the 2D map is unchanged"
-    ]
-  },
-  {
-    createdAt: 1791195878000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.05.2",
-    title: "Battle progress shows your chance of winning",
-    why: "The battle card rarely showed odds: not for muster attacks, often not for manual ones, and never for the defender, so you couldn't tell how likely a battle was to go your way.",
-    changes: [
-      "The battle progress card shows the exact chance of winning, for manual and muster attacks alike",
-      "Defenders now see their own chance of holding the tile when an attack is incoming",
-      "The versus bar labels each side with its percentage"
-    ]
-  },
-  {
-    createdAt: 1791228193000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.05.3",
-    title: "A new season no longer leaves the old one on screen",
-    why: "If the game was open when a new season started, it kept showing the last season's leaderboard, victory standings and map until you reloaded the page.",
-    changes: [
-      "When a new season starts, an open game reconnects on its own and loads the new season",
-      "The leaderboard, victory standings, map and camera from the old season are cleared"
-    ]
-  },
-  {
-    createdAt: 1791277545524, // frozen Date.now() value for this release
-    introducedIn: "2026.10.06.1",
-    title: "Extra and Double effort now actually boost muster attacks",
-    why: "Choosing Extra or Double effort for a muster flag was lost on the way to the server, so the flag attacked at Normal effort and the battle card showed Normal odds.",
-    changes: [
-      "A muster flag's chosen effort level is now saved and used for the attacks it launches",
-      "The battle card's chance of winning reflects the effort you committed"
-    ]
-  },
-  {
-    createdAt: 1791280725000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.06.2",
-    title: "AFC module call-down takes a minute, missing modules restored, and an AFC button",
-    why: "Your AFC could show only one module despite lots of research: modules researched before you had a Fabrication Complex, or lost when an AFC holding them was captured, never docked. The Call down action that moves modules between AFCs was also missing until your next research update after loading in, and there was no quick way to find your AFC.",
-    changes: [
-      "Select one of your AFCs to see a Call down row in its Actions tab for every researched module it doesn't hold",
-      "A called-down module leaves its old AFC straight away and lands on the new one after 1 minute; its countdown shows in the AFC's overview and Actions",
-      "Researched modules that aren't on any of your AFCs are called down to your home AFC automatically when you connect",
-      "A module still in transit is lost if the AFC it's heading to is captured -- call it down again to another AFC",
-      "Researching an AFC module now jumps the map to the AFC it docks on, so you see it land",
-      "The Center button is now an AFC button: it jumps to your home Fabrication Complex and opens its module overview (or centers on your empire if you have no AFC)"
-    ]
-  },
-  {
-    createdAt: 1791311280000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.06.3",
-    title: "Territory colour shows on hills by the coast",
-    why: "On the 3D map, hills next to the sea often showed no ownership colour, because the colour layer was drawn underneath the hill.",
-    changes: [
-      "Owned, frontier and settling hills along the coast now show their empire colour like any other tile",
-      "The 2D map is unchanged"
-    ]
-  },
-  {
-    createdAt: 1791196969000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.06.4",
-    title: "Attacks now pause settling and building",
-    why: "A tile could finish settling or construction while an attack on it was already under way, so the battle was fought against a tile that had changed since it was launched.",
-    changes: [
-      "Attacking a tile that is being settled cancels the settle and refunds it",
-      "Buildings under construction on an attacked tile pause, showing \"Paused: ongoing attack\", and resume with the same time remaining if the defender holds",
-      "A tile under attack can't be settled or have a new building started until the battle resolves"
-    ]
-  },
-  {
-    createdAt: 1791317162415, // frozen Date.now() value for this release
-    introducedIn: "2026.10.06.5",
-    title: "Effort levels boost your odds more gently",
-    why: "Committing extra manpower used to square your odds, which made Planetary Defense raids roll at around 1% and effort feel like a coin flip between hopeless and certain.",
-    changes: [
-      "Extra effort now multiplies your odds ratio by 1.5 and Double by 2, so a 50% fight becomes 60% and 67%",
-      "Effort never guarantees a win: the boost matters most in contested fights and barely moves hopeless ones",
-      "Raids are gone: attacking Planetary Defense now works exactly like attacking a player, with the same mustered-manpower requirement and effort levels",
-      "Planetary Defense attacks can no longer be launched from your general manpower pool; you need a funded muster flag nearby"
-    ]
-  },
-  {
-    createdAt: 1791324311000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.07.1",
-    title: "Tile menu names whose reach you are inside",
-    why: "A contested frontier tile just said \"Inside Enemy Reach\", which made you guess which empire was pressing on it.",
-    changes: [
-      "The tile menu now says \"Inside <empire> Reach\" with the empire's name, or both names when two reaches overlap",
-      "Tap the line to see why: you can't settle inside another empire's reach",
-      "It still says \"Inside Enemy Reach\" when the covering empire can't be seen yet (fogged anchors) or when three or more reaches overlap"
-    ]
-  },
-  {
-    createdAt: 1791462529729,
-    introducedIn: "2026.10.08.4",
-    title: "Map effects stay put when you pan",
-    why: "Panning the 3D map could leave effects such as the aegis lock field, bombardments, unsettle and the floating population-loss text offset from the tile they belong to.",
-    changes: ["Effects on the 3D map now stay on their tile while you pan, including the 15-minute aegis lock field and after panning all the way around the world"]
-  },
-  {
-    createdAt: 1791469121213,
-    introducedIn: "2026.10.08.5",
-    title: "New empires no longer land inside a neighbour's reach",
-    why: "A new empire could land right next to another player whose reach already covered its starting land. The AFC then claimed almost nothing and could barely see past its own tile.",
-    changes: [
-      "New and respawning empires now land where their starting reach is clear of every other empire's reach, whenever the map has room",
-      "Your AFC always sees 4 tiles around itself",
-      "Even on a crowded map, a newly landed AFC always keeps the 3x3 ground it stands on"
-    ]
-  },
-  {
-    createdAt: 1791488967000,
-    introducedIn: "2026.10.08.7",
-    title: "Waystations no longer promise population without a town",
-    why: "A waystation could announce +5,000 population even when you owned no town to receive it, so nothing was actually granted.",
-    changes: ["If a waystation rolls its population boost and you have no town, it now pays out coin instead, and the popup says so"]
   },
   {
     createdAt: 1791832192120,
@@ -356,47 +131,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1791489815345,
-    introducedIn: "2026.10.08.7",
-    title: "Relay Beacon build time and rush price fixed",
-    why: "The build menu said a Relay Beacon takes 1 minute when it really takes an hour, and its rush-buy button showed 0 coin.",
-    changes: [
-      "The build menu shows the real Relay Beacon build time: instant for your first five, 60m after that",
-      "Rush-buy prices for buildings now match how much of the build is actually left, so a half-built structure costs about half"
-    ]
-  },
-  {
-    createdAt: 1791489790895, // Date.now() frozen for this entry
-    introducedIn: "2026.10.08.1",
-    title: "Resource Monopoly counts only settled, revealed resources",
-    why: "Resource Monopoly progress was counting frontier tiles and resources you hadn't revealed yet, so it could show you holding Umbrite you didn't actually control.",
-    changes: [
-      "Only settled resource tiles now count toward Resource Monopoly",
-      "A resource only counts once you've researched the tech that reveals it"
-    ]
-  },
-  {
-    createdAt: 1791579529000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.09.1",
-    title: "Top ribbon hover highlight no longer blinks",
-    why: "The gold hover border on the top-bar chips flickered because the bar redraws often and each redraw restarted the fade-in.",
-    changes: [
-      "Hovering a top-bar chip now keeps a steady highlight"
-    ]
-  },
-  {
-    createdAt: 1791581686000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.09.2",
-    title: "Choose your effort when launching an attack",
-    why: "Committing extra manpower to a fight was only possible through March To. Launch Attack always sent the minimum.",
-    changes: [
-      "Launch Attack on a settled enemy tile now opens the Normal / Extra / Double effort picker March To uses, with a live win chance",
-      "Attacks on several tiles (box-select or Attack Connected Region) get one picker that applies to each settled target",
-      "Expand To & Attack asks for an effort level too; the waypoint's final attack uses it, even while you're offline",
-      "Frontier and barbarian targets still attack on the first click, since extra manpower doesn't improve odds there"
-    ]
-  },
-  {
     createdAt: 1791831898352, // frozen Date.now() value for this release
     introducedIn: "2026.10.12.1",
     title: "The Ancillary Depot is now a dormant-body storehouse",
@@ -408,6 +142,9 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   ...MANPOWER_BATCH_LABEL_CHANGELOG,
+  ...RESTART_TILE_STATE_CHANGELOG,
+  ...CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING,
+  ...CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY,
   {
     createdAt: 1791750801000, // frozen Date.now() value for this release
     introducedIn: "2026.10.11.2",
@@ -417,6 +154,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "From next season, each dock links to its nearest dock on another island, measured by actual sea distance",
       "A dock's tile menu now has a Connected docks row: use ◀ ▶ to jump the camera to each linked dock and Back to return",
       "The dashed dock route line no longer breaks or jumps when it wraps around the map edge or leaves the area around you"
+    ]
+  },
+  {
+    createdAt: 1792009197862, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.14.3",
+    title: "AI empires weigh your truce and alliance offers",
+    why: "AI empires accepted truces almost instantly, and repeat offers could be spammed at any player.",
+    changes: [
+      "AI empires now judge relative strength, shared borders, food, and past broken truces, and tell you why they accepted or declined",
+      "AI empires now answer alliance offers too",
+      "After an offer is declined or cancelled, you can't send that player the same kind of offer for 30 minutes (10 minutes after an unanswered truce offer expires)"
     ]
   },
   {
@@ -441,10 +189,28 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS,
   ...CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS,
   ...CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON,
+  ...CLIENT_CHANGELOG_ENTRIES_ALLIANCE_TAB_REDESIGN,
+  ...CLIENT_CHANGELOG_ENTRIES_DIPLOMACY_TILE_ACTION,
   ...MOBILE_LOADING_FIT_CHANGELOG,
+  ...AETHER_ABILITY_ICONS_CHANGELOG,
+  {
+    createdAt: 1791920134069, // Date.now() frozen for this entry.
+    introducedIn: "2026.10.13.1",
+    title: "New towns on the 3D map",
+    why: "Towns on the 3D map looked out of place next to the bright terrain and the AFC.",
+    changes: [
+      "Every town tier on the 3D map has new art: clockwork skyscrapers of glass and grey stone banded in brass, with lamplit windows and crowns of brass cog clocks, needle spires, glowing alien bulbs and finned crystals, on an octagonal base plate",
+      "Towns and cities are laid out on street grids with lamplit crossings, parks and skybridges between their towers, and cities rise to a downtown of sheer glass skyscrapers",
+      "Towns grow visibly through their tiers, from a few low towers round a cog lamp to a metropolis round a brass-haloed megatower crowned with an aether crystal",
+      "Towns are alive: steam rises from rooftop stacks, windows flicker with lamplight, clock cogs and orreries turn, crystals spin, and airships circle the bigger cities",
+      "Neighbouring towns of the same tier now face different ways, so they no longer look like copies"
+    ]
+  },
   ...AFC_MODULE_TAB_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION,
   ...CLIENT_CHANGELOG_ENTRIES_OCT_12,
+  ...CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT,
+  ...CLIENT_CHANGELOG_ENTRIES_COMPACT_MET_PLAYERS,
   {
     createdAt: 1791921253260, // frozen Date.now() value for this release
     introducedIn: "2026.10.13.1",
@@ -465,6 +231,11 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The Alerts (bell) button has been removed from the top bar and the mobile menu while the alerts feed is reworked -- the Activity dashboard is where to see what happened"
     ]
   },
+  ...OCTOBER_STRUCTURE_ART_CHANGELOG,
+  ...TILE_YIELD_REMOVAL_CHANGELOG,
+  ...AI_PROGRESSION_AETHER_CHANGELOG,
+  ...FAIRER_AI_DEALS_CHANGELOG,
+  ...OVERLAY_PERSISTENCE_CHANGELOG,
   {
     createdAt: 1792187006316, // frozen Date.now() value for this release
     introducedIn: "2026.10.16.1",
@@ -485,6 +256,211 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "On that marked tile, Build Relay Beacon is tagged ★ Recommended and listed first",
       "Choosing Build Relay Beacon now lets you pick the spot first, with the new land it would reach shaded before you confirm",
       "Works on both the 3D and 2D maps"
+    ]
+  },
+  {
+    createdAt: 1792006774817, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.14.3",
+    title: "AI empires stand down after a truce",
+    why: "An AI empire kept its muster flag, and the manpower in it, up for days after signing a truce with the player it was fighting.",
+    changes: [
+      "An AI empire now disbands a muster flag once it has nothing left to attack, such as after it signs a truce or alliance with no barbarians nearby, and gets that manpower back",
+      "AI empires no longer plant new muster flags or plan attacks against players they have a truce or alliance with"
+    ]
+  },
+  {
+    createdAt: 1791922964029, // Date.now() captured once for this release.
+    introducedIn: "2026.10.13.2",
+    title: "Manifest panel tabs",
+    why: "Your Manifests sat at the very bottom of the panel, below every choice.",
+    changes: ["The Manifest panel has Available and Owned tabs; a Tree view / List view toggle in the panel header replaces Expand Tree, and the tree now fills the whole window", "Owned shows how many Manifests you hold, your Manifest bonuses, and your Manifests grouped by branch", "Panels on mobile use the same brass-and-leather look as on desktop instead of a blue background", "On mobile the Manifest panel uses the full screen height in both views", "The tree's zoom control sits on one row with the unlocked/ready/total counts, and the tree's bottom edge is no longer cut off"]
+  },
+  {
+    createdAt: 1791836603366, // Date.now() captured once for this release.
+    introducedIn: "2026.10.13.1",
+    title: "Combat reports for each muster flag",
+    why: "Simultaneous muster attacks interrupted play with repeated battle-result overlays.",
+    changes: ["Automatic muster battles appear in each flag’s Recent combat tab with unread counts", "Manpower losses show in red and coin plunder in green", "Keep up to 40 reports per flag in this browser for this season", "New results keep your reading position and leave unrelated manual orders running"]
+  },
+  {
+    createdAt: 1791969446372, // Date.now() captured once for this release.
+    introducedIn: "2026.10.14.4",
+    title: "Smoother fog reveals in the 3D map",
+    why: "Fog rolling back could leave tile-shaped cuts in the glowing edge between newly explored tiles.",
+    changes: ["The 3D fog and its glowing edge now stay continuous across tile boundaries during reveals"]
+  },
+  {
+    createdAt: 1791921497137,
+    introducedIn: "2026.10.13.1",
+    title: "Hydrogardens no longer stand on the old farm plot",
+    why: "The hydroponic glass dome was drawn on top of the conventional 3D crop-field plot, so it looked like a greenhouse dropped onto a normal farm.",
+    changes: ["A built Hydrogarden now replaces the old 3D farm plot, so the dome stands on clean ground"]
+  },
+  {
+    createdAt: 1791922549550, // Date.now() captured once for this release.
+    introducedIn: "2026.10.13.2",
+    title: "Economy panel says Coin",
+    why: "The economy panel still called the currency Gold while the rest of the game says Coin.",
+    changes: ["The economy panel's currency card and detail heading now read Coin"]
+  },
+  {
+    createdAt: 1791925158695, // Date.now() captured once for this release.
+    introducedIn: "2026.10.13.3",
+    title: "Your border shows up as soon as you log in",
+    why: "In the 3D map, your Aether Survey Line border and the dormant-frontier and rival-incursion tints could stay hidden after login until something on screen changed. If you were idle and didn't move the camera, they might never appear.",
+    changes: ["The 3D border appears right after login, even with a still camera", "Reach updates from the server redraw the 3D border straight away"]
+  },
+  {
+    createdAt: 1791925495773, // Date.now() captured once for this release.
+    introducedIn: "2026.10.13.2",
+    title: "Tell your own territory apart",
+    why: "Every empire's reach border looked the same apart from colour, neighbours could pick near-identical colours, and enemy tiles taken inside your reach looked like your own.",
+    changes: [
+      "Your reach border now glows brighter and thicker with a white core and a slow pulse; other empires' borders are thinner and dimmer",
+      "On your screen, rival colours that are too close to yours are shifted away from it",
+      "Enemy tiles inside your reach are striped in their colour and yours, with an outline around the pocket",
+      "The 2D map draws your reach border in your colour with a white core, and shows the same striping"
+    ]
+  },
+  {
+    createdAt: 1791959048426,
+    introducedIn: "2026.10.14.1",
+    title: "3D map shows frontier claims on time",
+    why: "The 3D map timed frontier-attack claims with the wrong clock, so it often missed muster and enemy claims starting or ending until something else refreshed the map.",
+    changes: ["An enemy's frontier colour clears as soon as your muster attack's claim sweep begins", "Your frontier tile's colour clears as soon as an enemy's claim sweep begins on it", "A frontier tile's colour comes back as soon as a claim ends"]
+  },
+  {
+    createdAt: 1791971113032,
+    introducedIn: "2026.10.14.2",
+    title: "Next manpower batch front and centre",
+    why: "The manpower panel buried when your next batch arrives inside a long paragraph, and showed the time until full as raw minutes like \"738m 18s\".",
+    changes: [
+      "The manpower panel now shows \"Next batch in ...\" as a large callout at the top in hours and minutes, e.g. \"0h 19m\" (or \"Full\" / \"Paused\")",
+      "Time until full also reads in hours and minutes, e.g. \"Manpower full in 12h 19m\"",
+      "The explanation of how manpower works is tucked behind a \"?\" toggle"
+    ]
+  },
+  {
+    createdAt: 1791970096634, // Date.now() captured once for this release.
+    introducedIn: "2026.10.14.3",
+    title: "AI names in Alliances",
+    why: "The Alliances tab showed generic AI numbers instead of the empires' names.",
+    changes: ["Met AI empires and allies show their seasonal names", "Alliance and truce offers still reach the correct AI"]
+  },
+  {
+    createdAt: 1791977894863,
+    introducedIn: "2026.10.14.4",
+    title: "Testing new outlines for enemy land inside your border",
+    why: "Enemy tiles taken inside your reach only get a plain outline, which doesn't read as a break-in. Admins are trying new looks on the 3D map before one becomes the default.",
+    changes: [
+      "Nothing changes for players yet: the outline stays as it is until a new look is chosen",
+      "Admins can try a spiked front line in the attacker's colour, an ember seam, an ink bleed or an aether veil under Settings > Admin"
+    ]
+  },
+  {
+    createdAt: 1792001165636, // Date.now() captured once for this release.
+    introducedIn: "2026.10.14.5",
+    title: "Coin everywhere",
+    why: "Several places still called the currency gold while the HUD and economy panel say Coin.",
+    changes: [
+      "Structure details, Mintworks and Sell Off modifiers, upkeep lines, the Harbor Exchange, Imperial Exchange and Siege Engine entries now say coin",
+      "Activity feed, raid and plunder summaries, town capture character, season-end income, the respawn prompt, natural wonder boons and two Manifest descriptions now say coin",
+      "Fixed the not-enough-coin alert for attacks and frontier claims, which could miss its dedicated message because the server still said gold"
+    ]
+  },
+  {
+    createdAt: 1791969150437, // Date.now() captured for this update.
+    introducedIn: "2026.10.14.1",
+    title: "Softer 3D map daylight",
+    why: "Strong stacked lighting made terrain and pale buildings look washed out.",
+    changes: ["Reduced 3D daylight and exposure to preserve surface detail", "Neutral fill light keeps terrain and building colours clearer"]
+  },
+  {
+    createdAt: 1791970552590, // Date.now() captured for this release.
+    introducedIn: "2026.10.14.2",
+    title: "Manifest recommendations visible in the list",
+    why: "Recommendations were hidden in details and suggested Hydrogardens without usable Farms or a need for more Food.",
+    changes: [
+      "Good pick now appears in both the compact Manifest list and expanded tree; click a Manifest for its explanation",
+      "Building recommendations check for an owned, unoccupied tile of the required kind and available development capacity",
+      "Hydroworks recommendations require a nearby active Hydrogarden that does not already have its bonus",
+      "Hydrogarden, Hydroworks and Fish Food bonuses are only recommended with one spare Food slot or less"
+    ]
+  },
+  {
+    createdAt: 1791982864990, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.14.1",
+    title: "Town resource discoveries get a lasting popup",
+    why: "Important resource clues were easy to miss in brief map labels and the retiring Alerts panel.",
+    changes: [
+      "Town surveys use the game's brass panels, parchment text, and familiar buttons in both map renderers",
+      "Unresolved resource surveys remain available in Activity → Yours with a View survey button, even beyond the 24-hour history window",
+      "New surveys open a centered popup that stays until you choose View survey or Got it, even when the clue is off-screen"
+    ]
+  },
+  {
+    createdAt: 1792006593148, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.14.5",
+    title: "Flags head into enemy territory instead of around it",
+    why: "Marching flags could keep claiming neutral tiles beside an enemy border, and advancing flags on a dock wandered their island while fighting the enemy dock across the water.",
+    changes: [
+      "Marching flags now follow the straight line to their target, attacking enemy tiles on that line rather than detouring onto neutral land beside them",
+      "Advancing flags on a dock keep their manpower on the fight at the linked enemy dock instead of wandering around their own island"
+    ]
+  },
+  {
+    createdAt: 1792006675564, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.15.1",
+    title: "Snow shows up on the 3D map",
+    why: "Snowfields near the poles were drawing exactly like the surrounding tundra in 3D, so the snow never appeared.",
+    changes: ["The coldest polar ground now renders as white snow in 3D, matching the 2D map"]
+  },
+  {
+    createdAt: 1792044983124, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.15.1",
+    title: "Trade screen for truces and alliances",
+    why: "Offering a truce was a single button with no way to sweeten the deal or know how it would land.",
+    changes: [
+      "Offering a truce or alliance opens a trade screen: add coin or Shards you give or ask for, and see the empire's mood toward you",
+      "Against AI empires the screen shows live whether they would accept, and how much more coin they want",
+      "AI empires remember how you treat them: taking their land, attacking, breaking truces and paying them all shift their attitude, shown on the trade screen",
+      "Truce prices depend on whether you're at war and who is winning; AIs won't talk peace right after you attack, and charge more each time you buy peace",
+      "Alliances need an AI that likes you and would be the largest empire in the alliance (Diplomatic Dominance goes to the largest member); AIs never pay to join one",
+      "An AI gives 24h notice to leave an alliance once a partner grows larger than it",
+      "AI empires counter-offer with a price you can actually pay, or tell you their price is more than you can offer",
+      "Coin and Shards change hands only when the deal is accepted, and the deal falls through if either side can no longer pay",
+      "Pending offers show their terms in the Alliances panel"
+    ]
+  },
+  {
+    createdAt: 1792042002455, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.15.1",
+    title: "War music stops when your flag has nothing to fight",
+    why: "An advancing muster flag on a border with a truce partner kept battle music playing even though it could not attack.",
+    changes: [
+      "Advance and March flags with no target in range no longer keep battle music playing"
+    ]
+  },
+  {
+    createdAt: 1792062991009, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.15.1",
+    title: "Captured tiles can't be taken straight back",
+    why: "A freshly captured dock or town lands as frontier, and frontier had no defense, so the old owner could retake it for free and captures just went back and forth.",
+    changes: [
+      "For 1 minute after you capture a tile from another player, your troops stay standing on it and it defends like ordinary ground, so retaking it is a real fight",
+      "If it is attacked during that minute, those troops are the defenders in the battle; time to garrison it is what the minute is for",
+      "The tile menu shows a Holding captured ground countdown, and in 2D the holding troops are drawn on the tile with a bar for the time left"
+    ]
+  },
+  {
+    createdAt: 1792203815485,
+    introducedIn: "2026.10.17.1",
+    title: "Enemy breakthroughs get a spiked front line",
+    why: "Enemy tiles taken inside your reach only had a plain outline, which didn't read as a break-in.",
+    changes: [
+      "On the 3D map, enemy land inside your reach is now outlined by a thin front line in the attacker's colour, with tall spikes pointing into your land",
+      "Spikes only appear where the enemy touches your own land, and the line stops at the old border when they push across it",
+      "The 2D map keeps the plain outline for now"
     ]
   }
 ];

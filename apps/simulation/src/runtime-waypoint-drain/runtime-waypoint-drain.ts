@@ -16,7 +16,7 @@
 // command from the gateway's durable log) keeps behaving exactly as it did
 // before this change: a single synthetic EXPAND/ATTACK straight at the
 // target, relying on handleFrontierCommandImpl's origin fallback.
-import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
+import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
 import { DEV_QUEUE_SERVER_CAP } from "@border-empires/shared";
 import type { ServerWaypointQueueEntry } from "../player-runtime-summary.js";

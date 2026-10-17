@@ -75,14 +75,13 @@ describe("client gateway sync — town summaries", () => {
             maxPopulation: 50_000,
             baseGoldPerMinute: 0,
             goldPerMinute: 0,
-            cap: 0,
             isFed: false,
             connectedTownCount: 0,
             connectedTownBonus: 0,
             hasMintworks: false,
             mintworksActive: false,
-            hasGranary: false,
-            granaryActive: false,
+            hasIncubationEngine: false,
+            incubationEngineActive: false,
           })
         }
       ]
@@ -141,7 +140,6 @@ describe("client gateway sync — town summaries", () => {
             maxPopulation: 50_000,
             baseGoldPerMinute: 2,
             goldPerMinute: 1.2,
-            cap: 480,
             supportCurrent: 3,
             supportMax: 6,
             isFed: true,
@@ -149,8 +147,8 @@ describe("client gateway sync — town summaries", () => {
             connectedTownBonus: 0,
             hasMintworks: false,
             mintworksActive: false,
-            hasGranary: false,
-            granaryActive: false,
+            hasIncubationEngine: false,
+            incubationEngineActive: false,
           })
         }
       ]
@@ -232,7 +230,6 @@ describe("client gateway sync — town summaries", () => {
             populationGrowthPerMinute: 12.8,
             baseGoldPerMinute: 2,
             goldPerMinute: 1,
-            cap: 480,
             supportCurrent: 3,
             supportMax: 6,
             isFed: true,
@@ -240,8 +237,8 @@ describe("client gateway sync — town summaries", () => {
             connectedTownBonus: 0,
             hasMintworks: false,
             mintworksActive: false,
-            hasGranary: false,
-            granaryActive: false,
+            hasIncubationEngine: false,
+            incubationEngineActive: false,
           })
         }
       ]
@@ -293,7 +290,6 @@ describe("client gateway sync — town summaries", () => {
             populationGrowthPerMinute: 12.8,
             baseGoldPerMinute: 2,
             goldPerMinute: 1,
-            cap: 480,
             supportCurrent: 3,
             supportMax: 6,
             isFed: true,
@@ -303,8 +299,8 @@ describe("client gateway sync — town summaries", () => {
             manpowerCap: 100,
             hasMintworks: false,
             mintworksActive: false,
-            hasGranary: false,
-            granaryActive: false,
+            hasIncubationEngine: false,
+            incubationEngineActive: false,
             nextPopulationTierUpgrade: {
               targetTier: "CITY",
               requiredPopulation: 100000,
@@ -331,7 +327,6 @@ describe("client gateway sync — town summaries", () => {
           populationGrowthPerMinute: 13.1,
           baseGoldPerMinute: 2,
           goldPerMinute: 2,
-          cap: 960,
           supportCurrent: 4,
           supportMax: 6,
           isFed: true,
@@ -339,8 +334,8 @@ describe("client gateway sync — town summaries", () => {
           connectedTownBonus: 0.1,
           hasMintworks: true,
           mintworksActive: true,
-          hasGranary: false,
-          granaryActive: false,
+          hasIncubationEngine: false,
+          incubationEngineActive: false,
         })
       }
     ]);
@@ -382,7 +377,6 @@ describe("client gateway sync — town summaries", () => {
             populationGrowthPerMinute: 12.8,
             baseGoldPerMinute: 2,
             goldPerMinute: 1,
-            cap: 480,
             supportCurrent: 3,
             supportMax: 6,
             isFed: true,
@@ -390,8 +384,8 @@ describe("client gateway sync — town summaries", () => {
             connectedTownBonus: 0,
             hasMintworks: false,
             mintworksActive: false,
-            hasGranary: false,
-            granaryActive: false,
+            hasIncubationEngine: false,
+            incubationEngineActive: false,
           })
         }
       ]
@@ -430,7 +424,6 @@ describe("client gateway sync — town summaries", () => {
             populationGrowthPerMinute: 12.8,
             baseGoldPerMinute: 2,
             goldPerMinute: 1,
-            cap: 480,
             supportCurrent: 3,
             supportMax: 6,
             isFed: true,
@@ -438,8 +431,8 @@ describe("client gateway sync — town summaries", () => {
             connectedTownBonus: 0,
             hasMintworks: false,
             mintworksActive: false,
-            hasGranary: false,
-            granaryActive: false,
+            hasIncubationEngine: false,
+            incubationEngineActive: false,
           })
         }
       ]

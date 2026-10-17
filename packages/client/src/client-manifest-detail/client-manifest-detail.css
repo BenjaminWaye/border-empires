@@ -107,6 +107,10 @@
   color: var(--sp-ember-400);
 }
 
+.tech-card > .manifest-chip--good-pick {
+  justify-self: start;
+}
+
 .manifest-detail__close {
   appearance: none;
   border: 0;
@@ -187,38 +191,63 @@
   list-style: none;
 }
 
+/* Icon column (building art, ability icon or resource icon) beside the
+   row's text; the icon spans the main line and its detail line. */
 .manifest-gain {
-  position: relative;
   display: grid;
-  gap: 2px;
-  padding-left: 24px;
+  grid-template-columns: 28px minmax(0, 1fr);
+  column-gap: 8px;
+  row-gap: 2px;
+  align-items: start;
   font-size: 14px;
   line-height: 1.4;
 }
 
-.manifest-gain::before {
+.manifest-gain__main,
+.manifest-gain__detail {
+  grid-column: 2;
+}
+
+.manifest-gain__icon {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-top: -3px;
+  color: var(--sp-brass-300);
+  font-size: 18px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.manifest-gain__img,
+.manifest-gain__icon .resource-icon-img {
+  display: block;
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+/* Building art: inline styles (client-build-menu-icons.ts) scale and offset
+   the SVG so the building's own bounding box fills the slot. */
+.manifest-gain__art {
+  position: relative;
+  display: block;
+  width: 28px;
+  height: 28px;
+  overflow: hidden;
+}
+
+.manifest-gain__art img {
   position: absolute;
   left: 0;
   top: 0;
-  width: 18px;
-  text-align: center;
-  color: var(--sp-brass-300);
-}
-
-.manifest-gain--structure::before {
-  content: "⚒";
-}
-
-.manifest-gain--ability::before {
-  content: "✦";
-}
-
-.manifest-gain--resource::before {
-  content: "⛏";
-}
-
-.manifest-gain--effect::before {
-  content: "+";
+  width: 100%;
+  height: 100%;
+  max-width: none;
 }
 
 .manifest-gain__detail,

@@ -8,6 +8,7 @@ import {
   type SlotResource
 } from "@border-empires/shared";
 import { dormantStructureLineHtml, type DormancyField } from "./client-tile-menu-dormancy-line.js";
+import { observatoryOverviewLines } from "./client-tile-menu-observatory-lines.js";
 import { mintworksGoldProductionMultiplier } from "@border-empires/game-domain";
 import { dockDisplayGoldPerMinute } from "../yield-derivation/yield-derivation.js";
 import { resourceSlotProductionHtml } from "./client-tile-resource-slot-production.js";
@@ -25,10 +26,10 @@ import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js"; import 
 import { townStatGridHtml } from "../client-town-stat-grid/client-town-stat-grid.js";
 import { townStatModifiersForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
 import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town-tile-terrain.js";
-import { ownTownEconomyFieldsPartial, tileProductionRequirementLabel, tileTownPartialLoadingRowHtml } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
+import { ownTownEconomyFieldsPartial, ownTownGrowthRatePending, tileProductionRequirementLabel, tileTownPartialLoadingRowHtml } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
 import { tileOwnerLabelHtml } from "../client-founding-engineer/client-founding-engineer.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
-import type { OptimisticStructureKind, TechInfo, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
+import type { TechInfo, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuView, TileOverviewLine } from "../client-types.js";
 import { tileMenuTitleForTile } from "./client-tile-menu-title.js";
 import { tileMenuTabs } from "./client-tile-menu-tabs.js";
 import { afcModuleTabForTile } from "../client-afc-module-tab/client-afc-module-tab.js";
@@ -37,7 +38,7 @@ import { afcModuleTabForTile } from "../client-afc-module-tab/client-afc-module-
 // exported from here too so existing importers of "./client-tile-menu-view.js"
 // don't need to change their import path.
 export { buildDetailTextForAction } from "../client-tile-action-detail-text/client-tile-action-detail-text.js";
-export { ownTownEconomyFieldsPartial, tileProductionRequirementLabel } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
+export { ownTownDetailRecoveryNeeded, ownTownEconomyFieldsPartial, tileProductionRequirementLabel } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
 
 // constructionProgressForTile moved to
 // ../client-tile-menu-construction-progress/client-tile-menu-construction-progress.ts
@@ -60,8 +61,8 @@ export const menuOverviewForTile = (
     townNextGrowthEtaLabel: (town: NonNullable<Tile["town"]>, options?: { explainUnfed?: boolean }) => string;
     supportedOwnedTownsForTile: (tile: Tile) => Tile[];
     connectedDockCountForTile: (tile: Tile) => number;
-    dockSupportedByCustomsHouseForTile?: (tile: Tile) => boolean; // adjacent active owned Harbor Exchange?
-    hostileObservatoryProtectingTile: (tile: Tile) => unknown;
+    dockSupportedByHarborExchangeForTile?: (tile: Tile) => boolean; // adjacent active owned Harbor Exchange?
+    hostileObservatoryProtectingTile: (tile: Tile) => { readonly x: number; readonly y: number } | undefined;
     constructionCountdownLineForTile: (tile: Tile) => string;
     tileHistoryLines: (tile: Tile) => string[];
     isTileOwnedByAlly: (tile: Tile) => boolean;
@@ -185,12 +186,13 @@ export const menuOverviewForTile = (
       // resource-slot-view.ts's per-town FOOD contributor) — allocation is
       // all-or-nothing per town, so "satisfied" is either the full demand
       // (fed) or 0 (unfed), never a partial count. This is the pre-waiver
-      // base demand — a nearby Governor's Office can reduce it further, but
-      // that isn't visible client-side, so a fed Governor's-Office town may
+      // base demand — a nearby Ministry Hall can reduce it further, but
+      // that isn't visible client-side, so a fed Ministry-Hall town may
       // show a demand slightly higher than what it's actually clearing.
       const foodDemand = townFoodSlotDemandForTier(tile.town.populationTier);
       const townForGrowth = hasFullFoodCoverage && tile.town.isFed === false ? { ...tile.town, isFed: true } : tile.town;
       const effectiveFed = Boolean(townForGrowth.isFed);
+      const growthRatePending = ownTownGrowthRatePending(tile.town);
       const { terrainProfile, coastal } = townTerrainForTile(tile, tile.town);
       const tierManpower = terrainAdjustedTownManpower(tile.town.populationTier, terrainProfile, coastal);
       // Matches tileProductionHtml's own gold math exactly (same
@@ -205,10 +207,12 @@ export const menuOverviewForTile = (
           maxPopulation: Math.round(tile.town.maxPopulation),
           ...(nextTierPopulation !== undefined ? { nextTierPopulation } : {}),
           populationTierLabel: displayTownPopulationTierLabel(tile.town.populationTier),
-          growthText: effectiveFed
-            ? `${deps.populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0)} — ${deps.townNextGrowthEtaLabel(townForGrowth, { explainUnfed: tile.ownerId === deps.state.me })}`
-            : "Growth paused — town is unfed",
-          growthTone: effectiveFed ? "positive" : "warn",
+          growthText: !effectiveFed
+            ? "Growth paused — town is unfed"
+            : growthRatePending
+              ? "Growth rate loading…"
+              : `${deps.populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0)} — ${deps.townNextGrowthEtaLabel(townForGrowth, { explainUnfed: tile.ownerId === deps.state.me })}`,
+          growthTone: !effectiveFed ? "warn" : growthRatePending ? "neutral" : "positive",
           goldPerDayLabel: goldPerDay.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
           manpowerCapLabel: tierManpower.cap.toLocaleString(),
           manpowerRegenLabel: `+${tierManpower.regenPerMinute.toFixed(2)}/min base regen`,
@@ -256,8 +260,8 @@ export const menuOverviewForTile = (
   if (tile.dockId && tile.ownershipState === "SETTLED") {
     const connectedDockCount = tile.dock?.connectedDockCount ?? deps.connectedDockCountForTile(tile);
     // tile.dock?.goldPerMinute is never populated over the wire; dockDisplayGoldPerMinute mirrors dockBaseGoldPerMinuteForPlayer's real fallback instead of a flat constant.
-    const supportedByCustomsHouse = deps.dockSupportedByCustomsHouseForTile?.(tile) ?? false;
-    const goldPerMinute = tile.dock?.goldPerMinute ?? dockDisplayGoldPerMinute(connectedDockCount, supportedByCustomsHouse);
+    const supportedByHarborExchange = deps.dockSupportedByHarborExchangeForTile?.(tile) ?? false;
+    const goldPerMinute = tile.dock?.goldPerMinute ?? dockDisplayGoldPerMinute(connectedDockCount, supportedByHarborExchange);
     pushLine(`Dock income ${(goldPerMinute * 1440).toFixed(1)} coin/day`);
     pushLine(connectedDockCount === 0
       ? "Not connected to any other docks yet."
@@ -294,33 +298,13 @@ export const menuOverviewForTile = (
         const currentMult = mintworksGoldProductionMultiplier(town.town.mintworksCount, Boolean(town.town.clearingHouseActive));
         pushLine(`Nearby town has ${town.town.mintworksCount} active Mintworks${town.town.mintworksCount === 1 ? "" : "s"} (+${Math.round((currentMult - 1) * 100)}% town coin production).`);
       }
-      if (town.town?.hasGranary) pushLine("Nearby town already has an Incubation Engine.");
+      if (town.town?.hasIncubationEngine) pushLine("Nearby town already has an Incubation Engine.");
       if (!tile.economicStructure) pushLine("Town buildings like mintworks and Incubation Engines must be built on support tiles.");
     }
   } else if (supportedTowns.length > 1) {
     pushLine("This support tile touches multiple towns.");
   }
-  if (tile.observatory) {
-    if (tile.observatory.status === "active" && tile.ownerId === tile.observatory.ownerId) {
-      const cooldownRemainingMs = (tile.observatory.cooldownUntil ?? 0) - Date.now();
-      pushLine(cooldownRemainingMs > 0 ? "Aether Tower is active here but on cooldown — it is not protecting its owner's nearby tiles from hostile Aether abilities right now." : "Aether Tower is active here and protects its owner's nearby tiles from hostile Aether abilities.");
-      if (tile.ownerId === deps.state.me && cooldownRemainingMs > 0) {
-        const totalSeconds = Math.ceil(cooldownRemainingMs / 1000);
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        const clock = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-        pushLine(`Crystal casting recharging — ready in ${clock}.`);
-      }
-    } else if (tile.observatory.status === "under_construction") {
-      pushLine("Aether Tower is under construction on this tile.");
-    } else {
-      pushLine("Aether Tower is inactive here and currently provides no vision or protection.");
-    }
-    if (tile.observatory.status === "active") {
-      const dormantLine = dormantStructureLineHtml(tile, "observatory", deps.dormantResourcesForTile?.(tile, "observatory"), deps.observatoryCrystalSlotCountForTile?.(tile));
-      if (dormantLine) pushLine(dormantLine);
-    }
-  }
+  for (const line of observatoryOverviewLines(tile, { me: deps.state.me, nowMs: Date.now(), hostileObservatoryProtectingTile: deps.hostileObservatoryProtectingTile, dormantResourcesForTile: deps.dormantResourcesForTile, observatoryCrystalSlotCountForTile: deps.observatoryCrystalSlotCountForTile })) pushLine(line);
   const captureRecoveryRemainingMs = captureRecoveryRemainingMsForTile(tile);
   const structureRecentlyCaptured = captureRecoveryRemainingMs !== undefined;
   if (isFortDefending(tile.fort) && tile.ownerId && structureRecentlyCaptured) {
@@ -337,8 +321,8 @@ export const menuOverviewForTile = (
     const dormantLine = dormantStructureLineHtml(tile, "fort", deps.dormantResourcesForTile?.(tile, "fort"));
     if (dormantLine) pushLine(dormantLine);
   }
-  if (tile.siegeOutpost?.status === "active") {
-    const dormantLine = dormantStructureLineHtml(tile, "siegeOutpost", deps.dormantResourcesForTile?.(tile, "siegeOutpost"));
+  if (tile.siegeBattery?.status === "active") {
+    const dormantLine = dormantStructureLineHtml(tile, "siegeBattery", deps.dormantResourcesForTile?.(tile, "siegeBattery"));
     if (dormantLine) pushLine(dormantLine);
   }
   if (tile.economicStructure) {
@@ -389,7 +373,7 @@ export const menuOverviewForTile = (
   if (tile.observatory?.status === "removing") {
     pushLine("Aether Tower removal is underway. Vision, protection, and crystal-casting effects are currently disabled.");
   }
-  if (tile.siegeOutpost?.status === "removing") {
+  if (tile.siegeBattery?.status === "removing") {
     pushLine("Siege Battery removal is underway. Attack bonuses from this tile are currently disabled.");
   }
   const construction = deps.constructionCountdownLineForTile(tile);
@@ -479,7 +463,7 @@ export const tileMenuViewForTile = (
   const ownershipHelpKind: OwnershipHelpKind | undefined = tile.terrain !== "LAND" ? undefined : !tile.ownerId ? "unclaimed" : tile.ownerId === deps.state.me ? (tile.ownershipState === "FRONTIER" ? "frontier" : "settled") : undefined;
   const subtitleHtml = isForeignLandOwner ? [tileOwnerLabelHtml(ownerLabel, tile.ownerId, ownerLabelIsAlly, Boolean(tile.ownerId && deps.state.dukePlayers?.has(tile.ownerId))), regionLabel ?? ""].filter(Boolean).join(" · ") : ownershipHelpKind ? ownershipHelpSubtitleHtml(ownershipHelpKind, ownerLabel, regionLabel) : undefined;
   const { titleLabel, townCharacter } = tileMenuTitleForTile(tile, deps.prettyToken, deps.terrainLabel);
-  const reachState = deps.state; const headerStatus: TileMenuHeaderStatus | undefined = (tile.ownerId === reachState.me && reachState.tiles ? ownTileHeaderStatus(reachState as ReachAuthoritativeState, tile, deps.playerNameForOwner) : tileMenuHeaderStatusForTile(tile)) ?? battleMenuHeaderStatus(incomingAttack ?? capture); return {
+  const reachState = deps.state; const headerStatus: TileMenuHeaderStatus | undefined = (tile.ownerId === reachState.me && reachState.tiles ? ownTileHeaderStatus(reachState as ReachAuthoritativeState, tile, deps.playerNameForOwner) : tileMenuHeaderStatusForTile(tile, Date.now(), undefined, undefined, tile.ownerId === reachState.me)) ?? battleMenuHeaderStatus(incomingAttack ?? capture); return {
     title: `${titleLabel} (${tile.x}, ${tile.y})`,
     ...(townCharacter ? { townCharacter } : {}),
     subtitle: tileMenuSubtitleText(ownerLabel, regionLabel),

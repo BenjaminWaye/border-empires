@@ -11,25 +11,20 @@ import {
   summarizePlayerSubscriptionSnapshotCache,
   type CommandEnvelope,
   type CurrentSeasonSummary,
-  type GetRecentCommandsResponse,
   type PlayerSubscriptionSnapshot,
   type SeasonArchiveRow,
-  type SimulationEvent,
   type SimulationSeasonState
 } from "@border-empires/sim-protocol";
 import { CURRENT_WORLDGEN_VERSION, INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed } from "@border-empires/shared";
 
 import { type ProtoSimulationEvent, type TileDeltaBatchTile, toProtoEvent, isWireInternalEvent, toFullSnapshotProtoTile } from "./proto-serialization.js";
 import { buildTileDeltaGroupKey } from "./tile-delta-group-key.js";
-import { buildTownLostAlert, resolveEnvironmentLabel } from "./ownership-change-alert.js";
+import { createOwnershipChangeHandler } from "./ownership-change-alert.js";
 import { getAiDecisionDiagnostics, recordAiCommandRejectionMessage, recordAiDecisionDiagnosticFromPlanner } from "../ai/ai-decision-diagnostics.js";
 import { recordAiPlannerDecision } from "./record-ai-planner-decision.js";
 import { createSimulationCommandStore } from "../command-store-factory/command-store-factory.js";
-import type { SimulationCommandStore } from "../command-store/command-store.js";
 import { createSimulationEventStore } from "../event-store-factory/event-store-factory.js";
-import type { SimulationEventStore } from "../event-store/event-store.js";
 import { createSimulationSnapshotStore } from "../snapshot-store-factory/snapshot-store-factory.js";
-import type { SimulationSnapshotStore } from "../snapshot-store/snapshot-store.js";
 import { createSnapshotCheckpointManager } from "../snapshot-checkpoint-manager/snapshot-checkpoint-manager.js";
 import {
   createHybridSnapshotStringifier,
@@ -50,7 +45,7 @@ import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snaps
 import { buildSnapshotBuildOptions } from "./snapshot-build-options.js";
 import { yieldToEventLoop } from "../event-loop-yield.js";
 import { enrichSnapshotTilesForGlobalVisibility } from "../live-snapshot-view/live-snapshot-view.js";
-import { createSeedPlayers, createSeedWorld, seedProfileWorldgen, type SimulationSeedProfile } from "../seed-state/seed-state.js";
+import { createSeedPlayers, createSeedWorld, seedProfileWorldgen } from "../seed-state/seed-state.js";
 import { createPlayerSubscriptionRegistry } from "../subscription-registry/subscription-registry.js";
 import { createSimulationPersistenceQueue } from "../simulation-persistence-queue/simulation-persistence-queue.js";
 import { SqliteWriterChannel, WriterBackedCommandStore, WriterBackedEventStore } from "../sqlite-writer-channel/sqlite-writer-channel.js";
@@ -78,18 +73,18 @@ import { applyAiPlayerDebugSnapshotToMetrics, sampleRuntimeGaugeMetrics } from "
 import { recoveredStateFromSeedWorld } from "../recovered-state-from-seed-world/recovered-state-from-seed-world.js";
 import { persistSeasonActivityState, restoreSeasonActivityState } from "../season-activity-persistence/season-activity-persistence.js";
 import { createSeasonSummaryStore } from "../season-summary-store-factory.js";
-import { GALAXY_ARCHIVE_LIMIT, type SeasonSummaryStore } from "../season-summary-store.js";
+import { GALAXY_ARCHIVE_LIMIT } from "../season-summary-store.js";
 import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from "../season-summary/season-summary.js";
 import { createGlobalStatusBroadcastPayload } from "../global-status-broadcast-scheduler/global-status-broadcast-payload.js";
 import { createScoreHistorySampler } from "../score-history-sampler/score-history-sampler.js";
 import { createInitialSeasonState, updateSeasonVictoryTrackers, readScheduledSeasonStartAtEnv, applyPendingSeasonActivation } from "../season-lifecycle.js";
 import { createAiAndSystemShouldRun } from "./ai-and-system-should-run.js";
 import { captureSeasonWinnerAtCrowning } from "../season-crowning/season-crowning.js";
-import { parseRallyAnchor, preparePlayerHandler, joinSeasonHandler } from "./prepare-and-join-player.js";
+import { preparePlayerHandler, joinSeasonHandler } from "./prepare-and-join-player.js";
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
 import { createWorldgenBaselineCache, resolveDockRouteBackfillReader } from "../worldgen-baseline-cache/worldgen-baseline-cache.js";
 import { createActivePlayerIdentityMap, createRecoveredActivePlayerIdentityMap } from "../active-player-identity-map.js";
-import type { AutomationPlannerDiagnostic } from "../ai/automation-command-planner.js";
+import { formatNoFrontierDiagnostic } from "./no-frontier-diagnostic-format.js";
 import {
   createMainThreadTaskTrackerFromEnv,
   type ActiveMainThreadTask,
@@ -167,36 +162,6 @@ type ProtoSeedBarbariansResponse = {
   requested: number;
   placed: number;
   detail_json: string;
-};
-
-const formatNoFrontierDiagnostic = (
-  source: "worker" | "runtime",
-  diagnostic: AutomationPlannerDiagnostic
-): string => {
-  const parts = [
-    `source=${source}`,
-    diagnostic.playerId,
-    `owned=${diagnostic.ownedTileCount ?? 0}`,
-    `owned_frontier=${diagnostic.ownedFrontierTileCount ?? 0}`,
-    `frontier=${diagnostic.frontierTileCountInput ?? 0}`,
-    `hot=${diagnostic.hotFrontierTileCountInput ?? 0}`,
-    `strategic=${diagnostic.strategicFrontierTileCountInput ?? 0}`,
-    `origins=${diagnostic.frontierOriginCount ?? 0}`,
-    `dock_origins=${diagnostic.dockOriginCount ?? 0}`,
-    `scope_keys=${diagnostic.playerScopeKeyCount ?? 0}`,
-    `scope_tiles=${diagnostic.playerScopeTileCount ?? 0}`,
-    `enemy=${diagnostic.frontierEnemyTargetCount}`,
-    `enemy_player=${diagnostic.frontierEnemyPlayerTargetCount ?? 0}`,
-    `barbarian=${diagnostic.frontierBarbarianTargetCount ?? 0}`,
-    `neutral=${diagnostic.frontierNeutralTargetCount}`,
-    `econ=${diagnostic.frontierOpportunityEconomic ?? 0}`,
-    `support=${diagnostic.frontierOpportunityTownSupport ?? 0}`,
-    `scout=${diagnostic.frontierOpportunityScout ?? 0}`,
-    `scaffold=${diagnostic.frontierOpportunityScaffold ?? 0}`,
-    `waste=${diagnostic.frontierOpportunityWaste ?? 0}`,
-    `preplan=${diagnostic.preplanProgressState ?? "none"}`
-  ];
-  return parts.join(":");
 };
 
 type ProtoPackage = {
@@ -781,44 +746,17 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     onMusterRemoteBlocked: () => { simulationMetrics.incrementSimMusterRemoteBlocked(); },
     onMusterRemoteBlockedBarbarian: () => { simulationMetrics.incrementSimMusterRemoteBlockedBarbarian(); },
     onAutoFillTiles: (count) => { simulationMetrics.incrementSimAutoFillTiles(count); },
+    onUpkeepNettedWhileIncomePaused: () => { simulationMetrics.incrementSimUpkeepNettedWhileIncomePaused(); },
     onAuthRecoveryRespawn: () => { simulationMetrics.incrementSimAuthRecoveryRespawn(); },
     onAuthRecoveryRespawnGuarded: () => { simulationMetrics.incrementSimAuthRecoveryRespawnGuarded(); },
-    onOwnershipChange: (sample) => {
-      const lostTown = sample.townLost;
-      const lostSettled = sample.hadOwnershipState === "SETTLED" && !sample.nextOwnerId;
-      if (!lostTown && !lostSettled) return;
-      if (lostTown) {
-        const webhookUrl = process.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_WEBHOOK ?? process.env.GATEWAY_SLOW_LOGIN_ALERT_SLACK_WEBHOOK;
-        const environmentLabel = resolveEnvironmentLabel(process.env);
-        const alert = buildTownLostAlert(sample, environmentLabel, process.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_LABEL ?? "border-empires");
-        log.warn(alert.logFields, alert.message);
-        if (alert.skippedSettlementTier) {
-          simulationMetrics.incrementSimOwnershipChangeAlertSkippedSettlementTier();
-        } else if (webhookUrl) {
-          fetch(webhookUrl, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify(alert.slackBody),
-            signal: AbortSignal.timeout(5_000)
-          }).catch(() => {});
-        }
-      } else {
-        const environmentLabel = resolveEnvironmentLabel(process.env);
-        log.warn(
-          {
-            tileKey: sample.tileKey,
-            x: sample.x,
-            y: sample.y,
-            previousOwnerId: sample.previousOwnerId,
-            nextOwnerId: sample.nextOwnerId,
-            commandId: sample.commandId,
-            hadTown: sample.hadTown,
-            environment: environmentLabel
-          },
-          `[ownership_audit] (${environmentLabel}) SETTLED tile ${sample.tileKey} (${sample.x},${sample.y}) became neutral — previous owner ${sample.previousOwnerId}`
-        );
+    onOwnershipChange: createOwnershipChangeHandler({
+      log,
+      env: process.env,
+      onSettlementTierAlertSkipped: () => { simulationMetrics.incrementSimOwnershipChangeAlertSkippedSettlementTier(); },
+      postWebhook: (url, body) => {
+        fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(5_000) }).catch(() => {});
       }
-    },
+    }),
     onPlayerStateUpdateSkippedAi: () => { simulationMetrics.incrementSimPlayerStateUpdateSkippedAi(); },
     ...(legacySnapshotBootstrap ? { seedTiles: legacySnapshotBootstrap.seedTiles } : {}),
     initialPlayers: runtimePlayers
@@ -1022,17 +960,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     postSeasonProtoTilesCache = undefined;
     return refreshSnapshotCacheMetrics();
   };
-  const stopGameplayTickers = (): void => {
-    if (shardRainTicker) { clearInterval(shardRainTicker); shardRainTicker = undefined; }
-    if (tileSheddingTicker) { clearInterval(tileSheddingTicker); tileSheddingTicker = undefined; }
-    if (territoryAutomationTicker) { clearInterval(territoryAutomationTicker); territoryAutomationTicker = undefined; } if (waypointDrainTicker) { clearInterval(waypointDrainTicker); waypointDrainTicker = undefined; }
-    if (orphanLockSweepTicker) { clearInterval(orphanLockSweepTicker); orphanLockSweepTicker = undefined; }
-    if (watchedMusterTicker) { clearInterval(watchedMusterTicker); watchedMusterTicker = undefined; }
-    if (watchtowerRevealTicker) { clearInterval(watchtowerRevealTicker); watchtowerRevealTicker = undefined; }
-    if (populationGrowthTicker) { clearInterval(populationGrowthTicker); populationGrowthTicker = undefined; }
-    if (passiveIncomeTicker) { clearInterval(passiveIncomeTicker); passiveIncomeTicker = undefined; }
-    log.info("season ended — gameplay tickers stopped");
-  };
   // Proactively build and cache full-vis snapshots for all subscribed players
   // immediately after season end. Tiles are frozen post-season so cached
   // snapshots stay valid indefinitely. Concurrent logins share one runtimeState
@@ -1203,7 +1130,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     const snapshot = useWorkerBuild
       ? await snapshotBuildPool!.build(playerId, runtimeState, buildOpts)
       : trackSyncMainThreadTaskWithMetrics("snapshot_materialize_inline", { playerId }, () =>
-          buildPlayerSubscriptionSnapshot(playerId, runtimeState, undefined, buildOpts));
+          buildPlayerSubscriptionSnapshot(playerId, runtimeState, buildOpts));
     recordSnapshotBuildTiming("snapshot_materialize", Date.now() - snapshotBuildStartedAt, {
       playerId,
       trigger: options?.trigger ?? "",
@@ -1315,7 +1242,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     const runtimeState = providedRuntimeState ?? await runtime.exportStateAsync(yieldToEventLoop);
     // One tile scan feeds the leaderboard, base objectives, AND every player's
     // self-progress label — reused below so tracker re-summarization doesn't rescan.
-    const worldStatus = buildWorldStatusSnapshot("", runtimeState, undefined, {
+    const worldStatus = buildWorldStatusSnapshot("", runtimeState, {
       acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms(),
       ...(options.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : {})
     });
@@ -1929,10 +1856,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           }
           return false;
         },
-        onPlayerStateUpdateSkippedAi: () => { simulationMetrics.incrementSimPlayerStateUpdateSkippedAi(); }
+        onPlayerStateUpdateSkippedAi: () => { simulationMetrics.incrementSimPlayerStateUpdateSkippedAi(); },
+        onUpkeepNettedWhileIncomePaused: () => { simulationMetrics.incrementSimUpkeepNettedWhileIncomePaused(); }
       });
       const nextRuntimeState = nextRuntime.exportState();
-      const nextWorldStatus = buildWorldStatusSnapshot("", nextRuntimeState, undefined, {
+      const nextWorldStatus = buildWorldStatusSnapshot("", nextRuntimeState, {
         ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
       });
       const nextSummary = buildCurrentSeasonSummary({
@@ -2335,14 +2263,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             town_population_tier?: string;
             fort_json?: string;
             observatory_json?: string;
-            siege_outpost_json?: string;
+            siege_battery_json?: string;
             economic_structure_json?: string;
             sabotage_json?: string;
             shard_site_json?: string;
             muster_json?: string; breach_shock_until?: number;
-            yield_json?: string;
             yield_rate_json?: string;
-            yield_cap_json?: string;
           }>;
           player_upkeep_json?: string;
         }
@@ -2569,6 +2495,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       watchtowerRevealTicker = setInterval(() => {
         if (currentSeasonState.status === "ended") return;
         runtime.tickWatchtowerReveals(Date.now());
+        runtime.tickAetherShields(Date.now()); // bounded per-tick work inside -- aether-shield/aether-shield-tick.ts
       }, 1_000);
       let passiveIncomeRunning = false;
       passiveIncomeTicker = setInterval(() => {
@@ -2583,7 +2510,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         // Async with per-player yields — cachedEconomySnapshot can rebuild
         // O(settledTiles) per player on cache miss (after territory mutations).
         // Running all 6 players back-to-back synchronously was a 15s stall risk.
-        void runtime.applyPassiveIncomeAsync(Date.now(), 24 * 60 * 60 * 1000, yieldToEventLoop) // kept in sync with OFFLINE_YIELD_ACCUM_MAX_MS (game-domain) — docs/replenishment-update-plan.md D4
+        void runtime.applyPassiveIncomeAsync(Date.now(), yieldToEventLoop) // 24h inactivity cap: PASSIVE_INCOME_INACTIVITY_CAP_MS, docs/replenishment-update-plan.md D4
           .catch((error) => { log.error({ err: error }, "passive income tick failed"); })
           .finally(() => { passiveIncomeRunning = false; });
       }, 15_000);

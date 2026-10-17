@@ -100,12 +100,22 @@ const reachSetId = (reach: Set<string> | undefined): number => {
 };
 
 /**
+ * The server-reach half of `reachCacheKey`: changes only when a REACH_UPDATE
+ * is applied or the server reach is cleared, never on a plain tile change.
+ * The 3D renderer keys its terrain-rebuild trigger on this rather than the
+ * full cache key, because tilesRevision moves on any tile change anywhere on
+ * the known map and the 3D rebuild deliberately ignores out-of-window ones.
+ */
+export const serverReachKey = (state: Pick<ReachAuthoritativeState, "serverReach" | "serverReachRevision">): string =>
+  `${state.serverReachRevision}:${reachSetId(state.serverReach)}`;
+
+/**
  * Cache key for "what is my reach right now": changes whenever the tiles the
  * local approximation scans change, or the server's reach set is replaced or
  * cleared. Shared by the 2D loop, the 3D rebuild and `resolveMyReachCached`.
  */
 export const reachCacheKey = (state: Pick<ReachCacheState, "tilesRevision" | "serverReach" | "serverReachRevision">): string =>
-  `${state.tilesRevision}:${state.serverReachRevision}:${reachSetId(state.serverReach)}`;
+  `${state.tilesRevision}:${serverReachKey(state)}`;
 
 /**
  * `resolveMyReach`, memoised on `state.myReach` / `state.myReachRevisionAtCompute`.

@@ -1,7 +1,9 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 // 2026.10.12 release entries, moved out of client-changelog-data.ts to keep
-// that file under the repo's 500-line cap (AGENTS.md).
+// that file under the repo's 500-line cap (AGENTS.md). The machinery and
+// hydroponic-farm entries from that release live in
+// client-changelog-structure-art-october.ts.
 export const CLIENT_CHANGELOG_ENTRIES_OCT_12: ClientChangelogEntry[] = [
   {
     createdAt: 1791803592000, // frozen Date.now() value for this release
@@ -29,19 +31,5 @@ export const CLIENT_CHANGELOG_ENTRIES_OCT_12: ClientChangelogEntry[] = [
       "Your Manifests are grouped by branch as buttons; tap one to see what it gave you",
       "Rigging Works Module now lists the Umbrite Rig it unlocks"
     ]
-  },
-  {
-    createdAt: 1791827518951, // Date.now() captured once for this release.
-    introducedIn: "2026.10.12.1",
-    title: "Building machinery waits for construction to finish",
-    why: "Fully visible moving parts could start running while their 3D building was still being built.",
-    changes: ["Moving parts on 3D buildings stay still during construction and removal, then animate when complete"]
-  },
-  {
-    createdAt: 1791830000000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.12.1",
-    title: "Farmsteads are now hydroponic farms",
-    why: "The Farmstead's barn-and-silo art didn't convey the advanced farming upgrade it represents.",
-    changes: ["Farmsteads now appear as a glowing hydroponic glass dome, with the matching overlay on the 2D map"]
   }
 ];

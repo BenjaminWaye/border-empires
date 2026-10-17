@@ -30,6 +30,7 @@ export const buildUpdatePayloads = (
         truceBreaksThisSeason: snapshot.truceBreaksThisSeason,
         incomingTruceRequests: snapshot.incomingTruceRequests,
         outgoingTruceRequests: snapshot.outgoingTruceRequests,
+        offerCooldowns: snapshot.offerCooldowns,
         ...(truceAnnouncementByPlayerId?.[playerId] ? { announcement: truceAnnouncementByPlayerId[playerId] } : {})
       }
     ]);

@@ -22,8 +22,8 @@ import {
   type ObservatoryRangeBorderGeometryInputs
 } from "../client-map-3d-observatory-range/client-map-3d-observatory-range.js";
 import {
-  FOUNDRY_RADIUS,
-  WATERWORKS_RADIUS,
+  ORE_REFINERY_RADIUS,
+  HYDROWORKS_RADIUS,
   placementRadius,
   tileIsPlacementBeneficiary
 } from "../client-structure-effects/client-structure-effects.js";
@@ -34,7 +34,7 @@ import type { Tile, TileVisibilityState } from "../client-types.js";
 
 const RANGE_RISE_ABOVE_HEIGHTFIELD = 0.012;
 const BENEFICIARY_RISE_ABOVE_HEIGHTFIELD = 0.014;
-const MAX_PLACEMENT_RADIUS = Math.max(WATERWORKS_RADIUS, FOUNDRY_RADIUS);
+const MAX_PLACEMENT_RADIUS = Math.max(HYDROWORKS_RADIUS, ORE_REFINERY_RADIUS);
 const MAX_BENEFICIARY_TILES = (MAX_PLACEMENT_RADIUS * 2 + 1) ** 2;
 
 export type PlacementOverlaySyncDeps = {
@@ -59,8 +59,8 @@ export type PlacementRangeOverlay = {
 
 // Renders the building-placement radius ring (yellow when valid, red when
 // invalid) plus a green highlight on every tile within radius that would
-// benefit from the structure being placed (MINE tiles for Foundry,
-// FARMSTEAD tiles for Waterworks). A Relay Beacon gets its reach-radius ring
+// benefit from the structure being placed (MINE tiles for Ore Refinery,
+// HYDROGARDEN tiles for Hydroworks). A Relay Beacon gets its reach-radius ring
 // here too, with its new-reach tint drawn by
 // client-map-3d-beacon-placement-overlay.ts. Beneficiary highlighting is bounded to
 // MAX_BENEFICIARY_TILES (441 at the current largest radius, 10) regardless
@@ -105,7 +105,7 @@ export const createPlacementRangeOverlay = (scene: Scene): PlacementRangeOverlay
 
   const syncBeneficiaryHighlights = (
     deps: PlacementOverlaySyncDeps,
-    structureType: "WATERWORKS" | "FOUNDRY",
+    structureType: "HYDROWORKS" | "ORE_REFINERY",
     centerX: number,
     centerY: number,
     radius: number
@@ -151,7 +151,7 @@ export const createPlacementRangeOverlay = (scene: Scene): PlacementRangeOverlay
     const radius =
       structureType === "AFC" ? 0.5 : structureType === "RELAY_BEACON" ? REACH_RADIUS_BY_KIND.OUTPOST : placementRadius(structureType);
 
-    if (structureType === "WATERWORKS" || structureType === "FOUNDRY") syncBeneficiaryHighlights(deps, structureType, x, y, radius);
+    if (structureType === "HYDROWORKS" || structureType === "ORE_REFINERY") syncBeneficiaryHighlights(deps, structureType, x, y, radius);
 
     marker.material = valid ? validMaterial : invalidMaterial;
     fill.material = valid ? validFillMaterial : invalidFillMaterial;

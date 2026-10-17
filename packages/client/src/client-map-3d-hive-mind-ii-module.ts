@@ -69,9 +69,6 @@ import {
 } from "three";
 import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 import {
-  HMM2_BRIDGE,
-  HMM2_CONDUIT,
-  HMM2_CORE,
   HMM2_GIMBAL,
   HMM2_GIMBAL_SPINE,
   HMM2_POD,
@@ -167,7 +164,6 @@ export const createHiveMindIiModuleOverlay = (scene: Scene, maxInstances: number
   const yAxis = new Vector3(0, 1, 0);
   const zAxis = new Vector3(0, 0, 1);
   const qHoleUp = new Quaternion().setFromUnitVectors(zAxis, yAxis);
-  const qRoll = new Quaternion();
   const ringQuat = new Quaternion();
 
   const addPiece = (key: string, wx: number, sy: number, wz: number, ox: number, oy: number, oz: number, sx = 1, sz = 1, sy2 = 1, rotY = 0, rotX = 0, rotZ = 0): void => {

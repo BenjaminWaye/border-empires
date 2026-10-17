@@ -17,7 +17,7 @@ export const converterStructureInfoView = (
   costBitsFor: (key: StructureInfoKey) => string[],
   buildTimeLabelFor: (key: StructureInfoKey) => string
 ): StructureInfoView | undefined => {
-  if (type === "UMBRITE_SYNTHESIZER") {
+  if (type === "UMBRITE_WORKS") {
     return structure({
       title: "Umbrite Works",
       detail: "Umbrite Works can point either way: Refine (30 coin/day upkeep) supplies +1 UMBRITE slot; Sell off instead occupies 1 UMBRITE slot for 8 coin per day. A 60-minute cooldown gates flipping direction.",
@@ -27,7 +27,7 @@ export const converterStructureInfoView = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "ADVANCED_UMBRITE_SYNTHESIZER") {
+  if (type === "HIGH_YIELD_UMBRITE_WORKS") {
     return structure({
       title: "High-Yield Umbrite Works",
       detail: "High-Yield Umbrite Works upgrade an existing Umbrite Works: Refine (45 coin/day upkeep) supplies +1 UMBRITE slot; Sell off instead occupies 1 UMBRITE slot for 12 coin per day. Same 60-minute flip cooldown.",
@@ -47,7 +47,7 @@ export const converterStructureInfoView = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "ADVANCED_TITANIUM_WORKS") {
+  if (type === "HIGH_YIELD_TITANIUM_WORKS") {
     return structure({
       title: "High-Yield Titanium Works",
       detail: "High-Yield Titanium Works upgrade an existing Titanium Works: Refine (45 coin/day upkeep) supplies +1 TITANIUM slot; Sell off instead occupies 1 TITANIUM slot for 12 coin per day. Same 60-minute flip cooldown.",
@@ -57,7 +57,7 @@ export const converterStructureInfoView = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "CRYSTAL_SYNTHESIZER") {
+  if (type === "AETHER_CONDENSER") {
     return structure({
       title: "Aether Condenser",
       detail: "Aether Condensers can point either way: Refine (40 coin/day upkeep) supplies +1 CRYSTAL slot; Sell off instead occupies 1 CRYSTAL slot for 10 coin per day. A 60-minute cooldown gates flipping direction.",
@@ -67,7 +67,7 @@ export const converterStructureInfoView = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "ADVANCED_CRYSTAL_SYNTHESIZER") {
+  if (type === "HIGH_YIELD_AETHER_CONDENSER") {
     return structure({
       title: "High-Yield Aether Condenser",
       detail: "High-Yield Aether Condensers upgrade an existing Aether Condenser: Refine (60 coin/day upkeep) supplies +1 CRYSTAL slot; Sell off instead occupies 1 CRYSTAL slot for 15 coin per day. Same 60-minute flip cooldown.",

@@ -15,9 +15,9 @@ import {
   BASE_SLOTS_BY_TILE_RESOURCE,
   TILE_SLOT_BOOST_STRUCTURES,
   townFoodSlotDemandForTier,
-  governorsOfficeFoodSlotWaiver,
-  WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS,
-  FOUNDRY_MINE_SLOT_BONUS,
+  ministryHallFoodSlotWaiver,
+  HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS,
+  ORE_REFINERY_MINE_SLOT_BONUS,
   structureSlotRequirements,
   observatoryCrystalSlotCostForOwnedCount,
   converterModeOf, isSlotSourceConverter,
@@ -26,7 +26,7 @@ import {
   type SlotStructureType,
   type StructureSlotRequirement
 } from "@border-empires/shared";
-import { WATERWORKS_RADIUS, FOUNDRY_RADIUS, GOVERNORS_OFFICE_RADIUS } from "@border-empires/game-domain";
+import { HYDROWORKS_RADIUS, ORE_REFINERY_RADIUS, MINISTRY_HALL_RADIUS } from "@border-empires/game-domain";
 import { withinRadiusOfAnyKey } from "../tile-yield-view/tile-yield-view.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 
@@ -54,7 +54,7 @@ export type SlotWaivers = {
   // Fortress Realm "extends" Dwarf Kingdom's exemption rather than stacking
   // with it (§23.2), so combine multiple sources via max, not sum.
   fortTitaniumSlotWaiverCount: number;
-  // Supply State — the player's first N Siege Outposts (any tier, earliest
+  // Supply State — the player's first N Siege Batteries (any tier, earliest
   // build-order first) need zero UMBRITE slots. A Siege Tower/Dread Tower's
   // separate TITANIUM requirement is untouched by this waiver.
   outpostUmbriteSlotWaiverCount: number;
@@ -91,18 +91,18 @@ const noWaiversConfigured = (waivers: SlotWaivers): boolean =>
 
 /**
  * Slot supply from a player's owned, settled tiles: base + boost slots from
- * real resource tiles (§5.2's table, same-tile Farmstead +2/Mine/Camp +1, the
- * Waterworks-radius Farmstead bonus from §5.3, and the Foundry-radius Mine
+ * real resource tiles (§5.2's table, same-tile Hydrogarden +2/Mine/Camp +1, the
+ * Hydroworks-radius Hydrogarden bonus from §5.3, and the Ore-Refinery-radius Mine
  * bonus from §12), PLUS each active SYNTHESIZE-mode converter's own +1 slot
  * of its resource (§6.4: "a synthesizer provides exactly 1 slot of its
  * resource... so a landlocked player *can* build the one Fort/etc. that
  * needs it" — a SYNTHESIZE-mode converter is a supply *source* standing in
  * for a resource tile the player doesn't have, not a consumer; see the
  * "doesn't sit on a real resource tile" comment on SYNTHESIZER_STRUCTURE_TYPES
- * in structure-slots.ts). `waterworksKeys`/`foundryKeys` should both come from
+ * in structure-slots.ts). `hydroworksKeys`/`oreRefineryKeys` should both come from
  * `radiusStructureKeysForSettledTiles` over the same player's settled tiles
  * (shared with the legacy yield view so both can never disagree on "which
- * Waterworks/Foundries are active").
+ * Hydroworks/Ore Refineries are active").
  *
  * §6.4's former "hard-capped at 1 per family, forever" rule was removed by
  * the converter-mode-flip plan (docs/plans/2026-08-06-converter-mode-flip.md
@@ -114,8 +114,8 @@ const noWaiversConfigured = (waivers: SlotWaivers): boolean =>
  */
 export const resourceSlotSupplyForPlayer = (
   settledTiles: Iterable<Pick<DomainTileState, "x" | "y" | "resource" | "economicStructure">>,
-  waterworksKeys: ReadonlySet<string> = new Set(),
-  foundryKeys: ReadonlySet<string> = new Set(),
+  hydroworksKeys: ReadonlySet<string> = new Set(),
+  oreRefineryKeys: ReadonlySet<string> = new Set(),
   domainGrantedSupply?: Partial<Record<SlotResource, number>>,
   // Agrarian Works flat FOOD-slot bonus per owned FISH tile — see techGrantedFishFoodSlotBonus (tech-domain-bridge/fish-food-slot-bonus.ts).
   fishFoodSlotBonus = 0
@@ -123,7 +123,7 @@ export const resourceSlotSupplyForPlayer = (
   // §5.4: deliberately NOT dormancy-aware, for two different reasons per
   // structure family:
   //  - Synthesizers are explicitly excluded from demand entirely (see
-  //    SYNTHESIZER_TYPE_SET below) and Farmstead/Waterworks have NO slot
+  //    SYNTHESIZER_TYPE_SET below) and Hydrogarden/Hydroworks have NO slot
   //    requirement at all (by design — both boost FOOD supply itself, so
   //    charging them FOOD would be circular: their own dormancy would zero
   //    out the very supply they exist to add). None of these three can ever
@@ -152,25 +152,25 @@ export const resourceSlotSupplyForPlayer = (
     const base = BASE_SLOTS_BY_TILE_RESOURCE[tile.resource];
     if (!base) continue;
     let slots = base.baseSlots;
-    // FARMSTEAD is now placement-legal on FARM only (structure-placement-metadata.json); this FARM-only boost check is kept as a defensive no-op for any FARMSTEAD that was built on a FISH tile before that restriction landed. FISH gets a separate tech bonus below instead.
-    const boostBlockedOnFish = structureType === "FARMSTEAD" && tile.resource !== "FARM";
+    // HYDROGARDEN is now placement-legal on FARM only (structure-placement-metadata.json); this FARM-only boost check is kept as a defensive no-op for any HYDROGARDEN that was built on a FISH tile before that restriction landed. FISH gets a separate tech bonus below instead.
+    const boostBlockedOnFish = structureType === "HYDROGARDEN" && tile.resource !== "FARM";
     const boost = structureType && !boostBlockedOnFish ? TILE_SLOT_BOOST_STRUCTURES[structureType] : undefined;
     if (boost) slots += boost;
     if (tile.resource === "FISH" && fishFoodSlotBonus > 0) slots += fishFoodSlotBonus;
     if (
-      structureType === "FARMSTEAD" &&
+      structureType === "HYDROGARDEN" &&
       tile.resource === "FARM" &&
-      waterworksKeys.size > 0 &&
-      withinRadiusOfAnyKey(tile.x, tile.y, waterworksKeys, WATERWORKS_RADIUS)
+      hydroworksKeys.size > 0 &&
+      withinRadiusOfAnyKey(tile.x, tile.y, hydroworksKeys, HYDROWORKS_RADIUS)
     ) {
-      slots += WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS;
+      slots += HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS;
     }
     if (
       structureType === "MINE" &&
-      foundryKeys.size > 0 &&
-      withinRadiusOfAnyKey(tile.x, tile.y, foundryKeys, FOUNDRY_RADIUS)
+      oreRefineryKeys.size > 0 &&
+      withinRadiusOfAnyKey(tile.x, tile.y, oreRefineryKeys, ORE_REFINERY_RADIUS)
     ) {
-      slots += FOUNDRY_MINE_SLOT_BONUS;
+      slots += ORE_REFINERY_MINE_SLOT_BONUS;
     }
     totals[base.slotResource] += slots;
   }
@@ -185,7 +185,7 @@ export const resourceSlotSupplyForPlayer = (
 
 /**
  * Slot demand from every structure a player currently owns across their
- * territory (settled AND frontier — Siege Outposts can sit on unsettled
+ * territory (settled AND frontier — Siege Batteries can sit on unsettled
  * tiles). Counts a structure regardless of status (under_construction /
  * active / inactive / removing): per §5.1 it occupies its slot for its
  * whole lifetime, from build start to the moment removal actually
@@ -208,7 +208,7 @@ export const resourceSlotSupplyForPlayer = (
  */
 type WaivableTile = Pick<
   DomainTileState,
-  "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "town" | "ownerId" | "ownershipState" | "naturalWonder"
+  "fort" | "observatory" | "siegeBattery" | "economicStructure" | "town" | "ownerId" | "ownershipState" | "naturalWonder"
 > &
   Partial<Pick<DomainTileState, "x" | "y">>;
 
@@ -216,7 +216,7 @@ type WaivableTile = Pick<
 // resourceSlotDormantContributorsForPlayer (per-contributor dormancy sets) so
 // the two can never disagree on which structures exist or how a §23.2 waiver
 // reduces their demand — the exact duplicate-logic risk this codebase has
-// hit before (Customs House/toDomainTile, the Fort/Siege upkeep bug).
+// hit before (Harbor Exchange/toDomainTile, the Fort/Siege upkeep bug).
 const buildDemandContributors = (
   ownedTiles: Iterable<WaivableTile>,
   playerId: string,
@@ -226,24 +226,24 @@ const buildDemandContributors = (
   const contributors: DormancyContributor[] = [];
   // Track which economicStructure keys are RELAY_BEACON for waiver identification below.
   const relayBeaconKeys: Record<string, boolean> = {};
-  // Ministry Hall (GOVERNORS_OFFICE, tech-tree redesign): collect this
-  // player's own active Governors Office coordinates first so the town loop
+  // Ministry Hall (MINISTRY_HALL, tech-tree redesign): collect this
+  // player's own active Ministry Hall coordinates first so the town loop
   // below can check radius membership in O(1) per town (small array — this
   // is a rare, late-game structure).
-  const governorsOfficeCoords: Array<{ x: number; y: number }> = [];
+  const ministryHallCoords: Array<{ x: number; y: number }> = [];
   for (const tile of ownedTiles) {
     if (
       tile.economicStructure?.ownerId === playerId &&
-      tile.economicStructure.type === "GOVERNORS_OFFICE" &&
+      tile.economicStructure.type === "MINISTRY_HALL" &&
       tile.economicStructure.status === "active" &&
       typeof tile.x === "number" &&
       typeof tile.y === "number"
     ) {
-      governorsOfficeCoords.push({ x: tile.x, y: tile.y });
+      ministryHallCoords.push({ x: tile.x, y: tile.y });
     }
   }
-  const townNearGovernorsOffice = (x: number, y: number): boolean =>
-    governorsOfficeCoords.some((office) => Math.max(Math.abs(office.x - x), Math.abs(office.y - y)) <= GOVERNORS_OFFICE_RADIUS);
+  const townNearMinistryHall = (x: number, y: number): boolean =>
+    ministryHallCoords.some((office) => Math.max(Math.abs(office.x - x), Math.abs(office.y - y)) <= MINISTRY_HALL_RADIUS);
   const addContributor = (tileKey: string, field: DormancyContributorField, type: SlotStructureType, activatedAt: number): void => {
     for (const req of structureSlotRequirements(type)) {
       const key = `${tileKey}:${field}`;
@@ -261,8 +261,8 @@ const buildDemandContributors = (
     if (tile.observatory?.ownerId === playerId && tile.observatory.status !== "inactive" && tile.naturalWonder?.type !== "WATCHTOWER_ENGINE") {
       addContributor(tileKey, "observatory", "OBSERVATORY" as SlotStructureType, tile.observatory.activatedAt ?? 0);
     }
-    if (tile.siegeOutpost?.ownerId === playerId) {
-      addContributor(tileKey, "siegeOutpost", (tile.siegeOutpost.variant ?? "SIEGE_OUTPOST") as SlotStructureType, tile.siegeOutpost.activatedAt ?? 0);
+    if (tile.siegeBattery?.ownerId === playerId) {
+      addContributor(tileKey, "siegeBattery", (tile.siegeBattery.variant ?? "SIEGE_BATTERY") as SlotStructureType, tile.siegeBattery.activatedAt ?? 0);
     }
     if (tile.economicStructure?.ownerId === playerId && tile.economicStructure.inactiveReason !== "manual") {
       const mode = converterModeOf(tile.economicStructure);
@@ -274,8 +274,8 @@ const buildDemandContributors = (
     if (tile.town && tile.ownerId === playerId && tile.ownershipState === "SETTLED") {
       const baseFoodDemand = townFoodSlotDemandForTier(tile.town.populationTier);
       const ministryHallWaiver =
-        typeof tile.x === "number" && typeof tile.y === "number" && townNearGovernorsOffice(tile.x, tile.y)
-          ? governorsOfficeFoodSlotWaiver(tile.town.populationTier)
+        typeof tile.x === "number" && typeof tile.y === "number" && townNearMinistryHall(tile.x, tile.y)
+          ? ministryHallFoodSlotWaiver(tile.town.populationTier)
           : 0;
       contributors.push({
         key: `${tileKey}:town`,
@@ -291,7 +291,7 @@ const buildDemandContributors = (
 
 // User decision: each additional Observatory a player owns costs progressively
 // more CRYSTAL upkeep — 1st = 1 slot, 2nd = 2, 3rd = 3, and so on (earliest
-// build-order first, same tie-break convention as the Fort/Siege Outpost
+// build-order first, same tie-break convention as the Fort/Siege Battery
 // waivers above). Overwrites the flat count=1 that addContributor above
 // stamped from structureSlotRequirements("OBSERVATORY") — mutates in place
 // since these are the same contributor objects already pushed into the array.
@@ -305,7 +305,7 @@ const applyObservatoryProgressiveCost = (contributors: DormancyContributor[]): v
 };
 
 const applySlotWaivers = (contributors: DormancyContributor[], waivers: SlotWaivers, relayBeaconKeys: Record<string, boolean> = {}): DormancyContributor[] => {
-  const waiveEarliestStructures = (fieldSuffix: ":fort" | ":siegeOutpost", waiveCount: number): ReadonlySet<string> => {
+  const waiveEarliestStructures = (fieldSuffix: ":fort" | ":siegeBattery", waiveCount: number): ReadonlySet<string> => {
     if (waiveCount <= 0) return new Set();
     const activatedAtByKey = new Map<string, number>();
     for (const c of contributors) {
@@ -317,7 +317,7 @@ const applySlotWaivers = (contributors: DormancyContributor[], waivers: SlotWaiv
     return new Set(keys.slice(0, waiveCount));
   };
   const waivedForts = waiveEarliestStructures(":fort", waivers.fortTitaniumSlotWaiverCount);
-  const waivedOutposts = waiveEarliestStructures(":siegeOutpost", waivers.outpostUmbriteSlotWaiverCount);
+  const waivedOutposts = waiveEarliestStructures(":siegeBattery", waivers.outpostUmbriteSlotWaiverCount);
 
   // RELAY_BEACON waiver: find economicStructure keys that contain RELAY_BEACON
   // and waive the earliest ones. Track by tile key (deduplicate per-tile) with
@@ -346,7 +346,7 @@ const applySlotWaivers = (contributors: DormancyContributor[], waivers: SlotWaiv
 
   return contributors.map((c) => {
     if (c.key.endsWith(":fort") && c.resource === "TITANIUM" && waivedForts.has(c.key)) return { ...c, count: 0 };
-    if (c.key.endsWith(":siegeOutpost") && c.resource === "UMBRITE" && waivedOutposts.has(c.key)) return { ...c, count: 0 };
+    if (c.key.endsWith(":siegeBattery") && c.resource === "UMBRITE" && waivedOutposts.has(c.key)) return { ...c, count: 0 };
     if (c.key.endsWith(":economicStructure") && relayBeaconKeys[c.key] && c.resource === "FOOD" && waivedRelayBeacons.has(c.key)) return { ...c, count: 0 };
     if (c.key.endsWith(":town")) {
       const waiver = Math.max(waivers.allTownsFoodSlotWaiverPerTown, firstWaivedTownKeys.has(c.key) ? 1 : 0);
@@ -372,7 +372,7 @@ export const resourceSlotDemandForPlayer = (
 /**
  * The slot requirement already being contributed by whatever currently
  * occupies `tileField` on `target` (owned by `playerId`). Builds that
- * upgrade a structure in place (Fort/Siege tier ladders; the granary
+ * upgrade a structure in place (Fort/Siege tier ladders; the incubation engine
  * Advanced-tier pair) overwrite that tile field with a new
  * "under_construction" record for the *new* tier in the same command that
  * starts the build (see handleBuildStructureCommand), so the old tier's
@@ -409,7 +409,7 @@ export const resourceSlotDemandForPlayer = (
 // (fixed activatedAt 0). Omitting settledAtByTileKey (reconnect/cold path,
 // which doesn't track per-tile settlement stamps) falls back to that old
 // pinned-oldest activatedAt of 0 rather than guessing a timestamp.
-export type DormancyContributorField = "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "town";
+export type DormancyContributorField = "fort" | "observatory" | "siegeBattery" | "economicStructure" | "town";
 export type ResourceSlotDormancy = Record<SlotResource, ReadonlySet<string>>;
 
 const TOWN_FOOD_DEMAND_ACTIVATED_AT = 0;
@@ -482,15 +482,15 @@ export const dormantStructureDetailsFromDormancy = (dormancy: ResourceSlotDorman
 };
 
 export const currentTileFieldSlotRequirements = (
-  target: Pick<DomainTileState, "fort" | "siegeOutpost" | "economicStructure">,
-  tileField: "fort" | "observatory" | "siegeOutpost" | "economicStructure",
+  target: Pick<DomainTileState, "fort" | "siegeBattery" | "economicStructure">,
+  tileField: "fort" | "observatory" | "siegeBattery" | "economicStructure",
   playerId: string
 ): StructureSlotRequirement[] => {
   if (tileField === "fort" && target.fort?.ownerId === playerId) {
     return structureSlotRequirements((target.fort.variant ?? "FORT") as SlotStructureType);
   }
-  if (tileField === "siegeOutpost" && target.siegeOutpost?.ownerId === playerId) {
-    return structureSlotRequirements((target.siegeOutpost.variant ?? "SIEGE_OUTPOST") as SlotStructureType);
+  if (tileField === "siegeBattery" && target.siegeBattery?.ownerId === playerId) {
+    return structureSlotRequirements((target.siegeBattery.variant ?? "SIEGE_BATTERY") as SlotStructureType);
   }
   if (tileField === "economicStructure" && target.economicStructure?.ownerId === playerId) {
     return structureSlotRequirements(target.economicStructure.type as SlotStructureType);

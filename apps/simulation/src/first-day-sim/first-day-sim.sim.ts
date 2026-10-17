@@ -150,7 +150,7 @@ it("first-day sim", async () => {
     const aiTick = elapsedMin < 120 ? 250 : 2_000;
     if (clock.now >= nextAi) { await ai.tick(); nextAi += aiTick; }
     if (clock.now >= nextHuman) { if (online()) await human.tick(); nextHuman += 1_000; }
-    if (clock.now >= next15) { await runtime.applyPassiveIncomeAsync(clock.now, 24 * HOUR, yieldNow); next15 += 15_000; }
+    if (clock.now >= next15) { await runtime.applyPassiveIncomeAsync(clock.now, yieldNow); next15 += 15_000; }
     if (clock.now >= next30) { await runtime.tickTerritoryAutomation(clock.now, yieldNow); next30 += 30_000; }
     if (clock.now >= next60) { runtime.tickPopulationGrowth(clock.now); await runtime.tickTileShedding(clock.now, yieldNow); next60 += 60_000; }
     if (clock.now >= nextSpend) { trackSpend(); nextSpend += 5_000; }

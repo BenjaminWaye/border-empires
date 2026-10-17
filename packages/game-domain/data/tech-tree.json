@@ -12,7 +12,7 @@
       },
       "researchTimeSeconds": 3600,
       "effects": {
-        "unlockFarmstead": true
+        "unlockHydrogarden": true
       },
       "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
@@ -60,7 +60,7 @@
       "researchTimeSeconds": 3600,
       "effects": {
         "unlockUmbriteRig": true,
-        "unlockSiegeOutposts": true,
+        "unlockSiegeBatteries": true,
         "unlockUmbriteWeaponsFactory": true,
         "revealResource": "umbrite"
       },
@@ -77,7 +77,7 @@
       },
       "researchTimeSeconds": 28800,
       "effects": {
-        "unlockGarrisonHall": true
+        "unlockAncillaryDepot": true
       },
       "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
@@ -94,7 +94,7 @@
       "effects": {
         "unlockObservatory": true,
         "unlockAetherLance": true,
-        "unlockCrystalSynthesizer": true,
+        "unlockAetherCondenser": true,
         "revealResource": "crystal"
       },
       "manifestCategory": "AFC_MODULE"
@@ -131,7 +131,7 @@
       },
       "researchTimeSeconds": 7200,
       "effects": {
-        "unlockWaterworksUpgrade": true
+        "unlockHydroworksUpgrade": true
       },
       "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
@@ -149,7 +149,7 @@
       },
       "researchTimeSeconds": 14400,
       "effects": {
-        "unlockGranary": true
+        "unlockIncubationEngine": true
       },
       "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
@@ -167,7 +167,7 @@
       },
       "researchTimeSeconds": 7200,
       "effects": {
-        "unlockUmbriteSynthesizer": true
+        "unlockUmbriteWorks": true
       },
       "manifestCategory": "AFC_MODULE"
     },
@@ -185,8 +185,8 @@
       },
       "researchTimeSeconds": 14400,
       "effects": {
-        "unlockCaravanary": true,
-        "unlockCustomsHouse": true
+        "unlockTradeNexus": true,
+        "unlockHarborExchange": true
       },
       "manifestCategory": "CHARTER_WARRANT"
     },
@@ -294,7 +294,7 @@
       },
       "researchTimeSeconds": 28800,
       "effects": {
-        "unlockFoundry": true
+        "unlockOreRefinery": true
       },
       "manifestCategory": "CHARTER_WARRANT"
     },
@@ -312,7 +312,7 @@
       },
       "researchTimeSeconds": 54000,
       "effects": {
-        "unlockGovernorsOffice": true
+        "unlockMinistryHall": true
       },
       "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
@@ -402,7 +402,7 @@
       },
       "researchTimeSeconds": 54000,
       "effects": {
-        "unlockRailDepot": true
+        "unlockNeuralWorks": true
       },
       "manifestCategory": "AFC_MODULE"
     },
@@ -420,7 +420,7 @@
       },
       "researchTimeSeconds": 28800,
       "effects": {
-        "unlockAssemblyWorks": true
+        "unlockReserveLattice": true
       },
       "manifestCategory": "AFC_MODULE"
     },
@@ -438,7 +438,7 @@
       },
       "researchTimeSeconds": 28800,
       "effects": {
-        "unlockLogisticsGuild": true
+        "unlockAncillaryFactory": true
       },
       "manifestCategory": "AFC_MODULE"
     },
@@ -456,7 +456,7 @@
       },
       "researchTimeSeconds": 86400,
       "effects": {
-        "unlockPopulationBureau": true
+        "unlockCensusDirectorate": true
       },
       "manifestCategory": "DOSSIER"
     },
@@ -475,36 +475,18 @@
       "researchTimeSeconds": 86400,
       "effects": {
         "unlockTitaniumLevy": true,
-        "unlockAetherTower": true
+        "unlockAmbaricTransformer": true
       },
       "manifestCategory": "DOSSIER"
     },
     {
-      "id": "surveying",
-      "tier": 2,
-      "branch": "aether",
-      "name": "Echo-Reader Crew",
-      "description": "Imported specialists who use the local Crystal lattice as a sounding board. Unlocks Survey Sweep, revealing hidden towns, Titanium, Gems, and Umbrite.",
-      "prereqIds": [
-        "crystal-lattices"
-      ],
-      "cost": {
-        "gold": 10
-      },
-      "researchTimeSeconds": 14400,
-      "effects": {
-        "unlockSurveySweep": true
-      },
-      "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
-    },
-    {
       "id": "cryptography",
-      "tier": 2,
+      "tier": 5,
       "branch": "aether",
       "name": "Counterphase Core Module",
-      "description": "AFC module: signal-disruption apparatus for offensive aether use. Unlocks Aether EMP.",
+      "description": "AFC module: signal-disruption apparatus for offensive aether use. Unlocks Aether EMP, which knocks out enemy Ambaric Transformers and every structure they power.",
       "prereqIds": [
-        "crystal-lattices"
+        "radar"
       ],
       "cost": {
         "gold": 10
@@ -540,7 +522,7 @@
       "name": "Aetherward Coil Module",
       "description": "AFC module: coil-and-pylon apparatus that projects a defensive aether field over a port. Unlocks Aether Wall.",
       "prereqIds": [
-        "cryptography"
+        "navigation"
       ],
       "cost": {
         "gold": 10
@@ -571,30 +553,31 @@
     },
     {
       "id": "beacon-towers",
-      "tier": 3,
+      "tier": 2,
       "branch": "aether",
       "name": "Augury Office",
-      "description": "Imported Unblinking Dial, locally cut lenses, and trained Dial Augurs. Unlocks Reveal Empire and Reveal Stats.",
+      "description": "Imported Unblinking Dial, locally cut lenses, and trained Dial Augurs who read the local Crystal lattice. Unlocks Survey Sweep, revealing hidden towns, Titanium, Gems, and Umbrite, plus Reveal Empire and Reveal Stats.",
       "prereqIds": [
-        "surveying"
+        "crystal-lattices"
       ],
       "cost": {
         "gold": 10
       },
       "researchTimeSeconds": 28800,
       "effects": {
+        "unlockSurveySweep": true,
         "unlockRevealEmpire": true
       },
       "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
     {
       "id": "navigation",
-      "tier": 4,
+      "tier": 2,
       "branch": "aether",
       "name": "Tideway Lattice Module",
       "description": "AFC module: resonant anchor-piles tuned to local tides. Unlocks Aether Bridge.",
       "prereqIds": [
-        "harborcraft"
+        "crystal-lattices"
       ],
       "cost": {
         "gold": 10
@@ -612,7 +595,7 @@
       "name": "Stratospheric Dockyard Module",
       "prereqIds": [
         "beacon-towers",
-        "cryptography",
+        "navigation",
         "terrain-engineering"
       ],
       "description": "AFC module: storm charts, landing corridors, and power routing for this world's skies. Unlocks Sky Dock.",
@@ -621,8 +604,8 @@
       },
       "researchTimeSeconds": 86400,
       "effects": {
-        "unlockAirport": true,
-        "unlockAetherTower": true
+        "unlockSkyDock": true,
+        "unlockAmbaricTransformer": true
       },
       "manifestCategory": "AFC_MODULE"
     },
@@ -632,8 +615,7 @@
       "branch": "aether",
       "name": "Resonance Grid Module",
       "prereqIds": [
-        "aeronautics",
-        "cryptography"
+        "aeronautics"
       ],
       "description": "AFC module: sensor apparatus tuned to this planet's aether interference. Unlocks Resonance Grid, which denies enemy aerial bombardment in its radius.",
       "cost": {
@@ -641,8 +623,8 @@
       },
       "researchTimeSeconds": 86400,
       "effects": {
-        "unlockRadarSystem": true,
-        "unlockAetherTower": true
+        "unlockResonanceGrid": true,
+        "unlockAmbaricTransformer": true
       },
       "manifestCategory": "AFC_MODULE"
     },
@@ -655,7 +637,7 @@
         "alchemy",
         "workshops"
       ],
-      "description": "AFC module: manufactures sealed catalyst hearts for this planet's converters. Unlocks Advanced Umbrite Works, Advanced Titanium Works, and Advanced Aether Condensers (20% more output, retaining their higher Coin refining cost).",
+      "description": "AFC module: manufactures sealed catalyst hearts for this planet's converters. Unlocks Advanced Umbrite Works, High Yield Titanium Works, and Advanced Aether Condensers (20% more output, retaining their higher Coin refining cost).",
       "cost": {
         "gold": 10
       },
@@ -680,7 +662,7 @@
       "researchTimeSeconds": 86400,
       "effects": {
         "unlockImperialExchange": true,
-        "unlockAetherTower": true
+        "unlockAmbaricTransformer": true
       },
       "manifestCategory": "DOSSIER"
     },
@@ -698,9 +680,9 @@
       },
       "researchTimeSeconds": 86400,
       "effects": {
-        "unlockWorldEngine": true,
-        "unlockWorldEngineStrike": true,
-        "unlockAetherTower": true
+        "unlockSovereignSiegeEngine": true,
+        "unlockSovereignSiegeEngineStrike": true,
+        "unlockAmbaricTransformer": true
       },
       "manifestCategory": "DOSSIER"
     },
@@ -720,7 +702,7 @@
       "effects": {
         "unlockAegisDome": true,
         "unlockAegisLock": true,
-        "unlockAetherTower": true
+        "unlockAmbaricTransformer": true
       },
       "manifestCategory": "DOSSIER"
     },
@@ -740,7 +722,7 @@
       "effects": {
         "unlockAstralDock": true,
         "unlockAstralDockLaunch": true,
-        "unlockAetherTower": true
+        "unlockAmbaricTransformer": true
       },
       "manifestCategory": "DOSSIER"
     },

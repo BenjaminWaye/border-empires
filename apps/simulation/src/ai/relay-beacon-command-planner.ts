@@ -70,7 +70,7 @@ const UNEXPLORED_TILE_COVERAGE_WEIGHT = 4;
 // a trump card over an empire's actual economic survival.
 const UNEXPLORED_TILE_SAMPLE_CAP = 4;
 
-// Statuses under which an owned RELAY_BEACON or siege outpost should count
+// Statuses under which an owned RELAY_BEACON or siege battery should count
 // as "claiming" its reach box. "under_construction" is included deliberately
 // — that's the entire point of this exclusion (see currentReachTileKeys'
 // doc comment below): a beacon that hasn't gone active yet still WILL claim
@@ -91,11 +91,11 @@ const REACH_ANCHOR_SCAN_CAP = 4000;
 
 /**
  * Every tile within this player's REAL, currently-held reach — from every
- * TOWN, DOCK, and OUTPOST-kind (RELAY_BEACON, siege outpost) anchor they
+ * TOWN, DOCK, and OUTPOST-kind (RELAY_BEACON, siege battery) anchor they
  * own, not just RELAY_BEACON. This is the actual border EXPAND/SETTLE are
  * legal inside (packages/shared/src/reach/reach.ts's fixed-border model):
  * TOWN_REACH_RADIUS (3) around a town, DOCK_REACH_RADIUS (1) around a dock,
- * OUTPOST_REACH_RADIUS (5) around a beacon/siege outpost — NOT simply
+ * OUTPOST_REACH_RADIUS (5) around a beacon/siege battery — NOT simply
  * "Chebyshev distance 1 from any owned tile", which was an earlier, wrong
  * approximation of this: a resource 2-3 tiles from a town is already
  * legally EXPAND-able (inside TOWN_REACH_RADIUS) even though it isn't
@@ -153,7 +153,7 @@ const currentReachTileKeys = (
       for (const key of tileKeysInReach(anchor)) claimed.add(key);
       if (beacon.status === "under_construction") pendingOutposts.push({ x: tile.x, y: tile.y });
     }
-    const siege = tile.siegeOutpost;
+    const siege = tile.siegeBattery;
     if (siege?.ownerId === playerId && siege.status && BEACON_OVERLAP_CLAIMING_STATUSES.has(siege.status)) {
       const anchor: ReachAnchor = { x: tile.x, y: tile.y, ownerId: playerId, activatedAt: 0, kind: "OUTPOST" };
       for (const key of tileKeysInReach(anchor)) claimed.add(key);
@@ -253,10 +253,10 @@ const estimateNewReachCoverage = (
  * fixed-borders-via-reach plan). RELAY_BEACON is an EconomicStructureType
  * that lives on `economicStructure` (Phase 1 debt, see
  * packages/shared/src/structure-registry-outpost.ts), so this mirrors
- * chooseBestEconomicBuild's candidate shape, not chooseBestSiegeOutpostBuild's
+ * chooseBestEconomicBuild's candidate shape, not chooseBestSiegeBatteryBuild's
  * — but the *placement rule* (owned + SETTLED, no tech gate) and *scoring
  * approach* (score candidates by new-territory coverage near the reach
- * frontier) follow the plan's "build_siege_outpost-style action" template.
+ * frontier) follow the plan's "build_siege_battery-style action" template.
  *
  * Candidates may be owned+SETTLED **or** owned+FRONTIER. RELAY_BEACON_SPEC's
  * placement list requires SETTLED (tileIsSettled + ownerOwnsTile,
@@ -300,7 +300,7 @@ const FRONTIER_BEACON_SITE_PENALTY = 40;
 const PENDING_OUTPOST_OVERLAP_DISTANCE = OUTPOST_REACH_RADIUS * 2;
 
 // currentReachTileKeys' `pendingOutposts` covers this player's own
-// RELAY_BEACON/siege-outpost tiles still `under_construction` — reach
+// RELAY_BEACON/siege-battery tiles still `under_construction` — reach
 // they're about to project but don't yet, so its `claimed` set (which only
 // counts active + under_construction reach as *already claimed* for scoring
 // purposes) can still let a second, mostly-redundant beacon score well:
@@ -332,6 +332,7 @@ export const chooseBestRelayBeaconBuild = (
   let best: { tile: StructurePlannerTile; score: number; needsSettle: boolean; siteValue: number } | undefined;
   for (const tile of candidateTiles) {
     if (tile.ownerId !== player.id || tile.terrain !== "LAND") continue;
+    if (player.blockedActionKeys?.has(`BUILD_ECONOMIC_STRUCTURE:${tile.x},${tile.y}:RELAY_BEACON`)) continue;
     const isSettled = tile.ownershipState === "SETTLED";
     const needsSettle = tile.ownershipState === "FRONTIER";
     if (!isSettled && !needsSettle) continue;
@@ -343,7 +344,7 @@ export const chooseBestRelayBeaconBuild = (
     if (needsSettle && !reachLookup) continue;
     if (needsSettle && !((tile.town || tile.dockId) || reachLookup?.isInReach(player.id, tile.x, tile.y))) continue;
     if (!tileOpenForStructure(tile)) continue;
-    // Wait for a same-player beacon/siege outpost still under construction
+    // Wait for a same-player beacon/siege battery still under construction
     // nearby to finish rather than starting a second one whose reach will
     // overlap it once both are built — see overlapsPendingOutpost's doc.
     if (overlapsPendingOutpost(tile, pendingOutposts)) continue;
@@ -354,7 +355,7 @@ export const chooseBestRelayBeaconBuild = (
     const newCoverage = estimateNewReachCoverage(player.id, tile, tilesByKey, reachTileKeys);
     // A candidate whose OWN tile already sits inside this player's current
     // reach (from a town, dock, or another active/under-construction beacon
-    // or siege outpost) is normal and expected — that's simply ground the
+    // or siege battery) is normal and expected — that's simply ground the
     // empire already holds, and building further out from it is exactly how
     // beacons chain. But when such a candidate's only "new" coverage is
     // already-known plain land (no confirmed valuable target and no fresh fog

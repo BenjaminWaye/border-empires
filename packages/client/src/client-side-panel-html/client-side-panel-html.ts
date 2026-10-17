@@ -1,5 +1,6 @@
 import { MANPOWER_REFILL_WINDOW_MS } from "@border-empires/shared";
-import { formatRefillCountdown, msUntilManpowerFull } from "../client-manpower-gauge/client-manpower-refill.js";
+import { formatHoursMinutes, msUntilManpowerFull } from "../client-manpower-gauge/client-manpower-refill.js";
+import { manpowerInfoHtml, manpowerNextBatchHtml } from "../client-manpower-panel-info/client-manpower-panel-info.js";
 import type { LeaderboardOverallEntry } from "../client-types.js";
 
 export type ManpowerPanelMusterFlag = {
@@ -130,7 +131,6 @@ export const renderManpowerPanelHtml = (args: {
   musterFlags: ManpowerPanelMusterFlag[];
   formatManpowerAmount: (value: number) => string;
   rateToneClass: (rate: number) => string;
-  formatDuration: (ms: number) => string;
   /** Epoch ms of the player's next refill (client-manpower-refill.ts); undefined before the player id is known. */
   nextRefillAtMs?: number | undefined;
 }): string => {
@@ -139,8 +139,12 @@ export const renderManpowerPanelHtml = (args: {
   const regen = args.manpowerRegenPerMinute;
   // Regen lands once per refill window, so show what a batch pays rather than a per-minute rate that never visibly ticks.
   const regenText = `+${Math.round(Math.max(0, regen) * (MANPOWER_REFILL_WINDOW_MS / 60_000))} per batch`;
-  const fullStatusText = manpowerFullStatusText(args.manpower, args.manpowerCap, args.manpowerRegenPerMinute, args.formatDuration, args.nextRefillAtMs);
-  const nextRefillText = args.nextRefillAtMs !== undefined && args.manpower < args.manpowerCap && regen > 0 ? `Next batch in ${formatRefillCountdown(args.nextRefillAtMs - Date.now())}.` : "";
+  // The callout already says "Full" / "Paused"; the footnote only adds how long until the cap, in hours and minutes rather than raw minutes.
+  // Skipped until the refill schedule is known, like the callout, rather than guessing a full window away.
+  const fullEtaText =
+    args.nextRefillAtMs !== undefined && args.manpower < args.manpowerCap && regen > 0
+      ? manpowerFullStatusText(args.manpower, args.manpowerCap, regen, formatHoursMinutes, args.nextRefillAtMs)
+      : "";
   const sectionHtml = (
     title: string,
     lines: Array<{ label: string; amount: number; note?: string }>
@@ -165,8 +169,9 @@ export const renderManpowerPanelHtml = (args: {
           </div>
           <div class="economy-rate ${args.rateToneClass(regen)}">${regenText}</div>
         </div>
-        <div class="economy-footnote manpower-full-eta">${fullStatusText}${nextRefillText ? ` ${nextRefillText}` : ""}</div>
-        <div class="economy-footnote">Manpower gates attacks. Regeneration is paid out as one batch every ${MANPOWER_REFILL_WINDOW_MS / 3_600_000} hours rather than ticking up. Fed towns raise cap and regeneration. Recently captured towns contribute less until they stabilize.</div>
+        ${manpowerNextBatchHtml({ manpower: args.manpower, manpowerCap: args.manpowerCap, manpowerRegenPerMinute: regen, nextRefillAtMs: args.nextRefillAtMs })}
+        ${fullEtaText ? `<div class="economy-footnote manpower-full-eta">${fullEtaText}</div>` : ""}
+        ${manpowerInfoHtml()}
       </section>
       ${sectionHtml("Cap modifiers", args.manpowerBreakdown.cap)}
       ${sectionHtml("Regen modifiers (per minute)", args.manpowerBreakdown.regen)}

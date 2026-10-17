@@ -88,8 +88,6 @@ const bind = (state: any, ws: FakeWebSocket) => {
     clearSettlementProgressByKey: vi.fn(),
     formatCooldownShort: vi.fn(() => "1s"),
     reconcileActionQueue: vi.fn(),
-    revertOptimisticTileCollectDelta: vi.fn(),
-    clearPendingCollectTileDelta: vi.fn(),
     playerNameForOwner: vi.fn(),
     applyOptimisticTileState: vi.fn()
   } as any);
@@ -938,8 +936,6 @@ describe("client gateway sync regression", () => {
       clearSettlementProgressByKey: vi.fn(),
       formatCooldownShort: vi.fn(() => "1s"),
       reconcileActionQueue: vi.fn(),
-      revertOptimisticTileCollectDelta: vi.fn(),
-      clearPendingCollectTileDelta: vi.fn(),
       playerNameForOwner: vi.fn(),
       applyOptimisticTileState: vi.fn()
     } as any);
@@ -1020,8 +1016,6 @@ describe("client gateway sync regression", () => {
       clearSettlementProgressByKey: vi.fn(),
       formatCooldownShort: vi.fn(() => "1s"),
       reconcileActionQueue: vi.fn(),
-      revertOptimisticTileCollectDelta: vi.fn(),
-      clearPendingCollectTileDelta: vi.fn(),
       playerNameForOwner: vi.fn(),
       applyOptimisticTileState: vi.fn()
     } as any);
@@ -1261,8 +1255,6 @@ describe("client gateway sync regression", () => {
       clearSettlementProgressByKey: vi.fn(),
       formatCooldownShort: vi.fn(() => "1s"),
       reconcileActionQueue: vi.fn(),
-      revertOptimisticTileCollectDelta: vi.fn(),
-      clearPendingCollectTileDelta: vi.fn(),
       playerNameForOwner: vi.fn(),
       applyOptimisticTileState: vi.fn()
     } as any);
@@ -1435,7 +1427,7 @@ describe("client gateway sync regression", () => {
             ownerId: "player-1",
             ownershipState: "SETTLED",
             townType: "FARMING",
-            townName: "Remote Granary",
+            townName: "Remote Incubation Engine",
             townPopulationTier: "TOWN"
           },
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }

@@ -20,6 +20,13 @@ export const formatRefillCountdown = (ms: number): string => {
   return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
 };
 
+/** Always hours and minutes ("0h 19m", "2h 0m", "12h 19m") for the manpower panel; "<1m" once the batch is due. */
+export const formatHoursMinutes = (ms: number): string => {
+  const totalMinutes = Math.ceil(Math.max(0, ms) / 60_000);
+  if (totalMinutes < 1) return "<1m";
+  return `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
+};
+
 /**
  * Time until manpower reaches the cap, counting whole refills. Each refill is
  * estimated at a full window of regen; the first one can be a little smaller if

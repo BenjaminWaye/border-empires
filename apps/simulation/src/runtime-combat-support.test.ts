@@ -74,14 +74,14 @@ describe("attackerOutpostMult", () => {
     };
   }
 
-  it("still grants the attack bonus from a siege outpost sitting on a FRONTIER (unsettled) tile", () => {
+  it("still grants the attack bonus from a siege battery sitting on a FRONTIER (unsettled) tile", () => {
     const context = makeOutpostContext({
       x: 10,
       y: 10,
       terrain: "LAND",
       ownerId: ATTACKER_ID,
       ownershipState: "FRONTIER",
-      siegeOutpost: { ownerId: ATTACKER_ID, status: "active", variant: "SIEGE_OUTPOST" }
+      siegeBattery: { ownerId: ATTACKER_ID, status: "active", variant: "SIEGE_BATTERY" }
     });
 
     // Target within the outpost's aura radius (chebyshev distance 4 <= 5).
@@ -108,7 +108,7 @@ describe("buildLockedCombatResolution against a FRONTIER (undefended) target", (
       locksByTile: new CombatLockIndex(),
       locksByCommandId: new Map(),
       barbarianTileProgress: new Map(),
-      summaryForPlayer: () => ({ settledTileCount: 1 }) as ReturnType<RuntimeCombatSupportContext["summaryForPlayer"]>,
+      summaryForPlayer: () => ({ settledTileCount: 1, territoryTileKeys: new Set() }) as ReturnType<RuntimeCombatSupportContext["summaryForPlayer"]>,
       replaceTileState: () => {},
       tileDeltaFromState: (tile) => ({ x: tile.x, y: tile.y }),
       tileDeltaRevealOnly: (tile) => ({ x: tile.x, y: tile.y }),
@@ -144,6 +144,59 @@ describe("buildLockedCombatResolution against a FRONTIER (undefended) target", (
     });
 
     expect(resolution?.result.attackerWon).toBe(true);
+  });
+
+  // Regression: a freshly captured dock lands as FRONTIER, and FRONTIER was
+  // always a guaranteed capture -- the previous owner retook it for free.
+  // Inside its capture-hold window it now rolls real combat instead.
+  it("rolls real combat against a FRONTIER tile still inside its capture-hold window", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "FRONTIER", dockId: "dock-1", captureHoldUntil: 60_000 }]
+    ]);
+    const context = makeContext(tiles, 100);
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.99);
+
+    const resolution = buildLockedCombatResolution(context, {
+      actionType: "ATTACK",
+      commandId: "attack-1",
+      playerId: ATTACKER_ID,
+      manpowerCost: 15,
+      originKey: ORIGIN_KEY,
+      originX: 5,
+      originY: 5,
+      targetX: 6,
+      targetY: 5,
+      targetKey: TARGET_KEY
+    });
+    random.mockRestore();
+
+    expect(resolution?.result.winChance).toBeCloseTo(0.5, 5);
+    expect(resolution?.result.attackerWon).toBe(false);
+    expect(resolution?.defendedFrontier).toBe(true);
+  });
+
+  it("is a guaranteed capture again once the capture-hold window has expired", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "FRONTIER", captureHoldUntil: -1 }]
+    ]);
+    const context = makeContext(tiles, 100);
+
+    const resolution = buildLockedCombatResolution(context, {
+      actionType: "ATTACK",
+      commandId: "attack-1",
+      playerId: ATTACKER_ID,
+      manpowerCost: 15,
+      originKey: ORIGIN_KEY,
+      originX: 5,
+      originY: 5,
+      targetX: 6,
+      targetY: 5,
+      targetKey: TARGET_KEY
+    });
+
+    expect(resolution?.result.winChance).toBe(1);
+    expect(resolution?.result.attackerWon).toBe(true);
+    expect(resolution?.defendedFrontier).toBeUndefined();
   });
 });
 

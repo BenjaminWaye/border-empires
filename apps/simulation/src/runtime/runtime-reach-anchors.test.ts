@@ -30,7 +30,7 @@ describe("AFC reach anchors", () => {
       playerSummaries: new Map([["player-1", summary]]),
       tiles,
       activeRelayBeaconsByOwner: new Map(),
-      activeSiegeOutpostsByOwner: new Map(),
+      activeSiegeBatteriesByOwner: new Map(),
       docks: [],
       tileSettledAtByKey: new Map(),
       now: 1000
@@ -48,7 +48,7 @@ describe("AFC reach anchors", () => {
       playerSummaries: new Map([["player-1", summary]]),
       tiles,
       activeRelayBeaconsByOwner: new Map(),
-      activeSiegeOutpostsByOwner: new Map(),
+      activeSiegeBatteriesByOwner: new Map(),
       docks: [],
       tileSettledAtByKey: new Map(),
       now: 1000
@@ -90,7 +90,7 @@ describe("barbarian-owned tiles hold no reach anchors", () => {
       playerSummaries: new Map(),
       tiles: new Map(),
       activeRelayBeaconsByOwner: new Map(),
-      activeSiegeOutpostsByOwner: new Map(),
+      activeSiegeBatteriesByOwner: new Map(),
       docks: [],
       tileSettledAtByKey: new Map(),
       now: 1000,
@@ -115,7 +115,7 @@ describe("barbarian-owned tiles hold no reach anchors", () => {
     expect(anchors.map((anchor) => anchor.ownerId)).toEqual(["player-1"]);
   });
 
-  it("gatherReachAnchors skips barbarian-owned beacons, siege outposts and docks", () => {
+  it("gatherReachAnchors skips barbarian-owned beacons, siege batteries and docks", () => {
     const tiles = new Map<string, DomainTileState>([
       ["20,20", { x: 20, y: 20, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" }],
       ["21,20", { x: 21, y: 20, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" }],
@@ -124,7 +124,7 @@ describe("barbarian-owned tiles hold no reach anchors", () => {
     const anchors = gather({
       tiles,
       activeRelayBeaconsByOwner: new Map([["barbarian-1", new Set(["20,20"])]]),
-      activeSiegeOutpostsByOwner: new Map([["barbarian-1", new Set(["21,20"])]]),
+      activeSiegeBatteriesByOwner: new Map([["barbarian-1", new Set(["21,20"])]]),
       docks: [{ dockId: "dock-1", tileKey: "22,20", pairedDockId: "dock-2", connectedDockIds: [] }]
     });
     expect(anchors).toEqual([]);

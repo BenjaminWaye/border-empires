@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { WORLD_WIDTH } from "@border-empires/shared";
-import type { Tile } from "../client-types.js";
+import { isDockRouteVisibleForPlayer } from "../client-dock-routes.js";
+import type { DockPair, Tile } from "../client-types.js";
 import { makeFakeCtx } from "./client-minimap.test-helpers.js";
 
 let miniMapTownMarkerPalette: typeof import("./client-minimap.js").miniMapTownMarkerPalette;
@@ -39,8 +40,8 @@ const townTile = (isFed: boolean): Tile => ({
     connectedTownBonus: 0,
     hasMintworks: false,
     mintworksActive: false,
-    hasGranary: false,
-    granaryActive: false,
+    hasIncubationEngine: false,
+    incubationEngineActive: false,
   }
 });
 
@@ -91,7 +92,6 @@ describe("drawMiniMap fog rendering", () => {
       tileVisibilityStateAt: (x) => (x < WORLD_WIDTH / 2 ? "unexplored" : "visible"),
       effectiveOverlayColor: () => "#ffffff",
       isDockRouteVisibleForPlayer: () => false,
-      hasCollectableYield: () => false,
       replayCurrentEvent: () => undefined
     });
 
@@ -112,7 +112,11 @@ const ownershipTile = (overrides: Partial<Tile>): Tile => ({
   ...overrides
 });
 
-const drawMiniMapWithTiles = (contentCtx: ReturnType<typeof makeFakeCtx>, tiles: Map<string, Tile>): void => {
+const drawMiniMapWithTiles = (
+  contentCtx: ReturnType<typeof makeFakeCtx>,
+  tiles: Map<string, Tile>,
+  docks?: { pairs: DockPair[]; visible: (pair: DockPair) => boolean }
+): void => {
   const w = 64;
   const h = 64;
   const ctx = makeFakeCtx();
@@ -132,7 +136,7 @@ const drawMiniMapWithTiles = (contentCtx: ReturnType<typeof makeFakeCtx>, tiles:
       replayOwnershipByTile: new Map(),
       fogDisabled: false,
       tiles,
-      dockPairs: [],
+      dockPairs: docks?.pairs ?? [],
       shardRainPingsByTile: new Map(),
       shardRainStatus: undefined,
       tilesRevision: 0
@@ -153,8 +157,7 @@ const drawMiniMapWithTiles = (contentCtx: ReturnType<typeof makeFakeCtx>, tiles:
     keyFor: (x, y) => `${x},${y}`,
     tileVisibilityStateAt: () => "visible",
     effectiveOverlayColor: () => "#3366cc",
-    isDockRouteVisibleForPlayer: () => false,
-    hasCollectableYield: () => false,
+    isDockRouteVisibleForPlayer: docks?.visible ?? (() => false),
     replayCurrentEvent: () => undefined
   });
 };
@@ -205,8 +208,8 @@ describe("drawMiniMap live ownership tint", () => {
 
 describe("miniMapTownMarkerPalette", () => {
   it("does not use a red warning outer marker for unfed towns", () => {
-    const fed = miniMapTownMarkerPalette(townTile(true), false);
-    const unfed = miniMapTownMarkerPalette(townTile(false), false);
+    const fed = miniMapTownMarkerPalette(townTile(true));
+    const unfed = miniMapTownMarkerPalette(townTile(false));
     expect(unfed.outer).toBe(fed.outer);
     expect(unfed.outer).toBe("rgba(6, 10, 18, 0.86)");
   });
@@ -280,7 +283,6 @@ describe("drawMiniMap shard rain ping rendering", () => {
       tileVisibilityStateAt: () => "visible",
       effectiveOverlayColor: () => "#ffffff",
       isDockRouteVisibleForPlayer: () => false,
-      hasCollectableYield: () => false,
       replayCurrentEvent: () => undefined
     });
     return contentCtx;
@@ -322,5 +324,28 @@ describe("drawMiniMap shard rain ping rendering", () => {
     // 100), not the left edge (x close to 0) that the raw, non-wrapping pixel position would
     // clamp to.
     expect(contentCtx.translateCalls[0]!.x).toBeGreaterThan(50);
+  });
+});
+
+
+describe("dock destination minimap discovery", () => {
+  it("keeps hidden links dark on selection and lights them after authoritative discovery", () => {
+    const pair = { ax: 10, ay: 10, bx: 12, by: 10 };
+    const tiles = new Map([["10,10", ownershipTile({ dockId: "a", ownerId: "enemy", ownershipState: "SETTLED" })]]);
+    const deps = {
+      fogDisabled: false, selected: { x: 10, y: 10 }, discoveredDockTiles: new Set(["10,10"]),
+      keyFor: (x: number, y: number): string => `${x},${y}`
+    };
+    const docks = { pairs: [pair], visible: (route: DockPair) => isDockRouteVisibleForPlayer(route, deps) };
+    const before = makeFakeCtx();
+    drawMiniMapWithTiles(before, tiles, docks);
+    expect(before.fillRectCalls.filter((call) => call.style === "rgba(127, 238, 255, 0.9)")).toHaveLength(0);
+
+    tiles.set("10,10", ownershipTile({ dockId: "a", ownerId: "me", ownershipState: "SETTLED" }));
+    tiles.set("12,10", ownershipTile({ x: 12, dockId: "b" }));
+    deps.discoveredDockTiles.add("12,10");
+    const after = makeFakeCtx();
+    drawMiniMapWithTiles(after, tiles, docks);
+    expect(after.fillRectCalls.filter((call) => call.style === "rgba(127, 238, 255, 0.9)")).toHaveLength(2);
   });
 });

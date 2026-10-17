@@ -54,6 +54,7 @@ describe("social state", () => {
     expect(social.snapshotForPlayer("player-1").outgoingAllianceRequests).toHaveLength(0);
     expect(social.snapshotForPlayer("player-2").incomingAllianceRequests).toHaveLength(0);
 
+    nowMs += 30 * 60_000 + 1;
     const secondRequest = social.requestAlliance("player-1", "Valka");
     expect(secondRequest.ok).toBe(true);
     const secondRequestId = social.snapshotForPlayer("player-1").outgoingAllianceRequests[0]?.id;
@@ -61,6 +62,7 @@ describe("social state", () => {
     expect(social.cancelAlliance("player-1", secondRequestId!).ok).toBe(true);
     expect(social.snapshotForPlayer("player-1").outgoingAllianceRequests).toHaveLength(0);
 
+    nowMs += 30 * 60_000 + 1;
     const acceptedRequest = social.requestAlliance("player-1", "Valka");
     expect(acceptedRequest.ok).toBe(true);
     const acceptedRequestId = social.snapshotForPlayer("player-2").incomingAllianceRequests[0]?.id;
@@ -156,7 +158,7 @@ describe("social state", () => {
     expect(expiredRequestId).toBeUndefined();
     expect(social.acceptTruce("player-3", "missing-request").ok).toBe(false);
 
-    currentTime = 10_000;
+    currentTime += 30 * 60_000 + 1;
     const acceptedRequest = social.requestTruce("player-1", "Valka", 24);
     expect(acceptedRequest.ok).toBe(true);
     const acceptedRequestId = social.snapshotForPlayer("player-2").incomingTruceRequests[0]?.id;

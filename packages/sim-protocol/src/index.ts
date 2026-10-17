@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { DurableCommandTypeSchema, type DurableCommandType } from "@border-empires/client-protocol";
-import type { ChosenTrickleResource, FrontierDecayKind, PlayerRespawnNotice, SlotResource, VisibilityState, WaypointWireStep } from "@border-empires/shared";
 import {
   ACCEPTANCE_RESOLUTION_COMMAND_TYPES as ACCEPTANCE_RESOLUTION_COMMAND_TYPES_UNTYPED,
   RECONNECT_COMMAND_TYPES as RECONNECT_COMMAND_TYPES_UNTYPED,
@@ -12,8 +11,7 @@ import type {
   SeasonLifecycleStatus,
   SeasonStats,
   SeasonVictoryObjectiveSnapshot,
-  SeasonWinnerSnapshot,
-  SimulationSeasonState
+  SeasonWinnerSnapshot
 } from "./season-state-types/season-state-types.js";
 
 // DEV_QUEUE_*/WAYPOINT_* now live on DurableCommandTypeSchema itself (see
@@ -23,6 +21,8 @@ const SimulationCommandTypeSchema = z.union([
   DurableCommandTypeSchema,
   z.literal("SYNC_ALLIANCE"),
   z.literal("SYNC_TRUCE"),
+  // Gateway-issued: moves the coin/Shards a truce or alliance deal promised (runtime-diplomacy-settlement-command.ts).
+  z.literal("SETTLE_DIPLOMACY_TERMS"),
   z.literal("WATCH_MUSTER"),
   z.literal("UNWATCH_MUSTER"),
   // Gateway-forwarded, never persisted: releases stranded frontier tiles in the chunk a player is viewing.
@@ -208,3 +208,4 @@ export * from "./snapshot-diagnostics/snapshot-diagnostics.js";
 export * from "./subscription-snapshot-merge/subscription-snapshot-merge.js";
 export * from "./admin-diagnostics-types.js";
 export * from "./reconnect-passthrough-fields/reconnect-passthrough-fields.js";
+export * from "./tile-overlay-fields/tile-overlay-fields.js";

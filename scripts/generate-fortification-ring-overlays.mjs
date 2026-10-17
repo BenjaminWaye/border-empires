@@ -15,8 +15,8 @@ const families = {
     metal: "#786f62",
     rivet: "#d2c3a6"
   },
-  SIEGE_OUTPOST: {
-    prefix: "siege-outpost-ring-overlay",
+  SIEGE_BATTERY: {
+    prefix: "siege-battery-ring-overlay",
     style: "siege",
     outer: "#5c3f27",
     inner: "#a27544",
@@ -26,8 +26,8 @@ const families = {
     metal: "#6f6558",
     rivet: "#ead4a5"
   },
-  WOODEN_FORT: {
-    prefix: "wooden-fort-ring-overlay",
+  PALISADE: {
+    prefix: "palisade-ring-overlay",
     style: "wood",
     outer: "#694622",
     inner: "#a77543",
@@ -319,7 +319,7 @@ const relayBeaconSvg = () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0
 </svg>
 `;
 
-const siegeOutpostSvg = () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+const siegeBatterySvg = () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
     <filter id="shadow" x="-24%" y="-24%" width="148%" height="148%">
       <feDropShadow dx="0" dy="1.15" stdDeviation="1.1" flood-color="#2e1c10" flood-opacity="0.42"/>
@@ -361,7 +361,7 @@ const svgFor = (family, opening) => {
 };
 
 mkdirSync(outputDir, { recursive: true });
-const ringFamilies = ["FORT", "WOODEN_FORT"];
+const ringFamilies = ["FORT", "PALISADE"];
 for (const family of ringFamilies) {
   for (const opening of Object.keys(openings)) {
     const filename = `${families[family].prefix}-${openings[opening]}.svg`;
@@ -369,4 +369,4 @@ for (const family of ringFamilies) {
   }
 }
 writeFileSync(resolve(outputDir, "relay-beacon-overlay.svg"), relayBeaconSvg());
-writeFileSync(resolve(outputDir, "siege-outpost-overlay.svg"), siegeOutpostSvg());
+writeFileSync(resolve(outputDir, "siege-battery-overlay.svg"), siegeBatterySvg());

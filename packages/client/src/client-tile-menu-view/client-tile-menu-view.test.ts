@@ -16,7 +16,7 @@ const settledSupportTile = (
   ownershipState: "SETTLED",
   economicStructure: {
     ownerId: "me",
-    type: "UMBRITE_SYNTHESIZER",
+    type: "UMBRITE_WORKS",
     status,
     ...(disabledUntil !== undefined ? { disabledUntil } : {}),
     ...(inactiveReason !== undefined ? { inactiveReason } : {})
@@ -89,14 +89,14 @@ describe("menuOverviewForTile", () => {
           connectedTownBonus: 0,
           hasMintworks: true,
           mintworksActive: true,
-          hasGranary: false,
-          granaryActive: false,
+          hasIncubationEngine: false,
+          incubationEngineActive: false,
           townModifierTotals: [
             {
               heading: "6 Mintworks",
               modifiers: [
-                { statLabel: "Gold", valueText: "+6", tone: "positive" },
-                { statLabel: "Gold production", valueText: "+210%", tone: "positive" }
+                { statLabel: "Coin", valueText: "+6", tone: "positive" },
+                { statLabel: "Coin production", valueText: "+210%", tone: "positive" }
               ]
             }
           ]
@@ -111,11 +111,11 @@ describe("menuOverviewForTile", () => {
     const goldProductionLine = lines[groupIndex + 2];
     expect(goldLine?.kind).toBe("effect");
     expect(goldLine?.nested).toBe(true);
-    expect(goldLine?.html).toContain("Gold:");
+    expect(goldLine?.html).toContain("Coin:");
     expect(goldLine?.html).toContain("+6");
     expect(goldProductionLine?.kind).toBe("effect");
     expect(goldProductionLine?.nested).toBe(true);
-    expect(goldProductionLine?.html).toContain("Gold production:");
+    expect(goldProductionLine?.html).toContain("Coin production:");
     expect(goldProductionLine?.html).toContain("+210%");
   });
 
@@ -144,8 +144,8 @@ describe("menuOverviewForTile", () => {
           connectedTownBonus: 0,
           hasMintworks: false,
           mintworksActive: false,
-          hasGranary: false,
-          granaryActive: false,
+          hasIncubationEngine: false,
+          incubationEngineActive: false,
         },
         yieldRate: {
           goldPerMinute: 2
@@ -168,13 +168,13 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.kind === "statgrid" && line.html.includes("Coin production"))).toBe(true);
     expect(lines.some((line) => line.html.includes("Production:"))).toBe(false);
   });
-  it("shows the natural wonder overview line, activation-gated on ownership/settlement", () => { const wonderTile = (overrides: Partial<Tile>): Tile => ({ x: 167, y: 246, terrain: "LAND", naturalWonder: { type: "DEEPWATER_ENGINE" }, ...overrides }); const html = (t: Tile) => menuOverviewForTile(t, deps).map((line) => line.html); expect(html(wonderTile({ ownerId: "me", ownershipState: "SETTLED" }))).toContain("Natural wonder: the Deepwater Engine — active. Boon: dock gold income doubled; dock-launched attacks +15% ATK."); expect(html(wonderTile({ ownerId: "me", ownershipState: "FRONTIER" }))).toContain("Natural wonder: the Deepwater Engine. Garrison this tile to activate: dock gold income doubled; dock-launched attacks +15% ATK."); expect(html(wonderTile({}))).toContain("Natural wonder: the Deepwater Engine. Boon: dock gold income doubled; dock-launched attacks +15% ATK."); });
+  it("shows the natural wonder overview line, activation-gated on ownership/settlement", () => { const wonderTile = (overrides: Partial<Tile>): Tile => ({ x: 167, y: 246, terrain: "LAND", naturalWonder: { type: "DEEPWATER_ENGINE" }, ...overrides }); const html = (t: Tile) => menuOverviewForTile(t, deps).map((line) => line.html); expect(html(wonderTile({ ownerId: "me", ownershipState: "SETTLED" }))).toContain("Natural wonder: the Deepwater Engine — active. Boon: dock coin income doubled; dock-launched attacks +15% ATK."); expect(html(wonderTile({ ownerId: "me", ownershipState: "FRONTIER" }))).toContain("Natural wonder: the Deepwater Engine. Garrison this tile to activate: dock coin income doubled; dock-launched attacks +15% ATK."); expect(html(wonderTile({}))).toContain("Natural wonder: the Deepwater Engine. Boon: dock coin income doubled; dock-launched attacks +15% ATK."); });
   // supportContributionLine (the old hand-written "X contributes to Y: ..."
   // prose) was removed — it duplicated the unified Modifiers section
   // word-for-word. A clicked Clearing House's own Mintworks gold-bonus
   // now shows only once, as a Modifier line sourced from the shared catalog,
   // spelling out both ends of the boost instead of an ambiguous bare "+25%".
-  it("shows the Clearing House Mintworks gold-bonus modifier for a clicked Clearing House (no duplicate prose)", () => { const lines = menuOverviewForTile({ x: 9, y: 9, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "CLEARING_HOUSE", status: "active" } }, { ...deps, supportedOwnedTownsForTile: () => [{ x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", town: { name: "Qadarstrand", type: "FARMING", baseGoldPerMinute: 2, supportCurrent: 5, supportMax: 5, goldPerMinute: 7.45, cap: 100, isFed: true, population: 18_977, maxPopulation: 25_000, populationTier: "TOWN", connectedTownCount: 0, connectedTownBonus: 0, hasMintworks: true, mintworksActive: true, hasGranary: true, granaryActive: true, } }] }); const html = lines.map((line) => line.html).join(" "); expect(html).toContain("Mintworks gold bonus per copy:"); expect(html).toContain("+10% → +35%"); expect(html).not.toContain("contributes to"); });
+  it("shows the Clearing House Mintworks gold-bonus modifier for a clicked Clearing House (no duplicate prose)", () => { const lines = menuOverviewForTile({ x: 9, y: 9, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "CLEARING_HOUSE", status: "active" } }, { ...deps, supportedOwnedTownsForTile: () => [{ x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", town: { name: "Qadarstrand", type: "FARMING", baseGoldPerMinute: 2, supportCurrent: 5, supportMax: 5, goldPerMinute: 7.45, cap: 100, isFed: true, population: 18_977, maxPopulation: 25_000, populationTier: "TOWN", connectedTownCount: 0, connectedTownBonus: 0, hasMintworks: true, mintworksActive: true, hasIncubationEngine: true, incubationEngineActive: true, } }] }); const html = lines.map((line) => line.html).join(" "); expect(html).toContain("Mintworks coin bonus per copy:"); expect(html).toContain("+10% → +35%"); expect(html).not.toContain("contributes to"); });
   it("falls back to zero settlement gold when snapshot detail is missing the numeric rate", () => {
     const lines = menuOverviewForTile(
       {
@@ -199,8 +199,8 @@ describe("menuOverviewForTile", () => {
           connectedTownBonus: 0,
           hasMintworks: false,
           mintworksActive: false,
-          hasGranary: false,
-          granaryActive: false,
+          hasIncubationEngine: false,
+          incubationEngineActive: false,
         },
         yieldRate: {
           goldPerMinute: 0
@@ -290,8 +290,8 @@ describe("menuOverviewForTile", () => {
           connectedTownBonus: 0,
           hasMintworks: false,
           mintworksActive: false,
-          hasGranary: false,
-          granaryActive: false,
+          hasIncubationEngine: false,
+          incubationEngineActive: false,
         }
       },
       {
@@ -337,8 +337,8 @@ describe("menuOverviewForTile", () => {
           connectedTownBonus: 0,
           hasMintworks: false,
           mintworksActive: false,
-          hasGranary: false,
-          granaryActive: false,
+          hasIncubationEngine: false,
+          incubationEngineActive: false,
         }
       },
       {
@@ -390,8 +390,8 @@ describe("menuOverviewForTile", () => {
           connectedTownBonus: 0,
           hasMintworks: false,
           mintworksActive: false,
-          hasGranary: false,
-          granaryActive: false,
+          hasIncubationEngine: false,
+          incubationEngineActive: false,
         },
         yieldRate: {
           goldPerMinute: 2
@@ -438,8 +438,8 @@ describe("menuOverviewForTile", () => {
           connectedTownBonus: 0,
           hasMintworks: false,
           mintworksActive: false,
-          hasGranary: false,
-          granaryActive: false,
+          hasIncubationEngine: false,
+          incubationEngineActive: false,
         },
         yieldRate: {
           goldPerMinute: 0
@@ -481,8 +481,8 @@ describe("menuOverviewForTile", () => {
           connectedTownBonus: 0.9,
           hasMintworks: false,
           mintworksActive: false,
-          hasGranary: false,
-          granaryActive: false,
+          hasIncubationEngine: false,
+          incubationEngineActive: false,
         },
         yieldRate: {
           goldPerMinute: 0.8
@@ -526,8 +526,8 @@ describe("menuOverviewForTile", () => {
           manpowerCap: 3_150,
           hasMintworks: false,
           mintworksActive: false,
-          hasGranary: false,
-          granaryActive: false,
+          hasIncubationEngine: false,
+          incubationEngineActive: false,
           growthModifiers: [{ label: "Long time peace", deltaPerMinute: 10 }]
         },
         yieldRate: {
@@ -648,8 +648,8 @@ describe("menuOverviewForTile", () => {
           connectedTownBonus: 0.2,
           hasMintworks: false,
           mintworksActive: false,
-          hasGranary: false,
-          granaryActive: false,
+          hasIncubationEngine: false,
+          incubationEngineActive: false,
         },
         upkeepEntries: [
           { label: "Garrisoned land", perMinute: { GOLD: 0.04 } },
@@ -697,14 +697,14 @@ describe("menuOverviewForTile", () => {
       },
       {
         ...deps,
-        areaEffectModifiersForTile: () => [{ reason: "Foundry", effect: "+100% titanium production", tone: "positive" }]
+        areaEffectModifiersForTile: () => [{ reason: "Ore Refinery", effect: "+100% titanium production", tone: "positive" }]
       }
     );
 
     expect(lines.some((line) => line.kind === "section" && line.html === "Modifiers")).toBe(true);
     expect(lines.some((line) => line.html.includes("Mine:"))).toBe(true);
     expect(lines.some((line) => line.html.includes("+1") && line.html.includes("TITANIUM slot"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("Foundry:"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Ore Refinery:"))).toBe(true);
     expect(lines.some((line) => line.html.includes("+100% titanium production"))).toBe(true);
   });
 
@@ -733,8 +733,8 @@ describe("menuOverviewForTile", () => {
           connectedTownBonus: 0.9,
           hasMintworks: false,
           mintworksActive: false,
-          hasGranary: false,
-          granaryActive: false,
+          hasIncubationEngine: false,
+          incubationEngineActive: false,
           growthModifiers: [{ label: "Long time peace", deltaPerMinute: 10 }]
         },
         dockId: "dock-1",
@@ -797,28 +797,21 @@ describe("menuOverviewForTile", () => {
         terrain: "LAND",
         ownerId: "me",
         ownershipState: "SETTLED",
-        resource: "GRAIN",
+        resource: "FARM",
         economicStructure: {
           ownerId: "me",
-          type: "FARMSTEAD",
+          type: "HYDROGARDEN",
           status: "active"
-        },
-        yieldRate: {
-          strategicPerDay: { FOOD: 75.6 }
-        },
-        yield: {
-          strategic: { FOOD: 1.75 }
-        },
-        yieldCap: {
-          gold: 0,
-          strategicEach: 6
         }
       },
       deps
     );
 
     expect(lines.some((line) => line.html.includes("once developed and collected"))).toBe(false);
-    expect(lines.some((line) => line.html.includes("Production:"))).toBe(true);
+    // Slot supply, not a per-day yield: FOOD is slot-based, tiles don't produce it daily.
+    const production = lines.find((line) => line.html.includes("Production:"));
+    expect(production?.html).toContain("Food +");
+    expect(production?.html).not.toContain("/day");
   });
 
   it("does not show stored yield for owned unfed towns", () => {
@@ -846,8 +839,8 @@ describe("menuOverviewForTile", () => {
           connectedTownBonus: 0,
           hasMintworks: false,
           mintworksActive: false,
-          hasGranary: false,
-          granaryActive: false,
+          hasIncubationEngine: false,
+          incubationEngineActive: false,
           foodUpkeepPerMinute: 0.1
         },
         yieldRate: {
@@ -889,8 +882,8 @@ describe("menuOverviewForTile", () => {
           connectedTownBonus: 0,
           hasMintworks: false,
           mintworksActive: false,
-          hasGranary: false,
-          granaryActive: false,
+          hasIncubationEngine: false,
+          incubationEngineActive: false,
           foodUpkeepPerMinute: 0.1
         },
         yieldRate: {
@@ -1047,8 +1040,8 @@ describe("menuOverviewForTile", () => {
           connectedTownBonus: 0,
           hasMintworks: false,
           mintworksActive: false,
-          hasGranary: false,
-          granaryActive: false,
+          hasIncubationEngine: false,
+          incubationEngineActive: false,
           captureShockUntil: now + 119_000
         }
       },
@@ -1096,8 +1089,8 @@ describe("menuOverviewForTile", () => {
           connectedTownBonus: 0,
           hasMintworks: false,
           mintworksActive: false,
-          hasGranary: false,
-          granaryActive: false,
+          hasIncubationEngine: false,
+          incubationEngineActive: false,
         }
       },
       {

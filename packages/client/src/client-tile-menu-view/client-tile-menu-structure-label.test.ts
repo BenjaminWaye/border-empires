@@ -13,8 +13,8 @@ const baseTile: Tile = {
 
 describe("structureKeysForTile", () => {
   it("returns the economic structure's type", () => {
-    const keys = structureKeysForTile({ ...baseTile, economicStructure: { ownerId: "me", type: "UMBRITE_SYNTHESIZER", status: "active" } });
-    expect(keys).toEqual(["UMBRITE_SYNTHESIZER"]);
+    const keys = structureKeysForTile({ ...baseTile, economicStructure: { ownerId: "me", type: "UMBRITE_WORKS", status: "active" } });
+    expect(keys).toEqual(["UMBRITE_WORKS"]);
   });
 
   it("returns the fort's variant, defaulting to FORT", () => {
@@ -34,15 +34,15 @@ describe("structureKeysForTile", () => {
   it("names a Palisade stacked on a Relay Beacon", () => {
     const tile: Tile = {
       ...baseTile,
-      fort: { ownerId: "me", status: "active", variant: "WOODEN_FORT" },
+      fort: { ownerId: "me", status: "active", variant: "PALISADE" },
       economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "active" }
     };
-    expect(structureKeysForTile(tile)).toEqual(["WOODEN_FORT", "RELAY_BEACON"]);
+    expect(structureKeysForTile(tile)).toEqual(["PALISADE", "RELAY_BEACON"]);
   });
 
   it("names a fort mid-upgrade by the tier still standing", () => {
-    const tile: Tile = { ...baseTile, fort: { ownerId: "me", status: "under_construction", variant: "FORT", upgradingFrom: "WOODEN_FORT" } };
-    expect(structureKeysForTile(tile)).toEqual(["WOODEN_FORT"]);
+    const tile: Tile = { ...baseTile, fort: { ownerId: "me", status: "under_construction", variant: "FORT", upgradingFrom: "PALISADE" } };
+    expect(structureKeysForTile(tile)).toEqual(["PALISADE"]);
   });
 
   it("returns an empty list when no structure is built", () => {

@@ -3,6 +3,7 @@
 
 import type { AutoSettlePrefs, ChosenTrickleResource, FrontierDecayKind, PlayerRespawnNotice, SlotResource, VisibilityState, WaypointWireStep } from "@border-empires/shared";
 import type { ManpowerBreakdown, SimulationSeasonState, WorldStatusSnapshot } from "./index.js";
+import type { TileOverlayJsonFields } from "./tile-overlay-fields/tile-overlay-fields.js";
 
 export type PlayerSubscriptionDock = {
   dockId: string;
@@ -36,7 +37,7 @@ export type PlayerSubscriptionSnapshot = {
       demand: Record<SlotResource, number>;
     };
     // §14.2: per-structure dormancy detail — which tile+field keys
-    // ("x,y:fort"/"observatory"/"siegeOutpost"/"economicStructure") are
+    // ("x,y:fort"/"observatory"/"siegeBattery"/"economicStructure") are
     // currently dormant, and which of their required resource(s) are short.
     // Feeds the client's greyed-out/"unpowered" structure indicator.
     dormantStructures?: Array<{ key: string; resources: SlotResource[] }>;
@@ -140,31 +141,19 @@ export type PlayerSubscriptionSnapshot = {
     frontierDecayAt?: number | undefined;
     frontierDecayKind?: FrontierDecayKind | undefined;
     breachShockUntil?: number | undefined;
+    captureHoldUntil?: number | undefined;
     townJson?: string | undefined;
     townType?: "MARKET" | "FARMING";
     townName?: string | undefined;
     townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-    fortJson?: string | undefined;
-    observatoryJson?: string | undefined;
-    siegeOutpostJson?: string | undefined;
-    economicStructureJson?: string | undefined;
-    sabotageJson?: string | undefined;
-    shardSiteJson?: string | undefined;
-    naturalWonderJson?: string | undefined;
-    watchtowerJson?: string | undefined;
-    waystationJson?: string | undefined;
-    musterJson?: string | undefined;
-    /** Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md). */
-    afcJson?: string | undefined;
+    // fortJson, musterJson, afcJson, ...: see TileOverlayJsonFields below.
     /** Fog-of-war authority tag — see VisibilityState in @border-empires/shared. */
     visibilityState?: VisibilityState | undefined;
-    yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> } | undefined;
-    yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> } | undefined;
-    yieldCap?: { gold: number; strategicEach: number } | undefined;
+    yieldRate?: { goldPerMinute?: number } | undefined;
     // Broadcast-only ghost-ownership cleanup marker (see
     // tile-delta-visibility-filter.ts). Rides on a delta only; never a
     // persisted tile field. applyTileDeltasToSnapshot uses it to avoid
     // inserting phantom non-visible tiles into the cached snapshot.
     ownershipClearOnly?: boolean | undefined;
-  }>;
+  } & TileOverlayJsonFields>;
 };

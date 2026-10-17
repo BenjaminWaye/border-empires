@@ -1,3 +1,4 @@
+import { isAiCommandOutcome } from "./ai-command-outcome.js";
 import { Worker } from "node:worker_threads";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationRuntime } from "../runtime/runtime.js";
@@ -206,11 +207,6 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   const developmentReservationsByPlayer = new Map<string, DevelopmentSlotReservation[]>();
   const rejectionCooldowns = createRejectionCooldownState();
   const actionAdmissions = createAiActionAdmissionTracker(aiPlayerIdSet);
-  // Tracks the last time a HEARTBEAT collect fired for each AI (NOT organic
-  // collects). The preplan uses this to gate the 60s heartbeat — if we
-  // shared this with organic collects (collect_for_unaffordable_progression,
-  // collect_for_active_lock, collect_for_economic_recovery), then any AI
-  // already firing organic collects every 20–40s would keep resetting the
   const urgentByPlayerId = new Set<string>();
   // Per-player last-considered timestamp — feeds the ai-tick-fairness starvation guard.
   const lastConsideredAtByPlayer = new Map<string, number>();
@@ -776,6 +772,8 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   };
 
   const stopListening = options.runtime.onEvent((event) => {
+    if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "SURVEY_SWEEP_RESULT" && aiPlayerIdSet.has(event.playerId))
+      postToWorker({ type: "survey_result", playerId: event.playerId, payloadJson: event.payloadJson });
     actionAdmissions.observe(event);
     if (event.eventType === "COMMAND_REJECTED") {
       clearDevelopmentReservation(developmentReservationsByPlayer, event.playerId, event.commandId);
@@ -837,22 +835,11 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     const trackedPreplanMatches = trackedPreplan?.playerId === event.playerId;
     if (!pendingMatches && !trackedPreplanMatches) return;
     if (
-      event.eventType === "COMMAND_REJECTED" ||
-      event.eventType === "COMBAT_RESOLVED" ||
-      event.eventType === "TILE_DELTA_BATCH" ||
-      event.eventType === "TECH_UPDATE" ||
-      event.eventType === "DOMAIN_UPDATE"
+      isAiCommandOutcome(event.eventType)
     ) {
       if (pendingMatches) pendingCommandByPlayer.delete(event.playerId);
       if (trackedPreplanMatches) trackedPreplanByCommandId.delete(event.commandId);
-      if (
-        pendingMatches &&
-        (
-          event.eventType === "COMMAND_REJECTED" ||
-          event.eventType === "COMBAT_RESOLVED" ||
-          event.eventType === "TILE_DELTA_BATCH"
-        )
-      ) {
+      if (pendingMatches && isAiCommandOutcome(event.eventType)) {
         // Release on any terminal pending event:
         //  - COMBAT_RESOLVED for ATTACK/EXPAND
         //  - TILE_DELTA_BATCH for SETTLE/BUILD_*

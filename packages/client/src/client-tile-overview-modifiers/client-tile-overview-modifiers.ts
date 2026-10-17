@@ -7,6 +7,7 @@ import type { TileOverviewLine } from "../client-tile-menu-types.js";
 import { economicStructureName, type StructureInfoKey } from "../client-map-display.js";
 import { structureKeysForTile } from "../client-tile-menu-view/client-tile-menu-structure-label.js";
 import { afcModuleOverviewLines } from "../client-afc-module-overview/client-afc-module-overview.js";
+import { formatRoughMinutes } from "../client-town-growth/client-town-growth.js";
 
 type TileOwnerKind = "unclaimed" | "mine-frontier" | "mine-settled" | "ally" | "enemy";
 
@@ -52,7 +53,7 @@ const hasActiveTownCaptureShock = (tile: Tile, nowMs = Date.now()): boolean =>
 // their catalog label — sourced from STRUCTURE_DISPLAY_NAMES (client-structure-display-names.ts),
 // the single canonical name map, rather than a second hardcoded copy.
 const SUPPORT_STRUCTURE_LABELS: Partial<Record<ModifierStructureType, string>> = {
-  GRANARY: economicStructureName("GRANARY"),
+  INCUBATION_ENGINE: economicStructureName("INCUBATION_ENGINE"),
   CLEARING_HOUSE: economicStructureName("CLEARING_HOUSE")
 };
 
@@ -64,13 +65,13 @@ const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileO
   // both fed off the same live count, so the town-center tile always showed
   // two "Gold production" lines side by side. townModifierTotals is the
   // single source of truth for town-wide aggregates now; don't duplicate it.
-  // A plain Granary (Incubation Engine) grants its instant one-time
+  // A plain Incubation Engine grants its instant one-time
   // population burst on completion PLUS a flat ongoing growth-rate
-  // multiplier (GRANARY_ONGOING_GROWTH_MULT, reintroduced 2026-08-26 — see
-  // granaryGrowthMultiplier's doc comment in game-domain for the commit
+  // multiplier (INCUBATION_ENGINE_ONGOING_GROWTH_MULT, reintroduced 2026-08-26 — see
+  // incubationEngineGrowthMultiplier's doc comment in game-domain for the commit
   // 7a51b06b "double-dip" history this revises).
-  if (tile.hasGranary && tile.granaryActive) {
-    modifiers.push(...toTileOverviewModifiers(SUPPORT_STRUCTURE_LABELS.GRANARY!, structureModifiersFor("GRANARY").filter((m) => m.statLabel === "Population growth")));
+  if (tile.hasIncubationEngine && tile.incubationEngineActive) {
+    modifiers.push(...toTileOverviewModifiers(SUPPORT_STRUCTURE_LABELS.INCUBATION_ENGINE!, structureModifiersFor("INCUBATION_ENGINE").filter((m) => m.statLabel === "Population growth")));
   }
   if (tile.hasClearingHouse && tile.clearingHouseActive) {
     modifiers.push(...toTileOverviewModifiers(SUPPORT_STRUCTURE_LABELS.CLEARING_HOUSE!, structureModifiersFor("CLEARING_HOUSE")));
@@ -86,8 +87,8 @@ const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileO
 // return [] from the catalog (no numeric effect of their own), so nothing
 // renders for them here — that's intended, not a gap.
 const FARM_RESOURCE_LABEL_OVERRIDES: Partial<Record<string, string>> = {
-  FARMSTEAD: "Hydrogarden (farm food only)",
-  WATERWORKS: "Hydroworks (radius support)"
+  HYDROGARDEN: "Hydrogarden (farm food only)",
+  HYDROWORKS: "Hydroworks (radius support)"
 };
 
 // Hydrogarden's "Farm food" and Hydroworks's "Hydrogarden food (10-tile
@@ -96,8 +97,8 @@ const FARM_RESOURCE_LABEL_OVERRIDES: Partial<Record<string, string>> = {
 // tile's actual boosted output, so they're excluded here rather than
 // repeated as a "modifier".
 const REDUNDANT_STATIC_STAT_LABELS_BY_TYPE: Partial<Record<string, string>> = {
-  FARMSTEAD: "Farm food",
-  WATERWORKS: "Hydrogarden food (10-tile radius)"
+  HYDROGARDEN: "Farm food",
+  HYDROWORKS: "Hydrogarden food (10-tile radius)"
 };
 
 const economicStructureModifiersForTile = (tile: NonNullable<Tile["economicStructure"]>): TileOverviewModifier[] => {
@@ -121,9 +122,20 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
         tone: "negative"
       });
     }
+    // Same timer-first rule as townGrowthBlocker: the war-pause timer rides
+    // every town payload, the "Nearby war" growth modifier only the full summary.
+    const warPausedUntil = tile.town.nearbyWarPausedUntil;
+    const inWarPause = !inCaptureShock && typeof warPausedUntil === "number" && warPausedUntil > nowMs;
+    if (inWarPause) {
+      modifiers.push({
+        reason: "Nearby war",
+        effect: `population growth paused, resumes in ~${formatRoughMinutes((warPausedUntil - nowMs) / 60_000)}`,
+        tone: "negative"
+      });
+    }
     if (tile.town.populationTier !== "SETTLEMENT" && tile.town.connectedTownCount > 0) {
       // connectedTownBonus is 0 whenever no town in this network has a
-      // built Caravanary yet (networkHasCaravanary gate,
+      // built Trade Nexus yet (networkHasTradeNexus gate,
       // apps/simulation/src/economy-network/economy-network.ts) — the
       // network still exists (connectedTownCount > 0) but pays nothing.
       // Surfacing that as its own neutral line, instead of staying silent,
@@ -161,7 +173,7 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
       });
     }
     for (const growth of tile.town.growthModifiers ?? []) {
-      if (inCaptureShock) continue;
+      if (inCaptureShock || (inWarPause && growth.label === "Nearby war")) continue;
       modifiers.push({
         reason: growth.label === "Long time peace" ? "Long-term peace" : growth.label,
         effect: `${growth.label === "Long time peace" ? "+100%" : "-100%"} population growth`,
@@ -211,8 +223,8 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
     const variant = defendingFortVariant(tile.fort) ?? "FORT";
     modifiers.push(...toTileOverviewModifiers(FORT_VARIANT_LABELS[variant], structureModifiersFor(variant)));
   }
-  if (tile.siegeOutpost?.status === "active") {
-    const variant = tile.siegeOutpost.variant === "SIEGE_TOWER" || tile.siegeOutpost.variant === "DREAD_TOWER" ? tile.siegeOutpost.variant : "SIEGE_OUTPOST";
+  if (tile.siegeBattery?.status === "active") {
+    const variant = tile.siegeBattery.variant === "SIEGE_TOWER" || tile.siegeBattery.variant === "DREAD_TOWER" ? tile.siegeBattery.variant : "SIEGE_BATTERY";
     const label = variant === "DREAD_TOWER" ? "Dread Tower" : variant === "SIEGE_TOWER" ? "Siege Tower" : "Siege Battery";
     modifiers.push(...toTileOverviewModifiers(label, structureModifiersFor(variant)));
   }
@@ -320,7 +332,10 @@ export const tileFeatureLeadLines = (
   const lines: TileOverviewLine[] = [];
   const structureKeys = structureKeysForTile(tile);
   if (structureKeys.length > 0) lines.push({ html: `Built: ${structureKeys.map((key) => deps.structureInfoButtonHtml(key)).join(", ")}` });
-  lines.push(...waystationOverviewLines(tile, deps));
+  lines.push(...waystationOverviewLines(tile, {
+    ...deps,
+    techName: (techId) => deps.techCatalog.find((tech) => tech.id === techId)?.name
+  }));
   const wonderLine = naturalWonderOverviewLine(tile, ownerKind);
   if (wonderLine) lines.push({ html: wonderLine });
   if (tile.shardSite) {

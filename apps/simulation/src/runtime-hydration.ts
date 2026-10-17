@@ -3,6 +3,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH, clearForestAroundAfcTiles, clearForestOnTown
 import { backfillProspectClues } from "./prospect-clue-backfill/prospect-clue-backfill.js";
 import { MANPOWER_BASE_CAP, POPULATION_MAX, type DomainTileState } from "@border-empires/game-domain";
 import { recomputeMods } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { migrateRetiredTechIds } from "./retired-tech-ids/retired-tech-ids.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import { attachDockSeaRoutes, type SeaRouteTerrainReader } from "./dock-network/dock-sea-routes.js";
@@ -46,7 +47,7 @@ export const createPlayersFromRecoveredState = (
   if (!initialState?.players || initialState.players.length === 0) return undefined;
   return new Map(
     initialState.players.map((player) => {
-      const techIds = new Set(player.techIds ?? []);
+      const techIds = migrateRetiredTechIds(player.techIds ?? []);
       const domainIds = new Set(player.domainIds ?? []);
       return [
         player.id,
@@ -163,10 +164,11 @@ const createTilesFromInitialStateUncleared = (
       ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
       ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
       ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
+      ...(typeof tile.captureHoldUntil === "number" ? { captureHoldUntil: tile.captureHoldUntil } : {}),
       ...(hydratedTown ? { town: hydratedTown } : {}),
       ...(tile.fort ? { fort: tile.fort } : {}),
       ...(tile.observatory ? { observatory: tile.observatory } : {}),
-      ...(tile.siegeOutpost ? { siegeOutpost: tile.siegeOutpost } : {}),
+      ...(tile.siegeBattery ? { siegeBattery: tile.siegeBattery } : {}),
       ...(tile.economicStructure ? { economicStructure: tile.economicStructure } : {}),
       // Phase 4 activation point: when tile.structure is present it is the
       // authoritative unified field written by the Phase-4 runtime. Replace
@@ -215,7 +217,8 @@ const parseRecoveredCombatResolution = (combatResolutionJson?: string): LockedCo
     if (parsed.result) return {
       result: parsed.result,
       defenderGoldLoss: typeof parsed.defenderGoldLoss === "number" ? parsed.defenderGoldLoss : 0,
-      targetRecentlyPillaged: parsed.targetRecentlyPillaged === true
+      targetRecentlyPillaged: parsed.targetRecentlyPillaged === true,
+      ...(parsed.defendedFrontier === true ? { defendedFrontier: true } : {})
     };
     return parsed as LockedCombatResolution | undefined;
   } catch {
@@ -274,7 +277,7 @@ export const hydrateCommandHistory = ({
   if (!recoveredCommandHistory) return;
 
   for (const command of recoveredCommandHistory.commands) {
-    if (command.type === "SYNC_ALLIANCE" || command.type === "SYNC_TRUCE") continue;
+    if (command.type === "SYNC_ALLIANCE" || command.type === "SYNC_TRUCE" || command.type === "SETTLE_DIPLOMACY_TERMS") continue;
     commandIdsByPlayerSeq.set(`${command.playerId}:${command.clientSeq}`, command.commandId);
   }
   for (const [commandId, events] of recoveredCommandHistory.eventsByCommandId.entries()) {

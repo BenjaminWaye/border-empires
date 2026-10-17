@@ -1,3 +1,4 @@
+import { musterReportsHtml } from "./client-muster-combat-reports/client-muster-combat-reports-ui.js";
 import { escapeHtml } from "./client-duke-panel/client-duke-escape.js";
 import { afcModuleTabHtml } from "./client-afc-module-tab/client-afc-module-tab.js";
 import { autoSettleOptionHtml } from "./client-auto-settle-prompt/client-auto-settle-tile-option.js";
@@ -12,6 +13,7 @@ import {
 } from "./client-tile-menu-building-category/client-tile-menu-building-category.js";
 import { statusWithHelpHtml } from "./client-tile-menu-ownership-help/client-tile-menu-ownership-help.js";
 import { buildActionIconHtml, buildingCategoryIconHtml } from "./client-build-menu-icons/client-build-menu-icons.js";
+import { abilityIconHtml, abilityKeyForTileAction } from "./client-ability-icons/client-ability-icons.js";
 import type { TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView } from "./client-types.js";
 
 // Two-color versus bar shown on the "Battle in progress" / "Under attack"
@@ -142,6 +144,12 @@ const combatBreakdownHtml = (breakdown: TileCombatBreakdown): string => {
 `;
 };
 
+
+// Abilities cast from the Crystal tab show their drawn icon.
+const abilityActionIconHtml = (actionId: TileActionDef["id"]): string | undefined => {
+  const key = abilityKeyForTileAction(actionId);
+  return key ? abilityIconHtml(key, "tile-action-ability-icon") : undefined;
+};
 const actionIcon = (id: TileActionDef["id"]): string => {
   if (id.startsWith("redeploy_afc_module:")) return "⇣";
   if (id === "expand_here") return "⚐";
@@ -151,29 +159,28 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "settle_land") return "⌂";
   if (id === "settle_connected_frontier") return "⌂+";
   if (id === "launch_attack") return "⚔";
-  if (id === "reveal_empire") return "◈";
-  if (id === "reveal_empire_stats") return "◌";
+  if (id === "diplomacy") return "🤝";
   if (id === "collect_shard") return "✦";
   if (id === "build_fortification") return "🛡";
-  if (id === "build_wooden_fort") return "🪵";
+  if (id === "build_palisade") return "🪵";
   if (id === "build_siege_camp") return "⚔";
   if (id === "build_relay_beacon") return "⚑";
   if (id === "build_observatory") return "◉";
-  if (id === "build_farmstead") return "▥";
+  if (id === "build_hydrogarden") return "▥";
   if (id === "build_umbrite_rig") return "⛺";
   if (id === "build_mine") return "⛏";
   if (id === "build_mintworks") return "▣";
-  if (id === "build_granary") return "◫";
+  if (id === "build_incubation_engine") return "◫";
   if (id === "build_bank") return "◧";
-  if (id === "build_airport") return "✈";
-  if (id === "build_aether_tower") return "⚡";
-  if (id === "build_caravanary") return "⇄";
-  if (id === "build_umbrite_synthesizer") return "▤";
-  if (id === "upgrade_umbrite_synthesizer") return "⤴";
+  if (id === "build_sky_dock") return "✈";
+  if (id === "build_ambaric_transformer") return "⚡";
+  if (id === "build_trade_nexus") return "⇄";
+  if (id === "build_umbrite_works") return "▤";
+  if (id === "upgrade_umbrite_works") return "⤴";
   if (id === "build_titanium_works") return "⚒";
   if (id === "upgrade_titanium_works") return "⤴";
-  if (id === "build_crystal_synthesizer") return "◇";
-  if (id === "upgrade_crystal_synthesizer") return "⤴";
+  if (id === "build_aether_condenser") return "◇";
+  if (id === "upgrade_aether_condenser") return "⤴";
   if (id === "enable_converter_structure") return "▶";
   if (id === "disable_converter_structure") return "⏸";
   if (id === "enable_observatory") return "▶";
@@ -181,64 +188,52 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "cancel_siphon") return "⊘";
   if (id === "set_converter_structure_mode") return "⇄";
   if (id === "build_fuel_plant") return "⬢";
-  if (id === "build_foundry") return "⚙";
-  if (id === "build_garrison_hall") return "🛡";
-  if (id === "build_customs_house") return "⚓";
+  if (id === "build_ore_refinery") return "⚙";
+  if (id === "build_ancillary_depot") return "🛡";
+  if (id === "build_harbor_exchange") return "⚓";
   if (id === "build_lockworks_port") return "⚓";
-  if (id === "build_rail_depot") return "🚉";
+  if (id === "build_neural_works") return "🚉";
   if (id === "build_exchange_house") return "¤";
   if (id === "build_imperial_exchange_part_1") return "📖";
   if (id === "build_imperial_exchange_part_2") return "🧮";
   if (id === "build_imperial_exchange_part_3") return "🔏";
-  if (id === "build_world_engine_part_1") return "🎯";
-  if (id === "build_world_engine_part_2") return "💥";
-  if (id === "build_world_engine_part_3") return "🔭";
+  if (id === "build_sovereign_siege_engine_part_1") return "🎯";
+  if (id === "build_sovereign_siege_engine_part_2") return "💥";
+  if (id === "build_sovereign_siege_engine_part_3") return "🔭";
   if (id === "build_aegis_dome_part_1") return "🛡";
   if (id === "build_aegis_dome_part_2") return "⚓";
   if (id === "build_aegis_dome_part_3") return "👑";
   if (id === "build_astral_dock_part_1") return "🚀";
   if (id === "build_astral_dock_part_2") return "🛰";
   if (id === "build_astral_dock_part_3") return "⛵";
-  if (id === "build_population_bureau_part_1") return "📋";
-  if (id === "build_population_bureau_part_2") return "🗄";
-  if (id === "build_population_bureau_part_3") return "📜";
+  if (id === "build_census_directorate_part_1") return "📋";
+  if (id === "build_census_directorate_part_2") return "🗄";
+  if (id === "build_census_directorate_part_3") return "📜";
   if (id === "build_titanium_levy_part_1") return "📢";
   if (id === "build_titanium_levy_part_2") return "🚩";
   if (id === "build_titanium_levy_part_3") return "📃";
   if (id === "build_imperial_exchange") return "✶";
-  if (id === "build_world_engine") return "✸";
+  if (id === "build_sovereign_siege_engine") return "✸";
   if (id === "build_aegis_dome") return "⬡";
   if (id === "build_astral_dock") return "✶";
-  if (id === "build_population_bureau") return "◈";
+  if (id === "build_census_directorate") return "◈";
   if (id === "build_titanium_levy") return "⬢";
-  if (id === "retort_recast_food") return "⚗";
-  if (id === "retort_recast_titanium") return "⚗";
-  if (id === "retort_recast_crystal") return "⚗";
-  if (id === "retort_recast_umbrite") return "⚗";
-  if (id === "aegis_lock") return "⬢";
   if (id === "imperial_exchange_levy") return "¤";
-  if (id === "world_engine_strike") return "✹";
-  if (id === "airport_bombard") return "✹";
-  if (id === "aether_emp") return "↯";
-  if (id === "city_overclock") return "⚙";
-  if (id === "astral_dock_launch") return "☄";
-  if (id === "build_radar_system") return "◌";
-  if (id === "build_governors_office") return "⌘";
+  if (id === "sovereign_siege_engine_strike") return "✹";
+  if (id === "sky_dock_bombard") return "✹";
+  if (id === "build_resonance_grid") return "◌";
+  if (id === "build_ministry_hall") return "⌘";
   if (id === "grow_settlement_to_town") return "⬆";
   if (id === "grow_town_to_city") return "⬆";
   if (id === "grow_city_to_great_city") return "⬆";
   if (id === "grow_great_city_to_monumental_city") return "⬆";
   if (id === "remove_structure") return "⌫";
   if (id === "abandon_territory") return "✕";
-  if (id === "aether_wall") return "║";
-  if (id === "aether_bridge") return "≈";
-  if (id === "siphon_tile") return "☍";
-  if (id === "create_mountain") return "⛰";
-  if (id === "remove_mountain") return "⌵";
   return "⛺";
 };
 
 const tileMenuTabLabel = (tab: TileMenuTab): string => {
+  if (tab === "reports") return "Recent combat";
   if (tab === "overview") return "Overview";
   if (tab === "modules") return "Modules";
   if (tab === "actions") return "Actions";
@@ -251,7 +246,7 @@ const tileMenuTabLabel = (tab: TileMenuTab): string => {
 export const tileActionButtonHtml = (action: TileActionDef): string => `${tileActionButtonOnlyHtml(action)}${action.autoSettleOption ? autoSettleOptionHtml(action.autoSettleOption) : ""}`;
 
 const tileActionButtonOnlyHtml = (action: TileActionDef): string => `<button class="tile-action-btn${action.recommended ? " is-recommended" : ""}" data-action="${action.id}" ${action.targetKey ? `data-target-key="${action.targetKey}"` : ""} ${action.originKey ? `data-origin-key="${action.originKey}"` : ""} ${action.disabled ? "disabled" : ""}>
-          <span class="tile-action-icon">${buildActionIconHtml(action.id) ?? actionIcon(action.id)}</span>
+          <span class="tile-action-icon">${buildActionIconHtml(action.id) ?? abilityActionIconHtml(action.id) ?? actionIcon(action.id)}</span>
           <span class="tile-action-copy">
             <span class="tile-action-label">${action.label}${action.recommended ? '<span class="tile-action-recommended-badge">★ Recommended</span>' : ""}</span>
             ${action.detail ? `<span class="tile-action-detail${action.loading ? " is-loading" : ""}">${action.loading ? '<span class="tile-action-spinner" aria-hidden="true"></span>' : ""}${action.detail}</span>` : ""}
@@ -326,6 +321,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
       </div>
     `;
   }
+  if (activeTab === "reports") return musterReportsHtml(view.musterReports);
   if (activeTab === "commit") {
     const commit = view.commit;
     if (!commit) return `<div class="tile-menu-empty">No muster flag here.</div>`;
@@ -367,7 +363,7 @@ export const tileActionMenuHtml = (view: TileMenuView, activeTab: TileMenuTab, m
   const tabsHtml =
     view.tabs.length > 1
       ? `<div class="tile-menu-tabs">${view.tabs
-          .map((tab) => `<button class="tile-menu-tab${tab === activeTab ? " is-active" : ""}" type="button" data-tile-tab="${tab}">${tileMenuTabLabel(tab)}</button>`)
+          .map((tab) => `<button class="tile-menu-tab${tab === activeTab ? " is-active" : ""}" type="button" data-tile-tab="${tab}">${tileMenuTabLabel(tab)}${tab === "reports" && view.musterReports?.unread ? ` <span class="muster-reports-tab-badge" aria-label="${view.musterReports.unread} unread reports">${view.musterReports.unread}</span>` : ""}</button>`)
           .join("")}</div>`
       : "";
   return `

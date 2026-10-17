@@ -27,7 +27,9 @@ const previewTileFor = (tile: Tile | undefined): FrontierCombatPreviewTile => ({
   ownershipState: tile?.ownershipState ?? undefined,
   dockId: tile?.dockId,
   townType: tile?.townType,
-  fortVariant: tile?.fort?.status === "active" ? tile.fort.variant : undefined
+  fortVariant: tile?.fort?.status === "active" ? tile.fort.variant : undefined,
+  // A freshly captured FRONTIER tile still holding ground defends (capture-hold).
+  captureHoldUntil: tile?.captureHoldUntil
 });
 
 /**
@@ -91,6 +93,7 @@ export const triggerWinChancePaintOnMarchArm = (
     const knownShieldAmount = findKnownShieldAmount(x, y, tile.ownerId, knownShieldFlags);
     const { winChance, color } = winChanceForTile(previewTileFor(tile), {
       knownShieldAmount,
+      modifiers: { nowMs: Date.now() },
       ...(commit ? { committedManpower: commit.committedManpower, baseMusterCost: commit.baseMusterCost } : {})
     });
     entries.push({ x, y, winChance, color });

@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, terrainAt } from "@border-empires/shared";
+import { landBiomeAt } from "@border-empires/shared";
 import { terrainTextureIdAt } from "./client-map-render-texture-id.js";
 import { terrainTextures } from "./client-map-render-terrain-textures.js";
 import { drawReliefTerrainTile } from "./client-map-render-relief-tile.js";
@@ -10,10 +10,8 @@ import type { FortificationOpening, FortificationOverlayKind } from "../client-f
 import {
   aetherBridgeAnchorImage,
   aetherWallPylonImage,
-  dockOverlayVariants,
   fortificationOverlayImages,
-  overlaySrc,
-  structureOverlayImages
+  overlaySrc
 } from "./client-map-overlay-images.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { townIdentityForTile } from "../client-town-identity.js";
@@ -23,13 +21,12 @@ import type { EmpireVisualStyle, Tile } from "../client-types.js";
 
 export { dockOverlayVariants, structureOverlayImages } from "./client-map-overlay-images.js";
 
-type TileMap = Map<string, Tile>;
-
 export { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render-terrain-relief.js";
 export { drawShardFallback } from "./client-map-render-shard-fallback.js";
 import { drawSeaCoast2D } from "./client-map-render-shore-foam.js";
 import { useTerrainReliefRenderer } from "./client-map-render-terrain-relief.js";
-import { depositIconKey, drawResourceIconOnCanvas } from "../client-resource-icons/client-resource-icons.js";
+export { drawResourceCornerMarker } from "./client-map-render-resource-marker.js";
+export { drawDockMarker } from "./client-map-render-dock-marker.js";
 const createTownOverlaySet = (
   sources: Record<NonNullable<Tile["town"]>["populationTier"], string>
 ): Record<NonNullable<Tile["town"]>["populationTier"], HTMLImageElement> => {
@@ -411,63 +408,6 @@ export {
   drawCenteredOverlayWithAlpha,
   drawCenteredOverlayRotatedWithAlpha
 } from "./client-map-render-centered-overlay.js";
-
-const drawResourceMarkerIcon = (ctx: CanvasRenderingContext2D, resource: string | undefined, x: number, y: number, badge: number): void => {
-  const key = depositIconKey(resource);
-  if (key) drawResourceIconOnCanvas(ctx, key, x + badge / 2, y + badge / 2, badge, `${Math.max(8, badge * 0.8)}px system-ui`);
-};
-
-export const drawResourceCornerMarker = (
-  ctx: CanvasRenderingContext2D,
-  tile: Tile,
-  px: number,
-  py: number,
-  size: number,
-  resourceColor: (resource: string | undefined) => string | undefined
-): void => {
-  if (!tile.resource) return;
-  const color = resourceColor(tile.resource);
-  if (!color) return;
-  const badge = Math.max(9, size * 0.22);
-  const inset = Math.max(2, size * 0.03);
-  ctx.fillStyle = "rgba(12, 16, 28, 0.78)";
-  ctx.fillRect(px + inset - 1, py + inset - 1, badge + 2, badge + 2);
-  ctx.fillStyle = color;
-  ctx.fillRect(px + inset, py + inset, badge, badge);
-  ctx.fillStyle = "rgba(22, 24, 28, 0.95)";
-  drawResourceMarkerIcon(ctx, tile.resource, px + inset, py + inset, badge);
-};
-
-export const drawDockMarker = (ctx: CanvasRenderingContext2D, px: number, py: number, size: number, fullTile = false): void => {
-  const badge = fullTile ? Math.max(8, size - 2) : Math.max(9, size * 0.22);
-  const inset = fullTile ? 1 : Math.max(2, size * 0.03);
-  const x = px + inset;
-  const y = py + inset;
-  ctx.fillStyle = "rgba(12, 16, 28, 0.78)";
-  ctx.fillRect(x - 1, y - 1, badge + 2, badge + 2);
-  ctx.fillStyle = "rgba(115, 175, 220, 0.96)";
-  ctx.fillRect(x, y, badge, badge);
-  // Stylised anchor: a circle, a vertical stem, and a curved arc base.
-  const cx = x + badge / 2;
-  const cy = y + badge / 2;
-  const r = Math.max(1.2, badge * 0.16);
-  ctx.strokeStyle = "rgba(22, 30, 44, 0.95)";
-  ctx.lineWidth = Math.max(1, badge * 0.08);
-  ctx.beginPath();
-  ctx.arc(cx, y + badge * 0.28, r, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(cx, y + badge * 0.28 + r);
-  ctx.lineTo(cx, y + badge * 0.84);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(cx, y + badge * 0.66, badge * 0.30, Math.PI * 0.15, Math.PI * 0.85);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(x + badge * 0.22, y + badge * 0.46);
-  ctx.lineTo(x + badge * 0.78, y + badge * 0.46);
-  ctx.stroke();
-};
 
 export const drawTownMarker = (ctx: CanvasRenderingContext2D, px: number, py: number, size: number, fullTile = false): void => {
   const badge = fullTile ? Math.max(8, size - 2) : Math.max(9, size * 0.22);

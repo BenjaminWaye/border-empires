@@ -2,17 +2,17 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 import type { DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
 import type { FrontierCommandResult } from "../runtime-frontier-command.js";
 import { activeAetherBridgeNeighborKeysForPlayer } from "../runtime-encirclement-application.js";
-import { railDepotPositionsForPlayer } from "../runtime/runtime-rail-depot-positions.js";
-import type { ActiveAetherBridgeView, LockRecord, RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
+import { neuralWorksPositionsForPlayer } from "../runtime/runtime-neural-works-positions.js";
+import type { ActiveAetherBridgeView, RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
 import type { MusterAdvanceCooldowns, MusterTickContext } from "./runtime-muster-tick.js";
 import type { CombatLockTileReader } from "../combat-lock-index/combat-lock-index.js";
 
 export type MusterTickContextDeps = {
   players: ReadonlyMap<string, RuntimePlayer>;
   tiles: ReadonlyMap<string, DomainTileState>;
-  activeSiegeOutpostsByOwner: ReadonlyMap<string, Set<string>>;
+  activeSiegeBatteriesByOwner: ReadonlyMap<string, Set<string>>;
   activeRelayBeaconsByOwner: ReadonlyMap<string, Set<string>>;
-  railDepotTilesByOwner: ReadonlyMap<string, Set<string>>;
+  neuralWorksTilesByOwner: ReadonlyMap<string, Set<string>>;
   locksByTile: CombatLockTileReader;
   advanceCooldowns: MusterAdvanceCooldowns;
   dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
@@ -26,7 +26,7 @@ export type MusterTickContextDeps = {
   requiredMusterForTarget: (target: DomainTileState) => number;
   nextTerritoryAutomationCommandId: (label: string, playerId: string, tileKey: string, at: number) => string;
   handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => FrontierCommandResult;
-  isStructureDormant: (playerId: string, tileKey: string, field: "siegeOutpost" | "economicStructure") => boolean;
+  isStructureDormant: (playerId: string, tileKey: string, field: "siegeBattery" | "economicStructure") => boolean;
   isInReach: (playerId: string, x: number, y: number) => boolean;
 };
 
@@ -39,10 +39,10 @@ export type MusterTickContextDeps = {
 export const buildMusterTickContext = (deps: MusterTickContextDeps): MusterTickContext => ({
   players: deps.players,
   tiles: deps.tiles,
-  activeSiegeOutpostsByOwner: deps.activeSiegeOutpostsByOwner,
+  activeSiegeBatteriesByOwner: deps.activeSiegeBatteriesByOwner,
   activeRelayBeaconsByOwner: deps.activeRelayBeaconsByOwner,
-  railDepotPositionsForPlayer: (playerId: string) =>
-    railDepotPositionsForPlayer(deps.railDepotTilesByOwner, playerId, deps.tiles, (ownerId, tileKey, field) =>
+  neuralWorksPositionsForPlayer: (playerId: string) =>
+    neuralWorksPositionsForPlayer(deps.neuralWorksTilesByOwner, playerId, deps.tiles, (ownerId, tileKey, field) =>
       deps.isStructureDormant(ownerId, tileKey, field)
     ),
   applyManpowerRegen: (player: RuntimePlayer, at?: number) => deps.applyManpowerRegen(player, at),
@@ -60,7 +60,7 @@ export const buildMusterTickContext = (deps: MusterTickContextDeps): MusterTickC
   dockLinksByDockTileKey: deps.dockLinksByDockTileKey,
   aetherBridgeNeighborKeysForPlayer: (playerId: string) =>
     activeAetherBridgeNeighborKeysForPlayer({ activeAetherBridgesForPlayer: deps.activeAetherBridgesForPlayer }, playerId),
-  isStructureDormant: (playerId: string, tileKey: string, field: "siegeOutpost" | "economicStructure") =>
+  isStructureDormant: (playerId: string, tileKey: string, field: "siegeBattery" | "economicStructure") =>
     deps.isStructureDormant(playerId, tileKey, field),
   isInReach: (playerId: string, x: number, y: number) => deps.isInReach(playerId, x, y)
 });

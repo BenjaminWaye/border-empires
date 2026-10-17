@@ -6,6 +6,7 @@ import {
   commitOddsMultiplier,
   defendingFortVariant,
   isFortDefending,
+  isUndefendedFrontierTile,
   requiredMusterForFort,
   rollFrontierCombat,
   shieldDefenseMultiplier,
@@ -63,14 +64,14 @@ export type RuntimeCombatSupportContext = {
   emitPlayerStateUpdate: (command: Pick<CommandEnvelope, "commandId" | "playerId">) => void;
   // §5.4: true when the given structure field is currently unpowered
   // (its resource demand isn't covered by supply) — a dormant Fort/Siege
-  // Outpost/Wooden Fort doesn't grant its combat bonus.
-  isStructureDormant: (playerId: string, tileKey: string, field: "fort" | "observatory" | "siegeOutpost" | "economicStructure") => boolean;
+  // Outpost/Palisade doesn't grant its combat bonus.
+  isStructureDormant: (playerId: string, tileKey: string, field: "fort" | "observatory" | "siegeBattery" | "economicStructure") => boolean;
   manpowerLossByTileKey: Map<string, number>;
   // Titanium/Umbrite Weapons Factory combat bonus is empire-wide (like the
   // legacy Weapons Workshop below), not scoped to a connected-town network —
   // ownedStructureCountForPlayer already counts every copy the player owns
   // anywhere. Town-network membership (ConnectedTownNetworkEntry) still
-  // exists for other purposes (Rail Depot/Garrison Hall uniqueness, the tile
+  // exists for other purposes (Neural Works/Ancillary Depot uniqueness, the tile
   // overview's "connected network" display) but no longer gates combat.
   ownedStructureCountForPlayer: (playerId: string, structureType: BuildableStructureType) => number;
   // GET /api/activity's combat-manpower-log (manpowerLost24h/biggestBattle24h
@@ -181,16 +182,16 @@ export const attackerOutpostMult = (ctx: RuntimeCombatSupportContext, playerId: 
   for (const tileKey of summary.territoryTileKeys) {
     const tile = ctx.tiles.get(tileKey);
     if (!tile) continue;
-    // Siege outposts can be built on FRONTIER tiles (they skip the SETTLED
+    // Siege Batteries can be built on FRONTIER tiles (they skip the SETTLED
     // requirement in structure placement) and their attack bonus applies
     // there too — unlike other structures' auras, an outpost's offense
     // multiplier isn't gated on the tile being settled.
     if (
-      tile.siegeOutpost?.ownerId === playerId &&
-      tile.siegeOutpost.status === "active" &&
-      !ctx.isStructureDormant(playerId, tileKey, "siegeOutpost")
+      tile.siegeBattery?.ownerId === playerId &&
+      tile.siegeBattery.status === "active" &&
+      !ctx.isStructureDormant(playerId, tileKey, "siegeBattery")
     ) {
-      outposts.push({ x: tile.x, y: tile.y, variant: tile.siegeOutpost.variant ?? "SIEGE_OUTPOST" });
+      outposts.push({ x: tile.x, y: tile.y, variant: tile.siegeBattery.variant ?? "SIEGE_BATTERY" });
     }
   }
   return targetOutpostMult(outposts, targetX, targetY);
@@ -198,7 +199,8 @@ export const attackerOutpostMult = (ctx: RuntimeCombatSupportContext, playerId: 
 
 // EXPAND always targets unowned land (validated before the lock is created)
 // and always succeeds, so there's nothing to roll for. Likewise, an ATTACK on
-// a FRONTIER tile targets undefended ground -- defenderBattle in
+// a FRONTIER tile targets undefended ground (unless it is still inside its
+// post-capture hold window, shared capture-hold.ts) -- defenderBattle in
 // frontier-combat.ts already zeroes its defense multiplier, so there's no
 // force to fight either. Both cases share this same trivial preview instead
 // of the full attacker/defender combat math (outpost scan, tech multipliers,
@@ -288,7 +290,8 @@ const resolveAttackCombat = (
         dockId: previousTarget.dockId,
         townType: previousTarget.town?.type,
         fortVariant: targetHasActiveFort ? defendingFortVariant(previousTarget.fort) : undefined,
-        breachShockUntil: previousTarget.breachShockUntil
+        breachShockUntil: previousTarget.breachShockUntil,
+        captureHoldUntil: previousTarget.captureHoldUntil
       }
     : { terrain: "LAND" };
   // docs/replenishment-update-plan.md D6, revised: the odds ratio is scaled by
@@ -325,7 +328,7 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
   const defenderOwnerId = previousTarget?.ownerId;
   const defender = defenderOwnerId ? ctx.players.get(defenderOwnerId) : undefined;
   const combat: FrontierCombatPreview & { attackerWon: boolean; shield?: ShieldConsumption } =
-    lock.actionType === "EXPAND" || previousTarget?.ownershipState === "FRONTIER"
+    lock.actionType === "EXPAND" || isUndefendedFrontierTile(previousTarget, ctx.now())
       ? GUARANTEED_CAPTURE_COMBAT_PREVIEW
       : resolveAttackCombat(ctx, lock, previousTarget, defenderOwnerId, defender);
   const targetWasSettled = previousTarget?.ownershipState === "SETTLED";
@@ -388,10 +391,17 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
     winChance: combat.winChance,
     levelDelta: 0
   };
-  return { result, defenderGoldLoss: plunder?.defenderGoldLoss ?? 0, targetRecentlyPillaged, ...(combat.shield ? { shield: combat.shield } : {}) };
+  const defendedFrontier = lock.actionType === "ATTACK" && previousTarget?.ownershipState === "FRONTIER" && combat !== GUARANTEED_CAPTURE_COMBAT_PREVIEW;
+  return {
+    result,
+    defenderGoldLoss: plunder?.defenderGoldLoss ?? 0,
+    targetRecentlyPillaged,
+    ...(combat.shield ? { shield: combat.shield } : {}),
+    ...(defendedFrontier ? { defendedFrontier: true } : {})
+  };
 };
 
-export { barbarianProgressGain, applyBarbarianWalkOrMultiply } from "./runtime-barbarian-walk.js";
+export { applyBarbarianWalkOrMultiply } from "./runtime-barbarian-walk.js";
 
 export const BARBARIAN_CAPTURE_PLUNDER_GOLD = 10;
 
@@ -434,18 +444,6 @@ export { attackManpowerLoss };
 export const applyLockedManpowerDelta = (player: DomainPlayer, manpowerDelta: number): number => {
   if (manpowerDelta >= -0.01) return 0;
   const loss = Math.abs(manpowerDelta);
-  player.manpower = Math.max(0, player.manpower - loss);
-  return loss;
-};
-
-export const settleAttackManpower = (
-  player: DomainPlayer,
-  committedManpower: number,
-  attackerWon: boolean,
-  atkEff: number,
-  defEff: number
-): number => {
-  const loss = attackManpowerLoss(committedManpower, attackerWon, atkEff, defEff);
   player.manpower = Math.max(0, player.manpower - loss);
   return loss;
 };

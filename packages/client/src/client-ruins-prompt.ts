@@ -53,7 +53,7 @@ export const maybeShowRuinsPrompt = (): void => {
       Maybe your empire is in ruins
     </h2>
     <p style="margin:0 0 18px;color:#9aa6c2;font-size:13px;line-height:1.5;">
-      Your gold income has dropped to zero. If your empire has been eliminated,
+      Your coin income has dropped to zero. If your empire has been eliminated,
       you can respawn now to start fresh.
     </p>
     <div style="display:flex;gap:10px;justify-content:flex-end;">

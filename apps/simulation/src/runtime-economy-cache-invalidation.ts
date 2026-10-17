@@ -35,7 +35,7 @@ import {
  * townNetworkCacheByPlayer/manpowerStructureBonusCacheByPlayer are also
  * invalidated unconditionally (§5.4): both now fold in
  * dormantEconomicStructureKeysForPlayer, which — like resourceSlotDemand —
- * can change from a FRONTIER-only mutation (a Siege Outpost's TITANIUM/UMBRITE
+ * can change from a FRONTIER-only mutation (a Siege Battery's TITANIUM/UMBRITE
  * demand tipping some other, possibly-SETTLED structure into or out of
  * dormancy), so the SETTLED-gated branch alone isn't sufficient for them
  * anymore even though their own BFS/scan still only reads SETTLED tiles.
@@ -57,7 +57,7 @@ export const economyRelevantTileFieldsChanged = (previous: DomainTileState, next
   previous.town !== next.town ||
   previous.fort !== next.fort ||
   previous.observatory !== next.observatory ||
-  previous.siegeOutpost !== next.siegeOutpost ||
+  previous.siegeBattery !== next.siegeBattery ||
   previous.economicStructure !== next.economicStructure ||
   previous.sabotage !== next.sabotage ||
   previous.naturalWonder !== next.naturalWonder;
@@ -73,23 +73,23 @@ export const refreshEconomyCachesForTileChange = (input: {
   townConnectivityStateByPlayer: Map<string, TownConnectivityState>;
   defensibilityMetricsCacheByPlayer: Map<string, { T: number; E: number; Ts: number; Es: number }>;
   upkeepAccrualCacheByPlayer: Map<string, UpkeepAccrualSnapshot>;
-  // §4.4 Rail Depot network manpower bonus — invalidated alongside
+  // §4.4 Neural Works network manpower bonus — invalidated alongside
   // townNetworkCacheByPlayer since it's derived from the same network build
-  // plus a Garrison Hall/Rail Depot structure scan over the same tiles. Also
+  // plus a Ancillary Depot/Neural Works structure scan over the same tiles. Also
   // invalidated unconditionally below (§5.4): both this and
   // townNetworkCacheByPlayer now factor in dormantEconomicStructureKeysForPlayer,
   // which (like resourceSlotDemandCacheByPlayer) can change from a FRONTIER-only
-  // mutation (a Siege Outpost's TITANIUM/UMBRITE demand shifting which OTHER,
+  // mutation (a Siege Battery's TITANIUM/UMBRITE demand shifting which OTHER,
   // possibly-SETTLED structure is dormant) — the SETTLED-gated branch alone
   // would miss that ripple.
   manpowerStructureBonusCacheByPlayer?: Map<
     string,
     {
-      garrisonHallCount: number;
-      assemblyWorksNetworkGarrisonHallCount: number;
-      railDepotNetworkLogisticsGuildCount: number;
-      logisticsGuildCount: number;
-      populationBureauManpowerBuildingCount: number;
+      ancillaryDepotCount: number;
+      reserveLatticeNetworkAncillaryDepotCount: number;
+      neuralWorksNetworkAncillaryFactoryCount: number;
+      ancillaryFactoryCount: number;
+      censusDirectorateManpowerBuildingCount: number;
     }
   >;
   // §5 (resource slots). Supply's own inputs (BASE_SLOTS_BY_TILE_RESOURCE,
@@ -109,7 +109,7 @@ export const refreshEconomyCachesForTileChange = (input: {
   // (a strict superset of the old SETTLED-only trigger) — the extra rebuilds
   // this costs are the same bounded O(settled tiles) work the SETTLED-gated
   // path already paid, just also on the FRONTIER-only mutations. Demand
-  // depends on fort/siegeOutpost/economicStructure on ANY owned tile (Siege
+  // depends on fort/siegeBattery/economicStructure on ANY owned tile (Siege
   // Outposts can be FRONTIER, resource-slot-view.ts), so it always needed the
   // unconditional trigger anyway. All three (plus dormancy below) also
   // participate in AI-coalescing dirty-tracking — see the dirty-set params below.

@@ -20,8 +20,8 @@ const makeTown = (populationTier: NonNullable<NonNullable<Tile["town"]>["populat
   connectedTownBonus: 0.2,
   hasMintworks: false,
   mintworksActive: false,
-  hasGranary: false,
-  granaryActive: false,
+  hasIncubationEngine: false,
+  incubationEngineActive: false,
 });
 
 describe("client town growth labels", () => {
@@ -64,6 +64,17 @@ describe("client town growth labels", () => {
         growthModifiers: [{ label: "Nearby war", deltaPerMinute: -12 }]
       })
     ).toBe("City growth paused (nearby war)");
+  });
+
+  // Regression: the growth tick's per-minute delta carries the war-pause
+  // timer but no growthModifiers, so the label read "City growth paused"
+  // with no reason until the next tile-detail fetch.
+  it("explains a nearby-war pause from its timer alone, with time remaining", () => {
+    const nowMs = 1_800_000_000_000;
+    expect(
+      townNextGrowthEtaLabel({ ...makeTown("TOWN", 18_400, 0), nearbyWarPausedUntil: nowMs + 45 * 60_000 }, { nowMs })
+    ).toBe("City growth paused (nearby war, resumes in ~45m)");
+    expect(townNextGrowthEtaLabel({ ...makeTown("TOWN", 18_400, 0), nearbyWarPausedUntil: nowMs - 1 }, { nowMs })).toBe("City growth paused");
   });
 
   it("only shows town smoke for settled fed towns with active growth", () => {

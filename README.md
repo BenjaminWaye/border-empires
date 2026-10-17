@@ -23,10 +23,10 @@ Each player controls a civilization that starts from a single land tile, expands
 ### Economy
 
 - **Manpower** is the empire's primary resource, funding every physical action: expanding, garrisoning (internally SETTLE), building structures, and attacking. It regenerates from an empire-wide pool sized by town population tier, paid out in one refill every four hours; a depleted empire cannot afford sustained expansion or warfare.
-- **Coin** is narrow and tech-focused: it funds research, a handful of abilities that still carry a coin cost (Aether Purge, Terrain Shaping, Airport Bombard, World Engine Strike), and *rush-buys* — paying coin to instantly finish an in-progress manpower-gated build or garrison. Passive coin income comes from garrisoned tiles, scaled by town tier and structure modifiers.
+- **Coin** is narrow and tech-focused: it funds research, a handful of abilities that still carry a coin cost (Aether Purge, Terrain Shaping, Sky Dock Bombard, Sovereign Siege Engine Strike), and *rush-buys* — paying coin to instantly finish an in-progress manpower-gated build or garrison. Passive coin income comes from garrisoned tiles, scaled by town tier and structure modifiers.
 - **Strategic resources** — Food, Titanium, Crystal, Umbrite — are permanent slot allocations, not stockpiles: a structure or town either has a free slot backed by an owned resource tile (or a synthesizer) or it goes **dormant** (loses its effect, but isn't destroyed) until a slot frees up. A floating badge and detail-panel line flag dormant tiles and which resource they're missing.
 - **Shard** remains flow-collected (including from scheduled shard-rain events) and funds monument construction.
-- **Crystal-costing player abilities** (Reveal Empire, Survey Sweep, Aether Purge/Bridge/Wall, Siphon, Aegis Lock, Astral Dock Launch, World Engine Strike, Airport Bombard, Create/Remove Mountain) are free of any Crystal cost — gated on cooldown only; a few still carry a coin cost.
+- **Crystal-costing player abilities** (Reveal Empire, Survey Sweep, Aether Purge/Bridge/Wall, Siphon, Aegis Lock, Astral Dock Launch, Sovereign Siege Engine Strike, Sky Dock Bombard, Create/Remove Mountain) are free of any Crystal cost — gated on cooldown only; a few still carry a coin cost.
 - **Synthesizers** (Umbrite/Titanium Works/Crystal) are the one exception that keeps a coin upkeep and a hard 1-slot cap with no upgrade path — the deliberate trade-off that keeps "tall" play (few tiles, deep development) viable against "wide" (raw tile count).
 - **Towns** are the economic backbone. Each town has a population tier (Town → Metropolis), a terrain identity, and a support system: if a town goes unfed, coin income pauses until support recovers. Coastal Town is a separate stackable modifier that improves coin and manpower while coastal geography constrains its support space.
 
@@ -40,10 +40,10 @@ Each player controls a civilization that starts from a single land tile, expands
 
 ### Structures
 
-- One structure per tile, placed on garrisoned (SETTLED) owned land, paid for in manpower plus a resource-slot requirement (not a resource stockpile). The siege ladder (Siege Outpost/Siege Tower/Dread Tower) is the one exception: it builds directly on ungarrisoned (FRONTIER) owned land too, including a tile currently sitting inside another player's reach, and its attack bonus applies there immediately.
-- **Economic**: Farmstead, Umbrite Rig, Mine, Granary, Market, Bank, Synthesizers, Fuel Plant, Trade Nexus, Foundry, Governance structures.
+- One structure per tile, placed on garrisoned (SETTLED) owned land, paid for in manpower plus a resource-slot requirement (not a resource stockpile). The siege ladder (Siege Battery/Siege Tower/Dread Tower) is the one exception: it builds directly on ungarrisoned (FRONTIER) owned land too, including a tile currently sitting inside another player's reach, and its attack bonus applies there immediately.
+- **Economic**: Hydrogarden, Umbrite Rig, Mine, Incubation Engine, Market, Bank, Synthesizers, Fuel Plant, Trade Nexus, Ore Refinery, Governance structures.
 - **Military**: Fort, Siege Battery, Observatory (extends vision and provides protection against aether abilities).
-- **Monuments** (late-game, four-stage builds costing Shards): Imperial Exchange, World Engine, Aegis Dome, Astral Dock. Each monument type is globally unique — only one can ever be active, world-wide, at a time. If two players finish a race for the same monument within moments of each other, the loser's investment is refunded rather than silently wasted.
+- **Monuments** (late-game, four-stage builds costing Shards): Imperial Exchange, Sovereign Siege Engine, Aegis Dome, Astral Dock. Each monument type is globally unique — only one can ever be active, world-wide, at a time. If two players finish a race for the same monument within moments of each other, the loser's investment is refunded rather than silently wasted.
 - Structure unlocks are tech-gated. Costs scale with how many of that type you already own.
 - A structure that loses its resource-slot backing (e.g. a captured Fort with no Titanium access) goes dormant rather than being destroyed, and resumes automatically once a slot frees up.
 
@@ -65,7 +65,8 @@ Each player controls a civilization that starts from a single land tile, expands
 - **Docks**: paired sea-crossing gateways with cooldown and defensive value. Maritime Supremacy victory path scores from dock control.
 - **Clusters**: regional resource concentrations that grant threshold-based bonuses.
 - **Alliances**: mutual relationships that block friendly-fire and affect diplomatic victory scoring.
-- **Truces**: non-aggression pacts (12h or 24h). Breaking a truce early locks the breaker out of requesting or accepting any new truce for 24h; the other party is unaffected.
+- **Truces**: non-aggression pacts (12h or 24h). Breaking a truce early locks the breaker out of requesting or accepting any new truce for 24h; the other party is unaffected. A rejected or cancelled truce/alliance offer can't be re-sent to the same player for 30 minutes. AI empires answer offers based on their stance toward you and explain why. Offers can carry coin and Shards through the trade screen, which previews an AI's answer; AIs counter-offer within what you can pay. They can also propose a 12h truce when threatened or an alliance against a shared enemy.
+- **AI aether**: AI empires build Aether Towers and use Purge, EMP, Siphon, bridges, walls and terrain shaping against useful visible targets. Worker-mode AIs consume survey clues as expansion objectives. Builds check installed AFC modules and resource-slot capacity.
 - **Shard rain**: scheduled world events scattering high-value shard sites with a 30-minute TTL, feeding monument construction.
 
 ### Victory Conditions
@@ -90,6 +91,8 @@ Five concurrent paths, all requiring a 24-hour hold:
 
 - Real-time Canvas map with pan/zoom, fog of war, and chunk streaming.
 - HUD panels for missions, tech, alliances, leaderboard, identity settings, and an Activity dashboard. The dashboard combines a persistent 24-hour personal timeline, a player-safe World Pulse, and release updates.
+- Town resource surveys open a popup that stays until dismissed. Activity → Yours also keeps unresolved surveys available beyond the 24-hour timeline, with View survey actions to locate the clues.
+- Each muster flag has a Recent combat tab with unread counts, red manpower losses, and green plunder gains. Automatic flag battles keep up to 40 reports per flag in the current browser and season instead of opening result popups.
 - Mobile-first: touch pan/pinch-zoom and drawer navigation wired to live game state.
 - The existing town-first checklist highlights town and food objectives directly in both map renderers. New worlds require 50 food-and-town-qualified starter sites; see [the opening contract](docs/product/new-player-opening.md) for distances and late-join limits.
 
@@ -184,7 +187,7 @@ Generation runs in a Web Worker so the UI stays responsive even while the seed-r
 ### Size budget
 
 Numbers are derived from the existing procedural structures (a tile is `1.0`; the
-widest current piece is the airport runway at `0.40`, the tallest point is the
+widest current piece is the sky dock runway at `0.40`, the tallest point is the
 control tower cab at `~0.36`).
 
 | Budget | Target | Hard cap |

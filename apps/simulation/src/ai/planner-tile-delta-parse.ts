@@ -1,6 +1,6 @@
 /**
  * Pure parsing helpers for converting wire-format tile-delta JSON fields
- * (townJson/fortJson/observatoryJson/siegeOutpostJson/economicStructureJson)
+ * (townJson/fortJson/observatoryJson/siegeBatteryJson/economicStructureJson)
  * into PlannerTileView structures. Extracted from ai-planner-worker.ts so
  * that file stays within the repo's file-line-limit gate (see AGENTS.md).
  */
@@ -16,10 +16,14 @@ export type SimulationTileDelta = {
   naturalWonderJson?: string | undefined;
   ownerId?: string | undefined;
   ownershipState?: string | undefined;
+  afcJson?: string | undefined;
+  captureHoldUntil?: number | undefined;
   townJson?: string | undefined;
   fortJson?: string | undefined;
   observatoryJson?: string | undefined;
-  siegeOutpostJson?: string | undefined;
+  musterJson?: string | undefined;
+  sabotageJson?: string | undefined;
+  siegeBatteryJson?: string | undefined;
   economicStructureJson?: string | undefined;
 };
 
@@ -34,8 +38,10 @@ export const parseTownSupport = (
       type?: unknown;
       name?: unknown;
       populationTier?: unknown;
+      population?: unknown;
     };
     return {
+      ...(typeof parsed.population === "number" && Number.isFinite(parsed.population) ? { population: parsed.population } : {}),
       ...(typeof parsed.supportMax === "number" ? { supportMax: parsed.supportMax } : {}),
       ...(typeof parsed.supportCurrent === "number" ? { supportCurrent: parsed.supportCurrent } : {}),
       ...(parsed.type === "MARKET" || parsed.type === "FARMING" ? { type: parsed.type } : {}),
@@ -55,14 +61,16 @@ export const parseTownSupport = (
 
 export const parseOwnedStructure = (
   raw: string | undefined
-): { ownerId?: string; status?: string; type?: string } | undefined => {
+): { ownerId?: string; status?: string; type?: string; inactiveReason?: string; disabledUntil?: number } | undefined => {
   if (typeof raw !== "string") return undefined;
   try {
-    const parsed = JSON.parse(raw) as { ownerId?: unknown; status?: unknown; type?: unknown };
+    const parsed = JSON.parse(raw) as { ownerId?: unknown; status?: unknown; type?: unknown; inactiveReason?: unknown; disabledUntil?: unknown };
     return {
       ...(typeof parsed.ownerId === "string" ? { ownerId: parsed.ownerId } : {}),
       ...(typeof parsed.status === "string" ? { status: parsed.status } : {}),
-      ...(typeof parsed.type === "string" ? { type: parsed.type } : {})
+      ...(typeof parsed.type === "string" ? { type: parsed.type } : {}),
+      ...(typeof parsed.inactiveReason === "string" ? { inactiveReason: parsed.inactiveReason } : {}),
+      ...(typeof parsed.disabledUntil === "number" ? { disabledUntil: parsed.disabledUntil } : {})
     };
   } catch {
     return undefined;
@@ -71,12 +79,14 @@ export const parseOwnedStructure = (
 
 export const parseEconomicStructure = (
   raw: string | undefined
-): { ownerId?: string; status?: string; type?: EconomicStructureType } | undefined => {
+): PlannerTileView["economicStructure"] | undefined => {
   const parsed = parseOwnedStructure(raw);
   if (!parsed) return undefined;
   return {
     ...(parsed.ownerId ? { ownerId: parsed.ownerId } : {}),
     ...(parsed.status ? { status: parsed.status } : {}),
-    ...(parsed.type ? { type: parsed.type as EconomicStructureType } : {})
+    ...(parsed.type ? { type: parsed.type as EconomicStructureType } : {}),
+    ...(parsed.inactiveReason ? { inactiveReason: parsed.inactiveReason } : {}),
+    ...(parsed.disabledUntil !== undefined ? { disabledUntil: parsed.disabledUntil } : {})
   };
 };

@@ -1,38 +1,15 @@
 import {
-  FRONTIER_CLAIM_COST,
-  FRONTIER_CLAIM_MS,
-  SETTLE_COST,
-  SETTLE_MS,
-  SIEGE_OUTPOST_ATTACK_MULT,
-  WOODEN_FORT_DEFENSE_MULT,
-  defensivenessMultiplier,
-  grassShadeAt,
   setWorldSeed,
   terrainAt
 } from "@border-empires/shared";
-import {
-  canAffordCost,
-  formatGoldAmount,
-  frontierClaimCostLabelForTile,
-  frontierClaimDurationMsForTile
-} from "./client-constants.js";
-import { renderDefensibilityPanelHtml } from "./client-defensibility-html/client-defensibility-html.js";
-import { exposedSidesForTile } from "./client-defensibility-tile.js";
+import { formatGoldAmount } from "./client-constants.js";
 import { bootstrapClientApp } from "./client-bootstrap/client-bootstrap.js";
-import { createClientCollectSupport } from "./client-app-runtime-collect-support.js";
 import { createClientRuntimeDisplaySupport } from "./client-app-runtime-display-support/client-app-runtime-display-support.js";
-import {
-  buildMiniMapBase as buildMiniMapBaseFromModule,
-  computeDockSeaRoute as computeDockSeaRouteFromModule,
-  isDockRouteVisibleForPlayer as isDockRouteVisibleForPlayerFromModule,
-  markDockDiscovered as markDockDiscoveredFromModule
-} from "./client-dock-routes.js";
 import {
   computeDragPreview as computeDragPreviewFromModule,
   worldTileRawFromPointer as worldTileRawFromPointerFromModule
 } from "./client-drag-selection.js";
 import type { EconomyFocusKey } from "./client-economy-model.js";
-import { renderEconomyPanelHtml } from "./client-economy-html/client-economy-html.js";
 import { createClientAppRuntimeDom } from "./client-app-runtime-dom.js";
 import { createClientFirebaseSetup, createClientSocketSetup } from "./client-app-runtime-env/client-app-runtime-env.js";
 import { startClientAcquisitionFunnel } from "./client-acquisition-funnel/client-acquisition-funnel.js";
@@ -42,57 +19,26 @@ import { createClientViewSupport } from "./client-app-runtime-view-support.js";
 import { formatCooldownShort, formatManpowerAmount, FULL_MAP_CHUNK_RADIUS, keyForTile, parseTileKey, prettyToken, rateToneClass, wrapTileX, wrapTileY } from "./client-app-runtime-utils.js";
 import { createClientMapFacade } from "./client-map-facade.js";
 import { createClientMapMath } from "./client-map-math.js";
-import { shouldHideCaptureOverlayAfterTimer, shouldPreserveOptimisticExpand } from "./client-frontier-overlay/client-frontier-overlay.js";
-import { shouldFinalizePredictedCombat, wasPredictedCombatAlreadyShown } from "./client-predicted-combat/client-predicted-combat.js";
+import { wasPredictedCombatAlreadyShown } from "./client-predicted-combat/client-predicted-combat.js";
 import { busyDevelopmentProcessCount } from "./client-development-queue/client-development-queue.js";
-import {
-  hostileObservatoryProtectingTile as hostileObservatoryProtectingTileFromModule,
-  isTileOwnedByAlly as isTileOwnedByAllyFromModule
-} from "./client-tile-action-support/client-tile-action-support.js";
 import { renderManpowerPanelHtml, renderSocialInspectCardHtml } from "./client-side-panel-html/client-side-panel-html.js";
-import { formatRoughMinutes, populationPerMinuteLabel, townNextGrowthEtaLabel, townNextPopulationMilestone } from "./client-town-growth/client-town-growth.js";
-import { startClientRuntimeLoop } from "./client-runtime-loop.js";
-import { activeTrucesHtml, allianceRequestsHtml, alliesHtml, feedHtml, leaderboardHtml, missionCardsHtml, strategicRibbonHtml, truceRequestsHtml } from "./client-panel-html/client-panel-html.js";
+import { populationPerMinuteLabel, townNextGrowthEtaLabel } from "./client-town-growth/client-town-growth.js";
+import { feedHtml, leaderboardHtml, missionCardsHtml, strategicRibbonHtml } from "./client-panel-html/client-panel-html.js";
 import {
-  economicStructureBuildMs,
   economicStructureName,
-  formatUpkeepSummary,
-  formatYieldSummary,
   resourceColor,
-  resourceLabel,
-  storedYieldSummary,
-  strategicResourceKeyForTile,
-  tileProductionHtml,
-  tileUpkeepHtml
+  resourceLabel
 } from "./client-map-display.js";
-import { drawMiniMap as drawMiniMapIntoCanvas } from "./client-minimap/client-minimap.js";
 import { resourceIconHtml } from "./client-resource-icons/client-resource-icons.js";
-import { resolveOwnerColor } from "./client-owner-colors/client-owner-colors.js";
 import {
-  borderColorForOwner as borderColorForOwnerFromModule,
-  borderLineWidthForOwner as borderLineWidthForOwnerFromModule,
   builtResourceOverlayForTile,
   dockOverlayVariants,
-  drawAetherBridgeLane as drawAetherBridgeLaneOnCanvas,
-  drawPlanetaryDefenseOverlay as drawPlanetaryDefenseOverlayOnCanvas,
-  drawCenteredOverlay as drawCenteredOverlayOnCanvas,
-  drawCenteredOverlayWithAlpha as drawCenteredOverlayWithAlphaOnCanvas,
-  drawForestOverlay as drawForestOverlayOnCanvas,
-  drawIncomingAttackOverlay as drawIncomingAttackOverlayOnCanvas,
-  drawOwnershipSignature as drawOwnershipSignatureOnCanvas,
-  drawResourceCornerMarker as drawResourceCornerMarkerOnCanvas,
-  drawShardFallback as drawShardFallbackOnCanvas,
-  drawTerrainTile as drawTerrainTileOnCanvas,
-  drawTownOverlay as drawTownOverlayOnCanvas,
   economicStructureOverlayAlpha,
-  effectiveOverlayColor as effectiveOverlayColorFromModule,
   initTerrainTextures,
   overlayVariantIndexAt,
   resourceOverlayForTile,
   resourceOverlayScaleForTile,
   shardOverlayForTile,
-  shouldDrawOwnershipBorder as shouldDrawOwnershipBorderFromModule,
-  structureAccentColor as structureAccentColorFromModule,
   structureOverlayImages
 } from "./client-map-render/client-map-render.js";
 import { createInitialState, storageSet } from "./client-state/client-state.js";
@@ -101,31 +47,6 @@ import { clearUrlTileFocus } from "./client-state/client-camera-storage.js";
 import { startPhotoMode } from "./client-photo-mode/client-photo-mode.js";
 import { domainOwnedHtml, hasRevealedResourceCategory, techCurrentModsHtml } from "./client-tech-html/client-tech-html.js";
 import { techOwnedHtml } from "./client-manifest-detail/client-manifest-owned-html.js";
-import type {
-  ActiveAetherBridgeView,
-  ActiveTruceView,
-  AllianceRequest,
-  CrystalTargetingAbility,
-  DockPair,
-  DomainInfo,
-  EmpireVisualStyle,
-  LeaderboardMetricEntry,
-  LeaderboardOverallEntry,
-  MissionState,
-  OptimisticStructureKind,
-  SeasonVictoryObjectiveView,
-  SeasonWinnerView,
-  StrategicReplayEvent,
-  TechInfo,
-  Tile,
-  TileActionDef,
-  TileMenuProgressView,
-  TileMenuTab,
-  TileMenuView,
-  TileOverviewLine,
-  TileTimedProgress,
-  TruceRequest
-} from "./client-types.js";
 
 const state = createInitialState();
 // Consumes the ?x=&y= deep-link (already read into state.camX/camY/selected
@@ -145,9 +66,6 @@ const miniMapBaseCtx = dom.miniMapBase.getContext("2d");
 if (!miniMapBaseCtx) throw new Error("missing minimap base context");
 
 const key = keyForTile, parseKey = parseTileKey, wrapX = wrapTileX, wrapY = wrapTileY;
-const isTileOwnedByAlly = (tile: Tile): boolean => isTileOwnedByAllyFromModule(tile, state);
-const hostileObservatoryProtectingTile = (tile: Tile): Tile | undefined =>
-  hostileObservatoryProtectingTileFromModule(state, tile);
 const {
   clearRenderCaches,
   tileVisibilityStateAt,
@@ -190,23 +108,11 @@ const {
   miniMapBaseCtx,
   keyFor: key,
   parseKey,
-  terrainAt,
   wrapX,
   wrapY,
-  resourceColor,
-  hasCollectableYield: (tile) => hasCollectableYield(tile)
+  resourceColor
 });
-const { ownedSpecialSiteCount, wrappedTileDistance, toroidDelta, worldToScreen, manhattanToroid } = createClientMapMath({ state });
-
-const {
-  hasCollectableYield,
-  clearPendingCollectTileDelta,
-  revertOptimisticTileCollectDelta
-} = createClientCollectSupport({
-  state,
-  tileVisibilityStateAt,
-  keyFor: key
-});
+const { toroidDelta, worldToScreen } = createClientMapMath({ state });
 
 const {
   pushFeed,
@@ -278,18 +184,9 @@ const {
   mergeIncomingTileDetail
 } = optimistic;
 const {
-  isTownSupportNeighbor,
-  isTownSupportHighlightableTile,
   supportedOwnedTownsForTile,
   townHasSupportStructure,
-  supportedOwnedDocksForTile,
-  hoverTile,
-  isAdjacent,
-  isAdjacentCardinal,
-  dockDestinationsFor,
-  pickDockOriginForTarget,
-  pickOriginForTarget,
-  startingExpansionArrowTargets
+  supportedOwnedDocksForTile
 } = originSelection;
 const {
   tileHistoryLines,
@@ -297,22 +194,6 @@ const {
   growthModifierPercentLabel,
   combatResolutionAlert
 } = inspectionFlow;
-const {
-  effectiveOwnedTechIds,
-  effectiveTechChoices,
-  isPendingTechUnlock,
-  renderTechChoiceGrid,
-  renderTechDetailPrompt,
-  renderTechDetailCard,
-  renderStructureInfoOverlay,
-  techDetailsUseOverlay,
-  renderDomainChoiceGrid,
-  renderDomainProgressCard,
-  renderTechDetailOverlay,
-  renderDomainDetailCard,
-  renderTechChoiceDetails,
-  affordableTechChoicesCount
-} = techFlow;
 
 initClientAudio();
 
@@ -348,10 +229,6 @@ bootstrapClientApp({
   techOwnedHtml,
   techCurrentModsHtml,
   bindTechTreeDragScroll,
-  alliesHtml,
-  activeTrucesHtml,
-  allianceRequestsHtml,
-  truceRequestsHtml,
   renderSocialInspectCardHtml,
   missionCardsHtml,
   playerNameForOwner,
@@ -394,7 +271,6 @@ bootstrapClientApp({
   drawTownOverlay,
   drawTownMarker,
   drawDockMarker,
-  hasCollectableYield,
   structureAccentColor,
   structureOverlayImages,
   shouldDrawOwnershipBorder,
@@ -423,8 +299,6 @@ bootstrapClientApp({
   wasPredictedCombatAlreadyShown,
   showCaptureAlert,
   notifyInsufficientGoldForFrontierAction,
-  clearPendingCollectTileDelta,
-  revertOptimisticTileCollectDelta,
   applyOptimisticTileState,
   applyOptimisticStructureBuild,
   applyOptimisticStructureRemoval,
@@ -450,10 +324,6 @@ bootstrapClientApp({
   authEmailLinkBtn: dom.authEmailLinkBtn,
   authProfileNameEl: dom.authProfileNameEl,
   authProfileSaveBtn: dom.authProfileSaveBtn,
-  allianceSendBtn: dom.allianceSendBtn,
-  mobileAllianceSendBtn: dom.mobileAllianceSendBtn,
-  allianceTargetEl: dom.allianceTargetEl,
-  mobileAllianceTargetEl: dom.mobileAllianceTargetEl,
   techChooseBtn: dom.techChooseBtn,
   mobileTechChooseBtn: dom.mobileTechChooseBtn,
   centerMeBtn: dom.centerMeBtn,

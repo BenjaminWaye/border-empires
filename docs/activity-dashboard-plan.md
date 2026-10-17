@@ -79,6 +79,17 @@ Updates in one Activity modal; added a bounded, player-safe World Pulse
 projection; moved release notes out of their standalone overlay; and made the
 dashboard reliably sit above the new-player checklist.
 
+**Resource surveys** open a centered, explicit-dismissal popup when received;
+View survey locates the clue, and Got it dismisses the popup. The popup is
+independent of map visibility and queues multiple discoveries. They also have
+a standing section in Activity → Yours
+(`client-activity-dashboard-surveys.ts`). It reads unresolved
+`OCCUPATION_SURVEY` records directly from the authoritative `ClientState.eventLog`,
+independently of the retiring Alerts feed. These are standing clues rather than
+24-hour timeline cards: they remain available until their reveal tech is
+researched or the server removes the report. View survey closes the dashboard
+and focuses the clue through the shared camera state in both map renderers.
+
 ## 1. Decision
 
 Replace the current client **Activity Feed** as the player-facing history
@@ -161,7 +172,7 @@ has a player-safe map location:
 
 - `09:42 · Osmond captured a settled tile · 85 gold raided · Center`
 - `10:03 · Waystation activated · +1 CRYSTAL slot · Center`
-- `10:27 · Granary completed in Rivergate · +10,000 population · Center`
+- `10:27 · Incubation Engine completed in Rivergate · +10,000 population · Center`
 
 For a grouped territory or combat event, `Center` targets its largest spatial
 cluster; it must not use the centroid of distant raids and place the player on

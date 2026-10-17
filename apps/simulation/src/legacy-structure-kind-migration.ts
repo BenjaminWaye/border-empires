@@ -23,17 +23,19 @@ import type { RecoveredSimulationState } from "./event-recovery/event-recovery.j
 // same self-heal reasoning applies: snapshots/events written before this
 // change still carry the literal string "MARKET" in tile.economicStructure.type.
 //
-// Manifest/Coin rework removed SEED_GRANARY entirely (not renamed to
+// Manifest/Coin rework removed SEED_INCUBATION_ENGINE entirely (not renamed to
 // something else -- deleted, per the design brief's "cannot be built,
 // loaded, rendered, or referenced"). Any tile still carrying that kind from
-// before this change reverts to its base GRANARY on the next boot; the
+// before this change reverts to its base INCUBATION_ENGINE on the next boot; the
 // growth-multiplier math in server-game-constants.ts already treats a plain
-// Granary and a former Seed Granary identically now that the buffed-radius
+// Incubation Engine and a former Seed Incubation Engine identically now that the buffed-radius
 // bonus is gone, so this is a lossless downgrade, not a partial migration.
+// Keys are post-rename spellings: stored data passes through
+// upgradeLegacyStructureNames (structure id rename) before reaching here.
 const LEGACY_STRUCTURE_KIND_RENAMES: Readonly<Record<string, string>> = {
   LIGHT_OUTPOST: "RELAY_BEACON",
   MARKET: "MINTWORKS",
-  SEED_GRANARY: "GRANARY"
+  SEED_INCUBATION_ENGINE: "INCUBATION_ENGINE"
 };
 
 export const migrateLegacyStructureKinds = (tiles: RecoveredSimulationState["tiles"]): number => {
@@ -71,7 +73,7 @@ const palisadeFortFromLegacy = (
   legacy: NonNullable<RecoveredTile["economicStructure"]>
 ): NonNullable<RecoveredTile["fort"]> => ({
   ownerId: legacy.ownerId,
-  variant: "WOODEN_FORT",
+  variant: "PALISADE",
   status: legacy.status === "inactive" ? "active" : legacy.status,
   ...(legacy.status === "removing" ? { previousStatus: "active" as const } : {}),
   ...(legacy.completesAt !== undefined ? { completesAt: legacy.completesAt } : {}),
@@ -80,7 +82,7 @@ const palisadeFortFromLegacy = (
   ...(legacy.disabledUntil !== undefined ? { disabledUntil: legacy.disabledUntil } : {})
 });
 
-// Palisades (WOODEN_FORT) used to be stored in tile.economicStructure, the
+// Palisades (PALISADE) used to be stored in tile.economicStructure, the
 // same single slot as Relay Beacons / Harbor Exchanges, so building one on a
 // beacon tile deleted the beacon. They're fort-ladder tier 0 in tile.fort now
 // (docs/structure-slot-unification-plan.md, PR 1). Runs on the fully recovered
@@ -89,10 +91,10 @@ export const migrateLegacyPalisades = (tiles: RecoveredSimulationState["tiles"])
   const result: LegacyPalisadeMigrationResult = { moved: 0, mergedIntoUpgrade: 0, droppedUnderFort: 0, reactivated: 0 };
   for (const tile of tiles) {
     const legacy = tile.economicStructure;
-    if (legacy?.type !== "WOODEN_FORT") continue;
+    if (legacy?.type !== "PALISADE") continue;
     const palisadeStanding = legacy.status === "active" || legacy.status === "inactive";
     if (tile.fort?.status === "under_construction" && tile.fort.ownerId === legacy.ownerId && palisadeStanding && !tile.fort.upgradingFrom) {
-      tile.fort = { ...tile.fort, upgradingFrom: "WOODEN_FORT" };
+      tile.fort = { ...tile.fort, upgradingFrom: "PALISADE" };
       result.mergedIntoUpgrade += 1;
     } else if (tile.fort) {
       result.droppedUnderFort += 1;

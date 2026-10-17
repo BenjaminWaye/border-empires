@@ -34,3 +34,6 @@ docs/agents/topics/staging-login-cpu-contention.md
 docs/branch-protection-audit-*.md
 docs/season-rollover-runbook.md
 coverage/
+
+# Vite writes these next to vite.config.ts while bundling the config.
+*.timestamp-*.mjs

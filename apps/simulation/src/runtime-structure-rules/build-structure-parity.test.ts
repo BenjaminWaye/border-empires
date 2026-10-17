@@ -71,7 +71,7 @@ describe("BUILD_STRUCTURE parity — fort family", () => {
     expect(tile?.fortJson).toContain('"variant":"TITANIUM_BASTION"');
   });
 
-  it("upgrades WOODEN_FORT → FORT", async () => {
+  it("upgrades PALISADE → FORT", async () => {
     vi.useFakeTimers();
     try {
       const runtime = new SimulationRuntime({
@@ -85,7 +85,7 @@ describe("BUILD_STRUCTURE parity — fort family", () => {
         }]]),
         initialState: {
           tiles: [afcModuleFixtureTile("player-1"), 
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" }, fort: { ownerId: "player-1", status: "active" as const, variant: "WOODEN_FORT" as const } },
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" }, fort: { ownerId: "player-1", status: "active" as const, variant: "PALISADE" as const } },
             { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
             { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
           ],
@@ -170,7 +170,7 @@ describe("BUILD_STRUCTURE parity — rejection paths", () => {
           { x: 8, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
           { x: 7, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
           { x: 6, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
-          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } }
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", siegeBattery: { ownerId: "player-1", status: "active", variant: "SIEGE_BATTERY" as const } }
         ],
         activeLocks: [],
       },
@@ -181,13 +181,13 @@ describe("BUILD_STRUCTURE parity — rejection paths", () => {
     runtime.submitCommand({
       commandId: "atom1", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
       type: "BUILD_STRUCTURE" as any,
-      payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "SIEGE_OUTPOST" }),
+      payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "SIEGE_BATTERY" }),
     });
     await Promise.resolve();
 
     expect(events).toEqual([]);
     const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
-    expect(tile?.siegeOutpostJson).toContain('"variant":"SIEGE_TOWER"');
+    expect(tile?.siegeBatteryJson).toContain('"variant":"SIEGE_TOWER"');
     const player = runtime.exportState().players.find((p) => p.id === "player-1");
     // Legacy stockpile balances must be completely untouched -- nothing is
     // spent from them for this build any more.
@@ -271,7 +271,7 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
     expect(supportTile?.economicStructureJson).toContain('"type":"MINTWORKS"');
   });
 
-  it("upgrades UMBRITE_SYNTHESIZER → ADVANCED", async () => {
+  it("upgrades UMBRITE_WORKS → ADVANCED", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([["player-1", {
@@ -284,7 +284,7 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
       initialState: {
         tiles: [afcModuleFixtureTile("player-1"), 
           { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" } },
-          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "UMBRITE_SYNTHESIZER" as const, status: "active" as const } }
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "UMBRITE_WORKS" as const, status: "active" as const } }
         ],
         activeLocks: [],
       },
@@ -293,17 +293,17 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
     runtime.submitCommand({
       commandId: "afs1", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
       type: "BUILD_STRUCTURE" as any,
-      payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "ADVANCED_UMBRITE_SYNTHESIZER" }),
+      payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "HIGH_YIELD_UMBRITE_WORKS" }),
     });
     await Promise.resolve();
 
     const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
-    expect(tile?.economicStructureJson).toContain('"type":"ADVANCED_UMBRITE_SYNTHESIZER"');
+    expect(tile?.economicStructureJson).toContain('"type":"HIGH_YIELD_UMBRITE_WORKS"');
   });
 
   // converter-mode-flip plan §Cap removal: the 1-per-empire synthesizer cap
   // is gone. Regression test against the removed rule (used to assert the opposite).
-  it("allows a second UMBRITE_SYNTHESIZER in a different town when one is already owned (cap removed)", async () => {
+  it("allows a second UMBRITE_WORKS in a different town when one is already owned (cap removed)", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([["player-1", {
@@ -316,7 +316,7 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
       initialState: {
         tiles: [afcModuleFixtureTile("player-1"), 
           { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub A", type: "MARKET", populationTier: "CITY" } },
-          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "UMBRITE_SYNTHESIZER" as const, status: "active" as const } },
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "UMBRITE_WORKS" as const, status: "active" as const } },
           { x: 20, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub B", type: "MARKET", populationTier: "CITY" } },
           { x: 20, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
         ],
@@ -331,7 +331,7 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
     runtime.submitCommand({
       commandId: "fs-dupe-1", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
       type: "BUILD_STRUCTURE" as any,
-      payloadJson: JSON.stringify({ x: 20, y: 9, structureType: "UMBRITE_SYNTHESIZER" }),
+      payloadJson: JSON.stringify({ x: 20, y: 9, structureType: "UMBRITE_WORKS" }),
     });
     await Promise.resolve();
 
@@ -340,7 +340,7 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
     expect(secondTile?.economicStructureJson).toBeDefined();
   });
 
-  it("allows a fresh UMBRITE_SYNTHESIZER build when none is owned yet", async () => {
+  it("allows a fresh UMBRITE_WORKS build when none is owned yet", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([["player-1", {
@@ -366,13 +366,13 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
     runtime.submitCommand({
       commandId: "fs-fresh-1", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
       type: "BUILD_STRUCTURE" as any,
-      payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "UMBRITE_SYNTHESIZER" }),
+      payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "UMBRITE_WORKS" }),
     });
     await Promise.resolve();
 
     expect(rejections).toEqual([]);
     const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
-    expect(tile?.economicStructureJson).toContain('"type":"UMBRITE_SYNTHESIZER"');
+    expect(tile?.economicStructureJson).toContain('"type":"UMBRITE_WORKS"');
   });
 });
 

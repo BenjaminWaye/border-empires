@@ -61,9 +61,9 @@ const titaniumSupply = (runtime: SimulationRuntime, playerId: string): number =>
   internals(runtime).resourceSlotSupplyForPlayer(playerId, true).TITANIUM;
 const fortDormant = (runtime: SimulationRuntime, playerId: string, key: string): boolean => runtime.isStructureDormant(playerId, key, "fort");
 
-const buildRuntime = (extra: Array<Record<string, unknown>> = [], initialState?: RecoveredSimulationState): SimulationRuntime =>
+const buildRuntime = (extra: Array<Record<string, unknown>> = [], initialState?: RecoveredSimulationState, now: () => number = () => 10_000): SimulationRuntime =>
   new SimulationRuntime({
-    now: () => 10_000,
+    now,
     initialPlayers: players(),
     initialState: initialState ?? { tiles: initialTiles(extra), activeLocks: [] }
   });
@@ -159,6 +159,81 @@ describe("Siphon siphon mode", () => {
     expect(tileAt(runtime, TOWER)?.observatory?.siphon).toBeUndefined();
   });
 
+  // A victim tower counts against Siphon only while it is shielding
+  // (isObservatoryShielding: switched on, off cooldown, powered), the same
+  // rule as every other Aether ability: a tower on cooldown lets the drain
+  // through, and the siphon ends once the cooldown runs out -- which writes no
+  // tile, so only the periodic tickAetherShields sweep can see it.
+  it("drains land whose tower is on cooldown, then ends once that tower comes off cooldown", async () => {
+    let clock = 10_000;
+    const victimTower = { x: 12, y: 1, terrain: "LAND", ownerId: VICTIM, ownershipState: "SETTLED", observatory: { ownerId: VICTIM, status: "active", activatedAt: 1_000, cooldownUntil: 20_000 } };
+    const runtime = buildRuntime([victimTower, { x: 12, y: 2, terrain: "LAND", ownerId: VICTIM, ownershipState: "SETTLED", resource: "GEMS" }], undefined, () => clock);
+    const seen = collectEvents(runtime);
+    const cast = await submit(runtime, "SIPHON_TILE", { x: 10, y: 1 });
+    expect(rejection(seen, cast)).toBeUndefined();
+    expectSiphonActive(runtime);
+
+    clock = 15_000;
+    runtime.tickAetherShields(clock);
+    expectSiphonActive(runtime);
+
+    clock = 20_001;
+    runtime.tickAetherShields(clock);
+    expectSiphonEnded(runtime);
+  });
+
+  it("switching a tower on while it is still on cooldown doesn't end the siphon until the cooldown runs out", async () => {
+    let clock = 10_000;
+    const victimTower = { x: 12, y: 1, terrain: "LAND", ownerId: VICTIM, ownershipState: "SETTLED", observatory: { ownerId: VICTIM, status: "inactive", activatedAt: 1_000, cooldownUntil: 20_000 } };
+    const runtime = buildRuntime([victimTower, { x: 12, y: 2, terrain: "LAND", ownerId: VICTIM, ownershipState: "SETTLED", resource: "GEMS" }], undefined, () => clock);
+    await submit(runtime, "SIPHON_TILE", { x: 10, y: 1 });
+    await submit(runtime, "SET_OBSERVATORY_ENABLED", { x: 12, y: 1, enabled: true }, VICTIM);
+    expect(tileAt(runtime, "12,1")?.observatory?.status).toBe("active");
+    expectSiphonActive(runtime);
+
+    clock = 20_001;
+    runtime.tickAetherShields(clock);
+    expectSiphonEnded(runtime);
+  });
+
+  // Starving the tower is allowed: a siphon that drains the victim's only
+  // CRYSTAL leaves their tower unpowered, so it isn't shielding when its
+  // cooldown runs out and the drain carries on. It ends once the victim gets
+  // CRYSTAL back (power returns without any tower tile write -- the sweep).
+  it("keeps draining while it starves the victim's tower of CRYSTAL, and ends once the tower is powered again", async () => {
+    let clock = 10_000;
+    const victimTower = { x: 12, y: 1, terrain: "LAND", ownerId: VICTIM, ownershipState: "SETTLED", observatory: { ownerId: VICTIM, status: "active", activatedAt: 1_000, cooldownUntil: 20_000 } };
+    // The victim's only CRYSTAL source, inside the 3x3 the cast drains.
+    const victimGems = { x: 11, y: 2, terrain: "LAND", ownerId: VICTIM, ownershipState: "SETTLED", resource: "GEMS" };
+    const runtime = buildRuntime([victimTower, victimGems], undefined, () => clock);
+    expect(runtime.isStructureDormant(VICTIM, "12,1", "observatory")).toBe(false);
+    await submit(runtime, "SIPHON_TILE", { x: 10, y: 1 });
+    expect(tileAt(runtime, "11,2")?.sabotage).toMatchObject({ observatoryTileKey: TOWER });
+    expect(runtime.isStructureDormant(VICTIM, "12,1", "observatory")).toBe(true);
+
+    clock = 20_001;
+    runtime.tickAetherShields(clock);
+    expect(tileAt(runtime, TOWER)?.observatory?.siphon).toBeDefined();
+
+    // The victim gains another CRYSTAL tile outside the drain: their tower powers up.
+    internals(runtime).replaceTileState("13,4", { x: 13, y: 4, terrain: "LAND", ownerId: VICTIM, ownershipState: "SETTLED", resource: "GEMS" } as DomainTileState, "victim-gains-gems");
+    expect(runtime.isStructureDormant(VICTIM, "12,1", "observatory")).toBe(false);
+    clock = 22_000;
+    runtime.tickAetherShields(clock);
+    expect(tileAt(runtime, TOWER)?.observatory?.siphon).toBeUndefined();
+    expect(tileAt(runtime, "11,2")?.sabotage).toBeUndefined();
+  });
+
+  it("drains land whose tower is unpowered, like every other Aether ability", async () => {
+    const victimTower = { x: 12, y: 1, terrain: "LAND", ownerId: VICTIM, ownershipState: "SETTLED", observatory: { ownerId: VICTIM, status: "active", activatedAt: 1_000 } };
+    const runtime = buildRuntime([victimTower]);
+    expect(runtime.isStructureDormant(VICTIM, "12,1", "observatory")).toBe(true);
+    const seen = collectEvents(runtime);
+    const cast = await submit(runtime, "SIPHON_TILE", { x: 10, y: 1 });
+    expect(rejection(seen, cast)).toBeUndefined();
+    expectSiphonActive(runtime);
+  });
+
   it("ends when the caster switches the siphoning tower off", async () => {
     const runtime = buildRuntime();
     await submit(runtime, "SIPHON_TILE", { x: 10, y: 1 });
@@ -205,7 +280,6 @@ describe("Siphon siphon mode", () => {
       activeLocks: [],
       players: [],
       pendingSettlements: [],
-      tileYieldCollectedAtByTile: [],
       playerYieldCollectionEpochByPlayer: []
     } as unknown as RecoveredSimulationState;
     const recovered = applySimulationEventsToRecoveredState(base, seen);

@@ -1,6 +1,7 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { CombatBroadcastPayload, SimulationEvent } from "@border-empires/sim-protocol";
 import {
+  CAPTURE_HOLD_MS,
   FRONTIER_CLAIM_COST
 } from "@border-empires/shared";
 import { afcCapturePlunderGold, withAfcCapturePlunder } from "./afc-capture-plunder/afc-capture-plunder.js";
@@ -12,7 +13,7 @@ import { capturedTileWillAutoSettle } from "./runtime-out-of-reach-decay/runtime
 import { applyCombatEncirclement } from "./runtime-lock-resolution-encirclement.js";
 import { applyShieldConsumptionAndReveal } from "./runtime-lock-resolution-shield-reveal.js";
 import { isAiControlledActor } from "./runtime-player-factory.js";
-import { applyResourceTileSteal, type RuntimeResourceStealContext } from "./runtime-resource-steal.js";
+import { applyResourceTileSteal } from "./runtime-resource-steal.js";
 import { FORT_PATROL_GRACE_MS } from "./territory-automation/territory-automation.js";
 import type { LockRecord, LockedCombatResolution, SimulationTileWireDelta } from "./runtime-types.js";
 import type { PersonalImpactTown } from "./personal-impact-log/personal-impact-log.js";
@@ -188,7 +189,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     lock.actionType === "ATTACK" &&
     Boolean(previousOwnerId) &&
     previousOwnerId !== lock.playerId &&
-    (previousTarget?.ownershipState !== "FRONTIER" || blockedByAegisLock);
+    (previousTarget?.ownershipState !== "FRONTIER" || combatResolution?.defendedFrontier === true || blockedByAegisLock);
   const combatBroadcastJson = hasDefendingForce && previousOwnerId
     ? JSON.stringify({
         attackerOwnerId: lock.playerId,
@@ -292,6 +293,11 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       ownershipState: lock.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER",
       ...(outOfReachDecayAt !== undefined && !willAutoSettle
         ? { frontierDecayAt: outOfReachDecayAt, frontierDecayKind: "OUT_OF_REACH" as const }
+        : {}),
+      // Capture hold (shared capture-hold.ts): a tile won from another player
+      // defends for a while instead of being a free 100% retake.
+      ...(lock.actionType === "ATTACK" && lock.playerId !== "barbarian-1" && previousOwnerId && previousOwnerId !== lock.playerId && previousOwnerId !== "barbarian-1"
+        ? { captureHoldUntil: context.now() + CAPTURE_HOLD_MS }
         : {})
     };
     // Capturing a tile destroys any muster flag staged on it — the accumulated
@@ -304,7 +310,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       const capturedStructureTypes = [
         ...(capturedFields.fort ? ["FORT"] : []),
         ...(capturedFields.observatory ? ["OBSERVATORY"] : []),
-        ...(capturedFields.siegeOutpost ? ["SIEGE_OUTPOST"] : []),
+        ...(capturedFields.siegeBattery ? ["SIEGE_BATTERY"] : []),
         ...(capturedFields.economicStructure ? [capturedFields.economicStructure.type] : [])
       ];
       const townImpact = {

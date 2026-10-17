@@ -2,6 +2,16 @@
 
 Status: active proposal
 
+> **Delivered differently (2026-10-15):** #2372, #2374 and #2375 met this
+> plan's goal without a proto `map<string, string>` field. One shared table,
+> `TILE_OVERLAY_WIRE_FIELDS` in `@border-empires/sim-protocol`, now drives
+> every simulation, gateway and client overlay path; the client is tied to it
+> by a test. Adding an overlay is a checklist on that table, and the compiler
+> or a test catches each missed step. The named proto fields stay, so no
+> wire migration was needed. Keep this document only for the map-field idea,
+> if the named fields themselves ever become a burden; see
+> [`code-cleanup-plan.md`](code-cleanup-plan.md).
+
 ## Background
 
 Adding "natural wonders" to the game (Aug 2026) required fixing the same bug

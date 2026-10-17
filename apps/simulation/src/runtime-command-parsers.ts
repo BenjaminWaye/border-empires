@@ -1,4 +1,4 @@
-import type { ConverterMode, EconomicStructureType, RetortTargetResource } from "@border-empires/shared";
+import type { ConverterMode, RetortTargetResource } from "@border-empires/shared";
 import type { AetherWallDirection } from "./runtime-types.js";
 
 export interface FrontierPayload {
@@ -91,8 +91,6 @@ export const parseConverterModePayload = (payloadJson: string): { x: number; y: 
   }
 };
 
-export const parseSiegeOutpostAutoAttackPayload = parseConverterTogglePayload;
-
 export const parseSetMusterPayload = (
   payloadJson: string
 ): { x: number; y: number; mode: "HOLD" | "ADVANCE" | "MARCH"; targetX?: number; targetY?: number; commitManpower?: number } | null => {
@@ -125,20 +123,6 @@ export const parseBuildStructurePayload = (payloadJson: string): { x: number; y:
       x: parsed.x,
       y: parsed.y,
       structureType: parsed.structureType
-    };
-  } catch {
-    return null;
-  }
-};
-
-export const parseEconomicStructurePayload = (payloadJson: string): { x: number; y: number; structureType: EconomicStructureType } | null => {
-  try {
-    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
-    if (typeof parsed.x !== "number" || typeof parsed.y !== "number" || typeof parsed.structureType !== "string") return null;
-    return {
-      x: parsed.x,
-      y: parsed.y,
-      structureType: parsed.structureType as EconomicStructureType
     };
   } catch {
     return null;
@@ -225,7 +209,7 @@ export const parseAetherWallPayload = (
   }
 };
 
-export const parseAirportBombardPayload = (payloadJson: string): { fromX: number; fromY: number; toX: number; toY: number } | null => {
+export const parseSkyDockBombardPayload = (payloadJson: string): { fromX: number; fromY: number; toX: number; toY: number } | null => {
   try {
     const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
     if (
@@ -265,7 +249,7 @@ export const parseImperialExchangeLevyPayload = (payloadJson: string): { fromX: 
   }
 };
 
-export const parseWorldEngineStrikePayload = (payloadJson: string): { fromX: number; fromY: number; toX: number; toY: number } | null => {
+export const parseSovereignSiegeEngineStrikePayload = (payloadJson: string): { fromX: number; fromY: number; toX: number; toY: number } | null => {
   try {
     const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
     if (

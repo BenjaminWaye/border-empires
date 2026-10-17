@@ -1,6 +1,5 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { FrontierCommandType } from "@border-empires/game-domain";
-import type { QueueLane } from "./command-lane/command-lane.js";
 
 export type RuntimeCommandDispatchHandlers = {
   emitUnsupported: (command: CommandEnvelope) => void;
@@ -19,8 +18,7 @@ export type RuntimeCommandDispatchHandlers = {
   handleRushBuyCommand: (command: CommandEnvelope) => void;
   handleCancelSettleCommand: (command: CommandEnvelope) => void;
   handleRemoveStructureCommand: (command: CommandEnvelope) => void;
-  handleCancelSiegeOutpostBuildCommand: (command: CommandEnvelope) => void;
-  handleCollectVisibleCommand: (command: CommandEnvelope) => void;
+  handleCancelSiegeBatteryBuildCommand: (command: CommandEnvelope) => void;
   handleUncaptureTileCommand: (command: CommandEnvelope) => void;
   handleChooseTechCommand: (command: CommandEnvelope) => void;
   handleChooseDomainCommand: (command: CommandEnvelope) => void;
@@ -40,9 +38,9 @@ export type RuntimeCommandDispatchHandlers = {
   handleCreateMountainCommand: (command: CommandEnvelope) => void;
   handleRemoveMountainCommand: (command: CommandEnvelope) => void;
   handleRetortRecastCommand: (command: CommandEnvelope) => void;
-  handleAirportBombardCommand: (command: CommandEnvelope) => void;
+  handleSkyDockBombardCommand: (command: CommandEnvelope) => void;
   handleImperialExchangeLevyCommand: (command: CommandEnvelope) => void;
-  handleWorldEngineStrikeCommand: (command: CommandEnvelope) => void;
+  handleSovereignSiegeEngineStrikeCommand: (command: CommandEnvelope) => void;
   handleAegisLockCommand: (command: CommandEnvelope) => void;
   handleAstralDockLaunchCommand: (command: CommandEnvelope) => void;
   handleTitaniumLevyMusterCommand: (command: CommandEnvelope) => void;
@@ -52,6 +50,7 @@ export type RuntimeCommandDispatchHandlers = {
   handleCollectShardCommand: (command: CommandEnvelope) => void;
   handleSyncAllianceCommand: (command: CommandEnvelope) => void;
   handleSyncTruceCommand: (command: CommandEnvelope) => void;
+  handleDiplomacySettlementCommand: (command: CommandEnvelope) => void;
   handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => void;
   handleDevQueueEnqueueCommand: (command: CommandEnvelope) => void;
   handleDevQueueCancelCommand: (command: CommandEnvelope) => void;
@@ -65,6 +64,7 @@ export type RuntimeCommandDispatchHandlers = {
 export const commandScheduling = (command: CommandEnvelope): "immediate" | "background" =>
   command.type !== "SYNC_ALLIANCE" &&
   command.type !== "SYNC_TRUCE" &&
+  command.type !== "SETTLE_DIPLOMACY_TERMS" &&
   (command.sessionId.startsWith("ai-runtime:") || command.sessionId.startsWith("system-runtime:"))
     ? "background"
     : "immediate";
@@ -89,8 +89,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "RUSH_BUY") return handlers.handleRushBuyCommand(command);
   if (command.type === "CANCEL_SETTLE") return handlers.handleCancelSettleCommand(command);
   if (command.type === "REMOVE_STRUCTURE") return handlers.handleRemoveStructureCommand(command);
-  if (command.type === "CANCEL_SIEGE_OUTPOST_BUILD") return handlers.handleCancelSiegeOutpostBuildCommand(command);
-  if (command.type === "COLLECT_VISIBLE") return handlers.handleCollectVisibleCommand(command);
+  if (command.type === "CANCEL_SIEGE_BATTERY_BUILD") return handlers.handleCancelSiegeBatteryBuildCommand(command);
   if (command.type === "UNCAPTURE_TILE") return handlers.handleUncaptureTileCommand(command);
   if (command.type === "CHOOSE_TECH") return handlers.handleChooseTechCommand(command);
   if (command.type === "CHOOSE_DOMAIN") return handlers.handleChooseDomainCommand(command);
@@ -111,9 +110,9 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "REMOVE_MOUNTAIN") return handlers.handleRemoveMountainCommand(command);
   if (command.type === "RETORT_RECAST") return handlers.handleRetortRecastCommand(command);
   if (command.type === "REDEPLOY_AFC_MODULE" || command.type === "BUILD_AFC") return handlers.handleBuildStructureCommand(command);
-  if (command.type === "AIRPORT_BOMBARD") return handlers.handleAirportBombardCommand(command);
+  if (command.type === "SKY_DOCK_BOMBARD") return handlers.handleSkyDockBombardCommand(command);
   if (command.type === "IMPERIAL_EXCHANGE_LEVY") return handlers.handleImperialExchangeLevyCommand(command);
-  if (command.type === "WORLD_ENGINE_STRIKE") return handlers.handleWorldEngineStrikeCommand(command);
+  if (command.type === "SOVEREIGN_SIEGE_ENGINE_STRIKE") return handlers.handleSovereignSiegeEngineStrikeCommand(command);
   if (command.type === "AEGIS_LOCK") return handlers.handleAegisLockCommand(command);
   if (command.type === "ASTRAL_DOCK_LAUNCH") return handlers.handleAstralDockLaunchCommand(command);
   if (command.type === "TITANIUM_LEVY_MUSTER") return handlers.handleTitaniumLevyMusterCommand(command);
@@ -123,6 +122,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "COLLECT_SHARD") return handlers.handleCollectShardCommand(command);
   if (command.type === "SYNC_ALLIANCE") return handlers.handleSyncAllianceCommand(command);
   if (command.type === "SYNC_TRUCE") return handlers.handleSyncTruceCommand(command);
+  if (command.type === "SETTLE_DIPLOMACY_TERMS") return handlers.handleDiplomacySettlementCommand(command);
   if (command.type === "ATTACK" || command.type === "EXPAND") {
     handlers.handleFrontierCommand(command, command.type);
     return;
@@ -139,7 +139,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
 const isLegacyBuildCommand = (command: CommandEnvelope): boolean =>
   command.type === "BUILD_FORT" ||
   command.type === "BUILD_OBSERVATORY" ||
-  command.type === "BUILD_SIEGE_OUTPOST" ||
+  command.type === "BUILD_SIEGE_BATTERY" ||
   command.type === "BUILD_ECONOMIC_STRUCTURE";
 
 const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
@@ -160,9 +160,8 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "RUSH_BUY" ||
   command.type === "CANCEL_SETTLE" ||
   command.type === "REMOVE_STRUCTURE" ||
-  command.type === "CANCEL_SIEGE_OUTPOST_BUILD" ||
+  command.type === "CANCEL_SIEGE_BATTERY_BUILD" ||
   command.type === "UNCAPTURE_TILE" ||
-  command.type === "COLLECT_VISIBLE" ||
   command.type === "CHOOSE_TECH" ||
   command.type === "CHOOSE_DOMAIN" ||
   command.type === "SET_CONVERTER_STRUCTURE_ENABLED" ||
@@ -183,9 +182,9 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "RETORT_RECAST" ||
   command.type === "REDEPLOY_AFC_MODULE" ||
   command.type === "BUILD_AFC" ||
-  command.type === "AIRPORT_BOMBARD" ||
+  command.type === "SKY_DOCK_BOMBARD" ||
   command.type === "IMPERIAL_EXCHANGE_LEVY" ||
-  command.type === "WORLD_ENGINE_STRIKE" ||
+  command.type === "SOVEREIGN_SIEGE_ENGINE_STRIKE" ||
   command.type === "AEGIS_LOCK" ||
   command.type === "ASTRAL_DOCK_LAUNCH" ||
   command.type === "TITANIUM_LEVY_MUSTER" ||
@@ -195,6 +194,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "COLLECT_SHARD" ||
   command.type === "SYNC_ALLIANCE" ||
   command.type === "SYNC_TRUCE" ||
+  command.type === "SETTLE_DIPLOMACY_TERMS" ||
   (command.type as string) === "DEV_QUEUE_ENQUEUE" ||
   (command.type as string) === "DEV_QUEUE_CANCEL" ||
   (command.type as string) === "DEV_QUEUE_MOVE_TO_FRONT" ||
@@ -202,10 +202,3 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   (command.type as string) === "WAYPOINT_CANCEL" ||
   (command.type as string) === "WAYPOINT_CANCEL_ALL" ||
   (command.type as string) === "CLAIM_CONTINUATION_SET";
-
-export type RuntimeCommandEnqueue = (
-  lane: QueueLane,
-  run: () => void,
-  commandType?: CommandEnvelope["type"],
-  scheduling?: "immediate" | "background"
-) => void;

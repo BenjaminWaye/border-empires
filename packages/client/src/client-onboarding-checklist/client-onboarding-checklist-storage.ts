@@ -41,14 +41,6 @@ export const hydrateOnboardingChecklistFromServer = (completed: boolean, authEma
   }
 };
 
-export const clearOnboardingChecklistCompleted = (authEmail?: string | null): void => {
-  try {
-    window.localStorage.removeItem(scopedKey(authEmail));
-  } catch {
-    // Ignore storage failures in restricted browser contexts.
-  }
-};
-
 // Separate from ONBOARDING_CHECKLIST_STORAGE_KEY (completion) -- this tracks
 // whether the checklist panel has ever been force-opened for this account,
 // so a returning player who is mid-checklist doesn't get the panel popped

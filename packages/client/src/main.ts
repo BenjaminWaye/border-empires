@@ -1,3 +1,4 @@
+import "./client-muster-combat-reports/client-muster-combat-reports-style.css";
 // Client entrypoint:
 // 1. install the global error guard first (must be the first import so its
 //    listeners are registered before any other module's top-level code runs)
@@ -25,6 +26,7 @@ import "./client-resource-icons/client-resource-icons-style.css";
 import "./client-nav-icons/client-nav-icons-style.css";
 import "./client-nav-icons/client-nav-icons-labels-style.css";
 import "./client-build-menu-icons/client-build-menu-icons-style.css";
+import "./client-ability-icons/client-ability-icons-style.css";
 import "./client-hud-settings-discord-style.css";
 import "./client-founding-engineer-style.css";
 import "./client-duke-title-style.css";
@@ -43,7 +45,10 @@ import "./client-steampunk-tile-menu-style.css";
 import "./client-afc-module-tab/client-afc-module-tab.css";
 import "./client-steampunk-stat-chips-style.css";
 import "./client-manifest-detail/client-manifest-detail.css";
+import "./client-manifest-tabs/client-manifest-tabs.css";
+import "./client-tech-tree-html/client-tech-tree-toolbar.css";
 import "./client-tile-ownership-help-style.css";
+import "./client-manpower-panel-info-style.css";
 import "./client-activity-dashboard-style.css";
 import "./client-muster-commit-tab-style.css";
 import "./client-auth-busy-progress-style.css";

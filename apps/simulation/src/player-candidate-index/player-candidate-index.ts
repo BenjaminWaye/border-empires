@@ -16,7 +16,7 @@
  * tiles * R^2), which is well within watchdog budget.
  *
  * Anchor registration: each anchor is stored at the MAXIMUM possible radius for
- * its kind (MAX_FORT_AUTO_FRONTIER_RADIUS for forts/wooden-forts,
+ * its kind (MAX_FORT_AUTO_FRONTIER_RADIUS for forts/palisades,
  * TOWN_AUTO_FRONTIER_RADIUS for towns).
  * This prevents stale maxRadius when time-dependent conditions (e.g.
  * FORT_PATROL_GRACE_MS) change the effective radius without a tile mutation.
@@ -36,7 +36,7 @@
  * Matches sweepAttackCandidates exactly.
  */
 
-import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { chebyshevDistanceSimple, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
 
@@ -264,7 +264,7 @@ export class PlayerCandidateIndex {
   }
 
   /**
-   * Return sorted fort-auto-attack candidates (frontier only, no fort/wooden-fort).
+   * Return sorted fort-auto-attack candidates (frontier only, no fort/palisade).
    * Used by the fort patrol path in tickTerritoryAutomation (fix #4 fort variant).
    */
   sortedFortAttackCandidates(anchorTileKey: string, currentRadius: number): readonly DomainTileState[] {
@@ -276,7 +276,7 @@ export class PlayerCandidateIndex {
     const ownerId = entry.anchorOwnerId;
     // sortedAttackTiles is built from isEnemyTile which includes SETTLED tiles and
     // tiles with forts.  isFortAttackTarget is a stricter predicate (frontier only,
-    // no fort/wooden-fort), so we cannot skip the filter even when
+    // no fort/palisade), so we cannot skip the filter even when
     // currentRadius >= entry.maxRadius.  Clamp once here to avoid per-element branching.
     const r = Math.min(currentRadius, entry.maxRadius);
     return entry.sortedAttackTiles.filter((t) => {

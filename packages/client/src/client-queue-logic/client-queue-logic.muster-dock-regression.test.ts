@@ -8,9 +8,8 @@ vi.hoisted(() => {
 });
 
 import { MUSTER_ATTACK_COST } from "@border-empires/shared";
-import { MUSTER_FLAG_REQUEST_TIMEOUT_MS } from "../client-constants.js";
 import { createInitialState, type ClientState } from "../client-state/client-state.js";
-import { processActionQueue, processPendingMusterAttacks } from "./client-queue-logic.js";
+import { processActionQueue } from "./client-queue-logic.js";
 import { fireDueMusterTransits } from "../client-muster-transit/client-muster-transit.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { Tile } from "../client-types.js";

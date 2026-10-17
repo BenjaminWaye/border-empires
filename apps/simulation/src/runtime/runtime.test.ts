@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { COMBAT_LOCK_MS, FORT_TIER_LADDER, MAX_BARBARIAN_TILES, SIEGE_TIER_LADDER, SIPHON_UNTIL_CANCELLED_ENDS_AT, structureBuildDurationMs, structureBuildDurationMsForManpowerCost, WORLD_WIDTH } from "@border-empires/shared";
-import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST, TOWN_BASE_GOLD_PER_MIN, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
+import { SETTLEMENT_BASE_GOLD_PER_MIN, STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST, TOWN_BASE_GOLD_PER_MIN, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
 import { createPlayersFromRecoveredState } from "../runtime-hydration.js";
@@ -74,40 +74,6 @@ describe("simulation runtime", () => {
     runtime.applyPassiveIncome(startMs, inactivityCapMs);
     const playerAfter = runtime.exportState().players.find((entry) => entry.id === "player-1");
     expect(playerAfter?.points ?? 0).toBe(pointsBefore);
-  });
-
-  it("COLLECT_VISIBLE command emits COLLECT_RESULT", async () => {
-    const nowMs = Date.now();
-    const runtime = new SimulationRuntime({
-      now: () => nowMs,
-      initialPlayers: new Map([["player-1", testRuntimePlayer("player-1")]]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 5,
-            y: 5,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            town: { type: "FARMING", populationTier: "SETTLEMENT", name: "Gold Town" }
-          }
-        ],
-        activeLocks: []
-      }
-    });
-    const seen = collectEvents(runtime);
-    runtime.submitCommand({
-      commandId: "collect-visible-gone",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: nowMs,
-      type: "COLLECT_VISIBLE",
-      payloadJson: "{}"
-    });
-    await Promise.resolve();
-    expect(seen.some((event) => event.eventType === "COLLECT_RESULT")).toBe(true);
   });
 
   it("spawns a settled tile for unknown subscribed players", () => {
@@ -264,17 +230,17 @@ describe("simulation runtime", () => {
 
     (
       runtime as unknown as {
-        rememberedAutomationVictoryPathByPlayer: Map<string, "TOWN_CONTROL" | "DIPLOMATIC_DOMINANCE" | "ECONOMIC_HEGEMONY">;
+        automationAdvisor: { victoryPathByPlayer: Map<string, "TOWN_CONTROL" | "DIPLOMATIC_DOMINANCE" | "ECONOMIC_HEGEMONY"> };
       }
-    ).rememberedAutomationVictoryPathByPlayer.set("player-1", "TOWN_CONTROL");
+    ).automationAdvisor.victoryPathByPlayer.set("player-1", "TOWN_CONTROL");
 
     expect(runtime.ensurePlayerHasSpawnTerritory("player-1")).toBe(true);
     expect(
       (
         runtime as unknown as {
-          rememberedAutomationVictoryPathByPlayer: Map<string, "TOWN_CONTROL" | "DIPLOMATIC_DOMINANCE" | "ECONOMIC_HEGEMONY">;
+          automationAdvisor: { victoryPathByPlayer: Map<string, "TOWN_CONTROL" | "DIPLOMATIC_DOMINANCE" | "ECONOMIC_HEGEMONY"> };
         }
-      ).rememberedAutomationVictoryPathByPlayer.get("player-1")
+      ).automationAdvisor.victoryPathByPlayer.get("player-1")
     ).toBeUndefined();
   });
 
@@ -293,18 +259,18 @@ describe("simulation runtime", () => {
 
     (
       runtime as unknown as {
-        rememberedAutomationVictoryPathByPlayer: Map<string, "TOWN_CONTROL" | "DIPLOMATIC_DOMINANCE" | "ECONOMIC_HEGEMONY">;
+        automationAdvisor: { victoryPathByPlayer: Map<string, "TOWN_CONTROL" | "DIPLOMATIC_DOMINANCE" | "ECONOMIC_HEGEMONY"> };
       }
-    ).rememberedAutomationVictoryPathByPlayer.set("player-1", "ECONOMIC_HEGEMONY");
+    ).automationAdvisor.victoryPathByPlayer.set("player-1", "ECONOMIC_HEGEMONY");
 
     runtime.explainNextAutomationCommand("player-1", 1, 1_000, "ai-runtime");
 
     expect(
       (
         runtime as unknown as {
-          rememberedAutomationVictoryPathByPlayer: Map<string, "TOWN_CONTROL" | "DIPLOMATIC_DOMINANCE" | "ECONOMIC_HEGEMONY">;
+          automationAdvisor: { victoryPathByPlayer: Map<string, "TOWN_CONTROL" | "DIPLOMATIC_DOMINANCE" | "ECONOMIC_HEGEMONY"> };
         }
-      ).rememberedAutomationVictoryPathByPlayer.get("player-1")
+      ).automationAdvisor.victoryPathByPlayer.get("player-1")
     ).toBeUndefined();
   });
 
@@ -386,27 +352,8 @@ describe("simulation runtime", () => {
         activeLocks: []
       }
     });
-    const seen = collectEvents(runtime);
-
-    runtime.submitCommand({
-      commandId: "collect-1",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: 60_000,
-      type: "COLLECT_VISIBLE",
-      payloadJson: "{}"
-    });
-
-    await Promise.resolve();
-
-    const playerUpdateEvent = seen.find(
-      (event): event is Extract<SimulationRuntimeEventShape, { eventType: "PLAYER_MESSAGE" }> =>
-        event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_UPDATE"
-    );
-    const payload = JSON.parse(playerUpdateEvent!.payloadJson) as {
-      manpowerBreakdown: { cap: Array<{ label: string; amount: number }>; regen: Array<{ label: string; amount: number }> };
-    };
+    const player = runtime.exportState().players.find((entry) => entry.id === "player-1");
+    const payload = { manpowerBreakdown: player!.manpowerBreakdown! };
     expect(payload.manpowerBreakdown.cap.map((line) => line.label)).toEqual(["Starting Capital", "2 Great Cities", "2 Metropolises"]);
     expect(payload.manpowerBreakdown.regen.map((line) => line.label)).toEqual(["Starting Capital", "2 Great Cities", "2 Metropolises"]);
   });
@@ -1266,114 +1213,68 @@ describe("simulation runtime", () => {
         activeLocks: []
       }
     });
-    const seen = collectEvents(runtime);
-
     currentNow += 5 * 60_000;
+    runtime.exportPlannerPlayerViews(["player-1"]);
 
-    runtime.submitCommand({
-      commandId: "collect-1",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: currentNow,
-      type: "COLLECT_VISIBLE",
-      payloadJson: "{}"
-    });
-
-    await Promise.resolve();
-
-    const playerUpdateEvent = seen.find(
-      (event): event is Extract<SimulationRuntimeEventShape, { eventType: "PLAYER_MESSAGE" }> =>
-        event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_UPDATE"
-    );
-    expect(playerUpdateEvent).toBeDefined();
-    const payload = JSON.parse(playerUpdateEvent!.payloadJson) as {
-      strategicResources: { FOOD: number };
-    };
+    const player = runtime.exportState().players.find((p) => p.id === "player-1");
     // Town food upkeep is retired to 0 (§5.4) — the FOOD stockpile never moves.
-    expect(payload.strategicResources.FOOD).toBe(10);
+    expect(player?.strategicResources?.FOOD).toBe(10);
   });
 
-  it("pays gold upkeep from accumulated tile yield before draining the stockpile", async () => {
-    let currentNow = 60_000;
-    const runtime = new SimulationRuntime({
-      now: () => currentNow,
-      initialPlayers: new Map([
-        ["player-1", testRuntimePlayer("player-1", { points: 8000 })]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 5,
-            y: 5,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            town: { type: "TRADE", populationTier: "TOWN", goldPerMinute: 4 }
-          },
-          {
-            x: 6,
-            y: 5,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            economicStructure: { type: "UMBRITE_RIG", status: "active" }
-          }
-        ],
-        activeLocks: []
-      }
-    });
-    // 60 minutes elapse offline. Town produces 4 gold/min (~240 gold of
-    // yield accumulates); UMBRITE_RIG draws 1.2 gold/min in upkeep (~72 gold owed).
-    // Yield easily covers the upkeep, so the stockpile must stay at 8000.
-    currentNow += 60 * 60_000;
-    runtime.exportPlannerPlayerViews(["player-1"]);
-    const exported = runtime.exportState();
-    const player = exported.players.find((p) => p.id === "player-1");
-    expect(player?.points).toBeCloseTo(8000, 0);
+  // Regression: converter gold upkeep used to be paid first from a phantom
+  // per-tile yield buffer that passive income ALSO credited, so an active
+  // player's upkeep was partly or wholly never charged.
+  const synthesizerEmpire = (points: number) => ({
+    initialPlayers: new Map([["player-1", testRuntimePlayer("player-1", { points })]]),
+    seedTiles: new Map(),
+    initialState: {
+      tiles: [
+        {
+          x: 5,
+          y: 5,
+          terrain: "LAND" as const,
+          ownerId: "player-1",
+          ownershipState: "SETTLED" as const,
+          town: { type: "TRADE" as const, populationTier: "SETTLEMENT" as const, goldPerMinute: 4 }
+        },
+        {
+          x: 6,
+          y: 5,
+          terrain: "LAND" as const,
+          ownerId: "player-1",
+          ownershipState: "SETTLED" as const,
+          economicStructure: { type: "UMBRITE_WORKS" as const, status: "active" as const, ownerId: "player-1" }
+        }
+      ],
+      activeLocks: []
+    }
   });
 
-  it("falls back to stockpile when tile yield cannot cover gold upkeep", async () => {
+  it("charges an active player's converter gold upkeep from the treasury even when town income covers it", async () => {
     let currentNow = 60_000;
-    const runtime = new SimulationRuntime({
-      now: () => currentNow,
-      initialPlayers: new Map([
-        ["player-1", testRuntimePlayer("player-1", { points: 1000 })]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 5,
-            y: 5,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            town: { type: "TRADE", populationTier: "SETTLEMENT", goldPerMinute: 0 }
-          },
-          {
-            x: 6,
-            y: 5,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            economicStructure: { type: "UMBRITE_SYNTHESIZER", status: "active", ownerId: "player-1" }
-          }
-        ],
-        activeLocks: []
-      }
-    });
-    // 60 min elapse: UMBRITE_SYNTHESIZER draws the §6.4-decided 30 gold/day
-    // (= 30/1440 gold/min) upkeep, partially offset by the SETTLEMENT town's
-    // own SETTLEMENT_BASE_GOLD_PER_MIN yield (§24.6); the remaining deficit
-    // hits the stockpile.
+    const runtime = new SimulationRuntime({ now: () => currentNow, ...synthesizerEmpire(1000) });
+    // 60 min elapse: UMBRITE_WORKS draws the §6.4-decided 30 gold/day
+    // (= 30/1440 gold/min) upkeep — 1.25 gold — straight from the treasury.
     currentNow += 60 * 60_000;
     runtime.exportPlannerPlayerViews(["player-1"]);
-    const exported = runtime.exportState();
-    const player = exported.players.find((p) => p.id === "player-1");
-    expect(player?.points).toBeGreaterThan(999);
-    expect(player?.points).toBeLessThan(1000);
+    const player = runtime.exportState().players.find((p) => p.id === "player-1");
+    expect(player?.points).toBeCloseTo(1000 - 1.25, 6);
+  });
+
+  it("nets a long-offline player's converter gold upkeep against income, charging only the shortfall", async () => {
+    let currentNow = 60_000;
+    const runtime = new SimulationRuntime({ now: () => currentNow, ...synthesizerEmpire(1000) });
+    runtime.exportPlannerPlayerViews(["player-1"]);
+    // Past the 24h passive-income inactivity cap no income is credited; the
+    // SETTLEMENT's own income (SETTLEMENT_BASE_GOLD_PER_MIN) offsets the
+    // synthesizer's 30 gold/day upkeep, so the treasury only pays the shortfall.
+    const minutes = 25 * 60;
+    currentNow += minutes * 60_000;
+    runtime.exportPlannerPlayerViews(["player-1"]);
+    const player = runtime.exportState().players.find((p) => p.id === "player-1");
+    const fullUpkeep = (30 / 1440) * minutes;
+    expect(player?.points).toBeCloseTo(1000 - (fullUpkeep - SETTLEMENT_BASE_GOLD_PER_MIN * minutes), 2);
+    expect(player?.points).toBeGreaterThan(1000 - fullUpkeep);
   });
 
   it("exportVisibleStateForPlayer accrues gold upkeep for the requesting player but not for other visible players", () => {
@@ -1401,7 +1302,7 @@ describe("simulation runtime", () => {
             terrain: "LAND",
             ownerId: "player-1",
             ownershipState: "SETTLED",
-            economicStructure: { type: "UMBRITE_SYNTHESIZER", status: "active", ownerId: "player-1" }
+            economicStructure: { type: "UMBRITE_WORKS", status: "active", ownerId: "player-1" }
           },
           {
             x: 40,
@@ -1409,13 +1310,13 @@ describe("simulation runtime", () => {
             terrain: "LAND",
             ownerId: "player-2",
             ownershipState: "SETTLED",
-            economicStructure: { type: "UMBRITE_SYNTHESIZER", status: "active", ownerId: "player-2" }
+            economicStructure: { type: "UMBRITE_WORKS", status: "active", ownerId: "player-2" }
           }
         ],
         activeLocks: []
       }
     });
-    // Both players accrue the same UMBRITE_SYNTHESIZER gold upkeep (§6.4 — the
+    // Both players accrue the same UMBRITE_WORKS gold upkeep (§6.4 — the
     // one structure family still gated on ongoing gold) with no offsetting
     // yield, so absent any export at all both would drain identically.
     currentNow += 60 * 60_000;
@@ -1608,7 +1509,6 @@ describe("simulation runtime", () => {
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
-        "TILE_YIELD_ANCHOR_UPDATED:cmd-1:respawn:player-2",
         "TILE_DELTA_BATCH:cmd-1",
         "COMMAND_ACCEPTED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
@@ -2819,7 +2719,7 @@ describe("simulation runtime", () => {
     }
   });
 
-  it("builds a siege outpost through the rewrite simulation path and persists its tile state", async () => {
+  it("builds a siege battery through the rewrite simulation path and persists its tile state", async () => {
     vi.useFakeTimers();
     try {
       const runtime = new SimulationRuntime({
@@ -2851,7 +2751,7 @@ describe("simulation runtime", () => {
         playerId: "player-1",
         clientSeq: 1,
         issuedAt: 1_000,
-        type: "BUILD_SIEGE_OUTPOST",
+        type: "BUILD_SIEGE_BATTERY",
         payloadJson: JSON.stringify({ x: 14, y: 14 })
       });
 
@@ -2860,15 +2760,15 @@ describe("simulation runtime", () => {
         expect.objectContaining({
           x: 14,
           y: 14,
-          siegeOutpostJson: expect.any(String)
+          siegeBatteryJson: expect.any(String)
         })
       );
       expect(runtime.exportState().players.find((player) => player.id === "player-1")?.manpower).toBe(STARTING_CAPITAL_MANPOWER_CAP + TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap * 2 - 60); // SETTLED w/no town still = SETTLEMENT tier (+ the fixture AFC's SETTLEMENT-tier baseline) before outpost's 60 cost
 
-      vi.advanceTimersByTime(structureBuildDurationMs("SIEGE_OUTPOST"));
+      vi.advanceTimersByTime(structureBuildDurationMs("SIEGE_BATTERY"));
 
       const exported = runtime.exportState().tiles.find((tile) => tile.x === 14 && tile.y === 14);
-      expect(exported?.siegeOutpostJson).toContain("\"status\":\"active\"");
+      expect(exported?.siegeBatteryJson).toContain("\"status\":\"active\"");
     } finally {
       vi.useRealTimers();
     }
@@ -2902,20 +2802,20 @@ describe("simulation runtime", () => {
         playerId: "player-1",
         clientSeq: 1,
         issuedAt: 1_000,
-        type: "BUILD_SIEGE_OUTPOST",
+        type: "BUILD_SIEGE_BATTERY",
         payloadJson: JSON.stringify({ x: 14, y: 14 })
       });
 
       await Promise.resolve();
       const tile = runtime.exportState().tiles.find((t) => t.x === 14 && t.y === 14);
-      expect(tile?.siegeOutpostJson).toBeDefined();
-      expect(tile?.siegeOutpostJson).toContain("\"variant\":\"SIEGE_TOWER\"");
+      expect(tile?.siegeBatteryJson).toBeDefined();
+      expect(tile?.siegeBatteryJson).toContain("\"variant\":\"SIEGE_TOWER\"");
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("upgrades SIEGE_OUTPOST → SIEGE_TOWER when siegecraft is researched", async () => {
+  it("upgrades SIEGE_BATTERY → SIEGE_TOWER when siegecraft is researched", async () => {
     vi.useFakeTimers();
     try {
       const runtime = new SimulationRuntime({
@@ -2928,7 +2828,7 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [afcModuleFixtureTile("player-1"), 
-            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } },
+            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeBattery: { ownerId: "player-1", status: "active", variant: "SIEGE_BATTERY" as const } },
             { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
             { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
             { x: 17, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" }
@@ -2943,14 +2843,14 @@ describe("simulation runtime", () => {
         playerId: "player-1",
         clientSeq: 1,
         issuedAt: 1_000,
-        type: "BUILD_SIEGE_OUTPOST",
+        type: "BUILD_SIEGE_BATTERY",
         payloadJson: JSON.stringify({ x: 14, y: 14 })
       });
 
       await Promise.resolve();
       const tile = runtime.exportState().tiles.find((t) => t.x === 14 && t.y === 14);
-      expect(tile?.siegeOutpostJson).toBeDefined();
-      expect(tile?.siegeOutpostJson).toContain("\"variant\":\"SIEGE_TOWER\"");
+      expect(tile?.siegeBatteryJson).toBeDefined();
+      expect(tile?.siegeBatteryJson).toContain("\"variant\":\"SIEGE_TOWER\"");
       // Build gold costs are zeroed: the siege tier ladder charges no gold, just the
       // manpower/supply/iron already asserted above via the siege variant.
       const player = runtime.exportState().players.find((p) => p.id === "player-1")!;
@@ -2973,7 +2873,7 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [afcModuleFixtureTile("player-1"), 
-            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "DREAD_TOWER" as const } }
+            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeBattery: { ownerId: "player-1", status: "active", variant: "DREAD_TOWER" as const } }
           ],
           activeLocks: []
         }
@@ -2990,7 +2890,7 @@ describe("simulation runtime", () => {
         playerId: "player-1",
         clientSeq: 1,
         issuedAt: 1_000,
-        type: "BUILD_SIEGE_OUTPOST",
+        type: "BUILD_SIEGE_BATTERY",
         payloadJson: JSON.stringify({ x: 14, y: 14 })
       });
 
@@ -3003,7 +2903,7 @@ describe("simulation runtime", () => {
     }
   });
 
-  it("rejects SIEGE_OUTPOST upgrade when next tier tech is missing", async () => {
+  it("rejects SIEGE_BATTERY upgrade when next tier tech is missing", async () => {
     vi.useFakeTimers();
     try {
       const runtime = new SimulationRuntime({
@@ -3016,7 +2916,7 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [afcModuleFixtureTile("player-1"), 
-            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } }
+            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeBattery: { ownerId: "player-1", status: "active", variant: "SIEGE_BATTERY" as const } }
           ],
           activeLocks: []
         }
@@ -3033,7 +2933,7 @@ describe("simulation runtime", () => {
         playerId: "player-1",
         clientSeq: 1,
         issuedAt: 1_000,
-        type: "BUILD_SIEGE_OUTPOST",
+        type: "BUILD_SIEGE_BATTERY",
         payloadJson: JSON.stringify({ x: 14, y: 14 })
       });
 
@@ -3076,21 +2976,21 @@ describe("simulation runtime", () => {
         playerId: "player-1",
         clientSeq: 1,
         issuedAt: 1_000,
-        type: "BUILD_SIEGE_OUTPOST",
+        type: "BUILD_SIEGE_BATTERY",
         payloadJson: JSON.stringify({ x: 14, y: 14 })
       });
 
       await Promise.resolve();
       let tile = runtime.exportState().tiles.find((t) => t.x === 14 && t.y === 14);
-      expect(tile?.siegeOutpostJson).toContain("\"variant\":\"DREAD_TOWER\"");
-      expect(tile?.siegeOutpostJson).toContain("\"status\":\"under_construction\"");
+      expect(tile?.siegeBatteryJson).toContain("\"variant\":\"DREAD_TOWER\"");
+      expect(tile?.siegeBatteryJson).toContain("\"status\":\"under_construction\"");
 
-      // D9: derived from DREAD_TOWER's real 240 MP cost, not the base SIEGE_OUTPOST tier's duration.
+      // D9: derived from DREAD_TOWER's real 240 MP cost, not the base SIEGE_BATTERY tier's duration.
       vi.advanceTimersByTime(structureBuildDurationMsForManpowerCost(SIEGE_TIER_LADDER.DREAD_TOWER.manpower));
 
       tile = runtime.exportState().tiles.find((t) => t.x === 14 && t.y === 14);
-      expect(tile?.siegeOutpostJson).toContain("\"variant\":\"DREAD_TOWER\"");
-      expect(tile?.siegeOutpostJson).toContain("\"status\":\"active\"");
+      expect(tile?.siegeBatteryJson).toContain("\"variant\":\"DREAD_TOWER\"");
+      expect(tile?.siegeBatteryJson).toContain("\"status\":\"active\"");
     } finally {
       vi.useRealTimers();
     }
@@ -3116,7 +3016,7 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [afcModuleFixtureTile("player-1"), 
-            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } },
+            { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeBattery: { ownerId: "player-1", status: "active", variant: "SIEGE_BATTERY" as const } },
             { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
             { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
             { x: 17, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
@@ -3138,14 +3038,14 @@ describe("simulation runtime", () => {
         playerId: "player-1",
         clientSeq: 1,
         issuedAt: 1_000,
-        type: "BUILD_SIEGE_OUTPOST",
+        type: "BUILD_SIEGE_BATTERY",
         payloadJson: JSON.stringify({ x: 14, y: 14 })
       });
 
       await Promise.resolve();
       expect(events).toEqual([]);
       const tile = runtime.exportState().tiles.find((t) => t.x === 14 && t.y === 14);
-      expect(tile?.siegeOutpostJson).toContain("\"variant\":\"SIEGE_TOWER\"");
+      expect(tile?.siegeBatteryJson).toContain("\"variant\":\"SIEGE_TOWER\"");
       // Legacy stockpile balances must be completely untouched -- nothing is
       // spent from them for this build any more.
       const player = runtime.exportState().players.find((p) => p.id === "player-1")!;
@@ -3225,7 +3125,7 @@ describe("simulation runtime", () => {
     }
   });
 
-  it("redirects a Mintworks/Garrison Hall/Weapons Factory targeted at the town tile itself onto an open support tile — only a Fort belongs directly on a town", async () => {
+  it("redirects a Mintworks/Ancillary Depot/Weapons Factory targeted at the town tile itself onto an open support tile — only a Fort belongs directly on a town", async () => {
     vi.useFakeTimers();
     try {
       const runtime = new SimulationRuntime({
@@ -3343,7 +3243,7 @@ describe("simulation runtime", () => {
     expect(duplicateTarget?.economicStructureJson).toBeUndefined();
   });
 
-  it("builds a garrison hall with organized-supply tech and sufficient resources", async () => {
+  it("builds a ancillary depot with organized-supply tech and sufficient resources", async () => {
     vi.useFakeTimers();
     try {
       const runtime = new SimulationRuntime({
@@ -3365,7 +3265,7 @@ describe("simulation runtime", () => {
               town: { name: "Fort Town", type: "FARMING", populationTier: "TOWN" }
             },
             { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
-            // §5.3: the town draws 4 FOOD slots, GARRISON_HALL draws 1 more.
+            // §5.3: the town draws 4 FOOD slots, ANCILLARY_DEPOT draws 1 more.
             { x: 11, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
             { x: 11, y: 12, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
             { x: 11, y: 13, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
@@ -3385,29 +3285,29 @@ describe("simulation runtime", () => {
       });
 
       runtime.submitCommand({
-        commandId: "garrison-hall-1",
+        commandId: "ancillary-depot-1",
         sessionId: "session-1",
         playerId: "player-1",
         clientSeq: 1,
         issuedAt: 1_000,
         type: "BUILD_ECONOMIC_STRUCTURE",
-        payloadJson: JSON.stringify({ x: 9, y: 10, structureType: "GARRISON_HALL" })
+        payloadJson: JSON.stringify({ x: 9, y: 10, structureType: "ANCILLARY_DEPOT" })
       });
 
       await Promise.resolve();
       expect(events).toHaveLength(0);
 
-      vi.advanceTimersByTime(structureBuildDurationMs("GARRISON_HALL"));
+      vi.advanceTimersByTime(structureBuildDurationMs("ANCILLARY_DEPOT"));
 
       const exported = runtime.exportState().tiles.find((tile) => tile.x === 9 && tile.y === 10);
-      expect(exported?.economicStructureJson).toContain("\"type\":\"GARRISON_HALL\"");
+      expect(exported?.economicStructureJson).toContain("\"type\":\"ANCILLARY_DEPOT\"");
       expect(exported?.economicStructureJson).toContain("\"status\":\"active\"");
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("rejects garrison hall build when player lacks organized-supply", async () => {
+  it("rejects ancillary depot build when player lacks organized-supply", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
@@ -3434,13 +3334,13 @@ describe("simulation runtime", () => {
     });
 
     runtime.submitCommand({
-      commandId: "garrison-hall-no-tech-1",
+      commandId: "ancillary-depot-no-tech-1",
       sessionId: "session-1",
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 1_000,
       type: "BUILD_ECONOMIC_STRUCTURE",
-      payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "GARRISON_HALL" })
+      payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "ANCILLARY_DEPOT" })
     });
 
     await Promise.resolve();
@@ -3462,7 +3362,7 @@ describe("simulation runtime", () => {
             ownershipState: "SETTLED",
             economicStructure: {
               ownerId: "player-1",
-              type: "UMBRITE_SYNTHESIZER",
+              type: "UMBRITE_WORKS",
               status: "active"
             }
           },
@@ -3498,7 +3398,7 @@ describe("simulation runtime", () => {
     expect(exportedTile).toEqual(expect.objectContaining({ x: 20, y: 20 }));
     expect(exportedTile?.ownerId).toBeUndefined();
     expect(exportedTile?.ownershipState).toBeUndefined();
-    expect(exportedTile?.economicStructureJson).toContain("UMBRITE_SYNTHESIZER"); // abandoning releases the land, not the building
+    expect(exportedTile?.economicStructureJson).toContain("UMBRITE_WORKS"); // abandoning releases the land, not the building
 
     const uncaptureDeltaEvent = events.find(
       (event) => event.commandId === "uncapture-cmd-1" && event.eventType === "TILE_DELTA_BATCH"
@@ -3698,7 +3598,6 @@ describe("simulation runtime", () => {
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
-        "TILE_YIELD_ANCHOR_UPDATED:cmd-1:respawn:player-2",
         "TILE_DELTA_BATCH:cmd-1",
         "COMMAND_ACCEPTED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
@@ -4927,7 +4826,7 @@ describe("simulation runtime", () => {
             },
             fort: { ownerId: "player-1", status: "active" },
             observatory: { ownerId: "player-1", status: "active" },
-            siegeOutpost: { ownerId: "player-1", status: "active" },
+            siegeBattery: { ownerId: "player-1", status: "active" },
             economicStructure: {
               ownerId: "player-1",
               type: "MILL",
@@ -4969,7 +4868,7 @@ describe("simulation runtime", () => {
     expect(recoveredTile?.townName).toBeUndefined();
     expect(recoveredTile?.fort).toBeUndefined();
     expect(recoveredTile?.observatory).toBeUndefined();
-    expect(recoveredTile?.siegeOutpost).toBeUndefined();
+    expect(recoveredTile?.siegeBattery).toBeUndefined();
     expect(recoveredTile?.economicStructure).toBeUndefined();
   });
 
@@ -5119,7 +5018,7 @@ describe("simulation runtime", () => {
     );
   });
 
-  it("restores player balances, pending settlements, and collect buffers from snapshot state after restart", () => {
+  it("restores player balances and pending settlements from snapshot state after restart, dropping a legacy collect-anchor field", () => {
     const settledEvents: Array<{ delayMs: number; task: () => void }> = [];
     const runtime = new SimulationRuntime({
       now: () => 10_000,
@@ -5153,7 +5052,8 @@ describe("simulation runtime", () => {
             goldCost: 3
           }
         ],
-        tileYieldCollectedAtByTile: [{ tileKey: "10,10", collectedAt: 9_000 }]
+        // Written by pre-removal snapshots; must load without error and be dropped.
+        ...({ tileYieldCollectedAtByTile: [{ tileKey: "10,10", collectedAt: 9_000 }] } as object)
       }
     });
 
@@ -5185,9 +5085,8 @@ describe("simulation runtime", () => {
         resolvesAt: 70_000
       })
     ]);
-    expect(recoveredState.tileYieldCollectedAtByTile).toEqual([
-      expect.objectContaining({ tileKey: "10,10", collectedAt: 9_000 })
-    ]);
+    expect(snapshot.initialState).not.toHaveProperty("tileYieldCollectedAtByTile");
+    expect(recoveredState).not.toHaveProperty("tileYieldCollectedAtByTile");
     expect(settledEvents.some((entry) => entry.delayMs === 60_000)).toBe(true);
   });
 
@@ -5247,7 +5146,7 @@ describe("simulation runtime", () => {
       initialPlayers: new Map([
         [
           "player-1",
-          buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["cryptography", "surveying", "beacon-towers"]), strategicResources: { CRYSTAL: 1_000 } })
+          buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["cryptography", "beacon-towers"]), strategicResources: { CRYSTAL: 1_000 } })
         ],
         [
           "player-2",
@@ -5374,7 +5273,8 @@ describe("simulation runtime", () => {
     expect(actor?.strategicResources?.CRYSTAL).toBe(100 - SIPHON_CRYSTAL_COST);
     const visible = runtime.exportTilesInAreaForPlayer("player-2", 1, 1, 1, { fullVisibility: true });
     const crystalTile = visible.find((tile) => tile.x === 1 && tile.y === 1);
-    expect(crystalTile?.yieldRate?.strategicPerDay?.CRYSTAL ?? 0).toBe(0);
+    // Tiles carry only a gold rate (strategic production is slot-based).
+    expect(crystalTile?.yieldRate ?? {}).not.toHaveProperty("strategicPerDay");
   });
 
   it("migrates siphon, purge, shard collection, and terrain shaping through authoritative tile deltas", async () => {
@@ -5914,11 +5814,11 @@ describe("simulation runtime", () => {
     );
   });
 
-  // "resolves airport bombardment through rewrite tile deltas" moved to
-  // runtime-airport-bombardment.test.ts to keep this file from growing past
+  // "resolves sky dock bombardment through rewrite tile deltas" moved to
+  // runtime-sky-dock-bombardment.test.ts to keep this file from growing past
   // the repo's 500-line cap (it was already well over before the split).
 
-  const buildAetherTowerRuntime = (options: {
+  const buildAmbaricTransformerRuntime = (options: {
     towerX?: number; towerY?: number;
     towerStatus?: "active" | "under_construction";
     towerOwnerId?: string; omitTower?: boolean; points?: number;
@@ -5931,23 +5831,23 @@ describe("simulation runtime", () => {
         terrain: "LAND",
         ownerId: "player-1",
         ownershipState: "SETTLED",
-        economicStructure: { ownerId: "player-1", type: "AIRPORT", status: "active" }
+        economicStructure: { ownerId: "player-1", type: "SKY_DOCK", status: "active" }
       },
       { x: 2, y: 20, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // far from player-1's undefended row 0: boot border contest would revert it
       { x: 2, y: 21, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
-      // §5.4: CRYSTAL supply so AIRPORT/AETHER_TOWER aren't dormant. AIRPORT
-      // alone demands 3 CRYSTAL slots and AETHER_TOWER another 1 (see
+      // §5.4: CRYSTAL supply so SKY_DOCK/AMBARIC_TRANSFORMER aren't dormant. SKY_DOCK
+      // alone demands 3 CRYSTAL slots and AMBARIC_TRANSFORMER another 1 (see
       // packages/shared/src/structure-slots/structure-slots.ts), so 4 GEMS
       // tiles (1 CRYSTAL base slot each) are needed to cover the combined
       // demand — 2 GEMS tiles (the old count here) only ever supplied 2,
       // silently leaving one of the two structures dormant under the
       // resource-slot tie-break and breaking every bombardment test that
-      // expects the airport to actually be usable.
+      // expects the sky dock to actually be usable.
       { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
       { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
       { x: 6, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
       { x: 7, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
-      // §5.4: FOOD supply so AETHER_TOWER (1 FOOD slot) isn't dormant — a
+      // §5.4: FOOD supply so AMBARIC_TRANSFORMER (1 FOOD slot) isn't dormant — a
       // dormant tower no longer powers isStructurePowered's callers. FISH
       // (2 base FOOD slots, §5.3) rather than FARM (1) because this suite
       // always merges in the seed-world Nauticus town at (10,10), whose
@@ -5965,7 +5865,7 @@ describe("simulation runtime", () => {
         ownershipState: "SETTLED",
         economicStructure: {
           ownerId: options.towerOwnerId ?? "player-1",
-          type: "AETHER_TOWER",
+          type: "AMBARIC_TRANSFORMER",
           status: options.towerStatus ?? "active"
         }
       });
@@ -5984,23 +5884,23 @@ describe("simulation runtime", () => {
   };
 
   it("isStructurePowered: true when an active Aether Tower is in range", () => {
-    const runtime = buildAetherTowerRuntime({ towerX: 30, towerY: 0 });
-    expect(runtime.isStructurePowered("player-1", "0,0", "AIRPORT")).toBe(true);
+    const runtime = buildAmbaricTransformerRuntime({ towerX: 30, towerY: 0 });
+    expect(runtime.isStructurePowered("player-1", "0,0", "SKY_DOCK")).toBe(true);
   });
 
   it("isStructurePowered: false when Aether Tower is out of range", () => {
-    const runtime = buildAetherTowerRuntime({ towerX: 31, towerY: 0 });
-    expect(runtime.isStructurePowered("player-1", "0,0", "AIRPORT")).toBe(false);
+    const runtime = buildAmbaricTransformerRuntime({ towerX: 31, towerY: 0 });
+    expect(runtime.isStructurePowered("player-1", "0,0", "SKY_DOCK")).toBe(false);
   });
 
   it("isStructurePowered: false when Aether Tower is still under construction", () => {
-    const runtime = buildAetherTowerRuntime({ towerStatus: "under_construction" });
-    expect(runtime.isStructurePowered("player-1", "0,0", "AIRPORT")).toBe(false);
+    const runtime = buildAmbaricTransformerRuntime({ towerStatus: "under_construction" });
+    expect(runtime.isStructurePowered("player-1", "0,0", "SKY_DOCK")).toBe(false);
   });
 
   it("isStructurePowered: false when Aether Tower belongs to another player", () => {
-    const runtime = buildAetherTowerRuntime({ towerOwnerId: "player-2" });
-    expect(runtime.isStructurePowered("player-1", "0,0", "AIRPORT")).toBe(false);
+    const runtime = buildAmbaricTransformerRuntime({ towerOwnerId: "player-2" });
+    expect(runtime.isStructurePowered("player-1", "0,0", "SKY_DOCK")).toBe(false);
   });
 
   describe("§5.4 dormancy on resource-slot shortfall", () => {
@@ -6110,8 +6010,8 @@ describe("simulation runtime", () => {
     });
   });
 
-  it("rejects AIRPORT_BOMBARD without a powering Aether Tower", async () => {
-    const runtime = buildAetherTowerRuntime({ omitTower: true });
+  it("rejects SKY_DOCK_BOMBARD without a powering Aether Tower", async () => {
+    const runtime = buildAmbaricTransformerRuntime({ omitTower: true });
     const events: Array<Record<string, unknown>> = [];
     runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
     runtime.submitCommand({
@@ -6120,7 +6020,7 @@ describe("simulation runtime", () => {
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 1_000,
-      type: "AIRPORT_BOMBARD",
+      type: "SKY_DOCK_BOMBARD",
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 2, toY: 20 })
     });
     await Promise.resolve();
@@ -6128,22 +6028,22 @@ describe("simulation runtime", () => {
       expect.objectContaining({
         eventType: "COMMAND_REJECTED",
         commandId: "bombard-unpowered",
-        code: "AIRPORT_BOMBARD_INVALID",
+        code: "SKY_DOCK_BOMBARD_INVALID",
         message: "sky dock requires a nearby Ambaric Transformer"
       })
     );
     expect(events.some((event) => event["eventType"] === "TILE_DELTA_BATCH" && event["commandId"] === "bombard-unpowered")).toBe(false);
   });
 
-  it("AIRPORT_BOMBARD succeeds with zero gold (commit ea54f603: bombard is now free, was 5,000 gold)", async () => {
+  it("SKY_DOCK_BOMBARD succeeds with zero gold (commit ea54f603: bombard is now free, was 5,000 gold)", async () => {
     // This test used to assert a COMMAND_REJECTED "insufficient gold for
-    // bombardment" here, from back when AIRPORT_BOMBARD_GOLD_COST was 5,000.
+    // bombardment" here, from back when SKY_DOCK_BOMBARD_GOLD_COST was 5,000.
     // Commit ea54f603 deliberately zeroed it ("Aetherport bombard is now
-    // free"), so `actor.points < AIRPORT_BOMBARD_GOLD_COST` (0) can never be
+    // free"), so `actor.points < SKY_DOCK_BOMBARD_GOLD_COST` (0) can never be
     // true for any non-negative points value — that rejection branch is now
     // permanently unreachable by design. Rewritten to assert the real
     // current behavior instead: bombardment succeeds even with 0 gold.
-    const runtime = buildAetherTowerRuntime({ points: 0 });
+    const runtime = buildAmbaricTransformerRuntime({ points: 0 });
     const events: Array<Record<string, unknown>> = [];
     runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
     runtime.submitCommand({
@@ -6152,7 +6052,7 @@ describe("simulation runtime", () => {
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 1_000,
-      type: "AIRPORT_BOMBARD",
+      type: "SKY_DOCK_BOMBARD",
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 2, toY: 20 })
     });
     await Promise.resolve();
@@ -6228,9 +6128,9 @@ describe("simulation runtime", () => {
                     ownerId: "player-1",
                     ownershipState: "SETTLED" as const,
                     town: { name: "Outpost Town", type: "FARMING" as const, populationTier: "TOWN" as const },
-                    siegeOutpost: { ownerId: "player-1", status: "active" as const, variant: "SIEGE_OUTPOST" as const }
+                    siegeBattery: { ownerId: "player-1", status: "active" as const, variant: "SIEGE_BATTERY" as const }
                   },
-                  // A free UMBRITE slot — SIEGE_OUTPOST's resource-slot requirement.
+                  // A free UMBRITE slot — SIEGE_BATTERY's resource-slot requirement.
                   {
                     x: 12,
                     y: 10,
@@ -6757,9 +6657,9 @@ describe("simulation runtime", () => {
 
   });
 
-  it("CRYSTAL_SYNTHESIZER no longer produces CRYSTAL regen (slot-based, not yield-based — §5.6)", () => {
+  it("AETHER_CONDENSER no longer produces CRYSTAL regen (slot-based, not yield-based — §5.6)", () => {
     // Was: "subscription snapshot includes synthesizer crystal regen without
-    // COLLECT_VISIBLE" — CRYSTAL_SYNTHESIZER's tile-production accrual was
+    // COLLECT_VISIBLE" — AETHER_CONDENSER's tile-production accrual was
     // retired under the manpower-economy rewrite;
     // the field/spend stays live for abilities/tech,
     // but nothing feeds it from this structure anymore.
@@ -6775,7 +6675,7 @@ describe("simulation runtime", () => {
           },
           {
             x: 6, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-            economicStructure: { ownerId: "player-1", type: "CRYSTAL_SYNTHESIZER", status: "active" }
+            economicStructure: { ownerId: "player-1", type: "AETHER_CONDENSER", status: "active" }
           }
         ],
         activeLocks: []
@@ -7590,7 +7490,7 @@ describe("simulation runtime — tile shedding", () => {
   });
 
   it("releases a muster flag staged on the shed tile and refunds its manpower to the pool", async () => {
-    // Regression: shedding cleared fort/observatory/siegeOutpost/economicStructure
+    // Regression: shedding cleared fort/observatory/siegeBattery/economicStructure
     // on the released tile but forgot `muster`, so a staged flag survived
     // shedding the tile out from under it — mirrors handleUncaptureTileCommand,
     // which does refund+clear for the same self-abandon scenario.
@@ -7679,7 +7579,7 @@ describe("aether purge", () => {
         terrain: "LAND",
         ownerId: "player-2",
         ownershipState: "SETTLED",
-        economicStructure: { ownerId: "player-2", type: "GRANARY", status: "active" }
+        economicStructure: { ownerId: "player-2", type: "INCUBATION_ENGINE", status: "active" }
       },
       {
         x: 5,
@@ -7709,16 +7609,16 @@ describe("aether purge", () => {
           terrain: "LAND",
           ownerId: "player-2",
           ownershipState: "SETTLED",
-          economicStructure: { ownerId: "player-2", type: "AETHER_TOWER", status: "active" }
+          economicStructure: { ownerId: "player-2", type: "AMBARIC_TRANSFORMER", status: "active" }
         },
         // §5.4: CRYSTAL supply so AEGIS_DOME (4 slots, post-part-consumption
-        // rebalance)/AETHER_TOWER aren't dormant.
+        // rebalance)/AMBARIC_TRANSFORMER aren't dormant.
         { x: 8, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" },
         { x: 9, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" },
         { x: 11, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" },
         { x: 12, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" },
         { x: 13, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" },
-        // §5.4: FOOD supply so AETHER_TOWER (1 FOOD slot) isn't dormant.
+        // §5.4: FOOD supply so AMBARIC_TRANSFORMER (1 FOOD slot) isn't dormant.
         { x: 10, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "FARM" }
       );
     }
@@ -7753,7 +7653,7 @@ describe("aether purge", () => {
     const actor = state.players.find((player) => player.id === "player-1");
     expect(target?.ownerId).toBeUndefined();
     expect(target?.ownershipState).toBeUndefined();
-    expect(target?.economicStructureJson).toContain("\"GRANARY\"");
+    expect(target?.economicStructureJson).toContain("\"INCUBATION_ENGINE\"");
     expect(observatory?.cooldownUntil).toBe(601_000);
     expect(actor?.points).toBe(5_000); // §17: no longer costs gold
     expect(actor?.strategicResources?.CRYSTAL).toBe(500); // §17: no longer costs CRYSTAL
@@ -7826,7 +7726,7 @@ describe("aether purge", () => {
       code: "AETHER_LANCE_INVALID",
       message: "blocked by an Aegis Dome"
     }));
-    expect(target?.economicStructureJson).toContain("\"GRANARY\"");
+    expect(target?.economicStructureJson).toContain("\"INCUBATION_ENGINE\"");
     expect(actor?.points).toBe(5_000);
     expect(actor?.strategicResources?.CRYSTAL).toBe(500);
   });
@@ -7849,16 +7749,16 @@ describe("worldbreaker shot", () => {
         terrain: "LAND",
         ownerId: "player-1",
         ownershipState: "SETTLED",
-        economicStructure: { ownerId: "player-1", type: "WORLD_ENGINE", status: "active" }
+        economicStructure: { ownerId: "player-1", type: "SOVEREIGN_SIEGE_ENGINE", status: "active" }
       },
-      // §5.4: CRYSTAL supply so WORLD_ENGINE (4 slots, post-part-consumption
-      // rebalance)/AETHER_TOWER aren't dormant.
+      // §5.4: CRYSTAL supply so SOVEREIGN_SIEGE_ENGINE (4 slots, post-part-consumption
+      // rebalance)/AMBARIC_TRANSFORMER aren't dormant.
       { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
       { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
       { x: 6, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
       { x: 7, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
       { x: 8, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
-      // §5.4: FOOD supply so AETHER_TOWER (1 FOOD slot) isn't dormant.
+      // §5.4: FOOD supply so AMBARIC_TRANSFORMER (1 FOOD slot) isn't dormant.
       { x: 5, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" }
     ];
     if (!options.omitTower) {
@@ -7868,7 +7768,7 @@ describe("worldbreaker shot", () => {
         terrain: "LAND",
         ownerId: "player-1",
         ownershipState: "SETTLED",
-        economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
+        economicStructure: { ownerId: "player-1", type: "AMBARIC_TRANSFORMER", status: "active" }
       });
     }
     const target: Record<string, unknown> = {
@@ -7901,16 +7801,16 @@ describe("worldbreaker shot", () => {
         terrain: "LAND",
         ownerId: "player-2",
         ownershipState: "SETTLED",
-        economicStructure: { ownerId: "player-2", type: "AETHER_TOWER", status: "active" }
+        economicStructure: { ownerId: "player-2", type: "AMBARIC_TRANSFORMER", status: "active" }
       });
       // CRYSTAL supply so AEGIS_DOME (4 slots, post-part-consumption
-      // rebalance)/AETHER_TOWER aren't dormant.
+      // rebalance)/AMBARIC_TRANSFORMER aren't dormant.
       tiles.push({ x: 53, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" });
       tiles.push({ x: 54, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" });
       tiles.push({ x: 56, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" });
       tiles.push({ x: 57, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" });
       tiles.push({ x: 58, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" });
-      // §5.4: FOOD supply so AETHER_TOWER (1 FOOD slot) isn't dormant.
+      // §5.4: FOOD supply so AMBARIC_TRANSFORMER (1 FOOD slot) isn't dormant.
       tiles.push({ x: 55, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "FARM" });
     }
     return new SimulationRuntime({
@@ -7933,14 +7833,14 @@ describe("worldbreaker shot", () => {
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 1_000,
-      type: "WORLD_ENGINE_STRIKE",
+      type: "SOVEREIGN_SIEGE_ENGINE_STRIKE",
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 50, toY: 50 })
     });
     await Promise.resolve();
     expect(events).not.toContainEqual(expect.objectContaining({
       eventType: "COMMAND_REJECTED",
       commandId: "strike-1",
-      code: "WORLD_ENGINE_STRIKE_INVALID"
+      code: "SOVEREIGN_SIEGE_ENGINE_STRIKE_INVALID"
     }));
   });
 
@@ -7954,13 +7854,13 @@ describe("worldbreaker shot", () => {
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 1_000,
-      type: "WORLD_ENGINE_STRIKE",
+      type: "SOVEREIGN_SIEGE_ENGINE_STRIKE",
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 50, toY: 50 })
     });
     await Promise.resolve();
     expect(events).toContainEqual(expect.objectContaining({
       eventType: "COMMAND_REJECTED",
-      code: "WORLD_ENGINE_STRIKE_INVALID",
+      code: "SOVEREIGN_SIEGE_ENGINE_STRIKE_INVALID",
       message: "Sovereign Siege Engine requires a nearby Ambaric Transformer"
     }));
   });
@@ -7975,20 +7875,20 @@ describe("worldbreaker shot", () => {
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 1_000,
-      type: "WORLD_ENGINE_STRIKE",
+      type: "SOVEREIGN_SIEGE_ENGINE_STRIKE",
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 50, toY: 50 })
     });
     await Promise.resolve();
     expect(events).toContainEqual(expect.objectContaining({
       eventType: "COMMAND_REJECTED",
-      code: "WORLD_ENGINE_STRIKE_INVALID",
+      code: "SOVEREIGN_SIEGE_ENGINE_STRIKE_INVALID",
       message: "insufficient coin"
     }));
   });
 
   it("destroys an enemy economic structure on the target tile", async () => {
     const runtime = buildStrikeRuntime({
-      targetStructure: { ownerId: "player-2", type: "GRANARY", status: "active" }
+      targetStructure: { ownerId: "player-2", type: "INCUBATION_ENGINE", status: "active" }
     });
     runtime.submitCommand({
       commandId: "strike-3",
@@ -7996,7 +7896,7 @@ describe("worldbreaker shot", () => {
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 1_000,
-      type: "WORLD_ENGINE_STRIKE",
+      type: "SOVEREIGN_SIEGE_ENGINE_STRIKE",
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 50, toY: 50 })
     });
     await Promise.resolve();
@@ -8013,7 +7913,7 @@ describe("worldbreaker shot", () => {
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 1_000,
-      type: "WORLD_ENGINE_STRIKE",
+      type: "SOVEREIGN_SIEGE_ENGINE_STRIKE",
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 50, toY: 50 })
     });
     await Promise.resolve();
@@ -8024,7 +7924,7 @@ describe("worldbreaker shot", () => {
     expect(town?.populationTier).toBe("CITY");
   });
 
-  it("broadcasts a WORLD_ENGINE_STRIKE_ANNOUNCEMENT to every player when it lands on an enemy town", async () => {
+  it("broadcasts a SOVEREIGN_SIEGE_ENGINE_STRIKE_ANNOUNCEMENT to every player when it lands on an enemy town", async () => {
     const runtime = buildStrikeRuntime({ targetTown: { population: 1_000_000, populationTier: "GREAT_CITY" } });
     const events: Array<Record<string, unknown>> = [];
     runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
@@ -8034,7 +7934,7 @@ describe("worldbreaker shot", () => {
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 1_000,
-      type: "WORLD_ENGINE_STRIKE",
+      type: "SOVEREIGN_SIEGE_ENGINE_STRIKE",
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 50, toY: 50 })
     });
     await Promise.resolve();
@@ -8042,12 +7942,12 @@ describe("worldbreaker shot", () => {
       (event) =>
         event.eventType === "PLAYER_MESSAGE" &&
         event.playerId === "__broadcast__" &&
-        event.messageType === "WORLD_ENGINE_STRIKE_ANNOUNCEMENT"
+        event.messageType === "SOVEREIGN_SIEGE_ENGINE_STRIKE_ANNOUNCEMENT"
     );
     expect(broadcast).toBeDefined();
     const payload = JSON.parse(broadcast!.payloadJson as string) as Record<string, unknown>;
     expect(payload).toMatchObject({
-      type: "WORLD_ENGINE_STRIKE_ANNOUNCEMENT",
+      type: "SOVEREIGN_SIEGE_ENGINE_STRIKE_ANNOUNCEMENT",
       strikeId: "strike-broadcast:bc",
       occurredAt: 1_000,
       casterName: "player-1",
@@ -8060,7 +7960,7 @@ describe("worldbreaker shot", () => {
     });
   });
 
-  it("does not broadcast a WORLD_ENGINE_STRIKE_ANNOUNCEMENT when the strike hits a tile with no town", async () => {
+  it("does not broadcast a SOVEREIGN_SIEGE_ENGINE_STRIKE_ANNOUNCEMENT when the strike hits a tile with no town", async () => {
     const runtime = buildStrikeRuntime({});
     const events: Array<Record<string, unknown>> = [];
     runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
@@ -8070,11 +7970,11 @@ describe("worldbreaker shot", () => {
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 1_000,
-      type: "WORLD_ENGINE_STRIKE",
+      type: "SOVEREIGN_SIEGE_ENGINE_STRIKE",
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 50, toY: 50 })
     });
     await Promise.resolve();
-    expect(events.some((event) => event.messageType === "WORLD_ENGINE_STRIKE_ANNOUNCEMENT")).toBe(false);
+    expect(events.some((event) => event.messageType === "SOVEREIGN_SIEGE_ENGINE_STRIKE_ANNOUNCEMENT")).toBe(false);
   });
 
   it("demotes tier on strike but floors at TOWN", async () => {
@@ -8085,7 +7985,7 @@ describe("worldbreaker shot", () => {
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 1_000,
-      type: "WORLD_ENGINE_STRIKE",
+      type: "SOVEREIGN_SIEGE_ENGINE_STRIKE",
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 50, toY: 50 })
     });
     await Promise.resolve();
@@ -8106,14 +8006,14 @@ describe("worldbreaker shot", () => {
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 1_000,
-      type: "WORLD_ENGINE_STRIKE",
+      type: "SOVEREIGN_SIEGE_ENGINE_STRIKE",
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 50, toY: 50 })
     });
     await Promise.resolve();
     expect(events).toContainEqual(expect.objectContaining({
       eventType: "COMMAND_REJECTED",
       commandId: "strike-aegis",
-      code: "WORLD_ENGINE_STRIKE_INVALID",
+      code: "SOVEREIGN_SIEGE_ENGINE_STRIKE_INVALID",
       message: "blocked by an Aegis Dome"
     }));
     // Population must be untouched and the actor's CRYSTAL must NOT be spent.
@@ -8167,7 +8067,6 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
               supportCurrent: 8,
               supportMax: 8,
               goldPerMinute: 0.5,
-              cap: 10,
               isFed: true,
               population: 5000,
               maxPopulation: 25000,
@@ -8175,8 +8074,8 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
               connectedTownBonus: 0,
               hasMintworks: false,
               mintworksActive: false,
-              hasGranary: false,
-              granaryActive: false,
+              hasIncubationEngine: false,
+              incubationEngineActive: false,
             }
           },
           // Eight surrounding settled-land tiles so support stays at 8/8.
@@ -8206,14 +8105,10 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     expect(refreshedTown?.goldPerMinute).not.toBe(0.5);
   });
 
-  it("emits an explicit zero yield buffer for yield-bearing tiles so fresh responses can clear stale cached buffers", () => {
-    // Repro for the post-PR-353 bug: a town's cached client snapshot kept
-    // `yield: { gold: 2105 }` from when the town had a mintworks (cap ~2112), but
-    // after mintworks loss + an upkeep tick that emptied the live buffer to 0,
-    // FetchTileDetail omitted the `yield` field entirely (because gold was
-    // ≤ 0.0001), and the gateway's shallow snapshot merge preserved the stale
-    // 2105. Verify the delta now carries `yield: { gold: 0 }` so the client
-    // can authoritatively clear stale buffers even when the live value is zero.
+  // Regression: the server used to export a per-tile stored-yield buffer
+  // (`yield`) for yield-bearing tiles, and the client drew a pulsing "ready to
+  // collect" marker whenever it was non-zero. Tiles don't hold yield any more.
+  it("never exports a stored-yield buffer or cap for a yield-bearing town tile", () => {
     const nowMs = 1_000_000;
     const runtime = new SimulationRuntime({
       now: () => nowMs,
@@ -8237,7 +8132,6 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
               supportCurrent: 8,
               supportMax: 8,
               goldPerMinute: 2,
-              cap: 960,
               isFed: true,
               population: 5000,
               maxPopulation: 25000,
@@ -8245,8 +8139,8 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
               connectedTownBonus: 0,
               hasMintworks: false,
               mintworksActive: false,
-              hasGranary: false,
-              granaryActive: false,
+              hasIncubationEngine: false,
+              incubationEngineActive: false,
             }
           },
           ...[
@@ -8265,28 +8159,25 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
           { x: 7, y: 5, terrain: "LAND" as const, resource: "FISH" as const, ownerId: "player-1", ownershipState: "SETTLED" as const },
           { x: 8, y: 5, terrain: "LAND" as const, resource: "FISH" as const, ownerId: "player-1", ownershipState: "SETTLED" as const }
         ],
-        // lastCollectedAt = now means zero elapsed time → live buffer = 0.
-        tileYieldCollectedAtByTile: [{ tileKey: "5,5", collectedAt: nowMs }],
         activeLocks: []
       }
     });
 
     const [centerDelta] = runtime.exportTilesInAreaForPlayer("player-1", 5, 5, 0, { fullVisibility: true });
     expect(centerDelta).toBeDefined();
-    // Tile is yield-bearing (gpm > 0), so yield must be present even though
-    // the buffer is 0 right now. If this assertion fails, the gateway's merge
-    // will preserve whatever stale value the client cached previously.
-    expect(centerDelta?.yield).toBeDefined();
-    expect(centerDelta?.yield?.gold ?? -1).toBe(0);
+    // Hours after the last income tick (no anchor at all), a gpm > 0 town
+    // would previously have carried a large positive `yield.gold`.
+    expect(centerDelta).not.toHaveProperty("yield");
+    expect(centerDelta).not.toHaveProperty("yieldCap");
   });
 
-  it("applies connectedTownBonus to goldPerMinute and cap on owned-town tile detail (sim authority)", () => {
+  it("applies connectedTownBonus to goldPerMinute on owned-town tile detail (sim authority)", () => {
     // Mirror the user's prod scenario: TOWN-tier town at (5,5) with three
     // owned towns at 8-adjacent positions so buildConnectedTownNetworkForPlayer
     // returns connectedTownCount=3 / bonus=1.2. Town is fed, support 8/8, no
     // mintworks, no bank. Expected gpm = TOWN_BASE(2) * 1 * 1 * 2.2 * 1 * 1 * 1
-    // = 4.4; cap = 4.4*60*8 = 2112. If this test fails, the sim has its own
-    // bug; if it passes, the prod display of 2.00/m + cap 960 means the
+    // = 4.4. If this test fails, the sim has its own
+    // bug; if it passes, a prod display of 2.00/m means the
     // gateway's buildSnapshotTileDetail is clobbering the sim's authoritative
     // value.
     const runtime = new SimulationRuntime({
@@ -8311,7 +8202,6 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
               supportCurrent: 8,
               supportMax: 8,
               goldPerMinute: 2,
-              cap: 960,
               isFed: true,
               population: 17669,
               maxPopulation: 10000000,
@@ -8319,8 +8209,8 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
               connectedTownBonus: 0,
               hasMintworks: false,
               mintworksActive: false,
-              hasGranary: false,
-              granaryActive: false,
+              hasIncubationEngine: false,
+              incubationEngineActive: false,
             }
           },
           // Three more owned towns 8-adjacent to (5,5) so the BFS finds them.
@@ -8352,17 +8242,17 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
             ownerId: "player-1",
             ownershipState: "SETTLED" as const
           })),
-          // Fifth neighbor carries a Caravanary support structure — the
+          // Fifth neighbor carries a Trade Nexus support structure — the
           // connected-town road network (and its gold bonus) only exists
           // where at least one town has one built.
           {
             x: 4, y: 5, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const,
-            economicStructure: { ownerId: "player-1", type: "CARAVANARY" as const, status: "active" as const }
+            economicStructure: { ownerId: "player-1", type: "TRADE_NEXUS" as const, status: "active" as const }
           },
           // §5.4: 4 towns need 4 FOOD slots each (16 total), plus 1 more for
-          // the Caravanary's own FOOD slot demand (17 total), to not go
+          // the Trade Nexus's own FOOD slot demand (17 total), to not go
           // dormant (which would otherwise zero their gold income / disable
-          // the Caravanary's road-network gate) — 9 FISH tiles (2 slots
+          // the Trade Nexus's road-network gate) — 9 FISH tiles (2 slots
           // each = 18) cover it, placed well outside the BFS neighborhood.
           ...[[100, 100], [101, 100], [102, 100], [103, 100], [104, 100], [105, 100], [106, 100], [107, 100], [108, 100]].map(([x, y]) => ({
             x, y, terrain: "LAND" as const, resource: "FISH" as const, ownerId: "player-1", ownershipState: "SETTLED" as const

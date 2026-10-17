@@ -91,7 +91,7 @@ ${coinStack({ x: 78, y: 88 })}
   <path d="M58 60C64 54, 74 55, 79 61" stroke="#F6E7A0" stroke-width="4" stroke-linecap="round"/>
   <path d="M58 63H79" stroke="#D8B55A" stroke-width="3" stroke-linecap="round"/>
 `),
-  "airport-overlay.svg": svg(`
+  "sky-dock-overlay.svg": svg(`
   <path d="M18 102L52 84H101L67 102H18Z" fill="#7C868F"/>
   <path d="M52 84L86 66H119L85 84H52Z" fill="#96A4B5"/>
   <path d="M36 93L46 88" stroke="#EAEFF5" stroke-width="3" stroke-linecap="round"/>
@@ -150,7 +150,7 @@ ${gear({ cx: 39, cy: 92, r: 8 })}
   <path d="M95 76V100" stroke="#7E5A2F" stroke-width="2"/>
   <path d="M93 48C97 44, 103 46, 104 52" stroke="#C4C9CF" stroke-width="4" stroke-linecap="round"/>
 `),
-  "crystal-synthesizer-overlay.svg": svg(`
+  "aether-condenser-overlay.svg": svg(`
 ${isoBase({ front: "#D4DCE7", side: "#96A4B8", roof: "#6B93D9", x: 30, y: 100, w: 42, h: 26, depth: 22 })}
 ${crystal({ x: 83, y: 67, scale: 0.95 })}
 ${crystal({ x: 22, y: 82, scale: 0.62, fill: "#89E2FF", side: "#46A6EA" })}
@@ -165,7 +165,7 @@ ${chimney({ x: 80, y: 74 })}
   <path d="M37 84C34 77, 38 71, 43 67C46 73, 46 79, 43 85C41 88, 39 88, 37 84Z" fill="#F0A53D"/>
   <path d="M91 55C95 51, 101 53, 102 59" stroke="#D2D7DC" stroke-width="4" stroke-linecap="round"/>
 `),
-  "caravanary-overlay.svg": svg(`
+  "trade-nexus-overlay.svg": svg(`
 ${isoBase({ front: "#E3D4BE", side: "#AA9A83", roof: "#B46D35", x: 34, y: 96, w: 42, h: 28, depth: 18 })}
 ${banner({ x: 86, y: 87, fill: "#C68E33" })}
   <ellipse cx="29" cy="93" rx="9" ry="5" fill="#9B7245"/>
@@ -174,21 +174,14 @@ ${banner({ x: 86, y: 87, fill: "#C68E33" })}
   <path d="M35 86L39 81" stroke="#7A552E" stroke-width="3" stroke-linecap="round"/>
 ${crate({ x: 82, y: 92, body: "#C29050", edge: "#855B31" })}
 `),
-  "foundry-overlay.svg": svg(`
+  "ore-refinery-overlay.svg": svg(`
 ${isoBase({ front: "#C9CDD3", side: "#939CA8", roof: "#915E34", x: 30, y: 100, w: 42, h: 28, depth: 22 })}
 ${chimney({ x: 80, y: 73 })}
 ${gear({ cx: 37, cy: 92, r: 7, fill: "#727B87" })}
   <path d="M88 89L100 79L107 85L95 95L88 89Z" fill="#E19D39"/>
   <path d="M98 70C94 64, 97 58, 102 54C105 60, 105 66, 101 71C100 72, 99 72, 98 70Z" fill="#F2B14A"/>
 `),
-  "garrison-hall-overlay.svg": svg(`
-${isoBase({ front: "#D8D1C6", side: "#A7B0BB", roof: "#8A3F33", x: 34, y: 98, w: 40, h: 30, depth: 18 })}
-${door({ x: 50, y: 88, w: 9, h: 14, fill: "#33404F" })}
-${banner({ x: 31, y: 86, fill: "#C44937" })}
-${banner({ x: 87, y: 84, fill: "#D1A64A" })}
-  <path d="M97 95L105 87L113 95L105 103L97 95Z" fill="#BCC7D3"/>
-`),
-  "customs-house-overlay.svg": svg(`
+  "harbor-exchange-overlay.svg": svg(`
 ${isoBase({ front: "#E7DAC6", side: "#A6AAA8", roof: "#C48B46", x: 34, y: 98, w: 40, h: 28, depth: 20 })}
 ${mast({ x: 88, y: 96, h: 32, sail: "#F3E2BE" })}
 ${barrel({ x: 20, y: 84, body: "#98683B" })}
@@ -205,7 +198,7 @@ ${coinStack({ x: 88, y: 88 })}
   <path d="M82 68C88 62, 97 62, 102 68" stroke="#F0D37A" stroke-width="4" stroke-linecap="round"/>
   <path d="M82 72H102" stroke="#D39F3C" stroke-width="3" stroke-linecap="round"/>
 `),
-  "governors-office-overlay.svg": svg(`
+  "ministry-hall-overlay.svg": svg(`
 ${isoBase({ front: "#E4D8C8", side: "#AEB4BE", roof: "#B14B39", x: 30, y: 100, w: 46, h: 32, depth: 22 })}
 ${door({ x: 49, y: 90, w: 10, h: 15 })}
 ${windowRect({ x: 38, y: 82, w: 7, h: 7, fill: "#DDF3FF" })}
@@ -254,14 +247,14 @@ ${banner({ x: 93, y: 87, fill: "#D1B15B" })}
   <circle cx="18" cy="88" r="6" fill="#D8A53D"/>
   <circle cx="113" cy="80" r="6" fill="#D8A53D"/>
 `),
-  "radar-system-overlay.svg": svg(`
+  "resonance-grid-overlay.svg": svg(`
 ${isoBase({ front: "#D0D6DE", side: "#97A3B3", roof: "#6D737D", x: 32, y: 100, w: 40, h: 22, depth: 22 })}
 ${antenna({ x: 72, y: 73, h: 34 })}
   <path d="M72 37C81 37, 88 44, 88 53" stroke="#9FD8FF" stroke-width="3" stroke-linecap="round"/>
   <path d="M72 30C85 30, 96 41, 96 54" stroke="#69C2FF" stroke-width="3" stroke-linecap="round"/>
   <path d="M17 95L25 87L33 95L25 103L17 95Z" fill="#67C8FF"/>
 `),
-  "rail-depot-overlay.svg": svg(`
+  "reserve-lattice-overlay.svg": svg(`
 ${isoBase({ front: "#D7DCE3", side: "#9DA7B5", roof: "#B87539", x: 30, y: 100, w: 44, h: 26, depth: 22 })}
 ${banner({ x: 92, y: 90, fill: "#D09A3A" })}
   <path d="M18 101H55" stroke="#5C6672" stroke-width="4" stroke-linecap="round"/>
@@ -330,7 +323,7 @@ ${banner({ x: 92, y: 90, fill: "#D09A3A" })}
   <path d="M74 31C87 24, 104 28, 111 43" stroke="#D6F6FF" stroke-width="3" stroke-linecap="round"/>
   <path d="M18 101C29 94, 44 94, 55 101" stroke="#7ACBFF" stroke-width="4" stroke-linecap="round"/>
 `),
-  "world-engine-overlay.svg": svg(`
+  "sovereign-siege-engine-overlay.svg": svg(`
   <path d="M6 108L38 90H100L68 108H6Z" fill="#5F554A"/>
   <path d="M38 90V79H100V90H38Z" fill="#C8D0DB"/>
   <path d="M100 90L121 78V67L100 79V90Z" fill="#8291A3"/>

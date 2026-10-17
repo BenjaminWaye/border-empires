@@ -19,8 +19,8 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { wrapX, wrapY } from "../math/math.js";
 import { buildIslands, type ContinentSeed } from "./worldgen-continents.js";
-import { valueNoise, valueNoiseFaceted } from "./worldgen-noise.js";
-import { buildPlates, type Plate } from "./worldgen-plates.js";
+import { valueNoise } from "./worldgen-noise.js";
+import { buildPlates } from "./worldgen-plates.js";
 import { POLAR_BAND, type WorldStyle, worldIndex, worldSeed, worldStyle } from "./worldgen.js";
 import { amplitudeFromNearCoastSpread, setCoastNoiseAmplitude, shorelineRoughnessAt } from "./worldgen-coastline-style.js";
 import { archipelagoBumpAt, atollBumpAt } from "./worldgen-archipelago-features.js";
@@ -56,7 +56,6 @@ export const resetContinentScoreCaches = (): void => {
 // setWorldSeed() style switch is picked up immediately, even if this runs
 // before anything else in the module has observed the new style.
 let cachedContinentSeed = Number.NaN;
-let cachedContinentStyle: WorldStyle = "continents";
 let cachedIslandSeeds: ContinentSeed[] = [];
 const islandSeeds = (): ContinentSeed[] => {
   const seed = worldSeed();
@@ -69,10 +68,6 @@ const islandSeeds = (): ContinentSeed[] => {
 
 const linearDx = (a: number, b: number): number => Math.abs(a - b);
 const linearDy = (a: number, b: number): number => Math.abs(a - b);
-const toroidalDx = (a: number, b: number): number => {
-  const d = Math.abs(a - b);
-  return Math.min(d, WORLD_WIDTH - d);
-};
 
 // Domain warp: distorts the (x, y) sample point through low frequency noise
 // fields before it's tested against any plate/continent ellipse. This is

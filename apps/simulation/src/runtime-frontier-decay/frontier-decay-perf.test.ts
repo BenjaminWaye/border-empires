@@ -48,7 +48,7 @@ describe("activeFortAnchorsByOwner index correctness", () => {
       ])
     });
 
-    const anchorsMap = (runtime as unknown as { activeFortAnchorsByOwner: Map<string, Map<string, number>> }).activeFortAnchorsByOwner;
+    const anchorsMap = (runtime as unknown as { ownerIndexes: { activeFortAnchorsByOwner: Map<string, Map<string, number>> } }).ownerIndexes.activeFortAnchorsByOwner;
 
     // Forts no longer register as anchors — only towns do
     expect(anchorsMap.get("p1")?.has("10,10")).toBeFalsy();
@@ -65,7 +65,7 @@ describe("activeFortAnchorsByOwner index correctness", () => {
       ])
     });
 
-    const frontierMap = (runtime as unknown as { frontierTilesByOwner: Map<string, Set<string>> }).frontierTilesByOwner;
+    const frontierMap = (runtime as unknown as { ownerIndexes: { frontierTilesByOwner: Map<string, Set<string>> } }).ownerIndexes.frontierTilesByOwner;
 
     // Initial: p1 has 1 frontier tile
     expect(frontierMap.get("p1")?.has("5,5")).toBe(true);

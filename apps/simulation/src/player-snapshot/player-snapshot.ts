@@ -9,7 +9,7 @@ import {
 } from "@border-empires/shared";
 import type { PlayerRespawnNotice } from "@border-empires/shared";
 import type { PlayerSubscriptionDock, PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
-import { MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, type DomainTileState } from "@border-empires/game-domain";
+import { MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE } from "@border-empires/game-domain";
 
 import type { SimulationRuntime } from "../runtime/runtime.js";
 import { estimateIncomePerMinuteFromTiles, estimateStrategicProductionPerMinuteFromTiles } from "../player-runtime-summary.js";
@@ -40,38 +40,9 @@ type BuildOptions = {
 export const buildPlayerSubscriptionSnapshot = (
   playerId: string,
   runtimeState: RuntimeState,
-  fallbackTiles?: Iterable<DomainTileState>,
   options?: BuildOptions
 ): PlayerSubscriptionSnapshot => {
-  const sourceTiles =
-    runtimeState.tiles.length > 0
-      ? [...runtimeState.tiles]
-      : fallbackTiles
-        ? [...fallbackTiles].map((tile) => ({
-            x: tile.x,
-            y: tile.y,
-            terrain: tile.terrain,
-            ...(tile.resource ? { resource: tile.resource } : {}),
-            ...(tile.prospectSignature ? { prospectSignature: tile.prospectSignature } : {}),
-            ...(tile.dockId ? { dockId: tile.dockId } : {}),
-            ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-            ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
-            ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
-            ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
-            ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
-            ...(tile.town?.type ? { townType: tile.town.type } : {}),
-            ...(tile.town?.name ? { townName: tile.town.name } : {}),
-            ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {}),
-            ...(tile.fort ? { fortJson: JSON.stringify(tile.fort) } : {}),
-            ...(tile.observatory ? { observatoryJson: JSON.stringify(tile.observatory) } : {}),
-            ...(tile.siegeOutpost ? { siegeOutpostJson: JSON.stringify(tile.siegeOutpost) } : {}),
-            ...(tile.economicStructure ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {}),
-            ...(tile.sabotage ? { sabotageJson: JSON.stringify(tile.sabotage) } : {}),
-            ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
-            ...(tile.naturalWonder ? { naturalWonderJson: JSON.stringify(tile.naturalWonder) } : {}),
-            ...(typeof tile.breachShockUntil === "number" ? { breachShockUntil: tile.breachShockUntil } : {})
-          }))
-        : [];
+  const sourceTiles = runtimeState.tiles;
 
   const keyFor = (x: number, y: number): string => `${x},${y}`;
   const wrapX = (x: number): number => ((x % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH;
@@ -255,10 +226,6 @@ export const buildPlayerSubscriptionSnapshot = (
         economicStructure: JSON.parse(tile.economicStructureJson!) as { type?: string; status?: string }
       }))
   );
-  const settledTileCount =
-    typeof livePlayer?.settledTileCount === "number"
-      ? livePlayer.settledTileCount
-      : runtimeState.tiles.filter((tile) => tile.ownerId === playerId && tile.ownershipState === "SETTLED").length;
   const strategicProductionPerMinute =
     livePlayer?.strategicProductionPerMinute ??
     liveEconomy.strategicProductionPerMinute ??
@@ -274,8 +241,8 @@ export const buildPlayerSubscriptionSnapshot = (
             tile.fortJson?.includes("\"removing\"") ||
             tile.observatoryJson?.includes("\"under_construction\"") ||
             tile.observatoryJson?.includes("\"removing\"") ||
-            tile.siegeOutpostJson?.includes("\"under_construction\"") ||
-            tile.siegeOutpostJson?.includes("\"removing\"") ||
+            tile.siegeBatteryJson?.includes("\"under_construction\"") ||
+            tile.siegeBatteryJson?.includes("\"removing\"") ||
             tile.economicStructureJson?.includes("\"under_construction\"") ||
             tile.economicStructureJson?.includes("\"removing\"")
           );
@@ -401,7 +368,6 @@ export const buildPlayerSubscriptionSnapshot = (
           worldStatus: buildWorldStatusSnapshot(
             playerId,
             options?.worldStatusRuntimeState ?? runtimeState,
-            fallbackTiles,
             options?.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : undefined
           )
         }),

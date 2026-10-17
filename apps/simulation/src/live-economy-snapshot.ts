@@ -8,7 +8,6 @@ import {
   type RuntimeState,
   type LivePlayerEconomySnapshot,
   type EconomyBucket,
-  type StrategicResourceKey,
   keyFor,
   toDomainTile,
   parseTown,
@@ -17,11 +16,7 @@ import {
   getDomainTilesByKey,
   buildSettledDomainTilesByPlayerId,
   buildFirstThreeTownKeysByPlayer,
-  townKeysWithNearbyWar,
-  domainTilesByKeyCache,
-  settledDomainTilesByPlayerIdCache,
-  strategicProductionByPlayerCache,
-  fedTownKeysByPlayerCache
+  townKeysWithNearbyWar
 } from "./snapshot-tile-cache.js";
 import {
   emptyStrategic,
@@ -31,7 +26,6 @@ import {
   strategicResourceForTile,
   structureUpkeepPerMinute,
   converterOutputPerMinute,
-  townFoodUpkeepPerMinute,
   buildStrategicProductionByPlayer,
   buildFedTownKeysByPlayer,
   buildResourceSlotDormancyByPlayer,
@@ -126,7 +120,7 @@ export const buildLivePlayerEconomySnapshot = (
     }
     // Observatory still carries no separate per-minute flow drain — the
     // CRYSTAL slot occupation itself is its upkeep, so observatoryJson
-    // isn't parsed here. Fort and Siege Outpost now DO carry a FOOD +
+    // isn't parsed here. Fort and Siege Battery now DO carry a FOOD +
     // resource per-minute drain (structure-upkeep-rebalance) on top of
     // their slot occupation — see structureUpkeepPerMinute above.
     const structure = parseStructure<{ type?: string; status?: string; converterMode?: "SYNTHESIZE" | "EXCHANGE" }>(tile.economicStructureJson);
@@ -147,11 +141,11 @@ export const buildLivePlayerEconomySnapshot = (
       if (upkeep.FOOD) addBucket(foodSinks, fort.variant, upkeep.FOOD, { count: 1 });
       if (upkeep.TITANIUM) addBucket(titaniumSinks, fort.variant, upkeep.TITANIUM, { count: 1 });
     }
-    const siegeOutpost = parseStructure<{ variant?: string; status?: string }>(tile.siegeOutpostJson);
-    if (siegeOutpost?.status === "active" && siegeOutpost.variant) {
-      const upkeep = structureUpkeepPerMinute(siegeOutpost.variant);
-      if (upkeep.FOOD) addBucket(foodSinks, siegeOutpost.variant, upkeep.FOOD, { count: 1 });
-      if (upkeep.UMBRITE) addBucket(umbriteSinks, siegeOutpost.variant, upkeep.UMBRITE, { count: 1 });
+    const siegeBattery = parseStructure<{ variant?: string; status?: string }>(tile.siegeBatteryJson);
+    if (siegeBattery?.status === "active" && siegeBattery.variant) {
+      const upkeep = structureUpkeepPerMinute(siegeBattery.variant);
+      if (upkeep.FOOD) addBucket(foodSinks, siegeBattery.variant, upkeep.FOOD, { count: 1 });
+      if (upkeep.UMBRITE) addBucket(umbriteSinks, siegeBattery.variant, upkeep.UMBRITE, { count: 1 });
     }
   }
 
@@ -166,18 +160,18 @@ export const buildLivePlayerEconomySnapshot = (
 
 // §5 (resource slots): the cold/reconnect snapshot path has no live
 // DomainTileState territory index to reuse — runtimeState.tiles carries
-// fort/observatory/siegeOutpost/economicStructure as JSON strings, and
+// fort/observatory/siegeBattery/economicStructure as JSON strings, and
 // domainTilesByKey/settledDomainTilesByPlayerId (snapshot-tile-cache.ts)
 // deliberately don't parse economicStructure (toDomainTile omits it), so
 // they can't be reused here without silently under-counting synthesizer/
-// Mine/Farmstead/Umbrite Rig supply and structure demand. Parse a player-scoped
+// Mine/Hydrogarden/Umbrite Rig supply and structure demand. Parse a player-scoped
 // view directly from the wire-shaped tiles instead, then hand it to the
 // same pure resourceSlotSupplyForPlayer/resourceSlotDemandForPlayer the
 // live runtime uses for the build-time gate, so the two paths can never
 // compute different numbers for the same territory.
 type SlotTileEconomicStructure = DomainTileState["economicStructure"];
 type SettledSlotTile = Pick<DomainTileState, "x" | "y" | "resource"> & { economicStructure?: SlotTileEconomicStructure };
-type OwnedSlotTile = Pick<DomainTileState, "x" | "y" | "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "town" | "ownerId" | "ownershipState">;
+type OwnedSlotTile = Pick<DomainTileState, "x" | "y" | "fort" | "observatory" | "siegeBattery" | "economicStructure" | "town" | "ownerId" | "ownershipState">;
 
 const resourceSlotsForPlayer = (
   playerId: string,
@@ -196,7 +190,7 @@ const resourceSlotsForPlayer = (
       y: tile.y,
       fort: parseStructure<DomainTileState["fort"]>(tile.fortJson),
       observatory: parseStructure<DomainTileState["observatory"]>(tile.observatoryJson),
-      siegeOutpost: parseStructure<DomainTileState["siegeOutpost"]>(tile.siegeOutpostJson),
+      siegeBattery: parseStructure<DomainTileState["siegeBattery"]>(tile.siegeBatteryJson),
       economicStructure,
       // resourceSlotDemandForPlayer only checks tile.town for truthiness (§5.3's
       // town-food-slot-demand rule) — it never reads a specific field, so the
@@ -207,7 +201,7 @@ const resourceSlotsForPlayer = (
       ownershipState: tile.ownershipState as DomainTileState["ownershipState"]
     });
   }
-  const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledSlotTiles);
+  const { hydroworksKeys, oreRefineryKeys } = radiusStructureKeysForSettledTiles(settledSlotTiles);
   // §23.2: the cold/reconnect path must apply the same slot waivers
   // (fortTitaniumSlotWaiverCount etc) as the live runtime, or a player with
   // Dwarf Kingdom/Supply State/Treasury State/Enduring Realm would see a
@@ -219,7 +213,7 @@ const resourceSlotsForPlayer = (
   const domainGranted = player ? domainGrantedResourceSlots({ domainIds: new Set(player.domainIds), chosenTrickleResource: player.chosenTrickleResource }) : undefined;
   const fishBonus = player ? techGrantedFishFoodSlotBonus(player) : 0;
   return {
-    supply: resourceSlotSupplyForPlayer(settledSlotTiles, waterworksKeys, foundryKeys, domainGranted, fishBonus),
+    supply: resourceSlotSupplyForPlayer(settledSlotTiles, hydroworksKeys, oreRefineryKeys, domainGranted, fishBonus),
     demand: resourceSlotDemandForPlayer(ownedSlotTiles, playerId, waivers)
   };
 };

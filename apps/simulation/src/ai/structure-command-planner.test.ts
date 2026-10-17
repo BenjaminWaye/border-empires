@@ -4,7 +4,7 @@ import { planAutomationCommand } from "./automation-command-planner.js";
 import {
   chooseBestEconomicBuild,
   chooseBestFortBuild,
-  chooseBestSiegeOutpostBuild,
+  chooseBestSiegeBatteryBuild,
   type StructurePlannerPlayer,
   type StructurePlannerTile
 } from "./structure-command-planner.js";
@@ -31,7 +31,7 @@ const ECONOMIC_BUILD_PLAYER: StructurePlannerPlayer = {
 };
 
 describe("structure command planner", () => {
-  it("proposes a siege outpost when affordable, regardless of existing owned count (runtime never scales SIEGE_OUTPOST gold/resource cost by count)", () => {
+  it("proposes a siege battery when affordable, regardless of existing owned count (runtime never scales SIEGE_BATTERY gold/resource cost by count)", () => {
     const candidate = tile(0, 0, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
@@ -46,7 +46,7 @@ describe("structure command planner", () => {
       ["1,0", enemy]
     ]);
 
-    expect(chooseBestSiegeOutpostBuild({
+    expect(chooseBestSiegeBatteryBuild({
       id: "ai-1",
       points: 1_000,
       // Ample manpower throughout this file's fixtures: these cases assert
@@ -61,17 +61,17 @@ describe("structure command planner", () => {
     // runtime-structure-command-handlers.ts, which always charges the flat
     // SIEGE_TIER_LADDER cost for the player's best available tier, never a
     // count-scaled cost.
-    expect(chooseBestSiegeOutpostBuild({
+    expect(chooseBestSiegeBatteryBuild({
       id: "ai-1",
       points: 1_000,
       manpower: 1_000,
       techIds: ["leatherworking"],
       strategicResources: { UMBRITE: 45 },
-      ownedStructureCounts: { SIEGE_OUTPOST: 3 }
+      ownedStructureCounts: { SIEGE_BATTERY: 3 }
     }, [candidate], tilesByKey, [candidate])).toBe(candidate);
   });
 
-  it("gates siege outpost proposal on the tier the player will actually build, not the flat base-tier cost", () => {
+  it("gates siege battery proposal on the tier the player will actually build, not the flat base-tier cost", () => {
     const candidate = tile(0, 0, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
@@ -84,25 +84,24 @@ describe("structure command planner", () => {
     ]);
     const basePlayer = { id: "ai-1", points: 1_000, manpower: 1_000, techIds: ["leatherworking", "siegecraft"] };
 
-    // 50 supply passes the old hardcoded "< 45" check, but SIEGE_TOWER (the
-    // tier siegecraft unlocks) needs 90 supply AND 60 iron — must not propose.
-    expect(chooseBestSiegeOutpostBuild(
-      { ...basePlayer, strategicResources: { UMBRITE: 50 } },
+    // The upgraded tier needs UMBRITE and TITANIUM capacity.
+    expect(chooseBestSiegeBatteryBuild(
+      { ...basePlayer, slotSupplyByResource: { UMBRITE: 1, TITANIUM: 0 }, slotDemandByResource: {} },
       [candidate],
       tilesByKey,
       [candidate]
     )).toBeUndefined();
 
-    // SIEGE_TOWER's real cost: 90 supply, 60 iron, 1800 gold.
-    expect(chooseBestSiegeOutpostBuild(
-      { ...basePlayer, points: 1_800, strategicResources: { UMBRITE: 90, TITANIUM: 60 } },
+    // With enough slots, zero retired stockpile balances are legal.
+    expect(chooseBestSiegeBatteryBuild(
+      { ...basePlayer, points: 1_800, strategicResources: {}, slotSupplyByResource: { UMBRITE: 10, TITANIUM: 10 }, slotDemandByResource: {} },
       [candidate],
       tilesByKey,
       [candidate]
     )).toBe(candidate);
   });
 
-  it("does not propose a siege outpost when supply is insufficient for the player's actual tier, even with existing outposts elsewhere", () => {
+  it("does not propose a siege battery when supply is insufficient for the player's actual tier, even with existing outposts elsewhere", () => {
     const candidate = tile(0, 0, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
@@ -114,7 +113,7 @@ describe("structure command planner", () => {
     const existingOutposts = [2, 3, 4].map((x) => tile(x, 0, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
-      siegeOutpost: { ownerId: "ai-1", status: "active" }
+      siegeBattery: { ownerId: "ai-1", status: "active" }
     }));
     const tilesByKey = new Map([
       ["0,0", candidate],
@@ -129,11 +128,10 @@ describe("structure command planner", () => {
       points: 1_000,
       manpower: 1_000,
       techIds: ["leatherworking"],
-      // Genuinely insufficient supply (not a count-scaling artifact — see
-      // the tier-awareness tests above; SIEGE_OUTPOST's flat cost is 45
-      // supply and this player has 0) — the AI must fall through to
-      // something else, not repeatedly propose an unaffordable build.
+      // No UMBRITE slot: choose something else instead of submitting a
+      // doomed build, regardless of retired stockpile balances.
       strategicResources: { UMBRITE: 0 },
+      slotSupplyByResource: { UMBRITE: 0 }, slotDemandByResource: { UMBRITE: 0 },
       settledTileCount: 5,
       townCount: 1,
       incomePerMinute: 12,
@@ -149,7 +147,7 @@ describe("structure command planner", () => {
       attackStalemateTargetTileKeys: new Set(["1,1"])
     });
 
-    expect(result.command?.type).not.toBe("BUILD_SIEGE_OUTPOST");
+    expect(result.command?.type).not.toBe("BUILD_SIEGE_BATTERY");
   });
 });
 
@@ -197,8 +195,8 @@ describe("structure command planner — manpower affordability", () => {
     )).toBe(candidate);
   });
 
-  it("does not propose a siege outpost the player cannot pay the manpower for", () => {
-    // SIEGE_TIER_LADDER.SIEGE_OUTPOST costs 60 manpower.
+  it("does not propose a siege battery the player cannot pay the manpower for", () => {
+    // SIEGE_TIER_LADDER.SIEGE_BATTERY costs 60 manpower.
     const base = {
       id: "ai-1",
       points: 10_000,
@@ -206,14 +204,14 @@ describe("structure command planner — manpower affordability", () => {
       strategicResources: { UMBRITE: 1_000 }
     };
 
-    expect(chooseBestSiegeOutpostBuild(
+    expect(chooseBestSiegeBatteryBuild(
       { ...base, manpower: 59 },
       [candidate],
       tilesByKey,
       [candidate]
     )).toBeUndefined();
 
-    expect(chooseBestSiegeOutpostBuild(
+    expect(chooseBestSiegeBatteryBuild(
       { ...base, manpower: 60 },
       [candidate],
       tilesByKey,
@@ -223,7 +221,7 @@ describe("structure command planner — manpower affordability", () => {
 
   it("degrades to a cheaper affordable economic structure rather than proposing an unaffordable one", () => {
     // A well-fed TOWN below its support cap offers two candidates: MINTWORKS
-    // (150 manpower, score 54) and GRANARY (80 manpower, score 20). The gate is
+    // (150 manpower, score 54) and INCUBATION_ENGINE (80 manpower, score 20). The gate is
     // applied per-candidate *before* the best-score pick, so a player who can
     // afford only the cheaper one still gets a usable build instead of falling
     // through to WAIT — the AI degrades rather than stalling.
@@ -242,7 +240,7 @@ describe("structure command planner — manpower affordability", () => {
       points: 10_000,
       techIds: ["trade", "pottery"],
       // Comfortably above foodCoverageLow's max(24, townCount*12), so MINTWORKS
-      // outscores GRANARY and the fallback below is driven purely by manpower.
+      // outscores INCUBATION_ENGINE and the fallback below is driven purely by manpower.
       strategicResources: { FOOD: 1_000 },
       settledTileCount: 10,
       townCount: 1,
@@ -254,11 +252,11 @@ describe("structure command planner — manpower affordability", () => {
       townTilesByKey
     );
 
-    // Below GRANARY's 80 — nothing is affordable, so nothing is proposed.
+    // Below INCUBATION_ENGINE's 80 — nothing is affordable, so nothing is proposed.
     expect(chooseAt(79)).toBeUndefined();
-    // Affords GRANARY but not MINTWORKS — takes the cheaper one.
-    expect(chooseAt(80)?.structureType).toBe("GRANARY");
-    expect(chooseAt(149)?.structureType).toBe("GRANARY");
+    // Affords INCUBATION_ENGINE but not MINTWORKS — takes the cheaper one.
+    expect(chooseAt(80)?.structureType).toBe("INCUBATION_ENGINE");
+    expect(chooseAt(149)?.structureType).toBe("INCUBATION_ENGINE");
     // Affords MINTWORKS — the higher-scoring candidate wins again.
     expect(chooseAt(150)?.structureType).toBe("MINTWORKS");
   });
@@ -268,7 +266,7 @@ describe("structure command planner — manpower affordability", () => {
 describe("chooseBestEconomicBuild — town support tile availability", () => {
   // Regression: production staging showed BUILD_ECONOMIC_STRUCTURE rejected
   // 1108/1109 attempts (99.9%). chooseBestEconomicBuild proposed MINTWORKS/
-  // GRANARY whenever a town's supportCurrent < supportMax, without checking
+  // INCUBATION_ENGINE whenever a town's supportCurrent < supportMax, without checking
   // whether a physical open SETTLED neighbor tile actually existed to host
   // the structure. The runtime places these on an adjacent support tile
   // (resolveTownSupportTarget), not the town tile itself, and rejects with
@@ -307,19 +305,19 @@ describe("chooseBestEconomicBuild — town support tile availability", () => {
     const result = chooseBestEconomicBuild(ECONOMIC_BUILD_PLAYER, [town, openSupportTile], tilesByKey);
     expect(result).toBeDefined();
     expect(result?.tile).toBe(town);
-    expect(["MINTWORKS", "GRANARY"]).toContain(result?.structureType);
+    expect(["MINTWORKS", "INCUBATION_ENGINE"]).toContain(result?.structureType);
   });
 
   it("does not re-propose a structure type the town already has, even when it outscores the genuinely missing type", () => {
-    // Regression: staging showed the same "273,30:GRANARY" candidate proposed
-    // and rejected ("town already has granary") every rejection-cooldown
+    // Regression: staging showed the same "273,30:INCUBATION_ENGINE" candidate proposed
+    // and rejected ("town already has incubation engine") every rejection-cooldown
     // cycle indefinitely. supportCurrent < supportMax only means the town
     // wants MORE support capacity overall — it doesn't mean it's missing
     // THIS specific type. The runtime's economicStructureForSupportedTown
     // check catches the duplicate; chooseBestEconomicBuild must too.
     //
-    // The town already has GRANARY (score 20) — only MINTWORKS (score 54) is
-    // genuinely missing, so the fix must not re-propose GRANARY.
+    // The town already has INCUBATION_ENGINE (score 20) — only MINTWORKS (score 54) is
+    // genuinely missing, so the fix must not re-propose INCUBATION_ENGINE.
     //
     // Coordinates kept positive and away from 0 — negative offsets wrap
     // around WORLD_WIDTH/WORLD_HEIGHT (450x450), which would silently look
@@ -329,10 +327,10 @@ describe("chooseBestEconomicBuild — town support tile availability", () => {
       ownershipState: "SETTLED",
       town: { populationTier: "TOWN", supportCurrent: 0, supportMax: 3 }
     });
-    const existingGranary = tile(11, 9, {
+    const existingIncubationEngine = tile(11, 9, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
-      economicStructure: { ownerId: "ai-1", type: "GRANARY", status: "active" }
+      economicStructure: { ownerId: "ai-1", type: "INCUBATION_ENGINE", status: "active" }
     });
     const openSupportTile = tile(9, 10, { ownerId: "ai-1", ownershipState: "SETTLED" });
     const frontierNeighbors = [
@@ -340,14 +338,14 @@ describe("chooseBestEconomicBuild — town support tile availability", () => {
     ].map(([x, y]) => tile(x, y, { ownerId: "ai-1", ownershipState: "FRONTIER" }));
     const tilesByKey = new Map<string, StructurePlannerTile>([
       ["10,10", town2],
-      ["11,9", existingGranary],
+      ["11,9", existingIncubationEngine],
       ["9,10", openSupportTile],
       ...frontierNeighbors.map((n) => [`${n.x},${n.y}`, n] as const)
     ]);
 
     const result = chooseBestEconomicBuild(
       ECONOMIC_BUILD_PLAYER,
-      [town2, existingGranary, openSupportTile, ...frontierNeighbors],
+      [town2, existingIncubationEngine, openSupportTile, ...frontierNeighbors],
       tilesByKey
     );
     expect(result?.structureType).toBe("MINTWORKS");

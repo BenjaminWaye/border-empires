@@ -83,7 +83,7 @@ const toRecoveredTile = (tile: DomainTileState): RecoveredSimulationState["tiles
   ...(tile.town ? { town: tile.town } : {}),
   ...(tile.fort ? { fort: tile.fort } : {}),
   ...(tile.observatory ? { observatory: tile.observatory } : {}),
-  ...(tile.siegeOutpost ? { siegeOutpost: tile.siegeOutpost } : {}),
+  ...(tile.siegeBattery ? { siegeBattery: tile.siegeBattery } : {}),
   ...(tile.economicStructure ? { economicStructure: tile.economicStructure } : {}),
   ...(tile.sabotage ? { sabotage: tile.sabotage } : {}),
   ...(tile.watchtower ? { watchtower: tile.watchtower } : {}),
@@ -167,7 +167,6 @@ export const generateSeasonWorld = async (
       activeLocks: [],
       players: [...initialPlayers.values()].map((player) => toRecoveredPlayer(player)),
       pendingSettlements: [],
-      tileYieldCollectedAtByTile: [],
       playerYieldCollectionEpochByPlayer: []
     },
     worldSeed: generated.worldSeed ?? requestedWorldSeed,

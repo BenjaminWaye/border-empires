@@ -1,10 +1,11 @@
+import { parsePlannerObservatory, parsePlannerMuster, parsePlannerSabotage } from "./ai-tactical-tile.js";
 /**
  * Shared tile-delta merge helpers used by the AI planner worker and the AI
  * and system command producer workers. Single canonical implementation to
  * avoid duplicating the merge/convert logic (previously this and
  * planner-apply-tile-delta.ts independently reimplemented the same merge,
  * with the latter being the only one that applied town/fort/observatory/
- * siegeOutpost/economicStructure deltas — the former silently dropped those
+ * siegeBattery/economicStructure deltas — the former silently dropped those
  * fields for its callers).
  */
 
@@ -42,10 +43,19 @@ export const mergePlannerTileDelta = (
     if (tileDelta.ownershipState) next.ownershipState = tileDelta.ownershipState as PlannerTileView["ownershipState"];
     else delete next.ownershipState;
   }
+  if ("captureHoldUntil" in tileDelta) {
+    if (typeof tileDelta.captureHoldUntil === "number") next.captureHoldUntil = tileDelta.captureHoldUntil;
+    else delete next.captureHoldUntil;
+  }
   if ("townJson" in tileDelta) {
     const town = parseTownSupport(tileDelta.townJson);
     if (town) next.town = town;
     else delete next.town;
+  }
+  if ("afcJson" in tileDelta) {
+    const afc = parseOwnedStructure(tileDelta.afcJson);
+    if (afc?.ownerId) next.afc = { ownerId: afc.ownerId };
+    else delete next.afc;
   }
   if ("fortJson" in tileDelta) {
     const fort = parseOwnedStructure(tileDelta.fortJson);
@@ -53,14 +63,24 @@ export const mergePlannerTileDelta = (
     else delete next.fort;
   }
   if ("observatoryJson" in tileDelta) {
-    const observatory = parseOwnedStructure(tileDelta.observatoryJson);
+    const observatory = parsePlannerObservatory(tileDelta.observatoryJson);
     if (observatory) next.observatory = observatory;
     else delete next.observatory;
   }
-  if ("siegeOutpostJson" in tileDelta) {
-    const siegeOutpost = parseOwnedStructure(tileDelta.siegeOutpostJson);
-    if (siegeOutpost) next.siegeOutpost = siegeOutpost;
-    else delete next.siegeOutpost;
+  if ("sabotageJson" in tileDelta) {
+    const sabotage = parsePlannerSabotage(tileDelta.sabotageJson);
+    if (sabotage) next.sabotage = sabotage;
+    else delete next.sabotage;
+  }
+  if ("musterJson" in tileDelta) {
+    const muster = parsePlannerMuster(tileDelta.musterJson);
+    if (muster) next.muster = muster;
+    else delete next.muster;
+  }
+  if ("siegeBatteryJson" in tileDelta) {
+    const siegeBattery = parseOwnedStructure(tileDelta.siegeBatteryJson);
+    if (siegeBattery) next.siegeBattery = siegeBattery;
+    else delete next.siegeBattery;
   }
   if ("economicStructureJson" in tileDelta) {
     const economicStructure = parseEconomicStructure(tileDelta.economicStructureJson);
@@ -77,8 +97,20 @@ export const mergePlannerTileDelta = (
  */
 export const applyTileDelta = (tilesByKey: Map<string, PlannerTileView>, delta: SimulationTileDelta): void => {
   const key = `${delta.x},${delta.y}`;
-  const nextTile = mergePlannerTileDelta(tilesByKey.get(key), delta);
-  if (nextTile) tilesByKey.set(key, nextTile);
+  const existing = tilesByKey.get(key);
+  const nextTile = mergePlannerTileDelta(existing, delta);
+  if (!nextTile) return;
+  if (!existing) {
+    tilesByKey.set(key, nextTile);
+    return;
+  }
+  // The worker's resolved-player arrays hold these objects until the next
+  // collection-version sync. Keep their references current between syncs,
+  // without invalidating/rebuilding every player's territory arrays.
+  for (const field of Object.keys(existing) as (keyof PlannerTileView)[]) {
+    if (!(field in nextTile)) delete existing[field];
+  }
+  Object.assign(existing, nextTile);
 };
 
 /**
@@ -95,9 +127,13 @@ export const toPlannerTileDelta = (tile: PlannerTileView): SimulationTileDelta =
   ...(tile.naturalWonder !== undefined ? { naturalWonderJson: tile.naturalWonder ? "1" : undefined } : {}),
   ...(tile.ownerId !== undefined ? { ownerId: tile.ownerId } : {}),
   ...(tile.ownershipState !== undefined ? { ownershipState: tile.ownershipState } : {}),
+  ...(tile.captureHoldUntil !== undefined ? { captureHoldUntil: tile.captureHoldUntil } : {}),
   ...(tile.town !== undefined ? { townJson: JSON.stringify(tile.town) } : {}),
+  ...(tile.afc !== undefined ? { afcJson: JSON.stringify(tile.afc) } : {}),
   ...(tile.fort !== undefined ? { fortJson: JSON.stringify(tile.fort) } : {}),
+  ...(tile.sabotage !== undefined ? { sabotageJson: JSON.stringify(tile.sabotage) } : {}),
+  ...(tile.muster !== undefined ? { musterJson: JSON.stringify(tile.muster) } : {}),
   ...(tile.observatory !== undefined ? { observatoryJson: JSON.stringify(tile.observatory) } : {}),
-  ...(tile.siegeOutpost !== undefined ? { siegeOutpostJson: JSON.stringify(tile.siegeOutpost) } : {}),
+  ...(tile.siegeBattery !== undefined ? { siegeBatteryJson: JSON.stringify(tile.siegeBattery) } : {}),
   ...(tile.economicStructure !== undefined ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {})
 });

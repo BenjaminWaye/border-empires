@@ -84,7 +84,7 @@ describe("tileMenuHeaderStatusForTile — priority", () => {
       history: { lastCapturedAt: nowMs - 100, previousOwners: [], captureCount: 1, structureHistory: [] },
       economicStructure: {
         ownerId: "player-1",
-        type: "FARMSTEAD",
+        type: "HYDROGARDEN",
         status: "inactive",
         disabledUntil: nowMs + 5 * 60_000
       }
@@ -176,5 +176,20 @@ describe("tileMenuHeaderStatusForTile — out-of-reach decay precedence", () => 
     expect(status?.text).toBe("Inside &lt;b&gt;Evil&lt;/b&gt; Reach");
     expect(status?.helpText).toBe("Can't garrison inside another empire's reach.");
     expect(tileMenuHeaderStatusForTile(tile, 1_000, () => true)?.helpText).toBeUndefined();
+  });
+});
+
+describe("tileMenuHeaderStatusForTile capture hold", () => {
+  it("shows a Holding captured ground countdown while the hold is active", () => {
+    const nowMs = 1_000;
+    const status = tileMenuHeaderStatusForTile(makeFrontierTile({ captureHoldUntil: nowMs + 42_000 }), nowMs);
+    expect(status?.text).toBe("Holding captured ground 00:42");
+    expect(status?.tone).toBe("neutral");
+  });
+
+  it("drops the line once the hold has ended or the tile is garrisoned", () => {
+    const nowMs = 1_000;
+    expect(tileMenuHeaderStatusForTile(makeFrontierTile({ captureHoldUntil: nowMs - 1 }), nowMs)).toBeUndefined();
+    expect(tileMenuHeaderStatusForTile(makeFrontierTile({ ownershipState: "SETTLED", captureHoldUntil: nowMs + 42_000 }), nowMs)).toBeUndefined();
   });
 });

@@ -39,25 +39,8 @@ const buildDeps = (grassShadeAt: (x: number, y: number) => "LIGHT" | "DARK" | un
   chebyshevDistance: (ax, ay, bx, by) => Math.max(Math.abs(ax - bx), Math.abs(ay - by)),
   regionTypeAt: () => undefined,
   clusterByTile: new Map(),
-  townsByTile: new Map(),
-  docksByTile: new Map(),
-  fortsByTile: new Map(),
-  siegeOutpostsByTile: new Map(),
-  observatoriesByTile: new Map(),
-  economicStructuresByTile: new Map(),
-  playerTile: () => ({}) as never,
-  AIRPORT_BOMBARD_MIN_FIELD_TILES: 0,
-  AIRPORT_BOMBARD_MAX_FIELD_TILES: 0,
-  activeSeason: { worldSeed: 1 },
-  clustersById: new Map(),
-  ownership: new Map(),
-  getOrInitResourceCounts: () => ({ FARM: 0, TITANIUM: 0, GEMS: 0, FISH: 0, UMBRITE: 0 }),
-  rebuildEconomyIndexForPlayer: () => {},
-  sendPlayerUpdate: () => {},
-  sendVisibleTileDeltaAt: () => {},
   landBiomeAt,
-  grassShadeAt,
-  FRONTIER_CLAIM_MS: 1000
+  grassShadeAt
 });
 
 describe("createServerWorldgenTerrain — TUNDRA titanium affinity", () => {

@@ -183,13 +183,15 @@ message TileDelta {
   optional string town_json = 11;
   optional string fort_json = 12;
   optional string observatory_json = 13;
-  optional string siege_outpost_json = 14;
+  optional string siege_battery_json = 14;
   optional string economic_structure_json = 15;
   optional string sabotage_json = 16;
   optional string shard_site_json = 17;
-  string yield_json = 18;
+  // 18/20 were yield_json / yield_cap_json: the retired per-tile stored-yield
+  // buffer (tiles no longer hold yield; income credits the treasury directly).
+  reserved 18, 20;
+  reserved "yield_json", "yield_cap_json";
   string yield_rate_json = 19;
-  string yield_cap_json = 20;
   uint64 frontier_decay_at = 21;
   string frontier_decay_kind = 22;
   optional string muster_json = 23;
@@ -220,6 +222,11 @@ message TileDelta {
   optional string waystation_json = 31;
   // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md).
   optional string afc_json = 33;
+  // Post-capture hold window end (shared capture-hold.ts); 0 = none.
+  // optional: a sparse delta that omits it must decode as "unchanged", not
+  // as 0 -- under the gateway's defaults:true decode a plain uint64 reads 0
+  // when omitted, which would clear a live hold on every unrelated delta.
+  optional uint64 capture_hold_until = 34;
 }
 
 message DockRouteWaypoint {

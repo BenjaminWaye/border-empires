@@ -1,3 +1,4 @@
+import { updateManifestDetail, renderMobileManifestOverlay } from "../client-manifest-detail/client-manifest-detail-dom.js";
 import { signOut, type Auth } from "firebase/auth";
 import { INTEGRITY_PENALTY_PCT, type ChosenTrickleResource } from "@border-empires/shared";
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "../client-crystal-ability-info/client-crystal-ability-info.js";
@@ -20,7 +21,7 @@ import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-dia
 import { buildDisconnectHistoryBundle } from "../client-connection-diagnostics/client-connection-diagnostics.js";
 import { renderBugReportOverlay } from "../client-bug-report/client-bug-report-hud.js";
 import { buildMapLoadingView, isMapLoadingOverlayActive } from "../client-map-loading-view/client-map-loading-view.js";
-import { buildManpowerPanelMusterFlags, wireMusterFocusButtons } from "../client-muster-flags-panel/client-muster-flags-panel.js";
+import { buildManpowerPanelMusterFlags, wireManpowerPanel } from "../client-muster-flags-panel/client-muster-flags-panel.js";
 import { renderRespawnOverlay } from "../client-respawn-overlay.js";
 import { activityDashboardUnreadCount, renderClientActivityDashboardOverlay, toggleActivityDashboard } from "../client-activity-dashboard/client-activity-dashboard.js";
 import { renderJoinSeasonOverlay } from "../client-join-season-overlay.js";
@@ -33,10 +34,13 @@ import { renderProfileEditOverlay } from "./client-hud-profile-edit-overlay.js";
 import { bindAudioSettingsControls } from "../client-audio/client-audio-settings-ui.js"; import { bindHintsSettingsControls } from "../client-discovery-tips/client-hints-settings-ui.js"; import { bindSiegeTowerRotationSettingsControls } from "../client-siege-tower-rotation-settings-ui.js"; import { bindEmailNotificationsSettingsControls } from "../client-email-notifications/client-email-notifications-settings-ui.js";
 import { bindRendererSettingsControls } from "../client-renderer-switch/client-renderer-settings-ui.js";
 import { renderRendererPromptOverlay } from "../client-renderer-prompt/client-renderer-prompt-overlay.js";
-import { renderAllianceTargetOptionsIfChanged } from "../client-social-suggestions/client-social-suggestions.js";
+import { renderAllianceLists } from "./client-hud-alliance-lists.js";
+import { bindProposeButtons } from "../client-alliance/client-alliance-propose-buttons.js";
+import { bindMetPlayerRowToggles } from "../client-alliance/client-alliance-row-toggle.js";
 import { applyVictoryHoldAlertNavBadges } from "../client-victory-alert/client-victory-alert-badge.js";
 import { applyAllyAlertNavBadges } from "../client-alliance/client-ally-alert-badge.js";
-import { worldEngineStrikeRecordToFeedEntry, WORLD_ENGINE_STRIKE_HISTORY_WINDOW_MS } from "../client-world-engine-strike-history/client-world-engine-strike-history.js";
+import { syncManifestPanelTabs } from "../client-manifest-tabs/client-manifest-tabs.js";
+import { sovereignSiegeEngineStrikeRecordToFeedEntry, SOVEREIGN_SIEGE_ENGINE_STRIKE_HISTORY_WINDOW_MS } from "../client-sovereign-siege-engine-strike-history/client-sovereign-siege-engine-strike-history.js";
 import type { ClientState, storageSet } from "../client-state/client-state.js";
 import { refreshLiveTechRequirements } from "../client-tech-live-requirements/client-tech-live-requirements.js";
 import type { StructureInfoKey } from "../client-map-display.js";
@@ -78,10 +82,6 @@ type HudDeps = {
   openEconomyPanel: (focus?: EconomyFocusKey) => void;
   setActivePanel: (panel: ClientState["activePanel"]) => void;
   affordableTechChoicesCount: () => number;
-  mobileNavLabelHtml: (
-    panel: ClientState["mobilePanel"],
-    opts?: { techReady?: boolean; attackAlertUnread?: boolean; feedUnreadCount?: number }
-  ) => string;
   crystalTargetingTone: (ability: ClientState["crystalTargeting"]["ability"]) => string;
   crystalTargetingTitle: (ability: ClientState["crystalTargeting"]["ability"]) => string;
   clearCrystalTargeting: () => void;
@@ -123,12 +123,7 @@ type HudDeps = {
   domainOwnedHtml: (catalog: DomainInfo[], ownedIds: string[], chosenTrickleResource?: ChosenTrickleResource) => string;
   renderDomainDetailCard: () => string;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
-  alliesHtml: typeof import("../client-panel-html/client-panel-html.js").alliesHtml;
-  activeTrucesHtml: typeof import("../client-panel-html/client-panel-html.js").activeTrucesHtml;
-  allianceRequestsHtml: typeof import("../client-panel-html/client-panel-html.js").allianceRequestsHtml;
-  truceRequestsHtml: typeof import("../client-panel-html/client-panel-html.js").truceRequestsHtml;
   renderSocialInspectCardHtml: typeof import("../client-side-panel-html/client-side-panel-html.js").renderSocialInspectCardHtml;
-  missionCardsHtml: typeof import("../client-panel-html/client-panel-html.js").missionCardsHtml;
   playerNameForOwner: (ownerId?: string | null) => string;
   wrapX: (x: number) => number;
   wrapY: (y: number) => number;
@@ -168,7 +163,6 @@ export const renderClientHud = (deps: HudDeps): void => {
     openEconomyPanel,
     setActivePanel,
     affordableTechChoicesCount,
-    mobileNavLabelHtml,
     crystalTargetingTone,
     crystalTargetingTitle,
     clearCrystalTargeting,
@@ -181,30 +175,11 @@ export const renderClientHud = (deps: HudDeps): void => {
     renderCaptureProgress,
     renderShardAlert, renderVictoryHoldAlert,
     renderTechChoiceGrid,
-    techDetailsUseOverlay,
-    renderTechDetailPrompt,
-    renderTechDetailCard,
-    renderStructureInfoOverlay,
-    renderTechDetailOverlay,
-    renderDomainDetailOverlay,
-    techOwnedHtml,
-    effectiveOwnedTechIds,
-    isPendingTechUnlock,
-    renderTechChoiceDetails,
-    techCurrentModsHtml,
     bindTechTreeDragScroll,
     chooseTech,
     chooseDomain,
-    renderDomainProgressCard, renderDomainChoiceGrid,
-    domainOwnedHtml,
-    renderDomainDetailCard,
     sendGameMessage,
-    alliesHtml,
-    activeTrucesHtml,
-    allianceRequestsHtml,
-    truceRequestsHtml,
     renderSocialInspectCardHtml,
-    missionCardsHtml,
     playerNameForOwner,
     wrapX,
     wrapY,
@@ -343,9 +318,9 @@ export const renderClientHud = (deps: HudDeps): void => {
     const validCount = state.crystalTargeting.validTargets.size;
     const detail =
       ability === "aether_bridge"
-        ? "Pick a coastal land tile. The server links the nearest garrisoned coast and opens a temporary sea lane."
+        ? "Pick a coastal land tile. The server links the nearest garrisoned coast and opens a temporary sea lane. Enemy land glowing red inside a red outline is shielded by an Aether Tower and can't be landed on."
         : ability === "siphon"
-          ? "Pick an enemy town or resource tile. One of your Aether Towers drains the 3x3 around it (resource slots move to you) until you cancel it from that tower."
+          ? "Pick an enemy town or resource tile. One of your Aether Towers drains the 3x3 around it (resource slots move to you) until you cancel it from that tower. Land glowing red inside a red outline is shielded by an enemy Aether Tower and can't be siphoned."
           : "Pick an enemy land tile to shatter into mountain and erase whatever was built there.";
     const status = selectedOrigin
       ? `Origin ${selectedOrigin.x}, ${selectedOrigin.y} → Target ${state.selected?.x}, ${state.selected?.y}`
@@ -476,11 +451,11 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.mobileTechCurrentModsEl.innerHTML = dom.techCurrentModsEl.innerHTML;
   dom.techChoicesGridEl.innerHTML = safeValue("renderTechChoiceGrid", fallbackCard("Manifest choices"), () => renderTechChoiceGrid());
   dom.mobileTechChoicesGridEl.innerHTML = dom.techChoicesGridEl.innerHTML;
-  dom.techDetailCardEl.innerHTML = safeValue(
+  updateManifestDetail(dom.techDetailCardEl, safeValue(
     "renderTechDetailCard",
     fallbackCard("Manifest details"),
     () => (deps.techDetailsUseOverlay() ? deps.renderTechDetailPrompt() : deps.renderTechDetailCard())
-  );
+  ));
   dom.mobileTechDetailCardEl.innerHTML = safeValue("renderTechDetailPrompt", fallbackCard("Manifest details"), () => deps.renderTechDetailPrompt());
   dom.structureInfoOverlayEl.innerHTML = state.structureInfoKey
     ? deps.renderStructureInfoOverlay()
@@ -491,15 +466,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.intelOverlayEl.innerHTML = state.activeRevealEmpireStatsPopup ? revealEmpireStatsDossierHtml(state.activeRevealEmpireStatsPopup) : "";
   dom.intelOverlayEl.style.display = state.activeRevealEmpireStatsPopup ? "grid" : "none";
   renderPlayerProfileOverlay(dom, state, playerNameForOwner, wsUrl, () => renderClientHud(deps));
-  const mobileDetailOverlayHtml = deps.techDetailsUseOverlay()
-    ? state.techDetailOpen
-      ? deps.renderTechDetailOverlay()
-      : state.domainDetailOpen
-        ? deps.renderDomainDetailOverlay()
-        : ""
-    : "";
-  dom.techDetailOverlayEl.innerHTML = mobileDetailOverlayHtml;
-  dom.techDetailOverlayEl.style.display = deps.techDetailsUseOverlay() && mobileDetailOverlayHtml ? "grid" : "none";
+  renderMobileManifestOverlay(dom.techDetailOverlayEl, deps.techDetailsUseOverlay(), state, deps.renderTechDetailOverlay, deps.renderDomainDetailOverlay);
   dom.techOwnedEl.innerHTML = safeValue(
     "techOwnedHtml",
     fallbackCard("Your Manifests"),
@@ -512,25 +479,11 @@ export const renderClientHud = (deps: HudDeps): void => {
   const mobileTechResearchSectionEl = document.querySelector("#mobile-tech-research-section") as HTMLDivElement | null;
   if (techResearchSectionEl) techResearchSectionEl.style.display = "grid";
   if (mobileTechResearchSectionEl) mobileTechResearchSectionEl.style.display = "grid";
-  renderAllianceTargetOptionsIfChanged(dom.allianceTargetOptionsEl, state);
-  dom.panelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
+  syncManifestPanelTabs(dom, state, deps.effectiveOwnedTechIds().length, () => renderClientHud(deps));
   dom.panelTechEl.classList.toggle("tech-detail-open", state.techDetailOpen && !deps.techDetailsUseOverlay() && !state.techTreeExpanded);
-  dom.mobilePanelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
   dom.panelDomainsEl.classList.toggle("domain-detail-open", state.domainDetailOpen && !isMobile());
   dom.hud.classList.toggle("desktop-side-panel-open", !isMobile() && state.activePanel !== null);
   dom.hud.classList.toggle("tech-tree-overlay-active", !isMobile() && state.activePanel === "tech" && state.techTreeExpanded);
-  dom.techTreeExpandToggleEl.textContent = state.techTreeExpanded ? "Collapse Tree" : "Expand Tree";
-  dom.mobileTechTreeExpandToggleEl.textContent = state.techTreeExpanded ? "Collapse Tree" : "Expand Tree";
-  dom.techTreeExpandToggleEl.classList.toggle("active", state.techTreeExpanded);
-  dom.mobileTechTreeExpandToggleEl.classList.toggle("active", state.techTreeExpanded);
-  dom.techTreeExpandToggleEl.onclick = () => {
-    state.techTreeExpanded = !state.techTreeExpanded;
-    renderClientHud(deps);
-  };
-  dom.mobileTechTreeExpandToggleEl.onclick = () => {
-    state.techTreeExpanded = !state.techTreeExpanded;
-    renderClientHud(deps);
-  };
   bindTechTreeDragScroll();
   const techTreeZoomButtons = dom.hud.querySelectorAll("[data-tech-tree-zoom]") as NodeListOf<HTMLButtonElement>;
   techTreeZoomButtons.forEach((btn: HTMLButtonElement) => {
@@ -675,50 +628,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       return;
     }
   };
-  dom.alliesListEl.innerHTML = safeValue(
-    "alliesHtml",
-    fallbackCard("Alliances"),
-    () => {
-      const nowMs = Date.now();
-      return `<section class="alliance-section-block">
-        <h4 class="alliance-section-title">Current Allies</h4>
-        <div class="alliance-card-stack">${alliesHtml(state.allies, playerNameForOwner, state.activeAllianceBreaks, nowMs)}</div>
-      </section>
-      <section class="alliance-section-block">
-        <h4 class="alliance-section-title">Active Truces</h4>
-        <div class="alliance-card-stack">${activeTrucesHtml(state.activeTruces, playerNameForOwner, nowMs)}</div>
-      </section>`;
-    }
-  );
-  dom.mobileAlliesListEl.innerHTML = dom.alliesListEl.innerHTML;
-  dom.allianceRequestsEl.innerHTML = safeValue(
-    "allianceRequestsHtml",
-    fallbackCard("Alliance requests"),
-    () => {
-      const nowMs = Date.now();
-      const pendingAllianceHtml = `${allianceRequestsHtml(state.incomingAllianceRequests, playerNameForOwner, "incoming", nowMs)}${allianceRequestsHtml(
-        state.outgoingAllianceRequests,
-        playerNameForOwner,
-        "outgoing",
-        nowMs
-      )}`;
-      const pendingTruceHtml = `${truceRequestsHtml(state.incomingTruceRequests, playerNameForOwner, "incoming", nowMs)}${truceRequestsHtml(
-        state.outgoingTruceRequests,
-        playerNameForOwner,
-        "outgoing",
-        nowMs
-      )}`;
-      return `<section class="alliance-section-block">
-        <h4 class="alliance-section-title">Pending Alliance Requests</h4>
-        <div class="alliance-card-stack">${pendingAllianceHtml || '<article class="card alliance-empty-card"><p>No pending requests.</p></article>'}</div>
-      </section>
-      <section class="alliance-section-block">
-        <h4 class="alliance-section-title">Pending Truce Requests</h4>
-        <div class="alliance-card-stack">${pendingTruceHtml || '<article class="card alliance-empty-card"><p>No pending truces.</p></article>'}</div>
-      </section>`;
-    }
-  );
-  dom.mobileAllianceRequestsEl.innerHTML = dom.allianceRequestsEl.innerHTML;
+  renderAllianceLists(state, dom, safeValue, fallbackCard("Alliances"));
   // Single Copy button for the merged connection + account debug card (was
   // two separate cards each with their own Copy button/payload).
   bindAuthDebugCopyButton(dom.hud, { state, wsUrl, firebaseAuth, pushFeed, onCopied: () => renderClientHud(deps) });
@@ -809,11 +719,11 @@ export const renderClientHud = (deps: HudDeps): void => {
       manpowerBreakdown: state.manpowerBreakdown,
       musterFlags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me, state.manpowerCap, state.manpower, state.musterAmountRateByTile),
       formatManpowerAmount,
-      rateToneClass, formatDuration: deps.formatCooldownShort, nextRefillAtMs: nextManpowerRefillForPlayer(state.me, Date.now())
+      rateToneClass, nextRefillAtMs: nextManpowerRefillForPlayer(state.me, Date.now())
     })
   );
   dom.panelManpowerEl.innerHTML = dom.mobilePanelManpowerEl.innerHTML = manpowerPanelHtml;
-  wireMusterFocusButtons(dom.hud, state, { wrapX, wrapY, requestViewRefresh, rerender: () => renderClientHud(deps) });
+  wireManpowerPanel(dom.hud, state, { wrapX, wrapY, requestViewRefresh, rerender: () => renderClientHud(deps) });
   dom.leaderboardEl.innerHTML = dom.mobileLeaderboardEl.innerHTML = safeValue(
     "leaderboardHtml",
     fallbackCard("Leaderboard"),
@@ -825,17 +735,17 @@ export const renderClientHud = (deps: HudDeps): void => {
       enabled: debugTileLoggingEnabled(),
       selectedTileKey: state.selected ? `${state.selected.x},${state.selected.y}` : undefined
     });
-    // World Engine strikes stay discoverable here for up to 12h even after
+    // Sovereign Siege Engine strikes stay discoverable here for up to 12h even after
     // they've scrolled off the live feed above (see client-network.ts's
-    // silent history backfill and WORLD_ENGINE_STRIKE_ANNOUNCEMENT handling).
+    // silent history backfill and SOVEREIGN_SIEGE_ENGINE_STRIKE_ANNOUNCEMENT handling).
     // Filtered by age here (not just capped by count) since live-received
     // entries are never locally expired — a long-lived connected session
     // would otherwise keep showing strikes well past the "last 12h" label.
-    const recentStrikes = state.worldEngineStrikeAnnouncements.filter(
-      (entry) => Date.now() - entry.occurredAt <= WORLD_ENGINE_STRIKE_HISTORY_WINDOW_MS
+    const recentStrikes = state.sovereignSiegeEngineStrikeAnnouncements.filter(
+      (entry) => Date.now() - entry.occurredAt <= SOVEREIGN_SIEGE_ENGINE_STRIKE_HISTORY_WINDOW_MS
     );
     if (recentStrikes.length === 0) return liveFeedHtml;
-    const worldEventsHtml = feedHtml(recentStrikes.map(worldEngineStrikeRecordToFeedEntry));
+    const worldEventsHtml = feedHtml(recentStrikes.map(sovereignSiegeEngineStrikeRecordToFeedEntry));
     return `${liveFeedHtml}<h4 class="feed-section-heading">World Events (last 12h)</h4>${worldEventsHtml}`;
   });
   const feedFocusButtons = dom.hud.querySelectorAll("[data-feed-focus-x][data-feed-focus-y]") as NodeListOf<HTMLButtonElement>;
@@ -916,6 +826,8 @@ export const renderClientHud = (deps: HudDeps): void => {
   bindRequestActionButtons(".reject-truce", "truceRequestId", (id) => ({ type: "TRUCE_REJECT", requestId: id }), "Finish sign-in before responding to truces.");
   bindRequestActionButtons(".cancel-truce", "truceRequestId", (id) => ({ type: "TRUCE_CANCEL", requestId: id }), "Finish sign-in before changing truce requests.");
 
+  bindProposeButtons(dom.hud, { playerNameForOwner, sendGameMessage });
+  bindMetPlayerRowToggles(dom.hud, state);
   const breakAllianceButtons = dom.hud.querySelectorAll(".break-alliance") as NodeListOf<HTMLButtonElement>;
   breakAllianceButtons.forEach((btn: HTMLButtonElement) => bindBreakAllianceButton(btn, sendGameMessage));
 

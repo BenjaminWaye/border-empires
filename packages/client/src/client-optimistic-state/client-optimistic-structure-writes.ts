@@ -8,7 +8,7 @@ import {
   fortTierForBuild,
   structureBuildDurationMsForManpowerCost,
   nextSiegeTierForUpgrade,
-  type SiegeOutpostVariant
+  type SiegeBatteryVariant
 } from "@border-empires/shared";
 import type { OptimisticStructureKind, Tile } from "../client-types.js";
 
@@ -24,7 +24,7 @@ export const writeOptimisticStructureBuild = (
   // Applies the player's build-speed effects to a fort tier's base duration (client-build-speed).
   adjustBuildMs: (structureType: string, baseMs: number) => number = (_type, baseMs) => baseMs
 ): void => {
-  if (kind === "FORT" || kind === "WOODEN_FORT") {
+  if (kind === "FORT" || kind === "PALISADE") {
     // Don't write a construction the sim will reject (max tier, or a Palisade on a fortified tile).
     const tier = fortTierForBuild(kind, tile.fort?.variant, hasTech);
     if (!tier) return;
@@ -46,20 +46,20 @@ export const writeOptimisticStructureBuild = (
     tile.observatory = { ownerId, status: "under_construction", completesAt, startedAt };
     return;
   }
-  if (kind === "SIEGE_OUTPOST") {
+  if (kind === "SIEGE_BATTERY") {
     delete tile.economicStructure;
-    if (tile.siegeOutpost && !nextSiegeTierForUpgrade(tile.siegeOutpost.variant, hasTech)) return;
-    const variant: SiegeOutpostVariant = tile.siegeOutpost
-      ? nextSiegeTierForUpgrade(tile.siegeOutpost.variant, hasTech)!.variant
+    if (tile.siegeBattery && !nextSiegeTierForUpgrade(tile.siegeBattery.variant, hasTech)) return;
+    const variant: SiegeBatteryVariant = tile.siegeBattery
+      ? nextSiegeTierForUpgrade(tile.siegeBattery.variant, hasTech)!.variant
       : bestSiegeTierForTech(hasTech).variant;
-    tile.siegeOutpost = { ownerId, status: "under_construction", variant, completesAt, startedAt };
+    tile.siegeBattery = { ownerId, status: "under_construction", variant, completesAt, startedAt };
     return;
   }
   tile.economicStructure = { ownerId, type: kind, status: "under_construction", completesAt, startedAt };
 };
 
 // Undo only the one structure action the sim's cancel targets (fort first,
-// then observatory, siege outpost, economic structure) -- a stacked Relay
+// then observatory, siege battery, economic structure) -- a stacked Relay
 // Beacon or Harbor Exchange next to a cancelled fort build stays put.
 export const writeOptimisticStructureCancel = (tile: Tile): void => {
   const fort = tile.fort;
@@ -80,7 +80,7 @@ export const writeOptimisticStructureCancel = (tile: Tile): void => {
     }
     return;
   }
-  for (const field of ["observatory", "siegeOutpost", "economicStructure"] as const) {
+  for (const field of ["observatory", "siegeBattery", "economicStructure"] as const) {
     const structure = tile[field];
     if (!structure || (structure.status !== "under_construction" && structure.status !== "removing")) continue;
     if (structure.status === "under_construction") {

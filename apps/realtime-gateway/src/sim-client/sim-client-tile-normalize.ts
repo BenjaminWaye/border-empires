@@ -1,11 +1,12 @@
 import type { FrontierDecayKind, Terrain, VisibilityState } from "@border-empires/shared";
-import type { StrategicResourceKey } from "@border-empires/sim-protocol";
+import { TILE_OVERLAY_WIRE_FIELDS, type TileOverlayJsonField, type TileOverlayJsonFields, type TileOverlayProtoField } from "@border-empires/sim-protocol";
 import type { SimulationClientEvent } from "./sim-client.js";
 
 // Extracted out of sim-client.ts's own SimulationClientEvent union (already
-// well over the 500-line cap and may not grow) so a new overlay field (e.g.
-// waystationJson) can be added here instead of inline there -- same
-// extraction pattern as ProtoTileDelta/normalizeProtoTile below.
+// well over the 500-line cap and may not grow) -- same extraction pattern as
+// ProtoTileDelta/normalizeProtoTile below. Overlay fields (fortJson,
+// musterJson, ...) come from TILE_OVERLAY_WIRE_FIELDS in sim-protocol, so a
+// new overlay needs no edit here.
 export type SimClientTileDelta = {
   x: number;
   y: number;
@@ -19,28 +20,16 @@ export type SimClientTileDelta = {
   frontierDecayAt?: number | undefined;
   frontierDecayKind?: FrontierDecayKind | undefined;
   breachShockUntil?: number | undefined;
+  captureHoldUntil?: number | undefined;
   townJson?: string | undefined;
   townType?: "MARKET" | "FARMING";
   townName?: string | undefined;
   townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-  fortJson?: string | undefined;
-  observatoryJson?: string | undefined;
-  siegeOutpostJson?: string | undefined;
-  economicStructureJson?: string | undefined;
-  sabotageJson?: string | undefined;
-  shardSiteJson?: string | undefined;
-  naturalWonderJson?: string | undefined;
-  watchtowerJson?: string | undefined;
-  waystationJson?: string | undefined;
-  musterJson?: string | undefined;
-  afcJson?: string | undefined;
   visibilityState?: VisibilityState | undefined;
-  yield?: { gold?: number; strategic?: Partial<Record<StrategicResourceKey, number>> } | undefined;
-  yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<StrategicResourceKey, number>> } | undefined;
-  yieldCap?: { gold: number; strategicEach: number } | undefined;
+  yieldRate?: { goldPerMinute?: number } | undefined;
   ownershipClearOnly?: boolean;
   combatJson?: string | undefined;
-};
+} & TileOverlayJsonFields;
 
 // ProtoTileDelta and normalizeProtoTile extracted out of sim-client.ts (already
 // well over the 500-line cap) to keep it from growing -- same pattern as
@@ -66,6 +55,8 @@ export type ProtoTileDelta = {
   frontierDecayKind?: FrontierDecayKind;
   breach_shock_until?: number;
   breachShockUntil?: number;
+  capture_hold_until?: number;
+  captureHoldUntil?: number;
   town_json?: string;
   townJson?: string;
   town_type?: string;
@@ -74,39 +65,15 @@ export type ProtoTileDelta = {
   townName?: string;
   town_population_tier?: string;
   townPopulationTier?: string;
-  fort_json?: string;
-  fortJson?: string;
-  observatory_json?: string;
-  observatoryJson?: string;
-  siege_outpost_json?: string;
-  siegeOutpostJson?: string;
-  economic_structure_json?: string;
-  economicStructureJson?: string;
-  sabotage_json?: string;
-  sabotageJson?: string;
-  shard_site_json?: string;
-  shardSiteJson?: string; natural_wonder_json?: string; naturalWonderJson?: string;
-  watchtower_json?: string;
-  watchtowerJson?: string;
-  waystation_json?: string;
-  waystationJson?: string;
-  muster_json?: string;
-  musterJson?: string;
-  afc_json?: string;
-  afcJson?: string;
   visibility_state?: string;
   visibilityState?: string;
   ownership_clear_only?: boolean;
   ownershipClearOnly?: boolean;
-  yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> };
-  yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> };
-  yieldCap?: { gold: number; strategicEach: number };
-  yield_json?: string;
+  yieldRate?: { goldPerMinute?: number };
   yield_rate_json?: string;
-  yield_cap_json?: string;
   combat_json?: string;
   combatJson?: string;
-};
+} & { [F in TileOverlayProtoField | TileOverlayJsonField]?: string };
 
 export const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<SimulationClientEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"]>[number] => {
   const normalized: NonNullable<Extract<SimulationClientEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"]>[number] = {
@@ -136,6 +103,10 @@ export const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<Si
     const breachShockUntil = tile.breach_shock_until ?? tile.breachShockUntil;
     normalized.breachShockUntil = typeof breachShockUntil === "number" && breachShockUntil > 0 ? breachShockUntil : undefined;
   }
+  if ("capture_hold_until" in tile || "captureHoldUntil" in tile) {
+    const captureHoldUntil = tile.capture_hold_until ?? tile.captureHoldUntil;
+    normalized.captureHoldUntil = typeof captureHoldUntil === "number" && captureHoldUntil > 0 ? captureHoldUntil : undefined;
+  }
   if ("town_json" in tile || "townJson" in tile) normalized.townJson = tile.town_json || tile.townJson || undefined;
   if (typeof tile.town_type === "string" && (tile.town_type === "MARKET" || tile.town_type === "FARMING")) {
     normalized.townType = tile.town_type;
@@ -148,36 +119,17 @@ export const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<Si
   } else if (typeof tile.townPopulationTier === "string") {
     normalized.townPopulationTier = tile.townPopulationTier as "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
   }
-  if ("fort_json" in tile || "fortJson" in tile) normalized.fortJson = tile.fort_json || tile.fortJson || undefined;
-  if ("observatory_json" in tile || "observatoryJson" in tile) normalized.observatoryJson = tile.observatory_json || tile.observatoryJson || undefined;
-  if ("siege_outpost_json" in tile || "siegeOutpostJson" in tile) normalized.siegeOutpostJson = tile.siege_outpost_json || tile.siegeOutpostJson || undefined;
-  if ("economic_structure_json" in tile || "economicStructureJson" in tile) {
-    normalized.economicStructureJson = tile.economic_structure_json || tile.economicStructureJson || undefined;
+  for (const { snake, camel } of TILE_OVERLAY_WIRE_FIELDS) {
+    if (snake in tile || camel in tile) normalized[camel] = tile[snake] || tile[camel] || undefined;
   }
-  if ("sabotage_json" in tile || "sabotageJson" in tile) normalized.sabotageJson = tile.sabotage_json || tile.sabotageJson || undefined;
-  if ("shard_site_json" in tile || "shardSiteJson" in tile) normalized.shardSiteJson = tile.shard_site_json || tile.shardSiteJson || undefined;
-  if ("natural_wonder_json" in tile || "naturalWonderJson" in tile) normalized.naturalWonderJson = tile.natural_wonder_json || tile.naturalWonderJson || undefined; if ("watchtower_json" in tile || "watchtowerJson" in tile) normalized.watchtowerJson = tile.watchtower_json || tile.watchtowerJson || undefined;
-  if ("waystation_json" in tile || "waystationJson" in tile) normalized.waystationJson = tile.waystation_json || tile.waystationJson || undefined;
-  if ("muster_json" in tile || "musterJson" in tile) normalized.musterJson = tile.muster_json || tile.musterJson || undefined;
-  if ("afc_json" in tile || "afcJson" in tile) normalized.afcJson = tile.afc_json || tile.afcJson || undefined;
   const vs = tile.visibility_state || tile.visibilityState;
   if (vs === "VISIBLE" || vs === "FOG" || vs === "UNEXPLORED") normalized.visibilityState = vs;
   if (tile.ownership_clear_only === true || tile.ownershipClearOnly === true) normalized.ownershipClearOnly = true;
   if ("combat_json" in tile || "combatJson" in tile) normalized.combatJson = tile.combat_json || tile.combatJson || undefined;
-  if ("yield" in tile && tile.yield && typeof tile.yield === "object") {
-    normalized.yield = tile.yield as NonNullable<typeof normalized.yield>;
-  } else if (typeof tile.yield_json === "string" && tile.yield_json.length > 0) {
-    try { normalized.yield = JSON.parse(tile.yield_json) as NonNullable<typeof normalized.yield>; } catch { /* ignore */ }
-  }
   if ("yieldRate" in tile && tile.yieldRate && typeof tile.yieldRate === "object") {
     normalized.yieldRate = tile.yieldRate as NonNullable<typeof normalized.yieldRate>;
   } else if (typeof tile.yield_rate_json === "string" && tile.yield_rate_json.length > 0) {
     try { normalized.yieldRate = JSON.parse(tile.yield_rate_json) as NonNullable<typeof normalized.yieldRate>; } catch { /* ignore */ }
-  }
-  if ("yieldCap" in tile && tile.yieldCap && typeof tile.yieldCap === "object") {
-    normalized.yieldCap = tile.yieldCap as NonNullable<typeof normalized.yieldCap>;
-  } else if (typeof tile.yield_cap_json === "string" && tile.yield_cap_json.length > 0) {
-    try { normalized.yieldCap = JSON.parse(tile.yield_cap_json) as NonNullable<typeof normalized.yieldCap>; } catch { /* ignore */ }
   }
   return normalized;
 };

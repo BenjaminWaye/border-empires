@@ -8,9 +8,9 @@ export const yieldViewEconomyContext = (
   ctx: RuntimeTileYieldEconomyContext | undefined,
   tiles: ReadonlyMap<string, DomainTileState>,
   dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>
-): Parameters<typeof buildTileYieldView>[3] => ({
+): Parameters<typeof buildTileYieldView>[2] => ({
   ...(player ? { player } : {}),
-  ...(ctx ? { fedTownKeys: ctx.fedTownKeys, firstThreeTownKeys: ctx.firstThreeTownKeys, waterworksKeys: ctx.waterworksKeys, foundryKeys: ctx.foundryKeys } : {}),
+  ...(ctx ? { fedTownKeys: ctx.fedTownKeys, firstThreeTownKeys: ctx.firstThreeTownKeys } : {}),
   tiles,
   dockLinksByDockTileKey
 });

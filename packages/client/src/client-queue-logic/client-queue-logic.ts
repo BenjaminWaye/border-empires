@@ -1,13 +1,10 @@
-import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, SETTLE_COST, SETTLE_MANPOWER_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
-import { MUSTER_AUTO_FLAG_THRESHOLD_TILES, MUSTER_TRANSIT_MS_PER_TILE, canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "../client-constants.js";
-import { attackSyncLog, debugTileLog, debugTileTimeline, tileSyncDebugEnabled, tileMatchesDebugKey } from "../client-debug/client-debug.js";
+import { EXPAND_MANPOWER_COST, SETTLE_COST, SETTLE_MANPOWER_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { MUSTER_AUTO_FLAG_THRESHOLD_TILES, canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "../client-constants.js";
+import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import {
   devQueueCancelWirePayload,
-  devQueueMoveToFrontWirePayload,
   persistDevelopmentQueueForPlayer,
-  persistSkippedAutoSettlementTileKeysForPlayer,
-  pruneExpiredAutoSettlementQueueVisibleHolds,
-  queuedSettlementOrderForTile
+  pruneExpiredAutoSettlementQueueVisibleHolds
 } from "../client-development-queue/client-development-queue.js";
 import { createNextFrontierCommandIdentity } from "../client-frontier-command/client-frontier-command.js";
 import { dropStuckPendingMusterAttack, findClosestMuster, findFundedMusterWithinRange, isDockCrossingBetween, isPendingAttackFundedFromOrigin, parkOrReuseMusterFlagForAttack } from "../client-muster-attack-gate/client-muster-attack-gate.js";
@@ -20,7 +17,6 @@ import { authoritativeIsInReach } from "../client-reach-authoritative/client-rea
 import { registerWaypointNoProgressTick, isWaypointStepStillPending } from "./client-waypoint-halt.js"; import { settleProgressSetChanged } from "./client-settle-progress-diff.js"; import { recordTileRevisionChange } from "../client-tile-merge/client-tile-merge.js";
 import {
   persistWaypointQueueForPlayer,
-  syncWaypointQueueToServer,
   waypointCancelWirePayload,
   waypointEnqueueWirePayload
 } from "../client-waypoint-planner/client-waypoint-persistence.js";
@@ -58,7 +54,7 @@ type QueuedBuildPayload = Extract<QueuedDevelopmentAction, { kind: "BUILD" }>["p
 type GatewayBuildWirePayload =
   | { type: "BUILD_FORT"; x: number; y: number }
   | { type: "BUILD_OBSERVATORY"; x: number; y: number }
-  | { type: "BUILD_SIEGE_OUTPOST"; x: number; y: number }
+  | { type: "BUILD_SIEGE_BATTERY"; x: number; y: number }
   | { type: "BUILD_ECONOMIC_STRUCTURE"; x: number; y: number; structureType: string }
   | { type: "REMOVE_STRUCTURE"; x: number; y: number };
 
@@ -74,7 +70,7 @@ export const gatewayBuildWirePayload = (payload: QueuedBuildPayload): GatewayBui
   if (payload.type !== "BUILD_STRUCTURE") return payload;
   if (payload.structureType === "FORT") return { type: "BUILD_FORT", x: payload.x, y: payload.y };
   if (payload.structureType === "OBSERVATORY") return { type: "BUILD_OBSERVATORY", x: payload.x, y: payload.y };
-  if (payload.structureType === "SIEGE_OUTPOST") return { type: "BUILD_SIEGE_OUTPOST", x: payload.x, y: payload.y };
+  if (payload.structureType === "SIEGE_BATTERY") return { type: "BUILD_SIEGE_BATTERY", x: payload.x, y: payload.y };
   return { type: "BUILD_ECONOMIC_STRUCTURE", x: payload.x, y: payload.y, structureType: payload.structureType };
 };
 

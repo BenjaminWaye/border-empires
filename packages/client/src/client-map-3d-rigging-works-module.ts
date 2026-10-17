@@ -1,6 +1,6 @@
 // Rigging Works (RGW) module — a compact AFC module that fabricates drilling,
 // extraction and siege-support machinery: the same machinery later installed
-// on Umbrite Rigs, Siege Outposts and Umbrite Weapons Factories.
+// on Umbrite Rigs, Siege Batteries and Umbrite Weapons Factories.
 //
 // Local space: +X is FORWARD — the outward radial direction of the socket (its
 // `yaw`). The root sits at the socket attachment point (the pad-top center, `y`
@@ -82,7 +82,6 @@ export const createRiggingWorksModuleOverlay = (scene: Scene, maxInstances: numb
   const steelMaterial = new MeshStandardMaterial({ color: "#17181d", roughness: 0.62, metalness: 0.5, flatShading: true });
   const brassMaterial = new MeshStandardMaterial({ color: "#8b6c3d", roughness: 0.42, metalness: 0.85, flatShading: true });
   const brassDarkMaterial = new MeshStandardMaterial({ color: "#6f5733", roughness: 0.5, metalness: 0.8, flatShading: true });
-  const pipeMaterial = new MeshStandardMaterial({ color: "#1d1f25", roughness: 0.68, metalness: 0.35, flatShading: true });
   // Restrained AFC power element: cyan connector nipple + drive ring.
   const cyanMaterial = new MeshStandardMaterial({
     color: "#05222a",

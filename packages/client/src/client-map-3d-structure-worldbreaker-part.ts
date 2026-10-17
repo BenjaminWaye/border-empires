@@ -6,20 +6,20 @@ import {
 } from "three";
 import type { StructurePieceBuilder } from "./client-map-3d-structure-builder.js";
 
-// The Worldbreaker Cannon's 3 unique components — WORLD_ENGINE_PART_1
-// (Long Barrel), WORLD_ENGINE_PART_2 (Fracture Core), WORLD_ENGINE_PART_3
+// The Worldbreaker Cannon's 3 unique components — SOVEREIGN_SIEGE_ENGINE_PART_1
+// (Long Barrel), SOVEREIGN_SIEGE_ENGINE_PART_2 (Fracture Core), SOVEREIGN_SIEGE_ENGINE_PART_3
 // (Sky-Marking Array) — are real, distinct wire types (see the unique-
 // monument-components rewrite), so each maps directly to its own model;
 // no client-side variant-picking is needed any more.
 export type WorldbreakerPartStructureKind =
-  | "WORLD_ENGINE_PART_1"
-  | "WORLD_ENGINE_PART_2"
-  | "WORLD_ENGINE_PART_3";
+  | "SOVEREIGN_SIEGE_ENGINE_PART_1"
+  | "SOVEREIGN_SIEGE_ENGINE_PART_2"
+  | "SOVEREIGN_SIEGE_ENGINE_PART_3";
 
 export const WORLDBREAKER_PART_STRUCTURE_KINDS: ReadonlySet<WorldbreakerPartStructureKind> = new Set([
-  "WORLD_ENGINE_PART_1",
-  "WORLD_ENGINE_PART_2",
-  "WORLD_ENGINE_PART_3"
+  "SOVEREIGN_SIEGE_ENGINE_PART_1",
+  "SOVEREIGN_SIEGE_ENGINE_PART_2",
+  "SOVEREIGN_SIEGE_ENGINE_PART_3"
 ]);
 
 export type WorldbreakerPartStructureLayout = (
@@ -50,7 +50,6 @@ export const registerWorldbreakerPartStructures = (
   const wbStoneMaterial = new MeshStandardMaterial({ color: "#8a8078", roughness: 0.88, metalness: 0, flatShading: true });
   const wbStoneDarkMaterial = new MeshStandardMaterial({ color: "#6e6459", roughness: 0.9, metalness: 0, flatShading: true });
   const wbBrassMaterial = new MeshStandardMaterial({ color: "#9e7130", roughness: 0.55, metalness: 0.55, flatShading: true });
-  const wbBrassDarkMaterial = new MeshStandardMaterial({ color: "#6e521f", roughness: 0.6, metalness: 0.5, flatShading: true });
   const wbCharcoalMaterial = new MeshStandardMaterial({ color: "#34302b", roughness: 0.85, metalness: 0.4, flatShading: true });
   const wbEmberMaterial = new MeshStandardMaterial({ color: "#c85a3a", roughness: 0.45, metalness: 0.2, flatShading: true, emissive: "#8a1a0a", emissiveIntensity: 0.55 });
   const wbCrystalMaterial = new MeshStandardMaterial({ color: "#b8452a", roughness: 0.3, metalness: 0.1, flatShading: true, emissive: "#9c1f0a", emissiveIntensity: 0.7 });
@@ -198,9 +197,9 @@ export const registerWorldbreakerPartStructures = (
 
   return {
     layouts: {
-      WORLD_ENGINE_PART_1: addLongBarrel,
-      WORLD_ENGINE_PART_2: addFractureCore,
-      WORLD_ENGINE_PART_3: addSkyMarkingArray
+      SOVEREIGN_SIEGE_ENGINE_PART_1: addLongBarrel,
+      SOVEREIGN_SIEGE_ENGINE_PART_2: addFractureCore,
+      SOVEREIGN_SIEGE_ENGINE_PART_3: addSkyMarkingArray
     }
   };
 };

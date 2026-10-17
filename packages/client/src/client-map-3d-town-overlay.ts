@@ -1,193 +1,159 @@
+// Procedural 3D towns. Each tier is baked once into a vertex-coloured,
+// flat-shaded clockwork city (town-tier-geometry.ts): grey stone skyscrapers
+// banded in the AFC's aged brass, lit by lamplight and aether, round an
+// octagonal plaza plate. Drawn per tier as three instanced meshes that share one
+// transform buffer: the matte body, the metalwork and glass (metallic, like
+// the AFC's), the unlit glow (window strips, lamps, aether) and the steam.
+// Cogs, orrery hoops, halos, crystals and circling airships turn, lamplight
+// flickers and steam rises entirely in the shaders (town-animation-shaders.ts).
+//
+// Each town is turned a quarter-turn picked from its world tile, so
+// neighbouring towns of the same tier don't read as stamped copies.
 import {
-  Color,
-  Group,
-  InstancedBufferAttribute,
   InstancedMesh,
   Matrix4,
+  MeshBasicMaterial,
+  MeshDepthMaterial,
   MeshStandardMaterial,
   Quaternion,
-  Scene,
-  Vector3
+  RGBADepthPacking,
+  Vector3,
+  type Scene,
+  type Texture
 } from "three";
+import { applyTownSpin, applyTownSteam, tickTownTime } from "./client-map-3d-town-overlay/town-animation-shaders.js";
+import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
+import { getTownTierGeometry, TOWN_TIERS, type TownTier } from "./client-map-3d-town-overlay/town-tier-geometry.js";
 
-import { TOWN_PALETTE, TOWN_SLOT_DEFS, type TownColorName, type TownPiece, type TownSlotKey, type TownTier } from "./client-map-3d-town-overlay/town-tier-shapes.js";
-import { TOWN_LAYOUTS } from "./client-map-3d-town-overlay/town-tier-capitals.js";
-import { createTownModelOverlay } from "./client-map-3d-town-glb/client-map-3d-town-glb.js";
+export { TOWN_TIERS, type TownTier } from "./client-map-3d-town-overlay/town-tier-geometry.js";
 
-export { type TownTier } from "./client-map-3d-town-overlay/town-tier-shapes.js";
+/** Lifts the town's ground pad just clear of the terrain and the contact-shadow
+ * decal under it (client-map-3d-contact-shadow.ts lifts that 0.012). */
+export const TOWN_BASE_LIFT = 0.016;
 
-const AETHER_COLOR = "#bff2fb";
-const AETHER_EMISSIVE = "#1fa9cf";
-const AMBER_COLOR = "#ffe0a3";
-const AMBER_EMISSIVE = "#ff9d2e";
+/** Quarter-turn (0..3) for a town on world tile (tileX, tileY). */
+export const townQuarterTurnForTile = (tileX: number, tileY: number): number => {
+  let h = Math.imul(tileX | 0, 0x27d4eb2d) ^ Math.imul(tileY | 0, 0x165667b1);
+  h ^= h >>> 15;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  return (h >>> 0) & 3;
+};
 
-type Slot = {
-  readonly mesh: InstancedMesh;
-  readonly kind: "iron" | "aether" | "amber";
-  readonly capacity: number;
-  index: number;
+type TierSlot = {
+  readonly body: InstancedMesh;
+  /** Metal and glow meshes drawing with the body's instance matrices. */
+  readonly followers: readonly InstancedMesh[];
+  count: number;
 };
 
 export type TownOverlay = {
-  readonly group: Group;
   readonly clear: () => void;
-  readonly addInstance: (centerX: number, centerZ: number, surfaceY: number, tier: TownTier) => void;
+  /** (tileX, tileY) are the world tile coords, used only to pick the town's rotation. */
+  readonly addInstance: (centerX: number, centerZ: number, surfaceY: number, tier: TownTier, tileX?: number, tileY?: number) => void;
   readonly commit: () => void;
   readonly dispose: () => void;
 };
 
-export const createTownOverlay = (scene: Scene, maxTiles: number): TownOverlay => {
-  const group = new Group();
-  group.name = "town-overlay";
-  scene.add(group);
-
-  const ironMaterial = new MeshStandardMaterial({
-    color: "#ffffff",
-    roughness: 0.62,
-    metalness: 0.22,
-    flatShading: true
+export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Texture): TownOverlay => {
+  const bodyMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0.02, flatShading: true });
+  applyBuildingEnvMap(bodyMaterial, envMap);
+  // Matches the AFC's iron/brass finish (client-map-3d-fabrication-complex.ts).
+  const metalMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.7, flatShading: true });
+  applyBuildingEnvMap(metalMaterial, envMap);
+  // Unlit and outside tone mapping so windows and aether stay luminous under the warm sun.
+  const glowMaterial = new MeshBasicMaterial({ toneMapped: false, vertexColors: true });
+  const steamMaterial = new MeshStandardMaterial({
+    vertexColors: true, roughness: 1, metalness: 0, flatShading: true, transparent: true, opacity: 0.6, depthWrite: false
   });
-  const aetherMaterial = new MeshStandardMaterial({
-    color: AETHER_COLOR,
-    emissive: AETHER_EMISSIVE,
-    emissiveIntensity: 0.95,
-    roughness: 0.4,
-    metalness: 0.1
-  });
-  const amberMaterial = new MeshStandardMaterial({
-    color: AMBER_COLOR,
-    emissive: AMBER_EMISSIVE,
-    emissiveIntensity: 0.9,
-    roughness: 0.4,
-    metalness: 0.1
-  });
+  // Shadow pass: spins like the visible meshes, so a circling airship's shadow follows it.
+  const depthMaterial = new MeshDepthMaterial({ depthPacking: RGBADepthPacking });
+  applyTownSpin(bodyMaterial);
+  applyTownSpin(metalMaterial);
+  applyTownSpin(glowMaterial, true);
+  applyTownSpin(depthMaterial);
+  applyTownSteam(steamMaterial);
 
-  const materialByKind = {
-    iron: ironMaterial,
-    aether: aetherMaterial,
-    amber: amberMaterial
-  } as const;
-
-  const colorCache = new Map<TownColorName, Color>();
-  const getColor = (name: TownColorName): Color => {
-    let color = colorCache.get(name);
-    if (!color) {
-      color = new Color(TOWN_PALETTE[name]);
-      colorCache.set(name, color);
+  const capacity = Math.max(1, maxTiles);
+  const slots = new Map<TownTier, TierSlot>();
+  for (const tier of TOWN_TIERS) {
+    const geometry = getTownTierGeometry(tier);
+    const body = new InstancedMesh(geometry.body, bodyMaterial, capacity);
+    body.name = `town-${tier}`;
+    body.frustumCulled = false;
+    body.castShadow = true;
+    body.receiveShadow = true;
+    body.count = 0;
+    body.customDepthMaterial = depthMaterial;
+    // The one per-frame cost of the animation: the shaders' shared clock.
+    body.onBeforeRender = tickTownTime;
+    scene.add(body);
+    const followers: InstancedMesh[] = [];
+    for (const [suffix, part, material, shadowed] of [
+      ["metal", geometry.metal, metalMaterial, true],
+      ["glow", geometry.glow, glowMaterial, false],
+      ["steam", geometry.steam, steamMaterial, false]
+    ] as const) {
+      if (!part) continue;
+      const mesh = new InstancedMesh(part, material, capacity);
+      mesh.name = `town-${tier}-${suffix}`;
+      // Same transforms as the body: share its buffer so it is uploaded once.
+      mesh.instanceMatrix = body.instanceMatrix;
+      mesh.frustumCulled = false;
+      mesh.castShadow = shadowed;
+      mesh.receiveShadow = shadowed;
+      if (shadowed) mesh.customDepthMaterial = depthMaterial;
+      mesh.count = 0;
+      scene.add(mesh);
+      followers.push(mesh);
     }
-    return color;
-  };
-
-  // Tiers with a textured glb (everything but SETTLEMENT) use it once it has
-  // loaded; otherwise (not loaded yet, failed, buffer full) the procedural layouts.
-  const townModel = createTownModelOverlay(scene, maxTiles);
-  const slots = new Map<TownSlotKey, Slot>();
-  const geometries: Array<{ readonly dispose: () => void }> = [];
-
-  for (const [key, def] of Object.entries(TOWN_SLOT_DEFS) as Array<[TownSlotKey, (typeof TOWN_SLOT_DEFS)[TownSlotKey]]>) {
-    const capacity = Math.max(1, Math.ceil(maxTiles * def.factor));
-    const geometry = def.makeGeometry();
-    geometries.push(geometry);
-    const mesh = new InstancedMesh(geometry, materialByKind[def.kind], capacity);
-    if (def.kind === "iron") {
-      mesh.instanceColor = new InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
-    }
-    mesh.frustumCulled = false;
-    mesh.count = 0;
-    // Town buildings are the most numerous structure on the map (every
-    // settled tile) and one of the ones flagged as still not casting/
-    // receiving a real shadow (client-map-3d-structure-builder.ts covers
-    // everything else) -- without this they read as flatly lit regardless
-    // of the sun's angle.
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    group.add(mesh);
-    slots.set(key, { mesh, kind: def.kind, capacity, index: 0 });
+    slots.set(tier, { body, followers, count: 0 });
   }
 
-  const tempMatrix = new Matrix4();
-  const tempQuaternion = new Quaternion();
-  const tempScale = new Vector3();
-  const tempPosition = new Vector3();
-  const Y_AXIS = new Vector3(0, 1, 0);
+  const matrix = new Matrix4();
+  const position = new Vector3();
+  const quaternion = new Quaternion();
+  const unitScale = new Vector3(1, 1, 1);
+  const yAxis = new Vector3(0, 1, 0);
 
-  const writePiece = (
-    slot: Slot,
-    centerX: number,
-    centerZ: number,
-    surfaceY: number,
-    piece: TownPiece
-  ): void => {
-    if (slot.index >= slot.capacity) return;
-    const { mesh } = slot;
-    const ry = piece.ry ?? 0;
-    if (ry !== 0) {
-      tempQuaternion.setFromAxisAngle(Y_AXIS, ry);
-    } else {
-      tempQuaternion.identity();
-    }
-    tempPosition.set(centerX + piece.x, surfaceY + piece.y, centerZ + piece.z);
-    tempScale.set(piece.sx ?? 1, piece.sy ?? 1, piece.sz ?? 1);
-    tempMatrix.compose(tempPosition, tempQuaternion, tempScale);
-    mesh.setMatrixAt(slot.index, tempMatrix);
-    if (slot.kind === "iron") {
-      mesh.setColorAt(slot.index, getColor(piece.color ?? "iron"));
-    }
-    slot.index += 1;
-  };
-
-  const addInstance = (
-    centerX: number,
-    centerZ: number,
-    surfaceY: number,
-    tier: TownTier
-  ): void => {
-    if (townModel.addInstance(tier, centerX, centerZ, surfaceY)) return;
-    const layout = TOWN_LAYOUTS[tier];
-    for (const piece of layout.pieces) {
-      const slot = slots.get(piece.slot);
-      if (slot) writePiece(slot, centerX, centerZ, surfaceY, piece);
-    }
+  const addInstance: TownOverlay["addInstance"] = (centerX, centerZ, surfaceY, tier, tileX = 0, tileY = 0) => {
+    const slot = slots.get(tier);
+    if (!slot || slot.count >= capacity) return;
+    quaternion.setFromAxisAngle(yAxis, townQuarterTurnForTile(tileX, tileY) * (Math.PI / 2));
+    position.set(centerX, surfaceY + TOWN_BASE_LIFT, centerZ);
+    slot.body.setMatrixAt(slot.count, matrix.compose(position, quaternion, unitScale));
+    slot.count += 1;
   };
 
   const clear = (): void => {
-    townModel.clear();
-    for (const slot of slots.values()) {
-      slot.index = 0;
-    }
+    for (const slot of slots.values()) slot.count = 0;
   };
 
   const commit = (): void => {
-    townModel.commit();
     for (const slot of slots.values()) {
-      const { mesh } = slot;
-      mesh.count = slot.index;
-      // Upload only the instances actually used. Without an update range three.js does
-      // gl.bufferSubData(target, 0, array) — the entire allocated capacity, however few
-      // instances are drawn — every time needsUpdate is set. Town capacity is sized for
-      // the worst-case tile-full-of-metropolises case, so most of it is idle most frames.
-      mesh.instanceMatrix.clearUpdateRanges();
-      if (mesh.instanceColor) mesh.instanceColor.clearUpdateRanges();
-      if (slot.index === 0) continue;
-      mesh.instanceMatrix.addUpdateRange(0, slot.index * 16);
-      mesh.instanceMatrix.needsUpdate = true;
-      if (mesh.instanceColor) {
-        mesh.instanceColor.addUpdateRange(0, slot.index * 3);
-        mesh.instanceColor.needsUpdate = true;
-      }
+      slot.body.count = slot.count;
+      for (const follower of slot.followers) follower.count = slot.count;
+      // Upload only the instances actually drawn, not the whole tile-budget buffer.
+      slot.body.instanceMatrix.clearUpdateRanges();
+      if (slot.count === 0) continue;
+      slot.body.instanceMatrix.addUpdateRange(0, slot.count * 16);
+      slot.body.instanceMatrix.needsUpdate = true;
     }
   };
 
   const dispose = (): void => {
-    townModel.dispose();
-    scene.remove(group);
-    for (const slot of slots.values()) slot.mesh.dispose();
-    for (const geometry of geometries) geometry.dispose();
-    ironMaterial.dispose();
-    aetherMaterial.dispose();
-    amberMaterial.dispose();
-    colorCache.clear();
+    for (const slot of slots.values()) {
+      scene.remove(slot.body);
+      slot.body.dispose();
+      for (const follower of slot.followers) scene.remove(follower);
+    }
+    slots.clear();
+    bodyMaterial.dispose();
+    metalMaterial.dispose();
+    steamMaterial.dispose();
+    depthMaterial.dispose();
+    glowMaterial.dispose();
   };
 
-  return { group, clear, addInstance, commit, dispose };
+  return { clear, addInstance, commit, dispose };
 };

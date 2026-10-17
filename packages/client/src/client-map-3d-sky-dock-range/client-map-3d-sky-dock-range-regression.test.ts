@@ -1,0 +1,22 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+
+const clientSource = (filename: string): string => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  return readFileSync(resolve(here, filename), "utf8");
+};
+
+describe("3d sky dock range regression", () => {
+  it("renders selected sky dock range in the 3d scene instead of the flat canvas overlay", () => {
+    const map3dSource = clientSource("../client-map-3d/client-map-3d.ts");
+    const selectionRangeOverlaysSource = clientSource(
+      "../client-map-3d-selection-range-overlays/client-map-3d-selection-range-overlays.ts"
+    );
+
+    expect(map3dSource).toContain("createSelectionRangeOverlays");
+    expect(selectionRangeOverlaysSource).toContain("syncSkyDockRing");
+    expect(selectionRangeOverlaysSource).toContain("writeRingGeometry");
+  });
+});

@@ -4,7 +4,7 @@ import { rushBuyPriceGold } from "./rush-buy.js";
 describe("rushBuyPriceGold", () => {
   it("full rush from zero elapsed time matches §6.3's anchor table", () => {
     expect(rushBuyPriceGold(10_000, 10_000, 20)).toBe(10); // Settle: 20 manpower -> 10 gold
-    expect(rushBuyPriceGold(10_000, 10_000, 80)).toBe(40); // Farmstead: 80 -> 40 gold
+    expect(rushBuyPriceGold(10_000, 10_000, 80)).toBe(40); // Hydrogarden: 80 -> 40 gold
     expect(rushBuyPriceGold(10_000, 10_000, 300)).toBe(150); // Bank/Fort: 300 -> 150 gold
   });
 

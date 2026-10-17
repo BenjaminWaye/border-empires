@@ -4,7 +4,7 @@ import { SimulationRuntime } from "./runtime/runtime.js";
 
 // Regression: visibleTileProjection (backing SubscribePlayer, i.e. every
 // login and every reconnect) never included musterJson at all -- unlike
-// every sibling overlay field (fortJson, sabotageJson, siegeOutpostJson,
+// every sibling overlay field (fortJson, sabotageJson, siegeBatteryJson,
 // etc.), which are all truthy-guarded but present. A currently-active
 // muster flag (HOLD/ADVANCE/MARCH) therefore never reached the client via
 // this path: it only ever became visible through a later live

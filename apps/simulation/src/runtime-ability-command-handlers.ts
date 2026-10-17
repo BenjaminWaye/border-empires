@@ -47,7 +47,6 @@ export type RuntimeAbilityCommandContext = {
   emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: Record<string, unknown>) => void;
   revealTargetsForPlayer: (playerId: string) => Set<string>;
   revealCapacityForPlayer: (player: DomainPlayer) => number;
-  spendStrategicResource: (player: DomainPlayer, resource: "CRYSTAL", amount: number) => boolean;
   pickReadyOwnedObservatoryAny: (playerId: string, now: number) => string | undefined;
   pickReadyOwnedObservatoryForTarget: (
     playerId: string,
@@ -224,7 +223,7 @@ export function handleSurveySweepCommand(context: RuntimeAbilityCommandContext, 
     return;
   }
   if (!playerHasAbilityTech(actor.techIds, "survey_sweep")) {
-    rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "requires Echo-Reader Crew");
+    rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "requires Augury Office");
     return;
   }
   const observatoryKey = simulationTileKey(payload.x, payload.y);

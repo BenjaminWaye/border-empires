@@ -81,7 +81,7 @@ describe("rewrite stack integration", () => {
     );
     const musterQueued = await nextTypedMessage(firstSocket, "muster queued", "COMMAND_QUEUED");
     // clientSeq is gateway-assigned (dispatchDurableCommand never forwards
-    // the client's own clientSeq) — see the siege-outpost test's comment.
+    // the client's own clientSeq) — see the siege-battery test's comment.
     expect(musterQueued).toEqual(
       expect.objectContaining({ type: "COMMAND_QUEUED", clientSeq: expect.any(Number) })
     );
@@ -1137,7 +1137,7 @@ describe("rewrite stack integration", () => {
     );
   });
 
-  it("preserves sim town production and cap through the tile-detail WebSocket path for a thin town record", async () => {
+  it("preserves sim town production through the tile-detail WebSocket path for a thin town record", async () => {
     // isFed omitted (thin record) -- falls back to global food coverage.
     const townJson = JSON.stringify({
       name: "Gloamspire",
@@ -1147,15 +1147,14 @@ describe("rewrite stack integration", () => {
       supportCurrent: 8,
       supportMax: 8,
       goldPerMinute: 4.4,
-      cap: 2112,
       population: 17669,
       maxPopulation: 10_000_000,
       connectedTownCount: 3,
       connectedTownBonus: 1.2,
       hasMintworks: false,
       mintworksActive: false,
-      hasGranary: false,
-      granaryActive: false,
+      hasIncubationEngine: false,
+      incubationEngineActive: false,
     });
     const simulationTile = {
       x: 10,
@@ -1231,26 +1230,24 @@ describe("rewrite stack integration", () => {
       expect(update).toEqual(
         expect.objectContaining({
           detailLevel: "full",
-          yieldRate: expect.objectContaining({ goldPerMinute: 4.4 }),
-          yieldCap: expect.objectContaining({ gold: 2112 })
+          yieldRate: expect.objectContaining({ goldPerMinute: 4.4 })
         })
       );
       const town = JSON.parse(String(update?.townJson)) as Record<string, unknown>;
       expect(town).toEqual(
         expect.objectContaining({
           isFed: true,
-          goldPerMinute: 4.4,
-          cap: 2112
+          goldPerMinute: 4.4
         })
       );
     }
   });
 
-  it("supports siege outpost build commands through the rewrite gateway", async () => {
+  it("supports siege battery build commands through the rewrite gateway", async () => {
     const scheduledBuilds: Array<{ delayMs: number; task: () => void }> = [];
     const gatewayCommandStore = new InMemoryGatewayCommandStore();
     const snapshotStore = await createStartupSnapshotStore({
-      // §5: the UMBRITE tile backs the UMBRITE *slot* a Siege Outpost needs; the stockpile below is retired and no longer gates the build.
+      // §5: the UMBRITE tile backs the UMBRITE *slot* a Siege Battery needs; the stockpile below is retired and no longer gates the build.
       tiles: [afcModuleFixtureTile("player-1"), { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }, { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" }],
       activeLocks: [],
       players: [
@@ -1298,7 +1295,7 @@ describe("rewrite stack integration", () => {
 
     socket.socket.send(
       JSON.stringify({
-        type: "BUILD_SIEGE_OUTPOST",
+        type: "BUILD_SIEGE_BATTERY",
         x: 14,
         y: 14,
         commandId: "siege-cmd-1",
@@ -1308,7 +1305,7 @@ describe("rewrite stack integration", () => {
 
     const queued = await nextNonBootstrapMessage(socket, "siege queued");
     // clientSeq is gateway-assigned here, not the client-supplied value sent
-    // above -- BUILD_SIEGE_OUTPOST is dispatched via dispatchDurableCommand,
+    // above -- BUILD_SIEGE_BATTERY is dispatched via dispatchDurableCommand,
     // which never forwards the client's own commandId/clientSeq (see
     // gateway-app.ts's dispatchDurableCommand). It now comes from a counter
     // space disjoint from client-tracked (e.g. EXPAND/ATTACK) clientSeq
@@ -1328,10 +1325,10 @@ describe("rewrite stack integration", () => {
 
     await waitUntil(() => {
       const tile = simulation.runtime.exportState().tiles.find((candidate) => candidate.x === 14 && candidate.y === 14);
-      return typeof tile?.siegeOutpostJson === "string" && tile.siegeOutpostJson.includes("\"status\":\"active\"");
+      return typeof tile?.siegeBatteryJson === "string" && tile.siegeBatteryJson.includes("\"status\":\"active\"");
     }, 8_000);
     const exportedSiegeTile = simulation.runtime.exportState().tiles.find((tile) => tile.x === 14 && tile.y === 14);
-    expect(exportedSiegeTile?.siegeOutpostJson).toContain("\"status\":\"active\"");
+    expect(exportedSiegeTile?.siegeBatteryJson).toContain("\"status\":\"active\"");
 
     await waitUntil(async () => (await gatewayCommandStore.get(commandId))?.status === "RESOLVED");
   }, 20_000);
@@ -1406,7 +1403,7 @@ describe("rewrite stack integration", () => {
     );
 
     const queued = await nextNonBootstrapMessage(socket, "observatory queued");
-    // See the siege-outpost test above: dispatchDurableCommand never forwards
+    // See the siege-battery test above: dispatchDurableCommand never forwards
     // the client's own clientSeq, so this is gateway-assigned.
     expect(queued).toEqual(
       expect.objectContaining({
@@ -1512,7 +1509,7 @@ describe("rewrite stack integration", () => {
     );
 
     const queued = await nextNonBootstrapMessage(socket, "mintworks queued");
-    // See the siege-outpost test above: dispatchDurableCommand never forwards
+    // See the siege-battery test above: dispatchDurableCommand never forwards
     // the client's own clientSeq, so this is gateway-assigned.
     expect(queued).toEqual(
       expect.objectContaining({

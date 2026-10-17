@@ -15,7 +15,7 @@ import { buildAiOpponent, buildPlayer } from "./runtime.test-helpers.js";
 // resourceSlotDormancyForPlayer, and assert the ability can no longer use it.
 
 const player1 = (overrides: Parameters<typeof buildPlayer>[1] = {}) =>
-  buildPlayer("player-1", { manpower: 10_000, points: 20_000, techIds: new Set(["surveying"]), strategicResources: { CRYSTAL: 1_000 }, ...overrides });
+  buildPlayer("player-1", { manpower: 10_000, points: 20_000, techIds: new Set(["beacon-towers"]), strategicResources: { CRYSTAL: 1_000 }, ...overrides });
 
 describe("§5.4 observatory dormancy gate", () => {
   it("SURVEY_SWEEP rejects a dormant Observatory even when active", async () => {
@@ -108,7 +108,7 @@ describe("§5.4 observatory dormancy gate", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        ["player-1", player1({ techIds: new Set(["cryptography", "surveying", "beacon-towers"]) })],
+        ["player-1", player1({ techIds: new Set(["cryptography", "beacon-towers"]) })],
         ["player-2", buildAiOpponent()]
       ]),
       initialState: {
@@ -170,7 +170,7 @@ describe("§5.4 observatory dormancy gate", () => {
             terrain: "LAND",
             ownerId: "player-2",
             ownershipState: "SETTLED",
-            economicStructure: { ownerId: "player-2", type: "GRANARY", status: "active" }
+            economicStructure: { ownerId: "player-2", type: "INCUBATION_ENGINE", status: "active" }
           }
           // No CRYSTAL supply tile: OBSERVATORY demands 1 CRYSTAL slot.
         ],
@@ -195,6 +195,6 @@ describe("§5.4 observatory dormancy gate", () => {
       code: "AETHER_LANCE_INVALID"
     }));
     const target = runtime.exportState().tiles.find((tile) => tile.x === 5 && tile.y === 0);
-    expect(target?.economicStructureJson).toContain("\"GRANARY\"");
+    expect(target?.economicStructureJson).toContain("\"INCUBATION_ENGINE\"");
   });
 });

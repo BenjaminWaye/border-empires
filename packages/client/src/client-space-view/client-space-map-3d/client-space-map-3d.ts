@@ -3,7 +3,7 @@
 // of createClientThreeTerrainRenderer in client-map-3d/client-map-3d.ts, but
 // this is a wholly separate scene graph (a galaxy of planet nodes, not a
 // tile heightfield): no code or state is shared with the tile-map renderer.
-import { AmbientLight, Color, DirectionalLight, Object3D, PerspectiveCamera, Scene, WebGLRenderer } from "three";
+import { AmbientLight, Color, DirectionalLight, Object3D, Scene, WebGLRenderer } from "three";
 import { createStarfield, type Starfield } from "./client-space-starfield.js";
 import { createSpaceCameraRig, FOCUS_VIEW_DISTANCE, GALAXY_VIEW_DISTANCE, type SpaceCameraRig } from "./client-space-camera.js";
 import { createSolarSystem, disposeSolarSystem, animateSolarSystem, setSolarSystemThreat, type SolarSystemEntry } from "./client-space-solar-system.js";

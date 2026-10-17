@@ -37,8 +37,8 @@ describe("combatResolutionAlert", () => {
             connectedTownBonus: 0,
             hasMintworks: false,
             mintworksActive: false,
-            hasGranary: false,
-            granaryActive: false,
+            hasIncubationEngine: false,
+            incubationEngineActive: false,
           }
         } as Tile,
         originTileBefore: undefined
@@ -96,8 +96,8 @@ describe("combatResolutionAlert", () => {
             connectedTownBonus: 0,
             hasMintworks: false,
             mintworksActive: false,
-            hasGranary: false,
-            granaryActive: false,
+            hasIncubationEngine: false,
+            incubationEngineActive: false,
           }
         } as Tile,
         originTileBefore: undefined

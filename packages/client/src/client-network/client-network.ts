@@ -1,3 +1,5 @@
+import { notifyCombatResult } from "./client-combat-result-notifications.js";
+import { musterReportFlagKey, trackMusterReportStart } from "../client-muster-combat-reports/client-muster-combat-reports.js";
 import { COMBAT_LOCK_MS, SEASON_ROLLOVER_CLOSE_REASON, isChosenTrickleResource, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
 import { resetFrontierActionStateAfterError } from "./client-frontier-error-reset.js";
 import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
@@ -9,7 +11,7 @@ import { resetClientForNewSeason } from "../client-season-rollover/client-season
 import { feedEntryForEventLogEntry, seedFeedFromEventLog } from "../client-event-log-html.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { occupationSurveyController } from "../client-occupation-survey.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { SeasonStatsView } from "../client-types.js";
-import { clearServerDeployingSession, setServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
+import { setServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import { applyServerReachUpdate } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { buildServerErrorContext } from "../client-server-error-context/client-server-error-context.js";
@@ -17,7 +19,6 @@ import { persistWaypointQueueForPlayer, waypointCancelWirePayload } from "../cli
 import { cancelWaypointsBlockedByOutOfReach } from "../client-waypoint-out-of-reach/client-waypoint-out-of-reach.js";
 import { isRevealEmpireStatsView, surveySweepPingsFromPayload } from "./client-network-codec.js";
 import {
-  applyGatewayRecoveryNextClientSeq,
   bindQueuedFrontierCommandIdentity,
   matchesCurrentFrontierCommand
 } from "../client-frontier-command/client-frontier-command.js";
@@ -26,24 +27,19 @@ import { createLateFrontierAckHandlers } from "../client-frontier-late-ack/clien
 import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, combatSnapshotFromLockedResult, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
 import { applyPlayerUpdateIntegrity } from "../client-integrity-pct/client-player-update-integrity.js";
 import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, focusFromAlert, raidResultFeedEntry } from "../client-alerts/client-alerts.js";
-import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
+import { applyGatewayInitialState, applyGatewayTileDeltaBatch, hasGatewayOverlayField, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
 import { applyCommonTileFields, combatResultIncomingTile, recordTileRevisionChange, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
 import { logSurveySweepReceived } from "../survey-sweep-debug-log/survey-sweep-debug-log.js";
 import { revealEmpireStatsFeedText } from "../client-empire-intel/client-empire-intel.js";
 import { applyRespawnNoticeToState, normalizeRespawnNotice } from "../client-respawn-notice/client-respawn-notice.js";
 import { applyTechUpdateToState, updateTechAffordabilityPulses } from "../client-tech-update-state/client-tech-update-state.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, fogRevealLog, recordClientDebugEvent, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "../client-debug/client-debug.js";
+import { createDebugTileStateLogger } from "./client-network-debug-tile-log.js";
+import { applyAetherShieldsMessage } from "../client-aether-tower-protection/client-aether-shield-state.js";
 import { recordSocketDisconnect } from "../client-connection-diagnostics/client-connection-diagnostics.js";
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule, resetAttackPreviewState } from "../client-queue-logic/client-queue-logic.js";
-import { applyAutoSettlementQueueFromServer, restorePersistedDevelopmentQueueForPlayer } from "../client-development-queue/client-development-queue.js";
-import {
-  applyTruceUpdateMessage,
-  notifyActiveAllianceBreaksOnInit,
-  notifyIncomingAllianceRequest,
-  notifyIncomingDiplomacyRequestsOnInit,
-  notifyIncomingTruceRequest,
-  notifyRecentAllianceBreaksOnInit
-} from "../client-diplomacy-notifications.js";
+import { applyAutoSettlementQueueFromServer } from "../client-development-queue/client-development-queue.js";
+import { handleDiplomacySocketMessage } from "../client-diplomacy-notifications/client-diplomacy-messages.js";
 import { createAuthReconnectScheduler } from "../client-auth-reconnect/client-auth-reconnect.js";
 import { createInPlaceReconnectScheduler } from "../client-inplace-reconnect/client-inplace-reconnect.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
@@ -52,7 +48,7 @@ import { createShardRainNoticeHandlers } from "../client-shard-rain-notice-apply
 import { maybeShowRuinsPrompt } from "../client-ruins-prompt.js";
 import { handleTileDeltaBatchMessage, refreshOnboardingChecklistHighlight } from "../client-tile-delta-batch-handler/client-tile-delta-batch-handler.js";
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
-import { applyWorldEngineStrikeAnnouncement, backfillWorldEngineStrikeHistory } from "../client-world-engine-strike-network/client-world-engine-strike-network.js";
+import { applySovereignSiegeEngineStrikeAnnouncement, backfillSovereignSiegeEngineStrikeHistory } from "../client-sovereign-siege-engine-strike-network/client-sovereign-siege-engine-strike-network.js";
 import { applyPlayerStyleMessage } from "../client-player-style-message/client-player-style-message.js";
 import { applyPlayerUpdateNameChange } from "../client-player-update-name-change/client-player-update-name-change.js";
 import { registerHintStateSender, applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { registerEmailNotificationPrefsSender, applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
@@ -97,7 +93,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     authProfileNameEl,
     authProfileColorEl,
     defensibilityPctFromTE,
-    seedProfileSetupFields,
     resetStrategicReplayState,
     setWorldSeed,
     clearRenderCaches,
@@ -112,17 +107,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     processActionQueue,
     clearSettlementProgressForTile,
     terrainAt,
-    requestAttackPreviewForTarget,
     openSingleTileActionMenu,
     isTileOwnedByAlly,
-    hideShardAlert,
     explainActionFailure,
     notifyInsufficientGoldForFrontierAction,
     clearSettlementProgressByKey,
     formatCooldownShort,
     reconcileActionQueue,
-    revertOptimisticTileCollectDelta,
-    clearPendingCollectTileDelta,
     playerNameForOwner,
     applyOptimisticTileState
   } = deps;
@@ -233,7 +224,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             case "SETTLE_INVALID":
             case "FORT_BUILD_INVALID":
             case "OBSERVATORY_BUILD_INVALID":
-            case "SIEGE_OUTPOST_BUILD_INVALID":
+            case "SIEGE_BATTERY_BUILD_INVALID":
             case "ECONOMIC_STRUCTURE_BUILD_INVALID":
             case "STRUCTURE_CANCEL_INVALID":
             case "TOWN_UNFED":
@@ -256,31 +247,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   const maybeRequestTileDetail = (tile: any): void =>
     maybeRequestTileDetailImpl(tile, { state, keyFor, requestTileDetailIfNeeded: deps.requestTileDetailIfNeeded });
 
-  const logDebugTileState = (scope: string, tile: any, extra?: Record<string, unknown>): void => {
-    if (!tile || !tileMatchesDebugKey(tile.x, tile.y, 1, { fallbackTile: state.selected })) return;
-    debugTileLog(scope, {
-      x: tile.x,
-      y: tile.y,
-      detailLevel: tile.detailLevel,
-      ownerId: tile.ownerId,
-      ownershipState: tile.ownershipState,
-      resource: tile.resource,
-      economicStructure: tile.economicStructure
-        ? {
-            type: tile.economicStructure.type,
-            status: tile.economicStructure.status
-          }
-        : undefined,
-      town: tile.town
-        ? {
-            hasMintworks: tile.town.hasMintworks,
-            hasGranary: tile.town.hasGranary,
-            populationTier: tile.town.populationTier
-          }
-        : undefined,
-      ...(extra ?? {})
-    });
-  };
+  const logDebugTileState = createDebugTileStateLogger(() => state.selected);
 
   const logFrontierTimeline = (
     scope: string,
@@ -631,6 +598,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         frontierDecayKind?: FrontierDecayKind | null;
       }>) ??
       [];
+    const reportFlagKey = musterReportFlagKey(state, msg);
     const resolvedCaptureTargetKey = state.capture ? keyFor(state.capture.target.x, state.capture.target.y) : "";
     for (const change of changes) {
       const tileKey = keyFor(change.x, change.y);
@@ -647,82 +615,56 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.queuedTargetKeys.delete(tileKey);
       }
     }
-    const resultAlert = combatResolutionAlert(msg, {
-      targetTileBefore: targetBefore,
-      originTileBefore: originBefore
-    });
-    const resultTargetKey = target ? keyFor(target.x, target.y) : "";
-    const predictedAlreadyShown = Boolean(
-      (state.pendingCombatReveal &&
-        state.pendingCombatReveal.targetKey === resultTargetKey &&
-        state.pendingCombatReveal.revealed &&
-        state.pendingCombatReveal.title === resultAlert.title &&
-        state.pendingCombatReveal.detail === resultAlert.detail) ||
-        (resultTargetKey && wasPredictedCombatAlreadyShown(state.revealedPredictedCombatByKey, resultTargetKey, resultAlert.title, resultAlert.detail))
-    );
-    // Silent waypoint EXPAND on neutral: state.capture.silent is set
-    // and the result is a "Territory Claimed" success. Skip both the
-    // feed entry and the captureAlert popup. Anything else (attack
-    // results, settle results, the lost-territory tone) still surfaces.
-    const silentExpandSuccess = Boolean(state.capture?.silent && msg.attackType === "EXPAND" && resultAlert.tone === "success");
-    if (!predictedAlreadyShown && !silentExpandSuccess) {
-      appendFeedEntry({
-        title: resultAlert.title,
-        text: resultAlert.detail,
-        type: "combat",
-        severity: resultAlert.tone === "success" ? "success" : "warn",
-        at: Date.now(),
-        ...(typeof resultAlert.focusX === "number" && typeof resultAlert.focusY === "number"
-          ? { focusX: resultAlert.focusX, focusY: resultAlert.focusY, actionLabel: resultAlert.actionLabel ?? "Center" }
-          : {})
-      });
-      showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, resultAlert.manpowerLoss, focusFromAlert(resultAlert));
-    }
-    if (resultTargetKey) {
-      if (opts?.predicted) state.revealedPredictedCombatByKey.set(resultTargetKey, { title: resultAlert.title, detail: resultAlert.detail });
-      else state.revealedPredictedCombatByKey.delete(resultTargetKey);
-    }
-    if (state.pendingCombatReveal && state.pendingCombatReveal.targetKey === resultTargetKey) state.pendingCombatReveal = undefined;
-    const resolvedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
-    const targetKey = resolvedCaptureTargetKey || state.actionTargetKey;
-    let handedOffToSettle = false;
-    if (targetKey && state.autoSettleTargets.has(targetKey)) {
-      const settledTile = state.tiles.get(targetKey);
-      if (settledTile && settledTile.ownerId === state.me && settledTile.ownershipState === "FRONTIER") {
-        if (requestSettlement(settledTile.x, settledTile.y)) {
-          handedOffToSettle = true;
-          pushFeed(`Auto-garrison started at (${settledTile.x}, ${settledTile.y}).`, "combat", "info");
+    const { resultAlert, resultTargetKey } = notifyCombatResult(state, msg, {
+      targetTileBefore: targetBefore, originTileBefore: originBefore
+    }, reportFlagKey, { keyFor, combatResolutionAlert, wasPredictedCombatAlreadyShown, appendFeedEntry, showCaptureAlert });
+    if (!isMusterAdvanceCommandId(msg.commandId)) {
+      if (resultTargetKey) {
+        if (opts?.predicted) state.revealedPredictedCombatByKey.set(resultTargetKey, { title: resultAlert.title, detail: resultAlert.detail });
+        else state.revealedPredictedCombatByKey.delete(resultTargetKey);
+      }
+      if (state.pendingCombatReveal && state.pendingCombatReveal.targetKey === resultTargetKey) state.pendingCombatReveal = undefined;
+      const resolvedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
+      const targetKey = resolvedCaptureTargetKey || state.actionTargetKey;
+      let handedOffToSettle = false;
+      if (targetKey && state.autoSettleTargets.has(targetKey)) {
+        const settledTile = state.tiles.get(targetKey);
+        if (settledTile && settledTile.ownerId === state.me && settledTile.ownershipState === "FRONTIER") {
+          if (requestSettlement(settledTile.x, settledTile.y)) {
+            handedOffToSettle = true;
+            pushFeed(`Auto-garrison started at (${settledTile.x}, ${settledTile.y}).`, "combat", "info");
+          }
+        }
+        state.autoSettleTargets.delete(targetKey);
+      }
+      state.capture = undefined;
+      if (!handedOffToSettle) {
+        if (targetKey) state.autoBuildTargets.delete(targetKey);
+        state.actionInFlight = false;
+        state.actionAcceptedAck = false;
+        state.combatStartAck = false;
+        state.actionAcceptTimeoutHandledAt = 0;
+        state.actionStartedAt = 0;
+        if (targetKey) dropQueuedTargetKeyIfAbsent(targetKey);
+        if (resolvedCurrentKey) dropQueuedTargetKeyIfAbsent(resolvedCurrentKey);
+        let startedNext = false;
+        if (msg.attackType === "ATTACK" && state.actionQueue.length > 0) {
+          resumeQueuedFrontierActionsAfter(COMBAT_LOCK_MS);
+        } else {
+          startedNext = processActionQueue();
+        }
+        if (!startedNext) {
+          state.actionTargetKey = "";
+          state.actionCurrent = undefined;
         }
       }
-      state.autoSettleTargets.delete(targetKey);
-    }
-    state.capture = undefined;
-    if (!handedOffToSettle) {
-      if (targetKey) state.autoBuildTargets.delete(targetKey);
-      state.actionInFlight = false;
-      state.actionAcceptedAck = false;
-      state.combatStartAck = false;
-      state.actionAcceptTimeoutHandledAt = 0;
-      state.actionStartedAt = 0;
-      if (targetKey) dropQueuedTargetKeyIfAbsent(targetKey);
-      if (resolvedCurrentKey) dropQueuedTargetKeyIfAbsent(resolvedCurrentKey);
-      let startedNext = false;
-      if (msg.attackType === "ATTACK" && state.actionQueue.length > 0) {
-        resumeQueuedFrontierActionsAfter(COMBAT_LOCK_MS);
-      } else {
-        startedNext = processActionQueue();
-      }
-      if (!startedNext) {
-        state.actionTargetKey = "";
-        state.actionCurrent = undefined;
-      }
+      resetAttackPreviewState(state);
     }
     for (const change of changes) {
       if (change.ownerId === state.me && change.ownershipState === "SETTLED") {
         clearSettlementProgressForTile(change.x, change.y);
       }
     }
-    resetAttackPreviewState(state);
     if (target) {
       const targetKeyForCapture = keyFor(target.x, target.y);
       emitTownCaptureIfCaptured({
@@ -1143,7 +1085,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         clearQueuedDevelopmentDispatchPending,
         appendFeedEntry
       });
-      backfillWorldEngineStrikeHistory(state, wsUrl, renderHud); // fires on first connect and every reconnect (INIT resends each time)
+      backfillSovereignSiegeEngineStrikeHistory(state, wsUrl, renderHud); // fires on first connect and every reconnect (INIT resends each time)
       applyInitActivitySeen(state, msg);
       // Only the true first INIT of this browser session -- handle-activity-timeline-messages.ts
       // is explicit that REQUEST_PERSONAL_ACTIVITY must never be wired into every
@@ -1172,6 +1114,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "JOIN_SEASON_ACK") { state.joinSeasonPending = false; if (msg.spawned) { state.needsSeasonJoin = false; state.joinSeasonOverlayOpen = false; applyJoinSeasonSpawnRecenter(state, parseJoinSeasonAckSpawnTile(msg.spawnTile), requestViewRefreshSafely); } renderHud(); return; }
     // Authoritative reach (client-reach-authoritative.ts) — replaces the old client-side approximation.
     if (msg.type === "REACH_UPDATE") { if (applyServerReachUpdate(state, msg as Record<string, unknown>)) renderHud(); return; }
+    // Other players' Aether Tower shields (client-aether-shield-state.ts); the map reads it on its next frame.
+    if (msg.type === "AETHER_SHIELDS") { applyAetherShieldsMessage(state, msg as Record<string, unknown>); return; }
     if (msg.type === "PLAYER_UPDATE") {
       applySettlementRepairDiagnostic(msg as Record<string, unknown>);
       const prevGold = state.gold;
@@ -1529,10 +1473,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         !("defEff" in msg) &&
         !("winChance" in msg) &&
         !("pointsDelta" in msg);
-      applyCombatOutcomeMessage(resolveCombatResultPayload(state, keyFor, msg as Record<string, unknown>, commitOnlyResult));
+      applyCombatOutcomeMessage(isMusterAdvanceCommandId(msg.commandId)
+        ? msg as Record<string, unknown>
+        : resolveCombatResultPayload(state, keyFor, msg as Record<string, unknown>, commitOnlyResult));
       return;
     }
       if (msg.type === "COMBAT_START") {
+      trackMusterReportStart(state, msg as Record<string, unknown>);
       if (handleMusterAdvanceCombatStart(state, keyFor, msg as Record<string, unknown>)) return;
       if (!matchesCurrentFrontierCommand(state, msg.commandId)) {
         attackSyncLog("combat-start-ignored-command-mismatch", {
@@ -1648,12 +1595,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
     if (msg.type === "RAID_RESULT" || msg.type === "AETHER_PURGE_ALERT") { appendFeedEntry(msg.type === "RAID_RESULT" ? raidResultFeedEntry(msg, { playerNameForOwner }) : aetherPurgeAlertFeedEntry(msg)); renderHud(); return; }
-    if (msg.type === "WORLD_ENGINE_STRIKE_ANNOUNCEMENT") {
-      applyWorldEngineStrikeAnnouncement(msg as Record<string, unknown>, { state, appendFeedEntry, requestViewRefresh });
+    if (msg.type === "SOVEREIGN_SIEGE_ENGINE_STRIKE_ANNOUNCEMENT") {
+      applySovereignSiegeEngineStrikeAnnouncement(msg as Record<string, unknown>, { state, appendFeedEntry, requestViewRefresh });
       renderHud();
       return;
     }
-    if (msg.type === "AIRPORT_BOMBARD_RESULT") {
+    if (msg.type === "SKY_DOCK_BOMBARD_RESULT") {
       const targetableTiles = Number(msg.targetableTiles ?? 0);
       const hitTiles = Number(msg.hitTiles ?? 0);
       const missedTiles = Number(msg.missedTiles ?? 0);
@@ -1833,14 +1780,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             "townType" in update ||
             "townName" in update ||
             "townPopulationTier" in update ||
-            "fortJson" in update ||
-            "observatoryJson" in update ||
-            "siegeOutpostJson" in update ||
-            "economicStructureJson" in update ||
-            "sabotageJson" in update ||
-            "shardSiteJson" in update || "naturalWonderJson" in update || "watchtowerJson" in update || "waystationJson" in update ||
-            "musterJson" in update ||
-            "afcJson" in update ||
+            hasGatewayOverlayField(update) ||
             "dockId" in update)
             ? normalizeGatewayTileUpdate(update, {
                 existing: state.tiles.get(keyFor(update.x, update.y)),
@@ -2104,66 +2044,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
 
-    if (msg.type === "ALLIANCE_REQUEST_INCOMING") {
-      const request = (msg.request as any) ?? undefined;
-      if (request && !state.incomingAllianceRequests.some((existing: any) => existing.id === request.id)) {
-        const fromName = msg.fromName as string | undefined;
-        if (fromName) request.fromName = fromName;
-        state.incomingAllianceRequests.push(request);
-      }
-      notifyIncomingAllianceRequest(state, request, { pushFeed, showCaptureAlert: showCaptureAlertSafely });
-      renderHud();
-      return;
-    }
-
-    if (msg.type === "ALLIANCE_REQUESTED") {
-      const request = msg.request as any;
-      if (request && !state.outgoingAllianceRequests.some((existing: any) => existing.id === request.id)) {
-        state.outgoingAllianceRequests.push(request);
-      }
-      renderHud();
-      return;
-    }
-
-    if (msg.type === "ALLIANCE_UPDATE") {
-      state.allies = (msg.allies as string[]) ?? [];
-      state.activeAllianceBreaks = (msg.activeAllianceBreaks as any[] | undefined) ?? state.activeAllianceBreaks;
-      state.recentAllianceBreaks = (msg.recentAllianceBreaks as any[] | undefined) ?? state.recentAllianceBreaks;
-      state.incomingAllianceRequests = (msg.incomingAllianceRequests as any[] | undefined) ?? state.incomingAllianceRequests;
-      state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? state.outgoingAllianceRequests;
-      const announcement = msg.announcement as string | undefined;
-      if (announcement) {
-        const normalizedAnnouncement = announcement.toLocaleLowerCase();
-        const fullyBroken = normalizedAnnouncement.includes("now broken");
-        pushFeed(announcement, "alliance", fullyBroken ? "warn" : "info");
-        showCaptureAlertSafely(fullyBroken ? "Alliance broken" : "Alliance break notice", announcement, fullyBroken ? "warn" : "info");
-      }
-      renderHud();
-      return;
-    }
-
-    if (msg.type === "TRUCE_REQUEST_INCOMING") {
-      const request = (msg.request as any) ?? undefined;
-      if (request) {
-        const fromName = msg.fromName as string | undefined;
-        if (fromName) request.fromName = fromName;
-        state.incomingTruceRequests = [...state.incomingTruceRequests.filter((entry: any) => entry.id !== request.id), request];
-      }
-      notifyIncomingTruceRequest(state, request, { pushFeed, showCaptureAlert: showCaptureAlertSafely });
-      renderHud();
-      return;
-    }
-
-    if (msg.type === "TRUCE_REQUESTED") {
-      const request = msg.request as any;
-      const targetName = (msg.targetName as string | undefined) ?? request?.toName ?? (request ? playerNameForOwner(request.toPlayerId) : undefined);
-      pushFeed(`Truce offered${targetName ? ` to ${targetName}` : ""}.`, "alliance", "success");
-      renderHud();
-      return;
-    }
-
-    if (msg.type === "TRUCE_UPDATE") {
-      applyTruceUpdateMessage(state, msg, { pushFeed, showCaptureAlert: showCaptureAlertSafely });
+    if (handleDiplomacySocketMessage(state, msg, { pushFeed, showCaptureAlert: showCaptureAlertSafely, playerNameForOwner })) {
       renderHud();
       return;
     }
@@ -2237,8 +2118,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       clearAuthInFlight?.(); if (rawCode === "JOIN_SEASON_FAILED") state.joinSeasonPending = false;
       if ((msg.code as string | undefined)?.startsWith("COLLECT")) {
-        const collectTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : "";
-        if (collectTileKey) revertOptimisticTileCollectDelta(collectTileKey);
         const pending = state.pendingShardCollect;
         if (pending && msg.code === "COLLECT_NOT_OWNED") {
           const tile = state.tiles.get(pending.tileKey);
@@ -2459,14 +2338,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       const isStructureActionError =
         // Generic BUILD_INVALID is emitted for town-attached structure failures
-        // (e.g. "town already has granary", "needs an open support tile"). Without
+        // (e.g. "town already has incubation engine", "needs an open support tile"). Without
         // it here, the user's stale view of the tile is never reconciled and they
         // keep being told the action is invalid for an "empty" tile that already
         // has the structure server-side.
         errorCode === "BUILD_INVALID" ||
         errorCode === "FORT_BUILD_INVALID" ||
         errorCode === "OBSERVATORY_BUILD_INVALID" ||
-        errorCode === "SIEGE_OUTPOST_BUILD_INVALID" ||
+        errorCode === "SIEGE_BATTERY_BUILD_INVALID" ||
         errorCode === "ECONOMIC_STRUCTURE_BUILD_INVALID" ||
         errorCode === "STRUCTURE_REMOVE_INVALID" ||
         errorCode === "STRUCTURE_CANCEL_INVALID";
@@ -2694,12 +2573,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
     if (msg.type === "HINT_STATE_SET") { applyHintStateSetMessage(msg, state.authEmail, state.bridgeDebugSeasonId); return; } if (msg.type === "EMAIL_NOTIFICATION_PREFS_SET") { applyEmailNotificationPrefsFromServer(msg.prefs as Record<string, unknown> | undefined); return; }
 
-    if (msg.type === "COLLECT_RESULT") { handleCollectResultMessage(msg, { state, keyFor, clearPendingCollectTileDelta, pushFeed, renderHud }); return; }
+    if (msg.type === "COLLECT_RESULT") { handleCollectResultMessage(msg, { state, pushFeed, renderHud }); return; }
 
     if (msg.type === "SEASON_ROLLOVER" || msg.type === "WORLD_REGENERATED") {
       clearDeferredBootstrapRefreshTimer();
       const season = msg.season as { worldSeed?: number; mapStyle?: "continents" | "islands"; worldgenVersion?: number } | undefined;
-      if (msg.type === "SEASON_ROLLOVER") resetClientForNewSeason(state); else state.tiles.clear(); // before clearRenderCaches, which re-derives AFC forest clearings from state.tiles -- the old season's AFCs must not clear the new world
+      if (msg.type === "SEASON_ROLLOVER") resetClientForNewSeason(state); else { state.tiles.clear(); state.metPlayerIds.clear(); state.metPlayersScannedRevision = -1; } // before clearRenderCaches, which re-derives AFC forest clearings from state.tiles -- the old season's AFCs must not clear the new world
       if (typeof season?.worldSeed === "number") {
         setWorldSeed(season.worldSeed, season.mapStyle, season.worldgenVersion);
         clearRenderCaches();

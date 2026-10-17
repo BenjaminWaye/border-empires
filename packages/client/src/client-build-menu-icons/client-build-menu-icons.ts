@@ -1,5 +1,5 @@
 // Steampunk art for the tile menu's Buildings tab: the five category squares
-// use PNGs from public/icons/build-categories, and each building row shows
+// use simple SVGs from public/icons/simple, and each building row shows
 // that building's own map art (public/overlays) in place of its glyph.
 
 import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
@@ -8,21 +8,19 @@ import { structureTypeForTileAction } from "../client-tile-action-support/client
 import type { TileActionDef } from "../client-types.js";
 import { BUILD_MENU_ART_CROP, type ArtCropBox } from "./client-build-menu-art-crop.js";
 
-const categoryIconUrl = (category: BuildingCategory, px: 48 | 72 | 96): string =>
-  `/icons/build-categories/${category}-${px}.png`;
+// Category squares are small (24px), so they use the simple emoji-style SVGs.
+const categoryIconUrl = (category: BuildingCategory): string => `/icons/simple/${category.replace(/_/g, "-")}.svg`;
 
-export const buildingCategoryIconHtml = (category: BuildingCategory): string => {
-  const src = (px: 48 | 72 | 96): string => categoryIconUrl(category, px);
-  return `<img class="tile-building-category-art" src="${src(48)}" srcset="${src(48)} 1x, ${src(72)} 1.5x, ${src(96)} 2x" alt="" aria-hidden="true" draggable="false">`;
-};
+export const buildingCategoryIconHtml = (category: BuildingCategory): string =>
+  `<img class="tile-building-category-art" src="${categoryIconUrl(category)}" alt="" aria-hidden="true" draggable="false">`;
 
 // Actions structureTypeForTileAction doesn't resolve to the building they
 // produce: upgrades show the Advanced building, the frontier beacon is the
 // same Relay Beacon.
 const ART_STRUCTURE_FOR_ACTION: Partial<Record<TileActionDef["id"], string>> = {
-  upgrade_titanium_works: "ADVANCED_TITANIUM_WORKS",
-  upgrade_crystal_synthesizer: "ADVANCED_CRYSTAL_SYNTHESIZER",
-  upgrade_umbrite_synthesizer: "ADVANCED_UMBRITE_SYNTHESIZER",
+  upgrade_titanium_works: "HIGH_YIELD_TITANIUM_WORKS",
+  upgrade_aether_condenser: "HIGH_YIELD_AETHER_CONDENSER",
+  upgrade_umbrite_works: "HIGH_YIELD_UMBRITE_WORKS",
   build_relay_beacon_frontier: "RELAY_BEACON"
 };
 
@@ -44,10 +42,21 @@ const croppedImgStyle = ([x, y, width, height]: ArtCropBox): string => {
   return `width:${pct(scale)};height:${pct(scale)};left:${pct(left)};top:${pct(top)}`;
 };
 
-export const buildActionIconHtml = (actionId: TileActionDef["id"]): string | undefined => {
-  const url = buildActionArtUrl(actionId);
-  if (!url) return undefined;
+// The art cropped into a square slot; slotClass sizes the slot and clips it.
+const croppedArtHtml = (url: string, slotClass: string): string => {
   const crop = BUILD_MENU_ART_CROP[url];
   const style = crop ? ` style="${croppedImgStyle(crop)}"` : "";
-  return `<span class="tile-action-art"><img src="${url}"${style} alt="" aria-hidden="true" draggable="false" loading="lazy"></span>`;
+  return `<span class="${slotClass}"><img src="${url}"${style} alt="" aria-hidden="true" draggable="false" loading="lazy"></span>`;
+};
+
+export const buildActionIconHtml = (actionId: TileActionDef["id"]): string | undefined => {
+  const url = buildActionArtUrl(actionId);
+  return url ? croppedArtHtml(url, "tile-action-art") : undefined;
+};
+
+// Same thumbnail keyed by structure type, for views that list buildings
+// rather than build actions (the Manifest detail's "What you get" rows).
+export const structureArtIconHtml = (structureType: string, slotClass: string): string | undefined => {
+  const url = buildMenuArtUrl(structureType);
+  return url ? croppedArtHtml(url, slotClass) : undefined;
 };

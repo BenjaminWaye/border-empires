@@ -1,4 +1,4 @@
-import { fortRemovalDurationMs, siegeOutpostRemovalDurationMs, structureBuildDurationMs, structureRemovalDurationMs } from "@border-empires/shared";
+import { fortRemovalDurationMs, siegeBatteryRemovalDurationMs, structureBuildDurationMs, structureRemovalDurationMs } from "@border-empires/shared";
 import { writeOptimisticStructureBuild, writeOptimisticStructureCancel } from "./client-optimistic-structure-writes.js";
 import { buildMsWithSpeedForState } from "../client-build-speed/client-build-speed.js";
 import { shouldPreserveOptimisticExpand } from "../client-frontier-overlay/client-frontier-overlay.js";
@@ -139,16 +139,16 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
   };
 
   const tileHasStructureKind = (tile: Tile, kind: OptimisticStructureKind): boolean => {
-    if (kind === "FORT" || kind === "WOODEN_FORT") return Boolean(tile.fort);
+    if (kind === "FORT" || kind === "PALISADE") return Boolean(tile.fort);
     if (kind === "OBSERVATORY") return Boolean(tile.observatory);
-    if (kind === "SIEGE_OUTPOST") return Boolean(tile.siegeOutpost);
+    if (kind === "SIEGE_BATTERY") return Boolean(tile.siegeBattery);
     return tile.economicStructure?.type === kind;
   };
 
   const tileHasUnderConstructionStructureKind = (tile: Tile, kind: OptimisticStructureKind): boolean => {
-    if (kind === "FORT" || kind === "WOODEN_FORT") return tile.fort?.status === "under_construction";
+    if (kind === "FORT" || kind === "PALISADE") return tile.fort?.status === "under_construction";
     if (kind === "OBSERVATORY") return tile.observatory?.status === "under_construction";
-    if (kind === "SIEGE_OUTPOST") return tile.siegeOutpost?.status === "under_construction";
+    if (kind === "SIEGE_BATTERY") return tile.siegeBattery?.status === "under_construction";
     return tile.economicStructure?.type === kind && tile.economicStructure?.status === "under_construction";
   };
 
@@ -183,8 +183,8 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
         tile.observatory = { ...tile.observatory, status: "removing", startedAt, completesAt: startedAt + structureRemovalDurationMs("OBSERVATORY") };
         return;
       }
-      if (tile.siegeOutpost) {
-        tile.siegeOutpost = { ...tile.siegeOutpost, status: "removing", startedAt, completesAt: startedAt + siegeOutpostRemovalDurationMs(tile.siegeOutpost.variant) };
+      if (tile.siegeBattery) {
+        tile.siegeBattery = { ...tile.siegeBattery, status: "removing", startedAt, completesAt: startedAt + siegeBatteryRemovalDurationMs(tile.siegeBattery.variant) };
         return;
       }
       if (tile.economicStructure) {
@@ -332,8 +332,8 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
           ? "FORT"
           : existing.observatory?.status === "under_construction"
             ? "OBSERVATORY"
-            : existing.siegeOutpost?.status === "under_construction"
-              ? "SIEGE_OUTPOST"
+            : existing.siegeBattery?.status === "under_construction"
+              ? "SIEGE_BATTERY"
               : existing.economicStructure?.status === "under_construction"
                 ? existing.economicStructure.type
                 : undefined;
@@ -347,7 +347,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
       };
       if (existing.fort) merged.fort = existing.fort;
       if (existing.observatory) merged.observatory = existing.observatory;
-      if (existing.siegeOutpost) merged.siegeOutpost = existing.siegeOutpost;
+      if (existing.siegeBattery) merged.siegeBattery = existing.siegeBattery;
       if (existing.economicStructure) merged.economicStructure = existing.economicStructure;
       return merged;
     }
@@ -358,8 +358,8 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
           ? "FORT"
           : previous?.observatory?.status === "under_construction"
             ? "OBSERVATORY"
-            : previous?.siegeOutpost?.status === "under_construction"
-              ? "SIEGE_OUTPOST"
+            : previous?.siegeBattery?.status === "under_construction"
+              ? "SIEGE_BATTERY"
               : previous?.economicStructure?.status === "under_construction"
                 ? previous.economicStructure.type
                 : undefined;
@@ -378,8 +378,8 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
           ? "FORT"
           : existing.observatory?.status === "removing"
             ? "OBSERVATORY"
-            : existing.siegeOutpost?.status === "removing"
-              ? "SIEGE_OUTPOST"
+            : existing.siegeBattery?.status === "removing"
+              ? "SIEGE_BATTERY"
               : existing.economicStructure?.status === "removing"
                 ? existing.economicStructure.type
                 : undefined;
@@ -387,10 +387,10 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
       const incomingRemoving =
         (optimisticKind === "FORT" && incoming.fort?.status === "removing") ||
         (optimisticKind === "OBSERVATORY" && incoming.observatory?.status === "removing") ||
-        (optimisticKind === "SIEGE_OUTPOST" && incoming.siegeOutpost?.status === "removing") ||
+        (optimisticKind === "SIEGE_BATTERY" && incoming.siegeBattery?.status === "removing") ||
         (optimisticKind !== "FORT" &&
           optimisticKind !== "OBSERVATORY" &&
-          optimisticKind !== "SIEGE_OUTPOST" &&
+          optimisticKind !== "SIEGE_BATTERY" &&
           incoming.economicStructure?.type === optimisticKind &&
           incoming.economicStructure?.status === "removing");
       if (incomingRemoving || !tileHasStructureKind(incoming, optimisticKind)) return incoming;
@@ -400,7 +400,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
       };
       if (existing.fort) merged.fort = existing.fort;
       if (existing.observatory) merged.observatory = existing.observatory;
-      if (existing.siegeOutpost) merged.siegeOutpost = existing.siegeOutpost;
+      if (existing.siegeBattery) merged.siegeBattery = existing.siegeBattery;
       if (existing.economicStructure) merged.economicStructure = existing.economicStructure;
       return merged;
     }
@@ -441,9 +441,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     if (!preservePriorDetail) return merged;
     if (!("town" in incoming) && existing.town) merged.town = existing.town;
     if (!("dock" in incoming) && existing.dock) merged.dock = existing.dock;
-    if (!("yield" in incoming) && existing.yield) merged.yield = existing.yield;
     if (!("yieldRate" in incoming) && existing.yieldRate) merged.yieldRate = existing.yieldRate;
-    if (!("yieldCap" in incoming) && existing.yieldCap) merged.yieldCap = existing.yieldCap;
     if (!("upkeepEntries" in incoming) && existing.upkeepEntries) merged.upkeepEntries = existing.upkeepEntries;
     if (!("history" in incoming) && existing.history) merged.history = existing.history;
     debugTileTimeline("frontier-detail-merged", {

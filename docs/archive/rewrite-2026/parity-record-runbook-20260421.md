@@ -51,7 +51,7 @@ actions) vs. "attempt-and-record-error" (need rare world state):
 | CAST\_AETHER\_WALL | 4 | ⚠ needs Aether tech |
 | SIPHON\_TILE | 4 | ⚠ needs Siphon tech |
 | PURGE\_SIPHON | 4 | ⚠ needs active siphon |
-| AIRPORT\_BOMBARD | 4 | ⚠ needs AIRPORT structure |
+| SKY_DOCK\_BOMBARD | 4 | ⚠ needs SKY_DOCK structure |
 | CREATE\_MOUNTAIN | 4 | ⚠ admin only — will ERROR |
 | REMOVE\_MOUNTAIN | 4 | ⚠ no mountain visible — will ERROR |
 

@@ -9,14 +9,14 @@ import {
 import {
   AEGIS_DOME_PROTECTION_RADIUS,
   AETHER_BRIDGE_MAX_SEA_TILES,
-  AETHER_TOWER_RADIUS,
+  AMBARIC_TRANSFORMER_RADIUS,
   MANPOWER_BASE_CAP,
   OBSERVATORY_CAST_RADIUS,
-  OBSERVATORY_PROTECTION_RADIUS,
-  RADAR_SYSTEM_BOMBARD_BLOCK_RADIUS
+  RESONANCE_GRID_BOMBARD_BLOCK_RADIUS
 } from "@border-empires/game-domain";
 import { observatoryCastRadiusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
+import { isObservatoryShielding, isTileShieldedByOwnersIndexedTowers, isTileShieldedByOwnersObservatory } from "./aether-shield/aether-shield.js";
 import type { ActiveAetherBridgeView, ActiveAetherWallView, AetherWallDirection, StrategicResourceKey } from "./runtime-types.js";
 
 export function revealCapacityForPlayer(player: DomainPlayer, revealTargetCount: number): number {
@@ -75,7 +75,7 @@ export function isStructurePowered(
   tileKey: string,
   structureType: EconomicStructureType,
   // §5.4: an Ambaric Transformer itself demands a FOOD + CRYSTAL slot
-  // (STRUCTURE_SLOT_REQUIREMENTS.AETHER_TOWER) and can go dormant like any
+  // (STRUCTURE_SLOT_REQUIREMENTS.AMBARIC_TRANSFORMER) and can go dormant like any
   // other structure — a dormant tower provides no bonus, including its own
   // powering radius, same as every other structure this class of check
   // gates (monument abilities, Observatory abilities). Optional so existing
@@ -95,9 +95,9 @@ export function isStructurePowered(
   if (structure.ownerId !== ownerId || structure.type !== structureType || structure.status !== "active") return false;
   for (const candidate of tiles.values()) {
     const tower = candidate.economicStructure;
-    if (!tower || tower.ownerId !== ownerId || tower.type !== "AETHER_TOWER" || tower.status !== "active") continue;
+    if (!tower || tower.ownerId !== ownerId || tower.type !== "AMBARIC_TRANSFORMER" || tower.status !== "active") continue;
     if ((tower.disabledUntil ?? 0) > now) continue;
-    if (wrappedChebyshev(candidate.x, candidate.y, tile.x, tile.y) > AETHER_TOWER_RADIUS) continue;
+    if (wrappedChebyshev(candidate.x, candidate.y, tile.x, tile.y) > AMBARIC_TRANSFORMER_RADIUS) continue;
     if (isStructureDormant(ownerId, simulationTileKey(candidate.x, candidate.y), "economicStructure")) continue;
     return true;
   }
@@ -125,38 +125,32 @@ export function isTileShieldedByEnemyAegisDome(
   return false;
 }
 
-// §5.4/aether-tower-protection: server-side counterpart of the client's
-// hostileObservatoryProtectingTileAt (client-observatory-cooldown.ts) — that
-// client function only decides what a well-behaved client greys out as
-// targetable, so an ability handler that skips this check is enforceable
-// by a client that ignores it. A defending Observatory shields a nearby
-// tile only while active, owned by someone other than the actor, off its
-// own cooldown, and not resource-slot dormant — the same three gates the
-// client already applies, now backed by the simulation itself.
+// §5.4/ambaric-transformer-protection: server-side counterpart of the
+// client's protection check (client-aether-tower-protection.ts) — the client
+// only decides what a well-behaved client greys out as targetable, so an
+// ability handler that skips this check is enforceable by a client that
+// ignores it. The shielding rule itself (active, off cooldown, not dormant,
+// owner's own tiles only) lives in aether-shield/aether-shield.ts.
 export function isTileShieldedByEnemyObservatory(
   tiles: ReadonlyMap<string, DomainTileState>,
   isStructureDormant: (playerId: string, tileKey: string, field: "observatory") => boolean,
   actorId: string,
   targetX: number,
   targetY: number,
-  now: number
+  now: number,
+  // The runtime's active-Observatory index, when the caller has it: the
+  // owner's few towers instead of a 41x41 scan of the target's surroundings.
+  activeTowerKeysForOwner?: (ownerId: string) => Iterable<string>
 ): boolean {
   // Protects only the tower OWNER's tiles: unowned land, the actor's own land
   // and a third player's land near someone else's tower are never shielded.
   // Reads full world state, so a tower the actor can't see still blocks.
   const targetOwnerId = tiles.get(simulationTileKey(targetX, targetY))?.ownerId;
   if (!targetOwnerId || targetOwnerId === actorId) return false;
-  for (const candidate of tiles.values()) {
-    const observatory = candidate.observatory;
-    if (!observatory || observatory.status !== "active") continue;
-    if (observatory.ownerId !== targetOwnerId || candidate.ownerId !== targetOwnerId) continue;
-    if (wrappedChebyshev(candidate.x, candidate.y, targetX, targetY) > OBSERVATORY_PROTECTION_RADIUS) continue;
-    if ((observatory.cooldownUntil ?? 0) > now) continue;
-    const observatoryKey = simulationTileKey(candidate.x, candidate.y);
-    if (isStructureDormant(observatory.ownerId, observatoryKey, "observatory")) continue;
-    return true;
-  }
-  return false;
+  const shielding = (tower: DomainTileState): boolean => isObservatoryShielding(tower, now, isStructureDormant);
+  return activeTowerKeysForOwner
+    ? isTileShieldedByOwnersIndexedTowers(tiles, activeTowerKeysForOwner(targetOwnerId), shielding, targetOwnerId, targetX, targetY)
+    : isTileShieldedByOwnersObservatory(tiles, shielding, targetOwnerId, targetX, targetY);
 }
 
 export const AEGIS_LOCK_ACTIVE_UNTIL_KEY = "aegis_lock_active_until";
@@ -204,9 +198,9 @@ export function isTileBombardBlockedByRadar(
 ): boolean {
   for (const candidate of tiles.values()) {
     const s = candidate.economicStructure;
-    if (!s || s.type !== "RADAR_SYSTEM" || s.status !== "active") continue;
+    if (!s || s.type !== "RESONANCE_GRID" || s.status !== "active") continue;
     if (!s.ownerId || s.ownerId === actorId) continue;
-    if (wrappedChebyshev(candidate.x, candidate.y, targetX, targetY) > RADAR_SYSTEM_BOMBARD_BLOCK_RADIUS) continue;
+    if (wrappedChebyshev(candidate.x, candidate.y, targetX, targetY) > RESONANCE_GRID_BOMBARD_BLOCK_RADIUS) continue;
     const radarKey = simulationTileKey(candidate.x, candidate.y);
     if (!isStructurePowered(tiles, s.ownerId, radarKey, s.type, isStructureDormant, now)) continue;
     if (isStructureDormant(s.ownerId, radarKey, "economicStructure")) continue;
@@ -428,43 +422,6 @@ export function buildRevealEmpireStatsFromSummary(
     settledTiles: settledTileCount,
     frontierTiles: territoryTileCount - settledTileCount,
     controlledTowns: townCount,
-    incomePerMinute: 0,
-    techCount: target.techIds.size,
-    gold: target.points,
-    manpower: target.manpower,
-    manpowerCap: Math.max(target.manpowerCapSnapshot ?? 0, MANPOWER_BASE_CAP),
-    strategicResources: {
-      FOOD: target.strategicResources?.FOOD ?? 0,
-      TITANIUM: target.strategicResources?.TITANIUM ?? 0,
-      CRYSTAL: target.strategicResources?.CRYSTAL ?? 0,
-      UMBRITE: target.strategicResources?.UMBRITE ?? 0,
-      SHARD: target.strategicResources?.SHARD ?? 0
-    } satisfies Record<StrategicResourceKey, number>
-  };
-}
-
-export function buildRevealEmpireStats(
-  tiles: Iterable<DomainTileState>,
-  target: DomainPlayer,
-  revealedAt: number
-): Record<string, unknown> {
-  let settledTiles = 0;
-  let frontierTiles = 0;
-  let controlledTowns = 0;
-  for (const tile of tiles) {
-    if (tile.ownerId !== target.id) continue;
-    if (tile.ownershipState === "SETTLED") settledTiles += 1;
-    if (tile.ownershipState === "FRONTIER") frontierTiles += 1;
-    if (tile.town) controlledTowns += 1;
-  }
-  return {
-    playerId: target.id,
-    playerName: target.name ?? target.id,
-    revealedAt,
-    tiles: settledTiles + frontierTiles,
-    settledTiles,
-    frontierTiles,
-    controlledTowns,
     incomePerMinute: 0,
     techCount: target.techIds.size,
     gold: target.points,

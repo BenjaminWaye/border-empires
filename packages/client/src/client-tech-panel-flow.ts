@@ -1,3 +1,4 @@
+import { createManifestFitInput } from "./client-manifest-detail/client-manifest-fit-input.js";
 import type { ProspectSignature } from "@border-empires/shared";
 import { integrityPctFromSettledCounts } from "./client-integrity-pct/client-integrity-pct.js";
 import type { StructureModifier } from "@border-empires/game-domain";
@@ -12,11 +13,11 @@ import {
   selectedTechInfo as selectedTechInfoFromModule
 } from "./client-tech-detail-ui/client-tech-detail-ui.js";
 import { renderManifestDetailHtml, type ManifestDetailMode } from "./client-manifest-detail/client-manifest-detail-html.js";
-import { hasProspectClueNearTerritory } from "./client-manifest-detail/client-manifest-fit.js";
+import { manifestFit, hasProspectClueNearTerritory, type ManifestFitInput } from "./client-manifest-detail/client-manifest-fit.js";
 import { occupationSurveyController } from "./client-occupation-survey.js";
 import { renderStructureInfoOverlay as renderStructureInfoOverlayFromModule } from "./client-structure-info-overlay/client-structure-info-overlay.js";
 import type { ClientState } from "./client-state/client-state.js";
-import type { DomainInfo, TechInfo } from "./client-types.js";
+import type { TechInfo } from "./client-types.js";
 import { MONUMENT_COMPONENT_KEYS, type StructureInfoKey } from "./client-map-display.js";
 
 type TechPanelDeps = {
@@ -173,9 +174,11 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
 
   const isPendingTechUnlock = (techId: string): boolean => state.pendingTechUnlockId === techId;
 
-  const renderTechChoiceGrid = (): string =>
-    renderTechChoiceGridFromModule({
+  const renderTechChoiceGrid = (): string => {
+    const fitInput = manifestFitInput();
+    return renderTechChoiceGridFromModule({
       state,
+      isGoodPick: (tech) => manifestFit(tech, fitInput).goodPickReasons.length > 0,
       effectiveOwnedTechIds,
       effectiveTechChoices,
       orderedTechIdsByTier,
@@ -188,6 +191,7 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
       viewportHeight: deps.viewportSize().height,
       isMobile: deps.isMobile()
     });
+  };
 
   const selectedTechInfo = (): TechInfo | undefined =>
     selectedTechInfoFromModule({
@@ -217,6 +221,11 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
     return found;
   };
 
+  const manifestFitInput = (): ManifestFitInput => createManifestFitInput(state, {
+    clueNearTerritory,
+    surveyReportFor: (resource) => occupationSurveyController.currentForResource(resource)
+  });
+
   // One Manifest detail view for both layouts: the desktop side panel
   // ("inline") and the mobile overlay ("overlay").
   const renderManifestDetail = (mode: ManifestDetailMode): string => {
@@ -235,12 +244,7 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
       structureInfoButtonHtml: deps.structureInfoButtonHtml,
       structureDetail: (type) => deps.structureInfoForKey(type).detail,
       coin: state.gold,
-      fit: {
-        manpower: state.manpower,
-        resourceSlots: state.resourceSlots,
-        clueNearTerritory,
-        surveyReportFor: (resource) => occupationSurveyController.currentForResource(resource)
-      }
+      fit: manifestFitInput()
     });
   };
 
