@@ -1,4 +1,4 @@
-import { openDiplomacyTradeScreen, type DiplomacyTradeDeps } from "../client-diplomacy-trade/client-diplomacy-trade.js";
+import { diplomacyTradeDepsFor, openDiplomacyTradeScreen, type DiplomacyTradeDeps } from "../client-diplomacy-trade/client-diplomacy-trade.js";
 import {
   breakAllianceFromUi,
   breakTruceFromUi,
@@ -9,13 +9,8 @@ import {
 
 // Truce and alliance offers open the trade screen (terms + live AI verdict)
 // instead of sending straight away; the screen sends the offer itself.
-const tradeDeps = (deps: PlayerActionDeps): DiplomacyTradeDeps => ({
-  send: (payload, notSignedInMessage) => deps.sendGameMessage(payload, notSignedInMessage),
-  ownHoldings: () => ({
-    gold: Math.max(0, Math.floor(deps.state.gold)),
-    shard: Math.max(0, Math.floor(deps.state.strategicResources.SHARD ?? 0))
-  })
-});
+const tradeDeps = (deps: PlayerActionDeps): DiplomacyTradeDeps =>
+  diplomacyTradeDepsFor(deps.state, (payload, notSignedInMessage) => deps.sendGameMessage(payload, notSignedInMessage));
 
 export const createPlayerActionShortcuts = (deps: PlayerActionDeps) => ({
   sendAllianceRequest: (target: string): void =>

@@ -826,7 +826,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   bindRequestActionButtons(".reject-truce", "truceRequestId", (id) => ({ type: "TRUCE_REJECT", requestId: id }), "Finish sign-in before responding to truces.");
   bindRequestActionButtons(".cancel-truce", "truceRequestId", (id) => ({ type: "TRUCE_CANCEL", requestId: id }), "Finish sign-in before changing truce requests.");
 
-  bindProposeButtons(dom.hud, { playerNameForOwner, sendGameMessage });
+  bindProposeButtons(dom.hud, { playerNameForOwner, sendGameMessage, state });
   bindMetPlayerRowToggles(dom.hud, state);
   const breakAllianceButtons = dom.hud.querySelectorAll(".break-alliance") as NodeListOf<HTMLButtonElement>;
   breakAllianceButtons.forEach((btn: HTMLButtonElement) => bindBreakAllianceButton(btn, sendGameMessage));

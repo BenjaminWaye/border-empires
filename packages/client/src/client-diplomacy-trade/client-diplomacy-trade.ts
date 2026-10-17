@@ -31,6 +31,22 @@ type OpenScreen = {
 /** How often an open screen checks the player's coin/Shards (income, spending elsewhere). */
 export const TRADE_HOLDINGS_CHECK_MS = 1_000;
 
+/**
+ * Trade-screen deps from the client's own state: every truce/alliance entry
+ * point (tile menu, Alliances tab) opens the screen with these, so none of
+ * them sends an offer without terms and the AI's verdict.
+ */
+export const diplomacyTradeDepsFor = (
+  state: { gold: number; strategicResources: { SHARD?: number } },
+  send: DiplomacyTradeDeps["send"]
+): DiplomacyTradeDeps => ({
+  send,
+  ownHoldings: () => ({
+    gold: Math.max(0, Math.floor(state.gold)),
+    shard: Math.max(0, Math.floor(state.strategicResources.SHARD ?? 0))
+  })
+});
+
 let open: OpenScreen | undefined;
 // The player's own outgoing re-offer cooldowns, from TRUCE_UPDATE (server-bounded).
 let offerCooldowns: DiplomacyOfferCooldownView[] = [];

@@ -13,6 +13,7 @@ import { RECENT_CLIENT_CHANGELOG_ENTRIES } from "./client-changelog-data-october
 import { TILE_YIELD_REMOVAL_CHANGELOG } from "./client-changelog-tile-yield-removal.js";
 import { AI_PROGRESSION_AETHER_CHANGELOG } from "./client-changelog-ai-progression-aether.js";
 import { FAIRER_AI_DEALS_CHANGELOG } from "./client-changelog-fairer-ai-deals.js";
+import { ALLIANCES_TAB_TRADE_SCREEN_CHANGELOG } from "./client-changelog-alliances-tab-trade-screen.js";
 import { OVERLAY_PERSISTENCE_CHANGELOG } from "./client-changelog-overlay-persistence.js";
 import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
 import { RIVERS_MOUNTAINS_CHANGELOG } from "./client-changelog-rivers-mountains.js";
@@ -235,6 +236,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...TILE_YIELD_REMOVAL_CHANGELOG,
   ...AI_PROGRESSION_AETHER_CHANGELOG,
   ...FAIRER_AI_DEALS_CHANGELOG,
+  ...ALLIANCES_TAB_TRADE_SCREEN_CHANGELOG,
   ...OVERLAY_PERSISTENCE_CHANGELOG,
   {
     createdAt: 1792187006316, // frozen Date.now() value for this release
