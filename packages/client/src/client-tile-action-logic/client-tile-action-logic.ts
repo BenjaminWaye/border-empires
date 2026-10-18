@@ -1285,7 +1285,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
               "UMBRITE_WEAPONS_FACTORY",
               state.techIds.includes("leatherworking") && hasFreeResourceSlots(state, "UMBRITE_WEAPONS_FACTORY") && !tile.siegeBattery && !tile.observatory,
               !state.techIds.includes("leatherworking")
-                ? "Requires Rigging Works"
+                ? "Requires Umbrite Rigging Module"
                 : tile.siegeBattery || tile.observatory
                   ? "Tile already has structure"
                   : missingResourceSlotReason(state, "UMBRITE_WEAPONS_FACTORY") ?? "Unavailable",
@@ -1334,7 +1334,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
             hasBlockingStructure
               ? "Tile already has structure"
               : !state.techIds.includes("agriculture")
-                ? "Requires Agrarian Works"
+                ? "Requires Hyperfeed Seedstock Consignment"
                 : missingResourceSlotReason(state, "HYDROGARDEN") ?? "Unavailable",
             `${deps.structureCostText("HYDROGARDEN")} • ${buildTimeLabel(economicBuildMsForState(state, "HYDROGARDEN"))} • +${TILE_SLOT_BOOST_STRUCTURES.HYDROGARDEN} FOOD slot${upkeepSuffixFor("HYDROGARDEN")}`
           ),
@@ -1355,7 +1355,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
             hasBlockingStructure
               ? "Tile already has structure"
               : !state.techIds.includes("leatherworking")
-                ? "Requires Rigging Works"
+                ? "Requires Umbrite Rigging Module"
                 : missingResourceSlotReason(state, "UMBRITE_RIG") ?? "Unavailable",
             `${deps.structureCostText("UMBRITE_RIG")} • ${buildTimeLabel(economicBuildMsForState(state, "UMBRITE_RIG"))} • +1 UMBRITE slot${upkeepSuffixFor("UMBRITE_RIG")}`
           ),
@@ -1377,7 +1377,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
             hasBlockingStructure
               ? "Tile already has structure"
               : !state.techIds.includes("mining")
-                ? "Requires Deep Shaft Mining"
+                ? "Requires Prospector Crew"
                 : missingResourceSlotReason(state, "MINE") ?? "Unavailable",
             `${deps.structureCostText("MINE")} • ${buildTimeLabel(economicBuildMsForState(state, "MINE"))} • +1 ${matchingNeed} slot${upkeepSuffixFor("MINE")}`
           ),

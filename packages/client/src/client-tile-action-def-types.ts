@@ -116,6 +116,8 @@ export type TileActionDef = {
   loading?: boolean;
   disabled?: boolean;
   disabledReason?: string;
+  /** A tech-locked row: the tech to open in the Manifest when the player taps "View Manifest". */
+  techLinkId?: string;
   targetKey?: string;
   originKey?: string;
   /** Floats to the top of the list and is highlighted (Settle Land on a tile that has something to gain). */

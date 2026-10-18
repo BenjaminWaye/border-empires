@@ -73,7 +73,7 @@ to touch; `client-map-3d.ts`/`client-runtime-loop.ts` never need to change
 again for a new module family.
 
 Covered (13 of 22 AFC-Module techs, by tech id — module name):
-`masonry` (Titanium Forge), `leatherworking` (Rigging Works),
+`masonry` (Titanium Forge), `leatherworking` (Umbrite Rigging),
 `crystal-lattices` (Aether Resonance Core), `workshops` (Umbrite
 Synthesis), `siegecraft` (Siege Lens Foundry), `logistics` (Transposition
 Array), `harborcraft` (Aetherward Coil), `terrain-engineering` (Geoform
@@ -544,7 +544,7 @@ old Reserve Lattice capacity statistics.
 | Titanium-Clad Masonry | Titanium Forge Module | AFC Module | Fort, Titanium Weapons Factory |
 | Reinforced Plating | Bastion Master-Die Module | AFC Module | Titanium Bastion |
 | Steel Ore Refineries | Thunderplate Induction Module | AFC Module | Thunder Bastion |
-| Rigging Works | Rigging Works Module | AFC Module | Umbrite Rig, Siege Battery, Umbrite Weapons Factory |
+| Rigging Works | Umbrite Rigging Module | AFC Module | Umbrite Rig, Siege Battery, Umbrite Weapons Factory |
 | Siege Engineering | Siege Lens Foundry Module | AFC Module | Siege Tower |
 | Standing Legion | Dread Tower Cadre | Crew | Dread Tower |
 | Muster Discipline | Hive Mind Module I | AFC Module | One additional regional Muster commander |

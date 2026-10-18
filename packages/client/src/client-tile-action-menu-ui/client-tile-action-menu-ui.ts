@@ -17,6 +17,7 @@ import type { initClientDom } from "../client-dom.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuTab, TileMenuView } from "../client-types.js";
 import { afcModulePickerStateForTitle, bindAfcModulePicker, fitAfcModulePicker } from "../client-afc-module-tab/client-afc-module-tab.js";
+import { openTechDetailFromTileMenu } from "../client-tile-action-support/client-tech-locked-tile-action.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -145,6 +146,15 @@ export const renderTileActionMenu = (
         const actionId = btn.dataset.action as TileActionDef["id"] | undefined;
         if (!actionId) return;
         deps.handleTileAction(actionId, btn.dataset.targetKey, btn.dataset.originKey);
+      };
+    });
+    deps.tileActionMenuEl.querySelectorAll<HTMLButtonElement>("button[data-view-tech]").forEach((btn) => {
+      btn.onclick = () => {
+        const techId = btn.dataset.viewTech;
+        if (!techId) return;
+        openTechDetailFromTileMenu(state, techId, deps.isMobile());
+        deps.hideTileActionMenu();
+        deps.renderHud();
       };
     });
     const progressButtons = deps.tileActionMenuEl.querySelectorAll<HTMLButtonElement>("button[data-progress-action]");
