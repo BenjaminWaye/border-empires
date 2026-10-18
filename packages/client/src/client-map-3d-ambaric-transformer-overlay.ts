@@ -371,12 +371,14 @@ export const createAmbaricTransformerOverlay = (
       const nexus = TOWER.nexusScaleByLevel[level]!;
       const writer: TowerBodyContext = {
         addPiece: (key, ox, oy, oz, sx = 1, sz = 1, sy = 1, rotY = 0, rotX = 0, rotZ = 0) => {
-          if (!(key in bases)) bases[key] = slotCount(key);
-          addPiece(pieceKeyFor(key, t.dimmed), t.x, t.y, t.z, ox, oy, oz, sx, sz, sy, rotY, rotX, rotZ);
+          const slotKey = pieceKeyFor(key, t.dimmed);
+          if (!(key in bases)) bases[key] = slotCount(slotKey);
+          addPiece(slotKey, t.x, t.y, t.z, ox, oy, oz, sx, sz, sy, rotY, rotX, rotZ);
         },
         addPieceAlong: (key, ox, oy, oz, dx, dy, dz, len) => {
-          if (!(key in bases)) bases[key] = slotCount(key);
-          addPieceAlong(pieceKeyFor(key, t.dimmed), t.x, t.y, t.z, ox, oy, oz, dx, dy, dz, len);
+          const slotKey = pieceKeyFor(key, t.dimmed);
+          if (!(key in bases)) bases[key] = slotCount(slotKey);
+          addPieceAlong(slotKey, t.x, t.y, t.z, ox, oy, oz, dx, dy, dz, len);
         }
       };
       const placement: TowerPlacement = { x: t.x, z: t.z, phase: t.phase, level, nexus };
