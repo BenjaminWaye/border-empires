@@ -1,14 +1,14 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import type { ProspectSignature } from "@border-empires/shared";
 import { createForest } from "@client/client-map-3d-forest.js";
-import { createProspectClueLayer, prospectClueTreeTint } from "@client/client-map-3d-prospect-clue/client-map-3d-prospect-clue-layer.js";
+import { createProspectClueLayer } from "@client/client-map-3d-prospect-clue/client-map-3d-prospect-clue-layer.js";
 import type { Tile } from "@client/client-types.js";
 import { createGrassGround, createStage, wrapWithCleanup } from "../three-stage.js";
 
 // The worldgen prospect clues in the true-3D renderer: each block is half
-// forest (left) and half open ground (right). Blackwood darkens the forest's
-// own trees and plants blackwood trees on open ground; ferrous dust and
-// refractive ground scatter flecks/shards. "None" is the plain reference.
+// forest (left) and half open ground (right). Blackwood raises a purple swirl
+// over its forest every few seconds; ferrous dust scatters small grey chips
+// and refractive ground pale glints. "None" is the plain reference.
 // 2D twin: 2D/ProspectClues.
 
 type Clue = ProspectSignature | "NONE";
@@ -48,8 +48,8 @@ const render = (args: Args): HTMLElement => {
         const wy = 200 + z;
         const tile: Tile = clue === "NONE" ? { x: wx, y: wy, terrain: "LAND" } : { x: wx, y: wy, terrain: "LAND", prospectSignature: clue };
         const treesOnTile = dx < BLOCK_W / 2;
-        if (treesOnTile) forest.addInstance(x, z, 0, wx, wy, prospectClueTreeTint(tile, "LAND", "visible"));
-        prospectClues.addTile({ tile, terrain: "LAND", visibility: "visible", x, z, wx, wy, wxNext: wx + 1, wyNext: wy + 1, surfaceY: 0, flatOverlayY: 0, cornerYAt: () => 0, treesOnTile });
+        if (treesOnTile) forest.addInstance(x, z, 0, wx, wy);
+        prospectClues.addTile({ tile, terrain: "LAND", visibility: "visible", x, z, wx, wy, wxNext: wx + 1, wyNext: wy + 1, surfaceY: 0, flatOverlayY: 0, cornerYAt: () => 0, forestOnTile: treesOnTile, techState: { techIds: [], techCatalog: [] } });
       }
     }
   });

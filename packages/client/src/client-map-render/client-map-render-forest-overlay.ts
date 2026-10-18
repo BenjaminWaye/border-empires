@@ -5,8 +5,7 @@
 // true-3D renderer's equivalent species split (pine/spruce/leaf); both must
 // stay in sync per AGENTS.md's renderer-parity rule.
 import { isForestTile, isLightGrassScatterTile, isTropicalForestLatitude } from "../client-constants.js";
-import type { ProspectClueDraw } from "../client-prospect-signature-overlay.js";
-import { prospectClueJitter, prospectCluePropCount, prospectCluePropOffset } from "../client-prospect-clue/client-prospect-clue.js";
+import { drawBlackwoodSwirl, type ProspectClueDraw } from "../client-prospect-signature-overlay.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render.js";
 
@@ -36,16 +35,9 @@ export const drawForestOverlay = (
   // isLightGrassScatterTile's own doc comment (client-constants.ts) and
   // client-map-3d-forest.ts's addSparseLeafInstance (the true-3D equivalent).
   const isScatter = !isForest && isLightGrassScatterTile(wx, wy);
-  // Blackwood canopy (an Umbrite clue) turns a tile's own trees violet-black,
-  // and plants gaunt blackwood conifers on open ground (a lone light-grass
-  // sapling doesn't count as wooded) -- same as the true-3D
-  // BLACKWOOD_FOREST_TINT / client-map-3d-prospect-clue-props.ts. The other
-  // clues' ground props draw after the hills overlay (client-map-facade.ts).
-  const blackwood = prospectClue?.signature === "BLACKWOOD_CANOPY";
+  if (!isForest && !isScatter) return;
   const canopyYOffset = useTerrainReliefRenderer ? Math.floor(terrainReliefPx(wx, wy, "LAND", size) * 0.45) : 0;
   const pulse = 0.78 + 0.22 * (0.5 + 0.5 * Math.sin(Date.now() / 900 + wx * 0.17 + wy * 0.11));
-  if (blackwood && prospectClue.propsAllowed && !isForest) drawBlackwoodGrove(ctx, wx, wy, px, py - canopyYOffset, size, pulse);
-  if (!isForest && !isScatter) return;
   // Tropical-latitude forest tiles always render as palm, overriding the
   // ordinary pine/spruce/leaf species roll (worldgen-latitude.ts).
   const tropical = isForest && isTropicalForestLatitude(wy);
@@ -67,45 +59,17 @@ export const drawForestOverlay = (
     const tx = px + size * ax;
     const ty = py + size * ay - canopyYOffset;
     if (tropical) {
-      drawPalmTreeAnchor(ctx, tx, ty, size, i, pulse, blackwood);
+      drawPalmTreeAnchor(ctx, tx, ty, size, i, pulse);
       continue;
     }
     const sizeMult = isScatter ? scatterScale : 1;
-    drawConiferOrLeafAnchor(ctx, tx, ty, size, i, pulse, isLeaf, sizeMult, blackwood);
+    drawConiferOrLeafAnchor(ctx, tx, ty, size, i, pulse, isLeaf, sizeMult);
   }
   ctx.restore();
-};
-
-const drawBlackwoodGrove = (ctx: CanvasRenderingContext2D, wx: number, wy: number, px: number, py: number, size: number, pulse: number): void => {
-  const count = prospectCluePropCount("BLACKWOOD_CANOPY", wx, wy);
-  ctx.save();
-  for (let i = 0; i < count; i += 1) {
-    const { ox, oy } = prospectCluePropOffset(wx, wy, i);
-    const scale = 0.85 + (prospectClueJitter(wx, wy, 71 + i * 7) + 0.5) * 0.3;
-    const tx = px + size * (0.5 + ox);
-    const ty = py + size * (0.5 + oy);
-    const trunkW = Math.max(1, size * 0.04 * scale);
-    const canopyW = size * 0.15 * scale;
-    const canopyH = size * 0.3 * scale;
-    ctx.fillStyle = `rgba(43, 31, 29, ${0.6 + pulse * 0.15})`;
-    ctx.fillRect(tx - trunkW / 2, ty - size * 0.02, trunkW, size * 0.1 * scale);
-    // Narrow, spiky silhouette -- taller and thinner than the ordinary conifer.
-    ctx.fillStyle = `rgba(42, 28, 58, ${0.82 + pulse * 0.12})`;
-    ctx.beginPath();
-    ctx.moveTo(tx, ty - canopyH);
-    ctx.lineTo(tx - canopyW * 0.5, ty + canopyH * 0.08);
-    ctx.lineTo(tx + canopyW * 0.5, ty + canopyH * 0.08);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = `rgba(104, 72, 140, ${0.34 + pulse * 0.1})`;
-    ctx.beginPath();
-    ctx.moveTo(tx, ty - canopyH * 0.9);
-    ctx.lineTo(tx - canopyW * 0.24, ty - canopyH * 0.2);
-    ctx.lineTo(tx + canopyW * 0.06, ty - canopyH * 0.3);
-    ctx.closePath();
-    ctx.fill();
-  }
-  ctx.restore();
+  // Blackwood canopy (an Umbrite clue): a purple swirl rises out of the forest
+  // every few seconds -- 2D twin of client-map-3d-blackwood-swirl.ts. The other
+  // clues' ground props draw after the hills overlay (client-map-facade.ts).
+  if (isForest && prospectClue?.signature === "BLACKWOOD_CANOPY" && prospectClue.propsAllowed) drawBlackwoodSwirl(ctx, wx, wy, px, py - canopyYOffset, size);
 };
 
 const drawConiferOrLeafAnchor = (
@@ -116,38 +80,37 @@ const drawConiferOrLeafAnchor = (
   i: number,
   pulse: number,
   isLeaf: boolean,
-  sizeMult: number,
-  blackwood: boolean
+  sizeMult: number
 ): void => {
   const trunkW = Math.max(1, size * 0.045 * sizeMult);
   const canopyW = size * (0.2 + i * 0.015) * sizeMult;
   const canopyH = canopyW * 0.92;
-  ctx.fillStyle = blackwood ? `rgba(30, 20, 28, ${0.5 + pulse * 0.16})` : `rgba(28, 54, 27, ${0.4 + pulse * 0.16})`;
+  ctx.fillStyle = `rgba(28, 54, 27, ${0.4 + pulse * 0.16})`;
   ctx.fillRect(tx - trunkW / 2, ty - size * 0.02, trunkW, size * 0.12 * sizeMult);
   if (isLeaf) {
     // Leaf/deciduous: a broad rounded canopy (two overlapping circular
     // lobes) in a warmer, lighter green -- reads distinctly from the
     // conifer triangle below even at small tile sizes.
-    ctx.fillStyle = blackwood ? `rgba(48, 34, 66, ${0.8 + pulse * 0.12})` : `rgba(74, 115, 46, ${0.74 + pulse * 0.12})`;
+    ctx.fillStyle = `rgba(74, 115, 46, ${0.74 + pulse * 0.12})`;
     ctx.beginPath();
     ctx.arc(tx - canopyW * 0.18, ty - canopyH * 0.28, canopyW * 0.34, 0, Math.PI * 2);
     ctx.arc(tx + canopyW * 0.18, ty - canopyH * 0.28, canopyW * 0.34, 0, Math.PI * 2);
     ctx.arc(tx, ty - canopyH * 0.5, canopyW * 0.36, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = blackwood ? `rgba(104, 72, 140, ${0.34 + pulse * 0.08})` : `rgba(122, 156, 78, ${0.34 + pulse * 0.08})`;
+    ctx.fillStyle = `rgba(122, 156, 78, ${0.34 + pulse * 0.08})`;
     ctx.beginPath();
     ctx.arc(tx - canopyW * 0.1, ty - canopyH * 0.56, canopyW * 0.2, 0, Math.PI * 2);
     ctx.fill();
     return;
   }
-  ctx.fillStyle = blackwood ? `rgba(36, 24, 50, ${0.8 + pulse * 0.12})` : `rgba(14, 41, 18, ${0.72 + pulse * 0.12})`;
+  ctx.fillStyle = `rgba(14, 41, 18, ${0.72 + pulse * 0.12})`;
   ctx.beginPath();
   ctx.moveTo(tx, ty - canopyH * 0.64);
   ctx.lineTo(tx - canopyW * 0.46, ty + canopyH * 0.14);
   ctx.lineTo(tx + canopyW * 0.46, ty + canopyH * 0.14);
   ctx.closePath();
   ctx.fill();
-  ctx.fillStyle = blackwood ? `rgba(96, 66, 130, ${0.32 + pulse * 0.08})` : `rgba(52, 96, 45, ${0.32 + pulse * 0.08})`;
+  ctx.fillStyle = `rgba(52, 96, 45, ${0.32 + pulse * 0.08})`;
   ctx.beginPath();
   ctx.moveTo(tx, ty - canopyH * 0.52);
   ctx.lineTo(tx - canopyW * 0.24, ty - canopyH * 0.05);
@@ -160,14 +123,14 @@ const drawConiferOrLeafAnchor = (
 // worldgen-latitude.ts): a tall thin trunk with a fan of frond wedges at
 // the top instead of a solid pine triangle, so the equatorial belt reads
 // visibly different from temperate forest here too.
-const drawPalmTreeAnchor = (ctx: CanvasRenderingContext2D, tx: number, ty: number, size: number, i: number, pulse: number, blackwood: boolean): void => {
+const drawPalmTreeAnchor = (ctx: CanvasRenderingContext2D, tx: number, ty: number, size: number, i: number, pulse: number): void => {
   const trunkW = Math.max(1, size * 0.035);
   const trunkH = size * (0.22 + i * 0.01);
   const frondLen = size * (0.16 + i * 0.012);
-  ctx.fillStyle = blackwood ? `rgba(40, 28, 30, ${0.55 + pulse * 0.12})` : `rgba(90, 68, 40, ${0.5 + pulse * 0.12})`;
+  ctx.fillStyle = `rgba(90, 68, 40, ${0.5 + pulse * 0.12})`;
   ctx.fillRect(tx - trunkW / 2, ty - trunkH * 0.1, trunkW, trunkH);
   const crownY = ty - trunkH * 0.1;
-  ctx.fillStyle = blackwood ? `rgba(46, 32, 64, ${0.78 + pulse * 0.14})` : `rgba(58, 122, 58, ${0.68 + pulse * 0.14})`;
+  ctx.fillStyle = `rgba(58, 122, 58, ${0.68 + pulse * 0.14})`;
   const frondAngles = [-1.15, -0.55, 0, 0.55, 1.15];
   const frondHalfWidth = frondLen * 0.22;
   for (const angle of frondAngles) {
