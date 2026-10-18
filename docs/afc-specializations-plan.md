@@ -158,7 +158,7 @@ changelog entry when behavior changes. Do not expose placeholder rewards as acti
 ### Client discovery slice — implemented on this branch
 
 The existing paid catalogue now has a standalone AFC Upgrades entrypoint, tier
-selector, inline mobile comparison, desktop detail column, and a direct overview
+browser with Previous/Next buttons, inline mobile comparison, desktop detail column, and a direct overview
 link on owned AFCs. Clickable ready badges use current affordability and the
 correct projection above active owned AFCs in both renderers; the global count
 remains visible offscreen. No extra AFC tab is introduced. Routine HUD updates

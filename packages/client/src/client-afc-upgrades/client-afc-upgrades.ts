@@ -17,6 +17,9 @@ function currentTier(state: UpgradeState): number {
   return candidates.length ? Math.min(...candidates.map(upgrade => upgrade.tier)) : 1;
 }
 
+const upgradeTiers = (state: UpgradeState): number[] =>
+  [...new Set(state.domainCatalog.map(upgrade => upgrade.tier))].sort((a, b) => a - b);
+
 function canInstall(state: UpgradeState, upgrade: DomainInfo): boolean {
   return readyAfcUpgradeCount({ ...state, domainChoices: [upgrade.id] }) > 0 &&
     state.domainChoices.includes(upgrade.id);
@@ -48,23 +51,24 @@ function detail(state: UpgradeState, upgrade: DomainInfo, id: string): string {
 }
 
 export function renderAfcUpgradesHtml(state: UpgradeState, view: UpgradeView, prefix: string): string {
-  const tiers = [...new Set(state.domainCatalog.map(upgrade => upgrade.tier))].sort((a, b) => a - b);
+  const tiers = upgradeTiers(state);
   const count = readyAfcUpgradeCount(state);
   const chosen = state.domainCatalog.filter(upgrade => state.domainIds.includes(upgrade.id));
   const options = state.domainCatalog.filter(upgrade => upgrade.tier === view.tier);
   const tierOwned = chosen.find(upgrade => upgrade.tier === view.tier);
+  const tierIndex = tiers.indexOf(view.tier);
+  const tierOpen = options.some(upgrade => state.domainChoices.includes(upgrade.id));
   return `<section class="afc-upgrades" aria-label="AFC upgrades">
-    <header class="afc-upgrade-heading"><div><span class="afc-upgrade-kicker">Campaign configuration</span>
-    <h3>AFC Upgrades</h3></div><span class="afc-upgrade-ready-count" role="status">${count} ready</span></header>
-    <p>${chosen.length} of ${tiers.length} upgrade positions installed. Choose how your expedition specializes.</p>
-    <label class="afc-upgrade-tier-label">Review upgrade tier
-      <select data-afc-upgrade-tier>${tiers.map(tier => {
-        const installed = chosen.find(upgrade => upgrade.tier === tier);
-        const open = state.domainCatalog.some(upgrade => upgrade.tier === tier && state.domainChoices.includes(upgrade.id));
-        return `<option value="${tier}" ${tier === view.tier ? "selected" : ""}>${roman(tier)} · ${escape(installed?.name ?? (open ? "Choose one" : "Locked"))}</option>`;
-      }).join("")}</select>
-    </label>
-    <p class="afc-upgrade-tier-heading">Upgrade ${roman(view.tier)} · ${tierOwned ? "Installed configuration" : "Choose one"}</p>
+    <div class="afc-upgrade-summary"><p><strong>${chosen.length} of ${tiers.length}</strong> installed</p>
+      <span class="afc-upgrade-ready-count" role="status">${count ? `${count} ready` : "None ready"}</span></div>
+    ${tiers.length ? `<div class="afc-upgrade-tier-browser" role="group" aria-label="Browse upgrade tiers">
+      <button type="button" class="afc-upgrade-tier-step" data-afc-upgrade-step="previous" aria-label="Previous upgrade tier" ${tierIndex <= 0 ? "disabled" : ""}><span aria-hidden="true">‹</span></button>
+      <div class="afc-upgrade-tier-current" aria-live="polite" aria-atomic="true">
+        <h3 tabindex="-1" data-afc-upgrade-current-tier="${view.tier}">Upgrade ${roman(view.tier)}<span>${tierIndex + 1} / ${tiers.length}</span></h3>
+        <p>${tierOwned ? `Installed · ${escape(tierOwned.name)}` : tierOpen ? "Choose one upgrade" : "Locked · complete earlier tiers"}</p>
+      </div>
+      <button type="button" class="afc-upgrade-tier-step" data-afc-upgrade-step="next" aria-label="Next upgrade tier" ${tierIndex >= tiers.length - 1 ? "disabled" : ""}><span aria-hidden="true">›</span></button>
+    </div>` : ""}
     <div class="afc-upgrade-options">${options.map(upgrade => {
       const expanded = view.expanded && view.selectedId === upgrade.id;
       const owned = state.domainIds.includes(upgrade.id);
@@ -95,11 +99,12 @@ export function renderAfcUpgradePanels(
     else views.delete(root);
     const repaint = (): void => {
       const html = renderAfcUpgradesHtml(state, view, `afc-upgrade-${index}`);
-      // Routine HUD ticks must not interrupt touch scrolling, focus or an open native select.
+      // Routine HUD ticks must not interrupt touch scrolling or keyboard focus.
       if (view.html === html && root.firstElementChild) return;
       const scrollTop = root.scrollTop;
       const focused = root.contains(document.activeElement) ? document.activeElement as HTMLElement : null;
-      const focusSelector = focused?.matches("select") ? "select"
+      const focusSelector = focused?.dataset.afcUpgradeStep ? `[data-afc-upgrade-step="${focused.dataset.afcUpgradeStep}"]`
+        : focused?.hasAttribute("data-afc-upgrade-current-tier") ? "[data-afc-upgrade-current-tier]"
         : focused?.dataset.domainUnlock ? `[data-domain-unlock="${CSS.escape(focused.dataset.domainUnlock)}"]`
         : focused?.dataset.afcUpgradeCard ? `[data-afc-upgrade-card="${CSS.escape(focused.dataset.afcUpgradeCard)}"]` : "";
       root.innerHTML = html;
@@ -108,14 +113,22 @@ export function renderAfcUpgradePanels(
       if (focusSelector) root.querySelector<HTMLElement>(focusSelector)?.focus({ preventScroll: true });
     };
     repaint();
-    root.onchange = event => {
-      const select = (event.target as HTMLElement).closest<HTMLSelectElement>("[data-afc-upgrade-tier]");
-      if (!select) return;
-      view.tier = Number(select.value); view.expanded = false;
-      repaint(); root.querySelector<HTMLSelectElement>("select")?.focus({ preventScroll: true });
-    };
     root.onclick = event => {
       const target = event.target as HTMLElement;
+      const step = target.closest<HTMLButtonElement>("[data-afc-upgrade-step]");
+      if (step) {
+        if (step.disabled) return;
+        const tiers = upgradeTiers(state);
+        const nextIndex = tiers.indexOf(view.tier) + (step.dataset.afcUpgradeStep === "next" ? 1 : -1);
+        const nextTier = tiers[nextIndex];
+        if (nextTier === undefined) return;
+        view.tier = nextTier; view.expanded = false;
+        repaint();
+        const nextStep = root.querySelector<HTMLButtonElement>(`[data-afc-upgrade-step="${step.dataset.afcUpgradeStep}"]`);
+        const focusTarget = nextStep?.disabled ? root.querySelector<HTMLElement>("[data-afc-upgrade-current-tier]") : nextStep;
+        focusTarget?.focus({ preventScroll: true });
+        return;
+      }
       const button = target.closest<HTMLButtonElement>("[data-afc-upgrade-card]");
       if (button?.dataset.afcUpgradeCard) {
         const id = button.dataset.afcUpgradeCard;

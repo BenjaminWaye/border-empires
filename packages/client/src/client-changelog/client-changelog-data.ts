@@ -478,12 +478,12 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1792274565950, // Date.now() frozen for this release.
+    createdAt: 1792306364429, // Date.now() frozen for this release.
     introducedIn: "2026.10.18.1",
     title: "AFC upgrades are easier to find and compare",
     why: "Upgrade choices were easy to miss, and opening a separate detail screen made comparing them awkward on phones.",
     changes: [
-      "AFC Upgrades replaces Sharding in navigation, with inline details on phones and comparison cards beside details on desktop",
+      "AFC Upgrades replaces Sharding in navigation, with one panel title, a brass-framed Previous/Next tier browser, inline details on phones and comparison cards beside details on desktop",
       "A clickable upgrade-ready badge appears above your active AFCs in both map renderers; the navigation count stays visible when the AFC is offscreen",
       "Owned AFC overviews link directly to upgrades, and availability follows your current resources and prerequisites; existing upgrade costs and rewards stay the same"
     ]

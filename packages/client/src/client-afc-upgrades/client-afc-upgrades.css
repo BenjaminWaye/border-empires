@@ -1,13 +1,16 @@
 .afc-upgrades { display: grid; gap: 12px; padding: 12px; color: var(--sp-parchment-100); }
-.afc-upgrade-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
-.afc-upgrade-heading > div { min-width: 0; }
-.afc-upgrade-heading h3 { margin: 4px 0 0; color: var(--sp-brass-100); }
-.afc-upgrade-kicker { color: var(--sp-parchment-muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.afc-upgrade-summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; color: var(--sp-parchment-muted); }
+.afc-upgrade-summary strong { color: var(--sp-parchment-100); }
 .afc-upgrade-ready-count { border: 1px solid var(--sp-brass-700); border-radius: 4px; padding: 4px 8px; white-space: nowrap; color: var(--sp-brass-100); }
 .afc-upgrades p { margin: 0; font-size: 12px; line-height: 1.6; }
-.afc-upgrade-tier-label { display: grid; gap: 6px; color: var(--sp-parchment-muted); font-size: 12px; }
-#hud .afc-upgrade-tier-label select { min-height: 44px; min-width: 0; width: 100%; padding: 8px; border: 1px solid var(--sp-brass-700); border-radius: 4px; background: var(--sp-iron-900); color: var(--sp-parchment-100); font: inherit; color-scheme: dark; }
-.afc-upgrade-tier-heading { color: var(--sp-brass-300); }
+.afc-upgrade-tier-browser { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: stretch; border: 1px solid var(--sp-brass-700); border-radius: 5px; background: var(--sp-panel-bg); }
+.afc-upgrade-tier-step { display: grid; place-items: center; min-height: 52px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--sp-brass-100); font: 28px/1 Georgia, serif; cursor: pointer; }
+.afc-upgrade-tier-step:hover:not(:disabled) { background: #d9ad5214; }
+.afc-upgrade-tier-step:disabled { opacity: .3; cursor: default; }
+.afc-upgrade-tier-current { min-width: 0; padding: 12px 8px; border-inline: 1px solid var(--sp-brass-700); overflow-wrap: anywhere; }
+.afc-upgrade-tier-current h3 { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin: 0 0 4px; color: var(--sp-brass-100); font-size: 16px; }
+.afc-upgrade-tier-current h3 span { color: var(--sp-parchment-muted); font-size: 11px; font-weight: normal; white-space: nowrap; }
+.afc-upgrade-tier-current p { color: var(--sp-parchment-muted); }
 .afc-upgrade-options { display: grid; gap: 8px; min-width: 0; }
 .afc-upgrade-option { min-width: 0; border: 1px solid var(--sp-brass-700); border-radius: 5px; overflow-wrap: anywhere; }
 .afc-upgrade-option.is-expanded { border-color: var(--sp-brass-300); }
@@ -21,7 +24,7 @@
 .afc-upgrade-reason { color: var(--sp-parchment-muted); }
 .afc-upgrade-install { min-height: 44px; width: 100%; }
 .afc-upgrade-consequence { color: var(--sp-parchment-muted); }
-.afc-upgrades button:focus-visible, .afc-upgrades select:focus-visible { outline: 2px solid var(--sp-brass-300); outline-offset: 3px; }
+.afc-upgrades button:focus-visible, .afc-upgrade-tier-current h3:focus-visible { outline: 2px solid var(--sp-brass-300); outline-offset: 3px; }
 @media (min-width: 901px) {
   #side-panel.afc-upgrades-panel { width: min(860px, calc(100vw - 220px)); }
   #hud:has(#side-panel.afc-upgrades-panel) #mini-map-wrap { right: auto; left: 12px; }

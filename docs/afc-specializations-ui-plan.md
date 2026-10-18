@@ -57,7 +57,7 @@ the same state and open this management panel at the selected tier.
 ```text
 AFC / CAMPAIGN HEADQUARTERS                   1 upgrade ready
 2 of 5 upgrade positions installed
-Review upgrade tier [ III · Ready · Choose one specialization     v ]
+[ ‹ ]    Upgrade III · Choose one upgrade    3 / 5    [ › ]
 
 UPGRADE III · Choose one specialization       Free
 Your choice lasts for this campaign. Other tier-III choices will close.
@@ -69,10 +69,11 @@ Your choice lasts for this campaign. Other tier-III choices will close.
                                              [Install upgrade — free]
 ```
 
-Use one labelled native tier selector, with installed names and locked states,
-in both the study and connected client. The management sheet has no additional
-tab bar or horizontal tier scrolling. These are five campaign choices, not six
-mandatory class picks.
+Use one brass-framed tier browser with 44px Previous and Next buttons, the
+current tier, position (for example 3 / 5), and installed/available/locked text.
+Keep the shell’s AFC Upgrades title; do not repeat it inside the panel. No
+dropdown, additional tab row, or horizontal tier scrolling. These are five
+campaign choices, not six mandatory class picks.
 Installed positions name their actual upgrade and branch. Locked positions name
 the exact next condition. Multiple banked choices show a count and install oldest
 unfilled tier first. All thirty rewards remain inspectable without appearing
@@ -144,10 +145,10 @@ remains in the document flow above safe-area insets. On desktop the expanded
 management panel places selected details beside the comparison cards.
 
 Routine HUD ticks keep unchanged content mounted so they preserve touch scrolling,
-keyboard focus and an open native selector. Changed content preserves scroll and
+keyboard focus. Changed content preserves scroll and
 restores focus to the corresponding control.
 
-Use semantic buttons and headings, labelled native selection controls, visible
+Use semantic buttons and headings, labelled Previous/Next buttons, visible
 keyboard focus, logical focus restoration, and polite live announcements for
 installed/rejected states. Escape closes the detail and returns to its card.
 State uses text/icons as well as color. Locked choices remain readable and explain
