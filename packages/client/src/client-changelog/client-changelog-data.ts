@@ -43,6 +43,7 @@ import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./cli
 import { CLIENT_CHANGELOG_ENTRIES_OCT_12 } from "./client-changelog-data-oct-12.js";
 import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
 import { CLIENT_CHANGELOG_ENTRIES_COMPACT_MET_PLAYERS } from "./client-changelog-compact-met-players.js";
+import { CLIENT_CHANGELOG_ENTRIES_PLAYER_NAME_BUTTONS } from "./client-changelog-player-name-buttons.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog-town-growth-loading.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY } from "./client-changelog-town-growth-war-integrity.js";
 export type ClientChangelogEntry = {
@@ -207,6 +208,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_OCT_12,
   ...CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT,
   ...CLIENT_CHANGELOG_ENTRIES_COMPACT_MET_PLAYERS,
+  ...CLIENT_CHANGELOG_ENTRIES_PLAYER_NAME_BUTTONS,
   {
     createdAt: 1791921253260, // frozen Date.now() value for this release
     introducedIn: "2026.10.13.1",

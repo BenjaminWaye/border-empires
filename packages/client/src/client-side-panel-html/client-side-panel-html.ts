@@ -194,7 +194,7 @@ export const renderSocialInspectCardHtml = (args: {
     <div class="economy-detail-head">
       <div>
         <div class="economy-detail-kicker">Player</div>
-        <strong>${name}</strong>
+        <strong class="social-inspect-name" data-player-color-id="${id}">${name}</strong>
       </div>
       <div class="economy-rate">${args.allies.includes(id) ? "Allied" : "Empire"}</div>
     </div>

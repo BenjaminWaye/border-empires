@@ -37,7 +37,7 @@ import { bindRendererSettingsControls } from "../client-renderer-switch/client-r
 import { renderRendererPromptOverlay } from "../client-renderer-prompt/client-renderer-prompt-overlay.js";
 import { renderAllianceLists } from "./client-hud-alliance-lists.js";
 import { bindProposeButtons } from "../client-alliance/client-alliance-propose-buttons.js";
-import { bindMetPlayerRowToggles } from "../client-alliance/client-alliance-row-toggle.js";
+import { bindAlliancePlayerRows } from "../client-alliance/client-alliance-player-links.js";
 import { applyVictoryHoldAlertNavBadges } from "../client-victory-alert/client-victory-alert-badge.js";
 import { applyAllyAlertNavBadges } from "../client-alliance/client-ally-alert-badge.js";
 import { syncManifestPanelTabs } from "../client-manifest-tabs/client-manifest-tabs.js";
@@ -779,7 +779,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   bindRequestActionButtons(".cancel-truce", "truceRequestId", (id) => ({ type: "TRUCE_CANCEL", requestId: id }), "Finish sign-in before changing truce requests.");
 
   bindProposeButtons(dom.hud, { playerNameForOwner, sendGameMessage, state });
-  bindMetPlayerRowToggles(dom.hud, state);
+  bindAlliancePlayerRows(dom.hud, state, () => renderClientHud(deps));
   const breakAllianceButtons = dom.hud.querySelectorAll(".break-alliance") as NodeListOf<HTMLButtonElement>;
   breakAllianceButtons.forEach((btn: HTMLButtonElement) => bindBreakAllianceButton(btn, sendGameMessage));
 
