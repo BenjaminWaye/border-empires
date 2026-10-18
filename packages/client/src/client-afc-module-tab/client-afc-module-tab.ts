@@ -43,7 +43,7 @@ export const afcModuleTabHtml = (view: AfcModuleTabView, actionHtml: (action: Ti
   const empty = view.slots.filter((slot) => slot.state === "empty").length;
   return `<section class="afc-module-panel" aria-label="AFC module sockets">
     <div class="afc-module-heading"><strong>Fabrication complex</strong><span>${view.slots.length - empty}/${AFC_MODULE_SLOTS} sockets occupied</span></div>
-    ${view.active ? "" : '<p class="afc-module-note">Dormant · module effects are inactive.</p>'}
+    ${view.active ? "" : '<p class="afc-module-note"><span class="tile-overview-dormant">⚠ Dormant — modules inactive until this AFC is reclaimed.</span></p>'}
     <div class="afc-socket-diagram">
       <span class="afc-socket-north">N ↑</span><div class="afc-socket-core" aria-hidden="true">⚙<small>AFC</small></div>
       ${view.slots.slice(0, AFC_MODULE_SLOTS).map((slot, index) => {

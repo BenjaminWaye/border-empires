@@ -26,6 +26,7 @@ import { CLIENT_CHANGELOG_ENTRIES_MANIFEST_AETHER_RESHUFFLE } from "./client-cha
 import { CLIENT_CHANGELOG_ENTRIES_STEAMPUNK_ICON_LEGIBILITY } from "./client-changelog-steampunk-icon-legibility.js";
 import { CLIENT_CHANGELOG_ENTRIES_ARROW_CLICK_TARGETING } from "./client-changelog-arrow-click-targeting.js";
 import { CLIENT_CHANGELOG_ENTRIES_RELAY_BEACON_INSTANT } from "./client-changelog-relay-beacon-instant.js";
+import { CLIENT_CHANGELOG_ENTRIES_DISABLED_AETHER_TOWER } from "./client-changelog-disabled-aether-tower.js";
 import { CLIENT_CHANGELOG_ENTRIES_AFC_CONSTRUCTION } from "./client-changelog-afc-construction.js";
 import { CLIENT_CHANGELOG_ENTRIES_PLANETARY_DEFENSE } from "./client-changelog-planetary-defense.js";
 import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_POPUP_AFTER_WHATS_NEW } from "./client-changelog-waystation-popup-after-whats-new.js";
@@ -71,5 +72,6 @@ export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_STEAMPUNK_RESOURCE_ICONS,
   ...CLIENT_CHANGELOG_ENTRIES_STEAMPUNK_BUILD_MENU_ICONS,
   ...CLIENT_CHANGELOG_ENTRIES_MANIFEST_AETHER_RESHUFFLE,
-  ...CLIENT_CHANGELOG_ENTRIES_STEAMPUNK_ICON_LEGIBILITY
+  ...CLIENT_CHANGELOG_ENTRIES_STEAMPUNK_ICON_LEGIBILITY,
+  ...CLIENT_CHANGELOG_ENTRIES_DISABLED_AETHER_TOWER
 ];

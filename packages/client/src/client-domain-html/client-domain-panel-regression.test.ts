@@ -16,8 +16,8 @@ describe("domain panel detail layout regression guard", () => {
     expect(styleSource).toContain("#hud.desktop-side-panel-open #mini-map-wrap");
     expect(styleSource).toContain("right: 456px;");
     expect(styleSource).not.toContain("#side-panel.domain-panel-active #panel-domains-content");
-    expect(hudSource).toContain("const bindDomainPanelInteraction = (panel: HTMLElement): void => {");
-    expect(hudSource).toContain("bindDomainPanelInteraction(dom.panelDomainsContentEl);");
+    expect(hudSource).toContain("renderAfcUpgradePanels(state, dom.panelDomainsContentEl, dom.mobilePanelDomainsEl, chooseDomain)");
+    expect(hudSource).toContain('classList.remove("domain-detail-open")');
   });
 
 });

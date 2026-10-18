@@ -4,12 +4,10 @@ import { SimulationRuntime } from "./runtime.js";
 
 // Regression for the event_loop_blocked incidents that showed mainThreadTasks: []
 // during real multi-second stalls even after PR #786 wrapped
-// classifyVisibilityForPlayer — the tick functions (tileShedding,
-// territoryAutomation) and command handlers ALSO drive applyEconomyAccrual
-// (then an O(tiles) upkeep drain), and none of that chain was wrapped
-// in trackSyncMainThreadTask. Pins that both phases fire when the tracker is
-// supplied, via the same tickTileShedding path exercised by the existing
-// "simulation runtime — tile shedding" suite in runtime.test.ts.
+// classifyVisibilityForPlayer — the territory automation tick and command
+// handlers ALSO drive applyEconomyAccrual (then an O(tiles) upkeep drain),
+// and none of that chain was wrapped in trackSyncMainThreadTask. Pins that
+// the phase fires when the tracker is supplied, via tickTerritoryAutomation.
 describe("simulation runtime — economy accrual instrumentation", () => {
   const buildRuntime = (
     trackSyncMainThreadTask: (phase: string, details: Record<string, string | number | boolean | null> | undefined, task: () => unknown) => unknown
@@ -47,12 +45,12 @@ describe("simulation runtime — economy accrual instrumentation", () => {
       runtime,
       advanceAndTick: async (nextNowMs: number) => {
         now = nextNowMs;
-        await runtime.tickTileShedding(nextNowMs);
+        await runtime.tickTerritoryAutomation(nextNowMs);
       }
     };
   };
 
-  it("wraps applyEconomyAccrual in trackSyncMainThreadTask when driven by tickTileShedding", async () => {
+  it("wraps applyEconomyAccrual in trackSyncMainThreadTask when driven by tickTerritoryAutomation", async () => {
     const tracked: Array<{ phase: string; details: unknown }> = [];
     const { advanceAndTick } = buildRuntime((phase, details, task) => {
       tracked.push({ phase, details });
@@ -96,7 +94,7 @@ describe("simulation runtime — economy accrual instrumentation", () => {
     });
 
     now = 60_000;
-    await runtime.tickTileShedding(60_000);
+    await runtime.tickTerritoryAutomation(60_000);
 
     const state = runtime.exportState();
     expect(state.tiles.find((tile) => tile.x === 0 && tile.y === 0)?.ownerId).toBe("ai-1");

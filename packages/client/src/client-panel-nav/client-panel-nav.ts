@@ -7,7 +7,7 @@ export const isMobile = (): boolean => window.matchMedia("(max-width: 900px)").m
 
 export const panelTitle = (panel: NonNullable<ClientState["activePanel"]>): string => {
   if (panel === "tech") return MANIFEST_PANEL_TITLE;
-  if (panel === "domains") return "Sharding";
+  if (panel === "domains") return "AFC Upgrades";
   if (panel === "alliance") return "Alliances";
   if (panel === "economy") return "Economy";
   if (panel === "manpower") return "Manpower";
@@ -168,6 +168,7 @@ export const renderMobilePanels = (
   deps.sidePanelEl.classList.toggle("tech-panel-active", state.activePanel === "tech" && state.techTreeExpanded);
   deps.sidePanelEl.classList.toggle("tech-panel-open", state.activePanel === "tech"); // scopes the Manifest detail no-scroll rule
   deps.sidePanelEl.classList.toggle("domain-panel-active", state.activePanel === "domains" && state.domainDetailOpen && !isMobile());
+  deps.sidePanelEl.classList.toggle("afc-upgrades-panel", state.activePanel === "domains" && !isMobile());
   deps.mobileSheetEl.classList.toggle("tech-panel-active", state.mobilePanel === "tech" && state.techTreeExpanded);
   deps.mobileSheetEl.classList.toggle("tech-panel-open", state.mobilePanel === "tech"); // shows the Manifest view toggle in the sheet head
 
@@ -203,7 +204,7 @@ export const renderMobilePanels = (
   }
 
   if (state.mobilePanel === "tech") deps.mobileSheetTitleEl.textContent = MANIFEST_PANEL_TITLE;
-  else if (state.mobilePanel === "domains") deps.mobileSheetTitleEl.textContent = "Sharding";
+  else if (state.mobilePanel === "domains") deps.mobileSheetTitleEl.textContent = "AFC Upgrades";
   else if (state.mobilePanel === "social") deps.mobileSheetTitleEl.textContent = "Alliances";
   else if (state.mobilePanel === "defensibility") deps.mobileSheetTitleEl.textContent = "Empire Integrity";
   else if (state.mobilePanel === "economy") deps.mobileSheetTitleEl.textContent = "Economy";

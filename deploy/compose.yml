@@ -30,7 +30,8 @@ services:
       timeout: 5s
       retries: 3
       start_period: 120s
-    # Covers the ~12s simulation shutdown.
+    # Covers the simulation shutdown, including its final snapshot checkpoint
+    # (up to ~22s; apps/realtime-gateway/src/main-merged.ts force-exits at 28s).
     stop_grace_period: 30s
     logging:
       driver: json-file
