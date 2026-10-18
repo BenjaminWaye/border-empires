@@ -90,7 +90,11 @@
   vertical-align: 0.05em;
 }
 
-.alliance-reference-id,
+.alliance-reference-offer {
+  color: var(--sp-brass-300);
+  font-weight: 600;
+}
+
 .alliance-reference-time,
 .alliance-reference-duration-note {
   color: var(--sp-parchment-muted);
