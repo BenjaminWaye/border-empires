@@ -9,10 +9,10 @@ describe("client HUD domain unlock regression", () => {
   // wired but did nothing. Delegation on the panel container itself survives
   // innerHTML rewrites; if the per-button pattern comes back, this test fails.
   it("delegates domain unlock and detail-close clicks on the panel container", () => {
-    const hudSource = readFileSync(new URL("./client-hud.ts", import.meta.url), "utf8");
+    const hudSource = readFileSync(new URL("../client-afc-upgrades/client-afc-upgrades.ts", import.meta.url), "utf8");
 
     expect(hudSource).toContain('closest<HTMLButtonElement>("[data-domain-unlock]")');
-    expect(hudSource).toContain('closest<HTMLElement>("[data-domain-detail-close]")');
+    expect(hudSource).toContain('closest<HTMLButtonElement>("[data-afc-upgrade-card]")');
     expect(hudSource).not.toMatch(/querySelectorAll\([^)]*#panel-domains \[data-domain-unlock\]/);
     expect(hudSource).not.toMatch(/querySelectorAll\([^)]*#panel-domains \[data-domain-detail-close\]/);
   });

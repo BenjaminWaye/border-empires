@@ -3,6 +3,7 @@ import type { ClientState } from "./client-state/client-state.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import { promptForTrickleResource, type TrickleOption } from "./client-trickle-pick-modal.js";
 import type { ActiveTruceView, FeedSeverity, FeedType } from "./client-types.js";
+import { readyAfcUpgradeCount } from "./client-afc-upgrade-ready/client-afc-upgrade-ready.js";
 
 export type PlayerActionDeps = {
   state: ClientState;
@@ -137,7 +138,7 @@ export const chooseDomainFromUi = (domainIdRaw: string | undefined, deps: Player
     deps.pushFeed("That domain tier is not available right now.", "tech", "warn");
     return;
   }
-  if (!domain.requirements.canResearch) {
+  if (readyAfcUpgradeCount({ ...deps.state, domainChoices: [domainId] }) === 0) {
     deps.pushFeed("Domain requirements are not met yet.", "tech", "warn");
     return;
   }

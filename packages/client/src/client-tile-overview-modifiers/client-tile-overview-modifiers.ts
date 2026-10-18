@@ -344,6 +344,9 @@ export const tileFeatureLeadLines = (
     lines.push({ html: tile.shardSite.kind === "FALL" ? `Shard rain deposit: ${shards} can be collected here for a short time.` : `Shard cache: ${shards} can be recovered here.` });
   }
   lines.push(...afcModuleOverviewLines(tile, deps.techCatalog));
+  if (tile.afc?.ownerId === deps.me && tile.ownerId === deps.me) {
+    lines.push({ html: '<button type="button" class="tile-action-btn" data-open-afc-upgrades>Manage AFC upgrades</button>' });
+  }
   const clueLine = prospectClueOverviewLine(tile);
   if (clueLine) lines.push({ html: clueLine });
   return lines;
