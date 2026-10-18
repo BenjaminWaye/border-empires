@@ -30,7 +30,7 @@ export type RuntimeUpkeepAccrualContext = {
  * a human's passive income is paused for inactivity, their income instead
  * offsets the upkeep: the treasury only pays the shortfall, so an empire
  * whose income covers its upkeep keeps the gold it logged out with rather
- * than draining to zero and shedding tiles. Mutates `need.gold` in place.
+ * than draining to zero. Mutates `need.gold` in place.
  */
 export const offsetGoldUpkeepWhileIncomePaused = (
   ctx: Pick<RuntimeUpkeepAccrualContext, "lastActiveAtMsByPlayer" | "cachedEconomySnapshot" | "onUpkeepNettedWhileIncomePaused">,

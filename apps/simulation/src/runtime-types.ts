@@ -281,10 +281,6 @@ export type SimulationRuntimeOptions = {
    *  against income (runtime-upkeep-accrual.ts). Zero forever while offline
    *  converter owners exist means the offset never engages. */
   onUpkeepNettedWhileIncomePaused?: (playerId: string) => void;
-  /** Fires each time the tile-shedding tick skips emitPlayerStateUpdate for an
-   *  AI player (no WS subscribers — see PR #732 for the same rationale
-   *  applied to lock resolution). Zero forever means the skip never engages. */
-  onPlayerStateUpdateSkippedAi?: (playerId: string) => void;
   /** Fires whenever ensurePlayerHasSpawnTerritory places a fresh auth_recovery
    *  spawn for a human player — this overwrites their prior empire location,
    *  so a nonzero rate is worth alerting on. */
