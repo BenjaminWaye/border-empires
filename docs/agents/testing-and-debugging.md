@@ -95,6 +95,9 @@ time. Either direction reads to the player as "this bonus doesn't work."
   active slow logins must not repeatedly lose their queue position.
 - The initial page boot is outside this recovery watchdog. Once INIT succeeds,
   the existing map-loading/resubscription path handles tile streaming.
+- Recovery pauses if Firebase reports a signed-out player, including cross-tab
+  sign-out. Signing back in reopens a closed transport; it does not replace one
+  that is already connecting.
 - `client-network/client-network.deploy-recovery.integration.test.ts` exercises
   the actual authenticator and network message handlers through server-starting,
   busy, unavailable-auth, and refreshed-token replies, then checks INIT restores

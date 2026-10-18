@@ -28,6 +28,12 @@ export const createInPlaceReconnectScheduler = (deps: InPlaceReconnectDeps): InP
   let recoveryTimer: number | undefined;
   let attempt = 0;
 
+  // A sign-out in another tab invalidates this tab's Firebase session too.
+  // Leave it on the sign-in screen instead of opening unauthenticated sockets
+  // forever. Unconfigured localhost authentication can still recover.
+  const canRecover = (): boolean => state.hasEverInitialized &&
+    (!state.authConfigured || state.authReady || state.authSessionReady);
+
   const clearRecoveryTimer = (): void => {
     if (recoveryTimer !== undefined) {
       window.clearTimeout(recoveryTimer);
@@ -50,23 +56,23 @@ export const createInPlaceReconnectScheduler = (deps: InPlaceReconnectDeps): InP
 
   const watchForRecovery = (): void => {
     clear();
-    if (!state.hasEverInitialized || state.connection === "initialized" || !deps.onStalled) return;
+    if (!canRecover() || state.connection === "initialized" || !deps.onStalled) return;
     recoveryTimer = window.setTimeout(() => {
       recoveryTimer = undefined;
-      if (state.connection !== "initialized") deps.onStalled?.();
+      if (canRecover() && state.connection !== "initialized") deps.onStalled?.();
     }, RECOVERY_PROGRESS_TIMEOUT_MS);
   };
 
   const schedule = (): void => {
     clearRecoveryTimer();
-    if (!state.hasEverInitialized) return;
+    if (!canRecover()) return;
     if (timer !== undefined) return;
     attempt = Math.min(4, attempt + 1);
     const baseDelayMs = Math.min(16000, 2000 * 2 ** Math.min(3, attempt - 1));
     const delayMs = Math.round(baseDelayMs * (0.5 + Math.random()));
     timer = window.setTimeout(() => {
       timer = undefined;
-      if (state.connection === "initialized") return;
+      if (!canRecover() || state.connection === "initialized") return;
       ws.reconnect();
       watchForRecovery();
     }, delayMs);
@@ -78,7 +84,7 @@ export const createInPlaceReconnectScheduler = (deps: InPlaceReconnectDeps): InP
   // Checking immediately on return removes that lag instead of waiting for
   // whatever's left of the current backoff delay.
   const reconnectIfStillDown = (): void => {
-    if (!state.hasEverInitialized) return;
+    if (!canRecover()) return;
     if (ws.readyState === ws.OPEN || ws.readyState === ws.CONNECTING) return;
     clear();
     ws.reconnect();

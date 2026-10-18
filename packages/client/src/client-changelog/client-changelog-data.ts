@@ -480,7 +480,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Long interruptions keep retrying in place without automatically refreshing the page",
       "A reconnect that makes no progress for a minute automatically starts a fresh connection",
-      "Login queue updates and ongoing map downloads extend that timeout so active recovery can finish"
+      "Login queue updates and ongoing map downloads extend that timeout so active recovery can finish",
+      "Recovery pauses after sign-out; signing back in reopens a closed connection"
     ]
   }
 ];

@@ -65,6 +65,11 @@ Implementation and verification, 2026-10-18:
 - Not deployed. A controlled staging update during an established session is
   still the live acceptance check. The original playtest's exact outage cause
   cannot be proven without its build and deployment logs.
+- Review follow-up: recovery stops when Firebase reports a signed-out player,
+  including sign-out in another tab. A later sign-in reopens a closed socket
+  without replacing a connection attempt that is already running. Regression
+  tests cover sign-out before retries, during backoff, during a stalled restore,
+  and subsequent sign-in.
 
 ### 2. Preview and confirm bulk garrison
 
