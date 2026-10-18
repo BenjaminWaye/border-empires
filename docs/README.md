@@ -11,6 +11,8 @@ remain authoritative for runtime behavior.
 | Need | Read |
 |---|---|
 | Repository-wide operating rules | [`../AGENTS.md`](../AGENTS.md) |
+| Lore entrypoint and required gameplay-change lore check | [`lore/README.md`](lore/README.md) |
+| Canonical setting, Houses, Coin, Manifests and AFC fiction | [`lore/galactic-lore.md`](lore/galactic-lore.md) |
 | Local setup, package layout, CI, and release notes | [`../README.md`](../README.md) |
 | Deploying or using Fly/Vercel/Hetzner | [`agents/deploys.md`](agents/deploys.md) |
 | Fly → Hetzner migration plan | [`hetzner-migration-plan.md`](hetzner-migration-plan.md) |
@@ -47,6 +49,10 @@ those in the issue or PR until they prove recurring.
 
 - Update the canonical document in the same branch as a workflow, entrypoint,
   or player-facing-rule change.
+- Every gameplay change includes the [lore check](lore/README.md#every-gameplay-change-includes-a-lore-check).
+  Update affected fiction in the world bible in the same branch. Canon,
+  proposed fiction and implementation status are separate; planning records
+  and supporting stories cannot override established lore.
 - Prefer links to a canonical source over copying its rules into a plan.
 - When an active proposal ships, update the canonical reference and archive or
   remove the implementation plan in the same follow-up.
