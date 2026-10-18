@@ -119,15 +119,15 @@ describe("queued corner badge layout", () => {
 
   it("routes queued settlement numbers through the shared badge helper in the runtime loop", () => {
     const source = clientSource("../client-runtime-loop.ts");
-    expect(source).toContain('const queuedSettlementBadge = queuedCornerBadgeLayout({');
+    expect(source).toContain('drawQueuedTileBadges(deps.ctx, {');
     expect(source).toContain("isTrue3D: isTrue3DRendererActive()");
     expect(source).not.toContain("!isTrue3DRendererActive() && queuedSettlementN !== undefined && !settlementProgress");
   });
 
   it("routes frontier queue numbers through the shared badge helper in the runtime loop", () => {
     const source = clientSource("../client-runtime-loop.ts");
-    expect(source).toContain('const queuedFrontierBadge = queuedCornerBadgeLayout({');
-    expect(source).toContain('kind: "FRONTIER"');
+    expect(source).toContain('drawQueuedTileBadges(deps.ctx, {');
+    expect(clientSource('./client-queued-tile-badges.ts')).toContain('kind: "FRONTIER"');
     expect(source).not.toContain('!isTrue3DRendererActive() && queuedN !== undefined');
   });
 });

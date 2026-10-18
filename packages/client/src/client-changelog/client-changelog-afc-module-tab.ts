@@ -14,5 +14,12 @@ export const AFC_MODULE_TAB_CHANGELOG: ClientChangelogEntry[] = [
     title: "Choose AFC modules at an empty socket",
     why: "The permanent module list did not make it clear which empty socket you clicked.",
     changes: ["Module choices stay hidden until you click an empty socket, then appear beside that socket", "The picker highlights the selected socket, supports keyboard dismissal, and stays open through incoming-delivery countdown refreshes"]
+  },
+  {
+    createdAt: 1792270126879, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.17.3",
+    title: "Industrial Tooling docks as a precision mill",
+    why: "The Manufactory unlock deserves its own visible AFC machine.",
+    changes: ["The Industrial Tooling Module now has a dedicated 3D milling gantry with a moving spindle, rotating drive wheel and tool rack", "The 2D map shows a matching gantry symbol on AFCs with tooling installed"]
   }
 ];

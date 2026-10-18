@@ -1,6 +1,6 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
-export const GARRISON_OUTSIDE_REACH_CHANGELOG: ClientChangelogEntry[] = [
+export const CLIENT_CHANGELOG_ENTRIES_EARLIER_103: ClientChangelogEntry[] = [
   {
     createdAt: 1791748295340, // frozen Date.now() value for this release
     introducedIn: "2026.10.11.1",

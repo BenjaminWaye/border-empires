@@ -1,8 +1,6 @@
 // HUD/nav tab icons: simple emoji-style SVGs under public/icons/simple, so
-// they read at 30px. The Sharding tab reuses the Shard resource icon so the
-// tab and the resource read as the same thing.
+// they read at 30px. AFC Upgrades uses the headquarters icon; Shards remain a resource.
 
-import { resourceSimpleIconUrl } from "../client-resource-icons/client-resource-icons.js";
 
 export type NavTabIconKey =
   | "core"
@@ -18,7 +16,7 @@ export type NavTabIconKey =
 // The "tech" panel is shown to players as Manifest (charters, grants, warrants,
 // dossiers), so its icon is a sealed ledger rather than a tech symbol.
 const navTabIconUrl = (key: NavTabIconKey): string => {
-  if (key === "domains") return resourceSimpleIconUrl("SHARD");
+  if (key === "domains") return "/icons/simple/core.svg";
   if (key === "tech") return "/icons/simple/manifest.svg";
   return `/icons/simple/${key}.svg`;
 };

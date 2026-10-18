@@ -14,10 +14,9 @@ import { RECENT_CLIENT_CHANGELOG_ENTRIES } from "./client-changelog-data-october
 import { TILE_YIELD_REMOVAL_CHANGELOG } from "./client-changelog-tile-yield-removal.js";
 import { AI_PROGRESSION_AETHER_CHANGELOG } from "./client-changelog-ai-progression-aether.js";
 import { FAIRER_AI_DEALS_CHANGELOG } from "./client-changelog-fairer-ai-deals.js";
+import { ALLIANCES_TAB_TRADE_SCREEN_CHANGELOG } from "./client-changelog-alliances-tab-trade-screen.js";
 import { OVERLAY_PERSISTENCE_CHANGELOG } from "./client-changelog-overlay-persistence.js";
 import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
-import { RIVERS_MOUNTAINS_CHANGELOG } from "./client-changelog-rivers-mountains.js";
-import { GARRISON_OUTSIDE_REACH_CHANGELOG } from "./client-changelog-garrison-outside-reach.js";
 import { OUT_OF_REACH_NO_DECAY_CHANGELOG } from "./client-changelog-out-of-reach-no-decay.js";
 import { FRONTIER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-frontier-supply-lines.js";
 import { MANPOWER_BATCH_LABEL_CHANGELOG } from "./client-changelog-manpower-batch-label.js";
@@ -81,7 +80,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["All Waystation technology rewards now use the current tech catalog name in the tile overview, including previously activated sites"]
   },
   ...AUTO_GARRISON_REQUEUE_CHANGELOG,
-  ...RIVERS_MOUNTAINS_CHANGELOG,
   {
     createdAt: 1791969340091, // Date.now() captured once for this release.
     introducedIn: "2026.10.14.4",
@@ -170,7 +168,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["Water edges are now cleared properly when the camera moves somewhere without explored sea"]
   },
   ...CLIENT_CHANGELOG_ENTRIES_AFC_LANDING,
-  ...GARRISON_OUTSIDE_REACH_CHANGELOG,
   ...OUT_OF_REACH_NO_DECAY_CHANGELOG,
   ...FRONTIER_SUPPLY_LINES_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
@@ -232,6 +229,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...TILE_YIELD_REMOVAL_CHANGELOG,
   ...AI_PROGRESSION_AETHER_CHANGELOG,
   ...FAIRER_AI_DEALS_CHANGELOG,
+  ...ALLIANCES_TAB_TRADE_SCREEN_CHANGELOG,
   ...OVERLAY_PERSISTENCE_CHANGELOG,
   {
     createdAt: 1792187006316, // frozen Date.now() value for this release
@@ -468,13 +466,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["Mintworks are now Manufactories, preserving their costs, income, stacking and Clearing House bonuses", "The Industrial Tooling Module fabricates and refurbishes equipment for local Manufactories; new construction requires the module installed on an active AFC", "New factory artwork appears in both the 3D and 2D maps; existing buildings and queued builds carry over"]
   },
   {
-    createdAt: 1792270126879, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.17.3",
-    title: "Industrial Tooling docks as a precision mill",
-    why: "The Manufactory unlock deserves its own visible AFC machine.",
-    changes: ["The Industrial Tooling Module now has a dedicated 3D milling gantry with a moving spindle, rotating drive wheel and tool rack", "The 2D map shows a matching gantry symbol on AFCs with tooling installed"]
-  },
-  {
     createdAt: 1792274781110, // Date.now() captured once for this release.
     introducedIn: "2026.10.18.1",
     title: "Automatic reconnection keeps trying through server updates",
@@ -484,6 +475,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A reconnect that makes no progress for a minute automatically starts a fresh connection",
       "Login queue updates and ongoing map downloads extend that timeout so active recovery can finish",
       "Recovery pauses after sign-out; signing back in reopens a closed connection"
+    ]
+  },
+  {
+    createdAt: 1792307935274, // Date.now() frozen for this release.
+    introducedIn: "2026.10.18.1",
+    title: "AFC upgrades are easier to find and compare",
+    why: "Upgrade choices were easy to miss, and opening a separate detail screen made comparing them awkward on phones.",
+    changes: [
+      "AFC Upgrades replaces Sharding in navigation, with installed upgrades and their tiers above the current choices, inline details on phones and comparison cards beside details on desktop",
+      "A clickable upgrade-ready badge appears above your active AFCs in both map renderers; the navigation count stays visible when the AFC is offscreen",
+      "Owned AFC overviews link directly to upgrades, and availability follows your current resources and prerequisites; existing upgrade costs and rewards stay the same"
     ]
   }
 ];

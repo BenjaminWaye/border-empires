@@ -1,3 +1,4 @@
+import { renderAfcUpgradePanels } from "../client-afc-upgrades/client-afc-upgrades.js";
 import { updateManifestDetail, renderMobileManifestOverlay } from "../client-manifest-detail/client-manifest-detail-dom.js";
 import { signOut, type Auth } from "firebase/auth";
 import { INTEGRITY_PENALTY_PCT, type ChosenTrickleResource } from "@border-empires/shared";
@@ -481,7 +482,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   if (mobileTechResearchSectionEl) mobileTechResearchSectionEl.style.display = "grid";
   syncManifestPanelTabs(dom, state, deps.effectiveOwnedTechIds().length, () => renderClientHud(deps));
   dom.panelTechEl.classList.toggle("tech-detail-open", state.techDetailOpen && !deps.techDetailsUseOverlay() && !state.techTreeExpanded);
-  dom.panelDomainsEl.classList.toggle("domain-detail-open", state.domainDetailOpen && !isMobile());
+  dom.panelDomainsEl.classList.remove("domain-detail-open");
   dom.hud.classList.toggle("desktop-side-panel-open", !isMobile() && state.activePanel !== null);
   dom.hud.classList.toggle("tech-tree-overlay-active", !isMobile() && state.activePanel === "tech" && state.techTreeExpanded);
   bindTechTreeDragScroll();
@@ -565,51 +566,13 @@ export const renderClientHud = (deps: HudDeps): void => {
       chooseTech(id);
     };
   });
-  const openDomainDetail = (id: string): void => {
-    state.domainUiSelectedId = id;
-    state.activePanel = "domains";
-    state.mobilePanel = "domains";
-    state.domainDetailOpen = true;
-    state.techDetailOpen = false;
-    renderClientHud(deps);
-  };
-  // Delegation lives on the panel container because panelDomainsContentEl's
-  // innerHTML is rewritten further down this function — any handlers we attach
-  // directly to inner buttons get wiped before the user can click them.
-  const bindDomainPanelInteraction = (panel: HTMLElement): void => {
-    panel.onclick = (event: MouseEvent) => {
-      const target = event.target as HTMLElement | null;
-      const unlockTrigger = target?.closest<HTMLButtonElement>("[data-domain-unlock]");
-      if (unlockTrigger) {
-        event.preventDefault();
-        const id = unlockTrigger.dataset.domainUnlock;
-        if (!id) return;
-        chooseDomain(id);
-        return;
-      }
-      const closeTrigger = target?.closest<HTMLElement>("[data-domain-detail-close]");
-      if (closeTrigger) {
-        event.preventDefault();
-        state.domainDetailOpen = false;
-        renderClientHud(deps);
-        return;
-      }
-      const cardTrigger = target?.closest<HTMLElement>("[data-domain-card]");
-      const cardId = cardTrigger?.dataset.domainCard;
-      if (!cardId) return;
-      event.preventDefault();
-      openDomainDetail(cardId);
-    };
-    panel.onpointerup = (event: PointerEvent) => {
-      const trigger = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-domain-card]");
-      const id = trigger?.dataset.domainCard;
-      if (!id) return;
-      event.preventDefault();
-      openDomainDetail(id);
-    };
-  };
-  bindDomainPanelInteraction(dom.panelDomainsContentEl);
-  bindDomainPanelInteraction(dom.mobilePanelDomainsEl);
+  const upgradesRendered = safeValue("renderAfcUpgradePanels", false, () => {
+    renderAfcUpgradePanels(state, dom.panelDomainsContentEl, dom.mobilePanelDomainsEl, chooseDomain);
+    return true;
+  });
+  if (!upgradesRendered) {
+    dom.panelDomainsContentEl.innerHTML = dom.mobilePanelDomainsEl.innerHTML = fallbackCard("AFC upgrades");
+  }
   dom.techDetailOverlayEl.onclick = (event: MouseEvent) => {
     const target = event.target as HTMLElement | null;
     const domainCloseTrigger = target?.closest<HTMLElement>("[data-domain-detail-close]");
@@ -783,17 +746,6 @@ export const renderClientHud = (deps: HudDeps): void => {
     };
   });
 
-  dom.panelDomainsContentEl.innerHTML = `
-    <div id="domains-overview-content">
-      ${safeValue("renderDomainProgressCard", fallbackCard("Sharding progress"), () => deps.renderDomainProgressCard())}
-      ${safeValue("renderDomainChoiceGrid", fallbackCard("Sharding choices"), () => deps.renderDomainChoiceGrid())}
-      ${safeValue("domainOwnedHtml", fallbackCard("Owned shards"), () => deps.domainOwnedHtml(state.domainCatalog, state.domainIds, state.chosenTrickleResource))}
-    </div>
-    <div id="domains-detail-content">
-      ${safeValue("renderDomainDetailCard", fallbackCard("Shard detail"), () => deps.renderDomainDetailCard())}
-    </div>
-  `;
-  dom.mobilePanelDomainsEl.innerHTML = dom.panelDomainsContentEl.innerHTML;
 
   // Settings is a hub + sub-pages (Account / Gameplay / Diagnostics &
   // Support) instead of one flat card; the name/colour editor lives in its
@@ -826,7 +778,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   bindRequestActionButtons(".reject-truce", "truceRequestId", (id) => ({ type: "TRUCE_REJECT", requestId: id }), "Finish sign-in before responding to truces.");
   bindRequestActionButtons(".cancel-truce", "truceRequestId", (id) => ({ type: "TRUCE_CANCEL", requestId: id }), "Finish sign-in before changing truce requests.");
 
-  bindProposeButtons(dom.hud, { playerNameForOwner, sendGameMessage });
+  bindProposeButtons(dom.hud, { playerNameForOwner, sendGameMessage, state });
   bindMetPlayerRowToggles(dom.hud, state);
   const breakAllianceButtons = dom.hud.querySelectorAll(".break-alliance") as NodeListOf<HTMLButtonElement>;
   breakAllianceButtons.forEach((btn: HTMLButtonElement) => bindBreakAllianceButton(btn, sendGameMessage));
