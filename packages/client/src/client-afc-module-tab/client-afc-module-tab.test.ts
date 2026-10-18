@@ -201,4 +201,11 @@ describe("graphical AFC modules tab", () => {
     expect(overview?.textContent).toContain("Upkeep: 2 gold/m");
     expect(panel && overview && panel.compareDocumentPosition(overview) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
+
+  it("shows the dormant warning for a captured (inactive) AFC", () => {
+    const html = tileActionMenuHtml(viewFor({ ...target, afc: { ...target.afc!, status: "inactive" } }), "modules", false);
+    expect(html).toContain("tile-overview-dormant");
+    expect(html).toContain("inactive until this AFC is reclaimed");
+    expect(tileActionMenuHtml(viewFor(), "modules", false)).not.toContain("tile-overview-dormant");
+  });
 });

@@ -59,4 +59,12 @@ describe("menuOverviewForTile: AFC tiles", () => {
     const bareDeps = { ...deps, state: { me: "me" } };
     expect(() => menuOverviewForTile(tile, bareDeps)).not.toThrow();
   });
+
+  it("only offers Manage AFC upgrades on AFCs the player owns", () => {
+    const foreign = { x: 1, y: 1, terrain: "LAND", ownerId: "them", ownershipState: "SETTLED", afc: { ownerId: "them", status: "inactive", modules: ["masonry"] } } as Tile;
+    const plain = { x: 1, y: 1, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as Tile;
+    for (const tile of [foreign, plain]) {
+      expect(menuOverviewForTile(tile, deps).map((l) => l.html).join(" ")).not.toContain("Manage AFC upgrades");
+    }
+  });
 });
