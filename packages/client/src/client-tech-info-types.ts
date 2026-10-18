@@ -38,6 +38,9 @@ export type DomainInfo = {
   name: string;
   description: string;
   requiresTechId: string;
+  branch?: string;
+  mechanicalSummary?: string;
+  category?: "ongoing" | "installation" | "active";
   mods: Partial<Record<"attack" | "defense" | "income" | "vision", number>>;
   effects?: Record<string, unknown>;
   requirements: {

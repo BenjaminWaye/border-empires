@@ -115,7 +115,7 @@ export type Tile = {
   naturalWonder?: { type: NaturalWonderType; claimedAt?: number } | null;
   town?: ClientTownWireSummary;
   fort?: ClientTileFort;
-  observatory?: { ownerId: string; status: "under_construction" | "active" | "inactive" | "removing"; completesAt?: number; startedAt?: number; pausedAt?: number; cooldownUntil?: number; siphon?: ObservatorySiphonMode };
+  observatory?: { ownerId: string; status: "under_construction" | "active" | "inactive" | "removing"; completesAt?: number; startedAt?: number; pausedAt?: number; suppressedUntil?: number; cooldownUntil?: number; siphon?: ObservatorySiphonMode };
   siegeBattery?: {
     ownerId: string;
     status: "under_construction" | "active" | "removing";
@@ -275,6 +275,7 @@ export type TruceRequest = {
 };
 
 export type ActiveTruceView = {
+  origin?: "court" | "negotiated";
   otherPlayerId: string;
   otherPlayerName: string;
   startedAt: number;

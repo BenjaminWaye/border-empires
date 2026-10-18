@@ -9,7 +9,7 @@ import {
   SURVEY_SWEEP_COOLDOWN_MS,
   SURVEY_SWEEP_HALF_EXTENT
 } from "@border-empires/game-domain";
-import { isObservatoryInSiphonMode, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { isAetherTowerSuppressed, isObservatoryInSiphonMode, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { parseAetherWallPayload, parseRevealPayload, parseTilePayload } from "./runtime-command-parsers.js";
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
@@ -241,6 +241,10 @@ export function handleSurveySweepCommand(context: RuntimeAbilityCommandContext, 
     return;
   }
   const now = context.now();
+  if (isAetherTowerSuppressed(observatory, now)) {
+    rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "aether tower is suppressed");
+    return;
+  }
   if (isObservatoryInSiphonMode(observatory)) {
     rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "aether tower is in siphon mode");
     return;

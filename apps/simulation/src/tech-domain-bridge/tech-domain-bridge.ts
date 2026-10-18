@@ -1,6 +1,6 @@
-import { readFileSync } from "node:fs";
-
-import { TRICKLE_RESOURCE_KEYS, techGoldCostForResearchedCount, type ChosenTrickleResource } from "@border-empires/shared";
+import { afcInstallationPreviews } from "../afc-specializations/afc-installation-previews.js";
+import { afcPlayerStatePayload, afcInstallAllowed } from "../afc-specializations/afc-player-state.js";
+import { usesAfcSpecializations, TRICKLE_RESOURCE_KEYS, techGoldCostForResearchedCount, type ChosenTrickleResource } from "@border-empires/shared";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { techCatalogIdentityMetadata } from "./tech-catalog-identity-metadata.js";
 import { VISION_RADIUS, type SlotResource } from "@border-empires/shared";
@@ -9,8 +9,9 @@ import { goldCostForTechResearch } from "../tech-wonder-gold-discount.js";
 import { weaponsFactoryCountsForPlayer, appendWeaponsFactoryBreakdownEntries } from "./weapons-factory-mod-breakdown.js";
 import { grantAmbaricTransformerUnlockIfLinked } from "./tech-ambaric-transformer-unlock.js";
 import { claimedMonumentUnlockTechIds, monumentAlreadyBuiltRejectReason } from "./tech-monument-unlock-lock.js";
-import { resolveDataPath, TECH_TREE_RELATIVE_CANDIDATES, DOMAIN_TREE_RELATIVE_CANDIDATES } from "./tech-domain-bridge-data-paths.js";
-import type { DomainCatalogEntry, ModBreakdown, StatMods, TechCatalogEntry } from "./tech-domain-bridge-types.js";
+import { techTree, techEntryById, domainEntryById, domainCatalogForPlayer, openDomainChoices, reachableDomainChoices } from "./tech-domain-catalogs.js";
+export { TECH_TREE_PATH, DOMAIN_TREE_PATH, techEntryById, domainEntryById, reachableDomainChoices } from "./tech-domain-catalogs.js";
+import type { ModBreakdown, StatMods } from "./tech-domain-bridge-types.js";
 
 export type { DomainCatalogEntry, ManifestCategory, ModBreakdown, TechCatalogEntry } from "./tech-domain-bridge-types.js";
 
@@ -33,6 +34,7 @@ export type AiProgressionPlayer = {
   domainIds?: readonly string[];
   strategicResources?: StrategicCounts;
   settledTileCount?: number;
+  afcUpgradeRuleset?: "afc-v1";
 };
 
 export type AiProgressionChoice = {
@@ -42,12 +44,6 @@ export type AiProgressionChoice = {
   goldCost: number;
   resourceCost: StrategicCounts;
 };
-
-export const TECH_TREE_PATH = resolveDataPath(TECH_TREE_RELATIVE_CANDIDATES);
-export const DOMAIN_TREE_PATH = resolveDataPath(DOMAIN_TREE_RELATIVE_CANDIDATES);
-
-const techTree = JSON.parse(readFileSync(TECH_TREE_PATH, "utf8")) as { techs: TechCatalogEntry[] };
-const domainTree = JSON.parse(readFileSync(DOMAIN_TREE_PATH, "utf8")) as { domains: DomainCatalogEntry[] };
 
 export const toResources = (
   cost?: Partial<Record<"gold" | "food" | "iron" | "crystal" | "supply" | "shard", number>>
@@ -79,31 +75,6 @@ export const reachableTechChoices = (ownedTechIds: string[], excludeTechIds?: Re
     })
     .map((tech) => tech.id);
 
-const nextDomainTier = (ownedDomainIds: string[]): number | undefined => {
-  const chosenTierMax = domainTree.domains.reduce((maxTier, domain) => (
-    ownedDomainIds.includes(domain.id) ? Math.max(maxTier, domain.tier) : maxTier
-  ), 0);
-  const targetTier = Math.min(5, chosenTierMax + 1);
-  const pickedAtTargetTier = domainTree.domains.some((domain) => domain.tier === targetTier && ownedDomainIds.includes(domain.id));
-  return pickedAtTargetTier ? undefined : targetTier;
-};
-
-const openDomainChoices = (ownedDomainIds: string[]): string[] => {
-  const targetTier = nextDomainTier(ownedDomainIds);
-  if (targetTier === undefined) return [];
-  return domainTree.domains
-    .filter((domain) => domain.tier === targetTier && !ownedDomainIds.includes(domain.id))
-    .map((domain) => domain.id);
-};
-
-export const reachableDomainChoices = (ownedTechIds: string[], ownedDomainIds: string[]): string[] => {
-  const targetTier = nextDomainTier(ownedDomainIds);
-  if (targetTier === undefined) return [];
-  return domainTree.domains
-    .filter((domain) => domain.tier === targetTier && !ownedDomainIds.includes(domain.id) && ownedTechIds.includes(domain.requiresTechId))
-    .map((domain) => domain.id);
-};
-
 export const techDepth = (techId: string): number => {
   const seen = new Set<string>();
   const walk = (id: string): number => {
@@ -132,9 +103,6 @@ export const playerWorldFlags = (playerId: string, tiles: Iterable<AiProgression
   }
   return flags;
 };
-
-export const techEntryById = new Map(techTree.techs.map((tech) => [tech.id, tech] as const));
-export const domainEntryById = new Map(domainTree.domains.map((domain) => [domain.id, domain] as const));
 
 export const recomputeMods = (player: Pick<DomainPlayer, "techIds" | "domainIds">): StatMods => {
   const next: StatMods = { attack: 1, defense: 1, income: 1, vision: 1 };
@@ -191,7 +159,7 @@ export const buildModBreakdownForPlayer = (
     const domain = domainEntryById.get(domainId);
     addModBreakdownEntry(breakdown, domain?.name ?? domainId, domain?.mods);
   }
-  if (weaponsFactoryCounts) appendWeaponsFactoryBreakdownEntries(breakdown, weaponsFactoryCounts);
+  if (weaponsFactoryCounts) appendWeaponsFactoryBreakdownEntries(breakdown, weaponsFactoryCounts, multiplicativeEffectForPlayer(player, "factoryDefenseContributionMult"));
   return breakdown;
 };
 
@@ -349,8 +317,9 @@ export const domainHasResourceSubChoice = (domainId: string): boolean => {
 };
 
 export const domainGrantedResourceSlots = (
-  player: Pick<DomainPlayer, "domainIds" | "chosenTrickleResource">
+  player: Pick<DomainPlayer, "domainIds" | "chosenTrickleResource" | "afcScarcityFoodSlots">
 ): Partial<Record<SlotResource, number>> | undefined => {
+  if (player.afcScarcityFoodSlots) return { FOOD: player.afcScarcityFoodSlots };
   const chosen = player.chosenTrickleResource;
   if (chosen !== "TITANIUM" && chosen !== "UMBRITE" && chosen !== "CRYSTAL") return undefined;
   for (const domainId of player.domainIds ?? []) {
@@ -369,11 +338,14 @@ export const chooseDomainForPlayer = (
   _tiles: Iterable<DomainTileState>,
   options?: { chosenTrickleResource?: ChosenTrickleResource }
 ): { ok: true } | { ok: false; reason: string } => {
-  const domain = domainTree.domains.find((entry) => entry.id === domainId);
+  const domain = domainCatalogForPlayer(player).find((entry) => entry.id === domainId);
   if (!domain) return { ok: false, reason: "domain not found" };
+  if (usesAfcSpecializations(player) && ![..._tiles].some(tile => tile.ownerId === player.id && tile.afc?.ownerId === player.id && tile.afc.status === "active")) {
+    return { ok: false, reason: "An active owned AFC is required to install an upgrade." };
+  }
   const ownedDomainIds = [...(player.domainIds ?? [])];
-  const openChoices = openDomainChoices(ownedDomainIds);
-  if (!openChoices.includes(domainId) || !player.techIds.has(domain.requiresTechId)) {
+  const openChoices = openDomainChoices(ownedDomainIds, player);
+  if (!openChoices.includes(domainId) || (!usesAfcSpecializations(player) && !player.techIds.has(domain.requiresTechId))) {
     return { ok: false, reason: "requirements not met" };
   }
   const available = player.strategicResources ?? {};
@@ -416,8 +388,8 @@ export const buildTechUpdatePayload = (
   const domainIds = [...(player.domainIds ?? [])];
   const claimedMonumentTechIds = claimedMonumentUnlockTechIds(tiles);
   const techChoices = reachableTechChoices(techIds, claimedMonumentTechIds);
-  const domainChoices = openDomainChoices(domainIds);
-  const reachableDomainChoiceSet = new Set(reachableDomainChoices(techIds, domainIds));
+  const domainChoices = openDomainChoices(domainIds, player);
+  const reachableDomainChoiceSet = new Set(reachableDomainChoices(techIds, domainIds, player));
   const available = player.strategicResources ?? {};
   const goldCost = techGoldCostForResearchedCount(player.techIds.size);
   const strategicResources = {
@@ -428,6 +400,9 @@ export const buildTechUpdatePayload = (
     SHARD: available.SHARD ?? 0
   };
   return {
+    ...afcPlayerStatePayload(player),
+    afcInstallationPreviews: afcInstallationPreviews(player, tiles),
+    ...(usesAfcSpecializations(player) ? { afcUpgradeInstallAllowed: afcInstallAllowed(player.id, tiles) } : {}),
     status: "completed" as const,
     techRootId: player.techRootId ?? "rewrite-local",
     currentResearch: undefined,
@@ -461,13 +436,15 @@ export const buildTechUpdatePayload = (
       ...(tech.grantsPowerup ? { grantsPowerup: tech.grantsPowerup } : {})
     })),
     domainIds,
+    ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
     domainChoices,
-    domainCatalog: domainTree.domains.map((domain) => ({
+    domainCatalog: domainCatalogForPlayer(player).map((domain) => ({
       id: domain.id,
       tier: domain.tier,
       name: domain.name,
       description: domain.description,
       requiresTechId: domain.requiresTechId,
+      ...(domain.branch ? { branch: domain.branch, mechanicalSummary: domain.mechanicalSummary, category: domain.category } : {}),
       ...(domain.effects ? { effects: domain.effects } : {}),
       mods: domain.mods ?? {},
       requirements: {
@@ -493,7 +470,11 @@ export const buildDomainUpdatePayload = (
 ) => {
   const techPayload = buildTechUpdatePayload(player, tiles, options);
   return {
+    ...afcPlayerStatePayload(player),
+    ...(typeof techPayload.afcUpgradeInstallAllowed === "boolean" ? { afcUpgradeInstallAllowed: techPayload.afcUpgradeInstallAllowed } : {}),
+    afcInstallationPreviews: techPayload.afcInstallationPreviews,
     domainIds: techPayload.domainIds,
+    ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
     domainChoices: techPayload.domainChoices,
     domainCatalog: techPayload.domainCatalog,
     revealCapacity: techPayload.revealCapacity,

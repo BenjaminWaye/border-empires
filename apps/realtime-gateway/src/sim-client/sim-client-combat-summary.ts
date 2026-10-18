@@ -1,6 +1,9 @@
+import { parseAfcCombatFacts } from "@border-empires/sim-protocol";
 import type { PlayerCombatSummary } from "@border-empires/sim-protocol";
 
 export type ProtoPlayerCombatSummaryAck = {
+  afc_combat_facts_json?: string;
+  afcCombatFactsJson?: string;
   ok: boolean;
   found?: boolean;
   tech_ids?: string[];
@@ -14,7 +17,7 @@ export type ProtoPlayerCombatSummaryAck = {
 };
 
 type GetPlayerCombatSummaryRpc = (
-  request: { player_id: string },
+  request: { player_id: string; has_target?: boolean; target_x?: number; target_y?: number },
   callback: (error: Error | null, response: ProtoPlayerCombatSummaryAck) => void
 ) => void;
 
@@ -26,14 +29,15 @@ type GetPlayerCombatSummaryRpc = (
 // see player-combat-summary-snapshot.ts on the simulation side.
 export const getPlayerCombatSummaryRpcCall = (
   rpc: GetPlayerCombatSummaryRpc | undefined,
-  playerId: string
+  playerId: string,
+  target?: { x: number; y: number }
 ): Promise<PlayerCombatSummary | undefined> =>
   new Promise((resolve, reject) => {
     if (!rpc) {
       reject(new Error("simulation client GetPlayerCombatSummary RPC is unavailable"));
       return;
     }
-    rpc({ player_id: playerId }, (error, response) => {
+    rpc({ player_id: playerId, ...(target ? { has_target: true, target_x: target.x, target_y: target.y } : {}) }, (error, response) => {
       if (error) {
         reject(error);
         return;
@@ -43,7 +47,9 @@ export const getPlayerCombatSummaryRpcCall = (
         resolve(undefined);
         return;
       }
+      const facts = parseAfcCombatFacts(response.afc_combat_facts_json ?? response.afcCombatFactsJson);
       resolve({
+        ...(facts ? { afcCombatFacts: facts } : {}),
         techIds: response.tech_ids ?? response.techIds ?? [],
         domainIds: response.domain_ids ?? response.domainIds ?? [],
         weaponsFactoryCounts: {

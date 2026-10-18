@@ -1,3 +1,4 @@
+import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
 // Hydrates alliance/truce state from an INIT message, extracted out of
 // client-network-init-message.ts (already at the repo's 500-line file-size
 // gate and may not grow further -- see AGENTS.md's file-and-type-discipline
@@ -5,6 +6,7 @@
 import type { ClientState } from "../client-state/client-state.js";
 
 export const applyInitSocialState = (msg: Record<string, unknown>, state: ClientState): void => {
+  applyAfcStateMessage(state, msg);
   state.incomingAllianceRequests = (msg.allianceRequests as any[]) ?? [];
   state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? [];
   state.activeAllianceBreaks = (msg.activeAllianceBreaks as any[] | undefined) ?? [];

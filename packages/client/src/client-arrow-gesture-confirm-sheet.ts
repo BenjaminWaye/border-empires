@@ -1,4 +1,5 @@
-import { MUSTER_ATTACK_COST, requiredMusterForFort } from "@border-empires/shared";
+import { attackFloorForPlayer } from "./client-attack-commit/client-attack-floor.js";
+import { MUSTER_ATTACK_COST } from "@border-empires/shared";
 import { buildArrowGestureSetMusterPayload } from "./client-arrow-gesture-confirm-payload.js";
 import { showEffortConfirmSheet, type EffortConfirmSheetHandle } from "./client-effort-confirm-sheet/client-effort-confirm-sheet.js";
 import type { ArrowGesturePoint } from "./client-arrow-gesture-confirm-payload.js";
@@ -24,10 +25,10 @@ export type ArrowGestureConfirmSheetDeps = {
 };
 
 /** Slider floor: the target tile's fort requirement if settled, else the generic attack cost -- same rule buildMusterCommitView uses. */
-const floorForTarget = (state: Pick<ClientState, "tiles">, target: ArrowGesturePoint, keyFor: (x: number, y: number) => string): number => {
+const floorForTarget = (state: Pick<ClientState, "tiles"> & Partial<Pick<ClientState, "domainIds">>, target: ArrowGesturePoint, keyFor: (x: number, y: number) => string): number => {
   const targetTile = state.tiles.get(keyFor(target.x, target.y));
   return targetTile?.ownershipState === "SETTLED"
-    ? requiredMusterForFort(targetTile.fort?.status === "active" ? targetTile.fort.variant : undefined)
+    ? attackFloorForPlayer(state, targetTile)
     : MUSTER_ATTACK_COST;
 };
 
@@ -46,7 +47,7 @@ export const hideArrowGestureConfirmSheet = (): void => {
  * "Go" and cancel/dismiss -- there is at most one pending confirm at a time.
  */
 export const showArrowGestureConfirmSheet = (
-  state: Pick<ClientState, "tiles" | "manpowerCap" | "pendingArrowGestureConfirm" | "arrowGesture" | "me" | "winChancePaint">,
+  state: Pick<ClientState, "tiles" | "manpowerCap" | "pendingArrowGestureConfirm" | "arrowGesture" | "me" | "winChancePaint"> & Partial<Pick<ClientState, "domainIds">>,
   origin: ArrowGesturePoint,
   target: ArrowGesturePoint,
   keyFor: (x: number, y: number) => string,

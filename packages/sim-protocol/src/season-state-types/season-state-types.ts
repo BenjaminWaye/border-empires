@@ -100,6 +100,8 @@ export type SimulationSeasonState = {
   seasonId: string;
   seasonSequence: number;
   rulesetId: string;
+  /** Absent on existing seasons: preserve their paid domain rules. */
+  afcUpgradeRuleset?: "afc-v1";
   worldSeed: number;
   /** Map shape used to generate this season's world. Absent on seasons created
    *  before this field existed — callers must treat that as "continents",

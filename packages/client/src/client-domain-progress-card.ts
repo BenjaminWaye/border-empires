@@ -51,7 +51,7 @@ export const renderDomainProgressCard = (deps: {
   shardAlert: ClientShardRainAlert | undefined;
   nowMs: number;
 }): string =>
-  renderDomainProgressCardHtml({
+  deps.domainCatalog.some(upgrade => upgrade.id.startsWith("afc-")) ? `<article class="card"><strong>AFC specializations</strong><p>Manifest tiers unlock free permanent upgrades. Install one choice per tier at an active owned AFC.</p><p>${deps.domainIds.length} of 5 installed.</p></article>` : renderDomainProgressCardHtml({
     visibleShardCacheCount: visibleShardCacheCount(deps.tiles),
     shardStock: deps.shardStock,
     currentTier: currentDomainChoiceTier(deps.domainCatalog, deps.domainChoices),

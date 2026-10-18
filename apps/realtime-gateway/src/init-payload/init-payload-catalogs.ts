@@ -29,6 +29,9 @@ export type InitDomainCatalogEntry = {
   name: string;
   description: string;
   requiresTechId: string;
+  branch?: string;
+  mechanicalSummary?: string;
+  category?: "ongoing" | "installation" | "active";
   effects?: Record<string, unknown>;
   mods: Partial<Record<StatModKey, number>>;
   requirements: CatalogRequirements;
@@ -87,6 +90,7 @@ export const buildInitDomainCatalog = (
       name: domain.name,
       description: domain.description,
       requiresTechId: domain.requiresTechId,
+      ...(domain.branch ? { branch: domain.branch, mechanicalSummary: domain.mechanicalSummary, category: domain.category } : {}),
       ...(domain.effects ? { effects: domain.effects } : {}),
       mods: domain.mods ?? {},
       requirements: {

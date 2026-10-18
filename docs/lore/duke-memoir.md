@@ -4,7 +4,7 @@ Status: canonical supporting lore
 
 *Being the private memoir of Duke Alvra Sable, dictated in her ninth decade
 and recovered from her estate archive after her death. Presented here as
-an in-world document — a companion to `galactic-lore.md`, not a
+an in-world document — a companion to the [world bible](galactic-lore.md), not a
 replacement for it. Nothing in this text should be read as settled canon
 beyond what that document already establishes; where the two disagree,
 the worldbible wins.*

@@ -21,6 +21,7 @@ export type SocialStoreSnapshot = {
   truceLockouts: Array<{ playerId: string; lockoutUntil: number }>;
   truceBreaks: Array<{ playerId: string } & SocialTruceBreakRecord>;
   offerCooldowns: SocialOfferCooldown[];
+  forcedTruceCooldowns: Array<{ playerId: string; cooldownUntil: number }>;
 };
 
 export type GatewaySocialStore = {
@@ -37,6 +38,7 @@ export type GatewaySocialStore = {
   addAlliance(playerAId: string, playerBId: string, createdAt: number): void;
   removeAlliance(playerAId: string, playerBId: string): void;
   saveActiveTruce(truce: SocialActiveTruce): void;
+  saveForcedTruce(truce: SocialActiveTruce, cooldownUntil: number): void;
   removeActiveTruce(playerAId: string, playerBId: string): void;
   saveTruceLockout(playerId: string, lockoutUntil: number): void;
   saveTruceBreak(playerId: string, record: SocialTruceBreakRecord): void;
@@ -59,6 +61,7 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
   private readonly activeAllianceBreaks = new Map<string, SocialAllianceBreak>();
   private readonly completedAllianceBreaks = new Map<string, SocialCompletedAllianceBreak>();
   private readonly truceRequests = new Map<string, SocialTruceRequest>();
+  private readonly forcedTruceCooldowns = new Map<string, number>();
   private readonly activeTruces = new Map<string, SocialActiveTruce>();
   private readonly truceLockouts = new Map<string, number>();
   private readonly truceBreaks: Array<{ playerId: string } & SocialTruceBreakRecord> = [];
@@ -88,7 +91,8 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
       activeTruces: [...this.activeTruces.values()].map((t) => ({ ...t })),
       truceLockouts: [...this.truceLockouts.entries()].map(([playerId, lockoutUntil]) => ({ playerId, lockoutUntil })),
       truceBreaks: this.truceBreaks.map((record) => ({ ...record })),
-      offerCooldowns: [...this.offerCooldowns.values()].map((entry) => ({ ...entry }))
+      offerCooldowns: [...this.offerCooldowns.values()].map((entry) => ({ ...entry })),
+      forcedTruceCooldowns: [...this.forcedTruceCooldowns.entries()].map(([playerId, cooldownUntil]) => ({ playerId, cooldownUntil }))
     };
   }
 
@@ -137,6 +141,11 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
     this.alliances.delete(pairKey(playerAId, playerBId));
   }
 
+  saveForcedTruce(truce: SocialActiveTruce, cooldownUntil: number): void {
+    this.saveActiveTruce(truce);
+    this.forcedTruceCooldowns.set(truce.createdByPlayerId, cooldownUntil);
+  }
+
   saveActiveTruce(truce: SocialActiveTruce): void {
     this.activeTruces.set(pairKey(truce.playerAId, truce.playerBId), { ...truce });
   }
@@ -171,6 +180,7 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
   }
 
   pruneExpired(now: number): void {
+    for (const [id, until] of this.forcedTruceCooldowns) if (until <= now) this.forcedTruceCooldowns.delete(id);
     for (const [key, entry] of this.offerCooldowns) {
       if (entry.until <= now) this.offerCooldowns.delete(key);
     }
@@ -189,6 +199,7 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
   }
 
   clearSeasonData(): void {
+    this.forcedTruceCooldowns.clear();
     this.alliances.clear();
     this.allianceRequests.clear();
     this.activeAllianceBreaks.clear();

@@ -43,6 +43,7 @@ export const createInitialSeasonState = ({
     seasonId: createSeasonId(seasonSequence),
     seasonSequence,
     rulesetId,
+    afcUpgradeRuleset: "afc-v1",
     worldSeed,
     ...(mapStyle ? { mapStyle } : {}),
     ...(typeof worldgenVersion === "number" ? { worldgenVersion } : {}),

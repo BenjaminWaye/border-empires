@@ -1,3 +1,4 @@
+import { createInitialAfcState } from "../client-afc-upgrades/client-afc-state.js";
 import { resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
 import { resetMetPlayers } from "../client-alliance/client-met-players.js";
 import { clearStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
@@ -48,6 +49,7 @@ type RolloverState = Pick<
 // leaderboard and tiles, because the new season sends nothing that overwrites
 // a list it never mentions.
 export const resetClientForNewSeason = (state: RolloverState): void => {
+  Object.assign(state, createInitialAfcState());
   state.tiles.clear(); // callers re-derive render caches from state.tiles afterwards, so clear it first
   state.discoveredTiles.clear();
   resetMetPlayers(state);

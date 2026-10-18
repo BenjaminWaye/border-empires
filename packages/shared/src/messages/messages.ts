@@ -15,6 +15,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     // Client can reassemble a chunked INIT (see init-transfer.ts).
     initChunking: z.boolean().optional()
   }),
+  z.object({ type: z.literal("FORCE_TRUCE"), targetPlayerId: z.string().min(1) }),
   z.object({ type: z.literal("PING"), t: z.number() }),
   z.object({ type: z.literal("SUBSCRIBE_CHUNKS"), cx: z.number(), cy: z.number(), radius: z.number().int().min(0).max(8) }),
   z.object({
@@ -271,6 +272,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // player 10 minutes of total invulnerability on all owned tiles. No anchor
   // tile — a pure per-player toggle, unlike AEGIS_LOCK.
   z.object({ type: z.literal("ACTIVATE_IMPERIAL_WARD"), ...FrontierCommandMetadataSchema }),
+  z.object({ type: z.literal("SUPPRESS_AETHER_TOWER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
+  z.object({ type: z.literal("RECRUIT_ANCILLARIES"), coin: z.number().int().positive().safe(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("AETHER_EMP"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("CITY_OVERCLOCK"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("CANCEL_SIEGE_BATTERY_BUILD"), x: z.number().int(), y: z.number().int() }),

@@ -27,6 +27,9 @@ export type RuntimeState = {
     manpowerCapSnapshot?: number;
     techIds: string[];
     domainIds: string[];
+    afcUpgradeRuleset?: "afc-v1";
+    afcCoreTownKeys?: string[];
+    afcScarcityFoodSlots?: number;
     chosenTrickleResource?: "TITANIUM" | "UMBRITE" | "CRYSTAL";
     imperialWardCharges?: number;
     autoSettle?: AutoSettlePrefs;
@@ -103,6 +106,10 @@ export const snapshotEconomyPlayer = (player: RuntimeState["players"][number] | 
         id: player.id,
         techIds: new Set(player.techIds),
         domainIds: new Set(player.domainIds),
+        allies: new Set(player.allies),
+        ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
+        ...(player.afcCoreTownKeys ? { afcCoreTownKeys: player.afcCoreTownKeys } : {}),
+        ...(player.afcScarcityFoodSlots ? { afcScarcityFoodSlots: player.afcScarcityFoodSlots } : {}),
         mods: { attack: 1, defense: 1, income: player.incomeMultiplier ?? 1, vision: player.vision }
       }
     : undefined;
@@ -230,10 +237,12 @@ export const buildFirstThreeTownKeysByPlayer = (
   const cached = firstThreeTownKeysByPlayerCache.get(runtimeState);
   if (cached) return cached;
   const result = new Map<string, Set<string>>();
-  for (const player of runtimeState.players) result.set(player.id, new Set<string>());
+  for (const player of runtimeState.players) result.set(player.id, new Set(player.afcUpgradeRuleset ? player.afcCoreTownKeys ?? [] : []));
+  const newRulesPlayers = new Set(runtimeState.players.filter(player => player.afcUpgradeRuleset).map(player => player.id));
   for (const tile of runtimeState.tiles) {
     if (!tile.ownerId || tile.ownershipState !== "SETTLED" || !(tile.townJson || tile.townType)) continue;
     if (tile.townPopulationTier === "SETTLEMENT") continue;
+    if (newRulesPlayers.has(tile.ownerId)) continue;
     const firstThree = result.get(tile.ownerId);
     if (!firstThree || firstThree.size >= 3) continue;
     firstThree.add(keyFor(tile.x, tile.y));

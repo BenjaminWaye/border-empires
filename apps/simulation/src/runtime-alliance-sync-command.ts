@@ -5,6 +5,9 @@ import type { VisibilityCoverageTracker, VisibilityTransitionCallbacks } from ".
 import { syncReachVisionAlliance } from "./reach-border-vision.js";
 
 export type RuntimeAllianceSyncCommandContext = {
+  settleEconomyBeforeChange?: (player: DomainPlayer) => void;
+  invalidateEconomyAfterChange?: (playerId: string) => void;
+  emitPlayerStateUpdate?: (command: { commandId: string; playerId: string }) => void;
   players: Map<string, DomainPlayer>;
   visibilityCoverage: VisibilityCoverageTracker;
   visionTransitionCallbacks: VisibilityTransitionCallbacks;
@@ -29,6 +32,7 @@ export function handleSyncAllianceCommand(context: RuntimeAllianceSyncCommandCon
   }
 
   const wasAllied = actor.allies.has(target.id); // SYNC_ALLIANCE skips clientSeq dedup; syncAllianceChange isn't idempotent like allies.add/delete.
+  if (wasAllied !== payload.allied) { context.settleEconomyBeforeChange?.(actor); context.settleEconomyBeforeChange?.(target); }
   if (payload.allied) {
     actor.allies.add(target.id);
     target.allies.add(actor.id);
@@ -37,6 +41,7 @@ export function handleSyncAllianceCommand(context: RuntimeAllianceSyncCommandCon
     target.allies.delete(actor.id);
   }
   if (wasAllied !== payload.allied) {
+    for (const player of [actor, target]) { context.invalidateEconomyAfterChange?.(player.id); context.emitPlayerStateUpdate?.({ commandId: command.commandId, playerId: player.id }); }
     context.visibilityCoverage.syncAllianceChange(actor.id, target.id, payload.allied, context.visionTransitionCallbacks);
     syncReachVisionAlliance(context.reachBorder, actor.id, target.id, payload.allied, context.visibilityCoverage, context.visionTransitionCallbacks);
     // syncAllianceChange only records vision transitions; it doesn't mutate

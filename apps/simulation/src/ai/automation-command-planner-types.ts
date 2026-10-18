@@ -77,7 +77,7 @@ export type AutomationPlannerTile = AiTacticalTileFields & {
   terrain: Terrain;
   ownerId?: string | undefined;
   ownershipState?: DomainTileState["ownershipState"] | undefined;
-  afc?: { ownerId?: string } | undefined;
+  afc?: { ownerId?: string; status?: string } | undefined;
   resource?: DomainTileState["resource"] | undefined;
   dockId?: string | undefined;
   town?: {
@@ -103,6 +103,8 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   manpower: number;
   techIds?: readonly string[];
   domainIds?: readonly string[];
+  afcUpgradeRuleset?: "afc-v1";
+  afcDetectedFlags?: readonly { x: number; y: number; ownerId: string }[];
   strategicResources?: Partial<Record<DomainStrategicResourceKey, number>>;
   settledTileCount?: number;
   townCount?: number;

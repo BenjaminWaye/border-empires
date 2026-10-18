@@ -30,6 +30,7 @@ export type SocialTruceRequest = {
 };
 
 export type SocialActiveTruce = {
+  origin?: "court";
   playerAId: string;
   playerBId: string;
   startedAt: number;
@@ -60,6 +61,7 @@ export type SocialTruceBreakRecord = {
 };
 
 export type SocialSnapshot = {
+  forcedTruceCooldownUntil?: number;
   allies: string[];
   activeAllianceBreaks: Array<{
     otherPlayerId: string;
@@ -81,6 +83,7 @@ export type SocialSnapshot = {
   incomingTruceRequests: SocialTruceRequest[];
   outgoingTruceRequests: SocialTruceRequest[];
   activeTruces: Array<{
+    origin?: "court";
     otherPlayerId: string;
     otherPlayerName: string;
     startedAt: number;
@@ -174,6 +177,8 @@ export type SocialPendingOffer =
   | { kind: "alliance"; request: SocialAllianceRequest };
 
 export type SocialState = {
+  resetAfcCampaign: () => void;
+  forceTruce: (playerId: string, targetPlayerId: string) => SocialActionResult;
   registerPlayer: (playerId: string, name: string) => void;
   renamePlayer: (playerId: string, name: string) => void;
   snapshotForPlayer: (playerId: string) => SocialSnapshot;
@@ -222,6 +227,7 @@ export type SocialStateSink = {
   saveCompletedAllianceBreak: (notice: SocialCompletedAllianceBreak) => void;
   removeCompletedAllianceBreak: (playerAId: string, playerBId: string) => void;
   saveActiveTruce: (truce: SocialActiveTruce) => void;
+  saveForcedTruce: (truce: SocialActiveTruce, cooldownUntil: number) => void;
   removeActiveTruce: (playerAId: string, playerBId: string) => void;
   saveTruceLockout: (playerId: string, lockoutUntil: number) => void;
   saveTruceBreak: (playerId: string, record: SocialTruceBreakRecord) => void;
@@ -230,6 +236,7 @@ export type SocialStateSink = {
 };
 
 export type SocialStateInitial = {
+  forcedTruceCooldowns?: Array<{ playerId: string; cooldownUntil: number }>;
   players?: Array<{ id: string; name: string; allies?: string[] }>;
   allianceRequests?: SocialAllianceRequest[];
   activeAllianceBreaks?: SocialAllianceBreak[];

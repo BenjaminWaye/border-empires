@@ -1,3 +1,4 @@
+import { applyForcedTruceSchema, loadForcedTruceCooldowns } from "./social-store-forced-truces.js";
 // SqliteGatewaySocialStore, extracted out of social-store.ts (already over
 // the repo's 500-line file-size gate and may not grow further -- see
 // AGENTS.md's file-and-type-discipline rule). This is a clean, self-contained
@@ -129,6 +130,7 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
         // Column already exists from a previous applySchema() call.
       }
     }
+    applyForcedTruceSchema(this.db);
   }
 
   loadSnapshot(): SocialStoreSnapshot {
@@ -158,7 +160,7 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
       .all() as TruceRequestRow[];
     const activeTruceRows = this.db
       .prepare(
-        `SELECT pair_key, player_a_id, player_b_id, started_at, ends_at, created_by_player_id FROM social_active_truces`
+        `SELECT pair_key, player_a_id, player_b_id, started_at, ends_at, created_by_player_id, origin FROM social_active_truces`
       )
       .all() as ActiveTruceRow[];
     const truceLockoutRows = this.db
@@ -180,6 +182,7 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
     }
 
     return {
+      forcedTruceCooldowns: loadForcedTruceCooldowns(this.db, this.now()),
       players: playerRows.map((row) => ({
         id: row.player_id,
         name: row.name,
@@ -351,17 +354,27 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
     this.db.prepare(`DELETE FROM social_alliances WHERE player_a_id = ? AND player_b_id = ?`).run(aId, bId);
   }
 
+  saveForcedTruce(truce: SocialActiveTruce, cooldownUntil: number): void {
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      this.saveActiveTruce(truce);
+      this.db.prepare("INSERT INTO social_forced_truce_cooldowns (player_id, cooldown_until) VALUES (?, ?) ON CONFLICT(player_id) DO UPDATE SET cooldown_until = excluded.cooldown_until").run(truce.createdByPlayerId, cooldownUntil);
+      this.db.exec("COMMIT");
+    } catch (error) { this.db.exec("ROLLBACK"); throw error; }
+  }
+
   saveActiveTruce(truce: SocialActiveTruce): void {
     this.db
       .prepare(
-        `INSERT INTO social_active_truces (pair_key, player_a_id, player_b_id, started_at, ends_at, created_by_player_id)
-         VALUES (?, ?, ?, ?, ?, ?)
+        `INSERT INTO social_active_truces (pair_key, player_a_id, player_b_id, started_at, ends_at, created_by_player_id, origin)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(pair_key) DO UPDATE SET
            player_a_id = excluded.player_a_id,
            player_b_id = excluded.player_b_id,
            started_at = excluded.started_at,
            ends_at = excluded.ends_at,
-           created_by_player_id = excluded.created_by_player_id`
+           created_by_player_id = excluded.created_by_player_id,
+           origin = excluded.origin`
       )
       .run(
         pairKey(truce.playerAId, truce.playerBId),
@@ -369,7 +382,8 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
         truce.playerBId,
         truce.startedAt,
         truce.endsAt,
-        truce.createdByPlayerId
+        truce.createdByPlayerId,
+        truce.origin ?? null
       );
   }
 
@@ -417,6 +431,7 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
   }
 
   pruneExpired(now: number): void {
+    this.db.prepare("DELETE FROM social_forced_truce_cooldowns WHERE cooldown_until <= ?").run(now);
     this.db.prepare(`DELETE FROM social_offer_cooldowns WHERE until <= ?`).run(now);
     this.db.prepare(`DELETE FROM social_truce_requests WHERE expires_at <= ?`).run(now);
     this.db.prepare(`DELETE FROM social_active_truces WHERE ends_at <= ?`).run(now);
@@ -425,6 +440,7 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
   }
 
   clearSeasonData(): void {
+    this.db.exec("DELETE FROM social_forced_truce_cooldowns");
     this.db.exec(`DELETE FROM social_alliances`);
     this.db.exec(`DELETE FROM social_alliance_requests`);
     this.db.exec(`DELETE FROM social_alliance_breaks`);

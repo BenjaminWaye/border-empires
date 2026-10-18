@@ -18,12 +18,12 @@ import type { ClientState } from "../client-state/client-state.js";
 
 export type BuildSpeedState = Pick<ClientState, "techIds" | "domainIds" | "techCatalog" | "domainCatalog">;
 
-const effectMult = (effects: Record<string, unknown> | undefined, key: StructureBuildSpeedEffectKey): number => {
+const effectMult = (effects: Record<string, unknown> | undefined, key: StructureBuildSpeedEffectKey | "structureBuildSpeedMult"): number => {
   const value = effects?.[key];
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 1;
 };
 
-export const buildSpeedMultForState = (state: BuildSpeedState, key: StructureBuildSpeedEffectKey): number => {
+export const buildSpeedMultForState = (state: BuildSpeedState, key: StructureBuildSpeedEffectKey | "structureBuildSpeedMult"): number => {
   const techIds = new Set(state.techIds);
   const domainIds = new Set(state.domainIds);
   let mult = 1;
@@ -35,8 +35,9 @@ export const buildSpeedMultForState = (state: BuildSpeedState, key: StructureBui
 /** `baseMs` for `structureType` after the player's build-speed effects; instant stays instant. */
 export const buildMsWithSpeedForState = (state: BuildSpeedState, structureType: string, baseMs: number): number => {
   const key = structureBuildSpeedEffectKey(structureType);
-  if (!key || baseMs <= 0) return baseMs;
-  return buildDurationWithSpeedMult(baseMs, buildSpeedMultForState(state, key));
+  if (baseMs <= 0) return baseMs;
+  const specific = key ? buildSpeedMultForState(state, key) : 1;
+  return buildDurationWithSpeedMult(baseMs, specific * buildSpeedMultForState(state, "structureBuildSpeedMult"));
 };
 
 export const economicBuildMsForState = (state: BuildSpeedState, type: EconomicStructureType): number =>

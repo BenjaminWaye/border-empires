@@ -54,7 +54,7 @@ export const mergePlannerTileDelta = (
   }
   if ("afcJson" in tileDelta) {
     const afc = parseOwnedStructure(tileDelta.afcJson);
-    if (afc?.ownerId) next.afc = { ownerId: afc.ownerId };
+    if (afc?.ownerId) next.afc = { ownerId: afc.ownerId, ...(afc.status ? { status: afc.status } : {}) };
     else delete next.afc;
   }
   if ("fortJson" in tileDelta) {

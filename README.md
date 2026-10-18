@@ -7,6 +7,13 @@ Staging: [staging.borderempires.com](https://staging.borderempires.com).
 
 Border Empires is a browser-based multiplayer territory strategy game where you expand tile-by-tile, fight border wars, develop your economy, level through tech branches, and race to one of five victory conditions each season.
 
+## Lore and documentation
+
+The [world bible](docs/lore/galactic-lore.md) is the authoritative home for
+the game's fiction. Start with the [lore index and maintenance policy](docs/lore/README.md)
+before gameplay or narrative changes; update affected lore in the same branch.
+The [documentation map](docs/README.md) points to current rules and runbooks.
+
 ## Game Overview
 
 Border Empires is a persistent-world 2D tile conquest game built around territorial positioning and economic pressure rather than unit micromanagement.
@@ -23,7 +30,7 @@ Each player controls a civilization that starts from a single land tile, expands
 ### Economy
 
 - **Manpower** is the empire's primary resource, funding every physical action: expanding, garrisoning (internally SETTLE), building structures, and attacking. It regenerates from an empire-wide pool sized by town population tier, paid out in one refill every four hours; a depleted empire cannot afford sustained expansion or warfare.
-- **Coin** is narrow and tech-focused: it funds research, a handful of abilities that still carry a coin cost (Aether Purge, Terrain Shaping, Sky Dock Bombard, Sovereign Siege Engine Strike), and *rush-buys* — paying coin to instantly finish an in-progress manpower-gated build or garrison. Passive coin income comes from garrisoned tiles, scaled by town tier and structure modifiers.
+- **Coin** funds Manifest commissions, the actions that carry a coin cost, and *rush-buys* of in-progress builds or garrisons. Its fictional meaning is defined in the [world bible](docs/lore/galactic-lore.md#11-houses-and-the-planetary-economy); current income, costs and town-support rules are in the [economy reference](docs/product/resource-and-manpower-economy.md).
 - **Strategic resources** — Food, Titanium, Crystal, Umbrite — are permanent slot allocations, not stockpiles: a structure or town either has a free slot backed by an owned resource tile (or a synthesizer) or it goes **dormant** (loses its effect, but isn't destroyed) until a slot frees up. A floating badge and detail-panel line flag dormant tiles and which resource they're missing.
 - **Shard** remains flow-collected (including from scheduled shard-rain events) and funds monument construction.
 - **Crystal-costing player abilities** (Reveal Empire, Survey Sweep, Aether Purge/Bridge/Wall, Siphon, Aegis Lock, Astral Dock Launch, Sovereign Siege Engine Strike, Sky Dock Bombard, Create/Remove Mountain) are free of any Crystal cost — gated on cooldown only; a few still carry a coin cost.
@@ -61,7 +68,7 @@ Each player controls a civilization that starts from a single land tile, expands
 
 ### Strategic Layers
 
-The proposed [AFC Specializations design](docs/afc-specializations-plan.md) replaces domain/Sharding progression with free upgrades at Manifest tiers. It includes thirty named rewards, their lore, an implementation sequence, and a local UI study. The client discovery slice adds AFC Upgrades navigation, inline mobile details, and ready badges above owned AFCs in both renderers; the free progression and new rewards remain proposed.
+[AFC Specializations](docs/afc-specializations-catalog.md) offer thirty upgrades across six play styles. In new campaigns, each commissioned Manifest tier unlocks one free permanent choice at that tier. Install at an active owned AFC; installed effects survive its loss. AFC Upgrades shows installed choices above current options, active commands, and ready badges above owned AFCs in both renderers. Existing campaigns retain their paid domain rules. [Implementation and verification](docs/afc-specializations-execution.md) records the delivery scope.
 
 - **Forts**: build-timed defensive structures; destroyed on capture.
 - **Docks**: paired sea-crossing gateways with cooldown and defensive value. Maritime Supremacy victory path scores from dock control.

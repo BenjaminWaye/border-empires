@@ -346,7 +346,7 @@ describe("renderCaptureProgress", () => {
       ...dom
     });
     const musterAmountRateByTile = new Map();
-    const targetTile = { x: 10, y: 20, terrain: "LAND", ownerId: "enemy", ownershipState: "FRONTIER" };
+    const targetTile = { x: 10, y: 20, terrain: "LAND", ownerId: "enemy", ownershipState: "SETTLED" };
     const baseState = {
       captureAlert: undefined,
         activeBattles: new Map(),

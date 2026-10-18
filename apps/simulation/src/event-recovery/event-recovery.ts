@@ -4,7 +4,7 @@ import { type DomainTileState } from "@border-empires/game-domain";
 
 import { capturedTownAftermath } from "../runtime-capture-aftermath.js";
 import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "../seed-state/seed-state.js";
-import { recoverTownState } from "./event-recovery-town-helpers.js";
+import { recoverTownState, parseOptionalJson } from "./event-recovery-town-helpers.js";
 import { recoverOverlaySubstructures } from "./event-recovery-overlays.js";
 import { overlaySubstructuresFrom, type TileOverlays } from "../tile-overlay-fields/tile-overlay-fields.js";
 import { applyProgressionUpdateToRecoveredPlayer } from "./event-recovery-progression-helpers.js";
@@ -254,6 +254,8 @@ export const applySimulationEventsToRecoveredAccumulator = (
     if (event.eventType === "TECH_UPDATE" || event.eventType === "DOMAIN_UPDATE") {
       const player = accumulator.players.find((entry) => entry.id === event.playerId);
       if (player) applyProgressionUpdateToRecoveredPlayer(player, event.payloadJson);
+      const payload = parseOptionalJson<{ afcInstallationTileDeltas?: TileDelta[] }>(event.payloadJson);
+      for (const delta of payload?.afcInstallationTileDeltas ?? []) applyTileDeltaToRecoveredAccumulator(accumulator, delta);
       continue;
     }
 
@@ -283,6 +285,17 @@ export const applySimulationEventsToRecoveredAccumulator = (
     }
 
     if (event.eventType === "COMBAT_RESOLVED") {
+      const defenderId = event.combatResult?.defenderOwnerId;
+      if (defenderId && event.combatResult?.wardRechargesAt) {
+        const defender = accumulator.players.find(player => player.id === defenderId);
+        if (defender) ((defender.afcCampaign ??= {}).fortWardRecharges ??= {})[simulationTileKey(event.targetX, event.targetY)] = event.combatResult.wardRechargesAt;
+      }
+      if (defenderId && event.combatResult?.hostileCaptureWarUntil) {
+        for (const [id, other] of [[event.playerId, defenderId], [defenderId, event.playerId]]) {
+          const player = accumulator.players.find(candidate => candidate.id === id);
+          if (player && other) ((player.afcCampaign ??= {}).wars ??= {})[other] = event.combatResult.hostileCaptureWarUntil;
+        }
+      }
       if (accumulator.activeLocks.has(event.commandId)) {
         accumulator.activeLocks.delete(event.commandId);
       }
