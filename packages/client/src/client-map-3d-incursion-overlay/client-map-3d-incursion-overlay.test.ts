@@ -23,23 +23,6 @@ describe("createIncursionOverlay3D", () => {
     expect(group.children).toHaveLength(0);
   });
 
-  it("draws the rival-reach lines in their own mesh, created only once one of my tiles needs it", () => {
-    const group = new Group();
-    const overlay = createIncursionOverlay3D(group, 4);
-    expect(group.children).toHaveLength(2); // hatch + edge strips only
-    overlay.addRivalReachTile(0, 0, 0, "#ff0000");
-    overlay.addRivalReachTile(1, 0, 0, "#ff0000");
-    overlay.commit();
-    const rivalReach = group.children[2] as Mesh;
-    expect(drawnQuads(rivalReach)).toBe(2);
-    expect(drawnQuads(group.children[0] as Mesh)).toBe(0); // no incursion hatch drawn for these
-    overlay.clear();
-    overlay.commit();
-    expect(drawnQuads(rivalReach)).toBe(0);
-    overlay.dispose();
-    expect(group.children).toHaveLength(0);
-  });
-
   it("only creates the breach effect meshes once a non-straight breach style is actually drawn", () => {
     const group = new Group();
     const overlay = createIncursionOverlay3D(group, 2);

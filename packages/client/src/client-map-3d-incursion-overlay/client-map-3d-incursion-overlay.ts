@@ -16,10 +16,6 @@
 //     pocket in a colour contrasting with the intruder's fill
 //     (incursionMarkColor). If the front-line buffer is full, a tile falls
 //     back to the strips so it never loses its outline.
-// Also draws the mirror case (rivalReachOverMyTile): the viewer's OWN tiles
-// inside a rival's reach get sparse thin lines in the rival's colour over the
-// viewer's own fill, running along the OTHER diagonal, with no pocket edge --
-// so "they broke into my reach" and "I'm inside their reach" never look alike.
 // Rebuilt from the throttled terrain rebuild (clear/add/commit), like the
 // dormant-frontier tint it sits beside in client-map-3d-aether-survey-line.ts.
 
@@ -39,10 +35,6 @@ const EDGE_LIFT = 0.002;
 /** Theirs+mine stripe pairs across a tile; must be whole so stripes continue across tile boundaries (matches the 2D HATCH_STRIPES). */
 const HATCH_STRIPE_PAIRS_PER_TILE = 4;
 const MAX_EDGE_QUADS_PER_TILE = 4;
-/** Rival-reach lines per tile (whole, so they continue across tiles) and each line's share of its period. */
-const RIVAL_REACH_LINES_PER_TILE = 3;
-const RIVAL_REACH_LINE_WIDTH = 0.2;
-const RIVAL_REACH_OPACITY = 0.85;
 
 export type IncursionOverlay3D = {
   readonly clear: () => void;
@@ -56,8 +48,6 @@ export type IncursionOverlay3D = {
     edges: IncursionEdges,
     breach?: IncursionBreachTile
   ) => void;
-  /** Marks one of the viewer's own tiles that sits inside a rival's reach (see rivalReachOverMyTile). */
-  readonly addRivalReachTile: (x: number, z: number, surfaceY: number, rivalColor: string) => void;
   readonly commit: () => void;
   /** Advances the breach animation; call every frame. */
   readonly update: (nowMs: number) => void;
@@ -103,43 +93,6 @@ const HATCH_FRAGMENT_SHADER = /* glsl */ `
     #include <fog_fragment>
   }
 `;
-
-// Lines run along u - v (the hatch above runs along u + v). Between lines the
-// fragment is fully transparent, so the viewer's own fill shows through.
-const RIVAL_REACH_FRAGMENT_SHADER = /* glsl */ `
-  #include <fog_pars_fragment>
-  uniform float uOpacity;
-  uniform float uLines;
-  uniform float uLineWidth;
-  varying vec3 vTheirs;
-  varying vec2 vHatchUv;
-  void main() {
-    float t = (vHatchUv.x - vHatchUv.y) * uLines;
-    float d = abs(fract(t) - 0.5); // 0 on a line's centre, 0.5 midway between lines
-    float aa = fwidth(t);
-    float halfWidth = uLineWidth * 0.5;
-    float line = 1.0 - smoothstep(halfWidth - aa * 0.75, halfWidth + aa * 0.75, d);
-    // Sub-pixel lines would shimmer when zoomed out -- fade to their average coverage instead.
-    float coverage = mix(line, uLineWidth, smoothstep(0.2, 0.5, aa));
-    gl_FragColor = vec4(vTheirs, uOpacity * coverage);
-    #include <colorspace_fragment>
-    #include <fog_fragment>
-  }
-`;
-
-const createRivalReachMaterial = (): ShaderMaterial =>
-  new ShaderMaterial({
-    uniforms: UniformsUtils.merge([
-      UniformsLib.fog,
-      { uOpacity: { value: RIVAL_REACH_OPACITY }, uLines: { value: RIVAL_REACH_LINES_PER_TILE }, uLineWidth: { value: RIVAL_REACH_LINE_WIDTH } }
-    ]),
-    vertexShader: HATCH_VERTEX_SHADER,
-    fragmentShader: RIVAL_REACH_FRAGMENT_SHADER,
-    fog: true,
-    transparent: true,
-    depthWrite: false,
-    side: DoubleSide
-  });
 
 const createHatchMaterial = (): ShaderMaterial =>
   new ShaderMaterial({
@@ -248,29 +201,12 @@ export const createIncursionOverlay3D = (parent: Group, maxTiles: number): Incur
     if (strips.east) writeQuad(edges, x1 - EDGE_WIDTH, x1, z0, z1, y, [edge]);
   };
 
-  // Also created on first use: most viewers never hold a tile inside a rival's reach.
-  let rivalReach: QuadBuffer | undefined;
-  let rivalReachMaterial: ShaderMaterial | undefined;
-  const rival = new Color();
-  const addRivalReachTile: IncursionOverlay3D["addRivalReachTile"] = (x, z, surfaceY, rivalColor) => {
-    if (!rivalReach) {
-      // hatchMine is unused by this shader but it shares the hatch vertex shader, so it carries the rival colour too.
-      rivalReachMaterial = createRivalReachMaterial();
-      rivalReach = createQuadBuffer(maxTiles, rivalReachMaterial, ["hatchTheirs", "hatchMine"], "hatchUv", 8);
-      buffers.push(rivalReach);
-      parent.add(rivalReach.mesh);
-    }
-    rival.set(normalizeColorForThree(rivalColor));
-    writeQuad(rivalReach, x - 0.5, x + 0.5, z - 0.5, z + 0.5, surfaceY, [rival, rival]);
-  };
-
   return {
     clear: () => {
       for (const b of buffers) b.count = 0;
       breachFx?.clear();
     },
     addTile,
-    addRivalReachTile,
     commit: () => {
       for (const b of buffers) upload(b);
       breachFx?.commit();
@@ -283,7 +219,6 @@ export const createIncursionOverlay3D = (parent: Group, maxTiles: number): Incur
       }
       breachFx?.dispose();
       hatchMaterial.dispose();
-      rivalReachMaterial?.dispose();
       edgeMaterial.dispose();
     }
   };

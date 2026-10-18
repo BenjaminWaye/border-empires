@@ -1,23 +1,18 @@
 import { drawDormantFrontierTreatment, isDormantFrontierTile } from "../client-reach-overlay/client-reach-overlay.js";
-import { incursionHatchColors, incursionMarkColor, incursionOwnerAt, incursionPocketEdges, rivalReachOverMyTile, type IncursionDeps } from "./client-reach-incursion.js";
+import { incursionHatchColors, incursionMarkColor, incursionPocketEdges, reachPocketAt, type IncursionDeps } from "./client-reach-incursion.js";
 import type { Tile } from "../client-types.js";
 
-// 2D canvas twin of client-map-3d-incursion-overlay.ts: rival tiles inside
-// the viewer's reach get a two-colour diagonal hatch (intruder's colour
-// alternating with the viewer's) plus a solid strip along each pocket edge in
-// a colour contrasting with the intruder's fill. The viewer's own tiles inside
-// a rival's reach get the mirror mark instead: sparse thin lines in the rival's
-// colour along the other diagonal, no edge. Also owns the existing dormant-frontier
+// 2D canvas twin of client-map-3d-incursion-overlay.ts: a tile held inside
+// another empire's reach (reachPocketAt -- a rival's tile inside the viewer's
+// reach, or the viewer's own tile inside a rival's) gets a two-colour diagonal
+// hatch (the pusher's colour alternating with the reach owner's) plus a solid
+// strip along each pocket edge in a colour contrasting with the pusher's fill. Also owns the existing dormant-frontier
 // treatment, so client-runtime-loop.ts makes one per-tile reach call.
 
 const HATCH_ALPHA = 0.6;
 /** Theirs+mine stripe pairs per tile (matches the 3D HATCH_STRIPE_PAIRS_PER_TILE); whole, so neighbouring tiles' stripes line up. */
 const HATCH_STRIPES = 4;
 const EDGE_WIDTH_FRACTION = 0.07;
-/** Rival-reach lines per tile and each line's share of its period (match the 3D RIVAL_REACH_* constants). */
-const RIVAL_REACH_LINES = 3;
-const RIVAL_REACH_LINE_WIDTH = 0.2;
-const RIVAL_REACH_ALPHA = 0.85;
 
 export type ReachTileTreatmentDeps = IncursionDeps & {
   readonly me: string;
@@ -65,47 +60,6 @@ const hatchTileImage = (hatch: ReturnType<typeof incursionHatchColors>, size: nu
   return canvas;
 };
 
-// Thin lines along x - y (the incursion hatch runs along x + y) on a
-// transparent tile, so the viewer's own fill shows between them. Shares the
-// bounded hatch cache; the "r|" prefix keeps its keys apart.
-const rivalReachTileImage = (rivalColor: string, size: number): HTMLCanvasElement | undefined => {
-  const px = Math.max(4, Math.round(size));
-  const key = `r|${rivalColor}|${px}`;
-  const cached = hatchTileCache.get(key);
-  if (cached) return cached;
-  const canvas = document.createElement("canvas");
-  canvas.width = px;
-  canvas.height = px;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return undefined;
-  ctx.fillStyle = rivalColor;
-  const step = px / RIVAL_REACH_LINES;
-  const half = (step * RIVAL_REACH_LINE_WIDTH) / 2;
-  ctx.beginPath();
-  // Line k is the band of x - y within half of k*step + step/2 (centred like the 3D shader's lines).
-  for (let k = -RIVAL_REACH_LINES; k <= RIVAL_REACH_LINES; k += 1) {
-    const c = k * step + step / 2;
-    ctx.moveTo(c - half, 0);
-    ctx.lineTo(c + half, 0);
-    ctx.lineTo(c + half + px, px);
-    ctx.lineTo(c - half + px, px);
-    ctx.closePath();
-  }
-  ctx.fill();
-  if (hatchTileCache.size >= HATCH_TILE_CACHE_LIMIT) hatchTileCache.clear();
-  hatchTileCache.set(key, canvas);
-  return canvas;
-};
-
-const drawRivalReachTile = (ctx: CanvasRenderingContext2D, rivalColor: string, px: number, py: number, size: number): void => {
-  const image = rivalReachTileImage(rivalColor, size);
-  if (!image) return;
-  ctx.save();
-  ctx.globalAlpha = RIVAL_REACH_ALPHA;
-  ctx.drawImage(image, px, py, size, size);
-  ctx.restore();
-};
-
 const drawIncursionTile = (
   ctx: CanvasRenderingContext2D,
   hatch: ReturnType<typeof incursionHatchColors>,
@@ -131,7 +85,7 @@ const drawIncursionTile = (
   ctx.restore();
 };
 
-/** Per-tile reach treatments for one VISIBLE tile on the 2D map: dormant frontier and rival reach (own tiles) or incursion (rival tiles inside my reach). */
+/** Per-tile reach treatments for one VISIBLE tile on the 2D map: dormant frontier (own tiles) and the incursion hatch on any tile held inside another empire's reach. */
 export const drawReachTileTreatments2D = (
   ctx: CanvasRenderingContext2D,
   tile: Tile,
@@ -143,14 +97,9 @@ export const drawReachTileTreatments2D = (
   myReach: ReadonlySet<string>,
   deps: ReachTileTreatmentDeps
 ): void => {
-  if (tile.ownerId === deps.me) {
-    if (isDormantFrontierTile(tile)) drawDormantFrontierTreatment(ctx, px, py, size);
-    const rival = rivalReachOverMyTile(tile, deps.me);
-    if (rival) drawRivalReachTile(ctx, deps.ownerColor(rival), px, py, size);
-    return;
-  }
-  const intruder = incursionOwnerAt(tile, deps.keyFor(wx, wy), deps.me, myReach);
-  if (!intruder) return;
-  const intruderColor = deps.ownerColor(intruder);
-  drawIncursionTile(ctx, incursionHatchColors(intruderColor, deps.ownerColor(deps.me)), incursionMarkColor(intruderColor), px, py, size, incursionPocketEdges(wx, wy, intruder, deps));
+  if (tile.ownerId === deps.me && isDormantFrontierTile(tile)) drawDormantFrontierTreatment(ctx, px, py, size);
+  const pocket = reachPocketAt(tile, deps.keyFor(wx, wy), deps.me, myReach, deps.tiles);
+  if (!pocket) return;
+  const pusherColor = deps.ownerColor(pocket.pusher);
+  drawIncursionTile(ctx, incursionHatchColors(pusherColor, deps.ownerColor(pocket.defender)), incursionMarkColor(pusherColor), px, py, size, incursionPocketEdges(wx, wy, pocket.pusher, deps));
 };

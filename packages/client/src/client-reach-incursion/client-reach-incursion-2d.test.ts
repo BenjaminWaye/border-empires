@@ -42,18 +42,18 @@ const draw = (tile: Tile, myReach: ReadonlySet<string> = new Set()) => {
 
 afterEach(() => vi.unstubAllGlobals());
 
-describe("drawReachTileTreatments2D rival reach over my tiles", () => {
-  it("stamps the rival-reach lines on my own tile inside a rival's reach", () => {
+describe("drawReachTileTreatments2D my tiles inside a rival's reach", () => {
+  it("stamps the same incursion hatch on my own tile inside a rival's reach", () => {
     const stamps = draw({ x: 3, y: 3, terrain: "LAND", ownerId: "me", reachOwnerId: "rival" } as Tile);
     expect(stamps).toHaveLength(1);
-    expect(stamps[0]!.alpha).toBe(0.85);
+    expect(stamps[0]!.alpha).toBe(0.6);
   });
 
   it("draws nothing on my tile inside my own reach", () => {
     expect(draw({ x: 3, y: 3, terrain: "LAND", ownerId: "me", reachOwnerId: "me" } as Tile)).toHaveLength(0);
   });
 
-  it("still uses the incursion hatch, not the rival-reach lines, for a rival tile inside my reach", () => {
+  it("still hatches a rival tile inside my reach", () => {
     const stamps = draw({ x: 3, y: 3, terrain: "LAND", ownerId: "rival", reachOwnerId: "me" } as Tile, new Set([keyFor(3, 3)]));
     expect(stamps).toHaveLength(1);
     expect(stamps[0]!.alpha).toBe(0.6);

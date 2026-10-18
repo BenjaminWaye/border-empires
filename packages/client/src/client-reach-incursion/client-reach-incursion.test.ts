@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { incursionHatchColors, incursionMarkColor, incursionNeighbourKindAt, incursionOwnerAt, incursionPocketEdges, rivalReachOverMyTile, type IncursionTile } from "./client-reach-incursion.js";
+import { incursionHatchColors, incursionMarkColor, incursionNeighbourKindAt, incursionOwnerAt, incursionPocketEdges, reachPocketAt, rivalReachOverMyTile, type IncursionTile } from "./client-reach-incursion.js";
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
 const wrap = (v: number): number => ((v % 10) + 10) % 10;
@@ -36,6 +36,31 @@ describe("rivalReachOverMyTile", () => {
     expect(rivalReachOverMyTile({ ownerId: "rival", reachOwnerId: "rival" }, "me")).toBeUndefined();
     expect(rivalReachOverMyTile({ ownerId: "me", reachOwnerId: "barbarian-2" }, "me")).toBeUndefined();
     expect(rivalReachOverMyTile({ ownerId: "me", reachOwnerId: "rival" }, undefined)).toBeUndefined();
+  });
+});
+
+describe("reachPocketAt", () => {
+  const tiles = new Map<string, IncursionTile>([
+    ["1,1", { ownerId: "me", reachOwnerId: "rival" }],
+    ["2,1", { ownerId: "rival", reachOwnerId: "rival" }],
+    ["0,1", { ownerId: "me", reachOwnerId: "me" }]
+  ]);
+
+  it("puts the intruder in front for a rival tile inside my reach", () => {
+    const pocket = reachPocketAt({ ownerId: "rival" }, "5,5", "me", new Set(["5,5"]), tiles);
+    expect(pocket).toMatchObject({ pusher: "rival", defender: "me" });
+    expect(pocket!.inDefenderReach.has("5,5")).toBe(true);
+  });
+
+  it("swaps the roles for my own tile inside a rival's reach, reading their reach off reachOwnerId", () => {
+    const pocket = reachPocketAt(tiles.get("1,1"), "1,1", "me", new Set(["0,1"]), tiles);
+    expect(pocket).toMatchObject({ pusher: "me", defender: "rival" });
+    expect(pocket!.inDefenderReach.has("2,1")).toBe(true);
+    expect(pocket!.inDefenderReach.has("0,1")).toBe(false);
+  });
+
+  it("is undefined for my tile inside my own reach", () => {
+    expect(reachPocketAt(tiles.get("0,1"), "0,1", "me", new Set(["0,1"]), tiles)).toBeUndefined();
   });
 });
 
