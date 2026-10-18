@@ -1,7 +1,7 @@
 # Playtest improvement plan
 
-Status: active proposal; item 1 implemented locally, live verification pending
-Owner: client maintainers for item 1; product owner for subsequent priorities
+Status: active roadmap; item 1 merged, item 2 implemented locally; live verification pending
+Owner: client maintainers for items 1–2; product owner for subsequent priorities
 Last verified: 2026-10-18
 Replaces: none; update the relevant canonical references as each item ships
 
@@ -72,12 +72,14 @@ Implementation and verification, 2026-10-18:
   tests cover sign-out before retries, during backoff, during a stalled restore,
   and subsequent sign-in.
 
-### 2. Preview and confirm bulk garrison
+### 2. Select, review and confirm Garrison Many — implemented locally
 
-Before Garrison Connected executes, highlight exactly the affected tiles and
-show eligible count, total manpower and coin cost, exclusions with reasons,
-and what starts immediately versus queues. Keep the preview visible on mobile.
-Revalidate eligibility when submitting and explain any changed selection.
+Replace Garrison Connected with Garrison Many. Start with the originating tile
+selected, allow taps to select/deselect eligible owned frontier, and offer a
+Select connected shortcut. Highlight the selected set in both map renderers.
+Review eligible count, combined cost, excluded tiles/reasons and available
+slots versus waiting work. Keep the map visible on mobile and revalidate at
+confirmation. See [implementation and verification](garrison-many-plan.md).
 
 Acceptance: preview, queued work, and server validation agree; no silently
 included or excluded tiles, including mixed reach and affordability cases.

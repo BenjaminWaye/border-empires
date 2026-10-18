@@ -1,5 +1,6 @@
 import { AFC_SPECIALIZATIONS_CHANGELOG } from "./client-changelog-afc-specializations.js";
 import { ALLIANCES_TAB_CHANGELOG } from "./client-changelog-alliances-tab.js";
+import { ENEMY_MUSTER_WARNING_CHANGELOG, FRONTIER_REACH_WARNING_CHANGELOG } from "./client-changelog-enemy-muster-warning.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_17 } from "./client-changelog-oct-17.js";
 import { AETHER_ABILITY_ICONS_CHANGELOG } from "./client-changelog-aether-ability-icons.js";
 import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-art-october.js";
@@ -54,24 +55,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AFC_SPECIALIZATIONS_CHANGELOG,
   ...ALLIANCES_TAB_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_OCT_17,
-  {
-    createdAt: 1792044007050, // Date.now() frozen for the changelog gate.
-    introducedIn: "2026.10.15.1",
-    title: "Warnings for enemy muster flags near your border",
-    why: "An enemy could stage troops on a muster flag right next to your land, and you only found out once the attack landed.",
-    changes: [
-      "A warning pops up when an enemy muster flag appears within 4 tiles of your territory, or an existing one switches to Advance or March, with a button to center on it",
-      "Enemy flags near your border get a red off-screen pointer in both map renderers, ahead of your own alerts while still leaving room for them",
-      "Flags of allies and truce partners don't trigger warnings"
-    ]
-  },
-  {
-    createdAt: 1791970358363, // Date.now() frozen for the changelog gate.
-    introducedIn: "2026.10.14.3",
-    title: "Enemy frontier warnings refer to their owner's reach",
-    why: "An enemy tile's decay timer incorrectly said beyond your reach even when it was within yours.",
-    changes: ["Enemy frontier decay warnings now refer to the tile owner's reach in both map renderers"]
-  },
+  ENEMY_MUSTER_WARNING_CHANGELOG,
+  FRONTIER_REACH_WARNING_CHANGELOG,
   {
     createdAt: 1791969768256, // Frozen Date.now() timestamp for the changelog gate.
     introducedIn: "2026.10.14.2",
@@ -482,6 +467,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "AFC Upgrades replaces Sharding in navigation, with installed upgrades and their tiers above the current choices, inline details on phones and comparison cards beside details on desktop",
       "A clickable upgrade-ready badge appears above your active AFCs in both map renderers; the navigation count stays visible when the AFC is offscreen",
       "Owned AFC overviews link directly to upgrades, and availability follows your current resources and prerequisites; existing upgrade costs and rewards stay the same"
+    ]
+  },
+  {
+    createdAt: 1792353291209, // Date.now() frozen for the changelog gate.
+    introducedIn: "2026.10.18.2",
+    title: "Choose exactly which tiles to garrison",
+    why: "Garrison Connected queued a whole region immediately, making it hard to control where manpower went.",
+    changes: [
+      "Garrison Many lets you tap frontier tiles to select or deselect them, with highlights in both map renderers",
+      "Select connected adds nearby frontier to your selection; review the tile list, total cost and queue before confirming",
+      "Changed ownership, reach or available resources update the review before anything is queued",
+      "Dragging and pinching still move the map; taps select tiles once"
     ]
   }
 ];

@@ -4,7 +4,7 @@
 export type TileActionDef = {
   id:
     | "settle_land"
-    | "settle_connected_frontier"
+    | "settle_many"
     | "launch_attack"
     | "attack_connected_region"
     | "reveal_empire"

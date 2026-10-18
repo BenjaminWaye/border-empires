@@ -31,7 +31,7 @@ const structureNameForTile = (tile: Tile): string | undefined => {
 export const buildDetailTextForAction = (actionId: string, tile: Tile, supportedTown?: Tile): string | undefined => {
   const supportedTownLabel = supportedTown?.town?.name ? supportedTown.town.name : supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
   if (actionId === "settle_land") return "Station troops here so the tile can be defended and built on, and its town or resource starts producing.";
-  if (actionId === "settle_connected_frontier") return "Queues a garrison on every connected frontier tile you own.";
+  if (actionId === "settle_many") return "Choose frontier tiles on the map and review their garrison cost before confirming.";
   if (actionId === "build_fortification") {
     // Only show upgrade text when a fort already exists on the tile.
     // Without this guard, a tile.fort === undefined falls through the

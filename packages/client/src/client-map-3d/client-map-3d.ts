@@ -1,3 +1,5 @@
+import { createGarrisonSelection3D } from "../client-garrison-many/client-garrison-many-3d.js";
+import { syncTileHighlightMarker } from "../client-garrison-many/client-tile-highlight-3d.js";
 import { addBuildingInstancesForTile } from "./client-map-3d-building-instances.js";
 import {
   BufferGeometry,
@@ -376,35 +378,10 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     if (biome === "MARSH") return "MARSH";
     return "GRASS"; // GRASS and v9 GRASSLAND (which reuses GRASS's art)
   };
-  const syncHighlightMarker = (
-    marker: LineSegments,
-    tile: { x: number; y: number } | undefined,
-    riseAboveSurface: number
-  ): void => {
-    if (!tile) {
-      marker.visible = false;
-      return;
-    }
-    const dx = toroidDelta(sceneOrigin.camX, tile.x, WORLD_WIDTH);
-    const dy = toroidDelta(sceneOrigin.camY, tile.y, WORLD_HEIGHT);
-    // Each corner of the marker is anchored to that corner's actual
-    // rendered Y so the outline bends with the heightfield instead of
-    // floating as a flat plane above bowing terrain.
-    const wxNext = deps.wrapX(tile.x + 1);
-    const wyNext = deps.wrapY(tile.y + 1);
-    const cornerY00 = heightfield.cornerYAt(tile.x, tile.y);
-    const cornerY10 = heightfield.cornerYAt(wxNext, tile.y);
-    const cornerY01 = heightfield.cornerYAt(tile.x, wyNext);
-    const cornerY11 = heightfield.cornerYAt(wxNext, wyNext);
-    marker.position.set(0, 0, 0);
-    writeBendingMarkerCorners(
-      marker.geometry as BufferGeometry,
-      dx + TILE_CENTER_OFFSET, 0, dy + TILE_CENTER_OFFSET,
-      cornerY00, cornerY10, cornerY01, cornerY11,
-      riseAboveSurface
-    );
-    marker.visible = true;
-  };
+  const tileHighlightDeps = { sceneOrigin, wrapX: deps.wrapX, wrapY: deps.wrapY, cornerYAt: heightfield.cornerYAt.bind(heightfield), toroidDelta };
+  const syncHighlightMarker = (marker: LineSegments, tile: { x: number; y: number } | undefined, rise: number): void =>
+    syncTileHighlightMarker(tileHighlightDeps, marker, tile, rise);
+  const garrisonSelection = createGarrisonSelection3D(scene);
   // Shared with the 2D renderer -- see client-town-support-plot-lookup.ts.
   const townSupportLookupDeps: TownSupportLookupDeps = {
     tiles: deps.state.tiles, wrapX: deps.wrapX, wrapY: deps.wrapY, keyFor: deps.keyFor, terrainAt: deps.terrainAt, me: deps.state.me
@@ -1405,6 +1382,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     syncTownSupportMarkers();
     syncTownSupportTiles();
     syncQueueMarkers();
+    garrisonSelection.sync(deps.state.garrisonMany, tileHighlightDeps);
     syncWaypointMarkers();
     syncMarchTargetMarkers();
     syncFrontierClaimPlates(deps.state, deps.keyFor, heightfield, frontierClaimPlates, sceneOrigin.camX, sceneOrigin.camY, MARKER_RISE_ABOVE_HEIGHTFIELD, deps.wrapX, deps.wrapY, (x,y)=>isHillsTile(x,y)&&terrainForWorldTile(x,y)!=="MOUNTAIN");
@@ -1489,6 +1467,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     (selectedMarker.material as LineBasicMaterial).dispose();
     (hoverMarker.material as LineBasicMaterial).dispose();
     selectionRangeOverlays.dispose();
+    garrisonSelection.dispose();
     crystalTargetingOverlay.dispose();
     frontierSupplyOverlay.dispose();
     for (const { marker, material } of townSupportMarkers) {
