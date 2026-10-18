@@ -466,6 +466,7 @@ export const tileMenuViewForTile = (
   const reachState = deps.state; const headerStatus: TileMenuHeaderStatus | undefined = (tile.ownerId === reachState.me && reachState.tiles ? ownTileHeaderStatus(reachState as ReachAuthoritativeState, tile, deps.playerNameForOwner) : tileMenuHeaderStatusForTile(tile, Date.now(), undefined, undefined, tile.ownerId === reachState.me)) ?? battleMenuHeaderStatus(incomingAttack ?? capture); return {
     title: `${titleLabel} (${tile.x}, ${tile.y})`,
     ...(townCharacter ? { townCharacter } : {}),
+    ...(tile.town ? { isTownTile: true } : {}),
     subtitle: tileMenuSubtitleText(ownerLabel, regionLabel),
     ...(subtitleHtml ? { subtitleHtml } : {}),
     ...(headerStatus ? { statusText: headerStatus.text, statusTone: headerStatus.tone, ...(headerStatus.helpText ? { statusHelpText: headerStatus.helpText } : {}) } : {}),

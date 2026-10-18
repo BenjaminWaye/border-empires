@@ -9,6 +9,7 @@ import {
   BUILDING_CATEGORY_LABELS,
   BUILDING_CATEGORY_ORDER,
   buildingActionCategory,
+  initialBuildingCategory,
   type BuildingCategory
 } from "./client-tile-menu-building-category/client-tile-menu-building-category.js";
 import { statusWithHelpHtml } from "./client-tile-menu-ownership-help/client-tile-menu-ownership-help.js";
@@ -46,7 +47,7 @@ const battleOddsBarHtml = (battle: NonNullable<TileMenuProgressView["battle"]>):
 // switch categories. A category with nothing buildable here is shown
 // disabled with a reason grounded in why it's empty (resourceTypes /
 // placementMode -- see client-tile-menu-building-category.ts).
-const groupedBuildingActionListHtml = (actions: TileActionDef[]): string => {
+const groupedBuildingActionListHtml = (actions: TileActionDef[], isTownTile: boolean): string => {
   const byCategory = new Map<BuildingCategory, TileActionDef[]>();
   for (const action of actions) {
     const category = buildingActionCategory(action);
@@ -58,7 +59,10 @@ const groupedBuildingActionListHtml = (actions: TileActionDef[]): string => {
   const visibleCategories = BUILDING_CATEGORY_ORDER.filter(
     (category) => (byCategory.get(category)?.length ?? 0) > 0 || !BUILDING_CATEGORIES_HIDDEN_WHEN_EMPTY.has(category)
   );
-  const firstNonEmpty = visibleCategories.find((category) => (byCategory.get(category)?.length ?? 0) > 0);
+  const initialCategory = initialBuildingCategory(
+    visibleCategories.filter((category) => (byCategory.get(category)?.length ?? 0) > 0),
+    isTownTile
+  );
   // Radios live as direct siblings of .tile-building-category-panels (not
   // nested inside the squares row) so the plain CSS sibling combinator
   // (`.cat-x:checked ~ .tile-building-category-panels [data-category=x]`)
@@ -66,7 +70,7 @@ const groupedBuildingActionListHtml = (actions: TileActionDef[]): string => {
   const radiosHtml = visibleCategories.map((category) => {
     const count = byCategory.get(category)?.length ?? 0;
     const inputId = `tbc-${uid}-${category}`;
-    return `<input type="radio" name="tile-building-category-${uid}" id="${inputId}" class="tile-building-category-radio cat-${category}" ${category === firstNonEmpty ? "checked" : ""} ${count === 0 ? "disabled" : ""} />`;
+    return `<input type="radio" name="tile-building-category-${uid}" id="${inputId}" class="tile-building-category-radio cat-${category}" ${category === initialCategory ? "checked" : ""} ${count === 0 ? "disabled" : ""} />`;
   }).join("");
   const squaresHtml = visibleCategories.map((category) => {
     const count = byCategory.get(category)?.length ?? 0;
@@ -274,7 +278,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
     }
     const listHtml =
       activeTab === "buildings" && actionsForTab.length > BUILDING_GROUP_THRESHOLD
-        ? groupedBuildingActionListHtml(actionsForTab)
+        ? groupedBuildingActionListHtml(actionsForTab, Boolean(view.isTownTile))
         : `<div class="tile-action-list">${recommendedFirst(actionsForTab).map(tileActionButtonHtml).join("")}</div>`;
     return `${listHtml}${view.combatBreakdown ? combatBreakdownHtml(view.combatBreakdown) : ""}`;
   }

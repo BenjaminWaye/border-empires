@@ -279,25 +279,18 @@ export const isOwnedBorderTile = (
   return neighbors.some((tile) => !tile || tile.ownerId !== state.me);
 };
 
+// Full development slots don't change how a build button looks: the order
+// is still accepted and waits server-side until a slot frees up, but the old
+// "• queues" cost suffix confused players, so the button shows the plain cost.
+// `summary` and `deps` are no longer read; they stay so the ~40 callers don't
+// all have to change in this branch.
 export const tileActionAvailabilityWithDevelopmentSlot = (
   enabledWithoutSlot: boolean,
   baseReason: string,
   cost?: string,
-  summary?: DevelopmentSlotSummary,
-  deps?: Partial<Pick<TileActionLogicDeps, "developmentSlotSummary" | "developmentSlotReason">>
-): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> => {
-  const slotSummary = summary ?? deps?.developmentSlotSummary?.();
-  if (!slotSummary) return tileActionAvailability(enabledWithoutSlot, baseReason, cost);
-  if (slotSummary.available <= 0 && enabledWithoutSlot) {
-    return tileActionAvailability(
-      true,
-      deps?.developmentSlotReason?.(slotSummary) ?? baseReason,
-      cost ? `${cost} • queues` : "Queues when slot frees up"
-    );
-  }
-  if (slotSummary.available <= 0) return tileActionAvailability(false, baseReason, cost);
-  return tileActionAvailability(enabledWithoutSlot, baseReason, cost);
-};
+  _summary?: DevelopmentSlotSummary,
+  _deps?: Partial<Pick<TileActionLogicDeps, "developmentSlotSummary" | "developmentSlotReason">>
+): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> => tileActionAvailability(enabledWithoutSlot, baseReason, cost);
 
 export const chainedBuildAvailabilityFromModule = (
   deps: TileActionLogicDeps,

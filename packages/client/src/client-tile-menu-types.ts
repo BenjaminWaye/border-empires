@@ -86,6 +86,9 @@ export type TileMenuView = {
   modules?: AfcModuleTabView;
   title: string;
   townCharacter?: string;
+  // True when the tile is a town itself (not one of its support-ring tiles);
+  // decides which building category the Buildings tab opens on.
+  isTownTile?: boolean;
   subtitle: string;
   subtitleHtml?: string;
   statusText?: string;

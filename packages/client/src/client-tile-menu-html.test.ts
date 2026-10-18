@@ -132,6 +132,21 @@ describe("tileActionMenuHtml building category squares", () => {
     expect(html).toContain("tile-building-category-square cat-resource is-empty");
     expect(html).toContain("tile-building-category-square cat-town_support is-empty");
   });
+
+  const checkedCategory = (html: string): string | undefined => /<input[^>]*class="tile-building-category-radio cat-(\w+)"[^>]*\bchecked\b/.exec(html)?.[1];
+  const withManufactory = [...sevenBuildings, building("build_manufactory", "Build Manufactory")];
+
+  it("opens on Town Support on a support-ring tile that offers a Town Support building", () => {
+    expect(checkedCategory(tileActionMenuHtml(viewWith(withManufactory), "buildings", false))).toBe("town_support");
+  });
+
+  it("keeps opening on the first non-empty category on the town tile itself", () => {
+    expect(checkedCategory(tileActionMenuHtml({ ...viewWith(withManufactory), isTownTile: true }, "buildings", false))).toBe("military");
+  });
+
+  it("keeps opening on the first non-empty category when Town Support is empty", () => {
+    expect(checkedCategory(tileActionMenuHtml(viewWith(sevenBuildings), "buildings", false))).toBe("military");
+  });
 });
 
 describe("recommended actions", () => {

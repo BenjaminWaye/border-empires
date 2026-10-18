@@ -360,15 +360,19 @@ describe("town support tile actions", () => {
 describe("tileActionAvailabilityWithDevelopmentSlot", () => {
   const fullSlots: DevelopmentSlotSummary = { busy: 3, limit: 3, available: 0 };
 
-  it("keeps otherwise-valid builds enabled and marked as queued when development slots are full", () => {
+  it("keeps otherwise-valid builds enabled with the plain cost when development slots are full", () => {
     expect(
       tileActionAvailabilityWithDevelopmentSlot(true, "Build Palisade", "900 gold", fullSlots, {
         developmentSlotReason: () => "No available development slots (3/3 busy)"
       })
     ).toEqual({
       disabled: false,
-      cost: "900 gold • queues"
+      cost: "900 gold"
     });
+  });
+
+  it("shows no cost line rather than a queue note for a cost-less build when slots are full", () => {
+    expect(tileActionAvailabilityWithDevelopmentSlot(true, "Build Palisade", undefined, fullSlots)).toEqual({ disabled: false });
   });
 
   it("preserves the real blocker instead of blaming full development slots for unavailable builds", () => {
