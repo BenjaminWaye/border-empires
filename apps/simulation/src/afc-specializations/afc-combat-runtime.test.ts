@@ -1,3 +1,4 @@
+import type { RecoveredLock } from "../event-recovery/event-recovery.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { SimulationRuntime } from "../runtime/runtime.js";
@@ -5,7 +6,7 @@ import { buildPlayer, collectEvents } from "../runtime/runtime.test-helpers.js";
 
 const land = (x: number, ownerId: string): DomainTileState => ({ x, y: 10, terrain: "LAND", ownerId, ownershipState: "SETTLED" });
 const slots = { FOOD: 100, TITANIUM: 100, UMBRITE: 100, CRYSTAL: 100 };
-function setup(attackerDomains: string[], defenderDomains: string[], extraTiles: DomainTileState[] = []) {
+function setup(attackerDomains: string[], defenderDomains: string[], extraTiles: DomainTileState[] = [], activeLocks: RecoveredLock[] = []) {
   vi.useFakeTimers(); vi.spyOn(Math, "random").mockReturnValue(0);
   let now = 1000;
   const origin = { ...land(10, "p"), afc: { ownerId: "p", status: "active" as const, modules: [] }, muster: { ownerId: "p", amount: 5000, mode: "HOLD" as const, setAt: 1000 } };
@@ -13,7 +14,7 @@ function setup(attackerDomains: string[], defenderDomains: string[], extraTiles:
   const runtime = new SimulationRuntime({ now: () => now, seedTiles: new Map(), initialPlayers: new Map([
     ["p", buildPlayer("p", { afcUpgradeRuleset: "afc-v1", domainIds: new Set(attackerDomains), waystationResourceSlotBonus: slots })],
     ["e", buildPlayer("e", { afcUpgradeRuleset: "afc-v1", domainIds: new Set(defenderDomains), waystationResourceSlotBonus: slots })]
-  ]), initialState: { tiles: [origin, target, ...extraTiles], activeLocks: [] } });
+  ]), initialState: { tiles: [origin, target, ...extraTiles], activeLocks } });
   const seen = collectEvents(runtime);
   const attack = async () => {
     runtime.submitCommand({ commandId: "battle", sessionId: "test", playerId: "p", clientSeq: 1, issuedAt: now, type: "ATTACK", payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 11, toY: 10 }) });
@@ -48,4 +49,13 @@ describe("AFC combat effects through normal battle resolution", () => {
     expect(JSON.parse(state.tiles.find(t => t.x === 10)!.musterJson!).momentum?.stacks).toBe(1);
     expect(seen.filter(event => event.eventType === "COMBAT_RESOLVED")).toHaveLength(1);
   });
+  it("does not grant a bonus capture on the origin of another battle", async () => {
+    const { runtime, attack } = setup(["afc-vanguard-5"], [], [{ ...land(12, "e"), town: { type: "MARKET", populationTier: "TOWN", population: 1000, maxPopulation: 2000 } }, { ...land(12, "p"), y: 11 }], [{
+      commandId: "enemy-in-flight", playerId: "e", actionType: "ATTACK", originX: 12, originY: 10, targetX: 12, targetY: 11, originKey: "12,10", targetKey: "12,11", resolvesAt: 999_999
+    }]);
+    await attack();
+    expect(runtime.exportState().tiles.find(tile => tile.x === 11 && tile.y === 10)?.ownerId).toBe("p");
+    expect(runtime.exportState().tiles.find(tile => tile.x === 12 && tile.y === 10)?.ownerId).toBe("e");
+  });
+
 });

@@ -31,18 +31,18 @@ and optional product-review wording in the earlier proposal.
 
 ## Work and completion gates
 
-- [ ] 1. Typed 30-entry catalogue with branch, tier, mechanical text, lore, category,
+- [x] 1. Typed 30-entry catalogue with branch, tier, mechanical text, lore, category,
   effect contract; shared eligibility evaluator; versioned season/player state;
   INIT/update parity; no-price installation and existing-season compatibility.
-- [ ] 2. Passive combat/build/reach/economy effects, authoritative previews, stable
+- [x] 2. Passive combat/build/reach/economy effects, authoritative previews, stable
   first-three-town membership, cache reconciliation, numeric regression tests.
-- [ ] 3. Atomic Scarcity/population grants and paid recruitment; per-flag Momentum;
+- [x] 3. Atomic Scarcity/population grants and paid recruitment; per-flag Momentum;
   non-recursive Breakthrough; persistent per-fort 24h wards; lifecycle/replay tests.
-- [ ] 4. Suppression and masked flag detection/Purge; same interactions and status
+- [x] 4. Suppression and masked flag detection/Purge; same interactions and status
   presentation in 2D canvas and true-3D, with fog authorization tests.
-- [ ] 5. Mutual-alliance benefits, physical trade-link income, bounded 24h war-pair
+- [x] 5. Mutual-alliance benefits, physical trade-link income, bounded 24h war-pair
   state, authoritative gateway forced truces, weighted victory with one winner.
-- [ ] 6. Player controls for active rewards, truthful installation previews and
+- [x] 6. Player controls for active rewards, truthful installation previews and
   one-shot outcomes; free-tier notifications; AI choices/active abilities including
   worker path. No old shard-funding tutorial in specialization progression.
 - [ ] 7. Full effect/command/recovery tests, narrow-phone and desktop browser checks,
@@ -63,3 +63,25 @@ and optional product-review wording in the earlier proposal.
 
 Each box requires actual outcome tests, display/preview agreement, and persistence
 coverage where it introduces durable state. Empty or placeholder effects are not done.
+
+## Verification record
+
+- The catalogue has six paths and thirty rewards with separate mechanical text
+  and lore. Runtime tests cover free choices, legacy-season compatibility, grants,
+  paid overflow, suppression, war eligibility, trade, ward recharge/transfer,
+  normal battle blocking, and a non-recursive garrisoned bonus capture.
+- Installation choices and one-shot final tile values share one journal event;
+  recruitment journals its Coin debit and paid manpower together. Recovery tests
+  cover these without relying on a later checkpoint.
+- AI worker tests cover free picks, AFC eligibility, masked Purge targeting, and
+  paid recruitment. Existing planner regression and full CI suites remain gates.
+- Chrome component checks at 390px and 1440px exercised fresh choices, installed
+  history and recruitment: six options, one AFC header, no horizontal overflow,
+  and 44px install controls. Signal tests exercise real projection callbacks in
+  both renderer modes, masked fog targeting, and no projection work for an
+  ordinary 8,000-tile viewport.
+- Code review also checked recent develop changes to tower dormancy, AFC Modules
+  overview, manpower restart recovery, and removal of tile shedding. No legacy
+  server changes, manual season rollover, or production deployment are included.
+- Full local CI, PR checks, merge and staging verification are recorded below
+  when completed; they are not implied by the focused test results above.

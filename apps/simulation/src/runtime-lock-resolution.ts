@@ -255,7 +255,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     settlementRelocationPopulation = applyWinningTileCapture(context, lock, previousTarget, combatBroadcastJson);
     const momentumTile = awardFlagMomentum(context, lock, combatResolution, targetWasSettled);
     if (momentumTile) context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: lock.commandId, playerId: lock.playerId, tileDeltas: [context.tileDeltaFromState(momentumTile)] });
-    applyBreakthroughCapture(context, lock, combatResolution);
+    if (targetWasSettled) applyBreakthroughCapture(context, lock, combatResolution);
   } else {
     if (originLost && previousOwnerId) resolveLostOrigin(context, lock, previousOwnerId);
     // Attacker lost and nothing about the target tile itself changed, so no

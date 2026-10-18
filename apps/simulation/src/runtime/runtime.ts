@@ -1,7 +1,6 @@
-import { fortWardIsReady } from "../afc-specializations/afc-battle-effects.js";
 import { afcCampaignGuardCounters, afcCampaignStateGauges } from "../afc-specializations/afc-diagnostics.js";
 import { oracleDetectionDiagnostics } from "../afc-specializations/afc-oracle-detections.js";
-import { afcPlayerCombatFacts } from "../afc-specializations/afc-player-combat-facts.js";
+import { buildPlayerCombatSummary } from "../afc-specializations/afc-player-combat-facts.js";
 import type { PlayerCombatSummary } from "@border-empires/sim-protocol";
 import { withAfcFortFacts, refreshAfcFortFacts } from "../afc-specializations/afc-fort-facts.js";
 import { restoreSameOwnerSummaryOrder } from "../runtime-same-owner-summary-order.js";
@@ -2065,9 +2064,7 @@ export class SimulationRuntime {
   // O(1) — weaponsFactoryCounts reads the maintained per-owner structure
   // index (runtime-owned-structure-index.ts), never a world-tile scan.
   getPlayerCombatSummary(playerId: string, target?: { x: number; y: number }): PlayerCombatSummary | undefined {
-    const player = this.state.players.get(playerId);
-    const tile = target ? this.state.tiles.get(`${target.x},${target.y}`) : undefined;
-    return player ? { afcCombatFacts: { ...afcPlayerCombatFacts(player, this.state.players, this.combatSupportContext(), this.now()), ...(target ? { targetFortWardReady: Boolean(tile?.ownerId === playerId && !this.isStructureDormant(playerId, `${target.x},${target.y}`, "fort") && fortWardIsReady(this.state.players, tile, this.now())) } : {}) }, techIds: [...player.techIds], domainIds: player.domainIds ? [...player.domainIds] : [], weaponsFactoryCounts: weaponsFactoryCountsFromIndex(this.ownedStructureCountByPlayerByType, playerId) } : undefined;
+    return buildPlayerCombatSummary({ ...this.combatSupportContext(), now: this.now, factoryCountsFor: id => weaponsFactoryCountsFromIndex(this.ownedStructureCountByPlayerByType, id), isFortDormant: (id, key) => this.isStructureDormant(id, key, "fort") }, playerId, target);
   }
 
   // Lean per-second metrics row (skips exportPlayerDebugSnapshot's sort/clone/lock-scan work; see RuntimeAiPlayerMetricsRow doc comment).

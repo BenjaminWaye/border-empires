@@ -12,7 +12,7 @@ export function applyBreakthroughCapture(context: RuntimeLockResolutionContext, 
   if (!award || !attacker) return;
   const tile = context.tiles.get(award.key);
   if (!tile || tile.terrain !== "LAND" || tile.ownerId !== award.ownerId || isAlliedOrTruced(attacker, award.ownerId) ||
-      context.locksByTile.targetLockAt(award.key) || context.hasPendingClaim?.(award.key) || context.isTileShieldedByAegisLock(attacker.id, tile.x, tile.y) || fortWardIsReady(context.players, tile, context.now())) return;
+      context.locksByTile.has(award.key) || context.hasPendingClaim?.(award.key) || context.isTileShieldedByAegisLock(attacker.id, tile.x, tile.y) || fortWardIsReady(context.players, tile, context.now())) return;
   const lock: LockRecord = { ...primary, commandId: `${primary.commandId}:breakthrough`, targetKey: award.key, targetX: tile.x, targetY: tile.y, manpowerCost: 0 };
   delete lock.combatResolution;
   const relocation = applyWinningTileCapture(context, lock, tile);

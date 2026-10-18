@@ -22,4 +22,14 @@ describe("masked AFC signals in both renderers", () => {
     overlay.render([], { size: 10, project: () => ({ sx: 77, sy: 66 }) });
     expect(document.querySelector(".afc-map-signal")).toBeNull();
   });
+  it("does not project an ordinary late-game viewport when it contains no AFC signals", () => {
+    true3D = true;
+    document.body.innerHTML = "<div><canvas width='100' height='100'></canvas></div>";
+    const canvas = document.querySelector("canvas")!, state = createInitialState(); state.authSessionReady = true;
+    const project = vi.fn(() => ({ sx: 50, sy: 50 }));
+    const overlay = createAfcMapOverlays(canvas, state, () => {});
+    overlay.render(Array.from({ length: 8000 }, (_, x) => ({ wx: x, wy: 0, wk: `${x},0`, px: x, py: 0, vis: "visible", t: undefined })), { size: 10, project });
+    expect(project).not.toHaveBeenCalled();
+  });
+
 });

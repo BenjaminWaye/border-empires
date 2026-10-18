@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { dispatchTileAetherAction } from "../client-afc-upgrades/client-afc-tower-action.js";
+import type { ClientState } from "../client-state/client-state.js";
 
 const clientSource = (filename: string): string => {
   const here = dirname(fileURLToPath(import.meta.url));
@@ -20,8 +22,14 @@ describe("3d aether purge fx regression guard", () => {
   });
 
   it("queues purge fx only after the command send path accepts the cast", () => {
-    const source = clientSource("../client-action-flow.ts");
-    expect(source).toContain('sendGameMessage({ type: "AETHER_LANCE"');
-    expect(source).toContain("state.aetherLanceFxQueue.push");
+    const state: Pick<ClientState, "aetherLanceFxQueue"> = { aetherLanceFxQueue: [] };
+    const target = { x: 4, y: 8 };
+    dispatchTileAetherAction("aether_lance", target, state, () => false);
+    expect(state.aetherLanceFxQueue).toEqual([]);
+    dispatchTileAetherAction("aether_lance", target, state, (payload) => {
+      expect(payload).toEqual({ type: "AETHER_LANCE", ...target });
+      return true;
+    });
+    expect(state.aetherLanceFxQueue).toEqual([{ ...target, queuedAt: expect.any(Number) }]);
   });
 });

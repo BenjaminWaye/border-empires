@@ -26,7 +26,7 @@ describe("AFC installation deliveries and durable recovery", () => {
   it("skips occupied/locked/unknown deposits and uses a useful no-deposit fallback", () => {
     const actor = player();
     const occupied = { ...tile(1, "FARM"), economicStructure: { ownerId: "p", status: "active" as const, type: "MANUFACTORY" as const } };
-    const tiles = new Map([occupied, tile(2, "FARM"), tile(3, "GEMS"), { ...tile(4, "FISH"), terrain: "SEA" as const }].map(t => [`${t.x},0`, t]));
+    const tiles = new Map([occupied, tile(2, "FARM"), tile(3, "GEMS"), { ...tile(4, "FISH"), terrain: "SEA" as const }, { ...tile(5, "FARM"), observatory: { ownerId: "p", status: "active" as const } }].map(t => [`${t.x},0`, t]));
     expect(previewScarcityDelivery(actor, tiles.values(), key => key === "2,0").fallback).toBe(true);
     const grant = applyAfcInstallationGrant({ tiles, now: () => 1, replaceTileState: () => { throw new Error("must not replace a structure"); }, isLocked: key => key === "2,0" }, actor, "afc-exchequer-2", "pick");
     expect(grant?.fallbackFoodSlots).toBe(1);

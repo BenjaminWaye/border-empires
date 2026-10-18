@@ -26,7 +26,7 @@ export function previewScarcityDelivery(player: Pick<DomainPlayer, "id" | "techI
     counts[resource] += 1;
     const type = booster(tile.resource);
     const key = `${tile.x},${tile.y}`;
-    if (!type || tile.terrain !== "LAND" || tile.economicStructure || isLocked(key)) continue;
+    if (!type || tile.terrain !== "LAND" || tile.economicStructure || tile.fort || tile.observatory || tile.siegeBattery || tile.afc || isLocked(key)) continue;
     if (!structureShowsOnTile(type, { ownershipState: tile.ownershipState, resource: tile.resource, dockId: tile.dockId, townPopulationTier: tile.town?.populationTier, supportedTownCount: 0, supportedDockCount: 0 })) continue;
     candidates[resource].push({ key, type });
   }

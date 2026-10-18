@@ -27,7 +27,8 @@ export const handleGetPlayerCombatSummary = (
   call: { request: ProtoPlayerCombatSummaryRequest },
   callback: (error: Error | null, response: ProtoPlayerCombatSummaryResponse) => void
 ): void => {
-  const summary = runtime.getPlayerCombatSummary(call.request.player_id, call.request.has_target && typeof call.request.target_x === "number" && typeof call.request.target_y === "number" ? { x: call.request.target_x, y: call.request.target_y } : undefined);
+  const target = call.request.has_target && typeof call.request.target_x === "number" && typeof call.request.target_y === "number" ? { x: call.request.target_x, y: call.request.target_y } : undefined;
+  const summary = target ? runtime.getPlayerCombatSummary(call.request.player_id, target) : runtime.getPlayerCombatSummary(call.request.player_id);
   if (!summary) {
     callback(null, { ok: true, found: false });
     return;

@@ -1,4 +1,3 @@
-import { afcPlayerStatePayload } from "./afc-specializations/afc-player-state.js";
 import { DEVELOPMENT_PROCESS_LIMIT, empireIntegrity, normalizeAutoSettlePrefs } from "@border-empires/shared";
 import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
@@ -66,7 +65,7 @@ export function emitPlayerStateUpdate(
   context.emitPlayerMessage(
     { commandId: command.commandId, playerId },
     {
-      ...afcPlayerStatePayload(player),
+      ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
       ...(player.afcUpgradeRuleset && context.hasActiveOwnedAfc ? { afcUpgradeInstallAllowed: context.hasActiveOwnedAfc(player.id) } : {}),
       type: "PLAYER_UPDATE",
       gold: player.points,

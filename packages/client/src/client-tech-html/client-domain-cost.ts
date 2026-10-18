@@ -15,4 +15,3 @@ export const formatDomainCost = (domain: DomainInfo): string => {
   }
   return fallbackCostBits.length > 0 ? fallbackCostBits.join(" · ") : "Cost not listed";
 };
-

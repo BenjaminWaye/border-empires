@@ -54,4 +54,3 @@ export const missingResourceSlotReason = (state: ClientState, type: SlotStructur
   const free = Math.max(0, freeResourceSlotCount(state, missing.resource));
   return `Need ${missing.count} free ${missing.resource} slots (have ${free})`;
 };
-

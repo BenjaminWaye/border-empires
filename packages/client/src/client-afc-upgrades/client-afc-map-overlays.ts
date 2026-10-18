@@ -22,19 +22,23 @@ export function createAfcMapOverlays(canvas: HTMLCanvasElement, state: ClientSta
     const positions: AfcReadyBadgePosition[] = [];
     const detections = new Map(state.afcDetectedFlags.map(flag => [`${flag.x},${flag.y}`, flag]));
     const shown = new Set<string>();
+    const dormant = new Set(state.dormantStructures.map(item => item.key));
     const bounds = canvas.getBoundingClientRect();
     const scaleX = bounds.width / Math.max(1, canvas.width), scaleY = bounds.height / Math.max(1, canvas.height);
     for (const { wx, wy, wk, vis, t, px, py } of state.authSessionReady && !state.profileSetupRequired ? tiles : []) {
-      const at = isTrue3DRendererActive() ? project(wx, wy) : { sx: px + size / 2, sy: py + size / 2 };
-      if (vis === "visible" && shouldShowAfcUpgradeReadyBadge(t, state.me, ready, state.afcJoinDrop)) {
-        const lift = isTrue3DRendererActive() ? Math.max(28, size * 1.4) : Math.max(28, size * 0.45 + 8);
-        positions.push({ key: wk, x: wx, y: wy, screenX: at.sx, screenY: at.sy - lift });
-      }
       const flag = detections.get(wk);
       const stacks = vis === "visible" && t?.muster?.ownerId === state.me ? afcMomentumStacks(t.muster.momentum, Date.now()) : 0;
       const suppressed = vis === "visible" && (t?.observatory?.suppressedUntil ?? 0) > Date.now();
-      const ward = vis === "visible" && t?.fort?.wardEnabled ? (t.fort.wardRechargesAt ?? 0) > Date.now() ? `Ward ${Math.ceil(((t.fort.wardRechargesAt ?? 0) - Date.now()) / 3_600_000)}h` : "Ward ready" : "";
+      const wardUnpowered = t?.ownerId === state.me && dormant.has(`${wk}:fort`);
+      const ward = vis === "visible" && t?.fort?.wardEnabled ? wardUnpowered ? "Ward unpowered" : (t.fort.wardRechargesAt ?? 0) > Date.now() ? `Ward ${Math.ceil(((t.fort.wardRechargesAt ?? 0) - Date.now()) / 3_600_000)}h` : t.ownerId === state.me ? "Ward ready" : "Ward charged" : "";
       const label = flag ? `⚑ ${wx}, ${wy}` : suppressed ? "Tower suppressed" : stacks ? `Momentum +${stacks * 5}%` : ward;
+      const showUpgrade = vis === "visible" && shouldShowAfcUpgradeReadyBadge(t, state.me, ready, state.afcJoinDrop);
+      if (!label && !showUpgrade) continue;
+      const at = isTrue3DRendererActive() ? project(wx, wy) : { sx: px + size / 2, sy: py + size / 2 };
+      if (showUpgrade) {
+        const lift = isTrue3DRendererActive() ? Math.max(28, size * 1.4) : Math.max(28, size * 0.45 + 8);
+        positions.push({ key: wk, x: wx, y: wy, screenX: at.sx, screenY: at.sy - lift });
+      }
       const x = at.sx * scaleX, y = at.sy * scaleY;
       if (!label || !Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x > bounds.width || y > bounds.height || shown.size >= 1024) continue;
       shown.add(wk);

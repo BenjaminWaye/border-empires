@@ -1,3 +1,4 @@
+import { afcTowerSuppressionAction } from "../client-afc-upgrades/client-afc-tower-action.js";
 import { afcEffectMultiplier } from "../client-afc-upgrades/client-afc-effect.js";
 import {
   buildAetherWallSegments,
@@ -418,6 +419,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     const obsCooldownMs = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, now, ownObservatoryRange(state));
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
     const isOwnOrAllyTile = Boolean(tile.ownerId && tile.ownerId === state.me) || deps.isTileOwnedByAlly(tile);
+    out.push(...afcTowerSuppressionAction(tile, { installed: state.domainIds.includes("afc-oracle-4"), hostile: Boolean(tile.ownerId) && !isOwnOrAllyTile && !deps.activeTruceWithPlayer(tile.ownerId), inRange: obsInRange, cooldownMs: obsCooldownMs }));
     const isUnclaimed = !tile.ownerId;
     const targetHasPurgeableOwnership = tile.ownershipState === "SETTLED" || tile.ownershipState === "FRONTIER";
     const economicStructureType = tile.economicStructure?.type;

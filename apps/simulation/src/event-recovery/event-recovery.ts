@@ -1,11 +1,10 @@
-import { applyRecoveredAfcState } from "./event-recovery-afc-state.js";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationSeasonState } from "@border-empires/sim-protocol";
 import { type DomainTileState } from "@border-empires/game-domain";
 
 import { capturedTownAftermath } from "../runtime-capture-aftermath.js";
 import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "../seed-state/seed-state.js";
-import { recoverTownState } from "./event-recovery-town-helpers.js";
+import { recoverTownState, parseOptionalJson } from "./event-recovery-town-helpers.js";
 import { recoverOverlaySubstructures } from "./event-recovery-overlays.js";
 import { overlaySubstructuresFrom, type TileOverlays } from "../tile-overlay-fields/tile-overlay-fields.js";
 import { applyProgressionUpdateToRecoveredPlayer } from "./event-recovery-progression-helpers.js";
@@ -252,22 +251,11 @@ export const applySimulationEventsToRecoveredAccumulator = (
       continue;
     }
 
-    if (event.eventType === "PLAYER_MESSAGE") {
-      const player = accumulator.players.find(entry => entry.id === event.playerId);
-      if (player) {
-        try {
-          const payload: unknown = JSON.parse(event.payloadJson);
-          if (payload && typeof payload === "object" && !Array.isArray(payload) && "type" in payload && payload.type === "PLAYER_UPDATE") applyRecoveredAfcState(player, payload as Record<string, unknown>);
-        } catch (error) { if (error instanceof Error && error.message === "AFC recovery record limit exceeded") throw error; }
-      }
-      continue;
-    }
-
     if (event.eventType === "TECH_UPDATE" || event.eventType === "DOMAIN_UPDATE") {
       const player = accumulator.players.find((entry) => entry.id === event.playerId);
       if (player) applyProgressionUpdateToRecoveredPlayer(player, event.payloadJson);
-      const payload: { afcInstallationTileDeltas?: TileDelta[] } = JSON.parse(event.payloadJson);
-      for (const delta of payload.afcInstallationTileDeltas ?? []) applyTileDeltaToRecoveredAccumulator(accumulator, delta);
+      const payload = parseOptionalJson<{ afcInstallationTileDeltas?: TileDelta[] }>(event.payloadJson);
+      for (const delta of payload?.afcInstallationTileDeltas ?? []) applyTileDeltaToRecoveredAccumulator(accumulator, delta);
       continue;
     }
 

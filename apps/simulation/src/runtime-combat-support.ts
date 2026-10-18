@@ -339,7 +339,7 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
   const targetWasSettled = previousTarget?.ownershipState === "SETTLED";
   const flagKey = lock.musterSourceKey ?? lock.originKey;
   const flag = ctx.tiles.get(flagKey)?.muster;
-  const breakthroughTarget = combat.attackerWon ? pickBreakthroughTarget({ players: ctx.players, tiles: ctx.tiles, now: ctx.now(), isLocked: key => Boolean(ctx.locksByTile.targetLockAt(key) || ctx.hasPendingClaim?.(key)), isProtected: (id, x, y) => ctx.isTileShieldedByAegisLock?.(id, x, y) ?? false }, ctx.players.get(lock.playerId), previousTarget) : undefined;
+  const breakthroughTarget = combat.attackerWon ? pickBreakthroughTarget({ players: ctx.players, tiles: ctx.tiles, now: ctx.now(), isLocked: key => Boolean(ctx.locksByTile.has(key) || ctx.hasPendingClaim?.(key)), isProtected: (id, x, y) => ctx.isTileShieldedByAegisLock?.(id, x, y) ?? false }, ctx.players.get(lock.playerId), previousTarget) : undefined;
   const targetRecentlyPillaged = isTownInCaptureShock(previousTarget?.town, ctx.now());
   const defenderTileCountBeforeCapture = defenderOwnerId ? Math.max(1, ctx.summaryForPlayer(defenderOwnerId).settledTileCount) : 0;
   const plunder =

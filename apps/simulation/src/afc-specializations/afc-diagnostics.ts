@@ -7,4 +7,3 @@ export function afcCampaignStateGauges(players: Iterable<DomainPlayer>): { warEn
   for (const player of players) { warEntries += Object.keys(player.afcCampaign?.wars ?? {}).length; wardEntries += Object.keys(player.afcCampaign?.fortWardRecharges ?? {}).length; }
   return { warEntries, wardEntries };
 }
-
