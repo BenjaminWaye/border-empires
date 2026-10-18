@@ -44,3 +44,48 @@ describe("addReachTileOverlays3D breach outline", () => {
     expect(addFor("veil")[0]!.veil).toEqual(["north", "west"]);
   });
 });
+
+describe("addReachTileOverlays3D my tiles inside a rival's reach", () => {
+  // My tile at (20,20) pushed into the rival's reach: more of the rival's land to the
+  // east, my own land behind me to the west (outside their reach).
+  const pushTiles = new Map<string, Tile>([
+    [keyFor(20, 20), { ...tile(20, 20, "me"), reachOwnerId: "rival" } as Tile],
+    [keyFor(21, 20), { ...tile(21, 20, "rival"), reachOwnerId: "rival" } as Tile],
+    [keyFor(19, 20), { ...tile(19, 20, "me"), reachOwnerId: "me" } as Tile]
+  ]);
+  const run = (target: Tile) => {
+    const calls: Array<{ hatch: { theirs: string; mine: string }; dormant: number; front: unknown }> = [];
+    let dormant = 0;
+    addReachTileOverlays3D(
+      {
+        addDormantFrontierTile: () => void (dormant += 1),
+        addIncursionTile: (_x, _z, _y, hatch, _edgeColor, _edges, breach) => void calls.push({ hatch, dormant, front: breach?.layout.frontEdges })
+      },
+      target,
+      target.x,
+      target.y,
+      { x: 0, z: 0, y: 0 },
+      new Set<string>([keyFor(19, 20)]),
+      { tiles: pushTiles, keyFor, wrapX: (x) => x, wrapY: (y) => y, me: "me", ownerColor: (ownerId) => (ownerId === "rival" ? "#ff0000" : "#0000ff"), breachStyle: "spikes" }
+    );
+    return { calls, dormant };
+  };
+
+  it("draws the same incursion hatch with the roles swapped: my colour pushing into theirs, front line facing their land", () => {
+    const { calls } = run(pushTiles.get(keyFor(20, 20))!);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.hatch).toEqual({ theirs: "#0000ff", mine: "#ff0000" });
+    expect(calls[0]!.front).toMatchObject({ east: true, west: false });
+  });
+
+  it("leaves my tiles inside my own reach unmarked", () => {
+    expect(run(pushTiles.get(keyFor(19, 20))!).calls).toEqual([]);
+  });
+
+  it("keeps the dormant-frontier tint under the hatch", () => {
+    const dormantTile = { ...pushTiles.get(keyFor(20, 20))!, ownershipState: "FRONTIER", fort: {} } as unknown as Tile;
+    const { calls, dormant } = run(dormantTile);
+    expect(dormant).toBe(1);
+    expect(calls).toHaveLength(1);
+  });
+});
