@@ -481,6 +481,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Login queue updates and ongoing map downloads extend that timeout so active recovery can finish",
       "Recovery pauses after sign-out; signing back in reopens a closed connection"
     ]
+  },
+  {
+    createdAt: 1792321140687, // Date.now() captured once for this release.
+    introducedIn: "2026.10.18.2",
+    title: "Captured buildings survive being cut off",
+    why: "A captured building could vanish if the tile was cut off while it was settling, leaving an empty settled tile.",
+    changes: ["Cut-off frontier tiles keep finished forts, observatories and economic buildings, like abandoned tiles already did"]
   }
 ];
 
