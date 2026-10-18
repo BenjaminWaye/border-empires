@@ -19,7 +19,7 @@ describe("desktop top-bar icon names", () => {
     const buttons = Array.from(container.querySelectorAll<HTMLButtonElement>("#panel-actions .icon-btn.icon-only"));
     expect(buttons.length).toBeGreaterThan(0);
     expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual(
-      expect.arrayContaining(["Manifest", "Allies", "Ranks", "Activity", "Sharding", "Settings"])
+      expect.arrayContaining(["Manifest", "Allies", "Ranks", "Activity", "AFC Upgrades", "Settings"])
     );
     for (const button of buttons) expect(button.getAttribute("aria-label")?.trim()).toBeTruthy();
   });

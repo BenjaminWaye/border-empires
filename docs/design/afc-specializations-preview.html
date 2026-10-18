@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>AFC Specializations — interface study</title>
+<style>
+:root { --gold:#d9ad52; --light:#f4dfa6; --ink:#f2e8d3; --muted:#bda880; --green:#7fb8a4; --edge:#554229; --panel:#1b140d; --base:#14100a; }
+* { box-sizing:border-box; }
+body { margin:0; color:var(--ink); background:#0c0906; font:15px/1.55 Georgia,serif; }
+body::before { content:""; position:fixed; inset:0; z-index:-1; background:radial-gradient(ellipse at 15% 40%,#25433a38,transparent 50%),radial-gradient(ellipse at 85% 20%,#6d4c202b,transparent 50%),repeating-linear-gradient(0deg,transparent 0 39px,#8d795711 40px),repeating-linear-gradient(90deg,transparent 0 39px,#8d795711 40px); }
+button { font:inherit; cursor:pointer; color:inherit; }
+button:disabled { cursor:default; opacity:.5; }
+button:focus-visible, a:focus-visible { outline:2px solid var(--light); outline-offset:4px; }
+a { color:var(--light); }
+.topbar { padding:16px 28px; display:flex; justify-content:space-between; align-items:center; gap:16px; border-bottom:1px solid var(--edge); background:#100c08e8; }
+.brand { font-size:16px; letter-spacing:.16em; text-transform:uppercase; color:var(--light); }
+.eyebrow,.mono { font:11px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace; letter-spacing:.1em; text-transform:uppercase; }
+.muted,.eyebrow { color:var(--muted); }
+.study { color:var(--green); border:1px solid #466456; padding:4px 8px; border-radius:4px; white-space:nowrap; }
+main { max-width:1184px; margin:32px auto 56px; padding:0 24px; }
+.masthead { display:flex; justify-content:space-between; align-items:center; gap:20px; margin-bottom:24px; }
+h1,h2,h3,p { margin:0; }
+h1 { font-size:30px; font-weight:normal; color:var(--light); line-height:1.25; margin:4px 0 8px; }
+.headline-note { max-width:620px; color:var(--muted); }
+.seal { border:1px solid var(--edge); outline:1px solid #55422966; outline-offset:5px; width:72px; height:72px; display:grid; place-content:center; color:var(--gold); text-align:center; flex-shrink:0; }
+.seal strong { font-size:24px; font-weight:normal; line-height:1; }
+.seal span { font:9px ui-monospace,monospace; letter-spacing:.2em; padding-top:8px; }
+.console { border:1px solid var(--edge); background:linear-gradient(150deg,#2b2015f5,#14100afc 55%); box-shadow:0 24px 70px #0008; }
+.console-head { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:16px 24px; border-bottom:1px solid var(--edge); }
+.ready-badge { color:var(--light); background:#60451d55; border:1px solid #8a611f; border-radius:4px; padding:5px 10px; font-size:12px; }
+.tier-control { display:grid; gap:8px; padding:20px 24px 16px; }
+.tier-control label { font-size:12px; color:var(--muted); }
+.tier-control select { width:100%; min-width:0; min-height:44px; padding:10px 12px; border:1px solid var(--edge); border-radius:4px; background:#14100a; color:var(--ink); color-scheme:dark; font:inherit; }
+.agenda { padding:8px 24px 20px; border-bottom:1px solid var(--edge); }
+.agenda h2 { font-size:21px; font-weight:normal; margin:4px 0; }
+.agenda p { font-size:13px; color:var(--muted); }
+.workspace { display:grid; grid-template-columns:1.1fr 1fr; align-items:start; }
+.options { padding:24px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.choice { display:flex; flex-direction:column; text-align:left; border:1px solid var(--edge); border-radius:4px; padding:16px; min-height:184px; background:#100c0866; transition:border-color .15s,background .15s; }
+.choice:hover { border-color:#9e7b3c; background:#382a1866; }
+.choice.chosen { border-color:var(--gold); background:linear-gradient(135deg,#60451d60,#21190f); box-shadow:inset 0 0 0 1px #d9ad5240; }
+.choice-top { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; }
+.branch-label { color:var(--gold); font:10px ui-monospace,monospace; letter-spacing:.12em; text-transform:uppercase; }
+.branch-symbol { border:1px solid #7b5e32; color:var(--light); width:24px; height:24px; display:grid; place-items:center; font-size:12px; }
+.choice h3 { color:var(--ink); font-size:17px; line-height:1.3; font-weight:normal; margin-bottom:8px; }
+.choice p { font-size:12px; line-height:1.6; color:var(--muted); }
+.choice .role { padding-top:12px; margin-top:auto; color:var(--green); font-size:11px; }
+.detail { border-left:1px solid var(--edge); padding:24px; align-self:stretch; }
+.detail h2 { font-weight:normal; font-size:27px; line-height:1.25; color:var(--light); margin:10px 0 8px; }
+.detail .classification { font-size:12px; color:var(--green); }
+.detail .benefit { font-size:16px; line-height:1.7; margin:20px 0; }
+.detail-section { border-top:1px solid var(--edge); padding-top:16px; margin-top:20px; }
+.detail-section p { font-size:13px; color:var(--muted); margin-top:8px; }
+.metric { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:12px 0; border-bottom:1px solid #55422977; font-size:13px; }
+.metric strong { font:13px ui-monospace,monospace; color:var(--light); text-align:right; }
+.detail footer { padding-top:24px; }
+.primary { min-height:48px; width:100%; border:1px solid #e4bd70; border-radius:4px; background:linear-gradient(#d9ad52,#b8862f); color:#1b140d; font-weight:bold; padding:10px 16px; }
+.primary:disabled { background:#2a2218; color:var(--muted); border-color:var(--edge); opacity:1; }
+.commit-note { font-size:11px; color:var(--muted); text-align:center; margin-top:10px; }
+.demo-controls { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-top:20px; color:var(--muted); font-size:12px; }
+.secondary { min-height:44px; background:#1b140d; border:1px solid var(--edge); border-radius:4px; padding:8px 12px; font-size:12px; }
+.notice { margin:0; min-height:24px; color:var(--green); font-size:13px; }
+.footnote { margin-top:16px; max-width:840px; font-size:12px; color:var(--muted); }
+.back { display:none; }
+[hidden] { display:none !important; }
+@media(max-width:760px) {
+ .topbar { padding:12px 16px; flex-wrap:wrap; gap:8px; } .brand { font-size:12px; }
+ main { margin:20px auto 32px; padding:0 12px; } h1 { font-size:26px; }
+ .masthead { margin-bottom:20px; gap:16px; } .seal { width:52px; height:52px; }
+ .seal strong { font-size:18px; } .seal span { font-size:8px; padding-top:4px; }
+ .headline-note { font-size:13px; } .console-head { padding:8px 16px; flex-wrap:wrap; gap:8px; }
+ .tier-control { padding:12px 16px; }
+ .agenda { padding:4px 16px 16px; } .workspace { display:block; }
+ .options { grid-template-columns:1fr; padding:16px; } .choice { min-height:132px; }
+ .detail { border:1px solid var(--edge); padding:20px 16px; margin-top:-12px; border-top:0; background:#21190f; }
+ .detail h2 { font-size:25px; } .back { display:block; margin-bottom:16px; }
+ .options { gap:8px; } .choice { min-height:112px; } .choice.chosen { border-bottom-left-radius:0; border-bottom-right-radius:0; } .choice .choice-top { margin-bottom:8px; } .choice .role { padding-top:8px; } .detail .back { min-height:44px; }
+ .demo-controls { gap:8px; } .demo-controls .label { flex-basis:100%; }
+}
+@media(prefers-reduced-motion:reduce) { * { scroll-behavior:auto !important; transition:none !important; } }
+</style>
+</head>
+<body>
+<header class="topbar"><span class="brand">Border Empires</span><span class="study eyebrow">Interface study · sample campaign</span></header>
+<main>
+ <header class="masthead">
+  <div><div class="eyebrow">House Sable / Campaign headquarters</div><h1>AFC Specializations</h1><p class="headline-note">Configure your command systems, fabrication lines, and Court mandates for this world.</p></div>
+  <div class="seal" aria-hidden="true"><strong>AFC</strong><span>COMMAND</span></div>
+ </header>
+ <section class="console" aria-label="Specialization management">
+  <div class="console-head"><span class="eyebrow">Campaign configuration · five upgrade positions</span><span class="ready-badge" id="ready"></span></div>
+  <div class="tier-control"><label for="tier-select">Review upgrade tier</label><select id="tier-select"></select></div>
+  <div class="agenda" id="agenda"></div>
+  <div class="workspace" id="workspace"><div class="options" id="options" aria-label="Six specialization choices"></div><article class="detail" id="detail" aria-label="Selected upgrade"></article></div>
+ </section>
+ <div class="demo-controls"><span class="label mono">Preview controls</span><button class="secondary" id="reset">Reset sample</button><button class="secondary" id="advance">Unlock next Manifest tier</button><button class="secondary" id="afc-toggle">Preview AFC loss</button><p class="notice" id="notice" role="status" aria-live="polite"></p></div>
+ <p class="footnote">Local design study. Names, explanations, and working balance defaults are proposed. Values labelled “sample” demonstrate presentation, not server calculations. No changes are sent to Border Empires. <a href="../afc-specializations-plan.md">Read the implementation plan</a>.</p>
+</main>
+<script>
+'use strict';
+const branches = [
+ {id:'vanguard',name:'Vanguard',role:'Conquest & assault',symbol:'V',rows:[
+  ['Pacification Routines','×2 attack against Planetary Defense.','Command software loads specialized assault patterns for residual defense positions.'],
+  ['Assault Command Lattice','One additional muster flag. Attacks resolve 10 seconds faster.','Extra command channels coordinate another formation and shorten the assault phase.'],
+  ['Battlefield Momentum','Garrisoned victories add +5% attack to the launching flag, up to three stacks. Frontier captures refresh the timer.','Captured intelligence and a coordinated advance give that formation a temporary local advantage.'],
+  ['Sapper Coordination','Halve the manpower commitment required to attack forts.','Breach crews identify access routes and demolition points, reducing the assault force required.'],
+  ['Breakthrough Protocol','A garrisoned victory captures one random adjacent tile from the same defender, including garrisoned tiles.','Occupation broadcasts and local command collapse compel a neighboring position to capitulate.']
+ ]},
+ {id:'bastion',name:'Bastion',role:'Prepared defense',symbol:'B',rows:[
+  ['Fortification Patterns','Build forts twice as fast. Three forts need no Titanium slot.','Standardized plans and dedicated starter stores make the first defensive works quick to assemble and inexpensive to sustain.'],
+  ['Armour Production Mandate','Double the defense bonus contributed by your Weapons Factories.','Headquarters optimizes military production for protective equipment and defensive formations.'],
+  ['Citadel Reserves','Proposed: +25% defense on garrisoned towns with an active fort.','Fortified towns maintain trained local reserves and protected stores. This replaces the withdrawn adjacent-fort halo.'],
+  ['Defensive Depth','Attacks against your forts require twice the normal manpower commitment.','Layered obstacles and compartmentalized approaches demand a larger viable assault force.'],
+  ['Ablative Ward Network','Block the first otherwise successful attack on each ready fort. Recharge after 24 hours.','A sacrificial aether ward absorbs one breach, then regenerates its reserve.']
+ ]},
+ {id:'dominion',name:'Dominion',role:'Expansion & development',symbol:'D',rows:[
+  ['Relay Fabrication Line','Build Relay Beacons three times as fast.','The AFC mass-produces standardized relay assemblies for rapid installation.'],
+  ['Harbor Survey Array','Dock reach increases from radius 1 to 2.','Coastal survey crews extend the terrain a dock administration can support.'],
+  ['Provincial Survey Array','Town reach increases from radius 3 to 4.','Survey and dispatch systems expand the surrounding jurisdiction of existing and future towns.'],
+  ['Settlement Assembly Line','Establish garrisons twice as fast.','Prepared settlement packages and coordinated crews shorten establishment work.'],
+  ['Universal Fabrication Line','Build all structures twice as fast. With tier I, Relay Beacons build six times as fast.','A common assembly and dispatch system coordinates the expedition’s construction operations.']
+ ]},
+ {id:'exchequer',name:'Exchequer',role:'A compact Coin powerhouse',symbol:'E',rows:[
+  ['Founding Concession','Your first three towns produce 50% more Coin and each need two fewer FOOD slots.','Starter export contracts and coordinated provisioning improve core-city profits and reduce food losses. Support buildings retain their requirements.'],
+  ['Scarcity Consignment','Deliver resource boosters to every eligible deposit of your scarcest resource, once.','Your factor orders finished equipment from offworld. Proposed: local construction tech is not required for this delivery.'],
+  ['Clearing Privilege','Double the Clearing House uplift: Manufactories contribute +60% each where a Clearing House applies.','Preferential clearing terms increase the extra export credit earned by your established financial network.'],
+  ['Orbital Recruitment Contract','Buy five manpower for one Coin, without a purchase quota. Transfer reserves into flags 50% faster.','The factor commissions ancillary contingents from offworld and improves their dispatch to formations.'],
+  ['Metropolitan Concession','Proposed: double Coin output in your first three towns. Deliver +50% population to those core towns below Metropolis, once.','The Court recognizes preferred export centers, and the factor arranges a resettlement consignment. Normal population caps and upgrade costs apply.']
+ ]},
+ {id:'oracle',name:'Oracle',role:'Aether & intelligence',symbol:'O',rows:[
+  ['Starter Resonance Cell','Your first qualifying Aether Tower needs no CRYSTAL slot.','A dedicated starter power cell supplies that installation’s normal slot requirement.'],
+  ['Resonance Governor','Aether Tower ability cooldowns are halved through the normal cooldown policy.','Automated phase balancing shortens recovery between operations.'],
+  ['Long-Range Resonator','Aether Tower casting range increases by 15 tiles.','A tuned resonator maintains a usable control signal over longer distances.'],
+  ['Counterphase Emitter','Unlock an ability that suppresses an enemy tower’s shielding and casting for five minutes.','Matched interference disrupts the hostile resonator. Uses the caster’s existing shared cooldown and modifiers; Aegis protection remains a counter.'],
+  ['Command-Signal Intercept','Locate hostile muster flags within active tower detection range, even through fog.','Signal processors locate command traffic without decoding manpower or orders. Detected coordinates can be targeted with Purge under its normal rules.']
+ ]},
+ {id:'chancery',name:'Chancery',role:'Diplomacy & alliances',symbol:'C',rows:[
+  ['Envoy Accreditation','Gain Coin, manpower accrual, and reserve capacity for every mutual ally, without an ally-count cap.','Allied Houses contribute credit, ancillary contingents, and reserve facilities through your liaison headquarters. Coefficients remain proposed.'],
+  ['Reciprocal Trade Pact','Allied dock links contribute to dock and Harbor Exchange income. Your allied-link contribution doubles.','A joint freight undertaking receives preferential clearing rates, insurance, and export contracts. Each physical link counts once.'],
+  ['Coalition Command Accord','Proposed: +15% attack when you and a current ally share a war against the defender.','Liaison officers exchange current intelligence and coordinate offensives. A hostile capture in either direction establishes war for 24 hours.'],
+  ['Court Armistice Mandate','Impose a bilateral twelve-hour truce without consent. Forty-eight-hour personal cooldown.','Your chancery invokes campaign arbitration, and the Court orders both Houses to observe its binding armistice.'],
+  ['Suzerainty Recognition','Proposed: your land counts twice toward your bloc’s diplomatic victory progress. Actual land determines its sole winning leader.','Court assessors give greater weight to the accredited House’s territorial claims as guarantor of the coalition settlement.']
+ ]}
+];
+const roman=['I','II','III','IV','V'];
+const detailPanel=document.getElementById('detail');
+let expanded=!matchMedia('(max-width:760px)').matches;
+let selectedTier=3, selectedBranch='exchequer', manifestTier=3, hasAfc=true;
+let installed={1:'exchequer',2:'chancery'};
+const byId=id=>branches.find(branch=>branch.id===id);
+const el=id=>document.getElementById(id);
+const readyTiers=()=>[1,2,3,4,5].filter(tier=>tier<=manifestTier&&!installed[tier]);
+function resetStudy(){ selectedTier=3;selectedBranch='exchequer';manifestTier=3;hasAfc=true;installed={1:'exchequer',2:'chancery'};expanded=false;el('notice').textContent='Sample campaign reset.';render(); }
+function sampleImpact(branch,tier){
+ if(branch==='exchequer'&&tier===3)return [['Three Manufactories in a Clearing House town','×2.05 → ×2.80'],['Illustrative qualifying town income','20.5 → 28 Coin/day']];
+ if(branch==='exchequer'&&tier===1)return [['Each qualifying Town’s FOOD demand','4 → 2 slots'],['Three core towns’ qualifying Coin','×1.00 → ×1.50']];
+ if(branch==='exchequer'&&tier===5)return [['Qualifying core-town output','Additional ×2'],['Example core-town population delivery','200,000 → 300,000']];
+ if(branch==='oracle'&&tier===3)return [['Aether Tower casting range','+15 tiles'],['Ordinary vision','Uses existing vision rules']];
+ if(branch==='dominion'&&tier===3)return [['Existing and future town reach','Radius 3 → 4'],['Build costs and slot requirements','Use normal rules']];
+ if(branch==='bastion'&&tier===4)return [['Example fortified attack requirement','300 → 600 MP'],['With Sapper Coordination','600 → 300 MP']];
+ if(branch==='chancery'&&tier===2)return [['Allied-link contribution with Harbor Exchange','6.25 → 12.5 Coin/day'],['Eligible route','Physically linked allied docks']];
+ return [['Scope',byId(branch).role],['Preview status','Exact values supplied by game server']];
+}
+function render(){
+ if(!matchMedia('(max-width:760px)').matches)expanded=true;
+ el('workspace').append(detailPanel);
+ const current=readyTiers()[0], ready=readyTiers().length;
+ el('ready').textContent=ready?`${ready} upgrade${ready===1?'':'s'} ready`:'No unclaimed upgrades';
+ el('tier-select').innerHTML=roman.map((number,index)=>{
+  const tier=index+1,owned=installed[tier],state=owned?'Installed':tier<=manifestTier?'Ready':'Locked';
+  const name=owned?byId(owned).rows[index][0]:tier<=manifestTier?'Choose one specialization':`Commission Manifest ${number}`;
+  return `<option value="${tier}" ${selectedTier===tier?'selected':''}>${number} · ${state} · ${name}</option>`;
+ }).join('');
+ const chosen=installed[selectedTier],locked=selectedTier>manifestTier;
+ el('agenda').innerHTML=`<div class="eyebrow">Manifest tier ${roman[manifestTier-1]} · ${Object.keys(installed).length} / 5 upgrades installed</div><h2>Upgrade ${roman[selectedTier-1]} · ${chosen?'Review your configuration':locked?'Plan your next specialization':'Choose one specialization'}</h2><p>${!hasAfc?'Rebuild an active AFC to install. Your established choices remain.':chosen?'This tier is committed for the campaign. Other choices remain available to inspect.':locked?`Commission your first tier-${roman[selectedTier-1]} Manifest to unlock this free choice.`:selectedTier!==current?'Install earlier unclaimed tiers first. All six approaches remain available to inspect.':'Free installation. Your choice lasts for this campaign and closes the other choices at this tier.'}</p>`;
+ el('options').innerHTML=branches.map(branch=>{
+  const row=branch.rows[selectedTier-1];
+  return `<button class="choice ${branch.id===selectedBranch&&expanded?'chosen':''}" data-branch="${branch.id}" aria-expanded="${branch.id===selectedBranch&&expanded}" aria-controls="detail"><div class="choice-top"><span class="branch-label">${branch.name}</span><span class="branch-symbol" aria-hidden="true">${branch.symbol}</span></div><h3>${row[0]}</h3><p>${row[1]}</p><span class="role">${chosen===branch.id?'✓ Installed · ':''}${branch.role}</span></button>`;
+ }).join('');
+ const branch=byId(selectedBranch),row=branch.rows[selectedTier-1];
+ const isInstalled=chosen===selectedBranch,canInstall=!chosen&&!locked&&hasAfc&&selectedTier===current;
+ const type=selectedBranch==='exchequer'&&[2,5].includes(selectedTier)?'On installation'+(selectedTier===5?' + ongoing benefit':''):selectedBranch==='oracle'&&selectedTier===4||selectedBranch==='chancery'&&selectedTier===4?'Unlocks an active action':'Ongoing campaign benefit';
+ const label=isInstalled?'Installed':chosen?'Another choice fills this tier':locked?'Manifest tier required':!hasAfc?'Active AFC required':selectedTier!==current?'Install earlier tier first':'Install upgrade — free';
+ el('detail').innerHTML=`<button class="secondary back" id="back">Close details</button><div class="branch-label">${branch.name} / Upgrade ${roman[selectedTier-1]}</div><h2 tabindex="-1" id="detail-title">${row[0]}</h2><div class="classification">${type}</div><p class="benefit">${row[1]}</p><section class="detail-section" aria-label="Illustrative impact"><div class="eyebrow">Sample empire impact</div>${sampleImpact(selectedBranch,selectedTier).map(([name,value])=>`<div class="metric"><span>${name}</span><strong>${value}</strong></div>`).join('')}<p>Illustrative values. The connected client will calculate your exact affected towns, tiles, and income.</p></section><section class="detail-section"><div class="eyebrow">How it works</div><p>${row[2]}</p></section><footer><button class="primary" id="install" ${canInstall?'':'disabled'}>${label}</button><p class="commit-note">One choice per tier · no Coin or Shards required</p></footer>`;
+ el('tier-select').onchange=event=>{
+  selectedTier=Number(event.target.value);selectedBranch=installed[selectedTier]||selectedBranch;expanded=Boolean(installed[selectedTier]);render();el('tier-select').focus();
+ };
+ el('options').querySelectorAll('[data-branch]').forEach(button=>button.onclick=()=>{
+  expanded=button.dataset.branch!==selectedBranch||!expanded;selectedBranch=button.dataset.branch;render();
+  el('options').querySelector(`[data-branch="${selectedBranch}"]`).focus({preventScroll:true});
+ });
+ el('back').onclick=()=>{expanded=false;render();el('options').querySelector(`[data-branch="${selectedBranch}"]`).focus({preventScroll:true});};
+ el('install').onclick=()=>{
+  if(!canInstall)return;
+  installed[selectedTier]=selectedBranch;el('notice').textContent=`Sample installed: ${row[0]}. No game changes were sent.`;render();el('detail-title').focus();
+ };
+ el('afc-toggle').textContent=hasAfc?'Preview AFC loss':'Restore sample AFC';
+ el('advance').disabled=manifestTier>=5;
+ const mobile=matchMedia('(max-width:760px)').matches;
+ detailPanel.hidden=mobile&&!expanded;
+ if(mobile&&expanded)el('options').querySelector(`[data-branch="${selectedBranch}"]`).after(detailPanel);
+ else el('workspace').append(detailPanel);
+}
+el('reset').onclick=resetStudy;
+el('advance').onclick=()=>{manifestTier=Math.min(5,manifestTier+1);selectedTier=readyTiers()[0]||manifestTier;el('notice').textContent=`Sample Manifest tier ${roman[manifestTier-1]} unlocked.`;render();};
+el('afc-toggle').onclick=()=>{hasAfc=!hasAfc;el('notice').textContent=hasAfc?'Sample AFC restored.':'Sample AFC lost. Configuration remains; new installation waits.';render();};
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&expanded)el('back').click();});
+matchMedia('(max-width:760px)').addEventListener('change',event=>{expanded=!event.matches;render();});
+render();
+</script>
+</body>
+</html>
