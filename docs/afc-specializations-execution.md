@@ -1,6 +1,6 @@
 # AFC specialization implementation
 
-Status: active implementation
+Status: implemented; PR validation and staging rollout pending
 Owner: implementing agent
 Updated: 2026-10-18
 Scope: execute the full [catalogue](afc-specializations-catalog.md), not just its interface.
@@ -45,7 +45,7 @@ and optional product-review wording in the earlier proposal.
 - [x] 6. Player controls for active rewards, truthful installation previews and
   one-shot outcomes; free-tier notifications; AI choices/active abilities including
   worker path. No old shard-funding tutorial in specialization progression.
-- [ ] 7. Full effect/command/recovery tests, narrow-phone and desktop browser checks,
+- [x] 7. Full effect/command/recovery tests, narrow-phone and desktop browser checks,
   checkpoint/performance guards, pnpm ci:local, player changelog and canonical docs.
 - [ ] 8. Review complete diff, push PR against develop, verify CI, merge and cleanup;
   verify staging deployment. Any external rollout limitation is stated explicitly.
@@ -83,5 +83,13 @@ coverage where it introduces durable state. Empty or placeholder effects are not
 - Code review also checked recent develop changes to tower dormancy, AFC Modules
   overview, manpower restart recovery, and removal of tile shedding. No legacy
   server changes, manual season rollover, or production deployment are included.
-- Full local CI, PR checks, merge and staging verification are recorded below
-  when completed; they are not implied by the focused test results above.
+- Local CI passed all stages through the client suite except an obsolete source
+  location assertion for the extracted Purge dispatcher. That assertion now tests
+  actual accepted/rejected sends. The full client rerun passed 734 files / 5,051
+  tests; client lint and production build also passed. Other full-suite results:
+  shared 691, game-domain 148, simulation 3,392, gateway 1,457 tests; simulation
+  performance (10) and slow (2) tests passed. Existing skips/todos are retained.
+  File-size, documentation, changelog and strict TypeScript gates passed.
+- Latest develop's captured-building survival fix was retained on rebase.
+  PR checks, merge, cleanup and staging verification remain the release gate;
+  completion is confirmed in the linked PR and deployment checks.
