@@ -61,6 +61,8 @@ Each player controls a civilization that starts from a single land tile, expands
 
 ### Strategic Layers
 
+The proposed [AFC Specializations design](docs/afc-specializations-plan.md) replaces domain/Sharding progression with free upgrades at Manifest tiers. It includes thirty named rewards, their lore, an implementation sequence, and a local UI study. The client discovery slice adds AFC Upgrades navigation, inline mobile details, and ready badges above owned AFCs in both renderers; the free progression and new rewards remain proposed.
+
 - **Forts**: build-timed defensive structures; destroyed on capture.
 - **Docks**: paired sea-crossing gateways with cooldown and defensive value. Maritime Supremacy victory path scores from dock control.
 - **Clusters**: regional resource concentrations that grant threshold-based bonuses.

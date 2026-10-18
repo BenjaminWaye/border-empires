@@ -12,5 +12,16 @@ export const FRONTIER_SUPPLY_LINES_CHANGELOG: ClientChangelogEntry[] = [
       "If an enemy takes a tile on a line and there's another way round, the line redraws along it",
       "Works on both the 3D and the 2D map"
     ]
+  },
+  {
+    createdAt: 1792320592301, // frozen Date.now() value for this release
+    introducedIn: "2026.10.18.1",
+    title: "Supply lines are quieter on the map",
+    why: "The supply line itself drew too much attention away from the rest of the map.",
+    changes: [
+      "The line is now pale and barely visible; you follow it from the pulses moving along it",
+      "The arrowhead at each frontier tip lights up as a pulse reaches it",
+      "Works on both the 3D and the 2D map"
+    ]
   }
 ];

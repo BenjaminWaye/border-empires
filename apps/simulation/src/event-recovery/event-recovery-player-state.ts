@@ -1,6 +1,7 @@
 import type { PlayerEventLogEntry } from "@border-empires/game-domain";
 import type { AutoSettlePrefs, ChosenTrickleResource } from "@border-empires/shared";
 import type { ServerDevQueueEntry, ServerWaypointQueueEntry } from "../player-runtime-summary.js";
+import type { TownSettledAtEntry } from "../recovered-town-state/recovered-town-state.js";
 
 /**
  * Snapshotted per-player recovery state. Most fields here are current-value
@@ -51,6 +52,9 @@ export type RecoveredPlayerState = {
   incomeMultiplier?: number;
   incomePerMinute?: number;
   ownedTownTileKeys?: string[];
+  // When each town was settled (Runtime.tileSettledAtByKey) -- see
+  // recovered-town-state.ts for why a restart must not lose it.
+  townSettledAt?: TownSettledAtEntry[];
   waypointQueue?: ServerWaypointQueueEntry[];
   devQueue?: ServerDevQueueEntry[];
 };
@@ -64,6 +68,7 @@ export const cloneRecoveredPlayerState = (player: RecoveredPlayerState): Recover
   ...(player.allies ? { allies: [...player.allies] } : {}),
   ...(player.truces ? { truces: [...player.truces] } : {}),
   ...(player.ownedTownTileKeys ? { ownedTownTileKeys: [...player.ownedTownTileKeys] } : {}),
+  ...(player.townSettledAt ? { townSettledAt: player.townSettledAt.map((entry) => ({ ...entry })) } : {}),
   ...(player.waypointQueue
     ? { waypointQueue: player.waypointQueue.map((entry) => ({ ...entry, target: { ...entry.target } })) }
     : {}),

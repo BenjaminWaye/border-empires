@@ -23,7 +23,8 @@ import { renderSelectedStructureReachHighlight } from "./client-reach-overlay-st
 import { renderSelectedStructurePreview2D } from "./client-selected-structure-preview-2d/client-selected-structure-preview-2d.js";
 import type { initClientDom } from "./client-dom.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network/client-road-network.js";
-import { drawQueuedCornerBadge, queuedCornerBadgeLayout } from "./client-queue-badges/client-queue-badges.js";
+import { drawQueuedTileBadges } from "./client-queue-badges/client-queued-tile-badges.js";
+import { createAfcUpgradeReadyBadges, readyAfcUpgradeCount, shouldShowAfcUpgradeReadyBadge, type AfcReadyBadgePosition } from "./client-afc-upgrade-ready/client-afc-upgrade-ready.js";
 import { drawTileOwnershipAndBreachBorder } from "./client-tile-borders/client-tile-borders.js";
 import { resolveMyReachCached } from "./client-reach-authoritative/client-reach-authoritative.js";
 import { drawReachBoundaryLine } from "./client-reach-overlay/client-reach-overlay.js";
@@ -50,6 +51,7 @@ import { drawTileGround2D } from "./client-map-render-2d-tile-ground/client-map-
 import { drawShardRainFx2D } from "./client-shard-rain-fx-2d/client-shard-rain-fx-2d.js";
 import { drawFrontierSupply2D } from "./client-frontier-supply/client-frontier-supply-2d.js";
 import { frontierSupplyModelForState } from "./client-frontier-supply/client-frontier-supply-state.js";
+import { drawAetherTowerSprite2D } from "./client-aether-tower-sprite-2d/client-aether-tower-sprite-2d.js";
 import { drawSiphonOverlay2D } from "./client-siphon-overlay-2d/client-siphon-overlay-2d.js"; import { drawArrowGesture2D, drawShieldAreaTile2D, drawWinChanceLabel2D, winChancePaintColorForTile2D } from "./client-map-render-2d-combat-overlays.js"; import { collectKnownShieldFlags, tileShieldCoverage } from "./client-known-shield-flags.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
@@ -175,6 +177,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   let roadNetwork = new Map<string, RoadDirections>();
   const lastRenderedTileStateByKey = new Map<string, string>();
   let roadNetworkBuiltAt = 0;
+  const afcUpgradeBadges = createAfcUpgradeReadyBadges(deps.canvas, () => {
+    state.activePanel = "domains"; state.mobilePanel = "domains"; state.domainDetailOpen = false; state.techDetailOpen = false; deps.renderHud();
+  });
   const drawPersistentAlertsFrame = createPersistentAlertsFrame(state);
   const drawConstructionCountdownOverlay = createConstructionCountdownOverlay2D(deps);
   const requestVisibleTileDetails = createVisibleTileDetailRequester({
@@ -185,7 +190,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   });
 
   const draw = (): void => {
-    if (isSeasonLobbyFullscreenActive(state)) { requestAnimationFrame(draw); return; }
+    if (isSeasonLobbyFullscreenActive(state)) { afcUpgradeBadges.render([], 0); requestAnimationFrame(draw); return; }
     const nowMs = performance.now();
     recordFpsFrame(nowMs);
     const minFrameGap = drawLoopMinFrameGapMs(isTrue3DRendererActive(), deps.isMobile());
@@ -235,6 +240,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     // server reach actually changed (same cache the 3D renderer uses).
     const myReach = isTrue3DRendererActive() ? state.myReach : resolveMyReachCached(state);
     const reachTileDeps2D = { me: state.me, tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, ownerColor: deps.effectiveOverlayColor }; // hoisted: drawReachTileTreatments2D runs per visible tile per frame
+    const aetherTowerSpriteDeps2D = { ctx: deps.ctx, sprite: deps.structureOverlayImages.OBSERVATORY, structureAccentColor: deps.structureAccentColor };
     const tileFeatureDeps2D = { ctx: deps.ctx, structureAccentColor: deps.structureAccentColor, effectiveOverlayColor: deps.effectiveOverlayColor, afcJoinDrop: state.afcJoinDrop, afcModuleDeliveryLandedAt: state.afcModuleDeliveryLandedAt }; // hoisted: drawTileFeatureOverlays2D runs per visible tile per frame
     const crystalTargetingActive = state.crystalTargeting.active;
     const crystalTone = crystalTargetingActive ? deps.crystalTargetingTone(state.crystalTargeting.ability) : "amber";
@@ -403,18 +409,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           { tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY }, deps.fortificationOverlayImageFor);
       }
       if (t && vis === "visible" && t.observatory && !isTrue3DRendererActive()) {
-        // 2D-only: 3D renderer paints the observatory mesh via structureOverlay.
-        const overlay = deps.structureOverlayImages.OBSERVATORY;
-        if (overlay && overlay.complete && overlay.naturalWidth) deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
-        else {
-          deps.ctx.strokeStyle = deps.structureAccentColor(
-            t.ownerId ?? "",
-            t.observatory.status === "active" ? "rgba(122, 214, 255, 0.92)" : "rgba(122, 214, 255, 0.42)"
-          );
-          deps.ctx.beginPath();
-          deps.ctx.arc(px + size / 2, py + size / 2, Math.max(3, size * 0.22), 0, Math.PI * 2);
-          deps.ctx.stroke();
-        }
+        // 2D-only: the 3D renderer paints the Aether Tower via ambaricTransformerOverlay.
+        drawAetherTowerSprite2D(aetherTowerSpriteDeps2D, t.observatory, t.ownerId, px, py, size);
       }
       if (t && (vis === "visible" || vis === "fogged") /* fog-tolerant like the ownership tint below / the 3D renderer's ungated check */ && t.economicStructure) {
         if (verboseTileDebugEnabled() && tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
@@ -710,38 +706,11 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.lineWidth = 1;
       }
 
-      const queuedFrontierBadge = queuedCornerBadgeLayout({
-        kind: "FRONTIER",
-        ordinal: queueIndex.get(wk),
-        px,
-        py,
-        size,
-        isTrue3D: isTrue3DRendererActive(),
-        blocked: false
+      drawQueuedTileBadges(deps.ctx, {
+        px, py, size, isTrue3D: isTrue3DRendererActive(), blocked: Boolean(settlementProgress),
+        frontierOrdinal: queueIndex.get(wk), settlementOrdinal: settleQueueIndex.get(wk), buildOrdinal: queuedBuildIndex.get(wk),
+        settlementState: settleQueueEntryState.get(wk) ?? "queued", buildState: queuedBuildEntryState.get(wk) ?? "queued"
       });
-      drawQueuedCornerBadge(deps.ctx, queuedFrontierBadge);
-      const queuedSettlementBadge = queuedCornerBadgeLayout({
-        kind: "SETTLEMENT",
-        ordinal: settleQueueIndex.get(wk),
-        px,
-        py,
-        size,
-        isTrue3D: isTrue3DRendererActive(),
-        blocked: Boolean(settlementProgress),
-        entryState: settleQueueEntryState.get(wk) ?? "queued"
-      });
-      drawQueuedCornerBadge(deps.ctx, queuedSettlementBadge);
-      const queuedBuildBadge = queuedCornerBadgeLayout({
-        kind: "BUILD",
-        ordinal: queuedBuildIndex.get(wk),
-        px,
-        py,
-        size,
-        isTrue3D: isTrue3DRendererActive(),
-        blocked: Boolean(settlementProgress),
-        entryState: queuedBuildEntryState.get(wk) ?? "queued"
-      });
-      drawQueuedCornerBadge(deps.ctx, queuedBuildBadge);
     };
     const tileStartAt = performance.now();
     const drawTerrainDetail = (dwx: number, dwy: number, dpx: number, dpy: number, dsize: number): void => { deps.drawForestOverlay(dwx, dwy, dpx, dpy, dsize); deps.drawHillsOverlay(dwx, dwy, dpx, dpy, dsize); }; // per frame, not per tile
@@ -915,18 +884,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.fillRect(px + size - dot - 2, py + size - dot - 2, dot, dot);
         }
         if (t && vis === "visible" && t.observatory && !isTrue3DRendererActive()) {
-          // 2D-only: 3D renderer paints the observatory mesh via structureOverlay.
-          const overlay = deps.structureOverlayImages.OBSERVATORY;
-          if (overlay && overlay.complete && overlay.naturalWidth) deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
-          else {
-            deps.ctx.strokeStyle = deps.structureAccentColor(
-              t.ownerId ?? "",
-              t.observatory.status === "active" ? "rgba(122, 214, 255, 0.92)" : "rgba(122, 214, 255, 0.42)"
-            );
-            deps.ctx.beginPath();
-            deps.ctx.arc(px + size / 2, py + size / 2, Math.max(3, size * 0.22), 0, Math.PI * 2);
-            deps.ctx.stroke();
-          }
+          // 2D-only: the 3D renderer paints the Aether Tower via ambaricTransformerOverlay.
+          drawAetherTowerSprite2D(aetherTowerSpriteDeps2D, t.observatory, t.ownerId, px, py, size);
         }
         if (t && (vis === "visible" || vis === "fogged") /* fog-tolerant, see the first pass above */ && t.economicStructure) {
           const markerSize = Math.max(3, Math.floor(size * 0.2));
@@ -1156,38 +1115,11 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.lineWidth = 1;
         }
 
-        const queuedFrontierBadge = queuedCornerBadgeLayout({
-          kind: "FRONTIER",
-          ordinal: queueIndex.get(wk),
-          px,
-          py,
-          size,
-          isTrue3D: isTrue3DRendererActive(),
-          blocked: false
+        drawQueuedTileBadges(deps.ctx, {
+          px, py, size, isTrue3D: isTrue3DRendererActive(), blocked: Boolean(settlementProgress),
+          frontierOrdinal: queueIndex.get(wk), settlementOrdinal: settleQueueIndex.get(wk), buildOrdinal: queuedBuildIndex.get(wk),
+          settlementState: settleQueueEntryState.get(wk) ?? "queued", buildState: queuedBuildEntryState.get(wk) ?? "queued"
         });
-        drawQueuedCornerBadge(deps.ctx, queuedFrontierBadge);
-        const queuedSettlementBadge = queuedCornerBadgeLayout({
-          kind: "SETTLEMENT",
-          ordinal: settleQueueIndex.get(wk),
-          px,
-          py,
-          size,
-          isTrue3D: isTrue3DRendererActive(),
-          blocked: Boolean(settlementProgress),
-          entryState: settleQueueEntryState.get(wk) ?? "queued"
-        });
-        drawQueuedCornerBadge(deps.ctx, queuedSettlementBadge);
-        const queuedBuildBadge = queuedCornerBadgeLayout({
-          kind: "BUILD",
-          ordinal: queuedBuildIndex.get(wk),
-          px,
-          py,
-          size,
-          isTrue3D: isTrue3DRendererActive(),
-          blocked: Boolean(settlementProgress),
-          entryState: queuedBuildEntryState.get(wk) ?? "queued"
-        });
-        drawQueuedCornerBadge(deps.ctx, queuedBuildBadge);
       }
     }
     const tileEndAt = performance.now();
@@ -1209,6 +1141,20 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const roadOverlayMs = phaseMs();
 
     for (const overlayTile of overlayTiles) renderOverlayTile(overlayTile); if (!isTrue3DRendererActive() && state.arrowGesture) drawArrowGesture2D(deps.ctx, state.arrowGesture, (wx2, wy2) => deps.worldToScreen(wx2, wy2, size, halfW, halfH), size); // F4: 2D arrow-gesture visual (F1/F2 parity)
+    const readyUpgrades = readyAfcUpgradeCount(state);
+    const afcBadgePositions: AfcReadyBadgePosition[] = [];
+    if (readyUpgrades > 0 && state.authSessionReady && !state.profileSetupRequired) {
+      for (const { wx, wy, wk, vis, t, px, py } of overlayTiles) {
+        if (vis !== "visible" || !shouldShowAfcUpgradeReadyBadge(t, state.me, readyUpgrades, state.afcJoinDrop)) continue;
+        // Both renderer branches use their current projection every frame, including pan/zoom.
+        const at = isTrue3DRendererActive()
+          ? deps.worldToScreen(wx, wy, size, halfW, halfH)
+          : { sx: px + size / 2, sy: py + size / 2 };
+        const lift = isTrue3DRendererActive() ? Math.max(28, size * 1.4) : Math.max(28, size * 0.45 + 8);
+        afcBadgePositions.push({ key: wk, x: wx, y: wy, screenX: at.sx, screenY: at.sy - lift });
+      }
+    }
+    afcUpgradeBadges.render(afcBadgePositions, readyUpgrades);
     const tileOverlayMs = phaseMs();
 
     if (debugWindow && isTrue3DRendererActive() && debugSelected) {

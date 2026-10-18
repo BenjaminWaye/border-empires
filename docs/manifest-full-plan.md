@@ -152,7 +152,8 @@ commissioned module grouped under those 4 headings, with a "Dormant"
 banner when the AFC is inactive, reusing the existing
 `TileOverviewLine` group/nested/dormant rendering primitives rather than
 a new stat-grid component (no new stylesheet needed either). New
-`client-afc-module-overview/client-afc-module-overview.ts` +
+`client-afc-module-overview/client-afc-module-overview.ts` (since removed:
+the graphical Modules tab in `client-afc-module-tab/` replaced it) +
 `client-tile-menu-view-afc.test.ts` (9 tests total); full
 `client-tile-menu-view`/`client-tile-overview-modifiers` suites verified
 green (129/129); `tsc`/`check:file-lines`/`check-docs`/changelog gate all
@@ -354,8 +355,8 @@ building another AFC is also how a player gets more module slots.
 #### Player flow
 
 1. The player taps one of their AFCs and presses **Build AFC — {cost} Coin**.
-   The same button also sits in the AFC tile-overview panel
-   (`packages/client/src/client-afc-module-overview/`).
+   The same button also sits in the AFC's Modules tab, which replaced its
+   Overview tab (`packages/client/src/client-afc-module-tab/`).
 2. The map enters a landing-site picking mode with the feed line "Select where
    your new AFC should land." Valid tiles are highlighted in **both**
    renderers (AGENTS.md renderer parity). Clicking an invalid tile, the

@@ -24,7 +24,7 @@ const stateFor = () => {
   state.tiles.set("2,3", { ...target, x: 2, y: 3, afc: { ownerId: "me", status: "active", modules: ["workshops"], houseModules: ["workshops"] } });
   return state;
 };
-const viewFor = (tile = target): TileMenuView => ({ title: "AFC", subtitle: "", tabs: ["modules", "overview"], overviewLines: [], actions: [], buildings: [], crystal: [], modules: afcModuleTabForTile(tile, catalog, afcModuleActionsForTile(stateFor(), tile, availability), "me", 1000)! });
+const viewFor = (tile = target): TileMenuView => ({ title: "AFC", subtitle: "", tabs: ["modules"], overviewLines: [], actions: [], buildings: [], crystal: [], modules: afcModuleTabForTile(tile, catalog, afcModuleActionsForTile(stateFor(), tile, availability), "me", 1000)! });
 
 describe("graphical AFC modules tab", () => {
   beforeEach(() => document.body.replaceChildren());
@@ -65,6 +65,8 @@ describe("graphical AFC modules tab", () => {
       isTileOwnedByAlly: () => false
     });
     expect(view.tabs).toContain("modules");
+    // The Modules tab replaces Overview for AFCs, like a town's stat grid.
+    expect(view.tabs).not.toContain("overview");
     expect(view.actions).toEqual([]);
     expect(view.modules?.slots[0]?.name).toBe("Titanium Forge");
   });
@@ -77,6 +79,7 @@ describe("graphical AFC modules tab", () => {
     const root = document.createElement("div");
     root.innerHTML = tileActionMenuHtml(view, "modules", true);
     expect(root.querySelectorAll(".afc-socket")).toHaveLength(8);
+    expect(root.querySelector(".tile-overview-card")).toBeNull();
     expect(root.querySelector(".afc-socket-cell")?.getAttribute("style")).toContain("grid-column:4;grid-row:3");
     const button = root.querySelector<HTMLButtonElement>('button[data-action="redeploy_afc_module:workshops"]')!;
     document.body.append(root);
@@ -188,5 +191,21 @@ describe("graphical AFC modules tab", () => {
     }
     const plain: Tile = { x: 5, y: 6, terrain: "LAND", ownerId: "me" };
     expect(afcModuleTabForTile(plain, catalog, [], "me")).toBeUndefined();
+  });
+
+  it("renders the tile's overview details beneath the socket diagram", () => {
+    const root = document.createElement("div");
+    root.innerHTML = tileActionMenuHtml({ ...viewFor(), overviewLines: [{ html: "Upkeep: 2 gold/m" }] }, "modules", true);
+    const panel = root.querySelector(".afc-module-panel");
+    const overview = root.querySelector(".tile-overview-card");
+    expect(overview?.textContent).toContain("Upkeep: 2 gold/m");
+    expect(panel && overview && panel.compareDocumentPosition(overview) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("shows the dormant warning for a captured (inactive) AFC", () => {
+    const html = tileActionMenuHtml(viewFor({ ...target, afc: { ...target.afc!, status: "inactive" } }), "modules", false);
+    expect(html).toContain("tile-overview-dormant");
+    expect(html).toContain("inactive until this AFC is reclaimed");
+    expect(tileActionMenuHtml(viewFor(), "modules", false)).not.toContain("tile-overview-dormant");
   });
 });

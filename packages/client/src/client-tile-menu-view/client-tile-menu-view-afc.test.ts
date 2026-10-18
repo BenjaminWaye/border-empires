@@ -36,8 +36,10 @@ const deps = {
   structureInfoButtonHtml: (type: string, label?: string) => `<button>${label ?? type}</button>`
 };
 
-describe("menuOverviewForTile: AFC module overview", () => {
-  it("lists docked modules grouped by their Manifest branch", () => {
+describe("menuOverviewForTile: AFC tiles", () => {
+  // The Modules tab (socket diagram) is the AFC's overview and renders these
+  // lines beneath it, so the module list must not be repeated as text.
+  it("does not duplicate the docked module list shown by the Modules tab", () => {
     const tile = {
       x: 1,
       y: 1,
@@ -46,27 +48,23 @@ describe("menuOverviewForTile: AFC module overview", () => {
       ownershipState: "SETTLED",
       afc: { ownerId: "me", status: "active", modules: ["masonry", "workshops"] }
     } as Tile;
-    const html = menuOverviewForTile(tile, deps).map((l) => l.html);
-    expect(html).toContain("AFC Modules");
-    expect(html).toContain("Titanium Forge Module");
-    expect(html).toContain("Umbrite Synthesis Module");
-  });
-
-  it("shows a dormant banner for a captured (inactive) AFC", () => {
-    const tile = { x: 1, y: 1, terrain: "LAND", ownerId: "them", ownershipState: "SETTLED", afc: { ownerId: "them", status: "inactive", modules: ["masonry"] } } as Tile;
     const html = menuOverviewForTile(tile, deps).map((l) => l.html).join(" ");
-    expect(html).toContain("Dormant");
+    expect(html).not.toContain("AFC Modules");
+    expect(html).not.toContain("Titanium Forge Module");
+    expect(html).toContain("Manage AFC upgrades");
   });
 
-  it("falls back to an empty module list without throwing when techCatalog isn't threaded through", () => {
+  it("does not throw when techCatalog isn't threaded through", () => {
     const tile = { x: 1, y: 1, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", afc: { ownerId: "me", status: "active", modules: ["masonry"] } } as Tile;
     const bareDeps = { ...deps, state: { me: "me" } };
     expect(() => menuOverviewForTile(tile, bareDeps)).not.toThrow();
   });
 
-  it("renders nothing AFC-specific for a tile without an afc", () => {
-    const tile = { x: 1, y: 1, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as Tile;
-    const html = menuOverviewForTile(tile, deps).map((l) => l.html);
-    expect(html).not.toContain("AFC Modules");
+  it("only offers Manage AFC upgrades on AFCs the player owns", () => {
+    const foreign = { x: 1, y: 1, terrain: "LAND", ownerId: "them", ownershipState: "SETTLED", afc: { ownerId: "them", status: "inactive", modules: ["masonry"] } } as Tile;
+    const plain = { x: 1, y: 1, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as Tile;
+    for (const tile of [foreign, plain]) {
+      expect(menuOverviewForTile(tile, deps).map((l) => l.html).join(" ")).not.toContain("Manage AFC upgrades");
+    }
   });
 });
