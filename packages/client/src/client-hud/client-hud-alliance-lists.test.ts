@@ -4,6 +4,7 @@ import { createInitialState } from "../client-state/client-state.js";
 import { playerNameForOwnerFromState } from "../client-owner-name/client-owner-name.js";
 import { bindProposeButtons } from "../client-alliance/client-alliance-propose-buttons.js";
 import { renderAllianceLists } from "./client-hud-alliance-lists.js";
+import { closeDiplomacyTradeScreen } from "../client-diplomacy-trade/client-diplomacy-trade.js";
 
 describe("alliance list AI names", () => {
   it("shows seasonal names on desktop and mobile while requests use the diplomacy name", () => {
@@ -19,11 +20,14 @@ describe("alliance list AI names", () => {
     for (const root of [dom.alliesListEl, dom.mobileAlliesListEl]) {
       expect(root.querySelector(".player-link")?.textContent).toBe("Freja Sund");
       expect(root.querySelector(".alliance-player-toggle")?.getAttribute("aria-expanded")).toBe("true");
-      bindProposeButtons(root, { playerNameForOwner: (id) => playerNameForOwnerFromState(state, id), sendGameMessage });
+      bindProposeButtons(root, { playerNameForOwner: (id) => playerNameForOwnerFromState(state, id), sendGameMessage, state });
       root.querySelector<HTMLButtonElement>(".propose-alliance")!.click();
       root.querySelector<HTMLButtonElement>(".propose-truce")!.click();
+      document.querySelector<HTMLButtonElement>("[data-trade-send]")!.click();
     }
-    expect(sendGameMessage).toHaveBeenCalledWith({ type: "ALLIANCE_REQUEST", targetPlayerName: "AI 1" }, expect.any(String));
+    closeDiplomacyTradeScreen();
+    // The trade screen addresses the target by its diplomacy name, not the seasonal display name.
+    expect(sendGameMessage).toHaveBeenCalledWith({ type: "DIPLOMACY_STANCE_REQUEST", targetPlayerName: "AI 1" }, expect.any(String));
     expect(sendGameMessage).toHaveBeenCalledWith({ type: "TRUCE_REQUEST", targetPlayerName: "AI 1", durationHours: 12 }, expect.any(String));
     state.allies = ["ai-1"];
     renderAllianceLists(state, dom, (_label, _fallback, render) => render(), "fallback");

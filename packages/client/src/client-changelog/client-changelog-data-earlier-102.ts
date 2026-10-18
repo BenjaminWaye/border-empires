@@ -1,6 +1,6 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
-export const RIVERS_MOUNTAINS_CHANGELOG: ClientChangelogEntry[] = [
+export const CLIENT_CHANGELOG_ENTRIES_EARLIER_102: ClientChangelogEntry[] = [
   {
     createdAt: 1791663119915, // Date.now() frozen for this entry, as required by the changelog gate.
     introducedIn: "2026.10.10.3",
