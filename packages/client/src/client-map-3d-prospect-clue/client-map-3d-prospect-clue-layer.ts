@@ -1,8 +1,8 @@
-import type { Color, Scene } from "three";
-import type { Tile, TileVisibilityState } from "../client-types.js";
-import { prospectCluePropsAllowed } from "../client-prospect-clue/client-prospect-clue.js";
+import type { Scene } from "three";
+import type { TechInfo, Tile, TileVisibilityState } from "../client-types.js";
+import { createRetiredProspectCluesLookup, prospectClueShownOnTile } from "../client-prospect-clue/client-prospect-clue.js";
 import { isHillsTile } from "../client-constants.js";
-import { BLACKWOOD_FOREST_TINT, createProspectClueProps, type GroundYAt } from "./client-map-3d-prospect-clue-props.js";
+import { createProspectClueProps, type GroundYAt } from "./client-map-3d-prospect-clue-props.js";
 
 // The true-3D prospect clue: per-clue props (client-map-3d-prospect-clue-props.ts)
 // that show what the clue actually is. No ground tint -- a coloured wash read
@@ -18,13 +18,15 @@ type ProspectTileArgs = {
   wy: number;
   wxNext: number;
   wyNext: number;
-  /** Highest rendered point of the tile (blackwood trees stand on it, like createForest's). */
+  /** Highest rendered point of the tile (its forest stands there; blackwood's swirl rises above it). */
   surfaceY: number;
   /** Follows a hill tile's dome (client-map-3d-tile-surface-y.ts). */
   flatOverlayY: number;
   cornerYAt: (x: number, y: number) => number;
-  /** The tile draws its own forest trees this frame (a light-grass sapling doesn't count: blackwood still plants a grove beside it). */
-  treesOnTile: boolean;
+  /** The tile draws its forest this frame. */
+  forestOnTile: boolean;
+  /** The player's researched techs: a clue retires once its resource is revealed. */
+  techState: { readonly techIds: readonly string[]; readonly techCatalog: readonly TechInfo[] };
 };
 
 // Flecks and shards hug the ground: on a hill, the dome height; elsewhere the
@@ -50,20 +52,16 @@ export type ProspectClueLayer = {
   readonly dispose: () => void;
 };
 
-const isLiveClueTile = (tile: Tile | undefined, terrain: Tile["terrain"], visibility: TileVisibilityState): boolean =>
-  Boolean(tile?.prospectSignature) && terrain === "LAND" && visibility === "visible";
-
-/** Tint for a live tile's own forest/sapling trees: blackwood turns the canopy itself black. */
-export const prospectClueTreeTint = (tile: Tile | undefined, terrain: Tile["terrain"], visibility: TileVisibilityState): Color | undefined =>
-  tile?.prospectSignature === "BLACKWOOD_CANOPY" && isLiveClueTile(tile, terrain, visibility) ? BLACKWOOD_FOREST_TINT : undefined;
-
 export const createProspectClueLayer = (scene: Scene, maxTiles: number): ProspectClueLayer => {
   const props = createProspectClueProps(scene, maxTiles);
+  const retiredClues = createRetiredProspectCluesLookup();
 
   const addTile = (args: ProspectTileArgs): void => {
     const signature = args.tile?.prospectSignature;
-    if (!signature || !isLiveClueTile(args.tile, args.terrain, args.visibility) || !prospectCluePropsAllowed(args.tile)) return;
-    props.addTile(args.x, args.z, args.surfaceY, groundYAtFor(args), args.wx, args.wy, signature, args.treesOnTile);
+    if (!signature || !args.tile || args.terrain !== "LAND" || args.visibility !== "visible") return;
+    // Same rule as the tile menu, so a clue line never appears without its decoration.
+    if (!prospectClueShownOnTile(args.tile, args.forestOnTile, retiredClues(args.techState.techIds, args.techState.techCatalog))) return;
+    props.addTile(args.x, args.z, args.surfaceY, groundYAtFor(args), args.wx, args.wy, signature, args.forestOnTile);
   };
 
   return { clear: props.clear, addTile, commit: props.commit, dispose: props.dispose };

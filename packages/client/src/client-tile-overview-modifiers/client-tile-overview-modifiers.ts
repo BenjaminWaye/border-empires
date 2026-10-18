@@ -1,5 +1,5 @@
 import { HILLS_VISION_BONUS, WAYSTATION_POP_BURST, isHillsTileAt, NATURAL_WONDER_LABELS, converterModeOf, defendingFortVariant, FORT_VARIANT_LABELS, isFortDefending, type EconomicStructureType } from "@border-empires/shared";
-import { prospectClueOverviewLine } from "../client-prospect-clue/client-prospect-clue.js";
+import { prospectClueOverviewLine, retiredProspectClues } from "../client-prospect-clue/client-prospect-clue.js";
 import { structureModifiersFor, type ModifierStructureType, type StructureModifier } from "@border-empires/game-domain";
 import type { Tile } from "../client-types.js";
 import type { TechInfo } from "../client-tech-info-types.js";
@@ -326,6 +326,8 @@ export const tileFeatureLeadLines = (
     prettyToken: (value: string) => string;
     structureInfoButtonHtml: (type: StructureInfoKey, label?: string) => string;
     techCatalog: readonly TechInfo[];
+    /** Researched techs: a clue's line drops once its resource is revealed (retiredProspectClues). */
+    techIds?: readonly string[];
   }
 ): TileOverviewLine[] => {
   const lines: TileOverviewLine[] = [];
@@ -345,7 +347,7 @@ export const tileFeatureLeadLines = (
   if (tile.afc?.ownerId === deps.me && tile.ownerId === deps.me) {
     lines.push({ html: '<button type="button" class="tile-action-btn" data-open-afc-upgrades>Manage AFC upgrades</button>' });
   }
-  const clueLine = prospectClueOverviewLine(tile);
+  const clueLine = prospectClueOverviewLine(tile, retiredProspectClues(deps.techIds ?? [], deps.techCatalog));
   if (clueLine) lines.push({ html: clueLine });
   return lines;
 };

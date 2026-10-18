@@ -1,15 +1,11 @@
 // True-3D props for the worldgen prospect clues (client-prospect-clue.ts), so
 // a clue tile shows the thing its name describes (there is no ground tint):
-// gaunt violet-black blackwood trees, rust-red ferrous flecks, and
-// a few pale, half-buried crystal glints. The 2D-canvas twin is
+// a purple swirl rising from blackwood forest every few seconds
+// (client-map-3d-blackwood-swirl.ts), small grey titanium chips for ferrous
+// dust, and a few pale, half-buried crystal glints. The 2D-canvas twin is
 // client-prospect-signature-overlay.ts; keep the two in step (AGENTS.md
-// renderer parity). Blackwood on a tile that already grows forest does not
-// add trees here -- the caller darkens that tile's own trees with
-// BLACKWOOD_FOREST_TINT instead, so the canopy itself turns black.
+// renderer parity).
 import {
-  Color,
-  ConeGeometry,
-  CylinderGeometry,
   IcosahedronGeometry,
   InstancedMesh,
   Matrix4,
@@ -22,13 +18,7 @@ import {
 import type { ProspectSignature } from "@border-empires/shared";
 import { markUnexploredStormClip } from "../client-map-3d-unexplored-storm/client-map-3d-unexplored-storm-clip.js";
 import { prospectClueJitter as jitter, prospectCluePropCount, prospectCluePropMax, prospectCluePropOffset } from "../client-prospect-clue/client-prospect-clue.js";
-
-/** Multiplied into a blackwood clue tile's own forest/sapling trees (see client-map-3d-instance-tint.ts). */
-export const BLACKWOOD_FOREST_TINT = new Color("#5c4478");
-
-const BLACKWOOD_TRUNK_HEIGHT = 0.24;
-const BLACKWOOD_CANOPY_HEIGHT = 0.5;
-const BLACKWOOD_CANOPY_Y = 0.14 + BLACKWOOD_CANOPY_HEIGHT / 2;
+import { createBlackwoodSwirls } from "./client-map-3d-blackwood-swirl.js";
 
 /** Ground height at a tile-local offset (-0.5..0.5) from the tile centre. */
 export type GroundYAt = (ox: number, oz: number) => number;
@@ -36,44 +26,34 @@ export type GroundYAt = (ox: number, oz: number) => number;
 export type ProspectClueProps = {
   readonly clear: () => void;
   /**
-   * `surfaceY`: the tile's highest point, where trees stand (as createForest's do).
+   * `surfaceY`: the tile's highest point, where its forest stands (as createForest's do).
    * `groundYAt`: the actual ground under each fleck/shard, so they don't float on slopes and hills.
-   * `treesOnTile`: the tile already draws forest trees (blackwood then tints those instead of adding its own).
+   * `forestOnTile`: the tile draws its forest; blackwood's swirl only rises from forest.
    */
-  readonly addTile: (sceneX: number, sceneZ: number, surfaceY: number, groundYAt: GroundYAt, worldX: number, worldZ: number, signature: ProspectSignature, treesOnTile: boolean) => void;
+  readonly addTile: (sceneX: number, sceneZ: number, surfaceY: number, groundYAt: GroundYAt, worldX: number, worldZ: number, signature: ProspectSignature, forestOnTile: boolean) => void;
   readonly commit: () => void;
   readonly dispose: () => void;
 };
 
 export const createProspectClueProps = (scene: Scene, maxTiles: number): ProspectClueProps => {
-  // Blackwood: a narrow four-sided cone reads as a gaunt, spiky conifer --
-  // distinct from createForest's five-sided pine/spruce even before colour.
-  const blackwoodCanopyGeometry = new ConeGeometry(0.1, BLACKWOOD_CANOPY_HEIGHT, 4, 1, false);
-  const blackwoodCanopyMaterial = markUnexploredStormClip(new MeshStandardMaterial({ color: "#2e2240", emissive: "#160b24", roughness: 0.92, metalness: 0, flatShading: true }));
-  const blackwoodTrunkGeometry = new CylinderGeometry(0.022, 0.034, BLACKWOOD_TRUNK_HEIGHT, 5);
-  const blackwoodTrunkMaterial = markUnexploredStormClip(new MeshStandardMaterial({ color: "#2b1f1d", roughness: 0.85, metalness: 0, flatShading: true }));
-  // Ferrous dust: squat rust pebbles scattered over the ground.
-  const fleckGeometry = new IcosahedronGeometry(0.045, 0);
-  const fleckMaterial = markUnexploredStormClip(new MeshStandardMaterial({ color: "#b4582c", roughness: 0.7, metalness: 0.35, flatShading: true }));
+  const swirls = createBlackwoodSwirls(scene, maxTiles);
+  // Ferrous dust: tiny squat chips in titanium grey scattered over the ground.
+  const fleckGeometry = new IcosahedronGeometry(0.028, 0);
+  const fleckMaterial = markUnexploredStormClip(new MeshStandardMaterial({ color: "#8e949b", roughness: 0.55, metalness: 0.5, flatShading: true }));
   // Refractive ground: a clue, not the deposit -- so only a pale glassy tip
   // or two catching the light, not bright glowing crystals.
   const shardGeometry = new OctahedronGeometry(0.035, 0);
   const shardMaterial = markUnexploredStormClip(new MeshStandardMaterial({ color: "#cfe3e0", emissive: "#7fb8c0", emissiveIntensity: 0.12, roughness: 0.25, metalness: 0.1, flatShading: true }));
 
-  const blackwoodCanopyMesh = new InstancedMesh(blackwoodCanopyGeometry, blackwoodCanopyMaterial, maxTiles * prospectCluePropMax("BLACKWOOD_CANOPY"));
-  const blackwoodTrunkMesh = new InstancedMesh(blackwoodTrunkGeometry, blackwoodTrunkMaterial, maxTiles * prospectCluePropMax("BLACKWOOD_CANOPY"));
   const fleckMesh = new InstancedMesh(fleckGeometry, fleckMaterial, maxTiles * prospectCluePropMax("FERROUS_DUST"));
   const shardMesh = new InstancedMesh(shardGeometry, shardMaterial, maxTiles * prospectCluePropMax("REFRACTIVE_GROUND"));
-  const meshes = [blackwoodCanopyMesh, blackwoodTrunkMesh, fleckMesh, shardMesh];
+  // Flecks and shards are too small for a shadow to read, so they skip the shadow pass.
+  const meshes = [fleckMesh, shardMesh];
   for (const mesh of meshes) {
     mesh.frustumCulled = false;
     mesh.count = 0;
     mesh.receiveShadow = true;
   }
-  // Only the trees stand tall enough for a shadow to read; flecks and shards
-  // skip the shadow pass.
-  blackwoodCanopyMesh.castShadow = true;
-  blackwoodTrunkMesh.castShadow = true;
   scene.add(...meshes);
 
   const matrix = new Matrix4();
@@ -81,35 +61,19 @@ export const createProspectClueProps = (scene: Scene, maxTiles: number): Prospec
   const rotation = new Quaternion();
   const scale = new Vector3();
   const tiltAxis = new Vector3();
-  let treeCount = 0;
   let fleckCount = 0;
   let shardCount = 0;
 
   const clear = (): void => {
-    treeCount = 0;
+    swirls.clear();
     fleckCount = 0;
     shardCount = 0;
-  };
-
-  const addBlackwoodTrees = (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number): void => {
-    const trees = prospectCluePropCount("BLACKWOOD_CANOPY", worldX, worldZ);
-    for (let i = 0; i < trees && treeCount < blackwoodCanopyMesh.instanceMatrix.count; i += 1) {
-      const { ox, oy: oz } = prospectCluePropOffset(worldX, worldZ, i);
-      const s = 0.85 + (jitter(worldX, worldZ, 71 + i * 7) + 0.5) * 0.3;
-      rotation.identity();
-      scale.set(s, s, s);
-      matrix.compose(position.set(sceneX + ox, surfaceY + (BLACKWOOD_TRUNK_HEIGHT / 2 - 0.03) * s, sceneZ + oz), rotation, scale);
-      blackwoodTrunkMesh.setMatrixAt(treeCount, matrix);
-      matrix.compose(position.set(sceneX + ox, surfaceY + BLACKWOOD_CANOPY_Y * s, sceneZ + oz), rotation, scale);
-      blackwoodCanopyMesh.setMatrixAt(treeCount, matrix);
-      treeCount += 1;
-    }
   };
 
   const addFerrousFlecks = (sceneX: number, sceneZ: number, groundYAt: GroundYAt, worldX: number, worldZ: number): void => {
     const flecks = prospectCluePropCount("FERROUS_DUST", worldX, worldZ);
     for (let i = 0; i < flecks && fleckCount < fleckMesh.instanceMatrix.count; i += 1) {
-      const s = 0.7 + (jitter(worldX, worldZ, 83 + i * 5) + 0.5) * 0.7;
+      const s = 0.6 + (jitter(worldX, worldZ, 83 + i * 5) + 0.5) * 0.5;
       rotation.setFromAxisAngle(tiltAxis.set(0, 1, 0), (jitter(worldX, worldZ, 89 + i * 5) + 0.5) * Math.PI * 2);
       scale.set(s, s * 0.45, s);
       const { ox, oy: oz } = prospectCluePropOffset(worldX, worldZ, i);
@@ -135,16 +99,15 @@ export const createProspectClueProps = (scene: Scene, maxTiles: number): Prospec
     }
   };
 
-  const addTile: ProspectClueProps["addTile"] = (sceneX, sceneZ, surfaceY, groundYAt, worldX, worldZ, signature, treesOnTile) => {
+  const addTile: ProspectClueProps["addTile"] = (sceneX, sceneZ, surfaceY, groundYAt, worldX, worldZ, signature, forestOnTile) => {
     if (signature === "BLACKWOOD_CANOPY") {
-      if (!treesOnTile) addBlackwoodTrees(sceneX, sceneZ, surfaceY, worldX, worldZ);
+      if (forestOnTile) swirls.addTile(sceneX, sceneZ, surfaceY, worldX, worldZ);
     } else if (signature === "FERROUS_DUST") addFerrousFlecks(sceneX, sceneZ, groundYAt, worldX, worldZ);
     else addCrystalShards(sceneX, sceneZ, groundYAt, worldX, worldZ);
   };
 
   const commit = (): void => {
-    blackwoodCanopyMesh.count = treeCount;
-    blackwoodTrunkMesh.count = treeCount;
+    swirls.commit();
     fleckMesh.count = fleckCount;
     shardMesh.count = shardCount;
     for (const mesh of meshes) {
@@ -155,9 +118,10 @@ export const createProspectClueProps = (scene: Scene, maxTiles: number): Prospec
   };
 
   const dispose = (): void => {
+    swirls.dispose();
     scene.remove(...meshes);
     for (const mesh of meshes) mesh.geometry.dispose();
-    for (const material of [blackwoodCanopyMaterial, blackwoodTrunkMaterial, fleckMaterial, shardMaterial]) material.dispose();
+    for (const material of [fleckMaterial, shardMaterial]) material.dispose();
   };
 
   return { clear, addTile, commit, dispose };

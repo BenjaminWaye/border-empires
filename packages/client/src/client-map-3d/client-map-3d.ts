@@ -90,7 +90,7 @@ import { createBorderDustFxLayer } from "../client-map-3d-border-dust-fx/client-
 import { borderContactSeamsToDustSeams, computeBorderContactRenderState, resolveBorderContactVisual, pointKey, splitSegmentByContact, EMPTY_BORDER_CONTACT_STATE, BORDER_CONTACT_BEAM_COLOR, BORDER_CONTACT_OPACITY_MULT, type BorderContactRenderState } from "../client-map-3d-border-contact-render/client-map-3d-border-contact-render.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
-import { buildTerrainCutLookups } from "./client-map-3d-terrain-cut-lookups.js"; import { createProspectClueLayer, prospectClueTreeTint } from "../client-map-3d-prospect-clue/client-map-3d-prospect-clue-layer.js";
+import { buildTerrainCutLookups } from "./client-map-3d-terrain-cut-lookups.js"; import { createProspectClueLayer } from "../client-map-3d-prospect-clue/client-map-3d-prospect-clue-layer.js";
 import { revealWholeMapInTrue3DMode, isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import { isReachOverlayCornerVisible } from "../client-reach-overlay-corner-visibility/client-reach-overlay-corner-visibility.js";
@@ -857,7 +857,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         const wxNext = deps.wrapX(wx + 1);
         const wyNext = deps.wrapY(wy + 1);
         const { surfaceY, flatOverlayY } = tileSurfaceHeights({ heightfield, wx, wy, wxNext, wyNext, rise: OVERLAY_RISE_ABOVE_HEIGHTFIELD, isHillsAt: isHillsTile, wrapX: deps.wrapX, wrapY: deps.wrapY, roadDirsAt: hillCutAt });
-        prospectClues.addTile({ tile, terrain, visibility, x, z, wx, wy, wxNext, wyNext, surfaceY, flatOverlayY, cornerYAt: heightfield.cornerYAt, treesOnTile: shouldDrawForestInstance(forestTile, tile) });
+        prospectClues.addTile({ tile, terrain, visibility, x, z, wx, wy, wxNext, wyNext, surfaceY, flatOverlayY, cornerYAt: heightfield.cornerYAt, forestOnTile: shouldDrawForestInstance(forestTile, tile), techState: deps.state });
         if (visibility === "fogged" && !revealWholeMapInTrue3DMode) {
           // Fogged (remembered) tiles show their terrain as an aged survey
           // print -- land under fogDarkenOverlay's sepia wash, water
@@ -958,9 +958,9 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           continue;
         }
         if (shouldDrawForestInstance(forestTile, tile)) {
-          (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy, prospectClueTreeTint(tile, terrain, visibility));
+          (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy);
           contactShadowOverlay.addShadow(x, z, surfaceY, SMALL_CONTACT_SHADOW_RADIUS_TILES);
-        } else if (shouldDrawLightGrassScatterInstance(lightGrassScatterTile, tile)) forest.addSparseLeafInstance(x, z, surfaceY, wx, wy, prospectClueTreeTint(tile, terrain, visibility));
+        } else if (shouldDrawLightGrassScatterInstance(lightGrassScatterTile, tile)) forest.addSparseLeafInstance(x, z, surfaceY, wx, wy);
         const realTier = tile?.town?.populationTier;
         const demoTier = isTownDemoTile(wx, wy, window.camX, window.camY);
         const renderedTier: TownTier | undefined = realTier ?? demoTier;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { setWorldSeed } from "@border-empires/shared";
-import type { Tile } from "../client-types.js";
+import type { TechInfo, Tile } from "../client-types.js";
 import { isForestTile, isLightGrassScatterTile } from "../client-constants.js";
 import { tileFeatureLeadLines } from "./client-tile-overview-modifiers.js";
 
@@ -33,9 +33,18 @@ describe("tileFeatureLeadLines prospect clue", () => {
     expect(html).not.toContain(BLACKWOOD_LINE);
   });
 
-  it("explains blackwood on a feature tile through its darkened forest", () => {
+  it("explains blackwood only on its forest, where the swirl rises", () => {
     const forest = findTile((x, y) => isForestTile(x, y));
-    const html = tileFeatureLeadLines(tile({ ...forest, prospectSignature: "BLACKWOOD_CANOPY", resource: "FARM" }), "unclaimed", deps).map((line) => line.html);
-    expect(html).toContain(BLACKWOOD_LINE);
+    const open = findTile((x, y) => !isForestTile(x, y));
+    const lines = (at: { x: number; y: number }): string[] => tileFeatureLeadLines(tile({ ...at, prospectSignature: "BLACKWOOD_CANOPY" }), "unclaimed", deps).map((line) => line.html);
+    expect(lines(forest)).toContain(BLACKWOOD_LINE);
+    expect(lines(open)).not.toContain(BLACKWOOD_LINE);
+  });
+
+  it("drops the line once the clue's resource is revealed", () => {
+    const forest = findTile((x, y) => isForestTile(x, y));
+    const catalog = [{ id: "umbrite-survey", effects: { revealResource: "umbrite" } }] as unknown as TechInfo[];
+    const html = tileFeatureLeadLines(tile({ ...forest, prospectSignature: "BLACKWOOD_CANOPY" }), "unclaimed", { ...deps, techCatalog: catalog, techIds: ["umbrite-survey"] }).map((line) => line.html);
+    expect(html).not.toContain(BLACKWOOD_LINE);
   });
 });

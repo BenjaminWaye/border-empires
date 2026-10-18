@@ -1,4 +1,5 @@
 import type { ClientState } from "../client-state/client-state.js";
+import { createRetiredProspectCluesLookup } from "../client-prospect-clue/client-prospect-clue.js";
 import { activeFrontierAttackClaimTargetKeys } from "../client-map-3d-frontier-claim-plates.js";
 import { serverReachKey } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { DEFAULT_INCURSION_BREACH_STYLE, incursionBreachStyle } from "../client-reach-incursion/client-incursion-breach-style.js";
@@ -25,9 +26,15 @@ export type Map3DRebuildTriggers = {
   incursionBreachStyle: string;
   // See aetherProtectionRebuildKey.
   aetherProtectionKey: string;
+  // Prospect clues retire when their resource is revealed by tech; the
+  // server can send the revealed tiles before TECH_UPDATE, so the tile
+  // change alone rebuilds too early to drop them.
+  retiredProspectCluesKey: string;
 };
 
-export const EMPTY_MAP_3D_REBUILD_TRIGGERS: Map3DRebuildTriggers = { crystalTargetingActive: false, frontierAttackClaimKeys: "", reachKey: "", incursionBreachStyle: DEFAULT_INCURSION_BREACH_STYLE, aetherProtectionKey: "" };
+export const EMPTY_MAP_3D_REBUILD_TRIGGERS: Map3DRebuildTriggers = { crystalTargetingActive: false, frontierAttackClaimKeys: "", reachKey: "", incursionBreachStyle: DEFAULT_INCURSION_BREACH_STYLE, aetherProtectionKey: "", retiredProspectCluesKey: "" };
+
+const retiredProspectClues = createRetiredProspectCluesLookup();
 
 /**
  * What the 3D reach overlay (survey-line pylons/walls, dormant-frontier and
@@ -81,7 +88,7 @@ export const aetherProtectionRebuildKey = (state: AetherProtectionTriggerState, 
   isAetherProtectionFieldShown(state, keyFor) ? `on:${aetherProtectionFieldKey(aetherProtectionField(state, Date.now()))}` : "";
 
 export const captureMap3DRebuildTriggers = (
-  state: Pick<ClientState, "crystalTargeting" | "capture" | "outgoingMusterAttacksByTile" | "tiles" | "incomingAttacksByTile" | "me" | "serverReach" | "serverReachRevision"> & AetherProtectionTriggerState,
+  state: Pick<ClientState, "crystalTargeting" | "capture" | "outgoingMusterAttacksByTile" | "tiles" | "incomingAttacksByTile" | "me" | "serverReach" | "serverReachRevision" | "techIds" | "techCatalog"> & AetherProtectionTriggerState,
   keyFor: (x: number, y: number) => string,
   reach3DActive: boolean
 ): Map3DRebuildTriggers => ({
@@ -89,7 +96,8 @@ export const captureMap3DRebuildTriggers = (
   frontierAttackClaimKeys: frontierAttackClaimRebuildSnapshot(state, keyFor),
   reachKey: reach3DRebuildKey(reach3DActive, state),
   incursionBreachStyle: incursionBreachStyle(),
-  aetherProtectionKey: aetherProtectionRebuildKey(state, keyFor)
+  aetherProtectionKey: aetherProtectionRebuildKey(state, keyFor),
+  retiredProspectCluesKey: [...retiredProspectClues(state.techIds, state.techCatalog)].join(",")
 });
 
 export const map3DRebuildTriggersChanged = (built: Map3DRebuildTriggers, now: Map3DRebuildTriggers): boolean =>
@@ -97,4 +105,5 @@ export const map3DRebuildTriggersChanged = (built: Map3DRebuildTriggers, now: Ma
   built.frontierAttackClaimKeys !== now.frontierAttackClaimKeys ||
   built.reachKey !== now.reachKey ||
   built.incursionBreachStyle !== now.incursionBreachStyle ||
-  built.aetherProtectionKey !== now.aetherProtectionKey;
+  built.aetherProtectionKey !== now.aetherProtectionKey ||
+  built.retiredProspectCluesKey !== now.retiredProspectCluesKey;
