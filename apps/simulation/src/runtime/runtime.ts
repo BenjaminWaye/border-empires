@@ -195,6 +195,7 @@ import {
   requeueRecoveredCommands,
   uniqueLocksByCommandId
 } from "../runtime-hydration.js";
+import { restoreRecoveredTownOrder, restoreTownSettledAt } from "../recovered-town-state/recovered-town-state.js";
 import { TileDeltaStringifyCache } from "../tile-delta-stringify-cache/tile-delta-stringify-cache.js";
 import { tileDeltaFromState as tileDeltaFromStateImpl } from "../runtime-tile-delta-from-state.js";
 import { PlayerCandidateIndex } from "../player-candidate-index/player-candidate-index.js";
@@ -359,10 +360,7 @@ import {
   supportedTownKeysForTile as supportedTownKeysForTileImpl
 } from "../runtime-structure-support/runtime-structure-support.js";
 import { tickPopulationGrowth as tickPopulationGrowthImpl } from "../runtime-population-growth.js"; import { tickManpowerFullAlerts as tickManpowerFullAlertsImpl } from "../runtime-manpower-full-alert.js";
-import {
-  tickOrphanedLockSweep as tickOrphanedLockSweepImpl,
-  tickTileShedding as tickTileSheddingImpl
-} from "../runtime-maintenance-ticks.js";
+import { tickOrphanedLockSweep as tickOrphanedLockSweepImpl } from "../runtime-maintenance-ticks.js";
 import {
   isNeutralBeaconTile as isNeutralBeaconTileImpl,
   rebuildPlannerCandidateIndexesForPlayer as rebuildPlannerCandidateIndexesForPlayerImpl,
@@ -575,7 +573,6 @@ export class SimulationRuntime {
   private readonly onMusterRemoteBlockedBarbarian: (() => void) | undefined;
   private readonly onAutoFillTiles: ((count: number) => void) | undefined;
   private readonly onUpkeepNettedWhileIncomePaused: ((playerId: string) => void) | undefined;
-  private readonly onPlayerStateUpdateSkippedAi: ((playerId: string) => void) | undefined;
   private readonly onAuthRecoveryRespawn: (() => void) | undefined;
   private readonly onAuthRecoveryRespawnGuarded: (() => void) | undefined;
   // Index of unowned LAND tiles with a town, dock, or resource — navigation
@@ -602,9 +599,9 @@ export class SimulationRuntime {
   private readonly lastActiveAtMsByPlayer = new Map<string, number>();
   private readonly fortPatrolGraceUntilByTile = new Map<string, number>();
   // Epoch ms when each tile last transitioned into SETTLED ownership. Stamped
-  // in replaceTileState; consumed by tickTileShedding to shed newest-first when
-  // broke. Not persisted — tiles recovered from the event log tie at -Infinity
-  // so they shed last (a restarted empire's core tiles outlast its expansions).
+  // in replaceTileState; read by resource-slot dormancy (newest food consumer
+  // sleeps first) and reach anchors. Town stamps survive restarts via the
+  // snapshot (recovered-town-state.ts); other tiles' stamps are not persisted.
   private readonly tileSettledAtByKey = new Map<string, number>();
   // Fixed-border reach (packages/shared/src/reach/reach.ts): the persistent
   // tileKey -> owning playerId border, maintained incrementally via
@@ -678,6 +675,7 @@ export class SimulationRuntime {
   private dormantClaimSweepDone = false;
   private readonly waypointDrainScheduler = new WaypointDrainScheduler({ isPlayerSubscribed: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false, now: () => this.now() });
   private readonly scheduleAfter: (delayMs: number, task: () => void) => void;
+  private scheduledTasksFrozen = false;
   private readonly playerUpdateEmitter: PlayerUpdateEmitter;
   private readonly commandTrace: ((sample: Record<string, unknown>) => void) | undefined;
   private readonly onOwnershipChange: SimulationRuntimeOptions["onOwnershipChange"]; private readonly isPlayerSubscribed: SimulationRuntimeOptions["isPlayerSubscribed"]; private readonly alertedManpowerFullPlayerIds = new Set<string>();
@@ -704,9 +702,10 @@ export class SimulationRuntime {
     // delay=0 lands drains in the same Check phase, but registered AFTER
     // snapshot yields re-arm theirs, so yields always run ahead of drains next
     // iteration (~22s → ~500ms). Real-delay timers still use setTimeout.
-    this.scheduleAfter = options.scheduleAfter ?? ((delayMs, task) =>
+    const scheduleAfter = options.scheduleAfter ?? ((delayMs, task) =>
       delayMs === 0 ? void setImmediate(task) : void setTimeout(task, delayMs)
     );
+    this.scheduleAfter = (delayMs, task) => scheduleAfter(delayMs, () => { if (!this.scheduledTasksFrozen) task(); });
     this.jobQueue = new RuntimeJobQueue({
       backgroundBatchSize: Math.max(1, options.backgroundBatchSize ?? 1),
       now: () => this.now(),
@@ -731,7 +730,6 @@ export class SimulationRuntime {
     });
     this.onAutoFillTiles = options.onAutoFillTiles;
     this.onUpkeepNettedWhileIncomePaused = options.onUpkeepNettedWhileIncomePaused;
-    this.onPlayerStateUpdateSkippedAi = options.onPlayerStateUpdateSkippedAi;
     this.onAuthRecoveryRespawn = options.onAuthRecoveryRespawn;
     this.onAuthRecoveryRespawnGuarded = options.onAuthRecoveryRespawnGuarded;
     this.commandTrace = options.commandTrace;
@@ -825,6 +823,8 @@ export class SimulationRuntime {
     for (const playerId of this.state.players.keys()) {
       this.playerSummaries.set(playerId, createPlayerRuntimeSummaryFromRecovered(recoveredPlayersById.get(playerId)));
       this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, 0);
+      // Before the boot manpower settle below: dormancy (and so the cap) dates towns by these stamps.
+      restoreTownSettledAt(this.tileSettledAtByKey, this.state.tiles, playerId, recoveredPlayersById.get(playerId)?.townSettledAt);
     }
     // First pass: apply tile summaries and shard-site tracking.
     // All tiles are already in this.state.tiles (createTilesFromInitialState produced a
@@ -905,6 +905,10 @@ export class SimulationRuntime {
     for (const [ownerId, frontierKeys] of this.ownerIndexes.frontierTilesByOwner) {
       seedEligibleFrontierQueueForOwnerImpl(this.eligibleFrontierByOwner, ownerId, frontierKeys, this.autoSettleEligibilityRuntime().depsForPlayer(ownerId));
     }
+    // Before the manpower settle below: its accrual and the economy caches it fills read town order.
+    for (const player of options.initialState?.players ?? []) {
+      if (player.ownedTownTileKeys?.length) restoreRecoveredTownOrder(this.summaryForPlayer(player.id), player.ownedTownTileKeys);
+    }
     // Moved here (see the long comment above, right after this.state.tiles is
     // assigned) from immediately after `this.state.players` was built: this is the
     // first point where ancillaryDepotTilesByOwner/neuralWorksTilesByOwner/
@@ -926,20 +930,6 @@ export class SimulationRuntime {
       if (Number.isFinite(previousCapSnapshot) && previousCapSnapshot !== player.manpowerCapSnapshot) {
         this.manpowerCapBootstrapRestampedCount += 1;
       }
-    }
-    for (const player of options.initialState?.players ?? []) {
-      if (!player.ownedTownTileKeys?.length) continue;
-      const summary = this.summaryForPlayer(player.id);
-      const currentTowns = new Map(summary.ownedTownTierByTile);
-      summary.ownedTownTierByTile.clear();
-      for (const tileKey of player.ownedTownTileKeys) {
-        const tier = currentTowns.get(tileKey);
-        if (tier) {
-          summary.ownedTownTierByTile.set(tileKey, tier);
-          currentTowns.delete(tileKey);
-        }
-      }
-      for (const [tileKey, tier] of currentTowns) summary.ownedTownTierByTile.set(tileKey, tier);
     }
     for (const playerId of this.state.players.keys()) {
       this.rebuildPlannerCandidateIndexesForPlayer(playerId);
@@ -989,6 +979,17 @@ export class SimulationRuntime {
     });
   }
 
+  /**
+   * Graceful shutdown: stop running scheduled tasks (combat-lock resolutions,
+   * settle/build completions, job-queue delays) so the final checkpoint
+   * exports one consistent moment instead of a world changing between its
+   * export yields. Their state stays pending in the snapshot and is
+   * rescheduled on the next boot. One-way: the runtime is done after this.
+   */
+  freezeScheduledTasks(): void {
+    this.scheduledTasksFrozen = true;
+  }
+
   onEvent(listener: (event: SimulationEvent) => void): () => void {
     this.events.on("event", listener);
     return () => this.events.off("event", listener);
@@ -1001,27 +1002,6 @@ export class SimulationRuntime {
   wireDeltaForTileKey(tileKey: string, playerId?: string): SimulationTileWireDelta | undefined {
     const tile = this.state.tiles.get(tileKey);
     return tile ? this.tileDeltaRevealOnly(tile, playerId) : undefined;
-  }
-
-  async tickTileShedding(nowMs: number = this.now(), yieldToEventLoop?: () => Promise<void>): Promise<void> {
-    await tickTileSheddingImpl({
-      nowMs,
-      players: this.state.players,
-      tiles: this.state.tiles,
-      locksByTile: this.state.locksByTile,
-      tileSettledAtByKey: this.tileSettledAtByKey,
-      applyEconomyAccrual: (player, at) => this.applyEconomyAccrual(player, at),
-      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
-      applyEncirclement: (changedKeys, playerId, commandId, options) => this.applyEncirclement(changedKeys, playerId, commandId, options),
-      emitEvent: (event) => this.emitEvent(event),
-      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
-      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
-      playerManpowerCap: (player) => this.playerManpowerCap(player),
-      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
-      onPlayerStateUpdateSkippedAi: (playerId) => this.onPlayerStateUpdateSkippedAi?.(playerId),
-      ...(yieldToEventLoop !== undefined ? { yieldToEventLoop } : {}),
-      ...(this.trackSyncMainThreadTask !== undefined ? { trackSync: this.trackSyncMainThreadTask } : {})
-    });
   }
 
   tickOrphanedLockSweep(nowMs: number = this.now()): number {
@@ -1998,6 +1978,7 @@ export class SimulationRuntime {
       players: this.state.players,
       pendingSettlementsByTile: this.pendingSettlementsByTile,
       playerYieldCollectionEpochByPlayer: this.lastIncomeTickAtMsByPlayer,
+      tileSettledAtByKey: this.tileSettledAtByKey,
       docks: this.state.docks,
       terrainEpoch: this.terrainEpoch,
       tileDeltaStringifyCache: this.tileDeltaStringifyCache,

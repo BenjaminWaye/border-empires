@@ -145,8 +145,8 @@ New `deploy/` directory:
 - `deploy/compose.yml`: `app` service (image `${IMAGE}`, `env_file` =
   `env/${BE_ENV}.env` + `/etc/border-empires/secrets.env`,
   `/srv/border-empires/data:/data`, `127.0.0.1:8080:8080`,
-  `restart: unless-stopped`, `stop_grace_period: 30s` to cover the 12s sim
-  shutdown, json-file logging capped at `max-size: 50m`, `max-file: 5`) and a
+  `restart: unless-stopped`, `stop_grace_period: 30s` to cover the sim
+  shutdown (up to ~22s including its final snapshot checkpoint), json-file logging capped at `max-size: 50m`, `max-file: 5`) and a
   `caddy` service (80/443, persistent `caddy_data` volume).
 - `deploy/Caddyfile`: `{$BE_HOSTNAME} { reverse_proxy app:8080 }`.
 - `deploy/env/staging.env`, `deploy/env/production.env`: the non-secret

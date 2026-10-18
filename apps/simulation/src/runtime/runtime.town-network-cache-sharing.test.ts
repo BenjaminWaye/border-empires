@@ -119,7 +119,7 @@ describe("simulation runtime — shared town network cache", () => {
 
     runtime.applyPassiveIncome(1_000, 999_999_999);
     now = 60_000;
-    await runtime.tickTileShedding(60_000);
+    await runtime.tickTerritoryAutomation(60_000);
     runtime.applyPassiveIncome(60_000, 999_999_999);
 
     const state = runtime.exportState();
@@ -295,7 +295,7 @@ describe("simulation runtime — shared town network cache", () => {
     // Warm the caches while Mid is still a corridor settlement.
     runtime.applyPassiveIncome(1_000, 999_999_999);
     now = 60_000;
-    await runtime.tickTileShedding(60_000);
+    await runtime.tickTerritoryAutomation(60_000);
 
     runtime.submitCommand({
       commandId: "upgrade-mid", sessionId: "session-1", playerId: "player-1", clientSeq: 1,

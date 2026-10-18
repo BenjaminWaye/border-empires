@@ -1,0 +1,39 @@
+.afc-upgrades { display: grid; gap: 12px; padding: 12px; color: var(--sp-parchment-100); }
+.afc-upgrade-summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; color: var(--sp-parchment-muted); }
+.afc-upgrade-summary strong { color: var(--sp-parchment-100); }
+.afc-upgrade-ready-count { border: 1px solid var(--sp-brass-700); border-radius: 4px; padding: 4px 8px; white-space: nowrap; color: var(--sp-brass-100); }
+.afc-upgrades p { margin: 0; font-size: 12px; line-height: 1.6; }
+.afc-upgrade-history { display: grid; gap: 8px; }
+.afc-upgrade-history h3 { margin: 0; color: var(--sp-parchment-muted); font-size: 12px; font-weight: normal; }
+.afc-upgrade-history ol { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.afc-upgrade-history li { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--sp-brass-700); overflow-wrap: anywhere; }
+.afc-upgrade-history-tier { color: var(--sp-brass-300); font-size: 12px; }
+.afc-upgrade-history strong { color: var(--sp-parchment-100); font-size: 13px; }
+.afc-upgrade-history p { color: var(--sp-parchment-muted); }
+.afc-upgrade-current { display: grid; gap: 4px; padding-top: 4px; }
+.afc-upgrade-current h3 { margin: 0; color: var(--sp-brass-100); font-size: 16px; }
+.afc-upgrade-current p { color: var(--sp-parchment-muted); }
+.afc-upgrade-options { display: grid; gap: 8px; min-width: 0; }
+.afc-upgrade-option { min-width: 0; border: 1px solid var(--sp-brass-700); border-radius: 5px; overflow-wrap: anywhere; }
+.afc-upgrade-option.is-expanded { border-color: var(--sp-brass-300); }
+.afc-upgrade-card { display: grid; gap: 8px; width: 100%; min-height: 72px; text-align: left; padding: 12px; border: 0; border-radius: 4px; color: var(--sp-parchment-100); background: var(--sp-panel-bg); font: inherit; cursor: pointer; }
+.afc-upgrade-card-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.afc-upgrade-card-top strong { color: var(--sp-brass-100); font-size: 14px; }
+.afc-upgrade-card > span:last-child { font-size: 12px; line-height: 1.6; color: var(--sp-parchment-muted); }
+.afc-upgrade-detail { display: grid; gap: 12px; padding: 12px; border-top: 1px solid var(--sp-brass-700); background: var(--sp-iron-900); }
+.afc-upgrade-detail h3 { margin: 0; font-size: 16px; }
+.afc-upgrade-benefit, .afc-upgrade-price { color: var(--sp-brass-100); }
+.afc-upgrade-reason { color: var(--sp-parchment-muted); }
+.afc-upgrade-install { min-height: 44px; width: 100%; }
+.afc-upgrade-consequence { color: var(--sp-parchment-muted); }
+.afc-upgrades button:focus-visible, .afc-upgrade-current h3:focus-visible { outline: 2px solid var(--sp-brass-300); outline-offset: 3px; }
+@media (min-width: 901px) {
+  #side-panel.afc-upgrades-panel { width: min(860px, calc(100vw - 220px)); }
+  #hud:has(#side-panel.afc-upgrades-panel) #mini-map-wrap { right: auto; left: 12px; }
+  .afc-upgrades-panel .afc-upgrade-options { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .afc-upgrades-panel .afc-upgrade-option { display: contents; }
+  .afc-upgrades-panel .afc-upgrade-card { border: 1px solid var(--sp-brass-700); min-height: 132px; }
+  .afc-upgrades-panel .is-expanded .afc-upgrade-card { border-color: var(--sp-brass-300); }
+  .afc-upgrades-panel .afc-upgrade-options:has(.afc-upgrade-detail) { grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(240px, 1.4fr); grid-auto-flow: dense; }
+  .afc-upgrades-panel .afc-upgrade-detail { grid-column: 3; grid-row: 1 / span 6; border: 1px solid var(--sp-brass-700); border-radius: 4px; }
+}

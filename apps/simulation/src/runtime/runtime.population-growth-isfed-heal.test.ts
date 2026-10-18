@@ -67,7 +67,7 @@ describe("SimulationRuntime tickPopulationGrowth — isFed self-heal", () => {
     const tileA = exported.tiles.find((t) => t.x === 10 && t.y === 10);
     const tileB = exported.tiles.find((t) => t.x === 20 && t.y === 20);
     // Newest-first with no settledAtByTileKey (these towns bypass the
-    // SETTLE-command tile-shedding stamp, coming straight from initialState):
+    // SETTLE-command settledAt stamp, coming straight from initialState):
     // both fall back to activatedAt 0 and tie-break lexicographically on
     // tile key, so (10,10) sorts first in the dormancy loop -- it's the one
     // that goes dormant, regardless of its stale isFed:false start value.

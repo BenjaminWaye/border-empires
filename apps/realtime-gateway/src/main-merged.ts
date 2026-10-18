@@ -212,7 +212,9 @@ startDailyActivityDigestPoll({
   log: gateway.app.log
 });
 
-const SIM_WORKER_SHUTDOWN_TIMEOUT_MS = 12_000;
+// Just above the worker's own 20s hard exit (process-bootstrap.ts), which
+// includes the final snapshot checkpoint saved on shutdown.
+const SIM_WORKER_SHUTDOWN_TIMEOUT_MS = 22_000;
 
 const waitForSimWorkerClosed = (): Promise<void> =>
   new Promise<void>((resolve) => {
@@ -234,7 +236,8 @@ const waitForSimWorkerClosed = (): Promise<void> =>
 // stalls — leaving the HTTP listener closed but the process alive with the
 // sim worker still ticking, as observed once on staging — force-exit rather
 // than hang indefinitely with no server listening.
-const SHUTDOWN_HARD_EXIT_MS = 20_000;
+// Under deploy/compose.yml's 30s stop_grace_period, so this fires before SIGKILL.
+const SHUTDOWN_HARD_EXIT_MS = 28_000;
 
 let shutdownInFlight: Promise<void> | undefined;
 const shutdown = (signal: NodeJS.Signals | "uncaught"): Promise<void> => {
