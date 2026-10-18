@@ -8,7 +8,7 @@ import { prospectSignatureLabel, prospectSignatureResource, type ProspectSignatu
 import type { TechInfo, Tile } from "../client-types.js";
 import { isForestTile } from "../client-constants.js";
 import { shouldDrawForestInstance } from "../client-map-3d-forest-structure-gate.js";
-import { hasRevealedResourceCategory } from "../client-tech-html/client-tech-html.js";
+import { resourceRevealedByTechs } from "@border-empires/game-domain";
 
 const RESOURCE_DISPLAY: Record<ReturnType<typeof prospectSignatureResource>, string> = {
   TITANIUM: "Titanium",
@@ -24,31 +24,33 @@ export const prospectCluePropsAllowed = (tile: Tile | undefined): boolean =>
   !tile?.town && !tile?.dockId && !tile?.fort && !tile?.observatory && !tile?.siegeBattery && !tile?.economicStructure && !tile?.resource &&
   !tile?.watchtower && !tile?.waystation && !tile?.naturalWonder && !tile?.shardSite;
 
-const REVEAL_CATEGORY: Record<ProspectSignature, "TITANIUM" | "UMBRITE" | "CRYSTAL"> = {
-  FERROUS_DUST: "TITANIUM",
-  BLACKWOOD_CANOPY: "UMBRITE",
-  REFRACTIVE_GROUND: "CRYSTAL"
-};
-const ALL_SIGNATURES = Object.keys(REVEAL_CATEGORY) as ProspectSignature[];
+const ALL_SIGNATURES: readonly ProspectSignature[] = ["FERROUS_DUST", "BLACKWOOD_CANOPY", "REFRACTIVE_GROUND"];
+const NO_RETIRED_CLUES: ReadonlySet<ProspectSignature> = new Set();
 
 /**
  * Clues whose resource the player has already revealed by tech: the deposits
  * themselves now show on the map, so the hint has done its job and is hidden.
+ * Uses game-domain's reveal rule (resourceRevealedByTechs), the same one the
+ * server applies when it starts sending those deposits.
  */
-export const retiredProspectClues = (techIds: readonly string[], techCatalog: readonly TechInfo[]): ReadonlySet<ProspectSignature> =>
-  new Set(ALL_SIGNATURES.filter((signature) => hasRevealedResourceCategory(REVEAL_CATEGORY[signature], techIds, techCatalog)));
+export const retiredProspectClues = (techIds: readonly string[], techCatalog: readonly TechInfo[]): ReadonlySet<ProspectSignature> => {
+  const revealCategoryByTech = new Map<string, string>();
+  for (const tech of techCatalog) {
+    const reveal = tech.effects?.revealResource;
+    if (typeof reveal === "string") revealCategoryByTech.set(tech.id, reveal.toLowerCase());
+  }
+  return new Set(ALL_SIGNATURES.filter((signature) => resourceRevealedByTechs(prospectSignatureResource(signature), techIds, (id) => revealCategoryByTech.get(id))));
+};
 
-/** retiredProspectClues memoised on the tech arrays (identity and length), for per-tile / per-frame callers. */
+/** retiredProspectClues memoised on the tech arrays, for per-tile / per-frame callers (the client replaces them, never mutates them). */
 export const createRetiredProspectCluesLookup = (): ((techIds: readonly string[], techCatalog: readonly TechInfo[]) => ReadonlySet<ProspectSignature>) => {
   let lastIds: readonly string[] | undefined;
-  let lastIdCount = -1;
   let lastCatalog: readonly TechInfo[] | undefined;
-  let cached: ReadonlySet<ProspectSignature> = new Set();
+  let cached = NO_RETIRED_CLUES;
   return (techIds, techCatalog) => {
-    if (techIds !== lastIds || techIds.length !== lastIdCount || techCatalog !== lastCatalog) {
+    if (techIds !== lastIds || techCatalog !== lastCatalog) {
       cached = retiredProspectClues(techIds, techCatalog);
       lastIds = techIds;
-      lastIdCount = techIds.length;
       lastCatalog = techCatalog;
     }
     return cached;
@@ -62,7 +64,7 @@ export const createRetiredProspectCluesLookup = (): ((techIds: readonly string[]
  * looks ordinary and must not get a tile-menu line or count as a nearby clue.
  * `forestOnTile`: the tile draws its forest trees.
  */
-export const prospectClueShownOnTile = (tile: Tile, forestOnTile: boolean, retired: ReadonlySet<ProspectSignature> = new Set()): boolean =>
+export const prospectClueShownOnTile = (tile: Tile, forestOnTile: boolean, retired: ReadonlySet<ProspectSignature> = NO_RETIRED_CLUES): boolean =>
   Boolean(tile.prospectSignature) && tile.terrain === "LAND" && !tile.fogged && prospectCluePropsAllowed(tile) &&
   !retired.has(tile.prospectSignature!) && (tile.prospectSignature !== "BLACKWOOD_CANOPY" || forestOnTile);
 

@@ -29,10 +29,24 @@ const createState = (): TriggerState => ({
   chunkFullCount: 0,
   allies: [],
   dormantStructures: [],
-  aetherShieldTowers: undefined
+  aetherShieldTowers: undefined,
+  techIds: [],
+  techCatalog: []
 });
 
 describe("3D map rebuild triggers", () => {
+  // Review finding: the server sends a reveal tech's deposit tiles before
+  // TECH_UPDATE, so the tile-change rebuild ran with the old techIds and kept
+  // the retired clue's swirl/chips; nothing rebuilt once techIds caught up.
+  it("asks for a rebuild once a reveal tech retires a prospect clue", () => {
+    const state = createState();
+    state.techCatalog = [{ id: "leatherworking", effects: { revealResource: "umbrite" } }] as unknown as TriggerState["techCatalog"];
+    const built = captureMap3DRebuildTriggers(state, keyFor, true);
+    expect(map3DRebuildTriggersChanged(built, captureMap3DRebuildTriggers(state, keyFor, true))).toBe(false);
+    state.techIds = ["leatherworking"];
+    expect(map3DRebuildTriggersChanged(built, captureMap3DRebuildTriggers(state, keyFor, true))).toBe(true);
+  });
+
   // The login bug: the first rebuild runs during renderer creation, before
   // setTrue3DRendererActive(true), so it built no reach. Nothing else changed
   // for an idle player with a still camera, so the border never appeared.

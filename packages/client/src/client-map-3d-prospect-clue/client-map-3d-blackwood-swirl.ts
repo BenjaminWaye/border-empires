@@ -37,19 +37,21 @@ const spiralPath = (): CatmullRomCurve3 => {
 
 const VERTEX_SHADER = /* glsl */ `
   uniform float uTime;
+  uniform float uPeriod;
+  uniform float uActive;
   attribute float aPhase;
   varying float vAlpha;
   varying float vAlong;
   void main() {
-    float t = mod(uTime + aPhase, ${BLACKWOOD_SWIRL_PERIOD_S.toFixed(1)});
-    float k = clamp(t / ${BLACKWOOD_SWIRL_ACTIVE_S.toFixed(2)}, 0.0, 1.0);
+    float t = mod(uTime + aPhase, uPeriod);
+    float k = clamp(t / uActive, 0.0, 1.0);
     float angle = k * 3.0;
     float c = cos(angle);
     float s = sin(angle);
     vec3 p = position;
     p.xz = mat2(c, -s, s, c) * p.xz * (0.7 + 0.6 * k);
     p.y += k * 0.24;
-    vAlpha = step(t, ${BLACKWOOD_SWIRL_ACTIVE_S.toFixed(2)}) * sin(3.14159 * k);
+    vAlpha = step(t, uActive) * sin(3.14159 * k);
     vAlong = uv.x;
     gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(p, 1.0);
   }
@@ -59,7 +61,7 @@ const FRAGMENT_SHADER = /* glsl */ `
   varying float vAlpha;
   varying float vAlong;
   void main() {
-    float taper = smoothstep(0.0, 0.2, vAlong) * smoothstep(1.0, 0.75, vAlong);
+    float taper = smoothstep(0.0, 0.2, vAlong) * (1.0 - smoothstep(0.75, 1.0, vAlong));
     float alpha = vAlpha * taper * 0.85;
     if (alpha < 0.01) discard;
     gl_FragColor = vec4(0.66, 0.38, 0.95, alpha);
@@ -74,11 +76,16 @@ export type BlackwoodSwirls = {
   readonly dispose: () => void;
 };
 
-export const createBlackwoodSwirls = (scene: Scene, maxTiles: number, nowS: () => number = () => performance.now() / 1000): BlackwoodSwirls => {
+// Same epoch clock as the 2D drawBlackwoodSwirl, so a tile swirls at the same
+// moment in both renderers. Reduced modulo the period on the CPU: epoch
+// seconds (~1.8e9) would lose all sub-second precision as a float32 uniform.
+const swirlClockS = (): number => (Date.now() / 1000) % BLACKWOOD_SWIRL_PERIOD_S;
+
+export const createBlackwoodSwirls = (scene: Scene, maxTiles: number, nowS: () => number = swirlClockS): BlackwoodSwirls => {
   const geometry = new TubeGeometry(spiralPath(), SWIRL_POINTS * 2, 0.016, 4, false);
   const phases = new InstancedBufferAttribute(new Float32Array(maxTiles), 1);
   geometry.setAttribute("aPhase", phases);
-  const uniforms = { uTime: { value: 0 } };
+  const uniforms = { uTime: { value: 0 }, uPeriod: { value: BLACKWOOD_SWIRL_PERIOD_S }, uActive: { value: BLACKWOOD_SWIRL_ACTIVE_S } };
   const material = new ShaderMaterial({
     uniforms,
     vertexShader: VERTEX_SHADER,
@@ -118,6 +125,7 @@ export const createBlackwoodSwirls = (scene: Scene, maxTiles: number, nowS: () =
 
   const dispose = (): void => {
     scene.remove(mesh);
+    mesh.dispose();
     geometry.dispose();
     material.dispose();
   };
