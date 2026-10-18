@@ -3,7 +3,6 @@ import { CLIENT_CHANGELOG_ENTRIES_OCT_17 } from "./client-changelog-oct-17.js";
 import { AETHER_ABILITY_ICONS_CHANGELOG } from "./client-changelog-aether-ability-icons.js";
 import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-art-october.js";
 import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
-import { BUILD_MENU_SUPPORT_SLOTS_CHANGELOG } from "./client-changelog-build-menu-support-slots.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -83,7 +82,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["All Waystation technology rewards now use the current tech catalog name in the tile overview, including previously activated sites"]
   },
   ...AUTO_GARRISON_REQUEUE_CHANGELOG,
-  ...BUILD_MENU_SUPPORT_SLOTS_CHANGELOG,
   {
     createdAt: 1791969340091, // Date.now() captured once for this release.
     introducedIn: "2026.10.14.4",

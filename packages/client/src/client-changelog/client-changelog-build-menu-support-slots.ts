@@ -1,6 +1,6 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
-export const BUILD_MENU_SUPPORT_SLOTS_CHANGELOG: ClientChangelogEntry[] = [
+export const CLIENT_CHANGELOG_ENTRIES_BUILD_MENU_SUPPORT_SLOTS: ClientChangelogEntry[] = [
   {
     createdAt: 1792317575121 /* Date.now() frozen for the changelog gate */,
     introducedIn: "2026.10.18.2",
