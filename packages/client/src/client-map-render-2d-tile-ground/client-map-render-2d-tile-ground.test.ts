@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Tile } from "../client-types.js";
-import { FOGGED_PRINT_SEPIA, UNEXPLORED_LANTERN } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
+import { FOGGED_PRINT_WASH, UNEXPLORED_LANTERN } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
 import { drawTileGround2D, type TileGround2DInput } from "./client-map-render-2d-tile-ground.js";
 import { createUnexploredRevealTracker } from "../client-unexplored-storm/client-unexplored-reveal-2d.js";
 
@@ -47,15 +47,15 @@ describe("drawTileGround2D", () => {
     drawTileGround2D(ctx, remembered);
     expect(remembered.drawTerrainTile).toHaveBeenCalledWith(3, 4, "LAND", 0, 0, 40);
     expect(remembered.drawTerrainDetail).toHaveBeenCalled();
-    expect(fills).toContain(FOGGED_PRINT_SEPIA);
+    expect(fills).toContain(FOGGED_PRINT_WASH);
   });
 
-  it("prints fogged tiles in sepia with their natural detail, and draws visible land as LAND", () => {
+  it("prints fogged tiles in the grey fog wash with their natural detail, and draws visible land as LAND", () => {
     const fogged = makeCtx();
     const foggedArgs = input({ vis: "fogged" });
     drawTileGround2D(fogged.ctx, foggedArgs);
     expect(foggedArgs.drawTerrainDetail).toHaveBeenCalledWith(3, 4, 0, 0, 40);
-    expect(fogged.fills).toContain(FOGGED_PRINT_SEPIA);
+    expect(fogged.fills).toContain(FOGGED_PRINT_WASH);
     expect(fogged.fills.some((f) => f.startsWith("rgba(2, 5, 10"))).toBe(false); // no black dim any more
     const visibleArgs = input({ tile: { x: 3, y: 4, terrain: "MOUNTAIN" } as Tile });
     drawTileGround2D(makeCtx().ctx, visibleArgs);
@@ -89,11 +89,11 @@ describe("drawTileGround2D", () => {
   it("prints a ring tile like the remembered land it borders, but not beside land in sight", () => {
     const besideFogged = makeCtx();
     drawTileGround2D(besideFogged.ctx, input({ tile: undefined, vis: "unexplored", terrainAt: () => "LAND", neighbourVisibility: (ox, oy) => (ox === 1 && oy === 0 ? "fogged" : "unexplored") }));
-    expect(besideFogged.fills).toContain(FOGGED_PRINT_SEPIA);
+    expect(besideFogged.fills).toContain(FOGGED_PRINT_WASH);
 
     const besideLive = makeCtx();
     drawTileGround2D(besideLive.ctx, input({ tile: undefined, vis: "unexplored", terrainAt: () => "LAND", neighbourVisibility: (ox, oy) => (ox === 1 && oy === 0 ? "visible" : ox === -1 && oy === 0 ? "fogged" : "unexplored") }));
-    expect(besideLive.fills).not.toContain(FOGGED_PRINT_SEPIA);
+    expect(besideLive.fills).not.toContain(FOGGED_PRINT_WASH);
   });
 
   it("draws deep fog as plain storm, with no ground underneath", () => {

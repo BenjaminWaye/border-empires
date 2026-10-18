@@ -6,7 +6,7 @@ import { FOGGED_PRINT_WATER, FOGGED_PRINT_WATER_BLEND } from "./client-unexplore
 // around it: deep vs shallow by how many are shallow (a gradient at
 // coastlines), then toward the remembered-water print tone by how many are
 // fogged (explored but not currently in sight), so remembered sea matches the
-// sepia remembered land instead of staying live-bright.
+// greyed remembered land instead of staying live-bright.
 
 export const WATER_DEEP_COLOR = new Color(0x0a2e42);
 export const WATER_SHALLOW_COLOR = new Color(0x6abbc8);

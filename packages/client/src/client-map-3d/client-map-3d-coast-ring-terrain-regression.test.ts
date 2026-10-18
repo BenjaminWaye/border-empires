@@ -38,8 +38,8 @@ describe("first fog ring loads its natural terrain in 3D", () => {
     expect(block).not.toMatch(/if \((isFogRing|printAsFogged)\)/); // every fogged tile, not just some
   });
 
-  it("prints remembered land, features and (non-ring) sea in sepia", () => {
-    expect(source).toContain("const fogPrintSepia = new Color(FOGGED_PRINT_SEPIA), fogFeatureTint = new Color(FOGGED_PRINT_FEATURE_TINT);");
+  it("prints remembered land, features and (non-ring) sea in the grey fog wash", () => {
+    expect(source).toContain("const fogPrintWash = new Color(FOGGED_PRINT_WASH), fogFeatureTint = new Color(FOGGED_PRINT_FEATURE_TINT);");
     // A normal-blend wash, not a multiply: a multiply can only darken, which left remembered grass dark olive.
     expect(source).toContain('{ settled: FOGGED_PRINT_WASH_OPACITY, frontier: FOGGED_PRINT_WASH_OPACITY }, undefined, { settled: "normal", frontier: "normal" }');
     expect(source).toContain("const featureTint = printAsFogged ? fogFeatureTint : undefined;");

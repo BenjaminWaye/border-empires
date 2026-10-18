@@ -27,7 +27,7 @@ import { createMountainMassifs } from "../client-map-3d-mountain-massif.js";
 import { createHillTerrain } from "../client-map-3d-hills.js";
 import { createMapWater, riverFoggedAt } from "./client-map-3d-water-wiring.js";
 import { hasLiveNeighbour, isShallowSeaTile, withUnexploredCoastRingAsFogged } from "./client-map-3d-terrain-tile-rules.js";
-import { FOGGED_PRINT_FEATURE_TINT, FOGGED_PRINT_SEPIA, FOGGED_PRINT_WASH_OPACITY } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
+import { FOGGED_PRINT_FEATURE_TINT, FOGGED_PRINT_WASH, FOGGED_PRINT_WASH_OPACITY } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
 import { FOG_OVERLAY_RENDER_ORDERS, RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { createVillageEffects } from "../client-map-3d-village-fx.js";
 import { createTownSupportTileOverlay } from "../client-map-3d-town-support-tile/client-map-3d-town-support-tile.js";
@@ -166,7 +166,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   // Fogged tiles get a black darkening quad (always full opacity 0.65, regardless of frontier/settled -- reuses both mesh buckets identically)
   // plus a separate, dimmer ownership tint of the last-witnessed owner. Kept as distinct overlay instances from `ownershipOverlay` so the live
   // SETTLED_OPACITY (0.85) constant is never touched. Explicit multiply blend, unlike ownershipOverlay's own default -- alpha blend read washed-out.
-  const fogDarkenOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: FOGGED_PRINT_WASH_OPACITY, frontier: FOGGED_PRINT_WASH_OPACITY }, undefined, { settled: "normal", frontier: "normal" }, FOG_OVERLAY_RENDER_ORDERS); // sepia wash: remembered land as a faded print
+  const fogDarkenOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: FOGGED_PRINT_WASH_OPACITY, frontier: FOGGED_PRINT_WASH_OPACITY }, undefined, { settled: "normal", frontier: "normal" }, FOG_OVERLAY_RENDER_ORDERS); // grey wash: remembered land as a dimmed print
   const fogOwnershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.4, frontier: 0.12 }, undefined, { settled: "multiply", frontier: "multiply" }, FOG_OVERLAY_RENDER_ORDERS);
   await deps.onStage?.("structures");
   const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture);
@@ -688,7 +688,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   // Hoisted Color temps reused per rebuild to avoid per-tile allocation.
   const tmpSettleOwnerColor = new Color();
   const tmpOwnerColor = new Color();
-  const fogPrintSepia = new Color(FOGGED_PRINT_SEPIA), fogFeatureTint = new Color(FOGGED_PRINT_FEATURE_TINT); // remembered land wash / trees + peaks multiply
+  const fogPrintWash = new Color(FOGGED_PRINT_WASH), fogFeatureTint = new Color(FOGGED_PRINT_FEATURE_TINT); // remembered land wash / trees + peaks multiply
   const SETTLE_FALLBACK_COLOR = new Color("#ffd166");
 
   const rebuildVisibleTerrain = (window: TerrainWindow): void => {
@@ -860,7 +860,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         prospectClues.addTile({ tile, terrain, visibility, x, z, wx, wy, wxNext, wyNext, surfaceY, flatOverlayY, cornerYAt: heightfield.cornerYAt, treesOnTile: shouldDrawForestInstance(forestTile, tile) });
         if (visibility === "fogged" && !revealWholeMapInTrue3DMode) {
           // Fogged (remembered) tiles show their terrain as an aged survey
-          // print -- land under fogDarkenOverlay's sepia wash, water
+          // print -- land under fogDarkenOverlay's grey wash, water
           // tinted toward the print tone, natural features (trees, mountain
           // massifs) kept -- plus a dim tint of their last-witnessed owner.
           // No roads, structures, units or FX: we no longer have live data
@@ -885,9 +885,9 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           const fz0 = z - 0.5;
           const fz1 = z + 0.5;
           if (fogIsHill && printAsFogged) {
-            fogDarkenOverlay.addHillTile(fx0, fx1, fz0, fz1, fogCorner00Y, fogCorner10Y, fogCorner01Y, fogCorner11Y, fogPrintSepia, false, fogHillNeighbors, wx, wy, fogRoadDirs);
+            fogDarkenOverlay.addHillTile(fx0, fx1, fz0, fz1, fogCorner00Y, fogCorner10Y, fogCorner01Y, fogCorner11Y, fogPrintWash, false, fogHillNeighbors, wx, wy, fogRoadDirs);
           } else if (printAsFogged) {
-            fogDarkenOverlay.addTile(fx0, fogCorner00Y, fz0, fx1, fogCorner10Y, fz0, fx0, fogCorner01Y, fz1, fx1, fogCorner11Y, fz1, fogPrintSepia, false);
+            fogDarkenOverlay.addTile(fx0, fogCorner00Y, fz0, fx1, fogCorner10Y, fz0, fx0, fogCorner01Y, fz1, fx1, fogCorner11Y, fz1, fogPrintWash, false);
           }
           if (terrain === "LAND" && ownerId && ownershipState !== "FRONTIER") { // FRONTIER excluded: ephemeral claim, so tinting stale fog data as "still his" is misleading -- stacked on the black darken tint above it just read as a dark disconnected box
             const fogOwnerColor = tmpOwnerColor.set(normalizeColorForThree(deps.effectiveOverlayColor(ownerId)));

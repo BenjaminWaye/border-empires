@@ -2,7 +2,7 @@ import { isSeaTerrain } from "@border-empires/shared";
 import { touchesLandInSight } from "../client-unexplored-storm/client-unexplored-fog-ring.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
 import { createUnexploredRevealTracker, drawUnexploredReveal2D, UNEXPLORED_REVEAL_MIN_TILE_PX, type UnexploredRevealTracker } from "../client-unexplored-storm/client-unexplored-reveal-2d.js";
-import { FOGGED_PRINT_SEPIA, FOGGED_PRINT_WASH_OPACITY, FOGGED_PRINT_WATER, FOGGED_PRINT_WATER_BLEND } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
+import { FOGGED_PRINT_WASH, FOGGED_PRINT_WASH_OPACITY, FOGGED_PRINT_WATER, FOGGED_PRINT_WATER_BLEND } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
 import {
   drawUnexploredStormEdge2D,
   drawUnexploredStormTile,
@@ -47,7 +47,7 @@ const isWater = isSeaTerrain;
 const drawFoggedPrint = (ctx: CanvasRenderingContext2D, terrain: Tile["terrain"], px: number, py: number, size: number): void => {
   ctx.save();
   ctx.globalAlpha = isWater(terrain) ? FOGGED_PRINT_WATER_BLEND : FOGGED_PRINT_WASH_OPACITY;
-  ctx.fillStyle = isWater(terrain) ? FOGGED_PRINT_WATER : FOGGED_PRINT_SEPIA;
+  ctx.fillStyle = isWater(terrain) ? FOGGED_PRINT_WATER : FOGGED_PRINT_WASH;
   ctx.fillRect(px, py, size, size);
   ctx.restore();
 };

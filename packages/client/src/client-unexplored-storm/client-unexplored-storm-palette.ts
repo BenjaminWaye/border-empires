@@ -21,17 +21,18 @@ export const UNEXPLORED_BRASS = "#d8b25a";
 export const UNEXPLORED_BRASS_DARK = "#6e4e1e";
 
 // Remembered ("fogged") tiles -- explored but not currently in sight -- read
-// as a pale, faded survey print rather than a dark hole -- light enough to
-// sit between live colour and the storm, so brightness steps down outward
-// instead of dipping and coming back up. Land gets a
-// normal-blend wash of FOGGED_PRINT_SEPIA (pulling every colour toward one
-// tan compresses saturation and contrast, like a faded print; a multiply
-// could only darken), trees and peaks are multiplied by
-// FOGGED_PRINT_FEATURE_TINT (3D), and water is pulled toward
-// FOGGED_PRINT_WATER. The 2D renderer uses the same wash and water blend.
-export const FOGGED_PRINT_SEPIA = "#c8a46a";
-export const FOGGED_PRINT_WASH_OPACITY = 0.5;
-export const FOGGED_PRINT_FEATURE_TINT = "#e6d2b4";
-export const FOGGED_PRINT_WATER = "#7a7458";
+// as a dimmed, greyed survey print: clearly fogged, but still lighter than
+// the storm, so brightness steps down outward (live -> remembered -> storm)
+// instead of dipping and coming back up. Land gets a normal-blend wash of
+// FOGGED_PRINT_WASH (a neutral warm grey, not a tan: a tan wash vanished on
+// sand and desert, so remembered desert looked exactly like land in sight;
+// a normal blend rather than a multiply so dark grass doesn't crush to
+// black), trees and peaks are multiplied by FOGGED_PRINT_FEATURE_TINT (3D),
+// and water is pulled toward FOGGED_PRINT_WATER. The 2D renderer uses the
+// same wash and water blend.
+export const FOGGED_PRINT_WASH = "#6b6255";
+export const FOGGED_PRINT_WASH_OPACITY = 0.55;
+export const FOGGED_PRINT_FEATURE_TINT = "#a39a8c";
+export const FOGGED_PRINT_WATER = "#5f5a52";
 // How far remembered water is pulled toward FOGGED_PRINT_WATER.
-export const FOGGED_PRINT_WATER_BLEND = 0.5;
+export const FOGGED_PRINT_WATER_BLEND = 0.6;
