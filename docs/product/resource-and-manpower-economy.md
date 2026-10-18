@@ -5,6 +5,9 @@ Status: canonical reference
 This is the current-rule reference for manpower, resource slots, gold,
 structures, and economic dormancy. Verify a rule in
 code and update this document in the same branch when the rule changes.
+The [world bible](../lore/galactic-lore.md#11-houses-and-the-planetary-economy)
+defines what these systems mean in the fiction; follow the
+[lore maintenance policy](../lore/README.md) when a gameplay change affects it.
 
 ## Rule sources
 
@@ -104,11 +107,9 @@ slot until removal completes.
   Each occupies 1 FOOD slot and retains the same income: +10 Coin on
   completion, +1 Coin/day, and an additive +10% town income per copy
   (+35% with an active local or connected Clearing House). The Industrial
-  Tooling Module fabricates and refurbishes workshop equipment and parts
-  from local materials.
-  It occupies one AFC module slot; constructing Manufactories requires it
-  installed on an active owned AFC. Existing trade unlocks receive their
-  module through the normal call-down system when an AFC slot is free.
+  Tooling Module occupies one AFC module slot; constructing Manufactories
+  requires it installed on an active owned AFC. Existing trade unlocks receive
+  their module through the normal call-down system when an AFC slot is free.
 
 - Gold is passive per-minute income, rescaled by `GOLD_RESCALE_DIVISOR = 288`.
   Baseline town income is `2 / 288` gold/minute and a dock is `0.5 / 288`;
