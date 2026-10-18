@@ -72,7 +72,7 @@ describe("createInPlaceReconnectScheduler", () => {
     expect(reload).not.toHaveBeenCalled();
   });
 
-  it("reconnects in place with backoff, then falls back to a reload after repeated failures", () => {
+  it("keeps reconnecting through a long deployment without reloading the page", () => {
     vi.useFakeTimers();
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     const reload = vi.fn();
@@ -88,18 +88,15 @@ describe("createInPlaceReconnectScheduler", () => {
     const ws = createFakeSocket(3);
     const scheduler = createInPlaceReconnectScheduler({ state, ws });
 
-    for (let attempt = 0; attempt < 5; attempt += 1) {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
       scheduler.schedule();
       vi.runOnlyPendingTimers();
     }
-    expect(ws.reconnect).toHaveBeenCalledTimes(5);
+    expect(ws.reconnect).toHaveBeenCalledTimes(20);
     expect(reload).not.toHaveBeenCalled();
-
-    scheduler.schedule();
-    expect(reload).toHaveBeenCalledTimes(1);
   });
 
-  it("resetAttempt() restarts the backoff/fallback budget", () => {
+  it("resetAttempt() restarts the backoff after recovery", () => {
     vi.useFakeTimers();
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     const reload = vi.fn();
@@ -119,14 +116,12 @@ describe("createInPlaceReconnectScheduler", () => {
     vi.runOnlyPendingTimers();
     scheduler.resetAttempt();
 
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      scheduler.schedule();
-      vi.runOnlyPendingTimers();
-    }
-    // Had resetAttempt() not restarted the budget, this would already have
-    // exceeded MAX_INPLACE_RECONNECT_ATTEMPTS and reloaded instead.
+    scheduler.schedule();
+    vi.advanceTimersByTime(1_999);
+    expect(ws.reconnect).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(1);
     expect(reload).not.toHaveBeenCalled();
-    expect(ws.reconnect).toHaveBeenCalledTimes(6);
+    expect(ws.reconnect).toHaveBeenCalledTimes(2);
   });
 
   it("reconnects immediately when the tab becomes visible and the socket is not open/connecting", () => {

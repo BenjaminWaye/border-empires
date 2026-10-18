@@ -7,8 +7,7 @@ import { createInitialState } from "../client-state/client-state.js";
 // unconditional window.location.reload() (which redid the entire boot
 // sequence -- Firebase re-init, a fresh AUTH, a full server-side world
 // rebuild -- on every reconnect, as slow as a first login) with an in-place
-// ws.reconnect() retried with backoff, falling back to a hard reload only
-// after repeated failures.
+// ws.reconnect() retried with backoff throughout an outage.
 class FakeWebSocket {
   static readonly CONNECTING = 0;
   static readonly OPEN = 1;
@@ -132,7 +131,7 @@ describe("client network in-place reconnect regression", () => {
     expect(reload).not.toHaveBeenCalled();
   });
 
-  it("falls back to a full page reload only after repeated failed in-place reconnect attempts", () => {
+  it("keeps the current page through repeated failed in-place reconnect attempts", () => {
     vi.useFakeTimers();
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     const reload = vi.fn();
@@ -144,21 +143,16 @@ describe("client network in-place reconnect regression", () => {
 
     // Each backoff timer firing calls ws.reconnect(); simulate every attempt
     // failing immediately by emitting another close right after.
-    for (let attempt = 0; attempt < 5; attempt += 1) {
+    for (let attempt = 0; attempt < 12; attempt += 1) {
       ws.emit("close", { code: 1006, reason: "" });
       vi.runOnlyPendingTimers();
     }
 
-    expect(ws.reconnect).toHaveBeenCalledTimes(5);
+    expect(ws.reconnect).toHaveBeenCalledTimes(12);
     expect(reload).not.toHaveBeenCalled();
-
-    // The 6th close, after 5 failed in-place attempts, exceeds the budget
-    // (MAX_INPLACE_RECONNECT_ATTEMPTS in client-network.ts) and falls back.
-    ws.emit("close", { code: 1006, reason: "" });
-    expect(reload).toHaveBeenCalledTimes(1);
   });
 
-  it("resets the reconnect attempt budget once the socket opens successfully", () => {
+  it("keeps backing off when a socket opens but drops before INIT", () => {
     vi.useFakeTimers();
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     const reload = vi.fn();
@@ -176,14 +170,11 @@ describe("client network in-place reconnect regression", () => {
     ws.emit("open", {});
     state.connection = "connected";
 
-    // A fresh run of 5 failed attempts after a successful open should again
-    // take 5 attempts to exhaust the budget, proving it was reset rather than
-    // continuing to accumulate toward the earlier reload threshold.
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      ws.emit("close", { code: 1006, reason: "" });
-      vi.runOnlyPendingTimers();
-    }
-    expect(ws.reconnect).toHaveBeenCalledTimes(6);
+    ws.emit("close", { code: 1006, reason: "" });
+    vi.advanceTimersByTime(2_000);
+    expect(ws.reconnect).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(2_000);
+    expect(ws.reconnect).toHaveBeenCalledTimes(2);
     expect(reload).not.toHaveBeenCalled();
   });
 

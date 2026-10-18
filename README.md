@@ -94,6 +94,7 @@ Five concurrent paths, all requiring a 24-hour hold:
 - Town resource surveys open a popup that stays until dismissed. Activity → Yours also keeps unresolved surveys available beyond the 24-hour timeline, with View survey actions to locate the clues.
 - Each muster flag has a Recent combat tab with unread counts, red manpower losses, and green plunder gains. Automatic flag battles keep up to 40 reports per flag in the current browser and season instead of opening result popups.
 - Mobile-first: touch pan/pinch-zoom and drawer navigation wired to live game state.
+- Established sessions reconnect in place through server updates without an automatic page refresh. A reconnect restarts after a minute without login or initial-session download progress; active queue and download updates extend that deadline.
 - The existing town-first checklist highlights town and food objectives directly in both map renderers. New worlds require 50 food-and-town-qualified starter sites; see [the opening contract](docs/product/new-player-opening.md) for distances and late-join limits.
 
 ---

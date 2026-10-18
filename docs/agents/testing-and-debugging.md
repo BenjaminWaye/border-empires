@@ -83,6 +83,28 @@ time. Either direction reads to the player as "this bonus doesn't work."
 - For client/server action bugs, confirm whether the client actually sends the message and whether the server receives it before changing validation rules.
 - Remove or narrow noisy debug logs after the issue is understood, but keep regression tests for the branch that failed.
 
+## Client reconnection after server updates
+
+- `packages/client/src/client-network/client-network-socket-lifecycle.ts` owns
+  socket open/close/error cleanup and the handoff to the recovery scheduler.
+- `client-inplace-reconnect/client-inplace-reconnect.ts` retries established
+  sessions with capped, jittered backoff without reloading. A transport opening
+  does not reset backoff: only successfully applied INIT does.
+- A reconnect with no progress for 60 seconds starts another connection.
+  `LOGIN_PHASE`, login queue updates, and `initprogress` extend the deadline;
+  active slow logins must not repeatedly lose their queue position.
+- The initial page boot is outside this recovery watchdog. Once INIT succeeds,
+  the existing map-loading/resubscription path handles tile streaming.
+- `client-network/client-network.deploy-recovery.integration.test.ts` exercises
+  the actual authenticator and network message handlers through server-starting,
+  busy, unavailable-auth, and refreshed-token replies, then checks INIT restores
+  manpower, flags, pending commands, camera, and selection without replaying
+  gameplay commands. It also covers silent connection/auth stalls and progress.
+- Focused check from the client package: `pnpm exec vitest run src/client-inplace-reconnect src/client-network/client-network.deploy-recovery.integration.test.ts src/client-network/client-network.inplace-reconnect-regression.test.ts`.
+- These tests reproduce client recovery failures locally. Confirm the original
+  incident against deployment logs/build SHA before claiming its cause; live
+  deployment verification follows [deploys.md](deploys.md).
+
 ## Main-thread stalls on the rewrite stack
 
 The event-loop watchdog (`apps/realtime-gateway/src/event-loop-watchdog.ts`) captures the gateway main thread's JavaScript stack once it has been silent for `WATCHDOG_STACK_CAPTURE_MS` (default 10s, `0` disables), up to three times per stall, by pausing it through the inspector from the watchdog worker (`main-thread-stack-capture/`). Look for `event_loop_stall_stack` and `event_loop_stall_recovered` in the server logs (`scripts/ops/backend-logs.sh`), or `stallStacks` in the kill log and in `previous_death_forensics` after a watchdog kill. `ok: false, reason: "pause_timeout"` means the thread was inside native code (e.g. a synchronous SQLite call) rather than JS.
