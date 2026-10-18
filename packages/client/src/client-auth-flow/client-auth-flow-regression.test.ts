@@ -362,8 +362,14 @@ describe("email-link sign-in on Safari with blocked storage", () => {
     if (typeof onChange !== "function") throw new Error("Missing auth-state callback");
     await onChange({
       uid: "uid-1", email: "player@example.com", displayName: "Waypoint",
-      isAnonymous: false, providerData: []
-    } as import("firebase/auth").User);
+      isAnonymous: false, providerData: [], emailVerified: true,
+      metadata: {}, refreshToken: "", tenantId: null,
+      phoneNumber: null, photoURL: null, providerId: "password",
+      delete: vi.fn(async () => {}), reload: vi.fn(async () => {}),
+      getIdToken: vi.fn(async () => "token"),
+      getIdTokenResult: vi.fn<import("firebase/auth").User["getIdTokenResult"]>(),
+      toJSON: () => ({})
+    });
 
     expect(ws.reconnect).toHaveBeenCalledTimes(readyState === ws.CLOSED ? 1 : 0);
   });
