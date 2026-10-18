@@ -35,6 +35,7 @@ import { CLIENT_CHANGELOG_ENTRIES_SETTLE_PROMPT_AFTER_WHATS_NEW } from "./client
 import { CLIENT_CHANGELOG_ENTRIES_COMPACT_AUTO_SETTLE_PROMPT } from "./client-changelog-compact-auto-settle-prompt.js";
 import { CLIENT_CHANGELOG_ENTRIES_SOFTER_METAL_REFLECTIONS } from "./client-changelog-softer-metal-reflections.js";
 import { CLIENT_CHANGELOG_ENTRIES_STRANDED_FRONTIER_CLEANUP } from "./client-changelog-stranded-frontier-cleanup.js";
+import { CLIENT_CHANGELOG_ENTRIES_CUT_OFF_BUILDINGS_SURVIVE } from "./client-changelog-cut-off-buildings-survive.js";
 
 // Small per-feature entry files, gathered so client-changelog-data.ts stays under the 500-line cap.
 export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
@@ -73,5 +74,6 @@ export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_STEAMPUNK_BUILD_MENU_ICONS,
   ...CLIENT_CHANGELOG_ENTRIES_MANIFEST_AETHER_RESHUFFLE,
   ...CLIENT_CHANGELOG_ENTRIES_STEAMPUNK_ICON_LEGIBILITY,
-  ...CLIENT_CHANGELOG_ENTRIES_DISABLED_AETHER_TOWER
+  ...CLIENT_CHANGELOG_ENTRIES_DISABLED_AETHER_TOWER,
+  ...CLIENT_CHANGELOG_ENTRIES_CUT_OFF_BUILDINGS_SURVIVE
 ];
