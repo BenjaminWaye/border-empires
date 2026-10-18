@@ -16,6 +16,7 @@ const render = (expandedPlayerId?: string): HTMLElement => {
     incomingTruceRequests: [],
     outgoingTruceRequests: [],
     playerNameForOwner: (id) => (id ? names[id] : undefined),
+    playerColors: new Map(),
     nowMs: 0,
     expandedPlayerId
   });
@@ -54,7 +55,7 @@ describe("bindMetPlayerRowToggles", () => {
     const state: { expandedSocialPlayerId: string | undefined } = { expandedSocialPlayerId: undefined };
     bindMetPlayerRowToggles(root, state);
 
-    root.querySelector<HTMLButtonElement>('.desktop [data-inspect-player="p-1"]')!.click();
+    root.querySelector<HTMLButtonElement>('.desktop [data-player-name-id="p-1"]')!.click();
     expect(state.expandedSocialPlayerId).toBeUndefined();
 
     root.querySelector<HTMLElement>('.desktop [data-player-row-id="p-1"] .alliance-player-status')!.click();

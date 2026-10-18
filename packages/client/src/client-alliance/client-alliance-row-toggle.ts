@@ -29,7 +29,7 @@ export const bindMetPlayerRowToggles = (root: ParentNode, state: RowToggleState)
     const playerId = card?.dataset.playerRowId;
     if (!playerId || !card?.querySelector(".alliance-player-toggle")) return;
     row.onclick = (event) => {
-      if ((event.target as Element | null)?.closest("[data-inspect-player]")) return;
+      if ((event.target as Element | null)?.closest("[data-player-name-id]")) return;
       state.expandedSocialPlayerId = state.expandedSocialPlayerId === playerId ? undefined : playerId;
       applyExpandedRow(root, state.expandedSocialPlayerId);
     };

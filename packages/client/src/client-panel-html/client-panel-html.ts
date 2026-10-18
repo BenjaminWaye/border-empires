@@ -63,16 +63,26 @@ const safePlayerColor = (value: string | undefined): string | undefined => {
   return /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value) ? value : undefined;
 };
 
+const playerDotHtml = (playerId: string | undefined, playerColors: ReadonlyMap<string, string>): string => {
+  const safeColor = safePlayerColor(playerId ? playerColors.get(playerId) : undefined);
+  return `<span class="lb-player-dot${safeColor ? "" : " is-unknown"}"${safeColor ? ` style="--player-color:${safeColor}"` : ""} aria-hidden="true"></span>`;
+};
+
+// A player's name in the Alliances tab: their map-colour dot plus name, as a
+// button that opens their profile -- wirePlayerProfileOverlay wires every
+// data-player-name-id, the same as leaderboard names.
+export const allianceNameButtonHtml = (playerId: string, playerName: string, playerColors: ReadonlyMap<string, string>): string =>
+  `<button class="player-link alliance-reference-name" type="button" data-player-name-id="${escapeHtml(playerId)}">${playerDotHtml(playerId, playerColors)}${escapeHtml(playerName)}</button>`;
+
 const playerNameBadgeHtml = (
   playerId: string | undefined,
   playerName: string,
   playerColors: ReadonlyMap<string, string>,
   dukePlayers: ReadonlySet<string> = new Set()
 ): string => {
-  const safeColor = safePlayerColor(playerId ? playerColors.get(playerId) : undefined);
   const clickAttr = playerId ? ` data-player-name-id="${escapeHtml(playerId)}"` : "";
   const isDuke = Boolean(playerId && dukePlayers.has(playerId));
-  return `<span class="lb-player-name"${clickAttr}><span class="lb-player-dot${safeColor ? "" : " is-unknown"}"${safeColor ? ` style="--player-color:${safeColor}"` : ""} aria-hidden="true"></span><span${clickAttr ? ` class="player-name-text"` : ""}>${dukeNameHtml(foundingEngineerNameHtml(escapeHtml(playerName), playerId), isDuke)}</span></span>`;
+  return `<span class="lb-player-name"${clickAttr}>${playerDotHtml(playerId, playerColors)}<span${clickAttr ? ` class="player-name-text"` : ""}>${dukeNameHtml(foundingEngineerNameHtml(escapeHtml(playerName), playerId), isDuke)}</span></span>`;
 };
 
 const feedDebugControlsHtml = (controls: FeedDebugControls): string => {
@@ -152,17 +162,18 @@ const socialBreakIcon = (): string => '<span class="alliance-inline-icon allianc
 const socialMetaLineHtml = (sentBy: string, waitingOn: string): string =>
   `<div class="alliance-reference-meta">
     <span class="alliance-reference-meta-label">Sent by:</span>
-    <span class="alliance-reference-meta-sender">${sentBy}</span>
+    <span class="alliance-reference-meta-sender">${escapeHtml(sentBy)}</span>
     <span class="alliance-reference-meta-sep">•</span>
     <span class="alliance-reference-meta-label">Waiting on:</span>
-    <span class="alliance-reference-meta-waiting">${waitingOn}</span>
+    <span class="alliance-reference-meta-waiting">${escapeHtml(waitingOn)}</span>
   </div>`;
 
 export const allianceRequestsHtml = (
   requests: AllianceRequest[],
   playerNameForOwner: (ownerId?: string | null) => string | undefined,
   kind: "incoming" | "outgoing" = "incoming",
-  nowMs = Date.now()
+  nowMs = Date.now(),
+  playerColors: ReadonlyMap<string, string> = new Map()
 ): string => {
   if (requests.length === 0) return "";
   return [...requests]
@@ -180,7 +191,7 @@ export const allianceRequestsHtml = (
         return `<article class="card alliance-reference-card alliance-reference-card-pending">
       <div class="alliance-reference-top">
         <div class="alliance-reference-copy">
-          <button class="player-link alliance-reference-name" type="button" data-inspect-player="${playerId}">${playerName}</button>
+          ${allianceNameButtonHtml(playerId, playerName, playerColors)}
           <div class="alliance-reference-id">${socialPlayerIdLabel(playerId)}</div>
         </div>
         <div class="alliance-reference-right">
@@ -206,7 +217,8 @@ export const alliesHtml = (
   allies: string[],
   playerNameForOwner: (ownerId?: string | null) => string | undefined,
   activeAllianceBreaks: ActiveAllianceBreakView[] = [],
-  nowMs = Date.now()
+  nowMs = Date.now(),
+  playerColors: ReadonlyMap<string, string> = new Map()
 ): string => {
   if (allies.length === 0) return `<article class="card alliance-empty-card"><p>No allies.</p></article>`;
   const activeBreakByPlayerId = new Map(activeAllianceBreaks.map((notice) => [notice.otherPlayerId, notice]));
@@ -219,7 +231,7 @@ export const alliesHtml = (
       return `<article class="card alliance-reference-card${notice ? " alliance-reference-card-breaking" : ""}">
       <div class="alliance-reference-top">
         <div class="alliance-reference-copy">
-          <button class="player-link alliance-reference-name" type="button" data-inspect-player="${id}">${name}</button>
+          ${allianceNameButtonHtml(id, name, playerColors)}
           <div class="alliance-reference-id">${socialPlayerIdLabel(id)}</div>
         </div>
         <div class="alliance-reference-right">
@@ -247,7 +259,8 @@ export const truceRequestsHtml = (
   requests: TruceRequest[],
   playerNameForOwner: (ownerId?: string | null) => string | undefined,
   kind: "incoming" | "outgoing" = "incoming",
-  nowMs = Date.now()
+  nowMs = Date.now(),
+  playerColors: ReadonlyMap<string, string> = new Map()
 ): string => {
   if (requests.length === 0) return "";
   return [...requests]
@@ -265,7 +278,7 @@ export const truceRequestsHtml = (
         return `<article class="card alliance-reference-card alliance-reference-card-pending" data-request-age="${ageLabel}">
       <div class="alliance-reference-top">
         <div class="alliance-reference-copy">
-          <button class="player-link alliance-reference-name" type="button" data-inspect-player="${playerId}">${playerName}</button>
+          ${allianceNameButtonHtml(playerId, playerName, playerColors)}
           <div class="alliance-reference-id">${socialPlayerIdLabel(playerId)}</div>
         </div>
         <div class="alliance-reference-right">
