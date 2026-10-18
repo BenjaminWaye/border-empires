@@ -78,6 +78,9 @@ export type PlayerSubscriptionSnapshot = {
     }>;
     techIds: string[];
     domainIds: string[];
+    afcUpgradeRuleset?: "afc-v1";
+    afcUpgradeInstallAllowed?: boolean;
+    afcInstallationPreviews?: Record<string, string>;
     // Empire-wide Titanium/Umbrite Weapons Factory counts, sourced from the
     // runtime's authoritative ownedStructureCountByPlayerByType index (see
     // runtime-owned-structure-index.ts) — the same vision-independent count

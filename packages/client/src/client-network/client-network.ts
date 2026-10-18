@@ -1,3 +1,5 @@
+import { handleIntelResult } from "./client-network-intel-result.js";
+import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
 import { notifyCombatResult } from "./client-combat-result-notifications.js";
 import { musterReportFlagKey, trackMusterReportStart } from "../client-muster-combat-reports/client-muster-combat-reports.js";
 import { COMBAT_LOCK_MS, isChosenTrickleResource, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
@@ -17,7 +19,6 @@ import { applyServerReachUpdate } from "../client-reach-authoritative/client-rea
 import { buildServerErrorContext } from "../client-server-error-context/client-server-error-context.js";
 import { persistWaypointQueueForPlayer, waypointCancelWirePayload } from "../client-waypoint-planner/client-waypoint-persistence.js";
 import { cancelWaypointsBlockedByOutOfReach } from "../client-waypoint-out-of-reach/client-waypoint-out-of-reach.js";
-import { isRevealEmpireStatsView, surveySweepPingsFromPayload } from "./client-network-codec.js";
 import {
   bindQueuedFrontierCommandIdentity,
   matchesCurrentFrontierCommand
@@ -29,8 +30,6 @@ import { applyPlayerUpdateIntegrity } from "../client-integrity-pct/client-playe
 import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, focusFromAlert, raidResultFeedEntry } from "../client-alerts/client-alerts.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, hasGatewayOverlayField, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
 import { applyCommonTileFields, combatResultIncomingTile, recordTileRevisionChange, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
-import { logSurveySweepReceived } from "../survey-sweep-debug-log/survey-sweep-debug-log.js";
-import { revealEmpireStatsFeedText } from "../client-empire-intel/client-empire-intel.js";
 import { applyRespawnNoticeToState, normalizeRespawnNotice } from "../client-respawn-notice/client-respawn-notice.js";
 import { applyTechUpdateToState, updateTechAffordabilityPulses } from "../client-tech-update-state/client-tech-update-state.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, fogRevealLog, recordClientDebugEvent, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "../client-debug/client-debug.js";
@@ -1016,7 +1015,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "REACH_UPDATE") { if (applyServerReachUpdate(state, msg as Record<string, unknown>)) renderHud(); return; }
     // Other players' Aether Tower shields (client-aether-shield-state.ts); the map reads it on its next frame.
     if (msg.type === "AETHER_SHIELDS") { applyAetherShieldsMessage(state, msg as Record<string, unknown>); return; }
+    if (msg.type === "AFC_FLAG_DETECTIONS") { applyAfcStateMessage(state, msg); renderHud(); return; }
     if (msg.type === "PLAYER_UPDATE") {
+      applyAfcStateMessage(state, msg);
       applySettlementRepairDiagnostic(msg as Record<string, unknown>);
       const prevGold = state.gold;
       const prevDefensibility = state.defensibilityPct;
@@ -1862,6 +1863,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "TECH_UPDATE") {
+      applyAfcStateMessage(state, msg);
       logIncomingTechPayload("TECH_UPDATE", {
         techIds: msg.techIds,
         nextChoices: msg.nextChoices,
@@ -1922,27 +1924,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       renderHud();
       return;
     }
-    if (msg.type === "REVEAL_EMPIRE_STATS_RESULT") {
-      const stats = isRevealEmpireStatsView(msg.stats) ? { ...msg.stats, playerName: state.playerNames.get(msg.stats.playerId) ?? msg.stats.playerName } : undefined;
-      if (stats) {
-        state.revealedEmpireStatsByPlayer.set(stats.playerId, stats);
-        state.activeRevealEmpireStatsPopup = stats;
-        pushFeed(revealEmpireStatsFeedText(stats), "combat", "success");
-      }
-      renderHud();
-      return;
-    }
-    if (msg.type === "SURVEY_SWEEP_RESULT") {
-      const nowMs = Date.now();
-      const pings = surveySweepPingsFromPayload(msg.pings);
-      state.surveySweepPings.push(...pings.map((ping) => ({ ...ping, createdAt: nowMs, expiresAt: nowMs + 12_000 })));
-      logSurveySweepReceived(msg.pings, pings, state.surveySweepPings.length);
-      const resourceCount = pings.filter((ping) => ping.kind === "resource").length;
-      const townCount = pings.filter((ping) => ping.kind === "town").length;
-      pushFeed(`Survey Sweep found ${resourceCount} resource ${resourceCount === 1 ? "site" : "sites"} and ${townCount} ${townCount === 1 ? "town" : "towns"} outside current vision.`, "info", "success");
-      renderHud();
-      return;
-    }
+    if (handleIntelResult(msg, state, pushFeed, renderHud)) return;
 
     if (handleDiplomacySocketMessage(state, msg, { pushFeed, showCaptureAlert: showCaptureAlertSafely, playerNameForOwner })) {
       renderHud();

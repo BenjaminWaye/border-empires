@@ -80,7 +80,7 @@ export type RuntimeFrontierCommandContext = BarbarianLaunchContext & {
   // "attack always loses" mechanism.
   isTileWardedByImperialWard: (targetOwnerId: string | undefined) => boolean;
   resolveMusterSource: (playerId: string, originKey: string, required: number, preferred?: string) => MusterSourceResult | undefined;
-  requiredMusterForTarget: (target: DomainTileState) => number;
+  requiredMusterForTarget: (target: DomainTileState, attackerId?: string) => number;
   buildLockedCombatResolution: (lock: LockedCombatInput) => LockedCombatResolution | undefined;
   // Fixed-border reach (packages/shared/src/reach/reach.ts): true if (x, y)
   // is inside playerId's resolved reach set. EXPAND requires this; ATTACK
@@ -177,7 +177,7 @@ export const handleFrontierCommandImpl = (
     ctx.isInReach(actor.id, from.x, from.y);
   const expandClaimDurationMs = actionType === "EXPAND" ? frontierClaimDurationMsForCoords(to.x, to.y) : undefined;
   const requiredMuster = actionType === "ATTACK"
-    ? ctx.requiredMusterForTarget(to)
+    ? ctx.requiredMusterForTarget(to, actor.id)
     : undefined;
   // docs/replenishment-update-plan.md D6: a manual attack's chosen
   // commitment (if any) raises the muster this attack actually needs above

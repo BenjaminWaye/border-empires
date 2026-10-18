@@ -288,7 +288,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
         !input.locksByTile.targetLockAt(currentKey) &&
         !input.locksByTile.targetLockAt(nKey)
       ) {
-        if (availableMuster >= input.requiredMusterForTarget(neighbor)) {
+        if (availableMuster >= input.requiredMusterForTarget(neighbor, playerId)) {
           const score = scoreCandidate(currentKey, neighbor);
           // Never fire on a candidate that's no closer to the target than the
           // flag already is — see distFlagToTarget's comment above.

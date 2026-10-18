@@ -71,7 +71,7 @@ export type WaypointPlannerTile = {
   fogged?: boolean | undefined;
   frontierDecayAt?: number | undefined;
   frontierDecayKind?: string | undefined;
-  fort?: { status?: string | undefined; variant?: FortVariant | undefined; upgradingFrom?: FortVariant | undefined } | null | undefined;
+  fort?: { attackCommitmentMult?: number | undefined; status?: string | undefined; variant?: FortVariant | undefined; upgradingFrom?: FortVariant | undefined } | null | undefined;
 };
 
 export type WaypointPlannerState = {
@@ -169,5 +169,6 @@ export const classifyTile = (
 };
 
 export const requiredMusterForTarget = (tile: WaypointPlannerTile | undefined): number => {
-  return requiredMusterForFort(defendingFortVariant(tile?.fort));
+  const fort = defendingFortVariant(tile?.fort);
+  return Math.max(1, Math.ceil(requiredMusterForFort(fort) * (fort ? tile?.fort?.attackCommitmentMult ?? 1 : 1)));
 };

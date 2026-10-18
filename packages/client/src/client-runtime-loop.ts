@@ -24,7 +24,7 @@ import { renderSelectedStructurePreview2D } from "./client-selected-structure-pr
 import type { initClientDom } from "./client-dom.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network/client-road-network.js";
 import { drawQueuedTileBadges } from "./client-queue-badges/client-queued-tile-badges.js";
-import { createAfcUpgradeReadyBadges, readyAfcUpgradeCount, shouldShowAfcUpgradeReadyBadge, type AfcReadyBadgePosition } from "./client-afc-upgrade-ready/client-afc-upgrade-ready.js";
+import { createAfcMapOverlays } from "./client-afc-upgrades/client-afc-map-overlays.js";
 import { drawTileOwnershipAndBreachBorder } from "./client-tile-borders/client-tile-borders.js";
 import { resolveMyReachCached } from "./client-reach-authoritative/client-reach-authoritative.js";
 import { drawReachBoundaryLine } from "./client-reach-overlay/client-reach-overlay.js";
@@ -177,7 +177,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   let roadNetwork = new Map<string, RoadDirections>();
   const lastRenderedTileStateByKey = new Map<string, string>();
   let roadNetworkBuiltAt = 0;
-  const afcUpgradeBadges = createAfcUpgradeReadyBadges(deps.canvas, () => {
+  const afcMapOverlays = createAfcMapOverlays(deps.canvas, state, () => {
     state.activePanel = "domains"; state.mobilePanel = "domains"; state.domainDetailOpen = false; state.techDetailOpen = false; deps.renderHud();
   });
   const drawPersistentAlertsFrame = createPersistentAlertsFrame(state);
@@ -190,7 +190,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   });
 
   const draw = (): void => {
-    if (isSeasonLobbyFullscreenActive(state)) { afcUpgradeBadges.render([], 0); requestAnimationFrame(draw); return; }
+    if (isSeasonLobbyFullscreenActive(state)) { afcMapOverlays.render([], { size: 1, project: () => ({ sx: 0, sy: 0 }) }); requestAnimationFrame(draw); return; }
     const nowMs = performance.now();
     recordFpsFrame(nowMs);
     const minFrameGap = drawLoopMinFrameGapMs(isTrue3DRendererActive(), deps.isMobile());
@@ -1141,20 +1141,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const roadOverlayMs = phaseMs();
 
     for (const overlayTile of overlayTiles) renderOverlayTile(overlayTile); if (!isTrue3DRendererActive() && state.arrowGesture) drawArrowGesture2D(deps.ctx, state.arrowGesture, (wx2, wy2) => deps.worldToScreen(wx2, wy2, size, halfW, halfH), size); // F4: 2D arrow-gesture visual (F1/F2 parity)
-    const readyUpgrades = readyAfcUpgradeCount(state);
-    const afcBadgePositions: AfcReadyBadgePosition[] = [];
-    if (readyUpgrades > 0 && state.authSessionReady && !state.profileSetupRequired) {
-      for (const { wx, wy, wk, vis, t, px, py } of overlayTiles) {
-        if (vis !== "visible" || !shouldShowAfcUpgradeReadyBadge(t, state.me, readyUpgrades, state.afcJoinDrop)) continue;
-        // Both renderer branches use their current projection every frame, including pan/zoom.
-        const at = isTrue3DRendererActive()
-          ? deps.worldToScreen(wx, wy, size, halfW, halfH)
-          : { sx: px + size / 2, sy: py + size / 2 };
-        const lift = isTrue3DRendererActive() ? Math.max(28, size * 1.4) : Math.max(28, size * 0.45 + 8);
-        afcBadgePositions.push({ key: wk, x: wx, y: wy, screenX: at.sx, screenY: at.sy - lift });
-      }
-    }
-    afcUpgradeBadges.render(afcBadgePositions, readyUpgrades);
+    afcMapOverlays.render(overlayTiles, { size, project: (x, y) => deps.worldToScreen(x, y, size, halfW, halfH) });
     const tileOverlayMs = phaseMs();
 
     if (debugWindow && isTrue3DRendererActive() && debugSelected) {

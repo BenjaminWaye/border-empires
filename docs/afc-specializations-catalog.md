@@ -1,11 +1,11 @@
 # AFC Specializations — upgrade catalogue and explanations
 
-Status: active proposal; proposed names and initial balance
+Status: implementation reference; initial balance
 Owner: Benjamin Waye (product decisions); implementing agent (delivery)
-Last verified: 2026-10-17
-Replaces: the player-facing domain catalogue when the [implementation plan](afc-specializations-plan.md) ships
+Last verified: 2026-10-18
+Replaces: paid domains in new `afc-v1` campaigns; existing seasons retain their rules
 
-Thirty entries, six branches, five tier choices. IDs below are proposed stable
+Thirty entries, six branches, five tier choices. IDs below are stable
 new-ruleset IDs; previous titles identify conversation continuity, not migration
 aliases. Unless marked **working default**, the effect follows the conversation.
 All choices are free; active recruitment still spends Coin. Mechanical copy and

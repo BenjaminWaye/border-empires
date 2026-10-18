@@ -28,6 +28,10 @@ export type RecoveredPlayerState = {
   landingReserveGranted?: boolean;
   techIds?: string[];
   domainIds?: string[];
+  afcUpgradeRuleset?: "afc-v1";
+  afcCoreTownKeys?: string[];
+  afcScarcityFoodSlots?: number;
+  afcCampaign?: import("@border-empires/shared").AfcCampaignState;
   strategicResources?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
   chosenTrickleResource?: ChosenTrickleResource;
   imperialWardCharges?: number;
@@ -61,6 +65,8 @@ export type RecoveredPlayerState = {
 
 export const cloneRecoveredPlayerState = (player: RecoveredPlayerState): RecoveredPlayerState => ({
   ...player,
+  ...(player.afcCampaign ? { afcCampaign: structuredClone(player.afcCampaign) } : {}),
+  ...(player.afcCoreTownKeys ? { afcCoreTownKeys: [...player.afcCoreTownKeys] } : {}),
   ...(player.techIds ? { techIds: [...player.techIds] } : {}),
   ...(player.domainIds ? { domainIds: [...player.domainIds] } : {}),
   ...(player.strategicResources ? { strategicResources: { ...player.strategicResources } } : {}),

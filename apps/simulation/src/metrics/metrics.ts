@@ -1,3 +1,4 @@
+import { createAfcStateMetrics } from "./metrics-afc.js";
 import { DURABLE_COMMAND_TYPES } from "@border-empires/sim-protocol";
 import {
   AUTOMATION_NOOP_REASONS,
@@ -133,6 +134,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simWriterQueueBackpressureWaitTotal = 0;
   const replayCacheMetrics = createReplayCacheMetrics();
   const persistenceLogMetrics = createPersistenceLogMetrics();
+  const afcMetrics = createAfcStateMetrics();
   let simLoginExportPausedDrainTotal = 0;
   const runtimeCounters = createRuntimeCounters();
   const simCheckpointExportMs: number[] = [];
@@ -186,6 +188,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simWriterQueueBackpressureWaitTotal,
     ...replayCacheMetrics.snapshot(),
     ...persistenceLogMetrics.snapshot(),
+    ...afcMetrics.snapshot(),
     simLoginExportPausedDrainTotal,
     simAiBroadFallbackSkipped: Object.fromEntries(simAiBroadFallbackSkipped),
     simAiNarrowAnalyzeCapped: Object.fromEntries(simAiNarrowAnalyzeCapped),
@@ -255,6 +258,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   });
 
   return {
+    setSimAfcState: afcMetrics.set,
     setSimActivityLogStats: activityLogMetrics.set,
     setSimEventLoopMaxMs(value: number): void {
       simEventLoopMaxMs = clampMetric(value);

@@ -1,3 +1,5 @@
+import { coalitionAttackMult } from "./afc-specializations/afc-coalition.js";
+import { flagMomentumAttackMult, pickBreakthroughTarget } from "./afc-specializations/afc-battle-effects.js";
 import type { CommandEnvelope, LockedFrontierCombatResult, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
@@ -7,7 +9,6 @@ import {
   defendingFortVariant,
   isFortDefending,
   isUndefendedFrontierTile,
-  requiredMusterForFort,
   rollFrontierCombat,
   shieldDefenseMultiplier,
   targetOutpostMult,
@@ -19,6 +20,7 @@ import {
   type FrontierCombatPreview,
   type OutpostPosition
 } from "@border-empires/shared";
+import { requiredMusterForTarget } from "./runtime-combat-resolution.js";
 import { findShieldForDefender, shieldMatchAmount } from "./runtime-shield-flags.js";
 import * as wonderEffects from "./runtime-natural-wonders.js"; import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
@@ -40,6 +42,9 @@ import {
 import { CombatLockIndex, type CombatLockTileReader } from "./combat-lock-index/combat-lock-index.js";
 
 export type RuntimeCombatSupportContext = {
+  ownedTownKeys?: (playerId: string) => Iterable<string>;
+  hasPendingClaim?: (key: string) => boolean;
+  isTileShieldedByAegisLock?: (attackerId: string, x: number, y: number) => boolean;
   now: () => number;
   players: ReadonlyMap<string, RuntimePlayer>;
   tiles: ReadonlyMap<string, DomainTileState>;
@@ -96,7 +101,7 @@ export type RuntimeCombatSupportContext = {
 
 export type LockedCombatInput = Pick<
   LockRecord,
-  "actionType" | "commandId" | "playerId" | "manpowerCost" | "originKey" | "originX" | "originY" | "targetX" | "targetY" | "targetKey"
+  "musterSourceKey" | "actionType" | "commandId" | "playerId" | "manpowerCost" | "originKey" | "originX" | "originY" | "targetX" | "targetY" | "targetKey"
 >;
 
 export const plannerGatingLockPlayerIds = (locksByTile: CombatLockTileReader): Set<string> => {
@@ -280,8 +285,8 @@ const resolveAttackCombat = (
     // General tech/domain "attack"/"defense" stat mods (e.g. Titanium Dominion's
     // +18% attack/defense) — persistent infrastructure, same tier as weapons
     // factories, previously computed but never actually applied to combat.
-    attackerStatMult: attacker?.mods?.attack ?? 1,
-    defenderStatMult: defender?.mods?.defense ?? 1
+    attackerStatMult: (attacker?.mods?.attack ?? 1) * flagMomentumAttackMult(attacker, ctx.tiles.get(lock.musterSourceKey ?? lock.originKey)?.muster, ctx.now()) * coalitionAttackMult(attacker, defenderOwnerId, ctx.players, ctx.now()),
+    defenderStatMult: (defender?.mods?.defense ?? 1) * (targetHasActiveFort && previousTarget?.town && defender ? multiplicativeEffectForPlayer(defender, "fortifiedTownDefenseMult") : 1)
   };
   const targetForCombat: Parameters<typeof rollFrontierCombat>[0] = previousTarget
     ? {
@@ -305,7 +310,7 @@ const resolveAttackCombat = (
   // manpowerCost 0 (cooldown-gated, not manpower-gated), which would
   // otherwise divide-to-zero the odds here.
   const isCommitEligible = previousTarget?.ownershipState === "SETTLED" && lock.playerId !== "barbarian-1";
-  const base = requiredMusterForFort(targetHasActiveFort ? defendingFortVariant(previousTarget?.fort) : undefined);
+  const base = previousTarget ? requiredMusterForTarget({ ...previousTarget, fort: targetHasActiveFort ? previousTarget.fort : undefined }, attacker, defender) : 1;
   const commitMultiplier = isCommitEligible ? commitOddsMultiplier(lock.manpowerCost, base) : 1;
   // docs/muster-fronts-proposal.md §4: a shield flag (HOLD-mode, within
   // SHIELD_RADIUS_TILES, or any mode on its own tile) matches the attacker's
@@ -332,6 +337,9 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
       ? GUARANTEED_CAPTURE_COMBAT_PREVIEW
       : resolveAttackCombat(ctx, lock, previousTarget, defenderOwnerId, defender);
   const targetWasSettled = previousTarget?.ownershipState === "SETTLED";
+  const flagKey = lock.musterSourceKey ?? lock.originKey;
+  const flag = ctx.tiles.get(flagKey)?.muster;
+  const breakthroughTarget = combat.attackerWon ? pickBreakthroughTarget({ players: ctx.players, tiles: ctx.tiles, now: ctx.now(), isLocked: key => Boolean(ctx.locksByTile.targetLockAt(key) || ctx.hasPendingClaim?.(key)), isProtected: (id, x, y) => ctx.isTileShieldedByAegisLock?.(id, x, y) ?? false }, ctx.players.get(lock.playerId), previousTarget) : undefined;
   const targetRecentlyPillaged = isTownInCaptureShock(previousTarget?.town, ctx.now());
   const defenderTileCountBeforeCapture = defenderOwnerId ? Math.max(1, ctx.summaryForPlayer(defenderOwnerId).settledTileCount) : 0;
   const plunder =
@@ -394,6 +402,8 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
   const defendedFrontier = lock.actionType === "ATTACK" && previousTarget?.ownershipState === "FRONTIER" && combat !== GUARANTEED_CAPTURE_COMBAT_PREVIEW;
   return {
     result,
+    ...(flag?.ownerId === lock.playerId ? { momentumSource: { key: flagKey, setAt: flag.setAt ?? 0 } } : {}),
+    ...(breakthroughTarget ? { breakthroughTarget } : {}),
     defenderGoldLoss: plunder?.defenderGoldLoss ?? 0,
     targetRecentlyPillaged,
     ...(combat.shield ? { shield: combat.shield } : {}),

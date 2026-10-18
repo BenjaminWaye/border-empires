@@ -73,7 +73,7 @@ const TOWN_MODIFIER_AGGREGATE_LABELS: Partial<Record<ModifierStructureType, { si
 
 export const townModifierTotalsFromCounts = (
   countsByType: Partial<Record<ModifierStructureType, number>>,
-  ctx: { clearingHouseActive?: boolean } = {}
+  ctx: { clearingHouseActive?: boolean; clearingHouseUpliftMult?: number } = {}
 ): TownModifierTotal[] => {
   const groups: TownModifierTotal[] = [];
   for (const type of TOWN_MODIFIER_AGGREGATE_TYPES) {
@@ -84,7 +84,7 @@ export const townModifierTotalsFromCounts = (
     // already-aggregated total from the live count when given this
     // context, rather than a naive per-copy multiply.
     const modifierCtx = type === "MANUFACTORY"
-      ? { tile: { town: { manufactoryCount: count, clearingHouseActive: Boolean(ctx.clearingHouseActive) } } }
+      ? { tile: { town: { manufactoryCount: count, clearingHouseActive: Boolean(ctx.clearingHouseActive), clearingHouseUpliftMult: ctx.clearingHouseUpliftMult ?? 1 } } }
       : CONVERTER_TOWN_MODIFIER_AGGREGATE_TYPES.includes(type)
         ? { tile: { converterMode: "EXCHANGE" as const } }
         : {};

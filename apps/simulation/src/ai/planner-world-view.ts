@@ -23,7 +23,7 @@ export type PlannerTileView = AiTacticalTileFields & {
   naturalWonder?: boolean;
   ownerId?: string;
   ownershipState?: DomainTileState["ownershipState"];
-  afc?: { ownerId?: string };
+  afc?: { ownerId?: string; status?: string };
   /** Capture-hold deadline (shared capture-hold.ts): a held FRONTIER tile is a real fight, not a free capture. */
   captureHoldUntil?: number;
   /** Minimal town info needed to score settlement priority. */
@@ -59,6 +59,8 @@ export type PlannerPlayerView = {
   manpower: number;
   techIds?: string[];
   domainIds?: string[];
+  afcUpgradeRuleset?: "afc-v1";
+  afcDetectedFlags?: readonly { x: number; y: number; ownerId: string }[];
   strategicResources?: Partial<Record<DomainStrategicResourceKey, number>>;
   settledTileCount?: number;
   townCount?: number;

@@ -136,6 +136,7 @@ export type SimulationSnapshotMetricSample = {
 };
 
 export type SimulationMetricsSnapshot = {
+  simAfcState?: import("./metrics-afc.js").AfcStateStats;
   simEventLoopMaxMs: number;
   simOwnedTilesTotal: number;
   simMaxEmpireTiles: number;

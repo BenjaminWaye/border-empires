@@ -1,3 +1,5 @@
+import { afcInstallationPreviews } from "../afc-specializations/afc-installation-previews.js";
+import { toDomainTile } from "../snapshot-tile-cache.js";
 import {
   DEVELOPMENT_PROCESS_LIMIT,
   FRONTIER_STANDING_VISION_RADIUS,
@@ -348,6 +350,12 @@ export const buildPlayerSubscriptionSnapshot = (
             ...(livePlayer.waypointQueue?.length ? { waypointQueue: livePlayer.waypointQueue } : {}),
             techIds: [...livePlayer.techIds],
             domainIds: [...livePlayer.domainIds],
+            ...(livePlayer.afcUpgradeRuleset ? { afcUpgradeRuleset: livePlayer.afcUpgradeRuleset, afcUpgradeInstallAllowed: sourceTiles.some(tile => {
+              if (tile.ownerId !== playerId || !tile.afcJson) return false;
+              const afc: { ownerId?: string; status?: string } = JSON.parse(tile.afcJson);
+              return afc.ownerId === playerId && afc.status === "active";
+            }) } : {}),
+            ...(livePlayer.afcUpgradeRuleset ? { afcInstallationPreviews: afcInstallationPreviews({ id: playerId, techIds: new Set(livePlayer.techIds), domainIds: new Set(livePlayer.domainIds), afcUpgradeRuleset: livePlayer.afcUpgradeRuleset, ...(livePlayer.afcCoreTownKeys ? { afcCoreTownKeys: livePlayer.afcCoreTownKeys } : {}) }, ownedTileKeys(playerId).map(key => tileByKey.get(key)).filter((tile): tile is RuntimeState["tiles"][number] => Boolean(tile)).map(tile => toDomainTile(tile))) } : {}),
             weaponsFactoryCounts,
             mods: liveProgressionPlayer ? recomputeMods(liveProgressionPlayer) : { attack: 1, defense: 1, income: 1, vision: 1 },
             modBreakdown: liveProgressionPlayer

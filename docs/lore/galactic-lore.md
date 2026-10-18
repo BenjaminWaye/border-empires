@@ -393,6 +393,34 @@ Dock capacity, delivery times, replacement handling and construction gates
 are operational rules. Keep their current values and implementation in the
 gameplay references and code, rather than repeating numbers here.
 
+### Campaign specialization
+
+Manifests commission specific machines, offices, warrants and services. As the
+expedition commissions greater capabilities, it gains capacity to specialize
+its AFC and administration. These configurations put the expedition's assets
+to work in a chosen style; they do not represent another purchase of the same
+Manifest capability. The six directions are assault coordination (Vanguard),
+fort fabrication and ward control (Bastion), surveying and settlement (Dominion),
+a compact commercial core (Exchequer), Aether operations (Oracle), and Court
+representation (Chancery). The [upgrade catalogue](../afc-specializations-catalog.md)
+explains each installation's physical or administrative basis.
+
+Court-facing upgrades equip the AFC's chancery with accredited envoys, trade
+registries, coalition dispatch and authority to invoke a campaign armistice.
+Their power comes from a recognized House commission and local agreements,
+administered through the headquarters. Staff, contracts and authority are part
+of the expedition's configuration alongside its physical machinery.
+
+These configurations belong to this expedition. Tower tuning depends on the
+planet's Aether conditions; survey networks, garrisons, towns and formations are
+local assets. Orbital consignments deliver people and equipment to those assets,
+and Court mandates and trading agreements apply to this Sector's contest. A
+later campaign commissions a fresh expedition with its own infrastructure and
+agreements. Losing every AFC during a campaign does not erase the House's
+installed administration or repeat a consignment when it rebuilds. Capturing an
+AFC transfers its physical machinery under the rules above, while specialization
+commissions remain with the House that established them.
+
 ## 13. Great Projects
 
 A Dossier opens a unique project's offworld supply chain. Buying its plans

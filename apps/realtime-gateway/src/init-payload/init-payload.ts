@@ -1,3 +1,4 @@
+import { domainCatalogForPlayer, openDomainChoices, reachableDomainChoices } from "../../../simulation/src/tech-domain-bridge/tech-domain-catalogs.js";
 import { recoverEntryNameFromSnapshot, recoverOptionalEntryNameFromSnapshot, recoverSeasonVictoryNamesFromSnapshot } from "./init-payload-name-recovery.js";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -250,32 +251,6 @@ const reachableTechChoices = (ownedTechIds: string[]): string[] =>
     })
     .map((tech) => tech.id);
 
-const nextDomainTier = (ownedDomainIds: readonly string[]): number | undefined => {
-  const chosenTierMax = domainTree.domains.reduce(
-    (maxTier, domain) => (ownedDomainIds.includes(domain.id) ? Math.max(maxTier, domain.tier) : maxTier),
-    0
-  );
-  const targetTier = Math.min(5, chosenTierMax + 1);
-  const pickedAtTargetTier = domainTree.domains.some((domain) => domain.tier === targetTier && ownedDomainIds.includes(domain.id));
-  return pickedAtTargetTier ? undefined : targetTier;
-};
-
-const openDomainChoices = (ownedDomainIds: readonly string[]): string[] => {
-  const targetTier = nextDomainTier(ownedDomainIds);
-  if (targetTier === undefined) return [];
-  return domainTree.domains
-    .filter((domain) => domain.tier === targetTier && !ownedDomainIds.includes(domain.id))
-    .map((domain) => domain.id);
-};
-
-const reachableDomainChoices = (ownedTechIds: readonly string[], ownedDomainIds: readonly string[]): string[] => {
-  const targetTier = nextDomainTier(ownedDomainIds);
-  if (targetTier === undefined) return [];
-  return domainTree.domains
-    .filter((domain) => domain.tier === targetTier && !ownedDomainIds.includes(domain.id) && ownedTechIds.includes(domain.requiresTechId))
-    .map((domain) => domain.id);
-};
-
 const rankMetric = <T extends { id: string; name: string; value: number }>(entries: T[]) =>
   entries
     .slice()
@@ -325,8 +300,9 @@ export const buildGatewayInitPayload = (
   const techIds = liveSnapshotPlayer?.techIds ?? bootstrapProfile?.techIds ?? (player ? [...player.techIds] : []);
   const domainIds: string[] = liveSnapshotPlayer?.domainIds ?? bootstrapProfile?.domainIds ?? [];
   const techChoices = reachableTechChoices(techIds);
-  const domainChoices = openDomainChoices(domainIds);
-  const reachableDomainChoiceSet = new Set(reachableDomainChoices(techIds, domainIds));
+  const progression = { techIds, domainIds, ...(liveSnapshotPlayer?.afcUpgradeRuleset ? { afcUpgradeRuleset: liveSnapshotPlayer.afcUpgradeRuleset } : {}) };
+  const domainChoices = openDomainChoices(domainIds, progression);
+  const reachableDomainChoiceSet = new Set(reachableDomainChoices(techIds, domainIds, progression));
   const liveWorldStatus = initialState?.worldStatus;
   const tileCounts = new Map<string, number>();
   for (const tile of initialState?.tiles ?? []) {
@@ -531,7 +507,7 @@ export const buildGatewayInitPayload = (
     techChoices,
     techCatalog: buildInitTechCatalog(techTree.techs, { researchedCount: techIds.length, techChoices, availableGold, availableStrategic }),
     domainChoices,
-    domainCatalog: buildInitDomainCatalog(domainTree.domains, { reachableDomainChoiceSet, availableGold, availableStrategic }),
+    domainCatalog: buildInitDomainCatalog(domainCatalogForPlayer(progression), { reachableDomainChoiceSet, availableGold, availableStrategic }),
     leaderboard: {
       overall,
       ...(selfOverall ? { selfOverall } : {}),

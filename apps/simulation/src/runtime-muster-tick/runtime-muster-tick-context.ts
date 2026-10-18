@@ -23,7 +23,7 @@ export type MusterTickContextDeps = {
   emitEvent: (event: SimulationEvent) => void;
   emitPlayerStateUpdate: (input: { commandId: string; playerId: string }) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
-  requiredMusterForTarget: (target: DomainTileState) => number;
+  requiredMusterForTarget: (target: DomainTileState, attackerId?: string) => number;
   nextTerritoryAutomationCommandId: (label: string, playerId: string, tileKey: string, at: number) => string;
   handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => FrontierCommandResult;
   isStructureDormant: (playerId: string, tileKey: string, field: "siegeBattery" | "economicStructure") => boolean;
@@ -51,7 +51,7 @@ export const buildMusterTickContext = (deps: MusterTickContextDeps): MusterTickC
   emitEvent: (event: SimulationEvent) => deps.emitEvent(event),
   emitPlayerStateUpdate: (input: { commandId: string; playerId: string }) => deps.emitPlayerStateUpdate(input),
   tileDeltaFromState: (tile: DomainTileState) => deps.tileDeltaFromState(tile),
-  requiredMusterForTarget: (target: DomainTileState) => deps.requiredMusterForTarget(target),
+  requiredMusterForTarget: (target: DomainTileState, attackerId?: string) => deps.requiredMusterForTarget(target, attackerId),
   nextTerritoryAutomationCommandId: (label: string, playerId: string, tileKey: string, at: number) =>
     deps.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
   handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => deps.handleFrontierCommand(command, actionType),

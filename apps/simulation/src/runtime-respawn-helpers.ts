@@ -17,6 +17,7 @@ import type { RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js"
 import type { CombatLockTileReader } from "./combat-lock-index/combat-lock-index.js";
 
 export type RuntimeRespawnContext = SpawnSearchLookups & {
+  afcUpgradeRuleset?: "afc-v1" | undefined;
   now: () => number;
   players: Map<string, RuntimePlayer>;
   tiles: Map<string, DomainTileState>;
@@ -169,6 +170,7 @@ export const ensurePlayerHasSpawnTerritory = (
   let player = ctx.players.get(playerId);
   if (!player) {
     player = createHumanRuntimePlayer(playerId);
+    if (ctx.afcUpgradeRuleset) player.afcUpgradeRuleset = ctx.afcUpgradeRuleset;
     ctx.players.set(playerId, player);
     if (!ctx.playerSummaries.has(playerId)) {
       ctx.playerSummaries.set(playerId, createEmptyPlayerRuntimeSummary());

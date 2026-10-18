@@ -42,7 +42,7 @@ export type StructureModifier = {
 };
 
 export type ModifierTileContext = {
-  town?: { manufactoryCount?: number; clearingHouseActive?: boolean };
+  town?: { manufactoryCount?: number; clearingHouseActive?: boolean; clearingHouseUpliftMult?: number };
   resource?: string | undefined;
   converterMode?: ConverterMode;
 };

@@ -1,3 +1,4 @@
+import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
 import { isChosenTrickleResource } from "@border-empires/shared";
 import { initDefensibilityPct } from "../client-init-defensibility/client-init-defensibility.js";
 import { occupationSurveyController } from "../client-occupation-survey.js";
@@ -209,6 +210,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.currentResearch = (player.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
   state.pendingTechUnlockId = "";
   state.domainIds = (player.domainIds as string[]) ?? [];
+  applyAfcStateMessage(state, player);
   const initialTrickle = (player as { chosenTrickleResource?: unknown }).chosenTrickleResource;
   state.chosenTrickleResource = isChosenTrickleResource(initialTrickle) ? initialTrickle : undefined;
   state.imperialWardCharges = (player as { imperialWardCharges?: number }).imperialWardCharges;

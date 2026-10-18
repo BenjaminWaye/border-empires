@@ -567,7 +567,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     };
   });
   const upgradesRendered = safeValue("renderAfcUpgradePanels", false, () => {
-    renderAfcUpgradePanels(state, dom.panelDomainsContentEl, dom.mobilePanelDomainsEl, chooseDomain);
+    renderAfcUpgradePanels(state, dom.panelDomainsContentEl, dom.mobilePanelDomainsEl, chooseDomain, { send: sendGameMessage });
     return true;
   });
   if (!upgradesRendered) {

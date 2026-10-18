@@ -1,3 +1,4 @@
+import { applyAfcStateMessage, parseDomainCatalog, type AfcClientState } from "../client-afc-upgrades/client-afc-state.js";
 import { isChosenTrickleResource } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 
@@ -26,9 +27,10 @@ type DomainUpdateState = Pick<
 // Pure code move -- same field-by-field merge logic as before.
 export const applyDomainUpdateMessage = (
   msg: Record<string, unknown>,
-  state: DomainUpdateState,
+  state: DomainUpdateState & Partial<AfcClientState>,
   deps: { clearQueuedDevelopmentDispatchPending: () => void; renderHud: () => void }
 ): void => {
+  applyAfcStateMessage(state, msg);
   state.pendingDomainUnlockId = "";
   state.developmentProcessLimit = (msg.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
   if (typeof msg.activeDevelopmentProcessCount === "number") deps.clearQueuedDevelopmentDispatchPending();
@@ -38,13 +40,13 @@ export const applyDomainUpdateMessage = (
   const domainUpdateTrickle = (msg as { chosenTrickleResource?: unknown }).chosenTrickleResource;
   if (isChosenTrickleResource(domainUpdateTrickle)) state.chosenTrickleResource = domainUpdateTrickle;
   state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
-  state.domainCatalog = (msg.domainCatalog as any[]) ?? state.domainCatalog;
+  state.domainCatalog = parseDomainCatalog(msg.domainCatalog) ?? state.domainCatalog;
   state.revealCapacity = (msg.revealCapacity as number) ?? state.revealCapacity;
   state.activeRevealTargets = (msg.activeRevealTargets as string[]) ?? state.activeRevealTargets;
   state.mods = (msg.mods as typeof state.mods) ?? state.mods;
   state.modBreakdown = (msg.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
   state.incomePerMinute = (msg.incomePerMinute as number) ?? state.incomePerMinute;
-  state.missions = (msg.missions as any[]) ?? state.missions;
+  state.missions = (msg.missions as ClientState["missions"]) ?? state.missions;
   if (typeof msg.gold === "number") state.gold = msg.gold;
   if (msg.strategicResources && typeof msg.strategicResources === "object") {
     state.strategicResources = {

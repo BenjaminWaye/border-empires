@@ -114,7 +114,7 @@ export const scanAdvanceCandidates = (
           enemy: neighbor,
           hops: currentDepth + 1,
           dist: chebyshevDistanceSimple(musterTile.x, musterTile.y, neighbor.x, neighbor.y),
-          required: input.requiredMusterForTarget(neighbor)
+          required: input.requiredMusterForTarget(neighbor, playerId)
         };
         if (isNearerAdvanceCandidate(candidate, nearest)) nearest = candidate;
         if (availableMuster >= candidate.required && isNearerAdvanceCandidate(candidate, nearestAffordable)) nearestAffordable = candidate;

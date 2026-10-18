@@ -1,3 +1,5 @@
+import { afcEnvoyBenefits, applyAfcEnvoyIncome } from "../afc-specializations/afc-coalition.js";
+import { multiplicativeEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
 // Stage 3 economy/manpower extraction out of runtime.ts (see AGENTS.md /
 // docs/agents/topic-runbooks.md for the god-class breakup plan). These are
 // pure relocations of existing runtime.ts method bodies into free functions
@@ -39,6 +41,7 @@ const UPKEEP_ACCRUAL_REBUILD_INTERVAL = 256;
 export const AI_DERIVED_CACHE_COALESCE_MS = 5_000;
 
 export interface RuntimeManpowerEconomyContext {
+  players?: ReadonlyMap<string, DomainPlayer>;
   now: () => number;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   cachedManpowerStructureBonusForPlayer: (player: RuntimePlayer) => ManpowerStructureBonus;
@@ -52,7 +55,8 @@ export function playerManpowerCap(ctx: RuntimeManpowerEconomyContext, player: Ru
   const { ancillaryDepotCount, reserveLatticeNetworkAncillaryDepotCount, ancillaryFactoryCapacityBonusByTown } = ctx.cachedManpowerStructureBonusForPlayer(player);
   return (
     playerManpowerCapFromSummary(ctx.summaryForPlayer(player.id), ancillaryFactoryCapacityBonusByTown ? 0 : ancillaryDepotCount, ancillaryFactoryCapacityBonusByTown ? 0 : reserveLatticeNetworkAncillaryDepotCount, ancillaryFactoryCapacityBonusByTown) +
-    (wonderEffects.playerHasWonderType(ctx.wonderCacheByPlayer, player.id, "CONSCRIPTION_ENGINE") ? 2000 : 0)
+    (wonderEffects.playerHasWonderType(ctx.wonderCacheByPlayer, player.id, "CONSCRIPTION_ENGINE") ? 2000 : 0) +
+    (ctx.players ? afcEnvoyBenefits(player, ctx.players).manpowerCap : 0)
   );
 }
 
@@ -68,12 +72,12 @@ export function playerManpowerRegenPerMinute(ctx: RuntimeManpowerEconomyContext,
     ancillaryFactoryCount,
     censusDirectorateManpowerBuildingCount,
     player.galacticWonderManpowerRegenBonusPerMinute ?? 0
-  );
+  ) + (ctx.players ? afcEnvoyBenefits(player, ctx.players).manpowerRegenPerMinute : 0);
 }
 
 export function playerLogisticsThroughputPerMinute(ctx: RuntimeManpowerEconomyContext, player: RuntimePlayer): number {
   // Logistics throughput = same as manpower regen for now; tune later.
-  return playerManpowerRegenPerMinute(ctx, player);
+  return playerManpowerRegenPerMinute(ctx, player) * multiplicativeEffectForPlayer(player, "logisticsThroughputMult");
 }
 
 export function playerManpowerBreakdown(ctx: RuntimeManpowerEconomyContext, player: RuntimePlayer): ManpowerBreakdown {
@@ -85,7 +89,7 @@ export function playerManpowerBreakdown(ctx: RuntimeManpowerEconomyContext, play
     censusDirectorateManpowerBuildingCount,
     ancillaryFactoryCapacityBonusByTown
   } = ctx.cachedManpowerStructureBonusForPlayer(player);
-  return playerManpowerBreakdownFromSummary(
+  const breakdown = playerManpowerBreakdownFromSummary(
     ctx.summaryForPlayer(player.id),
     ancillaryFactoryCapacityBonusByTown ? 0 : ancillaryDepotCount,
     ancillaryFactoryCapacityBonusByTown ? 0 : reserveLatticeNetworkAncillaryDepotCount,
@@ -95,6 +99,10 @@ export function playerManpowerBreakdown(ctx: RuntimeManpowerEconomyContext, play
     player.galacticWonderManpowerRegenBonusPerMinute ?? 0,
     ancillaryFactoryCapacityBonusByTown
   );
+  const envoy = ctx.players ? afcEnvoyBenefits(player, ctx.players) : undefined;
+  if (envoy?.manpowerCap) breakdown.cap.push({ label: "Envoy Accreditation", amount: envoy.manpowerCap });
+  if (envoy?.manpowerRegenPerMinute) breakdown.regen.push({ label: "Envoy Accreditation", amount: ctx.getAbilityCooldownUntil(player.id, TITANIUM_LEVY_REGEN_FREEZE_KEY) > ctx.now() ? 0 : envoy.manpowerRegenPerMinute });
+  return breakdown;
 }
 
 export function effectiveManpowerAtForPlayer(
@@ -247,13 +255,14 @@ export function cachedEconomySnapshot(
       player,
       summary,
       ctx.tiles,
-      { dockLinksByDockTileKey: ctx.dockLinksByDockTileKey },
+      { dockLinksByDockTileKey: ctx.dockLinksByDockTileKey, players: ctx.players },
       econMult,
       townNetwork,
       ctx.foodDormantTownKeysForPlayer(player.id),
       ctx.dormantEconomicStructureKeysForPlayer(player.id),
       ctx.now()
     );
+    applyAfcEnvoyIncome(snapshot, afcEnvoyBenefits(player, ctx.players));
     ctx.economySnapshotCacheByPlayer.set(player.id, snapshot);
     ctx.economySnapshotDirtyPlayerIds.delete(player.id);
     ctx.economySnapshotLastRebuiltAtMsByPlayer.set(player.id, ctx.now());

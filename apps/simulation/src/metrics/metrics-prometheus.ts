@@ -14,7 +14,12 @@ import {
 } from "./metrics-types.js";
 
 export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
+  const afcLines = Object.entries(sample.simAfcState ?? {}).map(([key, value]) => {
+    const metric = `sim_afc_${key.replace(/[A-Z]/g, char => `_${char.toLowerCase()}`)}`;
+    return `# TYPE ${metric} ${key.endsWith("Evictions") || key.endsWith("Hits") ? "counter" : "gauge"}\n${metric} ${formatMetricValue(value)}`;
+  });
   const lines = [
+    ...afcLines,
     "# TYPE sim_event_loop_max_ms gauge",
     `sim_event_loop_max_ms ${formatMetricValue(sample.simEventLoopMaxMs)}`,
     "# TYPE sim_owned_tiles_total gauge",

@@ -976,7 +976,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       admin: { apiToken: options.adminApiToken, email: options.adminEmail },
       alertPlayerBugReport: (report: BugReportInput) => emailAlerts.sendBugReportAlert(report), alertPlayerSuggestion: (report: BugReportInput) => emailAlerts.sendSuggestionAlert(report),
       ...(slackAlerter ? { alertSeasonStarted: (seasonId: string, force: boolean) => { slackAlerter!.alertSeasonStarted(seasonId, force); seasonStartVote.reset(); } } : {}),
-      onSeasonStarted: () => { socialStore.clearSeasonData(); seasonStartVote.reset(); seasonLobby.roster.reset(); }, getSocialSnapshot: () => socialStore.loadSnapshot(),
+      onSeasonStarted: () => { socialStore.clearSeasonData(); socialState.resetAfcCampaign(); seasonStartVote.reset(); seasonLobby.roster.reset(); }, getSocialSnapshot: () => socialStore.loadSnapshot(),
       snapshotForPlayer: socialState.snapshotForPlayer,
       playerFunnel: { store: playerFunnelStore, tracker: playerFunnel }
     })
@@ -2355,7 +2355,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             if (!thresholdMet) return;
             try {
               const result = await simulationClient.startNextSeason(false);
-              socialStore.clearSeasonData();
+              socialStore.clearSeasonData(); socialState.resetAfcCampaign();
               seasonStartVote.reset(); seasonLobby.roster.reset();
               slackAlerter?.alertSeasonStarted(result.seasonId, false);
               notifySeasonStarted();

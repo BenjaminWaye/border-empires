@@ -1,3 +1,4 @@
+import { applyRecoveredAfcState } from "./event-recovery-afc-state.js";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationSeasonState } from "@border-empires/sim-protocol";
 import { type DomainTileState } from "@border-empires/game-domain";
@@ -251,9 +252,22 @@ export const applySimulationEventsToRecoveredAccumulator = (
       continue;
     }
 
+    if (event.eventType === "PLAYER_MESSAGE") {
+      const player = accumulator.players.find(entry => entry.id === event.playerId);
+      if (player) {
+        try {
+          const payload: unknown = JSON.parse(event.payloadJson);
+          if (payload && typeof payload === "object" && !Array.isArray(payload) && "type" in payload && payload.type === "PLAYER_UPDATE") applyRecoveredAfcState(player, payload as Record<string, unknown>);
+        } catch (error) { if (error instanceof Error && error.message === "AFC recovery record limit exceeded") throw error; }
+      }
+      continue;
+    }
+
     if (event.eventType === "TECH_UPDATE" || event.eventType === "DOMAIN_UPDATE") {
       const player = accumulator.players.find((entry) => entry.id === event.playerId);
       if (player) applyProgressionUpdateToRecoveredPlayer(player, event.payloadJson);
+      const payload: { afcInstallationTileDeltas?: TileDelta[] } = JSON.parse(event.payloadJson);
+      for (const delta of payload.afcInstallationTileDeltas ?? []) applyTileDeltaToRecoveredAccumulator(accumulator, delta);
       continue;
     }
 
@@ -283,6 +297,17 @@ export const applySimulationEventsToRecoveredAccumulator = (
     }
 
     if (event.eventType === "COMBAT_RESOLVED") {
+      const defenderId = event.combatResult?.defenderOwnerId;
+      if (defenderId && event.combatResult?.wardRechargesAt) {
+        const defender = accumulator.players.find(player => player.id === defenderId);
+        if (defender) ((defender.afcCampaign ??= {}).fortWardRecharges ??= {})[simulationTileKey(event.targetX, event.targetY)] = event.combatResult.wardRechargesAt;
+      }
+      if (defenderId && event.combatResult?.hostileCaptureWarUntil) {
+        for (const [id, other] of [[event.playerId, defenderId], [defenderId, event.playerId]]) {
+          const player = accumulator.players.find(candidate => candidate.id === id);
+          if (player && other) ((player.afcCampaign ??= {}).wars ??= {})[other] = event.combatResult.hostileCaptureWarUntil;
+        }
+      }
       if (accumulator.activeLocks.has(event.commandId)) {
         accumulator.activeLocks.delete(event.commandId);
       }

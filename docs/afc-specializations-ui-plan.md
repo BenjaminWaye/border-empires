@@ -1,9 +1,14 @@
 # AFC Specializations — UI specification
 
-Status: active proposal; first client interface slice implemented locally
+Implementation record: [full gameplay execution](afc-specializations-execution.md)
+supersedes the earlier client-only scope and release boundaries below. New seasons
+use the free thirty-upgrade ruleset; existing seasons retain legacy domains.
+
+
+Status: UI specification; implementation tracked in the execution record
 Owner: Benjamin Waye (product decisions); implementing agent (delivery)
 Last verified: 2026-10-18
-Replaces: the domain/Sharding panel when the [implementation plan](afc-specializations-plan.md) ships
+Replaces: the domain/Sharding panel; see the [execution record](afc-specializations-execution.md)
 
 See the [catalogue](afc-specializations-catalog.md) for all thirty rewards and the
 [interactive study](design/afc-specializations-preview.html) for the proposed flow.

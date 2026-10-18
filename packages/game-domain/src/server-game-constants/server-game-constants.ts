@@ -178,9 +178,9 @@ export const MANUFACTORY_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE = 0.35;
  * Manufactory contributes its own bonus, stacking additively, not just "any
  * Manufactory present."
  */
-export const manufactoryGoldProductionMultiplier = (manufactoryCount: number, clearingHouseActive: boolean): number => {
+export const manufactoryGoldProductionMultiplier = (manufactoryCount: number, clearingHouseActive: boolean, clearingHouseUpliftMult = 1): number => {
   if (manufactoryCount <= 0) return 1;
-  return 1 + manufactoryCount * (clearingHouseActive ? MANUFACTORY_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE : MANUFACTORY_GOLD_PRODUCTION_BONUS);
+  return 1 + manufactoryCount * (MANUFACTORY_GOLD_PRODUCTION_BONUS + (clearingHouseActive ? (MANUFACTORY_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE - MANUFACTORY_GOLD_PRODUCTION_BONUS) * clearingHouseUpliftMult : 0));
 };
 
 // Converter mode flip (docs/plans/2026-08-06-converter-mode-flip.md)

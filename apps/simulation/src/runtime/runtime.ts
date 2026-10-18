@@ -1,3 +1,13 @@
+import { fortWardIsReady } from "../afc-specializations/afc-battle-effects.js";
+import { afcCampaignGuardCounters, afcCampaignStateGauges } from "../afc-specializations/afc-diagnostics.js";
+import { oracleDetectionDiagnostics } from "../afc-specializations/afc-oracle-detections.js";
+import { afcPlayerCombatFacts } from "../afc-specializations/afc-player-combat-facts.js";
+import type { PlayerCombatSummary } from "@border-empires/sim-protocol";
+import { withAfcFortFacts, refreshAfcFortFacts } from "../afc-specializations/afc-fort-facts.js";
+import { restoreSameOwnerSummaryOrder } from "../runtime-same-owner-summary-order.js";
+import { AfcOracleDetectionTracker } from "../afc-specializations/afc-oracle-detections.js";
+import { handleAfcActiveCommand } from "../afc-specializations/afc-active-commands.js";
+import { expandTileDeltasWithLinkedDocks } from "../runtime-linked-dock-deltas.js";
 import { planDirectFrontierCommand } from "../ai/direct-frontier-planner.js";
 import { buildAiTacticalView, type AiTacticalView } from "../ai/ai-tactical-view.js";
 import { resolvePendingSettlement as resolvePendingSettlementImpl, type SettlementResolutionInput } from "./runtime-settlement-resolution.js";
@@ -22,6 +32,7 @@ import { yieldViewEconomyContext as yieldViewEconomyContextImpl } from "./runtim
 import { clearLegacyOutOfReachDecayStamps, isTileBeyondReach as isTileBeyondReachImpl } from "../runtime-reach-update/runtime-reach-out-of-reach.js"; import { applyReachAnchorActivationEffects, applyReachAnchorDeactivationEffects, syncReachVision, type ReachAnchorLifecycleDeps } from "../runtime-reach-update/runtime-reach-anchor-lifecycle.js"; import { autoSettleCapturedAnchor as autoSettleCapturedAnchorImpl, canAutoSettleCapturedAnchor as canAutoSettleCapturedAnchorImpl, type AutoSettleCapturedAnchorDeps } from "../runtime-out-of-reach-auto-settle/runtime-out-of-reach-auto-settle.js";
 import { createFrontierAutoHealQueue, enqueueFrontierAutoHeal, rebuildFrontierAutoHealQueue, tickFrontierAutoHeal as tickFrontierAutoHealImpl, type FrontierAutoHealQueue } from "../runtime-frontier-auto-heal/runtime-frontier-auto-heal.js";
 import {
+  withAfcReachRadii,
   gatherReachAnchors as gatherReachAnchorsImpl,
   newlyActivatedReachAnchors as newlyActivatedReachAnchorsImpl,
   newlyDeactivatedReachAnchors as newlyDeactivatedReachAnchorsImpl,
@@ -66,7 +77,6 @@ import {
 import {
   buildDockLinksByDockTileKey,
   buildDockNetworkComponentByTileKey,
-  computeLinkedDockRevealTileKeys
 } from "../dock-network/dock-network.js";
 import {
   isDockCrossingTarget as isDockCrossingTargetImpl,
@@ -528,6 +538,7 @@ export class SimulationRuntime {
       resourceSlotDormancyForPlayer: (playerId) => runtime.resourceSlotDormancyForPlayer(playerId),
       playerManpowerCap: (player) => runtime.playerManpowerCap(player),
       playerManpowerRegenPerMinute: (player) => runtime.playerManpowerRegenPerMinute(player),
+      afcDetectedFlagsForPlayer: id => runtime.oracleDetections.cachedFlagsFor(id),
       tacticalViewForPlayer: (playerId, focusKeys) => runtime.tacticalViewForPlayer(playerId, focusKeys)
     });
   })();
@@ -629,7 +640,16 @@ export class SimulationRuntime {
   growthStalledNoFoodCounter = 0;
   private readonly lastEconomyAccrualAtByPlayer = new Map<string, number>();
   // Derived per-player economy caches and their AI coalescing; see runtime-economy-caches.ts.
+  private readonly oracleDetections = new AfcOracleDetectionTracker({
+    players: () => this.state.players, tiles: () => this.state.tiles,
+    flagsByOwner: () => this.ownerIndexes.musterTilesByOwner, towersByOwner: () => this.ownerIndexes.activeObservatoriesByOwner,
+    now: () => this.now(), isTowerDormant: (id, key) => this.isStructureDormant(id, key, "observatory"),
+    emit: (playerId, flags) => this.emitPlayerMessage({ commandId: `afc-signals:${playerId}`, playerId }, { type: "AFC_FLAG_DETECTIONS", flags }),
+    scheduleSoon: (task) => this.scheduleAfter(0, task)
+  });
   private readonly economyCaches = new RuntimeEconomyCaches({
+    beforeDockPartnerChange: id => { const player = this.state.players.get(id); if (player) this.applyEconomyAccrual(player, this.now()); },
+    dockPartnerOwners: (key) => (this.state.dockLinksByDockTileKey.get(key) ?? []).flatMap(partnerKey => { const owner = this.state.tiles.get(partnerKey)?.ownerId; return owner ? [owner] : []; }),
     now: () => this.now(),
     isAiPlayer: (playerId) => this.state.players.get(playerId)?.isAi === true
   });
@@ -688,7 +708,10 @@ export class SimulationRuntime {
   private readonly tileDeltaStringifyCache = new TileDeltaStringifyCache();
   private readonly playerCandidateIndex = new PlayerCandidateIndex();
 
+  private readonly afcUpgradeRuleset: "afc-v1" | undefined;
+
   constructor(options: SimulationRuntimeOptions = {}) {
+    this.afcUpgradeRuleset = options.initialState?.season?.afcUpgradeRuleset;
     const seedWorld = options.initialPlayers && options.seedTiles ? undefined : createSeedWorld(options.seedProfile);
     this.now = options.now ?? (() => Date.now());
     this.persistence = options.persistence ?? new InMemorySimulationPersistence();
@@ -765,6 +788,7 @@ export class SimulationRuntime {
         frontierTileKeysForPlayer: (id) => this.summaryForPlayer(id).frontierTileKeys
       }, this.visionFootprintTable)
     });
+    if (this.afcUpgradeRuleset) for (const player of this.state.players.values()) player.afcUpgradeRuleset = this.afcUpgradeRuleset;
     this.siphonModeLifecycle = new SiphonModeLifecycle({ tiles: this.state.tiles, now: () => this.now(), replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       isObservatoryShielding: (tile) => this.isObservatoryShieldingNow(tile),
       isTileShieldedByOwner: (ownerId, x, y) =>
@@ -781,7 +805,7 @@ export class SimulationRuntime {
       sweepShieldReturns: (towerKeys, commandId) => this.siphonModeLifecycle.sweepShieldReturns(towerKeys, commandId),
       emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload)
     });
-    for (const [key, tile] of this.state.tiles) this.snapshotTileCache.set(key, mapTile(tile));
+    for (const [key, sourceTile] of this.state.tiles) { const tile = withAfcFortFacts(sourceTile, this.state.players); this.state.tiles.set(key, tile); this.snapshotTileCache.set(key, mapTile(tile)); }
     // applyManpowerRegen (which calls playerManpowerCap ->
     // cachedManpowerStructureBonusForPlayer under the hood) used to run in a
     // loop here, immediately after this.state.players was built and BEFORE
@@ -1118,11 +1142,13 @@ export class SimulationRuntime {
   /** Throttled inside; see aether-shield/aether-shield-tick.ts. */
   tickAetherShields(nowMs: number = this.now()): void {
     this.aetherShieldTicker.tick(nowMs);
+    this.oracleDetections.refreshAll();
   }
 
   /** Live-subscribe push of the player's AETHER_SHIELDS list (simulation-service/live-subscribe-reach-push.ts). */
   resendAetherShieldsForPlayer(playerId: string): void {
     this.aetherShieldTicker.sendTo(playerId, this.now());
+    this.oracleDetections.sendTo(playerId);
   }
 
   async tickTerritoryAutomation(nowMs: number = this.now(), yieldToEventLoop?: () => Promise<void>): Promise<void> {
@@ -1185,7 +1211,7 @@ export class SimulationRuntime {
       emitEvent: (event: SimulationEvent) => this.emitEvent(event),
       emitPlayerStateUpdate: (input: { commandId: string; playerId: string }) => this.emitPlayerStateUpdate(input),
       tileDeltaFromState: (tile: DomainTileState) => this.tileDeltaFromState(tile),
-      requiredMusterForTarget: (target: DomainTileState) => this.requiredMusterForTarget(target),
+      requiredMusterForTarget: (target: DomainTileState, attackerId?: string) => this.requiredMusterForTarget(target, attackerId),
       nextTerritoryAutomationCommandId: (label: string, playerId: string, tileKey: string, at: number) => this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
       handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => this.handleFrontierCommand(command, actionType),
       isStructureDormant: (playerId: string, tileKey: string, field: "siegeBattery" | "economicStructure") => this.isStructureDormant(playerId, tileKey, field),
@@ -1211,6 +1237,7 @@ export class SimulationRuntime {
 
   private respawnContext(): RuntimeRespawnContext {
     return {
+      afcUpgradeRuleset: this.afcUpgradeRuleset,
       now: this.now,
       players: this.state.players,
       tiles: this.state.tiles,
@@ -1239,6 +1266,9 @@ export class SimulationRuntime {
 
   private combatSupportContext(): RuntimeCombatSupportContext {
     return {
+      ownedTownKeys: id => this.summaryForPlayer(id).ownedTownTierByTile.keys(),
+      hasPendingClaim: key => this.pendingSettlementsByTile.has(key),
+      isTileShieldedByAegisLock: (id, x, y) => this.isTileShieldedByAegisLock(id, x, y),
       now: this.now,
       players: this.state.players,
       tiles: this.state.tiles,
@@ -1297,7 +1327,7 @@ export class SimulationRuntime {
       crossingBlockedByAetherWall: (x1, y1, x2, y2) => this.crossingBlockedByAetherWall(x1, y1, x2, y2),
       isTileWardedByImperialWard: (targetOwnerId) => isTileWardedByImperialWardImpl(this.abilityCooldowns, this.now(), targetOwnerId),
       resolveMusterSource: (playerId, originKey, required, preferred) => this.resolveMusterSource(playerId, originKey, required, preferred),
-      requiredMusterForTarget: (target) => this.requiredMusterForTarget(target),
+      requiredMusterForTarget: (target, attackerId) => this.requiredMusterForTarget(target, attackerId),
       buildLockedCombatResolution: (lock) => this.buildLockedCombatResolution(lock),
       isInReach: (playerId, x, y) => this.isPlayerTileInReach(playerId, x, y), reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y),
       releaseIfStrandedOrigin: (originKey, ownerId, commandId) => this.strandedFrontier.releaseIfStrandedOrigin(originKey, ownerId, commandId)
@@ -1319,6 +1349,8 @@ export class SimulationRuntime {
 
   private lockResolutionContext(): RuntimeLockResolutionContext {
     const autoSettleDeps: AutoSettleCapturedAnchorDeps = { getPlayer: (id) => this.state.players.get(id), hasAvailableDevelopmentSlot: (id) => this.hasAvailableDevelopmentSlot(id), startSettlementProcess: (i) => this.startSettlementProcess(i), now: () => this.now() }; return {
+      hasPendingClaim: key => this.pendingSettlementsByTile.has(key),
+      isFortDormant: (ownerId, key) => this.isStructureDormant(ownerId, key, "fort"),
       players: this.state.players,
       tiles: this.state.tiles,
       locksByTile: this.state.locksByTile,
@@ -1512,6 +1544,7 @@ export class SimulationRuntime {
 
   private manpowerEconomyContext(): RuntimeManpowerEconomyContext {
     return {
+      players: this.state.players,
       now: () => this.now(),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       cachedManpowerStructureBonusForPlayer: (player) => this.cachedManpowerStructureBonusForPlayer(player),
@@ -1660,7 +1693,7 @@ export class SimulationRuntime {
   private replaceTileState(tileKey: string, nextTile: DomainTileState, commandId = `tile-owner-change:${tileKey}`): void {
     this.tileDeltaStringifyCache.invalidate(tileKey);
     const previous = this.state.tiles.get(tileKey);
-    const tile = withoutStaleCaptureHold(previous, nextTile, this.now());
+    const tile = withAfcFortFacts(withoutStaleCaptureHold(previous, nextTile, this.now()), this.state.players);
     const sameOwner = Boolean(previous?.ownerId && previous.ownerId === tile.ownerId);
     // See refreshEconomyCachesForTileChange for why this is gated on SETTLED
     // ownership instead of invalidating unconditionally on every mutation.
@@ -1699,28 +1732,7 @@ export class SimulationRuntime {
         nextOwnershipState: tile.ownershipState
       });
     }
-    if (previousOwnerTileOrder && tile.ownerId) {
-      const summary = this.summaryForPlayer(tile.ownerId);
-      const currentKeys = new Set(summary.territoryTileKeys);
-      summary.territoryTileKeys.clear();
-      for (const key of previousOwnerTileOrder) {
-        if (currentKeys.delete(key)) summary.territoryTileKeys.add(key);
-      }
-      for (const key of currentKeys) summary.territoryTileKeys.add(key);
-    }
-    if (previousOwnerTownOrder && tile.ownerId) {
-      const summary = this.summaryForPlayer(tile.ownerId);
-      const currentTowns = new Map(summary.ownedTownTierByTile);
-      summary.ownedTownTierByTile.clear();
-      for (const key of previousOwnerTownOrder) {
-        const tier = currentTowns.get(key);
-        if (tier) {
-          summary.ownedTownTierByTile.set(key, tier);
-          currentTowns.delete(key);
-        }
-      }
-      for (const [key, tier] of currentTowns) summary.ownedTownTierByTile.set(key, tier);
-    }
+    if (tile.ownerId) restoreSameOwnerSummaryOrder(this.summaryForPlayer(tile.ownerId), previousOwnerTileOrder, previousOwnerTownOrder);
     this.refreshPlannerCandidateIndexesAroundTileChange(tileKey, previous, tile);
     this.refreshPlayerCandidateIndexAnchorForTile(tileKey, previous, tile);
     this.ownerIndexes.refreshForTileChange(tileKey, previous, tile);
@@ -1779,6 +1791,7 @@ export class SimulationRuntime {
     for (const anchor of this.newlyDeactivatedReachAnchors(previous, tile)) {
       this.applyReachAnchorDeactivation(anchor, commandId);
     }
+    if (previous?.muster?.ownerId !== tile.muster?.ownerId || previous?.observatory !== tile.observatory || previous?.resource || tile.resource) this.oracleDetections.queueRefresh();
     this.siphonModeLifecycle.onTileReplaced(tileKey, previous, tile, commandId); // last: may write other tiles
   }
 
@@ -1999,6 +2012,7 @@ export class SimulationRuntime {
       estimatedIncomePerMinuteForPlayer: (playerId) => this.estimatedIncomePerMinuteForPlayer(playerId),
       reachTileKeysForPlayer: (playerId) => this.reachTileKeysForPlayer(playerId),
       spatialFocusFrontForPlayer: (playerId) => this.spatialFocusFrontTileKeysForPlayer(playerId),
+      afcDetectedFlagsForPlayer: id => this.oracleDetections.cachedFlagsFor(id),
       tacticalViewForPlayer: (id, focusKeys) => this.tacticalViewForPlayer(id, focusKeys),
       neutralBeaconTileKeys: this.neutralBeaconTileKeys,
       beaconGeneration: this.beaconGeneration,
@@ -2050,9 +2064,10 @@ export class SimulationRuntime {
   // Single-player lookup for GetPlayerCombatSummary. techIds/domainIds are
   // O(1) — weaponsFactoryCounts reads the maintained per-owner structure
   // index (runtime-owned-structure-index.ts), never a world-tile scan.
-  getPlayerCombatSummary(playerId: string): { techIds: string[]; domainIds: string[]; weaponsFactoryCounts: { titanium: number; umbrite: number } } | undefined {
+  getPlayerCombatSummary(playerId: string, target?: { x: number; y: number }): PlayerCombatSummary | undefined {
     const player = this.state.players.get(playerId);
-    return player ? { techIds: [...player.techIds], domainIds: player.domainIds ? [...player.domainIds] : [], weaponsFactoryCounts: weaponsFactoryCountsFromIndex(this.ownedStructureCountByPlayerByType, playerId) } : undefined;
+    const tile = target ? this.state.tiles.get(`${target.x},${target.y}`) : undefined;
+    return player ? { afcCombatFacts: { ...afcPlayerCombatFacts(player, this.state.players, this.combatSupportContext(), this.now()), ...(target ? { targetFortWardReady: Boolean(tile?.ownerId === playerId && !this.isStructureDormant(playerId, `${target.x},${target.y}`, "fort") && fortWardIsReady(this.state.players, tile, this.now())) } : {}) }, techIds: [...player.techIds], domainIds: player.domainIds ? [...player.domainIds] : [], weaponsFactoryCounts: weaponsFactoryCountsFromIndex(this.ownedStructureCountByPlayerByType, playerId) } : undefined;
   }
 
   // Lean per-second metrics row (skips exportPlayerDebugSnapshot's sort/clone/lock-scan work; see RuntimeAiPlayerMetricsRow doc comment).
@@ -2096,6 +2111,8 @@ export class SimulationRuntime {
   }
 
   /** Sizes of growable barbarian state, for gauges (docs/agents/state-and-persistence-discipline.md). */
+  afcStateStats() { return { ...afcCampaignStateGauges(this.state.players.values()), ...afcCampaignGuardCounters, ...oracleDetectionDiagnostics }; }
+
   barbarianStateSizes(): { tiles: number; progressEntries: number } {
     return { tiles: this.summaryForPlayer("barbarian-1").territoryTileKeys.size, progressEntries: this.barbarianTileProgress.size };
   }
@@ -2238,6 +2255,7 @@ export class SimulationRuntime {
   // future use.
   private gatherReachAnchors(): ReachAnchor[] {
     return gatherReachAnchorsImpl({
+      players: this.state.players,
       playerSummaries: this.playerSummaries,
       tiles: this.state.tiles,
       activeRelayBeaconsByOwner: this.ownerIndexes.activeRelayBeaconsByOwner,
@@ -2263,7 +2281,7 @@ export class SimulationRuntime {
   // only changes on a new activation contesting it (see
   // grantAnchorToBorder's doc comment).
   private newlyActivatedReachAnchors(previous: DomainTileState | undefined, tile: DomainTileState): ReachAnchor[] {
-    return newlyActivatedReachAnchorsImpl(previous, tile, this.now());
+    return withAfcReachRadii(newlyActivatedReachAnchorsImpl(previous, tile, this.now()), this.state.players);
   }
 
   // Mirror of newlyActivatedReachAnchors, inverted: detects any reach anchor
@@ -2276,7 +2294,7 @@ export class SimulationRuntime {
   // exists right now — see reassessBorderOnAnchorDeactivation's doc comment
   // for why this is needed even though the border is otherwise sticky.
   private newlyDeactivatedReachAnchors(previous: DomainTileState | undefined, tile: DomainTileState): ReachAnchor[] {
-    return newlyDeactivatedReachAnchorsImpl(previous, tile, this.now());
+    return withAfcReachRadii(newlyDeactivatedReachAnchorsImpl(previous, tile, this.now()), this.state.players);
   }
 
   // Border mutation lives in runtime-reach-border-apply.ts, next to the
@@ -2628,6 +2646,7 @@ export class SimulationRuntime {
     return {
       players: this.state.players,
       lastEmittedStorageCapByPlayer: this.lastEmittedStorageCapByPlayer,
+      hasActiveOwnedAfc: id => [...this.summaryForPlayer(id).ownedAfcTileKeys].some(key => this.state.tiles.get(key)?.afc?.status === "active"),
       applyManpowerRegen: (player) => this.applyManpowerRegen(player),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       cachedDefensibilityMetrics: (playerId, summary) => this.cachedDefensibilityMetrics(playerId, summary),
@@ -2654,6 +2673,9 @@ export class SimulationRuntime {
   private handleSyncAllianceCommand(command: CommandEnvelope): void {
     handleSyncAllianceCommandImpl(
       {
+        settleEconomyBeforeChange: (player) => { this.applyEconomyAccrual(player, this.now()); this.refreshManpowerOnly(player); },
+        invalidateEconomyAfterChange: (id) => { this.economyCaches.invalidateEconomySnapshot(id); this.economyCaches.clearTownNetworks(); this.economyCaches.upkeepAccrualCacheByPlayer.delete(id); },
+        emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
         players: this.state.players,
         visibilityCoverage: this.state.visibilityCoverage,
         visionTransitionCallbacks: this.visionTransitions.callbacks, reachBorder: this.reachBorder,
@@ -2662,6 +2684,7 @@ export class SimulationRuntime {
       },
       command
     );
+    this.oracleDetections.queueRefresh();
   }
 
   private rejectCommand(command: Pick<CommandEnvelope, "commandId" | "playerId">, code: string, message: string): void {
@@ -2968,6 +2991,9 @@ export class SimulationRuntime {
 
   private progressionCommandContext(): RuntimeProgressionCommandContext {
     return buildProgressionCommandContext({
+      settleEconomyBeforeUpgrade: (player) => { this.applyEconomyAccrual(player, this.now()); this.refreshManpowerOnly(player); },
+      isTileLocked: (key) => Boolean(this.state.locksByTile.targetLockAt(key)),
+      reconcileAfcReach: (playerId, commandId) => { refreshAfcFortFacts(playerId, this.summaryForPlayer(playerId).territoryTileKeys, this.state.tiles, this.state.players, (key, tile) => { this.replaceTileState(key, tile, commandId); this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [this.tileDeltaFromState(tile)] }); }); this.oracleDetections.refreshAll(); for (const anchor of this.gatherReachAnchors()) if (anchor.ownerId === playerId) this.applyReachAnchorActivation(anchor, commandId); },
       players: this.state.players,
       tiles: this.state.tiles,
       emitEvent: (event) => this.emitEvent(event),
@@ -3138,34 +3164,8 @@ export class SimulationRuntime {
     this.events.emit("event", event);
   }
 
-  private expandTileDeltasWithLinkedDocks(
-    deltas: Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"]
-  ): Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"] {
-    const dockTileKeysInBatch: string[] = [];
-    for (const delta of deltas) {
-      if (!delta.dockId) continue;
-      const tile = this.state.tiles.get(simulationTileKey(delta.x, delta.y));
-      if (tile?.ownershipState !== "SETTLED") continue;
-      dockTileKeysInBatch.push(simulationTileKey(delta.x, delta.y));
-    }
-    if (dockTileKeysInBatch.length === 0) return deltas;
-    const revealKeys = computeLinkedDockRevealTileKeys(
-      dockTileKeysInBatch,
-      this.state.dockLinksByDockTileKey,
-      WORLD_WIDTH,
-      WORLD_HEIGHT
-    );
-    if (revealKeys.size === 0) return deltas;
-    const seen = new Set<string>(deltas.map((delta) => simulationTileKey(delta.x, delta.y)));
-    const additional: typeof deltas = [];
-    for (const tileKey of revealKeys) {
-      if (seen.has(tileKey)) continue;
-      const tile = this.state.tiles.get(tileKey);
-      if (!tile) continue;
-      additional.push(this.tileDeltaFromState(tile));
-    }
-    if (additional.length === 0) return deltas;
-    return [...deltas, ...additional];
+  private expandTileDeltasWithLinkedDocks(deltas: Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"]): Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"] {
+    return expandTileDeltasWithLinkedDocks({ tiles: this.state.tiles, dockLinksByDockTileKey: this.state.dockLinksByDockTileKey, tileDeltaFromState: (tile) => this.tileDeltaFromState(tile) }, deltas);
   }
 
   private scheduleLockResolution(lock: LockRecord): void {
@@ -3182,7 +3182,7 @@ export class SimulationRuntime {
         now: () => this.now(),
         tileYieldEconomyContextForPlayer: (player) => this.tileYieldEconomyContextForPlayer(player),
         enrichTileWithTownContext: (t, player, ctx) => this.enrichTileWithTownContext(t, player, ctx),
-        yieldViewEconomyContext: (player, ctx) => yieldViewEconomyContextImpl(player, ctx, this.state.tiles, this.state.dockLinksByDockTileKey),
+        yieldViewEconomyContext: (player, ctx) => yieldViewEconomyContextImpl(player, ctx, this.state.tiles, this.state.dockLinksByDockTileKey, this.state.players),
         reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y)
       },
       tile, context, options
@@ -3418,8 +3418,8 @@ export class SimulationRuntime {
    * baseline: flat attack cost, raised to a flat per-fort-tier floor,
    * lowered for FRONTIER targets (forts only defend once SETTLED).
    */
-  private requiredMusterForTarget(target: DomainTileState): number {
-    return requiredMusterForTargetImpl(target);
+  private requiredMusterForTarget(target: DomainTileState, attackerId?: string): number {
+    return requiredMusterForTargetImpl(target, attackerId ? this.state.players.get(attackerId) : undefined, target.ownerId ? this.state.players.get(target.ownerId) : undefined);
   }
 
   /**
@@ -3445,6 +3445,7 @@ export class SimulationRuntime {
 
   private commandDispatchHandlers(): RuntimeCommandDispatchHandlers {
     return {
+      handleAfcSpecializationCommand: (command) => handleAfcActiveCommand({ abilities: this.abilityCommandContext(), playerManpowerCap: (player) => this.playerManpowerCap(player), settleEconomy: player => this.applyEconomyAccrual(player, this.now()), refreshManpower: (player) => this.refreshManpowerOnly(player), emitPlayerStateUpdate: (cmd) => this.emitPlayerStateUpdate(cmd) }, command),
       emitUnsupported: (command) => {
         this.rejectCommand(command, "UNSUPPORTED", `${command.type} not yet migrated to the new simulation service`);
       },

@@ -1,3 +1,4 @@
+import { maintainAfcCoreTownForTileChange } from "../afc-specializations/afc-core-towns.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { maintainTownConnectivityForTileChange, type TownConnectivityState } from "../economy-network/town-connectivity-incremental.js";
 import { flushRadiusYieldRefresh } from "../radius-yield-refresh/radius-yield-refresh.js";
@@ -17,6 +18,9 @@ import type { VisibilityCoverageTracker, VisibilityTransitionCallbacks } from ".
  * `progressionCommandContext()` in runtime.ts.
  */
 export interface ProgressionCommandContextDeps {
+  readonly settleEconomyBeforeUpgrade?: (player: RuntimePlayer) => void;
+  readonly isTileLocked?: (key: string) => boolean;
+  readonly reconcileAfcReach?: (playerId: string, commandId: string) => void;
   readonly players: Map<string, RuntimePlayer>;
   readonly tiles: Map<string, DomainTileState>;
   readonly emitEvent: RuntimeProgressionCommandContext["emitEvent"];
@@ -65,6 +69,10 @@ export interface ProgressionCommandContextDeps {
 
 export function buildProgressionCommandContext(deps: ProgressionCommandContextDeps): RuntimeProgressionCommandContext {
   return {
+    ...(deps.settleEconomyBeforeUpgrade ? { settleEconomyBeforeUpgrade: deps.settleEconomyBeforeUpgrade } : {}),
+    now: deps.now,
+    ...(deps.isTileLocked ? { isTileLocked: deps.isTileLocked } : {}),
+    ...(deps.reconcileAfcReach ? { reconcileAfcReach: deps.reconcileAfcReach } : {}),
     players: deps.players,
     tiles: deps.tiles,
     emitEvent: (event) => deps.emitEvent(event),
@@ -75,6 +83,7 @@ export function buildProgressionCommandContext(deps: ProgressionCommandContextDe
     autoClaimFrontier: (tileKeys, ownerId, causeCommandId) => deps.autoClaimFrontier(tileKeys, ownerId, causeCommandId),
     setTileState: (tileKey, tile) => {
       const previous = deps.tiles.get(tileKey);
+      maintainAfcCoreTownForTileChange(deps.players, tileKey, previous, tile);
       deps.tiles.set(tileKey, tile); deps.snapshotTileCache.set(tileKey, mapTile(tile));
       // This path deliberately skips refreshEconomyCachesForTileChange (the
       // progression handlers invalidate the economy caches themselves), but

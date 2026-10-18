@@ -113,7 +113,7 @@ export function tickPopulationGrowth(input: {
     // is 1.0 and the key set has no effect — skip the O(towns) sort entirely.
     const firstThreePopMult = firstThreeTownsPopulationGrowthMultiplierForPlayer(player);
     const firstThreeKeys = firstThreePopMult !== 1
-      ? firstThreeTownKeysForPlayer(player.id, ownedTowns.entries())
+      ? firstThreeTownKeysForPlayer(player.id, ownedTowns.entries(), player)
       : new Set<string>();
     const integrityGrowthMult = input.integrityGrowthMultForPlayer?.(player.id) ?? 1;
 

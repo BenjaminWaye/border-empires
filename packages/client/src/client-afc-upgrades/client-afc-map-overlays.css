@@ -1,0 +1,4 @@
+.afc-signal-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 4; }
+.afc-map-signal { position: absolute; transform: translate(-50%, 8px); pointer-events: auto; min-height: 36px; max-width: 160px; padding: 5px 9px; border: 1px solid var(--sp-brass-300, #bc9a59); border-radius: 4px; color: var(--sp-parchment-100, #eee4ce); background: var(--sp-iron-900, #171c21); font-size: 11px; cursor: pointer; }
+.afc-map-signal:focus-visible { outline: 2px solid var(--sp-brass-100); outline-offset: 2px; }
+@media (pointer: coarse) { .afc-map-signal { min-height: 44px; } }

@@ -54,7 +54,7 @@ const metPlayerRowHtml = (
     ? `<span class="alliance-reference-status alliance-reference-status-truce">Truce</span>
           <span class="alliance-reference-duration-note">· ${socialRemainingLabel(truce.endsAt, nowMs)} left</span>`
     : `<span class="alliance-reference-duration-note">No agreement</span>`;
-  const breakTruceButton = truce
+  const breakTruceButton = truce?.origin === "court" ? `<span class="alliance-reference-duration-note">Court mandate · binding</span>` : truce
     ? `<button class="panel-btn alliance-reference-action alliance-reference-action-break break-truce" type="button" data-break-truce-player-id="${safeId}" title="Breaking a truce locks you out of new truces for 24h">Break Truce</button>`
     : "";
   const buttons = !name

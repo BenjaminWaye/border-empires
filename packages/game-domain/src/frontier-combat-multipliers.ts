@@ -1,3 +1,4 @@
+import { AFC_SPECIALIZATIONS } from "@border-empires/shared";
 import techTreeData from "../data/tech-tree.json" with { type: "json" };
 import domainTreeData from "../data/domain-tree.json" with { type: "json" };
 
@@ -27,7 +28,7 @@ const techTree = techTreeData as { techs: TechEntry[] };
 const domainTree = domainTreeData as { domains: DomainEntry[] };
 
 const techEntryById = new Map(techTree.techs.map((t) => [t.id, t]));
-const domainEntryById = new Map(domainTree.domains.map((d) => [d.id, d]));
+const domainEntryById = new Map<string, DomainEntry>([...domainTree.domains, ...AFC_SPECIALIZATIONS].map((d) => [d.id, d]));
 
 const multiplicativeEffectForPlayer = (
   techIds: readonly string[],

@@ -51,6 +51,10 @@ export type RuntimeExportState = {
     manpowerCapSnapshot?: number;
     techIds: string[];
     domainIds: string[];
+    afcUpgradeRuleset?: "afc-v1";
+  afcCoreTownKeys?: string[];
+  afcScarcityFoodSlots?: number;
+  afcCampaign?: import("@border-empires/shared").AfcCampaignState;
     strategicResources: Partial<Record<StrategicResourceKey, number>>;
     allies: string[];
     truces: string[];
@@ -194,6 +198,10 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
         techIds: [...player.techIds].sort(),
         domainIds: [...(player.domainIds ?? [])].sort(),
+        ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
+          ...(player.afcCoreTownKeys ? { afcCoreTownKeys: [...player.afcCoreTownKeys] } : {}),
+          ...(player.afcScarcityFoodSlots ? { afcScarcityFoodSlots: player.afcScarcityFoodSlots } : {}),
+          ...(player.afcCampaign ? { afcCampaign: structuredClone(player.afcCampaign) } : {}),
         strategicResources: { ...(player.strategicResources ?? {}) },
         allies: [...player.allies].sort(),
         truces: [...(player.truces ?? [])].sort(),
@@ -317,6 +325,7 @@ type PlannerExportInput = {
   // not optional: without it EXPAND-family planning is reach-blind.
   reachTileKeysForPlayer: (playerId: string) => string[];
   // See PlannerPlayerView.focusFrontTileKeys' doc comment.
+  afcDetectedFlagsForPlayer?: (playerId: string) => readonly { x: number; y: number; ownerId: string }[];
   tacticalViewForPlayer?: (playerId: string, focusKeys: readonly string[]) => AiTacticalView;
   spatialFocusFrontForPlayer: (playerId: string) => string[];
   // Phase 1 of docs/ai-structure-building-rewrite-plan.md (§9): feed the
@@ -406,8 +415,13 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         points: player.points,
         manpower: player.manpower,
         techIds: [...player.techIds].sort(),
+        ...(player.domainIds?.has("afc-oracle-5") && input.afcDetectedFlagsForPlayer ? { afcDetectedFlags: input.afcDetectedFlagsForPlayer(playerId) } : {}),
         installedModuleTechIds: activeAfcModuleTechIds(playerId, summary.ownedAfcTileKeys, input.tiles),
         domainIds: [...(player.domainIds ?? [])].sort(),
+        ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
+          ...(player.afcCoreTownKeys ? { afcCoreTownKeys: [...player.afcCoreTownKeys] } : {}),
+          ...(player.afcScarcityFoodSlots ? { afcScarcityFoodSlots: player.afcScarcityFoodSlots } : {}),
+          ...(player.afcCampaign ? { afcCampaign: structuredClone(player.afcCampaign) } : {}),
         strategicResources: { ...(player.strategicResources ?? {}) },
         settledTileCount: summary.settledTileCount,
         townCount: summary.townCount,
