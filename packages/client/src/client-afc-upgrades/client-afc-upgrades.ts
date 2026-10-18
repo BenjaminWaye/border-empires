@@ -6,15 +6,17 @@ import "./client-afc-upgrades.css";
 
 type UpgradeState = Pick<ClientState, "me" | "domainCatalog" | "domainIds" | "domainChoices" | "techIds" |
   "domainUiSelectedId" | "domainDetailOpen" | "gold" | "strategicResources" | "pendingDomainUnlockId" | "chosenTrickleResource" | "techCatalog" | "joinSeasonId">;
-interface UpgradeView { tier: number; selectedId: string; expanded: boolean; identity: string; html?: string }
+interface UpgradeView { selectedId: string; expanded: boolean; identity: string; html?: string }
 const views = new WeakMap<HTMLElement, UpgradeView>();
 const escape = (value: string): string => value.replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
 const roman = (tier: number): string => ["I", "II", "III", "IV", "V"][tier - 1] ?? String(tier);
 
-function currentTier(state: UpgradeState): number {
-  const open = state.domainCatalog.filter(upgrade => state.domainChoices.includes(upgrade.id));
-  const candidates = open.length ? open : state.domainCatalog;
-  return candidates.length ? Math.min(...candidates.map(upgrade => upgrade.tier)) : 1;
+function currentTier(state: UpgradeState): number | undefined {
+  const chosenTiers = new Set(state.domainCatalog.filter(upgrade => state.domainIds.includes(upgrade.id)).map(upgrade => upgrade.tier));
+  const remaining = state.domainCatalog.filter(upgrade => !chosenTiers.has(upgrade.tier));
+  const open = remaining.filter(upgrade => state.domainChoices.includes(upgrade.id));
+  const candidates = open.length ? open : remaining;
+  return candidates.length ? Math.min(...candidates.map(upgrade => upgrade.tier)) : undefined;
 }
 
 const upgradeTiers = (state: UpgradeState): number[] =>
@@ -53,22 +55,22 @@ function detail(state: UpgradeState, upgrade: DomainInfo, id: string): string {
 export function renderAfcUpgradesHtml(state: UpgradeState, view: UpgradeView, prefix: string): string {
   const tiers = upgradeTiers(state);
   const count = readyAfcUpgradeCount(state);
-  const chosen = state.domainCatalog.filter(upgrade => state.domainIds.includes(upgrade.id));
-  const options = state.domainCatalog.filter(upgrade => upgrade.tier === view.tier);
-  const tierOwned = chosen.find(upgrade => upgrade.tier === view.tier);
-  const tierIndex = tiers.indexOf(view.tier);
-  const tierOpen = options.some(upgrade => state.domainChoices.includes(upgrade.id));
+  const chosen = state.domainCatalog.filter(upgrade => state.domainIds.includes(upgrade.id)).sort((a, b) => a.tier - b.tier);
+  const tier = currentTier(state);
+  const options = state.domainCatalog.filter(upgrade => upgrade.tier === tier && state.domainChoices.includes(upgrade.id));
+  const heading = tier === undefined ? (tiers.length ? "Campaign configuration complete" : "Loading upgrade choices")
+    : options.length ? `Upgrade ${roman(tier)} · Choose one` : `Next: Upgrade ${roman(tier)}`;
   return `<section class="afc-upgrades" aria-label="AFC upgrades">
     <div class="afc-upgrade-summary"><p><strong>${chosen.length} of ${tiers.length}</strong> installed</p>
       <span class="afc-upgrade-ready-count" role="status">${count ? `${count} ready` : "None ready"}</span></div>
-    ${tiers.length ? `<div class="afc-upgrade-tier-browser" role="group" aria-label="Browse upgrade tiers">
-      <button type="button" class="afc-upgrade-tier-step" data-afc-upgrade-step="previous" aria-label="Previous upgrade tier" ${tierIndex <= 0 ? "disabled" : ""}><span aria-hidden="true">‹</span></button>
-      <div class="afc-upgrade-tier-current" aria-live="polite" aria-atomic="true">
-        <h3 tabindex="-1" data-afc-upgrade-current-tier="${view.tier}">Upgrade ${roman(view.tier)}<span>${tierIndex + 1} / ${tiers.length}</span></h3>
-        <p>${tierOwned ? `Installed · ${escape(tierOwned.name)}` : tierOpen ? "Choose one upgrade" : "Locked · complete earlier tiers"}</p>
-      </div>
-      <button type="button" class="afc-upgrade-tier-step" data-afc-upgrade-step="next" aria-label="Next upgrade tier" ${tierIndex >= tiers.length - 1 ? "disabled" : ""}><span aria-hidden="true">›</span></button>
-    </div>` : ""}
+    ${chosen.length ? `<section class="afc-upgrade-history" aria-label="Installed upgrades"><h3>Installed upgrades</h3>
+      <ol>${chosen.map(upgrade => `<li data-afc-upgrade-installed="${escape(upgrade.id)}"><span class="afc-upgrade-history-tier">Tier ${roman(upgrade.tier)}</span>
+        <div><strong>${escape(upgrade.name)}</strong><p>${escape(formatDomainBenefitSummary(upgrade))}${typeof upgrade.effects?.chosenResourceSlotGrant === "number" && state.chosenTrickleResource ? ` · ${escape(state.chosenTrickleResource)}` : ""}</p></div></li>`).join("")}</ol>
+    </section>` : ""}
+    <div class="afc-upgrade-current" aria-live="polite" aria-atomic="true">
+      <h3 tabindex="-1" ${tier !== undefined ? `data-afc-upgrade-current-tier="${tier}"` : "data-afc-upgrade-complete"}>${heading}</h3>
+      ${!options.length && tier !== undefined ? "<p>Continue progressing your Manifest to unlock your next upgrade choice.</p>" : ""}
+    </div>
     <div class="afc-upgrade-options">${options.map(upgrade => {
       const expanded = view.expanded && view.selectedId === upgrade.id;
       const owned = state.domainIds.includes(upgrade.id);
@@ -80,7 +82,7 @@ export function renderAfcUpgradesHtml(state: UpgradeState, view: UpgradeView, pr
           <span>${escape(formatDomainBenefitSummary(upgrade))}</span>
         </button>${expanded ? detail(state, upgrade, detailId) : ""}
       </div>`;
-    }).join("") || "<p>No upgrades are available in this catalogue.</p>"}</div>
+    }).join("")}</div>
   </section>`;
 }
 
@@ -90,10 +92,10 @@ export function renderAfcUpgradePanels(
 ): void {
   state.domainDetailOpen = false;
   for (const [index, root] of [desktop, mobile].entries()) {
-    const identity = `${state.me}/${state.joinSeasonId}`;
+    const identity = `${state.me}/${state.joinSeasonId}/${currentTier(state) ?? "complete"}`;
     const remembered = views.get(root);
-    const view = remembered?.identity === identity && state.domainCatalog.some(upgrade => upgrade.tier === remembered.tier)
-      ? remembered : { tier: currentTier(state), selectedId: "", expanded: false, identity };
+    const view = remembered?.identity === identity
+      ? remembered : { selectedId: "", expanded: false, identity };
     // HUD renders before INIT. Do not remember an empty catalogue's provisional tier.
     if (state.domainCatalog.length) views.set(root, view);
     else views.delete(root);
@@ -103,32 +105,21 @@ export function renderAfcUpgradePanels(
       if (view.html === html && root.firstElementChild) return;
       const scrollTop = root.scrollTop;
       const focused = root.contains(document.activeElement) ? document.activeElement as HTMLElement : null;
-      const focusSelector = focused?.dataset.afcUpgradeStep ? `[data-afc-upgrade-step="${focused.dataset.afcUpgradeStep}"]`
-        : focused?.hasAttribute("data-afc-upgrade-current-tier") ? "[data-afc-upgrade-current-tier]"
+      const focusSelector = focused?.hasAttribute("data-afc-upgrade-current-tier") ? "[data-afc-upgrade-current-tier]"
         : focused?.dataset.domainUnlock ? `[data-domain-unlock="${CSS.escape(focused.dataset.domainUnlock)}"]`
         : focused?.dataset.afcUpgradeCard ? `[data-afc-upgrade-card="${CSS.escape(focused.dataset.afcUpgradeCard)}"]` : "";
       root.innerHTML = html;
       view.html = html;
       root.scrollTop = scrollTop;
-      if (focusSelector) root.querySelector<HTMLElement>(focusSelector)?.focus({ preventScroll: true });
+      if (focusSelector) {
+        const control = root.querySelector<HTMLElement>(focusSelector);
+        if (control) control.focus({ preventScroll: true });
+        else root.querySelector<HTMLElement>(".afc-upgrade-current h3")?.focus();
+      }
     };
     repaint();
     root.onclick = event => {
       const target = event.target as HTMLElement;
-      const step = target.closest<HTMLButtonElement>("[data-afc-upgrade-step]");
-      if (step) {
-        if (step.disabled) return;
-        const tiers = upgradeTiers(state);
-        const nextIndex = tiers.indexOf(view.tier) + (step.dataset.afcUpgradeStep === "next" ? 1 : -1);
-        const nextTier = tiers[nextIndex];
-        if (nextTier === undefined) return;
-        view.tier = nextTier; view.expanded = false;
-        repaint();
-        const nextStep = root.querySelector<HTMLButtonElement>(`[data-afc-upgrade-step="${step.dataset.afcUpgradeStep}"]`);
-        const focusTarget = nextStep?.disabled ? root.querySelector<HTMLElement>("[data-afc-upgrade-current-tier]") : nextStep;
-        focusTarget?.focus({ preventScroll: true });
-        return;
-      }
       const button = target.closest<HTMLButtonElement>("[data-afc-upgrade-card]");
       if (button?.dataset.afcUpgradeCard) {
         const id = button.dataset.afcUpgradeCard;

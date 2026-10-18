@@ -32,38 +32,56 @@ describe("single-level AFC upgrade management", () => {
     expect(install).toHaveBeenCalledTimes(1);
     expect(install).toHaveBeenCalledWith("first");
   });
-  it("uses the panel title once and tier navigation that matches the console instead of a dropdown", () => {
+  it("shows current choices directly without tier browsing or a repeated panel title", () => {
     const { desktop, mobile } = setup();
     for (const root of [desktop, mobile]) {
-      expect(root.querySelector("select")).toBeNull();
+      expect(root.querySelector("select, [data-afc-upgrade-step], [role=tablist]")).toBeNull();
       expect(Array.from(root.querySelectorAll("h1, h2, h3")).some(heading => heading.textContent === "AFC Upgrades")).toBe(false);
-      expect(root.querySelector('[role="group"]')?.getAttribute("aria-label")).toBe("Browse upgrade tiers");
-      expect(root.querySelector<HTMLButtonElement>('[data-afc-upgrade-step="previous"]')?.disabled).toBe(true);
-      expect(root.querySelector<HTMLButtonElement>('[data-afc-upgrade-step="next"]')?.disabled).toBe(true);
+      expect(root.querySelectorAll(".afc-upgrade-card")).toHaveLength(2);
+      expect(root.querySelector(".afc-upgrade-history")).toBeNull();
     }
   });
-  it("browses real catalogue tiers, preserves keyboard focus and stops at both ends", () => {
+  it("lists installed upgrades by tier above only the earliest current choices", () => {
     const { state, desktop, mobile, install } = setup();
-    state.domainCatalog.push({ ...state.domainCatalog[0]!, id: "future", tier: 3 }, { ...state.domainCatalog[0]!, id: "last", tier: 5 });
+    state.domainCatalog.push({ ...state.domainCatalog[0]!, id: "next", tier: 2 },
+      { ...state.domainCatalog[0]!, id: "third", tier: 3 }, { ...state.domainCatalog[0]!, id: "last", tier: 4 });
+    state.domainCatalog.reverse();
+    state.domainIds = ["next", "first"]; state.domainChoices = ["third", "last"];
+    renderAfcUpgradePanels(state, desktop, mobile, install);
+    expect(Array.from(mobile.querySelectorAll("[data-afc-upgrade-installed]"), row => row.getAttribute("data-afc-upgrade-installed"))).toEqual(["first", "next"]);
+    expect(mobile.querySelector(".afc-upgrade-history")?.textContent).toContain("Tier I");
+    expect(mobile.querySelector(".afc-upgrade-history")?.textContent).toContain("Tier II");
+    expect(mobile.querySelector(".afc-upgrades")?.children[1]).toBe(mobile.querySelector(".afc-upgrade-history"));
+    expect(Array.from(mobile.querySelectorAll("[data-afc-upgrade-card]"), card => card.getAttribute("data-afc-upgrade-card"))).toEqual(["third"]);
+  });
+  it("automatically advances after server acknowledgement and moves the selection into history", () => {
+    const { state, desktop, mobile, install } = setup();
+    state.domainCatalog.push({ ...state.domainCatalog[0]!, id: "next", tier: 2 });
     renderAfcUpgradePanels(state, desktop, mobile, install);
     mobile.querySelector<HTMLButtonElement>('[data-afc-upgrade-card="first"]')!.click();
-    mobile.querySelector<HTMLButtonElement>('[data-afc-upgrade-step="next"]')!.click();
-    expect(mobile.querySelector("[data-afc-upgrade-current-tier]")?.getAttribute("data-afc-upgrade-current-tier")).toBe("3");
+    const action = mobile.querySelector<HTMLButtonElement>('[data-domain-unlock="first"]')!;
+    action.focus(); action.click();
+    expect(mobile.querySelector('[data-afc-upgrade-installed="first"]')).toBeNull();
+    state.domainIds = ["first"]; state.domainChoices = ["next"];
+    renderAfcUpgradePanels(state, desktop, mobile, install);
+    expect(mobile.querySelector('[data-afc-upgrade-installed="first"]')).not.toBeNull();
+    expect(mobile.querySelector("[data-afc-upgrade-current-tier]")?.getAttribute("data-afc-upgrade-current-tier")).toBe("2");
     expect(mobile.querySelector(".afc-upgrade-detail")).toBeNull();
-    expect(mobile.textContent).toContain("Locked");
-    mobile.querySelector<HTMLButtonElement>('[data-afc-upgrade-step="next"]')!.click();
-    expect(mobile.querySelector('[data-afc-upgrade-step="next"]')?.hasAttribute("disabled")).toBe(true);
     expect(document.activeElement).toBe(mobile.querySelector("[data-afc-upgrade-current-tier]"));
-    state.gold = 39;
+    expect(install).toHaveBeenCalledTimes(1);
+  });
+  it("shows the next milestone without unavailable options, then a complete configuration", () => {
+    const { state, desktop, mobile, install } = setup();
+    state.domainCatalog.push({ ...state.domainCatalog[0]!, id: "next", tier: 2 });
+    state.domainIds = ["first"]; state.domainChoices = [];
     renderAfcUpgradePanels(state, desktop, mobile, install);
-    expect(document.activeElement).toBe(mobile.querySelector("[data-afc-upgrade-current-tier]"));
-    mobile.querySelector<HTMLButtonElement>('[data-afc-upgrade-step="previous"]')!.click();
-    expect(document.activeElement).toBe(mobile.querySelector('[data-afc-upgrade-step="previous"]'));
+    expect(mobile.querySelectorAll(".afc-upgrade-card")).toHaveLength(0);
+    expect(mobile.textContent).toContain("Next: Upgrade II");
+    state.domainIds.push("next");
     renderAfcUpgradePanels(state, desktop, mobile, install);
-    expect(document.activeElement).toBe(mobile.querySelector('[data-afc-upgrade-step="previous"]'));
-    mobile.querySelector<HTMLButtonElement>('[data-afc-upgrade-step="previous"]')!.click();
-    expect(mobile.querySelector('[data-afc-upgrade-step="previous"]')?.hasAttribute("disabled")).toBe(true);
-    expect(install).not.toHaveBeenCalled();
+    expect(mobile.textContent).toContain("Campaign configuration complete");
+    expect(mobile.querySelectorAll("[data-afc-upgrade-installed]")).toHaveLength(2);
+    expect(mobile.querySelectorAll(".afc-upgrade-card")).toHaveLength(0);
   });
   it("keeps delegation and selection through live HUD rerenders, without launching an overlay", () => {
     const { state, desktop, mobile, install } = setup();
@@ -109,15 +127,15 @@ describe("single-level AFC upgrade management", () => {
     renderAfcUpgradePanels(state, desktop, mobile, install);
     expect(mobile.querySelector("[data-afc-upgrade-current-tier]")?.getAttribute("data-afc-upgrade-current-tier")).toBe("1");
   });
-  it("keeps legacy costs truthful and prevents installing another choice in a filled tier", () => {
+  it("keeps legacy costs truthful and never offers an alternative from an installed tier", () => {
     const { state, desktop, mobile, install } = setup();
-    state.domainIds = ["second"];
-    renderAfcUpgradePanels(state, desktop, mobile, install);
     mobile.querySelector<HTMLButtonElement>('[data-afc-upgrade-card="first"]')!.click();
-    expect(mobile.querySelector<HTMLButtonElement>('[data-domain-unlock="first"]')!.disabled).toBe(true);
     expect(mobile.textContent).toContain("40 coin");
     expect(mobile.textContent).not.toContain("free installation");
-    mobile.querySelector<HTMLButtonElement>('[data-domain-unlock="first"]')!.click();
+    state.domainIds = ["second"];
+    renderAfcUpgradePanels(state, desktop, mobile, install);
+    expect(mobile.querySelectorAll("[data-afc-upgrade-card], [data-domain-unlock]")).toHaveLength(0);
+    expect(mobile.querySelector('[data-afc-upgrade-installed="second"]')).not.toBeNull();
     expect(install).not.toHaveBeenCalled();
   });
 });

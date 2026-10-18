@@ -57,7 +57,8 @@ the same state and open this management panel at the selected tier.
 ```text
 AFC / CAMPAIGN HEADQUARTERS                   1 upgrade ready
 2 of 5 upgrade positions installed
-[ ‹ ]    Upgrade III · Choose one upgrade    3 / 5    [ › ]
+Installed:  I · Founding Concession
+            II · Reciprocal Trade Pact
 
 UPGRADE III · Choose one specialization       Free
 Your choice lasts for this campaign. Other tier-III choices will close.
@@ -69,15 +70,16 @@ Your choice lasts for this campaign. Other tier-III choices will close.
                                              [Install upgrade — free]
 ```
 
-Use one brass-framed tier browser with 44px Previous and Next buttons, the
-current tier, position (for example 3 / 5), and installed/available/locked text.
-Keep the shell’s AFC Upgrades title; do not repeat it inside the panel. No
-dropdown, additional tab row, or horizontal tier scrolling. These are five
-campaign choices, not six mandatory class picks.
-Installed positions name their actual upgrade and branch. Locked positions name
-the exact next condition. Multiple banked choices show a count and install oldest
-unfilled tier first. All thirty rewards remain inspectable without appearing
-installable. Future tiers contain a View in Manifest action, not a fake countdown.
+Show previously installed upgrades in tier order above the current decision,
+including each upgrade’s tier, name, and a short benefit summary. Only the
+current offered tier’s alternatives appear below. Keep the shell’s AFC Upgrades
+title; do not repeat it inside the panel. No dropdown, Previous/Next controls,
+additional tab row, or horizontal tier scrolling. After acknowledgement, move
+the selected upgrade into history and automatically show the next decision.
+Multiple banked tiers are offered oldest first. If the next tier is locked,
+show its Manifest milestone without future choice cards. Once all tiers are
+filled, show the installed configuration and a completion message. The full
+thirty-reward proposal remains in the catalogue document.
 
 Cards present branch, name, one concrete mechanical sentence, and state. Avoid
 Coin/Shard price rows when the choice is free. Ongoing / On installation badges
@@ -148,7 +150,7 @@ Routine HUD ticks keep unchanged content mounted so they preserve touch scrollin
 keyboard focus. Changed content preserves scroll and
 restores focus to the corresponding control.
 
-Use semantic buttons and headings, labelled Previous/Next buttons, visible
+Use semantic buttons and headings, labelled install buttons, visible
 keyboard focus, logical focus restoration, and polite live announcements for
 installed/rejected states. Escape closes the detail and returns to its card.
 State uses text/icons as well as color. Locked choices remain readable and explain

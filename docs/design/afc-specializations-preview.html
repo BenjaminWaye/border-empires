@@ -30,12 +30,13 @@ h1 { font-size:30px; font-weight:normal; color:var(--light); line-height:1.25; m
 .console { border:1px solid var(--edge); background:linear-gradient(150deg,#2b2015f5,#14100afc 55%); box-shadow:0 24px 70px #0008; }
 .console-head { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:16px 24px; border-bottom:1px solid var(--edge); }
 .ready-badge { color:var(--light); background:#60451d55; border:1px solid #8a611f; border-radius:4px; padding:5px 10px; font-size:12px; }
-.tier-control { margin:20px 24px 16px; display:grid; grid-template-columns:44px minmax(0,1fr) 44px; border:1px solid var(--edge); border-radius:4px; background:#14100a; }
-.tier-control button { min-height:52px; padding:0; border:0; background:none; color:var(--light); font-size:28px; }
-.tier-control button:disabled { opacity:.3; }
-.tier-current { padding:12px; border-inline:1px solid var(--edge); min-width:0; }
-.tier-current strong { display:block; font-size:18px; font-weight:normal; color:var(--light); }
-.tier-current small { display:block; color:var(--muted); overflow-wrap:anywhere; }
+.history { padding:16px 24px 8px; }
+.history h2 { color:var(--muted); font-size:13px; font-weight:normal; margin-bottom:8px; }
+.history ol { list-style:none; margin:0; padding:0; }
+.history li { display:grid; grid-template-columns:44px minmax(0,1fr); gap:12px; padding:8px 0; border-bottom:1px solid var(--edge); }
+.history .history-tier { color:var(--gold); font-size:12px; }
+.history strong { font-size:14px; font-weight:normal; }
+.history p { font-size:12px; color:var(--muted); }
 .agenda { padding:8px 24px 20px; border-bottom:1px solid var(--edge); }
 .agenda h2 { font-size:21px; font-weight:normal; margin:4px 0; }
 .agenda p { font-size:13px; color:var(--muted); }
@@ -74,7 +75,7 @@ h1 { font-size:30px; font-weight:normal; color:var(--light); line-height:1.25; m
  .masthead { margin-bottom:20px; gap:16px; } .seal { width:52px; height:52px; }
  .seal strong { font-size:18px; } .seal span { font-size:8px; padding-top:4px; }
  .headline-note { font-size:13px; } .console-head { padding:8px 16px; flex-wrap:wrap; gap:8px; }
- .tier-control { margin:12px 16px; }
+ .history { padding:12px 16px; }
  .agenda { padding:4px 16px 16px; } .workspace { display:block; }
  .options { grid-template-columns:1fr; padding:16px; } .choice { min-height:132px; }
  .detail { border:1px solid var(--edge); padding:20px 16px; margin-top:-12px; border-top:0; background:#21190f; }
@@ -94,7 +95,7 @@ h1 { font-size:30px; font-weight:normal; color:var(--light); line-height:1.25; m
  </header>
  <section class="console" aria-label="Specialization management">
   <div class="console-head"><span class="eyebrow">Campaign configuration · five upgrade positions</span><span class="ready-badge" id="ready"></span></div>
-  <div class="tier-control" role="group" aria-label="Browse upgrade tiers"><button id="tier-previous" aria-label="Previous upgrade tier"><span aria-hidden="true">‹</span></button><div class="tier-current" id="tier-current" aria-live="polite"></div><button id="tier-next" aria-label="Next upgrade tier"><span aria-hidden="true">›</span></button></div>
+  <section class="history" id="history" aria-label="Installed upgrades"></section>
   <div class="agenda" id="agenda"></div>
   <div class="workspace" id="workspace"><div class="options" id="options" aria-label="Six specialization choices"></div><article class="detail" id="detail" aria-label="Selected upgrade"></article></div>
  </section>
@@ -169,14 +170,17 @@ function sampleImpact(branch,tier){
 function render(){
  if(!matchMedia('(max-width:760px)').matches)expanded=true;
  el('workspace').append(detailPanel);
+ const nextTier=[1,2,3,4,5].find(tier=>!installed[tier]);
+ selectedTier=nextTier||5;
  const current=readyTiers()[0], ready=readyTiers().length;
  el('ready').textContent=ready?`${ready} upgrade${ready===1?'':'s'} ready`:'No unclaimed upgrades';
- const selected=installed[selectedTier];
- el('tier-current').innerHTML=`<strong>Upgrade ${roman[selectedTier-1]} <small>${selectedTier} / 5</small></strong><small>${selected?'Installed · '+byId(selected).rows[selectedTier-1][0]:selectedTier<=manifestTier?'Choose one upgrade':'Locked · commission Manifest '+roman[selectedTier-1]}</small>`;
- el('tier-previous').disabled=selectedTier===1;
- el('tier-next').disabled=selectedTier===5;
- const chosen=installed[selectedTier],locked=selectedTier>manifestTier;
- el('agenda').innerHTML=`<div class="eyebrow">Manifest tier ${roman[manifestTier-1]} · ${Object.keys(installed).length} / 5 upgrades installed</div><h2>Upgrade ${roman[selectedTier-1]} · ${chosen?'Review your configuration':locked?'Plan your next specialization':'Choose one specialization'}</h2><p>${!hasAfc?'Rebuild an active AFC to install. Your established choices remain.':chosen?'This tier is committed for the campaign. Other choices remain available to inspect.':locked?`Commission your first tier-${roman[selectedTier-1]} Manifest to unlock this free choice.`:selectedTier!==current?'Install earlier unclaimed tiers first. All six approaches remain available to inspect.':'Free installation. Your choice lasts for this campaign and closes the other choices at this tier.'}</p>`;
+ el('history').innerHTML=`<h2>Installed upgrades</h2><ol>${Object.entries(installed).map(([tier,branchId])=>{
+  const row=byId(branchId).rows[Number(tier)-1];
+  return `<li><span class="history-tier">Tier ${roman[Number(tier)-1]}</span><div><strong>${row[0]}</strong><p>${row[1]}</p></div></li>`;
+ }).join('')}</ol>`;
+ const chosen=installed[selectedTier],locked=selectedTier>manifestTier,complete=!nextTier;
+ el('workspace').hidden=locked||complete;
+ el('agenda').innerHTML=`<div class="eyebrow">Manifest tier ${roman[manifestTier-1]} · ${Object.keys(installed).length} / 5 upgrades installed</div><h2 tabindex="-1" id="current-choice-heading">${complete?'Campaign configuration complete':locked?'Next: Upgrade '+roman[selectedTier-1]:'Upgrade '+roman[selectedTier-1]+' · Choose one specialization'}</h2><p>${complete?'Your five upgrades remain active for this campaign.':!hasAfc?'Rebuild an active AFC to install. Your established choices remain.':locked?`Commission your first tier-${roman[selectedTier-1]} Manifest to unlock the next choice.`:'Free installation. Your choice lasts for this campaign and closes the other choices at this tier.'}</p>`;
  el('options').innerHTML=branches.map(branch=>{
   const row=branch.rows[selectedTier-1];
   return `<button class="choice ${branch.id===selectedBranch&&expanded?'chosen':''}" data-branch="${branch.id}" aria-expanded="${branch.id===selectedBranch&&expanded}" aria-controls="detail"><div class="choice-top"><span class="branch-label">${branch.name}</span><span class="branch-symbol" aria-hidden="true">${branch.symbol}</span></div><h3>${row[0]}</h3><p>${row[1]}</p><span class="role">${chosen===branch.id?'✓ Installed · ':''}${branch.role}</span></button>`;
@@ -186,10 +190,6 @@ function render(){
  const type=selectedBranch==='exchequer'&&[2,5].includes(selectedTier)?'On installation'+(selectedTier===5?' + ongoing benefit':''):selectedBranch==='oracle'&&selectedTier===4||selectedBranch==='chancery'&&selectedTier===4?'Unlocks an active action':'Ongoing campaign benefit';
  const label=isInstalled?'Installed':chosen?'Another choice fills this tier':locked?'Manifest tier required':!hasAfc?'Active AFC required':selectedTier!==current?'Install earlier tier first':'Install upgrade — free';
  el('detail').innerHTML=`<button class="secondary back" id="back">Close details</button><div class="branch-label">${branch.name} / Upgrade ${roman[selectedTier-1]}</div><h2 tabindex="-1" id="detail-title">${row[0]}</h2><div class="classification">${type}</div><p class="benefit">${row[1]}</p><section class="detail-section" aria-label="Illustrative impact"><div class="eyebrow">Sample empire impact</div>${sampleImpact(selectedBranch,selectedTier).map(([name,value])=>`<div class="metric"><span>${name}</span><strong>${value}</strong></div>`).join('')}<p>Illustrative values. The connected client will calculate your exact affected towns, tiles, and income.</p></section><section class="detail-section"><div class="eyebrow">How it works</div><p>${row[2]}</p></section><footer><button class="primary" id="install" ${canInstall?'':'disabled'}>${label}</button><p class="commit-note">One choice per tier · no Coin or Shards required</p></footer>`;
- for(const [id,delta] of [['tier-previous',-1],['tier-next',1]])el(id).onclick=()=>{
-  selectedTier+=delta;selectedBranch=installed[selectedTier]||selectedBranch;expanded=Boolean(installed[selectedTier]);render();
-  (el(id).disabled?el(delta<0?'tier-next':'tier-previous'):el(id)).focus({preventScroll:true});
- };
  el('options').querySelectorAll('[data-branch]').forEach(button=>button.onclick=()=>{
   expanded=button.dataset.branch!==selectedBranch||!expanded;selectedBranch=button.dataset.branch;render();
   el('options').querySelector(`[data-branch="${selectedBranch}"]`).focus({preventScroll:true});
@@ -197,12 +197,12 @@ function render(){
  el('back').onclick=()=>{expanded=false;render();el('options').querySelector(`[data-branch="${selectedBranch}"]`).focus({preventScroll:true});};
  el('install').onclick=()=>{
   if(!canInstall)return;
-  installed[selectedTier]=selectedBranch;el('notice').textContent=`Sample installed: ${row[0]}. No game changes were sent.`;render();el('detail-title').focus();
+  installed[selectedTier]=selectedBranch;expanded=false;el('notice').textContent=`Sample installed: ${row[0]}. No game changes were sent.`;render();el('current-choice-heading').focus();
  };
  el('afc-toggle').textContent=hasAfc?'Preview AFC loss':'Restore sample AFC';
  el('advance').disabled=manifestTier>=5;
  const mobile=matchMedia('(max-width:760px)').matches;
- detailPanel.hidden=mobile&&!expanded;
+ detailPanel.hidden=locked||complete||(mobile&&!expanded);
  if(mobile&&expanded)el('options').querySelector(`[data-branch="${selectedBranch}"]`).after(detailPanel);
  else el('workspace').append(detailPanel);
 }
