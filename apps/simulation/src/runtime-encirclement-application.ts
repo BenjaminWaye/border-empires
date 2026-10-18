@@ -1,6 +1,7 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { FRONTIER_AUTO_HEAL_MS, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { abandonedStructureFields } from "./capture-structures/capture-structures.js";
 import { computeEncirclementDeltas } from "./encirclement/encirclement.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { ActiveAetherBridgeView, SimulationTileWireDelta } from "./runtime-types.js";
@@ -179,6 +180,13 @@ export function clearCutOffFrontierTiles(
     // just like it survives never having one -- clearing it here permanently
     // erased wonders that were claimed but then cut off by encirclement
     // before being settled.
+    //
+    // Buildings follow the same survival rules as abandoning the tile
+    // (abandonedStructureFields): a finished fort, observatory or economic
+    // structure stays standing, inert, for whoever claims the tile next. A
+    // freshly captured building sits on FRONTIER while its auto-settle runs,
+    // so wiping structures here erased it whenever the capture was cut off
+    // and reach then healed the tile back for the settle to finish on.
     const healAt = nowMs + FRONTIER_AUTO_HEAL_MS;
     const cleared: DomainTileState = {
       ...tile,
@@ -186,10 +194,7 @@ export function clearCutOffFrontierTiles(
       ownershipState: undefined,
       frontierDecayAt: undefined,
       frontierDecayKind: undefined,
-      fort: undefined,
-      observatory: undefined,
-      siegeBattery: undefined,
-      economicStructure: undefined,
+      ...abandonedStructureFields(tile),
       muster: undefined,
       sabotage: undefined,
       healAt
