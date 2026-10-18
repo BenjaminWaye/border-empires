@@ -8,7 +8,8 @@ describe("client HUD failsafe regression", () => {
     expect(hudSource).toContain("[hud-render-error]");
     expect(hudSource).toContain("fallbackCard");
     expect(hudSource).toContain('"leaderboardHtml"');
-    expect(hudSource).toContain('"renderDomainProgressCard"');
+    expect(hudSource).toContain('safeValue("renderAfcUpgradePanels"');
+    expect(hudSource).toContain('fallbackCard("AFC upgrades")');
   });
 
   it("keeps a fatal HUD render catch in bootstrap", () => {
