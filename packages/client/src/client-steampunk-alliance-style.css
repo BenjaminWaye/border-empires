@@ -83,6 +83,13 @@
   color: var(--sp-brass-100);
 }
 
+/* The player's map-colour dot (.lb-player-dot from style.css) before their name. */
+.alliance-reference-name .lb-player-dot {
+  display: inline-block;
+  margin-right: 8px;
+  vertical-align: 0.05em;
+}
+
 .alliance-reference-id,
 .alliance-reference-time,
 .alliance-reference-duration-note {

@@ -13,6 +13,7 @@ export type AlliancePanelState = MetPlayersState &
     | "incomingTruceRequests"
     | "outgoingTruceRequests"
     | "expandedSocialPlayerId"
+    | "playerColors"
   >;
 
 /** Gathers the Alliances tab's render input from client state (used by client-hud.ts). */
@@ -30,6 +31,7 @@ export const alliancePanelInputFromState = (
   incomingTruceRequests: state.incomingTruceRequests,
   outgoingTruceRequests: state.outgoingTruceRequests,
   playerNameForOwner,
+  playerColors: state.playerColors,
   nowMs,
   expandedPlayerId: state.expandedSocialPlayerId
 });
