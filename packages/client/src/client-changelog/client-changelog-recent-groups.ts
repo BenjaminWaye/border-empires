@@ -1,4 +1,5 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
+import { CLIENT_CHANGELOG_ENTRIES_BUILD_MENU_SUPPORT_SLOTS } from "./client-changelog-build-menu-support-slots.js";
 import { CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_ATTACK } from "./client-changelog-arrow-gesture-attack.js";
 import { CLIENT_CHANGELOG_ENTRIES_ENEMY_CONSTRUCTION_ACTIONS } from "./client-changelog-enemy-construction-actions.js";
 import { CLIENT_CHANGELOG_ENTRIES_FARMLAND } from "./client-changelog-farmland.js";
@@ -42,6 +43,7 @@ import { PROSPECT_CLUE_SWIRL_CHANGELOG } from "./client-changelog-prospect-clue-
 // Small per-feature entry files, gathered so client-changelog-data.ts stays under the 500-line cap.
 export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER,
+  ...CLIENT_CHANGELOG_ENTRIES_BUILD_MENU_SUPPORT_SLOTS,
   ...CLIENT_CHANGELOG_ENTRIES_SELF_PROFILE_CHIP,
   ...CLIENT_CHANGELOG_ENTRIES_FARMLAND,
   ...CLIENT_CHANGELOG_ENTRIES_MUSTER_STAND,

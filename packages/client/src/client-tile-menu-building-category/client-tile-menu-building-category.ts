@@ -80,6 +80,14 @@ export const buildingActionCategory = (action: TileActionDef): BuildingCategory 
   return structureType ? structureBuildingCategory(structureType) : "infrastructure";
 };
 
+// Category the Buildings tab opens on. On a town's support-ring tile (any
+// tile that isn't the town itself but can take a Town Support building) the
+// player is there to fill a support slot, so open on Town Support rather
+// than the first non-empty category (usually Military). Otherwise keep the
+// first non-empty category. `nonEmpty` is in display order.
+export const initialBuildingCategory = (nonEmpty: readonly BuildingCategory[], isTownTile: boolean): BuildingCategory | undefined =>
+  !isTownTile && nonEmpty.includes("town_support") ? "town_support" : nonEmpty[0];
+
 // Categories whose square is omitted entirely (rather than grayed out) when
 // nothing in them is available -- Monuments only appear once you've
 // researched a monument's tech, since the client already drops tech-locked
