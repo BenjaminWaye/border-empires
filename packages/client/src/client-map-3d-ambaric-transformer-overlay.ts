@@ -38,6 +38,7 @@ import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-
 import {
   AMBARIC_TRANSFORMER_COLORS
 } from "./client-map-3d-ambaric-transformer-palette.js";
+import { DIMMABLE_PIECE_KEYS, dimmedMaterialFor, dimmedPieceKey, pieceKeyFor } from "./client-map-3d-ambaric-transformer-dim.js";
 import {
   TOWER,
   TowerBodyContext,
@@ -62,7 +63,7 @@ import {
 
 export type AmbaricTransformerOverlay = {
   readonly clear: () => void;
-  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, frozen?: boolean) => void;
+  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, frozen?: boolean, dimmed?: boolean) => void;
   readonly commit: () => void;
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
@@ -74,6 +75,8 @@ type AmbaricTransformerInstance = {
   readonly z: number;
   readonly phase: number;
   readonly frozen: boolean;
+  // Disabled tower: frozen, out of the network, glow pieces in "<key>Dim" slots.
+  readonly dimmed: boolean;
 };
 
 type CapSpec = {
@@ -249,6 +252,16 @@ export const createAmbaricTransformerOverlay = (
     scene.add(mesh);
     slots.set(key, { mesh, count: 0 });
   }
+  for (const key of DIMMABLE_PIECE_KEYS) {
+    const material = dimmedMaterialFor(matOf[key]!);
+    materials.push(material);
+    const mult = CAPS.find((spec) => spec.key === key)!.mult;
+    const mesh = new InstancedMesh(geoOf[key]!, material, CAPACITY * mult);
+    mesh.frustumCulled = false;
+    mesh.count = 0;
+    scene.add(mesh);
+    slots.set(dimmedPieceKey(key), { mesh, count: 0 });
+  }
 
   // ─── Piece writing bridge ───────────────────────────────────────────
   const matrix = new Matrix4();
@@ -324,11 +337,11 @@ export const createAmbaricTransformerOverlay = (
     clusterAnims.length = 0;
   };
 
-  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, frozen = false): void => {
+  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, frozen = false, dimmed = false): void => {
     if (instances.length >= CAPACITY) return;
     const hash = ((worldTileX * 92_821) ^ (worldTileY * 68_917)) >>> 0;
     const phase = ((hash % 1000) / 1000) * Math.PI * 2;
-    instances.push({ x: sceneX, y: surfaceY, z: sceneZ, phase, frozen });
+    instances.push({ x: sceneX, y: surfaceY, z: sceneZ, phase, frozen: frozen || dimmed, dimmed });
   };
 
   const commit = (): void => {
@@ -359,11 +372,11 @@ export const createAmbaricTransformerOverlay = (
       const writer: TowerBodyContext = {
         addPiece: (key, ox, oy, oz, sx = 1, sz = 1, sy = 1, rotY = 0, rotX = 0, rotZ = 0) => {
           if (!(key in bases)) bases[key] = slotCount(key);
-          addPiece(key, t.x, t.y, t.z, ox, oy, oz, sx, sz, sy, rotY, rotX, rotZ);
+          addPiece(pieceKeyFor(key, t.dimmed), t.x, t.y, t.z, ox, oy, oz, sx, sz, sy, rotY, rotX, rotZ);
         },
         addPieceAlong: (key, ox, oy, oz, dx, dy, dz, len) => {
           if (!(key in bases)) bases[key] = slotCount(key);
-          addPieceAlong(key, t.x, t.y, t.z, ox, oy, oz, dx, dy, dz, len);
+          addPieceAlong(pieceKeyFor(key, t.dimmed), t.x, t.y, t.z, ox, oy, oz, dx, dy, dz, len);
         }
       };
       const placement: TowerPlacement = { x: t.x, z: t.z, phase: t.phase, level, nexus };

@@ -23,11 +23,13 @@ describe.each(["under_construction", "removing", "active", "inactive"] as const)
     const add = type === "TRADE_NEXUS" ? target.tradeNexusOverlay.addInstance : target.umbriteWeaponsFactoryOverlay.addInstance;
     expect(add).toHaveBeenCalledWith(0, 0, 0, 0, 0, status === "under_construction" || status === "removing");
   });
-  it("passes construction state to the observatory", () => {
+  it("passes construction and disabled state to the observatory", () => {
     const target = overlays();
     const tile: Tile = { x: 0, y: 0, terrain: "LAND", observatory: { status, ownerId: "me", pausedAt: 10 } };
     addBuildingInstancesForTile(tile, site, target, state, 0, undefined);
-    expect(target.ambaricTransformerOverlay.addInstance).toHaveBeenCalledWith(0, 0, 0, 0, 0, status === "under_construction" || status === "removing");
+    expect(target.ambaricTransformerOverlay.addInstance).toHaveBeenCalledWith(
+      0, 0, 0, 0, 0, status === "under_construction" || status === "removing", status === "inactive"
+    );
   });
 });
 
