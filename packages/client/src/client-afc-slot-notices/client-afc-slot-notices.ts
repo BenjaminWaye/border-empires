@@ -7,7 +7,7 @@ type SlotState = Pick<ClientState, "tiles" | "me">;
 type PushFeed = (message: string, type: string, severity: string) => void;
 
 /** Slots an AFC has spoken for: docked modules plus copies in transit (mirrors afcSlotsUsed in the simulation). */
-export const afcSlotsUsed = (afc: AfcState): number => (afc.modules?.length ?? 0) + (afc.incomingModules?.length ?? 0);
+const afcSlotsUsed = (afc: AfcState): number => (afc.modules?.length ?? 0) + (afc.incomingModules?.length ?? 0);
 export const afcIsFull = (afc: AfcState): boolean => afcSlotsUsed(afc) >= AFC_MODULE_SLOTS;
 
 const ownedAfcs = (state: SlotState): AfcState[] => {

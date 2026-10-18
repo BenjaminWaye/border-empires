@@ -25,3 +25,4 @@ button.afc-socket:hover, button.afc-socket:focus-visible { border-color: var(--s
 .afc-socket-cell[data-afc-column="3"] .afc-slot-picker { left: 50%; transform: translateX(-50%); }
 .afc-picker-heading { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; background: var(--sp-panel-bg) var(--sp-iron-900); }
 .afc-picker-heading button { flex: 0 0 32px; height: 32px; border: 1px solid var(--sp-brass-700); border-radius: 4px; color: var(--sp-brass-100); background: transparent; cursor: pointer; }
+.afc-module-panel + .tile-overview-card { margin-top: 12px; }

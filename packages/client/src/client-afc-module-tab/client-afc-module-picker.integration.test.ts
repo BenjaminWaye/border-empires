@@ -8,7 +8,7 @@ import type { TechInfo, Tile, TileMenuView } from "../client-types.js";
 
 const catalog: TechInfo[] = ["masonry", "workshops", "radar"].map((id) => ({ id, name: id, branch: "economy", tier: 1, description: "", mods: {}, requirements: { gold: 0, resources: {} }, manifestCategory: "AFC_MODULE" }));
 const tile: Tile = { x: 5, y: 6, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", afc: { ownerId: "me", status: "active", modules: ["masonry"], houseModules: ["masonry"], incomingModules: [{ techId: "workshops", arrivesAt: 31_000 }] } };
-const menuView = (nowMs = 1000): TileMenuView => ({ title: "AFC (5, 6)", subtitle: "", tabs: ["modules", "overview"], overviewLines: [], actions: [], buildings: [], crystal: [], modules: afcModuleTabForTile(tile, catalog, [{ id: "redeploy_afc_module:radar", label: "Call down Radar" }], "me", nowMs)! });
+const menuView = (nowMs = 1000): TileMenuView => ({ title: "AFC (5, 6)", subtitle: "", tabs: ["modules"], overviewLines: [], actions: [], buildings: [], crystal: [], modules: afcModuleTabForTile(tile, catalog, [{ id: "redeploy_afc_module:radar", label: "Call down Radar" }], "me", nowMs)! });
 
 type PickerHarness = {
   root: HTMLDivElement;

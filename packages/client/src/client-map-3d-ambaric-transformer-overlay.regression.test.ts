@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { CylinderGeometry, IcosahedronGeometry, InstancedMesh, Scene, SphereGeometry, TorusGeometry } from "three";
+import {
+  CylinderGeometry, IcosahedronGeometry, InstancedMesh, MeshBasicMaterial, MeshStandardMaterial, Scene, SphereGeometry, TorusGeometry
+} from "three";
 import { createAmbaricTransformerOverlay } from "./client-map-3d-ambaric-transformer-overlay.js";
+import { DIMMABLE_PIECE_KEYS } from "./client-map-3d-ambaric-transformer-dim.js";
 
 const instancedMeshes = (scene: Scene): InstancedMesh[] =>
   scene.children.filter((child): child is InstancedMesh => child instanceof InstancedMesh);
@@ -212,6 +215,55 @@ describe("aether tower overlay", () => {
     overlay.dispose();
   });
 
+  it("freezes a disabled tower and moves its glowing core into dimmed slots", () => {
+    const scene = new Scene();
+    const overlay = createAmbaricTransformerOverlay(scene, 1);
+    overlay.addInstance(0, 0, 0, 3, 7, false, true);
+    overlay.commit();
+
+    // Lit and dimmed core slots share the core geometry; the dimmed one is
+    // the only populated slot and glows at a fraction of the lit emissive.
+    const cores = instancedMeshes(scene).filter(
+      (mesh) => mesh.geometry.type === "SphereGeometry" && (mesh.geometry as SphereGeometry).parameters.radius === 0.17
+    );
+    expect(cores).toHaveLength(2);
+    const [litCore, dimCore] = cores as [InstancedMesh, InstancedMesh];
+    expect(litCore.count).toBe(0);
+    expect(dimCore.count).toBe(1);
+    const litIntensity = (litCore.material as MeshStandardMaterial).emissiveIntensity;
+    expect((dimCore.material as MeshStandardMaterial).emissiveIntensity).toBeLessThan(litIntensity * 0.5);
+    const [litMote, dimMote] = instancedMeshes(scene).filter(
+      (mesh) => mesh.material instanceof MeshBasicMaterial && (mesh.geometry as SphereGeometry).parameters.radius === 0.014
+    ) as [InstancedMesh, InstancedMesh];
+    expect(dimMote.count).toBe(2);
+    expect((dimMote.material as MeshBasicMaterial).opacity).toBeLessThan((litMote.material as MeshBasicMaterial).opacity * 0.5);
+
+    // The brass rings are still drawn but no longer spin.
+    const rings = towerRings(scene)!;
+    expect(rings.count).toBe(3);
+    const before = Array.from(rings.instanceMatrix.array.slice(0, 48));
+    overlay.update(1000);
+    overlay.update(5000);
+    expect(Array.from(rings.instanceMatrix.array.slice(0, 48))).toEqual(before);
+
+    overlay.dispose();
+  });
+
+  it("drops a disabled tower out of the aether network", () => {
+    const scene = new Scene();
+    const overlay = createAmbaricTransformerOverlay(scene, 3);
+    overlay.addInstance(0, 0, 0, 0, 0);
+    overlay.addInstance(1.2, 0, 0, 3, 1);
+    overlay.addInstance(0.6, 1.04, 0, 1, 5, false, true);
+    overlay.commit();
+
+    // Only the two lit towers bridge: one conduit, no synchronization cluster.
+    expect(linkNodes(scene)!.count).toBe(3);
+    expect(clusterRings(scene)!.count).toBe(0);
+
+    overlay.dispose();
+  });
+
   it("builds long strand geometries from unit-length pieces", () => {
     const scene = new Scene();
     const overlay = createAmbaricTransformerOverlay(scene, 3);
@@ -276,7 +328,7 @@ describe("aether tower overlay", () => {
     // One draw call per key slot, never more than the fixed slot count.
     expect(drawn.length).toBeGreaterThan(0);
     expect(drawn.length).toBeLessThanOrEqual(meshes.length);
-    expect(meshes.length).toBeLessThanOrEqual(37);
+    expect(meshes.length).toBeLessThanOrEqual(37 + DIMMABLE_PIECE_KEYS.length);
 
     const triCount = (mesh: InstancedMesh): number => {
       const { geometry } = mesh;

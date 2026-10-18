@@ -6,11 +6,9 @@
  * about. Deliberately NOT a per-spend deadline queue (manpower is spent from
  * ~15 different call sites across build/attack/settle/muster/expand, and
  * every spend would have to reschedule a per-player deadline to stay
- * accurate) — instead this is a bounded, coarse periodic sweep over players,
- * the same shape runtime-maintenance-ticks.ts's tickTileShedding already
- * uses for its own O(players) per-cycle work. Per-player cost here is a
- * handful of arithmetic reads (no BFS, no per-tile work), so unlike
- * tickTileShedding this doesn't need async/per-player yields — a live
+ * accurate) — instead this is a bounded, coarse periodic sweep over players.
+ * Per-player cost here is a handful of arithmetic reads (no BFS, no per-tile
+ * work), so it doesn't need async/per-player yields — a live
  * population makes this cheap even run back-to-back on the sim's main
  * thread, which is why it's safe to call synchronously from a plain
  * setInterval in simulation-service.ts.

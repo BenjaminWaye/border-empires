@@ -24,6 +24,10 @@ type BuildingSite = { x: number; z: number; surfaceY: number; wx: number; wy: nu
 export const buildingAnimationFrozen = (status: string | undefined): boolean =>
   status === "under_construction" || status === "removing";
 
+// A disabled Aether Tower (observatory toggled off) stops animating and dims
+// its glowing core; see client-map-3d-ambaric-transformer-dim.ts.
+export const aetherTowerDisabled = (status: string | undefined): boolean => status === "inactive";
+
 // Both shared and dedicated building overlays receive the construction state.
 export const addBuildingInstancesForTile = (
   tile: Tile,
@@ -54,7 +58,8 @@ export const addBuildingInstancesForTile = (
   }
   if (tile.observatory) {
     if (tile.naturalWonder?.type !== "WATCHTOWER_ENGINE") {
-      overlays.ambaricTransformerOverlay.addInstance(x, z, surfaceY, wx, wy, buildingAnimationFrozen(tile.observatory.status));
+      const { status } = tile.observatory;
+      overlays.ambaricTransformerOverlay.addInstance(x, z, surfaceY, wx, wy, buildingAnimationFrozen(status), aetherTowerDisabled(status));
       shadow();
     }
     const cooldownActive = tile.ownerId === state.me && tile.observatory.status === "active" && (tile.observatory.cooldownUntil ?? 0) > Date.now();

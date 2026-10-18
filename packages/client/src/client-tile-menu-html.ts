@@ -268,7 +268,7 @@ const BUILDING_GROUP_THRESHOLD = 6;
 const recommendedFirst = (actions: TileActionDef[]): TileActionDef[] => [...actions.filter((a) => a.recommended), ...actions.filter((a) => !a.recommended)];
 
 const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string => {
-  if (activeTab === "modules") return view.modules ? afcModuleTabHtml(view.modules, tileActionButtonHtml) : "";
+  if (activeTab === "modules") return view.modules ? `${afcModuleTabHtml(view.modules, tileActionButtonHtml)}${view.overviewLines.length > 0 ? tileOverviewCardHtml(view.overviewLines) : ""}` : "";
   const actionsForTab =
     activeTab === "actions" ? view.actions : activeTab === "buildings" ? view.buildings : activeTab === "crystal" ? view.crystal : undefined;
   if (actionsForTab) {
@@ -354,14 +354,16 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
       </div>
     `;
   }
-  return `
+  return tileOverviewCardHtml(view.overviewLines);
+};
+
+const tileOverviewCardHtml = (lines: TileMenuView["overviewLines"]): string => `
     <div class="tile-overview-card">
-      ${view.overviewLines.length === 0 ? `<div class="tile-overview-line">Nothing notable on this tile.</div>` : ""}${view.overviewLines
+      ${lines.length === 0 ? `<div class="tile-overview-line">Nothing notable on this tile.</div>` : ""}${lines
         .map((line) => `<div class="tile-overview-line${line.kind === "effect" ? " tile-overview-line-effect" : ""}${line.kind === "section" ? " tile-overview-line-section" : ""}${line.kind === "loading" ? " tile-overview-line-loading" : ""}${line.kind === "group" ? " tile-overview-line-group" : ""}${line.kind === "statgrid" ? " tile-overview-line-statgrid" : ""}${line.nested ? " tile-overview-line-nested" : ""}">${line.html}</div>`)
         .join("")}
     </div>
   `;
-};
 
 export const tileActionMenuHtml = (view: TileMenuView, activeTab: TileMenuTab, mobile: boolean): string => {
   const tabsHtml =

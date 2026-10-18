@@ -22,6 +22,7 @@ import { OUT_OF_REACH_NO_DECAY_CHANGELOG } from "./client-changelog-out-of-reach
 import { FRONTIER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-frontier-supply-lines.js";
 import { MANPOWER_BATCH_LABEL_CHANGELOG } from "./client-changelog-manpower-batch-label.js";
 import { RESTART_TILE_STATE_CHANGELOG } from "./client-changelog-restart-tile-state.js";
+import { RESTART_MANPOWER_CHANGELOG } from "./client-changelog-restart-manpower.js";
 import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-recent-groups.js";
 import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
 import { CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD } from "./client-changelog-activity-dashboard.js";
@@ -147,6 +148,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...MANPOWER_BATCH_LABEL_CHANGELOG,
   ...RESTART_TILE_STATE_CHANGELOG,
+  ...RESTART_MANPOWER_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING,
   ...CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY,
   {
@@ -466,13 +468,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["Mintworks are now Manufactories, preserving their costs, income, stacking and Clearing House bonuses", "The Industrial Tooling Module fabricates and refurbishes equipment for local Manufactories; new construction requires the module installed on an active AFC", "New factory artwork appears in both the 3D and 2D maps; existing buildings and queued builds carry over"]
   },
   {
-    createdAt: 1792270126879, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.17.3",
-    title: "Industrial Tooling docks as a precision mill",
-    why: "The Manufactory unlock deserves its own visible AFC machine.",
-    changes: ["The Industrial Tooling Module now has a dedicated 3D milling gantry with a moving spindle, rotating drive wheel and tool rack", "The 2D map shows a matching gantry symbol on AFCs with tooling installed"]
-  },
-  {
     createdAt: 1792274781110, // Date.now() captured once for this release.
     introducedIn: "2026.10.18.1",
     title: "Automatic reconnection keeps trying through server updates",
@@ -482,6 +477,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A reconnect that makes no progress for a minute automatically starts a fresh connection",
       "Login queue updates and ongoing map downloads extend that timeout so active recovery can finish",
       "Recovery pauses after sign-out; signing back in reopens a closed connection"
+    ]
+  },
+  {
+    createdAt: 1792307935274, // Date.now() frozen for this release.
+    introducedIn: "2026.10.18.1",
+    title: "AFC upgrades are easier to find and compare",
+    why: "Upgrade choices were easy to miss, and opening a separate detail screen made comparing them awkward on phones.",
+    changes: [
+      "AFC Upgrades replaces Sharding in navigation, with installed upgrades and their tiers above the current choices, inline details on phones and comparison cards beside details on desktop",
+      "A clickable upgrade-ready badge appears above your active AFCs in both map renderers; the navigation count stays visible when the AFC is offscreen",
+      "Owned AFC overviews link directly to upgrades, and availability follows your current resources and prerequisites; existing upgrade costs and rewards stay the same"
     ]
   }
 ];

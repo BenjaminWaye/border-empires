@@ -8,6 +8,8 @@ export const tileMenuTabs = (input: { progress: boolean; actions: boolean; build
   if (input.buildings) tabs.push("buildings");
   if (input.crystal) tabs.push("crystal");
   if (input.commit) tabs.push("commit");
-  tabs.push("overview");
+  // An AFC's Modules tab is its overview (like a town's stat grid), so the
+  // remaining tile details render beneath the socket diagram instead.
+  if (!input.modules) tabs.push("overview");
   return tabs;
 };

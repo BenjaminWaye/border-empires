@@ -25,7 +25,7 @@ import { recordAiPlannerDecision } from "./record-ai-planner-decision.js";
 import { createSimulationCommandStore } from "../command-store-factory/command-store-factory.js";
 import { createSimulationEventStore } from "../event-store-factory/event-store-factory.js";
 import { createSimulationSnapshotStore } from "../snapshot-store-factory/snapshot-store-factory.js";
-import { createSnapshotCheckpointManager } from "../snapshot-checkpoint-manager/snapshot-checkpoint-manager.js";
+import { createSimulationCheckpointManager, saveShutdownCheckpoint } from "./simulation-service-checkpointing.js";
 import {
   createHybridSnapshotStringifier,
   createWorkerSnapshotStringifier,
@@ -757,7 +757,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(5_000) }).catch(() => {});
       }
     }),
-    onPlayerStateUpdateSkippedAi: () => { simulationMetrics.incrementSimPlayerStateUpdateSkippedAi(); },
     ...(legacySnapshotBootstrap ? { seedTiles: legacySnapshotBootstrap.seedTiles } : {}),
     initialPlayers: runtimePlayers
   });
@@ -808,56 +807,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   } catch {
     gcObserver = undefined;
   }
-  let checkpointSaveStartMs = 0;
-  const snapshotCheckpointManager = createSnapshotCheckpointManager({
+  const snapshotCheckpointManager = createSimulationCheckpointManager({
     eventStore,
     snapshotStore,
-    exportSnapshotSections: async () => {
-      const snapshotSections = await runtime.exportSnapshotSectionsAsync(yieldToEventLoop);
-      return {
-        ...snapshotSections,
-        initialState: {
-          ...snapshotSections.initialState,
-          season: currentSeasonState
-        }
-      };
-    },
-    checkpointEveryEvents: options.checkpointEveryEvents ?? 5000,
-    ...(typeof options.checkpointForceAfterEvents === "number"
-      ? { forceCheckpointAfterEvents: options.checkpointForceAfterEvents }
-      : {}),
-    ...(typeof options.checkpointMaxRssBytes === "number" ? { maxCheckpointRssBytes: options.checkpointMaxRssBytes } : {}),
-    ...(typeof options.checkpointMaxHeapUsedBytes === "number"
-      ? { maxCheckpointHeapUsedBytes: options.checkpointMaxHeapUsedBytes }
-      : {}),
-    onCheckpointPhase: ({ phase, pendingEvents, memoryUsage, lastAppliedEventId }) => {
-      simulationMetrics.setSimCheckpointRssMb(memoryUsage.rssBytes / (1024 * 1024));
-      if (phase === "before_save") checkpointSaveStartMs = Date.now();
-      if (phase === "after_save" && checkpointSaveStartMs > 0) {
-        simulationMetrics.observeSimCheckpointExportMs(Date.now() - checkpointSaveStartMs);
-        checkpointSaveStartMs = 0;
-      }
-      // Replay-cache observability: recordedCommandHistorySize is the count of
-      // commands whose events embed in this snapshot (previously leaked to 122k);
-      // recordedHistoryEvicted>0 means an unforeseen server prefix is leaking past
-      // the classification gate and hitting the hard cap.
-      const replayCacheStats = phase === "before_save" ? runtime.replayCacheStats() : undefined;
-      if (replayCacheStats) simulationMetrics.setReplayCacheStats(replayCacheStats);
-      log.info(
-        {
-          phase,
-          pendingEvents,
-          rssBytes: memoryUsage.rssBytes,
-          heapUsedBytes: memoryUsage.heapUsedBytes,
-          heapTotalBytes: memoryUsage.heapTotalBytes,
-          ...(typeof lastAppliedEventId === "number" ? { lastAppliedEventId } : {}),
-          ...(replayCacheStats ? { replayCache: replayCacheStats } : {})
-        },
-        phase === "skipped_high_memory"
-          ? "simulation checkpoint deferred due to memory watermark"
-          : "simulation checkpoint phase"
-      );
-    }
+    runtime: () => runtime,
+    season: () => currentSeasonState,
+    metrics: simulationMetrics,
+    log,
+    options
   });
   // Wire the deferred callback so CACHE shard collections trigger an immediate checkpoint.
   onShardCollectedCallback = () => {
@@ -1035,7 +992,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let metricsTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopSampler: ReturnType<typeof setInterval> | undefined;
   let shardRainTicker: ReturnType<typeof setInterval> | undefined;
-  let tileSheddingTicker: ReturnType<typeof setInterval> | undefined;
+  let manpowerFullAlertTicker: ReturnType<typeof setInterval> | undefined;
   let territoryAutomationTicker: ReturnType<typeof setInterval> | undefined; let waypointDrainTicker: ReturnType<typeof setInterval> | undefined;
   let orphanLockSweepTicker: ReturnType<typeof setInterval> | undefined;
   let watchedMusterTicker: ReturnType<typeof setInterval> | undefined;
@@ -1856,7 +1813,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           }
           return false;
         },
-        onPlayerStateUpdateSkippedAi: () => { simulationMetrics.incrementSimPlayerStateUpdateSkippedAi(); },
         onUpkeepNettedWhileIncomePaused: () => { simulationMetrics.incrementSimUpkeepNettedWhileIncomePaused(); }
       });
       const nextRuntimeState = nextRuntime.exportState();
@@ -2414,21 +2370,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           log.error({ err: error }, "shard rain tick failed");
         }
       }, 60_000);
-      let tileSheddingRunning = false;
-      tileSheddingTicker = setInterval(() => {
-        if (currentSeasonState.status === "ended") return; try { runtime.tickManpowerFullAlerts(Date.now()); } catch (error) { log.error({ err: error }, "manpower full alert tick failed"); } // "Manpower full" email piggybacks on this 60s tick -- docs/replenishment-update-plan.md D1/D11, runtime-manpower-full-alert.ts
-        // Overlap guard: applyEconomyAccrual rebuilds tileYieldEconomyContextForPlayer
-        // (buildConnectedTownNetworkForPlayer BFS) on cache miss — ~540ms per player.
-        // Running 6 players synchronously was a ~3.2s block exceeding the 2500ms gRPC
-        // timeout. Async with per-player yields lets commands drain between players.
-        if (tileSheddingRunning) {
-          log.info("[tile_shedding] skipping tick — previous tick still running");
-          return;
-        }
-        tileSheddingRunning = true;
-        void runtime.tickTileShedding(Date.now(), yieldToEventLoop)
-          .catch((error) => { log.error({ err: error }, "tile shedding tick failed"); })
-          .finally(() => { tileSheddingRunning = false; });
+      manpowerFullAlertTicker = setInterval(() => {
+        if (currentSeasonState.status === "ended") return;
+        // "Manpower full" email -- docs/replenishment-update-plan.md D1/D11, runtime-manpower-full-alert.ts
+        try { runtime.tickManpowerFullAlerts(Date.now()); } catch (error) { log.error({ err: error }, "manpower full alert tick failed"); }
       }, 60_000);
       populationGrowthTicker = setInterval(() => {
         if (currentSeasonState.status === "ended") return;
@@ -2758,7 +2703,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (metricsTicker) clearInterval(metricsTicker);
       if (eventLoopSampler) clearInterval(eventLoopSampler);
       if (shardRainTicker) clearInterval(shardRainTicker);
-      if (tileSheddingTicker) clearInterval(tileSheddingTicker);
+      if (manpowerFullAlertTicker) clearInterval(manpowerFullAlertTicker);
       if (territoryAutomationTicker) clearInterval(territoryAutomationTicker); if (waypointDrainTicker) clearInterval(waypointDrainTicker);
       if (orphanLockSweepTicker) clearInterval(orphanLockSweepTicker);
       if (watchedMusterTicker) clearInterval(watchedMusterTicker);
@@ -2779,9 +2724,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           resolve();
         });
       });
+      // Nothing may change the world after the last event is persisted: the
+      // shutdown checkpoint below must capture one consistent moment.
+      runtime.freezeScheduledTasks();
       unsubscribeRuntimeEvents?.();
       globalStatusBroadcaster.dispose();
       await persistenceQueue.whenIdle();
+      await saveShutdownCheckpoint(snapshotCheckpointManager, log);
       // All persistence tasks have resolved — their acks mean the writer worker
       // has committed every write. Safe to terminate the worker now.
       await writerChannel?.terminate();
