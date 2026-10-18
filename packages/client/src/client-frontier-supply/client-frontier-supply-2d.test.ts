@@ -72,4 +72,12 @@ describe("drawFrontierSupply2D", () => {
     drawFrontierSupply2D(empty.ctx, { links: [] }, deps());
     expect(empty.calls).toHaveLength(0);
   });
+
+  it("keeps the steady route pale so only the travelling pulses stand out", () => {
+    const { ctx, calls } = recordingContext();
+    drawFrontierSupply2D(ctx, { links: [link(2, 8, { depth: 1 })] }, deps({ nowMs: 1000 }));
+    const bodyAlphas = strokes(calls).filter((call) => call.stroke === "#3fa9f5").map((call) => call.alpha);
+    expect(Math.min(...bodyAlphas)).toBeLessThan(0.2); // the resting ribbon
+    expect(Math.max(...bodyAlphas)).toBeGreaterThan(0.3); // a pulse passing
+  });
 });

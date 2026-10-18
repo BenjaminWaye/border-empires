@@ -1,6 +1,6 @@
 import type { FrontierSupplyModel } from "./client-frontier-supply.js";
 import { supplyRoutesFor, type SupplyRoute, type SupplyRoutePoint } from "./client-frontier-supply-routes.js";
-import { supplyPulseAt } from "./client-frontier-supply-style.js";
+import { SUPPLY_ROUTE_REST_ALPHA, SUPPLY_SHADOW_REST_ALPHA, supplyPulseAt } from "./client-frontier-supply-style.js";
 
 /**
  * 2D canvas renderer for frontier supply routes (the 3D counterpart is
@@ -8,10 +8,10 @@ import { supplyPulseAt } from "./client-frontier-supply-style.js";
  * routes.ts in the client-frontier-supply-style.ts look). Drawn as one pass
  * after the tile loop, so a route crossing tile edges isn't painted over.
  *
- * Each route is stroked in three layers, segment by segment so width,
- * opacity and fragility can vary along it: a soft dark shadow edge, the
- * empire-coloured body, and a light core that brightens where a pulse is
- * passing. Branch tips get an arrowhead.
+ * Each route is stroked in three faint layers, in runs so width and opacity
+ * can vary along it: a soft dark shadow edge, the empire-coloured body, and
+ * a light core. Those stay pale; travelling pulses are drawn bright on top,
+ * and the arrowhead at each branch tip lights up as a pulse reaches it.
  */
 export type FrontierSupply2DDeps = {
   /** Screen-space centre of a tile (wrapped tile coordinates). */
@@ -74,16 +74,18 @@ const drawArrowhead = (ctx: CanvasRenderingContext2D, points: ScreenPoint[], dep
     ctx.lineTo(bx + dy * half, by - dx * half);
     ctx.closePath();
   };
-  ctx.globalAlpha = end.p.alpha * 0.45;
+  const pulse = supplyPulseAt(end.p.distance, deps.nowMs);
+  const lit = SUPPLY_ROUTE_REST_ALPHA + (1 - SUPPLY_ROUTE_REST_ALPHA) * pulse;
+  ctx.globalAlpha = end.p.alpha * (SUPPLY_SHADOW_REST_ALPHA + 0.4 * pulse);
   ctx.strokeStyle = SHADOW_COLOR;
   ctx.lineWidth = Math.max(2, size * 0.06);
   trace();
   ctx.stroke();
-  ctx.globalAlpha = end.p.alpha;
+  ctx.globalAlpha = end.p.alpha * lit;
   ctx.fillStyle = deps.ownerColor;
   trace();
   ctx.fill();
-  ctx.globalAlpha = end.p.alpha * (0.25 + 0.6 * supplyPulseAt(end.p.distance, deps.nowMs));
+  ctx.globalAlpha = end.p.alpha * 0.6 * pulse;
   ctx.fillStyle = CORE_COLOR;
   trace();
   ctx.fill();
@@ -134,17 +136,22 @@ const drawRoute = (ctx: CanvasRenderingContext2D, route: SupplyRoute, deps: Fron
   if (points.length < 2 || !isOnScreen(points, deps)) return;
   const size = deps.size;
   const runs = runsOf(points);
-  // Layer by layer: soft dark edge, body, steady core.
-  for (const run of runs) strokeRun(ctx, points, run, run.width * SHADOW_SCALE * size, run.alpha * 0.32, SHADOW_COLOR);
-  for (const run of runs) strokeRun(ctx, points, run, run.width * size, run.alpha * 0.85, deps.ownerColor);
-  for (const run of runs) strokeRun(ctx, points, run, run.width * CORE_SCALE * size, run.alpha * 0.4, CORE_COLOR);
-  // Travelling pulses on top: only the lit stretches, so overlaps there just read as glow.
+  // Layer by layer, all kept pale at rest: soft dark edge, body, steady core.
+  for (const run of runs) strokeRun(ctx, points, run, run.width * SHADOW_SCALE * size, run.alpha * SUPPLY_SHADOW_REST_ALPHA, SHADOW_COLOR);
+  for (const run of runs) strokeRun(ctx, points, run, run.width * size, run.alpha * SUPPLY_ROUTE_REST_ALPHA, deps.ownerColor);
+  for (const run of runs) strokeRun(ctx, points, run, run.width * CORE_SCALE * size, run.alpha * SUPPLY_ROUTE_REST_ALPHA * 0.5, CORE_COLOR);
+  // Travelling pulses on top, at full strength: shadow, empire body, white
+  // head. Only the lit stretches, so overlaps there just read as glow.
   for (let i = 1; i < points.length; i += 1) {
     const a = points[i - 1]!;
     const b = points[i]!;
     const pulse = supplyPulseAt((a.p.distance + b.p.distance) / 2, deps.nowMs);
     if (pulse < 0.04) continue;
-    strokeSegment(ctx, a, b, (a.p.width + b.p.width) * 0.5 * size * 0.6, ((a.p.alpha + b.p.alpha) / 2) * pulse * 0.8, CORE_COLOR);
+    const width = (a.p.width + b.p.width) * 0.5 * size;
+    const alpha = ((a.p.alpha + b.p.alpha) / 2) * pulse;
+    strokeSegment(ctx, a, b, width * SHADOW_SCALE, alpha * 0.3, SHADOW_COLOR);
+    strokeSegment(ctx, a, b, width, alpha * 0.85, deps.ownerColor);
+    strokeSegment(ctx, a, b, width * 0.6, alpha * 0.8, CORE_COLOR);
   }
   if (route.endsAtTip) drawArrowhead(ctx, points, deps);
 };

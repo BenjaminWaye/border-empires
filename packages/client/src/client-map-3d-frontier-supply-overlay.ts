@@ -3,7 +3,13 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 
 import type { FrontierSupplyModel } from "./client-frontier-supply/client-frontier-supply.js";
 import { supplyRoutesFor, type SupplyRoute } from "./client-frontier-supply/client-frontier-supply-routes.js";
-import { SUPPLY_CORE_WHITE_MIX, SUPPLY_PULSE_SPACING, SUPPLY_PULSE_SPEED } from "./client-frontier-supply/client-frontier-supply-style.js";
+import {
+  SUPPLY_CORE_WHITE_MIX,
+  SUPPLY_PULSE_SPACING,
+  SUPPLY_PULSE_SPEED,
+  SUPPLY_ROUTE_REST_ALPHA,
+  SUPPLY_SHADOW_REST_ALPHA
+} from "./client-frontier-supply/client-frontier-supply-style.js";
 
 // True-3D renderer for frontier supply routes (the 2D counterpart is
 // client-frontier-supply/client-frontier-supply-2d.ts; both draw the routes
@@ -13,7 +19,9 @@ import { SUPPLY_CORE_WHITE_MIX, SUPPLY_PULSE_SPACING, SUPPLY_PULSE_SPEED } from 
 // Every route is one ribbon in a single merged mesh. The ribbon is wider than
 // the visible route by RIBBON_EXTENT so the fragment shader can draw, from
 // the across-ribbon coordinate alone: a bright core, the empire-tinted body,
-// and a soft dark shadow edge that keeps it legible on any terrain. Pulses
+// and a soft dark shadow edge. All of it stays pale at rest and comes up to
+// full strength only where a pulse is passing, so the player reads the route
+// from the travelling pulses rather than the ribbon itself. Pulses
 // travel along a per-vertex distance-from-supply attribute, so per frame the
 // CPU sets one time uniform. Geometry is rebuilt only when the model or the
 // scene origin changes.
@@ -54,7 +62,9 @@ const routeMaterial = (): ShaderMaterial =>
       uCore: { value: new Color("#ffffff") },
       uExtent: { value: RIBBON_EXTENT },
       uSpeed: { value: SUPPLY_PULSE_SPEED },
-      uSpacing: { value: SUPPLY_PULSE_SPACING }
+      uSpacing: { value: SUPPLY_PULSE_SPACING },
+      uRestAlpha: { value: SUPPLY_ROUTE_REST_ALPHA },
+      uShadowRestAlpha: { value: SUPPLY_SHADOW_REST_ALPHA }
     },
     transparent: true,
     depthTest: false,
@@ -81,6 +91,8 @@ const routeMaterial = (): ShaderMaterial =>
       uniform float uExtent;
       uniform float uSpeed;
       uniform float uSpacing;
+      uniform float uRestAlpha;
+      uniform float uShadowRestAlpha;
       varying float vAcross;
       varying float vDistance;
       varying float vAlpha;
@@ -91,7 +103,7 @@ const routeMaterial = (): ShaderMaterial =>
         float behind = 1.0 - fract(t);
         float pulse = min(1.0, behind / 0.04) * max(0.0, 1.0 - behind / 0.45);
         if (vTip > 0.5) {
-          gl_FragColor = vec4(mix(uBody, uCore, 0.3 + 0.6 * pulse), vAlpha);
+          gl_FragColor = vec4(mix(uBody, uCore, 0.3 + 0.6 * pulse), vAlpha * mix(uRestAlpha, 1.0, pulse));
           return;
         }
         float a = abs(vAcross) * uExtent; // 1.0 at the visible route edge
@@ -100,7 +112,7 @@ const routeMaterial = (): ShaderMaterial =>
         float inCore = 1.0 - smoothstep(0.0, 0.5, a);
         vec3 lit = mix(uBody, uCore, min(1.0, inCore * 0.7 + pulse * 0.9));
         vec3 color = mix(lit, vec3(0.02, 0.03, 0.05), inShadow);
-        float alpha = (inBody * (0.82 + 0.18 * pulse) + inShadow * 0.38) * vAlpha;
+        float alpha = (inBody * mix(uRestAlpha, 1.0, pulse) + inShadow * (uShadowRestAlpha + 0.33 * pulse)) * vAlpha;
         gl_FragColor = vec4(color, alpha);
       }
     `
