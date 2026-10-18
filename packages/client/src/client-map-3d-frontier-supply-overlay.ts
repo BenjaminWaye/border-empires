@@ -8,6 +8,7 @@ import {
   SUPPLY_PULSE_SPACING,
   SUPPLY_PULSE_SPEED,
   SUPPLY_ROUTE_REST_ALPHA,
+  SUPPLY_SHADOW_PULSE_LIFT,
   SUPPLY_SHADOW_REST_ALPHA
 } from "./client-frontier-supply/client-frontier-supply-style.js";
 
@@ -64,7 +65,8 @@ const routeMaterial = (): ShaderMaterial =>
       uSpeed: { value: SUPPLY_PULSE_SPEED },
       uSpacing: { value: SUPPLY_PULSE_SPACING },
       uRestAlpha: { value: SUPPLY_ROUTE_REST_ALPHA },
-      uShadowRestAlpha: { value: SUPPLY_SHADOW_REST_ALPHA }
+      uShadowRestAlpha: { value: SUPPLY_SHADOW_REST_ALPHA },
+      uShadowLift: { value: SUPPLY_SHADOW_PULSE_LIFT }
     },
     transparent: true,
     depthTest: false,
@@ -93,6 +95,7 @@ const routeMaterial = (): ShaderMaterial =>
       uniform float uSpacing;
       uniform float uRestAlpha;
       uniform float uShadowRestAlpha;
+      uniform float uShadowLift;
       varying float vAcross;
       varying float vDistance;
       varying float vAlpha;
@@ -102,6 +105,7 @@ const routeMaterial = (): ShaderMaterial =>
         float t = (vDistance - uTimeS * uSpeed) / uSpacing;
         float behind = 1.0 - fract(t);
         float pulse = min(1.0, behind / 0.04) * max(0.0, 1.0 - behind / 0.45);
+        // mix(uRestAlpha, 1.0, pulse) is supplyLitAlpha from client-frontier-supply-style.ts.
         if (vTip > 0.5) {
           gl_FragColor = vec4(mix(uBody, uCore, 0.3 + 0.6 * pulse), vAlpha * mix(uRestAlpha, 1.0, pulse));
           return;
@@ -112,7 +116,7 @@ const routeMaterial = (): ShaderMaterial =>
         float inCore = 1.0 - smoothstep(0.0, 0.5, a);
         vec3 lit = mix(uBody, uCore, min(1.0, inCore * 0.7 + pulse * 0.9));
         vec3 color = mix(lit, vec3(0.02, 0.03, 0.05), inShadow);
-        float alpha = (inBody * mix(uRestAlpha, 1.0, pulse) + inShadow * (uShadowRestAlpha + 0.33 * pulse)) * vAlpha;
+        float alpha = (inBody * mix(uRestAlpha, 1.0, pulse) + inShadow * (uShadowRestAlpha + uShadowLift * pulse)) * vAlpha;
         gl_FragColor = vec4(color, alpha);
       }
     `

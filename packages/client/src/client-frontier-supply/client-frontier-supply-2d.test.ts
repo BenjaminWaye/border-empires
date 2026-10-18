@@ -80,4 +80,27 @@ describe("drawFrontierSupply2D", () => {
     expect(Math.min(...bodyAlphas)).toBeLessThan(0.2); // the resting ribbon
     expect(Math.max(...bodyAlphas)).toBeGreaterThan(0.3); // a pulse passing
   });
+
+  it("strokes the pulse layer by layer, so a pulse's shadow never lands on its own bright head", () => {
+    const { ctx, calls } = recordingContext();
+    const chain = [2, 3, 4, 5, 6, 7].map((x) => link(x, x + 1, { depth: 1, tip: false }));
+    drawFrontierSupply2D(ctx, { links: chain }, deps({ nowMs: 1000 }));
+    const all = strokes(calls);
+    // Pulse heads are the widest white strokes (the steady core is narrower).
+    const headWidth = Math.max(...all.filter((call) => call.stroke === "#ffffff").map((call) => call.lineWidth));
+    const firstHead = all.findIndex((call) => call.stroke === "#ffffff" && call.lineWidth === headWidth);
+    expect(firstHead).toBeGreaterThanOrEqual(0);
+    expect(all.slice(firstHead).some((call) => call.stroke === "#05080d")).toBe(false);
+  });
+
+  it("lights the tip arrowhead only as a pulse reaches it", () => {
+    const arrowBody = (nowMs: number) => {
+      const { ctx, calls } = recordingContext();
+      drawFrontierSupply2D(ctx, { links: [link(2, 3, { depth: 1 })] }, deps({ nowMs }));
+      return fills(calls).find((call) => call.fill === "#3fa9f5")!.alpha;
+    };
+    const samples = Array.from({ length: 40 }, (_, i) => arrowBody(i * 50));
+    expect(Math.min(...samples)).toBeLessThan(0.2);
+    expect(Math.max(...samples)).toBeGreaterThan(0.6);
+  });
 });

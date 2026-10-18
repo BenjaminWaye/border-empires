@@ -32,6 +32,11 @@ export const supplyRouteAlpha = (depthBeyondReach: number): number =>
 export const SUPPLY_ROUTE_REST_ALPHA = 0.14;
 /** Opacity of the dark shadow edge at rest; it lifts with a passing pulse so pulses stay legible on bright terrain. */
 export const SUPPLY_SHADOW_REST_ALPHA = 0.05;
+/** How much a passing pulse adds to the shadow edge's opacity. */
+export const SUPPLY_SHADOW_PULSE_LIFT = 0.3;
+
+/** Ribbon/arrowhead opacity factor for a 0..1 pulse brightness: pale at rest, full where a pulse is passing. */
+export const supplyLitAlpha = (pulse: number): number => SUPPLY_ROUTE_REST_ALPHA + (1 - SUPPLY_ROUTE_REST_ALPHA) * pulse;
 
 /** Pulse travel speed along a route, tiles per second. */
 export const SUPPLY_PULSE_SPEED = 1.2;
