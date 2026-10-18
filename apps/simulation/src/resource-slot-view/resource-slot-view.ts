@@ -401,8 +401,8 @@ export const resourceSlotDemandForPlayer = (
 // dormant at all."
 //
 // Towns compete in the same newest-first ordering as any other FOOD
-// consumer, keyed off settledAtByTileKey (Runtime.tileSettledAtByKey — the
-// tile-shedding ticker's stamp). A freshly settled town is therefore the
+// consumer, keyed off settledAtByTileKey (Runtime.tileSettledAtByKey, whose
+// town stamps survive restarts). A freshly settled town is therefore the
 // newest contributor and goes dormant first for the shortfall its own
 // demand created, instead of some unrelated older structure (e.g. a Relay
 // Beacon) that used to be sacrificed while towns sat pinned as oldest

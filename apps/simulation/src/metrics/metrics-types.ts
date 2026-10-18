@@ -174,8 +174,6 @@ export type SimulationMetricsSnapshot = {
   simWriterQueueDepth: number;
   /** Times post() awaited drain because the queue hit its depth cap; 0 means backpressure never engaged. */
   simWriterQueueBackpressureWaitTotal: number;
-  /** Times the tile-shedding tick skipped emitPlayerStateUpdate for an AI player; 0 means the skip never engaged. */
-  simPlayerStateUpdateSkippedAiTotal: number;
   /** Entries in the replay cache embedded in each snapshot (gauge; was 122k pre-#615). */
   simReplayRecordedCommandHistory: number;
   /** Replay-cache hard-cap evictions; >0 means a server commandId prefix is leaking past the denylist. */

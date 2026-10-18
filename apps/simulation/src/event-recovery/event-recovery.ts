@@ -135,7 +135,8 @@ const applyTileDeltaToRecoveredAccumulator = (
     // For ownership + per-tile-structure fields, an empty-string delta value
     // means "explicit clear" (same rule as the overlays, see
     // recoverOverlaySubstructures below). Without the `in` check, a clearing
-    // event emitted by the tile-shedding ticker (or by UNCAPTURE_TILE)
+    // event (e.g. one emitted by UNCAPTURE_TILE, or by the since-removed
+    // tile-shedding ticker in older event logs)
     // wouldn't replay correctly and the recovered state would preserve the
     // prior owner/structures.
     ...("ownerId" in tileDelta

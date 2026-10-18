@@ -757,7 +757,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(5_000) }).catch(() => {});
       }
     }),
-    onPlayerStateUpdateSkippedAi: () => { simulationMetrics.incrementSimPlayerStateUpdateSkippedAi(); },
     ...(legacySnapshotBootstrap ? { seedTiles: legacySnapshotBootstrap.seedTiles } : {}),
     initialPlayers: runtimePlayers
   });
@@ -993,7 +992,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let metricsTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopSampler: ReturnType<typeof setInterval> | undefined;
   let shardRainTicker: ReturnType<typeof setInterval> | undefined;
-  let tileSheddingTicker: ReturnType<typeof setInterval> | undefined;
+  let manpowerFullAlertTicker: ReturnType<typeof setInterval> | undefined;
   let territoryAutomationTicker: ReturnType<typeof setInterval> | undefined; let waypointDrainTicker: ReturnType<typeof setInterval> | undefined;
   let orphanLockSweepTicker: ReturnType<typeof setInterval> | undefined;
   let watchedMusterTicker: ReturnType<typeof setInterval> | undefined;
@@ -1814,8 +1813,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           }
           return false;
         },
-        onPlayerStateUpdateSkippedAi: () => { simulationMetrics.incrementSimPlayerStateUpdateSkippedAi(); },
-        onUpkeepNettedWhileIncomePaused: () => { simulationMetrics.incrementSimUpkeepNettedWhileIncomePaused(); }
+            onUpkeepNettedWhileIncomePaused: () => { simulationMetrics.incrementSimUpkeepNettedWhileIncomePaused(); }
       });
       const nextRuntimeState = nextRuntime.exportState();
       const nextWorldStatus = buildWorldStatusSnapshot("", nextRuntimeState, {
@@ -2372,21 +2370,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           log.error({ err: error }, "shard rain tick failed");
         }
       }, 60_000);
-      let tileSheddingRunning = false;
-      tileSheddingTicker = setInterval(() => {
-        if (currentSeasonState.status === "ended") return; try { runtime.tickManpowerFullAlerts(Date.now()); } catch (error) { log.error({ err: error }, "manpower full alert tick failed"); } // "Manpower full" email piggybacks on this 60s tick -- docs/replenishment-update-plan.md D1/D11, runtime-manpower-full-alert.ts
-        // Overlap guard: applyEconomyAccrual rebuilds tileYieldEconomyContextForPlayer
-        // (buildConnectedTownNetworkForPlayer BFS) on cache miss — ~540ms per player.
-        // Running 6 players synchronously was a ~3.2s block exceeding the 2500ms gRPC
-        // timeout. Async with per-player yields lets commands drain between players.
-        if (tileSheddingRunning) {
-          log.info("[tile_shedding] skipping tick — previous tick still running");
-          return;
-        }
-        tileSheddingRunning = true;
-        void runtime.tickTileShedding(Date.now(), yieldToEventLoop)
-          .catch((error) => { log.error({ err: error }, "tile shedding tick failed"); })
-          .finally(() => { tileSheddingRunning = false; });
+      manpowerFullAlertTicker = setInterval(() => {
+        if (currentSeasonState.status === "ended") return;
+        // "Manpower full" email -- docs/replenishment-update-plan.md D1/D11, runtime-manpower-full-alert.ts
+        try { runtime.tickManpowerFullAlerts(Date.now()); } catch (error) { log.error({ err: error }, "manpower full alert tick failed"); }
       }, 60_000);
       populationGrowthTicker = setInterval(() => {
         if (currentSeasonState.status === "ended") return;
@@ -2716,7 +2703,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (metricsTicker) clearInterval(metricsTicker);
       if (eventLoopSampler) clearInterval(eventLoopSampler);
       if (shardRainTicker) clearInterval(shardRainTicker);
-      if (tileSheddingTicker) clearInterval(tileSheddingTicker);
+      if (manpowerFullAlertTicker) clearInterval(manpowerFullAlertTicker);
       if (territoryAutomationTicker) clearInterval(territoryAutomationTicker); if (waypointDrainTicker) clearInterval(waypointDrainTicker);
       if (orphanLockSweepTicker) clearInterval(orphanLockSweepTicker);
       if (watchedMusterTicker) clearInterval(watchedMusterTicker);

@@ -24,7 +24,7 @@ export const withoutStaleCaptureHold = (
 };
 
 /**
- * Maintains the settledAt stamp the tile-shedding ticker reads:
+ * Maintains the settledAt stamp resource-slot dormancy and reach anchors read:
  *   - newly SETTLED (previously not, or new owner) → stamp `now`
  *   - leaves SETTLED → clear
  *   - stays SETTLED for the same owner → preserve existing stamp

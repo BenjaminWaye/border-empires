@@ -8,7 +8,8 @@ export const RESTART_MANPOWER_CHANGELOG: ClientChangelogEntry[] = [
     why: "A server update restored manpower from the last save, so manpower spent shortly before an update came back while the land it bought stayed. Updates could also switch an Ancillary Depot off for food when a newer town should have gone without, lowering your manpower cap until it later switched back on and refilled you.",
     changes: [
       "Manpower you spend stays spent across server updates",
-      "Server updates no longer change which towns or structures go without food, so your manpower cap stays the same"
+      "Server updates no longer change which towns or structures go without food, so your manpower cap stays the same",
+      "Running out of gold no longer makes you lose land one tile per minute"
     ]
   }
 ];

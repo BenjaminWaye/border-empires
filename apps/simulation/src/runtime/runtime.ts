@@ -360,10 +360,7 @@ import {
   supportedTownKeysForTile as supportedTownKeysForTileImpl
 } from "../runtime-structure-support/runtime-structure-support.js";
 import { tickPopulationGrowth as tickPopulationGrowthImpl } from "../runtime-population-growth.js"; import { tickManpowerFullAlerts as tickManpowerFullAlertsImpl } from "../runtime-manpower-full-alert.js";
-import {
-  tickOrphanedLockSweep as tickOrphanedLockSweepImpl,
-  tickTileShedding as tickTileSheddingImpl
-} from "../runtime-maintenance-ticks.js";
+import { tickOrphanedLockSweep as tickOrphanedLockSweepImpl } from "../runtime-maintenance-ticks.js";
 import {
   isNeutralBeaconTile as isNeutralBeaconTileImpl,
   rebuildPlannerCandidateIndexesForPlayer as rebuildPlannerCandidateIndexesForPlayerImpl,
@@ -576,7 +573,6 @@ export class SimulationRuntime {
   private readonly onMusterRemoteBlockedBarbarian: (() => void) | undefined;
   private readonly onAutoFillTiles: ((count: number) => void) | undefined;
   private readonly onUpkeepNettedWhileIncomePaused: ((playerId: string) => void) | undefined;
-  private readonly onPlayerStateUpdateSkippedAi: ((playerId: string) => void) | undefined;
   private readonly onAuthRecoveryRespawn: (() => void) | undefined;
   private readonly onAuthRecoveryRespawnGuarded: (() => void) | undefined;
   // Index of unowned LAND tiles with a town, dock, or resource — navigation
@@ -603,9 +599,9 @@ export class SimulationRuntime {
   private readonly lastActiveAtMsByPlayer = new Map<string, number>();
   private readonly fortPatrolGraceUntilByTile = new Map<string, number>();
   // Epoch ms when each tile last transitioned into SETTLED ownership. Stamped
-  // in replaceTileState; consumed by tickTileShedding to shed newest-first when
-  // broke. Not persisted — tiles recovered from the event log tie at -Infinity
-  // so they shed last (a restarted empire's core tiles outlast its expansions).
+  // in replaceTileState; read by resource-slot dormancy (newest food consumer
+  // sleeps first) and reach anchors. Town stamps survive restarts via the
+  // snapshot (recovered-town-state.ts); other tiles' stamps are not persisted.
   private readonly tileSettledAtByKey = new Map<string, number>();
   // Fixed-border reach (packages/shared/src/reach/reach.ts): the persistent
   // tileKey -> owning playerId border, maintained incrementally via
@@ -732,7 +728,6 @@ export class SimulationRuntime {
     });
     this.onAutoFillTiles = options.onAutoFillTiles;
     this.onUpkeepNettedWhileIncomePaused = options.onUpkeepNettedWhileIncomePaused;
-    this.onPlayerStateUpdateSkippedAi = options.onPlayerStateUpdateSkippedAi;
     this.onAuthRecoveryRespawn = options.onAuthRecoveryRespawn;
     this.onAuthRecoveryRespawnGuarded = options.onAuthRecoveryRespawnGuarded;
     this.commandTrace = options.commandTrace;
@@ -993,27 +988,6 @@ export class SimulationRuntime {
   wireDeltaForTileKey(tileKey: string, playerId?: string): SimulationTileWireDelta | undefined {
     const tile = this.state.tiles.get(tileKey);
     return tile ? this.tileDeltaRevealOnly(tile, playerId) : undefined;
-  }
-
-  async tickTileShedding(nowMs: number = this.now(), yieldToEventLoop?: () => Promise<void>): Promise<void> {
-    await tickTileSheddingImpl({
-      nowMs,
-      players: this.state.players,
-      tiles: this.state.tiles,
-      locksByTile: this.state.locksByTile,
-      tileSettledAtByKey: this.tileSettledAtByKey,
-      applyEconomyAccrual: (player, at) => this.applyEconomyAccrual(player, at),
-      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
-      applyEncirclement: (changedKeys, playerId, commandId, options) => this.applyEncirclement(changedKeys, playerId, commandId, options),
-      emitEvent: (event) => this.emitEvent(event),
-      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
-      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
-      playerManpowerCap: (player) => this.playerManpowerCap(player),
-      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
-      onPlayerStateUpdateSkippedAi: (playerId) => this.onPlayerStateUpdateSkippedAi?.(playerId),
-      ...(yieldToEventLoop !== undefined ? { yieldToEventLoop } : {}),
-      ...(this.trackSyncMainThreadTask !== undefined ? { trackSync: this.trackSyncMainThreadTask } : {})
-    });
   }
 
   tickOrphanedLockSweep(nowMs: number = this.now()): number {
