@@ -25,16 +25,23 @@ export const hideTechLockedTileAction = (
 };
 
 // Same-tile resource builds stay visible (greyed out) while their tech is
-// locked. Tapping an Umbrite deposit and seeing nothing gave players no
-// way back to the tech that unlocks the Umbrite Rig, so these name their tech
-// and link to it instead of being hidden.
+// locked, naming the tech and linking to it instead of vanishing. A
+// researched Umbrite Rigging Module that wasn't installed on an AFC used to
+// hide the Umbrite Rig with no explanation at all. (An unresearched rig can't
+// show up: the same tech reveals Umbrite on the map.)
 const SHOWN_WHEN_TECH_LOCKED: ReadonlySet<TileActionDef["id"]> = new Set<TileActionDef["id"]>([
   "build_hydrogarden",
   "build_umbrite_rig",
   "build_mine"
 ]);
 
-/** What the tile menu shows for an action: undefined hides it, otherwise the (possibly locked) row. */
+/**
+ * What the tile menu shows for an action: undefined hides it, otherwise the
+ * (possibly locked) row. A locked row is only shown when the tech, or
+ * installing its module, is the one thing missing: any other blocker the
+ * logic layer found (a structure already on the tile, no free slot) keeps the
+ * row hidden as before, so the hint never promises a build that still can't happen.
+ */
 export const presentTechLockedTileAction = (
   action: TileActionDef,
   state: TileActionFilterState,
@@ -43,12 +50,16 @@ export const presentTechLockedTileAction = (
   if (!hideTechLockedTileAction(action, state, requiredTechForTileAction)) return action;
   const requiredTech = requiredTechForTileAction(action.id);
   if (!requiredTech || !SHOWN_WHEN_TECH_LOCKED.has(action.id)) return undefined;
-  const techName = state.techCatalog?.find((tech) => tech.id === requiredTech)?.name ?? requiredTech;
+  const techName = state.techCatalog?.find((tech) => tech.id === requiredTech)?.name;
   if (!state.techIds.includes(requiredTech)) {
-    return { ...action, disabled: true, disabledReason: `Requires ${techName}`, techLinkId: requiredTech };
+    // The logic layer checks for a blocking structure before the tech, so a
+    // reason that isn't the tech's own "Requires ..." means the tile can't take this build.
+    if (!action.disabledReason?.startsWith("Requires ")) return undefined;
+    return { ...action, disabled: true, disabledReason: techName ? `Requires ${techName}` : action.disabledReason, techLinkId: requiredTech };
   }
   // Researched, but the AFC module isn't installed on an active AFC yet.
-  return { ...action, disabled: true, disabledReason: `Install ${techName} on an active AFC` };
+  if (action.disabled) return undefined;
+  return { ...action, disabled: true, disabledReason: `Install ${techName ?? requiredTech} on an active AFC` };
 };
 
 /**

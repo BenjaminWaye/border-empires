@@ -4,11 +4,11 @@ export const CLIENT_CHANGELOG_ENTRIES_OCT_17: ClientChangelogEntry[] = [
   {
     createdAt: 1792324607133,
     introducedIn: "2026.10.18.2",
-    title: "Locked resource buildings show which Manifest unlocks them",
-    why: "Tapping an Umbrite deposit before researching its Manifest showed no Umbrite Rig at all, so there was no way to tell which Manifest you needed, and its name never mentioned Umbrite.",
+    title: "Locked resource buildings say what they're waiting for",
+    why: "With Umbrite Rigging Module researched but not installed on an active AFC, tapping an Umbrite deposit showed no Umbrite Rig and no reason why, and the Manifest's name never mentioned Umbrite.",
     changes: [
-      "On Umbrite, farm, Titanium and gem tiles, the Umbrite Rig, Hydrogarden and Mine now appear greyed out with the Manifest they need, plus a View Manifest link that opens it",
-      "If you've researched an AFC module but haven't installed it on an active AFC yet, the building says so instead of disappearing",
+      "The Umbrite Rig no longer disappears when Umbrite Rigging Module is researched but not installed: it shows greyed out and says to install the module on an active AFC",
+      "On farm, Titanium and gem tiles, a locked Hydrogarden or Mine now shows greyed out with the Manifest it needs, plus a View Manifest link that opens it",
       "Rigging Works Module is now called Umbrite Rigging Module, and Umbrite Synthesis Module's description points to it for harvesting Umbrite deposits"
     ]
   },
