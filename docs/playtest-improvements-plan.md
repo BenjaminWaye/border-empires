@@ -1,7 +1,7 @@
 # Playtest improvement plan
 
 Status: active proposal; item 1 implemented locally, live verification pending
-Owner: current agent branch for item 1; product owner for subsequent priorities
+Owner: client maintainers for item 1; product owner for subsequent priorities
 Last verified: 2026-10-18
 Replaces: none; update the relevant canonical references as each item ships
 
@@ -53,10 +53,11 @@ Implementation and verification, 2026-10-18:
 - Recovery now keeps retrying with capped jittered backoff. After 60 seconds
   without restoration progress it restarts a silent connection; login queue
   messages and INIT-download progress extend that deadline. Applied INIT resets
-  the backoff and cancels recovery timers. The first page boot is unchanged.
+  the backoff and cancels recovery timers. The watchdog starts only after a
+  previous successful INIT.
 - Extracted socket lifecycle handling from the oversized network integration
   file into an explicitly typed module; the original file is smaller.
-- Local verification: all 4,982 client tests across 720 files passed, including
+- Initial local verification: all 4,982 client tests across 720 files passed, including
   the new disconnect/authentication/INIT integration scenarios. Client type
   checking and production build passed, as did file-line, docs, and changelog
   gates. Tests verify authoritative manpower/flags/pending-command recovery,
