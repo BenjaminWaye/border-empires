@@ -21,5 +21,12 @@ export const AFC_MODULE_TAB_CHANGELOG: ClientChangelogEntry[] = [
     title: "Industrial Tooling docks as a precision mill",
     why: "The Manufactory unlock deserves its own visible AFC machine.",
     changes: ["The Industrial Tooling Module now has a dedicated 3D milling gantry with a moving spindle, rotating drive wheel and tool rack", "The 2D map shows a matching gantry symbol on AFCs with tooling installed"]
+  },
+  {
+    createdAt: 1792321229313, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.18.2",
+    title: "AFC menus open on their Modules tab",
+    why: "The AFC Overview tab repeated the module list already shown by the socket diagram.",
+    changes: ["The Modules tab replaces Overview on AFC tiles, with the remaining tile details and the Manage AFC upgrades button below the sockets", "The AFC button now opens your home AFC straight to its Modules tab"]
   }
 ];
