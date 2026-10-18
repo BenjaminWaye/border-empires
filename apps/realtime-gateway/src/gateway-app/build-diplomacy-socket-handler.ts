@@ -1,3 +1,4 @@
+import { handleAfcCourtMessage } from "../afc-specializations/afc-force-truce-message.js";
 import { createProactiveAiDiplomacy } from "../proactive-ai-diplomacy/proactive-ai-diplomacy.js";
 // Wires the ALLIANCE_* / TRUCE_* socket handlers, the trade screen's stance
 // query, deal settlement, and the seeded-AI diplomacy responder, extracted out of gateway-app.ts (well over the repo's
@@ -177,6 +178,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
   const requestAlliance = withCooldownEvent("alliance", socialState.requestAlliance);
 
   const proactive = createProactiveAiDiplomacy({ socialState, aiPlayerIds: deps.seededAiPlayerIds,
+    syncForcedTruce: async (playerId, targetPlayerId) => { await deps.syncTruceToSimulation({ playerId, targetPlayerId, truced: true }); },
     fetchSnapshot: requesterSnapshot, hasLiveSocket: deps.hasLiveSocket, responder,
     fanout: deps.fanoutPlayerPayloads, recordEvent: deps.recordGatewayEvent,
     nameForPlayerId: async id => socialState.playerNameOf(id), diplomacyContext });
@@ -184,6 +186,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
   const handleMessage: DiplomacySocketHandler["handleMessage"] = async (message, session, socket) => {
     const playerId = session.playerId;
     if (!playerId) return false;
+    if (await handleAfcCourtMessage(deps, message, session, socket)) return true;
     if (message.type === "DIPLOMACY_STANCE_REQUEST") {
       const payload = await answerDiplomacyStanceQuery(
         {

@@ -11,8 +11,8 @@ describe("structureBuildSpeedEffectKey", () => {
     expect(structureBuildSpeedEffectKey("MANUFACTORY")).toBe("economicStructureBuildSpeedMult");
   });
 
-  test("Relay Beacon and Aether Tower have no speed lever", () => {
-    expect(structureBuildSpeedEffectKey("RELAY_BEACON")).toBeUndefined();
+  test("Relay Beacon has a dedicated speed lever; Aether Tower uses universal speed only", () => {
+    expect(structureBuildSpeedEffectKey("RELAY_BEACON")).toBe("relayBeaconBuildSpeedMult");
     expect(structureBuildSpeedEffectKey("OBSERVATORY")).toBeUndefined();
     expect(structureBuildSpeedEffectKey("NOT_A_STRUCTURE")).toBeUndefined();
   });

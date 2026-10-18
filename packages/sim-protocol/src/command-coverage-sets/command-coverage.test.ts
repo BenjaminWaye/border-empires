@@ -23,6 +23,7 @@ const phase4NonDurable = [
   "TRUCE_ACCEPT",
   "TRUCE_REJECT",
   "TRUCE_CANCEL",
+  "FORCE_TRUCE",
   "TRUCE_BREAK"
 ];
 

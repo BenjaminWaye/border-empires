@@ -283,13 +283,13 @@ export const buildResourceSlotDormancyByPlayer = (runtimeState: RuntimeState): M
       continue;
     }
     const { hydroworksKeys, oreRefineryKeys } = radiusStructureKeysForSettledTiles(settledTiles);
-    const domainGranted = domainGrantedResourceSlots({ domainIds: new Set(player.domainIds), chosenTrickleResource: player.chosenTrickleResource });
+    const domainGranted = domainGrantedResourceSlots({ domainIds: new Set(player.domainIds), chosenTrickleResource: player.chosenTrickleResource, ...(player.afcScarcityFoodSlots ? { afcScarcityFoodSlots: player.afcScarcityFoodSlots } : {}) });
     const supply = resourceSlotSupplyForPlayer(settledTiles, hydroworksKeys, oreRefineryKeys, domainGranted, techGrantedFishFoodSlotBonus(player));
     // §23.2: apply the same slot waivers the live runtime does, or a
     // reconnect could show a structure dormant that the live path considers
     // waived (Dwarf Kingdom/Fortress Realm/Supply State/Treasury State/
     // Enduring Realm).
-    const waivers = slotWaiversForPlayer({ techIds: new Set(player.techIds), domainIds: new Set(player.domainIds) });
+    const waivers = slotWaiversForPlayer({ techIds: new Set(player.techIds), domainIds: new Set(player.domainIds), ...(player.afcCoreTownKeys ? { afcCoreTownKeys: player.afcCoreTownKeys } : {}) });
     result.set(player.id, resourceSlotDormantContributorsForPlayer(ownedTiles, player.id, supply, waivers));
   }
   resourceSlotDormancyByPlayerCache.set(runtimeState, result);

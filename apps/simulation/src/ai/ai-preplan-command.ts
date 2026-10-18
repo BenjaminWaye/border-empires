@@ -15,6 +15,7 @@ import { chooseAiDomainChoiceForPlayer, chooseAiTechChoiceForPlayer } from "../t
 
 type StrategicResourceKey = DomainStrategicResourceKey;
 type AutomationPreplanTile = {
+  afc?: { ownerId?: string; status?: string } | undefined;
   x: number;
   y: number;
   ownershipState?: string | undefined;
@@ -57,6 +58,7 @@ export type AutomationPreplanInput<TTile extends AutomationPreplanTile> = {
   slotDemandByResource?: Partial<Record<SlotResource, number>>;
   techIds?: readonly string[];
   domainIds?: readonly string[];
+  afcUpgradeRuleset?: "afc-v1";
   strategicResources?: Partial<Record<StrategicResourceKey, number>>;
   settledTileCount?: number;
   townCount?: number;
@@ -162,21 +164,24 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
       points: input.points,
       techIds: input.techIds ?? [],
       domainIds: input.domainIds ?? [],
+      ...(input.afcUpgradeRuleset ? { afcUpgradeRuleset: input.afcUpgradeRuleset } : {}),
       strategicResources: input.strategicResources ?? {}
     },
     input.ownedTiles
   );
-  const domainChoice = chooseAiDomainChoiceForPlayer(
+  const canInstall = input.afcUpgradeRuleset !== "afc-v1" || input.ownedTiles.some(tile => tile.afc?.ownerId === input.playerId && tile.afc.status === "active");
+  const domainChoice = canInstall ? chooseAiDomainChoiceForPlayer(
     {
       id: input.playerId,
       points: input.points,
       techIds: input.techIds ?? [],
       domainIds: input.domainIds ?? [],
+      ...(input.afcUpgradeRuleset ? { afcUpgradeRuleset: input.afcUpgradeRuleset } : {}),
       strategicResources: input.strategicResources ?? {},
       settledTileCount
     },
     input.ownedTiles
-  );
+  ) : undefined;
   const techChoiceAffordable = techChoice?.affordable === true;
   const domainChoiceAffordable = domainChoice?.affordable === true;
   const hasAnyProgressionChoice = techChoice !== undefined || domainChoice !== undefined;
@@ -254,6 +259,10 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
         preplanReason: "choose_domain"
       })
     };
+  }
+
+  if (input.sessionPrefix === "ai-runtime" && input.domainIds?.includes("afc-exchequer-4") && (input.manpower ?? 0) < 20 && input.points >= 50) {
+    return { command: createAutomationCommand(input.sessionPrefix, input.playerId, input.clientSeq, input.issuedAt, "RECRUIT_ANCILLARIES", { coin: Math.min(10, Math.floor(input.points / 10)) }), diagnostic: createDiagnostic(input.playerId, input.sessionPrefix, diagnosticBase) };
   }
 
   return {

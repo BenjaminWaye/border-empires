@@ -56,13 +56,14 @@ export const structureRequiresClientPlacement = (type: string): boolean =>
 /**
  * Which tech/domain build-speed effect shortens this structure's build, the
  * single rule both the simulation (stamping completesAt) and the client's
- * build menus use. Relay Beacon is an OUTPOST spec but has no speed lever;
- * Aether Tower (OBSERVATORY) has none either.
+ * build menus use. Relay Beacon has its own fabrication lever; Aether Tower
+ * (OBSERVATORY) uses the universal construction multiplier only.
  */
-export type StructureBuildSpeedEffectKey = "fortBuildSpeedMult" | "outpostDeploymentSpeedMult" | "economicStructureBuildSpeedMult";
+export type StructureBuildSpeedEffectKey = "fortBuildSpeedMult" | "outpostDeploymentSpeedMult" | "economicStructureBuildSpeedMult" | "relayBeaconBuildSpeedMult";
 
 export const structureBuildSpeedEffectKey = (structureType: string): StructureBuildSpeedEffectKey | undefined => {
   const kind = STRUCTURE_REGISTRY[structureType]?.kind;
+  if (structureType === "RELAY_BEACON") return "relayBeaconBuildSpeedMult";
   if (kind === "FORT") return "fortBuildSpeedMult";
   if (kind === "OUTPOST" && structureType !== "RELAY_BEACON") return "outpostDeploymentSpeedMult";
   if (kind === "ECONOMIC") return "economicStructureBuildSpeedMult";

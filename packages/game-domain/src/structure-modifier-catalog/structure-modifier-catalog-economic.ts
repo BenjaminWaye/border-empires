@@ -18,7 +18,7 @@ import { multiplierPercentLabel, percentLabel, type ModifierContext, type Modifi
 const manufactoryModifiers = (ctx: ModifierContext): StructureModifier[] => {
   const count = ctx.tile?.town?.manufactoryCount;
   const clearingHouseActive = Boolean(ctx.tile?.town?.clearingHouseActive);
-  const perCopyPercent = (clearingHouseActive ? MANUFACTORY_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE : MANUFACTORY_GOLD_PRODUCTION_BONUS) * 100;
+  const perCopyPercent = (MANUFACTORY_GOLD_PRODUCTION_BONUS + (clearingHouseActive ? (MANUFACTORY_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE - MANUFACTORY_GOLD_PRODUCTION_BONUS) * (ctx.tile?.town?.clearingHouseUpliftMult ?? 1) : 0)) * 100;
   const goldPerDay = Math.round(MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN * UPKEEP_MINUTES_PER_DAY);
   const hasLiveCount = typeof count === "number" && count > 0;
   const stackedValueText = hasLiveCount

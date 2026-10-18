@@ -88,6 +88,7 @@ export type TileActionDef = {
     | "diplomacy"
     | "break_truce"
     | "aether_lance"
+    | "suppress_aether_tower"
     | "retort_recast_food"
     | "retort_recast_titanium"
     | "retort_recast_crystal"

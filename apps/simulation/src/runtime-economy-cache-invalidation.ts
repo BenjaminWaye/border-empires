@@ -1,3 +1,4 @@
+import { maintainAfcCoreTownForTileChange } from "./afc-specializations/afc-core-towns.js";
 // Derived per-player economy cache invalidation on tile change -- extracted
 // out of runtime-tile-index-maintenance.ts (already over the repo's per-file
 // line cap) as its own cohesive unit: which tile mutations must drop or
@@ -136,6 +137,7 @@ export const refreshEconomyCachesForTileChange = (input: {
   resourceSlotDemandDirtyPlayerIds?: Set<string>;
   resourceSlotDormancyDirtyPlayerIds?: Set<string>;
 }): void => {
+  maintainAfcCoreTownForTileChange(input.players, input.tileKey, input.previous, input.next);
   const { tileKey, previous, next, players } = input;
   // Corridor union-find upkeep — shared with the progression handlers'
   // setTileState path so the two tile-write routes can't diverge.

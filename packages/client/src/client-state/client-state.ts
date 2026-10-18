@@ -1,3 +1,4 @@
+import { createInitialProgressionState } from "./client-state-progression-defaults.js";
 import { CLIENT_CHANGELOG_STORAGE_KEY } from "../client-changelog/client-changelog.js";
 import { createInitialUpkeepLastTick } from "./client-state-upkeep-defaults.js";
 import { createInitialStrategicAnim } from "./client-state-strategic-anim-defaults.js";
@@ -13,7 +14,7 @@ import { createInitialTileActionMenuState } from "./client-tile-action-menu-stat
 import { createInitialAetherShieldState } from "../client-aether-tower-protection/client-aether-shield-state.js";
 import { createInitialSocialState } from "./client-state-social-defaults.js"; import { createInitialSiegeBombardmentState } from "./client-state-siege-bombardment-defaults.js"; import { createInitialAfcDeliveryState } from "./client-state-afc-delivery-defaults.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
-import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, MUSTER_MAX_TILES, type BuildableStructureType, type ChosenTrickleResource, type FrontierCombatSideBreakdown, type SlotResource } from "@border-empires/shared";
+import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, MUSTER_MAX_TILES, type BuildableStructureType, type FrontierCombatSideBreakdown, type SlotResource } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
 import type { VictoryHoldAlert } from "../client-victory-alert/client-victory-alert.js";
 import { createInitialAttackDispatchState } from "./client-state-attack-dispatch-defaults.js";
@@ -27,20 +28,17 @@ import type {
   StrategicReplayEvent,
   CrystalTargetingAbility,
   DockPair,
-  DomainInfo,
   EmpireVisualStyle,
   FeedEntry,
   LeaderboardMetricEntry,
   LeaderboardOverallEntry,
   MissionState,
-  PendingResearch,
   PlayerRespawnNotice,
   RevealEmpireStatsView, ScoreHistorySeriesView,
   SeasonStatsView,
   SeasonVictoryObjectiveView,
   SeasonWinnerView,
   SurveySweepPing,
-  TechInfo,
   Tile,
   TruceRequest,
   TileTimedProgress,
@@ -167,21 +165,7 @@ export const createInitialState = () => ({
   tiles: new Map<string, Tile>(),
   tilesRevision: 0, tilesRevisionChangedKeys: new Set<string>(), tilesRevisionOverflowed: false, // see recordTileRevisionChange
   ...cameraLocationInitialState(),
-  techRootId: undefined as string | undefined,
-  techIds: [] as string[],
-  domainIds: [] as string[],
-  // Locked sub-choice for Clockwork Stipend; undefined when not picked yet.
-  chosenTrickleResource: undefined as ChosenTrickleResource | undefined,
-  // Emperor-endorsement bonus (galaxy meta-layer Phase 1).
-  autoSettle: { status: "unloaded" } as import("../client-auto-settle-prompt/client-auto-settle-prefs.js").ClientAutoSettleState, imperialWardCharges: undefined as number | undefined, imperialWardActiveUntil: undefined as number | undefined,
-  wonderLastFreeRushBuyAt: undefined as number | undefined, // Quickforge: ms of last discounted rush-buy (0/undefined = unused) -- rush-buy price preview only, server is price-authoritative
-  techChoices: [] as string[],
-  techCatalog: [] as TechInfo[],
-  techAffordableByTechId: new Map<string, boolean>(), techAffordablePulseUntilByTechId: new Map<string, number>(), // §7.3 "reward is ready" pulse tracking
-  currentResearch: undefined as PendingResearch | undefined,
-  domainChoices: [] as string[],
-  domainCatalog: [] as DomainInfo[],
-  domainUiSelectedId: "" as string,
+  ...createInitialProgressionState(),
   revealCapacity: 1,
   activeRevealTargets: [] as string[],
   abilityCooldowns: {} as Partial<

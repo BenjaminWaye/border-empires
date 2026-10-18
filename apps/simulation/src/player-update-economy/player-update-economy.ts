@@ -204,7 +204,7 @@ export const townGoldPerMinuteForPlayer = (
     supportRatio *
     townPopulationMultiplier(town.populationTier) *
     (1 + (town.connectedTownBonus ?? 0)) *
-    manufactoryGoldProductionMultiplier(manufactoryCount, clearingHouseActive) *
+    manufactoryGoldProductionMultiplier(manufactoryCount, clearingHouseActive, multiplicativeEffectForPlayer(player, "clearingHouseUpliftMult")) *
     firstThreeTownMult *
     incomeMultiplier *
     PASSIVE_INCOME_MULT
@@ -217,7 +217,7 @@ export const buildPlayerUpdateEconomySnapshot = (
   player: DomainPlayer,
   summary: PlayerRuntimeSummary,
   tiles: ReadonlyMap<string, DomainTileState>,
-  dockContext?: Pick<DockEconomyContext, "dockLinksByDockTileKey">,
+  dockContext?: Pick<DockEconomyContext, "dockLinksByDockTileKey" | "players">,
   integrityEconMult: number = 1,
   // Reuse a caller-shared network so buildConnectedTownNetworkForPlayer
   // (O(settled_tiles + towns^2)) doesn't rebuild twice per cache-miss cycle.
@@ -274,12 +274,12 @@ export const buildPlayerUpdateEconomySnapshot = (
     if (upkeep.UMBRITE) addBucket(umbriteSinks, label, upkeep.UMBRITE, { count: 1 });
   };
   const dockEconomyContext = dockContext
-    ? { tiles, dockLinksByDockTileKey: dockContext.dockLinksByDockTileKey, dormantEconomicStructureKeys }
+    ? { tiles, dockLinksByDockTileKey: dockContext.dockLinksByDockTileKey, ...(dockContext.players ? { players: dockContext.players } : {}), dormantEconomicStructureKeys }
     : undefined;
   const townNetwork =
     prebuiltTownNetwork ??
     buildConnectedTownNetworkForPlayer(player, tiles, settledTiles, { maxConnectedTownNames: 0, dormantEconomicStructureKeys });
-  const firstThreeTownKeys = firstThreeTownKeysForPlayer(player.id, summary.ownedTownTierByTile.entries());
+  const firstThreeTownKeys = firstThreeTownKeysForPlayer(player.id, summary.ownedTownTierByTile.entries(), player);
   // Manufactory-style attribution (§built-like-Manufactory): an EXCHANGE-mode
   // converter in a town's support ring pays its gold through that town's own
   // production instead of as separate empire income — computed once per town

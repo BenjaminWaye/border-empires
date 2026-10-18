@@ -8,7 +8,7 @@
 // requiredMusterWithCommit so a flag holding only the floor isn't mistaken
 // for one that can fund the full commitment (the server's resolveMusterSource
 // would reject that as INSUFFICIENT_MUSTER).
-import { defendingFortVariant, requiredMusterForFort, requiredMusterForTarget } from "@border-empires/shared";
+import { attackFloorForPlayer } from "./client-attack-floor.js";
 import { attackSyncLog } from "../client-debug/client-debug.js";
 import type { ClientWaypoint } from "../client-state/client-waypoint-state.js";
 import type { Tile } from "../client-types.js";
@@ -16,6 +16,7 @@ import type { Tile } from "../client-types.js";
 export type AttackCommitEntry = { commitManpower: number; setAt: number };
 
 type AttackCommitState = {
+  domainIds?: readonly string[];
   attackCommitByTargetKey: Map<string, AttackCommitEntry>;
   tiles: Map<string, Tile>;
 };
@@ -40,7 +41,7 @@ export const isAttackEffortEligibleTarget = (tile: Tile | undefined): tile is Ti
   Boolean(tile && tile.ownerId && tile.ownerId !== "barbarian-1" && tile.ownershipState === "SETTLED");
 
 /** The commit floor for a target: its fort-ladder attack cost (same rule the muster commit tab uses). */
-export const attackEffortFloorForTarget = (tile: Tile): number => requiredMusterForFort(defendingFortVariant(tile.fort));
+export const attackEffortFloorForTarget = (tile: Tile, state: { domainIds?: readonly string[] } = {}): number => attackFloorForPlayer(state, tile);
 
 export const setAttackCommit = (state: AttackCommitState, x: number, y: number, commitManpower: number, now = Date.now()): void => {
   const key = targetKey(x, y);
@@ -71,7 +72,7 @@ export const attackCommitForTarget = (state: AttackCommitState, x: number, y: nu
 
 /** requiredMusterForTarget, raised to the player's chosen commitment for that target when there is one. */
 export const requiredMusterWithCommit = (state: AttackCommitState, target: Tile | undefined): number => {
-  const base = requiredMusterForTarget(target);
+  const base = attackFloorForPlayer(state, target);
   if (!target) return base;
   return Math.max(base, attackCommitForTarget(state, target.x, target.y) ?? 0);
 };

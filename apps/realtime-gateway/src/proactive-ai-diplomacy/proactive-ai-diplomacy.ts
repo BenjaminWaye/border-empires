@@ -46,6 +46,7 @@ export type ProactiveAiDiplomacyDeps = {
   nameForPlayerId?: (id: string) => Promise<string | undefined>;
   responder: SeededAiDiplomacyResponder;
   diplomacyContext: (requesterId: string, aiPlayerId: string) => AiDiplomacyContext;
+  syncForcedTruce?: (playerId: string, targetPlayerId: string) => Promise<void>;
   fanout: (payloads: Map<string, unknown[]>) => void;
   recordEvent: (level: "info" | "warn" | "error", name: string, payload?: Record<string, unknown>) => void;
 };
@@ -102,6 +103,10 @@ export function createProactiveAiDiplomacy(deps: ProactiveAiDiplomacyDeps): { ti
         haveSharedVisibleEnemy(ai.tiles, aiId, targetId, new Set([...friendly, ...targetSocial.allies, ...targetSocial.activeTruces.map(t => t.otherPlayerId)]));
       const peace = !evaluation.truceRefusal && (stance.kind === "SEEKING_PEACE" || stance.kind === "OUTMATCHED");
       if (!alliance && !peace) return;
+      if (peace && ai.player.domainIds?.includes("afc-chancery-4") && deps.syncForcedTruce && (social.forcedTruceCooldownUntil ?? 0) <= Date.now()) {
+        const forced = deps.socialState.forceTruce(aiId, targetId);
+        if (forced.ok) { await deps.syncForcedTruce(aiId, targetId); deps.fanout(forced.payloadsByPlayerId); return; }
+      }
       const result = alliance ? deps.socialState.requestAlliance(aiId, targetName) : deps.socialState.requestTruce(aiId, targetName, 12);
       if (!result.ok) {
         deps.recordEvent("info", "gateway_ai_diplomacy_offer_blocked", { aiPlayerId: aiId, targetId, code: result.code });

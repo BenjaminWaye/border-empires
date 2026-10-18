@@ -1,9 +1,13 @@
+import { afcSpecializationProgress, usesAfcSpecializations, type AfcTechTier } from "@border-empires/shared";
 import type { DomainInfo, Tile } from "../client-types.js";
 import { isAfcHiddenForJoinDrop, type AfcJoinDropState } from "../client-afc-join-drop/client-afc-join-drop-state.js";
 import "./client-afc-upgrade-ready.css";
 
 type Resource = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
 export interface AfcUpgradeReadiness {
+  readonly afcUpgradeRuleset?: "afc-v1" | undefined;
+  readonly afcUpgradeInstallAllowed?: boolean | undefined;
+  readonly techCatalog?: readonly AfcTechTier[];
   readonly me: string;
   readonly domainCatalog: readonly DomainInfo[];
   readonly domainChoices: readonly string[];
@@ -17,6 +21,14 @@ export interface AfcUpgradeReadiness {
 /** Read live balances rather than a stale affordability stamp from the last INIT. */
 export function readyAfcUpgradeCount(state: AfcUpgradeReadiness): number {
   if (!state.me || state.pendingDomainUnlockId) return 0;
+  const progression = { techIds: state.techIds, domainIds: state.domainIds, ...(state.afcUpgradeRuleset ? { afcUpgradeRuleset: state.afcUpgradeRuleset } : {}) };
+  if (usesAfcSpecializations(progression)) {
+    if (state.afcUpgradeInstallAllowed === false) return 0;
+    const progress = afcSpecializationProgress(progression, state.techCatalog ?? []);
+    if (!progress.choices.some(id => state.domainChoices.includes(id))) return 0;
+    const chosen = new Set(state.domainCatalog.filter(upgrade => state.domainIds.includes(upgrade.id)).map(upgrade => upgrade.tier));
+    return Array.from({ length: progress.unlockedTier }, (_, i) => i + 1).filter(tier => !chosen.has(tier)).length;
+  }
   const ready = new Set<number>();
   const chosenTiers = new Set(state.domainCatalog.filter(upgrade => state.domainIds.includes(upgrade.id)).map(upgrade => upgrade.tier));
   for (const upgrade of state.domainCatalog) {

@@ -41,6 +41,9 @@ export type DomainCatalogEntry = {
   name: string;
   description: string;
   requiresTechId: string;
+  branch?: string;
+  mechanicalSummary?: string;
+  category?: "ongoing" | "installation" | "active";
   effects?: Record<string, unknown>;
   mods?: Partial<StatMods>;
   cost?: Partial<Record<"gold" | "food" | "iron" | "crystal" | "supply" | "shard", number>>;

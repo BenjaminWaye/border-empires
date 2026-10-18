@@ -14,6 +14,7 @@ import type { DormantStructureDetail, ResourceSlotTotals } from "./resource-slot
 /** Dependencies {@link emitPlayerStateUpdate} needs to build and emit a PLAYER_UPDATE message. */
 export type RuntimePlayerStateUpdateContext = {
   players: ReadonlyMap<string, RuntimePlayer>;
+  hasActiveOwnedAfc?: (playerId: string) => boolean;
   lastEmittedStorageCapByPlayer: Map<string, EmpireStorageCap>;
   applyManpowerRegen: (player: RuntimePlayer) => void;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
@@ -64,6 +65,8 @@ export function emitPlayerStateUpdate(
   context.emitPlayerMessage(
     { commandId: command.commandId, playerId },
     {
+      ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
+      ...(player.afcUpgradeRuleset && context.hasActiveOwnedAfc ? { afcUpgradeInstallAllowed: context.hasActiveOwnedAfc(player.id) } : {}),
       type: "PLAYER_UPDATE",
       gold: player.points,
       mods: player.mods ?? recomputeMods(player),

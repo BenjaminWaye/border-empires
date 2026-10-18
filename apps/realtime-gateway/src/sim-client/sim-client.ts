@@ -692,7 +692,7 @@ export type SimulationClientMethods = {
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
   getSeasonParticipationForPlayer: (playerId: string) => Promise<SeasonParticipationRow[]>;
   getAdminPlayers: () => Promise<AdminPlayerRow[]>;
-  getPlayerCombatSummary: (playerId: string) => Promise<PlayerCombatSummary | undefined>;
+  getPlayerCombatSummary: (playerId: string, target?: { x: number; y: number }) => Promise<PlayerCombatSummary | undefined>;
   getActivityDashboard: () => Promise<ActivityDashboardSnapshot>;
   getPersonalActivityTimeline: (playerId: string, from: number, to: number) => Promise<PersonalActivityTimeline>;
   getRecentCommands: (limit?: number) => Promise<GetRecentCommandsResponse>;
@@ -818,8 +818,8 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
   getAdminPlayers() {
     return getAdminPlayersRpcCall(client.GetAdminPlayers?.bind(client));
   },
-  getPlayerCombatSummary(playerId: string) {
-    return getPlayerCombatSummaryRpcCall(client.GetPlayerCombatSummary?.bind(client), playerId);
+  getPlayerCombatSummary(playerId: string, target?: { x: number; y: number }) {
+    return getPlayerCombatSummaryRpcCall(client.GetPlayerCombatSummary?.bind(client), playerId, target);
   },
   getActivityDashboard() {
     return getActivityDashboardRpcCall(client.GetActivityDashboard?.bind(client));

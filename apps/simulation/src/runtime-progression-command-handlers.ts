@@ -1,3 +1,4 @@
+import { applyAfcInstallationGrant } from "./afc-specializations/afc-installation-grants.js";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { POPULATION_TOWN_MIN } from "@border-empires/game-domain";
@@ -21,6 +22,10 @@ type TownPopulationTier = NonNullable<DomainTileState["town"]>["populationTier"]
 type UpgradeTownTier = Exclude<TownPopulationTier, "SETTLEMENT">;
 
 export type RuntimeProgressionCommandContext = {
+  settleEconomyBeforeUpgrade?: (player: DomainPlayer) => void;
+  now?: () => number;
+  isTileLocked?: (key: string) => boolean;
+  reconcileAfcReach?: (playerId: string, commandId: string) => void;
   players: Map<string, DomainPlayer>;
   tiles: Map<string, DomainTileState>;
   emitEvent: (event: SimulationEvent) => void;
@@ -318,6 +323,7 @@ export function handleChooseDomainCommand(context: RuntimeProgressionCommandCont
     rejectCommand(context, command, "DOMAIN_INVALID", "missing domain id");
     return;
   }
+  context.settleEconomyBeforeUpgrade?.(actor);
   const outcome = chooseDomainForPlayer(
     actor,
     domainId,
@@ -328,6 +334,9 @@ export function handleChooseDomainCommand(context: RuntimeProgressionCommandCont
     rejectCommand(context, command, "DOMAIN_INVALID", outcome.reason);
     return;
   }
+  const installationTiles: SimulationTileWireDelta[] = [];
+  const outcomeGrant = applyAfcInstallationGrant({ tiles: context.tiles, now: context.now ?? Date.now, replaceTileState: (key, tile, commandId) => { context.replaceTileState(key, tile, commandId); installationTiles.push(context.tileDeltaFromState(tile)); }, ...(context.isTileLocked ? { isLocked: context.isTileLocked } : {}) }, actor, domainId, command.commandId);
+  context.reconcileAfcReach?.(actor.id, command.commandId);
   context.invalidateUpkeepAccrual(actor.id);
   context.invalidateResourceSlotDemand(actor.id);
   // Same reasoning as CHOOSE_TECH above: a domain (e.g. tier-1 Mercantile
@@ -344,8 +353,10 @@ export function handleChooseDomainCommand(context: RuntimeProgressionCommandCont
     commandId: command.commandId,
     playerId: command.playerId,
     payloadJson: JSON.stringify(
-      buildDomainUpdatePayload(actor, context.tiles.values(), { incomePerMinute: context.incomePerMinuteForPlayer(actor.id) })
+      { ...buildDomainUpdatePayload(actor, context.tiles.values(), { incomePerMinute: context.incomePerMinuteForPlayer(actor.id) }), ...(outcomeGrant ? { afcInstallationOutcome: outcomeGrant, afcInstallationTileDeltas: installationTiles } : {}) }
     )
   });
+  if (installationTiles.length) context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: actor.id, tileDeltas: installationTiles });
+  context.emitPlayerStateUpdate(command);
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }

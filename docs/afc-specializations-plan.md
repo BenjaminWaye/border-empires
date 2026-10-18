@@ -1,9 +1,14 @@
 # AFC Specializations — design and implementation plan
 
-Status: active proposal; client discovery and comparison slice implemented locally
+Implementation record: [full gameplay execution](afc-specializations-execution.md)
+supersedes the earlier client-only scope and release boundaries below. New seasons
+use the free thirty-upgrade ruleset; existing seasons retain legacy domains.
+
+
+Status: design history; full implementation tracked in the execution record
 Owner: Benjamin Waye (product decisions); implementing agent (delivery)
 Last verified: 2026-10-18
-Replaces: domain/Sharding navigation now; progression rules and the thirty-reward catalogue remain proposed
+Replaces: paid domain progression in new campaigns; existing campaigns keep their rules
 
 ## Read this proposal
 

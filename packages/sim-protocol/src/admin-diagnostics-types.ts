@@ -86,6 +86,7 @@ export type GetAiDecisionDiagnosticsResponse = {
  * apps/simulation/src/player-combat-summary-snapshot.ts.
  */
 export type PlayerCombatSummary = {
+  afcCombatFacts?: import("./afc-combat-facts.js").AfcCombatFacts;
   techIds: string[];
   domainIds: string[];
   weaponsFactoryCounts: { titanium: number; umbrite: number };

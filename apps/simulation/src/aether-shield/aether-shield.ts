@@ -13,7 +13,7 @@
 // shield).
 import type { DomainTileState } from "@border-empires/game-domain";
 import { OBSERVATORY_PROTECTION_RADIUS } from "@border-empires/game-domain";
-import { WORLD_HEIGHT, WORLD_WIDTH, chebyshevWithWrap, wrapX, wrapY } from "@border-empires/shared";
+import { isAetherTowerSuppressed, WORLD_HEIGHT, WORLD_WIDTH, chebyshevWithWrap, wrapX, wrapY } from "@border-empires/shared";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 
 export type ObservatoryDormancyCheck = (playerId: string, tileKey: string, field: "observatory") => boolean;
@@ -21,7 +21,7 @@ export type ObservatoryDormancyCheck = (playerId: string, tileKey: string, field
 /** Active, its owner holds the tower tile, and off its own cast cooldown. */
 const isObservatoryReady = (tile: DomainTileState | undefined, now: number): boolean => {
   const observatory = tile?.observatory;
-  if (!tile || !observatory || observatory.status !== "active") return false;
+  if (!tile || !observatory || observatory.status !== "active" || isAetherTowerSuppressed(observatory, now)) return false;
   if (!tile.ownerId || observatory.ownerId !== tile.ownerId) return false;
   return (observatory.cooldownUntil ?? 0) <= now;
 };

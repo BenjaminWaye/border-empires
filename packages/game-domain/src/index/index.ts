@@ -89,6 +89,10 @@ export type DomainPlayer = {
   galacticWonderVisionRadiusBonus?: number;
   techIds: Set<string>;
   domainIds?: Set<string>;
+  afcUpgradeRuleset?: "afc-v1";
+  afcCoreTownKeys?: string[];
+  afcScarcityFoodSlots?: number;
+  afcCampaign?: import("@border-empires/shared").AfcCampaignState;
   mods?: {
     attack: number;
     defense: number;

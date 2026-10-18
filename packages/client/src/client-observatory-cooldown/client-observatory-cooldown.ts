@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { isAetherTowerSuppressed, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
 const wrappedDelta = (a: number, b: number, size: number): number => Math.min(Math.abs(a - b), size - Math.abs(a - b));
@@ -8,8 +8,8 @@ export const chebyshevDistanceWrapped = (ax: number, ay: number, bx: number, by:
 
 type ObservatoryViewWithCooldown = NonNullable<Tile["observatory"]> & { cooldownUntil?: number };
 
-export const observatoryProtectionActive = (tile: Pick<ObservatoryViewWithCooldown, "cooldownUntil">, nowMs: number): boolean =>
-  (tile.cooldownUntil ?? 0) <= nowMs;
+export const observatoryProtectionActive = (tile: Pick<ObservatoryViewWithCooldown, "cooldownUntil" | "suppressedUntil">, nowMs: number): boolean =>
+  (tile.cooldownUntil ?? 0) <= nowMs && !isAetherTowerSuppressed(tile, nowMs);
 
 export const readyOwnedObservatoryCooldownRemainingMs = (
   tiles: Iterable<Tile>,
@@ -23,6 +23,7 @@ export const readyOwnedObservatoryCooldownRemainingMs = (
   for (const tile of tiles) {
     if (!tile.observatory || tile.observatory.status !== "active" || tile.ownerId !== me) continue;
     if (tile.fogged) continue;
+    if (isAetherTowerSuppressed(tile.observatory, nowMs)) continue;
     if (tile.observatory.siphon) continue; // locked into Siphon until cancelled — can't cast anything else
     if (chebyshevDistanceWrapped(tile.x, tile.y, target.x, target.y) > castRadius) continue;
     hasInRange = true;

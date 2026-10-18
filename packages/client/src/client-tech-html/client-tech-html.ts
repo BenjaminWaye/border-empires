@@ -1,3 +1,5 @@
+import { formatDomainCost } from "./client-domain-cost.js";
+export { formatDomainCost } from "./client-domain-cost.js";
 import { BASE_COMBAT_POWER, PLAYER_BASE_VISION, TRICKLE_RESOURCE_KEYS, TILE_SLOT_BOOST_STRUCTURES, HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS, AGRICULTURE_FISH_FOOD_SLOT_BONUS, type ChosenTrickleResource } from "@border-empires/shared";
 import type { DomainInfo, TechInfo } from "../client-types.js";
 import { economicStructureName } from "../client-map-display.js";
@@ -219,6 +221,7 @@ export const formatTechBenefitSummary = (tech: TechInfo): string => {
 };
 
 export const formatDomainBenefitSummary = (domain: DomainInfo): string => {
+  if (domain.mechanicalSummary) return domain.mechanicalSummary;
   const lines = formatEffectSummaryLines(domain.effects);
   return lines.length > 0 ? lines.join(" | ") : "Passive unlock";
 };
@@ -454,21 +457,6 @@ const effectiveRequirementChecklist = (requirements: {
 }): Array<{ label: string; met: boolean }> => {
   const checklist = requirements.checklist ?? [];
   return checklist.length > 0 ? checklist : fallbackRequirementChecklist(requirements);
-};
-
-export const formatDomainCost = (domain: DomainInfo): string => {
-  const checklist = domain.requirements.checklist ?? [];
-  const costBits = checklist.filter((item) => /coin|gold|food|titanium|crystal|umbrite|shard/i.test(item.label)).map((item) => item.label);
-  if (costBits.length > 0) return costBits.join(" · ");
-  const fallbackCostBits: string[] = [];
-  if ((domain.requirements.gold ?? 0) > 0) {
-    fallbackCostBits.push(`${domain.requirements.gold.toLocaleString()} coin`);
-  }
-  for (const resourceKey of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const) {
-    const amount = domain.requirements.resources?.[resourceKey] ?? 0;
-    if (amount > 0) fallbackCostBits.push(`${amount.toLocaleString()} ${resourceKey.toLowerCase()}`);
-  }
-  return fallbackCostBits.length > 0 ? fallbackCostBits.join(" · ") : "Cost not listed";
 };
 
 export const ownedDomainByTier = (domainCatalog: DomainInfo[], domainIds: string[]): Map<number, DomainInfo> => {

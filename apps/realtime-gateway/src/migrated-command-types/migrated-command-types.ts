@@ -38,6 +38,8 @@ const migratedDurableCommandTypesList: readonly SupportedClientMessageType[] = [
   "REVEAL_EMPIRE_STATS",
   "AETHER_LANCE",
   "AETHER_EMP",
+  "SUPPRESS_AETHER_TOWER",
+  "RECRUIT_ANCILLARIES",
   "CAST_AETHER_BRIDGE",
   "CAST_AETHER_WALL",
   "SIPHON_TILE",
