@@ -6,7 +6,6 @@ import type { TechInfo } from "../client-tech-info-types.js";
 import type { TileOverviewLine } from "../client-tile-menu-types.js";
 import { economicStructureName, type StructureInfoKey } from "../client-map-display.js";
 import { structureKeysForTile } from "../client-tile-menu-view/client-tile-menu-structure-label.js";
-import { afcModuleOverviewLines } from "../client-afc-module-overview/client-afc-module-overview.js";
 import { formatRoughMinutes } from "../client-town-growth/client-town-growth.js";
 
 type TileOwnerKind = "unclaimed" | "mine-frontier" | "mine-settled" | "ally" | "enemy";
@@ -343,7 +342,6 @@ export const tileFeatureLeadLines = (
     const shards = `${n} shard${n === 1 ? "" : "s"}`;
     lines.push({ html: tile.shardSite.kind === "FALL" ? `Shard rain deposit: ${shards} can be collected here for a short time.` : `Shard cache: ${shards} can be recovered here.` });
   }
-  lines.push(...afcModuleOverviewLines(tile, deps.techCatalog));
   if (tile.afc?.ownerId === deps.me && tile.ownerId === deps.me) {
     lines.push({ html: '<button type="button" class="tile-action-btn" data-open-afc-upgrades>Manage AFC upgrades</button>' });
   }

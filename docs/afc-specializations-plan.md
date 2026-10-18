@@ -135,7 +135,7 @@ Surveyed at `9f91b2d83` on 2026-10-17. Source is authoritative over older prose.
 | Catalogue and eligibility | `packages/game-domain/data/domain-tree.json`; `apps/simulation/src/tech-domain-bridge/tech-domain-bridge.ts` and its types. Current gate combines prior tier, specific tech, Coin, and resources. |
 | Commands and updates | `apps/simulation/src/runtime-progression-command-handlers.ts`; `runtime/runtime-progression-command-context.ts`; shared messages and client-protocol allowlists. |
 | INIT parity | `apps/realtime-gateway/src/init-payload/init-payload-catalogs.ts` separately constructs affordability. Route INIT and updates through one ruleset-aware evaluator. |
-| AFC placement in UI | `packages/client/src/client-tile-menu-view/client-tile-menu-view.ts`, `client-tile-menu-tabs.ts`, `client-afc-module-tab/`, `client-afc-module-overview/`. |
+| AFC placement in UI | `packages/client/src/client-tile-menu-view/client-tile-menu-view.ts`, `client-tile-menu-tabs.ts`, `client-afc-module-tab/` (the Modules tab is the AFC's overview; remaining tile details render beneath the socket diagram). |
 | Existing domain UI | `client-tech-html/client-tech-html.ts`, `client-tech-panel-flow.ts`, `client-hud/client-hud.ts`, `client-domain-progress-card.ts`, `client-domain-update-handler/`. |
 | Naming / navigation | `packages/client/src/client-panel-nav/client-panel-nav.ts` now titles the panel "AFC Upgrades." Desktop/mobile labels and the headquarters icon change together. |
 | First-three towns | `apps/simulation/src/economy-network/economy-network-first-three-towns.ts`; preserve eligibility parity with snapshot paths. Current selection is iteration-order based, not explicitly acquisition-time based. Stabilize it across recovery. |
