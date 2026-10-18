@@ -77,7 +77,7 @@ Current resource/casting rules follow the [gameplay reference](game-mechanics.md
 | Titanium-Clad Masonry | Titanium Forge Module |
 | Reinforced Plating | Bastion Master-Die Module |
 | Steel Ore Refineries | Thunderplate Induction Module |
-| Rigging Works | Rigging Works Module |
+| Rigging Works | Umbrite Rigging Module |
 | Siege Engineering | Siege Lens Foundry Module |
 | Standing Legion | Dread Tower Cadre |
 | Muster Discipline | Hive Mind Module I |
@@ -138,7 +138,7 @@ Current resource/casting rules follow the [gameplay reference](game-mechanics.md
 - **Titanium Forge Module** — AFC module; unlocks Fort and Titanium Weapons Factory.
 - **Bastion Master-Die Module** — AFC module; unlocks Titanium Bastion. It is the massive forming die that makes interlocking Bastion shells from Forge-produced plate.
 - **Thunderplate Induction Module** — AFC module; unlocks Thunder Bastion. It contains the induction coils/discharge rails required for live Thunderplate armour.
-- **Rigging Works Module** — AFC module; unlocks Umbrite Rig, Siege Battery, and Umbrite Weapons Factory.
+- **Umbrite Rigging Module** (renamed from Rigging Works Module) — AFC module; unlocks Umbrite Rig, Siege Battery, and Umbrite Weapons Factory.
 - **Siege Lens Foundry Module** — AFC module; unlocks Siege Tower.
 - **Dread Tower Cadre** — imported permanent operating crew; unlocks Dread Tower.
 - **Hive Mind Module I / II** — AFC modules, each delivers another offworld half-mind and unlocks one additional regional Muster commander.

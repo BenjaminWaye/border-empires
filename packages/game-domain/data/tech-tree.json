@@ -52,8 +52,8 @@
       "id": "leatherworking",
       "tier": 1,
       "branch": "war",
-      "name": "Rigging Works Module",
-      "description": "AFC module: tension frames, cable looms, and umbrite-working tools. Reveals Umbrite and unlocks Umbrite Rig, Siege Battery, and the Umbrite Weapons Factory.",
+      "name": "Umbrite Rigging Module",
+      "description": "AFC module: tension frames, cable looms, and umbrite-working tools. Reveals Umbrite and unlocks the Umbrite Rig (+1 UMBRITE slot on an Umbrite deposit), Siege Battery, and the Umbrite Weapons Factory.",
       "cost": {
         "gold": 10
       },
@@ -158,7 +158,7 @@
       "tier": 2,
       "branch": "economy",
       "name": "Umbrite Synthesis Module",
-      "description": "AFC module: precision tension frames and calibration jigs for this world's umbrite. Unlocks Umbrite Works.",
+      "description": "AFC module: precision tension frames and calibration jigs for this world's umbrite. Unlocks Umbrite Works, a town support building that refines coin into Umbrite. To harvest Umbrite deposits directly, research the Umbrite Rigging Module.",
       "prereqIds": [
         "trade"
       ],

@@ -25,7 +25,7 @@ const TECH_CATALOG: TechInfo[] = [
   tech("conveyor-networks", "Reserve Lattice Module", "manpower"),
   tech("remade-concordat", "Ancillary Control Core", "manpower"),
   tech("masonry", "Titanium Forge Module", "war"),
-  tech("leatherworking", "Rigging Works Module", "war"),
+  tech("leatherworking", "Umbrite Rigging Module", "war"),
   tech("crystal-lattices", "Aether Resonance Core", "aether"),
   tech("matterwright-retort", "Matterwright Retort Module", "aether")
 ];

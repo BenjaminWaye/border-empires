@@ -4,7 +4,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import { hostileAetherProtectionAt, type ProtectingAetherTower } from "../client-aether-tower-protection/client-aether-tower-protection.js";
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
-import { hideTechLockedTileAction as hideTechLockedTileActionFromModule, type TileActionFilterState } from "./client-tech-locked-tile-action.js";
+import { hideTechLockedTileAction as hideTechLockedTileActionFromModule, presentTechLockedTileAction, type TileActionFilterState } from "./client-tech-locked-tile-action.js";
 // Re-exported for client-tile-action-logic.ts, whose deps type names them.
 export type { ProtectingAetherTower };
 
@@ -340,7 +340,7 @@ export const splitTileActionsIntoTabs = (
   actions: TileActionDef[],
   state: TileActionFilterState
 ): Pick<TileMenuView, "actions" | "buildings" | "crystal"> => {
-  const filtered = actions.filter((action) => !hideTechLockedTileAction(action, state));
+  const filtered = actions.flatMap((action) => presentTechLockedTileAction(action, state, requiredTechForTileAction) ?? []);
   const actionRows = filtered.filter(
     (action) =>
       (!tileActionIsBuilding(action.id) || isFrontierRelayBeacon(action) || isReadyHydrogarden(action)) &&
