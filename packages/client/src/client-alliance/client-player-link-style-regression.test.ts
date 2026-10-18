@@ -3,8 +3,9 @@ import { readFileSync } from "node:fs";
 
 // Brace depth at which each rule with exactly this selector opens; 0 means a
 // top-level rule, anything deeper means it sits inside an @media/@supports block.
+// Comments and quoted strings are blanked first so a "{" inside them can't skew the count.
 const ruleDepths = (css: string, selector: string): number[] => {
-  const source = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  const source = css.replace(/\/\*[\s\S]*?\*\//g, "").replace(/"[^"\n]*"|'[^'\n]*'/g, '""');
   const depths: number[] = [];
   let depth = 0;
   let prelude = "";

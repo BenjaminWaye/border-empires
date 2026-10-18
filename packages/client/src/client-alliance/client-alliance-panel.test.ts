@@ -18,6 +18,7 @@ const panel = (overrides: Partial<AlliancePanelInput> = {}): string =>
     incomingTruceRequests: [],
     outgoingTruceRequests: [],
     playerNameForOwner: (id) => (id ? names[id] : undefined),
+    playerColors: new Map(),
     nowMs: NOW,
     ...overrides
   });
@@ -54,7 +55,7 @@ describe("alliancePanelHtml", () => {
     expect(html).toContain("Needs your response");
     expect(html).toContain("Allies");
     expect(html).toContain("Players you've met");
-    for (const id of ["p-1", "p-2", "ai-3"]) expect(html.match(new RegExp(`data-inspect-player="${id}"`, "g"))).toHaveLength(1);
+    for (const id of ["p-1", "p-2", "ai-3"]) expect(html.match(new RegExp(`data-player-name-id="${id}"`, "g"))).toHaveLength(1);
     expect(html).toContain("accept-request");
     expect(html).toContain("break-alliance");
     // only the one genuinely unengaged player gets propose buttons
@@ -99,7 +100,7 @@ describe("alliancePanelHtml", () => {
 
   it("sorts met players with numbers in natural order", () => {
     const html = panel({ metPlayerIds: new Set(["a-10", "a-2", "a-1"]), playerNameForOwner: (id) => id?.replace("a-", "AI ") });
-    const order = [...html.matchAll(/data-inspect-player="([^"]+)"/g)].map((match) => match[1]);
+    const order = [...html.matchAll(/data-player-name-id="([^"]+)"/g)].map((match) => match[1]);
     expect(order).toEqual(["a-1", "a-2", "a-10"]);
   });
 
@@ -130,6 +131,23 @@ describe("alliancePanelHtml", () => {
 
   it("escapes player names", () => {
     const html = panel({ metPlayerIds: new Set(["p-x"]), playerNameForOwner: () => "<img src=x onerror=1>" });
+    expect(html).not.toContain("<img");
+  });
+
+  // Names used to be bare buttons with no colour and no click handler; they
+  // now carry the player's map colour and data-player-name-id, which
+  // wirePlayerProfileOverlay turns into "open this player's profile".
+  it("gives every name a colour dot and the profile hook, on met rows, allies and requests", () => {
+    const html = panel({
+      metPlayerIds: new Set(["p-1"]),
+      allies: ["p-2"],
+      incomingAllianceRequests: [{ id: "r-1", fromPlayerId: "ai-3", toPlayerId: "me", fromName: "<img src=x onerror=1>", createdAt: NOW }],
+      playerColors: new Map([["p-1", "#d94f30"], ["p-2", "#3a7bd5"], ["ai-3", "not-a-colour"]])
+    });
+    for (const id of ["p-1", "p-2", "ai-3"]) expect(html).toContain(`data-player-name-id="${id}"`);
+    expect(html).toContain("--player-color:#d94f30");
+    expect(html).toContain("--player-color:#3a7bd5");
+    expect(html).toContain('class="lb-player-dot is-unknown"');
     expect(html).not.toContain("<img");
   });
 });

@@ -15,6 +15,7 @@ const render = (): HTMLElement => {
     incomingTruceRequests: [],
     outgoingTruceRequests: [],
     playerNameForOwner: (id) => id ?? undefined,
+    playerColors: new Map(),
     nowMs: 0
   });
   document.body.append(root);
@@ -32,7 +33,7 @@ describe("applySocialFocus", () => {
 
     const highlighted = Array.from(root.querySelectorAll(".alliance-focus-highlight")) as HTMLElement[];
     expect(highlighted).toHaveLength(1);
-    expect(highlighted[0]!.querySelector("[data-inspect-player]")!.getAttribute("data-inspect-player")).toBe("p-2");
+    expect(highlighted[0]!.querySelector("[data-player-name-id]")!.getAttribute("data-player-name-id")).toBe("p-2");
     expect(scroll).toHaveBeenCalledTimes(1);
 
     // The HUD rewrites the panel HTML on the next gateway message: still highlighted, no second scroll.

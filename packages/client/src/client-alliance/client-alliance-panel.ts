@@ -1,5 +1,5 @@
 import type { ActiveAllianceBreakView, ActiveTruceView, AllianceRequest, TruceRequest } from "../client-types.js";
-import { allianceRequestsHtml, alliesHtml, socialRemainingLabel, truceRequestsHtml } from "../client-panel-html/client-panel-html.js";
+import { allianceNameButtonHtml, allianceRequestsHtml, alliesHtml, socialRemainingLabel, truceRequestsHtml } from "../client-panel-html/client-panel-html.js";
 
 type PlayerNameForOwner = (ownerId?: string | null) => string | undefined;
 
@@ -13,6 +13,8 @@ export type AlliancePanelInput = {
   incomingTruceRequests: TruceRequest[];
   outgoingTruceRequests: TruceRequest[];
   playerNameForOwner: PlayerNameForOwner;
+  // Map colours by player id, for the dot beside each name.
+  playerColors: ReadonlyMap<string, string>;
   nowMs: number;
   // The one met-player row whose action buttons are showing; every other row
   // is a single collapsed line. See client-alliance-row-toggle.ts.
@@ -45,6 +47,7 @@ const metPlayerRowHtml = (
   playerId: string,
   truce: ActiveTruceView | undefined,
   playerNameForOwner: PlayerNameForOwner,
+  playerColors: ReadonlyMap<string, string>,
   nowMs: number,
   expanded: boolean
 ): string => {
@@ -75,7 +78,7 @@ const metPlayerRowHtml = (
     : "";
   return `<article class="card alliance-reference-card alliance-player-card${isOpen ? " is-expanded" : ""}" data-player-row-id="${safeId}">
       <div class="alliance-player-row">
-        <button class="player-link alliance-reference-name" type="button" data-inspect-player="${safeId}">${escapeHtml(name ?? "Unknown empire")}</button>
+        ${allianceNameButtonHtml(playerId, name ?? "Unknown empire", playerColors)}
         <div class="alliance-player-status">${status}</div>
         ${toggle}
       </div>
@@ -91,18 +94,20 @@ const metPlayerRowHtml = (
  * in exactly one section.
  */
 export const alliancePanelHtml = (input: AlliancePanelInput): string => {
-  const { playerNameForOwner, nowMs } = input;
-  const incoming = `${allianceRequestsHtml(input.incomingAllianceRequests, playerNameForOwner, "incoming", nowMs)}${truceRequestsHtml(
+  const { playerNameForOwner, playerColors, nowMs } = input;
+  const incoming = `${allianceRequestsHtml(input.incomingAllianceRequests, playerNameForOwner, "incoming", nowMs, playerColors)}${truceRequestsHtml(
     input.incomingTruceRequests,
     playerNameForOwner,
     "incoming",
-    nowMs
+    nowMs,
+    playerColors
   )}`;
-  const outgoing = `${allianceRequestsHtml(input.outgoingAllianceRequests, playerNameForOwner, "outgoing", nowMs)}${truceRequestsHtml(
+  const outgoing = `${allianceRequestsHtml(input.outgoingAllianceRequests, playerNameForOwner, "outgoing", nowMs, playerColors)}${truceRequestsHtml(
     input.outgoingTruceRequests,
     playerNameForOwner,
     "outgoing",
-    nowMs
+    nowMs,
+    playerColors
   )}`;
   const allies = new Set(input.allies);
   const withPendingRequest = new Set<string>([
@@ -123,12 +128,12 @@ export const alliancePanelHtml = (input: AlliancePanelInput): string => {
 
   return [
     sectionHtml("Needs your response", incoming),
-    sectionHtml("Allies", input.allies.length > 0 ? alliesHtml(input.allies, playerNameForOwner, input.activeAllianceBreaks, nowMs) : ""),
+    sectionHtml("Allies", input.allies.length > 0 ? alliesHtml(input.allies, playerNameForOwner, input.activeAllianceBreaks, nowMs, playerColors) : ""),
     sectionHtml("Waiting on others", outgoing),
     sectionHtml(
       "Players you've met",
       approachable
-        .map(({ id }) => metPlayerRowHtml(id, trucesByPlayerId.get(id), playerNameForOwner, nowMs, id === input.expandedPlayerId))
+        .map(({ id }) => metPlayerRowHtml(id, trucesByPlayerId.get(id), playerNameForOwner, playerColors, nowMs, id === input.expandedPlayerId))
         .join(""),
       "alliance-player-stack"
     )

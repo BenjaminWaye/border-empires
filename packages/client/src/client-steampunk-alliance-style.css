@@ -83,17 +83,10 @@
   color: var(--sp-brass-100);
 }
 
-/* The player's map colour beside their name; --player-color is set per name
-   by client-alliance-player-links.ts. */
-.has-player-color::before {
-  content: "";
+/* The player's map-colour dot (.lb-player-dot from style.css) before their name. */
+.alliance-reference-name .lb-player-dot {
   display: inline-block;
-  width: 10px;
-  height: 10px;
   margin-right: 8px;
-  border-radius: 50%;
-  background: var(--player-color);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 0 0 2px var(--sp-brass-700);
   vertical-align: 0.05em;
 }
 
