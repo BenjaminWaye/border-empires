@@ -9,7 +9,7 @@ import { normalizeColorForThree } from "../client-three-color/client-three-color
 // mistaken for the viewer's own ground. Pure logic shared by the 3D overlay
 // (client-map-3d-incursion-overlay.ts) and the 2D canvas path.
 
-export type IncursionTile = { readonly ownerId?: string | undefined; readonly terrain?: string | undefined };
+export type IncursionTile = { readonly ownerId?: string | undefined; readonly terrain?: string | undefined; readonly reachOwnerId?: string | undefined };
 
 export type IncursionDeps = {
   readonly tiles: ReadonlyMap<string, IncursionTile>;
@@ -38,6 +38,48 @@ export const incursionOwnerAt = (
   return myReach?.has(tileKey) ? ownerId : undefined;
 };
 
+/**
+ * The mirror of an incursion: the rival whose reach covers one of the
+ * viewer's OWN tiles (land the viewer took by attack, which never moves a
+ * reach border), or undefined. Read straight off the server's contest-resolved
+ * tile.reachOwnerId. These tiles can't host the viewer's Relay Beacon, so both
+ * renderers mark them exactly like an incursion with the roles swapped (see
+ * reachPocketAt): the viewer is the one who pushed in.
+ */
+export const rivalReachOverMyTile = (tile: IncursionTile | undefined, me: string | undefined): string | undefined => {
+  const reachOwnerId = tile?.reachOwnerId;
+  if (!me || tile?.ownerId !== me || !reachOwnerId || reachOwnerId === me || reachOwnerId.startsWith("barbarian")) return undefined;
+  return reachOwnerId;
+};
+
+/**
+ * A tile held by one empire inside another's reach, from either side: a
+ * rival's tile inside the viewer's reach (incursionOwnerAt) or the viewer's
+ * own tile inside a rival's reach (rivalReachOverMyTile). `pusher` holds the
+ * tile, `defender` owns the reach around it, and `inDefenderReach` says
+ * whether any tile key sits inside that reach. Both cases get the same hatch
+ * and front line, coloured by who pushed in.
+ */
+export type ReachPocket = {
+  readonly pusher: string;
+  readonly defender: string;
+  readonly inDefenderReach: Pick<ReadonlySet<string>, "has">;
+};
+
+export const reachPocketAt = (
+  tile: IncursionTile | undefined,
+  tileKey: string,
+  me: string,
+  myReach: ReadonlySet<string>,
+  tiles: ReadonlyMap<string, IncursionTile>
+): ReachPocket | undefined => {
+  const intruder = incursionOwnerAt(tile, tileKey, me, myReach);
+  if (intruder) return { pusher: intruder, defender: me, inDefenderReach: myReach };
+  const rival = rivalReachOverMyTile(tile, me);
+  if (!rival) return undefined;
+  return { pusher: me, defender: rival, inDefenderReach: { has: (key) => tiles.get(key)?.reachOwnerId === rival } };
+};
+
 export const incursionPocketEdges = (x: number, y: number, ownerId: string, deps: IncursionDeps): IncursionEdges => {
   const heldBySameIntruder = (nx: number, ny: number): boolean =>
     deps.tiles.get(deps.keyFor(deps.wrapX(nx), deps.wrapY(ny)))?.ownerId === ownerId;
@@ -53,10 +95,12 @@ export const incursionPocketEdges = (x: number, y: number, ownerId: string, deps
  * Classifier for the breach outline (client-incursion-breach-layout.ts): what
  * sits at offset (dx, dy) from the incursion tile at (x, y) -- more of the same
  * intruder's pocket (inside my reach), the intruder's own land behind the old
- * border (outside it), the viewer's own land, or anything else.
+ * border (outside it), the viewer's own land, or anything else. For the
+ * mirror case pass the viewer as `ownerId`, the rival as `me` and the rival's
+ * reach as `myReach` (ReachPocket's pusher / defender / inDefenderReach).
  */
 export const incursionNeighbourKindAt =
-  (x: number, y: number, ownerId: string, me: string, deps: IncursionDeps, myReach: ReadonlySet<string>) =>
+  (x: number, y: number, ownerId: string, me: string, deps: IncursionDeps, myReach: Pick<ReadonlySet<string>, "has">) =>
   (dx: number, dy: number): "pocket" | "rival" | "mine" | "other" => {
     const key = deps.keyFor(deps.wrapX(x + dx), deps.wrapY(y + dy));
     const neighbourOwner = deps.tiles.get(key)?.ownerId;

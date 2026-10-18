@@ -1,11 +1,12 @@
 import { drawDormantFrontierTreatment, isDormantFrontierTile } from "../client-reach-overlay/client-reach-overlay.js";
-import { incursionHatchColors, incursionMarkColor, incursionOwnerAt, incursionPocketEdges, type IncursionDeps } from "./client-reach-incursion.js";
+import { incursionHatchColors, incursionMarkColor, incursionPocketEdges, reachPocketAt, type IncursionDeps } from "./client-reach-incursion.js";
 import type { Tile } from "../client-types.js";
 
-// 2D canvas twin of client-map-3d-incursion-overlay.ts: rival tiles inside
-// the viewer's reach get a two-colour diagonal hatch (intruder's colour
-// alternating with the viewer's) plus a solid strip along each pocket edge in
-// a colour contrasting with the intruder's fill. Also owns the existing dormant-frontier
+// 2D canvas twin of client-map-3d-incursion-overlay.ts: a tile held inside
+// another empire's reach (reachPocketAt -- a rival's tile inside the viewer's
+// reach, or the viewer's own tile inside a rival's) gets a two-colour diagonal
+// hatch (the pusher's colour alternating with the reach owner's) plus a solid
+// strip along each pocket edge in a colour contrasting with the pusher's fill. Also owns the existing dormant-frontier
 // treatment, so client-runtime-loop.ts makes one per-tile reach call.
 
 const HATCH_ALPHA = 0.6;
@@ -84,7 +85,7 @@ const drawIncursionTile = (
   ctx.restore();
 };
 
-/** Per-tile reach treatments for one VISIBLE tile on the 2D map: dormant frontier (own tiles) or incursion (rival tiles inside my reach). */
+/** Per-tile reach treatments for one VISIBLE tile on the 2D map: dormant frontier (own tiles) and the incursion hatch on any tile held inside another empire's reach. */
 export const drawReachTileTreatments2D = (
   ctx: CanvasRenderingContext2D,
   tile: Tile,
@@ -96,12 +97,9 @@ export const drawReachTileTreatments2D = (
   myReach: ReadonlySet<string>,
   deps: ReachTileTreatmentDeps
 ): void => {
-  if (tile.ownerId === deps.me && isDormantFrontierTile(tile)) {
-    drawDormantFrontierTreatment(ctx, px, py, size);
-    return;
-  }
-  const intruder = incursionOwnerAt(tile, deps.keyFor(wx, wy), deps.me, myReach);
-  if (!intruder) return;
-  const intruderColor = deps.ownerColor(intruder);
-  drawIncursionTile(ctx, incursionHatchColors(intruderColor, deps.ownerColor(deps.me)), incursionMarkColor(intruderColor), px, py, size, incursionPocketEdges(wx, wy, intruder, deps));
+  if (tile.ownerId === deps.me && isDormantFrontierTile(tile)) drawDormantFrontierTreatment(ctx, px, py, size);
+  const pocket = reachPocketAt(tile, deps.keyFor(wx, wy), deps.me, myReach, deps.tiles);
+  if (!pocket) return;
+  const pusherColor = deps.ownerColor(pocket.pusher);
+  drawIncursionTile(ctx, incursionHatchColors(pusherColor, deps.ownerColor(pocket.defender)), incursionMarkColor(pusherColor), px, py, size, incursionPocketEdges(wx, wy, pocket.pusher, deps));
 };
