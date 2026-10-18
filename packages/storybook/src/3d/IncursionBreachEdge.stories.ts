@@ -17,6 +17,10 @@ import { BREACH_STYLE_LABELS, buildBorderDemoWorld, buildBreachDemoWorld, demoKi
  *
  * The pocket on my east border keeps the plain strip on its outer side in
  * every style: only sides facing my own tiles get the breach look.
+ *
+ * `myTilesInRivalReach` also marks my easternmost tiles as sitting inside the
+ * intruder's reach (addRivalReachTile, the mirror case) so the two marks can
+ * be compared side by side.
  */
 
 type Args = {
@@ -27,6 +31,7 @@ type Args = {
   cameraTilt: number;
   myColor: string;
   intruderColor: string;
+  myTilesInRivalReach: boolean;
 };
 
 const OWNERSHIP_OPACITY = 0.78;
@@ -78,7 +83,7 @@ const renderOne = (args: Args, label?: string): HTMLElement => {
   const ownership = ownershipMesh(world, args.myColor, args.intruderColor);
   group.add(ownership);
 
-  const overlay = createIncursionOverlay3D(group, world.pocket.size);
+  const overlay = createIncursionOverlay3D(group, Math.max(world.pocket.size, world.mine.size));
   const hatch = incursionHatchColors(args.intruderColor, args.myColor);
   const mark = incursionMarkColor(args.intruderColor);
   overlay.clear();
@@ -86,6 +91,11 @@ const renderOne = (args: Args, label?: string): HTMLElement => {
     const { x, y } = parseTileKey(key);
     const layout = incursionBreachLayout(args.style, demoKindAt(world, x, y), x, y);
     overlay.addTile(x, y, HATCH_Y, hatch, mark, layout.straightEdges, { style: args.style, worldX: x, worldY: y, layout });
+  }
+  if (args.myTilesInRivalReach) {
+    const mine = [...world.mine].map(parseTileKey);
+    const eastEdge = Math.max(...mine.map((tile) => tile.x));
+    for (const { x, y } of mine) if (x >= eastEdge - 1) overlay.addRivalReachTile(x, y, HATCH_Y, args.intruderColor);
   }
   overlay.commit();
 
@@ -129,10 +139,11 @@ const meta: Meta<Args> = {
     cameraDistance: { control: { type: "range", min: 4, max: 24, step: 0.5 } },
     cameraTilt: { control: { type: "range", min: 0.2, max: 1.2, step: 0.05 } },
     myColor: { control: { type: "color" } },
-    intruderColor: { control: { type: "color" } }
+    intruderColor: { control: { type: "color" } },
+    myTilesInRivalReach: { control: { type: "boolean" } }
   },
   // Red-pink me, light-green intruder (-> near-black outline), as in the original screenshot.
-  args: { style: "spikes", scenario: "islands", cameraDistance: 10, cameraTilt: 0.7, myColor: "#e0535d", intruderColor: "#7be05a" },
+  args: { style: "spikes", scenario: "islands", cameraDistance: 10, cameraTilt: 0.7, myColor: "#e0535d", intruderColor: "#7be05a", myTilesInRivalReach: false },
   render: (args) => renderOne(args, BREACH_STYLE_LABELS[args.style])
 };
 
@@ -152,3 +163,6 @@ export const CompareAllDarkIntruder: Story = { args: { intruderColor: "#2b3a8c" 
 /** The rival pushing across a shared border: the front line only runs where their push meets my land. */
 export const SpikesAtBorder: Story = { args: { style: "spikes", scenario: "border" } };
 export const OldStraightAtBorder: Story = { args: { style: "straight", scenario: "border" } };
+/** My own tiles inside the rival's reach (east two columns): thin lines in their colour, opposite diagonal, no edge. */
+export const MyTilesInRivalReach: Story = { args: { style: "spikes", myTilesInRivalReach: true } };
+export const MyTilesInRivalReachDarkRival: Story = { args: { style: "spikes", myTilesInRivalReach: true, intruderColor: "#2b3a8c", myColor: "#3fa7e0" } };

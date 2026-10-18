@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { incursionHatchColors, incursionMarkColor, incursionNeighbourKindAt, incursionOwnerAt, incursionPocketEdges, type IncursionTile } from "./client-reach-incursion.js";
+import { incursionHatchColors, incursionMarkColor, incursionNeighbourKindAt, incursionOwnerAt, incursionPocketEdges, rivalReachOverMyTile, type IncursionTile } from "./client-reach-incursion.js";
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
 const wrap = (v: number): number => ((v % 10) + 10) % 10;
@@ -22,6 +22,20 @@ describe("incursionOwnerAt", () => {
 
   it("is off until my reach is known", () => {
     expect(incursionOwnerAt({ ownerId: "rival" }, "2,1", "me", undefined)).toBeUndefined();
+  });
+});
+
+describe("rivalReachOverMyTile", () => {
+  it("flags my own tile sitting inside a rival's reach", () => {
+    expect(rivalReachOverMyTile({ ownerId: "me", reachOwnerId: "rival" }, "me")).toBe("rival");
+  });
+
+  it("ignores my tiles in my own or no reach, rival tiles, barbarian reach, and an unknown viewer", () => {
+    expect(rivalReachOverMyTile({ ownerId: "me", reachOwnerId: "me" }, "me")).toBeUndefined();
+    expect(rivalReachOverMyTile({ ownerId: "me" }, "me")).toBeUndefined();
+    expect(rivalReachOverMyTile({ ownerId: "rival", reachOwnerId: "rival" }, "me")).toBeUndefined();
+    expect(rivalReachOverMyTile({ ownerId: "me", reachOwnerId: "barbarian-2" }, "me")).toBeUndefined();
+    expect(rivalReachOverMyTile({ ownerId: "me", reachOwnerId: "rival" }, undefined)).toBeUndefined();
   });
 });
 

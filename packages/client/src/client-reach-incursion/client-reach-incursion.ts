@@ -38,7 +38,24 @@ export const incursionOwnerAt = (
   return myReach?.has(tileKey) ? ownerId : undefined;
 };
 
-export const incursionPocketEdges = (x: number, y: number, ownerId: string, deps: IncursionDeps): IncursionEdges => {
+/**
+ * The mirror of an incursion: the rival whose reach covers one of the
+ * viewer's OWN tiles (land the viewer took by attack, which never moves a
+ * reach border), or undefined. Read straight off the server's contest-resolved
+ * tile.reachOwnerId. These tiles can't host the viewer's Relay Beacon or
+ * settle into their reach, so both renderers mark them -- with a sparse
+ * single-colour hatch, distinct from the dense two-colour incursion hatch.
+ */
+export const rivalReachOverMyTile = (
+  tile: (IncursionTile & { readonly reachOwnerId?: string | undefined }) | undefined,
+  me: string | undefined
+): string | undefined => {
+  const reachOwnerId = tile?.reachOwnerId;
+  if (!me || tile?.ownerId !== me || !reachOwnerId || reachOwnerId === me || reachOwnerId.startsWith("barbarian")) return undefined;
+  return reachOwnerId;
+};
+
+export const incursionPocketEdges =(x: number, y: number, ownerId: string, deps: IncursionDeps): IncursionEdges => {
   const heldBySameIntruder = (nx: number, ny: number): boolean =>
     deps.tiles.get(deps.keyFor(deps.wrapX(nx), deps.wrapY(ny)))?.ownerId === ownerId;
   return {
