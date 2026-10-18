@@ -410,6 +410,9 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
             // firing for the same sign-in.
             await authenticateSocket();
           } else {
+            // Recovery pauses while signed out. A later sign-in must reopen
+            // a closed transport instead of waiting for an absent retry.
+            if (ws.readyState === ws.CLOSED || ws.readyState === ws.CLOSING) ws.reconnect();
             setAuthBusy(true);
             state.authBusyTitle = "Securing session";
             state.authBusyDetail = `Signed in, but the realtime game connection to ${wsUrl} has not opened yet. The server may still be starting or overloaded.`;

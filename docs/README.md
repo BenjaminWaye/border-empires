@@ -66,6 +66,9 @@ instructions.
 repository's documentation and agent-workflow cleanup in phases.
 [`code-cleanup-plan.md`](code-cleanup-plan.md) records the October 2026
 dead-code and duplication cleanup and the remaining items in priority order.
+[`playtest-improvements-plan.md`](playtest-improvements-plan.md) tracks the
+Waypoint playtest follow-up: recovery, bulk garrison, muster controls, selection,
+manpower-panel clarity, and area-based Activity summaries.
 
 ## Templates
 

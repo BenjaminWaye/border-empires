@@ -471,6 +471,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Industrial Tooling docks as a precision mill",
     why: "The Manufactory unlock deserves its own visible AFC machine.",
     changes: ["The Industrial Tooling Module now has a dedicated 3D milling gantry with a moving spindle, rotating drive wheel and tool rack", "The 2D map shows a matching gantry symbol on AFCs with tooling installed"]
+  },
+  {
+    createdAt: 1792274781110, // Date.now() captured once for this release.
+    introducedIn: "2026.10.18.1",
+    title: "Automatic reconnection keeps trying through server updates",
+    why: "Long outages exhausted the retry budget and forced page reloads; a reopened connection could also get stuck before restoring your empire.",
+    changes: [
+      "Long interruptions keep retrying in place without automatically refreshing the page",
+      "A reconnect that makes no progress for a minute automatically starts a fresh connection",
+      "Login queue updates and ongoing map downloads extend that timeout so active recovery can finish",
+      "Recovery pauses after sign-out; signing back in reopens a closed connection"
+    ]
   }
 ];
 
