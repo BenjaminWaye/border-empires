@@ -87,13 +87,13 @@ describe("menuOverviewForTile", () => {
           populationTier: "TOWN",
           connectedTownCount: 0,
           connectedTownBonus: 0,
-          hasMintworks: true,
-          mintworksActive: true,
+          hasManufactory: true,
+          manufactoryActive: true,
           hasIncubationEngine: false,
           incubationEngineActive: false,
           townModifierTotals: [
             {
-              heading: "6 Mintworks",
+              heading: "6 Manufactories",
               modifiers: [
                 { statLabel: "Coin", valueText: "+6", tone: "positive" },
                 { statLabel: "Coin production", valueText: "+210%", tone: "positive" }
@@ -105,7 +105,7 @@ describe("menuOverviewForTile", () => {
       deps
     );
 
-    const groupIndex = lines.findIndex((line) => line.kind === "group" && line.html === "6 Mintworks");
+    const groupIndex = lines.findIndex((line) => line.kind === "group" && line.html === "6 Manufactories");
     expect(groupIndex).toBeGreaterThanOrEqual(0);
     const goldLine = lines[groupIndex + 1];
     const goldProductionLine = lines[groupIndex + 2];
@@ -142,8 +142,8 @@ describe("menuOverviewForTile", () => {
           populationTier: "TOWN",
           connectedTownCount: 0,
           connectedTownBonus: 0,
-          hasMintworks: false,
-          mintworksActive: false,
+          hasManufactory: false,
+          manufactoryActive: false,
           hasIncubationEngine: false,
           incubationEngineActive: false,
         },
@@ -171,10 +171,10 @@ describe("menuOverviewForTile", () => {
   it("shows the natural wonder overview line, activation-gated on ownership/settlement", () => { const wonderTile = (overrides: Partial<Tile>): Tile => ({ x: 167, y: 246, terrain: "LAND", naturalWonder: { type: "DEEPWATER_ENGINE" }, ...overrides }); const html = (t: Tile) => menuOverviewForTile(t, deps).map((line) => line.html); expect(html(wonderTile({ ownerId: "me", ownershipState: "SETTLED" }))).toContain("Natural wonder: the Deepwater Engine — active. Boon: dock coin income doubled; dock-launched attacks +15% ATK."); expect(html(wonderTile({ ownerId: "me", ownershipState: "FRONTIER" }))).toContain("Natural wonder: the Deepwater Engine. Garrison this tile to activate: dock coin income doubled; dock-launched attacks +15% ATK."); expect(html(wonderTile({}))).toContain("Natural wonder: the Deepwater Engine. Boon: dock coin income doubled; dock-launched attacks +15% ATK."); });
   // supportContributionLine (the old hand-written "X contributes to Y: ..."
   // prose) was removed — it duplicated the unified Modifiers section
-  // word-for-word. A clicked Clearing House's own Mintworks gold-bonus
+  // word-for-word. A clicked Clearing House's own Manufactory gold-bonus
   // now shows only once, as a Modifier line sourced from the shared catalog,
   // spelling out both ends of the boost instead of an ambiguous bare "+25%".
-  it("shows the Clearing House Mintworks gold-bonus modifier for a clicked Clearing House (no duplicate prose)", () => { const lines = menuOverviewForTile({ x: 9, y: 9, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "CLEARING_HOUSE", status: "active" } }, { ...deps, supportedOwnedTownsForTile: () => [{ x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", town: { name: "Qadarstrand", type: "FARMING", baseGoldPerMinute: 2, supportCurrent: 5, supportMax: 5, goldPerMinute: 7.45, cap: 100, isFed: true, population: 18_977, maxPopulation: 25_000, populationTier: "TOWN", connectedTownCount: 0, connectedTownBonus: 0, hasMintworks: true, mintworksActive: true, hasIncubationEngine: true, incubationEngineActive: true, } }] }); const html = lines.map((line) => line.html).join(" "); expect(html).toContain("Mintworks coin bonus per copy:"); expect(html).toContain("+10% → +35%"); expect(html).not.toContain("contributes to"); });
+  it("shows the Clearing House Manufactory gold-bonus modifier for a clicked Clearing House (no duplicate prose)", () => { const lines = menuOverviewForTile({ x: 9, y: 9, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "CLEARING_HOUSE", status: "active" } }, { ...deps, supportedOwnedTownsForTile: () => [{ x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", town: { name: "Qadarstrand", type: "FARMING", baseGoldPerMinute: 2, supportCurrent: 5, supportMax: 5, goldPerMinute: 7.45, cap: 100, isFed: true, population: 18_977, maxPopulation: 25_000, populationTier: "TOWN", connectedTownCount: 0, connectedTownBonus: 0, hasManufactory: true, manufactoryActive: true, hasIncubationEngine: true, incubationEngineActive: true, } }] }); const html = lines.map((line) => line.html).join(" "); expect(html).toContain("Manufactory coin bonus per copy:"); expect(html).toContain("+10% → +35%"); expect(html).not.toContain("contributes to"); });
   it("falls back to zero settlement gold when snapshot detail is missing the numeric rate", () => {
     const lines = menuOverviewForTile(
       {
@@ -197,8 +197,8 @@ describe("menuOverviewForTile", () => {
           populationTier: "SETTLEMENT",
           connectedTownCount: 0,
           connectedTownBonus: 0,
-          hasMintworks: false,
-          mintworksActive: false,
+          hasManufactory: false,
+          manufactoryActive: false,
           hasIncubationEngine: false,
           incubationEngineActive: false,
         },
@@ -288,8 +288,8 @@ describe("menuOverviewForTile", () => {
           populationTier: "TOWN",
           connectedTownCount: 0,
           connectedTownBonus: 0,
-          hasMintworks: false,
-          mintworksActive: false,
+          hasManufactory: false,
+          manufactoryActive: false,
           hasIncubationEngine: false,
           incubationEngineActive: false,
         }
@@ -335,8 +335,8 @@ describe("menuOverviewForTile", () => {
           populationTier: "TOWN",
           connectedTownCount: 0,
           connectedTownBonus: 0,
-          hasMintworks: false,
-          mintworksActive: false,
+          hasManufactory: false,
+          manufactoryActive: false,
           hasIncubationEngine: false,
           incubationEngineActive: false,
         }
@@ -388,8 +388,8 @@ describe("menuOverviewForTile", () => {
           populationTier: "TOWN",
           connectedTownCount: 0,
           connectedTownBonus: 0,
-          hasMintworks: false,
-          mintworksActive: false,
+          hasManufactory: false,
+          manufactoryActive: false,
           hasIncubationEngine: false,
           incubationEngineActive: false,
         },
@@ -436,8 +436,8 @@ describe("menuOverviewForTile", () => {
           populationTier: "TOWN",
           connectedTownCount: 0,
           connectedTownBonus: 0,
-          hasMintworks: false,
-          mintworksActive: false,
+          hasManufactory: false,
+          manufactoryActive: false,
           hasIncubationEngine: false,
           incubationEngineActive: false,
         },
@@ -479,8 +479,8 @@ describe("menuOverviewForTile", () => {
           populationTier: "SETTLEMENT",
           connectedTownCount: 3,
           connectedTownBonus: 0.9,
-          hasMintworks: false,
-          mintworksActive: false,
+          hasManufactory: false,
+          manufactoryActive: false,
           hasIncubationEngine: false,
           incubationEngineActive: false,
         },
@@ -524,8 +524,8 @@ describe("menuOverviewForTile", () => {
           connectedTownBonus: 0.9,
           manpowerCurrent: 8,
           manpowerCap: 3_150,
-          hasMintworks: false,
-          mintworksActive: false,
+          hasManufactory: false,
+          manufactoryActive: false,
           hasIncubationEngine: false,
           incubationEngineActive: false,
           growthModifiers: [{ label: "Long time peace", deltaPerMinute: 10 }]
@@ -646,8 +646,8 @@ describe("menuOverviewForTile", () => {
           populationTier: "TOWN",
           connectedTownCount: 1,
           connectedTownBonus: 0.2,
-          hasMintworks: false,
-          mintworksActive: false,
+          hasManufactory: false,
+          manufactoryActive: false,
           hasIncubationEngine: false,
           incubationEngineActive: false,
         },
@@ -731,8 +731,8 @@ describe("menuOverviewForTile", () => {
           populationTier: "CITY",
           connectedTownCount: 2,
           connectedTownBonus: 0.9,
-          hasMintworks: false,
-          mintworksActive: false,
+          hasManufactory: false,
+          manufactoryActive: false,
           hasIncubationEngine: false,
           incubationEngineActive: false,
           growthModifiers: [{ label: "Long time peace", deltaPerMinute: 10 }]
@@ -837,8 +837,8 @@ describe("menuOverviewForTile", () => {
           populationTier: "TOWN",
           connectedTownCount: 0,
           connectedTownBonus: 0,
-          hasMintworks: false,
-          mintworksActive: false,
+          hasManufactory: false,
+          manufactoryActive: false,
           hasIncubationEngine: false,
           incubationEngineActive: false,
           foodUpkeepPerMinute: 0.1
@@ -880,8 +880,8 @@ describe("menuOverviewForTile", () => {
           populationTier: "TOWN",
           connectedTownCount: 0,
           connectedTownBonus: 0,
-          hasMintworks: false,
-          mintworksActive: false,
+          hasManufactory: false,
+          manufactoryActive: false,
           hasIncubationEngine: false,
           incubationEngineActive: false,
           foodUpkeepPerMinute: 0.1
@@ -1038,8 +1038,8 @@ describe("menuOverviewForTile", () => {
           populationTier: "TOWN",
           connectedTownCount: 0,
           connectedTownBonus: 0,
-          hasMintworks: false,
-          mintworksActive: false,
+          hasManufactory: false,
+          manufactoryActive: false,
           hasIncubationEngine: false,
           incubationEngineActive: false,
           captureShockUntil: now + 119_000
@@ -1087,8 +1087,8 @@ describe("menuOverviewForTile", () => {
           populationTier: "TOWN",
           connectedTownCount: 0,
           connectedTownBonus: 0,
-          hasMintworks: false,
-          mintworksActive: false,
+          hasManufactory: false,
+          manufactoryActive: false,
           hasIncubationEngine: false,
           incubationEngineActive: false,
         }

@@ -10,7 +10,7 @@ import {
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { DevQueueBuildReservation } from "./runtime-dev-queue-build-reservation.js";
 
-const MANPOWER_COST_BY_TYPE: Record<string, number> = { FORT: 300, MINTWORKS: 80 };
+const MANPOWER_COST_BY_TYPE: Record<string, number> = { FORT: 300, MANUFACTORY: 80 };
 const SETTLE_TEST_MANPOWER_COST = 150;
 
 function makeContext(overrides: { manpower: number; hasSlot?: boolean }) {
@@ -131,7 +131,7 @@ describe("handleDevQueueEnqueueCommand -- MP/slot reservation", () => {
     // happens to push a fresh update.
     const { context, playerStateUpdates } = makeContext({ manpower: 1000 });
     handleDevQueueEnqueueCommand(context, enqueueCommand(1, 1, "FORT"));
-    handleDevQueueEnqueueCommand(context, enqueueCommand(2, 2, "MINTWORKS"));
+    handleDevQueueEnqueueCommand(context, enqueueCommand(2, 2, "MANUFACTORY"));
     expect(playerStateUpdates).toEqual([
       { commandId: "enqueue:1,1", playerId: "p1" },
       { commandId: "enqueue:2,2", playerId: "p1" }
@@ -253,7 +253,7 @@ describe("handleDevQueueEnqueueCommand -- MP/slot reservation", () => {
     expect(summary.devQueue).toEqual([]);
 
     // Simulate the entry sitting queued behind a busy slot, with the player online.
-    summary.devQueue = [{ kind: "BUILD", x: 2, y: 2, tileKey: "2,2", structureType: "MINTWORKS", queuedAt: 0 } as never];
+    summary.devQueue = [{ kind: "BUILD", x: 2, y: 2, tileKey: "2,2", structureType: "MANUFACTORY", queuedAt: 0 } as never];
     context.isPlayerOnline = () => true;
     tryDrainDevQueue(context, "p1");
     expect(summary.devQueue).toHaveLength(1); // untouched -- the drain stood down
@@ -263,7 +263,7 @@ describe("handleDevQueueEnqueueCommand -- MP/slot reservation", () => {
 
   it("still drains once the player goes offline", () => {
     const { context, summary, dispatchedBuilds } = makeContext({ manpower: 1000, hasSlot: true });
-    summary.devQueue = [{ kind: "BUILD", x: 2, y: 2, tileKey: "2,2", structureType: "MINTWORKS", queuedAt: 0 } as never];
+    summary.devQueue = [{ kind: "BUILD", x: 2, y: 2, tileKey: "2,2", structureType: "MANUFACTORY", queuedAt: 0 } as never];
     context.isPlayerOnline = () => false;
     tryDrainDevQueue(context, "p1");
     expect(summary.devQueue).toEqual([]);

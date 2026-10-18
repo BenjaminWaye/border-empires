@@ -24,7 +24,7 @@ describe("createStructurePieceBuilder shadow wiring", () => {
 });
 
 // Regression coverage for a live bug + its fix's own regression: metallic
-// structure materials (mintworks and most other buildings) render near-black
+// structure materials (manufactory and most other buildings) render near-black
 // without an environment map to specularly reflect (client-map-3d-atmosphere.ts
 // bakes one). A first version of that fix assigned the texture to
 // `scene.environment`, which applies it as an IBL *diffuse* term to every

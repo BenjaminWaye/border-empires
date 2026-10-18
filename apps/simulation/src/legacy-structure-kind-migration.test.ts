@@ -26,7 +26,7 @@ describe("migrateLegacyStructureKinds", () => {
     expect(tiles[0]!.economicStructure).toEqual({ ownerId: "player-1", type: "RELAY_BEACON", status: "active" });
   });
 
-  it("rewrites tile.economicStructure.type MARKET to MINTWORKS", () => {
+  it("rewrites tile.economicStructure.type MARKET to MANUFACTORY", () => {
     const tiles = [
       tile({
         economicStructure: { ownerId: "player-1", type: "MARKET" as never, status: "active" }
@@ -36,7 +36,7 @@ describe("migrateLegacyStructureKinds", () => {
     const migrated = migrateLegacyStructureKinds(tiles);
 
     expect(migrated).toBe(1);
-    expect(tiles[0]!.economicStructure).toEqual({ ownerId: "player-1", type: "MINTWORKS", status: "active" });
+    expect(tiles[0]!.economicStructure).toEqual({ ownerId: "player-1", type: "MANUFACTORY", status: "active" });
   });
 
   it("rewrites tile.economicStructure.type SEED_INCUBATION_ENGINE to INCUBATION_ENGINE", () => {
@@ -78,14 +78,14 @@ describe("migrateLegacyStructureKinds", () => {
 
   it("leaves already-migrated and unaffected tiles untouched", () => {
     const relayTile = tile({ economicStructure: { ownerId: "player-1", type: "RELAY_BEACON", status: "active" } });
-    const mintworksTile = tile({ economicStructure: { ownerId: "player-1", type: "MINTWORKS", status: "active" } });
+    const manufactoryTile = tile({ economicStructure: { ownerId: "player-1", type: "MANUFACTORY", status: "active" } });
     const emptyTile = tile();
-    const tiles = [relayTile, mintworksTile, emptyTile];
+    const tiles = [relayTile, manufactoryTile, emptyTile];
 
     const migrated = migrateLegacyStructureKinds(tiles);
 
     expect(migrated).toBe(0);
-    expect(tiles).toEqual([relayTile, mintworksTile, emptyTile]);
+    expect(tiles).toEqual([relayTile, manufactoryTile, emptyTile]);
   });
 
   it("is idempotent — a second pass over already-migrated tiles is a no-op", () => {

@@ -59,7 +59,7 @@ describe("capture structure survival", () => {
               siegeBattery: { ownerId: "player-2", status: "active" },
               economicStructure: {
                 ownerId: "player-2",
-                type: "MINTWORKS",
+                type: "MANUFACTORY",
                 status: "active",
                 disabledUntil: 6_000
               }
@@ -95,7 +95,7 @@ describe("capture structure survival", () => {
           observatoryJson: JSON.stringify({ ownerId: "player-1", status: "active", cooldownUntil: 5_000, activatedAt: 1_000 }),
           economicStructureJson: JSON.stringify({
             ownerId: "player-1",
-            type: "MINTWORKS",
+            type: "MANUFACTORY",
             status: "active",
             disabledUntil: 6_000,
             activatedAt: 1_000,

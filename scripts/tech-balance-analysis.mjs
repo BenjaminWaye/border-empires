@@ -24,11 +24,11 @@ const townIncomePerMinute = ({
   tier = "TOWN",
   connectedTownCount = 2,
   connectedTownBonusMultiplier = 1,
-  mintworks = false,
+  manufactory = false,
   bank = false,
   townGoldOutputMult = 1,
   populationIncomeMult = 1,
-  mintworksIncomeBonusAdd = 0.5,
+  manufactoryIncomeBonusAdd = 0.5,
   bankIncomeBonusAdd = 0.5
 } = {}) => {
   const connectedBonus = baseConnectedTownBonus(connectedTownCount) * connectedTownBonusMultiplier;
@@ -37,7 +37,7 @@ const townIncomePerMinute = ({
     supportRatio *
     populationMultiplier(tier) *
     (1 + connectedBonus) *
-    (mintworks ? 1 + mintworksIncomeBonusAdd : 1) *
+    (manufactory ? 1 + manufactoryIncomeBonusAdd : 1) *
     (bank ? 1 + bankIncomeBonusAdd : 1) *
     townGoldOutputMult *
     populationIncomeMult
@@ -91,19 +91,19 @@ const maxFinite = (values) => {
 };
 
 const threeTownRows = [
-  { label: "Base town", mintworks: false, bank: false, connectedTownBonusMultiplier: 1 },
-  { label: "Mintworks", mintworks: true, bank: false, connectedTownBonusMultiplier: 1 },
-  { label: "Bank", mintworks: false, bank: true, connectedTownBonusMultiplier: 1 },
-  { label: "Mintworks + Bank", mintworks: true, bank: true, connectedTownBonusMultiplier: 1 },
-  { label: "Mintworks + Bank + Trade Nexus x2", mintworks: true, bank: true, connectedTownBonusMultiplier: 2 },
-  { label: "Mintworks + Bank + Trade Nexus x1.5", mintworks: true, bank: true, connectedTownBonusMultiplier: 1.5 }
+  { label: "Base town", manufactory: false, bank: false, connectedTownBonusMultiplier: 1 },
+  { label: "Manufactory", manufactory: true, bank: false, connectedTownBonusMultiplier: 1 },
+  { label: "Bank", manufactory: false, bank: true, connectedTownBonusMultiplier: 1 },
+  { label: "Manufactory + Bank", manufactory: true, bank: true, connectedTownBonusMultiplier: 1 },
+  { label: "Manufactory + Bank + Trade Nexus x2", manufactory: true, bank: true, connectedTownBonusMultiplier: 2 },
+  { label: "Manufactory + Bank + Trade Nexus x1.5", manufactory: true, bank: true, connectedTownBonusMultiplier: 1.5 }
 ];
 
 const currentScenarios = {
   tall: {
-    description: "3 connected towns, all supported, mintworks on all towns, focused resource empire",
+    description: "3 connected towns, all supported, manufactory on all towns, focused resource empire",
     incomePerDay: {
-      gold: townIncomePerMinute({ tier: "TOWN", supportRatio: 1, connectedTownCount: 2, mintworks: true }) * 3 * 1440 + 1440,
+      gold: townIncomePerMinute({ tier: "TOWN", supportRatio: 1, connectedTownCount: 2, manufactory: true }) * 3 * 1440 + 1440,
       FOOD: 4 * 72 * 1.5,
       TITANIUM: 2 * 60 * 1.5,
       UMBRITE: 2 * 60 * 1.5,
@@ -112,11 +112,11 @@ const currentScenarios = {
     }
   },
   wide: {
-    description: "8 towns, average support 0.75, mintworks on 4 core towns, broader resource base",
+    description: "8 towns, average support 0.75, manufactory on 4 core towns, broader resource base",
     incomePerDay: {
       gold:
-        townIncomePerMinute({ tier: "TOWN", supportRatio: 0.75, connectedTownCount: 2, mintworks: true }) * 4 * 1440 +
-        townIncomePerMinute({ tier: "TOWN", supportRatio: 0.75, connectedTownCount: 1, mintworks: false }) * 4 * 1440 +
+        townIncomePerMinute({ tier: "TOWN", supportRatio: 0.75, connectedTownCount: 2, manufactory: true }) * 4 * 1440 +
+        townIncomePerMinute({ tier: "TOWN", supportRatio: 0.75, connectedTownCount: 1, manufactory: false }) * 4 * 1440 +
         1440,
       FOOD: 8 * 72 * 1.5,
       TITANIUM: 5 * 60 * 1.5,
@@ -135,7 +135,7 @@ const goldSaturationReference = {
     HYDROGARDEN: 400,
     UMBRITE_RIG: 500,
     MINE: 500,
-    MINTWORKS: 600,
+    MANUFACTORY: 600,
     INCUBATION_ENGINE: 400,
     BANK: 700,
     SKY_DOCK: 900,
@@ -178,7 +178,7 @@ for (const tier of ["TOWN", "CITY", "GREAT_CITY"]) {
       tier,
       supportRatio: 1,
       connectedTownCount: 2,
-      mintworks: row.mintworks,
+      manufactory: row.manufactory,
       bank: row.bank,
       connectedTownBonusMultiplier: row.connectedTownBonusMultiplier
     });

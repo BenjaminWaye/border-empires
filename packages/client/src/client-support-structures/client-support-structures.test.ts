@@ -23,8 +23,8 @@ const townTile = (x: number, y: number, populationTier: NonNullable<Tile["town"]
     populationTier,
     connectedTownCount: 0,
     connectedTownBonus: 0,
-    hasMintworks: false,
-    mintworksActive: false,
+    hasManufactory: false,
+    manufactoryActive: false,
     hasIncubationEngine: false,
     incubationEngineActive: false,
   }
@@ -60,37 +60,37 @@ describe("townHasSupportStructureType", () => {
 
   it("ignores unrelated support structures", () => {
     const town = townTile(10, 10);
-    const tiles = tileMap([town, supportTile(11, 11, "MINTWORKS", "active")]);
+    const tiles = tileMap([town, supportTile(11, 11, "MANUFACTORY", "active")]);
     expect(townHasSupportStructureType(tiles, town, "me", "UMBRITE_WORKS")).toBe(false);
   });
 
   it("assigns a shared support structure to only the lowest-coordinate town", () => {
     const westTown = townTile(10, 10);
     const eastTown = townTile(12, 10);
-    const tiles = tileMap([westTown, supportTile(11, 10, "MINTWORKS", "active"), eastTown]);
+    const tiles = tileMap([westTown, supportTile(11, 10, "MANUFACTORY", "active"), eastTown]);
 
-    expect(townHasSupportStructureType(tiles, westTown, "me", "MINTWORKS")).toBe(true);
-    expect(townHasSupportStructureType(tiles, eastTown, "me", "MINTWORKS")).toBe(false);
+    expect(townHasSupportStructureType(tiles, westTown, "me", "MANUFACTORY")).toBe(true);
+    expect(townHasSupportStructureType(tiles, eastTown, "me", "MANUFACTORY")).toBe(false);
   });
 
   it("detects support structures across the wrapped world seam", () => {
     const town = townTile(0, 10);
-    const tiles = tileMap([town, supportTile(WORLD_WIDTH - 1, 10, "MINTWORKS", "active")]);
+    const tiles = tileMap([town, supportTile(WORLD_WIDTH - 1, 10, "MANUFACTORY", "active")]);
 
-    expect(townHasSupportStructureType(tiles, town, "me", "MINTWORKS")).toBe(true);
+    expect(townHasSupportStructureType(tiles, town, "me", "MANUFACTORY")).toBe(true);
   });
 
   it("recognizes a distance-2 support tile for a GREAT_CITY town (2nd ring)", () => {
     const town = townTile(10, 10, "GREAT_CITY");
-    const tiles = tileMap([town, supportTile(12, 10, "MINTWORKS", "active")]);
+    const tiles = tileMap([town, supportTile(12, 10, "MANUFACTORY", "active")]);
 
-    expect(townHasSupportStructureType(tiles, town, "me", "MINTWORKS")).toBe(true);
+    expect(townHasSupportStructureType(tiles, town, "me", "MANUFACTORY")).toBe(true);
   });
 
   it("still rejects a distance-2 support tile for a plain TOWN (no 2nd ring)", () => {
     const town = townTile(10, 10, "TOWN");
-    const tiles = tileMap([town, supportTile(12, 10, "MINTWORKS", "active")]);
+    const tiles = tileMap([town, supportTile(12, 10, "MANUFACTORY", "active")]);
 
-    expect(townHasSupportStructureType(tiles, town, "me", "MINTWORKS")).toBe(false);
+    expect(townHasSupportStructureType(tiles, town, "me", "MANUFACTORY")).toBe(false);
   });
 });

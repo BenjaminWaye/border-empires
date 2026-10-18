@@ -1,4 +1,5 @@
 import type { Tile } from "./client-types.js";
+import { drawIndustrialToolingModule2D } from "./client-industrial-tooling-module/client-map-2d-industrial-tooling-module.js";
 import { AFC_DELIVERY_2D_PULSE_MS } from "./client-afc-module-delivery/client-afc-module-delivery-detect.js";
 
 /**
@@ -12,14 +13,14 @@ import { AFC_DELIVERY_2D_PULSE_MS } from "./client-afc-module-delivery/client-af
  * no equivalent per-instance 3D asset system, so this draws a single,
  * simpler glyph on the AFC's own tile only: a brass-rimmed octagonal
  * reactor housing with a pulsing cyan aether core, distinct from a town's
- * plain circular silhouette, but with no per-module sockets or docked-module
- * detail — matching this repo's established precedent (see the Barbarian/
- * "the Bleed" changelog entry) that the 2D accessibility fallback may be
+ * plain circular silhouette. Industrial Tooling adds a small gantry symbol;
+ * other modules keep the shared glyph — matching the established precedent
+ * (see the Barbarian/"the Bleed" changelog) that the 2D fallback may be
  * visually simpler than 3D as long as that's stated plainly.
  *
  * Delivery pulse: the true-3D renderer plays a full orbital-streak delivery
  * when a Module docks (client-map-3d-afc-module-delivery-fx.ts). 2D has no
- * per-module visuals to animate, so `deliveryLandedAtMs` (performance.now()
+ * per-module delivery animation, so `deliveryLandedAtMs` (performance.now()
  * of the landing, from state.afcModuleDeliveryLandedAt) instead briefly
  * flares the reactor core and a brass ring -- a plain "something arrived"
  * acknowledgement, not the full sequence.
@@ -107,4 +108,5 @@ export const drawAfc2D = (
     ctx.stroke();
     ctx.restore();
   }
+  drawIndustrialToolingModule2D(ctx, afc, cx, cy, size);
 };

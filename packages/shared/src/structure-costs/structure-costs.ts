@@ -82,7 +82,7 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   HYDROWORKS: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 20 } },
   UMBRITE_RIG: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "UMBRITE", amount: 30 } },
   MINE: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "TITANIUM", amount: 30 }, resourceOptions: ["TITANIUM", "CRYSTAL"] },
-  MINTWORKS: { baseGoldCost: 0, manpowerCost: 150 },
+  MANUFACTORY: { baseGoldCost: 0, manpowerCost: 150 },
   INCUBATION_ENGINE: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 40 } },
   CENSUS_HALL: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 30 } },
   CLEARING_HOUSE: { baseGoldCost: 0, manpowerCost: 150, resourceCost: { resource: "CRYSTAL", amount: 80 } },

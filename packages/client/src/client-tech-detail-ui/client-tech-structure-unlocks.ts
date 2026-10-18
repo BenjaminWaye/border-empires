@@ -37,8 +37,8 @@ export const relatedStructureTypesForTech = (tech: Pick<TechInfo, "effects">): S
       case "unlockMine":
         out.add("MINE");
         break;
-      case "unlockMintworks":
-        out.add("MINTWORKS");
+      case "unlockManufactory":
+        out.add("MANUFACTORY");
         break;
       case "unlockIncubationEngine":
         out.add("INCUBATION_ENGINE");

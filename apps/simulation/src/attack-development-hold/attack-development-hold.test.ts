@@ -42,7 +42,7 @@ const CASES: Array<{ name: string; field: "fort" | "observatory" | "siegeBattery
   { name: "fort", field: "fort", type: "TITANIUM_BASTION", tile: (completesAt) => ({ ...base, fort: { ownerId: "defender", status: "under_construction", variant: "TITANIUM_BASTION", upgradingFrom: "FORT", completesAt } }) },
   { name: "observatory", field: "observatory", type: "OBSERVATORY", tile: (completesAt) => ({ ...base, observatory: { ownerId: "defender", status: "under_construction", completesAt } }) },
   { name: "siege battery", field: "siegeBattery", type: "SIEGE_TOWER", tile: (completesAt) => ({ ...base, siegeBattery: { ownerId: "defender", status: "under_construction", variant: "SIEGE_TOWER", completesAt } }) },
-  { name: "economic structure", field: "economicStructure", type: "MINTWORKS", tile: (completesAt) => ({ ...base, economicStructure: { ownerId: "defender", type: "MINTWORKS", status: "under_construction", completesAt } }) }
+  { name: "economic structure", field: "economicStructure", type: "MANUFACTORY", tile: (completesAt) => ({ ...base, economicStructure: { ownerId: "defender", type: "MANUFACTORY", status: "under_construction", completesAt } }) }
 ];
 
 describe.each(CASES)("attack development hold: $name", ({ field, tile, type }) => {
@@ -79,7 +79,7 @@ describe.each(CASES)("attack development hold: $name", ({ field, tile, type }) =
 describe("attack development hold: edge cases", () => {
   it("ignores an attacker's own tile and unowned tiles", () => {
     const clock = { now: 1 };
-    const own = makeContext({ ...base, ownerId: "attacker", economicStructure: { ownerId: "attacker", type: "MINTWORKS", status: "under_construction", completesAt: 99 } }, clock);
+    const own = makeContext({ ...base, ownerId: "attacker", economicStructure: { ownerId: "attacker", type: "MANUFACTORY", status: "under_construction", completesAt: 99 } }, clock);
     holdDevelopmentForAttack(own.ctx, { targetKey: TILE, attackerId: "attacker", commandId: "atk" });
     expect(tileHasPausedConstruction(own.tiles.get(TILE))).toBe(false);
     expect(own.cancelled).toHaveLength(0);
@@ -109,7 +109,7 @@ describe("attack development hold: edge cases", () => {
   });
 
   it("releasing a tile with nothing paused changes and emits nothing", () => {
-    const { ctx, events, timers } = makeContext({ ...base, economicStructure: { ownerId: "defender", type: "MINTWORKS", status: "under_construction", completesAt: 9_000 } }, { now: 1 });
+    const { ctx, events, timers } = makeContext({ ...base, economicStructure: { ownerId: "defender", type: "MANUFACTORY", status: "under_construction", completesAt: 9_000 } }, { now: 1 });
     releaseDevelopmentHold(ctx, TILE, "atk");
     expect(events).toHaveLength(0);
     expect(timers).toHaveLength(0);
@@ -117,21 +117,21 @@ describe("attack development hold: edge cases", () => {
 
   it("a completion timer armed for an old deadline, or fired while paused, does nothing", () => {
     const clock = { now: 0 };
-    const { ctx, tiles, timers, completed } = makeContext({ ...base, economicStructure: { ownerId: "defender", type: "MINTWORKS", status: "under_construction", completesAt: 1_000 } }, clock);
-    scheduleStructureCompletion(ctx, { tileKey: TILE, ownerId: "defender", field: "economicStructure", structureType: "MINTWORKS", commandId: "b", completesAt: 1_000 });
+    const { ctx, tiles, timers, completed } = makeContext({ ...base, economicStructure: { ownerId: "defender", type: "MANUFACTORY", status: "under_construction", completesAt: 1_000 } }, clock);
+    scheduleStructureCompletion(ctx, { tileKey: TILE, ownerId: "defender", field: "economicStructure", structureType: "MANUFACTORY", commandId: "b", completesAt: 1_000 });
 
     // Deadline moved on (a pause/resume cycle): the original timer is stale.
-    tiles.set(TILE, { ...base, economicStructure: { ownerId: "defender", type: "MINTWORKS", status: "under_construction", completesAt: 2_000 } });
+    tiles.set(TILE, { ...base, economicStructure: { ownerId: "defender", type: "MANUFACTORY", status: "under_construction", completesAt: 2_000 } });
     timers[0]!.run();
     expect(completed).toHaveLength(0);
 
     // Same deadline but paused: also nothing.
-    tiles.set(TILE, { ...base, economicStructure: { ownerId: "defender", type: "MINTWORKS", status: "under_construction", completesAt: 1_000, pausedAt: 10 } });
+    tiles.set(TILE, { ...base, economicStructure: { ownerId: "defender", type: "MANUFACTORY", status: "under_construction", completesAt: 1_000, pausedAt: 10 } });
     timers[0]!.run();
     expect(completed).toHaveLength(0);
 
     // Exactly the armed deadline and not paused: completes.
-    tiles.set(TILE, { ...base, economicStructure: { ownerId: "defender", type: "MINTWORKS", status: "under_construction", completesAt: 1_000 } });
+    tiles.set(TILE, { ...base, economicStructure: { ownerId: "defender", type: "MANUFACTORY", status: "under_construction", completesAt: 1_000 } });
     timers[0]!.run();
     expect(completed).toHaveLength(1);
   });
@@ -139,7 +139,7 @@ describe("attack development hold: edge cases", () => {
   it("slides startedAt with the deadline so build progress resumes where it froze", () => {
     const clock = { now: 40_000 };
     // 100s build, started at 0: 40% done when the attack lands.
-    const { ctx, tiles } = makeContext({ ...base, economicStructure: { ownerId: "defender", type: "MINTWORKS", status: "under_construction", startedAt: 0, completesAt: 100_000 } }, clock);
+    const { ctx, tiles } = makeContext({ ...base, economicStructure: { ownerId: "defender", type: "MANUFACTORY", status: "under_construction", startedAt: 0, completesAt: 100_000 } }, clock);
     holdDevelopmentForAttack(ctx, { targetKey: TILE, attackerId: "attacker", commandId: "atk" });
     clock.now = 70_000; // 30s paused
     releaseDevelopmentHold(ctx, TILE, "atk");

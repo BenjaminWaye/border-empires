@@ -39,7 +39,7 @@ export const BUILD_MENU_ART_CROP: Readonly<Record<string, ArtCropBox>> = {
   "/overlays/launch-cradle-overlay.svg": [0.063, 0.238, 0.859, 0.59],
   "/overlays/levy-charter-overlay.svg": [0.375, 0.313, 0.297, 0.516],
   "/overlays/long-barrel-overlay.svg": [0.141, 0.344, 0.766, 0.5],
-  "/overlays/mintworks-overlay.svg": [0.098, 0.117, 0.699, 0.695],
+  "/overlays/manufactory-overlay.svg": [0.06, 0.07, 0.89, 0.90],
   "/overlays/observatory-overlay.svg": [0.203, 0.125, 0.625, 0.703],
   "/overlays/orbital-array-overlay.svg": [0.063, 0.176, 0.859, 0.652],
   "/overlays/census-directorate-overlay.svg": [0.047, 0.02, 0.875, 0.809],

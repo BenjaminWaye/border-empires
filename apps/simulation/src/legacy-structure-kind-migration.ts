@@ -7,7 +7,7 @@ import type { RecoveredSimulationState } from "./event-recovery/event-recovery.j
 // written before that PR still carry the literal string "LIGHT_OUTPOST" in
 // tile.economicStructure.type — a string no downstream switch/lookup
 // recognizes anymore, so those tiles silently fell through to wrong
-// defaults (client tile menu labeled them "Mintworks", 3D overlay rendered
+// defaults (client tile menu labeled them "Manufactory", 3D overlay rendered
 // nothing).
 //
 // Self-heals on every boot by rewriting any surviving legacy kind in the
@@ -16,8 +16,8 @@ import type { RecoveredSimulationState } from "./event-recovery/event-recovery.j
 // after (the corrected state gets written back to SQLite by the next
 // periodic snapshot save, same as the existing SQLite quick_check/REINDEX
 // self-heal in sqlite-db.ts).
-// Mintworks overlay task renamed the MARKET structure kind to MINTWORKS
-// (same visual-asset PR that added the 3D/2D Mintworks overlay), following
+// Manufactory overlay task renamed the MARKET structure kind to MANUFACTORY
+// (same visual-asset PR that added the 3D/2D Manufactory overlay), following
 // the same pure find-and-replace approach as #1269's LIGHT_OUTPOST rename
 // above rather than keeping MARKET alive as an unbuildable legacy kind —
 // same self-heal reasoning applies: snapshots/events written before this
@@ -34,7 +34,7 @@ import type { RecoveredSimulationState } from "./event-recovery/event-recovery.j
 // upgradeLegacyStructureNames (structure id rename) before reaching here.
 const LEGACY_STRUCTURE_KIND_RENAMES: Readonly<Record<string, string>> = {
   LIGHT_OUTPOST: "RELAY_BEACON",
-  MARKET: "MINTWORKS",
+  MARKET: "MANUFACTORY",
   SEED_INCUBATION_ENGINE: "INCUBATION_ENGINE"
 };
 

@@ -81,8 +81,8 @@ export const isRenderableTownSummary = (town: PartialTownSummary | undefined): t
       (town.connectedTownNames === undefined || hasStringArray(town.connectedTownNames)) &&
       isFiniteOptionalNumber(town.manpowerCurrent) &&
       isFiniteOptionalNumber(town.manpowerCap) &&
-      isOptionalBoolean(town.hasMintworks) &&
-      isOptionalBoolean(town.mintworksActive) &&
+      isOptionalBoolean(town.hasManufactory) &&
+      isOptionalBoolean(town.manufactoryActive) &&
       isOptionalBoolean(town.hasIncubationEngine) &&
       isOptionalBoolean(town.incubationEngineActive) &&
       isOptionalBoolean(town.hasClearingHouse) && isOptionalBoolean(town.clearingHouseActive) && (town.clearingHouseTownNames === undefined || hasStringArray(town.clearingHouseTownNames)) &&

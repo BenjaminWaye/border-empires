@@ -32,8 +32,8 @@ describe("tileOverviewModifiersForTile", () => {
           populationTier: "TOWN",
           connectedTownCount: 0,
           connectedTownBonus: 0,
-          hasMintworks: false,
-          mintworksActive: false,
+          hasManufactory: false,
+          manufactoryActive: false,
           hasIncubationEngine: false,
           incubationEngineActive: false,
           growthModifiers: [{ label: "Nearby war", deltaPerMinute: -12 }]
@@ -42,14 +42,14 @@ describe("tileOverviewModifiersForTile", () => {
     ).toContainEqual({ reason: "Nearby war", effect: "-100% population growth", tone: "negative" });
   });
 
-  // Regression test: this used to recompute a Mintworks "Gold production"
-  // line here from tile.town.mintworksCount, which duplicated the identical
+  // Regression test: this used to recompute a Manufactory "Gold production"
+  // line here from tile.town.manufactoryCount, which duplicated the identical
   // stat already shown from tile.town.townModifierTotals (the single source
   // of truth for town-wide aggregates — see menuOverviewForTile in
   // client-tile-menu-view.ts) whenever a town's own tile was clicked. Any
-  // active Mintworks must produce exactly one "Gold production" line, and it
+  // active Manufactory must produce exactly one "Gold production" line, and it
   // must come from townModifierTotals, not from here.
-  it("does not derive a Mintworks Gold production line from mintworksCount (would duplicate townModifierTotals)", () => {
+  it("does not derive a Manufactory Gold production line from manufactoryCount (would duplicate townModifierTotals)", () => {
     const modifiers = tileOverviewModifiersForTile({
       x: 10,
       y: 12,
@@ -70,9 +70,9 @@ describe("tileOverviewModifiersForTile", () => {
         populationTier: "TOWN",
         connectedTownCount: 0,
         connectedTownBonus: 0,
-        hasMintworks: true,
-        mintworksActive: true,
-        mintworksCount: 5,
+        hasManufactory: true,
+        manufactoryActive: true,
+        manufactoryCount: 5,
         hasIncubationEngine: false,
         incubationEngineActive: false
       }
@@ -175,8 +175,8 @@ describe("tileOverviewModifiersForTile", () => {
           populationTier: "TOWN",
           connectedTownCount: 0,
           connectedTownBonus: 0,
-          hasMintworks: false,
-          mintworksActive: false,
+          hasManufactory: false,
+          manufactoryActive: false,
           hasIncubationEngine: false,
           incubationEngineActive: false,
           captureShockUntil: Date.now() + 60_000
@@ -215,8 +215,8 @@ describe("tileOverviewModifiersForTile", () => {
         populationTier: "TOWN",
         connectedTownCount: 0,
         connectedTownBonus: 0,
-        hasMintworks: false,
-        mintworksActive: false,
+        hasManufactory: false,
+        manufactoryActive: false,
         hasIncubationEngine: false,
         incubationEngineActive: false,
         captureShockUntil: Date.now() + 60_000,
@@ -261,8 +261,8 @@ describe("tileOverviewModifiersForTile", () => {
         populationTier: "TOWN",
         connectedTownCount: 0,
         connectedTownBonus: 0,
-        hasMintworks: false,
-        mintworksActive: false,
+        hasManufactory: false,
+        manufactoryActive: false,
         hasIncubationEngine: false,
         incubationEngineActive: false,
         captureShockUntil: Date.now() + 60_000,
@@ -304,8 +304,8 @@ describe("tileOverviewModifiersForTile", () => {
         populationTier: "TOWN",
         connectedTownCount: 0,
         connectedTownBonus: 0,
-        hasMintworks: false,
-        mintworksActive: false,
+        hasManufactory: false,
+        manufactoryActive: false,
         hasIncubationEngine: false,
         incubationEngineActive: false,
         captureShockUntil: Date.now() + 60_000,
@@ -438,7 +438,7 @@ describe("tileOverviewModifiersForTile", () => {
     expect(modifiers.some((m) => m.reason.includes("FOOD slots per boosted Hydrogarden"))).toBe(true);
   });
 
-  it("spells out both ends of the Clearing House's Mintworks gold-bonus boost instead of an ambiguous +25%", () => {
+  it("spells out both ends of the Clearing House's Manufactory gold-bonus boost instead of an ambiguous +25%", () => {
     const modifiers = tileOverviewModifiersForTile({
       x: 10,
       y: 12,
@@ -447,7 +447,7 @@ describe("tileOverviewModifiersForTile", () => {
       ownershipState: "SETTLED",
       economicStructure: { ownerId: "me", type: "CLEARING_HOUSE", status: "active" }
     } satisfies Tile);
-    expect(modifiers).toContainEqual({ reason: "Mintworks coin bonus per copy", effect: "+10% → +35%", tone: "positive" });
+    expect(modifiers).toContainEqual({ reason: "Manufactory coin bonus per copy", effect: "+10% → +35%", tone: "positive" });
   });
 
   it("shows a plain 'Vision' modifier for a real hills tile with no other modifier to disambiguate from", () => {

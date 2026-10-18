@@ -21,7 +21,7 @@ import {
   type SlotStructureType,
   type StructureSlotRequirement
 } from "@border-empires/shared";
-import { mintworksGoldProductionMultiplier, playerHasAbilityTech } from "@border-empires/game-domain";
+import { manufactoryGoldProductionMultiplier, playerHasAbilityTech } from "@border-empires/game-domain";
 import { townGrowthActionForUpgrade } from "./client-tile-action-town-growth.js";
 import { diplomacyActionForOwner } from "../client-tile-action-diplomacy/client-tile-action-diplomacy.js";
 import { structureToggleMenuEntries } from "../client-observatory-toggle/client-observatory-toggle.js";
@@ -1439,9 +1439,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       });
     }
     if (townBuildSource) {
-      // Mintworks moved to same-tile/uncapped placement in the tech-tree
+      // Manufactory moved to same-tile/uncapped placement in the tech-tree
       // redesign (per-town cap removed, specialization is the point) — no
-      // townHasMintworks gate anymore, unlike the other town-support structures
+      // townHasManufactory gate anymore, unlike the other town-support structures
       // below that still cap at one per town.
       const townHasIncubationEngine = Boolean(townBuildSource.town?.hasIncubationEngine) || deps.townHasSupportStructure(townBuildSource, "INCUBATION_ENGINE");
       const townHasCensusHall = deps.townHasSupportStructure(townBuildSource, "CENSUS_HALL");
@@ -1459,19 +1459,19 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       const townHasAncillaryFactory = deps.townHasSupportStructure(townBuildSource, "ANCILLARY_FACTORY");
       const isGreatCity = townBuildSource.town?.populationTier === "GREAT_CITY" || townBuildSource.town?.populationTier === "METROPOLIS";
       out.push({
-        id: "build_mintworks",
-        label: "Build Mintworks",
-        detail: deps.buildDetailTextForAction("build_mintworks", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        id: "build_manufactory",
+        label: "Build Manufactory",
+        detail: deps.buildDetailTextForAction("build_manufactory", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           ...chainedBuildAvailability(
-            "MINTWORKS",
-            !supportPlacementBlocked && state.techIds.includes("trade") && hasFreeResourceSlots(state, "MINTWORKS"),
+            "MANUFACTORY",
+            !supportPlacementBlocked && state.techIds.includes("trade") && hasFreeResourceSlots(state, "MANUFACTORY"),
             supportPlacementBlocked
               ? "Tile already has structure"
               : !state.techIds.includes("trade")
-                ? "Requires Merchant Charters"
-                : missingResourceSlotReason(state, "MINTWORKS") ?? "Unavailable",
-            `${deps.structureCostText("MINTWORKS")} • ${buildTimeLabel(economicBuildMsForState(state, "MINTWORKS"))} • +${Math.round((mintworksGoldProductionMultiplier(1, Boolean(townBuildSource.town?.clearingHouseActive)) - 1) * 100)}% town coin production (stacks)${upkeepSuffixFor("MINTWORKS")}`
+                ? "Requires Industrial Tooling Module"
+                : missingResourceSlotReason(state, "MANUFACTORY") ?? "Unavailable",
+            `${deps.structureCostText("MANUFACTORY")} • ${buildTimeLabel(economicBuildMsForState(state, "MANUFACTORY"))} • +${Math.round((manufactoryGoldProductionMultiplier(1, Boolean(townBuildSource.town?.clearingHouseActive)) - 1) * 100)}% town coin production (stacks)${upkeepSuffixFor("MANUFACTORY")}`
           ),
           slots,
           deps
@@ -1532,9 +1532,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
               : townHasClearingHouse
                 ? "Nearby town already has Clearing House"
                 : !state.techIds.includes("coinage")
-                  ? "Requires Minting Works"
+                  ? "Requires Imperial Tender Warrant"
                   : missingResourceSlotReason(state, "CLEARING_HOUSE") ?? "Unavailable",
-            `${deps.structureCostText("CLEARING_HOUSE")} • ${buildTimeLabel(economicBuildMsForState(state, "CLEARING_HOUSE"))} • connected Mintworks coin bonus: +${Math.round((mintworksGoldProductionMultiplier(1, false) - 1) * 100)}% → +${Math.round((mintworksGoldProductionMultiplier(1, true) - 1) * 100)}% per copy${upkeepSuffixFor("CLEARING_HOUSE")}`
+            `${deps.structureCostText("CLEARING_HOUSE")} • ${buildTimeLabel(economicBuildMsForState(state, "CLEARING_HOUSE"))} • connected Manufactory coin bonus: +${Math.round((manufactoryGoldProductionMultiplier(1, false) - 1) * 100)}% → +${Math.round((manufactoryGoldProductionMultiplier(1, true) - 1) * 100)}% per copy${upkeepSuffixFor("CLEARING_HOUSE")}`
           ),
           slots,
           deps

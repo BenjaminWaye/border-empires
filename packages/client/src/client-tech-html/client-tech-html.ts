@@ -47,7 +47,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockHydrogarden" && value === true) return `Unlocks Hydrogardens (+${TILE_SLOT_BOOST_STRUCTURES.HYDROGARDEN} FOOD slot), and adds +${AGRICULTURE_FISH_FOOD_SLOT_BONUS} FOOD slot on every owned fish tile`;
   if (key === "unlockUmbriteRig" && value === true) return "Unlocks umbrite rigs";
   if (key === "unlockMine" && value === true) return "Unlocks mines";
-  if (key === "unlockMintworks" && value === true) return "Unlocks mintworks";
+  if (key === "unlockManufactory" && value === true) return "Unlocks Manufactories";
   if (key === "unlockForts" && value === true) return "Unlocks forts";
   if (key === "unlockObservatory" && value === true) return "Unlocks Aether Towers";
   if (key === "unlockSiegeBatteries" && value === true) return "Unlocks Siege Batteries";
@@ -105,7 +105,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "revealResource" && typeof value === "string") return `Reveals ${value.charAt(0).toUpperCase()}${value.slice(1).toLowerCase()}`;
   if (key === "dockGoldOutputMult" && typeof value === "number") return `Dock income +${Math.round((value - 1) * 100)}%`;
   if (key === "dockConnectionBonusPerLink" && typeof value === "number") return `Connected dock income +${Math.round(value * 100)}% per link`;
-  if (key === "mintworksCrystalUpkeepMult" && typeof value === "number") return `Mintworks crystal upkeep -${Math.round((1 - value) * 100)}%`;
+  if (key === "manufactoryCrystalUpkeepMult" && typeof value === "number") return `Manufactory crystal upkeep -${Math.round((1 - value) * 100)}%`;
   if (key === "dockRoutesVisible" && value === true) return "Shows dock routes";
   if (key === "firstTownsFoodSlotWaiverCount" && typeof value === "number") return `First ${value} towns need 1 fewer FOOD slot`;
   if (key === "resourceOutputMult" && value && typeof value === "object") {
@@ -129,9 +129,9 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
     return `First 3 towns coin ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "firstThreeTownsPopulationGrowthMult" && typeof value === "number")
     return `First 3 towns growth ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "mintworksIncomeBonusAdd" && typeof value === "number") return `Mintworks income +${Math.round(value * 100)} pts`;
-  if (key === "mintworksCapBonusAdd" && typeof value === "number") return `Mintworks coin cap +${Math.round(value * 100)} pts`;
-  if (key === "mintworksBonusMult" && typeof value === "number") return `Mintworks bonus ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "manufactoryIncomeBonusAdd" && typeof value === "number") return `Manufactory income +${Math.round(value * 100)} pts`;
+  if (key === "manufactoryCapBonusAdd" && typeof value === "number") return `Manufactory coin cap +${Math.round(value * 100)} pts`;
+  if (key === "manufactoryBonusMult" && typeof value === "number") return `Manufactory bonus ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "incubationEngineBonusMult" && typeof value === "number") return `Incubation Engine growth ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "incubationEngineCapBonusAddPctPoints" && typeof value === "number") return `Incubation Engine growth +${Math.round(value * 100)} pts`;
   if (key === "populationGrowthMult" && typeof value === "number") return `Population growth ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;

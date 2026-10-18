@@ -31,7 +31,7 @@ export const structurePlacementMetadata = (type: StructurePlacementType): Struct
 
 // NOTE: placementMode is NOT "where this structure is allowed to be built" --
 // it's "does this structure cap at one per town (town_support) or can it
-// stack (same_tile)". MINTWORKS, ANCILLARY_DEPOT, TITANIUM_WEAPONS_FACTORY and
+// stack (same_tile)". MANUFACTORY, ANCILLARY_DEPOT, TITANIUM_WEAPONS_FACTORY and
 // UMBRITE_WEAPONS_FACTORY are placementMode "same_tile" specifically so they
 // can stack multiple copies per town (see
 // apps/simulation/src/runtime-structure-town-support-target.ts,
@@ -51,7 +51,7 @@ export const isDockSupportPlacementStructure = (type: StructurePlacementType): b
 // ring (never on generic owned settled land) -- derived from showOn, not
 // placementMode (see the NOTE above). True for both the one-per-town
 // town_support structures (Trade Nexus, Incubation Engine, synthesizers, ...) and the
-// stacking same_tile ones that are still support-ring-only (Mintworks,
+// stacking same_tile ones that are still support-ring-only (Manufactory,
 // Ancillary Depot, both Weapons Factories). False for structures like
 // Observatory/Relay Beacon/Hydroworks/Sky Dock whose showOn also includes
 // "settled", meaning they're buildable on any owned settled tile.

@@ -64,7 +64,7 @@ describe("optimistic structure removal window", () => {
   it("predicts the server's 0.5s-per-manpower removal window, starting now", () => {
     const tiles = new Map<string, Tile>([["12,18", baseTile({
       ownerId: "me", ownershipState: "SETTLED",
-      economicStructure: { ownerId: "me", type: "MINTWORKS", status: "active" }
+      economicStructure: { ownerId: "me", type: "MANUFACTORY", status: "active" }
     })]]);
     const state = {
       me: "me", selected: undefined, techIds: [], tiles, tilesRevision: 0,
@@ -78,6 +78,6 @@ describe("optimistic structure removal window", () => {
     applyOptimisticStructureRemoval(12, 18);
     const removing = state.tiles.get("12,18").economicStructure;
     expect(removing.status).toBe("removing");
-    expect(removing.completesAt - removing.startedAt).toBe(structureRemovalDurationMs("MINTWORKS"));
+    expect(removing.completesAt - removing.startedAt).toBe(structureRemovalDurationMs("MANUFACTORY"));
   });
 });

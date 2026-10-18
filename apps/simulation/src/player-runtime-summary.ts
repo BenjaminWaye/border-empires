@@ -36,7 +36,7 @@ export type ServerDevQueueEntry = {
   x: number;
   y: number;
   kind: "SETTLE" | "BUILD";
-  /** Only present for kind === "BUILD" -- e.g. "FORT", "MINTWORKS", "REMOVE_STRUCTURE". */
+  /** Only present for kind === "BUILD" -- e.g. "FORT", "MANUFACTORY", "REMOVE_STRUCTURE". */
   structureType?: string;
   queuedAt: number;
   /** § queued-buildings-mp-reimbursement: manpower reserved from the player at enqueue time for a BUILD entry (never set for SETTLE/REMOVE_STRUCTURE), refunded on cancel or before the entry drains -- see runtime-dev-queue-build-reservation.ts. */

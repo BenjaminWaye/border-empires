@@ -73,8 +73,8 @@ describe("buildDetailTextForAction never returns undefined for a real build acti
       populationTier: "TOWN",
       connectedTownCount: 0,
       connectedTownBonus: 0,
-      hasMintworks: false,
-      mintworksActive: false,
+      hasManufactory: false,
+      manufactoryActive: false,
       hasIncubationEngine: false,
       incubationEngineActive: false
     }
@@ -95,6 +95,6 @@ describe("buildDetailTextForAction never returns undefined for a real build acti
   it("returns real detail text for build_clearing_house", () => {
     const detail = buildDetailTextForAction("build_clearing_house", supportTile, supportedTown);
     expect(detail).not.toContain("undefined");
-    expect(detail).toContain("Mintworks");
+    expect(detail).toContain("Manufactory");
   });
 });

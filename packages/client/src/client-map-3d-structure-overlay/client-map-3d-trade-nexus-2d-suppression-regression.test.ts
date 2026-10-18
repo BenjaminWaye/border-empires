@@ -12,6 +12,6 @@ describe("TRADE_NEXUS (trade nexus) 2D overlay suppression", () => {
   });
 
   it("still reports generic instanced-mesh structures as 3D-handled", () => {
-    expect(isStructureHandledBy3D("MINTWORKS")).toBe(true);
+    expect(isStructureHandledBy3D("MANUFACTORY")).toBe(true);
   });
 });

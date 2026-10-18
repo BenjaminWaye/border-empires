@@ -14,6 +14,7 @@ const tech = (id: string, name: string, branch: string): TechInfo => ({
 });
 
 const CATALOG: TechInfo[] = [
+  tech("trade", "Industrial Tooling Module", "economy"),
   tech("workshops", "Umbrite Synthesis Module", "economy"),
   tech("masonry", "Titanium Forge Module", "war"),
   tech("crystal-lattices", "Aether Resonance Core", "aether"),
@@ -23,6 +24,10 @@ const CATALOG: TechInfo[] = [
 const baseTile = (afc?: Tile["afc"]): Tile => ({ x: 0, y: 0, terrain: "LAND", ...(afc ? { afc } : {}) }) as Tile;
 
 describe("afcModuleOverviewLines", () => {
+  it("lists industrial tooling in its occupied AFC slot", () => {
+    const lines = afcModuleOverviewLines(baseTile({ ownerId: "p1", status: "active", modules: ["trade"] }), CATALOG);
+    expect(lines.map((line) => line.html)).toEqual(expect.arrayContaining(["Slots: 1/8", "Industrial Tooling Module"]));
+  });
   it("is empty for a tile without an AFC", () => {
     expect(afcModuleOverviewLines(baseTile(), CATALOG)).toEqual([]);
   });

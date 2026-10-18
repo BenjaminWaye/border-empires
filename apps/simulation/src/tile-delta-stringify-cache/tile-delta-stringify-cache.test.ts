@@ -21,7 +21,7 @@ const makeFort = () => ({ ownerId: "p1", status: "active" as const });
 const makeTown = () => ({ populationTier: "TOWN" as const, type: "FARMING" as const, name: "TestTown" });
 const makeObservatory = () => ({ ownerId: "p1", status: "active" as const });
 const makeSiegeBattery = () => ({ ownerId: "p1", status: "active" as const });
-const makeEconomicStructure = () => ({ ownerId: "p1", status: "active" as const, type: "MINTWORKS" as const });
+const makeEconomicStructure = () => ({ ownerId: "p1", status: "active" as const, type: "MANUFACTORY" as const });
 const makeSabotage = () => ({ ownerId: "p2", status: "active" as const });
 const makeShardSite = () => ({ kind: "FALL" as const, expiresAt: 9999 });
 
