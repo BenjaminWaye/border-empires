@@ -1,3 +1,5 @@
+import type { EconomyPlayer } from "./economy-network-contracts.js";
+export type { EconomyPlayer, DockEconomyContext } from "./economy-network-contracts.js";
 import {
   type DomainPlayer,
   type DomainTileState
@@ -15,7 +17,6 @@ import {
 } from "./town-connectivity-incremental.js";
 import { supportTileBelongsToTown, hasSupportedStructure, countSupportedStructures } from "./economy-network-support-ring.js";
 
-export type EconomyPlayer = Pick<DomainPlayer, "id" | "techIds" | "domainIds" | "mods" | "wonderDockGoldMultiplier">;
 
 export type ConnectedTownNetworkEntry = {
   connectedTownCount: number;
@@ -88,15 +89,6 @@ type TownConnectivityGroup = {
   tradeNexusKeys: string[];
 };
 
-export type DockEconomyContext = {
-  tiles: ReadonlyMap<string, DomainTileState>;
-  dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
-  // §5.4: dormant economicStructure tile keys ("x,y") for this player — see
-  // hasSupportedStructure's matching param. Optional so existing callers
-  // that haven't threaded it through yet default to "nothing dormant"
-  // rather than a hard type error.
-  dormantEconomicStructureKeys?: ReadonlySet<string>;
-};
 
 export type ConnectedTownNetworkOptions = {
   maxConnectedTownNames?: number;

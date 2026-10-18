@@ -2,6 +2,10 @@ import type { FortVariant } from "@border-empires/shared";
 
 // The client's view of a tile's fortification: a Palisade or any Fort tier.
 export type ClientTileFort = {
+  attackCommitmentMult?: number;
+  wardEnabled?: boolean;
+  wardRechargesAt?: number;
+  activatedAt?: number;
   ownerId: string;
   status: "under_construction" | "active" | "removing";
   variant?: FortVariant;

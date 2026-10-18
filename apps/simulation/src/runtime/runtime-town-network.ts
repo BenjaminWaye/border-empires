@@ -172,7 +172,7 @@ export function tileYieldEconomyContextForPlayer(ctx: RuntimeTownNetworkContext,
       // domain granting firstThreeTownsGoldOutputMult — multiplier is 1.0 so
       // the key set has no effect. Skips O(towns) sort for most players.
       firstThreeTownKeys: firstThreeTownsGoldOutputMultiplierForPlayer(player) !== 1
-        ? firstThreeTownKeysForPlayer(player.id, orderedTownTilesForPlayer(ctx, player.id).map(t => [`${t.x},${t.y}`, t.town?.populationTier] as const))
+        ? firstThreeTownKeysForPlayer(player.id, orderedTownTilesForPlayer(ctx, player.id).map(t => [`${t.x},${t.y}`, t.town?.populationTier] as const), player)
         : new Set<string>(),
       dormantEconomicStructureKeys: ctx.dormantEconomicStructureKeysForPlayer(player.id)
     };

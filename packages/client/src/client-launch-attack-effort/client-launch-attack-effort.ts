@@ -32,13 +32,13 @@ export type AttackLaunchDeps = {
   hideTileActionMenu: () => void;
 };
 
-type EffortState = Pick<ClientState, "tiles" | "me" | "manpowerCap" | "attackCommitByTargetKey">;
+type EffortState = Pick<ClientState, "tiles" | "me" | "manpowerCap" | "attackCommitByTargetKey"> & Partial<Pick<ClientState, "domainIds">>;
 
 const percent = (chance: number | undefined): string | undefined => (chance == null ? undefined : `${Math.round(chance * 100)}%`);
 
 /** Records the chosen commitment, or clears a stale one when the player stayed at the floor. */
 const recordCommit = (state: EffortState, tile: Tile, commitManpower: number): void => {
-  if (commitManpower > attackEffortFloorForTarget(tile)) setAttackCommit(state, tile.x, tile.y, commitManpower);
+  if (commitManpower > attackEffortFloorForTarget(tile, state)) setAttackCommit(state, tile.x, tile.y, commitManpower);
   else clearAttackCommit(state, tile.x, tile.y);
 };
 
@@ -54,7 +54,7 @@ export const promptAttackEffortForTarget = (
   deps: Pick<AttackLaunchDeps, "keyFor" | "pickOriginForTarget">
 ): boolean => {
   if (!isAttackEffortEligibleTarget(tile)) return false;
-  const floor = attackEffortFloorForTarget(tile);
+  const floor = attackEffortFloorForTarget(tile, state);
   const handle = showEffortConfirmSheet({
     title: options.title,
     subtitle: "Garrisoned tile — committing more manpower improves your odds.",
@@ -106,9 +106,9 @@ const promptBulkEffort = (
   title: string,
   onConfirm: (preset: MusterCommitPreset) => void
 ): boolean => {
-  const minFloor = Math.min(...eligible.map(attackEffortFloorForTarget));
+  const minFloor = Math.min(...eligible.map(tile => attackEffortFloorForTarget(tile, state)));
   const totalFor = (preset: MusterCommitPreset): number =>
-    eligible.reduce((sum, tile) => sum + musterCommitPresetAmount(preset, attackEffortFloorForTarget(tile)), 0);
+    eligible.reduce((sum, tile) => sum + musterCommitPresetAmount(preset, attackEffortFloorForTarget(tile, state)), 0);
   const handle = showEffortConfirmSheet({
     title,
     subtitle: `${eligible.length} garrisoned target${eligible.length === 1 ? "" : "s"} — effort applies to each of them.`,
@@ -154,7 +154,7 @@ export const launchAttacksWithEffort = (
         title: `Launch attack on (${tile.x}, ${tile.y})`,
         confirmLabel: "Attack",
         onConfirm: (commitManpower) => {
-          recordCommit(state, tile, commitManpower ?? attackEffortFloorForTarget(tile));
+          recordCommit(state, tile, commitManpower ?? attackEffortFloorForTarget(tile, state));
           launch();
         }
       },
@@ -166,7 +166,7 @@ export const launchAttacksWithEffort = (
   const title = request.scope === "region" ? `Attack connected region (${enemyKeys.length})` : `Launch ${enemyKeys.length} attacks`;
   const shown = promptBulkEffort(state, eligible, title, (preset) => {
     const multiplier = MUSTER_COMMIT_PRESET_MULTIPLIERS[preset];
-    for (const tile of eligible) recordCommit(state, tile, Math.ceil(attackEffortFloorForTarget(tile) * multiplier));
+    for (const tile of eligible) recordCommit(state, tile, Math.ceil(attackEffortFloorForTarget(tile, state) * multiplier));
     launch();
   });
   if (!shown) launch();

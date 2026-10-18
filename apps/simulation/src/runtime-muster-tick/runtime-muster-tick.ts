@@ -35,7 +35,7 @@ export type MusterTickInput = {
   emitPlayerStateUpdate: (input: { commandId: string; playerId: string }) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   // ADVANCE auto-fire wiring.
-  requiredMusterForTarget: (target: DomainTileState) => number;
+  requiredMusterForTarget: (target: DomainTileState, attackerId?: string) => number;
   nextTerritoryAutomationCommandId: (label: string, playerId: string, tileKey: string, nowMs: number) => string;
   handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => FrontierCommandResult;
   // Active combat locks (keyed by origin/target tile) so ADVANCE can skip tiles

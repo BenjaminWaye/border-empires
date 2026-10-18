@@ -13,6 +13,8 @@ import type { RuntimePlayer, RuntimeTileYieldEconomyContext } from "../runtime-t
 
 /** What the caches read from the simulation runtime. */
 export interface RuntimeEconomyCachesDeps {
+  beforeDockPartnerChange?: (playerId: string) => void;
+  dockPartnerOwners?: (tileKey: string) => Iterable<string>;
   now(): number;
   isAiPlayer(playerId: string): boolean;
 }
@@ -96,6 +98,9 @@ export class RuntimeEconomyCaches {
 
   /** Drop or dirty every cache a tile write can affect; see refreshEconomyCachesForTileChange. */
   refreshForTileChange(tileKey: string, previous: DomainTileState | undefined, next: DomainTileState, players: ReadonlyMap<string, RuntimePlayer>): void {
+    if ((previous?.dockId || next.dockId) && (previous?.ownerId !== next.ownerId || previous?.ownershipState !== next.ownershipState)) {
+      for (const id of new Set(this.deps.dockPartnerOwners?.(tileKey) ?? [])) { this.deps.beforeDockPartnerChange?.(id); this.invalidateEconomySnapshot(id); this.tileYieldContextCacheByPlayer.delete(id); }
+    }
     refreshEconomyCachesForTileChange({
       tileKey,
       previous,

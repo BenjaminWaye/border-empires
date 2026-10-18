@@ -1,3 +1,4 @@
+import { afcEnvoyBenefits } from "./afc-specializations/afc-coalition.js";
 import { DOCK_INCOME_PER_MIN, PASSIVE_INCOME_MULT, type DomainTileState } from "@border-empires/game-domain";
 import { buildDockLinksByDockTileKey } from "./dock-network/dock-network.js";
 import { buildConnectedTownNetworkForPlayer, dockBaseGoldPerMinuteForPlayer } from "./economy-network/economy-network.js";
@@ -48,6 +49,7 @@ export const buildLivePlayerEconomySnapshot = (
   const tilesByKey = new Map(runtimeState.tiles.map((tile) => [keyFor(tile.x, tile.y), tile] as const));
   const player = runtimeState.players.find((entry) => entry.id === playerId);
   const economyPlayer = snapshotEconomyPlayer(player);
+  const peers = new Map(runtimeState.players.flatMap(peer => { const value = snapshotEconomyPlayer(peer); return value ? [[peer.id, value] as const] : []; }));
   const domainTilesByKey = getDomainTilesByKey(runtimeState);
   const settledDomainTilesByPlayerId = buildSettledDomainTilesByPlayerId(runtimeState, domainTilesByKey);
   const dockLinksByDockTileKey = buildDockLinksByDockTileKey(runtimeState.docks ?? []);
@@ -111,6 +113,7 @@ export const buildLivePlayerEconomySnapshot = (
         ? dockBaseGoldPerMinuteForPlayer(toDomainTile(tile), economyPlayer, {
             tiles: domainTilesByKey,
             dockLinksByDockTileKey,
+            players: peers,
             dormantEconomicStructureKeys
           }) *
           (player?.incomeMultiplier ?? 1) *
@@ -149,6 +152,10 @@ export const buildLivePlayerEconomySnapshot = (
     }
   }
 
+  if (economyPlayer && player) {
+    const envoy = afcEnvoyBenefits({ ...economyPlayer, allies: new Set(player.allies) }, new Map(runtimeState.players.map(peer => [peer.id, { id: peer.id, allies: new Set(peer.allies) }])));
+    if (envoy.goldPerMinute > 0) addBucket(goldSources, "Envoy Accreditation", envoy.goldPerMinute, { count: envoy.allies });
+  }
   return buildEconomyResult({
     player, strategicProductionPerMinute, resourceSlots, dormantStructures,
     goldSources, goldSinks, foodSources, foodSinks,

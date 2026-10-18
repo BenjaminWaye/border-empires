@@ -1,5 +1,6 @@
-import type { DomainTileState } from "@border-empires/game-domain";
-import { AFC_LANDING_GUARANTEED_REACH_RADIUS, reachSetForPlayer, isInReach, type ReachAnchor } from "@border-empires/shared";
+import { additiveEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
+import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
+import { AFC_LANDING_GUARANTEED_REACH_RADIUS, reachRadiusForKind, reachSetForPlayer, isInReach, type ReachAnchor } from "@border-empires/shared";
 import type { DockRouteDefinition } from "../dock-network/dock-network.js";
 import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
 
@@ -32,6 +33,7 @@ const landedAfcGuarantee = (tile: DomainTileState): Pick<ReachAnchor, "guarantee
   tile.afc?.landedAt !== undefined && tile.afc.ownerId === tile.ownerId ? { guaranteedRadius: AFC_LANDING_GUARANTEED_REACH_RADIUS } : {};
 
 export interface GatherReachAnchorsDeps {
+  players?: ReadonlyMap<string, DomainPlayer>;
   playerSummaries: ReadonlyMap<string, PlayerRuntimeSummary>;
   tiles: ReadonlyMap<string, DomainTileState>;
   activeRelayBeaconsByOwner: ReadonlyMap<string, ReadonlySet<string>>;
@@ -105,7 +107,7 @@ export function gatherReachAnchors(deps: GatherReachAnchorsDeps): ReachAnchor[] 
     if (!tile?.ownerId || isBarbarianOwner(tile.ownerId) || tile.ownershipState !== "SETTLED") continue;
     anchors.push({ x: tile.x, y: tile.y, ownerId: tile.ownerId, activatedAt: tileSettledAtByKey.get(dock.tileKey) ?? now, kind: "DOCK" });
   }
-  return anchors;
+  return withAfcReachRadii(anchors, deps.players);
 }
 
 // Detects any reach anchor that just became active on this tile as a
@@ -242,4 +244,15 @@ export function reachTileCountForPlayer(playerId: string, reachBorder: ReadonlyM
 // planning paths — see buildRuntimePlannerPlayerViews's reachTileKeys.
 export function reachTileKeysForPlayer(playerId: string, reachBorder: ReadonlyMap<string, string>): string[] {
   return [...reachSetForPlayer(playerId, reachBorder)];
+}
+
+/** Active configuration changes radius, not the reach contest or connectivity policy. */
+export function withAfcReachRadii(anchors: readonly ReachAnchor[], players?: ReadonlyMap<string, DomainPlayer>): ReachAnchor[] {
+  return anchors.map(anchor => {
+    const player = players?.get(anchor.ownerId);
+    if (!player || anchor.radiusOverride !== undefined) return anchor;
+    const key = anchor.kind === "TOWN" ? "townReachRadiusBonus" : anchor.kind === "DOCK" ? "dockReachRadiusBonus" : undefined;
+    const bonus = key ? additiveEffectForPlayer(player, key) : 0;
+    return bonus > 0 ? { ...anchor, radiusOverride: reachRadiusForKind(anchor.kind) + bonus } : anchor;
+  });
 }

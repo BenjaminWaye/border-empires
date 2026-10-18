@@ -1,14 +1,17 @@
+import { rememberAfcFormInputs } from "./client-afc-form-inputs.js";
+import { renderAfcActions, bindAfcActions, handleAfcActionClick, type AfcActionState, type AfcActionDependencies } from "./client-afc-actions.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { DomainInfo } from "../client-types.js";
 import { formatDomainBenefitSummary, formatDomainCost } from "../client-tech-html/client-tech-html.js";
 import { readyAfcUpgradeCount } from "../client-afc-upgrade-ready/client-afc-upgrade-ready.js";
 import "./client-afc-upgrades.css";
 
-type UpgradeState = Pick<ClientState, "me" | "domainCatalog" | "domainIds" | "domainChoices" | "techIds" |
+type UpgradeState = AfcActionState & Pick<ClientState, "me" | "domainCatalog" | "domainIds" | "domainChoices" | "techIds" |
   "domainUiSelectedId" | "domainDetailOpen" | "gold" | "strategicResources" | "pendingDomainUnlockId" | "chosenTrickleResource" | "techCatalog" | "joinSeasonId">;
 interface UpgradeView { selectedId: string; expanded: boolean; identity: string; html?: string }
 const views = new WeakMap<HTMLElement, UpgradeView>();
 const escape = (value: string): string => value.replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
+const playStyles: Record<string, string> = { vanguard: "Vanguard · Conquest", bastion: "Bastion · Defense", dominion: "Dominion · Expansion", exchequer: "Exchequer · Core economy", oracle: "Oracle · Aether intelligence", chancery: "Chancery · Diplomacy" };
 const roman = (tier: number): string => ["I", "II", "III", "IV", "V"][tier - 1] ?? String(tier);
 
 function currentTier(state: UpgradeState): number | undefined {
@@ -36,6 +39,7 @@ function detail(state: UpgradeState, upgrade: DomainInfo, id: string): string {
     : !state.domainChoices.includes(upgrade.id) ? "Complete earlier upgrade tiers to reach this choice."
     : upgrade.requiresTechId && !state.techIds.includes(upgrade.requiresTechId)
       ? `Requires ${state.techCatalog.find(tech => tech.id === upgrade.requiresTechId)?.name ?? upgrade.requiresTechId}.`
+      : state.afcUpgradeInstallAllowed === false ? "An active owned AFC is required to install an upgrade."
       : state.pendingDomainUnlockId ? "Waiting for server confirmation of the current installation."
       : !available && !pending ? "The listed resources are not yet available." : "";
   const resourceChoice = owned && typeof upgrade.effects?.chosenResourceSlotGrant === "number" && state.chosenTrickleResource
@@ -44,6 +48,7 @@ function detail(state: UpgradeState, upgrade: DomainInfo, id: string): string {
     <h3>${escape(upgrade.name)}</h3>
     <p class="afc-upgrade-benefit">${escape(formatDomainBenefitSummary(upgrade))}</p>
     <p>${escape(upgrade.description)}</p>${resourceChoice}
+    ${state.afcInstallationPreviews?.[upgrade.id] ? `<p class="afc-upgrade-preview">${escape(state.afcInstallationPreviews[upgrade.id] ?? "")} Holdings are checked again when installed.</p>` : ""}
     <p class="afc-upgrade-price">${escape(formatDomainCost(upgrade))}</p>
     ${reason ? `<p class="afc-upgrade-reason">${escape(reason)}</p>` : ""}
     <button type="button" class="panel-btn afc-upgrade-install" data-domain-unlock="${escape(upgrade.id)}"
@@ -67,6 +72,7 @@ export function renderAfcUpgradesHtml(state: UpgradeState, view: UpgradeView, pr
       <ol>${chosen.map(upgrade => `<li data-afc-upgrade-installed="${escape(upgrade.id)}"><span class="afc-upgrade-history-tier">Tier ${roman(upgrade.tier)}</span>
         <div><strong>${escape(upgrade.name)}</strong><p>${escape(formatDomainBenefitSummary(upgrade))}${typeof upgrade.effects?.chosenResourceSlotGrant === "number" && state.chosenTrickleResource ? ` · ${escape(state.chosenTrickleResource)}` : ""}</p></div></li>`).join("")}</ol>
     </section>` : ""}
+    ${renderAfcActions(state)}
     <div class="afc-upgrade-current" aria-live="polite" aria-atomic="true">
       <h3 tabindex="-1" ${tier !== undefined ? `data-afc-upgrade-current-tier="${tier}"` : "data-afc-upgrade-complete"}>${heading}</h3>
       ${!options.length && tier !== undefined ? "<p>Continue progressing your Manifest to unlock your next upgrade choice.</p>" : ""}
@@ -78,6 +84,7 @@ export function renderAfcUpgradesHtml(state: UpgradeState, view: UpgradeView, pr
       return `<div class="afc-upgrade-option ${expanded ? "is-expanded" : ""}">
         <button type="button" class="afc-upgrade-card" data-afc-upgrade-card="${escape(upgrade.id)}"
           aria-expanded="${expanded}" aria-controls="${escape(detailId)}">
+          ${upgrade.branch ? `<span class="afc-upgrade-kicker">${escape(playStyles[upgrade.branch] ?? upgrade.branch)} · ${upgrade.category === "active" ? "Active ability" : upgrade.category === "installation" ? "On installation" : "Ongoing"}</span>` : ""}
           <span class="afc-upgrade-card-top"><strong>${escape(upgrade.name)}</strong><span>${owned ? "✓ Installed" : expanded ? "−" : "+"}</span></span>
           <span>${escape(formatDomainBenefitSummary(upgrade))}</span>
         </button>${expanded ? detail(state, upgrade, detailId) : ""}
@@ -88,7 +95,7 @@ export function renderAfcUpgradesHtml(state: UpgradeState, view: UpgradeView, pr
 
 /** Single-level inline details on desktop and mobile; no tab-within-tab or modal. */
 export function renderAfcUpgradePanels(
-  state: UpgradeState, desktop: HTMLElement, mobile: HTMLElement, install: (id: string) => void
+  state: UpgradeState, desktop: HTMLElement, mobile: HTMLElement, install: (id: string) => void, actions?: AfcActionDependencies
 ): void {
   state.domainDetailOpen = false;
   for (const [index, root] of [desktop, mobile].entries()) {
@@ -108,7 +115,9 @@ export function renderAfcUpgradePanels(
       const focusSelector = focused?.hasAttribute("data-afc-upgrade-current-tier") ? "[data-afc-upgrade-current-tier]"
         : focused?.dataset.domainUnlock ? `[data-domain-unlock="${CSS.escape(focused.dataset.domainUnlock)}"]`
         : focused?.dataset.afcUpgradeCard ? `[data-afc-upgrade-card="${CSS.escape(focused.dataset.afcUpgradeCard)}"]` : "";
+      const restoreFormInputs = rememberAfcFormInputs(root);
       root.innerHTML = html;
+      restoreFormInputs();
       view.html = html;
       root.scrollTop = scrollTop;
       if (focusSelector) {
@@ -118,8 +127,10 @@ export function renderAfcUpgradePanels(
       }
     };
     repaint();
+    if (actions) bindAfcActions(root, actions);
     root.onclick = event => {
       const target = event.target as HTMLElement;
+      if (actions && handleAfcActionClick(target, actions)) return;
       const button = target.closest<HTMLButtonElement>("[data-afc-upgrade-card]");
       if (button?.dataset.afcUpgradeCard) {
         const id = button.dataset.afcUpgradeCard;

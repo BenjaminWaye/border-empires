@@ -5,6 +5,7 @@
 // already drifted: the wire type here was missing capLevel that game-domain
 // and the client both carried) can't silently diverge again.
 export type MusterState = {
+  momentum?: import("./afc-specializations/afc-momentum.js").AfcFlagMomentum;
   ownerId: string;
   amount: number;
   mode: "HOLD" | "ADVANCE" | "MARCH";

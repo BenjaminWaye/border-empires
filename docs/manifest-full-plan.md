@@ -1,12 +1,18 @@
-# Border Empires — latest full Manifest plan
+# Manifest rework — implementation plan and history
 
-Status: active proposal, in progress on `agent/manifest-tech-data-cleanup` (PR #2085)
+Status: active implementation proposal with historical execution notes; lore superseded by the world bible
 
-Pasted verbatim from the user on 2026-09-26 (branch `agent/manifest-tech-data-cleanup`,
-PR #2085). This is the authoritative source for the Manifest/Coin/AFC/Module
-rework going forward, superseding ad-hoc notes in
-`docs/manifest-tree-mapping-plan.md` wherever the two disagree — except the
-one resolved contradiction below.
+This plan originated with the user-approved Manifest rework on 2026-09-26
+(branch `agent/manifest-tech-data-cleanup`, PR #2085). It records implementation
+choices, execution history and remaining proposals. Dated status reports below
+must be checked against current code before being used as a work checklist.
+
+Accepted fiction is now consolidated in the [world bible](lore/galactic-lore.md),
+with reading and maintenance rules in the [lore index](lore/README.md). This plan
+and `manifest-tree-mapping-plan.md` do not override that canon. Current playable
+rules belong in [game mechanics](game-mechanics.md) and the
+[economy reference](product/resource-and-manpower-economy.md); current Manifest
+names and metadata are in [the catalog](../packages/game-domain/data/tech-tree.json).
 
 ## Progress report (updated 2026-09-28)
 
@@ -197,14 +203,11 @@ branch:
 
 ## Resolved contradictions / corrections
 
-- **Settlement vs AFC at spawn**: §4 below says the AFC sits *beside* the
-  starting Settlement, not replacing it. This session had already
-  implemented and merged AFC-replaces-Settlement (the House's opening/
-  respawn tile is an AFC instead of a SETTLEMENT-tier town, inheriting its
-  flat Manpower/Coin baseline — see `docs/manifest-tree-mapping-plan.md`).
-  **Decided: keep AFC-replaces-Settlement as shipped.** §4's "does not
-  replace the Settlement" line is stale relative to that earlier decision
-  and does not apply. Everything else in this document stands.
+- **Settlement vs AFC at spawn**: an earlier draft placed the AFC beside a
+  separate starting Settlement. **Resolved: keep AFC-replaces-Settlement as
+  shipped.** The opening/respawn tile is an AFC, inheriting the starting
+  capital's baseline. This is reflected in world bible §11; the historical
+  mapping records the implementation decision.
 - **§7 item 1** ("Make Crystal costs real and server-authoritative for
   every Aether cast") is **incorrect** — Crystal costs are already real and
   server-authoritative. Skip this item when working through §7.
@@ -230,90 +233,40 @@ branch:
 
 ## 1. The core fiction
 
-A House does not forget how to build things between planets.
-
-Each seasonal invasion begins with a deliberately limited landing package: a
-Settlement, an AFC, basic House knowledge, and standard equipment. The
-House conquers towns and turns their output into Coin.
-
-Coin is paid offworld through the House factor. It buys additional assets
-from the wider Empire:
-
-- machines fabricated offworld and dropped to the AFC;
-- specialist crews and instruments transported to the planet;
-- Imperial market access and project supply chains.
-
-Coin is a recognised claim on the conquered world's output: food, freight,
-ore, manufacturing, tolls, and future exports. The factor accepts it
-because the House now controls that output. It is not wages paid to
-locals and it is not generic research.
-
-The purchased asset remains deployed on that planet. On the next seasonal
-world, the House still knows what it is doing, but needs to commission
-another copy of the relevant machine, crew, or service.
+Accepted fiction has moved to the world bible's
+[Houses and planetary economy](lore/galactic-lore.md#11-houses-and-the-planetary-economy)
+and [Manifests and AFC modules](lore/galactic-lore.md#12-manifests-and-afc-modules).
+Update those sections when an approved gameplay change affects their meaning.
+The opening AFC replaces the separate starting Settlement; the older
+AFC-beside-Settlement draft is withdrawn.
 
 ## 2. Resource model
 
-| Resource | Meaning | Main use |
-|---|---|---|
-| Manpower | Captured/remade bodies under House control | Expansion, armies, building |
-| Coin | Offworld purchasing credit backed by planetary output | Commission Manifests, rush construction, active converter operation |
-| Crystal | Aether fuel | Cast Aether abilities |
-| Titanium / Umbrite | Strategic materials | Buildings, military, upgrades |
+The canonical meanings of Coin, Manpower, materials and terrain-linked surplus
+are in [world bible §11](lore/galactic-lore.md#11-houses-and-the-planetary-economy).
+Current stockpile/slot behavior, costs and income are maintained in the
+[economy reference](product/resource-and-manpower-economy.md).
 
-Terrain should affect actual local surplus, not abstract "authorisation":
-
-- fertile land supports food and population;
-- coasts create freight, ports, and trade;
-- mountains and deposits support extraction;
-- arid terrain supports salvage, concessions, or specialised extraction;
-- terrain drives local Coin and Manpower potential because it changes what
-  the House can export or exploit.
-
-Do not remove the active Coin drain from synthesizers in Refine mode. It is
-their operating cost. Sell Off mode produces Coin and has no such drain.
+The implementation constraint retained from this plan is that active
+synthesizers in Refine mode keep their Coin operating drain; Sell Off produces
+Coin without that drain. Do not infer current ability costs from the original
+resource-model sketch; use the gameplay reference and runtime.
 
 ## 3. Manifest categories
 
-| Category | What Coin buys | Physical behaviour |
-|---|---|---|
-| AFC Module | Durable imported machine capability | Drops to an AFC; visible module/attachment |
-| Crew / Office / Consignment | Imported staff, instrument, genetic stock, or specialist service | Arrives by drop/transport; no giant AFC attachment |
-| Charter / Warrant | Offworld market, recognition, or factor service | No local "permission" fiction |
-| Dossier | Access to an offworld unique-project supply chain | Enables a Great Project, not an instant exclusive claim |
-
-A module is not merely "something technical." It is a substantial offworld
-machine that lets the House fabricate, operate, or deploy a whole category
-of capability.
+The category definitions and physical meaning are canonical in
+[world bible §12](lore/galactic-lore.md#12-manifests-and-afc-modules).
+Keep the catalog's Manifest category, descriptions and delivered assets
+consistent with those definitions. Category membership and unlock effects
+remain implementation data in `packages/game-domain/data/tech-tree.json`.
 
 ## 4. AFC and physical-delivery rules
 
-Every player starts with an Automated Fabrication Complex beside the
-initial Settlement. It does not replace the Settlement.
-
-> See "Resolved contradictions" above — this session keeps AFC-replaces-
-> Settlement as already shipped; this line does not apply.
-
-Additional AFCs may be established on owned land near a Settlement; they
-exist to spread risk, not to impose an arbitrary loadout cap.
-
-> **Superseded by "Building additional AFCs" below (decided 2026-09-29):**
-> no Settlement-proximity rule. The player picks any valid owned tile.
-
-> **Superseded (2026-10-06): each AFC holds 8 modules** (`AFC_MODULE_SLOTS`,
-> docked plus in transit). See "AFC loss, replacement and module slots" below.
-
-If an AFC is captured, its modules transfer, still working, to the captor
-(House copies become captured copies the captor cannot redeploy). The
-original owner loses them. Do not erase a whole branch or cancel existing
-buildings.
-
-Reassignment after recapture should not charge Coin again.
-
-Economy, Manpower, and War modules are distinct AFC attachments.
-
-Aether modules visually dock as smaller cartridges around the Aether
-Resonance Core, avoiding nine separate giant factory overlays.
+The AFC's role as an industrial seed, imported machinery, House copies and
+captured machinery are described in
+[world bible §12](lore/galactic-lore.md#12-manifests-and-afc-modules).
+The dated operational decisions below remain as implementation history and
+proposal detail; they do not provide an alternate account of the fiction.
 
 ### AFC loss, replacement and module slots (implemented 2026-10-06)
 
@@ -535,23 +488,14 @@ placement rule and charge.
 
 ## 5. Great Projects
 
-Dossiers do not let a player lock everyone else out merely by buying plans.
+The accepted Dossier and Project Core fiction is in
+[world bible §13](lore/galactic-lore.md#13-great-projects).
 
-Commissioning a Dossier is free where appropriate; Imperial Exchange
-Dossier is definitely free.
-
-The player builds required project components in sequence in one city.
-
-When construction is complete, the player makes the final atomic Coin
-payment to activate the unique Project Core.
-
-The first player to activate the Core receives the unique project.
-
-Rivals can destroy or dismantle unfinished works; partial Manpower recovery
-is allowed.
-
-Coin buys delivery/activation of the rare Project Core, not a monopoly on a
-document.
+Implementation must preserve atomic Core activation and enforce uniqueness
+at activation, rather than reserving the project when its Dossier is bought.
+Check current code for Dossier prices, component sequences, activation costs,
+interruption and refunds; historical proposal details are not proof that a
+particular rule has shipped.
 
 ## 6. Complete target Manifest tree
 

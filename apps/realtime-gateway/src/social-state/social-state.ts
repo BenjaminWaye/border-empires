@@ -1,3 +1,4 @@
+import { createForcedTruces } from "./social-forced-truce.js";
 import crypto from "node:crypto";
 
 import { TRUCE_BREAK_LOCKOUT_MS, TRUCE_REQUEST_TTL_MS } from "@border-empires/game-domain";
@@ -140,10 +141,12 @@ export const createSocialState = (options: {
     if (pruned) sink?.pruneExpired(current);
   };
 
+  const forcedTruces = createForcedTruces({ now, playersById, trucesByPair, ...(options.initial?.forcedTruceCooldowns ? { initial: options.initial.forcedTruceCooldowns } : {}), sink, ok: (ids, announcement) => ok(ids, announcement) });
+
   const snapshotForPlayer = (playerId: string): SocialSnapshot => {
     sweepExpired();
     return buildSocialSnapshot(
-      { now, playersById, allianceRequests, allianceBreaksByPair, completedAllianceBreaks, truceRequests, trucesByPair, truceBreaksByPlayerId, offerCooldowns },
+      { forcedTruceCooldownUntil: forcedTruces.cooldownUntil(playerId), now, playersById, allianceRequests, allianceBreaksByPair, completedAllianceBreaks, truceRequests, trucesByPair, truceBreaksByPlayerId, offerCooldowns },
       ensurePlayer(playerId)
     );
   };
@@ -299,6 +302,8 @@ export const createSocialState = (options: {
       return ok([playerId, request.toPlayerId]);
     },
     ...allianceBreaks,
+    resetAfcCampaign: () => forcedTruces.reset(),
+    forceTruce: (playerId, targetPlayerId) => { sweepExpired(); return forcedTruces.force(playerId, targetPlayerId); },
     requestTruce(fromPlayerId, targetPlayerName, durationHours, offerOptions) {
       sweepExpired();
       const actor = ensurePlayer(fromPlayerId);
@@ -406,6 +411,7 @@ export const createSocialState = (options: {
       const target = playersById.get(targetPlayerId);
       const truce = target ? activeTruceBetween(actor.id, target.id, trucesByPair, now()) : undefined;
       if (!target || !truce) return { ok: false, code: "TRUCE_BREAK_INVALID", message: "no active truce with target" };
+      if (truce.origin === "court") return { ok: false, code: "COURT_TRUCE_BINDING", message: "a Court armistice cannot be broken before it expires" };
       trucesByPair.delete(pairKey(actor.id, target.id));
       sink?.removeActiveTruce(actor.id, target.id);
       const lockoutUntil = now() + TRUCE_BREAK_LOCKOUT_MS;

@@ -1,3 +1,4 @@
+import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import {
   CONVERTER_TOWN_MODIFIER_AGGREGATE_TYPES,
   LONG_PEACE_GROWTH_MULT,
@@ -267,7 +268,8 @@ const townModifierTotalsForTown = (
   // countsByType) — a plain countSupportedStructures count would include
   // REFINE-mode copies too, which earn no gold and shouldn't show a "Sell Off
   // gold" line.
-  converterCountsByType: Partial<Record<string, number>> = {}
+  converterCountsByType: Partial<Record<string, number>> = {},
+  clearingHouseUpliftMult = 1
 ): NonNullable<Tile["town"]>["townModifierTotals"] => {
   const countsByType: Partial<Record<(typeof TOWN_MODIFIER_AGGREGATE_TYPES)[number], number>> = {};
   for (const type of TOWN_MODIFIER_AGGREGATE_TYPES) {
@@ -275,7 +277,7 @@ const townModifierTotalsForTown = (
       ? converterCountsByType[type] ?? 0
       : countSupportedStructures(tileKey, ownerId, type, tilesByKey, dormantEconomicStructureKeys);
   }
-  return townModifierTotalsFromCounts(countsByType, { clearingHouseActive });
+  return townModifierTotalsFromCounts(countsByType, { clearingHouseActive, clearingHouseUpliftMult });
 };
 
 export const buildTownSummary = (
@@ -360,7 +362,7 @@ export const buildTownSummary = (
               supportRatio *
               townPopulationMultiplier(populationTier) *
               (1 + (townPartial.connectedTownBonus ?? 0)) *
-              manufactoryGoldProductionMultiplier(manufactoryCount, clearingHouseActive) *
+              manufactoryGoldProductionMultiplier(manufactoryCount, clearingHouseActive, economyPlayer ? multiplicativeEffectForPlayer(economyPlayer, "clearingHouseUpliftMult") : 1) *
               firstThreeTownMult *
               incomeMultiplier *
               PASSIVE_INCOME_MULT
@@ -414,7 +416,7 @@ export const buildTownSummary = (
     : undefined;
   const townModifierTotals =
     tile.ownerId && tile.ownershipState === "SETTLED" && !isSettlement
-      ? townModifierTotalsForTown(tileKey, tile.ownerId, tilesByKey, dormantEconomicStructureKeys, clearingHouseActive, converterSupport.countsByType)
+      ? townModifierTotalsForTown(tileKey, tile.ownerId, tilesByKey, dormantEconomicStructureKeys, clearingHouseActive, converterSupport.countsByType, economyPlayer ? multiplicativeEffectForPlayer(economyPlayer, "clearingHouseUpliftMult") : 1)
       : undefined;
   const titaniumFactoryCount = tile.ownerId ? countSupportedStructures(tileKey, tile.ownerId, "TITANIUM_WEAPONS_FACTORY", tilesByKey, dormantEconomicStructureKeys) : 0;
   const umbriteFactoryCount = tile.ownerId ? countSupportedStructures(tileKey, tile.ownerId, "UMBRITE_WEAPONS_FACTORY", tilesByKey, dormantEconomicStructureKeys) : 0;

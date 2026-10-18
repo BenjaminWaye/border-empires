@@ -5,6 +5,9 @@ import type { Tile } from "@border-empires/shared";
 // tile has paused construction (apps/simulation attack-development-hold.ts).
 
 export type DomainFortState = {
+  attackCommitmentMult?: number;
+  wardEnabled?: boolean;
+  wardRechargesAt?: number;
   ownerId: string;
   status: NonNullable<Tile["fort"]>["status"];
   variant?: NonNullable<Tile["fort"]>["variant"] | undefined;
@@ -24,6 +27,7 @@ export type DomainObservatoryState = {
   startedAt?: number | undefined;
   pausedAt?: number | undefined; // attack-development-hold.ts: set while the tile is under attack
   activatedAt?: number | undefined;
+  suppressedUntil?: number | undefined;
   cooldownUntil?: number | undefined;
   previousStatus?: "active" | "inactive" | undefined;
   // Siphon mode (docs/game-mechanics.md "Siphon"): set while this tower is draining a Siphon target.

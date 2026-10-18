@@ -1,8 +1,10 @@
+import { slotWaiversForPlayer } from "./tech-domain-bridge/slot-waivers.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import {
+  fortIsWithinSlotWaiver,
   RELAY_BEACON_FREE_FOOD_SLOT_COUNT,
   SYNTHESIZER_STRUCTURE_TYPES,
-  structureSlotRequirements,
+  structureSlotRequirements, observatoryCrystalSlotCostForOwnedCount,
   type BuildableStructureType,
   type SlotStructureType
 } from "@border-empires/shared";
@@ -24,8 +26,21 @@ import type { RuntimeStructureCommandContext } from "./runtime-structure-command
 // consumer — must be buildable even with zero free slots). RELAY_BEACON
 // skips it too below RELAY_BEACON_FREE_FOOD_SLOT_COUNT owned, waived to 0
 // FOOD demand once built (slot-waivers.ts).
+type SlotGateContext = Pick<RuntimeStructureCommandContext, "players" | "tiles" | "ownedStructureCountForPlayer" | "summaryForPlayer" | "resourceSlotSupplyForPlayer" | "resourceSlotDemandForPlayer" | "emitEvent">;
+
+function hasFortWaiver(context: SlotGateContext, target: DomainTileState, playerId: string, count: number, ownedCount: number): boolean {
+  if (count <= 0) return false;
+  if (!target.fort) return ownedCount < count;
+  const tiles: DomainTileState[] = [];
+  for (const key of context.summaryForPlayer?.(playerId).territoryTileKeys ?? context.tiles.keys()) {
+    const tile = context.tiles.get(key);
+    if (tile?.ownerId === playerId && tile.fort) tiles.push(tile);
+  }
+  return fortIsWithinSlotWaiver(target, tiles, playerId, count);
+}
+
 export function hasFreeResourceSlots(
-  context: RuntimeStructureCommandContext,
+  context: SlotGateContext,
   command: CommandEnvelope,
   structureType: BuildableStructureType,
   slotStructureType: SlotStructureType,
@@ -34,7 +49,16 @@ export function hasFreeResourceSlots(
 ): boolean {
   if (SYNTHESIZER_STRUCTURE_TYPES.includes(structureType)) return true;
   if (structureType === "RELAY_BEACON" && context.ownedStructureCountForPlayer(command.playerId, "RELAY_BEACON") < RELAY_BEACON_FREE_FOOD_SLOT_COUNT) return true;
-  const requirements = structureSlotRequirements(slotStructureType);
+  const player = context.players.get(command.playerId);
+  const waivers = player ? slotWaiversForPlayer(player) : undefined;
+  const fortCount = context.ownedStructureCountForPlayer(command.playerId, "FORT");
+  const towerCount = context.ownedStructureCountForPlayer(command.playerId, "OBSERVATORY");
+  const requirements = (structureType === "OBSERVATORY"
+    ? [{ resource: "CRYSTAL" as const, count: observatoryCrystalSlotCostForOwnedCount(towerCount) }]
+    : structureSlotRequirements(slotStructureType)).filter(req => !(
+      (tileField === "fort" && req.resource === "TITANIUM" && hasFortWaiver(context, target, command.playerId, waivers?.fortTitaniumSlotWaiverCount ?? 0, fortCount)) ||
+      (tileField === "observatory" && req.resource === "CRYSTAL" && !target.observatory && towerCount < (waivers?.observatoryCrystalSlotWaiverCount ?? 0))
+    ));
   if (requirements.length === 0) return true;
   const supply = context.resourceSlotSupplyForPlayer(command.playerId);
   const demand = context.resourceSlotDemandForPlayer(command.playerId);

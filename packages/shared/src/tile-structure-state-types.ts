@@ -24,6 +24,9 @@ import type {
 } from "./types.js";
 
 export type TileFortState = {
+  attackCommitmentMult?: number;
+  wardEnabled?: boolean;
+  wardRechargesAt?: number;
   ownerId: PlayerId;
   status: FortStatus;
   variant?: FortVariant;
@@ -54,6 +57,7 @@ export type TileObservatoryState = {
   startedAt?: number;
   pausedAt?: number;
   activatedAt?: number;
+  suppressedUntil?: number | undefined;
   cooldownUntil?: number;
   siphon?: { targetX: number; targetY: number; tileKeys: string[]; startedAt: number };
 };

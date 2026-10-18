@@ -13,6 +13,7 @@ import type {
 } from "./social-state-types.js";
 
 export type SocialSnapshotSources = {
+  forcedTruceCooldownUntil?: number;
   now: () => number;
   playersById: ReadonlyMap<string, SocialPlayerRecord>;
   allianceRequests: ReadonlyMap<string, SocialAllianceRequest>;
@@ -28,6 +29,7 @@ export const buildSocialSnapshot = (sources: SocialSnapshotSources, player: Soci
   const playerId = player.id;
   const nameOf = (id: string): string => sources.playersById.get(id)?.name ?? id;
   return {
+    ...(sources.forcedTruceCooldownUntil ? { forcedTruceCooldownUntil: sources.forcedTruceCooldownUntil } : {}),
     allies: [...player.allies],
     activeAllianceBreaks: [...sources.allianceBreaksByPair.values()]
       .filter((notice) => notice.playerAId === playerId || notice.playerBId === playerId)
@@ -65,9 +67,11 @@ export const buildSocialSnapshot = (sources: SocialSnapshotSources, player: Soci
         return {
           otherPlayerId,
           otherPlayerName: nameOf(otherPlayerId),
+          ...(truce.origin ? { origin: truce.origin } : {}),
           startedAt: truce.startedAt,
           endsAt: truce.endsAt,
-          createdByPlayerId: truce.createdByPlayerId
+          createdByPlayerId: truce.createdByPlayerId,
+          ...(truce.origin ? { origin: truce.origin } : {})
         };
       }),
     truceBreaksThisSeason: [...(sources.truceBreaksByPlayerId.get(playerId) ?? [])],

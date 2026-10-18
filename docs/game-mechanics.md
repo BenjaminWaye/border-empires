@@ -91,6 +91,38 @@ There are no unit pieces. Combat is **tile-ownership transitions**:
 - "Domination income" is a misnomer in earlier docs — there is no income mechanic tied to domination. Town Control is a victory *path*, not an income modifier.
 - References: tech tree data lives at `packages/game-domain/data/tech-tree.json`; the bridge that scores tech selection in the AI lives at `apps/simulation/src/tech-domain-bridge/tech-domain-bridge.ts`. Player-stat type: `packages/shared/src/types.ts:389`.
 
+### AFC specializations (new campaigns)
+
+Season marker `afcUpgradeRuleset: "afc-v1"` selects the shared thirty-entry catalogue.
+Commissioning any Manifest at a tier unlocks one free permanent choice at that
+and earlier unfilled tiers, offered oldest first. All six paths are available:
+Vanguard (conquest), Bastion (defense), Dominion (expansion), Exchequer (a profitable
+three-town core), Oracle (Aether intelligence), and Chancery (coalitions).
+Installation requires an active owned AFC, costs no Coin or Shards, and persists
+through AFC loss. Extra or captured AFCs grant no extra choices. Existing seasons
+without the marker keep their paid domains; recovery never guesses a migration.
+
+The [catalogue](afc-specializations-catalog.md) documents each reward and its world
+explanation. AFC upgrades configure this campaign's command systems, local
+infrastructure and House contracts; Manifest research commissions the underlying
+technology. Recruits and scarcity equipment arrive as orbital consignments.
+
+Momentum belongs to the launching flag; garrison victories add stacks, frontier
+captures refresh decay, and moving/disbanding clears them. Breakthrough captures
+at most one legal adjacent enemy tile through normal capture consequences.
+Fort wards absorb one otherwise successful breach, spend the full attack
+commitment, and recharge in 24h even across demolition or transfer. Suppression
+lasts 5 minutes and uses the casting tower's configured Purge cooldown. Signal
+interception reveals exact hostile flag coordinates/owner through fog, never
+hidden manpower, orders, resources or full tile records.
+
+Court mandates impose binding 12h truces with a 48h caster recharge; existing
+battles finish. Coalition attack eligibility uses hostile player captures within
+24h. Chancery diplomatic weighting counts each member once, while the largest
+member by actual territory remains the sole candidate for victory (ties have no
+leader). Ordinary mutual-alliance checks govern alliance income and Trade Pact
+links. Paid recruitment converts 1 Coin into 5 manpower, retaining paid overflow.
+
 ## 7. Victory conditions
 
 Five concurrent victory paths, all per-season, all with a 24-hour hold requirement:

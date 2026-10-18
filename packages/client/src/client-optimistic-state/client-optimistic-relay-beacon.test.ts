@@ -24,7 +24,7 @@ describe("optimistic Relay Beacon build time", () => {
     return {
       me: "me",
       selected: undefined,
-      techIds: [],
+      techIds: [], domainIds: [], techCatalog: [], domainCatalog: [],
       tiles,
       tilesRevision: 0,
       tilesRevisionChangedKeys: new Set<string>(),

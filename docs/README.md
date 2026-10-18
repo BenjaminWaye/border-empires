@@ -11,6 +11,8 @@ remain authoritative for runtime behavior.
 | Need | Read |
 |---|---|
 | Repository-wide operating rules | [`../AGENTS.md`](../AGENTS.md) |
+| Lore entrypoint and required gameplay-change lore check | [`lore/README.md`](lore/README.md) |
+| Canonical setting, Houses, Coin, Manifests and AFC fiction | [`lore/galactic-lore.md`](lore/galactic-lore.md) |
 | Local setup, package layout, CI, and release notes | [`../README.md`](../README.md) |
 | Deploying or using Fly/Vercel/Hetzner | [`agents/deploys.md`](agents/deploys.md) |
 | Fly → Hetzner migration plan | [`hetzner-migration-plan.md`](hetzner-migration-plan.md) |
@@ -22,7 +24,9 @@ remain authoritative for runtime behavior.
 | AI progression recovery, aether and proactive diplomacy review | [`ai-progression-improvements-plan.md`](ai-progression-improvements-plan.md) |
 | Local gameplay verification | [`agents/topics/agent-gameplay-testing.md`](agents/topics/agent-gameplay-testing.md) |
 | Current gameplay rules | [`game-mechanics.md`](game-mechanics.md) |
-| AFC Specializations: client discovery slice, proposed lore and thirty rewards | [`afc-specializations-plan.md`](afc-specializations-plan.md) |
+| AFC Specializations: campaign rules, thirty rewards and lore | [`afc-specializations-catalog.md`](afc-specializations-catalog.md) |
+| AFC Specializations: implementation and verification | [`afc-specializations-execution.md`](afc-specializations-execution.md) |
+| AFC Specializations: original design and UI decisions | [`afc-specializations-plan.md`](afc-specializations-plan.md) |
 | Reach-vision implementation record | [`reach-border-vision-plan.md`](reach-border-vision-plan.md) |
 | Rivers remake, river heads and river mountains (renderer + worldgen v11/v12) | [`rivers-remake-plan.md`](rivers-remake-plan.md) |
 | Current manpower and resource-slot rules | [`product/resource-and-manpower-economy.md`](product/resource-and-manpower-economy.md) |
@@ -47,6 +51,10 @@ those in the issue or PR until they prove recurring.
 
 - Update the canonical document in the same branch as a workflow, entrypoint,
   or player-facing-rule change.
+- Every gameplay change includes the [lore check](lore/README.md#every-gameplay-change-includes-a-lore-check).
+  Update affected fiction in the world bible in the same branch. Canon,
+  proposed fiction and implementation status are separate; planning records
+  and supporting stories cannot override established lore.
 - Prefer links to a canonical source over copying its rules into a plan.
 - When an active proposal ships, update the canonical reference and archive or
   remove the implementation plan in the same follow-up.

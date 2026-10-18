@@ -101,6 +101,9 @@ const PLAYER_MERGE_RULES = {
   // DOMAIN_UPDATE, so these five share one rule reused by both branches
   // below rather than being listed twice.
   techIds: (p) => (Array.isArray(p.techIds) ? { techIds: p.techIds as string[] } : undefined),
+  afcUpgradeRuleset: (p) => (p.afcUpgradeRuleset === "afc-v1" ? { afcUpgradeRuleset: p.afcUpgradeRuleset } : undefined),
+  afcUpgradeInstallAllowed: p => typeof p.afcUpgradeInstallAllowed === "boolean" ? { afcUpgradeInstallAllowed: p.afcUpgradeInstallAllowed } : undefined,
+  afcInstallationPreviews: p => p.afcInstallationPreviews && typeof p.afcInstallationPreviews === "object" ? { afcInstallationPreviews: p.afcInstallationPreviews as Record<string, string> } : undefined,
   domainIds: (p) => (Array.isArray(p.domainIds) ? { domainIds: p.domainIds as string[] } : undefined),
   chosenTrickleResource: (p) => (isChosenTrickleResource(p.chosenTrickleResource) ? { chosenTrickleResource: p.chosenTrickleResource } : undefined),
   mods: (p) => (isRecord(p.mods) ? { mods: p.mods as NonNullable<PlayerStateSnapshot["mods"]> } : undefined),
@@ -122,7 +125,7 @@ const PLAYER_MERGE_RULES = {
 // Fields PLAYER_MERGE_RULES also covers, but which TECH_UPDATE/DOMAIN_UPDATE
 // carries only this small subset of -- everything else in the table (queues,
 // manpower, resource slots, ...) doesn't change when a tech/domain is chosen.
-const TECH_OR_DOMAIN_UPDATE_KEYS = ["gold", "strategicResources", "incomePerMinute", "techIds", "domainIds", "mods", "modBreakdown", "chosenTrickleResource"] as const satisfies ReadonlyArray<keyof typeof PLAYER_MERGE_RULES>;
+const TECH_OR_DOMAIN_UPDATE_KEYS = ["gold", "strategicResources", "incomePerMinute", "techIds", "domainIds", "afcUpgradeRuleset", "afcUpgradeInstallAllowed", "afcInstallationPreviews", "mods", "modBreakdown", "chosenTrickleResource"] as const satisfies ReadonlyArray<keyof typeof PLAYER_MERGE_RULES>;
 
 const mergePlayerFields = (
   current: PlayerStateSnapshot,

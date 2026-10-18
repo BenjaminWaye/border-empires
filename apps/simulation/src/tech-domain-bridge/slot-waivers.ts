@@ -33,7 +33,10 @@ export const maxEffectForPlayer = (
 // techs/domains and handed to resource-slot-view.ts's demand/dormancy
 // functions. relayBeaconFoodSlotWaiverCount is built-in (always
 // RELAY_BEACON_FREE_FOOD_SLOT_COUNT), not tech/domain-gated.
-export const slotWaiversForPlayer = (player: Pick<DomainPlayer, "techIds" | "domainIds">): SlotWaivers => ({
+export const slotWaiversForPlayer = (player: Pick<DomainPlayer, "techIds" | "domainIds" | "afcCoreTownKeys">): SlotWaivers => ({
+  observatoryCrystalSlotWaiverCount: maxEffectForPlayer(player, "observatoryCrystalSlotWaiverCount"),
+  firstThreeTownsFoodSlotReduction: maxEffectForPlayer(player, "firstThreeTownsFoodSlotReduction"),
+  ...(player.afcCoreTownKeys ? { afcCoreTownKeys: player.afcCoreTownKeys } : {}),
   fortTitaniumSlotWaiverCount: maxEffectForPlayer(player, "fortTitaniumSlotWaiverCount"),
   outpostUmbriteSlotWaiverCount: maxEffectForPlayer(player, "outpostUmbriteSlotWaiverCount"),
   relayBeaconFoodSlotWaiverCount: RELAY_BEACON_FREE_FOOD_SLOT_COUNT,

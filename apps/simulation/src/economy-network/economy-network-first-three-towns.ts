@@ -1,3 +1,5 @@
+import { reconcileAfcCoreTowns } from "../afc-specializations/afc-core-towns.js";
+import { usesAfcSpecializations } from "@border-empires/shared";
 // Mercantile Charter (and any future firstThreeTowns* domain/tech) split
 // out of economy-network.ts to keep that file under the repo's 500-line
 // cap.
@@ -25,8 +27,10 @@ import { multiplicativeEffectForPlayer } from "../tech-domain-bridge/tech-domain
  */
 export const firstThreeTownKeysForPlayer = (
   _playerId: string,
-  ownedSettledTownEntries: Iterable<readonly [string, string | undefined]>
+  ownedSettledTownEntries: Iterable<readonly [string, string | undefined]>,
+  player?: Pick<DomainPlayer, "afcUpgradeRuleset" | "domainIds" | "afcCoreTownKeys">
 ): Set<string> => {
+  if (player && usesAfcSpecializations(player)) return new Set(reconcileAfcCoreTowns(player, ownedSettledTownEntries));
   const result = new Set<string>();
   for (const [key, tier] of ownedSettledTownEntries) {
     if (tier === "SETTLEMENT") continue;

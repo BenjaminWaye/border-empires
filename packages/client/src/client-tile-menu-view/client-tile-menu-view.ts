@@ -1,7 +1,8 @@
+import { afcEffectMultiplier } from "../client-afc-upgrades/client-afc-effect.js";
+import { attackFloorForPlayer } from "../client-attack-commit/client-attack-floor.js";
 import { battleOverviewLines, battleMenuHeaderStatus } from "../client-battle-progress/client-tracked-battle-progress.js";
 import {
   isFortDefending,
-  requiredMusterForTarget,
   nextTownGrowthUpgrade,
   terrainAdjustedTownManpower,
   townFoodSlotDemandForTier,
@@ -53,7 +54,7 @@ export { constructionProgressForTile } from "../client-tile-menu-construction-pr
 export const menuOverviewForTile = (
   tile: Tile,
   deps: {
-    state: { me: string; upkeepLastTick?: { foodCoverage?: number }; techCatalog?: readonly TechInfo[] };
+    state: { me: string; domainIds?: readonly string[]; upkeepLastTick?: { foodCoverage?: number }; techCatalog?: readonly TechInfo[] };
     prettyToken: (value: string) => string;
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     displayTownGoldPerMinute: (tile: Tile) => number;
@@ -295,7 +296,7 @@ export const menuOverviewForTile = (
       // a Manufactory" must not read as a discouragement to build another — show
       // the current count/bonus instead.
       if (town.town?.manufactoryCount) {
-        const currentMult = manufactoryGoldProductionMultiplier(town.town.manufactoryCount, Boolean(town.town.clearingHouseActive));
+        const currentMult = manufactoryGoldProductionMultiplier(town.town.manufactoryCount, Boolean(town.town.clearingHouseActive), afcEffectMultiplier(deps.state.domainIds, "clearingHouseUpliftMult"));
         pushLine(`Nearby town has ${town.town.manufactoryCount} active ${town.town.manufactoryCount === 1 ? "Manufactory" : "Manufactories"} (+${Math.round((currentMult - 1) * 100)}% town coin production).`);
       }
       if (town.town?.hasIncubationEngine) pushLine("Nearby town already has an Incubation Engine.");
@@ -314,7 +315,7 @@ export const menuOverviewForTile = (
     // Same helper the client's own attack gate uses (findClosestMuster in
     // client-muster-attack-gate.ts), so the number shown here always matches
     // the muster the client will actually demand.
-    const required = requiredMusterForTarget(tile);
+    const required = attackFloorForPlayer(deps.state, tile);
     pushLine(`Capturing requires ${required} mustered manpower.`);
   }
   if (tile.fort?.status === "active") {
@@ -353,7 +354,7 @@ export const menuOverviewForTile = (
     if (tile.economicStructure.status === "active") {
       const dormantLine = dormantStructureLineHtml(tile, "economicStructure", deps.dormantResourcesForTile?.(tile, "economicStructure"));
       if (dormantLine) pushLine(dormantLine);
-      const ownBonusLine = tile.ownerId === tile.economicStructure.ownerId ? weaponsFactoryOwnBonusLine(tile) : undefined;
+      const ownBonusLine = tile.ownerId === tile.economicStructure.ownerId ? weaponsFactoryOwnBonusLine(tile, tile.ownerId === deps.state.me ? afcEffectMultiplier(deps.state.domainIds, "factoryDefenseContributionMult") : 1) : undefined;
       if (ownBonusLine) pushLine(ownBonusLine);
     }
   }

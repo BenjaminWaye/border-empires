@@ -16,6 +16,7 @@ export const buildSocialStateSink = (socialStore: GatewaySocialStore): SocialSta
   removeAllianceBreak: (playerAId, playerBId) => socialStore.removeAllianceBreak(playerAId, playerBId),
   saveCompletedAllianceBreak: (notice) => socialStore.saveCompletedAllianceBreak(notice),
   removeCompletedAllianceBreak: (playerAId, playerBId) => socialStore.removeCompletedAllianceBreak(playerAId, playerBId),
+  saveForcedTruce: (truce, cooldownUntil) => socialStore.saveForcedTruce(truce, cooldownUntil),
   saveActiveTruce: (truce) => socialStore.saveActiveTruce(truce),
   removeActiveTruce: (playerAId, playerBId) => socialStore.removeActiveTruce(playerAId, playerBId),
   saveTruceLockout: (playerId, lockoutUntil) => socialStore.saveTruceLockout(playerId, lockoutUntil),

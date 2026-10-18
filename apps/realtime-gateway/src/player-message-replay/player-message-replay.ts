@@ -35,7 +35,7 @@
  * gateway's gauge and eviction counter.
  */
 
-export type ReplayedPlayerMessageType = "REACH_UPDATE" | "AETHER_SHIELDS";
+export type ReplayedPlayerMessageType = "REACH_UPDATE" | "AETHER_SHIELDS" | "AFC_FLAG_DETECTIONS";
 export type ReplayedPlayerMessage = Record<string, unknown> & { type: ReplayedPlayerMessageType };
 
 export type PlayerMessageReplayOptions = {
@@ -61,7 +61,8 @@ type ReplayEntry<TSocket extends object> = {
 
 /** Only well-formed payloads of the replayed types are kept. */
 export const isReplayedPlayerMessage = (payload: Record<string, unknown>): payload is ReplayedPlayerMessage =>
-  (payload.type === "REACH_UPDATE" && Array.isArray(payload.tileKeys)) || (payload.type === "AETHER_SHIELDS" && Array.isArray(payload.towers));
+  (payload.type === "REACH_UPDATE" && Array.isArray(payload.tileKeys)) || (payload.type === "AETHER_SHIELDS" && Array.isArray(payload.towers)) ||
+  (payload.type === "AFC_FLAG_DETECTIONS" && Array.isArray(payload.flags));
 
 export const createPlayerMessageReplay = <TSocket extends object>(options: PlayerMessageReplayOptions): PlayerMessageReplay<TSocket> => {
   const maxEntries = Math.max(1, Math.floor(options.maxEntries));

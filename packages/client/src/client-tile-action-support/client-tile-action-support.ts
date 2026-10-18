@@ -1,5 +1,5 @@
 import { requiredTechIdsForAbility } from "@border-empires/game-domain";
-import { WORLD_HEIGHT, WORLD_WIDTH, isTownSupportPlacementStructure, structureShowsOnTile, structureSortRank, type BuildableStructureType, type SlotResource } from "@border-empires/shared";
+import { isAetherTowerSuppressed, WORLD_HEIGHT, WORLD_WIDTH, isTownSupportPlacementStructure, structureShowsOnTile, structureSortRank, type BuildableStructureType, type SlotResource } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import { hostileAetherProtectionAt, type ProtectingAetherTower } from "../client-aether-tower-protection/client-aether-tower-protection.js";
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
@@ -12,7 +12,7 @@ export const tileActionIsCrystal = (id: TileActionDef["id"]): boolean =>
   id === "reveal_empire" ||
   id === "reveal_empire_stats" ||
   id === "survey_sweep" ||
-  id === "aether_lance" ||
+  id === "aether_lance" || id === "suppress_aether_tower" ||
   id === "retort_recast_food" ||
   id === "retort_recast_titanium" ||
   id === "retort_recast_crystal" ||
@@ -491,6 +491,7 @@ export const ownedActiveObservatoryWithinRange = (
   for (const candidate of state.tiles.values()) {
     if (candidate.fogged || candidate.ownerId !== state.me || candidate.terrain !== "LAND") continue;
     if (candidate.observatory?.ownerId !== state.me || candidate.observatory.status !== "active") continue;
+    if (isAetherTowerSuppressed(candidate.observatory, Date.now())) continue;
     if (chebyshevDistanceClient(candidate.x, candidate.y, tile.x, tile.y) <= range) return true;
   }
   return false;

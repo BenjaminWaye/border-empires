@@ -9,7 +9,8 @@
 // extracts the two remaining inline methods: requiredMusterForTarget
 // (pure), and consumeOriginMuster (a thin tile-state mutation threaded
 // through a small context).
-import type { DomainTileState } from "@border-empires/game-domain";
+import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
+import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
   FRONTIER_ATTACK_MUSTER_COST,
   defendingFortVariant,
@@ -25,9 +26,12 @@ import type { SimulationTileWireDelta } from "./runtime-types.js";
  *
  * Pure function of the target tile - no runtime dependencies.
  */
-export function requiredMusterForTarget(target: DomainTileState): number {
+export function requiredMusterForTarget(target: DomainTileState, attacker?: DomainPlayer, defender?: DomainPlayer): number {
   if (target.ownershipState === "FRONTIER") return FRONTIER_ATTACK_MUSTER_COST;
-  return requiredMusterForFort(defendingFortVariant(target.fort));
+  const fort = defendingFortVariant(target.fort);
+  const multiplier = fort ? (attacker ? multiplicativeEffectForPlayer(attacker, "fortAttackManpowerCostMult") : 1) *
+    (defender ? multiplicativeEffectForPlayer(defender, "fortAttackerCommitmentMult") : 1) : 1;
+  return Math.max(1, Math.ceil(requiredMusterForFort(fort) * multiplier));
 }
 
 export interface RuntimeCombatResolutionContext {
