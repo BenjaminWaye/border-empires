@@ -16,7 +16,7 @@ import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
  */
 export type TownSettledAtEntry = { tileKey: string; settledAt: number };
 
-/** Snapshot side: the settle stamps of the given towns, for those that have one. */
+/** Snapshot side: the settle stamps of the given towns (in their given order), for those that have one. */
 export const townSettledAtForSnapshot = (
   townTileKeys: Iterable<string>,
   tileSettledAtByKey: ReadonlyMap<string, number> | undefined
@@ -27,7 +27,7 @@ export const townSettledAtForSnapshot = (
     const settledAt = tileSettledAtByKey.get(tileKey);
     if (typeof settledAt === "number" && Number.isFinite(settledAt)) entries.push({ tileKey, settledAt });
   }
-  return entries.sort((a, b) => a.tileKey.localeCompare(b.tileKey));
+  return entries;
 };
 
 /**

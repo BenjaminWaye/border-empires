@@ -48,7 +48,7 @@ export type SimulationProcessHandle = {
   runtimeEnv: SimulationRuntimeEnv;
   binding: { host: string; port: number; address: string };
   /**
-   * Idempotent shutdown. Triggers a 10s hard-exit watchdog, then drains the
+   * Idempotent shutdown. Triggers a 20s hard-exit watchdog, then drains the
    * listener watchdog → metrics HTTP → simulation service. Calls `onClosed`
    * just before `process.exit(0)`, or `onFatal` then `process.exit(1)` if
    * close throws.

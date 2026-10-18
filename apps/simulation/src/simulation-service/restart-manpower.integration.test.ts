@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { InMemorySimulationCommandStore } from "../command-store/command-store.js";
 import { InMemorySimulationEventStore } from "../event-store/event-store.js";
@@ -47,9 +47,8 @@ describe("manpower across a graceful restart", () => {
       type: "EXPAND",
       payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 11, toY: 10 })
     });
-    await new Promise((resolve) => setTimeout(resolve, 30));
+    await vi.waitFor(() => expect(manpowerOf(before.runtime.exportState())).toBeLessThan(startingManpower!));
     const spentManpower = manpowerOf(before.runtime.exportState());
-    expect(spentManpower).toBeLessThan(startingManpower!);
     await before.close();
 
     const after = await bootSim(stores);

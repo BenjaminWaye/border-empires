@@ -9,11 +9,11 @@ const tile = (x: number, overrides: Partial<DomainTileState> = {}): DomainTileSt
   ({ x, y: 0, terrain: "LAND", ownerId: "p1", ownershipState: "SETTLED", town, ...overrides }) as DomainTileState;
 
 describe("townSettledAtForSnapshot", () => {
-  it("returns only towns with a finite stamp, sorted by tile key", () => {
+  it("returns only towns with a finite stamp, in the given town order", () => {
     const stamps = new Map([["2,0", 200], ["1,0", 100], ["9,0", 900], ["3,0", Number.NaN]]);
     expect(townSettledAtForSnapshot(["2,0", "1,0", "3,0", "4,0"], stamps)).toEqual([
-      { tileKey: "1,0", settledAt: 100 },
-      { tileKey: "2,0", settledAt: 200 }
+      { tileKey: "2,0", settledAt: 200 },
+      { tileKey: "1,0", settledAt: 100 }
     ]);
   });
 

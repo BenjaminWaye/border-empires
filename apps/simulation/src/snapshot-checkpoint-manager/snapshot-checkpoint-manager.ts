@@ -102,8 +102,8 @@ export const createSnapshotCheckpointManager = (
     return false;
   };
   let pendingEvents = 0;
-  let snapshotInFlight = false;
-  let inFlightCheckpoint: Promise<unknown> | undefined;
+  // Set from "before_load" until the save settles; doubles as the in-flight flag.
+  let inFlightCheckpoint: Promise<SnapshotCheckpointResult> | undefined;
   let nextCheckpointPendingEvents = checkpointEveryEvents;
 
   const saveCheckpoint = async (): Promise<SnapshotCheckpointResult> => {
@@ -130,9 +130,6 @@ export const createSnapshotCheckpointManager = (
     } catch (error) {
       nextCheckpointPendingEvents = pendingEvents + checkpointFailureBackoffEvents;
       throw error;
-    } finally {
-      snapshotInFlight = false;
-      inFlightCheckpoint = undefined;
     }
   };
 
@@ -143,7 +140,7 @@ export const createSnapshotCheckpointManager = (
     force?: boolean;
     ignoreMemoryGuard?: boolean;
   } = {}): Promise<SnapshotCheckpointResult> => {
-    if (snapshotInFlight) return "skipped_in_flight";
+    if (inFlightCheckpoint) return "skipped_in_flight";
     const forcedByPendingTail = pendingEvents >= forceCheckpointAfterEvents;
     if (!force && !forcedByPendingTail && pendingEvents < nextCheckpointPendingEvents) {
       return "skipped_threshold";
@@ -155,8 +152,10 @@ export const createSnapshotCheckpointManager = (
     }
 
     emitPhase("before_load");
-    snapshotInFlight = true;
-    const checkpoint = saveCheckpoint();
+    // .finally() always runs asynchronously, so the assignment below lands first.
+    const checkpoint = saveCheckpoint().finally(() => {
+      inFlightCheckpoint = undefined;
+    });
     inFlightCheckpoint = checkpoint;
     return checkpoint;
   };
@@ -171,9 +170,9 @@ export const createSnapshotCheckpointManager = (
     },
     async checkpointOnShutdown(): Promise<SnapshotCheckpointResult> {
       // The in-flight checkpoint's own failure is already reported by its caller.
-      while (snapshotInFlight && inFlightCheckpoint) await inFlightCheckpoint.catch(() => undefined);
+      while (inFlightCheckpoint) await inFlightCheckpoint.catch(() => undefined);
       return flushSnapshot({ force: true, ignoreMemoryGuard: true });
     },
-    isCheckpointInFlight: () => snapshotInFlight
+    isCheckpointInFlight: () => inFlightCheckpoint !== undefined
   };
 };
