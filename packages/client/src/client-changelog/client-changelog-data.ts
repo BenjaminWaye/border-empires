@@ -1,4 +1,5 @@
 import { AFC_SPECIALIZATIONS_CHANGELOG } from "./client-changelog-afc-specializations.js";
+import { ALLIANCES_TAB_CHANGELOG } from "./client-changelog-alliances-tab.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_17 } from "./client-changelog-oct-17.js";
 import { AETHER_ABILITY_ICONS_CHANGELOG } from "./client-changelog-aether-ability-icons.js";
 import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-art-october.js";
@@ -15,7 +16,6 @@ import { RECENT_CLIENT_CHANGELOG_ENTRIES } from "./client-changelog-data-october
 import { TILE_YIELD_REMOVAL_CHANGELOG } from "./client-changelog-tile-yield-removal.js";
 import { AI_PROGRESSION_AETHER_CHANGELOG } from "./client-changelog-ai-progression-aether.js";
 import { FAIRER_AI_DEALS_CHANGELOG } from "./client-changelog-fairer-ai-deals.js";
-import { ALLIANCES_TAB_TRADE_SCREEN_CHANGELOG } from "./client-changelog-alliances-tab-trade-screen.js";
 import { OVERLAY_PERSISTENCE_CHANGELOG } from "./client-changelog-overlay-persistence.js";
 import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
 import { OUT_OF_REACH_NO_DECAY_CHANGELOG } from "./client-changelog-out-of-reach-no-decay.js";
@@ -36,14 +36,10 @@ import { CLIENT_CHANGELOG_ENTRIES_SEPT_24_26 } from "./client-changelog-data-sep
 import { CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS } from "./client-changelog-fast-builds.js";
 import { CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS } from "./client-changelog-build-speed-menus.js";
 import { CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON } from "./client-changelog-hint-center-button.js";
-import { CLIENT_CHANGELOG_ENTRIES_ALLIANCE_TAB_REDESIGN } from "./client-changelog-alliance-tab-redesign.js";
-import { CLIENT_CHANGELOG_ENTRIES_DIPLOMACY_TILE_ACTION } from "./client-changelog-diplomacy-tile-action.js";
 import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-fit.js";
 import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./client-changelog-waystation-auto-claim-activation.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_12 } from "./client-changelog-data-oct-12.js";
 import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
-import { CLIENT_CHANGELOG_ENTRIES_COMPACT_MET_PLAYERS } from "./client-changelog-compact-met-players.js";
-import { CLIENT_CHANGELOG_ENTRIES_PLAYER_NAME_BUTTONS } from "./client-changelog-player-name-buttons.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog-town-growth-loading.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY } from "./client-changelog-town-growth-war-integrity.js";
 export type ClientChangelogEntry = {
@@ -56,6 +52,7 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AFC_SPECIALIZATIONS_CHANGELOG,
+  ...ALLIANCES_TAB_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_OCT_17,
   {
     createdAt: 1792044007050, // Date.now() frozen for the changelog gate.
@@ -186,8 +183,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS,
   ...CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS,
   ...CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON,
-  ...CLIENT_CHANGELOG_ENTRIES_ALLIANCE_TAB_REDESIGN,
-  ...CLIENT_CHANGELOG_ENTRIES_DIPLOMACY_TILE_ACTION,
   ...MOBILE_LOADING_FIT_CHANGELOG,
   ...AETHER_ABILITY_ICONS_CHANGELOG,
   {
@@ -207,8 +202,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION,
   ...CLIENT_CHANGELOG_ENTRIES_OCT_12,
   ...CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT,
-  ...CLIENT_CHANGELOG_ENTRIES_COMPACT_MET_PLAYERS,
-  ...CLIENT_CHANGELOG_ENTRIES_PLAYER_NAME_BUTTONS,
   {
     createdAt: 1791921253260, // frozen Date.now() value for this release
     introducedIn: "2026.10.13.1",
@@ -233,7 +226,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...TILE_YIELD_REMOVAL_CHANGELOG,
   ...AI_PROGRESSION_AETHER_CHANGELOG,
   ...FAIRER_AI_DEALS_CHANGELOG,
-  ...ALLIANCES_TAB_TRADE_SCREEN_CHANGELOG,
   ...OVERLAY_PERSISTENCE_CHANGELOG,
   {
     createdAt: 1792187006316, // frozen Date.now() value for this release
