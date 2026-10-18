@@ -243,7 +243,10 @@ const tileMenuTabLabel = (tab: TileMenuTab): string => {
   return "Progress";
 };
 
-export const tileActionButtonHtml = (action: TileActionDef): string => `${tileActionButtonOnlyHtml(action)}${action.autoSettleOption ? autoSettleOptionHtml(action.autoSettleOption) : ""}`;
+// Sibling of the (disabled) action button, not nested in it: a disabled button swallows clicks.
+const techLinkHtml = (techId: string): string => `<button type="button" class="tile-action-tech-link" data-view-tech="${techId}">View Manifest →</button>`;
+
+export const tileActionButtonHtml = (action: TileActionDef): string => `${tileActionButtonOnlyHtml(action)}${action.techLinkId ? techLinkHtml(action.techLinkId) : ""}${action.autoSettleOption ? autoSettleOptionHtml(action.autoSettleOption) : ""}`;
 
 const tileActionButtonOnlyHtml = (action: TileActionDef): string => `<button class="tile-action-btn${action.recommended ? " is-recommended" : ""}" data-action="${action.id}" ${action.targetKey ? `data-target-key="${action.targetKey}"` : ""} ${action.originKey ? `data-origin-key="${action.originKey}"` : ""} ${action.disabled ? "disabled" : ""}>
           <span class="tile-action-icon">${buildActionIconHtml(action.id) ?? abilityActionIconHtml(action.id) ?? actionIcon(action.id)}</span>

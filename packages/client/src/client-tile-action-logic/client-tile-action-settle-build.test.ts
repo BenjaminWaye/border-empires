@@ -143,7 +143,7 @@ describe("settle + build — resource-gated building (HYDROGARDEN)", () => {
     const action = findAction(actions, "build_hydrogarden");
     expect(action).toBeDefined();
     expect(action?.disabled).toBe(true);
-    expect(action?.disabledReason).toBe("Requires Agrarian Works");
+    expect(action?.disabledReason).toBe("Requires Hyperfeed Seedstock Consignment");
   });
 });
 
