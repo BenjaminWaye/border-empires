@@ -19,7 +19,6 @@ import { ALLIANCES_TAB_TRADE_SCREEN_CHANGELOG } from "./client-changelog-allianc
 import { OVERLAY_PERSISTENCE_CHANGELOG } from "./client-changelog-overlay-persistence.js";
 import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
 import { OUT_OF_REACH_NO_DECAY_CHANGELOG } from "./client-changelog-out-of-reach-no-decay.js";
-import { RIVAL_REACH_OVER_MY_TILES_CHANGELOG } from "./client-changelog-rival-reach-over-my-tiles.js";
 import { FRONTIER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-frontier-supply-lines.js";
 import { MANPOWER_BATCH_LABEL_CHANGELOG } from "./client-changelog-manpower-batch-label.js";
 import { RESTART_TILE_STATE_CHANGELOG } from "./client-changelog-restart-tile-state.js";
@@ -172,7 +171,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...CLIENT_CHANGELOG_ENTRIES_AFC_LANDING,
   ...OUT_OF_REACH_NO_DECAY_CHANGELOG,
-  ...RIVAL_REACH_OVER_MY_TILES_CHANGELOG,
   ...FRONTIER_SUPPLY_LINES_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME,
