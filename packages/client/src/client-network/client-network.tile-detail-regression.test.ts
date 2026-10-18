@@ -396,7 +396,7 @@ describe("client network tile detail regression", () => {
       detailLevel: "summary",
       economicStructure: {
         ownerId: "me",
-        type: "MINTWORKS",
+        type: "MANUFACTORY",
         status: "active"
       }
     });
@@ -477,8 +477,8 @@ describe("client network tile detail regression", () => {
               isFed: false,
               connectedTownCount: 0,
               connectedTownBonus: 0,
-              hasMintworks: false,
-              mintworksActive: false,
+              hasManufactory: false,
+              manufactoryActive: false,
               hasIncubationEngine: false,
               incubationEngineActive: false,
             })

@@ -36,13 +36,13 @@ const buildContext = (tiles: Map<string, DomainTileState>, afcTileKeys: string[]
 };
 
 describe("commissionModuleIfApplicable", () => {
-  it("docks an AFC_MODULE tech onto the player's home AFC", () => {
+  it.each(["crystal-lattices", "trade"])("docks the %s module onto the player's home AFC", (techId) => {
     const tiles = new Map<string, DomainTileState>([["10,12", afcTile()]]);
     const { ctx, events } = buildContext(tiles, ["10,12"]);
 
-    commissionModuleIfApplicable(ctx, "player-1", "crystal-lattices", "cmd-1");
+    commissionModuleIfApplicable(ctx, "player-1", techId, "cmd-1");
 
-    expect(tiles.get("10,12")?.afc?.modules).toEqual(["crystal-lattices"]);
+    expect(tiles.get("10,12")?.afc?.modules).toEqual([techId]);
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({ eventType: "TILE_DELTA_BATCH", commandId: "cmd-1", playerId: "player-1" });
   });
@@ -109,6 +109,21 @@ describe("backfillMissingHouseModules", () => {
     ownedAfcTileKeys: (playerId) => ctx.summaryForPlayer(playerId).ownedAfcTileKeys,
     emitPlayerStateUpdate: () => {},
     scheduleAfter: (_delayMs, task) => { timers.push(task); }
+  });
+
+  it("delivers tooling for an already-purchased trade unlock and does not duplicate it", () => {
+    const tiles = new Map<string, DomainTileState>([["10,12", afcTile()]]);
+    const { ctx } = buildContext(tiles, ["10,12"]);
+    const timers: Array<() => void> = [];
+    const now = { value: 5_000 };
+    const delivery = deliveryFor(ctx, timers, now);
+    expect(backfillMissingHouseModules(ctx, delivery, "player-1", ["trade"], "tooling")).toBe(true);
+    expect(tiles.get("10,12")?.afc?.incomingModules).toEqual([{ techId: "trade", arrivesAt: 5_000 + AFC_MODULE_CALL_DOWN_MS }]);
+    now.value += AFC_MODULE_CALL_DOWN_MS;
+    timers.splice(0).forEach((task) => task());
+    expect(tiles.get("10,12")?.afc?.modules).toEqual(["trade"]);
+    expect(tiles.get("10,12")?.afc?.houseModules).toEqual(["trade"]);
+    expect(backfillMissingHouseModules(ctx, delivery, "player-1", ["trade"], "again")).toBe(false);
   });
 
   it("calls down researched modules that were never docked, one per call-down interval, by branch order", () => {

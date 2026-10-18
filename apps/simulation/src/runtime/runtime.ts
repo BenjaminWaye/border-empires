@@ -2457,7 +2457,7 @@ export class SimulationRuntime {
 
   // §5.4: dormant economicStructure tile keys ("x,y") for this player —
   // threaded into economy-network.ts's support-structure bonus checks
-  // (Mintworks/Bank/Trade Nexus/Clearing House/Ancillary Depot/Neural Works/Customs
+  // (Manufactory/Bank/Trade Nexus/Clearing House/Ancillary Depot/Neural Works/Customs
   // House) so a dormant instance stops granting its bonus without losing
   // its build-time uniqueness/existence.
   dormantEconomicStructureKeysForPlayer(playerId: string): ReadonlySet<string> {

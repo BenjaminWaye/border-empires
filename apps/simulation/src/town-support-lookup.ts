@@ -1,6 +1,6 @@
 /**
  * Shared "town support tile" lookup logic — generic over any tile shape that
- * carries the fields needed to place MINTWORKS/INCUBATION-ENGINE-style structures
+ * carries the fields needed to place MANUFACTORY/INCUBATION-ENGINE-style structures
  * (placementMode: "town_support" in structure-placement-metadata.ts).
  *
  * This is the SINGLE source of truth for "does an open, correctly-assigned
@@ -8,7 +8,7 @@
  * command handler (runtime-structure-support.ts, DomainTileState) and by the
  * AI's candidate selector (structure-command-planner.ts's chooseBestEconomicBuild,
  * StructurePlannerTile). Before this was shared, the AI planner proposed
- * MINTWORKS/INCUBATION_ENGINE whenever a town's supportCurrent < supportMax, without
+ * MANUFACTORY/INCUBATION_ENGINE whenever a town's supportCurrent < supportMax, without
  * checking whether a physical open SETTLED neighbor tile actually existed to
  * host the structure — the runtime's stricter placement check then rejected
  * ~99.9% of those BUILD_ECONOMIC_STRUCTURE commands in production (see
@@ -136,7 +136,7 @@ export function economicStructureForSupportedTown<T extends TownSupportTile>(
  * Computed once per town via a single neighbor scan (8-neighbor for most
  * tiers, 24 for GREAT_CITY/METROPOLIS, plus a per-neighbor assignment
  * check) — callers checking multiple candidate structure types for the
- * same town (e.g. MINTWORKS/INCUBATION_ENGINE) MUST call this once and reuse the Set
+ * same town (e.g. MANUFACTORY/INCUBATION_ENGINE) MUST call this once and reuse the Set
  * instead of calling economicStructureForSupportedTown per type, which
  * would repeat the full neighbor scan once per candidate.
  */
@@ -170,7 +170,7 @@ export function economicStructureTypesForSupportedTown<T extends TownSupportTile
  * placement rules. This is the expensive part (a neighbor scan -- 8-neighbor
  * for most tiers, 24 for GREAT_CITY/METROPOLIS -- plus a per-candidate
  * assignment check) — callers checking multiple structure types for the same
- * town (e.g. MINTWORKS/INCUBATION_ENGINE, which all share identical placement rules
+ * town (e.g. MANUFACTORY/INCUBATION_ENGINE, which all share identical placement rules
  * today — see structure-placement-metadata.ts) should call this ONCE and
  * reuse the result instead of re-scanning per type.
  */

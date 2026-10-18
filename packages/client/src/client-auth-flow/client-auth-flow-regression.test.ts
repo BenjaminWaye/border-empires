@@ -341,6 +341,39 @@ describe("email-link sign-in on Safari with blocked storage", () => {
     expect(state.authSessionReady).toBe(true);
   });
 
+  it.each([0, 3])("sign-in reopens a closed socket but leaves an active connection attempt alone (readyState=%s)", async (readyState) => {
+    const { createClientAuthFlow } = await import("./client-auth-flow.js");
+    const { onAuthStateChanged, isSignInWithEmailLink } = await import("firebase/auth");
+    vi.mocked(onAuthStateChanged).mockClear();
+    vi.mocked(isSignInWithEmailLink).mockReturnValueOnce(false);
+    const ws = {
+      CONNECTING: 0, OPEN: 1, CLOSING: 2, CLOSED: 3, readyState,
+      reconnect: vi.fn(), close: vi.fn(), send: vi.fn(),
+      addEventListener: vi.fn(), removeEventListener: vi.fn()
+    } satisfies RealtimeSocket;
+    const fakeFirebaseAuth = {} as NonNullable<Parameters<typeof createClientAuthFlow>[0]["firebaseAuth"]>;
+    const authFlow = createClientAuthFlow({
+      state: makeState(), dom: makeDom(), firebaseAuth: fakeFirebaseAuth, ws,
+      wsUrl: "ws://127.0.0.1:3101/ws", requireAuthedSession: () => true,
+      renderHud: vi.fn(), isMobile: () => false
+    });
+    authFlow.bindFirebaseAuth();
+    const onChange = vi.mocked(onAuthStateChanged).mock.calls[0]?.[1];
+    if (typeof onChange !== "function") throw new Error("Missing auth-state callback");
+    await onChange({
+      uid: "uid-1", email: "player@example.com", displayName: "Waypoint",
+      isAnonymous: false, providerData: [], emailVerified: true,
+      metadata: {}, refreshToken: "", tenantId: null,
+      phoneNumber: null, photoURL: null, providerId: "password",
+      delete: vi.fn(async () => {}), reload: vi.fn(async () => {}),
+      getIdToken: vi.fn(async () => "token"),
+      getIdTokenResult: vi.fn<import("firebase/auth").User["getIdTokenResult"]>(),
+      toJSON: () => ({})
+    });
+
+    expect(ws.reconnect).toHaveBeenCalledTimes(readyState === ws.CLOSED ? 1 : 0);
+  });
+
   it("blocks Google sign-in inside the Facebook Messenger in-app browser instead of letting it fail with a cryptic Firebase error", async () => {
     const { createClientAuthFlow } = await import("./client-auth-flow.js");
     const { signInWithPopup } = await import("firebase/auth");

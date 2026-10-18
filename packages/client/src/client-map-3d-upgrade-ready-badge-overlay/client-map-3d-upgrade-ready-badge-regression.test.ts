@@ -31,8 +31,8 @@ const ownedReadyTownTile = (overrides: TileOverrides = {}): Tile => {
     populationTier: "CITY",
     connectedTownCount: 0,
     connectedTownBonus: 0,
-    hasMintworks: false,
-    mintworksActive: false,
+    hasManufactory: false,
+    manufactoryActive: false,
     hasIncubationEngine: false,
     incubationEngineActive: false,
     nextPopulationTierUpgrade: {

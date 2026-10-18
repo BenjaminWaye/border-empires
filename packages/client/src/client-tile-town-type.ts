@@ -35,9 +35,9 @@ export type ClientTownWireSummary = {
   connectedUmbriteWeaponsFactoryCount?: number;
   manpowerCurrent?: number;
   manpowerCap?: number;
-  hasMintworks: boolean;
-  mintworksActive: boolean;
-  mintworksCount?: number;
+  hasManufactory: boolean;
+  manufactoryActive: boolean;
+  manufactoryCount?: number;
   hasIncubationEngine: boolean;
   incubationEngineActive: boolean;
   hasClearingHouse?: boolean; clearingHouseActive?: boolean; clearingHouseTownNames?: string[];

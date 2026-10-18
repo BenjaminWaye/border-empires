@@ -1,3 +1,4 @@
+import { CLIENT_CHANGELOG_ENTRIES_OCT_17 } from "./client-changelog-oct-17.js";
 import { AETHER_ABILITY_ICONS_CHANGELOG } from "./client-changelog-aether-ability-icons.js";
 import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-art-october.js";
 import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
@@ -51,6 +52,7 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  ...CLIENT_CHANGELOG_ENTRIES_OCT_17,
   {
     createdAt: 1792044007050, // Date.now() frozen for the changelog gate.
     introducedIn: "2026.10.15.1",
@@ -455,37 +457,29 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1792270895359,
+    createdAt: 1792269690926, // Date.now() captured when this entry was written.
     introducedIn: "2026.10.17.2",
-    title: "Good pick Manifests stand out, and mean more",
-    why: "The small orange Good pick pill was easy to miss and used the same colour as missing-resource warnings. It also appeared on almost every Manifest, because nearly any unlocked building can be built right away.",
-    changes: [
-      "Good pick Manifests now get a gold band across the top of the card and a gold frame, in the Manifest list, the expanded tree and the Manifest details",
-      "Being able to build a Manifest's building right away no longer makes it a Good pick on its own",
-      "Good pick now means signs of the resource it reveals near your land (or from a town you garrisoned), or extra Food when your Food capacity is tight"
-    ]
+    title: "Manufactories turn town industry into Coin credit",
+    why: "The stackable economic building represents manufactured output backing offworld purchasing credit.",
+    changes: ["Mintworks are now Manufactories, preserving their costs, income, stacking and Clearing House bonuses", "The Industrial Tooling Module fabricates and refurbishes equipment for local Manufactories; new construction requires the module installed on an active AFC", "New factory artwork appears in both the 3D and 2D maps; existing buildings and queued builds carry over"]
   },
   {
-    createdAt: 1792257568272,
-    introducedIn: "2026.10.17.1",
-    title: "Prospect clues look like what they are",
-    why: "Blackwood canopy, ferrous dust and refractive ground were just coloured patches on the map, so nothing about them looked like a canopy, dust or crystal.",
-    changes: [
-      "Blackwood canopy: trees on the tile turn violet-black, and open ground grows gaunt blackwood trees",
-      "Ferrous dust: rust-red flecks are scattered over the ground",
-      "Refractive ground: a pale glassy glint or two half-buried in the soil",
-      "The coloured patch under clue tiles is gone, and the tile menu only explains a clue on tiles that show it; works on both the 3D and 2D maps"
-    ]
+    createdAt: 1792270126879, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.17.3",
+    title: "Industrial Tooling docks as a precision mill",
+    why: "The Manufactory unlock deserves its own visible AFC machine.",
+    changes: ["The Industrial Tooling Module now has a dedicated 3D milling gantry with a moving spindle, rotating drive wheel and tool rack", "The 2D map shows a matching gantry symbol on AFCs with tooling installed"]
   },
   {
-    createdAt: 1792265619894,
-    introducedIn: "2026.10.17.1",
-    title: "Better Relay Beacon tips after landing",
-    why: "Right after your AFC landed, the AFC tile was selected for no reason, and the guide suggested building your first Relay Beacon on the AFC. A beacon there shows almost nothing your AFC can't already see.",
+    createdAt: 1792274781110, // Date.now() captured once for this release.
+    introducedIn: "2026.10.18.1",
+    title: "Automatic reconnection keeps trying through server updates",
+    why: "Long outages exhausted the retry budget and forced page reloads; a reopened connection could also get stuck before restoring your empire.",
     changes: [
-      "Your AFC no longer lands with its tile selected",
-      "The suggested Relay Beacon spot now goes by how much new land it shows you and brings into reach, so it usually sits at the edge of your land instead of on the AFC",
-      "The suggested spot can be any land inside your reach: on your frontier, Build Relay Beacon garrisons the tile first, and on unclaimed land it expands, garrisons, then builds"
+      "Long interruptions keep retrying in place without automatically refreshing the page",
+      "A reconnect that makes no progress for a minute automatically starts a fresh connection",
+      "Login queue updates and ongoing map downloads extend that timeout so active recovery can finish",
+      "Recovery pauses after sign-out; signing back in reopens a closed connection"
     ]
   }
 ];

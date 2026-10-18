@@ -36,12 +36,12 @@ describe("structureBuildingCategory", () => {
     expectCategory("resource", ["HYDROGARDEN", "MINE", "UMBRITE_RIG"]);
   });
 
-  // Regression: MINTWORKS is placementMode "same_tile" only so it can stack
+  // Regression: MANUFACTORY is placementMode "same_tile" only so it can stack
   // several per town, but it still only shows on town/support tiles. A
   // placementMode-based rule dumped it into Infrastructure.
-  it("puts support-ring-only structures in Town Support, including stacking same_tile ones like Mintworks", () => {
+  it("puts support-ring-only structures in Town Support, including stacking same_tile ones like Manufactory", () => {
     expectCategory("town_support", [
-      "MINTWORKS",
+      "MANUFACTORY",
       "ANCILLARY_DEPOT",
       "TITANIUM_WEAPONS_FACTORY",
       "UMBRITE_WEAPONS_FACTORY",

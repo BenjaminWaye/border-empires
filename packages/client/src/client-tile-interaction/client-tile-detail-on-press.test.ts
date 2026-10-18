@@ -37,8 +37,8 @@ describe("tile detail refresh on press", () => {
       maxPopulation: 100_000,
       connectedTownCount: 0,
       connectedTownBonus: 0,
-      hasMintworks: false,
-      mintworksActive: false,
+      hasManufactory: false,
+      manufactoryActive: false,
       hasIncubationEngine: false,
       incubationEngineActive: false
     };

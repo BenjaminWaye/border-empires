@@ -13,7 +13,7 @@ type Args = {
 // UMBRITE_RIG has its own dedicated overlay + story file
 // (client-map-3d-umbrite-extraction-rig.ts / UmbriteExtractionRig.stories.ts)
 // and is no longer part of the generic StructureKind union handled here.
-// MINTWORKS likewise has its own dedicated story file (Mintworks.stories.ts).
+// MANUFACTORY likewise has its own dedicated story file (Manufactory.stories.ts).
 // TRADE_NEXUS likewise has its own dedicated overlay + story file
 // (client-map-3d-trade-nexus-overlay.ts / TradeNexus.stories.ts).
 const KINDS: ReadonlyArray<StructureKind> = [

@@ -27,7 +27,7 @@ describe("ability icons", () => {
     expect(abilityKeyForTileAction("siphon_tile")).toBe("siphon");
     expect(abilityKeyForTileAction("retort_recast_umbrite")).toBe("retort_recasting");
     expect(abilityKeyForTileAction("cancel_siphon")).toBeUndefined();
-    expect(abilityKeyForTileAction("build_mintworks")).toBeUndefined();
+    expect(abilityKeyForTileAction("build_manufactory")).toBeUndefined();
   });
 
   it("gives Survey Sweep and Aether Purge their own icon in the tile menu instead of the default tent", () => {

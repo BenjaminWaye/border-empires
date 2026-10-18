@@ -9,7 +9,7 @@ import {
 } from "@border-empires/shared";
 import { dormantStructureLineHtml, type DormancyField } from "./client-tile-menu-dormancy-line.js";
 import { observatoryOverviewLines } from "./client-tile-menu-observatory-lines.js";
-import { mintworksGoldProductionMultiplier } from "@border-empires/game-domain";
+import { manufactoryGoldProductionMultiplier } from "@border-empires/game-domain";
 import { dockDisplayGoldPerMinute } from "../yield-derivation/yield-derivation.js";
 import { resourceSlotProductionHtml } from "./client-tile-resource-slot-production.js";
 import { isConverterStructureType } from "../client-converter-menu.js";
@@ -291,15 +291,15 @@ export const menuOverviewForTile = (
     const town = supportedTowns[0];
     if (town) {
       pushLine(town.town?.name ? `Support tile for ${town.town.name}.` : `Support tile for nearby town at (${town.x}, ${town.y}).`);
-      // mintworks-stacking task: Mintworks stack additively now, so "already has
-      // a Mintworks" must not read as a discouragement to build another — show
+      // manufactory-stacking task: Manufactories stack additively now, so "already has
+      // a Manufactory" must not read as a discouragement to build another — show
       // the current count/bonus instead.
-      if (town.town?.mintworksCount) {
-        const currentMult = mintworksGoldProductionMultiplier(town.town.mintworksCount, Boolean(town.town.clearingHouseActive));
-        pushLine(`Nearby town has ${town.town.mintworksCount} active Mintworks${town.town.mintworksCount === 1 ? "" : "s"} (+${Math.round((currentMult - 1) * 100)}% town coin production).`);
+      if (town.town?.manufactoryCount) {
+        const currentMult = manufactoryGoldProductionMultiplier(town.town.manufactoryCount, Boolean(town.town.clearingHouseActive));
+        pushLine(`Nearby town has ${town.town.manufactoryCount} active ${town.town.manufactoryCount === 1 ? "Manufactory" : "Manufactories"} (+${Math.round((currentMult - 1) * 100)}% town coin production).`);
       }
       if (town.town?.hasIncubationEngine) pushLine("Nearby town already has an Incubation Engine.");
-      if (!tile.economicStructure) pushLine("Town buildings like mintworks and Incubation Engines must be built on support tiles.");
+      if (!tile.economicStructure) pushLine("Town buildings like Manufactories and Incubation Engines must be built on support tiles.");
     }
   } else if (supportedTowns.length > 1) {
     pushLine("This support tile touches multiple towns.");

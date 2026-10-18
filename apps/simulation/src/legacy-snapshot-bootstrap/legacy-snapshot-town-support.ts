@@ -118,9 +118,9 @@ export const supportedStructureAtTown = (
   return false;
 };
 
-// mintworks-stacking task: counting sibling of supportedStructureAtTown above,
-// same support-ring loop, for Mintworks's now-additive-per-instance gold bonus
-// (mintworksGoldProductionMultiplier). Boolean uniqueness/gate checks elsewhere
+// manufactory-stacking task: counting sibling of supportedStructureAtTown above,
+// same support-ring loop, for Manufactory's now-additive-per-instance gold bonus
+// (manufactoryGoldProductionMultiplier). Boolean uniqueness/gate checks elsewhere
 // in this file keep using supportedStructureAtTown unchanged.
 export const countedStructuresAtTown = (
   townTileKey: string,

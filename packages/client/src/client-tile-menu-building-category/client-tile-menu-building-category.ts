@@ -21,7 +21,7 @@ import type { TileActionDef } from "../client-types.js";
 //                      settled tile (vision, admin, utility)
 // Deliberately NOT based on placementMode: that field only says whether a
 // structure caps at one-per-town or can stack, not where it can be built
-// (Mintworks is "same_tile" purely so it can stack, yet is still
+// (Manufactory is "same_tile" purely so it can stack, yet is still
 // support-ring-only) -- see the NOTE in structure-placement.ts.
 export type BuildingCategory = "military" | "resource" | "town_support" | "infrastructure" | "monument";
 

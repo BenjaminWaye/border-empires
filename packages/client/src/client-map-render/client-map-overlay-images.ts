@@ -6,7 +6,7 @@ import type { FortificationOpening, FortificationOverlayKind } from "../client-f
 // in packages/client/public/overlays/, cache-busted by
 // overlayAssetVersion — bump it whenever overlay art changes.
 
-const overlayAssetVersion = "20261012b";
+const overlayAssetVersion = "20261017-manufactory";
 export const overlaySrc = (filename: string): string => `/overlays/${filename}?v=${overlayAssetVersion}`;
 const loadOverlayImage = (filename: string): HTMLImageElement => {
   const image = new Image();
@@ -40,7 +40,7 @@ export const aetherWallPylonImage = loadOverlayImage("aether-wall-pylon-overlay.
 export const dockOverlayVariants = createOverlayVariantSet(["dock-overlay-1.svg", "dock-overlay-2.svg", "dock-overlay-3.svg"]);
 export const structureOverlayImages = {
   OBSERVATORY: loadOverlayImage("observatory-overlay.svg"),
-  MINTWORKS: loadOverlayImage("mintworks-overlay.svg"),
+  MANUFACTORY: loadOverlayImage("manufactory-overlay.svg"),
   INCUBATION_ENGINE: loadOverlayImage("incubation-engine-overlay.svg"),
   CLEARING_HOUSE: loadOverlayImage("clearing-house-overlay.svg"),
   SKY_DOCK: loadOverlayImage("sky-dock-overlay.svg"),

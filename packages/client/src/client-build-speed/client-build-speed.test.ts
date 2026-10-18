@@ -21,7 +21,7 @@ describe("build menu times with tech/domain build-speed effects", () => {
   it("shows base times when the player has no speed effect", () => {
     const state = speedState();
     expect(fortBuildMsForState(state, "FORT")).toBe(fortBuildDurationMs("FORT"));
-    expect(economicBuildMsForState(state, "MINTWORKS")).toBe(economicStructureBuildDurationMs("MINTWORKS"));
+    expect(economicBuildMsForState(state, "MANUFACTORY")).toBe(economicStructureBuildDurationMs("MANUFACTORY"));
   });
 
   it("only counts effects the player has unlocked", () => {
@@ -33,7 +33,7 @@ describe("build menu times with tech/domain build-speed effects", () => {
     const state = speedState({ domainIds: ["titanium-bastions"], techIds: ["fast-econ"] });
     expect(fortBuildMsForState(state, "FORT")).toBe(Math.round(fortBuildDurationMs("FORT") / 1.5));
     expect(fortBuildMsForState(state, "THUNDER_BASTION")).toBe(Math.round(fortBuildDurationMs("THUNDER_BASTION") / 1.5));
-    expect(economicBuildMsForState(state, "MINTWORKS")).toBe(Math.round(economicStructureBuildDurationMs("MINTWORKS") / 1.25));
+    expect(economicBuildMsForState(state, "MANUFACTORY")).toBe(Math.round(economicStructureBuildDurationMs("MANUFACTORY") / 1.25));
   });
 
   it("does not speed up a structure with no speed lever, and keeps instant builds instant", () => {

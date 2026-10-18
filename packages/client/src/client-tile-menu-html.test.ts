@@ -9,7 +9,7 @@ const baseView: TileMenuView = {
   tabs: ["overview"],
   overviewLines: [
     { html: "Modifiers", kind: "section" },
-    { html: "6 Mintworks", kind: "group" },
+    { html: "6 Manufactories", kind: "group" },
     { html: "<span>Gold production</span>", kind: "effect", nested: true },
     { html: "<span>6 connected towns</span>", kind: "effect" }
   ],
@@ -26,7 +26,7 @@ describe("tileActionMenuHtml overview line rendering", () => {
 
   it("renders a 'group' kind line with the group heading class", () => {
     const html = tileActionMenuHtml(baseView, "overview", false);
-    expect(html).toContain('<div class="tile-overview-line tile-overview-line-group">6 Mintworks</div>');
+    expect(html).toContain('<div class="tile-overview-line tile-overview-line-group">6 Manufactories</div>');
   });
 
   it("renders a nested effect line with both the effect and nested classes", () => {

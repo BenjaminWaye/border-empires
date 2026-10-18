@@ -6,6 +6,7 @@
 import type { Scene, Texture } from "three";
 import { createFabricationComplexOverlay, AFC_SOCKET_COUNT, type FabricationComplexOverlay } from "./client-map-3d-fabrication-complex.js";
 import { createAfcGenericModuleOverlay } from "./client-map-3d-afc-generic-module.js";
+import { createIndustrialToolingModuleOverlay } from "./client-industrial-tooling-module/client-map-3d-industrial-tooling-module.js";
 import { createAetherResonanceModuleOverlay } from "./client-map-3d-aether-resonance-module.js";
 import { createAetherwardCoilModuleOverlay } from "./client-map-3d-aetherward-coil-module.js";
 import { createGeoformEngineModuleOverlay } from "./client-map-3d-geoform-engine-module.js";
@@ -35,6 +36,7 @@ type ModuleFamilyFactory = (scene: Scene, maxInstances: number, buildingEnvironm
 // families, being built on a separate branch) has no bespoke model yet and
 // docks a generic cartridge instead, see docs/manifest-afc-overlay-wiring-plan.md.
 const MODULE_FAMILY_FACTORIES: Readonly<Record<string, ModuleFamilyFactory>> = {
+  trade: createIndustrialToolingModuleOverlay,
   masonry: createTitaniumForgeModuleOverlay,
   leatherworking: createRiggingWorksModuleOverlay,
   "crystal-lattices": createAetherResonanceModuleOverlay,

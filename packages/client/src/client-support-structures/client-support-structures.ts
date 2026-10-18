@@ -2,7 +2,7 @@ import { MAX_SUPPORT_RING_RADIUS, supportRingCandidates, supportRingRadiusForTie
 import type { Tile } from "../client-types.js";
 
 export type SupportTownStructureKey =
-  | "MINTWORKS"
+  | "MANUFACTORY"
   | "INCUBATION_ENGINE"
   | "CENSUS_HALL"
   | "CLEARING_HOUSE"
@@ -33,7 +33,7 @@ export type SupportTownStructureKey =
   | "ANCILLARY_FACTORY";
 
 const SUPPORT_STRUCTURE_TYPES: Record<SupportTownStructureKey, ReadonlyArray<NonNullable<Tile["economicStructure"]>["type"]>> = {
-  MINTWORKS: ["MINTWORKS"],
+  MANUFACTORY: ["MANUFACTORY"],
   INCUBATION_ENGINE: ["INCUBATION_ENGINE"],
   CENSUS_HALL: ["CENSUS_HALL"],
   CLEARING_HOUSE: ["CLEARING_HOUSE"],

@@ -77,8 +77,8 @@ describe("buildSnapshotTileDetail", () => {
             maxPopulation: 25_000,
             connectedTownCount: 1,
             connectedTownBonus: 0.1,
-            hasMintworks: true,
-            mintworksActive: true,
+            hasManufactory: true,
+            manufactoryActive: true,
             hasIncubationEngine: false,
             incubationEngineActive: false,
             foodUpkeepPerMinute: 0.1,
@@ -93,7 +93,7 @@ describe("buildSnapshotTileDetail", () => {
           terrain: "LAND",
           ownerId: "player-1",
           ownershipState: "SETTLED",
-          economicStructureJson: JSON.stringify({ type: "MINTWORKS", status: "active" })
+          economicStructureJson: JSON.stringify({ type: "MANUFACTORY", status: "active" })
         }
       ]
     };
@@ -133,8 +133,8 @@ describe("buildSnapshotTileDetail", () => {
             maxPopulation: 100_000,
             connectedTownCount: 1,
             connectedTownBonus: 0.1,
-            hasMintworks: false,
-            mintworksActive: false,
+            hasManufactory: false,
+            manufactoryActive: false,
             hasIncubationEngine: false,
             incubationEngineActive: false,
             // foodUpkeepPerMinute intentionally omitted - the regression shape.
@@ -251,8 +251,8 @@ describe("buildSnapshotTileDetail", () => {
             maxPopulation: 2_500,
             connectedTownCount: 0,
             connectedTownBonus: 0,
-            hasMintworks: false,
-            mintworksActive: false,
+            hasManufactory: false,
+            manufactoryActive: false,
             hasIncubationEngine: false,
             incubationEngineActive: false,
             foodUpkeepPerMinute: 0,
@@ -403,7 +403,7 @@ describe("buildSnapshotTileDetail", () => {
     // with cap 960 on a town that actually had 3 connected towns (+120%): the
     // sim correctly shipped townJson with goldPerMinute=4.4 and cap=2112, but
     // buildSnapshotTileDetail recomputed gpm from baseGoldPerMinute * support *
-    // mintworksMult * bankMult — a formula missing connectedTownBonus, popMult,
+    // manufactoryMult * bankMult — a formula missing connectedTownBonus, popMult,
     // firstThreeTownMult, incomeMult, PASSIVE_INCOME_MULT, and the +1 bank
     // flat. That stripped value clobbered the sim's authoritative one on its
     // way to the client.
@@ -430,8 +430,8 @@ describe("buildSnapshotTileDetail", () => {
             maxPopulation: 10_000_000,
             connectedTownCount: 3,
             connectedTownBonus: 1.2,
-            hasMintworks: false,
-            mintworksActive: false,
+            hasManufactory: false,
+            manufactoryActive: false,
             hasIncubationEngine: false,
             incubationEngineActive: false,
           }),
@@ -492,8 +492,8 @@ describe("buildSnapshotTileDetail", () => {
             maxPopulation: 10_000_000,
             connectedTownCount: 3,
             connectedTownBonus: 1.2,
-            hasMintworks: false,
-            mintworksActive: false,
+            hasManufactory: false,
+            manufactoryActive: false,
             hasIncubationEngine: false,
             incubationEngineActive: false,
           }),
@@ -620,7 +620,7 @@ describe("buildSnapshotTileDetail", () => {
   // redacted townJson (toSharedVisibilityTownSummary's field allowlist
   // strips it) before this REQUEST_TILE_DETAIL path ever saw it, and this
   // path never independently recomputed it the way it already does for
-  // supportCurrent/mintworksCount/goldPerMinute/etc. — so it silently never
+  // supportCurrent/manufactoryCount/goldPerMinute/etc. — so it silently never
   // reached the tile popup for any player, including a town's own owner.
   it("computes townModifierTotals for the tile-detail path, not just the persisted (redacted) townJson", () => {
     const snapshot: PlayerSubscriptionSnapshot = {
@@ -640,9 +640,9 @@ describe("buildSnapshotTileDetail", () => {
           townType: "MARKET",
           townPopulationTier: "TOWN"
         },
-        { x: 301, y: 300, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "MINTWORKS", status: "active" }) },
-        { x: 299, y: 300, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "MINTWORKS", status: "active" }) },
-        { x: 300, y: 301, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "MINTWORKS", status: "active" }) },
+        { x: 301, y: 300, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "MANUFACTORY", status: "active" }) },
+        { x: 299, y: 300, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "MANUFACTORY", status: "active" }) },
+        { x: 300, y: 301, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "MANUFACTORY", status: "active" }) },
         { x: 300, y: 299, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "ANCILLARY_DEPOT", status: "active" }) }
       ]
     };
@@ -655,11 +655,11 @@ describe("buildSnapshotTileDetail", () => {
       : undefined;
 
     expect(town?.townModifierTotals).toBeDefined();
-    // 3 active Mintworks, grouped under one heading: flat +1 gold/day each
+    // 3 active Manufactory, grouped under one heading: flat +1 gold/day each
     // (Coin: +3) plus the nonlinear stacked gold-production percentage
     // (Coin production: +30%).
     expect(town?.townModifierTotals).toContainEqual({
-      heading: "3 Mintworks",
+      heading: "3 Manufactories",
       modifiers: [
         { statLabel: "Coin", valueText: "+3", tone: "positive" },
         { statLabel: "Coin production", valueText: "+30%", tone: "positive" }

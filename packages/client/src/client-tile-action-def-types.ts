@@ -18,7 +18,7 @@ export type TileActionDef = {
     | "build_hydroworks"
     | "build_umbrite_rig"
     | "build_mine"
-    | "build_mintworks"
+    | "build_manufactory"
     | "build_incubation_engine"
     | "build_census_hall"
     | "build_bank"
