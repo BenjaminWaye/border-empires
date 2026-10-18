@@ -1,21 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { InstancedMesh, Matrix4, Scene, Vector3 } from "three";
 import { createProspectClueProps } from "./client-map-3d-prospect-clue-props.js";
-import { prospectClueTreeTint } from "./client-map-3d-prospect-clue-layer.js";
+import { createProspectClueLayer } from "./client-map-3d-prospect-clue-layer.js";
 import { prospectCluePropCount, prospectCluePropsAllowed } from "../client-prospect-clue/client-prospect-clue.js";
-import type { Tile } from "../client-types.js";
+import type { TechInfo, Tile } from "../client-types.js";
 
 // Regression: prospect clues used to render in 3D as a flat colour tint only.
-// Each clue must now place its own props (blackwood trees, ferrous flecks,
-// crystal shards), matching the 2D renderer's per-tile counts.
+// Each clue must now place its own props (a blackwood swirl over forest,
+// grey titanium chips, crystal shards), matching the 2D renderer's per-tile counts.
 
-// Mesh order in createProspectClueProps: [blackwood canopy, blackwood trunk, ferrous fleck, crystal shard].
+// Mesh order in the scene: [blackwood swirl, ferrous fleck, crystal shard].
+const meshesOf = (scene: Scene): InstancedMesh[] => scene.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh);
+
 const countsAfter = (add: (props: ReturnType<typeof createProspectClueProps>) => void): number[] => {
   const scene = new Scene();
   const props = createProspectClueProps(scene, 8);
   add(props);
   props.commit();
-  const counts = scene.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh).map((mesh) => mesh.count);
+  const counts = meshesOf(scene).map((mesh) => mesh.count);
   props.dispose();
   return counts;
 };
@@ -23,18 +25,14 @@ const countsAfter = (add: (props: ReturnType<typeof createProspectClueProps>) =>
 const flat = (): number => 0;
 
 describe("createProspectClueProps", () => {
-  it("plants blackwood trees on an open blackwood tile", () => {
-    const trees = prospectCluePropCount("BLACKWOOD_CANOPY", 12, 34);
-    expect(countsAfter((p) => p.addTile(0, 0, 0, flat, 12, 34, "BLACKWOOD_CANOPY", false))).toEqual([trees, trees, 0, 0]);
+  it("raises one blackwood swirl over a blackwood forest tile, and nothing on open ground", () => {
+    expect(countsAfter((p) => p.addTile(0, 0, 0, flat, 12, 34, "BLACKWOOD_CANOPY", true))).toEqual([1, 0, 0]);
+    expect(countsAfter((p) => p.addTile(0, 0, 0, flat, 12, 34, "BLACKWOOD_CANOPY", false))).toEqual([0, 0, 0]);
   });
 
-  it("adds no extra trees where the tile already grows forest (that forest is tinted instead)", () => {
-    expect(countsAfter((p) => p.addTile(0, 0, 0, flat, 12, 34, "BLACKWOOD_CANOPY", true))).toEqual([0, 0, 0, 0]);
-  });
-
-  it("scatters ferrous flecks and crystal shards for the other clues", () => {
-    expect(countsAfter((p) => p.addTile(0, 0, 0, flat, 5, 9, "FERROUS_DUST", false))).toEqual([0, 0, prospectCluePropCount("FERROUS_DUST", 5, 9), 0]);
-    expect(countsAfter((p) => p.addTile(0, 0, 0, flat, 5, 9, "REFRACTIVE_GROUND", false))).toEqual([0, 0, 0, prospectCluePropCount("REFRACTIVE_GROUND", 5, 9)]);
+  it("scatters ferrous chips and crystal shards for the other clues", () => {
+    expect(countsAfter((p) => p.addTile(0, 0, 0, flat, 5, 9, "FERROUS_DUST", false))).toEqual([0, prospectCluePropCount("FERROUS_DUST", 5, 9), 0]);
+    expect(countsAfter((p) => p.addTile(0, 0, 0, flat, 5, 9, "REFRACTIVE_GROUND", false))).toEqual([0, 0, prospectCluePropCount("REFRACTIVE_GROUND", 5, 9)]);
   });
 
   // Review finding: flecks/shards sat at surfaceY (the tile's highest point) and floated on hills and slopes.
@@ -43,7 +41,7 @@ describe("createProspectClueProps", () => {
     const props = createProspectClueProps(scene, 4);
     props.addTile(0, 0, 5, (ox) => ox, 5, 9, "FERROUS_DUST", false);
     props.commit();
-    const fleckMesh = scene.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh)[2]!;
+    const fleckMesh = meshesOf(scene)[1]!;
     const matrix = new Matrix4();
     const position = new Vector3();
     for (let i = 0; i < fleckMesh.count; i += 1) {
@@ -58,18 +56,26 @@ describe("createProspectClueProps", () => {
     const counts = countsAfter((p) => {
       for (let i = 0; i < 50; i += 1) p.addTile(0, 0, 0, flat, i, i * 3, "FERROUS_DUST", false);
     });
-    expect(counts[2]).toBe(8 * 6);
+    expect(counts[1]).toBe(8 * 6);
   });
 });
 
 describe("prospect clue tile gating", () => {
-  const tile = (extra: Partial<Tile>): Tile => ({ x: 1, y: 1, terrain: "LAND", prospectSignature: "BLACKWOOD_CANOPY", ...extra });
+  const tile = (extra: Partial<Tile>): Tile => ({ x: 1, y: 1, terrain: "LAND", prospectSignature: "FERROUS_DUST", ...extra });
+  const noTech = { techIds: [], techCatalog: [] };
 
-  it("tints trees only on live blackwood land", () => {
-    expect(prospectClueTreeTint(tile({}), "LAND", "visible")).toBeDefined();
-    expect(prospectClueTreeTint(tile({}), "LAND", "fogged")).toBeUndefined();
-    expect(prospectClueTreeTint(tile({ prospectSignature: "FERROUS_DUST" }), "LAND", "visible")).toBeUndefined();
-  });
+  const layerCounts = (args: { tile: Tile; forestOnTile?: boolean; techState?: { techIds: string[]; techCatalog: TechInfo[] } }): number[] => {
+    const scene = new Scene();
+    const layer = createProspectClueLayer(scene, 4);
+    layer.addTile({
+      tile: args.tile, terrain: "LAND", visibility: "visible", x: 0, z: 0, wx: 1, wy: 1, wxNext: 2, wyNext: 2,
+      surfaceY: 0, flatOverlayY: 0, cornerYAt: () => 0, forestOnTile: args.forestOnTile ?? false, techState: args.techState ?? noTech
+    });
+    layer.commit();
+    const counts = meshesOf(scene).map((mesh) => mesh.count);
+    layer.dispose();
+    return counts;
+  };
 
   it("keeps props off tiles that draw their own feature", () => {
     expect(prospectCluePropsAllowed(tile({}))).toBe(true);
@@ -78,5 +84,11 @@ describe("prospect clue tile gating", () => {
     expect(prospectCluePropsAllowed(tile({ watchtower: { activated: false } }))).toBe(false);
     expect(prospectCluePropsAllowed(tile({ shardSite: { kind: "CACHE", amount: 3 } }))).toBe(false);
     expect(prospectCluePropsAllowed(undefined)).toBe(false);
+  });
+
+  it("hides a clue once the player has revealed its resource", () => {
+    const catalog = [{ id: "survey", effects: { revealResource: "titanium" } }] as unknown as TechInfo[];
+    expect(layerCounts({ tile: tile({}) })[1]).toBeGreaterThan(0);
+    expect(layerCounts({ tile: tile({}), techState: { techIds: ["survey"], techCatalog: catalog } })[1]).toBe(0);
   });
 });

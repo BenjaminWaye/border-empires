@@ -1,5 +1,6 @@
 import { AFC_SPECIALIZATIONS_CHANGELOG } from "./client-changelog-afc-specializations.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_17 } from "./client-changelog-oct-17.js";
+import { PROSPECT_CLUE_SWIRL_CHANGELOG } from "./client-changelog-prospect-clue-swirl.js";
 import { AETHER_ABILITY_ICONS_CHANGELOG } from "./client-changelog-aether-ability-icons.js";
 import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-art-october.js";
 import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
@@ -56,6 +57,7 @@ export type ClientChangelogEntry = {
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AFC_SPECIALIZATIONS_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_OCT_17,
+  ...PROSPECT_CLUE_SWIRL_CHANGELOG,
   {
     createdAt: 1792044007050, // Date.now() frozen for the changelog gate.
     introducedIn: "2026.10.15.1",

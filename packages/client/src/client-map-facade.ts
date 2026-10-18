@@ -1,5 +1,6 @@
 import { WORLD_WIDTH, clearForestAroundAfcTiles, clearForestOnTownAndDockTiles, grassShadeAt, grassToneAt, isForestClearedAt, visualLandBiomeAt, worldgenVersion } from "@border-empires/shared";
 import { drawProspectSignatureOverlay, prospectClueDrawFor } from "./client-prospect-signature-overlay.js";
+import { createRetiredProspectCluesLookup } from "./client-prospect-clue/client-prospect-clue.js";
 import { createMiniMapBaseBuilder } from "./client-minimap/client-minimap-base-builder.js";
 import {
   buildMiniMapBaseRows,
@@ -276,9 +277,10 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
         return tile?.terrain === "LAND" ? tile.regionType : undefined;
       }
     });
+  const retiredClues = createRetiredProspectCluesLookup();
   const visibleProspectClueAt = (wx: number, wy: number): ReturnType<typeof prospectClueDrawFor> => {
     const tile = state.tiles.get(keyFor(wx, wy));
-    return prospectClueDrawFor(tile, tileVisibilityStateAt(wx, wy, tile) === "visible");
+    return prospectClueDrawFor(tile, tileVisibilityStateAt(wx, wy, tile) === "visible", retiredClues(state.techIds, state.techCatalog));
   };
   const drawForestOverlay = (wx: number, wy: number, px: number, py: number, size: number): void =>
     drawForestOverlayOnCanvas(ctx, wx, wy, px, py, size, visibleProspectClueAt(wx, wy), (x, y) => isForestTileWithAfcLandingHold(state.afcJoinDrop, x, y));

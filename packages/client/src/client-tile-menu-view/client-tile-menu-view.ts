@@ -54,7 +54,7 @@ export { constructionProgressForTile } from "../client-tile-menu-construction-pr
 export const menuOverviewForTile = (
   tile: Tile,
   deps: {
-    state: { me: string; domainIds?: readonly string[]; upkeepLastTick?: { foodCoverage?: number }; techCatalog?: readonly TechInfo[] };
+    state: { me: string; domainIds?: readonly string[]; upkeepLastTick?: { foodCoverage?: number }; techCatalog?: readonly TechInfo[]; techIds?: readonly string[] };
     prettyToken: (value: string) => string;
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     displayTownGoldPerMinute: (tile: Tile) => number;
@@ -125,7 +125,7 @@ export const menuOverviewForTile = (
   const resourceLabelText = tile.resource ? deps.prettyToken(strategicResourceKeyForTile(tile) ?? resourceLabel(tile.resource)) : undefined;
   const productionHtml = tileProductionHtml(tile);
   const isLand = tile.terrain !== "SEA" && tile.terrain !== "COASTAL_SEA" && tile.terrain !== "MOUNTAIN";
-  if (isLand) lines.push(...tileFeatureLeadLines(tile, ownerKind, { me: deps.state.me, prettyToken: deps.prettyToken, structureInfoButtonHtml: deps.structureInfoButtonHtml, techCatalog: deps.state.techCatalog ?? [] }));
+  if (isLand) lines.push(...tileFeatureLeadLines(tile, ownerKind, { me: deps.state.me, prettyToken: deps.prettyToken, structureInfoButtonHtml: deps.structureInfoButtonHtml, techCatalog: deps.state.techCatalog ?? [], techIds: deps.state.techIds ?? [] }));
   tileMenuOverviewIntroLines({
     terrain: tile.terrain,
     ownerKind,
