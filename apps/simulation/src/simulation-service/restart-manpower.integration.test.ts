@@ -30,7 +30,7 @@ const manpowerOf = (state: { players: Array<{ id: string; manpower: number }> })
   state.players.find((player) => player.id === PLAYER_ID)?.manpower;
 
 describe("manpower across a graceful restart", () => {
-  it("keeps manpower spent since the last periodic checkpoint spent (no refund on deploy)", async () => {
+  it("keeps manpower spent after the last periodic checkpoint spent (no refund on deploy)", async () => {
     const stores = {
       commandStore: new InMemorySimulationCommandStore(),
       eventStore: new InMemorySimulationEventStore(),

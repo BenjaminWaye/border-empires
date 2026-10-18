@@ -1813,7 +1813,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           }
           return false;
         },
-            onUpkeepNettedWhileIncomePaused: () => { simulationMetrics.incrementSimUpkeepNettedWhileIncomePaused(); }
+        onUpkeepNettedWhileIncomePaused: () => { simulationMetrics.incrementSimUpkeepNettedWhileIncomePaused(); }
       });
       const nextRuntimeState = nextRuntime.exportState();
       const nextWorldStatus = buildWorldStatusSnapshot("", nextRuntimeState, {
@@ -2724,6 +2724,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           resolve();
         });
       });
+      // Nothing may change the world after the last event is persisted: the
+      // shutdown checkpoint below must capture one consistent moment.
+      runtime.freezeScheduledTasks();
       unsubscribeRuntimeEvents?.();
       globalStatusBroadcaster.dispose();
       await persistenceQueue.whenIdle();

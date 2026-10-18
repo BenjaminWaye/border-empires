@@ -44,7 +44,7 @@ export type SnapshotCheckpointManager = {
    * checkpoint on the next boot.
    */
   checkpointOnShutdown: () => Promise<SnapshotCheckpointResult>;
-  /** True while a checkpoint's export+save is in flight (i.e. from "before_save" through "after_save"/error). */
+  /** True while a checkpoint is in flight (from "before_load" until its save settles). */
   isCheckpointInFlight: () => boolean;
 };
 

@@ -675,6 +675,7 @@ export class SimulationRuntime {
   private dormantClaimSweepDone = false;
   private readonly waypointDrainScheduler = new WaypointDrainScheduler({ isPlayerSubscribed: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false, now: () => this.now() });
   private readonly scheduleAfter: (delayMs: number, task: () => void) => void;
+  private scheduledTasksFrozen = false;
   private readonly playerUpdateEmitter: PlayerUpdateEmitter;
   private readonly commandTrace: ((sample: Record<string, unknown>) => void) | undefined;
   private readonly onOwnershipChange: SimulationRuntimeOptions["onOwnershipChange"]; private readonly isPlayerSubscribed: SimulationRuntimeOptions["isPlayerSubscribed"]; private readonly alertedManpowerFullPlayerIds = new Set<string>();
@@ -701,9 +702,10 @@ export class SimulationRuntime {
     // delay=0 lands drains in the same Check phase, but registered AFTER
     // snapshot yields re-arm theirs, so yields always run ahead of drains next
     // iteration (~22s → ~500ms). Real-delay timers still use setTimeout.
-    this.scheduleAfter = options.scheduleAfter ?? ((delayMs, task) =>
+    const scheduleAfter = options.scheduleAfter ?? ((delayMs, task) =>
       delayMs === 0 ? void setImmediate(task) : void setTimeout(task, delayMs)
     );
+    this.scheduleAfter = (delayMs, task) => scheduleAfter(delayMs, () => { if (!this.scheduledTasksFrozen) task(); });
     this.jobQueue = new RuntimeJobQueue({
       backgroundBatchSize: Math.max(1, options.backgroundBatchSize ?? 1),
       now: () => this.now(),
@@ -903,6 +905,10 @@ export class SimulationRuntime {
     for (const [ownerId, frontierKeys] of this.ownerIndexes.frontierTilesByOwner) {
       seedEligibleFrontierQueueForOwnerImpl(this.eligibleFrontierByOwner, ownerId, frontierKeys, this.autoSettleEligibilityRuntime().depsForPlayer(ownerId));
     }
+    // Before the manpower settle below: its accrual and the economy caches it fills read town order.
+    for (const player of options.initialState?.players ?? []) {
+      if (player.ownedTownTileKeys?.length) restoreRecoveredTownOrder(this.summaryForPlayer(player.id), player.ownedTownTileKeys);
+    }
     // Moved here (see the long comment above, right after this.state.tiles is
     // assigned) from immediately after `this.state.players` was built: this is the
     // first point where ancillaryDepotTilesByOwner/neuralWorksTilesByOwner/
@@ -924,9 +930,6 @@ export class SimulationRuntime {
       if (Number.isFinite(previousCapSnapshot) && previousCapSnapshot !== player.manpowerCapSnapshot) {
         this.manpowerCapBootstrapRestampedCount += 1;
       }
-    }
-    for (const player of options.initialState?.players ?? []) {
-      if (player.ownedTownTileKeys?.length) restoreRecoveredTownOrder(this.summaryForPlayer(player.id), player.ownedTownTileKeys);
     }
     for (const playerId of this.state.players.keys()) {
       this.rebuildPlannerCandidateIndexesForPlayer(playerId);
@@ -974,6 +977,17 @@ export class SimulationRuntime {
       ...(recoveredCommandHistory ? { recoveredCommandHistory } : {}),
       queueCommandForProcessing: (command) => this.queueCommandForProcessing(command)
     });
+  }
+
+  /**
+   * Graceful shutdown: stop running scheduled tasks (combat-lock resolutions,
+   * settle/build completions, job-queue delays) so the final checkpoint
+   * exports one consistent moment instead of a world changing between its
+   * export yields. Their state stays pending in the snapshot and is
+   * rescheduled on the next boot. One-way: the runtime is done after this.
+   */
+  freezeScheduledTasks(): void {
+    this.scheduledTasksFrozen = true;
   }
 
   onEvent(listener: (event: SimulationEvent) => void): () => void {
