@@ -1,4 +1,5 @@
 import { createInitialProgressionState } from "./client-state-progression-defaults.js";
+import { createInitialTargetingState } from "./client-state-targeting-defaults.js";
 import { CLIENT_CHANGELOG_STORAGE_KEY } from "../client-changelog/client-changelog.js";
 import { createInitialUpkeepLastTick } from "./client-state-upkeep-defaults.js";
 import { createInitialStrategicAnim } from "./client-state-strategic-anim-defaults.js";
@@ -26,7 +27,6 @@ import type {
   ActiveAetherBridgeView,
   ActiveAetherWallView,
   StrategicReplayEvent,
-  CrystalTargetingAbility,
   DockPair,
   EmpireVisualStyle,
   FeedEntry,
@@ -495,26 +495,7 @@ export const createInitialState = () => ({
   musterAmountRateByTile: new Map<string, MusterRateSample>(),
   hasOwnedTileInCache: false,
   tileActionMenu: createInitialTileActionMenuState(),
-  buildingPlacement: {
-    active: false,
-    structureType: "" as "HYDROWORKS" | "ORE_REFINERY" | "AFC" | "RELAY_BEACON" | "",
-    x: 0,
-    y: 0
-  },
-  crystalTargeting: {
-    active: false,
-    ability: "aether_bridge" as CrystalTargetingAbility,
-    validTargets: new Set<string>(),
-    originByTarget: new Map<string, string>()
-  },
-  aetherWallTargeting: {
-    active: false,
-    validOrigins: new Set<string>(),
-    direction: "N" as "N" | "E" | "S" | "W",
-    length: 1 as 1 | 2 | 3
-  },
-  skyDockTargeting: { active: false, originKey: "", validTargets: new Set<string>() },
-  musterMarchTargeting: { active: false, originX: 0, originY: 0 }, winChancePaint: undefined as { targetX: number; targetY: number; expiresAt: number; entries: { x: number; y: number; winChance: number; color: string }[] } | undefined, arrowGesture: undefined as { origin: { x: number; y: number }; target: { x: number; y: number } } | undefined, pendingArrowGestureConfirm: undefined as { origin: { x: number; y: number }; target: { x: number; y: number } } | undefined, // F: win-chance paint hook + arrow endpoints + confirm-hook seam (client-win-chance-paint-trigger.ts / client-arrow-gesture-confirm.ts)
+  ...createInitialTargetingState(),
   warMusicHoldUntil: 0, // ms-until war music holds past the last combat signal — see client-war-music-signal.ts
   ...createInitialActivityDashboardState(),
   changelog: {

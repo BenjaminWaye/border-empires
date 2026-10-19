@@ -23,8 +23,10 @@ const adjacentExpandClaimSource = (): string =>
   );
 
 describe("client action flow regressions", () => {
-  it("suppresses per-tile warnings during connected-frontier bulk settlement", () => {
-    expect(actionFlowSource()).toContain("requestSettlement(t.x, t.y, { forceQueue: true, suppressWarnings: true })");
+  it("routes bulk garrison through the editable selection flow", () => {
+    expect(actionFlowSource()).toContain("garrisonMany.begin(selected)");
+    const source = readFileSync(new URL("../client-garrison-many/client-garrison-many.ts", import.meta.url), "utf8");
+    expect(source).toContain("requestSettlement(tile.x, tile.y, { forceQueue: true, suppressWarnings: true })");
   });
 
   it("keeps bulk frontier-claim warning and feed emission explicit", () => {

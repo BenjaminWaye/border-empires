@@ -124,7 +124,7 @@ describe("Settle Land / Settle Connected visibility gate", () => {
 
     const actions = menuActionsForSingleTile(state, frontierTile, baseDeps as never);
     expect(findAction(actions, "settle_land")).toBeUndefined();
-    expect(findAction(actions, "settle_connected_frontier")).toBeUndefined();
+    expect(findAction(actions, "settle_many")).toBeUndefined();
   });
 
   it("shows settle_land with its gain/upkeep line and auto-settle checkbox on a resource tile even before the economy exists", () => {
@@ -141,7 +141,7 @@ describe("Settle Land / Settle Connected visibility gate", () => {
     expect(settle?.detail).toContain("Gain: +1 food slot. Upkeep: none.");
     expect(settle?.autoSettleOption).toMatchObject({ category: "food", checked: false });
     expect(settle?.recommended).toBe(true);
-    expect(findAction(actions, "settle_connected_frontier")).toBeUndefined();
+    expect(findAction(actions, "settle_many")).toBeUndefined();
   });
 
   it("also recommends it on a natural wonder, but not on a plain tile", () => {
