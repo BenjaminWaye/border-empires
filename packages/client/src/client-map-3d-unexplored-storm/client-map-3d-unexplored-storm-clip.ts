@@ -96,9 +96,9 @@ const FEATURE_VERTEX = `
 // one. Pressed 0.04 under the sheet: much closer and the brass line
 // depth-fights the ground beneath it at a distance. Fully pressed 0.05
 // inside the contour (about 0.04 tile before the brass line). The clearance
-// term makes s 0 on explored land's edge, so explored ground never moves,
-// and it eases with a tile's exploredness during a reveal -- the pressing
-// lets go only as the cloud actually parts.
+// term makes s 0 on explored land's edge, so explored ground inside a tile
+// never moves, and it eases with a tile's exploredness during a reveal --
+// the pressing lets go only as the cloud actually parts.
 //
 // That alone leaves the main grid poking through: it only has vertices at
 // tile corners, and a fog-ring tile's corners on the explored side sit at
@@ -106,16 +106,21 @@ const FEATURE_VERTEX = `
 // sheet), so the triangle from that corner into the fog stays above the
 // sheet for most of its length -- a straight-edged wedge of bare ground
 // through the storm and over the brass line. So any tile-edge vertex that
-// touches an unexplored tile is pressed too (flat land, under ~0.23, never
-// moves). It holds until that tile is ~80% rolled back, by which point the
-// clearance has already pulled the cloud off it.
+// touches an unexplored tile is pressed too. Those vertices are shared with
+// the explored tile across the edge, so its fog-side edge dips with them:
+// by ~0.1 on a mountain (under its massif), at most ~0.025 on the highest
+// flat land (tundra/snow), and not at all on grass, sand and the like. It
+// holds until that tile is ~80% rolled back, by which point the clearance
+// has already pulled the cloud off it. Ground already under the press level
+// skips the edge lookup -- it has nothing to press.
 const GROUND_VERTEX = `
 {
   vec3 stormGroundWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;
+  float stormPressLevel = uStormClipPlaneY - 0.04;
   float stormGroundS = stormClipField(stormGroundWorld.xz);
   float stormPress = stormGroundS < 0.0 ? 0.0 : smoothstep(STORM_EDGE - 0.12, STORM_EDGE - 0.05, stormGroundS);
-  stormPress = max(stormPress, smoothstep(0.0, 0.2, stormClipEdgeUnexplored(stormGroundWorld.xz)));
-  transformed.y -= stormPress * max(0.0, stormGroundWorld.y - (uStormClipPlaneY - 0.04));
+  if (stormGroundWorld.y > stormPressLevel) stormPress = max(stormPress, smoothstep(0.0, 0.2, stormClipEdgeUnexplored(stormGroundWorld.xz)));
+  transformed.y -= stormPress * max(0.0, stormGroundWorld.y - stormPressLevel);
 }
 `;
 
