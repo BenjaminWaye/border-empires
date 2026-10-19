@@ -151,7 +151,14 @@ export const socialRemainingLabel = (untilMs: number, nowMs: number): string => 
   return `${remainingMinutes}m`;
 };
 
-const socialPlayerIdLabel = (playerId: string): string => `ID: ${playerId.length > 12 ? playerId.slice(0, 8) : playerId}`;
+// States what a pending request actually proposes, so the card reads as
+// "an alliance" or "a 12h truce" instead of just a name and a clock.
+const socialOfferLineHtml = (kind: "incoming" | "outgoing", offer: string): string =>
+  `<div class="alliance-reference-offer">${kind === "incoming" ? "Offers" : "You offered"} ${offer}</div>`;
+
+// Opens the trade screen pre-filled with this offer (client-alliance-counter-offer.ts).
+const counterOfferButtonHtml = (kind: "truce" | "alliance", requestId: string): string =>
+  `<button class="panel-btn alliance-reference-action alliance-reference-action-counter counter-offer" type="button" data-counter-kind="${kind}" data-counter-request-id="${requestId}">Counter</button>`;
 
 const socialClockIcon = (): string => '<span class="alliance-inline-icon alliance-inline-icon-clock" aria-hidden="true">◷</span>';
 
@@ -192,7 +199,7 @@ export const allianceRequestsHtml = (
       <div class="alliance-reference-top">
         <div class="alliance-reference-copy">
           ${allianceNameButtonHtml(playerId, playerName, playerColors)}
-          <div class="alliance-reference-id">${socialPlayerIdLabel(playerId)}</div>
+          ${socialOfferLineHtml(kind, "an alliance")}
         </div>
         <div class="alliance-reference-right">
           <div class="alliance-reference-time">${ageLabel}</div>
@@ -204,6 +211,7 @@ export const allianceRequestsHtml = (
           ? `<div class="alliance-reference-actions">
         <button class="panel-btn alliance-reference-action alliance-reference-action-accept accept-request" type="button" data-request-id="${request.id}">Accept</button>
         <button class="panel-btn alliance-reference-action alliance-reference-action-reject reject-request" type="button" data-request-id="${request.id}">Reject</button>
+        ${counterOfferButtonHtml("alliance", request.id)}
       </div>`
           : `<button class="panel-btn alliance-reference-action alliance-reference-action-cancel cancel-request" type="button" data-request-id="${request.id}">Cancel Request</button>`
       }
@@ -232,7 +240,6 @@ export const alliesHtml = (
       <div class="alliance-reference-top">
         <div class="alliance-reference-copy">
           ${allianceNameButtonHtml(id, name, playerColors)}
-          <div class="alliance-reference-id">${socialPlayerIdLabel(id)}</div>
         </div>
         <div class="alliance-reference-right">
           ${
@@ -279,7 +286,7 @@ export const truceRequestsHtml = (
       <div class="alliance-reference-top">
         <div class="alliance-reference-copy">
           ${allianceNameButtonHtml(playerId, playerName, playerColors)}
-          <div class="alliance-reference-id">${socialPlayerIdLabel(playerId)}</div>
+          ${socialOfferLineHtml(kind, `a ${request.durationHours}h truce`)}
         </div>
         <div class="alliance-reference-right">
           <div class="alliance-reference-duration">${socialClockIcon()}<span>${request.durationHours}h</span></div>
@@ -292,6 +299,7 @@ export const truceRequestsHtml = (
           ? `<div class="alliance-reference-actions">
         <button class="panel-btn alliance-reference-action alliance-reference-action-accept accept-truce" type="button" data-truce-request-id="${request.id}">Accept</button>
         <button class="panel-btn alliance-reference-action alliance-reference-action-reject reject-truce" type="button" data-truce-request-id="${request.id}">Reject</button>
+        ${counterOfferButtonHtml("truce", request.id)}
       </div>`
           : `<button class="panel-btn alliance-reference-action alliance-reference-action-cancel cancel-truce" type="button" data-truce-request-id="${request.id}">Cancel Request</button>`
       }

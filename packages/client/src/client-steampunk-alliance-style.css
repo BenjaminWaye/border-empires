@@ -90,7 +90,11 @@
   vertical-align: 0.05em;
 }
 
-.alliance-reference-id,
+.alliance-reference-offer {
+  color: var(--sp-brass-300);
+  font-weight: 600;
+}
+
 .alliance-reference-time,
 .alliance-reference-duration-note {
   color: var(--sp-parchment-muted);
@@ -157,6 +161,21 @@
 #hud #mobile-panel-social .alliance-reference-action-break:hover:not(:disabled) {
   border-color: var(--sp-ember-400);
   background: rgba(184, 80, 31, 0.22);
+}
+
+/* Counter sits on its own row under Accept / Reject. */
+#hud #panel-alliance .alliance-reference-action-counter,
+#hud #mobile-panel-social .alliance-reference-action-counter {
+  grid-column: 1 / -1;
+  border-color: var(--sp-brass-700);
+  background: rgba(60, 41, 25, 0.5);
+  color: var(--sp-brass-300);
+}
+
+#hud #panel-alliance .alliance-reference-action-counter:hover:not(:disabled),
+#hud #mobile-panel-social .alliance-reference-action-counter:hover:not(:disabled) {
+  border-color: var(--sp-brass-300);
+  background: rgba(60, 41, 25, 0.65);
 }
 
 #hud #panel-alliance .alliance-reference-action-cancel,

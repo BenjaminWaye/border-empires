@@ -16,6 +16,7 @@ import type { AiDiplomacyContext } from "../ai-diplomacy-stance/ai-diplomacy-eva
 import { answerDiplomacyStanceQuery } from "../ai-diplomacy-stance/diplomacy-stance-query.js";
 import { createAllianceBreakFinalizer } from "../alliance-break-finalizer/alliance-break-finalizer.js";
 import { handleAllianceSocketMessage, type AllianceSocketMessageDeps } from "../alliance-socket-messages/alliance-socket-messages.js";
+import { rejectCounteredOffer } from "../diplomacy-counter-offer/diplomacy-counter-offer.js";
 import { createDiplomacyOfferAcceptance } from "../diplomacy-settlement/diplomacy-offer-acceptance.js";
 import { createDiplomacySettlement, type DiplomacySettlement } from "../diplomacy-settlement/diplomacy-settlement.js";
 import { lockedForGuests } from "../guest-diplomacy-lock/guest-diplomacy-lock.js";
@@ -203,6 +204,8 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
       return true;
     }
     const guestSession = { isGuest: session.isGuest === true };
+    // Guests can't send offers, so a counter from one must not reject anything.
+    if (!guestSession.isGuest) rejectCounteredOffer({ rejectTruce: socialState.rejectTruce, rejectAlliance: socialState.rejectAlliance, fanoutPlayerPayloads: deps.fanoutPlayerPayloads }, message, playerId);
     if (
       await handleAllianceSocketMessage(
         {

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRICKLE_RESOURCE_KEYS } from "../trickle-resources.js";
-import { DiplomacyTermsSchema } from "../diplomacy-terms/diplomacy-terms.js";
+import { DiplomacyCounterRefSchema, DiplomacyTermsSchema } from "../diplomacy-terms/diplomacy-terms.js";
 
 const FrontierCommandMetadataSchema = {
   commandId: z.string().min(1).optional(),
@@ -48,12 +48,12 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     requestId: z.string().min(1).optional()
   }),
   z.object({ type: z.literal("CHOOSE_TECH"), techId: z.string().min(1) }),
-  z.object({ type: z.literal("ALLIANCE_REQUEST"), targetPlayerName: z.string().min(1), terms: DiplomacyTermsSchema.optional() }),
+  z.object({ type: z.literal("ALLIANCE_REQUEST"), targetPlayerName: z.string().min(1), terms: DiplomacyTermsSchema.optional(), counters: DiplomacyCounterRefSchema.optional() }),
   z.object({ type: z.literal("ALLIANCE_ACCEPT"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("ALLIANCE_REJECT"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("ALLIANCE_CANCEL"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("ALLIANCE_BREAK"), targetPlayerId: z.string().min(1) }),
-  z.object({ type: z.literal("TRUCE_REQUEST"), targetPlayerName: z.string().min(1), durationHours: z.union([z.literal(12), z.literal(24)]), terms: DiplomacyTermsSchema.optional() }),
+  z.object({ type: z.literal("TRUCE_REQUEST"), targetPlayerName: z.string().min(1), durationHours: z.union([z.literal(12), z.literal(24)]), terms: DiplomacyTermsSchema.optional(), counters: DiplomacyCounterRefSchema.optional() }),
   // Trade screen: asks how an AI target feels about you, and its prices. Read-only.
   z.object({ type: z.literal("DIPLOMACY_STANCE_REQUEST"), targetPlayerName: z.string().min(1) }),
   z.object({ type: z.literal("TRUCE_ACCEPT"), requestId: z.string().min(1) }),

@@ -3,7 +3,7 @@
 // Opened from "Offer Truce" on an enemy tile and from the Alliances panel.
 // Self-contained like client-occupation-survey.ts: mounts on document.body,
 // removes itself on close, keeps only the one open screen's state.
-import { emptyDiplomacyTerms, type DiplomacyGoods, type DiplomacyOfferKind, type DiplomacyTerms } from "@border-empires/shared";
+import { emptyDiplomacyTerms, type DiplomacyCounterRef, type DiplomacyGoods, type DiplomacyOfferKind, type DiplomacyTerms } from "@border-empires/shared";
 
 import { diplomacyTradeStyles } from "./client-diplomacy-trade-style.js";
 import { attitudeSummary, tradeVerdict, type DiplomacyStanceReply, type TradeSelection } from "./client-diplomacy-trade-view.js";
@@ -18,6 +18,8 @@ export type DiplomacyTradeDeps = {
 
 type OpenScreen = {
   targetName: string;
+  /** Set when this screen answers an offer the player received; sending replaces that offer. */
+  counters: DiplomacyCounterRef | undefined;
   selection: TradeSelection;
   reply: DiplomacyStanceReply | undefined;
   overlay: HTMLElement;
@@ -148,7 +150,10 @@ const onKey = (event: KeyboardEvent): void => {
 
 const sendOffer = (screen: OpenScreen): void => {
   const terms = screen.selection.terms;
-  const termsField = terms.give.gold + terms.give.shard + terms.ask.gold + terms.ask.shard > 0 ? { terms } : {};
+  const termsField = {
+    ...(terms.give.gold + terms.give.shard + terms.ask.gold + terms.ask.shard > 0 ? { terms } : {}),
+    ...(screen.counters ? { counters: screen.counters } : {})
+  };
   const sent =
     screen.selection.kind === "alliance"
       ? screen.deps.send({ type: "ALLIANCE_REQUEST", targetPlayerName: screen.targetName, ...termsField }, "Finish sign-in before sending alliance requests.")
@@ -160,7 +165,7 @@ const sendOffer = (screen: OpenScreen): void => {
 };
 
 export const openDiplomacyTradeScreen = (
-  input: { targetName: string; kind: DiplomacyOfferKind; durationHours: 12 | 24 },
+  input: { targetName: string; kind: DiplomacyOfferKind; durationHours: 12 | 24; terms?: DiplomacyTerms; counters?: DiplomacyCounterRef },
   deps: DiplomacyTradeDeps
 ): void => {
   const targetName = input.targetName.trim();
@@ -170,11 +175,12 @@ export const openDiplomacyTradeScreen = (
   const overlay = document.createElement("div");
   overlay.className = "diplomacy-trade-overlay";
   const name = escapeHtml(targetName);
-  const amountInput = (attr: string, label: string): string =>
-    `<input type="number" inputmode="numeric" min="0" step="1" value="0" ${attr} aria-label="${label}">`;
+  const terms = input.terms ?? emptyDiplomacyTerms();
+  const amountInput = (attr: string, label: string, value: number): string =>
+    `<input type="number" inputmode="numeric" min="0" step="1" value="${value}" ${attr} aria-label="${label}">`;
   overlay.innerHTML = `<section class="diplomacy-trade-popup" role="dialog" aria-modal="true" aria-labelledby="diplomacy-trade-title">
     <span class="diplomacy-trade-kicker">Diplomacy</span>
-    <h2 id="diplomacy-trade-title">Deal with ${name}</h2>
+    <h2 id="diplomacy-trade-title">${input.counters ? `Counter ${name}'s offer` : `Deal with ${name}`}</h2>
     <p class="diplomacy-trade-stance" data-trade-stance></p>
     <ul class="diplomacy-trade-modifiers" data-trade-modifiers hidden></ul>
     <div class="diplomacy-trade-kinds" role="group" aria-label="Offer type">
@@ -184,8 +190,8 @@ export const openDiplomacyTradeScreen = (
     </div>
     <div class="diplomacy-trade-grid">
       <span></span><span class="diplomacy-trade-head">Coin</span><span class="diplomacy-trade-head">Shards</span>
-      <span>You give</span>${amountInput("data-trade-give-gold", "Coin you give")}${amountInput("data-trade-give-shard", "Shards you give")}
-      <span>You ask</span>${amountInput("data-trade-ask-gold", "Coin you ask for")}${amountInput("data-trade-ask-shard", "Shards you ask for")}
+      <span>You give</span>${amountInput("data-trade-give-gold", "Coin you give", terms.give.gold)}${amountInput("data-trade-give-shard", "Shards you give", terms.give.shard)}
+      <span>You ask</span>${amountInput("data-trade-ask-gold", "Coin you ask for", terms.ask.gold)}${amountInput("data-trade-ask-shard", "Shards you ask for", terms.ask.shard)}
     </div>
     <p class="diplomacy-trade-stance" data-trade-holdings></p>
     <p class="diplomacy-trade-verdict" data-trade-verdict aria-live="polite"></p>
@@ -194,7 +200,8 @@ export const openDiplomacyTradeScreen = (
   </section>`;
   const screen: OpenScreen = {
     targetName,
-    selection: { kind: input.kind, durationHours: input.durationHours, terms: emptyDiplomacyTerms() },
+    counters: input.counters,
+    selection: { kind: input.kind, durationHours: input.durationHours, terms },
     reply: undefined,
     overlay,
     deps,
