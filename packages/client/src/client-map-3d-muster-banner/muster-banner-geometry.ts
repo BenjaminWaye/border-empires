@@ -1,6 +1,7 @@
 // Baked geometry for the mustering banner: a premium board-game war
-// gonfalon on a heavy two-tier octagonal plinth in the towns' stone and
-// brass (client-map-3d-town-overlay/town-parts.ts octagonPlate). A turned
+// gonfalon on a heavy two-tier octagonal plinth shaped like the towns'
+// base plates (client-map-3d-town-overlay/town-parts.ts octagonPlate), in
+// marble (muster-banner-marble-material.ts) and brass. A turned
 // iron pole carries a brass crossbar under a little gabled cap, and the
 // cloth hangs from the crossbar to a pointed tail.
 //
@@ -21,7 +22,7 @@ export const MUSTER_PLINTH_RADIUS = 0.27;
 const PLINTH_TIER_Y = 0.05;
 export const MUSTER_PLINTH_TOP_Y = 0.1;
 const PLINTH_TOP_Y = MUSTER_PLINTH_TOP_Y;
-/** Heights of the stone ledges that walls rise from (the stone finish pools shade above each). */
+/** Heights of the ledges that walls rise from (the marble finish pools shade above each). */
 export const MUSTER_PLINTH_LEDGES: readonly number[] = [PLINTH_TIER_Y, PLINTH_TOP_Y];
 const POLE_RADIUS = 0.016;
 const POLE_BASE_Y = PLINTH_TOP_Y + 0.046;

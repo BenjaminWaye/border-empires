@@ -17,11 +17,11 @@ import {
 import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 import { createMusterBannerClothMaterials } from "./client-map-3d-muster-banner/muster-banner-cloth-material.js";
 import { getMusterBannerGeometry, MUSTER_PLINTH_LEDGES } from "./client-map-3d-muster-banner/muster-banner-geometry.js";
-import { applyStoneFinish } from "./client-map-3d-muster-banner/muster-banner-stone-material.js";
+import { applyMarbleFinish } from "./client-map-3d-muster-banner/muster-banner-marble-material.js";
 import { TOWN_BASE_LIFT } from "./client-map-3d-town-overlay.js";
 
 // Muster overlay: every mustering tile carries a war banner in its owner's
-// colour, a board-game piece standing on the same octagonal stone-and-brass
+// colour, a board-game piece standing on an octagonal marble-and-brass
 // plate as the towns (client-map-3d-muster-banner/). The cloth flies in the
 // wind entirely in its shader; soldier dots still march in from the tile's
 // edges to the plinth, showing troops assembling. The waypoint queue uses a
@@ -103,10 +103,13 @@ export type MusterOverlay = {
 
 export const createMusterOverlay = (scene: Scene, envMap?: Texture): MusterOverlay => {
   const geometry = getMusterBannerGeometry();
-  // The towns' AFC-style metalwork (client-map-3d-town-overlay.ts); the stone
-  // gets a painted-stone finish so it doesn't read as plastic up close.
-  const bodyMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.86, metalness: 0.02, flatShading: true });
-  applyStoneFinish(bodyMaterial, MUSTER_PLINTH_LEDGES);
+  // The towns' AFC-style metalwork (client-map-3d-town-overlay.ts); the
+  // plinth is polished marble under a light clearcoat, so it doesn't read as
+  // plastic up close.
+  const bodyMaterial = new MeshPhysicalMaterial({
+    vertexColors: true, roughness: 0.22, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.08, flatShading: true
+  });
+  applyMarbleFinish(bodyMaterial, MUSTER_PLINTH_LEDGES);
   const metalMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.7, flatShading: true });
   // Lacquered enamel in the owner's colour, from instanceColor: a clearcoat
   // over the paint, like a premium miniature's varnish.
