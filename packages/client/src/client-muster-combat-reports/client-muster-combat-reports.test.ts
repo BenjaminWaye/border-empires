@@ -77,7 +77,7 @@ describe("muster combat history", () => {
     const view = viewFor();
     injectMusterCombatReports(view, { x: 3, y: 3, terrain: "LAND", fogged: false, muster: { ownerId: "me", amount: 60, mode: "HOLD", updatedAt: 0 } }, state);
     document.body.innerHTML = tileActionMenuHtml(view, "reports", false);
-    expect(document.body.textContent).toContain("Recent combat");
+    expect(document.querySelector('[data-tile-tab="reports"]')?.textContent).toBe("Combat 1");
     expect(document.querySelector('.muster-reports-tab-badge')?.textContent).toBe("1");
     expect(document.querySelector('.muster-report-loss')?.textContent).toBe("−120 manpower lost");
     expect(document.querySelector('.muster-report-gain')?.textContent).toBe("+350 coins plundered");
