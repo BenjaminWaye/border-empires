@@ -11,7 +11,7 @@ const WORLD = { worldWidth: 100, worldHeight: 100 };
 const model = (tiles: FrontierSupplyTile[], reach: string[]) => computeFrontierSupplyModel({ tiles, me: ME, reach: new Set(reach), ...WORLD });
 
 describe("buildSupplyRoutes", () => {
-  it("draws an unbranched snake as one route from the reach edge to an arrowhead at the tip", () => {
+  it("draws an unbranched snake as one route from the reach edge to the tip", () => {
     const snake = [settled(10, 10), frontier(11, 10), frontier(12, 10), frontier(13, 10), frontier(14, 10)];
     const routes = buildSupplyRoutes(model(snake, ["10,10", "11,10"]), { ...WORLD, smoothing: 0 });
     expect(routes).toHaveLength(1);

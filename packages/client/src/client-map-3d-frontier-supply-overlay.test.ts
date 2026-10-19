@@ -18,15 +18,16 @@ const meshes = (scene: Scene) => {
 };
 
 describe("createFrontierSupplyOverlay", () => {
-  it("builds one ribbon per route with an arrowhead at the tip", () => {
+  it("builds one ribbon per route with no arrowhead at the tip", () => {
     const scene = new Scene();
     const overlay = createFrontierSupplyOverlay(scene);
     overlay.sync(model(), sceneFor, "origin-a", "#3fa9f5", 0);
 
     const { routes, geometry } = meshes(scene);
     expect(routes.visible).toBe(true);
-    const tip = Array.from(geometry.getAttribute("aTip").array as Float32Array);
-    expect(tip.filter((v) => v === 1)).toHaveLength(3); // one arrowhead triangle
+    // Only ribbon vertices, in pairs across the route: no extra arrowhead triangle at the tip.
+    expect(geometry.getAttribute("position").count % 2).toBe(0);
+    expect(geometry.getAttribute("aTip")).toBeUndefined();
     const distances = Array.from(geometry.getAttribute("aDistance").array as Float32Array);
     expect(Math.max(...distances)).toBeCloseTo(2, 5); // pulses travel the full two hops
     overlay.dispose();

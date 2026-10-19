@@ -40,7 +40,7 @@ const strokes = (calls: Call[]) => calls.filter((call) => call.op === "stroke");
 const fills = (calls: Call[]) => calls.filter((call) => call.op === "fill");
 
 describe("drawFrontierSupply2D", () => {
-  it("strokes each route as a dark shadow edge, an empire-coloured body and a light core, then fills an arrowhead at the tip", () => {
+  it("strokes each route as a dark shadow edge, an empire-coloured body and a light core, with no arrowhead at the tip", () => {
     const { ctx, calls } = recordingContext();
     const model: FrontierSupplyModel = { links: [link(2, 3, { downstream: 2, tip: false }), link(3, 4)] };
     drawFrontierSupply2D(ctx, model, deps());
@@ -52,7 +52,7 @@ describe("drawFrontierSupply2D", () => {
     const widthOf = (colour: string) => Math.max(...strokes(calls).filter((call) => call.stroke === colour).map((call) => call.lineWidth));
     expect(widthOf("#05080d")).toBeGreaterThan(widthOf("#3fa9f5"));
     expect(widthOf("#3fa9f5")).toBeGreaterThan(widthOf("#ffffff"));
-    expect(fills(calls).some((call) => call.fill === "#3fa9f5")).toBe(true); // arrowhead body
+    expect(fills(calls)).toHaveLength(0); // the route just ends at the tip; nothing is filled
   });
 
   it("draws the route thicker where it feeds more land", () => {
@@ -91,16 +91,5 @@ describe("drawFrontierSupply2D", () => {
     const firstHead = all.findIndex((call) => call.stroke === "#ffffff" && call.lineWidth === headWidth);
     expect(firstHead).toBeGreaterThanOrEqual(0);
     expect(all.slice(firstHead).some((call) => call.stroke === "#05080d")).toBe(false);
-  });
-
-  it("lights the tip arrowhead only as a pulse reaches it", () => {
-    const arrowBody = (nowMs: number) => {
-      const { ctx, calls } = recordingContext();
-      drawFrontierSupply2D(ctx, { links: [link(2, 3, { depth: 1 })] }, deps({ nowMs }));
-      return fills(calls).find((call) => call.fill === "#3fa9f5")!.alpha;
-    };
-    const samples = Array.from({ length: 40 }, (_, i) => arrowBody(i * 50));
-    expect(Math.min(...samples)).toBeLessThan(0.2);
-    expect(Math.max(...samples)).toBeGreaterThan(0.6);
   });
 });

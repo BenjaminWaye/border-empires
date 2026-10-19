@@ -91,7 +91,7 @@ describe("computeFrontierSupplyModel", () => {
     expect(tips(model)).toEqual(["11,11"]);
   });
 
-  it("doesn't put an arrowhead where two arms of a loop meet", () => {
+  it("doesn't mark a tip where two arms of a loop meet", () => {
     const tiles = [settled(10, 10), frontier(11, 10), frontier(12, 9), frontier(12, 11), frontier(13, 10), frontier(14, 10)];
     const model = computeFrontierSupplyModel({ tiles, me: ME, reach: keys([10, 10], [11, 10]), ...WORLD });
     expect(tips(model)).toEqual(["14,10"]);

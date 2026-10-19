@@ -6,8 +6,7 @@
  * stretch of the supply tree, thicker where more land depends on it (a trunk
  * carries its branches) and thinning and fading as it runs further past
  * reach. The ribbon itself is kept pale and barely visible: what catches the
- * eye are the bright pulses travelling outward along it, like convoys, and
- * the arrowhead each branch ends in at the frontier tip, lit as they pass.
+ * eye are the bright pulses travelling outward along it, like convoys.
  */
 
 /** How far the empire colour is lifted toward white for the route core, so it reads on the empire's own territory. */
@@ -34,9 +33,6 @@ export const SUPPLY_ROUTE_REST_ALPHA = 0.14;
 export const SUPPLY_SHADOW_REST_ALPHA = 0.05;
 /** How much a passing pulse adds to the shadow edge's opacity. */
 export const SUPPLY_SHADOW_PULSE_LIFT = 0.3;
-
-/** Ribbon/arrowhead opacity factor for a 0..1 pulse brightness: pale at rest, full where a pulse is passing. */
-export const supplyLitAlpha = (pulse: number): number => SUPPLY_ROUTE_REST_ALPHA + (1 - SUPPLY_ROUTE_REST_ALPHA) * pulse;
 
 /** Pulse travel speed along a route, tiles per second. */
 export const SUPPLY_PULSE_SPEED = 1.2;

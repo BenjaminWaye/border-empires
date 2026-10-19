@@ -38,7 +38,7 @@ export type FrontierSupplyLink = {
   depthBeyondReach: number;
   /** Beyond-reach tiles this hop carries: everything fed through `to`, plus undrawn branches beside it that the line stands in for. Drawn as line thickness. */
   downstream: number;
-  /** `to` is a frontier tip the line ends at: drawn with an arrowhead. */
+  /** `to` is a frontier tip the line ends at. */
   tip: boolean;
 };
 

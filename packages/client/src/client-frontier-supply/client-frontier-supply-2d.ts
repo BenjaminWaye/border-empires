@@ -4,7 +4,6 @@ import {
   SUPPLY_ROUTE_REST_ALPHA,
   SUPPLY_SHADOW_PULSE_LIFT,
   SUPPLY_SHADOW_REST_ALPHA,
-  supplyLitAlpha,
   supplyPulseAt
 } from "./client-frontier-supply-style.js";
 
@@ -16,8 +15,7 @@ import {
  *
  * Each route is stroked in three faint layers, in runs so width and opacity
  * can vary along it: a soft dark shadow edge, the empire-coloured body, and
- * a light core. Those stay pale; travelling pulses are drawn bright on top,
- * and the arrowhead at each branch tip lights up as a pulse reaches it.
+ * a light core. Those stay pale; travelling pulses are drawn bright on top.
  */
 export type FrontierSupply2DDeps = {
   /** Screen-space centre of a tile (wrapped tile coordinates). */
@@ -48,41 +46,6 @@ const toScreen = (route: SupplyRoute, deps: FrontierSupply2DDeps): ScreenPoint[]
 const isOnScreen = (points: ScreenPoint[], deps: FrontierSupply2DDeps): boolean => {
   const margin = deps.size * CULL_MARGIN_TILES;
   return points.some(({ sx, sy }) => sx > -margin && sy > -margin && sx < deps.viewportWidth + margin && sy < deps.viewportHeight + margin);
-};
-
-const drawArrowhead = (ctx: CanvasRenderingContext2D, points: ScreenPoint[], deps: FrontierSupply2DDeps): void => {
-  const end = points[points.length - 1]!;
-  const before = points[points.length - 2]!;
-  const len = Math.hypot(end.sx - before.sx, end.sy - before.sy) || 1;
-  const dx = (end.sx - before.sx) / len;
-  const dy = (end.sy - before.sy) / len;
-  const size = deps.size;
-  const half = Math.max(0.13, end.p.width * 1.05) * size;
-  const bx = end.sx - dx * 0.12 * size;
-  const by = end.sy - dy * 0.12 * size;
-  const tx = end.sx + dx * 0.26 * size;
-  const ty = end.sy + dy * 0.26 * size;
-  const trace = (): void => {
-    ctx.beginPath();
-    ctx.moveTo(bx - dy * half, by + dx * half);
-    ctx.lineTo(tx, ty);
-    ctx.lineTo(bx + dy * half, by - dx * half);
-    ctx.closePath();
-  };
-  const pulse = supplyPulseAt(end.p.distance, deps.nowMs);
-  ctx.globalAlpha = end.p.alpha * (SUPPLY_SHADOW_REST_ALPHA + SUPPLY_SHADOW_PULSE_LIFT * pulse);
-  ctx.strokeStyle = SHADOW_COLOR;
-  ctx.lineWidth = Math.max(2, size * 0.06);
-  trace();
-  ctx.stroke();
-  ctx.globalAlpha = end.p.alpha * supplyLitAlpha(pulse);
-  ctx.fillStyle = deps.ownerColor;
-  trace();
-  ctx.fill();
-  ctx.globalAlpha = end.p.alpha * 0.6 * pulse;
-  ctx.fillStyle = CORE_COLOR;
-  trace();
-  ctx.fill();
 };
 
 type Run = { from: number; to: number; width: number; alpha: number };
@@ -153,7 +116,6 @@ const drawRoute = (ctx: CanvasRenderingContext2D, route: SupplyRoute, deps: Fron
   for (const run of pulseRuns) strokeRun(ctx, points, run, run.width * SHADOW_SCALE * size, run.alpha * SUPPLY_SHADOW_PULSE_LIFT, SHADOW_COLOR);
   for (const run of pulseRuns) strokeRun(ctx, points, run, run.width * size, run.alpha * 0.85, deps.ownerColor);
   for (const run of pulseRuns) strokeRun(ctx, points, run, run.width * 0.6 * size, run.alpha * 0.8, CORE_COLOR);
-  if (route.endsAtTip) drawArrowhead(ctx, points, deps);
 };
 
 export const drawFrontierSupply2D = (ctx: CanvasRenderingContext2D, model: FrontierSupplyModel, deps: FrontierSupply2DDeps): void => {

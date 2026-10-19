@@ -23,5 +23,15 @@ export const FRONTIER_SUPPLY_LINES_CHANGELOG: ClientChangelogEntry[] = [
       "The arrowhead at each frontier tip lights up as a pulse reaches it",
       "Works on both the 3D and the 2D map"
     ]
+  },
+  {
+    createdAt: 1792430434111, // frozen Date.now() value for this release
+    introducedIn: "2026.10.19.1",
+    title: "Supply lines no longer end in an arrow",
+    why: "The arrowhead at the end of each supply line added clutter without telling you anything the line and its pulses don't already show.",
+    changes: [
+      "Supply lines now simply end at the frontier tip, with no arrowhead",
+      "Works on both the 3D and the 2D map"
+    ]
   }
 ];

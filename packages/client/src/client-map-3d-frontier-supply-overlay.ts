@@ -30,10 +30,6 @@ import {
 const RISE_ABOVE_SURFACE = 0.035;
 /** Ribbon half-width as a multiple of the visible route's half-width: the rest is the soft shadow edge. */
 const RIBBON_EXTENT = 1.9;
-const ARROW_HALF_WIDTH_SCALE = 2.1;
-const ARROW_MIN_HALF_WIDTH = 0.13;
-const ARROW_BACK = 0.12;
-const ARROW_FORWARD = 0.26;
 /** Hard bound on route vertices, so a pathological empire can't grow GPU buffers without limit. */
 export const FRONTIER_SUPPLY_MAX_VERTICES = 60_000;
 
@@ -76,13 +72,11 @@ const routeMaterial = (): ShaderMaterial =>
       attribute float aAcross;
       attribute float aDistance;
       attribute float aAlpha;
-      attribute float aTip;
       varying float vAcross;
       varying float vDistance;
       varying float vAlpha;
-      varying float vTip;
       void main() {
-        vAcross = aAcross; vDistance = aDistance; vAlpha = aAlpha; vTip = aTip;
+        vAcross = aAcross; vDistance = aDistance; vAlpha = aAlpha;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }
     `,
@@ -99,17 +93,11 @@ const routeMaterial = (): ShaderMaterial =>
       varying float vAcross;
       varying float vDistance;
       varying float vAlpha;
-      varying float vTip;
       void main() {
         // Pulse: sharp head moving outward, soft tail back toward supply (see supplyPulseAt).
         float t = (vDistance - uTimeS * uSpeed) / uSpacing;
         float behind = 1.0 - fract(t);
         float pulse = min(1.0, behind / 0.04) * max(0.0, 1.0 - behind / 0.45);
-        // mix(uRestAlpha, 1.0, pulse) is supplyLitAlpha from client-frontier-supply-style.ts.
-        if (vTip > 0.5) {
-          gl_FragColor = vec4(mix(uBody, uCore, 0.3 + 0.6 * pulse), vAlpha * mix(uRestAlpha, 1.0, pulse));
-          return;
-        }
         float a = abs(vAcross) * uExtent; // 1.0 at the visible route edge
         float inBody = 1.0 - smoothstep(0.78, 1.0, a);
         float inShadow = (1.0 - smoothstep(1.0, uExtent, a)) * (1.0 - inBody);
@@ -127,18 +115,16 @@ type RouteBuffers = {
   across: number[];
   distance: number[];
   alpha: number[];
-  tip: number[];
   indices: number[];
 };
 
 const wrapCoord = (v: number, size: number): number => ((Math.round(v) % size) + size) % size;
 
-/** Appends one route's ribbon (and its arrowhead) to the merged buffers. Returns false once the vertex cap is hit. */
+/** Appends one route's ribbon to the merged buffers. Returns false once the vertex cap is hit. */
 const appendRoute = (out: RouteBuffers, route: SupplyRoute, sceneFor: (x: number, y: number) => FrontierSupplyScenePoint): boolean => {
   const points = route.points;
   if (points.length < 2) return true;
-  const extraVertices = points.length * 2 + (route.endsAtTip ? 3 : 0);
-  if (out.positions.length / 3 + extraVertices > FRONTIER_SUPPLY_MAX_VERTICES) return false;
+  if (out.positions.length / 3 + points.length * 2 > FRONTIER_SUPPLY_MAX_VERTICES) return false;
   const first = points[0]!;
   const anchor = sceneFor(first.x, first.y);
   const scene = points.map((p) => ({
@@ -162,32 +148,11 @@ const appendRoute = (out: RouteBuffers, route: SupplyRoute, sceneFor: (x: number
     for (let k = 0; k < 2; k += 1) {
       out.distance.push(points[i]!.distance);
       out.alpha.push(points[i]!.alpha);
-      out.tip.push(0);
     }
     if (i > 0) {
       const a = base + (i - 1) * 2;
       out.indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
     }
-  }
-  if (route.endsAtTip) {
-    const end = scene[scene.length - 1]!;
-    const before = scene[scene.length - 2]!;
-    const len = Math.hypot(end.x - before.x, end.z - before.z) || 1;
-    const dx = (end.x - before.x) / len;
-    const dz = (end.z - before.z) / len;
-    const last = points[points.length - 1]!;
-    const half = Math.max(ARROW_MIN_HALF_WIDTH, (last.width / 2) * ARROW_HALF_WIDTH_SCALE);
-    const bx = end.x - dx * ARROW_BACK;
-    const bz = end.z - dz * ARROW_BACK;
-    const tipIndex = out.positions.length / 3;
-    out.positions.push(bx - dz * half, end.y, bz + dx * half, bx + dz * half, end.y, bz - dx * half, end.x + dx * ARROW_FORWARD, end.y, end.z + dz * ARROW_FORWARD);
-    for (let k = 0; k < 3; k += 1) {
-      out.across.push(0);
-      out.distance.push(last.distance);
-      out.alpha.push(last.alpha);
-      out.tip.push(1);
-    }
-    out.indices.push(tipIndex, tipIndex + 1, tipIndex + 2);
   }
   return true;
 };
@@ -205,13 +170,12 @@ export const createFrontierSupplyOverlay = (scene: Scene): FrontierSupplyOverlay
   let lastPlacementKey = "";
 
   const rebuild = (model: FrontierSupplyModel, sceneFor: (x: number, y: number) => FrontierSupplyScenePoint): void => {
-    const out: RouteBuffers = { positions: [], across: [], distance: [], alpha: [], tip: [], indices: [] };
+    const out: RouteBuffers = { positions: [], across: [], distance: [], alpha: [], indices: [] };
     for (const route of supplyRoutesFor(model)) if (!appendRoute(out, route, sceneFor)) break;
     geometry.setAttribute("position", new Float32BufferAttribute(out.positions, 3));
     geometry.setAttribute("aAcross", new Float32BufferAttribute(out.across, 1));
     geometry.setAttribute("aDistance", new Float32BufferAttribute(out.distance, 1));
     geometry.setAttribute("aAlpha", new Float32BufferAttribute(out.alpha, 1));
-    geometry.setAttribute("aTip", new Float32BufferAttribute(out.tip, 1));
     geometry.setIndex(out.indices);
   };
 

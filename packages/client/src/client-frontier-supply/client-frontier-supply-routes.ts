@@ -28,7 +28,7 @@ export type SupplyRoutePoint = {
 
 export type SupplyRoute = {
   points: SupplyRoutePoint[];
-  /** The route ends at a real frontier tip (see FrontierSupplyLink.tip): draw an arrowhead. */
+  /** The route ends at a real frontier tip (see FrontierSupplyLink.tip), not at a fork. */
   endsAtTip: boolean;
 };
 
