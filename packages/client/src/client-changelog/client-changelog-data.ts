@@ -8,6 +8,7 @@ import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-ar
 import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
 import { AFC_UPGRADES_ICON_CHANGELOG } from "./client-changelog-afc-upgrades-icon.js";
 import { GAMEPLAY_SETTINGS_CLEANUP_CHANGELOG } from "./client-changelog-gameplay-settings-cleanup.js";
+import { MUSTER_BANNER_CHANGELOG } from "./client-changelog-muster-banner.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -449,7 +450,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...RELIABLE_DIPLOMACY_CHANGELOG,
   ...AFC_UPGRADES_ICON_CHANGELOG,
-  ...GAMEPLAY_SETTINGS_CLEANUP_CHANGELOG
+  ...GAMEPLAY_SETTINGS_CLEANUP_CHANGELOG,
+  ...MUSTER_BANNER_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
