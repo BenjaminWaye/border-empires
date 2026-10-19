@@ -1,22 +1,19 @@
 import { diplomacyTradeDepsFor, openDiplomacyTradeScreen } from "../client-diplomacy-trade/client-diplomacy-trade.js";
+import { bindCounterOfferButtons, type CounterOfferDeps } from "./client-alliance-counter-offer.js";
 
-type SendGameMessage = (payload: unknown, message?: string) => boolean;
-
-type ProposeButtonDeps = {
-  playerNameForOwner: (ownerId?: string | null) => string | undefined;
-  sendGameMessage: SendGameMessage;
-  /** The player's coin and Shards, for the trade screen's "what can I offer". */
-  state: { gold: number; strategicResources: { SHARD?: number } };
-};
+/** state: the player's coin and Shards (the trade screen's "what can I offer") and the offers they can counter. */
+type ProposeButtonDeps = CounterOfferDeps;
 
 /**
  * Wires the per-player "Propose Alliance" / "Truce 12h|24h" / "Break Truce"
  * buttons rendered by client-alliance-panel.ts. The gateway resolves a request target by display
  * name, so the name is looked up from the player id at click time. Truce and
  * alliance offers open the diplomacy trade screen (terms + the AI's verdict);
- * the screen sends the offer.
+ * the screen sends the offer. "Counter" on an incoming offer opens the same
+ * screen pre-filled with that offer (client-alliance-counter-offer.ts).
  */
 export const bindProposeButtons = (root: ParentNode, deps: ProposeButtonDeps): void => {
+  bindCounterOfferButtons(root, deps);
   root.querySelectorAll<HTMLButtonElement>(".propose-alliance").forEach((btn) => {
     btn.onclick = () => {
       const targetPlayerName = deps.playerNameForOwner(btn.dataset.proposePlayerId);

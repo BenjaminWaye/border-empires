@@ -4931,10 +4931,10 @@ body {
   color: #ffffff;
 }
 
-.alliance-reference-id {
+.alliance-reference-offer {
   margin-top: 6px;
-  color: #6b7280;
-  font-size: 12px;
+  color: #e5e7eb;
+  font-size: 13px;
 }
 
 .alliance-reference-right {
@@ -5941,7 +5941,7 @@ button:disabled,
     font-size: 15px;
   }
 
-  .alliance-reference-id,
+  .alliance-reference-offer,
   .alliance-reference-time,
   .alliance-reference-duration,
   .alliance-reference-duration-note,

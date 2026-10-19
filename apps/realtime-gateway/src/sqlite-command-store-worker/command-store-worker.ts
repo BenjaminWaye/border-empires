@@ -94,6 +94,9 @@ db.exec(`
   PRAGMA foreign_keys = ON;
 `);
 
+// Keep both SQLite schema owners aligned; the cross-store regression covers boot order.
+const CLIENT_SEQUENCE_PREDICATE = "command_type NOT IN ('SYNC_TRUCE', 'SYNC_ALLIANCE', 'SETTLE_DIPLOMACY_TERMS')";
+
 if (applySchema) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS commands (
@@ -105,7 +108,7 @@ if (applySchema) {
       payload_json TEXT NOT NULL,
       queued_at INTEGER NOT NULL
     );
-    CREATE UNIQUE INDEX IF NOT EXISTS commands_player_seq_idx ON commands (player_id, client_seq);
+
     CREATE INDEX IF NOT EXISTS commands_player_id_idx ON commands (player_id);
     CREATE TABLE IF NOT EXISTS command_results (
       command_id TEXT PRIMARY KEY REFERENCES commands(command_id) ON DELETE CASCADE,
@@ -117,6 +120,23 @@ if (applySchema) {
       resolved_at INTEGER
     );
   `);
+  // Retain the index name: older releases use IF NOT EXISTS on it, so
+  // rollback can boot without trying to restore the incompatible full index.
+  // Serialize inspection/replacement across gateway and simulation writers.
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const index = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'commands_player_seq_idx'").get();
+    if (typeof index?.sql === "string" && !/\bwhere\b/i.test(index.sql)) db.exec("DROP INDEX commands_player_seq_idx");
+    db.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS commands_player_seq_idx ON commands (player_id, client_seq)
+        WHERE ${CLIENT_SEQUENCE_PREDICATE};
+      CREATE INDEX IF NOT EXISTS commands_player_seq_lookup_idx ON commands (player_id, client_seq);
+    `);
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
 }
 
 const SELECT_JOINED = `
@@ -189,17 +209,17 @@ const insertResult = db.prepare(
   `INSERT INTO command_results (command_id, status) VALUES (?, 'QUEUED')
    ON CONFLICT(command_id) DO NOTHING`
 );
-const selectByCommandIdOrPlayerSeq = db.prepare(`${SELECT_JOINED} WHERE c.command_id = ? OR (c.player_id = ? AND c.client_seq = ?) LIMIT 1`);
-const selectByPlayerSeqOnly = db.prepare(`${SELECT_JOINED} WHERE c.player_id = ? AND c.client_seq = ? LIMIT 1`);
+const selectByCommandIdOrPlayerSeq = db.prepare(`${SELECT_JOINED} WHERE c.command_id = ? OR (c.player_id = ? AND c.client_seq = ? AND ${CLIENT_SEQUENCE_PREDICATE}) LIMIT 1`);
+const selectByPlayerSeqOnly = db.prepare(`${SELECT_JOINED} WHERE c.player_id = ? AND c.client_seq = ? AND ${CLIENT_SEQUENCE_PREDICATE} LIMIT 1`);
 const updateAccepted = db.prepare(`UPDATE command_results SET status = 'ACCEPTED', accepted_at = ? WHERE command_id = ?`);
 const updateRejected = db.prepare(
   `UPDATE command_results SET status = 'REJECTED', rejected_at = ?, rejected_code = ?, rejected_message = ? WHERE command_id = ?`
 );
 const updateResolved = db.prepare(`UPDATE command_results SET status = 'RESOLVED', resolved_at = ? WHERE command_id = ?`);
 const selectByCommandId = db.prepare(`${SELECT_JOINED} WHERE c.command_id = ?`);
-const selectByPlayerSeq = db.prepare(`${SELECT_JOINED} WHERE c.player_id = ? AND c.client_seq = ?`);
+const selectByPlayerSeq = db.prepare(`${SELECT_JOINED} WHERE c.player_id = ? AND c.client_seq = ? AND ${CLIENT_SEQUENCE_PREDICATE}`);
 const selectUnresolvedForPlayer = db.prepare(
-  `${SELECT_JOINED} WHERE c.player_id = ? AND r.status IN ('QUEUED', 'ACCEPTED') ORDER BY c.client_seq ASC`
+  `${SELECT_JOINED} WHERE c.player_id = ? AND ${CLIENT_SEQUENCE_PREDICATE} AND r.status IN ('QUEUED', 'ACCEPTED') ORDER BY c.client_seq ASC`
 );
 const selectNextClientSeq = db.prepare(`SELECT COALESCE(MAX(client_seq), 0) + 1 AS next_seq FROM commands WHERE player_id = ?`);
 

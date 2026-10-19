@@ -154,7 +154,7 @@ describe("alliancePanelHtml", () => {
 
 describe("bindProposeButtons", () => {
   afterEach(() => closeDiplomacyTradeScreen());
-  const state = { gold: 500, strategicResources: { SHARD: 2 } };
+  const state = { gold: 500, strategicResources: { SHARD: 2 }, incomingTruceRequests: [], incomingAllianceRequests: [] };
   const tradeTitle = (): string | null | undefined => document.querySelector(".diplomacy-trade-overlay h2")?.textContent;
   const pressedKind = (): string | undefined =>
     document.querySelector<HTMLButtonElement>(".diplomacy-trade-overlay [data-trade-kind][aria-pressed='true']")?.dataset.tradeKind;

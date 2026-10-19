@@ -108,6 +108,8 @@ describe("feedHtml", () => {
     );
 
     expect(html).toContain("BrassKnight");
+    expect(html).toContain("Offers an alliance");
+    expect(html).not.toContain("ID:");
     expect(html).toContain("1h ago");
     expect(html).toContain("Sent by:");
     expect(html).toContain("Waiting on:");
@@ -133,6 +135,7 @@ describe("feedHtml", () => {
     );
 
     expect(html).toContain("SteelForge");
+    expect(html).toContain("You offered an alliance");
     expect(html).toContain("Cancel Request");
     expect(html).toContain("Waiting on:");
   });
@@ -155,6 +158,7 @@ describe("feedHtml", () => {
     );
     expect(alliesMarkup).toContain("SteamLord");
     expect(alliesMarkup).toContain("Active");
+    expect(alliesMarkup).not.toContain("ID:");
     expect(alliesMarkup).toContain("Break Alliance");
     expect(breakingAlliesMarkup).toContain("Breaking");
     expect(breakingAlliesMarkup).toContain("20h notice");
@@ -196,7 +200,8 @@ describe("feedHtml", () => {
     );
 
     expect(html).toContain("GearHeart");
-    expect(html).toContain("24h");
+    expect(html).toContain("Offers a 24h truce");
+    expect(html).not.toContain("ID:");
     expect(html).toContain("Reject");
     expect(html).toContain('data-truce-request-id="truce-1"');
   });
@@ -220,7 +225,7 @@ describe("feedHtml", () => {
     );
 
     expect(html).toContain("CopperWing");
-    expect(html).toContain("12h");
+    expect(html).toContain("You offered a 12h truce");
     expect(html).toContain("Cancel Request");
   });
 });
