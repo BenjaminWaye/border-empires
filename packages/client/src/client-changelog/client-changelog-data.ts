@@ -478,7 +478,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Garrison Many lets you tap frontier tiles to select or deselect them, with highlights in both map renderers",
       "The bottom bar shows the selected count and total cost, with Confirm and Cancel; keep tapping tiles to adjust the selection",
       "Confirmation checks ownership, reach and resources; unavailable selected tiles turn orange so you can deselect them before spending",
-      "Dragging and pinching still move the map; taps select tiles once"
+      "Dragging and pinching still move the map; taps select tiles once",
+    "Alert markers still center on their targets, and deselected tiles lose their outline in both map renderers"
     ]
   }
 ];

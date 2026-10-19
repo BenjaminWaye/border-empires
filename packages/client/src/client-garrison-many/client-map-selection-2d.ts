@@ -1,3 +1,4 @@
+import { singleTileSelectionForMap } from "./client-garrison-many-model.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
@@ -14,7 +15,8 @@ type Selection2DDeps = {
 export const drawMapSelection2D = (state: ClientState, deps: Selection2DDeps, wx: number, wy: number,
   t: Tile | undefined, px: number, py: number, size: number, myReach: ReadonlySet<string> | undefined): void => {
   if (isTrue3DRendererActive()) return;
-      if (!isTrue3DRendererActive() && state.selected && state.selected.x === wx && state.selected.y === wy) {
+  const selectedCoord = singleTileSelectionForMap(state);
+      if (!isTrue3DRendererActive() && selectedCoord && selectedCoord.x === wx && selectedCoord.y === wy) {
         if (t?.ownerId === state.me && t.ownershipState === "SETTLED") {
           deps.ctx.fillStyle = "rgba(255, 209, 102, 0.18)";
           deps.ctx.fillRect(px, py, size, size);
@@ -24,12 +26,12 @@ export const drawMapSelection2D = (state: ClientState, deps: Selection2DDeps, wx
           deps.ctx.strokeStyle = selectedOutOfReach ? "#ff8a3d" : "#ffd166"; deps.ctx.lineWidth = 2; deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1); deps.ctx.lineWidth = 1;
           if (selectedOutOfReach) deps.ctx.setLineDash([]);
         }
-      } else if (state.selected) {
-        const selected = state.tiles.get(deps.keyFor(state.selected.x, state.selected.y));
+      } else if (selectedCoord) {
+        const selected = state.tiles.get(deps.keyFor(selectedCoord.x, selectedCoord.y));
         if (
           !isTrue3DRendererActive() &&
           selected?.town &&
-          deps.isTownSupportNeighbor(wx, wy, state.selected.x, state.selected.y, selected.town.populationTier) &&
+          deps.isTownSupportNeighbor(wx, wy, selectedCoord.x, selectedCoord.y, selected.town.populationTier) &&
           deps.isTownSupportHighlightableTile(t)
         ) {
           if (t?.terrain !== "LAND") deps.ctx.strokeStyle = "rgba(92, 103, 127, 0.7)";

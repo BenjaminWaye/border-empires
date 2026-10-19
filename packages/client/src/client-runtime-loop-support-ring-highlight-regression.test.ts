@@ -25,6 +25,6 @@ describe("2D support-ring highlight tier-radius regression guard", () => {
     const loop = clientSource("./client-runtime-loop.ts");
     const selection = clientSource("./client-garrison-many/client-map-selection-2d.ts");
     expect(loop.match(/drawMapSelection2D\(state, deps, wx, wy, t, px, py, size, myReach\)/g)).toHaveLength(2);
-    expect(selection).toContain("deps.isTownSupportNeighbor(wx, wy, state.selected.x, state.selected.y, selected.town.populationTier)");
+    expect(selection).toContain("deps.isTownSupportNeighbor(wx, wy, selectedCoord.x, selectedCoord.y, selected.town.populationTier)");
   });
 });

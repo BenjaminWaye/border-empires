@@ -1,8 +1,12 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
-import { Scene, LineSegments, Mesh } from "three";
+import { Scene, LineSegments, LineBasicMaterial, Mesh } from "three";
 import { createInitialState } from "../client-state/client-state.js";
 import { setTrue3DRendererActive } from "../client-renderer-mode.js";
 import { createGarrisonSelection3D } from "./client-garrison-many-3d.js";
+import { singleTileSelectionForMap } from "./client-garrison-many-model.js";
+import { createBendingMarkerGeometry } from "../client-map-3d-bending-marker-geometry/client-map-3d-bending-marker-geometry.js";
+import { syncTileHighlightMarker } from "./client-tile-highlight-3d.js";
 import { drawMapSelection2D } from "./client-map-selection-2d.js";
 
 const stateWithSelection = () => {
@@ -31,6 +35,36 @@ describe("Garrison Many renderer parity", () => {
     drawMapSelection2D(state, deps, 3, 4, undefined, 10, 10, 30, undefined);
     expect(ctx.fillRect).toHaveBeenCalledTimes(2);
     setTrue3DRendererActive(false);
+  });
+  it("removes the ordinary selection outline when the original tile is deselected from the batch", () => {
+    const state = stateWithSelection();
+    state.selected = { x: 3, y: 4 };
+    state.garrisonMany.keys = ["4,4"];
+    const ctx = { save: vi.fn(), restore: vi.fn(), fillRect: vi.fn(), strokeRect: vi.fn(), fillStyle: "", strokeStyle: "", lineWidth: 1 };
+    const deps = { ctx: ctx as unknown as CanvasRenderingContext2D, keyFor: (x: number, y: number) => `${x},${y}`,
+      isTownSupportNeighbor: () => false, isTownSupportHighlightableTile: () => false };
+    setTrue3DRendererActive(false);
+    drawMapSelection2D(state, deps, 3, 4, undefined, 10, 10, 30, undefined);
+    expect(ctx.strokeRect).not.toHaveBeenCalled();
+    state.garrisonMany.active = false;
+    drawMapSelection2D(state, deps, 3, 4, undefined, 10, 10, 30, undefined);
+    expect(ctx.strokeRect).toHaveBeenCalledOnce();
+  });
+  it("suppresses the normal 3D marker until batch selection ends", () => {
+    const state = stateWithSelection();
+    state.selected = { x: 3, y: 4 };
+    state.garrisonMany.keys = ["4,4"];
+    const marker = new LineSegments(createBendingMarkerGeometry(), new LineBasicMaterial());
+    const deps = { sceneOrigin: { camX: 0, camY: 0 }, wrapX: (x: number) => x, wrapY: (y: number) => y,
+      cornerYAt: () => 0, toroidDelta: (from: number, to: number) => to - from };
+    syncTileHighlightMarker(deps, marker, singleTileSelectionForMap(state), .02);
+    expect(marker.visible).toBe(false);
+    const source = readFileSync(new URL("../client-map-3d/client-map-3d.ts", import.meta.url), "utf8");
+    expect(source).toContain("syncHighlightMarker(selectedMarker, singleTileSelectionForMap(deps.state), MARKER_RISE_ABOVE_HEIGHTFIELD)");
+    state.garrisonMany.active = false;
+    syncTileHighlightMarker(deps, marker, singleTileSelectionForMap(state), .02);
+    expect(marker.visible).toBe(true);
+    marker.geometry.dispose(); marker.material.dispose();
   });
   it("places both 3D outlines/fills against terrain, follows scene origin and removes them on cancel", () => {
     const state = stateWithSelection();

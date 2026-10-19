@@ -104,6 +104,19 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     return true;
   };
 
+  // Mouse-up and touch-end commit once, giving alert locators priority over
+  // the world tile underneath. Arm suppression only for the follow-up click.
+  const commitPointerSelection = (offsetX: number, offsetY: number, clientX: number, clientY: number): boolean => {
+    deps.interactionFlags.suppressNextClick = false;
+    const focusedAlert = focusPersistentAlertAtPointer(offsetX, offsetY, clientX, clientY);
+    if (!focusedAlert) {
+      const { wx, wy } = worldTileFromPointer(offsetX, offsetY);
+      deps.handleTileSelection(wx, wy, clientX, clientY);
+    }
+    deps.interactionFlags.suppressNextClick = true;
+    return focusedAlert;
+  };
+
   bindMinimapDrag(state, {
     miniMapEl: deps.miniMapEl,
     wrapX: deps.wrapX,
@@ -270,10 +283,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
       if (insideCanvas) {
         const offsetX = ev.clientX - rect.left;
         const offsetY = ev.clientY - rect.top;
-        const { wx, wy } = worldTileFromPointer(offsetX, offsetY);
-        deps.interactionFlags.suppressNextClick = false;
-        deps.handleTileSelection(wx, wy, ev.clientX, ev.clientY);
-        deps.interactionFlags.suppressNextClick = true;
+        commitPointerSelection(offsetX, offsetY, ev.clientX, ev.clientY);
       }
     }
     if (dragActive && boxSelectionMode && boxSelectionEngaged) {
@@ -409,20 +419,10 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
           const rect = deps.canvas.getBoundingClientRect();
           const offsetX = touchTapCandidate.x - rect.left;
           const offsetY = touchTapCandidate.y - rect.top;
-          if (focusPersistentAlertAtPointer(offsetX, offsetY, touchTapCandidate.x, touchTapCandidate.y)) {
-            deps.interactionFlags.suppressNextClick = true;
-            touchHoldStart = undefined;
-            touchTapCandidate = undefined;
-            touchPanStart = undefined;
-            pinchStart = undefined;
-            return;
+          if (!commitPointerSelection(offsetX, offsetY, touchTapCandidate.x, touchTapCandidate.y)) {
+            lastTapTime = now;
+            lastTapLocation = { x: touchTapCandidate.x, y: touchTapCandidate.y };
           }
-          const { wx, wy } = worldTileFromPointer(offsetX, offsetY);
-          deps.interactionFlags.suppressNextClick = false;
-          deps.handleTileSelection(wx, wy, touchTapCandidate.x, touchTapCandidate.y);
-          deps.interactionFlags.suppressNextClick = true;
-          lastTapTime = now;
-          lastTapLocation = { x: touchTapCandidate.x, y: touchTapCandidate.y };
         }
       }
       touchHoldStart = undefined;

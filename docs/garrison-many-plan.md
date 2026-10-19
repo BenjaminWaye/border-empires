@@ -75,3 +75,17 @@ state is persisted in snapshots or local storage.
 - Both map overlays are unchanged; their parity tests pass. The existing input
   integration still verifies taps, panning and pinching. This follow-up did not
   rerun a complete local rewrite-stack game or a physical-phone playtest.
+
+## Review fixes, 2026-10-19
+
+- Fixed alert hit priority when committing input on mouse-up/touch-end. Without
+  this fix, mouse-up committed the tile underneath an alert and suppressed its
+  following click; consecutive touch alerts could be swallowed by the shared
+  suppression flag. The new input regression failed with `(40,40)` selected
+  instead of the alert target `(8,9)`, then passed for mouse and repeated touches.
+- Fixed a misleading gold outline left on the originating tile after it was
+  deselected from the batch. The batch overlay now owns selection in both
+  canvas paint paths and the true-3D selected marker. Ordinary selection is
+  restored when the mode ends. The canvas regression failed with one lingering
+  outline before the fix; canvas and 3D marker regressions now pass.
+- Triage: two correctness findings fixed; no speculative or cosmetic changes.

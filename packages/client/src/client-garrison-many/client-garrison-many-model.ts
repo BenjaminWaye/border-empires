@@ -8,6 +8,11 @@ import type { Tile } from "../client-types.js";
 export const GARRISON_MANY_LIMIT = DEV_QUEUE_TOTAL_CAP;
 export type GarrisonManyState = { active: boolean; keys: string[]; invalidKeys: string[] };
 export const createGarrisonManyState = (): GarrisonManyState => ({ active: false, keys: [], invalidKeys: [] });
+// The batch overlay owns selection while active; preserve the ordinary
+// selection for restoration without drawing a ghost outline on a removed tile.
+export const singleTileSelectionForMap = (state: Pick<ClientState, "selected" | "garrisonMany">): ClientState["selected"] =>
+  state.garrisonMany.active ? undefined : state.selected;
+
 export const garrisonTileReason = (state: ClientState, tile: Tile | undefined): string => {
   if (!tile || tile.fogged) return "Tile is not visible";
   if (tile.terrain !== "LAND" || tile.ownerId !== state.me) return "Not your land";

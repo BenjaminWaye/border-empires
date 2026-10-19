@@ -8,6 +8,8 @@ it("commits each mouse/touch tap once through the action-flow suppression guard;
   const state = createInitialState();
   state.me = "me"; state.authSessionReady = true; state.manpower = 100;
   state.serverReach = new Set(["0,0", "1,0"]);
+  // Batch selection must ignore overlapping alert locators while active.
+  state.persistentAlertLocators = [{ id: "overlap", kind: "town_unfed", x: 9, y: 9, screenX: 1, screenY: 0, radius: 12 }];
   for (const x of [0, 1]) state.tiles.set(`${x},0`, { x, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" });
   const keyFor = (x: number, y: number): string => `${x},${y}`;
   const identity = (value: number): number => value;

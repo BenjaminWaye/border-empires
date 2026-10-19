@@ -1,3 +1,4 @@
+import { singleTileSelectionForMap } from "../client-garrison-many/client-garrison-many-model.js";
 import { createGarrisonSelection3D } from "../client-garrison-many/client-garrison-many-3d.js";
 import { syncTileHighlightMarker } from "../client-garrison-many/client-tile-highlight-3d.js";
 import { addBuildingInstancesForTile } from "./client-map-3d-building-instances.js";
@@ -1377,7 +1378,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     if (contextGuard.isContextLost()) return;
     const nowMs = performance.now();
     maybeRebuild(nowMs); (selectedMarker.material as LineBasicMaterial).color.set(deps.state.selected && !resolveMyReachCached(deps.state).has(deps.keyFor(deps.state.selected.x, deps.state.selected.y)) ? "#ff8a3d" : "#ffd166"); // fixed-border reach: warning-orange outside reach
-    syncHighlightMarker(selectedMarker, deps.state.selected, MARKER_RISE_ABOVE_HEIGHTFIELD);
+    syncHighlightMarker(selectedMarker, singleTileSelectionForMap(deps.state), MARKER_RISE_ABOVE_HEIGHTFIELD);
     syncHighlightMarker(hoverMarker, deps.state.hover, MARKER_RISE_ABOVE_HEIGHTFIELD);
     syncTownSupportMarkers();
     syncTownSupportTiles();
