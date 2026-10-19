@@ -1,3 +1,4 @@
+import { RELIABLE_DIPLOMACY_CHANGELOG } from "./client-changelog-reliable-diplomacy.js";
 import { AFC_SPECIALIZATIONS_CHANGELOG } from "./client-changelog-afc-specializations.js";
 import { ALLIANCES_TAB_CHANGELOG } from "./client-changelog-alliances-tab.js";
 import { ENEMY_MUSTER_WARNING_CHANGELOG, FRONTIER_REACH_WARNING_CHANGELOG } from "./client-changelog-enemy-muster-warning.js";
@@ -482,15 +483,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     "Alert markers still center on their targets, and deselected tiles lose their outline in both map renderers"
     ]
   },
-  {
-    createdAt: 1792418992256, // Date.now() captured for this entry.
-    introducedIn: "2026.10.19.2",
-    title: "Reliable diplomacy updates",
-    why: "Repeated truce, alliance and diplomacy payment updates could collide in command storage.",
-    changes: ["Internal diplomacy updates now save independently while player commands retain duplicate protection",
-      "Active truces now survive a server restart alongside alliances",
-      "Startup reconciles active truces and offline expirations; crash recovery replays later relationship changes"]
-  }
+  ...RELIABLE_DIPLOMACY_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
