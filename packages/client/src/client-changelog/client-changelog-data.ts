@@ -439,6 +439,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Internal player IDs are no longer shown on alliance, truce and ally cards"
     ]
   },
+  {
+    createdAt: 1792430700163, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.19.3",
+    title: "No more ground poking through the fog beside mountains",
+    why: "In the 3D map, an unexplored mountain at the edge of the fog could push a straight-edged wedge of bare ground up through the storm, cutting a notch in its glowing edge.",
+    changes: ["Ground at the fog's edge now stays under the storm, so the fog and its glowing edge stay unbroken next to mountains"]
+  },
   ...RELIABLE_DIPLOMACY_CHANGELOG,
   ...AFC_UPGRADES_ICON_CHANGELOG
 ];
