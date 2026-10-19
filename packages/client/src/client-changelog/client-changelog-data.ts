@@ -7,6 +7,7 @@ import { AETHER_ABILITY_ICONS_CHANGELOG } from "./client-changelog-aether-abilit
 import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-art-october.js";
 import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
 import { AFC_UPGRADES_ICON_CHANGELOG } from "./client-changelog-afc-upgrades-icon.js";
+import { MUSTER_BANNER_CHANGELOG } from "./client-changelog-muster-banner.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -447,7 +448,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["Ground at the fog's edge now stays under the storm, so the fog and its glowing edge stay unbroken next to mountains"]
   },
   ...RELIABLE_DIPLOMACY_CHANGELOG,
-  ...AFC_UPGRADES_ICON_CHANGELOG
+  ...AFC_UPGRADES_ICON_CHANGELOG,
+  ...MUSTER_BANNER_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
