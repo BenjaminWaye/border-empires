@@ -79,8 +79,9 @@ dead-code and duplication cleanup and the remaining items in priority order.
 Waypoint playtest follow-up: recovery, bulk garrison, muster controls, selection,
 manpower-panel clarity, and area-based Activity summaries.
 
-[`garrison-many-plan.md`](garrison-many-plan.md) records the editable bulk
-garrison implementation and local verification.
+The [Garrison Many implementation record](archive/design-history-2026/garrison-many-implementation.md)
+preserves the completed bulk-selection work; current behavior lives in the
+[gameplay reference](game-mechanics.md).
 
 ## Templates
 

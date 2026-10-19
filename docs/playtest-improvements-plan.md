@@ -1,8 +1,8 @@
 # Playtest improvement plan
 
-Status: active roadmap; item 1 merged, item 2 implemented locally; live verification pending
+Status: active roadmap; item 1 merged, item 2 implemented; live verification pending
 Owner: client maintainers for items 1–2; product owner for subsequent priorities
-Last verified: 2026-10-18
+Last verified: 2026-10-19
 Replaces: none; update the relevant canonical references as each item ships
 
 ## Evidence and scope
@@ -22,7 +22,7 @@ must cover both 2D canvas and true-3D, including mobile input.
 
 ## Delivery order
 
-### 1. Recover from server updates without refreshing — implemented locally
+### 1. Recover from server updates without refreshing — merged in PR #2404
 
 Trace the existing disconnect, reconnect, authentication, INIT, and map-resync
 sequence. Reproduce the paths that stall and fix automatic recovery rather
@@ -63,16 +63,17 @@ Implementation and verification, 2026-10-18:
   gates. Tests verify authoritative manpower/flags/pending-command recovery,
   preserved camera/selection, no gameplay-command replay, and stalled/active
   recovery paths.
-- Not deployed. A controlled staging update during an established session is
-  still the live acceptance check. The original playtest's exact outage cause
-  cannot be proven without its build and deployment logs.
+- Merged in PR #2404. A controlled staging update during an established session
+  is still the live acceptance check; deployment was not verified in this
+  record. The original playtest's exact outage cause cannot be proven without
+  its build and deployment logs.
 - Review follow-up: recovery stops when Firebase reports a signed-out player,
   including sign-out in another tab. A later sign-in reopens a closed socket
   without replacing a connection attempt that is already running. Regression
   tests cover sign-out before retries, during backoff, during a stalled restore,
   and subsequent sign-in.
 
-### 2. Select tiles and confirm Garrison Many — implemented locally
+### 2. Select tiles and confirm Garrison Many — implemented
 
 Replace Garrison Connected with Garrison Many. Start with the originating tile
 selected and allow taps to select/deselect eligible owned frontier throughout.
@@ -80,7 +81,7 @@ Highlight selections in both renderers. Keep a compact count/cost display and
 Confirm/Cancel at the bottom. Remove the separate review step, coordinate list,
 connected shortcut and slot/queue diagnostics. Revalidate the entire batch on
 confirmation; invalid selections turn orange and must be deselected before
-spending. See [implementation and verification](garrison-many-plan.md).
+spending. See [implementation and verification](archive/design-history-2026/garrison-many-implementation.md).
 
 Acceptance: one confirmation queues the exact selected set; no silent subset,
 including mixed reach and affordability cases. Mobile map gestures keep working.

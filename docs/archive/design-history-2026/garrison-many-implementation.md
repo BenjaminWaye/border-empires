@@ -1,9 +1,12 @@
-# Garrison Many implementation plan
+# Garrison Many implementation record
 
-Status: implemented and verified locally; not merged or deployed
+Status: historical record; merge and deployment status belongs in the PR
 Owner: client maintainers
 Last verified: 2026-10-19
 Replaces: playtest improvement plan item 2, automatic connected garrison
+
+Current behavior is maintained in [the gameplay reference](../../game-mechanics.md).
+This record preserves the implementation and review decisions.
 
 ## Current interaction
 
