@@ -2,7 +2,7 @@
 
 Status: implementation reference; initial balance
 Owner: Benjamin Waye (product decisions); implementing agent (delivery)
-Last verified: 2026-10-18
+Last verified: 2026-10-19
 Replaces: paid domains in new `afc-v1` campaigns; existing seasons retain their rules
 
 Thirty entries, six branches, five tier choices. IDs below are stable
@@ -159,6 +159,7 @@ to this Sector and its participants, not a permanent House-wide truce entitlemen
 
 ## Copy and presentation rules
 
+- Keep card effects to one short line; use percentage changes (+100%, −50%) instead of multiplier notation. Put qualifications and lore in the expanded description.
 - Show branch + playstyle, tier, effect, affected scope, and explanation separately.
 - Label one-time consignments **On installation** and enduring effects **Ongoing**.
 - Do not describe ×2.5 as double, −2 FOOD as food independence, or population

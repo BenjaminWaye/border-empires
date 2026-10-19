@@ -1,3 +1,4 @@
+import { afcPlayerExportFields } from "./afc-specializations/afc-player-export.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import {
   WORLD_HEIGHT,
@@ -266,6 +267,7 @@ function visiblePlayersProjection(
         ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
         techIds: [...player.techIds].sort(),
         domainIds: [...(player.domainIds ?? [])].sort(),
+        ...afcPlayerExportFields(player),
         strategicResources: { ...(player.strategicResources ?? {}) },
         allies: [...player.allies].sort(),
         truces: [...(player.truces ?? [])].sort(),
