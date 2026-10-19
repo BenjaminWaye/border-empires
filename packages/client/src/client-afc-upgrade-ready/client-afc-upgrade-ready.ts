@@ -78,7 +78,7 @@ export function createAfcUpgradeReadyBadges(canvas: HTMLCanvasElement, openUpgra
   canvas.ownerDocument.addEventListener("click", openFromOverview);
   return {
     render(positions, ready) {
-      for (const nav of Array.from(canvas.ownerDocument.querySelectorAll<HTMLElement>('[data-panel="domains"], [data-mobile-panel="domains"]'))) {
+      for (const nav of Array.from(canvas.ownerDocument.querySelectorAll<HTMLElement>('[data-panel="domains"], [data-mobile-panel="domains"], .afc-upgrades-cta'))) {
         const value = ready > 0 ? String(ready) : "";
         if ((nav.dataset.afcUpgradeReady ?? "") === value) continue;
         if (value) {

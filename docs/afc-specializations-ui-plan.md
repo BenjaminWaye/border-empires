@@ -34,9 +34,11 @@ symbol and text label distinguish roles; color is supplementary, not essential.
 
 1. **Global navigation:** replace Sharding with AFC Upgrades. Keep one global
    entrypoint; a persistent ready count survives panel closure and reload.
-2. **AFC inspector:** put **Manage AFC upgrades** in the existing overview. It
-   opens the global management screen directly. Do not add another AFC tab or
-   nest a Specializations tab beneath Modules, Actions, or Overview.
+2. **AFC inspector:** put an **AFC upgrades** button at the top of the Modules
+   tab (which replaced Overview on AFC tiles), above the socket diagram, with
+   the same live ready count as global navigation. It opens the global
+   management screen directly. Do not add another AFC tab or nest a
+   Specializations tab beneath Modules, Actions, or Overview.
 3. **Map discovery:** a clickable **↑ N upgrades ready** badge sits above each
    visible, active, owned AFC after landing. It opens management directly. Both
    2D canvas and true 3D use the current camera projection, including pan/zoom.
