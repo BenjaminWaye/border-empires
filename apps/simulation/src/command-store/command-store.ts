@@ -46,8 +46,11 @@ export class InMemorySimulationCommandStore implements SimulationCommandStore {
   private readonly commandIdsByPlayerSeq = new Map<string, string>();
 
   async persistQueuedCommand(command: CommandEnvelope, queuedAt: number): Promise<void> {
+    // Gateway diplomacy updates deliberately reuse sequence zero. Their durable
+    // identity is commandId, matching runtime.submitCommand and the SQLite index.
+    const usesClientSequence = command.type !== "SYNC_TRUCE" && command.type !== "SYNC_ALLIANCE" && command.type !== "SETTLE_DIPLOMACY_TERMS";
     const playerSeqKey = `${command.playerId}:${command.clientSeq}`;
-    if (this.commands.has(command.commandId) || this.commandIdsByPlayerSeq.has(playerSeqKey)) return;
+    if (this.commands.has(command.commandId) || (usesClientSequence && this.commandIdsByPlayerSeq.has(playerSeqKey))) return;
 
     this.commands.set(command.commandId, {
       commandId: command.commandId,
@@ -59,7 +62,7 @@ export class InMemorySimulationCommandStore implements SimulationCommandStore {
       queuedAt,
       status: "QUEUED"
     });
-    this.commandIdsByPlayerSeq.set(playerSeqKey, command.commandId);
+    if (usesClientSequence) this.commandIdsByPlayerSeq.set(playerSeqKey, command.commandId);
   }
 
   async markAccepted(commandId: string, acceptedAt: number): Promise<void> {

@@ -1,3 +1,4 @@
+import { createAllianceSimulationSync } from "../alliance-simulation-sync/alliance-simulation-sync.js";
 import { seedAiColors } from "./seed-ai-colors.js";
 import { PerformanceObserver } from "node:perf_hooks";
 
@@ -96,7 +97,7 @@ import { admitBootstrap } from "../login-queue/bootstrap-admission.js"; import {
 import { createWebSocketHeartbeat } from "./websocket-heartbeat.js"; import { resolveDukeAuthUidsBestEffort } from "../galaxy-holdings/galaxy-holdings.js";
 import type { RealtimeGatewayAppOptions } from "./realtime-gateway-app-options.js";
 
-import { applyPlayerMessageToSnapshot, jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
+import { applyPlayerMessageToSnapshot, jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
 
 import type { SocketSession } from "./gateway-app-socket-session.js";
 
@@ -456,42 +457,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     simulationHealth.connected = false;
     simulationHealth.lastError = error instanceof Error ? error.message : String(error);
   };
-  const syncAllianceToSimulation = async (input: { playerId: string; targetPlayerId: string; allied: boolean }): Promise<boolean> => {
-    if (!simulationHealth.connected) {
-      recordGatewayEvent("warn", "gateway_social_simulation_sync_skipped", {
-        playerId: input.playerId,
-        targetPlayerId: input.targetPlayerId,
-        allied: input.allied,
-        simulationLastError: simulationHealth.lastError ?? ""
-      });
-      return false;
-    }
-
-    const command: CommandEnvelope = {
-      commandId: `social:${input.allied ? "ally" : "break"}:${input.playerId}:${input.targetPlayerId}:${crypto.randomUUID()}`,
-      clientSeq: 0,
-      issuedAt: Date.now(),
-      type: "SYNC_ALLIANCE",
-      sessionId: "system-runtime:social",
-      playerId: input.playerId,
-      payloadJson: JSON.stringify({ targetPlayerId: input.targetPlayerId, allied: input.allied })
-    };
-    try {
-      await withTimeout(simulationClient.submitCommand(command), simulationSubmitTimeoutMs, "gateway sync alliance");
-      markSimulationReady();
-      return true;
-    } catch (error) {
-      handleSubmitError(error, { commandId: command.commandId, playerId: input.playerId });
-      recordGatewayEvent("warn", "gateway_social_simulation_sync_failed", {
-        commandId: command.commandId,
-        playerId: input.playerId,
-        targetPlayerId: input.targetPlayerId,
-        allied: input.allied,
-        error: error instanceof Error ? error.message : String(error)
-      });
-      return false;
-    }
-  };
+  const syncAllianceToSimulation = createAllianceSimulationSync({
+    simulationClient, simulationHealth, simulationSubmitTimeoutMs,
+    withTimeout, markSimulationReady, handleSubmitError, recordGatewayEvent
+  });
   const markSimulationEventStreamConnected = (): void => {
     simulationEventStreamConnected = true;
     refreshCombinedSimulationHealth();
@@ -1007,6 +976,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   };
 
   const { syncTruceToSimulation, syncExpiredTruces } = createTruceSimulationSync({
+    initialTrucePairs: persistedSocialSnapshot.activeTruces.map((truce): [string, string] => [truce.playerAId, truce.playerBId]),
     simulationClient, simulationHealth, socialState, simulationSubmitTimeoutMs,
     withTimeout, markSimulationReady, handleSubmitError, recordGatewayEvent
   });

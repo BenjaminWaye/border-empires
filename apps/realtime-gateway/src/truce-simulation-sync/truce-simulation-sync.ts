@@ -11,6 +11,8 @@ export type TruceSimulationSyncDeps = {
   simulationClient: { submitCommand: (command: CommandEnvelope) => Promise<unknown> };
   simulationHealth: { connected: boolean; lastError?: string | undefined };
   socialState: { activeTrucePairs: () => Array<[string, string]> };
+  // Read before social-store pruning, so offline expirations can clear saved sim state.
+  initialTrucePairs?: ReadonlyArray<readonly [string, string]>;
   simulationSubmitTimeoutMs: number;
   withTimeout: <T>(task: Promise<T>, timeoutMs: number, label: string) => Promise<T>;
   markSimulationReady: () => void;
@@ -68,6 +70,7 @@ export const createTruceSimulationSync = (deps: TruceSimulationSyncDeps): TruceS
     }
   };
 
+  let initialPairsSeeded = false;
   let truceExpirySyncRunning = false;
   const syncExpiredTruces = async (): Promise<void> => {
     if (truceExpirySyncRunning) return;
@@ -75,7 +78,20 @@ export const createTruceSimulationSync = (deps: TruceSimulationSyncDeps): TruceS
     try {
       const activePairs = deps.socialState.activeTrucePairs();
       const activeKeys = new Set(activePairs.map(([a, b]) => truceSimPairKey(a, b)));
-      for (const [playerAId, playerBId] of activePairs) knownSimTrucePairs.add(truceSimPairKey(playerAId, playerBId));
+      if (!initialPairsSeeded) {
+        for (const [a, b] of deps.initialTrucePairs ?? []) {
+          const key = truceSimPairKey(a, b);
+          if (!activeKeys.has(key)) knownSimTrucePairs.add(key);
+        }
+        initialPairsSeeded = true;
+      }
+      // Reapply active pacts after boot, including those omitted by old checkpoints.
+      // Only successful submissions become known, so unavailable/failed syncs retry.
+      for (const [playerAId, playerBId] of activePairs) {
+        if (!knownSimTrucePairs.has(truceSimPairKey(playerAId, playerBId))) {
+          await syncTruceToSimulation({ playerId: playerAId, targetPlayerId: playerBId, truced: true });
+        }
+      }
       for (const pairKey of [...knownSimTrucePairs]) {
         if (activeKeys.has(pairKey)) continue;
         const [playerAId, playerBId] = pairKey.split(":");
