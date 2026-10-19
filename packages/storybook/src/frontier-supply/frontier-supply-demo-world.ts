@@ -32,7 +32,7 @@ const HOME = { x: 20, y: 20 };
 const EAST = HOME.x + REACH_RADIUS + 1;
 
 /** The two tiles the Reroute story's rival takes in turn, one on each arm of the loop. */
-export const REROUTE_TARGETS = [`${EAST + 3},${HOME.y - 2}`, `${EAST + 3},${HOME.y + 2}`] as const;
+export const REROUTE_TARGETS = [`${EAST + 2},${HOME.y - 2}`, `${EAST + 2},${HOME.y + 2}`] as const;
 
 /**
  * Reroute phases: both arms held, upper arm cut, both held, lower arm cut.
@@ -62,7 +62,7 @@ export const buildSupplyDemoWorld = (scenario: SupplyScenario, captured: readonl
     // The reported case: a one-tile-wide line pushed far past reach.
     for (let i = 0; i < 14; i += 1) put(EAST + i, HOME.y + (i >= 7 ? 1 : 0), "FRONTIER");
   } else if (scenario === "corridor") {
-    // Two tiles wide: no single tile holds the line up, until it narrows at the tip.
+    // Two tiles wide: no single tile holds it up, until it narrows at the end.
     for (let i = 0; i < 10; i += 1) {
       put(EAST + i, HOME.y, "FRONTIER");
       put(EAST + i, HOME.y + 1, "FRONTIER");
@@ -74,17 +74,16 @@ export const buildSupplyDemoWorld = (scenario: SupplyScenario, captured: readonl
     for (let i = 1; i <= 6; i += 1) put(EAST + 4 + i, HOME.y - i, "FRONTIER");
     for (let i = 1; i <= 8; i += 1) put(EAST + 4 + i, HOME.y + Math.min(i, 3), "FRONTIER");
   } else {
-    // A loop with a tail: two routes out to the far side, so losing a tile on
-    // one arm reroutes supply down the other instead of losing anything.
-    put(EAST, HOME.y, "FRONTIER");
-    put(EAST + 1, HOME.y, "FRONTIER");
+    // A loop with a tail: both arms leave the town's frontier directly and
+    // rejoin further out, so only the tail hangs on one tile. Losing a tile on
+    // one arm leaves the other as the only way back.
     for (const side of [-1, 1]) {
-      put(EAST + 2, HOME.y + side, "FRONTIER");
-      put(EAST + 3, HOME.y + side * 2, "FRONTIER");
-      put(EAST + 4, HOME.y + side * 2, "FRONTIER");
-      put(EAST + 5, HOME.y + side, "FRONTIER");
+      put(EAST, HOME.y + side, "FRONTIER");
+      put(EAST + 1, HOME.y + side * 2, "FRONTIER");
+      put(EAST + 2, HOME.y + side * 2, "FRONTIER");
+      put(EAST + 3, HOME.y + side, "FRONTIER");
     }
-    for (let i = 6; i <= 11; i += 1) put(EAST + i, HOME.y, "FRONTIER");
+    for (let i = 4; i <= 10; i += 1) put(EAST + i, HOME.y, "FRONTIER");
   }
 
   for (const key of captured) {
@@ -100,8 +99,8 @@ export const buildSupplyDemoWorld = (scenario: SupplyScenario, captured: readonl
 };
 
 export const SUPPLY_SCENARIO_DESCRIPTIONS: Record<SupplyScenario, string> = {
-  snake: "A one-tile-wide line pushed 14 tiles past reach (the reported case): one route from the reach edge to an arrowhead at the tip.",
-  corridor: "A two-wide corridor: one line down it to the far end (not one per row), thick near supply and thinning toward the tip.",
-  branching: "A trunk that forks into two branches. The trunk is thicker because it carries both; each branch ends in an arrowhead.",
-  reroute: "A loop past reach. Every few seconds a rival (red) takes a tile on one arm: the line instantly redraws down the other arm. When the tile is retaken it goes back to the shorter route."
+  snake: "A one-tile-wide line pushed 14 tiles past reach: everything past its first tile hangs on that tile, so one line runs from a ring there to the tip.",
+  corridor: "A two-wide corridor: no single tile holds it, so nothing is drawn until it narrows to one tile wide near the end.",
+  branching: "A trunk that forks into two branches. Both hang on the trunk's first tile: one ring there, with the line splitting at the fork.",
+  reroute: "A loop past reach with a tail. The loop has two ways back, so only the tail is flagged, from the tile where it leaves the loop. Every few seconds a rival (red) takes a tile on one arm: the other arm becomes the only way back, so a ring appears where that arm starts and the line runs down it (the stub left on the cut arm gets its own short line)."
 };

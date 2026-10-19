@@ -1,58 +1,26 @@
 /**
- * Look-and-feel shared by the 2D and 3D supply-route renderers, so the two
- * stay in step (see AGENTS.md renderer parity).
+ * Look shared by the 2D and 3D supply-line renderers, so the two stay in
+ * step (see AGENTS.md renderer parity).
  *
- * Supply reads as routes, not per-tile marks: one smoothed ribbon per
- * stretch of the supply tree, thicker where more land depends on it (a trunk
- * carries its branches) and thinning and fading as it runs further past
- * reach. The ribbon itself is kept pale and barely visible: what catches the
- * eye are the bright pulses travelling outward along it, like convoys, and
- * the arrowhead each branch ends in at the frontier tip, lit as they pass.
+ * Supply lines only flag fragile land (see client-frontier-supply.ts), and
+ * only as a pointer: a thin, static, dashed line in a pale empire tint, with
+ * no glow, shadow or animation, plus a small ring on the cut tile the land
+ * hangs on. It should be findable when you look for it, not pull the eye.
  */
 
-/** How far the empire colour is lifted toward white for the route core, so it reads on the empire's own territory. */
-export const SUPPLY_CORE_WHITE_MIX = 0.55;
+/** How far the empire colour is lifted toward white, so the line reads on the empire's own territory. */
+export const SUPPLY_LINE_WHITE_MIX = 0.35;
+/** Line width, tiles. */
+export const SUPPLY_LINE_WIDTH = 0.05;
+/** Line opacity. */
+export const SUPPLY_LINE_ALPHA = 0.45;
+/** Dash length and the gap after it, tiles. */
+export const SUPPLY_DASH_LENGTH = 0.22;
+export const SUPPLY_DASH_GAP = 0.18;
 
-/** Route ribbon width, in tiles, for a hop feeding `downstream` beyond-reach tiles. */
-export const supplyRouteWidth = (downstream: number): number => Math.min(0.3, 0.09 + 0.05 * Math.sqrt(Math.max(0, downstream - 1)));
+/** Cut-tile ring: radius to the ring's centre line and its width, tiles. */
+export const SUPPLY_CUT_RING_RADIUS = 0.3;
+export const SUPPLY_CUT_RING_WIDTH = 0.05;
+/** Cut-tile ring opacity. */
+export const SUPPLY_CUT_RING_ALPHA = 0.6;
 
-const NEAR_ALPHA = 0.95;
-const FAR_ALPHA = 0.35;
-const FADE_PER_HOP = 0.04;
-
-/** Route opacity `depthBeyondReach` tiles past the reach edge: supply thins out the further it runs. */
-export const supplyRouteAlpha = (depthBeyondReach: number): number =>
-  Math.max(FAR_ALPHA, NEAR_ALPHA - FADE_PER_HOP * Math.max(0, depthBeyondReach - 1));
-
-/**
- * Opacity of the steady ribbon between pulses, as a fraction of its lit
- * opacity. Kept low so the route is barely there at rest and the player
- * reads it from the pulses travelling along it rather than from the line.
- */
-export const SUPPLY_ROUTE_REST_ALPHA = 0.14;
-/** Opacity of the dark shadow edge at rest; it lifts with a passing pulse so pulses stay legible on bright terrain. */
-export const SUPPLY_SHADOW_REST_ALPHA = 0.05;
-/** How much a passing pulse adds to the shadow edge's opacity. */
-export const SUPPLY_SHADOW_PULSE_LIFT = 0.3;
-
-/** Ribbon/arrowhead opacity factor for a 0..1 pulse brightness: pale at rest, full where a pulse is passing. */
-export const supplyLitAlpha = (pulse: number): number => SUPPLY_ROUTE_REST_ALPHA + (1 - SUPPLY_ROUTE_REST_ALPHA) * pulse;
-
-/** Pulse travel speed along a route, tiles per second. */
-export const SUPPLY_PULSE_SPEED = 1.2;
-/** Distance between pulses along a route, in tiles. */
-export const SUPPLY_PULSE_SPACING = 2.4;
-
-/**
- * 0..1 brightness of the travelling pulse at `distance` tiles along a route:
- * a bright head with a soft tail trailing back toward supply.
- */
-export const supplyPulseAt = (distance: number, nowMs: number): number => {
-  const t = (distance - (nowMs / 1000) * SUPPLY_PULSE_SPEED) / SUPPLY_PULSE_SPACING;
-  // Pulses move toward larger distance. `behind` is how far (as a fraction of
-  // the spacing) this point trails the pulse head just ahead of it.
-  const behind = 1 - (t - Math.floor(t));
-  const front = Math.min(1, behind / 0.04); // sharp leading edge
-  const tail = Math.max(0, 1 - behind / 0.45); // soft tail back toward supply
-  return front * tail;
-};

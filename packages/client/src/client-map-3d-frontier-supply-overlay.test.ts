@@ -6,60 +6,65 @@ import type { FrontierSupplyModel } from "./client-frontier-supply/client-fronti
 
 const model = (): FrontierSupplyModel => ({
   links: [
-    { from: { x: 0, y: 0 }, to: { x: 1, y: 0 }, depthBeyondReach: 1, downstream: 2, tip: false },
-    { from: { x: 1, y: 0 }, to: { x: 2, y: 0 }, depthBeyondReach: 2, downstream: 1, tip: true }
-  ]
+    { from: { x: 0, y: 0 }, to: { x: 1, y: 0 }, tip: false },
+    { from: { x: 1, y: 0 }, to: { x: 2, y: 0 }, tip: true }
+  ],
+  cuts: [{ x: 0, y: 0 }]
 });
 const sceneFor = (x: number, y: number) => ({ sceneX: x, sceneZ: y, surfaceY: 0 });
 
 const meshes = (scene: Scene) => {
-  const routes = scene.children.find((child): child is Mesh => child instanceof Mesh)!;
-  return { routes, geometry: routes.geometry as BufferGeometry, material: routes.material as ShaderMaterial };
+  const mesh = scene.children.find((child): child is Mesh => child instanceof Mesh)!;
+  return { mesh, geometry: mesh.geometry as BufferGeometry, material: mesh.material as ShaderMaterial };
 };
 
 describe("createFrontierSupplyOverlay", () => {
-  it("builds one ribbon per route with an arrowhead at the tip", () => {
+  it("builds a dashed ribbon per route plus a ring on each cut tile", () => {
     const scene = new Scene();
     const overlay = createFrontierSupplyOverlay(scene);
-    overlay.sync(model(), sceneFor, "origin-a", "#3fa9f5", 0);
+    overlay.sync(model(), sceneFor, "origin-a", "#3fa9f5");
 
-    const { routes, geometry } = meshes(scene);
-    expect(routes.visible).toBe(true);
-    const tip = Array.from(geometry.getAttribute("aTip").array as Float32Array);
-    expect(tip.filter((v) => v === 1)).toHaveLength(3); // one arrowhead triangle
+    const { mesh, geometry, material } = meshes(scene);
+    expect(mesh.visible).toBe(true);
+    const ring = Array.from(geometry.getAttribute("aRing").array as Float32Array);
+    expect(ring.filter((v) => v === 1).length).toBeGreaterThan(0);
+    const ringVertex = ring.indexOf(1);
+    const position = geometry.getAttribute("position");
+    expect(Math.hypot(position.getX(ringVertex), position.getZ(ringVertex))).toBeCloseTo(0.275, 2); // centred on the cut tile
     const distances = Array.from(geometry.getAttribute("aDistance").array as Float32Array);
-    expect(Math.max(...distances)).toBeCloseTo(2, 5); // pulses travel the full two hops
+    expect(Math.max(...distances)).toBeCloseTo(2, 5); // dashes measured along the full two hops
+    expect(material.fragmentShader).toContain("discard"); // gaps between dashes
+    expect(material.uniforms.uTimeS).toBeUndefined(); // static: nothing animates
     overlay.dispose();
   });
 
-  it("animates through the time uniform only, and rebuilds when the model changes (e.g. a reroute) or the origin moves", () => {
+  it("rebuilds only when the model changes (e.g. a reroute) or the origin moves", () => {
     const scene = new Scene();
     const overlay = createFrontierSupplyOverlay(scene);
     const first = model();
     let placements = 0;
     const counting = (x: number, y: number) => { placements += 1; return sceneFor(x, y); };
 
-    overlay.sync(first, counting, "origin-a", "#3fa9f5", 0);
+    overlay.sync(first, counting, "origin-a", "#3fa9f5");
     const afterFirst = placements;
-    overlay.sync(first, counting, "origin-a", "#3fa9f5", 500);
+    overlay.sync(first, counting, "origin-a", "#3fa9f5");
     expect(placements).toBe(afterFirst);
-    expect(meshes(scene).material.uniforms.uTimeS!.value).toBeCloseTo(0.5, 5);
 
-    const rerouted: FrontierSupplyModel = { links: [{ ...first.links[0]!, to: { x: 1, y: 1 }, tip: true }] };
-    overlay.sync(rerouted, counting, "origin-a", "#3fa9f5", 600);
+    const rerouted: FrontierSupplyModel = { links: [{ ...first.links[0]!, to: { x: 1, y: 1 }, tip: true }], cuts: first.cuts };
+    overlay.sync(rerouted, counting, "origin-a", "#3fa9f5");
     expect(placements).toBeGreaterThan(afterFirst);
 
     const beforeMove = placements;
-    overlay.sync(rerouted, counting, "origin-b", "#3fa9f5", 700);
+    overlay.sync(rerouted, counting, "origin-b", "#3fa9f5");
     expect(placements).toBeGreaterThan(beforeMove);
     overlay.dispose();
   });
 
-  it("hides itself when there is nothing beyond reach", () => {
+  it("hides itself when nothing is fragile", () => {
     const scene = new Scene();
     const overlay = createFrontierSupplyOverlay(scene);
-    overlay.sync({ links: [] }, sceneFor, "origin-a", "#3fa9f5", 0);
-    expect(meshes(scene).routes.visible).toBe(false);
+    overlay.sync({ links: [], cuts: [] }, sceneFor, "origin-a", "#3fa9f5");
+    expect(meshes(scene).mesh.visible).toBe(false);
     overlay.dispose();
   });
 });

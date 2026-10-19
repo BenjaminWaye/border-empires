@@ -1,16 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import { drawFrontierSupply2D, type FrontierSupply2DDeps } from "./client-frontier-supply-2d.js";
-import type { FrontierSupplyModel } from "./client-frontier-supply.js";
+import type { FrontierSupplyLink, FrontierSupplyModel } from "./client-frontier-supply.js";
+import { SUPPLY_DASH_GAP, SUPPLY_DASH_LENGTH, SUPPLY_LINE_ALPHA } from "./client-frontier-supply-style.js";
 
-type Call = { op: string; args: number[]; alpha: number; stroke: string; fill: string; lineWidth: number };
+type Call = { op: string; args: unknown[]; alpha: number; stroke: string; lineWidth: number; dashOffset: number };
 
 /** Records path/style calls so the test can check what was drawn, without a real canvas. */
 const recordingContext = (): { ctx: CanvasRenderingContext2D; calls: Call[] } => {
   const calls: Call[] = [];
-  const state = { globalAlpha: 1, strokeStyle: "", fillStyle: "", lineWidth: 1, lineCap: "butt", lineJoin: "miter" };
-  const record = (op: string) => (...args: number[]) => {
-    calls.push({ op, args, alpha: state.globalAlpha, stroke: String(state.strokeStyle), fill: String(state.fillStyle), lineWidth: state.lineWidth });
+  const state = { globalAlpha: 1, strokeStyle: "", fillStyle: "", lineWidth: 1, lineCap: "butt", lineJoin: "miter", lineDashOffset: 0 };
+  const record = (op: string) => (...args: unknown[]) => {
+    calls.push({ op, args, alpha: state.globalAlpha, stroke: String(state.strokeStyle), lineWidth: state.lineWidth, dashOffset: state.lineDashOffset });
   };
   const ctx = new Proxy(state, {
     get: (target, prop: string) => (prop in target ? target[prop as keyof typeof target] : record(prop))
@@ -24,83 +25,54 @@ const deps = (overrides: Partial<FrontierSupply2DDeps> = {}): FrontierSupply2DDe
   viewportWidth: 640,
   viewportHeight: 480,
   ownerColor: "#3fa9f5",
-  nowMs: 0,
   ...overrides
 });
 
-const link = (fromX: number, toX: number, extra: { downstream?: number; depth?: number; tip?: boolean } = {}) => ({
-  from: { x: fromX, y: 2 },
-  to: { x: toX, y: 2 },
-  depthBeyondReach: extra.depth ?? toX - 2,
-  downstream: extra.downstream ?? 1,
-  tip: extra.tip ?? true
-});
+const link = (fromX: number, toX: number, y = 2, tip = true): FrontierSupplyLink => ({ from: { x: fromX, y }, to: { x: toX, y }, tip });
 
 const strokes = (calls: Call[]) => calls.filter((call) => call.op === "stroke");
-const fills = (calls: Call[]) => calls.filter((call) => call.op === "fill");
 
 describe("drawFrontierSupply2D", () => {
-  it("strokes each route as a dark shadow edge, an empire-coloured body and a light core, then fills an arrowhead at the tip", () => {
+  it("strokes each route once as a thin, faint dashed line in a pale empire tint, with no fills", () => {
     const { ctx, calls } = recordingContext();
-    const model: FrontierSupplyModel = { links: [link(2, 3, { downstream: 2, tip: false }), link(3, 4)] };
-    drawFrontierSupply2D(ctx, model, deps());
-    const colours = strokes(calls).map((call) => call.stroke);
-    expect(colours).toContain("#05080d");
-    expect(colours).toContain("#3fa9f5");
-    expect(colours).toContain("#ffffff");
-    // Shadow is the widest layer, the core the narrowest.
-    const widthOf = (colour: string) => Math.max(...strokes(calls).filter((call) => call.stroke === colour).map((call) => call.lineWidth));
-    expect(widthOf("#05080d")).toBeGreaterThan(widthOf("#3fa9f5"));
-    expect(widthOf("#3fa9f5")).toBeGreaterThan(widthOf("#ffffff"));
-    expect(fills(calls).some((call) => call.fill === "#3fa9f5")).toBe(true); // arrowhead body
+    drawFrontierSupply2D(ctx, { links: [link(2, 3, 2, false), link(3, 4)], cuts: [] }, deps());
+    const lines = strokes(calls);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]!.stroke).not.toBe("#3fa9f5"); // lifted toward white
+    expect(lines[0]!.stroke).toMatch(/^#[0-9a-f]{6}$/);
+    expect(lines[0]!.alpha).toBe(SUPPLY_LINE_ALPHA);
+    expect(lines[0]!.lineWidth).toBeLessThanOrEqual(2);
+    const dash = calls.find((call) => call.op === "setLineDash")!;
+    expect(dash.args[0]).toEqual([SUPPLY_DASH_LENGTH * 32, SUPPLY_DASH_GAP * 32]);
+    expect(calls.some((call) => call.op === "fill")).toBe(false);
   });
 
-  it("draws the route thicker where it feeds more land", () => {
-    const thick = recordingContext();
-    drawFrontierSupply2D(thick.ctx, { links: [link(2, 3, { downstream: 9 })] }, deps());
-    const thin = recordingContext();
-    drawFrontierSupply2D(thin.ctx, { links: [link(2, 3, { downstream: 1 })] }, deps());
-    const bodyWidth = (calls: Call[]) => Math.max(...strokes(calls).filter((call) => call.stroke === "#3fa9f5").map((call) => call.lineWidth));
-    expect(bodyWidth(thick.calls)).toBeGreaterThan(bodyWidth(thin.calls));
+  it("draws a solid ring on each cut tile", () => {
+    const { ctx, calls } = recordingContext();
+    drawFrontierSupply2D(ctx, { links: [link(2, 3)], cuts: [{ x: 2, y: 2 }] }, deps());
+    const arc = calls.find((call) => call.op === "arc")!;
+    expect(arc.args.slice(0, 2)).toEqual([2 * 32 + 16, 2 * 32 + 16]);
+    // The ring is stroked after the dash pattern is cleared.
+    const clearDash = calls.findIndex((call) => call.op === "setLineDash" && (call.args[0] as number[]).length === 0);
+    expect(clearDash).toBeGreaterThanOrEqual(0);
+    expect(calls.indexOf(arc)).toBeGreaterThan(clearDash);
   });
 
-  it("skips routes that are entirely off screen, and draws nothing for an empty model", () => {
+  it("offsets each branch's dashes by its distance from the cut, so the pattern runs on through a fork", () => {
+    const { ctx, calls } = recordingContext();
+    // Trunk 2 -> 3, then branches 3 -> 4 (y=2) and 3 -> (4,3).
+    const fork: FrontierSupplyModel = { links: [link(2, 3, 2, false), link(3, 4), { from: { x: 3, y: 2 }, to: { x: 4, y: 3 }, tip: true }], cuts: [] };
+    drawFrontierSupply2D(ctx, fork, deps());
+    const offsets = strokes(calls).map((call) => call.dashOffset).sort((a, b) => a - b);
+    expect(offsets).toEqual([0, 32, 32]);
+  });
+
+  it("skips routes and rings that are entirely off screen, and draws nothing for an empty model", () => {
     const far = recordingContext();
-    drawFrontierSupply2D(far.ctx, { links: [{ ...link(2, 3), from: { x: 90, y: 90 }, to: { x: 91, y: 90 } }] }, deps());
+    drawFrontierSupply2D(far.ctx, { links: [{ from: { x: 90, y: 90 }, to: { x: 91, y: 90 }, tip: true }], cuts: [{ x: 90, y: 90 }] }, deps());
     expect(strokes(far.calls)).toHaveLength(0);
     const empty = recordingContext();
-    drawFrontierSupply2D(empty.ctx, { links: [] }, deps());
+    drawFrontierSupply2D(empty.ctx, { links: [], cuts: [] }, deps());
     expect(empty.calls).toHaveLength(0);
-  });
-
-  it("keeps the steady route pale so only the travelling pulses stand out", () => {
-    const { ctx, calls } = recordingContext();
-    drawFrontierSupply2D(ctx, { links: [link(2, 8, { depth: 1 })] }, deps({ nowMs: 1000 }));
-    const bodyAlphas = strokes(calls).filter((call) => call.stroke === "#3fa9f5").map((call) => call.alpha);
-    expect(Math.min(...bodyAlphas)).toBeLessThan(0.2); // the resting ribbon
-    expect(Math.max(...bodyAlphas)).toBeGreaterThan(0.3); // a pulse passing
-  });
-
-  it("strokes the pulse layer by layer, so a pulse's shadow never lands on its own bright head", () => {
-    const { ctx, calls } = recordingContext();
-    const chain = [2, 3, 4, 5, 6, 7].map((x) => link(x, x + 1, { depth: 1, tip: false }));
-    drawFrontierSupply2D(ctx, { links: chain }, deps({ nowMs: 1000 }));
-    const all = strokes(calls);
-    // Pulse heads are the widest white strokes (the steady core is narrower).
-    const headWidth = Math.max(...all.filter((call) => call.stroke === "#ffffff").map((call) => call.lineWidth));
-    const firstHead = all.findIndex((call) => call.stroke === "#ffffff" && call.lineWidth === headWidth);
-    expect(firstHead).toBeGreaterThanOrEqual(0);
-    expect(all.slice(firstHead).some((call) => call.stroke === "#05080d")).toBe(false);
-  });
-
-  it("lights the tip arrowhead only as a pulse reaches it", () => {
-    const arrowBody = (nowMs: number) => {
-      const { ctx, calls } = recordingContext();
-      drawFrontierSupply2D(ctx, { links: [link(2, 3, { depth: 1 })] }, deps({ nowMs }));
-      return fills(calls).find((call) => call.fill === "#3fa9f5")!.alpha;
-    };
-    const samples = Array.from({ length: 40 }, (_, i) => arrowBody(i * 50));
-    expect(Math.min(...samples)).toBeLessThan(0.2);
-    expect(Math.max(...samples)).toBeGreaterThan(0.6);
   });
 });

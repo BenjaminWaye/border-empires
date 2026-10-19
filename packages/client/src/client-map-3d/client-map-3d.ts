@@ -1390,13 +1390,12 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     selectionRangeOverlays.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin }); syncDockRoutes(deps.state, sceneOrigin, deps.resolveDockSeaRoute, deps.isDockRouteVisibleForPlayer);
     placementOverlay.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin });
     syncAetherBridgePylons(deps.state.activeAetherBridges, nowMs); syncAetherWallPylons(deps.state.activeAetherWalls, nowMs);
-    // Frontier supply lines (3D; the 2D path is client-frontier-supply-2d.ts): chevrons into frontier beyond reach, amber chokepoints.
+    // Frontier supply lines (3D; the 2D path is client-frontier-supply-2d.ts): dashed lines out to fragile land beyond reach, a ring on the tile it hangs on.
     frontierSupplyOverlay.sync(
       frontierSupplyModelForState(deps.state),
       (x, y) => ({ sceneX: toroidDelta(sceneOrigin.camX, x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(x, y) }),
       `${sceneOrigin.camX},${sceneOrigin.camY}`,
-      deps.effectiveOverlayColor(deps.state.me),
-      nowMs
+      deps.effectiveOverlayColor(deps.state.me)
     );
     syncAetherLanceFxQueue();
     syncSurveySweepFxQueue();
