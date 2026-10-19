@@ -63,6 +63,7 @@
  * popup) and let the row wrap only on narrower screens, instead of
  * equal-width columns that squeeze a long label onto two lines. */
 .tile-menu-tab {
+  position: relative; /* anchors the corner unread badge on the Combat tab */
   flex: 1 1 auto;
   padding: 0 6px;
   white-space: nowrap;

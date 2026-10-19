@@ -372,7 +372,7 @@ export const tileActionMenuHtml = (view: TileMenuView, activeTab: TileMenuTab, m
   const tabsHtml =
     view.tabs.length > 1
       ? `<div class="tile-menu-tabs">${view.tabs
-          .map((tab) => `<button class="tile-menu-tab${tab === activeTab ? " is-active" : ""}" type="button" data-tile-tab="${tab}">${tileMenuTabLabel(tab)}${tab === "reports" && view.musterReports?.unread ? `<span class="muster-reports-tab-badge" aria-label="${view.musterReports.unread} unread reports">${view.musterReports.unread}</span>` : ""}</button>`)
+          .map((tab) => `<button class="tile-menu-tab${tab === activeTab ? " is-active" : ""}" type="button" data-tile-tab="${tab}">${tileMenuTabLabel(tab)}${tab === "reports" && view.musterReports?.unread ? ` <span class="muster-reports-tab-badge" aria-label="${view.musterReports.unread} unread reports">${view.musterReports.unread}</span>` : ""}</button>`)
           .join("")}</div>`
       : "";
   return `
