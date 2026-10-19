@@ -449,9 +449,19 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["Ground at the fog's edge now stays under the storm, so the fog and its glowing edge stay unbroken next to mountains"]
   },
   ...RELIABLE_DIPLOMACY_CHANGELOG,
-  ...AFC_UPGRADES_ICON_CHANGELOG,
   ...GAMEPLAY_SETTINGS_CLEANUP_CHANGELOG,
-  ...MUSTER_BANNER_CHANGELOG
+  ...AFC_UPGRADES_ICON_CHANGELOG,
+  ...MUSTER_BANNER_CHANGELOG,
+  {
+    createdAt: 1792442407428, // Date.now() captured for this entry.
+    introducedIn: "2026.10.19.4",
+    title: "Free AFC upgrades appear correctly after login",
+    why: "New-campaign players could see the old paid catalogue before choosing their first upgrade.",
+    changes: [
+      "Login and reconnect show free AFC choices unlocked by your Manifest tiers",
+      "All 30 upgrade cards use short effect lines with percentages; expanded details explain conditions"
+    ]
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
