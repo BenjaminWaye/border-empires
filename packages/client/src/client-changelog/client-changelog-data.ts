@@ -488,7 +488,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Reliable diplomacy updates",
     why: "Repeated truce, alliance and diplomacy payment updates could collide in command storage.",
     changes: ["Internal diplomacy updates now save independently while player commands retain duplicate protection",
-      "Active truces now survive a server restart alongside alliances"]
+      "Active truces now survive a server restart alongside alliances",
+      "Startup reconciles active truces and offline expirations; crash recovery replays later relationship changes"]
   }
 ];
 

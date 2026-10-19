@@ -219,7 +219,7 @@ const updateResolved = db.prepare(`UPDATE command_results SET status = 'RESOLVED
 const selectByCommandId = db.prepare(`${SELECT_JOINED} WHERE c.command_id = ?`);
 const selectByPlayerSeq = db.prepare(`${SELECT_JOINED} WHERE c.player_id = ? AND c.client_seq = ? AND ${CLIENT_SEQUENCE_PREDICATE}`);
 const selectUnresolvedForPlayer = db.prepare(
-  `${SELECT_JOINED} WHERE c.player_id = ? AND r.status IN ('QUEUED', 'ACCEPTED') ORDER BY c.client_seq ASC`
+  `${SELECT_JOINED} WHERE c.player_id = ? AND ${CLIENT_SEQUENCE_PREDICATE} AND r.status IN ('QUEUED', 'ACCEPTED') ORDER BY c.client_seq ASC`
 );
 const selectNextClientSeq = db.prepare(`SELECT COALESCE(MAX(client_seq), 0) + 1 AS next_seq FROM commands WHERE player_id = ?`);
 

@@ -66,8 +66,10 @@ describe("WorkerBackedGatewayCommandStore", () => {
       store = new WorkerBackedGatewayCommandStore({ sqlitePath, applySchema: true });
       await store.waitUntilReady();
       expect(await store.findByPlayerSeq("player-1", 0)).toBeUndefined();
+      expect(await store.listUnresolvedForPlayer("player-1")).toEqual([]);
       const stored = await store.persistQueuedCommand(makeCommand({ commandId: "client-zero", clientSeq: 0 }), 1100);
       expect(stored.commandId).toBe("client-zero");
+      expect((await store.listUnresolvedForPlayer("player-1")).map(c => c.commandId)).toEqual(["client-zero"]);
       const duplicate = await store.persistQueuedCommand(makeCommand({ commandId: "duplicate-zero", clientSeq: 0 }), 1200);
       expect(duplicate.commandId).toBe("client-zero");
       expect(await store.get("social-2")).toMatchObject({ commandId: "social-2" });
