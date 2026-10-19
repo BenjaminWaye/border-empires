@@ -111,6 +111,7 @@ const render = (args: Args): HTMLElement => {
     transitOverlay.tick(now);
 
     supplyLine.tick(now);
+    flagOverlay.tick(now);
 
     targetOverlay.clear();
     targetOverlay.addInstance(target.x, target.z, groundY, cycleStart + cycleMs);
@@ -132,7 +133,7 @@ const meta: Meta<Args> = {
       description: {
         component:
           "Travel-time concept using real game assets: a company marches hop-by-hop from the muster flag " +
-          "(client-map-3d-muster-overlay tower) along the real tile route (client-map-3d-supply-line-overlay, one segment per hop) " +
+          "(client-map-3d-muster-overlay banner) along the real tile route (client-map-3d-supply-line-overlay, one segment per hop) " +
           "to the attacked tile (client-map-3d-attack-overlay's target X), then loops. The DockCrossing story shows a route with " +
           "one long dock hop, which the company dashes across in the same time as any other single hop, never stretching the " +
           "whole march to account for it. Distance/pacing are illustrative — this is the design review for the visualization " +

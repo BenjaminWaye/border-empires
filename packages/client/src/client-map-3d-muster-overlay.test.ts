@@ -1,65 +1,80 @@
-import { InstancedMesh, Scene } from "three";
+import { Color, InstancedMesh, Scene } from "three";
 import { describe, expect, it } from "vitest";
 
+import { BANNER_CLOTH, bannerRestPoint, MUSTER_PLINTH_RADIUS, MUSTER_PLINTH_TOP_Y } from "./client-map-3d-muster-banner/muster-banner-geometry.js";
 import { createMusterOverlay } from "./client-map-3d-muster-overlay.js";
 
-describe("3d muster overlay z-index regression guard", () => {
-  it("renders every muster mesh in the transparent pass so renderOrder beats the ownership overlay", () => {
-    // Three.js always draws the opaque pass before the transparent pass,
-    // regardless of renderOrder. The ownership overlay (client-map-3d-
-    // ownership-overlay.ts) is transparent with renderOrder 6-7, so if the
-    // muster tower/soldier meshes stay in the opaque bucket, the overlay
-    // paints over them every frame no matter how high their renderOrder is
-    // set. Every muster mesh must opt into the transparent pass, and every
-    // renderOrder must clear the ownership overlay's highest (7).
+const meshNamed = (scene: Scene, name: string): InstancedMesh => {
+  const mesh = scene.getObjectByName(name);
+  if (!(mesh instanceof InstancedMesh)) throw new Error(`missing ${name}`);
+  return mesh;
+};
+
+describe("3d muster banner overlay", () => {
+  it("draws the banner as lit, depth-tested, shadow-casting pieces like the towns", () => {
+    // The ownership overlay depth-tests now (client-map-3d-ownership-overlay.ts),
+    // so a depth-tested piece is no longer painted over by the territory tint.
     const scene = new Scene();
     const overlay = createMusterOverlay(scene);
-    const meshes = scene.children.filter(
-      (c): c is InstancedMesh => c instanceof InstancedMesh
-    );
-
-    // 19 tower parts (base ring, pedestal, glow ring, cannons, smoke,
-    // trunk, bands, banner assembly, medallion, wings, dome, spire) + soldiers.
-    expect(meshes.length).toBe(20);
-    for (const mesh of meshes) {
-      const material = mesh.material as { transparent?: boolean; depthTest?: boolean; depthWrite?: boolean };
-      expect(material.transparent).toBe(true);
-      expect(material.depthTest).toBe(false);
-      expect(material.depthWrite).toBe(false);
-      expect(mesh.renderOrder).toBeGreaterThan(7);
+    for (const name of ["body", "metal", "enamel", "cloth"]) {
+      const mesh = meshNamed(scene, `muster-banner-${name}`);
+      const material = mesh.material as { depthTest: boolean; transparent: boolean };
+      expect(material.depthTest).toBe(true);
+      expect(material.transparent).toBe(false);
+      expect(mesh.castShadow).toBe(true);
+      expect(mesh.customDepthMaterial).toBeDefined();
     }
-
     overlay.dispose();
   });
 
-  it("still renders one tower per mustering tile after the fix", () => {
+  it("puts one banner on each mustering tile, tinted in the owner's colour", () => {
     const scene = new Scene();
     const overlay = createMusterOverlay(scene);
-    const meshes = scene.children.filter(
-      (c): c is InstancedMesh => c instanceof InstancedMesh
-    );
-    // Single-instance-per-tile part (base glow ring) vs. a mirrored
-    // left/right part (the two side cannons) — both should scale with
-    // the number of mustering tiles, just at different multiples.
-    const singleInstancePart = meshes.find((m) => m.instanceMatrix.count === 256)!;
-    const mirroredPart = meshes.find((m) => m.instanceMatrix.count === 512)!;
+    const body = meshNamed(scene, "muster-banner-body");
+    const enamel = meshNamed(scene, "muster-banner-enamel");
+    const cloth = meshNamed(scene, "muster-banner-cloth");
+    const soldiers = scene.children.find((c): c is InstancedMesh => c instanceof InstancedMesh && !c.name)!;
 
-    overlay.addMuster(1, 2, 0, 0.5, "#ff0000", false, 1, 2);
+    overlay.addMuster(1, 2, 0.3, 0.5, "#ff0000", false, 1, 2);
+    overlay.addMuster(4, 5, 0.1, 0.5, "#00ff00", true, 4, 5);
     overlay.commit();
     overlay.tick(0);
 
-    expect(singleInstancePart.count).toBe(1);
-    expect(mirroredPart.count).toBe(2);
-    const soldierMesh = meshes[meshes.length - 1]!;
-    expect(soldierMesh.count).toBeGreaterThanOrEqual(3);
+    expect(body.count).toBe(2);
+    expect(enamel.count).toBe(2);
+    expect(cloth.count).toBe(2);
+    // All four parts share the body's transforms.
+    expect(cloth.instanceMatrix).toBe(body.instanceMatrix);
+    expect(soldiers.count).toBeGreaterThanOrEqual(6);
+
+    const color = new Color();
+    cloth.getColorAt(0, color);
+    expect(color.getHexString()).toBe("ff0000");
+    // ADVANCE lifts the colour toward white and whips the banner faster.
+    cloth.getColorAt(1, color);
+    expect(color.r).toBeGreaterThan(0.2);
+    const wind = cloth.geometry.getAttribute("aBannerWind");
+    expect(wind.getY(0)).toBe(1);
+    expect(wind.getY(1)).toBeGreaterThan(1);
 
     overlay.clear();
     overlay.commit();
     overlay.tick(0);
-    expect(singleInstancePart.count).toBe(0);
-    expect(mirroredPart.count).toBe(0);
-    expect(soldierMesh.count).toBe(0);
-
+    expect(body.count).toBe(0);
+    expect(cloth.count).toBe(0);
+    expect(soldiers.count).toBe(0);
     overlay.dispose();
+  });
+
+  it("hangs the banner from its crossbar to a pointed tail, clear of the plinth and inside its tile", () => {
+    const tip = bannerRestPoint(0.5, 0);
+    const corner = bannerRestPoint(0, 0);
+    // The middle of the hem hangs lowest: the gonfalon's pointed tail.
+    expect(tip.y).toBeLessThan(corner.y);
+    // Even with the wind swinging it out, the tail stays well above the plinth top.
+    expect(tip.y).toBeGreaterThan(MUSTER_PLINTH_TOP_Y + 0.2);
+    expect(bannerRestPoint(0, 1).y).toBe(BANNER_CLOTH.topY);
+    expect(Math.abs(bannerRestPoint(1, 0.5).x)).toBeLessThan(0.5);
+    expect(MUSTER_PLINTH_RADIUS * 1.03).toBeLessThan(0.5);
   });
 });
