@@ -8,8 +8,9 @@
 // the side on a slow, irregular gust. Normals come from finite differences
 // of the same function, so the folds catch the sun and shade properly on
 // both faces. The fragment pass paints the gonfalon's livery over the
-// owner's colour (per-instance instanceColor): pale side bands, a brass
-// hem and a cog device in the middle.
+// owner's colour (per-instance instanceColor): pale side bands with a
+// running stitch, a brass hem over a ragged gold fringe, and an outlined
+// cog device in the middle.
 //
 // Per instance, `aBannerWind` = (phase 0..1, speed multiplier): banners
 // across the map don't billow in lockstep, and ADVANCE-mode banners whip faster.
@@ -34,6 +35,8 @@ const float BANNER_Z = ${glslFloat(BANNER_CLOTH.z)};
 const float BANNER_WIDTH = ${glslFloat(BANNER_CLOTH.width)};
 const float BANNER_HEIGHT = ${glslFloat(BANNER_CLOTH.height)};
 const float BANNER_TAIL = ${glslFloat(BANNER_CLOTH.tail)};
+const float BANNER_FRINGE = ${glslFloat(BANNER_CLOTH.fringe)};
+const float BANNER_FRINGE_PITCH = 0.008;
 float bannerColumnLength(float u) {
   return BANNER_HEIGHT * (1.0 - BANNER_TAIL * abs(2.0 * u - 1.0));
 }
@@ -115,17 +118,27 @@ const COLOR_PATCH = /* glsl */ `
   // Distances in tile units from the side edges and from the hem.
   float side = min(u, 1.0 - u) * BANNER_WIDTH;
   float hem = (1.0 - drop) * column;
+  // Gold fringe along the hem: strands of slightly ragged length with gaps between.
+  float strandAt = u * BANNER_WIDTH / BANNER_FRINGE_PITCH;
+  float strandLength = BANNER_FRINGE * (0.72 + 0.28 * fract(sin(floor(strandAt) * 91.7) * 43758.5));
+  float fringe = 1.0 - step(strandLength, hem);
+  if (fringe > 0.5 && abs(fract(strandAt) - 0.5) > 0.3) discard;
   float band = bannerFill(side - BANNER_WIDTH * 0.15);
-  float trim = max(bannerFill(hem - 0.014), bannerFill(side - 0.008));
+  float trim = max(bannerFill(hem - BANNER_FRINGE - 0.012), bannerFill(side - 0.008));
+  // Running stitch where the side bands meet the panel.
+  float seam = bannerFill(abs(side - BANNER_WIDTH * 0.15) - 0.0025) * step(0.45, fract(drop * column / 0.016));
   vec2 cogP = vec2((u - 0.5) * BANNER_WIDTH, (0.42 - drop) * column) / (BANNER_WIDTH * 0.5);
   float device = bannerCog(cogP / 0.8);
+  float outline = clamp(bannerCog(cogP / 0.92) - device, 0.0, 1.0);
   // Folds turned away from the camera sit in their own shade.
   float shade = 0.84 + 0.16 * (vBannerFold * 0.5 + 0.5);
   // On light (yellow, gold) banners the brass thread would vanish: darken it to bronze.
   float clothLuma = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
   vec3 thread = uBannerTrim * mix(1.0, 0.4, smoothstep(0.3, 0.45, clothLuma));
   diffuseColor.rgb = mix(diffuseColor.rgb, uBannerBand, band);
-  diffuseColor.rgb = mix(diffuseColor.rgb, thread, max(trim, device));
+  diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.45, outline);
+  diffuseColor.rgb = mix(diffuseColor.rgb, thread * 0.7, seam);
+  diffuseColor.rgb = mix(diffuseColor.rgb, thread, max(max(trim, device), fringe));
   diffuseColor.rgb *= shade;
 }
 `;

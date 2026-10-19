@@ -6,6 +6,7 @@ import {
   Matrix4,
   MeshBasicMaterial,
   MeshDepthMaterial,
+  MeshPhysicalMaterial,
   MeshStandardMaterial,
   Object3D,
   RGBADepthPacking,
@@ -104,8 +105,11 @@ export const createMusterOverlay = (scene: Scene, envMap?: Texture): MusterOverl
   // Matches the towns' matte stone and AFC-style metalwork (client-map-3d-town-overlay.ts).
   const bodyMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0.02, flatShading: true });
   const metalMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.7, flatShading: true });
-  // Glossy enamel in the owner's colour, from instanceColor.
-  const enamelMaterial = new MeshStandardMaterial({ color: "#ffffff", roughness: 0.35, metalness: 0.15, flatShading: true });
+  // Lacquered enamel in the owner's colour, from instanceColor: a clearcoat
+  // over the paint, like a premium miniature's varnish.
+  const enamelMaterial = new MeshPhysicalMaterial({
+    color: "#ffffff", roughness: 0.4, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.12, flatShading: true
+  });
   for (const material of [bodyMaterial, metalMaterial, enamelMaterial]) applyBuildingEnvMap(material, envMap);
   const clothMaterials = createMusterBannerClothMaterials();
   applyBuildingEnvMap(clothMaterials.cloth, envMap);
