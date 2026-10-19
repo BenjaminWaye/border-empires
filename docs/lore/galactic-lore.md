@@ -1,10 +1,17 @@
-# Border Empires — Galactic Lore
+# Border Empires — World Bible
 
-Status: canonical lore reference
+Status: canonical world bible
 
-A worldbible for the galactic layer of Border Empires: the setting behind
-the Sector campaigns, the Court that stages them, and the forces that make
-holding ground on the frontier dangerous.
+The authoritative home for established Border Empires fiction: its setting,
+Houses, planetary economy and imported capabilities. Begin with the
+[lore index and maintenance rules](README.md).
+
+Canon describes the fiction; it does not certify that every described system
+has shipped. Current gameplay and numerical rules live in
+[game mechanics](../game-mechanics.md) and the
+[economy reference](../product/resource-and-manpower-economy.md), backed by
+the rewrite runtime. Implementation plans and character accounts do not
+override this document. Open canon questions are recorded in §14.
 
 ---
 
@@ -266,9 +273,15 @@ Court asks so little of a Duke who raises them.
 
 Two flags cannot own the same ground. Where a rival's anchor reaches land
 that a Duke's own anchors no longer cover, the rival's claim stands and the
-Duke's hold there thins from settled ground back to open frontier. A claim
-holds only as long as some anchor of the Duke's still covers it; the
-beacon is the cheapest way to keep that true.
+Duke's hold there thins from settled ground back to open frontier.
+
+A Duke can also push a supplied frontier beyond anchored ground. That
+frontier depends on an unbroken supply route back to established holdings;
+an enemy who cuts the route can strip away the exposed advance. Being
+outside reach alone does not erase the claim. Beacons extend the ground
+that can be settled and watched; supply determines whether an advance
+beyond it can be held. The exact supply and settlement rules belong in
+the [gameplay reference](../game-mechanics.md).
 
 ### What a beacon looks like
 
@@ -280,3 +293,171 @@ small aether-gas tank with brass feed pipes mark it as a working piece of
 anchor machinery rather than a fortress. It has no walls, no crenellations
 and no weapon mounts, so it stands tall, open and unarmoured, and reads at
 a glance against the squat, armed Siege Battery.
+
+## 11. Houses and the planetary economy
+
+### Knowledge, landings and seasons
+
+A House does not forget how to build things between planets. Each seasonal
+invasion begins with a deliberately limited landing package: an Automated
+Fabrication Complex (AFC), basic House knowledge and standard equipment.
+The AFC is the opening capital; the starting package does not also require
+a separate Settlement-tier town. The House takes towns and develops their
+output into the means of commissioning further assets.
+
+Machines, crews and services commissioned for a campaign remain deployed on
+that planet. On another seasonal world, the House retains its knowledge but
+must commission the equipment and personnel needed there. The relationship
+between campaign resets and permanent ducal holdings remains a canon
+question in §14.
+
+### Coin and local production
+
+**Coin is offworld purchasing credit backed by planetary output.** It is a
+recognised claim on the food, freight, ore, manufacturing, tolls and future
+exports controlled by the House. The House factor accepts that claim
+because the House controls the output behind it.
+
+Coin is paid offworld through the factor for machines fabricated elsewhere,
+transported crews and instruments, Imperial market access and project
+supply chains. It does not represent wages paid to local workers, local
+permission to use things already owned, or generic research into forgotten
+knowledge.
+
+Terrain shapes a town's livelihood and the surplus the House can exploit:
+fertile land supports food and population; coasts support freight, ports and
+trade; mountains and deposits support extraction; arid ground can support
+salvage, concessions or specialised extraction. These are the fictional basis
+for terrain-linked town identity and economic potential. They do not set
+income values or introduce a separate population-valuation system.
+
+A **Manufactory** expands the local production of goods backing Coin credit.
+Several Manufactories represent a larger industrial base around a town.
+They do not mint the offworld credit itself. The historical building name
+Mintworks has been replaced by Manufactory; exact income, stacking and
+Clearing House effects are maintained in the economy reference.
+
+### Manpower and materials
+
+**Manpower** represents bodies under House control, including captured or
+remade bodies. It is the capacity committed to expansion, armies and
+construction. Its numerical pool, regeneration and relationship to town
+population are gameplay rules.
+
+Food supports people and local development. Titanium and Umbrite are
+strategic materials used in machinery, construction and military equipment.
+Crystal is usable aether (§3), and Shards are fragments of the shattered
+Engine. These meanings do not prescribe stockpiles, resource-slot costs or
+per-cast consumption: those details follow the current gameplay reference.
+
+## 12. Manifests and AFC modules
+
+A **Manifest** names the specific offworld asset or service being
+commissioned. A House buys the means to exercise a capability on this
+planet, rather than discovering knowledge it already possessed.
+
+| Manifest category | What the House commissions | Physical expression |
+|---|---|---|
+| AFC Module | Durable imported machinery enabling a category of capability | A machine delivered to and attached to an AFC |
+| Crew / Office / Consignment | Personnel, instruments, genetic stock or a specialist service | Transported people or cargo; no large AFC machine is implied |
+| Charter / Warrant | Offworld market access, Imperial recognition or a factor service | An offworld commercial arrangement |
+| Dossier | Access to a unique Great Project's supply chain | Enables local preparations and eventual Project Core delivery/activation |
+
+### AFCs as industrial seeds
+
+The AFC is the House's imported industrial seed and delivery point. A module
+is a substantial machine that lets the House fabricate, operate or deploy
+an entire category of capability. Being technical is not by itself a reason
+to classify something as a module.
+
+The **Industrial Tooling Module** is a precision toolmaking system. It
+fabricates and refurbishes machine tools, press dies, gauges and replacement
+parts from local materials for the planet's workshops. A reusable toolmaking
+capability equips an expanding local industrial base; each Manufactory does
+not require another one-off shipment of all its equipment.
+
+The distinction matters visually as well as economically: the tooling module
+is a docked AFC machine, while the Manufactories it equips are separate
+local industrial buildings. Their ongoing construction, module availability
+and resource backing follow the economy reference.
+
+### House copies and captured machinery
+
+A commissioned House module is a physical asset assigned to an AFC. House
+copies can be redeployed among owned AFCs. Capturing an AFC transfers its
+installed machinery as captured copies; the captor does not acquire the
+original House's redeployment rights. Losing an AFC does not erase the
+House's knowledge or every local building previously enabled by it.
+
+Dock capacity, delivery times, replacement handling and construction gates
+are operational rules. Keep their current values and implementation in the
+gameplay references and code, rather than repeating numbers here.
+
+### Campaign specialization
+
+Manifests commission specific machines, offices, warrants and services. As the
+expedition commissions greater capabilities, it gains capacity to specialize
+its AFC and administration. These configurations put the expedition's assets
+to work in a chosen style; they do not represent another purchase of the same
+Manifest capability. The six directions are assault coordination (Vanguard),
+fort fabrication and ward control (Bastion), surveying and settlement (Dominion),
+a compact commercial core (Exchequer), Aether operations (Oracle), and Court
+representation (Chancery). The [upgrade catalogue](../afc-specializations-catalog.md)
+explains each installation's physical or administrative basis.
+
+Court-facing upgrades equip the AFC's chancery with accredited envoys, trade
+registries, coalition dispatch and authority to invoke a campaign armistice.
+Their power comes from a recognized House commission and local agreements,
+administered through the headquarters. Staff, contracts and authority are part
+of the expedition's configuration alongside its physical machinery.
+
+These configurations belong to this expedition. Tower tuning depends on the
+planet's Aether conditions; survey networks, garrisons, towns and formations are
+local assets. Orbital consignments deliver people and equipment to those assets,
+and Court mandates and trading agreements apply to this Sector's contest. A
+later campaign commissions a fresh expedition with its own infrastructure and
+agreements. Losing every AFC during a campaign does not erase the House's
+installed administration or repeat a consignment when it rebuilds. Capturing an
+AFC transfers its physical machinery under the rules above, while specialization
+commissions remain with the House that established them.
+
+## 13. Great Projects
+
+A Dossier opens a unique project's offworld supply chain. Buying its plans
+does not reserve a global monopoly or prevent rivals from preparing their
+own works. The House constructs the required local components and ultimately
+commissions delivery/activation of the rare **Project Core**. It is that
+activation which secures the unique project.
+
+Coin pays for the Core and its activation, not an exclusive claim on a
+document. Construction stages, activation costs, uniqueness and refunds are
+maintained in the gameplay rules and runtime.
+
+## 14. Canon boundaries and open questions
+
+Sections 1–10 establish the setting, including the Court's galactic politics,
+Writs, succession and long-term ducal holdings. Their presence here does not
+establish that those metagame systems are implemented. Keep implementation
+status in gameplay references or explicitly labelled proposals.
+
+The following ambiguities are retained for an explicit canon decision. Do
+not infer new gameplay rules from them while implementing unrelated work.
+
+| Question | Established passages that need reconciling |
+|---|---|
+| World Cannon and Sovereign Siege Engine | §3 names the shattered artifact Sovereign Siege Engine but calls the reconstructed weapon World Cannon; the current Great Project is named Sovereign Siege Engine. Clarify whether World Cannon is a historical name, an alias or a distinct object. |
+| Rank before a first victory | §2 says winning grants the rank of Duke, while later passages call campaign participants Dukes. Define first-time contenders' rank and returning Dukes' participation. |
+| Permanent holdings and map resets | §2 grants permanent rights to a won world; §8 preserves titles but allows the map to reset. Define what persists across a seasonal campaign and an age ending with the Court's fall. |
+| Writs and the revolt | §7 says accepting a Writ restores the Court's grip; §8 says a Writ does not weaken the revolt. Clarify the relationship before assigning metagame effects. |
+
+### Consolidation sources
+
+The setting and character of §§1–10 are retained from the existing Galactic
+Lore reference. The supplied-frontier clarification follows the approved
+[current supply rules](../game-mechanics.md). §§11–13 consolidate the accepted
+fiction formerly kept in §§1–5 of the
+[Manifest implementation plan](../manifest-full-plan.md), including its
+resolved AFC-at-spawn correction. The Manufactory/tooling explanation follows
+the [economy reference](../product/resource-and-manpower-economy.md) and the
+approved Manufactory change. Those plans retain implementation history;
+future accepted lore changes belong here.

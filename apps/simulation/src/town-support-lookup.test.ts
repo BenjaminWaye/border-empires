@@ -121,31 +121,31 @@ describe("GREAT_CITY/METROPOLIS second ring", () => {
     expect(openTownSupportNeighborTiles(tiles, "p1", "10,10")).toHaveLength(0);
   });
 
-  it("townSupportStructureShowsOnTile recognizes MINTWORKS eligibility at distance 2 for a METROPOLIS town", () => {
+  it("townSupportStructureShowsOnTile recognizes MANUFACTORY eligibility at distance 2 for a METROPOLIS town", () => {
     const town = tile(10, 10, { ownerId: "p1", ownershipState: "SETTLED", town: { populationTier: "METROPOLIS" } });
     const farSupportTile = tile(8, 8, { ownerId: "p1", ownershipState: "SETTLED" }); // distance 2 (diagonal)
     const tiles = new Map<string, TownSupportTile>([
       ["10,10", town],
       ["8,8", farSupportTile]
     ]);
-    expect(townSupportStructureShowsOnTile(tiles, "p1", farSupportTile, "MINTWORKS")).toBe(true);
+    expect(townSupportStructureShowsOnTile(tiles, "p1", farSupportTile, "MANUFACTORY")).toBe(true);
   });
 });
 
 describe("townSupportStructureShowsOnTile", () => {
-  it("shows MINTWORKS on a plain settled tile adjacent to a town", () => {
+  it("shows MANUFACTORY on a plain settled tile adjacent to a town", () => {
     const town = tile(0, 0, { ownerId: "p1", ownershipState: "SETTLED", town: { populationTier: "TOWN" } });
     const supportTile = tile(1, 0, { ownerId: "p1", ownershipState: "SETTLED" });
     const tiles = new Map<string, TownSupportTile>([
       ["0,0", town],
       ["1,0", supportTile]
     ]);
-    expect(townSupportStructureShowsOnTile(tiles, "p1", supportTile, "MINTWORKS")).toBe(true);
+    expect(townSupportStructureShowsOnTile(tiles, "p1", supportTile, "MANUFACTORY")).toBe(true);
   });
 
-  it("does not show MINTWORKS on a settled tile with no adjacent town", () => {
+  it("does not show MANUFACTORY on a settled tile with no adjacent town", () => {
     const isolated = tile(5, 5, { ownerId: "p1", ownershipState: "SETTLED" });
     const tiles = new Map<string, TownSupportTile>([["5,5", isolated]]);
-    expect(townSupportStructureShowsOnTile(tiles, "p1", isolated, "MINTWORKS")).toBe(false);
+    expect(townSupportStructureShowsOnTile(tiles, "p1", isolated, "MANUFACTORY")).toBe(false);
   });
 });

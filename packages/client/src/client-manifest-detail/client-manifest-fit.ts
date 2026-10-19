@@ -3,9 +3,11 @@
 // concrete opportunity makes the Manifest pay off now:
 //   1. Resource lead: it reveals a resource and you have a survey report for
 //      it, or prospect clues for it lie within a few tiles of your land.
-//   2. Build right away: one of its structures fits your free resource slots
-//      and current manpower, with a usable owned build site. Food expansion
-//      also requires tight Food capacity.
+//   2. Food need: your Food capacity is tight and it lets you add Food right
+//      now -- a Hydrogarden/Hydroworks you can build immediately (free slots,
+//      manpower, a usable owned site), or Seedstock's Fish bonus.
+// Being able to build an unlocked structure is not a reason on its own:
+// that is true of almost every Manifest, so it would badge nearly everything.
 // The opposite case ("Not useful yet") is shown when every structure it
 // unlocks needs a resource you have no slots of at all.
 import {
@@ -22,10 +24,12 @@ import {
 import { STRUCTURE_DISPLAY_NAMES } from "../client-map-display.js";
 import type { OccupationSurveyReport, OccupationSurveyResource } from "../client-occupation-survey.js";
 import type { TechInfo, Tile } from "../client-types.js";
+import { prospectClueShownAt } from "../client-prospect-clue/client-prospect-clue.js";
 
 // Unlock effect key -> the structure a player can then build directly.
 // Monuments (multi-part projects) are left out on purpose: they are never
-// "build right away" material.
+// "build right away" material. Only FOOD_NEED_BUILDS can earn a Good pick;
+// the rest still drive the "Not useful yet" note.
 const BUILDABLE_UNLOCKS: Readonly<Record<string, BuildableStructureType>> = {
   unlockForts: "FORT",
   unlockObservatory: "OBSERVATORY",
@@ -34,7 +38,7 @@ const BUILDABLE_UNLOCKS: Readonly<Record<string, BuildableStructureType>> = {
   unlockHydroworksUpgrade: "HYDROWORKS",
   unlockUmbriteRig: "UMBRITE_RIG",
   unlockMine: "MINE",
-  unlockMintworks: "MINTWORKS",
+  unlockManufactory: "MANUFACTORY",
   unlockIncubationEngine: "INCUBATION_ENGINE",
   unlockCensusHall: "CENSUS_HALL",
   unlockClearingHouse: "CLEARING_HOUSE",
@@ -61,6 +65,9 @@ const SIGNATURE_BY_REVEAL: Readonly<Record<string, ProspectSignature>> = {
   umbrite: "BLACKWOOD_CANOPY",
   crystal: "REFRACTIVE_GROUND"
 };
+
+// Structures that answer tight Food capacity, the one need a build-now reason serves.
+const FOOD_NEED_BUILDS: ReadonlySet<BuildableStructureType> = new Set(["HYDROGARDEN", "HYDROWORKS"]);
 
 const RESOURCE_LABEL: Record<SlotResource, string> = { FOOD: "Food", TITANIUM: "Titanium", CRYSTAL: "Crystal", UMBRITE: "Umbrite" };
 
@@ -92,7 +99,7 @@ export const hasProspectClueNearTerritory = (tiles: Iterable<Tile>, me: string, 
   const clues: Tile[] = [];
   for (const tile of tiles) {
     if (tile.ownerId === me && tile.terrain === "LAND") owned.add(`${tile.x},${tile.y}`);
-    if (tile.prospectSignature === signature) clues.push(tile);
+    if (tile.prospectSignature === signature && prospectClueShownAt(tile)) clues.push(tile);
   }
   const r = CLUE_NEARBY_RADIUS;
   return clues.some((clue) => {
@@ -154,12 +161,13 @@ export const manifestFit = (tech: TechInfo, input: ManifestFitInput): ManifestFi
   }
   const buildNow = buildables.find(
     (type) =>
-      (!["HYDROGARDEN", "HYDROWORKS"].includes(type) || needsFood) &&
+      needsFood &&
+      FOOD_NEED_BUILDS.has(type) &&
       input.manpower >= structureBuildManpowerCost(type) &&
       structureSlotRequirements(type).every((requirement) => freeSlots(input, requirement.resource) >= requirement.count) &&
       input.hasBuildSite(type, tech)
   );
-  if (buildNow) reasons.push(`You can build ${withArticle(structureName(buildNow))} right away`);
+  if (buildNow) reasons.push(`Your Food capacity is tight, and you can build ${withArticle(structureName(buildNow))} right away`);
   // The resource this Manifest reveals never counts as missing: the Manifest
   // is how you find it (e.g. Aether Resonance Core reveals Crystal and
   // unlocks Crystal-slot Aether Towers).

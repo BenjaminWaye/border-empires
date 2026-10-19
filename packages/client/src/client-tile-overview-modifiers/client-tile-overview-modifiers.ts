@@ -1,12 +1,11 @@
 import { HILLS_VISION_BONUS, WAYSTATION_POP_BURST, isHillsTileAt, NATURAL_WONDER_LABELS, converterModeOf, defendingFortVariant, FORT_VARIANT_LABELS, isFortDefending, type EconomicStructureType } from "@border-empires/shared";
-import { prospectClueOverviewLine } from "../client-prospect-clue/client-prospect-clue.js";
+import { prospectClueOverviewLine, retiredProspectClues } from "../client-prospect-clue/client-prospect-clue.js";
 import { structureModifiersFor, type ModifierStructureType, type StructureModifier } from "@border-empires/game-domain";
 import type { Tile } from "../client-types.js";
 import type { TechInfo } from "../client-tech-info-types.js";
 import type { TileOverviewLine } from "../client-tile-menu-types.js";
 import { economicStructureName, type StructureInfoKey } from "../client-map-display.js";
 import { structureKeysForTile } from "../client-tile-menu-view/client-tile-menu-structure-label.js";
-import { afcModuleOverviewLines } from "../client-afc-module-overview/client-afc-module-overview.js";
 import { formatRoughMinutes } from "../client-town-growth/client-town-growth.js";
 
 type TileOwnerKind = "unclaimed" | "mine-frontier" | "mine-settled" | "ally" | "enemy";
@@ -59,8 +58,8 @@ const SUPPORT_STRUCTURE_LABELS: Partial<Record<ModifierStructureType, string>> =
 
 const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileOverviewModifier[] => {
   const modifiers: TileOverviewModifier[] = [];
-  // Mintworks coin production used to be recomputed here from
-  // tile.mintworksCount AND separately as part of the town's
+  // Manufactory coin production used to be recomputed here from
+  // tile.manufactoryCount AND separately as part of the town's
   // townModifierTotals (menuOverviewForTile, client-tile-menu-view.ts) —
   // both fed off the same live count, so the town-center tile always showed
   // two "Gold production" lines side by side. townModifierTotals is the
@@ -327,6 +326,8 @@ export const tileFeatureLeadLines = (
     prettyToken: (value: string) => string;
     structureInfoButtonHtml: (type: StructureInfoKey, label?: string) => string;
     techCatalog: readonly TechInfo[];
+    /** Researched techs: a clue's line drops once its resource is revealed (retiredProspectClues). */
+    techIds?: readonly string[];
   }
 ): TileOverviewLine[] => {
   const lines: TileOverviewLine[] = [];
@@ -343,8 +344,10 @@ export const tileFeatureLeadLines = (
     const shards = `${n} shard${n === 1 ? "" : "s"}`;
     lines.push({ html: tile.shardSite.kind === "FALL" ? `Shard rain deposit: ${shards} can be collected here for a short time.` : `Shard cache: ${shards} can be recovered here.` });
   }
-  lines.push(...afcModuleOverviewLines(tile, deps.techCatalog));
-  const clueLine = prospectClueOverviewLine(tile.prospectSignature);
+  if (tile.afc?.ownerId === deps.me && tile.ownerId === deps.me) {
+    lines.push({ html: '<button type="button" class="tile-action-btn" data-open-afc-upgrades>Manage AFC upgrades</button>' });
+  }
+  const clueLine = prospectClueOverviewLine(tile, retiredProspectClues(deps.techIds ?? [], deps.techCatalog));
   if (clueLine) lines.push({ html: clueLine });
   return lines;
 };

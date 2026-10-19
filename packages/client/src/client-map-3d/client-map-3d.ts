@@ -54,6 +54,9 @@ import { createMusterOverlay } from "../client-map-3d-muster-overlay.js"; import
 import { createPopupMarineOverlayFx } from "../client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import { syncCaptureOverlays, syncBattleOverlayFx, syncMusterTransitOverlay } from "../client-map-3d-capture-overlays.js"; import { syncFrontierClaimPlates, activeFrontierAttackClaimTargetKeys } from "../client-map-3d-frontier-claim-plates.js"; import { createSiegeTowerOverlay } from "../client-map-3d-siege-tower-overlay.js"; import { siegeTowerRotationMode } from "../client-siege-tower-rotation-mode.js"; import { latestOngoingBattleTarget } from "../client-battle-overlay/client-battle-overlay.js";
 import { createSupplyLineOverlay } from "../client-map-3d-supply-line-overlay.js"; import { createMusterTransitOverlay } from "../client-map-3d-muster-transit-overlay.js";
+import { createAetherBridgePylonSync } from "../client-map-3d-aether-bridge-pylon-sync.js";
+import { createFrontierSupplyOverlay } from "../client-map-3d-frontier-supply-overlay.js";
+import { frontierSupplyModelForState } from "../client-frontier-supply/client-frontier-supply-state.js";
 import { createAetherBridgePylonOverlay } from "../client-map-3d-aether-bridge-pylon-overlay.js"; import { createAetherWallPylonOverlay } from "../client-map-3d-aether-wall-pylon-overlay.js"; import { createAetherWallArcOverlay } from "../client-map-3d-aether-wall-arc-overlay.js"; import { createAetherWallPylonSync } from "../client-map-3d-aether-wall-pylon-sync.js";
 import { createSurveySweepPingOverlay } from "../client-map-3d-survey-sweep-ping-overlay.js"; import { createOnboardingChecklistHighlightOverlay } from "../client-map-3d-onboarding-checklist-highlight.js";
 import { createAnchoredFxLayers } from "../client-map-3d-anchored-fx/client-map-3d-anchored-fx-layers.js"; import { isAfcHiddenForJoinDrop, isForestTileWithAfcLandingHold, terrainWithAfcLandingHold } from "../client-afc-join-drop/client-afc-join-drop-state.js"; import { createCameraShakeFx } from "../client-map-3d-camera-shake-fx/client-map-3d-camera-shake-fx.js";
@@ -87,7 +90,7 @@ import { createBorderDustFxLayer } from "../client-map-3d-border-dust-fx/client-
 import { borderContactSeamsToDustSeams, computeBorderContactRenderState, resolveBorderContactVisual, pointKey, splitSegmentByContact, EMPTY_BORDER_CONTACT_STATE, BORDER_CONTACT_BEAM_COLOR, BORDER_CONTACT_OPACITY_MULT, type BorderContactRenderState } from "../client-map-3d-border-contact-render/client-map-3d-border-contact-render.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
-import { buildTerrainCutLookups } from "./client-map-3d-terrain-cut-lookups.js"; import { addProspectTile, PROSPECT_CLUE_OPACITY } from "../client-map-3d-prospect-overlay-sync.js";
+import { buildTerrainCutLookups } from "./client-map-3d-terrain-cut-lookups.js"; import { createProspectClueLayer } from "../client-map-3d-prospect-clue/client-map-3d-prospect-clue-layer.js";
 import { revealWholeMapInTrue3DMode, isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import { isReachOverlayCornerVisible } from "../client-reach-overlay-corner-visibility/client-reach-overlay-corner-visibility.js";
@@ -158,7 +161,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   // Per-tile last-seen ownerId, used only to auto-detect and log ownership changes as they render (debug-tile logging) without a manually pinned coordinate.
   const lastRenderedOwnerIdByTile = new Map<string, string | undefined>();
   const forest = createForest(scene, MAX_VISIBLE_TILES); const tropicalForest = createTropicalForest(scene, MAX_VISIBLE_TILES);
-  const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES); const prospectOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: PROSPECT_CLUE_OPACITY, frontier: PROSPECT_CLUE_OPACITY });
+  const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES); const prospectClues = createProspectClueLayer(scene, MAX_VISIBLE_TILES);
   const frontierDecayPulse = createFrontierDecayPulseTracker(); const barbarianFrontierTint = createBarbarianFrontierTintTracker();
   // Fogged tiles get a black darkening quad (always full opacity 0.65, regardless of frontier/settled -- reuses both mesh buckets identically)
   // plus a separate, dimmer ownership tint of the last-witnessed owner. Kept as distinct overlay instances from `ownershipOverlay` so the live
@@ -204,6 +207,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const aetherProtectionOverlay = createAetherProtectionOverlay3D(scene, MAX_VISIBLE_TILES); // Aether Tower protection field wash (client-aether-tower-protection.ts)
   const battleOverlayFx = createPopupMarineOverlayFx(scene);
   const supplyLineOverlay = createSupplyLineOverlay(scene); const musterTransitOverlay = createMusterTransitOverlay(scene);
+  const frontierSupplyOverlay = createFrontierSupplyOverlay(scene);
   const aetherBridgePylonOverlay = createAetherBridgePylonOverlay(scene, MAX_BRIDGE_PYLONS); const aetherWallPylonOverlay = createAetherWallPylonOverlay(scene, MAX_WALL_PYLONS); const aetherWallArcOverlay = createAetherWallArcOverlay(scene, MAX_WALL_ARCS);
   // One-shot effects live under a world-anchored root so they stay on their tile while the camera pans (client-map-3d-anchored-fx-layers.ts).
   const anchoredFx = createAnchoredFxLayers(scene, atmosphere.buildingEnvironmentTexture);
@@ -628,35 +632,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       unsettleFx, afcModuleDeliveryFx, afcDropFx
     }
   });
-  const syncAetherBridgePylons = (nowMs: number): void => {
-    aetherBridgePylonOverlay.beginFrame();
-    const now = Date.now();
-    for (const bridge of deps.state.activeAetherBridges) {
-      if (bridge.endsAt <= now) continue;
-      const fromX = toroidDelta(sceneOrigin.camX, bridge.from.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-      const fromZ = toroidDelta(sceneOrigin.camY, bridge.from.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
-      const toX = toroidDelta(sceneOrigin.camX, bridge.to.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-      const toZ = toroidDelta(sceneOrigin.camY, bridge.to.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
-      // Rotate each pylon so its twin spires straddle the lane (the energy
-      // gate opens toward the far coast).
-      const faceAngle = Math.atan2(toX - fromX, toZ - fromZ);
-      aetherBridgePylonOverlay.place(
-        fromX,
-        aetherBridgeTileSurfaceY(bridge.from.x, bridge.from.y) + MARKER_RISE_ABOVE_HEIGHTFIELD,
-        fromZ,
-        faceAngle,
-        nowMs
-      );
-      aetherBridgePylonOverlay.place(
-        toX,
-        aetherBridgeTileSurfaceY(bridge.to.x, bridge.to.y) + MARKER_RISE_ABOVE_HEIGHTFIELD,
-        toZ,
-        faceAngle + Math.PI,
-        nowMs
-      );
-    }
-    aetherBridgePylonOverlay.endFrame();
-  }; const syncAetherWallPylons = createAetherWallPylonSync(aetherWallPylonOverlay, aetherWallArcOverlay, heightfield.cornerYAt, deps.wrapX, deps.wrapY, sceneOrigin);
+  const syncAetherBridgePylons = createAetherBridgePylonSync(aetherBridgePylonOverlay, { tileCenterOffset: TILE_CENTER_OFFSET, markerRise: MARKER_RISE_ABOVE_HEIGHTFIELD, tileSurfaceY: aetherBridgeTileSurfaceY, sceneOrigin });
+  const syncAetherWallPylons = createAetherWallPylonSync(aetherWallPylonOverlay, aetherWallArcOverlay, heightfield.cornerYAt, deps.wrapX, deps.wrapY, sceneOrigin);
 
   // Dirty-check inputs for applyCamera(): worldToScreen/worldTileRawFromPointer
   // (below) call applyCamera() before every use to stay correct regardless of
@@ -748,7 +725,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     mountainMassifs.clear();
     villageEffects.clear();
     forest.clear(); tropicalForest.clear();
-    ownershipOverlay.clear(); prospectOverlay.clear(); frontierDecayPulse.reset(); barbarianFrontierTint.reset(Date.now());
+    ownershipOverlay.clear(); prospectClues.clear(); frontierDecayPulse.reset(); barbarianFrontierTint.reset(Date.now());
     fogDarkenOverlay.clear();
     fogOwnershipOverlay.clear();
     townOverlay.clear();
@@ -880,7 +857,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         const wxNext = deps.wrapX(wx + 1);
         const wyNext = deps.wrapY(wy + 1);
         const { surfaceY, flatOverlayY } = tileSurfaceHeights({ heightfield, wx, wy, wxNext, wyNext, rise: OVERLAY_RISE_ABOVE_HEIGHTFIELD, isHillsAt: isHillsTile, wrapX: deps.wrapX, wrapY: deps.wrapY, roadDirsAt: hillCutAt });
-        addProspectTile({ overlay: prospectOverlay, tile, terrain, visibility, x, z, wx, wy, wxNext, wyNext, cornerYAt: heightfield.cornerYAt, wrapX: deps.wrapX, wrapY: deps.wrapY, roadDirsAt: hillCutAt });
+        prospectClues.addTile({ tile, terrain, visibility, x, z, wx, wy, wxNext, wyNext, surfaceY, flatOverlayY, cornerYAt: heightfield.cornerYAt, forestOnTile: shouldDrawForestInstance(forestTile, tile), techState: deps.state });
         if (visibility === "fogged" && !revealWholeMapInTrue3DMode) {
           // Fogged (remembered) tiles show their terrain as an aged survey
           // print -- land under fogDarkenOverlay's sepia wash, water
@@ -1235,7 +1212,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     mountainMassifs.commit();
     villageEffects.commit();
     forest.commit(); tropicalForest.commit();
-    ownershipOverlay.commit(); prospectOverlay.commit();
+    ownershipOverlay.commit(); prospectClues.commit();
     fogDarkenOverlay.commit();
     fogOwnershipOverlay.commit();
     townOverlay.commit();
@@ -1433,7 +1410,15 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     syncFrontierClaimPlates(deps.state, deps.keyFor, heightfield, frontierClaimPlates, sceneOrigin.camX, sceneOrigin.camY, MARKER_RISE_ABOVE_HEIGHTFIELD, deps.wrapX, deps.wrapY, (x,y)=>isHillsTile(x,y)&&terrainForWorldTile(x,y)!=="MOUNTAIN");
     selectionRangeOverlays.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin }); syncDockRoutes(deps.state, sceneOrigin, deps.resolveDockSeaRoute, deps.isDockRouteVisibleForPlayer);
     placementOverlay.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin });
-    syncAetherBridgePylons(nowMs); syncAetherWallPylons(deps.state.activeAetherWalls, nowMs);
+    syncAetherBridgePylons(deps.state.activeAetherBridges, nowMs); syncAetherWallPylons(deps.state.activeAetherWalls, nowMs);
+    // Frontier supply lines (3D; the 2D path is client-frontier-supply-2d.ts): chevrons into frontier beyond reach, amber chokepoints.
+    frontierSupplyOverlay.sync(
+      frontierSupplyModelForState(deps.state),
+      (x, y) => ({ sceneX: toroidDelta(sceneOrigin.camX, x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(x, y) }),
+      `${sceneOrigin.camX},${sceneOrigin.camY}`,
+      deps.effectiveOverlayColor(deps.state.me),
+      nowMs
+    );
     syncAetherLanceFxQueue();
     syncSurveySweepFxQueue();
     syncSurveySweepPings();
@@ -1496,7 +1481,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     if (rafId !== undefined) cancelAnimationFrame(rafId);
     contextGuard.dispose();
     renderer.dispose();
-    ownershipOverlay.dispose(); prospectOverlay.dispose();
+    ownershipOverlay.dispose(); prospectClues.dispose();
     fogDarkenOverlay.dispose();
     fogOwnershipOverlay.dispose();
     selectedMarker.geometry.dispose();
@@ -1505,6 +1490,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     (hoverMarker.material as LineBasicMaterial).dispose();
     selectionRangeOverlays.dispose();
     crystalTargetingOverlay.dispose();
+    frontierSupplyOverlay.dispose();
     for (const { marker, material } of townSupportMarkers) {
       marker.geometry.dispose();
       material.dispose();

@@ -31,6 +31,7 @@ export type VictoryMetrics = {
   towns: number;
   settledTiles: number;
   controlledTiles: number;
+  diplomaticWeight?: number;
   dockTiles: number;
   incomePerMinute: number;
   name: string;
@@ -71,7 +72,7 @@ const diplomaticDominanceLeader = (
     const blocKey = members.sort().join("|");
     if (seenBlocKeys.has(blocKey)) continue;
     seenBlocKeys.add(blocKey);
-    const blocControlledTiles = members.reduce((sum, memberId) => sum + (metricsByPlayerId.get(memberId)?.controlledTiles ?? 0), 0);
+    const blocControlledTiles = members.reduce((sum, memberId) => sum + (metricsByPlayerId.get(memberId)?.controlledTiles ?? 0) * (metricsByPlayerId.get(memberId)?.diplomaticWeight ?? 1), 0);
     let leaderPlayerId: string | undefined;
     let leaderControlledTiles = -1;
     let tiedLargest = false;
@@ -224,6 +225,7 @@ const buildSeasonVictoryContext = (
   const controlledCountByPlayerId = new Map<string, number>();
   const dockCountByPlayerId = new Map<string, number>();
   const metricsByPlayerId = new Map<string, VictoryMetrics>();
+  const diplomaticWeightByPlayerId = new Map(players.map(player => [player.id, player.domainIds?.includes("afc-chancery-5") ? 2 : 1]));
   const resourceTally = createVictoryResourceTally();
 
   for (const tile of worldTiles) {
@@ -249,6 +251,7 @@ const buildSeasonVictoryContext = (
 
   for (const entry of leaderboardOverall) {
     metricsByPlayerId.set(entry.id, {
+      diplomaticWeight: diplomaticWeightByPlayerId.get(entry.id) ?? 1,
       towns: townCountByPlayerId.get(entry.id) ?? 0,
       settledTiles: settledCountByPlayerId.get(entry.id) ?? 0,
       controlledTiles: controlledCountByPlayerId.get(entry.id) ?? 0,

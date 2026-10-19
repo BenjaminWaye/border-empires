@@ -1,3 +1,4 @@
+import { isAetherTowerSuppressed } from "@border-empires/shared";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
   WORLD_HEIGHT,
@@ -248,6 +249,7 @@ export function pickReadyOwnedObservatoryForTarget(input: {
     if (distance > observatoryRangeForTile(tile, input.range)) continue;
     const cooldownUntil = obs.cooldownUntil ?? 0;
     if (cooldownUntil > input.now) continue;
+    if (isAetherTowerSuppressed(obs, input.now)) continue;
     if (isObservatoryInSiphonMode(obs)) continue; // locked into Siphon until it ends
     if (input.isStructureDormant(input.playerId, tileKey, "observatory")) continue;
     if (distance < bestDistance) {
@@ -274,6 +276,7 @@ export function pickReadyOwnedObservatoryAny(
     if (!obs || obs.ownerId !== playerId || obs.status !== "active") continue;
     const cooldownUntil = obs.cooldownUntil ?? 0;
     if (cooldownUntil > now) continue;
+    if (isAetherTowerSuppressed(obs, now)) continue;
     if (isObservatoryInSiphonMode(obs)) continue; // locked into Siphon until it ends
     if (isStructureDormant(playerId, tileKey, "observatory")) continue;
     if (cooldownUntil < bestCooldownUntil) {

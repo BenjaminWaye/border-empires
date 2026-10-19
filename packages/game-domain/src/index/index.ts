@@ -89,6 +89,10 @@ export type DomainPlayer = {
   galacticWonderVisionRadiusBonus?: number;
   techIds: Set<string>;
   domainIds?: Set<string>;
+  afcUpgradeRuleset?: "afc-v1";
+  afcCoreTownKeys?: string[];
+  afcScarcityFoodSlots?: number;
+  afcCampaign?: import("@border-empires/shared").AfcCampaignState;
   mods?: {
     attack: number;
     defense: number;
@@ -194,9 +198,9 @@ export type DomainTileState = {
             | "connectedUmbriteWeaponsFactoryCount"
             | "manpowerCurrent"
             | "manpowerCap"
-            | "hasMintworks"
-            | "mintworksActive"
-            | "mintworksCount"
+            | "hasManufactory"
+            | "manufactoryActive"
+            | "manufactoryCount"
             | "hasIncubationEngine"
             | "incubationEngineActive"
             | "foodUpkeepPerMinute"
@@ -284,8 +288,8 @@ export type ValidateFrontierCommandInput = {
   /**
    * Fixed-border reach (packages/shared/src/reach/reach.ts): whether `to` is
    * inside the actor's reach. No longer gates EXPAND (out-of-reach EXPAND is
-   * allowed and instead subject to out-of-reach frontier decay -- see
-   * runtime-out-of-reach-decay/runtime-out-of-reach-decay.ts) or ATTACK
+   * allowed; that land can't be settled and is lost if cut off from supply)
+   * or ATTACK
    * (which deliberately ignores it). Kept on the input/passed by the caller
    * (runtime-frontier-command.ts) for downstream consumers that still care
    * whether the target sits inside the actor's reach.
@@ -353,13 +357,11 @@ export const validateFrontierCommand = (
     return { ok: false, code: "EXPAND_TARGET_OWNED", message: "expand only targets neutral land" };
   }
   // EXPAND is intentionally NOT reach-gated: claiming land outside the
-  // actor's fixed-border reach is allowed, at the cost of out-of-reach
-  // frontier decay unless reach catches up to it (see
-  // runtime-out-of-reach-decay/runtime-out-of-reach-decay.ts). `isInReach`
-  // is still computed and passed by the caller, but EXPAND deliberately
-  // ignores it here -- do not reintroduce an OUT_OF_REACH gate for EXPAND
-  // without also revisiting the out-of-reach decay feature it would make
-  // unreachable.
+  // actor's fixed-border reach is allowed. That land can't be settled (SETTLE
+  // stays reach-gated) and is lost the moment it is cut off from supply
+  // (encirclement), which the client draws as supply lines. `isInReach` is
+  // still computed and passed by the caller, but EXPAND deliberately ignores
+  // it here.
   if (input.actionType === "ATTACK" && (!input.to.ownerId || input.to.ownerId === input.actor.id)) {
     return { ok: false, code: "ATTACK_TARGET_INVALID", message: "target must be enemy-controlled land" };
   }

@@ -1,5 +1,5 @@
 import { Color } from "three";
-import { OUT_OF_REACH_DECAY_MS, type FrontierDecayKind } from "@border-empires/shared";
+import type { FrontierDecayKind } from "@border-empires/shared";
 import type { OwnershipOverlay } from "./client-map-3d-ownership-overlay.js";
 
 // The frontier-decay countdown color pulse used to be baked directly into
@@ -13,6 +13,9 @@ import type { OwnershipOverlay } from "./client-map-3d-ownership-overlay.js";
 // already used by renderReachOverlay3DPylons/attackOverlay.tick in
 // client-map-3d.ts: placement/animation runs unconditionally every frame,
 // only the underlying data is throttled.
+// Only legacy ENCIRCLEMENT timers ever pulse now (out-of-reach decay was removed).
+const ENCIRCLEMENT_PULSE_WINDOW_MS = 60_000;
+
 export type DecayingFrontierTile = {
   readonly index: number;
   readonly isHill: boolean;
@@ -31,7 +34,6 @@ export const createFrontierDecayPulseTracker = (): FrontierDecayPulseTracker => 
   let tiles: DecayingFrontierTile[] = [];
   const tmpColor = new Color();
   const tmpWhite = new Color("#ffffff");
-  const tmpDecayAmber = new Color("#ffb03b");
 
   const reset = (): void => {
     tiles = [];
@@ -46,10 +48,9 @@ export const createFrontierDecayPulseTracker = (): FrontierDecayPulseTracker => 
     overlay.beginFrontierColorUpdates();
     for (const tile of tiles) {
       const remainingMs = tile.frontierDecayAt - nowMs;
-      const windowMs = tile.frontierDecayKind === "OUT_OF_REACH" ? OUT_OF_REACH_DECAY_MS : 60_000;
-      if (remainingMs <= 0 || remainingMs > windowMs) continue;
+      if (remainingMs <= 0 || remainingMs > ENCIRCLEMENT_PULSE_WINDOW_MS) continue;
       const blink = 0.5 + 0.5 * Math.sin((nowMs / 2_000) * Math.PI * 2);
-      tmpColor.copy(tile.baseColor).lerp(tile.frontierDecayKind === "OUT_OF_REACH" ? tmpDecayAmber : tmpWhite, blink * 0.35);
+      tmpColor.copy(tile.baseColor).lerp(tmpWhite, blink * 0.35);
       if (tile.isHill) overlay.setFrontierHillTileColor(tile.index, tmpColor);
       else overlay.setFrontierTileColor(tile.index, tmpColor);
     }

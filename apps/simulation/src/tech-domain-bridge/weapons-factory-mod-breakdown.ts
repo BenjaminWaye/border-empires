@@ -30,14 +30,15 @@ export const weaponsFactoryCountsForPlayer = (
 // combat applies (see weaponsFactoryCountsForPlayer's doc comment above).
 export const appendWeaponsFactoryBreakdownEntries = (
   breakdown: ModBreakdown,
-  counts: { titanium: number; umbrite: number }
+  counts: { titanium: number; umbrite: number },
+  defenseContributionMult = 1
 ): void => {
   if (counts.titanium > 0) {
     breakdown.attack.push({ label: `Titanium Weapons Factory ×${counts.titanium}`, mult: 1 + counts.titanium * TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING });
-    breakdown.defense.push({ label: `Titanium Weapons Factory ×${counts.titanium}`, mult: 1 + counts.titanium * TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING });
+    breakdown.defense.push({ label: `Titanium Weapons Factory ×${counts.titanium}`, mult: 1 + counts.titanium * TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING * defenseContributionMult });
   }
   if (counts.umbrite > 0) {
     breakdown.attack.push({ label: `Umbrite Weapons Factory ×${counts.umbrite}`, mult: 1 + counts.umbrite * UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING });
-    breakdown.defense.push({ label: `Umbrite Weapons Factory ×${counts.umbrite}`, mult: 1 + counts.umbrite * UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING });
+    breakdown.defense.push({ label: `Umbrite Weapons Factory ×${counts.umbrite}`, mult: 1 + counts.umbrite * UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING * defenseContributionMult });
   }
 };

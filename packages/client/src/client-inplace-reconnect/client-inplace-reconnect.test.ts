@@ -72,7 +72,7 @@ describe("createInPlaceReconnectScheduler", () => {
     expect(reload).not.toHaveBeenCalled();
   });
 
-  it("reconnects in place with backoff, then falls back to a reload after repeated failures", () => {
+  it("keeps reconnecting through a long deployment without reloading the page", () => {
     vi.useFakeTimers();
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     const reload = vi.fn();
@@ -88,18 +88,15 @@ describe("createInPlaceReconnectScheduler", () => {
     const ws = createFakeSocket(3);
     const scheduler = createInPlaceReconnectScheduler({ state, ws });
 
-    for (let attempt = 0; attempt < 5; attempt += 1) {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
       scheduler.schedule();
       vi.runOnlyPendingTimers();
     }
-    expect(ws.reconnect).toHaveBeenCalledTimes(5);
+    expect(ws.reconnect).toHaveBeenCalledTimes(20);
     expect(reload).not.toHaveBeenCalled();
-
-    scheduler.schedule();
-    expect(reload).toHaveBeenCalledTimes(1);
   });
 
-  it("resetAttempt() restarts the backoff/fallback budget", () => {
+  it("resetAttempt() restarts the backoff after recovery", () => {
     vi.useFakeTimers();
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     const reload = vi.fn();
@@ -119,14 +116,12 @@ describe("createInPlaceReconnectScheduler", () => {
     vi.runOnlyPendingTimers();
     scheduler.resetAttempt();
 
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      scheduler.schedule();
-      vi.runOnlyPendingTimers();
-    }
-    // Had resetAttempt() not restarted the budget, this would already have
-    // exceeded MAX_INPLACE_RECONNECT_ATTEMPTS and reloaded instead.
+    scheduler.schedule();
+    vi.advanceTimersByTime(1_999);
+    expect(ws.reconnect).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(1);
     expect(reload).not.toHaveBeenCalled();
-    expect(ws.reconnect).toHaveBeenCalledTimes(6);
+    expect(ws.reconnect).toHaveBeenCalledTimes(2);
   });
 
   it("reconnects immediately when the tab becomes visible and the socket is not open/connecting", () => {
@@ -182,5 +177,62 @@ describe("createInPlaceReconnectScheduler", () => {
     fakeDocument.fire("resume");
 
     expect(ws.reconnect).not.toHaveBeenCalled();
+  });
+
+  it("does not reconnect a signed-out player on retries or tab return", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("window", { setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout });
+    const doc = stubFakeDocument("visible");
+    const state = createInitialState();
+    state.hasEverInitialized = true;
+    state.authConfigured = true;
+    state.authReady = false;
+    state.authSessionReady = false;
+    const ws = createFakeSocket(3);
+    const scheduler = createInPlaceReconnectScheduler({ state, ws });
+
+    scheduler.schedule();
+    vi.advanceTimersByTime(120_000);
+    doc.fire("visibilitychange");
+    doc.fire("resume");
+
+    expect(ws.reconnect).not.toHaveBeenCalled();
+  });
+
+  it("cancels a pending retry when the player signs out during backoff", () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    vi.stubGlobal("window", { setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout });
+    const state = createInitialState();
+    state.hasEverInitialized = true;
+    state.authConfigured = true;
+    state.authReady = true;
+    const ws = createFakeSocket(3);
+    const scheduler = createInPlaceReconnectScheduler({ state, ws });
+
+    scheduler.schedule();
+    state.authReady = false;
+    vi.advanceTimersByTime(2_000);
+
+    expect(ws.reconnect).not.toHaveBeenCalled();
+  });
+
+  it("does not restart a stalled connection after the player signs out", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("window", { setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout });
+    const state = createInitialState();
+    state.hasEverInitialized = true;
+    state.authConfigured = true;
+    state.authReady = true;
+    state.connection = "connected";
+    const onStalled = vi.fn();
+    const ws = createFakeSocket(1);
+    const scheduler = createInPlaceReconnectScheduler({ state, ws, onStalled });
+
+    scheduler.watchForRecovery();
+    state.authReady = false;
+    vi.advanceTimersByTime(60_000);
+
+    expect(onStalled).not.toHaveBeenCalled();
   });
 });

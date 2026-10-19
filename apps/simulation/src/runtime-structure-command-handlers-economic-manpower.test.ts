@@ -3,13 +3,13 @@
  * structure now costs manpower as a
  * primary cost, not just gold — previously only FORT/SIEGE_BATTERY/
  * PALISADE/RELAY_BEACON were manpower-gated; economic structures like
- * MINTWORKS, TRADE_NEXUS, HYDROGARDEN, etc. cost zero manpower.
+ * MANUFACTORY, TRADE_NEXUS, HYDROGARDEN, etc. cost zero manpower.
  */
 import { describe, expect, it, vi } from "vitest";
 import { structureBuildDurationMs, structureBuildManpowerCost } from "@border-empires/shared";
 
 import { SimulationRuntime } from "./runtime/runtime.js";
-import { buildPlayer, collectEvents } from "./runtime/runtime.test-helpers.js";
+import { afcModuleFixtureTile, buildPlayer, collectEvents } from "./runtime/runtime.test-helpers.js";
 
 type RawPlayerRef = { manpower: number };
 
@@ -29,6 +29,7 @@ const buildRuntimeWithManpower = (startingManpower: number, extraTiles: Array<Re
     ]),
     initialState: {
       tiles: [
+        afcModuleFixtureTile("player-1"),
         {
           x: 16,
           y: 16,
@@ -58,10 +59,10 @@ const buildRuntimeWithManpower = (startingManpower: number, extraTiles: Array<Re
 };
 
 describe("economic structure manpower cost (Step 4)", () => {
-  it("deducts MINTWORKS's manpower cost on build, matching structureBuildManpowerCost", async () => {
+  it("deducts MANUFACTORY's manpower cost on build, matching structureBuildManpowerCost", async () => {
     vi.useFakeTimers();
     try {
-      expect(structureBuildManpowerCost("MINTWORKS")).toBe(150);
+      expect(structureBuildManpowerCost("MANUFACTORY")).toBe(150);
       // Below the fixture's real manpower cap (well under the ~1,026 town+capital
       // total here) so the build's own deduction is the only thing that moves
       // this number — a starting value above cap would just clamp down to cap
@@ -69,13 +70,13 @@ describe("economic structure manpower cost (Step 4)", () => {
       const runtime = buildRuntimeWithManpower(500);
 
       runtime.submitCommand({
-        commandId: "mintworks-manpower-1",
+        commandId: "manufactory-manpower-1",
         sessionId: "session-1",
         playerId: "player-1",
         clientSeq: 1,
         issuedAt: 1_000,
         type: "BUILD_ECONOMIC_STRUCTURE",
-        payloadJson: JSON.stringify({ x: 16, y: 16, structureType: "MINTWORKS" })
+        payloadJson: JSON.stringify({ x: 16, y: 16, structureType: "MANUFACTORY" })
       });
 
       await Promise.resolve();
@@ -86,18 +87,18 @@ describe("economic structure manpower cost (Step 4)", () => {
     }
   });
 
-  it("rejects a MINTWORKS build with INSUFFICIENT_MANPOWER when manpower is below cost, even with plenty of gold", async () => {
-    const runtime = buildRuntimeWithManpower(structureBuildManpowerCost("MINTWORKS") - 1);
+  it("rejects a MANUFACTORY build with INSUFFICIENT_MANPOWER when manpower is below cost, even with plenty of gold", async () => {
+    const runtime = buildRuntimeWithManpower(structureBuildManpowerCost("MANUFACTORY") - 1);
     const seen = collectEvents(runtime);
 
     runtime.submitCommand({
-      commandId: "mintworks-manpower-2",
+      commandId: "manufactory-manpower-2",
       sessionId: "session-1",
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 1_000,
       type: "BUILD_ECONOMIC_STRUCTURE",
-      payloadJson: JSON.stringify({ x: 16, y: 16, structureType: "MINTWORKS" })
+      payloadJson: JSON.stringify({ x: 16, y: 16, structureType: "MANUFACTORY" })
     });
 
     await Promise.resolve();

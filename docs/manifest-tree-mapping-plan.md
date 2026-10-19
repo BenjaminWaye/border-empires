@@ -2,12 +2,15 @@
 
 Status: historical design record, superseded by `docs/manifest-full-plan.md`
 
-**Superseded by `docs/manifest-full-plan.md`** (pasted 2026-09-26), which is
-now the authoritative source for the whole Manifest/Coin/AFC/Module rework.
-This document remains as a historical record of the naming/AFC-decision
-work already implemented; new work should track the full plan's §10
-implementation-order checklist instead. Status against that checklist,
-as of this branch:
+This is a historical implementation mapping from the September 2026 Manifest
+rework. The [full implementation plan](manifest-full-plan.md) superseded its
+mapping; its progress checklist below records that branch's state at the time.
+Current code and gameplay references determine what has since shipped.
+
+Accepted fiction is now maintained in the [world bible](lore/galactic-lore.md).
+Read the [lore index](lore/README.md) for canon precedence and the mandatory
+lore check on gameplay changes. Old names and descriptions below are history,
+not an alternate source of current lore.
 
 - Step 1 (preserve tech IDs, rename-only) — done.
 - Step 2 (Gold → Coin rename) — done.
@@ -29,7 +32,7 @@ as of this branch:
 - Step 11 (balance Coin costs) — not started, explicitly deferred until the
   new structure is playable.
 
-Status: naming, classification, lore, and unlock pass for the Manifest rework
+Historical scope: naming, classification, lore, and unlock pass for the Manifest rework
 (see PR #2085, branch `agent/manifest-tech-data-cleanup`). Preserve the
 existing branch shape and prerequisites in `tech-tree.json` unless explicitly
 noted below — this document does not change tree structure, only what each
@@ -43,26 +46,9 @@ deletion).
 
 ## Core rules
 
-- Coin is paid offworld through the House factor. It never pays local
-  workers, grants local permission, or represents generic research.
-- Every Manifest must name what arrives from space, using one of these four
-  categories:
-  1. **AFC MODULE** — durable imported machinery. It lands physically and
-     enables a reusable construction/casting capability.
-  2. **CREW / OFFICE / CONSIGNMENT** — imported personnel, instruments, or
-     biological cargo. They remain on this planet.
-  3. **CHARTER / WARRANT** — access to an Imperial offworld market,
-     recognition system, or unique supply chain. Do not use these for
-     things the player already owns locally.
-  4. **DOSSIER** — reserves an offworld Project Core for a unique
-     monumental project.
-- Crystal fuels Aether casts. Coin buys the offworld capability that makes
-  those casts possible.
-- Do not say Coin pays locals, "reclaims local infrastructure," or unlocks
-  abstract knowledge.
-- Aether hardware modules should visually dock as smaller cartridges around
-  the Aether Resonance Core, rather than each becoming a separate giant AFC
-  overlay.
+The accepted rules about Coin, imported assets, Manifest categories and AFC
+machinery have moved to [world bible §§11–13](lore/galactic-lore.md#11-houses-and-the-planetary-economy).
+Current resource/casting rules follow the [gameplay reference](game-mechanics.md).
 
 ## Current tech → Manifest mapping
 
@@ -91,7 +77,7 @@ deletion).
 | Titanium-Clad Masonry | Titanium Forge Module |
 | Reinforced Plating | Bastion Master-Die Module |
 | Steel Ore Refineries | Thunderplate Induction Module |
-| Rigging Works | Rigging Works Module |
+| Rigging Works | Umbrite Rigging Module |
 | Siege Engineering | Siege Lens Foundry Module |
 | Standing Legion | Dread Tower Cadre |
 | Muster Discipline | Hive Mind Module I |
@@ -152,7 +138,7 @@ deletion).
 - **Titanium Forge Module** — AFC module; unlocks Fort and Titanium Weapons Factory.
 - **Bastion Master-Die Module** — AFC module; unlocks Titanium Bastion. It is the massive forming die that makes interlocking Bastion shells from Forge-produced plate.
 - **Thunderplate Induction Module** — AFC module; unlocks Thunder Bastion. It contains the induction coils/discharge rails required for live Thunderplate armour.
-- **Rigging Works Module** — AFC module; unlocks Umbrite Rig, Siege Battery, and Umbrite Weapons Factory.
+- **Umbrite Rigging Module** (renamed from Rigging Works Module) — AFC module; unlocks Umbrite Rig, Siege Battery, and Umbrite Weapons Factory.
 - **Siege Lens Foundry Module** — AFC module; unlocks Siege Tower.
 - **Dread Tower Cadre** — imported permanent operating crew; unlocks Dread Tower.
 - **Hive Mind Module I / II** — AFC modules, each delivers another offworld half-mind and unlocks one additional regional Muster commander.

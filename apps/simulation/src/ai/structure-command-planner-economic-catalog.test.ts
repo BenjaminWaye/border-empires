@@ -95,7 +95,7 @@ describe("chooseBestEconomicBuild — need-weighted catalog", () => {
       ["21,20", openSupportTile]
     ]);
     // MANPOWER_THROUGHPUT fully acute, everything else zero (including
-    // FOOD_SLOTS, so MINTWORKS/INCUBATION_ENGINE score 0 via foodLow's unrelated
+    // FOOD_SLOTS, so MANUFACTORY/INCUBATION_ENGINE score 0 via foodLow's unrelated
     // stockpile check but the catalog's ANCILLARY_FACTORY still wins on need).
     const needVector: NeedVector = { ...ZERO_NEED_VECTOR, MANPOWER_THROUGHPUT: 1 };
 
@@ -156,7 +156,7 @@ describe("chooseBestEconomicBuild — need-weighted catalog", () => {
 
     // Without "remade-concordat" (ANCILLARY_FACTORY's tech requirement),
     // ANCILLARY_FACTORY's raw score (160, fully acute MANPOWER_THROUGHPUT)
-    // would beat MINTWORKS's flat 54 if the tech gate weren't applied — the
+    // would beat MANUFACTORY's flat 54 if the tech gate weren't applied — the
     // gate must exclude it regardless of how it scores.
     const result = chooseBestEconomicBuild(
       { ...ECONOMIC_BUILD_PLAYER, techIds: ["trade", "pottery"] },
@@ -165,6 +165,6 @@ describe("chooseBestEconomicBuild — need-weighted catalog", () => {
       [town, openSupportTile],
       needVector
     );
-    expect(result?.structureType).toBe("MINTWORKS");
+    expect(result?.structureType).toBe("MANUFACTORY");
   });
 });

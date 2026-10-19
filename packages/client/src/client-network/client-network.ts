@@ -1,6 +1,8 @@
+import { handleIntelResult } from "./client-network-intel-result.js";
+import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
 import { notifyCombatResult } from "./client-combat-result-notifications.js";
 import { musterReportFlagKey, trackMusterReportStart } from "../client-muster-combat-reports/client-muster-combat-reports.js";
-import { COMBAT_LOCK_MS, SEASON_ROLLOVER_CLOSE_REASON, isChosenTrickleResource, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, isChosenTrickleResource, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
 import { resetFrontierActionStateAfterError } from "./client-frontier-error-reset.js";
 import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
@@ -17,7 +19,6 @@ import { applyServerReachUpdate } from "../client-reach-authoritative/client-rea
 import { buildServerErrorContext } from "../client-server-error-context/client-server-error-context.js";
 import { persistWaypointQueueForPlayer, waypointCancelWirePayload } from "../client-waypoint-planner/client-waypoint-persistence.js";
 import { cancelWaypointsBlockedByOutOfReach } from "../client-waypoint-out-of-reach/client-waypoint-out-of-reach.js";
-import { isRevealEmpireStatsView, surveySweepPingsFromPayload } from "./client-network-codec.js";
 import {
   bindQueuedFrontierCommandIdentity,
   matchesCurrentFrontierCommand
@@ -29,19 +30,16 @@ import { applyPlayerUpdateIntegrity } from "../client-integrity-pct/client-playe
 import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, focusFromAlert, raidResultFeedEntry } from "../client-alerts/client-alerts.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, hasGatewayOverlayField, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
 import { applyCommonTileFields, combatResultIncomingTile, recordTileRevisionChange, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
-import { logSurveySweepReceived } from "../survey-sweep-debug-log/survey-sweep-debug-log.js";
-import { revealEmpireStatsFeedText } from "../client-empire-intel/client-empire-intel.js";
 import { applyRespawnNoticeToState, normalizeRespawnNotice } from "../client-respawn-notice/client-respawn-notice.js";
 import { applyTechUpdateToState, updateTechAffordabilityPulses } from "../client-tech-update-state/client-tech-update-state.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, fogRevealLog, recordClientDebugEvent, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "../client-debug/client-debug.js";
 import { createDebugTileStateLogger } from "./client-network-debug-tile-log.js";
 import { applyAetherShieldsMessage } from "../client-aether-tower-protection/client-aether-shield-state.js";
-import { recordSocketDisconnect } from "../client-connection-diagnostics/client-connection-diagnostics.js";
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule, resetAttackPreviewState } from "../client-queue-logic/client-queue-logic.js";
 import { applyAutoSettlementQueueFromServer } from "../client-development-queue/client-development-queue.js";
 import { handleDiplomacySocketMessage } from "../client-diplomacy-notifications/client-diplomacy-messages.js";
 import { createAuthReconnectScheduler } from "../client-auth-reconnect/client-auth-reconnect.js";
-import { createInPlaceReconnectScheduler } from "../client-inplace-reconnect/client-inplace-reconnect.js";
+import { bindClientSocketLifecycle } from "./client-network-socket-lifecycle.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import { notificationCategoryForServerError, serverStartingBusyMessages } from "../client-persistent-alerts/client-persistent-alerts.js";
 import { createShardRainNoticeHandlers } from "../client-shard-rain-notice-apply.js";
@@ -565,11 +563,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   const resetAuthReconnectAttempt = (): void => authReconnect.resetAttempt();
   const scheduleAuthReconnect = (message: string, forceRefresh = false): void => authReconnect.schedule(message, forceRefresh);
 
-  const inPlaceReconnect = createInPlaceReconnectScheduler({ state, ws });
-  const clearReconnectReloadTimer = (): void => inPlaceReconnect.clear();
-  const resetInPlaceReconnectAttempt = (): void => inPlaceReconnect.resetAttempt();
-  const scheduleReconnectReload = (): void => inPlaceReconnect.schedule();
-
   const applyLoginPhase = (title: string, detail: string): void => {
     setAuthBusy(true);
     state.authBusyTitle = title;
@@ -795,107 +788,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     renderHud();
   };
 
-  // Tracks how long the socket was open before a close/error, so repeated
-  // short-lived connections (a flapping proxy/network) are distinguishable
-  // from a single isolated disconnect in the persisted disconnect history.
-  let wsOpenedAt = 0;
-  const connectionUptimeMs = (): number | undefined => (wsOpenedAt > 0 ? Math.max(0, Date.now() - wsOpenedAt) : undefined);
-  const debugDisconnectPayload = (currentActionKey: string): Record<string, unknown> => ({
-    currentActionKey,
-    currentAction: state.actionCurrent,
-    actionStartedAt: state.actionStartedAt,
-    actionAcceptedAck: state.actionAcceptedAck,
-    combatStartAck: state.combatStartAck,
-    capture: state.capture ? { target: state.capture.target, resolvesAt: state.capture.resolvesAt } : undefined
-  });
-  const handleSocketTornDown = (currentActionKey: string, feedMessage: string, interruptedDetail: string): void => {
-    // Anchors the map-loading overlay's grace window at the moment a healthy
-    // session dropped. The window has to span the whole outage — socket gap
-    // *and* the post-INIT resync, since INIT resets firstChunkAt to 0 — so a
-    // recovered-and-resynced session is the only thing that re-arms it.
-    // Repeat closes mid-outage (a failed in-place reconnect attempt closes
-    // again before recovering) deliberately keep the original anchor, so a
-    // long flapping outage still surfaces the overlay rather than restarting
-    // the grace on every flap.
-    const wasHealthy = state.connection === "initialized" && state.firstChunkAt > 0;
-    if (wasHealthy || !state.disconnectedSince) state.disconnectedSince = Date.now();
-    clearAuthInFlight?.(); state.connection = "disconnected";
-    state.actionInFlight = false;
-    state.actionAcceptedAck = false;
-    state.combatStartAck = false;
-    state.actionAcceptTimeoutHandledAt = 0;
-    state.actionStartedAt = 0;
-    state.actionTargetKey = "";
-    state.actionCurrent = undefined;
-    state.lastChunkSnapshotGeneration = 0;
-    state.pendingShardCollect = undefined;
-    if (currentActionKey) clearOptimisticTileState(currentActionKey, true);
-    pushFeed(feedMessage, "error", "warn");
-    if (state.authReady && !state.authSessionReady) {
-      applyLoginPhase("Connection interrupted", interruptedDetail);
-      state.authRetrying = false;
-      state.authRetryAttempt = 0;
-    }
-    clearAuthReconnectTimer();
-    scheduleReconnectReload();
-    renderHud();
-  };
-
-  ws.addEventListener("open", () => {
-    attackSyncLog("ws-open", {
-      readyState: ws.readyState,
-      authReady: state.authReady,
-      authSessionReady: state.authSessionReady
-    });
-    wsOpenedAt = Date.now();
-    state.connection = "connected";
-    // Always restart the clock here, not just when unset: this "open" can be
-    // an in-place reconnect long after the original page load, and the INIT
-    // handshake that follows can take a beat. Without this, the map-loading
-    // overlay's "Elapsed Xs" reads against the original mapLoadStartedAt from
-    // minutes/hours ago (whatever it was before the drop) until INIT resets
-    // it again, showing a bogus huge elapsed time for however long that gap
-    // lasts.
-    state.mapLoadStartedAt = Date.now();
-    clearReconnectReloadTimer();
-    resetInPlaceReconnectAttempt();
-    clearAuthReconnectTimer();
-    resetAuthReconnectAttempt();
-    if (state.authReady && !state.authSessionReady) {
-      applyLoginPhase("Securing session", `Realtime connection open. Sending Google session for ${state.authUserLabel || "your empire"}...`);
-    }
-    renderHud();
-    void authenticateSocket();
-  });
-
-  ws.addEventListener("close", (event: CloseEvent) => {
-    clearDeferredBootstrapRefreshTimer();
-    const currentActionKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
-    recordSocketDisconnect("close", {
-      code: event.code,
-      reason: event.reason,
-      wasClean: event.wasClean,
-      connectionUptimeMs: connectionUptimeMs(),
-      debugPayload: debugDisconnectPayload(currentActionKey)
-    });
-    handleSocketTornDown(
-      currentActionKey,
-      event.reason === SEASON_ROLLOVER_CLOSE_REASON ? "A new season has started. Loading it..." : "Connection lost. Retrying...",
-      `The realtime connection to ${wsUrl} closed before sign-in finished. Reload the game to reconnect.`
-    );
-  });
-
-  ws.addEventListener("error", () => {
-    const currentActionKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
-    recordSocketDisconnect("error", {
-      connectionUptimeMs: connectionUptimeMs(),
-      debugPayload: debugDisconnectPayload(currentActionKey)
-    });
-    handleSocketTornDown(
-      currentActionKey,
-      "Server unreachable. Retrying...",
-      `The realtime connection to ${wsUrl} failed before sign-in finished. Reload the game to reconnect.`
-    );
+  const socketLifecycle = bindClientSocketLifecycle({
+    state, ws, wsUrl, keyFor, clearAuthInFlight, clearAuthReconnectTimer,
+    resetAuthReconnectAttempt, clearDeferredBootstrapRefreshTimer,
+    clearOptimisticTileState, pushFeed, applyLoginPhase, authenticateSocket, renderHud
   });
 
   const MAX_RECENT_TILE_MESSAGES = 50;
@@ -1044,6 +940,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
     if (msg.type === "LOGIN_PHASE") {
+      socketLifecycle.noteProgress();
       if (!state.authSessionReady) {
         applyLoginPhase(
           typeof msg.title === "string" ? msg.title : "Connecting your empire...",
@@ -1054,6 +951,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
     if (msg.type === "LOGIN_QUEUED" || msg.type === "LOGIN_QUEUE_PROGRESS") {
+      socketLifecycle.noteProgress();
       if (!state.authSessionReady) {
         const position = typeof msg.position === "number" ? msg.position : 1;
         const estimatedWaitMs = typeof msg.estimatedWaitMs === "number" ? msg.estimatedWaitMs : 0;
@@ -1085,6 +983,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         clearQueuedDevelopmentDispatchPending,
         appendFeedEntry
       });
+      socketLifecycle.recovered();
       backfillSovereignSiegeEngineStrikeHistory(state, wsUrl, renderHud); // fires on first connect and every reconnect (INIT resends each time)
       applyInitActivitySeen(state, msg);
       // Only the true first INIT of this browser session -- handle-activity-timeline-messages.ts
@@ -1116,7 +1015,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "REACH_UPDATE") { if (applyServerReachUpdate(state, msg as Record<string, unknown>)) renderHud(); return; }
     // Other players' Aether Tower shields (client-aether-shield-state.ts); the map reads it on its next frame.
     if (msg.type === "AETHER_SHIELDS") { applyAetherShieldsMessage(state, msg as Record<string, unknown>); return; }
+    if (msg.type === "AFC_FLAG_DETECTIONS") { applyAfcStateMessage(state, msg); renderHud(); return; }
     if (msg.type === "PLAYER_UPDATE") {
+      applyAfcStateMessage(state, msg);
       applySettlementRepairDiagnostic(msg as Record<string, unknown>);
       const prevGold = state.gold;
       const prevDefensibility = state.defensibilityPct;
@@ -1962,6 +1863,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "TECH_UPDATE") {
+      applyAfcStateMessage(state, msg);
       logIncomingTechPayload("TECH_UPDATE", {
         techIds: msg.techIds,
         nextChoices: msg.nextChoices,
@@ -2022,27 +1924,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       renderHud();
       return;
     }
-    if (msg.type === "REVEAL_EMPIRE_STATS_RESULT") {
-      const stats = isRevealEmpireStatsView(msg.stats) ? { ...msg.stats, playerName: state.playerNames.get(msg.stats.playerId) ?? msg.stats.playerName } : undefined;
-      if (stats) {
-        state.revealedEmpireStatsByPlayer.set(stats.playerId, stats);
-        state.activeRevealEmpireStatsPopup = stats;
-        pushFeed(revealEmpireStatsFeedText(stats), "combat", "success");
-      }
-      renderHud();
-      return;
-    }
-    if (msg.type === "SURVEY_SWEEP_RESULT") {
-      const nowMs = Date.now();
-      const pings = surveySweepPingsFromPayload(msg.pings);
-      state.surveySweepPings.push(...pings.map((ping) => ({ ...ping, createdAt: nowMs, expiresAt: nowMs + 12_000 })));
-      logSurveySweepReceived(msg.pings, pings, state.surveySweepPings.length);
-      const resourceCount = pings.filter((ping) => ping.kind === "resource").length;
-      const townCount = pings.filter((ping) => ping.kind === "town").length;
-      pushFeed(`Survey Sweep found ${resourceCount} resource ${resourceCount === 1 ? "site" : "sites"} and ${townCount} ${townCount === 1 ? "town" : "towns"} outside current vision.`, "info", "success");
-      renderHud();
-      return;
-    }
+    if (handleIntelResult(msg, state, pushFeed, renderHud)) return;
 
     if (handleDiplomacySocketMessage(state, msg, { pushFeed, showCaptureAlert: showCaptureAlertSafely, playerNameForOwner })) {
       renderHud();

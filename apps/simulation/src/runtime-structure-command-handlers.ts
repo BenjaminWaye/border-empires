@@ -410,9 +410,9 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   // Shared with the client's build menus (structureBuildSpeedEffectKey) so
   // the time a menu shows is the time this stamps.
   const speedEffectKey = structureBuildSpeedEffectKey(structureType);
-  const buildMs = speedEffectKey
-    ? buildDurationWithSpeedMult(structureDurationMs, multiplicativeEffectForPlayer(actor, speedEffectKey))
-    : structureDurationMs;
+  const speed = multiplicativeEffectForPlayer(actor, "structureBuildSpeedMult") *
+    (speedEffectKey ? multiplicativeEffectForPlayer(actor, speedEffectKey) : 1);
+  const buildMs = structureDurationMs > 0 ? buildDurationWithSpeedMult(structureDurationMs, speed) : 0;
   const startedAt = context.now();
   const completesAt = startedAt + buildMs;
   const isSiegeFamily = spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON";

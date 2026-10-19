@@ -10,7 +10,7 @@ export type StructureBaseKey =
   | "HYDROGARDEN"
   | "UMBRITE_RIG"
   | "MINE"
-  | "MINTWORKS"
+  | "MANUFACTORY"
   | "INCUBATION_ENGINE"
   | "CENSUS_HALL"
   | "CLEARING_HOUSE"

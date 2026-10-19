@@ -10,28 +10,28 @@ describe("structureModifiersFor", () => {
     expect(modifiers.every((m) => m.isTownWide === false)).toBe(true);
   });
 
-  it("falls back to a representative per-copy rate for Mintworks with no tile context", () => {
-    const modifiers = structureModifiersFor("MINTWORKS");
+  it("falls back to a representative per-copy rate for Manufactory with no tile context", () => {
+    const modifiers = structureModifiersFor("MANUFACTORY");
     const stacked = modifiers.find((m) => m.statLabel === "Coin production");
-    expect(stacked?.valueText).toBe("+10% town coin production per Mintworks");
+    expect(stacked?.valueText).toBe("+10% town coin production per Manufactory");
     expect(modifiers.every((m) => m.isTownWide === true)).toBe(true);
   });
 
-  it("derives the real stacked percentage for Mintworks when tile context is supplied", () => {
-    const modifiers = structureModifiersFor("MINTWORKS", { tile: { town: { mintworksCount: 3, clearingHouseActive: false } } });
+  it("derives the real stacked percentage for Manufactory when tile context is supplied", () => {
+    const modifiers = structureModifiersFor("MANUFACTORY", { tile: { town: { manufactoryCount: 3, clearingHouseActive: false } } });
     const stacked = modifiers.find((m) => m.statLabel === "Coin production");
     expect(stacked?.valueText).toBe("+30% town coin production");
   });
 
-  it("boosts the stacked Mintworks percentage when a Clearing House is active", () => {
-    const modifiers = structureModifiersFor("MINTWORKS", { tile: { town: { mintworksCount: 2, clearingHouseActive: true } } });
+  it("boosts the stacked Manufactory percentage when a Clearing House is active", () => {
+    const modifiers = structureModifiersFor("MANUFACTORY", { tile: { town: { manufactoryCount: 2, clearingHouseActive: true } } });
     const stacked = modifiers.find((m) => m.statLabel === "Coin production");
     expect(stacked?.valueText).toBe("+70% town coin production");
   });
 
   it("marks a sample of support-tile buildings as town-wide and tile-local buildings as not", () => {
     expect(structureModifiersFor("ANCILLARY_DEPOT").every((m) => m.isTownWide === true)).toBe(true);
-    expect(structureModifiersFor("MINTWORKS").every((m) => m.isTownWide === true)).toBe(true);
+    expect(structureModifiersFor("MANUFACTORY").every((m) => m.isTownWide === true)).toBe(true);
     expect(structureModifiersFor("FORT").every((m) => m.isTownWide === false)).toBe(true);
     expect(structureModifiersFor("OBSERVATORY").every((m) => m.isTownWide === false)).toBe(true);
     expect(structureModifiersFor("UMBRITE_RIG").every((m) => m.isTownWide === false)).toBe(true);
@@ -40,8 +40,8 @@ describe("structureModifiersFor", () => {
   it("only carries rawValue on flat, additive-per-copy numbers", () => {
     const ancillaryDepot = structureModifiersFor("ANCILLARY_DEPOT");
     expect(ancillaryDepot[0]?.rawValue).toBe(150);
-    const mintworks = structureModifiersFor("MINTWORKS");
-    const stackedPercent = mintworks.find((m) => m.statLabel === "Coin production");
+    const manufactory = structureModifiersFor("MANUFACTORY");
+    const stackedPercent = manufactory.find((m) => m.statLabel === "Coin production");
     expect(stackedPercent?.rawValue).toBeUndefined();
   });
 
@@ -61,8 +61,8 @@ describe("structureModifiersFor", () => {
     }
   });
 
-  it("carries an already-aggregated rawValue for Mintworks gold production once a live count is supplied", () => {
-    const modifiers = structureModifiersFor("MINTWORKS", { tile: { town: { mintworksCount: 3, clearingHouseActive: false } } });
+  it("carries an already-aggregated rawValue for Manufactory gold production once a live count is supplied", () => {
+    const modifiers = structureModifiersFor("MANUFACTORY", { tile: { town: { manufactoryCount: 3, clearingHouseActive: false } } });
     const stacked = modifiers.find((m) => m.statLabel === "Coin production");
     expect(stacked?.rawValue).toBe(30);
     expect(stacked?.unit).toBe("percent");

@@ -36,7 +36,7 @@ import { percentLabel, type ModifierStructureType, type TownModifierTotal } from
 // not just incomplete.
 // EXCHANGE-mode converters (Aether Condenser/Titanium Works/Umbrite Works and
 // their Advanced tiers) built in a town's support ring: their gold, like
-// Mintworks's, is folded into that town's own production instead of paying
+// Manufactory's, is folded into that town's own production instead of paying
 // out as separate empire-wide income — see supportedConverterGoldPerMinuteForTown
 // (apps/simulation/economy-network.ts) and its wire-shaped counterpart in
 // live-town-summary.ts. Unlike every other type here, a plain "active count"
@@ -51,7 +51,7 @@ export const CONVERTER_TOWN_MODIFIER_AGGREGATE_TYPES: readonly ModifierStructure
 ];
 
 export const TOWN_MODIFIER_AGGREGATE_TYPES: readonly ModifierStructureType[] = [
-  "ANCILLARY_DEPOT", "ANCILLARY_FACTORY", "MINTWORKS",
+  "ANCILLARY_DEPOT", "ANCILLARY_FACTORY", "MANUFACTORY",
   "WEAPONS_WORKSHOP", "TITANIUM_WEAPONS_FACTORY", "UMBRITE_WEAPONS_FACTORY",
   ...CONVERTER_TOWN_MODIFIER_AGGREGATE_TYPES
 ];
@@ -59,7 +59,7 @@ export const TOWN_MODIFIER_AGGREGATE_TYPES: readonly ModifierStructureType[] = [
 const TOWN_MODIFIER_AGGREGATE_LABELS: Partial<Record<ModifierStructureType, { singular: string; plural: string }>> = {
   ANCILLARY_DEPOT: { singular: "Ancillary Depot", plural: "Ancillary Depots" },
   ANCILLARY_FACTORY: { singular: "Ancillary Factory", plural: "Ancillary Factories" },
-  MINTWORKS: { singular: "Mintworks", plural: "Mintworks" },
+  MANUFACTORY: { singular: "Manufactory", plural: "Manufactories" },
   WEAPONS_WORKSHOP: { singular: "Weapons Workshop", plural: "Weapons Workshops" },
   TITANIUM_WEAPONS_FACTORY: { singular: "Titanium Weapons Factory", plural: "Titanium Weapons Factories" },
   UMBRITE_WEAPONS_FACTORY: { singular: "Umbrite Weapons Factory", plural: "Umbrite Weapons Factories" },
@@ -73,18 +73,18 @@ const TOWN_MODIFIER_AGGREGATE_LABELS: Partial<Record<ModifierStructureType, { si
 
 export const townModifierTotalsFromCounts = (
   countsByType: Partial<Record<ModifierStructureType, number>>,
-  ctx: { clearingHouseActive?: boolean } = {}
+  ctx: { clearingHouseActive?: boolean; clearingHouseUpliftMult?: number } = {}
 ): TownModifierTotal[] => {
   const groups: TownModifierTotal[] = [];
   for (const type of TOWN_MODIFIER_AGGREGATE_TYPES) {
     const count = countsByType[type] ?? 0;
     if (count <= 0) continue;
-    // Mintworks stacking is nonlinear (each copy is worth more with an
+    // Manufactory stacking is nonlinear (each copy is worth more with an
     // active Clearing House) — structureModifiersFor computes the real
     // already-aggregated total from the live count when given this
     // context, rather than a naive per-copy multiply.
-    const modifierCtx = type === "MINTWORKS"
-      ? { tile: { town: { mintworksCount: count, clearingHouseActive: Boolean(ctx.clearingHouseActive) } } }
+    const modifierCtx = type === "MANUFACTORY"
+      ? { tile: { town: { manufactoryCount: count, clearingHouseActive: Boolean(ctx.clearingHouseActive), clearingHouseUpliftMult: ctx.clearingHouseUpliftMult ?? 1 } } }
       : CONVERTER_TOWN_MODIFIER_AGGREGATE_TYPES.includes(type)
         ? { tile: { converterMode: "EXCHANGE" as const } }
         : {};

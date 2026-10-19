@@ -1,3 +1,6 @@
+import { AFC_SPECIALIZATIONS_CHANGELOG } from "./client-changelog-afc-specializations.js";
+import { ALLIANCES_TAB_CHANGELOG } from "./client-changelog-alliances-tab.js";
+import { CLIENT_CHANGELOG_ENTRIES_OCT_17 } from "./client-changelog-oct-17.js";
 import { AETHER_ABILITY_ICONS_CHANGELOG } from "./client-changelog-aether-ability-icons.js";
 import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-art-october.js";
 import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
@@ -15,10 +18,11 @@ import { AI_PROGRESSION_AETHER_CHANGELOG } from "./client-changelog-ai-progressi
 import { FAIRER_AI_DEALS_CHANGELOG } from "./client-changelog-fairer-ai-deals.js";
 import { OVERLAY_PERSISTENCE_CHANGELOG } from "./client-changelog-overlay-persistence.js";
 import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
-import { RIVERS_MOUNTAINS_CHANGELOG } from "./client-changelog-rivers-mountains.js";
-import { GARRISON_OUTSIDE_REACH_CHANGELOG } from "./client-changelog-garrison-outside-reach.js";
+import { OUT_OF_REACH_NO_DECAY_CHANGELOG } from "./client-changelog-out-of-reach-no-decay.js";
+import { FRONTIER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-frontier-supply-lines.js";
 import { MANPOWER_BATCH_LABEL_CHANGELOG } from "./client-changelog-manpower-batch-label.js";
 import { RESTART_TILE_STATE_CHANGELOG } from "./client-changelog-restart-tile-state.js";
+import { RESTART_MANPOWER_CHANGELOG } from "./client-changelog-restart-manpower.js";
 import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-recent-groups.js";
 import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
 import { CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD } from "./client-changelog-activity-dashboard.js";
@@ -32,13 +36,10 @@ import { CLIENT_CHANGELOG_ENTRIES_SEPT_24_26 } from "./client-changelog-data-sep
 import { CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS } from "./client-changelog-fast-builds.js";
 import { CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS } from "./client-changelog-build-speed-menus.js";
 import { CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON } from "./client-changelog-hint-center-button.js";
-import { CLIENT_CHANGELOG_ENTRIES_ALLIANCE_TAB_REDESIGN } from "./client-changelog-alliance-tab-redesign.js";
-import { CLIENT_CHANGELOG_ENTRIES_DIPLOMACY_TILE_ACTION } from "./client-changelog-diplomacy-tile-action.js";
 import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-fit.js";
 import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./client-changelog-waystation-auto-claim-activation.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_12 } from "./client-changelog-data-oct-12.js";
 import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
-import { CLIENT_CHANGELOG_ENTRIES_COMPACT_MET_PLAYERS } from "./client-changelog-compact-met-players.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog-town-growth-loading.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY } from "./client-changelog-town-growth-war-integrity.js";
 export type ClientChangelogEntry = {
@@ -50,6 +51,9 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  ...AFC_SPECIALIZATIONS_CHANGELOG,
+  ...ALLIANCES_TAB_CHANGELOG,
+  ...CLIENT_CHANGELOG_ENTRIES_OCT_17,
   {
     createdAt: 1792044007050, // Date.now() frozen for the changelog gate.
     introducedIn: "2026.10.15.1",
@@ -76,7 +80,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["All Waystation technology rewards now use the current tech catalog name in the tile overview, including previously activated sites"]
   },
   ...AUTO_GARRISON_REQUEUE_CHANGELOG,
-  ...RIVERS_MOUNTAINS_CHANGELOG,
   {
     createdAt: 1791969340091, // Date.now() captured once for this release.
     introducedIn: "2026.10.14.4",
@@ -143,19 +146,9 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...MANPOWER_BATCH_LABEL_CHANGELOG,
   ...RESTART_TILE_STATE_CHANGELOG,
+  ...RESTART_MANPOWER_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING,
   ...CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY,
-  {
-    createdAt: 1791750801000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.11.2",
-    title: "Docks link to nearby docks, with a way to jump along their routes",
-    why: "Dock routes often led to a far-away dock instead of a close one, and following a long dashed route meant a lot of scrolling while the line broke up along the way.",
-    changes: [
-      "From next season, each dock links to its nearest dock on another island, measured by actual sea distance",
-      "A dock's tile menu now has a Connected docks row: use ◀ ▶ to jump the camera to each linked dock and Back to return",
-      "The dashed dock route line no longer breaks or jumps when it wraps around the map edge or leaves the area around you"
-    ]
-  },
   {
     createdAt: 1792009197862, // Date.now() captured when this entry was written.
     introducedIn: "2026.10.14.3",
@@ -175,7 +168,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["Water edges are now cleared properly when the camera moves somewhere without explored sea"]
   },
   ...CLIENT_CHANGELOG_ENTRIES_AFC_LANDING,
-  ...GARRISON_OUTSIDE_REACH_CHANGELOG,
+  ...OUT_OF_REACH_NO_DECAY_CHANGELOG,
+  ...FRONTIER_SUPPLY_LINES_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
@@ -189,8 +183,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS,
   ...CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS,
   ...CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON,
-  ...CLIENT_CHANGELOG_ENTRIES_ALLIANCE_TAB_REDESIGN,
-  ...CLIENT_CHANGELOG_ENTRIES_DIPLOMACY_TILE_ACTION,
   ...MOBILE_LOADING_FIT_CHANGELOG,
   ...AETHER_ABILITY_ICONS_CHANGELOG,
   {
@@ -210,7 +202,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION,
   ...CLIENT_CHANGELOG_ENTRIES_OCT_12,
   ...CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT,
-  ...CLIENT_CHANGELOG_ENTRIES_COMPACT_MET_PLAYERS,
   {
     createdAt: 1791921253260, // frozen Date.now() value for this release
     introducedIn: "2026.10.13.1",
@@ -461,6 +452,36 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "On the 3D map, enemy land inside your reach is now outlined by a thin front line in the attacker's colour, with tall spikes pointing into your land",
       "Spikes only appear where the enemy touches your own land, and the line stops at the old border when they push across it",
       "The 2D map keeps the plain outline for now"
+    ]
+  },
+  {
+    createdAt: 1792269690926, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.17.2",
+    title: "Manufactories turn town industry into Coin credit",
+    why: "The stackable economic building represents manufactured output backing offworld purchasing credit.",
+    changes: ["Mintworks are now Manufactories, preserving their costs, income, stacking and Clearing House bonuses", "The Industrial Tooling Module fabricates and refurbishes equipment for local Manufactories; new construction requires the module installed on an active AFC", "New factory artwork appears in both the 3D and 2D maps; existing buildings and queued builds carry over"]
+  },
+  {
+    createdAt: 1792274781110, // Date.now() captured once for this release.
+    introducedIn: "2026.10.18.1",
+    title: "Automatic reconnection keeps trying through server updates",
+    why: "Long outages exhausted the retry budget and forced page reloads; a reopened connection could also get stuck before restoring your empire.",
+    changes: [
+      "Long interruptions keep retrying in place without automatically refreshing the page",
+      "A reconnect that makes no progress for a minute automatically starts a fresh connection",
+      "Login queue updates and ongoing map downloads extend that timeout so active recovery can finish",
+      "Recovery pauses after sign-out; signing back in reopens a closed connection"
+    ]
+  },
+  {
+    createdAt: 1792307935274, // Date.now() frozen for this release.
+    introducedIn: "2026.10.18.1",
+    title: "AFC upgrades are easier to find and compare",
+    why: "Upgrade choices were easy to miss, and opening a separate detail screen made comparing them awkward on phones.",
+    changes: [
+      "AFC Upgrades replaces Sharding in navigation, with installed upgrades and their tiers above the current choices, inline details on phones and comparison cards beside details on desktop",
+      "A clickable upgrade-ready badge appears above your active AFCs in both map renderers; the navigation count stays visible when the AFC is offscreen",
+      "Owned AFC overviews link directly to upgrades, and availability follows your current resources and prerequisites; existing upgrade costs and rewards stay the same"
     ]
   }
 ];

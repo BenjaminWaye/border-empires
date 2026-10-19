@@ -1,3 +1,4 @@
+import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
 import { describeDiplomacyTermsForRecipient } from "@border-empires/shared";
 
 import { storageGet, storageSet } from "../client-state/client-state.js";
@@ -97,10 +98,11 @@ type TruceUpdateNotificationState = Pick<
 // extracted out of client-network.ts (already over the repo's 500-line
 // file-size gate and may not grow further).
 export const applyTruceUpdateMessage = (
-  state: TruceUpdateNotificationState,
+  state: TruceUpdateNotificationState & Partial<Pick<ClientState, "forcedTruceCooldownUntil">>,
   msg: Record<string, unknown>,
   deps: DiplomacyNotificationDeps
 ): void => {
+  applyAfcStateMessage(state, msg);
   state.activeTruces = (msg.activeTruces as any[]) ?? state.activeTruces;
   state.truceBreaksThisSeason = (msg.truceBreaksThisSeason as any[]) ?? state.truceBreaksThisSeason;
   state.incomingTruceRequests = (msg.incomingTruceRequests as any[]) ?? state.incomingTruceRequests;

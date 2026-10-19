@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { SimulationRuntime } from "./runtime.js";
 import { buildAiOpponent, buildPlayer } from "./runtime.test-helpers.js";
 
-// Regression: tile shedding, Aether Lance and sky dock bombardment all clear a
+// Regression: Aether Lance and sky dock bombardment both clear a
 // tile's owner but never re-ran the connectivity check, so frontier tiles that
 // hung off the lost tile stayed owned forever (out-of-reach decay never stamps
 // them while they sit inside the owner's reach, and encirclement only fires on
@@ -12,56 +12,6 @@ const ownerOf = (runtime: SimulationRuntime, key: string): string | undefined =>
   runtime.wireDeltaForTileKey(key, "player-1")?.ownerId;
 
 describe("encirclement after non-combat tile loss", () => {
-  it("cuts off frontier tiles stranded by tile shedding, for a player with nobody subscribed", async () => {
-    let now = 1_000;
-    const runtime = new SimulationRuntime({
-      now: () => now,
-      initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 0, manpower: 100 })]]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          { x: 30, y: 30, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-          { x: 31, y: 30, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
-          { x: 32, y: 30, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }
-        ],
-        activeLocks: []
-      }
-    });
-    expect(ownerOf(runtime, "32,30")).toBe("player-1");
-
-    now = 60_000;
-    await runtime.tickTileShedding(now);
-
-    expect(ownerOf(runtime, "30,30")).toBeUndefined();
-    expect(ownerOf(runtime, "31,30")).toBeUndefined();
-    expect(ownerOf(runtime, "32,30")).toBeUndefined();
-  });
-
-  it("keeps frontier tiles that are still connected to another settled tile after a shed", async () => {
-    let now = 1_000;
-    const runtime = new SimulationRuntime({
-      now: () => now,
-      initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 0, manpower: 100 })]]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          { x: 30, y: 30, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-          { x: 31, y: 30, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
-          { x: 32, y: 30, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }
-        ],
-        activeLocks: []
-      }
-    });
-    // Make (30,30) the newest settle so it is the tile shed first.
-    (runtime as unknown as { tileSettledAtByKey: Map<string, number> }).tileSettledAtByKey.set("30,30", 5_000);
-
-    now = 60_000;
-    await runtime.tickTileShedding(now);
-
-    expect(ownerOf(runtime, "30,30")).toBeUndefined();
-    expect(ownerOf(runtime, "31,30")).toBe("player-1");
-  });
-
   it("cuts off the defender's stranded frontier tiles when Aether Lance purges the tile they hung off", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,

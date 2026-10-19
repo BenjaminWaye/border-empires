@@ -9,7 +9,7 @@ import {
 } from "three";
 import type { StructurePieceBuilder } from "./client-map-3d-structure-builder.js";
 import { registerHydrogardenStructures } from "./client-map-3d-structure-hydrogarden.js";
-import { registerMintworksStructures } from "./client-map-3d-structure-mintworks.js";
+import { registerManufactoryStructures } from "./client-map-3d-structure-manufactory.js";
 
 export type EconomicStructureKind =
   | "HYDROGARDEN"
@@ -17,11 +17,11 @@ export type EconomicStructureKind =
   | "MINE"
   | "TITANIUM_WORKS"
   | "OBSERVATORY"
-  | "MINTWORKS";
+  | "MANUFACTORY";
 
 export const ECONOMIC_STRUCTURE_KINDS: ReadonlySet<EconomicStructureKind> = new Set([
   "HYDROGARDEN", "HYDROWORKS", "MINE", "TITANIUM_WORKS",
-  "OBSERVATORY", "MINTWORKS"
+  "OBSERVATORY", "MANUFACTORY"
 ]);
 
 // Resource hint passed through `addInstance` so the MINE mesh can swap
@@ -55,7 +55,7 @@ export type EconomicHandle = {
   readonly layouts: Record<EconomicStructureKind, EconomicStructureLayout>;
   readonly shared: EconomicSharedAssets;
   // Family-level animation hooks. The economic family is the only one with
-  // animated pieces today (the mintworks flywheel); the structure overlay
+  // animated pieces today (the manufactory flywheel); the structure overlay
   // forwards these so the orchestrator's render loop can drive them.
   readonly clear: () => void;
   readonly update: (nowMs: number) => void;
@@ -183,8 +183,8 @@ export const registerEconomicStructures = (
   builder.makeSlot("incubationEngineCupolaRoof", incubationEngineCupolaRoofGeo, incubationEngineAnnexRoofMaterial, C);
   builder.makeSlot("incubationEngineSack", incubationEngineSackGeo, incubationEngineSackMaterial, C * 2);
 
-  // Mintworks slots are registered by registerMintworksStructures
-  // (client-map-3d-structure-mintworks.ts) so this file stays under the
+  // Manufactory slots are registered by registerManufactoryStructures
+  // (client-map-3d-structure-manufactory.ts) so this file stays under the
   // 500-line cap and the mint instanced meshes don't duplicate pools.
 
   // ─── Layouts ────────────────────────────────────────────────────────
@@ -240,10 +240,10 @@ export const registerEconomicStructures = (
     builder.addPiece("observatoryCrystal", sx, sy, sz, -0.09, 0.27, -0.05, 0.9, 1.6, 0.9, 0, 0, -Math.PI * 0.12);
   };
 
-  // Mintworks lives in its own module (client-map-3d-structure-mintworks.ts)
+  // Manufactory lives in its own module (client-map-3d-structure-manufactory.ts)
   // so this file stays under the 500-line file cap. Registered here so the
   // mint slots pool with the rest of the economic family.
-  const mintworks = registerMintworksStructures(builder);
+  const manufactory = registerManufactoryStructures(builder);
 
   return {
     layouts: {
@@ -252,7 +252,7 @@ export const registerEconomicStructures = (
       MINE: addMine,
       TITANIUM_WORKS: addTitaniumWorks,
       OBSERVATORY: addObservatory,
-      MINTWORKS: mintworks.layout
+      MANUFACTORY: manufactory.layout
     },
     shared: {
       forgeBaseMaterial,
@@ -263,7 +263,7 @@ export const registerEconomicStructures = (
       blueCrystalGeo,
       blueCrystalMaterial
     },
-    clear: mintworks.clear,
-    update: mintworks.update
+    clear: manufactory.clear,
+    update: manufactory.update
   };
 };

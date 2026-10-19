@@ -135,7 +135,7 @@ describe("activityCardText / activityCardCoordinates", () => {
 
   it("renders town aftermath and building one-off effects", () => {
     const town = { kind: "TOWN_LOST" as const, townTier: "TOWN", townSurvived: false, populationBefore: 1_000, populationAfter: 500, capturedStructureTypes: [], x: 5, y: 9 };
-    const building = { kind: "BUILDING_COMPLETED" as const, structureType: "MINTWORKS", instantGold: 100, x: 4, y: 7 };
+    const building = { kind: "BUILDING_COMPLETED" as const, structureType: "MANUFACTORY", instantGold: 100, x: 4, y: 7 };
     expect(activityCardText(town as any, "me", noNames)).toContain("settlement razed");
     expect(activityCardText(building as any, "me", noNames)).toContain("+100 coin");
   });

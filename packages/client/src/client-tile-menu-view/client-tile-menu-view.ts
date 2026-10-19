@@ -1,7 +1,8 @@
+import { afcEffectMultiplier } from "../client-afc-upgrades/client-afc-effect.js";
+import { attackFloorForPlayer } from "../client-attack-commit/client-attack-floor.js";
 import { battleOverviewLines, battleMenuHeaderStatus } from "../client-battle-progress/client-tracked-battle-progress.js";
 import {
   isFortDefending,
-  requiredMusterForTarget,
   nextTownGrowthUpgrade,
   terrainAdjustedTownManpower,
   townFoodSlotDemandForTier,
@@ -9,7 +10,7 @@ import {
 } from "@border-empires/shared";
 import { dormantStructureLineHtml, type DormancyField } from "./client-tile-menu-dormancy-line.js";
 import { observatoryOverviewLines } from "./client-tile-menu-observatory-lines.js";
-import { mintworksGoldProductionMultiplier } from "@border-empires/game-domain";
+import { manufactoryGoldProductionMultiplier } from "@border-empires/game-domain";
 import { dockDisplayGoldPerMinute } from "../yield-derivation/yield-derivation.js";
 import { resourceSlotProductionHtml } from "./client-tile-resource-slot-production.js";
 import { isConverterStructureType } from "../client-converter-menu.js";
@@ -53,7 +54,7 @@ export { constructionProgressForTile } from "../client-tile-menu-construction-pr
 export const menuOverviewForTile = (
   tile: Tile,
   deps: {
-    state: { me: string; upkeepLastTick?: { foodCoverage?: number }; techCatalog?: readonly TechInfo[] };
+    state: { me: string; domainIds?: readonly string[]; upkeepLastTick?: { foodCoverage?: number }; techCatalog?: readonly TechInfo[]; techIds?: readonly string[] };
     prettyToken: (value: string) => string;
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     displayTownGoldPerMinute: (tile: Tile) => number;
@@ -124,7 +125,7 @@ export const menuOverviewForTile = (
   const resourceLabelText = tile.resource ? deps.prettyToken(strategicResourceKeyForTile(tile) ?? resourceLabel(tile.resource)) : undefined;
   const productionHtml = tileProductionHtml(tile);
   const isLand = tile.terrain !== "SEA" && tile.terrain !== "COASTAL_SEA" && tile.terrain !== "MOUNTAIN";
-  if (isLand) lines.push(...tileFeatureLeadLines(tile, ownerKind, { me: deps.state.me, prettyToken: deps.prettyToken, structureInfoButtonHtml: deps.structureInfoButtonHtml, techCatalog: deps.state.techCatalog ?? [] }));
+  if (isLand) lines.push(...tileFeatureLeadLines(tile, ownerKind, { me: deps.state.me, prettyToken: deps.prettyToken, structureInfoButtonHtml: deps.structureInfoButtonHtml, techCatalog: deps.state.techCatalog ?? [], techIds: deps.state.techIds ?? [] }));
   tileMenuOverviewIntroLines({
     terrain: tile.terrain,
     ownerKind,
@@ -291,15 +292,15 @@ export const menuOverviewForTile = (
     const town = supportedTowns[0];
     if (town) {
       pushLine(town.town?.name ? `Support tile for ${town.town.name}.` : `Support tile for nearby town at (${town.x}, ${town.y}).`);
-      // mintworks-stacking task: Mintworks stack additively now, so "already has
-      // a Mintworks" must not read as a discouragement to build another — show
+      // manufactory-stacking task: Manufactories stack additively now, so "already has
+      // a Manufactory" must not read as a discouragement to build another — show
       // the current count/bonus instead.
-      if (town.town?.mintworksCount) {
-        const currentMult = mintworksGoldProductionMultiplier(town.town.mintworksCount, Boolean(town.town.clearingHouseActive));
-        pushLine(`Nearby town has ${town.town.mintworksCount} active Mintworks${town.town.mintworksCount === 1 ? "" : "s"} (+${Math.round((currentMult - 1) * 100)}% town coin production).`);
+      if (town.town?.manufactoryCount) {
+        const currentMult = manufactoryGoldProductionMultiplier(town.town.manufactoryCount, Boolean(town.town.clearingHouseActive), afcEffectMultiplier(deps.state.domainIds, "clearingHouseUpliftMult"));
+        pushLine(`Nearby town has ${town.town.manufactoryCount} active ${town.town.manufactoryCount === 1 ? "Manufactory" : "Manufactories"} (+${Math.round((currentMult - 1) * 100)}% town coin production).`);
       }
       if (town.town?.hasIncubationEngine) pushLine("Nearby town already has an Incubation Engine.");
-      if (!tile.economicStructure) pushLine("Town buildings like mintworks and Incubation Engines must be built on support tiles.");
+      if (!tile.economicStructure) pushLine("Town buildings like Manufactories and Incubation Engines must be built on support tiles.");
     }
   } else if (supportedTowns.length > 1) {
     pushLine("This support tile touches multiple towns.");
@@ -314,7 +315,7 @@ export const menuOverviewForTile = (
     // Same helper the client's own attack gate uses (findClosestMuster in
     // client-muster-attack-gate.ts), so the number shown here always matches
     // the muster the client will actually demand.
-    const required = requiredMusterForTarget(tile);
+    const required = attackFloorForPlayer(deps.state, tile);
     pushLine(`Capturing requires ${required} mustered manpower.`);
   }
   if (tile.fort?.status === "active") {
@@ -353,7 +354,7 @@ export const menuOverviewForTile = (
     if (tile.economicStructure.status === "active") {
       const dormantLine = dormantStructureLineHtml(tile, "economicStructure", deps.dormantResourcesForTile?.(tile, "economicStructure"));
       if (dormantLine) pushLine(dormantLine);
-      const ownBonusLine = tile.ownerId === tile.economicStructure.ownerId ? weaponsFactoryOwnBonusLine(tile) : undefined;
+      const ownBonusLine = tile.ownerId === tile.economicStructure.ownerId ? weaponsFactoryOwnBonusLine(tile, tile.ownerId === deps.state.me ? afcEffectMultiplier(deps.state.domainIds, "factoryDefenseContributionMult") : 1) : undefined;
       if (ownBonusLine) pushLine(ownBonusLine);
     }
   }
@@ -466,6 +467,7 @@ export const tileMenuViewForTile = (
   const reachState = deps.state; const headerStatus: TileMenuHeaderStatus | undefined = (tile.ownerId === reachState.me && reachState.tiles ? ownTileHeaderStatus(reachState as ReachAuthoritativeState, tile, deps.playerNameForOwner) : tileMenuHeaderStatusForTile(tile, Date.now(), undefined, undefined, tile.ownerId === reachState.me)) ?? battleMenuHeaderStatus(incomingAttack ?? capture); return {
     title: `${titleLabel} (${tile.x}, ${tile.y})`,
     ...(townCharacter ? { townCharacter } : {}),
+    ...(tile.town ? { isTownTile: true } : {}),
     subtitle: tileMenuSubtitleText(ownerLabel, regionLabel),
     ...(subtitleHtml ? { subtitleHtml } : {}),
     ...(headerStatus ? { statusText: headerStatus.text, statusTone: headerStatus.tone, ...(headerStatus.helpText ? { statusHelpText: headerStatus.helpText } : {}) } : {}),

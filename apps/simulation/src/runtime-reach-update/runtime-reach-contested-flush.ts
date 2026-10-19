@@ -16,8 +16,7 @@ export type ReachContestedFlushContext<TTile, TDelta> = {
  * Flushes every dirty changed-reach tile (see runtime-reach-contested-tiles.ts)
  * as fresh TILE_DELTA_BATCH deltas — recomputed via `tileDeltaFromState`, so
  * each carries the current `reachOwnerId` off `Runtime.reachBorder`. Grouped
- * by the tile's *current actual owner* (mirrors runtime-out-of-reach-decay.ts's
- * grouping convention) purely for event attribution; the downstream fanout in
+ * by the tile's *current actual owner* purely for event attribution; the downstream fanout in
  * simulation-service.ts filters each subscriber's own vision independently of
  * this grouping, so an unowned/neutral tile's group key of "" is fine — it
  * still reaches every subscriber who can see that tile.

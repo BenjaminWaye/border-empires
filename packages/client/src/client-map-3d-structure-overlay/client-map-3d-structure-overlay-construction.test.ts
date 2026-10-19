@@ -15,7 +15,7 @@ const siteAt = (visibleBands: number, over: Partial<ConstructionSite> = {}): Con
   afcOffset: undefined,
   direction: "build",
   field: "economicStructure",
-  structureType: "MINTWORKS",
+  structureType: "MANUFACTORY",
   ownerId: "me",
   fraction: (visibleBands - 1) / CONSTRUCTION_PHASES,
   visibleBands,
@@ -34,7 +34,7 @@ const piecesIn = (scene: Scene): number =>
 const build = (site?: ConstructionSite) => {
   const scene = new Scene();
   const overlay = createStructureOverlay(scene, 4, createContactShadowOverlay(scene, 4));
-  overlay.addInstance(0, 0, 0, "MINTWORKS", undefined, site);
+  overlay.addInstance(0, 0, 0, "MANUFACTORY", undefined, site);
   overlay.commit();
   return { scene, overlay };
 };
@@ -80,11 +80,11 @@ describe("structure overlay under construction", () => {
   it("does not leave the gate on for the next, finished structure", () => {
     const scene = new Scene();
     const overlay = createStructureOverlay(scene, 4, createContactShadowOverlay(scene, 4));
-    overlay.addInstance(0, 0, 0, "MINTWORKS", undefined, siteAt(1));
+    overlay.addInstance(0, 0, 0, "MANUFACTORY", undefined, siteAt(1));
     overlay.commit();
     const gated = piecesIn(scene);
     overlay.clear();
-    overlay.addInstance(0, 0, 0, "MINTWORKS");
+    overlay.addInstance(0, 0, 0, "MANUFACTORY");
     overlay.commit();
     const finished = piecesIn(scene);
     overlay.dispose();
@@ -111,8 +111,8 @@ describe("structure overlay under construction", () => {
 
   it("animating the crew every frame never throws, including stalled and removal sites", () => {
     const { overlay } = build(siteAt(2));
-    overlay.addInstance(1, 1, 0, "MINTWORKS", undefined, siteAt(3, { stalled: true, nextPhaseAtMs: undefined }));
-    overlay.addInstance(2, 2, 0, "MINTWORKS", undefined, siteAt(2, { direction: "remove" }));
+    overlay.addInstance(1, 1, 0, "MANUFACTORY", undefined, siteAt(3, { stalled: true, nextPhaseAtMs: undefined }));
+    overlay.addInstance(2, 2, 0, "MANUFACTORY", undefined, siteAt(2, { direction: "remove" }));
     expect(() => {
       for (let t = 0; t < 20_000; t += 250) overlay.update(t);
     }).not.toThrow();
@@ -125,7 +125,7 @@ describe("structure overlay under construction", () => {
     const pods = (scene: Scene): number => scene.children.filter((c) => c.type === "Group").length;
     const rebuild = (overlay: ReturnType<typeof createStructureOverlay>, site?: ConstructionSite): void => {
       overlay.clear();
-      overlay.addInstance(0, 0, 0, "MINTWORKS", undefined, site);
+      overlay.addInstance(0, 0, 0, "MANUFACTORY", undefined, site);
       overlay.commit();
     };
     const setup = () => {

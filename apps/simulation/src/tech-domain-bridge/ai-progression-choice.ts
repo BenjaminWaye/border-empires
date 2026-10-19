@@ -72,11 +72,19 @@ export const chooseAiDomainChoiceForPlayer = (
   const settledTileCountForChoice =
     player.settledTileCount ??
     [...tiles].reduce((count, tile) => count + (tile.ownerId === player.id && tile.ownershipState === "SETTLED" ? 1 : 0), 0);
-  return reachableDomainChoices([...player.techIds], [...(player.domainIds ?? [])])
+  return reachableDomainChoices([...player.techIds], [...(player.domainIds ?? [])], player)
     .map((id) => domainEntryById.get(id))
     .filter((domain): domain is DomainCatalogEntry => Boolean(domain))
     .map((domain) => {
       let score = 0;
+      if (domain.branch) {
+        const preferred = (player.domainIds ?? []).map(id => domainEntryById.get(id)?.branch).find(Boolean);
+        const branches = ["vanguard", "bastion", "dominion", "exchequer", "oracle", "chancery"];
+        const hash = [...player.id].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+        score += domain.branch === (preferred ?? branches[hash % branches.length]) ? 50 : 0;
+        if (domain.branch === "exchequer" && flags.has("active_town")) score += 12;
+        if (domain.branch === "dominion" && flags.has("active_dock")) score += 8;
+      }
       if (domain.id === "frontier-doctrine" && !flags.has("active_town")) score += 45;
       if (domain.id === "frontier-doctrine" && settledTileCountForChoice < 20) score += 20;
       if (domain.id === "mercantile-charter" && flags.has("active_town")) score += 65;

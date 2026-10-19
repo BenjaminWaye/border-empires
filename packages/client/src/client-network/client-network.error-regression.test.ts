@@ -65,9 +65,9 @@ describe("client network regression guards", () => {
       x: 14,
       y: 299,
       tileKey: "14,299",
-      label: "Build Mintworks",
-      payload: { type: "BUILD_STRUCTURE", x: 14, y: 299, structureType: "MINTWORKS" },
-      optimisticKind: "MINTWORKS"
+      label: "Build Manufactory",
+      payload: { type: "BUILD_STRUCTURE", x: 14, y: 299, structureType: "MANUFACTORY" },
+      optimisticKind: "MANUFACTORY"
     };
     state.queuedDevelopmentDispatchPending = true;
     const showCaptureAlert = vi.fn();
@@ -81,13 +81,13 @@ describe("client network regression guards", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       ws.emit("message", {
-        data: JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_GOLD", message: "insufficient coin for mintworks" })
+        data: JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_GOLD", message: "insufficient coin for manufactory" })
       });
       expect(notifyInsufficientGoldForFrontierAction).not.toHaveBeenCalled();
       expect(showCaptureAlert).toHaveBeenCalledTimes(1);
       const captureArgs = showCaptureAlert.mock.calls[0] ?? [];
       expect(captureArgs[0]).toBe("Insufficient coin");
-      expect(captureArgs[1]).toContain("Insufficient coin for mintworks");
+      expect(captureArgs[1]).toContain("Insufficient coin for manufactory");
       expect(captureArgs[1]).toContain("1500.00");
       expect(captureArgs[2]).toBe("warn");
       expect(clearOptimisticTileState).toHaveBeenCalledWith("14,299", true);

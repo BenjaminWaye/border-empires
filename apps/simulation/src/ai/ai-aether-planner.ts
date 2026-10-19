@@ -1,7 +1,7 @@
 import { hasInstalledAiBuildModule } from "./ai-build-unlocks.js";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { AETHER_EMP_RADIUS, playerHasAbilityTech } from "@border-empires/game-domain";
-import { DEVELOPMENT_PROCESS_LIMIT, observatoryCrystalSlotCostForOwnedCount, structureBuildManpowerCostScaled, structureShowsOnTile } from "@border-empires/shared";
+import { isAetherTowerSuppressed, DEVELOPMENT_PROCESS_LIMIT, observatoryCrystalSlotCostForOwnedCount, structureBuildManpowerCostScaled, structureShowsOnTile } from "@border-empires/shared";
 import { createAutomationCommand } from "./automation-command-factory.js";
 import { createAutomationNoopDiagnostic, type AutomationPlannerInput, type AutomationPlannerResult, type AutomationPlannerTile } from "./automation-command-planner-types.js";
 import { actionAdmissionKey } from "./ai-rejection-cooldown.js";
@@ -28,14 +28,15 @@ export function chooseAiAetherCommand<T extends AutomationPlannerTile>(input: Au
   const enemies = visible.filter(tile => tile.terrain === "LAND" && hostile(tile));
   const ownedTowerCount = input.ownedStructureCounts?.OBSERVATORY;
   const towers = ownedTowerCount === 0 ? [] : input.ownedTiles.filter(tile => tile.ownerId === input.playerId && tile.observatory?.ownerId === input.playerId && tile.observatory.status === "active");
-  const ready = towers.filter(tile => !tile.observatory?.siphon && (tile.observatory?.cooldownUntil ?? 0) <= input.issuedAt && !view.dormantObservatoryKeys.includes(keyOf(tile)));
-  const inRange = (tile: AutomationPlannerTile): boolean => ready.some(tower => distance(tower, tile) <= view.castRange);
+  const ready = towers.filter(tile => !tile.observatory?.siphon && !isAetherTowerSuppressed(tile.observatory ?? undefined, input.issuedAt) && (tile.observatory?.cooldownUntil ?? 0) <= input.issuedAt && !view.dormantObservatoryKeys.includes(keyOf(tile)));
+  const inRange = (tile: { x: number; y: number }): boolean => ready.some(tower => distance(tower, tile) <= view.castRange);
   const actions: AiAetherAction[] = [];
   const can = (ability: Parameters<typeof playerHasAbilityTech>[1]): boolean => playerHasAbilityTech(techs, ability);
   if (ready.length && !input.decisionCooldowns?.USE_AETHER) {
     const foodDeficit = (input.slotSupplyByResource?.FOOD ?? 0) < (input.slotDemandByResource?.FOOD ?? 0);
     for (const target of enemies) {
       if (!inRange(target)) continue;
+      if (input.domainIds?.includes("afc-oracle-4") && target.observatory?.status === "active" && !isAetherTowerSuppressed(target.observatory, input.issuedAt) && !knownShielded(target, shields.filter(tile => tile.economicStructure?.type === "AEGIS_DOME"), input.issuedAt)) actions.push({ type: "SUPPRESS_AETHER_TOWER", payload: { x: target.x, y: target.y }, value: 210 });
       const tower = target.economicStructure;
       if (can("aether_emp") && tower?.type === "AMBARIC_TRANSFORMER" && tower.status === "active" && (tower.disabledUntil ?? 0) <= input.issuedAt && !knownShielded(target, shields, input.issuedAt)) {
         let count = 0;
@@ -56,6 +57,9 @@ export function chooseAiAetherCommand<T extends AutomationPlannerTile>(input: Au
       if (can("aether_lance") && (target.ownershipState === "SETTLED" || target.ownershipState === "FRONTIER") && !knownShielded(target, shields, input.issuedAt) && (valuable(target) || target.muster || target.fort || target.siegeBattery || target.economicStructure || target.observatory)) {
         actions.push({ type: "AETHER_LANCE", payload: { x: target.x, y: target.y }, value: 100 + (valuable(target) ? 30 : 0) + Math.min(60, (target.muster?.amount ?? 0) / 10) });
       }
+    }
+    if (input.domainIds?.includes("afc-oracle-5") && can("aether_lance")) for (const flag of input.afcDetectedFlags ?? []) {
+      if (!input.nonHostilePlayerIds?.has(flag.ownerId) && flag.ownerId !== input.playerId && inRange(flag) && !knownShielded(flag, shields, input.issuedAt)) actions.push({ type: "AETHER_LANCE", payload: { x: flag.x, y: flag.y }, value: 190 });
     }
     const route = chooseAetherRoute(input, visibleMap, ready);
     if (route) actions.push(route);

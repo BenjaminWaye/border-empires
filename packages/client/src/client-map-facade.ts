@@ -1,4 +1,6 @@
-import { WORLD_WIDTH, clearForestAroundAfcTiles, clearForestOnTownAndDockTiles, grassShadeAt, grassToneAt, isForestClearedAt, visualLandBiomeAt, worldgenVersion, type ProspectSignature } from "@border-empires/shared";
+import { WORLD_WIDTH, clearForestAroundAfcTiles, clearForestOnTownAndDockTiles, grassShadeAt, grassToneAt, isForestClearedAt, visualLandBiomeAt, worldgenVersion } from "@border-empires/shared";
+import { drawProspectSignatureOverlay, prospectClueDrawFor } from "./client-prospect-signature-overlay.js";
+import { createRetiredProspectCluesLookup } from "./client-prospect-clue/client-prospect-clue.js";
 import { createMiniMapBaseBuilder } from "./client-minimap/client-minimap-base-builder.js";
 import {
   buildMiniMapBaseRows,
@@ -275,14 +277,18 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
         return tile?.terrain === "LAND" ? tile.regionType : undefined;
       }
     });
+  const retiredClues = createRetiredProspectCluesLookup();
+  const visibleProspectClueAt = (wx: number, wy: number): ReturnType<typeof prospectClueDrawFor> => {
+    const tile = state.tiles.get(keyFor(wx, wy));
+    return prospectClueDrawFor(tile, tileVisibilityStateAt(wx, wy, tile) === "visible", retiredClues(state.techIds, state.techCatalog));
+  };
   const drawForestOverlay = (wx: number, wy: number, px: number, py: number, size: number): void =>
-    drawForestOverlayOnCanvas(
-      ctx, wx, wy, px, py, size,
-      (state.tiles.get(keyFor(wx, wy)) as Tile & { prospectSignature?: ProspectSignature } | undefined)?.prospectSignature,
-      (x, y) => isForestTileWithAfcLandingHold(state.afcJoinDrop, x, y)
-    );
-  const drawHillsOverlay = (wx: number, wy: number, px: number, py: number, size: number): void =>
+    drawForestOverlayOnCanvas(ctx, wx, wy, px, py, size, visibleProspectClueAt(wx, wy), (x, y) => isForestTileWithAfcLandingHold(state.afcJoinDrop, x, y));
+  // Ground-level clue props (ferrous flecks, refractive glints) go on top of the hill mounds, which would otherwise paint over them.
+  const drawHillsOverlay = (wx: number, wy: number, px: number, py: number, size: number): void => {
     drawHillsOverlayOnCanvas(ctx, wx, wy, px, py, size);
+    drawProspectSignatureOverlay(ctx, visibleProspectClueAt(wx, wy), wx, wy, px, py, size);
+  };
   const drawPlanetaryDefenseOverlay = (px: number, py: number, size: number, wx: number, wy: number): void =>
     drawPlanetaryDefenseOverlayOnCanvas(ctx, px, py, size, wx, wy, performance.now());
   const drawIncomingAttackOverlay = (wx: number, wy: number, px: number, py: number, size: number, resolvesAt: number): void => {

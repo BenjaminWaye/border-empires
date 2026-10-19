@@ -7,6 +7,7 @@ import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bri
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import { shouldYieldAt } from "./event-loop-yield.js";
 import { overlaySubstructuresFrom } from "./tile-overlay-fields/tile-overlay-fields.js";
+import { townSettledAtForSnapshot } from "./recovered-town-state/recovered-town-state.js";
 
 export type SnapshotTile = SimulationSnapshotSections["initialState"]["tiles"][number];
 
@@ -16,6 +17,8 @@ export type SnapshotExportInput = {
   players: ReadonlyMap<string, DomainPlayer>;
   pendingSettlementsByTile: ReadonlyMap<string, PendingSettlementRecord>;
   playerYieldCollectionEpochByPlayer: ReadonlyMap<string, number>;
+  // Runtime.tileSettledAtByKey; only town stamps are saved (recovered-town-state.ts).
+  tileSettledAtByKey?: ReadonlyMap<string, number>;
   docks: readonly DockRouteDefinition[];
   recordedEventsByCommandId: ReadonlyMap<string, SimulationEvent[]>;
   incomePerMinuteForPlayer: (playerId: string) => number;
@@ -67,6 +70,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
       players: [...input.players.values()]
         .map((player) => {
           const summary = input.summaryForPlayer(player.id);
+          const townSettledAt = townSettledAtForSnapshot(summary.ownedTownTierByTile.keys(), input.tileSettledAtByKey);
           return {
           id: player.id,
           ...(player.name ? { name: player.name } : {}),
@@ -79,6 +83,10 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           ...(player.landingReserveGranted ? { landingReserveGranted: true } : {}),
           techIds: [...player.techIds].sort(),
           domainIds: [...(player.domainIds ?? [])].sort(),
+          ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
+          ...(player.afcCoreTownKeys ? { afcCoreTownKeys: [...player.afcCoreTownKeys] } : {}),
+          ...(player.afcScarcityFoodSlots ? { afcScarcityFoodSlots: player.afcScarcityFoodSlots } : {}),
+          ...(player.afcCampaign ? { afcCampaign: structuredClone(player.afcCampaign) } : {}),
           ...(player.chosenTrickleResource ? { chosenTrickleResource: player.chosenTrickleResource } : {}),
           ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
           autoSettle: { ...player.autoSettle },
@@ -99,6 +107,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           incomeMultiplier: player.mods?.income ?? 1,
           incomePerMinute: input.incomePerMinuteForPlayer(player.id),
           ownedTownTileKeys: [...summary.ownedTownTierByTile.keys()],
+          ...(townSettledAt.length ? { townSettledAt } : {}),
           // Restart-durable: DEV_QUEUE_*/WAYPOINT_* commands only ever mutate
           // in-memory PlayerRuntimeSummary (see command-coverage-sets.ts) --
           // snapshotting the current queue contents here, current-value style

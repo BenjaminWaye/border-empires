@@ -3056,132 +3056,8 @@ describe("simulation runtime", () => {
     }
   });
 
-  it("builds a mintworks through the rewrite simulation path directly on a support tile", async () => {
-    vi.useFakeTimers();
-    try {
-      const runtime = new SimulationRuntime({
-        now: () => 1_000,
-        initialPlayers: new Map([
-          [
-            "player-1",
-            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["trade"]), strategicResources: {} })
-          ]
-        ]),
-        initialState: {
-          tiles: [
-            {
-              x: 16,
-              y: 16,
-              terrain: "LAND",
-              ownerId: "player-1",
-              ownershipState: "SETTLED",
-              town: { name: "Trade Hub", type: "MARKET", populationTier: "TOWN" }
-            },
-            {
-              x: 16,
-              y: 17,
-              terrain: "LAND",
-              ownerId: "player-1",
-              ownershipState: "SETTLED"
-            },
-            // §5.3: the town draws 2 FOOD slots, MINTWORKS draws 1 more — supply
-            // it or the build rejects with INSUFFICIENT_SLOT.
-            { x: 16, y: 18, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
-            { x: 16, y: 19, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
-            { x: 16, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
-            { x: 16, y: 21, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
-            { x: 16, y: 22, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" }
-          ],
-          activeLocks: []
-        }
-      });
-
-      runtime.submitCommand({
-        commandId: "mintworks-cmd-1",
-        sessionId: "session-1",
-        playerId: "player-1",
-        clientSeq: 1,
-        issuedAt: 1_000,
-        type: "BUILD_ECONOMIC_STRUCTURE",
-        payloadJson: JSON.stringify({ x: 16, y: 17, structureType: "MINTWORKS" })
-      });
-
-      await Promise.resolve();
-      expect(runtime.exportState().tiles).toContainEqual(
-        expect.objectContaining({
-          x: 16,
-          y: 17,
-          economicStructureJson: expect.any(String)
-        })
-      );
-
-      vi.advanceTimersByTime(structureBuildDurationMs("MINTWORKS"));
-
-      const exported = runtime.exportState().tiles.find((tile) => tile.x === 16 && tile.y === 17);
-      expect(exported?.economicStructureJson).toContain("\"type\":\"MINTWORKS\"");
-      expect(exported?.economicStructureJson).toContain("\"status\":\"active\"");
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("redirects a Mintworks/Ancillary Depot/Weapons Factory targeted at the town tile itself onto an open support tile — only a Fort belongs directly on a town", async () => {
-    vi.useFakeTimers();
-    try {
-      const runtime = new SimulationRuntime({
-        now: () => 1_000,
-        initialPlayers: new Map([
-          [
-            "player-1",
-            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["trade"]), strategicResources: {} })
-          ]
-        ]),
-        initialState: {
-          tiles: [
-            {
-              x: 30,
-              y: 30,
-              terrain: "LAND",
-              ownerId: "player-1",
-              ownershipState: "SETTLED",
-              town: { name: "Redirect Town", type: "MARKET", populationTier: "TOWN" }
-            },
-            { x: 30, y: 31, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-            { x: 30, y: 32, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
-            { x: 30, y: 33, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
-            { x: 30, y: 34, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
-            { x: 30, y: 35, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
-            { x: 30, y: 36, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" }
-          ],
-          activeLocks: []
-        }
-      });
-
-      runtime.submitCommand({
-        commandId: "mintworks-on-town-tile",
-        sessionId: "session-1",
-        playerId: "player-1",
-        clientSeq: 1,
-        issuedAt: 1_000,
-        type: "BUILD_ECONOMIC_STRUCTURE",
-        // Targeting the town tile itself (30,30), not a support tile.
-        payloadJson: JSON.stringify({ x: 30, y: 30, structureType: "MINTWORKS" })
-      });
-
-      await Promise.resolve();
-      // The town tile itself must stay clear...
-      const townTile = runtime.exportState().tiles.find((tile) => tile.x === 30 && tile.y === 30);
-      expect(townTile?.economicStructureJson).toBeUndefined();
-      // ...and the build landed on the open support tile instead.
-      const supportTile = runtime.exportState().tiles.find((tile) => tile.x === 30 && tile.y === 31);
-      expect(supportTile?.economicStructureJson).toEqual(expect.stringContaining("\"type\":\"MINTWORKS\""));
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
   it("rejects duplicate support structures submitted directly on another support tile", async () => {
-    // MINTWORKS moved to same-tile/uncapped placement in the tech-tree redesign
+    // MANUFACTORY moved to same-tile/uncapped placement in the tech-tree redesign
     // (per-town cap removed), so it no longer exercises the town_support
     // one-per-town rule this test covers -- CENSUS_HALL is still
     // town_support and needs no tech, so it stands in as the exemplar here.
@@ -5940,25 +5816,25 @@ describe("simulation runtime", () => {
               terrain: "LAND",
               ownerId: "player-1",
               ownershipState: "SETTLED",
-              economicStructure: { ownerId: "player-1", type: "MINTWORKS", status: "active", activatedAt: 500 }
+              economicStructure: { ownerId: "player-1", type: "MANUFACTORY", status: "active", activatedAt: 500 }
             }
           ],
           activeLocks: []
         }
       });
-      // Supply = 4 FOOD slots (2 bare FISH tiles). Demand = 4 (town) + 1 (Mintworks) = 5, short by 1 —
-      // shedding just the newer Mintworks covers it, so the town isn't touched.
+      // Supply = 4 FOOD slots (2 bare FISH tiles). Demand = 4 (town) + 1 (Manufactory) = 5, short by 1 —
+      // shedding just the newer Manufactory covers it, so the town isn't touched.
       expect(runtime.isTownFoodDormant("player-1", "1,0")).toBe(false);
       expect(runtime.isStructureDormant("player-1", "2,0", "economicStructure")).toBe(true);
     });
 
-    it("excludes a dormant Mintworks's gold bonus from the exported tile view (tileDeltaFromState)", () => {
+    it("excludes a dormant Manufactory's gold bonus from the exported tile view (tileDeltaFromState)", () => {
       // Regression: tileDeltaFromState (the function every TILE_DELTA_BATCH/
       // exportTilesInAreaForPlayer response goes through) calls
       // enrichTileWithTownContext -> refreshTownEconomyFields, a SEPARATE
       // path from buildPlayerUpdateEconomySnapshot's authoritative gold
       // total. It was missing the dormancy set entirely, so a dormant
-      // Mintworks/Bank/Clearing House still showed its bonus in the client's
+      // Manufactory/Bank/Clearing House still showed its bonus in the client's
       // own tile view even though the player's real income excluded it.
       const runtime = new SimulationRuntime({
         now: () => 1_000,
@@ -5990,21 +5866,21 @@ describe("simulation runtime", () => {
               terrain: "LAND",
               ownerId: "player-1",
               ownershipState: "SETTLED",
-              economicStructure: { ownerId: "player-1", type: "MINTWORKS", status: "active", activatedAt: 500 }
+              economicStructure: { ownerId: "player-1", type: "MANUFACTORY", status: "active", activatedAt: 500 }
             }
           ],
           activeLocks: []
         }
       });
       // Same supply/demand shape as the test above: 4 FOOD slots supply,
-      // 4 (town) + 1 (Mintworks) = 5 demand — the newer Mintworks goes dormant,
+      // 4 (town) + 1 (Manufactory) = 5 demand — the newer Manufactory goes dormant,
       // the town stays fed.
       expect(runtime.isStructureDormant("player-1", "2,0", "economicStructure")).toBe(true);
 
       const [centerDelta] = runtime.exportTilesInAreaForPlayer("player-1", 1, 0, 0, { fullVisibility: true });
       const town = centerDelta?.townJson ? (JSON.parse(centerDelta.townJson) as { goldPerMinute?: number }) : undefined;
-      // TOWN_BASE_GOLD_PER_MIN * supportRatio(1) * tierMult(1) — no Mintworks
-      // 1.5x multiplier applied, since the dormant Mintworks doesn't count.
+      // TOWN_BASE_GOLD_PER_MIN * supportRatio(1) * tierMult(1) — no Manufactory
+      // 1.5x multiplier applied, since the dormant Manufactory doesn't count.
       // Before the fix this was TOWN_BASE_GOLD_PER_MIN * 1.5.
       expect(town?.goldPerMinute).toBeCloseTo(TOWN_BASE_GOLD_PER_MIN, 6);
     });
@@ -7410,158 +7286,6 @@ describe("simulation runtime — shard rain", () => {
   });
 });
 
-describe("simulation runtime — tile shedding", () => {
-  it("does not shed when the player has positive treasury", async () => {
-    let now = 1_000;
-    const runtime = new SimulationRuntime({
-      now: () => now,
-      initialPlayers: new Map([
-        ["ai-1", buildPlayer("ai-1", { isAi: true, points: 10_000, manpower: 100 })]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          { x: 0, y: 0, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" },
-          { x: 1, y: 0, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" }
-        ],
-        activeLocks: []
-      }
-    });
-
-    now = 60_000;
-    await runtime.tickTileShedding(60_000);
-
-    const state = runtime.exportState();
-    expect(state.tiles.filter((tile) => tile.ownerId === "ai-1").length).toBe(2);
-  });
-
-  it("never sheds barbarian tiles", async () => {
-    let now = 1_000;
-    const runtime = new SimulationRuntime({
-      now: () => now,
-      initialPlayers: new Map([
-        ["barbarian-1", buildPlayer("barbarian-1", { points: 0, manpower: 100 })]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          { x: 0, y: 0, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" }
-        ],
-        activeLocks: []
-      }
-    });
-
-    now = 60_000;
-    await runtime.tickTileShedding(60_000);
-
-    const state = runtime.exportState();
-    expect(state.tiles.find((tile) => tile.x === 0 && tile.y === 0)?.ownerId).toBe("barbarian-1");
-  });
-
-  it("releases ownership of a town tile without destroying the town", async () => {
-    let now = 1_000;
-    const runtime = new SimulationRuntime({
-      now: () => now,
-      initialPlayers: new Map([
-        ["ai-1", buildPlayer("ai-1", { isAi: true, points: 0, manpower: 100 })]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 0,
-            y: 0,
-            terrain: "LAND",
-            ownerId: "ai-1",
-            ownershipState: "SETTLED",
-            town: { name: "Home", type: "FARMING", populationTier: "TOWN", population: 400 }
-          }
-        ],
-        activeLocks: []
-      }
-    });
-
-    now = 60_000;
-    await runtime.tickTileShedding(60_000);
-
-    const shed = runtime.exportState().tiles.find((tile) => tile.x === 0 && tile.y === 0);
-    expect(shed?.ownerId).toBeUndefined();
-    expect(shed?.townPopulationTier).toBe("TOWN");
-  });
-
-  it("releases a muster flag staged on the shed tile and refunds its manpower to the pool", async () => {
-    // Regression: shedding cleared fort/observatory/siegeBattery/economicStructure
-    // on the released tile but forgot `muster`, so a staged flag survived
-    // shedding the tile out from under it — mirrors handleUncaptureTileCommand,
-    // which does refund+clear for the same self-abandon scenario.
-    let now = 1_000;
-    const runtime = new SimulationRuntime({
-      now: () => now,
-      initialPlayers: new Map([
-        ["ai-1", buildPlayer("ai-1", { isAi: true, points: 0, manpower: 50, manpowerUpdatedAt: 1_000 })]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 0,
-            y: 0,
-            terrain: "LAND",
-            ownerId: "ai-1",
-            ownershipState: "SETTLED",
-            muster: { ownerId: "ai-1", amount: 30, mode: "HOLD", updatedAt: 500 }
-          }
-        ],
-        activeLocks: []
-      }
-    });
-
-    now = 60_000;
-    await runtime.tickTileShedding(60_000);
-
-    const state = runtime.exportState();
-    const shed = state.tiles.find((tile) => tile.x === 0 && tile.y === 0);
-    expect(shed?.ownerId).toBeUndefined();
-    expect(shed?.musterJson).toBeFalsy();
-    const player = state.players.find((p) => p.id === "ai-1");
-    // ~80 (50 base + 30 refunded), plus a touch of regen accrued over the tick —
-    // well above the 50 it would be if the refund never happened.
-    expect(player?.manpower).toBeGreaterThan(79);
-    expect(player?.manpower).toBeLessThan(85);
-  });
-
-  it("never sheds a SETTLEMENT-tier town, even when it is the player's only eligible tile", async () => {
-    let now = 1_000;
-    const runtime = new SimulationRuntime({
-      now: () => now,
-      initialPlayers: new Map([
-        ["ai-1", buildPlayer("ai-1", { isAi: true, points: 0, manpower: 100 })]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 0,
-            y: 0,
-            terrain: "LAND",
-            ownerId: "ai-1",
-            ownershipState: "SETTLED",
-            town: { name: "Capital", type: "FARMING", populationTier: "SETTLEMENT", population: 800 }
-          }
-        ],
-        activeLocks: []
-      }
-    });
-
-    now = 60_000;
-    await runtime.tickTileShedding(60_000);
-
-    const tile = runtime.exportState().tiles.find((tile) => tile.x === 0 && tile.y === 0);
-    expect(tile?.ownerId).toBe("ai-1");
-    expect(tile?.townPopulationTier).toBe("SETTLEMENT");
-  });
-});
-
 describe("aether purge", () => {
   const buildAetherLanceRuntime = (options: { enemyAegisDome?: boolean; crystal?: number; points?: number } = {}): SimulationRuntime => {
     const tiles: Array<Record<string, unknown>> = [
@@ -8072,8 +7796,8 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
               maxPopulation: 25000,
               connectedTownCount: 0,
               connectedTownBonus: 0,
-              hasMintworks: false,
-              mintworksActive: false,
+              hasManufactory: false,
+              manufactoryActive: false,
               hasIncubationEngine: false,
               incubationEngineActive: false,
             }
@@ -8137,8 +7861,8 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
               maxPopulation: 25000,
               connectedTownCount: 0,
               connectedTownBonus: 0,
-              hasMintworks: false,
-              mintworksActive: false,
+              hasManufactory: false,
+              manufactoryActive: false,
               hasIncubationEngine: false,
               incubationEngineActive: false,
             }
@@ -8175,7 +7899,7 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     // Mirror the user's prod scenario: TOWN-tier town at (5,5) with three
     // owned towns at 8-adjacent positions so buildConnectedTownNetworkForPlayer
     // returns connectedTownCount=3 / bonus=1.2. Town is fed, support 8/8, no
-    // mintworks, no bank. Expected gpm = TOWN_BASE(2) * 1 * 1 * 2.2 * 1 * 1 * 1
+    // manufactory, no bank. Expected gpm = TOWN_BASE(2) * 1 * 1 * 2.2 * 1 * 1 * 1
     // = 4.4. If this test fails, the sim has its own
     // bug; if it passes, a prod display of 2.00/m means the
     // gateway's buildSnapshotTileDetail is clobbering the sim's authoritative
@@ -8207,8 +7931,8 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
               maxPopulation: 10000000,
               connectedTownCount: 0,
               connectedTownBonus: 0,
-              hasMintworks: false,
-              mintworksActive: false,
+              hasManufactory: false,
+              manufactoryActive: false,
               hasIncubationEngine: false,
               incubationEngineActive: false,
             }

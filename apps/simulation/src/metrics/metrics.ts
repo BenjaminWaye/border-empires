@@ -1,3 +1,4 @@
+import { createAfcStateMetrics } from "./metrics-afc.js";
 import { DURABLE_COMMAND_TYPES } from "@border-empires/sim-protocol";
 import {
   AUTOMATION_NOOP_REASONS,
@@ -131,9 +132,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simPersistenceConstraintViolationTotal = 0;
   let simWriterQueueDepth = 0;
   let simWriterQueueBackpressureWaitTotal = 0;
-  let simPlayerStateUpdateSkippedAiTotal = 0;
   const replayCacheMetrics = createReplayCacheMetrics();
   const persistenceLogMetrics = createPersistenceLogMetrics();
+  const afcMetrics = createAfcStateMetrics();
   let simLoginExportPausedDrainTotal = 0;
   const runtimeCounters = createRuntimeCounters();
   const simCheckpointExportMs: number[] = [];
@@ -185,9 +186,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simPersistenceConstraintViolationTotal,
     simWriterQueueDepth,
     simWriterQueueBackpressureWaitTotal,
-    simPlayerStateUpdateSkippedAiTotal,
     ...replayCacheMetrics.snapshot(),
     ...persistenceLogMetrics.snapshot(),
+    ...afcMetrics.snapshot(),
     simLoginExportPausedDrainTotal,
     simAiBroadFallbackSkipped: Object.fromEntries(simAiBroadFallbackSkipped),
     simAiNarrowAnalyzeCapped: Object.fromEntries(simAiNarrowAnalyzeCapped),
@@ -257,6 +258,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   });
 
   return {
+    setSimAfcState: afcMetrics.set,
     setSimActivityLogStats: activityLogMetrics.set,
     setSimEventLoopMaxMs(value: number): void {
       simEventLoopMaxMs = clampMetric(value);
@@ -333,11 +335,6 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     // cap — zero forever means backpressure never engages under normal load.
     incrementSimWriterQueueBackpressureWait(): void {
       simWriterQueueBackpressureWaitTotal += 1;
-    },
-    // Fires each time the tile-shedding tick skips emitPlayerStateUpdate for
-    // an AI player — zero forever means the skip never engages.
-    incrementSimPlayerStateUpdateSkippedAi(): void {
-      simPlayerStateUpdateSkippedAiTotal += 1;
     },
     setReplayCacheStats: replayCacheMetrics.set,
     setSimPersistenceLogStats: persistenceLogMetrics.set,

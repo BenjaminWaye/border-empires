@@ -18,7 +18,7 @@ export type TileActionDef = {
     | "build_hydroworks"
     | "build_umbrite_rig"
     | "build_mine"
-    | "build_mintworks"
+    | "build_manufactory"
     | "build_incubation_engine"
     | "build_census_hall"
     | "build_bank"
@@ -88,6 +88,7 @@ export type TileActionDef = {
     | "diplomacy"
     | "break_truce"
     | "aether_lance"
+    | "suppress_aether_tower"
     | "retort_recast_food"
     | "retort_recast_titanium"
     | "retort_recast_crystal"
@@ -115,6 +116,8 @@ export type TileActionDef = {
   loading?: boolean;
   disabled?: boolean;
   disabledReason?: string;
+  /** A tech-locked row: the tech to open in the Manifest when the player taps "View Manifest". */
+  techLinkId?: string;
   targetKey?: string;
   originKey?: string;
   /** Floats to the top of the list and is highlighted (Settle Land on a tile that has something to gain). */

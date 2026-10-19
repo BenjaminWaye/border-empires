@@ -91,7 +91,7 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
   OUT_OF_REACH_EXPAND: {
     id: "OUT_OF_REACH_EXPAND",
     title: "Beyond Your Reach",
-    body: "This land sits outside your reach, so your hold on it is slipping — it will decay away in two minutes. Extend your reach with a nearby Town, Dock, or Outpost to keep it. Contested borders, where your reach overlaps a rival's, are exempt."
+    body: "This land sits outside your reach. You can hold it, but you can't Garrison it, and it is only as strong as its supply line: if the chain of frontier back to your settled land is cut anywhere, everything past the cut is lost at once. The glowing lines on the map show that supply line. Extend your reach with a nearby Town, Dock, or Outpost to make it yours for good."
   },
   WAYSTATION: {
     id: "WAYSTATION",

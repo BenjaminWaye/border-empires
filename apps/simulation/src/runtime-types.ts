@@ -17,7 +17,7 @@ export type RuntimeTileYieldEconomyContext = {
   fedTownKeys: Set<string>;
   firstThreeTownKeys: Set<string>;
   // §5.4: dormant economicStructure tile keys ("x,y") for this player — a
-  // dormant Mintworks/Bank/Trade Nexus/Clearing House stops granting its gold
+  // dormant Manufactory/Bank/Trade Nexus/Clearing House stops granting its gold
   // bonus. Threaded into refreshTownEconomyFields via enrichTileWithTownContext.
   dormantEconomicStructureKeys: ReadonlySet<string>;
 };
@@ -81,6 +81,8 @@ export type LockRecord = {
 };
 
 export type LockedCombatResolution = {
+  momentumSource?: { key: string; setAt: number };
+  breakthroughTarget?: { key: string; ownerId: string };
   result: LockedFrontierCombatResult;
   defenderGoldLoss: number;
   targetRecentlyPillaged: boolean;
@@ -281,10 +283,6 @@ export type SimulationRuntimeOptions = {
    *  against income (runtime-upkeep-accrual.ts). Zero forever while offline
    *  converter owners exist means the offset never engages. */
   onUpkeepNettedWhileIncomePaused?: (playerId: string) => void;
-  /** Fires each time the tile-shedding tick skips emitPlayerStateUpdate for an
-   *  AI player (no WS subscribers — see PR #732 for the same rationale
-   *  applied to lock resolution). Zero forever means the skip never engages. */
-  onPlayerStateUpdateSkippedAi?: (playerId: string) => void;
   /** Fires whenever ensurePlayerHasSpawnTerritory places a fresh auth_recovery
    *  spawn for a human player — this overwrites their prior empire location,
    *  so a nonzero rate is worth alerting on. */

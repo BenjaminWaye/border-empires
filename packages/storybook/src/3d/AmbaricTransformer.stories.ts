@@ -190,6 +190,21 @@ export const Linked: Story = {
   }
 };
 
+// A working tower beside a disabled one (observatory toggled off). The
+// disabled tower holds its rings, cogs and motes still, its core, beads and
+// spire tip go dim, and it stays out of the aether network with its neighbour.
+export const Disabled: Story = {
+  render: () => {
+    const stage = studioStage({ cameraDistance: 7, orthoHalfHeight: 1.9, background: "#15161b" });
+    const overlay = createAmbaricTransformerOverlay(stage.scene, 2);
+    overlay.addInstance(-0.9, 0, 0, 0, 0);
+    overlay.addInstance(0.9, 0, 0, 1, 0, false, true);
+    overlay.commit();
+    const cancel = startTowerAnims(overlay);
+    return wrapWithCleanup(stage, [cancel, overlay.dispose]);
+  }
+};
+
 // A hub-and-spoke nexus: one tower within link radius of four satellites that
 // stay just outside each other's radius. The center reaches full nexus state
 // (maxed sync rings, halo and glyph) while each spoke stays a bridge.

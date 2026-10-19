@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { encirclementRemainingMsForTile, isFrontierOriginCutOff, outOfReachDecayRemainingMsForTile, tileMenuHeaderStatusForTile } from "./client-tile-menu-status.js";
+import { encirclementRemainingMsForTile, isFrontierOriginCutOff, tileMenuHeaderStatusForTile } from "./client-tile-menu-status.js";
 import type { Tile } from "../client-types.js";
 
 const makeFrontierTile = (overrides: Partial<Tile> = {}): Tile => ({
@@ -94,58 +94,33 @@ describe("tileMenuHeaderStatusForTile — priority", () => {
   });
 });
 
-describe("outOfReachDecayRemainingMsForTile", () => {
-  it("returns remaining ms for a tile decaying outside reach", () => {
-    const nowMs = 1_000;
-    const tile = makeFrontierTile({ frontierDecayAt: nowMs + 90_000, frontierDecayKind: "OUT_OF_REACH" });
-    expect(outOfReachDecayRemainingMsForTile(tile, nowMs)).toBe(90_000);
+describe("tileMenuHeaderStatusForTile — reach lines", () => {
+  it("shows \"Beyond your reach\" with the supply-line explainer for own frontier in no-man's-land", () => {
+    // Regression: this used to read "Beyond your reach — decays in 90s".
+    // Out-of-reach frontier no longer decays, so the line explains what does
+    // threaten it instead of a countdown.
+    const status = tileMenuHeaderStatusForTile(makeFrontierTile(), 1_000, () => false, () => []);
+    expect(status?.text).toBe("Beyond your reach");
+    expect(status?.helpText).toMatch(/Can't garrison beyond your reach/);
+    expect(status?.helpText).toMatch(/everything past the cut is lost/);
   });
 
-  it("ignores an ENCIRCLEMENT timer", () => {
+  it("ignores a legacy OUT_OF_REACH timer instead of counting it down", () => {
+    const nowMs = 1_000;
+    const tile = makeFrontierTile({ frontierDecayAt: nowMs + 90_000, frontierDecayKind: "OUT_OF_REACH" });
+    expect(tileMenuHeaderStatusForTile(tile, nowMs, () => false)?.text).toBe("Beyond your reach");
+    expect(tileMenuHeaderStatusForTile(tile, nowMs, () => true)).toBeUndefined();
+  });
+
+  it("lets encirclement outrank the reach line", () => {
     const nowMs = 1_000;
     const tile = makeFrontierTile({ frontierDecayAt: nowMs + 30_000, frontierDecayKind: "ENCIRCLEMENT" });
-    expect(outOfReachDecayRemainingMsForTile(tile, nowMs)).toBeUndefined();
+    expect(tileMenuHeaderStatusForTile(tile, nowMs, () => false)?.text).toBe("Cut off from supply — disappears in 30s");
   });
 
-  it("returns undefined once the deadline has passed", () => {
-    const nowMs = 1_000;
-    const tile = makeFrontierTile({ frontierDecayAt: nowMs - 1, frontierDecayKind: "OUT_OF_REACH" });
-    expect(outOfReachDecayRemainingMsForTile(tile, nowMs)).toBeUndefined();
-  });
-
-  it("returns undefined for garrisoned tiles", () => {
-    const nowMs = 1_000;
-    const tile = makeFrontierTile({ ownershipState: "SETTLED", frontierDecayAt: nowMs + 90_000, frontierDecayKind: "OUT_OF_REACH" });
-    expect(outOfReachDecayRemainingMsForTile(tile, nowMs)).toBeUndefined();
-  });
-});
-
-describe("tileMenuHeaderStatusForTile — out-of-reach decay precedence", () => {
-  it("shows the decay countdown for an out-of-reach decaying tile", () => {
-    const nowMs = 1_000;
-    const tile = makeFrontierTile({ frontierDecayAt: nowMs + 90_000, frontierDecayKind: "OUT_OF_REACH" });
-    expect(tileMenuHeaderStatusForTile(tile, nowMs)).toEqual({
-      text: "Beyond your reach — decays in 90s",
-      tone: "warning"
-    });
-  });
-
-  it("lets encirclement outrank the out-of-reach countdown", () => {
-    const nowMs = 1_000;
-    const tile = makeFrontierTile({ frontierDecayAt: nowMs + 30_000, frontierDecayKind: "ENCIRCLEMENT" });
-    expect(tileMenuHeaderStatusForTile(tile, nowMs)?.text).toBe("Cut off from supply — disappears in 30s");
-  });
-
-  it("prefers the decay countdown over the bare \"Inside Enemy Reach\" message", () => {
-    const nowMs = 1_000;
-    const tile = makeFrontierTile({ frontierDecayAt: nowMs + 90_000, frontierDecayKind: "OUT_OF_REACH" });
-    expect(tileMenuHeaderStatusForTile(tile, nowMs, () => false)?.text).toBe("Beyond your reach — decays in 90s");
-  });
-
-  it("shows \"Inside Enemy Reach\" when outside own reach but no timer is running (contested exemption)", () => {
-    const nowMs = 1_000;
-    const tile = makeFrontierTile();
-    expect(tileMenuHeaderStatusForTile(tile, nowMs, () => false)?.text).toBe("Inside Enemy Reach");
+  it("shows \"Inside Enemy Reach\" when a rival's reach border covers the tile but its owner isn't known locally", () => {
+    const tile = makeFrontierTile({ reachOwnerId: "player-2" });
+    expect(tileMenuHeaderStatusForTile(tile, 1_000, () => false, () => [])?.text).toBe("Inside Enemy Reach");
   });
 
   it("names the covering empire instead of \"Enemy\" when it is known", () => {
@@ -159,7 +134,7 @@ describe("tileMenuHeaderStatusForTile — out-of-reach decay precedence", () => 
   });
 
   it("falls back to \"Enemy\" when the owner is unknown or there are too many to list", () => {
-    const tile = makeFrontierTile();
+    const tile = makeFrontierTile({ reachOwnerId: "player-2" });
     expect(tileMenuHeaderStatusForTile(tile, 1_000, () => false, () => [])?.text).toBe("Inside Enemy Reach");
     expect(tileMenuHeaderStatusForTile(tile, 1_000, () => false, () => ["A", "B", "C"])?.text).toBe("Inside Enemy Reach");
   });

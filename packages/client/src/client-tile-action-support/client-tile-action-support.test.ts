@@ -151,8 +151,8 @@ describe("splitTileActionsIntoTabs", () => {
         disabled: false
       },
       {
-        id: "build_mintworks",
-        label: "Build Mintworks",
+        id: "build_manufactory",
+        label: "Build Manufactory",
         disabled: false
       },
       {
@@ -163,7 +163,7 @@ describe("splitTileActionsIntoTabs", () => {
     ];
 
     expect(splitTileActionsIntoTabs(rows, state).buildings.map((row) => row.id)).toEqual([
-      "build_mintworks",
+      "build_manufactory",
       "build_clearing_house",
       "build_ore_refinery"
     ]);
@@ -182,8 +182,8 @@ describe("splitTileActionsIntoTabs", () => {
         disabled: false
       },
       {
-        id: "build_mintworks",
-        label: "Build Mintworks",
+        id: "build_manufactory",
+        label: "Build Manufactory",
         disabled: false
       },
       {
@@ -199,7 +199,7 @@ describe("splitTileActionsIntoTabs", () => {
     ];
 
     expect(splitTileActionsIntoTabs(rows, state).buildings.map((row) => row.id)).toEqual([
-      "build_mintworks",
+      "build_manufactory",
       "build_ore_refinery",
       "build_fortification",
       "build_observatory",
@@ -244,8 +244,8 @@ describe("shouldOptimisticallyBuildOnSelectedTile", () => {
       populationTier: "TOWN",
       connectedTownCount: 0,
       connectedTownBonus: 0,
-      hasMintworks: false,
-      mintworksActive: false,
+      hasManufactory: false,
+      manufactoryActive: false,
       hasIncubationEngine: false,
       incubationEngineActive: false,
     }
@@ -265,15 +265,15 @@ describe("shouldOptimisticallyBuildOnSelectedTile", () => {
   });
 
   it("still allows optimistic builds on real support tiles", () => {
-    expect(shouldOptimisticallyBuildOnSelectedTile("build_mintworks", supportTile)).toBe(true);
+    expect(shouldOptimisticallyBuildOnSelectedTile("build_manufactory", supportTile)).toBe(true);
   });
 
   it("keeps same-tile structures optimistic on town tiles", () => {
-    // Mintworks moved to same-tile/uncapped placement in the tech-tree redesign
+    // Manufactory moved to same-tile/uncapped placement in the tech-tree redesign
     // (per-town cap removed), so it's optimistic on the town tile now too,
     // same as Ore Refinery.
     expect(shouldOptimisticallyBuildOnSelectedTile("build_ore_refinery", townTile)).toBe(true);
-    expect(shouldOptimisticallyBuildOnSelectedTile("build_mintworks", townTile)).toBe(true);
+    expect(shouldOptimisticallyBuildOnSelectedTile("build_manufactory", townTile)).toBe(true);
   });
 });
 
@@ -283,7 +283,7 @@ describe("town support tile actions", () => {
     clientState.me = "me";
     clientState.gold = 500;
     clientState.techIds = ["trade"];
-    // §5 (resource slots): MINTWORKS needs a free FOOD slot at build time now
+    // §5 (resource slots): MANUFACTORY needs a free FOOD slot at build time now
     // that the old FOOD stockpile check is retired (Step 5 item 4 Slice A).
     clientState.resourceSlots.supply.FOOD = 1;
     const supportTile: Tile = { x: 210, y: 149, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" };
@@ -306,8 +306,8 @@ describe("town support tile actions", () => {
         populationTier: "TOWN",
         connectedTownCount: 0,
         connectedTownBonus: 0,
-        hasMintworks: false,
-        mintworksActive: false,
+        hasManufactory: false,
+        manufactoryActive: false,
         hasIncubationEngine: false,
         incubationEngineActive: false,
       }
@@ -350,7 +350,7 @@ describe("town support tile actions", () => {
       ownerSpawnShieldActive: () => false
     } as never);
 
-    expect(actions.find((action) => action.id === "build_mintworks")).toMatchObject({
+    expect(actions.find((action) => action.id === "build_manufactory")).toMatchObject({
       disabled: false
     });
     expect(actions.some((action) => action.disabledReason === "Support tile touches multiple towns")).toBe(false);
@@ -360,15 +360,19 @@ describe("town support tile actions", () => {
 describe("tileActionAvailabilityWithDevelopmentSlot", () => {
   const fullSlots: DevelopmentSlotSummary = { busy: 3, limit: 3, available: 0 };
 
-  it("keeps otherwise-valid builds enabled and marked as queued when development slots are full", () => {
+  it("keeps otherwise-valid builds enabled with the plain cost when development slots are full", () => {
     expect(
       tileActionAvailabilityWithDevelopmentSlot(true, "Build Palisade", "900 gold", fullSlots, {
         developmentSlotReason: () => "No available development slots (3/3 busy)"
       })
     ).toEqual({
       disabled: false,
-      cost: "900 gold • queues"
+      cost: "900 gold"
     });
+  });
+
+  it("shows no cost line rather than a queue note for a cost-less build when slots are full", () => {
+    expect(tileActionAvailabilityWithDevelopmentSlot(true, "Build Palisade", undefined, fullSlots)).toEqual({ disabled: false });
   });
 
   it("preserves the real blocker instead of blaming full development slots for unavailable builds", () => {

@@ -385,8 +385,8 @@ describe("game domain frontier validation", () => {
     };
 
     // EXPAND is intentionally NOT reach-gated: claiming land outside reach is
-    // allowed and instead subject to out-of-reach frontier decay elsewhere
-    // (runtime-out-of-reach-decay/runtime-out-of-reach-decay.ts). This pure
+    // allowed; that land just can't be settled and is lost if cut off from
+    // supply (see the simulation's encirclement.ts). This pure
     // function must let it through regardless of the isInReach value it's
     // given.
     it("allows EXPAND out of reach via plain adjacency", () => {

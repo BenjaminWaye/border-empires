@@ -58,7 +58,7 @@ describe("Aether Tower toggle menu entries", () => {
 
   it("combines converter and tower toggles for a tile carrying both", () => {
     const tile = towerTile("active", {
-      economicStructure: { ownerId: "me", type: "MINTWORKS", status: "active" }
+      economicStructure: { ownerId: "me", type: "MANUFACTORY", status: "active" }
     } as unknown as Partial<Tile>);
     expect(structureToggleMenuEntries(tile, deps).map((entry) => entry.id)).toEqual([
       "disable_converter_structure",

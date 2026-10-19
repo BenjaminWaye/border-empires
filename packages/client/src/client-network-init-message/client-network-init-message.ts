@@ -1,3 +1,4 @@
+import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
 import { isChosenTrickleResource } from "@border-empires/shared";
 import { initDefensibilityPct } from "../client-init-defensibility/client-init-defensibility.js";
 import { occupationSurveyController } from "../client-occupation-survey.js";
@@ -209,6 +210,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.currentResearch = (player.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
   state.pendingTechUnlockId = "";
   state.domainIds = (player.domainIds as string[]) ?? [];
+  applyAfcStateMessage(state, player);
   const initialTrickle = (player as { chosenTrickleResource?: unknown }).chosenTrickleResource;
   state.chosenTrickleResource = isChosenTrickleResource(initialTrickle) ? initialTrickle : undefined;
   state.imperialWardCharges = (player as { imperialWardCharges?: number }).imperialWardCharges;
@@ -329,16 +331,11 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
       state.camX = homeTile.x; state.camY = homeTile.y;
       state.camSubX = 0; state.camSubY = 0;
     }
-    // Same reasoning as the camX/camY guard above, but for the tile-detail
-    // selection: don't stomp a tile the player was already explicitly
-    // dropped onto before this INIT ever ran (e.g. a "Go to tile" attack
-    // alert deep-link — see readUrlTileFocus() in client-camera-storage.ts,
-    // which pre-populates state.selected at state-creation time, before the
-    // socket even connects). Reconnect INITs (isFirstInitThisSession false)
-    // keep the pre-existing behavior of always re-selecting the home tile.
-    if (!(isFirstInitThisSession && state.selected)) {
-      state.selected = homeTile;
-    }
+    // No `state.selected = homeTile` here: centering on home is not the
+    // player picking it, so connecting must not select it (playtest: the
+    // home/AFC tile came up selected on every load). A deep-linked tile
+    // (readUrlTileFocus() in client-camera-storage.ts) or whatever the player
+    // had selected before an in-place reconnect stays as it was.
   }
   const appliedInitialTileCount = applyGatewayInitialState(
     {

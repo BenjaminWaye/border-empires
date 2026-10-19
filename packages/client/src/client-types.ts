@@ -15,7 +15,7 @@ export type OptimisticStructureKind =
   | "HYDROWORKS"
   | "UMBRITE_RIG"
   | "MINE"
-  | "MINTWORKS"
+  | "MANUFACTORY"
   | "INCUBATION_ENGINE"
   | "CENSUS_HALL"
   | "CLEARING_HOUSE"
@@ -115,7 +115,7 @@ export type Tile = {
   naturalWonder?: { type: NaturalWonderType; claimedAt?: number } | null;
   town?: ClientTownWireSummary;
   fort?: ClientTileFort;
-  observatory?: { ownerId: string; status: "under_construction" | "active" | "inactive" | "removing"; completesAt?: number; startedAt?: number; pausedAt?: number; cooldownUntil?: number; siphon?: ObservatorySiphonMode };
+  observatory?: { ownerId: string; status: "under_construction" | "active" | "inactive" | "removing"; completesAt?: number; startedAt?: number; pausedAt?: number; suppressedUntil?: number; cooldownUntil?: number; siphon?: ObservatorySiphonMode };
   siegeBattery?: {
     ownerId: string;
     status: "under_construction" | "active" | "removing";
@@ -140,7 +140,7 @@ export type Tile = {
       | "HYDROWORKS"
       | "UMBRITE_RIG"
       | "MINE"
-      | "MINTWORKS"
+      | "MANUFACTORY"
       | "INCUBATION_ENGINE"
       | "CENSUS_HALL"
       | "CLEARING_HOUSE"
@@ -173,7 +173,7 @@ export type Tile = {
       | "HYDROWORKS"
       | "UMBRITE_RIG"
       | "MINE"
-      | "MINTWORKS"
+      | "MANUFACTORY"
       | "INCUBATION_ENGINE"
       | "CENSUS_HALL"
       | "CLEARING_HOUSE"
@@ -275,6 +275,7 @@ export type TruceRequest = {
 };
 
 export type ActiveTruceView = {
+  origin?: "court" | "negotiated";
   otherPlayerId: string;
   otherPlayerName: string;
   startedAt: number;
@@ -369,7 +370,7 @@ export type StrategicReplayEvent = {
     | "HYDROGARDEN"
     | "UMBRITE_RIG"
     | "MINE"
-    | "MINTWORKS"
+    | "MANUFACTORY"
     | "INCUBATION_ENGINE"
     | "SKY_DOCK"
     | "UMBRITE_WORKS"

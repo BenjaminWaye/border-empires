@@ -67,7 +67,7 @@ export type TileOverviewLine = {
   html: string;
   kind?: "effect" | "section" | "loading" | "group" | "statgrid";
   // Indents an "effect" line under the "group" heading immediately above it
-  // (e.g. a Mintworks stat line nested under "6 Mintworks").
+  // (e.g. a Manufactory stat line nested under "6 Manufactories").
   nested?: boolean;
 };
 
@@ -86,6 +86,9 @@ export type TileMenuView = {
   modules?: AfcModuleTabView;
   title: string;
   townCharacter?: string;
+  // True when the tile is a town itself (not one of its support-ring tiles);
+  // decides which building category the Buildings tab opens on.
+  isTownTile?: boolean;
   subtitle: string;
   subtitleHtml?: string;
   statusText?: string;

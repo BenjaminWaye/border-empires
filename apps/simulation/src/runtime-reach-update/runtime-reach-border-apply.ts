@@ -322,7 +322,7 @@ export const applyReachAutoClaim = <
     // must not hand that leftover flag -- and its pooled manpower -- to the
     // new owner, so explicitly drop it here just like every other
     // ownership-changing path does (see runtime-lock-resolution.ts,
-    // runtime-out-of-reach-decay.ts, runtime-encirclement-application.ts).
+    // runtime-encirclement-application.ts).
     const hadMuster = Boolean(tile.muster);
     const claimed: TTile = { ...tile, ownerId, ownershipState: "FRONTIER", muster: undefined };
     deps.replaceTileState(tileKey, claimed, claimCommandId);

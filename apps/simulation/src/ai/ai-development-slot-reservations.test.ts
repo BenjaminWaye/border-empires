@@ -66,7 +66,7 @@ describe("AI development slot reservations", () => {
         clientSeq,
         issuedAt,
         type: "BUILD_ECONOMIC_STRUCTURE" as const,
-        payloadJson: JSON.stringify({ x: 0, y: 0, structureType: "MINTWORKS" })
+        payloadJson: JSON.stringify({ x: 0, y: 0, structureType: "MANUFACTORY" })
       },
       diagnostic: { playerId, sessionPrefix: "ai-runtime" as const }
     }));

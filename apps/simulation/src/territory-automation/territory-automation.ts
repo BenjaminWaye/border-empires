@@ -125,7 +125,7 @@ export const isAutoSettlementEligibleTarget = (
   // Town/dock tiles are exempt from this gate (see below) -- a captured
   // town/dock is deliberately allowed to auto-settle even out of reach,
   // mirroring the existing capture-time bypass in
-  // runtime-out-of-reach-decay/runtime-out-of-reach-auto-settle.ts
+  // runtime-out-of-reach-auto-settle/runtime-out-of-reach-auto-settle.ts
   // (canAutoSettleCapturedAnchor) that already settles a captured anchor
   // immediately regardless of reach. Reach only gates resource tiles and
   // plain support tiles here -- those have no such bypass and no

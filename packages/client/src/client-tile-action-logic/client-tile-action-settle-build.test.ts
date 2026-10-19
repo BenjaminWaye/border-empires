@@ -10,7 +10,7 @@
  * " • settles this tile first" detail suffix.
  *
  * Covers a representative sample: HYDROGARDEN (resource-gated, no slot),
- * MINTWORKS (town-support), RELAY_BEACON (previously only ever built directly on
+ * MANUFACTORY (town-support), RELAY_BEACON (previously only ever built directly on
  * a settled tile via a bespoke path), and ORE_REFINERY (placement-overlay type).
  */
 import { describe, expect, it } from "vitest";
@@ -143,12 +143,12 @@ describe("settle + build — resource-gated building (HYDROGARDEN)", () => {
     const action = findAction(actions, "build_hydrogarden");
     expect(action).toBeDefined();
     expect(action?.disabled).toBe(true);
-    expect(action?.disabledReason).toBe("Requires Agrarian Works");
+    expect(action?.disabledReason).toBe("Requires Hyperfeed Seedstock Consignment");
   });
 });
 
-describe("settle + build — town-support building (MINTWORKS)", () => {
-  it("shows build_mintworks on a FRONTIER owned tile supported by a nearby town", () => {
+describe("settle + build — town-support building (MANUFACTORY)", () => {
+  it("shows build_manufactory on a FRONTIER owned tile supported by a nearby town", () => {
     const state = richState();
     state.techIds = ["trade"];
     state.resourceSlots.supply.FOOD = 1;
@@ -162,11 +162,11 @@ describe("settle + build — town-support building (MINTWORKS)", () => {
       ]
     };
     const actions = menuActionsForSingleTile(state, frontier, deps as never);
-    const action = findAction(actions, "build_mintworks");
+    const action = findAction(actions, "build_manufactory");
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
     expect(action?.detail).toBe(" • garrisons this tile first");
-    expect(action?.cost).toBe(frontierCostLabel(state, frontier, "MINTWORKS"));
+    expect(action?.cost).toBe(frontierCostLabel(state, frontier, "MANUFACTORY"));
   });
 });
 

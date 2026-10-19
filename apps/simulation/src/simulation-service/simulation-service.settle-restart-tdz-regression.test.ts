@@ -35,9 +35,9 @@ const recoveredStateWithFrontierTileInTownDisk = (): RecoveredSimulationState =>
   }));
 
   // Adjacent to the town (within TOWN_REACH_RADIUS=3), already owned, already
-  // FRONTIER with a live OUT_OF_REACH decay timer -- exactly the state
-  // cancelOutOfReachDecayInAnchorDisk looks for when the town anchor
-  // reactivates at world-init.
+  // FRONTIER with a persisted OUT_OF_REACH decay timer -- a tile-state write
+  // at world-init (the anchor reactivating, then the legacy-timer cleanup)
+  // is what used to hit the TDZ.
   tiles.push({
     x: townTile.x + 1,
     y: townTile.y,

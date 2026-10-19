@@ -14,7 +14,12 @@ import {
 } from "./metrics-types.js";
 
 export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
+  const afcLines = Object.entries(sample.simAfcState ?? {}).map(([key, value]) => {
+    const metric = `sim_afc_${key.replace(/[A-Z]/g, char => `_${char.toLowerCase()}`)}`;
+    return `# TYPE ${metric} ${key.endsWith("Evictions") || key.endsWith("Hits") ? "counter" : "gauge"}\n${metric} ${formatMetricValue(value)}`;
+  });
   const lines = [
+    ...afcLines,
     "# TYPE sim_event_loop_max_ms gauge",
     `sim_event_loop_max_ms ${formatMetricValue(sample.simEventLoopMaxMs)}`,
     "# TYPE sim_owned_tiles_total gauge",
@@ -83,8 +88,6 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     `sim_writer_queue_depth ${formatMetricValue(sample.simWriterQueueDepth)}`,
     "# TYPE sim_writer_queue_backpressure_wait_total counter",
     `sim_writer_queue_backpressure_wait_total ${formatMetricValue(sample.simWriterQueueBackpressureWaitTotal)}`,
-    "# TYPE sim_player_state_update_skipped_ai_total counter",
-    `sim_player_state_update_skipped_ai_total ${formatMetricValue(sample.simPlayerStateUpdateSkippedAiTotal)}`,
     "# TYPE sim_replay_recorded_command_history gauge",
     `sim_replay_recorded_command_history ${formatMetricValue(sample.simReplayRecordedCommandHistory)}`,
     "# TYPE sim_replay_history_evicted_total counter",

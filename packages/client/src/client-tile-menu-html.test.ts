@@ -9,7 +9,7 @@ const baseView: TileMenuView = {
   tabs: ["overview"],
   overviewLines: [
     { html: "Modifiers", kind: "section" },
-    { html: "6 Mintworks", kind: "group" },
+    { html: "6 Manufactories", kind: "group" },
     { html: "<span>Gold production</span>", kind: "effect", nested: true },
     { html: "<span>6 connected towns</span>", kind: "effect" }
   ],
@@ -26,7 +26,7 @@ describe("tileActionMenuHtml overview line rendering", () => {
 
   it("renders a 'group' kind line with the group heading class", () => {
     const html = tileActionMenuHtml(baseView, "overview", false);
-    expect(html).toContain('<div class="tile-overview-line tile-overview-line-group">6 Mintworks</div>');
+    expect(html).toContain('<div class="tile-overview-line tile-overview-line-group">6 Manufactories</div>');
   });
 
   it("renders a nested effect line with both the effect and nested classes", () => {
@@ -131,6 +131,21 @@ describe("tileActionMenuHtml building category squares", () => {
     const html = tileActionMenuHtml(viewWith(sevenBuildings), "buildings", false);
     expect(html).toContain("tile-building-category-square cat-resource is-empty");
     expect(html).toContain("tile-building-category-square cat-town_support is-empty");
+  });
+
+  const checkedCategory = (html: string): string | undefined => /<input[^>]*class="tile-building-category-radio cat-(\w+)"[^>]*\bchecked\b/.exec(html)?.[1];
+  const withManufactory = [...sevenBuildings, building("build_manufactory", "Build Manufactory")];
+
+  it("opens on Town Support on a support-ring tile that offers a Town Support building", () => {
+    expect(checkedCategory(tileActionMenuHtml(viewWith(withManufactory), "buildings", false))).toBe("town_support");
+  });
+
+  it("keeps opening on the first non-empty category on the town tile itself", () => {
+    expect(checkedCategory(tileActionMenuHtml({ ...viewWith(withManufactory), isTownTile: true }, "buildings", false))).toBe("military");
+  });
+
+  it("keeps opening on the first non-empty category when Town Support is empty", () => {
+    expect(checkedCategory(tileActionMenuHtml(viewWith(sevenBuildings), "buildings", false))).toBe("military");
   });
 });
 

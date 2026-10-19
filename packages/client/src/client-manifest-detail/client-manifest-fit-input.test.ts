@@ -18,7 +18,7 @@ const reasons = (input: Parameters<typeof createManifestFitInput>[0]) => manifes
 
 describe("live Manifest fit input", () => {
   it("uses owned Farm eligibility rather than the presence of any nearby Farm", () => {
-    expect(reasons(state())).toContain("You can build a Hydrogarden right away");
+    expect(reasons(state())).toContain("Your Food capacity is tight, and you can build a Hydrogarden right away");
     expect(reasons({ ...state(), tiles: new Map([["5,5", { ...farm, ownerId: "other" }]]) })).toEqual([]);
   });
   it("does not promise immediate construction when the server reports full development capacity", () => {

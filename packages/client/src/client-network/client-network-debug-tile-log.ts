@@ -26,7 +26,7 @@ export const createDebugTileStateLogger =
         : undefined,
       town: tile.town
         ? {
-            hasMintworks: tile.town.hasMintworks,
+            hasManufactory: tile.town.hasManufactory,
             hasIncubationEngine: tile.town.hasIncubationEngine,
             populationTier: tile.town.populationTier
           }

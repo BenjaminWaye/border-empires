@@ -21,8 +21,8 @@ describe("navTabIconHtml", () => {
     }
   });
 
-  it("reuses the Shard resource icon for the Sharding tab", () => {
-    expect(srcsOf(navTabIconHtml("domains"))).toEqual(["/icons/simple/shard.svg"]);
+  it("uses the headquarters icon for AFC Upgrades", () => {
+    expect(srcsOf(navTabIconHtml("domains"))).toEqual(["/icons/simple/core.svg"]);
   });
 
   it("keeps the tab-icon wrapper so existing button styling still applies", () => {

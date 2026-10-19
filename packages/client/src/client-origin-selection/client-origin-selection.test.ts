@@ -321,15 +321,15 @@ describe("createClientOriginSelection", () => {
       populationTier,
       connectedTownCount: 0,
       connectedTownBonus: 0,
-      hasMintworks: false,
-      mintworksActive: false,
+      hasManufactory: false,
+      manufactoryActive: false,
       hasIncubationEngine: false,
       incubationEngineActive: false,
     }
   });
 
   // Regression: this drives client-tile-action-logic.ts's townBuildSource,
-  // which gates whether the building menu offers MINTWORKS/INCUBATION_ENGINE/etc. on a
+  // which gates whether the building menu offers MANUFACTORY/INCUBATION_ENGINE/etc. on a
   // clicked tile -- a Great City/Metropolis's 2nd support ring (distance-2,
   // see supportRingRadiusForTier) must resolve to its town here too, or the
   // overlay renders the ring but the menu shows nothing when it's clicked.

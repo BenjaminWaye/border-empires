@@ -1,4 +1,5 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
+import { CLIENT_CHANGELOG_ENTRIES_BUILD_MENU_SUPPORT_SLOTS } from "./client-changelog-build-menu-support-slots.js";
 import { CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_ATTACK } from "./client-changelog-arrow-gesture-attack.js";
 import { CLIENT_CHANGELOG_ENTRIES_ENEMY_CONSTRUCTION_ACTIONS } from "./client-changelog-enemy-construction-actions.js";
 import { CLIENT_CHANGELOG_ENTRIES_FARMLAND } from "./client-changelog-farmland.js";
@@ -26,6 +27,7 @@ import { CLIENT_CHANGELOG_ENTRIES_MANIFEST_AETHER_RESHUFFLE } from "./client-cha
 import { CLIENT_CHANGELOG_ENTRIES_STEAMPUNK_ICON_LEGIBILITY } from "./client-changelog-steampunk-icon-legibility.js";
 import { CLIENT_CHANGELOG_ENTRIES_ARROW_CLICK_TARGETING } from "./client-changelog-arrow-click-targeting.js";
 import { CLIENT_CHANGELOG_ENTRIES_RELAY_BEACON_INSTANT } from "./client-changelog-relay-beacon-instant.js";
+import { CLIENT_CHANGELOG_ENTRIES_DISABLED_AETHER_TOWER } from "./client-changelog-disabled-aether-tower.js";
 import { CLIENT_CHANGELOG_ENTRIES_AFC_CONSTRUCTION } from "./client-changelog-afc-construction.js";
 import { CLIENT_CHANGELOG_ENTRIES_PLANETARY_DEFENSE } from "./client-changelog-planetary-defense.js";
 import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_POPUP_AFTER_WHATS_NEW } from "./client-changelog-waystation-popup-after-whats-new.js";
@@ -34,10 +36,14 @@ import { CLIENT_CHANGELOG_ENTRIES_SETTLE_PROMPT_AFTER_WHATS_NEW } from "./client
 import { CLIENT_CHANGELOG_ENTRIES_COMPACT_AUTO_SETTLE_PROMPT } from "./client-changelog-compact-auto-settle-prompt.js";
 import { CLIENT_CHANGELOG_ENTRIES_SOFTER_METAL_REFLECTIONS } from "./client-changelog-softer-metal-reflections.js";
 import { CLIENT_CHANGELOG_ENTRIES_STRANDED_FRONTIER_CLEANUP } from "./client-changelog-stranded-frontier-cleanup.js";
+import { CLIENT_CHANGELOG_ENTRIES_CUT_OFF_BUILDINGS_SURVIVE } from "./client-changelog-cut-off-buildings-survive.js";
+import { RIVAL_REACH_OVER_MY_TILES_CHANGELOG } from "./client-changelog-rival-reach-over-my-tiles.js";
+import { PROSPECT_CLUE_SWIRL_CHANGELOG } from "./client-changelog-prospect-clue-swirl.js";
 
 // Small per-feature entry files, gathered so client-changelog-data.ts stays under the 500-line cap.
 export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER,
+  ...CLIENT_CHANGELOG_ENTRIES_BUILD_MENU_SUPPORT_SLOTS,
   ...CLIENT_CHANGELOG_ENTRIES_SELF_PROFILE_CHIP,
   ...CLIENT_CHANGELOG_ENTRIES_FARMLAND,
   ...CLIENT_CHANGELOG_ENTRIES_MUSTER_STAND,
@@ -71,5 +77,9 @@ export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_STEAMPUNK_RESOURCE_ICONS,
   ...CLIENT_CHANGELOG_ENTRIES_STEAMPUNK_BUILD_MENU_ICONS,
   ...CLIENT_CHANGELOG_ENTRIES_MANIFEST_AETHER_RESHUFFLE,
-  ...CLIENT_CHANGELOG_ENTRIES_STEAMPUNK_ICON_LEGIBILITY
+  ...CLIENT_CHANGELOG_ENTRIES_STEAMPUNK_ICON_LEGIBILITY,
+  ...CLIENT_CHANGELOG_ENTRIES_DISABLED_AETHER_TOWER,
+  ...CLIENT_CHANGELOG_ENTRIES_CUT_OFF_BUILDINGS_SURVIVE,
+  ...RIVAL_REACH_OVER_MY_TILES_CHANGELOG,
+  ...PROSPECT_CLUE_SWIRL_CHANGELOG
 ];

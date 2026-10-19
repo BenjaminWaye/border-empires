@@ -1,3 +1,5 @@
+import { afcTowerSuppressionAction } from "../client-afc-upgrades/client-afc-tower-action.js";
+import { afcEffectMultiplier } from "../client-afc-upgrades/client-afc-effect.js";
 import {
   buildAetherWallSegments,
   nextTownGrowthUpgrade,
@@ -7,21 +9,15 @@ import {
   structureBuildManpowerCost,
   structureBuildDurationMs,
   terrainAt,
-  structureSlotRequirements,
-  observatoryCrystalSlotCostForOwnedCount,
   structureSkipsSettledRequirement,
-  SYNTHESIZER_STRUCTURE_TYPES,
   TILE_SLOT_BOOST_STRUCTURES,
   HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS,
   retortResourceClassForTarget,
   retortResourceClassForTile,
   type ResourceType,
   type RetortTargetResource,
-  type SlotResource,
-  type SlotStructureType,
-  type StructureSlotRequirement
 } from "@border-empires/shared";
-import { mintworksGoldProductionMultiplier, playerHasAbilityTech } from "@border-empires/game-domain";
+import { manufactoryGoldProductionMultiplier, playerHasAbilityTech } from "@border-empires/game-domain";
 import { townGrowthActionForUpgrade } from "./client-tile-action-town-growth.js";
 import { diplomacyActionForOwner } from "../client-tile-action-diplomacy/client-tile-action-diplomacy.js";
 import { structureToggleMenuEntries } from "../client-observatory-toggle/client-observatory-toggle.js";
@@ -77,50 +73,8 @@ type BuildableStructureId = BuildableStructureType;
 type AbilityCooldownId = keyof ClientState["abilityCooldowns"];
 type AetherWallLength = 1 | 2 | 3;
 
-// Resource slots: the real
-// build-time affordability gate for FOOD/TITANIUM/CRYSTAL/UMBRITE now that Step 5
-// item 4 Slice A retired their build-time stockpile spend server-side
-// (hasFreeResourceSlots, runtime-structure-command-handlers.ts). Mirrors
-// that gate exactly, including the in-place-upgrade netting
-// (currentTileFieldSlotRequirements) and the synthesizer skip (a
-// synthesizer PROVIDES a slot, never consumes one, §6.4).
-const freeResourceSlotCount = (state: ClientState, resource: SlotResource): number =>
-  (state.resourceSlots?.supply[resource] ?? 0) - (state.resourceSlots?.demand[resource] ?? 0);
-
-const additionalResourceSlotRequirements = (
-  state: ClientState,
-  type: SlotStructureType,
-  currentType?: SlotStructureType
-): StructureSlotRequirement[] => {
-  if (SYNTHESIZER_STRUCTURE_TYPES.includes(type as (typeof SYNTHESIZER_STRUCTURE_TYPES)[number])) return [];
-  const newRequirements =
-    type === "OBSERVATORY"
-      ? [{ resource: "CRYSTAL" as const, count: observatoryCrystalSlotCostForOwnedCount(ownedActiveOrBuildingObservatoryCount(state)) }]
-      : structureSlotRequirements(type);
-  if (!currentType) return newRequirements;
-  const currentByResource = new Map(structureSlotRequirements(currentType).map((r) => [r.resource, r.count]));
-  return newRequirements
-    .map((r) => ({ resource: r.resource, count: r.count - (currentByResource.get(r.resource) ?? 0) }))
-    .filter((r) => r.count > 0);
-};
-
-export const hasFreeResourceSlots = (state: ClientState, type: SlotStructureType, currentType?: SlotStructureType): boolean =>
-  additionalResourceSlotRequirements(state, type, currentType).every((r) => freeResourceSlotCount(state, r.resource) >= r.count);
-
-// First unmet requirement's reason text, or undefined when all are met.
-// Names the actual count still required, not just the resource -- a
-// requirement of 2+ slots (e.g. SIEGE_TOWER needs 2 free UMBRITE, DREAD_TOWER
-// needs 3) previously always read as "Need a free UMBRITE slot" regardless of
-// how many were missing, so freeing exactly one slot left the message
-// unchanged and looked like a stuck/buggy button instead of "still short one
-// more".
-export const missingResourceSlotReason = (state: ClientState, type: SlotStructureType, currentType?: SlotStructureType): string | undefined => {
-  const missing = additionalResourceSlotRequirements(state, type, currentType).find((r) => freeResourceSlotCount(state, r.resource) < r.count);
-  if (!missing) return undefined;
-  if (missing.count === 1) return `Need a free ${missing.resource} slot`;
-  const free = Math.max(0, freeResourceSlotCount(state, missing.resource));
-  return `Need ${missing.count} free ${missing.resource} slots (have ${free})`;
-};
+export { hasFreeResourceSlots, missingResourceSlotReason } from "./client-resource-slot-gate.js";
+import { hasFreeResourceSlots, missingResourceSlotReason } from "./client-resource-slot-gate.js";
 
 export {
   crystalTargetingTitle,
@@ -279,25 +233,18 @@ export const isOwnedBorderTile = (
   return neighbors.some((tile) => !tile || tile.ownerId !== state.me);
 };
 
+// Full development slots don't change how a build button looks: the order
+// is still accepted and waits server-side until a slot frees up, but the old
+// "• queues" cost suffix confused players, so the button shows the plain cost.
+// `summary` and `deps` are no longer read; they stay so the ~40 callers don't
+// all have to change in this branch.
 export const tileActionAvailabilityWithDevelopmentSlot = (
   enabledWithoutSlot: boolean,
   baseReason: string,
   cost?: string,
-  summary?: DevelopmentSlotSummary,
-  deps?: Partial<Pick<TileActionLogicDeps, "developmentSlotSummary" | "developmentSlotReason">>
-): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> => {
-  const slotSummary = summary ?? deps?.developmentSlotSummary?.();
-  if (!slotSummary) return tileActionAvailability(enabledWithoutSlot, baseReason, cost);
-  if (slotSummary.available <= 0 && enabledWithoutSlot) {
-    return tileActionAvailability(
-      true,
-      deps?.developmentSlotReason?.(slotSummary) ?? baseReason,
-      cost ? `${cost} • queues` : "Queues when slot frees up"
-    );
-  }
-  if (slotSummary.available <= 0) return tileActionAvailability(false, baseReason, cost);
-  return tileActionAvailability(enabledWithoutSlot, baseReason, cost);
-};
+  _summary?: DevelopmentSlotSummary,
+  _deps?: Partial<Pick<TileActionLogicDeps, "developmentSlotSummary" | "developmentSlotReason">>
+): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> => tileActionAvailability(enabledWithoutSlot, baseReason, cost);
 
 export const chainedBuildAvailabilityFromModule = (
   deps: TileActionLogicDeps,
@@ -465,6 +412,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     const obsCooldownMs = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, now, ownObservatoryRange(state));
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
     const isOwnOrAllyTile = Boolean(tile.ownerId && tile.ownerId === state.me) || deps.isTileOwnedByAlly(tile);
+    out.push(...afcTowerSuppressionAction(tile, { installed: state.domainIds.includes("afc-oracle-4"), hostile: Boolean(tile.ownerId) && !isOwnOrAllyTile && !deps.activeTruceWithPlayer(tile.ownerId), inRange: obsInRange, cooldownMs: obsCooldownMs }));
     const isUnclaimed = !tile.ownerId;
     const targetHasPurgeableOwnership = tile.ownershipState === "SETTLED" || tile.ownershipState === "FRONTIER";
     const economicStructureType = tile.economicStructure?.type;
@@ -873,7 +821,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       if (fortVariant) {
         const hasTech = tile.fort && !hasPalisade ? true : state.techIds.includes("masonry"); // a Palisade upgrade still needs masonry
         const canUseTile = Boolean(tile.fort) || !tile.economicStructure || hasRelayBeacon || tile.economicStructure?.type === "HARBOR_EXCHANGE";
-        const hasFreeSlots = hasFreeResourceSlots(state, fortVariant.variant, tile.fort?.variant);
+        const hasFreeSlots = hasFreeResourceSlots(state, fortVariant.variant, tile.fort?.variant, tile);
         out.push({
           id: "build_fortification",
           label: tile.fort ? `Upgrade to ${fortVariant.label}` : `Build ${fortVariant.label}`,
@@ -886,7 +834,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 ? "Requires Ironclad Masonry"
                 : !canUseTile
                   ? "Tile already has structure"
-                  : missingResourceSlotReason(state, fortVariant.variant, tile.fort?.variant) ?? "Unavailable",
+                  : missingResourceSlotReason(state, fortVariant.variant, tile.fort?.variant, tile) ?? "Unavailable",
               `${fortVariant.summary} • ${buildTimeLabel(fortBuildMsForState(state, fortVariant.variant))} • def x${fortVariant.defenseMult.toFixed(2)}${fortVariant.upkeepSuffix}`,
               fortVariant.gold
             ),
@@ -1337,7 +1285,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
               "UMBRITE_WEAPONS_FACTORY",
               state.techIds.includes("leatherworking") && hasFreeResourceSlots(state, "UMBRITE_WEAPONS_FACTORY") && !tile.siegeBattery && !tile.observatory,
               !state.techIds.includes("leatherworking")
-                ? "Requires Rigging Works"
+                ? "Requires Umbrite Rigging Module"
                 : tile.siegeBattery || tile.observatory
                   ? "Tile already has structure"
                   : missingResourceSlotReason(state, "UMBRITE_WEAPONS_FACTORY") ?? "Unavailable",
@@ -1386,7 +1334,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
             hasBlockingStructure
               ? "Tile already has structure"
               : !state.techIds.includes("agriculture")
-                ? "Requires Agrarian Works"
+                ? "Requires Hyperfeed Seedstock Consignment"
                 : missingResourceSlotReason(state, "HYDROGARDEN") ?? "Unavailable",
             `${deps.structureCostText("HYDROGARDEN")} • ${buildTimeLabel(economicBuildMsForState(state, "HYDROGARDEN"))} • +${TILE_SLOT_BOOST_STRUCTURES.HYDROGARDEN} FOOD slot${upkeepSuffixFor("HYDROGARDEN")}`
           ),
@@ -1407,7 +1355,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
             hasBlockingStructure
               ? "Tile already has structure"
               : !state.techIds.includes("leatherworking")
-                ? "Requires Rigging Works"
+                ? "Requires Umbrite Rigging Module"
                 : missingResourceSlotReason(state, "UMBRITE_RIG") ?? "Unavailable",
             `${deps.structureCostText("UMBRITE_RIG")} • ${buildTimeLabel(economicBuildMsForState(state, "UMBRITE_RIG"))} • +1 UMBRITE slot${upkeepSuffixFor("UMBRITE_RIG")}`
           ),
@@ -1429,7 +1377,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
             hasBlockingStructure
               ? "Tile already has structure"
               : !state.techIds.includes("mining")
-                ? "Requires Deep Shaft Mining"
+                ? "Requires Prospector Crew"
                 : missingResourceSlotReason(state, "MINE") ?? "Unavailable",
             `${deps.structureCostText("MINE")} • ${buildTimeLabel(economicBuildMsForState(state, "MINE"))} • +1 ${matchingNeed} slot${upkeepSuffixFor("MINE")}`
           ),
@@ -1439,9 +1387,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       });
     }
     if (townBuildSource) {
-      // Mintworks moved to same-tile/uncapped placement in the tech-tree
+      // Manufactory moved to same-tile/uncapped placement in the tech-tree
       // redesign (per-town cap removed, specialization is the point) — no
-      // townHasMintworks gate anymore, unlike the other town-support structures
+      // townHasManufactory gate anymore, unlike the other town-support structures
       // below that still cap at one per town.
       const townHasIncubationEngine = Boolean(townBuildSource.town?.hasIncubationEngine) || deps.townHasSupportStructure(townBuildSource, "INCUBATION_ENGINE");
       const townHasCensusHall = deps.townHasSupportStructure(townBuildSource, "CENSUS_HALL");
@@ -1459,19 +1407,19 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       const townHasAncillaryFactory = deps.townHasSupportStructure(townBuildSource, "ANCILLARY_FACTORY");
       const isGreatCity = townBuildSource.town?.populationTier === "GREAT_CITY" || townBuildSource.town?.populationTier === "METROPOLIS";
       out.push({
-        id: "build_mintworks",
-        label: "Build Mintworks",
-        detail: deps.buildDetailTextForAction("build_mintworks", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        id: "build_manufactory",
+        label: "Build Manufactory",
+        detail: deps.buildDetailTextForAction("build_manufactory", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           ...chainedBuildAvailability(
-            "MINTWORKS",
-            !supportPlacementBlocked && state.techIds.includes("trade") && hasFreeResourceSlots(state, "MINTWORKS"),
+            "MANUFACTORY",
+            !supportPlacementBlocked && state.techIds.includes("trade") && hasFreeResourceSlots(state, "MANUFACTORY"),
             supportPlacementBlocked
               ? "Tile already has structure"
               : !state.techIds.includes("trade")
-                ? "Requires Merchant Charters"
-                : missingResourceSlotReason(state, "MINTWORKS") ?? "Unavailable",
-            `${deps.structureCostText("MINTWORKS")} • ${buildTimeLabel(economicBuildMsForState(state, "MINTWORKS"))} • +${Math.round((mintworksGoldProductionMultiplier(1, Boolean(townBuildSource.town?.clearingHouseActive)) - 1) * 100)}% town coin production (stacks)${upkeepSuffixFor("MINTWORKS")}`
+                ? "Requires Industrial Tooling Module"
+                : missingResourceSlotReason(state, "MANUFACTORY") ?? "Unavailable",
+            `${deps.structureCostText("MANUFACTORY")} • ${buildTimeLabel(economicBuildMsForState(state, "MANUFACTORY"))} • +${Math.round((manufactoryGoldProductionMultiplier(1, Boolean(townBuildSource.town?.clearingHouseActive), afcEffectMultiplier(state.domainIds, "clearingHouseUpliftMult")) - 1) * 100)}% town coin production (stacks)${upkeepSuffixFor("MANUFACTORY")}`
           ),
           slots,
           deps
@@ -1532,9 +1480,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
               : townHasClearingHouse
                 ? "Nearby town already has Clearing House"
                 : !state.techIds.includes("coinage")
-                  ? "Requires Minting Works"
+                  ? "Requires Imperial Tender Warrant"
                   : missingResourceSlotReason(state, "CLEARING_HOUSE") ?? "Unavailable",
-            `${deps.structureCostText("CLEARING_HOUSE")} • ${buildTimeLabel(economicBuildMsForState(state, "CLEARING_HOUSE"))} • connected Mintworks coin bonus: +${Math.round((mintworksGoldProductionMultiplier(1, false) - 1) * 100)}% → +${Math.round((mintworksGoldProductionMultiplier(1, true) - 1) * 100)}% per copy${upkeepSuffixFor("CLEARING_HOUSE")}`
+            `${deps.structureCostText("CLEARING_HOUSE")} • ${buildTimeLabel(economicBuildMsForState(state, "CLEARING_HOUSE"))} • connected Manufactory coin bonus: +${Math.round((manufactoryGoldProductionMultiplier(1, false) - 1) * 100)}% → +${Math.round((manufactoryGoldProductionMultiplier(1, true, afcEffectMultiplier(state.domainIds, "clearingHouseUpliftMult")) - 1) * 100)}% per copy${upkeepSuffixFor("CLEARING_HOUSE")}`
           ),
           slots,
           deps
@@ -1835,7 +1783,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         out.push({
           id: "break_truce",
           label: "Break Truce",
-          ...tileActionAvailability(true, "", "Locks you out of new truces for 24h")
+          ...tileActionAvailability(activeTruce.origin !== "court", "Court armistices cannot be broken", "Locks you out of new truces for 24h")
         });
       }
     }

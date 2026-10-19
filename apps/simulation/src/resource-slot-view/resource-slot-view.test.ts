@@ -190,7 +190,7 @@ describe("resourceSlotDemandForPlayer", () => {
         {
           x: 0, y: 0, ownerId: "p1", ownershipState: "SETTLED",
           town: { type: "MARKET", populationTier: "TOWN", name: "Town" },
-          economicStructure: { ownerId: "p1", type: "MINTWORKS", status: "active" }
+          economicStructure: { ownerId: "p1", type: "MANUFACTORY", status: "active" }
         } as PartialTile as DomainTileState
       ],
       "p1"
@@ -247,7 +247,7 @@ describe("resourceSlotDemandForPlayer", () => {
   it("counts a structure regardless of status — under_construction, active, inactive, and removing all occupy their slot", () => {
     for (const status of ["under_construction", "active", "inactive", "removing"] as const) {
       const totals = resourceSlotDemandForPlayer(
-        [{ economicStructure: { ownerId: "p1", type: "MINTWORKS", status } } as PartialTile as DomainTileState],
+        [{ economicStructure: { ownerId: "p1", type: "MANUFACTORY", status } } as PartialTile as DomainTileState],
         "p1"
       );
       expect(totals.FOOD).toBe(1);
@@ -369,7 +369,7 @@ describe("currentTileFieldSlotRequirements", () => {
 
   it("returns [] when the tile field is unoccupied or owned by someone else", () => {
     expect(currentTileFieldSlotRequirements({} as DomainTileState, "economicStructure", "p1")).toEqual([]);
-    const target = { economicStructure: { ownerId: "someone-else", type: "MINTWORKS", status: "active" } } as PartialTile as DomainTileState;
+    const target = { economicStructure: { ownerId: "someone-else", type: "MANUFACTORY", status: "active" } } as PartialTile as DomainTileState;
     expect(currentTileFieldSlotRequirements(target, "economicStructure", "p1")).toEqual([]);
   });
 });
@@ -404,7 +404,7 @@ describe("resourceSlotDormantContributorsForPlayer", () => {
   it("without a settledAtByTileKey map, falls back to protecting a town's FOOD demand as the oldest contributor", () => {
     const tiles = [
       tile({ x: 0, y: 0, ownerId: "p1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } }),
-      tile({ x: 1, y: 0, ownerId: "p1", economicStructure: { ownerId: "p1", type: "MINTWORKS", status: "active", activatedAt: 500 } })
+      tile({ x: 1, y: 0, ownerId: "p1", economicStructure: { ownerId: "p1", type: "MANUFACTORY", status: "active", activatedAt: 500 } })
     ];
     // Town falls back to activatedAt 0 (oldest); demand 5 vs supply 4.
     const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 4, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 });
@@ -413,14 +413,14 @@ describe("resourceSlotDormantContributorsForPlayer", () => {
 
   it("a newly settled town's own FOOD demand goes dormant first, not an older, unrelated structure", () => {
     const tiles = [
-      // Mintworks (activatedAt 100) predates the town's settlement (500).
-      tile({ x: 1, y: 0, ownerId: "p1", economicStructure: { ownerId: "p1", type: "MINTWORKS", status: "active", activatedAt: 100 } }),
+      // Manufactory (activatedAt 100) predates the town's settlement (500).
+      tile({ x: 1, y: 0, ownerId: "p1", economicStructure: { ownerId: "p1", type: "MANUFACTORY", status: "active", activatedAt: 100 } }),
       tile({ x: 0, y: 0, ownerId: "p1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } })
     ];
     const dormancy = resourceSlotDormantContributorsForPlayer(
       tiles, "p1", { FOOD: 4, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }, emptySlotWaivers(), new Map([["0,0", 500]])
     );
-    // Town (newest) goes dormant, not the long-since-built Mintworks.
+    // Town (newest) goes dormant, not the long-since-built Manufactory.
     expect([...dormancy.FOOD]).toEqual(["0,0:town"]);
   });
 

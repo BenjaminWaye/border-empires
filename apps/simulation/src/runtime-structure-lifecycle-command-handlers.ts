@@ -199,6 +199,7 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
     ...target,
     muster: {
       ownerId: command.playerId,
+      ...(!isNewMuster && target.muster?.momentum ? { momentum: target.muster.momentum } : {}),
       amount: isNewMuster ? 0 : target.muster!.amount,
       mode: payload.mode,
       ...(typeof payload.targetX === "number" ? { targetX: payload.targetX } : {}),

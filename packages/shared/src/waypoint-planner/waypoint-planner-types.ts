@@ -1,3 +1,4 @@
+import { AFC_VANGUARD } from "../afc-specializations/afc-vanguard.js";
 // Types and small pure helpers for the waypoint planner (see
 // waypoint-planner.ts for the A* algorithm itself) -- split into its own
 // file to stay under the repo's per-file line cap.
@@ -71,10 +72,11 @@ export type WaypointPlannerTile = {
   fogged?: boolean | undefined;
   frontierDecayAt?: number | undefined;
   frontierDecayKind?: string | undefined;
-  fort?: { status?: string | undefined; variant?: FortVariant | undefined; upgradingFrom?: FortVariant | undefined } | null | undefined;
+  fort?: { attackCommitmentMult?: number | undefined; status?: string | undefined; variant?: FortVariant | undefined; upgradingFrom?: FortVariant | undefined } | null | undefined;
 };
 
 export type WaypointPlannerState = {
+  domainIds?: readonly string[];
   me: string | undefined;
   tiles: ReadonlyMap<string, WaypointPlannerTile>;
   dockPairs: ReadonlyArray<{ ax: number; ay: number; bx: number; by: number }>;
@@ -168,6 +170,8 @@ export const classifyTile = (
   return { kind: "ENEMY", durationMs: attackDurationMs };
 };
 
-export const requiredMusterForTarget = (tile: WaypointPlannerTile | undefined): number => {
-  return requiredMusterForFort(defendingFortVariant(tile?.fort));
+export const requiredMusterForTarget = (tile: WaypointPlannerTile | undefined, domainIds: readonly string[] = []): number => {
+  const fort = defendingFortVariant(tile?.fort);
+  const sapper = fort && domainIds.includes("afc-vanguard-4") ? AFC_VANGUARD[3].effects.fortAttackManpowerCostMult : 1;
+  return Math.max(1, Math.ceil(requiredMusterForFort(fort) * (fort ? tile?.fort?.attackCommitmentMult ?? 1 : 1) * sapper));
 };

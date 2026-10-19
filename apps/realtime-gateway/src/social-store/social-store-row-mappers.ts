@@ -59,6 +59,7 @@ export type TruceRequestRow = {
   terms_json?: string | null;
 };
 export type ActiveTruceRow = {
+  origin?: string | null;
   pair_key: string;
   player_a_id: string;
   player_b_id: string;
@@ -118,6 +119,7 @@ export const truceRequestFromRow = (row: TruceRequestRow): SocialTruceRequest[] 
 };
 
 export const activeTruceFromRow = (row: ActiveTruceRow): SocialActiveTruce => ({
+  ...(row.origin === "court" ? { origin: "court" } : {}),
   playerAId: row.player_a_id,
   playerBId: row.player_b_id,
   startedAt: row.started_at,

@@ -20,7 +20,7 @@ describe("structure removal duration", () => {
   });
 
   test("removal takes half as long as building", () => {
-    expect(structureRemovalDurationMs("MINTWORKS") * 2).toBe(structureBuildDurationMs("MINTWORKS"));
+    expect(structureRemovalDurationMs("MANUFACTORY") * 2).toBe(structureBuildDurationMs("MANUFACTORY"));
   });
 
   test("a Relay Beacon's removal uses its full price, so it is never instant", () => {

@@ -19,9 +19,9 @@ export const applySocialFocus = (
   }
   let scrolled = false;
   for (const root of roots) {
-    const buttons = Array.from(root.querySelectorAll("[data-inspect-player]")) as HTMLElement[];
+    const buttons = Array.from(root.querySelectorAll("[data-player-name-id]")) as HTMLElement[];
     for (const button of buttons) {
-      if (button.dataset.inspectPlayer !== focus.playerId) continue;
+      if (button.dataset.playerNameId !== focus.playerId) continue;
       const card = button.closest("article") as HTMLElement | null;
       if (!card) continue;
       card.classList.add("alliance-focus-highlight");

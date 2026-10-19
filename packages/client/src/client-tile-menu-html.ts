@@ -9,6 +9,7 @@ import {
   BUILDING_CATEGORY_LABELS,
   BUILDING_CATEGORY_ORDER,
   buildingActionCategory,
+  initialBuildingCategory,
   type BuildingCategory
 } from "./client-tile-menu-building-category/client-tile-menu-building-category.js";
 import { statusWithHelpHtml } from "./client-tile-menu-ownership-help/client-tile-menu-ownership-help.js";
@@ -46,7 +47,7 @@ const battleOddsBarHtml = (battle: NonNullable<TileMenuProgressView["battle"]>):
 // switch categories. A category with nothing buildable here is shown
 // disabled with a reason grounded in why it's empty (resourceTypes /
 // placementMode -- see client-tile-menu-building-category.ts).
-const groupedBuildingActionListHtml = (actions: TileActionDef[]): string => {
+const groupedBuildingActionListHtml = (actions: TileActionDef[], isTownTile: boolean): string => {
   const byCategory = new Map<BuildingCategory, TileActionDef[]>();
   for (const action of actions) {
     const category = buildingActionCategory(action);
@@ -58,7 +59,10 @@ const groupedBuildingActionListHtml = (actions: TileActionDef[]): string => {
   const visibleCategories = BUILDING_CATEGORY_ORDER.filter(
     (category) => (byCategory.get(category)?.length ?? 0) > 0 || !BUILDING_CATEGORIES_HIDDEN_WHEN_EMPTY.has(category)
   );
-  const firstNonEmpty = visibleCategories.find((category) => (byCategory.get(category)?.length ?? 0) > 0);
+  const initialCategory = initialBuildingCategory(
+    visibleCategories.filter((category) => (byCategory.get(category)?.length ?? 0) > 0),
+    isTownTile
+  );
   // Radios live as direct siblings of .tile-building-category-panels (not
   // nested inside the squares row) so the plain CSS sibling combinator
   // (`.cat-x:checked ~ .tile-building-category-panels [data-category=x]`)
@@ -66,7 +70,7 @@ const groupedBuildingActionListHtml = (actions: TileActionDef[]): string => {
   const radiosHtml = visibleCategories.map((category) => {
     const count = byCategory.get(category)?.length ?? 0;
     const inputId = `tbc-${uid}-${category}`;
-    return `<input type="radio" name="tile-building-category-${uid}" id="${inputId}" class="tile-building-category-radio cat-${category}" ${category === firstNonEmpty ? "checked" : ""} ${count === 0 ? "disabled" : ""} />`;
+    return `<input type="radio" name="tile-building-category-${uid}" id="${inputId}" class="tile-building-category-radio cat-${category}" ${category === initialCategory ? "checked" : ""} ${count === 0 ? "disabled" : ""} />`;
   }).join("");
   const squaresHtml = visibleCategories.map((category) => {
     const count = byCategory.get(category)?.length ?? 0;
@@ -169,7 +173,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "build_hydrogarden") return "▥";
   if (id === "build_umbrite_rig") return "⛺";
   if (id === "build_mine") return "⛏";
-  if (id === "build_mintworks") return "▣";
+  if (id === "build_manufactory") return "▣";
   if (id === "build_incubation_engine") return "◫";
   if (id === "build_bank") return "◧";
   if (id === "build_sky_dock") return "✈";
@@ -243,7 +247,10 @@ const tileMenuTabLabel = (tab: TileMenuTab): string => {
   return "Progress";
 };
 
-export const tileActionButtonHtml = (action: TileActionDef): string => `${tileActionButtonOnlyHtml(action)}${action.autoSettleOption ? autoSettleOptionHtml(action.autoSettleOption) : ""}`;
+// Sibling of the (disabled) action button, not nested in it: a disabled button swallows clicks.
+const techLinkHtml = (techId: string): string => `<button type="button" class="tile-action-tech-link" data-view-tech="${techId}">View Manifest →</button>`;
+
+export const tileActionButtonHtml = (action: TileActionDef): string => `${tileActionButtonOnlyHtml(action)}${action.techLinkId ? techLinkHtml(action.techLinkId) : ""}${action.autoSettleOption ? autoSettleOptionHtml(action.autoSettleOption) : ""}`;
 
 const tileActionButtonOnlyHtml = (action: TileActionDef): string => `<button class="tile-action-btn${action.recommended ? " is-recommended" : ""}" data-action="${action.id}" ${action.targetKey ? `data-target-key="${action.targetKey}"` : ""} ${action.originKey ? `data-origin-key="${action.originKey}"` : ""} ${action.disabled ? "disabled" : ""}>
           <span class="tile-action-icon">${buildActionIconHtml(action.id) ?? abilityActionIconHtml(action.id) ?? actionIcon(action.id)}</span>
@@ -264,7 +271,7 @@ const BUILDING_GROUP_THRESHOLD = 6;
 const recommendedFirst = (actions: TileActionDef[]): TileActionDef[] => [...actions.filter((a) => a.recommended), ...actions.filter((a) => !a.recommended)];
 
 const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string => {
-  if (activeTab === "modules") return view.modules ? afcModuleTabHtml(view.modules, tileActionButtonHtml) : "";
+  if (activeTab === "modules") return view.modules ? `${afcModuleTabHtml(view.modules, tileActionButtonHtml)}${view.overviewLines.length > 0 ? tileOverviewCardHtml(view.overviewLines) : ""}` : "";
   const actionsForTab =
     activeTab === "actions" ? view.actions : activeTab === "buildings" ? view.buildings : activeTab === "crystal" ? view.crystal : undefined;
   if (actionsForTab) {
@@ -274,7 +281,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
     }
     const listHtml =
       activeTab === "buildings" && actionsForTab.length > BUILDING_GROUP_THRESHOLD
-        ? groupedBuildingActionListHtml(actionsForTab)
+        ? groupedBuildingActionListHtml(actionsForTab, Boolean(view.isTownTile))
         : `<div class="tile-action-list">${recommendedFirst(actionsForTab).map(tileActionButtonHtml).join("")}</div>`;
     return `${listHtml}${view.combatBreakdown ? combatBreakdownHtml(view.combatBreakdown) : ""}`;
   }
@@ -350,14 +357,16 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
       </div>
     `;
   }
-  return `
+  return tileOverviewCardHtml(view.overviewLines);
+};
+
+const tileOverviewCardHtml = (lines: TileMenuView["overviewLines"]): string => `
     <div class="tile-overview-card">
-      ${view.overviewLines.length === 0 ? `<div class="tile-overview-line">Nothing notable on this tile.</div>` : ""}${view.overviewLines
+      ${lines.length === 0 ? `<div class="tile-overview-line">Nothing notable on this tile.</div>` : ""}${lines
         .map((line) => `<div class="tile-overview-line${line.kind === "effect" ? " tile-overview-line-effect" : ""}${line.kind === "section" ? " tile-overview-line-section" : ""}${line.kind === "loading" ? " tile-overview-line-loading" : ""}${line.kind === "group" ? " tile-overview-line-group" : ""}${line.kind === "statgrid" ? " tile-overview-line-statgrid" : ""}${line.nested ? " tile-overview-line-nested" : ""}">${line.html}</div>`)
         .join("")}
     </div>
   `;
-};
 
 export const tileActionMenuHtml = (view: TileMenuView, activeTab: TileMenuTab, mobile: boolean): string => {
   const tabsHtml =

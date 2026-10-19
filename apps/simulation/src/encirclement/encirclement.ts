@@ -16,10 +16,10 @@
  * fired and the mechanic was made instant instead.
  *
  * `frontierDecayAt`/`frontierDecayKind` are therefore not written by this
- * module; they belong to out-of-reach decay, which is timer-based and drains
- * through a deadline queue rather than a sweep (runtime-out-of-reach-decay.ts).
- * The reconnection paths here still *read* `frontierDecayKind === "ENCIRCLEMENT"`
- * so any such tile left over from an older snapshot is cleaned up correctly.
+ * module (nor by anything else since out-of-reach decay was removed -- see
+ * runtime-reach-out-of-reach.ts). The reconnection paths here still *read*
+ * `frontierDecayKind === "ENCIRCLEMENT"` so any such tile left over from an
+ * older snapshot is cleaned up correctly.
  */
 
 import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY, type FrontierDecayKind } from "@border-empires/shared";
@@ -61,9 +61,9 @@ const connectedNeighborKeys = (tileKey: string, extraNeighborKeys?: ExtraNeighbo
 export interface EncirclementTileView {
   ownerId?: string | undefined;
   ownershipState?: string | undefined;
-  // Widened to the shared union because tiles can also carry "OUT_OF_REACH"
-  // (see runtime-out-of-reach-decay.ts). Encirclement only ever reads/acts on
-  // "ENCIRCLEMENT" — an out-of-reach timer is none of its business.
+  // Widened to the shared union because old snapshots can also carry the
+  // legacy "OUT_OF_REACH" kind (cleared at boot). Encirclement only ever
+  // reads/acts on "ENCIRCLEMENT".
   frontierDecayKind?: FrontierDecayKind | undefined;
   dockId?: string | undefined;
 }

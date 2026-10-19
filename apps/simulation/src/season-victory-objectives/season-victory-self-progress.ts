@@ -48,7 +48,7 @@ export const objectiveSelfProgressLabel = (
   }
   if (objectiveId === "MARITIME_SUPREMACY") return `${metric.dockTiles}/${maritimeDockTarget} docks`;
   const bloc = allianceBlocForPlayer(playerId, playerAlliesById, competitivePlayerIds);
-  const blocControlledTiles = [...bloc].reduce((sum, memberId) => sum + (metricsByPlayerId.get(memberId)?.controlledTiles ?? 0), 0);
+  const blocControlledTiles = [...bloc].reduce((sum, memberId) => sum + (metricsByPlayerId.get(memberId)?.controlledTiles ?? 0) * (metricsByPlayerId.get(memberId)?.diplomaticWeight ?? 1), 0);
   return `${blocControlledTiles}/${diplomaticControlTarget} alliance-controlled land`;
 };
 
@@ -96,6 +96,6 @@ export const objectiveSelfProgress = (
   }
   if (objectiveId === "MARITIME_SUPREMACY") return clamp01(metric.dockTiles / maritimeDockTarget);
   const bloc = allianceBlocForPlayer(playerId, playerAlliesById, competitivePlayerIds);
-  const blocControlledTiles = [...bloc].reduce((sum, memberId) => sum + (metricsByPlayerId.get(memberId)?.controlledTiles ?? 0), 0);
+  const blocControlledTiles = [...bloc].reduce((sum, memberId) => sum + (metricsByPlayerId.get(memberId)?.controlledTiles ?? 0) * (metricsByPlayerId.get(memberId)?.diplomaticWeight ?? 1), 0);
   return clamp01(blocControlledTiles / diplomaticControlTarget);
 };

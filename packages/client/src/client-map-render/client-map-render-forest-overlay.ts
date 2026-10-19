@@ -5,8 +5,7 @@
 // true-3D renderer's equivalent species split (pine/spruce/leaf); both must
 // stay in sync per AGENTS.md's renderer-parity rule.
 import { isForestTile, isLightGrassScatterTile, isTropicalForestLatitude } from "../client-constants.js";
-import type { ProspectSignature } from "@border-empires/shared";
-import { drawProspectSignatureOverlay } from "../client-prospect-signature-overlay.js";
+import { drawBlackwoodSwirl, type ProspectClueDraw } from "../client-prospect-signature-overlay.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render.js";
 
@@ -25,7 +24,7 @@ export const drawForestOverlay = (
   px: number,
   py: number,
   size: number,
-  prospectSignature?: ProspectSignature,
+  prospectClue?: ProspectClueDraw,
   // Overridable so the caller can keep footprint forest drawn until an AFC
   // join drop lands (isForestTileWithAfcLandingHold).
   forestAt: (x: number, y: number) => boolean = isForestTile
@@ -36,7 +35,6 @@ export const drawForestOverlay = (
   // isLightGrassScatterTile's own doc comment (client-constants.ts) and
   // client-map-3d-forest.ts's addSparseLeafInstance (the true-3D equivalent).
   const isScatter = !isForest && isLightGrassScatterTile(wx, wy);
-  drawProspectSignatureOverlay(ctx, prospectSignature, px, py, size);
   if (!isForest && !isScatter) return;
   const canopyYOffset = useTerrainReliefRenderer ? Math.floor(terrainReliefPx(wx, wy, "LAND", size) * 0.45) : 0;
   const pulse = 0.78 + 0.22 * (0.5 + 0.5 * Math.sin(Date.now() / 900 + wx * 0.17 + wy * 0.11));
@@ -68,6 +66,10 @@ export const drawForestOverlay = (
     drawConiferOrLeafAnchor(ctx, tx, ty, size, i, pulse, isLeaf, sizeMult);
   }
   ctx.restore();
+  // Blackwood canopy (an Umbrite clue): a purple swirl rises out of the forest
+  // every few seconds -- 2D twin of client-map-3d-blackwood-swirl.ts. The other
+  // clues' ground props draw after the hills overlay (client-map-facade.ts).
+  if (isForest && prospectClue?.signature === "BLACKWOOD_CANOPY" && prospectClue.propsAllowed) drawBlackwoodSwirl(ctx, wx, wy, px, py - canopyYOffset, size);
 };
 
 const drawConiferOrLeafAnchor = (

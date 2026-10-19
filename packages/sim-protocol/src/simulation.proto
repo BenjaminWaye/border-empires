@@ -56,6 +56,9 @@ message AdminPlayersResponse {
 // offline) -- see player-combat-summary-snapshot.ts for why this exists.
 message PlayerCombatSummaryRequest {
   string player_id = 1;
+  bool has_target = 2;
+  int32 target_x = 3;
+  int32 target_y = 4;
 }
 
 message PlayerCombatSummaryResponse {
@@ -65,6 +68,7 @@ message PlayerCombatSummaryResponse {
   repeated string domain_ids = 4;
   int32 titanium_weapons_factory_count = 5;
   int32 umbrite_weapons_factory_count = 6;
+  string afc_combat_facts_json = 7;
 }
 
 message ActivityDashboardRequest {}

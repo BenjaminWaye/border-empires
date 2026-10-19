@@ -11,18 +11,18 @@ import {
 
 const HOUR = 3_600_000;
 const baseTile = (): Tile => ({ x: 1, y: 1, terrain: "LAND" }) as Tile;
-const mintworks = (over: Record<string, unknown>): Tile =>
-  ({ ...baseTile(), economicStructure: { ownerId: "me", type: "MINTWORKS", status: "under_construction", ...over } }) as Tile;
+const manufactory = (over: Record<string, unknown>): Tile =>
+  ({ ...baseTile(), economicStructure: { ownerId: "me", type: "MANUFACTORY", status: "under_construction", ...over } }) as Tile;
 
 describe("constructionSiteForTile", () => {
   it("returns nothing for a tile with no in-flight structure", () => {
     expect(constructionSiteForTile(baseTile(), 0)).toBeUndefined();
-    const active = { ...baseTile(), economicStructure: { ownerId: "me", type: "MINTWORKS", status: "active" } } as Tile;
+    const active = { ...baseTile(), economicStructure: { ownerId: "me", type: "MANUFACTORY", status: "active" } } as Tile;
     expect(constructionSiteForTile(active, 0)).toBeUndefined();
   });
 
   it("uses startedAt..completesAt so a multi-hour build advances one phase at a time", () => {
-    const tile = mintworks({ startedAt: 0, completesAt: 8 * HOUR });
+    const tile = manufactory({ startedAt: 0, completesAt: 8 * HOUR });
     const at = (hours: number) => constructionSiteForTile(tile, hours * HOUR)!;
     expect(at(0)).toMatchObject({ phase: 0, visibleBands: 1, stalled: false });
     expect(at(1.9).phase).toBe(0);
@@ -32,12 +32,12 @@ describe("constructionSiteForTile", () => {
   });
 
   it("carries the construction window so per-frame animation can follow the clock", () => {
-    const site = constructionSiteForTile(mintworks({ startedAt: 1_000, completesAt: 9_000 }), 2_000)!;
+    const site = constructionSiteForTile(manufactory({ startedAt: 1_000, completesAt: 9_000 }), 2_000)!;
     expect(site).toMatchObject({ startedAtMs: 1_000, completesAtMs: 9_000 });
   });
 
   it("reports the next phase boundary and clears it once the window elapses", () => {
-    const tile = mintworks({ startedAt: 1_000, completesAt: 1_000 + 8 * HOUR });
+    const tile = manufactory({ startedAt: 1_000, completesAt: 1_000 + 8 * HOUR });
     expect(constructionSiteForTile(tile, 1_000)!.nextPhaseAtMs).toBe(1_000 + 2 * HOUR);
     expect(constructionSiteForTile(tile, 1_000 + 2 * HOUR + 5)!.nextPhaseAtMs).toBe(1_000 + 4 * HOUR);
     const done = constructionSiteForTile(tile, 1_000 + 8 * HOUR + 1)!;
@@ -47,21 +47,21 @@ describe("constructionSiteForTile", () => {
   });
 
   it("plays removal in reverse: bands come down and crates pile up", () => {
-    const tile = mintworks({ status: "removing", startedAt: 0, completesAt: 8 * HOUR });
+    const tile = manufactory({ status: "removing", startedAt: 0, completesAt: 8 * HOUR });
     expect(constructionSiteForTile(tile, 0)).toMatchObject({ direction: "remove", visibleBands: CONSTRUCTION_PHASES });
     expect(constructionSiteForTile(tile, 7.9 * HOUR)).toMatchObject({ visibleBands: 1 });
   });
 
   it("falls back to the estimated duration for records without startedAt", () => {
-    const duration = structureBuildDurationMs("MINTWORKS");
-    const tile = mintworks({ completesAt: 10_000 + duration });
+    const duration = structureBuildDurationMs("MANUFACTORY");
+    const tile = manufactory({ completesAt: 10_000 + duration });
     const site = constructionSiteForTile(tile, 10_000 + duration / 2)!;
     expect(site.fraction).toBeCloseTo(0.5, 5);
     expect(site.phase).toBe(2);
   });
 
   it("clamps a clock that is behind startedAt to the first phase", () => {
-    const tile = mintworks({ startedAt: 5 * HOUR, completesAt: 9 * HOUR });
+    const tile = manufactory({ startedAt: 5 * HOUR, completesAt: 9 * HOUR });
     expect(constructionSiteForTile(tile, 0)).toMatchObject({ fraction: 0, phase: 0, stalled: false });
   });
 
@@ -117,7 +117,7 @@ describe("constructionSiteForTile field filter", () => {
     const tile = {
       ...baseTile(),
       fort: { ownerId: "me", status: "under_construction", variant: "FORT", startedAt: 0, completesAt: HOUR },
-      economicStructure: { ownerId: "me", type: "MINTWORKS", status: "active" }
+      economicStructure: { ownerId: "me", type: "MANUFACTORY", status: "active" }
     } as Tile;
     expect(constructionSiteForTile(tile, 0)).toMatchObject({ field: "fort" });
     expect(constructionSiteForTile(tile, 0, "economicStructure")).toBeUndefined();
@@ -128,9 +128,9 @@ describe("constructionSiteForTile field filter", () => {
     const tile = {
       ...baseTile(),
       fort: { ownerId: "me", status: "under_construction", variant: "FORT", startedAt: 0, completesAt: HOUR },
-      economicStructure: { ownerId: "me", type: "MINTWORKS", status: "under_construction", startedAt: 0, completesAt: 8 * HOUR }
+      economicStructure: { ownerId: "me", type: "MANUFACTORY", status: "under_construction", startedAt: 0, completesAt: 8 * HOUR }
     } as Tile;
-    expect(constructionSiteForTile(tile, 0, "economicStructure")).toMatchObject({ field: "economicStructure", structureType: "MINTWORKS" });
+    expect(constructionSiteForTile(tile, 0, "economicStructure")).toMatchObject({ field: "economicStructure", structureType: "MANUFACTORY" });
   });
 });
 
@@ -162,7 +162,7 @@ describe("crewSizeForManpower", () => {
 
 describe("constructionSiteForTile while an attack has paused the build", () => {
   it("freezes progress, phase and crew at the pause instead of following the clock", () => {
-    const tile = mintworks({ startedAt: 0, completesAt: 4 * HOUR, pausedAt: HOUR + 1 });
+    const tile = manufactory({ startedAt: 0, completesAt: 4 * HOUR, pausedAt: HOUR + 1 });
     const atPause = constructionSiteForTile(tile, HOUR + 1);
     const muchLater = constructionSiteForTile(tile, 3 * HOUR);
     expect(muchLater?.fraction).toBe(atPause?.fraction);
@@ -173,13 +173,13 @@ describe("constructionSiteForTile while an attack has paused the build", () => {
   });
 
   it("is not treated as stalled-and-overdue even when the pause outlasts the original deadline", () => {
-    const tile = mintworks({ startedAt: 0, completesAt: HOUR, pausedAt: HOUR / 2 });
+    const tile = manufactory({ startedAt: 0, completesAt: HOUR, pausedAt: HOUR / 2 });
     const site = constructionSiteForTile(tile, 5 * HOUR);
     expect(site?.fraction).toBeCloseTo(0.5, 6);
   });
 
   it("an unpaused build still follows the clock", () => {
-    const site = constructionSiteForTile(mintworks({ startedAt: 0, completesAt: 4 * HOUR }), 2 * HOUR);
+    const site = constructionSiteForTile(manufactory({ startedAt: 0, completesAt: 4 * HOUR }), 2 * HOUR);
     expect(site?.fraction).toBeCloseTo(0.5, 6);
     expect(site?.pausedAtMs).toBeUndefined();
   });

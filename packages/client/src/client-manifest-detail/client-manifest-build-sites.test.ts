@@ -21,7 +21,7 @@ describe("Manifest build sites", () => {
     expect(hasManifestBuildSite("CENSUS_HALL", [{ ...farm, townPopulationTier: "CITY" }])).toBe(false);
   });
   it("does not count a Settlement as a developed town for town-only buildings", () => {
-    expect(hasManifestBuildSite("MINTWORKS", [{ ...farm, townPopulationTier: "SETTLEMENT" }])).toBe(false);
+    expect(hasManifestBuildSite("MANUFACTORY", [{ ...farm, townPopulationTier: "SETTLEMENT" }])).toBe(false);
   });
   it("requires a Farm for a Hydrogarden, not Fish or generic land", () => {
     expect(hasManifestBuildSite("HYDROGARDEN", [])).toBe(false);

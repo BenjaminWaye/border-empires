@@ -131,7 +131,7 @@ export const createMainThreadTaskTracker = (options: MainThreadTaskTrackerOption
   };
 };
 
-// Per-player tick phases (tile shedding, territory automation, passive income)
+// Per-player tick phases (territory automation, passive income)
 // are individually sub-10ms but add up across 25 players; the createMainThreadTaskTracker
 // default 10ms retention threshold and 32-entry ring buffer would drop or evict
 // every one of them before the event_loop_blocked check reads them.

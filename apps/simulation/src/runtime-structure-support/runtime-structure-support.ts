@@ -2,7 +2,7 @@
  * Runtime-side entry point for town support tile lookups. The actual logic
  * lives in ../town-support-lookup.ts (generic over any tile shape) so the
  * AI planner's chooseBestEconomicBuild can use the EXACT SAME algorithm the
- * runtime uses to decide whether a town-support structure (MINTWORKS/INCUBATION_ENGINE/
+ * runtime uses to decide whether a town-support structure (MANUFACTORY/INCUBATION_ENGINE/
  * INCUBATION_ENGINE) can actually be placed — see town-support-lookup.ts's file comment
  * for why that used to diverge and what it broke in production.
  */

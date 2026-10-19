@@ -93,7 +93,7 @@ export const createDemoTileSpecs = () => {
     { kind: "MINE", resource: "TITANIUM" },
     { kind: "MINE", resource: "GEMS" },
     { kind: "TITANIUM_WORKS" },
-    { kind: "MINTWORKS" },
+    { kind: "MANUFACTORY" },
     { kind: "OBSERVATORY" },
     { kind: "INCUBATION_ENGINE" },
     { kind: "CENSUS_HALL" },
