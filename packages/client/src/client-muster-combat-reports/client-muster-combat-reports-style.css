@@ -1,18 +1,22 @@
-.muster-reports { display: grid; gap: 10px; }
+/* Muster-flag "Combat" tab in the tile popup. Uses the steampunk --sp-*
+ * tokens so the list matches the brass/leather tile card around it:
+ * verdigris for gains, ember for losses, brass for chrome. */
+.muster-reports { display: grid; gap: 8px; }
 .muster-reports-head, .muster-report-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.muster-reports-head, .muster-report-context, .muster-reports-foot { font-size: 12px; color: #b6cfe9; }
-.muster-report { padding: 10px; border-radius: 12px; background: rgba(12, 21, 32, 0.58); border: 1px solid rgba(255, 255, 255, 0.08); }
-.muster-report.is-unread { border-color: rgba(123, 163, 222, 0.5); }
-.muster-report-heading strong { font-size: 13px; color: #f1f7ff; }
-.muster-report-badge, .muster-reports-tab-badge { padding: 2px 6px; border-radius: 999px; background: #294868; color: #f1f7ff; font-size: 11px; }
-.muster-report-context { margin-top: 4px; }
-.muster-report-values { display: grid; gap: 4px; margin-top: 8px; font-size: 13px; }
-.muster-report-loss { color: #ff9292; }
-.muster-report-gain { color: #8de6aa; }
-.muster-report details { margin-top: 8px; font-size: 12px; color: #b6cfe9; }
+.muster-reports-head, .muster-report-context, .muster-reports-foot { font-size: 12px; color: var(--sp-parchment-muted); }
+.muster-report { padding: 8px 10px; border-radius: 10px; background: rgba(20, 16, 10, 0.5); border: 1px solid var(--sp-brass-700); }
+.muster-report.is-unread { border-color: var(--sp-brass-300); }
+.muster-report-heading strong { font-size: 13px; color: var(--sp-parchment-100); font-family: var(--sp-font-display); }
+.muster-report-badge, .muster-reports-tab-badge { display: inline-block; padding: 1px 6px; border-radius: 999px; background: var(--sp-brass-500); color: var(--sp-iron-950); font-size: 10px; font-weight: 800; line-height: 1.4; }
+.muster-reports-tab-badge { margin-left: 4px; vertical-align: 1px; }
+.muster-report-context { margin-top: 2px; font-family: var(--sp-font-mono); font-size: 11px; }
+.muster-report-values { display: flex; flex-wrap: wrap; gap: 2px 12px; margin-top: 6px; font-size: 13px; color: var(--sp-parchment-300); }
+.muster-report-loss { color: var(--sp-ember-400); }
+.muster-report-gain { color: var(--sp-verdigris-300); }
+.muster-report details { margin-top: 6px; font-size: 12px; color: var(--sp-parchment-muted); }
 .muster-report summary { cursor: pointer; }
-.muster-report details p { margin: 8px 0 0; line-height: 1.5; }
-.muster-reports-read { padding: 6px 10px; border-radius: 999px; border: 1px solid rgba(123, 163, 222, 0.34); background: rgba(18, 29, 45, 0.6); color: #d9e6f5; cursor: pointer; }
-.muster-reports-read:hover { background: #294868; }
-.muster-reports-read:focus-visible, .muster-report summary:focus-visible { outline: 2px solid #8dc8ff; outline-offset: 3px; }
+.muster-report details p { margin: 6px 0 0; line-height: 1.5; color: var(--sp-parchment-300); }
+.muster-reports-read { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--sp-brass-700); background: rgba(20, 16, 10, 0.55); color: var(--sp-brass-100); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.muster-reports-read:hover { background: rgba(217, 173, 82, 0.2); border-color: var(--sp-brass-300); }
+.muster-reports-read:focus-visible, .muster-report summary:focus-visible { outline: 2px solid var(--sp-brass-300); outline-offset: 3px; }
 .muster-reports-foot { margin: 0; line-height: 1.5; }
