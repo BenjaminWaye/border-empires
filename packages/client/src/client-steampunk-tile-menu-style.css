@@ -59,11 +59,12 @@
   color: var(--sp-verdigris-300);
 }
 
-/* Size tabs to their label and let the row wrap, instead of equal-width
- * columns that squeeze a long label + unread badge onto two lines. */
+/* Size tabs to their label (tight padding so all five fit one row in the
+ * popup) and let the row wrap only on narrower screens, instead of
+ * equal-width columns that squeeze a long label onto two lines. */
 .tile-menu-tab {
   flex: 1 1 auto;
-  padding: 0 10px;
+  padding: 0 6px;
   white-space: nowrap;
   border-color: var(--sp-brass-700);
   background: rgba(20, 16, 10, 0.55);

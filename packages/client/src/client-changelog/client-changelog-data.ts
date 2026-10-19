@@ -452,7 +452,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     introducedIn: "2026.10.19.5",
     title: "Tidier combat reports on muster flags",
     why: "The flag's combat report list still used the old blue colours inside the brass tile popup, and its long tab label squeezed onto two lines.",
-    changes: ["The Recent combat tab is now just \"Combat\", and the tile popup tabs no longer squash onto two lines", "Combat reports use the same brass-and-parchment look as the rest of the popup"]
+    changes: ["The Recent combat tab is now just \"Combat\", with its unread count as a small bubble on the tab's corner, so all the tile popup tabs fit on one row", "Combat reports use the same brass-and-parchment look as the rest of the popup"]
   },
   ...RELIABLE_DIPLOMACY_CHANGELOG,
   ...AFC_UPGRADES_ICON_CHANGELOG,
