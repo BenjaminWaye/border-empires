@@ -5,15 +5,15 @@
 //             to track the battle; the tower stays planted on its axis.
 //  - "structure": the entire tower swings around to face the battle.
 //
-// Persisted to localStorage so the player's choice survives reloads, with a
-// `?siegetower=lens|structure` URL param taking precedence (handy for a
-// screenshot/demo build and for regression tests). The default is "lens" — the
-// dramatic, historically-flavoured look — while "structure" exists for anyone
-// who wants the whole machine to wheel about.
+// Always "lens" — the dramatic, historically-flavoured look — unless a
+// `?siegetower=lens|structure` URL param overrides it (handy for a
+// screenshot/demo build and for regression tests). The Settings dropdown that
+// used to let players pick (and persisted the choice to localStorage) was
+// removed, so any previously stored choice is deliberately ignored rather than
+// leaving a player stuck on a mode they can no longer change.
 
 export type SiegeTowerRotationMode = "lens" | "structure";
 
-const STORAGE_KEY = "border-empires-siege-tower-rotation-mode";
 const VALID_MODES: readonly SiegeTowerRotationMode[] = ["lens", "structure"];
 
 const isRotationMode = (value: unknown): value is SiegeTowerRotationMode =>
@@ -25,25 +25,6 @@ const urlOverride = (): SiegeTowerRotationMode | undefined => {
   return isRotationMode(value) ? value : undefined;
 };
 
-const storedMode = (): SiegeTowerRotationMode | undefined => {
-  if (typeof window === "undefined") return undefined;
-  try {
-    const value = window.localStorage.getItem(STORAGE_KEY);
-    return isRotationMode(value) ? value : undefined;
-  } catch {
-    return undefined;
-  }
-};
-
-let mode: SiegeTowerRotationMode = urlOverride() ?? storedMode() ?? "lens";
+const mode: SiegeTowerRotationMode = urlOverride() ?? "lens";
 
 export const siegeTowerRotationMode = (): SiegeTowerRotationMode => mode;
-
-export const setSiegeTowerRotationMode = (next: SiegeTowerRotationMode): void => {
-  mode = next;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, next);
-  } catch {
-    // Private mode / storage disabled — the in-memory mode still applies.
-  }
-};

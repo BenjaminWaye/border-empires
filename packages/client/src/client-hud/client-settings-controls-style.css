@@ -1,0 +1,195 @@
+/*
+ * Brass toggle switches and sliders for the Settings pages (markup from
+ * client-settings-controls.ts). Replaces the browser-native checkbox / range
+ * look, which rendered as bright system widgets on the steampunk panels.
+ * Imported after the steampunk stylesheets in main.ts so it wins over the
+ * generic `.card p` / `.row` rules.
+ */
+
+.auth-settings-card .settings-section-title {
+  margin: 0;
+  color: var(--sp-brass-100);
+  font-family: var(--sp-font-display);
+  font-weight: 700;
+}
+
+.auth-settings-card .settings-field-hint {
+  display: block;
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--sp-parchment-muted);
+}
+
+.settings-field-hint kbd {
+  padding: 0 4px;
+  border: 1px solid var(--sp-brass-700);
+  border-radius: 4px;
+  background: rgba(12, 9, 6, 0.6);
+  color: var(--sp-parchment-100);
+  font-family: var(--sp-font-mono);
+  font-size: 11px;
+}
+
+.settings-auto-settle-field,
+.settings-photo-mode-field {
+  display: grid;
+  gap: 6px;
+}
+
+/* ---- Toggle row: title (+ hint) on the left, switch on the right ---- */
+
+.settings-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+.settings-toggle-row.is-disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.settings-toggle-text {
+  display: grid;
+  min-width: 0;
+}
+
+.settings-toggle-title {
+  color: var(--sp-parchment-100);
+  font-weight: 600;
+}
+
+.settings-toggle {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+}
+
+/* The real checkbox sits invisibly over the drawn switch so clicks, focus and
+ * screen readers all hit the native control. */
+.settings-toggle-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+
+.settings-toggle-track {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  border: 1px solid var(--sp-brass-700);
+  border-radius: 999px;
+  background: rgba(12, 9, 6, 0.85);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.settings-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--sp-parchment-300), var(--sp-brass-700));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.settings-toggle-input:checked + .settings-toggle-track {
+  border-color: var(--sp-brass-300);
+  background: linear-gradient(180deg, var(--sp-brass-500), var(--sp-brass-700));
+}
+
+.settings-toggle-input:checked + .settings-toggle-track .settings-toggle-thumb {
+  transform: translateX(18px);
+  background: radial-gradient(circle at 35% 30%, #fff8e3, var(--sp-brass-100));
+}
+
+.settings-toggle-input:focus-visible + .settings-toggle-track {
+  outline: 2px solid var(--sp-verdigris-300);
+  outline-offset: 2px;
+}
+
+/* ---- Slider ---- */
+
+.settings-audio-row {
+  padding: 2px 0 4px;
+}
+
+.settings-slider {
+  --settings-slider-fill: 0%;
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 22px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.settings-slider:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.settings-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border: 1px solid var(--sp-brass-700);
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--sp-brass-300) 0,
+    var(--sp-brass-300) var(--settings-slider-fill),
+    rgba(12, 9, 6, 0.85) var(--settings-slider-fill)
+  );
+}
+
+.settings-slider::-moz-range-track {
+  height: 6px;
+  border: 1px solid var(--sp-brass-700);
+  border-radius: 999px;
+  background: rgba(12, 9, 6, 0.85);
+}
+
+.settings-slider::-moz-range-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--sp-brass-300);
+}
+
+.settings-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -7px;
+  border: 1px solid var(--sp-brass-700);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff8e3, var(--sp-brass-300));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.settings-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--sp-brass-700);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff8e3, var(--sp-brass-300));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.settings-slider:focus-visible {
+  outline: 2px solid var(--sp-verdigris-300);
+  outline-offset: 2px;
+  border-radius: 999px;
+}

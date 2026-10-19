@@ -3,6 +3,7 @@
 // one document-level change listener so the HUD's re-rendered settings HTML
 // needs no per-render binding (client-hud.ts is over the per-file line cap).
 import { AUTO_SETTLE_CATEGORIES, type AutoSettleCategory } from "@border-empires/shared";
+import { settingsToggleRowHtml } from "../client-hud/client-settings-controls.js";
 import type { ClientAutoSettleState } from "./client-auto-settle-prefs.js";
 
 const ROWS: Record<AutoSettleCategory, { label: string; hint: string }> = {
@@ -15,18 +16,22 @@ export const autoSettleSettingsFieldHtml = (autoSettle: ClientAutoSettleState): 
   if (autoSettle.status !== "loaded") {
     return `
     <div class="settings-auto-settle-field">
-      <p>Auto-garrison</p>
+      <p class="settings-section-title">Auto-garrison</p>
       <p class="settings-field-hint">Loading your auto-garrison choices…</p>
     </div>`;
   }
   const current = autoSettle.prefs;
   return `
     <div class="settings-auto-settle-field">
-      <p>Auto-garrison</p>
+      <p class="settings-section-title">Auto-garrison</p>
       <p class="settings-field-hint">Spends manpower to garrison these tiles as soon as they're yours. Off means nothing garrisons until you click.</p>
-      ${AUTO_SETTLE_CATEGORIES.map(
-        (category) => `
-      <label class="row"><input type="checkbox" data-settings-auto-settle="${category}" ${current[category] ? "checked" : ""} /> ${ROWS[category].label}<span class="settings-field-hint"> ${ROWS[category].hint}</span></label>`
+      ${AUTO_SETTLE_CATEGORIES.map((category) =>
+        settingsToggleRowHtml({
+          attrs: `data-settings-auto-settle="${category}"`,
+          checked: current[category],
+          title: ROWS[category].label,
+          hint: ROWS[category].hint
+        })
       ).join("")}
     </div>`;
 };
