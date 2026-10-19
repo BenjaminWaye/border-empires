@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BufferGeometry, Mesh, Scene, ShaderMaterial } from "three";
+import { BufferGeometry, Mesh, Scene, ShaderMaterial, Vector2, type WebGLRenderer } from "three";
 
 import { createFrontierSupplyOverlay } from "./client-map-3d-frontier-supply-overlay.js";
 import type { FrontierSupplyModel } from "./client-frontier-supply/client-frontier-supply.js";
@@ -30,11 +30,33 @@ describe("createFrontierSupplyOverlay", () => {
     expect(ring.filter((v) => v === 1).length).toBeGreaterThan(0);
     const ringVertex = ring.indexOf(1);
     const position = geometry.getAttribute("position");
-    expect(Math.hypot(position.getX(ringVertex), position.getZ(ringVertex))).toBeCloseTo(0.275, 2); // centred on the cut tile
+    expect(Math.hypot(position.getX(ringVertex), position.getZ(ringVertex))).toBeCloseTo(0.3, 5); // centred on the cut tile
     const distances = Array.from(geometry.getAttribute("aDistance").array as Float32Array);
     expect(Math.max(...distances)).toBeCloseTo(2, 5); // dashes measured along the full two hops
     expect(material.fragmentShader).toContain("discard"); // gaps between dashes
     expect(material.uniforms.uTimeS).toBeUndefined(); // static: nothing animates
+    overlay.dispose();
+  });
+
+  it("keeps the line at least a pixel wide on screen: vertices sit on the centre line and the shader pushes them out", () => {
+    const scene = new Scene();
+    const overlay = createFrontierSupplyOverlay(scene);
+    overlay.sync(model(), sceneFor, "origin-a", "#3fa9f5");
+    const { mesh, geometry, material } = meshes(scene);
+    const position = geometry.getAttribute("position");
+    const ring = geometry.getAttribute("aRing");
+    const lineVertex = Array.from(ring.array as Float32Array).indexOf(0);
+    // Both sides of the ribbon start on the centre line (z = 0 for this east-running route)...
+    expect(position.getZ(lineVertex)).toBeCloseTo(0, 5);
+    expect(position.getZ(lineVertex + 1)).toBeCloseTo(0, 5);
+    // ...with opposite push directions and the world half-width to push by.
+    expect(geometry.getAttribute("aSide").getZ(lineVertex)).toBeCloseTo(-geometry.getAttribute("aSide").getZ(lineVertex + 1), 5);
+    expect(geometry.getAttribute("aHalf").getX(lineVertex)).toBeGreaterThan(0);
+    expect(material.vertexShader).toContain("uMinHalfPx");
+    // The viewport size the shader measures pixels in comes from the renderer each frame.
+    const renderer = { getSize: (target: Vector2) => target.set(800, 600) } as unknown as WebGLRenderer;
+    mesh.onBeforeRender(renderer, scene, undefined as never, geometry, material, undefined as never);
+    expect((material.uniforms.uViewport!.value as Vector2).toArray()).toEqual([800, 600]);
     overlay.dispose();
   });
 

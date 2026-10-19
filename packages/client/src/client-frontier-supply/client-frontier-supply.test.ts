@@ -128,8 +128,20 @@ describe("computeFrontierSupplyModel", () => {
   it("treats an owned frontier dock as a supply source, like the simulation does", () => {
     const tiles = [frontier(50, 50, ME, { dockId: "dock-1" }), frontier(51, 50), frontier(52, 50)];
     const model = computeFrontierSupplyModel({ tiles, me: ME, reach: new Set(), ...WORLD });
-    expect(cuts(model)).toEqual(["51,50"]);
-    expect(hops(model)).toEqual(["51,50>52,50"]);
+    expect(hops(model)).toEqual(["50,50>51,50", "51,50>52,50"]);
+  });
+
+  it("flags land hanging on a lone frontier dock: the dock is supply, but taking it cuts that land off", () => {
+    const tiles = [frontier(50, 50, ME, { dockId: "dock-1" }), frontier(51, 50)];
+    const model = computeFrontierSupplyModel({ tiles, me: ME, reach: new Set(), ...WORLD });
+    expect(cuts(model)).toEqual(["50,50"]);
+    expect(hops(model)).toEqual(["50,50>51,50"]);
+  });
+
+  it("never marks a settled tile as the cut", () => {
+    // (11,10) touches only the town tile: losing the town is a different threat from encirclement of frontier.
+    const model = computeFrontierSupplyModel({ tiles: [settled(10, 10), frontier(11, 10)], me: ME, reach: keys([10, 10]), ...WORLD });
+    expect(model).toEqual({ links: [], cuts: [] });
   });
 
   it("follows an Aether bridge link as a supply path", () => {

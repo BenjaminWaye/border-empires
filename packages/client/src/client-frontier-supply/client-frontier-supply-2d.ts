@@ -46,13 +46,13 @@ const drawRoute = (ctx: CanvasRenderingContext2D, route: SupplyRoute, deps: Fron
   // Cheap reject: the whole route lies within its own length of its first point.
   const reachPx = ((route.points[route.points.length - 1]?.distance ?? 0) - first.distance + CULL_MARGIN_TILES) * size;
   if (!onScreen(anchor.sx, anchor.sy, reachPx, deps)) return;
+  const screen = route.points.map((p) => ({ sx: anchor.sx + (p.x - first.x) * size, sy: anchor.sy + (p.y - first.y) * size }));
+  const marginPx = CULL_MARGIN_TILES * size;
+  if (!screen.some(({ sx, sy }) => onScreen(sx, sy, marginPx, deps))) return;
   ctx.lineDashOffset = first.distance * size;
   ctx.beginPath();
   ctx.moveTo(anchor.sx, anchor.sy);
-  for (let i = 1; i < route.points.length; i += 1) {
-    const p = route.points[i]!;
-    ctx.lineTo(anchor.sx + (p.x - first.x) * size, anchor.sy + (p.y - first.y) * size);
-  }
+  for (let i = 1; i < screen.length; i += 1) ctx.lineTo(screen[i]!.sx, screen[i]!.sy);
   ctx.stroke();
 };
 

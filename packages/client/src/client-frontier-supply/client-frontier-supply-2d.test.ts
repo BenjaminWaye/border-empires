@@ -71,6 +71,11 @@ describe("drawFrontierSupply2D", () => {
     const far = recordingContext();
     drawFrontierSupply2D(far.ctx, { links: [{ from: { x: 90, y: 90 }, to: { x: 91, y: 90 }, tip: true }], cuts: [{ x: 90, y: 90 }] }, deps());
     expect(strokes(far.calls)).toHaveLength(0);
+    // A long route whose cut tile is just off screen but which never comes into view.
+    const offside = recordingContext();
+    const chain = Array.from({ length: 40 }, (_, i): FrontierSupplyLink => ({ from: { x: -3 - i, y: 2 }, to: { x: -4 - i, y: 2 }, tip: i === 39 }));
+    drawFrontierSupply2D(offside.ctx, { links: chain, cuts: [] }, deps());
+    expect(strokes(offside.calls)).toHaveLength(0);
     const empty = recordingContext();
     drawFrontierSupply2D(empty.ctx, { links: [], cuts: [] }, deps());
     expect(empty.calls).toHaveLength(0);

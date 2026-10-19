@@ -153,7 +153,9 @@ export const computeFrontierSupplyModel = (input: FrontierSupplyInput): Frontier
     parent[i] = best;
   }
 
-  const cutOf = cutTilesFor(adjacency, isSource);
+  // Any FRONTIER tile can be taken and cut what hangs on it -- a frontier dock
+  // included, though it is also a supply source. Settled tiles are not cuts.
+  const cutOf = cutTilesFor(adjacency, (i) => nodeTiles[i]!.ownershipState === "FRONTIER");
   const fragile = (i: number): boolean => beyondReach(i) && cutOf[i]! > 0;
 
   // Tips: where a fragile stretch ends. Group side-by-side fragile tiles at
@@ -233,7 +235,8 @@ export const computeFrontierSupplyModel = (input: FrontierSupplyInput): Frontier
 
 /**
  * For every node, the cut tile nearest supply that it hangs on, or -1: a
- * non-source tile whose removal disconnects the node from the root (node 0).
+ * tile allowed by `canCut` whose removal disconnects the node from the root
+ * (node 0).
  *
  * Iterative Tarjan articulation points from the root: a DFS-tree child c of v
  * (v not the root) has its whole subtree cut off by v when no back edge from
@@ -243,7 +246,7 @@ export const computeFrontierSupplyModel = (input: FrontierSupplyInput): Frontier
  * and the edge back to the DFS parent only lower `low` to disc[v] at most,
  * which leaves the test unchanged.
  */
-const cutTilesFor = (adjacency: number[][], isSource: readonly boolean[]): Int32Array => {
+const cutTilesFor = (adjacency: number[][], canCut: (node: number) => boolean): Int32Array => {
   const nodeCount = adjacency.length;
   const disc = new Int32Array(nodeCount).fill(-1);
   const low = new Int32Array(nodeCount);
@@ -281,7 +284,7 @@ const cutTilesFor = (adjacency: number[][], isSource: readonly boolean[]): Int32
     const p = dfsParent[n]!;
     if (p <= 0) continue;
     if (cutOf[p]! > 0) cutOf[n] = cutOf[p]!;
-    else if (!isSource[p] && low[n]! >= disc[p]!) cutOf[n] = p;
+    else if (low[n]! >= disc[p]! && canCut(p)) cutOf[n] = p;
   }
   return cutOf;
 };

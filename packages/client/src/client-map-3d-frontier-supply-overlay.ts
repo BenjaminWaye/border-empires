@@ -1,4 +1,4 @@
-import { BufferGeometry, Color, DoubleSide, Float32BufferAttribute, Mesh, Scene, ShaderMaterial } from "three";
+import { BufferGeometry, Color, DoubleSide, Float32BufferAttribute, Mesh, Scene, ShaderMaterial, Vector2 } from "three";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 
 import type { FrontierSupplyModel } from "./client-frontier-supply/client-frontier-supply.js";
@@ -20,13 +20,18 @@ import {
 // client-frontier-supply-style.ts).
 //
 // Every route is one thin ribbon, and every cut tile one flat ring, in a
-// single merged mesh. The fragment shader cuts the ribbon into dashes from a
-// per-vertex distance-along-the-line attribute, so dashes run on unbroken
-// through a fork. Nothing animates: geometry is rebuilt only when the model
-// or the scene origin changes.
+// single merged mesh. Each vertex sits on the centre line and carries the
+// direction and world half-width to push out by; the vertex shader widens
+// that push so the stroke never drops below MIN_WIDTH_PX on screen (a thin
+// line would otherwise break up when zoomed out). The fragment shader cuts the
+// ribbon into dashes from a per-vertex distance-along-the-line attribute, so
+// dashes run on unbroken through a fork. Nothing animates: geometry is
+// rebuilt only when the model or the scene origin changes.
 
 const RISE_ABOVE_SURFACE = 0.035;
 const RING_SEGMENTS = 24;
+/** Narrowest the line and ring may draw, CSS px. */
+const MIN_WIDTH_PX = 1;
 /** Hard bound on vertices, so a pathological empire can't grow GPU buffers without limit. */
 export const FRONTIER_SUPPLY_MAX_VERTICES = 60_000;
 
@@ -53,20 +58,32 @@ const supplyMaterial = (): ShaderMaterial =>
       uLineAlpha: { value: SUPPLY_LINE_ALPHA },
       uRingAlpha: { value: SUPPLY_CUT_RING_ALPHA },
       uDash: { value: SUPPLY_DASH_LENGTH },
-      uPeriod: { value: SUPPLY_DASH_LENGTH + SUPPLY_DASH_GAP }
+      uPeriod: { value: SUPPLY_DASH_LENGTH + SUPPLY_DASH_GAP },
+      uViewport: { value: new Vector2(1, 1) },
+      uMinHalfPx: { value: MIN_WIDTH_PX / 2 }
     },
     transparent: true,
     depthTest: false,
     depthWrite: false,
     side: DoubleSide,
     vertexShader: `
+      uniform vec2 uViewport;
+      uniform float uMinHalfPx;
+      attribute vec3 aSide;
+      attribute float aHalf;
       attribute float aDistance;
       attribute float aRing;
       varying float vDistance;
       varying float vRing;
       void main() {
         vDistance = aDistance; vRing = aRing;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        mat4 toClip = projectionMatrix * modelViewMatrix;
+        vec4 centre = toClip * vec4(position, 1.0);
+        vec3 offset = aSide * aHalf;
+        vec4 edge = toClip * vec4(position + offset, 1.0);
+        float halfPx = length((edge.xy / edge.w - centre.xy / centre.w) * 0.5 * uViewport);
+        float widen = halfPx > 0.0 ? max(1.0, uMinHalfPx / halfPx) : 1.0;
+        gl_Position = toClip * vec4(position + offset * widen, 1.0);
       }
     `,
     fragmentShader: `
@@ -89,7 +106,10 @@ const supplyMaterial = (): ShaderMaterial =>
   });
 
 type SupplyBuffers = {
+  /** Centre-line points; the shader pushes each out along `side` by `half`. */
   positions: number[];
+  side: number[];
+  half: number[];
   distance: number[];
   ring: number[];
   indices: number[];
@@ -122,7 +142,9 @@ const appendRoute = (out: SupplyBuffers, route: SupplyRoute, sceneFor: (x: numbe
     tx /= len;
     tz /= len;
     const s = scene[i]!;
-    out.positions.push(s.x - tz * half, s.y, s.z + tx * half, s.x + tz * half, s.y, s.z - tx * half);
+    out.positions.push(s.x, s.y, s.z, s.x, s.y, s.z);
+    out.side.push(-tz, 0, tx, tz, 0, -tx);
+    out.half.push(half, half);
     out.distance.push(points[i]!.distance, points[i]!.distance);
     out.ring.push(0, 0);
     if (i > 0) {
@@ -136,15 +158,18 @@ const appendRoute = (out: SupplyBuffers, route: SupplyRoute, sceneFor: (x: numbe
 /** Appends a flat ring on a cut tile. Returns false once the vertex cap is hit. */
 const appendCutRing = (out: SupplyBuffers, at: FrontierSupplyScenePoint): boolean => {
   if (vertexCount(out) + RING_SEGMENTS * 2 > FRONTIER_SUPPLY_MAX_VERTICES) return false;
-  const inner = SUPPLY_CUT_RING_RADIUS - SUPPLY_CUT_RING_WIDTH / 2;
-  const outer = SUPPLY_CUT_RING_RADIUS + SUPPLY_CUT_RING_WIDTH / 2;
+  const half = SUPPLY_CUT_RING_WIDTH / 2;
   const y = at.surfaceY + RISE_ABOVE_SURFACE;
   const base = vertexCount(out);
   for (let i = 0; i < RING_SEGMENTS; i += 1) {
     const angle = (i / RING_SEGMENTS) * Math.PI * 2;
     const cx = Math.cos(angle);
     const sz = Math.sin(angle);
-    out.positions.push(at.sceneX + cx * inner, y, at.sceneZ + sz * inner, at.sceneX + cx * outer, y, at.sceneZ + sz * outer);
+    const px = at.sceneX + cx * SUPPLY_CUT_RING_RADIUS;
+    const pz = at.sceneZ + sz * SUPPLY_CUT_RING_RADIUS;
+    out.positions.push(px, y, pz, px, y, pz);
+    out.side.push(-cx, 0, -sz, cx, 0, sz);
+    out.half.push(half, half);
     out.distance.push(0, 0);
     out.ring.push(1, 1);
     const a = base + i * 2;
@@ -160,6 +185,8 @@ export const createFrontierSupplyOverlay = (scene: Scene): FrontierSupplyOverlay
   const mesh = new Mesh(geometry, material);
   mesh.frustumCulled = false; // rebuilt in place; bounds would only lag behind
   mesh.renderOrder = 24;
+  const viewport = material.uniforms.uViewport!.value as Vector2;
+  mesh.onBeforeRender = (renderer) => { renderer.getSize(viewport); };
   scene.add(mesh);
 
   const white = new Color("#ffffff");
@@ -167,11 +194,13 @@ export const createFrontierSupplyOverlay = (scene: Scene): FrontierSupplyOverlay
   let lastPlacementKey = "";
 
   const rebuild = (model: FrontierSupplyModel, sceneFor: (x: number, y: number) => FrontierSupplyScenePoint): void => {
-    const out: SupplyBuffers = { positions: [], distance: [], ring: [], indices: [] };
+    const out: SupplyBuffers = { positions: [], side: [], half: [], distance: [], ring: [], indices: [] };
     let room = true;
     for (const cut of model.cuts) if (!(room = appendCutRing(out, sceneFor(cut.x, cut.y)))) break;
     if (room) for (const route of supplyRoutesFor(model)) if (!appendRoute(out, route, sceneFor)) break;
     geometry.setAttribute("position", new Float32BufferAttribute(out.positions, 3));
+    geometry.setAttribute("aSide", new Float32BufferAttribute(out.side, 3));
+    geometry.setAttribute("aHalf", new Float32BufferAttribute(out.half, 1));
     geometry.setAttribute("aDistance", new Float32BufferAttribute(out.distance, 1));
     geometry.setAttribute("aRing", new Float32BufferAttribute(out.ring, 1));
     geometry.setIndex(out.indices);
