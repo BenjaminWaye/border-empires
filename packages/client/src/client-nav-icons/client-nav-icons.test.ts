@@ -21,8 +21,8 @@ describe("navTabIconHtml", () => {
     }
   });
 
-  it("uses the headquarters icon for AFC Upgrades", () => {
-    expect(srcsOf(navTabIconHtml("domains"))).toEqual(["/icons/simple/core.svg"]);
+  it("uses the AFC icon for AFC Upgrades, not the headquarters icon", () => {
+    expect(srcsOf(navTabIconHtml("domains"))).toEqual(["/icons/simple/afc.svg"]);
   });
 
   it("keeps the tab-icon wrapper so existing button styling still applies", () => {

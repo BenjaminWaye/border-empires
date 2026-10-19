@@ -1,5 +1,7 @@
 // HUD/nav tab icons: simple emoji-style SVGs under public/icons/simple, so
-// they read at 30px. AFC Upgrades uses the headquarters icon; Shards remain a resource.
+// they read at 30px. AFC Upgrades uses a drawn AFC (cone cap, aether chamber,
+// arms and docking bays) rather than the headquarters house; Shards remain a
+// resource.
 
 
 export type NavTabIconKey =
@@ -16,7 +18,7 @@ export type NavTabIconKey =
 // The "tech" panel is shown to players as Manifest (charters, grants, warrants,
 // dossiers), so its icon is a sealed ledger rather than a tech symbol.
 const navTabIconUrl = (key: NavTabIconKey): string => {
-  if (key === "domains") return "/icons/simple/core.svg";
+  if (key === "domains") return "/icons/simple/afc.svg";
   if (key === "tech") return "/icons/simple/manifest.svg";
   return `/icons/simple/${key}.svg`;
 };
