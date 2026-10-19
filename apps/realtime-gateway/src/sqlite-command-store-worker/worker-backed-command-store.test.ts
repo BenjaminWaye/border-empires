@@ -1,3 +1,5 @@
+import { createRequire } from "node:module";
+import { SqliteSimulationCommandStore } from "../../../simulation/src/sqlite-command-store.js";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -41,6 +43,38 @@ describe("WorkerBackedGatewayCommandStore", () => {
 
     const fetched = await store.get("cmd-1");
     expect(fetched?.commandId).toBe("cmd-1");
+  });
+
+  it("preserves internal diplomacy rows across both schema owners and keeps client dedup separate", async () => {
+    const { DatabaseSync } = createRequire(import.meta.url)("node:sqlite") as {
+      DatabaseSync: new (path: string) => ConstructorParameters<typeof SqliteSimulationCommandStore>[0];
+    };
+    const db = new DatabaseSync(sqlitePath);
+    try {
+      const simulationStore = new SqliteSimulationCommandStore(db);
+      await simulationStore.applySchema();
+      db.exec("DROP INDEX commands_player_seq_idx; CREATE UNIQUE INDEX commands_player_seq_idx ON commands(player_id, client_seq)");
+      await simulationStore.persistQueuedCommand({ ...makeCommand(), type: "SYNC_TRUCE", commandId: "historical-social", clientSeq: 0 }, 900);
+      await store.close();
+      store = new WorkerBackedGatewayCommandStore({ sqlitePath, applySchema: true });
+      await store.waitUntilReady();
+      await simulationStore.applySchema();
+      for (const [i, type] of (["SYNC_TRUCE", "SYNC_ALLIANCE", "SETTLE_DIPLOMACY_TERMS"] as const).entries()) {
+        await simulationStore.persistQueuedCommand({ ...makeCommand(), type, commandId: `social-${i}`, clientSeq: 0 }, 1000 + i);
+      }
+      await store.close();
+      store = new WorkerBackedGatewayCommandStore({ sqlitePath, applySchema: true });
+      await store.waitUntilReady();
+      expect(await store.findByPlayerSeq("player-1", 0)).toBeUndefined();
+      expect(await store.listUnresolvedForPlayer("player-1")).toEqual([]);
+      const stored = await store.persistQueuedCommand(makeCommand({ commandId: "client-zero", clientSeq: 0 }), 1100);
+      expect(stored.commandId).toBe("client-zero");
+      expect((await store.listUnresolvedForPlayer("player-1")).map(c => c.commandId)).toEqual(["client-zero"]);
+      const duplicate = await store.persistQueuedCommand(makeCommand({ commandId: "duplicate-zero", clientSeq: 0 }), 1200);
+      expect(duplicate.commandId).toBe("client-zero");
+      expect(await store.get("social-2")).toMatchObject({ commandId: "social-2" });
+      await simulationStore.persistQueuedCommand({ ...makeCommand(), type: "SYNC_TRUCE", commandId: "social-after-restart", clientSeq: 0 }, 1300);
+    } finally { db.close(); }
   });
 
   it("returns undefined for a command that was never persisted", async () => {
