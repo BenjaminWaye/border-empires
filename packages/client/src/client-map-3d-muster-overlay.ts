@@ -16,7 +16,8 @@ import {
 
 import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 import { createMusterBannerClothMaterials } from "./client-map-3d-muster-banner/muster-banner-cloth-material.js";
-import { getMusterBannerGeometry } from "./client-map-3d-muster-banner/muster-banner-geometry.js";
+import { getMusterBannerGeometry, MUSTER_PLINTH_LEDGES } from "./client-map-3d-muster-banner/muster-banner-geometry.js";
+import { applyStoneFinish } from "./client-map-3d-muster-banner/muster-banner-stone-material.js";
 import { TOWN_BASE_LIFT } from "./client-map-3d-town-overlay.js";
 
 // Muster overlay: every mustering tile carries a war banner in its owner's
@@ -102,8 +103,10 @@ export type MusterOverlay = {
 
 export const createMusterOverlay = (scene: Scene, envMap?: Texture): MusterOverlay => {
   const geometry = getMusterBannerGeometry();
-  // Matches the towns' matte stone and AFC-style metalwork (client-map-3d-town-overlay.ts).
-  const bodyMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0.02, flatShading: true });
+  // The towns' AFC-style metalwork (client-map-3d-town-overlay.ts); the stone
+  // gets a painted-stone finish so it doesn't read as plastic up close.
+  const bodyMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.86, metalness: 0.02, flatShading: true });
+  applyStoneFinish(bodyMaterial, MUSTER_PLINTH_LEDGES);
   const metalMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.7, flatShading: true });
   // Lacquered enamel in the owner's colour, from instanceColor: a clearcoat
   // over the paint, like a premium miniature's varnish.

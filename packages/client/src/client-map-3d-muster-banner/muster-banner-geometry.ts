@@ -21,6 +21,8 @@ export const MUSTER_PLINTH_RADIUS = 0.27;
 const PLINTH_TIER_Y = 0.05;
 export const MUSTER_PLINTH_TOP_Y = 0.1;
 const PLINTH_TOP_Y = MUSTER_PLINTH_TOP_Y;
+/** Heights of the stone ledges that walls rise from (the stone finish pools shade above each). */
+export const MUSTER_PLINTH_LEDGES: readonly number[] = [PLINTH_TIER_Y, PLINTH_TOP_Y];
 const POLE_RADIUS = 0.016;
 const POLE_BASE_Y = PLINTH_TOP_Y + 0.046;
 const CROSSBAR_Y = 0.98;
