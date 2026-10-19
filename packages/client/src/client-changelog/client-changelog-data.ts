@@ -470,14 +470,14 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1792353291209, // Date.now() frozen for the changelog gate.
-    introducedIn: "2026.10.18.2",
+    createdAt: 1792399197096, // Date.now() frozen for the changelog gate.
+    introducedIn: "2026.10.19.1",
     title: "Choose exactly which tiles to garrison",
     why: "Garrison Connected queued a whole region immediately, making it hard to control where manpower went.",
     changes: [
       "Garrison Many lets you tap frontier tiles to select or deselect them, with highlights in both map renderers",
-      "Select connected adds nearby frontier to your selection; review the tile list, total cost and queue before confirming",
-      "Changed ownership, reach or available resources update the review before anything is queued",
+      "The bottom bar shows the selected count and total cost, with Confirm and Cancel; keep tapping tiles to adjust the selection",
+      "Confirmation checks ownership, reach and resources; unavailable selected tiles turn orange so you can deselect them before spending",
       "Dragging and pinching still move the map; taps select tiles once"
     ]
   }

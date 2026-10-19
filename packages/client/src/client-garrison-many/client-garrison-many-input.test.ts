@@ -12,8 +12,8 @@ it("commits each mouse/touch tap once through the action-flow suppression guard;
   const keyFor = (x: number, y: number): string => `${x},${y}`;
   const identity = (value: number): number => value;
   const flow = createGarrisonManyFlow(state, {
-    keyFor, wrapX: identity, wrapY: identity, hideTileActionMenu: vi.fn(), renderHud: vi.fn(),
-    developmentSlotSummary: () => ({ available: 1 }), requestSettlement: vi.fn(), processDevelopmentQueue: vi.fn(), pushFeed: vi.fn()
+    keyFor, hideTileActionMenu: vi.fn(), renderHud: vi.fn(),
+    requestSettlement: vi.fn(), processDevelopmentQueue: vi.fn(), pushFeed: vi.fn()
   });
   const canvas = document.createElement("canvas");
   canvas.getBoundingClientRect = () => new DOMRect(0, 0, 400, 400);

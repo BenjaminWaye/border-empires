@@ -36,13 +36,11 @@
   cursor: pointer;
 }
 .garrison-many-sheet button:hover:not(:disabled) { background: #463721; }
-.garrison-many-sheet button:focus-visible, .garrison-many-sheet summary:focus-visible { outline: 2px solid #ffd166; outline-offset: 2px; }
+.garrison-many-sheet button:focus-visible { outline: 2px solid #ffd166; outline-offset: 2px; }
 .garrison-many-sheet button:disabled { opacity: .45; cursor: default; }
 .garrison-many-sheet .garrison-many-primary { border-color: #ffd166; color: #ffd166; }
 .garrison-many-sheet .garrison-many-message { color: #ffc582; }
 .garrison-many-message:empty { display: none; }
-.garrison-many-sheet summary { cursor: pointer; min-height: 32px; }
-.garrison-many-sheet ul { max-height: 96px; overflow-y: auto; margin: 4px 0; padding-left: 24px; }
 @media (max-width: 600px) {
   .garrison-many-sheet { bottom: calc(8px + env(safe-area-inset-bottom, 0px)); padding: 12px; }
   .garrison-many-sheet nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }

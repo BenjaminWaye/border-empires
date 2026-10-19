@@ -72,17 +72,18 @@ Implementation and verification, 2026-10-18:
   tests cover sign-out before retries, during backoff, during a stalled restore,
   and subsequent sign-in.
 
-### 2. Select, review and confirm Garrison Many — implemented locally
+### 2. Select tiles and confirm Garrison Many — implemented locally
 
 Replace Garrison Connected with Garrison Many. Start with the originating tile
-selected, allow taps to select/deselect eligible owned frontier, and offer a
-Select connected shortcut. Highlight the selected set in both map renderers.
-Review eligible count, combined cost, excluded tiles/reasons and available
-slots versus waiting work. Keep the map visible on mobile and revalidate at
-confirmation. See [implementation and verification](garrison-many-plan.md).
+selected and allow taps to select/deselect eligible owned frontier throughout.
+Highlight selections in both renderers. Keep a compact count/cost display and
+Confirm/Cancel at the bottom. Remove the separate review step, coordinate list,
+connected shortcut and slot/queue diagnostics. Revalidate the entire batch on
+confirmation; invalid selections turn orange and must be deselected before
+spending. See [implementation and verification](garrison-many-plan.md).
 
-Acceptance: preview, queued work, and server validation agree; no silently
-included or excluded tiles, including mixed reach and affordability cases.
+Acceptance: one confirmation queues the exact selected set; no silent subset,
+including mixed reach and affordability cases. Mobile map gestures keep working.
 
 ### 3. Put muster controls together
 

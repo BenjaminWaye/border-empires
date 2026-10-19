@@ -1,17 +1,13 @@
-import { connectedOwnedFrontierKeys } from "../client-connected-region/client-connected-region.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
-import { createGarrisonManyState, GARRISON_MANY_LIMIT, garrisonTileReason, reviewGarrisonMany, type GarrisonManyReview } from "./client-garrison-many-model.js";
+import { createGarrisonManyState, GARRISON_MANY_LIMIT, garrisonTileReason, buildGarrisonManyPlan } from "./client-garrison-many-model.js";
 import { garrisonManyHtml } from "./client-garrison-many-view.js";
 import "./client-garrison-many.css";
 
 export interface GarrisonManyDeps {
   keyFor: (x: number, y: number) => string;
-  wrapX: (x: number) => number;
-  wrapY: (y: number) => number;
   hideTileActionMenu: () => void;
   renderHud: () => void;
-  developmentSlotSummary: () => { available: number };
   requestSettlement: (x: number, y: number, opts: { forceQueue: true; suppressWarnings: true }) => boolean;
   processDevelopmentQueue: () => void;
   pushFeed: (message: string, type?: string, severity?: string) => void;
@@ -25,7 +21,6 @@ export interface GarrisonManyFlow {
 export const createGarrisonManyFlow = (state: ClientState, deps: GarrisonManyDeps): GarrisonManyFlow => {
   let sheet: HTMLElement | undefined;
   let timer: ReturnType<typeof setInterval> | undefined;
-  let reviewed: GarrisonManyReview | undefined;
   let note = "";
   let owner = "";
   let season: string | undefined;
@@ -38,7 +33,6 @@ export const createGarrisonManyFlow = (state: ClientState, deps: GarrisonManyDep
     window.removeEventListener("keydown", onKeyDown, { capture: true });
     sheet?.remove();
     sheet = undefined;
-    reviewed = undefined;
   };
   const onKeyDown = (event: KeyboardEvent): void => {
     if (event.key !== "Escape") return;
@@ -48,7 +42,6 @@ export const createGarrisonManyFlow = (state: ClientState, deps: GarrisonManyDep
   };
   const sameSession = (): boolean => state.authSessionReady && state.me === owner &&
     state.cameraRestoredSeasonId === season && !state.needsSeasonJoin && state.activeScreen === "season";
-  const preview = (): GarrisonManyReview => reviewGarrisonMany(state, deps.developmentSlotSummary().available);
   const render = (): void => {
     if (!state.garrisonMany.active) { cancel(); return; }
     if (!sheet) return;
@@ -56,19 +49,13 @@ export const createGarrisonManyFlow = (state: ClientState, deps: GarrisonManyDep
       cancel();
       return;
     }
-    const current = preview();
+    const current = buildGarrisonManyPlan(state);
     state.garrisonMany.invalidKeys = current.excluded.map((entry) => entry.key);
-    // Preserve the reviewed snapshot until confirmation. This makes a changed
-    // live plan explicit instead of moving the confirmation underneath a tap.
-    const html = garrisonManyHtml(state.garrisonMany.keys.length, reviewed ?? current, Boolean(reviewed), note, Boolean(reviewed && current.signature !== reviewed.signature));
+    const html = garrisonManyHtml(state.garrisonMany.keys.length, current, note);
     if (html !== previousHtml) {
       previousHtml = html;
       sheet.innerHTML = html;
     }
-  };
-  const changed = (): void => {
-    reviewed = undefined;
-    render();
   };
   const add = (key: string): boolean => {
     if (state.garrisonMany.keys.includes(key)) return false;
@@ -91,22 +78,19 @@ export const createGarrisonManyFlow = (state: ClientState, deps: GarrisonManyDep
       else if (!add(key)) note = `Select up to ${GARRISON_MANY_LIMIT} tiles at a time`;
       else note = "";
     }
-    changed();
+    render();
     return true;
   };
   const confirm = (): void => {
-    if (!reviewed || !sameSession()) {
+    if (!sameSession()) {
       cancel();
       return;
     }
-    const current = preview();
-    if (current.signature !== reviewed.signature) {
-      reviewed = current;
-      note = "The selection or available resources changed. Review the updated details, then confirm again.";
+    const current = buildGarrisonManyPlan(state);
+    if (current.blocked) {
       render();
       return;
     }
-    if (current.blocked) return;
     const origin = state.selected;
     // Close before callbacks render the HUD; queued work retains the existing
     // FIFO dispatcher and its single-in-flight acknowledgement pacing.
@@ -125,22 +109,6 @@ export const createGarrisonManyFlow = (state: ClientState, deps: GarrisonManyDep
     if (!target || target.disabled) return;
     switch (target.dataset.garrison) {
       case "cancel": cancel(); break;
-      case "edit": note = ""; changed(); break;
-      case "clear": state.garrisonMany.keys = []; note = ""; changed(); break;
-      case "connected": {
-        const root = state.tiles.get(state.garrisonMany.originKey);
-        const keys = connectedOwnedFrontierKeys(state, root, deps);
-        let added = 0;
-        let excluded = 0;
-        for (const key of keys) {
-          if (state.garrisonMany.keys.includes(key)) continue;
-          if (add(key)) added += 1; else excluded += 1;
-        }
-        note = `Added ${added} ${added === 1 ? "tile" : "tiles"}${excluded ? `; ${excluded} unavailable or beyond the ${GARRISON_MANY_LIMIT}-tile limit` : ""}.`;
-        changed();
-        break;
-      }
-      case "review": reviewed = preview(); note = ""; render(); break;
       case "confirm": confirm(); break;
     }
   };
@@ -153,8 +121,7 @@ export const createGarrisonManyFlow = (state: ClientState, deps: GarrisonManyDep
     state.musterMarchTargeting.active = false;
     state.buildingPlacement.active = false;
     state.garrisonMany.active = true;
-    state.garrisonMany.originKey = deps.keyFor(tile.x, tile.y);
-    add(state.garrisonMany.originKey);
+    add(deps.keyFor(tile.x, tile.y));
     owner = state.me;
     season = state.cameraRestoredSeasonId;
     note = "";

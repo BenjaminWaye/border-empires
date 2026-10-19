@@ -71,9 +71,9 @@ export const settleActionsForFrontierTile = (
     out.push({
       id: "settle_many",
       label: "Garrison Many…",
-      detail: "Select or deselect your frontier tiles on the map, then review the cost before confirming.",
+      detail: "Select or deselect your frontier tiles on the map, then confirm the total cost.",
       disabled: false,
-      cost: "Choose tiles • review before spending"
+      cost: `${SETTLE_MANPOWER_COST} manpower per tile • choose on map`
     });
   }
   return out;

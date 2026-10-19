@@ -1213,8 +1213,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   });
 
   const garrisonMany = createGarrisonManyFlow(state, {
-    keyFor, wrapX, wrapY, hideTileActionMenu, renderHud, developmentSlotSummary,
-    requestSettlement, processDevelopmentQueue, pushFeed
+    keyFor, hideTileActionMenu, renderHud, requestSettlement, processDevelopmentQueue, pushFeed
   });
 
   const handleTileAction = (actionId: string, _targetKeyOverride?: string, _originKeyOverride?: string): void => {

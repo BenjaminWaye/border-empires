@@ -2,94 +2,76 @@
 
 Status: implemented and verified locally; not merged or deployed
 Owner: client maintainers
-Last verified: 2026-10-18
+Last verified: 2026-10-19
 Replaces: playtest improvement plan item 2, automatic connected garrison
 
-## Interaction
+## Current interaction
 
-Replace Garrison Connected with Garrison Many. Start with the originating tile
-selected. Tap owned, eligible frontier tiles to toggle them; preserve drag to
-pan and pinch to zoom. Select connected adds the originating connected region,
-filtered through the same eligibility rules; users can then remove any tile.
-Keep a compact toolbar above the mobile safe area with selected count, total
-manpower/coin cost, Review and Cancel. Use existing brass, dark surfaces,
-typography and button spacing. Review stays compact so the highlighted map
-remains visible, and lists selected coordinates and excluded tiles/reasons.
-Escape cancels without spending. No commands are issued before confirmation.
+Garrison Many starts with the originating eligible tile selected. Tap frontier
+tiles to select or deselect at any time. Drag pans and pinch zooms; neither
+changes the selection. Both canvas paint paths and the true-3D map show gold
+selection outlines and translucent fills. Invalidated selections turn orange.
 
-## Implementation sequence
+The compact bottom bar shows selected count, total cost, a short tap hint,
+and only **Confirm** and **Cancel**. There is no separate review/edit state,
+coordinate list, connected-selection shortcut, clear action or queue breakdown.
+Keep existing brass surfaces, typography, spacing and 44px touch targets.
 
-1. Extract targeting defaults from the oversized client state module. Add an
-   ephemeral, explicitly capped selection, cleared on cancellation, disconnect
-   or account/season changes. Do not persist it in snapshots or local storage.
-2. Share eligibility/review logic for ownership, terrain, visibility, reach
-   exemptions, active/queued work, queue capacity and cumulative affordability.
-   Show selected total versus available manpower, account for existing queued
-   garrisons, and block confirmation when the entire eligible selection cannot
-   be afforded. Do not silently choose an affordable subset.
-3. Replace the bulk dispatcher with a typed selection controller and compact
-   review sheet. Preserve the existing paced development queue. Explain that
-   entries wait behind existing work and dispatch as slots become available.
-   Recompute and compare the reviewed plan at confirmation; changed eligibility,
-   queue or affordability requires another review before any enqueue.
-4. Render gold selection outlines and translucent fills in both canvas and
-   true-3D, conforming to terrain and camera movement. Highlight invalidated
-   selections in warning orange. Route normal tile taps to selection while
-   active, preserving gesture suppression and preventing accidental expansion.
-5. Add integration/regression tests for edit/review/confirm/cancel, reach,
-   duplicate and lost tiles, insufficient combined manpower, queue capacity,
-   changed review, input and renderer parity. Check mobile layout and both
-   renderers visually, then run client type checks/build and relevant gates.
-6. Update gameplay documentation, playtest roadmap and client changelog with
-   actual shipped behavior and verification evidence.
+Confirm recomputes ownership, visibility, reach exemptions, existing garrisons,
+queue capacity and cumulative affordability including existing queued garrisons.
+If a selected tile became unavailable, block the whole batch and ask the player
+to deselect orange tiles. Never silently queue a subset. Valid selections go
+straight into the existing paced development queue with one confirmation;
+changes to unrelated queued work do not add another approval step. Costs are
+paid when each garrison starts. Queue rules and server validation are unchanged.
 
-## Acceptance
+Cancel/Escape, disconnect, account/season change, joining a season, switching
+to space or another tile action clear this temporary selection. Retain the
+60-tile hard bound, matching total development queue capacity. No selection
+state is persisted in snapshots or local storage.
 
-- The user controls the exact tile set and sees it on the map before spending.
-- No spending/queue mutation occurs on entry, editing, review or cancellation.
-- Confirmation never queues a changed or silently truncated plan.
-- Current queue pacing and server settlement rules remain authoritative.
-- Both renderers and touch pan/zoom remain supported.
+## Implementation and acceptance
 
-## Implementation and verification
+1. Replace automatic connected garrison with an explicitly typed selection
+   controller; extract targeting defaults and map-paint helpers from oversized
+   integration files before adding wiring.
+2. Keep the map editable throughout selection, with count/cost and Confirm/Cancel
+   always visible on phones. Remove the former review screen and its diagnostics.
+3. Revalidate immediately on confirmation. Block invalid or unaffordable batches
+   without spending; let users deselect orange tiles and confirm the remainder.
+4. Cover direct confirmation, deselection, cancellation, changing reach/ownership,
+   aggregate cost, existing queued garrisons, queue capacity, session resets,
+   input suppression, pan/pinch and renderer parity with regression/integration tests.
+5. Update gameplay documentation, roadmap and changelog; run client tests, type
+   checks/build, file-line, documentation and changelog gates. Verify mobile layout.
 
-- Implemented editable selection, a 60-tile cap (matching development queue
-  capacity), connected-region shortcut, review/exclusions, cumulative cost
-  checks and confirmation-time revalidation. State is temporary and is cleared
-  on Escape/cancel, disconnect, account/season change or reset.
-- Kept the existing development queue and acknowledgement pacing. Extracted
-  targeting defaults, canvas selection paint and 3D tile-marker placement from
-  oversized integration files; each integration file is now smaller.
-- Added flow/real-queue integration tests, input tests and renderer geometry
-  tests. The input regression fails against the original input handler and
-  passes with the fix: committed taps previously armed click suppression
-  before the action-flow handler could consume them. Compatibility mouse
-  events after touch are now prevented; panning/pinching never select tiles.
-- Local browser verification used the real rewrite gateway/simulation and
-  client on isolated ports 3187/50587/5187 with a disposable seed. The seed's
-  town detail did not reach the established-economy menu gate, so that existing
-  display gate was temporarily enabled for visual checks, then restored. No
-  fixture or debug override remains in source. Unit coverage retains the
-  original economy gating.
-- Checked default 3D at desktop and 390x844, then forced `?renderer=2d` at
-  390x844: origin highlight, connected add, manual add, review and expanded tile
-  list; map pan preserves selection. All mobile action buttons measure at
-  least 44px high. Confirming two tiles reduced actual manpower 1720→1680 and
-  filled two development slots. A separate two-tile selection was cancelled
-  without spending. Touch tap/drag/pinch paths have automated integration
-  coverage; this was viewport testing, not a physical-phone playtest.
+## Verification history
 
-## Final checks
+- 2026-10-18: the original implementation passed 5,058 client tests in 734 files,
+  TypeScript/build and file/docs/changelog gates. Both renderers were checked in
+  a disposable local rewrite-stack game at desktop and 390x844; confirming two
+  tiles spent exactly 40 manpower, while cancellation spent nothing. Touch paths
+  have automated integration coverage; this was not a physical-phone playtest.
+- That first UI included a Review/Edit selection step, connected selection,
+  coordinate list and slot/queue counts. The product feedback on 2026-10-19
+  supersedes those controls with direct selection and Confirm/Cancel.
+- The direct-confirm regression fails against the previous UI. New coverage
+  verifies that a changed/invalid tile blocks the whole batch until deselected,
+  and valid selections do not acquire an extra confirmation step.
+- No staging or production deployment has been performed. Full repository CI is
+  required before opening a feature PR.
 
-- All 5,058 client tests in 734 files pass, including 18 new selection/input/
-  renderer scenarios. Client TypeScript and production build pass.
-- File-line gate (27 changed source files), documentation gate and client
-  changelog gate pass. Both canvas paint paths and the 3D render loop are
-  wired to selection overlays; rendering guards were checked explicitly.
-- Direct diff review covered input suppression, the extracted selection/support
-  paint and 3D marker placement. Another tile action closes selection mode;
-  account/season/join/space changes also discard it. No server rules changed.
-- Temporary visual fixtures and instrumentation were restored, the browser
-  viewport reset, and the isolated local servers stopped. No staging/production
-  deployment was performed. A physical-phone playtest remains useful before
-  promotion. Full repository CI is required before opening a feature PR.
+## Direct-confirm verification, 2026-10-19
+
+- All 5,104 client tests in 742 files pass, including 22 selection, input and
+  renderer scenarios. The direct-controls regression failed against the old UI.
+- Client production build (including strict TypeScript) passes after rebuilding
+  dependency packages against the latest develop branch.
+- A temporary component fixture using the real controller, stylesheet and canvas
+  selection paint was checked at 390x844. Taps selected/deselected directly;
+  the bar measured approximately 154px high and both buttons measured 44px high.
+  One Confirm closed selection without a review step. The fixture and its local
+  server were removed, the browser viewport reset, and the temporary tab closed.
+- Both map overlays are unchanged; their parity tests pass. The existing input
+  integration still verifies taps, panning and pinching. This follow-up did not
+  rerun a complete local rewrite-stack game or a physical-phone playtest.
