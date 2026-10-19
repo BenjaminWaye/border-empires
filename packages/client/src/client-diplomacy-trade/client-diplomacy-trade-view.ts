@@ -2,6 +2,8 @@
 // and whether the offer can be sent. Uses the same shared pricing rules the
 // gateway decides with, so "would accept" here means the AI really accepts.
 import {
+  aiCounterOffer,
+  emptyDiplomacyTerms,
   evaluateAiOffer,
   requiredForOffer,
   netValueToAi,
@@ -54,8 +56,6 @@ export type TradeVerdict = {
   text: string;
   canSend: boolean;
   sendLabel: string;
-  /** Coin the player could add to their side to turn a no into a yes, when they have it. */
-  topUpCoin?: number;
 };
 
 const offerLabel = (selection: TradeSelection): string =>
@@ -101,7 +101,23 @@ export const tradeVerdict = (input: {
       ? `${targetName} would refuse: wants about ${verdict.shortfall} more coin.`
       : `${targetName} wants about ${Math.max(0, Math.ceil(required - offered))} coin for this, more than you can offer.`,
     canSend: true,
-    sendLabel,
-    ...(spareCoin >= verdict.shortfall ? { topUpCoin: verdict.shortfall } : {})
+    sendLabel
   };
+};
+
+/**
+ * Civ's "what would make this deal work?": the best terms for the player that
+ * the AI still accepts. An AI that wants peace badly enough to pay is asked
+ * for all it would pay; otherwise it is offered the least of the player's
+ * coin, then Shards, that covers its price. undefined when no deal is
+ * possible: a human target, an unread AI, a refusal, or a price the player
+ * can't meet.
+ */
+export const suggestedDeal = (reply: DiplomacyStanceReply | undefined, selection: TradeSelection, own: DiplomacyGoods): DiplomacyTerms | undefined => {
+  if (!reply?.found || !reply.ai || !reply.pricing) return undefined;
+  const required = requiredForOffer(reply.pricing, selection.kind, selection.durationHours);
+  if (required === null) return undefined;
+  if (required < 0) return { give: { gold: 0, shard: 0 }, ask: { gold: Math.min(-required, reply.pricing.aiHoldings.gold), shard: 0 } };
+  const counter = aiCounterOffer(reply.pricing, selection.kind, selection.durationHours, emptyDiplomacyTerms(), own);
+  return counter.kind === "counter" ? counter.terms : undefined;
 };

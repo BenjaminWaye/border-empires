@@ -5,7 +5,7 @@
 import type { AiDiplomacyPricing, DiplomacyGoods } from "@border-empires/shared";
 
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
-import { aiWouldLeadAlliance, tileLookupFor, type AllyLookup, type TileLookup } from "./ai-alliance-bloc.js";
+import { aiWouldLeadAlliance, tileLookupFor, type AllyLookup, type LeaderboardTiles, type TileLookup } from "./ai-alliance-bloc.js";
 import { computeAiOpinion, type AiOpinion } from "./ai-diplomacy-opinion.js";
 import { aiDiplomacyPricing } from "./ai-diplomacy-pricing.js";
 import { computeAiDiplomacyStance, type AiDiplomacyStance } from "./ai-diplomacy-stance.js";
@@ -30,7 +30,15 @@ export type AiDiplomacyContext = {
   now: number;
   /** Current alliances, for the Diplomatic Dominance "who leads the bloc" check. */
   alliesOf: AllyLookup;
+  /**
+   * The simulation's season leaderboard: sizes for the bloc check when the AI's
+   * snapshot carries none (a live subscribe without world status, the usual case).
+   */
+  seasonLeaderboard?: LeaderboardTiles;
 };
+
+/** Builds the context for one (requester, AI) pair; async when it has to fetch the season leaderboard. */
+export type AiDiplomacyContextSource = (requesterId: string, aiPlayerId: string) => AiDiplomacyContext | Promise<AiDiplomacyContext>;
 
 /** Tile counts from the AI's own leaderboard view, or undefined when it can't vouch for the AI's size. */
 export const tileLookupFromSnapshot = (snapshot: AiDiplomacySnapshot | undefined, aiPlayerId: string): TileLookup | undefined => {
@@ -44,14 +52,28 @@ const holdingsOf = (snapshot: AiDiplomacySnapshot | undefined): DiplomacyGoods =
 });
 
 const warReason = (aiName: string, opinion: AiOpinion, fallback: string): string => {
-  if (opinion.war.aiLosing) return `${aiName} is losing the war against you and wants it over.`;
+  if (opinion.war.aiLosing) {
+    // Say what "losing" rests on: net ground lost to you, or being outmatched while gaining none.
+    const netLost = Math.round(-opinion.war.balance);
+    return netLost >= 2
+      ? `${aiName} has lost ${netLost} more tiles to you than it has taken, and wants the war over.`
+      : `${aiName} can't win this war against your strength and wants it over.`;
+  }
   if (opinion.war.aiWinning) return `${aiName} feels they're winning this war.`;
   if (opinion.war.atWar) return `${aiName} is at war with you.`;
   return fallback;
 };
 
-const aiLeads = (input: { aiPlayerId: string; requesterId: string; aiSnapshot: AiDiplomacySnapshot | undefined; alliesOf: AllyLookup }): boolean | undefined => {
-  const tilesOf = tileLookupFromSnapshot(input.aiSnapshot, input.aiPlayerId);
+const aiLeads = (input: {
+  aiPlayerId: string;
+  requesterId: string;
+  aiSnapshot: AiDiplomacySnapshot | undefined;
+  alliesOf: AllyLookup;
+  seasonLeaderboard?: LeaderboardTiles;
+}): boolean | undefined => {
+  const tilesOf =
+    tileLookupFromSnapshot(input.aiSnapshot, input.aiPlayerId) ??
+    (input.seasonLeaderboard ? tileLookupFor(input.seasonLeaderboard, input.aiPlayerId) : undefined);
   return tilesOf ? aiWouldLeadAlliance(input.aiPlayerId, input.requesterId, input.alliesOf, tilesOf) : undefined;
 };
 

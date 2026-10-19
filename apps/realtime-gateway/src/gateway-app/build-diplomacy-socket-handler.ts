@@ -49,6 +49,9 @@ export type DiplomacySocketHandlerDeps = {
   fetchSeasonLeaderboard: () => Promise<LeaderboardTiles>;
 };
 
+/** How long one season-leaderboard fetch serves AI alliance size checks. */
+const SEASON_LEADERBOARD_TTL_MS = 30_000;
+
 export type DiplomacySocketHandler = {
   tickProactive: () => Promise<void>;
   stopProactive: () => void;
@@ -121,14 +124,18 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
   const requesterSnapshot = async (playerId: string): Promise<PlayerSubscriptionSnapshot | undefined> =>
     deps.cachedSnapshotForPlayer(playerId) ?? (await deps.ensureSubscribed(playerId));
   const alliesOf = (playerId: string): readonly string[] => socialState.snapshotForPlayer(playerId).allies;
-  const diplomacyContext = (requesterId: string, aiPlayerId: string): AiDiplomacyContext => {
+  // AI snapshots come from a live subscribe without world status, so the bloc
+  // check's sizes come from the season leaderboard (one fetch per window).
+  const seasonLeaderboard = memoizeWithTtl(() => deps.fetchSeasonLeaderboard().catch((): LeaderboardTiles => []), SEASON_LEADERBOARD_TTL_MS);
+  const diplomacyContext = async (requesterId: string, aiPlayerId: string): Promise<AiDiplomacyContext> => {
     const breaks = socialState.snapshotForPlayer(requesterId).truceBreaksThisSeason;
     return {
       requesterBrokeTruceWithAi: breaks.some((record) => record.targetPlayerId === aiPlayerId),
       requesterTruceBreaksWithOthers: breaks.filter((record) => record.targetPlayerId !== aiPlayerId).length,
       memory: memory.view(aiPlayerId, requesterId),
       now: Date.now(),
-      alliesOf
+      alliesOf,
+      seasonLeaderboard: await seasonLeaderboard("current")
     };
   };
   const reviewAiAlliances = createAiAllianceReview({

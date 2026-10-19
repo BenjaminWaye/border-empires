@@ -6,7 +6,7 @@
 import { emptyDiplomacyTerms, type DiplomacyCounterRef, type DiplomacyGoods, type DiplomacyOfferKind, type DiplomacyTerms } from "@border-empires/shared";
 
 import { diplomacyTradeStyles } from "./client-diplomacy-trade-style.js";
-import { attitudeSummary, tradeVerdict, type DiplomacyStanceReply, type TradeSelection } from "./client-diplomacy-trade-view.js";
+import { attitudeSummary, suggestedDeal, tradeVerdict, type DiplomacyStanceReply, type TradeSelection } from "./client-diplomacy-trade-view.js";
 
 export type DiplomacyOfferCooldownView = { kind: DiplomacyOfferKind; targetPlayerId: string; until: number };
 
@@ -89,6 +89,20 @@ const readTerms = (overlay: HTMLElement): DiplomacyTerms => ({
   ask: { gold: readAmount(overlay.querySelector("[data-trade-ask-gold]")), shard: readAmount(overlay.querySelector("[data-trade-ask-shard]")) }
 });
 
+const termsEqual = (a: DiplomacyTerms, b: DiplomacyTerms): boolean =>
+  a.give.gold === b.give.gold && a.give.shard === b.give.shard && a.ask.gold === b.ask.gold && a.ask.shard === b.ask.shard;
+
+const writeTerms = (overlay: HTMLElement, terms: DiplomacyTerms): void => {
+  const set = (attr: string, value: number): void => {
+    const field = overlay.querySelector<HTMLInputElement>(`[${attr}]`);
+    if (field) field.value = String(value);
+  };
+  set("data-trade-give-gold", terms.give.gold);
+  set("data-trade-give-shard", terms.give.shard);
+  set("data-trade-ask-gold", terms.ask.gold);
+  set("data-trade-ask-shard", terms.ask.shard);
+};
+
 const render = (screen: OpenScreen): void => {
   const { overlay, selection, reply, targetName } = screen;
   const own = screen.deps.ownHoldings();
@@ -121,11 +135,13 @@ const render = (screen: OpenScreen): void => {
     verdictEl.dataset.tone = verdict.tone;
     verdictEl.textContent = verdict.text;
   }
-  const topUp = overlay.querySelector<HTMLButtonElement>("[data-trade-topup]");
-  if (topUp) {
-    topUp.hidden = verdict.topUpCoin === undefined;
-    topUp.textContent = verdict.topUpCoin === undefined ? "" : `Add ${verdict.topUpCoin} coin to your side`;
-    topUp.dataset.amount = String(verdict.topUpCoin ?? 0);
+  // Only an AI's prices can be read, so only an AI gets a suggestion.
+  const suggest = overlay.querySelector<HTMLButtonElement>("[data-trade-suggest]");
+  if (suggest) {
+    const deal = suggestedDeal(reply, selection, own);
+    suggest.hidden = !(reply?.found && reply.ai && reply.pricing);
+    suggest.disabled = !deal || termsEqual(deal, selection.terms);
+    suggest.title = deal ? "" : `No deal ${targetName} would accept for this right now.`;
   }
   const sendButton = overlay.querySelector<HTMLButtonElement>("[data-trade-send]");
   if (sendButton) {
@@ -195,7 +211,7 @@ export const openDiplomacyTradeScreen = (
     </div>
     <p class="diplomacy-trade-stance" data-trade-holdings></p>
     <p class="diplomacy-trade-verdict" data-trade-verdict aria-live="polite"></p>
-    <button type="button" class="diplomacy-trade-topup" data-trade-topup hidden></button>
+    <button type="button" class="diplomacy-trade-suggest" data-trade-suggest hidden>Suggest deal</button>
     <div class="diplomacy-trade-actions"><button type="button" data-trade-send></button><button type="button" data-trade-cancel>Cancel</button></div>
   </section>`;
   const screen: OpenScreen = {
@@ -228,10 +244,10 @@ export const openDiplomacyTradeScreen = (
       render(screen);
     });
   }
-  overlay.querySelector<HTMLButtonElement>("[data-trade-topup]")?.addEventListener("click", (event) => {
-    const amount = Number((event.currentTarget as HTMLButtonElement).dataset.amount ?? 0);
-    const giveGold = overlay.querySelector<HTMLInputElement>("[data-trade-give-gold]");
-    if (giveGold) giveGold.value = String(readAmount(giveGold) + amount);
+  overlay.querySelector<HTMLButtonElement>("[data-trade-suggest]")?.addEventListener("click", () => {
+    const deal = suggestedDeal(screen.reply, screen.selection, deps.ownHoldings());
+    if (!deal) return;
+    writeTerms(overlay, deal);
     screen.selection = { ...screen.selection, terms: readTerms(overlay) };
     render(screen);
   });

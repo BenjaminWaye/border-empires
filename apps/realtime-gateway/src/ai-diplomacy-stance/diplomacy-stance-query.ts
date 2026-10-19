@@ -6,7 +6,7 @@
 import type { AiDiplomacyPricing } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
-import { evaluateAiDiplomacy, type AiDiplomacyContext } from "./ai-diplomacy-evaluation.js";
+import { evaluateAiDiplomacy, type AiDiplomacyContextSource } from "./ai-diplomacy-evaluation.js";
 import type { AiAttitude, AiOpinionModifier } from "./ai-diplomacy-opinion.js";
 import type { AiDiplomacyStanceKind } from "./ai-diplomacy-stance.js";
 
@@ -34,7 +34,7 @@ export type DiplomacyStanceQueryDeps = {
   isAutoRespondingAi: (playerId: string) => boolean;
   fetchAiSnapshot: (playerId: string) => Promise<PlayerSubscriptionSnapshot | undefined>;
   requesterSnapshot: (playerId: string) => Promise<PlayerSubscriptionSnapshot | undefined>;
-  diplomacyContext: (requesterId: string, aiPlayerId: string) => AiDiplomacyContext;
+  diplomacyContext: AiDiplomacyContextSource;
 };
 
 export const answerDiplomacyStanceQuery = async (
@@ -56,7 +56,7 @@ export const answerDiplomacyStanceQuery = async (
     aiSnapshot,
     requesterId,
     requesterSnapshot,
-    ...deps.diplomacyContext(requesterId, target.id)
+    ...(await deps.diplomacyContext(requesterId, target.id))
   });
   if (!evaluation) return { ...base, ai: true };
   return {

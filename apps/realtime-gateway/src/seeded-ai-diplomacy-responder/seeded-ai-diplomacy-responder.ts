@@ -8,7 +8,7 @@ import {
 } from "@border-empires/shared";
 import type { AiDiplomacySnapshot } from "../ai-diplomacy-stance/ai-diplomacy-stance-input.js";
 
-import { evaluateAiDiplomacy, type AiDiplomacyContext } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
+import { evaluateAiDiplomacy, type AiDiplomacyContextSource } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
 import type { SocialAllianceRequest, SocialOfferOptions, SocialTruceRequest } from "../social-state/social-state-types.js";
 
 const extractRequestFromPayloads = <T>(payloadsByPlayerId: Map<string, unknown[]>, playerId: string, payloadType: string): T | undefined => {
@@ -71,7 +71,7 @@ export type SeededAiDiplomacyResponderDeps = {
   /** The requester is online (they just sent the offer); prefer their cached snapshot. */
   requesterSnapshot: (playerId: string) => Promise<AiDiplomacySnapshot | undefined>;
   /** Grudges and memory for the pair (truce breaks, fights, past deals). */
-  diplomacyContext: (requesterId: string, aiPlayerId: string) => AiDiplomacyContext;
+  diplomacyContext: AiDiplomacyContextSource;
   // A seeded-AI identity that a human has actually claimed with a live
   // socket is no longer AI-controlled for social decisions -- the human
   // decides their own offers. Without this, the auto-responder can race a
@@ -182,7 +182,7 @@ export const createSeededAiDiplomacyResponder = (deps: SeededAiDiplomacyResponde
       aiSnapshot,
       requesterId: offer.fromPlayerId,
       requesterSnapshot,
-      ...deps.diplomacyContext(offer.fromPlayerId, offer.toPlayerId)
+      ...(await deps.diplomacyContext(offer.fromPlayerId, offer.toPlayerId))
     });
     if (!evaluation) {
       deps.recordGatewayEvent("warn", "gateway_ai_diplomacy_snapshot_failed", {
