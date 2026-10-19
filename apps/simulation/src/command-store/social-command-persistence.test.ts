@@ -45,12 +45,15 @@ it("migrates a populated old unique index and preserves rows and client deduplic
     const store = new SqliteSimulationCommandStore(db);
     await store.applySchema();
     // Recreate the previous production schema with one historical social update.
-    db.exec("DROP INDEX IF EXISTS commands_player_seq_v2_idx; CREATE UNIQUE INDEX IF NOT EXISTS commands_player_seq_idx ON commands(player_id, client_seq)");
+    db.exec("DROP INDEX commands_player_seq_idx; CREATE UNIQUE INDEX commands_player_seq_idx ON commands(player_id, client_seq)");
     await store.persistQueuedCommand(command("historical-truce", "SYNC_TRUCE"), 100);
     await store.applySchema();
     await store.applySchema(); // Boot migration is repeatable.
     await store.persistQueuedCommand(command("new-truce", "SYNC_TRUCE"), 110);
     expect((await store.loadAllCommands()).map(c => c.commandId)).toEqual(["historical-truce", "new-truce"]);
+    // Previous releases can still initialize their schema after duplicate internal
+    // sequence-zero rows exist: IF NOT EXISTS keeps the upgraded index intact.
+    db.exec("CREATE UNIQUE INDEX IF NOT EXISTS commands_player_seq_idx ON commands(player_id, client_seq)");
     const client = { ...command("client", "EXPAND"), clientSeq: 1 };
     await store.persistQueuedCommand(client, 120);
     await expect(store.persistQueuedCommand({ ...client, commandId: "duplicate" }, 130)).rejects.toThrow("UNIQUE");

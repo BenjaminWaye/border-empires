@@ -66,12 +66,7 @@ export class SqliteSimulationCommandStore implements SimulationCommandStore {
         payload_json TEXT NOT NULL,
         queued_at INTEGER NOT NULL
       );
-      -- Internal diplomacy uses command IDs, never the player's sequence.
-      -- New name migrates populated databases once, without rebuilding on each boot.
-      CREATE UNIQUE INDEX IF NOT EXISTS commands_player_seq_v2_idx ON commands (player_id, client_seq)
-        WHERE ${CLIENT_SEQUENCE_PREDICATE};
-      CREATE INDEX IF NOT EXISTS commands_player_seq_lookup_idx ON commands (player_id, client_seq);
-      DROP INDEX IF EXISTS commands_player_seq_idx;
+
       CREATE TABLE IF NOT EXISTS command_results (
         command_id TEXT PRIMARY KEY REFERENCES commands(command_id) ON DELETE CASCADE,
         status TEXT NOT NULL,
@@ -92,6 +87,25 @@ export class SqliteSimulationCommandStore implements SimulationCommandStore {
         max_client_seq INTEGER NOT NULL
       );
     `);
+
+    // Retain the index name: older releases use IF NOT EXISTS on it, so
+    // rollback can boot without trying to restore the incompatible full index.
+    // Serialize inspection/replacement across gateway and simulation writers.
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const index = this.db.prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'commands_player_seq_idx'").get();
+      if (typeof index?.sql === "string" && !/\bwhere\b/i.test(index.sql)) this.db.exec("DROP INDEX commands_player_seq_idx");
+      this.db.exec(`
+        CREATE UNIQUE INDEX IF NOT EXISTS commands_player_seq_idx ON commands (player_id, client_seq)
+          WHERE ${CLIENT_SEQUENCE_PREDICATE};
+        CREATE INDEX IF NOT EXISTS commands_player_seq_lookup_idx ON commands (player_id, client_seq);
+      `);
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+
     // Backfill for any player with existing commands rows predating this
     // table (i.e. every player on an already-populated database, the very
     // first time this runs). Without this, loadMaxClientSeqByPlayer returns

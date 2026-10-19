@@ -108,12 +108,7 @@ if (applySchema) {
       payload_json TEXT NOT NULL,
       queued_at INTEGER NOT NULL
     );
-    -- Internal diplomacy uses command IDs, never the player's sequence.
-    -- New name migrates populated databases once, without rebuilding on each boot.
-    CREATE UNIQUE INDEX IF NOT EXISTS commands_player_seq_v2_idx ON commands (player_id, client_seq)
-      WHERE ${CLIENT_SEQUENCE_PREDICATE};
-    CREATE INDEX IF NOT EXISTS commands_player_seq_lookup_idx ON commands (player_id, client_seq);
-    DROP INDEX IF EXISTS commands_player_seq_idx;
+
     CREATE INDEX IF NOT EXISTS commands_player_id_idx ON commands (player_id);
     CREATE TABLE IF NOT EXISTS command_results (
       command_id TEXT PRIMARY KEY REFERENCES commands(command_id) ON DELETE CASCADE,
@@ -125,6 +120,23 @@ if (applySchema) {
       resolved_at INTEGER
     );
   `);
+  // Retain the index name: older releases use IF NOT EXISTS on it, so
+  // rollback can boot without trying to restore the incompatible full index.
+  // Serialize inspection/replacement across gateway and simulation writers.
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const index = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'commands_player_seq_idx'").get();
+    if (typeof index?.sql === "string" && !/\bwhere\b/i.test(index.sql)) db.exec("DROP INDEX commands_player_seq_idx");
+    db.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS commands_player_seq_idx ON commands (player_id, client_seq)
+        WHERE ${CLIENT_SEQUENCE_PREDICATE};
+      CREATE INDEX IF NOT EXISTS commands_player_seq_lookup_idx ON commands (player_id, client_seq);
+    `);
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
 }
 
 const SELECT_JOINED = `
