@@ -39,7 +39,6 @@ import { CLIENT_CHANGELOG_ENTRIES_STRANDED_FRONTIER_CLEANUP } from "./client-cha
 import { CLIENT_CHANGELOG_ENTRIES_CUT_OFF_BUILDINGS_SURVIVE } from "./client-changelog-cut-off-buildings-survive.js";
 import { RIVAL_REACH_OVER_MY_TILES_CHANGELOG } from "./client-changelog-rival-reach-over-my-tiles.js";
 import { PROSPECT_CLUE_SWIRL_CHANGELOG } from "./client-changelog-prospect-clue-swirl.js";
-import { CLIENT_CHANGELOG_ENTRIES_DIPLOMACY_OFFER_CARDS } from "./client-changelog-diplomacy-offer-cards.js";
 
 // Small per-feature entry files, gathered so client-changelog-data.ts stays under the 500-line cap.
 export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
@@ -82,6 +81,5 @@ export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_DISABLED_AETHER_TOWER,
   ...CLIENT_CHANGELOG_ENTRIES_CUT_OFF_BUILDINGS_SURVIVE,
   ...RIVAL_REACH_OVER_MY_TILES_CHANGELOG,
-  ...PROSPECT_CLUE_SWIRL_CHANGELOG,
-  ...CLIENT_CHANGELOG_ENTRIES_DIPLOMACY_OFFER_CARDS
+  ...PROSPECT_CLUE_SWIRL_CHANGELOG
 ];
