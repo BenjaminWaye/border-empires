@@ -13,7 +13,6 @@
 // every other frontier build action gets.
 import { siegeBuildMsForState } from "../client-build-speed/client-build-speed.js";
 import { buildTimeLabel } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
-import type { DevelopmentSlotSummary } from "../client-queue-logic/client-queue-logic.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef } from "../client-types.js";
 import { nextSiegeVariantForTile } from "./client-tile-action-fort-siege-variants.js";
@@ -21,7 +20,7 @@ import {
   chainedBuildAvailabilityFromModule,
   hasFreeResourceSlots,
   missingResourceSlotReason,
-  tileActionAvailabilityWithDevelopmentSlot,
+  tileActionAvailability,
   type TileActionLogicDeps
 } from "./client-tile-action-logic.js";
 
@@ -29,7 +28,6 @@ export const siegeCampAction = (
   state: ClientState,
   tile: Tile,
   deps: TileActionLogicDeps,
-  slots: DevelopmentSlotSummary,
   hasRelayBeacon: boolean
 ): TileActionDef | undefined => {
   if (tile.ownerId !== state.me || tile.fort || tile.observatory) return undefined;
@@ -54,7 +52,7 @@ export const siegeCampAction = (
     // No settle-first detail suffix here -- unlike every other build action,
     // the siege ladder never settles the tile first.
     detail: deps.buildDetailTextForAction("build_siege_camp", tile),
-    ...tileActionAvailabilityWithDevelopmentSlot(
+    ...tileActionAvailability(
       ...withSiegeReachGate(chainedBuildAvailabilityFromModule(
         deps,
         state,
@@ -68,9 +66,7 @@ export const siegeCampAction = (
             : missingResourceSlotReason(state, siegeVariant.variant, tile.siegeBattery?.variant) ?? "Unavailable",
         `${siegeVariant.summary} • ${buildTimeLabel(siegeBuildMsForState(state, siegeVariant.variant))} • atk x${siegeVariant.attackMult.toFixed(2)}${siegeVariant.upkeepSuffix}`,
         siegeVariant.gold
-      )),
-      slots,
-      deps
+      ))
     )
   };
 };

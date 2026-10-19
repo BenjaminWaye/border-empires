@@ -161,7 +161,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "cancel_waypoint") return "✕";
   if (id === "cancel_all_waypoints") return "✕⚐";
   if (id === "settle_land") return "⌂";
-  if (id === "settle_connected_frontier") return "⌂+";
+  if (id === "settle_many") return "⌂+";
   if (id === "launch_attack") return "⚔";
   if (id === "diplomacy") return "🤝";
   if (id === "collect_shard") return "✦";

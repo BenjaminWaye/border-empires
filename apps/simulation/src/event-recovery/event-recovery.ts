@@ -1,3 +1,4 @@
+import { applyRecoveredDiplomacy } from "./event-recovery-diplomacy.js";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationSeasonState } from "@border-empires/sim-protocol";
 import { type DomainTileState } from "@border-empires/game-domain";
@@ -222,6 +223,10 @@ export const applySimulationEventsToRecoveredAccumulator = (
   events: SimulationEvent[]
 ): void => {
   for (const event of events) {
+    if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "SOCIAL_STATE_SYNCED") {
+      applyRecoveredDiplomacy(accumulator.players, event.playerId, event.payloadJson);
+      continue;
+    }
     if (event.eventType === "TILE_DELTA_BATCH") {
       spendRecoveredPlayerGold(accumulator, event.playerId, event.goldCost);
       for (const tileDelta of event.tileDeltas) {

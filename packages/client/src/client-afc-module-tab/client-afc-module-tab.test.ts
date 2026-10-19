@@ -79,6 +79,11 @@ describe("graphical AFC modules tab", () => {
     const root = document.createElement("div");
     root.innerHTML = tileActionMenuHtml(view, "modules", true);
     expect(root.querySelectorAll(".afc-socket")).toHaveLength(8);
+    // AFC upgrades lead the tab, above the socket diagram.
+    expect(root.querySelector(".afc-module-panel")?.firstElementChild?.matches("button.afc-upgrades-cta[data-open-afc-upgrades]")).toBe(true);
+    // Empty sockets stay compact: number and "+" only, with one shared call-down hint.
+    expect(root.querySelector(".afc-socket.is-empty")?.textContent).toBe("2+");
+    expect(root.textContent?.match(/Pick an empty socket to call down a module/g)).toHaveLength(1);
     expect(root.querySelector(".tile-overview-card")).toBeNull();
     expect(root.querySelector(".afc-socket-cell")?.getAttribute("style")).toContain("grid-column:4;grid-row:3");
     const button = root.querySelector<HTMLButtonElement>('button[data-action="redeploy_afc_module:workshops"]')!;
@@ -185,12 +190,17 @@ describe("graphical AFC modules tab", () => {
   it("offers no call-down controls when full, foreign, dormant, or all unlocked types are present", () => {
     const full = viewFor({ ...target, afc: { ...target.afc!, modules: Array(8).fill("masonry") } });
     expect(full.modules?.actions).toEqual([]);
-    expect(tileActionMenuHtml(full, "modules", false)).toContain("All sockets are occupied");
+    expect(tileActionMenuHtml(full, "modules", false)).toContain("All sockets are full");
     for (const afc of [{ ...target.afc!, ownerId: "other" }, { ...target.afc!, status: "inactive" as const }, { ...target.afc!, modules: catalog.map((entry) => entry.id) }]) {
       expect(viewFor({ ...target, afc }).modules?.actions).toEqual([]);
     }
     const plain: Tile = { x: 5, y: 6, terrain: "LAND", ownerId: "me" };
     expect(afcModuleTabForTile(plain, catalog, [], "me")).toBeUndefined();
+  });
+
+  it("only shows the AFC upgrades button on AFCs the player owns", () => {
+    expect(tileActionMenuHtml(viewFor({ ...target, afc: { ...target.afc!, status: "inactive" } }), "modules", false)).toContain("data-open-afc-upgrades");
+    expect(tileActionMenuHtml(viewFor({ ...target, ownerId: "other", afc: { ...target.afc!, ownerId: "other" } }), "modules", false)).not.toContain("data-open-afc-upgrades");
   });
 
   it("renders the tile's overview details beneath the socket diagram", () => {

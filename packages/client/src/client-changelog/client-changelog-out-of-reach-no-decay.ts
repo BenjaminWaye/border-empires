@@ -11,5 +11,15 @@ export const OUT_OF_REACH_NO_DECAY_CHANGELOG: ClientChangelogEntry[] = [
       "You still can't garrison it, and if its chain of frontier back to your settled land is cut anywhere, everything past the cut is lost at once",
       "Its tile menu now says Beyond your reach and explains this, instead of a countdown"
     ]
+  },
+  {
+    createdAt: 1792429953285, // frozen Date.now() value for this release
+    introducedIn: "2026.10.19.2",
+    title: "Clearer Beyond your reach tip",
+    why: "The Beyond your reach note in the tile menu talked about supply chains but never said you can't build there or how to fix it.",
+    changes: [
+      "The note now says you can't garrison or build buildings on tiles outside your reach, and that Relay Beacons extend your reach",
+      "The Beyond Your Reach tip now says the same, and names Relay Beacons instead of the old Outpost name"
+    ]
   }
 ];

@@ -28,5 +28,17 @@ export const AFC_MODULE_TAB_CHANGELOG: ClientChangelogEntry[] = [
     title: "AFC menus open on their Modules tab",
     why: "The AFC Overview tab repeated the module list already shown by the socket diagram.",
     changes: ["The Modules tab replaces Overview on AFC tiles, with the remaining tile details and the Manage AFC upgrades button below the sockets", "The AFC button now opens your home AFC straight to its Modules tab"]
+  },
+  {
+    createdAt: 1792430386654, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.19.3",
+    title: "AFC upgrades up front, tidier Modules tab",
+    why: "AFC upgrades were buried under the socket diagram in a cramped button, and the diagram itself was too tall to fit in the tile menu.",
+    changes: [
+      "A large AFC upgrades button now sits at the top of your AFC's Modules tab, showing how many upgrades are ready",
+      "The eight-socket diagram is compact enough to see whole without scrolling",
+      "Empty sockets show just their number and a +, with one hint underneath when you can call down a module",
+      "Shorter notes under the diagram; the incoming-module note only appears while a delivery is on its way"
+    ]
   }
 ];

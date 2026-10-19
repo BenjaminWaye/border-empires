@@ -23,7 +23,6 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef } from "../client-types.js";
 import {
   tileActionAvailability,
-  tileActionAvailabilityWithDevelopmentSlot,
   type TileActionLogicDeps
 } from "./client-tile-action-logic.js";
 
@@ -169,7 +168,7 @@ export const neutralTileActions = (
     id: "build_ore_refinery",
     label: "Build Ore Refinery",
     detail: deps.buildDetailTextForAction("build_ore_refinery", tile),
-    ...tileActionAvailabilityWithDevelopmentSlot(
+    ...tileActionAvailability(
       reachable &&
         state.techIds.includes("industrial-extraction") &&
         state.gold >= deps.structureGoldCost("ORE_REFINERY") &&
@@ -186,9 +185,7 @@ export const neutralTileActions = (
             : state.gold < deps.structureGoldCost("ORE_REFINERY")
               ? `Need ${deps.structureGoldCost("ORE_REFINERY")} coin`
               : `Need ${structureBuildManpowerCost("ORE_REFINERY")} manpower`,
-      `${deps.structureCostText("ORE_REFINERY")} • ${buildTimeLabel(economicBuildMsForState(state, "ORE_REFINERY"))} • doubles active Mine slot output within 5 tiles${upkeepSuffixFor("ORE_REFINERY")}`,
-      deps.developmentSlotSummary(),
-      deps
+      `${deps.structureCostText("ORE_REFINERY")} • ${buildTimeLabel(economicBuildMsForState(state, "ORE_REFINERY"))} • doubles active Mine slot output within 5 tiles${upkeepSuffixFor("ORE_REFINERY")}`
     )
   });
   out.push(...helpers.retortRecastActions());

@@ -49,6 +49,9 @@ SELECT
 FROM commands c JOIN command_results r ON r.command_id = c.command_id
 `;
 
+// Keep both SQLite schema owners aligned; the cross-store regression covers boot order.
+const CLIENT_SEQUENCE_PREDICATE = "command_type NOT IN ('SYNC_TRUCE', 'SYNC_ALLIANCE', 'SETTLE_DIPLOMACY_TERMS')";
+
 export class SqliteSimulationCommandStore implements SimulationCommandStore {
   constructor(private readonly db: DatabaseSync) {}
 
@@ -63,7 +66,7 @@ export class SqliteSimulationCommandStore implements SimulationCommandStore {
         payload_json TEXT NOT NULL,
         queued_at INTEGER NOT NULL
       );
-      CREATE UNIQUE INDEX IF NOT EXISTS commands_player_seq_idx ON commands (player_id, client_seq);
+
       CREATE TABLE IF NOT EXISTS command_results (
         command_id TEXT PRIMARY KEY REFERENCES commands(command_id) ON DELETE CASCADE,
         status TEXT NOT NULL,
@@ -84,6 +87,25 @@ export class SqliteSimulationCommandStore implements SimulationCommandStore {
         max_client_seq INTEGER NOT NULL
       );
     `);
+
+    // Retain the index name: older releases use IF NOT EXISTS on it, so
+    // rollback can boot without trying to restore the incompatible full index.
+    // Serialize inspection/replacement across gateway and simulation writers.
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const index = this.db.prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'commands_player_seq_idx'").get();
+      if (typeof index?.sql === "string" && !/\bwhere\b/i.test(index.sql)) this.db.exec("DROP INDEX commands_player_seq_idx");
+      this.db.exec(`
+        CREATE UNIQUE INDEX IF NOT EXISTS commands_player_seq_idx ON commands (player_id, client_seq)
+          WHERE ${CLIENT_SEQUENCE_PREDICATE};
+        CREATE INDEX IF NOT EXISTS commands_player_seq_lookup_idx ON commands (player_id, client_seq);
+      `);
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+
     // Backfill for any player with existing commands rows predating this
     // table (i.e. every player on an already-populated database, the very
     // first time this runs). Without this, loadMaxClientSeqByPlayer returns
@@ -92,7 +114,7 @@ export class SqliteSimulationCommandStore implements SimulationCommandStore {
     // this is exactly the crash loop that motivated adding the watermark in
     // the first place. Idempotent and safe to run on every boot: MAX() only
     // ever raises the watermark, never lowers it, uses the existing
-    // commands_player_seq_idx (player_id, client_seq) index, and is a no-op
+    // commands_player_seq_lookup_idx (player_id, client_seq) index, and is a no-op
     // once every player has a watermark row.
     this.db.exec(`
       INSERT INTO client_seq_watermarks (player_id, max_client_seq)
@@ -146,7 +168,7 @@ export class SqliteSimulationCommandStore implements SimulationCommandStore {
   }
 
   async findByPlayerSeq(playerId: string, clientSeq: number): Promise<StoredSimulationCommand | undefined> {
-    const row = this.db.prepare(`${SELECT_JOINED} WHERE c.player_id = ? AND c.client_seq = ?`).get(playerId, clientSeq) as Row | undefined;
+    const row = this.db.prepare(`${SELECT_JOINED} WHERE c.player_id = ? AND c.client_seq = ? AND ${CLIENT_SEQUENCE_PREDICATE}`).get(playerId, clientSeq) as Row | undefined;
     return row ? toStored(row) : undefined;
   }
 

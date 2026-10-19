@@ -8,12 +8,11 @@
 import { SETTLE_COST, SETTLE_MANPOWER_COST, settleIgnoresReach } from "@border-empires/shared";
 import { autoSettleOptionForTile, settleOutcomeText } from "../client-auto-settle-prompt/client-auto-settle-tile-option.js";
 import { canAffordCost, isForestTile } from "../client-constants.js";
-import { hasQueuedSettlementForTile } from "../client-development-queue/client-development-queue.js";
-import { settleDurationMsForState, type DevelopmentSlotSummary } from "../client-queue-logic/client-queue-logic.js";
+import { settleDurationMsForState } from "../client-queue-logic/client-queue-logic.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef } from "../client-types.js";
-import { tileActionAvailabilityWithDevelopmentSlot, type TileActionLogicDeps } from "./client-tile-action-logic.js";
+import { tileActionAvailability, type TileActionLogicDeps } from "./client-tile-action-logic.js";
 
 export const hasEstablishedTownAndFoodTile = (state: ClientState): boolean => {
   let hasTown = false;
@@ -31,7 +30,6 @@ export const settleActionsForFrontierTile = (
   state: ClientState,
   tile: Tile,
   deps: TileActionLogicDeps,
-  slots: DevelopmentSlotSummary,
   queuedSettlement: boolean
 ): TileActionDef[] => {
   // Towns, docks and resource tiles always get the button: settling them has a real payoff (and carries the
@@ -56,37 +54,23 @@ export const settleActionsForFrontierTile = (
       detail: [deps.buildDetailTextForAction("settle_land", tile), settleOutcomeText(state, tile)].filter(Boolean).join(" "),
       autoSettleOption: autoSettleOptionForTile(state, tile),
       ...(hasPayoff ? { recommended: true } : {}),
-      ...tileActionAvailabilityWithDevelopmentSlot(
+      ...tileActionAvailability(
         ...withReachGate([
           canAffordCost(state.gold, SETTLE_COST) && state.manpower >= SETTLE_MANPOWER_COST,
           state.manpower < SETTLE_MANPOWER_COST ? `Need ${SETTLE_MANPOWER_COST} manpower` : `Need ${SETTLE_COST} coin`,
           `${SETTLE_COST} coin, ${SETTLE_MANPOWER_COST} manpower • ${Math.round(settleDurationMsForState(state, tile) / 1000)}s${isForestTile(tile.x, tile.y) ? " (Forest)" : ""}`
-        ]),
-        slots,
-        deps
+        ])
       )
     }
   ];
 
-  const connectedKeys = deps.connectedOwnedFrontierKeysFor(tile);
-  const actionableKeys = connectedKeys.filter(
-    (k) => !state.settleProgressByTile.has(k) && !hasQueuedSettlementForTile(state.developmentQueue, k)
-  );
-  if (established && actionableKeys.length >= 2) {
-    const totalCost = SETTLE_COST * actionableKeys.length;
+  if (established) {
     out.push({
-      id: "settle_connected_frontier",
-      label: `Garrison Connected (${actionableKeys.length})`,
-      detail: deps.buildDetailTextForAction("settle_connected_frontier", tile),
-      ...tileActionAvailabilityWithDevelopmentSlot(
-        ...withReachGate([
-          canAffordCost(state.gold, SETTLE_COST) && state.manpower >= SETTLE_MANPOWER_COST,
-          state.manpower < SETTLE_MANPOWER_COST ? `Need ${SETTLE_MANPOWER_COST} manpower` : `Need ${SETTLE_COST} coin`,
-          `${totalCost} coin, ${SETTLE_MANPOWER_COST * actionableKeys.length} manpower total • fills slots, rest queue`
-        ]),
-        slots,
-        deps
-      )
+      id: "settle_many",
+      label: "Garrison Many…",
+      detail: "Select or deselect your frontier tiles on the map, then confirm the total cost.",
+      disabled: false,
+      cost: `${SETTLE_MANPOWER_COST} manpower per tile • choose on map`
     });
   }
   return out;

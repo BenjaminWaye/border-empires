@@ -17,14 +17,14 @@ export const afcModuleTabForTile = (tile: Tile, catalog: readonly TechInfo[], ac
   const installed = (afc.modules ?? []).map((id) => {
     const tech = catalog.find((entry) => entry.id === id);
     const house = houseCopies.delete(id);
-    return { name: tech?.name ?? id, branch: tech?.branch, state: house ? "house" as const : "captured" as const, detail: house ? "House copy · movable" : "Captured copy · stays here" };
+    return { name: tech?.name ?? id, branch: tech?.branch, state: house ? "house" as const : "captured" as const, detail: house ? "House · movable" : "Captured · fixed" };
   });
   const incoming = (afc.incomingModules ?? []).map((entry) => {
     const tech = catalog.find((candidate) => candidate.id === entry.techId);
     return { name: tech?.name ?? entry.techId, branch: tech?.branch, state: "incoming" as const, detail: `Incoming · ${formatCooldownShort(entry.arrivesAt - nowMs)}` };
   });
   const slots: AfcModuleTabView["slots"] = [...installed, ...incoming];
-  while (slots.length < AFC_MODULE_SLOTS) slots.push({ state: "empty", detail: "Empty socket" });
+  while (slots.length < AFC_MODULE_SLOTS) slots.push({ state: "empty", detail: "Empty" });
   const present = new Set([...(afc.modules ?? []), ...(afc.incomingModules ?? []).map((entry) => entry.techId)]);
   const owned = tile.ownerId === me && afc.ownerId === me;
   return {
@@ -39,29 +39,47 @@ export const afcModuleTabForTile = (tile: Tile, catalog: readonly TechInfo[], ac
 const SOCKET_CELLS = [[4, 3], [4, 4], [3, 4], [2, 4], [2, 3], [2, 2], [3, 2], [4, 2]] as const;
 const branchIcon = (branch?: string): string => branch === "economy" ? "⚙" : branch === "war" ? "⚔" : branch === "manpower" ? "♟" : "✦";
 
+const socketContentHtml = (slot: AfcModuleTabView["slots"][number], number: number): string =>
+  slot.state === "empty"
+    ? `<span class="afc-socket-number">${number}</span><span class="afc-socket-icon" aria-hidden="true">+</span>`
+    : `<span class="afc-socket-number">${number}</span><span class="afc-socket-icon" aria-hidden="true">${branchIcon(slot.branch)}</span><span class="afc-socket-name">${escapeHtml(slot.name ?? "")}</span><small>${escapeHtml(slot.detail)}</small>`;
+
+// Upgrades are the AFC's most-used control, so they lead the tab. The ready
+// count is filled in by the same live badge pass that marks the nav button
+// (createAfcUpgradeReadyBadges), via data-afc-upgrade-ready.
+const UPGRADES_BUTTON_HTML = '<button type="button" class="afc-upgrades-cta" data-open-afc-upgrades><span class="afc-upgrades-cta-icon" aria-hidden="true">↑</span><span class="afc-upgrades-cta-label">AFC upgrades</span><span class="afc-upgrades-cta-arrow" aria-hidden="true">›</span></button>';
+
+// A dormant AFC already shows its warning above the sockets, so it gets no extra status line.
+const statusNote = (view: AfcModuleTabView, empty: number): string =>
+  !view.active ? "" : !view.owned ? "Only the owner can call down modules here." : empty === 0 ? "All sockets are full. Build another AFC for more space." : "No other unlocked modules to call down.";
+
 export const afcModuleTabHtml = (view: AfcModuleTabView, actionHtml: (action: TileActionDef) => string): string => {
   const empty = view.slots.filter((slot) => slot.state === "empty").length;
+  const incoming = view.slots.some((slot) => slot.state === "incoming");
+  const canCallDown = view.owned && view.active && view.actions.length > 0;
   return `<section class="afc-module-panel" aria-label="AFC module sockets">
-    <div class="afc-module-heading"><strong>Fabrication complex</strong><span>${view.slots.length - empty}/${AFC_MODULE_SLOTS} sockets occupied</span></div>
+    ${view.owned ? UPGRADES_BUTTON_HTML : ""}
+    <div class="afc-module-heading"><strong>Module sockets</strong><span>${view.slots.length - empty}/${AFC_MODULE_SLOTS} filled</span></div>
     ${view.active ? "" : '<p class="afc-module-note"><span class="tile-overview-dormant">⚠ Dormant — modules inactive until this AFC is reclaimed.</span></p>'}
     <div class="afc-socket-diagram">
-      <span class="afc-socket-north">N ↑</span><div class="afc-socket-core" aria-hidden="true">⚙<small>AFC</small></div>
+      <div class="afc-socket-core" aria-hidden="true"><span class="afc-socket-north">N</span>⚙</div>
       ${view.slots.slice(0, AFC_MODULE_SLOTS).map((slot, index) => {
         const cell = SOCKET_CELLS[index]!;
-        const content = `<span class="afc-socket-number">${index + 1}</span><span class="afc-socket-icon" aria-hidden="true">${slot.state === "empty" ? "+" : branchIcon(slot.branch)}</span><span>${escapeHtml(slot.name ?? "Empty")}</span><small>${escapeHtml(slot.detail)}</small>`;
+        const content = socketContentHtml(slot, index + 1);
+        const label = `Socket ${index + 1}: ${slot.name ?? "empty"}`;
         const style = `grid-column:${cell[0]};grid-row:${cell[1]}`;
-        const socket = slot.state === "empty" && view.actions.length > 0
-          ? `<button type="button" class="afc-socket is-empty" data-afc-call-down="${index + 1}" aria-expanded="false" aria-controls="afc-slot-picker">${content}<small>Call down ▾</small></button>`
-          : `<div class="afc-socket is-${slot.state}">${content}</div>`;
+        const socket = slot.state === "empty" && canCallDown
+          ? `<button type="button" class="afc-socket is-empty is-callable" data-afc-call-down="${index + 1}" aria-label="${escapeHtml(`${label} — call down a module`)}" aria-expanded="false" aria-controls="afc-slot-picker">${content}</button>`
+          : `<div class="afc-socket is-${slot.state}" role="group" aria-label="${escapeHtml(label)}">${content}</div>`;
         return `<div class="afc-socket-cell" style="${style}" data-afc-column="${cell[0]}">${socket}</div>`;
       }).join("")}
     </div>
-    <p class="afc-module-note">Top-down view · numbered clockwise from east. Incoming modules reserve a socket; their final position is assigned on landing.</p>
-    ${view.owned && view.active && view.actions.length > 0 ? `<section class="afc-module-call-down afc-slot-picker" id="afc-slot-picker" aria-labelledby="afc-slot-picker-title" hidden>
+    ${canCallDown || incoming ? `<p class="afc-module-note">${[canCallDown ? "Pick an empty socket to call down a module." : "", incoming ? "Incoming modules take a free socket when they land." : ""].filter(Boolean).join(" ")}</p>` : ""}
+    ${canCallDown ? `<section class="afc-module-call-down afc-slot-picker" id="afc-slot-picker" aria-labelledby="afc-slot-picker-title" hidden>
       <div class="afc-picker-heading"><strong id="afc-slot-picker-title">Call down a module</strong><button type="button" data-afc-picker-close aria-label="Close module choices">×</button></div>
       <p class="afc-module-note">Docking position is assigned on landing.</p>
       ${view.actions.map((action) => actionHtml({ ...action, label: escapeHtml(action.label) })).join("")}
-    </section>` : `<p class="afc-module-note">${!view.owned || !view.active ? "Call-down controls are available on active AFCs you own." : empty === 0 ? "All sockets are occupied. Build another AFC for more space." : "No unlocked modules missing here are available to call down."}</p>`}
+    </section>` : statusNote(view, empty) ? `<p class="afc-module-note">${statusNote(view, empty)}</p>` : ""}
   </section>`;
 };
 
