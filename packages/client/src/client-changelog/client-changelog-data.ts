@@ -481,6 +481,14 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Dragging and pinching still move the map; taps select tiles once",
     "Alert markers still center on their targets, and deselected tiles lose their outline in both map renderers"
     ]
+  },
+  {
+    createdAt: 1792418992256, // Date.now() captured for this entry.
+    introducedIn: "2026.10.19.2",
+    title: "Reliable diplomacy updates",
+    why: "Repeated truce, alliance and diplomacy payment updates could collide in command storage.",
+    changes: ["Internal diplomacy updates now save independently while player commands retain duplicate protection",
+      "Active truces now survive a server restart alongside alliances"]
   }
 ];
 

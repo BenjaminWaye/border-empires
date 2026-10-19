@@ -49,6 +49,9 @@ SELECT
 FROM commands c JOIN command_results r ON r.command_id = c.command_id
 `;
 
+// Keep both SQLite schema owners aligned; the cross-store regression covers boot order.
+const CLIENT_SEQUENCE_PREDICATE = "command_type NOT IN ('SYNC_TRUCE', 'SYNC_ALLIANCE', 'SETTLE_DIPLOMACY_TERMS')";
+
 export class SqliteSimulationCommandStore implements SimulationCommandStore {
   constructor(private readonly db: DatabaseSync) {}
 
@@ -63,7 +66,12 @@ export class SqliteSimulationCommandStore implements SimulationCommandStore {
         payload_json TEXT NOT NULL,
         queued_at INTEGER NOT NULL
       );
-      CREATE UNIQUE INDEX IF NOT EXISTS commands_player_seq_idx ON commands (player_id, client_seq);
+      -- Internal diplomacy uses command IDs, never the player's sequence.
+      -- New name migrates populated databases once, without rebuilding on each boot.
+      CREATE UNIQUE INDEX IF NOT EXISTS commands_player_seq_v2_idx ON commands (player_id, client_seq)
+        WHERE ${CLIENT_SEQUENCE_PREDICATE};
+      CREATE INDEX IF NOT EXISTS commands_player_seq_lookup_idx ON commands (player_id, client_seq);
+      DROP INDEX IF EXISTS commands_player_seq_idx;
       CREATE TABLE IF NOT EXISTS command_results (
         command_id TEXT PRIMARY KEY REFERENCES commands(command_id) ON DELETE CASCADE,
         status TEXT NOT NULL,
@@ -92,7 +100,7 @@ export class SqliteSimulationCommandStore implements SimulationCommandStore {
     // this is exactly the crash loop that motivated adding the watermark in
     // the first place. Idempotent and safe to run on every boot: MAX() only
     // ever raises the watermark, never lowers it, uses the existing
-    // commands_player_seq_idx (player_id, client_seq) index, and is a no-op
+    // commands_player_seq_lookup_idx (player_id, client_seq) index, and is a no-op
     // once every player has a watermark row.
     this.db.exec(`
       INSERT INTO client_seq_watermarks (player_id, max_client_seq)
@@ -146,7 +154,7 @@ export class SqliteSimulationCommandStore implements SimulationCommandStore {
   }
 
   async findByPlayerSeq(playerId: string, clientSeq: number): Promise<StoredSimulationCommand | undefined> {
-    const row = this.db.prepare(`${SELECT_JOINED} WHERE c.player_id = ? AND c.client_seq = ?`).get(playerId, clientSeq) as Row | undefined;
+    const row = this.db.prepare(`${SELECT_JOINED} WHERE c.player_id = ? AND c.client_seq = ? AND ${CLIENT_SEQUENCE_PREDICATE}`).get(playerId, clientSeq) as Row | undefined;
     return row ? toStored(row) : undefined;
   }
 
