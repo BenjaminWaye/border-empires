@@ -9,7 +9,7 @@ export const MUSTER_BANNER_CHANGELOG: ClientChangelogEntry[] = [
     changes: [
       "In the 3D map, a muster flag is now a tall war banner hanging from a brass crossbar, standing on a heavy two-step octagonal base like the towns, with a thick band of the owner's colour round it",
       "The banner is in the owner's colour with stitched pale side stripes, a gold fringe and an embroidered cog, with tassels on the crossbar, and it billows in the wind",
-      "The base has bevelled edges, brass corner caps and four gems in the owner's colour, carved from polished white and black marble, with a glossy finish on the coloured parts like a painted miniature",
+      "The base has bevelled edges, brass corner caps and four gems in the owner's colour, carved from polished dark marble, with a glossy finish on the coloured parts like a painted miniature",
       "In Advance mode the banner is brighter and waves faster",
       "Soldiers still march in from the edges of the tile and now stop at the base"
     ]

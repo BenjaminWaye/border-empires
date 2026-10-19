@@ -2,8 +2,8 @@
 // even grey (one vertex colour per part, one roughness) reads as moulded
 // plastic on a piece this close to the camera, so this patches the matte
 // material's shaders to carve the plinth from marble like a premium
-// board-game piece: the lighter stone parts become white marble with soft
-// grey veining, the darkest (the pedestal) black marble shot with gold, both
+// board-game piece: the lighter stone parts become charcoal marble with pale
+// veining, the darkest (the pedestal) black marble shot with gold, both
 // polished to a low roughness, with a little shade pooled where each wall
 // rises from the ledge below and a bright polished edge along each wall top.
 //
@@ -74,15 +74,15 @@ const COLOR_PATCH = /* glsl */ `
 #include <color_fragment>
 float marbleCloud = marbleFbm(vMarblePos * 14.0);
 {
-  // The towns' darkest stone becomes black marble; the rest, white.
+  // The towns' darkest stone becomes black marble; the rest, charcoal.
   float darkStone = 1.0 - smoothstep(0.13, 0.16, dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722)));
   float vein = marbleVein(vMarblePos, 38.0, 10.0);
   float hairline = marbleVein(vMarblePos * 1.9 + 3.1, 52.0, 26.0);
-  vec3 white = vec3(0.86, 0.85, 0.82) * (0.94 + 0.1 * marbleCloud);
-  white = mix(white, vec3(0.5, 0.52, 0.55), vein * 0.55 + hairline * 0.3);
+  vec3 slate = vec3(0.13, 0.135, 0.145) * (0.85 + 0.3 * marbleCloud);
+  slate = mix(slate, vec3(0.55, 0.54, 0.5), vein * 0.6 + hairline * 0.3);
   vec3 black = vec3(0.03, 0.032, 0.036) * (0.8 + 0.5 * marbleCloud);
   black = mix(black, vec3(0.62, 0.45, 0.2), vein * 0.75 + hairline * 0.4);
-  diffuseColor.rgb = mix(white, black, darkStone);
+  diffuseColor.rgb = mix(slate, black, darkStone);
   vec3 marbleNormal = normalize(vMarbleNormal);
   if (abs(marbleNormal.y) < 0.5) diffuseColor.rgb *= marbleLedgeLight(vMarbleLocal.y);
 }
