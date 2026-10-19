@@ -22,6 +22,14 @@ const goodsSchema = z.object({
 });
 export const DiplomacyTermsSchema = z.object({ give: goodsSchema, ask: goodsSchema });
 
+/**
+ * Marks a truce/alliance request as a counter to an offer the sender received:
+ * the gateway rejects that offer (without a re-offer cooldown) in the same step,
+ * so "their offer is gone" and "my counter is pending" can't race.
+ */
+export type DiplomacyCounterRef = { kind: DiplomacyOfferKind; requestId: string };
+export const DiplomacyCounterRefSchema = z.object({ kind: z.enum(["truce", "alliance"]), requestId: z.string().min(1) });
+
 export const EMPTY_DIPLOMACY_GOODS: DiplomacyGoods = { gold: 0, shard: 0 };
 export const emptyDiplomacyTerms = (): DiplomacyTerms => ({ give: { ...EMPTY_DIPLOMACY_GOODS }, ask: { ...EMPTY_DIPLOMACY_GOODS } });
 
