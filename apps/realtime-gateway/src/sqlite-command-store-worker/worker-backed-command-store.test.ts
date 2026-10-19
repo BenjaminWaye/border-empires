@@ -52,6 +52,7 @@ describe("WorkerBackedGatewayCommandStore", () => {
     const db = new DatabaseSync(sqlitePath);
     try {
       const simulationStore = new SqliteSimulationCommandStore(db);
+      await simulationStore.applySchema();
       db.exec("DROP INDEX commands_player_seq_idx; CREATE UNIQUE INDEX commands_player_seq_idx ON commands(player_id, client_seq)");
       await simulationStore.persistQueuedCommand({ ...makeCommand(), type: "SYNC_TRUCE", commandId: "historical-social", clientSeq: 0 }, 900);
       await store.close();
