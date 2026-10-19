@@ -8,6 +8,7 @@ import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-ar
 import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
 import { AFC_UPGRADES_ICON_CHANGELOG } from "./client-changelog-afc-upgrades-icon.js";
 import { MUSTER_BANNER_CHANGELOG } from "./client-changelog-muster-banner.js";
+import { BATTLE_TILE_SOUND_CHANGELOG } from "./client-changelog-battle-tile-sound.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -466,7 +467,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Login and reconnect show free AFC choices unlocked by your Manifest tiers",
       "All 30 upgrade cards use short effect lines with percentages; expanded details explain conditions"
     ]
-  }
+  },
+  ...BATTLE_TILE_SOUND_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
