@@ -18,7 +18,8 @@ export const OUT_OF_REACH_NO_DECAY_CHANGELOG: ClientChangelogEntry[] = [
     title: "Clearer Beyond your reach tip",
     why: "The Beyond your reach note in the tile menu talked about supply chains but never said you can't build there or how to fix it.",
     changes: [
-      "The note now says you can't garrison or build buildings on tiles outside your reach, and that Relay Beacons extend your reach"
+      "The note now says you can't garrison or build buildings on tiles outside your reach, and that Relay Beacons extend your reach",
+      "The Beyond Your Reach tip now says the same, and names Relay Beacons instead of the old Outpost name"
     ]
   }
 ];
