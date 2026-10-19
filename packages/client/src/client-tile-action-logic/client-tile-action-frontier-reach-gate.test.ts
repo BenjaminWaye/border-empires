@@ -2,7 +2,7 @@
  * Fixed-border reach: EXPAND itself is no longer reach-gated server-side,
  * but SETTLE and outpost-family builds (siege batteries / relay beacon)
  * still are. A player-owned FRONTIER tile outside reach should show
- * settle_land / settle_connected_frontier / build_relay_beacon /
+ * settle_land / settle_many / build_relay_beacon /
  * build_siege_camp as visible-but-disabled with "Outside your reach",
  * instead of hiding them.
  */
