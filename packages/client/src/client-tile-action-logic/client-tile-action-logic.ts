@@ -233,19 +233,6 @@ export const isOwnedBorderTile = (
   return neighbors.some((tile) => !tile || tile.ownerId !== state.me);
 };
 
-// Full development slots don't change how a build button looks: the order
-// is still accepted and waits server-side until a slot frees up, but the old
-// "• queues" cost suffix confused players, so the button shows the plain cost.
-// `summary` and `deps` are no longer read; they stay so the ~40 callers don't
-// all have to change in this branch.
-export const tileActionAvailabilityWithDevelopmentSlot = (
-  enabledWithoutSlot: boolean,
-  baseReason: string,
-  cost?: string,
-  _summary?: DevelopmentSlotSummary,
-  _deps?: Partial<Pick<TileActionLogicDeps, "developmentSlotSummary" | "developmentSlotReason">>
-): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> => tileActionAvailability(enabledWithoutSlot, baseReason, cost);
-
 export const chainedBuildAvailabilityFromModule = (
   deps: TileActionLogicDeps,
   state: ClientState,
@@ -538,7 +525,6 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     return neutralTileActions(state, tile, deps, { retortRecastActions, crystalCoreActions, createMountainAction });
   }
   if (tile.ownerId === state.me) {
-    const slots = deps.developmentSlotSummary();
     const chainedBuildAvailability = (
       structureType: BuildableStructureId,
       eligible: boolean,
@@ -697,7 +683,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         id: "upgrade_umbrite_works" as TileActionDef["id"],
         label: "Upgrade Umbrite Works",
         detail: deps.buildDetailTextForAction("upgrade_umbrite_works", tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
+        ...tileActionAvailability(
           state.techIds.includes("advanced-synthetication") &&
             state.gold >= deps.structureGoldCost("HIGH_YIELD_UMBRITE_WORKS") &&
             state.manpower >= structureBuildManpowerCost("HIGH_YIELD_UMBRITE_WORKS"),
@@ -706,9 +692,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
             : state.gold < deps.structureGoldCost("HIGH_YIELD_UMBRITE_WORKS")
               ? `Need ${deps.structureGoldCost("HIGH_YIELD_UMBRITE_WORKS")} coin`
               : `Need ${structureBuildManpowerCost("HIGH_YIELD_UMBRITE_WORKS")} manpower`,
-          `${deps.structureCostText("HIGH_YIELD_UMBRITE_WORKS")} • ${buildTimeLabel(economicBuildMsForState(state, "HIGH_YIELD_UMBRITE_WORKS"))}${upkeepSuffixFor("HIGH_YIELD_UMBRITE_WORKS")}`,
-          slots,
-          deps
+          `${deps.structureCostText("HIGH_YIELD_UMBRITE_WORKS")} • ${buildTimeLabel(economicBuildMsForState(state, "HIGH_YIELD_UMBRITE_WORKS"))}${upkeepSuffixFor("HIGH_YIELD_UMBRITE_WORKS")}`
         )
       });
     }
@@ -717,7 +701,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         id: "upgrade_titanium_works" as TileActionDef["id"],
         label: "Upgrade Titanium Works",
         detail: deps.buildDetailTextForAction("upgrade_titanium_works", tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
+        ...tileActionAvailability(
           state.techIds.includes("advanced-synthetication") &&
             state.gold >= deps.structureGoldCost("HIGH_YIELD_TITANIUM_WORKS") &&
             state.manpower >= structureBuildManpowerCost("HIGH_YIELD_TITANIUM_WORKS"),
@@ -726,9 +710,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
             : state.gold < deps.structureGoldCost("HIGH_YIELD_TITANIUM_WORKS")
               ? `Need ${deps.structureGoldCost("HIGH_YIELD_TITANIUM_WORKS")} coin`
               : `Need ${structureBuildManpowerCost("HIGH_YIELD_TITANIUM_WORKS")} manpower`,
-          `${deps.structureCostText("HIGH_YIELD_TITANIUM_WORKS")} • ${buildTimeLabel(economicBuildMsForState(state, "HIGH_YIELD_TITANIUM_WORKS"))}${upkeepSuffixFor("HIGH_YIELD_TITANIUM_WORKS")}`,
-          slots,
-          deps
+          `${deps.structureCostText("HIGH_YIELD_TITANIUM_WORKS")} • ${buildTimeLabel(economicBuildMsForState(state, "HIGH_YIELD_TITANIUM_WORKS"))}${upkeepSuffixFor("HIGH_YIELD_TITANIUM_WORKS")}`
         )
       });
     }
@@ -737,7 +719,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         id: "upgrade_aether_condenser" as TileActionDef["id"],
         label: "Upgrade Crystal Synth",
         detail: deps.buildDetailTextForAction("upgrade_aether_condenser", tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
+        ...tileActionAvailability(
           state.techIds.includes("advanced-synthetication") &&
             state.gold >= deps.structureGoldCost("HIGH_YIELD_AETHER_CONDENSER") &&
             state.manpower >= structureBuildManpowerCost("HIGH_YIELD_AETHER_CONDENSER"),
@@ -746,9 +728,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
             : state.gold < deps.structureGoldCost("HIGH_YIELD_AETHER_CONDENSER")
               ? `Need ${deps.structureGoldCost("HIGH_YIELD_AETHER_CONDENSER")} coin`
               : `Need ${structureBuildManpowerCost("HIGH_YIELD_AETHER_CONDENSER")} manpower`,
-          `${deps.structureCostText("HIGH_YIELD_AETHER_CONDENSER")} • ${buildTimeLabel(economicBuildMsForState(state, "HIGH_YIELD_AETHER_CONDENSER"))}${upkeepSuffixFor("HIGH_YIELD_AETHER_CONDENSER")}`,
-          slots,
-          deps
+          `${deps.structureCostText("HIGH_YIELD_AETHER_CONDENSER")} • ${buildTimeLabel(economicBuildMsForState(state, "HIGH_YIELD_AETHER_CONDENSER"))}${upkeepSuffixFor("HIGH_YIELD_AETHER_CONDENSER")}`
         )
       });
     }
@@ -768,12 +748,10 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         id: "remove_structure",
         label: `Remove ${removableStructure.label}`,
         detail: deps.buildDetailTextForAction("remove_structure", tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
+        ...tileActionAvailability(
           tile.ownershipState === "SETTLED",
           "Requires garrisoned owned tile",
-          `${buildTimeLabel(removableStructure.durationMs)} • disables structure effects during removal`,
-          slots,
-          deps
+          `${buildTimeLabel(removableStructure.durationMs)} • disables structure effects during removal`
         )
       });
     }
@@ -799,15 +777,13 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         id: "build_palisade" as TileActionDef["id"],
         label: "Build Palisade",
         detail: deps.buildDetailTextForAction("build_palisade", tile) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
+        ...tileActionAvailability(
           ...chainedBuildAvailability(
             "PALISADE",
             hasFreeResourceSlots(state, "PALISADE"),
             missingResourceSlotReason(state, "PALISADE") ?? "Unavailable",
             `${deps.structureCostText("PALISADE")} • ${buildTimeLabel(fortBuildMsForState(state, "PALISADE"))} • def x${PALISADE_DEFENSE_MULT.toFixed(2)}${upkeepSuffixFor("PALISADE")}`
-          ),
-          slots,
-          deps
+          )
         )
       });
     }
@@ -826,7 +802,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           id: "build_fortification",
           label: tile.fort ? `Upgrade to ${fortVariant.label}` : `Build ${fortVariant.label}`,
           detail: deps.buildDetailTextForAction("build_fortification", tile) + frontierBuildDetailSuffix(tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
+          ...tileActionAvailability(
             ...chainedBuildAvailability(
               "FORT",
               hasTech && hasFreeSlots && canUseTile,
@@ -837,9 +813,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                   : missingResourceSlotReason(state, fortVariant.variant, tile.fort?.variant, tile) ?? "Unavailable",
               `${fortVariant.summary} • ${buildTimeLabel(fortBuildMsForState(state, fortVariant.variant))} • def x${fortVariant.defenseMult.toFixed(2)}${fortVariant.upkeepSuffix}`,
               fortVariant.gold
-            ),
-            slots,
-            deps
+            )
           )
         });
       }
@@ -851,7 +825,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         id: "build_observatory",
         label: "Build Aether Tower",
         detail: deps.buildDetailTextForAction("build_observatory", tile) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
+        ...tileActionAvailability(
           ...chainedBuildAvailability(
             "OBSERVATORY",
             hasTech && hasFreeSlots && !tile.siegeBattery && !tile.economicStructure,
@@ -861,9 +835,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 ? "Tile already has structure"
                 : missingResourceSlotReason(state, "OBSERVATORY") ?? "Unavailable",
             `${deps.structureCostText("OBSERVATORY")} • ${buildTimeLabel(structureBuildDurationMs("OBSERVATORY"))} • +${OBSERVATORY_VISION_BONUS} vision${upkeepSuffixFor("OBSERVATORY", ownedActiveOrBuildingObservatoryCount(state))}`
-          ),
-          slots,
-          deps
+          )
         )
       });
     }
@@ -896,7 +868,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           id: "build_sky_dock",
           label: "Build Sky Dock",
           detail: deps.buildDetailTextForAction("build_sky_dock", tile) + frontierBuildDetailSuffix(tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
+          ...tileActionAvailability(
             ...chainedBuildAvailability(
               "SKY_DOCK",
               state.techIds.includes("aeronautics") && hasFreeResourceSlots(state, "SKY_DOCK") && !tile.siegeBattery && !tile.observatory,
@@ -906,9 +878,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                   ? "Tile already has structure"
                   : missingResourceSlotReason(state, "SKY_DOCK") ?? "Unavailable",
               `${deps.structureCostText("SKY_DOCK")} • ${buildTimeLabel(economicBuildMsForState(state, "SKY_DOCK"))} • ${SKY_DOCK_BOMBARD_RADIUS}-tile bombard range • 200 crystal + 5k coin/shot • 20m cooldown${upkeepSuffixFor("SKY_DOCK")}`
-            ),
-            slots,
-            deps
+            )
           )
         });
       }
@@ -917,7 +887,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           id: "build_ambaric_transformer",
           label: "Build Ambaric Transformer",
           detail: deps.buildDetailTextForAction("build_ambaric_transformer", tile) + frontierBuildDetailSuffix(tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
+          ...tileActionAvailability(
             ...chainedBuildAvailability(
               "AMBARIC_TRANSFORMER",
               state.techIds.includes("plastics") && hasFreeResourceSlots(state, "AMBARIC_TRANSFORMER") && !tile.siegeBattery && !tile.observatory,
@@ -927,9 +897,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                   ? "Tile already has structure"
                   : missingResourceSlotReason(state, "AMBARIC_TRANSFORMER") ?? "Unavailable",
               `${deps.structureCostText("AMBARIC_TRANSFORMER")} • ${buildTimeLabel(economicBuildMsForState(state, "AMBARIC_TRANSFORMER"))} • powers nearby late structures${upkeepSuffixFor("AMBARIC_TRANSFORMER")}`
-            ),
-            slots,
-            deps
+            )
           )
         });
       }
@@ -938,7 +906,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           id: "build_resonance_grid",
           label: "Build Resonance Grid",
           detail: deps.buildDetailTextForAction("build_resonance_grid", tile) + frontierBuildDetailSuffix(tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
+          ...tileActionAvailability(
             ...chainedBuildAvailability(
               "RESONANCE_GRID",
               state.techIds.includes("radar") && hasFreeResourceSlots(state, "RESONANCE_GRID") && !tile.siegeBattery && !tile.observatory,
@@ -948,9 +916,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                   ? "Tile already has structure"
                   : missingResourceSlotReason(state, "RESONANCE_GRID") ?? "Unavailable",
               `${deps.structureCostText("RESONANCE_GRID")} • ${buildTimeLabel(economicBuildMsForState(state, "RESONANCE_GRID"))} • blocks bombardment within 30 tiles${upkeepSuffixFor("RESONANCE_GRID")}`
-            ),
-            slots,
-            deps
+            )
           )
         });
       }
@@ -959,7 +925,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           id: "build_imperial_exchange",
           label: "Build Imperial Exchange",
           detail: deps.buildDetailTextForAction("build_imperial_exchange", tile) + frontierBuildDetailSuffix(tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
+          ...tileActionAvailability(
             ...chainedBuildAvailability(
               "IMPERIAL_EXCHANGE",
               state.techIds.includes("urban-mintworks") &&
@@ -982,9 +948,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                         : missingResourceSlotReason(state, "IMPERIAL_EXCHANGE") ?? "Unavailable",
               `${deps.structureCostText("IMPERIAL_EXCHANGE")} • ${buildTimeLabel(economicBuildMsForState(state, "IMPERIAL_EXCHANGE"))} • build 3 parts first${upkeepSuffixFor("IMPERIAL_EXCHANGE")}`,
               0
-            ),
-            slots,
-            deps
+            )
           )
         });
       }
@@ -993,7 +957,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           id: "build_sovereign_siege_engine",
           label: "Build Sovereign Siege Engine",
           detail: deps.buildDetailTextForAction("build_sovereign_siege_engine", tile) + frontierBuildDetailSuffix(tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
+          ...tileActionAvailability(
             ...chainedBuildAvailability(
               "SOVEREIGN_SIEGE_ENGINE",
               state.techIds.includes("world-engine") &&
@@ -1016,9 +980,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                         : missingResourceSlotReason(state, "SOVEREIGN_SIEGE_ENGINE") ?? "Unavailable",
               `${deps.structureCostText("SOVEREIGN_SIEGE_ENGINE")} • ${buildTimeLabel(economicBuildMsForState(state, "SOVEREIGN_SIEGE_ENGINE"))} • build 3 parts first${upkeepSuffixFor("SOVEREIGN_SIEGE_ENGINE")}`,
               0
-            ),
-            slots,
-            deps
+            )
           )
         });
       }
@@ -1027,7 +989,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           id: "build_aegis_dome",
           label: "Build Aegis Dome",
           detail: deps.buildDetailTextForAction("build_aegis_dome", tile) + frontierBuildDetailSuffix(tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
+          ...tileActionAvailability(
             ...chainedBuildAvailability(
               "AEGIS_DOME",
               state.techIds.includes("aegis-dome") &&
@@ -1050,9 +1012,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                         : missingResourceSlotReason(state, "AEGIS_DOME") ?? "Unavailable",
               `${deps.structureCostText("AEGIS_DOME")} • ${buildTimeLabel(economicBuildMsForState(state, "AEGIS_DOME"))} • build 3 parts first${upkeepSuffixFor("AEGIS_DOME")}`,
               0
-            ),
-            slots,
-            deps
+            )
           )
         });
       }
@@ -1061,7 +1021,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           id: "build_astral_dock",
           label: "Build Astral Dock",
           detail: deps.buildDetailTextForAction("build_astral_dock", tile) + frontierBuildDetailSuffix(tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
+          ...tileActionAvailability(
             ...chainedBuildAvailability(
               "ASTRAL_DOCK",
               state.techIds.includes("astral-dock") &&
@@ -1084,9 +1044,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                         : missingResourceSlotReason(state, "ASTRAL_DOCK") ?? "Unavailable",
               `${deps.structureCostText("ASTRAL_DOCK")} • ${buildTimeLabel(economicBuildMsForState(state, "ASTRAL_DOCK"))} • build 3 parts first${upkeepSuffixFor("ASTRAL_DOCK")}`,
               0
-            ),
-            slots,
-            deps
+            )
           )
         });
       }
@@ -1095,7 +1053,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           id: "build_census_directorate",
           label: "Build Census Directorate",
           detail: deps.buildDetailTextForAction("build_census_directorate", tile) + frontierBuildDetailSuffix(tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
+          ...tileActionAvailability(
             ...chainedBuildAvailability(
               "CENSUS_DIRECTORATE",
               state.techIds.includes("demographic-registry") &&
@@ -1118,9 +1076,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                         : missingResourceSlotReason(state, "CENSUS_DIRECTORATE") ?? "Unavailable",
               `${deps.structureCostText("CENSUS_DIRECTORATE")} • ${buildTimeLabel(economicBuildMsForState(state, "CENSUS_DIRECTORATE"))} • build 3 parts first${upkeepSuffixFor("CENSUS_DIRECTORATE")}`,
               0
-            ),
-            slots,
-            deps
+            )
           )
         });
       }
@@ -1129,7 +1085,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           id: "build_titanium_levy",
           label: "Build The Titanium Levy",
           detail: deps.buildDetailTextForAction("build_titanium_levy", tile) + frontierBuildDetailSuffix(tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
+          ...tileActionAvailability(
             ...chainedBuildAvailability(
               "TITANIUM_LEVY",
               state.techIds.includes("grand-levy-doctrine") &&
@@ -1152,9 +1108,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                         : missingResourceSlotReason(state, "TITANIUM_LEVY") ?? "Unavailable",
               `${deps.structureCostText("TITANIUM_LEVY")} • ${buildTimeLabel(economicBuildMsForState(state, "TITANIUM_LEVY"))} • build 3 parts first${upkeepSuffixFor("TITANIUM_LEVY")}`,
               0
-            ),
-            slots,
-            deps
+            )
           )
         });
       }
@@ -1163,7 +1117,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           id: "build_ministry_hall",
           label: "Build Ministry Hall",
           detail: deps.buildDetailTextForAction("build_ministry_hall", tile) + frontierBuildDetailSuffix(tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
+          ...tileActionAvailability(
             ...chainedBuildAvailability(
               "MINISTRY_HALL",
               state.techIds.includes("civil-service") && hasFreeResourceSlots(state, "MINISTRY_HALL") && !tile.siegeBattery && !tile.observatory,
@@ -1173,9 +1127,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                   ? "Tile already has structure"
                   : missingResourceSlotReason(state, "MINISTRY_HALL") ?? "Unavailable",
               `${deps.structureCostText("MINISTRY_HALL")} • ${buildTimeLabel(economicBuildMsForState(state, "MINISTRY_HALL"))} • reduces local town FOOD-slot demand${upkeepSuffixFor("MINISTRY_HALL")}`
-            ),
-            slots,
-            deps
+            )
           )
         });
       }
@@ -1186,7 +1138,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           id: "build_ore_refinery",
           label: "Build Ore Refinery",
           detail: deps.buildDetailTextForAction("build_ore_refinery", tile) + frontierBuildDetailSuffix(tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
+          ...tileActionAvailability(
             ...chainedBuildAvailability(
               "ORE_REFINERY",
               oreRefineryAvail.available && oreRefineryHasManpower,
@@ -1196,9 +1148,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                   ? `Need ${structureBuildManpowerCost("ORE_REFINERY")} manpower`
                   : missingResourceSlotReason(state, "ORE_REFINERY") ?? "Unavailable",
               `${deps.structureCostText("ORE_REFINERY")} • ${buildTimeLabel(economicBuildMsForState(state, "ORE_REFINERY"))} • doubles active Mine slot output within 5 tiles${upkeepSuffixFor("ORE_REFINERY")}`
-            ),
-            slots,
-            deps
+            )
           )
         });
       }
@@ -1209,7 +1159,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           id: "build_hydroworks",
           label: "Build Hydroworks",
           detail: deps.buildDetailTextForAction("build_hydroworks", tile) + frontierBuildDetailSuffix(tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
+          ...tileActionAvailability(
             ...chainedBuildAvailability(
               "HYDROWORKS",
               hydroworksAvail.available && hydroworksHasManpower,
@@ -1219,9 +1169,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                   ? `Need ${structureBuildManpowerCost("HYDROWORKS")} manpower`
                   : missingResourceSlotReason(state, "HYDROWORKS") ?? "Unavailable",
               `${deps.structureCostText("HYDROWORKS")} • ${buildTimeLabel(economicBuildMsForState(state, "HYDROWORKS"))} • every Hydrogarden within 10 tiles gains +${HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS} FOOD slots${upkeepSuffixFor("HYDROWORKS")}`
-            ),
-            slots,
-            deps
+            )
           )
         });
       }
@@ -1230,7 +1178,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           id: "build_ancillary_depot",
           label: "Build Ancillary Depot",
           detail: deps.buildDetailTextForAction("build_ancillary_depot", tile) + frontierBuildDetailSuffix(tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
+          ...tileActionAvailability(
             ...chainedBuildAvailability(
               "ANCILLARY_DEPOT",
               state.techIds.includes("organized-supply") && hasFreeResourceSlots(state, "ANCILLARY_DEPOT") && !tile.siegeBattery && !tile.observatory,
@@ -1240,9 +1188,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                   ? "Tile already has structure"
                   : missingResourceSlotReason(state, "ANCILLARY_DEPOT") ?? "Unavailable",
               `${deps.structureCostText("ANCILLARY_DEPOT")} • ${buildTimeLabel(economicBuildMsForState(state, "ANCILLARY_DEPOT"))} • +150 manpower cap plus +10% of this town's terrain-adjusted base capacity • +35% instead when covered by a Reserve Lattice network${upkeepSuffixFor("ANCILLARY_DEPOT")}`
-            ),
-            slots,
-            deps
+            )
           )
         });
       }
@@ -1259,7 +1205,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           id: "build_titanium_weapons_factory",
           label: "Build Titanium Weapons Factory",
           detail: deps.buildDetailTextForAction("build_titanium_weapons_factory", tile) + frontierBuildDetailSuffix(tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
+          ...tileActionAvailability(
             ...chainedBuildAvailability(
               "TITANIUM_WEAPONS_FACTORY",
               state.techIds.includes("masonry") && hasFreeResourceSlots(state, "TITANIUM_WEAPONS_FACTORY") && !tile.siegeBattery && !tile.observatory,
@@ -1269,9 +1215,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                   ? "Tile already has structure"
                   : missingResourceSlotReason(state, "TITANIUM_WEAPONS_FACTORY") ?? "Unavailable",
               `${deps.structureCostText("TITANIUM_WEAPONS_FACTORY")} (rises with each one you own) • ${buildTimeLabel(economicBuildMsForState(state, "TITANIUM_WEAPONS_FACTORY"))} • Arsenal District concentration amplifies all factories assigned to this town • +1.5% attack / +3% defense per copy${upkeepSuffixFor("TITANIUM_WEAPONS_FACTORY")}`
-            ),
-            slots,
-            deps
+            )
           )
         });
       }
@@ -1280,7 +1224,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           id: "build_umbrite_weapons_factory",
           label: "Build Umbrite Weapons Factory",
           detail: deps.buildDetailTextForAction("build_umbrite_weapons_factory", tile) + frontierBuildDetailSuffix(tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
+          ...tileActionAvailability(
             ...chainedBuildAvailability(
               "UMBRITE_WEAPONS_FACTORY",
               state.techIds.includes("leatherworking") && hasFreeResourceSlots(state, "UMBRITE_WEAPONS_FACTORY") && !tile.siegeBattery && !tile.observatory,
@@ -1290,9 +1234,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                   ? "Tile already has structure"
                   : missingResourceSlotReason(state, "UMBRITE_WEAPONS_FACTORY") ?? "Unavailable",
               `${deps.structureCostText("UMBRITE_WEAPONS_FACTORY")} (rises with each one you own) • ${buildTimeLabel(economicBuildMsForState(state, "UMBRITE_WEAPONS_FACTORY"))} • Arsenal District concentration amplifies all factories assigned to this town • +3% attack / +1.5% defense per copy${upkeepSuffixFor("UMBRITE_WEAPONS_FACTORY")}`
-            ),
-            slots,
-            deps
+            )
           )
         });
       }
@@ -1308,26 +1250,24 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         id: "build_relay_beacon" as TileActionDef["id"],
         label: "Build Relay Beacon",
         detail: deps.buildDetailTextForAction("build_relay_beacon", tile) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
+        ...tileActionAvailability(
           ...withReachGate(chainedBuildAvailability(
             "RELAY_BEACON",
             hasFreeResourceSlotsForRelayBeacon(state),
             missingRelayBeaconSlotReason(state) ?? "Unavailable",
             `${deps.structureCostText("RELAY_BEACON")} • ${relayBeaconBuildTimeLabel(state)}${upkeepSuffixFor("RELAY_BEACON", ownedRelayBeaconCount(state))}`
-          )),
-          slots,
-          deps
+          ))
         )
       });
     }
-    const siegeCamp = siegeCampAction(state, tile, deps, slots, hasRelayBeacon);
+    const siegeCamp = siegeCampAction(state, tile, deps, hasRelayBeacon);
     if (siegeCamp) out.push(siegeCamp);
     if (tile.resource === "FARM") {
       out.push({
         id: "build_hydrogarden",
         label: "Build Hydrogarden",
         detail: deps.buildDetailTextForAction("build_hydrogarden", tile) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
+        ...tileActionAvailability(
           ...chainedBuildAvailability(
             "HYDROGARDEN",
             !hasBlockingStructure && state.techIds.includes("agriculture") && hasFreeResourceSlots(state, "HYDROGARDEN"),
@@ -1337,9 +1277,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 ? "Requires Hyperfeed Seedstock Consignment"
                 : missingResourceSlotReason(state, "HYDROGARDEN") ?? "Unavailable",
             `${deps.structureCostText("HYDROGARDEN")} • ${buildTimeLabel(economicBuildMsForState(state, "HYDROGARDEN"))} • +${TILE_SLOT_BOOST_STRUCTURES.HYDROGARDEN} FOOD slot${upkeepSuffixFor("HYDROGARDEN")}`
-          ),
-          slots,
-          deps
+          )
         )
       });
     }
@@ -1348,7 +1286,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         id: "build_umbrite_rig",
         label: "Build Umbrite Rig",
         detail: deps.buildDetailTextForAction("build_umbrite_rig", tile) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
+        ...tileActionAvailability(
           ...chainedBuildAvailability(
             "UMBRITE_RIG",
             !hasBlockingStructure && state.techIds.includes("leatherworking") && hasFreeResourceSlots(state, "UMBRITE_RIG"),
@@ -1358,9 +1296,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 ? "Requires Umbrite Rigging Module"
                 : missingResourceSlotReason(state, "UMBRITE_RIG") ?? "Unavailable",
             `${deps.structureCostText("UMBRITE_RIG")} • ${buildTimeLabel(economicBuildMsForState(state, "UMBRITE_RIG"))} • +1 UMBRITE slot${upkeepSuffixFor("UMBRITE_RIG")}`
-          ),
-          slots,
-          deps
+          )
         )
       });
     }
@@ -1370,7 +1306,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         id: "build_mine",
         label: "Build Mine",
         detail: deps.buildDetailTextForAction("build_mine", tile) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
+        ...tileActionAvailability(
           ...chainedBuildAvailability(
             "MINE",
             !hasBlockingStructure && state.techIds.includes("mining") && hasFreeResourceSlots(state, "MINE"),
@@ -1380,9 +1316,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 ? "Requires Prospector Crew"
                 : missingResourceSlotReason(state, "MINE") ?? "Unavailable",
             `${deps.structureCostText("MINE")} • ${buildTimeLabel(economicBuildMsForState(state, "MINE"))} • +1 ${matchingNeed} slot${upkeepSuffixFor("MINE")}`
-          ),
-          slots,
-          deps
+          )
         )
       });
     }
@@ -1410,7 +1344,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         id: "build_manufactory",
         label: "Build Manufactory",
         detail: deps.buildDetailTextForAction("build_manufactory", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
+        ...tileActionAvailability(
           ...chainedBuildAvailability(
             "MANUFACTORY",
             !supportPlacementBlocked && state.techIds.includes("trade") && hasFreeResourceSlots(state, "MANUFACTORY"),
@@ -1420,16 +1354,14 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 ? "Requires Industrial Tooling Module"
                 : missingResourceSlotReason(state, "MANUFACTORY") ?? "Unavailable",
             `${deps.structureCostText("MANUFACTORY")} • ${buildTimeLabel(economicBuildMsForState(state, "MANUFACTORY"))} • +${Math.round((manufactoryGoldProductionMultiplier(1, Boolean(townBuildSource.town?.clearingHouseActive), afcEffectMultiplier(state.domainIds, "clearingHouseUpliftMult")) - 1) * 100)}% town coin production (stacks)${upkeepSuffixFor("MANUFACTORY")}`
-          ),
-          slots,
-          deps
+          )
         )
       });
       out.push({
         id: "build_incubation_engine",
         label: `Build ${economicStructureName("INCUBATION_ENGINE")}`,
         detail: deps.buildDetailTextForAction("build_incubation_engine", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
+        ...tileActionAvailability(
           ...chainedBuildAvailability(
             "INCUBATION_ENGINE",
             !supportPlacementBlocked && !townHasIncubationEngine && state.techIds.includes("pottery") && hasFreeResourceSlots(state, "INCUBATION_ENGINE"),
@@ -1441,16 +1373,14 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                   ? "Requires Kiln Craft"
                   : missingResourceSlotReason(state, "INCUBATION_ENGINE") ?? "Unavailable",
             `${deps.structureCostText("INCUBATION_ENGINE")} • ${buildTimeLabel(economicBuildMsForState(state, "INCUBATION_ENGINE"))} • +10,000 population burst on completion (one-time)${upkeepSuffixFor("INCUBATION_ENGINE")}`
-          ),
-          slots,
-          deps
+          )
         )
       });
       out.push({
         id: "build_census_hall",
         label: "Build Census Hall",
         detail: deps.buildDetailTextForAction("build_census_hall", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
+        ...tileActionAvailability(
           ...chainedBuildAvailability(
             "CENSUS_HALL",
             !supportPlacementBlocked && !townHasCensusHall && state.techIds.includes("census-records") && hasFreeResourceSlots(state, "CENSUS_HALL"),
@@ -1462,16 +1392,14 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                   ? "Requires Census Bureau"
                   : missingResourceSlotReason(state, "CENSUS_HALL") ?? "Unavailable",
             `${deps.structureCostText("CENSUS_HALL")} • ${buildTimeLabel(economicBuildMsForState(state, "CENSUS_HALL"))} • +25% town growth${upkeepSuffixFor("CENSUS_HALL")}`
-          ),
-          slots,
-          deps
+          )
         )
       });
       out.push({
         id: "build_clearing_house",
         label: "Build Clearing House",
         detail: deps.buildDetailTextForAction("build_clearing_house", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
+        ...tileActionAvailability(
           ...chainedBuildAvailability(
             "CLEARING_HOUSE",
             !supportPlacementBlocked && !townHasClearingHouse && state.techIds.includes("coinage") && hasFreeResourceSlots(state, "CLEARING_HOUSE"),
@@ -1483,16 +1411,14 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                   ? "Requires Imperial Tender Warrant"
                   : missingResourceSlotReason(state, "CLEARING_HOUSE") ?? "Unavailable",
             `${deps.structureCostText("CLEARING_HOUSE")} • ${buildTimeLabel(economicBuildMsForState(state, "CLEARING_HOUSE"))} • connected Manufactory coin bonus: +${Math.round((manufactoryGoldProductionMultiplier(1, false) - 1) * 100)}% → +${Math.round((manufactoryGoldProductionMultiplier(1, true, afcEffectMultiplier(state.domainIds, "clearingHouseUpliftMult")) - 1) * 100)}% per copy${upkeepSuffixFor("CLEARING_HOUSE")}`
-          ),
-          slots,
-          deps
+          )
         )
       });
       out.push({
         id: "build_trade_nexus",
         label: "Build Trade Nexus",
         detail: deps.buildDetailTextForAction("build_trade_nexus", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
+        ...tileActionAvailability(
           ...chainedBuildAvailability(
             "TRADE_NEXUS",
             !supportPlacementBlocked && !townHasTradeNexus && state.techIds.includes("ledger-keeping") && hasFreeResourceSlots(state, "TRADE_NEXUS"),
@@ -1504,16 +1430,14 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                   ? "Requires Double-Entry Ledgers"
                   : missingResourceSlotReason(state, "TRADE_NEXUS") ?? "Unavailable",
             `${deps.structureCostText("TRADE_NEXUS")} • ${buildTimeLabel(economicBuildMsForState(state, "TRADE_NEXUS"))} • +25% connected-town bonus${upkeepSuffixFor("TRADE_NEXUS")}`
-          ),
-          slots,
-          deps
+          )
         )
       });
       out.push({
         id: "build_umbrite_works",
         label: "Build Umbrite Works",
         detail: deps.buildDetailTextForAction("build_umbrite_works", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
+        ...tileActionAvailability(
           ...chainedBuildAvailability(
             "UMBRITE_WORKS",
             !supportPlacementBlocked && !townHasUmbriteSynth && state.techIds.includes("workshops"),
@@ -1525,16 +1449,14 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                   ? "Requires Artisan Workshops"
                   : "Unavailable",
             `${deps.structureCostText("UMBRITE_WORKS")} • ${buildTimeLabel(economicBuildMsForState(state, "UMBRITE_WORKS"))}${upkeepSuffixFor("UMBRITE_WORKS")}`
-          ),
-          slots,
-          deps
+          )
         )
       });
       out.push({
         id: "build_titanium_works",
         label: "Build Titanium Works",
         detail: deps.buildDetailTextForAction("build_titanium_works", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
+        ...tileActionAvailability(
           ...chainedBuildAvailability(
             "TITANIUM_WORKS",
             !supportPlacementBlocked && !townHasTitaniumWorks && state.techIds.includes("alchemy"),
@@ -1546,16 +1468,14 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                   ? "Requires Alchemical Forges"
                   : "Unavailable",
             `${deps.structureCostText("TITANIUM_WORKS")} • ${buildTimeLabel(economicBuildMsForState(state, "TITANIUM_WORKS"))}${upkeepSuffixFor("TITANIUM_WORKS")}`
-          ),
-          slots,
-          deps
+          )
         )
       });
       out.push({
         id: "build_aether_condenser",
         label: "Build Aether Condenser",
         detail: deps.buildDetailTextForAction("build_aether_condenser", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
+        ...tileActionAvailability(
           ...chainedBuildAvailability(
             "AETHER_CONDENSER",
             // Unlike the town-support types above, Aether Condensers stack
@@ -1568,16 +1488,14 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 ? "Requires Aether Resonance Core"
                 : "Unavailable",
             `${deps.structureCostText("AETHER_CONDENSER")} • ${buildTimeLabel(economicBuildMsForState(state, "AETHER_CONDENSER"))}${upkeepSuffixFor("AETHER_CONDENSER")}`
-          ),
-          slots,
-          deps
+          )
         )
       });
       out.push({
         id: "build_neural_works",
         label: "Build Neural Works",
         detail: deps.buildDetailTextForAction("build_neural_works", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
+        ...tileActionAvailability(
           ...chainedBuildAvailability(
             "NEURAL_WORKS",
             !supportPlacementBlocked &&
@@ -1592,9 +1510,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                   ? "Requires Neural Assembly Core"
                   : (missingResourceSlotReason(state, "NEURAL_WORKS") ?? "Unavailable"),
             `${deps.structureCostText("NEURAL_WORKS")} • ${buildTimeLabel(economicBuildMsForState(state, "NEURAL_WORKS"))} • amplifies every Ancillary Depot in this connected-town network (+300 manpower cap, +0.1 manpower/min each) • boosts outpost muster within 50 tiles • one per connected-town network${upkeepSuffixFor("NEURAL_WORKS")}`
-          ),
-          slots,
-          deps
+          )
         )
       });
       // Monument-component build defs and the per-player "already built this
@@ -1606,7 +1522,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           id: def.actionId,
           label: def.actionLabel,
           detail: deps.buildDetailTextForAction(def.actionId, tile, townBuildSource) + frontierBuildDetailSuffix(tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
+          ...tileActionAvailability(
             ...chainedBuildAvailability(
               def.structureType,
               !supportPlacementBlocked &&
@@ -1627,9 +1543,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                         ? `Requires ${def.techLabel}`
                         : (missingResourceSlotReason(state, def.structureType) ?? "Unavailable"),
               `${deps.structureCostText(def.structureType)} • ${buildTimeLabel(economicBuildMsForState(state, def.structureType))} • 1 of 3 unique components for the ${def.monumentLabel}${upkeepSuffixFor(def.structureType)}`
-            ),
-            slots,
-            deps
+            )
           )
         });
       }
@@ -1637,7 +1551,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         id: "build_reserve_lattice",
         label: "Build Reserve Lattice",
         detail: deps.buildDetailTextForAction("build_reserve_lattice", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
+        ...tileActionAvailability(
           ...chainedBuildAvailability(
             "RESERVE_LATTICE",
             !supportPlacementBlocked &&
@@ -1652,16 +1566,14 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                   ? "Requires Reserve Lattice Module"
                   : (missingResourceSlotReason(state, "RESERVE_LATTICE") ?? "Unavailable"),
             `${deps.structureCostText("RESERVE_LATTICE")} • ${buildTimeLabel(economicBuildMsForState(state, "RESERVE_LATTICE"))} • changes connected Ancillary Factories to +150 cap and +35% of local terrain-adjusted base capacity • one per connected-town network${upkeepSuffixFor("RESERVE_LATTICE")}`
-          ),
-          slots,
-          deps
+          )
         )
       });
       out.push({
         id: "build_ancillary_factory",
         label: "Build Ancillary Factory",
         detail: deps.buildDetailTextForAction("build_ancillary_factory", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
+        ...tileActionAvailability(
           ...chainedBuildAvailability(
             "ANCILLARY_FACTORY",
             !supportPlacementBlocked &&
@@ -1676,9 +1588,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                   ? "Requires Ancillary Control Core"
                   : (missingResourceSlotReason(state, "ANCILLARY_FACTORY") ?? "Unavailable"),
             `${deps.structureCostText("ANCILLARY_FACTORY")} • ${buildTimeLabel(economicBuildMsForState(state, "ANCILLARY_FACTORY"))} • +0.05 manpower/min empire-wide, +0.1/min if a Neural Works is in this town's connected network${upkeepSuffixFor("ANCILLARY_FACTORY")}`
-          ),
-          slots,
-          deps
+          )
         )
       });
     }
@@ -1687,7 +1597,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         id: "build_harbor_exchange",
         label: "Build Harbor Exchange",
         detail: deps.buildDetailTextForAction("build_harbor_exchange", tile) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
+        ...tileActionAvailability(
           ...chainedBuildAvailability(
             "HARBOR_EXCHANGE",
             !hasBlockingStructure &&
@@ -1699,15 +1609,13 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 ? "Requires Harbor Engineering"
                 : (missingResourceSlotReason(state, "HARBOR_EXCHANGE") ?? "Unavailable"),
             `${deps.structureCostText("HARBOR_EXCHANGE")} • ${buildTimeLabel(economicBuildMsForState(state, "HARBOR_EXCHANGE"))} • +1440 coin/day per connected dock${upkeepSuffixFor("HARBOR_EXCHANGE")}`
-          ),
-          slots,
-          deps
+          )
         )
       });
     }
     // Settle Land / Settle Connected are pushed last (bottom of the actions list) and hidden
     // until the player has an established economy -- see client-tile-action-settle-visibility.ts.
-    out.push(...settleActionsForFrontierTile(state, tile, deps, slots, queuedSettlement));
+    out.push(...settleActionsForFrontierTile(state, tile, deps, queuedSettlement));
     out.push(...retortRecastActions());
     out.push(...crystalCoreActions());
     out.push(createMountainAction());

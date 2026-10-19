@@ -108,8 +108,7 @@ import {
   lineStepsBetween as lineStepsBetweenFromModule,
   menuActionsForSingleTile as menuActionsForSingleTileFromModule,
   validAetherWallDirectionsForTile as validAetherWallDirectionsForTileFromModule,
-  tileActionAvailability as tileActionAvailabilityFromModule,
-  tileActionAvailabilityWithDevelopmentSlot as tileActionAvailabilityWithDevelopmentSlotFromModule
+  tileActionAvailability as tileActionAvailabilityFromModule
 } from "./client-tile-action-logic/client-tile-action-logic.js";
 import {
   chebyshevDistanceClient as chebyshevDistanceClientFromModule,
@@ -1133,14 +1132,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     cost?: string
   ): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> => tileActionAvailabilityFromModule(enabled, reason, cost);
 
-  const tileActionAvailabilityWithDevelopmentSlot = (
-    enabledWithoutSlot: boolean,
-    baseReason: string,
-    cost?: string,
-    summary = developmentSlotSummary()
-  ): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> =>
-    tileActionAvailabilityWithDevelopmentSlotFromModule(enabledWithoutSlot, baseReason, cost, summary, tileActionLogicDeps());
-
   const isOwnedBorderTile = (x: number, y: number): boolean => isOwnedBorderTileFromModule(state, x, y, tileActionLogicDeps());
   const validAetherWallDirectionsForTile = (tile: Tile): Array<ClientState["aetherWallTargeting"]["direction"]> =>
     validAetherWallDirectionsForTileFromModule(state, tile, tileActionLogicDeps());
@@ -1741,7 +1732,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     beginCrystalTargeting,
     executeCrystalTargeting,
     tileActionAvailability,
-    tileActionAvailabilityWithDevelopmentSlot,
     isOwnedBorderTile,
     validAetherWallDirectionsForTile,
     aetherWallDirectionTargetTiles,
