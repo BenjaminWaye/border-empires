@@ -63,6 +63,14 @@ describe("unexplored storm clip", () => {
     // through). The clearance in s already keeps explored ground still.
     expect(shader.vertexShader).not.toContain("stormClipRing");
     expect(shader.vertexShader).toContain("transformed.y -= stormPress * max(0.0, stormGroundWorld.y - (uStormClipPlaneY - 0.04));");
+    // The main grid only has tile-corner vertices, and a fog-ring tile's
+    // explored-side corners sit at s ~ 0, so the contour press alone never
+    // moved them: mountain ground there (~0.3, over the 0.27 sheet) poked a
+    // straight-edged wedge up through the storm and over the brass line. Any
+    // tile-edge vertex touching an unexplored tile is pressed too, easing off
+    // continuously with that tile's R as it's revealed (no fixed threshold).
+    expect(shader.vertexShader).toContain("stormPress = max(stormPress, smoothstep(0.0, 0.2, stormClipEdgeUnexplored(stormGroundWorld.xz)));");
+    expect(shader.vertexShader).toMatch(/float stormClipEdgeUnexplored\(vec2 sceneXZ\) \{[\s\S]*min\(edgeDist\.x, edgeDist\.y\) > 0\.01\) return 0\.0;[\s\S]*u = max\(u, texture2D\(uStormClipMask, uv\)\.r\);/);
     // Never cut: through the clear strip inside the brass line you see the
     // ground a little further out, so a cut there showed the void as a dark seam.
     expect(shader.fragmentShader).not.toContain("discard");
