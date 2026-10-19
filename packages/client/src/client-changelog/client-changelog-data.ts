@@ -8,7 +8,6 @@ import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-ar
 import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
 import { AFC_UPGRADES_ICON_CHANGELOG } from "./client-changelog-afc-upgrades-icon.js";
 import { MUSTER_BANNER_CHANGELOG } from "./client-changelog-muster-banner.js";
-import { BATTLE_TILE_SOUND_CHANGELOG } from "./client-changelog-battle-tile-sound.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -468,7 +467,19 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "All 30 upgrade cards use short effect lines with percentages; expanded details explain conditions"
     ]
   },
-  ...BATTLE_TILE_SOUND_CHANGELOG
+  {
+    createdAt: 1792446323566, // Date.now() captured for this entry.
+    introducedIn: "2026.10.19.5",
+    title: "Muster flags under siege",
+    why: "When an enemy attacked the tile your muster flag stood on, your queued attack from that flag fired anyway and failed with \"the tile is already in combat\", as if the enemy tile you picked was the problem.",
+    changes: [
+      "A flag whose tile is under attack is now under siege: a red ring pulses round it and its soldiers stand guard (3D and 2D)",
+      "While under siege, Set Advance, March To and Clear Muster are greyed out with a countdown; Hold and Expand Capacity still work",
+      "An attack waiting on a besieged flag now waits and launches when the siege ends, instead of failing",
+      "Attacks launch from a neighbouring tile that isn't under attack whenever there is one",
+      "Blocked attacks now say whether your own muster is under siege (and for how long) or another battle already holds the target"
+    ]
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

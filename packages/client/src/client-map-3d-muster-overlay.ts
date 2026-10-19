@@ -10,6 +10,7 @@ import {
   MeshStandardMaterial,
   Object3D,
   RGBADepthPacking,
+  RingGeometry,
   Scene,
   type Texture
 } from "three";
@@ -38,6 +39,11 @@ import { TOWN_BASE_LIFT } from "./client-map-3d-town-overlay.js";
 //   • ADVANCE mode: the colour is lifted toward white and the banner whips
 //     faster in the wind; soldier dots march faster.
 //   • Dot count scales with fill ratio (sparse at start, dense near full).
+//   • Under siege (an enemy attack targets the flag's own tile, so its troops
+//     are pinned -- client-muster-siege.ts): a red ring pulses round the
+//     plinth and the soldiers stop marching in and stand guard at its rim.
+//     Driven by siegeEndsAt in tick(), so it switches off on its own when the
+//     fight resolves, without waiting for a terrain rebuild.
 
 const MAX = 256;
 const ADVANCE_WIND_SPEED = 1.6;
@@ -51,6 +57,11 @@ const MARCH_HOLD_MS = 3400;
 const MARCH_ADVANCE_MS = 2000;
 /** Soldiers halt at the plinth's rim rather than marching into it. */
 const MARCH_REACH = 0.4;
+const SIEGE_GUARD_RADIUS = 0.3;
+const SIEGE_RING_INNER = 0.38;
+const SIEGE_RING_OUTER = 0.47;
+const SIEGE_RING_LIFT = 0.012;
+const SIEGE_PULSE_MS = 900;
 
 // Murmur3-style hash [0,1) — same mixing as the settle overlay wanderHash.
 const hash01 = (wx: number, wy: number, i: number, salt: number): number => {
@@ -82,11 +93,20 @@ const soldierPos = (
   return { x: sx * scale, z: sz * scale };
 };
 
+// Besieged: soldiers stop marching in and stand evenly round the plinth rim,
+// guarding the flag.
+const siegeGuardPos = (i: number, count: number): { x: number; z: number } => {
+  const angle = (i / Math.max(1, count)) * Math.PI * 2;
+  return { x: Math.cos(angle) * SIEGE_GUARD_RADIUS, z: Math.sin(angle) * SIEGE_GUARD_RADIUS };
+};
+
 type TileEntry = {
   sceneX: number; sceneZ: number; surfaceY: number;
   fillRatio: number; advance: boolean;
   worldTileX: number; worldTileY: number;
   tintColor: Color;
+  /** Epoch ms the siege on this flag's tile resolves; 0 when not besieged. */
+  siegeEndsAt: number;
 };
 
 export type MusterOverlay = {
@@ -94,7 +114,7 @@ export type MusterOverlay = {
   readonly addMuster: (
     sceneX: number, sceneZ: number, surfaceY: number,
     fillRatio: number, ownerColor: string, advance: boolean,
-    worldTileX: number, worldTileY: number
+    worldTileX: number, worldTileY: number, siegeEndsAt?: number
   ) => void;
   readonly commit: () => void;
   readonly tick:    (nowMs: number) => void;
@@ -153,7 +173,16 @@ export const createMusterOverlay = (scene: Scene, envMap?: Texture): MusterOverl
   soldierMesh.count = 0;
   soldierMesh.renderOrder = 36;
 
-  scene.add(...pieceMeshes, soldierMesh);
+  const siegeRingGeom = new RingGeometry(SIEGE_RING_INNER, SIEGE_RING_OUTER, 32);
+  siegeRingGeom.rotateX(-Math.PI / 2);
+  const siegeRingMat = new MeshBasicMaterial({ toneMapped: false, color: "#ff3b30", transparent: true, depthWrite: false, opacity: 0.6 });
+  const siegeRingMesh = new InstancedMesh(siegeRingGeom, siegeRingMat, MAX);
+  siegeRingMesh.name = "muster-siege-ring";
+  siegeRingMesh.frustumCulled = false;
+  siegeRingMesh.count = 0;
+  siegeRingMesh.renderOrder = 35;
+
+  scene.add(...pieceMeshes, soldierMesh, siegeRingMesh);
 
   const entries: TileEntry[] = [];
   const tmpColor = new Color();
@@ -166,12 +195,12 @@ export const createMusterOverlay = (scene: Scene, envMap?: Texture): MusterOverl
   const addMuster = (
     sceneX: number, sceneZ: number, surfaceY: number,
     fillRatio: number, ownerColor: string, advance: boolean,
-    worldTileX: number, worldTileY: number
+    worldTileX: number, worldTileY: number, siegeEndsAt = 0
   ): void => {
     if (entries.length >= MAX) return;
     tmpColor.set(ownerColor);
     if (advance) tmpColor.lerp(white, 0.30); // brighter in ADVANCE
-    entries.push({ sceneX, sceneZ, surfaceY, fillRatio, advance, worldTileX, worldTileY, tintColor: tmpColor.clone() });
+    entries.push({ sceneX, sceneZ, surfaceY, fillRatio, advance, worldTileX, worldTileY, tintColor: tmpColor.clone(), siegeEndsAt });
   };
 
   const commit = (): void => {
@@ -203,14 +232,18 @@ export const createMusterOverlay = (scene: Scene, envMap?: Texture): MusterOverl
   const applySoldierMatrices = (nowMs: number): void => {
     if (entries.length === 0) { soldierMesh.count = 0; return; }
     let writeIdx = 0;
+    const epochMs = Date.now();
     for (const e of entries) {
       const period = e.advance ? MARCH_ADVANCE_MS : MARCH_HOLD_MS;
+      const besieged = e.siegeEndsAt > epochMs;
       const activeSoldiers = Math.max(
         SOLDIERS_MIN,
         Math.round(SOLDIERS_MIN + e.fillRatio * (SOLDIERS_MAX - SOLDIERS_MIN))
       );
       for (let i = 0; i < activeSoldiers; i++) {
-        const { x, z } = soldierPos(nowMs, e.worldTileX, e.worldTileY, i, period);
+        const { x, z } = besieged
+          ? siegeGuardPos(i, activeSoldiers)
+          : soldierPos(nowMs, e.worldTileX, e.worldTileY, i, period);
         dummy.position.set(e.sceneX + x, e.surfaceY + SOLDIER_Y, e.sceneZ + z);
         dummy.rotation.set(0, 0, 0);
         dummy.updateMatrix();
@@ -223,13 +256,29 @@ export const createMusterOverlay = (scene: Scene, envMap?: Texture): MusterOverl
     soldierMesh.instanceMatrix.needsUpdate = true;
   };
 
+  const applySiegeRings = (nowMs: number): void => {
+    const epochMs = Date.now();
+    let writeIdx = 0;
+    for (const e of entries) {
+      if (e.siegeEndsAt <= epochMs) continue;
+      siegeRingMesh.setMatrixAt(writeIdx++, matrix.makeTranslation(e.sceneX, e.surfaceY + SIEGE_RING_LIFT, e.sceneZ));
+    }
+    siegeRingMesh.count = writeIdx;
+    if (writeIdx === 0) return;
+    siegeRingMat.opacity = 0.35 + 0.45 * (0.5 + 0.5 * Math.sin((nowMs / SIEGE_PULSE_MS) * Math.PI * 2));
+    siegeRingMesh.instanceMatrix.clearUpdateRanges();
+    siegeRingMesh.instanceMatrix.addUpdateRange(0, writeIdx * 16);
+    siegeRingMesh.instanceMatrix.needsUpdate = true;
+  };
+
   const tick = (nowMs: number): void => {
     clothMaterials.tick(nowMs);
     applySoldierMatrices(nowMs);
+    applySiegeRings(nowMs);
   };
 
   const dispose = (): void => {
-    scene.remove(...pieceMeshes, soldierMesh);
+    scene.remove(...pieceMeshes, soldierMesh, siegeRingMesh);
     // The baked plinth geometry is shared across overlays; only the cloth copy is ours.
     clothGeometry.dispose();
     for (const material of [bodyMaterial, metalMaterial, enamelMaterial, depthMaterial]) material.dispose();
@@ -237,6 +286,9 @@ export const createMusterOverlay = (scene: Scene, envMap?: Texture): MusterOverl
     for (const mesh of pieceMeshes) mesh.dispose();
     soldierGeom.dispose();
     soldierMat.dispose();
+    siegeRingGeom.dispose();
+    siegeRingMat.dispose();
+    siegeRingMesh.dispose();
   };
 
   return { clear, addMuster, commit, tick, dispose };
