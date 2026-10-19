@@ -1,8 +1,8 @@
 // Dynamic soundtrack for Border Empires. A looping music bed reacts to
 // conflict state (calm / an attack approaching or marching out / an active
 // battle), and short location themes play once over the top when the player
-// looks at a town, dock, natural wonder, or ongoing-battle tile — ducking the music bed out
-// and fading it back in afterward.
+// looks at a town, dock, natural wonder, or ongoing-battle tile — ducking the
+// music bed out and fading it back in afterward.
 //
 // Playback only starts after the player's first pointer/key interaction —
 // browsers block audio autoplay before a user gesture. Volume/mute are
@@ -277,8 +277,8 @@ export const updateMusicForGameState = (input: { combat: boolean; tension: boole
 };
 
 /**
- * Plays a location theme once (town/dock/natural wonder/ongoing battle). During calm music,
- * this ducks the music bed out while it plays and fades the bed back in
+ * Plays a location theme once (town/dock/natural wonder/ongoing battle).
+ * During calm music, this ducks the music bed out while it plays and fades the bed back in
  * (continuing from wherever it was paused, not restarting) a short beat
  * after the one-shot ends. During tension/combat ("war") music, the bed is
  * never paused or ducked — the location theme just plays on top of it, so an

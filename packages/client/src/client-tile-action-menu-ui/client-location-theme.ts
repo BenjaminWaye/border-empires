@@ -23,7 +23,7 @@ const isOwnedTownSupportTile = (state: ClientState, tile: Tile): boolean => {
   return false;
 };
 
-type BattleState = Pick<ClientState, "activeBattles" | "capture" | "incomingAttacksByTile" | "outgoingMusterAttacksByTile">;
+type BattleState = Pick<ClientState, "me" | "activeBattles" | "capture" | "incomingAttacksByTile" | "outgoingMusterAttacksByTile">;
 
 /**
  * Whether a fight is underway on this tile right now — the same sources the
@@ -44,6 +44,7 @@ export const isTileInOngoingBattle = (state: BattleState, tile: Tile, nowMs: num
   if (capture && capture.actionType === "ATTACK" && capture.target.x === tile.x && capture.target.y === tile.y && capture.resolvesAt > nowMs) return true;
   const outgoing = state.outgoingMusterAttacksByTile.get(key);
   if (outgoing && !outgoing.isExpand && outgoing.resolvesAt > nowMs) return true;
+  if (tile.ownerId !== state.me) return false;
   const incoming = state.incomingAttacksByTile.get(key);
   return Boolean(incoming && incoming.resolvesAt > nowMs && (incoming.transitEndsAt ?? 0) <= nowMs);
 };

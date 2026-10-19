@@ -40,9 +40,17 @@ describe("isTileInOngoingBattle", () => {
 
   it("counts an incoming attack once it has arrived, not while the company is still marching in", () => {
     const state = createInitialState();
+    state.me = "me";
     state.incomingAttacksByTile.set("5,7", { attackerName: "Rival", resolvesAt: NOW + 5_000, transitEndsAt: NOW + 1_000 });
-    expect(isTileInOngoingBattle(state, tileAt(), NOW)).toBe(false);
-    expect(isTileInOngoingBattle(state, tileAt(), NOW + 1_000)).toBe(true);
+    expect(isTileInOngoingBattle(state, tileAt({ ownerId: "me" }), NOW)).toBe(false);
+    expect(isTileInOngoingBattle(state, tileAt({ ownerId: "me" }), NOW + 1_000)).toBe(true);
+  });
+
+  it("ignores a lingering incoming attack on a tile that has already changed hands", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.incomingAttacksByTile.set("5,7", { attackerName: "Rival", resolvesAt: NOW + 5_000 });
+    expect(isTileInOngoingBattle(state, tileAt({ ownerId: "rival" }), NOW)).toBe(false);
   });
 
   it("is false on a fogged tile even if stale battle state lingers", () => {
