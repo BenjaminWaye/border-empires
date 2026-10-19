@@ -4,7 +4,6 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import type { Tile } from "../client-types.js";
 import { musterStatusText } from "../client-side-panel-html/client-side-panel-html.js";
-import { occupationSurveyController } from "../client-occupation-survey.js";
 import { pickLocatorSlots } from "./client-persistent-alert-locator-slots.js";
 import { hostileMusterDetail, hostileMusterNearBorder, type HostileMusterAlertState, type HostileMusterNearBorder } from "../client-hostile-muster-alerts/client-hostile-muster-alerts.js";
 
@@ -36,9 +35,6 @@ export type PersistentAlertLocator = {
 
 type PersistentAlertState = Pick<ClientState, "me" | "tiles" | "waypoint" | "persistentAlertLocators"> & {
   shardRainStatus?: ClientState["shardRainStatus"] | undefined;
-  techIds?: ClientState["techIds"];
-  authSessionReady?: boolean;
-  profileSetupRequired?: boolean;
 };
 
 const townLabel = (tile: Tile): string => tile.town?.name || tile.townName || `Town ${tile.x}, ${tile.y}`;
@@ -380,8 +376,6 @@ export const drawPersistentAlertLocators = (
     precomputedAlerts?: PersistentAlert[];
   }
 ): void => {
-  occupationSurveyController.installViewHandler((report) => { state.camX = report.x; state.camY = report.y; });
-  occupationSurveyController.sync({ camX: state.camX, camY: state.camY, camSubX: 0, camSubY: 0, selected: undefined, techIds: state.techIds ?? [], presentationReady: state.authSessionReady !== false && !state.profileSetupRequired }, deps.worldToScreen, deps.size, deps.halfW, deps.halfH);
   const allAlerts = deps.precomputedAlerts ?? persistentAlertsForState(state);
   const alerts = nearestPersistentAlerts(
     allAlerts,
