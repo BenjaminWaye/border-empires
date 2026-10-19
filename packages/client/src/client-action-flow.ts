@@ -1,4 +1,5 @@
 import { dispatchTileAetherAction } from "./client-afc-upgrades/client-afc-tower-action.js";
+import { createGarrisonManyFlow } from "./client-garrison-many/client-garrison-many.js";
 import { openDiplomacyForPlayer } from "./client-tile-action-diplomacy/client-tile-action-diplomacy.js";
 import { devQueueTierForIndex, devQueueTierRelativeIndex, FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST, structureRequiresClientPlacement, structureSkipsSettledRequirement, type BuildableStructureType, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
 import {
@@ -1211,7 +1212,12 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     keyFor, pickOriginForTarget, isTileOwnedByAlly, queueSpecificTargets, processActionQueue, attackQueueFailureReason, pushFeed, showCaptureAlert, hideTileActionMenu
   });
 
+  const garrisonMany = createGarrisonManyFlow(state, {
+    keyFor, hideTileActionMenu, renderHud, requestSettlement, processDevelopmentQueue, pushFeed
+  });
+
   const handleTileAction = (actionId: string, _targetKeyOverride?: string, _originKeyOverride?: string): void => {
+    if (state.garrisonMany.active) garrisonMany.cancel();
     const singleTargetKey = state.tileActionMenu.mode === "single" ? state.tileActionMenu.currentTileKey : "";
     const selectedKey = singleTargetKey || (state.selected ? keyFor(state.selected.x, state.selected.y) : "");
     const selected = state.tiles.get(selectedKey);
@@ -1227,31 +1233,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
     if (handleWaypointAction({ state, selected: selectedCoords, actionId, keyFor, pushFeed, renderHud, hideTileActionMenu, showCaptureAlert, processActionQueue, sendGameMessage })) return;
 
-    if (actionId === "settle_connected_frontier" && selected) {
-      const origSelected = { x: selected.x, y: selected.y };
-      const keys = connectedOwnedFrontierKeys(state, selected, { keyFor, wrapX, wrapY });
-      let queued = 0;
-      let skipped = 0;
-      for (const k of keys) {
-        const t = state.tiles.get(k);
-        if (!t) { skipped += 1; continue; }
-        // forceQueue so every tile enters the development queue; the dispatcher
-        // then paces them one slot at a time. Sending each directly would fire all
-        // N SETTLEs synchronously against a server slot count that hasn't caught up,
-        // so the overflow comes back as "development slots are busy".
-        if (requestSettlement(t.x, t.y, { forceQueue: true, suppressWarnings: true })) queued += 1; else skipped += 1;
-      }
-      if (queued > 0) processDevelopmentQueue();
-      state.selected = origSelected;
-      if (queued <= 0) showCaptureAlert("Garrison blocked", "No garrisons queued. Check coin and development slots.", "warn");
-      pushFeed(
-        queued > 0
-          ? `Queued ${queued} garrisons across connected frontier${skipped > 0 ? ` (${skipped} skipped)` : ""}.`
-          : "No garrisons queued — check coin / slots.",
-        "combat",
-        queued > 0 ? "info" : "warn"
-      );
-      hideTileActionMenu();
+    if (actionId === "settle_many" && selected) {
+      clearCrystalTargeting();
+      cancelBuildingPlacement();
+      garrisonMany.begin(selected);
       return;
     }
     if (actionId === "settle_land") {
@@ -1466,6 +1451,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
     hideTileActionMenu();
+
+    if (garrisonMany.select(wx, wy)) return;
 
     const clicked = state.tiles.get(keyFor(wx, wy));
     const vis = deps.tileVisibilityStateAt(wx, wy, clicked);

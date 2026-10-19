@@ -1,3 +1,4 @@
+import { drawMapSelection2D } from "./client-garrison-many/client-map-selection-2d.js";
 import { MIN_ZOOM, isForestTile } from "./client-constants.js"; import { startTileMenuDecayTicker } from "./client-tile-menu-decay-ticker/client-tile-menu-decay-ticker.js"; import { startMusterStatusTicker } from "./client-muster-status-ticker/client-muster-status-ticker.js"; import { startMusterMenuRepaintTicker } from "./client-muster-menu-repaint-ticker/client-muster-menu-repaint-ticker.js";
 import { updateMusicForGameState } from "./client-audio/client-audio.js";
 import { computeWarMusicSignals } from "./client-war-music-signal/client-war-music-signal.js";
@@ -626,43 +627,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
       }
 
-      if (!isTrue3DRendererActive() && state.selected && state.selected.x === wx && state.selected.y === wy) {
-        if (t?.ownerId === state.me && t.ownershipState === "SETTLED") {
-          deps.ctx.fillStyle = "rgba(255, 209, 102, 0.18)";
-          deps.ctx.fillRect(px, py, size, size);
-        } else {
-          const selectedOutOfReach = Boolean(myReach) && !myReach!.has(deps.keyFor(wx, wy)); // fixed-border reach: dashed orange outside reach
-          if (selectedOutOfReach) deps.ctx.setLineDash([4, 3]);
-          deps.ctx.strokeStyle = selectedOutOfReach ? "#ff8a3d" : "#ffd166"; deps.ctx.lineWidth = 2; deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1); deps.ctx.lineWidth = 1;
-          if (selectedOutOfReach) deps.ctx.setLineDash([]);
-        }
-      } else if (state.selected) {
-        const selected = state.tiles.get(deps.keyFor(state.selected.x, state.selected.y));
-        if (
-          !isTrue3DRendererActive() &&
-          selected?.town &&
-          deps.isTownSupportNeighbor(wx, wy, state.selected.x, state.selected.y, selected.town.populationTier) &&
-          deps.isTownSupportHighlightableTile(t)
-        ) {
-          if (t?.terrain !== "LAND") deps.ctx.strokeStyle = "rgba(92, 103, 127, 0.7)";
-          else if (!t?.ownerId) deps.ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
-          else if (t.ownerId !== state.me) deps.ctx.strokeStyle = "rgba(255, 98, 98, 0.65)";
-          else if (t.ownershipState === "SETTLED") deps.ctx.strokeStyle = "rgba(155, 242, 116, 0.88)";
-          else deps.ctx.strokeStyle = "rgba(255, 205, 92, 0.82)";
-          if (t?.ownerId === state.me && t.ownershipState === "SETTLED") {
-            deps.ctx.fillStyle = "rgba(155, 242, 116, 0.12)";
-            deps.ctx.fillRect(px, py, size, size);
-          } else {
-            deps.ctx.lineWidth = 2;
-            deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
-            deps.ctx.lineWidth = 1;
-          }
-        }
-      }
-      if (!isTrue3DRendererActive() && state.hover && state.hover.x === wx && state.hover.y === wy) {
-        deps.ctx.strokeStyle = "rgba(255,255,255,0.55)";
-        deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
-      }
+      drawMapSelection2D(state, deps, wx, wy, t, px, py, size, myReach);
       const incomingAttack = drawableIncomingAttack(state, wk, Date.now());
       if (incomingAttack && !isTrue3DRendererActive()) deps.drawIncomingAttackOverlay(wx, wy, px, py, size, incomingAttack.resolvesAt);
       if (!isTrue3DRendererActive() && settlementProgress) {
@@ -1035,43 +1000,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           }
         }
 
-        if (!isTrue3DRendererActive() && state.selected && state.selected.x === wx && state.selected.y === wy) {
-          if (t?.ownerId === state.me && t.ownershipState === "SETTLED") {
-            deps.ctx.fillStyle = "rgba(255, 209, 102, 0.18)";
-            deps.ctx.fillRect(px, py, size, size);
-          } else {
-            deps.ctx.strokeStyle = "#ffd166";
-            deps.ctx.lineWidth = 2;
-            deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
-            deps.ctx.lineWidth = 1;
-          }
-        } else if (state.selected) {
-          const selected = state.tiles.get(deps.keyFor(state.selected.x, state.selected.y));
-          if (
-            !isTrue3DRendererActive() &&
-            selected?.town &&
-            deps.isTownSupportNeighbor(wx, wy, state.selected.x, state.selected.y, selected.town.populationTier) &&
-            deps.isTownSupportHighlightableTile(t)
-          ) {
-            if (t?.terrain !== "LAND") deps.ctx.strokeStyle = "rgba(92, 103, 127, 0.7)";
-            else if (!t?.ownerId) deps.ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
-            else if (t.ownerId !== state.me) deps.ctx.strokeStyle = "rgba(255, 98, 98, 0.65)";
-            else if (t.ownershipState === "SETTLED") deps.ctx.strokeStyle = "rgba(155, 242, 116, 0.88)";
-            else deps.ctx.strokeStyle = "rgba(255, 205, 92, 0.82)";
-            if (t?.ownerId === state.me && t.ownershipState === "SETTLED") {
-              deps.ctx.fillStyle = "rgba(155, 242, 116, 0.12)";
-              deps.ctx.fillRect(px, py, size, size);
-            } else {
-              deps.ctx.lineWidth = 2;
-              deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
-              deps.ctx.lineWidth = 1;
-            }
-          }
-        }
-        if (!isTrue3DRendererActive() && state.hover && state.hover.x === wx && state.hover.y === wy) {
-          deps.ctx.strokeStyle = "rgba(255,255,255,0.55)";
-          deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
-        }
+        drawMapSelection2D(state, deps, wx, wy, t, px, py, size, myReach);
         const incomingAttack = drawableIncomingAttack(state, wk, Date.now());
         if (incomingAttack && !isTrue3DRendererActive()) deps.drawIncomingAttackOverlay(wx, wy, px, py, size, incomingAttack.resolvesAt);
         if (!isTrue3DRendererActive() && settlementProgress) {

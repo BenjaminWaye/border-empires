@@ -1,5 +1,6 @@
 import { AFC_SPECIALIZATIONS_CHANGELOG } from "./client-changelog-afc-specializations.js";
 import { ALLIANCES_TAB_CHANGELOG } from "./client-changelog-alliances-tab.js";
+import { ENEMY_MUSTER_WARNING_CHANGELOG, FRONTIER_REACH_WARNING_CHANGELOG } from "./client-changelog-enemy-muster-warning.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_17 } from "./client-changelog-oct-17.js";
 import { AETHER_ABILITY_ICONS_CHANGELOG } from "./client-changelog-aether-ability-icons.js";
 import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-art-october.js";
@@ -54,24 +55,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AFC_SPECIALIZATIONS_CHANGELOG,
   ...ALLIANCES_TAB_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_OCT_17,
-  {
-    createdAt: 1792044007050, // Date.now() frozen for the changelog gate.
-    introducedIn: "2026.10.15.1",
-    title: "Warnings for enemy muster flags near your border",
-    why: "An enemy could stage troops on a muster flag right next to your land, and you only found out once the attack landed.",
-    changes: [
-      "A warning pops up when an enemy muster flag appears within 4 tiles of your territory, or an existing one switches to Advance or March, with a button to center on it",
-      "Enemy flags near your border get a red off-screen pointer in both map renderers, ahead of your own alerts while still leaving room for them",
-      "Flags of allies and truce partners don't trigger warnings"
-    ]
-  },
-  {
-    createdAt: 1791970358363, // Date.now() frozen for the changelog gate.
-    introducedIn: "2026.10.14.3",
-    title: "Enemy frontier warnings refer to their owner's reach",
-    why: "An enemy tile's decay timer incorrectly said beyond your reach even when it was within yours.",
-    changes: ["Enemy frontier decay warnings now refer to the tile owner's reach in both map renderers"]
-  },
+  ENEMY_MUSTER_WARNING_CHANGELOG,
+  FRONTIER_REACH_WARNING_CHANGELOG,
   {
     createdAt: 1791969768256, // Frozen Date.now() timestamp for the changelog gate.
     introducedIn: "2026.10.14.2",
@@ -428,8 +413,21 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1792399197096, // Date.now() frozen for the changelog gate.
+    introducedIn: "2026.10.19.1",
+    title: "Choose exactly which tiles to garrison",
+    why: "Garrison Connected queued a whole region immediately, making it hard to control where manpower went.",
+    changes: [
+      "Garrison Many lets you tap frontier tiles to select or deselect them, with highlights in both map renderers",
+      "The bottom bar shows the selected count and total cost, with Confirm and Cancel; keep tapping tiles to adjust the selection",
+      "Confirmation checks ownership, reach and resources; unavailable selected tiles turn orange so you can deselect them before spending",
+      "Dragging and pinching still move the map; taps select tiles once",
+    "Alert markers still center on their targets, and deselected tiles lose their outline in both map renderers"
+    ]
+  },
+  {
     createdAt: 1792418764643, // Date.now() frozen for this entry, as required by the changelog gate.
-    introducedIn: "2026.10.18.3",
+    introducedIn: "2026.10.19.2",
     title: "Diplomacy offers say what's offered, and you can counter them",
     why: "Pending offers in the Alliances tab only showed a name, an internal player ID and a duration, so it wasn't clear whether a card was an alliance or a truce, and the only answers were yes or no.",
     changes: [
