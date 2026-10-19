@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { settleDurationMsForTile } from "../client-constants.js";
 import { settleDurationMsForState, settlementSpeedMultiplierForState } from "../client-queue-logic/client-queue-logic.js";
 import { createInitialState } from "../client-state/client-state.js";
-import { menuActionsForSingleTile } from "../client-tile-action-logic/client-tile-action-logic.js";
+import { menuActionsForSingleTile, tileActionAvailability } from "../client-tile-action-logic/client-tile-action-logic.js";
 import { hasAdjacentSeaEightWay, observatoryTileRank, ownedActiveObservatoryWithinRange, ownedActiveOrBuildingObservatoryCount, shouldOptimisticallyBuildOnSelectedTile, splitTileActionsIntoTabs } from "./client-tile-action-support.js";
 import type { DevelopmentSlotSummary } from "../client-queue-logic/client-queue-logic.js";
 import type { Tile, TileActionDef } from "../client-types.js";
@@ -370,6 +370,20 @@ describe("town support tile actions", () => {
     expect(buildActions.filter((action) => action.cost?.includes("queues"))).toEqual([]);
     expect(withFullSlots.find((action) => action.id === "build_manufactory")).toMatchObject({ disabled: false });
     expect(withFullSlots).toEqual(withFreeSlots);
+  });
+});
+
+describe("tileActionAvailability", () => {
+  it("omits the cost line for a cost-less enabled action", () => {
+    expect(tileActionAvailability(true, "Build Palisade")).toEqual({ disabled: false });
+  });
+
+  it("keeps the real blocker and cost on a disabled action", () => {
+    expect(tileActionAvailability(false, "Need 900 gold", "900 gold • 8m")).toEqual({
+      disabled: true,
+      disabledReason: "Need 900 gold",
+      cost: "900 gold • 8m"
+    });
   });
 });
 
