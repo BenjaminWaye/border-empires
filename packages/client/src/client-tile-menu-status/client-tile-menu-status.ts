@@ -20,7 +20,7 @@ export type TileMenuHeaderStatus = {
 
 const INSIDE_REACH_HELP_TEXT = "Can't garrison inside another empire's reach.";
 const BEYOND_REACH_HELP_TEXT =
-  "Can't garrison beyond your reach. This land holds only while its chain of frontier links back to your settled land — if that chain is cut anywhere, everything past the cut is lost at once.";
+  "Can't garrison or build buildings on tiles outside your reach. Extend your reach using Relay Beacons.";
 
 const disabledUntilForTileStructure = (tile: Tile): number | undefined => tile.economicStructure?.disabledUntil ?? tile.fort?.disabledUntil;
 

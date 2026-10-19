@@ -95,14 +95,13 @@ describe("tileMenuHeaderStatusForTile — priority", () => {
 });
 
 describe("tileMenuHeaderStatusForTile — reach lines", () => {
-  it("shows \"Beyond your reach\" with the supply-line explainer for own frontier in no-man's-land", () => {
+  it("shows \"Beyond your reach\" with the garrison/build explainer for own frontier in no-man's-land", () => {
     // Regression: this used to read "Beyond your reach — decays in 90s".
-    // Out-of-reach frontier no longer decays, so the line explains what does
-    // threaten it instead of a countdown.
+    // Out-of-reach frontier no longer decays, so the line explains what you
+    // can't do there and how to extend reach instead of a countdown.
     const status = tileMenuHeaderStatusForTile(makeFrontierTile(), 1_000, () => false, () => []);
     expect(status?.text).toBe("Beyond your reach");
-    expect(status?.helpText).toMatch(/Can't garrison beyond your reach/);
-    expect(status?.helpText).toMatch(/everything past the cut is lost/);
+    expect(status?.helpText).toBe("Can't garrison or build buildings on tiles outside your reach. Extend your reach using Relay Beacons.");
   });
 
   it("ignores a legacy OUT_OF_REACH timer instead of counting it down", () => {
