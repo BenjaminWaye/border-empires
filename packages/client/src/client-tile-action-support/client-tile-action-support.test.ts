@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { settleDurationMsForTile } from "../client-constants.js";
 import { settleDurationMsForState, settlementSpeedMultiplierForState } from "../client-queue-logic/client-queue-logic.js";
 import { createInitialState } from "../client-state/client-state.js";
-import { menuActionsForSingleTile, tileActionAvailabilityWithDevelopmentSlot } from "../client-tile-action-logic/client-tile-action-logic.js";
+import { menuActionsForSingleTile } from "../client-tile-action-logic/client-tile-action-logic.js";
 import { hasAdjacentSeaEightWay, observatoryTileRank, ownedActiveObservatoryWithinRange, ownedActiveOrBuildingObservatoryCount, shouldOptimisticallyBuildOnSelectedTile, splitTileActionsIntoTabs } from "./client-tile-action-support.js";
 import type { DevelopmentSlotSummary } from "../client-queue-logic/client-queue-logic.js";
 import type { Tile, TileActionDef } from "../client-types.js";
@@ -278,7 +278,7 @@ describe("shouldOptimisticallyBuildOnSelectedTile", () => {
 });
 
 describe("town support tile actions", () => {
-  it("uses the first assigned town instead of blocking shared support tiles", () => {
+  const supportTileMenuActions = (developmentSlots: DevelopmentSlotSummary): TileActionDef[] => {
     const clientState = createInitialState();
     clientState.me = "me";
     clientState.gold = 500;
@@ -313,7 +313,7 @@ describe("town support tile actions", () => {
       }
     });
 
-    const actions = menuActionsForSingleTile(clientState, supportTile, {
+    return menuActionsForSingleTile(clientState, supportTile, {
       keyFor: (x: number, y: number) => `${x},${y}`,
       parseKey: (key: string) => {
         const [x, y] = key.split(",").map(Number);
@@ -338,8 +338,8 @@ describe("town support tile actions", () => {
   attackPreviewManpowerCostForTarget: () => undefined,
       pickOriginForTarget: () => undefined,
       buildDetailTextForAction: () => undefined,
-      developmentSlotSummary: () => ({ busy: 0, limit: 3, available: 3 }),
-      developmentSlotReason: () => "",
+      developmentSlotSummary: () => developmentSlots,
+      developmentSlotReason: () => "No available development slots",
       structureGoldCost: () => 0,
       structureCostText: () => "0 gold",
       supportedOwnedTownsForTile: () => [town(209, 148), town(211, 150)],
@@ -349,38 +349,27 @@ describe("town support tile actions", () => {
       pendingTruceWithPlayer: () => undefined,
       ownerSpawnShieldActive: () => false
     } as never);
+  };
 
+  it("uses the first assigned town instead of blocking shared support tiles", () => {
+    const actions = supportTileMenuActions({ busy: 0, limit: 3, available: 3 });
     expect(actions.find((action) => action.id === "build_manufactory")).toMatchObject({
       disabled: false
     });
     expect(actions.some((action) => action.disabledReason === "Support tile touches multiple towns")).toBe(false);
   });
-});
 
-describe("tileActionAvailabilityWithDevelopmentSlot", () => {
-  const fullSlots: DevelopmentSlotSummary = { busy: 3, limit: 3, available: 0 };
-
-  it("keeps otherwise-valid builds enabled with the plain cost when development slots are full", () => {
-    expect(
-      tileActionAvailabilityWithDevelopmentSlot(true, "Build Palisade", "900 gold", fullSlots, {
-        developmentSlotReason: () => "No available development slots (3/3 busy)"
-      })
-    ).toEqual({
-      disabled: false,
-      cost: "900 gold"
-    });
-  });
-
-  it("shows no cost line rather than a queue note for a cost-less build when slots are full", () => {
-    expect(tileActionAvailabilityWithDevelopmentSlot(true, "Build Palisade", undefined, fullSlots)).toEqual({ disabled: false });
-  });
-
-  it("preserves the real blocker instead of blaming full development slots for unavailable builds", () => {
-    expect(tileActionAvailabilityWithDevelopmentSlot(false, "Need 900 gold", "900 gold • 8m", fullSlots)).toEqual({
-      disabled: true,
-      disabledReason: "Need 900 gold",
-      cost: "900 gold • 8m"
-    });
+  // Regression (#2405): full development slots used to append " • queues" to
+  // every build button's cost line, which confused players. Orders still
+  // queue server-side, but the button must look exactly as it does with free slots.
+  it("keeps build buttons enabled with the plain cost when development slots are full", () => {
+    const withFreeSlots = supportTileMenuActions({ busy: 0, limit: 3, available: 3 });
+    const withFullSlots = supportTileMenuActions({ busy: 3, limit: 3, available: 0 });
+    const buildActions = withFullSlots.filter((action) => action.id.startsWith("build_"));
+    expect(buildActions.length).toBeGreaterThan(0);
+    expect(buildActions.filter((action) => action.cost?.includes("queues"))).toEqual([]);
+    expect(withFullSlots.find((action) => action.id === "build_manufactory")).toMatchObject({ disabled: false });
+    expect(withFullSlots).toEqual(withFreeSlots);
   });
 });
 
