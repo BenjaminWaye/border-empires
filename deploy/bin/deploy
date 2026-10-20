@@ -4,6 +4,8 @@
 #
 #   <40-char git sha>   deploy that sha (pull image, fetch config, switch, health-gate)
 #   rollback            redeploy the previous image
+#   client <sha>        publish a validated static client archive from stdin
+#   client-rollback     restore the previous static client without restarting
 #   snapshot            stream a consistent VACUUM INTO copy of the DB to stdout
 #   logs [<since>]      print the app container's logs since <since> (e.g. 30m,
 #                       6h; default 15m). The read-only logs key's forced command
@@ -16,6 +18,11 @@ set -euo pipefail
 # Path/URL overrides exist for local testing; SSH never forwards env, so the
 # CI key cannot change them.
 . "${HOST_CONF:=/etc/border-empires/host.conf}"   # BE_ENV, BE_HOSTNAME, GITHUB_REPO, IMAGE_REPO
+if [ "$BE_ENV" = production ]; then
+  BE_CLIENT_HOSTNAME="${BE_CLIENT_HOSTNAME:-play.borderempires.com}"
+else
+  BE_CLIENT_HOSTNAME="${BE_CLIENT_HOSTNAME:-staging.borderempires.com}"
+fi
 APP_DIR="${APP_DIR:-/opt/border-empires}"
 STATE_DIR="${STATE_DIR:-/srv/border-empires}"
 CONFIG_BASE_URL="${CONFIG_BASE_URL:-https://raw.githubusercontent.com/${GITHUB_REPO}}"
@@ -30,6 +37,9 @@ SETTLE_TIMEOUT_SECONDS="${SETTLE_TIMEOUT_SECONDS:-300}"
 LOGS_ONLY=0
 if [ "${1:-}" = "--logs-only" ]; then LOGS_ONLY=1; shift; fi
 ARG="${SSH_ORIGINAL_COMMAND:-$*}"
+# The client publisher also works with an administrator's ordinary SSH key.
+# A forced key still parses this fixed prefix and applies the same allowlist.
+ARG="${ARG#/opt/border-empires/bin/deploy }"
 # "<verb> [<arg>]" -- only `logs` takes an argument; EXTRA must stay empty.
 read -r VERB VERB_ARG EXTRA <<<"$ARG" || true
 
@@ -44,6 +54,7 @@ IMAGE=$1
 BUILD_SHA=$2
 BE_ENV=${BE_ENV}
 BE_HOSTNAME=${BE_HOSTNAME}
+BE_CLIENT_HOSTNAME=${BE_CLIENT_HOSTNAME}
 ENVEOF
 }
 
@@ -87,7 +98,7 @@ fetch_config() { # sha
   local sha="$1" tmp f
   tmp="$(mktemp -d)"
   mkdir -p "$tmp/env" "$tmp/bin"
-  for f in compose.yml Caddyfile "env/${BE_ENV}.env" bin/backup; do
+  for f in compose.yml Caddyfile "env/${BE_ENV}.env" bin/backup bin/publish-client; do
     curl -fsSL --retry 3 -o "$tmp/$f" "${CONFIG_BASE_URL}/${sha}/deploy/${f}" \
       || { log "could not fetch deploy/${f} at ${sha}"; rm -rf "$tmp"; return 1; }
   done
@@ -96,6 +107,7 @@ fetch_config() { # sha
   install -d env
   install -m 644 "$tmp/env/${BE_ENV}.env" "env/${BE_ENV}.env"
   install -m 755 "$tmp/bin/backup" backup
+  install -m 755 "$tmp/bin/publish-client" publish-client
   rm -rf "$tmp"
 }
 
@@ -107,9 +119,18 @@ prune_images() { # keep current + 2 newest others
 
 [ -z "${EXTRA:-}" ] || { log "too many arguments"; exit 2; }
 [ "$LOGS_ONLY" = 0 ] || [ "$VERB" = "logs" ] || { log "this key may only run: logs [<since>]"; exit 2; }
-[ "$VERB" = "logs" ] || [ -z "${VERB_ARG:-}" ] || { log "${VERB} takes no arguments"; exit 2; }
+[ "$VERB" = "logs" ] || [ "$VERB" = "client" ] || [ -z "${VERB_ARG:-}" ] || { log "${VERB} takes no arguments"; exit 2; }
 
 case "$VERB" in
+  client)
+    [[ "${VERB_ARG:-}" =~ ^[0-9a-f]{40}$ ]] || { log "usage: client <sha>"; exit 2; }
+    exec python3 "$APP_DIR/publish-client" "$VERB_ARG"
+    ;;
+
+  client-rollback)
+    exec python3 "$APP_DIR/publish-client" rollback
+    ;;
+
   logs)
     since="${VERB_ARG:-15m}"
     # Strict allowlist: this string reaches docker's argv, never a shell.
@@ -140,7 +161,7 @@ new DatabaseSync("/data/border-empires.db").exec("VACUUM INTO \x27/data/snapshot
 
   *)
     sha="$VERB"
-    [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { log "usage: <40-char sha> | rollback | snapshot | logs [<since>]"; exit 2; }
+    [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { log "usage: <sha> | rollback | snapshot | logs [<since>] | client <sha> | client-rollback"; exit 2; }
     image="${IMAGE_REPO}:${sha}"
     prev="$(read_var IMAGE)"
     log "deploying ${image} (was ${prev:-<none>})"

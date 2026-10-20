@@ -283,20 +283,18 @@ Production (`play.borderempires.com`) and staging (`staging.borderempires.com`) 
 
 - Production backend: Hetzner Cloud server behind `api.borderempires.com` (`deploy/`); Fly app `border-empires-combined` is stopped (rollback only)
 - Staging backend: Hetzner Cloud server behind `api-staging.borderempires.com`; Fly app `border-empires-combined-staging` is stopped (rollback only)
-- Client: Vercel project `border-empires-client`
+- Client: static Vite builds served by Caddy on the same Hetzner servers, including `https://api.borderempires.com/` and `https://api-staging.borderempires.com/`; Vercel is no longer required
 - Hetzner backend details: `deploy/`, plan in `docs/hetzner-migration-plan.md`, operations in `docs/agents/deploys.md`
 
-**Deploy to staging:**
+Backend and client releases deploy automatically after green CI on `develop` (staging) and `main` (production). Production retains the prod-shape gate.
+
+**Publish just the matching client** from the intended environment's commit:
 ```bash
-pnpm deploy:staging:all
+pnpm deploy:client:hetzner staging
+# or: pnpm deploy:client:hetzner production
 ```
 
-**Deploy to production** (requires a passing prod-shape gate against a live snapshot):
-```bash
-pnpm deploy:prod:all
-```
-
-Full deploy procedures, safety requirements, prod-shape gate workflow, Vercel env scopes, and Fly escape hatches are documented in `docs/agents/deploys.md`. Read that before any deploy or Fly/Vercel CLI work.
+Full deploy procedures, first-time client provisioning and DNS cutover are documented in `docs/agents/deploys.md`. The old `deploy:*:all` scripts target Fly/Vercel and must not be used for Hetzner releases.
 
 ### Environment Variables (key runtime knobs)
 
