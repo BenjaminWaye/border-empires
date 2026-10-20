@@ -36,8 +36,13 @@ and assembled on site by ancillaries (bodies run by one AI).
   look, so that was dropped.)
 - **Removal** (`removing`) plays the same phases backwards.
 - **Supply pods** (build phase change): when an on-screen site enters a new phase, the
-  owner's AFC fabricates the next batch of parts and a pod flies them out in an arc to the
-  site's parts stack. Everything is fabricated at the AFC and carried over; nothing is
+  owner's AFC fabricates the next batch of parts and a pod flies them out to the
+  site's parts stack. Beats (timeline in `client-map-3d-construction-pod-flight.ts`): the AFC
+  prints the pod inside its glass chamber; the pod is fired up out of the AFC's crown; it flies a
+  banked low-altitude arc like a thrust-vectored lander (leans to accelerate, flares to brake);
+  it retro-burns straight down onto the stack; then it folds open and collapses, leaving the
+  crates. The stack stays empty while its pod is on the way. All pods share one fixed set of
+  instanced meshes (`client-map-3d-construction-pod-assets.ts`), so pod count does not add draw calls. Everything is fabricated at the AFC and carried over; nothing is
   built in orbit (that would imply orbital fabrication, with its cost), so there is no
   drop-from-orbit variant and **no pod at all** when the owner's AFC is not known.
   Cosmetic only: the server does not track which AFC "made" the parts. Pods are not shown
