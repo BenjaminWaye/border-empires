@@ -28,6 +28,9 @@ const CRATE_SLOTS: ReadonlyArray<readonly [number, number, number]> = [
   [0, CRATE_SIZE.y / 2, CRATE_SIZE.z + 0.01],
   [(CRATE_SIZE.x + 0.01) / 2, CRATE_SIZE.y * 1.5, (CRATE_SIZE.z + 0.01) / 2]
 ];
+// A site's key in the construction layers (crew, pods): its world tile.
+export const constructionSiteKey = (site: { readonly x: number; readonly y: number }): string => `${site.x},${site.y}`;
+
 type SiteEntry = {
   readonly siteKey: string;
   readonly sceneX: number;
@@ -76,7 +79,7 @@ export const createConstructionCrewLayer = (scene: Scene): ConstructionCrewLayer
 
   const add: ConstructionCrewLayer["add"] = (sceneX, sceneZ, surfaceY, site, layout = DEFAULT_CONSTRUCTION_LAYOUT) => {
     if (entries.length >= MAX_CONSTRUCTION_SITES) return;
-    entries.push({ siteKey: `${site.x},${site.y}`, sceneX, sceneZ, surfaceY, site, layout });
+    entries.push({ siteKey: constructionSiteKey(site), sceneX, sceneZ, surfaceY, site, layout });
   };
 
   const upload = (mesh: InstancedMesh): void => {
