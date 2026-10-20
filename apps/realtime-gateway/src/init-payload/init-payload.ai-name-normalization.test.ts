@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import { buildGatewayInitPayload } from "./init-payload.js";
 
-// Keep diplomacy identifiers stable while preserving seasonal names for display.
+// AIs carry their seasonal names everywhere: the map's player styles, the
+// leaderboard and diplomacy (auth-identity.ts) all agree, so a name the client
+// shows resolves for a truce or alliance offer.
 describe("gateway init AI name normalization", () => {
   const initialState: PlayerSubscriptionSnapshot = {
     playerId: "player-1",
@@ -19,10 +21,11 @@ describe("gateway init AI name normalization", () => {
     tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }]
   };
 
-  it("normalises AI playerStyles names to 'AI N' even when the live leaderboard reports a seasonal name", () => {
+  // Regression: player styles forced "AI 1" while the leaderboard said "Freja Sund".
+  it("uses the AI's live seasonal name for player styles, not 'AI N'", () => {
     const init = buildGatewayInitPayload({ playerId: "player-1", playerName: "Nauticus" }, initialState, "default");
 
-    expect(init.playerStyles).toEqual(expect.arrayContaining([expect.objectContaining({ id: "ai-1", name: "AI 1" })]));
+    expect(init.playerStyles).toEqual(expect.arrayContaining([expect.objectContaining({ id: "ai-1", name: "Freja Sund" })]));
   });
 
   it("preserves seasonal AI leaderboard names across every category", () => {

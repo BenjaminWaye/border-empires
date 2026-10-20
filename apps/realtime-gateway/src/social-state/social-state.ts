@@ -23,7 +23,7 @@ import {
   type SocialTruceBreakRecord,
   type SocialTruceRequest
 } from "./social-state-types.js";
-import { diplomacyTermsAreEmpty, type DiplomacyTerms } from "@border-empires/shared";
+import { aiNameFromStored, diplomacyTermsAreEmpty, numberedAiNameForId, type DiplomacyTerms } from "@border-empires/shared";
 
 import { buildUpdatePayloads } from "./social-state-payloads.js";
 import { buildSocialSnapshot } from "./social-state-snapshot.js";
@@ -103,8 +103,18 @@ export const createSocialState = (options: {
   const resolveByName = (playerName: string): SocialPlayerRecord | undefined => {
     const needle = playerName.trim().toLocaleLowerCase();
     if (!needle) return undefined;
+    // A human who took an AI's listed name before it was reserved keeps it: the
+    // human wins the tie, and that AI stays reachable by its old "AI 13" name.
+    let aiMatch: SocialPlayerRecord | undefined;
     for (const player of playersById.values()) {
-      if (player.name.trim().toLocaleLowerCase() === needle) return player;
+      if (player.name.trim().toLocaleLowerCase() !== needle) continue;
+      if (numberedAiNameForId(player.id) === undefined) return player;
+      aiMatch ??= player;
+    }
+    if (aiMatch) return aiMatch;
+    // "AI 13" was every AI's name before they used their listed ones; a client that still shows it can still reach them.
+    for (const player of playersById.values()) {
+      if (numberedAiNameForId(player.id)?.toLocaleLowerCase() === needle) return player;
     }
     return undefined;
   };
@@ -171,8 +181,10 @@ export const createSocialState = (options: {
 
   if (options.initial) {
     for (const player of options.initial.players ?? []) {
-      const record = ensurePlayer(player.id, player.name);
-      record.name = player.name;
+      // A saved "AI 13" predates AIs using their listed names: restore the real one.
+      const name = aiNameFromStored(player.id, player.name) ?? player.name;
+      const record = ensurePlayer(player.id, name);
+      record.name = name;
       for (const allyId of player.allies ?? []) record.allies.add(allyId);
     }
     for (const request of options.initial.allianceRequests ?? []) {

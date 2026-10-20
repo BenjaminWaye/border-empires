@@ -1,3 +1,5 @@
+import { SEASONAL_AI_NAMES } from "@border-empires/shared";
+
 export const DISPLAY_NAME_MAX_LENGTH = 24;
 
 // Two names collide when they are equal after NFKC normalization, trimming,
@@ -6,7 +8,10 @@ export const DISPLAY_NAME_MAX_LENGTH = 24;
 export const displayNameKey = (name: string): string =>
   name.normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase();
 
-const RESERVED_NAME_KEYS: ReadonlySet<string> = new Set(["barbarians", "barbarian", "planetary defense", "nauticus"]);
+// The seasonal AIs' names are reserved too, so no one can pass as an AI (seasonal-ai-names.ts).
+const RESERVED_NAME_KEYS: ReadonlySet<string> = new Set([
+  "barbarians", "barbarian", "planetary defense", "nauticus", ...SEASONAL_AI_NAMES.map((name) => displayNameKey(name))
+]);
 // "House Noname <n>" is the name guests are given (see guest-profile/), so a
 // real player cannot take one and pass as a guest.
 const RESERVED_NAME_PATTERNS: readonly RegExp[] = [/^ai \d+$/, /^house noname \d+$/];

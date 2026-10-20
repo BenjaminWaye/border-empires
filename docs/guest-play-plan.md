@@ -97,7 +97,7 @@ work (`COLOR_TAKEN`, `suggestedColors` in INIT).
 
 - **Rule**: a display name is unique across the season's players,
   compared case-insensitively after Unicode NFKC normalization, trimming and
-  whitespace collapsing. Reserved: `Barbarians`, `AI <n>`, `Nauticus`
+  whitespace collapsing. Reserved: `Barbarians`, `AI <n>`, the seasonal AI names (`packages/shared/src/seasonal-ai-names/`), `Nauticus`
   (the seeded player-1 name).
 - **Server** (`apps/realtime-gateway`):
   - New `display-name-uniqueness/` module: `nameKey`, `buildTakenNameSet`
