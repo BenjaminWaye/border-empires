@@ -381,6 +381,14 @@ is a docked AFC machine, while the Manufactories it equips are separate
 local industrial buildings. Their ongoing construction, module availability
 and resource backing follow the economy reference.
 
+Structures are fabricated at the AFC and assembled on site; the AFC also
+dispatches the parts. Each construction phase's parts leave the AFC as a
+sealed crate pod slung under one of its courier drones, which flies low over
+the House's land, winches the pod down at the site and returns to dock in the
+AFC's crown. Nothing is fabricated in orbit or dropped from it. The drones are
+presentation of that supply chain, not a separately modelled unit or
+logistics system.
+
 ### House copies and captured machinery
 
 A commissioned House module is a physical asset assigned to an AFC. House

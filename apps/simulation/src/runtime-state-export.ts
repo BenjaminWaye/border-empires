@@ -1,3 +1,4 @@
+import { afcPlayerExportFields } from "./afc-specializations/afc-player-export.js";
 import { activeAfcModuleTechIds } from "./ai/ai-build-unlocks.js";
 import type { AiTacticalView } from "./ai/ai-tactical-view.js";
 import { TILE_OVERLAY_WIRE_FIELDS, type ManpowerBreakdown, type TileOverlayJsonFields } from "@border-empires/sim-protocol";
@@ -65,6 +66,7 @@ export type RuntimeExportState = {
     settledTileCount?: number;
     townCount?: number;
     incomePerMinute?: number;
+    afcEnvoyIncomePerMinute?: number;
     strategicProductionPerMinute?: Record<StrategicResourceKey, number>;
     activeDevelopmentProcessCount?: number;
     imperialWardCharges?: number;
@@ -136,6 +138,7 @@ type RuntimeExportInput = Omit<SnapshotExportInput, "recordedEventsByCommandId">
   playerLogisticsThroughputPerMinute: (player: DomainPlayer) => number;
   playerManpowerBreakdown: (player: DomainPlayer) => ManpowerBreakdown;
   growthStalledNoFoodCounter: number;
+  envoyIncomePerMinuteForPlayer: (player: DomainPlayer) => number;
 };
 
 const toRuntimeExportTile = (
@@ -198,10 +201,7 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
         techIds: [...player.techIds].sort(),
         domainIds: [...(player.domainIds ?? [])].sort(),
-        ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
-          ...(player.afcCoreTownKeys ? { afcCoreTownKeys: [...player.afcCoreTownKeys] } : {}),
-          ...(player.afcScarcityFoodSlots ? { afcScarcityFoodSlots: player.afcScarcityFoodSlots } : {}),
-          ...(player.afcCampaign ? { afcCampaign: structuredClone(player.afcCampaign) } : {}),
+        ...afcPlayerExportFields(player),
         strategicResources: { ...(player.strategicResources ?? {}) },
         allies: [...player.allies].sort(),
         truces: [...(player.truces ?? [])].sort(),
@@ -212,6 +212,7 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         settledTileCount: summary.settledTileCount,
         townCount: summary.townCount,
         incomePerMinute: input.incomePerMinuteForPlayer(player.id),
+        afcEnvoyIncomePerMinute: input.envoyIncomePerMinuteForPlayer(player),
         strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
         activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
         ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),

@@ -17,7 +17,7 @@
 #           LOGS_PUBKEY (read-only key for scripts/ops/backend-logs.sh).
 #
 # The CI key is restricted with `command=` to /opt/border-empires/bin/deploy
-# (`<sha>` | `rollback` | `snapshot` | `logs`). LOGS_PUBKEY, if set, is forced to
+# (`<sha>` | `rollback` | `snapshot` | `logs` | `client <sha>` | `client-rollback`). LOGS_PUBKEY, if set, is forced to
 # `deploy --logs-only`, which refuses everything but `logs`. The admin key is a normal shell key for
 # the `deploy` user (docker group). Does NOT start the app; the first deploy does.
 set -euo pipefail
@@ -83,6 +83,7 @@ mkdir -p /srv/border-empires/data/backups
 chown 10001:10001 /srv/border-empires/data /srv/border-empires/data/backups
 chmod 750 /srv/border-empires/data /srv/border-empires/data/backups
 install -d -m 755 -o deploy -g deploy /srv/border-empires /srv/border-empires/backups
+install -d -m 755 -o deploy -g deploy /srv/border-empires/client
 install -d -m 755 -o root -g root /opt/border-empires /opt/border-empires/bin
 install -d -m 755 -o deploy -g deploy /opt/border-empires/env
 install -d -m 750 -o deploy -g deploy /etc/border-empires

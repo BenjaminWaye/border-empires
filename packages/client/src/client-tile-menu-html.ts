@@ -237,7 +237,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
 };
 
 const tileMenuTabLabel = (tab: TileMenuTab): string => {
-  if (tab === "reports") return "Recent combat";
+  if (tab === "reports") return "Combat";
   if (tab === "overview") return "Overview";
   if (tab === "modules") return "Modules";
   if (tab === "actions") return "Actions";
