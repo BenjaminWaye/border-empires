@@ -67,9 +67,9 @@ describe("construction layout", () => {
     presentation.clear(); // next rebuild: the site is now known
     presentation.addSite(5, 6, 0, { ...site(1), afcOffset }, 0.5, layout); // phase advanced -> pod
     const stack = stackCenterFor(layout);
-    // Partway down its final descent, straight above the stack.
+    // Partway down on the drone's line, straight above the stack.
     const plan = planPodFlight(afcOffset.dx - stack.x, afcOffset.dy - stack.z);
-    presentation.update(performance.now() + (plan.descentAtMs + plan.touchdownAtMs) / 2);
+    presentation.update(performance.now() + (plan.lowerAtMs + plan.touchdownAtMs) / 2);
     const pod = firstPodXZ(scene);
     expect(pod).toBeDefined();
     expect(pod!.x).toBeCloseTo(5 + stack.x, 2);

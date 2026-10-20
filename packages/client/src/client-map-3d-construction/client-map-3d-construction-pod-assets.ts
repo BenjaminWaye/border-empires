@@ -3,7 +3,8 @@ import {
   BoxGeometry,
   CanvasTexture,
   Color,
-  ConeGeometry,
+  CylinderGeometry,
+  DoubleSide,
   IcosahedronGeometry,
   InstancedMesh,
   MeshBasicMaterial,
@@ -18,11 +19,11 @@ import {
   type Material
 } from "three";
 
-// Meshes for the construction parts pods (client-map-3d-construction-pod-fx.ts). Every part of
-// every pod in flight is an instance of one of these InstancedMeshes, so the whole effect costs
-// the same handful of draw calls whether one pod is flying or twenty-four are. Glows, flames,
-// trails and sparks are additive, so an instance's colour doubles as its opacity (black is
-// invisible); the ground shadow is subtractive for the same reason.
+// Meshes for the construction parts deliveries (client-map-3d-construction-pod-fx.ts): the pod
+// and the courier drone that carries it. Every part of every delivery is an instance of one of
+// these InstancedMeshes, so the whole effect costs the same handful of draw calls whether one
+// delivery is under way or twenty-four are. Glows and rings are additive, so an instance's colour
+// doubles as its opacity (black is invisible); the ground shadow is subtractive for the same reason.
 
 // The pod is the shipping container for one phase's crate stack: it encloses the stack
 // (client-map-3d-construction-crew.ts: four 0.075 crates in a 0.16 square, two high) and opens
@@ -33,7 +34,7 @@ const POST = 0.022;
 const PLATE = 0.016;
 export const POD_PANEL = { width: 0.15, height: POD_HEIGHT - 2 * PLATE, thickness: 0.012 } as const;
 
-export type PodMeshKey = "frame" | "panel" | "beacon" | "flame" | "puff" | "glow" | "ring" | "shadow" | "dust";
+export type PodMeshKey = "frame" | "panel" | "beacon" | "drone" | "duct" | "line" | "puff" | "glow" | "ring" | "shadow" | "dust";
 
 // Scene names of the pod meshes, for tests and debugging.
 export const podMeshName = (key: PodMeshKey): string => `construction-pod-${key}`;
@@ -43,17 +44,24 @@ export type PodFxAssets = {
   readonly dispose: () => void;
 };
 
-// Per-pod instance budgets, per mesh.
-export const POD_FRAME_PARTS = 6; // base, lid, four corner posts
+// The courier drone (drone-local, hull centre at the origin, nose toward +Z): a steel hull on four
+// brass arms, each ending in a ducted fan.
+export const DRONE_ROTORS = 4;
+export const DRONE_ROTOR_REACH = 0.17; // arm length along each diagonal axis
+export const DRONE_DUCT_RADIUS = 0.075;
+export const DRONE_HULL = { width: 0.15, height: 0.05, length: 0.2 } as const;
+
+// Per-delivery instance budgets, per mesh.
+export const POD_FRAME_PARTS = 6; // pod: base, lid, four corner posts
+const DRONE_FRAME_PARTS = DRONE_ROTORS + 2; // drone: four arms, the dorsal spine, the winch hook
 export const POD_PANELS = 4;
-export const POD_FLAMES = 2; // white core inside a cyan sheath
-export const POD_TRAIL_PUFFS = 20;
-export const POD_LAND_SPARKS = 9;
-export const POD_LAUNCH_SPARKS = 7;
-export const POD_PUFFS = POD_TRAIL_PUFFS + POD_LAND_SPARKS + POD_LAUNCH_SPARKS + 1; // + the chamber flare
-export const POD_GLOWS = 3; // launch flash, ground glow under the engine, touchdown flash
-export const POD_RINGS = 3; // print scan ring, launch shockwave, touchdown ring
-export const POD_DUST = 10;
+export const DRONE_BLADES_PER_ROTOR = 2;
+const DRONE_PARTS = 1 + DRONE_ROTORS * (1 + DRONE_BLADES_PER_ROTOR); // hull, and per rotor its hub and blades
+export const POD_PUFFS = 4; // chamber flare, belly light, two nav lights
+export const POD_GLOWS = DRONE_ROTORS + 3; // rotor blur discs, the crown's glow, the landing light, touchdown
+export const POD_RINGS = 2; // print scan ring, touchdown ring
+export const POD_SHADOWS = 2; // drone, pod
+export const POD_DUST = 14;
 
 // Soft round sprite, white so instance colours tint it.
 const makeSoftDiscTexture = (): CanvasTexture | null => {
@@ -86,10 +94,11 @@ export const createPodFxAssets = (scene: Scene, maxPods: number): PodFxAssets =>
   const panelGeometry = new BoxGeometry(POD_PANEL.width, POD_PANEL.height, POD_PANEL.thickness);
   panelGeometry.translate(0, POD_PANEL.height / 2, 0); // hinged at its bottom edge
   const beaconGeometry = new BoxGeometry(0.026, 0.016, 0.026);
-  // Unit cone hanging below its base: apex at y = -1, so scale.y is the flame's length.
-  const flameGeometry = new ConeGeometry(1, 1, 10, 1, true);
-  flameGeometry.rotateX(Math.PI);
-  flameGeometry.translate(0, -0.5, 0);
+  const droneGeometry = new BoxGeometry(1, 1, 1); // scaled per part: hull, rotor hubs, blades
+  const ductGeometry = new CylinderGeometry(DRONE_DUCT_RADIUS, DRONE_DUCT_RADIUS * 0.88, 0.034, 18, 1, true);
+  // Unit-length line hanging from its top: scale.y is the line's length.
+  const lineGeometry = new CylinderGeometry(0.0045, 0.0045, 1, 5, 1, true);
+  lineGeometry.translate(0, -0.5, 0);
   const puffGeometry = new IcosahedronGeometry(1, 0);
   const glowGeometry = new PlaneGeometry(1, 1);
   glowGeometry.rotateX(-Math.PI / 2);
@@ -104,7 +113,10 @@ export const createPodFxAssets = (scene: Scene, maxPods: number): PodFxAssets =>
   const frameMaterial = new MeshStandardMaterial({ color: "#a8844a", roughness: 0.4, metalness: 0.75, flatShading: true });
   const panelMaterial = new MeshStandardMaterial({ color: "#46505c", emissive: "#4fd8ff", emissiveIntensity: 0.4, roughness: 0.5, metalness: 0.55, flatShading: true });
   const beaconMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#bdf6ff" });
-  const flameMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#ffffff", transparent: true, blending: AdditiveBlending, depthWrite: false });
+  // The drone's hull and blades: blackened steel like the AFC's own body.
+  const droneMaterial = new MeshStandardMaterial({ color: "#2a3038", roughness: 0.45, metalness: 0.7, flatShading: true });
+  const ductMaterial = new MeshStandardMaterial({ color: "#a8844a", roughness: 0.4, metalness: 0.75, side: DoubleSide });
+  const lineMaterial = new MeshStandardMaterial({ color: "#1c2026", roughness: 0.8, metalness: 0.3 });
   const puffMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#ffffff", transparent: true, blending: AdditiveBlending, depthWrite: false });
   const ringMaterial = glowMaterial(null);
   const glowDiscMaterial = glowMaterial(softDisc);
@@ -127,14 +139,16 @@ export const createPodFxAssets = (scene: Scene, maxPods: number): PodFxAssets =>
   };
 
   const meshes: Record<PodMeshKey, InstancedMesh> = {
-    frame: make("frame", frameGeometry, frameMaterial, POD_FRAME_PARTS, false, 0),
     panel: make("panel", panelGeometry, panelMaterial, POD_PANELS, false, 0),
     beacon: make("beacon", beaconGeometry, beaconMaterial, 1, false, 0),
+    drone: make("drone", droneGeometry, droneMaterial, DRONE_PARTS, false, 0),
+    duct: make("duct", ductGeometry, ductMaterial, DRONE_ROTORS, false, 0),
+    line: make("line", lineGeometry, lineMaterial, 1, false, 0),
+    frame: make("frame", frameGeometry, frameMaterial, POD_FRAME_PARTS + DRONE_FRAME_PARTS, false, 0),
     dust: make("dust", dustGeometry, dustMaterial, POD_DUST, false, 1),
-    shadow: make("shadow", shadowGeometry, shadowMaterial, 1, true, 2),
+    shadow: make("shadow", shadowGeometry, shadowMaterial, POD_SHADOWS, true, 2),
     glow: make("glow", glowGeometry, glowDiscMaterial, POD_GLOWS, true, 3),
     ring: make("ring", ringGeometry, ringMaterial, POD_RINGS, true, 3),
-    flame: make("flame", flameGeometry, flameMaterial, POD_FLAMES, true, 4),
     puff: make("puff", puffGeometry, puffMaterial, POD_PUFFS, true, 4)
   };
 

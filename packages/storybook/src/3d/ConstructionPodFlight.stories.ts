@@ -7,11 +7,12 @@ import type { ConstructionSite } from "@client/client-construction-phase/client-
 import { createGrassGround, createStage, wrapWithCleanup } from "../three-stage.js";
 import { addStoryAfc, STORY_AFC_POSITION } from "./construction-story-afc.js";
 
-// The parts pod (docs/construction-animation-plan.md): the AFC prints it in its glass chamber, fires
-// it out of its crown, flies it in a banked arc to the build site, and retro-burns it down onto the
-// parts stack, where it unfolds and leaves the new phase's crates. Nothing comes from orbit. The
-// slider scrubs the whole sequence so each beat can be tuned; Replay runs it in real time, and
-// the stack beside it is the real crate layer, empty until the pod sets its crates down.
+// The parts delivery (docs/construction-animation-plan.md): the AFC prints the pod in its glass
+// chamber, its courier drone winches it up out of the crown, flies it slung on its line to the build
+// site, winches it down onto the parts stack and flies home to dock, while the pod unfolds and
+// leaves the new phase's crates. Nothing comes from orbit. The slider scrubs the whole sequence so
+// each beat can be tuned; Replay runs it in real time, and the stack beside it is the real crate
+// layer, empty until the pod sets its crates down.
 type Args = { distance: number; cameraDistance: number; slowMotion: number };
 
 const HOUR = 3_600_000;
@@ -65,7 +66,8 @@ const flightScrub = (args: Args): HTMLElement => {
     pods.spawn("0,0", stack.x, stack.z, 0, now - age, from);
     pods.update(now);
     crew.update(Date.now(), (key) => pods.awaitingDelivery(key, now));
-    label.textContent = `${(age / 1000).toFixed(2)} s · ${pods.snapshot(now)[0]?.stage ?? "done"}`;
+    const snap = pods.snapshot(now)[0];
+    label.textContent = `${(age / 1000).toFixed(2)} s · pod ${snap?.stage ?? "done"} · drone ${snap?.droneStage ?? "done"}`;
     if (scrubMs === null) slider.value = String(age);
     raf = requestAnimationFrame(tick);
   };
@@ -101,7 +103,7 @@ const meta: Meta<Args> = {
 export default meta;
 type Story = StoryObj<Args>;
 
-/** A pod flies from the AFC to the site's parts stack (centre). Scrub the slider or press Replay. */
+/** The AFC's drone carries a pod to the site's parts stack (centre) and flies home. Scrub the slider or press Replay. */
 export const Flight: Story = { render: flightScrub };
 /** The same flight at quarter speed, closer in, to read each beat. */
 export const SlowMotion: Story = { render: flightScrub, args: { slowMotion: 4, cameraDistance: 8 } };
