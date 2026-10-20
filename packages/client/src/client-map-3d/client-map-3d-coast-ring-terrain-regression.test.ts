@@ -19,12 +19,19 @@ describe("first fog ring loads its natural terrain in 3D", () => {
 
   it("prints a ring tile like remembered land unless it touches land in sight", () => {
     const fogBranchStart = source.indexOf('if (visibility === "fogged" && !revealWholeMapInTrue3DMode) {');
-    const flag = source.indexOf('const printAsFogged = deps.tileVisibilityStateAt(wx, wy, tile) !== "unexplored" || !hasLiveNeighbour(', fogBranchStart);
-    expect(flag).toBeGreaterThan(fogBranchStart);
+    const touches = source.indexOf("const touchesSight = hasLiveNeighbour(", fogBranchStart);
+    const flag = source.indexOf('const printAsFogged = deps.tileVisibilityStateAt(wx, wy, tile) !== "unexplored" || !touchesSight;', fogBranchStart);
+    expect(touches).toBeGreaterThan(fogBranchStart);
+    expect(flag).toBeGreaterThan(touches);
     // A full-colour ring beside faded remembered land read as a bright strip
     // (and before that, a darkened ring beside live land read as a hole).
-    expect(source).toContain("if (fogIsHill && printAsFogged) {\n            fogDarkenOverlay.addHillTile(");
-    expect(source).toContain("} else if (printAsFogged) {\n            fogDarkenOverlay.addTile(");
+    expect(source).toContain("if (printAsFogged && foggedWashInMist(terrain, fogTile.isHill)) foggedMistWashKeys.add(wy * WORLD_WIDTH + wx);");
+    expect(source).toContain("else if (printAsFogged) addFoggedOverlayTile(fogDarkenOverlay, fogTile, fogWash);");
+  });
+
+  it("hands the mist the flat fogged land it washes, refilled every rebuild", () => {
+    expect(source).toContain("heightfield.mesh.position.set(0, 0, 0); foggedMistWashKeys.clear();");
+    expect(source).toContain("(wx, wy) => foggedMistWashKeys.has(wy * WORLD_WIDTH + wx));");
   });
 
   it("keeps natural terrain (mountains, forests, grass scatter) on every fogged tile, ring included", () => {
@@ -38,10 +45,10 @@ describe("first fog ring loads its natural terrain in 3D", () => {
     expect(block).not.toMatch(/if \((isFogRing|printAsFogged)\)/); // every fogged tile, not just some
   });
 
-  it("prints remembered land, features and (non-ring) sea in sepia", () => {
-    expect(source).toContain("const fogPrintSepia = new Color(FOGGED_PRINT_SEPIA), fogFeatureTint = new Color(FOGGED_PRINT_FEATURE_TINT);");
+  it("dims remembered land, features and (non-ring) sea in the fogged slate", () => {
+    expect(source).toContain("const fogWash = new Color(FOGGED_WASH), fogFeatureTint = new Color(FOGGED_FEATURE_TINT);");
     // A normal-blend wash, not a multiply: a multiply can only darken, which left remembered grass dark olive.
-    expect(source).toContain('{ settled: FOGGED_PRINT_WASH_OPACITY, frontier: FOGGED_PRINT_WASH_OPACITY }, undefined, { settled: "normal", frontier: "normal" }');
+    expect(source).toContain('{ settled: FOGGED_WASH_OPACITY, frontier: FOGGED_WASH_OPACITY }, undefined, { settled: "normal", frontier: "normal" }');
     expect(source).toContain("const featureTint = printAsFogged ? fogFeatureTint : undefined;");
     expect(source).toContain("mountainMassifs.addInstance(x, z, surfaceY, wx, wy, featureTint)");
     expect(source).not.toContain("tmpBlack");

@@ -2,8 +2,8 @@ import { Color, type InstancedMesh } from "three";
 
 // Optional per-instance colour for the natural-terrain instanced meshes
 // (forests, palms, mountain massifs), multiplied into their material colour.
-// Used to print remembered ("fogged") tiles' trees and peaks in the same
-// sepia as their ground (FOGGED_PRINT_FEATURE_TINT). A mesh that has never
+// Used to dim remembered ("fogged") tiles' trees and peaks in the same
+// slate as their ground (FOGGED_FEATURE_TINT). A mesh that has never
 // been tinted gets no instanceColor buffer at all, so live-only scenes pay
 // nothing; once one exists, untinted instances are written back to white.
 

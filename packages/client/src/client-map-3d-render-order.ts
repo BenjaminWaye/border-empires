@@ -20,6 +20,9 @@ export const RENDER_ORDER = {
   shoreFoam: 12.5,
   // A river's mouth plume spills out over the sea, so it draws after it.
   riverMouth: 13,
+  // Drifting mist over remembered (fogged) tiles, level with the land, over
+  // the water and fog-darken layers it hazes (client-map-3d-fogged-mist.ts).
+  foggedMist: 13.5,
   // Unexplored storm clouds, level with the land: over all ground-level
   // surfaces at the fog border (client-map-3d-unexplored-storm.ts).
   unexploredStorm: 14,
