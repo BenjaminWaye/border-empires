@@ -43,9 +43,12 @@ export type PodFlightPlan = {
 export const POD_FABRICATE_MS = 620;
 export const POD_HOIST_MS = 440;
 const TRANSIT_BASE_MS = 520;
-// Transit grows with distance and is deliberately not capped: a site far from its AFC really
-// is far from where its parts are made, and the flight shows it.
+// Transit grows with distance and is not capped by distance: a site far from its AFC really is far
+// from where its parts are made, and the flight shows it. The one limit is the phase itself: the
+// site's stack stands empty until its pod lands, so the caller passes a time budget (see
+// podTransitBudgetMs) and a trip that would overrun it is flown faster instead.
 const TRANSIT_MS_PER_TILE = 135;
+const MIN_TRANSIT_MS = 400;
 // Flying home empty is quicker.
 const RETURN_SHARE = 0.8;
 export const POD_LOWER_MS = 900;
@@ -92,9 +95,16 @@ export const bump = (t: number): number => (t <= 0 || t >= 1 ? 0 : Math.sin(Math
 // Progress of `age` through the window [start, start + span], clamped.
 export const window01 = (age: number, start: number, span: number): number => clamp01((age - start) / span);
 
-export const planPodFlight = (fromX: number, fromZ: number): PodFlightPlan => {
+// The share of a build phase a delivery may take to land: builds take minutes, so a short phase
+// would otherwise spend most of its time with an empty stack waiting on a distant AFC.
+const PHASE_SHARE_TO_LAND = 0.25;
+export const podTransitBudgetMs = (phaseMs: number): number =>
+  Math.max(MIN_TRANSIT_MS, phaseMs * PHASE_SHARE_TO_LAND - (POD_FABRICATE_MS + POD_HOIST_MS + POD_LOWER_MS));
+
+// `maxTransitMs` caps the outbound trip (and so the return); omit it for the full distance-scaled trip.
+export const planPodFlight = (fromX: number, fromZ: number, maxTransitMs = Infinity): PodFlightPlan => {
   const distance = Math.hypot(fromX, fromZ);
-  const transitMs = TRANSIT_BASE_MS + TRANSIT_MS_PER_TILE * distance;
+  const transitMs = Math.min(TRANSIT_BASE_MS + TRANSIT_MS_PER_TILE * distance, Math.max(MIN_TRANSIT_MS, maxTransitMs));
   const hoistAtMs = POD_FABRICATE_MS;
   const cruiseAtMs = hoistAtMs + POD_HOIST_MS;
   const lowerAtMs = cruiseAtMs + transitMs;
@@ -136,11 +146,15 @@ export const droneStageAt = (plan: PodFlightPlan, age: number): DroneStage => {
   return age < plan.droneGoneAtMs ? "dock" : "done";
 };
 
+// Eases in and out with zero speed AND zero acceleration at both ends, so the drone's lean (which
+// follows its acceleration) and the pod's swing start and finish at rest instead of snapping.
+const smootherstep = (t: number): number => t * t * t * (t * (6 * t - 15) + 10);
+
 // Cubic Bezier from the hover over the AFC's crown to the hover over the stack: the first leg
 // climbs out of the AFC, the last flattens into the hover. Eased at both ends, so the drone
 // hangs for a beat with its load, then pitches over and goes. `t` in 0..1 along the trip.
 const tripAt = (plan: PodFlightPlan, t: number, out: PodPoint): PodPoint => {
-  const u = smoothstep(t);
+  const u = smootherstep(t);
   const a = 1 - u;
   const b0 = a * a * a;
   const b1 = 3 * a * a * u;
@@ -183,11 +197,15 @@ export const dronePositionAt = (plan: PodFlightPlan, age: number, out: PodPoint)
   return out;
 };
 
-// The drone's size: it docks by settling into the crown, shrinking away as it goes in.
-export const droneScaleAt = (plan: PodFlightPlan, age: number): number => 1 - smoothstep(window01(age, plan.dockAtMs + DRONE_DOCK_MS * 0.35, DRONE_DOCK_MS * 0.65));
+// The drone's size: it rises out of the crown at the start and settles back into it to dock,
+// growing in and shrinking away there rather than popping.
+const DRONE_GROW_MS = 220;
+export const droneScaleAt = (plan: PodFlightPlan, age: number): number =>
+  Math.min(smoothstep(window01(age, 0, DRONE_GROW_MS)), 1 - smoothstep(window01(age, plan.dockAtMs + DRONE_DOCK_MS * 0.35, DRONE_DOCK_MS * 0.65)));
 
-// Which way the drone faces: toward the site on the way out, turning for home after letting go.
-export const droneYawAt = (plan: PodFlightPlan, age: number): number => plan.heading + Math.PI * smoothstep(window01(age, plan.touchdownAtMs + 60, POD_RELEASE_MS + 200));
+// Which way the drone faces: toward the site on the way out, turning for home while the line reels
+// in, so it is facing home before it sets off.
+export const droneYawAt = (plan: PodFlightPlan, age: number): number => plan.heading + Math.PI * smoothstep(window01(age, plan.touchdownAtMs + 20, POD_RELEASE_MS - 40));
 
 // Rotor speed 0..1: spooling up on the crown, flat out when hauling, easing off once empty.
 export const droneRotorAt = (plan: PodFlightPlan, age: number): number => {
@@ -197,27 +215,27 @@ export const droneRotorAt = (plan: PodFlightPlan, age: number): number => {
   return 0.85 - 0.55 * window01(age, plan.dockAtMs, DRONE_DOCK_MS);
 };
 
-// Ground-plane unit vector of the drone's travel: toward the site on the way out, home after.
-const travelDir = (plan: PodFlightPlan, age: number): { x: number; z: number } => {
-  const sign = age < plan.touchdownAtMs ? 1 : -1;
-  return { x: (-plan.fromX / plan.distance) * sign, z: (-plan.fromZ / plan.distance) * sign };
-};
-
 const SAMPLE_MS = 16;
 const s0 = { x: 0, y: 0, z: 0 };
 const s1 = { x: 0, y: 0, z: 0 };
 const s2 = { x: 0, y: 0, z: 0 };
-// Along-track speed (tiles/ms) and acceleration (tiles/ms^2) of the drone at `age`.
-const droneMotionAt = (plan: PodFlightPlan, age: number): { speed: number; accel: number } => {
-  const dir = travelDir(plan, age);
-  const along = (p: PodPoint): number => p.x * dir.x + p.z * dir.z;
+// Scratch result of droneMotionAt (called several times per delivery per frame: no allocation).
+const motion = { speed: 0, accel: 0 };
+// Along-track speed (tiles/ms) and acceleration (tiles/ms^2) of the drone at `age`, along its
+// travel: toward the site on the way out, home after. Read the result before the next call.
+const droneMotionAt = (plan: PodFlightPlan, age: number): { readonly speed: number; readonly accel: number } => {
+  const sign = age < plan.touchdownAtMs ? 1 : -1;
+  const dx = (-plan.fromX / plan.distance) * sign;
+  const dz = (-plan.fromZ / plan.distance) * sign;
   dronePositionAt(plan, age - SAMPLE_MS, s0);
   dronePositionAt(plan, age, s1);
   dronePositionAt(plan, age + SAMPLE_MS, s2);
-  return {
-    speed: (along(s2) - along(s0)) / (2 * SAMPLE_MS),
-    accel: (along(s2) - 2 * along(s1) + along(s0)) / (SAMPLE_MS * SAMPLE_MS)
-  };
+  const a0 = s0.x * dx + s0.z * dz;
+  const a1 = s1.x * dx + s1.z * dz;
+  const a2 = s2.x * dx + s2.z * dz;
+  motion.speed = (a2 - a0) / (2 * SAMPLE_MS);
+  motion.accel = (a2 - 2 * a1 + a0) / (SAMPLE_MS * SAMPLE_MS);
+  return motion;
 };
 
 const inFlight = (plan: PodFlightPlan, age: number): boolean =>

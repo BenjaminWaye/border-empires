@@ -16,6 +16,7 @@ import { addStoryAfc, STORY_AFC_POSITION } from "./construction-story-afc.js";
 type Args = { distance: number; cameraDistance: number; slowMotion: number };
 
 const HOUR = 3_600_000;
+const STORY_SEED = 137;
 const storySite = (): ConstructionSite => ({
   x: 0,
   y: 0,
@@ -63,7 +64,7 @@ const flightScrub = (args: Args): HTMLElement => {
     // The layer measures age from the spawn time: re-spawn every frame at `now - age`, so the
     // slider and slow motion can move the clock freely.
     pods.clear();
-    pods.spawn("0,0", stack.x, stack.z, 0, now - age, from);
+    pods.spawn("0,0", stack.x, stack.z, 0, now - age, from, { seed: STORY_SEED }); // a fixed seed, or the re-spawn would re-roll every frame
     pods.update(now);
     crew.update(Date.now(), (key) => pods.awaitingDelivery(key, now));
     const snap = pods.snapshot(now)[0];

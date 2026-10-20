@@ -45,8 +45,15 @@ export const createPodInstanceWriter = (meshes: Readonly<Record<PodMeshKey, Inst
         const mesh = meshes[key];
         mesh.count = counts[key];
         mesh.visible = counts[key] > 0;
+        // Upload only the instances drawn this frame, not the whole 24-delivery capacity.
+        mesh.instanceMatrix.clearUpdateRanges();
+        mesh.instanceMatrix.addUpdateRange(0, counts[key] * 16);
         mesh.instanceMatrix.needsUpdate = true;
-        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+        if (mesh.instanceColor) {
+          mesh.instanceColor.clearUpdateRanges();
+          mesh.instanceColor.addUpdateRange(0, counts[key] * 3);
+          mesh.instanceColor.needsUpdate = true;
+        }
       }
     }
   };

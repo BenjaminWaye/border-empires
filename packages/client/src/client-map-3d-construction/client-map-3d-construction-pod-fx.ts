@@ -60,9 +60,17 @@ export type ConstructionPodSnapshot = {
   readonly drone: { readonly x: number; readonly y: number; readonly z: number };
 };
 
+export type PodSpawnOptions = {
+  // Longest the outbound trip may take (podTransitBudgetMs of the site's phase); unlimited when omitted.
+  readonly maxTransitMs?: number;
+  // Fixes the per-delivery variation (blade angles, blinks, dust); random when omitted. Storybook
+  // re-spawns every frame to scrub, so it must pin this or everything flickers.
+  readonly seed?: number;
+};
+
 export type ConstructionPodFxLayer = {
   // `from` is where the delivery starts relative to the landing point: the AFC's offset.
-  readonly spawn: (siteKey: string, landX: number, landZ: number, surfaceY: number, nowMs: number, from: { readonly dx: number; readonly dz: number }) => void;
+  readonly spawn: (siteKey: string, landX: number, landZ: number, surfaceY: number, nowMs: number, from: { readonly dx: number; readonly dz: number }, options?: PodSpawnOptions) => void;
   // A rebuild re-anchors the scene, so the same site lands somewhere else in scene units: move its
   // deliveries (still in flight or landing) to the new landing point.
   readonly relocate: (siteKey: string, landX: number, landZ: number, surfaceY: number) => void;
@@ -102,9 +110,10 @@ export const createConstructionPodFxLayer = (scene: Scene): ConstructionPodFxLay
   const at = { x: 0, y: 0, z: 0 };
   const droneAt = { x: 0, y: 0, z: 0 };
 
-  const spawn: ConstructionPodFxLayer["spawn"] = (siteKey, landX, landZ, surfaceY, nowMs, from) => {
+  const spawn: ConstructionPodFxLayer["spawn"] = (siteKey, landX, landZ, surfaceY, nowMs, from, options) => {
     if (entries.length >= MAX_PODS) return;
-    entries.push({ siteKey, landX, landY: surfaceY, landZ, startedAt: nowMs, plan: planPodFlight(from.dx, from.dz), seed: Math.random() * 1_000 });
+    const plan = planPodFlight(from.dx, from.dz, options?.maxTransitMs);
+    entries.push({ siteKey, landX, landY: surfaceY, landZ, startedAt: nowMs, plan, seed: options?.seed ?? Math.random() * 1_000 });
   };
 
   // The pod: brass frame, four steel walls hinged at the base, the beacon on the lid. It hangs from

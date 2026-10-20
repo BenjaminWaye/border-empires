@@ -2,8 +2,8 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CONSTRUCTION_POD_DELIVERY_CHANGELOG: ClientChangelogEntry[] = [
   {
-    createdAt: 1792513117000, // Date.now() captured once for this release.
-    introducedIn: "2026.10.20.2",
+    createdAt: 1792528290695, // Date.now() captured once for this release.
+    introducedIn: "2026.10.20.4",
     title: "Your AFC's courier drones now deliver building parts",
     why: "The parts for each build phase used to appear as a small glowing box on a plain arc, and the new crates showed up before it had even arrived.",
     changes: [

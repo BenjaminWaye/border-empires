@@ -14,6 +14,7 @@ import {
   droneYawAt,
   planPodFlight,
   podCratesDelivered,
+  podTransitBudgetMs,
   podPositionAt,
   podPrintedAt,
   podStageAt,
@@ -79,10 +80,12 @@ describe("construction parts delivery by drone", () => {
     const end = { x: 0, y: 0, z: 0 };
     expect(droneLineEndAt(plan, plan.returnAtMs, end)).toBe(false); // the line is reeled in
     expect(droneYawAt(plan, plan.lowerAtMs)).toBeCloseTo(plan.heading, 5);
-    expect(droneYawAt(plan, plan.returnAtMs + 600)).toBeCloseTo(plan.heading + Math.PI, 5);
+    // Facing home before it sets off, not crabbing sideways into the return.
+    expect(droneYawAt(plan, plan.returnAtMs)).toBeCloseTo(plan.heading + Math.PI, 5);
     expect(droneStageAt(plan, mid(plan.returnAtMs, plan.dockAtMs))).toBe("return");
     expect(drone(plan, plan.dockAtMs)).toMatchObject({ x: -6, z: -4 });
     expect(droneScaleAt(plan, plan.dockAtMs)).toBe(1);
+    expect(droneScaleAt(plan, 0)).toBe(0); // grows in out of the crown rather than popping in
     expect(droneScaleAt(plan, plan.droneGoneAtMs)).toBe(0);
     expect(droneStageAt(plan, plan.droneGoneAtMs)).toBe("done");
     expect(plan.endAtMs).toBeGreaterThanOrEqual(plan.droneGoneAtMs);
@@ -116,6 +119,32 @@ describe("construction parts delivery by drone", () => {
       expect(highest).toBeLessThanOrEqual(POD_MAX_Y + 1e-9);
       expect(highest).toBeLessThan(2.6);
     }
+  });
+
+  // Regression: smoothstep's acceleration jumps at its ends, and lean and swing follow acceleration,
+  // so both snapped by up to ~6 degrees in a single frame at every beat boundary.
+  it("leans and swings smoothly: no frame-to-frame snap anywhere in the delivery", () => {
+    for (const p of [plan, planPodFlight(-1.5, 0.5), planPodFlight(-40, 25)]) {
+      let lean = droneLeanAt(p, 0);
+      let swing = podSwingAt(p, 0);
+      for (let t = 1; t < p.endAtMs; t += 1) {
+        const nextLean = droneLeanAt(p, t);
+        const nextSwing = podSwingAt(p, t);
+        expect(Math.abs(nextLean - lean)).toBeLessThan(0.01);
+        expect(Math.abs(nextSwing - swing)).toBeLessThan(0.01);
+        lean = nextLean;
+        swing = nextSwing;
+      }
+    }
+  });
+
+  it("flies a distant AFC's trip faster when the phase's time budget would not cover it", () => {
+    const budget = podTransitBudgetMs(20_000); // a 20 s phase: land within 5 s
+    const capped = planPodFlight(-300, 0, budget);
+    expect(capped.touchdownAtMs).toBeLessThanOrEqual(5_000);
+    expect(capped.droneGoneAtMs).toBeLessThan(planPodFlight(-300, 0).droneGoneAtMs);
+    // A trip that fits its budget is untouched.
+    expect(planPodFlight(-6, -4, podTransitBudgetMs(10 * 60_000))).toEqual(plan);
   });
 
   it("flies farther sites for longer and higher, with no cap on the trip time", () => {
