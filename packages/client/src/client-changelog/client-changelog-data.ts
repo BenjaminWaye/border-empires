@@ -9,6 +9,7 @@ import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garriso
 import { AFC_UPGRADES_ICON_CHANGELOG } from "./client-changelog-afc-upgrades-icon.js";
 import { GAMEPLAY_SETTINGS_CLEANUP_CHANGELOG } from "./client-changelog-gameplay-settings-cleanup.js";
 import { MUSTER_BANNER_CHANGELOG } from "./client-changelog-muster-banner.js";
+import { ADVANCE_VISIBLE_ONLY_CHANGELOG } from "./client-changelog-advance-visible-only.js";
 import { BATTLE_TILE_SOUND_CHANGELOG } from "./client-changelog-battle-tile-sound.js";
 import { TOWN_VISUALS_CHANGELOG } from "./client-changelog-town-visuals.js";
 import { TOWN_BANNERS_CHANGELOG } from "./client-changelog-town-banners.js";
@@ -467,6 +468,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...GAMEPLAY_SETTINGS_CLEANUP_CHANGELOG,
   ...AFC_UPGRADES_ICON_CHANGELOG,
   ...MUSTER_BANNER_CHANGELOG,
+  ...ADVANCE_VISIBLE_ONLY_CHANGELOG,
   {
     createdAt: 1792442407428, // Date.now() captured for this entry.
     introducedIn: "2026.10.19.4",
@@ -489,17 +491,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Play independently of Vercel",
     why: "A shared hosting limit could prevent players from opening the game even while the game servers were healthy.",
     changes: ["Production and staging can serve the game directly from their existing game servers"]
-  },
-  {
-    createdAt: 1792528615493, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.20.2",
-    title: "Advancing flags only chase enemies you can see",
-    why: "Advancing flags expanded out into the fog toward enemies the player couldn't see, so they explored instead of holding the front.",
-    changes: [
-      "An advancing flag now only expands toward barbarians and rivals inside your vision; anything hidden in the fog is ignored",
-      "An advance order counts as finished once no visible enemy is left in range"
-    ]
-  },
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
