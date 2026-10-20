@@ -4,7 +4,7 @@ import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { MusterTickInput } from "./runtime-muster-tick.js";
 import { buildTerrainDistanceField, deviationFromMarchLine } from "./muster-march-pathfinding.js";
 import { ADVANCE_EMPTY_COOLDOWN_MS, ADVANCE_FAR_COOLDOWN_MS, ADVANCE_MAX_RANGE_TILES, ADVANCE_THROTTLE_DIST, locksSourcedFromMusterTile, syncMusterStatus } from "./muster-auto-fire-shared.js";
-import { MUSTER_MARCH_MAX_DISTANCE_TILES, MUSTER_MAX_CONCURRENT_ACTIONS, WORLD_HEIGHT, WORLD_WIDTH, isCommitOddsEligibleTarget } from "@border-empires/shared";
+import { MUSTER_MARCH_MAX_DISTANCE_TILES, MUSTER_MAX_CONCURRENT_ACTIONS, WORLD_HEIGHT, WORLD_WIDTH, flagCommitForTarget } from "@border-empires/shared";
 import { isAlliedOrTruced } from "../runtime-player-factory.js";
 
 type MarchRouteScore = { routeLength: number; hitsSettled: boolean; remainingToTarget: number; lineDeviation: number };
@@ -365,6 +365,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
     simulationTileKey(to.x, to.y),
     input.nowMs
   );
+  const commitManpower = useAttack ? flagCommitForTarget(to, musterTile.muster?.commitManpower, input.nowMs) : undefined;
   const result = input.handleFrontierCommand(
     {
       commandId,
@@ -383,12 +384,13 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
         // docs/replenishment-update-plan.md D6: carry this flag's chosen
         // commitment into the ATTACK it fires -- but only against a SETTLED
         // target or a FRONTIER tile still holding captured ground, where the
-        // commit-odds multiplier actually does anything. Any other FRONTIER
+        // commit-odds multiplier actually does anything (scaled to a held
+        // tile's cheaper floor by flagCommitForTarget). Any other FRONTIER
         // target auto-captures regardless of commitment
         // (resolveAttackCombat's GUARANTEED_CAPTURE path), so spending the
         // flag's full commitManpower there would just waste manpower on a
         // win that was already free. EXPAND has no commitManpower field.
-        ...(useAttack && isCommitOddsEligibleTarget(to, input.nowMs) && musterTile.muster?.commitManpower ? { commitManpower: musterTile.muster.commitManpower } : {})
+        ...(commitManpower ? { commitManpower } : {})
       })
     },
     useAttack ? "ATTACK" : "EXPAND"

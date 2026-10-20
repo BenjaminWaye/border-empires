@@ -113,6 +113,8 @@ describe("ATTACK commitManpower (D6 commitment choice)", () => {
 
     expect(baseline?.combatResult?.winChance).toBeCloseTo(0.5, 6);
     expect(boosted?.combatResult?.winChance).toBeCloseTo(applyOddsScale(0.5, 2), 6);
+    // Fixed loss = commitment, like a SETTLED target -- extra effort isn't free on a win.
+    expect(boosted?.manpowerDelta).toBeCloseTo(-30, 6);
   });
 
   it("rejects the attack when the requested commitment exceeds the origin's available muster", async () => {

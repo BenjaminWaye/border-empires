@@ -8,6 +8,7 @@ import {
   commitOddsMultiplier,
   defendingFortVariant,
   isFortDefending,
+  isCaptureHoldActive,
   isCommitOddsEligibleTarget,
   isUndefendedFrontierTile,
   rollFrontierCombat,
@@ -319,8 +320,8 @@ const resolveAttackCombat = (
   // SHIELD_RADIUS_TILES, or any mode on its own tile) matches the attacker's
   // commitment up to what it holds, dividing shieldDefenseMultiplier back into
   // the attack-side boost commitOddsMultiplier just applied -- same gating as
-  // the commit rule itself (SETTLED targets, non-barbarian attacker only).
-  const shieldFlag = isCommitEligible && defenderOwnerId
+  // the commit rule itself, but SETTLED targets only (not held FRONTIER).
+  const shieldFlag = isCommitEligible && previousTarget?.ownershipState === "SETTLED" && defenderOwnerId
     ? findShieldForDefender(ctx.musterTilesByOwner, ctx.tiles, ctx.musterReservedByKey, defenderOwnerId, lock.targetKey, lock.targetX, lock.targetY)
     : undefined;
   const shieldMatched = shieldFlag ? shieldMatchAmount(shieldFlag.amount, lock.manpowerCost) : 0;
@@ -350,13 +351,14 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
       ? previewSettledCapturePlunder({ defender, defenderTileCountBeforeCapture, target: previousTarget })
       : undefined;
   // docs/replenishment-update-plan.md D6: "fixed loss = commitment" for a
-  // SETTLED target -- replaces the old uniform-random draw within the fort
-  // tier's range. Win or lose, the attacker loses exactly what they
-  // committed (resolveAttackCombat's commitMultiplier already used that same
+  // SETTLED target, or a FRONTIER tile still holding captured ground --
+  // replaces the old uniform-random draw within the fort tier's range. Win or
+  // lose, the attacker loses exactly what they committed
+  // (resolveAttackCombat's commitMultiplier already used that same
   // commitment to shape the odds).
   const manpowerLoss = lock.actionType !== "ATTACK"
     ? 0
-    : targetWasSettled
+    : targetWasSettled || isCaptureHoldActive(previousTarget, ctx.now())
       ? lock.manpowerCost
       : attackManpowerLoss(lock.manpowerCost, combat.attackerWon, combat.atkEff, combat.defEff);
   if (manpowerLoss > 0) {

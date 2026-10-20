@@ -258,7 +258,9 @@ export const attackPreviewManpowerCostForTarget = (
   }
   const estimate = to.ownershipState === "SETTLED"
     ? estimatedSettledAttackManpowerLoss(defendingFortVariant(to.fort))
-    : estimatedAttackManpowerLoss(preview.manpowerMin, preview.winChance, preview.atkEff, preview.defEff);
+    : isCommitOddsEligibleTarget(to, Date.now())
+      ? attackFloorForPlayer({}, to) // held tile: fixed loss = commitment (floor by default)
+      : estimatedAttackManpowerLoss(preview.manpowerMin, preview.winChance, preview.atkEff, preview.defEff);
   return `est. ${Math.round(estimate)} manpower`;
 };
 

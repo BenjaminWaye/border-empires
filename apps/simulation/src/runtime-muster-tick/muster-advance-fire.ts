@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { MUSTER_MAX_CONCURRENT_ACTIONS, isCommitOddsEligibleTarget, musterFlagCap } from "@border-empires/shared";
+import { MUSTER_MAX_CONCURRENT_ACTIONS, flagCommitForTarget, musterFlagCap } from "@border-empires/shared";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { MusterTickInput } from "./runtime-muster-tick.js";
 import { maybeMarchFire } from "./runtime-muster-march.js";
@@ -191,6 +191,7 @@ export const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileS
     simulationTileKey(nearestEnemy.x, nearestEnemy.y),
     input.nowMs
   );
+  const commitManpower = flagCommitForTarget(nearestEnemy, musterTile.muster?.commitManpower, input.nowMs);
   const result = input.handleFrontierCommand(
     {
       commandId,
@@ -200,7 +201,7 @@ export const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileS
       issuedAt: input.nowMs,
       type: "ATTACK",
       // docs/replenishment-update-plan.md D6: carry this flag's chosen commitment into the ATTACK it fires -- only against a target where it scales the odds -- SETTLED or holding captured ground (see the matching comment in runtime-muster-march.ts's maybeMarchFire).
-      payloadJson: JSON.stringify({ fromX: bestFrom.x, fromY: bestFrom.y, toX: nearestEnemy.x, toY: nearestEnemy.y, musterSourceX: musterTile.x, musterSourceY: musterTile.y, ...(isCommitOddsEligibleTarget(nearestEnemy, input.nowMs) && musterTile.muster?.commitManpower ? { commitManpower: musterTile.muster.commitManpower } : {}) })
+      payloadJson: JSON.stringify({ fromX: bestFrom.x, fromY: bestFrom.y, toX: nearestEnemy.x, toY: nearestEnemy.y, musterSourceX: musterTile.x, musterSourceY: musterTile.y, ...(commitManpower ? { commitManpower } : {}) })
     },
     "ATTACK"
   );
