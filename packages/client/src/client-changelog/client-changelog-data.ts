@@ -13,6 +13,7 @@ import { CLIENT_CHANGELOG_ENTRIES_OCT_19_20 } from "./client-changelog-oct-19-20
 import { CAPTURE_HOLD_EFFORT_CHANGELOG } from "./client-changelog-capture-hold-effort.js";
 import { HETZNER_CLIENT_HOSTING_CHANGELOG } from "./client-changelog-hetzner-client-hosting.js";
 import { AI_DEAL_SUGGEST_CHANGELOG } from "./client-changelog-ai-deal-suggest.js";
+import { TOWN_MARBLE_CHANGELOG } from "./client-changelog-town-marble.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -450,6 +451,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_OCT_19_20,
   ...HETZNER_CLIENT_HOSTING_CHANGELOG,
   ...CAPTURE_HOLD_EFFORT_CHANGELOG,
+  ...TOWN_MARBLE_CHANGELOG,
   {
     createdAt: 1792528401682, // Date.now() captured for this entry.
     introducedIn: "2026.10.21.2",

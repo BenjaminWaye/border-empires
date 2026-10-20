@@ -11,8 +11,8 @@ const topOf = (geometry: BufferGeometry): number => {
 };
 
 const partsOf = (tier: TownTier): BufferGeometry[] => {
-  const { body, metal, glass, glow, halo, banner } = getTownTierGeometry(tier);
-  return [body, metal, glass, glow, halo, banner].filter((part): part is BufferGeometry => part !== undefined);
+  const { body, metal, glass, glow, halo, plinth } = getTownTierGeometry(tier);
+  return [body, metal, glass, glow, halo, plinth].filter((part): part is BufferGeometry => part !== undefined);
 };
 
 const tierTop = (tier: TownTier): number => Math.max(...partsOf(tier).map(topOf));
@@ -56,15 +56,15 @@ describe("procedural town tiers", () => {
   it.each(TOWN_TIERS)("%s keeps everything standing at street level on its octagonal plate", (tier) => {
     // The plate is the widest thing on the ground; anything at street level
     // further out than its edge hangs off it.
-    const { body, metal, glass } = getTownTierGeometry(tier);
+    const { body, metal, glass, plinth } = getTownTierGeometry(tier);
     let plateApothem = 0;
-    const position = body.getAttribute("position");
+    const position = plinth!.getAttribute("position");
     for (let i = 0; i < position.count; i += 1) {
       // The plate's top face; its vertices sit 22.5° off the axes, so their
       // largest z is exactly the distance to the flat edges.
       if (Math.abs(position.getY(i) + 0.008) < 1e-4) plateApothem = Math.max(plateApothem, Math.abs(position.getZ(i)));
     }
-    for (const part of [body, metal, glass]) {
+    for (const part of [body, metal, glass, plinth]) {
       if (!part) continue;
       const p = part.getAttribute("position");
       for (let i = 0; i < p.count; i += 1) {
@@ -138,18 +138,15 @@ describe("procedural town tiers", () => {
     expect(dark).toBeGreaterThan(0);
   });
 
-  it.each(TOWN_TIERS)("%s flies rippling banners of white cloth, ready for the owner's dye", (tier) => {
-    const banner = getTownTierGeometry(tier).banner;
-    expect(banner, `${tier} banners`).toBeDefined();
-    const color = banner!.getAttribute("color");
-    const animA = banner!.getAttribute("animA");
-    for (let i = 0; i < color.count; i += 1) {
-      expect([color.getX(i), color.getY(i), color.getZ(i)]).toEqual([1, 1, 1]);
-      // Rippling, and seamlessly across the shader clock's wrap.
-      const turns = (animA.getW(i) * TOWN_TIME_PERIOD) / (2 * Math.PI);
-      expect(animA.getW(i)).toBeGreaterThan(0);
-      expect(Math.abs(turns - Math.round(turns))).toBeLessThan(1e-3);
-    }
+  it.each(TOWN_TIERS)("%s stands on marble: the base plate's top, walls and kerb go to the plinth mesh", (tier) => {
+    const { body, plinth } = getTownTierGeometry(tier);
+    expect(plinth, `${tier} plinth`).toBeDefined();
+    plinth!.computeBoundingBox();
+    // The wall runs well below the paving, so a sloped tile never shows a gap.
+    expect(plinth!.boundingBox!.min.y).toBeLessThan(-0.09);
+    // The matte body keeps none of the wall: nothing of it reaches that far down.
+    body.computeBoundingBox();
+    expect(body.boundingBox!.min.y).toBeGreaterThan(-0.05);
   });
 
   it("puts blinking warning lights on the tall skylines only", () => {
