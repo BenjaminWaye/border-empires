@@ -24,6 +24,8 @@ import { createFrontierClaimPlatePool, disposeFrontierClaimPlatePool } from "../
 
 import { applyPerspectiveCamera, createPerspectiveCamera } from "../client-map-3d-perspective-camera/client-map-3d-perspective-camera.js";
 import { createAtmosphere } from "../client-map-3d-atmosphere.js";
+import { addFoggedOverlayTile, type FoggedOverlayTile } from "../client-map-3d-fogged-mist/client-map-3d-fogged-tile-overlay.js";
+import { applyFoggedEdgeClipToOverlay } from "../client-map-3d-fogged-mist/client-map-3d-fogged-edge-clip.js";
 import { createPointerPick, toroidDelta } from "../client-map-3d-pointer-pick.js";
 import { createHeightfield, type HeightfieldTerrainKind } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { createMountainMassifs } from "../client-map-3d-mountain-massif.js";
@@ -38,7 +40,7 @@ import { createTownSupportTileSync } from "../client-map-3d-town-support-tile/cl
 import type { RoadCutDirections } from "../client-map-3d-hill-shape.js";
 import { townSupportPlotEntries, type TownSupportLookupDeps } from "../client-town-support-plot-lookup.js";
 import { createForest } from "../client-map-3d-forest.js"; import { createTropicalForest } from "../client-map-3d-tropical-forest.js";
-import { createOwnershipOverlay } from "../client-map-3d-ownership-overlay.js"; import { addFoggedOverlayTile, foggedWashInMist, type FoggedOverlayTile } from "../client-map-3d-fogged-mist/client-map-3d-fogged-tile-overlay.js"; import { hillNeighborFlagsAt } from "../client-map-3d-hill-shape.js"; import { tileSurfaceHeights } from "../client-map-3d-tile-surface-y/client-map-3d-tile-surface-y.js";
+import { createOwnershipOverlay } from "../client-map-3d-ownership-overlay.js"; import { hillNeighborFlagsAt } from "../client-map-3d-hill-shape.js"; import { tileSurfaceHeights } from "../client-map-3d-tile-surface-y/client-map-3d-tile-surface-y.js";
 import { createFrontierDecayPulseTracker } from "../client-map-3d-frontier-decay-pulse.js"; import { createBarbarianFrontierTintTracker, observeBarbarianFrontierTint } from "../client-map-3d-barbarian-frontier-tint.js";
 import {
   createBendingMarkerGeometry,
@@ -166,12 +168,14 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const forest = createForest(scene, MAX_VISIBLE_TILES); const tropicalForest = createTropicalForest(scene, MAX_VISIBLE_TILES);
   const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES); const prospectClues = createProspectClueLayer(scene, MAX_VISIBLE_TILES);
   const frontierDecayPulse = createFrontierDecayPulseTracker(); const barbarianFrontierTint = createBarbarianFrontierTintTracker();
-  // Fogged tiles get a black darkening quad (always full opacity 0.65, regardless of frontier/settled -- reuses both mesh buckets identically)
+  // Fogged tiles get a slate wash quad (normal blend at FOGGED_WASH_OPACITY, regardless of frontier/settled -- reuses both mesh buckets identically)
   // plus a separate, dimmer ownership tint of the last-witnessed owner. Kept as distinct overlay instances from `ownershipOverlay` so the live
-  // SETTLED_OPACITY (0.85) constant is never touched. Explicit multiply blend, unlike ownershipOverlay's own default -- alpha blend read washed-out.
+  // SETTLED_OPACITY (0.85) constant is never touched. The owner tint is an explicit multiply blend -- alpha blend read washed-out.
   const fogDarkenOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: FOGGED_WASH_OPACITY, frontier: FOGGED_WASH_OPACITY }, undefined, { settled: "normal", frontier: "normal" }, FOG_OVERLAY_RENDER_ORDERS); // slate wash: remembered land dimmed and desaturated under the fogged mist
-  const foggedMistWashKeys = new Set<number>(); // world keys (wy * WORLD_WIDTH + wx) of fogged flat land the mist washes; refilled each rebuild, bounded by the window
   const fogOwnershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.4, frontier: 0.12 }, undefined, { settled: "multiply", frontier: "multiply" }, FOG_OVERLAY_RENDER_ORDERS);
+  // Both end on the fogged mist's organic edge just past the tiles in sight, not on a square tile edge.
+  applyFoggedEdgeClipToOverlay(fogDarkenOverlay, atmosphere.foggedMist.edgeUniforms, "alpha");
+  applyFoggedEdgeClipToOverlay(fogOwnershipOverlay, atmosphere.foggedMist.edgeUniforms, "multiply");
   await deps.onStage?.("structures");
   const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture);
   const roadOverlay = createRoadOverlay(scene);
@@ -674,7 +678,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     const rebuildStartAt = performance.now();
     const { halfW, halfH } = window;
 
-    heightfield.mesh.position.set(0, 0, 0); foggedMistWashKeys.clear();
+    heightfield.mesh.position.set(0, 0, 0);
     // The fog's first ring reads as "fogged" so its ground draws (dimmed) under the unexplored storm's see-through coast band.
     const visibilityAt = withUnexploredCoastRingAsFogged((wx: number, wy: number): TileVisibilityState => deps.tileVisibilityStateAt(wx, wy, deps.state.tiles.get(deps.keyFor(wx, wy))), deps.wrapX, deps.wrapY);
     const isExploredForHeightfield = (wx: number, wy: number): boolean => {
@@ -849,8 +853,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           // the atmosphere's foggedMist layer. The fog's first ring
           // (withUnexploredCoastRingAsFogged) also lands here: it prints like
           // the remembered land it borders, but stays live-coloured beside land in sight.
-          const touchesSight = hasLiveNeighbour((nx, ny) => deps.tileVisibilityStateAt(nx, ny, deps.state.tiles.get(deps.keyFor(nx, ny))), wx, wy, deps.wrapX, deps.wrapY);
-          const printAsFogged = deps.tileVisibilityStateAt(wx, wy, tile) !== "unexplored" || !touchesSight;
+          const printAsFogged = deps.tileVisibilityStateAt(wx, wy, tile) !== "unexplored" || !hasLiveNeighbour((nx, ny) => deps.tileVisibilityStateAt(nx, ny, deps.state.tiles.get(deps.keyFor(nx, ny))), wx, wy, deps.wrapX, deps.wrapY);
           if (terrain === "SEA" || terrain === "COASTAL_SEA") {
             waterSurface.addTile(x, z, isShallowSeaTile(wx, wy, terrainForWorldTile, deps.wrapX, deps.wrapY), wx, wy, printAsFogged);
             continue;
@@ -863,9 +866,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
             corner11Y: heightfield.cornerYAt(wxNext, wyNext) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD,
             isHill: isHillsTile(wx, wy), hillNeighbors: hillNeighborFlagsAt(wx, wy, isHillsTile, deps.wrapX, deps.wrapY), wx, wy, roadDirs: hillCutAt(wx, wy)
           };
-          // On flat land the mist draws the wash, cut at its organic edge just past your vision.
-          if (printAsFogged && foggedWashInMist(terrain, fogTile.isHill)) foggedMistWashKeys.add(wy * WORLD_WIDTH + wx);
-          else if (printAsFogged) addFoggedOverlayTile(fogDarkenOverlay, fogTile, fogWash);
+          if (printAsFogged) addFoggedOverlayTile(fogDarkenOverlay, fogTile, fogWash);
           // FRONTIER excluded: ephemeral claim, so tinting stale fog data as "still his" is misleading -- stacked on the fog darkening it just read as a dark disconnected box
           if (terrain === "LAND" && ownerId && ownershipState !== "FRONTIER") addFoggedOverlayTile(fogOwnershipOverlay, fogTile, tmpOwnerColor.set(normalizeColorForThree(deps.effectiveOverlayColor(ownerId))));
           // Natural terrain is not live data, so it stays -- fogged like its ground.
@@ -1341,7 +1342,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       lastRebuild.triggers = triggersNow;
       deps.state.tilesRevisionChangedKeys.clear(); deps.state.tilesRevisionOverflowed = false;
       sceneOrigin.camX = builtWindow.camX;
-      sceneOrigin.camY = builtWindow.camY; atmosphere.onTerrainRebuilt(builtWindow, (wx, wy) => deps.tileVisibilityStateAt(wx, wy, deps.state.tiles.get(deps.keyFor(wx, wy))), (wx, wy) => foggedMistWashKeys.has(wy * WORLD_WIDTH + wx)); // resizes the sun's shadow frustum + rebuilds the unexplored storm's and fogged mist's masks at the new origin
+      sceneOrigin.camY = builtWindow.camY; atmosphere.onTerrainRebuilt(builtWindow, (wx, wy) => deps.tileVisibilityStateAt(wx, wy, deps.state.tiles.get(deps.keyFor(wx, wy)))); // resizes the sun's shadow frustum + rebuilds the unexplored storm's and fogged mist's masks at the new origin
     }
     // Applied last, using this frame's FINAL sceneOrigin (post-rebuild if one just
     // committed above): applying it before a same-frame rebuild would frame the

@@ -105,8 +105,7 @@ export type AtmosphereResources = {
   readonly foggedMist: FoggedMistLayer;
   // Called once per terrain rebuild with the new built window (whose camX/camY
   // is the new sceneOrigin in client-map-3d.ts) and its raw visibility lookup.
-  // `mistWashesAt`: fogged flat land whose wash the fogged mist draws (FoggedMistLayer.rebuild).
-  readonly onTerrainRebuilt: (window: TerrainWindow, visibilityAt: (wx: number, wy: number) => TileVisibilityState, mistWashesAt?: (wx: number, wy: number) => boolean) => void;
+  readonly onTerrainRebuilt: (window: TerrainWindow, visibilityAt: (wx: number, wy: number) => TileVisibilityState) => void;
   readonly dispose: () => void;
 };
 
@@ -280,10 +279,10 @@ export const createAtmosphere = (
     sun.position.set(sceneX + sunOffset.x, sunOffset.y, sceneZ + sunOffset.z);
   };
   updateShadowFrame(0);
-  const onTerrainRebuilt = (window: TerrainWindow, visibilityAt: (wx: number, wy: number) => TileVisibilityState, mistWashesAt?: (wx: number, wy: number) => boolean): void => {
+  const onTerrainRebuilt = (window: TerrainWindow, visibilityAt: (wx: number, wy: number) => TileVisibilityState): void => {
     updateShadowFrame(Math.max(window.halfW, window.halfH));
     unexploredStorm.rebuild(window, visibilityAt);
-    foggedMist.rebuild(window, visibilityAt, mistWashesAt);
+    foggedMist.rebuild(window, visibilityAt);
   };
 
   // Single place every tunable light value is applied, both at startup (the

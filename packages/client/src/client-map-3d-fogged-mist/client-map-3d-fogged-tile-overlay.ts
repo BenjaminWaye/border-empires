@@ -31,11 +31,3 @@ export const addFoggedOverlayTile = (overlay: OwnershipOverlay, tile: FoggedOver
   }
 };
 
-/**
- * Whether a fogged tile's slate wash is left to the fogged mist
- * (client-map-3d-fogged-mist.ts), which cuts it at the fog's organic edge
- * just past your vision and draws it in one pass with the mist, so no seam
- * shows between tiles: flat land. Hills and mountains rise through the mist
- * sheet, so they keep their per-tile wash.
- */
-export const foggedWashInMist = (terrain: string, isHill: boolean): boolean => terrain === "LAND" && !isHill;

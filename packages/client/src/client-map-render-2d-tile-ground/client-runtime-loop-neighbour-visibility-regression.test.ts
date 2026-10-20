@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 // remembered: the fogged mist's band past your vision never appeared, and
 // fog-ring tiles beside land in sight were dimmed as if beside remembered
 // land. The neighbour's tile must be passed through.
-const loopSource = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), "./client-runtime-loop.ts"), "utf8");
+const loopSource = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), "../client-runtime-loop.ts"), "utf8");
 
 describe("2D neighbour visibility regression guard", () => {
   it("passes each neighbour's tile to tileVisibilityStateAt", () => {

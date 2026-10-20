@@ -694,7 +694,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         if (!isTrue3DRendererActive()) {
           const terrainWhenMissing = !t && (state.firstChunkAt === 0 || effectiveFogDisabled(state) || revealWholeMapInTrue3DMode) ? terrainAt(wx, wy) : undefined;
           const neighbourVisibility = (ox: number, oy: number): TileVisibilityState => { const nx = deps.wrapX(wx + ox), ny = deps.wrapY(wy + oy); return deps.tileVisibilityStateAt(nx, ny, state.tiles.get(deps.keyFor(nx, ny))); }; // the tile is needed: without it a tile in sight reads as fogged
-          drawTileGround2D(deps.ctx, { wx, wy, px, py, size, tile: t, vis, terrainWhenMissing, terrainAt, drawTerrainTile: deps.drawTerrainTile, drawTerrainDetail, neighbourVisibility });
+          drawTileGround2D(deps.ctx, { wx, wy, px, py, size, tile: t, vis, terrainWhenMissing, terrainAt, drawTerrainTile: deps.drawTerrainTile, drawTerrainDetail, neighbourVisibility, nowMs: tileStartAt });
         }
 
         if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") { deps.drawForestOverlay(wx, wy, px, py, size); deps.drawHillsOverlay(wx, wy, px, py, size); }

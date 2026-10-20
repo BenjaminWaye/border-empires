@@ -19,19 +19,18 @@ describe("first fog ring loads its natural terrain in 3D", () => {
 
   it("prints a ring tile like remembered land unless it touches land in sight", () => {
     const fogBranchStart = source.indexOf('if (visibility === "fogged" && !revealWholeMapInTrue3DMode) {');
-    const touches = source.indexOf("const touchesSight = hasLiveNeighbour(", fogBranchStart);
-    const flag = source.indexOf('const printAsFogged = deps.tileVisibilityStateAt(wx, wy, tile) !== "unexplored" || !touchesSight;', fogBranchStart);
-    expect(touches).toBeGreaterThan(fogBranchStart);
-    expect(flag).toBeGreaterThan(touches);
+    const flag = source.indexOf('const printAsFogged = deps.tileVisibilityStateAt(wx, wy, tile) !== "unexplored" || !hasLiveNeighbour(', fogBranchStart);
+    expect(flag).toBeGreaterThan(fogBranchStart);
     // A full-colour ring beside faded remembered land read as a bright strip
     // (and before that, a darkened ring beside live land read as a hole).
-    expect(source).toContain("if (printAsFogged && foggedWashInMist(terrain, fogTile.isHill)) foggedMistWashKeys.add(wy * WORLD_WIDTH + wx);");
-    expect(source).toContain("else if (printAsFogged) addFoggedOverlayTile(fogDarkenOverlay, fogTile, fogWash);");
+    expect(source).toContain("if (printAsFogged) addFoggedOverlayTile(fogDarkenOverlay, fogTile, fogWash);");
   });
 
-  it("hands the mist the flat fogged land it washes, refilled every rebuild", () => {
-    expect(source).toContain("heightfield.mesh.position.set(0, 0, 0); foggedMistWashKeys.clear();");
-    expect(source).toContain("(wx, wy) => foggedMistWashKeys.has(wy * WORLD_WIDTH + wx));");
+  it("fits both fog overlays, on the ground, to the fogged mist's edge", () => {
+    // Drawing the wash on the raised mist sheet instead shifted it off its
+    // tiles (parallax) and over the owner tint and placement previews.
+    expect(source).toContain('applyFoggedEdgeClipToOverlay(fogDarkenOverlay, atmosphere.foggedMist.edgeUniforms, "alpha");');
+    expect(source).toContain('applyFoggedEdgeClipToOverlay(fogOwnershipOverlay, atmosphere.foggedMist.edgeUniforms, "multiply");');
   });
 
   it("keeps natural terrain (mountains, forests, grass scatter) on every fogged tile, ring included", () => {

@@ -16,9 +16,11 @@ export const FOGGED_MIST_TEXTURE_PX = 256;
 // World tiles one copy of the texture spans; banks come out ~4 tiles across,
 // like the 3D shader's.
 export const FOGGED_MIST_TEXTURE_TILES = 16;
-// Drift in tiles per second, matching the 3D banks' (0.035, 0.012).
-const DRIFT_X_TILES_PER_SECOND = 0.035;
-const DRIFT_Y_TILES_PER_SECOND = 0.012;
+// Drift in tiles per second, matching the 3D banks: their noise coordinate
+// is world * 0.22 + time * (0.035, 0.012), so the pattern moves through the
+// world at -(0.035, 0.012) / 0.22.
+const DRIFT_X_TILES_PER_SECOND = -0.035 / 0.22;
+const DRIFT_Y_TILES_PER_SECOND = -0.012 / 0.22;
 // Base noise cells per texture for the broad banks and the finer wisps.
 const BANK_LATTICE = 4;
 const WISP_LATTICE = 12;
