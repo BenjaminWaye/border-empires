@@ -479,6 +479,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Play independently of Vercel",
     why: "A shared hosting limit could prevent players from opening the game even while the game servers were healthy.",
     changes: ["Production and staging can serve the game directly from their existing game servers"]
+  },
+  {
+    createdAt: 1792526017884, // Date.now() captured for this entry.
+    introducedIn: "2026.10.20.2",
+    title: "Richer 3D terrain",
+    why: "Fields showed a tile-sized checkerboard and read as flat, uniform colour.",
+    changes: [
+      "Ground textures flow continuously across tiles instead of repeating per tile",
+      "Meadows vary between sun-dried and lush patches, with soft rolling light and fine close-up detail",
+      "Beaches darken and glisten at the waterline; steep hill flanks show bare earth"
+    ]
   }
 ];
 
