@@ -6,6 +6,7 @@ import { musterStatusText } from "./client-side-panel-html/client-side-panel-htm
 import { armMusterMarchTargeting, cancelMarchAction, MARCH_CANCEL_ACTION_IDS, type MarchCancelActionId } from "./client-muster-march-targeting.js";
 import { announceDiscoveryTipForState } from "./client-onboarding-ui-gate/client-onboarding-ui-overlays.js";
 import { predictedMusterAmount } from "./client-muster-prediction/client-muster-prediction.js";
+import { musterSiegeReason, ownTileSiegeAt } from "./client-muster-siege/client-muster-siege.js";
 
 // Inline to avoid circular dependency with client-tile-action-logic.ts
 // (which imports buildMusterActions from here).
@@ -22,7 +23,11 @@ const avail = (): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> =>
  */
 export const buildMusterActions = (
   tile: Tile,
-  state: Pick<ClientState, "me" | "authEmail" | "manpowerCap" | "manpower" | "musterAmountRateByTile" | "bridgeDebugSeasonId">
+  state: Pick<
+    ClientState,
+    "me" | "authEmail" | "manpowerCap" | "manpower" | "musterAmountRateByTile" | "bridgeDebugSeasonId" | "incomingAttacksByTile" | "tiles"
+  >,
+  nowMs = Date.now()
 ): TileActionDef[] => {
   if (tile.terrain !== "LAND" || tile.ownerId !== state.me) return [];
   if (!tile.muster && !isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId)) return [];
@@ -64,19 +69,27 @@ export const buildMusterActions = (
       unfundableTarget: muster.unfundableTarget,
       clearing: muster.clearing
     });
+    // An enemy attack on this flag's tile pins its troops until the fight
+    // resolves (the server refuses these with MUSTER_UNDER_SIEGE): no
+    // advancing or marching out, and no clearing the flag to pull the troops
+    // back before the tile falls. Hold, Cancel March and Expand Capacity stay
+    // open -- none of them moves troops off the tile.
+    const siege = ownTileSiegeAt(state, tile.x, tile.y, nowMs);
+    const siegeLock = (): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> =>
+      siege ? { disabled: true, disabledReason: musterSiegeReason(siege, nowMs) } : avail();
     // Muster flag exists — offer mode toggle and clear.
     if (muster.mode === "HOLD") {
       out.push({
         id: "muster_advance",
         label: "Set Advance",
         detail: `Mustering… ${staged}/${cap} manpower staged · clears Planetary Defense and enemies within ${MUSTER_ADVANCE_RANGE_STEPS} steps, then reports back.`,
-        ...avail()
+        ...siegeLock()
       });
       out.push({
         id: "muster_march",
         label: "March To…",
         detail: `Mustering… ${staged}/${cap} manpower staged · pick a target tile (up to ${MUSTER_MARCH_MAX_DISTANCE_TILES} tiles away) to fight toward.`,
-        ...avail()
+        ...siegeLock()
       });
     } else if (muster.mode === "ADVANCE") {
       out.push({
@@ -89,7 +102,7 @@ export const buildMusterActions = (
         id: "muster_march",
         label: "March To…",
         detail: `${status} (${staged}/${cap} staged) · pick a target tile (up to ${MUSTER_MARCH_MAX_DISTANCE_TILES} tiles away) to fight toward.`,
-        ...avail()
+        ...siegeLock()
       });
     } else {
       out.push({
@@ -117,7 +130,7 @@ export const buildMusterActions = (
       id: "muster_clear",
       label: "Clear Muster",
       detail: `Return ${staged} manpower to pool and remove the flag.`,
-      ...avail()
+      ...siegeLock()
     });
   }
 

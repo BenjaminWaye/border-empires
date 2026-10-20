@@ -13,6 +13,7 @@ import { BATTLE_TILE_SOUND_CHANGELOG } from "./client-changelog-battle-tile-soun
 import { TOWN_VISUALS_CHANGELOG } from "./client-changelog-town-visuals.js";
 import { TOWN_BANNERS_CHANGELOG } from "./client-changelog-town-banners.js";
 import { CONSTRUCTION_POD_DELIVERY_CHANGELOG } from "./client-changelog-construction-pod-delivery.js";
+import { MUSTER_SIEGE_CHANGELOG } from "./client-changelog-muster-siege.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -479,6 +480,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...TOWN_VISUALS_CHANGELOG,
   ...TOWN_BANNERS_CHANGELOG,
   ...CONSTRUCTION_POD_DELIVERY_CHANGELOG,
+  ...MUSTER_SIEGE_CHANGELOG,
   {
     createdAt: 1792510291974, // Date.now() captured for this entry.
     introducedIn: "2026.10.20.1",

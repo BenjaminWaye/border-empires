@@ -3401,7 +3401,7 @@ export class SimulationRuntime {
     return resolveMusterSourceImpl(actorId, originKey, requiredMuster, preferredKey, {
       tiles: this.state.tiles,
       musterTilesByOwner: this.ownerIndexes.musterTilesByOwner,
-      musterReservedByKey: this.musterReservedByKey
+      musterReservedByKey: this.musterReservedByKey, locksByTile: this.state.locksByTile
     });
   }
 

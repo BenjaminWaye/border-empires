@@ -29,6 +29,7 @@ import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-
 import { playerMusterFlagLimit } from "./runtime-muster-tick/muster-auto-fire-shared.js";
 import type { StrategicResourceKey } from "./runtime-types.js";
 import { creditManpower } from "./runtime-manpower-ceiling.js";
+import { rejectIfMusterBesieged } from "./muster-siege-guard/muster-siege-guard.js";
 
 function rejectCommand(
   context: RuntimeStructureCommandContext,
@@ -167,6 +168,7 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
     rejectCommand(context, command, "MUSTER_INVALID", "owned LAND tile required to muster");
     return;
   }
+  if (payload.mode !== "HOLD" && target.muster && rejectIfMusterBesieged(context.locksByTile, command, targetKey, (c, code, message) => rejectCommand(context, c, code, message))) return;
   if (payload.mode === "MARCH") {
     if (payload.targetX === payload.x && payload.targetY === payload.y) {
       rejectCommand(context, command, "MUSTER_INVALID", "march target must differ from the flag tile");
@@ -259,6 +261,7 @@ export function handleClearMusterCommand(context: RuntimeStructureCommandContext
     rejectCommand(context, command, "MUSTER_INVALID", "no muster on owned tile");
     return;
   }
+  if (rejectIfMusterBesieged(context.locksByTile, command, targetKey, (c, code, message) => rejectCommand(context, c, code, message))) return;
   creditManpower(actor, target.muster.amount, context.playerManpowerCap(actor));
   const updatedTile: DomainTileState = { ...target, muster: undefined };
   context.replaceTileState(targetKey, updatedTile, command.commandId);
