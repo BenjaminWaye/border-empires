@@ -116,7 +116,7 @@ describe("ownership overlay partial color update", () => {
     const overlayA = createOwnershipOverlay(scene, 1);
     const overlayB = createOwnershipOverlay(scene, 1);
     const green = new Color(0, 1, 0);
-    const neighbors = { north: false, south: false, east: false, west: false };
+    const neighbors = { north: false, south: false, east: false, west: false, northEast: false, northWest: false, southEast: false, southWest: false };
     // Same world tile (500, 500), rendered at two different scene-space
     // offsets (as the camera pans) -- the draped shape must be identical.
     overlayA.addHillTile(0, 1, 0, 1, 0, 0, 0, 0, green, false, neighbors, 500, 500);

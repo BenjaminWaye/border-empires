@@ -10,6 +10,7 @@ import { AFC_UPGRADES_ICON_CHANGELOG } from "./client-changelog-afc-upgrades-ico
 import { MUSTER_BANNER_CHANGELOG } from "./client-changelog-muster-banner.js";
 import { BATTLE_TILE_SOUND_CHANGELOG } from "./client-changelog-battle-tile-sound.js";
 import { TOWN_VISUALS_CHANGELOG } from "./client-changelog-town-visuals.js";
+import { RICHER_TERRAIN_CHANGELOG } from "./client-changelog-richer-terrain.js";
 import { TOWN_BANNERS_CHANGELOG } from "./client-changelog-town-banners.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
@@ -480,17 +481,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "A shared hosting limit could prevent players from opening the game even while the game servers were healthy.",
     changes: ["Production and staging can serve the game directly from their existing game servers"]
   },
-  {
-    createdAt: 1792526017884, // Date.now() captured for this entry.
-    introducedIn: "2026.10.20.2",
-    title: "Richer 3D terrain",
-    why: "Fields showed a tile-sized checkerboard and read as flat, uniform colour.",
-    changes: [
-      "Ground textures flow continuously across tiles instead of repeating per tile",
-      "Meadows vary between sun-dried and lush patches, with soft rolling light and fine close-up detail",
-      "Beaches darken and glisten at the waterline; steep hill flanks show bare earth"
-    ]
-  }
+  ...RICHER_TERRAIN_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

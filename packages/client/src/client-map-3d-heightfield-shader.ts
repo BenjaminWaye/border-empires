@@ -89,13 +89,16 @@ ${TERRAIN_SURFACE_NOISE_GLSL}
       vec3 sandSample = terrainSampleBiome( sandColorMap, vTerrainWorldUv, terrainLayerMask );
       vec3 tundraSample = terrainSampleBiome( tundraColorMap, vTerrainWorldUv, terrainLayerMask );
       float greenBias = vColor.g - 0.5 * (vColor.r + vColor.b);
-      // Soft-narrow biome cut: 0.03-wide blend zone, just enough to
-      // antialias the seam without a visible mid-blend band of
-      // muddy-green-into-tan. TUNDRA's pale palette sits too close to
+      // Feathered biome cut: the grass/sand threshold is pushed around by
+      // the grass texture's own light/dark detail and by world noise
+      // (terrainBiomeEdgeOffset), so sand shows through the gaps between
+      // grass clumps for a soft, organic shoreline edge. A plain wide
+      // smoothstep instead averaged the two textures into a muddy
+      // green-into-tan band. TUNDRA's pale palette sits too close to
       // SAND's in this color-inferred space to tell apart the same way, so
       // it uses an explicit per-vertex mask (vTundraZone) instead, blended
       // in on top last.
-      float grassMask = smoothstep(0.055, 0.085, greenBias);
+      float grassMask = smoothstep(0.07, 0.13, greenBias + terrainBiomeEdgeOffset(grassSample, terrainMeso, terrainGrain));
       vec3 biomeColor = mix(sandSample, grassSample, grassMask);
       float tundraMask = smoothstep(0.4, 0.6, vTundraZone);
       biomeColor = mix(biomeColor, tundraSample, tundraMask);

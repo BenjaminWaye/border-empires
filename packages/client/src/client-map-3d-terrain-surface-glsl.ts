@@ -14,15 +14,21 @@ const GRAIN_FADE_START = 0.04;
 const GRAIN_FADE_END = 0.12;
 
 // Water surface sits at -0.06 (client-map-3d-water-surface.ts) and a coast
-// corner is pinned to -0.04 (COAST_EDGE_Y); sand tiles rest at 0.07. The wet
-// band covers the lower part of that bevel, just above the waterline.
-const WET_SAND_TOP_Y = 0.045;
-const WET_SAND_FULL_Y = -0.01;
+// corner is pinned to -0.04 (COAST_EDGE_Y); sand tiles rest at 0.07, so a
+// one-tile beach is that bevel almost end to end. The wet band must stay a
+// thin lip right at the waterline -- an earlier 0.045 top covered most of
+// a narrow beach and turned it grey-brown. WET_SAND_EDGE_WOBBLE lets the
+// band's top edge wander with the meso noise so it isn't a contour line.
+const WET_SAND_TOP_Y = -0.005;
+const WET_SAND_FULL_Y = -0.035;
+const WET_SAND_EDGE_WOBBLE = 0.012;
 
 // World-normal Y below which a slope starts showing bare earth/rock. Flat
-// ground is 1.0; a coast bevel ~0.98; hill flanks reach ~0.7.
-const SLOPE_ROCK_START = 0.9;
-const SLOPE_ROCK_FULL = 0.68;
+// ground is 1.0 and a coast bevel ~0.98; a hill's eased-out rim stays above
+// 0.8 so it blends into the meadow instead of being outlined in brown --
+// only genuinely steep faces get earth.
+const SLOPE_ROCK_START = 0.8;
+const SLOPE_ROCK_FULL = 0.6;
 
 // Bump heights in world units. The rolling term (a few tiles across) gives
 // flat fields soft sunlit/shaded undulation without moving any geometry --
@@ -66,6 +72,18 @@ vec3 terrainSampleBiome(sampler2D tex, vec2 worldUv, float layerMask) {
   vec3 rotated = texture2D(tex, rotatedUv).rgb;
   return mix(tiled, rotated, layerMask);
 }
+// How far the grass/sand threshold shifts at this pixel: brighter grass
+// texels (clump tops) hold out further into the sand, darker gaps give way
+// to it first, and two noise scales wander the line so it never follows
+// the tile grid. Zero-mean (0.67 is the grass texture's average) and at
+// most ~0.035 either way: pure sand sits at greenBias ~0.036 and pure
+// grass ~0.19, so with the 0.07-0.13 cut neither ever picks up the other's
+// texture -- a larger swing pulled green into the sand and turned whole
+// beaches khaki.
+float terrainBiomeEdgeOffset(vec3 grassSample, float meso, float grain) {
+  float clump = dot(grassSample, vec3(0.333)) - 0.67;
+  return clump * 0.06 + (meso - 0.5) * 0.03 + grain * 0.03;
+}
 // Bump-mapped normal from a scalar height field, via screen-space
 // derivatives (the same construction as three.js's perturbNormalArb, which
 // only exists in the shader under USE_BUMPMAP).
@@ -106,7 +124,8 @@ export const TERRAIN_SURFACE_LAYERS_GLSL = `
       vec3 terrainGrassTint = mix(terrainDry, terrainLush, smoothstep(0.3, 0.7, terrainMacro));
       float terrainBareMask = grassMask * (1.0 - tundraMask);
       biomeColor *= mix(vec3(1.0), terrainGrassTint, 0.55 * terrainBareMask);
-      biomeColor *= 0.93 + 0.14 * terrainMeso;
+      // Brightness wander is mostly a meadow thing; on sand it reads as dirt.
+      biomeColor *= mix(1.0, 0.93 + 0.14 * terrainMeso, mix(0.35, 1.0, grassMask));
 
       // Slopes: exposed earth/rock on steep hill flanks, broken up by noise
       // so it reads as eroded ground, not a contour band.
@@ -119,12 +138,14 @@ export const TERRAIN_SURFACE_LAYERS_GLSL = `
 
       // Wet shoreline: the bevel just above the waterline darkens and goes
       // glossy (see the roughness patch), like sand the surf just left.
-      terrainWetMask = smoothstep(${glslFloat(WET_SAND_TOP_Y)}, ${glslFloat(WET_SAND_FULL_Y)}, vTerrainWorldY);
-      biomeColor *= mix(vec3(1.0), vec3(0.62, 0.66, 0.7), terrainWetMask);
+      float terrainWetTop = ${glslFloat(WET_SAND_TOP_Y)} + (terrainMeso - 0.5) * ${glslFloat(WET_SAND_EDGE_WOBBLE)};
+      terrainWetMask = smoothstep(terrainWetTop, ${glslFloat(WET_SAND_FULL_Y)}, vTerrainWorldY);
+      biomeColor *= mix(vec3(1.0), vec3(0.82, 0.78, 0.7), terrainWetMask);
 
       // Fine grain: close-up crispness the 64px-per-tile painted textures
-      // can't resolve on their own. Fades out before it would alias.
-      biomeColor *= 1.0 + terrainGrain * 0.22;`;
+      // can't resolve on their own. Fades out before it would alias. Kept
+      // light on sand, where the same speckle reads as dirt.
+      biomeColor *= 1.0 + terrainGrain * mix(0.08, 0.22, grassMask);`;
 
 // Appended after <normal_fragment_maps>.
 export const TERRAIN_BUMP_NORMAL_GLSL = `
@@ -132,4 +153,4 @@ normal = terrainPerturbNormal(-vViewPosition, normal, terrainBumpHeight, faceDir
 
 // Appended after <roughnessmap_fragment>.
 export const TERRAIN_WET_ROUGHNESS_GLSL = `
-roughnessFactor = mix(roughnessFactor, 0.38, terrainWetMask);`;
+roughnessFactor = mix(roughnessFactor, 0.6, terrainWetMask);`;

@@ -181,11 +181,16 @@ export function syncFrontierClaimPlates(
     // instead of sitting on the flat corner average, which used to bury it
     // inside (or leave it floating below) a hill's peak entirely.
     const isHill = isHillsAt(claim.targetX, claim.targetY);
-    const bumps = isHill
-      ? hillBumpsWithCorridorAt(claim.targetX, claim.targetY, hillNeighborFlagsAt(claim.targetX, claim.targetY, isHillsAt, wrapX, wrapY))
-      : [];
     const surfaceY = isHill
-      ? groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(0, 0, bumps, claim.targetX, claim.targetY)
+      ? groundY +
+        HEIGHTFIELD_HILLS_ELEVATION_BONUS *
+          hillShapeHeight(
+            0,
+            0,
+            hillBumpsWithCorridorAt(claim.targetX, claim.targetY, hillNeighborFlagsAt(claim.targetX, claim.targetY, isHillsAt, wrapX, wrapY)),
+            claim.targetX,
+            claim.targetY
+          )
       : groundY;
     // Anchor the plate's LEFT edge at tile-center − HALF_TILE; scaling X by
     // t grows the plate rightward from there — same sweep-in-from-the-left

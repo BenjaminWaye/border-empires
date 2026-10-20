@@ -72,6 +72,10 @@ const applyGameLighting = (stage: ReturnType<typeof createStage>): (() => void) 
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.intensity = lighting.shadowIntensity;
+  // Same biases as client-map-3d-atmosphere.ts: the hill domes cast onto
+  // themselves, and without these they darken with shadow acne.
+  sun.shadow.bias = -0.0015;
+  sun.shadow.normalBias = 0.05;
   sun.shadow.camera.left = -HALF;
   sun.shadow.camera.right = HALF;
   sun.shadow.camera.top = HALF;
