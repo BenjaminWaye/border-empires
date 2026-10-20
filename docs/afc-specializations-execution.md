@@ -2,7 +2,7 @@
 
 Status: implemented; PR validation and staging rollout pending
 Owner: implementing agent
-Updated: 2026-10-18
+Updated: 2026-10-20
 Scope: execute the full [catalogue](afc-specializations-catalog.md), not just its interface.
 
 ## Delivery contract
@@ -17,7 +17,7 @@ Mechanical summaries, lore, previews, actual math, and AI share authoritative ru
 Use the existing plan's working defaults as the implementation baseline: five-minute
 momentum decay, +25% fortified-town defense, ×2 core-town Coin and one-time +50%
 non-Metropolis core population, tech-free Scarcity equipment, +50% logistics,
-+2 Coin/day +0.02 MP/min +30 MP cap per mutual ally, +15% coalition attack,
+10% of each mutual ally’s domestic Coin income/MP capacity/regen, +15% coalition attack,
 reciprocal physical allied dock links, ×2 diplomatic contribution, five-minute
 tower suppression using the existing cooldown, and a 12h unbreakable forced truce
 with a 48h caster cooldown. Numbers remain centrally tunable.
@@ -59,7 +59,7 @@ and optional product-review wording in the earlier proposal.
 | Dominion | ×3 beacon speed | dock reach 2 | town reach 4 | ×2 garrison speed | ×2 all build speed, beacon ×6 |
 | Exchequer | ×1.5 core Coin, −2 town FOOD | least-owned legal resource boosters | ×2 Clearing House uplift | 1 Coin→5 MP, ×1.5 transfer | ×2 core Coin, core population consignment |
 | Oracle | first tower CRYSTAL waiver | ×0.5 tower cooldown | +15 casting range | suppress hostile tower | exact masked flag locations/Purge |
-| Chancery | per-mutual-ally income/MP/cap | doubled allied dock income | shared-war +15% attack | force 12h truce, 48h recharge | ×2 contribution, largest actual member wins |
+| Chancery | 10% allied domestic income/MP cap/regen | doubled allied dock income | shared-war +15% attack | force 12h truce, 48h recharge | ×2 contribution, largest actual member wins |
 
 Each box requires actual outcome tests, display/preview agreement, and persistence
 coverage where it introduces durable state. Empty or placeholder effects are not done.
@@ -93,3 +93,20 @@ coverage where it introduces durable state. Empty or placeholder effects are not
 - Latest develop's captured-building survival fix was retained on rebase.
   PR checks, merge, cleanup and staging verification remain the release gate;
   completion is confirmed in the linked PR and deployment checks.
+
+### Envoy percentage revision (2026-10-20)
+
+Envoy now reads domestic values before Envoy contributions. The economy cache
+holds domestic snapshots; a fresh allied-income overlay prevents circular bonus
+reads and picks up an ally’s changed income even when the recipient’s cache is
+warm. Manpower formulas share the same percentage collector. Direct Envoy
+dependents settle their old refill rate before relevant domestic tile/command
+changes; alliance transitions restamp capacity without awarding new manpower.
+
+Both full and per-player exports carry the computed Coin contribution for the
+reconnect source row. This derived scalar is not written to durable snapshots.
+Visible exports also supply the requesting player’s actual capacity, refill rate,
+logistics and breakdown. Required callback contracts prevent silent omissions.
+Regression tests cover mutual upgrades, accrual, changing allied production,
+alliance loss/reformation, restart, zero work without the upgrade, and linear
+reads across twelve contributing allies.

@@ -1,8 +1,8 @@
 // Dynamic soundtrack for Border Empires. A looping music bed reacts to
 // conflict state (calm / an attack approaching or marching out / an active
 // battle), and short location themes play once over the top when the player
-// looks at a town, dock, or natural wonder tile — ducking the music bed out
-// and fading it back in afterward.
+// looks at a town, dock, natural wonder, or ongoing-battle tile — ducking the
+// music bed out and fading it back in afterward.
 //
 // Playback only starts after the player's first pointer/key interaction —
 // browsers block audio autoplay before a user gesture. Volume/mute are
@@ -17,7 +17,7 @@ const FADE_MS = 900;
 const LOCATION_THEME_RESUME_DELAY_MS = 600;
 
 type MusicMode = "calm" | "tension" | "combat";
-export type LocationTheme = "town" | "dock" | "wonder";
+export type LocationTheme = "town" | "dock" | "wonder" | "battle";
 
 const CALM_TRACKS = ["/audio/aether-forger-frontier.m4a", "/audio/aetherium-frontier.m4a"];
 const TENSION_TRACKS = ["/audio/march.m4a", "/audio/front.m4a"];
@@ -25,7 +25,8 @@ const COMBAT_TRACKS = ["/audio/battle-v1.m4a", "/audio/battle-v2.m4a"];
 const LOCATION_TRACKS: Record<LocationTheme, string> = {
   town: "/audio/town.m4a",
   dock: "/audio/dock.m4a",
-  wonder: "/audio/wonder.m4a"
+  wonder: "/audio/wonder.m4a",
+  battle: "/audio/battle-tile.mp3"
 };
 const AFC_DROP_TRACK = "/audio/afc-drop-rocket.mp3";
 /** The rocket clip is mastered ~10 dB hotter than the soundtrack (-6.3 vs -16 LUFS), so it plays 10 dB under the player's music volume to sit level with it. */
@@ -276,8 +277,8 @@ export const updateMusicForGameState = (input: { combat: boolean; tension: boole
 };
 
 /**
- * Plays a location theme once (town/dock/natural wonder). During calm music,
- * this ducks the music bed out while it plays and fades the bed back in
+ * Plays a location theme once (town/dock/natural wonder/ongoing battle).
+ * During calm music, this ducks the music bed out while it plays and fades the bed back in
  * (continuing from wherever it was paused, not restarting) a short beat
  * after the one-shot ends. During tension/combat ("war") music, the bed is
  * never paused or ducked — the location theme just plays on top of it, so an

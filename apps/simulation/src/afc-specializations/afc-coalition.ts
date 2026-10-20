@@ -32,21 +32,39 @@ export function coalitionAttackMult(player: DomainPlayer | undefined, defenderId
   if (mult === 1) return 1;
   return mutualAfcAllies(player, players).some(ally => (ally.afcCampaign?.wars?.[defenderId] ?? 0) > now) ? mult : 1;
 }
-export function afcEnvoyBenefits(player: Pick<DomainPlayer, "id" | "techIds" | "domainIds" | "allies">, players: ReadonlyMap<string, AfcAlliancePeer>): { allies: number; goldPerMinute: number; manpowerRegenPerMinute: number; manpowerCap: number } {
-  const allies = mutualAfcAllies(player, players).length;
-  return {
-    allies,
-    goldPerMinute: allies * additiveEffectForPlayer(player, "allianceGoldPerDay") / 1440,
-    manpowerRegenPerMinute: allies * additiveEffectForPlayer(player, "allianceManpowerRegenPerMinute"),
-    manpowerCap: allies * additiveEffectForPlayer(player, "allianceManpowerCapAdd")
-  };
+export interface AfcEnvoyBaseStats { goldPerMinute: number; manpowerRegenPerMinute: number; manpowerCap: number }
+export interface AfcEnvoyBenefits extends AfcEnvoyBaseStats { allies: number }
+
+/** Resolve domestic rates only: an ally's Envoy contribution must never feed back into another. */
+export function afcEnvoyBenefits<T extends AfcAlliancePeer>(
+  player: Pick<DomainPlayer, "id" | "techIds" | "domainIds" | "allies">,
+  players: ReadonlyMap<string, T>,
+  baseStatsForAlly: (ally: T) => AfcEnvoyBaseStats
+): AfcEnvoyBenefits {
+  const result = { allies: 0, goldPerMinute: 0, manpowerRegenPerMinute: 0, manpowerCap: 0 };
+  const share = additiveEffectForPlayer(player, "allianceContributionShare");
+  if (share <= 0) return result;
+  for (const ally of mutualAfcAllies(player, players)) {
+    if (ally.id.startsWith("barbarian-")) continue;
+    const base = baseStatsForAlly(ally);
+    result.allies++;
+    for (const key of ["goldPerMinute", "manpowerRegenPerMinute", "manpowerCap"] as const) {
+      if (Number.isFinite(base[key])) result[key] += Math.max(0, base[key]) * share;
+    }
+  }
+  return result;
+}
+
+export const AFC_ENVOY_SOURCE_LABEL = "Envoy Accreditation";
+export function afcEnvoyIncomeInSnapshot(snapshot: { economyBreakdown?: { GOLD: { sources: readonly { label: string; amountPerMinute: number }[] } } }): number {
+  return snapshot.economyBreakdown?.GOLD.sources.find(row => row.label === AFC_ENVOY_SOURCE_LABEL)?.amountPerMinute ?? 0;
 }
 
 /** Actual accrual and its source row use the same computed Coin/min value. */
-export function applyAfcEnvoyIncome<T extends { incomePerMinute: number; economyBreakdown: { GOLD: { sources: Array<{ label: string; amountPerMinute: number; count: number }> } } }>(snapshot: T, benefits: ReturnType<typeof afcEnvoyBenefits>): T {
+export function applyAfcEnvoyIncome<T extends { incomePerMinute: number; economyBreakdown: { GOLD: { sources: Array<{ label: string; amountPerMinute: number; count: number }> } } }>(snapshot: T, benefits: AfcEnvoyBenefits): T {
   if (benefits.goldPerMinute > 0) {
     snapshot.incomePerMinute += benefits.goldPerMinute;
-    snapshot.economyBreakdown.GOLD.sources.push({ label: "Envoy Accreditation", amountPerMinute: benefits.goldPerMinute, count: benefits.allies });
+    snapshot.economyBreakdown.GOLD.sources.push({ label: AFC_ENVOY_SOURCE_LABEL, amountPerMinute: benefits.goldPerMinute, count: benefits.allies });
   }
   return snapshot;
 }

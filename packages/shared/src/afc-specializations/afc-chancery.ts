@@ -6,14 +6,12 @@ export const AFC_CHANCERY = [
     "tier": 1,
     "branch": "chancery",
     "name": "Envoy Accreditation",
-    "description": "Coalition members contribute credit, ancillary contingents, and reserve facilities to an accredited liaison headquarters.",
-    "mechanicalSummary": "Each mutual ally adds +2 Coin/day, +0.02 manpower/min and +30 manpower capacity. No ally limit.",
+    "description": "Gain a share of each mutual ally’s Coin income, manpower capacity and regeneration. Allies keep their full amounts. Contributions exclude Envoy Accreditation bonuses, so they cannot compound. Accredited envoys coordinate allied credit and reserve facilities.",
+    "mechanicalSummary": "Gain 10% of each ally’s Coin income, manpower cap and regeneration.",
     "category": "ongoing",
     "requiresTechId": "",
     "effects": {
-      "allianceGoldPerDay": 2,
-      "allianceManpowerRegenPerMinute": 0.02,
-      "allianceManpowerCapAdd": 30
+      "allianceContributionShare": 0.1
     }
   },
   {
@@ -21,8 +19,8 @@ export const AFC_CHANCERY = [
     "tier": 2,
     "branch": "chancery",
     "name": "Reciprocal Trade Pact",
-    "description": "A registered joint freight undertaking receives preferential clearing rates, insurance, and export contracts.",
-    "mechanicalSummary": "Physical allied dock links count toward dock and Harbor Exchange income. Your allied links earn twice the normal bonus; partners also gain access.",
+    "description": "Physical links to allied docks count for dock and Harbor Exchange income. Your allied-link bonus increases by 100%; partners gain ordinary access unless they also own this upgrade. No Coin is taken from an ally.",
+    "mechanicalSummary": "Allied dock trade access | +100% income bonus from your allied links.",
     "category": "ongoing",
     "requiresTechId": "",
     "effects": {
@@ -34,8 +32,8 @@ export const AFC_CHANCERY = [
     "tier": 3,
     "branch": "chancery",
     "name": "Coalition Command Accord",
-    "description": "Liaison officers share current battlefield information and coordinate offensives against a common opponent.",
-    "mechanicalSummary": "+15% attack when you and a mutual ally have each exchanged captured tiles with the defender in the past 24 hours. Applies once per attack.",
+    "description": "The bonus applies when you and a mutual ally have each captured or lost a tile against the defender within the past 24 hours. It applies once per attack, regardless of ally count. Coalition dispatch coordinates the assault.",
+    "mechanicalSummary": "+15% attack against a shared enemy | 24h war window.",
     "category": "ongoing",
     "requiresTechId": "",
     "effects": {
@@ -47,8 +45,8 @@ export const AFC_CHANCERY = [
     "tier": 4,
     "branch": "chancery",
     "name": "Court Armistice Mandate",
-    "description": "The chancery invokes a campaign arbitration mandate; the Court orders both Houses to observe a binding armistice.",
-    "mechanicalSummary": "Impose a binding 12-hour truce on another House. Recharges in 48 hours. Battles already in flight finish.",
+    "description": "Impose a truce that neither side can refuse or break for 12 hours. Your mandate recharges after 48 hours; attacks already in flight finish normally. The Court enforces the armistice.",
+    "mechanicalSummary": "Force a 12h truce | 48h cooldown.",
     "category": "active",
     "requiresTechId": "",
     "effects": {
@@ -61,8 +59,8 @@ export const AFC_CHANCERY = [
     "tier": 5,
     "branch": "chancery",
     "name": "Suzerainty Recognition",
-    "description": "Court assessors give greater recognition to the accredited House's claims as guarantor of the coalition settlement.",
-    "mechanicalSummary": "Your territory counts double toward your alliance bloc’s diplomatic victory. The largest member by actual territory is the sole winner; a tie has no leader.",
+    "description": "Your land contributes 100% more to your alliance bloc’s diplomatic victory total. Actual territory still determines the largest member and sole winner; a tie has no leader. Court recognition increases your claims’ standing.",
+    "mechanicalSummary": "+100% territory weight for diplomatic victory.",
     "category": "ongoing",
     "requiresTechId": "",
     "effects": {

@@ -1,0 +1,101 @@
+#!/usr/bin/env python3
+"""Publish a bounded, validated static client archive without restarting the game."""
+import os
+from pathlib import Path, PurePosixPath
+import re
+import shutil
+import sys
+import tarfile
+import tempfile
+import time
+
+
+def activate(root, release):
+    root = root.resolve()
+    release = release.resolve()
+    pending = root / ".current-next"
+    pending.unlink(missing_ok=True)
+    pending.symlink_to(release.relative_to(root))
+    pending.replace(root / "current")
+
+
+def publish(root, sha, archive):
+    root = root.resolve()
+    if not re.fullmatch(r"[0-9a-f]{40}", sha):
+        raise ValueError("expected a full commit SHA")
+    releases = root / "releases"
+    releases.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=".upload-", dir=releases))
+    try:
+        total = 0
+        with tarfile.open(fileobj=archive, mode="r|gz") as bundle:
+            for count, member in enumerate(bundle, 1):
+                path = PurePosixPath(member.name)
+                if path.is_absolute() or ".." in path.parts:
+                    raise ValueError("archive path escapes the release")
+                if not (member.isfile() or member.isdir()):
+                    raise ValueError("archive links and special files are forbidden")
+                total += member.size
+                if count > 10000 or total > 128 * 1024 * 1024:
+                    raise ValueError("client archive exceeds upload bounds")
+                bundle.extract(member, staging, filter="data")
+        if (staging / "__build_sha.txt").read_text().strip() != sha:
+            raise ValueError("client build SHA does not match the release")
+        for name in ("index.html", "admin.html"):
+            html = (staging / name).read_text()
+            if "<html" not in html:
+                raise ValueError("client HTML is missing")
+            for asset in re.findall(r'(?:src|href)="(/assets/[^"?]+)', html):
+                if not (staging / asset.lstrip("/")).is_file():
+                    raise ValueError("client references a missing asset")
+        # All client files are public. Never preserve uploader ownership/modes.
+        for path in staging.rglob("*"):
+            path.chmod(0o755 if path.is_dir() else 0o644)
+        staging.chmod(0o755)
+        release = releases / f"{sha}-{time.time_ns()}"
+        staging.rename(release)
+        current = root / "current"
+        if current.is_symlink():
+            previous = root / "previous"
+            previous.unlink(missing_ok=True)
+            previous.symlink_to(current.readlink())
+        activate(root, release)
+        protected = {release}
+        if (root / "previous").is_symlink():
+            protected.add((root / "previous").resolve())
+        retained = sorted(releases.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)
+        removed = 0
+        for old in retained:
+            if old in protected:
+                continue
+            if len(protected) < 3:
+                protected.add(old)
+            elif old.is_dir():
+                shutil.rmtree(old)
+                removed += 1
+        print(f"client published: {sha}; old releases removed: {removed}")
+    finally:
+        if staging.exists():
+            shutil.rmtree(staging)
+
+
+def main():
+    root = Path(os.environ.get("CLIENT_ROOT", "/srv/border-empires/client"))
+    if len(sys.argv) != 2:
+        raise ValueError("usage: publish-client <sha|rollback>")
+    if sys.argv[1] == "rollback":
+        previous = root / "previous"
+        if not previous.is_symlink() or not previous.resolve().is_dir():
+            raise ValueError("no previous client release")
+        activate(root, previous.resolve())
+        print("previous client restored")
+    else:
+        publish(root, sys.argv[1], sys.stdin.buffer)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (ValueError, OSError, tarfile.TarError) as error:
+        print(f"client publish refused: {error}", file=sys.stderr)
+        sys.exit(1)

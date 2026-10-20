@@ -24,5 +24,5 @@ export function afcInstallationPreviews(player: Pick<DomainPlayer, "id" | "techI
     const gain = Math.max(0, Math.min(town.maxPopulation, Math.floor(town.population * 1.5)) - town.population);
     if (gain > 0) { population += gain; count += 1; }
   }
-  return { "afc-exchequer-5": `Current consignment: +${population} population across ${count} core towns with headroom. Core Coin output doubles permanently.` };
+  return { "afc-exchequer-5": `Current consignment: +${population} population across ${count} core towns with headroom. Core Coin output: +100% permanently.` };
 }

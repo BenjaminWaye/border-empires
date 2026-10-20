@@ -1,3 +1,7 @@
+import { afcEnvoyIncomeInSnapshot } from "./afc-specializations/afc-coalition.js";
+import type { PlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
+import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
+import { afcPlayerExportFields } from "./afc-specializations/afc-player-export.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import {
   WORLD_HEIGHT,
@@ -27,7 +31,11 @@ type VisibilityPlayerProjectionDeps = {
   applyManpowerRegen: (player: RuntimePlayer) => void;
   refreshManpowerOnly: (player: RuntimePlayer) => void;
   incomePerMinuteForPlayer: (playerId: string) => number;
-  cachedEconomySnapshot: (player: RuntimePlayer) => { strategicProductionPerMinute: Record<StrategicResourceKey, number> };
+  cachedEconomySnapshot: (player: RuntimePlayer) => { strategicProductionPerMinute: Record<StrategicResourceKey, number> } & Pick<PlayerUpdateEconomySnapshot, "economyBreakdown">;
+  playerManpowerCap: (player: RuntimePlayer) => number;
+  playerManpowerRegenPerMinute: (player: RuntimePlayer) => number;
+  playerLogisticsThroughputPerMinute: (player: RuntimePlayer) => number;
+  playerManpowerBreakdown: (player: RuntimePlayer) => ManpowerBreakdown;
 };
 
 type VisibleStateSharedDeps = VisibilityPlayerProjectionDeps & {
@@ -258,14 +266,23 @@ function visiblePlayersProjection(
         input.refreshManpowerOnly(player);
       }
       const summary = input.summaryForPlayer(player.id);
+      const economy = player.id === visiblePlayerId ? input.cachedEconomySnapshot(player) : undefined;
       return {
         id: player.id,
         ...(player.name ? { name: player.name } : {}),
         points: player.points,
         manpower: player.manpower,
+        ...(economy ? {
+          afcEnvoyIncomePerMinute: afcEnvoyIncomeInSnapshot(economy),
+          manpowerCap: input.playerManpowerCap(player),
+          manpowerRegenPerMinute: input.playerManpowerRegenPerMinute(player),
+          logisticsThroughputPerMinute: input.playerLogisticsThroughputPerMinute(player),
+          manpowerBreakdown: input.playerManpowerBreakdown(player)
+        } : {}),
         ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
         techIds: [...player.techIds].sort(),
         domainIds: [...(player.domainIds ?? [])].sort(),
+        ...afcPlayerExportFields(player),
         strategicResources: { ...(player.strategicResources ?? {}) },
         allies: [...player.allies].sort(),
         truces: [...(player.truces ?? [])].sort(),
@@ -277,7 +294,7 @@ function visiblePlayersProjection(
         townCount: summary.townCount,
         incomePerMinute: input.incomePerMinuteForPlayer(player.id),
         strategicProductionPerMinute: player.id === visiblePlayerId
-          ? input.cachedEconomySnapshot(player).strategicProductionPerMinute
+          ? economy!.strategicProductionPerMinute
           : cloneStrategicProduction(summary.strategicProductionPerMinute),
         activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
         autoSettle: { ...player.autoSettle },
