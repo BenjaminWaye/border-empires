@@ -1,7 +1,7 @@
 import { getApps, initializeApp, type FirebaseOptions } from "firebase/app";
 import { Capacitor } from "@capacitor/core";
 import { getAnalytics, type Analytics } from "firebase/analytics";
-import { GoogleAuthProvider, OAuthProvider, getAuth } from "firebase/auth";
+import { GoogleAuthProvider, OAuthProvider, getAuth, initializeAuth, indexedDBLocalPersistence, browserLocalPersistence } from "firebase/auth";
 import { isStagingHostname, selectBackend } from "../client-backend-selector/client-backend-selector.js";
 import { createMultiplexWebSocket } from "../client-multiplex-websocket/client-multiplex-websocket.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -84,7 +84,11 @@ export const createClientFirebaseSetup = (): {
   if (measurementId) firebaseConfig.measurementId = measurementId;
 
   const firebaseApp = getApps()[0] ?? initializeApp(firebaseConfig);
-  const firebaseAuth = getAuth(firebaseApp);
+  // getAuth eagerly opens an OAuth iframe on iOS. Native email/guest auth
+  // needs persistence but no browser resolver (which cannot use capacitor://).
+  const firebaseAuth = Capacitor.isNativePlatform()
+    ? initializeAuth(firebaseApp, { persistence: [indexedDBLocalPersistence, browserLocalPersistence] })
+    : getAuth(firebaseApp);
 
   // Analytics needs a measurementId and a real browser (IndexedDB + cookies)
   // to boot; init can throw in unsupported contexts (e.g. some private-

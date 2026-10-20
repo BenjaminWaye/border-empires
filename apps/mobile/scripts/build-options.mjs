@@ -3,7 +3,6 @@ export const mobileBuildEnv = (environment = "production") => {
     throw new Error("MOBILE_ENV must be production or staging.");
   }
   return {
-    VITE_NATIVE_APP: "true",
     VITE_BACKEND_DEFAULT: "gateway",
     VITE_NATIVE_PUBLIC_ORIGIN: environment === "production"
       ? "https://play.borderempires.com"

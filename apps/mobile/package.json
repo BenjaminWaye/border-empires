@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "node scripts/build.mjs",
-    "sync": "pnpm build && cap sync",
+    "sync": "pnpm --filter @border-empires/client^... build && pnpm build && cap sync",
     "open:ios": "cap open ios",
     "open:android": "cap open android",
     "assets": "capacitor-assets generate --ios --android --iconBackgroundColor '#060c16' --iconBackgroundColorDark '#060c16' --splashBackgroundColor '#060c16' --splashBackgroundColorDark '#060c16'",

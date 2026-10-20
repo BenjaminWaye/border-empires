@@ -17,6 +17,9 @@ vi.mock("firebase/auth", () => ({
   OAuthProvider: vi.fn(function OAuthProviderMock(this: unknown) {
     return Object.assign(this as object, { addScope: vi.fn(), setCustomParameters: vi.fn() });
   }),
+  initializeAuth: vi.fn(() => ({})),
+  indexedDBLocalPersistence: { type: "LOCAL" },
+  browserLocalPersistence: { type: "LOCAL" },
   getAuth: vi.fn(() => ({}))
 }));
 
@@ -47,6 +50,18 @@ describe("client app runtime env", () => {
       if (savedEnv[key] === undefined) delete env[key];
       else env[key] = savedEnv[key];
     }
+  });
+
+  it("initializes native Firebase with persistence and no browser popup/redirect resolver", async () => {
+    vi.mocked(Capacitor.isNativePlatform).mockReturnValue(true);
+    const { initializeAuth, indexedDBLocalPersistence, browserLocalPersistence } = await import("firebase/auth");
+    const { createClientFirebaseSetup } = await import("./client-app-runtime-env.js");
+    vi.mocked(initializeAuth).mockClear();
+    const setup = createClientFirebaseSetup();
+    expect(initializeAuth).toHaveBeenCalledWith(expect.anything(), {
+      persistence: [indexedDBLocalPersistence, browserLocalPersistence]
+    });
+    expect(setup.firebaseAuth).toBe(vi.mocked(initializeAuth).mock.results[0]?.value);
   });
 
   it.each([undefined, "wss://api-staging.borderempires.com/ws"])("native localhost connects to the remote gateway (%s), without dev cheats", (override) => {

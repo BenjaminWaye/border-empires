@@ -32,6 +32,9 @@ gateway explicitly, rejects unknown environment names and excludes the admin
 entry. Native runtime ignores browser backend overrides and does not treat its
 local WebView host as a development server or enable localhost gameplay tools.
 
+`pnpm mobile:sync` builds workspace dependencies first. The standalone mobile
+`build` consumes those dependencies; its native output is isolated in
+`packages/client/dist-native` and never writes into the browser distribution.
 `pnpm build` also prepares the mobile web bundle; it does not compile/sign the
 native projects or sync them. `pnpm mobile:sync` is required before native builds.
 Generated web bundles, Gradle/Xcode output, signing keys and provisioning profiles
@@ -44,6 +47,8 @@ game favicon). Regenerate it with `pnpm --filter @border-empires/mobile assets`.
 ## Authentication and platform behavior
 
 Native builds offer guest play and Firebase email/password sign-in/registration.
+Firebase uses IndexedDB persistence with local-storage fallback and omits the
+browser popup/redirect resolver, whose eager OAuth iframe breaks iOS startup.
 Saving a guest links email/password credentials to its existing Firebase UID,
 then refreshes the token and reloads. A conflicting email leaves the guest intact.
 Uninstalling the app or clearing app data loses an unsaved guest.
@@ -148,3 +153,5 @@ Lore reviewed; no canon change. Packaging does not change gameplay or fiction.
 - [Capacitor configuration](https://capacitorjs.com/docs/config)
 - [Apple review guidelines: login, privacy and deletion](https://developer.apple.com/app-store/review/guidelines/)
 - [Google Play account deletion requirements](https://support.google.com/googleplay/android-developer/answer/13327111)
+
+- [Firebase Auth dependency customization](https://firebase.google.com/docs/auth/web/custom-dependencies)

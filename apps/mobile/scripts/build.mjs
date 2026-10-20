@@ -7,8 +7,6 @@ const root = fileURLToPath(new URL("../../../", import.meta.url));
 const app = fileURLToPath(new URL("../", import.meta.url));
 const environment = process.env.MOBILE_ENV ?? "production";
 const env = { ...process.env, ...mobileBuildEnv(environment) };
-const build = spawnSync("pnpm", ["--filter", "@border-empires/client^...", "build"], { cwd: root, env, stdio: "inherit" });
-if (build.status !== 0) process.exit(build.status ?? 1);
 const client = spawnSync("pnpm", ["--filter", "@border-empires/client", "build:native"], { cwd: root, env, stdio: "inherit" });
 if (client.status !== 0) process.exit(client.status ?? 1);
 const builtIndex = readFileSync(new URL("../../../packages/client/dist-native/index.html", import.meta.url), "utf8");

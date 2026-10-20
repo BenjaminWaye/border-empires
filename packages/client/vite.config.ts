@@ -26,10 +26,8 @@ const resolveBuildVersion = (): string => {
   }
 };
 
-const nativeBuild = process.env.VITE_NATIVE_APP === "true";
-
-export default defineConfig({
-  plugins: nativeBuild ? [{
+export default defineConfig(({ mode }) => ({
+  plugins: mode === "native" ? [{
     name: "native-entry",
     transformIndexHtml: {
       order: "pre" as const,
@@ -39,12 +37,12 @@ export default defineConfig({
     }
   }] : [],
   build: {
-    outDir: nativeBuild ? "dist-native" : "dist",
+    outDir: mode === "native" ? "dist-native" : "dist",
     rollupOptions: {
       // admin.html is a separate, tiny entry (admin-app/) so /admin never loads the game client.
       input: {
         main: fileURLToPath(new URL("./index.html", import.meta.url)),
-        ...(!nativeBuild ? { admin: fileURLToPath(new URL("./admin.html", import.meta.url)) } : {})
+        ...(mode !== "native" ? { admin: fileURLToPath(new URL("./admin.html", import.meta.url)) } : {})
       },
       output: {
         manualChunks: manualChunkFor
@@ -78,4 +76,4 @@ export default defineConfig({
       }
     }
   }
-});
+}));
