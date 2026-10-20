@@ -43,6 +43,7 @@ export type RuntimeState = {
     settledTileCount?: number;
     townCount?: number;
     incomePerMinute?: number;
+    afcEnvoyIncomePerMinute?: number;
     incomeMultiplier?: number;
     strategicProductionPerMinute?: Record<StrategicResourceKey, number>;
     activeDevelopmentProcessCount?: number;
