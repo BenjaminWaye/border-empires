@@ -2,10 +2,12 @@
 // in art-deco setbacks, each set off by an aged-brass band, with lit
 // shopfronts spilling light onto the street, lamplit window strips up every
 // face and a crown -- a brass cog clock, a needle spire, an alien glowing
-// bulb, ribbed fins round a spinning crystal, a brass dome, or a steaming
-// smokestack beside a water tank -- the tallest blinking red warning lights.
+// bulb, ribbed fins round a spinning crystal, a brass dome, a rooftop garden
+// or a steaming smokestack beside a water tank -- the tallest blinking red
+// warning lights.
 // Plus the plaza centrepieces: a turning clockwork orrery and a cog lamp.
 import type { TownColor } from "./town-mesh-builder.js";
+import { roofGarden } from "./town-flourishes.js";
 import { at, beacon, facingOut, gear, inStep, polar, spinning, steamVent, TOWN_HALO_Y, type TownBuilders } from "./town-parts.js";
 
 // Clearance off a wall so a window strip never z-fights the wall face.
@@ -158,6 +160,7 @@ export const skyscraper = (t: TownBuilders, o: SkyscraperOptions): number => {
         const [fx, fz] = at(o.x, o.z, finRy, 0, size * 0.5);
         t.body.tiltedBox(fx, y + size * 0.45, fz, 0.006, size * 0.9, size * 0.22, "graphite", finRy, 0);
         t.body.gem(fx, y + size * 0.92, fz, 0.006, 0.012, "brass");
+        if (tall && quarter === 0) beacon(t, fx, y + size * 0.92 + 0.012, fz, 0.0045);
       }
       spinning(t, o.x, 0, o.z, [0, 1, 0], 0.9, () => t.glow.gem(o.x, y + size * 0.6, o.z, size * 0.2, size * 0.32, "aether"));
       return y + size * 0.95;
@@ -168,7 +171,12 @@ export const skyscraper = (t: TownBuilders, o: SkyscraperOptions): number => {
       if (tall) beacon(t, o.x, y + size * 0.48 + 0.02, o.z);
       return y + size * 0.5 + (tall ? 0.026 : 0);
     case "flat": {
-      // Plant room with a steaming stack, and a water tank where the roof has room.
+      // A rooftop garden, or a plant room with a steaming stack and, where
+      // the roof has room, a water tank.
+      if (size > 0.05 && t.random() < 0.35) {
+        roofGarden(t, o.x, y, o.z, w, d, o.ry);
+        return y + size * 0.4;
+      }
       t.body.box(o.x, y, o.z, w * 0.5, 0.014, d * 0.5, "iron", o.ry);
       const [vx, vz] = at(o.x, o.z, o.ry, w * 0.12, 0);
       steamVent(t, vx, y + 0.014, vz);

@@ -30,6 +30,17 @@ const hasVertexColor = (geometry: BufferGeometry, hex: string): boolean => {
   return false;
 };
 
+/** Whether some vertex carries `hex` scaled by a shading factor (occlusion, sheen). */
+const hasVertexHue = (geometry: BufferGeometry, hex: string): boolean => {
+  const target = new Color(hex);
+  const colors = geometry.getAttribute("color");
+  for (let i = 0; i < colors.count; i += 1) {
+    const k = colors.getX(i) / target.r;
+    if (k > 0.3 && Math.abs(colors.getY(i) - target.g * k) < 1e-4 && Math.abs(colors.getZ(i) - target.b * k) < 1e-4) return true;
+  }
+  return false;
+};
+
 describe("procedural town tiers", () => {
   it.each(TOWN_TIERS)("%s stays inside its own tile", (tier) => {
     for (const geometry of partsOf(tier)) {
@@ -99,9 +110,12 @@ describe("procedural town tiers", () => {
     const metalColors = [...TOWN_METAL_COLORS].map((name: TownColor) => TOWN_COLORS[name]);
     const glassColors = [...TOWN_GLASS_COLORS].map((name: TownColor) => TOWN_COLORS[name]);
     expect(metalColors.some((hex) => hasVertexColor(metal!, hex))).toBe(true);
-    expect(glassColors.some((hex) => hasVertexColor(glass!, hex))).toBe(true);
-    for (const hex of [...metalColors, ...glassColors]) expect(hasVertexColor(body, hex), `${tier} matte body has ${hex}`).toBe(false);
-    for (const hex of glassColors) expect(hasVertexColor(metal!, hex), `${tier} metal has glass ${hex}`).toBe(false);
+    expect(glassColors.some((hex) => hasVertexHue(glass!, hex))).toBe(true);
+    for (const hex of metalColors) expect(hasVertexColor(body, hex), `${tier} matte body has ${hex}`).toBe(false);
+    for (const hex of glassColors) {
+      expect(hasVertexHue(body, hex), `${tier} matte body has glass ${hex}`).toBe(false);
+      expect(hasVertexHue(metal!, hex), `${tier} metal has glass ${hex}`).toBe(false);
+    }
   });
 
   it.each(TOWN_TIERS)("%s throws soft pools of light onto its paving", (tier) => {
@@ -121,6 +135,20 @@ describe("procedural town tiers", () => {
     // Lit at the source and fading out to black (adding nothing) at the edge.
     expect(bright).toBeGreaterThan(0);
     expect(dark).toBeGreaterThan(0);
+  });
+
+  it.each(TOWN_TIERS)("%s flies rippling banners of white cloth, ready for the owner's dye", (tier) => {
+    const banner = getTownTierGeometry(tier).banner;
+    expect(banner, `${tier} banners`).toBeDefined();
+    const color = banner!.getAttribute("color");
+    const animA = banner!.getAttribute("animA");
+    for (let i = 0; i < color.count; i += 1) {
+      expect([color.getX(i), color.getY(i), color.getZ(i)]).toEqual([1, 1, 1]);
+      // Rippling, and seamlessly across the shader clock's wrap.
+      const turns = (animA.getW(i) * TOWN_TIME_PERIOD) / (2 * Math.PI);
+      expect(animA.getW(i)).toBeGreaterThan(0);
+      expect(Math.abs(turns - Math.round(turns))).toBeLessThan(1e-3);
+    }
   });
 
   it("puts blinking warning lights on the tall skylines only", () => {

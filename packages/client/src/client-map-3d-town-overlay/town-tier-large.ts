@@ -4,6 +4,7 @@
 // floating brass halos and an aether crystal -- with airships overhead and
 // the running lights of courier gyros circling between the rings.
 import type { TownColor } from "./town-mesh-builder.js";
+import { flowerBed, plateBanners, wallBanner } from "./town-flourishes.js";
 import { beacon, circlingAirship, gear, lampPost, octagonPlate, polar, skyBridge, spinning, type TownBuilders } from "./town-parts.js";
 import { orrery, skyscraper, towerRing, type Crown } from "./town-skyscraper.js";
 
@@ -55,6 +56,8 @@ export const buildGreatCity = (t: TownBuilders): void => {
   });
   innerTowers(t, 4, 0.16, 45, 0.08, [0.5, 0.6], ["clock", "spire", "fins", "pod"], [0.22, 0.36]);
   orrery(t, 0, 0, 0.8);
+  flowerBed(t, 0, 0, 0.068, 8, 0.011);
+  plateBanners(t, 0.46, 0.15);
   lampPost(t, 0.0, 0.25);
   lampPost(t, 0.0, -0.25);
   lampPost(t, 0.25, 0.0);
@@ -84,6 +87,12 @@ const megatower = (t: TownBuilders): void => {
     t.body.cylinder(0, y + drum.h - 0.008, 0, drum.r * 1.08, drum.r * 1.08, 0.01, "brass", 8, Math.PI / 8);
     y += drum.h;
   }
+  // The owner's colours hung down the four faces of the base drum.
+  for (const quarter of [0, 1, 2, 3]) {
+    const angle = (quarter * Math.PI) / 2;
+    const out = 0.072 * Math.cos(Math.PI / 8) + 0.002;
+    wallBanner(t, Math.sin(angle) * out, 0.29, Math.cos(angle) * out, 0.042, 0.15, angle);
+  }
   // Cog clock faces on the middle drum.
   for (const quarter of [0, 1, 2, 3]) {
     const angle = (quarter * Math.PI) / 2;
@@ -111,6 +120,7 @@ export const buildMetropolis = (t: TownBuilders): void => {
   });
   innerTowers(t, 6, 0.2, 0, 0.07, [0.5, 0.64], ["clock", "pod", "spire", "fins", "dome", "clock"], [0.24]);
   megatower(t);
+  plateBanners(t, 0.47, 0.16);
   for (let i = 0; i < 6; i += 1) {
     const [x, z] = polar(0.2, i * 60);
     skyBridge(t, x * 0.4, 0.36, z * 0.4, x * 0.82, 0.34, z * 0.82);

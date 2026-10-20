@@ -14,6 +14,8 @@ export type TownBuilders = {
   readonly halo: TownMeshBuilder;
   /** Animated steam puffs (see applyTownSteam). */
   readonly steam: TownMeshBuilder;
+  /** Banner cloth, rippling (see applyTownBanner) in the owner's colour. */
+  readonly banner: TownMeshBuilder;
   /** Deterministic 0..1 roll, seeded per tier. */
   readonly random: () => number;
 };

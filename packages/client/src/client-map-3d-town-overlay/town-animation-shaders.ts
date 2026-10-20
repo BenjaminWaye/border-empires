@@ -89,6 +89,30 @@ export const applyTownSpin = (material: ShaderHookMaterial, flicker = false): vo
   material.customProgramCacheKey = () => `town-spin-${flicker ? "flicker" : "steady"}`;
 };
 
+const BANNER_POSITION = /* glsl */ `
+#include <begin_vertex>
+// A ripple running out along the cloth from its pole (animA.xyz), growing towards the free end.
+float townFly = length(transformed.xz - animA.xz);
+transformed += objectNormal * sin(uTownTime * animA.w - townFly * 140.0 + animB.w * 6.2832) * townFly * 0.22;
+`;
+
+/** Banners: each ripples in the wind, from still at its pole to fluttering
+ * at its free end, and glows faintly with its own dye so the owner's colour
+ * still reads true on the shaded side. animA = (pole x, y, z, ripple speed
+ * in rad/s), animB.w = phase. */
+export const applyTownBanner = (material: Material): void => {
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.uTownTime = townTime;
+    shader.vertexShader = "attribute vec4 animA;\nattribute vec4 animB;\nuniform float uTownTime;\n" +
+      shader.vertexShader.replace("#include <begin_vertex>", BANNER_POSITION);
+    shader.fragmentShader = shader.fragmentShader.replace(
+      "#include <emissivemap_fragment>",
+      "#include <emissivemap_fragment>\ntotalEmissiveRadiance += diffuseColor.rgb * 0.28;"
+    );
+  };
+  material.customProgramCacheKey = () => "town-banner";
+};
+
 const STEAM_POSITION = /* glsl */ `
 #include <begin_vertex>
 float townCycle = fract(uTownTime * animA.w + animB.w);

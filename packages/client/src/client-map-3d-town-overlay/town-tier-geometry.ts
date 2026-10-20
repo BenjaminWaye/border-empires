@@ -2,7 +2,7 @@
 // body (with ambient occlusion and weathering baked in), the metalwork (iron
 // and brass, drawn metallic like the AFC), the mirror-glass curtain walls,
 // the unlit glow (lit windows, shopfronts, lanterns, aether, beacons), the
-// additive light pools on the paving and the steam puffs -- once per page
+// additive light pools on the paving, the steam puffs and the banners -- once per page
 // load. Shared by every town overlay, so overlays must not dispose them.
 import type { BufferGeometry } from "three";
 import { createRoutedTownBuilder, createTownMeshBuilder, createTownRandom } from "./town-mesh-builder.js";
@@ -29,6 +29,8 @@ export type TownTierGeometry = {
   readonly glow: BufferGeometry | undefined;
   readonly halo: BufferGeometry | undefined;
   readonly steam: BufferGeometry | undefined;
+  /** Banner cloth, white: the overlay tints it per town with the owner's colour. */
+  readonly banner: BufferGeometry | undefined;
 };
 
 const cache = new Map<TownTier, TownTierGeometry>();
@@ -39,12 +41,13 @@ export const getTownTierGeometry = (tier: TownTier): TownTierGeometry => {
     const layout = TIER_LAYOUTS[tier];
     const matte = createTownMeshBuilder({ occlusion: true, weathering: 0.1 });
     const metal = createTownMeshBuilder({ occlusion: true });
-    const glass = createTownMeshBuilder({ occlusion: true });
+    const glass = createTownMeshBuilder({ occlusion: true, sheen: 0.35 });
     const builders: TownBuilders = {
       body: createRoutedTownBuilder(matte, metal, glass),
       glow: createTownMeshBuilder(),
       halo: createTownMeshBuilder(),
       steam: createTownMeshBuilder(),
+      banner: createTownMeshBuilder(),
       random: createTownRandom(layout.seed)
     };
     layout.build(builders);
@@ -58,7 +61,8 @@ export const getTownTierGeometry = (tier: TownTier): TownTierGeometry => {
       glass: glass.build(),
       glow: builders.glow.build(),
       halo: builders.halo.build(),
-      steam: builders.steam.build()
+      steam: builders.steam.build(),
+      banner: builders.banner.build()
     };
     cache.set(tier, geometry);
   }

@@ -53,6 +53,10 @@ export const TOWN_COLORS = {
   ironDark: "#25282e",
   foliage: "#5f9a3c",
   foliageLight: "#86b34a",
+  blossom: "#d9789a",
+  blossomGold: "#e9c45a",
+  // Banner cloth: white, so the owner's colour (instanceColor) shows true.
+  cloth: "#ffffff",
   trunk: "#6b4a2e",
   // Glow-only colours (drawn unlit by the overlay's glow and halo meshes).
   lamp: "#ffd58a",
@@ -67,8 +71,8 @@ export type TownColor = keyof typeof TOWN_COLORS;
 /** Metalwork: drawn with the metallic material, the way the AFC renders its iron and brass. */
 export const TOWN_METAL_COLORS: ReadonlySet<TownColor> = new Set<TownColor>(["brass", "brassDark", "iron", "ironDark"]);
 
-/** Curtain-wall glass: drawn with its own near-mirror material so the towers reflect the sky. */
-export const TOWN_GLASS_COLORS: ReadonlySet<TownColor> = new Set<TownColor>(["glass", "glassLight"]);
+/** Curtain-wall glass and still water: drawn with their own near-mirror material so they reflect the sky. */
+export const TOWN_GLASS_COLORS: ReadonlySet<TownColor> = new Set<TownColor>(["glass", "glassLight", "water"]);
 
 /** Baked ambient occlusion: everything darkens towards the street, to this
  * share of its colour at y = 0 and below, and is fully lit from
@@ -114,6 +118,9 @@ const withShade = (geometry: BufferGeometry, shadeAt: (x: number, y: number, z: 
 };
 // Flat disc of light, bright at the centre and fading to nothing at the rim.
 const UNIT_POOL = withShade(new RingGeometry(0.001, 1, 10, 2).rotateX(-Math.PI / 2), (x, _y, z) => (1 - Math.min(1, Math.hypot(x, z))) ** 1.6);
+// Banner cloth facing +z, hoisted at x = 0 and flying out to x = 1, cut in
+// strips so it can ripple (see applyTownBanner).
+const UNIT_CLOTH = new PlaneGeometry(1, 1, 5, 1).translate(0.5, 0, 0);
 // Flat strip of light spilling out from a wall at z = 0 to z = 1.
 const UNIT_SPILL = withShade(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2).translate(0, 0, 0.5), (_x, _y, z) => (1 - z) ** 1.5);
 const UNIT_OCTAHEDRON = new OctahedronGeometry(1, 0);
@@ -227,6 +234,8 @@ export type TownMeshBuilder = {
   readonly pool: (x: number, y: number, z: number, radius: number, color: TownColor) => void;
   /** Flat strip of light `w` wide spilling `depth` out from a wall at (x, y, z) facing +z (turned ry) (halo mesh). */
   readonly spill: (x: number, y: number, z: number, w: number, depth: number, color: TownColor, ry?: number) => void;
+  /** Banner `w` long and `h` deep flying from a pole at (x, y, z) along the (turned) x axis; y is its centre line. */
+  readonly cloth: (x: number, y: number, z: number, w: number, h: number, color: TownColor, ry?: number) => void;
   /** Draws everything inside `draw` with the given animation attributes. */
   readonly withAnim: (anim: TownAnim, draw: () => void) => void;
   readonly build: () => BufferGeometry | undefined;
@@ -237,6 +246,8 @@ export type TownMeshBuilderOptions = {
   readonly occlusion?: boolean;
   /** Up to this share of brightness varied building by building, so stone isn't uniform. */
   readonly weathering?: number;
+  /** Brightens by up to this share towards the skyline: glass catching more sky the higher it rises. */
+  readonly sheen?: number;
 };
 
 /** Drops a static part's downward-facing triangles: the map camera always
@@ -305,8 +316,10 @@ export const createTownMeshBuilder = (options: TownMeshBuilderOptions = {}): Tow
     const a = anim?.a ?? [0, 0, 0, 0];
     const b = anim?.b ?? [0, 0, 0, (parts.length * 0.618034) % 1];
     for (let i = 0; i < count; i += 1) {
-      const k = weather * (occluded ? townOcclusionAt(position.getY(i)) : 1) * (shade ? shade.getX(i) : 1);
-      colors.set([tint.r * k, tint.g * k, tint.b * k], i * 3);
+      const y = position.getY(i);
+      const sky = options.sheen ? 1 + options.sheen * Math.min(1, Math.max(0, (y - 0.05) / 0.45)) : 1;
+      const k = weather * sky * (occluded ? townOcclusionAt(y) : 1) * (shade ? shade.getX(i) : 1);
+      colors.set([Math.min(1, tint.r * k), Math.min(1, tint.g * k), Math.min(1, tint.b * k)], i * 3);
       animA.set(a, i * 4);
       animB.set(b, i * 4);
     }
@@ -364,6 +377,7 @@ export const createTownMeshBuilder = (options: TownMeshBuilderOptions = {}): Tow
     },
     pool: (x, y, z, radius, color) => push(UNIT_POOL, color, x, y, z, radius, 1, radius, 0),
     spill: (x, y, z, w, depth, color, ry = 0) => push(UNIT_SPILL, color, x, y, z, w, 1, depth, ry),
+    cloth: (x, y, z, w, h, color, ry = 0) => push(UNIT_CLOTH, color, x, y, z, w, h, 1, ry),
     withAnim: (next, draw) => {
       const previous = anim;
       anim = next;
@@ -406,6 +420,7 @@ export const createRoutedTownBuilder = (matte: TownMeshBuilder, metal: TownMeshB
     pipe: (x0, y0, z0, x1, y1, z1, radius, color) => to(color).pipe(x0, y0, z0, x1, y1, z1, radius, color),
     pool: (x, y, z, radius, color) => to(color).pool(x, y, z, radius, color),
     spill: (x, y, z, w, depth, color, ry) => to(color).spill(x, y, z, w, depth, color, ry),
+    cloth: (x, y, z, w, h, color, ry) => to(color).cloth(x, y, z, w, h, color, ry),
     withAnim: (anim, draw) =>
       matte.withAnim(anim, () => metal.withAnim(anim, () => (glass === metal ? draw() : glass.withAnim(anim, draw)))),
     build: () => {

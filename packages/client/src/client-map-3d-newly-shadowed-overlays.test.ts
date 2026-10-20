@@ -31,10 +31,11 @@ describe("newly shadow-wired overlays", () => {
     massifs.dispose();
   });
 
-  it("town buildings cast and receive shadows, except the unlit glow, the light pools and the steam", () => {
+  it("town buildings cast and receive shadows, except the unlit glow, the light pools, the steam and the banners", () => {
     const scene = new Scene();
     const overlay = createTownOverlay(scene, 4);
-    const unlit = (name: string): boolean => name.endsWith("-glow") || name.endsWith("-halo") || name.endsWith("-steam");
+    const unlit = (name: string): boolean =>
+      name.endsWith("-glow") || name.endsWith("-halo") || name.endsWith("-steam") || name.endsWith("-banner");
     const meshes = instancedMeshesIn(scene).filter((mesh) => !unlit(mesh.name));
     expect(meshes.length).toBeGreaterThan(0);
     for (const mesh of meshes) {
@@ -45,6 +46,13 @@ describe("newly shadow-wired overlays", () => {
     const pools = instancedMeshesIn(scene).filter((mesh) => mesh.name.endsWith("-halo"));
     expect(pools.length).toBeGreaterThan(0);
     for (const mesh of pools) expect(mesh.castShadow).toBe(false);
+    // Banners take the sun's shadows but cast none (the shared depth pass would spin, not ripple, them).
+    const banners = instancedMeshesIn(scene).filter((mesh) => mesh.name.endsWith("-banner"));
+    expect(banners.length).toBeGreaterThan(0);
+    for (const mesh of banners) {
+      expect(mesh.castShadow).toBe(false);
+      expect(mesh.receiveShadow).toBe(true);
+    }
     overlay.dispose();
   });
 
