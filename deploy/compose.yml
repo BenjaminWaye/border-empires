@@ -2,7 +2,7 @@
 # deploy/bin/deploy (config is fetched at the deployed git sha).
 #
 # Compose variables come from /opt/border-empires/.env (written by `deploy`):
-#   IMAGE, BUILD_SHA, BE_ENV (staging|production), BE_HOSTNAME
+#   IMAGE, BUILD_SHA, BE_ENV (staging|production), BE_HOSTNAME, BE_CLIENT_HOSTNAME
 # Container env: env/${BE_ENV}.env (non-secret, committed) +
 # /etc/border-empires/secrets.env (secrets, never in git).
 services:
@@ -46,12 +46,14 @@ services:
       - app
     environment:
       BE_HOSTNAME: ${BE_HOSTNAME:?BE_HOSTNAME is required}
+      BE_CLIENT_HOSTNAME: ${BE_CLIENT_HOSTNAME:-localhost}
     ports:
       - "80:80"
       - "443:443"
       - "443:443/udp"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - /srv/border-empires/client:/srv/client:ro
       - caddy_data:/data
       - caddy_config:/config
 

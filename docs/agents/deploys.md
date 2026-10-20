@@ -6,21 +6,69 @@ Read this before any deploy or Vercel/Fly CLI work. AGENTS.md links here.
 
 <!-- ci-smoke-test: harmless doc touch to exercise the develop PR + staging auto-deploy flow end to end; safe to remove this line in a later edit. -->
 
+## Current client hosting (Hetzner)
+
+The static client runs beside each existing backend, served by Caddy from
+`/srv/border-empires/client/current`. This removes Vercel billing and availability
+from game access. Both API origins serve the game:
+
+- Production: <https://api.borderempires.com/>
+- Staging: <https://api-staging.borderempires.com/>
+
+CI uses the existing restricted Hetzner SSH key to stream a static archive with
+`client <sha>` after backend health verification. `deploy/bin/publish-client`
+rejects incomplete builds, SHA mismatches, links and unsafe archive paths, then
+switches the current symlink atomically. It retains three releases; `ssh deploy@host
+client-rollback` restores the previous client. Publishing does not restart the
+simulation or read/copy its secrets. Public Firebase settings and the WebSocket
+URL are baked into the Vite build. Firebase authorized domains include both API
+hostnames; these use the existing firebaseapp.com OAuth handler fallback.
+
+For a client-only release from the environment's intended commit, run
+`pnpm deploy:client:hetzner staging` or `pnpm deploy:client:hetzner production`.
+Set `BE_CLIENT_SSH_TARGET` for a configured SSH alias (CI uses `hetzner-target`).
+The legacy `deploy:*:all` scripts still target Fly/Vercel: do not use them for
+Hetzner releases. Use green CI on `develop`/`main` for full releases.
+
+Existing hosts need the updated `/opt/border-empires/bin/deploy` and
+`/opt/border-empires/publish-client` installed once, plus a deploy-owned
+`/srv/border-empires/client` directory. Copy `compose.yml` and `Caddyfile`, set
+`BE_CLIENT_HOSTNAME` in `.env`, validate Caddy, then recreate **only** Caddy with
+`docker compose up -d --no-deps caddy` to add the client volume. Both live hosts
+were provisioned on 2026-10-20. Do not rerun bootstrap on existing hosts.
+
+On 2026-10-20, Namecheap CNAMEs were changed from Vercel to
+`play` → `api.borderempires.com.` and `staging` →
+`api-staging.borderempires.com.`. Caddy accepts those hostnames and obtains HTTPS
+certificates once DNS points here. During DNS propagation, use the API-origin
+links above. No backend DNS changes are required. Existing sessions on the old origin require signing in again on
+the new origin; the same registered identity retains its empire.
+
+Hashed `/assets/*` files cache for one year; unversioned audio/models/textures
+cache for one hour; HTML revalidates and the build marker is never cached.
+`/admin` serves the admin page while `/admin/*` JSON stays on the gateway;
+Firebase auth proxies are preserved. `/r/:code` and `/rally/new` load the game,
+including rally invite handling, but personalized social preview metadata from
+the old Vercel edge function is not yet reproduced on this static host.
+Vercel Git auto-deploys are disabled in `vercel.json`; the old project remains
+available for historical rollback, and Hetzner workflows skip its deploy steps.
+
 ## Branch flow (GitHub Actions)
 
 - `develop` is the default branch and the base for all feature PRs. Every push to `develop` runs `.github/workflows/ci.yml` (lint, `check:file-lines`, build, test); on green, `.github/workflows/deploy-staging.yml` deploys automatically to staging.
 - `main` is production-ready code, only moved by PR from `develop` (or a hotfix branch). Every push to `main` runs CI, then `.github/workflows/deploy-prod.yml` runs the prod-shape gate unattended and, on a pass, deploys to production.
-- The `pnpm deploy:staging:all` / `pnpm deploy:prod:all` scripts (below) still work for manual/emergency deploys — the Actions workflows call the same underlying steps, just non-interactively with tokens from repo secrets (`FLY_API_TOKEN`, `VERCEL_TOKEN`, `GH_PAT`/`GITHUB_TOKEN`) instead of a local CLI login.
+- Hetzner Actions publish both the backend and the client. Historical Fly/Vercel manual commands below describe rollback infrastructure only; use the current client-hosting procedure above.
 - A push to `develop`/`main` directly (not via PR) is blocked by branch protection; land changes through a PR.
 
 ## Stack targets (critical)
 
 - **Staging** (`https://staging.borderempires.com`, backend `api-staging.borderempires.com` on a Hetzner CX23 in Nuremberg; the Fly app `border-empires-combined-staging` is **stopped, kept only as a rollback**) runs the **combined rewrite stack**: `apps/realtime-gateway` + `apps/simulation` in one process, built by `Dockerfile.combined` / `fly.combined.staging.toml`.
 - **Production** (`https://play.borderempires.com`, backend `api.borderempires.com` on a Hetzner CX23 in Nuremberg since 2026-10-02; the Fly app `border-empires-combined` is **stopped (machine frozen with `sleep infinity`), kept only as a rollback**) runs the **combined rewrite stack**: `apps/realtime-gateway` + `apps/simulation` in one process, built by `Dockerfile.combined` / `fly.combined.toml`.
-- "Deploy to staging" = deploying the rewrite stack. This now happens automatically on every push to `develop` via `.github/workflows/deploy-staging.yml`. For a manual/ad-hoc run, use `pnpm deploy:staging:all` from any worktree on any branch — it fast-forwards `origin/staging` to `origin/develop`, deploys the combined Fly app, then publishes the client to Vercel and flips the staging alias. Fly escape hatch: `fly deploy --config fly.combined.staging.toml --strategy rolling --remote-only`. Piecemeal split gateway/simulation staging deploys are obsolete.
-- Staging deploys hold the client alias until `scripts/verify-staging-realtime.mjs` has checked `/health` and a WebSocket upgrade for ten minutes, then used a reusable Firebase anonymous probe account to verify AUTH reaches INIT and the gateway remains healthy. CI gets its refresh token from `STAGING_ANON_PROBE_REFRESH_TOKEN`; manual runs without that token create a temporary Firebase account and delete it afterward (a staging game profile may remain). Fly's initial machine check can pass before a later watchdog kill; `/healthz` always returns HTTP 200 even if the simulation is disconnected, so the Fly service check uses `/health`. If the soak fails, inspect `fly checks list`, `fly logs`, and the bounded `/data/.death-forensics.json.history.json` before trying a new deployment. The workflow fails without publishing the new client; recover the backend from the last known healthy release after checking database compatibility.
+- "Deploy to staging" = deploying the rewrite stack. This now happens automatically on every push to `develop` via `.github/workflows/deploy-staging.yml`. For a manual/ad-hoc run, use `pnpm deploy:staging:all` from any worktree on any branch — it fast-forwards `origin/staging` to `origin/develop`, deploys the combined Fly app, then publishes the static client to Hetzner. Fly escape hatch: `fly deploy --config fly.combined.staging.toml --strategy rolling --remote-only`. Piecemeal split gateway/simulation staging deploys are obsolete.
+- Staging deploys hold client publication until `scripts/verify-staging-realtime.mjs` has checked `/health` and a WebSocket upgrade for ten minutes, then used a reusable Firebase anonymous probe account to verify AUTH reaches INIT and the gateway remains healthy. CI gets its refresh token from `STAGING_ANON_PROBE_REFRESH_TOKEN`; manual runs without that token create a temporary Firebase account and delete it afterward (a staging game profile may remain). Fly's initial machine check can pass before a later watchdog kill; `/healthz` always returns HTTP 200 even if the simulation is disconnected, so the Fly service check uses `/health`. If the soak fails, inspect `fly checks list`, `fly logs`, and the bounded `/data/.death-forensics.json.history.json` before trying a new deployment. The workflow fails without publishing the new client; recover the backend from the last known healthy release after checking database compatibility.
 - `auth/admin-restricted-operation` from Play Now means Firebase anonymous sign-in is disabled for the `border-empires` Firebase project; restarting Fly will not fix it. The deployment guest probe catches that configuration drift. A separate AUTH-to-INIT stall can come from the gateway's synchronous SQLite connection contending with simulation writes. Runtime gateway DB connections use 100 ms lock waits and async retries for identity/profile operations; schema setup retains the longer wait before traffic starts. This avoids blocking the gateway event loop without raising Fly CPU or memory allocations.
 - "Deploy to production" = deploying the combined rewrite stack plus the prod client. This now happens automatically on every push to `main` via `.github/workflows/deploy-prod.yml` (which runs the prod-shape gate itself before deploying). For a manual/ad-hoc run, use `pnpm deploy:prod:all` from a clean checkout at `origin/main`; it requires a recent successful prod-shape gate JSON for the exact target SHA, deploys `fly.combined.toml`, tags the release, updates `origin/production`, and publishes the client with the gateway backend default.
+- Historical manual Fly/Vercel commands in this section must not be used against the active Hetzner environments.
 - When a user says "deploy" without naming an environment, treat that as **staging by default**. Do not assume production unless the user explicitly says `production`, `prod`, or otherwise makes it unambiguous.
 - Before any manual production deploy, make sure this checkout is updated to the latest `origin/main`, then run the prod-shape gate against an isolated clone of the latest production map. Set `PROD_SHAPE_GATE_RESULT_JSON` to that result before running `pnpm deploy:prod:all`. Bypass only for emergency rollback with `SKIP_PROD_SHAPE_GATE=1`.
 
@@ -35,7 +83,7 @@ Read this before any deploy or Vercel/Fly CLI work. AGENTS.md links here.
 
 Worldgen code, `SIMULATION_MAP_STYLE`, `WORLD_WIDTH`/`WORLD_HEIGHT`, `WATCHTOWERS_ENABLED` and `SIMULATION_AI_PLAYER_COUNT` only take effect for a **new** season. A deploy or restart reloads the persisted season unchanged. Learned on 2026-10-02 (PR #2208, staging 320x160 / 20 AI):
 
-1. **Merge, then wait for the whole `Deploy staging` run**, not just CI. Check that the `Deploy client to Vercel staging alias` step ran. If the soak/verify step fails, the server is deployed but the client publish is **skipped**; for a world-size change that leaves the server and client on different sizes. Publish it with `pnpm deploy:client:staging`. Check the live client with `curl https://staging.borderempires.com/__build_sha.txt` (and, for size, the `WORLD_WIDTH` value in the `shared-game-*.js` chunk).
+1. **Merge, then wait for the whole `Deploy staging` run**, not just CI. Check that the `Deploy client to Hetzner` step ran. If the soak/verify step fails, the server is deployed but the client publish is **skipped**; for a world-size change that leaves the server and client on different sizes. Publish it with `pnpm deploy:client:hetzner staging`. Check the live client with `curl https://staging.borderempires.com/__build_sha.txt` (and, for size, the `WORLD_WIDTH` value in the `shared-game-*.js` chunk).
 2. **Check `/admin/world`**: `configured` shows the new values and `sizeStatus` is `rollover_pending`. Watch for older develop CI runs. `deploy-staging` runs serialize (they are not cancelled), so confirm the deployed SHA contains your merge.
 3. **Roll over promptly.** Between the client publish and the rollover, a size-changing client is talking to the old-size season.
 4. **Run the rollover as one command.** `start-next` only accepts the static `ADMIN_API_TOKEN` (not the GitHub-token or Google paths). On Hetzner it lives in `/etc/border-empires/secrets.env` (root ssh). An `export` in one `!` command did not carry into the next, so load the token and call the endpoint in a single line:
@@ -116,7 +164,9 @@ Plan, phases and rationale: [`../hetzner-migration-plan.md`](../hetzner-migratio
 - **Prod-shape clone:** `pnpm ops:prod-shape:clone-snapshot --ssh deploy@host` (uses the `snapshot` forced command; Fly path is `--app`).
 - **Backups:** hourly `VACUUM INTO` → zstd → B2 (`deploy/bin/backup`, systemd timer). Restore: download the `.zst` from B2, `zstd -d`, stop the app, copy over `/srv/border-empires/data/border-empires.db` (remove `-wal`/`-shm`, chown `10001:10001`), start the app.
 
-## Vercel
+## Vercel (historical rollback only)
+
+The active Hetzner client does not use this project. The commands and edge-function details below describe the previous hosting path.
 
 - Use exactly one Vercel project: `border-empires-client` (`projectId` `prj_QczQjhdpgV6Mu8Q03r4Ot6KWD1va`, `orgId` `team_GdmtYDKeSISxfvppIgLt4Rma`).
 - `pnpm vercel:link:client` from the repo root rewrites the current worktree's `.vercel/project.json` to that pinned project before any manual Vercel CLI work.

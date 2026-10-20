@@ -16,16 +16,20 @@ for (const mode of ["sync", "async"] as const) {
         now: () => 1000,
         initialPlayers: new Map([[playerId, buildPlayer(playerId, {
           afcUpgradeRuleset: "afc-v1", points: 0, techIds: new Set([firstTech.id]),
-          afcCoreTownKeys: ["5,5"], afcScarcityFoodSlots: 2,
+          afcCoreTownKeys: ["6,5"], afcScarcityFoodSlots: 2,
           afcCampaign: {}
         })]]),
         initialState: { tiles: [{ x: 5, y: 5, terrain: "LAND", ownerId: playerId, ownershipState: "SETTLED",
-          afc: { ownerId: playerId, status: "active", modules: [] } }], activeLocks: [] }
+          afc: { ownerId: playerId, status: "active", modules: [] } },
+          { x: 6, y: 5, terrain: "LAND", ownerId: playerId, ownershipState: "SETTLED",
+            town: { type: "MARKET", populationTier: "TOWN", isFed: true, population: 10_000, maxPopulation: 25_000 } },
+          { x: 6, y: 6, terrain: "LAND", ownerId: playerId, ownershipState: "SETTLED", resource: "FISH" }
+        ], activeLocks: [] }
       });
       const visible = mode === "sync" ? runtime.exportVisibleStateForPlayer(playerId)
         : await runtime.exportVisibleStateForPlayerAsync(playerId, yieldToEventLoop);
       expect(visible.players.find(p => p.id === playerId)).toMatchObject({
-        afcUpgradeRuleset: "afc-v1", afcCoreTownKeys: ["5,5"], afcScarcityFoodSlots: 2
+        afcUpgradeRuleset: "afc-v1", afcCoreTownKeys: ["6,5"], afcScarcityFoodSlots: 2
       });
       const subscription = buildPlayerSubscriptionSnapshot(playerId, visible, { tilesAlreadyVisible: true });
       expect(subscription.player?.afcUpgradeRuleset).toBe("afc-v1");
