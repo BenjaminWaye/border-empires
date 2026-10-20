@@ -82,10 +82,10 @@ HUD, minimap, panels and tip popups so only the map remains, in both the 3D and
 2D (`?renderer=2d`) renderers. `&photoX=<tile>&photoY=<tile>&photoZoom=<zoom>`
 pins the camera until the first pointer/wheel/key input. The fog-admin "Reveal
 Full Map" toggle (Settings > Admin, needs `ADMIN_EMAIL` to match the
-session's email) resets on every login, so reveal first, then either click the
-"Enter Photo Mode" button in that same Settings > Admin card (Esc or the
-floating "Exit Photo Mode" control brings the HUD back — no x/y/zoom pin from
-this path) or call `borderEmpiresPhoto.enter({ x, y, zoom })` from the console
+session's email) resets on every login, so reveal first, then either click
+"Enter Photo Mode" in Settings > Gameplay or press Ctrl+P (available to every
+player; Esc, Ctrl+P or the floating "Exit Photo Mode" control brings the HUD
+back — no x/y/zoom pin from this path) or call `borderEmpiresPhoto.enter({ x, y, zoom })` from the console
 (`.exit()` restores the HUD) when you do want a pinned camera for a scripted
 capture. Ownership of other empires is masked outside your own vision
 (`VISION_RADIUS = 1`) unless reveal is on, so a clash between two other empires
@@ -149,5 +149,5 @@ so a lighting change can be judged on the real map before it becomes the new
 default. Overrides live in this browser's localStorage (`be-lighting-tuner`);
 "Copy Values" prints them as source to paste into `DEFAULT_LIGHTING` in
 `packages/client/src/client-lighting-tuner/client-lighting-tuner-settings.ts`.
-3D renderer only (the 2D canvas path has no lighting). Photo Mode (same page)
-hides the panel for a clean screenshot.
+3D renderer only (the 2D canvas path has no lighting). Photo Mode (Settings >
+Gameplay, or Ctrl+P) hides the panel for a clean screenshot.

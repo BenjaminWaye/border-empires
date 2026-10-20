@@ -1,23 +1,18 @@
 // Photo mode hides the HUD/minimap/panels so the map can be screenshotted
 // cleanly (marketing/link-preview captures, before/after renderer comparisons).
 //
-// Three entry points, because the fog-admin "Reveal Full Map" toggle resets on
-// every login and needs the HUD to reach:
+// Entry points:
 //   - URL: `?photo=1` (optionally `&photoX=<tile>&photoY=<tile>&photoZoom=<zoom>`)
 //   - Console, after toggling reveal: `borderEmpiresPhoto.enter({ x, y, zoom })`
 //     to hide the HUD and pin the camera, `borderEmpiresPhoto.exit()` to restore.
-//   - Settings > Admin (same fog-admin card as "Reveal Full Map", see
-//     client-hud-settings-panel.ts's mapRevealCardHtml) — this path has no
-//     x/y/zoom to give, so it hides the HUD without pinning the camera, and
-//     shows a floating exit control since the toggle button that started it
-//     is itself hidden by the HUD going away.
+//   - Settings > Gameplay's "Enter Photo Mode" button, or Ctrl+P anywhere —
+//     these have no x/y/zoom to give, so they hide the HUD without pinning the
+//     camera, and show a floating exit control since the toggle button that
+//     started it is itself hidden by the HUD going away.
 // A camera pin is applied every frame until the first pointer, wheel, or key
 // input and then released, so a capturer can still pan to find a framing.
-// Purely client-side and read-only — it never sends anything to the server and
-// is not linked from any normal player UI (the Settings entry is gated behind
-// the same fog-admin eligibility as map reveal).
+// Purely client-side and read-only — it never sends anything to the server.
 import { MAX_ZOOM, MIN_ZOOM } from "../client-constants.js";
-import { mapRevealAvailable } from "../client-map-reveal/client-map-reveal.js";
 
 export type PhotoModeParams = {
   readonly camX?: number;
@@ -100,7 +95,7 @@ const showExitControl = (onExit: () => void): void => {
   const button = document.createElement("button");
   button.id = PHOTO_MODE_EXIT_CONTROL_ID;
   button.type = "button";
-  button.textContent = "Exit Photo Mode (Esc)";
+  button.textContent = "Exit Photo Mode (Esc / Ctrl+P)";
   const handleExit = (): void => {
     exitPhotoMode();
     onExit();
@@ -118,8 +113,8 @@ const showExitControl = (onExit: () => void): void => {
   };
 };
 
-// `onExitedViaControl` is only given from the Settings toggle (see
-// client-hud.ts's photoModeButtons binding) so it can sync ClientState's
+// `onExitedViaControl` is only given from the Settings toggle / Ctrl+P (see
+// togglePhotoMode) so it can sync ClientState's
 // `photoModeActive` flag and re-render the HUD once the floating control or
 // Escape ends photo mode; the URL/console entry points have no app state to
 // sync back and omit it, matching their existing "just hide the HUD" contract.
@@ -142,37 +137,59 @@ export type PhotoModeConsoleApi = {
 
 export type PhotoModeSettingsState = PhotoModeCameraState & {
   photoModeActive: boolean;
-  mapRevealEligible: boolean;
-  authSessionReady: boolean;
 };
 
-// Wires Settings > Admin's "Enter/Exit Photo Mode" button (see
-// mapRevealCardHtml in client-hud-settings-panel.ts) — kept here, not inlined
-// in client-hud.ts, which is already over the repo's 500-line cap and must
-// not grow (AGENTS.md's file-and-type-discipline rule); client-hud.ts's
-// render loop just calls this one function alongside its other settings
-// control binders. Gated behind the same fog-admin eligibility as map reveal,
-// since the two are meant to be used together and this stays out of normal
-// player UI.
+// Shared by the Settings > Gameplay button and the Ctrl+P shortcut. Checks the
+// body class rather than only `photoModeActive` so Ctrl+P also backs out of a
+// URL/console-started session, which never set the app-state flag.
+export const togglePhotoMode = (state: PhotoModeSettingsState, renderHud: () => void): void => {
+  if (state.photoModeActive || document.body.classList.contains(PHOTO_MODE_BODY_CLASS)) {
+    exitPhotoMode();
+    state.photoModeActive = false;
+  } else {
+    state.photoModeActive = true;
+    // No x/y/zoom to give from a settings click or shortcut -- just hide the
+    // HUD from wherever the camera already is, so no camera pin is applied.
+    enterPhotoMode(state, {}, () => {
+      state.photoModeActive = false;
+      renderHud();
+    });
+  }
+  renderHud();
+};
+
+export const isPhotoModeShortcut = (event: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "altKey" | "shiftKey">): boolean =>
+  event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "p";
+
+// The shortcut needs the live ClientState and HUD re-render, which only the HUD
+// binder below has; it refreshes these on every bind and the window listener is
+// installed once.
+let shortcutTarget: { state: PhotoModeSettingsState; renderHud: () => void } | undefined;
+let shortcutInstalled = false;
+
+const installPhotoModeShortcut = (): void => {
+  if (shortcutInstalled || typeof window === "undefined") return;
+  shortcutInstalled = true;
+  window.addEventListener("keydown", (event) => {
+    if (!shortcutTarget || event.repeat || !isPhotoModeShortcut(event)) return;
+    // Ctrl+P is the browser's print shortcut on Windows/Linux; claim it.
+    event.preventDefault();
+    togglePhotoMode(shortcutTarget.state, shortcutTarget.renderHud);
+  });
+};
+
+// Wires Settings > Gameplay's "Enter Photo Mode" button (see
+// photoModeSettingsFieldHtml in client-hud-settings-panel.ts) and the Ctrl+P
+// shortcut — kept here, not inlined in client-hud.ts, which is already over the
+// repo's 500-line cap and must not grow (AGENTS.md's file-and-type-discipline
+// rule); client-hud.ts's render loop just calls this one function alongside
+// its other settings control binders.
 export const bindPhotoModeSettingsControls = (hud: ParentNode, state: PhotoModeSettingsState, renderHud: () => void): void => {
+  shortcutTarget = { state, renderHud };
+  installPhotoModeShortcut();
   const buttons = hud.querySelectorAll("[data-photo-mode-toggle]") as NodeListOf<HTMLButtonElement>;
   buttons.forEach((button) => {
-    button.onclick = () => {
-      if (!mapRevealAvailable({ enabledForAccount: state.mapRevealEligible && state.authSessionReady })) return;
-      if (state.photoModeActive) {
-        exitPhotoMode();
-        state.photoModeActive = false;
-      } else {
-        state.photoModeActive = true;
-        // No x/y/zoom to give from a settings click -- just hide the HUD from
-        // wherever the camera already is, so no camera pin is applied.
-        enterPhotoMode(state, {}, () => {
-          state.photoModeActive = false;
-          renderHud();
-        });
-      }
-      renderHud();
-    };
+    button.onclick = () => togglePhotoMode(state, renderHud);
   });
 };
 

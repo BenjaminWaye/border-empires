@@ -4,16 +4,17 @@
 // (client-discovery-tips-storage.ts), now server-persisted (see
 // client-hint-server-sync.ts) so the choice survives a browser data clear
 // or a different device instead of only living in localStorage.
+import { settingsToggleRowHtml } from "../client-hud/client-settings-controls.js";
 import { clearDiscoveryTipsMute, isDiscoveryTipsMuted, muteDiscoveryTips } from "./client-discovery-tips-storage.js";
 
 export const hintsSettingsFieldHtml = (authEmail?: string | null): string => `
         <div class="settings-hints-field">
-          <label>
-            <p>Show Hints</p>
-            <div class="row settings-hints-row">
-              <input type="checkbox" data-settings-hints-enabled ${isDiscoveryTipsMuted(authEmail) ? "" : "checked"} />
-            </div>
-          </label>
+          ${settingsToggleRowHtml({
+            attrs: "data-settings-hints-enabled",
+            checked: !isDiscoveryTipsMuted(authEmail),
+            title: "Show Hints",
+            hint: "Tips that explain new things the first time you meet them."
+          })}
         </div>`;
 
 /** Binds the checkbox rendered by hintsSettingsFieldHtml() within `root`. */

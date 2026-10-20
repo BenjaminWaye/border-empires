@@ -4,7 +4,7 @@ import { hudMarkup } from "../client-dom-markup/client-dom-markup.js";
 import { settingsAdminPageHtml } from "./client-hud-settings-panel.js";
 import { bindAdminSettingsControls } from "./client-hud-admin-settings.js";
 
-const adminState = { mapRevealEligible: true, authSessionReady: true, mapRevealEnabled: false, fogDisabled: false, photoModeActive: false };
+const adminState = { mapRevealEligible: true, authSessionReady: true, mapRevealEnabled: false, fogDisabled: false };
 
 // The Alerts feed (bell) isn't ready for players in its current form: its
 // top-bar and mobile-nav buttons were removed and it opens only from
