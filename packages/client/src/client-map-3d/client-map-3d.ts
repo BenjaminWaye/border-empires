@@ -943,7 +943,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         const demoTier = isTownDemoTile(wx, wy, window.camX, window.camY);
         const renderedTier: TownTier | undefined = realTier ?? demoTier;
         if (renderedTier && terrain === "LAND") {
-          townOverlay.addInstance(x, z, surfaceY, renderedTier, wx, wy);
+          townOverlay.addInstance(x, z, surfaceY, renderedTier, wx, wy, tile?.ownerId ? deps.effectiveOverlayColor(tile.ownerId) : undefined);
           // LARGE, not DEFAULT: a town's own foundation slab runs up to 0.92
           // tiles wide (see the radius comments in
           // client-map-3d-contact-shadow.ts) — DEFAULT's 0.84 diameter was

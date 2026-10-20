@@ -9,6 +9,8 @@ import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garriso
 import { AFC_UPGRADES_ICON_CHANGELOG } from "./client-changelog-afc-upgrades-icon.js";
 import { MUSTER_BANNER_CHANGELOG } from "./client-changelog-muster-banner.js";
 import { BATTLE_TILE_SOUND_CHANGELOG } from "./client-changelog-battle-tile-sound.js";
+import { TOWN_VISUALS_CHANGELOG } from "./client-changelog-town-visuals.js";
+import { TOWN_BANNERS_CHANGELOG } from "./client-changelog-town-banners.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -469,6 +471,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   ...BATTLE_TILE_SOUND_CHANGELOG,
+  ...TOWN_VISUALS_CHANGELOG,
+  ...TOWN_BANNERS_CHANGELOG,
   {
     createdAt: 1792510291974, // Date.now() captured for this entry.
     introducedIn: "2026.10.20.1",
