@@ -39,12 +39,13 @@ export const getTownTierGeometry = (tier: TownTier): TownTierGeometry => {
   let geometry = cache.get(tier);
   if (!geometry) {
     const layout = TIER_LAYOUTS[tier];
-    const matte = createTownMeshBuilder({ occlusion: true, weathering: 0.1 });
-    const metal = createTownMeshBuilder({ occlusion: true });
-    const glass = createTownMeshBuilder({ occlusion: true, sheen: 0.35 });
+    // The overlay draws these with shadowSide = FrontSide, so they may cull undersides.
+    const matte = createTownMeshBuilder({ occlusion: true, weathering: 0.1, cullUndersides: true });
+    const metal = createTownMeshBuilder({ occlusion: true, cullUndersides: true });
+    const glass = createTownMeshBuilder({ occlusion: true, sheen: 0.35, cullUndersides: true });
     const builders: TownBuilders = {
       body: createRoutedTownBuilder(matte, metal, glass),
-      glow: createTownMeshBuilder(),
+      glow: createTownMeshBuilder({ cullUndersides: true }),
       halo: createTownMeshBuilder(),
       steam: createTownMeshBuilder(),
       banner: createTownMeshBuilder(),

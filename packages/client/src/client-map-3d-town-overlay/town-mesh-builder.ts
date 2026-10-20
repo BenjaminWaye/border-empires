@@ -120,7 +120,7 @@ const withShade = (geometry: BufferGeometry, shadeAt: (x: number, y: number, z: 
 const UNIT_POOL = withShade(new RingGeometry(0.001, 1, 10, 2).rotateX(-Math.PI / 2), (x, _y, z) => (1 - Math.min(1, Math.hypot(x, z))) ** 1.6);
 // Banner cloth facing +z, hoisted at x = 0 and flying out to x = 1, cut in
 // strips so it can ripple (see applyTownBanner).
-const UNIT_CLOTH = new PlaneGeometry(1, 1, 5, 1).translate(0.5, 0, 0);
+const UNIT_CLOTH = new PlaneGeometry(1, 1, 8, 1).translate(0.5, 0, 0);
 // Flat strip of light spilling out from a wall at z = 0 to z = 1.
 const UNIT_SPILL = withShade(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2).translate(0, 0, 0.5), (_x, _y, z) => (1 - z) ** 1.5);
 const UNIT_OCTAHEDRON = new OctahedronGeometry(1, 0);
@@ -248,12 +248,16 @@ export type TownMeshBuilderOptions = {
   readonly weathering?: number;
   /** Brightens by up to this share towards the skyline: glass catching more sky the higher it rises. */
   readonly sheen?: number;
+  /** Drop static parts' undersides (see dropUndersides); the mesh must then cast with shadowSide = FrontSide. */
+  readonly cullUndersides?: boolean;
 };
 
 /** Drops a static part's downward-facing triangles: the map camera always
  * looks down from far above, so it never sees the underside of a box, a
- * cylinder or a cap -- nor does the sun's shadow pass, which draws front
- * faces. Turning parts keep every face, since they roll undersides into view. */
+ * cylinder or a cap. three's shadow pass draws a FrontSide material's BACK
+ * faces by default -- undersides included -- so a mesh built this way must
+ * cast with `shadowSide = FrontSide` (the town overlay's materials do).
+ * Turning parts keep every face, since they roll undersides into view. */
 const dropUndersides = (part: BufferGeometry): BufferGeometry => {
   const position = part.getAttribute("position");
   const keep: number[] = [];
@@ -298,14 +302,18 @@ export const createTownMeshBuilder = (options: TownMeshBuilderOptions = {}): Tow
   let anim: TownAnim | undefined;
 
   const pushColored = (whole: BufferGeometry, color: TownColor): void => {
-    const part = anim && anim.a[3] !== 0 ? whole : dropUndersides(whole);
+    const turning = anim !== undefined && anim.a[3] !== 0;
+    const part = options.cullUndersides && !turning ? dropUndersides(whole) : whole;
     const tint = colorOf(color);
     const position = part.getAttribute("position");
     const count = position.count;
     const shade = part.getAttribute("shade");
     part.computeBoundingBox();
     const bounds = part.boundingBox!;
-    const occluded = options.occlusion === true && bounds.max.y - bounds.min.y >= TOWN_PAVING_THICKNESS;
+    // A part turning about a tilted axis (an upright cog) would carry its baked
+    // shading round with it, so only static and upright-turning parts take occlusion.
+    const tumbling = turning && Math.abs(anim?.b[1] ?? 1) < 0.999;
+    const occluded = options.occlusion === true && !tumbling && bounds.max.y - bounds.min.y >= TOWN_PAVING_THICKNESS;
     const weather = options.weathering
       ? 1 - options.weathering / 2 + options.weathering * weatherAt((bounds.min.x + bounds.max.x) / 2, (bounds.min.z + bounds.max.z) / 2)
       : 1;

@@ -30,13 +30,27 @@ describe("town mesh builder", () => {
     expect(colorAtY(builder.build()!, 0.005)[0]).toBeCloseTo(stone.r, 5);
   });
 
-  it("drops the never-seen undersides of static parts but keeps them on turning parts", () => {
-    const flat = createTownMeshBuilder();
-    flat.box(0, 0, 0, 0.1, 0.1, 0.1, "stone");
-    expect(flat.build()!.getAttribute("position").count).toBe(30);
-    const turning = createTownMeshBuilder();
+  it("drops the never-seen undersides of static parts only when asked, and never on turning parts", () => {
+    const culled = createTownMeshBuilder({ cullUndersides: true });
+    culled.box(0, 0, 0, 0.1, 0.1, 0.1, "stone");
+    expect(culled.build()!.getAttribute("position").count).toBe(30);
+    // Other users of the kit (the muster banner) keep every face, so their shadows are unchanged.
+    const whole = createTownMeshBuilder();
+    whole.box(0, 0, 0, 0.1, 0.1, 0.1, "stone");
+    expect(whole.build()!.getAttribute("position").count).toBe(36);
+    const turning = createTownMeshBuilder({ cullUndersides: true });
     turning.withAnim({ a: [0, 0, 0, 1], b: [0, 0, 1, 0] }, () => turning.box(0, 0, 0, 0.1, 0.1, 0.1, "stone"));
     expect(turning.build()!.getAttribute("position").count).toBe(36);
+  });
+
+  it("bakes no occlusion into a part tumbling about a tilted axis, where the shading would turn with it", () => {
+    const upright = createTownMeshBuilder({ occlusion: true });
+    upright.withAnim({ a: [0, 0, 0, 1], b: [0, 0, 1, 0] }, () => upright.box(0, 0, 0, 0.1, 0.3, 0.1, "stone"));
+    expect(colorAtY(upright.build()!, 0)[0]).toBeCloseTo(stone.r, 5);
+    // Turning about the vertical keeps the bottom at the bottom, so it stays shaded.
+    const turntable = createTownMeshBuilder({ occlusion: true });
+    turntable.withAnim({ a: [0, 0, 0, 1], b: [0, 1, 0, 0] }, () => turntable.box(0, 0, 0, 0.1, 0.3, 0.1, "stone"));
+    expect(colorAtY(turntable.build()!, 0)[0]).toBeCloseTo(stone.r * TOWN_OCCLUSION_FLOOR, 5);
   });
 
   it("fades light pools from their centre to nothing at the rim", () => {

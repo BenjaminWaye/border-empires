@@ -140,8 +140,13 @@ export const skyscraper = (t: TownBuilders, o: SkyscraperOptions): number => {
       t.body.pyramid(o.x, y, o.z, w, size * 0.5, d, "brassDark", o.ry);
       t.body.cylinder(o.x, y + size * 0.4, o.z, 0.0, 0.009, 0.12, "brass", 6);
       spinning(t, o.x, 0, o.z, [0, 1, 0], 1.2, () => t.glow.gem(o.x, y + size * 0.4 + 0.13, o.z, 0.009, 0.016, "aether"));
-      // Halfway up the needle, under the crystal.
-      if (tall) beacon(t, o.x, y + size * 0.4 + 0.055, o.z, 0.005);
+      // A pair flanking the needle halfway up, under the crystal.
+      if (tall) {
+        for (const side of [-1, 1]) {
+          const [bx, bz] = at(o.x, o.z, o.ry, side * 0.0075, 0);
+          beacon(t, bx, y + size * 0.4 + 0.055, bz, 0.004);
+        }
+      }
       return y + size * 0.4 + 0.14;
     case "pod": {
       // Alien bulb on a stalk, ringed in light.

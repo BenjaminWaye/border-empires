@@ -11,8 +11,8 @@ const topOf = (geometry: BufferGeometry): number => {
 };
 
 const partsOf = (tier: TownTier): BufferGeometry[] => {
-  const { body, metal, glass, glow, halo } = getTownTierGeometry(tier);
-  return [body, metal, glass, glow, halo].filter((part): part is BufferGeometry => part !== undefined);
+  const { body, metal, glass, glow, halo, banner } = getTownTierGeometry(tier);
+  return [body, metal, glass, glow, halo, banner].filter((part): part is BufferGeometry => part !== undefined);
 };
 
 const tierTop = (tier: TownTier): number => Math.max(...partsOf(tier).map(topOf));
@@ -111,7 +111,8 @@ describe("procedural town tiers", () => {
     const glassColors = [...TOWN_GLASS_COLORS].map((name: TownColor) => TOWN_COLORS[name]);
     expect(metalColors.some((hex) => hasVertexColor(metal!, hex))).toBe(true);
     expect(glassColors.some((hex) => hasVertexHue(glass!, hex))).toBe(true);
-    for (const hex of metalColors) expect(hasVertexColor(body, hex), `${tier} matte body has ${hex}`).toBe(false);
+    // By hue: the matte body's colours are all scaled by weathering and occlusion.
+    for (const hex of metalColors) expect(hasVertexHue(body, hex), `${tier} matte body has ${hex}`).toBe(false);
     for (const hex of glassColors) {
       expect(hasVertexHue(body, hex), `${tier} matte body has glass ${hex}`).toBe(false);
       expect(hasVertexHue(metal!, hex), `${tier} metal has glass ${hex}`).toBe(false);

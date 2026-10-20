@@ -109,7 +109,7 @@ export const octagonPlate = (t: TownBuilders, radius: number, plazaRing = true, 
   if (plazaRing) {
     // A raised flagstone plaza inside an inlaid brass ring, a paler rosette at its heart.
     t.body.cylinder(0, 0, 0, radius * 0.42, radius * 0.42, 0.003, "paving", 16);
-    t.body.cylinder(0, 0.003, 0, radius * 0.2, radius * 0.2, 0.0012, "stoneLight", 8, Math.PI / 8);
+    t.body.cylinder(0, 0.003, 0, radius * 0.2, radius * 0.2, 0.003, "stoneLight", 8, Math.PI / 8);
     t.body.ring(0, 0.003, 0, radius * 0.42, "brassDark", 0.03);
   }
 };

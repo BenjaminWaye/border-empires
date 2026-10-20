@@ -10,7 +10,7 @@ export const flagpole = (t: TownBuilders, x: number, z: number, h: number, lengt
   t.body.cylinder(x, 0, z, 0.0022, 0.003, h, "iron", 5);
   t.body.gem(x, h + 0.003, z, 0.0035, 0.006, "brass");
   const depth = length * 0.62;
-  const anim = { a: [x, 0, z, loopSpeed(5 + t.random() * 2)], b: [0, 0, 0, t.random()] } as const;
+  const anim = { a: [x, 0, z, loopSpeed(5 + t.random() * 2)], b: [0.2, 0, 0, t.random()] } as const;
   t.banner.withAnim(anim, () => t.banner.cloth(x, h - depth / 2 - 0.002, z, length, depth, "cloth", ry));
 };
 
@@ -20,15 +20,19 @@ export const flagpole = (t: TownBuilders, x: number, z: number, h: number, lengt
 export const plateBanners = (t: TownBuilders, radius: number, h: number): void => {
   for (let k = 0; k < 4; k += 1) {
     const degrees = 22.5 + k * 90;
-    const [x, z] = polar(radius * 0.92, degrees);
+    const [x, z] = polar(radius * 0.8, degrees);
     flagpole(t, x, z, h, h * 0.62, facingOut(degrees + 22.5));
   }
 };
 
-/** Long banner hung flat down a wall from (x, top, z), facing out along ry, stirring gently. */
+/** Long banner hung flat down a wall from (x, top, z), facing out along ry,
+ * stirring so gently (WALL_BANNER_SWING) that it never touches the wall
+ * WALL_BANNER_GAP behind it. */
+export const WALL_BANNER_GAP = 0.004;
+const WALL_BANNER_SWING = 0.04;
 export const wallBanner = (t: TownBuilders, x: number, top: number, z: number, w: number, h: number, ry: number): void => {
   const [hx, hz] = at(x, z, ry, -w / 2, 0);
-  const anim = { a: [hx, 0, hz, loopSpeed(1.6 + t.random())], b: [0, 0, 0, t.random()] } as const;
+  const anim = { a: [hx, 0, hz, loopSpeed(1.6 + t.random())], b: [WALL_BANNER_SWING, 0, 0, t.random()] } as const;
   t.banner.withAnim(anim, () => t.banner.cloth(hx, top - h / 2, hz, w, h, "cloth", ry));
   t.body.box(x, top, z, w * 1.25, 0.003, 0.004, "brass", ry);
 };
@@ -36,7 +40,7 @@ export const wallBanner = (t: TownBuilders, x: number, top: number, z: number, w
 /** Round fountain: a stone basin round a mirror pool, spray leaping from a brass jet. */
 export const fountain = (t: TownBuilders, x: number, z: number, radius: number): void => {
   t.body.cylinder(x, 0, z, radius, radius * 1.06, 0.007, "stoneLight", 12);
-  t.body.cylinder(x, 0.007, z, radius * 0.86, radius * 0.86, 0.0008, "water", 12);
+  t.body.cylinder(x, 0.007, z, radius * 0.86, radius * 0.86, 0.003, "water", 12);
   t.body.cylinder(x, 0.007, z, radius * 0.12, radius * 0.16, 0.012, "brass", 6);
   const rate = loopRate(0.55 + t.random() * 0.15);
   const phase = t.random();

@@ -16,6 +16,7 @@ import {
   AdditiveBlending,
   Color,
   DoubleSide,
+  FrontSide,
   InstancedMesh,
   Matrix4,
   MeshBasicMaterial,
@@ -29,6 +30,7 @@ import {
 } from "three";
 import { applyTownBanner, applyTownSpin, applyTownSteam, tickTownTime } from "./client-map-3d-town-overlay/town-animation-shaders.js";
 import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
+import { normalizeColorForThree } from "./client-three-color/client-three-color.js";
 import { getTownTierGeometry, TOWN_TIERS, type TownTier } from "./client-map-3d-town-overlay/town-tier-geometry.js";
 
 export { TOWN_TIERS, type TownTier } from "./client-map-3d-town-overlay/town-tier-geometry.js";
@@ -83,8 +85,11 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
   // Pools of lamp- and shoplight added onto the paving under them: black
   // rims add nothing, so each fades out softly, and the low opacity keeps
   // sunlit paving from blowing out. Fog would add its own colour.
+  // Pulled towards the camera, since the pools sit closer over the paving
+  // than the depth buffer resolves when zoomed right out.
   const haloMaterial = new MeshBasicMaterial({
-    toneMapped: false, vertexColors: true, transparent: true, opacity: 0.32, blending: AdditiveBlending, depthWrite: false, fog: false
+    toneMapped: false, vertexColors: true, transparent: true, opacity: 0.32, blending: AdditiveBlending, depthWrite: false, fog: false,
+    polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4
   });
   const steamMaterial = new MeshStandardMaterial({
     vertexColors: true, roughness: 1, metalness: 0, flatShading: true, transparent: true, opacity: 0.6, depthWrite: false
@@ -94,6 +99,10 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
   applyTownBanner(bannerMaterial);
   // Shadow pass: spins like the visible meshes, so a circling airship's shadow follows it.
   const depthMaterial = new MeshDepthMaterial({ depthPacking: RGBADepthPacking });
+  // The tier geometry drops the undersides of static parts, which three's
+  // shadow pass would otherwise draw (it renders a FrontSide material's back
+  // faces), so these cast from their front faces instead.
+  for (const material of [bodyMaterial, metalMaterial, glassMaterial]) material.shadowSide = FrontSide;
   applyTownSpin(bodyMaterial);
   applyTownSpin(metalMaterial);
   applyTownSpin(glassMaterial);
@@ -158,7 +167,9 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
     quaternion.setFromAxisAngle(yAxis, townQuarterTurnForTile(tileX, tileY) * (Math.PI / 2));
     position.set(centerX, surfaceY + TOWN_BASE_LIFT, centerZ);
     slot.body.setMatrixAt(slot.count, matrix.compose(position, quaternion, unitScale));
-    slot.banner?.setColorAt(slot.count, bannerColor.set(ownerColor ?? TOWN_UNOWNED_BANNER_COLOR));
+    // Owner colours can be CSS hsl() strings, which three's Color does not parse.
+    const dye = ownerColor ? normalizeColorForThree(ownerColor, TOWN_UNOWNED_BANNER_COLOR) : TOWN_UNOWNED_BANNER_COLOR;
+    slot.banner?.setColorAt(slot.count, bannerColor.set(dye));
     slot.count += 1;
   };
 
@@ -169,7 +180,12 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
   const commit = (): void => {
     for (const slot of slots.values()) {
       slot.body.count = slot.count;
-      for (const follower of slot.followers) follower.count = slot.count;
+      // A tier with no town on screen costs no draw calls at all.
+      slot.body.visible = slot.count > 0;
+      for (const follower of slot.followers) {
+        follower.count = slot.count;
+        follower.visible = slot.count > 0;
+      }
       // Upload only the instances actually drawn, not the whole tile-budget buffer.
       slot.body.instanceMatrix.clearUpdateRanges();
       if (slot.count === 0) continue;
