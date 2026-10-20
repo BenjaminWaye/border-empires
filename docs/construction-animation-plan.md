@@ -36,10 +36,19 @@ and assembled on site by ancillaries (bodies run by one AI).
   look, so that was dropped.)
 - **Removal** (`removing`) plays the same phases backwards.
 - **Supply pods** (build phase change): when an on-screen site enters a new phase, the
-  owner's AFC fabricates the next batch of parts and a pod flies them out in an arc to the
-  site's parts stack. Everything is fabricated at the AFC and carried over; nothing is
-  built in orbit (that would imply orbital fabrication, with its cost), so there is no
-  drop-from-orbit variant and **no pod at all** when the owner's AFC is not known.
+  owner's AFC fabricates the next batch of parts and its courier drone flies them to the
+  site's parts stack. Beats (timeline in `client-map-3d-construction-pod-flight.ts`): the drone
+  spools up on the AFC's crown and drops its winch line into the glass chamber while the AFC
+  prints the pod; the winch draws the pod up out of the crown; the drone flies a banked
+  low-altitude arc like a quadcopter (tips into the trip, tips back to brake) with the pod
+  swinging on its line; it hovers over the stack (landing light, rotor-wash dust swirl) and
+  winches the pod down; the line lets go, the drone turns for home and docks in the crown, and
+  the pod folds open and collapses, leaving the crates. The stack stays empty while its pod is
+  on the way, so a delivery must land within a quarter of its phase: a trip that would take
+  longer (a distant AFC on a short build) is flown faster (`podTransitBudgetMs`); otherwise the
+  trip time grows with distance. All deliveries share one fixed set of instanced meshes
+  (`client-map-3d-construction-pod-assets.ts`), so their count does not add draw calls.
+  Drone drawing: `client-map-3d-construction-drone-draw.ts`.
   Cosmetic only: the server does not track which AFC "made" the parts. Pods are not shown
   for removal.
 

@@ -48,7 +48,7 @@ describe("applyPhotoModeCamera", () => {
   });
 });
 
-describe("bindPhotoModeSettingsControls (Settings > Admin toggle)", () => {
+describe("bindPhotoModeSettingsControls (Settings > Gameplay toggle + Ctrl+P)", () => {
   afterEach(() => {
     exitPhotoMode();
     document.body.innerHTML = "";
@@ -62,20 +62,7 @@ describe("bindPhotoModeSettingsControls (Settings > Admin toggle)", () => {
     camSubY: 0,
     zoom: 22,
     photoModeActive: false,
-    mapRevealEligible: true,
-    authSessionReady: true,
     ...overrides
-  });
-
-  it("does nothing when the account is not fog-admin eligible", () => {
-    document.body.innerHTML = `<div id="hud"><button data-photo-mode-toggle>Enter Photo Mode</button></div>`;
-    const state = makeState({ mapRevealEligible: false });
-    bindPhotoModeSettingsControls(document.getElementById("hud")!, state, () => {});
-
-    document.querySelector<HTMLButtonElement>("[data-photo-mode-toggle]")!.click();
-
-    expect(state.photoModeActive).toBe(false);
-    expect(document.body.classList.contains(PHOTO_MODE_BODY_CLASS)).toBe(false);
   });
 
   it("hides the HUD without pinning the camera, and shows a floating exit control", () => {
@@ -136,5 +123,58 @@ describe("bindPhotoModeSettingsControls (Settings > Admin toggle)", () => {
 
     expect(state.photoModeActive).toBe(false);
     expect(document.body.classList.contains(PHOTO_MODE_BODY_CLASS)).toBe(false);
+  });
+  const ctrlP = (init: KeyboardEventInit = {}): KeyboardEvent =>
+    new KeyboardEvent("keydown", { key: "p", ctrlKey: true, cancelable: true, ...init });
+
+  it("Ctrl+P enters photo mode, claims the browser's print shortcut, and Ctrl+P again exits", () => {
+    document.body.innerHTML = `<div id="hud"></div>`;
+    const state = makeState();
+    let renders = 0;
+    bindPhotoModeSettingsControls(document.getElementById("hud")!, state, () => {
+      renders += 1;
+    });
+
+    const enter = ctrlP();
+    window.dispatchEvent(enter);
+
+    expect(enter.defaultPrevented).toBe(true);
+    expect(state.photoModeActive).toBe(true);
+    expect(document.body.classList.contains(PHOTO_MODE_BODY_CLASS)).toBe(true);
+    expect(document.getElementById(PHOTO_MODE_EXIT_CONTROL_ID)).not.toBeNull();
+
+    window.dispatchEvent(ctrlP());
+
+    expect(state.photoModeActive).toBe(false);
+    expect(document.body.classList.contains(PHOTO_MODE_BODY_CLASS)).toBe(false);
+    expect(document.getElementById(PHOTO_MODE_EXIT_CONTROL_ID)).toBeNull();
+    expect(renders).toBe(2);
+  });
+
+  it("ignores plain P, Cmd+P, Ctrl+Shift+P and key-repeat", () => {
+    document.body.innerHTML = `<div id="hud"></div>`;
+    const state = makeState();
+    bindPhotoModeSettingsControls(document.getElementById("hud")!, state, () => {});
+
+    for (const init of [{ ctrlKey: false }, { ctrlKey: false, metaKey: true }, { shiftKey: true }, { repeat: true }]) {
+      const event = ctrlP(init);
+      window.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
+    }
+
+    expect(state.photoModeActive).toBe(false);
+    expect(document.body.classList.contains(PHOTO_MODE_BODY_CLASS)).toBe(false);
+  });
+
+  it("Ctrl+P also backs out of a URL/console-started session that never set photoModeActive", () => {
+    document.body.innerHTML = `<div id="hud"></div>`;
+    const state = makeState();
+    bindPhotoModeSettingsControls(document.getElementById("hud")!, state, () => {});
+    document.body.classList.add(PHOTO_MODE_BODY_CLASS);
+
+    window.dispatchEvent(ctrlP());
+
+    expect(document.body.classList.contains(PHOTO_MODE_BODY_CLASS)).toBe(false);
+    expect(state.photoModeActive).toBe(false);
   });
 });

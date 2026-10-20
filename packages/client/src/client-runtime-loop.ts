@@ -1228,15 +1228,14 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
     }
 
-    // Frontier supply lines (2D; the 3D path draws client-map-3d-frontier-supply-overlay.ts): chevrons into frontier beyond reach, amber chokepoints.
+    // Frontier supply lines (2D; the 3D path draws client-map-3d-frontier-supply-overlay.ts): dashed lines out to fragile land beyond reach, a ring on the tile it hangs on.
     if (!isTrue3DRendererActive()) {
       drawFrontierSupply2D(deps.ctx, frontierSupplyModelForState(state), {
         tileCenter: (x, y) => deps.worldToScreen(x, y, size, halfW, halfH),
         size,
         viewportWidth: deps.canvas.width,
         viewportHeight: deps.canvas.height,
-        ownerColor: deps.effectiveOverlayColor(state.me),
-        nowMs
+        ownerColor: deps.effectiveOverlayColor(state.me)
       });
     }
 

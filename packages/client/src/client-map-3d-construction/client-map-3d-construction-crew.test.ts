@@ -142,4 +142,23 @@ describe("construction crew", () => {
     expect(scene.children.filter((c) => c instanceof InstancedMesh)).toHaveLength(2); // figures, crates
     crew.dispose();
   });
+  // The new phase's crates come with its parts pod: the stack stands empty until the pod lands.
+  it("shows an empty stack while the site's parts pod is still on its way", () => {
+    const scene = new Scene();
+    const crew = createConstructionCrewLayer(scene);
+    crew.add(0, 0, 0, site({ x: 3, y: 4 }));
+    crew.add(5, 0, 0, site({ x: 9, y: 9 }));
+    const crates = (): number => scene.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh && c.geometry.type === "BoxGeometry" && (c.geometry as BoxGeometry).parameters.width === 0.075)[0]!.count;
+    crew.update(Date.now());
+    const full = crates();
+    expect(full).toBeGreaterThan(1);
+    let pending = true;
+    const awaiting = (key: string): boolean => pending && key === "3,4";
+    crew.update(Date.now(), awaiting);
+    expect(crates()).toBe(full / 2); // only the other site's stack is shown
+    pending = false; // the pod landed
+    crew.update(Date.now(), awaiting);
+    expect(crates()).toBe(full);
+    crew.dispose();
+  });
 });

@@ -400,7 +400,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     code: string,
     message: string,
     opts?: { cooldownRemainingMs?: number; formatCooldownShort?: (ms: number) => string }
-  ): string => explainActionFailureFromServer(code, message, opts);
+  ): string => explainActionFailureFromServer(code, message, { ...opts, combatLock: { state, wrap: (x, y) => ({ x: wrapX(x), y: wrapY(y) }) } });
 
   const enqueueTarget = (x: number, y: number): boolean => enqueueTargetFromModule(state, x, y, keyFor);
 

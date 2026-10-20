@@ -23,5 +23,17 @@ export const FRONTIER_SUPPLY_LINES_CHANGELOG: ClientChangelogEntry[] = [
       "The arrowhead at each frontier tip lights up as a pulse reaches it",
       "Works on both the 3D and the 2D map"
     ]
+  },
+  {
+    createdAt: 1792431480104, // frozen Date.now() value for this release
+    introducedIn: "2026.10.19.3",
+    title: "Supply lines only mark land that hangs on one tile",
+    why: "Supply lines were drawn to all land beyond your reach and their bright pulses pulled the eye, even where losing a tile changed nothing.",
+    changes: [
+      "Supply lines now only appear where land beyond your reach hangs on a single tile: lose that tile and everything past it is lost",
+      "That tile gets a small ring, and a thin, still, dashed line runs from it out to the land it holds",
+      "No more pulses or arrowheads; land with more than one way back is left unmarked",
+      "Works on both the 3D and the 2D map"
+    ]
   }
 ];

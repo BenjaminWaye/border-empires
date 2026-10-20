@@ -28,7 +28,11 @@ const CRATE_SLOTS: ReadonlyArray<readonly [number, number, number]> = [
   [0, CRATE_SIZE.y / 2, CRATE_SIZE.z + 0.01],
   [(CRATE_SIZE.x + 0.01) / 2, CRATE_SIZE.y * 1.5, (CRATE_SIZE.z + 0.01) / 2]
 ];
+// A site's key in the construction layers (crew, pods): its world tile.
+export const constructionSiteKey = (site: { readonly x: number; readonly y: number }): string => `${site.x},${site.y}`;
+
 type SiteEntry = {
+  readonly siteKey: string;
   readonly sceneX: number;
   readonly sceneZ: number;
   readonly surfaceY: number;
@@ -40,7 +44,9 @@ export type ConstructionCrewLayer = {
   readonly clear: () => void;
   readonly add: (sceneX: number, sceneZ: number, surfaceY: number, site: ConstructionSite, layout?: ConstructionLayout) => void;
   // `epochMs` is the wall clock (the construction window's clock), so a stalled build can freeze the crew in place.
-  readonly update: (epochMs: number) => void;
+  // `awaitingDelivery` names the sites whose parts pod is still on its way: their stack shows empty
+  // until the pod sets the new crates down (client-map-3d-construction-pod-fx.ts).
+  readonly update: (epochMs: number, awaitingDelivery?: (siteKey: string) => boolean) => void;
   readonly dispose: () => void;
 };
 
@@ -73,7 +79,7 @@ export const createConstructionCrewLayer = (scene: Scene): ConstructionCrewLayer
 
   const add: ConstructionCrewLayer["add"] = (sceneX, sceneZ, surfaceY, site, layout = DEFAULT_CONSTRUCTION_LAYOUT) => {
     if (entries.length >= MAX_CONSTRUCTION_SITES) return;
-    entries.push({ sceneX, sceneZ, surfaceY, site, layout });
+    entries.push({ siteKey: constructionSiteKey(site), sceneX, sceneZ, surfaceY, site, layout });
   };
 
   const upload = (mesh: InstancedMesh): void => {
@@ -82,14 +88,14 @@ export const createConstructionCrewLayer = (scene: Scene): ConstructionCrewLayer
     mesh.instanceMatrix.needsUpdate = true;
   };
 
-  const update = (epochMs: number): void => {
+  const update: ConstructionCrewLayer["update"] = (epochMs, awaitingDelivery) => {
     // The common case is no site on screen: skip the buffer syncs.
     if (entries.length === 0 && figureMesh.count === 0 && crateMesh.count === 0) return;
     let figures = 0;
     let crates = 0;
-    for (const { sceneX, sceneZ, surfaceY, site, layout } of entries) {
+    for (const { siteKey, sceneX, sceneZ, surfaceY, site, layout } of entries) {
       const crew = Math.min(site.crew, CREW_MAX);
-      const crateCount = constructionCratesAt(site.direction, site.startedAtMs, site.completesAtMs, site.pausedAtMs ?? epochMs);
+      const crateCount = awaitingDelivery?.(siteKey) ? 0 : constructionCratesAt(site.direction, site.startedAtMs, site.completesAtMs, site.pausedAtMs ?? epochMs);
       for (let c = 0; c < crateCount; c += 1) {
         const slot = CRATE_SLOTS[c]!;
         position.set(sceneX + layout.stackX + slot[0], surfaceY + slot[1], sceneZ + layout.stackZ + slot[2]);

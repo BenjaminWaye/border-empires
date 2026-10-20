@@ -7,10 +7,14 @@ import { AETHER_ABILITY_ICONS_CHANGELOG } from "./client-changelog-aether-abilit
 import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-art-october.js";
 import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
 import { AFC_UPGRADES_ICON_CHANGELOG } from "./client-changelog-afc-upgrades-icon.js";
+import { GAMEPLAY_SETTINGS_CLEANUP_CHANGELOG } from "./client-changelog-gameplay-settings-cleanup.js";
 import { MUSTER_BANNER_CHANGELOG } from "./client-changelog-muster-banner.js";
 import { BATTLE_TILE_SOUND_CHANGELOG } from "./client-changelog-battle-tile-sound.js";
 import { TOWN_VISUALS_CHANGELOG } from "./client-changelog-town-visuals.js";
 import { TOWN_BANNERS_CHANGELOG } from "./client-changelog-town-banners.js";
+import { WAR_MUSIC_DIPLOMACY_CHANGELOG } from "./client-changelog-war-music-diplomacy.js";
+import { CONSTRUCTION_POD_DELIVERY_CHANGELOG } from "./client-changelog-construction-pod-delivery.js";
+import { MUSTER_SIEGE_CHANGELOG } from "./client-changelog-muster-siege.js";
 import { FOGGED_MIST_CHANGELOG } from "./client-changelog-fogged-mist.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
@@ -20,6 +24,7 @@ import { FOGGED_MIST_CHANGELOG } from "./client-changelog-fogged-mist.js";
 // of that window, move those entries into the next
 // client-changelog-data-earlier-N.ts (historical record, left unreferenced)
 // and delete them here and from the per-feature files below.
+import { ALLIED_PROSPERITY_CHANGELOG } from "./client-changelog-allied-prosperity.js";
 import { RECENT_CLIENT_CHANGELOG_ENTRIES } from "./client-changelog-data-october.js";
 import { TILE_YIELD_REMOVAL_CHANGELOG } from "./client-changelog-tile-yield-removal.js";
 import { AI_PROGRESSION_AETHER_CHANGELOG } from "./client-changelog-ai-progression-aether.js";
@@ -112,6 +117,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_RECENT,
   ...CLIENT_CHANGELOG_ENTRIES_MUSTER_SAVE_UP,
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
+  ...ALLIED_PROSPERITY_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_SEPT_24_26,
   ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,
   ...CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS,
@@ -459,6 +465,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["The Recent combat tab is now just \"Combat\", with its unread count as a small bubble on the tab's corner, so all the tile popup tabs fit on one row", "Combat reports use the same brass-and-parchment look as the rest of the popup"]
   },
   ...RELIABLE_DIPLOMACY_CHANGELOG,
+  ...GAMEPLAY_SETTINGS_CLEANUP_CHANGELOG,
   ...AFC_UPGRADES_ICON_CHANGELOG,
   ...MUSTER_BANNER_CHANGELOG,
   {
@@ -474,6 +481,9 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...BATTLE_TILE_SOUND_CHANGELOG,
   ...TOWN_VISUALS_CHANGELOG,
   ...TOWN_BANNERS_CHANGELOG,
+  ...WAR_MUSIC_DIPLOMACY_CHANGELOG,
+  ...CONSTRUCTION_POD_DELIVERY_CHANGELOG,
+  ...MUSTER_SIEGE_CHANGELOG,
   ...FOGGED_MIST_CHANGELOG,
   {
     createdAt: 1792510291974, // Date.now() captured for this entry.

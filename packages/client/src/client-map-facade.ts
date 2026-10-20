@@ -42,6 +42,7 @@ import type { FortificationOpening, FortificationOverlayKind } from "./client-fo
 import type { RoadDirections } from "./client-road-network/client-road-network.js";
 import type { ClientState } from "./client-state/client-state.js";
 import { incomingFrontierClaimAt } from "./client-incoming-frontier-claim/client-incoming-frontier-claim.js";
+import { drawMusterSiegeBadge } from "./client-map-render/client-map-render-muster-siege-badge.js";
 import type { DockPair, EmpireVisualStyle, StrategicReplayEvent, Tile, TileVisibilityState } from "./client-types.js";
 import { isForestTileWithAfcLandingHold, terrainWithAfcLandingHold } from "./client-afc-join-drop/client-afc-join-drop-state.js";
 
@@ -298,6 +299,8 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
       ? { color: claim.attackerId ? effectiveColor(claim.attackerId) : "#8a8f98", progress: (nowMs - claim.startAt) / Math.max(1, claim.resolvesAt - claim.startAt) }
       : undefined;
     drawIncomingAttackOverlayOnCanvas(ctx, wx, wy, px, py, size, resolvesAt, claimOverlay);
+    const tile = state.tiles.get(keyFor(wx, wy));
+    if (tile?.muster?.ownerId === state.me && resolvesAt > nowMs) drawMusterSiegeBadge(ctx, px, py, size, effectiveColor(tile.muster.ownerId), nowMs);
   };
   const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void =>
     drawTownOverlayOnCanvas(ctx, tile, px, py, size, state.me, tile.ownerId ? effectiveColor(tile.ownerId) : undefined);
