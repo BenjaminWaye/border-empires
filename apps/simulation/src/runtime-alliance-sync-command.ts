@@ -41,7 +41,8 @@ export function handleSyncAllianceCommand(context: RuntimeAllianceSyncCommandCon
     target.allies.delete(actor.id);
   }
   if (wasAllied !== payload.allied) {
-    for (const player of [actor, target]) { context.invalidateEconomyAfterChange?.(player.id); context.emitPlayerStateUpdate?.({ commandId: command.commandId, playerId: player.id }); }
+    for (const player of [actor, target]) context.invalidateEconomyAfterChange?.(player.id);
+    for (const player of [actor, target]) context.emitPlayerStateUpdate?.({ commandId: command.commandId, playerId: player.id });
     context.visibilityCoverage.syncAllianceChange(actor.id, target.id, payload.allied, context.visionTransitionCallbacks);
     syncReachVisionAlliance(context.reachBorder, actor.id, target.id, payload.allied, context.visibilityCoverage, context.visionTransitionCallbacks);
     // syncAllianceChange only records vision transitions; it doesn't mutate

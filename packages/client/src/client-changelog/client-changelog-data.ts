@@ -20,6 +20,7 @@ import { CONSTRUCTION_POD_DELIVERY_CHANGELOG } from "./client-changelog-construc
 // of that window, move those entries into the next
 // client-changelog-data-earlier-N.ts (historical record, left unreferenced)
 // and delete them here and from the per-feature files below.
+import { ALLIED_PROSPERITY_CHANGELOG } from "./client-changelog-allied-prosperity.js";
 import { RECENT_CLIENT_CHANGELOG_ENTRIES } from "./client-changelog-data-october.js";
 import { TILE_YIELD_REMOVAL_CHANGELOG } from "./client-changelog-tile-yield-removal.js";
 import { AI_PROGRESSION_AETHER_CHANGELOG } from "./client-changelog-ai-progression-aether.js";
@@ -112,6 +113,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_RECENT,
   ...CLIENT_CHANGELOG_ENTRIES_MUSTER_SAVE_UP,
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
+  ...ALLIED_PROSPERITY_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_SEPT_24_26,
   ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,
   ...CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS,

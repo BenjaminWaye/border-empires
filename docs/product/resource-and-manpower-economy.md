@@ -16,6 +16,7 @@ defines what these systems mean in the fiction; follow the
 | Action costs and base/town manpower | `packages/shared/src/config.ts` |
 | Structure slot requirements and supply constants | `packages/shared/src/structure-slots/structure-slots.ts` |
 | Current manpower calculation | `apps/simulation/src/runtime-manpower.ts` |
+| Allied income/capacity/refill contributions | `apps/simulation/src/afc-specializations/afc-coalition.ts`, `apps/simulation/src/runtime/runtime-manpower-economy.ts`, `apps/simulation/src/runtime/runtime-economy.ts` |
 | Refill schedule (window, per-player offsets) | `packages/shared/src/manpower-refill.ts` |
 | HUD manpower gauge and Development gears | `packages/client/src/client-manpower-gauge/`, `packages/client/src/client-dev-gears/` |
 | Slot demand, supply, and dormancy selection | `apps/simulation/src/resource-slot-view/resource-slot-view.ts` |
@@ -62,6 +63,17 @@ defines what these systems mean in the fiction; follow the
 - Core action anchors: **EXPAND 10**, **SETTLE 20**, ordinary ATTACK **60**,
   and Deep Strike/Naval Infiltration **120** manpower. Structure costs are
   data-driven; inspect the registry instead of assuming a common price.
+
+### Allied prosperity (Envoy Accreditation)
+
+Envoy Accreditation adds 10% of each mutual ally’s Coin income, manpower
+capacity and regeneration. Contributions use domestic values before Envoy
+bonuses, so mutual upgrades cannot compound; allies retain their full amounts.
+Coin is credited through normal passive income, and regeneration through normal
+refills. This shares capacity and production, not current Coin or manpower
+stockpiles. Ending an alliance removes its contribution; forming one changes
+capacity without an immediate manpower grant. Reconnect source rows use the
+same contribution as accrual, rather than estimating an ally’s hidden economy.
 
 ## Resource slots
 

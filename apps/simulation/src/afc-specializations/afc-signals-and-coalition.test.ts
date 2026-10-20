@@ -35,14 +35,14 @@ describe("AFC authoritative signals and coalition effects", () => {
     expect(reads).toBe(0);
     expect(tracker.cachedFlagsFor("p")).toEqual([]);
   });
-  it("requires mutual allies, has no ally-count cap, and adds the agreed flat benefits", () => {
+  it("requires mutual allies, has no ally-count cap, and shares the agreed percentage benefits", () => {
     const actor = player("p", ["afc-chancery-1"]);
     const allies = Array.from({ length: 12 }, (_, i) => player(`a${i}`));
     const players = new Map([actor, ...allies].map(p => [p.id, p]));
     for (const ally of allies) { actor.allies.add(ally.id); ally.allies.add("p"); }
-    expect(afcEnvoyBenefits(actor, players)).toMatchObject({ allies: 12, manpowerCap: 360, manpowerRegenPerMinute: 0.24 });
+    expect(afcEnvoyBenefits(actor, players, () => ({ goldPerMinute: 1, manpowerCap: 1000, manpowerRegenPerMinute: 1 })).manpowerCap).toBeCloseTo(1200);
     allies[0]!.allies.clear();
-    expect(afcEnvoyBenefits(actor, players).allies).toBe(11);
+    expect(afcEnvoyBenefits(actor, players, () => ({ goldPerMinute: 1, manpowerCap: 1000, manpowerRegenPerMinute: 1 })).allies).toBe(11);
   });
   it("records captures in either direction, gives one shared-war bonus, and expires at 24h", () => {
     const actor = player("p", ["afc-chancery-3"]), ally = player("a"), enemy = player("e");
