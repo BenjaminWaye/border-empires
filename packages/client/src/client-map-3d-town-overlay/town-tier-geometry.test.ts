@@ -171,9 +171,9 @@ describe("procedural town tiers", () => {
     for (const tier of ["CITY", "GREAT_CITY", "METROPOLIS"] as const) expect(beaconCount(tier), tier).toBeGreaterThan(0);
   });
 
-  it.each(TOWN_TIERS)("%s stands on a matte stone skirt that flares towards the ground, not a black iron one", (tier) => {
-    // Regression: the skirt was ironDark on the metal mesh, and showed as a
-    // black band wherever the tile's corners sit below the plate.
+  it.each(TOWN_TIERS)("%s stands on a matte stone skirt that flares towards the ground", (tier) => {
+    // The skirt shows wherever the tile's corners sit below the plate; as
+    // dark metal it read as a black band, so it stays lit stone and flares.
     const { body, metal } = getTownTierGeometry(tier);
     metal!.computeBoundingBox();
     expect(metal!.boundingBox!.min.y, `${tier} metal below the plate`).toBeGreaterThan(-0.03);
@@ -189,7 +189,7 @@ describe("procedural town tiers", () => {
       if (Math.abs(position.getY(i) + 0.1) < 1e-4) {
         footReach = Math.max(footReach, reach);
         const shade = color.getY(i) / stone.g;
-        expect(shade, `${tier} skirt foot brightness`).toBeGreaterThan(0.4);
+        expect(shade, `${tier} skirt foot brightness`).toBeGreaterThan(0.5);
         expect(color.getX(i) / stone.r).toBeCloseTo(shade, 2);
         expect(color.getZ(i) / stone.b).toBeCloseTo(shade, 2);
       }

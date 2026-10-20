@@ -110,7 +110,9 @@ export const plateSkirt = (body: TownMeshBuilder, radius: number, topY: number):
 export const octagonPlate = (t: TownBuilders, radius: number, plazaRing = true, top: TownColor = "asphalt"): void => {
   const turn = Math.PI / 8;
   plateSkirt(t.body, radius, -0.008);
-  t.body.cylinder(0, -0.016, 0, radius * 1.012, radius * 1.012, 0.008, "brass", 8, turn);
+  // The brass band keeps its lip over the flared wall below it.
+  const band = skirtRadiusAt(radius, -0.008, -0.016) + radius * 0.01;
+  t.body.cylinder(0, -0.016, 0, band, band, 0.008, "brass", 8, turn);
   t.body.cylinder(0, -0.008, 0, radius * 0.985, radius * 0.985, 0.008, top, 8, turn);
   // A darker plinth course just under the band, following the skirt's flare.
   const course = (y: number): number => skirtRadiusAt(radius, -0.008, y) + radius * 0.006;
