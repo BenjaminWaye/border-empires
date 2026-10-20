@@ -15,6 +15,7 @@
 // (the overlay lifts it just clear of the terrain), +z faces the camera (it
 // always looks north).
 import { BufferAttribute, BufferGeometry } from "three";
+import { plateSkirt } from "../client-map-3d-town-overlay/town-parts.js";
 import { createRoutedTownBuilder, createTownMeshBuilder, type TownMeshBuilder } from "../client-map-3d-town-overlay/town-mesh-builder.js";
 
 export const MUSTER_PLINTH_RADIUS = 0.27;
@@ -62,15 +63,16 @@ const octagonCorner = (radius: number, k: number): readonly [number, number] => 
 };
 
 /** Two-tier octagonal plinth, heavy and chamfered like a premium board-game
- * piece's base. The lower slab is iron, running well below 0 so a sloped
- * tile never shows a gap, girdled by a deep lacquered band in the owner's
+ * piece's base. The lower slab is the towns' flared stone skirt
+ * (plateSkirt), running well below 0 so a sloped tile never shows a gap,
+ * girdled by a deep lacquered band in the owner's
  * colour, pinned at each corner by a brass cap, under a brass lip and a
  * chamfered stone top with an inlaid ring of the owner's colour inside a
  * ring of brass studs. A raised, chamfered stone tier set with four gems
  * in the owner's colour carries the pedestal. */
 const buildPlinth = (body: TownMeshBuilder, tinted: TownMeshBuilder): void => {
   const r = MUSTER_PLINTH_RADIUS;
-  body.cylinder(0, -0.1, 0, r, r * 1.02, 0.1, "ironDark", 8, OCTAGON_TURN);
+  plateSkirt(body, r, 0);
   tinted.cylinder(0, 0, 0, r * 1.025, r * 1.025, 0.032, "plate", 8, OCTAGON_TURN);
   for (let k = 0; k < 8; k += 1) {
     const [x, z] = octagonCorner(r * 1.03, k);
