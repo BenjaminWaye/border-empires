@@ -54,7 +54,8 @@ const holdingsOf = (snapshot: AiDiplomacySnapshot | undefined): DiplomacyGoods =
 const warReason = (aiName: string, opinion: AiOpinion, fallback: string): string => {
   if (opinion.war.aiLosing) {
     // Say what "losing" rests on: net ground lost to you, or being outmatched while gaining none.
-    const netLost = Math.round(-opinion.war.balance);
+    // From the rounded counts the war tally shows, so the two always agree.
+    const netLost = opinion.war.tilesTakenFromAi - opinion.war.tilesTakenByAi;
     return netLost >= 2
       ? `${aiName} has lost ${netLost} more tiles to you than it has taken, and wants the war over.`
       : `${aiName} can't win this war against your strength and wants it over.`;

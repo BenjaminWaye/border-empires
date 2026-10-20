@@ -167,9 +167,10 @@ export const createSeededAiDiplomacyResponder = (deps: SeededAiDiplomacyResponde
   const respond = async (offer: PendingOffer): Promise<void> => {
     if (!deps.seededAiPlayerIds.has(offer.toPlayerId)) return;
     if (deps.hasLiveSocket(offer.toPlayerId)) return;
-    const [aiSnapshot, requesterSnapshot] = await Promise.all([
+    const [aiSnapshot, requesterSnapshot, context] = await Promise.all([
       deps.fetchPlayerSnapshot(offer.toPlayerId),
-      deps.requesterSnapshot(offer.fromPlayerId).catch(() => undefined)
+      deps.requesterSnapshot(offer.fromPlayerId).catch(() => undefined),
+      deps.diplomacyContext(offer.fromPlayerId, offer.toPlayerId)
     ]);
     // Re-check: the fetches above await real round trips to the simulation,
     // wide enough for a human to claim this identity mid-flight.
@@ -182,7 +183,7 @@ export const createSeededAiDiplomacyResponder = (deps: SeededAiDiplomacyResponde
       aiSnapshot,
       requesterId: offer.fromPlayerId,
       requesterSnapshot,
-      ...(await deps.diplomacyContext(offer.fromPlayerId, offer.toPlayerId))
+      ...context
     });
     if (!evaluation) {
       deps.recordGatewayEvent("warn", "gateway_ai_diplomacy_snapshot_failed", {

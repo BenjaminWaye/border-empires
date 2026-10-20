@@ -281,6 +281,26 @@ describe("createSeededAiDiplomacyResponder truce offers", () => {
     expect(rejectTruce).not.toHaveBeenCalled();
   });
 
+  // Regression: the diplomacy context (season leaderboard) is a further round trip; the re-check must follow it too.
+  it("does not auto-respond if a live socket appears while the diplomacy context is loading", async () => {
+    const { deps, acceptTruce, rejectTruce } = makeDeps(snapshotFor(AI_ID, { manpower: 0, manpowerCap: 1000 }));
+    let liveSocketAppeared = false;
+    const context = deps.diplomacyContext();
+    const responder = createSeededAiDiplomacyResponder({
+      ...deps,
+      hasLiveSocket: () => liveSocketAppeared,
+      diplomacyContext: async () => {
+        liveSocketAppeared = true;
+        return context;
+      }
+    });
+
+    await responder.maybeAutoRespondToSeededAiTruce(baseRequest);
+
+    expect(acceptTruce).not.toHaveBeenCalled();
+    expect(rejectTruce).not.toHaveBeenCalled();
+  });
+
   it("ignores offers to players that aren't seeded AIs", async () => {
     const { deps, acceptTruce, rejectTruce } = makeDeps(snapshotFor(AI_ID, { manpower: 0, manpowerCap: 1000 }));
 

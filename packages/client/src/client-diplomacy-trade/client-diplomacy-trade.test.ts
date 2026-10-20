@@ -138,6 +138,15 @@ describe("diplomacy trade screen", () => {
     expect(suggest.disabled).toBe(true);
   });
 
+  it("says 1 tile, not 1 tiles, in the war tally", () => {
+    const { overlay } = openScreen();
+    receiveDiplomacyStance({ ...aiReply, war: { atWar: true, aiWinning: false, aiLosing: false, tilesTakenFromAi: 1, tilesTakenByAi: 0 } });
+    expect(Array.from(overlay.querySelectorAll("[data-trade-war] li")).map((item) => item.textContent)).toEqual([
+      "1 tile you took from Milo",
+      "0 tiles Milo took from you"
+    ]);
+  });
+
   it("sends the offer with its terms and closes", () => {
     const { send, overlay } = openScreen();
     const giveGold = overlay.querySelector<HTMLInputElement>("[data-trade-give-gold]")!;
@@ -151,6 +160,20 @@ describe("diplomacy trade screen", () => {
       expect.any(String)
     );
     expect(document.querySelector(".diplomacy-trade-overlay")).toBeNull();
+  });
+
+  // Regression: a human who kept an AI's name got offers meant for the AI; the id travels with every request.
+  it("addresses the target by id when it knows one", () => {
+    const send = vi.fn().mockReturnValue(true);
+    openDiplomacyTradeScreen({ targetName: "Milo", targetPlayerId: "ai-1", kind: "truce", durationHours: 12 }, { send, ownHoldings: () => ({ gold: 100, shard: 0 }) });
+    expect(send).toHaveBeenCalledWith({ type: "DIPLOMACY_STANCE_REQUEST", targetPlayerName: "Milo", targetPlayerId: "ai-1" }, expect.any(String));
+    // A reply about another empire that happens to share the name is ignored.
+    receiveDiplomacyStance({ ...aiReply, targetPlayerId: "p-human" });
+    const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
+    expect(overlay.querySelector("[data-trade-verdict]")?.textContent).toBe("Reading Milo's mood…");
+    receiveDiplomacyStance(aiReply);
+    overlay.querySelector<HTMLButtonElement>("[data-trade-send]")!.click();
+    expect(send).toHaveBeenLastCalledWith({ type: "TRUCE_REQUEST", targetPlayerName: "Milo", targetPlayerId: "ai-1", durationHours: 12 }, expect.any(String));
   });
 
   it("sends a plain offer when no terms are set", () => {

@@ -52,8 +52,10 @@ export const attitudeSummary = (reply: DiplomacyStanceReply | undefined): string
 
 /**
  * The tiles each side has taken in this war, as the AI counts them (recent
- * captures weigh most; old ones fade). It calls itself losing once you are
- * 2+ tiles ahead, winning once it is. undefined when not at war.
+ * captures weigh most; old ones fade). Being 2+ tiles behind makes the AI
+ * call itself losing, and 2+ ahead winning, but strength counts too: an
+ * outmatched or desperate AI can be losing while level, and one that feels
+ * stronger can be winning. undefined when not at war.
  */
 export const warTally = (reply: DiplomacyStanceReply | undefined): { youTook: number; theyTook: number } | undefined => {
   if (!reply?.found || !reply.ai || !reply.war?.atWar) return undefined;

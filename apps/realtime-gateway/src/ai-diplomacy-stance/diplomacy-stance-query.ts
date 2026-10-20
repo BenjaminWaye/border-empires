@@ -32,6 +32,8 @@ export type DiplomacyStancePayload =
 
 export type DiplomacyStanceQueryDeps = {
   resolvePlayerByName: (playerName: string) => { id: string; name: string } | undefined;
+  /** Preferred when the client sends the target's id: a display name can be shared by a human and an AI. */
+  resolvePlayerById?: (playerId: string) => { id: string; name: string } | undefined;
   isAutoRespondingAi: (playerId: string) => boolean;
   fetchAiSnapshot: (playerId: string) => Promise<PlayerSubscriptionSnapshot | undefined>;
   requesterSnapshot: (playerId: string) => Promise<PlayerSubscriptionSnapshot | undefined>;
@@ -41,9 +43,10 @@ export type DiplomacyStanceQueryDeps = {
 export const answerDiplomacyStanceQuery = async (
   deps: DiplomacyStanceQueryDeps,
   requesterId: string,
-  targetPlayerName: string
+  targetPlayerName: string,
+  targetPlayerId?: string
 ): Promise<DiplomacyStancePayload> => {
-  const target = deps.resolvePlayerByName(targetPlayerName);
+  const target = (targetPlayerId ? deps.resolvePlayerById?.(targetPlayerId) : undefined) ?? deps.resolvePlayerByName(targetPlayerName);
   if (!target || target.id === requesterId) return { type: "DIPLOMACY_STANCE", targetPlayerName, found: false };
   const base = { type: "DIPLOMACY_STANCE" as const, targetPlayerName: target.name, found: true as const, targetPlayerId: target.id };
   if (!deps.isAutoRespondingAi(target.id)) return { ...base, ai: false };

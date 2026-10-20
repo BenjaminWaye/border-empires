@@ -14,6 +14,7 @@ import { createAiAllianceReview } from "../ai-diplomacy-stance/ai-alliance-revie
 import { recheckAiOffer } from "../ai-diplomacy-stance/ai-offer-recheck.js";
 import type { AiDiplomacyContext } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
 import { answerDiplomacyStanceQuery } from "../ai-diplomacy-stance/diplomacy-stance-query.js";
+import { createSeasonLeaderboardCache } from "../ai-diplomacy-stance/season-leaderboard-cache.js";
 import { createAllianceBreakFinalizer } from "../alliance-break-finalizer/alliance-break-finalizer.js";
 import { handleAllianceSocketMessage, type AllianceSocketMessageDeps } from "../alliance-socket-messages/alliance-socket-messages.js";
 import { rejectCounteredOffer } from "../diplomacy-counter-offer/diplomacy-counter-offer.js";
@@ -48,9 +49,6 @@ export type DiplomacySocketHandlerDeps = {
   /** Every competitive player's tile count, from the simulation's cached season summary. */
   fetchSeasonLeaderboard: () => Promise<LeaderboardTiles>;
 };
-
-/** How long one season-leaderboard fetch serves AI alliance size checks. */
-const SEASON_LEADERBOARD_TTL_MS = 30_000;
 
 export type DiplomacySocketHandler = {
   tickProactive: () => Promise<void>;
@@ -125,17 +123,18 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     deps.cachedSnapshotForPlayer(playerId) ?? (await deps.ensureSubscribed(playerId));
   const alliesOf = (playerId: string): readonly string[] => socialState.snapshotForPlayer(playerId).allies;
   // AI snapshots come from a live subscribe without world status, so the bloc
-  // check's sizes come from the season leaderboard (one fetch per window).
-  const seasonLeaderboard = memoizeWithTtl(() => deps.fetchSeasonLeaderboard().catch((): LeaderboardTiles => []), SEASON_LEADERBOARD_TTL_MS);
+  // check's sizes come from the season leaderboard (cached, bounded wait).
+  const seasonLeaderboard = createSeasonLeaderboardCache({ fetch: deps.fetchSeasonLeaderboard, now: () => Date.now() });
   const diplomacyContext = async (requesterId: string, aiPlayerId: string): Promise<AiDiplomacyContext> => {
     const breaks = socialState.snapshotForPlayer(requesterId).truceBreaksThisSeason;
+    const leaderboard = await seasonLeaderboard();
     return {
       requesterBrokeTruceWithAi: breaks.some((record) => record.targetPlayerId === aiPlayerId),
       requesterTruceBreaksWithOthers: breaks.filter((record) => record.targetPlayerId !== aiPlayerId).length,
       memory: memory.view(aiPlayerId, requesterId),
       now: Date.now(),
       alliesOf,
-      seasonLeaderboard: await seasonLeaderboard("current")
+      ...(leaderboard ? { seasonLeaderboard: leaderboard } : {})
     };
   };
   const reviewAiAlliances = createAiAllianceReview({
@@ -199,13 +198,15 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
       const payload = await answerDiplomacyStanceQuery(
         {
           resolvePlayerByName: socialState.resolvePlayerByName,
+          resolvePlayerById: socialState.resolvePlayerById,
           isAutoRespondingAi: (targetId) => deps.seededAiPlayerIds.has(targetId) && !deps.hasLiveSocket(targetId),
           fetchAiSnapshot,
           requesterSnapshot,
           diplomacyContext
         },
         playerId,
-        message.targetPlayerName
+        message.targetPlayerName,
+        message.targetPlayerId
       );
       deps.sendJson(socket, payload);
       return true;

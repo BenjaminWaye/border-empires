@@ -87,11 +87,13 @@ export function createProactiveAiDiplomacy(deps: ProactiveAiDiplomacyDeps): { ti
       if (!targetId) return;
       const target = await deps.fetchSnapshot(targetId);
       const targetName = await deps.nameForPlayerId?.(targetId) ?? target?.player?.name;
+      // Awaited before the live-socket check: a human may claim this AI during any of these round trips.
+      const context = await deps.diplomacyContext(targetId, aiId);
       if (stopped || !target?.player || !targetName || deps.hasLiveSocket(aiId)) return;
       const targetSocial = deps.socialState.snapshotForPlayer(targetId);
       const evaluation = evaluateAiDiplomacy({ aiPlayerId: aiId, aiName: ai.player.name ?? aiId,
         aiSnapshot: ai, requesterId: targetId, requesterSnapshot: target,
-        ...(await deps.diplomacyContext(targetId, aiId)) });
+        ...context });
       if (!evaluation) return;
       const { stance } = evaluation;
       const aiLand = ai.tiles.filter(tile => tile.ownerId === aiId).length;

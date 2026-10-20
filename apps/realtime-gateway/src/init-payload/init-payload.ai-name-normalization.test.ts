@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
+import { initialSocialNameForSeedPlayer } from "../auth-identity/auth-identity.js";
 import { buildGatewayInitPayload } from "./init-payload.js";
 
-// AIs carry their seasonal names everywhere: the map's player styles, the
-// leaderboard and diplomacy (auth-identity.ts) all agree, so a name the client
-// shows resolves for a truce or alliance offer.
+// Player styles name AIs exactly as diplomacy does (their listed seasonal name,
+// from the id), so a name the client shows resolves for a truce or alliance
+// offer; the leaderboard keeps whatever the simulation reports.
 describe("gateway init AI name normalization", () => {
   const initialState: PlayerSubscriptionSnapshot = {
     playerId: "player-1",
@@ -21,11 +22,13 @@ describe("gateway init AI name normalization", () => {
     tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }]
   };
 
-  // Regression: player styles forced "AI 1" while the leaderboard said "Freja Sund".
-  it("uses the AI's live seasonal name for player styles, not 'AI N'", () => {
+  // Regression: player styles forced "AI 1" instead of the AI's seasonal name. They must still match
+  // diplomacy's name (Alden for ai-1), not a differently spelled live leaderboard name.
+  it("uses the AI's listed seasonal name for player styles, matching diplomacy", () => {
     const init = buildGatewayInitPayload({ playerId: "player-1", playerName: "Nauticus" }, initialState, "default");
 
-    expect(init.playerStyles).toEqual(expect.arrayContaining([expect.objectContaining({ id: "ai-1", name: "Freja Sund" })]));
+    expect(init.playerStyles).toEqual(expect.arrayContaining([expect.objectContaining({ id: "ai-1", name: "Alden" })]));
+    expect(initialSocialNameForSeedPlayer("ai-1", "Freja Sund")).toBe("Alden");
   });
 
   it("preserves seasonal AI leaderboard names across every category", () => {

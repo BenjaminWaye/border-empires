@@ -459,6 +459,10 @@ export const createSocialState = (options: {
       const player = resolveByName(playerName);
       return player ? { id: player.id, name: player.name } : undefined;
     },
+    resolvePlayerById: (playerId) => {
+      const player = playersById.get(playerId);
+      return player ? { id: player.id, name: player.name } : undefined;
+    },
     activeTrucePairs: () => (sweepExpired(), [...trucesByPair.values()].map((truce): [string, string] => [truce.playerAId, truce.playerBId]))
   };
 };

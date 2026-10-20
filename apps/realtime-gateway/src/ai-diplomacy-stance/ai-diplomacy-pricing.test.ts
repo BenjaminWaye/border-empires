@@ -117,6 +117,15 @@ describe("AI truce pricing", () => {
     expect(result.pricing.required.truce12).toBe(-100);
   });
 
+  // Losing doesn't buy back a betrayal: a truce-breaker could otherwise be paid again and again.
+  it("still refuses a player who broke a truce with it, even while losing", () => {
+    const losing = memory({ lastCombatAt: NOW - HOUR, lastPlayerAttackAt: NOW - HOUR, tilesTakenFromAi: 15 });
+    const result = price({ memory: losing, aiIncome: 2, aiGold: 400, brokeTruce: true });
+    expect(result.opinion.war.aiLosing).toBe(true);
+    expect(result.pricing.required.truce12).toBeNull();
+    expect(result.truceRefusal).toBe("Milo is furious with you and won't talk peace.");
+  });
+
   // The loser pays, but only in a real war, once per war, and capped.
   it("lets an AI losing a war pay for peace, once, capped by its income and coin", () => {
     const losing = memory({ lastCombatAt: NOW - HOUR, lastPlayerAttackAt: NOW - HOUR, tilesTakenFromAi: 4 });
@@ -243,6 +252,13 @@ describe("answerDiplomacyStanceQuery", () => {
     });
   });
 
+  // A display name can be shared (a human who kept an AI's name): the id the client sends wins.
+  it("resolves the target by id when the client sends one", async () => {
+    const byId = { ...deps, resolvePlayerById: (id: string) => (id === "ai-1" ? { id: "ai-1", name: "Milo" } : undefined) };
+    expect(await answerDiplomacyStanceQuery(byId, "p1", "Valka", "ai-1")).toEqual(expect.objectContaining({ targetPlayerId: "ai-1", ai: true }));
+    expect(await answerDiplomacyStanceQuery(byId, "p1", "Valka", "gone")).toEqual(expect.objectContaining({ targetPlayerId: "p2", ai: false }));
+  });
+
   it("has nothing to predict for humans, unknown names, or yourself", async () => {
     expect(await answerDiplomacyStanceQuery(deps, "p1", "Valka")).toEqual(expect.objectContaining({ found: true, ai: false }));
     expect(await answerDiplomacyStanceQuery(deps, "p1", "Nobody")).toEqual(expect.objectContaining({ found: false }));
@@ -255,6 +271,16 @@ describe("answerDiplomacyStanceQuery", () => {
     expect(result).toEqual(expect.objectContaining({
       stance: expect.objectContaining({ reason: "Milo has lost 12 more tiles to you than it has taken, and wants the war over." }),
       war: { atWar: true, aiWinning: false, aiLosing: true, tilesTakenFromAi: 15, tilesTakenByAi: 3 }
+    }));
+  });
+
+  // Counts fade to fractions: the sentence must use the same rounded numbers the war tally shows.
+  it("words the losing reason from the same rounded counts as the war tally", async () => {
+    const fading = memory({ lastCombatAt: NOW - HOUR, lastPlayerAttackAt: NOW - HOUR, tilesTakenFromAi: 2.5, tilesTakenByAi: 0.4 });
+    const result = await answerDiplomacyStanceQuery({ ...deps, diplomacyContext: () => ({ ...deps.diplomacyContext(), memory: fading }) }, "p1", "Milo");
+    expect(result).toEqual(expect.objectContaining({
+      stance: expect.objectContaining({ reason: "Milo has lost 3 more tiles to you than it has taken, and wants the war over." }),
+      war: expect.objectContaining({ tilesTakenFromAi: 3, tilesTakenByAi: 0 })
     }));
   });
 

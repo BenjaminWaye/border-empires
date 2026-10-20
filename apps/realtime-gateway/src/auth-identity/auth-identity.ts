@@ -1,4 +1,4 @@
-import { aiNameFromStored, anonymizedEmpireNameForId, isOpaquePlayerId, PLANETARY_DEFENSE_DISPLAY_NAME } from "@border-empires/shared";
+import { aiDisplayNameForId, anonymizedEmpireNameForId, isOpaquePlayerId, PLANETARY_DEFENSE_DISPLAY_NAME } from "@border-empires/shared";
 
 import type { FirebaseTokenVerifier } from "./firebase-token-verifier.js";
 
@@ -23,8 +23,8 @@ const fallbackDisplayNameForToken = (token: string): string => {
 
 // Cosmetic default display name for a player who has never set a real
 // profile/auth name (their name still literally equals their raw player id).
-// AIs get their listed seasonal name (shared seasonal-ai-names.ts) unless the
-// seed gave them a real one. Must stay in sync with the equivalent fallbacks in
+// AIs always get their listed seasonal name (shared seasonal-ai-names.ts),
+// from the id alone, so every gateway path agrees. Must stay in sync with the equivalent fallbacks in
 // apps/realtime-gateway/src/init-payload/init-payload-name-recovery.ts (displayNameForSeedPlayer)
 // and apps/simulation/src/world-status-snapshot/world-status-snapshot.ts
 // (displayNameForPlayer) so a name shown to other players (e.g. on the
@@ -32,8 +32,8 @@ const fallbackDisplayNameForToken = (token: string): string => {
 // social-state's resolveByName for alliance/truce requests.
 export const initialSocialNameForSeedPlayer = (playerId: string, seedName: string | undefined): string => {
   if (playerId === "barbarian-1") return PLANETARY_DEFENSE_DISPLAY_NAME;
-  const aiName = aiNameFromStored(playerId, seedName);
-  if (playerId.startsWith("ai-") && aiName) return aiName;
+  const aiName = aiDisplayNameForId(playerId);
+  if (aiName) return aiName;
   if (playerId === "player-1" && (seedName === undefined || seedName === playerId)) return "Nauticus";
   return seedName ?? playerId;
 };

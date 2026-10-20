@@ -18,6 +18,8 @@ export type DiplomacyTradeDeps = {
 
 type OpenScreen = {
   targetName: string;
+  /** Sent with every request when known: a display name can be shared by a human and an AI. */
+  targetPlayerId: string | undefined;
   /** Set when this screen answers an offer the player received; sending replaces that offer. */
   counters: DiplomacyCounterRef | undefined;
   selection: TradeSelection;
@@ -89,6 +91,8 @@ const readTerms = (overlay: HTMLElement): DiplomacyTerms => ({
   ask: { gold: readAmount(overlay.querySelector("[data-trade-ask-gold]")), shard: readAmount(overlay.querySelector("[data-trade-ask-shard]")) }
 });
 
+const tilesWord = (count: number): string => (count === 1 ? "tile" : "tiles");
+
 const termsEqual = (a: DiplomacyTerms, b: DiplomacyTerms): boolean =>
   a.give.gold === b.give.gold && a.give.shard === b.give.shard && a.ask.gold === b.ask.gold && a.ask.shard === b.ask.shard;
 
@@ -130,7 +134,7 @@ const render = (screen: OpenScreen): void => {
     warEl.hidden = !tally;
     warEl.innerHTML = tally
       ? `<span class="diplomacy-trade-war-head">War tally · recent captures count most</span>
-        <ul><li><span>${tally.youTook}</span> tiles you took from ${escapeHtml(targetName)}</li><li><span>${tally.theyTook}</span> tiles ${escapeHtml(targetName)} took from you</li></ul>`
+        <ul><li><span>${tally.youTook}</span> ${tilesWord(tally.youTook)} you took from ${escapeHtml(targetName)}</li><li><span>${tally.theyTook}</span> ${tilesWord(tally.theyTook)} ${escapeHtml(targetName)} took from you</li></ul>`
       : "";
   }
   for (const button of Array.from(overlay.querySelectorAll<HTMLButtonElement>("[data-trade-kind]"))) {
@@ -177,6 +181,7 @@ const onKey = (event: KeyboardEvent): void => {
 const sendOffer = (screen: OpenScreen): void => {
   const terms = screen.selection.terms;
   const termsField = {
+    ...(screen.targetPlayerId ? { targetPlayerId: screen.targetPlayerId } : {}),
     ...(terms.give.gold + terms.give.shard + terms.ask.gold + terms.ask.shard > 0 ? { terms } : {}),
     ...(screen.counters ? { counters: screen.counters } : {})
   };
@@ -191,7 +196,7 @@ const sendOffer = (screen: OpenScreen): void => {
 };
 
 export const openDiplomacyTradeScreen = (
-  input: { targetName: string; kind: DiplomacyOfferKind; durationHours: 12 | 24; terms?: DiplomacyTerms; counters?: DiplomacyCounterRef },
+  input: { targetName: string; targetPlayerId?: string; kind: DiplomacyOfferKind; durationHours: 12 | 24; terms?: DiplomacyTerms; counters?: DiplomacyCounterRef },
   deps: DiplomacyTradeDeps
 ): void => {
   const targetName = input.targetName.trim();
@@ -227,6 +232,7 @@ export const openDiplomacyTradeScreen = (
   </section>`;
   const screen: OpenScreen = {
     targetName,
+    targetPlayerId: input.targetPlayerId,
     counters: input.counters,
     selection: { kind: input.kind, durationHours: input.durationHours, terms },
     reply: undefined,
@@ -271,12 +277,18 @@ export const openDiplomacyTradeScreen = (
   document.body.appendChild(overlay);
   render(screen);
   overlay.querySelector<HTMLButtonElement>("[data-trade-send]")?.focus();
-  deps.send({ type: "DIPLOMACY_STANCE_REQUEST", targetPlayerName: targetName }, "Finish sign-in before making offers.");
+  deps.send(
+    { type: "DIPLOMACY_STANCE_REQUEST", targetPlayerName: targetName, ...(input.targetPlayerId ? { targetPlayerId: input.targetPlayerId } : {}) },
+    "Finish sign-in before making offers."
+  );
 };
 
 /** Routes the gateway's DIPLOMACY_STANCE reply to the open screen, if it's still for that target. */
 export const receiveDiplomacyStance = (reply: DiplomacyStanceReply): void => {
-  if (!open || open.targetName.toLocaleLowerCase() !== reply.targetPlayerName.toLocaleLowerCase()) return;
+  if (!open) return;
+  const sameTarget =
+    open.targetPlayerId && reply.found ? reply.targetPlayerId === open.targetPlayerId : open.targetName.toLocaleLowerCase() === reply.targetPlayerName.toLocaleLowerCase();
+  if (!sameTarget) return;
   open.reply = reply;
   render(open);
 };
