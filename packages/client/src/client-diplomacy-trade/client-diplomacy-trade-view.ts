@@ -26,7 +26,8 @@ export type DiplomacyStanceReply =
       ai: true;
       stance?: { kind: DiplomacyStanceKind; reason: string };
       attitude?: { level: DiplomacyAttitude; score: number; modifiers: Array<{ label: string; value: number }> };
-      war?: { atWar: boolean; aiWinning: boolean; aiLosing: boolean };
+      /** The tile counts are absent from a gateway older than the war tally. */
+      war?: { atWar: boolean; aiWinning: boolean; aiLosing: boolean; tilesTakenFromAi?: number; tilesTakenByAi?: number };
       truceRefusal?: string;
       allianceRefusal?: string;
       pricing?: AiDiplomacyPricing;
@@ -47,6 +48,18 @@ export const attitudeSummary = (reply: DiplomacyStanceReply | undefined): string
   if (!reply?.found || !reply.ai || !reply.attitude) return "";
   const war = reply.war?.atWar ? ` · At war${reply.war.aiWinning ? " (they're winning)" : reply.war.aiLosing ? " (they're losing)" : ""}` : "";
   return `${ATTITUDE_LABEL[reply.attitude.level]}${war}`;
+};
+
+/**
+ * The tiles each side has taken in this war, as the AI counts them (recent
+ * captures weigh most; old ones fade). It calls itself losing once you are
+ * 2+ tiles ahead, winning once it is. undefined when not at war.
+ */
+export const warTally = (reply: DiplomacyStanceReply | undefined): { youTook: number; theyTook: number } | undefined => {
+  if (!reply?.found || !reply.ai || !reply.war?.atWar) return undefined;
+  const { tilesTakenFromAi, tilesTakenByAi } = reply.war;
+  if (tilesTakenFromAi === undefined || tilesTakenByAi === undefined) return undefined;
+  return { youTook: tilesTakenFromAi, theyTook: tilesTakenByAi };
 };
 
 export type TradeSelection = { kind: DiplomacyOfferKind; durationHours: 12 | 24; terms: DiplomacyTerms };

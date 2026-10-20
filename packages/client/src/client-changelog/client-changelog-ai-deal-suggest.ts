@@ -10,6 +10,7 @@ export const AI_DEAL_SUGGEST_CHANGELOG: ClientChangelogEntry[] = [
       "The diplomacy screen has a Suggest deal button that fills in the best terms the AI would accept: what it would pay you for peace, or the least coin (then Shards) it wants from you",
       "An AI losing a war now talks peace even when it is Furious with you",
       "The screen says why an AI thinks it is losing, such as how many more tiles it has lost to you than it has taken",
+      "During a war, a war tally shows the tiles each side has taken, as the AI counts them (recent captures count most)",
       "AIs can now judge alliances again; a refused alliance gives the real reason, such as fighting within the last day, instead of \"try again shortly\""
     ]
   }

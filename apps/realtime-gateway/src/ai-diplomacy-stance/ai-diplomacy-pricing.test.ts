@@ -237,7 +237,7 @@ describe("answerDiplomacyStanceQuery", () => {
       ai: true,
       stance: { kind: "INDIFFERENT", reason: "Milo has no quarrel with you: your borders don't meet." },
       attitude: { level: "CAUTIOUS", score: 5, modifiers: [{ label: "Our borders don't meet", value: 5 }] },
-      war: { atWar: false, aiWinning: false, aiLosing: false },
+      war: { atWar: false, aiWinning: false, aiLosing: false, tilesTakenFromAi: 0, tilesTakenByAi: 0 },
       allianceRefusal: "Milo doesn't think well enough of you for an alliance.",
       pricing: { required: { truce12: 0, truce24: 0, alliance: null }, shardCoinValue: 25, aiHoldings: { gold: 40, shard: 1 } }
     });
@@ -254,7 +254,7 @@ describe("answerDiplomacyStanceQuery", () => {
     const result = await answerDiplomacyStanceQuery({ ...deps, diplomacyContext: () => ({ ...deps.diplomacyContext(), memory: losing }) }, "p1", "Milo");
     expect(result).toEqual(expect.objectContaining({
       stance: expect.objectContaining({ reason: "Milo has lost 12 more tiles to you than it has taken, and wants the war over." }),
-      war: { atWar: true, aiWinning: false, aiLosing: true }
+      war: { atWar: true, aiWinning: false, aiLosing: true, tilesTakenFromAi: 15, tilesTakenByAi: 3 }
     }));
   });
 

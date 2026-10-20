@@ -11,7 +11,7 @@ import {
   TRADE_HOLDINGS_CHECK_MS
 } from "./client-diplomacy-trade.js";
 import { diplomacyTermsLineHtml } from "./client-diplomacy-terms-html.js";
-import { suggestedDeal, tradeVerdict, type DiplomacyStanceReply, type TradeSelection } from "./client-diplomacy-trade-view.js";
+import { suggestedDeal, tradeVerdict, warTally, type DiplomacyStanceReply, type TradeSelection } from "./client-diplomacy-trade-view.js";
 
 const pricing: AiDiplomacyPricing = { required: { truce12: 40, truce24: 60, alliance: null }, shardCoinValue: 25, aiHoldings: { gold: 30, shard: 0 } };
 const aiReply: DiplomacyStanceReply = {
@@ -21,7 +21,7 @@ const aiReply: DiplomacyStanceReply = {
   ai: true,
   stance: { kind: "WARY", reason: "Milo is wary of you." },
   attitude: { level: "ANNOYED", score: -20, modifiers: [{ label: "You took 2 of our tiles", value: -8 }, { label: "Our borders are contested", value: -10 }] },
-  war: { atWar: true, aiWinning: true, aiLosing: false },
+  war: { atWar: true, aiWinning: true, aiLosing: false, tilesTakenFromAi: 2, tilesTakenByAi: 5 },
   allianceRefusal: "Milo doesn't think well enough of you for an alliance.",
   pricing
 };
@@ -87,6 +87,15 @@ describe("suggestedDeal", () => {
   });
 });
 
+describe("warTally", () => {
+  it("shows the tiles each side took while at war, as the AI counts them", () => {
+    expect(warTally(aiReply)).toEqual({ youTook: 2, theyTook: 5 });
+    expect(warTally({ ...aiReply, war: { atWar: false, aiWinning: false, aiLosing: false, tilesTakenFromAi: 2, tilesTakenByAi: 5 } })).toBeUndefined();
+    // An older gateway sends no counts.
+    expect(warTally({ ...aiReply, war: { atWar: true, aiWinning: true, aiLosing: false } })).toBeUndefined();
+  });
+});
+
 describe("diplomacy trade screen", () => {
   afterEach(() => {
     closeDiplomacyTradeScreen();
@@ -108,6 +117,12 @@ describe("diplomacy trade screen", () => {
     expect(Array.from(overlay.querySelectorAll("[data-trade-modifiers] li")).map((item) => item.textContent)).toEqual([
       "-8 You took 2 of our tiles",
       "-10 Our borders are contested"
+    ]);
+    const war = overlay.querySelector<HTMLElement>("[data-trade-war]")!;
+    expect(war.hidden).toBe(false);
+    expect(Array.from(war.querySelectorAll("li")).map((item) => item.textContent)).toEqual([
+      "2 tiles you took from Milo",
+      "5 tiles Milo took from you"
     ]);
     expect(overlay.querySelector("[data-trade-verdict]")?.textContent).toBe("Milo would refuse: wants about 40 more coin.");
 

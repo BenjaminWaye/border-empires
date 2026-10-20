@@ -6,7 +6,7 @@
 import { emptyDiplomacyTerms, type DiplomacyCounterRef, type DiplomacyGoods, type DiplomacyOfferKind, type DiplomacyTerms } from "@border-empires/shared";
 
 import { diplomacyTradeStyles } from "./client-diplomacy-trade-style.js";
-import { attitudeSummary, suggestedDeal, tradeVerdict, type DiplomacyStanceReply, type TradeSelection } from "./client-diplomacy-trade-view.js";
+import { attitudeSummary, suggestedDeal, tradeVerdict, warTally, type DiplomacyStanceReply, type TradeSelection } from "./client-diplomacy-trade-view.js";
 
 export type DiplomacyOfferCooldownView = { kind: DiplomacyOfferKind; targetPlayerId: string; until: number };
 
@@ -123,6 +123,16 @@ const render = (screen: OpenScreen): void => {
       .map((modifier) => `<li data-tone="${modifier.value >= 0 ? "good" : "bad"}"><span>${modifier.value > 0 ? "+" : ""}${modifier.value}</span> ${escapeHtml(modifier.label)}</li>`)
       .join("");
   }
+  // The war as the AI counts it, so "they're losing" can be checked against the tiles.
+  const warEl = overlay.querySelector<HTMLElement>("[data-trade-war]");
+  if (warEl) {
+    const tally = warTally(reply);
+    warEl.hidden = !tally;
+    warEl.innerHTML = tally
+      ? `<span class="diplomacy-trade-war-head">War tally · recent captures count most</span>
+        <ul><li><span>${tally.youTook}</span> tiles you took from ${escapeHtml(targetName)}</li><li><span>${tally.theyTook}</span> tiles ${escapeHtml(targetName)} took from you</li></ul>`
+      : "";
+  }
   for (const button of Array.from(overlay.querySelectorAll<HTMLButtonElement>("[data-trade-kind]"))) {
     const [kind, hours] = (button.dataset.tradeKind ?? "").split(":");
     button.setAttribute("aria-pressed", String(kind === selection.kind && (kind === "alliance" || Number(hours) === selection.durationHours)));
@@ -199,6 +209,7 @@ export const openDiplomacyTradeScreen = (
     <h2 id="diplomacy-trade-title">${input.counters ? `Counter ${name}'s offer` : `Deal with ${name}`}</h2>
     <p class="diplomacy-trade-stance" data-trade-stance></p>
     <ul class="diplomacy-trade-modifiers" data-trade-modifiers hidden></ul>
+    <div class="diplomacy-trade-war" data-trade-war hidden></div>
     <div class="diplomacy-trade-kinds" role="group" aria-label="Offer type">
       <button type="button" data-trade-kind="truce:12">Truce 12h</button>
       <button type="button" data-trade-kind="truce:24">Truce 24h</button>

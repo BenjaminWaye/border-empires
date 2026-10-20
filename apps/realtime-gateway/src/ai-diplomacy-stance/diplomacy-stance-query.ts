@@ -23,7 +23,8 @@ export type DiplomacyStancePayload =
       stance?: { kind: AiDiplomacyStanceKind; reason: string };
       /** Civ-style attitude with the modifiers behind it, for the trade screen. */
       attitude?: { level: AiAttitude; score: number; modifiers: AiOpinionModifier[] };
-      war?: { atWar: boolean; aiWinning: boolean; aiLosing: boolean };
+      /** tilesTakenFromAi/ByAi: the fading tile counts the AI judges the war by. */
+      war?: { atWar: boolean; aiWinning: boolean; aiLosing: boolean; tilesTakenFromAi: number; tilesTakenByAi: number };
       truceRefusal?: string;
       allianceRefusal?: string;
       pricing?: AiDiplomacyPricing;
@@ -64,7 +65,13 @@ export const answerDiplomacyStanceQuery = async (
     ai: true,
     stance: { kind: evaluation.stance.kind, reason: evaluation.reason },
     attitude: { level: evaluation.opinion.attitude, score: evaluation.opinion.score, modifiers: evaluation.opinion.modifiers },
-    war: { atWar: evaluation.opinion.war.atWar, aiWinning: evaluation.opinion.war.aiWinning, aiLosing: evaluation.opinion.war.aiLosing },
+    war: {
+      atWar: evaluation.opinion.war.atWar,
+      aiWinning: evaluation.opinion.war.aiWinning,
+      aiLosing: evaluation.opinion.war.aiLosing,
+      tilesTakenFromAi: evaluation.opinion.war.tilesTakenFromAi,
+      tilesTakenByAi: evaluation.opinion.war.tilesTakenByAi
+    },
     ...(evaluation.truceRefusal ? { truceRefusal: evaluation.truceRefusal } : {}),
     ...(evaluation.allianceRefusal ? { allianceRefusal: evaluation.allianceRefusal } : {}),
     pricing: evaluation.pricing
