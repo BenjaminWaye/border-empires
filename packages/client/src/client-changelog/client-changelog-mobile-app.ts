@@ -8,7 +8,8 @@ export const MOBILE_APP_CHANGELOG: ClientChangelogEntry[] = [
     why: "Preparing the game for native mobile testing and store submission.",
     changes: [
       "Mobile app builds bundle the game with email/password sign-in and guest play",
-      "Guest players can save their empire with email and a password inside the app"
+      "Guest players can save their empire with email and a password inside the app",
+      "Rally invites from the app use public game links for the selected server"
     ]
   }
 ];

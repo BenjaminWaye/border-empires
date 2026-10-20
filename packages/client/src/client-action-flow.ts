@@ -300,13 +300,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       maybeRewritePayload.commandId = commandId;
       maybeRewritePayload.clientSeq = clientSeq;
     }
-    if (
-      typeof window !== "undefined" &&
-      (window.location.hostname === "localhost" ||
-        window.location.hostname === "127.0.0.1" ||
-        window.location.hostname === "0.0.0.0" ||
-        window.localStorage.getItem("tile-sync-debug") === "1")
-    ) {
+    if (tileSyncDebugEnabled()) {
       const typedPayload = payload as {
         type?: string;
         x?: number;

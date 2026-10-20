@@ -62,6 +62,8 @@ pages open in the system browser sheet. App foreground events reach the existing
 reconnect scheduler. The contained viewport and native inset handling protect
 fixed controls without shifting either renderer's input coordinates. Deep links,
 push notifications, billing, and background simulation are not implemented.
+Rally invites use the selected remote gateway and public production/staging
+share URLs; following an invite opens the web game until native deep links exist.
 
 ## Native build verification
 

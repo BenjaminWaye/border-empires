@@ -9,7 +9,7 @@ const ownershipDebugWindow = (): OwnershipDebugWindow | undefined =>
   typeof window !== "undefined" ? (window as OwnershipDebugWindow) : undefined;
 
 const shouldDebugOwnership = (): boolean =>
-  typeof window !== "undefined" && window.location.hostname === "localhost";
+  !Capacitor.isNativePlatform() && typeof window !== "undefined" && window.location.hostname === "localhost";
 
 /** Returns an emitter that logs a payload once per distinct value, on localhost only. */
 export const createOwnershipDebugEmitter = (): ((payload: Record<string, unknown>) => void) => {
@@ -24,3 +24,4 @@ export const createOwnershipDebugEmitter = (): ((payload: Record<string, unknown
     console.info("[3d-ownership-debug]", payload);
   };
 };
+import { Capacitor } from "@capacitor/core";

@@ -17,5 +17,10 @@ const webDir = new URL("../www/", import.meta.url);
 rmSync(webDir, { recursive: true, force: true });
 mkdirSync(webDir, { recursive: true });
 cpSync(new URL("../../../packages/client/dist-native/", import.meta.url), webDir, { recursive: true });
-writeFileSync(new URL("build-environment.json", webDir), JSON.stringify({ environment, gateway: env.VITE_GATEWAY_WS_URL }));
+writeFileSync(new URL("build-environment.json", webDir), JSON.stringify({
+  environment,
+  gateway: env.VITE_GATEWAY_WS_URL,
+  publicOrigin: env.VITE_NATIVE_PUBLIC_ORIGIN,
+  rallyApi: env.VITE_RALLY_API_ORIGIN
+}));
 console.log(`Mobile ${environment} bundle ready in ${app}www`);
