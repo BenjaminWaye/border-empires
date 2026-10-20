@@ -122,6 +122,15 @@ pnpm dev
 - Client: http://localhost:5173
 - Gateway health: http://localhost:3101/health
 
+### Android and iOS apps
+
+`apps/mobile` packages the client with Capacitor 8 and checked-in Android Studio
+and Xcode projects. Node 22+, Xcode 26+, or Android Studio 2025.2.1+ are required
+for the respective native build. Run `pnpm mobile:sync`, then `pnpm mobile:ios`
+or `pnpm mobile:android`. To test against staging, use
+`MOBILE_ENV=staging pnpm mobile:sync`. See the [mobile release runbook](docs/agents/mobile-apps.md)
+for signing, device verification, and the remaining store submission blockers.
+
 For a durable SQLite-backed local world with 20 AI players:
 
 ```bash

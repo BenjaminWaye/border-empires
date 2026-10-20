@@ -15,6 +15,7 @@ remain authoritative for runtime behavior.
 | Canonical setting, Houses, Coin, Manifests and AFC fiction | [`lore/galactic-lore.md`](lore/galactic-lore.md) |
 | Local setup, package layout, CI, and release notes | [`../README.md`](../README.md) |
 | Deploying or using Fly/Vercel/Hetzner | [`agents/deploys.md`](agents/deploys.md) |
+| Android/iOS wrappers, signing and store readiness | [`agents/mobile-apps.md`](agents/mobile-apps.md) |
 | Fly → Hetzner migration plan | [`hetzner-migration-plan.md`](hetzner-migration-plan.md) |
 | Tests, debugging, and regression expectations | [`agents/testing-and-debugging.md`](agents/testing-and-debugging.md) |
 | Concurrent worktree and branch safety | [`agents/concurrent-agents.md`](agents/concurrent-agents.md) |

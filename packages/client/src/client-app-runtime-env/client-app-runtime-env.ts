@@ -1,4 +1,5 @@
 import { getApps, initializeApp, type FirebaseOptions } from "firebase/app";
+import { Capacitor } from "@capacitor/core";
 import { getAnalytics, type Analytics } from "firebase/analytics";
 import { GoogleAuthProvider, OAuthProvider, getAuth } from "firebase/auth";
 import { isStagingHostname, selectBackend } from "../client-backend-selector/client-backend-selector.js";
@@ -90,7 +91,7 @@ export const createClientFirebaseSetup = (): {
   // browsing modes, or the vitest/jsdom test environment), so this degrades
   // to "no analytics" rather than aborting client setup.
   let analytics: Analytics | undefined;
-  if (measurementId) {
+  if (measurementId && !Capacitor.isNativePlatform()) {
     try {
       analytics = getAnalytics(firebaseApp);
     } catch {
@@ -114,10 +115,11 @@ export const createClientSocketSetup = (
   wsUrl: string;
 } => {
   const hostname = window.location.hostname.toLowerCase();
-  const isLocalHost =
+  const native = Capacitor.isNativePlatform();
+  const isLocalHost = !native && (
     hostname === "localhost" ||
     hostname === "127.0.0.1" ||
-    hostname === "0.0.0.0";
+    hostname === "0.0.0.0");
   const isStagingHost = isStagingHostname(hostname);
 
   // Legacy monolith URL — retained for explicit ?backend=legacy / be-backend=legacy
@@ -144,7 +146,7 @@ export const createClientSocketSetup = (
     envDefaultBackendRaw === "gateway" || envDefaultBackendRaw === "legacy" ? envDefaultBackendRaw : undefined;
 
   // Priority: ?backend= URL param > be-backend cookie > env default.
-  const selection = selectBackend({
+  const selection = native ? { wsUrl: gatewayWsUrl, backend: "gateway" as const } : selectBackend({
     legacyWsUrl,
     gatewayWsUrl,
     ...(envDefaultBackend ? { envDefaultBackend } : {})

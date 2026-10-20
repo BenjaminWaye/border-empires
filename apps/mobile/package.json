@@ -1,0 +1,28 @@
+{
+  "name": "@border-empires/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "sync": "pnpm build && cap sync",
+    "open:ios": "cap open ios",
+    "open:android": "cap open android",
+    "assets": "capacitor-assets generate --ios --android --iconBackgroundColor '#060c16' --iconBackgroundColorDark '#060c16' --splashBackgroundColor '#060c16' --splashBackgroundColorDark '#060c16'",
+    "lint": "tsc --noEmit",
+    "test": "node --test scripts/*.test.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/browser": "8.0.5",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/ios": "8.5.3"
+  },
+  "devDependencies": {
+    "@border-empires/client": "workspace:*",
+    "@capacitor/cli": "8.5.3",
+    "@capacitor/assets": "3.0.5",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.3"
+  }
+}
