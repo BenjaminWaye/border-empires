@@ -18,6 +18,7 @@ import {
   type BufferGeometry,
   type Material
 } from "three";
+import { POD_BODY_HEIGHT } from "./client-map-3d-construction-pod-flight.js";
 
 // Meshes for the construction parts deliveries (client-map-3d-construction-pod-fx.ts): the pod
 // and the courier drone that carries it. Every part of every delivery is an instance of one of
@@ -29,7 +30,8 @@ import {
 // (client-map-3d-construction-crew.ts: four 0.075 crates in a 0.16 square, two high) and opens
 // around it on landing.
 export const POD_HALF = 0.095;
-export const POD_HEIGHT = 0.14;
+// The flight maths hangs the pod from its lid, so the height is defined there.
+export const POD_HEIGHT = POD_BODY_HEIGHT;
 const POST = 0.022;
 const PLATE = 0.016;
 export const POD_PANEL = { width: 0.15, height: POD_HEIGHT - 2 * PLATE, thickness: 0.012 } as const;

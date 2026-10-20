@@ -7,12 +7,16 @@ import { AETHER_ABILITY_ICONS_CHANGELOG } from "./client-changelog-aether-abilit
 import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-art-october.js";
 import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
 import { AFC_UPGRADES_ICON_CHANGELOG } from "./client-changelog-afc-upgrades-icon.js";
+import { GAMEPLAY_SETTINGS_CLEANUP_CHANGELOG } from "./client-changelog-gameplay-settings-cleanup.js";
 import { MUSTER_BANNER_CHANGELOG } from "./client-changelog-muster-banner.js";
 import { BATTLE_TILE_SOUND_CHANGELOG } from "./client-changelog-battle-tile-sound.js";
 import { TOWN_VISUALS_CHANGELOG } from "./client-changelog-town-visuals.js";
 import { TOWN_BANNERS_CHANGELOG } from "./client-changelog-town-banners.js";
+import { WAR_MUSIC_DIPLOMACY_CHANGELOG } from "./client-changelog-war-music-diplomacy.js";
 import { CONSTRUCTION_POD_DELIVERY_CHANGELOG } from "./client-changelog-construction-pod-delivery.js";
 import { CAPTURE_HOLD_EFFORT_CHANGELOG } from "./client-changelog-capture-hold-effort.js";
+import { HETZNER_CLIENT_HOSTING_CHANGELOG } from "./client-changelog-hetzner-client-hosting.js";
+import { MUSTER_SIEGE_CHANGELOG } from "./client-changelog-muster-siege.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -462,6 +466,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["The Recent combat tab is now just \"Combat\", with its unread count as a small bubble on the tab's corner, so all the tile popup tabs fit on one row", "Combat reports use the same brass-and-parchment look as the rest of the popup"]
   },
   ...RELIABLE_DIPLOMACY_CHANGELOG,
+  ...GAMEPLAY_SETTINGS_CLEANUP_CHANGELOG,
   ...AFC_UPGRADES_ICON_CHANGELOG,
   ...MUSTER_BANNER_CHANGELOG,
   {
@@ -477,14 +482,10 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...BATTLE_TILE_SOUND_CHANGELOG,
   ...TOWN_VISUALS_CHANGELOG,
   ...TOWN_BANNERS_CHANGELOG,
+  ...WAR_MUSIC_DIPLOMACY_CHANGELOG,
   ...CONSTRUCTION_POD_DELIVERY_CHANGELOG,
-  {
-    createdAt: 1792510291974, // Date.now() captured for this entry.
-    introducedIn: "2026.10.20.1",
-    title: "Play independently of Vercel",
-    why: "A shared hosting limit could prevent players from opening the game even while the game servers were healthy.",
-    changes: ["Production and staging can serve the game directly from their existing game servers"]
-  },
+  ...MUSTER_SIEGE_CHANGELOG,
+  ...HETZNER_CLIENT_HOSTING_CHANGELOG,
   ...CAPTURE_HOLD_EFFORT_CHANGELOG
 ];
 

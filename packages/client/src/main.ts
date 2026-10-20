@@ -39,6 +39,7 @@ import "./client-steampunk-theme-style.css";
 import "./client-steampunk-panels-style.css";
 import "./client-steampunk-modals-style.css";
 import "./client-steampunk-settings-style.css";
+import "./client-hud/client-settings-controls-style.css";
 import "./client-steampunk-economy-domain-tech-style.css";
 import "./client-steampunk-alliance-style.css";
 import "./client-steampunk-tile-menu-style.css";

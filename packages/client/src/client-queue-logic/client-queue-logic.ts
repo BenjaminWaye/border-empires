@@ -1,5 +1,5 @@
 import { EXPAND_MANPOWER_COST, SETTLE_COST, SETTLE_MANPOWER_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
-import { MUSTER_AUTO_FLAG_THRESHOLD_TILES, canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "../client-constants.js";
+import { canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "../client-constants.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import {
   devQueueCancelWirePayload,
@@ -7,8 +7,8 @@ import {
   pruneExpiredAutoSettlementQueueVisibleHolds
 } from "../client-development-queue/client-development-queue.js";
 import { createNextFrontierCommandIdentity } from "../client-frontier-command/client-frontier-command.js";
-import { dropStuckPendingMusterAttack, findClosestMuster, findFundedMusterWithinRange, isDockCrossingBetween, isPendingAttackFundedFromOrigin, parkOrReuseMusterFlagForAttack } from "../client-muster-attack-gate/client-muster-attack-gate.js";
-import { armMusterTransit } from "../client-muster-transit/client-muster-transit.js";
+import { dropStuckPendingMusterAttack, findClosestMuster, isDockCrossingBetween, isPendingAttackFundedFromOrigin } from "../client-muster-attack-gate/client-muster-attack-gate.js";
+import { dispatchMusterFundedAttack } from "./client-queue-muster-dispatch.js";
 import { requiredMusterWithCommit, noteWaypointStepEnqueued } from "../client-attack-commit/client-attack-commit.js";
 import { enqueueTarget } from "./client-queue-enqueue-target.js"; export { enqueueTarget };
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js"; import { pauseWaypointForManpowerIfNeeded } from "./client-waypoint-manpower-pause.js";
@@ -1242,70 +1242,7 @@ export const processActionQueue = (
     } else {
       // Attacking/claiming an owned tile is also free (FRONTIER_CLAIM_COST is 0 gold).
       if (to.ownerId !== "barbarian-1") {
-        const closest = findClosestMuster(state, to.x, to.y);
-        // A "ready" flag found by findClosestMuster must itself be adjacent (or dock-linked) to fire directly — merely "in range" gets NOT_ADJACENT server-side.
-        const closestIsAdjacentOrLinked =
-          closest != null &&
-          (deps.isAdjacent(closest.tile.x, closest.tile.y, to.x, to.y) ||
-            isDockCrossingBetween(state, closest.tile.x, closest.tile.y, to.x, to.y));
-        if (!closest || closest.dist >= MUSTER_AUTO_FLAG_THRESHOLD_TILES || !closestIsAdjacentOrLinked) {
-          // No flag itself sits adjacent — but the server auto-funds an ATTACK from any owned flag within remote-funding range of the firing tile (see findFundedMusterWithinRange), same as ADVANCE already relies on. Fire from the normal border origin instead of parking behind a redundant new flag.
-          const funded = findFundedMusterWithinRange(state, from.x, from.y, requiredMusterWithCommit(state, to));
-          if (funded) {
-            // Real travel time: the company doesn't march until it reaches
-            // the target, so the ATTACK itself isn't even sent (let alone
-            // its 30s combat lock started) until armMusterTransit's local
-            // timer elapses — see client-muster-transit.ts and
-            // fireDueMusterTransits, which is what actually sends it once
-            // due. Distance is from the *funding flag* to the firing tile
-            // (the flag's own march to the front), matching what the flag
-            // physically has to cover, not the trivial firing-tile-to-target
-            // adjacency.
-            armMusterTransit(state, deps.keyFor, {
-              musterX: funded.tile.x, musterY: funded.tile.y,
-              fromX: from.x, fromY: from.y, toX: to.x, toY: to.y,
-              transitTiles: Math.max(1, funded.dist),
-              commandId, clientSeq
-            });
-            deps.pushFeed(
-              `Company marching from a flag ${funded.dist} tile${funded.dist === 1 ? "" : "s"} away — attack will fire on arrival`,
-              "combat", "info"
-            );
-            deps.renderHud();
-            continue;
-          }
-          // No fully-funded flag nearby — reuse an existing flag if one's in
-          // range, or (if none exists and we're not at the muster cap) stage
-          // a new one. See parkOrReuseMusterFlagForAttack for the full
-          // decision.
-          state.capture = undefined;
-          state.actionInFlight = false;
-          state.actionCurrent = undefined;
-          state.actionTargetKey = "";
-          state.actionAcceptedAck = false;
-          state.combatStartAck = false;
-          state.actionAcceptTimeoutHandledAt = 0;
-          state.queuedTargetKeys.delete(targetKey);
-          parkOrReuseMusterFlagForAttack(state, { from, to, closest }, deps);
-          continue;
-        }
-        // Flag found within range already has enough manpower staged
-        // (findClosestMuster only returns flags at/above MUSTER_ATTACK_COST)
-        // — arm its march instead of firing instantly. The flag is already
-        // adjacent/dock-linked to the target (closestIsAdjacentOrLinked,
-        // checked above), so it fires from itself once the march completes.
-        armMusterTransit(state, deps.keyFor, {
-          musterX: closest.tile.x, musterY: closest.tile.y,
-          fromX: closest.tile.x, fromY: closest.tile.y, toX: to.x, toY: to.y,
-          transitTiles: Math.max(1, closest.dist),
-          commandId, clientSeq
-        });
-        deps.pushFeed(
-          `Company marching from flag ${closest.dist} tile${closest.dist === 1 ? "" : "s"} away — attack will fire on arrival`,
-          "combat",
-          "info"
-        );
-        deps.renderHud();
+        dispatchMusterFundedAttack(state, { entry: next, from, to, targetKey, commandId, clientSeq }, deps);
         continue;
       }
       deps.sendAttack(from.x, from.y, to.x, to.y, commandId, clientSeq);

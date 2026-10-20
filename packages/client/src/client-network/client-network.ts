@@ -2304,7 +2304,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         errorCode === "NOT_ADJACENT" ||
         errorCode === "ATTACK_TARGET_INVALID" ||
         errorCode === "ATTACK_COOLDOWN" ||
-        errorCode === "LOCKED" ||
+        errorCode === "LOCKED" || errorCode === "MUSTER_UNDER_SIEGE" ||
         errorCode === "ALLY_TARGET" ||
         errorCode === "SHIELDED" || errorCode === "AETHER_WALL_BLOCKED" ||
         errorCode === "BARRIER" ||

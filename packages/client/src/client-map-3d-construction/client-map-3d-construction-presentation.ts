@@ -1,8 +1,9 @@
 import { Scene, type Texture } from "three";
 import { CONSTRUCTION_PHASES, type ConstructionSite } from "../client-construction-phase/client-construction-phase.js";
 import { createStructurePieceBuilder } from "../client-map-3d-structure-builder.js";
-import { createConstructionCrewLayer, MAX_CONSTRUCTION_SITES } from "./client-map-3d-construction-crew.js";
+import { constructionSiteKey, createConstructionCrewLayer, MAX_CONSTRUCTION_SITES } from "./client-map-3d-construction-crew.js";
 import { DEFAULT_CONSTRUCTION_LAYOUT, stackCenterFor, type ConstructionLayout } from "./client-map-3d-construction-layout.js";
+import { podTransitBudgetMs } from "./client-map-3d-construction-pod-flight.js";
 import { createConstructionPodFxLayer } from "./client-map-3d-construction-pod-fx.js";
 import { registerConstructionScaffold } from "./client-map-3d-construction-scaffold.js";
 
@@ -48,7 +49,7 @@ export const createConstructionPresentation = (scene: Scene, envMap?: Texture): 
     scaffold.place(sceneX, surfaceY, sceneZ, structureHeight, site.visibleBands, CONSTRUCTION_PHASES);
     crew.add(sceneX, sceneZ, surfaceY, site, layout);
     if (site.nextPhaseAtMs !== undefined) earliestPhaseAtMs = Math.min(earliestPhaseAtMs, site.nextPhaseAtMs);
-    const siteKey = `${site.x},${site.y}`;
+    const siteKey = constructionSiteKey(site);
     phasesThisRebuild.set(siteKey, site.phase);
     const previousPhase = phasesLastRebuild.get(siteKey);
     // A new phase brings a fresh batch of fabricated parts, flown out from the owner's AFC
@@ -57,7 +58,9 @@ export const createConstructionPresentation = (scene: Scene, envMap?: Texture): 
     // Pods already flying to this site follow it to its new scene position (this rebuild may have re-anchored the scene).
     pods.relocate(siteKey, sceneX + stack.x, sceneZ + stack.z, surfaceY);
     if (site.direction === "build" && !site.stalled && previousPhase !== undefined && site.phase > previousPhase && site.afcOffset) {
-      pods.spawn(siteKey, sceneX + stack.x, sceneZ + stack.z, surfaceY, performance.now(), { dx: site.afcOffset.dx - stack.x, dz: site.afcOffset.dy - stack.z });
+      // The stack stands empty until the pod lands, so a short phase gets a quicker trip.
+      const maxTransitMs = podTransitBudgetMs((site.completesAtMs - site.startedAtMs) / CONSTRUCTION_PHASES);
+      pods.spawn(siteKey, sceneX + stack.x, sceneZ + stack.z, surfaceY, performance.now(), { dx: site.afcOffset.dx - stack.x, dz: site.afcOffset.dy - stack.z }, { maxTransitMs });
     }
   };
 

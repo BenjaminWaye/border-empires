@@ -1044,7 +1044,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           const fillRatio = musterFillRatioForTile(tile, deps.keyFor(wx, wy), deps.state.me, deps.state.manpowerCap, deps.state.manpower, deps.state.musterAmountRateByTile);
           const ownerColor = deps.effectiveOverlayColor(tile.muster.ownerId);
           const advance = tile.muster.mode === "ADVANCE";
-          musterOverlay.addMuster(x, z, surfaceY, fillRatio, ownerColor, advance, wx, wy);
+          musterOverlay.addMuster(x, z, surfaceY, fillRatio, ownerColor, advance, wx, wy, tile.muster.ownerId === deps.state.me ? incomingAttack?.resolvesAt ?? 0 : 0);
         } /* F0/F3, client-win-chance-paint-trigger.ts + client-known-shield-flags.ts: */ { const winChancePaintEntry = deps.state.winChancePaint?.entries.find((e) => e.x === wx && e.y === wy); if (winChancePaintEntry) winChancePaintOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY: flatOverlayY, color: winChancePaintEntry.color, winChance: winChancePaintEntry.winChance }); const shieldCoverage = isShieldCoverageShownOn(deps.state.arrowGesture, tile?.ownerId, deps.state.me) ? tileShieldCoverage(wx, wy, knownShieldFlags) : undefined; /* only while dragging the attack arrow, and only on enemy-owned tiles */ if (shieldCoverage) shieldAreaOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY: flatOverlayY, ownerColor: deps.effectiveOverlayColor(shieldCoverage.ownerId) }); }
         aetherProtectionOverlay.addTile(tile, x, z, flatOverlayY);
         const demoStructureEntry = structureDemoEntryFor(wx, wy, window.camX, window.camY);
@@ -1390,13 +1390,12 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     selectionRangeOverlays.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin }); syncDockRoutes(deps.state, sceneOrigin, deps.resolveDockSeaRoute, deps.isDockRouteVisibleForPlayer);
     placementOverlay.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin });
     syncAetherBridgePylons(deps.state.activeAetherBridges, nowMs); syncAetherWallPylons(deps.state.activeAetherWalls, nowMs);
-    // Frontier supply lines (3D; the 2D path is client-frontier-supply-2d.ts): chevrons into frontier beyond reach, amber chokepoints.
+    // Frontier supply lines (3D; the 2D path is client-frontier-supply-2d.ts): dashed lines out to fragile land beyond reach, a ring on the tile it hangs on.
     frontierSupplyOverlay.sync(
       frontierSupplyModelForState(deps.state),
       (x, y) => ({ sceneX: toroidDelta(sceneOrigin.camX, x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(x, y) }),
       `${sceneOrigin.camX},${sceneOrigin.camY}`,
-      deps.effectiveOverlayColor(deps.state.me),
-      nowMs
+      deps.effectiveOverlayColor(deps.state.me)
     );
     syncAetherLanceFxQueue();
     syncSurveySweepFxQueue();

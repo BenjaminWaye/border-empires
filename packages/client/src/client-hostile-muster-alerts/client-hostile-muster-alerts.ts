@@ -59,7 +59,7 @@ const distanceToOwnTerritory = (state: HostileMusterAlertState, x: number, y: nu
 // activeTruces is not pruned when a truce runs out (see
 // activeTruceWithPlayerFromState in client-player-actions.ts), so an entry
 // only counts while its endsAt is still ahead.
-const isFriendlyOwner = (state: HostileMusterAlertState, ownerId: string, nowEpochMs: number): boolean =>
+export const isFriendlyOwner = (state: HostileMusterAlertState, ownerId: string, nowEpochMs: number): boolean =>
   ownerId === state.me ||
   Boolean(state.allies?.includes(ownerId)) ||
   Boolean(state.activeTruces?.some((truce) => truce.otherPlayerId === ownerId && truce.endsAt > nowEpochMs));

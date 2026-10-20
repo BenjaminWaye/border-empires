@@ -1,12 +1,11 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 
 import type { FrontierSupplyLink, FrontierSupplyModel } from "./client-frontier-supply.js";
-import { supplyRouteAlpha, supplyRouteWidth } from "./client-frontier-supply-style.js";
 
 /**
  * Turns the supply model's per-tile hops into drawable routes: one polyline
- * per unbranched stretch of the supply tree, smoothed, with per-point width,
- * opacity and distance-from-supply (for the travelling pulses).
+ * per unbranched stretch of the supply tree, smoothed, with each point's
+ * distance from the cut tile (so dashes run continuously across a fork).
  * Shared by the 2D and 3D renderers so both draw the same shapes.
  *
  * Points are in tile units, tile centres at integer coordinates. A route's
@@ -18,18 +17,12 @@ import { supplyRouteAlpha, supplyRouteWidth } from "./client-frontier-supply-sty
 export type SupplyRoutePoint = {
   x: number;
   y: number;
-  /** Ribbon width, tiles. */
-  width: number;
-  /** 0..1 opacity. */
-  alpha: number;
-  /** Distance along the supply tree from the reach edge, tiles. */
+  /** Distance along the supply tree from the cut tile, tiles. */
   distance: number;
 };
 
 export type SupplyRoute = {
   points: SupplyRoutePoint[];
-  /** The route ends at a real frontier tip (see FrontierSupplyLink.tip): draw an arrowhead. */
-  endsAtTip: boolean;
 };
 
 export type SupplyRouteOptions = {
@@ -51,8 +44,6 @@ const pointKey = (p: { x: number; y: number }): string => `${p.x},${p.y}`;
 const lerpPoint = (a: SupplyRoutePoint, b: SupplyRoutePoint, t: number): SupplyRoutePoint => ({
   x: a.x + (b.x - a.x) * t,
   y: a.y + (b.y - a.y) * t,
-  width: a.width + (b.width - a.width) * t,
-  alpha: a.alpha + (b.alpha - a.alpha) * t,
   distance: a.distance + (b.distance - a.distance) * t
 });
 
@@ -85,14 +76,6 @@ export const buildSupplyRoutes = (model: FrontierSupplyModel, options: SupplyRou
     fedTiles.add(pointKey(link.to));
   }
 
-  const pointFor = (link: FrontierSupplyLink, x: number, y: number, distance: number): SupplyRoutePoint => ({
-    x,
-    y,
-    width: supplyRouteWidth(link.downstream),
-    alpha: supplyRouteAlpha(link.depthBeyondReach),
-    distance
-  });
-
   // Each pending stretch starts at a tile with a known distance and position,
   // then walks single-child hops until the tree branches or ends.
   type Pending = { link: FrontierSupplyLink; startX: number; startY: number; startDistance: number };
@@ -105,21 +88,20 @@ export const buildSupplyRoutes = (model: FrontierSupplyModel, options: SupplyRou
   const routes: SupplyRoute[] = [];
   while (pending.length > 0) {
     const { link: first, startX, startY, startDistance } = pending.pop()!;
-    const raw: SupplyRoutePoint[] = [pointFor(first, startX, startY, startDistance)];
+    const raw: SupplyRoutePoint[] = [{ x: startX, y: startY, distance: startDistance }];
     let link = first;
     let x = startX;
     let y = startY;
     let distance = startDistance;
-    let endsAtTip = false;
     for (;;) {
       const dx = wrapDelta(link.from.x, link.to.x, width);
       const dy = wrapDelta(link.from.y, link.to.y, height);
       x += dx;
       y += dy;
       distance += Math.hypot(dx, dy);
-      raw.push(pointFor(link, x, y, distance));
+      raw.push({ x, y, distance });
       const onward = linksFrom.get(pointKey(link.to));
-      if (!onward) { endsAtTip = link.tip; break; }
+      if (!onward) break;
       if (onward.length > 1) {
         for (const child of onward) pending.push({ link: child, startX: x, startY: y, startDistance: distance });
         break;
@@ -130,7 +112,7 @@ export const buildSupplyRoutes = (model: FrontierSupplyModel, options: SupplyRou
     const anchorDx = first.from.x - startX;
     const anchorDy = first.from.y - startY;
     const anchored = raw.map((p) => ({ ...p, x: p.x + anchorDx, y: p.y + anchorDy }));
-    routes.push({ points: smooth(anchored, passes), endsAtTip });
+    routes.push({ points: smooth(anchored, passes) });
   }
   return routes;
 };

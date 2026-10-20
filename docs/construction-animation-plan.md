@@ -44,7 +44,9 @@ and assembled on site by ancillaries (bodies run by one AI).
   swinging on its line; it hovers over the stack (landing light, rotor-wash dust swirl) and
   winches the pod down; the line lets go, the drone turns for home and docks in the crown, and
   the pod folds open and collapses, leaving the crates. The stack stays empty while its pod is
-  on the way. All deliveries share one fixed set of instanced meshes
+  on the way, so a delivery must land within a quarter of its phase: a trip that would take
+  longer (a distant AFC on a short build) is flown faster (`podTransitBudgetMs`); otherwise the
+  trip time grows with distance. All deliveries share one fixed set of instanced meshes
   (`client-map-3d-construction-pod-assets.ts`), so their count does not add draw calls.
   Drone drawing: `client-map-3d-construction-drone-draw.ts`.
   Cosmetic only: the server does not track which AFC "made" the parts. Pods are not shown
