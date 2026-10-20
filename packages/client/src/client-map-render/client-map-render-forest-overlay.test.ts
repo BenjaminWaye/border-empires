@@ -15,7 +15,22 @@ const speciesAt = (wx: number, wy: number): number => (((wx * 73856093) ^ (wy * 
 
 type MockCanvasContext = Pick<
   CanvasRenderingContext2D,
-  "save" | "restore" | "fillRect" | "beginPath" | "moveTo" | "lineTo" | "arc" | "closePath" | "fill" | "fillStyle"
+  | "save"
+  | "restore"
+  | "fillRect"
+  | "beginPath"
+  | "moveTo"
+  | "lineTo"
+  | "arc"
+  | "ellipse"
+  | "quadraticCurveTo"
+  | "closePath"
+  | "fill"
+  | "stroke"
+  | "fillStyle"
+  | "strokeStyle"
+  | "lineWidth"
+  | "lineCap"
 >;
 
 const createMockContext = (): { ctx: CanvasRenderingContext2D; fillRectCalls: number; arcCalls: number } => {
@@ -34,7 +49,13 @@ const createMockContext = (): { ctx: CanvasRenderingContext2D; fillRectCalls: nu
     arc: () => {
       arcCalls += 1;
     },
+    ellipse: () => undefined, // tree ground shadows
+    quadraticCurveTo: () => undefined,
     closePath: () => undefined,
+    stroke: () => undefined,
+    strokeStyle: "",
+    lineWidth: 1,
+    lineCap: "butt",
     fill: () => undefined
   };
   return {
