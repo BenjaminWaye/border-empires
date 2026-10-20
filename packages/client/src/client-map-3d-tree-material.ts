@@ -23,6 +23,7 @@ const WIND_X = 0.8;
 const WIND_Z = 0.6;
 const WIND_AMPLITUDE = 0.013;
 const RIM_STRENGTH = 0.2;
+const WIND_CLOCK_PERIOD_S = 3600;
 
 const windTime: IUniform<number> = { value: 0 };
 
@@ -86,6 +87,8 @@ export const createTreeMaterial = (options: { readonly doubleSided?: boolean } =
 /** Advances the shared breeze clock whenever `mesh` is drawn. */
 export const driveTreeWind = (mesh: InstancedMesh): void => {
   mesh.onBeforeRender = () => {
-    windTime.value = performance.now() / 1000;
+    // Wrapped hourly: the shader's float32 time would otherwise lose enough
+    // precision over a days-long session to make the sway visibly step.
+    windTime.value = (performance.now() / 1000) % WIND_CLOCK_PERIOD_S;
   };
 };
