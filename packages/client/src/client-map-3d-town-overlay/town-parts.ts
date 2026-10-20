@@ -110,21 +110,21 @@ export const plateSkirt = (body: TownMeshBuilder, radius: number, topY: number):
  * from: the black course and the paving. See applyMarbleFinish. */
 export const TOWN_PLINTH_LEDGES: readonly number[] = [-0.02, 0];
 
-/** Octagonal base plate, its top at y = 0: polished charcoal marble streets inside a
- * low marble kerb and a brass band, on a flared marble wall (plateSkirt)
- * girdled by a black marble course, running well below 0 so a sloped tile
- * never shows a gap under it (the overlay lifts the whole town; see
- * TOWN_BASE_LIFT). */
+/** Octagonal base plate, its top at y = 0: polished black-and-gold marble
+ * streets inside a low marble kerb and a brass band, on a flared marble wall
+ * (plateSkirt) girdled by a black marble course, running well below 0 so a
+ * sloped tile never shows a gap under it (the overlay lifts the whole town;
+ * see TOWN_BASE_LIFT). */
 export const octagonPlate = (t: TownBuilders, radius: number, plazaRing = true): void => {
   const turn = Math.PI / 8;
-  plateSkirt(t.plinth, radius, -0.008);
+  // Its top stops just under the brass band's, so the two never z-fight.
+  plateSkirt(t.plinth, radius, -0.009);
   // The brass band keeps its lip over the flared wall below it.
   const band = skirtRadiusAt(radius, -0.008, -0.016) + radius * 0.01;
   t.body.cylinder(0, -0.016, 0, band, band, 0.008, "brass", 8, turn);
-  // The streets are the plinth's polished top: mid stone, which the marble
-  // finish turns to charcoal with pale veins (darker stone would come out
-  // black shot with gold, kept for the course below).
-  t.plinth.cylinder(0, -0.008, 0, radius * 0.985, radius * 0.985, 0.008, "stone", 8, turn);
+  // The streets are the plinth's polished top: dark stone, which the marble
+  // finish turns to black marble shot with gold, like the course below.
+  t.plinth.cylinder(0, -0.008, 0, radius * 0.985, radius * 0.985, 0.008, "graphite", 8, turn);
   // A black marble course just under the band, following the skirt's flare.
   const course = (y: number): number => skirtRadiusAt(radius, -0.008, y) + radius * 0.006;
   t.plinth.cylinder(0, -0.03, 0, course(-0.02), course(-0.03), 0.01, "graphite", 8, turn);
