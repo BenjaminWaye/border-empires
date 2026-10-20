@@ -1,5 +1,6 @@
 import type { ClientState } from "../client-state/client-state.js";
 import type { MusterState } from "@border-empires/shared";
+import { isOwnHostileBattle, isWarRelevantMuster } from "./client-war-music-hostility.js";
 
 // How long war (combat) music keeps playing after the last live combat
 // signal (an ADVANCE/MARCH flag or an active battle) drops out. Without
@@ -51,8 +52,14 @@ const isEngagedFlag = (muster: MusterState): boolean => {
 //     the whole truce.
 //   - tension: a flag is raised but still HOLD (staged, not yet advancing) —
 //     the "war is coming" stance.
+//
+// Both signals only count *our* wars (client-war-music-hostility.ts): our
+// own flags with hostile land in reach, a hostile empire's flag staged near
+// our border, and battles we're fighting against a non-ally/non-truce
+// partner. Other empires' fights we merely watch, truce partners' flags, and
+// flags of ours facing only allies/truce partners stay calm.
 export const computeWarMusicSignals = (
-  state: Pick<ClientState, "tiles" | "activeBattles" | "warMusicHoldUntil">,
+  state: Pick<ClientState, "tiles" | "activeBattles" | "warMusicHoldUntil" | "me" | "allies" | "activeTruces">,
   now: number = Date.now()
 ): {
   combat: boolean;
@@ -64,11 +71,20 @@ export const computeWarMusicSignals = (
     const muster = tile.muster;
     if (!muster) continue;
     if (muster.mode === "ADVANCE" || muster.mode === "MARCH") {
-      if (isEngagedFlag(muster)) advancing = true;
-    } else if (muster.mode === "HOLD") staged = true;
+      if (!advancing && isEngagedFlag(muster) && isWarRelevantMuster(state, tile, muster, now)) advancing = true;
+    } else if (muster.mode === "HOLD") {
+      if (!staged && isWarRelevantMuster(state, tile, muster, now)) staged = true;
+    }
     if (advancing && staged) break;
   }
-  const liveCombat = advancing || state.activeBattles.size > 0;
+  let ownBattle = false;
+  for (const battle of state.activeBattles.values()) {
+    if (isOwnHostileBattle(state, battle, now)) {
+      ownBattle = true;
+      break;
+    }
+  }
+  const liveCombat = advancing || ownBattle;
   if (liveCombat) state.warMusicHoldUntil = now + WAR_MUSIC_HOLD_MS;
   return {
     combat: liveCombat || now < state.warMusicHoldUntil,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { computeWarMusicSignals } from "./client-war-music-signal.js";
-import type { Tile } from "../client-types.js";
+import type { ActiveTruceView, Tile } from "../client-types.js";
 
 // ADVANCE/MARCH flags default to the sim's "target found, cooling down"
 // status so they read as engaged; tests override the status fields to cover
@@ -8,11 +8,19 @@ import type { Tile } from "../client-types.js";
 const musterTile = (mode: "HOLD" | "ADVANCE" | "MARCH"): Tile =>
   ({ x: 0, y: 0, muster: { ownerId: "p1", amount: 5, mode, updatedAt: 0, ...(mode === "HOLD" ? {} : { nextActionAt: 1 }) } }) as Tile;
 
+// "p1" is the local player; a rival's tile sits within flag reach so these
+// cases exercise the flag/battle status logic, not the diplomacy filter (see
+// client-war-music-hostility.test.ts for that).
 const baseState = () => ({
-  tiles: new Map<string, Tile>(),
+  me: "p1",
+  allies: [] as string[],
+  activeTruces: [] as ActiveTruceView[],
+  tiles: new Map<string, Tile>([["3,0", { x: 3, y: 0, ownerId: "rival", ownershipState: "FRONTIER" } as Tile]]),
   activeBattles: new Map(),
   warMusicHoldUntil: 0
 });
+
+const ownBattle = { attackerOwnerId: "p1", defenderOwnerId: "rival" } as never;
 
 describe("computeWarMusicSignals", () => {
   it("stays in combat while an ADVANCE flag persists even after battle FX has expired", () => {
@@ -40,7 +48,7 @@ describe("computeWarMusicSignals", () => {
 
   it("is in combat for a manual attack with no ADVANCE flag involved", () => {
     const state = baseState();
-    state.activeBattles.set("1,1", {} as never);
+    state.activeBattles.set("1,1", ownBattle);
     expect(computeWarMusicSignals(state).combat).toBe(true);
   });
 
@@ -99,7 +107,7 @@ describe("computeWarMusicSignals", () => {
 
   it("holds combat music for a while after a manual attack's activeBattle clears", () => {
     const state = baseState();
-    state.activeBattles.set("1,1", {} as never);
+    state.activeBattles.set("1,1", ownBattle);
     const t0 = 1_000_000;
     expect(computeWarMusicSignals(state, t0).combat).toBe(true);
     state.activeBattles.clear();
