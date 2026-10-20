@@ -7,6 +7,7 @@ import { activityCardCoordinates, activityCardText, activityPlayerNameLookup, ac
 import { clearActivityDashboard, paintActivityDashboard, resetActivityDashboardScroll, syncActivityDashboardScroll } from "./client-activity-dashboard-scroll.js";
 import { worldPulseAtGlanceHtml, worldPulseBodyHtml } from "./client-activity-dashboard-world-pulse.js";
 import { resourceSurveySectionHtml } from "./client-activity-dashboard-surveys.js";
+import { nonSiegeActivityCards, siegeSectionHtml } from "./client-activity-dashboard-sieges.js";
 
 type ActivityDashboardDeps = {
   state: Pick<
@@ -86,7 +87,8 @@ export const renderClientActivityDashboardOverlay = (deps: ActivityDashboardDeps
         : `
           <div class="activity-dashboard-summary-line">${summaryCountsLine(timeline.summary, timeline, state.manpowerCap)}</div>
           ${truncationLabel(timeline) ? `<div class="activity-dashboard-truncation-note">${truncationLabel(timeline)}</div>` : ""}
-          ${timeline.cards.map((card) => cardRowHtml(card, state.me, playerName, (id) => state.techCatalog.find((tech) => tech.id === id)?.name)).join("")}
+          ${siegeSectionHtml(timeline, playerName)}
+          ${nonSiegeActivityCards(timeline.cards).map((card) => cardRowHtml(card, state.me, playerName, (id) => state.techCatalog.find((tech) => tech.id === id)?.name)).join("")}
         `;
   const yoursBodyHtml = resourceSurveySectionHtml(state.eventLog, state.techIds) + yoursTimelineHtml;
   const activeView = state.activityDashboard.activeView;

@@ -90,6 +90,19 @@ independently of the retiring Alerts feed. These are standing clues rather than
 researched or the server removes the report. View survey closes the dashboard
 and focuses the clue through the shared camera state in both map renderers.
 
+**Siege reports** fold repeated assaults on one of the player's tiles into a
+single `SIEGE` card (`personal-activity-siege-cards.ts`): consecutive logged
+attacks on that tile, with no lull over 3h, up to and including the capture
+(`FELL`) or still `HOLDING`. Two or more assaults make a siege; a lone attack
+stays a `COMBAT` card. The siege's assaults are removed from the per-attack
+`COMBAT` cards. Each siege carries the number of assaults repelled, the
+attackers, the total manpower they spent, and the fortification defending the
+tile (`CombatManpowerLoss.defenseVariant`, recorded at resolution with the same
+active/owned/not-dormant gate combat uses). The client renders sieges in a
+**Sieges** section at the top of Yours, costliest first
+(`client-activity-dashboard-sieges.ts`), not inside the chronological list.
+Sieges are personal only and do not appear in World Pulse.
+
 ## 1. Decision
 
 Replace the current client **Activity Feed** as the player-facing history

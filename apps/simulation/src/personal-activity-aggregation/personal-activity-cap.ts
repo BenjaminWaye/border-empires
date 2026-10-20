@@ -1,11 +1,13 @@
 import type { PersonalActivityCard, PersonalActivityTruncationNoteCard } from "@border-empires/game-domain";
 
 // "Highest-impact" per card kind (docs/activity-dashboard-plan.md 4.1):
-// tile count for a territory group, manpower cost for a combat card. The
-// synthetic truncation note itself is never a candidate for eviction.
+// tile count for a territory group, manpower cost for a combat card (summed
+// across every assault for a siege). The synthetic truncation note itself is
+// never a candidate for eviction.
 const impactOf = (card: PersonalActivityCard): number => {
   if (card.kind === "TERRITORY_FLIP_GROUP") return card.tileCount;
   if (card.kind === "COMBAT") return card.manpowerLoss;
+  if (card.kind === "SIEGE") return card.manpowerSpentAgainst;
   if (card.kind === "TOWN_CAPTURED" || card.kind === "TOWN_LOST") return card.populationBefore;
   if (card.kind === "WAYSTATION_ACTIVATED") return 100;
   if (card.kind === "BUILDING_COMPLETED") return 10;

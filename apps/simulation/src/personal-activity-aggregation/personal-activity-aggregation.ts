@@ -3,6 +3,7 @@ import type { CombatManpowerLoss } from "../combat-manpower-log/combat-manpower-
 import { PERSONAL_ACTIVITY_TIMELINE_CARD_CAP, type PersonalActivityCard, type PersonalActivityTimeline } from "@border-empires/game-domain";
 import { groupTerritoryFlipsForPlayer } from "./personal-activity-territory-grouping.js";
 import { combatCardsForPlayer } from "./personal-activity-combat-cards.js";
+import { siegeCardsForDefender } from "./personal-activity-siege-cards.js";
 import { capPersonalActivityCards } from "./personal-activity-cap.js";
 import { personalImpactCardsForPlayer } from "./personal-activity-impact-cards.js";
 import type { PersonalImpactEvent } from "../personal-impact-log/personal-impact-log.js";
@@ -28,9 +29,10 @@ export const aggregatePersonalActivity = (
   const relevantImpacts = personalImpacts.filter((event) => inWindow(event.occurredAt));
 
   const territoryCards = groupTerritoryFlipsForPlayer(playerId, relevantFlips);
-  const combatCards = combatCardsForPlayer(playerId, relevantCombat);
+  const sieges = siegeCardsForDefender(playerId, relevantCombat);
+  const combatCards = combatCardsForPlayer(playerId, relevantCombat.filter((loss) => !sieges.consumed.has(loss)));
   const impactCards = personalImpactCardsForPlayer(playerId, relevantImpacts);
-  const allCards: PersonalActivityCard[] = [...territoryCards, ...combatCards, ...impactCards.waystations, ...impactCards.towns, ...impactCards.buildings];
+  const allCards: PersonalActivityCard[] = [...territoryCards, ...combatCards, ...sieges.cards, ...impactCards.waystations, ...impactCards.towns, ...impactCards.buildings];
   const cards = capPersonalActivityCards(allCards, PERSONAL_ACTIVITY_TIMELINE_CARD_CAP);
 
   const tilesClaimed = relevantFlips.filter((flip) => flip.toOwner === playerId && flip.fromOwner !== playerId).length;

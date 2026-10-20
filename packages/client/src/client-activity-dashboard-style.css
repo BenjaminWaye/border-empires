@@ -96,6 +96,15 @@
   font-size: 14px;
 }
 
+.activity-dashboard-siege {
+  padding-left: 10px;
+  border-left: 3px solid #7fb08f;
+}
+
+.activity-dashboard-siege.is-fallen {
+  border-left-color: #c9785f;
+}
+
 .activity-dashboard-card-text {
   flex: 1 1 auto;
   min-width: 0;

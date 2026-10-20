@@ -298,6 +298,20 @@ describe("buildLockedCombatResolution against a SETTLED target (plunder wiring)"
     expect(recorded.defenderGoldLoss).toBe(0);
   });
 
+  it("records the active fortification defending the target, and none when it is dormant", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const attack = (dormant: boolean): { defenseVariant?: string } => {
+      const recordCombatManpowerLoss = vi.fn();
+      const context = makeSettledContext(recordCombatManpowerLoss);
+      context.tiles.set(TARGET_KEY, { x: 6, y: 5, terrain: "FOREST", ownerId: DEFENDER_ID, ownershipState: "SETTLED", fort: { ownerId: DEFENDER_ID, status: "active", variant: "PALISADE" } });
+      context.isStructureDormant = () => dormant;
+      buildLockedCombatResolution(context, { actionType: "ATTACK", commandId: "attack-fort", playerId: ATTACKER_ID, manpowerCost: 50, originKey: ORIGIN_KEY, originX: 5, originY: 5, targetX: 6, targetY: 5, targetKey: TARGET_KEY });
+      return recordCombatManpowerLoss.mock.calls[0]![0];
+    };
+    expect(attack(false).defenseVariant).toBe("PALISADE");
+    expect(attack(true).defenseVariant).toBeUndefined();
+  });
+
   it("applies the effort-level odds scale to a barbarian defender exactly like a player defender", () => {
     const winChanceFor = (ownerId: string, manpowerCost: number): number => {
       const context = makeSettledContext(vi.fn());

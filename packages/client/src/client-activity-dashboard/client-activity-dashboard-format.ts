@@ -1,5 +1,5 @@
 import type { PersonalActivityCard, PersonalActivitySummary, PersonalActivityTimeline } from "@border-empires/game-domain";
-import { structureDisplayName } from "@border-empires/shared";
+import { structureDisplayName, type FortVariant } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 
 // Materiality gate for the manpower-spent-attacking headline (plan §2.3):
@@ -103,6 +103,40 @@ const combatCardText = (card: Extract<PersonalActivityCard, { kind: "COMBAT" }>,
   return parts.join(" · ");
 };
 
+const DEFENSE_LABEL: Record<FortVariant, string> = {
+  PALISADE: "Palisade",
+  FORT: "Fort",
+  TITANIUM_BASTION: "Titanium Bastion",
+  THUNDER_BASTION: "Thunder Bastion"
+};
+
+const listNames = (names: readonly string[]): string =>
+  names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+
+const durationLabel = (ms: number): string => {
+  const minutes = Math.max(1, Math.round(ms / 60_000));
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.round(minutes / 60);
+  return `${hours}h`;
+};
+
+type SiegeCard = Extract<PersonalActivityCard, { kind: "SIEGE" }>;
+
+/** "Your Fort fell after a 5h siege" / "Your Palisade is holding". */
+export const siegeHeadline = (card: SiegeCard): string => {
+  const defense = card.defenseVariant ? `Your ${DEFENSE_LABEL[card.defenseVariant]}` : "Your tile";
+  return card.outcome === "FELL" ? `${defense} fell after a ${durationLabel(card.occurredAt - card.startedAt)} siege` : `${defense} is holding`;
+};
+
+/** "Held off 7 assaults from Kael and Vess · cost them 412 manpower". */
+export const siegeDetail = (card: SiegeCard, playerNames: PlayerNameLookup): string => {
+  const attackers = listNames(card.attackerIds.map((id) => nameOf(id, playerNames)));
+  const assaults = `${card.assaultsRepelled} assault${card.assaultsRepelled === 1 ? "" : "s"}`;
+  return `${card.outcome === "FELL" ? "Held off" : "Repelled"} ${assaults} from ${attackers} · cost them ${roundedAmount(card.manpowerSpentAgainst)} manpower`;
+};
+
+const siegeCardText = (card: SiegeCard, playerNames: PlayerNameLookup): string => `${siegeHeadline(card)} · ${siegeDetail(card, playerNames)}`;
+
 const territoryCardText = (card: Extract<PersonalActivityCard, { kind: "TERRITORY_FLIP_GROUP" }>, playerNames: PlayerNameLookup): string => {
   const counterparty = card.counterpartyPlayerId ? ` (${nameOf(card.counterpartyPlayerId, playerNames)})` : "";
   return card.direction === "GAINED"
@@ -136,6 +170,7 @@ const buildingCardText = (card: Extract<PersonalActivityCard, { kind: "BUILDING_
 /** One timeline row's display text, given the viewing player's id and a way to resolve names. */
 export const activityCardText = (card: PersonalActivityCard, playerId: string, playerNames: PlayerNameLookup, techName: TechNameLookup = () => undefined): string => {
   if (card.kind === "COMBAT") return combatCardText(card, playerId, playerNames);
+  if (card.kind === "SIEGE") return siegeCardText(card, playerNames);
   if (card.kind === "TERRITORY_FLIP_GROUP") return territoryCardText(card, playerNames);
   if (card.kind === "WAYSTATION_ACTIVATED") return waystationCardText(card, techName);
   if (card.kind === "TOWN_CAPTURED" || card.kind === "TOWN_LOST") return townCardText(card);

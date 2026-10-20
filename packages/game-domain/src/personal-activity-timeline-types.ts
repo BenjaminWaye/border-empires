@@ -1,4 +1,4 @@
-import type { WaystationGoldTier, WaystationGrantedEffect } from "@border-empires/shared";
+import type { FortVariant, WaystationGoldTier, WaystationGrantedEffect } from "@border-empires/shared";
 
 // Shared response types for the personal Activity dashboard's 24h "Yours"
 // timeline (docs/activity-dashboard-plan.md), mirroring
@@ -43,6 +43,30 @@ export type PersonalActivityCombatCard = {
   pillagedGold: number;
   defenderGoldLoss: number;
   targetWasSettled: boolean;
+};
+
+// Several assaults on one of the player's tiles, folded into a single card
+// in place of the per-attack COMBAT cards they replace. A siege runs from the
+// first logged assault on the tile until the assault that captured it
+// (outcome FELL) or, if none has yet, is still HOLDING. Only ever produced
+// for the defending player.
+export type PersonalActivitySiegeCard = {
+  kind: "SIEGE";
+  id: string;
+  /** Time of the latest assault in the siege (the breaking one when it fell). */
+  occurredAt: number;
+  startedAt: number;
+  x: number;
+  y: number;
+  outcome: "FELL" | "HOLDING";
+  assaultsRepelled: number;
+  /** Distinct attackers in order of first assault. */
+  attackerIds: string[];
+  /** Manpower attackers lost across every assault, including the breaking one. */
+  manpowerSpentAgainst: number;
+  /** Fortification defending the tile at the latest assault, if any. */
+  defenseVariant?: FortVariant;
+  capturedBy?: string;
 };
 
 export type PersonalActivityWaystationCard = {
@@ -107,6 +131,7 @@ export type PersonalActivityTruncationNoteCard = {
 export type PersonalActivityCard =
   | PersonalActivityTerritoryCard
   | PersonalActivityCombatCard
+  | PersonalActivitySiegeCard
   | PersonalActivityWaystationCard
   | PersonalActivityTownCard
   | PersonalActivityBuildingCard

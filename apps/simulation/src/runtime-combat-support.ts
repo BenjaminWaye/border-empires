@@ -28,6 +28,7 @@ import * as wonderEffects from "./runtime-natural-wonders.js"; import { simulati
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { isTownInCaptureShock } from "./runtime-structure-rules/runtime-structure-rules.js";
 import type { LockRecord, LockedCombatResolution, RuntimePlayer, SimulationTileWireDelta, StrategicResourceKey } from "./runtime-types.js";
+import type { CombatManpowerLoss } from "./combat-manpower-log/combat-manpower-log.js";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import {
   noWarIndustryVulnerabilityLabelForAttacker,
@@ -87,18 +88,7 @@ export type RuntimeCombatSupportContext = {
   // (season-crowning.ts); this is a 24h-windowed, timestamped, attacker-
   // attributed feed. Optional so existing test fixtures that build a bare
   // RuntimeCombatSupportContext don't all need updating.
-  recordCombatManpowerLoss?: (loss: {
-    attackerId: string;
-    defenderId: string | undefined;
-    attackerWon: boolean;
-    manpowerLoss: number;
-    x: number;
-    y: number;
-    at: number;
-    pillagedGold: number;
-    defenderGoldLoss: number;
-    targetWasSettled: boolean;
-  }) => void;
+  recordCombatManpowerLoss?: (loss: CombatManpowerLoss) => void;
 };
 
 export type LockedCombatInput = Pick<
@@ -362,6 +352,7 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
       ? lock.manpowerCost
       : attackManpowerLoss(lock.manpowerCost, combat.attackerWon, combat.atkEff, combat.defEff);
   if (manpowerLoss > 0) {
+    const defenseVariant = targetHasActiveFortFor(ctx, previousTarget, defenderOwnerId, lock.targetKey) ? defendingFortVariant(previousTarget?.fort) : undefined;
     const existing = ctx.manpowerLossByTileKey.get(lock.targetKey) ?? 0;
     ctx.manpowerLossByTileKey.set(lock.targetKey, existing + manpowerLoss);
     ctx.recordCombatManpowerLoss?.({
@@ -374,7 +365,8 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
       at: ctx.now(),
       pillagedGold: plunder?.gold ?? 0,
       defenderGoldLoss: plunder?.defenderGoldLoss ?? 0,
-      targetWasSettled
+      targetWasSettled,
+      ...(defenseVariant ? { defenseVariant } : {})
     });
   }
   // EXPAND's manpower cost (§4.2) is a flat spend on success, not a combat-loss
