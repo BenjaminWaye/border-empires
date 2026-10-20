@@ -7,9 +7,10 @@ import type { ConstructionSite } from "@client/client-construction-phase/client-
 // (ConstructionSite's afcOffset), exactly as the game derives it from the owner's AFC tile.
 export const STORY_AFC_POSITION = { x: -4.5, z: -3.5 } as const;
 
-export const addStoryAfc = (scene: Scene): { update: (nowMs: number) => void; dispose: () => void } => {
+// `at` moves it (the pod flight story varies the distance); everything else uses the default spot.
+export const addStoryAfc = (scene: Scene, at: { readonly x: number; readonly z: number } = STORY_AFC_POSITION): { update: (nowMs: number) => void; dispose: () => void } => {
   const afc = createFabricationComplexOverlay(scene, 1);
-  afc.addInstance(STORY_AFC_POSITION.x, STORY_AFC_POSITION.z, 0, 5, 5);
+  afc.addInstance(at.x, at.z, 0, 5, 5);
   afc.commit();
   return { update: afc.update, dispose: afc.dispose };
 };

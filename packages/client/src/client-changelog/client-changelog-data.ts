@@ -8,6 +8,10 @@ import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-ar
 import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
 import { AFC_UPGRADES_ICON_CHANGELOG } from "./client-changelog-afc-upgrades-icon.js";
 import { MUSTER_BANNER_CHANGELOG } from "./client-changelog-muster-banner.js";
+import { BATTLE_TILE_SOUND_CHANGELOG } from "./client-changelog-battle-tile-sound.js";
+import { TOWN_VISUALS_CHANGELOG } from "./client-changelog-town-visuals.js";
+import { TOWN_BANNERS_CHANGELOG } from "./client-changelog-town-banners.js";
+import { CONSTRUCTION_POD_DELIVERY_CHANGELOG } from "./client-changelog-construction-pod-delivery.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -16,6 +20,7 @@ import { MUSTER_BANNER_CHANGELOG } from "./client-changelog-muster-banner.js";
 // of that window, move those entries into the next
 // client-changelog-data-earlier-N.ts (historical record, left unreferenced)
 // and delete them here and from the per-feature files below.
+import { ALLIED_PROSPERITY_CHANGELOG } from "./client-changelog-allied-prosperity.js";
 import { RECENT_CLIENT_CHANGELOG_ENTRIES } from "./client-changelog-data-october.js";
 import { TILE_YIELD_REMOVAL_CHANGELOG } from "./client-changelog-tile-yield-removal.js";
 import { AI_PROGRESSION_AETHER_CHANGELOG } from "./client-changelog-ai-progression-aether.js";
@@ -108,6 +113,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_RECENT,
   ...CLIENT_CHANGELOG_ENTRIES_MUSTER_SAVE_UP,
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
+  ...ALLIED_PROSPERITY_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_SEPT_24_26,
   ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,
   ...CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS,
@@ -466,6 +472,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Login and reconnect show free AFC choices unlocked by your Manifest tiers",
       "All 30 upgrade cards use short effect lines with percentages; expanded details explain conditions"
     ]
+  },
+  ...BATTLE_TILE_SOUND_CHANGELOG,
+  ...TOWN_VISUALS_CHANGELOG,
+  ...TOWN_BANNERS_CHANGELOG,
+  ...CONSTRUCTION_POD_DELIVERY_CHANGELOG,
+  {
+    createdAt: 1792510291974, // Date.now() captured for this entry.
+    introducedIn: "2026.10.20.1",
+    title: "Play independently of Vercel",
+    why: "A shared hosting limit could prevent players from opening the game even while the game servers were healthy.",
+    changes: ["Production and staging can serve the game directly from their existing game servers"]
   },
   {
     createdAt: 1792446323566, // Date.now() captured for this entry.

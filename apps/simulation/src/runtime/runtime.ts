@@ -1,3 +1,6 @@
+import { settleEnvoyDependents, settleEnvoyDependentsBeforeTileChange } from "./runtime-manpower-economy.js";
+import { afcEnvoyIncomeInSnapshot } from "../afc-specializations/afc-coalition.js";
+import { settleBootstrapManpower } from "./runtime-bootstrap-manpower.js";
 import { afcCampaignGuardCounters, afcCampaignStateGauges } from "../afc-specializations/afc-diagnostics.js";
 import { oracleDetectionDiagnostics } from "../afc-specializations/afc-oracle-detections.js";
 import { buildPlayerCombatSummary } from "../afc-specializations/afc-player-combat-facts.js";
@@ -665,6 +668,7 @@ export class SimulationRuntime {
   // guard silently stops firing on some future refactor) is observable in
   // prod — see feedback_counter_on_skip_paths.md.
   private manpowerCapBootstrapRestampedCount = 0;
+  private manpowerReady = false;
   private readonly wonderCacheByPlayer = new Map<string, Set<string>>();
   // Event-driven auto-settle eligibility, replacing AutoSettlementQueueCache
   // -- see runtime-auto-settle-eligibility.ts's doc comment. Neither map is
@@ -932,28 +936,8 @@ export class SimulationRuntime {
     for (const player of options.initialState?.players ?? []) {
       if (player.ownedTownTileKeys?.length) restoreRecoveredTownOrder(this.summaryForPlayer(player.id), player.ownedTownTileKeys);
     }
-    // Moved here (see the long comment above, right after this.state.tiles is
-    // assigned) from immediately after `this.state.players` was built: this is the
-    // first point where ancillaryDepotTilesByOwner/neuralWorksTilesByOwner/
-    // reserveLatticeTilesByOwner/ancillaryFactoryTilesByOwner all reflect the
-    // recovered tiles, so playerManpowerCap sees the TRUE cap for every
-    // recovered player on its very first read — the boot-order bug (manpower
-    // silently clamped down at boot, then snapped back up to full cap on the
-    // player's next tile mutation) can no longer occur.
-    for (const player of this.state.players.values()) {
-      const previousCapSnapshot = player.manpowerCapSnapshot;
-      this.applyManpowerRegen(player);
-      // Counter (see manpowerCapBootstrapRestampedCount's declaration): a
-      // recovered player whose persisted manpowerCapSnapshot doesn't match
-      // what boot hydration just computed. Expected to fire roughly
-      // once per structure-owning player per restart (their old snapshot
-      // predates this boot's tile hydration) and settle back to 0 — a count
-      // that keeps climbing during steady-state, not just at startup, means
-      // this guard itself has regressed.
-      if (Number.isFinite(previousCapSnapshot) && previousCapSnapshot !== player.manpowerCapSnapshot) {
-        this.manpowerCapBootstrapRestampedCount += 1;
-      }
-    }
+    this.manpowerCapBootstrapRestampedCount += settleBootstrapManpower(this.state.players.values(), player => this.applyManpowerRegen(player));
+    this.manpowerReady = true;
     for (const playerId of this.state.players.keys()) {
       this.rebuildPlannerCandidateIndexesForPlayer(playerId);
     }
@@ -1574,6 +1558,7 @@ export class SimulationRuntime {
   }
 
   private applyManpowerRegen(player: RuntimePlayer, nowMs = this.now()): void {
+    if (this.manpowerReady) settleEnvoyDependents(this.manpowerEconomyContext(), [player.id], nowMs);
     applyManpowerRegenForPlayerImpl(this.manpowerEconomyContext(), player, nowMs);
   }
 
@@ -1693,6 +1678,7 @@ export class SimulationRuntime {
     this.tileDeltaStringifyCache.invalidate(tileKey);
     const previous = this.state.tiles.get(tileKey);
     const tile = withAfcFortFacts(withoutStaleCaptureHold(previous, nextTile, this.now()), this.state.players);
+    if (this.manpowerReady) settleEnvoyDependentsBeforeTileChange(this.manpowerEconomyContext(), previous, tile);
     const sameOwner = Boolean(previous?.ownerId && previous.ownerId === tile.ownerId);
     // See refreshEconomyCachesForTileChange for why this is gated on SETTLED
     // ownership instead of invalidating unconditionally on every mutation.
@@ -2000,6 +1986,7 @@ export class SimulationRuntime {
       playerLogisticsThroughputPerMinute: this.playerLogisticsThroughputPerMinute.bind(this),
       playerManpowerBreakdown: this.playerManpowerBreakdown.bind(this),
       incomePerMinuteForPlayer: this.incomePerMinuteForPlayer.bind(this),
+      envoyIncomePerMinuteForPlayer: player => afcEnvoyIncomeInSnapshot(this.cachedEconomySnapshot(player)),
       summaryForPlayer: this.summaryForPlayer.bind(this),
       growthStalledNoFoodCounter: this.growthStalledNoFoodCounter,
       recordedEventsByCommandId: this.replayCache.recordedEventsByCommandId,
@@ -2165,6 +2152,10 @@ export class SimulationRuntime {
       applyManpowerRegen: (player: RuntimePlayer) => this.applyManpowerRegen(player),
       refreshManpowerOnly: (player: RuntimePlayer) => this.refreshManpowerOnly(player),
       incomePerMinuteForPlayer: (incomePlayerId: string) => this.incomePerMinuteForPlayer(incomePlayerId),
+      playerManpowerCap: (player: RuntimePlayer) => this.playerManpowerCap(player),
+      playerManpowerRegenPerMinute: (player: RuntimePlayer) => this.playerManpowerRegenPerMinute(player),
+      playerLogisticsThroughputPerMinute: (player: RuntimePlayer) => this.playerLogisticsThroughputPerMinute(player),
+      playerManpowerBreakdown: (player: RuntimePlayer) => this.playerManpowerBreakdown(player),
       cachedEconomySnapshot: (player: RuntimePlayer) => this.cachedEconomySnapshot(player),
       // Seeds the sparse-delta cache's baseline for every tile a player sees
       // at connect time, so their subsequent command/tick deltas for
@@ -2672,7 +2663,11 @@ export class SimulationRuntime {
       {
         settleEconomyBeforeChange: (player) => { this.applyEconomyAccrual(player, this.now()); this.refreshManpowerOnly(player); },
         invalidateEconomyAfterChange: (id) => { this.economyCaches.invalidateEconomySnapshot(id); this.economyCaches.clearTownNetworks(); this.economyCaches.upkeepAccrualCacheByPlayer.delete(id); },
-        emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+        emitPlayerStateUpdate: (command) => {
+          const player = this.state.players.get(command.playerId);
+          if (player) player.manpowerCapSnapshot = this.playerManpowerCap(player);
+          this.emitPlayerStateUpdate(command);
+        },
         players: this.state.players,
         visibilityCoverage: this.state.visibilityCoverage,
         visionTransitionCallbacks: this.visionTransitions.callbacks, reachBorder: this.reachBorder,
