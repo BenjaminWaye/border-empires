@@ -123,6 +123,23 @@ both native project identifiers together if the owner's registered ID differs.
 - Each release must rebuild/sync from the intended commit, verify production
   build metadata, and include device smoke tests before store review.
 
+## Store listing drafts
+
+English listing text is prepared in `apps/mobile/store/en-US/apple.json` and
+`google-play.json`. These are editorial drafts, not store API payloads. Confirm
+categories in each console rather than sending the labels as provider IDs.
+Names, subtitles, keywords and descriptions fit the store text limits.
+Support email, legal publisher identity, support/privacy/deletion URLs,
+screenshots, age ratings and privacy declarations still need verified inputs.
+Do not infer declarations from this copy or submit the draft review notes.
+
+The release attempt on 2026-10-20 found Google Play blocked at developer
+identity verification (the mobile identity-check connection was lost), Apple
+App Store Connect signed out, and no valid Apple code-signing identity on the
+Mac. Neither store received a binary or listing. Keep the existing app ID until
+the owner confirms its registration in both consoles; do not create replacement
+upload keys for an existing Play app without checking its registered key.
+
 ## Required before store submission
 
 These are existing product gaps, not tasks that signing the wrapper completes:
