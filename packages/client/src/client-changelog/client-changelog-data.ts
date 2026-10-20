@@ -12,6 +12,7 @@ import { BATTLE_TILE_SOUND_CHANGELOG } from "./client-changelog-battle-tile-soun
 import { TOWN_VISUALS_CHANGELOG } from "./client-changelog-town-visuals.js";
 import { TOWN_BANNERS_CHANGELOG } from "./client-changelog-town-banners.js";
 import { CONSTRUCTION_POD_DELIVERY_CHANGELOG } from "./client-changelog-construction-pod-delivery.js";
+import { CAPTURE_HOLD_EFFORT_CHANGELOG } from "./client-changelog-capture-hold-effort.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -484,16 +485,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "A shared hosting limit could prevent players from opening the game even while the game servers were healthy.",
     changes: ["Production and staging can serve the game directly from their existing game servers"]
   },
-  {
-    createdAt: 1792527745849, // Date.now() captured for this entry.
-    introducedIn: "2026.10.20.4",
-    title: "Effort counts against freshly captured ground",
-    why: "Marching or attacking with Extra or Double effort into a tile whose new owner was still holding it showed better odds but still rolled 50%.",
-    changes: [
-      "Extra and Double effort now raise your win chance against troops holding captured ground, and Launch Attack offers the effort sheet there",
-      "Attacks on held ground cost exactly the manpower committed, win or lose, like attacks on garrisoned tiles"
-    ]
-  }
+  ...CAPTURE_HOLD_EFFORT_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
