@@ -138,10 +138,10 @@ export const planStreetGrid = (spec: StreetGridSpec, random: () => number): Stre
 
 const drawStreetGrid = (t: TownBuilders, spec: StreetGridSpec, plan: StreetGridPlan): void => {
   // The plate is the street; blocks are raised sidewalks.
-  octagonPlate(t, spec.plateRadius, false, "plateDark");
+  octagonPlate(t, spec.plateRadius, false, "asphalt");
   const [orreryCol, orreryRow] = spec.parks[0] ?? [-1, -1];
   for (const block of plan.blocks) {
-    t.body.box(block.x, 0, block.z, block.size, 0.005, block.size, block.park ? "foliage" : "plate");
+    t.body.box(block.x, 0, block.z, block.size, 0.005, block.size, block.park ? "foliage" : "paving");
     if (block.park && block.size < spec.cell) {
       tree(t, block.x - block.size * 0.2, block.z, block.size * 0.7);
       tree(t, block.x + block.size * 0.22, block.z + block.size * 0.15, block.size * 0.6);

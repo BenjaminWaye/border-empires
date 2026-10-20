@@ -1,15 +1,18 @@
 // Procedural 3D towns. Each tier is baked once into a vertex-coloured,
 // flat-shaded clockwork city (town-tier-geometry.ts): grey stone skyscrapers
 // banded in the AFC's aged brass, lit by lamplight and aether, round an
-// octagonal plaza plate. Drawn per tier as three instanced meshes that share one
-// transform buffer: the matte body, the metalwork and glass (metallic, like
-// the AFC's), the unlit glow (window strips, lamps, aether) and the steam.
-// Cogs, orrery hoops, halos, crystals and circling airships turn, lamplight
-// flickers and steam rises entirely in the shaders (town-animation-shaders.ts).
+// octagonal plaza plate. Drawn per tier as instanced meshes that share one
+// transform buffer: the matte body, the metalwork (metallic, like the AFC's),
+// the mirror glass, the unlit glow (window strips, shopfronts, lamps, aether,
+// beacons), the additive light pools on the paving, and the steam.
+// Cogs, orrery hoops, halos, crystals, courier gyros and circling airships turn,
+// lamplight flickers, beacons blink and steam rises entirely in the shaders
+// (town-animation-shaders.ts).
 //
 // Each town is turned a quarter-turn picked from its world tile, so
 // neighbouring towns of the same tier don't read as stamped copies.
 import {
+  AdditiveBlending,
   InstancedMesh,
   Matrix4,
   MeshBasicMaterial,
@@ -42,7 +45,7 @@ export const townQuarterTurnForTile = (tileX: number, tileY: number): number => 
 
 type TierSlot = {
   readonly body: InstancedMesh;
-  /** Metal and glow meshes drawing with the body's instance matrices. */
+  /** Metal, glass, glow, halo and steam meshes drawing with the body's instance matrices. */
   readonly followers: readonly InstancedMesh[];
   count: number;
 };
@@ -61,8 +64,17 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
   // Matches the AFC's iron/brass finish (client-map-3d-fabrication-complex.ts).
   const metalMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.7, flatShading: true });
   applyBuildingEnvMap(metalMaterial, envMap);
+  // Curtain walls: near-mirror glass, so the downtown towers carry the sky.
+  const glassMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.2, metalness: 0.85, flatShading: true });
+  applyBuildingEnvMap(glassMaterial, envMap);
   // Unlit and outside tone mapping so windows and aether stay luminous under the warm sun.
   const glowMaterial = new MeshBasicMaterial({ toneMapped: false, vertexColors: true });
+  // Pools of lamp- and shoplight added onto the paving under them: black
+  // rims add nothing, so each fades out softly, and the low opacity keeps
+  // sunlit paving from blowing out. Fog would add its own colour.
+  const haloMaterial = new MeshBasicMaterial({
+    toneMapped: false, vertexColors: true, transparent: true, opacity: 0.32, blending: AdditiveBlending, depthWrite: false, fog: false
+  });
   const steamMaterial = new MeshStandardMaterial({
     vertexColors: true, roughness: 1, metalness: 0, flatShading: true, transparent: true, opacity: 0.6, depthWrite: false
   });
@@ -70,7 +82,9 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
   const depthMaterial = new MeshDepthMaterial({ depthPacking: RGBADepthPacking });
   applyTownSpin(bodyMaterial);
   applyTownSpin(metalMaterial);
+  applyTownSpin(glassMaterial);
   applyTownSpin(glowMaterial, true);
+  applyTownSpin(haloMaterial, true);
   applyTownSpin(depthMaterial);
   applyTownSteam(steamMaterial);
 
@@ -91,7 +105,9 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
     const followers: InstancedMesh[] = [];
     for (const [suffix, part, material, shadowed] of [
       ["metal", geometry.metal, metalMaterial, true],
+      ["glass", geometry.glass, glassMaterial, true],
       ["glow", geometry.glow, glowMaterial, false],
+      ["halo", geometry.halo, haloMaterial, false],
       ["steam", geometry.steam, steamMaterial, false]
     ] as const) {
       if (!part) continue;
@@ -150,6 +166,8 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
     slots.clear();
     bodyMaterial.dispose();
     metalMaterial.dispose();
+    glassMaterial.dispose();
+    haloMaterial.dispose();
     steamMaterial.dispose();
     depthMaterial.dispose();
     glowMaterial.dispose();

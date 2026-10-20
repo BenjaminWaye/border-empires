@@ -31,15 +31,20 @@ describe("newly shadow-wired overlays", () => {
     massifs.dispose();
   });
 
-  it("town buildings cast and receive shadows, except the unlit glow and the steam", () => {
+  it("town buildings cast and receive shadows, except the unlit glow, the light pools and the steam", () => {
     const scene = new Scene();
     const overlay = createTownOverlay(scene, 4);
-    const meshes = instancedMeshesIn(scene).filter((mesh) => !mesh.name.endsWith("-glow") && !mesh.name.endsWith("-steam"));
+    const unlit = (name: string): boolean => name.endsWith("-glow") || name.endsWith("-halo") || name.endsWith("-steam");
+    const meshes = instancedMeshesIn(scene).filter((mesh) => !unlit(mesh.name));
     expect(meshes.length).toBeGreaterThan(0);
     for (const mesh of meshes) {
       expect(mesh.castShadow).toBe(true);
       expect(mesh.receiveShadow).toBe(true);
     }
+    // Light pools are light, not matter: they never darken what's under them.
+    const pools = instancedMeshesIn(scene).filter((mesh) => mesh.name.endsWith("-halo"));
+    expect(pools.length).toBeGreaterThan(0);
+    for (const mesh of pools) expect(mesh.castShadow).toBe(false);
     overlay.dispose();
   });
 
