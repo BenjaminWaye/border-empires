@@ -1,4 +1,4 @@
-import { afcEnvoyBenefits } from "./afc-specializations/afc-coalition.js";
+import { mutualAfcAllies, applyAfcEnvoyIncome } from "./afc-specializations/afc-coalition.js";
 import { DOCK_INCOME_PER_MIN, PASSIVE_INCOME_MULT, type DomainTileState } from "@border-empires/game-domain";
 import { buildDockLinksByDockTileKey } from "./dock-network/dock-network.js";
 import { buildConnectedTownNetworkForPlayer, dockBaseGoldPerMinuteForPlayer } from "./economy-network/economy-network.js";
@@ -152,17 +152,19 @@ export const buildLivePlayerEconomySnapshot = (
     }
   }
 
-  if (economyPlayer && player) {
-    const envoy = afcEnvoyBenefits({ ...economyPlayer, allies: new Set(player.allies) }, new Map(runtimeState.players.map(peer => [peer.id, { id: peer.id, allies: new Set(peer.allies) }])));
-    if (envoy.goldPerMinute > 0) addBucket(goldSources, "Envoy Accreditation", envoy.goldPerMinute, { count: envoy.allies });
-  }
-  return buildEconomyResult({
+  const result = buildEconomyResult({
     player, strategicProductionPerMinute, resourceSlots, dormantStructures,
     goldSources, goldSinks, foodSources, foodSinks,
     titaniumSources, titaniumSinks, crystalSources, crystalSinks,
     umbriteSources, umbriteSinks, shardSources,
     fedTownKeys, fedTownKeysByPlayer
   });
+  const envoyIncome = player?.afcEnvoyIncomePerMinute ?? 0;
+  if (!player || envoyIncome <= 0) return result;
+  const allies = mutualAfcAllies({ id: player.id, allies: new Set(player.allies) },
+    new Map(runtimeState.players.map(peer => [peer.id, { id: peer.id, allies: new Set(peer.allies) }])));
+  return applyAfcEnvoyIncome(result, { allies: allies.length, goldPerMinute: envoyIncome,
+    manpowerCap: 0, manpowerRegenPerMinute: 0 });
 };
 
 // §5 (resource slots): the cold/reconnect snapshot path has no live

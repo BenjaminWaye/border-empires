@@ -8,7 +8,7 @@ import { registerConstructionScaffold } from "./client-map-3d-construction-scaff
 
 // Everything that surrounds a structure under construction, apart from the
 // structure's own (phase-gated) geometry: scaffolding, the parts stack and
-// ancillary crew, and the delivery pod dropped at each new phase
+// ancillary crew, and the parts pod the AFC flies in at each new phase
 // (docs/construction-animation-plan.md). One bundle so each 3D overlay that can
 // show a construction site (the shared structure overlay, the Relay Beacon
 // overlay, later forts) wires up the same five calls instead of re-deriving
@@ -40,6 +40,9 @@ export const createConstructionPresentation = (scene: Scene, envMap?: Texture): 
   let phasesLastRebuild = new Map<string, number>();
   let phasesThisRebuild = new Map<string, number>();
   let earliestPhaseAtMs = Infinity;
+  // A new phase's crates arrive with its pod: until it lands, the stack shows empty.
+  let frameNowMs = 0;
+  const awaitingDelivery = (siteKey: string): boolean => pods.awaitingDelivery(siteKey, frameNowMs);
 
   const addSite: ConstructionPresentation["addSite"] = (sceneX, sceneZ, surfaceY, site, structureHeight, layout = DEFAULT_CONSTRUCTION_LAYOUT) => {
     scaffold.place(sceneX, surfaceY, sceneZ, structureHeight, site.visibleBands, CONSTRUCTION_PHASES);
@@ -75,7 +78,8 @@ export const createConstructionPresentation = (scene: Scene, envMap?: Texture): 
       pods.retainOnly(new Set(phasesThisRebuild.keys()));
     },
     update: (nowMs: number): void => {
-      crew.update(Date.now());
+      frameNowMs = nowMs;
+      crew.update(Date.now(), pods.activeCount() > 0 ? awaitingDelivery : undefined);
       pods.update(nowMs);
     },
     boundaryPassed: (): boolean => Date.now() >= earliestPhaseAtMs,

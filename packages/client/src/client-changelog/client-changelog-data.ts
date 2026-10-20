@@ -12,6 +12,7 @@ import { BATTLE_TILE_SOUND_CHANGELOG } from "./client-changelog-battle-tile-soun
 import { TOWN_VISUALS_CHANGELOG } from "./client-changelog-town-visuals.js";
 import { TOWN_BANNERS_CHANGELOG } from "./client-changelog-town-banners.js";
 import { WAR_MUSIC_DIPLOMACY_CHANGELOG } from "./client-changelog-war-music-diplomacy.js";
+import { CONSTRUCTION_POD_DELIVERY_CHANGELOG } from "./client-changelog-construction-pod-delivery.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -20,6 +21,7 @@ import { WAR_MUSIC_DIPLOMACY_CHANGELOG } from "./client-changelog-war-music-dipl
 // of that window, move those entries into the next
 // client-changelog-data-earlier-N.ts (historical record, left unreferenced)
 // and delete them here and from the per-feature files below.
+import { ALLIED_PROSPERITY_CHANGELOG } from "./client-changelog-allied-prosperity.js";
 import { RECENT_CLIENT_CHANGELOG_ENTRIES } from "./client-changelog-data-october.js";
 import { TILE_YIELD_REMOVAL_CHANGELOG } from "./client-changelog-tile-yield-removal.js";
 import { AI_PROGRESSION_AETHER_CHANGELOG } from "./client-changelog-ai-progression-aether.js";
@@ -112,6 +114,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_RECENT,
   ...CLIENT_CHANGELOG_ENTRIES_MUSTER_SAVE_UP,
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
+  ...ALLIED_PROSPERITY_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_SEPT_24_26,
   ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,
   ...CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS,
@@ -475,6 +478,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...TOWN_VISUALS_CHANGELOG,
   ...TOWN_BANNERS_CHANGELOG,
   ...WAR_MUSIC_DIPLOMACY_CHANGELOG,
+  ...CONSTRUCTION_POD_DELIVERY_CHANGELOG,
   {
     createdAt: 1792510291974, // Date.now() captured for this entry.
     introducedIn: "2026.10.20.1",
