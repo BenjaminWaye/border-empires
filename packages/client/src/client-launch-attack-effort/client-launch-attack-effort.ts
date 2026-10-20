@@ -3,8 +3,9 @@
 // March To uses (client-effort-confirm-sheet.ts) before queuing, so a manual
 // attack can commit more than the target's muster floor for better odds
 // (docs/replenishment-update-plan.md D6). The sheet only appears when at
-// least one target is effort-eligible (SETTLED, non-barbarian -- see
-// isAttackEffortEligibleTarget); a frontier or barbarian attack gains nothing
+// least one target is effort-eligible (SETTLED or holding captured ground,
+// non-barbarian -- see isAttackEffortEligibleTarget); any other frontier or
+// barbarian attack gains nothing
 // from extra manpower, so it still fires on the first click.
 import { MUSTER_COMMIT_PRESET_MULTIPLIERS, musterCommitPresetAmount, type MusterCommitPreset } from "../client-muster-commit-tab/client-muster-commit-tab.js";
 import { commitPreviewWinChanceForTarget } from "../client-queue-logic/client-attack-preview-logic.js";
@@ -57,7 +58,7 @@ export const promptAttackEffortForTarget = (
   const floor = attackEffortFloorForTarget(tile, state);
   const handle = showEffortConfirmSheet({
     title: options.title,
-    subtitle: "Garrisoned tile — committing more manpower improves your odds.",
+    subtitle: `${tile.ownershipState === "SETTLED" ? "Garrisoned tile" : "Troops holding captured ground"} — committing more manpower improves your odds.`,
     floor,
     cap: Math.max(floor, state.manpowerCap),
     mode: "slider",
@@ -111,12 +112,12 @@ const promptBulkEffort = (
     eligible.reduce((sum, tile) => sum + musterCommitPresetAmount(preset, attackEffortFloorForTarget(tile, state)), 0);
   const handle = showEffortConfirmSheet({
     title,
-    subtitle: `${eligible.length} garrisoned target${eligible.length === 1 ? "" : "s"} — effort applies to each of them.`,
+    subtitle: `${eligible.length} defended target${eligible.length === 1 ? "" : "s"} — effort applies to each of them.`,
     floor: minFloor,
     cap: Math.max(minFloor, state.manpowerCap),
     mode: "presets",
     confirmLabel: "Attack",
-    describe: (_commit, preset) => `About ${totalFor(preset ?? "normal")} manpower across the garrisoned targets`,
+    describe: (_commit, preset) => `About ${totalFor(preset ?? "normal")} manpower across the defended targets`,
     onConfirm: (_commit, preset) => onConfirm(preset ?? "normal")
   });
   return handle !== undefined;
@@ -133,7 +134,7 @@ export const launchAttacksWithEffort = (
 ): void => {
   const enemyKeys = enemyTargetKeys(state, request.targetKeys, deps);
   deps.hideTileActionMenu();
-  const eligible = enemyKeys.map((k) => state.tiles.get(k)).filter(isAttackEffortEligibleTarget);
+  const eligible = enemyKeys.map((k) => state.tiles.get(k)).filter((tile) => isAttackEffortEligibleTarget(tile));
   const launch = (): void => queueAndReport(enemyKeys, request, deps);
   if (eligible.length === 0) {
     // attackCommitForTarget already ignores ineligible targets; clearing too

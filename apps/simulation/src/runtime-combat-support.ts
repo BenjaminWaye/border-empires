@@ -8,6 +8,8 @@ import {
   commitOddsMultiplier,
   defendingFortVariant,
   isFortDefending,
+  isCaptureHoldActive,
+  isCommitOddsEligibleTarget,
   isUndefendedFrontierTile,
   rollFrontierCombat,
   shieldDefenseMultiplier,
@@ -304,20 +306,22 @@ const resolveAttackCombat = (
   // (structure-costs.ts requiredMusterForFort) the attack was required to
   // meet to launch at all, so committing exactly the floor (today's only
   // option until the commitment-choice UI ships) reproduces today's base_odds
-  // unchanged. FRONTIER targets don't use the muster ladder and keep
-  // base_odds as-is (multiplier 1). Barbarian-ORIGIN attacks (D6 "barbarians
+  // unchanged. A FRONTIER tile still holding captured ground (capture-hold.ts)
+  // rolls real combat too, so it scales the same way against its
+  // FRONTIER_ATTACK_MUSTER_COST floor; plain FRONTIER is a guaranteed capture
+  // and never reaches here. Barbarian-ORIGIN attacks (D6 "barbarians
   // keep a flat cost") are excluded too: validateFrontierCommand gives them
   // manpowerCost 0 (cooldown-gated, not manpower-gated), which would
   // otherwise divide-to-zero the odds here.
-  const isCommitEligible = previousTarget?.ownershipState === "SETTLED" && lock.playerId !== "barbarian-1";
+  const isCommitEligible = isCommitOddsEligibleTarget(previousTarget, ctx.now()) && lock.playerId !== "barbarian-1";
   const base = previousTarget ? requiredMusterForTarget({ ...previousTarget, fort: targetHasActiveFort ? previousTarget.fort : undefined }, attacker, defender) : 1;
   const commitMultiplier = isCommitEligible ? commitOddsMultiplier(lock.manpowerCost, base) : 1;
   // docs/muster-fronts-proposal.md §4: a shield flag (HOLD-mode, within
   // SHIELD_RADIUS_TILES, or any mode on its own tile) matches the attacker's
   // commitment up to what it holds, dividing shieldDefenseMultiplier back into
   // the attack-side boost commitOddsMultiplier just applied -- same gating as
-  // the commit rule itself (SETTLED targets, non-barbarian attacker only).
-  const shieldFlag = isCommitEligible && defenderOwnerId
+  // the commit rule itself, but SETTLED targets only (not held FRONTIER).
+  const shieldFlag = isCommitEligible && previousTarget?.ownershipState === "SETTLED" && defenderOwnerId
     ? findShieldForDefender(ctx.musterTilesByOwner, ctx.tiles, ctx.musterReservedByKey, defenderOwnerId, lock.targetKey, lock.targetX, lock.targetY)
     : undefined;
   const shieldMatched = shieldFlag ? shieldMatchAmount(shieldFlag.amount, lock.manpowerCost) : 0;
@@ -347,13 +351,14 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
       ? previewSettledCapturePlunder({ defender, defenderTileCountBeforeCapture, target: previousTarget })
       : undefined;
   // docs/replenishment-update-plan.md D6: "fixed loss = commitment" for a
-  // SETTLED target -- replaces the old uniform-random draw within the fort
-  // tier's range. Win or lose, the attacker loses exactly what they
-  // committed (resolveAttackCombat's commitMultiplier already used that same
+  // SETTLED target, or a FRONTIER tile still holding captured ground --
+  // replaces the old uniform-random draw within the fort tier's range. Win or
+  // lose, the attacker loses exactly what they committed
+  // (resolveAttackCombat's commitMultiplier already used that same
   // commitment to shape the odds).
   const manpowerLoss = lock.actionType !== "ATTACK"
     ? 0
-    : targetWasSettled
+    : targetWasSettled || isCaptureHoldActive(previousTarget, ctx.now())
       ? lock.manpowerCost
       : attackManpowerLoss(lock.manpowerCost, combat.attackerWon, combat.atkEff, combat.defEff);
   if (manpowerLoss > 0) {

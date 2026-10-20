@@ -14,6 +14,8 @@ import { TOWN_VISUALS_CHANGELOG } from "./client-changelog-town-visuals.js";
 import { TOWN_BANNERS_CHANGELOG } from "./client-changelog-town-banners.js";
 import { WAR_MUSIC_DIPLOMACY_CHANGELOG } from "./client-changelog-war-music-diplomacy.js";
 import { CONSTRUCTION_POD_DELIVERY_CHANGELOG } from "./client-changelog-construction-pod-delivery.js";
+import { CAPTURE_HOLD_EFFORT_CHANGELOG } from "./client-changelog-capture-hold-effort.js";
+import { HETZNER_CLIENT_HOSTING_CHANGELOG } from "./client-changelog-hetzner-client-hosting.js";
 import { MUSTER_SIEGE_CHANGELOG } from "./client-changelog-muster-siege.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
@@ -483,13 +485,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...WAR_MUSIC_DIPLOMACY_CHANGELOG,
   ...CONSTRUCTION_POD_DELIVERY_CHANGELOG,
   ...MUSTER_SIEGE_CHANGELOG,
-  {
-    createdAt: 1792510291974, // Date.now() captured for this entry.
-    introducedIn: "2026.10.20.1",
-    title: "Play independently of Vercel",
-    why: "A shared hosting limit could prevent players from opening the game even while the game servers were healthy.",
-    changes: ["Production and staging can serve the game directly from their existing game servers"]
-  }
+  ...HETZNER_CLIENT_HOSTING_CHANGELOG,
+  ...CAPTURE_HOLD_EFFORT_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
