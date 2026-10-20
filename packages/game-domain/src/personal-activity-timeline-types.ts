@@ -14,6 +14,7 @@ import type { FortVariant, WaystationGoldTier, WaystationGrantedEffect } from "@
 // apps/simulation/src/personal-impact-log exists -- not stubbed here ahead
 // of a real producer.
 export const PERSONAL_ACTIVITY_TIMELINE_CARD_CAP = 100;
+export const PERSONAL_ACTIVITY_RIVAL_CAP = 5;
 
 export type PersonalActivityDirection = "GAINED" | "LOST";
 
@@ -43,6 +44,45 @@ export type PersonalActivityCombatCard = {
   pillagedGold: number;
   defenderGoldLoss: number;
   targetWasSettled: boolean;
+  /** Fortification defending the target when the attack resolved, if any. */
+  defenseVariant?: FortVariant;
+  /** A failed attack whose launch tile the defender took in return. */
+  originSeized?: boolean;
+};
+
+// Several attacks between the player and one rival close together in time
+// and place (excluding same-tile sieges), folded into one card. `role` is the
+// viewing player's side: ATTACKER for "your assault on Maren", DEFENDER for
+// "Maren's raids on your border".
+export type PersonalActivityCombatGroupCard = {
+  kind: "COMBAT_GROUP";
+  id: string;
+  /** Time of the latest attack in the group. */
+  occurredAt: number;
+  role: "ATTACKER" | "DEFENDER";
+  counterpartyPlayerId: string | undefined;
+  attempts: number;
+  /** Attacks that captured their target. */
+  captures: number;
+  /** Failed attacks whose launch tile the defender took in return. */
+  originsSeized: number;
+  /** Manpower the attacking side lost across the group. */
+  manpowerLoss: number;
+  pillagedGold: number;
+  defenderGoldLoss: number;
+  x: number;
+  y: number;
+};
+
+// Head-to-head tally against one opponent over the timeline window.
+export type PersonalActivityRival = {
+  playerId: string;
+  tilesTaken: number;
+  tilesLost: number;
+  /** Their attacks on you that failed. */
+  attacksRepelled: number;
+  /** Your attacks on them that failed. */
+  attacksFailed: number;
 };
 
 // Several assaults on one of the player's tiles, folded into a single card
@@ -131,6 +171,7 @@ export type PersonalActivityTruncationNoteCard = {
 export type PersonalActivityCard =
   | PersonalActivityTerritoryCard
   | PersonalActivityCombatCard
+  | PersonalActivityCombatGroupCard
   | PersonalActivitySiegeCard
   | PersonalActivityWaystationCard
   | PersonalActivityTownCard
@@ -160,6 +201,8 @@ export type PersonalActivityTimeline = {
   // attackerId === playerId.
   manpowerSpentAttacking: number;
   cards: PersonalActivityCard[];
+  // Most active opponents first, capped at PERSONAL_ACTIVITY_RIVAL_CAP.
+  rivals: PersonalActivityRival[];
   // True when `from` predates the 24h retention cutoff, i.e. the caller
   // asked for more history than the rolling logs can provide.
   truncated: boolean;

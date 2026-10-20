@@ -32,6 +32,7 @@ const timelineWith = (cards: PersonalActivityCard[]): PersonalActivityTimeline =
   goldRaidedFromYou: 0,
   manpowerSpentAttacking: 0,
   cards,
+  rivals: [],
   truncated: false
 });
 

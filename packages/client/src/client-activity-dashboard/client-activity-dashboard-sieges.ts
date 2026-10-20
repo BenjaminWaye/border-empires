@@ -1,7 +1,9 @@
 import type { PersonalActivityCard, PersonalActivityTimeline } from "@border-empires/game-domain";
 
 import { escapeActivityDashboardHtml } from "./client-activity-dashboard-escape.js";
-import { activityCardTimeLabel, siegeDetail, siegeHeadline, type PlayerNameLookup } from "./client-activity-dashboard-format.js";
+import { siegeDetail, siegeHeadline } from "./client-activity-dashboard-combat-text.js";
+import { activityCardTimeLabel } from "./client-activity-dashboard-format.js";
+import type { PlayerNameLookup } from "./client-activity-dashboard-names.js";
 
 type SiegeCard = Extract<PersonalActivityCard, { kind: "SIEGE" }>;
 

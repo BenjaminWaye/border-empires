@@ -8,6 +8,8 @@ import { clearActivityDashboard, paintActivityDashboard, resetActivityDashboardS
 import { worldPulseAtGlanceHtml, worldPulseBodyHtml } from "./client-activity-dashboard-world-pulse.js";
 import { resourceSurveySectionHtml } from "./client-activity-dashboard-surveys.js";
 import { nonSiegeActivityCards, siegeSectionHtml } from "./client-activity-dashboard-sieges.js";
+import { rivalSectionHtml } from "./client-activity-dashboard-rivals.js";
+import { ACTIVITY_TONE_GLYPH, activityCardTone } from "./client-activity-dashboard-tone.js";
 
 type ActivityDashboardDeps = {
   state: Pick<
@@ -58,8 +60,10 @@ const cardRowHtml = (card: Parameters<typeof activityCardText>[0], playerId: str
   const centerBtn = coords
     ? `<button class="activity-dashboard-center-btn" type="button" data-activity-focus-x="${coords.x}" data-activity-focus-y="${coords.y}">Center</button>`
     : "";
+  const tone = activityCardTone(card, playerId);
   return `
-    <div class="activity-dashboard-card">
+    <div class="activity-dashboard-card is-${tone}">
+      <span class="activity-dashboard-card-glyph" aria-hidden="true">${ACTIVITY_TONE_GLYPH[tone]}</span>
       <span class="activity-dashboard-card-text">${activityCardTimeLabel(card)} · ${escapeActivityDashboardHtml(activityCardText(card, playerId, playerNames, techName))}</span>
       ${centerBtn}
     </div>
@@ -88,6 +92,8 @@ export const renderClientActivityDashboardOverlay = (deps: ActivityDashboardDeps
           <div class="activity-dashboard-summary-line">${summaryCountsLine(timeline.summary, timeline, state.manpowerCap)}</div>
           ${truncationLabel(timeline) ? `<div class="activity-dashboard-truncation-note">${truncationLabel(timeline)}</div>` : ""}
           ${siegeSectionHtml(timeline, playerName)}
+          ${rivalSectionHtml(timeline, playerName)}
+          ${nonSiegeActivityCards(timeline.cards).length > 0 ? '<h3 class="activity-dashboard-timeline-heading">Timeline</h3>' : ""}
           ${nonSiegeActivityCards(timeline.cards).map((card) => cardRowHtml(card, state.me, playerName, (id) => state.techCatalog.find((tech) => tech.id === id)?.name)).join("")}
         `;
   const yoursBodyHtml = resourceSurveySectionHtml(state.eventLog, state.techIds) + yoursTimelineHtml;

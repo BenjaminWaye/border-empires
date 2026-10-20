@@ -103,6 +103,29 @@ active/owned/not-dormant gate combat uses). The client renders sieges in a
 (`client-activity-dashboard-sieges.ts`), not inside the chronological list.
 Sieges are personal only and do not appear in World Pulse.
 
+**Battle report.** The aggregator also:
+
+- matches each ownership flip to the combat that caused it
+  (`personal-activity-flip-matching.ts`). Combat is logged when the attack
+  launches and the flip when it lands, so they match within 15 minutes. A
+  capture's flip is dropped from the territory cards (the combat card already
+  tells it). A failed attack whose launch tile the defender took is marked
+  `originSeized` instead of producing a separate "+1 tile claimed" row.
+  `CombatManpowerLoss.originX/originY` makes that match exact; older entries
+  fall back to a tile adjacent to the target. Headline counts still use every
+  flip.
+- folds the remaining fights between the player and one rival into a
+  `COMBAT_GROUP` card when they're on the same side, against the same rival,
+  within 6 tiles of each other, with no lull over 10 minutes
+  (`personal-activity-combat-groups.ts`). A lone fight stays a `COMBAT` card.
+- tallies `rivals` per opponent: tiles taken and lost, their attacks repelled,
+  your attacks failed. Most active first, capped at 5, barbarians excluded
+  (`personal-activity-rivals.ts`).
+
+The client renders a **Rivals** section after Sieges, then the timeline. Each
+timeline row gets a tone (gain, loss, hold or neutral) shown as a coloured
+glyph (`client-activity-dashboard-tone.ts`).
+
 ## 1. Decision
 
 Replace the current client **Activity Feed** as the player-facing history

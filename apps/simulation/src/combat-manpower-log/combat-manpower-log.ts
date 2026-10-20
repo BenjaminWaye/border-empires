@@ -33,6 +33,14 @@ export type CombatManpowerLoss = {
    * cards ("your Palisade held off 4 assaults").
    */
   defenseVariant?: FortVariant;
+  /**
+   * The attacker's launch tile. A failed attack hands it to the defender, so
+   * the personal timeline matches that ownership flip back to this combat
+   * instead of showing it as an unrelated "+1 tile claimed" row. Optional
+   * because entries persisted before this field existed don't carry it.
+   */
+  originX?: number;
+  originY?: number;
 };
 
 export type CombatManpowerLogGauge = {

@@ -2,7 +2,9 @@ import { TERRITORY_FLIP_WINDOW_MS, type TerritoryFlip } from "../territory-flip-
 import type { CombatManpowerLoss } from "../combat-manpower-log/combat-manpower-log.js";
 import { PERSONAL_ACTIVITY_TIMELINE_CARD_CAP, type PersonalActivityCard, type PersonalActivityTimeline } from "@border-empires/game-domain";
 import { groupTerritoryFlipsForPlayer } from "./personal-activity-territory-grouping.js";
-import { combatCardsForPlayer } from "./personal-activity-combat-cards.js";
+import { combatCardsWithGroups } from "./personal-activity-combat-groups.js";
+import { matchCombatToFlips } from "./personal-activity-flip-matching.js";
+import { rivalsForPlayer } from "./personal-activity-rivals.js";
 import { siegeCardsForDefender } from "./personal-activity-siege-cards.js";
 import { capPersonalActivityCards } from "./personal-activity-cap.js";
 import { personalImpactCardsForPlayer } from "./personal-activity-impact-cards.js";
@@ -28,9 +30,10 @@ export const aggregatePersonalActivity = (
   const relevantCombat = combat.filter((loss) => inWindow(loss.at) && (loss.attackerId === playerId || loss.defenderId === playerId));
   const relevantImpacts = personalImpacts.filter((event) => inWindow(event.occurredAt));
 
-  const territoryCards = groupTerritoryFlipsForPlayer(playerId, relevantFlips);
+  const matches = matchCombatToFlips(relevantCombat, relevantFlips);
+  const territoryCards = groupTerritoryFlipsForPlayer(playerId, relevantFlips.filter((flip) => !matches.consumedFlips.has(flip)));
   const sieges = siegeCardsForDefender(playerId, relevantCombat);
-  const combatCards = combatCardsForPlayer(playerId, relevantCombat.filter((loss) => !sieges.consumed.has(loss)));
+  const combatCards = combatCardsWithGroups(playerId, relevantCombat.filter((loss) => !sieges.consumed.has(loss)), matches.originSeized);
   const impactCards = personalImpactCardsForPlayer(playerId, relevantImpacts);
   const allCards: PersonalActivityCard[] = [...territoryCards, ...combatCards, ...sieges.cards, ...impactCards.waystations, ...impactCards.towns, ...impactCards.buildings];
   const cards = capPersonalActivityCards(allCards, PERSONAL_ACTIVITY_TIMELINE_CARD_CAP);
@@ -63,6 +66,7 @@ export const aggregatePersonalActivity = (
     goldRaidedFromYou,
     manpowerSpentAttacking,
     cards,
+    rivals: rivalsForPlayer(playerId, relevantFlips, relevantCombat),
     truncated: from < to - TERRITORY_FLIP_WINDOW_MS
   };
 };

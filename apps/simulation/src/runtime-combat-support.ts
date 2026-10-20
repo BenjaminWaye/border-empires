@@ -366,6 +366,8 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
       pillagedGold: plunder?.gold ?? 0,
       defenderGoldLoss: plunder?.defenderGoldLoss ?? 0,
       targetWasSettled,
+      originX: lock.originX,
+      originY: lock.originY,
       ...(defenseVariant ? { defenseVariant } : {})
     });
   }

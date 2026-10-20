@@ -30,6 +30,12 @@ describe("summaryCountsLine", () => {
     expect(line).not.toMatch(/net/i);
   });
 
+  it("hides coin amounts that round to zero or are too small for the headline", () => {
+    // Regression: 0.3 coin raided passed the `> 0` check but rendered as "−0 coin raided".
+    const line = summaryCountsLine({ ...emptySummary, tilesLost: 2 }, { ...baseTimeline, goldRaidedFromYou: 0.3, goldPlundered: 2 } as any, 1000);
+    expect(line).toBe("−2 tiles lost");
+  });
+
   it("rounds summed gold totals instead of showing raw binary-float precision", () => {
     // 12.34 + 0.66 + 5.01 + 2.33 === 20.339999999999996 in plain floating point.
     const line = summaryCountsLine(emptySummary, { ...baseTimeline, goldPlundered: 20.339999999999996 } as any, 1000);

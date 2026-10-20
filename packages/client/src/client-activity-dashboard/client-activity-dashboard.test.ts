@@ -215,7 +215,7 @@ describe("renderClientActivityDashboardOverlay", () => {
     };
     const deps = makeDeps(state);
     renderClientActivityDashboardOverlay(deps);
-    expect(deps.overlayEl.textContent).toContain("lost a tile to Astrid");
+    expect(deps.overlayEl.textContent).toContain("Lost a tile to Astrid");
     expect(deps.overlayEl.textContent).not.toContain("AI 5");
   });
 
