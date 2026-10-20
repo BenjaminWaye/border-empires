@@ -1,5 +1,5 @@
 import { attackFloorForPlayer } from "./client-attack-commit/client-attack-floor.js";
-import { MUSTER_ATTACK_COST } from "@border-empires/shared";
+import { MUSTER_ATTACK_COST, isCommitOddsEligibleTarget } from "@border-empires/shared";
 import { buildArrowGestureSetMusterPayload } from "./client-arrow-gesture-confirm-payload.js";
 import { showEffortConfirmSheet, type EffortConfirmSheetHandle } from "./client-effort-confirm-sheet/client-effort-confirm-sheet.js";
 import type { ArrowGesturePoint } from "./client-arrow-gesture-confirm-payload.js";
@@ -24,10 +24,10 @@ export type ArrowGestureConfirmSheetDeps = {
   renderHud: () => void;
 };
 
-/** Slider floor: the target tile's fort requirement if settled, else the generic attack cost -- same rule buildMusterCommitView uses. */
+/** Slider floor: the target's own attack floor when commitment scales its odds (settled, or holding captured ground), else the generic attack cost. */
 const floorForTarget = (state: Pick<ClientState, "tiles"> & Partial<Pick<ClientState, "domainIds">>, target: ArrowGesturePoint, keyFor: (x: number, y: number) => string): number => {
   const targetTile = state.tiles.get(keyFor(target.x, target.y));
-  return targetTile?.ownershipState === "SETTLED"
+  return isCommitOddsEligibleTarget(targetTile, Date.now())
     ? attackFloorForPlayer(state, targetTile)
     : MUSTER_ATTACK_COST;
 };

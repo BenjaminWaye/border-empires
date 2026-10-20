@@ -483,6 +483,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Play independently of Vercel",
     why: "A shared hosting limit could prevent players from opening the game even while the game servers were healthy.",
     changes: ["Production and staging can serve the game directly from their existing game servers"]
+  },
+  {
+    createdAt: 1792527745849, // Date.now() captured for this entry.
+    introducedIn: "2026.10.20.4",
+    title: "Effort counts against freshly captured ground",
+    why: "Extra or Double effort on a tile whose new owner was still holding it cost more manpower but stayed at 50%.",
+    changes: ["Extra and Double effort now raise your win chance against troops holding captured ground, and the effort sheet shows it"]
   }
 ];
 

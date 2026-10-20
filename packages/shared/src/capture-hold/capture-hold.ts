@@ -24,3 +24,14 @@ export const isUndefendedFrontierTile = (
   tile: { ownershipState?: string | undefined; captureHoldUntil?: number | undefined } | undefined,
   nowMs: number
 ): boolean => tile?.ownershipState === "FRONTIER" && !isCaptureHoldActive(tile, nowMs);
+
+/**
+ * Targets where committing manpower above the attack floor scales the odds
+ * (commitOddsMultiplier): SETTLED ground, plus a FRONTIER tile inside its
+ * hold window -- the only FRONTIER ground that rolls combat at all. Plain
+ * FRONTIER is a guaranteed capture, so extra commitment there buys nothing.
+ */
+export const isCommitOddsEligibleTarget = (
+  tile: { ownershipState?: string | undefined; captureHoldUntil?: number | undefined } | undefined,
+  nowMs: number
+): boolean => tile?.ownershipState === "SETTLED" || isCaptureHoldActive(tile, nowMs);

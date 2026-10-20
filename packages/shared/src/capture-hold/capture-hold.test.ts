@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildFrontierCombatPreview } from "../frontier-combat/frontier-combat.js";
-import { CAPTURE_HOLD_DEFENSE_MULT, isCaptureHoldActive, isUndefendedFrontierTile } from "./capture-hold.js";
+import { CAPTURE_HOLD_DEFENSE_MULT, isCaptureHoldActive, isCommitOddsEligibleTarget, isUndefendedFrontierTile } from "./capture-hold.js";
 
 const NOW = 1_000_000;
 
@@ -18,6 +18,14 @@ describe("capture hold", () => {
     expect(isUndefendedFrontierTile({ ownershipState: "FRONTIER", captureHoldUntil: NOW - 1 }, NOW)).toBe(true);
     expect(isUndefendedFrontierTile({ ownershipState: "FRONTIER", captureHoldUntil: NOW + 1 }, NOW)).toBe(false);
     expect(isUndefendedFrontierTile({ ownershipState: "SETTLED" }, NOW)).toBe(false);
+  });
+
+  it("lets commitment scale the odds on SETTLED and held FRONTIER tiles only", () => {
+    expect(isCommitOddsEligibleTarget({ ownershipState: "SETTLED" }, NOW)).toBe(true);
+    expect(isCommitOddsEligibleTarget({ ownershipState: "FRONTIER", captureHoldUntil: NOW + 1 }, NOW)).toBe(true);
+    expect(isCommitOddsEligibleTarget({ ownershipState: "FRONTIER", captureHoldUntil: NOW }, NOW)).toBe(false);
+    expect(isCommitOddsEligibleTarget({ ownershipState: "FRONTIER" }, NOW)).toBe(false);
+    expect(isCommitOddsEligibleTarget(undefined, NOW)).toBe(false);
   });
 
   // Regression: a freshly captured dock landed as FRONTIER with zero defense,

@@ -8,6 +8,7 @@ import {
   commitOddsMultiplier,
   defendingFortVariant,
   isFortDefending,
+  isCommitOddsEligibleTarget,
   isUndefendedFrontierTile,
   rollFrontierCombat,
   shieldDefenseMultiplier,
@@ -304,12 +305,14 @@ const resolveAttackCombat = (
   // (structure-costs.ts requiredMusterForFort) the attack was required to
   // meet to launch at all, so committing exactly the floor (today's only
   // option until the commitment-choice UI ships) reproduces today's base_odds
-  // unchanged. FRONTIER targets don't use the muster ladder and keep
-  // base_odds as-is (multiplier 1). Barbarian-ORIGIN attacks (D6 "barbarians
+  // unchanged. A FRONTIER tile still holding captured ground (capture-hold.ts)
+  // rolls real combat too, so it scales the same way against its
+  // FRONTIER_ATTACK_MUSTER_COST floor; plain FRONTIER is a guaranteed capture
+  // and never reaches here. Barbarian-ORIGIN attacks (D6 "barbarians
   // keep a flat cost") are excluded too: validateFrontierCommand gives them
   // manpowerCost 0 (cooldown-gated, not manpower-gated), which would
   // otherwise divide-to-zero the odds here.
-  const isCommitEligible = previousTarget?.ownershipState === "SETTLED" && lock.playerId !== "barbarian-1";
+  const isCommitEligible = isCommitOddsEligibleTarget(previousTarget, ctx.now()) && lock.playerId !== "barbarian-1";
   const base = previousTarget ? requiredMusterForTarget({ ...previousTarget, fort: targetHasActiveFort ? previousTarget.fort : undefined }, attacker, defender) : 1;
   const commitMultiplier = isCommitEligible ? commitOddsMultiplier(lock.manpowerCost, base) : 1;
   // docs/muster-fronts-proposal.md §4: a shield flag (HOLD-mode, within
