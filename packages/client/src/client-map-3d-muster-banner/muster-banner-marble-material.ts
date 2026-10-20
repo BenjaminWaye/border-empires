@@ -3,7 +3,8 @@
 // plastic on a piece this close to the camera, so this patches the matte
 // material's shaders to carve the plinth from marble like a premium
 // board-game piece: the lighter stone parts become charcoal marble with pale
-// veining, the darkest (the pedestal) black marble shot with gold, both
+// veining, the darkest (the muster plinth, and the towns' streets) black
+// marble shot with gold, both
 // polished to a low roughness, with a little shade pooled where each wall
 // rises from the ledge below and a bright polished edge along each wall top.
 //
