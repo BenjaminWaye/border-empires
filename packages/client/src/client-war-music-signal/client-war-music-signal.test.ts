@@ -6,16 +6,16 @@ import type { ActiveTruceView, Tile } from "../client-types.js";
 // status so they read as engaged; tests override the status fields to cover
 // the idle / not-yet-evaluated cases.
 const musterTile = (mode: "HOLD" | "ADVANCE" | "MARCH"): Tile =>
-  ({ x: 0, y: 0, muster: { ownerId: "p1", amount: 5, mode, updatedAt: 0, ...(mode === "HOLD" ? {} : { nextActionAt: 1 }) } }) as Tile;
+  ({ x: 0, y: 0, terrain: "LAND", ownerId: "p1", muster: { ownerId: "p1", amount: 5, mode, updatedAt: 0, ...(mode === "HOLD" ? {} : { nextActionAt: 1 }) } }) as Tile;
 
-// "p1" is the local player; a rival's tile sits within flag reach so these
+// "p1" is the local player; a rival's tile borders the flag so these
 // cases exercise the flag/battle status logic, not the diplomacy filter (see
 // client-war-music-hostility.test.ts for that).
 const baseState = () => ({
   me: "p1",
   allies: [] as string[],
   activeTruces: [] as ActiveTruceView[],
-  tiles: new Map<string, Tile>([["3,0", { x: 3, y: 0, ownerId: "rival", ownershipState: "FRONTIER" } as Tile]]),
+  tiles: new Map<string, Tile>([["1,0", { x: 1, y: 0, terrain: "LAND", ownerId: "rival", ownershipState: "FRONTIER" } as Tile]]),
   activeBattles: new Map(),
   warMusicHoldUntil: 0
 });
@@ -80,14 +80,14 @@ describe("computeWarMusicSignals", () => {
 
   it("is not in combat for an ADVANCE flag the sim hasn't evaluated yet (no status fields)", () => {
     const state = baseState();
-    state.tiles.set("0,0", { x: 0, y: 0, muster: { ownerId: "p1", amount: 5, mode: "ADVANCE", updatedAt: 0 } } as Tile);
+    state.tiles.set("0,0", { x: 0, y: 0, terrain: "LAND", ownerId: "p1", muster: { ownerId: "p1", amount: 5, mode: "ADVANCE", updatedAt: 0 } } as Tile);
     expect(computeWarMusicSignals(state).combat).toBe(false);
     expect(state.warMusicHoldUntil).toBe(0);
   });
 
   it("is in combat for an ADVANCE flag whose attack is in flight (nextActionAt cleared)", () => {
     const state = baseState();
-    state.tiles.set("0,0", { x: 0, y: 0, muster: { ownerId: "p1", amount: 5, mode: "ADVANCE", updatedAt: 0, inFlight: true, inFlightCount: 1 } } as Tile);
+    state.tiles.set("0,0", { x: 0, y: 0, terrain: "LAND", ownerId: "p1", muster: { ownerId: "p1", amount: 5, mode: "ADVANCE", updatedAt: 0, inFlight: true, inFlightCount: 1 } } as Tile);
     expect(computeWarMusicSignals(state).combat).toBe(true);
   });
 

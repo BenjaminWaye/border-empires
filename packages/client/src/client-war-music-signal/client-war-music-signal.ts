@@ -1,26 +1,13 @@
 import type { ClientState } from "../client-state/client-state.js";
-import type { MusterState } from "@border-empires/shared";
-import { isOwnHostileBattle, isWarRelevantMuster } from "./client-war-music-hostility.js";
+import { isOwnHostileBattle, musterWarSignal } from "./client-war-music-hostility.js";
 
 // How long war (combat) music keeps playing after the last live combat
-// signal (an ADVANCE/MARCH flag or an active battle) drops out. Without
-// this, a manual attack that resolves in a couple of seconds flips the
-// soundtrack straight back to peaceful/tension music, which reads as the
-// track jumping around; holding combat music for a while after the last
-// attack lets it settle instead.
+// signal (an engaged ADVANCE/MARCH flag or a battle we're fighting) drops
+// out. Without this, a manual attack that resolves in a couple of seconds
+// flips the soundtrack straight back to peaceful/tension music, which reads
+// as the track jumping around; holding combat music for a while after the
+// last attack lets it settle instead.
 const WAR_MUSIC_HOLD_MS = 2 * 60 * 1000;
-
-// Whether an ADVANCE/MARCH flag is actually engaged: an attack it funded is
-// in flight, or the sim has searched and found a target (cooling down or
-// saving up for it). Not engaged: the last search found nothing to fight
-// (`noTargetInRange`), or the sim hasn't evaluated the flag yet -- every
-// ADVANCE/MARCH tick path sets inFlight or nextActionAt, so a flag with
-// neither was only just raised. Counting that first beat as combat latched
-// WAR_MUSIC_HOLD_MS of war music even on a border with nothing to attack.
-const isEngagedFlag = (muster: MusterState): boolean => {
-  if (muster.inFlight || (muster.inFlightCount ?? 0) > 0) return true;
-  return muster.nextActionAt !== undefined && muster.noTargetInRange !== true;
-};
 
 // Derives war-music combat/tension signals for updateMusicForGameState.
 //
@@ -37,27 +24,21 @@ const isEngagedFlag = (muster: MusterState): boolean => {
 // as long as the underlying stance holds, instead of blipping every time an
 // individual skirmish's animation or attack-in-flight timer happens to be
 // empty for a beat:
-//   - combat: a flag is raised and set to ADVANCE or MARCH (actively
-//     marching/firing toward a target). `activeBattles` is still OR'd in to
-//     catch a manual (non-muster) attack, which can start a skirmish with no
-//     muster flag involved at all. Once true, combat is latched via
-//     `state.warMusicHoldUntil` for WAR_MUSIC_HOLD_MS after the last time it
-//     was live, so the track doesn't jump straight back out of war music the
-//     instant a single attack resolves.
-//     An ADVANCE/MARCH flag the server reports as idle with nothing to
-//     fight (`noTargetInRange` and no attack in flight) does NOT count:
-//     the sim's target scan skips allied/truced players' tiles, so a flag
-//     parked on a border with a truce partner sits in exactly this state
-//     forever, and treating it as combat kept war music playing through
-//     the whole truce.
-//   - tension: a flag is raised but still HOLD (staged, not yet advancing) —
-//     the "war is coming" stance.
+//   - combat: an engaged ADVANCE/MARCH flag of ours facing hostile land, or
+//     a hostile empire's flag fighting our land. Battles we're fighting are
+//     OR'd in to catch a manual (non-muster) attack, which can start a
+//     skirmish with no muster flag involved at all. Once true, combat is
+//     latched via `state.warMusicHoldUntil` for WAR_MUSIC_HOLD_MS after the
+//     last time it was live, so the track doesn't jump straight back out of
+//     war music the instant a single attack resolves.
+//   - tension: a HOLD flag of ours facing hostile land (staged, not yet
+//     advancing), or a hostile empire's flag staged near our border — the
+//     "war is coming" stance.
 //
-// Both signals only count *our* wars (client-war-music-hostility.ts): our
-// own flags with hostile land in reach, a hostile empire's flag staged near
-// our border, and battles we're fighting against a non-ally/non-truce
-// partner. Other empires' fights we merely watch, truce partners' flags, and
-// flags of ours facing only allies/truce partners stay calm.
+// Both signals only count *our* wars (see musterWarSignal and
+// isOwnHostileBattle in client-war-music-hostility.ts): other empires' fights
+// we merely watch, allies' and truce partners' flags, and flags of ours
+// facing only allies/truce partners or neutral land stay calm.
 export const computeWarMusicSignals = (
   state: Pick<ClientState, "tiles" | "activeBattles" | "warMusicHoldUntil" | "me" | "allies" | "activeTruces">,
   now: number = Date.now()
@@ -70,11 +51,9 @@ export const computeWarMusicSignals = (
   for (const tile of state.tiles.values()) {
     const muster = tile.muster;
     if (!muster) continue;
-    if (muster.mode === "ADVANCE" || muster.mode === "MARCH") {
-      if (!advancing && isEngagedFlag(muster) && isWarRelevantMuster(state, tile, muster, now)) advancing = true;
-    } else if (muster.mode === "HOLD") {
-      if (!staged && isWarRelevantMuster(state, tile, muster, now)) staged = true;
-    }
+    const signal = musterWarSignal(state, tile, muster, now);
+    if (signal === "combat") advancing = true;
+    else if (signal === "tension") staged = true;
     if (advancing && staged) break;
   }
   let ownBattle = false;
