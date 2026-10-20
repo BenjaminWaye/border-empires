@@ -12,6 +12,7 @@ import { MUSTER_BANNER_CHANGELOG } from "./client-changelog-muster-banner.js";
 import { BATTLE_TILE_SOUND_CHANGELOG } from "./client-changelog-battle-tile-sound.js";
 import { TOWN_VISUALS_CHANGELOG } from "./client-changelog-town-visuals.js";
 import { TOWN_BANNERS_CHANGELOG } from "./client-changelog-town-banners.js";
+import { WAR_MUSIC_DIPLOMACY_CHANGELOG } from "./client-changelog-war-music-diplomacy.js";
 import { CONSTRUCTION_POD_DELIVERY_CHANGELOG } from "./client-changelog-construction-pod-delivery.js";
 import { MUSTER_SIEGE_CHANGELOG } from "./client-changelog-muster-siege.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
@@ -479,6 +480,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...BATTLE_TILE_SOUND_CHANGELOG,
   ...TOWN_VISUALS_CHANGELOG,
   ...TOWN_BANNERS_CHANGELOG,
+  ...WAR_MUSIC_DIPLOMACY_CHANGELOG,
   ...CONSTRUCTION_POD_DELIVERY_CHANGELOG,
   ...MUSTER_SIEGE_CHANGELOG,
   {
