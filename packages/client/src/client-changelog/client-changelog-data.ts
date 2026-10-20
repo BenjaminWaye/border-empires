@@ -492,7 +492,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   {
     createdAt: 1792528615493, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.15.1",
+    introducedIn: "2026.10.20.2",
     title: "Advancing flags only chase enemies you can see",
     why: "Advancing flags expanded out into the fog toward enemies the player couldn't see, so they explored instead of holding the front.",
     changes: [
