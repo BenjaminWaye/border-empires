@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { clearCameraLocation, maybeRefreshForCamera, maybeSaveCameraLocation, resetCameraSaveThrottleForTests, saveCameraLocation } from "./client-view-refresh.js";
+import { clearCameraLocation, maybeRefreshForCamera, maybeSaveCameraLocation, requestViewRefresh, resetCameraSaveThrottleForTests, saveCameraLocation } from "./client-view-refresh.js";
 import { CAMERA_LOCATION_STORAGE_KEY } from "./client-constants.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 
@@ -73,6 +73,7 @@ describe("camera location save", () => {
   it("saves via maybeRefreshForCamera even when the camera has NOT crossed a chunk boundary", async () => {
     const state = {
       authSessionReady: true,
+      connection: "initialized" as const,
       camX: 5,
       camY: 5,
       zoom: 22,
@@ -102,6 +103,7 @@ describe("camera location save", () => {
   it("saves on a zoom-only change (no pan at all)", async () => {
     const state = {
       authSessionReady: true,
+      connection: "initialized" as const,
       camX: 0,
       camY: 0,
       zoom: 22,
@@ -132,6 +134,7 @@ describe("camera location save", () => {
   it("does not require the socket to be open or auth to be ready (pure local write)", async () => {
     const state = {
       authSessionReady: false,
+      connection: "disconnected" as const,
       camX: 12,
       camY: 34,
       zoom: 22,
@@ -225,5 +228,41 @@ describe("camera location save", () => {
 
     await flushDeferredSave();
     expect(readSaved()).toBeUndefined();
+  });
+});
+
+// Regression: after an in-place reconnect authSessionReady is still true from
+// the previous session while the reopened socket is OPEN but not yet
+// authenticated. A subscribe sent in that window got NO_AUTH back and toasted
+// "Action failed — Error NO_AUTH: auth first".
+describe("requestViewRefresh across an in-place reconnect", () => {
+  const subscribeState = (connection: "connected" | "initialized") => ({
+    authSessionReady: true,
+    connection,
+    fogDisabled: false,
+    mapRevealEnabled: false,
+    camX: 200,
+    camY: 200,
+    zoom: 22,
+    lastSubCx: 0,
+    lastSubCy: 0,
+    lastSubRadius: 2,
+    lastSubAt: 0,
+    firstChunkAt: 1
+  });
+
+  it("does not subscribe on a reopened socket before INIT re-authenticates it", () => {
+    const send = vi.fn();
+    const ws = { ...fakeSocket(1), send };
+    requestViewRefresh(subscribeState("connected"), { ws, fullMapChunkRadius: 8 });
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("subscribes once INIT has landed on the socket", () => {
+    const send = vi.fn();
+    const ws = { ...fakeSocket(1), send };
+    requestViewRefresh(subscribeState("initialized"), { ws, fullMapChunkRadius: 8 });
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(send.mock.calls[0]?.[0] as string)).toMatchObject({ type: "SUBSCRIBE_CHUNKS" });
   });
 });
