@@ -50,6 +50,11 @@ describe("reachOwnerIdsForTile", () => {
     expect(reachOwnerIdsForTile(tiles, mine, "me")).toEqual(["rival", "other"]);
   });
 
+  it("ignores a barbarian server stamp, like the map's incursion hatch", () => {
+    const mine = tile(50, 50, { ownerId: "me", ownershipState: "FRONTIER", reachOwnerId: "barbarian-1" });
+    expect(reachOwnerIdsForTile(mapOf(mine), mine, "me")).toEqual([]);
+  });
+
   it("ignores a server stamp naming the viewer", () => {
     const mine = tile(50, 50, { ownerId: "me", ownershipState: "FRONTIER", reachOwnerId: "me" });
     expect(reachOwnerIdsForTile(mapOf(mine), mine, "me")).toEqual([]);

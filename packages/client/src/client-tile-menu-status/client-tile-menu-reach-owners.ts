@@ -1,4 +1,5 @@
 import { tileKey, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { rivalReachOverMyTile } from "../client-reach-incursion/client-reach-incursion.js";
 import { authoritativeIsInReach, type ReachAuthoritativeState } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { keyForTile } from "../client-app-runtime-utils.js";
 import { REACH_RADIUS_BY_KIND, tileKeysAroundAnchor } from "../client-reach-overlay/client-reach-overlay-anchor-disk.js";
@@ -48,7 +49,7 @@ export const foreignOwnersReachingTile = (tiles: ReachOverlayTileMap, target: Ti
  * overlapping owners the scan finds follow it.
  */
 export const reachOwnerIdsForTile = (tiles: ReachOverlayTileMap, target: Tile, me: string): string[] => {
-  const serverOwner = target.reachOwnerId && target.reachOwnerId !== me ? target.reachOwnerId : undefined;
+  const serverOwner = rivalReachOverMyTile(target, me);
   const local = foreignOwnersReachingTile(tiles, target, me);
   return serverOwner ? [serverOwner, ...local.filter((ownerId) => ownerId !== serverOwner)] : local;
 };
