@@ -29,11 +29,21 @@ const advanceFlag = (extra: Record<string, unknown> = {}) => ({ ownerId: "player
 const column = (x: number, fromY: number, toY: number): TileInit[] =>
   Array.from({ length: toY - fromY + 1 }, (_, i) => neutral(x, fromY + i));
 
-const buildRuntime = (tiles: TileInit[], options: { playerIsAi?: boolean; alliedWithRival?: boolean; broke?: boolean } = {}) =>
+// ADVANCE only closes on hostiles the player can see, so by default player-1's
+// vision reaches past the whole range cap; `vision: 1` is the base radius.
+const FULL_RANGE_VISION = ADVANCE_MAX_RANGE_TILES + 2;
+
+const buildRuntime = (tiles: TileInit[], options: { playerIsAi?: boolean; alliedWithRival?: boolean; broke?: boolean; vision?: number } = {}) =>
   new SimulationRuntime({
     now: () => 1_000,
     initialPlayers: new Map([
-      ["player-1", { ...makePlayer("player-1"), isAi: options.playerIsAi ?? false, points: options.broke ? 0 : 10_000, allies: new Set(options.alliedWithRival ? ["player-2"] : []) }],
+      ["player-1", {
+        ...makePlayer("player-1"),
+        isAi: options.playerIsAi ?? false,
+        points: options.broke ? 0 : 10_000,
+        allies: new Set(options.alliedWithRival ? ["player-2"] : []),
+        mods: { attack: 1, defense: 1, income: 1, vision: options.vision ?? FULL_RANGE_VISION }
+      }],
       ["player-2", makePlayer("player-2")],
       ["barbarian-1", { ...makePlayer("barbarian-1"), isAi: true }]
     ]),
@@ -63,6 +73,24 @@ describe("ADVANCE clearing enemies in range", () => {
     runtime.tickMuster(1_000);
     expect(targets(seen)).toEqual(["EXPAND:10,11"]);
     expect(musterAt(runtime, 10, 10)).toMatchObject({ mode: "ADVANCE", clearing: true });
+  });
+
+  it("ignores a barbarian in range but out of sight, instead of exploring toward it", () => {
+    const runtime = buildRuntime([owned(10, 10, advanceFlag()), ...column(10, 11, 13), barb(10, 14)], { vision: 1 });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+    runtime.tickMuster(1_000);
+    expect(targets(seen)).toEqual([]);
+    expect(musterAt(runtime, 10, 10)).toMatchObject({ mode: "ADVANCE", noTargetInRange: true });
+  });
+
+  it("still expands toward a barbarian just inside its vision", () => {
+    // Vision 2 from (10,10) reaches (10,12); one neutral tile separates it.
+    const runtime = buildRuntime([owned(10, 10, advanceFlag()), ...column(10, 11, 11), barb(10, 12)], { vision: 2 });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+    runtime.tickMuster(1_000);
+    expect(targets(seen)).toEqual(["EXPAND:10,11"]);
   });
 
   it("ignores barbarians beyond the range cap", () => {
@@ -308,7 +336,8 @@ describe("nearestHostileWithinSteps follows dock and bridge links", () => {
         land(81, 10, { ownerId: "barbarian-1", ownershipState: "FRONTIER" })
       ]),
       dockLinksByDockTileKey: new Map(dockLinks),
-      aetherBridgeNeighborKeysForPlayer: () => new Map(bridgeLinks)
+      aetherBridgeNeighborKeysForPlayer: () => new Map(bridgeLinks),
+      isTileVisibleToPlayer: () => true
     }) as unknown as MusterTickInput;
   const flag = { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", dockId: "dock-a" } as never;
 
@@ -343,6 +372,7 @@ describe("only an accepted command counts as engaging", () => {
       advanceCooldowns: cooldowns,
       dockLinksByDockTileKey: new Map(),
       aetherBridgeNeighborKeysForPlayer: () => new Map(),
+      isTileVisibleToPlayer: () => true,
       requiredMusterForTarget: () => 10,
       playerManpowerCap: () => 1_000,
       nextTerritoryAutomationCommandId: () => "cmd",

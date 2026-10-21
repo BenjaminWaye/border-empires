@@ -5,17 +5,17 @@ import { activeAetherBridgeNeighborKeysForPlayer } from "../runtime-encirclement
 import { neuralWorksPositionsForPlayer } from "../runtime/runtime-neural-works-positions.js";
 import type { ActiveAetherBridgeView, RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
 import type { MusterAdvanceCooldowns, MusterTickContext } from "./runtime-muster-tick.js";
-import type { CombatLockTileReader } from "../combat-lock-index/combat-lock-index.js";
+import type { RuntimeState } from "../runtime/runtime-state.js";
+import { isTileVisibleToPlayer } from "./muster-visibility.js";
 
 export type MusterTickContextDeps = {
-  players: ReadonlyMap<string, RuntimePlayer>;
-  tiles: ReadonlyMap<string, DomainTileState>;
+  // Shared world state: players, tiles, combat locks, the dock network and
+  // the visibility coverage cache are all read from here.
+  state: Pick<RuntimeState, "players" | "tiles" | "locksByTile" | "dockLinksByDockTileKey" | "dockNetworkComponentByTileKey" | "visibilityCoverage">;
   activeSiegeBatteriesByOwner: ReadonlyMap<string, Set<string>>;
   activeRelayBeaconsByOwner: ReadonlyMap<string, Set<string>>;
   neuralWorksTilesByOwner: ReadonlyMap<string, Set<string>>;
-  locksByTile: CombatLockTileReader;
   advanceCooldowns: MusterAdvanceCooldowns;
-  dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   activeAetherBridgesForPlayer: (playerId: string) => ActiveAetherBridgeView[];
   applyManpowerRegen: (player: RuntimePlayer, at?: number) => void;
   playerManpowerCap: (player: RuntimePlayer) => number;
@@ -37,12 +37,12 @@ export type MusterTickContextDeps = {
  * doesn't grow that file further.
  */
 export const buildMusterTickContext = (deps: MusterTickContextDeps): MusterTickContext => ({
-  players: deps.players,
-  tiles: deps.tiles,
+  players: deps.state.players,
+  tiles: deps.state.tiles,
   activeSiegeBatteriesByOwner: deps.activeSiegeBatteriesByOwner,
   activeRelayBeaconsByOwner: deps.activeRelayBeaconsByOwner,
   neuralWorksPositionsForPlayer: (playerId: string) =>
-    neuralWorksPositionsForPlayer(deps.neuralWorksTilesByOwner, playerId, deps.tiles, (ownerId, tileKey, field) =>
+    neuralWorksPositionsForPlayer(deps.neuralWorksTilesByOwner, playerId, deps.state.tiles, (ownerId, tileKey, field) =>
       deps.isStructureDormant(ownerId, tileKey, field)
     ),
   applyManpowerRegen: (player: RuntimePlayer, at?: number) => deps.applyManpowerRegen(player, at),
@@ -55,12 +55,13 @@ export const buildMusterTickContext = (deps: MusterTickContextDeps): MusterTickC
   nextTerritoryAutomationCommandId: (label: string, playerId: string, tileKey: string, at: number) =>
     deps.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
   handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => deps.handleFrontierCommand(command, actionType),
-  locksByTile: deps.locksByTile,
+  locksByTile: deps.state.locksByTile,
   advanceCooldowns: deps.advanceCooldowns,
-  dockLinksByDockTileKey: deps.dockLinksByDockTileKey,
+  dockLinksByDockTileKey: deps.state.dockLinksByDockTileKey,
   aetherBridgeNeighborKeysForPlayer: (playerId: string) =>
     activeAetherBridgeNeighborKeysForPlayer({ activeAetherBridgesForPlayer: deps.activeAetherBridgesForPlayer }, playerId),
   isStructureDormant: (playerId: string, tileKey: string, field: "siegeBattery" | "economicStructure") =>
     deps.isStructureDormant(playerId, tileKey, field),
-  isInReach: (playerId: string, x: number, y: number) => deps.isInReach(playerId, x, y)
+  isInReach: (playerId: string, x: number, y: number) => deps.isInReach(playerId, x, y),
+  isTileVisibleToPlayer: (playerId: string, x: number, y: number) => isTileVisibleToPlayer(deps.state, playerId, x, y)
 });

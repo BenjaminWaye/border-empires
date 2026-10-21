@@ -71,6 +71,7 @@ const buildInput = (
     advanceCooldowns: new Map(),
     dockLinksByDockTileKey: new Map(),
     aetherBridgeNeighborKeysForPlayer: () => bridgeLinks,
+    isTileVisibleToPlayer: () => true,
     isStructureDormant: () => false,
     isInReach: () => true
   };

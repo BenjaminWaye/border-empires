@@ -1179,14 +1179,11 @@ export class SimulationRuntime {
 
   private musterTickContext(): MusterTickContext {
     return buildMusterTickContext({
-      players: this.state.players,
-      tiles: this.state.tiles,
+      state: this.state,
       activeSiegeBatteriesByOwner: this.ownerIndexes.activeSiegeBatteriesByOwner,
       activeRelayBeaconsByOwner: this.ownerIndexes.activeRelayBeaconsByOwner,
       neuralWorksTilesByOwner: this.ownerIndexes.neuralWorksTilesByOwner,
-      locksByTile: this.state.locksByTile,
       advanceCooldowns: this.musterAdvanceCooldowns as MusterAdvanceCooldowns,
-      dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
       activeAetherBridgesForPlayer: (playerId: string) => this.activeAetherBridgesForPlayer(playerId),
       applyManpowerRegen: (player: RuntimePlayer, at?: number) => this.applyManpowerRegen(player, at),
       playerManpowerCap: (player: RuntimePlayer) => this.playerManpowerCap(player),
