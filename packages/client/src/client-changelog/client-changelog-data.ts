@@ -16,6 +16,7 @@ import { AI_DEAL_SUGGEST_CHANGELOG } from "./client-changelog-ai-deal-suggest.js
 import { TOWN_MARBLE_CHANGELOG } from "./client-changelog-town-marble.js";
 import { SIEGE_REPORTS_CHANGELOG } from "./client-changelog-siege-reports.js";
 import { RICHER_FORESTS_CHANGELOG } from "./client-changelog-richer-forests.js";
+import { YOURS_TILE_COORDS_CHANGELOG } from "./client-changelog-yours-tile-coords.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -465,7 +466,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   ...SIEGE_REPORTS_CHANGELOG,
-  ...RICHER_FORESTS_CHANGELOG
+  ...RICHER_FORESTS_CHANGELOG,
+  ...YOURS_TILE_COORDS_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
