@@ -289,4 +289,13 @@ describe("tryDrainWaypointQueue -- Expand To & Attack effort (commitManpower)", 
     tryDrainWaypointQueue(context, PLAYER_ID);
     expect(JSON.parse(dispatched[0]!.command.payloadJson)).not.toHaveProperty("commitManpower");
   });
+
+  it("sends the commitment against a FRONTIER target still holding captured ground", () => {
+    const { tiles, entry } = plan(tile(3, 1, { ownerId: "enemy", ownershipState: "FRONTIER", captureHoldUntil: 1000 + 30_000 }), 30);
+    tiles.set("2,1", tile(2, 1, { ownerId: PLAYER_ID }));
+    const { context, dispatched } = makeContext([{ ...entry, cursor: 1 }], { tiles });
+
+    tryDrainWaypointQueue(context, PLAYER_ID);
+    expect(JSON.parse(dispatched[0]!.command.payloadJson)).toMatchObject({ commitManpower: 30 });
+  });
 });

@@ -34,6 +34,16 @@ describe("attack commit store", () => {
     expect(attackCommitForTarget(state, 2, 3)).toBeUndefined();
   });
 
+  // Regression: a FRONTIER tile still holding captured ground rolls real
+  // combat, so the chosen effort must ride along with the attack.
+  it("keeps the commitment for a FRONTIER tile only while it is holding captured ground", () => {
+    const tile = { ...settledEnemy(4, 4), ownershipState: "FRONTIER", captureHoldUntil: 2_000 } as Tile;
+    const state = makeState([tile]);
+    setAttackCommit(state, 4, 4, 30, 1_000);
+    expect(attackCommitForTarget(state, 4, 4, 1_999)).toBe(30);
+    expect(attackCommitForTarget(state, 4, 4, 2_000)).toBeUndefined();
+  });
+
   it("expires entries after the TTL", () => {
     const state = makeState([settledEnemy(1, 1)]);
     setAttackCommit(state, 1, 1, 150, 1_000);

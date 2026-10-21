@@ -8,6 +8,7 @@
 // requiredMusterWithCommit so a flag holding only the floor isn't mistaken
 // for one that can fund the full commitment (the server's resolveMusterSource
 // would reject that as INSUFFICIENT_MUSTER).
+import { isCommitOddsEligibleTarget } from "@border-empires/shared";
 import { attackFloorForPlayer } from "./client-attack-floor.js";
 import { attackSyncLog } from "../client-debug/client-debug.js";
 import type { ClientWaypoint } from "../client-state/client-waypoint-state.js";
@@ -32,13 +33,14 @@ export const ATTACK_COMMIT_MAX_ENTRIES = 64;
 const targetKey = (x: number, y: number): string => `${x},${y}`;
 
 /**
- * Only SETTLED, non-barbarian targets benefit from committing extra: the
- * server scales odds by commit/floor for those alone (runtime-combat-
- * support.ts isCommitEligible), while still charging the full commitment for
- * any target -- so offering the choice elsewhere would just burn manpower.
+ * Only non-barbarian targets that are SETTLED or still holding captured
+ * ground benefit from committing extra: the server scales odds by
+ * commit/floor for those alone (runtime-combat-support.ts isCommitEligible),
+ * while still charging the full commitment for any target -- so offering the
+ * choice elsewhere would just burn manpower.
  */
-export const isAttackEffortEligibleTarget = (tile: Tile | undefined): tile is Tile =>
-  Boolean(tile && tile.ownerId && tile.ownerId !== "barbarian-1" && tile.ownershipState === "SETTLED");
+export const isAttackEffortEligibleTarget = (tile: Tile | undefined, nowMs = Date.now()): tile is Tile =>
+  Boolean(tile && tile.ownerId && tile.ownerId !== "barbarian-1" && isCommitOddsEligibleTarget(tile, nowMs));
 
 /** The commit floor for a target: its fort-ladder attack cost (same rule the muster commit tab uses). */
 export const attackEffortFloorForTarget = (tile: Tile, state: { domainIds?: readonly string[] } = {}): number => attackFloorForPlayer(state, tile);
@@ -67,7 +69,7 @@ export const attackCommitForTarget = (state: AttackCommitState, x: number, y: nu
     state.attackCommitByTargetKey.delete(key);
     return undefined;
   }
-  return isAttackEffortEligibleTarget(state.tiles.get(key)) ? entry.commitManpower : undefined;
+  return isAttackEffortEligibleTarget(state.tiles.get(key), now) ? entry.commitManpower : undefined;
 };
 
 /** requiredMusterForTarget, raised to the player's chosen commitment for that target when there is one. */

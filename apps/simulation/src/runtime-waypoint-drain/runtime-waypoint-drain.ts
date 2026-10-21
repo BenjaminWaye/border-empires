@@ -18,7 +18,7 @@
 // target, relying on handleFrontierCommandImpl's origin fallback.
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
-import { DEV_QUEUE_SERVER_CAP } from "@border-empires/shared";
+import { DEV_QUEUE_SERVER_CAP, isCommitOddsEligibleTarget } from "@border-empires/shared";
 import type { ServerWaypointQueueEntry } from "../player-runtime-summary.js";
 import type { FrontierCommandResult } from "../runtime-frontier-command.js";
 
@@ -89,21 +89,23 @@ const buildDrainCommand = (
 /**
  * The player's Expand To & Attack effort choice (docs/replenishment-update-
  * plan.md D6) applies only to the plan's final ATTACK on the waypoint's own
- * target, and only while that target is SETTLED and non-barbarian -- the
- * only case the commit actually improves odds for (runtime-combat-support.ts
- * isCommitEligible); anywhere else it would just overpay.
+ * target, and only while that target is SETTLED or holding captured ground,
+ * and non-barbarian -- the only cases the commit actually improves odds for
+ * (runtime-combat-support.ts isCommitEligible); anywhere else it would just
+ * overpay.
  */
 const commitManpowerForStep = (
   entry: ServerWaypointQueueEntry,
   step: { target: { x: number; y: number }; action: FrontierCommandType },
-  targetTile: DomainTileState | undefined
+  targetTile: DomainTileState | undefined,
+  nowMs: number
 ): number | undefined =>
   entry.commitManpower != null &&
   step.action === "ATTACK" &&
   step.target.x === entry.target.x &&
   step.target.y === entry.target.y &&
-  targetTile?.ownershipState === "SETTLED" &&
-  targetTile.ownerId !== "barbarian-1"
+  isCommitOddsEligibleTarget(targetTile, nowMs) &&
+  targetTile?.ownerId !== "barbarian-1"
     ? entry.commitManpower
     : undefined;
 
@@ -168,7 +170,7 @@ const drainPlanEntry = (
     step.target.x,
     step.target.y,
     step.action,
-    commitManpowerForStep(entry, step, stepTargetTile)
+    commitManpowerForStep(entry, step, stepTargetTile, nowMs)
   );
   const result = context.dispatchFrontierCommand(cmd, step.action);
   console.log("[waypoint-diag] drain-dispatch-result", JSON.stringify({ playerId, target: entry.target, step: cursor, action: step.action, accepted: result.accepted, code: result.code }));

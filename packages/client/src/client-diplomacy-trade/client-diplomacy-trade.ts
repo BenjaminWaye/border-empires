@@ -6,7 +6,7 @@
 import { emptyDiplomacyTerms, type DiplomacyCounterRef, type DiplomacyGoods, type DiplomacyOfferKind, type DiplomacyTerms } from "@border-empires/shared";
 
 import { diplomacyTradeStyles } from "./client-diplomacy-trade-style.js";
-import { attitudeSummary, tradeVerdict, type DiplomacyStanceReply, type TradeSelection } from "./client-diplomacy-trade-view.js";
+import { attitudeSummary, suggestedDeal, tradeVerdict, warTally, type DiplomacyStanceReply, type TradeSelection } from "./client-diplomacy-trade-view.js";
 
 export type DiplomacyOfferCooldownView = { kind: DiplomacyOfferKind; targetPlayerId: string; until: number };
 
@@ -18,6 +18,8 @@ export type DiplomacyTradeDeps = {
 
 type OpenScreen = {
   targetName: string;
+  /** Sent with every request when known: a display name can be shared by a human and an AI. */
+  targetPlayerId: string | undefined;
   /** Set when this screen answers an offer the player received; sending replaces that offer. */
   counters: DiplomacyCounterRef | undefined;
   selection: TradeSelection;
@@ -89,6 +91,22 @@ const readTerms = (overlay: HTMLElement): DiplomacyTerms => ({
   ask: { gold: readAmount(overlay.querySelector("[data-trade-ask-gold]")), shard: readAmount(overlay.querySelector("[data-trade-ask-shard]")) }
 });
 
+const tilesWord = (count: number): string => (count === 1 ? "tile" : "tiles");
+
+const termsEqual = (a: DiplomacyTerms, b: DiplomacyTerms): boolean =>
+  a.give.gold === b.give.gold && a.give.shard === b.give.shard && a.ask.gold === b.ask.gold && a.ask.shard === b.ask.shard;
+
+const writeTerms = (overlay: HTMLElement, terms: DiplomacyTerms): void => {
+  const set = (attr: string, value: number): void => {
+    const field = overlay.querySelector<HTMLInputElement>(`[${attr}]`);
+    if (field) field.value = String(value);
+  };
+  set("data-trade-give-gold", terms.give.gold);
+  set("data-trade-give-shard", terms.give.shard);
+  set("data-trade-ask-gold", terms.ask.gold);
+  set("data-trade-ask-shard", terms.ask.shard);
+};
+
 const render = (screen: OpenScreen): void => {
   const { overlay, selection, reply, targetName } = screen;
   const own = screen.deps.ownHoldings();
@@ -109,6 +127,16 @@ const render = (screen: OpenScreen): void => {
       .map((modifier) => `<li data-tone="${modifier.value >= 0 ? "good" : "bad"}"><span>${modifier.value > 0 ? "+" : ""}${modifier.value}</span> ${escapeHtml(modifier.label)}</li>`)
       .join("");
   }
+  // The war as the AI counts it, so "they're losing" can be checked against the tiles.
+  const warEl = overlay.querySelector<HTMLElement>("[data-trade-war]");
+  if (warEl) {
+    const tally = warTally(reply);
+    warEl.hidden = !tally;
+    warEl.innerHTML = tally
+      ? `<span class="diplomacy-trade-war-head">War tally · recent captures count most</span>
+        <ul><li><span>${tally.youTook}</span> ${tilesWord(tally.youTook)} you took from ${escapeHtml(targetName)}</li><li><span>${tally.theyTook}</span> ${tilesWord(tally.theyTook)} ${escapeHtml(targetName)} took from you</li></ul>`
+      : "";
+  }
   for (const button of Array.from(overlay.querySelectorAll<HTMLButtonElement>("[data-trade-kind]"))) {
     const [kind, hours] = (button.dataset.tradeKind ?? "").split(":");
     button.setAttribute("aria-pressed", String(kind === selection.kind && (kind === "alliance" || Number(hours) === selection.durationHours)));
@@ -121,11 +149,13 @@ const render = (screen: OpenScreen): void => {
     verdictEl.dataset.tone = verdict.tone;
     verdictEl.textContent = verdict.text;
   }
-  const topUp = overlay.querySelector<HTMLButtonElement>("[data-trade-topup]");
-  if (topUp) {
-    topUp.hidden = verdict.topUpCoin === undefined;
-    topUp.textContent = verdict.topUpCoin === undefined ? "" : `Add ${verdict.topUpCoin} coin to your side`;
-    topUp.dataset.amount = String(verdict.topUpCoin ?? 0);
+  // Only an AI's prices can be read, so only an AI gets a suggestion.
+  const suggest = overlay.querySelector<HTMLButtonElement>("[data-trade-suggest]");
+  if (suggest) {
+    const deal = suggestedDeal(reply, selection, own);
+    suggest.hidden = !(reply?.found && reply.ai && reply.pricing);
+    suggest.disabled = !deal || termsEqual(deal, selection.terms);
+    suggest.title = deal ? "" : `No deal ${targetName} would accept for this right now.`;
   }
   const sendButton = overlay.querySelector<HTMLButtonElement>("[data-trade-send]");
   if (sendButton) {
@@ -151,6 +181,7 @@ const onKey = (event: KeyboardEvent): void => {
 const sendOffer = (screen: OpenScreen): void => {
   const terms = screen.selection.terms;
   const termsField = {
+    ...(screen.targetPlayerId ? { targetPlayerId: screen.targetPlayerId } : {}),
     ...(terms.give.gold + terms.give.shard + terms.ask.gold + terms.ask.shard > 0 ? { terms } : {}),
     ...(screen.counters ? { counters: screen.counters } : {})
   };
@@ -165,7 +196,7 @@ const sendOffer = (screen: OpenScreen): void => {
 };
 
 export const openDiplomacyTradeScreen = (
-  input: { targetName: string; kind: DiplomacyOfferKind; durationHours: 12 | 24; terms?: DiplomacyTerms; counters?: DiplomacyCounterRef },
+  input: { targetName: string; targetPlayerId?: string; kind: DiplomacyOfferKind; durationHours: 12 | 24; terms?: DiplomacyTerms; counters?: DiplomacyCounterRef },
   deps: DiplomacyTradeDeps
 ): void => {
   const targetName = input.targetName.trim();
@@ -183,6 +214,7 @@ export const openDiplomacyTradeScreen = (
     <h2 id="diplomacy-trade-title">${input.counters ? `Counter ${name}'s offer` : `Deal with ${name}`}</h2>
     <p class="diplomacy-trade-stance" data-trade-stance></p>
     <ul class="diplomacy-trade-modifiers" data-trade-modifiers hidden></ul>
+    <div class="diplomacy-trade-war" data-trade-war hidden></div>
     <div class="diplomacy-trade-kinds" role="group" aria-label="Offer type">
       <button type="button" data-trade-kind="truce:12">Truce 12h</button>
       <button type="button" data-trade-kind="truce:24">Truce 24h</button>
@@ -195,11 +227,12 @@ export const openDiplomacyTradeScreen = (
     </div>
     <p class="diplomacy-trade-stance" data-trade-holdings></p>
     <p class="diplomacy-trade-verdict" data-trade-verdict aria-live="polite"></p>
-    <button type="button" class="diplomacy-trade-topup" data-trade-topup hidden></button>
+    <button type="button" class="diplomacy-trade-suggest" data-trade-suggest hidden>Suggest deal</button>
     <div class="diplomacy-trade-actions"><button type="button" data-trade-send></button><button type="button" data-trade-cancel>Cancel</button></div>
   </section>`;
   const screen: OpenScreen = {
     targetName,
+    targetPlayerId: input.targetPlayerId,
     counters: input.counters,
     selection: { kind: input.kind, durationHours: input.durationHours, terms },
     reply: undefined,
@@ -228,10 +261,10 @@ export const openDiplomacyTradeScreen = (
       render(screen);
     });
   }
-  overlay.querySelector<HTMLButtonElement>("[data-trade-topup]")?.addEventListener("click", (event) => {
-    const amount = Number((event.currentTarget as HTMLButtonElement).dataset.amount ?? 0);
-    const giveGold = overlay.querySelector<HTMLInputElement>("[data-trade-give-gold]");
-    if (giveGold) giveGold.value = String(readAmount(giveGold) + amount);
+  overlay.querySelector<HTMLButtonElement>("[data-trade-suggest]")?.addEventListener("click", () => {
+    const deal = suggestedDeal(screen.reply, screen.selection, deps.ownHoldings());
+    if (!deal) return;
+    writeTerms(overlay, deal);
     screen.selection = { ...screen.selection, terms: readTerms(overlay) };
     render(screen);
   });
@@ -244,12 +277,18 @@ export const openDiplomacyTradeScreen = (
   document.body.appendChild(overlay);
   render(screen);
   overlay.querySelector<HTMLButtonElement>("[data-trade-send]")?.focus();
-  deps.send({ type: "DIPLOMACY_STANCE_REQUEST", targetPlayerName: targetName }, "Finish sign-in before making offers.");
+  deps.send(
+    { type: "DIPLOMACY_STANCE_REQUEST", targetPlayerName: targetName, ...(input.targetPlayerId ? { targetPlayerId: input.targetPlayerId } : {}) },
+    "Finish sign-in before making offers."
+  );
 };
 
 /** Routes the gateway's DIPLOMACY_STANCE reply to the open screen, if it's still for that target. */
 export const receiveDiplomacyStance = (reply: DiplomacyStanceReply): void => {
-  if (!open || open.targetName.toLocaleLowerCase() !== reply.targetPlayerName.toLocaleLowerCase()) return;
+  if (!open) return;
+  const sameTarget =
+    open.targetPlayerId && reply.found ? reply.targetPlayerId === open.targetPlayerId : open.targetName.toLocaleLowerCase() === reply.targetPlayerName.toLocaleLowerCase();
+  if (!sameTarget) return;
   open.reply = reply;
   render(open);
 };

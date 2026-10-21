@@ -24,7 +24,7 @@ export type ArrowGestureConfirmSheetDeps = {
   renderHud: () => void;
 };
 
-/** Slider floor: the target tile's fort requirement if settled, else the generic attack cost -- same rule buildMusterCommitView uses. */
+/** Slider floor: the target tile's fort requirement if settled, else the generic attack cost -- same rule buildMusterCommitView uses (a held tile's flag commitment is scaled to its own floor server-side, see flagCommitForTarget). */
 const floorForTarget = (state: Pick<ClientState, "tiles"> & Partial<Pick<ClientState, "domainIds">>, target: ArrowGesturePoint, keyFor: (x: number, y: number) => string): number => {
   const targetTile = state.tiles.get(keyFor(target.x, target.y));
   return targetTile?.ownershipState === "SETTLED"
