@@ -601,7 +601,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       sendGameMessage
     });
 
-  // Shared by the action queue's direct send and the muster-transit deferred send; carries the chosen effort (client-attack-commit.ts).
+  // The muster-transit deferred send; carries the chosen effort (client-attack-commit.ts).
   const sendAttackMessage = (fromX: number, fromY: number, toX: number, toY: number, commandId: string, clientSeq: number, commitManpower?: number): void =>
     ws.send(JSON.stringify(attackWireMessage(state, { fromX, fromY, toX, toY, commandId, clientSeq, commitManpower })));
 
@@ -618,7 +618,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       pushFeed,
       renderHud,
       sendSetMuster: (x, y, mode) => sendGameMessage({ type: "SET_MUSTER", x, y, mode }),
-      sendAttack: sendAttackMessage,
       sendGameMessage
     });
 

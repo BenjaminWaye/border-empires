@@ -902,7 +902,6 @@ export const processActionQueue = (
     pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
     renderHud: () => void;
     sendSetMuster: (x: number, y: number, mode: "HOLD") => void;
-    sendAttack: (fromX: number, fromY: number, toX: number, toY: number, commandId: string, clientSeq: number, commitManpower?: number) => void; // commitManpower: D6 commitment choice, above the floor
     sendGameMessage?: (payload: unknown) => boolean;
   }
 ): boolean => {
@@ -1241,27 +1240,11 @@ export const processActionQueue = (
       });
     } else {
       // Attacking/claiming an owned tile is also free (FRONTIER_CLAIM_COST is 0 gold).
-      if (to.ownerId !== "barbarian-1") {
-        dispatchMusterFundedAttack(state, { entry: next, from, to, targetKey, commandId, clientSeq }, deps);
-        continue;
-      }
-      deps.sendAttack(from.x, from.y, to.x, to.y, commandId, clientSeq);
-      attackSyncLog("send", {
-        actionType: "ATTACK",
-        target: { x: to.x, y: to.y },
-        origin: { x: from.x, y: from.y },
-        targetKey,
-        startedAt: state.actionStartedAt,
-        wsReadyState: deps.ws.readyState
-      });
-      logActionQueue("action-send", {
-        type: "ATTACK",
-        from: { x: from.x, y: from.y },
-        to: { x: to.x, y: to.y },
-        toOwnerId: to.ownerId,
-        toOwnershipState: to.ownershipState
-      });
-      deps.pushFeed(`Queued attack (${to.x}, ${to.y}) from (${from.x}, ${from.y})`, "combat", "info");
+      // Every manual ATTACK -- Planetary Defense (barbarian-1) targets
+      // included, since raids were removed -- is muster-funded, so it always
+      // goes through the flag lookup rather than straight to the server.
+      dispatchMusterFundedAttack(state, { entry: next, from, to, targetKey, commandId, clientSeq }, deps);
+      continue;
     }
     state.selected = { x: to.x, y: to.y };
     deps.renderHud();

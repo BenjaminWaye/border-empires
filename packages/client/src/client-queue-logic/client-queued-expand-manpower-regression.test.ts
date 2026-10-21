@@ -43,7 +43,6 @@ describe("EXPAND optimistic manpower regression", () => {
       pickOriginForTarget: () => origin,
       notifyInsufficientGoldForFrontierAction: vi.fn(),
       sendSetMuster: vi.fn(),
-      sendAttack: vi.fn(),
       applyOptimisticTileState: vi.fn(),
       pushFeed: vi.fn(),
       renderHud: vi.fn()

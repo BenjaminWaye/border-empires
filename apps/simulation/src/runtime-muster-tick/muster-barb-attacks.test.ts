@@ -23,7 +23,7 @@ const makePlayer = (id: string, manpower: number) => ({
 
 const barbPlayer = (manpower: number) => ({ ...makePlayer("barbarian-1", manpower), isAi: true });
 
-const buildRuntime = (playerManpower: number, barbarianManpower = 9999) =>
+const buildRuntime = (playerManpower: number, barbarianManpower = 9999, neighbourFlagAmount?: number) =>
   new SimulationRuntime({
     now: () => 1_000,
     initialPlayers: new Map([
@@ -44,7 +44,17 @@ const buildRuntime = (playerManpower: number, barbarianManpower = 9999) =>
           terrain: "LAND",
           ownerId: "barbarian-1",
           ownershipState: "FRONTIER"
-        }
+        },
+        ...(neighbourFlagAmount === undefined
+          ? []
+          : [{
+              // A muster flag on an owned tile NEXT TO the origin, not on it.
+              x: 11, y: 10,
+              terrain: "LAND" as const,
+              ownerId: "player-1",
+              ownershipState: "SETTLED" as const,
+              muster: { ownerId: "player-1", amount: neighbourFlagAmount, mode: "HOLD" as const, updatedAt: 0 }
+            }])
       ],
       activeLocks: []
     }
@@ -91,6 +101,32 @@ describe("attacks on and by Planetary Defense (no raids)", () => {
         e.eventType === "COMMAND_REJECTED" && e.commandId === "barb-target-no-muster"
     );
     expect(rejected).toBeDefined();
+  });
+
+  it("funds an attack on a barbarian tile from a muster flag next to the origin", async () => {
+    // Regression: after raids were removed, the runtime still skipped the
+    // nearby-flag lookup for barbarian targets, so only muster sitting on the
+    // exact launch tile counted and a flag one tile over was ignored.
+    const runtime = buildRuntime(999, 9999, MUSTER_ATTACK_COST * 2);
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((e) => seen.push(e));
+    runtime.submitCommand({
+      commandId: "barb-target-neighbour-flag",
+      sessionId: "s",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "ATTACK",
+      payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+    });
+    await Promise.resolve();
+    const rejected = seen.find(
+      (e): e is Extract<SimulationEvent, { eventType: "COMMAND_REJECTED" }> =>
+        e.eventType === "COMMAND_REJECTED" && e.commandId === "barb-target-neighbour-flag"
+    );
+    expect(rejected).toBeUndefined();
+    const musterReserved = (runtime as unknown as { musterReservedByKey: Map<string, number> }).musterReservedByKey;
+    expect(musterReserved.get("11,10")).toBeGreaterThan(0);
   });
 
   it("allows a barbarian-origin attack without staged muster", () => {
