@@ -2,7 +2,8 @@ import { isSeaTerrain } from "@border-empires/shared";
 import { touchesLandInSight } from "../client-unexplored-storm/client-unexplored-fog-ring.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
 import { createUnexploredRevealTracker, drawUnexploredReveal2D, UNEXPLORED_REVEAL_MIN_TILE_PX, type UnexploredRevealTracker } from "../client-unexplored-storm/client-unexplored-reveal-2d.js";
-import { FOGGED_PRINT_SEPIA, FOGGED_PRINT_WASH_OPACITY, FOGGED_PRINT_WATER, FOGGED_PRINT_WATER_BLEND } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
+import { FOGGED_WASH, FOGGED_WASH_OPACITY, FOGGED_WATER, FOGGED_WATER_BLEND } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
+import { clipFoggedEdge2D, drawFoggedMist2D, strokeFoggedEdge2D } from "../client-unexplored-storm/client-fogged-mist-2d.js";
 import {
   drawUnexploredStormEdge2D,
   drawUnexploredStormTile,
@@ -13,8 +14,8 @@ import {
 // The 2D canvas renderer's base layer for one tile (extracted from
 // client-runtime-loop.ts's per-tile loop): terrain, fogged dimming, or the
 // unexplored storm. Remembered (fogged) tiles keep their terrain and natural
-// detail as a faded survey print. The fog's first ring (unexplored tiles touching explored
-// land) shows its own ground (printed like the remembered land it borders
+// detail, dimmed under drifting mist. The fog's first ring (unexplored tiles touching explored
+// land) shows its own ground (fogged like the remembered land it borders
 // unless it touches land in sight) up to a brass edge,
 // with the storm beyond. Explored tiles get only their own terrain -- the
 // fog never draws on them. A tile that has just become explored gets the
@@ -42,13 +43,23 @@ export type TileGround2DInput = {
 };
 
 const isWater = isSeaTerrain;
-// Remembered (fogged) tiles as a faded survey print, matching the 3D fog
-// overlay exactly: a see-through wash of the print tone over the terrain.
-const drawFoggedPrint = (ctx: CanvasRenderingContext2D, terrain: Tile["terrain"], px: number, py: number, size: number): void => {
+// Remembered (fogged) tiles under fog, matching the 3D map: a see-through
+// slate wash over the terrain (client-map-3d.ts's fog overlay), then the
+// drifting mist (client-map-3d-fogged-mist.ts). Beside tiles in sight the fog
+// starts a wavy band in from them, like the unexplored storm's coast.
+const drawFogged = (ctx: CanvasRenderingContext2D, input: TileGround2DInput, terrain: Tile["terrain"]): void => {
+  const { wx, wy, px, py, size } = input;
+  const isInSightAt = (ox: number, oy: number): boolean => input.neighbourVisibility(ox, oy) === "visible";
+  const banded = unexploredCoastVisibleAt(size) && touchesLandInSight(input.neighbourVisibility);
   ctx.save();
-  ctx.globalAlpha = isWater(terrain) ? FOGGED_PRINT_WATER_BLEND : FOGGED_PRINT_WASH_OPACITY;
-  ctx.fillStyle = isWater(terrain) ? FOGGED_PRINT_WATER : FOGGED_PRINT_SEPIA;
+  const edges = banded ? clipFoggedEdge2D(ctx, wx, wy, px, py, size, isInSightAt) : [];
+  ctx.save();
+  ctx.globalAlpha = isWater(terrain) ? FOGGED_WATER_BLEND : FOGGED_WASH_OPACITY;
+  ctx.fillStyle = isWater(terrain) ? FOGGED_WATER : FOGGED_WASH;
   ctx.fillRect(px, py, size, size);
+  ctx.restore();
+  drawFoggedMist2D(ctx, wx, wy, px, py, size, input.nowMs ?? performance.now());
+  strokeFoggedEdge2D(ctx, edges, size);
   ctx.restore();
 };
 
@@ -73,28 +84,28 @@ const drawTileGroundBase2D = (ctx: CanvasRenderingContext2D, input: TileGround2D
     const terrain = input.terrainAt(wx, wy);
     input.drawTerrainTile(wx, wy, isWater(terrain) || terrain === "MOUNTAIN" ? terrain : "LAND", px, py, size);
     if (terrain === "LAND") input.drawTerrainDetail(wx, wy, px, py, size);
-    // Prints like the remembered land it borders, unless it touches land in
-    // sight -- so the ring never shows a full-colour strip against faded tiles.
-    if (!touchesLandInSight(input.neighbourVisibility)) drawFoggedPrint(ctx, terrain, px, py, size);
+    // Fogged like the remembered land it borders, unless it touches land in
+    // sight -- so the ring never shows a full-colour strip against fogged tiles.
+    if (!touchesLandInSight(input.neighbourVisibility)) drawFogged(ctx, input, terrain);
     drawUnexploredStormEdge2D(ctx, wx, wy, px, py, size, isExploredAt);
     return;
   }
   if (!tile && vis === "fogged" && input.terrainWhenMissing === undefined) {
     // Remembered, but its tile data isn't loaded (yet, or evicted): its
-    // natural terrain is still known from the world seed, so print that --
+    // natural terrain is still known from the world seed, so fog that --
     // as the 3D map does -- rather than storm, which the fog ring beside it
     // would face with a brass edge as if it were explored land.
     const terrain = input.terrainAt(wx, wy);
     input.drawTerrainTile(wx, wy, isWater(terrain) || terrain === "MOUNTAIN" ? terrain : "LAND", px, py, size);
     if (terrain === "LAND") input.drawTerrainDetail(wx, wy, px, py, size);
-    drawFoggedPrint(ctx, terrain, px, py, size);
+    drawFogged(ctx, input, terrain);
   } else if (!tile) {
     if (input.terrainWhenMissing === undefined) drawUnexploredStormTile(ctx, wx, wy, px, py, size);
     else input.drawTerrainTile(wx, wy, input.terrainWhenMissing, px, py, size);
   } else if (vis === "fogged") {
     input.drawTerrainTile(wx, wy, tile.terrain, px, py, size);
     if (tile.terrain === "LAND") input.drawTerrainDetail(wx, wy, px, py, size); // natural terrain isn't live data
-    drawFoggedPrint(ctx, tile.terrain, px, py, size);
+    drawFogged(ctx, input, tile.terrain);
   } else {
     input.drawTerrainTile(wx, wy, isWater(tile.terrain) || tile.terrain === "MOUNTAIN" ? tile.terrain : "LAND", px, py, size);
   }

@@ -28,7 +28,7 @@ export const isShallowSeaTile = (
 /**
  * Wraps a visibility lookup so the fog's first ring -- unexplored tiles with
  * an explored tile among their 8 neighbours -- reports "fogged". The 3D
- * terrain then draws those tiles' ground and natural features (printed like
+ * terrain then draws those tiles' ground and natural features (fogged like
  * remembered land unless beside land in sight, see hasLiveNeighbour)
  * (no owners, roads or structures: the client has no tile data for them),
  * and the unexplored storm (client-map-3d-unexplored-storm.ts, which keeps
@@ -66,7 +66,7 @@ export const withUnexploredCoastRingAsFogged = (
 
 /**
  * Whether any of a tile's 8 neighbours is currently in sight ("visible").
- * A fog-ring tile prints like the remembered land it borders unless it
+ * A fog-ring tile is fogged like the remembered land it borders unless it
  * touches land in sight -- the same rule as the 2D map (touchesLandInSight).
  */
 export const hasLiveNeighbour = (

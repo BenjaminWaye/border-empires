@@ -1,6 +1,6 @@
 // Unexplored territory reads as a streaked storm-cloud bank, like weather
-// drawn on an old map, instead of a black void; remembered tiles read as an
-// old survey print (see FOGGED_PRINT_* below). The first ring of unexplored
+// drawn on an old map, instead of a black void; remembered tiles sit under a
+// drifting mist (see FOGGED_* below). The first ring of unexplored
 // tiles shows a glimpse of its ground (~a quarter tile) before a brass
 // survey edge, then the storm. Shared
 // by both map renderers so the 2D canvas fallback and the true-3D view look
@@ -20,18 +20,24 @@ export const UNEXPLORED_LANTERN = "#d9852e";
 export const UNEXPLORED_BRASS = "#d8b25a";
 export const UNEXPLORED_BRASS_DARK = "#6e4e1e";
 
-// Remembered ("fogged") tiles -- explored but not currently in sight -- read
-// as a pale, faded survey print rather than a dark hole -- light enough to
-// sit between live colour and the storm, so brightness steps down outward
-// instead of dipping and coming back up. Land gets a
-// normal-blend wash of FOGGED_PRINT_SEPIA (pulling every colour toward one
-// tan compresses saturation and contrast, like a faded print; a multiply
-// could only darken), trees and peaks are multiplied by
-// FOGGED_PRINT_FEATURE_TINT (3D), and water is pulled toward
-// FOGGED_PRINT_WATER. The 2D renderer uses the same wash and water blend.
-export const FOGGED_PRINT_SEPIA = "#c8a46a";
-export const FOGGED_PRINT_WASH_OPACITY = 0.5;
-export const FOGGED_PRINT_FEATURE_TINT = "#e6d2b4";
-export const FOGGED_PRINT_WATER = "#7a7458";
-// How far remembered water is pulled toward FOGGED_PRINT_WATER.
-export const FOGGED_PRINT_WATER_BLEND = 0.5;
+// Remembered ("fogged") tiles -- explored but not currently in sight -- sit
+// under a cool, drifting mist: plainly weather over land we can no longer
+// see, rather than a recoloured biome or a rendering glitch. Land gets a
+// normal-blend wash of FOGGED_WASH (pulling every colour toward one slate
+// grey desaturates it and dims it a little, so brightness still steps down
+// live -> remembered -> storm; a multiply could only darken it into a hole),
+// trees and peaks are multiplied by FOGGED_FEATURE_TINT (3D), and water is
+// pulled toward FOGGED_WATER. Over all of it drift wisps of FOGGED_MIST
+// (client-map-3d-fogged-mist.ts / client-fogged-mist-2d.ts), which is what
+// makes the tiles read as fog. Both renderers use the same wash and mist.
+export const FOGGED_WASH = "#4a5460";
+export const FOGGED_WASH_OPACITY = 0.55;
+export const FOGGED_FEATURE_TINT = "#9aa4af";
+export const FOGGED_WATER = "#4f5b66";
+// How far remembered water is pulled toward FOGGED_WATER.
+export const FOGGED_WATER_BLEND = 0.5;
+// Mist wisps: thin haze everywhere on remembered tiles, thicker in drifting banks.
+export const FOGGED_MIST_HAZE = "#7f8b98";
+export const FOGGED_MIST_LIGHT = "#d2dae2";
+export const FOGGED_MIST_MIN_OPACITY = 0.1;
+export const FOGGED_MIST_MAX_OPACITY = 0.42;

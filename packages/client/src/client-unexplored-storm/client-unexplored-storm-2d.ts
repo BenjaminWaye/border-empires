@@ -24,9 +24,9 @@ const BODY_LATTICE = 3;
 const MASS_LATTICE = 2;
 
 type Rgb = readonly [number, number, number];
-const hexRgb = (hex: string): Rgb => [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
-const mixRgb = (a: Rgb, b: Rgb, t: number): Rgb => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-const smoothstep = (e0: number, e1: number, x: number): number => {
+export const hexRgb = (hex: string): Rgb => [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
+export const mixRgb = (a: Rgb, b: Rgb, t: number): Rgb => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+export const smoothstep = (e0: number, e1: number, x: number): number => {
   const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
   return t * t * (3 - 2 * t);
 };
@@ -55,7 +55,7 @@ const periodicNoise = (u: number, v: number, period: number, seed: number): numb
 };
 
 // u, v in [0, 1): position across the texture.
-const periodicFbm = (u: number, v: number, lattice: number, seed: number): number => {
+export const periodicFbm = (u: number, v: number, lattice: number, seed: number): number => {
   let sum = 0;
   let amp = 0.5;
   let period = lattice;
@@ -238,33 +238,31 @@ export { isUnexploredCoastRing } from "./client-unexplored-fog-ring.js";
 export const unexploredCoastVisibleAt = (size: number): boolean => size >= EDGE_MIN_TILE_PX;
 
 /**
- * Coast treatment for a first-ring fog tile at (wx, wy), drawn over its
- * already-drawn dimmed ground; neighbours at offset (ox, oy) may be
- * explored. Draws only inside this tile's square.
+ * Clips to the part of tile (wx, wy)'s square past the fog's band: beyond a
+ * wavy line ~UNEXPLORED_BAND_BASE in from every side whose neighbour is
+ * clear (isClearAt), and outside an arc round every clear diagonal-only
+ * corner. Returns each band's edge path and glow gradient, for the caller to
+ * stroke / fill inside the clip. The caller must save() before and restore()
+ * after. Shared by the unexplored storm and the fogged mist, so both fogs
+ * bend the same way.
  */
-export const drawUnexploredStormEdge2D = (
+export const clipBeyondFogBand2D = (
   ctx: CanvasRenderingContext2D,
   wx: number,
   wy: number,
   px: number,
   py: number,
   size: number,
-  isExploredAt: (ox: number, oy: number) => boolean
-): void => {
-  const sides = SIDES.filter((side) => isExploredAt(side.ox, side.oy));
-  // A diagonal-only contact gets an arc; beside an explored side it would
+  isClearAt: (ox: number, oy: number) => boolean
+): { readonly edges: Array<() => void>; readonly glows: Array<() => CanvasGradient> } => {
+  const sides = SIDES.filter((side) => isClearAt(side.ox, side.oy));
+  // A diagonal-only contact gets an arc; beside a clear side it would
   // lie inside that side's band (and double its glow).
-  const corners = CORNERS.filter(([ox, oy]) => isExploredAt(ox, oy) && !isExploredAt(ox, 0) && !isExploredAt(0, oy));
+  const corners = CORNERS.filter(([ox, oy]) => isClearAt(ox, oy) && !isClearAt(ox, 0) && !isClearAt(0, oy));
   const detailed = size >= EDGE_DETAIL_MIN_TILE_PX;
 
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(px, py, size, size);
-  ctx.clip();
-
-  // 1. Storm beyond every band: clip to the intersection of "past this
-  // side's wave" / "outside this corner's arc" for each one.
-  ctx.save();
+  // Clip to the intersection of "past this side's wave" / "outside this
+  // corner's arc" for each one.
   const edges: Array<() => void> = [];
   const glows: Array<() => CanvasGradient> = [];
   for (const side of sides) {
@@ -300,6 +298,31 @@ export const drawUnexploredStormEdge2D = (
     edges.push(() => ctx.arc(cx, cy, r, 0, Math.PI * 2));
     glows.push(() => ctx.createRadialGradient(cx, cy, size * GLOW_FROM, cx, cy, size * GLOW_TO));
   }
+  return { edges, glows };
+};
+
+/**
+ * Coast treatment for a first-ring fog tile at (wx, wy), drawn over its
+ * already-drawn dimmed ground; neighbours at offset (ox, oy) may be
+ * explored. Draws only inside this tile's square.
+ */
+export const drawUnexploredStormEdge2D = (
+  ctx: CanvasRenderingContext2D,
+  wx: number,
+  wy: number,
+  px: number,
+  py: number,
+  size: number,
+  isExploredAt: (ox: number, oy: number) => boolean
+): void => {
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(px, py, size, size);
+  ctx.clip();
+
+  // 1. Storm beyond every band.
+  ctx.save();
+  const { edges, glows } = clipBeyondFogBand2D(ctx, wx, wy, px, py, size, isExploredAt);
   setUnexploredStormFill(ctx, wx, wy, px, py, size);
   ctx.fillRect(px, py, size, size);
   // Lantern light glowing in the storm just behind the brass edge.

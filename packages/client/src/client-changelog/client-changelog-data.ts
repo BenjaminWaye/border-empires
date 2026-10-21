@@ -9,14 +9,9 @@ import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garriso
 import { AFC_UPGRADES_ICON_CHANGELOG } from "./client-changelog-afc-upgrades-icon.js";
 import { GAMEPLAY_SETTINGS_CLEANUP_CHANGELOG } from "./client-changelog-gameplay-settings-cleanup.js";
 import { MUSTER_BANNER_CHANGELOG } from "./client-changelog-muster-banner.js";
-import { BATTLE_TILE_SOUND_CHANGELOG } from "./client-changelog-battle-tile-sound.js";
-import { TOWN_VISUALS_CHANGELOG } from "./client-changelog-town-visuals.js";
-import { TOWN_BANNERS_CHANGELOG } from "./client-changelog-town-banners.js";
-import { WAR_MUSIC_DIPLOMACY_CHANGELOG } from "./client-changelog-war-music-diplomacy.js";
-import { CONSTRUCTION_POD_DELIVERY_CHANGELOG } from "./client-changelog-construction-pod-delivery.js";
+import { CLIENT_CHANGELOG_ENTRIES_OCT_19_20 } from "./client-changelog-oct-19-20.js";
 import { CAPTURE_HOLD_EFFORT_CHANGELOG } from "./client-changelog-capture-hold-effort.js";
 import { HETZNER_CLIENT_HOSTING_CHANGELOG } from "./client-changelog-hetzner-client-hosting.js";
-import { MUSTER_SIEGE_CHANGELOG } from "./client-changelog-muster-siege.js";
 import { AI_DEAL_SUGGEST_CHANGELOG } from "./client-changelog-ai-deal-suggest.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
@@ -481,12 +476,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "All 30 upgrade cards use short effect lines with percentages; expanded details explain conditions"
     ]
   },
-  ...BATTLE_TILE_SOUND_CHANGELOG,
-  ...TOWN_VISUALS_CHANGELOG,
-  ...TOWN_BANNERS_CHANGELOG,
-  ...WAR_MUSIC_DIPLOMACY_CHANGELOG,
-  ...CONSTRUCTION_POD_DELIVERY_CHANGELOG,
-  ...MUSTER_SIEGE_CHANGELOG,
+  ...CLIENT_CHANGELOG_ENTRIES_OCT_19_20,
   ...HETZNER_CLIENT_HOSTING_CHANGELOG,
   ...CAPTURE_HOLD_EFFORT_CHANGELOG
 ];
