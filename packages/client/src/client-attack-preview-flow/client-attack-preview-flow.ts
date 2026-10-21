@@ -27,7 +27,7 @@ export const createAttackPreviewReaders = (
   requestAttackPreviewForHover: (): void =>
     requestAttackPreviewForHoverFromModule(state, {
       ws: deps.ws,
-      authSessionReady: state.authSessionReady,
+      authSessionReady: state.authSessionReady && state.connection === "initialized",
       keyFor: deps.keyFor,
       pickOriginForTarget: deps.pickOriginForTarget
     }),
