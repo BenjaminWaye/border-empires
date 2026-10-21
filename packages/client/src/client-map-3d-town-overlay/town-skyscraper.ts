@@ -1,21 +1,17 @@
 // Clockwork skyscrapers: grey stone or glass curtain-wall towers stepping back
-// in art-deco setbacks, each set off by an aged-brass band, with lit
-// shopfronts spilling light onto the street, lamplit window strips up every
-// face and a crown -- a brass cog clock, a needle spire, an alien glowing
+// in art-deco setbacks, each set off by an aged-brass band, with lamplit
+// window strips up every face and a crown -- a brass cog clock, a needle spire, an alien glowing
 // bulb, ribbed fins round a spinning crystal, a brass dome, a rooftop garden
 // or a steaming smokestack beside a water tank -- the tallest blinking red
 // warning lights.
 // Plus the plaza centrepieces: a turning clockwork orrery and a cog lamp.
 import type { TownColor } from "./town-mesh-builder.js";
 import { roofGarden } from "./town-flourishes.js";
-import { at, beacon, facingOut, gear, inStep, polar, spinning, steamVent, TOWN_HALO_Y, type TownBuilders } from "./town-parts.js";
+import { at, beacon, facingOut, gear, polar, spinning, steamVent, type TownBuilders } from "./town-parts.js";
 
 // Clearance off a wall so a window strip never z-fights the wall face.
 const FACE_GAP = 0.0025;
 const STRIP_PITCH = 0.026;
-/** Height of the lit shopfront band round a tower's foot. */
-const SHOPFRONT_H = 0.009;
-const SHOPFRONT_SPILL = 0.034;
 /** Towers at least this tall carry a blinking warning light on their crown. */
 export const BEACON_MIN_HEIGHT = 0.3;
 
@@ -51,16 +47,6 @@ const windowStrips = (
     if (!isLit && !darkStrips) continue;
     (isLit ? t.glow : t.body).panel(px, y + h * 0.5, pz, 0.007, h * 0.78, isLit ? "lamp" : "window", ry);
   }
-};
-
-/** Lit shopfronts across one face at street level, their light spilling out over the sidewalk. */
-const shopfront = (t: TownBuilders, x: number, z: number, ry: number, faceWidth: number, offset: number, y: number): void => {
-  if (t.random() > 0.75) return;
-  const [px, pz] = at(x, z, ry, 0, offset + FACE_GAP);
-  inStep(t, t.random(), () => {
-    t.glow.panel(px, y + SHOPFRONT_H / 2 + 0.002, pz, faceWidth * 0.82, SHOPFRONT_H, "shopfront", ry);
-    t.halo.spill(px, TOWN_HALO_Y, pz, faceWidth * 0.95, SHOPFRONT_SPILL, "shopfront", ry);
-  });
 };
 
 /** Wooden water tank on a post, with a conical iron cap. */
@@ -111,14 +97,11 @@ export const skyscraper = (t: TownBuilders, o: SkyscraperOptions): number => {
     const sh = o.h * share;
     if (o.glass || o.allGlass) glassSection(t, o.x, y, o.z, w, sh, d, o.ry, shell, o.allGlass);
     else t.body.box(o.x, y, o.z, w, sh, d, shell, o.ry);
-    // The ground floor's strips start above its shopfronts.
-    const stripsFrom = i === 0 ? SHOPFRONT_H + 0.006 : sh * 0.06;
     for (const quarter of [0, 1, 2, 3]) {
       const faceRy = o.ry + (quarter * Math.PI) / 2;
       const across = quarter % 2 === 0 ? w : d;
       const depth = quarter % 2 === 0 ? d : w;
-      if (i === 0) shopfront(t, o.x, o.z, faceRy, across, depth / 2, y);
-      windowStrips(t, o.x, o.z, faceRy, across * 0.86, depth / 2, y + stripsFrom, (sh - stripsFrom) * 0.88, o.allGlass ? lit * 0.35 : o.glass ? lit * 0.6 : lit, !o.glass && !o.allGlass);
+      windowStrips(t, o.x, o.z, faceRy, across * 0.86, depth / 2, y + sh * 0.06, sh * 0.82, o.allGlass ? lit * 0.35 : o.glass ? lit * 0.6 : lit, !o.glass && !o.allGlass);
     }
     t.body.box(o.x, y + sh - 0.007, o.z, w + 0.007, 0.007, d + 0.007, "brassDark", o.ry);
     y += sh;

@@ -50,12 +50,12 @@ const meta: Meta<Args> = {
       description: {
         component: [
           "The shipped procedural town overlay (createTownOverlay): clockwork skyscrapers of mirror glass and grey stone banded in",
-          "the AFC's aged brass, with lit shopfronts and lamps throwing additive pools of light onto paved sidewalks, lamplit window",
+          "the AFC's aged brass, with street lamps throwing additive pools of light onto the paving, lamplit window",
           "strips, baked ambient occlusion grounding every tower, and crowns of brass cog clocks, needle spires, glowing alien bulbs",
-          "and finned crystals, the tallest blinking red warning lights. Banners in the owner's colour (undyed canvas here, with no",
-          "owner) fly from the plate's corners; parks hold fountains and flower beds. Animated in the shaders: rooftop steam, fountain",
-          "spray, rippling banners, flickering lamplight, blinking beacons, turning cogs and orreries, spinning crystals, courier gyros",
-          "and circling airships. See TownOnTerrain for the towns beside an AFC.",
+          "and finned crystals, the tallest blinking red warning lights, all on a polished marble plinth like the muster banner's;",
+          "parks hold fountains and flower beds. Animated in the shaders: rooftop steam, fountain spray, flickering lamplight,",
+          "blinking beacons, turning cogs and orreries, spinning crystals, courier gyros and circling airships. See TownOnTerrain",
+          "for the towns beside an AFC.",
           "",
           "SETTLEMENT · four low towers round a cog lamp.",
           "TOWN · a street grid of blocks with lamplit crossings, rising to a few glass towers, round a small park with the orrery.",

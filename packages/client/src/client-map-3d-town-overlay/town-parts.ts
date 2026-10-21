@@ -14,8 +14,8 @@ export type TownBuilders = {
   readonly halo: TownMeshBuilder;
   /** Animated steam puffs (see applyTownSteam). */
   readonly steam: TownMeshBuilder;
-  /** Banner cloth, rippling (see applyTownBanner) in the owner's colour. */
-  readonly banner: TownMeshBuilder;
+  /** The base plate -- its top, kerb and walls -- drawn in polished marble like the muster banner's plinth. */
+  readonly plinth: TownMeshBuilder;
   /** Deterministic 0..1 roll, seeded per tier. */
   readonly random: () => number;
 };
@@ -95,35 +95,51 @@ export const PLATE_SKIRT_FLARE = 1.12;
 const skirtRadiusAt = (radius: number, topY: number, y: number): number =>
   radius * (1 + ((PLATE_SKIRT_FLARE - 1) * (topY - y)) / (topY + 0.1));
 
-/** Matte stone foundation under an octagonal plate, from y = -0.1 up to
- * `topY`, widening towards the ground so its sides tilt up into the light.
- * It runs well below 0 so a sloped tile never shows a gap under the plate (the
+/** Stone foundation under an octagonal plate, from y = -0.1 up to `topY`,
+ * widening towards the ground so its sides tilt up into the light. It runs
+ * well below 0 so a sloped tile never shows a gap under the plate (the
  * overlays lift the plate only by TOWN_BASE_LIFT), which means a lot of it
  * shows on a tile whose corners sit lower; a dark metal skirt read as a black
  * band there. */
-export const plateSkirt = (body: TownMeshBuilder, radius: number, topY: number): void => {
-  body.cylinder(0, -0.1, 0, radius, radius * PLATE_SKIRT_FLARE, topY + 0.1, "stoneDark", 8, Math.PI / 8);
+export const plateSkirt = (body: TownMeshBuilder, radius: number, topY: number, color: TownColor = "stoneDark"): void => {
+  body.cylinder(0, -0.1, 0, radius, radius * PLATE_SKIRT_FLARE, topY + 0.1, color, 8, Math.PI / 8);
 };
 
-/** Octagonal base plate, its top at y = 0: streets (or `top`) inside a low
- * kerb and a brass band, on a flared coursed masonry wall (plateSkirt). */
-export const octagonPlate = (t: TownBuilders, radius: number, plazaRing = true, top: TownColor = "asphalt"): void => {
+/** Top of a town plate's skirt: just under its brass band's top (-0.008). */
+export const TOWN_SKIRT_TOP_Y = -0.009;
+
+/** Ledges (heights in the town's frame) the base plate's marble walls rise
+ * from: the black course and the paving. See applyMarbleFinish. */
+export const TOWN_PLINTH_LEDGES: readonly number[] = [-0.02, 0];
+
+/** Octagonal base plate, its top at y = 0: polished black-and-gold marble
+ * streets inside a low marble kerb and a brass band, on a flared charcoal
+ * marble wall (plateSkirt) girdled by a black marble course, running well below 0 so a
+ * sloped tile never shows a gap under it (the overlay lifts the whole town;
+ * see TOWN_BASE_LIFT). */
+export const octagonPlate = (t: TownBuilders, radius: number, plazaRing = true): void => {
   const turn = Math.PI / 8;
-  plateSkirt(t.body, radius, -0.008);
+  // Mid stone, which the marble finish turns to charcoal with pale veins: the
+  // skirt shows wherever the tile slopes away, so it must not read as a black
+  // band (dark stone would come out black marble, like the streets). Its top
+  // stops just under the brass band's, so the two never z-fight.
+  plateSkirt(t.plinth, radius, TOWN_SKIRT_TOP_Y, "stone");
   // The brass band keeps its lip over the flared wall below it.
   const band = skirtRadiusAt(radius, -0.008, -0.016) + radius * 0.01;
   t.body.cylinder(0, -0.016, 0, band, band, 0.008, "brass", 8, turn);
-  t.body.cylinder(0, -0.008, 0, radius * 0.985, radius * 0.985, 0.008, top, 8, turn);
-  // A darker plinth course just under the band, following the skirt's flare.
+  // The streets are the plinth's polished top: dark stone, which the marble
+  // finish turns to black marble shot with gold, like the course below.
+  t.plinth.cylinder(0, -0.008, 0, radius * 0.985, radius * 0.985, 0.008, "graphite", 8, turn);
+  // A black marble course just under the band, following the skirt's flare.
   const course = (y: number): number => skirtRadiusAt(radius, -0.008, y) + radius * 0.006;
-  t.body.cylinder(0, -0.03, 0, course(-0.02), course(-0.03), 0.01, "graphite", 8, turn);
+  t.plinth.cylinder(0, -0.03, 0, course(-0.02), course(-0.03), 0.01, "graphite", 8, turn);
   // Low kerb round the edge of the paving.
   const apothem = octagonApothem(radius);
   const edge = 2 * apothem * Math.tan(Math.PI / 8) - 0.006;
   for (let k = 0; k < 8; k += 1) {
     const degrees = k * 45;
     const [x, z] = polar(apothem - 0.005, degrees);
-    t.body.box(x, 0, z, edge, 0.006, 0.008, "stoneLight", facingOut(degrees));
+    t.plinth.box(x, 0, z, edge, 0.006, 0.008, "stoneLight", facingOut(degrees));
   }
   if (plazaRing) {
     // A raised flagstone plaza inside an inlaid brass ring, a paler rosette at its heart.
