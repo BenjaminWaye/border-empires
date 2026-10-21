@@ -1,4 +1,4 @@
-import type { SimulationCommandStore } from "./command-store/command-store.js";
+import type { SimulationCommandStore } from "../command-store/command-store.js";
 
 export type ProtoGetRecentCommandsRequest = {
   limit?: number;
@@ -7,6 +7,10 @@ export type ProtoGetRecentCommandsResponse = {
   ok: boolean;
   commands_json?: string;
 };
+
+// Hard ceiling regardless of what the caller asks for; this is a diagnostics
+// view, not an export.
+const MAX_RECENT_COMMANDS = 500;
 
 /**
  * GetRecentCommands gRPC handler; extracted out of simulation-service.ts
@@ -20,11 +24,9 @@ export const handleGetRecentCommands = (
   callback: (error: Error | null, response: ProtoGetRecentCommandsResponse) => void
 ): void => {
   const limit = call.request.limit && call.request.limit > 0 ? call.request.limit : 100;
-  void commandStore.loadAllCommands()
-    .then((allCommands) => {
-      const recent = allCommands
-        .sort((a, b) => (b.queuedAt ?? 0) - (a.queuedAt ?? 0))
-        .slice(0, limit)
+  void commandStore.loadRecentCommands(Math.min(limit, MAX_RECENT_COMMANDS))
+    .then((recentCommands) => {
+      const recent = recentCommands
         .map((cmd) => ({
           playerId: cmd.playerId,
           type: cmd.type,
