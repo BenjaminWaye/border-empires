@@ -17,6 +17,9 @@ const HALF = 18;
 type Args = {
   cameraDistance: number;
   cameraTilt: number;
+  // Scene point (tiles from the island center) the camera looks at.
+  focusX: number;
+  focusZ: number;
 };
 
 const hash = (x: number, y: number): number => {
@@ -98,6 +101,9 @@ const applyGameLighting = (stage: ReturnType<typeof createStage>): (() => void) 
 const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, cameraTilt: args.cameraTilt, background: "#3a3e44" });
   const removeLighting = applyGameLighting(stage);
+  stage.camera.position.x += args.focusX;
+  stage.camera.position.z += args.focusZ;
+  stage.camera.lookAt(args.focusX, 0, args.focusZ);
 
   const hf = createHeightfield();
   stage.scene.add(hf.mesh, hf.skirtMesh);
@@ -107,7 +113,15 @@ const render = (args: Args): HTMLElement => {
   hf.rebuild({ ...shared, isHillsAt, isForestAt });
   hillTerrain.rebuild({ ...shared, isHillsAt });
 
-  const water = createWaterSurface(stage.scene, (HALF * 2 + 1) ** 2);
+  // isLandAt + shoreSand drive the calm shoreline, shore foam and soft
+  // beach fringe, wired as in the game (client-map-3d-water-wiring.ts).
+  const water = createWaterSurface(stage.scene, (HALF * 2 + 1) ** 2, {
+    isLandAt: (wx, wz) => {
+      const kind = tileKindAt(wx, wz);
+      return kind !== "SEA" && kind !== "COASTAL_SEA";
+    },
+    shoreSand: { material: hf.material, cornerAt: hf.cornerAttributesAt }
+  });
   for (let wy = CENTER - HALF; wy <= CENTER + HALF; wy += 1) {
     for (let wx = CENTER - HALF; wx <= CENTER + HALF; wx += 1) {
       const kind = tileKindAt(wx, wy);
@@ -147,9 +161,11 @@ const meta: Meta<Args> = {
   },
   argTypes: {
     cameraDistance: { control: { type: "range", min: 6, max: 60, step: 1 } },
-    cameraTilt: { control: { type: "range", min: 0.2, max: 1.4, step: 0.05 } }
+    cameraTilt: { control: { type: "range", min: 0.2, max: 1.4, step: 0.05 } },
+    focusX: { control: { type: "range", min: -HALF, max: HALF, step: 1 } },
+    focusZ: { control: { type: "range", min: -HALF, max: HALF, step: 1 } }
   },
-  args: { cameraDistance: 30, cameraTilt: 0.6 },
+  args: { cameraDistance: 30, cameraTilt: 0.6, focusX: 0, focusZ: 0 },
   render
 };
 
@@ -158,4 +174,4 @@ type Story = StoryObj<Args>;
 
 export const Island: Story = {};
 export const CloseUp: Story = { args: { cameraDistance: 11, cameraTilt: 0.75 } };
-export const Shoreline: Story = { args: { cameraDistance: 9, cameraTilt: 1.0 } };
+export const Shoreline: Story = { args: { cameraDistance: 8, cameraTilt: 0.75, focusX: -12, focusZ: 3 } };

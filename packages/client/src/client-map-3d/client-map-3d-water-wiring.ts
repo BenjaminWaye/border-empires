@@ -1,5 +1,6 @@
 // Builds the 3D map's ocean surface and river overlay with their wiring:
-// the ocean calms around river mouths and puts shore foam on its coasts,
+// the ocean calms around river mouths and puts shore foam and a soft beach
+// fringe on its coasts,
 // and the rivers keep mouth water out of fogged tiles. River mountain
 // cascades rebuild with the rivers and animate on the ocean's frame tick.
 // Kept out of client-map-3d.ts, which is already far past the file-length
@@ -27,7 +28,10 @@ export const createMapWater = (scene: Scene, maxTiles: number, deps: MapWaterDep
     const terrain = deps.terrainAt(deps.wrapX(x), deps.wrapY(z));
     return terrain !== "SEA" && terrain !== "COASTAL_SEA";
   };
-  const waterSurface = createWaterSurface(scene, maxTiles, { waveCalmCorners: riverMouthCalmCorners, isLandAt });
+  // The soft beach fringe continues the heightfield's own coast, so it
+  // draws with the heightfield's material and reads its rendered corners.
+  const shoreSand = { material: deps.heightfield.material, cornerAt: deps.heightfield.cornerAttributesAt };
+  const waterSurface = createWaterSurface(scene, maxTiles, { waveCalmCorners: riverMouthCalmCorners, isLandAt, shoreSand });
   const rivers = createRiverOverlay(scene, { heightfield: deps.heightfield });
   const cascades = createRiverCascades(scene, { heightfield: deps.heightfield, mountainLookup: deps.mountainLookup });
   return {

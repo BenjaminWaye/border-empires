@@ -10,6 +10,7 @@ export const RICHER_TERRAIN_CHANGELOG: ClientChangelogEntry[] = [
       "Ground textures flow continuously across tiles instead of repeating per tile",
       "Meadows vary between sun-dried and lush patches, with soft rolling light and fine close-up detail",
       "Beaches fade softly into grass, with a thin damp edge at the waterline",
+      "Coastlines curve naturally instead of stepping along the tile grid, with surf following the shore",
       "Neighbouring hill tiles merge into one rolling landform instead of a grid of separate mounds"
     ]
   }
