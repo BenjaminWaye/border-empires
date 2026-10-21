@@ -61,11 +61,18 @@ describe("combatCardText", () => {
   });
 });
 
+describe("defense labels", () => {
+  it("falls back to a generic word for a fortification this client doesn't know", () => {
+    expect(combatCardText(combat({ defenseVariant: "SKY_CITADEL" as never }), "me", names)).toBe("Your fortification repelled Maren · cost them 50 manpower");
+  });
+});
+
 describe("combatGroupCardText", () => {
   it("summarizes the player's own pushes", () => {
     expect(combatGroupCardText(group(), names)).toBe("Your assault on Maren: 3 attacks, all repelled · −150 manpower");
     expect(combatGroupCardText(group({ counterpartyPlayerId: "hugo", attempts: 2, captures: 2, manpowerLoss: 100 }), names)).toBe("Took 2 tiles from Hugo · −100 manpower");
-    expect(combatGroupCardText(group({ captures: 1, originsSeized: 1 }), names)).toBe("Your assault on Maren: took 1 of 3 tiles · they seized 1 launch tile · −150 manpower");
+    expect(combatGroupCardText(group({ captures: 1, originsSeized: 1 }), names)).toBe("Your assault on Maren: 3 attacks, 1 tile taken · they seized 1 launch tile · −150 manpower");
+    expect(combatGroupCardText(group({ counterpartyPlayerId: undefined, attempts: 2, captures: 2 }), names)).toBe("Took 2 unclaimed tiles · −150 manpower");
   });
 
   it("summarizes a rival's raids on the player", () => {

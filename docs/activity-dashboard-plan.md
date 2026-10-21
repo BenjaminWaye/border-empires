@@ -97,8 +97,8 @@ attacks on that tile, with no lull over 3h, up to and including the capture
 stays a `COMBAT` card. The siege's assaults are removed from the per-attack
 `COMBAT` cards. Each siege carries the number of assaults repelled, the
 attackers, the total manpower they spent, and the fortification defending the
-tile (`CombatManpowerLoss.defenseVariant`, recorded at resolution with the same
-active/owned/not-dormant gate combat uses). The client renders sieges in a
+tile (`CombatManpowerLoss.defenseVariant`, recorded when the attack is rolled,
+with the same active/owned/not-dormant gate combat uses). The client renders sieges in a
 **Sieges** section at the top of Yours, costliest first
 (`client-activity-dashboard-sieges.ts`), not inside the chronological list.
 Sieges are personal only and do not appear in World Pulse.
@@ -107,13 +107,22 @@ Sieges are personal only and do not appear in World Pulse.
 
 - matches each ownership flip to the combat that caused it
   (`personal-activity-flip-matching.ts`). Combat is logged when the attack
-  launches and the flip when it lands, so they match within 15 minutes. A
-  capture's flip is dropped from the territory cards (the combat card already
-  tells it). A failed attack whose launch tile the defender took is marked
-  `originSeized` instead of producing a separate "+1 tile claimed" row.
-  `CombatManpowerLoss.originX/originY` makes that match exact; older entries
-  fall back to a tile adjacent to the target. Headline counts still use every
-  flip.
+  launches (its roll is precomputed then) and the flip when it lands, at most
+  `COMBAT_LOCK_MS` later, so they match within `10 × COMBAT_LOCK_MS`.
+  Captures are matched first, so a later counter-capture of a launch tile
+  is never credited to an earlier failed attack.
+  - A capture's flip is dropped from the territory cards, because the combat
+    card already tells it.
+  - A launch-time win with no capture flip once that window has passed was
+    reversed on landing (fort ward, Aegis Lock, a stale lock). It is treated
+    as a failed attack with no plunder, so a siege never reads "fell" when
+    the tile held.
+  - A failed attack whose launch tile the defender took is marked
+    `originSeized`, or counted in a siege's `originsSeized`, instead of
+    producing a separate "+1 tile claimed" row. `CombatManpowerLoss.originX`
+    and `originY` make that match exact; older entries fall back to a tile
+    adjacent to the target.
+  - Headline counts still use every flip.
 - folds the remaining fights between the player and one rival into a
   `COMBAT_GROUP` card when they're on the same side, against the same rival,
   within 6 tiles of each other, with no lull over 10 minutes

@@ -100,6 +100,8 @@ export type PersonalActivitySiegeCard = {
   y: number;
   outcome: "FELL" | "HOLDING";
   assaultsRepelled: number;
+  /** Repelled assaults whose launch tile the player took in return. */
+  originsSeized: number;
   /** Distinct attackers in order of first assault. */
   attackerIds: string[];
   /** Manpower attackers lost across every assault, including the breaking one. */
@@ -202,7 +204,8 @@ export type PersonalActivityTimeline = {
   manpowerSpentAttacking: number;
   cards: PersonalActivityCard[];
   // Most active opponents first, capped at PERSONAL_ACTIVITY_RIVAL_CAP.
-  rivals: PersonalActivityRival[];
+  // Optional: a simulation older than this field omits it.
+  rivals?: PersonalActivityRival[];
   // True when `from` predates the 24h retention cutoff, i.e. the caller
   // asked for more history than the rolling logs can provide.
   truncated: boolean;

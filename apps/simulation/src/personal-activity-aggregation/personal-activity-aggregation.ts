@@ -27,12 +27,13 @@ export const aggregatePersonalActivity = (
   const inWindow = (at: number): boolean => at >= from && at <= to;
 
   const relevantFlips = flips.filter((flip) => inWindow(flip.at) && (flip.toOwner === playerId || flip.fromOwner === playerId));
-  const relevantCombat = combat.filter((loss) => inWindow(loss.at) && (loss.attackerId === playerId || loss.defenderId === playerId));
+  const loggedCombat = combat.filter((loss) => inWindow(loss.at) && (loss.attackerId === playerId || loss.defenderId === playerId));
   const relevantImpacts = personalImpacts.filter((event) => inWindow(event.occurredAt));
 
-  const matches = matchCombatToFlips(relevantCombat, relevantFlips);
+  const matches = matchCombatToFlips(loggedCombat, relevantFlips, to);
+  const relevantCombat = matches.combat;
   const territoryCards = groupTerritoryFlipsForPlayer(playerId, relevantFlips.filter((flip) => !matches.consumedFlips.has(flip)));
-  const sieges = siegeCardsForDefender(playerId, relevantCombat);
+  const sieges = siegeCardsForDefender(playerId, relevantCombat, matches.originSeized);
   const combatCards = combatCardsWithGroups(playerId, relevantCombat.filter((loss) => !sieges.consumed.has(loss)), matches.originSeized);
   const impactCards = personalImpactCardsForPlayer(playerId, relevantImpacts);
   const allCards: PersonalActivityCard[] = [...territoryCards, ...combatCards, ...sieges.cards, ...impactCards.waystations, ...impactCards.towns, ...impactCards.buildings];

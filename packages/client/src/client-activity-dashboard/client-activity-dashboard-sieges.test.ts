@@ -16,6 +16,7 @@ const siege = (overrides: Partial<Extract<PersonalActivityCard, { kind: "SIEGE" 
   y: 7,
   outcome: "FELL",
   assaultsRepelled: 7,
+  originsSeized: 0,
   attackerIds: ["kael", "vess"],
   manpowerSpentAgainst: 412,
   defenseVariant: "FORT",
@@ -38,7 +39,8 @@ const timelineWith = (cards: PersonalActivityCard[]): PersonalActivityTimeline =
 
 describe("siege activity cards", () => {
   it("summarizes how long a fortification held and what it cost the attackers", () => {
-    expect(activityCardText(siege(), "me", names)).toBe("Your Fort fell after a 5h siege · Held off 7 assaults from Kael and Vess · cost them 412 manpower");
+    expect(activityCardText(siege(), "me", names)).toBe("Your Fort fell to Kael after a 5h siege · Held off 7 assaults from Kael and Vess · cost them 412 manpower");
+    expect(activityCardText(siege({ occurredAt: 90 * 60_000, originsSeized: 2 }), "me", names)).toBe("Your Fort fell to Kael after a 1h 30m siege · Held off 7 assaults from Kael and Vess · seized 2 of their tiles · cost them 412 manpower");
   });
 
   it("describes an unfortified tile that is still holding", () => {
@@ -52,6 +54,10 @@ describe("siege activity cards", () => {
     expect(html).toContain("<h3>Sieges</h3>");
     expect(html.indexOf("Your Fort fell")).toBeLessThan(html.indexOf("Your Palisade is holding"));
     expect(html).toContain('data-activity-focus-x="4" data-activity-focus-y="7"');
+  });
+
+  it("does not misread an unknown card kind from a newer server as a truncation note", () => {
+    expect(activityCardText({ kind: "FUTURE_KIND", id: "f", occurredAt: 1, x: 1, y: 1 } as never, "me", names)).toBe("Activity on your territory");
   });
 
   it("renders nothing without sieges and keeps sieges out of the plain timeline list", () => {

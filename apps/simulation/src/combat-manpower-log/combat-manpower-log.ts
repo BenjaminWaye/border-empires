@@ -27,8 +27,9 @@ export type CombatManpowerLoss = {
   /** Whether the target tile was SETTLED at the moment of resolution. */
   targetWasSettled: boolean;
   /**
-   * The fortification actually defending the target at resolution (active,
-   * owned by the defender, not dormant -- same gate as combat itself), or
+   * The fortification actually defending the target when the attack was
+   * rolled at launch (active, owned by the defender, not dormant -- same gate
+   * as the combat roll itself), or
    * undefined for an unfortified tile. Feeds the personal timeline's siege
    * cards ("your Palisade held off 4 assaults").
    */

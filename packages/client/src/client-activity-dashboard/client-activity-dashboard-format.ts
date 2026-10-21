@@ -114,7 +114,10 @@ export const activityCardText = (card: PersonalActivityCard, playerId: string, p
   if (card.kind === "WAYSTATION_ACTIVATED") return waystationCardText(card, techName);
   if (card.kind === "TOWN_CAPTURED" || card.kind === "TOWN_LOST") return townCardText(card);
   if (card.kind === "BUILDING_COMPLETED") return buildingCardText(card);
-  return `${card.hiddenCount} smaller event${card.hiddenCount === 1 ? "" : "s"} not shown`;
+  if (card.kind === "TRUNCATION_NOTE") return `${card.hiddenCount} smaller event${card.hiddenCount === 1 ? "" : "s"} not shown`;
+  // A card kind from a newer server than this client: say something true
+  // rather than misreading it as a truncation note.
+  return "Activity on your territory";
 };
 
 export const activityCardTimeLabel = (card: PersonalActivityCard): string => timeLabel(card.occurredAt);

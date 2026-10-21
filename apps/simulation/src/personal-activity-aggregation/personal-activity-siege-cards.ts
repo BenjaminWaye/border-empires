@@ -15,7 +15,7 @@ export type PersonalActivitySieges = {
   consumed: ReadonlySet<CombatManpowerLoss>;
 };
 
-const siegeCard = (assaults: readonly CombatManpowerLoss[]): PersonalActivitySiegeCard => {
+const siegeCard = (assaults: readonly CombatManpowerLoss[], originSeized: ReadonlySet<CombatManpowerLoss>): PersonalActivitySiegeCard => {
   const first = assaults[0]!;
   const last = assaults[assaults.length - 1]!;
   const attackerIds: string[] = [];
@@ -29,6 +29,7 @@ const siegeCard = (assaults: readonly CombatManpowerLoss[]): PersonalActivitySie
     y: first.y,
     outcome: last.attackerWon ? "FELL" : "HOLDING",
     assaultsRepelled: assaults.filter((assault) => !assault.attackerWon).length,
+    originsSeized: assaults.filter((assault) => originSeized.has(assault)).length,
     attackerIds,
     manpowerSpentAgainst: assaults.reduce((sum, assault) => sum + assault.manpowerLoss, 0),
     ...(last.defenseVariant ? { defenseVariant: last.defenseVariant } : {}),
@@ -40,7 +41,11 @@ const siegeCard = (assaults: readonly CombatManpowerLoss[]): PersonalActivitySie
 // attacks on one tile (no lull longer than SIEGE_MAX_GAP_MS) up to and
 // including the one that captured it. A capture always closes the siege, so
 // a retaken-then-reattacked tile starts a fresh one.
-export const siegeCardsForDefender = (playerId: string, combat: readonly CombatManpowerLoss[]): PersonalActivitySieges => {
+export const siegeCardsForDefender = (
+  playerId: string,
+  combat: readonly CombatManpowerLoss[],
+  originSeized: ReadonlySet<CombatManpowerLoss> = new Set()
+): PersonalActivitySieges => {
   const byTile = new Map<string, CombatManpowerLoss[]>();
   for (const loss of combat) {
     if (loss.defenderId !== playerId) continue;
@@ -53,7 +58,7 @@ export const siegeCardsForDefender = (playerId: string, combat: readonly CombatM
   const consumed = new Set<CombatManpowerLoss>();
   const close = (segment: CombatManpowerLoss[]): void => {
     if (segment.length < SIEGE_MIN_ASSAULTS) return;
-    cards.push(siegeCard(segment));
+    cards.push(siegeCard(segment, originSeized));
     for (const assault of segment) consumed.add(assault);
   };
   for (const assaults of byTile.values()) {

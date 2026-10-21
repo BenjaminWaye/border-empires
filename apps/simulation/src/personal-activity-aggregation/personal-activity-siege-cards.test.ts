@@ -37,6 +37,7 @@ describe("siegeCardsForDefender", () => {
         y: 7,
         outcome: "FELL",
         assaultsRepelled: 3,
+        originsSeized: 0,
         attackerIds: ["kael", "vess"],
         manpowerSpentAgainst: 250,
         defenseVariant: "FORT",
@@ -85,6 +86,27 @@ describe("siegeCardsForDefender", () => {
 });
 
 describe("aggregatePersonalActivity sieges", () => {
+  it("counts launch tiles seized during a siege instead of dropping them", () => {
+    const timeline = aggregatePersonalActivity("me", { from: 0, to: 10_000 }, [
+      { tileId: "11,7", x: 11, y: 7, fromOwner: "kael", toOwner: "me", at: 2_010 }
+    ], [assault({ at: 1_000 }), assault({ at: 2_000, originX: 11, originY: 7 })]);
+    expect(timeline.cards).toEqual([expect.objectContaining({ kind: "SIEGE", outcome: "HOLDING", originsSeized: 1 })]);
+  });
+
+  it("does not report a fall when the breaking assault never captured the tile", () => {
+    // Regression: the third assault rolled a win at launch, but a fort ward
+    // reversed it on landing, so no ownership flip was ever logged.
+    const HOUR = 60 * 60_000;
+    const timeline = aggregatePersonalActivity("me", { from: 0, to: 2 * HOUR }, [], [
+      assault({ at: 1_000 }),
+      assault({ at: 2_000 }),
+      assault({ at: 3_000, attackerWon: true, defenseVariant: "FORT" })
+    ]);
+    expect(timeline.cards).toEqual([expect.objectContaining({ kind: "SIEGE", outcome: "HOLDING", assaultsRepelled: 3 })]);
+    expect(timeline.rivals).toEqual([expect.objectContaining({ playerId: "kael", attacksRepelled: 3 })]);
+  });
+
+
   it("replaces the per-assault combat cards with one siege card", () => {
     const timeline = aggregatePersonalActivity("me", { from: 0, to: 10_000 }, [], [
       assault({ at: 1_000 }),

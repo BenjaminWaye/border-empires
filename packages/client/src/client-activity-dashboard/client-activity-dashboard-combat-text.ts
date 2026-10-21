@@ -14,9 +14,16 @@ const DEFENSE_LABEL: Record<FortVariant, string> = {
   THUNDER_BASTION: "Thunder Bastion"
 };
 
+// A variant this client doesn't know (a newer server, or a malformed
+// persisted entry) still reads as a sentence rather than "Your undefined".
+const defenseLabel = (variant: FortVariant): string => DEFENSE_LABEL[variant] ?? "fortification";
+
 const durationLabel = (ms: number): string => {
   const minutes = Math.max(1, Math.round(ms / 60_000));
-  return minutes < 60 ? `${minutes}m` : `${Math.round(minutes / 60)}h`;
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`;
 };
 
 // Manpower is always the attacking side's loss (defenders pay nothing per
@@ -39,7 +46,7 @@ export const combatCardText = (card: CombatCard, playerId: string, playerNames: 
   const iAttacked = card.attackerId === playerId;
   const otherId = iAttacked ? card.defenderId : card.attackerId;
   const other = otherId ? nameOf(otherId, playerNames) : undefined;
-  const defense = card.defenseVariant ? DEFENSE_LABEL[card.defenseVariant] : undefined;
+  const defense = card.defenseVariant ? defenseLabel(card.defenseVariant) : undefined;
   let outcome: string;
   if (iAttacked && card.attackerWon) {
     outcome = other ? `Captured ${defense ? `a ${defense} tile` : "a tile"} from ${other}` : "Captured a tile";
@@ -57,38 +64,43 @@ export const combatCardText = (card: CombatCard, playerId: string, playerNames: 
 // "Your assault on Maren: 3 attacks, all repelled · −150 manpower"
 // "Repelled 3 attacks from Kara and seized 1 of their tiles · cost them 150 manpower"
 export const combatGroupCardText = (card: CombatGroupCard, playerNames: PlayerNameLookup): string => {
-  const other = card.counterpartyPlayerId ? nameOf(card.counterpartyPlayerId, playerNames) : "unclaimed land";
+  const other = card.counterpartyPlayerId ? nameOf(card.counterpartyPlayerId, playerNames) : undefined;
   const failed = card.attempts - card.captures;
   const iAttacked = card.role === "ATTACKER";
   let outcome: string;
   if (iAttacked) {
+    const assault = other ? `Your assault on ${other}` : "Your assault on unclaimed land";
     outcome = failed === 0
-      ? `Took ${plural(card.captures, "tile")} from ${other}`
+      ? other ? `Took ${plural(card.captures, "tile")} from ${other}` : `Took ${plural(card.captures, "unclaimed tile")}`
       : card.captures === 0
-        ? `Your assault on ${other}: ${plural(card.attempts, "attack")}, all repelled`
-        : `Your assault on ${other}: took ${card.captures} of ${plural(card.attempts, "tile")}`;
+        ? `${assault}: ${plural(card.attempts, "attack")}, all repelled`
+        : `${assault}: ${plural(card.attempts, "attack")}, ${plural(card.captures, "tile")} taken`;
     if (card.originsSeized > 0) outcome += ` · they seized ${plural(card.originsSeized, "launch tile")}`;
   } else {
+    const attacker = other ?? "an unknown attacker";
     outcome = failed === 0
-      ? `Lost ${plural(card.captures, "tile")} to ${other}`
+      ? `Lost ${plural(card.captures, "tile")} to ${attacker}`
       : card.captures === 0
-        ? `Repelled ${plural(card.attempts, "attack")} from ${other}`
-        : `${other} attacked ${card.attempts} times: ${failed} repelled, ${plural(card.captures, "tile")} lost`;
+        ? `Repelled ${plural(card.attempts, "attack")} from ${attacker}`
+        : `${attacker.charAt(0).toUpperCase()}${attacker.slice(1)} attacked ${card.attempts} times: ${failed} repelled, ${plural(card.captures, "tile")} lost`;
     if (card.originsSeized > 0) outcome += ` · seized ${card.originsSeized} of their tiles`;
   }
   return joinParts([outcome, ...goldParts(iAttacked, card.pillagedGold, card.defenderGoldLoss), manpowerPart(card.manpowerLoss, iAttacked)]);
 };
 
-/** "Your Fort fell after a 5h siege" / "Your Palisade is holding". */
-export const siegeHeadline = (card: SiegeCard): string => {
-  const defense = card.defenseVariant ? `Your ${DEFENSE_LABEL[card.defenseVariant]}` : "Your tile";
-  return card.outcome === "FELL" ? `${defense} fell after a ${durationLabel(card.occurredAt - card.startedAt)} siege` : `${defense} is holding`;
+/** "Your Fort fell to Hugo after a 5h siege" / "Your Palisade is holding". */
+export const siegeHeadline = (card: SiegeCard, playerNames: PlayerNameLookup): string => {
+  const defense = card.defenseVariant ? `Your ${defenseLabel(card.defenseVariant)}` : "Your tile";
+  if (card.outcome !== "FELL") return `${defense} is holding`;
+  const capturer = card.capturedBy ? ` to ${nameOf(card.capturedBy, playerNames)}` : "";
+  return `${defense} fell${capturer} after a ${durationLabel(card.occurredAt - card.startedAt)} siege`;
 };
 
 /** "Held off 7 assaults from Kael and Vess · cost them 412 manpower". */
 export const siegeDetail = (card: SiegeCard, playerNames: PlayerNameLookup): string => {
   const attackers = listNames(card.attackerIds.map((id) => nameOf(id, playerNames)));
-  return `${card.outcome === "FELL" ? "Held off" : "Repelled"} ${plural(card.assaultsRepelled, "assault")} from ${attackers} · cost them ${roundedAmount(card.manpowerSpentAgainst)} manpower`;
+  const seized = card.originsSeized > 0 ? ` · seized ${card.originsSeized} of their tiles` : "";
+  return `${card.outcome === "FELL" ? "Held off" : "Repelled"} ${plural(card.assaultsRepelled, "assault")} from ${attackers}${seized} · cost them ${roundedAmount(card.manpowerSpentAgainst)} manpower`;
 };
 
-export const siegeCardText = (card: SiegeCard, playerNames: PlayerNameLookup): string => `${siegeHeadline(card)} · ${siegeDetail(card, playerNames)}`;
+export const siegeCardText = (card: SiegeCard, playerNames: PlayerNameLookup): string => `${siegeHeadline(card, playerNames)} · ${siegeDetail(card, playerNames)}`;

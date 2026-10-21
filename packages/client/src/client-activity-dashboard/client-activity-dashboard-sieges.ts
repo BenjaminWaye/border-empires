@@ -21,7 +21,7 @@ export const siegeSectionHtml = (timeline: PersonalActivityTimeline | undefined,
     <h3>Sieges</h3>
     <p>How your defenses held up under repeated attack in the last 24 hours.</p>
     ${sieges.map((card) => `<div class="activity-dashboard-card activity-dashboard-siege ${card.outcome === "FELL" ? "is-fallen" : "is-holding"}">
-      <span class="activity-dashboard-card-text"><strong>${escapeActivityDashboardHtml(siegeHeadline(card))}</strong><br>${activityCardTimeLabel(card)} · ${escapeActivityDashboardHtml(siegeDetail(card, playerNames))}</span>
+      <span class="activity-dashboard-card-text"><strong>${escapeActivityDashboardHtml(siegeHeadline(card, playerNames))}</strong><br>${activityCardTimeLabel(card)} · ${escapeActivityDashboardHtml(siegeDetail(card, playerNames))}</span>
       <button class="activity-dashboard-center-btn" type="button" data-activity-focus-x="${card.x}" data-activity-focus-y="${card.y}">Center</button>
     </div>`).join("")}
   </section>`;

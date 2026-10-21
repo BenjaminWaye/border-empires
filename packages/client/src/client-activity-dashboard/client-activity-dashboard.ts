@@ -82,6 +82,7 @@ export const renderClientActivityDashboardOverlay = (deps: ActivityDashboardDeps
 
   const timeline = state.activityDashboard.timeline;
   const playerName = activityPlayerNameLookup(state);
+  const timelineRows = timeline ? nonSiegeActivityCards(timeline.cards) : [];
   const yoursTimelineHtml = state.activityDashboard.loading && !timeline
     ? `<div class="activity-dashboard-empty-state">Loading your activity…</div>`
     : state.activityDashboard.error && !timeline
@@ -93,8 +94,8 @@ export const renderClientActivityDashboardOverlay = (deps: ActivityDashboardDeps
           ${truncationLabel(timeline) ? `<div class="activity-dashboard-truncation-note">${truncationLabel(timeline)}</div>` : ""}
           ${siegeSectionHtml(timeline, playerName)}
           ${rivalSectionHtml(timeline, playerName)}
-          ${nonSiegeActivityCards(timeline.cards).length > 0 ? '<h3 class="activity-dashboard-timeline-heading">Timeline</h3>' : ""}
-          ${nonSiegeActivityCards(timeline.cards).map((card) => cardRowHtml(card, state.me, playerName, (id) => state.techCatalog.find((tech) => tech.id === id)?.name)).join("")}
+          ${timelineRows.length > 0 ? '<h3 class="activity-dashboard-timeline-heading">Timeline</h3>' : ""}
+          ${timelineRows.map((card) => cardRowHtml(card, state.me, playerName, (id) => state.techCatalog.find((tech) => tech.id === id)?.name)).join("")}
         `;
   const yoursBodyHtml = resourceSurveySectionHtml(state.eventLog, state.techIds) + yoursTimelineHtml;
   const activeView = state.activityDashboard.activeView;
