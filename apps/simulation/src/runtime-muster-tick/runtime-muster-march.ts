@@ -175,6 +175,15 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
   // bounded to -- so it covers every candidate the search can reach without
   // flooding the whole map when the target is far away or unreachable.
   const straightLineFlagToTarget = chebyshevDistanceToroidal(musterTile.x, musterTile.y, targetX, targetY);
+  // Same dock/bridge edges the owned-territory BFS below walks, so a target
+  // across water is measured through the crossing rather than across the sea.
+  const bridgeLinksByKey = input.aetherBridgeNeighborKeysForPlayer(playerId);
+  const crossingKeysFor = (key: string): readonly string[] | undefined => {
+    const dockKeys = input.dockLinksByDockTileKey.get(key);
+    const bridgeKeys = bridgeLinksByKey.get(key);
+    if (!dockKeys) return bridgeKeys;
+    return bridgeKeys ? [...dockKeys, ...bridgeKeys] : dockKeys;
+  };
   const terrainDistanceField = buildTerrainDistanceField(
     targetX,
     targetY,
@@ -182,16 +191,18 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
     // A flag set before the march cap existed can still have a far target;
     // bound the flood by the cap so it cannot cost more than a capped march.
     Math.min(straightLineFlagToTarget, MUSTER_MARCH_MAX_DISTANCE_TILES) + ADVANCE_MAX_RANGE_TILES + 2,
-    originKey
+    originKey,
+    crossingKeysFor
   );
   // The flood stops once it reaches the flag (see buildTerrainDistanceField),
   // which is cheap and loses nothing: a candidate no closer to the target than
   // the flag is rejected below anyway. So when the flag was reached, a tile
   // missing from the field is at least as far as the flag -- treat it as
   // exactly that, never as "unknown". Only when the flood never reached the
-  // flag (cut off by water, past the search cap, or tiles simply undefined on
-  // the map -- as most coordinates are in unit tests) do tiles fall back to
-  // the straight-line estimate rather than being treated as infinitely far.
+  // flag (cut off by water with no dock/bridge crossing, past the search cap,
+  // or tiles simply undefined on the map -- as most coordinates are in unit
+  // tests) do tiles fall back to the straight-line estimate rather than being
+  // treated as infinitely far.
   const flagReachedByFlood = terrainDistanceField.has(originKey);
   const distanceToTarget = (x: number, y: number): number =>
     terrainDistanceField.get(simulationTileKey(x, y)) ??
@@ -224,7 +235,6 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
   // tile found along the way instead of stopping at the first one, plus
   // every neutral (unowned) LAND tile bordering owned territory as an
   // EXPAND candidate.
-  const bridgeLinksByKey = input.aetherBridgeNeighborKeysForPlayer(playerId);
   const actor = input.players.get(playerId);
   const visited = new Set<string>([originKey]);
   const queue: DomainTileState[] = [musterTile];
