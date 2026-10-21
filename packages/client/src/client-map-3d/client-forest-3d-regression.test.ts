@@ -7,7 +7,22 @@ let setWorldSeed: typeof import("@border-empires/shared").setWorldSeed;
 
 type MockCanvasContext = Pick<
   CanvasRenderingContext2D,
-  "save" | "restore" | "fillRect" | "beginPath" | "moveTo" | "lineTo" | "arc" | "closePath" | "fill" | "fillStyle"
+  | "save"
+  | "restore"
+  | "fillRect"
+  | "beginPath"
+  | "moveTo"
+  | "lineTo"
+  | "arc"
+  | "ellipse"
+  | "quadraticCurveTo"
+  | "closePath"
+  | "fill"
+  | "stroke"
+  | "fillStyle"
+  | "strokeStyle"
+  | "lineWidth"
+  | "lineCap"
 >;
 
 const createMockContext = (): { ctx: CanvasRenderingContext2D; fillRectCalls: number; fillCalls: number } => {
@@ -24,7 +39,13 @@ const createMockContext = (): { ctx: CanvasRenderingContext2D; fillRectCalls: nu
     moveTo: () => undefined,
     lineTo: () => undefined,
     arc: () => undefined,
+    ellipse: () => undefined, // tree ground shadows
+    quadraticCurveTo: () => undefined,
     closePath: () => undefined,
+    stroke: () => undefined,
+    strokeStyle: "",
+    lineWidth: 1,
+    lineCap: "butt",
     fill: () => {
       fillCalls += 1;
     }
