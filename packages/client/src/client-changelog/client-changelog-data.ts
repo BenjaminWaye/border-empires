@@ -14,6 +14,7 @@ import { CAPTURE_HOLD_EFFORT_CHANGELOG } from "./client-changelog-capture-hold-e
 import { HETZNER_CLIENT_HOSTING_CHANGELOG } from "./client-changelog-hetzner-client-hosting.js";
 import { AI_DEAL_SUGGEST_CHANGELOG } from "./client-changelog-ai-deal-suggest.js";
 import { TOWN_MARBLE_CHANGELOG } from "./client-changelog-town-marble.js";
+import { SIEGE_REPORTS_CHANGELOG } from "./client-changelog-siege-reports.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -461,7 +462,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "In the 3D map, muster flags stand on a stone foundation that widens towards the ground and catches the light",
       "Town bases widen towards the ground the same way, so their stone walls catch more light on sloping tiles"
     ]
-  }
+  },
+  ...SIEGE_REPORTS_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
