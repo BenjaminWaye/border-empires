@@ -89,6 +89,9 @@ export const notificationCategoryForServerError = (code: string): NotificationCa
   // (client-selected-actions.ts); "nothing to cancel" is the state the
   // player asked for, not a failure worth a toast.
   if (code === "NO_ACTIVE_CAPTURE") return "debug";
+  // NO_AUTH means a message reached the gateway before AUTH (e.g. raced an
+  // in-place reconnect); the sign-in flow owns that state, not a toast.
+  if (code === "NO_AUTH") return "debug";
   if (code.startsWith("TECH_") || code.startsWith("DOMAIN_")) return "action_feedback";
   if (code === "COLLECT_EMPTY") return "action_feedback";
   return "action_feedback";

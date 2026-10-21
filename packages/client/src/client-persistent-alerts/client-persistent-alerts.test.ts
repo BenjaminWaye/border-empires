@@ -75,6 +75,10 @@ describe("persistent alerts", () => {
     expect(notificationCategoryForServerError("NO_ACTIVE_CAPTURE")).toBe("debug");
   });
 
+  it("keeps NO_AUTH (a message that raced AUTH, e.g. on reconnect) out of the action-failed toasts", () => {
+    expect(notificationCategoryForServerError("NO_AUTH")).toBe("debug");
+  });
+
   it("creates a persistent alert only for owned unresolved unfed towns", () => {
     const state = {
       me: "me",
