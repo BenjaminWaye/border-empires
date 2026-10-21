@@ -27,17 +27,15 @@ export const turnToward = (current: number, target: number, rate: number): numbe
  * faces it and the beam reaches down toward it (capped at
  * BEAM_MAX_RANGE_TILES). With none, the lens returns to its idle pose,
  * pointing straight down (matching the spawn pose so the cradle doesn't snap).
- * `othersBeaming` collapses an idle tower's beam to nothing while other
- * towers share the beam material at full opacity, so only towers that are
- * actually firing show a beam.
+ * `beamLen` is the full length; the overlay scales it by each tower's own
+ * fade so only towers that are actually firing show a beam.
  */
 export const siegeTowerAim = (
   towerX: number,
   towerY: number,
   emitterY: number,
   currentYaw: number,
-  battle: SiegeTowerBattleTarget | undefined,
-  othersBeaming: boolean
+  battle: SiegeTowerBattleTarget | undefined
 ): SiegeTowerAim => {
   if (battle) {
     const dx = toroidDelta(towerX, battle.x, WORLD_WIDTH);
@@ -48,5 +46,5 @@ export const siegeTowerAim = (
       return { yaw: Math.atan2(dx, dz), pitch: Math.atan2(emitterY, hClamp), beamLen: Math.hypot(hClamp, emitterY) };
     }
   }
-  return { yaw: currentYaw, pitch: Math.PI / 2, beamLen: battle || !othersBeaming ? emitterY : 0 };
+  return { yaw: currentYaw, pitch: Math.PI / 2, beamLen: emitterY };
 };

@@ -154,6 +154,38 @@ describe("createSiegeTowerOverlay", () => {
     overlay.dispose();
   });
 
+  it("fades each tower's beam on its own, and never flashes one on a tower that wasn't firing", () => {
+    const scene = new Scene();
+    const overlay = createSiegeTowerOverlay(scene, 8, () => "lens");
+    overlay.addInstance(0, 0, 0, 10, 10, "SIEGE_TOWER");
+    overlay.addInstance(40, 0, 0, 50, 10, "SIEGE_TOWER");
+    overlay.addInstance(80, 0, 0, 90, 10, "SIEGE_TOWER");
+    overlay.commit();
+    const beamMesh = pieceMesh(scene, "SIEGE_TOWER", "beam");
+    const beamLength = (index: number): number => {
+      const matrix = new Matrix4();
+      beamMesh.getMatrixAt(index, matrix);
+      const scale = new Vector3();
+      matrix.decompose(new Vector3(), new Quaternion(), scale);
+      return scale.y;
+    };
+    // Towers 0 and 1 fire; tower 2 stays idle throughout.
+    for (let i = 0; i < 120; i += 1) overlay.update(i * 16, (wx) => (wx === 10 ? { x: 13, y: 10 } : wx === 50 ? { x: 53, y: 10 } : undefined));
+    const fullLength = beamLength(0);
+
+    // Tower 0's battle ends while tower 1 keeps firing: its beam shrinks, not pops.
+    overlay.update(2000, (wx) => (wx === 50 ? { x: 53, y: 10 } : undefined));
+    expect(beamLength(0)).toBeGreaterThan(fullLength * 0.5);
+    expect(beamLength(0)).toBeLessThan(fullLength);
+
+    // Every battle ends: the idle tower never shows a beam while the rest fade.
+    for (let i = 0; i < 20; i += 1) {
+      overlay.update(2100 + i * 16);
+      expect(beamLength(2)).toBe(0);
+    }
+    overlay.dispose();
+  });
+
   it("keeps the static tower parked in lens mode but wheels the whole tower in structure mode", () => {
     for (const mode of ["lens", "structure"] as const) {
       const scene = new Scene();

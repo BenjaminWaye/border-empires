@@ -214,6 +214,12 @@ const slots = new Map<string, Slot>();
   };
 
   const instances: SiegeTowerInstance[] = [];
+  // Per-tower beam fade, keyed by world tile so it survives the camera-driven
+  // clear()/addInstance() rebuilds: `scale` eases each tower's own beam length
+  // in and out, and `lastBattle` keeps a finished beam aimed where it was while
+  // it fades. Pruned to the current instances on commit().
+  const beamStates = new Map<string, { scale: number; lastBattle?: SiegeTowerBattleTarget }>();
+  const beamKeyOf = (target: SiegeTowerInstance): string => `${target.wx},${target.wy}`;
   const slotKeyOf = (variant: SiegeTowerVariant, key: string): string => `${variant}:${key}`;
   const touched = new Set<string>();
 
@@ -418,11 +424,13 @@ const slots = new Map<string, Slot>();
     const phase = ((hash % 1000) / 1000) * Math.PI * 2;
     const target: SiegeTowerInstance = { x: sceneX, y: surfaceY, z: sceneZ, wx: worldTileX, wy: worldTileY, variant, frozen, shape: SHAPES[variant], phase, bases: {}, yaw: 0 };
     writeStatic(target, true, 0);
-    writeLens(target, true, 0, Math.PI / 2, target.shape.emitterY, 0);
+    writeLens(target, true, 0, Math.PI / 2, 0, 0);
     instances.push(target);
   };
 
   const commit = (): void => {
+    const liveKeys = new Set(instances.map(beamKeyOf));
+    for (const key of beamStates.keys()) if (!liveKeys.has(key)) beamStates.delete(key);
     for (const slot of slots.values()) {
       const { mesh, count } = slot;
       mesh.count = count;
@@ -458,10 +466,15 @@ const slots = new Map<string, Slot>();
 
     instances.forEach((target, i) => {
       if (target.frozen) return;
-      const aim = siegeTowerAim(target.wx, target.wy, target.shape.emitterY, target.yaw, battles[i], hasBattle);
+      const battle = battles[i];
+      const beam = beamStates.get(beamKeyOf(target)) ?? { scale: 0 };
+      beamStates.set(beamKeyOf(target), beam);
+      if (battle) beam.lastBattle = battle;
+      beam.scale = approach(beam.scale, battle ? 1 : 0, 0.05);
+      const aim = siegeTowerAim(target.wx, target.wy, target.shape.emitterY, target.yaw, battle ?? (beam.scale > 0 ? beam.lastBattle : undefined));
       target.yaw = turnToward(target.yaw, aim.yaw, 0.08);
       if (structureMode) writeStatic(target, false, target.yaw);
-      writeLens(target, false, target.yaw, aim.pitch, aim.beamLen, nowMs);
+      writeLens(target, false, target.yaw, aim.pitch, aim.beamLen * beam.scale, nowMs);
     });
     flushTouched();
     return beamed;

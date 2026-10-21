@@ -100,6 +100,10 @@ const FACING_SEARCH_OFFSETS: ReadonlyArray<{ dx: number; dy: number }> = (() => 
   return offsets;
 })();
 
+// The same nearest-first offsets cut to the sim's siege range (a Chebyshev
+// square of OUTPOST_AURA_RADIUS), for nearestSiegeBatteryTileForBattle below.
+const SIEGE_RANGE_OFFSETS = FACING_SEARCH_OFFSETS.filter(({ dx, dy }) => Math.max(Math.abs(dx), Math.abs(dy)) <= OUTPOST_AURA_RADIUS);
+
 /**
  * Yaw (radians, matching the 3D model's rotationY convention where 0 already
  * faces tile-local +z/"south") for a Siege Battery to visually aim itself at
@@ -152,8 +156,7 @@ export const nearestSiegeBatteryTileForBattle = (
 ): { x: number; y: number } | undefined => {
   const boostsBattle = (tile: Tile | undefined): boolean => siegeStructureBoostsAttacker(tile, attackerOwnerId);
   if (boostsBattle(deps.tiles.get(deps.keyFor(battleX, battleY)))) return { x: battleX, y: battleY };
-  for (const { dx, dy } of FACING_SEARCH_OFFSETS) {
-    if (Math.max(Math.abs(dx), Math.abs(dy)) > OUTPOST_AURA_RADIUS) continue;
+  for (const { dx, dy } of SIEGE_RANGE_OFFSETS) {
     const x = deps.wrapX(battleX + dx);
     const y = deps.wrapY(battleY + dy);
     if (boostsBattle(deps.tiles.get(deps.keyFor(x, y)))) return { x, y };
