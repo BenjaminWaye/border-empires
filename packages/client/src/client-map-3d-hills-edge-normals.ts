@@ -5,6 +5,12 @@
 // visible crease. This averages the normals of coincident edge vertices so
 // a hill massif shades as one continuous surface.
 //
+// An edge vertex no other dome shares borders ordinary ground instead. The
+// plateau eases to that edge with zero slope, but the vertex's
+// triangle-accumulated normal still leans up the first slope inside the
+// dome, which drew a hard dark line around every hill where it met the
+// (flat-lit) ground. Those vertices take the ground's up normal.
+//
 // Vertices are matched on their position snapped to the dome grid
 // (1/subdiv of a tile): both domes place a shared-edge vertex at exactly
 // the same grid step, while float positions computed from different tile
@@ -30,7 +36,13 @@ export const smoothSharedHillEdgeNormals = (
     else groups.set(key, [vi]);
   }
   for (const group of groups.values()) {
-    if (group.length < 2) continue;
+    if (group.length < 2) {
+      const vi = group[0]!;
+      normals[vi * 3] = 0;
+      normals[vi * 3 + 1] = 1;
+      normals[vi * 3 + 2] = 0;
+      continue;
+    }
     let nx = 0;
     let ny = 0;
     let nz = 0;

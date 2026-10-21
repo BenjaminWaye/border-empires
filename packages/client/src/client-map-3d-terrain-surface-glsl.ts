@@ -84,6 +84,10 @@ float terrainBiomeEdgeOffset(vec3 grassSample, float meso, float grain) {
   float clump = dot(grassSample, vec3(0.333)) - 0.67;
   return clump * 0.06 + (meso - 0.5) * 0.03 + grain * 0.03;
 }
+// Same idea for the tundra edge, on its explicit 0..1 corner mask.
+float terrainTundraEdgeOffset(float meso, float grain) {
+  return (meso - 0.5) * 0.16 + grain * 0.12;
+}
 // Bump-mapped normal from a scalar height field, via screen-space
 // derivatives (the same construction as three.js's perturbNormalArb, which
 // only exists in the shader under USE_BUMPMAP).
@@ -135,6 +139,18 @@ export const TERRAIN_SURFACE_LAYERS_GLSL = `
       float terrainLum = dot(biomeColor, vec3(0.299, 0.587, 0.114));
       vec3 terrainEarth = vec3(0.52, 0.45, 0.36) * (0.75 + 0.5 * terrainLum);
       biomeColor = mix(biomeColor, terrainEarth, terrainSlope * 0.75);
+
+      // Tundra: ochre lichen mats and scattered frost-shattered stones break
+      // up the pale permafrost; snow gets faint wind-drift streaks, bright
+      // on the crests and cool blue in the troughs.
+      float terrainTundraBare = tundraMask * (1.0 - snowMask);
+      float terrainLichen = smoothstep(0.45, 0.75, terrainFbm(vTerrainWorldUv * 0.6 + 21.0));
+      biomeColor = mix(biomeColor, biomeColor * vec3(1.14, 1.0, 0.66), terrainLichen * 0.85 * terrainTundraBare);
+      float terrainStone = smoothstep(0.85, 0.9, terrainValueNoise(vTerrainWorldUv * 3.3 + 9.0));
+      vec3 terrainStoneColor = vec3(0.7, 0.7, 0.69) * (0.9 + terrainGrain * 0.6);
+      biomeColor = mix(biomeColor, terrainStoneColor, terrainStone * 0.6 * terrainTundraBare);
+      float terrainDrift = terrainValueNoise(vec2(vTerrainWorldUv.x * 0.7, vTerrainWorldUv.y * 3.2) + 5.0);
+      biomeColor *= mix(vec3(1.0), mix(vec3(0.9, 0.95, 1.04), vec3(1.05), smoothstep(0.3, 0.7, terrainDrift)), snowMask);
 
       // Wet shoreline: the bevel just above the waterline darkens and goes
       // glossy (see the roughness patch), like sand the surf just left.

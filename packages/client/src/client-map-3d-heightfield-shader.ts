@@ -100,7 +100,9 @@ ${TERRAIN_SURFACE_NOISE_GLSL}
       // in on top last.
       float grassMask = smoothstep(0.07, 0.13, greenBias + terrainBiomeEdgeOffset(grassSample, terrainMeso, terrainGrain));
       vec3 biomeColor = mix(sandSample, grassSample, grassMask);
-      float tundraMask = smoothstep(0.4, 0.6, vTundraZone);
+      // Feathered like the grass/sand cut (terrainBiomeEdgeOffset) so the
+      // tundra edge wanders organically instead of tracing a corner blob.
+      float tundraMask = smoothstep(0.38, 0.62, vTundraZone + terrainTundraEdgeOffset(terrainMeso, terrainGrain));
       biomeColor = mix(biomeColor, tundraSample, tundraMask);
       // SNOW: same tundraZone as TUNDRA, told apart only by its near-white
       // vertex colour -- see client-map-3d-snow-mask.ts.

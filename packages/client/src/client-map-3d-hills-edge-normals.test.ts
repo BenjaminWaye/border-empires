@@ -11,8 +11,8 @@ describe("smoothSharedHillEdgeNormals", () => {
     const positions = new Float32Array([...tileVerts(0), ...tileVerts(1)]);
     const tilt = Math.SQRT1_2;
     const normals = new Float32Array([
-      0, 1, 0, tilt, tilt, 0, 0, 1, 0, tilt, tilt, 0,
-      -tilt, tilt, 0, 0, 1, 0, -tilt, tilt, 0, 0, 1, 0
+      tilt, tilt, 0, tilt, tilt, 0, 0, 1, 0, tilt, tilt, 0,
+      -tilt, tilt, 0, -tilt, tilt, 0, -tilt, tilt, 0, 0, 1, 0
     ]);
     smoothSharedHillEdgeNormals(positions, normals, 8, SUBDIV);
     // Shared vertices (tile 0's x = 1 pair, tile 1's x = 1 pair) now agree
@@ -21,7 +21,8 @@ describe("smoothSharedHillEdgeNormals", () => {
       expect(normals[vi * 3]).toBeCloseTo(0, 6);
       expect(normals[vi * 3 + 1]).toBeCloseTo(1, 6);
     }
-    // Unshared outer vertices are left alone.
+    // Unshared outer vertices border flat ground and take its up normal,
+    // even where their own triangles leaned them.
     expect(normals[0 * 3 + 1]).toBe(1);
     expect(normals[5 * 3 + 1]).toBe(1);
   });
