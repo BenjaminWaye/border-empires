@@ -87,17 +87,36 @@ export const insideOctagon = (x: number, z: number, apothem: number): boolean =>
   return true;
 };
 
+/** How much wider a plate's skirt is at its foot (y = -0.1) than at its top.
+ * Kept small enough that the largest plate's foot stays inside its tile. */
+export const PLATE_SKIRT_FLARE = 1.12;
+
+/** Radius of a plateSkirt of `radius` (top at `topY`) at height `y`. */
+const skirtRadiusAt = (radius: number, topY: number, y: number): number =>
+  radius * (1 + ((PLATE_SKIRT_FLARE - 1) * (topY - y)) / (topY + 0.1));
+
+/** Matte stone foundation under an octagonal plate, from y = -0.1 up to
+ * `topY`, widening towards the ground so its sides tilt up into the light.
+ * It runs well below 0 so a sloped tile never shows a gap under the plate (the
+ * overlays lift the plate only by TOWN_BASE_LIFT), which means a lot of it
+ * shows on a tile whose corners sit lower; a dark metal skirt read as a black
+ * band there. */
+export const plateSkirt = (body: TownMeshBuilder, radius: number, topY: number): void => {
+  body.cylinder(0, -0.1, 0, radius, radius * PLATE_SKIRT_FLARE, topY + 0.1, "stoneDark", 8, Math.PI / 8);
+};
+
 /** Octagonal base plate, its top at y = 0: streets (or `top`) inside a low
- * kerb and a brass band, on a coursed masonry wall that runs well below 0, so a
- * sloped tile never shows a gap under it (the overlay lifts the whole town;
- * see TOWN_BASE_LIFT). */
+ * kerb and a brass band, on a flared coursed masonry wall (plateSkirt). */
 export const octagonPlate = (t: TownBuilders, radius: number, plazaRing = true, top: TownColor = "asphalt"): void => {
   const turn = Math.PI / 8;
-  t.body.cylinder(0, -0.1, 0, radius, radius * 1.02, 0.092, "stoneDark", 8, turn);
-  t.body.cylinder(0, -0.016, 0, radius * 1.012, radius * 1.012, 0.008, "brass", 8, turn);
+  plateSkirt(t.body, radius, -0.008);
+  // The brass band keeps its lip over the flared wall below it.
+  const band = skirtRadiusAt(radius, -0.008, -0.016) + radius * 0.01;
+  t.body.cylinder(0, -0.016, 0, band, band, 0.008, "brass", 8, turn);
   t.body.cylinder(0, -0.008, 0, radius * 0.985, radius * 0.985, 0.008, top, 8, turn);
-  // A darker plinth course just under the band.
-  t.body.cylinder(0, -0.03, 0, radius * 1.018, radius * 1.018, 0.01, "graphite", 8, turn);
+  // A darker plinth course just under the band, following the skirt's flare.
+  const course = (y: number): number => skirtRadiusAt(radius, -0.008, y) + radius * 0.006;
+  t.body.cylinder(0, -0.03, 0, course(-0.02), course(-0.03), 0.01, "graphite", 8, turn);
   // Low kerb round the edge of the paving.
   const apothem = octagonApothem(radius);
   const edge = 2 * apothem * Math.tan(Math.PI / 8) - 0.006;

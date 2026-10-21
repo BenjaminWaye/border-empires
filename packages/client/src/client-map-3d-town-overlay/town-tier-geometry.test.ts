@@ -171,6 +171,33 @@ describe("procedural town tiers", () => {
     for (const tier of ["CITY", "GREAT_CITY", "METROPOLIS"] as const) expect(beaconCount(tier), tier).toBeGreaterThan(0);
   });
 
+  it.each(TOWN_TIERS)("%s stands on a matte stone skirt that flares towards the ground", (tier) => {
+    // The skirt shows wherever the tile's corners sit below the plate; as
+    // dark metal it read as a black band, so it stays lit stone and flares.
+    const { body, metal } = getTownTierGeometry(tier);
+    metal!.computeBoundingBox();
+    expect(metal!.boundingBox!.min.y, `${tier} metal below the plate`).toBeGreaterThan(-0.03);
+    // Baked occlusion darkens the foot, so check it is a shade of stoneDark
+    // rather than an exact match -- and well clear of near-black.
+    const stone = new Color(TOWN_COLORS.stoneDark);
+    const position = body.getAttribute("position");
+    const color = body.getAttribute("color");
+    let footReach = 0;
+    let topReach = 0;
+    for (let i = 0; i < position.count; i += 1) {
+      const reach = Math.hypot(position.getX(i), position.getZ(i));
+      if (Math.abs(position.getY(i) + 0.1) < 1e-4) {
+        footReach = Math.max(footReach, reach);
+        const shade = color.getY(i) / stone.g;
+        expect(shade, `${tier} skirt foot brightness`).toBeGreaterThan(0.5);
+        expect(color.getX(i) / stone.r).toBeCloseTo(shade, 2);
+        expect(color.getZ(i) / stone.b).toBeCloseTo(shade, 2);
+      }
+      if (Math.abs(position.getY(i) + 0.008) < 1e-4) topReach = Math.max(topReach, reach);
+    }
+    expect(footReach, `${tier} skirt foot wider than its top`).toBeGreaterThan(topReach * 1.05);
+  });
+
   it.each(TOWN_TIERS)("%s carries animation attributes on every vertex, with turning parts", (tier) => {
     const geometry = getTownTierGeometry(tier);
     let spinningVertices = 0;
