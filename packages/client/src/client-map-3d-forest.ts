@@ -1,9 +1,9 @@
 import { Color, InstancedMesh, Matrix4, Scene, type BufferGeometry } from "three";
 import { riverBankTreeFilter } from "./client-map-3d-rivers/client-map-3d-river-bank-trees.js";
 import { commitInstanceTint } from "./client-map-3d-instance-tint.js";
-import { createTreeMaterial, driveTreeWind } from "./client-map-3d-tree-material.js";
-import { createLeafGeometry, createPineGeometry, createSpruceGeometry } from "./client-map-3d-tree-models.js";
-import { composeTreeInstance } from "./client-map-3d-tree-variation.js";
+import { createTreeMaterial, driveTreeWind } from "./client-map-3d-trees/client-map-3d-tree-material.js";
+import { createLeafGeometry, createPineGeometry, createSpruceGeometry } from "./client-map-3d-trees/client-map-3d-tree-models.js";
+import { composeTreeInstance, createTreePlacement } from "./client-map-3d-trees/client-map-3d-tree-variation.js";
 
 // Upper bound on trees per forest tile (the per-tile instance budget). The
 // layouts below hold 7-9 trees each so adjacent tiles vary in density too.
@@ -117,10 +117,19 @@ export const createForest = (scene: Scene, maxTiles: number): Forest => {
 
   const tempMatrix = new Matrix4();
   const tempColor = new Color();
+  const placement = createTreePlacement();
 
   const place = (pool: SpeciesPool, x: number, y: number, z: number, scale: number, worldX: number, worldZ: number, slot: number, tint?: Color): void => {
     if (pool.count >= maxInstances) return;
-    composeTreeInstance({ x, y, z, scale, worldX, worldZ, slot, tint }, tempMatrix, tempColor);
+    placement.x = x;
+    placement.y = y;
+    placement.z = z;
+    placement.scale = scale;
+    placement.worldX = worldX;
+    placement.worldZ = worldZ;
+    placement.slot = slot;
+    placement.tint = tint;
+    composeTreeInstance(placement, tempMatrix, tempColor);
     pool.mesh.setMatrixAt(pool.count, tempMatrix);
     pool.mesh.setColorAt(pool.count, tempColor);
     pool.count += 1;

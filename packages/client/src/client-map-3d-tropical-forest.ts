@@ -10,9 +10,9 @@ import { Color, InstancedMesh, Matrix4, Scene } from "three";
 import { LAYOUTS, TREES_PER_TILE, tileHash } from "./client-map-3d-forest.js";
 import { riverBankTreeFilter } from "./client-map-3d-rivers/client-map-3d-river-bank-trees.js";
 import { commitInstanceTint } from "./client-map-3d-instance-tint.js";
-import { createTreeMaterial, driveTreeWind } from "./client-map-3d-tree-material.js";
-import { createPalmGeometry } from "./client-map-3d-tree-models.js";
-import { composeTreeInstance } from "./client-map-3d-tree-variation.js";
+import { createTreeMaterial, driveTreeWind } from "./client-map-3d-trees/client-map-3d-tree-material.js";
+import { createPalmGeometry } from "./client-map-3d-trees/client-map-3d-tree-models.js";
+import { composeTreeInstance, createTreePlacement } from "./client-map-3d-trees/client-map-3d-tree-variation.js";
 
 export type TropicalForest = {
   readonly clear: () => void;
@@ -37,6 +37,7 @@ export const createTropicalForest = (scene: Scene, maxTiles: number): TropicalFo
 
   const tempMatrix = new Matrix4();
   const tempColor = new Color();
+  const placement = createTreePlacement();
   let count = 0;
 
   const clear = (): void => {
@@ -47,11 +48,19 @@ export const createTropicalForest = (scene: Scene, maxTiles: number): TropicalFo
     const layoutIdx = tileHash(worldX, worldZ, 7, LAYOUTS.length);
     const layout = LAYOUTS[layoutIdx]!;
     const inRiverBank = riverBankTreeFilter(worldX, worldZ);
+    placement.y = surfaceY;
+    placement.worldX = worldX;
+    placement.worldZ = worldZ;
+    placement.tint = tint;
 
     layout.forEach((tree, slot) => {
       if (count >= maxInstances) return;
       if (inRiverBank?.(tree.ox, tree.oz)) return;
-      composeTreeInstance({ x: sceneX + tree.ox, y: surfaceY, z: sceneZ + tree.oz, scale: tree.scale, worldX, worldZ, slot, tint }, tempMatrix, tempColor);
+      placement.x = sceneX + tree.ox;
+      placement.z = sceneZ + tree.oz;
+      placement.scale = tree.scale;
+      placement.slot = slot;
+      composeTreeInstance(placement, tempMatrix, tempColor);
       mesh.setMatrixAt(count, tempMatrix);
       mesh.setColorAt(count, tempColor);
       count += 1;

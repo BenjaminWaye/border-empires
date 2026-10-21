@@ -6,6 +6,7 @@
 // layout -- never the scene position, which drifts between terrain rebuilds
 // -- so the same tree always stands the same way.
 import { Quaternion, Vector3, type Color, type Matrix4 } from "three";
+import { mountainHash01 } from "../client-map-mountain-variation/client-map-mountain-variation.js";
 
 const MAX_LEAN = 0.07; // radians
 const HEIGHT_SPREAD = 0.14;
@@ -20,32 +21,33 @@ const leanAxis = new Vector3();
 const position = new Vector3();
 const scale = new Vector3();
 
-// tileHash's mix (client-map-3d-forest.ts) plus a murmur3-style finaliser:
-// the bare mix only varies its low bits between neighbouring salts, so
-// sibling trees came out nearly the same shade.
-const hash01 = (worldX: number, worldZ: number, salt: number): number => {
-  let h = Math.imul(worldX, 73856093) ^ Math.imul(worldZ, 19349663) ^ Math.imul(salt, 83492791);
-  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
-  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+// The mountains' well-mixed world hash, not the forest's tileHash: tileHash
+// only varies its low bits between neighbouring salts, so sibling trees came
+// out nearly the same shade.
+const hash01 = mountainHash01;
+
+/**
+ * One tree to place. Mutable so each forest can reuse a single scratch
+ * object across a rebuild instead of allocating one per tree.
+ */
+export type TreePlacement = {
+  x: number;
+  y: number;
+  z: number;
+  /** The layout's size for this slot. */
+  scale: number;
+  worldX: number;
+  worldZ: number;
+  /** Slot within the tile's layout; keeps each tree's roll distinct. */
+  slot: number;
+  /** Remembered-tile colour, multiplied in (client-map-3d-instance-tint.ts). */
+  tint: Color | undefined;
 };
 
-export type TreePlacement = {
-  readonly x: number;
-  readonly y: number;
-  readonly z: number;
-  /** The layout's size for this slot. */
-  readonly scale: number;
-  readonly worldX: number;
-  readonly worldZ: number;
-  /** Slot within the tile's layout; keeps each tree's roll distinct. */
-  readonly slot: number;
-  /** Remembered-tile print colour, multiplied in (client-map-3d-instance-tint.ts). */
-  readonly tint: Color | undefined;
-};
+export const createTreePlacement = (): TreePlacement => ({ x: 0, y: 0, z: 0, scale: 1, worldX: 0, worldZ: 0, slot: 0, tint: undefined });
 
 /** Writes the tree's instance matrix and colour into `matrix` / `color`. */
-export const composeTreeInstance = (placement: TreePlacement, matrix: Matrix4, color: Color): void => {
+export const composeTreeInstance = (placement: Readonly<TreePlacement>, matrix: Matrix4, color: Color): void => {
   const { worldX, worldZ, slot } = placement;
   const salt = 100 + slot * 8;
   yawQuat.setFromAxisAngle(UP, hash01(worldX, worldZ, salt) * Math.PI * 2);

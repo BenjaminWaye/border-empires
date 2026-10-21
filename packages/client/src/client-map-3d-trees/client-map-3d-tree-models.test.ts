@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Color, InstancedMesh, Matrix4, Quaternion, Scene, ShaderLib, Vector3, type BufferGeometry } from "three";
-import { createForest } from "./client-map-3d-forest.js";
+import { createForest } from "../client-map-3d-forest.js";
 import { createTreeMaterial } from "./client-map-3d-tree-material.js";
 import { createLeafGeometry, createPalmGeometry, createPineGeometry, createSpruceGeometry } from "./client-map-3d-tree-models.js";
 import { composeTreeInstance } from "./client-map-3d-tree-variation.js";

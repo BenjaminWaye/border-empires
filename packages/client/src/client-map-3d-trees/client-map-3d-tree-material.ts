@@ -16,7 +16,7 @@
 // The shadow pass doesn't sway (the storm-clip depth material replaces it);
 // at a sway of ~1/100 tile that mismatch is invisible.
 import { DoubleSide, FrontSide, MeshStandardMaterial, type InstancedMesh, type IUniform } from "three";
-import { markUnexploredStormClip } from "./client-map-3d-unexplored-storm/client-map-3d-unexplored-storm-clip.js";
+import { markUnexploredStormClip } from "../client-map-3d-unexplored-storm/client-map-3d-unexplored-storm-clip.js";
 
 // Breeze direction in world space (x, z), and how far a crown moves.
 const WIND_X = 0.8;
