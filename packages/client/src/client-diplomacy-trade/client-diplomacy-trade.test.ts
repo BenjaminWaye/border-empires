@@ -11,7 +11,7 @@ import {
   TRADE_HOLDINGS_CHECK_MS
 } from "./client-diplomacy-trade.js";
 import { diplomacyTermsLineHtml } from "./client-diplomacy-terms-html.js";
-import { tradeVerdict, type DiplomacyStanceReply, type TradeSelection } from "./client-diplomacy-trade-view.js";
+import { suggestedDeal, tradeVerdict, warTally, type DiplomacyStanceReply, type TradeSelection } from "./client-diplomacy-trade-view.js";
 
 const pricing: AiDiplomacyPricing = { required: { truce12: 40, truce24: 60, alliance: null }, shardCoinValue: 25, aiHoldings: { gold: 30, shard: 0 } };
 const aiReply: DiplomacyStanceReply = {
@@ -21,7 +21,7 @@ const aiReply: DiplomacyStanceReply = {
   ai: true,
   stance: { kind: "WARY", reason: "Milo is wary of you." },
   attitude: { level: "ANNOYED", score: -20, modifiers: [{ label: "You took 2 of our tiles", value: -8 }, { label: "Our borders are contested", value: -10 }] },
-  war: { atWar: true, aiWinning: true, aiLosing: false },
+  war: { atWar: true, aiWinning: true, aiLosing: false, tilesTakenFromAi: 2, tilesTakenByAi: 5 },
   allianceRefusal: "Milo doesn't think well enough of you for an alliance.",
   pricing
 };
@@ -36,19 +36,19 @@ const verdict = (overrides: Partial<Parameters<typeof tradeVerdict>[0]>) =>
 describe("tradeVerdict", () => {
   it("previews an AI's answer with the shared pricing rules", () => {
     expect(verdict({ selection: selection(40) })).toEqual(expect.objectContaining({ tone: "good", text: "Milo would accept a 12h truce on these terms." }));
-    expect(verdict({})).toEqual(expect.objectContaining({ tone: "bad", text: "Milo would refuse: wants about 40 more coin.", topUpCoin: 40 }));
+    expect(verdict({})).toEqual(expect.objectContaining({ tone: "bad", text: "Milo would refuse: wants about 40 more coin." }));
     expect(verdict({ selection: selection(0, "alliance") }).text).toBe("Milo doesn't think well enough of you for an alliance.");
     const askingForCoin = { kind: "alliance" as const, durationHours: 12 as const, terms: { give: { gold: 0, shard: 0 }, ask: { gold: 5, shard: 0 } } };
     const friendly = { ...aiReply, pricing: { ...pricing, required: { ...pricing.required, alliance: 0 } } };
     expect(verdict({ reply: friendly, selection: askingForCoin }).text).toBe("Milo won't give anything to join an alliance.");
   });
 
-  // A player with 10 coin is told the price is out of reach, not offered a top-up they can't pay.
+  // A player with 10 coin is told the price is out of reach, not suggested a deal they can't pay.
   it("says when the price is more than the player can offer", () => {
     expect(verdict({ own: { gold: 10, shard: 0 } })).toEqual(
       expect.objectContaining({ text: "Milo wants about 40 coin for this, more than you can offer.", canSend: true })
     );
-    expect(verdict({ own: { gold: 10, shard: 0 } })).not.toHaveProperty("topUpCoin");
+    expect(suggestedDeal(aiReply, selection(), { gold: 10, shard: 0 })).toBeUndefined();
   });
 
   it("blocks sending during the re-offer cooldown and when giving more than you hold", () => {
@@ -61,6 +61,38 @@ describe("tradeVerdict", () => {
       expect.objectContaining({ tone: "neutral", canSend: true })
     );
     expect(verdict({ reply: { ...aiReply, pricing: undefined } } as never)).toEqual(expect.objectContaining({ tone: "neutral", canSend: true }));
+  });
+});
+
+describe("suggestedDeal", () => {
+  const empty = { give: { gold: 0, shard: 0 }, ask: { gold: 0, shard: 0 } };
+
+  it("offers the least of the player's coin, then Shards, that meets the AI's price", () => {
+    expect(suggestedDeal(aiReply, selection(), { gold: 100, shard: 0 })).toEqual({ ...empty, give: { gold: 40, shard: 0 } });
+    expect(suggestedDeal(aiReply, selection(0, "truce", 24), { gold: 10, shard: 4 })).toEqual({ ...empty, give: { gold: 10, shard: 2 } });
+  });
+
+  // The loser pays: an AI that would pay for peace is asked for all it offers.
+  it("asks a losing AI for the payment it would make", () => {
+    const losing = { ...aiReply, pricing: { ...pricing, required: { truce12: -25, truce24: -25, alliance: null } } };
+    const deal = suggestedDeal(losing, selection(), { gold: 0, shard: 0 });
+    expect(deal).toEqual({ ...empty, ask: { gold: 25, shard: 0 } });
+    expect(verdict({ reply: losing, selection: { ...selection(), terms: deal! } }).tone).toBe("good");
+  });
+
+  it("has nothing to suggest when the AI refuses, can't be read, or is a human", () => {
+    expect(suggestedDeal(aiReply, selection(0, "alliance"), { gold: 1_000, shard: 0 })).toBeUndefined();
+    expect(suggestedDeal({ ...aiReply, pricing: undefined } as never, selection(), { gold: 1_000, shard: 0 })).toBeUndefined();
+    expect(suggestedDeal({ found: true, targetPlayerName: "Valka", targetPlayerId: "p2", ai: false }, selection(), { gold: 1_000, shard: 0 })).toBeUndefined();
+  });
+});
+
+describe("warTally", () => {
+  it("shows the tiles each side took while at war, as the AI counts them", () => {
+    expect(warTally(aiReply)).toEqual({ youTook: 2, theyTook: 5 });
+    expect(warTally({ ...aiReply, war: { atWar: false, aiWinning: false, aiLosing: false, tilesTakenFromAi: 2, tilesTakenByAi: 5 } })).toBeUndefined();
+    // An older gateway sends no counts.
+    expect(warTally({ ...aiReply, war: { atWar: true, aiWinning: true, aiLosing: false } })).toBeUndefined();
   });
 });
 
@@ -86,11 +118,33 @@ describe("diplomacy trade screen", () => {
       "-8 You took 2 of our tiles",
       "-10 Our borders are contested"
     ]);
+    const war = overlay.querySelector<HTMLElement>("[data-trade-war]")!;
+    expect(war.hidden).toBe(false);
+    expect(Array.from(war.querySelectorAll("li")).map((item) => item.textContent)).toEqual([
+      "2 tiles you took from Milo",
+      "5 tiles Milo took from you"
+    ]);
     expect(overlay.querySelector("[data-trade-verdict]")?.textContent).toBe("Milo would refuse: wants about 40 more coin.");
 
-    overlay.querySelector<HTMLButtonElement>("[data-trade-topup]")!.click();
+    const suggest = overlay.querySelector<HTMLButtonElement>("[data-trade-suggest]")!;
+    expect(suggest.hidden).toBe(false);
+    suggest.click();
     expect(overlay.querySelector<HTMLInputElement>("[data-trade-give-gold]")!.value).toBe("40");
     expect(overlay.querySelector("[data-trade-verdict]")?.textContent).toBe("Milo would accept a 12h truce on these terms.");
+    // Already on the suggested terms: nothing more to suggest.
+    expect(suggest.disabled).toBe(true);
+    // The alliance is refused outright, so there is no deal to suggest.
+    overlay.querySelector<HTMLButtonElement>("[data-trade-kind='alliance:0']")!.click();
+    expect(suggest.disabled).toBe(true);
+  });
+
+  it("says 1 tile, not 1 tiles, in the war tally", () => {
+    const { overlay } = openScreen();
+    receiveDiplomacyStance({ ...aiReply, war: { atWar: true, aiWinning: false, aiLosing: false, tilesTakenFromAi: 1, tilesTakenByAi: 0 } });
+    expect(Array.from(overlay.querySelectorAll("[data-trade-war] li")).map((item) => item.textContent)).toEqual([
+      "1 tile you took from Milo",
+      "0 tiles Milo took from you"
+    ]);
   });
 
   it("sends the offer with its terms and closes", () => {
@@ -106,6 +160,20 @@ describe("diplomacy trade screen", () => {
       expect.any(String)
     );
     expect(document.querySelector(".diplomacy-trade-overlay")).toBeNull();
+  });
+
+  // Regression: a human who kept an AI's name got offers meant for the AI; the id travels with every request.
+  it("addresses the target by id when it knows one", () => {
+    const send = vi.fn().mockReturnValue(true);
+    openDiplomacyTradeScreen({ targetName: "Milo", targetPlayerId: "ai-1", kind: "truce", durationHours: 12 }, { send, ownHoldings: () => ({ gold: 100, shard: 0 }) });
+    expect(send).toHaveBeenCalledWith({ type: "DIPLOMACY_STANCE_REQUEST", targetPlayerName: "Milo", targetPlayerId: "ai-1" }, expect.any(String));
+    // A reply about another empire that happens to share the name is ignored.
+    receiveDiplomacyStance({ ...aiReply, targetPlayerId: "p-human" });
+    const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
+    expect(overlay.querySelector("[data-trade-verdict]")?.textContent).toBe("Reading Milo's mood…");
+    receiveDiplomacyStance(aiReply);
+    overlay.querySelector<HTMLButtonElement>("[data-trade-send]")!.click();
+    expect(send).toHaveBeenLastCalledWith({ type: "TRUCE_REQUEST", targetPlayerName: "Milo", targetPlayerId: "ai-1", durationHours: 12 }, expect.any(String));
   });
 
   it("sends a plain offer when no terms are set", () => {
@@ -134,12 +202,12 @@ describe("diplomacy trade screen", () => {
       const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
       receiveDiplomacyStance(aiReply);
       expect(overlay.querySelector("[data-trade-holdings]")?.textContent).toBe("You have 10 coin and 0 Shards.");
-      expect(overlay.querySelector<HTMLButtonElement>("[data-trade-topup]")!.hidden).toBe(true);
+      expect(overlay.querySelector<HTMLButtonElement>("[data-trade-suggest]")!.disabled).toBe(true);
 
       holdings.gold = 400;
       vi.advanceTimersByTime(TRADE_HOLDINGS_CHECK_MS);
       expect(overlay.querySelector("[data-trade-holdings]")?.textContent).toBe("You have 400 coin and 0 Shards.");
-      expect(overlay.querySelector<HTMLButtonElement>("[data-trade-topup]")!.hidden).toBe(false);
+      expect(overlay.querySelector<HTMLButtonElement>("[data-trade-suggest]")!.disabled).toBe(false);
 
       closeDiplomacyTradeScreen();
       const callsAtClose = ownHoldings.mock.calls.length;

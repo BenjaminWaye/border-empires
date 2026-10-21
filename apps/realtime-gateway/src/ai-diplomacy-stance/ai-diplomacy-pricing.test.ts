@@ -31,7 +31,8 @@ const price = (options: {
   aiGold?: number;
   brokeTruce?: boolean;
   breaksWithOthers?: number;
-  aiWouldLeadAlliance?: boolean;
+  /** Pass undefined explicitly for "sizes unknown". */
+  aiWouldLeadAlliance?: boolean | undefined;
 }) => {
   const stanceKind = options.stanceKind ?? "WARY";
   const mem = options.memory ?? memory();
@@ -59,7 +60,7 @@ const price = (options: {
       requesterIncomePerMinute: requesterIncome,
       aiHoldings: { gold: options.aiGold ?? 0, shard: 0 },
       requesterBrokeTruceWithAi: options.brokeTruce ?? false,
-      aiWouldLeadAlliance: options.aiWouldLeadAlliance ?? true,
+      aiWouldLeadAlliance: "aiWouldLeadAlliance" in options ? options.aiWouldLeadAlliance : true,
       now: NOW
     })
   };
@@ -102,6 +103,27 @@ describe("AI truce pricing", () => {
     const result = price({ brokeTruce: true });
     expect(result.opinion.attitude).toBe("FURIOUS");
     expect(result.pricing.required.truce12).toBeNull();
+  });
+
+  // Regression: taking 10+ tiles made a neighbour Furious, and Furious
+  // refused peace, so an AI "losing the war and wanting it over" never
+  // talked peace at all.
+  it("still talks peace while furious if it is losing the war", () => {
+    const losing = memory({ lastCombatAt: NOW - HOUR, lastPlayerAttackAt: NOW - HOUR, tilesTakenFromAi: 15 });
+    const result = price({ memory: losing, aiIncome: 2, aiGold: 400 });
+    expect(result.opinion.attitude).toBe("FURIOUS");
+    expect(result.opinion.war.aiLosing).toBe(true);
+    expect(result.truceRefusal).toBeUndefined();
+    expect(result.pricing.required.truce12).toBe(-100);
+  });
+
+  // Losing doesn't buy back a betrayal: a truce-breaker could otherwise be paid again and again.
+  it("still refuses a player who broke a truce with it, even while losing", () => {
+    const losing = memory({ lastCombatAt: NOW - HOUR, lastPlayerAttackAt: NOW - HOUR, tilesTakenFromAi: 15 });
+    const result = price({ memory: losing, aiIncome: 2, aiGold: 400, brokeTruce: true });
+    expect(result.opinion.war.aiLosing).toBe(true);
+    expect(result.pricing.required.truce12).toBeNull();
+    expect(result.truceRefusal).toBe("Milo is furious with you and won't talk peace.");
   });
 
   // The loser pays, but only in a real war, once per war, and capped.
@@ -164,6 +186,15 @@ describe("AI alliance pricing", () => {
     );
   });
 
+  // Regression: "can't weigh up an alliance right now" hid the real reason (a war) behind a missing leaderboard.
+  it("gives the real refusal before saying it can't weigh up bloc sizes", () => {
+    const atWar = memory({ lastCombatAt: NOW - HOUR, lastPlayerAttackAt: NOW - HOUR, tilesTakenFromAi: 15 });
+    expect(price({ memory: atWar, aiWouldLeadAlliance: undefined }).allianceRefusal).toBe("Milo won't ally with an empire it fought within the last day.");
+    expect(price({ aiWouldLeadAlliance: undefined }).allianceRefusal).toBe("Milo doesn't think well enough of you for an alliance.");
+    const friendly = { stanceKind: "OUTMATCHED" as const, bordersTouch: false, memory: memory({ goodwillCoin: 600 }), aiWouldLeadAlliance: undefined };
+    expect(price(friendly).allianceRefusal).toBe("Milo can't weigh up an alliance right now. Try again shortly.");
+  });
+
   // Diplomatic Dominance goes to a bloc's largest member, so the AI only joins blocs it would lead.
   it("refuses an alliance it wouldn't lead, however friendly", () => {
     const result = price({ stanceKind: "OUTMATCHED", bordersTouch: false, memory: memory({ goodwillCoin: 600 }), aiWouldLeadAlliance: false });
@@ -215,16 +246,58 @@ describe("answerDiplomacyStanceQuery", () => {
       ai: true,
       stance: { kind: "INDIFFERENT", reason: "Milo has no quarrel with you: your borders don't meet." },
       attitude: { level: "CAUTIOUS", score: 5, modifiers: [{ label: "Our borders don't meet", value: 5 }] },
-      war: { atWar: false, aiWinning: false, aiLosing: false },
+      war: { atWar: false, aiWinning: false, aiLosing: false, tilesTakenFromAi: 0, tilesTakenByAi: 0 },
       allianceRefusal: "Milo doesn't think well enough of you for an alliance.",
       pricing: { required: { truce12: 0, truce24: 0, alliance: null }, shardCoinValue: 25, aiHoldings: { gold: 40, shard: 1 } }
     });
+  });
+
+  // A display name can be shared (a human who kept an AI's name): the id the client sends wins.
+  it("resolves the target by id when the client sends one", async () => {
+    const byId = { ...deps, resolvePlayerById: (id: string) => (id === "ai-1" ? { id: "ai-1", name: "Milo" } : undefined) };
+    expect(await answerDiplomacyStanceQuery(byId, "p1", "Valka", "ai-1")).toEqual(expect.objectContaining({ targetPlayerId: "ai-1", ai: true }));
+    expect(await answerDiplomacyStanceQuery(byId, "p1", "Valka", "gone")).toEqual(expect.objectContaining({ targetPlayerId: "p2", ai: false }));
   });
 
   it("has nothing to predict for humans, unknown names, or yourself", async () => {
     expect(await answerDiplomacyStanceQuery(deps, "p1", "Valka")).toEqual(expect.objectContaining({ found: true, ai: false }));
     expect(await answerDiplomacyStanceQuery(deps, "p1", "Nobody")).toEqual(expect.objectContaining({ found: false }));
     expect(await answerDiplomacyStanceQuery(deps, "ai-1", "Milo")).toEqual(expect.objectContaining({ found: false }));
+  });
+
+  it("explains a losing war by the ground the AI has lost", async () => {
+    const losing = memory({ lastCombatAt: NOW - HOUR, lastPlayerAttackAt: NOW - HOUR, tilesTakenFromAi: 15, tilesTakenByAi: 3 });
+    const result = await answerDiplomacyStanceQuery({ ...deps, diplomacyContext: () => ({ ...deps.diplomacyContext(), memory: losing }) }, "p1", "Milo");
+    expect(result).toEqual(expect.objectContaining({
+      stance: expect.objectContaining({ reason: "Milo has lost 12 more tiles to you than it has taken, and wants the war over." }),
+      war: { atWar: true, aiWinning: false, aiLosing: true, tilesTakenFromAi: 15, tilesTakenByAi: 3 }
+    }));
+  });
+
+  // Counts fade to fractions: the sentence must use the same rounded numbers the war tally shows.
+  it("words the losing reason from the same rounded counts as the war tally", async () => {
+    const fading = memory({ lastCombatAt: NOW - HOUR, lastPlayerAttackAt: NOW - HOUR, tilesTakenFromAi: 2.5, tilesTakenByAi: 0.4 });
+    const result = await answerDiplomacyStanceQuery({ ...deps, diplomacyContext: () => ({ ...deps.diplomacyContext(), memory: fading }) }, "p1", "Milo");
+    expect(result).toEqual(expect.objectContaining({
+      stance: expect.objectContaining({ reason: "Milo has lost 3 more tiles to you than it has taken, and wants the war over." }),
+      war: expect.objectContaining({ tilesTakenFromAi: 3, tilesTakenByAi: 0 })
+    }));
+  });
+
+  // Regression: live AI snapshots carry no world status, so every AI alliance read "can't weigh up" until
+  // the season leaderboard was used for bloc sizes.
+  it("sizes the alliance bloc from the season leaderboard when the AI's snapshot has none", async () => {
+    const bare = { ...aiSnapshot, worldStatus: undefined } as unknown as PlayerSubscriptionSnapshot;
+    const friendly = { ...deps.diplomacyContext(), memory: memory({ goodwillCoin: 100_000 }) };
+    const withoutBoard = await answerDiplomacyStanceQuery({ ...deps, fetchAiSnapshot: async () => bare, diplomacyContext: () => friendly }, "p1", "Milo");
+    expect(withoutBoard).toEqual(expect.objectContaining({ allianceRefusal: "Milo can't weigh up an alliance right now. Try again shortly." }));
+    const withBoard = await answerDiplomacyStanceQuery(
+      { ...deps, fetchAiSnapshot: async () => bare, diplomacyContext: async () => ({ ...friendly, seasonLeaderboard: [{ id: "ai-1", tiles: 100 }, { id: "p1", tiles: 40 }] }) },
+      "p1",
+      "Milo"
+    );
+    expect(withBoard).not.toHaveProperty("allianceRefusal");
+    expect(withBoard).toEqual(expect.objectContaining({ pricing: expect.objectContaining({ required: expect.objectContaining({ alliance: 0 }) }) }));
   });
 
   it("answers without a stance when the AI can't be read", async () => {

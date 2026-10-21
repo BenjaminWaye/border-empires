@@ -3,6 +3,33 @@ import { describe, expect, it } from "vitest";
 import { createSocialState, MAX_TRUCE_BREAKS_PER_PLAYER } from "./social-state.js";
 
 describe("social state", () => {
+  // Regression: gateways saved every AI as "AI <n>"; a restart restores the listed name.
+  it("restores saved placeholder AI names to their seasonal names, and still answers to the old one", () => {
+    const social = createSocialState({
+      now: () => 1_000,
+      players: [{ id: "player-1", name: "Nauticus" }, { id: "ai-13", name: "Maren" }],
+      initial: { players: [{ id: "ai-13", name: "AI 13" }, { id: "ai-3", name: "Lady Milo" }] }
+    });
+    expect(social.requestTruce("player-1", "Maren", 12)).toEqual(expect.objectContaining({ ok: true }));
+    expect(social.snapshotForPlayer("player-1").outgoingTruceRequests).toEqual([expect.objectContaining({ toPlayerId: "ai-13", toName: "Maren" })]);
+    expect(social.requestAlliance("player-1", "AI 13")).toEqual(expect.objectContaining({ ok: true }));
+    // A real saved name is kept.
+    expect(social.requestAlliance("player-1", "Lady Milo")).toEqual(expect.objectContaining({ ok: true }));
+  });
+
+  // A human who took an AI's listed name before it was reserved keeps it.
+  it("resolves a name shared by a human and an AI to the human", () => {
+    const social = createSocialState({
+      now: () => 1_000,
+      players: [{ id: "player-1", name: "Nauticus" }, { id: "ai-3", name: "Milo" }, { id: "player-2", name: "Milo" }]
+    });
+    social.requestTruce("player-1", "Milo", 12);
+    social.requestAlliance("player-1", "AI 3");
+    const snapshot = social.snapshotForPlayer("player-1");
+    expect(snapshot.outgoingTruceRequests).toEqual([expect.objectContaining({ toPlayerId: "player-2" })]);
+    expect(snapshot.outgoingAllianceRequests).toEqual([expect.objectContaining({ toPlayerId: "ai-3" })]);
+  });
+
   it("tracks alliance and truce lifecycle snapshots for both players", () => {
     const social = createSocialState({
       now: () => 1_000,

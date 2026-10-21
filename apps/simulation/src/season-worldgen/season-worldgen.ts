@@ -1,5 +1,5 @@
 import { STARTING_CAPITAL_MANPOWER_CAP, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
-import { DEFAULT_AUTO_SETTLE_PREFS, PLANETARY_DEFENSE_DISPLAY_NAME, type WorldStyle } from "@border-empires/shared";
+import { DEFAULT_AUTO_SETTLE_PREFS, PLANETARY_DEFENSE_DISPLAY_NAME, seasonalAiNameForId, type WorldStyle } from "@border-empires/shared";
 
 import { createSeasonSeedWorldAsync } from "../season-seed-world-async.js";
 import type { RecoveredSimulationState } from "../event-recovery/event-recovery.js";
@@ -16,36 +16,6 @@ export type GeneratedSeasonWorld = {
 
 export const parseSimulationMapStyle = (value: string | undefined): SimulationMapStyle =>
   value === "islands" || value === "continents" ? value : "continents";
-
-const SEASONAL_AI_NAMES = [
-  "Alden",
-  "Sigrid",
-  "Milo",
-  "Freja",
-  "Edvin",
-  "Clara",
-  "Hugo",
-  "Linnea",
-  "Rowan",
-  "Tove",
-  "Astrid",
-  "Niko",
-  "Maren",
-  "Ivar",
-  "Elin",
-  "Rasmus",
-  "Kara",
-  "Oskar",
-  "Solveig",
-  "Bryn"
-] as const;
-
-export const seasonalAiNameForId = (id: string): string | undefined => {
-  const match = /^ai-(\d+)$/.exec(id);
-  if (!match) return undefined;
-  const index = Number(match[1]) - 1;
-  return SEASONAL_AI_NAMES[index];
-};
 
 export const seasonalPlayerNameForId = (id: string): string => {
   if (id === "barbarian-1") return PLANETARY_DEFENSE_DISPLAY_NAME;

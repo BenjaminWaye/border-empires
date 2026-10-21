@@ -1,4 +1,5 @@
 import type { ClientMessage, DiplomacyTerms } from "@border-empires/shared";
+import { offerOptionsFor } from "../diplomacy-offer-options/diplomacy-offer-options.js";
 import {
   readIncomingAllianceBreakAlert,
   readIncomingAllianceRequestAlert,
@@ -56,7 +57,7 @@ export const handleAllianceSocketMessage = async (
   socket: import("ws").WebSocket
 ): Promise<boolean> => {
   if (message.type === "ALLIANCE_REQUEST") {
-    const result = deps.requestAlliance(playerId, message.targetPlayerName, message.terms ? { terms: message.terms } : undefined);
+    const result = deps.requestAlliance(playerId, message.targetPlayerName, offerOptionsFor(message));
     if (!result.ok) { sendError(deps, socket, result); return true; }
     deps.onDiplomacyInteraction?.(playerId, result.notifyPlayerIds.find((id) => id !== playerId));
     const alert = readIncomingAllianceRequestAlert(result.payloadsByPlayerId);

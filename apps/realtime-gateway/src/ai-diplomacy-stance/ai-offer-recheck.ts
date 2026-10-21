@@ -5,12 +5,12 @@
 import { emptyDiplomacyTerms, evaluateAiOffer, swapDiplomacyTerms, type DiplomacyOfferKind, type DiplomacyTerms } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
-import { evaluateAiDiplomacy, type AiDiplomacyContext } from "./ai-diplomacy-evaluation.js";
+import { evaluateAiDiplomacy, type AiDiplomacyContextSource } from "./ai-diplomacy-evaluation.js";
 
 export type AiOfferRecheckDeps = {
   fetchAiSnapshot: (playerId: string) => Promise<PlayerSubscriptionSnapshot | undefined>;
   requesterSnapshot: (playerId: string) => Promise<PlayerSubscriptionSnapshot | undefined>;
-  diplomacyContext: (requesterId: string, aiPlayerId: string) => AiDiplomacyContext;
+  diplomacyContext: AiDiplomacyContextSource;
 };
 
 /** undefined: the AI still stands by the offer. withdraw: the offer is stale and should be taken back. */
@@ -30,7 +30,7 @@ export const recheckAiOffer = async (
     aiSnapshot,
     requesterId: offer.playerId,
     requesterSnapshot,
-    ...deps.diplomacyContext(offer.playerId, offer.aiPlayerId)
+    ...(await deps.diplomacyContext(offer.playerId, offer.aiPlayerId))
   });
   // Can't judge right now: refuse this time, but leave the offer standing.
   if (!evaluation) return { reason: `${offer.aiName} couldn't confirm the deal right now. Try again shortly.`, withdraw: false };
