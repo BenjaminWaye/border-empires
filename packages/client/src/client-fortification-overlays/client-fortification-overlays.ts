@@ -141,14 +141,16 @@ export const siegeBatteryFacingRadiansForTile = (
  * half-built battery, or one up to a tile past siege range, fired the
  * bombardment for a battle it had no part in.
  */
+export const siegeStructureBoostsAttacker = (tile: Tile | undefined, attackerOwnerId: string): boolean =>
+  tile?.ownerId === attackerOwnerId && tile.siegeBattery?.ownerId === attackerOwnerId && tile.siegeBattery.status === "active";
+
 export const nearestSiegeBatteryTileForBattle = (
   deps: FortificationOverlayDeps,
   battleX: number,
   battleY: number,
   attackerOwnerId: string
 ): { x: number; y: number } | undefined => {
-  const boostsBattle = (tile: Tile | undefined): boolean =>
-    tile?.ownerId === attackerOwnerId && tile.siegeBattery?.ownerId === attackerOwnerId && tile.siegeBattery.status === "active";
+  const boostsBattle = (tile: Tile | undefined): boolean => siegeStructureBoostsAttacker(tile, attackerOwnerId);
   if (boostsBattle(deps.tiles.get(deps.keyFor(battleX, battleY)))) return { x: battleX, y: battleY };
   for (const { dx, dy } of FACING_SEARCH_OFFSETS) {
     if (Math.max(Math.abs(dx), Math.abs(dy)) > OUTPOST_AURA_RADIUS) continue;

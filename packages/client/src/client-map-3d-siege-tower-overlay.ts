@@ -5,9 +5,9 @@
 // enormous glowing aether lens in a yoke of aged-brass gimbal rings, firing a
 // cyan-violet additive lance down at the battlefield.
 //
-// Every frame update(nowMs, latestBattleTarget) aims the lens assembly (outer
-// cradle ring facing the azimuth + inner cradle ring tilted by the beam pitch
-// + barrel/lens/beam) at the most recently started ongoing battle. The aim
+// Every frame update(nowMs, battleTargetFor) aims each tower's lens assembly
+// (outer cradle ring facing the azimuth + inner cradle ring tilted by the beam
+// pitch + barrel/lens/beam) at the battle that tower is boosting, if any. The aim
 // mode (siegeTowerRotationMode) decides whether only that lens assembly swings
 // or the whole tower wheels around to face the battle.
 //
@@ -16,7 +16,6 @@
 // publishes counts, and update() rewrites the touched slices of the per-piece
 // buffers through those recorded bases.
 
-import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import {
   AdditiveBlending,
   BoxGeometry,
@@ -38,7 +37,7 @@ import {
 import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 import { SIEGE_TOWER_PALETTES, type SiegeTowerPalette, type SiegeTowerVariant } from "./client-map-3d-siege-tower-palette.js";
 import { PIECE_SPECS_BY_VARIANT, SHAPES, type TowerShape } from "./client-map-3d-siege-tower-pieces.js";
-import { toroidDelta } from "./client-map-3d-pointer-pick.js";
+import { approach, siegeTowerAim, turnToward } from "./client-map-3d-siege-tower-aim.js";
 import type { SiegeTowerRotationMode } from "./client-siege-tower-rotation-mode.js";
 
 export type SiegeTowerBattleTarget = { readonly x: number; readonly y: number };
@@ -47,16 +46,16 @@ export type SiegeTowerOverlay = {
   readonly clear: () => void;
   readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, variant: SiegeTowerVariant, frozen?: boolean) => void;
   readonly commit: () => void;
-  readonly update: (nowMs: number, latestBattleTarget?: SiegeTowerBattleTarget) => void;
-  /** Whether any real siege tower is currently on the map — callers (e.g.
-   * the pop-up-marine battle overlay's "kill shot" attribution) use this to
-   * gate tower-caused effects so nothing fires when there is no tower to
-   * have caused them. */
+  /** Aims every tower at `battleTargetFor(its world tile)` and returns the
+   * battle tiles towers are beaming this frame (see siegeTowerBattleTargetFor). */
+  readonly update: (nowMs: number, battleTargetFor?: (worldTileX: number, worldTileY: number) => SiegeTowerBattleTarget | undefined) => ReadonlyArray<SiegeTowerBattleTarget>;
+  /** Whether any real siege tower is currently on the map. Tower-caused
+   * effects (the pop-up-marine "kill shot") are gated on update()'s returned
+   * beamed battles instead, which are empty when no tower is on the map. */
   readonly hasInstances: () => boolean;
   readonly dispose: () => void;
 };
 
-const BEAM_MAX_RANGE_TILES = 4.5;
 const BARREL_BACK = 0.12;
 
 const PLATFORM_Y = 1.72;
@@ -434,21 +433,15 @@ const slots = new Map<string, Slot>();
     }
   };
 
-  const approach = (current: number, target: number, rate: number): number => {
-    const delta = target - current;
-    return Math.abs(delta) < 0.0005 ? target : current + delta * rate;
-  };
-
-  const turnToward = (current: number, target: number, rate: number): number => {
-    const shortest = Math.atan2(Math.sin(target - current), Math.cos(target - current));
-    return approach(current, current + shortest, rate);
-  };
-
   let beamOp = 0;
-  const update = (nowMs: number, latestBattleTarget?: SiegeTowerBattleTarget): void => {
-    if (instances.length === 0) return;
+  const beamed: SiegeTowerBattleTarget[] = [];
+  const update: SiegeTowerOverlay["update"] = (nowMs, battleTargetFor) => {
+    beamed.length = 0;
+    if (instances.length === 0) return beamed;
     const structureMode = rotationMode() === "structure";
-    const hasBattle = latestBattleTarget !== undefined;
+    const battles = instances.map((target) => (target.frozen ? undefined : battleTargetFor?.(target.wx, target.wy)));
+    for (const battle of battles) if (battle) beamed.push(battle);
+    const hasBattle = beamed.length > 0;
 
     beamOp = approach(beamOp, hasBattle ? 1 : 0, 0.05);
     const flicker = 0.78 + 0.22 * Math.sin(nowMs * 0.02);
@@ -463,29 +456,15 @@ const slots = new Map<string, Slot>();
     dreadMats.halo.opacity = haloGlow;
     dreadMats.sky.opacity = 0.08 + 0.1 * beamOp + 0.05 * Math.sin(nowMs * 0.003);
 
-    for (const target of instances) {
-      if (target.frozen) continue;
-      let yawTarget = target.yaw;
-      // Idle pose matches the spawn pose (writeLens(…, Math.PI / 2, emitterY))
-      // so the cradle doesn't snap on the first frame of no battle.
-      let pitch = Math.PI / 2;
-      let beamLen = target.shape.emitterY;
-      if (latestBattleTarget) {
-        const dx = toroidDelta(target.wx, latestBattleTarget.x, WORLD_WIDTH);
-        const dz = toroidDelta(target.wy, latestBattleTarget.y, WORLD_HEIGHT);
-        const h0 = Math.hypot(dx, dz);
-        if (h0 > 0.001) {
-          yawTarget = Math.atan2(dx, dz);
-          const hClamp = Math.min(h0, BEAM_MAX_RANGE_TILES);
-          pitch = Math.atan2(target.shape.emitterY, hClamp);
-          beamLen = Math.hypot(hClamp, target.shape.emitterY);
-        }
-      }
-      target.yaw = turnToward(target.yaw, yawTarget, 0.08);
+    instances.forEach((target, i) => {
+      if (target.frozen) return;
+      const aim = siegeTowerAim(target.wx, target.wy, target.shape.emitterY, target.yaw, battles[i], hasBattle);
+      target.yaw = turnToward(target.yaw, aim.yaw, 0.08);
       if (structureMode) writeStatic(target, false, target.yaw);
-      writeLens(target, false, target.yaw, pitch, beamLen, nowMs);
-    }
+      writeLens(target, false, target.yaw, aim.pitch, aim.beamLen, nowMs);
+    });
     flushTouched();
+    return beamed;
   };
 
   const dispose = (): void => {
