@@ -39,6 +39,31 @@ describe("triggerSiegeBombardmentForNewBattle", () => {
     expect(state.siegeBombardFxQueue).toHaveLength(0);
   });
 
+  it.each([
+    ["under construction", { ...siegeBatteryTile(5, 5, "attacker"), siegeBattery: { ownerId: "attacker", status: "under_construction" as const } }],
+    ["being removed", { ...siegeBatteryTile(5, 5, "attacker"), siegeBattery: { ownerId: "attacker", status: "removing" as const } }],
+    ["on a tile the attacker no longer owns", { ...siegeBatteryTile(5, 5, "attacker"), ownerId: "someone-else" }],
+    ["one tile past siege range", siegeBatteryTile(5, 10, "attacker")]
+  ])("does not fire for a battery %s", (_label, battery: Tile) => {
+    const fortDeps = { tiles: new Map<string, Tile>([[keyFor(battery.x, battery.y), battery]]), keyFor, wrapX: wrap, wrapY: wrap };
+    const state = { siegeAimOverrides: new Map<string, { targetX: number; targetY: number; expiresAt: number }>(), siegeBombardFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }> };
+
+    triggerSiegeBombardmentForNewBattle(state, fortDeps, battle, 1000);
+
+    expect(state.siegeAimOverrides.size).toBe(0);
+    expect(state.siegeBombardFxQueue).toHaveLength(0);
+  });
+
+  it("fires for an active battery at the edge of siege range", () => {
+    const battery = siegeBatteryTile(10, 9, "attacker");
+    const fortDeps = { tiles: new Map<string, Tile>([[keyFor(battery.x, battery.y), battery]]), keyFor, wrapX: wrap, wrapY: wrap };
+    const state = { siegeAimOverrides: new Map<string, { targetX: number; targetY: number; expiresAt: number }>(), siegeBombardFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }> };
+
+    triggerSiegeBombardmentForNewBattle(state, fortDeps, battle, 1000);
+
+    expect(state.siegeBombardFxQueue).toHaveLength(1);
+  });
+
   it("retargets to the most recent battle when a battery is in range of two", () => {
     const battery = siegeBatteryTile(5, 5, "attacker");
     const fortDeps = { tiles: new Map<string, Tile>([[keyFor(battery.x, battery.y), battery]]), keyFor, wrapX: wrap, wrapY: wrap };

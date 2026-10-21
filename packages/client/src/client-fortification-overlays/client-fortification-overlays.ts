@@ -1,4 +1,4 @@
-import { defendingFortVariant, isFortDefending } from "@border-empires/shared";
+import { defendingFortVariant, isFortDefending, OUTPOST_AURA_RADIUS } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
 export type FortificationOverlayKind = "FORT" | "TITANIUM_BASTION" | "THUNDER_BASTION" | "SIEGE_BATTERY" | "PALISADE" | "RELAY_BEACON";
@@ -132,6 +132,14 @@ export const siegeBatteryFacingRadiansForTile = (
  * in client-battle-overlay/client-siege-bombardment.ts). Client-visual only,
  * same framing as siegeBatteryFacingRadiansForTile above: it never affects
  * targeting, range, or combat math, only which structure plays the FX.
+ *
+ * Only structures that actually boost this battle count, mirroring the sim's
+ * attackerOutpostMult (apps/simulation/src/runtime-combat-support.ts): the
+ * battery must be active (not still under construction or being removed),
+ * stand on a tile the attacker still owns, and be within
+ * OUTPOST_AURA_RADIUS (Chebyshev) of the battle tile. Without these gates a
+ * half-built battery, or one up to a tile past siege range, fired the
+ * bombardment for a battle it had no part in.
  */
 export const nearestSiegeBatteryTileForBattle = (
   deps: FortificationOverlayDeps,
@@ -139,13 +147,14 @@ export const nearestSiegeBatteryTileForBattle = (
   battleY: number,
   attackerOwnerId: string
 ): { x: number; y: number } | undefined => {
-  const here = deps.tiles.get(deps.keyFor(battleX, battleY));
-  if (here?.siegeBattery?.ownerId === attackerOwnerId) return { x: battleX, y: battleY };
+  const boostsBattle = (tile: Tile | undefined): boolean =>
+    tile?.ownerId === attackerOwnerId && tile.siegeBattery?.ownerId === attackerOwnerId && tile.siegeBattery.status === "active";
+  if (boostsBattle(deps.tiles.get(deps.keyFor(battleX, battleY)))) return { x: battleX, y: battleY };
   for (const { dx, dy } of FACING_SEARCH_OFFSETS) {
+    if (Math.max(Math.abs(dx), Math.abs(dy)) > OUTPOST_AURA_RADIUS) continue;
     const x = deps.wrapX(battleX + dx);
     const y = deps.wrapY(battleY + dy);
-    const candidate = deps.tiles.get(deps.keyFor(x, y));
-    if (candidate?.siegeBattery?.ownerId === attackerOwnerId) return { x, y };
+    if (boostsBattle(deps.tiles.get(deps.keyFor(x, y)))) return { x, y };
   }
   return undefined;
 };
