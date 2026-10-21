@@ -2,8 +2,8 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const AI_DEAL_SUGGEST_CHANGELOG: ClientChangelogEntry[] = [
   {
-    createdAt: 1792527960722, // Date.now() captured once for this release.
-    introducedIn: "2026.10.20.4",
+    createdAt: 1792542915038, // Date.now() captured once for this release.
+    introducedIn: "2026.10.21.1",
     title: "Suggest deal, named AIs, and AIs that are losing will talk peace",
     why: "An AI losing a war to you said it wanted the war over but refused every truce, and AI alliances were always answered with \"can't weigh up an alliance right now\".",
     changes: [
