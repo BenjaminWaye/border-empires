@@ -23,10 +23,13 @@ export const handleGetRecentCommands = (
   call: { request: ProtoGetRecentCommandsRequest },
   callback: (error: Error | null, response: ProtoGetRecentCommandsResponse) => void
 ): void => {
-  const limit = call.request.limit && call.request.limit > 0 ? call.request.limit : 100;
-  void commandStore.loadRecentCommands(Math.min(limit, MAX_RECENT_COMMANDS))
+  const requested = Math.floor(call.request.limit ?? 0);
+  const limit = Math.min(requested > 0 ? requested : 100, MAX_RECENT_COMMANDS);
+  void commandStore.loadRecentCommands(limit)
     .then((recentCommands) => {
+      // SQLite picks rows by insertion order; keep the displayed order by queuedAt.
       const recent = recentCommands
+        .sort((a, b) => b.queuedAt - a.queuedAt)
         .map((cmd) => ({
           playerId: cmd.playerId,
           type: cmd.type,

@@ -64,6 +64,23 @@ describe("handleGetRecentCommands", () => {
     expect(loadRecent).toHaveBeenCalledWith(500);
   });
 
+  it("floors a fractional limit instead of passing a REAL to SQLite LIMIT", async () => {
+    const store = await createSqliteStore();
+    await seed(store, 5);
+
+    const response = await callHandler(store, 2.5);
+
+    expect(commandIds(response)).toEqual(["cmd-5", "cmd-4"]);
+  });
+
+  it("returns the selected rows newest-queued first even when inserted out of order", async () => {
+    const store = await createSqliteStore();
+    await store.persistQueuedCommand({ commandId: "late-insert", sessionId: "s", playerId: "ai-2", clientSeq: 1, issuedAt: 1, type: "EXPAND", payloadJson: "{}" }, 5_000);
+    await store.persistQueuedCommand({ commandId: "early-queued", sessionId: "s", playerId: "ai-2", clientSeq: 2, issuedAt: 1, type: "EXPAND", payloadJson: "{}" }, 1_000);
+
+    expect(commandIds(await callHandler(store, 2))).toEqual(["late-insert", "early-queued"]);
+  });
+
   it("defaults to 100 and matches the in-memory store's ordering", async () => {
     const sqlite = await createSqliteStore();
     const memory = new InMemorySimulationCommandStore();
