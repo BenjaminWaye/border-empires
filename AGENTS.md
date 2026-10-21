@@ -64,5 +64,5 @@ These rules apply to every task. Task-conditional details are in `docs/agents/`;
 - Rewrite-stack apps (staging today): `apps/realtime-gateway`, `apps/simulation`.
 - Tests live beside the source module they cover; do not add new flat test files directly under package or app `src/` roots. Simulation AI/planner/automation code lives under `apps/simulation/src/ai/`.
 - Root scripts: `pnpm dev` (shared + simulation + realtime gateway + client), `pnpm build`, `pnpm test`, `pnpm lint`.
-- Native app wrappers: `apps/mobile`; build/sign/store runbook: `docs/agents/mobile-apps.md`. Run `pnpm mobile:sync` before opening either native project; never ship a wrapper with a remote `server.url`.
+- Native app wrappers: `apps/mobile`; sync, iOS archive/export, signing, and store runbook: `docs/agents/mobile-apps.md`. Run `pnpm mobile:sync` before opening either native project; never ship a wrapper with a remote `server.url`.
 - Architecture/AI/design notes live in `docs/`. Load on demand; do not inline into this file.

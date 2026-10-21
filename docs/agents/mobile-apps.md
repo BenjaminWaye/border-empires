@@ -140,6 +140,40 @@ Mac. Neither store received a binary or listing. Keep the existing app ID until
 the owner confirms its registration in both consoles; do not create replacement
 upload keys for an existing Play app without checking its registered key.
 
+## Apple signing setup
+
+The owner signed into Xcode on 2026-10-21. The iOS project and export options
+now use the verified Benjamin Waye developer team `NZT5RV4VLD` with automatic
+signing. Certificates and private keys stay in macOS Keychain, outside Git.
+After syncing the intended production web bundle, build and export with:
+
+```bash
+pnpm --filter @border-empires/mobile archive:ios
+pnpm --filter @border-empires/mobile export:ios
+```
+
+The signed archive is `apps/mobile/ios/App/output/BorderEmpires-signed.xcarchive`;
+the export directory is `apps/mobile/ios/App/output/app-store/`. Exporting an
+IPA does not upload it or submit it for review. If Xcode package resolution
+tries a locked keychain, add `-packageAuthorizationProvider netrc` to the
+archive command as described above.
+
+App Store Connect showed an updated Apple Developer Program License Agreement
+requiring Account Holder review on 2026-10-21. The account contained CallMyCall
+and iOpener, with no Border Empires app record at the time checked. Create the
+new Border Empires record using `com.borderempires.game`; do not reuse either
+unrelated app. Resolve pending agreements and complete the product release
+gates below before submission. Google Play verification was reported complete
+by the owner on the same date.
+
+On 2026-10-21 the signed device archive and App Store export both succeeded.
+The exported `App.ipa` signature, explicit store provisioning profile, production
+build metadata, bundle ID and disabled debugger entitlement were verified.
+Nothing was uploaded. The browser control connection was interrupted before the
+new app record could be created; resume in the owner's App Store Connect session
+once the agreement is accepted. Rebuild/sync from the intended release commit
+before uploading; an archive success is not a gameplay/device QA result.
+
 ## Required before store submission
 
 These are existing product gaps, not tasks that signing the wrapper completes:

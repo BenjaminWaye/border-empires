@@ -130,6 +130,10 @@ for the respective native build. Run `pnpm mobile:sync`, then `pnpm mobile:ios`
 or `pnpm mobile:android`. To test against staging, use
 `MOBILE_ENV=staging pnpm mobile:sync`. See the [mobile release runbook](docs/agents/mobile-apps.md)
 for signing, device verification, and the remaining store submission blockers.
+With the configured Apple developer team signed into Xcode, use
+`pnpm --filter @border-empires/mobile archive:ios` and then
+`pnpm --filter @border-empires/mobile export:ios` to create a signed App Store IPA.
+These commands do not upload or submit the app.
 
 For a durable SQLite-backed local world with 20 AI players:
 
