@@ -1,8 +1,8 @@
 // Bakes each town tier into merged geometries -- the matte, vertex-coloured
 // body (with ambient occlusion and weathering baked in), the metalwork (iron
 // and brass, drawn metallic like the AFC), the mirror-glass curtain walls,
-// the unlit glow (lit windows, shopfronts, lanterns, aether, beacons), the
-// additive light pools on the paving, the steam puffs and the banners -- once per page
+// the unlit glow (lit windows, lanterns, aether, beacons), the
+// additive light pools on the paving, the steam puffs and the marble walls of the base -- once per page
 // load. Shared by every town overlay, so overlays must not dispose them.
 import type { BufferGeometry } from "three";
 import { createRoutedTownBuilder, createTownMeshBuilder, createTownRandom } from "./town-mesh-builder.js";
@@ -29,8 +29,8 @@ export type TownTierGeometry = {
   readonly glow: BufferGeometry | undefined;
   readonly halo: BufferGeometry | undefined;
   readonly steam: BufferGeometry | undefined;
-  /** Banner cloth, white: the overlay tints it per town with the owner's colour. */
-  readonly banner: BufferGeometry | undefined;
+  /** The base plate -- street top, kerb, wall and course -- for the overlay's marble material. */
+  readonly plinth: BufferGeometry | undefined;
 };
 
 const cache = new Map<TownTier, TownTierGeometry>();
@@ -48,7 +48,7 @@ export const getTownTierGeometry = (tier: TownTier): TownTierGeometry => {
       glow: createTownMeshBuilder({ cullUndersides: true }),
       halo: createTownMeshBuilder(),
       steam: createTownMeshBuilder(),
-      banner: createTownMeshBuilder(),
+      plinth: createTownMeshBuilder({ cullUndersides: true }),
       random: createTownRandom(layout.seed)
     };
     layout.build(builders);
@@ -63,7 +63,7 @@ export const getTownTierGeometry = (tier: TownTier): TownTierGeometry => {
       glow: builders.glow.build(),
       halo: builders.halo.build(),
       steam: builders.steam.build(),
-      banner: builders.banner.build()
+      plinth: builders.plinth.build()
     };
     cache.set(tier, geometry);
   }

@@ -338,6 +338,20 @@ describe("commitPreviewWinChanceForTarget", () => {
     expect(commitPreviewWinChanceForTarget(state, target, 999, deps)).toBe(0.5);
   });
 
+  // Regression: Double effort on a tile still holding captured ground showed
+  // (and rolled) the flat 50% because only SETTLED targets were scaled.
+  it("scales a FRONTIER target still holding captured ground against its frontier floor", () => {
+    vi.spyOn(Date, "now").mockReturnValue(5_000);
+    const state = createInitialState();
+    state.me = "me";
+    const target = makeTile({ x: 5, y: 7, ownerId: "enemy", ownershipState: "FRONTIER", captureHoldUntil: 60_000 });
+    state.attackPreviewCacheByKey.set("4,7->5,7", { fromKey: "4,7", toKey: "5,7", valid: true, winChance: 0.5, receivedAt: 4_500 });
+
+    // FRONTIER_ATTACK_MUSTER_COST = 15 is the floor; 30 is Double -> odds 2x -> 2/3.
+    expect(commitPreviewWinChanceForTarget(state, target, 15, deps)).toBeCloseTo(0.5, 6);
+    expect(commitPreviewWinChanceForTarget(state, target, 30, deps)).toBeCloseTo(2 / 3, 6);
+  });
+
   it("returns undefined when there is no resolvable preview", () => {
     const state = createInitialState();
     state.me = "me";

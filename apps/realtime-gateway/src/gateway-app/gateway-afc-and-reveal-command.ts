@@ -1,6 +1,6 @@
 import type { DurableCommandType } from "@border-empires/client-protocol";
 
-type GatewayCommandMessage = { type: string; x?: number; y?: number; techId?: string; targetPlayerId?: string; coin?: number };
+type GatewayCommandMessage = { type: string; x?: number; y?: number; techId?: string; targetPlayerId?: string | undefined; coin?: number };
 type DispatchDurableCommand = (type: DurableCommandType, payload: Record<string, unknown>, withMetadata?: boolean) => Promise<void>;
 
 export const dispatchAfcOrRevealCommand = async (message: GatewayCommandMessage, dispatch: DispatchDurableCommand): Promise<boolean> => {

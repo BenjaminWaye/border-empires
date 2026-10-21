@@ -33,6 +33,8 @@ const createRecorder = (): Recorder => {
     moveTo: () => undefined,
     lineTo: () => undefined,
     arc: () => undefined,
+    ellipse: () => undefined, // tree ground shadows
+    quadraticCurveTo: () => undefined,
     closePath: () => undefined,
     fill: () => undefined,
     stroke: () => {

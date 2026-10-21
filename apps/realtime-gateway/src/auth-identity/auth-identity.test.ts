@@ -116,8 +116,11 @@ describe("initialSocialNameForSeedPlayer", () => {
     expect(initialSocialNameForSeedPlayer("player-1", "Valen")).toBe("Valen");
   });
 
-  it("still labels AI and barbarian seed players as before", () => {
-    expect(initialSocialNameForSeedPlayer("ai-6", undefined)).toBe("AI 6");
+  // Regression: AIs showed as "AI 6" in diplomacy though the simulation names them.
+  it("gives AIs their listed seasonal names, numbered past the list, and labels barbarians", () => {
+    expect(initialSocialNameForSeedPlayer("ai-6", undefined)).toBe("Clara");
+    expect(initialSocialNameForSeedPlayer("ai-6", "ai-6")).toBe("Clara");
+    expect(initialSocialNameForSeedPlayer("ai-21", undefined)).toBe("AI 21");
     expect(initialSocialNameForSeedPlayer("barbarian-1", undefined)).toBe("Planetary Defense");
   });
 });

@@ -38,9 +38,8 @@ export const TOWN_COLORS = {
   stoneDark: "#5d6066",
   graphite: "#4a4d53",
   plate: "#a3a4a6",
-  // Warm flagstone sidewalks and plazas, and dark streets between them.
+  // Warm flagstone sidewalks and plazas.
   paving: "#aaa69c",
-  asphalt: "#5a5d63",
   window: "#2c3038",
   // Curtain-wall glass: drawn with the metallic material so it mirrors the sky.
   glass: "#56788a",
@@ -55,12 +54,10 @@ export const TOWN_COLORS = {
   foliageLight: "#86b34a",
   blossom: "#d9789a",
   blossomGold: "#e9c45a",
-  // Banner cloth: white, so the owner's colour (instanceColor) shows true.
-  cloth: "#ffffff",
   trunk: "#6b4a2e",
   // Glow-only colours (drawn unlit by the overlay's glow and halo meshes).
   lamp: "#ffd58a",
-  shopfront: "#ffbe72",
+  lampWarm: "#ffbe72",
   aether: "#9ff4ff",
   // Aircraft-warning lights on the tallest spires (they blink; see townBeacon).
   beacon: "#ff4a3a"
@@ -118,11 +115,6 @@ const withShade = (geometry: BufferGeometry, shadeAt: (x: number, y: number, z: 
 };
 // Flat disc of light, bright at the centre and fading to nothing at the rim.
 const UNIT_POOL = withShade(new RingGeometry(0.001, 1, 10, 2).rotateX(-Math.PI / 2), (x, _y, z) => (1 - Math.min(1, Math.hypot(x, z))) ** 1.6);
-// Banner cloth facing +z, hoisted at x = 0 and flying out to x = 1, cut in
-// strips so it can ripple (see applyTownBanner).
-const UNIT_CLOTH = new PlaneGeometry(1, 1, 8, 1).translate(0.5, 0, 0);
-// Flat strip of light spilling out from a wall at z = 0 to z = 1.
-const UNIT_SPILL = withShade(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2).translate(0, 0, 0.5), (_x, _y, z) => (1 - z) ** 1.5);
 const UNIT_OCTAHEDRON = new OctahedronGeometry(1, 0);
 const UNIT_ICOSAHEDRON = new IcosahedronGeometry(1, 0);
 const UNIT_SMOOTH_BLOB = new IcosahedronGeometry(1, 1);
@@ -232,10 +224,6 @@ export type TownMeshBuilder = {
   readonly pipe: (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, radius: number, color: TownColor) => void;
   /** Flat pool of light on the ground at (x, y, z), fading out to `radius` (halo mesh). */
   readonly pool: (x: number, y: number, z: number, radius: number, color: TownColor) => void;
-  /** Flat strip of light `w` wide spilling `depth` out from a wall at (x, y, z) facing +z (turned ry) (halo mesh). */
-  readonly spill: (x: number, y: number, z: number, w: number, depth: number, color: TownColor, ry?: number) => void;
-  /** Banner `w` long and `h` deep flying from a pole at (x, y, z) along the (turned) x axis; y is its centre line. */
-  readonly cloth: (x: number, y: number, z: number, w: number, h: number, color: TownColor, ry?: number) => void;
   /** Draws everything inside `draw` with the given animation attributes. */
   readonly withAnim: (anim: TownAnim, draw: () => void) => void;
   readonly build: () => BufferGeometry | undefined;
@@ -384,8 +372,6 @@ export const createTownMeshBuilder = (options: TownMeshBuilderOptions = {}): Tow
       pushColored(part, color);
     },
     pool: (x, y, z, radius, color) => push(UNIT_POOL, color, x, y, z, radius, 1, radius, 0),
-    spill: (x, y, z, w, depth, color, ry = 0) => push(UNIT_SPILL, color, x, y, z, w, 1, depth, ry),
-    cloth: (x, y, z, w, h, color, ry = 0) => push(UNIT_CLOTH, color, x, y, z, w, h, 1, ry),
     withAnim: (next, draw) => {
       const previous = anim;
       anim = next;
@@ -427,8 +413,6 @@ export const createRoutedTownBuilder = (matte: TownMeshBuilder, metal: TownMeshB
     ellipsoid: (x, y, z, rx, ry3, rz, color, ry) => to(color).ellipsoid(x, y, z, rx, ry3, rz, color, ry),
     pipe: (x0, y0, z0, x1, y1, z1, radius, color) => to(color).pipe(x0, y0, z0, x1, y1, z1, radius, color),
     pool: (x, y, z, radius, color) => to(color).pool(x, y, z, radius, color),
-    spill: (x, y, z, w, depth, color, ry) => to(color).spill(x, y, z, w, depth, color, ry),
-    cloth: (x, y, z, w, h, color, ry) => to(color).cloth(x, y, z, w, h, color, ry),
     withAnim: (anim, draw) =>
       matte.withAnim(anim, () => metal.withAnim(anim, () => (glass === metal ? draw() : glass.withAnim(anim, draw)))),
     build: () => {

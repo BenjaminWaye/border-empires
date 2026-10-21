@@ -1,4 +1,5 @@
 import type { ClientMessage, DiplomacyTerms } from "@border-empires/shared";
+import { offerOptionsFor } from "../diplomacy-offer-options/diplomacy-offer-options.js";
 import { readIncomingTruceRequestAlert, type EmailAlertOutcome } from "../email-alerts/email-alerts.js";
 import { extractTruceRequestFromPayloads } from "../seeded-ai-diplomacy-responder/seeded-ai-diplomacy-responder.js";
 import type { SocialTruceRequest } from "../social-state/social-state.js";
@@ -44,7 +45,7 @@ export const handleTruceSocketMessage = async (
   socket: import("ws").WebSocket
 ): Promise<boolean> => {
   if (message.type === "TRUCE_REQUEST") {
-    const result = deps.requestTruce(playerId, message.targetPlayerName, message.durationHours, message.terms ? { terms: message.terms } : undefined);
+    const result = deps.requestTruce(playerId, message.targetPlayerName, message.durationHours, offerOptionsFor(message));
     if (!result.ok) { sendError(deps, socket, result); return true; }
     deps.onDiplomacyInteraction?.(playerId, result.notifyPlayerIds.find((id) => id !== playerId));
     const alert = readIncomingTruceRequestAlert(result.payloadsByPlayerId);

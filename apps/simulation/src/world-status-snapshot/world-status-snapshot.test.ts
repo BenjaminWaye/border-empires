@@ -4,6 +4,25 @@ import type { SimulationRuntime } from "../runtime/runtime.js";
 import { buildWorldStatusSnapshot } from "./world-status-snapshot.js";
 
 describe("buildWorldStatusSnapshot", () => {
+  // Regression: an AI record repaired from tile ownership is named by its id; show its seasonal name, not "AI 13".
+  it("names AIs with no real stored name by their seasonal name", () => {
+    const aiPlayer = (id: string, name: string) => ({
+      id, name, points: 100, incomePerMinute: 0.01, settledTileCount: 1, techIds: [], allies: [], vision: 1, visionRadiusBonus: 0, territoryTileKeys: [] as string[]
+    });
+    const runtimeState = {
+      tiles: [
+        { x: 1, y: 1, terrain: "LAND", ownerId: "ai-13", ownershipState: "SETTLED" },
+        { x: 2, y: 1, terrain: "LAND", ownerId: "ai-21", ownershipState: "SETTLED" }
+      ],
+      players: [aiPlayer("ai-13", "ai-13"), aiPlayer("ai-21", "ai-21")],
+      pendingSettlements: [],
+      activeLocks: []
+    } as unknown as ReturnType<SimulationRuntime["exportState"]>;
+
+    const names = buildWorldStatusSnapshot("ai-13", runtimeState).leaderboard.overall.map((entry) => [entry.id, entry.name]);
+    expect(names).toEqual(expect.arrayContaining([["ai-13", "Maren"], ["ai-21", "AI 21"]]));
+  });
+
   it("uses the rewrite leaderboard score formula and excludes barbarians from competition", () => {
     const runtimeState = {
       tiles: [

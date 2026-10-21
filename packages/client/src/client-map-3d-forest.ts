@@ -1,36 +1,20 @@
-import {
-  type Color,
-  ConeGeometry,
-  CylinderGeometry,
-  IcosahedronGeometry,
-  InstancedMesh,
-  Matrix4,
-  MeshStandardMaterial,
-  Scene
-} from "three";
+import { Color, InstancedMesh, Matrix4, Scene, type BufferGeometry } from "three";
 import { riverBankTreeFilter } from "./client-map-3d-rivers/client-map-3d-river-bank-trees.js";
-import { commitInstanceTint, setInstanceTint } from "./client-map-3d-instance-tint.js";
-import { markUnexploredStormClip } from "./client-map-3d-unexplored-storm/client-map-3d-unexplored-storm-clip.js";
+import { commitInstanceTint } from "./client-map-3d-instance-tint.js";
+import { createTreeMaterial, driveTreeWind } from "./client-map-3d-trees/client-map-3d-tree-material.js";
+import { createLeafGeometry, createPineGeometry, createSpruceGeometry } from "./client-map-3d-trees/client-map-3d-tree-models.js";
+import { composeTreeInstance, createTreePlacement } from "./client-map-3d-trees/client-map-3d-tree-variation.js";
 
 // Upper bound on trees per forest tile (the per-tile instance budget). The
 // layouts below hold 7-9 trees each so adjacent tiles vary in density too.
 export const TREES_PER_TILE = 9;
-const TRUNK_Z_BIAS = 0.02;
 
 // Trees are sized to roughly half a mountain massif's height (peak ~1.2,
 // client-map-3d-mountain-massif.ts) -- they used to stand ~1.6-1.8 tall,
 // taller than the mountains. Smaller trees need more of them per tile to
-// still read as a forest, hence the 7-9 tree layouts.
-// Trunk base sits a touch below the surface so it never floats on slopes.
-const TRUNK_HEIGHT = 0.26;
-const TRUNK_CENTER_Y = TRUNK_HEIGHT / 2 - 0.03;
-// Canopy center heights (at tree scale 1), measured from the tile surface.
-const PINE_CANOPY_HEIGHT = 0.42;
-const PINE_CANOPY_Y = 0.17 + PINE_CANOPY_HEIGHT / 2;
-const SPRUCE_CANOPY_HEIGHT = 0.46;
-const SPRUCE_CANOPY_Y = 0.15 + SPRUCE_CANOPY_HEIGHT / 2;
-const LEAF_CANOPY_RADIUS = 0.17;
-const LEAF_CANOPY_Y = 0.19 + LEAF_CANOPY_RADIUS;
+// still read as a forest, hence the 7-9 tree layouts. The models themselves
+// (trunk + canopy merged, one instance per tree) live in
+// client-map-3d-tree-models.ts.
 
 type TreePos = {
   readonly ox: number;
@@ -93,42 +77,25 @@ export type Forest = {
   readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number, tint?: Color) => void;
   // Decorative-only single sapling (leaf species, smaller scale) for light-
   // grass "scatter" tiles -- see isLightGrassScatterTile in
-  // client-constants.ts. Shares the same leaf canopy/trunk instance pools as
-  // addInstance; a tile is only ever real forest or scatter, never both, so
-  // this never grows the meshes' total instance budget beyond maxTiles.
+  // client-constants.ts. Shares the leaf instance pool with addInstance; a
+  // tile is only ever real forest or scatter, never both, so this never grows
+  // the mesh's total instance budget beyond maxTiles.
   readonly addSparseLeafInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number, tint?: Color) => void;
   readonly commit: () => void;
   readonly dispose: () => void;
 };
 
+type SpeciesPool = {
+  readonly mesh: InstancedMesh;
+  readonly geometry: BufferGeometry;
+  count: number;
+};
+
 export const createForest = (scene: Scene, maxTiles: number): Forest => {
-  // Pine: 5-sided cone, lighter teal-green.
-  const pineCanopyGeometry = new ConeGeometry(0.15, PINE_CANOPY_HEIGHT, 5, 1, false);
-  const pineCanopyMaterial = markUnexploredStormClip(new MeshStandardMaterial({ color: "#6a8574", roughness: 0.88, metalness: 0, flatShading: true }));
-
-  // Spruce: taller, narrower, deeper green.
-  const spruceCanopyGeometry = new ConeGeometry(0.12, SPRUCE_CANOPY_HEIGHT, 5, 1, false);
-  const spruceCanopyMaterial = markUnexploredStormClip(new MeshStandardMaterial({ color: "#52735c", roughness: 0.9, metalness: 0, flatShading: true }));
-
-  // Leaf/deciduous: a broad, rounded canopy (low-poly icosahedron, matching
-  // the rest of the forest's flat-shaded look) in a warmer, lighter green --
-  // the first non-conifer species, so forest tiles read as mixed woodland
-  // instead of uniform pine/spruce. Detail 0 (20 triangles, not 80): at this
-  // size the extra subdivision is invisible, and with 7-9 trees per tile the
-  // canopy triangle count (drawn twice -- color + shadow pass) adds up.
-  const leafCanopyGeometry = new IcosahedronGeometry(LEAF_CANOPY_RADIUS, 0);
-  const leafCanopyMaterial = markUnexploredStormClip(new MeshStandardMaterial({ color: "#7a9c4e", roughness: 0.86, metalness: 0, flatShading: true }));
-
-  const trunkGeometry = new CylinderGeometry(0.03, 0.04, TRUNK_HEIGHT, 5);
-  const trunkMaterial = markUnexploredStormClip(new MeshStandardMaterial({ color: "#a56b58", roughness: 0.8, metalness: 0, flatShading: true }));
-
   const maxInstances = maxTiles * TREES_PER_TILE;
-  const pineCanopyMesh = new InstancedMesh(pineCanopyGeometry, pineCanopyMaterial, maxInstances);
-  const spruceCanopyMesh = new InstancedMesh(spruceCanopyGeometry, spruceCanopyMaterial, maxInstances);
-  const leafCanopyMesh = new InstancedMesh(leafCanopyGeometry, leafCanopyMaterial, maxInstances);
-  const trunkMesh = new InstancedMesh(trunkGeometry, trunkMaterial, maxInstances * 2);
-
-  for (const mesh of [pineCanopyMesh, spruceCanopyMesh, leafCanopyMesh, trunkMesh]) {
+  const material = createTreeMaterial();
+  const createPool = (geometry: BufferGeometry): SpeciesPool => {
+    const mesh = new InstancedMesh(geometry, material, maxInstances);
     mesh.frustumCulled = false;
     mesh.count = 0;
     // Trees cast onto the ground and onto each other/nearby structures --
@@ -136,21 +103,40 @@ export const createForest = (scene: Scene, maxTiles: number): Forest => {
     // grounded, especially under client-map-3d-atmosphere.ts's raking sun.
     mesh.castShadow = true;
     mesh.receiveShadow = true;
-  }
-  scene.add(pineCanopyMesh, spruceCanopyMesh, leafCanopyMesh, trunkMesh);
+    driveTreeWind(mesh);
+    return { mesh, geometry, count: 0 };
+  };
+  // Pine (lighter teal-green tiers), spruce (taller, narrower, deeper green)
+  // and leaf/deciduous (a broad rounded crown, so forest tiles read as mixed
+  // woodland instead of uniform conifers). Scene order is pine, spruce, leaf.
+  const pine = createPool(createPineGeometry());
+  const spruce = createPool(createSpruceGeometry());
+  const leaf = createPool(createLeafGeometry());
+  const pools = [pine, spruce, leaf];
+  scene.add(...pools.map((pool) => pool.mesh));
 
   const tempMatrix = new Matrix4();
-  const scaleMatrix = new Matrix4();
-  let pineCount = 0;
-  let spruceCount = 0;
-  let leafCount = 0;
-  let trunkCount = 0;
+  const tempColor = new Color();
+  const placement = createTreePlacement();
+
+  const place = (pool: SpeciesPool, x: number, y: number, z: number, scale: number, worldX: number, worldZ: number, slot: number, tint?: Color): void => {
+    if (pool.count >= maxInstances) return;
+    placement.x = x;
+    placement.y = y;
+    placement.z = z;
+    placement.scale = scale;
+    placement.worldX = worldX;
+    placement.worldZ = worldZ;
+    placement.slot = slot;
+    placement.tint = tint;
+    composeTreeInstance(placement, tempMatrix, tempColor);
+    pool.mesh.setMatrixAt(pool.count, tempMatrix);
+    pool.mesh.setColorAt(pool.count, tempColor);
+    pool.count += 1;
+  };
 
   const clear = (): void => {
-    pineCount = 0;
-    spruceCount = 0;
-    leafCount = 0;
-    trunkCount = 0;
+    for (const pool of pools) pool.count = 0;
   };
 
   const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number, tint?: Color): void => {
@@ -162,32 +148,13 @@ export const createForest = (scene: Scene, maxTiles: number): Forest => {
     // variant/layout every visible tile got each time a rebuild fired --
     // trees visibly flipping into a different arrangement mid-pan.
     const species = tileHash(worldX, worldZ, 11, 3); // 0 = pine, 1 = spruce, 2 = leaf
-    const layoutIdx = tileHash(worldX, worldZ, 7, LAYOUTS.length);
-    const layout = LAYOUTS[layoutIdx]!;
+    const layout = LAYOUTS[tileHash(worldX, worldZ, 7, LAYOUTS.length)]!;
     const inRiverBank = riverBankTreeFilter(worldX, worldZ);
-    const canopyMesh = species === 1 ? spruceCanopyMesh : species === 2 ? leafCanopyMesh : pineCanopyMesh;
-    const canopyY = species === 1 ? SPRUCE_CANOPY_Y : species === 2 ? LEAF_CANOPY_Y : PINE_CANOPY_Y;
-
-    for (const tree of layout) {
-      if (trunkCount >= maxInstances * 2) continue;
-      if (inRiverBank?.(tree.ox, tree.oz)) continue;
-      scaleMatrix.makeScale(tree.scale, tree.scale, tree.scale);
-      tempMatrix.copy(scaleMatrix);
-      tempMatrix.setPosition(sceneX + tree.ox, surfaceY + TRUNK_CENTER_Y * tree.scale, sceneZ + tree.oz + TRUNK_Z_BIAS);
-      trunkMesh.setMatrixAt(trunkCount, tempMatrix);
-      setInstanceTint(trunkMesh, trunkCount, tint);
-      trunkCount += 1;
-
-      const canopyIdx = species === 1 ? spruceCount : species === 2 ? leafCount : pineCount;
-      if (canopyIdx >= maxInstances) continue;
-      tempMatrix.copy(scaleMatrix);
-      tempMatrix.setPosition(sceneX + tree.ox, surfaceY + canopyY * tree.scale, sceneZ + tree.oz);
-      canopyMesh.setMatrixAt(canopyIdx, tempMatrix);
-      setInstanceTint(canopyMesh, canopyIdx, tint);
-      if (species === 1) spruceCount += 1;
-      else if (species === 2) leafCount += 1;
-      else pineCount += 1;
-    }
+    const pool = pools[species]!;
+    layout.forEach((tree, slot) => {
+      if (inRiverBank?.(tree.ox, tree.oz)) return;
+      place(pool, sceneX + tree.ox, surfaceY, sceneZ + tree.oz, tree.scale, worldX, worldZ, slot, tint);
+    });
   };
 
   const addSparseLeafInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number, tint?: Color): void => {
@@ -197,57 +164,25 @@ export const createForest = (scene: Scene, maxTiles: number): Forest => {
     const jitterX = (tileHash(worldX, worldZ, 31, 100) / 100 - 0.5) * 0.4;
     const jitterZ = (tileHash(worldX, worldZ, 37, 100) / 100 - 0.5) * 0.4;
     const scale = 0.65 + tileHash(worldX, worldZ, 41, 100) / 100 * 0.15;
-    // Single combined guard (unlike addInstance's per-mesh checks above,
-    // which can legitimately leave an orphan trunk if only the canopy pool
-    // is full mid-layout): a scatter tile only ever adds one trunk + one
-    // canopy together, so gate both on whichever pool has less room left,
-    // rather than risk a canopy-less trunk (or vice versa) near the budget.
-    if (trunkCount < maxInstances * 2 && leafCount < maxInstances) {
-      scaleMatrix.makeScale(scale, scale, scale);
-      tempMatrix.copy(scaleMatrix);
-      tempMatrix.setPosition(sceneX + jitterX, surfaceY + TRUNK_CENTER_Y * scale, sceneZ + jitterZ + TRUNK_Z_BIAS);
-      trunkMesh.setMatrixAt(trunkCount, tempMatrix);
-      setInstanceTint(trunkMesh, trunkCount, tint);
-      trunkCount += 1;
-      scaleMatrix.makeScale(scale, scale, scale);
-      tempMatrix.copy(scaleMatrix);
-      tempMatrix.setPosition(sceneX + jitterX, surfaceY + LEAF_CANOPY_Y * scale, sceneZ + jitterZ);
-      leafCanopyMesh.setMatrixAt(leafCount, tempMatrix);
-      setInstanceTint(leafCanopyMesh, leafCount, tint);
-      leafCount += 1;
-    }
+    place(leaf, sceneX + jitterX, surfaceY, sceneZ + jitterZ, scale, worldX, worldZ, 0, tint);
   };
 
   const commit = (): void => {
-    pineCanopyMesh.count = pineCount;
-    spruceCanopyMesh.count = spruceCount;
-    leafCanopyMesh.count = leafCount;
-    trunkMesh.count = trunkCount;
-    pineCanopyMesh.instanceMatrix.clearUpdateRanges();
-    pineCanopyMesh.instanceMatrix.addUpdateRange(0, pineCanopyMesh.count * 16);
-    pineCanopyMesh.instanceMatrix.needsUpdate = true;
-    spruceCanopyMesh.instanceMatrix.clearUpdateRanges();
-    spruceCanopyMesh.instanceMatrix.addUpdateRange(0, spruceCanopyMesh.count * 16);
-    spruceCanopyMesh.instanceMatrix.needsUpdate = true;
-    leafCanopyMesh.instanceMatrix.clearUpdateRanges();
-    leafCanopyMesh.instanceMatrix.addUpdateRange(0, leafCanopyMesh.count * 16);
-    leafCanopyMesh.instanceMatrix.needsUpdate = true;
-    trunkMesh.instanceMatrix.clearUpdateRanges();
-    trunkMesh.instanceMatrix.addUpdateRange(0, trunkMesh.count * 16);
-    trunkMesh.instanceMatrix.needsUpdate = true;
-    for (const mesh of [pineCanopyMesh, spruceCanopyMesh, leafCanopyMesh, trunkMesh]) commitInstanceTint(mesh);
+    for (const pool of pools) {
+      pool.mesh.count = pool.count;
+      pool.mesh.instanceMatrix.clearUpdateRanges();
+      pool.mesh.instanceMatrix.addUpdateRange(0, pool.count * 16);
+      pool.mesh.instanceMatrix.needsUpdate = true;
+      commitInstanceTint(pool.mesh);
+    }
   };
 
   const dispose = (): void => {
-    scene.remove(pineCanopyMesh, spruceCanopyMesh, leafCanopyMesh, trunkMesh);
-    pineCanopyGeometry.dispose();
-    spruceCanopyGeometry.dispose();
-    leafCanopyGeometry.dispose();
-    trunkGeometry.dispose();
-    pineCanopyMaterial.dispose();
-    spruceCanopyMaterial.dispose();
-    leafCanopyMaterial.dispose();
-    trunkMaterial.dispose();
+    for (const pool of pools) {
+      scene.remove(pool.mesh);
+      pool.geometry.dispose();
+    }
+    material.dispose();
   };
 
   return { clear, addInstance, addSparseLeafInstance, commit, dispose };

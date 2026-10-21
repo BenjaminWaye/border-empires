@@ -15,6 +15,7 @@
 // (the overlay lifts it just clear of the terrain), +z faces the camera (it
 // always looks north).
 import { BufferAttribute, BufferGeometry } from "three";
+import { plateSkirt } from "../client-map-3d-town-overlay/town-parts.js";
 import { createRoutedTownBuilder, createTownMeshBuilder, type TownMeshBuilder } from "../client-map-3d-town-overlay/town-mesh-builder.js";
 
 export const MUSTER_PLINTH_RADIUS = 0.27;
@@ -62,15 +63,17 @@ const octagonCorner = (radius: number, k: number): readonly [number, number] => 
 };
 
 /** Two-tier octagonal plinth, heavy and chamfered like a premium board-game
- * piece's base. The lower slab is iron, running well below 0 so a sloped
- * tile never shows a gap, girdled by a deep lacquered band in the owner's
+ * piece's base. The lower slab is the towns' flared stone skirt
+ * (plateSkirt), running well below 0 so a sloped tile never shows a gap,
+ * girdled by a deep lacquered band in the owner's
  * colour, pinned at each corner by a brass cap, under a brass lip and a
- * chamfered stone top with an inlaid ring of the owner's colour inside a
- * ring of brass studs. A raised, chamfered stone tier set with four gems
+ * chamfered top of black, gold-veined marble (like the towns' bases) with an
+ * inlaid ring of the owner's colour inside a ring of brass studs. A raised,
+ * chamfered tier of the same marble set with four gems
  * in the owner's colour carries the pedestal. */
 const buildPlinth = (body: TownMeshBuilder, tinted: TownMeshBuilder): void => {
   const r = MUSTER_PLINTH_RADIUS;
-  body.cylinder(0, -0.1, 0, r, r * 1.02, 0.1, "ironDark", 8, OCTAGON_TURN);
+  plateSkirt(body, r, 0);
   tinted.cylinder(0, 0, 0, r * 1.025, r * 1.025, 0.032, "plate", 8, OCTAGON_TURN);
   for (let k = 0; k < 8; k += 1) {
     const [x, z] = octagonCorner(r * 1.03, k);
@@ -79,7 +82,7 @@ const buildPlinth = (body: TownMeshBuilder, tinted: TownMeshBuilder): void => {
   }
   body.cylinder(0, 0.032, 0, r * 1.035, r * 1.035, 0.01, "brass", 8, OCTAGON_TURN);
   // Chamfer: the slab's top edge bevels in to its flat top.
-  body.cylinder(0, 0.042, 0, r * 0.93, r * 1.0, PLINTH_TIER_Y - 0.042, "stone", 8, OCTAGON_TURN);
+  body.cylinder(0, 0.042, 0, r * 0.93, r * 1.0, PLINTH_TIER_Y - 0.042, "stoneDark", 8, OCTAGON_TURN);
   tinted.ring(0, PLINTH_TIER_Y, 0, r * 0.8, "plate", 0.06);
   for (let k = 0; k < 8; k += 1) {
     const angle = OCTAGON_TURN * 2 * k;
@@ -87,8 +90,8 @@ const buildPlinth = (body: TownMeshBuilder, tinted: TownMeshBuilder): void => {
   }
 
   const tier = r * 0.62;
-  body.cylinder(0, PLINTH_TIER_Y, 0, tier, tier * 1.04, PLINTH_TOP_Y - PLINTH_TIER_Y - 0.014, "stoneLight", 8, OCTAGON_TURN);
-  body.cylinder(0, PLINTH_TOP_Y - 0.014, 0, tier * 0.9, tier, 0.014, "stoneLight", 8, OCTAGON_TURN);
+  body.cylinder(0, PLINTH_TIER_Y, 0, tier, tier * 1.04, PLINTH_TOP_Y - PLINTH_TIER_Y - 0.014, "stoneDark", 8, OCTAGON_TURN);
+  body.cylinder(0, PLINTH_TOP_Y - 0.014, 0, tier * 0.9, tier, 0.014, "stoneDark", 8, OCTAGON_TURN);
   body.ring(0, PLINTH_TOP_Y - 0.016, 0, tier * 1.0, "brass", 0.05);
   for (let k = 0; k < 4; k += 1) {
     const angle = Math.PI / 4 + (k * Math.PI) / 2;

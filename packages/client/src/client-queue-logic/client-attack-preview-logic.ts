@@ -3,7 +3,7 @@ import { attackFloorForPlayer } from "../client-attack-commit/client-attack-floo
 // (already over the repo's 500-line file cap) to keep that file from
 // growing further. Handles requesting, caching, and reading back the
 // server's ATTACK_PREVIEW response for hover/selection/launch-button UI.
-import { applyOddsScale, commitOddsMultiplier, defendingFortVariant, estimatedAttackManpowerLoss, estimatedSettledAttackManpowerLoss } from "@border-empires/shared";
+import { applyOddsScale, commitOddsMultiplier, defendingFortVariant, estimatedAttackManpowerLoss, estimatedSettledAttackManpowerLoss, isCommitOddsEligibleTarget } from "@border-empires/shared";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { CaptureCombatSnapshot, Tile, TileCombatBreakdown } from "../client-types.js";
@@ -258,7 +258,9 @@ export const attackPreviewManpowerCostForTarget = (
   }
   const estimate = to.ownershipState === "SETTLED"
     ? estimatedSettledAttackManpowerLoss(defendingFortVariant(to.fort))
-    : estimatedAttackManpowerLoss(preview.manpowerMin, preview.winChance, preview.atkEff, preview.defEff);
+    : isCommitOddsEligibleTarget(to, Date.now())
+      ? attackFloorForPlayer({}, to) // held tile: fixed loss = commitment (floor by default)
+      : estimatedAttackManpowerLoss(preview.manpowerMin, preview.winChance, preview.atkEff, preview.defEff);
   return `est. ${Math.round(estimate)} manpower`;
 };
 
@@ -267,8 +269,9 @@ export const attackPreviewManpowerCostForTarget = (
 // · 60 -> 40% · 60% · 73%"). Pure client-side math on top of the already-
 // cached ATTACK_PREVIEW response -- no extra round trip per slider tick,
 // matching how F's win-chance map paint is specified to work. Only SETTLED
-// targets use the commit-ladder odds formula (commitOddsMultiplier); other
-// target kinds (FRONTIER, barbarian) return the server's base winChance
+// targets and FRONTIER tiles still holding captured ground use the
+// commit-ladder odds formula (commitOddsMultiplier); other target kinds
+// (plain FRONTIER, barbarian) return the server's base winChance
 // unchanged, mirroring resolveAttackCombat's own exclusion of those cases
 // (runtime-combat-support.ts).
 export const commitPreviewWinChanceForTarget = (
@@ -289,7 +292,7 @@ export const commitPreviewWinChanceForTarget = (
       : { toKey, dockFallback: Boolean(to.dockId) }
   );
   if (!preview || !preview.valid || typeof preview.winChance !== "number") return undefined;
-  if (to.ownershipState !== "SETTLED") return preview.winChance;
+  if (!isCommitOddsEligibleTarget(to, Date.now())) return preview.winChance;
   const base = attackFloorForPlayer(state, to);
   const multiplier = commitOddsMultiplier(commitManpower, base);
   return Math.max(0, Math.min(1, applyOddsScale(preview.winChance, multiplier)));

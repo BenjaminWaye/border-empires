@@ -6,7 +6,7 @@
 import type { AiDiplomacyPricing } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
-import { evaluateAiDiplomacy, type AiDiplomacyContext } from "./ai-diplomacy-evaluation.js";
+import { evaluateAiDiplomacy, type AiDiplomacyContextSource } from "./ai-diplomacy-evaluation.js";
 import type { AiAttitude, AiOpinionModifier } from "./ai-diplomacy-opinion.js";
 import type { AiDiplomacyStanceKind } from "./ai-diplomacy-stance.js";
 
@@ -23,7 +23,8 @@ export type DiplomacyStancePayload =
       stance?: { kind: AiDiplomacyStanceKind; reason: string };
       /** Civ-style attitude with the modifiers behind it, for the trade screen. */
       attitude?: { level: AiAttitude; score: number; modifiers: AiOpinionModifier[] };
-      war?: { atWar: boolean; aiWinning: boolean; aiLosing: boolean };
+      /** tilesTakenFromAi/ByAi: the fading tile counts the AI judges the war by. */
+      war?: { atWar: boolean; aiWinning: boolean; aiLosing: boolean; tilesTakenFromAi: number; tilesTakenByAi: number };
       truceRefusal?: string;
       allianceRefusal?: string;
       pricing?: AiDiplomacyPricing;
@@ -31,18 +32,21 @@ export type DiplomacyStancePayload =
 
 export type DiplomacyStanceQueryDeps = {
   resolvePlayerByName: (playerName: string) => { id: string; name: string } | undefined;
+  /** Preferred when the client sends the target's id: a display name can be shared by a human and an AI. */
+  resolvePlayerById?: (playerId: string) => { id: string; name: string } | undefined;
   isAutoRespondingAi: (playerId: string) => boolean;
   fetchAiSnapshot: (playerId: string) => Promise<PlayerSubscriptionSnapshot | undefined>;
   requesterSnapshot: (playerId: string) => Promise<PlayerSubscriptionSnapshot | undefined>;
-  diplomacyContext: (requesterId: string, aiPlayerId: string) => AiDiplomacyContext;
+  diplomacyContext: AiDiplomacyContextSource;
 };
 
 export const answerDiplomacyStanceQuery = async (
   deps: DiplomacyStanceQueryDeps,
   requesterId: string,
-  targetPlayerName: string
+  targetPlayerName: string,
+  targetPlayerId?: string
 ): Promise<DiplomacyStancePayload> => {
-  const target = deps.resolvePlayerByName(targetPlayerName);
+  const target = (targetPlayerId ? deps.resolvePlayerById?.(targetPlayerId) : undefined) ?? deps.resolvePlayerByName(targetPlayerName);
   if (!target || target.id === requesterId) return { type: "DIPLOMACY_STANCE", targetPlayerName, found: false };
   const base = { type: "DIPLOMACY_STANCE" as const, targetPlayerName: target.name, found: true as const, targetPlayerId: target.id };
   if (!deps.isAutoRespondingAi(target.id)) return { ...base, ai: false };
@@ -56,7 +60,7 @@ export const answerDiplomacyStanceQuery = async (
     aiSnapshot,
     requesterId,
     requesterSnapshot,
-    ...deps.diplomacyContext(requesterId, target.id)
+    ...(await deps.diplomacyContext(requesterId, target.id))
   });
   if (!evaluation) return { ...base, ai: true };
   return {
@@ -64,7 +68,13 @@ export const answerDiplomacyStanceQuery = async (
     ai: true,
     stance: { kind: evaluation.stance.kind, reason: evaluation.reason },
     attitude: { level: evaluation.opinion.attitude, score: evaluation.opinion.score, modifiers: evaluation.opinion.modifiers },
-    war: { atWar: evaluation.opinion.war.atWar, aiWinning: evaluation.opinion.war.aiWinning, aiLosing: evaluation.opinion.war.aiLosing },
+    war: {
+      atWar: evaluation.opinion.war.atWar,
+      aiWinning: evaluation.opinion.war.aiWinning,
+      aiLosing: evaluation.opinion.war.aiLosing,
+      tilesTakenFromAi: evaluation.opinion.war.tilesTakenFromAi,
+      tilesTakenByAi: evaluation.opinion.war.tilesTakenByAi
+    },
     ...(evaluation.truceRefusal ? { truceRefusal: evaluation.truceRefusal } : {}),
     ...(evaluation.allianceRefusal ? { allianceRefusal: evaluation.allianceRefusal } : {}),
     pricing: evaluation.pricing

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Color, type BufferGeometry } from "three";
 import { TOWN_COLORS, TOWN_GLASS_COLORS, TOWN_METAL_COLORS, type TownColor } from "./town-mesh-builder.js";
 import { TOWN_BEACON_PHASE, TOWN_TIME_PERIOD } from "./town-animation-shaders.js";
-import { TOWN_HALO_Y } from "./town-parts.js";
+import { TOWN_HALO_Y, TOWN_SKIRT_TOP_Y } from "./town-parts.js";
 import { getTownTierGeometry, TOWN_TIERS, type TownTier } from "./town-tier-geometry.js";
 
 const topOf = (geometry: BufferGeometry): number => {
@@ -11,8 +11,8 @@ const topOf = (geometry: BufferGeometry): number => {
 };
 
 const partsOf = (tier: TownTier): BufferGeometry[] => {
-  const { body, metal, glass, glow, halo, banner } = getTownTierGeometry(tier);
-  return [body, metal, glass, glow, halo, banner].filter((part): part is BufferGeometry => part !== undefined);
+  const { body, metal, glass, glow, halo, plinth } = getTownTierGeometry(tier);
+  return [body, metal, glass, glow, halo, plinth].filter((part): part is BufferGeometry => part !== undefined);
 };
 
 const tierTop = (tier: TownTier): number => Math.max(...partsOf(tier).map(topOf));
@@ -56,15 +56,15 @@ describe("procedural town tiers", () => {
   it.each(TOWN_TIERS)("%s keeps everything standing at street level on its octagonal plate", (tier) => {
     // The plate is the widest thing on the ground; anything at street level
     // further out than its edge hangs off it.
-    const { body, metal, glass } = getTownTierGeometry(tier);
+    const { body, metal, glass, plinth } = getTownTierGeometry(tier);
     let plateApothem = 0;
-    const position = body.getAttribute("position");
+    const position = plinth!.getAttribute("position");
     for (let i = 0; i < position.count; i += 1) {
-      // The plate's top face; its vertices sit 22.5° off the axes, so their
-      // largest z is exactly the distance to the flat edges.
+      // The underside of the plate's street slab; its vertices sit 22.5° off
+      // the axes, so their largest z is exactly the distance to the flat edges.
       if (Math.abs(position.getY(i) + 0.008) < 1e-4) plateApothem = Math.max(plateApothem, Math.abs(position.getZ(i)));
     }
-    for (const part of [body, metal, glass]) {
+    for (const part of [body, metal, glass, plinth]) {
       if (!part) continue;
       const p = part.getAttribute("position");
       for (let i = 0; i < p.count; i += 1) {
@@ -138,18 +138,25 @@ describe("procedural town tiers", () => {
     expect(dark).toBeGreaterThan(0);
   });
 
-  it.each(TOWN_TIERS)("%s flies rippling banners of white cloth, ready for the owner's dye", (tier) => {
-    const banner = getTownTierGeometry(tier).banner;
-    expect(banner, `${tier} banners`).toBeDefined();
-    const color = banner!.getAttribute("color");
-    const animA = banner!.getAttribute("animA");
-    for (let i = 0; i < color.count; i += 1) {
-      expect([color.getX(i), color.getY(i), color.getZ(i)]).toEqual([1, 1, 1]);
-      // Rippling, and seamlessly across the shader clock's wrap.
-      const turns = (animA.getW(i) * TOWN_TIME_PERIOD) / (2 * Math.PI);
-      expect(animA.getW(i)).toBeGreaterThan(0);
-      expect(Math.abs(turns - Math.round(turns))).toBeLessThan(1e-3);
-    }
+  it.each(TOWN_TIERS)("%s stands on marble: the base plate's top, walls and kerb go to the plinth mesh", (tier) => {
+    const { body, plinth } = getTownTierGeometry(tier);
+    expect(plinth, `${tier} plinth`).toBeDefined();
+    plinth!.computeBoundingBox();
+    // The wall runs well below the paving, so a sloped tile never shows a gap.
+    expect(plinth!.boundingBox!.min.y).toBeLessThan(-0.09);
+    // The matte body keeps none of the wall: nothing of it reaches that far down.
+    body.computeBoundingBox();
+    expect(body.boundingBox!.min.y).toBeGreaterThan(-0.05);
+    // The street top (y = 0, out past every block to the kerb) is marble, not matte paving.
+    const reachAtTop = (part: BufferGeometry): number => {
+      const p = part.getAttribute("position");
+      let reach = 0;
+      for (let i = 0; i < p.count; i += 1) if (Math.abs(p.getY(i)) < 1e-6) reach = Math.max(reach, Math.hypot(p.getX(i), p.getZ(i)));
+      return reach;
+    };
+    expect(reachAtTop(plinth!)).toBeGreaterThan(reachAtTop(body));
+    // Metalwork never lands on the marble.
+    for (const name of TOWN_METAL_COLORS) expect(hasVertexHue(plinth!, TOWN_COLORS[name]), `${tier} plinth has ${name}`).toBe(false);
   });
 
   it("puts blinking warning lights on the tall skylines only", () => {
@@ -169,6 +176,35 @@ describe("procedural town tiers", () => {
     };
     expect(beaconCount("SETTLEMENT")).toBe(0);
     for (const tier of ["CITY", "GREAT_CITY", "METROPOLIS"] as const) expect(beaconCount(tier), tier).toBeGreaterThan(0);
+  });
+
+  it.each(TOWN_TIERS)("%s stands on a stone skirt that flares towards the ground", (tier) => {
+    // The skirt shows wherever the tile's corners sit below the plate; as
+    // dark metal it read as a black band, so it stays lit stone and flares.
+    // It is part of the marble plinth, in mid stone: the marble finish turns
+    // only dark stone black, so this one comes out charcoal marble.
+    const { metal, plinth } = getTownTierGeometry(tier);
+    metal!.computeBoundingBox();
+    expect(metal!.boundingBox!.min.y, `${tier} metal below the plate`).toBeGreaterThan(-0.03);
+    // Check it is a shade of stone rather than an exact match -- and well clear of near-black.
+    const stone = new Color(TOWN_COLORS.stone);
+    const position = plinth!.getAttribute("position");
+    const color = plinth!.getAttribute("color");
+    let footReach = 0;
+    let topReach = 0;
+    for (let i = 0; i < position.count; i += 1) {
+      const reach = Math.hypot(position.getX(i), position.getZ(i));
+      if (Math.abs(position.getY(i) + 0.1) < 1e-4) {
+        footReach = Math.max(footReach, reach);
+        const shade = color.getY(i) / stone.g;
+        expect(shade, `${tier} skirt foot brightness`).toBeGreaterThan(0.5);
+        expect(color.getX(i) / stone.r).toBeCloseTo(shade, 2);
+        expect(color.getZ(i) / stone.b).toBeCloseTo(shade, 2);
+      }
+      if (Math.abs(position.getY(i) - TOWN_SKIRT_TOP_Y) < 1e-4) topReach = Math.max(topReach, reach);
+    }
+    expect(topReach, `${tier} skirt top`).toBeGreaterThan(0);
+    expect(footReach, `${tier} skirt foot wider than its top`).toBeGreaterThan(topReach * 1.05);
   });
 
   it.each(TOWN_TIERS)("%s carries animation attributes on every vertex, with turning parts", (tier) => {
