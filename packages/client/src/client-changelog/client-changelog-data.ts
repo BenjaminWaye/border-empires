@@ -17,6 +17,7 @@ import { CONSTRUCTION_POD_DELIVERY_CHANGELOG } from "./client-changelog-construc
 import { CAPTURE_HOLD_EFFORT_CHANGELOG } from "./client-changelog-capture-hold-effort.js";
 import { HETZNER_CLIENT_HOSTING_CHANGELOG } from "./client-changelog-hetzner-client-hosting.js";
 import { MUSTER_SIEGE_CHANGELOG } from "./client-changelog-muster-siege.js";
+import { AI_DEAL_SUGGEST_CHANGELOG } from "./client-changelog-ai-deal-suggest.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -469,6 +470,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...GAMEPLAY_SETTINGS_CLEANUP_CHANGELOG,
   ...AFC_UPGRADES_ICON_CHANGELOG,
   ...MUSTER_BANNER_CHANGELOG,
+  ...AI_DEAL_SUGGEST_CHANGELOG,
   {
     createdAt: 1792442407428, // Date.now() captured for this entry.
     introducedIn: "2026.10.19.4",

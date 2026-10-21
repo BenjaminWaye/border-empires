@@ -22,6 +22,7 @@ export type CounterOfferDeps = {
 
 export type CounterOfferScreenInput = {
   targetName: string;
+  targetPlayerId: string;
   kind: DiplomacyOfferKind;
   durationHours: 12 | 24;
   terms?: DiplomacyTerms;
@@ -41,6 +42,7 @@ export const counterOfferScreenInput = (
   if (!targetName) return undefined;
   return {
     targetName,
+    targetPlayerId: request.fromPlayerId,
     kind,
     durationHours: truce?.durationHours ?? 12,
     ...(request.terms ? { terms: swapDiplomacyTerms(request.terms) } : {}),

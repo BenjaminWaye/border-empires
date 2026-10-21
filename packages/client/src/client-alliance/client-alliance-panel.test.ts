@@ -170,14 +170,14 @@ describe("bindProposeButtons", () => {
     root.querySelector<HTMLButtonElement>(".propose-alliance")!.click();
     expect(tradeTitle()).toBe("Deal with SteamLord");
     expect(pressedKind()).toBe("alliance:0");
-    expect(sendGameMessage).toHaveBeenLastCalledWith({ type: "DIPLOMACY_STANCE_REQUEST", targetPlayerName: "SteamLord" }, expect.any(String));
+    expect(sendGameMessage).toHaveBeenLastCalledWith({ type: "DIPLOMACY_STANCE_REQUEST", targetPlayerName: "SteamLord", targetPlayerId: "p-1" }, expect.any(String));
     expect(document.querySelector("[data-trade-holdings]")?.textContent).toBe("You have 500 coin and 2 Shards.");
 
     root.querySelectorAll<HTMLButtonElement>(".propose-truce")[1]!.click();
     expect(pressedKind()).toBe("truce:24");
     expect(sendGameMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: "TRUCE_REQUEST" }), expect.any(String));
     document.querySelector<HTMLButtonElement>("[data-trade-send]")!.click();
-    expect(sendGameMessage).toHaveBeenLastCalledWith({ type: "TRUCE_REQUEST", targetPlayerName: "SteamLord", durationHours: 24 }, expect.any(String));
+    expect(sendGameMessage).toHaveBeenLastCalledWith({ type: "TRUCE_REQUEST", targetPlayerName: "SteamLord", targetPlayerId: "p-1", durationHours: 24 }, expect.any(String));
     expect(sendGameMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: "ALLIANCE_REQUEST" }), expect.any(String));
   });
 

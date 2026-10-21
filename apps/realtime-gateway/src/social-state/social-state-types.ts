@@ -205,6 +205,7 @@ export type SocialState = {
   ) => { ok: true; offer: SocialPendingOffer } | { ok: false; code: string; message: string };
   endSettlement: (requestId: string) => void;
   resolvePlayerByName: (playerName: string) => { id: string; name: string } | undefined;
+  resolvePlayerById: (playerId: string) => { id: string; name: string } | undefined;
   playerNameOf: (playerId: string) => string;
   /** announcementByPlayerId replaces the default "X and Y agreed to a truce." */
   acceptTruce: (playerId: string, requestId: string, announcementByPlayerId?: Partial<Record<string, string>>) => SocialActionResult;

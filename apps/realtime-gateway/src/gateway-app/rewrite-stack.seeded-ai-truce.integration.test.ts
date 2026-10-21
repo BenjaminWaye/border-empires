@@ -93,6 +93,7 @@ describe("rewrite stack integration: seeded AI truce responses", () => {
     playerOne.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
     expect(await nextNonBootstrapMessage(playerOne, "player one init")).toEqual(expect.objectContaining({ type: "INIT" }));
 
+    // Sent by the old numbered name: it still resolves to the AI, which now answers as Freja.
     playerOne.socket.send(JSON.stringify({ type: "TRUCE_REQUEST", targetPlayerName: "AI 4", durationHours: 12 }));
 
     expect(
@@ -114,13 +115,13 @@ describe("rewrite stack integration: seeded AI truce responses", () => {
     ).toEqual(
       expect.objectContaining({
         type: "TRUCE_UPDATE",
-        outgoingTruceRequests: [expect.objectContaining({ toPlayerId: "ai-4", toName: "AI 4", durationHours: 12 })]
+        outgoingTruceRequests: [expect.objectContaining({ toPlayerId: "ai-4", toName: "Freja", durationHours: 12 })]
       })
     );
     expect(await nextTypedMessage(playerOne, "seasonal ai truce requested", "TRUCE_REQUESTED")).toEqual(
       expect.objectContaining({
         type: "TRUCE_REQUESTED",
-        targetName: "AI 4"
+        targetName: "Freja"
       })
     );
     // Whichever way the AI decides on a fresh world, its answer must name it
@@ -129,13 +130,13 @@ describe("rewrite stack integration: seeded AI truce responses", () => {
       await nextMatchingMessage(
         playerOne,
         "seasonal ai truce answered",
-        (message) => message.type === "TRUCE_UPDATE" && typeof message.announcement === "string" && message.announcement.startsWith("AI 4 ")
+        (message) => message.type === "TRUCE_UPDATE" && typeof message.announcement === "string" && message.announcement.startsWith("Freja ")
       )
     ).toEqual(
       expect.objectContaining({
         type: "TRUCE_UPDATE",
         outgoingTruceRequests: [],
-        announcement: expect.stringMatching(/^AI 4 (accepted your 12h truce|declined your 12h truce offer)\. \S/)
+        announcement: expect.stringMatching(/^Freja (accepted your 12h truce|declined your 12h truce offer)\. \S/)
       })
     );
   }, 20_000);
@@ -164,7 +165,7 @@ describe("rewrite stack integration: seeded AI truce responses", () => {
     playerOne.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
     expect(await nextNonBootstrapMessage(playerOne, "player one init")).toEqual(expect.objectContaining({ type: "INIT" }));
 
-    playerOne.socket.send(JSON.stringify({ type: "TRUCE_REQUEST", targetPlayerName: "AI 1", durationHours: 24 }));
+    playerOne.socket.send(JSON.stringify({ type: "TRUCE_REQUEST", targetPlayerName: "Alden", durationHours: 24 }));
 
     expect(
       await nextMatchingMessage(
@@ -178,13 +179,13 @@ describe("rewrite stack integration: seeded AI truce responses", () => {
     ).toEqual(
       expect.objectContaining({
         type: "TRUCE_UPDATE",
-        outgoingTruceRequests: [expect.objectContaining({ toPlayerId: "ai-1", toName: "AI 1", durationHours: 24 })]
+        outgoingTruceRequests: [expect.objectContaining({ toPlayerId: "ai-1", toName: "Alden", durationHours: 24 })]
       })
     );
     expect(await nextTypedMessage(playerOne, "ai truce requested", "TRUCE_REQUESTED")).toEqual(
       expect.objectContaining({
         type: "TRUCE_REQUESTED",
-        targetName: "AI 1"
+        targetName: "Alden"
       })
     );
     expect(
@@ -196,8 +197,8 @@ describe("rewrite stack integration: seeded AI truce responses", () => {
     ).toEqual(
       expect.objectContaining({
         type: "TRUCE_UPDATE",
-        activeTruces: [expect.objectContaining({ otherPlayerId: "ai-1", otherPlayerName: "AI 1" })],
-        announcement: "AI 1 accepted your 24h truce. AI 1 is looking for peace: their armies are spent."
+        activeTruces: [expect.objectContaining({ otherPlayerId: "ai-1", otherPlayerName: "Alden" })],
+        announcement: "Alden accepted your 24h truce. Alden is looking for peace: their armies are spent."
       })
     );
   });
@@ -225,7 +226,7 @@ describe("rewrite stack integration: seeded AI truce responses", () => {
     playerOne.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
     expect(await nextNonBootstrapMessage(playerOne, "player one init")).toEqual(expect.objectContaining({ type: "INIT" }));
 
-    playerOne.socket.send(JSON.stringify({ type: "TRUCE_REQUEST", targetPlayerName: "AI 2", durationHours: 12 }));
+    playerOne.socket.send(JSON.stringify({ type: "TRUCE_REQUEST", targetPlayerName: "Sigrid", durationHours: 12 }));
 
     expect(
       await nextMatchingMessage(
@@ -246,27 +247,27 @@ describe("rewrite stack integration: seeded AI truce responses", () => {
     ).toEqual(
       expect.objectContaining({
         type: "TRUCE_UPDATE",
-        outgoingTruceRequests: [expect.objectContaining({ toPlayerId: "ai-2", toName: "AI 2", durationHours: 12 })]
+        outgoingTruceRequests: [expect.objectContaining({ toPlayerId: "ai-2", toName: "Sigrid", durationHours: 12 })]
       })
     );
     expect(await nextTypedMessage(playerOne, "ai truce requested", "TRUCE_REQUESTED")).toEqual(
       expect.objectContaining({
         type: "TRUCE_REQUESTED",
-        targetName: "AI 2"
+        targetName: "Sigrid"
       })
     );
     // The player holds no coin, so the AI declines naming its price (720 coin:
     // a neighbour at peace pays 12 hours of the 1 coin/min income floor)
     // instead of counter-offering.
     const declined =
-      "AI 2 declined your 12h truce offer. AI 2 is wary of you and won't lower their guard on a contested border. AI 2 wants about 720 coin more than you can offer.";
+      "Sigrid declined your 12h truce offer. Sigrid is wary of you and won't lower their guard on a contested border. Sigrid wants about 720 coin more than you can offer.";
     expect(
       await nextMatchingMessage(playerOne, "ai truce declined", (message) => message.type === "TRUCE_UPDATE" && message.announcement === declined)
     ).toEqual(expect.objectContaining({ type: "TRUCE_UPDATE", outgoingTruceRequests: [], announcement: declined }));
 
-    playerOne.socket.send(JSON.stringify({ type: "TRUCE_REQUEST", targetPlayerName: "AI 2", durationHours: 12 }));
+    playerOne.socket.send(JSON.stringify({ type: "TRUCE_REQUEST", targetPlayerName: "Sigrid", durationHours: 12 }));
     expect(await nextTypedMessage(playerOne, "ai truce re-offer blocked", "ERROR")).toEqual(
-      expect.objectContaining({ type: "ERROR", code: "TRUCE_OFFER_COOLDOWN", message: "You can offer AI 2 a truce again in 30m." })
+      expect.objectContaining({ type: "ERROR", code: "TRUCE_OFFER_COOLDOWN", message: "You can offer Sigrid a truce again in 30m." })
     );
   }, 20_000);
 });

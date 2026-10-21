@@ -66,9 +66,9 @@ const timeLabel = (occurredAt: number): string => {
 // back to the raw id.
 export type PlayerNameLookup = (playerId: string) => string | undefined;
 
-// An AI player's ClientState.playerNames entry is the stable "AI N" diplomacy
-// name (see client-owner-name.ts), so AI display names come from the
-// leaderboard's live seasonal name. Everyone else keeps resolving through
+// An AI player's ClientState.playerNames entry is its diplomacy name (see
+// client-owner-name.ts), so AI display names come from the leaderboard's live
+// name, which is what the rest of the UI shows for them. Everyone else keeps resolving through
 // playerNames, which a PLAYER_STYLE rename updates immediately while the
 // leaderboard lags until the next status update. Build once per render.
 export const activityPlayerNameLookup = (state: Pick<ClientState, "playerNames" | "leaderboard">): PlayerNameLookup => {
