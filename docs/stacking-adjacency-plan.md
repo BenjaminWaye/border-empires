@@ -203,15 +203,39 @@ sibling files from the start.
 Every map visual below ships in the 2D canvas **and** true-3D renderer in
 the same branch. Grep `isTrue3DRendererActive()` before calling a phase done.
 
-- **Placement mode with gain preview.** Choosing a stacking building opens
-  the existing placement flow (`client-building-placement/`, overlays in
-  `client-map-3d-placement-overlay/` and `client-placement-preview-2d/`).
-  Valid tiles glow, each labelled with its total gain (e.g. "+2 links ·
-  +14%"); invalid tiles dim; the best tile is highlighted. Tile actions must
-  offer the build on growth tiles outside the ring: extend
-  `structureTileSurfaces` / `TileSurfaceInput`
-  (`packages/shared/src/structure-placement.ts`) with a district-growth
-  surface.
+- **Placement UX: where is the best spot?** Players get the answer in three
+  layers. All numbers come from `districtPlacementCheck`, the same shared
+  code the server uses, so a preview can't promise output the server won't
+  pay.
+  1. **Before building (ambient).** District links and badges (below) show
+     each district's shape and current value. When a town is selected, faint
+     ghost markers sit on the top 1–3 growth tiles for each stacking building
+     the player can afford: "Best next Manufactory · +15%".
+  2. **While placing (gain preview).** Choosing a stacking building opens
+     the existing placement flow (`client-building-placement/`, overlays in
+     `client-map-3d-placement-overlay/` and `client-placement-preview-2d/`).
+     - *Heat tint:* valid tiles are tinted dim to bright gold by total gain,
+       so the answer reads at a glance even zoomed out.
+     - *Gain labels:* "+15%" on the top ~5 tiles only, to avoid label pile-up
+       on phones; the tint carries the rest.
+     - *Best tile:* marked with a star or pulse.
+     - *Near misses:* tiles that are out of reach or not connected show
+       faintly and, when tapped, give the reason ("too far from Varn",
+       "must touch a connected Manufactory"), so players learn the rule.
+  3. **Tapping a tile (full effect).** A ghost building appears with dashed
+     link lines to every same-family building it would touch, and those
+     neighbours' badges tick up to their new value ("+8% → +11%"), which
+     makes it visible that a new building helps its neighbours too. The
+     confirm sheet sums it: "Touches 3 Manufactories: +11% here, +6% to
+     neighbours = +17% town income".
+
+  The town-tile shortcut stays: building from the town tile auto-places on
+  the best tile (R3), and the feed says where ("Manufactory placed east of
+  Varn · +17%, best spot"). Tile actions must also offer the build on
+  growth tiles outside the ring: extend `structureTileSurfaces` /
+  `TileSurfaceInput` (`packages/shared/src/structure-placement.ts`) with a
+  district-growth surface. The heat tint, labels, ghost building, link
+  lines and best-next markers all ship in both renderers.
 - **District links.** Conduits between touching same-family buildings: thin
   instanced beams at structure height in 3D, strokes between tile centres in
   2D, coloured per family. Any pulse must be a per-frame material uniform,
@@ -272,7 +296,9 @@ Each phase is one PR off `develop`, with tests beside the code.
    captured member touching the captor's district joins it,
    dormant members keep connectivity, anchor loss disconnects, legacy season
    unchanged. **Lore:** the world bible update below lands in this branch.
-3. **Client.** Placement mode with gain preview, conduits, badges,
+3. **Client.** Placement UX (heat tint, gain labels, best tile, near-miss
+   reasons, ghost building with neighbour bumps, confirm-sheet sum,
+   best-next markers on town select), conduits, badges,
    disconnected state, town card and overview text, removal warning, in both
    renderers. Storybook stories for conduits and badges.
 4. **War readability.** Attack-preview line, feed and battle report entries,
