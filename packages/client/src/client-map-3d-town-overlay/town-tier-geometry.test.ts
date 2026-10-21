@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Color, type BufferGeometry } from "three";
 import { TOWN_COLORS, TOWN_GLASS_COLORS, TOWN_METAL_COLORS, type TownColor } from "./town-mesh-builder.js";
 import { TOWN_BEACON_PHASE, TOWN_TIME_PERIOD } from "./town-animation-shaders.js";
-import { TOWN_HALO_Y } from "./town-parts.js";
+import { TOWN_HALO_Y, TOWN_SKIRT_TOP_Y } from "./town-parts.js";
 import { getTownTierGeometry, TOWN_TIERS, type TownTier } from "./town-tier-geometry.js";
 
 const topOf = (geometry: BufferGeometry): number => {
@@ -178,17 +178,18 @@ describe("procedural town tiers", () => {
     for (const tier of ["CITY", "GREAT_CITY", "METROPOLIS"] as const) expect(beaconCount(tier), tier).toBeGreaterThan(0);
   });
 
-  it.each(TOWN_TIERS)("%s stands on a matte stone skirt that flares towards the ground", (tier) => {
+  it.each(TOWN_TIERS)("%s stands on a stone skirt that flares towards the ground", (tier) => {
     // The skirt shows wherever the tile's corners sit below the plate; as
     // dark metal it read as a black band, so it stays lit stone and flares.
-    const { body, metal } = getTownTierGeometry(tier);
+    // It is part of the marble plinth, in mid stone: the marble finish turns
+    // only dark stone black, so this one comes out charcoal marble.
+    const { metal, plinth } = getTownTierGeometry(tier);
     metal!.computeBoundingBox();
     expect(metal!.boundingBox!.min.y, `${tier} metal below the plate`).toBeGreaterThan(-0.03);
-    // Baked occlusion darkens the foot, so check it is a shade of stoneDark
-    // rather than an exact match -- and well clear of near-black.
-    const stone = new Color(TOWN_COLORS.stoneDark);
-    const position = body.getAttribute("position");
-    const color = body.getAttribute("color");
+    // Check it is a shade of stone rather than an exact match -- and well clear of near-black.
+    const stone = new Color(TOWN_COLORS.stone);
+    const position = plinth!.getAttribute("position");
+    const color = plinth!.getAttribute("color");
     let footReach = 0;
     let topReach = 0;
     for (let i = 0; i < position.count; i += 1) {
@@ -200,8 +201,9 @@ describe("procedural town tiers", () => {
         expect(color.getX(i) / stone.r).toBeCloseTo(shade, 2);
         expect(color.getZ(i) / stone.b).toBeCloseTo(shade, 2);
       }
-      if (Math.abs(position.getY(i) + 0.008) < 1e-4) topReach = Math.max(topReach, reach);
+      if (Math.abs(position.getY(i) - TOWN_SKIRT_TOP_Y) < 1e-4) topReach = Math.max(topReach, reach);
     }
+    expect(topReach, `${tier} skirt top`).toBeGreaterThan(0);
     expect(footReach, `${tier} skirt foot wider than its top`).toBeGreaterThan(topReach * 1.05);
   });
 

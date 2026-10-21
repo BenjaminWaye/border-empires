@@ -458,7 +458,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Muster flag bases no longer look black",
     why: "On the 3D map, the base under a muster flag was dark iron that showed as a black band wherever the ground sloped away from it.",
     changes: [
-      "In the 3D map, muster flags stand on a grey stone foundation that widens towards the ground and catches the light",
+      "In the 3D map, muster flags stand on a stone foundation that widens towards the ground and catches the light",
       "Town bases widen towards the ground the same way, so their stone walls catch more light on sloping tiles"
     ]
   }

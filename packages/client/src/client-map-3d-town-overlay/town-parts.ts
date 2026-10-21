@@ -100,25 +100,30 @@ const skirtRadiusAt = (radius: number, topY: number, y: number): number =>
  * well below 0 so a sloped tile never shows a gap under the plate (the
  * overlays lift the plate only by TOWN_BASE_LIFT), which means a lot of it
  * shows on a tile whose corners sit lower; a dark metal skirt read as a black
- * band there. Its dark stone comes out black, gold-veined marble under the
- * marble finish both the towns' plinth mesh and the muster banner use. */
-export const plateSkirt = (body: TownMeshBuilder, radius: number, topY: number): void => {
-  body.cylinder(0, -0.1, 0, radius, radius * PLATE_SKIRT_FLARE, topY + 0.1, "stoneDark", 8, Math.PI / 8);
+ * band there. */
+export const plateSkirt = (body: TownMeshBuilder, radius: number, topY: number, color: TownColor = "stoneDark"): void => {
+  body.cylinder(0, -0.1, 0, radius, radius * PLATE_SKIRT_FLARE, topY + 0.1, color, 8, Math.PI / 8);
 };
+
+/** Top of a town plate's skirt: just under its brass band's top (-0.008). */
+export const TOWN_SKIRT_TOP_Y = -0.009;
 
 /** Ledges (heights in the town's frame) the base plate's marble walls rise
  * from: the black course and the paving. See applyMarbleFinish. */
 export const TOWN_PLINTH_LEDGES: readonly number[] = [-0.02, 0];
 
 /** Octagonal base plate, its top at y = 0: polished black-and-gold marble
- * streets inside a low marble kerb and a brass band, on a flared marble wall
- * (plateSkirt) girdled by a black marble course, running well below 0 so a
+ * streets inside a low marble kerb and a brass band, on a flared charcoal
+ * marble wall (plateSkirt) girdled by a black marble course, running well below 0 so a
  * sloped tile never shows a gap under it (the overlay lifts the whole town;
  * see TOWN_BASE_LIFT). */
 export const octagonPlate = (t: TownBuilders, radius: number, plazaRing = true): void => {
   const turn = Math.PI / 8;
-  // Its top stops just under the brass band's, so the two never z-fight.
-  plateSkirt(t.plinth, radius, -0.009);
+  // Mid stone, which the marble finish turns to charcoal with pale veins: the
+  // skirt shows wherever the tile slopes away, so it must not read as a black
+  // band (dark stone would come out black marble, like the streets). Its top
+  // stops just under the brass band's, so the two never z-fight.
+  plateSkirt(t.plinth, radius, TOWN_SKIRT_TOP_Y, "stone");
   // The brass band keeps its lip over the flared wall below it.
   const band = skirtRadiusAt(radius, -0.008, -0.016) + radius * 0.01;
   t.body.cylinder(0, -0.016, 0, band, band, 0.008, "brass", 8, turn);
