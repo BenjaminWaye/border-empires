@@ -29,7 +29,7 @@ export type TownTierGeometry = {
   readonly glow: BufferGeometry | undefined;
   readonly halo: BufferGeometry | undefined;
   readonly steam: BufferGeometry | undefined;
-  /** The base plate's walls and kerb, for the overlay's marble material. */
+  /** The base plate -- street top, kerb, wall and course -- for the overlay's marble material. */
   readonly plinth: BufferGeometry | undefined;
 };
 

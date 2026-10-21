@@ -5,7 +5,8 @@
 // transform buffer: the matte body, the metalwork (metallic, like the AFC's),
 // the mirror glass, the unlit glow (window strips, lamps, aether,
 // beacons), the additive light pools on the paving, the steam, and the base
-// plate's walls in polished marble, like the muster banner's plinth.
+// plate (street top, kerb, wall and course) in polished marble, like the
+// muster banner's plinth.
 // Cogs, orrery hoops, halos, crystals, courier gyros and circling airships turn,
 // lamplight flickers, beacons blink and steam rises entirely in the shaders
 // (town-animation-shaders.ts).
@@ -19,7 +20,6 @@ import {
   Matrix4,
   MeshBasicMaterial,
   MeshDepthMaterial,
-  MeshPhysicalMaterial,
   MeshStandardMaterial,
   Quaternion,
   RGBADepthPacking,
@@ -74,7 +74,7 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
   applyBuildingEnvMap(glassMaterial, envMap);
   // Unlit and outside tone mapping so windows and aether stay luminous under the warm sun.
   const glowMaterial = new MeshBasicMaterial({ toneMapped: false, vertexColors: true });
-  // Pools of lamp- and shoplight added onto the paving under them: black
+  // Pools of lamplight added onto the paving under them: black
   // rims add nothing, so each fades out softly, and the low opacity keeps
   // sunlit paving from blowing out. Fog would add its own colour.
   // Pulled towards the camera, since the pools sit closer over the paving
@@ -86,12 +86,12 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
   const steamMaterial = new MeshStandardMaterial({
     vertexColors: true, roughness: 1, metalness: 0, flatShading: true, transparent: true, opacity: 0.6, depthWrite: false
   });
-  // The base plate's walls: the muster banner plinth's polished marble under
-  // a light clearcoat (client-map-3d-muster-overlay.ts), so the town stands
-  // on the same premium board-game base instead of a grey tray.
-  const plinthMaterial = new MeshPhysicalMaterial({
-    vertexColors: true, roughness: 0.22, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.08, flatShading: true
-  });
+  // The base plate (its street top, kerb, wall and course): the muster
+  // banner plinth's polished marble (client-map-3d-muster-overlay.ts), so the
+  // town stands on the same premium board-game base instead of a grey tray.
+  // Without the muster's clearcoat: this covers every town's whole
+  // footprint, so it skips that second specular lobe per fragment.
+  const plinthMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.22, metalness: 0, flatShading: true });
   applyMarbleFinish(plinthMaterial, TOWN_PLINTH_LEDGES);
   applyBuildingEnvMap(plinthMaterial, envMap);
   // Shadow pass: spins like the visible meshes, so a circling airship's shadow follows it.

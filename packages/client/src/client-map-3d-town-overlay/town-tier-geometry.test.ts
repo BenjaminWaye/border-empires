@@ -60,8 +60,8 @@ describe("procedural town tiers", () => {
     let plateApothem = 0;
     const position = plinth!.getAttribute("position");
     for (let i = 0; i < position.count; i += 1) {
-      // The plate's top face; its vertices sit 22.5° off the axes, so their
-      // largest z is exactly the distance to the flat edges.
+      // The underside of the plate's street slab; its vertices sit 22.5° off
+      // the axes, so their largest z is exactly the distance to the flat edges.
       if (Math.abs(position.getY(i) + 0.008) < 1e-4) plateApothem = Math.max(plateApothem, Math.abs(position.getZ(i)));
     }
     for (const part of [body, metal, glass, plinth]) {
@@ -147,6 +147,16 @@ describe("procedural town tiers", () => {
     // The matte body keeps none of the wall: nothing of it reaches that far down.
     body.computeBoundingBox();
     expect(body.boundingBox!.min.y).toBeGreaterThan(-0.05);
+    // The street top (y = 0, out past every block to the kerb) is marble, not matte paving.
+    const reachAtTop = (part: BufferGeometry): number => {
+      const p = part.getAttribute("position");
+      let reach = 0;
+      for (let i = 0; i < p.count; i += 1) if (Math.abs(p.getY(i)) < 1e-6) reach = Math.max(reach, Math.hypot(p.getX(i), p.getZ(i)));
+      return reach;
+    };
+    expect(reachAtTop(plinth!)).toBeGreaterThan(reachAtTop(body));
+    // Metalwork never lands on the marble.
+    for (const name of TOWN_METAL_COLORS) expect(hasVertexHue(plinth!, TOWN_COLORS[name]), `${tier} plinth has ${name}`).toBe(false);
   });
 
   it("puts blinking warning lights on the tall skylines only", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FrontSide, MeshPhysicalMaterial, Scene, type InstancedMesh, type MeshStandardMaterial } from "three";
+import { FrontSide, MeshStandardMaterial, Scene, type InstancedMesh } from "three";
 import { createTownOverlay } from "../client-map-3d-town-overlay.js";
 
 const meshNamed = (scene: Scene, name: string): InstancedMesh =>
@@ -13,9 +13,11 @@ describe("town overlay meshes", () => {
     overlay.commit();
     const plinth = meshNamed(scene, "town-CITY-plinth");
     expect(plinth.count).toBe(1);
-    expect(plinth.material).toBeInstanceOf(MeshPhysicalMaterial);
-    // The muster banner's marble finish (applyMarbleFinish), not the towns' plain matte.
-    expect((plinth.material as MeshPhysicalMaterial).customProgramCacheKey()).toMatch(/^muster-banner-marble:/);
+    expect(plinth.material).toBeInstanceOf(MeshStandardMaterial);
+    // Its own shader program: the marble finish, not the matte body's town shading.
+    const bodyMaterial = meshNamed(scene, "town-CITY").material as MeshStandardMaterial;
+    expect((plinth.material as MeshStandardMaterial).customProgramCacheKey()).not.toBe(bodyMaterial.customProgramCacheKey());
+    expect((plinth.material as MeshStandardMaterial).customProgramCacheKey()).toContain("marble");
     expect(plinth.instanceMatrix).toBe(meshNamed(scene, "town-CITY").instanceMatrix);
     expect(plinth.castShadow).toBe(true);
     overlay.dispose();
