@@ -1,0 +1,11 @@
+{
+  "name": "Border Empires",
+  "subtitle": "Persistent online strategy",
+  "description": "Build your empire one tile at a time in a persistent online strategy world.\n\nExpand your borders, develop towns, manage strategic resources and research new technology. Fortify key positions, fight neighbouring empires and use diplomacy to shape the balance of power.\n\nEach season offers a fresh world and several paths to victory. Compete through territorial control, economic strength, resources, maritime power and alliances.\n\nStart as a guest or sign in with an email/password account. Save a guest empire to an account to keep access across devices.\n\nAn internet connection is required. Social sign-in is currently available only in the web version.",
+  "keywords": "strategy,empire,multiplayer,territory,diplomacy,4x",
+  "primaryCategory": "GAMES",
+  "secondaryCategory": "STRATEGY",
+  "version": "1.0",
+  "releaseNotes": "The first mobile release of Border Empires, with guest play and email/password accounts.",
+  "reviewNotes": "Online game requiring an internet connection. Guest access is available through Play now on the login screen; reviewers can also register an email/password account. There are no native social sign-in buttons. Account deletion, privacy declarations and physical-device testing remain release blockers; do not submit this draft until they are complete."
+}

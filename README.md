@@ -133,7 +133,9 @@ for signing, device verification, and the remaining store submission blockers.
 With the configured Apple developer team signed into Xcode, use
 `pnpm --filter @border-empires/mobile archive:ios` and then
 `pnpm --filter @border-empires/mobile export:ios` to create a signed App Store IPA.
-These commands do not upload or submit the app.
+These commands do not upload or submit the app. The
+[App Store Connect record](https://appstoreconnect.apple.com/apps/6825524099)
+contains the first uploaded iOS build; store submission remains pending.
 
 For a durable SQLite-backed local world with 20 AI players:
 

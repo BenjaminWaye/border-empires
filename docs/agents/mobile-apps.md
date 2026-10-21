@@ -125,8 +125,9 @@ both native project identifiers together if the owner's registered ID differs.
 
 ## Store listing drafts
 
-English listing text is prepared in `apps/mobile/store/en-US/apple.json` and
-`google-play.json`. These are editorial drafts, not store API payloads. Confirm
+The App Store record uses English (U.K.); its text is prepared in
+`apps/mobile/store/en-GB/apple.json`. English (U.S.) Apple and Google Play
+drafts remain in `apps/mobile/store/en-US/`. These are editorial drafts, not store API payloads. Confirm
 categories in each console rather than sending the labels as provider IDs.
 Names, subtitles, keywords and descriptions fit the store text limits.
 Support email, legal publisher identity, support/privacy/deletion URLs,
@@ -158,21 +159,38 @@ IPA does not upload it or submit it for review. If Xcode package resolution
 tries a locked keychain, add `-packageAuthorizationProvider netrc` to the
 archive command as described above.
 
-App Store Connect showed an updated Apple Developer Program License Agreement
-requiring Account Holder review on 2026-10-21. The account contained CallMyCall
-and iOpener, with no Border Empires app record at the time checked. Create the
-new Border Empires record using `com.borderempires.game`; do not reuse either
-unrelated app. Resolve pending agreements and complete the product release
-gates below before submission. Google Play verification was reported complete
-by the owner on the same date.
+The owner accepted the updated Apple Developer Program License Agreement on
+2026-10-21. Border Empires now has its own App Store Connect record:
+[app 6825524099](https://appstoreconnect.apple.com/apps/6825524099), bundle
+`com.borderempires.game`, SKU `border-empires-ios`, primary locale `en-GB`.
+The identifiers and initial upload are recorded in `apps/mobile/store/apple-app.json`.
+Do not reuse the account's unrelated apps. Google Play verification was reported
+complete by the owner on the same date.
 
 On 2026-10-21 the signed device archive and App Store export both succeeded.
 The exported `App.ipa` signature, explicit store provisioning profile, production
-build metadata, bundle ID and disabled debugger entitlement were verified.
-Nothing was uploaded. The browser control connection was interrupted before the
-new app record could be created; resume in the owner's App Store Connect session
-once the agreement is accepted. Rebuild/sync from the intended release commit
-before uploading; an archive success is not a gameplay/device QA result.
+build metadata, bundle ID, clean source-commit marker and disabled debugger
+entitlement were verified. Version 1.0, build 1 from commit `613b2bb8f` was
+uploaded successfully with Xcode's automatic signing/account credentials.
+The upload log reported that Apple accepted the package and began processing.
+TestFlight availability has not yet been verified; no App Review submission or
+public release has occurred. The Mac locked before that final console check.
+
+The listing subtitle and Games → Strategy category were saved. The description,
+keywords and marketing URL were entered; final persistence of the version metadata
+still needs verification after unlocking. Support/copyright details, review
+contacts, screenshots and declarations remain incomplete. A new-app warning said
+user access settings could not be saved and all existing team users have access;
+review the App Information access settings if a restriction is intended.
+
+To upload a future signed archive using the Xcode account, use a local copy of
+`ios/ExportOptions.plist` with `destination` set to `upload`, then run
+`xcodebuild -exportArchive -archivePath <archive> -exportOptionsPlist <options>
+-allowProvisioningUpdates`. This performs an actual upload, so verify the intended
+bundle, production environment and build number first. Increment the build number
+for the next upload. Keep local credentials and private keys outside Git.
+Rebuild/sync from the intended release commit before uploading; archive/upload
+success is not a gameplay/device QA result.
 
 ## Required before store submission
 
@@ -192,8 +210,8 @@ These are existing product gaps, not tasks that signing the wrapper completes:
    and final artwork review. The wrapper includes icons derived from the existing
    game favicon; store screenshots must come from the built native app.
 5. Complete signing and internal device testing in the owner's Apple/Google accounts.
-   Store acceptance is subject to each review process; no app has been uploaded by
-   this implementation. If digital purchases are added, implement the applicable
+   Store acceptance is subject to each review process. The first iOS build has
+   been uploaded, but neither store has received a review submission or release. If digital purchases are added, implement the applicable
    store billing flow before exposing purchase links in native builds.
 
 Lore reviewed; no canon change. Packaging does not change gameplay or fiction.
