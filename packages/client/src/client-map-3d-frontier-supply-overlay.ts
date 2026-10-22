@@ -35,15 +35,10 @@ import {
 const RISE_ABOVE_SURFACE = 0.035;
 /** Ribbon half-width as a multiple of the visible route's half-width: the rest is the soft shadow edge. */
 const RIBBON_EXTENT = 1.9;
-const ARROW_HALF_WIDTH_SCALE = 2.1;
-const ARROW_MIN_HALF_WIDTH = 0.13;
-const ARROW_BACK = 0.12;
-const ARROW_FORWARD = 0.26;
 const RING_SEGMENTS = 24;
 /** aKind values: which part of the mesh a vertex belongs to. */
 const KIND_ROUTE = 0;
-const KIND_TIP = 1;
-const KIND_RING = 2;
+const KIND_RING = 1;
 /** Hard bound on vertices, so a pathological empire can't grow GPU buffers without limit. */
 export const FRONTIER_SUPPLY_MAX_VERTICES = 60_000;
 
@@ -112,7 +107,7 @@ const supplyMaterial = (): ShaderMaterial =>
       varying float vDistance;
       varying float vKind;
       void main() {
-        if (vKind > 1.5) {
+        if (vKind > 0.5) {
           gl_FragColor = vec4(uCore, uRingAlpha);
           return;
         }
@@ -120,12 +115,8 @@ const supplyMaterial = (): ShaderMaterial =>
         float t = (vDistance - uTimeS * uSpeed) / uSpacing;
         float behind = 1.0 - fract(t);
         float pulse = min(1.0, behind / 0.04) * max(0.0, 1.0 - behind / 0.45);
-        // mix(uRestAlpha, 1.0, pulse) is supplyLitAlpha from client-frontier-supply-style.ts.
+        // Pale at rest (SUPPLY_ROUTE_REST_ALPHA), full where a pulse is passing.
         float lit = mix(uRestAlpha, 1.0, pulse);
-        if (vKind > 0.5) {
-          gl_FragColor = vec4(mix(uBody, uCore, 0.3 + 0.6 * pulse), uRouteAlpha * lit);
-          return;
-        }
         float a = abs(vAcross) * uExtent; // 1.0 at the visible route edge
         float inBody = 1.0 - smoothstep(0.78, 1.0, a);
         float inShadow = (1.0 - smoothstep(1.0, uExtent, a)) * (1.0 - inBody);
@@ -156,11 +147,11 @@ const pushVertex = (out: SupplyBuffers, x: number, y: number, z: number, across:
   out.kind.push(kind);
 };
 
-/** Appends one route's ribbon (and its arrowhead) to the merged buffers. Returns false once the vertex cap is hit. */
+/** Appends one route's ribbon to the merged buffers. Returns false once the vertex cap is hit. */
 const appendRoute = (out: SupplyBuffers, route: SupplyRoute, sceneFor: (x: number, y: number) => FrontierSupplyScenePoint): boolean => {
   const points = route.points;
   if (points.length < 2) return true;
-  if (vertexCount(out) + points.length * 2 + (route.endsAtTip ? 3 : 0) > FRONTIER_SUPPLY_MAX_VERTICES) return false;
+  if (vertexCount(out) + points.length * 2 > FRONTIER_SUPPLY_MAX_VERTICES) return false;
   const first = points[0]!;
   const anchor = sceneFor(first.x, first.y);
   const scene = points.map((p) => ({
@@ -185,22 +176,6 @@ const appendRoute = (out: SupplyBuffers, route: SupplyRoute, sceneFor: (x: numbe
       const a = base + (i - 1) * 2;
       out.indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
     }
-  }
-  if (route.endsAtTip) {
-    const end = scene[scene.length - 1]!;
-    const before = scene[scene.length - 2]!;
-    const len = Math.hypot(end.x - before.x, end.z - before.z) || 1;
-    const dx = (end.x - before.x) / len;
-    const dz = (end.z - before.z) / len;
-    const distance = points[points.length - 1]!.distance;
-    const arrowHalf = Math.max(ARROW_MIN_HALF_WIDTH, (SUPPLY_ROUTE_WIDTH / 2) * ARROW_HALF_WIDTH_SCALE);
-    const bx = end.x - dx * ARROW_BACK;
-    const bz = end.z - dz * ARROW_BACK;
-    const tipIndex = vertexCount(out);
-    pushVertex(out, bx - dz * arrowHalf, end.y, bz + dx * arrowHalf, 0, distance, KIND_TIP);
-    pushVertex(out, bx + dz * arrowHalf, end.y, bz - dx * arrowHalf, 0, distance, KIND_TIP);
-    pushVertex(out, end.x + dx * ARROW_FORWARD, end.y, end.z + dz * ARROW_FORWARD, 0, distance, KIND_TIP);
-    out.indices.push(tipIndex, tipIndex + 1, tipIndex + 2);
   }
   return true;
 };

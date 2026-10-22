@@ -19,7 +19,7 @@ const meshes = (scene: Scene) => {
 };
 
 describe("createFrontierSupplyOverlay", () => {
-  it("builds one ribbon per route with an arrowhead at the tip, plus a ring on each cut tile", () => {
+  it("builds one ribbon per route, with no arrowhead at the tip, plus a ring on each cut tile", () => {
     const scene = new Scene();
     const overlay = createFrontierSupplyOverlay(scene);
     overlay.sync(model(), sceneFor, "origin-a", "#3fa9f5", 0);
@@ -27,8 +27,10 @@ describe("createFrontierSupplyOverlay", () => {
     const { mesh, geometry } = meshes(scene);
     expect(mesh.visible).toBe(true);
     const kind = Array.from(geometry.getAttribute("aKind").array as Float32Array);
-    expect(kind.filter((v) => v === 1)).toHaveLength(3); // one arrowhead triangle
-    const ringVertex = kind.indexOf(2);
+    // Only ribbon (0) and ring (1) vertices; ribbon vertices come in side pairs, so no arrowhead triangle.
+    expect([...new Set(kind)].sort()).toEqual([0, 1]);
+    expect(kind.filter((v) => v === 0).length % 2).toBe(0);
+    const ringVertex = kind.indexOf(1);
     expect(ringVertex).toBeGreaterThanOrEqual(0);
     const position = geometry.getAttribute("position");
     const ringDistance = Math.hypot(position.getX(ringVertex) - 1, position.getZ(ringVertex));

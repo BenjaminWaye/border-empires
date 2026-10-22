@@ -36,14 +36,14 @@ const strokes = (calls: Call[]) => calls.filter((call) => call.op === "stroke");
 const fills = (calls: Call[]) => calls.filter((call) => call.op === "fill");
 
 describe("drawFrontierSupply2D", () => {
-  it("strokes each route as a dark shadow edge, an empire-coloured body and a light core, then fills an arrowhead at the tip", () => {
+  it("strokes each route as a dark shadow edge, an empire-coloured body and a light core, with no arrowhead at the tip", () => {
     const { ctx, calls } = recordingContext();
     drawFrontierSupply2D(ctx, { links: [link(2, 3, false), link(3, 4)], cuts: [] }, deps());
     const colours = strokes(calls).map((call) => call.stroke);
     expect(colours).toContain("#05080d");
     expect(colours).toContain("#3fa9f5");
     expect(colours).toContain("#ffffff");
-    expect(fills(calls).some((call) => call.fill === "#3fa9f5")).toBe(true); // arrowhead body
+    expect(fills(calls)).toHaveLength(0);
   });
 
   it("keeps the steady route very pale so only the travelling pulses stand out", () => {
@@ -57,26 +57,13 @@ describe("drawFrontierSupply2D", () => {
 
   it("strokes the pulse layer by layer, so a pulse's shadow never lands on its own bright head", () => {
     const { ctx, calls } = recordingContext();
-    // No tip, so the arrowhead's own outline doesn't count.
-    const noTip = snake().links.map((hop) => ({ ...hop, tip: false }));
-    drawFrontierSupply2D(ctx, { links: noTip, cuts: [] }, deps({ nowMs: 1000 }));
+    drawFrontierSupply2D(ctx, { ...snake(), cuts: [] }, deps({ nowMs: 1000 }));
     const all = strokes(calls);
     // Pulse heads are the widest white strokes (the steady core is narrower).
     const headWidth = Math.max(...all.filter((call) => call.stroke === "#ffffff").map((call) => call.lineWidth));
     const firstHead = all.findIndex((call) => call.stroke === "#ffffff" && call.lineWidth === headWidth);
     expect(firstHead).toBeGreaterThanOrEqual(0);
     expect(all.slice(firstHead).some((call) => call.stroke === "#05080d")).toBe(false);
-  });
-
-  it("lights the tip arrowhead only as a pulse reaches it", () => {
-    const arrowBody = (nowMs: number) => {
-      const { ctx, calls } = recordingContext();
-      drawFrontierSupply2D(ctx, { links: [link(2, 3)], cuts: [] }, deps({ nowMs }));
-      return fills(calls).find((call) => call.fill === "#3fa9f5")!.alpha;
-    };
-    const samples = Array.from({ length: 40 }, (_, i) => arrowBody(i * 50));
-    expect(Math.min(...samples)).toBeLessThan(0.1);
-    expect(Math.max(...samples)).toBeGreaterThan(0.5);
   });
 
   it("marks each cut tile with a ring that breathes with the pulses", () => {

@@ -5,9 +5,8 @@
  * Supply lines only flag fragile land (see client-frontier-supply.ts). Each
  * runs from the nearest settled tile out to the frontier tip as a smoothed
  * ribbon that is kept pale and barely visible: what catches the eye are the
- * bright pulses travelling outward along it, like convoys, and the arrowhead
- * at the tip, lit as they pass. The cut tile the land hangs on gets a ring
- * that slowly brightens and fades in step with the pulses.
+ * pulses travelling outward along it, like convoys. The cut tile the land
+ * hangs on gets a ring that slowly brightens and fades in step with them.
  */
 
 /** How far the empire colour is lifted toward white for the route core, so it reads on the empire's own territory. */
@@ -28,9 +27,6 @@ export const SUPPLY_ROUTE_REST_ALPHA = 0.1;
 export const SUPPLY_SHADOW_REST_ALPHA = 0.05;
 /** How much a passing pulse adds to the shadow edge's opacity. */
 export const SUPPLY_SHADOW_PULSE_LIFT = 0.3;
-
-/** Ribbon/arrowhead opacity factor for a 0..1 pulse brightness: pale at rest, full where a pulse is passing. */
-export const supplyLitAlpha = (pulse: number): number => SUPPLY_ROUTE_REST_ALPHA + (1 - SUPPLY_ROUTE_REST_ALPHA) * pulse;
 
 /** Pulse travel speed along a route, tiles per second. */
 export const SUPPLY_PULSE_SPEED = 1.2;

@@ -10,11 +10,10 @@ const WORLD = { worldWidth: 100, worldHeight: 100 };
 const model = (tiles: FrontierSupplyTile[], reach: string[]) => computeFrontierSupplyModel({ tiles, me: ME, reach: new Set(reach), ...WORLD });
 
 describe("buildSupplyRoutes", () => {
-  it("draws an unbranched snake as one route from the settled tile to an arrowhead at the tip", () => {
+  it("draws an unbranched snake as one route from the settled tile to the tip", () => {
     const snake = [settled(10, 10), frontier(11, 10), frontier(12, 10), frontier(13, 10), frontier(14, 10)];
     const routes = buildSupplyRoutes(model(snake, ["10,10", "11,10"]), { ...WORLD, smoothing: 0 });
     expect(routes).toHaveLength(1);
-    expect(routes[0]!.endsAtTip).toBe(true);
     expect(routes[0]!.points.map((p) => [p.x, p.y, p.distance])).toEqual([[10, 10, 0], [11, 10, 1], [12, 10, 2], [13, 10, 3], [14, 10, 4]]);
   });
 
@@ -23,13 +22,9 @@ describe("buildSupplyRoutes", () => {
     const routes = buildSupplyRoutes(model(tiles, ["10,10", "11,10"]), { ...WORLD, smoothing: 0 });
     expect(routes).toHaveLength(3);
     const trunk = routes.find((r) => r.points[0]!.x === 10)!;
-    expect(trunk.endsAtTip).toBe(false);
     expect(trunk.points.at(-1)).toMatchObject({ x: 12, y: 10, distance: 2 });
     const branches = routes.filter((r) => r !== trunk);
-    for (const branch of branches) {
-      expect(branch.endsAtTip).toBe(true);
-      expect(branch.points[0]).toMatchObject({ x: 12, y: 10, distance: 2 });
-    }
+    for (const branch of branches) expect(branch.points[0]).toMatchObject({ x: 12, y: 10, distance: 2 });
   });
 
   it("smooths corners but keeps both ends fixed so routes still join", () => {

@@ -42,7 +42,7 @@ export const FRONTIER_SUPPLY_LINES_CHANGELOG: ClientChangelogEntry[] = [
     title: "Supply lines pulse again, from your settled land",
     why: "The still dashed line was hard to read as a supply route, and it started at the weak tile rather than where the supply comes from.",
     changes: [
-      "Fragile supply lines are back to a very pale line with faint pulses flowing outward and an arrowhead at the tip that lights as a pulse arrives",
+      "Fragile supply lines are back to a very pale line with faint pulses flowing outward, and no arrowhead at the tip",
       "Each line now starts at your nearest settled land (or frontier dock) and runs through the tile the land hangs on",
       "That tile keeps its ring, which now gently brightens and fades in step with the pulses",
       "Still only drawn where land beyond your reach hangs on a single tile; works on both the 3D and the 2D map"

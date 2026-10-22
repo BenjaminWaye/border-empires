@@ -24,8 +24,6 @@ export type SupplyRoutePoint = {
 
 export type SupplyRoute = {
   points: SupplyRoutePoint[];
-  /** The route ends at a real frontier tip (see FrontierSupplyLink.tip): draw an arrowhead. */
-  endsAtTip: boolean;
 };
 
 export type SupplyRouteOptions = {
@@ -96,7 +94,6 @@ export const buildSupplyRoutes = (model: FrontierSupplyModel, options: SupplyRou
     let x = startX;
     let y = startY;
     let distance = startDistance;
-    let endsAtTip = false;
     for (;;) {
       const dx = wrapDelta(link.from.x, link.to.x, width);
       const dy = wrapDelta(link.from.y, link.to.y, height);
@@ -105,7 +102,7 @@ export const buildSupplyRoutes = (model: FrontierSupplyModel, options: SupplyRou
       distance += Math.hypot(dx, dy);
       raw.push({ x, y, distance });
       const onward = linksFrom.get(pointKey(link.to));
-      if (!onward) { endsAtTip = link.tip; break; }
+      if (!onward) break;
       if (onward.length > 1) {
         for (const child of onward) pending.push({ link: child, startX: x, startY: y, startDistance: distance });
         break;
@@ -116,7 +113,7 @@ export const buildSupplyRoutes = (model: FrontierSupplyModel, options: SupplyRou
     const anchorDx = first.from.x - startX;
     const anchorDy = first.from.y - startY;
     const anchored = raw.map((p) => ({ ...p, x: p.x + anchorDx, y: p.y + anchorDy }));
-    routes.push({ points: smooth(anchored, passes), endsAtTip });
+    routes.push({ points: smooth(anchored, passes) });
   }
   return routes;
 };
