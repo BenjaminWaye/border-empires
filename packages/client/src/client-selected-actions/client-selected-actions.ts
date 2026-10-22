@@ -169,21 +169,10 @@ export const cancelOngoingCapture = (
 };
 
 // Hides the capture overlay for the currently-displayed instance without
-// cancelling anything underneath it — the mustering flag keeps
-// accumulating, or the in-flight capture keeps resolving, either way.
-// Mirrors cancelOngoingCapture's phase check: while still parked
-// (state.capture undefined), dismiss the pending muster attack the overlay
-// is showing; once it's actually fired, dismiss the capture itself.
-export const dismissOngoingCapture = (
-  state: Pick<ClientState, "capture" | "pendingMusterAttacks" | "dismissedCaptureStartAt">
-): void => {
-  if (!state.capture && state.pendingMusterAttacks.length > 0) {
-    // dismissed lives on the entry itself (see pendingMusterAttacks' type in
-    // client-state.ts) so it clears for free once the entry is cancelled or
-    // promoted — no separate keyed field to keep in sync.
-    state.pendingMusterAttacks[state.pendingMusterAttacks.length - 1]!.dismissed = true;
-    return;
-  }
+// cancelling anything underneath it — the in-flight capture keeps resolving.
+// (A still-parked muster attack has no banner to dismiss: it shows as a
+// badge over its flag, client-muster-pending-badge.ts.)
+export const dismissOngoingCapture = (state: Pick<ClientState, "capture" | "dismissedCaptureStartAt">): void => {
   state.dismissedCaptureStartAt = state.capture?.startAt;
 };
 

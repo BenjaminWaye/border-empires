@@ -7,7 +7,7 @@ import {
   pruneExpiredAutoSettlementQueueVisibleHolds
 } from "../client-development-queue/client-development-queue.js";
 import { createNextFrontierCommandIdentity } from "../client-frontier-command/client-frontier-command.js";
-import { dropStuckPendingMusterAttack, findClosestMuster, isDockCrossingBetween, isPendingAttackFundedFromOrigin } from "../client-muster-attack-gate/client-muster-attack-gate.js";
+import { findClosestMuster, holdUnfundedPendingMusterAttack, isDockCrossingBetween, isPendingAttackFundedFromOrigin } from "../client-muster-attack-gate/client-muster-attack-gate.js";
 import { dispatchMusterFundedAttack } from "./client-queue-muster-dispatch.js";
 import { requiredMusterWithCommit, noteWaypointStepEnqueued } from "../client-attack-commit/client-attack-commit.js";
 import { enqueueTarget } from "./client-queue-enqueue-target.js"; export { enqueueTarget };
@@ -867,7 +867,7 @@ export const processPendingMusterAttacks = (
     }
 
     if ((!closest || !closestIsAdjacentOrLinked) && !isPendingAttackFundedFromOrigin(state, entry, required, deps.isAdjacent)) {
-      if (!dropStuckPendingMusterAttack(state, entry, { pushFeed: deps.pushFeed, keyFor: deps.keyFor, sendGameMessage: deps.sendGameMessage })) remaining.push(entry);
+      if (!holdUnfundedPendingMusterAttack(state, entry, required, { pushFeed: deps.pushFeed, keyFor: deps.keyFor, sendGameMessage: deps.sendGameMessage })) remaining.push(entry);
       continue;
     }
 

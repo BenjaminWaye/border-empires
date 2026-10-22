@@ -328,7 +328,6 @@ export const createInitialState = () => ({
     fromX: number;
     fromY: number;
     musterTileKey: string;
-    dismissed?: boolean;
     musterRequestedAt?: number;
     // When this entry was first parked. dropStuckPendingMusterAttack's own
     // timeout only fires when a brand-new flag was just requested
@@ -338,6 +337,9 @@ export const createInitialState = () => ({
     // converge, previously had no expiry at all and could sit forever with
     // no feedback. This backstops that gap in processPendingMusterAttacks.
     queuedAt?: number;
+    // The commitment this entry last asked its flag to expand to hold
+    // (fitPendingMusterFlagCapacity), so the request goes out once, not per tick.
+    capFitRequestedFor?: number;
   }>,
   waypoint: [] as ClientWaypoint[],
   frontierLateAckUntilByTarget: new Map<string, number>(),

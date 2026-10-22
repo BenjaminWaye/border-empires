@@ -113,7 +113,12 @@ export const parseSetMusterPayload = (
 };
 
 export const parseClearMusterPayload = parseTilePayload;
-export const parseUpgradeMusterCapPayload = parseTilePayload;
+export const parseUpgradeMusterCapPayload = (payloadJson: string): { x: number; y: number; fitManpower?: number } | null => {
+  const tile = parseTilePayload(payloadJson);
+  if (!tile) return null;
+  const { fitManpower } = JSON.parse(payloadJson) as Record<string, unknown>;
+  return typeof fitManpower === "number" && Number.isFinite(fitManpower) && fitManpower > 0 ? { ...tile, fitManpower } : tile;
+};
 
 export const parseBuildStructurePayload = (payloadJson: string): { x: number; y: number; structureType: string } | null => {
   try {

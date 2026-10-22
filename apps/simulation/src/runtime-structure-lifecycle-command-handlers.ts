@@ -27,6 +27,7 @@ import type { RuntimeStructureCommandContext } from "./runtime-structure-command
 import { stripRetiredStockpileCost } from "./runtime-structure-command-handlers.js";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { playerMusterFlagLimit } from "./runtime-muster-tick/muster-auto-fire-shared.js";
+import { fittedCapLevelField } from "./runtime-muster-cap-upgrade-command.js";
 import type { StrategicResourceKey } from "./runtime-types.js";
 import { creditManpower } from "./runtime-manpower-ceiling.js";
 import { rejectIfMusterBesieged } from "./muster-siege-guard/muster-siege-guard.js";
@@ -215,6 +216,9 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
         : target.muster?.commitManpower != null
           ? { commitManpower: target.muster.commitManpower }
           : {}),
+      // Keep earlier Expand Capacity presses across a mode change, and expand
+      // further so a newly chosen commitment fits on the flag at all.
+      ...fittedCapLevelField(context.playerManpowerCap(actor), isNewMuster ? undefined : target.muster?.capLevel, payload.commitManpower),
       setAt: isNewMuster ? now : (target.muster!.setAt ?? now),
       updatedAt: now
     }

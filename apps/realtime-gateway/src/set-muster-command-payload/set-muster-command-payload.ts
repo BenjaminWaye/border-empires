@@ -32,3 +32,12 @@ export const setMusterCommandPayload = (message: SetMusterClientMessage): SetMus
   ...(typeof message.targetY === "number" ? { targetY: message.targetY } : {}),
   ...(typeof message.commitManpower === "number" ? { commitManpower: message.commitManpower } : {})
 });
+
+// UPGRADE_MUSTER_CAP's payload, forwarded the same way so a manual attack's
+// fitManpower (expand the flag to hold the chosen commitment) reaches the
+// simulation's parseUpgradeMusterCapPayload instead of being dropped here.
+export const upgradeMusterCapCommandPayload = (message: { x: number; y: number; fitManpower?: number | undefined }): { x: number; y: number; fitManpower?: number } => ({
+  x: message.x,
+  y: message.y,
+  ...(typeof message.fitManpower === "number" ? { fitManpower: message.fitManpower } : {})
+});

@@ -101,15 +101,14 @@ describe("cancelOngoingCapture", () => {
 });
 
 describe("dismissOngoingCapture", () => {
-  it("marks the currently-shown pending muster attack dismissed, without cancelling it", () => {
+  it("leaves a parked muster attack alone: it shows as a flag badge, not the banner", () => {
     const state = createInitialState();
     state.pendingMusterAttacks = [{ targetX: 7, targetY: 8, fromX: 0, fromY: 0, musterTileKey: "0,0" }];
 
     dismissOngoingCapture(state);
 
     expect(state.dismissedCaptureStartAt).toBeUndefined();
-    // Purely a display toggle — the pending attack itself is untouched, just flagged.
-    expect(state.pendingMusterAttacks).toEqual([{ targetX: 7, targetY: 8, fromX: 0, fromY: 0, musterTileKey: "0,0", dismissed: true }]);
+    expect(state.pendingMusterAttacks).toEqual([{ targetX: 7, targetY: 8, fromX: 0, fromY: 0, musterTileKey: "0,0" }]);
   });
 
   it("dismisses the active capture by startAt once an attack has fired", () => {

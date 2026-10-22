@@ -25,7 +25,8 @@ export const buildMusterActions = (
   tile: Tile,
   state: Pick<
     ClientState,
-    "me" | "authEmail" | "manpowerCap" | "manpower" | "musterAmountRateByTile" | "bridgeDebugSeasonId" | "incomingAttacksByTile" | "tiles"
+    | "me" | "authEmail" | "manpowerCap" | "manpower" | "musterAmountRateByTile" | "bridgeDebugSeasonId" | "incomingAttacksByTile" | "tiles"
+    | "pendingMusterAttacks"
   >,
   nowMs = Date.now()
 ): TileActionDef[] => {
@@ -126,6 +127,19 @@ export const buildMusterActions = (
       disabled: maxedOut,
       ...(maxedOut ? { disabledReason: "Already at your manpower cap" } : {})
     });
+    // A manual attack parked on this flag shows only as the badge over it
+    // (client-muster-pending-badge.ts) -- no banner with a Cancel button any
+    // more, and touch players have no Esc -- so cancelling lives here.
+    const queued = state.pendingMusterAttacks.filter((entry) => entry.musterTileKey === `${tile.x},${tile.y}`);
+    if (queued.length > 0) {
+      const targets = queued.map((entry) => `(${entry.targetX}, ${entry.targetY})`).join(", ");
+      out.push({
+        id: "muster_cancel_queued_attack",
+        label: queued.length === 1 ? "Cancel Queued Attack" : "Cancel Queued Attacks",
+        detail: `Stop waiting to attack ${targets}. Manpower already staged stays on this flag.`,
+        ...avail()
+      });
+    }
     out.push({
       id: "muster_clear",
       label: "Clear Muster",
@@ -179,6 +193,17 @@ export const dispatchMusterTileAction = (actionId: string, tile: Tile, deps: Mus
   }
   if (actionId === "muster_expand_cap") {
     deps.sendGameMessage({ type: "UPGRADE_MUSTER_CAP", x, y });
+    return true;
+  }
+  if (actionId === "muster_cancel_queued_attack") {
+    const flagKey = `${x},${y}`;
+    const before = deps.state.pendingMusterAttacks.length;
+    deps.state.pendingMusterAttacks = deps.state.pendingMusterAttacks.filter((entry) => entry.musterTileKey !== flagKey);
+    // processPendingMusterAttacks only unwatches when it empties the list
+    // itself, and it doesn't run at all once the list is empty.
+    if (before > 0 && deps.state.pendingMusterAttacks.length === 0) deps.sendGameMessage({ type: "UNWATCH_MUSTER" });
+    deps.pushFeed(`Queued attack from (${x}, ${y}) cancelled`, "combat", "info");
+    deps.renderHud();
     return true;
   }
   return false;

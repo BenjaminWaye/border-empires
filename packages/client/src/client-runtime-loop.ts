@@ -38,7 +38,7 @@ import { drawTileFeatureOverlays2D } from "./client-map-2d-tile-feature-overlays
 import { drawTownSupportPlot2D } from "./client-map-2d-town-support-tile-overlay.js";
 import { townSupportPlotMapFor2D } from "./client-town-support-plot-lookup.js";
 import { fireDueMusterTransits } from "./client-muster-transit/client-muster-transit.js";
-import { drawMusterSupplyLines2D } from "./client-muster-supply-lines-2d.js";
+import { drawMusterOverlays2D } from "./client-muster-supply-lines-2d.js";
 import { createConstructionCountdownOverlay2D } from "./client-construction-countdown/client-construction-countdown-overlay-2d.js";
 import { aetherProtectionField, drawAetherProtectionTile2D, isAetherProtectionFieldShown } from "./client-aether-tower-protection/client-aether-tower-protection.js";
 import { isSeasonLobbyFullscreenActive } from "./client-season-lobby-fullscreen.js";
@@ -1163,10 +1163,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     // 2D supply lines: flag → attack front, one per active muster flag/
     // auto-fire fight, covering manually-armed transits, ADVANCE-mode
     // fallback, and ADVANCE/MARCH auto-fire's own travel-time delay
-    // (including MARCH's neutral-tile EXPAND leg) — see
-    // client-muster-supply-lines-2d.ts.
+    // (including MARCH's neutral-tile EXPAND leg), then parked-attack
+    // progress badges over their flags — see client-muster-supply-lines-2d.ts.
     if (!isTrue3DRendererActive()) {
-      drawMusterSupplyLines2D(state, deps.keyFor, deps.worldToScreen, deps.ctx, deps.effectiveOverlayColor, size, halfW, halfH, nowMs);
+      drawMusterOverlays2D(state, deps.keyFor, deps.worldToScreen, deps.ctx, deps.effectiveOverlayColor, size, halfW, halfH, nowMs);
     }
     const routesMs = phaseMs();
 

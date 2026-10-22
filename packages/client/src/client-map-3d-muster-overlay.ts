@@ -19,6 +19,7 @@ import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-
 import { createMusterBannerClothMaterials } from "./client-map-3d-muster-banner/muster-banner-cloth-material.js";
 import { getMusterBannerGeometry, MUSTER_PLINTH_LEDGES } from "./client-map-3d-muster-banner/muster-banner-geometry.js";
 import { applyMarbleFinish } from "./client-map-3d-muster-banner/muster-banner-marble-material.js";
+import { createMusterProgressBadgeLayer, type MusterProgressBadgeSlot } from "./client-map-3d-muster-progress-badge.js";
 import { TOWN_BASE_LIFT } from "./client-map-3d-town-overlay.js";
 
 // Muster overlay: every mustering tile carries a war banner in its owner's
@@ -44,6 +45,10 @@ import { TOWN_BASE_LIFT } from "./client-map-3d-town-overlay.js";
 //     plinth and the soldiers stop marching in and stand guard at its rim.
 //     Driven by siegeEndsAt in tick(), so it switches off on its own when the
 //     fight resolves, without waiting for a terrain rebuild.
+//   • A manual attack parked on the flag, still gathering its manpower:
+//     a percentage badge floats above the banner
+//     (client-map-3d-muster-progress-badge.ts). Its source is read every
+//     tick, so the number climbs between terrain rebuilds too.
 
 const MAX = 256;
 const ADVANCE_WIND_SPEED = 1.6;
@@ -121,7 +126,16 @@ export type MusterOverlay = {
   readonly dispose: () => void;
 };
 
-export const createMusterOverlay = (scene: Scene, envMap?: Texture): MusterOverlay => {
+/**
+ * `pendingBadgeRatios` returns, per flag tile key (`${x},${y}`), how far a
+ * parked attack on that flag has filled (0-1) -- see
+ * client-muster-pending-badge.ts. Omitted, no badges are drawn.
+ */
+export const createMusterOverlay = (
+  scene: Scene,
+  envMap?: Texture,
+  pendingBadgeRatios?: () => ReadonlyMap<string, number>
+): MusterOverlay => {
   const geometry = getMusterBannerGeometry();
   // The towns' AFC-style metalwork (client-map-3d-town-overlay.ts); the
   // plinth is polished marble under a light clearcoat, so it doesn't read as
@@ -183,6 +197,8 @@ export const createMusterOverlay = (scene: Scene, envMap?: Texture): MusterOverl
   siegeRingMesh.renderOrder = 35;
 
   scene.add(...pieceMeshes, soldierMesh, siegeRingMesh);
+  const progressBadges = createMusterProgressBadgeLayer(scene);
+  const badgeSlots: MusterProgressBadgeSlot[] = [];
 
   const entries: TileEntry[] = [];
   const tmpColor = new Color();
@@ -271,10 +287,27 @@ export const createMusterOverlay = (scene: Scene, envMap?: Texture): MusterOverl
     siegeRingMesh.instanceMatrix.needsUpdate = true;
   };
 
+  const applyProgressBadges = (nowMs: number): void => {
+    badgeSlots.length = 0;
+    const ratios = pendingBadgeRatios?.();
+    if (ratios && ratios.size > 0) {
+      for (const e of entries) {
+        const ratio = ratios.get(`${e.worldTileX},${e.worldTileY}`);
+        if (ratio === undefined) continue;
+        badgeSlots.push({
+          sceneX: e.sceneX, sceneZ: e.sceneZ, surfaceY: e.surfaceY + TOWN_BASE_LIFT,
+          ratio, phase: hash01(e.worldTileX, e.worldTileY, 0, 41)
+        });
+      }
+    }
+    progressBadges.sync(badgeSlots, nowMs);
+  };
+
   const tick = (nowMs: number): void => {
     clothMaterials.tick(nowMs);
     applySoldierMatrices(nowMs);
     applySiegeRings(nowMs);
+    applyProgressBadges(nowMs);
   };
 
   const dispose = (): void => {
@@ -289,6 +322,7 @@ export const createMusterOverlay = (scene: Scene, envMap?: Texture): MusterOverl
     siegeRingGeom.dispose();
     siegeRingMat.dispose();
     siegeRingMesh.dispose();
+    progressBadges.dispose();
   };
 
   return { clear, addMuster, commit, tick, dispose };
