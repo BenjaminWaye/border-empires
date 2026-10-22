@@ -1,5 +1,5 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import type { Terrain } from "@border-empires/shared";
+import { DEFAULT_AUTO_SETTLE_PREFS, type IslandNameClaim, type Terrain } from "@border-empires/shared";
 
 /** A tile map from rows of characters: "L" LAND, "M" MOUNTAIN, anything else sea. Unlisted cells are sea. */
 export const tilesFromRows = (rows: readonly string[], originX = 0, originY = 0): Map<string, DomainTileState> => {
@@ -23,12 +23,13 @@ export const garrison = (tiles: Map<string, DomainTileState>, ownerId: string, i
   }
 };
 
-export const makePlayer = (id: string, overrides: Partial<DomainPlayer> = {}): DomainPlayer => ({
+export const makePlayer = (id: string, overrides: { isAi?: boolean; islandNames?: IslandNameClaim[] } = {}): DomainPlayer => ({
   id,
-  isAi: false,
+  isAi: overrides.isAi ?? false,
   points: 0,
   manpower: 0,
   techIds: new Set(),
   allies: new Set(),
-  ...overrides
+  autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
+  ...(overrides.islandNames ? { islandNames: overrides.islandNames } : {})
 });

@@ -28,6 +28,7 @@ import { createNextFrontierCommandIdentity } from "./client-frontier-command/cli
 import { clearMusterTransitForTarget } from "./client-muster-transit/client-muster-transit.js";
 import { handleMusterMarchTargetClick } from "./client-muster-march-targeting.js"; import { handleArrowGestureConfirm } from "./client-arrow-gesture-confirm.js";
 import { dispatchMusterTileAction } from "./client-muster-tile-actions.js";
+import { dispatchIslandNameTileAction } from "./client-map-name-labels/client-island-name-action.js";
 import { recordClientDebugEvent } from "./client-debug/client-debug.js";
 import { blockUnsupportedRewriteMessage } from "./client-send-message-guard/client-send-message-guard.js";
 import { showVisibleActionWarning } from "./client-visible-action-warning.js";
@@ -164,8 +165,7 @@ import type {
   TileMenuTab,
   TileMenuView,
   TileOverviewLine,
-  TileTimedProgress,
-  TileVisibilityState
+  TileTimedProgress
 } from "./client-types.js";
 import { debugTileLog, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
 import { createMusterWatchGuard } from "./client-muster-watch/client-muster-watch.js";
@@ -184,18 +184,8 @@ type ActionFlowDeps = Record<string, any> & {
   placementOverlayEl: HTMLDivElement;
   placementLabelEl: HTMLDivElement;
 };
-type TileDetailRequestOptions = {
-  force?: boolean;
-};
-
-export const shouldSendTileDetailRequest = (tile: Tile | undefined, me: string, options: TileDetailRequestOptions = {}): tile is Tile => {
-  if (!tile || tile.fogged) return false;
-  if (options.force) return true;
-  return tile.detailLevel !== "full" || ownTownDetailRecoveryNeeded(tile, me);
-};
-
-export const shouldRefreshTileDetailOnPress = (tile: Tile | undefined, visibility: TileVisibilityState): tile is Tile =>
-  Boolean(tile && visibility === "visible" && !tile.fogged);
+export { shouldRefreshTileDetailOnPress, shouldSendTileDetailRequest } from "./client-tile-interaction/client-tile-detail-request-rules.js";
+import { shouldRefreshTileDetailOnPress, shouldSendTileDetailRequest, type TileDetailRequestOptions } from "./client-tile-interaction/client-tile-detail-request-rules.js";
 
 export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const {
@@ -1360,6 +1350,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       }
     }
     dispatchMusterTileAction(actionId, selected, { state, sendGameMessage, pushFeed, renderHud });
+    dispatchIslandNameTileAction(actionId, selected, { state, sendGameMessage, pushFeed });
     if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "abandon_territory") sendGameMessage({ type: "UNCAPTURE_TILE", x: selected.x, y: selected.y });
