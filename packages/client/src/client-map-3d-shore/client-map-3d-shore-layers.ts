@@ -10,7 +10,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { HeightfieldCornerAttributes } from "../client-map-3d-heightfield/client-map-3d-heightfield-corners.js";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { createShoreFoamLayer, FOAM_LIFT_Y } from "./client-map-3d-shore.js";
-import { createShoreSandLayer, shoreSandReachAt } from "./client-map-3d-shore-sand.js";
+import { createShoreSandLayer, createShoreWaterline } from "./client-map-3d-shore-sand.js";
 
 // Foam and fringe would be sub-pixel this far out (window wider than this many tiles).
 const SHORE_MAX_WINDOW_TILES = 140;
@@ -53,15 +53,15 @@ export const createShoreLayers = (scene: Scene, sandWiring: ShoreSandWiring | un
       return;
     }
     const { tiles, isLandTile, worldOffsetX, worldOffsetZ, waterY, mouths } = commit;
-    const waterlineInsetAt = sand ? (x: number, z: number) => shoreSandReachAt(x, z, worldOffsetX, worldOffsetZ, mouths) : undefined;
-    foam.rebuild(tiles, isLandTile, waterY + FOAM_LIFT_Y, true, mouths, waterlineInsetAt);
-    if (!sand || !sandWiring) return;
+    const waterline = sand ? createShoreWaterline(isLandTile, worldOffsetX, worldOffsetZ, mouths) : undefined;
+    foam.rebuild(tiles, isLandTile, waterY + FOAM_LIFT_Y, true, mouths, waterline);
+    if (!sand || !sandWiring || !waterline) return;
     sand.rebuild(tiles, {
       isLandTile,
       worldOffsetX,
       worldOffsetZ,
       waterY,
-      mouths,
+      waterline,
       cornerAt: (x, z, out) => {
         const wx = (((x + worldOffsetX) % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH;
         const wz = (((z + worldOffsetZ) % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT;

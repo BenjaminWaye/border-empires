@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { HeightfieldCornerAttributes } from "../client-map-3d-heightfield/client-map-3d-heightfield-corners.js";
-import { appendShoreSand, SHORE_SAND_REACH, type ShoreSandBuffers, type ShoreSandTileInputs } from "./client-map-3d-shore-sand.js";
+import {
+  appendShoreSand,
+  createShoreWaterline,
+  SHORE_SAND_MAX_REACH,
+  type ShoreSandBuffers,
+  type ShoreSandTileInputs
+} from "./client-map-3d-shore-sand.js";
 
 const WATER_Y = -0.06;
 const LAND_EDGE_Y = -0.04;
-const MAX_REACH = SHORE_SAND_REACH * 1.4;
 
 const emptyBuffers = (): ShoreSandBuffers => ({ positions: [], colors: [], uvs: [], tundra: [], indices: [] });
 const cornerAt = (_x: number, _z: number, out: HeightfieldCornerAttributes): boolean => {
@@ -16,14 +21,15 @@ const cornerAt = (_x: number, _z: number, out: HeightfieldCornerAttributes): boo
   out.tundraZone = 0;
   return true;
 };
-const inputs = (gc: number, gr: number, isLandTile: (x: number, z: number) => boolean, mouths: ShoreSandTileInputs["mouths"] = []): ShoreSandTileInputs => ({
+type Mouths = ReadonlyArray<{ readonly x: number; readonly z: number }>;
+const inputs = (gc: number, gr: number, isLandTile: (x: number, z: number) => boolean, mouths: Mouths = []): ShoreSandTileInputs => ({
   gc,
   gr,
   isLandTile,
   worldOffsetX: 100,
   worldOffsetZ: 100,
   waterY: WATER_Y,
-  mouths,
+  waterline: createShoreWaterline(isLandTile, 100, 100, mouths),
   cornerAt
 });
 const vertices = (b: ShoreSandBuffers): { x: number; y: number; z: number }[] => {
@@ -47,7 +53,7 @@ describe("shore sand fringe", () => {
     appendShoreSand(b, inputs(0, 0, straightCoast));
     const vs = vertices(b);
     expect(vs.length).toBeGreaterThan(0);
-    for (const v of vs) expect(v.z).toBeLessThanOrEqual(MAX_REACH + 1e-6);
+    for (const v of vs) expect(v.z).toBeLessThanOrEqual(SHORE_SAND_MAX_REACH + 1e-6);
     // Covers the land edge along the whole tile.
     expect(vs.filter((v) => v.z === 0).length).toBeGreaterThan(5);
   });
@@ -75,15 +81,28 @@ describe("shore sand fringe", () => {
     for (const [z, y] of a) if (c.has(z)) expect(c.get(z)).toBeCloseTo(y, 9);
   });
 
-  it("fills a concave sea corner well past the plain straight-coast reach", () => {
-    // Land to the north and east of sea tile (0, 0).
-    const corner = (x: number, z: number): boolean => z < 0 || x > 0;
-    const b = emptyBuffers();
-    appendShoreSand(b, inputs(0, 0, corner));
-    // Some sand sits on the corner's diagonal further out than a straight
-    // coast's reach would ever take it.
-    const diagonal = vertices(b).filter((v) => Math.abs(1 - v.x - v.z) < 0.05);
-    expect(Math.max(...diagonal.map((v) => Math.hypot(1 - v.x, v.z)))).toBeGreaterThan(MAX_REACH * Math.SQRT2);
+  it("fills the inner corner of a stepped coast instead of following the step", () => {
+    // A staircase: land wherever x + z < 0. Sea tile (0, 0) has land to the
+    // north and west, so its north-west corner is a notch in the coast.
+    const staircase = (x: number, z: number): boolean => x + z < 0;
+    const waterline = createShoreWaterline(staircase, 100, 100, []);
+    expect(waterline(0.15, 0.15)).toBeGreaterThan(0);
+  });
+
+  it("keeps open water at the centre of every sea tile, even a one-tile inlet", () => {
+    const inlet = (x: number, _z: number): boolean => x !== 0;
+    const waterline = createShoreWaterline(inlet, 100, 100, []);
+    for (let z = -3; z <= 3; z++) expect(waterline(0.5, z + 0.5)).toBeLessThan(0);
+  });
+
+  it("is finite everywhere, open sea included", () => {
+    // Infinity * 0 in the river-mouth term once came out NaN and drew the
+    // shore foam as solid white bars over open water.
+    const island = (x: number, z: number): boolean => Math.abs(x) <= 1 && Math.abs(z) <= 1;
+    for (const mouths of [[], [{ x: 2, z: 0.5 }]] as Mouths[]) {
+      const waterline = createShoreWaterline(island, 100, 100, mouths);
+      for (let z = -6; z <= 6; z += 0.37) for (let x = -6; x <= 6; x += 0.37) expect(Number.isFinite(waterline(x, z))).toBe(true);
+    }
   });
 
   it("stands clear of a river mouth", () => {

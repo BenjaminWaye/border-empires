@@ -8,13 +8,20 @@
 // of tile edges. The fringe is purely visual: which tiles are land or sea is
 // untouched, and nothing gameplay-facing reads its height.
 //
-// Shape: the sand covers sea within `reach` of any land square (an offset
-// curve: straight coasts get an even strip, convex land corners a round
-// arc), plus a fillet of radius SHORE_SAND_FILLET in each concave sea
-// corner (land on two orthogonal sides). The reach wobbles with world noise
-// so the strip isn't a ruler-straight band, and fades to nothing at river
-// mouths so it never dams a river. Everything is a function of world
-// position and the 8 neighbours, so adjacent sea tiles meet seamlessly.
+// Shape: the waterline is where a smoothly blurred map of which tiles are
+// land (a quadratic B-spline over tile centres) crosses SHORE_FIELD_THRESHOLD,
+// sampled at a position warped by world noise at two scales. Blurring
+// straightens a staircase coast into a diagonal shore, fills notches and
+// keeps points gently rounded, and the warp adds irregularity that isn't
+// keyed to the tile grid. (An earlier offset-curve shape -- an arc round
+// every convex corner, a fillet in every notch -- turned a stepped coast
+// into a regular row of scallops.) Two clamps: sand never reaches past
+// SHORE_SAND_MAX_REACH from real land, so every sea tile keeps open water at
+// its centre and a one-tile inlet never silts up; and a SHORE_SAND_MIN_BAND
+// of sand always rings land, so a land tip never shows its square corner.
+// The reach pinches to nothing at river mouths so the fringe never dams a
+// river. Everything is a function of world position, so adjacent sea tiles
+// meet seamlessly; the shore foam reads the same waterline.
 //
 // Surface: drawn with the heightfield's own material, coloured from the
 // land's rendered coast corners (cornerAt) and starting at the land's exact
@@ -26,11 +33,19 @@ import { BufferAttribute, BufferGeometry, Mesh, type Material, type Scene } from
 import type { HeightfieldCornerAttributes } from "../client-map-3d-heightfield/client-map-3d-heightfield-corners.js";
 import { foamMouthFade } from "./client-map-3d-shore.js";
 
-/** How far (tiles) the beach reaches into the sea along a straight coast. */
-export const SHORE_SAND_REACH = 0.27;
-const SHORE_SAND_REACH_WOBBLE = 0.4; // +- fraction of the reach
-const SHORE_SAND_NOISE_SCALE = 1.3; // world tiles^-1
-const SHORE_SAND_FILLET = 0.55;
+// Blurred land field (1 deep inland, 0.5 on a straight coast's tile edge)
+// threshold: 0.22 puts a straight coast's waterline ~0.34 tiles out.
+const SHORE_FIELD_THRESHOLD = 0.22;
+// d(field)/d(distance) near that waterline, to read the field as tiles.
+const SHORE_FIELD_SLOPE = 0.66;
+/** Furthest (tiles) the beach ever reaches into the sea from real land. */
+export const SHORE_SAND_MAX_REACH = 0.42;
+const SHORE_SAND_MIN_BAND = 0.07;
+// Domain warp of the field sample: broad bays/headlands plus fine wiggle.
+const SHORE_WARP_BROAD = 0.22;
+const SHORE_WARP_BROAD_SCALE = 0.9;
+const SHORE_WARP_FINE = 0.07;
+const SHORE_WARP_FINE_SCALE = 2.6;
 const SHORE_SAND_SUBDIV = 8;
 // Above the calm water at the waterline -- and clear of the shore foam
 // (FOAM_LIFT_Y, 0.004), which otherwise z-fought through the fringe as a
@@ -57,29 +72,73 @@ const valueNoise = (x: number, z: number): number => {
   return a + (b - a) * ux + (c - a) * uz + (a - b - c + d) * ux * uz;
 };
 
+const bspline = (t: number): number => {
+  const a = Math.abs(t);
+  if (a < 0.5) return 0.75 - a * a;
+  if (a < 1.5) return 0.5 * (1.5 - a) * (1.5 - a);
+  return 0;
+};
+
+const distanceToLandNear = (x: number, z: number, isLandTile: (gc: number, gr: number) => boolean): number => {
+  const cx = Math.floor(x);
+  const cz = Math.floor(z);
+  let best = Infinity;
+  for (let j = cz - 1; j <= cz + 1; j++) {
+    for (let i = cx - 1; i <= cx + 1; i++) {
+      if (!isLandTile(i, j)) continue;
+      const d = Math.hypot(x - Math.min(Math.max(x, i), i + 1), z - Math.min(Math.max(z, j), j + 1));
+      if (d < best) best = d;
+    }
+  }
+  return best;
+};
+
+/** Signed shoreline at scene point (x, z), in tiles: > 0 inside the sand, < 0 out over the water. */
+export type ShoreWaterline = (x: number, z: number) => number;
+
 /**
- * The fringe's reach (tiles) at scene point (x, z): world noise for the
- * wobble, faded out around river mouths (scene coords). The shore foam
- * starts its band here too, so it sits on the new waterline.
+ * The soft waterline for one water commit (scene grid coords). The sand
+ * fringe draws where it is > 0 and the shore foam fades out from its zero
+ * line, so the two always agree.
  */
-export const shoreSandReachAt = (
-  x: number,
-  z: number,
+export const createShoreWaterline = (
+  isLandTile: (gc: number, gr: number) => boolean,
   worldOffsetX: number,
   worldOffsetZ: number,
   mouths: ReadonlyArray<{ readonly x: number; readonly z: number }>
-): number => {
-  const noise = valueNoise((x + worldOffsetX) * SHORE_SAND_NOISE_SCALE, (z + worldOffsetZ) * SHORE_SAND_NOISE_SCALE);
-  const reach = SHORE_SAND_REACH * (1 + SHORE_SAND_REACH_WOBBLE * (noise * 2 - 1));
-  if (mouths.length === 0) return reach;
+): ShoreWaterline => (x, z) => {
+  const wx = x + worldOffsetX;
+  const wz = z + worldOffsetZ;
+  const b = SHORE_WARP_BROAD_SCALE;
+  const f = SHORE_WARP_FINE_SCALE;
+  const px =
+    x + (valueNoise(wx * b, wz * b) - 0.5) * 2 * SHORE_WARP_BROAD + (valueNoise(wx * f + 17, wz * f + 3) - 0.5) * 2 * SHORE_WARP_FINE;
+  const pz =
+    z + (valueNoise(wx * b + 31, wz * b + 7) - 0.5) * 2 * SHORE_WARP_BROAD + (valueNoise(wx * f + 5, wz * f + 29) - 0.5) * 2 * SHORE_WARP_FINE;
+  let field = 0;
+  for (let j = Math.floor(pz - 1.5); j <= Math.floor(pz + 1.5); j++) {
+    const wzj = bspline(pz - (j + 0.5));
+    if (wzj === 0) continue;
+    for (let i = Math.floor(px - 1.5); i <= Math.floor(px + 1.5); i++) {
+      if (isLandTile(i, j)) field += bspline(px - (i + 0.5)) * wzj;
+    }
+  }
+  const d = distanceToLandNear(x, z, isLandTile);
+  // No land within a tile: open water (and keeps Infinity out of the maths
+  // below -- 0 * Infinity there came out NaN, which drew foam as solid bars).
+  if (d === Infinity) return -1;
+  const shaped = Math.max(
+    Math.min((field - SHORE_FIELD_THRESHOLD) / SHORE_FIELD_SLOPE, SHORE_SAND_MAX_REACH - d),
+    SHORE_SAND_MIN_BAND - d
+  );
+  if (mouths.length === 0) return shaped;
   // Squared: the foam's own fade still left a sand lip across the river
   // just off the mouth; this pinches the strip to nothing there.
-  const fade = foamMouthFade(x, z, mouths);
-  return reach * fade * fade;
+  const fade = foamMouthFade(x, z, mouths) ** 2;
+  return shaped * fade - (1 - fade) * d;
 };
 
 type LandSquare = { readonly x: number; readonly z: number };
-type ConcaveCorner = { readonly edgeX: number; readonly edgeZ: number };
 
 export type ShoreSandTileInputs = {
   /** Scene grid coords of the sea tile. */
@@ -90,7 +149,7 @@ export type ShoreSandTileInputs = {
   readonly worldOffsetX: number;
   readonly worldOffsetZ: number;
   readonly waterY: number;
-  readonly mouths: ReadonlyArray<{ readonly x: number; readonly z: number }>;
+  readonly waterline: ShoreWaterline;
   /** Rendered land corner at scene corner (x, z); false if the heightfield didn't draw it. */
   readonly cornerAt: (sceneCornerX: number, sceneCornerZ: number, out: HeightfieldCornerAttributes) => boolean;
 };
@@ -104,7 +163,7 @@ const cornerScratch = [newCorner(), newCorner(), newCorner(), newCorner()];
 
 /** Appends the fringe for one sea tile. Open sea (no land among its 8 neighbours) adds nothing. */
 export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTileInputs): void => {
-  const { gc, gr, isLandTile, worldOffsetX, worldOffsetZ, waterY, mouths, cornerAt } = inputs;
+  const { gc, gr, isLandTile, worldOffsetX, worldOffsetZ, waterY, waterline, cornerAt } = inputs;
   const land: LandSquare[] = [];
   for (let k = 0; k < 9; k++) {
     if (k === 4) continue;
@@ -113,18 +172,6 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
     if (isLandTile(x, z)) land.push({ x, z });
   }
   if (land.length === 0) return;
-  const north = isLandTile(gc, gr - 1);
-  const south = isLandTile(gc, gr + 1);
-  const west = isLandTile(gc - 1, gr);
-  const east = isLandTile(gc + 1, gr);
-  const concave: ConcaveCorner[] = [];
-  if (north && east) concave.push({ edgeX: gc + 1, edgeZ: gr });
-  if (north && west) concave.push({ edgeX: gc, edgeZ: gr });
-  if (south && east) concave.push({ edgeX: gc + 1, edgeZ: gr + 1 });
-  if (south && west) concave.push({ edgeX: gc, edgeZ: gr + 1 });
-
-  const reachAt = (x: number, z: number): number => shoreSandReachAt(x, z, worldOffsetX, worldOffsetZ, mouths);
-
   // Nearest land square: distance and the closest point on its boundary.
   let nearest: LandSquare = land[0]!;
   let qx = 0;
@@ -145,24 +192,11 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
     return best;
   };
 
-  // > 0 inside the sand.
-  const insideAt = (x: number, z: number): number => {
-    const r = reachAt(x, z);
-    let s = r - distanceToLand(x, z);
-    for (const c of concave) {
-      const u = Math.max(0, r + SHORE_SAND_FILLET - Math.abs(x - c.edgeX));
-      const w = Math.max(0, r + SHORE_SAND_FILLET - Math.abs(z - c.edgeZ));
-      s = Math.max(s, Math.hypot(u, w) - SHORE_SAND_FILLET);
-    }
-    return s;
-  };
-
   const emitVertex = (x: number, z: number): number => {
-    const r = Math.max(reachAt(x, z), 1e-6);
-    // How far inside the sand this point is (0 on the waterline). Its
-    // distanceToLand call also leaves `nearest`/`qx`/`qz` set for this point,
-    // which the corner lerp below reads.
-    const depth = insideAt(x, z);
+    // How far inside the sand this point is (0 on the waterline); the
+    // distanceToLand call leaves `nearest`/`qx`/`qz` set for the corner lerp.
+    const depth = Math.max(0, waterline(x, z));
+    const toLand = distanceToLand(x, z);
     const sq = nearest;
     const fx = qx - sq.x;
     const fz = qz - sq.z;
@@ -175,9 +209,11 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
       return top + (bottom - top) * fz;
     };
     const edgeY = ok ? lerp("y") + LAND_EDGE_LIFT : waterY + WATERLINE_LIFT;
-    // Rises from the waterline to the land's edge with depth, so a concave
-    // fillet (land on two sides) slopes up into its corner too.
-    const t = 1 - Math.min(1, Math.max(0, depth) / r);
+    // Where this point sits between the waterline (0) and the land's edge
+    // (1): exactly the land's height at its edge and the water's at the
+    // waterline however narrow the noise makes the strip, so the land's coast
+    // skirt never peeks out. A filled notch slopes up into its corner too.
+    const t = 1 - (depth + toLand > 0 ? depth / (depth + toLand) : 1);
     const ease = t * t * (3 - 2 * t);
     const y = edgeY + (waterY + WATERLINE_LIFT - edgeY) * ease;
     const index = buffers.positions.length / 3;
@@ -195,7 +231,7 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
     for (let i = 0; i <= n; i++) {
       const x = gc + i / n;
       const z = gr + j / n;
-      samples.push({ s: insideAt(x, z), x, z });
+      samples.push({ s: waterline(x, z), x, z });
     }
   }
   const crossing = (a: Sample, b: Sample): [number, number] => {

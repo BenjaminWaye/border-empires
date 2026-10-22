@@ -82,9 +82,9 @@ export const appendShoreFoam = (
   y: number,
   isLandTile: (gc: number, gr: number) => boolean,
   mouths: ReadonlyArray<{ readonly x: number; readonly z: number }> = [],
-  // How far the visible waterline sits out from the land square at (x, z)
-  // (the shore sand fringe, client-map-3d-shore-sand.ts); 0 = the tile edge.
-  waterlineInsetAt: (x: number, z: number) => number = () => 0
+  // Signed soft waterline (client-map-3d-shore-sand.ts, > 0 over sand):
+  // when given, foam fades out from it instead of from the land squares.
+  waterlineAt?: (x: number, z: number) => number
 ): void => {
   // Most water tiles are open sea: reject them without allocating.
   let landMask = 0;
@@ -95,8 +95,9 @@ export const appendShoreFoam = (
   const n = FOAM_SUBDIV;
   const alphaAt = (x: number, z: number): number => {
     let d = Infinity;
-    for (const [lx, lz] of land) d = Math.min(d, distanceToSquare(x, z, lx, lz));
-    const t = Math.min(1, Math.max(0, d - waterlineInsetAt(x, z)) / FOAM_WIDTH);
+    if (waterlineAt) d = Math.max(0, -waterlineAt(x, z));
+    else for (const [lx, lz] of land) d = Math.min(d, distanceToSquare(x, z, lx, lz));
+    const t = Math.min(1, d / FOAM_WIDTH);
     return FOAM_MAX_ALPHA * (1 - t * t * (3 - 2 * t)) * (mouths.length > 0 ? foamMouthFade(x, z, mouths) : 1);
   };
   const alphas: number[] = [];
@@ -128,7 +129,7 @@ export type ShoreFoamLayer = {
     y: number,
     enabled: boolean,
     mouths?: ReadonlyArray<{ readonly x: number; readonly z: number }>,
-    waterlineInsetAt?: (x: number, z: number) => number
+    waterlineAt?: (x: number, z: number) => number
   ) => void;
   readonly dispose: () => void;
 };
@@ -148,14 +149,14 @@ export const createShoreFoamLayer = (scene: Scene, renderOrder: number): ShoreFo
     mesh.geometry.dispose();
     mesh = null;
   };
-  const rebuild: ShoreFoamLayer["rebuild"] = (tiles, isLandTile, y, enabled, mouths = [], waterlineInsetAt) => {
+  const rebuild: ShoreFoamLayer["rebuild"] = (tiles, isLandTile, y, enabled, mouths = [], waterlineAt) => {
     clear();
     if (!enabled) return;
     const buffers: FoamBuffers = { positions: [], colors: [], indices: [] };
     // Only mouths near this tile matter; most tiles have none.
     for (const { gc, gr } of tiles) {
       const near = mouths.filter((m) => Math.abs(m.x - gc - 0.5) < 2 && Math.abs(m.z - gr - 0.5) < 2);
-      appendShoreFoam(buffers, gc, gr, y, isLandTile, near, waterlineInsetAt);
+      appendShoreFoam(buffers, gc, gr, y, isLandTile, near, waterlineAt);
     }
     if (buffers.indices.length === 0) return;
     const geometry = new BufferGeometry();
