@@ -14,7 +14,8 @@
  * tile changes nothing; drawing it is noise. So the model only keeps the
  * fragile part: beyond-reach land that sits past a cut tile -- a single
  * FRONTIER tile whose loss would cut it off (an articulation point of the
- * supply graph). Each such stretch gets a line from the cut tile, which the
+ * supply graph). Each such stretch gets a line from the nearest supply tile
+ * (settled land or a frontier dock), through the cut tile, which the
  * renderers mark, out to its tips -- tiles with nothing further out -- along
  * the fewest-steps supply path (ties prefer straight steps). Side-by-side tips
  * at the same distance share one line. Nested cuts (a snake is all cut tiles)
@@ -209,15 +210,15 @@ export const computeFrontierSupplyModel = (input: FrontierSupplyInput): Frontier
     isTip[middle] = 1;
   }
 
-  // Keep only the hops from each tip back to its cut tile. Every supply path
-  // from the tip runs through the cut, so its supply-tree path does too.
+  // Keep only the hops from each tip back to the supply tile nearest it (the
+  // last tile before the virtual root). Every supply path from the tip runs
+  // through its cut, so its supply-tree path does too.
   const onRoute = new Uint8Array(nodeCount);
   const cutNodes = new Set<number>();
   for (let i = 1; i < nodeCount; i += 1) {
     if (isTip[i] !== 1) continue;
-    const cut = cutOf[i]!;
-    cutNodes.add(cut);
-    for (let node = i; node > 0 && node !== cut && onRoute[node] === 0; node = parent[node]!) onRoute[node] = 1;
+    cutNodes.add(cutOf[i]!);
+    for (let node = i; node > 0 && !isSource[node] && onRoute[node] === 0; node = parent[node]!) onRoute[node] = 1;
   }
 
   const links: FrontierSupplyLink[] = [];

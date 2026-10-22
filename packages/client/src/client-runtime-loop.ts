@@ -50,8 +50,7 @@ import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent,
 import { clampedTileHalfExtents, resolveTileBudget } from "./client-map-3d-tile-budget/client-map-3d-tile-budget.js";
 import { drawTileGround2D } from "./client-map-render-2d-tile-ground/client-map-render-2d-tile-ground.js";
 import { drawShardRainFx2D } from "./client-shard-rain-fx-2d/client-shard-rain-fx-2d.js";
-import { drawFrontierSupply2D } from "./client-frontier-supply/client-frontier-supply-2d.js";
-import { frontierSupplyModelForState } from "./client-frontier-supply/client-frontier-supply-state.js";
+import { drawFrontierSupplyForState2D } from "./client-frontier-supply/client-frontier-supply-2d.js";
 import { drawAetherTowerSprite2D } from "./client-aether-tower-sprite-2d/client-aether-tower-sprite-2d.js";
 import { drawSiphonOverlay2D } from "./client-siphon-overlay-2d/client-siphon-overlay-2d.js"; import { drawArrowGesture2D, drawShieldAreaTile2D, drawWinChanceLabel2D, winChancePaintColorForTile2D } from "./client-map-render-2d-combat-overlays.js"; import { collectKnownShieldFlags, tileShieldCoverage } from "./client-known-shield-flags.js";
 
@@ -1228,14 +1227,15 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
     }
 
-    // Frontier supply lines (2D; the 3D path draws client-map-3d-frontier-supply-overlay.ts): dashed lines out to fragile land beyond reach, a ring on the tile it hangs on.
+    // Frontier supply lines (2D; the 3D path draws client-map-3d-frontier-supply-overlay.ts): pale pulsing lines from settled land out to fragile land beyond reach, a ring on the tile it hangs on.
     if (!isTrue3DRendererActive()) {
-      drawFrontierSupply2D(deps.ctx, frontierSupplyModelForState(state), {
+      drawFrontierSupplyForState2D(deps.ctx, state, {
         tileCenter: (x, y) => deps.worldToScreen(x, y, size, halfW, halfH),
         size,
         viewportWidth: deps.canvas.width,
         viewportHeight: deps.canvas.height,
-        ownerColor: deps.effectiveOverlayColor(state.me)
+        ownerColor: deps.effectiveOverlayColor(state.me),
+        nowMs
       });
     }
 

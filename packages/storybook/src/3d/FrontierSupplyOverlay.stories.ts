@@ -65,7 +65,7 @@ const render = (args: Args): HTMLElement => {
         paintOwnership(world);
       }
     }
-    supply.sync(world.model, sceneFor, "story", DEMO_COLOR);
+    supply.sync(world.model, sceneFor, "story", DEMO_COLOR, now);
     rafId = requestAnimationFrame(animate);
   };
   animate();
@@ -80,8 +80,8 @@ const meta: Meta<Args> = {
       description: {
         component:
           "Frontier supply lines on the true-3D map. Land beyond your reach can't be garrisoned and is lost the moment its " +
-          "chain back to settled land is cut. Where that chain hangs on a single tile, the map flags it: a small ring on that " +
-          "tile and a thin, static dashed line from it out to the land's far edge. Land with more than one way back is left " +
+          "chain back to settled land is cut. Where that chain hangs on a single tile, the map flags it: a breathing ring on that " +
+          "tile and a pale line from the nearest settled tile, through it, out to the land's far edge, with pulses flowing outward. Land with more than one way back is left " +
           "undrawn. Real client code throughout: " +
           "computeFrontierSupplyModel → buildSupplyRoutes → createFrontierSupplyOverlay, over createOwnershipOverlay."
       }

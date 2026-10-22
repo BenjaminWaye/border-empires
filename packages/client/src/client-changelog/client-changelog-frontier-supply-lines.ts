@@ -35,5 +35,17 @@ export const FRONTIER_SUPPLY_LINES_CHANGELOG: ClientChangelogEntry[] = [
       "No more pulses or arrowheads; land with more than one way back is left unmarked",
       "Works on both the 3D and the 2D map"
     ]
+  },
+  {
+    createdAt: 1792650800809, // frozen Date.now() value for this release
+    introducedIn: "2026.10.22.1",
+    title: "Supply lines pulse again, from your settled land",
+    why: "The still dashed line was hard to read as a supply route, and it started at the weak tile rather than where the supply comes from.",
+    changes: [
+      "Fragile supply lines are back to a very pale line with faint pulses flowing outward, and no arrowhead at the tip",
+      "Each line now starts at your nearest settled land (or frontier dock) and runs through the tile the land hangs on",
+      "That tile keeps its ring, which now gently brightens and fades at the same pace as the pulses",
+      "Still only drawn where land beyond your reach hangs on a single tile; works on both the 3D and the 2D map"
+    ]
   }
 ];
