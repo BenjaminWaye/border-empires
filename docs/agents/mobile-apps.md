@@ -173,12 +173,18 @@ build metadata, bundle ID, clean source-commit marker and disabled debugger
 entitlement were verified. Version 1.0, build 1 from commit `613b2bb8f` was
 uploaded successfully with Xcode's automatic signing/account credentials.
 The upload log reported that Apple accepted the package and began processing.
-TestFlight availability has not yet been verified; no App Review submission or
-public release has occurred. The Mac locked before that final console check.
+On 2026-10-22 TestFlight processing was verified. The encryption questionnaire
+was completed with “None of the algorithms mentioned above”: the bundled client
+and native plugins implement no encryption algorithms beyond platform networking
+and random-number APIs. HTTPS/WSS use Apple's platform transport. TestFlight now
+shows **Ready to Submit**, and build 1 is saved on the draft App Store version.
+No testers have been invited; no App Review submission or public release has occurred.
+Future builds declare `ITSAppUsesNonExemptEncryption=false` in `Info.plist`.
+Reassess this declaration if encryption dependencies or functionality change.
 
-The listing subtitle and Games → Strategy category were saved. The description,
-keywords and marketing URL were entered; final persistence of the version metadata
-still needs verification after unlocking. Support/copyright details, review
+The listing subtitle and Games → Strategy category were saved. Persistence of the
+description, keywords and marketing URL was verified on 2026-10-22.
+Support/copyright details, review
 contacts, screenshots and declarations remain incomplete. A new-app warning said
 user access settings could not be saved and all existing team users have access;
 review the App Information access settings if a restriction is intended.

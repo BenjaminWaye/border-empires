@@ -8,5 +8,10 @@
   "firstUploadedVersion": "1.0",
   "firstUploadedBuild": "1",
   "firstUploadedCommit": "613b2bb8f2a483b4de6557f139837f70c0059ed5",
-  "firstUploadDate": "2026-10-21"
+  "firstUploadDate": "2026-10-21",
+  "firstBuildTestFlightId": "22e9c904-83b2-4c3e-90d9-1b497db2c8ad",
+  "firstBuildStatus": "Ready to Submit",
+  "firstBuildStatusVerifiedDate": "2026-10-22",
+  "firstBuildEncryptionDeclaration": "None of the algorithms mentioned above",
+  "draftReleaseBuildAttached": true
 }
