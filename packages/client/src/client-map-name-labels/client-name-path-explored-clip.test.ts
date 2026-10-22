@@ -15,7 +15,7 @@ describe("clipNamePathToExplored", () => {
     expect(Math.min(...xs)).toBeGreaterThanOrEqual(7.5);
     expect(Math.max(...xs)).toBeLessThanOrEqual(17.5);
     expect(clipped.spanTiles).toBeLessThan(path.spanTiles);
-    expect(clipped.spanTiles).toBeCloseTo(Math.max(...xs) - Math.min(...xs) + 1);
+    expect(clipped.spanTiles).toBeCloseTo(Math.max(...xs) - Math.min(...xs));
   });
 
   it("drops a name with almost nothing explored under it", () => {

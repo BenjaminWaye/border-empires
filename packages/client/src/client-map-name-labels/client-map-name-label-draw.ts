@@ -57,7 +57,11 @@ export const drawNameAlongPath = (
   }
   const pathPx = cumulative[cumulative.length - 1]!;
   if (pathPx < 1) return false;
-  const pathTiles = Math.max(0.5, label.spanTiles - 2);
+  let pathTiles = 0;
+  for (let index = 1; index < label.points.length; index += 1) {
+    pathTiles += Math.hypot(label.points[index]!.x - label.points[index - 1]!.x, label.points[index]!.y - label.points[index - 1]!.y);
+  }
+  pathTiles = Math.max(0.5, pathTiles);
   const tilePx = pathPx / pathTiles;
   const availablePx = tilePx * label.spanTiles;
   const mid = pointAt(polyline, cumulative, pathPx / 2);

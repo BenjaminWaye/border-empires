@@ -47,6 +47,6 @@ export const clipNamePathToExplored = (
   let lengthTiles = 0;
   for (let index = 1; index < points.length; index += 1) lengthTiles += Math.hypot(points[index]!.x - points[index - 1]!.x, points[index]!.y - points[index - 1]!.y);
   if (lengthTiles < MIN_EXPLORED_LABEL_TILES || points.length < 2) return undefined;
-  // No rim beyond the cut ends: the explored stretch is all the room the name gets.
-  return { ...path, points, spanTiles: lengthTiles + 1 };
+  // No rim beyond the cut ends: the stretch between the first and last good samples is all the room the name gets.
+  return { ...path, points, spanTiles: lengthTiles };
 };

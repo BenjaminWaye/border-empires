@@ -107,11 +107,20 @@ export const createMapNameLabelSource = (deps: MapNameLabelSourceDeps): MapNameL
       const alphas = nameLabelAlphasForZoom(deps.state.zoom);
       const labels: PlacedNameLabel[] = [];
       if (alphas.players <= 0 && alphas.islands <= 0) return { labels, signature: "none" };
-      const isExplored = (x: number, y: number): boolean => deps.isExploredAt(deps.wrapX(x), deps.wrapY(y));
+      const exploredAt = (x: number, y: number): boolean => deps.isExploredAt(deps.wrapX(x), deps.wrapY(y));
+      // One tile in from unexplored ground: the storm clouds spill over the outermost explored ring.
+      const isExplored = (x: number, y: number): boolean =>
+        exploredAt(x, y) && exploredAt(x + 1, y) && exploredAt(x - 1, y) && exploredAt(x, y + 1) && exploredAt(x, y - 1);
       requestLabelFonts();
       if (alphas.islands > 0) {
         for (const label of deps.state.islandLabels ?? []) {
-          const path = clipNamePathToExplored(islandLabelPath(label), isExplored);
+          // Keep the name on the island itself: explored land only, never out over the sea.
+          const onExploredLand = (x: number, y: number): boolean => {
+            if (!isExplored(x, y)) return false;
+            const terrain = deps.state.tiles.get(`${deps.wrapX(x)},${deps.wrapY(y)}`)?.terrain;
+            return terrain === "LAND" || terrain === "MOUNTAIN";
+          };
+          const path = clipNamePathToExplored(islandLabelPath(label), onExploredLand);
           if (path) labels.push({ kind: "island", path, style: islandStyle(label, alphas.islands) });
         }
       }
