@@ -1,16 +1,16 @@
 import { CanvasTexture, SRGBColorSpace, Sprite, SpriteMaterial, type Scene } from "three";
 
-import { drawMusterProgressBadge, musterBadgePercent } from "./client-muster-pending-badge/client-muster-pending-badge.js";
+import { drawMusterProgressBadge, musterBadgePercent, type MusterBadgeKind } from "./client-muster-flag-badge/client-muster-flag-badge.js";
 
-// 3D half of the parked-attack progress badge (client-muster-pending-badge.ts
-// has the why and the 2D half): a camera-facing sprite above the muster
-// banner. Unlike the static badge overlays (client-map-3d-observatory-
-// cooldown-badge-overlay/ and friends), each badge shows its own number, so
-// each sprite owns a small canvas texture -- redrawn only when its whole
-// percent changes, not every frame. Parked attacks are few (bounded by the
-// player's muster-flag limit), so a small fixed pool covers them.
+// 3D half of the muster flag progress badge (client-muster-flag-badge.ts has
+// the why and the 2D half): a camera-facing sprite above each of our own
+// muster banners. Unlike the static badge overlays (client-map-3d-
+// observatory-cooldown-badge-overlay/ and friends), each badge shows its own
+// number, so each sprite owns a small canvas texture -- redrawn only when its
+// whole percent or ring colour changes, not every frame. Our own flags are
+// few (the muster-flag limit), so a small pool, grown on demand, covers them.
 
-const MAX_BADGES = 8;
+const MAX_BADGES = 24;
 const CANVAS_SIZE = 128;
 const BADGE_WORLD_SIZE = 0.42;
 // Clears the banner's crossbar and finial (CROSSBAR_Y ~0.98 above the plinth
@@ -25,6 +25,7 @@ export type MusterProgressBadgeSlot = {
   sceneZ: number;
   surfaceY: number;
   ratio: number;
+  kind: MusterBadgeKind;
   /** Stable per-flag phase (0-1) so neighbouring badges don't bob in lockstep. */
   phase: number;
 };
@@ -35,7 +36,7 @@ export type MusterProgressBadgeLayer = {
   readonly dispose: () => void;
 };
 
-type Badge = { sprite: Sprite; material: SpriteMaterial; texture: CanvasTexture | null; ctx: CanvasRenderingContext2D | null; shownPercent: number };
+type Badge = { sprite: Sprite; material: SpriteMaterial; texture: CanvasTexture | null; ctx: CanvasRenderingContext2D | null; shownPercent: number; shownKind: MusterBadgeKind | undefined };
 
 const createBadge = (): Badge => {
   // Node test env: no document, so no canvas -- the sprite still exists, untextured.
@@ -55,18 +56,19 @@ const createBadge = (): Badge => {
   sprite.renderOrder = 27;
   sprite.frustumCulled = false;
   sprite.visible = false;
-  return { sprite, material, texture, ctx: canvas?.getContext("2d") ?? null, shownPercent: -1 };
+  return { sprite, material, texture, ctx: canvas?.getContext("2d") ?? null, shownPercent: -1, shownKind: undefined };
 };
 
-const paint = (badge: Badge, ratio: number): void => {
+const paint = (badge: Badge, ratio: number, kind: MusterBadgeKind): void => {
   const percent = musterBadgePercent(ratio);
-  if (percent === badge.shownPercent) return;
+  if (percent === badge.shownPercent && kind === badge.shownKind) return;
   badge.shownPercent = percent;
+  badge.shownKind = kind;
   if (!badge.ctx || !badge.texture) return;
   badge.ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
   // The disc plus its pointer is ~2.45 radii tall; centre it so both fit.
   const radius = CANVAS_SIZE * 0.36;
-  drawMusterProgressBadge(badge.ctx, CANVAS_SIZE / 2, CANVAS_SIZE * 0.4, radius, ratio);
+  drawMusterProgressBadge(badge.ctx, CANVAS_SIZE / 2, CANVAS_SIZE * 0.4, radius, ratio, kind);
   badge.texture.needsUpdate = true;
 };
 
@@ -87,7 +89,7 @@ export const createMusterProgressBadgeLayer = (scene: Scene): MusterProgressBadg
         badge.sprite.visible = false;
         continue;
       }
-      paint(badge, slot.ratio);
+      paint(badge, slot.ratio, slot.kind);
       const bob = Math.sin(((nowMs / BOB_PERIOD_MS) + slot.phase) * Math.PI * 2) * BOB_AMPLITUDE;
       badge.sprite.position.set(slot.sceneX, slot.surfaceY + FLOAT_Y + bob, slot.sceneZ);
       badge.sprite.visible = true;

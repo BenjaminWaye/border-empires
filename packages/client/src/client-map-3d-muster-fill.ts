@@ -24,6 +24,6 @@ export const musterFillRatioForTile = (
   return Math.min(1, predictedAmount / MUSTER_ATTACK_COST);
 };
 
-// The parked-attack progress badge's per-flag fill, re-exported beside the
-// banner's own fill ratio so client-map-3d.ts wires both from one import.
-export { pendingMusterBadgeRatios } from "./client-muster-pending-badge/client-muster-pending-badge.js";
+// The flag progress badge's per-flag lookup, re-exported beside the banner's
+// own fill ratio so client-map-3d.ts wires both from one import.
+export { musterBadgeLookup } from "./client-muster-flag-badge/client-muster-flag-badge.js";

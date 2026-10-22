@@ -10,7 +10,8 @@ export const MUSTER_COMMIT_BADGE_CHANGELOG: ClientChangelogEntry[] = [
       "When you commit more manpower to an attack than a muster flag can hold, using March To or Launch Attack, the flag's capacity now expands to fit it",
       "Switching a muster flag between Hold, Advance and March keeps the capacity you added with Expand Capacity",
       "The commit window uses the brass-and-leather look of the rest of the game, with a brass gauge slider, a large manpower readout and preset buttons that show their amounts",
-      "An attack that is still gathering manpower now shows a percentage badge above its muster flag, on both the 3D and 2D maps, instead of the \"Mustering...\" banner. Esc still cancels it"
+      "Every one of your muster flags shows a percentage badge above it, on both the 3D and 2D maps: a brass ring counts toward the attack it is gathering for, a green ring shows how full a flag on Hold is",
+      "An attack waiting for manpower shows on its flag's badge instead of the \"Mustering...\" banner. Cancel it with Esc or with Cancel Queued Attack on the flag"
     ]
   }
 ];

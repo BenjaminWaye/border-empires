@@ -128,7 +128,7 @@ export const buildMusterActions = (
       ...(maxedOut ? { disabledReason: "Already at your manpower cap" } : {})
     });
     // A manual attack parked on this flag shows only as the badge over it
-    // (client-muster-pending-badge.ts) -- no banner with a Cancel button any
+    // (client-muster-flag-badge.ts) -- no banner with a Cancel button any
     // more, and touch players have no Esc -- so cancelling lives here.
     const queued = state.pendingMusterAttacks.filter((entry) => entry.musterTileKey === `${tile.x},${tile.y}`);
     if (queued.length > 0) {

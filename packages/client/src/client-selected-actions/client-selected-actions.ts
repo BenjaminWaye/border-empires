@@ -171,7 +171,7 @@ export const cancelOngoingCapture = (
 // Hides the capture overlay for the currently-displayed instance without
 // cancelling anything underneath it — the in-flight capture keeps resolving.
 // (A still-parked muster attack has no banner to dismiss: it shows as a
-// badge over its flag, client-muster-pending-badge.ts.)
+// badge over its flag, client-muster-flag-badge.ts.)
 export const dismissOngoingCapture = (state: Pick<ClientState, "capture" | "dismissedCaptureStartAt">): void => {
   state.dismissedCaptureStartAt = state.capture?.startAt;
 };

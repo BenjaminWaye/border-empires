@@ -246,7 +246,7 @@ describe("renderCaptureProgress", () => {
 
   // A parked manual attack used to take this banner over as "Mustering...
   // 30 / 150"; its progress now floats over the flag as a badge
-  // (client-muster-pending-badge.ts), so the banner must stay out of the way.
+  // (client-muster-flag-badge.ts), so the banner must stay out of the way.
   it("keeps the capture banner hidden while a manual attack is only parked on a muster flag", () => {
     const captureCardEl = makeElement();
     const captureWrapEl = makeElement();

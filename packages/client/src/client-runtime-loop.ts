@@ -1163,8 +1163,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     // 2D supply lines: flag → attack front, one per active muster flag/
     // auto-fire fight, covering manually-armed transits, ADVANCE-mode
     // fallback, and ADVANCE/MARCH auto-fire's own travel-time delay
-    // (including MARCH's neutral-tile EXPAND leg), then parked-attack
-    // progress badges over their flags — see client-muster-supply-lines-2d.ts.
+    // (including MARCH's neutral-tile EXPAND leg), then a progress badge
+    // over each of our flags — see client-muster-supply-lines-2d.ts.
     if (!isTrue3DRendererActive()) {
       drawMusterOverlays2D(state, deps.keyFor, deps.worldToScreen, deps.ctx, deps.effectiveOverlayColor, size, halfW, halfH, nowMs);
     }

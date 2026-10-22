@@ -20,6 +20,7 @@ import { createMusterBannerClothMaterials } from "./client-map-3d-muster-banner/
 import { getMusterBannerGeometry, MUSTER_PLINTH_LEDGES } from "./client-map-3d-muster-banner/muster-banner-geometry.js";
 import { applyMarbleFinish } from "./client-map-3d-muster-banner/muster-banner-marble-material.js";
 import { createMusterProgressBadgeLayer, type MusterProgressBadgeSlot } from "./client-map-3d-muster-progress-badge.js";
+import type { MusterBadgeInfo } from "./client-muster-flag-badge/client-muster-flag-badge.js";
 import { TOWN_BASE_LIFT } from "./client-map-3d-town-overlay.js";
 
 // Muster overlay: every mustering tile carries a war banner in its owner's
@@ -45,10 +46,11 @@ import { TOWN_BASE_LIFT } from "./client-map-3d-town-overlay.js";
 //     plinth and the soldiers stop marching in and stand guard at its rim.
 //     Driven by siegeEndsAt in tick(), so it switches off on its own when the
 //     fight resolves, without waiting for a terrain rebuild.
-//   • A manual attack parked on the flag, still gathering its manpower:
-//     a percentage badge floats above the banner
-//     (client-map-3d-muster-progress-badge.ts). Its source is read every
-//     tick, so the number climbs between terrain rebuilds too.
+//   • Our own flags carry a percentage badge above the banner -- how far the
+//     flag is toward the attack it's gathering for, or how full it is
+//     (client-muster-flag-badge.ts, client-map-3d-muster-progress-badge.ts).
+//     Its source is read every tick, so the number climbs between terrain
+//     rebuilds too.
 
 const MAX = 256;
 const ADVANCE_WIND_SPEED = 1.6;
@@ -127,14 +129,14 @@ export type MusterOverlay = {
 };
 
 /**
- * `pendingBadgeRatios` returns, per flag tile key (`${x},${y}`), how far a
- * parked attack on that flag has filled (0-1) -- see
- * client-muster-pending-badge.ts. Omitted, no badges are drawn.
+ * `badgeLookup` is called once per tick and returns a per-flag lookup (tile
+ * key `${x},${y}` -> badge, undefined for rival flags) -- see
+ * client-muster-flag-badge.ts's musterBadgeLookup. Omitted, no badges are drawn.
  */
 export const createMusterOverlay = (
   scene: Scene,
   envMap?: Texture,
-  pendingBadgeRatios?: () => ReadonlyMap<string, number>
+  badgeLookup?: () => (tileKey: string) => MusterBadgeInfo | undefined
 ): MusterOverlay => {
   const geometry = getMusterBannerGeometry();
   // The towns' AFC-style metalwork (client-map-3d-town-overlay.ts); the
@@ -289,14 +291,14 @@ export const createMusterOverlay = (
 
   const applyProgressBadges = (nowMs: number): void => {
     badgeSlots.length = 0;
-    const ratios = pendingBadgeRatios?.();
-    if (ratios && ratios.size > 0) {
+    const lookup = entries.length > 0 ? badgeLookup?.() : undefined;
+    if (lookup) {
       for (const e of entries) {
-        const ratio = ratios.get(`${e.worldTileX},${e.worldTileY}`);
-        if (ratio === undefined) continue;
+        const badge = lookup(`${e.worldTileX},${e.worldTileY}`);
+        if (!badge) continue;
         badgeSlots.push({
           sceneX: e.sceneX, sceneZ: e.sceneZ, surfaceY: e.surfaceY + TOWN_BASE_LIFT,
-          ratio, phase: hash01(e.worldTileX, e.worldTileY, 0, 41)
+          ratio: badge.ratio, kind: badge.kind, phase: hash01(e.worldTileX, e.worldTileY, 0, 41)
         });
       }
     }

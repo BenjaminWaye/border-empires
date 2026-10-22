@@ -199,7 +199,7 @@ export const renderCaptureProgress = (
     // Nothing fired yet. A manual attack still parked on a muster flag
     // (pendingMusterAttacks) no longer takes this banner over as
     // "Mustering... N/M": its progress floats over the flag itself instead
-    // (client-muster-pending-badge.ts), and Esc still cancels it.
+    // (client-muster-flag-badge.ts), and Esc still cancels it.
     deps.captureCardEl.style.display = "none";
     deps.captureWrapEl.style.display = "none";
     deps.captureCancelBtn.style.display = "none";

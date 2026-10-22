@@ -5,7 +5,7 @@ import {
   type AdvanceMusterFallbackCache,
   type MusterSupplyLine
 } from "./client-muster-transit/client-muster-transit.js";
-import { drawPendingMusterBadges2D } from "./client-muster-pending-badge/client-muster-pending-badge.js";
+import { drawMusterBadges2D } from "./client-muster-flag-badge/client-muster-flag-badge.js";
 import type { ClientState } from "./client-state/client-state.js";
 
 type WorldToScreen = (x: number, y: number, size: number, halfW: number, halfH: number) => { sx: number; sy: number };
@@ -57,8 +57,8 @@ export function drawMusterSupplyLines2D(
 }
 
 // Everything muster-related the 2D map draws over the tiles, in one pass:
-// the supply lines, then each parked attack's progress badge on top of its
-// flag (client-muster-pending-badge.ts) so a line never crosses the number.
+// the supply lines, then each of our flags' progress badge on top
+// (client-muster-flag-badge.ts) so a line never crosses the number.
 export function drawMusterOverlays2D(
   state: ClientState,
   keyFor: (x: number, y: number) => string,
@@ -71,7 +71,7 @@ export function drawMusterOverlays2D(
   nowMs: number
 ): void {
   drawMusterSupplyLines2D(state, keyFor, worldToScreen, ctx, effectiveOverlayColor, size, halfW, halfH, nowMs);
-  drawPendingMusterBadges2D(state, keyFor, worldToScreen, ctx, size, halfW, halfH);
+  drawMusterBadges2D(state, keyFor, worldToScreen, ctx, size, halfW, halfH, nowMs);
 }
 
 function drawSupplyLine(
