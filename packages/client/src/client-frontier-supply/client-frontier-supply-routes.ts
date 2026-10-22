@@ -5,7 +5,8 @@ import type { FrontierSupplyLink, FrontierSupplyModel } from "./client-frontier-
 /**
  * Turns the supply model's per-tile hops into drawable routes: one polyline
  * per unbranched stretch of the supply tree, smoothed, with each point's
- * distance from the cut tile (so dashes run continuously across a fork).
+ * distance from the supply tile the line starts at (so the travelling pulses
+ * run on continuously through a fork).
  * Shared by the 2D and 3D renderers so both draw the same shapes.
  *
  * Points are in tile units, tile centres at integer coordinates. A route's
@@ -17,12 +18,14 @@ import type { FrontierSupplyLink, FrontierSupplyModel } from "./client-frontier-
 export type SupplyRoutePoint = {
   x: number;
   y: number;
-  /** Distance along the supply tree from the cut tile, tiles. */
+  /** Distance along the supply tree from the supply tile the line starts at, tiles. */
   distance: number;
 };
 
 export type SupplyRoute = {
   points: SupplyRoutePoint[];
+  /** The route ends at a real frontier tip (see FrontierSupplyLink.tip): draw an arrowhead. */
+  endsAtTip: boolean;
 };
 
 export type SupplyRouteOptions = {
@@ -93,6 +96,7 @@ export const buildSupplyRoutes = (model: FrontierSupplyModel, options: SupplyRou
     let x = startX;
     let y = startY;
     let distance = startDistance;
+    let endsAtTip = false;
     for (;;) {
       const dx = wrapDelta(link.from.x, link.to.x, width);
       const dy = wrapDelta(link.from.y, link.to.y, height);
@@ -101,7 +105,7 @@ export const buildSupplyRoutes = (model: FrontierSupplyModel, options: SupplyRou
       distance += Math.hypot(dx, dy);
       raw.push({ x, y, distance });
       const onward = linksFrom.get(pointKey(link.to));
-      if (!onward) break;
+      if (!onward) { endsAtTip = link.tip; break; }
       if (onward.length > 1) {
         for (const child of onward) pending.push({ link: child, startX: x, startY: y, startDistance: distance });
         break;
@@ -112,7 +116,7 @@ export const buildSupplyRoutes = (model: FrontierSupplyModel, options: SupplyRou
     const anchorDx = first.from.x - startX;
     const anchorDy = first.from.y - startY;
     const anchored = raw.map((p) => ({ ...p, x: p.x + anchorDx, y: p.y + anchorDy }));
-    routes.push({ points: smooth(anchored, passes) });
+    routes.push({ points: smooth(anchored, passes), endsAtTip });
   }
   return routes;
 };

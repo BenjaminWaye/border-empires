@@ -1,17 +1,20 @@
-import { BufferGeometry, Color, DoubleSide, Float32BufferAttribute, Mesh, Scene, ShaderMaterial, Vector2 } from "three";
+import { BufferGeometry, Color, DoubleSide, Float32BufferAttribute, Mesh, Scene, ShaderMaterial } from "three";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 
 import type { FrontierSupplyModel } from "./client-frontier-supply/client-frontier-supply.js";
 import { supplyRoutesFor, type SupplyRoute } from "./client-frontier-supply/client-frontier-supply-routes.js";
 import {
-  SUPPLY_CUT_RING_ALPHA,
+  SUPPLY_CORE_WHITE_MIX,
   SUPPLY_CUT_RING_RADIUS,
   SUPPLY_CUT_RING_WIDTH,
-  SUPPLY_DASH_GAP,
-  SUPPLY_DASH_LENGTH,
-  SUPPLY_LINE_ALPHA,
-  SUPPLY_LINE_WHITE_MIX,
-  SUPPLY_LINE_WIDTH
+  SUPPLY_PULSE_SPACING,
+  SUPPLY_PULSE_SPEED,
+  SUPPLY_ROUTE_ALPHA,
+  SUPPLY_ROUTE_REST_ALPHA,
+  SUPPLY_ROUTE_WIDTH,
+  SUPPLY_SHADOW_PULSE_LIFT,
+  SUPPLY_SHADOW_REST_ALPHA,
+  supplyCutRingAlpha
 } from "./client-frontier-supply/client-frontier-supply-style.js";
 
 // True-3D renderer for fragile frontier supply lines (the 2D counterpart is
@@ -19,19 +22,28 @@ import {
 // from client-frontier-supply-routes.ts in the look defined by
 // client-frontier-supply-style.ts).
 //
-// Every route is one thin ribbon, and every cut tile one flat ring, in a
-// single merged mesh. Each vertex sits on the centre line and carries the
-// direction and world half-width to push out by; the vertex shader widens
-// that push so the stroke never drops below MIN_WIDTH_PX on screen (a thin
-// line would otherwise break up when zoomed out). The fragment shader cuts the
-// ribbon into dashes from a per-vertex distance-along-the-line attribute, so
-// dashes run on unbroken through a fork. Nothing animates: geometry is
+// Every route is one ribbon, and every cut tile one flat ring, in a single
+// merged mesh. The ribbon is wider than the visible route by RIBBON_EXTENT so
+// the fragment shader can draw, from the across-ribbon coordinate alone: a
+// bright core, the empire-tinted body, and a soft dark shadow edge. All of it
+// stays pale at rest and comes up only where a pulse is passing, so the
+// player reads the route from the travelling pulses rather than the ribbon
+// itself. Pulses travel along a per-vertex distance-from-supply attribute, so
+// per frame the CPU sets the time and ring-breath uniforms only. Geometry is
 // rebuilt only when the model or the scene origin changes.
 
 const RISE_ABOVE_SURFACE = 0.035;
+/** Ribbon half-width as a multiple of the visible route's half-width: the rest is the soft shadow edge. */
+const RIBBON_EXTENT = 1.9;
+const ARROW_HALF_WIDTH_SCALE = 2.1;
+const ARROW_MIN_HALF_WIDTH = 0.13;
+const ARROW_BACK = 0.12;
+const ARROW_FORWARD = 0.26;
 const RING_SEGMENTS = 24;
-/** Narrowest the line and ring may draw, CSS px. */
-const MIN_WIDTH_PX = 1;
+/** aKind values: which part of the mesh a vertex belongs to. */
+const KIND_ROUTE = 0;
+const KIND_TIP = 1;
+const KIND_RING = 2;
 /** Hard bound on vertices, so a pathological empire can't grow GPU buffers without limit. */
 export const FRONTIER_SUPPLY_MAX_VERTICES = 60_000;
 
@@ -40,13 +52,15 @@ export type FrontierSupplyScenePoint = { sceneX: number; sceneZ: number; surface
 export type FrontierSupplyOverlay = {
   /**
    * Call every frame. `placementKey` must change whenever `sceneFor` would
-   * place tiles differently (the 3D scene origin moved).
+   * place tiles differently (the 3D scene origin moved); `nowMs` is any
+   * monotonic clock.
    */
   readonly sync: (
     model: FrontierSupplyModel,
     sceneFor: (x: number, y: number) => FrontierSupplyScenePoint,
     placementKey: string,
-    ownerColor: string
+    ownerColor: string,
+    nowMs: number
   ) => void;
   readonly dispose: () => void;
 };
@@ -54,64 +68,80 @@ export type FrontierSupplyOverlay = {
 const supplyMaterial = (): ShaderMaterial =>
   new ShaderMaterial({
     uniforms: {
-      uColor: { value: new Color("#ffffff") },
-      uLineAlpha: { value: SUPPLY_LINE_ALPHA },
-      uRingAlpha: { value: SUPPLY_CUT_RING_ALPHA },
-      uDash: { value: SUPPLY_DASH_LENGTH },
-      uPeriod: { value: SUPPLY_DASH_LENGTH + SUPPLY_DASH_GAP },
-      uViewport: { value: new Vector2(1, 1) },
-      uMinHalfPx: { value: MIN_WIDTH_PX / 2 }
+      uTimeS: { value: 0 },
+      uBody: { value: new Color("#ffffff") },
+      uCore: { value: new Color("#ffffff") },
+      uExtent: { value: RIBBON_EXTENT },
+      uSpeed: { value: SUPPLY_PULSE_SPEED },
+      uSpacing: { value: SUPPLY_PULSE_SPACING },
+      uRouteAlpha: { value: SUPPLY_ROUTE_ALPHA },
+      uRestAlpha: { value: SUPPLY_ROUTE_REST_ALPHA },
+      uShadowRestAlpha: { value: SUPPLY_SHADOW_REST_ALPHA },
+      uShadowLift: { value: SUPPLY_SHADOW_PULSE_LIFT },
+      uRingAlpha: { value: 0 }
     },
     transparent: true,
     depthTest: false,
     depthWrite: false,
     side: DoubleSide,
     vertexShader: `
-      uniform vec2 uViewport;
-      uniform float uMinHalfPx;
-      attribute vec3 aSide;
-      attribute float aHalf;
+      attribute float aAcross;
       attribute float aDistance;
-      attribute float aRing;
+      attribute float aKind;
+      varying float vAcross;
       varying float vDistance;
-      varying float vRing;
+      varying float vKind;
       void main() {
-        vDistance = aDistance; vRing = aRing;
-        mat4 toClip = projectionMatrix * modelViewMatrix;
-        vec4 centre = toClip * vec4(position, 1.0);
-        vec3 offset = aSide * aHalf;
-        vec4 edge = toClip * vec4(position + offset, 1.0);
-        float halfPx = length((edge.xy / edge.w - centre.xy / centre.w) * 0.5 * uViewport);
-        float widen = halfPx > 0.0 ? max(1.0, uMinHalfPx / halfPx) : 1.0;
-        gl_Position = toClip * vec4(position + offset * widen, 1.0);
+        vAcross = aAcross; vDistance = aDistance; vKind = aKind;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }
     `,
     fragmentShader: `
-      uniform vec3 uColor;
-      uniform float uLineAlpha;
+      uniform float uTimeS;
+      uniform vec3 uBody;
+      uniform vec3 uCore;
+      uniform float uExtent;
+      uniform float uSpeed;
+      uniform float uSpacing;
+      uniform float uRouteAlpha;
+      uniform float uRestAlpha;
+      uniform float uShadowRestAlpha;
+      uniform float uShadowLift;
       uniform float uRingAlpha;
-      uniform float uDash;
-      uniform float uPeriod;
+      varying float vAcross;
       varying float vDistance;
-      varying float vRing;
+      varying float vKind;
       void main() {
-        if (vRing > 0.5) {
-          gl_FragColor = vec4(uColor, uRingAlpha);
+        if (vKind > 1.5) {
+          gl_FragColor = vec4(uCore, uRingAlpha);
           return;
         }
-        if (mod(vDistance, uPeriod) >= uDash) discard;
-        gl_FragColor = vec4(uColor, uLineAlpha);
+        // Pulse: sharp head moving outward, soft tail back toward supply (see supplyPulseAt).
+        float t = (vDistance - uTimeS * uSpeed) / uSpacing;
+        float behind = 1.0 - fract(t);
+        float pulse = min(1.0, behind / 0.04) * max(0.0, 1.0 - behind / 0.45);
+        // mix(uRestAlpha, 1.0, pulse) is supplyLitAlpha from client-frontier-supply-style.ts.
+        float lit = mix(uRestAlpha, 1.0, pulse);
+        if (vKind > 0.5) {
+          gl_FragColor = vec4(mix(uBody, uCore, 0.3 + 0.6 * pulse), uRouteAlpha * lit);
+          return;
+        }
+        float a = abs(vAcross) * uExtent; // 1.0 at the visible route edge
+        float inBody = 1.0 - smoothstep(0.78, 1.0, a);
+        float inShadow = (1.0 - smoothstep(1.0, uExtent, a)) * (1.0 - inBody);
+        float inCore = 1.0 - smoothstep(0.0, 0.5, a);
+        vec3 color = mix(mix(uBody, uCore, min(1.0, inCore * 0.7 + pulse * 0.9)), vec3(0.02, 0.03, 0.05), inShadow);
+        float alpha = (inBody * lit + inShadow * (uShadowRestAlpha + uShadowLift * pulse)) * uRouteAlpha;
+        gl_FragColor = vec4(color, alpha);
       }
     `
   });
 
 type SupplyBuffers = {
-  /** Centre-line points; the shader pushes each out along `side` by `half`. */
   positions: number[];
-  side: number[];
-  half: number[];
+  across: number[];
   distance: number[];
-  ring: number[];
+  kind: number[];
   indices: number[];
 };
 
@@ -119,11 +149,18 @@ const wrapCoord = (v: number, size: number): number => ((Math.round(v) % size) +
 
 const vertexCount = (out: SupplyBuffers): number => out.positions.length / 3;
 
-/** Appends one route's ribbon to the merged buffers. Returns false once the vertex cap is hit. */
+const pushVertex = (out: SupplyBuffers, x: number, y: number, z: number, across: number, distance: number, kind: number): void => {
+  out.positions.push(x, y, z);
+  out.across.push(across);
+  out.distance.push(distance);
+  out.kind.push(kind);
+};
+
+/** Appends one route's ribbon (and its arrowhead) to the merged buffers. Returns false once the vertex cap is hit. */
 const appendRoute = (out: SupplyBuffers, route: SupplyRoute, sceneFor: (x: number, y: number) => FrontierSupplyScenePoint): boolean => {
   const points = route.points;
   if (points.length < 2) return true;
-  if (vertexCount(out) + points.length * 2 > FRONTIER_SUPPLY_MAX_VERTICES) return false;
+  if (vertexCount(out) + points.length * 2 + (route.endsAtTip ? 3 : 0) > FRONTIER_SUPPLY_MAX_VERTICES) return false;
   const first = points[0]!;
   const anchor = sceneFor(first.x, first.y);
   const scene = points.map((p) => ({
@@ -132,7 +169,7 @@ const appendRoute = (out: SupplyBuffers, route: SupplyRoute, sceneFor: (x: numbe
     y: sceneFor(wrapCoord(p.x, WORLD_WIDTH), wrapCoord(p.y, WORLD_HEIGHT)).surfaceY + RISE_ABOVE_SURFACE
   }));
   const base = vertexCount(out);
-  const half = SUPPLY_LINE_WIDTH / 2;
+  const half = (SUPPLY_ROUTE_WIDTH / 2) * RIBBON_EXTENT;
   for (let i = 0; i < points.length; i += 1) {
     const prev = scene[Math.max(0, i - 1)]!;
     const next = scene[Math.min(points.length - 1, i + 1)]!;
@@ -142,15 +179,28 @@ const appendRoute = (out: SupplyBuffers, route: SupplyRoute, sceneFor: (x: numbe
     tx /= len;
     tz /= len;
     const s = scene[i]!;
-    out.positions.push(s.x, s.y, s.z, s.x, s.y, s.z);
-    out.side.push(-tz, 0, tx, tz, 0, -tx);
-    out.half.push(half, half);
-    out.distance.push(points[i]!.distance, points[i]!.distance);
-    out.ring.push(0, 0);
+    pushVertex(out, s.x - tz * half, s.y, s.z + tx * half, -1, points[i]!.distance, KIND_ROUTE);
+    pushVertex(out, s.x + tz * half, s.y, s.z - tx * half, 1, points[i]!.distance, KIND_ROUTE);
     if (i > 0) {
       const a = base + (i - 1) * 2;
       out.indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
     }
+  }
+  if (route.endsAtTip) {
+    const end = scene[scene.length - 1]!;
+    const before = scene[scene.length - 2]!;
+    const len = Math.hypot(end.x - before.x, end.z - before.z) || 1;
+    const dx = (end.x - before.x) / len;
+    const dz = (end.z - before.z) / len;
+    const distance = points[points.length - 1]!.distance;
+    const arrowHalf = Math.max(ARROW_MIN_HALF_WIDTH, (SUPPLY_ROUTE_WIDTH / 2) * ARROW_HALF_WIDTH_SCALE);
+    const bx = end.x - dx * ARROW_BACK;
+    const bz = end.z - dz * ARROW_BACK;
+    const tipIndex = vertexCount(out);
+    pushVertex(out, bx - dz * arrowHalf, end.y, bz + dx * arrowHalf, 0, distance, KIND_TIP);
+    pushVertex(out, bx + dz * arrowHalf, end.y, bz - dx * arrowHalf, 0, distance, KIND_TIP);
+    pushVertex(out, end.x + dx * ARROW_FORWARD, end.y, end.z + dz * ARROW_FORWARD, 0, distance, KIND_TIP);
+    out.indices.push(tipIndex, tipIndex + 1, tipIndex + 2);
   }
   return true;
 };
@@ -158,20 +208,16 @@ const appendRoute = (out: SupplyBuffers, route: SupplyRoute, sceneFor: (x: numbe
 /** Appends a flat ring on a cut tile. Returns false once the vertex cap is hit. */
 const appendCutRing = (out: SupplyBuffers, at: FrontierSupplyScenePoint): boolean => {
   if (vertexCount(out) + RING_SEGMENTS * 2 > FRONTIER_SUPPLY_MAX_VERTICES) return false;
-  const half = SUPPLY_CUT_RING_WIDTH / 2;
+  const inner = SUPPLY_CUT_RING_RADIUS - SUPPLY_CUT_RING_WIDTH / 2;
+  const outer = SUPPLY_CUT_RING_RADIUS + SUPPLY_CUT_RING_WIDTH / 2;
   const y = at.surfaceY + RISE_ABOVE_SURFACE;
   const base = vertexCount(out);
   for (let i = 0; i < RING_SEGMENTS; i += 1) {
     const angle = (i / RING_SEGMENTS) * Math.PI * 2;
     const cx = Math.cos(angle);
     const sz = Math.sin(angle);
-    const px = at.sceneX + cx * SUPPLY_CUT_RING_RADIUS;
-    const pz = at.sceneZ + sz * SUPPLY_CUT_RING_RADIUS;
-    out.positions.push(px, y, pz, px, y, pz);
-    out.side.push(-cx, 0, -sz, cx, 0, sz);
-    out.half.push(half, half);
-    out.distance.push(0, 0);
-    out.ring.push(1, 1);
+    pushVertex(out, at.sceneX + cx * inner, y, at.sceneZ + sz * inner, 0, 0, KIND_RING);
+    pushVertex(out, at.sceneX + cx * outer, y, at.sceneZ + sz * outer, 0, 0, KIND_RING);
     const a = base + i * 2;
     const b = base + ((i + 1) % RING_SEGMENTS) * 2;
     out.indices.push(a, a + 1, b, a + 1, b + 1, b);
@@ -185,8 +231,6 @@ export const createFrontierSupplyOverlay = (scene: Scene): FrontierSupplyOverlay
   const mesh = new Mesh(geometry, material);
   mesh.frustumCulled = false; // rebuilt in place; bounds would only lag behind
   mesh.renderOrder = 24;
-  const viewport = material.uniforms.uViewport!.value as Vector2;
-  mesh.onBeforeRender = (renderer) => { renderer.getSize(viewport); };
   scene.add(mesh);
 
   const white = new Color("#ffffff");
@@ -194,25 +238,27 @@ export const createFrontierSupplyOverlay = (scene: Scene): FrontierSupplyOverlay
   let lastPlacementKey = "";
 
   const rebuild = (model: FrontierSupplyModel, sceneFor: (x: number, y: number) => FrontierSupplyScenePoint): void => {
-    const out: SupplyBuffers = { positions: [], side: [], half: [], distance: [], ring: [], indices: [] };
+    const out: SupplyBuffers = { positions: [], across: [], distance: [], kind: [], indices: [] };
     let room = true;
     for (const cut of model.cuts) if (!(room = appendCutRing(out, sceneFor(cut.x, cut.y)))) break;
     if (room) for (const route of supplyRoutesFor(model)) if (!appendRoute(out, route, sceneFor)) break;
     geometry.setAttribute("position", new Float32BufferAttribute(out.positions, 3));
-    geometry.setAttribute("aSide", new Float32BufferAttribute(out.side, 3));
-    geometry.setAttribute("aHalf", new Float32BufferAttribute(out.half, 1));
+    geometry.setAttribute("aAcross", new Float32BufferAttribute(out.across, 1));
     geometry.setAttribute("aDistance", new Float32BufferAttribute(out.distance, 1));
-    geometry.setAttribute("aRing", new Float32BufferAttribute(out.ring, 1));
+    geometry.setAttribute("aKind", new Float32BufferAttribute(out.kind, 1));
     geometry.setIndex(out.indices);
   };
 
-  const sync: FrontierSupplyOverlay["sync"] = (model, sceneFor, placementKey, ownerColor) => {
+  const sync: FrontierSupplyOverlay["sync"] = (model, sceneFor, placementKey, ownerColor, nowMs) => {
     if (model !== lastModel || placementKey !== lastPlacementKey) {
       rebuild(model, sceneFor);
       lastModel = model;
       lastPlacementKey = placementKey;
     }
-    (material.uniforms.uColor!.value as Color).set(ownerColor).lerp(white, SUPPLY_LINE_WHITE_MIX);
+    (material.uniforms.uBody!.value as Color).set(ownerColor).lerp(white, 0.2);
+    (material.uniforms.uCore!.value as Color).set(ownerColor).lerp(white, SUPPLY_CORE_WHITE_MIX);
+    material.uniforms.uTimeS!.value = nowMs / 1000;
+    material.uniforms.uRingAlpha!.value = supplyCutRingAlpha(nowMs);
     mesh.visible = (geometry.index?.count ?? 0) > 0;
   };
 
