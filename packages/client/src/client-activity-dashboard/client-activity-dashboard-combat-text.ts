@@ -1,6 +1,7 @@
 import type { PersonalActivityCard } from "@border-empires/game-domain";
 import type { FortVariant } from "@border-empires/shared";
 
+import { featuresPart } from "./client-activity-dashboard-features.js";
 import { listNames, nameOf, plural, roundedAmount, type PlayerNameLookup } from "./client-activity-dashboard-names.js";
 
 type CombatCard = Extract<PersonalActivityCard, { kind: "COMBAT" }>;
@@ -58,7 +59,9 @@ export const combatCardText = (card: CombatCard, playerId: string, playerNames: 
   } else {
     outcome = `${defense ? `Your ${defense} repelled` : "Repelled"} ${other}${card.originSeized ? " and seized the tile they attacked from" : ""}`;
   }
-  return joinParts([outcome, ...goldParts(iAttacked, card.pillagedGold, card.defenderGoldLoss), manpowerPart(card.manpowerLoss, iAttacked)]);
+  // The outcome already names the defense ("Your Palisade fell"), so only list what else stood there.
+  const lostWith = card.attackerWon ? featuresPart(card.capturedFeatures, iAttacked ? other ? "their" : undefined : "your", card.defenseVariant) : undefined;
+  return joinParts([outcome, lostWith, ...goldParts(iAttacked, card.pillagedGold, card.defenderGoldLoss), manpowerPart(card.manpowerLoss, iAttacked)]);
 };
 
 // "Your assault on Maren: 3 attacks, all repelled · −150 manpower"
@@ -85,7 +88,8 @@ export const combatGroupCardText = (card: CombatGroupCard, playerNames: PlayerNa
         : `${attacker.charAt(0).toUpperCase()}${attacker.slice(1)} attacked ${card.attempts} times: ${failed} repelled, ${plural(card.captures, "tile")} lost`;
     if (card.originsSeized > 0) outcome += ` · seized ${card.originsSeized} of their tiles`;
   }
-  return joinParts([outcome, ...goldParts(iAttacked, card.pillagedGold, card.defenderGoldLoss), manpowerPart(card.manpowerLoss, iAttacked)]);
+  const lostWith = featuresPart(card.capturedFeatures, iAttacked ? other ? "their" : undefined : "your");
+  return joinParts([outcome, lostWith, ...goldParts(iAttacked, card.pillagedGold, card.defenderGoldLoss), manpowerPart(card.manpowerLoss, iAttacked)]);
 };
 
 /** "Your Fort fell to Hugo after a 5h siege" / "Your Palisade is holding". */
@@ -100,7 +104,9 @@ export const siegeHeadline = (card: SiegeCard, playerNames: PlayerNameLookup): s
 export const siegeDetail = (card: SiegeCard, playerNames: PlayerNameLookup): string => {
   const attackers = listNames(card.attackerIds.map((id) => nameOf(id, playerNames)));
   const seized = card.originsSeized > 0 ? ` · seized ${card.originsSeized} of their tiles` : "";
-  return `${card.outcome === "FELL" ? "Held off" : "Repelled"} ${plural(card.assaultsRepelled, "assault")} from ${attackers}${seized} · cost them ${roundedAmount(card.manpowerSpentAgainst)} manpower`;
+  // The headline already names the fallen fortification; list anything else lost with the tile.
+  const lostWith = card.outcome === "FELL" ? featuresPart(card.capturedFeatures, "your", card.defenseVariant) : undefined;
+  return `${card.outcome === "FELL" ? "Held off" : "Repelled"} ${plural(card.assaultsRepelled, "assault")} from ${attackers}${seized}${lostWith ? ` · ${lostWith}` : ""} · cost them ${roundedAmount(card.manpowerSpentAgainst)} manpower`;
 };
 
 export const siegeCardText = (card: SiegeCard, playerNames: PlayerNameLookup): string => `${siegeHeadline(card, playerNames)} · ${siegeDetail(card, playerNames)}`;

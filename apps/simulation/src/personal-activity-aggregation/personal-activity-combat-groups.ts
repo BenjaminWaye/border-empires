@@ -1,7 +1,10 @@
-import type { PersonalActivityCombatCard, PersonalActivityCombatGroupCard } from "@border-empires/game-domain";
+import type { PersonalActivityCombatCard, PersonalActivityCombatGroupCard, PersonalActivityTileFeature } from "@border-empires/game-domain";
 
 import type { CombatManpowerLoss } from "../combat-manpower-log/combat-manpower-log.js";
 import { combatCardsForPlayer } from "./personal-activity-combat-cards.js";
+import { nonEmptyFeatureCounts } from "./personal-activity-features.js";
+
+type CapturedFeatures = ReadonlyMap<CombatManpowerLoss, readonly PersonalActivityTileFeature[]>;
 
 // Attacks between the player and one rival with no lull longer than this,
 // within this many tiles of a fight already in the group, read as one push
@@ -10,10 +13,11 @@ import { combatCardsForPlayer } from "./personal-activity-combat-cards.js";
 export const COMBAT_GROUP_MAX_GAP_MS = 10 * 60_000;
 export const COMBAT_GROUP_MAX_DISTANCE_TILES = 6;
 
-const groupCard = (playerId: string, role: PersonalActivityCombatGroupCard["role"], losses: readonly CombatManpowerLoss[], originSeized: ReadonlySet<CombatManpowerLoss>): PersonalActivityCombatGroupCard => {
+const groupCard = (playerId: string, role: PersonalActivityCombatGroupCard["role"], losses: readonly CombatManpowerLoss[], originSeized: ReadonlySet<CombatManpowerLoss>, capturedFeatures: CapturedFeatures): PersonalActivityCombatGroupCard => {
   const first = losses[0]!;
   const last = losses[losses.length - 1]!;
   const counterpartyPlayerId = role === "ATTACKER" ? first.defenderId : first.attackerId;
+  const captured = nonEmptyFeatureCounts(losses.flatMap((loss) => capturedFeatures.get(loss) ?? []));
   return {
     kind: "COMBAT_GROUP",
     id: `combat-group:${role}:${counterpartyPlayerId ?? "unowned"}:${first.at}:${first.x}:${first.y}`,
@@ -27,7 +31,8 @@ const groupCard = (playerId: string, role: PersonalActivityCombatGroupCard["role
     pillagedGold: losses.reduce((sum, loss) => sum + loss.pillagedGold, 0),
     defenderGoldLoss: losses.reduce((sum, loss) => sum + loss.defenderGoldLoss, 0),
     x: last.x,
-    y: last.y
+    y: last.y,
+    ...(captured ? { capturedFeatures: captured } : {})
   };
 };
 
@@ -37,7 +42,8 @@ const groupCard = (playerId: string, role: PersonalActivityCombatGroupCard["role
 export const combatCardsWithGroups = (
   playerId: string,
   combat: readonly CombatManpowerLoss[],
-  originSeized: ReadonlySet<CombatManpowerLoss>
+  originSeized: ReadonlySet<CombatManpowerLoss>,
+  capturedFeatures: CapturedFeatures = new Map()
 ): Array<PersonalActivityCombatCard | PersonalActivityCombatGroupCard> => {
   const cards: Array<PersonalActivityCombatCard | PersonalActivityCombatGroupCard> = [];
   const runs: Array<{ key: string; role: PersonalActivityCombatGroupCard["role"]; losses: CombatManpowerLoss[] }> = [];
@@ -53,8 +59,8 @@ export const combatCardsWithGroups = (
     else runs.push({ key, role, losses: [loss] });
   }
   for (const run of runs) {
-    if (run.losses.length === 1) cards.push(...combatCardsForPlayer(playerId, run.losses, originSeized));
-    else cards.push(groupCard(playerId, run.role, run.losses, originSeized));
+    if (run.losses.length === 1) cards.push(...combatCardsForPlayer(playerId, run.losses, originSeized, capturedFeatures));
+    else cards.push(groupCard(playerId, run.role, run.losses, originSeized, capturedFeatures));
   }
   return cards;
 };

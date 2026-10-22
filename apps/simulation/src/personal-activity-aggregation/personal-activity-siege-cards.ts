@@ -1,6 +1,9 @@
-import type { PersonalActivitySiegeCard } from "@border-empires/game-domain";
+import type { PersonalActivitySiegeCard, PersonalActivityTileFeature } from "@border-empires/game-domain";
 
 import type { CombatManpowerLoss } from "../combat-manpower-log/combat-manpower-log.js";
+import { nonEmptyFeatureCounts } from "./personal-activity-features.js";
+
+type CapturedFeatures = ReadonlyMap<CombatManpowerLoss, readonly PersonalActivityTileFeature[]>;
 
 // A lull this long between assaults on the same tile ends the siege: two raids
 // half a day apart are separate stories, not one long siege.
@@ -15,9 +18,11 @@ export type PersonalActivitySieges = {
   consumed: ReadonlySet<CombatManpowerLoss>;
 };
 
-const siegeCard = (assaults: readonly CombatManpowerLoss[], originSeized: ReadonlySet<CombatManpowerLoss>): PersonalActivitySiegeCard => {
+const siegeCard = (assaults: readonly CombatManpowerLoss[], originSeized: ReadonlySet<CombatManpowerLoss>, capturedFeatures: CapturedFeatures): PersonalActivitySiegeCard => {
   const first = assaults[0]!;
   const last = assaults[assaults.length - 1]!;
+  // Only the breaking assault captured anything: a siege closes on capture.
+  const captured = last.attackerWon ? nonEmptyFeatureCounts(capturedFeatures.get(last) ?? []) : undefined;
   const attackerIds: string[] = [];
   for (const assault of assaults) if (!attackerIds.includes(assault.attackerId)) attackerIds.push(assault.attackerId);
   return {
@@ -33,7 +38,8 @@ const siegeCard = (assaults: readonly CombatManpowerLoss[], originSeized: Readon
     attackerIds,
     manpowerSpentAgainst: assaults.reduce((sum, assault) => sum + assault.manpowerLoss, 0),
     ...(last.defenseVariant ? { defenseVariant: last.defenseVariant } : {}),
-    ...(last.attackerWon ? { capturedBy: last.attackerId } : {})
+    ...(last.attackerWon ? { capturedBy: last.attackerId } : {}),
+    ...(captured ? { capturedFeatures: captured } : {})
   };
 };
 
@@ -44,7 +50,8 @@ const siegeCard = (assaults: readonly CombatManpowerLoss[], originSeized: Readon
 export const siegeCardsForDefender = (
   playerId: string,
   combat: readonly CombatManpowerLoss[],
-  originSeized: ReadonlySet<CombatManpowerLoss> = new Set()
+  originSeized: ReadonlySet<CombatManpowerLoss> = new Set(),
+  capturedFeatures: CapturedFeatures = new Map()
 ): PersonalActivitySieges => {
   const byTile = new Map<string, CombatManpowerLoss[]>();
   for (const loss of combat) {
@@ -58,7 +65,7 @@ export const siegeCardsForDefender = (
   const consumed = new Set<CombatManpowerLoss>();
   const close = (segment: CombatManpowerLoss[]): void => {
     if (segment.length < SIEGE_MIN_ASSAULTS) return;
-    cards.push(siegeCard(segment, originSeized));
+    cards.push(siegeCard(segment, originSeized, capturedFeatures));
     for (const assault of segment) consumed.add(assault);
   };
   for (const assaults of byTile.values()) {

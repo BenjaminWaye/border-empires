@@ -131,6 +131,25 @@ Sieges are personal only and do not appear in World Pulse.
   your attacks failed. Most active first, capped at 5, barbarians excluded
   (`personal-activity-rivals.ts`).
 
+**What fell with the land.** Each `TerritoryFlip` records what stood on the
+tile just before it changed hands (`features`, from
+`territory-flip-log/territory-flip-features.ts`): the standing fortification
+(same reading as combat's `defendingFortVariant`), any other built structure,
+an AFC, a dock, or a natural wonder. Unfinished builds and towns are left out,
+since towns have their own `TOWN_*` cards. The aggregator counts these by kind
+(`personal-activity-features.ts`), so a card's list is bounded by the number
+of distinct kinds. Then:
+
+- a territory card carries `features`,
+- a combat, combat-group or fallen siege card carries `capturedFeatures`, read
+  off each capture's matched flip,
+- the summary carries `featuresLost` / `featuresCaptured` from every flip,
+  including ones folded into combat cards or dropped by the card cap.
+
+The client renders them as "incl. your Palisade and Dock" on rows and "Lost
+your Palisade, Dock and Foundry Heart wonder" on the summary line. A row that
+already names its fortification ("Your Palisade fell") doesn't repeat it.
+
 The client renders a **Rivals** section after Sieges, then the timeline. Each
 timeline row gets a tone (gain, loss, hold or neutral) shown as a coloured
 glyph (`client-activity-dashboard-tone.ts`).

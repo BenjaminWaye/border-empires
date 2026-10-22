@@ -1,5 +1,7 @@
 import { COMBAT_LOCK_MS } from "@border-empires/shared";
 
+import type { PersonalActivityTileFeature } from "@border-empires/game-domain";
+
 import type { CombatManpowerLoss } from "../combat-manpower-log/combat-manpower-log.js";
 import type { TerritoryFlip } from "../territory-flip-log/territory-flip-log.js";
 
@@ -21,6 +23,9 @@ export type CombatFlipMatches = {
   consumedFlips: ReadonlySet<TerritoryFlip>;
   // Failed attacks (entries of `combat`) whose launch tile the defender took.
   originSeized: ReadonlySet<CombatManpowerLoss>;
+  // What stood on the target of each capture (entries of `combat`), read off
+  // its matched flip, so a combat card can say "your Palisade fell".
+  capturedFeatures: ReadonlyMap<CombatManpowerLoss, readonly PersonalActivityTileFeature[]>;
 };
 
 const isCaptureFlip = (loss: CombatManpowerLoss, flip: TerritoryFlip): boolean =>
@@ -38,16 +43,22 @@ export const matchCombatToFlips = (combat: readonly CombatManpowerLoss[], flips:
   const consumedFlips = new Set<TerritoryFlip>();
   const sortedFlips = [...flips].sort((a, b) => a.at - b.at);
   const sortedCombat = [...combat].sort((a, b) => a.at - b.at);
-  const claim = (loss: CombatManpowerLoss, matches: (loss: CombatManpowerLoss, flip: TerritoryFlip) => boolean): boolean => {
+  const claim = (loss: CombatManpowerLoss, matches: (loss: CombatManpowerLoss, flip: TerritoryFlip) => boolean): TerritoryFlip | undefined => {
     const match = sortedFlips.find((flip) =>
       !consumedFlips.has(flip) && flip.at >= loss.at && flip.at - loss.at <= COMBAT_FLIP_MATCH_WINDOW_MS && matches(loss, flip));
     if (match) consumedFlips.add(match);
-    return Boolean(match);
+    return match;
   };
+  const capturedFeatures = new Map<CombatManpowerLoss, readonly PersonalActivityTileFeature[]>();
   // Captures first, for every entry, so a later fight's capture of a launch
   // tile is never mistaken for an earlier failed attack's seized origin.
   const confirmed = sortedCombat.map((loss) => {
-    if (!loss.attackerWon || claim(loss, isCaptureFlip)) return loss;
+    if (!loss.attackerWon) return loss;
+    const capture = claim(loss, isCaptureFlip);
+    if (capture) {
+      if (capture.features?.length) capturedFeatures.set(loss, capture.features);
+      return loss;
+    }
     // Still in flight: its flip may simply not have landed yet.
     if (now - loss.at < COMBAT_FLIP_MATCH_WINDOW_MS) return loss;
     return { ...loss, attackerWon: false, pillagedGold: 0, defenderGoldLoss: 0 };
@@ -56,5 +67,5 @@ export const matchCombatToFlips = (combat: readonly CombatManpowerLoss[], flips:
   for (const loss of confirmed) {
     if (!loss.attackerWon && claim(loss, isSeizedOriginFlip)) originSeized.add(loss);
   }
-  return { combat: confirmed, consumedFlips, originSeized };
+  return { combat: confirmed, consumedFlips, originSeized, capturedFeatures };
 };

@@ -28,6 +28,8 @@
 // No flip-flop collapsing in v1 (e.g. A->B->A on the same tile within
 // minutes is logged as two separate flips) -- deliberately deferred; see
 // docs/agents/territory-flip-log-and-activity-api.md.
+import type { PersonalActivityTileFeature } from "@border-empires/game-domain";
+
 export const TERRITORY_FLIP_WINDOW_MS = 24 * 60 * 60_000;
 export const TERRITORY_FLIP_LOG_MAX_ENTRIES = 50_000;
 
@@ -38,6 +40,13 @@ export type TerritoryFlip = {
   fromOwner: string | undefined;
   toOwner: string | undefined;
   at: number;
+  /**
+   * What stood on the tile just before it flipped (tileFeaturesForActivity),
+   * so the personal timeline can name a lost Palisade, Dock or wonder.
+   * Omitted when there was nothing, and absent on entries persisted before
+   * this field existed.
+   */
+  features?: PersonalActivityTileFeature[];
 };
 
 export type TerritoryFlipLogGauge = {
