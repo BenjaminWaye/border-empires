@@ -104,6 +104,35 @@ describe("createIncursionOverlay3D", () => {
     expect(group.children).toHaveLength(0);
   });
 
+  it("drapes a hill tile's hatch and strips over the dome instead of a flat plane the bumps break through", () => {
+    const group = new Group();
+    const overlay = createIncursionOverlay3D(group, 4);
+    const [flatHatch, flatEdges] = group.children as Mesh[];
+    // A dome peaking at 0.25 in the middle of the tile, far above the 0.05 the flat quad would sit at.
+    const drape = (fx: number, fz: number): number => 0.05 + Math.max(0, 0.4 - Math.hypot(fx - 0.5, fz - 0.5)) * 0.5;
+    const hatchColors = { theirs: "#ff0000", mine: "#00ff00" };
+    overlay.addTile(3, 7, 0.05, hatchColors, "#ffffff", { north: false, east: false, south: false, west: true }, undefined, drape);
+    overlay.addTile(4, 7, 0.05, hatchColors, "#ffffff", { north: true, east: false, south: false, west: false });
+    overlay.commit();
+    const [, , hillHatch, hillEdges] = group.children as Mesh[];
+    expect(drawnQuads(flatHatch!)).toBe(1); // only the tile off the hill
+    expect(drawnQuads(flatEdges!)).toBe(1);
+    expect(drawnQuads(hillHatch!)).toBe(100); // one 10 x 10 grid
+    expect(drawnQuads(hillEdges!)).toBe(10); // the west strip, subdivided down its length
+    const hatchPosition = (hillHatch!.geometry as BufferGeometry).getAttribute("position");
+    for (let v = 0; v < 121; v += 1) {
+      expect(hatchPosition.getY(v)).toBeCloseTo(drape(hatchPosition.getX(v) - 2.5, hatchPosition.getZ(v) - 6.5));
+    }
+    expect(Math.max(...Array.from({ length: 121 }, (_, v) => hatchPosition.getY(v)))).toBeCloseTo(0.25);
+    const stripPosition = (hillEdges!.geometry as BufferGeometry).getAttribute("position");
+    for (let v = 0; v < 22; v += 1) {
+      expect(stripPosition.getX(v)).toBeLessThanOrEqual(2.5 + 0.07 + 1e-6);
+      expect(stripPosition.getY(v)).toBeGreaterThan(drape(stripPosition.getX(v) - 2.5, stripPosition.getZ(v) - 6.5));
+    }
+    overlay.dispose();
+    expect(group.children).toHaveLength(0);
+  });
+
   it("stops adding tiles (and their edges) once the hatch buffer is full", () => {
     const group = new Group();
     const overlay = createIncursionOverlay3D(group, 1);

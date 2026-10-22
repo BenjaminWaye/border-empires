@@ -89,7 +89,7 @@ import { createReachOverlay3D } from "../client-map-3d-aether-survey-line/client
 import { reachCacheKey, resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { filterReachToLand, samplePerimeterPylons, traceReachBoundaryEdgeLoops } from "../client-reach-overlay/client-reach-overlay.js";
 import { ARRIVE_STAGGER_MS, createTransitionTracker, diffTransitions } from "../client-reach-overlay/client-reach-overlay-transitions.js";
-import { addReachTileOverlays3D, computeOtherOwnersReachPylons, reachEmphasisFor, type OwnedPylonPoint, type OwnedPylonSegment } from "../client-reach-overlay-3d-multi/client-reach-overlay-3d-multi.js";
+import { addReachTileOverlays3D, createIncursionHillDrape, computeOtherOwnersReachPylons, reachEmphasisFor, type OwnedPylonPoint, type OwnedPylonSegment } from "../client-reach-overlay-3d-multi/client-reach-overlay-3d-multi.js";
 import { createBorderDustFxLayer } from "../client-map-3d-border-dust-fx/client-map-3d-border-dust-fx.js";
 import { borderContactSeamsToDustSeams, computeBorderContactRenderState, resolveBorderContactVisual, pointKey, splitSegmentByContact, EMPTY_BORDER_CONTACT_STATE, BORDER_CONTACT_BEAM_COLOR, BORDER_CONTACT_OPACITY_MULT, type BorderContactRenderState } from "../client-map-3d-border-contact-render/client-map-3d-border-contact-render.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
@@ -748,7 +748,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     // true-3D renderer is actually active.
     const reach3DActive = isTrue3DRendererActive();
     const reach3DDeps = { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY };
-    const reachTileDeps3D = { ...reach3DDeps, me: deps.state.me, ownerColor: deps.effectiveOverlayColor }; // per-tile reach overlays below (dormant frontier + rival incursions)
+    const reachTileDeps3D = { ...reach3DDeps, me: deps.state.me, ownerColor: deps.effectiveOverlayColor, hillDrapeAt: createIncursionHillDrape({ ...reach3DDeps, cornerYAt: (x, y) => heightfield.cornerYAt(x, y), isHillsAt: isHillsTile, hillCutAt, rise: OVERLAY_RISE_ABOVE_HEIGHTFIELD }) }; // per-tile reach overlays below (dormant frontier + rival incursions; incursion hatch drapes over hills)
     if (reach3DActive) {
       const reach3DKey = reachCacheKey(deps.state); // other owners' reach comes from tile.reachOwnerId, already covered by tilesRevision
       if (reach3DCacheRevision !== reach3DKey) {
