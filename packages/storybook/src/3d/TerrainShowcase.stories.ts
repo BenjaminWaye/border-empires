@@ -41,6 +41,8 @@ const tileKindAt = (wx: number, wy: number): HeightfieldTerrainKind => {
   if (r > 11.2) return "SAND";
   if (y < -6 && x < 2) return hash(wx, wy) > 0.8 ? "SNOW" : "TUNDRA";
   if (x > 5 && y > 1) return "PLAINS";
+  if (x < -6 && y > 4) return "JUNGLE";
+  if (x > 4 && y < -4) return "MARSH";
   if (Math.abs(x) <= 1 && Math.abs(y) <= 1) return "MOUNTAIN";
   return "GRASS";
 };
@@ -155,7 +157,7 @@ const meta: Meta<Args> = {
     docs: {
       description: {
         component:
-          "A mixed island (grass, plains, tundra/snow, beach, coast, hills, a forest halo) lit with the game's shipped lighting rig, tone mapping and sun shadows — for judging the terrain surface shader as players see it."
+          "A mixed island (grass, plains, jungle, marsh, tundra/snow, beach, coast, hills, a forest halo) lit with the game's shipped lighting rig, tone mapping and sun shadows — for judging the terrain surface shader as players see it."
       }
     }
   },

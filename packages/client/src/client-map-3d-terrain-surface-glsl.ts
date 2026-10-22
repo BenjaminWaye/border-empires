@@ -37,6 +37,10 @@ const SLOPE_ROCK_FULL = 0.6;
 const BUMP_ROLLING_HEIGHT = 0.7;
 const BUMP_GRAIN_HEIGHT = 0.02;
 
+// Grass colour grade (see TERRAIN_SURFACE_LAYERS_GLSL).
+const GRASS_SATURATION = 1.3;
+const GRASS_HUE_SHIFT: readonly [number, number, number] = [0.92, 1.04, 0.96];
+
 const glslFloat = (n: number): string => (Number.isInteger(n) ? n.toFixed(1) : String(n));
 
 // Declared at fragment scope (after #include <common>).
@@ -123,11 +127,21 @@ export const TERRAIN_SURFACE_LAYERS_GLSL = `
       // Macro variation: sun-dried golden patches vs lush hollows across a
       // field, plus a medium-scale brightness wander, so a large meadow
       // reads as land rather than one repeated swatch.
-      vec3 terrainDry = vec3(1.1, 1.03, 0.8);
-      vec3 terrainLush = vec3(0.86, 1.0, 0.88);
+      vec3 terrainDry = vec3(1.06, 1.03, 0.86);
+      vec3 terrainLush = vec3(0.84, 1.0, 0.9);
       vec3 terrainGrassTint = mix(terrainDry, terrainLush, smoothstep(0.3, 0.7, terrainMacro));
       float terrainBareMask = grassMask * (1.0 - tundraMask);
       biomeColor *= mix(vec3(1.0), terrainGrassTint, 0.55 * terrainBareMask);
+
+      // Grass grade: the painted meadow is a yellow-green, and the filmic
+      // tone curve darkens and desaturates mid greens, so at game zoom
+      // fields read olive. More saturation and a nudge from yellow toward
+      // green (luminance kept) gives a fresh, rich meadow. Multiplicative,
+      // so the 12% vertex hue tint below still separates plains, jungle
+      // and marsh from grassland.
+      float terrainGrassLum = dot(biomeColor, vec3(0.2126, 0.7152, 0.0722));
+      vec3 terrainGraded = mix(vec3(terrainGrassLum), biomeColor, ${glslFloat(GRASS_SATURATION)}) * vec3(${GRASS_HUE_SHIFT.map(glslFloat).join(", ")});
+      biomeColor = mix(biomeColor, max(terrainGraded, vec3(0.0)), terrainBareMask);
       // Brightness wander is mostly a meadow thing; on sand it reads as dirt.
       biomeColor *= mix(1.0, 0.93 + 0.14 * terrainMeso, mix(0.35, 1.0, grassMask));
 
