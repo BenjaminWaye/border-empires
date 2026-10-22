@@ -90,8 +90,15 @@ export const computeNamePlacements = (deps: NamePlacementDeps, version: number):
   return { version, players, islands };
 };
 
+const pathKey = (path: NameLabelPath): string =>
+  `${path.text}|${path.heightTiles.toFixed(2)}|${path.spanTiles.toFixed(2)}|${path.points.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ")}`;
+
+/** Identity of what the placements would draw (ink style aside). */
+export const placementsContentKey = (placements: NamePlacements): string =>
+  [...placements.players.map(({ path }) => `p:${pathKey(path)}`), ...placements.islands.map(({ label, path }) => `i:${label.status}:${pathKey(path)}`)].join(";");
+
 export const createNamePlacementCache = (deps: NamePlacementDeps): { readonly current: (nowMs: number) => NamePlacements } => {
-  let cached: { placements: NamePlacements; revision: number; islandLabels: unknown; meName: string; computedAt: number } | undefined;
+  let cached: { placements: NamePlacements; contentKey: string; revision: number; islandLabels: unknown; meName: string; computedAt: number } | undefined;
   let version = 0;
   return {
     current: (nowMs) => {
@@ -102,8 +109,12 @@ export const createNamePlacementCache = (deps: NamePlacementDeps): { readonly cu
         cached.meName !== meName ||
         (cached.revision !== tilesRevision && nowMs - cached.computedAt >= PLACEMENT_MIN_INTERVAL_MS);
       if (stale) {
-        version += 1;
-        cached = { placements: computeNamePlacements(deps, version), revision: tilesRevision, islandLabels, meName, computedAt: nowMs };
+        const next = computeNamePlacements(deps, version + 1);
+        const contentKey = placementsContentKey(next);
+        // Same names in the same places: keep the old version so nothing downstream redraws.
+        const unchanged = cached?.contentKey === contentKey;
+        if (!unchanged) version += 1;
+        cached = { placements: unchanged ? cached!.placements : next, contentKey, revision: tilesRevision, islandLabels, meName, computedAt: nowMs };
       }
       return cached!.placements;
     }

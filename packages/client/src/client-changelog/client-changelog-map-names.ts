@@ -12,6 +12,7 @@ export const MAP_NAMES_CHANGELOG: ClientChangelogEntry[] = [
       "Zoom in to see landmass names, written across the garrisoned land on each landmass. Every landmass of 9 or more land tiles has a name",
       "Garrison every land tile of a landmass and you are asked, once, to give it a name of your own",
       "Your name stays while you hold 60% of the landmass, shown tarnished while contested. Drop below that and it fades back to the old name after a day, unless you win the land back. Whoever garrisons the whole landmass next can rename it",
+      "A name chosen by a player is only shown to empires that hold land on that landmass; everyone else sees its charted name",
       "Works on both the 3D and 2D maps (on the 2D map names still draw above the tiles for now)"
     ]
   }

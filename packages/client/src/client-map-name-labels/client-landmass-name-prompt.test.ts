@@ -5,10 +5,10 @@ vi.mock("../client-discovery-tips/client-discovery-tips-storage.js", () => ({
   isDiscoveryTipSeen: (key: string) => seen.has(key),
   markDiscoveryTipSeen: (key: string) => { seen.add(key); }
 }));
-const opened: Array<{ name: string; submit: (name: string) => void }> = [];
+const opened: Array<{ name: string; submit: (name: string) => boolean; keep: () => void }> = [];
 vi.mock("./client-landmass-name-dialog.js", () => ({
   isLandmassNameDialogOpen: () => false,
-  openLandmassNameDialog: (name: string, submit: (name: string) => void) => { opened.push({ name, submit }); }
+  openLandmassNameDialog: (name: string, submit: (name: string) => boolean, keep: () => void) => { opened.push({ name, submit, keep }); }
 }));
 vi.mock("@border-empires/shared", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@border-empires/shared")>()),
@@ -46,9 +46,10 @@ describe("createLandmassNamePrompt", () => {
     const prompt = createLandmassNamePrompt({ state: state as never, sendGameMessage: (payload) => { sent.push(payload); return true; } });
     prompt.tick(10_000);
     expect(opened.map((entry) => entry.name)).toEqual(["Brassford Isle"]);
-    expect(seen.has(landmassPromptKey(7, "2,2"))).toBe(true);
-    opened[0]!.submit("Isle of Waypoint");
+    expect(seen.has(landmassPromptKey(7, "2,2"))).toBe(false); // not until the player decides
+    expect(opened[0]!.submit("Isle of Waypoint")).toBe(true);
     expect(sent).toEqual([{ type: "NAME_ISLAND", x: 2, y: 2, name: "Isle of Waypoint" }]);
+    expect(seen.has(landmassPromptKey(7, "2,2"))).toBe(true);
 
     state.tilesRevision += 1;
     prompt.tick(20_000);
@@ -59,5 +60,15 @@ describe("createLandmassNamePrompt", () => {
     const state = makeState(false);
     createLandmassNamePrompt({ state: state as never, sendGameMessage: () => true }).tick(10_000);
     expect(opened).toHaveLength(0);
+  });
+
+  it("keeps the chance to name it when the send fails, and stops asking once the player keeps the name", () => {
+    const state = makeState(true);
+    const prompt = createLandmassNamePrompt({ state: state as never, sendGameMessage: () => false });
+    prompt.tick(10_000);
+    expect(opened[0]!.submit("Isle of Waypoint")).toBe(false);
+    expect(seen.has(landmassPromptKey(7, "2,2"))).toBe(false);
+    opened[0]!.keep();
+    expect(seen.has(landmassPromptKey(7, "2,2"))).toBe(true);
   });
 });

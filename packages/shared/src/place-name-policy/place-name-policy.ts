@@ -13,7 +13,7 @@ export type PlaceNameRules = {
 // A hand-authored, deliberately small blocklist (English profanity + common
 // leet substitutions are normalized away before matching, see
 // `normalizeForBlocklist`). This repo has no existing profanity dependency to
-// reuse — see place-name-policy.test.ts for coverage of the leet cases.
+// reuse — see apps/realtime-gateway/src/galaxy-name-policy/galaxy-name-policy.test.ts for coverage of the leet cases.
 const BLOCKED_WORDS = [
   "fuck",
   "shit",

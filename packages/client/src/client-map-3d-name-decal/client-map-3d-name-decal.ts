@@ -34,8 +34,8 @@ import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 
 /** Tiles of canvas kept around the camera window, so small pans don't redraw the texture. */
 const CANVAS_MARGIN_TILES = 12;
+/** Hard cap on either canvas dimension; pixels per tile shrink to stay under it. */
 const MAX_CANVAS_PX = 2048;
-const MIN_PX_PER_TILE = 8;
 const MAX_PX_PER_TILE = 40;
 /** Corner lift above the heightfield; matches client-map-3d.ts's OVERLAY_RISE_ABOVE_HEIGHTFIELD. */
 const CORNER_RISE = 0.012;
@@ -104,8 +104,7 @@ export const createNameDecal = (deps: NameDecalDeps): NameDecal => {
     polygonOffsetFactor: -2,
     polygonOffsetUnits: -2
   });
-  const geometry = new BufferGeometry();
-  const mesh = new Mesh(geometry, material);
+  const mesh = new Mesh(new BufferGeometry(), material);
   mesh.frustumCulled = false;
   mesh.renderOrder = RENDER_ORDER.groundNames;
   mesh.visible = false;
@@ -118,16 +117,27 @@ export const createNameDecal = (deps: NameDecalDeps): NameDecal => {
   let meshTerrainRevision = -1;
   let meshBuiltAt = Number.NEGATIVE_INFINITY;
 
+  // The canvas never spans more than half the world in either direction: past
+  // that, toroidal deltas fold and the texture would smear. A camera window
+  // wider than that just leaves its far edges unlettered.
+  const maxHalfW = Math.floor(deps.worldWidth / 4) - 1;
+  const maxHalfH = Math.floor(deps.worldHeight / 4) - 1;
+  const neededHalfW = (frame: NameDecalFrame): number => Math.min(frame.halfW + 2, maxHalfW);
+  const neededHalfH = (frame: NameDecalFrame): number => Math.min(frame.halfH + 2, maxHalfH);
+
   const areaCovers = (current: CanvasArea, frame: NameDecalFrame): boolean => {
     const dx = toroidDelta(current.x0 + current.widthTiles / 2, frame.camX, deps.worldWidth);
     const dy = toroidDelta(current.y0 + current.heightTiles / 2, frame.camY, deps.worldHeight);
-    return Math.abs(dx) + frame.halfW + 2 <= current.widthTiles / 2 && Math.abs(dy) + frame.halfH + 2 <= current.heightTiles / 2;
+    const wantW = Math.min(neededHalfW(frame) + CANVAS_MARGIN_TILES, maxHalfW);
+    const wantH = Math.min(neededHalfH(frame) + CANVAS_MARGIN_TILES, maxHalfH);
+    // Covers the window (with no margin left is fine), and isn't far bigger than a fresh placement would be.
+    return Math.abs(dx) + neededHalfW(frame) <= current.widthTiles / 2 && Math.abs(dy) + neededHalfH(frame) <= current.heightTiles / 2 && current.widthTiles <= 2 * wantW + 2 && current.heightTiles <= 2 * wantH + 2;
   };
 
   const placeArea = (frame: NameDecalFrame): CanvasArea => {
-    const widthTiles = 2 * (frame.halfW + 2 + CANVAS_MARGIN_TILES);
-    const heightTiles = 2 * (frame.halfH + 2 + CANVAS_MARGIN_TILES);
-    const pxPerTile = Math.max(MIN_PX_PER_TILE, Math.min(MAX_PX_PER_TILE, Math.floor(MAX_CANVAS_PX / Math.max(widthTiles, heightTiles))));
+    const widthTiles = 2 * Math.min(neededHalfW(frame) + CANVAS_MARGIN_TILES, maxHalfW);
+    const heightTiles = 2 * Math.min(neededHalfH(frame) + CANVAS_MARGIN_TILES, maxHalfH);
+    const pxPerTile = Math.max(2, Math.min(MAX_PX_PER_TILE, Math.floor(MAX_CANVAS_PX / Math.max(widthTiles, heightTiles))));
     return { x0: deps.wrapX(frame.camX - widthTiles / 2), y0: deps.wrapY(frame.camY - heightTiles / 2), widthTiles, heightTiles, pxPerTile };
   };
 
@@ -157,10 +167,13 @@ export const createNameDecal = (deps: NameDecalDeps): NameDecal => {
   };
 
   const rebuildMesh = (current: CanvasArea, frame: NameDecalFrame): void => {
-    const tilesX = 2 * frame.halfW + 3;
-    const tilesZ = 2 * frame.halfH + 3;
-    const originDx = -frame.halfW - 1;
-    const originDy = -frame.halfH - 1;
+    // Ground under the window, but never past the canvas (a capped canvas on a huge window).
+    const halfW = Math.min(frame.halfW, maxHalfW - 2);
+    const halfH = Math.min(frame.halfH, maxHalfH - 2);
+    const tilesX = 2 * halfW + 3;
+    const tilesZ = 2 * halfH + 3;
+    const originDx = -halfW - 1;
+    const originDy = -halfH - 1;
     const cols = tilesX * SUBDIVISIONS + 1;
     const rows = tilesZ * SUBDIVISIONS + 1;
     const positions = new Float32Array(cols * rows * 3);
@@ -203,14 +216,25 @@ export const createNameDecal = (deps: NameDecalDeps): NameDecal => {
         const b = a + 1;
         const c = a + cols;
         const d = c + 1;
-        indices.set([a, c, b, b, c, d], index);
+        indices[index] = a;
+        indices[index + 1] = c;
+        indices[index + 2] = b;
+        indices[index + 3] = b;
+        indices[index + 4] = c;
+        indices[index + 5] = d;
         index += 6;
       }
     }
-    geometry.setAttribute("position", new BufferAttribute(positions, 3));
-    geometry.setAttribute("uv", new BufferAttribute(uvs, 2));
-    geometry.setIndex(new BufferAttribute(indices, 1));
-    geometry.computeBoundingSphere();
+    // A fresh geometry, and the old one disposed: replacing attributes in place
+    // would leave the previous GL buffers allocated until the context dies.
+    const next = new BufferGeometry();
+    next.setAttribute("position", new BufferAttribute(positions, 3));
+    next.setAttribute("uv", new BufferAttribute(uvs, 2));
+    next.setIndex(new BufferAttribute(indices, 1));
+    next.computeBoundingSphere();
+    const previous = mesh.geometry;
+    mesh.geometry = next;
+    previous.dispose();
   };
 
   let lastFrame: NameDecalFrame | undefined;
@@ -251,7 +275,7 @@ export const createNameDecal = (deps: NameDecalDeps): NameDecal => {
     },
     dispose: () => {
       deps.scene.remove(mesh);
-      geometry.dispose();
+      mesh.geometry.dispose();
       material.dispose();
       texture.dispose();
     }

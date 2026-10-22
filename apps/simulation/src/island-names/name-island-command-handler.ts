@@ -1,7 +1,7 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { ISLAND_NAMES_MESSAGE_TYPE, isIslandFullyGarrisoned, validateIslandName } from "@border-empires/shared";
 import { rejectCommand, type RuntimeMapCommandContext } from "../runtime-map-command-handlers.js";
-import { buildIslandLabels } from "./island-labels.js";
+import { buildIslandLabels, islandLabelsForViewer } from "./island-labels.js";
 import { islandNamesWorldFor, islandStandingFor, releaseIslandClaims } from "./island-names-world.js";
 
 // NAME_ISLAND: the player who garrisons every LAND tile of an island names
@@ -44,7 +44,7 @@ export function handleNameIslandCommand(context: RuntimeMapCommandContext, comma
   actor.islandNames = [...(actor.islandNames ?? []), { islandId: island.id, name: validated.name, namedAt: now }];
   context.emitPlayerMessage(command, {
     type: ISLAND_NAMES_MESSAGE_TYPE,
-    islands: buildIslandLabels(world, context.tiles, context.players, now)
+    islands: islandLabelsForViewer(buildIslandLabels(world, context.tiles, context.players, now), actor.id)
   });
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }

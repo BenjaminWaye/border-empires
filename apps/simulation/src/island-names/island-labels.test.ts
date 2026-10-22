@@ -1,8 +1,10 @@
 import { ISLAND_NAME_FADE_MS } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
-import { buildIslandLabels, islandLabelsSignature } from "./island-labels.js";
+import { buildIslandLabels as buildIslandLabelSet, islandLabelsForViewer, islandLabelsSignature } from "./island-labels.js";
 import { buildIslandRegistry } from "./island-registry.js";
 import type { IslandNamesWorld } from "./island-names-world.js";
+
+const buildIslandLabels = (...args: Parameters<typeof buildIslandLabelSet>) => [...buildIslandLabelSet(...args).labels];
 import { garrison, makePlayer, tilesFromRows } from "./island-names.test-helpers.js";
 
 // One 5x2 island (10 LAND tiles) in a 7x4 world.
@@ -71,5 +73,20 @@ describe("islandLabelsSignature", () => {
     expect(islandLabelsSignature(buildIslandLabels(world, tiles, players, 5))).toBe(held);
     garrison(tiles, "p2", (tile) => tile.x === 0);
     expect(islandLabelsSignature(buildIslandLabels(world, tiles, players, 10))).not.toBe(held);
+  });
+});
+
+describe("islandLabelsForViewer", () => {
+  it("shows a chosen name only to the namer and players holding land on the island", () => {
+    const { tiles, world, players } = setup();
+    garrison(tiles, "p1", (tile) => tile.x !== 4);
+    garrison(tiles, "p2", (tile) => tile.x === 4);
+    players.set("p3", makePlayer("p3"));
+    const set = buildIslandLabelSet(world, tiles, players, 0);
+    expect(islandLabelsForViewer(set, "p1")[0]).toMatchObject({ name: "Isle of Waypoint", status: "contested", namerId: "p1" });
+    expect(islandLabelsForViewer(set, "p2")[0]).toMatchObject({ name: "Isle of Waypoint", status: "contested" });
+    const outsider = islandLabelsForViewer(set, "p3")[0]!;
+    expect(outsider).toMatchObject({ name: "Brassford Isle", status: "default" });
+    expect(outsider.namerId).toBeUndefined();
   });
 });

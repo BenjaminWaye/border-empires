@@ -12,7 +12,12 @@ const MODAL_ID = "landmass-name-overlay";
 
 export const isLandmassNameDialogOpen = (): boolean => typeof document !== "undefined" && document.getElementById(MODAL_ID) !== null;
 
-export const openLandmassNameDialog = (currentName: string, onSubmit: (name: string) => void): void => {
+/**
+ * `onSubmit` returns whether the name was sent; on false the dialog stays open
+ * with an error instead of closing. `onKeep` runs when the player declines
+ * (button, backdrop or Escape).
+ */
+export const openLandmassNameDialog = (currentName: string, onSubmit: (name: string) => boolean, onKeep: () => void): void => {
   document.getElementById(MODAL_ID)?.remove();
   const overlay = document.createElement("div");
   overlay.id = MODAL_ID;
@@ -35,20 +40,27 @@ export const openLandmassNameDialog = (currentName: string, onSubmit: (name: str
   const input = overlay.querySelector<HTMLInputElement>("[data-landmass-name-input]")!;
   const error = overlay.querySelector<HTMLElement>("[data-landmass-name-error]")!;
   const close = (): void => overlay.remove();
+  const keep = (): void => {
+    onKeep();
+    close();
+  };
   const save = (): void => {
     const result = validateIslandName(input.value);
     if (!result.ok) {
       error.textContent = result.reason.charAt(0).toUpperCase() + result.reason.slice(1) + ".";
       return;
     }
-    onSubmit(result.name);
+    if (!onSubmit(result.name)) {
+      error.textContent = "Not connected right now. Try again in a moment.";
+      return;
+    }
     close();
   };
-  overlay.querySelectorAll<HTMLElement>("[data-landmass-name-cancel]").forEach((element) => { element.onclick = close; });
+  overlay.querySelectorAll<HTMLElement>("[data-landmass-name-cancel]").forEach((element) => { element.onclick = keep; });
   overlay.querySelector<HTMLButtonElement>("[data-landmass-name-save]")!.onclick = save;
   input.onkeydown = (event) => {
     if (event.key === "Enter") save();
-    if (event.key === "Escape") close();
+    if (event.key === "Escape") keep();
   };
   input.focus();
   input.select();

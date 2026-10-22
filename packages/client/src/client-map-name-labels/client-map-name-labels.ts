@@ -17,6 +17,8 @@ export const PLAYER_NAMES_FULL_AT_ZOOM = 14;
 export const ISLAND_NAMES_FULL_AT_ZOOM = 18;
 
 const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
+/** Opacity steps across the crossfade band. */
+const FADE_STEPS = 4;
 
 export const nameLabelAlphasForZoom = (zoom: number): { players: number; islands: number } => {
   const band = ISLAND_NAMES_FULL_AT_ZOOM - PLAYER_NAMES_FULL_AT_ZOOM;
@@ -73,7 +75,9 @@ export const createMapNameLabelSource = (deps: MapNameLabelSourceDeps): MapNameL
   const placements = createNamePlacementCache(deps);
   return {
     current: (nowMs) => {
-      const alphas = nameLabelAlphasForZoom(deps.state.zoom);
+      // Fade in steps, not continuously: the 3D decal redraws (and re-uploads) its texture whenever these change.
+      const smooth = nameLabelAlphasForZoom(deps.state.zoom);
+      const alphas = { players: Math.round(smooth.players * FADE_STEPS) / FADE_STEPS, islands: Math.round(smooth.islands * FADE_STEPS) / FADE_STEPS };
       const labels: PlacedNameLabel[] = [];
       if (alphas.players <= 0 && alphas.islands <= 0) return { labels, signature: "none" };
       requestLabelFonts();

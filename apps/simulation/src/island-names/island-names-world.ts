@@ -34,22 +34,24 @@ export const islandNamesWorldFor = (tiles: ReadonlyMap<string, DomainTileState>)
   return world;
 };
 
-/** LAND tiles of `island` (live terrain) and how many `playerId` garrisons. */
+/** LAND tiles of `island` (live terrain), how many `playerId` garrisons, and every player holding any tile on it. */
 export const islandStandingFor = (
   island: IslandRecord,
   tiles: ReadonlyMap<string, DomainTileState>,
   playerId: string,
   width: number
-): { namerGarrisoned: number; landTiles: number } => {
+): { namerGarrisoned: number; landTiles: number; presentOwners: Set<string> } => {
   let landTiles = 0;
   let namerGarrisoned = 0;
+  const presentOwners = new Set<string>();
   for (const cell of island.cells) {
     const tile = tiles.get(`${cell % width},${Math.floor(cell / width)}`);
+    if (tile?.ownerId) presentOwners.add(tile.ownerId);
     if (!tile || tile.terrain !== "LAND") continue;
     landTiles += 1;
     if (tile.ownerId === playerId && tile.ownershipState === "SETTLED") namerGarrisoned += 1;
   }
-  return { namerGarrisoned, landTiles };
+  return { namerGarrisoned, landTiles, presentOwners };
 };
 
 /** Every live claim, newest first per island (an older duplicate is ignored). */

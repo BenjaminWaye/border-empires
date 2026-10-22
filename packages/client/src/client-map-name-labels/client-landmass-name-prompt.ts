@@ -42,11 +42,22 @@ export const createLandmassNamePrompt = (deps: LandmassNamePromptDeps): { readon
         if (isDiscoveryTipSeen(key, state.authEmail)) continue;
         const label = state.islandLabels.find((entry) => entry.id === islandId);
         if (!label) continue; // not a nameable landmass on the server (or its list hasn't caught up yet)
-        markDiscoveryTipSeen(key, state.authEmail);
-        if (label.namerId === state.me) continue; // already named it
+        if (label.namerId === state.me) {
+          markDiscoveryTipSeen(key, state.authEmail); // already named it
+          continue;
+        }
         const [x, y] = islandId.split(",").map(Number) as [number, number];
+        // Marked asked only once the player decides: a name actually sent, or keeping the current one.
         // The new name shows on the map once the simulation confirms it (ISLAND_NAMES).
-        openLandmassNameDialog(label.name, (name) => deps.sendGameMessage({ type: "NAME_ISLAND", x, y, name }, "Finish sign-in before naming a landmass."));
+        openLandmassNameDialog(
+          label.name,
+          (name) => {
+            const sent = deps.sendGameMessage({ type: "NAME_ISLAND", x, y, name }, "Finish sign-in before naming a landmass.");
+            if (sent) markDiscoveryTipSeen(key, state.authEmail);
+            return sent;
+          },
+          () => markDiscoveryTipSeen(key, state.authEmail)
+        );
         checkedRevision = -1; // one dialog at a time; recheck for any other completed landmass once it closes
         return;
       }
