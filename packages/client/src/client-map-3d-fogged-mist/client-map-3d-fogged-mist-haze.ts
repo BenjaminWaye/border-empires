@@ -9,7 +9,7 @@ import { FOGGED_MIST_SHADE_GLSL } from "./client-map-3d-fogged-mist-shader.js";
 // unexplored storm's clip, markUnexploredStormClip) gets the same mist
 // blended into its fragments above the sheet -- the colour and opacity the
 // sheet itself draws at that spot (foggedMistShade), mixed in after lighting
-// just as the sheet's normal blend would. Below the sheet the sheet already
+// and scene fog just as the sheet's normal blend would. Below the sheet the sheet already
 // covers them, so nothing is hazed twice. Tiles in sight are never touched.
 
 export type FoggedMistHazeUniforms = {
@@ -56,12 +56,14 @@ uniform float uFogMistPlaneY;
 uniform float uFogMistOn;
 ${FOGGED_MIST_SHADE_GLSL}`;
 
-// After colorspace_fragment, so the mist colour goes through the same output
-// conversion the sheet's does before its blend. Gated per fragment (most of
-// the flat ground is under the sheet): the edge's fwidth is then only
-// unreliable on quads straddling the sheet, where it is clamped anyway.
-const FRAGMENT_BLEND = `
-if (uFogMistOn > 0.5 && vFogMistScene.y > uFogMistPlaneY) {
+// After fog_fragment: the ground under the sheet is lit, converted and
+// scene-fogged before the (unfogged) sheet blends over it, so features get
+// the same order. Tiles in sight are skipped on one texel read (the mist
+// never covers them), so the edge maths only runs on remembered and
+// unexplored land. Gated per fragment, so the edge's fwidth is only
+// unreliable on quads straddling a gate, where it is clamped anyway.
+export const FOGGED_MIST_HAZE_FRAGMENT_BLEND = `
+if (uFogMistOn > 0.5 && vFogMistScene.y > uFogMistPlaneY && texture2D(uFogMistMask, (floor(vFogMistScene.xz) + 0.5 - uFogMistMaskMin) / uFogMistMaskSize).r > 0.002) {
   vec4 fogMist = foggedMistShade(uFogMistMask, uFogMistMaskMin, uFogMistMaskSize, vFogMistScene.xz, vFogMistScene.xz + uFogMistOrigin, uFogMistTime, uFogMistHaze, uFogMistLight, uFogMistMinOpacity, uFogMistMaxOpacity);
   gl_FragColor.rgb = mix(gl_FragColor.rgb, linearToOutputTexel(vec4(fogMist.rgb, 1.0)).rgb, fogMist.a);
 }
@@ -82,7 +84,7 @@ export const applyFoggedMistHaze = (material: Material, uniforms: FoggedMistHaze
     shader.vertexShader = injectAfter(shader.vertexShader, "#include <common>", VERTEX_DECL);
     shader.vertexShader = injectAfter(shader.vertexShader, "#include <project_vertex>", VERTEX_POSITION);
     shader.fragmentShader = injectAfter(shader.fragmentShader, "#include <common>", FRAGMENT_DECL);
-    shader.fragmentShader = injectAfter(shader.fragmentShader, "#include <colorspace_fragment>", FRAGMENT_BLEND);
+    shader.fragmentShader = injectAfter(shader.fragmentShader, "#include <fog_fragment>", FOGGED_MIST_HAZE_FRAGMENT_BLEND);
   };
   material.customProgramCacheKey = (): string => `${previousCacheKey.call(material)}|foggedMistHaze`;
   material.needsUpdate = true;

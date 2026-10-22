@@ -3,7 +3,8 @@ import { InstancedMesh, BoxGeometry, Mesh, MeshBasicMaterial, MeshLambertMateria
 import { createTreeMaterial } from "../client-map-3d-trees/client-map-3d-tree-material.js";
 import { markUnexploredStormClip } from "../client-map-3d-unexplored-storm/client-map-3d-unexplored-storm-clip.js";
 import { FOGGED_MIST_Y, createFoggedMistLayer } from "./client-map-3d-fogged-mist.js";
-import { applyFoggedMistHaze, applyFoggedMistHazeToScene } from "./client-map-3d-fogged-mist-haze.js";
+import { FOGGED_MIST_HAZE_FRAGMENT_BLEND, applyFoggedMistHaze, applyFoggedMistHazeToScene } from "./client-map-3d-fogged-mist-haze.js";
+import { FOGGED_MIST_FRAGMENT_SHADER, FOGGED_MIST_SHADE_GLSL } from "./client-map-3d-fogged-mist-shader.js";
 
 const isHazed = (material: Material): boolean => material.customProgramCacheKey().includes("foggedMistHaze");
 
@@ -41,7 +42,7 @@ describe("fogged mist haze on features rising out of the mist (3D)", () => {
     expect(tree.customProgramCacheKey().split("foggedMistHaze")).toHaveLength(2);
   });
 
-  it("blends the sheet's own shade after lighting, only above the sheet, keeping the material's own shader edits", () => {
+  it("blends the sheet's own shade after lighting and fog, only above the sheet and off tiles in sight, keeping the material's own shader edits", () => {
     const uniforms = createFoggedMistLayer(new Scene(), () => 0).hazeUniforms;
     const compile = (material: Material, lib: "standard" | "lambert"): { vertexShader: string; fragmentShader: string; uniforms: Record<string, unknown> } => {
       applyFoggedMistHaze(material, uniforms);
@@ -53,9 +54,19 @@ describe("fogged mist haze on features rising out of the mist (3D)", () => {
     expect(tree.uniforms.uFogMistMask).toBe(uniforms.uFogMistMask);
     expect(tree.uniforms.uTreeWindTime).toBeDefined(); // the tree's wind survives
     expect(tree.vertexShader).toContain("fogMistLocal = instanceMatrix * fogMistLocal;");
-    expect(tree.fragmentShader).toMatch(/#include <colorspace_fragment>\n\s*if \(uFogMistOn > 0\.5 && vFogMistScene\.y > uFogMistPlaneY\)/);
+    expect(tree.fragmentShader).toMatch(/#include <fog_fragment>\n\s*if \(uFogMistOn > 0\.5 && vFogMistScene\.y > uFogMistPlaneY && /);
+    expect(tree.fragmentShader).toContain("texture2D(uFogMistMask, (floor(vFogMistScene.xz) + 0.5 - uFogMistMaskMin) / uFogMistMaskSize).r > 0.002"); // tiles in sight skipped
     expect(tree.fragmentShader).toContain("foggedMistShade(uFogMistMask");
     expect(tree.fragmentShader).toContain("linearToOutputTexel(vec4(fogMist.rgb, 1.0)).rgb, fogMist.a)");
     expect(compile(new MeshLambertMaterial(), "lambert").fragmentShader).toContain("foggedMistShade(");
+  });
+
+  it("calls the shared mist shade with exactly the parameters it declares", () => {
+    // A mismatch only fails at GLSL compile time in the browser, blanking every tree, peak and ground program.
+    const argCount = (args: string): number => args.split(",").filter((arg) => arg.trim().length > 0).length;
+    const declared = /vec4 foggedMistShade\(([^)]*)\)/.exec(FOGGED_MIST_SHADE_GLSL)?.[1];
+    expect(declared).toBeDefined();
+    const calls = [FOGGED_MIST_FRAGMENT_SHADER, FOGGED_MIST_HAZE_FRAGMENT_BLEND].map((source) => /foggedMistShade\(([^;]*)\);/.exec(source)?.[1]);
+    for (const call of calls) expect(argCount(call ?? "")).toBe(argCount(declared!));
   });
 });
