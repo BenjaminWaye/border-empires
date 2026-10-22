@@ -164,8 +164,7 @@ import type {
   TileMenuTab,
   TileMenuView,
   TileOverviewLine,
-  TileTimedProgress,
-  TileVisibilityState
+  TileTimedProgress
 } from "./client-types.js";
 import { debugTileLog, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
 import { createMusterWatchGuard } from "./client-muster-watch/client-muster-watch.js";
@@ -184,18 +183,8 @@ type ActionFlowDeps = Record<string, any> & {
   placementOverlayEl: HTMLDivElement;
   placementLabelEl: HTMLDivElement;
 };
-type TileDetailRequestOptions = {
-  force?: boolean;
-};
-
-export const shouldSendTileDetailRequest = (tile: Tile | undefined, me: string, options: TileDetailRequestOptions = {}): tile is Tile => {
-  if (!tile || tile.fogged) return false;
-  if (options.force) return true;
-  return tile.detailLevel !== "full" || ownTownDetailRecoveryNeeded(tile, me);
-};
-
-export const shouldRefreshTileDetailOnPress = (tile: Tile | undefined, visibility: TileVisibilityState): tile is Tile =>
-  Boolean(tile && visibility === "visible" && !tile.fogged);
+export { shouldRefreshTileDetailOnPress, shouldSendTileDetailRequest } from "./client-tile-interaction/client-tile-detail-request-rules.js";
+import { shouldRefreshTileDetailOnPress, shouldSendTileDetailRequest, type TileDetailRequestOptions } from "./client-tile-interaction/client-tile-detail-request-rules.js";
 
 export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const {

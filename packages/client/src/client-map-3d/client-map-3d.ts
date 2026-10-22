@@ -10,8 +10,7 @@ import {
   Scene
 } from "three";
 import { MAX_SUPPORT_RING_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, riverCornerWidthsForCurrentSeed, visualLandBiomeAt, worldgenVersion, type ResourceType, type SlotResource } from "@border-empires/shared";
-import type { ClientState } from "../client-state/client-state.js";
-import type { DockPair, Tile, TileVisibilityState } from "../client-types.js";
+import type { Tile, TileVisibilityState } from "../client-types.js";
 import { isHillsTile, isLightGrassScatterTile, isTropicalForestLatitude, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance, shouldDrawLightGrassScatterInstance } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile } from "../client-map-3d-muster-fill.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js"; import { markRendererFirstRenderStarted, markRendererFirstRenderCompleted } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 import { padTerrainWindow, requiredTerrainWindow, tileChangeIsWindowRelevant, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
@@ -50,11 +49,11 @@ import { logOwnershipRenderChange } from "../client-debug/client-debug.js";
 import { createTownOverlay, type TownTier } from "../client-map-3d-town-overlay.js";
 import { createDemoTileSpecs } from "./client-map-3d-demo-tiles.js";
 import { compileSceneShaders, createFirstFrameSignal, renderSkippingEmptyInstances } from "./client-map-3d-compile-shaders.js";
-import type { MapPrepStage } from "../client-map-prep/client-map-prep-stages.js";
 import { createResourceBadgeOverlay, type ResourceBadgeOverlay } from "../client-map-3d-unfed-badge-overlay/client-map-3d-unfed-badge-overlay.js";
 import { resourceIconGlyph } from "../client-resource-icons/client-resource-icons.js";
 import { createObservatoryCooldownBadgeOverlay } from "../client-map-3d-observatory-cooldown-badge-overlay/client-map-3d-observatory-cooldown-badge-overlay.js";
 import { createUpgradeReadyBadgeOverlay } from "../client-map-3d-upgrade-ready-badge-overlay/client-map-3d-upgrade-ready-badge-overlay.js";
+import { createNameDecalForMap } from "../client-map-3d-name-decal/client-map-3d-name-decal.js";
 import { createMusterOverlay } from "../client-map-3d-muster-overlay.js"; import { createWinChancePaintOverlay } from "../client-map-3d-win-chance-paint-overlay.js"; import { createArrowOverlay, syncArrowOverlayFrame } from "../client-map-3d-arrow-overlay.js"; import { createShieldAreaOverlay } from "../client-map-3d-shield-area-overlay.js"; import { collectKnownShieldFlags, isShieldCoverageShownOn, tileShieldCoverage } from "../client-known-shield-flags.js";
 import { createPopupMarineOverlayFx } from "../client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import { syncCaptureOverlays, syncBattleOverlayFx, syncMusterTransitOverlay } from "../client-map-3d-capture-overlays.js"; import { syncFrontierClaimPlates, activeFrontierAttackClaimTargetKeys } from "../client-map-3d-frontier-claim-plates.js"; import { createSiegeTowerOverlay } from "../client-map-3d-siege-tower-overlay.js"; import { siegeTowerRotationMode } from "../client-siege-tower-rotation-mode.js"; import { latestOngoingBattleTarget } from "../client-battle-overlay/client-battle-overlay.js";
@@ -112,27 +111,8 @@ import { createWaypointFlag } from "../client-map-3d-waypoint-flag/client-map-3d
 import { createMarchTargetMarkerPool, disposeMarchTargetMarkerPool, syncMarchTargetMarkers as syncMarchTargetMarkersFromModule } from "../client-map-3d-march-target-markers/client-map-3d-march-target-markers.js";
 import { WAYPOINT_QUEUE_CLIENT_CAP } from "../client-waypoint-planner/client-waypoint-persistence.js"; import { createShardRainBadgeOverlay, populateShardRainBadgeInstances } from "../client-map-3d-shard-rain-badge-overlay/client-map-3d-shard-rain-badge-overlay.js";
 
-type TileTimedProgress = {
-  readonly startAt: number;
-  readonly resolvesAt: number;
-};
-
-export type ClientThreeTerrainRendererDeps = {
-  state: ClientState;
-  canvas: HTMLCanvasElement;
-  keyFor: (x: number, y: number) => string;
-  wrapX: (x: number) => number;
-  wrapY: (y: number) => number;
-  terrainAt: (x: number, y: number) => Tile["terrain"];
-  effectiveOverlayColor: (ownerId: string) => string;
-  tileVisibilityStateAt: (x: number, y: number, tile?: Tile) => TileVisibilityState;
-  settlementProgressForTile: (x: number, y: number) => TileTimedProgress | undefined;
-  isPlacementValidForTile: (tile: Tile | undefined) => boolean; resolveDockSeaRoute: (pair: DockPair) => Array<{ x: number; y: number }>; isDockRouteVisibleForPlayer: (pair: DockPair) => boolean;
-  // Fires when the GPU drops the WebGL context; the host tears this instance down and falls back to 2D (client-map-3d-render-target.ts).
-  onContextLost?: (reason: string) => void;
-  // Called before each heavy build step so the login overlay can show and paint it (client-map-prep.ts).
-  onStage?: (stage: MapPrepStage) => Promise<void>;
-};
+export type { ClientThreeTerrainRendererDeps } from "./client-map-3d-deps.js";
+import type { ClientThreeTerrainRendererDeps } from "./client-map-3d-deps.js";
 
 // Device-sized rather than fixed at the desktop worst case; see client-map-3d-tile-budget.ts.
 const MAX_VISIBLE_TILES = resolveTileBudget(MIN_ZOOM); const AFC_MAX_INSTANCES = 48; // AFCs are rare (per-House + captures), unlike ordinary structures -- no need for the full tile budget
@@ -445,6 +425,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     overlay: townSupportTiles, lookupDeps: townSupportLookupDeps, selected: () => deps.state.selected, sceneOrigin, toroidDelta, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT,
     cornerYAt: (x, y) => heightfield.cornerYAt(x, y), isHillsAt: isHillsTile, hillCutAt: () => latestHillCutAt, rise: OVERLAY_RISE_ABOVE_HEIGHTFIELD
   });
+  const nameDecal = createNameDecalForMap({ scene, state: deps.state, isExploredAt: (x, y) => revealWholeMapInTrue3DMode || deps.tileVisibilityStateAt(x, y, deps.state.tiles.get(deps.keyFor(x, y))) !== "unexplored", heightfield, isHillsAt: isHillsTile, hillCutAt: () => latestHillCutAt, rise: OVERLAY_RISE_ABOVE_HEIGHTFIELD, wrapX: deps.wrapX, wrapY: deps.wrapY, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT }); // map names inked on the ground
   const hideLineMarkerPool = (pool: Array<{ marker: LineSegments }>): void => {
     for (const { marker } of pool) marker.visible = false;
   };
@@ -1183,6 +1164,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     observatoryCooldownBadgeOverlay.commit();
     upgradeReadyBadgeOverlay.commit();
     musterOverlay.commit(); winChancePaintOverlay.commit(); shieldAreaOverlay.commit();
+    nameDecal.sync({ camX: window.camX, camY: window.camY, halfW, halfH, nowMs: performance.now(), terrainRevision: deps.state.tilesRevision });
     aetherProtectionOverlay.commit();
     syncCaptureOverlays(
       deps.state,
@@ -1410,7 +1392,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     imperialExchangeLevyFx.update(nowMs);
     astralDockLaunchFx.update(nowMs);
     aegisLockFx.update(nowMs); unsettleFx.update(nowMs); afcModuleDeliveryFx.update(nowMs); afcDropFx.update(nowMs); borderDustFx.update(nowMs);
-    floatingText.update(nowMs);
+    floatingText.update(nowMs); nameDecal.tick(nowMs);
     attackOverlay.tick(Date.now()); // epoch ms: pulses off server resolvesAt, not uptime — see client-map-3d-attack-overlay.ts
     settleOverlay.tick(nowMs);
     waterSurface.tick(nowMs);
@@ -1482,7 +1464,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     for (const overlay of allBadgeOverlays) overlay.dispose();
     observatoryCooldownBadgeOverlay.dispose();
     upgradeReadyBadgeOverlay.dispose();
-    musterOverlay.dispose(); winChancePaintOverlay.dispose(); arrowOverlay.dispose(); shieldAreaOverlay.dispose();
+    musterOverlay.dispose(); winChancePaintOverlay.dispose(); arrowOverlay.dispose(); shieldAreaOverlay.dispose(); nameDecal.dispose();
     aetherProtectionOverlay.dispose();
     battleOverlayFx.dispose();
     supplyLineOverlay.dispose(); musterTransitOverlay.dispose();

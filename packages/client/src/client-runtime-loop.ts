@@ -26,6 +26,8 @@ import type { initClientDom } from "./client-dom.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network/client-road-network.js";
 import { drawQueuedTileBadges } from "./client-queue-badges/client-queued-tile-badges.js";
 import { createAfcMapOverlays } from "./client-afc-upgrades/client-afc-map-overlays.js";
+import { createMapNameLabels } from "./client-map-name-labels/client-map-name-labels.js";
+import { drawCrystalTargetingLine2D } from "./client-crystal-targeting-2d-line.js";
 import { drawTileOwnershipAndBreachBorder } from "./client-tile-borders/client-tile-borders.js";
 import { resolveMyReachCached } from "./client-reach-authoritative/client-reach-authoritative.js";
 import { drawReachBoundaryLine } from "./client-reach-overlay/client-reach-overlay.js";
@@ -181,6 +183,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     state.activePanel = "domains"; state.mobilePanel = "domains"; state.domainDetailOpen = false; state.techDetailOpen = false; deps.renderHud();
   });
   const drawPersistentAlertsFrame = createPersistentAlertsFrame(state);
+  // Player names (zoomed out) / island names (zoomed in), 2D map only: true-3D paints them onto the ground instead (client-map-3d-name-decal).
+  const mapNameLabels = createMapNameLabels({ state, ctx: deps.ctx, isExploredAt: (x, y) => deps.tileVisibilityStateAt(x, y, state.tiles.get(deps.keyFor(x, y))) !== "unexplored", wrapX: deps.wrapX, wrapY: deps.wrapY });
   const drawConstructionCountdownOverlay = createConstructionCountdownOverlay2D(deps);
   const requestVisibleTileDetails = createVisibleTileDetailRequester({
     state,
@@ -1070,6 +1074,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
     for (const overlayTile of overlayTiles) renderOverlayTile(overlayTile); if (!isTrue3DRendererActive() && state.arrowGesture) drawArrowGesture2D(deps.ctx, state.arrowGesture, (wx2, wy2) => deps.worldToScreen(wx2, wy2, size, halfW, halfH), size); // F4: 2D arrow-gesture visual (F1/F2 parity)
     afcMapOverlays.render(overlayTiles, { size, project: (x, y) => deps.worldToScreen(x, y, size, halfW, halfH) });
+    if (!isTrue3DRendererActive()) mapNameLabels.render((x, y) => deps.worldToScreen(x, y, size, halfW, halfH), nowMs);
     const tileOverlayMs = phaseMs();
 
     if (debugWindow && isTrue3DRendererActive() && debugSelected) {
@@ -1135,50 +1140,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
     }
 
-    if (!isTrue3DRendererActive() && crystalTargetingActive) {
-      const hoveredKey = state.hover ? deps.keyFor(state.hover.x, state.hover.y) : "";
-      const selectedKey = state.selected ? deps.keyFor(state.selected.x, state.selected.y) : "";
-      const targetKey = state.crystalTargeting.validTargets.has(hoveredKey)
-        ? hoveredKey
-        : state.crystalTargeting.validTargets.has(selectedKey)
-          ? selectedKey
-          : "";
-      if (targetKey) {
-        const target = deps.parseKey(targetKey);
-        const targetScreen = deps.worldToScreen(target.x, target.y, size, halfW, halfH);
-        const originKey = state.crystalTargeting.originByTarget.get(targetKey);
-        if (originKey) {
-          const origin = deps.parseKey(originKey);
-          const originScreen = deps.worldToScreen(origin.x, origin.y, size, halfW, halfH);
-          deps.ctx.save();
-          deps.ctx.strokeStyle =
-            crystalTone === "amber"
-              ? "rgba(255, 205, 98, 0.92)"
-              : crystalTone === "cyan"
-                ? "rgba(116, 227, 255, 0.92)"
-                : "rgba(255, 110, 110, 0.92)";
-          deps.ctx.lineWidth = 2;
-          deps.ctx.setLineDash(crystalTone === "cyan" ? [10, 6] : [7, 5]);
-          deps.ctx.beginPath();
-          deps.ctx.moveTo(originScreen.sx, originScreen.sy);
-          deps.ctx.lineTo(targetScreen.sx, targetScreen.sy);
-          deps.ctx.stroke();
-          deps.ctx.setLineDash([]);
-          deps.ctx.strokeRect(originScreen.sx - size / 2 + 2, originScreen.sy - size / 2 + 2, size - 4, size - 4);
-          deps.ctx.restore();
-        }
-        deps.ctx.save();
-        deps.ctx.strokeStyle =
-          crystalTone === "amber"
-            ? "rgba(255, 219, 132, 1)"
-            : crystalTone === "cyan"
-              ? "rgba(153, 240, 255, 1)"
-              : "rgba(255, 144, 144, 1)";
-        deps.ctx.lineWidth = 3;
-        deps.ctx.strokeRect(targetScreen.sx - size / 2 + 1, targetScreen.sy - size / 2 + 1, size - 2, size - 2);
-        deps.ctx.restore();
-      }
-    }
+    if (!isTrue3DRendererActive() && crystalTargetingActive) drawCrystalTargetingLine2D({ ctx: deps.ctx, state, keyFor: deps.keyFor, parseKey: deps.parseKey, project: (x, y) => deps.worldToScreen(x, y, size, halfW, halfH), size, tone: crystalTone });
     const targetingUiMs = phaseMs();
 
     // See client-dock-route-draw.ts for why this is 2D-only.

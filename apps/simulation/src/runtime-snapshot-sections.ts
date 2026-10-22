@@ -89,6 +89,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           ...(player.afcCampaign ? { afcCampaign: structuredClone(player.afcCampaign) } : {}),
           ...(player.chosenTrickleResource ? { chosenTrickleResource: player.chosenTrickleResource } : {}),
           ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
+          ...(player.islandNames?.length ? { islandNames: player.islandNames.map((claim) => ({ ...claim })) } : {}),
           autoSettle: { ...player.autoSettle },
           ...(player.waystationResourceSlotBonus ? { waystationResourceSlotBonus: { ...player.waystationResourceSlotBonus } } : {}),
           ...(typeof player.waystationManpowerOverflow === "number" && player.waystationManpowerOverflow > 0 ? { waystationManpowerOverflow: player.waystationManpowerOverflow } : {}),

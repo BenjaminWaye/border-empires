@@ -24,6 +24,11 @@ describe("ClientMessageSchema", () => {
     expect(ClientMessageSchema.safeParse({ type: "SET_AUTO_SETTLE_PREFS", towns: "yes", food: false, resources: false }).success).toBe(false);
   });
 
+  it("accepts NAME_ISLAND and rejects a non-integer tile", () => {
+    expect(ClientMessageSchema.parse({ type: "NAME_ISLAND", x: 4, y: 9, name: "Isle of Brass" })).toEqual({ type: "NAME_ISLAND", x: 4, y: 9, name: "Isle of Brass" });
+    expect(ClientMessageSchema.safeParse({ type: "NAME_ISLAND", x: 4.5, y: 9, name: "Isle of Brass" }).success).toBe(false);
+  });
+
   it("accepts upgrade-town-tier messages", () => {
     expect(ClientMessageSchema.parse({ type: "UPGRADE_TOWN_TIER", x: 4, y: 9 })).toEqual({
       type: "UPGRADE_TOWN_TIER",

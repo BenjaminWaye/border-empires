@@ -12,6 +12,10 @@ export const RENDER_ORDER = {
   // Wet river bank over the ownership fill, under the water (river-bank-strip).
   riverBank: 7.5,
   riverWater: 8,
+  // Map names inked on the ground (client-map-3d-name-decal): over the
+  // ownership tint and rivers, under fog, mist, storm clouds and every
+  // overlay; depth-tested so buildings and units stand in front.
+  groundNames: 8.5,
   fogDarkenSettled: 9,
   fogDarkenFrontier: 10,
   // client-map-3d-water-surface.ts: the ocean plane.

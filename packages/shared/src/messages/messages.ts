@@ -381,6 +381,14 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     towns: z.boolean(),
     food: z.boolean(),
     resources: z.boolean()
+  }),
+  // Rename the island under (x, y); only its full garrison holder may
+  // (shared island-names.ts). The sim re-validates the name and the hold.
+  z.object({
+    type: z.literal("NAME_ISLAND"),
+    x: z.number().int(),
+    y: z.number().int(),
+    name: z.string().max(64)
   })
 ]);
 

@@ -13,6 +13,8 @@ import { expandTileDeltasWithLinkedDocks } from "../runtime-linked-dock-deltas.j
 import { planDirectFrontierCommand } from "../ai/direct-frontier-planner.js";
 import { buildAiTacticalView, type AiTacticalView } from "../ai/ai-tactical-view.js";
 import { resolvePendingSettlement as resolvePendingSettlementImpl, type SettlementResolutionInput } from "./runtime-settlement-resolution.js";
+import { startSettlementProcess as startSettlementProcessImpl, type SettlementStartInput } from "./runtime-settlement-start.js";
+import { createIslandNamesTicker } from "../island-names/island-names-ticker.js";
 import { EventEmitter } from "node:events";
 import type { CommandEnvelope, ManpowerBreakdown, SimulationEvent } from "@border-empires/sim-protocol";
 import type { PlayerRespawnNotice, PlayerRespawnReasonCode } from "@border-empires/shared";
@@ -56,7 +58,7 @@ import {
   integrityGrowthMult,
   DEVELOPMENT_PROCESS_LIMIT,
   GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE, GALACTIC_WONDER_VISION_RADIUS_BONUS,
-  SETTLE_COST, isAutoSettleAllowed, settleIgnoresReach,
+  isAutoSettleAllowed, settleIgnoresReach,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   type Terrain,
@@ -211,7 +213,7 @@ import { restoreRecoveredTownOrder, restoreTownSettledAt } from "../recovered-to
 import { TileDeltaStringifyCache } from "../tile-delta-stringify-cache/tile-delta-stringify-cache.js";
 import { tileDeltaFromState as tileDeltaFromStateImpl } from "../runtime-tile-delta-from-state.js";
 import { PlayerCandidateIndex } from "../player-candidate-index/player-candidate-index.js";
-import { applySettleCost, refundSettleCost, settleRejectionForActor, settlementBaseDurationMsForTile, settlementDurationMsForPlayer } from "../runtime-settlement-rules.js";
+import { refundSettleCost, settleRejectionForActor } from "../runtime-settlement-rules.js";
 import {
   applyBarbarianWalkOrMultiply as applyBarbarianWalkOrMultiplyImpl,
   applyBreachToNeighbors as applyBreachToNeighborsImpl,
@@ -624,6 +626,11 @@ export class SimulationRuntime {
   // shrinks this map by itself; it only changes what's available to defend
   // a tile the next time a rival anchor contests it.
   private reachBorder: Map<string, string> = new Map();
+  // ISLAND_NAMES push (island-names/island-names-ticker.ts); derived, never snapshotted.
+  private readonly islandNamesTicker = createIslandNamesTicker({
+    tiles: () => this.state.tiles, players: () => this.state.players,
+    isPlayerSubscribed: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false, emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload)
+  });
   // Change-driven REACH_UPDATE push bookkeeping — see runtime-reach-update.ts.
   private readonly reachUpdateState: ReachUpdateState = createReachUpdateState(); private readonly reachContestedDirtyState: ReachChangedTilesDirtyState = createReachChangedTilesDirtyState(); // changed-reach-tile TILE_DELTA_BATCH dirty set, see runtime-reach-contested-tiles.ts
   private frontierAutoHealQueue: FrontierAutoHealQueue = createFrontierAutoHealQueue(); // deadline-ordered; derived state, rebuilt at hydration, never snapshotted -- see runtime-frontier-auto-heal.ts
@@ -1132,6 +1139,16 @@ export class SimulationRuntime {
   resendAetherShieldsForPlayer(playerId: string): void {
     this.aetherShieldTicker.sendTo(playerId, this.now());
     this.oracleDetections.sendTo(playerId);
+  }
+
+  /** Throttled inside; see island-names/island-names-ticker.ts. */
+  tickIslandNames(nowMs: number = this.now()): void {
+    this.islandNamesTicker.tick(nowMs);
+  }
+
+  /** Live-subscribe push of the ISLAND_NAMES label list (simulation-service/live-subscribe-reach-push.ts). */
+  resendIslandNamesForPlayer(playerId: string): void {
+    this.islandNamesTicker.sendTo(playerId, this.now());
   }
 
   async tickTerritoryAutomation(nowMs: number = this.now(), yieldToEventLoop?: () => Promise<void>): Promise<void> {
@@ -2709,50 +2726,12 @@ export class SimulationRuntime {
 
   private handleFrontierCommand(command: CommandEnvelope, actionType: FrontierCommandType): FrontierCommandResult { return handleFrontierCommandImpl(this.frontierCommandContext(), command, actionType); }
 
-  private startSettlementProcess(input: {
-    commandId: string;
-    playerId: string;
-    targetKey: string;
-    target: DomainTileState;
-    startedAt: number;
-    emitStartedUpdate?: boolean;
-  }): void {
-    const actor = this.state.players.get(input.playerId);
-    if (!actor) return;
-    applySettleCost(actor);
-    const settleDurationMs = settlementDurationMsForPlayer(actor, settlementBaseDurationMsForTile(input.target));
-    const resolvesAt = input.startedAt + settleDurationMs;
-    this.addPendingSettlement({
-      ownerId: input.playerId,
-      tileKey: input.targetKey,
-      startedAt: input.startedAt,
-      resolvesAt,
-      goldCost: SETTLE_COST,
-      commandId: input.commandId
-    });
-    // Armed before the emits below: if either throws (callers like the
-    // territory-automation tick catch and log), the slot must still free.
-    this.scheduleAfter(settleDurationMs, () =>
-      this.resolvePendingSettlement({
-        ownerId: input.playerId,
-        tileKey: input.targetKey,
-        startedAt: input.startedAt,
-        resolvesAt,
-        commandId: input.commandId
-      })
-    );
-    this.emitEvent({
-      eventType: "SETTLEMENT_STARTED",
-      commandId: input.commandId,
-      playerId: input.playerId,
-      tileKey: input.targetKey,
-      startedAt: input.startedAt,
-      resolvesAt,
-      goldCost: SETTLE_COST
-    });
-    if (input.emitStartedUpdate !== false) {
-      this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.playerId });
-    }
+  private startSettlementProcess(input: SettlementStartInput): void {
+    startSettlementProcessImpl({
+      players: this.state.players, addPendingSettlement: (record) => this.addPendingSettlement(record), scheduleAfter: this.scheduleAfter,
+      resolvePendingSettlement: (resolution) => this.resolvePendingSettlement(resolution), emitEvent: (event) => this.emitEvent(event),
+      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command)
+    }, input);
   }
 
   // Extracted from startSettlementProcess's scheduled-timer closure so
