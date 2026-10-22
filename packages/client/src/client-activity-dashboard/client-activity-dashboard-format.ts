@@ -125,3 +125,9 @@ export const activityCardTimeLabel = (card: PersonalActivityCard): string => tim
 /** Every concrete activity card carries a map location; the truncation note never does. */
 export const activityCardCoordinates = (card: PersonalActivityCard): { x: number; y: number } | undefined =>
   card.kind === "TRUNCATION_NOTE" ? undefined : { x: card.x, y: card.y };
+
+/** The "(x, y)" tile label shown on a timeline row, matching the feed's coordinate format. */
+export const activityCardCoordinatesLabel = (card: PersonalActivityCard): string | undefined => {
+  const coords = activityCardCoordinates(card);
+  return coords ? `(${coords.x}, ${coords.y})` : undefined;
+};

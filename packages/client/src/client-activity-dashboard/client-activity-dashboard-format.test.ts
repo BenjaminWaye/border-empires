@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activityCardCoordinates, activityCardText, activityPlayerNameLookup, shouldShowManpowerHeadline, summaryCountsLine, truncationLabel } from "./client-activity-dashboard-format.js";
+import { activityCardCoordinates, activityCardCoordinatesLabel, activityCardText, activityPlayerNameLookup, shouldShowManpowerHeadline, summaryCountsLine, truncationLabel } from "./client-activity-dashboard-format.js";
 
 describe("shouldShowManpowerHeadline", () => {
   it("is false below the absolute floor even at a huge cap share", () => {
@@ -181,5 +181,16 @@ describe("activityPlayerNameLookup", () => {
   it("falls back to playerNames for an AI missing from the leaderboard", () => {
     const lookup = activityPlayerNameLookup({ playerNames: new Map([["ai-7", "AI 7"]]), leaderboard: leaderboardWith([]) });
     expect(lookup("ai-7")).toBe("AI 7");
+  });
+});
+
+describe("activityCardCoordinatesLabel", () => {
+  it("formats a located card as \"(x, y)\"", () => {
+    const card = { kind: "TERRITORY_FLIP_GROUP" as const, id: "a", occurredAt: 1, direction: "GAINED" as const, counterpartyPlayerId: undefined, tileCount: 1, x: 12, y: 0 };
+    expect(activityCardCoordinatesLabel(card)).toBe("(12, 0)");
+  });
+
+  it("has no label for the truncation note", () => {
+    expect(activityCardCoordinatesLabel({ kind: "TRUNCATION_NOTE", id: "t", occurredAt: 1, hiddenCount: 3 } as any)).toBeUndefined();
   });
 });

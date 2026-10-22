@@ -3,7 +3,7 @@ import { changelogBodyHtml, latestClientChangelogTimestamp, markClientChangelogS
 import { escapeActivityDashboardHtml } from "./client-activity-dashboard-escape.js";
 import { acknowledgeActivitySeen, requestPersonalActivity, requestWorldPulse } from "./client-activity-dashboard-network.js";
 import { wireActivityDashboardCenterButtons } from "./client-activity-dashboard-center.js";
-import { activityCardCoordinates, activityCardText, activityPlayerNameLookup, activityCardTimeLabel, summaryCountsLine, truncationLabel } from "./client-activity-dashboard-format.js";
+import { activityCardCoordinates, activityCardCoordinatesLabel, activityCardText, activityPlayerNameLookup, activityCardTimeLabel, summaryCountsLine, truncationLabel } from "./client-activity-dashboard-format.js";
 import { clearActivityDashboard, paintActivityDashboard, resetActivityDashboardScroll, syncActivityDashboardScroll } from "./client-activity-dashboard-scroll.js";
 import { worldPulseAtGlanceHtml, worldPulseBodyHtml } from "./client-activity-dashboard-world-pulse.js";
 import { resourceSurveySectionHtml } from "./client-activity-dashboard-surveys.js";
@@ -57,6 +57,8 @@ const resetActivityDashboardView = (state: Pick<ClientState, "activityDashboard"
 
 const cardRowHtml = (card: Parameters<typeof activityCardText>[0], playerId: string, playerNames: (id: string) => string | undefined, techName: (id: string) => string | undefined): string => {
   const coords = activityCardCoordinates(card);
+  const coordsLabel = activityCardCoordinatesLabel(card);
+  const coordsHtml = coordsLabel ? ` <span class="activity-dashboard-card-coords">${coordsLabel}</span>` : "";
   const centerBtn = coords
     ? `<button class="activity-dashboard-center-btn" type="button" data-activity-focus-x="${coords.x}" data-activity-focus-y="${coords.y}">Center</button>`
     : "";
@@ -64,7 +66,7 @@ const cardRowHtml = (card: Parameters<typeof activityCardText>[0], playerId: str
   return `
     <div class="activity-dashboard-card is-${tone}">
       <span class="activity-dashboard-card-glyph" aria-hidden="true">${ACTIVITY_TONE_GLYPH[tone]}</span>
-      <span class="activity-dashboard-card-text">${activityCardTimeLabel(card)} · ${escapeActivityDashboardHtml(activityCardText(card, playerId, playerNames, techName))}</span>
+      <span class="activity-dashboard-card-text">${activityCardTimeLabel(card)} · ${escapeActivityDashboardHtml(activityCardText(card, playerId, playerNames, techName))}${coordsHtml}</span>
       ${centerBtn}
     </div>
   `;

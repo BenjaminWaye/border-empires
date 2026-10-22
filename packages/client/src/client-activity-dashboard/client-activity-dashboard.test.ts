@@ -192,6 +192,7 @@ describe("renderClientActivityDashboardOverlay", () => {
     const deps = makeDeps(state);
     renderClientActivityDashboardOverlay(deps);
 
+    expect(deps.overlayEl.querySelector(".activity-dashboard-card-coords")?.textContent).toBe("(3, 4)");
     const centerBtn = deps.overlayEl.querySelector("[data-activity-focus-x]") as HTMLButtonElement | null;
     expect(centerBtn).not.toBeNull();
     centerBtn!.click();

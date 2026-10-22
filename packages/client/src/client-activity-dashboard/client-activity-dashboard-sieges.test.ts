@@ -54,6 +54,8 @@ describe("siege activity cards", () => {
     expect(html).toContain("<h3>Sieges</h3>");
     expect(html.indexOf("Your Fort fell")).toBeLessThan(html.indexOf("Your Palisade is holding"));
     expect(html).toContain('data-activity-focus-x="4" data-activity-focus-y="7"');
+    // Siege rows sit in Yours too, so they show their tile like the timeline rows.
+    expect(html).toContain('<span class="activity-dashboard-card-coords">(4, 7)</span>');
   });
 
   it("does not misread an unknown card kind from a newer server as a truncation note", () => {
