@@ -24,6 +24,7 @@ import { PLANETARY_DEFENSE_MUSTER_FLAG_CHANGELOG } from "./client-changelog-plan
 import { YOURS_TILE_COORDS_CHANGELOG } from "./client-changelog-yours-tile-coords.js";
 import { MAP_NAMES_CHANGELOG } from "./client-changelog-map-names.js";
 import { REACH_OWNER_NAME_CHANGELOG } from "./client-changelog-reach-owner-name.js";
+import { ACTIVITY_RESTART_WINDOW_CHANGELOG } from "./client-changelog-activity-restart-window.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -481,7 +482,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...PLANETARY_DEFENSE_MUSTER_FLAG_CHANGELOG,
   ...YOURS_TILE_COORDS_CHANGELOG,
   ...MAP_NAMES_CHANGELOG,
-  ...REACH_OWNER_NAME_CHANGELOG
+  ...REACH_OWNER_NAME_CHANGELOG,
+  ...ACTIVITY_RESTART_WINDOW_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

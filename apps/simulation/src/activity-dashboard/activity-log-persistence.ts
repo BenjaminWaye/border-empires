@@ -9,35 +9,24 @@
 // that deploy. Those numbers are presented as a trailing 24h, so a deploy made
 // them quietly wrong rather than obviously missing.
 //
-// Why a bounded-tail blob on the season summary's existing persist cadence
-// rather than append-only rows through the SQLite writer worker:
-//   - The public logs' 50,000-entry caps and personal log's 5,000-entry cap
-//     are safety valves, not expected size. Real prod traffic is ~1,588
-//     manpower across on the order of 100 battles and a few hundred tile flips
-//     per 24h -- hundreds of entries, not tens of thousands. A bounded tail
-//     therefore captures the whole real window in a blob of tens of KB.
-//   - That makes a per-record write path through the writer worker (plus a
-//     chunked prune and a new table) a large amount of machinery, on the
-//     hottest path in the sim, for data a single small periodic upsert already
-//     covers. Fewer moving parts on that path is worth more here than
-//     exactness at the 50k tail.
+// Why one blob on the season summary's existing persist cadence rather than
+// append-only rows through the SQLite writer worker: a per-record write path
+// (plus a chunked prune and a new table) is a large amount of machinery on the
+// hottest path in the sim, for data a single periodic upsert already covers.
 //
-// ACTIVITY_LOG_PERSIST_LIMIT keeps that reasoning honest under a burst: past
-// the limit the OLDEST entries are dropped (the newest window is what the
-// aggregations report), so an implausibly hot day degrades to a shorter
-// restored window instead of an unbounded blob.
+// The blob is the whole of each log, with no tighter cap of its own. Each log
+// is already bounded by its 24h prune and its entry cap (50,000 for the public
+// logs, 5,000 for personal impacts), so that is the ceiling here too: about
+// 17 MB and ~16 ms of JSON.stringify if both public logs are full. An earlier
+// 5,000-entry persist cap assumed a few hundred flips per day; every capture
+// and expansion world-wide is a flip, so a busy day passed it within hours and
+// each restart cut every player's "Yours" timeline back to that newest slice.
 import type { ActivityDashboardSnapshot, DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 
 import { buildActivityDashboardSnapshot } from "./activity-dashboard-snapshot.js";
 import type { CombatManpowerLog, CombatManpowerLoss } from "../combat-manpower-log/combat-manpower-log.js";
 import type { PersonalImpactEvent, PersonalImpactLog } from "../personal-impact-log/personal-impact-log.js";
 import type { TerritoryFlip, TerritoryFlipLog } from "../territory-flip-log/territory-flip-log.js";
-
-/**
- * Per-log cap on what is persisted. ~10-30x realistic 24h traffic, and well
- * under each log's own 50,000-entry safety cap.
- */
-export const ACTIVITY_LOG_PERSIST_LIMIT = 5_000;
 
 export type PersistedActivityLogs = {
   flips: TerritoryFlip[];
@@ -46,19 +35,14 @@ export type PersistedActivityLogs = {
   personalImpactCapHits?: number;
 };
 
-/** The newest `limit` entries, oldest-first (the order the logs store them in). */
-const newestTail = <T>(entries: readonly T[], limit: number): T[] =>
-  entries.length > limit ? entries.slice(entries.length - limit) : [...entries];
-
 export const exportActivityLogs = (
   flipLog: Pick<TerritoryFlipLog, "entries">,
   combatLog: Pick<CombatManpowerLog, "entries">,
-  personalImpactLog: Pick<PersonalImpactLog, "entries" | "gauge">,
-  limit: number = ACTIVITY_LOG_PERSIST_LIMIT
+  personalImpactLog: Pick<PersonalImpactLog, "entries" | "gauge">
 ): PersistedActivityLogs => ({
-  flips: newestTail(flipLog.entries(), limit),
-  combat: newestTail(combatLog.entries(), limit),
-  personalImpacts: newestTail(personalImpactLog.entries(), limit),
+  flips: [...flipLog.entries()],
+  combat: [...combatLog.entries()],
+  personalImpacts: [...personalImpactLog.entries()],
   personalImpactCapHits: personalImpactLog.gauge().capHits
 });
 
