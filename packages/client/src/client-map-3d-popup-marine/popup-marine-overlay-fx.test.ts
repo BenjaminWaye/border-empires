@@ -153,7 +153,8 @@ describe("popup-marine overlay fx", () => {
       srcSurfaceY: 0, tgtSurfaceY: 0,
       attackerColor: "#4fb3ff", defenderColor: "#ff5d5d",
       startAt: 0,
-      hashSeed: 42
+      hashSeed: 42,
+      siegeBoosted: true
     };
     const dueAt = APPROACH_MS - STRIKE_LEAD_MS;
 
@@ -170,6 +171,24 @@ describe("popup-marine overlay fx", () => {
     fx.dispose();
   });
 
+  it("skips the opening strike beam when no siege structure boosts the fight", async () => {
+    const scene = new Scene();
+    const fx = await createLoadedFx(scene);
+    const skirmish: BattleOverlaySkirmishEntry = {
+      srcWorldX: -1, srcWorldZ: 0,
+      tgtWorldX: 1, tgtWorldZ: 0,
+      srcSurfaceY: 0, tgtSurfaceY: 0,
+      attackerColor: "#4fb3ff", defenderColor: "#ff5d5d",
+      startAt: 0,
+      hashSeed: 42
+    };
+
+    for (let t = 0; t <= APPROACH_MS + 500; t += 16) fx.tick(t, [], [skirmish]);
+    expect(strikeCountIn(scene)).toBe(0);
+
+    fx.dispose();
+  });
+
   /** Cumulative count of distinct strike-fx spawns across a stepped
    * simulation (a spawn is any frame-to-frame increase in the shared
    * "battle-strike-fx" layer's child count) -- both the generic opening
@@ -180,14 +199,14 @@ describe("popup-marine overlay fx", () => {
     fx: Awaited<ReturnType<typeof createLoadedFx>>,
     scene: Scene,
     skirmish: BattleOverlaySkirmishEntry,
-    siegeTowerTarget: { x: number; y: number } | undefined,
+    siegeTowerTargets: ReadonlyArray<{ x: number; y: number }>,
     fromMs: number,
     toMs: number
   ): number => {
     let spawns = 0;
     let prevCount = 0;
     for (let t = fromMs; t <= toMs; t += 16) {
-      fx.tick(t, [], [skirmish], siegeTowerTarget);
+      fx.tick(t, [], [skirmish], siegeTowerTargets);
       const count = strikeCountIn(scene);
       if (count > prevCount) spawns += count - prevCount;
       prevCount = count;
@@ -203,7 +222,8 @@ describe("popup-marine overlay fx", () => {
       srcSurfaceY: 0, tgtSurfaceY: 0,
       attackerColor: "#4fb3ff", defenderColor: "#ff5d5d",
       startAt: 0,
-      hashSeed
+      hashSeed,
+      siegeBoosted: true
     };
     const victim = skirmishSiegeVictim(skirmish)!;
     expect(victim.deathAtMs).toBe(APPROACH_MS); // pinned to combat start, not a random roll
@@ -211,14 +231,14 @@ describe("popup-marine overlay fx", () => {
     const sceneNoTower = new Scene();
     const fxNoTower = await createLoadedFx(sceneNoTower);
     // Wrong tile: only the generic opening strike fires.
-    const withoutKillShot = countStrikeSpawns(fxNoTower, sceneNoTower, skirmish, { x: 99, y: 99 }, 0, APPROACH_MS + 500);
+    const withoutKillShot = countStrikeSpawns(fxNoTower, sceneNoTower, skirmish, [{ x: 99, y: 99 }], 0, APPROACH_MS + 500);
     expect(withoutKillShot).toBe(1);
     fxNoTower.dispose();
 
     const sceneWithTower = new Scene();
     const fxWithTower = await createLoadedFx(sceneWithTower);
     // Matching tile: the generic strike AND the tower's kill-shot both fire.
-    const withKillShot = countStrikeSpawns(fxWithTower, sceneWithTower, skirmish, { x: 3, y: 4 }, 0, APPROACH_MS + 500);
+    const withKillShot = countStrikeSpawns(fxWithTower, sceneWithTower, skirmish, [{ x: 3, y: 4 }], 0, APPROACH_MS + 500);
     expect(withKillShot).toBe(2);
     fxWithTower.dispose();
   });
@@ -353,7 +373,7 @@ describe("popup-marine overlay fx", () => {
     const scene = new Scene();
     const fx = await createLoadedFx(scene);
     // The siege tower's victim dies at combat start; well past its fall.
-    fx.tick(APPROACH_MS + 5000, [], [skirmish], { x: 3, y: 4 });
+    fx.tick(APPROACH_MS + 5000, [], [skirmish], [{ x: 3, y: 4 }]);
 
     // A fallen marine's root is tipped over; an upright one's up axis stays vertical.
     const isUpright = (m: Object3D): boolean => new Vector3(0, 1, 0).applyQuaternion(m.quaternion).y > 0.999;

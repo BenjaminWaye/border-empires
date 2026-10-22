@@ -2,6 +2,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { Heightfield } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { CLASH_MS, type BattleOverlayFx, type BattleOverlayRenderEntry, type BattleOverlaySkirmishEntry } from "./client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import { pruneExpiredActiveBattles } from "./client-battle-overlay/client-battle-overlay.js";
+import { battleIsSiegeBoosted } from "./client-battle-overlay/client-siege-battle-targets.js";
 import { pruneExpiredIncomingAttacks, pruneExpiredOutgoingMusterAttacks } from "./client-siege-tracking/client-siege-tracking.js";
 import {
   activeMusterSupplyLines,
@@ -133,12 +134,11 @@ export function syncBattleOverlayFx(
   // off the ground during a pan inside the rebuild pad.
   originX: number,
   originY: number,
-  // The tile a real siege tower is currently locked onto (see
-  // client-map-3d-siege-tower-overlay.ts's hasInstances()/update()) — passed
-  // through so the pop-up-marine overlay can attribute a "kill shot" to the
-  // tower on that one tile's battle. Undefined when no siege tower exists on
-  // the map, or there is no ongoing battle for one to aim at.
-  siegeTowerTarget?: { x: number; y: number },
+  // The battle tiles real siege towers are beaming this frame (see
+  // client-map-3d-siege-tower-overlay.ts's update()) — passed through so the
+  // pop-up-marine overlay can attribute a "kill shot" to the tower on those
+  // tiles' battles. Empty when no tower is boosting any ongoing battle.
+  siegeTowerTargets: ReadonlyArray<{ x: number; y: number }> = [],
   // Extra height a marine standing on world tile (x, y) needs to clear
   // opaque ground cover drawn over the terrain there (the farm plot — see
   // FarmlandOverlay.standLiftAt); without it the squad fights hidden inside
@@ -181,6 +181,7 @@ export function syncBattleOverlayFx(
       // (offset/perp/freq/phase) continuous when a battle picks up from a
       // preceding skirmish on the same tile.
       hashSeed: battle.targetX * 92821 + battle.targetY,
+      siegeBoosted: battleIsSiegeBoosted(state, keyFor, battle.attackerOwnerId, battle.targetX, battle.targetY),
       ...defenderGarrisonField(state, keyFor, keyFor(battle.targetX, battle.targetY), battle.defenderOwnerId, nowEpochMs)
     });
   }
@@ -222,6 +223,7 @@ export function syncBattleOverlayFx(
       defenderColor: squadColorForOwner(defenderOwnerId, playerColorFor),
       startAt,
       hashSeed: target.x * 92821 + target.y,
+      siegeBoosted: battleIsSiegeBoosted(state, keyFor, attackerOwnerId, target.x, target.y),
       ...defenderGarrisonField(state, keyFor, key, defenderOwnerId, nowEpochMs),
       ...(holdApproachUntilElapsed !== undefined ? { holdApproachUntilElapsed } : {})
     });
@@ -339,7 +341,7 @@ export function syncBattleOverlayFx(
 
   const garrisons = buildCaptureHoldGarrisons(state, keyFor, new Set([...state.activeBattles.keys(), ...skirmishKeys]), playerColorFor, standY, originX, originY, nowMs, nowEpochMs);
   if (entries.length === 0 && skirmishes.length === 0 && garrisons.length === 0) { battleOverlayFx.clear(); return; }
-  battleOverlayFx.tick(nowMs, entries, skirmishes, siegeTowerTarget, garrisons);
+  battleOverlayFx.tick(nowMs, entries, skirmishes, siegeTowerTargets, garrisons);
 }
 
 // Drives the marching-company overlay from state.musterTransitByTile/
