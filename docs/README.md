@@ -35,6 +35,7 @@ remain authoritative for runtime behavior.
 | Current manpower and resource-slot rules | [`product/resource-and-manpower-economy.md`](product/resource-and-manpower-economy.md) |
 | Starter-site contract and new-player guidance | [`product/new-player-opening.md`](product/new-player-opening.md) |
 | Adding a structure | [`adding-a-structure-playbook.md`](adding-a-structure-playbook.md) |
+| Proposed relic ziggurat: interactive 3D preview and renderer scope | [`relic-overlay-preview.md`](relic-overlay-preview.md) |
 
 ## Document lifecycle
 

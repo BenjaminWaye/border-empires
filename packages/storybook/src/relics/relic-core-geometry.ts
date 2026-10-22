@@ -1,0 +1,121 @@
+import { BoxGeometry, BufferGeometry, Color, ExtrudeGeometry, Float32BufferAttribute, Shape } from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+
+export type RelicCoreGeometry = {
+  readonly shell: BufferGeometry;
+  readonly armour: BufferGeometry;
+  readonly machinery: BufferGeometry;
+  readonly recess: BufferGeometry;
+  readonly light: BufferGeometry;
+};
+
+const box = (w: number, h: number, d: number, x: number, y: number, z: number): BufferGeometry =>
+  new BoxGeometry(w, h, d).translate(x, y, z);
+
+const noise = (x: number, y: number, z: number): number => {
+  const value = Math.sin(x * 71.3 + y * 39.7 + z * 113.1) * 43758.5453;
+  return value - Math.floor(value);
+};
+
+const merge = (parts: BufferGeometry[]): BufferGeometry => {
+  const triangles = parts.map((part) => {
+    const geometry = part.index ? part.toNonIndexed() : part.clone();
+    geometry.deleteAttribute("uv");
+    return geometry;
+  });
+  const result = mergeGeometries(triangles, false);
+  for (const geometry of [...parts, ...triangles]) geometry.dispose();
+  if (!result) throw new Error("Relic ziggurat geometry could not be merged");
+  const position = result.getAttribute("position");
+  const shades = new Float32Array(position.count * 3);
+  const color = new Color();
+  for (let i = 0; i < position.count; i += 1) {
+    const wear = noise(position.getX(i), position.getY(i), position.getZ(i));
+    color.setRGB(0.65 + wear * 0.35, 0.68 + wear * 0.30, 0.61 + wear * 0.32);
+    color.toArray(shades, i * 3);
+  }
+  result.setAttribute("color", new Float32BufferAttribute(shades, 3));
+  return result;
+};
+
+/** Battered terraces, with missing corner sections rather than perfect edges. */
+const terrace = (width: number, height: number, bottom: number, bite: number): BufferGeometry => {
+  const h = width / 2;
+  const shape = new Shape();
+  shape.moveTo(-h + 0.04, -h);
+  shape.lineTo(h - bite, -h);
+  shape.lineTo(h - bite, -h + bite * 0.55);
+  shape.lineTo(h, -h + bite);
+  shape.lineTo(h, h - 0.05);
+  shape.lineTo(h - 0.05, h);
+  shape.lineTo(-h + 0.04, h);
+  shape.lineTo(-h, h - 0.04);
+  shape.lineTo(-h, -h + 0.04);
+  shape.closePath();
+  return new ExtrudeGeometry(shape, {
+    depth: height, bevelEnabled: true, bevelThickness: 0.013, bevelSize: 0.014,
+    bevelSegments: 1, steps: 1, curveSegments: 1
+  }).rotateX(-Math.PI / 2).translate(0, bottom, 0);
+};
+
+/** One ancient surface interface. The functioning installation remains buried. */
+export const createRelicCoreGeometry = (): RelicCoreGeometry => {
+  const shell: BufferGeometry[] = [];
+  const armour: BufferGeometry[] = [];
+  const machinery: BufferGeometry[] = [];
+  const recess: BufferGeometry[] = [];
+  const light: BufferGeometry[] = [];
+  const levels = [
+    { width: 1.96, bottom: 0.025, height: 0.19, bite: 0.19 },
+    { width: 1.56, bottom: 0.215, height: 0.19, bite: 0.11 },
+    { width: 1.16, bottom: 0.405, height: 0.19, bite: 0.16 },
+    { width: 0.76, bottom: 0.595, height: 0.17, bite: 0.09 }
+  ];
+  for (const [index, level] of levels.entries()) {
+    shell.push(terrace(level.width, level.height, level.bottom, level.bite));
+    armour.push(terrace(level.width + 0.035, 0.035, level.bottom + level.height - 0.018, level.bite));
+    const edge = level.width / 2 + 0.006;
+    const seams = 3 + index;
+    for (let side = 0; side < 4; side += 1) {
+      const angle = side * Math.PI / 2;
+      for (let i = 1; i < seams; i += 1) {
+        const offset = -edge + i * level.width / seams;
+        recess.push(box(0.012, level.height * 0.68, 0.008, offset, level.bottom + level.height * 0.45, edge).rotateY(angle));
+      }
+      if ((side + index) % 2 === 0) {
+        machinery.push(box(0.19, 0.055, 0.008, -0.18, level.bottom + 0.085, edge + 0.003).rotateY(angle));
+      }
+    }
+  }
+  // A single stair rises toward the sealed machine access at the summit.
+  for (let step = 0; step < 13; step += 1) {
+    const y = 0.035 + step * 0.055;
+    const z = 1.12 - step * 0.065;
+    const chip = step === 3 || step === 9 ? 0.035 : 0;
+    armour.push(box(0.36 - chip, 0.06, 0.10, chip / 2, y, z));
+    recess.push(box(0.30 - chip, 0.008, 0.012, chip / 2, y + 0.022, z + 0.048));
+  }
+  shell.push(terrace(0.43, 0.21, 0.77, 0.055));
+  armour.push(terrace(0.49, 0.045, 0.97, 0.09));
+  recess.push(box(0.155, 0.15, 0.012, 0, 0.85, 0.224));
+  machinery.push(box(0.19, 0.025, 0.035, 0, 0.934, 0.235));
+  light.push(box(0.012, 0.10, 0.013, -0.057, 0.845, 0.233));
+  light.push(box(0.012, 0.10, 0.013, 0.057, 0.845, 0.233));
+  // Broken outer enclosure, buried conduit caps and scattered fallen slabs.
+  for (const [x, z, width, angle] of [
+    [-0.85, 1.13, 0.43, 0.06], [0.88, 1.10, 0.34, -0.16],
+    [-1.12, -0.48, 0.37, 1.7], [1.12, 0.52, 0.31, 1.4]
+  ] as const) {
+    shell.push(box(width, 0.09, 0.13, 0, 0.055, 0).rotateY(angle).translate(x, 0, z));
+  }
+  for (let i = 0; i < 17; i += 1) {
+    const angle = i * 2.39996;
+    const radius = 1.02 + noise(i, 0, 1) * 0.26;
+    const size = 0.04 + noise(i, 1, 2) * 0.07;
+    armour.push(box(size * 1.5, size * 0.6, size, 0, size * 0.3, 0)
+      .rotateY(angle).translate(Math.cos(angle) * radius, 0, Math.sin(angle) * radius));
+  }
+  light.push(box(0.07, 0.009, 0.008, 0.53, 0.49, 0.588));
+  light.push(box(0.008, 0.009, 0.08, -0.789, 0.30, -0.31));
+  return { shell: merge(shell), armour: merge(armour), machinery: merge(machinery), recess: merge(recess), light: merge(light) };
+};
