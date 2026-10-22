@@ -3,9 +3,11 @@ import type { FrontierSupplyModel } from "./client-frontier-supply.js";
 import { frontierSupplyModelForState, type FrontierSupplyState } from "./client-frontier-supply-state.js";
 import { supplyRoutesFor, type SupplyRoute, type SupplyRoutePoint } from "./client-frontier-supply-routes.js";
 import {
+  SUPPLY_BODY_WHITE_MIX,
   SUPPLY_CORE_WHITE_MIX,
   SUPPLY_CUT_RING_RADIUS,
   SUPPLY_CUT_RING_WIDTH,
+  SUPPLY_MIN_WIDTH_PX,
   SUPPLY_ROUTE_ALPHA,
   SUPPLY_ROUTE_REST_ALPHA,
   SUPPLY_ROUTE_WIDTH,
@@ -23,7 +25,8 @@ import {
  *
  * Each route is stroked in three faint layers: a soft dark shadow edge, the
  * empire-coloured body, and a light core. Those stay pale; travelling pulses
- * are drawn on top. Each cut tile gets a ring that breathes with the pulses.
+ * are drawn on top. Each cut tile gets a ring that breathes at the pulses'
+ * pace. Body and core use the same lifted empire tints as the 3D shader.
  */
 export type FrontierSupply2DDeps = {
   /** Screen-space centre of a tile (wrapped tile coordinates). */
@@ -38,12 +41,13 @@ export type FrontierSupply2DDeps = {
 };
 
 const SHADOW_COLOR = "#05080d";
-const CORE_COLOR = "#ffffff";
 const SHADOW_SCALE = 1.9;
 const CORE_SCALE = 0.36;
 const CULL_MARGIN_TILES = 2;
 
 type ScreenPoint = { sx: number; sy: number; p: SupplyRoutePoint };
+/** Body and core colours: the empire colour lifted toward white, as in the 3D shader. */
+type Tints = { body: string; core: string };
 
 const onScreen = (sx: number, sy: number, marginPx: number, deps: FrontierSupply2DDeps): boolean =>
   sx > -marginPx && sy > -marginPx && sx < deps.viewportWidth + marginPx && sy < deps.viewportHeight + marginPx;
@@ -85,7 +89,7 @@ const strokeRun = (ctx: CanvasRenderingContext2D, points: ScreenPoint[], run: Ru
   ctx.stroke();
 };
 
-const drawRoute = (ctx: CanvasRenderingContext2D, route: SupplyRoute, deps: FrontierSupply2DDeps): void => {
+const drawRoute = (ctx: CanvasRenderingContext2D, route: SupplyRoute, deps: FrontierSupply2DDeps, tints: Tints): void => {
   const first = route.points[0];
   if (!first || route.points.length < 2) return;
   const size = deps.size;
@@ -96,12 +100,13 @@ const drawRoute = (ctx: CanvasRenderingContext2D, route: SupplyRoute, deps: Fron
   const points: ScreenPoint[] = route.points.map((p) => ({ sx: anchor.sx + (p.x - first.x) * size, sy: anchor.sy + (p.y - first.y) * size, p }));
   const marginPx = CULL_MARGIN_TILES * size;
   if (!points.some(({ sx, sy }) => onScreen(sx, sy, marginPx, deps))) return;
-  const width = SUPPLY_ROUTE_WIDTH * size;
+  const width = Math.max(SUPPLY_MIN_WIDTH_PX, SUPPLY_ROUTE_WIDTH * size);
+  const coreWidth = (scale: number): number => Math.max(SUPPLY_MIN_WIDTH_PX, width * scale);
   // The whole ribbon, kept pale at rest: soft dark edge, body, steady core.
-  const rest = runsOf(points, () => SUPPLY_ROUTE_ALPHA);
-  for (const run of rest) strokeRun(ctx, points, run, width * SHADOW_SCALE, run.alpha * SUPPLY_SHADOW_REST_ALPHA, SHADOW_COLOR);
-  for (const run of rest) strokeRun(ctx, points, run, width, run.alpha * SUPPLY_ROUTE_REST_ALPHA, deps.ownerColor);
-  for (const run of rest) strokeRun(ctx, points, run, width * CORE_SCALE, run.alpha * SUPPLY_ROUTE_REST_ALPHA * 0.5, CORE_COLOR);
+  const whole: Run = { from: 0, to: points.length - 1, alpha: SUPPLY_ROUTE_ALPHA };
+  strokeRun(ctx, points, whole, width * SHADOW_SCALE, whole.alpha * SUPPLY_SHADOW_REST_ALPHA, SHADOW_COLOR);
+  strokeRun(ctx, points, whole, width, whole.alpha * SUPPLY_ROUTE_REST_ALPHA, tints.body);
+  strokeRun(ctx, points, whole, coreWidth(CORE_SCALE), whole.alpha * SUPPLY_ROUTE_REST_ALPHA * 0.5, tints.core);
   // Travelling pulses on top, again layer by layer so a pulse's shadow never
   // lands on its own head: only the lit stretches.
   const pulses = runsOf(points, (a, b) => {
@@ -109,22 +114,25 @@ const drawRoute = (ctx: CanvasRenderingContext2D, route: SupplyRoute, deps: Fron
     return pulse < 0.04 ? 0 : SUPPLY_ROUTE_ALPHA * pulse;
   });
   for (const run of pulses) strokeRun(ctx, points, run, width * SHADOW_SCALE, run.alpha * SUPPLY_SHADOW_PULSE_LIFT, SHADOW_COLOR);
-  for (const run of pulses) strokeRun(ctx, points, run, width, run.alpha * 0.85, deps.ownerColor);
-  for (const run of pulses) strokeRun(ctx, points, run, width * 0.6, run.alpha * 0.8, CORE_COLOR);
+  for (const run of pulses) strokeRun(ctx, points, run, width, run.alpha * 0.85, tints.body);
+  for (const run of pulses) strokeRun(ctx, points, run, coreWidth(0.6), run.alpha * 0.8, tints.core);
 };
 
 export const drawFrontierSupply2D = (ctx: CanvasRenderingContext2D, model: FrontierSupplyModel, deps: FrontierSupply2DDeps): void => {
   if (model.links.length === 0) return;
   const size = deps.size;
+  const tints: Tints = { body: lightenHex(deps.ownerColor, SUPPLY_BODY_WHITE_MIX), core: lightenHex(deps.ownerColor, SUPPLY_CORE_WHITE_MIX) };
   ctx.save();
-  ctx.lineCap = "round";
+  // Butt caps: neighbouring runs of a pulse meet end to end instead of
+  // overlapping translucent round caps (which reads as a string of beads).
+  ctx.lineCap = "butt";
   ctx.lineJoin = "round";
-  for (const route of supplyRoutesFor(model)) drawRoute(ctx, route, deps);
+  for (const route of supplyRoutesFor(model)) drawRoute(ctx, route, deps, tints);
 
-  // The tile everything past it hangs on: a ring breathing in step with the pulses.
+  // The tile everything past it hangs on: a ring breathing at the pulses' pace.
   ctx.globalAlpha = supplyCutRingAlpha(deps.nowMs);
-  ctx.strokeStyle = lightenHex(deps.ownerColor, SUPPLY_CORE_WHITE_MIX);
-  ctx.lineWidth = Math.max(1, SUPPLY_CUT_RING_WIDTH * size);
+  ctx.strokeStyle = tints.core;
+  ctx.lineWidth = Math.max(SUPPLY_MIN_WIDTH_PX, SUPPLY_CUT_RING_WIDTH * size);
   for (const cut of model.cuts) {
     const { sx, sy } = deps.tileCenter(cut.x, cut.y);
     if (!onScreen(sx, sy, size, deps)) continue;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BufferGeometry, Mesh, Scene, ShaderMaterial } from "three";
+import { BufferGeometry, Mesh, Scene, ShaderMaterial, Vector2, type WebGLRenderer } from "three";
 
 import { createFrontierSupplyOverlay } from "./client-map-3d-frontier-supply-overlay.js";
 import type { FrontierSupplyModel } from "./client-frontier-supply/client-frontier-supply.js";
@@ -38,6 +38,35 @@ describe("createFrontierSupplyOverlay", () => {
     expect(ringDistance).toBeLessThan(0.4);
     const distances = Array.from(geometry.getAttribute("aDistance").array as Float32Array);
     expect(Math.max(...distances)).toBeCloseTo(2, 5); // pulses travel the full two hops
+    overlay.dispose();
+  });
+
+  it("keeps the route and ring at least a pixel wide on screen: vertices sit on the centre line and the shader pushes them out", () => {
+    const scene = new Scene();
+    const overlay = createFrontierSupplyOverlay(scene);
+    overlay.sync(model(), sceneFor, "origin-a", "#3fa9f5", 0);
+    const { mesh, geometry, material } = meshes(scene);
+    const position = geometry.getAttribute("position");
+    const lineVertex = Array.from(geometry.getAttribute("aKind").array as Float32Array).indexOf(0);
+    // Both sides of the ribbon start on the centre line (z = 0 for this east-running route)...
+    expect(position.getZ(lineVertex)).toBeCloseTo(0, 5);
+    expect(position.getZ(lineVertex + 1)).toBeCloseTo(0, 5);
+    // ...with opposite push directions and the world half-width to push by.
+    expect(geometry.getAttribute("aSide").getZ(lineVertex)).toBeCloseTo(-geometry.getAttribute("aSide").getZ(lineVertex + 1), 5);
+    expect(geometry.getAttribute("aHalf").getX(lineVertex)).toBeGreaterThan(0);
+    expect(material.vertexShader).toContain("uMinHalfPx");
+    // The viewport size the shader measures pixels in comes from the renderer each frame.
+    const renderer = { getSize: (target: Vector2) => target.set(800, 600) } as unknown as WebGLRenderer;
+    mesh.onBeforeRender(renderer, scene, undefined as never, geometry, material, undefined as never);
+    expect((material.uniforms.uViewport!.value as Vector2).toArray()).toEqual([800, 600]);
+    overlay.dispose();
+  });
+
+  it("wraps its clock to the pulse period, so long sessions don't run out of GPU float precision", () => {
+    const scene = new Scene();
+    const overlay = createFrontierSupplyOverlay(scene);
+    overlay.sync(model(), sceneFor, "origin-a", "#3fa9f5", 3_600_000 + 500); // an hour in
+    expect(meshes(scene).material.uniforms.uTimeS!.value).toBeCloseTo(0.5, 5);
     overlay.dispose();
   });
 

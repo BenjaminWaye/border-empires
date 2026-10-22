@@ -44,7 +44,7 @@ export const FRONTIER_SUPPLY_LINES_CHANGELOG: ClientChangelogEntry[] = [
     changes: [
       "Fragile supply lines are back to a very pale line with faint pulses flowing outward, and no arrowhead at the tip",
       "Each line now starts at your nearest settled land (or frontier dock) and runs through the tile the land hangs on",
-      "That tile keeps its ring, which now gently brightens and fades in step with the pulses",
+      "That tile keeps its ring, which now gently brightens and fades at the same pace as the pulses",
       "Still only drawn where land beyond your reach hangs on a single tile; works on both the 3D and the 2D map"
     ]
   }

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { drawFrontierSupply2D, type FrontierSupply2DDeps } from "./client-frontier-supply-2d.js";
 import type { FrontierSupplyLink, FrontierSupplyModel } from "./client-frontier-supply.js";
+import { SUPPLY_BODY_WHITE_MIX, SUPPLY_CORE_WHITE_MIX } from "./client-frontier-supply-style.js";
+import { lightenHex } from "../client-map-3d-utils/client-map-3d-utils.js";
 
 type Call = { op: string; args: unknown[]; alpha: number; stroke: string; fill: string; lineWidth: number };
 
@@ -32,24 +34,28 @@ const link = (fromX: number, toX: number, tip = true): FrontierSupplyLink => ({ 
 /** A one-wide snake from x=2 to x=8, hop by hop, ending in a tip. */
 const snake = (): FrontierSupplyModel => ({ links: [2, 3, 4, 5, 6, 7].map((x) => link(x, x + 1, x === 7)), cuts: [{ x: 3, y: 2 }] });
 
+/** The empire colour lifted toward white, as both renderers tint the body and the core. */
+const BODY = lightenHex("#3fa9f5", SUPPLY_BODY_WHITE_MIX);
+const CORE = lightenHex("#3fa9f5", SUPPLY_CORE_WHITE_MIX);
+
 const strokes = (calls: Call[]) => calls.filter((call) => call.op === "stroke");
 const fills = (calls: Call[]) => calls.filter((call) => call.op === "fill");
 
 describe("drawFrontierSupply2D", () => {
-  it("strokes each route as a dark shadow edge, an empire-coloured body and a light core, with no arrowhead at the tip", () => {
+  it("strokes each route as a dark shadow edge, a lightly tinted body and a paler core, with no arrowhead at the tip", () => {
     const { ctx, calls } = recordingContext();
     drawFrontierSupply2D(ctx, { links: [link(2, 3, false), link(3, 4)], cuts: [] }, deps());
     const colours = strokes(calls).map((call) => call.stroke);
     expect(colours).toContain("#05080d");
-    expect(colours).toContain("#3fa9f5");
-    expect(colours).toContain("#ffffff");
+    expect(colours).toContain(BODY);
+    expect(colours).toContain(CORE);
     expect(fills(calls)).toHaveLength(0);
   });
 
   it("keeps the steady route very pale so only the travelling pulses stand out", () => {
     const { ctx, calls } = recordingContext();
     drawFrontierSupply2D(ctx, snake(), deps({ nowMs: 1000 }));
-    const bodyAlphas = strokes(calls).filter((call) => call.stroke === "#3fa9f5").map((call) => call.alpha);
+    const bodyAlphas = strokes(calls).filter((call) => call.stroke === BODY).map((call) => call.alpha);
     expect(Math.min(...bodyAlphas)).toBeLessThan(0.1); // the resting ribbon
     expect(Math.max(...bodyAlphas)).toBeGreaterThan(0.3); // a pulse passing
     expect(Math.max(...bodyAlphas)).toBeLessThan(0.7); // ...but dimmed even then
@@ -60,13 +66,21 @@ describe("drawFrontierSupply2D", () => {
     drawFrontierSupply2D(ctx, { ...snake(), cuts: [] }, deps({ nowMs: 1000 }));
     const all = strokes(calls);
     // Pulse heads are the widest white strokes (the steady core is narrower).
-    const headWidth = Math.max(...all.filter((call) => call.stroke === "#ffffff").map((call) => call.lineWidth));
-    const firstHead = all.findIndex((call) => call.stroke === "#ffffff" && call.lineWidth === headWidth);
+    const headWidth = Math.max(...all.filter((call) => call.stroke === CORE).map((call) => call.lineWidth));
+    const firstHead = all.findIndex((call) => call.stroke === CORE && call.lineWidth === headWidth);
     expect(firstHead).toBeGreaterThanOrEqual(0);
     expect(all.slice(firstHead).some((call) => call.stroke === "#05080d")).toBe(false);
   });
 
-  it("marks each cut tile with a ring that breathes with the pulses", () => {
+  it("never draws the route or ring thinner than a pixel, however small the tiles", () => {
+    const { ctx, calls } = recordingContext();
+    drawFrontierSupply2D(ctx, snake(), deps({ size: 4, tileCenter: (x, y) => ({ sx: x * 4 + 2, sy: y * 4 + 2 }), nowMs: 1000 }));
+    const widths = strokes(calls).map((call) => call.lineWidth);
+    expect(widths.length).toBeGreaterThan(0);
+    expect(Math.min(...widths)).toBeGreaterThanOrEqual(1);
+  });
+
+  it("marks each cut tile with a ring that breathes at the pulses' pace", () => {
     const ringAt = (nowMs: number) => {
       const { ctx, calls } = recordingContext();
       drawFrontierSupply2D(ctx, snake(), deps({ nowMs }));

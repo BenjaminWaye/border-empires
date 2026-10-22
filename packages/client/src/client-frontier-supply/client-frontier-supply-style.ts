@@ -6,11 +6,15 @@
  * runs from the nearest settled tile out to the frontier tip as a smoothed
  * ribbon that is kept pale and barely visible: what catches the eye are the
  * pulses travelling outward along it, like convoys. The cut tile the land
- * hangs on gets a ring that slowly brightens and fades in step with them.
+ * hangs on gets a ring that slowly brightens and fades at the pulses' pace.
  */
 
-/** How far the empire colour is lifted toward white for the route core, so it reads on the empire's own territory. */
+/** How far the empire colour is lifted toward white for the route body. */
+export const SUPPLY_BODY_WHITE_MIX = 0.2;
+/** How far the empire colour is lifted toward white for the route core, pulse heads and ring, so they read on the empire's own territory. */
 export const SUPPLY_CORE_WHITE_MIX = 0.55;
+/** Narrowest the visible route and ring may draw on screen, CSS px: thinner lines break up when zoomed out. */
+export const SUPPLY_MIN_WIDTH_PX = 1;
 
 /** Route ribbon width, tiles. */
 export const SUPPLY_ROUTE_WIDTH = 0.12;
@@ -32,6 +36,11 @@ export const SUPPLY_SHADOW_PULSE_LIFT = 0.3;
 export const SUPPLY_PULSE_SPEED = 1.2;
 /** Distance between pulses along a route, in tiles. */
 export const SUPPLY_PULSE_SPACING = 2.4;
+/** The pulse pattern repeats this often, ms: renderers may wrap their clock to it. */
+export const SUPPLY_PULSE_PERIOD_MS = (SUPPLY_PULSE_SPACING / SUPPLY_PULSE_SPEED) * 1000;
+/** Pulse shape, as fractions of the spacing: the sharp leading edge and the soft tail behind it. */
+export const SUPPLY_PULSE_FRONT = 0.04;
+export const SUPPLY_PULSE_TAIL = 0.45;
 
 /**
  * 0..1 brightness of the travelling pulse at `distance` tiles along a route:
@@ -42,8 +51,8 @@ export const supplyPulseAt = (distance: number, nowMs: number): number => {
   // Pulses move toward larger distance. `behind` is how far (as a fraction of
   // the spacing) this point trails the pulse head just ahead of it.
   const behind = 1 - (t - Math.floor(t));
-  const front = Math.min(1, behind / 0.04); // sharp leading edge
-  const tail = Math.max(0, 1 - behind / 0.45); // soft tail back toward supply
+  const front = Math.min(1, behind / SUPPLY_PULSE_FRONT); // sharp leading edge
+  const tail = Math.max(0, 1 - behind / SUPPLY_PULSE_TAIL); // soft tail back toward supply
   return front * tail;
 };
 
@@ -53,9 +62,8 @@ export const SUPPLY_CUT_RING_WIDTH = 0.06;
 const CUT_RING_MIN_ALPHA = 0.3;
 const CUT_RING_MAX_ALPHA = 0.65;
 
-/** Cut-tile ring opacity: a slow breath, one per pulse, so the ring reads as part of the same supply line. */
+/** Cut-tile ring opacity: a slow breath at the pulses' pace, so the ring reads as part of the same supply line. */
 export const supplyCutRingAlpha = (nowMs: number): number => {
-  const periodMs = (SUPPLY_PULSE_SPACING / SUPPLY_PULSE_SPEED) * 1000;
-  const breath = 0.5 - 0.5 * Math.cos(((nowMs % periodMs) / periodMs) * Math.PI * 2);
+  const breath = 0.5 - 0.5 * Math.cos(((nowMs % SUPPLY_PULSE_PERIOD_MS) / SUPPLY_PULSE_PERIOD_MS) * Math.PI * 2);
   return CUT_RING_MIN_ALPHA + (CUT_RING_MAX_ALPHA - CUT_RING_MIN_ALPHA) * breath;
 };
