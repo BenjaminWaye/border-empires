@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { applyIslandNamesMessage, createInitialIslandNamesState } from "./client-island-names-state.js";
 import { drawNameAlongPath } from "./client-map-name-label-draw.js";
-import { islandLabelPath, lightenForLabel, nameLabelAlphasForZoom } from "./client-map-name-labels.js";
+import { islandLabelPath, nameLabelAlphasForZoom } from "./client-map-name-labels.js";
 
 const fakeCtx = () => {
   const glyphs: Array<{ char: string; x: number; y: number }> = [];
@@ -93,10 +93,5 @@ describe("island labels", () => {
     const path = islandLabelPath({ id: "0,0", x: 14, y: 305, angle: 0.3, span: 678, thickness: 388, name: "The Khazhold Expanse", status: "default" });
     const length = Math.hypot(path.points[1]!.x - path.points[0]!.x, path.points[1]!.y - path.points[0]!.y);
     expect(length).toBeCloseTo(36);
-  });
-
-  it("lighten dark empire colours toward parchment", () => {
-    expect(lightenForLabel("#000000", 0.5)).toBe("rgb(128, 123, 112)");
-    expect(lightenForLabel("rgb(1, 2, 3)")).toBe("rgb(1, 2, 3)");
   });
 });

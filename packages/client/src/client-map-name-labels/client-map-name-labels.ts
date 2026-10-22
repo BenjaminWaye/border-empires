@@ -10,8 +10,8 @@ import type { IslandLabel } from "@border-empires/shared";
 import { playerDisplayNameForOwnerFromState } from "../client-owner-name/client-owner-name.js";
 import { isPlanetaryDefenseOwnerId } from "../client-planetary-defense-style.js";
 import type { ClientState } from "../client-state/client-state.js";
-import type { TileVisibilityState } from "../client-types.js";
 import { drawNameAlongPath, type LabelStyle, type NameLabelPath } from "./client-map-name-label-draw.js";
+import { clipNamePathToExplored } from "./client-name-path-explored-clip.js";
 import { computeTerritoryNameLabels, type TerritoryNameLabel } from "./client-territory-name-layout.js";
 
 /** Player names are fully shown at or below this zoom (tile px)... */
@@ -34,24 +34,17 @@ export const nameLabelAlphasForZoom = (zoom: number): { players: number; islands
 const DECORATIVE_FONT = (px: number): string => `700 ${px}px "Cinzel Decorative", "Cinzel", Georgia, serif`;
 const PLAIN_FONT = (px: number): string => `600 ${px}px "Cinzel", Georgia, serif`;
 
-/** Mixes a #rrggbb colour toward parchment white so dark empire colours stay legible on the map. */
-export const lightenForLabel = (color: string, amount = 0.4): string => {
-  const match = /^#([0-9a-f]{6})$/i.exec(color.trim());
-  if (!match) return color;
-  const value = parseInt(match[1]!, 16);
-  const mix = (channel: number, target: number): number => Math.round(channel + (target - channel) * amount);
-  const r = mix((value >> 16) & 0xff, 255);
-  const g = mix((value >> 8) & 0xff, 246);
-  const b = mix(value & 0xff, 224);
-  return `rgb(${r}, ${g}, ${b})`;
-};
+// Cartographer's ink, as on a printed campaign map: dark lettering with a
+// faint parchment halo, painted on the ground under every unit and building.
+const INK_HALO = "rgba(246, 236, 210, 0.38)";
+const INK_HALO_EM = 0.07;
 
 const islandStyle = (label: IslandLabel, alpha: number): LabelStyle => {
-  const base = { maxSpacingEm: 0.9, minFontPx: 10, maxFontPx: 54 };
-  if (label.status === "held") return { ...base, font: DECORATIVE_FONT, fill: "#f0cf7a", stroke: "rgba(46, 26, 6, 0.9)", alpha };
-  if (label.status === "contested") return { ...base, font: DECORATIVE_FONT, fill: "#e4a46a", stroke: "rgba(52, 22, 8, 0.9)", alpha: alpha * 0.9 };
-  if (label.status === "fading") return { ...base, font: DECORATIVE_FONT, fill: "#cdbb94", stroke: "rgba(36, 24, 10, 0.6)", alpha: alpha * 0.45 };
-  return { ...base, font: PLAIN_FONT, fill: "rgb(236, 222, 186)", stroke: "rgba(36, 24, 10, 0.7)", alpha: alpha * 0.6 };
+  const base = { font: PLAIN_FONT, stroke: INK_HALO, strokeEm: INK_HALO_EM, maxSpacingEm: 0.9, minFontPx: 10, maxFontPx: 54 };
+  if (label.status === "held") return { ...base, fill: "rgb(46, 26, 8)", alpha: alpha * 0.85 };
+  if (label.status === "contested") return { ...base, fill: "rgb(92, 30, 18)", alpha: alpha * 0.8 };
+  if (label.status === "fading") return { ...base, fill: "rgb(46, 34, 20)", alpha: alpha * 0.35 };
+  return { ...base, fill: "rgb(30, 22, 14)", alpha: alpha * 0.6 };
 };
 
 /** Longest stretch an island name is spread over: a continent's name stays readable instead of scattering letters across the world. */
@@ -69,18 +62,19 @@ export const islandLabelPath = (label: IslandLabel): NameLabelPath => {
   };
 };
 
-export type MapNameLabelsDeps = {
+export type MapNameLabelSourceDeps = {
   readonly state: Pick<ClientState, "tiles" | "tilesRevision" | "zoom" | "islandLabels" | "me" | "meName" | "playerNames" | "leaderboard">;
-  readonly ctx: CanvasRenderingContext2D;
-  readonly ownerColor: (ownerId: string) => string;
-  readonly tileVisibilityStateAt: (x: number, y: number) => TileVisibilityState;
+  /** False for ground the player has never explored: an island name there stays hidden. */
+  readonly isExploredAt: (x: number, y: number) => boolean;
   readonly wrapX: (x: number) => number;
   readonly wrapY: (y: number) => number;
 };
 
-export type MapNameLabels = {
-  /** Draws this frame's labels. `project` is the frame's worldToScreen. */
-  readonly render: (project: (wx: number, wy: number) => { sx: number; sy: number }, nowMs: number) => void;
+export type PlacedNameLabel = { readonly kind: "player" | "island"; readonly path: NameLabelPath; readonly style: LabelStyle };
+
+export type MapNameLabelSource = {
+  /** This frame's labels, islands first (players draw on top), plus a signature that only changes when what they'd draw does. */
+  readonly current: (nowMs: number) => { readonly labels: readonly PlacedNameLabel[]; readonly signature: string };
 };
 
 let fontRequested = false;
@@ -92,7 +86,8 @@ const requestLabelFonts = (): void => {
   void document.fonts.load(PLAIN_FONT(32)).catch(() => undefined);
 };
 
-export const createMapNameLabels = (deps: MapNameLabelsDeps): MapNameLabels => {
+/** Labels shared by the 2D overlay pass (createMapNameLabels) and the 3D ground decal (client-map-3d-name-decal). */
+export const createMapNameLabelSource = (deps: MapNameLabelSourceDeps): MapNameLabelSource => {
   let territory: { revision: number; computedAt: number; labels: TerritoryNameLabel[] } | undefined;
 
   const territoryLabels = (nowMs: number): TerritoryNameLabel[] => {
@@ -108,38 +103,71 @@ export const createMapNameLabels = (deps: MapNameLabelsDeps): MapNameLabels => {
   };
 
   return {
-    render: (project, nowMs) => {
+    current: (nowMs) => {
       const alphas = nameLabelAlphasForZoom(deps.state.zoom);
-      if (alphas.players <= 0 && alphas.islands <= 0) return;
+      const labels: PlacedNameLabel[] = [];
+      if (alphas.players <= 0 && alphas.islands <= 0) return { labels, signature: "none" };
+      const isExplored = (x: number, y: number): boolean => deps.isExploredAt(deps.wrapX(x), deps.wrapY(y));
       requestLabelFonts();
-      const viewport = { width: deps.ctx.canvas.width, height: deps.ctx.canvas.height };
       if (alphas.islands > 0) {
         for (const label of deps.state.islandLabels ?? []) {
-          if (deps.tileVisibilityStateAt(deps.wrapX(Math.round(label.x)), deps.wrapY(Math.round(label.y))) === "unexplored") continue;
-          drawNameAlongPath(deps.ctx, islandLabelPath(label), islandStyle(label, alphas.islands), project, viewport);
+          const path = clipNamePathToExplored(islandLabelPath(label), isExplored);
+          if (path) labels.push({ kind: "island", path, style: islandStyle(label, alphas.islands) });
         }
       }
       if (alphas.players > 0) {
         for (const label of territoryLabels(nowMs)) {
           const name = playerDisplayNameForOwnerFromState(deps.state, label.ownerId);
           if (!name) continue;
-          drawNameAlongPath(
-            deps.ctx,
-            { text: name, points: label.points, heightTiles: label.heightTiles, spanTiles: label.spanTiles },
-            {
+          // Keep the name on this player's own explored garrisons: never over a rival, frontier or unexplored tile.
+          const onOwnGarrison = (x: number, y: number): boolean => {
+            if (!isExplored(x, y)) return false;
+            const tile = deps.state.tiles.get(`${deps.wrapX(x)},${deps.wrapY(y)}`);
+            return tile?.ownerId === label.ownerId && tile.ownershipState === "SETTLED";
+          };
+          const path = clipNamePathToExplored({ text: name, points: label.points, heightTiles: label.heightTiles, spanTiles: label.spanTiles }, onOwnGarrison);
+          if (!path) continue;
+          labels.push({
+            kind: "player",
+            path,
+            // Realm names in deep ink, widely spaced across the land; the owner's colour is already the ground under them.
+            style: {
               font: DECORATIVE_FONT,
-              fill: lightenForLabel(deps.ownerColor(label.ownerId)),
-              stroke: "rgba(24, 14, 6, 0.88)",
-              alpha: alphas.players,
-              maxSpacingEm: 1.6,
+              fill: "rgb(26, 18, 10)",
+              stroke: INK_HALO,
+              strokeEm: INK_HALO_EM,
+              alpha: alphas.players * 0.82,
+              maxSpacingEm: 2.2,
               minFontPx: 11,
               maxFontPx: 96
-            },
-            project,
-            viewport
-          );
+            }
+          });
         }
       }
+      const signature = [
+        alphas.players.toFixed(2),
+        alphas.islands.toFixed(2),
+        territory?.computedAt ?? 0,
+        ...labels.map((label) => `${label.path.text}|${label.style.fill}|${label.style.alpha.toFixed(2)}|${label.path.points[0]?.x},${label.path.points[0]?.y}|${label.path.spanTiles}`)
+      ].join(";");
+      return { labels, signature };
+    }
+  };
+};
+
+export type MapNameLabelsDeps = MapNameLabelSourceDeps & { readonly ctx: CanvasRenderingContext2D };
+
+export type MapNameLabels = {
+  /** Draws this frame's labels on the overlay canvas (2D renderer). `project` is the frame's worldToScreen. */
+  readonly render: (project: (wx: number, wy: number) => { sx: number; sy: number }, nowMs: number) => void;
+};
+
+export const createMapNameLabels = (deps: MapNameLabelsDeps): MapNameLabels => {
+  const source = createMapNameLabelSource(deps);
+  return {
+    render: (project, nowMs) => {
+      const viewport = { width: deps.ctx.canvas.width, height: deps.ctx.canvas.height };
+      for (const label of source.current(nowMs).labels) drawNameAlongPath(deps.ctx, label.path, label.style, project, viewport);
     }
   };
 };

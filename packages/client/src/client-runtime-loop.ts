@@ -183,8 +183,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     state.activePanel = "domains"; state.mobilePanel = "domains"; state.domainDetailOpen = false; state.techDetailOpen = false; deps.renderHud();
   });
   const drawPersistentAlertsFrame = createPersistentAlertsFrame(state);
-  // Player names (zoomed out) / island names (zoomed in). One canvas pass for both renderers: worldToScreen projects through the 3D camera in true-3D mode.
-  const mapNameLabels = createMapNameLabels({ state, ctx: deps.ctx, ownerColor: deps.effectiveOverlayColor, tileVisibilityStateAt: (x, y) => deps.tileVisibilityStateAt(x, y, state.tiles.get(deps.keyFor(x, y))), wrapX: deps.wrapX, wrapY: deps.wrapY });
+  // Player names (zoomed out) / island names (zoomed in), 2D map only: true-3D paints them onto the ground instead (client-map-3d-name-decal).
+  const mapNameLabels = createMapNameLabels({ state, ctx: deps.ctx, isExploredAt: (x, y) => deps.tileVisibilityStateAt(x, y, state.tiles.get(deps.keyFor(x, y))) !== "unexplored", wrapX: deps.wrapX, wrapY: deps.wrapY });
   const drawConstructionCountdownOverlay = createConstructionCountdownOverlay2D(deps);
   const requestVisibleTileDetails = createVisibleTileDetailRequester({
     state,
@@ -1074,7 +1074,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
     for (const overlayTile of overlayTiles) renderOverlayTile(overlayTile); if (!isTrue3DRendererActive() && state.arrowGesture) drawArrowGesture2D(deps.ctx, state.arrowGesture, (wx2, wy2) => deps.worldToScreen(wx2, wy2, size, halfW, halfH), size); // F4: 2D arrow-gesture visual (F1/F2 parity)
     afcMapOverlays.render(overlayTiles, { size, project: (x, y) => deps.worldToScreen(x, y, size, halfW, halfH) });
-    mapNameLabels.render((x, y) => deps.worldToScreen(x, y, size, halfW, halfH), nowMs);
+    if (!isTrue3DRendererActive()) mapNameLabels.render((x, y) => deps.worldToScreen(x, y, size, halfW, halfH), nowMs);
     const tileOverlayMs = phaseMs();
 
     if (debugWindow && isTrue3DRendererActive() && debugSelected) {

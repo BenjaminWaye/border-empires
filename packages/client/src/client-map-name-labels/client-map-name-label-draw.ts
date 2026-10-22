@@ -13,6 +13,8 @@ export type LabelStyle = {
   readonly maxSpacingEm: number;
   readonly minFontPx: number;
   readonly maxFontPx: number;
+  /** Outline width as a fraction of the glyph height (a soft halo for ink-on-map lettering). */
+  readonly strokeEm?: number;
 };
 
 export type NameLabelPath = {
@@ -83,7 +85,7 @@ export const drawNameAlongPath = (
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.lineJoin = "round";
-  ctx.lineWidth = Math.max(2, fontPx * 0.16);
+  ctx.lineWidth = Math.max(1, fontPx * (style.strokeEm ?? 0.16));
   ctx.strokeStyle = style.stroke;
   ctx.fillStyle = style.fill;
   chars.forEach((char, index) => {
