@@ -49,7 +49,6 @@ import { readyOwnedObservatoryCooldownRemainingMs } from "../client-observatory-
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
 import { buildMusterActions } from "../client-muster-tile-actions.js";
 import { appendMarchCancelAction } from "../client-muster-march-targeting.js";
-import { appendIslandNameAction } from "../client-map-name-labels/client-island-name-action.js";
 import { nextFortVariantForTile } from "./client-tile-action-fort-siege-variants.js";
 import { siegeCampAction } from "./client-tile-action-siege-camp.js";
 import { canBuildPlacementStructure } from "../client-structure-effects/client-structure-effects.js";
@@ -265,9 +264,9 @@ export const chainedBuildAvailabilityFromModule = (
 const frontierBuildDetailSuffix = (tile: Tile): string =>
   tile.ownershipState === "FRONTIER" ? " • garrisons this tile first" : "";
 
-// Also appends "Cancel March" (client-muster-march-targets.ts) and "Name Island" (client-map-name-labels/).
+// Also appends "Cancel March" on an own March-To order's destination tile (client-muster-march-targets.ts).
 export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] =>
-  appendIslandNameAction(appendMarchCancelAction(menuActionsForSingleTileInner(state, tile, deps), state, tile), state, tile);
+  appendMarchCancelAction(menuActionsForSingleTileInner(state, tile, deps), state, tile);
 
 const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] => {
   if (tile.fogged) return foggedTileActions(state, tile, deps);

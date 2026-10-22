@@ -21,17 +21,17 @@ export function handleNameIslandCommand(context: RuntimeMapCommandContext, comma
     payload = undefined;
   }
   if (!payload || !Number.isInteger(payload.x) || !Number.isInteger(payload.y) || typeof payload.name !== "string") {
-    rejectCommand(context, command, "BAD_COMMAND", "invalid island name request");
+    rejectCommand(context, command, "BAD_COMMAND", "invalid landmass name request");
     return;
   }
   const world = islandNamesWorldFor(context.tiles);
   const island = world.registry.islandAt(payload.x as number, payload.y as number);
   if (!island) {
-    rejectCommand(context, command, "ISLAND_NOT_FOUND", "only islands can be named");
+    rejectCommand(context, command, "ISLAND_NOT_FOUND", "only landmasses can be named");
     return;
   }
   if (!isIslandFullyGarrisoned(islandStandingFor(island, context.tiles, actor.id, world.registry.width))) {
-    rejectCommand(context, command, "ISLAND_NOT_HELD", "garrison every tile of this island to name it");
+    rejectCommand(context, command, "ISLAND_NOT_HELD", "garrison every tile of this landmass to name it");
     return;
   }
   const validated = validateIslandName(payload.name);

@@ -106,7 +106,6 @@ export type TileActionDef = {
     | "purge_siphon"
     | "create_mountain"
     | "remove_mountain"
-    | "name_island"
     | "cancel_waypoint"
     | "cancel_all_waypoints" | "clear_waypoint_and_expand_here"
     | "expand_here"

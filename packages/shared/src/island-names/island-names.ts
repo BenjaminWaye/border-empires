@@ -53,7 +53,7 @@ export type IslandNameClaim = {
 };
 
 export const validateIslandName = (raw: string): ValidatePlaceNameResult =>
-  validatePlaceName(raw, { label: "island name", minLength: ISLAND_NAME_MIN_LENGTH, maxLength: ISLAND_NAME_MAX_LENGTH });
+  validatePlaceName(raw, { label: "landmass name", minLength: ISLAND_NAME_MIN_LENGTH, maxLength: ISLAND_NAME_MAX_LENGTH });
 
 export type IslandClaimStanding = {
   /** LAND tiles of the island the namer currently garrisons. */

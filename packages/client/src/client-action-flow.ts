@@ -28,7 +28,6 @@ import { createNextFrontierCommandIdentity } from "./client-frontier-command/cli
 import { clearMusterTransitForTarget } from "./client-muster-transit/client-muster-transit.js";
 import { handleMusterMarchTargetClick } from "./client-muster-march-targeting.js"; import { handleArrowGestureConfirm } from "./client-arrow-gesture-confirm.js";
 import { dispatchMusterTileAction } from "./client-muster-tile-actions.js";
-import { dispatchIslandNameTileAction } from "./client-map-name-labels/client-island-name-action.js";
 import { recordClientDebugEvent } from "./client-debug/client-debug.js";
 import { blockUnsupportedRewriteMessage } from "./client-send-message-guard/client-send-message-guard.js";
 import { showVisibleActionWarning } from "./client-visible-action-warning.js";
@@ -1350,7 +1349,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       }
     }
     dispatchMusterTileAction(actionId, selected, { state, sendGameMessage, pushFeed, renderHud });
-    dispatchIslandNameTileAction(actionId, selected, { state, sendGameMessage, pushFeed });
     if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "abandon_territory") sendGameMessage({ type: "UNCAPTURE_TILE", x: selected.x, y: selected.y });
