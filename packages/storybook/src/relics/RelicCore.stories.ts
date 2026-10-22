@@ -152,6 +152,7 @@ const render = (args: Args): HTMLElement => {
     return { label, x };
   });
   const positionLabels = (): void => {
+    stage.camera.updateMatrixWorld();
     const width = stage.canvas.clientWidth;
     const height = stage.canvas.clientHeight;
     for (const { label, x } of labelNodes) {
