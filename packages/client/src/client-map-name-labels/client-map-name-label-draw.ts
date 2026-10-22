@@ -74,8 +74,12 @@ export const drawNameAlongPath = (
   const widthsAt100 = chars.map((char) => ctx.measureText(char).width);
   const naturalAt100 = widthsAt100.reduce((sum, width) => sum + width, 0);
   // Largest font that fits the span, capped by the territory's thickness.
-  let fontPx = Math.min(label.heightTiles * tilePx, (availablePx / naturalAt100) * 100, style.maxFontPx);
-  fontPx = Math.max(fontPx, style.minFontPx);
+  const fontPx = Math.min(label.heightTiles * tilePx, (availablePx / naturalAt100) * 100, style.maxFontPx);
+  // Never overflow the land: a name that would have to be smaller than readable is left out.
+  if (fontPx < style.minFontPx) {
+    ctx.restore();
+    return false;
+  }
   const scale = fontPx / 100;
   const glyphWidths = widthsAt100.map((width) => width * scale);
   const naturalPx = naturalAt100 * scale;

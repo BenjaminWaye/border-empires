@@ -46,9 +46,9 @@ const smooth = (values: readonly number[], radius: number): number[] =>
     return sum / count;
   });
 
-type CorePoint = { x: number; y: number; depth: number };
+export type CorePoint = { x: number; y: number; depth: number };
 
-const labelForCore = (ownerId: string, core: readonly CorePoint[], maxDepth: number, tileCount: number): TerritoryNameLabel => {
+export const labelForCore = (ownerId: string, core: readonly CorePoint[], maxDepth: number, tileCount: number): TerritoryNameLabel => {
   let totalWeight = 0;
   let meanX = 0;
   let meanY = 0;
