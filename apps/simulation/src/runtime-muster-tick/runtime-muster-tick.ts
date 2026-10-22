@@ -61,6 +61,9 @@ export type MusterTickInput = {
   // would grow territory faster than a player manually could, so the
   // automation path holds itself to a tighter bar than the command it issues.
   isInReach: (playerId: string, x: number, y: number) => boolean;
+  // What the player can currently see (see muster-visibility.ts). ADVANCE only
+  // closes the distance toward hostiles in vision -- a flag doesn't scout.
+  isTileVisibleToPlayer: (playerId: string, x: number, y: number) => boolean;
 };
 
 export type MusterTickContext = Omit<MusterTickInput, "nowMs" | "musterTilesByOwner">;

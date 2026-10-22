@@ -346,7 +346,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   };
 
   const syncDesiredFogDisabled = (): void => {
-    if (!state.authSessionReady) return;
+    if (!state.authSessionReady || state.connection !== "initialized") return;
     if (!state.mapRevealEligible) return;
     if (!state.serverSupportedMessageTypes.has("REQUEST_REVEAL_MAP")) return;
     if (state.fogDisabled === state.mapRevealEnabled) return;
@@ -780,7 +780,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       clearDeferredBootstrapRefreshTimer();
       deferredBootstrapRefreshTimer = window.setTimeout(() => {
         deferredBootstrapRefreshTimer = undefined;
-        if (ws.readyState !== ws.OPEN || !state.authSessionReady) return;
+        if (ws.readyState !== ws.OPEN || !state.authSessionReady || state.connection !== "initialized") return;
         if (state.actionInFlight || state.capture || state.actionQueue.length > 0) return;
         requestViewRefresh(2, true);
       }, 400);
@@ -2173,7 +2173,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           );
         }
       }
-      if (errorCode === "SEASON_PENDING") { state.joinSeasonPending = false; state.seasonPending = true; state.seasonPendingScheduledStartAt = typeof msg.scheduledStartAt === "number" ? msg.scheduledStartAt : Date.now(); state.needsSeasonJoin = true; state.joinSeasonOverlayOpen = true; renderHud(); return; } if (errorCode === "SEASON_FULL") { state.joinSeasonPending = false; applySeasonFullError(state, errorMessage); setAuthStatus(""); syncAuthOverlay(); return; } if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") {
+      if (errorCode === "SEASON_PENDING") { state.joinSeasonPending = false; state.seasonPending = true; state.seasonPendingScheduledStartAt = typeof msg.scheduledStartAt === "number" ? msg.scheduledStartAt : Date.now(); state.needsSeasonJoin = true; state.joinSeasonOverlayOpen = true; renderHud(); return; } if (errorCode === "SEASON_FULL") { state.joinSeasonPending = false; applySeasonFullError(state, errorMessage); setAuthStatus(""); syncAuthOverlay(); return; } if (errorCode === "AUTH_FAIL" || (errorCode === "NO_AUTH" && state.connection === "initialized") || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") {
         state.authSessionReady = false;
         if ((errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") && firebaseAuth?.currentUser) {
           state.connection = ws.readyState === ws.OPEN ? "connected" : "disconnected";

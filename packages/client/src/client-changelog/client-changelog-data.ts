@@ -9,6 +9,7 @@ import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garriso
 import { AFC_UPGRADES_ICON_CHANGELOG } from "./client-changelog-afc-upgrades-icon.js";
 import { GAMEPLAY_SETTINGS_CLEANUP_CHANGELOG } from "./client-changelog-gameplay-settings-cleanup.js";
 import { MUSTER_BANNER_CHANGELOG } from "./client-changelog-muster-banner.js";
+import { ADVANCE_VISIBLE_ONLY_CHANGELOG } from "./client-changelog-advance-visible-only.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_19_20 } from "./client-changelog-oct-19-20.js";
 import { CAPTURE_HOLD_EFFORT_CHANGELOG } from "./client-changelog-capture-hold-effort.js";
 import { HETZNER_CLIENT_HOSTING_CHANGELOG } from "./client-changelog-hetzner-client-hosting.js";
@@ -16,6 +17,9 @@ import { AI_DEAL_SUGGEST_CHANGELOG } from "./client-changelog-ai-deal-suggest.js
 import { TOWN_MARBLE_CHANGELOG } from "./client-changelog-town-marble.js";
 import { SIEGE_REPORTS_CHANGELOG } from "./client-changelog-siege-reports.js";
 import { RICHER_FORESTS_CHANGELOG } from "./client-changelog-richer-forests.js";
+import { MARCH_ACROSS_WATER_CHANGELOG } from "./client-changelog-march-across-water.js";
+import { RECONNECT_NO_AUTH_CHANGELOG } from "./client-changelog-reconnect-no-auth.js";
+import { PLANETARY_DEFENSE_MUSTER_FLAG_CHANGELOG } from "./client-changelog-planetary-defense-muster-flag.js";
 import { YOURS_TILE_COORDS_CHANGELOG } from "./client-changelog-yours-tile-coords.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
@@ -440,6 +444,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...GAMEPLAY_SETTINGS_CLEANUP_CHANGELOG,
   ...AFC_UPGRADES_ICON_CHANGELOG,
   ...MUSTER_BANNER_CHANGELOG,
+  ...ADVANCE_VISIBLE_ONLY_CHANGELOG,
   ...AI_DEAL_SUGGEST_CHANGELOG,
   {
     createdAt: 1792442407428, // Date.now() captured for this entry.
@@ -467,6 +472,9 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...SIEGE_REPORTS_CHANGELOG,
   ...RICHER_FORESTS_CHANGELOG,
+  ...MARCH_ACROSS_WATER_CHANGELOG,
+  ...RECONNECT_NO_AUTH_CHANGELOG,
+  ...PLANETARY_DEFENSE_MUSTER_FLAG_CHANGELOG,
   ...YOURS_TILE_COORDS_CHANGELOG
 ];
 

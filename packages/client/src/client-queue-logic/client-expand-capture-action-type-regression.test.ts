@@ -26,7 +26,6 @@ const runDispatch = (state: ReturnType<typeof createInitialState>) =>
     pushFeed: vi.fn(),
     renderHud: vi.fn(),
     sendSetMuster: vi.fn(),
-    sendAttack: vi.fn(),
     sendGameMessage: vi.fn(() => true)
   });
 
