@@ -23,25 +23,29 @@ export type MusterMarchTargetResult =
   | { type: "armed"; originX: number; originY: number; targetX: number; targetY: number };
 
 /**
- * Consumes an armed march-target click: disarms targeting and, if the click
- * landed on a legal target (not unexplored ground, not the flag's own
- * tile), returns it "armed" for the caller to hand to
- * client-arrow-gesture-confirm.ts's handleArrowGestureConfirm -- which
- * draws the static arrow, opens the commit-amount confirm sheet, and is the
- * single place that actually sends SET_MUSTER (also where the march-cap
- * "too far" advice now lives, so it isn't duplicated here). A click on
- * unexplored ground or the origin's own tile cancels back to HOLD instead.
+ * Consumes an armed march-target click: disarms targeting and, unless the
+ * click landed on the flag's own tile, returns it "armed" for the caller to
+ * hand to client-arrow-gesture-confirm.ts's handleArrowGestureConfirm --
+ * which draws the static arrow, opens the commit-amount confirm sheet, and
+ * is the single place that actually sends SET_MUSTER (also where the
+ * march-cap "too far" advice now lives, so it isn't duplicated here). A
+ * click on the origin's own tile cancels back to HOLD instead.
+ *
+ * Unexplored ground is a legal target: marching into the unknown is how a
+ * flag scouts, and the server routes against the real map (expanding across
+ * neutral land as it goes), so the client needs nothing but coordinates --
+ * the same reason waypoint claims accept unexplored targets. If the tile
+ * turns out not to be LAND the server rejects the SET_MUSTER.
  */
 export const handleMusterMarchTargetClick = (
   state: Pick<ClientState, "musterMarchTargeting">,
   wx: number,
   wy: number,
-  vis: "visible" | "fogged" | "unexplored",
   deps: MarchTargetingDeps
 ): MusterMarchTargetResult => {
   const { originX, originY } = state.musterMarchTargeting;
   state.musterMarchTargeting.active = false;
-  if (vis !== "unexplored" && (wx !== originX || wy !== originY)) {
+  if (wx !== originX || wy !== originY) {
     return { type: "armed", originX, originY, targetX: wx, targetY: wy };
   }
   deps.pushFeed("March target cancelled.", "combat", "info");
