@@ -41,7 +41,7 @@ export const buildIslandLabels = (
       continue;
     }
     const { playerId, claim } = entry;
-    const evaluation = evaluateIslandClaim(claim, islandStandingFor(island, tiles, playerId), nowMs);
+    const evaluation = evaluateIslandClaim(claim, islandStandingFor(island, tiles, playerId, world.registry.width), nowMs);
     if (evaluation.kind === "reverted") {
       releaseIslandClaims(players, island.id);
       labels.push({ ...base, name: world.defaultNameFor(island), status: "default" });

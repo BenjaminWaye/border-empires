@@ -38,12 +38,13 @@ export const islandNamesWorldFor = (tiles: ReadonlyMap<string, DomainTileState>)
 export const islandStandingFor = (
   island: IslandRecord,
   tiles: ReadonlyMap<string, DomainTileState>,
-  playerId: string
+  playerId: string,
+  width: number
 ): { namerGarrisoned: number; landTiles: number } => {
   let landTiles = 0;
   let namerGarrisoned = 0;
-  for (const tileKey of island.tileKeys) {
-    const tile = tiles.get(tileKey);
+  for (const cell of island.cells) {
+    const tile = tiles.get(`${cell % width},${Math.floor(cell / width)}`);
     if (!tile || tile.terrain !== "LAND") continue;
     landTiles += 1;
     if (tile.ownerId === playerId && tile.ownershipState === "SETTLED") namerGarrisoned += 1;

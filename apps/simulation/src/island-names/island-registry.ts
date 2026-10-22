@@ -16,13 +16,15 @@ export type IslandGeometry = { x: number; y: number; angle: number; span: number
 export type IslandRecord = {
   /** Anchor tile key: the island's first tile in row-major scan order. */
   readonly id: string;
-  readonly tileKeys: readonly string[];
+  /** Member tiles as row-major world cell indexes (compact: a continent has tens of thousands). */
+  readonly cells: Int32Array;
   /** LAND tiles at build time; picks the default name's size class. */
   readonly landTilesAtBuild: number;
   readonly geometry: IslandGeometry;
 };
 
 export type IslandRegistry = {
+  readonly width: number;
   readonly islands: readonly IslandRecord[];
   readonly byId: ReadonlyMap<string, IslandRecord>;
   /** The kept island containing (x, y), if any. */
@@ -146,7 +148,7 @@ export const buildIslandRegistry = (
       for (const cell of cells) islandIndexByCell[cell] = islandIndex;
       islands.push({
         id: `${x},${y}`,
-        tileKeys: cells.map((cell) => `${cell % width},${Math.floor(cell / width)}`),
+        cells: Int32Array.from(cells),
         landTilesAtBuild: landTiles,
         geometry: islandGeometryFor(queue, width, height)
       });
@@ -154,6 +156,7 @@ export const buildIslandRegistry = (
   }
   const byId = new Map(islands.map((island) => [island.id, island] as const));
   return {
+    width,
     islands,
     byId,
     islandAt: (x, y) => {

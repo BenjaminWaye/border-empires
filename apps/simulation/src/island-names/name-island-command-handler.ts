@@ -30,7 +30,7 @@ export function handleNameIslandCommand(context: RuntimeMapCommandContext, comma
     rejectCommand(context, command, "ISLAND_NOT_FOUND", "only islands can be named");
     return;
   }
-  if (!isIslandFullyGarrisoned(islandStandingFor(island, context.tiles, actor.id))) {
+  if (!isIslandFullyGarrisoned(islandStandingFor(island, context.tiles, actor.id, world.registry.width))) {
     rejectCommand(context, command, "ISLAND_NOT_HELD", "garrison every tile of this island to name it");
     return;
   }
