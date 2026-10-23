@@ -86,6 +86,33 @@ export type MarchFireOptions = {
   expandOnly?: boolean;
 };
 
+/**
+ * Ends a march by switching the flag back to HOLD and telling the client.
+ * `reason` only labels the tile-delta batch: "complete" when the target is
+ * ours, "stopped-short" when it can never be reached (see below).
+ */
+const endMarch = (
+  input: MusterTickInput,
+  musterTile: DomainTileState,
+  originKey: string,
+  playerId: string,
+  reason: "complete" | "stopped-short"
+): void => {
+  const { targetX: _targetX, targetY: _targetY, ...restMuster } = musterTile.muster!;
+  const clearedTile: DomainTileState = {
+    ...musterTile,
+    muster: { ...restMuster, mode: "HOLD" }
+  };
+  input.replaceTileState(originKey, clearedTile);
+  input.emitEvent({
+    eventType: "TILE_DELTA_BATCH",
+    commandId: `muster-march-${reason}:${playerId}:${originKey}:${input.nowMs}`,
+    playerId,
+    tileDeltas: [input.tileDeltaFromState(clearedTile)]
+  });
+  input.advanceCooldowns.delete(originKey);
+};
+
 export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileState, playerId: string, options: MarchFireOptions = {}): boolean => {
   const musterAmount = musterTile.muster?.amount ?? 0;
   const originKey = simulationTileKey(musterTile.x, musterTile.y);
@@ -105,19 +132,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
   // flag stops searching and the client sees the march end.
   const targetTile = input.tiles.get(simulationTileKey(targetX, targetY));
   if (!options.target && targetTile?.ownerId === playerId) {
-    const { targetX: _targetX, targetY: _targetY, ...restMuster } = musterTile.muster!;
-    const clearedTile: DomainTileState = {
-      ...musterTile,
-      muster: { ...restMuster, mode: "HOLD" }
-    };
-    input.replaceTileState(originKey, clearedTile);
-    input.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: `muster-march-complete:${playerId}:${originKey}:${input.nowMs}`,
-      playerId,
-      tileDeltas: [input.tileDeltaFromState(clearedTile)]
-    });
-    input.advanceCooldowns.delete(originKey);
+    endMarch(input, musterTile, originKey, playerId, "complete");
     return false;
   }
 
@@ -245,6 +260,10 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
   // the matching field in maybeAdvanceFire for why this is tracked
   // separately from `best`.
   let foundUnaffordable = false;
+  // Any LAND tile we don't own that is closer to the target than the flag,
+  // whoever holds it and whether or not it is locked right now. When there is
+  // none, the march is stuck because of the terrain, not a passing fight.
+  let landStepCloser = false;
 
   while (head < queue.length) {
     const current = queue[head++]!;
@@ -268,6 +287,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
       const neighbor = getTile(x, y);
       if (!neighbor || neighbor.terrain !== "LAND") continue;
       const nKey = simulationTileKey(x, y);
+      if (!landStepCloser && neighbor.ownerId !== playerId && distanceToTarget(x, y) < distFlagToTarget) landStepCloser = true;
 
       if (neighbor.ownerId === playerId) {
         // Bound the walk to the same local radius ADVANCE uses. MARCH had no
@@ -335,6 +355,16 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
   }
 
   if (!best && !bestExpand) {
+    // Stop short: the target is a mountain or sea tile, or land the flag can't
+    // reach overland (an isle with no dock), and no land left on our side gets
+    // any closer. The player may have aimed into unexplored ground without
+    // knowing, so this ends the march quietly at the closest point instead of
+    // retrying forever as "no target in range".
+    const targetUnreachable = targetTile?.terrain !== "LAND" || !flagReachedByFlood;
+    if (!options.target && !foundUnaffordable && !landStepCloser && targetUnreachable) {
+      endMarch(input, musterTile, originKey, playerId, "stopped-short");
+      return false;
+    }
     const nextActionAt = input.nowMs + ADVANCE_EMPTY_COOLDOWN_MS;
     input.advanceCooldowns.set(originKey, nextActionAt);
     syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, {

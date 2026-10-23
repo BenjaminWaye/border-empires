@@ -4,7 +4,6 @@ import {
   fortRemovalDurationMs,
   musterMarchDistanceTiles,
   musterMarchTooFarAdvice,
-  MUSTER_MARCH_TARGET_NOT_LAND_MESSAGE,
   SIEGE_TIER_LADDER,
   siegeBatteryRemovalDurationMs,
   STRUCTURE_REGISTRY,
@@ -177,8 +176,9 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
       return;
     }
     const marchTarget = context.tiles.get(simulationTileKey(payload.targetX!, payload.targetY!));
-    if (!marchTarget || marchTarget.terrain !== "LAND") {
-      rejectCommand(context, command, "MUSTER_INVALID", MUSTER_MARCH_TARGET_NOT_LAND_MESSAGE);
+    // Any terrain: unexplored targets may be impassable; maybeMarchFire stops short.
+    if (!marchTarget) {
+      rejectCommand(context, command, "MUSTER_INVALID", "march target must be on the map");
       return;
     }
     // The client checks this first and shows the same text as plain advice, so

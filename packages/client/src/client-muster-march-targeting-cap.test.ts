@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { MUSTER_MARCH_MAX_DISTANCE_TILES, MUSTER_MARCH_TARGET_NOT_LAND_MESSAGE, WORLD_WIDTH, musterMarchDistanceTiles, musterMarchTooFarAdvice } from "@border-empires/shared";
+import { MUSTER_MARCH_MAX_DISTANCE_TILES, WORLD_WIDTH, musterMarchDistanceTiles, musterMarchTooFarAdvice } from "@border-empires/shared";
 import { handleArrowGestureConfirm } from "./client-arrow-gesture-confirm.js";
 import { handleMusterMarchTargetClick } from "./client-muster-march-targeting.js";
-import { explainActionFailureFromServer } from "./client-player-actions.js";
 
 const targetingState = (originX: number, originY: number) => ({ musterMarchTargeting: { active: true, originX, originY } });
 
@@ -78,13 +77,5 @@ describe("march cap advice", () => {
     });
     expect(pushFeed).not.toHaveBeenCalled();
     expect((state as { pendingArrowGestureConfirm: unknown }).pendingArrowGestureConfirm).toBeDefined();
-  });
-
-  // Regression: every MUSTER_INVALID used to read "you can only stage muster on
-  // your own land tiles", so an unexplored march target that turned out to be
-  // water blamed the flag's own tile instead of the target.
-  it("shows the server's not-land text for a march target that isn't land", () => {
-    expect(explainActionFailureFromServer("MUSTER_INVALID", MUSTER_MARCH_TARGET_NOT_LAND_MESSAGE)).toBe(MUSTER_MARCH_TARGET_NOT_LAND_MESSAGE);
-    expect(explainActionFailureFromServer("MUSTER_INVALID", "owned LAND tile required to muster")).toBe("Action blocked: you can only stage muster on your own land tiles.");
   });
 });
