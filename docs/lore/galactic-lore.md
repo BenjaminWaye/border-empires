@@ -115,6 +115,17 @@ Monuments — most of all the **World Cannon**, because building it is, in
 the most literal sense, turning fragments of the very artifact that broke
 the galaxy back into something that can be aimed and fired.
 
+Few places on a world are as unsettled as ground a House has just been
+driven from: wrecked works, abandoned garrisons and aether-work left
+running with no hand on it. Falls gather over such ground, so a House that
+has recently lost much of its land is the likeliest to find Shards landing
+on what it still holds. A Shard is also the fastest way to put that House
+back on its feet. Burned whole, its raw aether drives every transport,
+forge and drill-yard at once, and a single Shard can call up a House's full
+complement of bodies in hours rather than weeks (**Shard Mobilization**).
+It cannot raise more people than the House's land can support, only muster
+them all at once.
+
 ## 4. The Wardens and the infestations
 
 After the Engine shattered, the Concordance built and released the
