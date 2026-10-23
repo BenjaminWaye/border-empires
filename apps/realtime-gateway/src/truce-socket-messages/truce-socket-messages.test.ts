@@ -10,6 +10,7 @@ const socket = {} as import("ws").WebSocket;
 
 const truceDeps = (overrides: Partial<TruceSocketMessageDeps>): TruceSocketMessageDeps => ({
   requestTruce: () => okResult, acceptTruce: () => okResult, rejectTruce: () => okResult, cancelTruce: () => okResult, breakTruce: () => okResult,
+  syncPlayers: () => ({ payloadsByPlayerId: new Map() }),
   sendJson: vi.fn(), fanoutPlayerPayloads: vi.fn(), syncTruceToSimulation: vi.fn(async () => true),
   maybeAutoRespondToSeededAiTruce: vi.fn(async () => {}), sendGameplayEmailAlert: vi.fn(),
   sendTruceRequestAlert: vi.fn(async () => ({ sent: false }) as unknown as Awaited<ReturnType<TruceSocketMessageDeps["sendTruceRequestAlert"]>>),
@@ -46,5 +47,26 @@ describe("diplomacy player-funnel hook", () => {
     await handleAllianceSocketMessage(allianceDeps({ onDiplomacyInteraction }), { type: "ALLIANCE_ACCEPT", requestId: "r1" } as ClientMessage, "p1", socket);
     await handleAllianceSocketMessage(allianceDeps({ onDiplomacyInteraction }), { type: "ALLIANCE_BREAK", targetPlayerId: "p2" } as ClientMessage, "p1", socket);
     expect(onDiplomacyInteraction.mock.calls).toEqual([["p1", "p2"], ["p1", "p2"]]);
+  });
+});
+
+describe("stale truce offer resync", () => {
+  it.each(["TRUCE_ACCEPT", "TRUCE_REJECT", "TRUCE_CANCEL"] as const)("%s failure resends the actor's truce state after the error", async (type) => {
+    const sendJson = vi.fn();
+    const fanoutPlayerPayloads = vi.fn();
+    const invalid = { ok: false as const, code: "TRUCE_REQUEST_INVALID", message: "request invalid or expired" };
+    const resync = new Map<string, unknown[]>([["p1", [{ type: "TRUCE_UPDATE", incomingTruceRequests: [] }]]]);
+    const syncPlayers = vi.fn(() => ({ payloadsByPlayerId: resync }));
+    const deps = truceDeps({ sendJson, fanoutPlayerPayloads, syncPlayers, acceptTruce: () => invalid, rejectTruce: () => invalid, cancelTruce: () => invalid });
+    await handleTruceSocketMessage(deps, { type, requestId: "stale" } as ClientMessage, "p1", socket);
+    expect(sendJson).toHaveBeenCalledWith(socket, { type: "ERROR", code: "TRUCE_REQUEST_INVALID", message: "request invalid or expired" });
+    expect(syncPlayers).toHaveBeenCalledWith(["p1"]);
+    expect(fanoutPlayerPayloads).toHaveBeenCalledWith(resync);
+  });
+
+  it("does not resync after a successful accept beyond the normal fanout", async () => {
+    const syncPlayers = vi.fn(() => ({ payloadsByPlayerId: new Map() }));
+    await handleTruceSocketMessage(truceDeps({ syncPlayers }), { type: "TRUCE_ACCEPT", requestId: "r1" } as ClientMessage, "p1", socket);
+    expect(syncPlayers).not.toHaveBeenCalled();
   });
 });

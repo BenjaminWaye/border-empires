@@ -245,6 +245,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
         rejectTruce: socialState.rejectTruce,
         cancelTruce: socialState.cancelTruce,
         breakTruce: socialState.breakTruce,
+        syncPlayers: socialState.syncPlayers,
         sendJson: deps.sendJson,
         fanoutPlayerPayloads: deps.fanoutPlayerPayloads,
         syncTruceToSimulation: deps.syncTruceToSimulation,
