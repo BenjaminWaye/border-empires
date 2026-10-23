@@ -1,6 +1,7 @@
 import type { PersonalActivitySiegeCard } from "@border-empires/game-domain";
 
 import type { CombatManpowerLoss } from "../combat-manpower-log/combat-manpower-log.js";
+import { NO_COMBAT_TILE_FEATURES, viewerFeatureCounts, type CombatTileFeatures } from "./personal-activity-features.js";
 
 // A lull this long between assaults on the same tile ends the siege: two raids
 // half a day apart are separate stories, not one long siege.
@@ -15,9 +16,14 @@ export type PersonalActivitySieges = {
   consumed: ReadonlySet<CombatManpowerLoss>;
 };
 
-const siegeCard = (assaults: readonly CombatManpowerLoss[], originSeized: ReadonlySet<CombatManpowerLoss>): PersonalActivitySiegeCard => {
+const siegeCard = (assaults: readonly CombatManpowerLoss[], originSeized: ReadonlySet<CombatManpowerLoss>, tileFeatures: CombatTileFeatures): PersonalActivitySiegeCard => {
   const first = assaults[0]!;
   const last = assaults[assaults.length - 1]!;
+  // Only the breaking assault captured anything: a siege closes on capture.
+  // Sieges are only ever the defender's view: they lost the tile and took the
+  // seized launch tiles.
+  const captured = last.attackerWon ? viewerFeatureCounts(tileFeatures.captured.get(last), false) : undefined;
+  const seized = viewerFeatureCounts(assaults.flatMap((assault) => tileFeatures.seizedOrigin.get(assault) ?? []), true);
   const attackerIds: string[] = [];
   for (const assault of assaults) if (!attackerIds.includes(assault.attackerId)) attackerIds.push(assault.attackerId);
   return {
@@ -33,7 +39,9 @@ const siegeCard = (assaults: readonly CombatManpowerLoss[], originSeized: Readon
     attackerIds,
     manpowerSpentAgainst: assaults.reduce((sum, assault) => sum + assault.manpowerLoss, 0),
     ...(last.defenseVariant ? { defenseVariant: last.defenseVariant } : {}),
-    ...(last.attackerWon ? { capturedBy: last.attackerId } : {})
+    ...(last.attackerWon ? { capturedBy: last.attackerId } : {}),
+    ...(captured ? { capturedFeatures: captured } : {}),
+    ...(seized ? { seizedOriginFeatures: seized } : {})
   };
 };
 
@@ -44,7 +52,8 @@ const siegeCard = (assaults: readonly CombatManpowerLoss[], originSeized: Readon
 export const siegeCardsForDefender = (
   playerId: string,
   combat: readonly CombatManpowerLoss[],
-  originSeized: ReadonlySet<CombatManpowerLoss> = new Set()
+  originSeized: ReadonlySet<CombatManpowerLoss> = new Set(),
+  tileFeatures: CombatTileFeatures = NO_COMBAT_TILE_FEATURES
 ): PersonalActivitySieges => {
   const byTile = new Map<string, CombatManpowerLoss[]>();
   for (const loss of combat) {
@@ -58,7 +67,7 @@ export const siegeCardsForDefender = (
   const consumed = new Set<CombatManpowerLoss>();
   const close = (segment: CombatManpowerLoss[]): void => {
     if (segment.length < SIEGE_MIN_ASSAULTS) return;
-    cards.push(siegeCard(segment, originSeized));
+    cards.push(siegeCard(segment, originSeized, tileFeatures));
     for (const assault of segment) consumed.add(assault);
   };
   for (const assaults of byTile.values()) {

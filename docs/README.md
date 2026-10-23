@@ -27,6 +27,7 @@ remain authoritative for runtime behavior.
 | AFC Specializations: campaign rules, thirty rewards and lore | [`afc-specializations-catalog.md`](afc-specializations-catalog.md) |
 | AFC Specializations: implementation and verification | [`afc-specializations-execution.md`](afc-specializations-execution.md) |
 | AFC Specializations: original design and UI decisions | [`afc-specializations-plan.md`](afc-specializations-plan.md) |
+| Relics: natural wonders remade as Concordance anchors (proposal) | [`relics-design.md`](relics-design.md) |
 | Reach-vision implementation record | [`reach-border-vision-plan.md`](reach-border-vision-plan.md) |
 | Rivers remake, river heads and river mountains (renderer + worldgen v11/v12) | [`rivers-remake-plan.md`](rivers-remake-plan.md) |
 | Current manpower and resource-slot rules | [`product/resource-and-manpower-economy.md`](product/resource-and-manpower-economy.md) |
