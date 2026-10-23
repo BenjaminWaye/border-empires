@@ -1,6 +1,8 @@
 # Native app privacy inventory
 
-Status: prepared from source on 2026-10-23; console declarations still pending.
+Status: source-audited on 2026-10-23; all ten Apple categories and their purposes,
+identity linkage and no-tracking answers are saved. The owner must complete the
+final accuracy agreement in App Store Connect. Google declarations remain pending.
 This is evidence for completing App Privacy and Data Safety, not an API payload.
 
 The native apps use Firebase Authentication, our Hetzner game servers and optional

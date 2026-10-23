@@ -195,7 +195,13 @@ description, keywords and marketing URL was verified on 2026-10-22.
 On 2026-10-23 the owner signed back into App Store Connect. The public support
 URL, copyright and private review contact were saved and verified after reload.
 Private contact details remain only in the console. Privacy policy and deletion
-URLs were also entered; screenshots and data declarations remain incomplete. A new-app warning said
+URLs were also saved. All ten App Privacy categories, collection purposes, user
+linkage and no-tracking answers are configured; the final accuracy agreement
+awaits the owner in the console. The age questionnaire was saved and Apple displays
+13+ (with regional/older-OS exceptions). It declares player-created content,
+infrequent profanity, frequent fantasy combat/weapons and competitive contests;
+no free-form chat, social feed, advertising, gambling or paid loot boxes. Content
+rights still need owner evidence; EU trader status remains incomplete. A new-app warning said
 user access settings could not be saved and all existing team users have access;
 review the App Information access settings if a restriction is intended.
 
@@ -250,14 +256,20 @@ The updated iPhone layout keeps the camera cutout clear in landscape; portrait
 guest gameplay and opening/cancelling account deletion were verified. A real
 1320×2868 portrait capture is preserved locally under
 `apps/mobile/ios/App/output/screenshots/qa-20261023/`. It is a staging QA capture,
-not proof of a production release. The fresh 13-inch iPad simulator initially
-stalled before the app process launched; iPad QA/captures remain unverified.
+not proof of a production release. The 13-inch iPad simulator subsequently
+launched and authenticated a staging guest. Its 3D map loaded slowly and offered
+the low-performance prompt; switching to 2D preserved the empire. Portrait and
+landscape 2D layouts, tile inspection, the complete deletion warning without
+a keyboard, and cancellation were verified. Native 2064×2752 portrait and
+2752×2064 landscape QA captures are preserved in the same ignored output directory.
+This does not establish physical-device performance or pinch/pan behavior.
 
 Local CI found a timer escaping the launch-only muster fixture into a later
 simulation test. A regression reproduces the late events and the fixture now
 freezes its scheduled callbacks before returning. The focused test passes.
 The full local rerun was stopped to avoid competing with another worktree's
-full CI on this Mac; require the updated PR's complete CI before merging.
+full CI on this Mac. GitHub CI run `39999361143` then completed successfully for
+commit `098fa5513`, including static checks, all test shards and the final build gate.
 
 The app-level privacy manifest and [native privacy inventory](../../apps/mobile/store/privacy-inventory.md)
 record account, gameplay, first-party usage and optional support/diagnostic data.
@@ -273,3 +285,9 @@ a new build number after integration/QA, rather than submitting build 1.
 - [Google Play account deletion requirements](https://support.google.com/googleplay/android-developer/answer/13327111)
 
 - [Firebase Auth dependency customization](https://firebase.google.com/docs/auth/web/custom-dependencies)
+
+The Android API 36.1 emulator booted and the staging debug APK installed successfully.
+The native UI connection was interrupted when the Mac locked before Android
+gameplay could be verified. Both task test devices were then shut down to free
+resources; their accounts/data and captures remain available. The Hetzner Cloud
+console requires owner login to verify production backup settings.
