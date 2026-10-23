@@ -82,6 +82,9 @@ type MusterStatusPatch = {
   // exceeds the flag's cap and what it holds), which ADVANCE skips past. See
   // MusterState.unfundableTarget.
   unfundableTarget?: UnfundableTarget | undefined;
+  // ADVANCE only: raise the flag's capLevel (never lowered) so it can stage
+  // its scaled effort -- see maybeAdvanceFire. Omitted leaves capLevel as is.
+  capLevel?: number | undefined;
 };
 
 type MusterStatusSyncDeps<TDelta> = {
@@ -123,7 +126,8 @@ export const syncMusterStatus = <TDelta>(
     (muster.insufficientManpower ?? false) === (patch.insufficientManpower ?? false) &&
     muster.unfundableTarget?.x === patch.unfundableTarget?.x &&
     muster.unfundableTarget?.y === patch.unfundableTarget?.y &&
-    muster.unfundableTarget?.required === patch.unfundableTarget?.required
+    muster.unfundableTarget?.required === patch.unfundableTarget?.required &&
+    (patch.capLevel === undefined || patch.capLevel === muster.capLevel)
   ) {
     return;
   }
@@ -138,7 +142,8 @@ export const syncMusterStatus = <TDelta>(
       fightY: patch.fightY,
       noTargetInRange: patch.noTargetInRange || undefined,
       insufficientManpower: patch.insufficientManpower || undefined,
-      unfundableTarget: patch.unfundableTarget
+      unfundableTarget: patch.unfundableTarget,
+      ...(patch.capLevel !== undefined ? { capLevel: patch.capLevel } : {})
     }
   };
   deps.replaceTileState(originKey, updatedTile);
