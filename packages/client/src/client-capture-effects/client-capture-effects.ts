@@ -1,33 +1,12 @@
-import { requiredMusterWithCommit } from "../client-attack-commit/client-attack-commit.js";
 import { isForestTile } from "../client-constants.js";
 import { formatShardSiteBearing, nearestShardSiteBearing, shardRainAlertDetail, type ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import { shouldFinalizePredictedCombat } from "../client-predicted-combat/client-predicted-combat.js";
 import { BATTLE_OVERLAY_TOTAL_MS } from "../client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import { victoryHoldAlertDetail, victoryHoldAlertTitle } from "../client-victory-alert/client-victory-alert.js";
-import { predictedMusterAmount } from "../client-muster-prediction/client-muster-prediction.js";
 import { createPopupBlockedCheck, type PopupGateState } from "../client-map-unobstructed/client-popup-gate.js";
 import type { ClientState } from "../client-state/client-state.js";
-import type { Tile } from "../client-types.js";
 import { setTextWithResourceIcons } from "../client-resource-icons/client-resource-icons.js";
 import { frontierAttackIsUndefended } from "../client-capture-hold/client-capture-hold.js";
-
-// Capped just *below* `required`, never at or above it: promotion out of
-// pendingMusterAttacks is driven by the real (non-extrapolated) amount, so
-// if this were allowed to reach `required` the overlay could show "ready"
-// for a long stretch before the real value actually gets there — the rate
-// estimate from a short first sample commonly overshoots the true tick
-// pace. Capping just under required keeps the bar always a hair behind
-// reality instead of ever lying ahead of it. See client-muster-prediction.ts
-// for the shared interpolation this and every other muster display uses.
-const extrapolatedMusterAmount = (
-  state: Pick<ClientState, "musterAmountRateByTile" | "me" | "manpower">,
-  musterTileKey: string,
-  musterTile: Pick<Tile, "ownerId" | "muster"> | undefined,
-  required: number
-): number => {
-  const cap = required > 0 ? Math.max(musterTile?.muster?.amount ?? 0, required - 1) : (musterTile?.muster?.amount ?? 0);
-  return predictedMusterAmount(state.musterAmountRateByTile, musterTileKey, musterTile, state.me, cap, state.manpower);
-};
 
 export const renderCaptureProgress = (
   state: Pick<
@@ -35,14 +14,9 @@ export const renderCaptureProgress = (
     | "captureAlert"
     | "capture"
     | "tiles"
-    | "me"
     | "pendingCombatReveal"
     | "dismissedCaptureStartAt"
-    | "pendingMusterAttacks"
-    | "musterAmountRateByTile"
-    | "manpower"
     | "activeBattles"
-    | "attackCommitByTargetKey"
   >,
   deps: {
     keyFor: (x: number, y: number) => string;
@@ -221,51 +195,11 @@ export const renderCaptureProgress = (
     deps.captureTargetEl.textContent = awaitingResult
       ? `Waiting for result at (${state.capture.target.x}, ${state.capture.target.y})`
       : `Target: (${state.capture.target.x}, ${state.capture.target.y})`;
-  } else if (state.pendingMusterAttacks.length > 0) {
-    // A manual attack was launched but the adjacent muster flag doesn't
-    // have enough manpower yet — it's parked waiting to accumulate
-    // (client-queue-logic.ts's processActionQueue/processPendingMusterAttacks).
-    // Show the same overlay in a "Mustering..." state so the wait isn't
-    // silent; once the flag reaches the target's real requirement the
-    // entry is promoted off pendingMusterAttacks and this falls through to
-    // the state.capture branch above with no gap.
-    const entry = state.pendingMusterAttacks[state.pendingMusterAttacks.length - 1]!;
-    const targetKey = deps.keyFor(entry.targetX, entry.targetY);
-    if (entry.dismissed) {
-      // Dismissed by the player via "Dismiss": hide the banner for this
-      // specific pending target without cancelling it — the flag keeps
-      // accumulating in the background. A different (or new) pending
-      // target is a different entry and reopens the banner immediately.
-      deps.captureCardEl.style.display = "none";
-      deps.captureWrapEl.style.display = "none";
-      deps.captureCancelBtn.style.display = "none";
-      deps.captureDismissBtn.style.display = "none";
-      deps.captureCloseBtn.style.display = "none";
-      deps.captureDownloadDebugBtn.style.display = "none";
-      deps.captureBarEl.style.width = "0%";
-      deps.captureTitleEl.textContent = "";
-      deps.captureTimeEl.textContent = "";
-      deps.captureTargetEl.textContent = "";
-      return;
-    }
-    const musterTile = state.tiles.get(entry.musterTileKey);
-    const targetTile = state.tiles.get(targetKey);
-    const required = requiredMusterWithCommit(state, targetTile);
-    const staged = Math.floor(extrapolatedMusterAmount(state, entry.musterTileKey, musterTile, required));
-    const pct = Math.max(0, Math.min(1, required > 0 ? staged / required : 1));
-    deps.captureCardEl.dataset.state = "mustering";
-    deps.captureCardEl.style.display = "grid";
-    deps.captureWrapEl.style.display = "block";
-    deps.captureCancelBtn.style.display = "inline-flex";
-    deps.captureDismissBtn.style.display = "inline-flex";
-    deps.captureCloseBtn.style.display = "none";
-    deps.captureDownloadDebugBtn.style.display = "none";
-    deps.captureBarEl.style.width = `${Math.floor(pct * 100)}%`;
-    deps.captureTitleEl.textContent = "Mustering...";
-    deps.captureTimeEl.classList.remove("capture-loss");
-    deps.captureTimeEl.textContent = `${staged} / ${required}`;
-    deps.captureTargetEl.textContent = `Target: (${entry.targetX}, ${entry.targetY})`;
   } else {
+    // Nothing fired yet. A manual attack still parked on a muster flag
+    // (pendingMusterAttacks) no longer takes this banner over as
+    // "Mustering... N/M": its progress floats over the flag itself instead
+    // (client-muster-flag-badge.ts), and Esc still cancels it.
     deps.captureCardEl.style.display = "none";
     deps.captureWrapEl.style.display = "none";
     deps.captureCancelBtn.style.display = "none";

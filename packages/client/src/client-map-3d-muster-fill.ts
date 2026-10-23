@@ -23,3 +23,7 @@ export const musterFillRatioForTile = (
   const predictedAmount = predictedMusterAmount(musterAmountRateByTile, tileKey, tile, me, cap, manpower);
   return Math.min(1, predictedAmount / MUSTER_ATTACK_COST);
 };
+
+// The flag progress badge's per-flag lookup, re-exported beside the banner's
+// own fill ratio so client-map-3d.ts wires both from one import.
+export { musterBadgeLookup } from "./client-muster-flag-badge/client-muster-flag-badge.js";

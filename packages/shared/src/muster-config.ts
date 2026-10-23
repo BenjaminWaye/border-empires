@@ -43,6 +43,28 @@ export const musterFlagCap = (manpowerCap: number, capLevel: number | undefined)
   return Math.min(raw, manpowerCap);
 };
 
+/**
+ * The smallest capLevel at which musterFlagCap holds `required` manpower,
+ * never lower than the flag's current level (capacity is only ever expanded
+ * here, not shrunk). Used when the player commits more to an attack than the
+ * flag can stage -- the launch slider goes up to the whole manpower pool, so
+ * without this a big commitment left the flag pinned at its cap forever,
+ * "Mustering 0/N" never filling. A `required` above the manpower cap is
+ * clamped to it, since musterFlagCap can't exceed that anyway.
+ */
+export const musterCapLevelToFit = (manpowerCap: number, capLevel: number | undefined, required: number): number => {
+  const level = capLevel ?? 0;
+  const target = Math.min(required, manpowerCap);
+  if (musterFlagCap(manpowerCap, level) >= target) return level;
+  const share = manpowerCap * MUSTER_FLAG_CAP_MANPOWER_FRACTION;
+  if (share <= 0) return level;
+  const base = Math.max(MUSTER_FLAG_BASE_CAP_FLOOR, share);
+  // The epsilon keeps float noise (e.g. 2.0000000001) from overshooting by a
+  // whole level; the re-check below catches the opposite rounding.
+  const fit = Math.max(level, Math.ceil((target - base) / share - 1e-9));
+  return musterFlagCap(manpowerCap, fit) >= target ? fit : fit + 1;
+};
+
 // Longest MARCH a flag may be given, in tiles (toroidal Chebyshev distance
 // from the flag to its target). Troops walking across the map take far longer
 // than raising a muster flag next to the fight, and a long march also makes

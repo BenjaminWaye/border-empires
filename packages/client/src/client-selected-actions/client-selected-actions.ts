@@ -133,15 +133,23 @@ export const cancelOngoingCapture = (
     | "capture"
     | "pendingMusterAttacks"
   >,
-  sendGameMessage: (payload: unknown) => boolean
+  sendGameMessage: (payload: unknown) => boolean,
+  notify?: (message: string) => void
 ): void => {
   // Still just mustering (parked, nothing sent to the server yet): drop
-  // the most-recently-queued target — the one the mustering overlay is
-  // currently showing — so the flag stops waiting on it. The flag itself,
-  // and any manpower already staged on it, is left alone; "Clear Muster"
-  // (a separate tile action) is how a player drains it entirely.
+  // the most-recently-queued target so the flag stops waiting on it. The
+  // flag itself, and any manpower already staged on it, is left alone;
+  // "Clear Muster" (a separate tile action) is how a player drains it
+  // entirely. No banner shows a parked attack any more (only its flag's
+  // badge), so say so -- Esc also closes menus, and a silent cancel there
+  // reads as the attack vanishing.
   if (!state.capture && state.pendingMusterAttacks.length > 0) {
+    const dropped = state.pendingMusterAttacks[state.pendingMusterAttacks.length - 1]!;
     state.pendingMusterAttacks = state.pendingMusterAttacks.slice(0, -1);
+    // processPendingMusterAttacks only unwatches when it empties the list
+    // itself, and it doesn't run at all once the list is empty.
+    if (state.pendingMusterAttacks.length === 0) sendGameMessage({ type: "UNWATCH_MUSTER" });
+    notify?.(`Queued attack on (${dropped.targetX}, ${dropped.targetY}) cancelled`);
     return;
   }
   // Only something already sent can be locked on the server. Esc runs this
@@ -169,21 +177,10 @@ export const cancelOngoingCapture = (
 };
 
 // Hides the capture overlay for the currently-displayed instance without
-// cancelling anything underneath it — the mustering flag keeps
-// accumulating, or the in-flight capture keeps resolving, either way.
-// Mirrors cancelOngoingCapture's phase check: while still parked
-// (state.capture undefined), dismiss the pending muster attack the overlay
-// is showing; once it's actually fired, dismiss the capture itself.
-export const dismissOngoingCapture = (
-  state: Pick<ClientState, "capture" | "pendingMusterAttacks" | "dismissedCaptureStartAt">
-): void => {
-  if (!state.capture && state.pendingMusterAttacks.length > 0) {
-    // dismissed lives on the entry itself (see pendingMusterAttacks' type in
-    // client-state.ts) so it clears for free once the entry is cancelled or
-    // promoted — no separate keyed field to keep in sync.
-    state.pendingMusterAttacks[state.pendingMusterAttacks.length - 1]!.dismissed = true;
-    return;
-  }
+// cancelling anything underneath it — the in-flight capture keeps resolving.
+// (A still-parked muster attack has no banner to dismiss: it shows as a
+// badge over its flag, client-muster-flag-badge.ts.)
+export const dismissOngoingCapture = (state: Pick<ClientState, "capture" | "dismissedCaptureStartAt">): void => {
   state.dismissedCaptureStartAt = state.capture?.startAt;
 };
 

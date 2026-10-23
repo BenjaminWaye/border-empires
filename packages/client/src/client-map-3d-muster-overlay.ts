@@ -19,6 +19,8 @@ import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-
 import { createMusterBannerClothMaterials } from "./client-map-3d-muster-banner/muster-banner-cloth-material.js";
 import { getMusterBannerGeometry, MUSTER_PLINTH_LEDGES } from "./client-map-3d-muster-banner/muster-banner-geometry.js";
 import { applyMarbleFinish } from "./client-map-3d-muster-banner/muster-banner-marble-material.js";
+import { createMusterProgressBadgeLayer, type MusterProgressBadgeSlot } from "./client-map-3d-muster-progress-badge.js";
+import type { MusterBadgeInfo } from "./client-muster-flag-badge/client-muster-flag-badge.js";
 import { TOWN_BASE_LIFT } from "./client-map-3d-town-overlay.js";
 
 // Muster overlay: every mustering tile carries a war banner in its owner's
@@ -44,6 +46,11 @@ import { TOWN_BASE_LIFT } from "./client-map-3d-town-overlay.js";
 //     plinth and the soldiers stop marching in and stand guard at its rim.
 //     Driven by siegeEndsAt in tick(), so it switches off on its own when the
 //     fight resolves, without waiting for a terrain rebuild.
+//   • Our own flags carry a percentage badge above the banner -- how far the
+//     flag is toward the attack it's gathering for, or how full it is
+//     (client-muster-flag-badge.ts, client-map-3d-muster-progress-badge.ts).
+//     Its source is read every tick, so the number climbs between terrain
+//     rebuilds too.
 
 const MAX = 256;
 const ADVANCE_WIND_SPEED = 1.6;
@@ -121,7 +128,16 @@ export type MusterOverlay = {
   readonly dispose: () => void;
 };
 
-export const createMusterOverlay = (scene: Scene, envMap?: Texture): MusterOverlay => {
+/**
+ * `badgeLookup` is called once per tick and returns a per-flag lookup (tile
+ * key `${x},${y}` -> badge, undefined for rival flags) -- see
+ * client-muster-flag-badge.ts's musterBadgeLookup. Omitted, no badges are drawn.
+ */
+export const createMusterOverlay = (
+  scene: Scene,
+  envMap?: Texture,
+  badgeLookup?: () => (tileKey: string) => MusterBadgeInfo | undefined
+): MusterOverlay => {
   const geometry = getMusterBannerGeometry();
   // The towns' AFC-style metalwork (client-map-3d-town-overlay.ts); the
   // plinth is polished marble under a light clearcoat, so it doesn't read as
@@ -183,6 +199,8 @@ export const createMusterOverlay = (scene: Scene, envMap?: Texture): MusterOverl
   siegeRingMesh.renderOrder = 35;
 
   scene.add(...pieceMeshes, soldierMesh, siegeRingMesh);
+  const progressBadges = createMusterProgressBadgeLayer(scene);
+  const badgeSlots: MusterProgressBadgeSlot[] = [];
 
   const entries: TileEntry[] = [];
   const tmpColor = new Color();
@@ -271,10 +289,27 @@ export const createMusterOverlay = (scene: Scene, envMap?: Texture): MusterOverl
     siegeRingMesh.instanceMatrix.needsUpdate = true;
   };
 
+  const applyProgressBadges = (nowMs: number): void => {
+    badgeSlots.length = 0;
+    const lookup = entries.length > 0 ? badgeLookup?.() : undefined;
+    if (lookup) {
+      for (const e of entries) {
+        const badge = lookup(`${e.worldTileX},${e.worldTileY}`);
+        if (!badge) continue;
+        badgeSlots.push({
+          sceneX: e.sceneX, sceneZ: e.sceneZ, surfaceY: e.surfaceY + TOWN_BASE_LIFT,
+          ratio: badge.ratio, kind: badge.kind, phase: hash01(e.worldTileX, e.worldTileY, 0, 41)
+        });
+      }
+    }
+    progressBadges.sync(badgeSlots, nowMs);
+  };
+
   const tick = (nowMs: number): void => {
     clothMaterials.tick(nowMs);
     applySoldierMatrices(nowMs);
     applySiegeRings(nowMs);
+    applyProgressBadges(nowMs);
   };
 
   const dispose = (): void => {
@@ -289,6 +324,7 @@ export const createMusterOverlay = (scene: Scene, envMap?: Texture): MusterOverl
     siegeRingGeom.dispose();
     siegeRingMat.dispose();
     siegeRingMesh.dispose();
+    progressBadges.dispose();
   };
 
   return { clear, addMuster, commit, tick, dispose };
