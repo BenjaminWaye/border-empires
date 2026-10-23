@@ -58,6 +58,31 @@ another angle.
   two-metre door. It is a preview aid, not a gameplay character.
 - Drag to orbit and scroll to zoom.
 
+## Capture dialog proposal
+
+Open `http://localhost:6017/iframe.html?id=relics-capture-dialog--armour-works&viewMode=story`.
+The native capture dialog shows the actual ziggurat and raised House banner
+above a diagrammatic section through the ground. Numbered annotations identify
+surface access, the service shaft and the buried installation. The existing
+gameplay benefit is explained beneath the graphic, with a reminder that it
+lasts while the relic is held. Continue, close and Escape dismiss the dialog;
+the preview's Show capture dialog button reopens it. Cutaway view toggles
+the near wall and underground annotations. The illustration includes a text
+alternative, and the layout adapts to phone widths.
+
+Armour Works uses the Warpress's current mustering benefit. Computation Vault
+shows the same surface model over calculation banks, with the Calculating
+Engine's research-coin discount. The buried armour works and computation
+vault are proposed explanations, not new effects or accepted canon. Both
+variants reuse the existing model and muster cloth, with scoped dark iron,
+parchment, brass and verdigris styling based on the client theme. The section
+is illustrative and not to scale; it does not enlarge the relic's tile or
+create traversable underground gameplay.
+
+This is a Storybook dialog preview only. It is not connected to capture
+events or either live map renderer. Its graphic currently requires WebGL;
+a non-WebGL graphic remains required before shipping to the 2D fallback.
+
 Source is isolated under `packages/storybook/src/relics/`. It is not wired
 into either live map renderer. The requested prototype covers 3D only; a 2D
 counterpart and runtime integration remain required before shipping. The
