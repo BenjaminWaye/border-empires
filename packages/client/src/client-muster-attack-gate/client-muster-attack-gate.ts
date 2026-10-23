@@ -4,6 +4,7 @@ import { MUSTER_FLAG_REQUEST_TIMEOUT_MS } from "../client-constants.js";
 import { chebyshevDistanceClient } from "../client-tile-action-support/client-tile-action-support.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
+import { isDockLandingTargetFrom } from "../client-dock-landing/client-dock-landing.js";
 
 // Sea crossings between a player's dock and a dock-linked target have no
 // meaningful grid distance (the two docks can be anywhere on the map), so a
@@ -30,28 +31,15 @@ const isAdjacentWrapped = (ax: number, ay: number, bx: number, by: number): bool
 };
 
 // True when (originX, originY) is a dock tile whose paired/connected sea
-// route lands on (targetX, targetY) or adjacent to it. Mirrors
-// client-origin-selection's dockDestinationsFor/isDockLinkedToTarget.
+// route can land on (targetX, targetY): the linked dock or a beach beside it
+// (the server's beach-landing rule, client-dock-landing.ts).
 export const isDockCrossingBetween = (
-  state: Pick<ClientState, "dockPairs">,
+  state: Pick<ClientState, "dockPairs" | "tiles">,
   originX: number,
   originY: number,
   targetX: number,
   targetY: number
-): boolean => {
-  for (const pair of state.dockPairs) {
-    const linked =
-      pair.ax === originX && pair.ay === originY
-        ? { x: pair.bx, y: pair.by }
-        : pair.bx === originX && pair.by === originY
-          ? { x: pair.ax, y: pair.ay }
-          : undefined;
-    if (!linked) continue;
-    if (linked.x === targetX && linked.y === targetY) return true;
-    if (isAdjacentWrapped(linked.x, linked.y, targetX, targetY)) return true;
-  }
-  return false;
-};
+): boolean => isDockLandingTargetFrom(state, originX, originY, targetX, targetY);
 
 // Find the muster tile owned by the player closest to (targetX, targetY)
 // that has at least requiredMusterWithCommit(target) staged — the real

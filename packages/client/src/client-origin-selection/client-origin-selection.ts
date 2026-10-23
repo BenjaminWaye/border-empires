@@ -6,6 +6,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { isFrontierOriginCutOff } from "../client-tile-menu-status/client-tile-menu-status.js";
 import { ownTileSiegeAt } from "../client-muster-siege/client-muster-siege.js";
+import { isDockLandingTargetFrom } from "../client-dock-landing/client-dock-landing.js";
 
 type OriginSelectionDeps = {
   state: ClientState;
@@ -177,12 +178,12 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
     return out;
   };
 
+  // The linked dock and the beaches beside it are always landing ground (the
+  // server's beach-landing rule, client-dock-landing.ts); `allowAdjacent`
+  // additionally accepts any other land next to the linked dock.
   const isDockLinkedToTarget = (dx: number, dy: number, tx: number, ty: number, allowAdjacent: boolean): boolean => {
-    for (const d of dockDestinationsFor(dx, dy)) {
-      if (d.x === tx && d.y === ty) return true;
-      if (allowAdjacent && isAdjacent(d.x, d.y, tx, ty)) return true;
-    }
-    return false;
+    if (isDockLandingTargetFrom(state, dx, dy, tx, ty)) return true;
+    return allowAdjacent && dockDestinationsFor(dx, dy).some((d) => isAdjacent(d.x, d.y, tx, ty));
   };
 
   const pickDockOriginForTarget = (

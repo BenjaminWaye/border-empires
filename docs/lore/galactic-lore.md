@@ -283,6 +283,12 @@ that can be settled and watched; supply determines whether an advance
 beyond it can be held. The exact supply and settlement rules belong in
 the [gameplay reference](../game-mechanics.md).
 
+The sea is crossed the same way. A House that holds a harbour can put a
+landing ashore at the harbour it sails to or on the beaches beside it, so a
+defender has to watch a stretch of coast, not only the quay. A landing has
+no road home. It is supplied by sea, through the harbour it sailed from, and
+a rival who takes that harbour strands everything put ashore from it.
+
 ### What a beacon looks like
 
 A slender lattice tower of dark iron, with four legs that converge on a

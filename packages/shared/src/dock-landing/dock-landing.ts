@@ -16,9 +16,13 @@
 
 import { DOCK_LANDING_RADIUS, WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { wrapX, wrapY } from "../math/math.js";
-import { isSeaTerrain, type Terrain } from "../types.js";
+import type { Terrain } from "../types.js";
 
-export type LandingTerrainAt = (x: number, y: number) => Terrain | undefined;
+// Plain strings are accepted so planner tile views (whose terrain is typed
+// `string`) can be read directly; anything but these literals counts as land-like.
+export type LandingTerrainAt = (x: number, y: number) => Terrain | string | undefined;
+
+const isWater = (terrain: string | undefined): boolean => terrain === "SEA" || terrain === "COASTAL_SEA";
 
 export type DockLandingOptions = {
   radius?: number;
@@ -47,10 +51,9 @@ export const isCoastalGround = (
   worldHeight = WORLD_HEIGHT
 ): boolean => {
   const terrain = terrainAt(x, y);
-  if (!terrain || isSeaTerrain(terrain)) return false;
+  if (!terrain || isWater(terrain)) return false;
   for (const [dx, dy] of CARDINAL_OFFSETS) {
-    const neighbor = terrainAt(wrapX(x + dx, worldWidth), wrapY(y + dy, worldHeight));
-    if (neighbor && isSeaTerrain(neighbor)) return true;
+    if (isWater(terrainAt(wrapX(x + dx, worldWidth), wrapY(y + dy, worldHeight)))) return true;
   }
   return false;
 };

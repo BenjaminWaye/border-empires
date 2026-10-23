@@ -20,6 +20,7 @@ import { ownershipHelpSubtitleHtml, type OwnershipHelpKind } from "../client-til
 import { tileFeatureLeadLines, tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
 import { foreignTileOwnershipLabel, tileMenuOverviewIntroLines, tileMenuSubtitleText } from "../client-tile-menu-copy/client-tile-menu-copy.js";
+import { landingGroundMenuLine, type DockLandingState } from "../client-dock-landing/client-dock-landing.js";
 import { captureRecoveryRemainingMsForTile, tileMenuHeaderStatusForTile, type TileMenuHeaderStatus } from "../client-tile-menu-status/client-tile-menu-status.js";
 import { ownTileHeaderStatus } from "../client-tile-menu-status/client-tile-menu-reach-owners.js";
 import type { ReachAuthoritativeState } from "../client-reach-authoritative/client-reach-authoritative.js";
@@ -54,7 +55,7 @@ export { constructionProgressForTile } from "../client-tile-menu-construction-pr
 export const menuOverviewForTile = (
   tile: Tile,
   deps: {
-    state: { me: string; domainIds?: readonly string[]; upkeepLastTick?: { foodCoverage?: number }; techCatalog?: readonly TechInfo[]; techIds?: readonly string[] };
+    state: { me: string; domainIds?: readonly string[]; upkeepLastTick?: { foodCoverage?: number }; techCatalog?: readonly TechInfo[]; techIds?: readonly string[] } & Partial<DockLandingState>;
     prettyToken: (value: string) => string;
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     displayTownGoldPerMinute: (tile: Tile) => number;
@@ -136,6 +137,9 @@ export const menuOverviewForTile = (
     ownershipState: tile.ownershipState
   }).forEach(pushLine);
   if (!isLand) return lines;
+  const { dockPairs, tiles } = deps.state;
+  const landingLine = dockPairs && tiles ? landingGroundMenuLine({ dockPairs, tiles, me: deps.state.me }, tile.x, tile.y) : undefined;
+  if (landingLine) pushLine(landingLine);
   if (tile.ownershipState === "SETTLED" && tile.town?.populationTier === "SETTLEMENT") {
     pushLine("Settlements provide starter coin and manpower until they grow into towns.");
   }

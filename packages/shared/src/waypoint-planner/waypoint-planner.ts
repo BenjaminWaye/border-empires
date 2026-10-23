@@ -31,6 +31,7 @@ import {
   WORLD_WIDTH
 } from "../config.js";
 import { wrapX, wrapY } from "../math/math.js";
+import { dockLandingGroundCoords } from "../dock-landing/dock-landing.js";
 import {
   NEIGHBOR_OFFSETS,
   NO_DIR,
@@ -133,19 +134,23 @@ class MinHeap {
   }
 }
 
+// Every dock-pair jump: from each end to the far dock's landing ground (the
+// dock itself and the beaches beside it, ../dock-landing/dock-landing.ts),
+// the same ground the simulation accepts a dock crossing onto.
 const dockPairLinks = (
-  state: Pick<WaypointPlannerState, "dockPairs">
+  state: Pick<WaypointPlannerState, "dockPairs" | "tiles">
 ): Map<number, number[]> => {
+  const terrainAt = (x: number, y: number): string | undefined => state.tiles.get(`${x},${y}`)?.terrain;
   const out = new Map<number, number[]>();
+  const addJumps = (fromX: number, fromY: number, dockX: number, dockY: number): void => {
+    const fromIdx = worldIndex(fromX, fromY);
+    const list = out.get(fromIdx) ?? [];
+    for (const { x, y } of dockLandingGroundCoords(dockX, dockY, terrainAt)) list.push(worldIndex(x, y));
+    out.set(fromIdx, list);
+  };
   for (const pair of state.dockPairs) {
-    const aIdx = worldIndex(pair.ax, pair.ay);
-    const bIdx = worldIndex(pair.bx, pair.by);
-    const aList = out.get(aIdx) ?? [];
-    aList.push(bIdx);
-    out.set(aIdx, aList);
-    const bList = out.get(bIdx) ?? [];
-    bList.push(aIdx);
-    out.set(bIdx, bList);
+    addJumps(pair.ax, pair.ay, pair.bx, pair.by);
+    addJumps(pair.bx, pair.by, pair.ax, pair.ay);
   }
   return out;
 };

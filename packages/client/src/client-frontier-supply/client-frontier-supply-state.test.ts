@@ -13,7 +13,8 @@ const stateWith = (tiles: Tile[]): FrontierSupplyState & { tiles: Map<string, Ti
   tilesRevision: 1,
   myReach: undefined,
   myReachRevisionAtCompute: "",
-  activeAetherBridges: []
+  activeAetherBridges: [],
+  dockPairs: []
 });
 
 describe("frontierSupplyModelForState", () => {
