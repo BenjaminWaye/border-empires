@@ -4,7 +4,7 @@ vi.hoisted(() => {
   process.env.MUSTER_SYSTEM_ENABLED = "true";
 });
 
-import { MUSTER_MARCH_MAX_DISTANCE_TILES, MUSTER_MARCH_TARGET_NOT_LAND_MESSAGE } from "@border-empires/shared";
+import { MUSTER_MARCH_MAX_DISTANCE_TILES } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { makePlayer } from "./muster-march-test-support.js";
@@ -68,13 +68,13 @@ describe("march distance cap", () => {
     expect(events.some((event) => event.eventType === "COMMAND_RESOLVED")).toBe(true);
   });
 
-  // A march may target unexplored ground, so the player can first learn a
-  // target is water from this rejection -- it must carry the shared text the
-  // client recognises (client-player-actions.ts), not a generic one.
-  it("rejects a non-land target with the shared not-land message", async () => {
+  // A march may target unexplored ground the player can't know is water, so a
+  // non-land target is accepted (no error) and the march stops short instead
+  // (muster-march-stop-short.test.ts).
+  it("accepts a non-land target without an error", async () => {
     const target = { x: BASE + 3, y: BASE };
-    const rejected = rejection(await setMarch(buildRuntime([target], "SEA"), target.x, target.y));
-    expect(rejected?.code).toBe("MUSTER_INVALID");
-    expect(rejected?.message).toBe(MUSTER_MARCH_TARGET_NOT_LAND_MESSAGE);
+    const events = await setMarch(buildRuntime([target], "SEA"), target.x, target.y);
+    expect(rejection(events)).toBeUndefined();
+    expect(events.some((event) => event.eventType === "COMMAND_RESOLVED")).toBe(true);
   });
 });
