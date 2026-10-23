@@ -5,6 +5,7 @@ import { capturedTownAftermath } from "./runtime-capture-aftermath.js";
 import { capturedTileWillAutoSettle } from "./runtime-out-of-reach-auto-settle/runtime-out-of-reach-auto-settle.js";
 import { isAiControlledActor } from "./runtime-player-factory.js";
 import { FORT_PATROL_GRACE_MS } from "./territory-automation/territory-automation.js";
+import { flipFeatures } from "./territory-flip-log/territory-flip-features.js";
 import type { SimulationTileWireDelta, LockRecord } from "./runtime-types.js";
 import type { RuntimeLockResolutionContext } from "./runtime-lock-resolution.js";
 /** One capture pipeline for regular wins and non-recursive Breakthrough capitulation. */
@@ -86,7 +87,8 @@ export function applyWinningTileCapture(context: RuntimeLockResolutionContext, l
         y: lock.targetY,
         fromOwner: previousOwnerId,
         toOwner: resolvedTarget.ownerId,
-        at: context.now()
+        at: context.now(),
+        ...flipFeatures(previousTarget)
       });
     }
     if (willAutoSettle) context.autoSettleCapturedAnchor(lock.playerId, lock.targetKey, resolvedTarget, lock.commandId);

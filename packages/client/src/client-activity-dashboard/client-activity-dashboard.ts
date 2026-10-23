@@ -92,7 +92,7 @@ export const renderClientActivityDashboardOverlay = (deps: ActivityDashboardDeps
       : !timeline || timeline.cards.length === 0
         ? `<div class="activity-dashboard-empty-state">No activity in the last 24 hours.</div>`
         : `
-          <div class="activity-dashboard-summary-line">${summaryCountsLine(timeline.summary, timeline, state.manpowerCap)}</div>
+          <div class="activity-dashboard-summary-line">${escapeActivityDashboardHtml(summaryCountsLine(timeline.summary, timeline, state.manpowerCap))}</div>
           ${truncationLabel(timeline) ? `<div class="activity-dashboard-truncation-note">${truncationLabel(timeline)}</div>` : ""}
           ${siegeSectionHtml(timeline, playerName)}
           ${rivalSectionHtml(timeline, playerName)}
