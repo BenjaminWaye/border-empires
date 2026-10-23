@@ -30,6 +30,9 @@ export type PersonalActivityTileFeature =
   | { kind: "AFC" }
   | { kind: "NATURAL_WONDER"; wonderType: NaturalWonderType };
 
+// Each list is what the viewing player lost or gained: a player who took a
+// tile is only credited with what survived the capture (siege batteries and
+// relay beacons are razed), while the player who lost it lost everything.
 // Features are always sent counted by kind, so a long push that took many
 // palisades is still one small entry rather than a list that grows per tile.
 export type PersonalActivityTileFeatureCount = PersonalActivityTileFeature & { count: number };
@@ -68,6 +71,8 @@ export type PersonalActivityCombatCard = {
   originSeized?: boolean;
   /** What stood on the target tile when this attack captured it. */
   capturedFeatures?: PersonalActivityTileFeatureCount[];
+  /** What stood on the launch tile the defender seized (with `originSeized`). */
+  seizedOriginFeatures?: PersonalActivityTileFeatureCount[];
 };
 
 // Several attacks between the player and one rival close together in time
@@ -94,6 +99,8 @@ export type PersonalActivityCombatGroupCard = {
   y: number;
   /** What stood on the tiles the group's attacks captured. */
   capturedFeatures?: PersonalActivityTileFeatureCount[];
+  /** What stood on the launch tiles counted in `originsSeized`. */
+  seizedOriginFeatures?: PersonalActivityTileFeatureCount[];
 };
 
 // Head-to-head tally against one opponent over the timeline window.
@@ -133,6 +140,8 @@ export type PersonalActivitySiegeCard = {
   capturedBy?: string;
   /** What stood on the tile when it fell (includes the fortification itself). */
   capturedFeatures?: PersonalActivityTileFeatureCount[];
+  /** What stood on the attackers' launch tiles counted in `originsSeized`. */
+  seizedOriginFeatures?: PersonalActivityTileFeatureCount[];
 };
 
 export type PersonalActivityWaystationCard = {

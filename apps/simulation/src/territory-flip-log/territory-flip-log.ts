@@ -21,9 +21,11 @@
 //      unbounded before the next prune pass catches up. 50,000 entries is
 //      roughly a full day of an implausibly hot free-for-all (every player
 //      flipping a tile every few seconds, round the clock) while staying
-//      trivially cheap in memory (each entry is a handful of primitives,
-//      well under 1KB even boxed) -- comfortably above real traffic, but a
-//      concrete ceiling rather than "however big the game gets".
+//      trivially cheap in memory (each entry is a handful of primitives
+//      plus, on a tile that held something, a short `features` list bounded
+//      by what one tile can hold -- well under 1KB even boxed) --
+//      comfortably above real traffic, but a concrete ceiling rather than
+//      "however big the game gets".
 //
 // No flip-flop collapsing in v1 (e.g. A->B->A on the same tile within
 // minutes is logged as two separate flips) -- deliberately deferred; see

@@ -8,9 +8,10 @@ const isBuilt = (status: string): boolean => status !== "under_construction";
 /**
  * What stood on `tile` just before it changed hands, recorded on its
  * TerritoryFlip so the personal timeline can say "your Palisade and Dock
- * fell" rather than only "−2 tiles lost". The fort uses the same reading as
- * combat (defendingFortVariant): an active fort, or the one still standing
- * while it upgrades. Towns are left out -- their capture already has its own
+ * fell" rather than only "−2 tiles lost". A fort counts while it stands: an
+ * active or being-removed fort, or, mid-upgrade, the tier it is upgrading
+ * from (defendingFortVariant). The same forts capturedStructureFields hands
+ * to the captor. Towns are left out -- their capture already has its own
  * TOWN_CAPTURED / TOWN_LOST impact card.
  */
 export const tileFeaturesForActivity = (tile: DomainTileState | undefined): PersonalActivityTileFeature[] => {
@@ -27,6 +28,18 @@ export const tileFeaturesForActivity = (tile: DomainTileState | undefined): Pers
   if (tile.naturalWonder) features.push({ kind: "NATURAL_WONDER", wonderType: tile.naturalWonder.type });
   return features;
 };
+
+// Razed rather than handed over on capture (capturedStructureFields in
+// capture-structures.ts): siege batteries and relay beacons. Kept in step
+// with that rule by territory-flip-features.test.ts.
+const RAZED_ON_CAPTURE: ReadonlySet<string> = new Set(["SIEGE_BATTERY", "SIEGE_TOWER", "DREAD_TOWER", "RELAY_BEACON"]);
+
+/**
+ * Whether the player who takes the tile actually gets this feature. The
+ * loser lost it either way; the captor's report only names what it now owns.
+ */
+export const featureSurvivesCapture = (feature: PersonalActivityTileFeature): boolean =>
+  feature.kind !== "STRUCTURE" || !RAZED_ON_CAPTURE.has(feature.structureType);
 
 /** `{ features }` for a TerritoryFlip, or nothing when the tile was bare -- keeps the log entry small. */
 export const flipFeatures = (tile: DomainTileState | undefined): { features?: PersonalActivityTileFeature[] } => {

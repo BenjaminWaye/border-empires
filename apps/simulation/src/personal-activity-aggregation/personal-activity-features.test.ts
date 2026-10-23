@@ -1,32 +1,11 @@
-import type { DomainTileState, PersonalActivityCard } from "@border-empires/game-domain";
+import type { PersonalActivityCard } from "@border-empires/game-domain";
 import { describe, expect, it } from "vitest";
 
-import { tileFeaturesForActivity } from "../territory-flip-log/territory-flip-features.js";
 import { aggregatePersonalActivity } from "./personal-activity-aggregation.js";
 import { countTileFeatures } from "./personal-activity-features.js";
 import { testCombat, testFlip } from "./personal-activity-test-fixtures.js";
 
-const tile = (overrides: Partial<DomainTileState> = {}): DomainTileState => ({ x: 211, y: 186, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", ...overrides });
-
-describe("tileFeaturesForActivity", () => {
-  it("lists the standing fortification, buildings, dock and wonder, but not a town or an unfinished build", () => {
-    expect(tileFeaturesForActivity(tile({
-      fort: { ownerId: "me", status: "active", variant: "PALISADE" },
-      economicStructure: { ownerId: "me", type: "MINE", status: "under_construction" },
-      dockId: "dock-3",
-      naturalWonder: { type: "FOUNDRY_HEART" },
-      town: { type: "MARKET", populationTier: "TOWN" }
-    }))).toEqual([
-      { kind: "STRUCTURE", structureType: "PALISADE" },
-      { kind: "DOCK" },
-      { kind: "NATURAL_WONDER", wonderType: "FOUNDRY_HEART" }
-    ]);
-    // A fort mid-upgrade still defends as its old tier, the same reading combat uses.
-    expect(tileFeaturesForActivity(tile({ fort: { ownerId: "me", status: "under_construction", variant: "FORT", upgradingFrom: "PALISADE" } })))
-      .toEqual([{ kind: "STRUCTURE", structureType: "PALISADE" }]);
-    expect(tileFeaturesForActivity(tile())).toEqual([]);
-  });
-
+describe("countTileFeatures", () => {
   it("counts repeated kinds into one entry", () => {
     expect(countTileFeatures([
       { kind: "STRUCTURE", structureType: "PALISADE" },
@@ -82,6 +61,21 @@ describe("personal timeline names what fell with the land", () => {
     ]);
     const siege = sieged.cards.find((card) => card.kind === "SIEGE");
     expect(siege).toMatchObject({ outcome: "FELL", capturedFeatures: [{ kind: "STRUCTURE", structureType: "PALISADE", count: 1 }] });
+  });
+
+  it("names what stood on a seized launch tile, and credits the seizer only with what survived", () => {
+    const seized = aggregatePersonalActivity("me", { from: 0, to: 60 * 60_000 }, [
+      testFlip({ tileId: "5,5", x: 5, y: 5, fromOwner: "maren", toOwner: "me", at: 1_100, features: [{ kind: "STRUCTURE", structureType: "SIEGE_TOWER" }, { kind: "DOCK" }] })
+    ], [testCombat({ attackerId: "maren", defenderId: "me", attackerWon: false, x: 6, y: 5, originX: 5, originY: 5, at: 1_000 })]);
+    // The Siege Tower is razed on capture: Maren lost it, but I never got it.
+    expect(seized.cards[0]).toMatchObject({ kind: "COMBAT", originSeized: true, seizedOriginFeatures: [{ kind: "DOCK", count: 1 }] });
+    expect(seized.summary.featuresCaptured).toEqual([{ kind: "DOCK", count: 1 }]);
+
+    const asAttacker = aggregatePersonalActivity("maren", { from: 0, to: 60 * 60_000 }, [
+      testFlip({ tileId: "5,5", x: 5, y: 5, fromOwner: "maren", toOwner: "me", at: 1_100, features: [{ kind: "STRUCTURE", structureType: "SIEGE_TOWER" }, { kind: "DOCK" }] })
+    ], [testCombat({ attackerId: "maren", defenderId: "me", attackerWon: false, x: 6, y: 5, originX: 5, originY: 5, at: 1_000 })]);
+    expect(asAttacker.cards[0]).toMatchObject({ seizedOriginFeatures: [{ kind: "STRUCTURE", structureType: "SIEGE_TOWER", count: 1 }, { kind: "DOCK", count: 1 }] });
+    expect(asAttacker.summary.featuresLost).toEqual([{ kind: "STRUCTURE", structureType: "SIEGE_TOWER", count: 1 }, { kind: "DOCK", count: 1 }]);
   });
 
   it("leaves bare captures without a features field", () => {

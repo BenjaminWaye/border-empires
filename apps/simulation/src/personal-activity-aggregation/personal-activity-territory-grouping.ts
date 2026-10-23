@@ -1,6 +1,6 @@
 import type { TerritoryFlip } from "../territory-flip-log/territory-flip-log.js";
 import type { PersonalActivityDirection, PersonalActivityTerritoryCard } from "@border-empires/game-domain";
-import { nonEmptyFeatureCounts } from "./personal-activity-features.js";
+import { viewerFeatureCounts } from "./personal-activity-features.js";
 
 // Groups a player's territory flips into cards by direction + counterparty +
 // a 10-minute time bucket + a 6-tile spatial bucket, so a card's location is
@@ -36,7 +36,7 @@ export const groupTerritoryFlipsForPlayer = (playerId: string, flips: readonly T
   const cards: PersonalActivityTerritoryCard[] = [];
   for (const group of groups.values()) {
     const mostRecent = [...group.flips].sort((a, b) => b.at - a.at)[0]!;
-    const features = nonEmptyFeatureCounts(group.flips.flatMap((flip) => flip.features ?? []));
+    const features = viewerFeatureCounts(group.flips.flatMap((flip) => flip.features ?? []), group.direction === "GAINED");
     cards.push({
       kind: "TERRITORY_FLIP_GROUP",
       id: `territory:${group.direction}:${group.counterpartyPlayerId ?? "neutral"}:${mostRecent.at}:${mostRecent.x}:${mostRecent.y}`,
