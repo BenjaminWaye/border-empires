@@ -80,14 +80,14 @@ All twelve current bonuses carry over untouched. Source of truth:
 | 1 | Foundry Heart | Crown | +1 resource slot each of FOOD, TITANIUM, CRYSTAL, UMBRITE |
 | 2 | Deepwater Engine | Crown | Dock coin income ×2 |
 | 3 | Deepwater Engine | Crown | Attacks launched from a dock +15% ATK |
-| 4 | Conscription Engine | Fang | +2,000 manpower cap (`runtime-manpower-economy.ts`) |
-| 5 | Conscription Engine | Fang | +2,000 manpower once, on first claim |
+| 4 | Conscription Engine | Fang | +2,000 manpower cap (`apps/simulation/src/runtime/runtime-manpower-economy.ts`) |
+| 5 | Conscription Engine | Fang | +2,000 manpower once per season, to whoever claims the tile first |
 | 6 | Warpress | Fang | Mustering flags fill 2× faster |
 | 7 | Warpress | Fang | +1 max muster flag (6 instead of 5) |
 | 8 | Bastion Frame | Fang | +0.5× additive defense multiplier on every owned fort |
 | 9 | Calculating Engine | Crown | Tech research coin cost −10% |
 | 10 | Quickforge | Crown | One rush-buy per UTC day is 40 coin cheaper (`packages/shared/src/rush-buy/rush-buy.ts`) |
-| 11 | Watchtower Engine | Spire | The relic tile works as an Observatory with no CRYSTAL upkeep and +10 cast radius (`runtime-ability-helpers.ts`) |
+| 11 | Watchtower Engine | Spire | The relic tile works as an Observatory with no CRYSTAL upkeep and a fixed cast radius of `OBSERVATORY_CAST_RADIUS + 10` (`WATCHTOWER_ENGINE_OBSERVATORY_RANGE` in `runtime-ability-helpers.ts`; it replaces the player's range rather than adding to it) |
 | 12 | Cartographer's Lens | Spire | +1 vision range on every owned tile |
 
 Spawn predicates (`packages/game-domain/src/server-worldgen-natural-wonders.ts`)
@@ -116,9 +116,17 @@ the approach.
 
 Placement constraints carried over from today: a relic a player spawn lands on
 is still deleted by spawn placement, and AFC landing still flattens mountains
-in its 3×3 footprint. Because terrain is derived deterministically from the
-seed on both client and simulation, ridge tiles must be produced by the shared
-worldgen, behind a worldgen version bump, not by a simulation-only mutation.
+in its 3×3 footprint.
+
+**Where ridges are generated is unresolved** (see Review findings below).
+Wonders are placed last, in `apps/simulation/src/season-seed-world.ts`
+(`generateNaturalWonders`, after clusters, docks, towns, ring interiors and the
+fair-spawn check), from inputs that read `terrainAt`. So ridges cannot simply
+move into shared seed-derived worldgen without a circular dependency. The
+simulation already mutates terrain after worldgen and sends it to clients as
+the tile `terrain` field (Create/Remove Mountain, AFC landing), so a
+simulation-side placement is possible, but it would have to re-run the
+reachability checks the acceptance loop guarantees today.
 
 ### 5. Exploration: identity is earned
 
@@ -170,6 +178,53 @@ replacing the nine per-wonder stories.
    or protected for the season?
 4. Is three ridges/two passes the right density on small maps, where relic
    placement already fails occasionally?
+
+### Review findings to resolve before implementation
+
+Raised in review of this proposal; each needs a decision before its slice
+starts.
+
+- **Ridge generation order (§4).** See the note in §4: ridges added before
+  wonder placement change predicate results (Bastion Frame and Cartographer's
+  Lens need nearby MOUNTAIN); ridges added after acceptance bypass the
+  fair-spawn and dock-reachability checks.
+- **Information leaks (§5).** Anything seed-derived (ridges, variant ground) is
+  computable by any client, which already receives `worldSeed`, so it would
+  reveal every relic's position and variant. Variant plus biome also gives the
+  type away for most relics (Foundry Heart only spawns in CRYSTAL_WASTES,
+  Conscription Engine in BROKEN_HIGHLANDS, Watchtower Engine in DEEP_FOREST).
+  The "cannot learn its type" acceptance criterion needs a design that
+  survives this, or should be dropped.
+- **What §5 actually changes.** A wonder is identified on first sight today,
+  and the client gets no wonder data for tiles never in vision, so "identified
+  when in vision" mostly adds the long-range column. The column needs its own
+  message (out-of-vision tiles get no deltas). Define whether ally vision,
+  Reveal Empire, observatory casts and reach vision count as "in vision"; list
+  the client consumers that assume `naturalWonder.type` is present; decide
+  whether the AI planner (`apps/simulation/src/ai/frontier-scoring.ts`, which
+  scores `naturalWonder` with no fog gate) must also identify relics. The
+  existing "Natural Wonder Discovered" tip
+  (`packages/client/src/client-discovery-tips/client-discovery-tips.ts`)
+  already fires on first sight; reuse it rather than adding a second entry.
+- **Relics are not permanent today.** `CREATE_MOUNTAIN` on a wonder tile clears
+  it (`runtime-terrain-shaping-command-handlers.ts`), except the Watchtower
+  Engine, whose tile carries an observatory. Create Mountain on the passes or
+  the 8 neighbours can also seal a relic after worldgen. Decide whether relic
+  tiles and passes are protected.
+- **Zone geometry (§4).** A Manhattan radius-3 diamond, ridges "at distance 2"
+  that are 2–3 tiles long, and a "ring" around the relic are not consistent
+  with each other or with rule 3 (the (±1,±1) diagonals are in the Manhattan-2
+  ring). Rule 3 also conflicts with current predicates (Deepwater Engine may
+  have sea within 2, the Watchtower Engine spawns in deep forest), so it would
+  change spawn outcomes. A spawn landing on a relic deletes it but would leave
+  its ridges behind.
+- **Canon.** The world bible already names Monuments as the surviving
+  Concordance aether constructs (§1), credits the Court with anchor technology
+  (§2, §10), and says the Wardens came to destroy Concordance aether
+  infrastructure (§4). The relic fiction must reconcile with all three, and
+  with §5's rule that aether-work draws Wardens. "Relic" is also already used
+  for a Warden ship in the galactic campaign
+  (`docs/galactic-campaign-design.md`, `galaxy-duke-config.ts`).
 
 ## Delivery slices
 
