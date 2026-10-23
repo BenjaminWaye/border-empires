@@ -1,3 +1,4 @@
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { tileHash } from "./client-map-3d-forest.js";
 import { afcHillCutMask, type AfcPadOffset } from "./client-map-3d-afc-hill-cut/client-map-3d-afc-hill-cut.js";
 
@@ -75,15 +76,17 @@ const HILL_VARIANT_BUMPS: ReadonlyArray<readonly HillBump[]> = [
 // border; then it ran along ridges between hill tiles but fell off in a
 // 0.24-wide band at the rim, which read as a flat table with a dark wall
 // along its back edge.
-const PLATEAU_BASE_HEIGHT = 0.5;
+const PLATEAU_BASE_HEIGHT = 0.4;
 // Deliberately smaller than PLATEAU_BASE_HEIGHT so the irregular variation
 // never dips the plateau below true ground level on its own (that's the
 // depth falloff's job, not this noise).
 const PLATEAU_IRREGULARITY = 0.06;
 // Broad crests and saddles, roughly a tile across and world-continuous, so a
 // joined hill mass rolls instead of reading as a flat table. Base minus both
-// variations stays above 0 (0.5 - 0.06 - 0.2), same rule as above.
-const PLATEAU_CREST_HEIGHT = 0.2;
+// variations stays above 0 (0.4 - 0.06 - 0.08), same rule as above. The
+// crest swing was 0.2: on desert hill masses its shaded sides read as
+// brown patches beside bright crests.
+const PLATEAU_CREST_HEIGHT = 0.08;
 const PLATEAU_CREST_CELL = 0.85;
 const PLATEAU_CREST_SEED = 83;
 // Full plateau height this deep (tiles) inside the mass. Must stay <= 1: a
@@ -171,17 +174,30 @@ const hash01 = (x: number, y: number, seed: number): number => {
   return h / 4294967295;
 };
 const smoothstep01 = (t: number): number => t * t * (3 - 2 * t);
+// Wraps exactly with the world: `cell` is rounded so a whole number of
+// cells spans each world axis, and cell indices wrap at that count. Callers
+// pass wrapped world tile coords, so across the world's x/y seam one tile
+// samples at 639.5 and its neighbour at -0.5 -- without the wrap those hit
+// different noise, and since a hill mass stays raised across shared tile
+// edges, the mismatch opened a visible crack along the seam.
+const wrapCell = (n: number, count: number): number => ((n % count) + count) % count;
 const roughnessNoiseAt = (wx: number, wy: number, u: number, v: number, seed = 61, cell = 0.22): number => {
-  const x = (wx + u) / cell;
-  const y = (wy + v) / cell;
+  const cellsX = Math.max(1, Math.round(WORLD_WIDTH / cell));
+  const cellsY = Math.max(1, Math.round(WORLD_HEIGHT / cell));
+  const x = ((wx + u) / WORLD_WIDTH) * cellsX;
+  const y = ((wy + v) / WORLD_HEIGHT) * cellsY;
   const gx = Math.floor(x);
   const gy = Math.floor(y);
   const tx = smoothstep01(x - gx);
   const ty = smoothstep01(y - gy);
-  const n00 = hash01(gx, gy, seed);
-  const n10 = hash01(gx + 1, gy, seed);
-  const n01 = hash01(gx, gy + 1, seed);
-  const n11 = hash01(gx + 1, gy + 1, seed);
+  const x0 = wrapCell(gx, cellsX);
+  const x1 = wrapCell(gx + 1, cellsX);
+  const y0 = wrapCell(gy, cellsY);
+  const y1 = wrapCell(gy + 1, cellsY);
+  const n00 = hash01(x0, y0, seed);
+  const n10 = hash01(x1, y0, seed);
+  const n01 = hash01(x0, y1, seed);
+  const n11 = hash01(x1, y1, seed);
   const nx0 = n00 + (n10 - n00) * tx;
   const nx1 = n01 + (n11 - n01) * tx;
   return nx0 + (nx1 - nx0) * ty; // 0..1

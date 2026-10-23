@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { hillBumpsWithCorridorAt, hillNeighborFlagsAt, hillShapeHeight } from "./client-map-3d-hill-shape.js";
 
 const identity = (n: number): number => n;
@@ -6,6 +7,26 @@ const heightAt = (isHill: (x: number, y: number) => boolean, wx: number, wy: num
   hillShapeHeight(u, v, hillBumpsWithCorridorAt(wx, wy, hillNeighborFlagsAt(wx, wy, isHill, identity, identity)), wx, wy);
 
 describe("hill plateau joins neighbouring hill tiles", () => {
+  it("meets seamlessly across the world's wrap-around seam", () => {
+    // Callers pass wrapped tile coords: the last column (WORLD_WIDTH - 1)
+    // and column 0 are neighbours. Their noise once disagreed there and a
+    // hill mass straddling the seam cracked open along it.
+    const wrap = (n: number, d: number): number => ((n % d) + d) % d;
+    const field = (): boolean => true;
+    const at = (wx: number, wy: number, u: number, v: number): number =>
+      hillShapeHeight(
+        u,
+        v,
+        hillBumpsWithCorridorAt(wx, wy, hillNeighborFlagsAt(wx, wy, field, (x) => wrap(x, WORLD_WIDTH), (y) => wrap(y, WORLD_HEIGHT))),
+        wx,
+        wy
+      );
+    for (const v of [-0.4, -0.2, 0, 0.2, 0.4]) {
+      expect(at(WORLD_WIDTH - 1, 40, 0.5, v)).toBeCloseTo(at(0, 40, -0.5, v), 9);
+      expect(at(60, WORLD_HEIGHT - 1, v, 0.5)).toBeCloseTo(at(60, 0, v, -0.5), 9);
+    }
+  });
+
   it("two side-by-side hills meet at the same raised height along their whole shared edge", () => {
     const pair = (x: number, y: number): boolean => y === 10 && (x === 10 || x === 11);
     for (const v of [-0.2, -0.1, 0, 0.1, 0.2]) {

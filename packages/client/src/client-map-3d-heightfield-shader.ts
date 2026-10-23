@@ -83,10 +83,11 @@ ${TERRAIN_NOISE_GLSL}`
       `
     float terrainWetMask = 0.0;
     float terrainBumpHeight = 0.0;
+    float terrainBumpStrength = 1.0;
     #ifdef USE_MAP
 ${TERRAIN_SURFACE_NOISE_GLSL}
       vec3 grassSample = terrainSampleBiome( map, vTerrainWorldUv, terrainLayerMask );
-      vec3 sandSample = terrainSampleBiome( sandColorMap, vTerrainWorldUv, terrainLayerMask );
+      vec3 sandSample = terrainSampleBiomeEven( sandColorMap, vTerrainWorldUv, terrainLayerMask );
       vec3 tundraSample = terrainSampleBiome( tundraColorMap, vTerrainWorldUv, terrainLayerMask );
       float greenBias = vColor.g - 0.5 * (vColor.r + vColor.b);
       // Feathered biome cut: the grass/sand threshold is pushed around by
@@ -102,7 +103,7 @@ ${TERRAIN_SURFACE_NOISE_GLSL}
       vec3 biomeColor = mix(sandSample, grassSample, grassMask);
       // Feathered like the grass/sand cut (terrainBiomeEdgeOffset) so the
       // tundra edge wanders organically instead of tracing a corner blob.
-      float tundraMask = smoothstep(0.38, 0.62, vTundraZone + terrainTundraEdgeOffset(terrainMeso, terrainGrain));
+      float tundraMask = smoothstep(0.34, 0.66, vTundraZone + terrainTundraEdgeOffset(terrainMeso, terrainGrain));
       biomeColor = mix(biomeColor, tundraSample, tundraMask);
       // SNOW: same tundraZone as TUNDRA, told apart only by its near-white
       // vertex colour -- see client-map-3d-snow-mask.ts.

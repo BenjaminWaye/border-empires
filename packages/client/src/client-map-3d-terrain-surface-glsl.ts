@@ -19,9 +19,16 @@ const GRAIN_FADE_END = 0.12;
 // thin lip right at the waterline -- an earlier 0.045 top covered most of
 // a narrow beach and turned it grey-brown. WET_SAND_EDGE_WOBBLE lets the
 // band's top edge wander with the meso noise so it isn't a contour line.
-const WET_SAND_TOP_Y = -0.005;
-const WET_SAND_FULL_Y = -0.035;
-const WET_SAND_EDGE_WOBBLE = 0.012;
+//
+// The shore sand fringe (client-map-3d-shore-sand.ts) now carries the
+// beach out from the land's coast edge (~-0.04) down to just above the
+// water (-0.052), so the band sits on that fringe's outer lip. A -0.005 top
+// left over from before the fringe tinted everything below it -- the
+// fringe plus the lower half of every coastal land tile, a band over a
+// tile wide that read as brown patches on the beach.
+const WET_SAND_TOP_Y = -0.046;
+const WET_SAND_FULL_Y = -0.053;
+const WET_SAND_EDGE_WOBBLE = 0.003;
 
 // World-normal Y below which a slope starts showing bare earth/rock. Flat
 // ground is 1.0 and a coast bevel ~0.98; a hill's eased-out rim stays above
@@ -66,13 +73,15 @@ float terrainFbm(vec2 p) {
     + terrainValueNoise(p * 4.11 + 41.7) * 0.2;
 }
 // Two decorrelated reads of one painted texture -- the tiled one (8 tiles
-// per repeat) and a rotated, larger-scale one -- picked between by a
+// per repeat) and a rotated, offset one at the same scale -- picked between by a
 // few-tile-wide noise mask. Mostly one or the other (the narrow smoothstep),
 // so the blend zones are short and organic rather than a constant 50/50
 // average that would flatten the painted contrast.
 vec3 terrainSampleBiome(sampler2D tex, vec2 worldUv, float layerMask) {
   vec3 tiled = texture2D(tex, worldUv * 0.125).rgb;
-  vec2 rotatedUv = mat2(0.8, -0.6, 0.6, 0.8) * worldUv * 0.0763 + vec2(0.37, 0.71);
+  // Same scale as the tiled read: magnifying it (it once used 0.0763, ~1.6x)
+  // blew the painted sand's small dark marks up into brown blotches.
+  vec2 rotatedUv = mat2(0.8, -0.6, 0.6, 0.8) * worldUv * 0.125 + vec2(0.37, 0.71);
   vec3 rotated = texture2D(tex, rotatedUv).rgb;
   return mix(tiled, rotated, layerMask);
 }
@@ -88,9 +97,30 @@ float terrainBiomeEdgeOffset(vec3 grassSample, float meso, float grain) {
   float clump = dot(grassSample, vec3(0.333)) - 0.67;
   return clump * 0.06 + (meso - 0.5) * 0.03 + grain * 0.03;
 }
-// Same idea for the tundra edge, on its explicit 0..1 corner mask.
+// Same idea for the tundra edge, on its explicit 0..1 corner mask. Along a
+// tundra/sand tile edge both corners sit at exactly 0.5, so a small offset
+// left the boundary hugging the straight tile edge; pure tundra (1) and pure
+// other ground (0) are far from the cut, so it can swing much wider here
+// (up to ~0.25) than the grass/sand offset can without leaking.
 float terrainTundraEdgeOffset(float meso, float grain) {
-  return (meso - 0.5) * 0.16 + grain * 0.12;
+  return (meso - 0.5) * 0.3 + grain * 0.2;
+}
+// terrainSampleBiome with the texture's broad light/dark areas evened out:
+// each read is divided by its own blurred neighbourhood (a coarse mip, ~1.5
+// tiles across) and scaled back to the texture's overall average (its 1x1
+// mip), keeping the fine grain. The painted sand has broad tonal swings
+// across its 8-tile repeat; sampled seamlessly they showed as big brown
+// blotches on beaches (the old per-tile rotation used to scramble them into
+// tile-sized bits instead).
+vec3 terrainEvenRead(sampler2D tex, vec2 uv) {
+  vec3 local = textureLod(tex, uv, 6.5).rgb;
+  vec3 overall = textureLod(tex, uv, 9.0).rgb;
+  return texture2D(tex, uv).rgb * overall / max(local, vec3(0.02));
+}
+vec3 terrainSampleBiomeEven(sampler2D tex, vec2 worldUv, float layerMask) {
+  vec3 tiled = terrainEvenRead(tex, worldUv * 0.125);
+  vec2 rotatedUv = mat2(0.8, -0.6, 0.6, 0.8) * worldUv * 0.125 + vec2(0.37, 0.71);
+  return mix(tiled, terrainEvenRead(tex, rotatedUv), layerMask);
 }
 // Bump-mapped normal from a scalar height field, via screen-space
 // derivatives (the same construction as three.js's perturbNormalArb, which
@@ -175,11 +205,17 @@ export const TERRAIN_SURFACE_LAYERS_GLSL = `
       // Fine grain: close-up crispness the 64px-per-tile painted textures
       // can't resolve on their own. Fades out before it would alias. Kept
       // light on sand, where the same speckle reads as dirt.
-      biomeColor *= 1.0 + terrainGrain * mix(0.08, 0.22, grassMask);`;
+      biomeColor *= 1.0 + terrainGrain * mix(0.08, 0.22, grassMask);
+      terrainBumpStrength = mix(0.3, 1.0, grassMask);`;
 
 // Appended after <normal_fragment_maps>.
+// Faded toward the unbumped normal on sand (terrainBumpStrength): the same
+// rolling relief that reads as gentle swells on a meadow showed as brown
+// stains on pale sand. Fading the lighting rather than the bump height
+// keeps a grass/sand edge from drawing a false ridge (a height that changed
+// with the biome mask would have a slope of its own there).
 export const TERRAIN_BUMP_NORMAL_GLSL = `
-normal = terrainPerturbNormal(-vViewPosition, normal, terrainBumpHeight, faceDirection);`;
+normal = normalize(mix(normal, terrainPerturbNormal(-vViewPosition, normal, terrainBumpHeight, faceDirection), terrainBumpStrength));`;
 
 // Appended after <roughnessmap_fragment>.
 export const TERRAIN_WET_ROUGHNESS_GLSL = `

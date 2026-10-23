@@ -31,6 +31,7 @@
 // is covered from above.
 import { BufferAttribute, BufferGeometry, Mesh, type Material, type Scene } from "three";
 import type { HeightfieldCornerAttributes } from "../client-map-3d-heightfield/client-map-3d-heightfield-corners.js";
+import { COAST_EDGE_Y } from "../client-map-3d-heightfield-terrain.js";
 import { foamMouthFade } from "./client-map-3d-shore.js";
 
 // Blurred land field (1 deep inland, 0.5 on a straight coast's tile edge)
@@ -208,7 +209,11 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
       const bottom = c01[k] + (c11[k] - c01[k]) * fx;
       return top + (bottom - top) * fz;
     };
-    const edgeY = ok ? lerp("y") + LAND_EDGE_LIFT : waterY + WATERLINE_LIFT;
+    // Unreadable corner (outside the heightfield's built window): assume
+    // the standard coast pin. Falling back to water level instead dropped
+    // the fringe below the land edge, exposing the land's coast skirt as a
+    // dark line along the old tile-edge coastline.
+    const edgeY = (ok ? lerp("y") : COAST_EDGE_Y) + LAND_EDGE_LIFT;
     // Where this point sits between the waterline (0) and the land's edge
     // (1): exactly the land's height at its edge and the water's at the
     // waterline however narrow the noise makes the strip, so the land's coast

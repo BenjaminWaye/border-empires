@@ -8,6 +8,8 @@ export type TileHighlightDeps = {
   wrapY: (y: number) => number;
   cornerYAt: (x: number, y: number) => number;
   toroidDelta: (from: number, to: number, size: number) => number;
+  // Hill dome height above flat ground at tile-local (u, v); see hillRiseAt.
+  hillRiseAt?: (wx: number, wy: number, u: number, v: number) => number;
 };
 export const syncTileHighlightMarker = (
     deps: TileHighlightDeps,
@@ -26,10 +28,14 @@ export const syncTileHighlightMarker = (
     // floating as a flat plane above bowing terrain.
     const wxNext = deps.wrapX(tile.x + 1);
     const wyNext = deps.wrapY(tile.y + 1);
-    const cornerY00 = deps.cornerYAt(tile.x, tile.y);
-    const cornerY10 = deps.cornerYAt(wxNext, tile.y);
-    const cornerY01 = deps.cornerYAt(tile.x, wyNext);
-    const cornerY11 = deps.cornerYAt(wxNext, wyNext);
+    // Plus the hill dome's own height at each outline corner (the outline
+    // sits 0.48 out from the tile centre), so it lies on a hill instead of
+    // under it.
+    const hill = (u: number, v: number): number => deps.hillRiseAt?.(tile.x, tile.y, u, v) ?? 0;
+    const cornerY00 = deps.cornerYAt(tile.x, tile.y) + hill(-0.48, -0.48);
+    const cornerY10 = deps.cornerYAt(wxNext, tile.y) + hill(0.48, -0.48);
+    const cornerY01 = deps.cornerYAt(tile.x, wyNext) + hill(-0.48, 0.48);
+    const cornerY11 = deps.cornerYAt(wxNext, wyNext) + hill(0.48, 0.48);
     marker.position.set(0, 0, 0);
     writeBendingMarkerCorners(
       marker.geometry as BufferGeometry,

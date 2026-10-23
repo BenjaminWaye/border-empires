@@ -35,10 +35,11 @@ describe("terrain surface shader", () => {
     expect(vertexShader).toContain("vTerrainWorldY = (modelMatrix * vec4(transformed, 1.0)).y;");
     expect(fragmentShader).toContain("terrainWetMask = smoothstep(");
     expect(fragmentShader).toContain("roughnessFactor = mix(roughnessFactor");
-    expect(fragmentShader).toContain("normal = terrainPerturbNormal(");
+    expect(fragmentShader).toContain("terrainPerturbNormal(-vViewPosition, normal, terrainBumpHeight, faceDirection)");
     // Declared ahead of #ifdef USE_MAP so the roughness/normal splices,
     // which sit outside it, always compile.
     expect(fragmentShader.indexOf("float terrainWetMask = 0.0;")).toBeLessThan(fragmentShader.indexOf("#ifdef USE_MAP"));
     expect(fragmentShader.indexOf("float terrainBumpHeight = 0.0;")).toBeLessThan(fragmentShader.indexOf("#ifdef USE_MAP"));
+    expect(fragmentShader.indexOf("float terrainBumpStrength = 1.0;")).toBeLessThan(fragmentShader.indexOf("#ifdef USE_MAP"));
   });
 });
