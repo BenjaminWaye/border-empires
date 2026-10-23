@@ -22,8 +22,9 @@ type AttackCommitState = {
   tiles: Map<string, Tile>;
 };
 
-// Long enough to outlive a parked attack's whole muster wait
-// (MUSTER_PENDING_HARD_TIMEOUT_MS, 5 min) plus its march; short enough that
+// Long enough to outlive a parked attack's stall timeout
+// (MUSTER_PENDING_STALL_TIMEOUT_MS, 5 min; re-stamped while its flag is still
+// filling, see client-muster-pending-timeout.ts) plus its march; short enough that
 // a stale choice can't silently ride along on some unrelated later attack.
 export const ATTACK_COMMIT_TTL_MS = 10 * 60 * 1000;
 // Hard size bound (docs/agents/state-and-persistence-discipline.md) -- one

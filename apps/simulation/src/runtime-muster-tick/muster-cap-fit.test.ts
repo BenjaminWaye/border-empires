@@ -6,6 +6,7 @@ vi.hoisted(() => {
 
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { musterCapLevelToFit, musterFlagCap } from "@border-empires/shared";
+import { parseUpgradeMusterCapPayload } from "../runtime-command-parsers.js";
 
 // The attack slider (March To, Launch Attack) goes up to the whole manpower
 // pool, but a flag only ever stages up to its own cap. Committing more than
@@ -117,5 +118,17 @@ describe("muster flag capacity fits the committed manpower", () => {
 
     await submit(runtime, "UPGRADE_MUSTER_CAP", { x: 10, y: 10, fitManpower: Math.floor(required / 2) });
     expect(flag(runtime)!.capLevel).toBe(level);
+  });
+});
+
+describe("parseUpgradeMusterCapPayload", () => {
+  // Regression: a malformed fitManpower was silently dropped, so a "fit if
+  // needed" request came out as an unconditional +1 Expand Capacity press.
+  it("rejects a present-but-invalid fitManpower instead of treating it as a plain press", () => {
+    for (const fitManpower of [0, -5, "900", null]) {
+      expect(parseUpgradeMusterCapPayload(JSON.stringify({ x: 1, y: 2, fitManpower }))).toBeNull();
+    }
+    expect(parseUpgradeMusterCapPayload(JSON.stringify({ x: 1, y: 2, fitManpower: 900 }))).toEqual({ x: 1, y: 2, fitManpower: 900 });
+    expect(parseUpgradeMusterCapPayload(JSON.stringify({ x: 1, y: 2 }))).toEqual({ x: 1, y: 2 });
   });
 });

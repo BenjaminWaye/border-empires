@@ -133,15 +133,23 @@ export const cancelOngoingCapture = (
     | "capture"
     | "pendingMusterAttacks"
   >,
-  sendGameMessage: (payload: unknown) => boolean
+  sendGameMessage: (payload: unknown) => boolean,
+  notify?: (message: string) => void
 ): void => {
   // Still just mustering (parked, nothing sent to the server yet): drop
-  // the most-recently-queued target — the one the mustering overlay is
-  // currently showing — so the flag stops waiting on it. The flag itself,
-  // and any manpower already staged on it, is left alone; "Clear Muster"
-  // (a separate tile action) is how a player drains it entirely.
+  // the most-recently-queued target so the flag stops waiting on it. The
+  // flag itself, and any manpower already staged on it, is left alone;
+  // "Clear Muster" (a separate tile action) is how a player drains it
+  // entirely. No banner shows a parked attack any more (only its flag's
+  // badge), so say so -- Esc also closes menus, and a silent cancel there
+  // reads as the attack vanishing.
   if (!state.capture && state.pendingMusterAttacks.length > 0) {
+    const dropped = state.pendingMusterAttacks[state.pendingMusterAttacks.length - 1]!;
     state.pendingMusterAttacks = state.pendingMusterAttacks.slice(0, -1);
+    // processPendingMusterAttacks only unwatches when it empties the list
+    // itself, and it doesn't run at all once the list is empty.
+    if (state.pendingMusterAttacks.length === 0) sendGameMessage({ type: "UNWATCH_MUSTER" });
+    notify?.(`Queued attack on (${dropped.targetX}, ${dropped.targetY}) cancelled`);
     return;
   }
   // Only something already sent can be locked on the server. Esc runs this

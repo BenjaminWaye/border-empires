@@ -11,7 +11,8 @@ export const MUSTER_COMMIT_BADGE_CHANGELOG: ClientChangelogEntry[] = [
       "Switching a muster flag between Hold, Advance and March keeps the capacity you added with Expand Capacity",
       "The commit window uses the brass-and-leather look of the rest of the game, with a brass gauge slider, a large manpower readout and preset buttons that show their amounts",
       "Every one of your muster flags shows a percentage badge above it, on both the 3D and 2D maps: a brass ring counts toward the attack it is gathering for, a green ring shows how full a flag on Hold is",
-      "An attack waiting for manpower shows on its flag's badge instead of the \"Mustering...\" banner. Cancel it with Esc or with Cancel Queued Attack on the flag"
+      "An attack waiting for manpower shows on its flag's badge instead of the \"Mustering...\" banner. Cancel it with Esc or with Cancel Queued Attack on the flag, and the activity feed confirms the cancel",
+      "A waiting attack is only called off after 5 minutes without its flag gaining any manpower, so a big commitment can take as long as it needs to gather"
     ]
   }
 ];

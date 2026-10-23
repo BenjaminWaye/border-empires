@@ -750,7 +750,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const settleSelected = (): void => settleSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, requestSettlement });
   const buildSiegeBatteryOnSelected = (): void => buildSiegeBatteryOnSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const uncaptureSelected = (): void => uncaptureSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
-  const cancelOngoingCapture = (): void => cancelOngoingCaptureFromModule(state, sendGameMessage);
+  const cancelOngoingCapture = (): void => cancelOngoingCaptureFromModule(state, sendGameMessage, (message) => pushFeed(message, "combat", "info"));
   const collectSelectedShard = (): void =>
     collectSelectedShardFromModule(state, { keyFor, renderHud, sendGameMessage });
 

@@ -47,7 +47,7 @@ const createBadge = (): Badge => {
   }
   const texture = canvas ? new CanvasTexture(canvas) : null;
   if (texture) texture.colorSpace = SRGBColorSpace;
-  const material = new SpriteMaterial({ map: texture, transparent: true, depthWrite: false, toneMapped: false });
+  const material = new SpriteMaterial({ toneMapped: false, map: texture, transparent: true, depthWrite: false });
   const sprite = new Sprite(material);
   sprite.name = "muster-progress-badge";
   sprite.scale.set(BADGE_WORLD_SIZE, BADGE_WORLD_SIZE, 1);

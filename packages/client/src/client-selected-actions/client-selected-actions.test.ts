@@ -66,11 +66,27 @@ describe("cancelOngoingCapture", () => {
     ];
     const sendGameMessage = vi.fn(() => true);
 
-    cancelOngoingCapture(state, sendGameMessage);
+    const notify = vi.fn();
+
+    cancelOngoingCapture(state, sendGameMessage, notify);
 
     expect(state.pendingMusterAttacks).toEqual([{ targetX: 1, targetY: 1, fromX: 0, fromY: 0, musterTileKey: "0,0" }]);
     // Purely local — nothing was ever sent to the server for a parked attack.
     expect(sendGameMessage).not.toHaveBeenCalled();
+    // Regression: with no banner left to show a parked attack, Esc dropped it silently.
+    expect(notify).toHaveBeenCalledWith("Queued attack on (2, 2) cancelled");
+  });
+
+  it("stops the server's fast muster tick once the last parked attack is cancelled", () => {
+    const state = createInitialState();
+    state.pendingMusterAttacks = [{ targetX: 1, targetY: 1, fromX: 0, fromY: 0, musterTileKey: "0,0" }];
+    const sendGameMessage = vi.fn(() => true);
+
+    cancelOngoingCapture(state, sendGameMessage);
+
+    expect(state.pendingMusterAttacks).toEqual([]);
+    expect(sendGameMessage).toHaveBeenCalledWith({ type: "UNWATCH_MUSTER" });
+    expect(sendGameMessage).not.toHaveBeenCalledWith({ type: "CANCEL_CAPTURE" });
   });
 
   it("falls through to the normal in-flight cancel path once an attack has actually fired", () => {

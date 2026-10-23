@@ -160,7 +160,7 @@ describe("processPendingMusterAttacks lifecycle", () => {
 
     expect(state.pendingMusterAttacks).toHaveLength(0);
     expect(state.queuedTargetKeys.has("5,0")).toBe(false);
-    expect(pushFeed).toHaveBeenCalledWith(expect.stringContaining("never staged enough manpower"), "combat", "warn");
+    expect(pushFeed).toHaveBeenCalledWith(expect.stringContaining("cancelled after 5 minutes without progress"), "combat", "warn");
   });
 
   // Companion to the WATCH_MUSTER regression above: once nothing is left in

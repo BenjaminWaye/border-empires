@@ -113,11 +113,14 @@ export const parseSetMusterPayload = (
 };
 
 export const parseClearMusterPayload = parseTilePayload;
+// A present-but-invalid fitManpower is rejected rather than dropped: dropping
+// it would turn a "fit if needed" request into a plain +1 Expand Capacity press.
 export const parseUpgradeMusterCapPayload = (payloadJson: string): { x: number; y: number; fitManpower?: number } | null => {
   const tile = parseTilePayload(payloadJson);
   if (!tile) return null;
-  const { fitManpower } = JSON.parse(payloadJson) as Record<string, unknown>;
-  return typeof fitManpower === "number" && Number.isFinite(fitManpower) && fitManpower > 0 ? { ...tile, fitManpower } : tile;
+  const { fitManpower } = JSON.parse(payloadJson) as { fitManpower?: unknown };
+  if (fitManpower === undefined) return tile;
+  return typeof fitManpower === "number" && Number.isFinite(fitManpower) && fitManpower > 0 ? { ...tile, fitManpower } : null;
 };
 
 export const parseBuildStructurePayload = (payloadJson: string): { x: number; y: number; structureType: string } | null => {

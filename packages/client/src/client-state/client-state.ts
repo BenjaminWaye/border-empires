@@ -340,6 +340,9 @@ export const createInitialState = () => ({
     // The commitment this entry last asked its flag to expand to hold
     // (fitPendingMusterFlagCapacity), so the request goes out once, not per tick.
     capFitRequestedFor?: number;
+    // The flag's last fill progress (pendingMusterAttackStalled's stall clock).
+    progressAt?: number;
+    progressAmount?: number;
   }>,
   waypoint: [] as ClientWaypoint[],
   frontierLateAckUntilByTarget: new Map<string, number>(),
