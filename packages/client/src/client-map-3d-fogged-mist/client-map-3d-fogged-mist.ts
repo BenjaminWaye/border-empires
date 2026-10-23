@@ -1,4 +1,4 @@
-import { Color, DataTexture, LinearFilter, Mesh, PlaneGeometry, RGBAFormat, ShaderMaterial, UnsignedByteType, Vector2, type Scene } from "three";
+import { Color, DataTexture, LinearFilter, Mesh, type Material, PlaneGeometry, RGBAFormat, ShaderMaterial, UnsignedByteType, Vector2, type Scene } from "three";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 import type { TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
@@ -11,12 +11,15 @@ import {
   FOGGED_MIST_MIN_OPACITY
 } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
 import type { FoggedEdgeUniforms } from "./client-map-3d-fogged-edge-clip.js";
+import { applyFoggedMistHazeToScene, type FoggedMistHazeUniforms } from "./client-map-3d-fogged-mist-haze.js";
 import { FOGGED_MIST_FRAGMENT_SHADER, FOGGED_MIST_VERTEX_SHADER } from "./client-map-3d-fogged-mist-shader.js";
 
 // Remembered ("fogged") tiles in the true-3D map lie under a sheet of
 // drifting mist, level with the land just like the unexplored storm
 // (client-map-3d-unexplored-storm.ts), so trees, hills and peaks rise out of
-// it. Underneath, client-map-3d.ts still dims the tiles themselves on the
+// it -- and each rebuild hazes whatever rises above it to match
+// (client-map-3d-fogged-mist-haze.ts), so it doesn't read as drawn on top.
+// Underneath, client-map-3d.ts still dims the tiles themselves on the
 // ground (slate wash, tinted features and water), and fits its per-tile fog
 // overlays to this mist's edge through `edgeUniforms`
 // (client-map-3d-fogged-edge-clip.ts); the mist is what makes them read as fog.
@@ -39,6 +42,8 @@ export type FoggedMistLayer = {
   readonly material: ShaderMaterial;
   /** The mist's mask, origin and clock, shared with the fog overlays fitted to its edge. */
   readonly edgeUniforms: FoggedEdgeUniforms;
+  /** The mist's uniforms as the terrain features rising out of it read them. */
+  readonly hazeUniforms: FoggedMistHazeUniforms;
   /** Keeps the sheet under the camera's live look-at point (scene coords). */
   readonly recenter: (sceneX: number, sceneZ: number) => void;
   /**
@@ -124,6 +129,20 @@ export const createFoggedMistLayer = (scene: Scene, nowMs: () => number = () => 
     uFogEdgeOrigin: material.uniforms.uWorldOrigin!,
     uFogEdgeTime: material.uniforms.uTime!
   };
+  const hazeUniforms: FoggedMistHazeUniforms = {
+    uFogMistMask: material.uniforms.uMask!,
+    uFogMistMaskMin: material.uniforms.uMaskMin!,
+    uFogMistMaskSize: material.uniforms.uMaskSize!,
+    uFogMistOrigin: material.uniforms.uWorldOrigin!,
+    uFogMistTime: material.uniforms.uTime!,
+    uFogMistHaze: material.uniforms.uHaze!,
+    uFogMistLight: material.uniforms.uLight!,
+    uFogMistMinOpacity: material.uniforms.uMinOpacity!,
+    uFogMistMaxOpacity: material.uniforms.uMaxOpacity!,
+    uFogMistPlaneY: { value: FOGGED_MIST_Y },
+    uFogMistOn: { value: 0 }
+  };
+  const hazePatched = new WeakSet<Material>();
   const mesh = new Mesh(geometry, material);
   mesh.position.y = FOGGED_MIST_Y;
   mesh.frustumCulled = false;
@@ -144,12 +163,15 @@ export const createFoggedMistLayer = (scene: Scene, nowMs: () => number = () => 
     (material.uniforms.uMaskMin!.value as Vector2).set(-window.halfW - 1, -window.halfH - 1);
     (material.uniforms.uMaskSize!.value as Vector2).set(next.width, next.height);
     mesh.visible = next.anyFogged;
+    hazeUniforms.uFogMistOn.value = next.anyFogged ? 1 : 0;
+    applyFoggedMistHazeToScene(scene, hazeUniforms, hazePatched);
   };
 
   return {
     mesh,
     material,
     edgeUniforms,
+    hazeUniforms,
     recenter: (sceneX, sceneZ) => {
       mesh.position.x = sceneX;
       mesh.position.z = sceneZ;
