@@ -15,11 +15,14 @@ type OptimisticStateDeps = {
   optimisticEnabled?: boolean;
 };
 
-// Overlays applyCommonTileFields (client-tile-merge.ts) deletes on an explicit
-// wire clear. shardSite is left out: it has its own claimed-shard keep rule.
+// Overlays the delta merge (applyCommonTileFields in client-tile-merge.ts, plus
+// the gateway's town fields) deletes on an explicit wire clear. shardSite is
+// left out: summary chunks that omit it must keep it (see the optimistic-state
+// test "preserves shard sites when a summary chunk omits shard detail").
 const CLEARABLE_OVERLAY_KEYS = [
   "muster", "fort", "observatory", "siegeBattery", "economicStructure",
-  "sabotage", "watchtower", "waystation", "naturalWonder", "afc"
+  "sabotage", "watchtower", "waystation", "naturalWonder", "afc",
+  "town", "townType", "townName", "townPopulationTier"
 ] as const satisfies ReadonlyArray<keyof Tile>;
 
 export const createClientOptimisticStateController = (deps: OptimisticStateDeps) => {
@@ -455,7 +458,6 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     }
     if (!("shardSite" in incoming) && existing.shardSite) merged.shardSite = existing.shardSite;
     if (!preservePriorDetail) return merged;
-    if (!("town" in incoming) && existing.town) merged.town = existing.town;
     if (!("dock" in incoming) && existing.dock) merged.dock = existing.dock;
     if (!("yieldRate" in incoming) && existing.yieldRate) merged.yieldRate = existing.yieldRate;
     if (!("upkeepEntries" in incoming) && existing.upkeepEntries) merged.upkeepEntries = existing.upkeepEntries;

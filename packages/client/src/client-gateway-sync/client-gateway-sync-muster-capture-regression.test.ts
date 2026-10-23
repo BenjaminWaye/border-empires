@@ -59,11 +59,27 @@ describe("enemy muster flag on a captured tile", () => {
 
   it("clears other overlays the same way (a destroyed enemy fort)", () => {
     const deps = createDeps();
-    deps.state.tiles.set("4,7", { ...enemyMusterTile(), fort: { ownerId: "rival", status: "active" } as Tile["fort"] });
+    deps.state.tiles.set("4,7", { ...enemyMusterTile(), fort: { ownerId: "rival", status: "active" } as NonNullable<Tile["fort"]> });
 
     applyGatewayTileDeltaBatch(deps, [{ x: 4, y: 7, ownerId: "rival", ownershipState: "FRONTIER", fortJson: "" }]);
 
     expect(deps.state.tiles.get("4,7")?.fort).toBeUndefined();
     expect(deps.state.tiles.get("4,7")?.muster).toBeDefined();
+  });
+
+  it("drops a razed town on a captured tile, and keeps it on a delta that does not touch it", () => {
+    const deps = createDeps();
+    const town = { type: "MARKET", name: "Rivalton", populationTier: "SETTLEMENT" } as NonNullable<Tile["town"]>;
+    deps.state.tiles.set("4,7", { ...enemyMusterTile(), town, townType: "MARKET", townName: "Rivalton", townPopulationTier: "SETTLEMENT" });
+
+    applyGatewayTileDeltaBatch(deps, [{ x: 4, y: 7, ownerId: "rival", ownershipState: "FRONTIER" }]);
+    expect(deps.state.tiles.get("4,7")?.town).toEqual(town);
+
+    applyGatewayTileDeltaBatch(deps, [{ x: 4, y: 7, ownerId: "me", ownershipState: "FRONTIER", townJson: "" }]);
+    const tile = deps.state.tiles.get("4,7");
+    expect(tile?.town).toBeUndefined();
+    expect(tile?.townType).toBeUndefined();
+    expect(tile?.townName).toBeUndefined();
+    expect(tile?.townPopulationTier).toBeUndefined();
   });
 });

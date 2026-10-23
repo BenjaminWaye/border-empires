@@ -8,7 +8,7 @@ export const CAPTURED_MUSTER_CLEAR_CHANGELOG: ClientChangelogEntry[] = [
     why: "After an enemy tile with a muster flag was captured, the flag kept showing on the map until you tapped the tile.",
     changes: [
       "An enemy muster flag disappears from the map as soon as its tile changes hands",
-      "Destroyed enemy buildings on tiles you haven't opened also disappear right away"
+      "Destroyed buildings and razed settlements on tiles you haven't opened also disappear right away"
     ]
   }
 ];
