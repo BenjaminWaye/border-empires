@@ -11,9 +11,9 @@ const config: StorybookConfig = {
   stories: ["../src/**/*.stories.@(ts|mdx)"],
   addons: ["@storybook/addon-docs"],
   staticDirs: [
-    { from: "../../client/public/overlays", to: "/overlays" },
-    { from: "../../client/public/models", to: "/models" },
-    { from: "../../client/public/textures", to: "/textures" },
+    // Everything the game serves from its site root (overlays, models,
+    // textures, icons), at the same paths.
+    "../../client/public",
     // Retired assets kept only for the History stories (e.g. the Oct 2026 town GLBs).
     { from: "../public/history", to: "/history" }
   ],
