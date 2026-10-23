@@ -89,6 +89,17 @@ counterpart and runtime integration remain required before shipping. The
 visual foundation extends beyond the central tile without changing terrain,
 placement, ownership, visibility, rewards or existing wonder effects.
 
+## Painted capture artwork
+
+The preferred visual direction is now the generated
+[armour-works artwork](../packages/storybook/src/relics/artwork/armour-works-v1.png),
+with its [generation prompt](../packages/storybook/src/relics/artwork/armour-works-v1.prompt.txt).
+It replaces the small, literal model section as the illustration direction:
+a weathered surface ziggurat opens into a far larger buried industrial
+installation, mostly abandoned with a surviving armour line. The original
+image is preserved alongside its built-in image-generation prompt. It is an
+artwork candidate; the Storybook dialog still uses the earlier 3D graphic.
+
 ## Verification
 
 Run Storybook's TypeScript check and production build, file-line checks and
