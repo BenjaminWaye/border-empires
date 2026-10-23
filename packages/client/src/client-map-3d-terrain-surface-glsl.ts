@@ -184,12 +184,14 @@ export const TERRAIN_SURFACE_LAYERS_GLSL = `
       vec3 terrainEarth = vec3(0.52, 0.45, 0.36) * (0.75 + 0.5 * terrainLum);
       biomeColor = mix(biomeColor, terrainEarth, terrainSlope * 0.75);
 
-      // Tundra: ochre lichen mats and scattered frost-shattered stones break
+      // Tundra: moss mats and scattered frost-shattered stones break
       // up the pale permafrost; snow gets faint wind-drift streaks, bright
       // on the crests and cool blue in the troughs.
       float terrainTundraBare = tundraMask * (1.0 - snowMask);
       float terrainLichen = smoothstep(0.45, 0.75, terrainFbm(vTerrainWorldUv * 0.6 + 21.0));
-      biomeColor = mix(biomeColor, biomeColor * vec3(1.14, 1.0, 0.66), terrainLichen * 0.85 * terrainTundraBare);
+      // Cool moss, not ochre: a warm (1.14, 1.0, 0.66) tint here read as
+      // brown stains across the pale blue-grey tundra.
+      biomeColor = mix(biomeColor, biomeColor * vec3(0.9, 1.0, 0.93), terrainLichen * 0.5 * terrainTundraBare);
       float terrainStone = smoothstep(0.85, 0.9, terrainValueNoise(vTerrainWorldUv * 3.3 + 9.0));
       vec3 terrainStoneColor = vec3(0.7, 0.7, 0.69) * (0.9 + terrainGrain * 0.6);
       biomeColor = mix(biomeColor, terrainStoneColor, terrainStone * 0.6 * terrainTundraBare);
