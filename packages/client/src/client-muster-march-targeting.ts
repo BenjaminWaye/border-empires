@@ -23,14 +23,20 @@ export type MusterMarchTargetResult =
   | { type: "armed"; originX: number; originY: number; targetX: number; targetY: number };
 
 /**
- * Consumes an armed march-target click: disarms targeting and, if the click
- * landed on a legal target (not unexplored ground, not the flag's own
- * tile), returns it "armed" for the caller to hand to
- * client-arrow-gesture-confirm.ts's handleArrowGestureConfirm -- which
- * draws the static arrow, opens the commit-amount confirm sheet, and is the
- * single place that actually sends SET_MUSTER (also where the march-cap
- * "too far" advice now lives, so it isn't duplicated here). A click on
- * unexplored ground or the origin's own tile cancels back to HOLD instead.
+ * Consumes an armed march-target click: disarms targeting and, unless the
+ * click landed on the flag's own tile, returns it "armed" for the caller to
+ * hand to client-arrow-gesture-confirm.ts's handleArrowGestureConfirm --
+ * which draws the static arrow, opens the commit-amount confirm sheet, and
+ * is the single place that actually sends SET_MUSTER (also where the
+ * march-cap "too far" advice now lives, so it isn't duplicated here). A
+ * click on the origin's own tile cancels back to HOLD instead.
+ *
+ * Unexplored ground is a legal target: marching into the unknown is how a
+ * flag scouts, and the server routes against the real map (expanding across
+ * neutral land as it goes), so the client needs nothing but coordinates.
+ * The player is told the target is unknown, since the confirm sheet has no
+ * tile data to show for it; if the tile turns out not to be LAND the server
+ * rejects the SET_MUSTER with MUSTER_MARCH_TARGET_NOT_LAND_MESSAGE.
  */
 export const handleMusterMarchTargetClick = (
   state: Pick<ClientState, "musterMarchTargeting">,
@@ -41,7 +47,8 @@ export const handleMusterMarchTargetClick = (
 ): MusterMarchTargetResult => {
   const { originX, originY } = state.musterMarchTargeting;
   state.musterMarchTargeting.active = false;
-  if (vis !== "unexplored" && (wx !== originX || wy !== originY)) {
+  if (wx !== originX || wy !== originY) {
+    if (vis === "unexplored") deps.pushFeed(`(${wx}, ${wy}) is unexplored: the flag will march into the unknown.`, "combat", "info");
     return { type: "armed", originX, originY, targetX: wx, targetY: wy };
   }
   deps.pushFeed("March target cancelled.", "combat", "info");

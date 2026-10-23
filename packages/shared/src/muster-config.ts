@@ -90,6 +90,16 @@ export const musterMarchTooFarAdvice = (distanceTiles: number): string | undefin
     ? `That target is ${distanceTiles} tiles from this flag, and marches are limited to ${MUSTER_MARCH_MAX_DISTANCE_TILES} tiles. Raise a muster flag closer to the target instead: troops take much longer to walk across the map than it takes to muster next to the fight.`
     : undefined;
 
+/**
+ * SET_MUSTER's rejection text (code MUSTER_INVALID) for a MARCH target that
+ * isn't LAND. A march can target unexplored ground, so the player may only
+ * learn the tile is water or a mountain from this rejection; shared so the
+ * client can recognise it and show it instead of its generic MUSTER_INVALID
+ * text about the flag's own tile.
+ */
+export const MUSTER_MARCH_TARGET_NOT_LAND_MESSAGE =
+  "March blocked: that target isn't land, and marches can only head for land tiles. Your flag keeps its current orders.";
+
 // How far (in steps through the flag owner's own and neutral land) an ADVANCE
 // flag looks for hostile tiles to attack or approach. Shared so the player-facing
 // text can quote the same number the simulation enforces.
