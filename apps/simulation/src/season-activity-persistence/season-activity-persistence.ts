@@ -5,9 +5,10 @@
 //   - rolling 24h public activity feeds plus personal milestone history
 //     (activity-log-persistence.ts)
 //
-// Both ride the season summary's existing persist cadence (persistCurrentSummary
-// throttles to >=15s unless forced), so this adds bounded upserts to a write
-// that was already happening rather than new timers or new hot-path writes.
+// Both ride the season summary's existing persist cadence (in practice the
+// forced season-victory recheck, at most 5 minutes apart) plus one save on
+// graceful shutdown, so this adds upserts to writes that were already
+// happening rather than new timers or new hot-path writes.
 // See each module for why a bounded blob beats snapshotting or a per-record
 // write path.
 //

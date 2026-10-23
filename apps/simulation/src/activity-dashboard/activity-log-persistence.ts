@@ -19,8 +19,9 @@
 // The blob is the whole of each log, with no tighter cap of its own. Each log
 // is already bounded by its 24h prune and its entry cap (50,000 for the public
 // logs, 5,000 for personal impacts), so that is the ceiling here too: about
-// 17 MB if both public logs are full (~16 ms of JSON.stringify on a dev
-// laptop; prod's shared vCPU will be slower). An earlier
+// 20 MB if both public logs are full, roughly 100 ms of JSON.stringify plus a
+// few hundred ms of synchronous SQLite upsert on the sim thread
+// (sqlite-season-summary-store.ts warns when a save gets slow). An earlier
 // 5,000-entry persist cap assumed a few hundred flips per day; every capture
 // and expansion world-wide is a flip, so a busy day passed it within hours and
 // each restart cut every player's "Yours" timeline back to that newest slice.
