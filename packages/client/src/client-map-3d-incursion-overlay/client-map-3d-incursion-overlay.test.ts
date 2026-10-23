@@ -133,6 +133,31 @@ describe("createIncursionOverlay3D", () => {
     expect(group.children).toHaveLength(0);
   });
 
+  it("seats a draped hill tile's spiked front line on the drape at its edge, not at the dome's centre height", () => {
+    const noEdges = { north: false, east: false, south: false, west: false };
+    const corners = [{ x: -0.5, y: -0.52 }, { x: 0.5, y: -0.52 }, { x: 0.5, y: -0.48 }, { x: -0.5, y: -0.48 }];
+    const breach = {
+      style: "spikes" as const,
+      worldX: 0,
+      worldY: 0,
+      layout: { straightEdges: noEdges, front: [{ points: corners, outline: corners }], frontEdges: { ...noEdges, north: true }, band: [], veilSides: [] }
+    };
+    const frontYFor = (surfaceY: number, drape?: (fx: number, fz: number) => number): number => {
+      const group = new Group();
+      const overlay = createIncursionOverlay3D(group, 1);
+      overlay.addTile(0, 0, surfaceY, { theirs: "#ff0000", mine: "#00ff00" }, "#ffffff", noEdges, breach, drape);
+      overlay.commit();
+      // The spikes' fill mesh is always created last.
+      const y = (group.children[group.children.length - 1] as Mesh).geometry.getAttribute("position").getY(0);
+      overlay.dispose();
+      return y;
+    };
+    // Dome peaking at 0.25 mid-tile, back to 0.05 at its edges; the flat tile-centre height would be 0.2.
+    const drape = (fx: number, fz: number): number => 0.05 + Math.max(0, 0.4 - Math.hypot(fx - 0.5, fz - 0.5)) * 0.5;
+    expect(frontYFor(0.2, drape)).toBeCloseTo(frontYFor(0.05));
+    expect(frontYFor(0.2, drape)).toBeLessThan(frontYFor(0.2));
+  });
+
   it("stops adding tiles (and their edges) once the hatch buffer is full", () => {
     const group = new Group();
     const overlay = createIncursionOverlay3D(group, 1);

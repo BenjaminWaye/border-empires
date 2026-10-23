@@ -26,7 +26,7 @@ import { BufferAttribute, BufferGeometry, Color, DoubleSide, Group, Material, Me
 import { normalizeColorForThree } from "../client-three-color/client-three-color.js";
 import type { IncursionEdges, incursionHatchColors } from "../client-reach-incursion/client-reach-incursion.js";
 import { createIncursionBreachFx3D, type IncursionBreachFx3D, type IncursionBreachTile } from "./client-map-3d-incursion-breach-fx.js";
-import type { TileDrapeHeightAt } from "./client-map-3d-incursion-hill-drape.js";
+import { tileBorderTopY, type TileDrapeHeightAt } from "./client-map-3d-incursion-hill-drape.js";
 
 type IncursionHatchColors = ReturnType<typeof incursionHatchColors>;
 
@@ -59,7 +59,7 @@ export type IncursionOverlay3D = {
     edgeColor: string,
     edges: IncursionEdges,
     breach?: IncursionBreachTile,
-    /** On a hill tile: the surface to drape the hatch and strips over (surfaceY still seats the breach front line). */
+    /** On a hill tile: the surface to drape the hatch and strips over; the breach front line then sits on its border (tileBorderTopY). */
     drape?: TileDrapeHeightAt
   ) => void;
   readonly commit: () => void;
@@ -268,9 +268,17 @@ export const createIncursionOverlay3D = (parent: Group, maxTiles: number): Incur
     let strips = tileEdges;
     if (breach && breach.style !== "straight") {
       breachFx ??= createIncursionBreachFx3D(parent);
+      const f = breach.layout.frontEdges;
+      const veil = breach.layout.veilSides;
+      // On a hill, seat the flat front line on the drape along the sides it runs down.
+      const frontSides = {
+        north: f.north || veil.includes("north"),
+        east: f.east || veil.includes("east"),
+        south: f.south || veil.includes("south"),
+        west: f.west || veil.includes("west")
+      };
       // A full front-line buffer draws nothing for this tile: give it the plain strips instead.
-      if (!breachFx.add(x, z, surfaceY, breach, theirs, edge)) {
-        const f = breach.layout.frontEdges;
+      if (!breachFx.add(x, z, draped && drape ? tileBorderTopY(drape, frontSides) : surfaceY, breach, theirs, edge)) {
         strips = { north: strips.north || f.north, east: strips.east || f.east, south: strips.south || f.south, west: strips.west || f.west };
       }
     }

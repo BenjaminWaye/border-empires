@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createIncursionHillDrape } from "./client-map-3d-incursion-hill-drape.js";
+import { createIncursionHillDrape, tileBorderTopY } from "./client-map-3d-incursion-hill-drape.js";
 import { tileSurfaceHeights } from "../client-map-3d-tile-surface-y/client-map-3d-tile-surface-y.js";
 
 const RISE = 0.012;
@@ -35,5 +35,15 @@ describe("createIncursionHillDrape", () => {
       if (highestPoint(wx, 7) > flatOverlayY + 0.01) brokeThrough += 1;
     }
     expect(brokeThrough).toBeGreaterThan(0);
+  });
+
+  it("finds a draped tile's highest border point along the given sides only", () => {
+    // A ridge running out of the east edge (a corridor into a neighbouring hill), the ground sloping up to the south.
+    const drape = (fx: number, fz: number): number => 0.1 * fz + (fx > 0.8 ? 0.3 * (fx - 0.8) * 5 : 0);
+    const none = { north: false, east: false, south: false, west: false };
+    expect(tileBorderTopY(drape, { ...none, east: true })).toBeCloseTo(0.4);
+    expect(tileBorderTopY(drape, { ...none, west: true })).toBeCloseTo(0.1);
+    expect(tileBorderTopY(drape, { ...none, north: true })).toBeCloseTo(0.3);
+    expect(tileBorderTopY(drape, none)).toBeCloseTo(0.4); // no side given: the whole border
   });
 });

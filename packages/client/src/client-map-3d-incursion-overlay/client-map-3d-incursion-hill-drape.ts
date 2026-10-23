@@ -6,6 +6,7 @@
 // the hill the way the ownership fill does (client-map-3d-ownership-overlay.ts).
 import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "../client-map-3d-heightfield-terrain.js";
 import { hillBumpsWithCorridorAt, hillNeighborFlagsAt, hillShapeHeight, type RoadCutDirections } from "../client-map-3d-hill-shape.js";
+import type { IncursionEdges } from "../client-reach-incursion/client-reach-incursion.js";
 
 /** Rendered surface height at a point of one tile; fx/fz run 0..1 from the tile's (wx, wy) corner. */
 export type TileDrapeHeightAt = (fx: number, fz: number) => number;
@@ -43,3 +44,26 @@ export const createIncursionHillDrape =
       return ground + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(fx - 0.5, fz - 0.5, bumps, wx, wy, cut) + lift;
     };
   };
+
+// Matches the dome mesh's SUBDIV (client-map-3d-hills.ts): the border is sampled at its grid points.
+const BORDER_SAMPLES = 10;
+
+/**
+ * Highest point of a draped tile's border along `sides` (all four when none
+ * is set). The breach front line (spikes, veil) is flat and straddles the tile
+ * edge, so seating it on its own sides' border keeps a corridor ridge running
+ * into a neighbouring hill from burying it, while on a plain edge it lies on
+ * the draped hatch instead of hanging at the dome's centre height.
+ */
+export const tileBorderTopY = (drape: TileDrapeHeightAt, sides: IncursionEdges): number => {
+  const any = sides.north || sides.east || sides.south || sides.west;
+  let top = -Infinity;
+  for (let i = 0; i <= BORDER_SAMPLES; i += 1) {
+    const f = i / BORDER_SAMPLES;
+    if (!any || sides.north) top = Math.max(top, drape(f, 0));
+    if (!any || sides.south) top = Math.max(top, drape(f, 1));
+    if (!any || sides.west) top = Math.max(top, drape(0, f));
+    if (!any || sides.east) top = Math.max(top, drape(1, f));
+  }
+  return top;
+};
