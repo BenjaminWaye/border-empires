@@ -604,7 +604,7 @@ export const topUpFromWaypoint = (
   }
   const firstStep = plan.steps[0];
   if (!firstStep) return false;
-  if (pauseWaypointForManpowerIfNeeded(waypoint, firstStep, state.manpower, pushFeed)) return false;
+  if (pauseWaypointForManpowerIfNeeded(waypoint, firstStep, state.manpower, pushFeed, state.expandManpowerCost)) return false;
   const stepKey = keyFor(firstStep.target.x, firstStep.target.y);
   // If the planner re-emits the exact step we just enqueued, ownership has not advanced yet. Two common causes: (a) FRONTIER_RESULT arrives
   // before the TILE_DELTA that flips ownerId, so the next top-up sees a

@@ -14,6 +14,11 @@ type PushFeed = (message: string, type?: "combat" | "mission" | "error" | "info"
  * after a few ticks with a misleading "halted"/impassable-sounding message,
  * instead of just waiting for manpower to regenerate.
  *
+ * `expandManpowerCost` is the live frontier-scaled EXPAND price: a step's
+ * `manpowerMin` was fixed when the route was planned, and the price can step
+ * up as the route's own claims grow the frontier, so the gate uses whichever
+ * is higher (the same live price processActionQueue checks).
+ *
  * Mutates `waypoint.pausedForManpower` and pushes a feed message only on the
  * transition into/out of the paused state (never every tick, so it can't
  * spam). Returns true when the waypoint should stay parked this tick (the
@@ -23,13 +28,15 @@ export const pauseWaypointForManpowerIfNeeded = (
   waypoint: Pick<ClientWaypoint, "pausedForManpower">,
   firstStep: Pick<WaypointStep, "action" | "manpowerMin" | "target">,
   manpower: number,
-  pushFeed: PushFeed
+  pushFeed: PushFeed,
+  expandManpowerCost = 0
 ): boolean => {
-  const short = firstStep.action === "EXPAND" && manpower < firstStep.manpowerMin;
+  const needed = Math.max(firstStep.manpowerMin, expandManpowerCost);
+  const short = firstStep.action === "EXPAND" && manpower < needed;
   if (short) {
     if (!waypoint.pausedForManpower) {
       pushFeed(
-        `Waypoint paused at (${firstStep.target.x}, ${firstStep.target.y}) — needs ${firstStep.manpowerMin} manpower, have ${manpower}. Resumes automatically once manpower regenerates.`,
+        `Waypoint paused at (${firstStep.target.x}, ${firstStep.target.y}) — needs ${needed} manpower, have ${manpower}. Resumes automatically once manpower regenerates.`,
         "info",
         "warn"
       );

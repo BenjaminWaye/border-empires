@@ -4,7 +4,6 @@ import {
   aiWarReserveManpower,
   AI_AUTO_CLAIM_GOLD_RESERVE,
   EXPAND_MANPOWER_COST,
-  expandManpowerCostForFrontierCount,
   FRONTIER_CLAIM_COST
 } from "@border-empires/shared";
 import type { PlayerCandidateIndex } from "../player-candidate-index/player-candidate-index.js";
@@ -30,8 +29,6 @@ export type TickTerritoryAutomationInput = {
   activeFortAnchorsByOwner: ReadonlyMap<string, ReadonlyMap<string, number>>;
   playerCandidateIndex: PlayerCandidateIndex;
   playerManpowerCap: (player: RuntimePlayer) => number;
-  /** Live FRONTIER tile count; each auto-claim pays the same frontier-scaled price as a manual EXPAND. */
-  frontierTileCountForPlayer: (playerId: string) => number;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   nextTerritoryAutomationCommandId: (label: string, playerId: string, tileKey: string, nowMs: number) => string;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
@@ -125,16 +122,17 @@ export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInpu
         for (const targetKey of input.playerCandidateIndex.claimCandidates(anchorKey, radius)) {
           _claimCandidatesEvaluated++;
           if (actor.points < claimGoldFloor) break;
-          // Re-read per claim: each claim grows the frontier, so the price can step up mid-batch.
-          const claimManpowerCost = expandManpowerCostForFrontierCount(input.frontierTileCountForPlayer(playerId));
-          if (actor.manpower < Math.max(claimManpowerFloor, claimManpowerCost)) break;
+          if (actor.manpower < claimManpowerFloor) break;
           if (claimsThisPlayer >= MAX_CLAIMS_PER_PLAYER) break;
           if (targetKey === anchorKey || autoClaimedKeys.has(targetKey) || input.locksByTile.has(targetKey)) continue;
           const target = input.tiles.get(targetKey);
           if (!isAutoClaimTarget(target)) continue;
           autoClaimedKeys.add(targetKey);
           actor.points -= FRONTIER_CLAIM_COST;
-          actor.manpower -= claimManpowerCost;
+          // Flat base price, not the frontier-scaled EXPAND price: this ring
+          // around a town is involuntary, and scaling it would drain a big
+          // empire's manpower (up to 8 claims a sweep) before it could garrison.
+          actor.manpower -= EXPAND_MANPOWER_COST;
           claimCommandId ??= input.nextTerritoryAutomationCommandId("frontier", playerId, "batch", input.nowMs);
           const claimedTile: DomainTileState = {
             ...target,
