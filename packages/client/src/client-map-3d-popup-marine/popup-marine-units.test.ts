@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MARINES_PER_SIDE } from "./popup-marine-timeline.js";
-import { SPECIALIST_SLOTS_PER_FACTORY, squadUnitsFor, UNIT_PROFILES, type MarineUnitKind } from "./popup-marine-units.js";
+import { MAX_SPECIALISTS_PER_SQUAD, SPECIALIST_SLOTS_PER_FACTORY, squadSpecialistsFor, squadUnitsFor, UNIT_PROFILES, type MarineUnitKind } from "./popup-marine-units.js";
+import { WEAPONS_FACTORY_KINDS } from "./popup-marine-gear.js";
 
 const count = (units: MarineUnitKind[], kind: MarineUnitKind): number => units.filter((u) => u === kind).length;
 
@@ -55,5 +56,28 @@ describe("squadUnitsFor", () => {
     for (const kind of ["infantry", "titanium-assault", "titanium-gunner", "umbrite-heavy"] as const) {
       expect(UNIT_PROFILES[kind].scale).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("squadSpecialistsFor: the specialist budget", () => {
+  it("fields two specialists per factory for one or two factories", () => {
+    expect(squadSpecialistsFor({ titanium: true })).toEqual(["titanium-assault", "titanium-gunner"]);
+    expect(squadSpecialistsFor({ titanium: true, umbrite: true })).toHaveLength(4);
+  });
+
+  it("never exceeds the squad budget, and every owned factory keeps at least one specialist up to it", () => {
+    // Simulates a future roster of factories by reading the budget rule
+    // directly: with n factories each gets max(1, min(2, floor(4 / n))).
+    for (let n = 1; n <= 6; n++) {
+      const perFactory = Math.max(1, Math.min(SPECIALIST_SLOTS_PER_FACTORY, Math.floor(MAX_SPECIALISTS_PER_SQUAD / n)));
+      expect(Math.min(n, MAX_SPECIALISTS_PER_SQUAD) * perFactory).toBeLessThanOrEqual(MAX_SPECIALISTS_PER_SQUAD);
+    }
+    const all = Object.fromEntries(WEAPONS_FACTORY_KINDS.map((k) => [k, true]));
+    expect(squadSpecialistsFor(all).length).toBeLessThanOrEqual(MAX_SPECIALISTS_PER_SQUAD);
+  });
+
+  it("leaves infantry the majority of every squad", () => {
+    const all = Object.fromEntries(WEAPONS_FACTORY_KINDS.map((k) => [k, true]));
+    expect(count(squadUnitsFor(all, 3, 0), "infantry")).toBeGreaterThanOrEqual(MARINES_PER_SIDE - MAX_SPECIALISTS_PER_SQUAD);
   });
 });

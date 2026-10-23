@@ -3,6 +3,7 @@ import { createMusterOverlay } from "@client/client-map-3d-muster-overlay.js";
 import { createMusterTransitOverlay, type MusterTransit, type MusterTransitHop } from "@client/client-map-3d-muster-transit-overlay.js";
 import { createSupplyLineOverlay } from "@client/client-map-3d-supply-line-overlay.js";
 import { createAttackOverlay } from "@client/client-map-3d-attack-overlay.js";
+import { createBuildingEnvironmentTexture } from "@client/client-map-3d-atmosphere.js";
 import { createStage, createGrassGround, wrapWithCleanup } from "../three-stage.js";
 
 // Design review for the muster travel-time visualization: a company of dot
@@ -51,6 +52,10 @@ type Args = {
   // > 0: the company steps onto the target and stands at ease this long (the
   // frontier-claim timer) instead of vanishing on arrival.
   standMs: number;
+  // The marching empire's weapons factories: each adds its specialists to
+  // the company (popup-marine-units.ts), titanium walkers at its head/tail.
+  titanium: boolean;
+  umbrite: boolean;
 };
 
 const render = (args: Args): HTMLElement => {
@@ -59,7 +64,8 @@ const render = (args: Args): HTMLElement => {
   stage.scene.add(ground.group);
 
   const flagOverlay = createMusterOverlay(stage.scene);
-  const transitOverlay = createMusterTransitOverlay(stage.scene);
+  const envMap = createBuildingEnvironmentTexture(stage.renderer);
+  const transitOverlay = createMusterTransitOverlay(stage.scene, envMap);
   const supplyLine = createSupplyLineOverlay(stage.scene);
   const targetOverlay = createAttackOverlay(stage.scene, 1);
 
@@ -92,6 +98,7 @@ const render = (args: Args): HTMLElement => {
 
   const spawnCompany = (nowMs: number): MusterTransit => ({
     path, groundY, startAt: nowMs, arriveAt: nowMs + args.marchMs, ownerColor: EMPIRE_COLOR,
+    gear: { titanium: args.titanium, umbrite: args.umbrite }, hashSeed: 7,
     ...(args.standMs > 0 ? { standUntil: nowMs + args.marchMs + args.standMs } : {})
   });
 
@@ -121,7 +128,7 @@ const render = (args: Args): HTMLElement => {
     rafId = requestAnimationFrame(animate);
   };
   animate();
-  disposers.push(() => cancelAnimationFrame(rafId));
+  disposers.push(() => cancelAnimationFrame(rafId), () => envMap.dispose());
 
   return wrapWithCleanup(stage, disposers);
 };
@@ -146,9 +153,11 @@ const meta: Meta<Args> = {
     marchMs: { control: { type: "range", min: 1000, max: 8000, step: 250 } },
     holdMs: { control: { type: "range", min: 0, max: 4000, step: 250 } },
     dockCrossing: { control: "boolean" },
-    standMs: { control: { type: "range", min: 0, max: 8000, step: 250 } }
+    standMs: { control: { type: "range", min: 0, max: 8000, step: 250 } },
+    titanium: { control: "boolean" },
+    umbrite: { control: "boolean" }
   },
-  args: { cameraDistance: 9, marchMs: 4200, holdMs: 1400, dockCrossing: false, standMs: 0 },
+  args: { cameraDistance: 9, marchMs: 4200, holdMs: 1400, dockCrossing: false, standMs: 0, titanium: false, umbrite: false },
   render
 };
 
@@ -170,3 +179,7 @@ export const StandAtEaseDuringClaim: Story = {
     docs: { description: { story: "After the march the company stays on the target tile in the idle (at-ease) pose for the frontier-claim timer, then disappears as the tile flips." } }
   }
 };
+
+/** A company of an empire with both weapons factories: titanium war-walkers
+ * at its head and tail, two Umbrite heavy troopers among the infantry. */
+export const MixedCompany: Story = { args: { titanium: true, umbrite: true, cameraDistance: 6 } };

@@ -4,7 +4,7 @@
 // was added -- the overlay only places and poses these slots each frame.
 import { AnimationMixer, MeshStandardMaterial, Object3D, Scene, SkinnedMesh, type AnimationAction, type Texture } from "three";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
-import { MARINE_CLIP_NAMES, MARINE_MELEE_CLIP, firstSkinnedMesh, type PopupMarineTemplate } from "./popup-marine-asset.js";
+import { MARINE_CLIP_NAMES, MARINE_MELEE_CLIP, MARINE_WALK_CLIP, firstSkinnedMesh, type PopupMarineTemplate } from "./popup-marine-asset.js";
 import { attachOcclusionSilhouette, MARINE_RENDER_ORDER, type MarineSilhouette } from "./popup-marine-occlusion-silhouette.js";
 import { MARINES_PER_SIDE, type MarineStance } from "./popup-marine-timeline.js";
 import type { MarineModelKey } from "./popup-marine-gear.js";
@@ -12,11 +12,14 @@ import { applySurfaceMask } from "./popup-marine-metal-material.js";
 import { applyBuildingEnvMap } from "../client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 
 // Rig bone the muzzle flash is pinned to: the standard marine's pistol hand,
-// but the titanium war-walker's LEFT hand -- its gatling arm (the right arm
-// carries the buzz-saw claw; see bake-popup-marine-titanium-model.py).
+// the titanium war-walker's LEFT hand -- its gatling arm (the right arm
+// carries the buzz-saw claw; see bake-popup-marine-titanium-model.py) --
+// and the Umbrite trooper's "Muzzle" bone at its shoulder cannon's mouth
+// (added by bake-popup-marine-umbrite-model.py).
 const HAND_BONE_BY_MODEL: Record<MarineModelKey, string> = {
   standard: "RightHand",
-  titanium: "LeftHand"
+  titanium: "LeftHand",
+  umbrite: "Muzzle"
 };
 
 export type MarineSlot = {
@@ -27,22 +30,23 @@ export type MarineSlot = {
   /** Team-tinted x-ray pass, seen only where something hides the marine. */
   silhouette: MarineSilhouette;
   mixer: AnimationMixer;
-  actions: Record<Exclude<MarineStance, "melee">, AnimationAction> & { melee?: AnimationAction };
+  actions: Record<Exclude<MarineStance, "melee" | "walk">, AnimationAction> & { melee?: AnimationAction; walk?: AnimationAction };
   /** Bone the muzzle flash hangs off, if the rig exposes a hand. */
   handBone: Object3D | undefined;
   /** Phase offset (seconds) so marines don't loop in lockstep. */
   phase: number;
 };
 
-// The titanium war-walker's base finish is its faction PAINT (panels,
-// graphite joints); its bare titanium comes from the baked surface mask
+// A weapons factory specialist's base finish is its faction PAINT (panels,
+// dark undersuit); its bare metal and glow come from the baked surface mask
 // instead (popup-marine-metal-material.ts), which needs an environment map
 // to reflect -- metal with nothing to reflect renders nearly black.
 const FINISH_BY_MODEL: Record<MarineModelKey, { roughness: number; metalness: number }> = {
   standard: { roughness: 0.4, metalness: 0.4 },
-  titanium: { roughness: 0.5, metalness: 0.2 }
+  titanium: { roughness: 0.5, metalness: 0.2 },
+  umbrite: { roughness: 0.5, metalness: 0.2 }
 };
-const SURFACE_MASKED_MODELS: ReadonlySet<MarineModelKey> = new Set(["titanium"]);
+const SURFACE_MASKED_MODELS: ReadonlySet<MarineModelKey> = new Set(["titanium", "umbrite"]);
 
 const buildMaterial = (model: MarineModelKey, envMap: Texture | undefined): MeshStandardMaterial => {
   // vertexColors:true multiplies the per-region greyscale painted by
@@ -91,7 +95,8 @@ export const createMarineSlot = (
     run: actionFor(MARINE_CLIP_NAMES.run),
     stand: actionFor(MARINE_CLIP_NAMES.stand),
     kneel: actionFor(MARINE_CLIP_NAMES.kneel),
-    ...(template.clips.has(MARINE_MELEE_CLIP) ? { melee: actionFor(MARINE_MELEE_CLIP) } : {})
+    ...(template.clips.has(MARINE_MELEE_CLIP) ? { melee: actionFor(MARINE_MELEE_CLIP) } : {}),
+    ...(template.clips.has(MARINE_WALK_CLIP) ? { walk: actionFor(MARINE_WALK_CLIP) } : {})
   };
   scene.add(root);
   return {
@@ -124,9 +129,9 @@ export const disposeMarineSlot = (scene: Scene, slot: MarineSlot): void => {
  * stateful playhead happened to drift to — the same
  * pure-function-of-the-clock rule the rest of the overlay follows. */
 export const playMarineStance = (slot: MarineSlot, stance: MarineStance, nowMs: number): void => {
-  // A model without a melee clip fights from its standing clip.
-  const playing = stance === "melee" && !slot.actions.melee ? "stand" : stance;
-  for (const name of ["run", "stand", "kneel", "melee"] as const) {
+  // A model without a melee (or walk) clip falls back to standing (or running).
+  const playing = !slot.actions.melee && stance === "melee" ? "stand" : !slot.actions.walk && stance === "walk" ? "run" : stance;
+  for (const name of ["run", "stand", "kneel", "melee", "walk"] as const) {
     const action = slot.actions[name];
     if (!action) continue;
     const live = name === playing;

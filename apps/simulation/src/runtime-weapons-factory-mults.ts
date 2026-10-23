@@ -89,14 +89,21 @@ export const hasUmbriteFactory = (ctx: WeaponsFactoryMultContext, ownerId: strin
   ctx.ownedStructureCountForPlayer(ownerId, "UMBRITE_WEAPONS_FACTORY") > 0;
 // Cosmetic battle kit for one side's squad (CombatBroadcastPayload's
 // attackerGear/defenderGear): one flag per weapons factory type the empire
-// owns any of -- the same existence checks the "unarmed" vulnerability below
-// uses, so the look and the combat label never disagree.
+// owns any of -- the same existence check the "unarmed" vulnerability below
+// uses, so the look and the combat label never disagree. A new weapons
+// factory that should show in battle adds a row here (and its specialists on
+// the client: popup-marine-gear.ts / popup-marine-units.ts).
+const WAR_GEAR_FLAG_BY_FACTORY: ReadonlyArray<readonly [BuildableStructureType, keyof BattleWarGear]> = [
+  ["TITANIUM_WEAPONS_FACTORY", "titaniumArmor"],
+  ["UMBRITE_WEAPONS_FACTORY", "umbriteArms"]
+];
 export const battleWarGearFor = (ctx: WeaponsFactoryMultContext, ownerId: string | undefined): BattleWarGear | undefined => {
   if (!ownerId) return undefined;
-  const titanium = hasTitaniumFactory(ctx, ownerId);
-  const umbrite = hasUmbriteFactory(ctx, ownerId);
-  if (!titanium && !umbrite) return undefined;
-  return { ...(titanium ? { titaniumArmor: true as const } : {}), ...(umbrite ? { umbriteArms: true as const } : {}) };
+  const gear: BattleWarGear = {};
+  for (const [structureType, flag] of WAR_GEAR_FLAG_BY_FACTORY) {
+    if (ctx.ownedStructureCountForPlayer(ownerId, structureType) > 0) gear[flag] = true;
+  }
+  return Object.keys(gear).length > 0 ? gear : undefined;
 };
 const hasWarIndustry = (ctx: WeaponsFactoryMultContext, ownerId: string): boolean =>
   hasTitaniumFactory(ctx, ownerId) && hasUmbriteFactory(ctx, ownerId);

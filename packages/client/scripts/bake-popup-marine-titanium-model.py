@@ -1,7 +1,7 @@
-# Builds the TITANIUM war-walker (popup-marine-titanium-24bone.glb) that
-# squads of an empire owning a Titanium Weapons Factory field instead of
-# standard marines -- see
-# packages/client/src/client-map-3d-popup-marine/popup-marine-armor.ts.
+# Builds the TITANIUM war-walker (popup-marine-titanium-24bone.glb) that an
+# empire owning a Titanium Weapons Factory fields in two of its squad's
+# slots -- see
+# packages/client/src/client-map-3d-popup-marine/popup-marine-units.ts.
 #
 # Inputs, all from Meshy (none checked into the repo):
 #   - the auto-rigged walker (a sealed drum-hull walker with a laser gatling
@@ -14,23 +14,12 @@
 # The game looks clips up by the STANDARD marine's names (MARINE_CLIP_NAMES
 # in popup-marine-asset.ts, plus PistolWalk for the muster march), so the
 # walker's clips are exported under those slot names: "PistolKneelingIdle"
-# is the same braced firing stance as "PistolIdle" here, not a kneel. MeleeSwing is extra, for
-# close combat; nothing plays it yet.
+# is the same braced firing stance as "PistolIdle" here, not a kneel.
+# MeleeSwing is the assault walker's close combat (popup-marine-roles.ts).
 #
-# Mesh: Meshy's walker is millions of triangles in hundreds of loose shells
-# (rivets, cables, saw teeth). Decimating that to the instance budget
-# shatters it into shards, so the body is VOXEL-REMESHED into one closed
-# shell first, then decimated, and the rig's skin weights are copied back
-# from the full-detail mesh (Data Transfer, nearest face interpolated).
-#
-# Surface classes: the game shades this model by vertex data, not textures,
-# so Meshy's base-colour texture is read once here and each vertex is tagged
-# as bare titanium, a white faction panel, dark graphite or a cyan crystal
-# lens. That drives two vertex attributes: COLOR_0, the usual greyscale "how
-# much team colour shows" (panels bright, graphite dark), and _MASK (x = bare
-# metal, y = glow), which popup-marine-metal-material.ts turns into real
-# reflective titanium and emissive lenses -- so titanium reads as metal while
-# the panels still carry the team's colour.
+# Mesh rebuild and surface classes (bare titanium, white faction panels,
+# dark graphite, cyan crystal lenses read off Meshy's texture) are the
+# shared steps in bake_marine_surface.py -- see its header.
 #
 # Everything after that mirrors bake-popup-marine-titan-model.py
 # (object-level fcurve drop, Hips root-motion strip, per-clip slot binding,
@@ -44,9 +33,9 @@ import os
 import sys
 import bpy
 import numpy as np
-from mathutils import Vector
-from mathutils.bvhtree import BVHTree
-from mathutils.geometry import barycentric_transform
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from bake_marine_surface import GLOW, GRAPHITE, METAL, PANEL, hsv_columns, rebuild_game_mesh, surface_rgb, write_surface_data  # noqa: E402
 
 argv = sys.argv[sys.argv.index("--") + 1:]
 SRC_RIG = argv[0]
@@ -158,36 +147,8 @@ for label, action, strip_root_motion in imported:
                     channelbag.fcurves.remove(fcurve)
 armature.animation_data.action = None
 
-# --- Voxel remesh + decimate a copy, then transfer the skin weights. ---
-mesh = source_mesh.copy()
-mesh.data = source_mesh.data.copy()
-bpy.context.collection.objects.link(mesh)
-for modifier in list(mesh.modifiers):
-    mesh.modifiers.remove(modifier)
-mesh.vertex_groups.clear()
-local_height = max(v.co.z for v in mesh.data.vertices) - min(v.co.z for v in mesh.data.vertices)
-bpy.context.view_layer.objects.active = mesh
-remesh = mesh.modifiers.new(name="Remesh", type="REMESH")
-remesh.mode = "VOXEL"
-remesh.voxel_size = local_height / VOXEL_DIVISIONS
-bpy.ops.object.modifier_apply(modifier=remesh.name)
-voxel_tris = sum(len(p.vertices) - 2 for p in mesh.data.polygons)
-decimate = mesh.modifiers.new(name="Decimate", type="DECIMATE")
-decimate.ratio = min(1.0, TARGET_TRIS / max(1, voxel_tris))
-bpy.ops.object.modifier_apply(modifier=decimate.name)
-print(f"voxel tris {voxel_tris} -> {sum(len(p.vertices) - 2 for p in mesh.data.polygons)}")
-
-for group in source_mesh.vertex_groups:
-    mesh.vertex_groups.new(name=group.name)
-transfer = mesh.modifiers.new(name="Weights", type="DATA_TRANSFER")
-transfer.object = source_mesh
-transfer.use_vert_data = True
-transfer.data_types_verts = {"VGROUP_WEIGHTS"}
-transfer.vert_mapping = "POLYINTERP_NEAREST"
-transfer.layers_vgroup_select_src = "ALL"
-transfer.layers_vgroup_select_dst = "NAME"
-bpy.ops.object.modifier_apply(modifier=transfer.name)
-
+# --- Rebuild the game mesh (bake_marine_surface.py), then rigid hull. ---
+mesh = rebuild_game_mesh(source_mesh, armature, TARGET_TRIS, VOXEL_DIVISIONS)
 hull_index = mesh.vertex_groups[HULL_BONE].index
 hull_group_indices = {g.index for g in mesh.vertex_groups if g.name in HULL_BONES}
 rigid = 0
@@ -200,28 +161,20 @@ for vertex in mesh.data.vertices:
     mesh.vertex_groups[hull_index].add([vertex.index], 1.0, "REPLACE")
     rigid += 1
 print(f"rigid hull: {rigid} verts skinned to {HULL_BONE}")
-skin = mesh.modifiers.new(name="Armature", type="ARMATURE")
-skin.object = armature
 
-# --- Surface classes from Meshy's base-colour texture (see the header). ---
-METAL, PANEL, GRAPHITE, GLOW = range(4)
-# Team-colour share per class (COLOR_0) and the _MASK each class writes.
-CLASS_TINT = {METAL: 0.80, PANEL: 0.95, GRAPHITE: 0.38, GLOW: 0.80}
-CLASS_MASK = {METAL: (1.0, 0.0), PANEL: (0.0, 0.0), GRAPHITE: (0.0, 0.0), GLOW: (0.0, 1.0)}
-# Half-width, in texels, of the box filter each texture read averages over,
-# so a vertex reads its surface's colour rather than one speckled texel.
-TEXEL_FILTER = 3
+# --- Surface classes from Meshy's base-colour texture. ---
+# Meshy stores the titanium darker than it should read; brighten it.
+METAL_GAIN = 1.55
 
 
-def classify_rgb(rgb):
-    """Per-row class of an (n, 3) array of sRGB base colours in [0, 1]."""
+def classify_walker(rgb):
+    """Measured on the walker's texture: the titanium is a WARM champagne grey
+    (saturation ~0.1-0.2), while the faction panels -- white in Meshy's lit
+    render -- are stored as NEUTRAL grey (saturation under ~0.085), so
+    neutrality, not brightness, tells a panel from bare metal. The crystal
+    lenses are pale cyan."""
     r, g, b = rgb[:, 0], rgb[:, 1], rgb[:, 2]
-    value = rgb.max(axis=1)
-    sat = (value - rgb.min(axis=1)) / np.maximum(value, 1e-6)
-    # Measured on the walker's texture: the titanium is a WARM champagne grey
-    # (saturation ~0.1-0.2), while the faction panels -- white in Meshy's lit
-    # render -- are stored as NEUTRAL grey (saturation under ~0.08), so
-    # neutrality, not brightness, is what tells a panel from bare metal.
+    _hue, sat, value = hsv_columns(rgb)
     classes = np.full(len(rgb), METAL)
     classes[value < 0.25] = GRAPHITE
     classes[(value > 0.5) & (sat < 0.085)] = PANEL
@@ -229,56 +182,10 @@ def classify_rgb(rgb):
     return classes
 
 
-def base_colour_pixels(obj):
-    material = obj.data.materials[0]
-    image = next(
-        node.image
-        for node in material.node_tree.nodes
-        if node.type == "TEX_IMAGE" and any(link.to_socket.name == "Base Color" for link in node.outputs[0].links)
-    )
-    width, height = image.size
-    pixels = np.empty(width * height * 4, np.float32)
-    image.pixels.foreach_get(pixels)
-    return pixels.reshape(height, width, 4)[:, :, :3]
-
-
-def surface_classes(target, source):
-    """Class of the full-detail SOURCE surface nearest each TARGET vertex:
-    the nearest point's UV is interpolated on its triangle and the texture
-    read there. Reading the surface rather than source vertices matters --
-    big flat panels have few vertices but a lot of area."""
-    pixels = base_colour_pixels(source)
-    height, width = pixels.shape[:2]
-    data = source.data
-    data.calc_loop_triangles()
-    uv_layer = data.uv_layers.active.data
-    tris = list(data.loop_triangles)
-    bvh = BVHTree.FromPolygons([v.co for v in data.vertices], [t.vertices for t in tris])
-    rgb = np.zeros((len(target.data.vertices), 3), np.float32)
-    for index, vertex in enumerate(target.data.vertices):
-        hit, _normal, tri_index, _dist = bvh.find_nearest(vertex.co)
-        if hit is None:
-            continue
-        tri = tris[tri_index]
-        corners = [data.vertices[v].co for v in tri.vertices]
-        uvs = [Vector((*uv_layer[li].uv, 0.0)) for li in tri.loops]
-        uv = barycentric_transform(hit, *corners, *uvs)
-        px = int(uv.x % 1.0 * width)
-        py = int(uv.y % 1.0 * height)
-        patch = pixels[max(0, py - TEXEL_FILTER):py + TEXEL_FILTER + 1, max(0, px - TEXEL_FILTER):px + TEXEL_FILTER + 1]
-        rgb[index] = patch.reshape(-1, 3).mean(axis=0)
-    return classify_rgb(rgb)
-
-
-classes = surface_classes(mesh, source_mesh)
-vertex_tint = [CLASS_TINT[c] for c in classes]
-vertex_mask = [CLASS_MASK[c] for c in classes]
-share = np.bincount(classes, minlength=4) / len(classes)
-print(f"surface classes: metal {share[METAL]:.2f} panel {share[PANEL]:.2f} graphite {share[GRAPHITE]:.2f} glow {share[GLOW]:.2f}")
-
+surface = surface_rgb(mesh, source_mesh)
+surface_classes = classify_walker(surface)
 bpy.data.objects.remove(source_mesh, do_unlink=True)
 mesh.name = "char1"
-mesh.data.materials.clear()  # shaded purely by vertex colour x team tint
 
 # --- Root-node scale + recentre (UNAPPLIED, see the standard bake). ---
 local = [v.co for v in mesh.data.vertices]
@@ -291,19 +198,7 @@ armature.location = (-(min(xs) + max(xs)) / 2 * scale, -(min(ys) + max(ys)) / 2 
 bpy.context.view_layer.update()
 print(f"root-node scale {scale:.8f}")
 
-# --- Vertex data from the surface classes: COLOR_0 greyscale team-colour
-# share (see the standard bake for the sRGB/linear band these values sit in)
-# and the _MASK attribute (exported as a custom glTF attribute). ---
-for layer in list(mesh.data.color_attributes):
-    mesh.data.color_attributes.remove(layer)
-vcol = mesh.data.vertex_colors.new(name="Col")
-for poly in mesh.data.polygons:
-    for li in poly.loop_indices:
-        value = vertex_tint[mesh.data.loops[li].vertex_index]
-        vcol.data[li].color = (value, value, value, 1.0)
-mask = mesh.data.attributes.new(name="_MASK", type="FLOAT_VECTOR", domain="POINT")
-for index, (metal, glow) in enumerate(vertex_mask):
-    mask.data[index].vector = (metal, glow, 0.0)
+write_surface_data(mesh, surface, surface_classes, metal_gain=METAL_GAIN)
 
 # --- Export. ---
 bpy.ops.object.select_all(action="DESELECT")

@@ -30,7 +30,7 @@ import {
   type MarineKit,
   type MarinePose
 } from "./popup-marine-timeline.js";
-import type { MarineUnitRole } from "./popup-marine-units.js";
+import type { MarineUnitProfile, MarineUnitRole } from "./popup-marine-units.js";
 
 // How far short of its victim a charging unit stops, in tile-local units:
 // the walker's half-depth plus its saw arm's reach.
@@ -40,10 +40,15 @@ export const MELEE_REACH = 0.12;
 // keeps its spot and pushes on from there.
 const ROUT_PEEL_T = 0.35;
 
-/** Where a slot is along the fight, as the weight its role offset applies
- * with: 0 waiting at the lineup, rising through the advance, 1 once engaged,
- * falling back to 0 as the rout peels it away. */
-export type RoleFrame = { weight: number; engaged: boolean };
+/** Where a slot is along the fight: `weight` is how much of its role offset
+ * applies (0 waiting at the lineup, rising through the advance, 1 once
+ * engaged, falling back to 0 as a losing rout peels it away); `lead` is how
+ * much of the lineup lead applies (1 at the lineup, falling to 0 through the
+ * advance, 0 after). */
+export type RoleFrame = { weight: number; engaged: boolean; lead: number };
+
+/** A unit standing still where it is, e.g. a capture-hold garrison. */
+export const STILL_ROLE_FRAME: RoleFrame = { weight: 0, engaged: false, lead: 0 };
 
 const advanceWeight = (kit: MarineKit, sinceLineupEnd: number): number => {
   const marchT = clamp01(sinceLineupEnd / MARCH_MS);
@@ -51,21 +56,27 @@ const advanceWeight = (kit: MarineKit, sinceLineupEnd: number): number => {
 };
 
 export const battleRoleFrame = (b: BattleOverlayRenderEntry, side: 0 | 1, kit: MarineKit, nowMs: number): RoleFrame => {
-  if (nowMs < b.startAt + LINEUP_MS) return { weight: 0, engaged: false };
-  if (nowMs < b.clashAt) return { weight: advanceWeight(kit, nowMs - b.startAt - LINEUP_MS), engaged: false };
+  if (nowMs < b.startAt + LINEUP_MS) return { weight: 0, engaged: false, lead: 1 };
+  if (nowMs < b.clashAt) {
+    const advanced = advanceWeight(kit, nowMs - b.startAt - LINEUP_MS);
+    return { weight: advanced, engaged: false, lead: 1 - advanced };
+  }
   const clashEndAt = b.clashAt + CLASH_MS;
-  if (nowMs < clashEndAt) return { weight: 1, engaged: true };
+  if (nowMs < clashEndAt) return { weight: 1, engaged: true, lead: 0 };
   const winning = side === 0 ? b.attackerWon : !b.attackerWon;
-  if (winning) return { weight: 1, engaged: false };
-  return { weight: 1 - clamp01((nowMs - clashEndAt) / (ROUT_PEEL_T * (b.endAt - clashEndAt))), engaged: false };
+  if (winning) return { weight: 1, engaged: false, lead: 0 };
+  return { weight: 1 - clamp01((nowMs - clashEndAt) / (ROUT_PEEL_T * (b.endAt - clashEndAt))), engaged: false, lead: 0 };
 };
 
 export const skirmishRoleFrame = (b: BattleOverlaySkirmishEntry, kit: MarineKit, nowMs: number): RoleFrame => {
   const elapsed = nowMs - b.startAt;
   const approachMs = Math.max(APPROACH_MS, b.holdApproachUntilElapsed ?? 0);
-  if (elapsed < LINEUP_MS) return { weight: 0, engaged: false };
-  if (elapsed < approachMs) return { weight: advanceWeight(kit, elapsed - LINEUP_MS), engaged: false };
-  return { weight: 1, engaged: true };
+  if (elapsed < LINEUP_MS) return { weight: 0, engaged: false, lead: 1 };
+  if (elapsed < approachMs) {
+    const advanced = advanceWeight(kit, elapsed - LINEUP_MS);
+    return { weight: advanced, engaged: false, lead: 1 - advanced };
+  }
+  return { weight: 1, engaged: true, lead: 0 };
 };
 
 /** The enemy a charging unit closes on: the one that falls in the first
@@ -109,7 +120,7 @@ export type RoledPose = {
 };
 
 export const applyUnitRole = (
-  role: MarineUnitRole,
+  unit: Pick<MarineUnitProfile, "role" | "lineupLead">,
   base: MarinePose,
   frame: RoleFrame,
   seed: number,
@@ -120,15 +131,19 @@ export const applyUnitRole = (
   fwdX: number,
   fwdZ: number
 ): RoledPose => {
-  if (role === "line" || base.scale <= 0) return { pose: base, firesBolts: true };
+  const { role } = unit;
+  if ((role === "line" && unit.lineupLead === 0) || base.scale <= 0) return { pose: base, firesBolts: true };
   const kit = marineKitFor(seed, side, i);
   const offset = roleOffset(role, seed, side, kit, perpX, perpZ, fwdX, fwdZ);
   // A unit only ever falls once engaged, and lies where it fell.
   const weight = base.fallT > 0 ? 1 : frame.weight;
+  // A unit too big for the infantry's rank waits ahead of it during the
+  // lineup (MarineUnitProfile.lineupLead); the lead melts away as it advances.
+  const lead = base.fallT <= 0 ? frame.lead * unit.lineupLead : 0;
   const pose: MarinePose = {
     ...base,
-    localX: base.localX + offset.x * weight,
-    localZ: base.localZ + offset.z * weight
+    localX: base.localX + offset.x * weight + fwdX * lead,
+    localZ: base.localZ + offset.z * weight + fwdZ * lead
   };
   const holding = base.stance === "stand" || base.stance === "kneel";
   if (role === "braced" && holding) pose.stance = "kneel";

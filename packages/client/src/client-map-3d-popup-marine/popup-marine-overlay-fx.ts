@@ -47,7 +47,7 @@ import { Matrix4, Quaternion, Scene, Vector3, type Texture } from "three";
 import { playMarineStance, type MarineSlot } from "./popup-marine-slot.js";
 import { createMarinePools } from "./popup-marine-pools.js";
 import { squadUnitsFor, UNIT_PROFILES, type MarineUnitKind, type MarineUnitProfile } from "./popup-marine-units.js";
-import { applyUnitRole, battleRoleFrame, skirmishRoleFrame } from "./popup-marine-roles.js";
+import { applyUnitRole, battleRoleFrame, skirmishRoleFrame, STILL_ROLE_FRAME } from "./popup-marine-roles.js";
 import {
   APPROACH_MS,
   MARINES_PER_SIDE,
@@ -285,7 +285,7 @@ export function createPopupMarineOverlayFx(scene: Scene, envMap?: Texture) {
           const base = computeBattlePose(b, side, i, nowMs, entryLocalX, entryLocalZ, perpX, perpZ, fwdX, fwdZ, battleVictim?.index, garrisonStart);
           const unit = UNIT_PROFILES[units[i]!];
           const frame = battleRoleFrame(b, side, marineKitFor(b.hashSeed, side, i), nowMs);
-          const { pose, firesBolts } = applyUnitRole(unit.role, base, frame, b.hashSeed, side, i, perpX, perpZ, fwdX, fwdZ);
+          const { pose, firesBolts } = applyUnitRole(unit, base, frame, b.hashSeed, side, i, perpX, perpZ, fwdX, fwdZ);
           writeOne(side, unit, color, tileX, tileY, tileZ, pose);
           // A marine that is dead/collapsed this frame (or locked in melee) isn't shooting.
           const down = pose.fallT > 0 || pose.scale <= 0 || !firesBolts;
@@ -340,7 +340,7 @@ export function createPopupMarineOverlayFx(scene: Scene, envMap?: Texture) {
           const base = computeSkirmishPose(b, side, i, nowMs, entryLocalX, entryLocalZ, perpX, perpZ, fwdX, fwdZ, skirmishVictim?.index, garrisonStart);
           const unit = UNIT_PROFILES[units[i]!];
           const frame = skirmishRoleFrame(b, marineKitFor(b.hashSeed, side, i), nowMs);
-          const { pose, firesBolts } = applyUnitRole(unit.role, base, frame, b.hashSeed, side, i, perpX, perpZ, fwdX, fwdZ);
+          const { pose, firesBolts } = applyUnitRole(unit, base, frame, b.hashSeed, side, i, perpX, perpZ, fwdX, fwdZ);
           writeOne(side, unit, color, tileX, tileY, tileZ, pose);
           const down = pose.fallT > 0 || pose.scale <= 0 || !firesBolts;
           shots.push(
@@ -362,7 +362,7 @@ export function createPopupMarineOverlayFx(scene: Scene, envMap?: Texture) {
       const units = squadUnitsFor(garrison.gear, garrison.hashSeed, 0);
       for (let i = 0; i < MARINES_PER_SIDE; i++) {
         const unit = UNIT_PROFILES[units[i]!];
-        const { pose } = applyUnitRole(unit.role, computeGarrisonPose(garrison, i, nowMs), { weight: 0, engaged: false }, garrison.hashSeed, 0, i, 0, 0, 0, 0);
+        const { pose } = applyUnitRole(unit, computeGarrisonPose(garrison, i, nowMs), STILL_ROLE_FRAME, garrison.hashSeed, 0, i, 0, 0, 0, 0);
         writeOne(1, unit, garrison.color, garrison.tgtWorldX, garrison.tgtSurfaceY, garrison.tgtWorldZ, pose);
       }
     }

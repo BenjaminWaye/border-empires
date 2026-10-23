@@ -118,7 +118,7 @@ export type MarineKit = {
  * these to the model's real captured clips (PistolRun / PistolIdle /
  * PistolKneelingIdle, plus MeleeSwing for a charging unit -- see
  * popup-marine-roles.ts) rather than posing bones by hand. */
-export type MarineStance = "run" | "stand" | "kneel" | "melee";
+export type MarineStance = "run" | "stand" | "kneel" | "melee" | "walk";
 
 export type DeathKit = { roll: number; at: number };
 

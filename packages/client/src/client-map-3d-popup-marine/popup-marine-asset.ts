@@ -44,9 +44,15 @@ const ACTIVE_POPUP_MARINE_MODEL_URL = "/models/popup-marine-titan-24bone.glb";
 // packages/client/scripts/bake-popup-marine-titanium-model.py for how it's
 // built from a Meshy sculpt and its own Meshy clips.
 const TITANIUM_POPUP_MARINE_MODEL_URL = "/models/popup-marine-titanium-24bone.glb";
+// The Umbrite heavy trooper an empire owning an Umbrite Weapons Factory
+// fields (popup-marine-units.ts): the standard marine's clips retargeted
+// onto a Meshy sculpt with a shoulder cannon -- see
+// packages/client/scripts/bake-popup-marine-umbrite-model.py.
+const UMBRITE_POPUP_MARINE_MODEL_URL = "/models/popup-marine-umbrite-24bone.glb";
 const MODEL_URL_BY_KEY: Record<MarineModelKey, string> = {
   standard: ACTIVE_POPUP_MARINE_MODEL_URL,
-  titanium: TITANIUM_POPUP_MARINE_MODEL_URL
+  titanium: TITANIUM_POPUP_MARINE_MODEL_URL,
+  umbrite: UMBRITE_POPUP_MARINE_MODEL_URL
 };
 
 // Kept only as documented, easy revert targets: models this file used before
@@ -65,6 +71,8 @@ export const MARINE_CLIP_NAMES = {
 /** Close-combat clip, carried only by models whose units charge (the
  * titanium war-walker); a model without it plays its standing clip. */
 export const MARINE_MELEE_CLIP = "MeleeSwing";
+/** The muster-transit march's walk (client-map-3d-muster-transit-overlay.ts). */
+export const MARINE_WALK_CLIP = "PistolWalk";
 
 export type PopupMarineTemplate = {
   /** Whole loaded scene (root node's scale included) — clone this, not the mesh. */

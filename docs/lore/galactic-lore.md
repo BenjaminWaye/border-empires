@@ -379,9 +379,13 @@ gatling and a buzz-saw claw. One walker wades into close combat while the
 other holds back and fires over the line. Titanium is first and foremost an
 armour material, and a hull sealed against the Bleed lets the crew fight
 where unshielded infantry could not. An Umbrite Weapons Factory contributes
-heavy-weapon troopers who fire from a braced kneel (their own kit is still
-undefined; see §14). The look only reflects the industry; the combat effect
-is whatever the current gameplay reference gives each factory.
+**Umbrite heavy troopers**: infantry in dark-iron and brass plate with an
+Umbrite cannon built onto the shoulder, its violet-black core showing
+through the barrel and orange fissures where the volatile ore strains its
+housing, fed from an ammunition drum on the back. They fire it from a
+braced kneel. The same specialists march with the House's companies. The
+look only reflects the industry; the combat effect is whatever the current
+gameplay reference gives each factory.
 
 ## 12. Manifests and AFC modules
 
@@ -486,7 +490,6 @@ not infer new gameplay rules from them while implementing unrelated work.
 
 | Question | Established passages that need reconciling |
 |---|---|
-| Umbrite heavy-weapon troopers | §11 gives Umbrite Weapons Factory squads heavy-weapon troopers but no kit: what Umbrite arms look like and what they fire is undecided. |
 | World Cannon and Sovereign Siege Engine | §3 names the shattered artifact Sovereign Siege Engine but calls the reconstructed weapon World Cannon; the current Great Project is named Sovereign Siege Engine. Clarify whether World Cannon is a historical name, an alias or a distinct object. |
 | Rank before a first victory | §2 says winning grants the rank of Duke, while later passages call campaign participants Dukes. Define first-time contenders' rank and returning Dukes' participation. |
 | Permanent holdings and map resets | §2 grants permanent rights to a won world; §8 preserves titles but allows the map to reset. Define what persists across a seasonal campaign and an age ending with the Court's fall. |

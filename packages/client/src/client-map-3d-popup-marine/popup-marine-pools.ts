@@ -15,12 +15,12 @@ import { loadPopupMarineTemplate, type PopupMarineTemplate } from "./popup-marin
 import type { MarineModelKey } from "./popup-marine-gear.js";
 import { createMarineSlot, disposeMarineSlot, type MarineSlot } from "./popup-marine-slot.js";
 
-const MODEL_KEYS: readonly MarineModelKey[] = ["standard", "titanium"];
+const MODEL_KEYS: readonly MarineModelKey[] = ["standard", "titanium", "umbrite"];
 
 type SidePools = Record<MarineModelKey, MarineSlot[]>;
 
-const emptyPools = (): SidePools => ({ standard: [], titanium: [] });
-const zeroCursors = (): Record<MarineModelKey, number> => ({ standard: 0, titanium: 0 });
+const emptyPools = (): SidePools => ({ standard: [], titanium: [], umbrite: [] });
+const zeroCursors = (): Record<MarineModelKey, number> => ({ standard: 0, titanium: 0, umbrite: 0 });
 
 export type MarinePools = {
   /** Hides every slot and rewinds every pool's cursor -- call once per frame

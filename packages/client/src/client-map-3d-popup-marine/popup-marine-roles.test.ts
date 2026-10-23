@@ -10,6 +10,8 @@ import {
   type MarinePose
 } from "./popup-marine-timeline.js";
 import { applyUnitRole, battleRoleFrame, chargeVictimIndex, MELEE_REACH, skirmishRoleFrame } from "./popup-marine-roles.js";
+
+const LINEUP_LEAD = 0.16;
 import type { MarineUnitRole } from "./popup-marine-units.js";
 import { deathKitFor, dyingIndicesFor, marineKitFor } from "./popup-marine-timeline.js";
 
@@ -44,14 +46,14 @@ const skirmishAt = (role: MarineUnitRole, side: 0 | 1, i: number, nowMs: number)
   const e = entry(side);
   const base = computeSkirmishPose(skirmish, side, i, nowMs, e.x, e.z, PERP.x, PERP.z, FWD[side].x, FWD[side].z);
   const frame = skirmishRoleFrame(skirmish, marineKitFor(SEED, side, i), nowMs);
-  return applyUnitRole(role, base, frame, SEED, side, i, PERP.x, PERP.z, FWD[side].x, FWD[side].z);
+  return applyUnitRole({ role, lineupLead: 0 }, base, frame, SEED, side, i, PERP.x, PERP.z, FWD[side].x, FWD[side].z);
 };
 
 const battleAt = (b: BattleOverlayRenderEntry, role: MarineUnitRole, side: 0 | 1, i: number, nowMs: number) => {
   const e = entry(side);
   const base = computeBattlePose(b, side, i, nowMs, e.x, e.z, PERP.x, PERP.z, FWD[side].x, FWD[side].z);
   const frame = battleRoleFrame(b, side, marineKitFor(SEED, side, i), nowMs);
-  return applyUnitRole(role, base, frame, SEED, side, i, PERP.x, PERP.z, FWD[side].x, FWD[side].z);
+  return applyUnitRole({ role, lineupLead: 0 }, base, frame, SEED, side, i, PERP.x, PERP.z, FWD[side].x, FWD[side].z);
 };
 
 const dist = (a: MarinePose, b: MarinePose): number => Math.hypot(a.localX - b.localX, a.localZ - b.localZ);
@@ -138,5 +140,26 @@ describe("support and braced roles", () => {
     const e = entry(0);
     const base = computeSkirmishPose(skirmish, 0, 2, inFirefight, e.x, e.z, PERP.x, PERP.z, FWD[0].x, FWD[0].z);
     expect(skirmishAt("line", 0, 2, inFirefight).pose).toEqual(base);
+  });
+});
+
+describe("lineup lead for units too big for the rank", () => {
+  const ledAt = (nowMs: number) => {
+    const e = entry(0);
+    const base = computeSkirmishPose(skirmish, 0, CHARGER, nowMs, e.x, e.z, PERP.x, PERP.z, FWD[0].x, FWD[0].z);
+    const frame = skirmishRoleFrame(skirmish, marineKitFor(SEED, 0, CHARGER), nowMs);
+    return applyUnitRole({ role: "support", lineupLead: LINEUP_LEAD }, base, frame, SEED, 0, CHARGER, PERP.x, PERP.z, FWD[0].x, FWD[0].z).pose;
+  };
+
+  it("waits LINEUP_LEAD ahead of its own rank slot while the squad lines up", () => {
+    // Just before the lineup ends, when every member has popped in.
+    const rank = skirmishAt("support", 0, CHARGER, 2400).pose;
+    expect(rank.scale).toBe(1);
+    expect(ledAt(2400).localZ - rank.localZ).toBeCloseTo(LINEUP_LEAD, 6);
+  });
+
+  it("has no lead left once engaged, so it ends up exactly on its role spot", () => {
+    const t = APPROACH_MS + CLASH_MS * 0.5;
+    expect(ledAt(t)).toEqual(skirmishAt("support", 0, CHARGER, t).pose);
   });
 });

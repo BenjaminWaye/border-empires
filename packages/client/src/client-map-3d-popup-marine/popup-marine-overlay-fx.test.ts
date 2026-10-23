@@ -45,6 +45,7 @@ vi.mock("./popup-marine-asset.js", async () => {
   return {
     MARINE_CLIP_NAMES: { run: "PistolRun", stand: "PistolIdle", kneel: "PistolKneelingIdle" },
     MARINE_MELEE_CLIP: "MeleeSwing",
+    MARINE_WALK_CLIP: "PistolWalk",
     firstSkinnedMesh: (root: Object3D): SkinnedMesh => {
       let found: SkinnedMesh | undefined;
       root.traverse((child) => {

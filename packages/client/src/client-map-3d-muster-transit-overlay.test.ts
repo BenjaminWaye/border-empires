@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { tileWalkPath } from "./client-map-3d-muster-transit-overlay.js";
+import { companyFormation, tileWalkPath } from "./client-map-3d-muster-transit-overlay.js";
+import { squadUnitsFor, UNIT_PROFILES } from "./client-map-3d-popup-marine/popup-marine-units.js";
 
 describe("tileWalkPath", () => {
   it("walks a straight horizontal line one tile at a time", () => {
@@ -33,5 +34,23 @@ describe("tileWalkPath", () => {
 
   it("returns a single-point path when start and end coincide", () => {
     expect(tileWalkPath(5, 5, 5, 5)).toEqual([{ x: 5, z: 5 }]);
+  });
+});
+
+describe("companyFormation", () => {
+  it("marches plain infantry for an empire with no weapons factory", () => {
+    expect(companyFormation(undefined, 3)).toEqual(Array(7).fill("infantry"));
+  });
+
+  it("puts the titanium walkers at the head and tail of the column, with the rest of the squad between", () => {
+    for (let seed = 0; seed < 40; seed++) {
+      const company = companyFormation({ titanium: true, umbrite: true }, seed);
+      expect(company).toHaveLength(7);
+      expect(UNIT_PROFILES[company[0]!].scale).toBeGreaterThan(1);
+      expect(UNIT_PROFILES[company[6]!].scale).toBeGreaterThan(1);
+      expect(company.filter((u) => u === "umbrite-heavy")).toHaveLength(2);
+      // The same squad the battle overlay would field, just reordered.
+      expect([...company].sort()).toEqual([...squadUnitsFor({ titanium: true, umbrite: true }, seed, 0)].sort());
+    }
   });
 });

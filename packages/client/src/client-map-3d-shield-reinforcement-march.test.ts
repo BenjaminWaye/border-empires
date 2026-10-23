@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { syncMusterTransitOverlay } from "./client-map-3d-capture-overlays.js";
+import { syncMusterTransitOverlay } from "./client-map-3d-muster-transit-sync.js";
 import { CLASH_MS } from "./client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import type { Heightfield } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 import type { MusterTransit, MusterTransitOverlay } from "./client-map-3d-muster-transit-overlay.js";
@@ -51,6 +51,8 @@ const makeState = (activeBattles: ClientState["activeBattles"]): ClientState =>
     outgoingMusterAttacksByTile: new Map(),
     incomingAttacksByTile: new Map(),
     deferredAttackByTile: new Map(),
+    tiles: new Map(),
+    squadGearByOwner: new Map(),
     activeBattles
   }) as unknown as ClientState;
 
@@ -75,6 +77,17 @@ describe("syncMusterTransitOverlay -- shield reinforcement march", () => {
     // Path runs from the shield tile (10,15) to the target tile (10,11).
     expect(transit.path[0]).toEqual({ x: 10.5, z: 15.5 });
     expect(transit.path.at(-1)).toEqual({ x: 10.5, z: 11.5 });
+  });
+
+  it("marches the defender's own specialists in the shield company", () => {
+    const overlay = makeOverlay();
+    const state = makeState(new Map([["10,11", { ...baseBattle, shieldX: 10, shieldY: 15, defenderGear: { titanium: true } }]]));
+
+    syncMusterTransitOverlay(state, () => "#c", makeHeightfield(), overlay, 0, 0, () => "");
+
+    const transit = (overlay.addTransit as ReturnType<typeof vi.fn>).mock.calls[0]![0] as MusterTransit;
+    expect(transit.gear).toEqual({ titanium: true });
+    expect(transit.hashSeed).toBe(10 * 92821 + 15);
   });
 
   it("adds nothing for a battle with no shield", () => {

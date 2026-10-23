@@ -1,13 +1,18 @@
 import { APPROACH_MS, CLASH_MS, ROUT_MS } from "../client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import type { ClientState } from "../client-state/client-state.js";
-import type { SquadGear, SquadGearFields } from "../client-map-3d-popup-marine/popup-marine-gear.js";
+import {
+  ownedFactories,
+  squadGearFromStructures,
+  squadGearFromWire,
+  type SquadGear,
+  type SquadGearFields,
+  type WireWarGear
+} from "../client-map-3d-popup-marine/popup-marine-gear.js";
 
 // Wire shape of a TILE_DELTA_BATCH tile delta's `combatJson` field (mirrors
 // CombatBroadcastPayload in @border-empires/sim-protocol — duplicated here
 // rather than imported since the client package doesn't depend on
 // sim-protocol; it only ever sees this over the wire as untyped JSON).
-type WireWarGear = { titaniumArmor?: boolean; umbriteArms?: boolean };
-
 type CombatBroadcastPayload = {
   attackerOwnerId: string;
   defenderOwnerId: string;
@@ -62,12 +67,7 @@ export type ActiveBattleOverlay = {
 // very long session accumulating ids (AGENTS.md state discipline).
 const MAX_REMEMBERED_GEAR_OWNERS = 512;
 
-const squadGearFromWire = (gear: WireWarGear | undefined): SquadGear => ({
-  ...(gear?.titaniumArmor === true ? { titanium: true } : {}),
-  ...(gear?.umbriteArms === true ? { umbrite: true } : {})
-});
-
-const hasAnyGear = (gear: SquadGear): boolean => gear.titanium === true || gear.umbrite === true;
+const hasAnyGear = (gear: SquadGear): boolean => ownedFactories(gear).length > 0;
 
 /** Records what a broadcast says an owner's war industry is, so a later
  * pre-resolution skirmish involving them can show it before its own
@@ -87,6 +87,17 @@ const rememberSquadGear = (owners: Map<string, SquadGear>, ownerId: string, gear
  * for this specific fight (skirmishes, capture-hold garrisons). */
 export const knownSquadGearFor = (state: Pick<ClientState, "squadGearByOwner">, ownerId: string | undefined): SquadGear =>
   (ownerId ? state.squadGearByOwner.get(ownerId) : undefined) ?? {};
+
+/** The local player's own gear, read straight off their tiles -- needs no
+ * battle broadcast, so their first march already shows their specialists.
+ * Scans every tile, so call it only on frames that need it. */
+export const localPlayerSquadGear = (state: Pick<ClientState, "tiles" | "me">): SquadGear => {
+  const owned = new Set<string>();
+  for (const tile of state.tiles.values()) {
+    if (tile.ownerId === state.me && tile.economicStructure) owned.add(tile.economicStructure.type);
+  }
+  return squadGearFromStructures(owned);
+};
 
 /** Both sides' gear for a battle/skirmish render entry: a resolved battle's
  * own broadcast wins, otherwise whatever is known per owner. */
