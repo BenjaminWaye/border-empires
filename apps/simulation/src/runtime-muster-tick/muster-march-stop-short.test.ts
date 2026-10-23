@@ -92,8 +92,21 @@ describe("muster MARCH into terrain it can't reach", () => {
     const { runtime } = buildRuntime([
       flagTile(13, 10),
       ...[9, 10, 11].map((y) => ({ x: 11, y, terrain: "SEA" as const })),
+      // Neutral land behind the flag is reachable but leads away from the isle.
+      { x: 9, y: 10, terrain: "LAND" },
       { x: 12, y: 10, terrain: "LAND" },
       { x: 13, y: 10, terrain: "LAND" }
+    ]);
+    runtime.tickMuster(1_000);
+    expect(flagMuster(runtime)?.mode).toBe("HOLD");
+  });
+
+  it("still stops short when the only enemy tile it can't afford is behind the flag", () => {
+    const { runtime } = buildRuntime([
+      flagTile(11, 10),
+      { x: 11, y: 10, terrain: "MOUNTAIN" },
+      // A Fort (300) is far beyond what a 60-manpower flag can fund.
+      { x: 9, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", fort: { ownerId: "player-2", status: "active", variant: "FORT" } }
     ]);
     runtime.tickMuster(1_000);
     expect(flagMuster(runtime)?.mode).toBe("HOLD");

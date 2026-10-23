@@ -355,13 +355,17 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
   }
 
   if (!best && !bestExpand) {
-    // Stop short: the target is a mountain or sea tile, or land the flag can't
-    // reach overland (an isle with no dock), and no land left on our side gets
-    // any closer. The player may have aimed into unexplored ground without
+    // Stop short: the target is a mountain or sea tile, or land the terrain
+    // flood never connected to the flag (an isle with no dock or bridge, or a
+    // route longer than the flood cap), and no land on our side gets any
+    // closer. The player may have aimed into unexplored ground without
     // knowing, so this ends the march quietly at the closest point instead of
-    // retrying forever as "no target in range".
+    // retrying forever as "no target in range". landStepCloser already counts
+    // closer tiles the flag can't afford, so an unaffordable tile behind the
+    // flag must not keep the march alive. Wait for the flag's own steps in
+    // flight to resolve first: one may still capture closer ground.
     const targetUnreachable = targetTile?.terrain !== "LAND" || !flagReachedByFlood;
-    if (!options.target && !foundUnaffordable && !landStepCloser && targetUnreachable) {
+    if (!options.target && inFlightLocks.length === 0 && !landStepCloser && targetUnreachable) {
       endMarch(input, musterTile, originKey, playerId, "stopped-short");
       return false;
     }
