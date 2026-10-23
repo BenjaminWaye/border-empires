@@ -75,6 +75,9 @@ export const createSocialState = (options: {
   const offerCooldowns = createSocialOfferCooldowns(now, options.initial?.offerCooldowns);
   // Offers whose terms the simulation is paying out right now (beginSettlement).
   const settlingRequestIds = new Set<string>();
+  // Players still showing a truce offer the server dropped on its own (see
+  // takeStaleOfferSync). Holds player ids only and is emptied on every flush.
+  const staleOfferPlayerIds = new Set<string>();
   const settlingError: SocialActionResult = { ok: false, code: "OFFER_SETTLING", message: "That offer is being settled right now." };
   const termsField = (terms: DiplomacyTerms | undefined): { terms?: DiplomacyTerms } => (terms && !diplomacyTermsAreEmpty(terms) ? { terms } : {});
   const startOfferCooldown = (kind: SocialOfferKind, fromPlayerId: string, toPlayerId: string, durationMs: number): void => {
@@ -126,6 +129,7 @@ export const createSocialState = (options: {
       if (request.expiresAt <= current && !settlingRequestIds.has(requestId)) {
         truceRequests.delete(requestId);
         startOfferCooldown("truce", request.fromPlayerId, request.toPlayerId, OFFER_EXPIRED_COOLDOWN_MS);
+        staleOfferPlayerIds.add(request.fromPlayerId).add(request.toPlayerId);
         pruned = true;
       }
     }
@@ -373,11 +377,13 @@ export const createSocialState = (options: {
       ) {
         truceRequests.delete(requestId);
         sink?.deleteTruceRequest(requestId);
+        staleOfferPlayerIds.add(from.id);
         return { ok: false, code: "TRUCE_LOCKED_OUT", message: "one player broke a truce recently and is locked out" };
       }
       if (activeTruceBetween(actor.id, from.id, trucesByPair, now())) {
         truceRequests.delete(requestId);
         sink?.deleteTruceRequest(requestId);
+        staleOfferPlayerIds.add(from.id);
         return { ok: false, code: "TRUCE_EXISTS", message: "you already have an active truce with that player" };
       }
       const truce: SocialActiveTruce = {
@@ -462,6 +468,13 @@ export const createSocialState = (options: {
     resolvePlayerById: (playerId) => {
       const player = playersById.get(playerId);
       return player ? { id: player.id, name: player.name } : undefined;
+    },
+    takeStaleOfferSync() {
+      sweepExpired();
+      if (staleOfferPlayerIds.size === 0) return undefined;
+      const playerIds = [...staleOfferPlayerIds];
+      staleOfferPlayerIds.clear();
+      return ok(playerIds);
     },
     activeTrucePairs: () => (sweepExpired(), [...trucesByPair.values()].map((truce): [string, string] => [truce.playerAId, truce.playerBId]))
   };

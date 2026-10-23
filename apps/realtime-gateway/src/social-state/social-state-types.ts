@@ -213,6 +213,12 @@ export type SocialState = {
   cancelTruce: (playerId: string, requestId: string) => SocialActionResult;
   breakTruce: (playerId: string, targetPlayerId: string) => SocialActionResult;
   activeTrucePairs: () => Array<[string, string]>; // non-expired pairs; sweeps first, used to sync natural expirations
+  /**
+   * Fresh update payloads for every player whose truce offer was dropped
+   * without telling them (expiry, or a failed accept that deleted it), then
+   * forgets them. Undefined when nobody is waiting on one.
+   */
+  takeStaleOfferSync: () => SocialSyncResult | undefined;
 };
 
 export type SocialStateSink = {
