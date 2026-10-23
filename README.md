@@ -137,6 +137,13 @@ These commands do not upload or submit the app. The
 [App Store Connect record](https://appstoreconnect.apple.com/apps/6825524099)
 contains the first uploaded iOS build; store submission remains pending.
 
+Settings → Account includes permanent account deletion; the public
+`/delete-account.html` page offers the same request outside the game. Support is
+at `/support.html`. See the [account-deletion runbook](docs/agents/account-deletion.md)
+for the required operator erasure and backup-restoration procedures. Requests
+remove the submitting Firebase login immediately; associated-data completion is
+an operator task with a 30-day deadline, not an automatic background job.
+
 For a durable SQLite-backed local world with 20 AI players:
 
 ```bash

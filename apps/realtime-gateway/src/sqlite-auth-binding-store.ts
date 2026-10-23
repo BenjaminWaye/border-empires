@@ -2,6 +2,7 @@ import type { DatabaseSync } from "node:sqlite";
 
 import type { GatewayAuthBindingStore, StoredAuthIdentityBinding } from "./auth-binding-store/auth-binding-store.js";
 import { withGatewaySqliteRetry } from "./sqlite-busy-retry.js";
+import { SqliteAccountDeletionStore } from "./account-deletion/account-deletion-store.js";
 
 type Row = {
   auth_uid: string;
@@ -18,9 +19,13 @@ const toBinding = (row: Row): StoredAuthIdentityBinding => ({
 });
 
 export class SqliteGatewayAuthBindingStore implements GatewayAuthBindingStore {
-  constructor(private readonly db: DatabaseSync, private readonly now: () => number = () => Date.now()) {}
+  readonly accountDeletion: SqliteAccountDeletionStore;
+  constructor(private readonly db: DatabaseSync, private readonly now: () => number = () => Date.now()) {
+    this.accountDeletion = new SqliteAccountDeletionStore(db, now);
+  }
 
   async applySchema(): Promise<void> {
+    this.accountDeletion.applySchema();
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS auth_identity_bindings (
         auth_uid TEXT PRIMARY KEY,

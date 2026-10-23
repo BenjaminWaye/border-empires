@@ -7,7 +7,7 @@ export const externalNativeUrl = (href: string, baseUrl: string): string | undef
   const base = new URL(baseUrl);
   const url = new URL(href, base);
   const local = url.protocol === base.protocol && url.host === base.host;
-  if (local && ["/privacy.html", "/terms.html"].includes(url.pathname)) {
+  if (local && ["/privacy.html", "/terms.html", "/support.html", "/delete-account.html"].includes(url.pathname)) {
     return `https://play.borderempires.com${url.pathname}`;
   }
   return ["https:", "http:"].includes(url.protocol) && !local ? url.href : undefined;

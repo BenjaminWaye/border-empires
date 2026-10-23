@@ -1,0 +1,23 @@
+.account-deletion-dialog {
+  width: min(30rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 1.5rem;
+  color: #f0e4ca;
+  background: #171b1d;
+  border: 1px solid #b69a5e;
+  border-radius: 12px;
+  font: 1rem/1.5 system-ui, sans-serif;
+}
+.account-deletion-dialog::backdrop { background: #000b; }
+.account-deletion-dialog h2 { margin-top: 0; color: #e4c983; }
+.account-deletion-dialog label { display: grid; gap: .4rem; margin-block: 1rem; }
+.account-deletion-dialog input { padding: .75rem; color: inherit; background: #0a1015; border: 1px solid #b69a5e; border-radius: 5px; font: inherit; }
+.account-deletion-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: .75rem; }
+.account-deletion-dialog button { min-height: 44px; padding: .65rem 1rem; }
+.account-deletion-dialog .account-deletion-confirm { border-color: #be755a; background: #46281f; color: #fff0dc; }
+.account-deletion-dialog button:focus-visible, .account-deletion-dialog input:focus-visible { outline: 2px solid #e4c983; outline-offset: 3px; }
+.account-deletion-backdrop { position: fixed; inset: 0; z-index: 2147483647; display: grid; place-items: center; background: #000b; padding: 1rem; }
+.account-deletion-backdrop .account-deletion-dialog { position: relative; margin: 0; }

@@ -7,5 +7,8 @@
   "secondaryCategory": "STRATEGY",
   "version": "1.0",
   "releaseNotes": "The first mobile release of Border Empires, with guest play and email/password accounts.",
-  "reviewNotes": "Online game requiring an internet connection. Guest access is available through Play now on the login screen; reviewers can also register an email/password account. There are no native social sign-in buttons. Account deletion, privacy declarations and physical-device testing remain release blockers; do not submit this draft until they are complete."
+  "reviewNotes": "Online game requiring an internet connection. Guest access is available through Play now on the login screen; reviewers can also register an email/password account. There are no native social sign-in buttons. Account deletion, privacy declarations and physical-device testing remain release blockers; do not submit this draft until they are complete.",
+  "supportUrl": "https://play.borderempires.com/support.html",
+  "privacyPolicyUrl": "https://play.borderempires.com/privacy.html",
+  "copyright": "2026 Benjamin Waye"
 }

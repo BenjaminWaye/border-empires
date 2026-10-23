@@ -130,8 +130,10 @@ The App Store record uses English (U.K.); its text is prepared in
 drafts remain in `apps/mobile/store/en-US/`. These are editorial drafts, not store API payloads. Confirm
 categories in each console rather than sending the labels as provider IDs.
 Names, subtitles, keywords and descriptions fit the store text limits.
-Support email, legal publisher identity, support/privacy/deletion URLs,
-screenshots, age ratings and privacy declarations still need verified inputs.
+The owner supplied `benjamin@borderempires.com` for public support; copyright is
+`2026 Benjamin Waye`, matching the individual Apple developer account. Private
+review contact details were supplied in chat and must stay out of Git. Public
+URLs, screenshots, age ratings and privacy declarations still need console/live verification.
 Do not infer declarations from this copy or submit the draft review notes.
 
 The release attempt on 2026-10-20 found Google Play blocked at developer
@@ -184,8 +186,9 @@ Reassess this declaration if encryption dependencies or functionality change.
 
 The listing subtitle and Games → Strategy category were saved. Persistence of the
 description, keywords and marketing URL was verified on 2026-10-22.
-Support/copyright details, review
-contacts, screenshots and declarations remain incomplete. A new-app warning said
+Support/copyright and private review-contact inputs are now available, but have
+not yet been saved in the signed-out console. Screenshots and declarations remain
+incomplete. A new-app warning said
 user access settings could not be saved and all existing team users have access;
 review the App Information access settings if a restriction is intended.
 
@@ -202,12 +205,13 @@ success is not a gameplay/device QA result.
 
 These are existing product gaps, not tasks that signing the wrapper completes:
 
-1. Implement account deletion initiated inside the app, covering Firebase identity
-   **and** associated gateway/simulation/profile/social data, with reauthentication
-   and a documented retention policy. Deleting only the Firebase user is insufficient.
-   Google also requires a public web path to request deletion, entered in Play Console.
-2. Replace the draft wording and placeholder support contact in
-   `packages/client/public/privacy.html` and review `terms.html`. Publish reachable
+1. Deploy and verify the implemented in-app and public web deletion flows, including
+   Firebase identity removal and the associated-data erasure procedure in
+   [account-deletion.md](account-deletion.md). The operator must process the queue;
+   game-data erasure is not an automatic background job. Verify backup expiry
+   before publishing the current retention promise. Enter the public deletion URL in Play Console.
+2. The privacy/terms/support pages now include the publisher and verified email.
+   Publish reachable
    support/privacy/deletion URLs and complete App Privacy and Data Safety declarations
    against actual auth, first-party telemetry, social/chat, and server retention.
 3. Review player-generated content moderation, reporting/blocking, age rating and
@@ -221,6 +225,25 @@ These are existing product gaps, not tasks that signing the wrapper completes:
    store billing flow before exposing purchase links in native builds.
 
 Lore reviewed; no canon change. Packaging does not change gameplay or fiction.
+
+## 2026-10-23 verification in progress
+
+A real Firebase disposable-account probe verified identity deletion, receipt
+idempotency, and rejection of the original signed token on both HTTP and WebSocket
+auth paths. Erasure tests cover shared-world anonymisation, rollback and safe
+restoration of older identity bindings. No existing player's data was altered.
+
+An iPhone 17 Pro Max simulator reached the staging true-3D game as a guest and
+rotated into landscape. That exposed a fixed-panel/camera-cutout overlap; the new
+native `GameViewController` constrains the whole WebView to safe-area guides for
+both renderers. Simulator builds succeed; the updated visual/device checks are
+still in progress. No physical phone has been connected or verified.
+
+The app-level privacy manifest and [native privacy inventory](../../apps/mobile/store/privacy-inventory.md)
+record account, gameplay, first-party usage and optional support/diagnostic data.
+They do not replace the App Privacy/Data Safety console declarations. Build 1
+predates account deletion and these fixes: sync the production bundle and upload
+a new build number after integration/QA, rather than submitting build 1.
 
 ## Primary references
 

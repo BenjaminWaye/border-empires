@@ -8,7 +8,8 @@ const config: CapacitorConfig = {
   // Ship the reviewed bundle in the binary. Never set server.url for release.
   server: { androidScheme: "https", hostname: "localhost", cleartext: false },
   android: { allowMixedContent: false, webContentsDebuggingEnabled: false },
-  ios: { contentInset: "automatic", webContentsDebuggingEnabled: false },
+  // GameViewController contains iOS content inside the native safe-area guides.
+  ios: { contentInset: "never", webContentsDebuggingEnabled: false },
   plugins: { SystemBars: { insetsHandling: "native", initialViewportFitValueHint: "contain" } }
 };
 

@@ -16,6 +16,7 @@ remain authoritative for runtime behavior.
 | Local setup, package layout, CI, and release notes | [`../README.md`](../README.md) |
 | Deploying or using Fly/Vercel/Hetzner | [`agents/deploys.md`](agents/deploys.md) |
 | Android/iOS wrappers, signing and store readiness | [`agents/mobile-apps.md`](agents/mobile-apps.md) |
+| Account deletion, data erasure and backup restoration | [`agents/account-deletion.md`](agents/account-deletion.md) |
 | Fly → Hetzner migration plan | [`hetzner-migration-plan.md`](hetzner-migration-plan.md) |
 | Tests, debugging, and regression expectations | [`agents/testing-and-debugging.md`](agents/testing-and-debugging.md) |
 | Concurrent worktree and branch safety | [`agents/concurrent-agents.md`](agents/concurrent-agents.md) |

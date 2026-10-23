@@ -5,5 +5,9 @@
   "releaseName": "1.0 (1)",
   "releaseNotes": "The first mobile release of Border Empires, with guest play and email/password accounts.",
   "category": "STRATEGY",
-  "defaultLanguage": "en-US"
+  "defaultLanguage": "en-US",
+  "supportEmail": "benjamin@borderempires.com",
+  "supportUrl": "https://play.borderempires.com/support.html",
+  "privacyPolicyUrl": "https://play.borderempires.com/privacy.html",
+  "accountDeletionUrl": "https://play.borderempires.com/delete-account.html"
 }

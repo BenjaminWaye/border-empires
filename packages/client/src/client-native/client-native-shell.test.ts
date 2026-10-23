@@ -19,6 +19,8 @@ describe("native shell", () => {
   it("opens bundled legal links at their public URLs on iOS and Android", () => {
     expect(externalNativeUrl("/privacy.html", "capacitor://localhost/index.html")).toBe("https://play.borderempires.com/privacy.html");
     expect(externalNativeUrl("/terms.html", "https://localhost/index.html")).toBe("https://play.borderempires.com/terms.html");
+    expect(externalNativeUrl("/support.html", "capacitor://localhost/index.html")).toBe("https://play.borderempires.com/support.html");
+    expect(externalNativeUrl("/delete-account.html", "https://localhost/index.html")).toBe("https://play.borderempires.com/delete-account.html");
     expect(externalNativeUrl("https://discord.gg/example", "capacitor://localhost/")).toBe("https://discord.gg/example");
     expect(externalNativeUrl("blob:https://localhost/123", "https://localhost/")).toBeUndefined();
   });

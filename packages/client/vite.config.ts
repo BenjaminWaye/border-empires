@@ -42,6 +42,7 @@ export default defineConfig(({ mode }) => ({
       // admin.html is a separate, tiny entry (admin-app/) so /admin never loads the game client.
       input: {
         main: fileURLToPath(new URL("./index.html", import.meta.url)),
+        deletion: fileURLToPath(new URL("./delete-account.html", import.meta.url)),
         ...(mode !== "native" ? { admin: fileURLToPath(new URL("./admin.html", import.meta.url)) } : {})
       },
       output: {
