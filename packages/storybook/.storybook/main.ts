@@ -13,7 +13,9 @@ const config: StorybookConfig = {
   staticDirs: [
     { from: "../../client/public/overlays", to: "/overlays" },
     { from: "../../client/public/models", to: "/models" },
-    { from: "../../client/public/textures", to: "/textures" }
+    { from: "../../client/public/textures", to: "/textures" },
+    // Retired assets kept only for the History stories (e.g. the Oct 2026 town GLBs).
+    { from: "../public/history", to: "/history" }
   ],
   viteFinal: async (cfg) => {
     cfg.resolve = cfg.resolve ?? {};

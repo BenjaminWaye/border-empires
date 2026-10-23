@@ -1,5 +1,7 @@
+// History snapshot: the first 3D town (packages/client/src/client-map-3d-town.ts, added 2026-04-24
+// in 68f591f5), moved here once the shipped town overlay replaced it. Edit only to keep it compiling.
 import { BoxGeometry, InstancedMesh, Matrix4, MeshStandardMaterial, Scene } from "three";
-import type { Tile } from "../client-types.js";
+import type { Tile } from "@client/client-types.js";
 
 type TownPopulationTier = NonNullable<NonNullable<Tile["town"]>["populationTier"]>;
 
