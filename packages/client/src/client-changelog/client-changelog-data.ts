@@ -35,7 +35,6 @@ import { EXPIRED_TRUCE_OFFERS_CHANGELOG } from "./client-changelog-expired-truce
 import { LOST_STRUCTURES_CHANGELOG } from "./client-changelog-lost-structures.js";
 import { CAPTURED_MUSTER_CLEAR_CHANGELOG } from "./client-changelog-captured-muster-clear.js";
 import { ADVANCE_EFFORT_CHANGELOG } from "./client-changelog-advance-effort.js";
-import { BEACH_LANDINGS_CHANGELOG } from "./client-changelog-beach-landings.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -309,7 +308,20 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...LOST_STRUCTURES_CHANGELOG,
   ...CAPTURED_MUSTER_CLEAR_CHANGELOG,
   ...ADVANCE_EFFORT_CHANGELOG,
-  ...BEACH_LANDINGS_CHANGELOG
+  {
+    createdAt: 1792759228659, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.23.2",
+    title: "Land on the beaches beside a linked dock",
+    why: "A sea crossing could only land on the far dock itself, so a harbour was defended by watching one tile.",
+    changes: [
+      "A crossing from your dock can now land on any coastal tile right next to the dock it links to, not just the dock",
+      "Your coast is marked in orange wherever an enemy-held dock can land troops on it, so you can see which beaches to watch",
+      "Select a dock to see its landing ground highlighted at both ends of its sea routes; the tile panel also names the docks whose crossings can land on a tile",
+      "A beach landing is supplied through the dock you sailed from: lose that dock and the landing is cut off at once",
+      "Supply lines draw the sea leg back to your home dock, with a ring on the dock the landing depends on",
+      "Muster flags on Advance or March use beach landings too"
+    ]
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
