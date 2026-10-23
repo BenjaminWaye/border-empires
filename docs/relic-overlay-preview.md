@@ -40,7 +40,11 @@ another angle.
 - Map scale: nearby comparison with the existing models at native size.
 - Game zoom: distance 38 and tilt 0.6, matching the game's default-camera reference.
 - Close view and Top down: inspect the silhouette and surfaces.
-- Powered: toggle the faint emissions; the structure does not move.
+- Captured/Unclaimed: toggle faint operating lights, a small House marker on
+  the summit bulkhead. The weathered structure stays unchanged. Territory
+  tint is not included in this isolated building preview.
+- Captured and Captured On Map stories open directly in the owned state;
+  Storybook's owner-colour control changes the marker.
 - Drag to orbit and scroll to zoom.
 
 Source is isolated under `packages/storybook/src/relics/`. It is not wired
@@ -53,7 +57,7 @@ placement, ownership, visibility, rewards or existing wonder effects.
 
 Run Storybook's TypeScript check and production build, file-line checks and
 documentation checks. Inspect the comparison, close-up, top view and both
-powered states in a browser. No client changelog entry is needed for this
+capture states in a browser. No client changelog entry is needed for this
 isolated design preview; a live visual replacement will require one.
 
 The prototype passes the Storybook TypeScript check, its isolated Vite
