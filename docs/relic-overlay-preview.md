@@ -21,11 +21,14 @@ long disuse. Surviving machinery emits only faint light. Avoid stone-brick
 masonry, the Waystation's shelter-and-mast
 silhouette and the polished ring-and-fin design tried before this revision.
 
-The proposed fiction is recorded as an open question in the
-[world bible](lore/galactic-lore.md#14-canon-boundaries-and-open-questions).
+The shared premise is recorded in the
+[world bible](lore/galactic-lore.md#surviving-relic-installations); remaining
+catalogue questions are tracked in its §14.
 Relics are immovable surviving portions of planetary infrastructure, left on
 the world after a campaign. Their different benefits come from the underlying
-installations. This preview does not establish new effects or accepted canon.
+installations. The shared-interface and dormant-aether-machine premise is now established in
+the world bible. Specific installation/effect mappings below remain proposals;
+this preview does not establish new effects.
 
 ## Run and inspect
 
@@ -187,20 +190,92 @@ The presentation work can ship independently of planet-selection changes.
 The release scope should say explicitly whether it preserves existing
 world placement or includes the new seven-site rule.
 
-### Decisions still required
+### Decisions confirmed on 2026-10-23
 
-| Decision | Recommendation / starting point |
-|---|---|
-| Nine identities and their effects | Retain the nine effect families initially. Finalize the underground installation and name for each before commissioning all artwork. Armour Works/Warpress and Computation Vault/Calculating Engine are examples, not a completed catalogue. |
-| Difficult fictional mappings | Resolve especially the Foundry's mix of resource slots, Conscription's manpower reward, and how local installations benefit distant docks or forts. A factory must not conjure people; names and explanations need to reflect what manpower represents. Check the existing economy lore before choosing the mechanism. |
-| Why they survive and can be used | Settle why the Wardens missed these remnants and why a Duke can reactivate them despite the frontier's established aether danger. A sealed, dormant installation with only part of it recoverable is a candidate explanation; new immunity or risk mechanics are not assumed. |
-| Seven per planet and small maps | If seven is the target for normal worlds, select seven distinct families from the nine. Decide whether smaller maps use fewer, and what happens when terrain/spacing cannot fit the target count. Avoid duplicate families initially: current runtime benefit sets do not make duplicate copies stack. |
-| Identity across 100+ planets | Reuse installation families and their illustrations, with seeded site names/designations and suitable local context. Keep a clear family/effect label alongside the individual name. This gives variation without 700 unique effects or illustrations. Decide how much per-planet visual variation is actually needed. |
-| Discovery, light column and minimap | Start with exploration-gated discovery and a persistent marker once found. A House banner handles ownership. Decide separately whether strategic relic locations are public from the beginning, whether a distant light column is needed, and whether it can appear through unexplored fog. Never expose current enemy ownership beyond the chosen information rules. |
-| Capture versus activation | Use existing tile capture to activate the benefit automatically; add no repair currency, activation fee or extra action for the initial release. Decide separately if reactivation risk or repair gameplay is wanted later. |
-| Capture-dialog timing | Show the reveal on the player's first capture of a site, queue it after action resolves, and use a smaller notification on later recaptures. Keep the full illustration available in tile info. Confirm this frequency before wiring events. |
-| Ownership in illustrations | Prefer neutral insignia in reusable paintings and dynamic House colour in UI/map banners. The current artwork's blue banner is illustrative; choose whether to neutralize it or provide a dynamic treatment before release. |
-| Footprint and campaign persistence | Preserve one logical capture tile. Confirm acceptable visual overhang. Keep physical persistence separate from ownership/bonus persistence across campaigns; the latter remains part of the world bible's unresolved campaign rules. |
+- The machines are aether-powered. Their activity attracts Wardens, which is
+  why locals have left them dormant. This premise is now in the world bible;
+  Houses gain no new immunity from the existing aether danger.
+- Seven relics is the target for a normal planet. Small-map counts and
+  placement-failure handling still require a specific generation rule.
+- A distant locator light should be discoverable through unexplored land
+  once the player gets close enough. Exact detection distance, minimap
+  behavior and the information exposed by the beam remain undecided.
+- Activate through ordinary tile garrison. There is no separate activation
+  action in the initial implementation. Preserve the distinction between
+  being detected, being captured and being garrisoned when wiring events.
+- Show the full reveal on the player's first capture of a site and a smaller
+  notification on subsequent recaptures; keep the full artwork in tile info.
+- Use neutral insignia in reusable paintings and dynamic House colour in
+  the interface and map banner.
+
+### Future design ideas retained
+
+**Repair costs and reactivation risks:** explore bringing a damaged
+installation back online, resource or manpower repair costs, Warden attention
+or other consequences of restarting its aether plant. These ideas are retained
+for a later design pass. No cost, probability, encounter or extra activation
+step has been selected. The initial release must not silently add them.
+
+### Proposed mappings of existing effects to installations
+
+These are fiction candidates for the current effects, not approved final
+names or rule changes. Ongoing benefits need an ongoing service or output:
+losing the site should stop that contribution without pretending that a House
+forgets knowledge or that permanent retrofit parts disappear.
+
+| Current family | Proposed buried installation | How the current effect fits |
+|---|---|---|
+| Foundry Heart | Integrated reclamation works | Surviving nutrient-recovery, material-refining and Crystal-conditioning lines add usable supply capacity. FOOD, TITANIUM, CRYSTAL and UMBRITE slots represent capacity, not a pile of free resources. This must be a broad industrial complex, not just a metal foundry. |
+| Deepwater Engine | Tidal freight and naval-support complex | Continuous cargo handling and dock coordination increase trade throughput; naval servicing and deployment support improve dock-launched attacks. Explain an ongoing service to House docks, rather than a local pump somehow doubling distant income. |
+| Conscription Engine | Somatic reserve and recovery complex | A finite stock of preserved/remade bodies could explain the site's once-only manpower grant, while recovery/support infrastructure supplies the additional manpower cap. This is the hardest mapping and needs a deliberate decision about bodies and preservation; armour production alone cannot create manpower. |
+| Warpress | Automated armour works | Continuous equipment output supports faster mustering and another simultaneous formation. The accepted painting establishes its visual direction. It does not create people. |
+| Bastion Frame | Defensive field-control installation | An operating aether lattice supplies reinforcement to House-held forts. Continuous reinforcement explains why the bonus ends with control of the installation; permanent construction upgrades would not. |
+| Calculating Engine | Fabrication and calibration computation vault | Ongoing calculations reduce the cost of commissioning and calibrating campaign technology. House knowledge is retained: this is not rediscovering forgotten science. Ensure the player-facing text respects the Manifest/commissioning model in world-bible §§11–12. |
+| Quickforge | Rapid precision-fabrication cell | Limited daily output of specialist components offsets part of one construction rush purchase. The numerical allowance and UTC reset remain gameplay abstractions, not a claim that the factory produces only one object per day. |
+| Watchtower Engine | Self-supplied aether projection installation | A surviving projection and power core provides the Observatory capability without the normal Crystal-slot demand. Use the runtime Observatory behavior, not the stale label promising a separate +10 radius. |
+| Cartographer's Lens | Planetary survey-network controller | Buried processing machinery coordinates surviving sensors and House-held survey coverage, extending vision from held ground. This is a sensing service, not a telescope that can see through soil. |
+
+### What variation across 100+ planets means
+
+The reusable unit is an installation family with a known effect and artwork.
+For example, two planets may both contain an armour works: one is an old
+expeditionary-armour line, another a vehicle-armour reclamation facility.
+Their names and industrial histories can differ while the Warpress effect is
+recognizable. Such distinctions are flavour unless a separate rule changes.
+
+Selecting seven distinct families from nine gives only **36 possible family
+sets**. More than 100 planets therefore repeat some sets. Their placement,
+terrain, approach routes, competing settlements and omitted families change
+the strategic situation; seeded names alone are cosmetic variation. We should
+not promise 100 mechanically unique catalogues. If a unique seven-family set
+for each of 100 planets becomes a requirement, ten families would permit 120
+sets, but adding a tenth effect is a separate scope and balance decision.
+
+Recommended initial scope: seven sites selected from the nine current
+families, seeded placement and site names, and a shared family illustration
+set. Add extra family-specific art variants only after the core set is good.
+
+### Remaining precise choices
+
+- **Conscription's bodies:** accept a somatic reserve/recovery explanation,
+  choose another lore-compatible source of bodies, or revise that effect in
+  a separate balance change. Do not describe equipment as manpower.
+- **Other installation mappings and names:** review the candidates above
+  before final copy and the remaining full-set artwork are produced.
+- **Locator beam:** choose detection distance and its origin measurement,
+  minimap discovery behavior, and whether discovery persists. Recommended:
+  proximity reveals a site marker, with no live enemy owner information
+  through fog. An independently, conventionally powered locator is a proposed
+  way to show a beam while the main aether machinery remains dormant.
+- **Generation:** choose small-map counts, missing-terrain fallbacks and
+  whether seven distinct families can always be placed at required spacing.
+- **Footprint:** one logical tile is captured/garrisoned. Decide how far its
+  artwork may visually overhang adjacent tiles without masking their contents
+  or interaction. The painted underground complex has no map footprint.
+- **Persistence:** the physical ruin remaining on a planet is established.
+  Whether a House still owns it after a campaign reset is a different rule,
+  tied to the world bible's unresolved permanent-holdings question. Do not
+  change ownership reset behavior as a side effect of this feature.
 
 **Next concrete milestone:** one finished Warpress capture dialog using the
 painted artwork, followed by the nine-row installation/effect/name catalogue.

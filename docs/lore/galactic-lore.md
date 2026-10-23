@@ -148,6 +148,22 @@ a Warden's eye. Aether-work is a known danger, not a lost art — the
 townspeople could build it if they had the pieces, and choose, instead,
 not to.
 
+### Surviving relic installations
+
+Relics are fixed remnants of the Concordance's planetary megastructures.
+Their shared ziggurat-shaped surface buildings are access and control
+structures; different installations survive below them and provide different
+capabilities. The installations remain part of the planet after a war game.
+Their physical survival does not establish continued House ownership or
+bonuses between campaigns.
+
+These machines are aether-powered. Active aether-work attracts the Wardens,
+so frontier communities have left the installations dormant. A House can
+establish a garrison and put a surviving installation back into service; it
+is accepting the established danger of aether-work, not discovering that the
+old machinery is harmless. This does not imply a new Warden-spawn rule,
+repair charge or reactivation-risk mechanic; those are gameplay decisions.
+
 ## 5. Why arriving is dangerous
 
 An infestation left undisturbed for years is dormant compared to what it
@@ -497,7 +513,7 @@ not infer new gameplay rules from them while implementing unrelated work.
 | Permanent holdings and map resets | §2 grants permanent rights to a won world; §8 preserves titles but allows the map to reset. Define what persists across a seasonal campaign and an age ending with the Court's fall. |
 | Writs and the revolt | §7 says accepting a Writ restores the Court's grip; §8 says a Writ does not weaken the revolt. Clarify the relationship before assigning metagame effects. |
 | Natural wonders as relics (proposed) | [Relics proposal](../relics-design.md) §1 proposes that natural wonders are Concordance Terrain-Shaping anchors, distinct from Shards (§3) and the original of the Relay Beacon's anchor technology (§10). Unreconciled with §1 (Monuments as the surviving Concordance aether constructs), §2 and §10 (the Court's own anchor technology), §4 (the Wardens destroying Concordance aether infrastructure) and §5 (aether-work drawing Wardens); "relic" also already names a Warden ship in the galactic campaign. Not yet accepted canon; accept or revise before the relic look ships. |
-| Relic installations (proposed) | The [ziggurat and capture-dialog previews](../relic-overlay-preview.md) explore one standard surface interface serving different buried remnants of Concordance planetary megastructures. Example sections show surviving armour works and computation vaults beneath the same surface building. These immovable assets would remain on the planet after a war game; their underlying installations explain different benefits. Appearance and fiction remain proposed, with no new gameplay rules established. |
+| Relic installation catalogue and locator beams | The shared surface interface, fixed planetary installations and aether-powered machinery left dormant by locals are established in §4. The [relic plan](../relic-overlay-preview.md) proposes mappings from existing effects to individual installation families. Those mappings, and how a locator beam operates while the main machinery is dormant, still need final fiction choices. Repair costs and reactivation risks are retained as future design ideas, not established mechanics. |
 
 ### Consolidation sources
 
