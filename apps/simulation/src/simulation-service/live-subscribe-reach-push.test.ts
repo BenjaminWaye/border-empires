@@ -7,18 +7,18 @@ const noopLog = { error: () => {} };
 const liveOptions = { trigger: "gateway_live_subscribe", subscriptionKey: "key-1" };
 
 describe("registerSubscribeAndMaybePushReach", () => {
-  it("registers the subscription before pushing reach and Aether shields, so the socket is attached", () => {
+  it("registers the subscription before pushing reach, Aether shields and island names, so the socket is attached", () => {
     const order: string[] = [];
 
     registerSubscribeAndMaybePushReach(
       { subscribe: () => order.push("subscribe") },
-      { resendReachForPlayer: () => order.push("reach"), resendAetherShieldsForPlayer: () => order.push("aether") },
+      { resendReachForPlayer: () => order.push("reach"), resendIslandNamesForPlayer: () => order.push("islands"), resendAetherShieldsForPlayer: () => order.push("aether") },
       "player-1",
       liveOptions,
       noopLog
     );
 
-    expect(order).toEqual(["subscribe", "reach", "aether"]);
+    expect(order).toEqual(["subscribe", "reach", "aether", "islands"]);
   });
 
   it("passes the subscription key through to the registry", () => {
@@ -26,7 +26,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
 
     registerSubscribeAndMaybePushReach(
       { subscribe: (playerId, key) => seen.push([playerId, key]) },
-      { resendReachForPlayer: () => {}, resendAetherShieldsForPlayer: () => {} },
+      { resendReachForPlayer: () => {}, resendIslandNamesForPlayer: () => {}, resendAetherShieldsForPlayer: () => {} },
       "player-1",
       liveOptions,
       noopLog
@@ -43,7 +43,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
     expect(() =>
       registerSubscribeAndMaybePushReach(
         { subscribe: () => { subscribed = true; } },
-        { resendReachForPlayer: () => { throw new Error("boom"); }, resendAetherShieldsForPlayer: () => { shieldsPushed = true; } },
+        { resendReachForPlayer: () => { throw new Error("boom"); }, resendIslandNamesForPlayer: () => {}, resendAetherShieldsForPlayer: () => { shieldsPushed = true; } },
         "player-1",
         { trigger: "gateway_live_subscribe" },
         { error: (payload) => errors.push(payload) }
@@ -60,7 +60,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
     expect(() =>
       registerSubscribeAndMaybePushReach(
         { subscribe: () => {} },
-        { resendReachForPlayer: () => {}, resendAetherShieldsForPlayer: () => { throw new Error("boom"); } },
+        { resendReachForPlayer: () => {}, resendIslandNamesForPlayer: () => {}, resendAetherShieldsForPlayer: () => { throw new Error("boom"); } },
         "player-1",
         { trigger: "gateway_live_subscribe" },
         { error: (payload) => errors.push(payload) }
@@ -74,7 +74,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
 
     registerSubscribeAndMaybePushReach(
       { subscribe: () => calls.push("subscribe") },
-      { resendReachForPlayer: () => calls.push("reach"), resendAetherShieldsForPlayer: () => calls.push("aether") },
+      { resendReachForPlayer: () => calls.push("reach"), resendIslandNamesForPlayer: () => {}, resendAetherShieldsForPlayer: () => calls.push("aether") },
       "player-1",
       { mode: "bootstrap-only", trigger: "gateway_live_subscribe" },
       noopLog
@@ -96,7 +96,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
 
     registerSubscribeAndMaybePushReach(
       { subscribe: () => calls.push("subscribe") },
-      { resendReachForPlayer: () => calls.push("reach"), resendAetherShieldsForPlayer: () => calls.push("aether") },
+      { resendReachForPlayer: () => calls.push("reach"), resendIslandNamesForPlayer: () => {}, resendAetherShieldsForPlayer: () => calls.push("aether") },
       "player-1",
       { trigger: "gateway_fog_refresh", subscriptionKey: "key-2" },
       noopLog
@@ -149,7 +149,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
       { resendReachForPlayer: (playerId) => {
         markReachForResend(state, playerId);
         flushReachUpdates(state, context, "cmd-live-subscribe");
-      }, resendAetherShieldsForPlayer: () => {} },
+      }, resendIslandNamesForPlayer: () => {}, resendAetherShieldsForPlayer: () => {} },
       "player-1",
       liveOptions,
       noopLog

@@ -17,10 +17,15 @@ import { AI_DEAL_SUGGEST_CHANGELOG } from "./client-changelog-ai-deal-suggest.js
 import { TOWN_MARBLE_CHANGELOG } from "./client-changelog-town-marble.js";
 import { SIEGE_REPORTS_CHANGELOG } from "./client-changelog-siege-reports.js";
 import { RICHER_FORESTS_CHANGELOG } from "./client-changelog-richer-forests.js";
+import { SIEGE_FX_GATE_CHANGELOG } from "./client-changelog-siege-fx-gate.js";
 import { MARCH_ACROSS_WATER_CHANGELOG } from "./client-changelog-march-across-water.js";
 import { RECONNECT_NO_AUTH_CHANGELOG } from "./client-changelog-reconnect-no-auth.js";
 import { PLANETARY_DEFENSE_MUSTER_FLAG_CHANGELOG } from "./client-changelog-planetary-defense-muster-flag.js";
 import { YOURS_TILE_COORDS_CHANGELOG } from "./client-changelog-yours-tile-coords.js";
+import { MAP_NAMES_CHANGELOG } from "./client-changelog-map-names.js";
+import { REACH_OWNER_NAME_CHANGELOG } from "./client-changelog-reach-owner-name.js";
+import { FOGGED_MIST_FEATURES_CHANGELOG } from "./client-changelog-fogged-mist-features.js";
+import { EXPIRED_TRUCE_OFFERS_CHANGELOG } from "./client-changelog-expired-truce-offers.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -472,10 +477,15 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...SIEGE_REPORTS_CHANGELOG,
   ...RICHER_FORESTS_CHANGELOG,
+  ...SIEGE_FX_GATE_CHANGELOG,
   ...MARCH_ACROSS_WATER_CHANGELOG,
   ...RECONNECT_NO_AUTH_CHANGELOG,
   ...PLANETARY_DEFENSE_MUSTER_FLAG_CHANGELOG,
-  ...YOURS_TILE_COORDS_CHANGELOG
+  ...YOURS_TILE_COORDS_CHANGELOG,
+  ...MAP_NAMES_CHANGELOG,
+  ...REACH_OWNER_NAME_CHANGELOG,
+  ...FOGGED_MIST_FEATURES_CHANGELOG,
+  ...EXPIRED_TRUCE_OFFERS_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

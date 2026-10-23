@@ -162,3 +162,23 @@ export const assignMissingTownNames = (
     used.add(assigned);
   }
 };
+
+// Island-scale suffixes, smallest to largest. Kept here so island names come
+// from the same eight name cultures as the towns on them.
+const ISLAND_FORMS: ReadonlyArray<{ maxLandTiles: number; patterns: readonly ((stem: string, landmark: string) => string)[] }> = [
+  { maxLandTiles: 40, patterns: [(stem) => `${stem} Isle`, (stem) => `Isle of ${stem}`, (stem) => `${stem} Rock`] },
+  { maxLandTiles: 400, patterns: [(stem) => `${stem} Island`, (stem) => `Isle of ${stem}`, (stem, landmark) => `${stem} ${landmark}`] },
+  { maxLandTiles: Number.POSITIVE_INFINITY, patterns: [(stem) => stem, (stem) => `${stem} Land`, (stem) => `The ${stem} Expanse`] }
+];
+
+/**
+ * Deterministic default name for an island, from the world seed and a stable
+ * per-island key (its anchor tile key). Bigger islands get grander forms.
+ */
+export const generatedIslandName = (worldSeed: number, islandKey: string, landTiles: number): string => {
+  const seed = mixSeed(worldSeed, hashString(`island:${islandKey}`));
+  const culture = pick(NAME_CULTURES, seed);
+  const stem = buildCompoundName(culture, mixSeed(seed, 5), normalizeModulo(mixSeed(seed, 7), 3) === 0);
+  const form = ISLAND_FORMS.find((entry) => landTiles <= entry.maxLandTiles) ?? ISLAND_FORMS[ISLAND_FORMS.length - 1]!;
+  return pick(form.patterns, mixSeed(seed, 13))(stem, pick(culture.landmarks, mixSeed(seed, 17)));
+};

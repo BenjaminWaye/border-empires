@@ -1,4 +1,5 @@
 import { tileKey, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { rivalReachOverMyTile } from "../client-reach-incursion/client-reach-incursion.js";
 import { authoritativeIsInReach, type ReachAuthoritativeState } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { keyForTile } from "../client-app-runtime-utils.js";
 import { REACH_RADIUS_BY_KIND, tileKeysAroundAnchor } from "../client-reach-overlay/client-reach-overlay-anchor-disk.js";
@@ -41,6 +42,19 @@ export const foreignOwnersReachingTile = (tiles: ReachOverlayTileMap, target: Ti
 };
 
 /**
+ * Owners to name in the "Inside ... Reach" line. The server's own stamp
+ * (`reachOwnerId`, off its persistent reach border) leads: it is authoritative
+ * and still names the empire when the local anchor scan finds nothing -- its
+ * anchors fogged, beyond the scan radius, or already destroyed. Any further
+ * overlapping owners the scan finds follow it.
+ */
+export const reachOwnerIdsForTile = (tiles: ReachOverlayTileMap, target: Tile, me: string): string[] => {
+  const serverOwner = rivalReachOverMyTile(target, me);
+  const local = foreignOwnersReachingTile(tiles, target, me);
+  return serverOwner ? [serverOwner, ...local.filter((ownerId) => ownerId !== serverOwner)] : local;
+};
+
+/**
  * Header status for one of the viewer's own tiles, naming the empire(s)
  * whose reach covers it when that is what the "Inside ... Reach" line says.
  */
@@ -52,6 +66,6 @@ export const ownTileHeaderStatus = (
 ): TileMenuHeaderStatus | undefined => {
   const inReach = authoritativeIsInReach(state, keyForTile);
   const reachOwnerNames = (): string[] =>
-    foreignOwnersReachingTile(state.tiles, tile, state.me).map((ownerId) => playerNameForOwner(ownerId) ?? ownerId.slice(0, 8));
+    reachOwnerIdsForTile(state.tiles, tile, state.me).map((ownerId) => playerNameForOwner(ownerId) ?? ownerId.slice(0, 8));
   return tileMenuHeaderStatusForTile(tile, nowMs, (t) => inReach(t.x, t.y), reachOwnerNames);
 };

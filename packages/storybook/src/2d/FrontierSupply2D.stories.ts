@@ -72,7 +72,8 @@ const render = (args: Args): HTMLElement => {
       size,
       viewportWidth: canvas.width,
       viewportHeight: canvas.height,
-      ownerColor: DEMO_COLOR
+      ownerColor: DEMO_COLOR,
+      nowMs: performance.now()
     });
     rafId = requestAnimationFrame(frame);
   };
@@ -95,8 +96,8 @@ const meta: Meta<Args> = {
       description: {
         component:
           "Frontier supply lines on the 2D canvas map (the fallback renderer for devices without 3D). Same model and look as the " +
-          "3D overlay: only land beyond reach that hangs on a single tile is flagged, with a thin static dashed line from that " +
-          "tile (marked with a ring) out to the land's far edge."
+          "3D overlay: only land beyond reach that hangs on a single tile is flagged, with a pale pulsing line from the nearest " +
+          "settled tile, through that tile (marked with a ring), out to the land's far edge."
       }
     }
   },
