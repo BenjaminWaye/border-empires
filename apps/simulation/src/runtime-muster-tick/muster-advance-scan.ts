@@ -55,7 +55,7 @@ export const scanAdvanceCandidates = (
     const currentKey = simulationTileKey(current.x, current.y);
     const currentDepth = depthByKey.get(currentKey)!;
 
-    const dockLinkedKeys = input.dockLinksByDockTileKey.get(currentKey) ?? [];
+    const dockLinkedKeys = input.dockCrossingTargetsByDockTileKey.get(currentKey) ?? [];
     const bridgeLinkedKeys = bridgeLinksByKey.get(currentKey) ?? [];
     const neighborCoords = [
       ...coordsInChebyshevRadius(current.x, current.y, 1),

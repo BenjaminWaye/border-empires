@@ -65,18 +65,6 @@ export const dockCrossingCandidateTileKeys = (
   dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>
 ): string[] => [...(dockLinksByDockTileKey.get(fromDockTileKey) ?? [])];
 
-// A dock crossing (ATTACK or EXPAND) must land on the linked dock tile
-// itself — you have to capture the dock before you can reach land beyond it.
-export const isValidDockCrossingTarget = (
-  fromDockTileKey: string,
-  toX: number,
-  toY: number,
-  dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>
-): boolean =>
-  (dockLinksByDockTileKey.get(fromDockTileKey) ?? []).some(
-    (dockTileKey) => dockTileKey === `${toX},${toY}`
-  );
-
 export const computeLinkedDockRevealTileKeys = (
   ownedDockTileKeys: Iterable<string>,
   dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>,

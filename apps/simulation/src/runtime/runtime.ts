@@ -1307,7 +1307,6 @@ export class SimulationRuntime {
       locksByTile: this.state.locksByTile,
       locksByCommandId: this.locksByCommandId,
       musterReservedByKey: this.musterReservedByKey,
-      dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
       rejectCommand: (command, code, message) => this.rejectCommand(command, code, message),
       applyManpowerRegen: (player) => this.applyManpowerRegen(player),
       emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
@@ -1319,7 +1318,7 @@ export class SimulationRuntime {
       adjacentTileStates: (x, y) => this.adjacentTileStates(x, y),
       findOwnedDockOriginForCrossing: (playerId, x, y) => this.findOwnedDockOriginForCrossing(playerId, x, y),
       findOwnedAetherBridgeOriginForCrossing: (playerId, x, y) => this.findOwnedAetherBridgeOriginForCrossing(playerId, x, y),
-      isDockCrossingTarget: (from, x, y) => isDockCrossingTargetImpl(from, x, y, this.state.dockLinksByDockTileKey),
+      isDockCrossingTarget: (from, x, y) => isDockCrossingTargetImpl(from, x, y, this.state.dockLanding),
       isAetherBridgeCrossingTarget: (playerId, x1, y1, x2, y2) => this.isAetherBridgeCrossingTarget(playerId, x1, y1, x2, y2),
       crossingBlockedByAetherWall: (x1, y1, x2, y2) => this.crossingBlockedByAetherWall(x1, y1, x2, y2),
       isTileWardedByImperialWard: (targetOwnerId) => isTileWardedByImperialWardImpl(this.abilityCooldowns, this.now(), targetOwnerId),
@@ -1336,6 +1335,7 @@ export class SimulationRuntime {
       tiles: this.state.tiles,
       now: this.now,
       activeAetherBridgesForPlayer: (playerId) => this.activeAetherBridgesForPlayer(playerId),
+      seaLaneNeighborKeysByTileKey: this.state.dockLanding.seaLaneNeighborKeysByTileKey,
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       emitEvent: (event) => this.emitEvent(event),
@@ -3191,7 +3191,7 @@ export class SimulationRuntime {
   }
 
   private findOwnedDockOriginForCrossing(playerId: string, toX: number, toY: number): DockCrossingOrigin | undefined {
-    return resolveOwnedDockOriginForCrossingImpl(this.state, (id) => this.summaryForPlayer(id).territoryTileKeys, playerId, toX, toY);
+    return resolveOwnedDockOriginForCrossingImpl(this.state, playerId, toX, toY);
   }
 
   private findOwnedAetherBridgeOriginForCrossing(playerId: string, toX: number, toY: number): DomainTileState | undefined {
