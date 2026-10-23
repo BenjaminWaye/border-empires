@@ -5,7 +5,7 @@ import { createAtmosphere } from "../client-map-3d-atmosphere.js";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { UNEXPLORED_STORM_Y } from "../client-map-3d-unexplored-storm/client-map-3d-unexplored-storm.js";
 import { FOGGED_MIST_Y, createFoggedMistLayer, encodeFoggedMistMask } from "./client-map-3d-fogged-mist.js";
-import { FOGGED_MIST_FRAGMENT_SHADER } from "./client-map-3d-fogged-mist-shader.js";
+import { FOGGED_MIST_FRAGMENT_SHADER, FOGGED_MIST_SHADE_GLSL } from "./client-map-3d-fogged-mist-shader.js";
 import { FOGGED_EDGE_COVER_GLSL, applyFoggedEdgeClip } from "./client-map-3d-fogged-edge-clip.js";
 
 const vec = (layer: { material: { uniforms: Record<string, { value: unknown }> } }, name: string): number[] =>
@@ -82,13 +82,15 @@ describe("fogged mist layer (3D)", () => {
     expect(scene.children).not.toContain(atmosphere.foggedMist.mesh);
   });
 
-  it("cuts its edge like the storm's coast and discards uncovered pixels before the noise", () => {
+  it("cuts its edge like the storm's coast and skips the noise wherever it doesn't cover", () => {
     expect(FOGGED_EDGE_COVER_GLSL).toContain("stormExploredDistance(mask, maskMin, maskSize, sceneXZ)");
     expect(FOGGED_EDGE_COVER_GLSL).toContain("stormClearanceField(soft + stormEdgeNoise(worldXZ, time) * 0.1, clearance)");
+    const bailAt = FOGGED_MIST_SHADE_GLSL.indexOf("return vec4(0.0);");
+    expect(FOGGED_MIST_SHADE_GLSL.indexOf("foggedEdge(")).toBeLessThan(bailAt); // derivatives first
+    expect(FOGGED_MIST_SHADE_GLSL.indexOf("stormFbm(worldXZ * 0.22")).toBeGreaterThan(bailAt);
     const discardAt = FOGGED_MIST_FRAGMENT_SHADER.indexOf("discard");
     expect(FOGGED_MIST_FRAGMENT_SHADER.indexOf("discard", discardAt + 1)).toBe(-1);
-    expect(FOGGED_MIST_FRAGMENT_SHADER.indexOf("foggedEdge(")).toBeLessThan(discardAt); // derivatives first
-    expect(FOGGED_MIST_FRAGMENT_SHADER.indexOf("stormFbm(w * 0.22")).toBeGreaterThan(discardAt);
+    expect(FOGGED_MIST_FRAGMENT_SHADER.indexOf("foggedMistShade(")).toBeLessThan(discardAt);
   });
 
   it("fits an overlay to the edge: alpha for the wash, eased to white for the multiply owner tint", () => {
