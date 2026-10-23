@@ -7,7 +7,7 @@ import {
   pruneExpiredAutoSettlementQueueVisibleHolds
 } from "../client-development-queue/client-development-queue.js";
 import { createNextFrontierCommandIdentity } from "../client-frontier-command/client-frontier-command.js";
-import { dropStuckPendingMusterAttack, findClosestMuster, isDockCrossingBetween, isPendingAttackFundedFromOrigin } from "../client-muster-attack-gate/client-muster-attack-gate.js";
+import { findClosestMuster, holdUnfundedPendingMusterAttack, isDockCrossingBetween, isPendingAttackFundedFromOrigin } from "../client-muster-attack-gate/client-muster-attack-gate.js";
 import { dispatchMusterFundedAttack } from "./client-queue-muster-dispatch.js";
 import { requiredMusterWithCommit, noteWaypointStepEnqueued } from "../client-attack-commit/client-attack-commit.js";
 import { enqueueTarget } from "./client-queue-enqueue-target.js"; export { enqueueTarget };
@@ -33,6 +33,7 @@ import {
   attackPreviewBreakdownForTarget, commitPreviewWinChanceForTarget,
   attackPreviewIsStaleForTarget, attackPreviewPendingForTarget, captureCombatSnapshotForAttack
 } from "./client-attack-preview-logic.js";
+import { pendingMusterAttackStalled } from "../client-muster-pending-timeout/client-muster-pending-timeout.js";
 export {
   resetAttackPreviewState,
   requestAttackPreviewForHover,
@@ -777,16 +778,6 @@ const musterPromotionDebugLastLoggedAtByTarget = new Map<string, number>();
 const musterPromotionDebugLastSignatureByTarget = new Map<string, string>();
 const MUSTER_PROMOTION_DEBUG_LOG_INTERVAL_MS = 5_000;
 
-// Backstop so a parked attack can never sit in pendingMusterAttacks forever
-// with no feedback. dropStuckPendingMusterAttack (client-muster-attack-gate.ts)
-// only fires when a brand-new flag was just requested (entry.musterRequestedAt
-// set) — an entry parked against an already-existing flag has no such field,
-// so if that flag never becomes usable (cleared, captured away, amount/
-// required never converging, or any other reason) it previously had no
-// expiry at all. This hard cap is independent of *why* it's stuck — it
-// guarantees eventual feedback regardless of which sub-condition is failing.
-const MUSTER_PENDING_HARD_TIMEOUT_MS = 5 * 60 * 1000;
-
 // Check all pending muster attacks; promote those whose muster tile has reached
 // MUSTER_ATTACK_COST into the real action queue.
 export const processPendingMusterAttacks = (
@@ -823,21 +814,21 @@ export const processPendingMusterAttacks = (
     const required = requiredMusterWithCommit(state, target);
 
     // Hard backstop: no matter which sub-condition below is failing, an
-    // entry parked for this long has clearly stalled — drop it with visible
-    // feedback rather than leaving it silently stuck forever.
-    if (entry.queuedAt != null && Date.now() - entry.queuedAt > MUSTER_PENDING_HARD_TIMEOUT_MS) {
+    // entry whose flag has stopped filling for this long has clearly stalled —
+    // drop it with visible feedback rather than leaving it silently stuck forever.
+    if (pendingMusterAttackStalled(state, entry, musterTile?.muster?.ownerId === state.me ? musterTile.muster.amount : undefined)) {
       attackSyncLog("pending-muster-attack-hard-timeout", {
         targetKey,
         musterTileKey: entry.musterTileKey,
         queuedAt: entry.queuedAt,
-        elapsedMs: Date.now() - entry.queuedAt,
+        elapsedMs: entry.queuedAt != null ? Date.now() - entry.queuedAt : undefined, progressAt: entry.progressAt,
         musterTileAmount: musterTile?.muster?.amount,
         musterTileOwnerId: musterTile?.muster?.ownerId,
         required
       });
       state.queuedTargetKeys.delete(targetKey);
       deps.pushFeed(
-        `Attack on (${entry.targetX}, ${entry.targetY}) never staged enough manpower — cancelled after 5 minutes. Try again.`,
+        `Attack on (${entry.targetX}, ${entry.targetY}) stopped staging manpower — cancelled after 5 minutes without progress. Try again.`,
         "combat",
         "warn"
       );
@@ -867,7 +858,7 @@ export const processPendingMusterAttacks = (
     }
 
     if ((!closest || !closestIsAdjacentOrLinked) && !isPendingAttackFundedFromOrigin(state, entry, required, deps.isAdjacent)) {
-      if (!dropStuckPendingMusterAttack(state, entry, { pushFeed: deps.pushFeed, keyFor: deps.keyFor, sendGameMessage: deps.sendGameMessage })) remaining.push(entry);
+      if (!holdUnfundedPendingMusterAttack(state, entry, required, { pushFeed: deps.pushFeed, keyFor: deps.keyFor, sendGameMessage: deps.sendGameMessage })) remaining.push(entry);
       continue;
     }
 

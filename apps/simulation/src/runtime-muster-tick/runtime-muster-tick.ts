@@ -188,10 +188,11 @@ export const tickMusterAutoFire = (input: MusterTickInput): void => {
  * Each flag starts capped at musterFlagCap's default share of the player's
  * manpower cap (the larger of 10% and MUSTER_FLAG_BASE_CAP_FLOOR) so a single flag
  * can never lock up the whole pool by default — raising it takes a
- * deliberate, costed "Expand Capacity" press (UPGRADE_MUSTER_CAP command,
- * +another 10% share per press, tracked as capLevel on the tile), the same
- * way training more units costs more resources rather than units just
- * accumulating on their own.
+ * deliberate "Expand Capacity" press (UPGRADE_MUSTER_CAP command, +another
+ * 10% share per press, tracked as capLevel on the tile; free for now, see
+ * runtime-muster-cap-upgrade-command.ts), or committing more to the flag's
+ * march or attack than it can stage, which expands it just far enough
+ * (musterCapLevelToFit).
  *
  * Stale musters (set more than MUSTER_STALE_MS ago) are auto-cleared with a
  * full manpower refund so the pool doesn't stay permanently locked. So are AI

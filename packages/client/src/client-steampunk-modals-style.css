@@ -117,11 +117,3 @@
   color: var(--sp-brass-100);
   font-family: var(--sp-font-mono);
 }
-
-/* ---- Capture mustering state (deliberately keeps its blue/staging tint
-   distinct from the amber/verdigris/ember result states -- see the code
-   comment in client-capture-mustering-style.css -- but reads warmer here so
-   it doesn't clash with the brass panel frame around it). ---- */
-#capture-card[data-state="mustering"] {
-  border-color: rgba(127, 184, 164, 0.5);
-}

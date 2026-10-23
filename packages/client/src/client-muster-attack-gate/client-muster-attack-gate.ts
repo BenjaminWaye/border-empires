@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, musterFlagCap } from "@border-empires/shared";
 import { requiredMusterWithCommit } from "../client-attack-commit/client-attack-commit.js";
 import { MUSTER_FLAG_REQUEST_TIMEOUT_MS } from "../client-constants.js";
 import { chebyshevDistanceClient } from "../client-tile-action-support/client-tile-action-support.js";
@@ -295,4 +295,42 @@ export const dropStuckPendingMusterAttack = (
     "error"
   );
   return true;
+};
+
+type PendingMusterAttackEntry = ClientState["pendingMusterAttacks"][number];
+
+/**
+ * The launch slider lets a manual attack commit up to the whole manpower
+ * pool, but a flag only stages up to its own cap (musterFlagCap) -- so a
+ * commitment above that cap parked the attack on a flag that could never
+ * fill. Asks the server, once per commitment, to expand the waiting flag
+ * just enough to hold `required` (UPGRADE_MUSTER_CAP's fitManpower).
+ */
+export const fitPendingMusterFlagCapacity = (
+  state: Pick<ClientState, "tiles" | "me" | "manpowerCap">,
+  entry: PendingMusterAttackEntry,
+  required: number,
+  sendGameMessage: ((payload: unknown) => boolean) | undefined
+): void => {
+  if (entry.capFitRequestedFor === required) return;
+  const flagTile = state.tiles.get(entry.musterTileKey);
+  if (!flagTile?.muster || flagTile.muster.ownerId !== state.me) return;
+  if (musterFlagCap(state.manpowerCap, flagTile.muster.capLevel) >= required) return;
+  if (!sendGameMessage?.({ type: "UPGRADE_MUSTER_CAP", x: flagTile.x, y: flagTile.y, fitManpower: required })) return;
+  entry.capFitRequestedFor = required;
+};
+
+/**
+ * One parked attack that isn't funded yet: make sure its flag can hold the
+ * commitment, then apply dropStuckPendingMusterAttack's give-up rules.
+ * Returns true when the entry should be dropped.
+ */
+export const holdUnfundedPendingMusterAttack = (
+  state: Pick<ClientState, "tiles" | "me" | "manpowerCap" | "musterTransitByTile" | "dockPairs" | "musterFlagLimit">,
+  entry: PendingMusterAttackEntry,
+  required: number,
+  deps: Parameters<typeof dropStuckPendingMusterAttack>[2]
+): boolean => {
+  fitPendingMusterFlagCapacity(state, entry, required, deps.sendGameMessage);
+  return dropStuckPendingMusterAttack(state, entry, deps);
 };
