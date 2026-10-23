@@ -1,6 +1,7 @@
-import { ACESFilmicToneMapping, PMREMGenerator, Vector3, type Camera } from "three";
+import { ACESFilmicToneMapping, PMREMGenerator } from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import { createGrassGround, createStage, wrapWithCleanup } from "../../three-stage.js";
+import { attachSceneLabels } from "../../fixtures/scene-labels.js";
+import { createGrassGround, createStage, wrapWithCleanup } from "../../fixtures/three-stage.js";
 import type { HistoricTownTier, TownEra } from "./town-eras.js";
 
 export type TownPlacement = {
@@ -68,36 +69,8 @@ export const renderTownProgressionScene = (opts: TownProgressionSceneOptions): H
   // below is still torn down with the stage.
   const container = wrapWithCleanup(stage, cleanups);
   const labelled = opts.placements.filter((p) => p.label !== undefined);
-  if (labelled.length > 0) cleanups.push(attachLabels(container, stage.canvas, stage.camera, labelled));
+  if (labelled.length > 0) {
+    cleanups.push(attachSceneLabels(container, stage, labelled.map((p) => ({ text: p.label ?? "", x: p.x, z: p.z + 0.55 }))));
+  }
   return container;
-};
-
-// DOM captions pinned under each town by projecting its position every frame.
-const attachLabels = (
-  container: HTMLElement,
-  canvas: HTMLCanvasElement,
-  camera: Camera,
-  placements: readonly TownPlacement[]
-): (() => void) => {
-  const projected = new Vector3();
-  const labels = placements.map((p) => {
-    const el = document.createElement("div");
-    el.textContent = p.label ?? "";
-    el.style.cssText =
-      "position:absolute;transform:translate(-50%,0);pointer-events:none;white-space:pre;text-align:center;" +
-      "font:11px/1.3 system-ui,sans-serif;color:#e8ecf4;text-shadow:0 1px 2px #000;";
-    container.appendChild(el);
-    return { el, p };
-  });
-  let rafId = 0;
-  const place = (): void => {
-    for (const { el, p } of labels) {
-      projected.set(p.x, 0, p.z + 0.55).project(camera);
-      el.style.left = `${((projected.x + 1) / 2) * canvas.clientWidth}px`;
-      el.style.top = `${((1 - projected.y) / 2) * canvas.clientHeight}px`;
-    }
-    rafId = requestAnimationFrame(place);
-  };
-  place();
-  return () => cancelAnimationFrame(rafId);
 };

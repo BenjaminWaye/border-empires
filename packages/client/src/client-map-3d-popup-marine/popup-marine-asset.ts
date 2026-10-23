@@ -36,7 +36,7 @@ import type { Object3D } from "three";
 // contents unprocessed at the site root), matching how every other static
 // game asset in this package — /overlays/*.svg, /audio/*.m4a — is referenced
 // by plain string path rather than imported as a module.
-const ACTIVE_POPUP_MARINE_MODEL_URL = "/models/popup-marine-titan-24bone.glb";
+export const ACTIVE_POPUP_MARINE_MODEL_URL = "/models/popup-marine-titan-24bone.glb";
 
 // Kept only as documented, easy revert targets: models this file used before
 // the animated Titan rig became the default. Not currently loaded by
