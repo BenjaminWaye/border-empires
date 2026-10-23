@@ -58,24 +58,34 @@ export const flagCommitForTarget = (
 };
 
 /**
+ * Highest effort an ADVANCE flag can carry, as a multiple of each target's
+ * floor -- the Double preset. An ADVANCE flag's commitment is a ratio over
+ * MUSTER_ATTACK_COST, so anything above this (e.g. an old absolute value)
+ * is clamped rather than turned into an ever-larger hoard per attack.
+ */
+export const ADVANCE_MAX_EFFORT_MULTIPLIER = 2;
+
+/**
  * The commitment an ADVANCE flag's auto-attack carries into `tile`, whose
  * own floor is `required`. An ADVANCE flag has no fixed target, so its
  * effort (Set Advance's Normal / Extra / Double sheet) is chosen against
  * the generic MUSTER_ATTACK_COST floor and kept as a ratio for every target
  * it picks -- otherwise "Double" (120) against a 150-manpower Palisade would
- * clamp back up to the floor and buy nothing. Capped at `flagCap` (but never
- * below `required`) so a high effort can't leave the flag saving up forever
- * for more manpower than it can ever hold.
+ * clamp back up to the floor and buy nothing. The ratio is capped at
+ * ADVANCE_MAX_EFFORT_MULTIPLIER, and the amount at `maxCommit` (the player's
+ * manpower cap: the flag grows to fit, see musterCapLevelToFit) but never
+ * below `required`.
  */
 export const advanceFlagCommitForTarget = (
   tile: { ownershipState?: string | undefined; captureHoldUntil?: number | undefined } | undefined,
   flagCommit: number | undefined,
   required: number,
-  flagCap: number,
+  maxCommit: number,
   nowMs: number
 ): number | undefined => {
-  if (tile?.ownershipState !== "SETTLED") return flagCommitForTarget(tile, flagCommit, nowMs);
-  if (!flagCommit) return undefined;
-  const scaled = Math.round((flagCommit * required) / MUSTER_ATTACK_COST);
-  return Math.max(required, Math.min(scaled, flagCap));
+  const commit = flagCommit ? Math.min(flagCommit, MUSTER_ATTACK_COST * ADVANCE_MAX_EFFORT_MULTIPLIER) : undefined;
+  if (tile?.ownershipState !== "SETTLED") return flagCommitForTarget(tile, commit, nowMs);
+  if (!commit) return undefined;
+  const scaled = Math.round((commit * required) / MUSTER_ATTACK_COST);
+  return Math.max(required, Math.min(scaled, maxCommit));
 };

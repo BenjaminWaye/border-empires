@@ -98,26 +98,26 @@ describe("describeMarchWinChance", () => {
   const percentIn = (text: string): number => Number(/Win chance (\d+)%/.exec(text)?.[1]);
 
   it("reports the target's win chance and the manpower committed", () => {
-    const state = stateWith([["0,0", { ownerId: "me", terrain: "LAND" } as Tile], ["2,0", settledEnemy(2, 0)]]);
-    const text = describeMarchWinChance(state, { x: 0, y: 0 }, { x: 2, y: 0 }, keyFor, { committedManpower: 60, baseMusterCost: 60 });
-    expect(text).toMatch(/^Win chance \d+%/);
-    expect(text).toContain("commits 60 manpower per attack");
+    const state = stateWith([["2,0", settledEnemy(2, 0)]]);
+    const text = describeMarchWinChance(state, { x: 2, y: 0 }, keyFor, { committedManpower: 60, baseMusterCost: 60 });
+    expect(text).toMatch(/^Win chance \d+% at \(2, 0\)/);
+    expect(text).toContain("commits 60 manpower");
   });
 
   it("rises as the slider commits more manpower", () => {
     const state = stateWith([["2,0", settledEnemy(2, 0)]]);
     const at = (committedManpower: number) =>
-      percentIn(describeMarchWinChance(state, { x: 0, y: 0 }, { x: 2, y: 0 }, keyFor, { committedManpower, baseMusterCost: 60 }));
+      percentIn(describeMarchWinChance(state, { x: 2, y: 0 }, keyFor, { committedManpower, baseMusterCost: 60 }));
     expect(at(120)).toBeGreaterThan(at(60));
   });
 
-  it("says so when the route crosses no enemy tiles", () => {
-    const state = stateWith([["2,0", { terrain: "LAND" } as Tile]]);
-    expect(describeMarchWinChance(state, { x: 0, y: 0 }, { x: 2, y: 0 }, keyFor, { committedManpower: 60, baseMusterCost: 60 })).toContain("No enemy tiles on this route yet");
+  it("says extra manpower does nothing against plain frontier ground", () => {
+    const state = stateWith([["2,0", { x: 2, y: 0, ownerId: "enemy-1", terrain: "LAND", ownershipState: "FRONTIER" } as Tile]]);
+    expect(describeMarchWinChance(state, { x: 2, y: 0 }, keyFor, { committedManpower: 120, baseMusterCost: 60 })).toContain("extra manpower doesn't change the odds here");
   });
 
-  it("falls back to the weakest odds on the route when the target itself isn't enemy-held", () => {
-    const state = stateWith([["1,0", settledEnemy(1, 0)], ["2,0", { terrain: "LAND" } as Tile]]);
-    expect(describeMarchWinChance(state, { x: 0, y: 0 }, { x: 2, y: 0 }, keyFor, { committedManpower: 60, baseMusterCost: 60 })).toMatch(/^Lowest win chance on route \d+%/);
+  it("points at the arrow's labels when the target itself isn't enemy-held", () => {
+    const state = stateWith([["2,0", { terrain: "LAND" } as Tile]]);
+    expect(describeMarchWinChance(state, { x: 2, y: 0 }, keyFor, { committedManpower: 60, baseMusterCost: 60 })).toContain("isn't enemy-held");
   });
 });

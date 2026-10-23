@@ -71,7 +71,7 @@ export const showArrowGestureConfirmSheet = (
     floor,
     cap: Math.max(floor, state.manpowerCap),
     mode: "slider",
-    describe: (commitManpower) => describeMarchWinChance(state, origin, target, keyFor, { committedManpower: commitManpower, baseMusterCost: floor }),
+    describe: (commitManpower) => describeMarchWinChance(state, target, keyFor, { committedManpower: commitManpower, baseMusterCost: floor }),
     onChange: (commitManpower) =>
       triggerWinChancePaintOnMarchArm(state, origin.x, origin.y, target.x, target.y, "visible", keyFor, performance.now(), {
         committedManpower: commitManpower,

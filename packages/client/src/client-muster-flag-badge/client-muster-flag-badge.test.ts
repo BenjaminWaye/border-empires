@@ -70,6 +70,15 @@ describe("musterBadgeLookup", () => {
     expect(badgeAt(stateWithFlag({ amount: 60, commitManpower: 240 }))?.kind).toBe("capacity");
   });
 
+  // Regression: an ADVANCE flag's commitment is an effort ratio the server
+  // scales per target, so reading it as an amount made a Normal flag (60)
+  // show 100% while it was still saving up for a 150 Palisade.
+  it("shows an ADVANCE flag's capacity, not its effort ratio, as an attack target", () => {
+    const cap = musterFlagCap(1_000, undefined);
+    const badge = badgeAt(stateWithFlag({ amount: 60, mode: "ADVANCE", commitManpower: 60 }));
+    expect(badge).toMatchObject({ kind: "capacity", staged: 60, required: cap });
+  });
+
   it("a parked manual attack on the flag wins, using the player's chosen commitment", () => {
     const state = stateWithFlag({ amount: 60, mode: "MARCH", targetX: 10, targetY: 20, commitManpower: 500 });
     state.attackCommitByTargetKey.set("10,20", { commitManpower: 120, setAt: Date.now() });

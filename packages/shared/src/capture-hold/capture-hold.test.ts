@@ -38,19 +38,25 @@ describe("capture hold", () => {
     expect(flagCommitForTarget(held, undefined, NOW)).toBeUndefined();
   });
 
-  it("scales an ADVANCE flag's effort to each target's own floor, capped at the flag cap", () => {
+  it("scales an ADVANCE flag's effort to each target's own floor", () => {
     const settled = { ownershipState: "SETTLED" };
     // Double (120 against the generic 60 floor) is 2x whatever the target needs.
     expect(advanceFlagCommitForTarget(settled, 120, 60, 1_000, NOW)).toBe(120);
     expect(advanceFlagCommitForTarget(settled, 120, 150, 1_000, NOW)).toBe(300);
     expect(advanceFlagCommitForTarget(settled, 90, 150, 1_000, NOW)).toBe(225);
-    // Never more than the flag can hold, never below the target's floor.
-    expect(advanceFlagCommitForTarget(settled, 120, 150, 200, NOW)).toBe(200);
-    expect(advanceFlagCommitForTarget(settled, 120, 300, 200, NOW)).toBe(300);
     expect(advanceFlagCommitForTarget(settled, undefined, 150, 1_000, NOW)).toBeUndefined();
     // Non-SETTLED targets keep flagCommitForTarget's rules.
     expect(advanceFlagCommitForTarget({ ownershipState: "FRONTIER", captureHoldUntil: NOW + 1 }, 120, 15, 1_000, NOW)).toBe(30);
     expect(advanceFlagCommitForTarget({ ownershipState: "FRONTIER" }, 120, 15, 1_000, NOW)).toBeUndefined();
+  });
+
+  it("caps an ADVANCE flag's effort at Double and at the manpower cap, never below the floor", () => {
+    const settled = { ownershipState: "SETTLED" };
+    // An oversized (e.g. old absolute) commitment is read as at most 2x.
+    expect(advanceFlagCommitForTarget(settled, 1_500, 150, 10_000, NOW)).toBe(300);
+    expect(advanceFlagCommitForTarget({ ownershipState: "FRONTIER", captureHoldUntil: NOW + 1 }, 1_500, 15, 10_000, NOW)).toBe(30);
+    expect(advanceFlagCommitForTarget(settled, 120, 150, 200, NOW)).toBe(200);
+    expect(advanceFlagCommitForTarget(settled, 120, 300, 200, NOW)).toBe(300);
   });
 
   // Regression: a freshly captured dock landed as FRONTIER with zero defense,

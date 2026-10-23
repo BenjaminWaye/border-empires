@@ -245,7 +245,9 @@ export const renderTileActionMenu = (
         if (oddsEl && baseOddsPercent != null && floor > 0) {
           const pct = Math.max(0, Math.min(100, Math.round(applyOddsScale(baseOddsPercent / 100, commitOddsMultiplier(value, floor)) * 100)));
           oddsEl.textContent = `${pct}% win chance`;
-        } else if (oddsEl && commitSlider.hasAttribute("data-muster-commit-advance") && floor > 0) oddsEl.textContent = advanceCommitOddsText(value, floor);
+        } else if (oddsEl && commitSlider.hasAttribute("data-muster-commit-advance") && floor > 0) {
+          oddsEl.textContent = advanceCommitOddsText(value, floor);
+        }
       };
       commitSlider.oninput = updateCommitPreview;
       deps.tileActionMenuEl.querySelectorAll<HTMLButtonElement>("button[data-muster-commit-preset]").forEach((btn) => {

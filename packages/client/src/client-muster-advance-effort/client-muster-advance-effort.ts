@@ -21,7 +21,7 @@ export const describeAdvanceEffort = (preset: MusterCommitPreset | undefined): s
   const amount = musterCommitPresetAmount(key, MUSTER_ATTACK_COST);
   if (key === "normal") return `Each auto-attack commits just its target's floor (${amount} manpower on an unfortified tile).`;
   const odds = commitOddsMultiplier(amount, MUSTER_ATTACK_COST);
-  return `Each auto-attack commits ${MUSTER_COMMIT_PRESET_MULTIPLIERS[key]}× its target's floor (${amount} manpower on an unfortified tile) · ×${odds} odds against defended tiles. The flag saves up for the full amount before attacking.`;
+  return `Each auto-attack commits ${MUSTER_COMMIT_PRESET_MULTIPLIERS[key]}× its target's floor (${amount} manpower on an unfortified tile) · ×${odds} odds against defended tiles. The flag saves up the full amount, growing to hold it, before attacking.`;
 };
 
 /**

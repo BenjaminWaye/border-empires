@@ -84,12 +84,14 @@ export const musterBadgeForFlag = (
  * undefined. Auto-fire only spends it on commit-eligible targets
  * (flagCommitForTarget: not Planetary Defense, not undefended frontier) and
  * otherwise fires at the floor, so a MARCH on such a target isn't "gathering
- * for" the commitment at all. ADVANCE picks its targets as it goes, so its
- * chosen commitment is the best available answer.
+ * for" the commitment at all. An ADVANCE flag's commitment is an effort
+ * ratio over MUSTER_ATTACK_COST that the server scales to whichever target
+ * it picks (advanceFlagCommitForTarget), not an amount it gathers toward, so
+ * ADVANCE shows the capacity ring like HOLD.
  */
 const flagCommitment = (state: Pick<MusterBadgeState, "tiles">, muster: NonNullable<Tile["muster"]>): number | undefined => {
-  if (muster.mode === "HOLD" || !muster.commitManpower) return undefined;
-  if (muster.mode !== "MARCH" || muster.targetX === undefined || muster.targetY === undefined) return muster.commitManpower;
+  if (muster.mode !== "MARCH" || !muster.commitManpower) return undefined;
+  if (muster.targetX === undefined || muster.targetY === undefined) return muster.commitManpower;
   return flagCommitForTarget(state.tiles.get(`${muster.targetX},${muster.targetY}`), muster.commitManpower, Date.now());
 };
 

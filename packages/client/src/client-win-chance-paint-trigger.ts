@@ -1,4 +1,4 @@
-import { findKnownShieldAmount, winChanceForTile, type FrontierCombatPreviewTile } from "@border-empires/shared";
+import { findKnownShieldAmount, isCommitOddsEligibleTarget, winChanceForTile, type FrontierCombatPreviewTile } from "@border-empires/shared";
 import { collectKnownShieldFlags } from "./client-known-shield-flags.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile } from "./client-types.js";
@@ -57,17 +57,6 @@ export const tilesAlongLine = (x0: number, y0: number, x1: number, y1: number): 
 };
 
 /**
- * Computes and stashes state.winChancePaint: a "XX%" label for every
- * enemy-owned tile the origin->target line crosses (the player's own origin
- * tile is never labeled). No-op when vis is "unexplored" (nothing known to
- * label) or origin===target.
- *
- * `commit`, when passed, scores every label against that chosen
- * commitManpower over the target tile's own base muster cost (the confirm
- * sheet's slider-live recompute) instead of each tile's own "just enough"
- * default (commit === base, i.e. no boost/penalty) used when omitted.
- */
-/**
  * Client-side win-chance estimate for one enemy tile (the same math as the
  * march arrow's labels) -- the fallback when no server ATTACK_PREVIEW for it
  * is cached yet.
@@ -125,9 +114,8 @@ export const winChanceEntriesAlongLine = (
 /**
  * Computes and stashes state.winChancePaint: a "XX%" label for every
  * enemy-owned tile the origin->target line crosses (the player's own origin
- * tile is never labeled). No-op when targeting was cancelled (vis is
- * "unexplored") or origin===target, same cancel rule
- * handleMusterMarchTargetClick applies.
+ * tile is never labeled). No-op when vis is "unexplored" (nothing known to
+ * label) or origin===target.
  *
  * `commit`, when passed, scores every label against that chosen
  * commitManpower over the target tile's own base muster cost (the confirm
@@ -150,26 +138,23 @@ export const triggerWinChancePaintOnMarchArm = (
   state.winChancePaint = { targetX, targetY, expiresAt: nowMs + WIN_CHANCE_PAINT_DURATION_MS, entries };
 };
 
-const pct = (winChance: number): string => `${Math.round(winChance * 100)}%`;
-
 /**
- * The March To sheet's live info line: the win chance at the march target
- * at the chosen commitment, plus the weakest odds on the way there when an
- * enemy tile en route is harder than the target itself.
+ * The March To sheet's live info line: the win chance at the march target at
+ * the chosen commitment. Only the target is scored -- the route the march
+ * actually walks isn't known here, and tiles on the way get the flag's
+ * commitment scaled to their own floors, so the arrow's labels cover those.
  */
 export const describeMarchWinChance = (
   state: Pick<ClientState, "tiles" | "me">,
-  origin: { x: number; y: number },
   target: { x: number; y: number },
   keyFor: (x: number, y: number) => string,
   commit: { committedManpower: number; baseMusterCost: number }
 ): string => {
-  const entries = winChanceEntriesAlongLine(state, origin.x, origin.y, target.x, target.y, keyFor, commit);
-  const cost = `commits ${commit.committedManpower} manpower per attack`;
-  if (entries.length === 0) return `No enemy tiles on this route yet · ${cost}`;
-  const atTarget = entries.find((e) => e.x === target.x && e.y === target.y);
-  const weakest = entries.reduce((low, e) => (e.winChance < low.winChance ? e : low));
-  if (!atTarget) return `Lowest win chance on route ${pct(weakest.winChance)} · ${cost}`;
-  const route = weakest.winChance < atTarget.winChance ? ` · lowest on route ${pct(weakest.winChance)}` : "";
-  return `Win chance ${pct(atTarget.winChance)}${route} · ${cost}`;
+  const tile = state.tiles.get(keyFor(target.x, target.y));
+  if (!tile?.ownerId || tile.ownerId === state.me) return "The target isn't enemy-held — win chances show on enemy tiles along the arrow";
+  const winChance = Math.round(estimateTileWinChance(state, tile, commit) * 100);
+  const effort = isCommitOddsEligibleTarget(tile, Date.now())
+    ? `commits ${commit.committedManpower} manpower`
+    : "extra manpower doesn't change the odds here";
+  return `Win chance ${winChance}% at (${target.x}, ${target.y}) · ${effort}`;
 };

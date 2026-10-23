@@ -148,6 +148,16 @@ describe("buildMusterCommitView", () => {
     expect(double?.winChancePercent).toBeGreaterThan(normal!.winChancePercent!);
   });
 
+  // Regression: an ADVANCE flag's slider ran up to the whole manpower cap,
+  // though the server reads the value as an effort ratio capped at Double.
+  it("caps an ADVANCE flag's slider at Double the generic floor", () => {
+    const state = createInitialState();
+    state.manpowerCap = 5_000;
+    const view = buildMusterCommitView(makeTile({ x: 5, y: 5, muster: { ownerId: "me", amount: 100, mode: "ADVANCE", updatedAt: 0, commitManpower: 1_500 } }), state, deps);
+    expect(view?.cap).toBe(120);
+    expect(view?.commitManpower).toBe(120);
+  });
+
   it("describes an ADVANCE flag's commitment as an odds ratio on each auto-attack", () => {
     expect(advanceCommitOddsText(60, 60)).toContain("×1 odds");
     expect(advanceCommitOddsText(90, 60)).toContain("×1.5 odds");
