@@ -1,4 +1,5 @@
 import { MUSTER_ADVANCE_RANGE_STEPS, MUSTER_MARCH_MAX_DISTANCE_TILES, musterFlagCap } from "@border-empires/shared";
+import { clearAttackCommit } from "./client-attack-commit/client-attack-commit.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile, TileActionDef } from "./client-types.js";
 import { isMusterUnlocked } from "./client-muster-unlock/client-muster-unlock-storage.js";
@@ -198,6 +199,9 @@ export const dispatchMusterTileAction = (actionId: string, tile: Tile, deps: Mus
   if (actionId === "muster_cancel_queued_attack") {
     const flagKey = `${x},${y}`;
     const before = deps.state.pendingMusterAttacks.length;
+    // Drop each cancelled target's recorded effort too, or a later attack on
+    // the same tile would silently re-send it (attackWireMessage).
+    for (const entry of deps.state.pendingMusterAttacks) if (entry.musterTileKey === flagKey) clearAttackCommit(deps.state, entry.targetX, entry.targetY);
     deps.state.pendingMusterAttacks = deps.state.pendingMusterAttacks.filter((entry) => entry.musterTileKey !== flagKey);
     // processPendingMusterAttacks only unwatches when it empties the list
     // itself, and it doesn't run at all once the list is empty.

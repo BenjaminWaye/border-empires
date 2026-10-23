@@ -95,4 +95,23 @@ describe("3d muster banner overlay", () => {
     expect(ring.count).toBe(0);
     overlay.dispose();
   });
+
+  it("floats a progress badge over flags the badge lookup knows, and none over the rest", () => {
+    const scene = new Scene();
+    const overlay = createMusterOverlay(scene, undefined, () => (key) =>
+      key === "1,2" ? { ratio: 0.4, kind: "attack", staged: 40, required: 100 } : undefined
+    );
+    overlay.addMuster(1, 2, 0.3, 0.5, "#ff0000", false, 1, 2);
+    overlay.addMuster(4, 5, 0.1, 0.5, "#00ff00", false, 4, 5);
+    overlay.commit();
+    overlay.tick(0);
+
+    const badges = scene.children.filter((c) => c.name === "muster-progress-badge" && c.visible);
+    expect(badges).toHaveLength(1);
+    expect(badges[0]!.position.x).toBe(1);
+    expect(badges[0]!.position.z).toBe(2);
+    expect(badges[0]!.position.y).toBeGreaterThan(0.3 + 1);
+    overlay.dispose();
+  });
 });
+
