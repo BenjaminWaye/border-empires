@@ -370,11 +370,15 @@ Crystal is usable aether (§3), and Shards are fragments of the shattered
 Engine. These meanings do not prescribe stockpiles, resource-slot costs or
 per-cast consumption: those details follow the current gameplay reference.
 
-A House's war industry shows on its soldiers. Once a House runs a Titanium
-Weapons Factory, its troops go into battle in titanium plate, heavier and
-brighter than the standard kit, because titanium is first and foremost an
-armour material. The look only reflects the industry; the combat effect is
-whatever the current gameplay reference gives the factory.
+A House's war industry shows on its battlefields. Once a House runs a
+Titanium Weapons Factory, it fields **titanium war-walkers** in place of
+foot soldiers: squat, sealed drum hulls of bright polished titanium on
+piston legs, each crewed from inside the hull, armed with a crystal-fed
+laser gatling and a buzz-saw claw for close work. Titanium is first and
+foremost an armour material, and a hull sealed against the Bleed lets the
+crew fight where unshielded infantry could not. The look only reflects the
+industry; the combat effect is whatever the current gameplay reference
+gives the factory.
 
 ## 12. Manifests and AFC modules
 
