@@ -12,6 +12,7 @@
 // this module only stages the reveal. The whole fight happens on the target
 // tile (the tile under attack), clamped to TILE_LOCAL_MAX same as before.
 import type { GarrisonFacing, GarrisonStart } from "./popup-marine-garrison.js";
+import type { SquadArmorFields } from "./popup-marine-armor.js";
 
 export const LINEUP_MS = 2500; // "cover" — squad rushes to position, staggered pop-in
 export const MARCH_MS = 900; // "advance" — squad closes from tile edge to the firing line
@@ -75,7 +76,7 @@ export type BattleOverlayRenderEntry = {
   siegeBoosted?: boolean;
   // Target tile is capture-held: its garrison defends (popup-marine-garrison.ts).
   defenderGarrison?: GarrisonFacing;
-};
+} & SquadArmorFields;
 
 // A siege still counting down — outcome unknown. Plays the same cover-
 // >advance approach as a resolved battle, then indefinite firefight-
@@ -103,7 +104,7 @@ export type BattleOverlaySkirmishEntry = {
   siegeBoosted?: boolean;
   // See BattleOverlayRenderEntry.defenderGarrison.
   defenderGarrison?: GarrisonFacing;
-};
+} & SquadArmorFields;
 
 export type MarineKit = {
   offset: number; // lineup pop-in stagger, [0, 0.22)

@@ -10,6 +10,7 @@ import {
   arsenalMultiplierForFactoryCount,
   type BuildableStructureType
 } from "@border-empires/shared";
+import type { BattleWarGear } from "@border-empires/sim-protocol";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { countSupportedStructures } from "./economy-network/economy-network.js";
@@ -86,6 +87,12 @@ export const hasTitaniumFactory = (ctx: WeaponsFactoryMultContext, ownerId: stri
   ctx.ownedStructureCountForPlayer(ownerId, "TITANIUM_WEAPONS_FACTORY") > 0;
 export const hasUmbriteFactory = (ctx: WeaponsFactoryMultContext, ownerId: string): boolean =>
   ctx.ownedStructureCountForPlayer(ownerId, "UMBRITE_WEAPONS_FACTORY") > 0;
+// Cosmetic battle kit for one side's squad (CombatBroadcastPayload's
+// attackerGear/defenderGear): titanium armour once the empire owns any
+// Titanium Weapons Factory -- the same existence check the "unarmed"
+// vulnerability below uses, so the look and the combat label never disagree.
+export const battleWarGearFor = (ctx: WeaponsFactoryMultContext, ownerId: string | undefined): BattleWarGear | undefined =>
+  ownerId && hasTitaniumFactory(ctx, ownerId) ? { titaniumArmor: true } : undefined;
 const hasWarIndustry = (ctx: WeaponsFactoryMultContext, ownerId: string): boolean =>
   hasTitaniumFactory(ctx, ownerId) && hasUmbriteFactory(ctx, ownerId);
 export const noWarIndustryVulnerabilityMultForDefender = (ctx: WeaponsFactoryMultContext, defenderOwnerId: string | undefined): number =>

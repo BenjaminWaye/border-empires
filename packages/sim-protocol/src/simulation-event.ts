@@ -18,6 +18,14 @@ import type { TileOverlayJsonFields } from "./tile-overlay-fields/tile-overlay-f
 // the fight went worse than their own commit-tab preview suggested, instead
 // of an unexplained bad roll — see docs/replenishment-update-plan.md
 // workstream E's "reactive shield reveal" note.
+//
+// `attackerGear`/`defenderGear` are the cosmetic war-industry kit each side's
+// battle squad wears (e.g. titanium armour for an empire owning a Titanium
+// Weapons Factory). Omitted when a side has none. Factory ownership is not a
+// secret -- the attack preview already names a side "missing Titanium
+// Weapons Factory" -- so this reveals nothing the combat UI doesn't already.
+export type BattleWarGear = { titaniumArmor?: true };
+
 export type CombatBroadcastPayload = {
   attackerOwnerId: string;
   defenderOwnerId: string;
@@ -26,6 +34,8 @@ export type CombatBroadcastPayload = {
   originY: number;
   at: number;
   shield?: { x: number; y: number };
+  attackerGear?: BattleWarGear;
+  defenderGear?: BattleWarGear;
 };
 
 // Extracted from index.ts (which is already over the file-line cap and may

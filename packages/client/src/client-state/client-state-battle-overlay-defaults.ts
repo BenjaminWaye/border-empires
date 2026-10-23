@@ -16,5 +16,10 @@ export const createInitialBattleOverlayState = () => ({
   // inherits this timestamp for positioning; see registerActiveBattleFromTileDelta's
   // own comment for why (it always starts already standing at the firing
   // line instead).
-  skirmishSeenAt: new Map<string, number>()
+  skirmishSeenAt: new Map<string, number>(),
+  // Owner ids whose battle squads were last seen wearing titanium armour (a
+  // combat broadcast's attackerGear/defenderGear), so a later pre-resolution
+  // skirmish involving them already shows it. Updated by every broadcast
+  // either way and capped -- see rememberSquadArmor in client-battle-overlay.ts.
+  titaniumArmorOwners: new Set<string>()
 });

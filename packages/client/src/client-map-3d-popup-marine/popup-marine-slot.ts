@@ -7,6 +7,7 @@ import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js
 import { MARINE_CLIP_NAMES, firstSkinnedMesh, type PopupMarineTemplate } from "./popup-marine-asset.js";
 import { attachOcclusionSilhouette, MARINE_RENDER_ORDER, type MarineSilhouette } from "./popup-marine-occlusion-silhouette.js";
 import { MARINES_PER_SIDE, type MarineStance } from "./popup-marine-timeline.js";
+import type { MarineArmor } from "./popup-marine-armor.js";
 
 // Rig bone the muzzle flash is pinned to (the Mixamo humanoid's pistol hand).
 const HAND_BONE_NAME = "RightHand";
@@ -26,7 +27,15 @@ export type MarineSlot = {
   phase: number;
 };
 
-const buildMaterial = (): MeshStandardMaterial =>
+// Titanium armour reads as bare polished plate rather than painted kit: more
+// metallic and a little glossier, on top of its own heavier sculpt. The team
+// tint still drives the colour, so sides stay readable.
+const FINISH_BY_ARMOR: Record<MarineArmor, { roughness: number; metalness: number }> = {
+  standard: { roughness: 0.4, metalness: 0.4 },
+  titanium: { roughness: 0.28, metalness: 0.75 }
+};
+
+const buildMaterial = (armor: MarineArmor): MeshStandardMaterial =>
   // vertexColors:true multiplies the per-region greyscale painted by
   // bake-popup-marine-titan-model.py's paint pass (bright armor plates on
   // shoulders/chest, mid-tone torso and upper limbs, dark under-suit on
@@ -39,11 +48,11 @@ const buildMaterial = (): MeshStandardMaterial =>
   // literally "how much team color does this part show", so the squad stays
   // readable as blue-vs-red at gameplay zoom instead of the kit's own colors
   // competing with the side tint.
-  new MeshStandardMaterial({ color: "#ffffff", vertexColors: true, roughness: 0.4, metalness: 0.4 });
+  new MeshStandardMaterial({ color: "#ffffff", vertexColors: true, ...FINISH_BY_ARMOR[armor] });
 
-export const createMarineSlot = (scene: Scene, template: PopupMarineTemplate, index: number): MarineSlot => {
+export const createMarineSlot = (scene: Scene, template: PopupMarineTemplate, index: number, armor: MarineArmor = "standard"): MarineSlot => {
   const root = cloneSkinned(template.root) as Object3D;
-  const material = buildMaterial();
+  const material = buildMaterial(armor);
   const mesh = firstSkinnedMesh(root);
   mesh.material = material;
   mesh.frustumCulled = false;

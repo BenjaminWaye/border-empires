@@ -8,7 +8,7 @@
 // The animation never decides anything — attackerWon is already known before
 // the first frame renders; this module only stages the reveal.
 //
-// Rendering approach: a pool of up to MAX_MARINES cloned model roots per
+// Rendering approach: a pool of up to MAX_MARINES cloned model roots per armour kit per
 // side, each with its own AnimationMixer playing the model's REAL captured
 // clips (PistolRun / PistolIdle / PistolKneelingIdle — see
 // popup-marine-asset.ts). The timeline decides WHICH clip via
@@ -39,8 +39,9 @@
 // description for why that's a documented scope decision, not a
 // regression.
 import { Matrix4, Quaternion, Scene, Vector3 } from "three";
-import { loadPopupMarineTemplate } from "./popup-marine-asset.js";
-import { createMarineSlot, disposeMarineSlot, playMarineStance, type MarineSlot } from "./popup-marine-slot.js";
+import { playMarineStance, type MarineSlot } from "./popup-marine-slot.js";
+import { createMarinePools } from "./popup-marine-pools.js";
+import type { MarineArmor } from "./popup-marine-armor.js";
 import {
   APPROACH_MS,
   MARINES_PER_SIDE,
@@ -116,25 +117,9 @@ export function createPopupMarineOverlayFx(scene: Scene) {
   // Siege-tower "kill shot" attribution/dedup — see popup-marine-siege-victim.ts.
   const siegeKillTracker = createSiegeKillTracker(strikeFx);
 
-  let disposed = false;
-
-
-  let attackerPool: MarineSlot[] = [];
-  let defenderPool: MarineSlot[] = [];
-
-
-  loadPopupMarineTemplate()
-    .then((template) => {
-      if (disposed) return;
-      attackerPool = Array.from({ length: MAX_MARINES }, (_, i) => createMarineSlot(scene, template, i));
-      defenderPool = Array.from({ length: MAX_MARINES }, (_, i) => createMarineSlot(scene, template, i));
-    })
-    .catch((err: unknown) => {
-      // Nothing renders rather than crashing the whole 3D map: the overlay's
-      // pools simply stay empty, so a battle shows its tile highlight with no
-      // marines instead of taking down the renderer.
-      console.error("popup-marine model failed to load; battle marines will not render", err);
-    });
+  // Per-side, per-armour slot pools (popup-marine-pools.ts) -- standard
+  // model loaded up front, titanium only once an armoured squad shows up.
+  const pools = createMarinePools(scene, MAX_MARINES);
 
   const tmpQuat = new Quaternion();
   const fallQuat = new Quaternion();
@@ -144,8 +129,7 @@ export function createPopupMarineOverlayFx(scene: Scene) {
   const flashScale = new Vector3();
 
   const clear = (): void => {
-    for (const slot of attackerPool) slot.root.visible = false;
-    for (const slot of defenderPool) slot.root.visible = false;
+    pools.hideAll();
     flashMesh.count = 0;
     shots.clear();
     strikeFx.clear();
@@ -233,17 +217,14 @@ export function createPopupMarineOverlayFx(scene: Scene) {
     }
     siegeKillTracker.prune(nowMs);
 
-    for (const slot of attackerPool) slot.root.visible = false;
-    for (const slot of defenderPool) slot.root.visible = false;
+    pools.beginFrame();
 
-    let atkWrite = 0;
-    let defWrite = 0;
     let flashWrite = 0;
     let slotCount = 0;
     shots.beginFrame();
 
-    const writeOne = (pool: MarineSlot[], writeIndex: number, color: string, tileX: number, tileY: number, tileZ: number, pose: MarinePose): void => {
-      const slot = pool[writeIndex];
+    const writeOne = (side: 0 | 1, armor: MarineArmor | undefined, color: string, tileX: number, tileY: number, tileZ: number, pose: MarinePose): void => {
+      const slot = pools.acquire(side, armor ?? "standard");
       if (!slot) return;
       writeMarine(slot, color, tileX, tileY, tileZ, pose, nowMs);
       flashWrite = writeFlash(flashWrite, slot, pose);
@@ -279,15 +260,14 @@ export function createPopupMarineOverlayFx(scene: Scene) {
         const entryLocalZ = isAttacker ? -uz * 0.46 : uz * 0.46;
         const fwdX = isAttacker ? ux : -ux;
         const fwdZ = isAttacker ? uz : -uz;
-        const pool = isAttacker ? attackerPool : defenderPool;
+        const armor = isAttacker ? b.attackerArmor : b.defenderArmor;
         const color = isAttacker ? b.attackerColor : b.defenderColor;
 
         shots.beginSide(side);
         for (let i = 0; i < MARINES_PER_SIDE; i++) {
           const garrisonStart = isAttacker ? undefined : garrisonStartFor(b.defenderGarrison, b.hashSeed, i);
           const pose = computeBattlePose(b, side, i, nowMs, entryLocalX, entryLocalZ, perpX, perpZ, fwdX, fwdZ, battleVictim?.index, garrisonStart);
-          const writeIndex = isAttacker ? atkWrite : defWrite;
-          writeOne(pool, writeIndex, color, tileX, tileY, tileZ, pose);
+          writeOne(side, armor, color, tileX, tileY, tileZ, pose);
           // A marine that is dead/collapsed this frame has stopped shooting.
           const down = pose.fallT > 0 || pose.scale <= 0;
           shots.push(
@@ -298,7 +278,6 @@ export function createPopupMarineOverlayFx(scene: Scene) {
             down ? [] : computeBattleBolts(b, side, i, nowMs),
             down ? [] : computeBattleImpacts(b, side, i, nowMs)
           );
-          if (isAttacker) atkWrite++; else defWrite++;
         }
       }
       shots.emit(b.hashSeed, b.attackerColor, b.defenderColor);
@@ -333,15 +312,14 @@ export function createPopupMarineOverlayFx(scene: Scene) {
         const entryLocalZ = isAttacker ? -uz * 0.46 : uz * 0.46;
         const fwdX = isAttacker ? ux : -ux;
         const fwdZ = isAttacker ? uz : -uz;
-        const pool = isAttacker ? attackerPool : defenderPool;
+        const armor = isAttacker ? b.attackerArmor : b.defenderArmor;
         const color = isAttacker ? b.attackerColor : b.defenderColor;
 
         shots.beginSide(side);
         for (let i = 0; i < MARINES_PER_SIDE; i++) {
           const garrisonStart = isAttacker ? undefined : garrisonStartFor(b.defenderGarrison, b.hashSeed, i);
           const pose = computeSkirmishPose(b, side, i, nowMs, entryLocalX, entryLocalZ, perpX, perpZ, fwdX, fwdZ, skirmishVictim?.index, garrisonStart);
-          const writeIndex = isAttacker ? atkWrite : defWrite;
-          writeOne(pool, writeIndex, color, tileX, tileY, tileZ, pose);
+          writeOne(side, armor, color, tileX, tileY, tileZ, pose);
           const down = pose.fallT > 0 || pose.scale <= 0;
           shots.push(
             side,
@@ -351,7 +329,6 @@ export function createPopupMarineOverlayFx(scene: Scene) {
             down ? [] : computeSkirmishBolts(b, side, i, nowMs),
             down ? [] : computeSkirmishImpacts(b, side, i, nowMs)
           );
-          if (isAttacker) atkWrite++; else defWrite++;
         }
       }
       shots.emit(b.hashSeed, b.attackerColor, b.defenderColor);
@@ -360,8 +337,7 @@ export function createPopupMarineOverlayFx(scene: Scene) {
     for (let g = 0; g < garrisons.length && slotCount < MAX_CONCURRENT_BATTLES; g++, slotCount++) {
       const garrison = garrisons[g]!;
       for (let i = 0; i < MARINES_PER_SIDE; i++) {
-        writeOne(defenderPool, defWrite, garrison.color, garrison.tgtWorldX, garrison.tgtSurfaceY, garrison.tgtWorldZ, computeGarrisonPose(garrison, i, nowMs));
-        defWrite++;
+        writeOne(1, garrison.armor, garrison.color, garrison.tgtWorldX, garrison.tgtSurfaceY, garrison.tgtWorldZ, computeGarrisonPose(garrison, i, nowMs));
       }
     }
 
@@ -371,14 +347,10 @@ export function createPopupMarineOverlayFx(scene: Scene) {
   };
 
   const dispose = (): void => {
-    disposed = true;
     flashFx.dispose();
     shots.dispose();
     strikeFx.dispose();
-    for (const slot of attackerPool) disposeMarineSlot(scene, slot);
-    for (const slot of defenderPool) disposeMarineSlot(scene, slot);
-    attackerPool = [];
-    defenderPool = [];
+    pools.dispose();
   };
 
   return { tick, clear, dispose };

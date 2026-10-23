@@ -1,7 +1,7 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { Heightfield } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { CLASH_MS, type BattleOverlayFx, type BattleOverlayRenderEntry, type BattleOverlaySkirmishEntry } from "./client-map-3d-popup-marine/popup-marine-overlay-fx.js";
-import { pruneExpiredActiveBattles } from "./client-battle-overlay/client-battle-overlay.js";
+import { pruneExpiredActiveBattles, squadArmorFields } from "./client-battle-overlay/client-battle-overlay.js";
 import { battleIsSiegeBoosted } from "./client-battle-overlay/client-siege-battle-targets.js";
 import { pruneExpiredIncomingAttacks, pruneExpiredOutgoingMusterAttacks } from "./client-siege-tracking/client-siege-tracking.js";
 import {
@@ -182,7 +182,8 @@ export function syncBattleOverlayFx(
       // preceding skirmish on the same tile.
       hashSeed: battle.targetX * 92821 + battle.targetY,
       siegeBoosted: battleIsSiegeBoosted(state, keyFor, battle.attackerOwnerId, battle.targetX, battle.targetY),
-      ...defenderGarrisonField(state, keyFor, keyFor(battle.targetX, battle.targetY), battle.defenderOwnerId, nowEpochMs)
+      ...defenderGarrisonField(state, keyFor, keyFor(battle.targetX, battle.targetY), battle.defenderOwnerId, nowEpochMs),
+      ...squadArmorFields(state, battle.attackerOwnerId, battle.defenderOwnerId, battle)
     });
   }
 
@@ -225,6 +226,7 @@ export function syncBattleOverlayFx(
       hashSeed: target.x * 92821 + target.y,
       siegeBoosted: battleIsSiegeBoosted(state, keyFor, attackerOwnerId, target.x, target.y),
       ...defenderGarrisonField(state, keyFor, key, defenderOwnerId, nowEpochMs),
+      ...squadArmorFields(state, attackerOwnerId, defenderOwnerId),
       ...(holdApproachUntilElapsed !== undefined ? { holdApproachUntilElapsed } : {})
     });
   };

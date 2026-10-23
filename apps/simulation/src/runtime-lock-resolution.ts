@@ -200,7 +200,9 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
         originX: lock.originX,
         originY: lock.originY,
         at: context.now(),
-        ...(combatResolution?.shield ? { shield: { x: combatResolution.shield.x, y: combatResolution.shield.y } } : {})
+        ...(combatResolution?.shield ? { shield: { x: combatResolution.shield.x, y: combatResolution.shield.y } } : {}),
+        ...(combatResolution?.attackerGear ? { attackerGear: combatResolution.attackerGear } : {}),
+        ...(combatResolution?.defenderGear ? { defenderGear: combatResolution.defenderGear } : {})
       } satisfies CombatBroadcastPayload)
     : undefined;
 

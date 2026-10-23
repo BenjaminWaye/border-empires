@@ -1,5 +1,6 @@
 import { APPROACH_MS, CLASH_MS, ROUT_MS } from "../client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import type { ClientState } from "../client-state/client-state.js";
+import type { MarineArmor, SquadArmorFields } from "../client-map-3d-popup-marine/popup-marine-armor.js";
 
 // Wire shape of a TILE_DELTA_BATCH tile delta's `combatJson` field (mirrors
 // CombatBroadcastPayload in @border-empires/sim-protocol — duplicated here
@@ -18,6 +19,10 @@ type CombatBroadcastPayload = {
   // shield fired by seeing it, the same way every other hidden enemy
   // strength number stays hidden until a fight reveals it).
   shield?: { x: number; y: number };
+  // Each side's cosmetic squad kit (CombatBroadcastPayload's BattleWarGear):
+  // titanium armour for an empire owning a Titanium Weapons Factory.
+  attackerGear?: { titaniumArmor?: boolean };
+  defenderGear?: { titaniumArmor?: boolean };
 };
 
 const isCombatBroadcastPayload = (value: unknown): value is CombatBroadcastPayload =>
@@ -47,7 +52,47 @@ export type ActiveBattleOverlay = {
   // attacker's own march-in from originX/originY.
   shieldX?: number;
   shieldY?: number;
+  attackerArmor?: MarineArmor;
+  defenderArmor?: MarineArmor;
 };
+
+// Comfortably above any real season's empire count; only a guard against a
+// very long session accumulating ids (AGENTS.md state discipline).
+const MAX_REMEMBERED_ARMOR_OWNERS = 512;
+
+const armorFromGear = (gear: CombatBroadcastPayload["attackerGear"]): MarineArmor =>
+  gear?.titaniumArmor === true ? "titanium" : "standard";
+
+/** Records what a broadcast says an owner's squads wear, so a later
+ * pre-resolution skirmish involving them can show it before its own
+ * broadcast lands. A broadcast without titanium clears the owner, so an
+ * empire that lost its last factory goes back to the standard kit. */
+const rememberSquadArmor = (owners: Set<string>, ownerId: string, armor: MarineArmor): void => {
+  owners.delete(ownerId);
+  if (armor !== "titanium") return;
+  owners.add(ownerId);
+  if (owners.size > MAX_REMEMBERED_ARMOR_OWNERS) {
+    const oldest = owners.values().next().value;
+    if (oldest !== undefined) owners.delete(oldest);
+  }
+};
+
+/** Squad armour to render for `ownerId` when no broadcast has said otherwise
+ * for this specific fight (skirmishes, capture-hold garrisons). */
+export const knownSquadArmorFor = (state: Pick<ClientState, "titaniumArmorOwners">, ownerId: string | undefined): MarineArmor =>
+  ownerId && state.titaniumArmorOwners.has(ownerId) ? "titanium" : "standard";
+
+/** Both sides' armour for a battle/skirmish render entry: a resolved
+ * battle's own broadcast wins, otherwise whatever is known per owner. */
+export const squadArmorFields = (
+  state: Pick<ClientState, "titaniumArmorOwners">,
+  attackerOwnerId: string,
+  defenderOwnerId: string,
+  resolved?: Pick<ActiveBattleOverlay, "attackerArmor" | "defenderArmor">
+): SquadArmorFields => ({
+  attackerArmor: resolved?.attackerArmor ?? knownSquadArmorFor(state, attackerOwnerId),
+  defenderArmor: resolved?.defenderArmor ?? knownSquadArmorFor(state, defenderOwnerId)
+});
 
 /** Parses a tile delta's raw `combatJson` field (if present) and, when valid,
  * registers/refreshes an entry in state.activeBattles keyed by the target
@@ -56,7 +101,7 @@ export type ActiveBattleOverlay = {
  * overlay FX. Purely additive: never touches state.capture or the frontier
  * action-queue HUD. */
 export const registerActiveBattleFromTileDelta = (
-  state: Pick<ClientState, "activeBattles" | "skirmishSeenAt">,
+  state: Pick<ClientState, "activeBattles" | "skirmishSeenAt" | "titaniumArmorOwners">,
   keyFor: (x: number, y: number) => string,
   update: { x: number; y: number; combatJson?: string },
   nowMs: number
@@ -92,6 +137,10 @@ export const registerActiveBattleFromTileDelta = (
   // its approach open past the default APPROACH_MS. Skipping the approach
   // outright sidesteps both — there's no timing to inherit or race over.
   const seenAt = state.skirmishSeenAt.get(key);
+  const attackerArmor = armorFromGear(parsed.attackerGear);
+  const defenderArmor = armorFromGear(parsed.defenderGear);
+  rememberSquadArmor(state.titaniumArmorOwners, parsed.attackerOwnerId, attackerArmor);
+  rememberSquadArmor(state.titaniumArmorOwners, parsed.defenderOwnerId, defenderArmor);
   const startAt = nowMs - APPROACH_MS;
   const clashAt = nowMs;
   state.activeBattles.set(key, {
@@ -112,7 +161,9 @@ export const registerActiveBattleFromTileDelta = (
     // re-plays its death animation instead of starting collapsed, not a
     // full restart.
     fromSkirmish: seenAt !== undefined,
-    ...(parsed.shield ? { shieldX: parsed.shield.x, shieldY: parsed.shield.y } : {})
+    ...(parsed.shield ? { shieldX: parsed.shield.x, shieldY: parsed.shield.y } : {}),
+    attackerArmor,
+    defenderArmor
   });
 };
 

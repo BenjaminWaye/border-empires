@@ -1,4 +1,4 @@
-import type { CommandEnvelope, LockedFrontierCombatResult, SimulationEvent, TileOverlayJsonFields } from "@border-empires/sim-protocol";
+import type { BattleWarGear, CommandEnvelope, LockedFrontierCombatResult, SimulationEvent, TileOverlayJsonFields } from "@border-empires/sim-protocol";
 import type { FrontierDecayKind, Terrain, VisibilityState } from "@border-empires/shared";
 import type { DomainPlayer, DomainStrategicResourceKey, FrontierCommandType } from "@border-empires/game-domain";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
@@ -98,6 +98,10 @@ export type LockedCombatResolution = {
   // was rolled (shared capture-hold.ts): a real fight, so resolution emits a
   // battle broadcast even if the hold has expired by the time it resolves.
   defendedFrontier?: boolean;
+  // Each side's cosmetic battle kit at roll time (battleWarGearFor), passed
+  // through to the combat broadcast for the client's battle squads.
+  attackerGear?: BattleWarGear;
+  defenderGear?: BattleWarGear;
 };
 
 export type AetherWallDirection = "N" | "E" | "S" | "W";
