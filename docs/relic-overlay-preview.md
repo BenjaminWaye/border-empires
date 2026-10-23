@@ -9,7 +9,11 @@ Replacement target: the visual sections of [natural wonders](natural-wonders-des
 
 One shared surface building serves different buried Concordance installations.
 The visible remnant is a weathered stepped ziggurat: broad terraces, chipped
-corners and an access stair. Its space-age construction remains visible:
+corners and a service stair. Four short flights run alternately across the
+front, joined by level landings, with an outer handrail and a final walkway
+to the bulkhead. The door opening is the stair's scale reference: at a
+nominal two-metre door, risers are roughly 18–20 cm and goings 32–42 cm.
+Its space-age construction remains visible:
 bleached composite skins over a dark structural chassis, sealed bulkheads,
 maintenance catches, inset vents and severed utility connections. Missing
 covers expose ribs and cables; detached skins, oxidation and some moss show
@@ -40,14 +44,18 @@ another angle.
 - Map scale: nearby comparison with the existing models at native size.
 - Game zoom: distance 38 and tilt 0.6, matching the game's default-camera reference.
 - Close view and Top down: inspect the silhouette and surfaces.
-- Captured/Unclaimed: toggle faint operating lights, a small House marker on
-  the summit bulkhead and House-coloured panels on all four upper terrace
-  faces, continuing onto the terrace top. These give ownership its own
-  visible surface because the wide base hides the central tile's tint.
-  The weathered structure stays unchanged. Territory
-  tint is not included in this isolated building preview.
+- Captured/Unclaimed: toggle faint operating lights and a House banner above
+  the summit. Capturing hoists its telescoping mast and unfurls the cloth
+  over 1.6 seconds; opening the Captured story shows the completed state.
+  The cloth reuses the production muster banner's shape, trim and wind
+  shader. This replaces the large terrace colour panels, while giving
+  ownership its own silhouette above the wide base that hides the tile's
+  tint. The weathered structure stays unchanged. Territory tint is not
+  included in this isolated building preview.
 - Captured and Captured On Map stories open directly in the owned state;
-  Storybook's owner-colour control changes the marker and terrace panels.
+  Storybook's owner-colour control changes the banner cloth.
+- Human scale toggles an optional 1.7 m reference figure beside the nominal
+  two-metre door. It is a preview aid, not a gameplay character.
 - Drag to orbit and scroll to zoom.
 
 Source is isolated under `packages/storybook/src/relics/`. It is not wired

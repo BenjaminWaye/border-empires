@@ -1,78 +1,90 @@
-import { BoxGeometry, Color, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, Scene } from "three";
+import {
+  BoxGeometry, Color, ConeGeometry, CylinderGeometry, Group,
+  InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Scene
+} from "three";
+import { createMusterBannerClothMaterials } from "@client/client-map-3d-muster-banner/muster-banner-cloth-material.js";
+import { BANNER_CLOTH, getMusterBannerGeometry } from "@client/client-map-3d-muster-banner/muster-banner-geometry.js";
 
 export type RelicCapturePreview = {
   readonly setCaptured: (captured: boolean) => void;
+  readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
 };
 
-/** Attached House panels keep capture readable when the base hides its tile. */
+/** A House banner hoisted above the ruin; uses the muster banner's real cloth. */
 export const createRelicCapturePreview = (
   scene: Scene,
   relicY: number,
   ownerColor: string
 ): RelicCapturePreview => {
-  const color = new Color(ownerColor);
-  const marker = new Group();
-  marker.name = "relic-captured-house-marker";
-  const frameGeometry = new BoxGeometry(0.16, 0.06, 0.025);
-  const faceGeometry = new BoxGeometry(0.13, 0.035, 0.01);
-  const sigilGeometry = new BoxGeometry(0.016, 0.016, 0.006);
-  const frameMaterial = new MeshBasicMaterial({ color: "#263138" });
-  const ownerMaterial = new MeshBasicMaterial({ color, toneMapped: false });
-  const panelMaterial = new MeshStandardMaterial({
-    color, roughness: 0.94, metalness: 0, emissive: color, emissiveIntensity: 0.12
-  });
-  const sigilMaterial = new MeshBasicMaterial({ color: "#d7e1cf", toneMapped: false });
-  const frame = new Mesh(frameGeometry, frameMaterial);
-  const face = new Mesh(faceGeometry, ownerMaterial);
-  const sigil = new Mesh(sigilGeometry, sigilMaterial);
-  face.position.z = 0.017;
-  sigil.position.z = 0.025;
-  sigil.rotation.z = Math.PI / 4;
-  marker.add(frame, face, sigil);
-  marker.position.set(0, relicY + 0.952, 0.27);
-  scene.add(marker);
+  const banner = new Group();
+  banner.name = "relic-captured-house-banner";
+  banner.position.set(0.10, relicY + 1.04, -0.09);
+  scene.add(banner);
 
-  const panels = new Group();
-  panels.name = "relic-captured-terrace-panels";
-  panels.position.y = relicY;
-  const panelFrameGeometry = new BoxGeometry(0.58, 0.14, 0.025);
-  const panelFaceGeometry = new BoxGeometry(0.53, 0.10, 0.012);
-  const topPanelGeometry = new BoxGeometry(0.53, 0.012, 0.19);
-  const stairFrameGeometry = new BoxGeometry(0.26, 0.14, 0.025);
-  const stairFaceGeometry = new BoxGeometry(0.22, 0.10, 0.012);
-  const stairTopGeometry = new BoxGeometry(0.22, 0.012, 0.19);
-  for (let side = 0; side < 4; side += 1) {
-    const panel = new Group();
-    panel.rotation.y = side * Math.PI / 2;
-    // Leave the service stair clear instead of putting a panel across it.
-    for (const x of side === 0 ? [-0.35, 0.35] : [0]) {
-      const backing = new Mesh(side === 0 ? stairFrameGeometry : panelFrameGeometry, frameMaterial);
-      const colour = new Mesh(side === 0 ? stairFaceGeometry : panelFaceGeometry, panelMaterial);
-      const top = new Mesh(side === 0 ? stairTopGeometry : topPanelGeometry, panelMaterial);
-      backing.position.set(x, 0.52, 0.606);
-      colour.position.set(x, 0.52, 0.625);
-      // An upward-facing section stays visible from the steep gameplay camera.
-      top.position.set(x, 0.635, 0.52);
-      panel.add(backing, colour, top);
+  const poleGeometry = new CylinderGeometry(0.007, 0.010, 0.78, 8).translate(0, 0.39, 0);
+  const barGeometry = new CylinderGeometry(0.006, 0.006, 0.33, 8).rotateZ(Math.PI / 2);
+  const capGeometry = new ConeGeometry(0.018, 0.036, 6);
+  const socketGeometry = new BoxGeometry(0.055, 0.025, 0.055);
+  const iron = new MeshStandardMaterial({ color: "#596061", roughness: 0.87, metalness: 0.15 });
+  const brass = new MeshStandardMaterial({ color: "#a78b55", roughness: 0.72, metalness: 0.15 });
+  const pole = new Mesh(poleGeometry, iron);
+  const crossbar = new Mesh(barGeometry, brass);
+  const cap = new Mesh(capGeometry, brass);
+  const socket = new Mesh(socketGeometry, iron);
+  banner.add(pole, crossbar, cap, socket);
+
+  // Clone the shared muster cloth so its per-instance wind data stays local.
+  const clothGeometry = getMusterBannerGeometry().cloth.clone();
+  clothGeometry.setAttribute("aBannerWind", new InstancedBufferAttribute(new Float32Array([0.23, 0.8]), 2));
+  const fabric = createMusterBannerClothMaterials();
+  const cloth = new InstancedMesh(clothGeometry, fabric.cloth, 1);
+  cloth.setMatrixAt(0, new Matrix4());
+  cloth.setColorAt(0, new Color(ownerColor));
+  cloth.instanceMatrix.needsUpdate = true;
+  if (cloth.instanceColor) cloth.instanceColor.needsUpdate = true;
+  cloth.customDepthMaterial = fabric.depth;
+  cloth.castShadow = true;
+  cloth.frustumCulled = false;
+  banner.add(cloth);
+
+  let captured: boolean | undefined;
+  let lastNow = 0;
+  let hoistStartedAt = 0;
+  let progress = 0;
+  const pose = (): void => {
+    const eased = progress * progress * (3 - 2 * progress);
+    pole.scale.y = Math.max(0.035, eased);
+    crossbar.position.y = 0.78 * eased;
+    cap.position.y = 0.78 * eased + 0.022;
+    // Unfurl as the mast rises, keeping the hem above the roof throughout.
+    cloth.scale.set(0.95, 0.95 * eased, 0.95);
+    cloth.position.y = crossbar.position.y - BANNER_CLOTH.topY * 0.95 * eased;
+  };
+  const setCaptured = (next: boolean): void => {
+    if (next === captured) return;
+    progress = captured === undefined && next ? 1 : 0;
+    captured = next;
+    hoistStartedAt = lastNow;
+    banner.visible = next;
+    pose();
+  };
+  const update = (nowMs: number): void => {
+    lastNow = nowMs;
+    fabric.tick(nowMs);
+    if (captured && progress < 1) {
+      progress = Math.min(1, (nowMs - hoistStartedAt) / 1600);
+      pose();
     }
-    panels.add(panel);
-  }
-  scene.add(panels);
-
-  const setCaptured = (captured: boolean): void => {
-    marker.visible = captured;
-    panels.visible = captured;
   };
-
   const dispose = (): void => {
-    scene.remove(marker, panels);
-    for (const geometry of [frameGeometry, faceGeometry, sigilGeometry,
-      panelFrameGeometry, panelFaceGeometry, topPanelGeometry,
-      stairFrameGeometry, stairFaceGeometry, stairTopGeometry]) geometry.dispose();
-    for (const material of [frameMaterial, ownerMaterial, panelMaterial, sigilMaterial]) material.dispose();
-    marker.clear();
-    panels.clear();
+    scene.remove(banner);
+    for (const geometry of [poleGeometry, barGeometry, capGeometry, socketGeometry, clothGeometry]) geometry.dispose();
+    iron.dispose();
+    brass.dispose();
+    fabric.dispose();
+    cloth.dispose();
+    banner.clear();
   };
-  return { setCaptured, dispose };
+  return { setCaptured, update, dispose };
 };

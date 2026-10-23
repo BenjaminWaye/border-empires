@@ -9,6 +9,7 @@ import { createTownOverlay } from "@client/client-map-3d-town-overlay.js";
 import { createWaystationOverlay } from "@client/client-map-3d-waystation-overlay.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 import { createRelicCoreOverlay } from "./relic-core-overlay.js";
+import { createRelicScaleFigure } from "./relic-scale-figure.js";
 import { createRelicCapturePreview } from "./relic-capture-preview.js";
 
 type Args = {
@@ -50,6 +51,7 @@ const render = (args: Args): HTMLElement => {
   const capture = createRelicCapturePreview(
     stage.scene, relicY, args.ownerColor
   );
+  const scaleFigure = createRelicScaleFigure(stage.scene, relicY);
   const populate = (active: boolean): void => {
     relic.clear();
     relic.addInstance(0, 0, relicY, active);
@@ -84,11 +86,11 @@ const render = (args: Args): HTMLElement => {
   controls.minDistance = 2.2;
   controls.maxDistance = 45;
   controls.maxPolarAngle = Math.PI * 0.47;
-  controls.target.set(0, relicY + 0.15, 0);
+  controls.target.set(0, relicY + 0.55, 0);
   const setView = (distance: number, tilt: number): void => {
     const horizontal = Math.sin(tilt) * distance;
-    stage.camera.position.set(horizontal * 0.25, relicY + Math.cos(tilt) * distance, horizontal * 0.968);
-    controls.target.set(0, relicY + 0.15, 0);
+    stage.camera.position.set(horizontal * 0.25, relicY + 0.4 + Math.cos(tilt) * distance, horizontal * 0.968);
+    controls.target.set(0, relicY + 0.55, 0);
     controls.update();
   };
   setView(args.cameraDistance, args.cameraTilt);
@@ -97,6 +99,7 @@ const render = (args: Args): HTMLElement => {
   const animate = (): void => {
     const now = performance.now();
     relic.update(now);
+    capture.update(now);
     waystation.update(now);
     controls.update();
     rafId = requestAnimationFrame(animate);
@@ -105,7 +108,7 @@ const render = (args: Args): HTMLElement => {
 
   const cleanups = [
     () => cancelAnimationFrame(rafId), () => controls.dispose(),
-    relic.dispose, capture.dispose, waystation.dispose, town.dispose, forest.dispose, mountains.dispose,
+    relic.dispose, capture.dispose, scaleFigure.dispose, waystation.dispose, town.dispose, forest.dispose, mountains.dispose,
     () => stage.scene.remove(ground.mesh, ground.skirtMesh, ground.gridlines), ground.dispose, atmosphere.dispose
   ];
   const container = wrapWithCleanup(stage, cleanups);
@@ -126,8 +129,9 @@ const render = (args: Args): HTMLElement => {
   };
   button("Map scale", () => setView(10, 0.68));
   button("Game zoom", () => setView(38, 0.6));
-  button("Close view", () => setView(3.5, 0.92));
+  button("Close view", () => setView(4.2, 0.92));
   button("Top down", () => setView(args.context ? 9 : 4, 0.12));
+  button("Human scale", () => { scaleFigure.group.visible = !scaleFigure.group.visible; });
   let active = args.active;
   const toggle = document.createElement("button");
   toggle.style.cssText = "border:1px solid #6bafa1;background:#2b5046;color:#c9fff0;padding:7px 12px;border-radius:4px;cursor:pointer;font:inherit";
@@ -144,7 +148,7 @@ const render = (args: Args): HTMLElement => {
   caption.style.cssText = "padding:14px 18px;color:#b9c9c1;background:#152126;font:13px/1.6 system-ui";
   caption.textContent = args.context
     ? "Waystation (left) · Relic core (centre) · Town (right). Drag to orbit · scroll to zoom · toggle capture."
-    : "Toggle capture to compare the dormant ruin with its operating lights and House-coloured terrace panels.";
+    : "Toggle capture to compare the dormant ruin with its operating lights and raised House banner. Toggle Unclaimed then Captured to replay the hoist.";
   container.append(caption);
 
   // Labels follow their actual world positions while the camera orbits.
@@ -195,7 +199,7 @@ const meta: Meta<Args> = {
 export default meta;
 type Story = StoryObj<Args>;
 export const MapPreview: Story = {};
-export const CloseUp: Story = { args: { context: false, cameraDistance: 3.5, cameraTilt: 0.92 } };
-export const Dormant: Story = { args: { active: false, context: false, cameraDistance: 3.5, cameraTilt: 0.92 } };
-export const Captured: Story = { args: { active: true, context: false, cameraDistance: 3.5, cameraTilt: 0.92 } };
+export const CloseUp: Story = { args: { context: false, cameraDistance: 4.2, cameraTilt: 0.92 } };
+export const Dormant: Story = { args: { active: false, context: false, cameraDistance: 4.2, cameraTilt: 0.92 } };
+export const Captured: Story = { args: { active: true, context: false, cameraDistance: 4.2, cameraTilt: 0.92 } };
 export const CapturedOnMap: Story = { args: { active: true } };

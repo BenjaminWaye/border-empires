@@ -2,6 +2,7 @@ import {
   BoxGeometry, BufferGeometry, CatmullRomCurve3, Color, CylinderGeometry,
   ExtrudeGeometry, Float32BufferAttribute, Shape, TubeGeometry, Vector3
 } from "three";
+import { createRelicServiceStairs, RELIC_DOOR_HEIGHT } from "./relic-service-stairs.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 export type RelicCoreGeometry = {
@@ -105,15 +106,9 @@ export const createRelicCoreGeometry = (): RelicCoreGeometry => {
       machinery.push(box(level.width * 0.60, 0.018, 0.024, -0.03, level.bottom + level.height - 0.041, edge + 0.012).rotateY(angle));
     }
   }
-  // A corroded service stair keeps the ziggurat silhouette human-readable.
-  for (let step = 0; step < 13; step += 1) {
-    const y = 0.035 + step * 0.055;
-    const z = 1.12 - step * 0.065;
-    const chip = step === 3 || step === 9 ? 0.035 : 0;
-    armour.push(box(0.36 - chip, 0.06, 0.10, chip / 2, y, z));
-    recess.push(box(0.30 - chip, 0.008, 0.012, chip / 2, y + 0.022, z + 0.048));
-    if (step % 4 !== 1) machinery.push(box(0.28 - chip, 0.01, 0.055, chip / 2, y + 0.035, z));
-  }
+  const stairs = createRelicServiceStairs();
+  armour.push(...stairs.treads);
+  machinery.push(...stairs.metal);
   shell.push(terrace(0.43, 0.21, 0.77, 0.055));
   armour.push(terrace(0.49, 0.045, 0.97, 0.09));
   recess.push(box(0.155, 0.15, 0.012, 0, 0.85, 0.224));
@@ -121,8 +116,8 @@ export const createRelicCoreGeometry = (): RelicCoreGeometry => {
   // Sealed summit bulkhead with a mechanical frame, not an open temple doorway.
   machinery.push(box(0.025, 0.17, 0.024, -0.099, 0.851, 0.236));
   machinery.push(box(0.025, 0.17, 0.024, 0.099, 0.851, 0.236));
-  armour.push(box(0.065, 0.125, 0.012, -0.037, 0.85, 0.238));
-  armour.push(box(0.065, 0.125, 0.012, 0.037, 0.85, 0.238));
+  armour.push(box(0.065, RELIC_DOOR_HEIGHT, 0.012, -0.037, 0.85, 0.238));
+  armour.push(box(0.065, RELIC_DOOR_HEIGHT, 0.012, 0.037, 0.85, 0.238));
   salvage.push(box(0.016, 0.055, 0.01, -0.105, 0.85, 0.251));
   salvage.push(box(0.016, 0.055, 0.01, 0.105, 0.85, 0.251));
   // Roof maintenance hardware stays low so the stepped mass remains dominant.
