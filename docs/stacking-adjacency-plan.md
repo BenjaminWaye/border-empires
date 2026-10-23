@@ -84,6 +84,12 @@ average is 3. `base` is set so that a full ring produces what it produces
 today. Scattered copies earn less, and districts grown beyond the ring can
 earn more.
 
+Parity as stated holds only for 8-tile rings. Great City and Metropolis rings
+have radius 2 (`supportRingRadiusForTier`), 24 tiles, and a full one has
+Σn = 128: under these starting values that is about +33% for Manufactories
+(320% vs 240%) and +27% for Arsenal (68.8 vs 54 equivalents). Phase 0 must
+calibrate for both ring sizes, or accept the big-town buff explicitly.
+
 | Family | Starting `k` | Starting `base` | Isolated copy vs today | Copy with 8 neighbours |
 |---|---|---|---|---|
 | Manufactory | 0.25 | today ÷ 1.75 (5.7%; 20% with Clearing House) | 57% | 171% |
@@ -288,7 +294,10 @@ Each phase is one PR off `develop`, with tests beside the code.
    questions below. Output: the final constants table in this doc.
 1. **Shared module and ruleset plumbing.** `structure-adjacency/` with unit
    tests (wrap, diagonal, ring parity Σn = 24, BFS reach bound, tie-breaks);
-   season marker stamped and sent to clients. No behaviour change.
+   season marker field added and sent to clients, but not stamped on new
+   seasons (unlike the `afcUpgradeRuleset` precedent in `season-lifecycle.ts`)
+   until Phase 6, so a season created mid-rollout stays on legacy rules. No
+   behaviour change.
 2. **Server rules.** Placement, redirect, effective counts in every economy
    path, district cache with targeted invalidation, counters. Tests: parity
    (a full ring equals legacy output exactly), isolated or out-of-reach
@@ -331,6 +340,63 @@ text, not yet canon:
 > district outproduces the same machines scattered across a town's hinterland.
 > A district draws its labour and supply from the town it grew from; cut off
 > from that town, its machines idle until the line is restored.
+
+## Review findings for Phase 0
+
+Raised in review of this plan against today's code. Each needs a decision or
+a plan change before the phase that depends on it.
+
+- **Orphaned and under-construction arsenals pay today.** Weapons-factory
+  bonuses are empire-wide: `concentratedFactoryEquivalent`
+  (`runtime-weapons-factory-mults.ts`) returns `max(0, total − assigned) +
+  equivalent`, so a factory outside every ring counts 1.0, and `total` counts
+  every status. R4's "disconnected produces nothing" is a nerf for these that
+  the plan should state. Mixed Titanium/Umbrite rings also don't keep parity
+  per type.
+- **Condenser coin is not linear in the count.** It sums a per-building amount
+  that depends on each building's mode and skips mode-locked ones, and
+  converters outside any ring still pay as standalone income. It needs its own
+  `k`/`base` row (or deferral) before Phase 2.
+- **Depot amounts are either/or.** The flat +150 fallback and the per-town
+  capacity bonus don't add up (the flat count is zeroed when the per-town bonus
+  is set), and the flat count includes depots anywhere. Reserve Lattice's
+  "network count" is a per-town presence flag and Neural Works counts
+  `ANCILLARY_FACTORY`, so open question 6's premise needs restating.
+- **Dormancy is player-wide, not a tile field.** It can flip from a change on
+  another tile (see `runtime-economy-cache-invalidation.ts`), so a district
+  cache keyed on member-tile changes goes stale. Cache only connectivity and
+  anchors, and apply the dormant set at read time.
+- **Captured members become FRONTIER**, and every count today requires
+  SETTLED. Define whether they count before they settle, and invalidate on the
+  later ownershipState change. Under-construction members are destroyed on
+  capture.
+- **Re-anchoring moves reach.** With "lowest-x town" anchoring and reach
+  measured from the anchor, one copy placed in a lower-x town's ring re-anchors
+  the whole district and can disconnect members grown from the other town.
+  Say whether reach is checked only at placement or also for output.
+- **Previews can't match the server by construction.** The client and the
+  gateway tile-detail estimate have no dormancy input, and a new build can
+  itself go dormant. Treat previews as estimates and say so in the UX.
+- **Incomplete call-site and wire list.** Also affected:
+  `live-town-summary.ts` (its own `countSupportedStructures`),
+  `tile-detail-snapshot.ts`, `legacy-snapshot-town-support.ts`,
+  `economy-network-converter-support.ts`, `player-update-economy-refresh.ts`,
+  `reconnect-recovery.ts` (a second `config.season`), the AI planner worker
+  view, and the client wire fields `manufactoryCount`, `arsenalFactoryCount`,
+  `arsenalMultiplier` and `arsenalNextMultiplier`, which need a protocol change
+  once counts are fractional.
+- **File-line limits.** Several files that gain ruleset branches are already
+  over 500 lines (`legacy-snapshot-economy.ts`, `economy-network.ts`,
+  `init-payload.ts`, `client-tile-action-logic.ts`); each phase must extract
+  before it adds.
+- **AI.** `structure-command-planner.ts` also skips towns with
+  `supportCurrent >= supportMax`, and planning runs in a worker, so "score from
+  the cached index" needs a way to get the index there without a heavy
+  recomputation (`docs/agents/ai-guardrails.md`).
+- **Placement UX.** `client-building-placement.ts` supports only Hydroworks,
+  Ore Refinery, Relay Beacon and AFC today, so the district placement flow is
+  new work, as are a `showOn` entry in `structure-placement-metadata.json` and
+  ruleset awareness in `structureTileSurfaces`.
 
 ## Open questions for the owner
 
