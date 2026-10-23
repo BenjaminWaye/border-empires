@@ -2,6 +2,7 @@ import type { PersonalActivityCard, PersonalActivitySummary, PersonalActivityTim
 import { structureDisplayName } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import { combatCardText, combatGroupCardText, siegeCardText } from "./client-activity-dashboard-combat-text.js";
+import { featureListLabel, featuresPart } from "./client-activity-dashboard-features.js";
 import { nameOf, roundedAmount, type PlayerNameLookup } from "./client-activity-dashboard-names.js";
 
 export type { PlayerNameLookup };
@@ -27,6 +28,10 @@ export const summaryCountsLine = (summary: PersonalActivitySummary, timeline: Pe
   const parts: string[] = [];
   if (summary.tilesClaimed > 0) parts.push(`+${summary.tilesClaimed} tiles claimed`);
   if (summary.tilesLost > 0) parts.push(`−${summary.tilesLost} tiles lost`);
+  const featuresLost = featureListLabel(summary.featuresLost);
+  if (featuresLost) parts.push(`Lost your ${featuresLost}`);
+  const featuresCaptured = featureListLabel(summary.featuresCaptured);
+  if (featuresCaptured) parts.push(`Captured their ${featuresCaptured}`);
   if (roundedAmount(timeline.goldRaidedFromYou) >= SUMMARY_MIN_COIN) parts.push(`−${roundedAmount(timeline.goldRaidedFromYou)} coin raided`);
   if (roundedAmount(timeline.goldPlundered) >= SUMMARY_MIN_COIN) parts.push(`+${roundedAmount(timeline.goldPlundered)} coin plundered`);
   if (summary.waystationsActivated > 0) parts.push(`${summary.waystationsActivated} waystation${summary.waystationsActivated === 1 ? "" : "s"} activated`);
@@ -77,9 +82,12 @@ export type TechNameLookup = (techId: string) => string | undefined;
 
 const territoryCardText = (card: Extract<PersonalActivityCard, { kind: "TERRITORY_FLIP_GROUP" }>, playerNames: PlayerNameLookup): string => {
   const counterparty = card.counterpartyPlayerId ? ` (${nameOf(card.counterpartyPlayerId, playerNames)})` : "";
-  return card.direction === "GAINED"
+  const text = card.direction === "GAINED"
     ? `+${card.tileCount} tile${card.tileCount === 1 ? "" : "s"} claimed${counterparty}`
     : `−${card.tileCount} tile${card.tileCount === 1 ? "" : "s"} lost${counterparty}`;
+  const owner = card.direction === "LOST" ? "your" : card.counterpartyPlayerId ? "their" : undefined;
+  const lostWith = featuresPart(card.features, owner);
+  return lostWith ? `${text} · ${lostWith}` : text;
 };
 
 const waystationCardText = (card: Extract<PersonalActivityCard, { kind: "WAYSTATION_ACTIVATED" }>, techName: TechNameLookup): string => {

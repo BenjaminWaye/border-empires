@@ -200,6 +200,27 @@ describe("renderClientActivityDashboardOverlay", () => {
     expect(state.camY).toBe(4);
   });
 
+  it("escapes the summary line, which now carries server-supplied structure ids", () => {
+    const state = makeState();
+    state.activityDashboard.open = true;
+    state.activityDashboard.timeline = {
+      to: 5000,
+      summary: {
+        tilesClaimed: 0, tilesLost: 1, waystationsActivated: 0, townsCaptured: 0, townsLost: 0, buildingsCompleted: 0,
+        featuresLost: [{ kind: "STRUCTURE", structureType: "<img src=x>", count: 1 }]
+      },
+      goldPlundered: 0,
+      goldRaidedFromYou: 0,
+      manpowerSpentAttacking: 0,
+      cards: [{ kind: "TERRITORY_FLIP_GROUP", id: "a", occurredAt: 1000, direction: "LOST", counterpartyPlayerId: undefined, tileCount: 1, x: 3, y: 4 }],
+      truncated: false
+    };
+    const deps = makeDeps(state);
+    renderClientActivityDashboardOverlay(deps);
+    expect(deps.overlayEl.querySelector(".activity-dashboard-summary-line img")).toBeNull();
+    expect(deps.overlayEl.querySelector(".activity-dashboard-summary-line")?.textContent).toContain("Lost your <img src=x>");
+  });
+
   it("names an AI opponent by its leaderboard name, not the stable \"AI N\" diplomacy name", () => {
     const state = makeState();
     state.activityDashboard.open = true;
