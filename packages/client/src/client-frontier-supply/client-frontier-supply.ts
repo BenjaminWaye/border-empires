@@ -5,8 +5,8 @@
  * Mirrors the simulation's encirclement rule
  * (apps/simulation/src/encirclement/encirclement.ts): a FRONTIER tile stays
  * owned only while a path through its owner's own FRONTIER (8 neighbours,
- * plus active Aether bridge links) reaches one of their SETTLED tiles or one
- * of their FRONTIER dock tiles. Cut that path and everything past the cut is
+ * plus active Aether bridge links and dock sea lanes) reaches one of their
+ * SETTLED tiles or one of their FRONTIER dock tiles. Cut that path and everything past the cut is
  * lost at once. Out-of-reach frontier can't be settled, so that path is the
  * only thing keeping it.
  *
@@ -19,7 +19,10 @@
  * renderers mark, out to its tips -- tiles with nothing further out -- along
  * the fewest-steps supply path (ties prefer straight steps). Side-by-side tips
  * at the same distance share one line. Nested cuts (a snake is all cut tiles)
- * report only the one nearest supply: losing it loses the most.
+ * report only the one nearest supply: losing it loses the most. A beach
+ * landing hangs on the viewer's dock across the sea (a sea lane), so that
+ * dock is its cut even when settled, and the hop across follows the dock's
+ * sea route (`via`).
  *
  * Pure and O(owned tiles).
  */
@@ -39,6 +42,8 @@ export type FrontierSupplyLink = {
   to: { x: number; y: number };
   /** `to` is a frontier tip the line ends at. */
   tip: boolean;
+  /** Sea-route tiles crossed between `from` and `to` (a sea-lane hop), in order. */
+  via?: ReadonlyArray<{ x: number; y: number }>;
 };
 
 export type FrontierSupplyModel = {
@@ -54,6 +59,8 @@ export type FrontierSupplyInput = {
   reach: ReadonlySet<string>;
   /** Extra supply links (active Aether bridges the viewer owns), as tile-key pairs. */
   extraLinks?: ReadonlyArray<readonly [string, string]>;
+  /** The viewer's dock sea lanes: a dock and a landing it supplies, with the sea route from the dock (client-dock-landing.ts). */
+  seaLanes?: ReadonlyArray<{ dockKey: string; landingKey: string; via: ReadonlyArray<{ x: number; y: number }> }>;
   worldWidth?: number;
   worldHeight?: number;
 };
@@ -113,6 +120,16 @@ export const computeFrontierSupplyModel = (input: FrontierSupplyInput): Frontier
     const b = indexByKey.get(bKey);
     if (a !== undefined && b !== undefined && a !== b) linkNodes(a, b);
   }
+  // Sea-lane hops, keyed "from>to" by node, carrying the route each way.
+  const seaLaneVia = new Map<string, ReadonlyArray<{ x: number; y: number }>>();
+  for (const lane of input.seaLanes ?? []) {
+    const dock = indexByKey.get(lane.dockKey);
+    const landing = indexByKey.get(lane.landingKey);
+    if (dock === undefined || landing === undefined || dock === landing || seaLaneVia.has(`${dock}>${landing}`)) continue;
+    linkNodes(dock, landing);
+    seaLaneVia.set(`${dock}>${landing}`, lane.via);
+    seaLaneVia.set(`${landing}>${dock}`, [...lane.via].reverse());
+  }
 
   const beyondReach = (i: number): boolean => i > 0 && !isSource[i] && !input.reach.has(key(nodeTiles[i]!.x, nodeTiles[i]!.y));
 
@@ -155,8 +172,12 @@ export const computeFrontierSupplyModel = (input: FrontierSupplyInput): Frontier
   }
 
   // Any FRONTIER tile can be taken and cut what hangs on it -- a frontier dock
-  // included, though it is also a supply source. Settled tiles are not cuts.
-  const cutOf = cutTilesFor(adjacency, (i) => nodeTiles[i]!.ownershipState === "FRONTIER");
+  // included, though it is also a supply source. Settled tiles are not cuts,
+  // except a dock for the landings across its sea lanes: they hang on it alone.
+  const cutOf = cutTilesFor(
+    adjacency,
+    (parentNode, childNode) => nodeTiles[parentNode]!.ownershipState === "FRONTIER" || seaLaneVia.has(`${parentNode}>${childNode}`)
+  );
   const fragile = (i: number): boolean => beyondReach(i) && cutOf[i]! > 0;
 
   // Tips: where a fragile stretch ends. Group side-by-side fragile tiles at
@@ -227,7 +248,8 @@ export const computeFrontierSupplyModel = (input: FrontierSupplyInput): Frontier
     if (from <= 0 || onRoute[i] !== 1) continue;
     const fromTile = nodeTiles[from]!;
     const toTile = nodeTiles[i]!;
-    links.push({ from: { x: fromTile.x, y: fromTile.y }, to: { x: toTile.x, y: toTile.y }, tip: isTip[i] === 1 });
+    const via = seaLaneVia.get(`${from}>${i}`);
+    links.push({ from: { x: fromTile.x, y: fromTile.y }, to: { x: toTile.x, y: toTile.y }, tip: isTip[i] === 1, ...(via?.length ? { via } : {}) });
   }
   const cuts = [...cutNodes].sort((a, b) => a - b).map((i) => ({ x: nodeTiles[i]!.x, y: nodeTiles[i]!.y }));
 
@@ -236,8 +258,8 @@ export const computeFrontierSupplyModel = (input: FrontierSupplyInput): Frontier
 
 /**
  * For every node, the cut tile nearest supply that it hangs on, or -1: a
- * tile allowed by `canCut` whose removal disconnects the node from the root
- * (node 0).
+ * tile allowed by `canCut` (asked per parent and the child it would cut off)
+ * whose removal disconnects the node from the root (node 0).
  *
  * Iterative Tarjan articulation points from the root: a DFS-tree child c of v
  * (v not the root) has its whole subtree cut off by v when no back edge from
@@ -247,7 +269,7 @@ export const computeFrontierSupplyModel = (input: FrontierSupplyInput): Frontier
  * and the edge back to the DFS parent only lower `low` to disc[v] at most,
  * which leaves the test unchanged.
  */
-const cutTilesFor = (adjacency: number[][], canCut: (node: number) => boolean): Int32Array => {
+const cutTilesFor = (adjacency: number[][], canCut: (node: number, child: number) => boolean): Int32Array => {
   const nodeCount = adjacency.length;
   const disc = new Int32Array(nodeCount).fill(-1);
   const low = new Int32Array(nodeCount);
@@ -285,7 +307,7 @@ const cutTilesFor = (adjacency: number[][], canCut: (node: number) => boolean): 
     const p = dfsParent[n]!;
     if (p <= 0) continue;
     if (cutOf[p]! > 0) cutOf[n] = cutOf[p]!;
-    else if (low[n]! >= disc[p]! && canCut(p)) cutOf[n] = p;
+    else if (low[n]! >= disc[p]! && canCut(p, n)) cutOf[n] = p;
   }
   return cutOf;
 };

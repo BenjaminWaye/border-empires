@@ -44,9 +44,11 @@ export type MusterTickInput = {
   locksByTile: CombatLockTileReader;
   // Per-flag cooldown state (mutated in place, lives on the Runtime instance).
   advanceCooldowns: MusterAdvanceCooldowns;
-  // Dock crossings (owned dock tile -> linked dock tile keys) so ADVANCE's BFS
-  // can reach across water the same way manual ATTACK/EXPAND commands do.
-  dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
+  // Dock crossings (dock tile -> landing ground of every dock it links to:
+  // the linked docks plus their beach-landing tiles, packages/shared
+  // dock-landing) so ADVANCE's BFS can reach across water the same way
+  // manual ATTACK/EXPAND commands do.
+  dockCrossingTargetsByDockTileKey: ReadonlyMap<string, readonly string[]>;
   // Active aether bridge crossings for a given player (bridge endpoint tile
   // key -> linked endpoint tile keys), so ADVANCE/MARCH's BFS can cross a
   // connected aether bridge the same way manual ATTACK/EXPAND commands do,

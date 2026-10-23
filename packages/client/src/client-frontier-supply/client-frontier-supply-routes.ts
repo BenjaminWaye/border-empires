@@ -95,12 +95,17 @@ export const buildSupplyRoutes = (model: FrontierSupplyModel, options: SupplyRou
     let y = startY;
     let distance = startDistance;
     for (;;) {
-      const dx = wrapDelta(link.from.x, link.to.x, width);
-      const dy = wrapDelta(link.from.y, link.to.y, height);
-      x += dx;
-      y += dy;
-      distance += Math.hypot(dx, dy);
-      raw.push({ x, y, distance });
+      // A sea-lane hop runs through its sea route before reaching land.
+      let stepFrom: { x: number; y: number } = link.from;
+      for (const stop of [...(link.via ?? []), link.to]) {
+        const dx = wrapDelta(stepFrom.x, stop.x, width);
+        const dy = wrapDelta(stepFrom.y, stop.y, height);
+        x += dx;
+        y += dy;
+        distance += Math.hypot(dx, dy);
+        raw.push({ x, y, distance });
+        stepFrom = stop;
+      }
       const onward = linksFrom.get(pointKey(link.to));
       if (!onward) break;
       if (onward.length > 1) {

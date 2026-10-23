@@ -4,6 +4,8 @@ import { FRONTIER_AUTO_HEAL_MS, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "
 import { abandonedStructureFields } from "./capture-structures/capture-structures.js";
 import { computeEncirclementDeltas } from "./encirclement/encirclement.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
+import { findStrandedFrontier } from "./stranded-frontier/stranded-frontier-finder.js";
+import { incrementStrandedFrontierCounter } from "./stranded-frontier/stranded-frontier-metrics.js";
 import type { ActiveAetherBridgeView, SimulationTileWireDelta } from "./runtime-types.js";
 
 const EXPAND_NEIGHBOR_OFFSETS = [
@@ -16,6 +18,8 @@ export type RuntimeEncirclementApplicationContext = {
   tiles: Map<string, DomainTileState>;
   now: () => number;
   activeAetherBridgesForPlayer: (playerId: string) => ActiveAetherBridgeView[];
+  /** Static dock sea-lane supply edges (home dock <-> beach-landing ground); see packages/shared dock-landing. */
+  seaLaneNeighborKeysByTileKey: ReadonlyMap<string, readonly string[]>;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   emitEvent: (event: SimulationEvent) => void;
@@ -42,6 +46,69 @@ export function activeAetherBridgeNeighborKeysForPlayer(
   return neighborKeys;
 }
 
+/**
+ * Supply links beyond the 8-neighbour ring: the player's active Aether bridges
+ * plus the dock sea lanes, which tie a beach landing to the dock(s) it was
+ * launched from. Sea lanes are static and listed for every owner; the
+ * connectivity walks only ever step onto the player's own tiles.
+ */
+export function supplyLinkNeighborKeysForPlayer(
+  context: Pick<RuntimeEncirclementApplicationContext, "activeAetherBridgesForPlayer" | "seaLaneNeighborKeysByTileKey">,
+  playerId: string
+): (tileKey: string) => readonly string[] {
+  const bridgeNeighborKeys = activeAetherBridgeNeighborKeysForPlayer(context, playerId);
+  return (tileKey) => {
+    const bridgeKeys = bridgeNeighborKeys.get(tileKey);
+    const seaLaneKeys = context.seaLaneNeighborKeysByTileKey.get(tileKey);
+    if (!bridgeKeys) return seaLaneKeys ?? [];
+    return seaLaneKeys ? [...bridgeKeys, ...seaLaneKeys] : bridgeKeys;
+  };
+}
+
+// Visit cap for the sea-lane landing check below. Each walk starts on the
+// landing side and stops at the first supply tile, so a held landing costs a
+// handful of lookups; the cap only bounds a large stranded beachhead.
+const SEA_LANE_STRAND_MAX_VISITED = 2_000;
+
+/**
+ * A dock that just left `playerId`'s hands may have been the home dock of
+ * their beach landings across the sea, which hang on it through the sea lane
+ * alone. The region BFS in computeEncirclementDeltas walks the whole owned
+ * component behind the changed tile and bails at its cap, which a home dock
+ * deep in a mid-sized empire always hits -- so check the landings directly,
+ * from their own side. Returns the deltas of the tiles released.
+ */
+function releaseStrandedSeaLaneLandings(
+  context: RuntimeEncirclementApplicationContext,
+  changedKeys: readonly string[],
+  playerId: string,
+  supplyNeighbors: (tileKey: string) => readonly string[],
+  commandId: string,
+  nowMs: number
+): SimulationTileWireDelta[] {
+  const seeds: string[] = [];
+  for (const changedKey of changedKeys) {
+    if (context.tiles.get(changedKey)?.ownerId === playerId) continue;
+    for (const landingKey of context.seaLaneNeighborKeysByTileKey.get(changedKey) ?? []) {
+      const landing = context.tiles.get(landingKey);
+      if (landing?.ownerId === playerId && landing.ownershipState === "FRONTIER" && !landing.dockId) seeds.push(landingKey);
+    }
+  }
+  if (seeds.length === 0) return [];
+  incrementStrandedFrontierCounter("seaLaneChecks");
+  const result = findStrandedFrontier({
+    seedKeys: seeds,
+    ownerId: playerId,
+    getTile: (key) => context.tiles.get(key),
+    extraNeighborKeys: supplyNeighbors,
+    maxVisited: SEA_LANE_STRAND_MAX_VISITED
+  });
+  if (result.capped) incrementStrandedFrontierCounter("capHits");
+  const tileDeltas = clearCutOffFrontierTiles(context, result.stranded, commandId, nowMs);
+  if (tileDeltas.length > 0) incrementStrandedFrontierCounter("seaLaneReleased", tileDeltas.length);
+  return tileDeltas;
+}
+
 export function applyEncirclementForExpand(
   context: RuntimeEncirclementApplicationContext,
   targetKey: string,
@@ -53,7 +120,7 @@ export function applyEncirclementForExpand(
   const bx = Number(xStr);
   const by = Number(yStr);
   const bfsCap = options?.bfsCap ?? 2000;
-  const aetherBridgeNeighborKeys = activeAetherBridgeNeighborKeysForPlayer(context, playerId);
+  const supplyNeighbors = supplyLinkNeighborKeysForPlayer(context, playerId);
 
   const seeds: string[] = [];
   for (const [dx, dy] of EXPAND_NEIGHBOR_OFFSETS) {
@@ -63,7 +130,7 @@ export function applyEncirclementForExpand(
       seeds.push(nk);
     }
   }
-  for (const nk of aetherBridgeNeighborKeys.get(targetKey) ?? []) {
+  for (const nk of supplyNeighbors(targetKey)) {
     const tile = context.tiles.get(nk);
     if (tile?.ownerId === playerId && tile.ownershipState === "FRONTIER" && tile.frontierDecayKind === "ENCIRCLEMENT") {
       seeds.push(nk);
@@ -97,7 +164,7 @@ export function applyEncirclementForExpand(
         queue.push(nk);
       }
     }
-    for (const nk of aetherBridgeNeighborKeys.get(current) ?? []) {
+    for (const nk of supplyNeighbors(current)) {
       if (visited.has(nk)) continue;
       visited.add(nk);
       const tile = context.tiles.get(nk);
@@ -130,9 +197,9 @@ export function applyEncirclement(
 ): void {
   const getTile = (key: string) => context.tiles.get(key);
   const nowMs = context.now();
-  const aetherBridgeNeighborKeys = activeAetherBridgeNeighborKeysForPlayer(context, playerId);
+  const supplyNeighbors = supplyLinkNeighborKeysForPlayer(context, playerId);
   const { cutOff, reconnected } = computeEncirclementDeltas(changedKeys, playerId, getTile, nowMs, {
-    extraNeighborKeys: (tileKey) => aetherBridgeNeighborKeys.get(tileKey) ?? [],
+    extraNeighborKeys: supplyNeighbors,
     ...(options?.bfsCap !== undefined ? { bfsCap: options.bfsCap } : {}),
     ...(options?.skipCutOff ? { skipCutOff: true } : {}),
     onCapExceeded: (pid, visited, cap) => {
@@ -144,6 +211,9 @@ export function applyEncirclement(
   });
 
   const tileDeltas = clearCutOffFrontierTiles(context, cutOff, commandId, nowMs);
+  if (!options?.skipCutOff) {
+    tileDeltas.push(...releaseStrandedSeaLaneLandings(context, changedKeys, playerId, supplyNeighbors, commandId, nowMs));
+  }
 
   for (const key of reconnected) {
     const tile = context.tiles.get(key);

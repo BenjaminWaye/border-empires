@@ -103,7 +103,7 @@ export const nearestHostileWithinSteps = (input: MusterTickInput, flag: DomainTi
     // Only docks and bridge endpoints have links; the key is built just for them.
     if (node.dockId !== undefined || bridgeLinks.size > 0) {
       const nodeKey = simulationTileKey(node.x, node.y);
-      for (const linkedKeys of [input.dockLinksByDockTileKey.get(nodeKey), bridgeLinks.get(nodeKey)]) {
+      for (const linkedKeys of [input.dockCrossingTargetsByDockTileKey.get(nodeKey), bridgeLinks.get(nodeKey)]) {
         for (const linkedKey of linkedKeys ?? []) {
           const [lx, ly] = linkedKey.split(",").map(Number);
           if (lx !== undefined && ly !== undefined) consider(lx, ly, depth);

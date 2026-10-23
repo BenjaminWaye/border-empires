@@ -55,7 +55,6 @@ export type RuntimeFrontierCommandContext = BarbarianLaunchContext & {
   locksByTile: CombatLockIndex;
   locksByCommandId: Map<string, LockRecord>;
   musterReservedByKey: Map<string, number>;
-  dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   rejectCommand: (command: CommandEnvelope, code: string, message: string) => void;
   applyManpowerRegen: (player: RuntimePlayer) => void;
   emitEvent: (event: SimulationEvent) => void;
@@ -218,9 +217,7 @@ export const handleFrontierCommandImpl = (
     targetLockedUntil: targetLock?.resolvesAt,
     targetLockOwnerId: targetLock?.playerId,
     actionGoldCost: actor.id === "barbarian-1" ? 0 : FRONTIER_CLAIM_COST,
-    isAdjacent: isFrontierAdjacent(from.x, from.y, to.x, to.y) ||
-      (ctx.dockLinksByDockTileKey.get(simulationTileKey(from.x, from.y)) ?? [])
-        .includes(simulationTileKey(to.x, to.y)),
+    isAdjacent: isFrontierAdjacent(from.x, from.y, to.x, to.y),
     isDockCrossing,
     isBridgeCrossing,
     originIsAlliedDockCrossing,

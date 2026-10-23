@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { isValidDockCrossingTarget } from "../dock-network/dock-network.js";
+import type { DockLandingIndex } from "@border-empires/shared";
 import { isFrontierAdjacent } from "../frontier-adjacency/frontier-adjacency.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import { isAlliedOrTruced } from "../runtime-player-factory.js";
@@ -7,19 +7,25 @@ import type { ActiveAetherBridgeView } from "../runtime-types.js";
 
 /**
  * Pure dock/aether-bridge crossing lookup helpers extracted out of
- * runtime.ts (Stage 2 of the god-class breakup plan). Each of these was
- * already a thin wrapper over a pure function (isValidDockCrossingTarget)
- * or a small loop over an already-computed active-bridge list, so they
- * convert directly into free functions with no context-object indirection.
+ * runtime.ts (Stage 2 of the god-class breakup plan). Each of these is a
+ * thin lookup over a precomputed index (the dock landing index) or a small
+ * loop over an already-computed active-bridge list, so they convert
+ * directly into free functions with no context-object indirection.
  */
 
+// A dock crossing (ATTACK or EXPAND) from `from` lands on the landing ground
+// of a dock it links to: the linked dock itself or a coastal tile beside it
+// (packages/shared dock-landing). Whether the target is LAND right now is
+// checked by validateFrontierCommand.
 export function isDockCrossingTarget(
   from: DomainTileState,
   toX: number,
   toY: number,
-  dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>
+  dockLanding: DockLandingIndex
 ): boolean {
-  return isValidDockCrossingTarget(simulationTileKey(from.x, from.y), toX, toY, dockLinksByDockTileKey);
+  return (dockLanding.landingTileKeysByOriginDockKey.get(simulationTileKey(from.x, from.y)) ?? []).includes(
+    simulationTileKey(toX, toY)
+  );
 }
 
 export function isAetherBridgeCrossingTarget(
@@ -57,17 +63,23 @@ function actorControlsDockNetwork(
 
 export function findOwnedDockOriginForCrossing(
   tiles: ReadonlyMap<string, DomainTileState>,
-  territoryTileKeys: Iterable<string>,
   actor: { id: string; allies: ReadonlySet<string>; truces?: ReadonlySet<string> },
   toX: number,
   toY: number,
   dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>,
-  dockNetworkComponentByTileKey: ReadonlyMap<string, ReadonlySet<string>>
+  dockNetworkComponentByTileKey: ReadonlyMap<string, ReadonlySet<string>>,
+  dockLanding: DockLandingIndex
 ): DockCrossingOrigin | undefined {
-  for (const tileKey of territoryTileKeys) {
-    const tile = tiles.get(tileKey);
+  // Own docks: the sea-lane edges list, for a landing tile, every dock that
+  // can land on it, so the candidates come straight from the target tile
+  // rather than from a scan of the actor's territory. The edges are
+  // symmetric (a dock target also lists its own landing ground), so each
+  // candidate is confirmed as an origin for this target.
+  const targetTileKey = simulationTileKey(toX, toY);
+  for (const originTileKey of dockLanding.seaLaneNeighborKeysByTileKey.get(targetTileKey) ?? []) {
+    const tile = tiles.get(originTileKey);
     if (!tile || tile.ownerId !== actor.id || tile.terrain !== "LAND") continue;
-    if (isDockCrossingTarget(tile, toX, toY, dockLinksByDockTileKey)) {
+    if (isDockCrossingTarget(tile, toX, toY, dockLanding)) {
       return { tile, isAlliedDockCrossing: false };
     }
   }
@@ -80,7 +92,6 @@ export function findOwnedDockOriginForCrossing(
   // in the network. dockLinksByDockTileKey is built symmetrically (a dock's
   // link list always includes anything that links back to it), so the
   // target tile's own entry gives the candidate origins directly.
-  const targetTileKey = simulationTileKey(toX, toY);
   for (const originTileKey of dockLinksByDockTileKey.get(targetTileKey) ?? []) {
     const tile = tiles.get(originTileKey);
     if (!tile || tile.terrain !== "LAND" || !tile.ownerId || tile.ownerId === actor.id) continue;
@@ -120,8 +131,8 @@ export function resolveOwnedDockOriginForCrossing(
     players: ReadonlyMap<string, { id: string; allies: ReadonlySet<string>; truces?: ReadonlySet<string> }>;
     dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
     dockNetworkComponentByTileKey: ReadonlyMap<string, ReadonlySet<string>>;
+    dockLanding: DockLandingIndex;
   },
-  territoryTileKeysForPlayer: (playerId: string) => Iterable<string>,
   playerId: string,
   toX: number,
   toY: number
@@ -130,12 +141,12 @@ export function resolveOwnedDockOriginForCrossing(
   if (!actor) return undefined;
   return findOwnedDockOriginForCrossing(
     state.tiles,
-    territoryTileKeysForPlayer(playerId),
     actor,
     toX,
     toY,
     state.dockLinksByDockTileKey,
-    state.dockNetworkComponentByTileKey
+    state.dockNetworkComponentByTileKey,
+    state.dockLanding
   );
 }
 

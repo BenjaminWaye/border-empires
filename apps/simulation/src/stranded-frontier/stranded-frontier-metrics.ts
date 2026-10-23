@@ -11,7 +11,9 @@ export type StrandedFrontierCounterName =
   | "regionChecks"
   | "regionInvalid"
   | "tilesReleased"
-  | "capHits";
+  | "capHits"
+  | "seaLaneChecks"
+  | "seaLaneReleased";
 
 const counters: Record<StrandedFrontierCounterName, number> = {
   originChecks: 0,
@@ -20,7 +22,9 @@ const counters: Record<StrandedFrontierCounterName, number> = {
   regionChecks: 0,
   regionInvalid: 0,
   tilesReleased: 0,
-  capHits: 0
+  capHits: 0,
+  seaLaneChecks: 0,
+  seaLaneReleased: 0
 };
 
 export const incrementStrandedFrontierCounter = (name: StrandedFrontierCounterName, amount = 1): void => {
@@ -36,7 +40,9 @@ const PROMETHEUS_NAMES: Record<StrandedFrontierCounterName, string> = {
   regionChecks: "sim_stranded_frontier_region_checks_total",
   regionInvalid: "sim_stranded_frontier_region_invalid_total",
   tilesReleased: "sim_stranded_frontier_tiles_released_total",
-  capHits: "sim_stranded_frontier_cap_hits_total"
+  capHits: "sim_stranded_frontier_cap_hits_total",
+  seaLaneChecks: "sim_stranded_frontier_sea_lane_checks_total",
+  seaLaneReleased: "sim_stranded_frontier_sea_lane_released_total"
 };
 
 export const renderStrandedFrontierPrometheusLines = (): string[] =>

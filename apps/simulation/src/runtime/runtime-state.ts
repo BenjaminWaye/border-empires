@@ -1,4 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
+import { buildDockLandingIndex, type DockLandingIndex } from "@border-empires/shared";
 import type { DockRouteDefinition } from "../dock-network/dock-network.js";
 import type { RuntimePlayer } from "../runtime-types.js";
 import type { VisibilityCoverageTracker } from "../visibility-coverage-cache.js";
@@ -22,6 +23,10 @@ export class RuntimeState {
   readonly docks: DockRouteDefinition[];
   readonly dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   readonly dockNetworkComponentByTileKey: ReadonlyMap<string, ReadonlySet<string>>;
+  // Beach-landing ground and sea-lane supply edges (packages/shared
+  // dock-landing). Derived from the dock links and the world's water, both
+  // fixed after worldgen, so it is built once here and never rebuilt.
+  readonly dockLanding: DockLandingIndex;
   readonly locksByTile: CombatLockIndex;
   readonly visibilityCoverage: VisibilityCoverageTracker;
 
@@ -39,6 +44,7 @@ export class RuntimeState {
     this.docks = init.docks;
     this.dockLinksByDockTileKey = init.dockLinksByDockTileKey;
     this.dockNetworkComponentByTileKey = init.dockNetworkComponentByTileKey;
+    this.dockLanding = buildDockLandingIndex(init.dockLinksByDockTileKey, (x, y) => init.tiles.get(`${x},${y}`)?.terrain);
     this.locksByTile = init.locksByTile;
     this.visibilityCoverage = init.visibilityCoverage;
   }
