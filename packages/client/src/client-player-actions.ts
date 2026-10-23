@@ -1,4 +1,4 @@
-import { DEVELOPMENT_PROCESS_LIMIT, TRICKLE_RESOURCE_KEYS } from "@border-empires/shared";
+import { DEVELOPMENT_PROCESS_LIMIT, MUSTER_MARCH_TARGET_NOT_LAND_MESSAGE, TRICKLE_RESOURCE_KEYS } from "@border-empires/shared";
 import type { ClientState } from "./client-state/client-state.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import { promptForTrickleResource, type TrickleOption } from "./client-trickle-pick-modal.js";
@@ -242,7 +242,7 @@ export const explainActionFailureFromServer = (
   if (code === "INSUFFICIENT_MUSTER") return "Attack blocked: stage manpower on this tile first. Tap the tile → Stage Muster, then wait for it to fill.";
   if (code === "MUSTER_DISABLED") return "Mustering is not enabled on this server.";
   if (code === "MUSTER_MARCH_TOO_FAR") return message;
-  if (code === "MUSTER_INVALID") return "Action blocked: you can only stage muster on your own land tiles.";
+  if (code === "MUSTER_INVALID") return message === MUSTER_MARCH_TARGET_NOT_LAND_MESSAGE ? message : "Action blocked: you can only stage muster on your own land tiles.";
   if (code === "LOCKED") return "Action blocked: the tile is already in combat.";
   if (code === "MUSTER_UNDER_SIEGE") return "Action blocked: this muster is under siege until the battle on its tile ends.";
   if (code === "BARRIER") return "Action blocked: only land tiles can be claimed or attacked.";

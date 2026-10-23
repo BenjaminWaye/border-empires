@@ -33,19 +33,22 @@ export type MusterMarchTargetResult =
  *
  * Unexplored ground is a legal target: marching into the unknown is how a
  * flag scouts, and the server routes against the real map (expanding across
- * neutral land as it goes), so the client needs nothing but coordinates --
- * the same reason waypoint claims accept unexplored targets. If the tile
- * turns out not to be LAND the server rejects the SET_MUSTER.
+ * neutral land as it goes), so the client needs nothing but coordinates.
+ * The player is told the target is unknown, since the confirm sheet has no
+ * tile data to show for it; if the tile turns out not to be LAND the server
+ * rejects the SET_MUSTER with MUSTER_MARCH_TARGET_NOT_LAND_MESSAGE.
  */
 export const handleMusterMarchTargetClick = (
   state: Pick<ClientState, "musterMarchTargeting">,
   wx: number,
   wy: number,
+  vis: "visible" | "fogged" | "unexplored",
   deps: MarchTargetingDeps
 ): MusterMarchTargetResult => {
   const { originX, originY } = state.musterMarchTargeting;
   state.musterMarchTargeting.active = false;
   if (wx !== originX || wy !== originY) {
+    if (vis === "unexplored") deps.pushFeed(`(${wx}, ${wy}) is unexplored: the flag will march into the unknown.`, "combat", "info");
     return { type: "armed", originX, originY, targetX: wx, targetY: wy };
   }
   deps.pushFeed("March target cancelled.", "combat", "info");

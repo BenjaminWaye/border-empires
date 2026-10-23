@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { MUSTER_MARCH_MAX_DISTANCE_TILES, WORLD_WIDTH, musterMarchDistanceTiles, musterMarchTooFarAdvice } from "@border-empires/shared";
+import { MUSTER_MARCH_MAX_DISTANCE_TILES, MUSTER_MARCH_TARGET_NOT_LAND_MESSAGE, WORLD_WIDTH, musterMarchDistanceTiles, musterMarchTooFarAdvice } from "@border-empires/shared";
 import { handleArrowGestureConfirm } from "./client-arrow-gesture-confirm.js";
 import { handleMusterMarchTargetClick } from "./client-muster-march-targeting.js";
+import { explainActionFailureFromServer } from "./client-player-actions.js";
 
 const targetingState = (originX: number, originY: number) => ({ musterMarchTargeting: { active: true, originX, originY } });
 
@@ -20,26 +21,34 @@ describe("march cap advice", () => {
   // armed vs. cancelled and no longer sends anything itself.
   it("a valid target click returns armed with the origin/target coordinates", () => {
     const pushFeed = vi.fn();
-    const result = handleMusterMarchTargetClick(targetingState(10, 10), 25, 10, { pushFeed });
+    const result = handleMusterMarchTargetClick(targetingState(10, 10), 25, 10, "visible", { pushFeed });
     expect(result).toEqual({ type: "armed", originX: 10, originY: 10, targetX: 25, targetY: 10 });
     expect(pushFeed).not.toHaveBeenCalled();
   });
 
   // Regression: unexplored ground used to cancel the march instead of
   // arming it, so a flag could never be sent into the unknown.
-  it("an unexplored target click still arms the march", () => {
+  it("an unexplored target click arms the march and says the target is unknown", () => {
     const pushFeed = vi.fn();
     const state = targetingState(10, 10);
-    const result = handleMusterMarchTargetClick(state, 14, 12, { pushFeed });
+    const result = handleMusterMarchTargetClick(state, 14, 12, "unexplored", { pushFeed });
     expect(result).toEqual({ type: "armed", originX: 10, originY: 10, targetX: 14, targetY: 12 });
     expect(state.musterMarchTargeting.active).toBe(false);
-    expect(pushFeed).not.toHaveBeenCalled();
+    expect(pushFeed).toHaveBeenCalledWith("(14, 12) is unexplored: the flag will march into the unknown.", "combat", "info");
+    expect(pushFeed).not.toHaveBeenCalledWith("March target cancelled.", "combat", "info");
+  });
+
+  it("clicking the flag's own tile cancels even when it reads as unexplored", () => {
+    const pushFeed = vi.fn();
+    const result = handleMusterMarchTargetClick(targetingState(10, 10), 10, 10, "unexplored", { pushFeed });
+    expect(result).toEqual({ type: "cancelled" });
+    expect(pushFeed).toHaveBeenCalledWith("March target cancelled.", "combat", "info");
   });
 
   it("clicking the flag's own tile cancels instead of arming", () => {
     const pushFeed = vi.fn();
     const state = targetingState(10, 10);
-    const result = handleMusterMarchTargetClick(state, 10, 10, { pushFeed });
+    const result = handleMusterMarchTargetClick(state, 10, 10, "visible", { pushFeed });
     expect(result).toEqual({ type: "cancelled" });
     expect(state.musterMarchTargeting.active).toBe(false);
     expect(pushFeed).toHaveBeenCalledWith("March target cancelled.", "combat", "info");
@@ -69,5 +78,13 @@ describe("march cap advice", () => {
     });
     expect(pushFeed).not.toHaveBeenCalled();
     expect((state as { pendingArrowGestureConfirm: unknown }).pendingArrowGestureConfirm).toBeDefined();
+  });
+
+  // Regression: every MUSTER_INVALID used to read "you can only stage muster on
+  // your own land tiles", so an unexplored march target that turned out to be
+  // water blamed the flag's own tile instead of the target.
+  it("shows the server's not-land text for a march target that isn't land", () => {
+    expect(explainActionFailureFromServer("MUSTER_INVALID", MUSTER_MARCH_TARGET_NOT_LAND_MESSAGE)).toBe(MUSTER_MARCH_TARGET_NOT_LAND_MESSAGE);
+    expect(explainActionFailureFromServer("MUSTER_INVALID", "owned LAND tile required to muster")).toBe("Action blocked: you can only stage muster on your own land tiles.");
   });
 });

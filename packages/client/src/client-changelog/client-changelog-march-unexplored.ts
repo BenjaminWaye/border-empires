@@ -8,7 +8,7 @@ export const MARCH_UNEXPLORED_CHANGELOG: ClientChangelogEntry[] = [
     why: "Picking an unexplored tile as a March To target cancelled the order, so a muster flag could never be sent into the unknown.",
     changes: [
       "March To now accepts unexplored tiles as targets; the flag fights and expands its way there, revealing the ground as it goes",
-      "If the target turns out not to be land, the order is refused and the flag keeps its current orders"
+      "If an unexplored target isn't land, the order is refused right away with a message saying so, and the flag keeps its current orders"
     ]
   }
 ];
