@@ -58,7 +58,7 @@ import {
   integrityGrowthMult,
   DEVELOPMENT_PROCESS_LIMIT,
   GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE, GALACTIC_WONDER_VISION_RADIUS_BONUS,
-  isAutoSettleAllowed, settleIgnoresReach,
+  isAutoSettleAllowed, normalizeAutoSettlePrefs, settleIgnoresReach,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   type Terrain,
@@ -488,15 +488,9 @@ import { holdDevelopmentForAttack, releaseDevelopmentHold, type AttackDevelopmen
 import { installAttackReleaseHandler } from "./runtime-attack-release-handler.js";
 import { rescheduleRecoveredStructureTimers } from "../structure-timer-recovery/structure-timer-recovery.js";
 import { updateTileSettledAt, withoutStaleCaptureHold } from "../runtime-tile-write-rules/runtime-tile-write-rules.js";
+import { ORPHAN_LOCK_GRACE_MS, RESPAWN_MINIMUM_GOLD } from "./runtime-lifecycle-constants.js";
 
 export type { VisibilityAuditSample };
-// §24.2: revised down from 100 to 10 (one tier-1 tech's worth, §13) — in
-// line with how far everything else in the new economy scale shrank.
-const RESPAWN_MINIMUM_GOLD = 10;
-// Grace beyond resolvesAt before the sweep drops a lock (60s).
-// Normal locks resolve inside their setTimeout window; anything still present
-// is a leak from a code path that bypassed validation.
-const ORPHAN_LOCK_GRACE_MS = 60_000;
 // How long an AI player's economy/defensibility/auto-settlement caches may stay dirty-but-served before the next read pays a real rebuild (2026-07-29 login-stall investigation) — well under both consumers' own tick cadence (passive income 15s, population growth 60s), so never gameplay-visible; just stops a continuously-settling AI from paying a fresh O(settled-tiles) rebuild on nearly every command. Defined in runtime-economy.ts (imported above) so both files share one value.
 
 // Process-global monotonically increasing counter for unique runtime epochs and
@@ -1162,6 +1156,7 @@ export class SimulationRuntime {
       activeFortAnchorsByOwner: this.ownerIndexes.activeFortAnchorsByOwner,
       playerCandidateIndex: this.playerCandidateIndex,
       playerManpowerCap: (player) => this.playerManpowerCap(player),
+      frontierTileCountForPlayer: (playerId) => this.ownerIndexes.frontierTilesByOwner.get(playerId)?.size ?? 0,
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       applyEconomyAccrual: (player, at) => this.applyEconomyAccrual(player, at),
       autoSettlementQueueLengthForPlayer: (playerId) => this.autoSettlementQueueForPlayer(playerId).length,
@@ -1327,7 +1322,8 @@ export class SimulationRuntime {
       requiredMusterForTarget: (target, attackerId) => this.requiredMusterForTarget(target, attackerId),
       buildLockedCombatResolution: (lock) => this.buildLockedCombatResolution(lock),
       isInReach: (playerId, x, y) => this.isPlayerTileInReach(playerId, x, y), reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y),
-      releaseIfStrandedOrigin: (originKey, ownerId, commandId) => this.strandedFrontier.releaseIfStrandedOrigin(originKey, ownerId, commandId)
+      releaseIfStrandedOrigin: (originKey, ownerId, commandId) => this.strandedFrontier.releaseIfStrandedOrigin(originKey, ownerId, commandId),
+      frontierTileCountForPlayer: (playerId) => this.ownerIndexes.frontierTilesByOwner.get(playerId)?.size ?? 0
     };
   }
 
@@ -1381,7 +1377,7 @@ export class SimulationRuntime {
       ensureGrossIncomeSettlementForPlayer: (playerId, commandId) => this.ensureGrossIncomeSettlementForPlayer(playerId, commandId),
       maybeActivateWatchtower: (targetKey, x, y, playerId, commandId) => this.activateWatchtowerAt(targetKey, x, y, playerId, commandId), maybeActivateWaystation: (targetKey, x, y, playerId, commandId) => this.activateWaystationAt(targetKey, x, y, playerId, commandId),
       maybeDrainClaimContinuation: (targetKey, x, y, playerId) => tryDrainClaimContinuationImpl(this.devQueueCommandContext(), playerId, targetKey, x, y),
-      isTileBeyondReach: (playerId, x, y) => isTileBeyondReachImpl({ isPlayerTileInReach: (pid, tx, ty) => this.isPlayerTileInReach(pid, tx, ty), gatherReachAnchors: () => this.gatherReachAnchors(), isLandTile: this.isLandTileQuery }, playerId, x, y), canAutoSettleCapturedAnchor: (playerId) => canAutoSettleCapturedAnchorImpl(autoSettleDeps, playerId), isTownAutoSettleAllowed: (playerId) => { const player = this.state.players.get(playerId); return player !== undefined && isAutoSettleAllowed(player.autoSettle, "towns"); }, autoSettleCapturedAnchor: (playerId, targetKey, target, commandId) => autoSettleCapturedAnchorImpl(autoSettleDeps, playerId, targetKey, target, commandId),
+      isTileBeyondReach: (playerId, x, y) => isTileBeyondReachImpl({ isPlayerTileInReach: (pid, tx, ty) => this.isPlayerTileInReach(pid, tx, ty), gatherReachAnchors: () => this.gatherReachAnchors(), isLandTile: this.isLandTileQuery }, playerId, x, y), canAutoSettleCapturedAnchor: (playerId) => canAutoSettleCapturedAnchorImpl(autoSettleDeps, playerId), isTownAutoSettleAllowed: (playerId) => { const player = this.state.players.get(playerId); return player !== undefined && isAutoSettleAllowed(normalizeAutoSettlePrefs(player.autoSettle), "towns"); }, autoSettleCapturedAnchor: (playerId, targetKey, target, commandId) => autoSettleCapturedAnchorImpl(autoSettleDeps, playerId, targetKey, target, commandId),
       applyBreachToNeighbors: BREAKTHROUGH_ENABLED
         ? (capturedTile, attackerId) => applyBreachToNeighborsImpl({ capturedTile, attackerId, nowMs: this.now(), tiles: this.state.tiles, invalidateTileStringifyCache: (key) => this.tileDeltaStringifyCache.invalidate(key) })
         : undefined,
@@ -1912,7 +1908,7 @@ export class SimulationRuntime {
     return planDirectFrontierCommand({ tiles: this.state.tiles,
       ownedTiles: this.tileKeySetToTiles(this.summaryForPlayer(playerId).territoryTileKeys),
       locks: this.state.locksByTile.values(), dockLinks: this.state.dockLinksByDockTileKey,
-      playerId, points: player?.points ?? 0, manpower: player?.manpower ?? 0,
+      playerId, points: player?.points ?? 0, manpower: player?.manpower ?? 0, frontierTileCount: this.summaryForPlayer(playerId).frontierTileKeys.size,
       clientSeq, issuedAt, sessionPrefix });
   }
 

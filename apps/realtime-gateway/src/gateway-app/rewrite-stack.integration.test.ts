@@ -132,9 +132,9 @@ describe("rewrite stack integration", () => {
     );
 
     expect(scheduledResolutions).toHaveLength(1);
-    // COMBAT_LOCK_MS is 30s (packages/shared/src/config.ts) — see the "30s
+    // COMBAT_LOCK_MS is 15s (packages/shared/src/config.ts) — see the "15s
     // base, per COMBAT_LOCK_MS" comment in runtime-frontier-command.ts.
-    expect(scheduledResolutions[0]?.delayMs).toBe(30_000);
+    expect(scheduledResolutions[0]?.delayMs).toBe(15_000);
 
     await waitUntil(async () => (await gatewayCommandStore.get("cmd-1"))?.status === "ACCEPTED");
 

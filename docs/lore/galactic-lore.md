@@ -280,8 +280,11 @@ frontier depends on an unbroken supply route back to established holdings;
 an enemy who cuts the route can strip away the exposed advance. Being
 outside reach alone does not erase the claim. Beacons extend the ground
 that can be settled and watched; supply determines whether an advance
-beyond it can be held. The exact supply and settlement rules belong in
-the [gameplay reference](../game-mechanics.md).
+beyond it can be held. A wide, ungarrisoned frontier also strains the
+towns whose levies hold it: every further claim draws its men across more
+open ground, so each new stretch of frontier costs more manpower until the
+ground behind it is garrisoned. The exact supply, settlement and cost rules
+belong in the [gameplay reference](../game-mechanics.md).
 
 ### What a beacon looks like
 

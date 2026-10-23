@@ -1,7 +1,7 @@
 import { captureMusterScrollAnchor, restoreMusterScrollAnchor } from "../client-muster-combat-reports/client-muster-combat-scroll.js";
 import { locationThemeForTile } from "./client-location-theme.js";
 import { wireMusterReports, openMusterReportIds, restoreOpenMusterReports } from "../client-muster-combat-reports/client-muster-combat-reports-ui.js";
-import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, WORLD_HEIGHT, WORLD_WIDTH, applyOddsScale, commitOddsMultiplier, wrapCoord } from "@border-empires/shared";
+import { FRONTIER_CLAIM_COST, WORLD_HEIGHT, WORLD_WIDTH, applyOddsScale, commitOddsMultiplier, wrapCoord } from "@border-empires/shared";
 import { tileActionMenuHtml } from "../client-tile-menu-html.js";
 import { advanceCommitOddsText } from "../client-muster-commit-tab/client-muster-commit-tab.js";
 import { playLocationTheme } from "../client-audio/client-audio.js";
@@ -456,7 +456,7 @@ export const openBulkTileActionMenu = (
     actions.push({
       id: "settle_land",
       label: `Garrison (${neutralCount})`,
-      cost: `${FRONTIER_CLAIM_COST} coin, ${EXPAND_MANPOWER_COST} manpower each`
+      cost: `${FRONTIER_CLAIM_COST} coin, ${state.expandManpowerCost} manpower each`
     });
   }
   if (enemyCount > 0) {

@@ -1,6 +1,6 @@
 import { chooseAiAetherCommand } from "./ai-aether-planner.js";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { ATTACK_MANPOWER_MIN, DEVELOPMENT_PROCESS_LIMIT, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
+import { ATTACK_MANPOWER_MIN, DEVELOPMENT_PROCESS_LIMIT, expandManpowerCostForFrontierCount, FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
 
 import { spendableBuildManpowerForPlanner, spendableManpowerForPlanner } from "./automation-command-planner-war-reserve.js";
 
@@ -116,8 +116,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   // spendableManpower below — see automation-command-planner-war-reserve.ts.
   const canAttack = input.points >= FRONTIER_CLAIM_COST && input.manpower >= ATTACK_MANPOWER_MIN;
   const spendableManpower = spendableManpowerForPlanner(input);
-  // SETTLE_COST reserves gold for the eventual SETTLE step (#1055); EXPAND_MANPOWER_COST is the manpower-rewrite's own gate — both fixes combined.
-  const canExpand = input.points >= SETTLE_COST && spendableManpower >= EXPAND_MANPOWER_COST;
+  // SETTLE_COST reserves gold for the eventual SETTLE step (#1055); the frontier-scaled EXPAND price is the manpower gate — both fixes combined.
+  const canExpand = input.points >= SETTLE_COST && spendableManpower >= expandManpowerCostForFrontierCount(input.frontierTiles.length);
   // strategicFrontierTiles (isStrategicFrontierTile: good SETTLE candidates — e.g. interior gaps that improve territory shape) used to sit ahead of
   // frontierTiles here, but there is no SETTLE decision class in the AI's utility policy — the AI never acts on "good to settle" directly. Worse,
   // when hotFrontierTiles is empty this tier fired first and starved the EXPAND/ATTACK scan: analyzeOwnedFrontierTargetsFromLookup only looks for

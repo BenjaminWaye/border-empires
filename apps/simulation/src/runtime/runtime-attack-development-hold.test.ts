@@ -254,9 +254,10 @@ describe("development hold while a tile is under attack", () => {
     runtime.submitCommand(command("attack-1", "player-1", "ATTACK", { fromX: 10, fromY: 10, toX: 10, toY: 11 }, 1));
     await Promise.resolve();
 
-    // The original deadline (10s) passes while the 30s fight is still in flight.
-    nowMs = START + 15_000;
-    vi.advanceTimersByTime(15_000);
+    // The original deadline (10s) passes while the fight (COMBAT_LOCK_MS) is still in flight.
+    expect(COMBAT_LOCK_MS - 1_000).toBeGreaterThan(10_000);
+    nowMs = START + COMBAT_LOCK_MS - 1_000;
+    vi.advanceTimersByTime(COMBAT_LOCK_MS - 1_000);
     expect(latestStructureDelta(seen).structure).toMatchObject({ status: "under_construction", pausedAt: START });
   });
 

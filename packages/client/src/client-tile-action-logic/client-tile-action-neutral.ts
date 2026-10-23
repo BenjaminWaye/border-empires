@@ -3,7 +3,6 @@
 // file's line count from growing past the repo's 500-line new-growth cap
 // (AGENTS.md) -- no logic changes here, just a code move.
 import {
-  EXPAND_MANPOWER_COST,
   FRONTIER_CLAIM_COST,
   RELAY_BEACON_VISION_BONUS,
   SETTLE_COST,
@@ -80,9 +79,9 @@ export const expandToAction = (
       id,
       label: "Expand To",
       ...tileActionAvailability(
-        state.gold >= FRONTIER_CLAIM_COST && state.manpower >= EXPAND_MANPOWER_COST,
-        state.manpower < EXPAND_MANPOWER_COST ? `Need ${EXPAND_MANPOWER_COST} manpower` : `Need ${FRONTIER_CLAIM_COST} coin`,
-        frontierClaimCostLabelForTile(tile.x, tile.y)
+        state.gold >= FRONTIER_CLAIM_COST && state.manpower >= state.expandManpowerCost,
+        state.manpower < state.expandManpowerCost ? `Need ${state.expandManpowerCost} manpower` : `Need ${FRONTIER_CLAIM_COST} coin`,
+        frontierClaimCostLabelForTile(tile.x, tile.y, state.expandManpowerCost)
       )
     };
   }
@@ -143,7 +142,7 @@ export const neutralTileActions = (
   // same policy as everything below.
   if (targetInReach) {
     const totalExploreGold = FRONTIER_CLAIM_COST + SETTLE_COST; // build cost is 0
-    const totalExploreManpower = EXPAND_MANPOWER_COST + SETTLE_MANPOWER_COST + relayBeaconManpowerCostForState(state);
+    const totalExploreManpower = state.expandManpowerCost + SETTLE_MANPOWER_COST + relayBeaconManpowerCostForState(state);
     const totalExploreMs = settleDurationMsForState(state, tile) + relayBeaconBuildDurationMsForState(state);
     const exploreEnabled =
       canAffordCost(state.gold, totalExploreGold) &&
