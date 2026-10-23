@@ -1,3 +1,4 @@
+import { DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 
 /**
@@ -14,7 +15,11 @@ export const makePlayer = (id: string) => ({
   domainIds: new Set<string>(),
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local",
-  allies: new Set<string>()
+  allies: new Set<string>(),
+  // Required on RuntimePlayer: a capture that resolves on a real timer after
+  // the test ends (a MARCH claiming an out-of-reach dock) reads it, and its
+  // absence threw an uncaught error into whichever test file ran next.
+  autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS }
 });
 
 export const acceptedAttackTargets = (events: SimulationEvent[]): string[] =>
