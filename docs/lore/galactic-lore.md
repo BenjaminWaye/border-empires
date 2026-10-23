@@ -370,15 +370,18 @@ Crystal is usable aether (§3), and Shards are fragments of the shattered
 Engine. These meanings do not prescribe stockpiles, resource-slot costs or
 per-cast consumption: those details follow the current gameplay reference.
 
-A House's war industry shows on its battlefields. Once a House runs a
-Titanium Weapons Factory, it fields **titanium war-walkers** in place of
-foot soldiers: squat, sealed drum hulls of bright polished titanium on
-piston legs, each crewed from inside the hull, armed with a crystal-fed
-laser gatling and a buzz-saw claw for close work. Titanium is first and
-foremost an armour material, and a hull sealed against the Bleed lets the
-crew fight where unshielded infantry could not. The look only reflects the
-industry; the combat effect is whatever the current gameplay reference
-gives the factory.
+A House's war industry shows on its battlefields. Its squads are still
+mostly infantry, but each kind of weapons factory it runs puts a few of its
+own specialists among them. A Titanium Weapons Factory contributes
+**titanium war-walkers**: squat, sealed drum hulls of bare polished titanium
+on piston legs, crewed from inside the hull, armed with a crystal-fed laser
+gatling and a buzz-saw claw. One walker wades into close combat while the
+other holds back and fires over the line. Titanium is first and foremost an
+armour material, and a hull sealed against the Bleed lets the crew fight
+where unshielded infantry could not. An Umbrite Weapons Factory contributes
+heavy-weapon troopers who fire from a braced kneel (their own kit is still
+undefined; see §14). The look only reflects the industry; the combat effect
+is whatever the current gameplay reference gives each factory.
 
 ## 12. Manifests and AFC modules
 
@@ -483,6 +486,7 @@ not infer new gameplay rules from them while implementing unrelated work.
 
 | Question | Established passages that need reconciling |
 |---|---|
+| Umbrite heavy-weapon troopers | §11 gives Umbrite Weapons Factory squads heavy-weapon troopers but no kit: what Umbrite arms look like and what they fire is undecided. |
 | World Cannon and Sovereign Siege Engine | §3 names the shattered artifact Sovereign Siege Engine but calls the reconstructed weapon World Cannon; the current Great Project is named Sovereign Siege Engine. Clarify whether World Cannon is a historical name, an alias or a distinct object. |
 | Rank before a first victory | §2 says winning grants the rank of Duke, while later passages call campaign participants Dukes. Define first-time contenders' rank and returning Dukes' participation. |
 | Permanent holdings and map resets | §2 grants permanent rights to a won world; §8 preserves titles but allows the map to reset. Define what persists across a seasonal campaign and an age ending with the Court's fall. |

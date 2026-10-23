@@ -34,7 +34,7 @@ describe("syncBattleOverlayFx with Planetary Defense", () => {
       incomingAttacksByTile: new Map(),
       outgoingMusterAttacksByTile: new Map(),
       skirmishSeenAt: new Map(),
-      titaniumArmorOwners: new Set<string>(),
+      squadGearByOwner: new Map(),
       capture: undefined
     } as unknown as ClientState;
     const tick = vi.fn<(nowMs: number, battles: BattleOverlayRenderEntry[]) => void>();

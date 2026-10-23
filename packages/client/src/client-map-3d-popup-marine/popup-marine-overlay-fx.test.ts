@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 // mixers, and "which animation is this marine playing" is exactly the
 // behaviour worth pinning now that stance comes from real clips rather than
 // hand-rolled bone math.
-const HIPS_X_BY_CLIP: Record<string, number> = { PistolRun: 1, PistolIdle: 2, PistolKneelingIdle: 3 };
+const HIPS_X_BY_CLIP: Record<string, number> = { PistolRun: 1, PistolIdle: 2, PistolKneelingIdle: 3, MeleeSwing: 4 };
 
 vi.mock("./popup-marine-asset.js", async () => {
   const THREE = await import("three");
@@ -44,6 +44,7 @@ vi.mock("./popup-marine-asset.js", async () => {
   };
   return {
     MARINE_CLIP_NAMES: { run: "PistolRun", stand: "PistolIdle", kneel: "PistolKneelingIdle" },
+    MARINE_MELEE_CLIP: "MeleeSwing",
     firstSkinnedMesh: (root: Object3D): SkinnedMesh => {
       let found: SkinnedMesh | undefined;
       root.traverse((child) => {
@@ -57,7 +58,7 @@ vi.mock("./popup-marine-asset.js", async () => {
 });
 
 import { createPopupMarineOverlayFx } from "./popup-marine-overlay-fx.js";
-import { APPROACH_MS, CLASH_MS, LINEUP_MS, MARINES_PER_SIDE, ROUT_MS } from "./popup-marine-timeline.js";
+import { APPROACH_MS, CLASH_MS, LINEUP_MS, MARINES_PER_SIDE, MARINE_MODEL_SCALE, ROUT_MS } from "./popup-marine-timeline.js";
 import type { BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "./popup-marine-timeline.js";
 import { STRIKE_LEAD_MS } from "./popup-marine-strike-fx.js";
 import { skirmishSiegeVictim, tileHashSeed } from "./popup-marine-siege-victim.js";
@@ -269,6 +270,26 @@ describe("popup-marine overlay fx", () => {
     for (const stance of firing) {
       expect(["PistolIdle", "PistolKneelingIdle"]).toContain(stance);
     }
+    fx.dispose();
+  });
+
+  it("fields a titanium squad as infantry plus two bigger walkers, one of them fighting in melee", async () => {
+    const scene = new Scene();
+    const fx = await createLoadedFx(scene);
+    const battle = makeBattle({ attackerGear: { titanium: true } });
+    fx.tick(battle.clashAt + CLASH_MS * 0.3, [battle]); // first sight requests the titanium model
+    await Promise.resolve();
+    await Promise.resolve();
+    fx.tick(battle.clashAt + CLASH_MS * 0.3, [battle]);
+
+    // Only the attacker's assault walker is in melee; nobody else is.
+    expect(visibleMarinesIn(scene).map(stanceOf).filter((s) => s === "MeleeSwing")).toHaveLength(1);
+
+    // Before anyone falls, the whole squad is on the field, two of it walker-sized.
+    fx.tick(2400, [battle]);
+    const scales = visibleMarinesIn(scene).map((m) => m.scale.x);
+    expect(scales).toHaveLength(MARINES_PER_SIDE * 2);
+    expect(scales.filter((x) => x > MARINE_MODEL_SCALE * 1.1)).toHaveLength(2);
     fx.dispose();
   });
 

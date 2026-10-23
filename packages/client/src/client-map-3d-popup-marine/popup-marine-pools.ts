@@ -1,54 +1,55 @@
-// Pooled marine slots, one pool per (side, armour kit). Split out of
-// popup-marine-overlay-fx.ts when titanium armour (popup-marine-armor.ts)
-// added a second model: the overlay asks for "the next attacker in titanium"
-// and this hands back a slot from the right model's pool, without the
-// overlay tracking a write cursor per pool itself.
+// Pooled marine slots, one pool per (side, model). Split out of
+// popup-marine-overlay-fx.ts when the titanium war-walker added a second
+// model: the overlay asks for "the next attacker on the titanium model" and
+// this hands back a slot from the right model's pool, without the overlay
+// tracking a write cursor per pool itself.
 //
-// The standard pools are built eagerly once the standard model loads, as
-// before. The titanium model is only fetched the first time a titanium squad
-// is asked for, and its pools grow on demand (capped at `capacity`), so a
-// session that never sees an armoured empire never downloads or clones it.
-// Until it is ready -- or if it fails to load -- titanium requests fall back
-// to the standard pool, so a battle never renders with a squad missing.
-import type { Scene } from "three";
+// The standard pools are built eagerly once the standard model loads. Any
+// other model is only fetched the first time a unit needing it is asked for,
+// and its pools grow on demand (capped at `capacity`), so a session that
+// never sees a weapons factory never downloads or clones it. Until it is
+// ready -- or if it fails to load -- requests fall back to the standard
+// pool, so a battle never renders with a squad member missing.
+import type { Scene, Texture } from "three";
 import { loadPopupMarineTemplate, type PopupMarineTemplate } from "./popup-marine-asset.js";
-import type { MarineArmor } from "./popup-marine-armor.js";
+import type { MarineModelKey } from "./popup-marine-gear.js";
 import { createMarineSlot, disposeMarineSlot, type MarineSlot } from "./popup-marine-slot.js";
 
-type SidePools = Record<MarineArmor, MarineSlot[]>;
+const MODEL_KEYS: readonly MarineModelKey[] = ["standard", "titanium"];
+
+type SidePools = Record<MarineModelKey, MarineSlot[]>;
+
+const emptyPools = (): SidePools => ({ standard: [], titanium: [] });
+const zeroCursors = (): Record<MarineModelKey, number> => ({ standard: 0, titanium: 0 });
 
 export type MarinePools = {
   /** Hides every slot and rewinds every pool's cursor -- call once per frame
    * before acquiring. */
   beginFrame: () => void;
-  /** The next unused slot this frame for `side` (0 attacker, 1 defender) in
-   * `armor`, or undefined once that pool is exhausted. */
-  acquire: (side: 0 | 1, armor: MarineArmor) => MarineSlot | undefined;
+  /** The next unused slot this frame for `side` (0 attacker, 1 defender) on
+   * `model`, or undefined once that pool is exhausted. */
+  acquire: (side: 0 | 1, model: MarineModelKey) => MarineSlot | undefined;
   hideAll: () => void;
   dispose: () => void;
 };
 
-export const createMarinePools = (scene: Scene, capacity: number): MarinePools => {
+/** `envMap` is what a model with bare-metal parts reflects (the shared
+ * building environment map; see popup-marine-metal-material.ts). */
+export const createMarinePools = (scene: Scene, capacity: number, envMap?: Texture): MarinePools => {
   let disposed = false;
-  const templates: Partial<Record<MarineArmor, PopupMarineTemplate>> = {};
-  const requested = new Set<MarineArmor>();
-  const pools: [SidePools, SidePools] = [
-    { standard: [], titanium: [] },
-    { standard: [], titanium: [] }
-  ];
-  const cursors: [Record<MarineArmor, number>, Record<MarineArmor, number>] = [
-    { standard: 0, titanium: 0 },
-    { standard: 0, titanium: 0 }
-  ];
+  const templates: Partial<Record<MarineModelKey, PopupMarineTemplate>> = {};
+  const requested = new Set<MarineModelKey>();
+  const pools: [SidePools, SidePools] = [emptyPools(), emptyPools()];
+  const cursors: [Record<MarineModelKey, number>, Record<MarineModelKey, number>] = [zeroCursors(), zeroCursors()];
 
-  const request = (armor: MarineArmor): void => {
-    if (requested.has(armor)) return;
-    requested.add(armor);
-    loadPopupMarineTemplate(armor)
+  const request = (model: MarineModelKey): void => {
+    if (requested.has(model)) return;
+    requested.add(model);
+    loadPopupMarineTemplate(model)
       .then((template) => {
         if (disposed) return;
-        templates[armor] = template;
-        if (armor !== "standard") return;
+        templates[model] = template;
+        if (model !== "standard") return;
         for (const side of pools) {
           side.standard = Array.from({ length: capacity }, (_, i) => createMarineSlot(scene, template, i));
         }
@@ -56,58 +57,53 @@ export const createMarinePools = (scene: Scene, capacity: number): MarinePools =
       .catch((err: unknown) => {
         // Nothing renders rather than crashing the whole 3D map: a missing
         // standard model leaves the pools empty (a battle shows its tile
-        // highlight with no marines); a missing titanium model just keeps
-        // armoured squads on the standard model.
-        console.error(`popup-marine ${armor} model failed to load; ${armor === "standard" ? "battle marines will not render" : "armoured squads use the standard model"}`, err);
+        // highlight with no marines); a missing specialist model just keeps
+        // those units on the standard model.
+        console.error(`popup-marine ${model} model failed to load; ${model === "standard" ? "battle marines will not render" : "its units use the standard model"}`, err);
       });
   };
   request("standard");
 
   const forEachSlot = (fn: (slot: MarineSlot) => void): void => {
     for (const side of pools) {
-      for (const slot of side.standard) fn(slot);
-      for (const slot of side.titanium) fn(slot);
+      for (const model of MODEL_KEYS) for (const slot of side[model]) fn(slot);
     }
   };
 
   const hideAll = (): void => forEachSlot((slot) => { slot.root.visible = false; });
 
-  const acquireFrom = (side: 0 | 1, armor: MarineArmor): MarineSlot | undefined => {
-    const pool = pools[side][armor];
-    const index = cursors[side][armor];
+  const acquireFrom = (side: 0 | 1, model: MarineModelKey): MarineSlot | undefined => {
+    const pool = pools[side][model];
+    const index = cursors[side][model];
     if (index >= capacity) return undefined;
     let slot = pool[index];
-    const template = templates[armor];
-    if (!slot && armor !== "standard" && template) {
-      slot = createMarineSlot(scene, template, index, armor);
+    const template = templates[model];
+    if (!slot && model !== "standard" && template) {
+      slot = createMarineSlot(scene, template, index, model, envMap);
       pool.push(slot);
     }
     if (!slot) return undefined;
-    cursors[side][armor] = index + 1;
+    cursors[side][model] = index + 1;
     return slot;
   };
 
   return {
     beginFrame: () => {
       hideAll();
-      for (const cursor of cursors) {
-        cursor.standard = 0;
-        cursor.titanium = 0;
-      }
+      cursors[0] = zeroCursors();
+      cursors[1] = zeroCursors();
     },
-    acquire: (side, armor) => {
-      if (armor === "standard") return acquireFrom(side, "standard");
-      request(armor);
-      return templates[armor] ? acquireFrom(side, armor) : acquireFrom(side, "standard");
+    acquire: (side, model) => {
+      if (model === "standard") return acquireFrom(side, "standard");
+      request(model);
+      return templates[model] ? acquireFrom(side, model) : acquireFrom(side, "standard");
     },
     hideAll,
     dispose: () => {
       disposed = true;
       forEachSlot((slot) => disposeMarineSlot(scene, slot));
-      for (const side of pools) {
-        side.standard = [];
-        side.titanium = [];
-      }
+      pools[0] = emptyPools();
+      pools[1] = emptyPools();
     }
   };
 };

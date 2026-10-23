@@ -23,7 +23,7 @@ const createState = (overrides: Partial<ClientState>): ClientState =>
     incomingAttacksByTile: new Map(),
     outgoingMusterAttacksByTile: new Map(),
     skirmishSeenAt: new Map(),
-    titaniumArmorOwners: new Set<string>(),
+    squadGearByOwner: new Map(),
     capture: undefined,
     ...overrides
   }) as unknown as ClientState;
@@ -262,7 +262,7 @@ describe("battle overlay skirmish sourcing", () => {
       me: "victim",
       tiles: new Map([["5,5", target]]),
       skirmishSeenAt: new Map([["5,5", 1000]]),
-      titaniumArmorOwners: new Set<string>(),
+      squadGearByOwner: new Map(),
       incomingAttacksByTile: new Map([
         [
           "5,5",

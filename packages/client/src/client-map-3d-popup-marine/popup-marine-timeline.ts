@@ -12,7 +12,7 @@
 // this module only stages the reveal. The whole fight happens on the target
 // tile (the tile under attack), clamped to TILE_LOCAL_MAX same as before.
 import type { GarrisonFacing, GarrisonStart } from "./popup-marine-garrison.js";
-import type { SquadArmorFields } from "./popup-marine-armor.js";
+import type { SquadGearFields } from "./popup-marine-gear.js";
 
 export const LINEUP_MS = 2500; // "cover" — squad rushes to position, staggered pop-in
 export const MARCH_MS = 900; // "advance" — squad closes from tile edge to the firing line
@@ -76,7 +76,7 @@ export type BattleOverlayRenderEntry = {
   siegeBoosted?: boolean;
   // Target tile is capture-held: its garrison defends (popup-marine-garrison.ts).
   defenderGarrison?: GarrisonFacing;
-} & SquadArmorFields;
+} & SquadGearFields;
 
 // A siege still counting down — outcome unknown. Plays the same cover-
 // >advance approach as a resolved battle, then indefinite firefight-
@@ -104,7 +104,7 @@ export type BattleOverlaySkirmishEntry = {
   siegeBoosted?: boolean;
   // See BattleOverlayRenderEntry.defenderGarrison.
   defenderGarrison?: GarrisonFacing;
-} & SquadArmorFields;
+} & SquadGearFields;
 
 export type MarineKit = {
   offset: number; // lineup pop-in stagger, [0, 0.22)
@@ -116,8 +116,9 @@ export type MarineKit = {
 
 /** Which animation a marine should be playing this frame. The renderer maps
  * these to the model's real captured clips (PistolRun / PistolIdle /
- * PistolKneelingIdle) rather than posing bones by hand. */
-export type MarineStance = "run" | "stand" | "kneel";
+ * PistolKneelingIdle, plus MeleeSwing for a charging unit -- see
+ * popup-marine-roles.ts) rather than posing bones by hand. */
+export type MarineStance = "run" | "stand" | "kneel" | "melee";
 
 export type DeathKit = { roll: number; at: number };
 

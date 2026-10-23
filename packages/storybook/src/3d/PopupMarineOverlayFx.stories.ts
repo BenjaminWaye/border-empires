@@ -240,7 +240,7 @@ const computeHandoff = (args: LifecycleArgs): { startAt: number; clashAt: number
   const state = {
     activeBattles: new Map<string, ActiveBattleOverlay>(),
     skirmishSeenAt: new Map([[SIEGE_KEY, 0]]),
-    titaniumArmorOwners: new Set<string>()
+    squadGearByOwner: new Map()
   };
   const combatJson = JSON.stringify({
     attackerOwnerId: "attacker",

@@ -29,13 +29,17 @@ describe("noWarIndustryVulnerabilityLabelFor{Attacker,Defender}", () => {
 });
 
 describe("battleWarGearFor", () => {
-  it("dresses a side in titanium armour once it owns any Titanium Weapons Factory", () => {
+  it("flags titanium armour once a side owns any Titanium Weapons Factory", () => {
     expect(battleWarGearFor(contextWithCounts(1, 0), "player-1")).toEqual({ titaniumArmor: true });
-    expect(battleWarGearFor(contextWithCounts(3, 2), "player-1")).toEqual({ titaniumArmor: true });
   });
 
-  it("leaves a side with no Titanium Weapons Factory (or no owner) in the standard kit", () => {
-    expect(battleWarGearFor(contextWithCounts(0, 4), "player-1")).toBeUndefined();
+  it("flags Umbrite arms once a side owns any Umbrite Weapons Factory, alongside titanium", () => {
+    expect(battleWarGearFor(contextWithCounts(0, 4), "player-1")).toEqual({ umbriteArms: true });
+    expect(battleWarGearFor(contextWithCounts(3, 2), "player-1")).toEqual({ titaniumArmor: true, umbriteArms: true });
+  });
+
+  it("leaves a side with no weapons factory (or no owner) in the standard kit", () => {
+    expect(battleWarGearFor(contextWithCounts(0, 0), "player-1")).toBeUndefined();
     expect(battleWarGearFor(contextWithCounts(5, 0), undefined)).toBeUndefined();
   });
 });

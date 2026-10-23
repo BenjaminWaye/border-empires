@@ -88,11 +88,16 @@ export const hasTitaniumFactory = (ctx: WeaponsFactoryMultContext, ownerId: stri
 export const hasUmbriteFactory = (ctx: WeaponsFactoryMultContext, ownerId: string): boolean =>
   ctx.ownedStructureCountForPlayer(ownerId, "UMBRITE_WEAPONS_FACTORY") > 0;
 // Cosmetic battle kit for one side's squad (CombatBroadcastPayload's
-// attackerGear/defenderGear): titanium armour once the empire owns any
-// Titanium Weapons Factory -- the same existence check the "unarmed"
-// vulnerability below uses, so the look and the combat label never disagree.
-export const battleWarGearFor = (ctx: WeaponsFactoryMultContext, ownerId: string | undefined): BattleWarGear | undefined =>
-  ownerId && hasTitaniumFactory(ctx, ownerId) ? { titaniumArmor: true } : undefined;
+// attackerGear/defenderGear): one flag per weapons factory type the empire
+// owns any of -- the same existence checks the "unarmed" vulnerability below
+// uses, so the look and the combat label never disagree.
+export const battleWarGearFor = (ctx: WeaponsFactoryMultContext, ownerId: string | undefined): BattleWarGear | undefined => {
+  if (!ownerId) return undefined;
+  const titanium = hasTitaniumFactory(ctx, ownerId);
+  const umbrite = hasUmbriteFactory(ctx, ownerId);
+  if (!titanium && !umbrite) return undefined;
+  return { ...(titanium ? { titaniumArmor: true as const } : {}), ...(umbrite ? { umbriteArms: true as const } : {}) };
+};
 const hasWarIndustry = (ctx: WeaponsFactoryMultContext, ownerId: string): boolean =>
   hasTitaniumFactory(ctx, ownerId) && hasUmbriteFactory(ctx, ownerId);
 export const noWarIndustryVulnerabilityMultForDefender = (ctx: WeaponsFactoryMultContext, defenderOwnerId: string | undefined): number =>

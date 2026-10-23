@@ -19,12 +19,15 @@ import type { TileOverlayJsonFields } from "./tile-overlay-fields/tile-overlay-f
 // of an unexplained bad roll — see docs/replenishment-update-plan.md
 // workstream E's "reactive shield reveal" note.
 //
-// `attackerGear`/`defenderGear` are the cosmetic war-industry kit each side's
-// battle squad wears (e.g. titanium armour for an empire owning a Titanium
-// Weapons Factory). Omitted when a side has none. Factory ownership is not a
-// secret -- the attack preview already names a side "missing Titanium
-// Weapons Factory" -- so this reveals nothing the combat UI doesn't already.
-export type BattleWarGear = { titaniumArmor?: true };
+// `attackerGear`/`defenderGear` are the cosmetic war industry behind each
+// side's battle squad: `titaniumArmor` once the empire owns a Titanium
+// Weapons Factory (two of its squad's slots become titanium war-walkers),
+// `umbriteArms` once it owns an Umbrite Weapons Factory (two become Umbrite
+// heavy-weapon troopers). Omitted when a side has neither. Factory ownership
+// is not a secret -- the attack preview already names a side "missing
+// Titanium Weapons Factory" -- so this reveals nothing the combat UI doesn't
+// already.
+export type BattleWarGear = { titaniumArmor?: true; umbriteArms?: true };
 
 export type CombatBroadcastPayload = {
   attackerOwnerId: string;

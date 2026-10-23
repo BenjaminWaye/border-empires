@@ -31,20 +31,20 @@
 import { AnimationClip, Group, SkinnedMesh } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { Object3D } from "three";
-import type { MarineArmor } from "./popup-marine-armor.js";
+import type { MarineModelKey } from "./popup-marine-gear.js";
 
 // Served straight from packages/client/public (Vite serves that directory's
 // contents unprocessed at the site root), matching how every other static
 // game asset in this package — /overlays/*.svg, /audio/*.m4a — is referenced
 // by plain string path rather than imported as a module.
 const ACTIVE_POPUP_MARINE_MODEL_URL = "/models/popup-marine-titan-24bone.glb";
-// Heavier-plated variant worn by squads of an empire that owns a Titanium
-// Weapons Factory (see popup-marine-armor.ts). Same 24-bone rig and the same
-// baked clip names, so every slot/stance path works on it unchanged -- see
+// The titanium war-walker an empire owning a Titanium Weapons Factory fields
+// in two of its squad's slots (see popup-marine-units.ts). Same 24-bone rig
+// and the same baked clip names, plus MARINE_MELEE_CLIP -- see
 // packages/client/scripts/bake-popup-marine-titanium-model.py for how it's
-// built from a Meshy sculpt plus this file's own clips.
+// built from a Meshy sculpt and its own Meshy clips.
 const TITANIUM_POPUP_MARINE_MODEL_URL = "/models/popup-marine-titanium-24bone.glb";
-const MODEL_URL_BY_ARMOR: Record<MarineArmor, string> = {
+const MODEL_URL_BY_KEY: Record<MarineModelKey, string> = {
   standard: ACTIVE_POPUP_MARINE_MODEL_URL,
   titanium: TITANIUM_POPUP_MARINE_MODEL_URL
 };
@@ -62,6 +62,10 @@ export const MARINE_CLIP_NAMES = {
   kneel: "PistolKneelingIdle"
 } as const;
 
+/** Close-combat clip, carried only by models whose units charge (the
+ * titanium war-walker); a model without it plays its standing clip. */
+export const MARINE_MELEE_CLIP = "MeleeSwing";
+
 export type PopupMarineTemplate = {
   /** Whole loaded scene (root node's scale included) — clone this, not the mesh. */
   root: Group;
@@ -69,8 +73,8 @@ export type PopupMarineTemplate = {
   clips: Map<string, AnimationClip>;
 };
 
-// One entry per armour kit at most, so this never grows past MarineArmor's size.
-const cachedByArmor = new Map<MarineArmor, Promise<PopupMarineTemplate>>();
+// One entry per model at most, so this never grows past MarineModelKey's size.
+const cachedByModel = new Map<MarineModelKey, Promise<PopupMarineTemplate>>();
 
 export const firstSkinnedMesh = (root: Object3D): SkinnedMesh => {
   let found: SkinnedMesh | undefined;
@@ -86,13 +90,13 @@ export const firstSkinnedMesh = (root: Object3D): SkinnedMesh => {
  * popup-marine-overlay-fx.ts, via SkeletonUtils.clone) is copied from. Safe
  * to call from multiple overlay instances — the GLTF fetch/parse only ever
  * happens once per page load per armour kit. */
-export const loadPopupMarineTemplate = (armor: MarineArmor = "standard"): Promise<PopupMarineTemplate> => {
-  let cached = cachedByArmor.get(armor);
+export const loadPopupMarineTemplate = (model: MarineModelKey = "standard"): Promise<PopupMarineTemplate> => {
+  let cached = cachedByModel.get(model);
   if (!cached) {
     const loader = new GLTFLoader();
     cached = new Promise<PopupMarineTemplate>((resolve, reject) => {
       loader.load(
-        MODEL_URL_BY_ARMOR[armor],
+        MODEL_URL_BY_KEY[model],
         (gltf) => {
           try {
             // Throws if the model has no skin at all, so a broken asset
@@ -111,7 +115,7 @@ export const loadPopupMarineTemplate = (armor: MarineArmor = "standard"): Promis
         (err) => reject(err instanceof Error ? err : new Error(String(err)))
       );
     });
-    cachedByArmor.set(armor, cached);
+    cachedByModel.set(model, cached);
   }
   return cached;
 };

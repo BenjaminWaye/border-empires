@@ -6,7 +6,7 @@ import {
   CLASH_MS,
   type BattleOverlaySkirmishEntry
 } from "@client/client-map-3d-popup-marine/popup-marine-overlay-fx.js";
-import type { MarineArmor } from "@client/client-map-3d-popup-marine/popup-marine-armor.js";
+import { createBuildingEnvironmentTexture } from "@client/client-map-3d-atmosphere.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
 // The SKIRMISH loop on its own: a siege whose outcome the server has not
@@ -32,10 +32,15 @@ type Args = {
   defenderColor: string;
   cameraDistance: number;
   siegeTowerBeaming: boolean;
-  // "titanium" fields the war-walker an empire owning a Titanium Weapons
-  // Factory sends into battle (popup-marine-armor.ts).
-  attackerArmor: MarineArmor;
-  defenderArmor: MarineArmor;
+  // Which weapons factories each side's empire owns. Each one swaps two of
+  // its squad's seven slots for specialists (popup-marine-units.ts):
+  // titanium -> one assault war-walker that charges into melee and one that
+  // holds the back rank firing its gatling; Umbrite -> two braced
+  // heavy-weapon troopers.
+  attackerTitanium: boolean;
+  attackerUmbrite: boolean;
+  defenderTitanium: boolean;
+  defenderUmbrite: boolean;
 };
 
 // hashSeed 1 == tileHashSeed(0, 1) — the tile coordinate the "siege tower
@@ -55,7 +60,11 @@ const makeTerritoryTile = (x: number, color: string): Mesh => {
 
 const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, background: "#0d0f16" });
-  const fx = createPopupMarineOverlayFx(stage.scene);
+  // The game's own building environment map: the titanium walkers' bare
+  // metal reflects it exactly as on the real map (without one, metal renders
+  // nearly black).
+  const envMap = createBuildingEnvironmentTexture(stage.renderer);
+  const fx = createPopupMarineOverlayFx(stage.scene, envMap);
 
   const attackerTile = makeTerritoryTile(-TILE_GAP / 2, args.attackerColor);
   const defenderTile = makeTerritoryTile(TILE_GAP / 2, args.defenderColor);
@@ -73,8 +82,8 @@ const render = (args: Args): HTMLElement => {
     defenderColor: args.defenderColor,
     startAt,
     hashSeed: 1,
-    attackerArmor: args.attackerArmor,
-    defenderArmor: args.defenderArmor,
+    attackerGear: { titanium: args.attackerTitanium, umbrite: args.attackerUmbrite },
+    defenderGear: { titanium: args.defenderTitanium, umbrite: args.defenderUmbrite },
     // A beaming tower is boosting this fight, so the opening lance plays too.
     siegeBoosted: args.siegeTowerBeaming
   };
@@ -118,6 +127,7 @@ const render = (args: Args): HTMLElement => {
     () => {
       cancelAnimationFrame(rafId);
       fx.dispose();
+      envMap.dispose();
       attackerTile.geometry.dispose();
       (attackerTile.material as MeshStandardMaterial).dispose();
       defenderTile.geometry.dispose();
@@ -135,16 +145,20 @@ const meta: Meta<Args> = {
     defenderColor: { control: "color" },
     cameraDistance: { control: { type: "range", min: 2, max: 12, step: 0.5 } },
     siegeTowerBeaming: { control: "boolean" },
-    attackerArmor: { control: "inline-radio", options: ["standard", "titanium"] },
-    defenderArmor: { control: "inline-radio", options: ["standard", "titanium"] }
+    attackerTitanium: { control: "boolean" },
+    attackerUmbrite: { control: "boolean" },
+    defenderTitanium: { control: "boolean" },
+    defenderUmbrite: { control: "boolean" }
   },
   args: {
     attackerColor: "#4fb3ff",
     defenderColor: "#ff5d5d",
     cameraDistance: 5,
     siegeTowerBeaming: false,
-    attackerArmor: "standard",
-    defenderArmor: "standard"
+    attackerTitanium: false,
+    attackerUmbrite: false,
+    defenderTitanium: false,
+    defenderUmbrite: false
   },
   render
 };
@@ -168,12 +182,20 @@ export const StandoffCloseUp: Story = { args: { cameraDistance: 2.5 } };
  * "STANDOFF" appears in the label. */
 export const KillShotCloseUp: Story = { args: { cameraDistance: 2.5, siegeTowerBeaming: true } };
 
-/** Titanium war-walkers (left, an empire owning a Titanium Weapons Factory)
- * against standard marines (right), close enough to compare scale and
- * stances. */
-export const TitaniumVsStandard: Story = { args: { cameraDistance: 3, attackerArmor: "titanium" } };
+/** The attacker (left) owns a Titanium Weapons Factory: two of its seven
+ * slots are war-walkers -- one charges across into melee with the defender
+ * that falls first, one holds the back rank firing its gatling -- against
+ * plain infantry. */
+export const TitaniumSquadVsInfantry: Story = { args: { cameraDistance: 3, attackerTitanium: true } };
 
-/** Walkers on both sides. */
+/** Both sides field titanium walkers; each assault walker charges its own victim. */
 export const TitaniumVsTitanium: Story = {
-  args: { cameraDistance: 3, attackerArmor: "titanium", defenderArmor: "titanium" }
+  args: { cameraDistance: 3, attackerTitanium: true, defenderTitanium: true }
+};
+
+/** Every combination composes from the same choreography: the attacker has
+ * both factories (titanium walkers + Umbrite heavy troopers), the defender
+ * Umbrite only. */
+export const MixedWarIndustries: Story = {
+  args: { cameraDistance: 3, attackerTitanium: true, attackerUmbrite: true, defenderUmbrite: true }
 };

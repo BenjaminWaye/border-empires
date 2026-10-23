@@ -15,10 +15,10 @@ function makePlayer(id: string): DomainPlayer {
   return { id, isAi: false, points: 0, manpower: 0, techIds: new Set(), allies: new Set() };
 }
 
-// Titanium armour (popup-marine-armor.ts on the client): the war gear each
-// side's squad wears, rolled into LockedCombatResolution by
-// buildLockedCombatResolution, must reach the client on the combat
-// broadcast -- otherwise armoured empires' squads render in the standard kit.
+// War gear (popup-marine-gear.ts / popup-marine-units.ts on the client): each
+// side's weapons-factory flags, rolled into LockedCombatResolution by
+// buildLockedCombatResolution, must reach the client on the combat broadcast
+// -- otherwise those empires' squads render without their specialists.
 const resolveWithGear = (gear: Pick<LockedCombatResolution, "attackerGear" | "defenderGear">): Record<string, unknown> => {
   const tiles = new Map<string, DomainTileState>([
     [ORIGIN_KEY, { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED" }],
@@ -115,9 +115,9 @@ const resolveWithGear = (gear: Pick<LockedCombatResolution, "attackerGear" | "de
 
 describe("resolveLock combat broadcast war gear", () => {
   it("carries each side's war gear onto the combat broadcast", () => {
-    const payload = resolveWithGear({ defenderGear: { titaniumArmor: true } });
+    const payload = resolveWithGear({ attackerGear: { umbriteArms: true }, defenderGear: { titaniumArmor: true } });
+    expect(payload.attackerGear).toEqual({ umbriteArms: true });
     expect(payload.defenderGear).toEqual({ titaniumArmor: true });
-    expect(payload.attackerGear).toBeUndefined();
   });
 
   it("omits both gear fields when neither side has any", () => {
