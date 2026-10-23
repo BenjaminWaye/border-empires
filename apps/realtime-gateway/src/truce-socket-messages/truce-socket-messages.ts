@@ -17,6 +17,8 @@ export type TruceSocketMessageDeps = {
   breakTruce: (playerId: string, targetPlayerId: string) => SocialTruceActionResult;
   /** Fresh ALLIANCE_UPDATE/TRUCE_UPDATE payloads for the given players (socialState.syncPlayers). */
   syncPlayers: (playerIds: string[]) => { payloadsByPlayerId: Map<string, unknown[]> };
+  /** Payloads for everyone else still showing a dropped offer (socialState.takeStaleOfferSync). */
+  takeStaleOfferSync: () => { payloadsByPlayerId: Map<string, unknown[]> } | undefined;
   sendJson: (socket: import("ws").WebSocket, payload: unknown) => void;
   fanoutPlayerPayloads: (payloadsByPlayerId: Map<string, unknown[]>) => void;
   syncTruceToSimulation: (input: { playerId: string; targetPlayerId: string; truced: boolean }) => Promise<boolean>;
@@ -31,9 +33,12 @@ export type TruceSocketMessageDeps = {
 const sendError = (deps: TruceSocketMessageDeps, socket: import("ws").WebSocket, result: Extract<SocialTruceActionResult, { ok: false }>): void =>
   deps.sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
 
-// A failed ACCEPT/REJECT/CANCEL usually means the client is showing an offer the
-// server already dropped (expired offers are pruned silently, and a failed accept
-// can delete the request). Resend the actor's truce state so the stale card goes.
+// Failures that mean the client is showing an offer the server already dropped:
+// expired offers are pruned silently, and a failed accept can delete the request.
+const STALE_OFFER_CODES: ReadonlySet<string> = new Set(["TRUCE_REQUEST_INVALID", "TRUCE_LOCKED_OUT", "TRUCE_EXISTS"]);
+
+// After such a failure, resend the actor's truce state so the stale card goes,
+// and flush the other side of any offer the server just dropped.
 const sendErrorAndResync = (
   deps: TruceSocketMessageDeps,
   socket: import("ws").WebSocket,
@@ -41,7 +46,10 @@ const sendErrorAndResync = (
   playerId: string
 ): void => {
   sendError(deps, socket, result);
+  if (!STALE_OFFER_CODES.has(result.code)) return;
   deps.fanoutPlayerPayloads(deps.syncPlayers([playerId]).payloadsByPlayerId);
+  const stale = deps.takeStaleOfferSync();
+  if (stale) deps.fanoutPlayerPayloads(stale.payloadsByPlayerId);
 };
 
 /**

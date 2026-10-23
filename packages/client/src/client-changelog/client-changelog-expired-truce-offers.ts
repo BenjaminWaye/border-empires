@@ -7,8 +7,8 @@ export const EXPIRED_TRUCE_OFFERS_CHANGELOG: ClientChangelogEntry[] = [
     title: "Expired truce offers no longer linger in the Alliances tab",
     why: "A truce offer expires after 5 minutes, but its card and ally badge stayed up, so pressing Accept only failed with \"request invalid or expired\".",
     changes: [
-      "Truce offers disappear from the Alliances tab and the ally badge as soon as they expire",
-      "If an offer is already gone when you answer it, the panel refreshes and removes it"
+      "Truce offers disappear from the Alliances tab and the ally badge once they expire, for both the sender and the recipient",
+      "If an offer is already gone when you answer it, you still see the error, and the stale card is then removed"
     ]
   }
 ];
