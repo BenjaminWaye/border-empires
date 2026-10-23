@@ -14,6 +14,18 @@ type ArchiveRow = { summary_json: string };
 type DeadliestTilesRow = { tiles_json: string };
 type ActivityLogsRow = { logs_json: string };
 
+// The activity-log blob is the whole 24h window of each log (up to ~20 MB with
+// the public logs at their 50,000-entry caps), stringified and upserted
+// synchronously on the sim thread. Warn when that gets slow, with its length, so
+// a busy day shows up in the logs before it shows up as command latency.
+const SLOW_ACTIVITY_LOGS_SAVE_MS = 100;
+const logSlowActivityLogsSave = (stringifyMs: number, writeMs: number, chars: number): void => {
+  if (stringifyMs + writeMs < SLOW_ACTIVITY_LOGS_SAVE_MS) return;
+  console.warn(
+    `[sqlite-season-summary-store] slow activity log save: stringify ${stringifyMs}ms, write ${writeMs}ms, ${chars} chars`
+  );
+};
+
 export class SqliteSeasonSummaryStore implements SeasonSummaryStore {
   constructor(private readonly db: DatabaseSync) {}
 
@@ -61,8 +73,7 @@ export class SqliteSeasonSummaryStore implements SeasonSummaryStore {
         tiles_json TEXT NOT NULL,
         updated_at INTEGER NOT NULL
       );
-      -- One row per season holding a bounded tail of the rolling 24h activity
-      -- feeds (see activity-log-persistence.ts), so a restart does not reset
+      -- One row per season holding the rolling 24h activity feeds (see activity-log-persistence.ts), so a restart does not reset
       -- the activity dashboard's "today". Same single-blob-upsert rationale as
       -- season_deadliest_tiles above.
       CREATE TABLE IF NOT EXISTS season_activity_logs (
@@ -74,6 +85,9 @@ export class SqliteSeasonSummaryStore implements SeasonSummaryStore {
   }
 
   async saveActivityLogs(seasonId: string, logs: PersistedActivityLogs): Promise<void> {
+    const startedAt = Date.now();
+    const logsJson = JSON.stringify(logs);
+    const stringifiedAt = Date.now();
     this.db
       .prepare(
         `INSERT INTO season_activity_logs (season_id, logs_json, updated_at)
@@ -82,7 +96,8 @@ export class SqliteSeasonSummaryStore implements SeasonSummaryStore {
            logs_json = excluded.logs_json,
            updated_at = excluded.updated_at`
       )
-      .run(seasonId, JSON.stringify(logs), Date.now());
+      .run(seasonId, logsJson, stringifiedAt);
+    logSlowActivityLogsSave(stringifiedAt - startedAt, Date.now() - stringifiedAt, logsJson.length);
   }
 
   async loadActivityLogs(seasonId: string): Promise<PersistedActivityLogs | undefined> {
