@@ -117,6 +117,9 @@ export const settingsAccountPageHtml = (
         <span>${state.meName || "Unnamed empire"}</span>
       </div>
       <button type="button" class="panel-btn" data-settings-edit-profile ${state.authSessionReady ? "" : "disabled"}>Edit Name &amp; Colour</button>
+      <button type="button" class="panel-btn" data-account-delete ${state.authSessionReady ? "" : "disabled"}>Delete account</button>
+      <p>Account deletion is permanent.</p>
+      <div class="account-settings-links"><a href="/privacy.html" target="_blank" rel="noopener">Privacy policy</a><a href="https://play.borderempires.com/support.html" target="_blank" rel="noopener">Support</a></div>
     </div>
   `;
 };

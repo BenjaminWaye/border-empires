@@ -4,7 +4,7 @@ import { buildMsWithSpeedForState } from "../client-build-speed/client-build-spe
 import { shouldPreserveOptimisticExpand } from "../client-frontier-overlay/client-frontier-overlay.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { OptimisticStructureKind, Tile, TileVisibilityState } from "../client-types.js";
-import { debugTileTimeline } from "../client-debug/client-debug.js";
+import { debugTileTimeline, tileSyncDebugEnabled } from "../client-debug/client-debug.js";
 import { recordTileRevisionChange } from "../client-tile-merge/client-tile-merge.js";
 
 type OptimisticStateDeps = {
@@ -28,13 +28,6 @@ const CLEARABLE_OVERLAY_KEYS = [
 export const createClientOptimisticStateController = (deps: OptimisticStateDeps) => {
   const { state, keyFor, terrainAt, tileVisibilityStateAt, optimisticEnabled: enabled = false } = deps;
   const hasLateFrontierAckPending = (tileKey: string): boolean => (state.frontierLateAckUntilByTarget.get(tileKey) ?? 0) > Date.now();
-  const tileSyncDebugEnabled = (): boolean =>
-    typeof window !== "undefined" &&
-    (window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1" ||
-      window.location.hostname === "0.0.0.0" ||
-      window.localStorage.getItem("tile-sync-debug") === "1");
-
   const logTileSync = (event: string, payload: Record<string, unknown>): void => {
     if (!tileSyncDebugEnabled()) return;
     console.info(`[tile-sync] ${event}`, payload);

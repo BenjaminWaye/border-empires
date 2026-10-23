@@ -44,6 +44,12 @@ const makeVerifier = () => {
 };
 
 describe("createFirebaseTokenVerifier", () => {
+  it("exposes authentication time only from a verified numeric claim", async () => {
+    const { verify } = makeVerifier();
+    expect(await verify(await sign({ sub: "owner", auth_time: NOW_S - 10 }))).toEqual({ uid: "owner", authTime: NOW_S - 10 });
+    expect(await verify(await sign({ sub: "owner", auth_time: "recent" }))).toEqual({ uid: "owner" });
+    expect(await verify(await sign({ sub: "owner", auth_time: NOW_S }, { key: "attacker" }))).toBeUndefined();
+  });
   it("accepts a correctly signed token and returns its claims", async () => {
     const { verify, rejected } = makeVerifier();
     const token = await sign({ sub: "uid-1", user_id: "uid-1", email: "a@example.com", name: "Ada" });

@@ -52,10 +52,10 @@ describe("settings panel regression guard", () => {
 
   it("binds every rendered logout button instead of only the first duplicated settings card control", () => {
     const hudSource = sourceFor("./client-hud.ts");
+    const controlsSource = sourceFor("./client-account-settings-controls.ts");
 
-    expect(hudSource).toContain("data-auth-logout");
-    expect(hudSource).toContain("const authLogoutButtons = dom.hud.querySelectorAll(\"[data-auth-logout]\")");
-    expect(hudSource).toContain("authLogoutButtons.forEach((authLogoutBtn: HTMLButtonElement) => {");
+    expect(hudSource).toContain("bindAccountSettingsControls(dom.hud, firebaseAuth, state, wsUrl");
+    expect(controlsSource).toContain('querySelectorAll<HTMLButtonElement>("[data-auth-logout]").forEach');
     expect(hudSource).not.toContain("document.querySelector(\"#auth-logout\")");
     expect(hudSource).not.toContain("id=\"auth-logout\"");
   });

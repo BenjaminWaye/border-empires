@@ -15,7 +15,7 @@ import { createLoginPhaseNotifier } from "../login-phase-notifier/login-phase-no
 import { createSlowLoginAlerter } from "../slow-login-alert/slow-login-alert.js";
 import { createSlackAlerter, type SlackAlerter, type BugReportInput } from "../slack-alerts/slack-alerts.js";
 import { initialSocialNameForSeedPlayer, socialRegistrationNameFor } from "../auth-identity/auth-identity.js";
-import { createGatewayFirebaseVerifier, createGatewayIdentityResolver } from "../gateway-identity-resolver/gateway-identity-resolver.js";
+import { allowAccountSession, createAuthResolvers } from "./create-auth-resolvers.js";
 import { reconcileGatewayAuthBinding, type ResolvedGatewayAuthBinding } from "../gateway-auth-binding-resolution/gateway-auth-binding-resolution.js";
 import { createGatewayAuthBindingStore } from "../auth-binding-store-factory.js";
 import { createGatewayCommandStore } from "../command-store-factory/command-store-factory.js";
@@ -610,18 +610,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       if (entry.expiresAt <= nowMs) cache.delete(key);
     }
   };
-  const resolveIdentityForToken = createGatewayIdentityResolver({
-    ...(options.defaultHumanPlayerId ? { defaultHumanPlayerId: options.defaultHumanPlayerId } : {}),
+  const { resolveIdentityForToken, resolveHttpBearerIdentity } = createAuthResolvers({
+    options, bindings: authBindingStore, reconcile: cachedReconcileGatewayAuthBinding,
     getAuthIdentities: () => legacySnapshotBootstrap?.authIdentities,
-    verifyFirebaseToken: createGatewayFirebaseVerifier({ ...(options.firebaseTokenVerifier ? { injected: options.firebaseTokenVerifier } : {}), ...(options.firebaseProjectId ? { projectId: options.firebaseProjectId } : {}), onReject: () => gatewayMetrics.incrementAuthVerificationRejectedTotal(), onRejectReason: (reason) => app.log.debug({ reason }, "gateway_auth_token_rejected") })
+    onReject: () => gatewayMetrics.incrementAuthVerificationRejectedTotal(),
+    onRejectReason: (reason) => app.log.debug({ reason }, "gateway_auth_token_rejected")
   });
-  const resolveHttpBearerIdentity = async (authorizationHeader: string | undefined): Promise<ResolvedGatewayAuthBinding | undefined> => {
-    const token = authorizationHeader?.startsWith("Bearer ") ? authorizationHeader.slice("Bearer ".length).trim() : "";
-    if (!token) return undefined;
-    const resolved = await resolveIdentityForToken(token);
-    if (!resolved) return undefined;
-    return cachedReconcileGatewayAuthBinding(resolved);
-  };
   const activeRallyAnchorForOwner = async (ownerPlayerId: string): Promise<RallyAnchor | undefined> => {
     const snapshot = await simulationClient.subscribePlayer(
       ownerPlayerId,
@@ -942,6 +936,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       galaxyEndorsementStore, galaxyDefenseCampaignStore, galaxyFleetStore, galaxyBattleLogStore, galaxyExplorationStore, galaxyDukeService,
       sovereignSiegeEngineStrikeStore: sovereignSiegeEngineStrike.store,
       authBindingStore,
+      disconnectDeletedPlayer: (playerId) => {
+        for (const socket of playerSubscriptions.socketsForPlayer(playerId)) socket.close(4003, "account_deleted");
+      },
       admin: { apiToken: options.adminApiToken, email: options.adminEmail },
       alertPlayerBugReport: (report: BugReportInput) => emailAlerts.sendBugReportAlert(report), alertPlayerSuggestion: (report: BugReportInput) => emailAlerts.sendSuggestionAlert(report),
       ...(slackAlerter ? { alertSeasonStarted: (seasonId: string, force: boolean) => { slackAlerter!.alertSeasonStarted(seasonId, force); seasonStartVote.reset(); } } : {}),
@@ -1988,6 +1985,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             // close handler already no-op'd (nothing attached yet). Attaching now leaks a dead socket
             // into the subscriber set — every future broadcast fans out to one more zombie per abandoned
             // login. (A close AFTER attach is self-healed by removeSocket + subscribeOnce's hasSockets guard.)
+            if (!(await allowAccountSession(playerIdentity.authUid, authBindingStore, socket))) return;
             if (socket.readyState !== socket.OPEN) {
               gatewayMetrics.incrementLoginAbandonedBeforeAttachTotal();
               recordGatewayEvent("warn", "gateway_auth_abandoned_before_attach", { playerId: playerIdentity.playerId, channel });

@@ -1,3 +1,5 @@
+import type { AccountDeletionStore } from "../account-deletion/account-deletion-store.js";
+
 export type StoredAuthIdentityBinding = {
   uid: string;
   playerId: string;
@@ -6,6 +8,7 @@ export type StoredAuthIdentityBinding = {
 };
 
 export type GatewayAuthBindingStore = {
+  accountDeletion?: AccountDeletionStore;
   getByUid: (uid: string) => Promise<StoredAuthIdentityBinding | undefined>;
   getByEmail: (email: string) => Promise<StoredAuthIdentityBinding | undefined>;
   getByPlayerId: (playerId: string) => Promise<StoredAuthIdentityBinding | undefined>;

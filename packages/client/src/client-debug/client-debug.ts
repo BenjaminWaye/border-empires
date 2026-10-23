@@ -1,4 +1,5 @@
 import type { Tile } from "../client-types.js";
+import { isLocalDevHostname } from "../client-app-runtime-env/client-dev-auth-bypass.js";
 
 const DEBUG_TILE_STORAGE_KEY = "debug_tile_key";
 const DEBUG_TILE_ENABLED_STORAGE_KEY = "debug_tile_enabled";
@@ -41,9 +42,7 @@ export const snapshotClientDebugEvents = (limit = MAX_CLIENT_DEBUG_EVENTS) =>
 export const tileSyncDebugEnabled = (): boolean => {
   try {
     return (
-      window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1" ||
-      window.location.hostname === "0.0.0.0" ||
+      isLocalDevHostname(window.location.hostname) ||
       window.localStorage.getItem("tile-sync-debug") === "1"
     );
   } catch {

@@ -75,6 +75,7 @@ COPY --from=build /app/apps/realtime-gateway/node_modules ./apps/realtime-gatewa
 COPY --from=build /app/apps/simulation/package.json ./apps/simulation/package.json
 COPY --from=build /app/apps/simulation/dist ./apps/simulation/dist
 COPY --from=build /app/apps/simulation/node_modules ./apps/simulation/node_modules
+COPY scripts/account-deletion/erase-account-data.mjs scripts/account-deletion/deletion-ledger.mjs scripts/account-deletion/process-account-deletion.mjs scripts/account-deletion/restore-deletion-ledger.mjs ./scripts/account-deletion/
 
 RUN chmod -R a+rX \
     /app/packages/game-domain/data \

@@ -1,0 +1,35 @@
+/* Loaded only by the bundled native entry. Browser login keeps its existing UI. */
+html[data-native-app="true"] #auth-google,
+html[data-native-app="true"] #auth-twitch,
+html[data-native-app="true"] #auth-discord,
+html[data-native-app="true"] #auth-email-link,
+html[data-native-app="true"] #auth-debug-route,
+html[data-native-app="true"] .auth-hint,
+html[data-native-app="true"] .auth-login-state > .auth-divider:nth-of-type(2) {
+  display: none !important;
+}
+
+html[data-native-app="true"] .auth-legacy-controls {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+html[data-native-app="true"] .auth-legacy-controls input,
+html[data-native-app="true"] .native-guest-save input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #6b603e;
+  border-radius: 8px;
+  background: #101811;
+  color: #f5e5bf;
+  font: inherit;
+  font-size: 16px;
+}
+
+.native-guest-save { display: grid; gap: 10px; }
+.native-guest-save [role="status"] { color: #f5d499; }
+
+html[data-native-app="true"] .auth-legacy-controls button { min-height: 44px; }

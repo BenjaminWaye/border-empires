@@ -122,6 +122,28 @@ pnpm dev
 - Client: http://localhost:5173
 - Gateway health: http://localhost:3101/health
 
+### Android and iOS apps
+
+`apps/mobile` packages the client with Capacitor 8 and checked-in Android Studio
+and Xcode projects. Node 22+, Xcode 26+, or Android Studio 2025.2.1+ are required
+for the respective native build. Run `pnpm mobile:sync`, then `pnpm mobile:ios`
+or `pnpm mobile:android`. To test against staging, use
+`MOBILE_ENV=staging pnpm mobile:sync`. See the [mobile release runbook](docs/agents/mobile-apps.md)
+for signing, device verification, and the remaining store submission blockers.
+With the configured Apple developer team signed into Xcode, use
+`pnpm --filter @border-empires/mobile archive:ios` and then
+`pnpm --filter @border-empires/mobile export:ios` to create a signed App Store IPA.
+These commands do not upload or submit the app. The
+[App Store Connect record](https://appstoreconnect.apple.com/apps/6825524099)
+contains the first uploaded iOS build; store submission remains pending.
+
+Settings → Account includes permanent account deletion; the public
+`/delete-account.html` page offers the same request outside the game. Support is
+at `/support.html`. See the [account-deletion runbook](docs/agents/account-deletion.md)
+for the required operator erasure and backup-restoration procedures. Requests
+remove the submitting Firebase login immediately; associated-data completion is
+an operator task with a 30-day deadline, not an automatic background job.
+
 For a durable SQLite-backed local world with 20 AI players:
 
 ```bash

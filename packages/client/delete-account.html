@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Delete your Border Empires account</title>
+    <link rel="stylesheet" href="/legal.css" />
+  </head>
+  <body>
+    <main class="legal-shell"><article class="legal-card">
+      <header class="legal-head"><p class="legal-kicker">Border Empires · Account deletion</p><h1>Delete your account</h1></header>
+      <div class="legal-body">
+        <p>Deleting your account removes your login immediately. Your profile, associated game data and social data will be deleted or anonymised within 30 days. Shared match outcomes may remain anonymously. Backup copies expire within 30 days after completion. Deletion is permanent.</p>
+        <p>You can also open <strong>Settings → Account → Delete account</strong> inside the Android, iOS or browser game. For an unsaved guest account, use that option on the device where you played.</p>
+        <form id="deletion-sign-in">
+          <label>Email <input name="email" type="email" autocomplete="username" required /></label>
+          <label>Password <input name="password" type="password" autocomplete="current-password" required /></label>
+          <button type="submit">Sign in with email</button>
+        </form>
+        <div id="deletion-social"><button type="button" data-provider="google.com">Sign in with Google</button> <button type="button" data-provider="oidc.twitch">Sign in with Twitch</button> <button type="button" data-provider="oidc.discord">Sign in with Discord</button></div>
+        <p id="deletion-status" role="status" aria-live="polite"></p>
+        <button id="deletion-open" type="button" hidden>Continue to account deletion</button>
+        <p><a href="/support.html">Support</a> · <a href="/privacy.html">Privacy policy</a> · <a href="/">Back to the game</a></p>
+      </div>
+    </article></main>
+    <script type="module" src="/src/client-account-deletion/client-account-deletion-page.ts"></script>
+  </body>
+</html>

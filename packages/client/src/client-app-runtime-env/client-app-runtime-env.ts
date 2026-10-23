@@ -1,6 +1,7 @@
 import { getApps, initializeApp, type FirebaseOptions } from "firebase/app";
+import { Capacitor } from "@capacitor/core";
 import { getAnalytics, type Analytics } from "firebase/analytics";
-import { GoogleAuthProvider, OAuthProvider, getAuth } from "firebase/auth";
+import { GoogleAuthProvider, OAuthProvider, getAuth, initializeAuth, indexedDBLocalPersistence, browserLocalPersistence } from "firebase/auth";
 import { isStagingHostname, selectBackend } from "../client-backend-selector/client-backend-selector.js";
 import { createMultiplexWebSocket } from "../client-multiplex-websocket/client-multiplex-websocket.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -83,14 +84,18 @@ export const createClientFirebaseSetup = (): {
   if (measurementId) firebaseConfig.measurementId = measurementId;
 
   const firebaseApp = getApps()[0] ?? initializeApp(firebaseConfig);
-  const firebaseAuth = getAuth(firebaseApp);
+  // getAuth eagerly opens an OAuth iframe on iOS. Native email/guest auth
+  // needs persistence but no browser resolver (which cannot use capacitor://).
+  const firebaseAuth = Capacitor.isNativePlatform()
+    ? initializeAuth(firebaseApp, { persistence: [indexedDBLocalPersistence, browserLocalPersistence] })
+    : getAuth(firebaseApp);
 
   // Analytics needs a measurementId and a real browser (IndexedDB + cookies)
   // to boot; init can throw in unsupported contexts (e.g. some private-
   // browsing modes, or the vitest/jsdom test environment), so this degrades
   // to "no analytics" rather than aborting client setup.
   let analytics: Analytics | undefined;
-  if (measurementId) {
+  if (measurementId && !Capacitor.isNativePlatform()) {
     try {
       analytics = getAnalytics(firebaseApp);
     } catch {
@@ -114,10 +119,11 @@ export const createClientSocketSetup = (
   wsUrl: string;
 } => {
   const hostname = window.location.hostname.toLowerCase();
-  const isLocalHost =
+  const native = Capacitor.isNativePlatform();
+  const isLocalHost = !native && (
     hostname === "localhost" ||
     hostname === "127.0.0.1" ||
-    hostname === "0.0.0.0";
+    hostname === "0.0.0.0");
   const isStagingHost = isStagingHostname(hostname);
 
   // Legacy monolith URL — retained for explicit ?backend=legacy / be-backend=legacy
@@ -144,7 +150,7 @@ export const createClientSocketSetup = (
     envDefaultBackendRaw === "gateway" || envDefaultBackendRaw === "legacy" ? envDefaultBackendRaw : undefined;
 
   // Priority: ?backend= URL param > be-backend cookie > env default.
-  const selection = selectBackend({
+  const selection = native ? { wsUrl: gatewayWsUrl, backend: "gateway" as const } : selectBackend({
     legacyWsUrl,
     gatewayWsUrl,
     ...(envDefaultBackend ? { envDefaultBackend } : {})

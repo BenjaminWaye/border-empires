@@ -136,6 +136,13 @@ a {
   color: var(--accent);
 }
 
+.legal-body form { display: grid; gap: 14px; margin-block: 20px; }
+.legal-body label { display: grid; gap: 6px; }
+.legal-body input { width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid var(--line); border-radius: 6px; font: inherit; }
+.legal-body button { min-height: 44px; padding: 10px 16px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text); font: inherit; cursor: pointer; }
+.legal-body button:focus-visible, .legal-body input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+#deletion-social { display: flex; gap: 10px; flex-wrap: wrap; }
+
 .legal-footer {
   margin-top: 22px;
   color: #6b7280;

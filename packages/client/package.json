@@ -6,12 +6,16 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173 --strictPort",
     "build": "tsc -p tsconfig.json && vite build",
+    "build:native": "tsc --noEmit -p tsconfig.json && vite build --mode native",
     "test": "vitest run --passWithNoTests",
     "lint": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "@border-empires/game-domain": "workspace:*",
     "@border-empires/shared": "workspace:*",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/browser": "8.0.5",
+    "@capacitor/core": "8.5.3",
     "firebase": "^12.11.0",
     "three": "^0.179.1"
   },

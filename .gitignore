@@ -37,3 +37,11 @@ coverage/
 
 # Vite writes these next to vite.config.ts while bundling the config.
 *.timestamp-*.mjs
+
+# Generated mobile bundles and local signing material.
+apps/mobile/www/
+packages/client/dist-native/
+*.jks
+*.keystore
+*.p12
+*.mobileprovision

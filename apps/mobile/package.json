@@ -1,0 +1,30 @@
+{
+  "name": "@border-empires/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "sync": "pnpm --filter @border-empires/client^... build && pnpm build && cap sync",
+    "open:ios": "cap open ios",
+    "open:android": "cap open android",
+    "assets": "capacitor-assets generate --ios --android --iconBackgroundColor '#060c16' --iconBackgroundColorDark '#060c16' --splashBackgroundColor '#060c16' --splashBackgroundColorDark '#060c16'",
+    "lint": "tsc --noEmit",
+    "test": "node --test scripts/*.test.mjs",
+    "archive:ios": "xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release -destination 'generic/platform=iOS' -archivePath ios/App/output/BorderEmpires-signed.xcarchive -allowProvisioningUpdates archive",
+    "export:ios": "xcodebuild -exportArchive -archivePath ios/App/output/BorderEmpires-signed.xcarchive -exportPath ios/App/output/app-store -exportOptionsPlist ios/ExportOptions.plist -allowProvisioningUpdates"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/browser": "8.0.5",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/ios": "8.5.3"
+  },
+  "devDependencies": {
+    "@border-empires/client": "workspace:*",
+    "@capacitor/cli": "8.5.3",
+    "@capacitor/assets": "3.0.5",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.3"
+  }
+}

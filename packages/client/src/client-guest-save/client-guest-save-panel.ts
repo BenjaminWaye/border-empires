@@ -1,4 +1,6 @@
 import { safeLocalStorageGet, safeLocalStorageSet } from "../client-safe-storage/client-safe-storage.js";
+import { Capacitor } from "@capacitor/core";
+import { nativeGuestSaveOptions } from "../client-native/client-native-guest-save.js";
 import { detectInAppBrowserName } from "../client-inapp-browser/client-inapp-browser.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { getGuestSave, saveMethodLabel, type EmailLinkResult, type GuestSaveController, type SaveView } from "./client-guest-save.js";
@@ -50,6 +52,7 @@ const benefits = (): HTMLElement => {
 };
 
 const saveOptions = (guestSave: GuestSaveController): HTMLElement[] => {
+  if (Capacitor.isNativePlatform()) return nativeGuestSaveOptions();
   const blocked = guestSave.unavailableReason();
   if (blocked) return [el("p", "guest-save-note", blocked), action("Keep playing as a guest", "close")];
   const emailRow = el("div", "guest-save-email-row");
@@ -87,7 +90,9 @@ const renderBody = (view: SaveView, guestSave: GuestSaveController): HTMLElement
     case "error":
       return [el("p", "guest-save-error", view.message), ...saveOptions(guestSave)];
     default:
-      return [benefits(), el("p", "guest-save-note", "A guest empire lives only in this browser. Clearing site data or switching browsers loses it."), ...saveOptions(guestSave)];
+      return [benefits(), el("p", "guest-save-note", Capacitor.isNativePlatform()
+        ? "A guest empire lives only on this device. Uninstalling the app or clearing app data loses it."
+        : "A guest empire lives only in this browser. Clearing site data or switching browsers loses it."), ...saveOptions(guestSave)];
   }
 };
 

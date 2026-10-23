@@ -15,6 +15,7 @@ import { registerSovereignSiegeEngineStrikeRoutes } from "../sovereign-siege-eng
 import { registerActivityApiRoute, type RegisterActivityApiRouteDeps } from "../activity-api/activity-api-route.js";
 import type { PlayerInsightsRouteDeps } from "../player-insights/player-insights-routes.js";
 import { addCorsHeaders } from "./cors-headers.js";
+import { registerAccountDeletionRoutes } from "../account-deletion/account-deletion-routes.js";
 import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js"; import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js"; import type { GalaxyFleetStore } from "../galaxy-fleet-store/galaxy-fleet-store.js"; import type { GalaxyBattleLogStore } from "../galaxy-battle-log-store/galaxy-battle-log-store.js"; import type { GalaxyExplorationStore } from "../galaxy-exploration-store/galaxy-exploration-store.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js"; import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js"; import type { GalaxySenateStore } from "../galaxy-senate-store/galaxy-senate-store.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
@@ -100,6 +101,7 @@ export type RegisterGatewayHttpRoutesDeps = {
   galaxyPlanetStore?: GalaxyPlanetStore; galaxyEconomyStore?: GalaxyEconomyStore; galaxySenateStore?: GalaxySenateStore;
   galaxyEndorsementStore?: GalaxyEndorsementStore; galaxyDefenseCampaignStore?: GalaxyDefenseCampaignStore; galaxyFleetStore?: GalaxyFleetStore; galaxyBattleLogStore?: GalaxyBattleLogStore; galaxyExplorationStore?: GalaxyExplorationStore; galaxyDukeService?: import("../galaxy-duke-service/galaxy-duke-service.js").GalaxyDukeService;
   authBindingStore?: GatewayAuthBindingStore;
+  disconnectDeletedPlayer?: (playerId: string) => void;
   sovereignSiegeEngineStrikeStore?: SovereignSiegeEngineStrikeStore;
   activityApi?: RegisterActivityApiRouteDeps;
   playerInsights?: PlayerInsightsRouteDeps;
@@ -184,7 +186,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
 
   app.get("/metrics", async (_request, reply) => {
     reply.header("Content-Type", "text/plain; version=0.0.4");
-    return deps.metrics();
+    return deps.metrics() + (await deps.authBindingStore?.accountDeletion?.metrics() ?? "");
   });
 
   registerAdminPageRoutes(app, {
@@ -317,6 +319,10 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
   });
 
   registerRallyLinkRoutes(app, deps, playOrigin);
+  if (deps.authBindingStore?.accountDeletion) registerAccountDeletionRoutes(app, {
+    ...(deps.disconnectDeletedPlayer ? { disconnectPlayer: deps.disconnectDeletedPlayer } : {}),
+    store: deps.authBindingStore.accountDeletion, bindings: deps.authBindingStore
+  });
 
   app.post("/admin/season/start-next", async (request, reply) => {
     const authorization = typeof request.headers.authorization === "string" ? request.headers.authorization : undefined;

@@ -1,6 +1,7 @@
 import { renderAfcUpgradePanels } from "../client-afc-upgrades/client-afc-upgrades.js";
 import { updateManifestDetail, renderMobileManifestOverlay } from "../client-manifest-detail/client-manifest-detail-dom.js";
-import { signOut, type Auth } from "firebase/auth";
+import type { Auth } from "firebase/auth";
+import { bindAccountSettingsControls } from "./client-account-settings-controls.js";
 import { INTEGRITY_PENALTY_PCT, type ChosenTrickleResource } from "@border-empires/shared";
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "../client-crystal-ability-info/client-crystal-ability-info.js";
 import { revealEmpireStatsDossierHtml, wireEmpireIntelOverlay } from "../client-empire-intel/client-empire-intel.js";
@@ -783,30 +784,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   const breakAllianceButtons = dom.hud.querySelectorAll(".break-alliance") as NodeListOf<HTMLButtonElement>;
   breakAllianceButtons.forEach((btn: HTMLButtonElement) => bindBreakAllianceButton(btn, sendGameMessage));
 
-  const authLogoutButtons = dom.hud.querySelectorAll("[data-auth-logout]") as NodeListOf<HTMLButtonElement>;
-  authLogoutButtons.forEach((authLogoutBtn: HTMLButtonElement) => {
-    authLogoutBtn.onclick = async () => {
-      if (!firebaseAuth) return;
-      await signOut(firebaseAuth);
-      window.location.reload();
-    };
-  });
-  const settingsNavButtons = dom.hud.querySelectorAll("[data-settings-nav]") as NodeListOf<HTMLButtonElement>;
-  settingsNavButtons.forEach((navBtn: HTMLButtonElement) => {
-    navBtn.onclick = () => {
-      const page = navBtn.dataset.settingsNav as ClientState["settingsSubPage"];
-      if (!page) return;
-      state.settingsSubPage = page;
-      renderClientHud(deps);
-    };
-  });
-  const settingsBackButtons = dom.hud.querySelectorAll("[data-settings-back]") as NodeListOf<HTMLButtonElement>;
-  settingsBackButtons.forEach((backBtn: HTMLButtonElement) => {
-    backBtn.onclick = () => {
-      state.settingsSubPage = null;
-      renderClientHud(deps);
-    };
-  });
+  bindAccountSettingsControls(dom.hud, firebaseAuth, state, wsUrl, () => renderClientHud(deps));
   renderProfileEditOverlay({ state, dom, sendGameMessage, pushFeed, firebaseAuth, renderHud: () => renderClientHud(deps) });
   bindAudioSettingsControls(dom.hud, () => renderClientHud(deps)); bindHintsSettingsControls(dom.hud, state.authEmail); bindRendererSettingsControls(dom.hud); bindEmailNotificationsSettingsControls(dom.hud); bindPhotoModeSettingsControls(dom.hud, state, () => renderClientHud(deps)); bindAdminSettingsControls(dom.hud, { state, sendGameMessage, requestViewRefresh, rerender: () => renderClientHud(deps), openPanel: setActivePanel });
   const economyFocusButtons = dom.hud.querySelectorAll("[data-economy-focus]") as NodeListOf<HTMLButtonElement>;
