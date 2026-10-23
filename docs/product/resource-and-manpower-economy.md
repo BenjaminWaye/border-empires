@@ -33,6 +33,15 @@ defines what these systems mean in the fiction; follow the
   in `refreshManpowerOnlyForPlayer`. Like a Waystation grant it may sit above
   the cap (tracked as `waystationManpowerOverflow`), and regen pauses until it
   is spent back under the cap.
+- **Shard Mobilization** (`SHARD_MOBILIZE`, `SHARD_MOBILIZE_SHARD_COST` = **1
+  Shard**) refills manpower to the cap at once, from the Manpower panel. It
+  settles manpower first, never goes above the cap (it is rejected when the
+  pool is already at or over the cap, so overflow from the landing reserve or a
+  Waystation is never trimmed), clears `manpowerBanked`, and is rejected while
+  the Titanium Levy's regen freeze is active. It is the comeback lever for an
+  empire that lost its pool while offline; see the comeback-weighted shard rain
+  in [game mechanics §9](../game-mechanics.md#9-seasons-and-world-events).
+  `apps/simulation/src/shard-mobilize/`
 - **Regeneration is paid out in refills, not continuously.** Regen accrues at
   the per-minute rates below into a bank (`manpowerBanked`) that is settled at
   the current rate on every settle (every command and the 15s player-update

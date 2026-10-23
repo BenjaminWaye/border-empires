@@ -290,7 +290,7 @@ import {
   plannerWorldViewForRuntime,
   snapshotSectionsAsyncForRuntime,
   snapshotSectionsForRuntime,
-  tilesForKeysForRuntime,
+  tilesForKeysForRuntime, existingTilesForKeys,
   type RuntimeExportContext
 } from "./runtime-export.js";
 import {
@@ -325,7 +325,7 @@ import {
   ownedLandWithinRange as ownedLandWithinRangeImpl,
   pickReadyOwnedObservatoryAny as pickReadyOwnedObservatoryAnyImpl,
   pickReadyOwnedObservatoryForTarget as pickReadyOwnedObservatoryForTargetImpl,
-  revealCapacityForPlayer as revealCapacityForPlayerImpl,
+  revealCapacityForPlayer as revealCapacityForPlayerImpl, revealTargetsForPlayer as revealTargetsForPlayerImpl,
   setAbilityCooldownUntil as setAbilityCooldownUntilImpl,
   wallSegments as wallSegmentsImpl,
   type AetherWallSegment
@@ -355,6 +355,7 @@ import {
   handleUpgradeTownTierCommand as handleUpgradeTownTierCommandImpl,
   type RuntimeProgressionCommandContext
 } from "../runtime-progression-command-handlers.js";
+import { handleShardMobilizeCommand as handleShardMobilizeCommandImpl } from "../shard-mobilize/shard-mobilize-command-handler.js";
 import { buildProgressionCommandContext } from "./runtime-progression-command-context.js";
 import {
   adjustOwnedStructureCount as adjustOwnedStructureCountImpl,
@@ -692,7 +693,8 @@ export class SimulationRuntime {
       now: () => runtime.now(),
       replaceTileState: (tileKey, tile) => runtime.replaceTileState(tileKey, tile),
       emitEvent: (event) => runtime.emitEvent(event),
-      tileDeltaFromState: (tile) => runtime.tileDeltaFromState(tile)
+      tileDeltaFromState: (tile) => runtime.tileDeltaFromState(tile),
+      territoryTileKeysForPlayer: (playerId) => runtime.summaryForPlayer(playerId).territoryTileKeys
     });
   })();
   private readonly nextTerritoryAutomationCommandId = createTerritoryAutomationCommandIdGenerator();
@@ -1874,14 +1876,7 @@ export class SimulationRuntime {
     return pendingSettlement;
   }
 
-  private tileKeySetToTiles(keys: Iterable<string>): DomainTileState[] {
-    const result: DomainTileState[] = [];
-    for (const key of keys) {
-      const tile = this.state.tiles.get(key);
-      if (tile) result.push(tile);
-    }
-    return result;
-  }
+  private tileKeySetToTiles(keys: Iterable<string>): DomainTileState[] { return existingTilesForKeys(this.state.tiles, keys); }
 
   // In-process barbarian planner for the non-worker system producer (local dev/tests); same rules as the worker.
   private barbarianBridgeCache: RuntimeBarbarianBridge | undefined;
@@ -3005,14 +3000,7 @@ export class SimulationRuntime {
     });
   }
 
-  private revealTargetsForPlayer(playerId: string): Set<string> {
-    let targets = this.revealTargetsByPlayer.get(playerId);
-    if (!targets) {
-      targets = new Set<string>();
-      this.revealTargetsByPlayer.set(playerId, targets);
-    }
-    return targets;
-  }
+  private revealTargetsForPlayer(playerId: string): Set<string> { return revealTargetsForPlayerImpl(this.revealTargetsByPlayer, playerId); }
 
   private revealCapacityForPlayer(player: DomainPlayer): number { return revealCapacityForPlayerImpl(player, this.revealTargetsForPlayer(player.id).size); }
 
@@ -3445,6 +3433,12 @@ export class SimulationRuntime {
       ...buildMapCommandDispatchHandlers(() => this.mapCommandContext()),
       handleUpgradeTownTierCommand: (command) => handleUpgradeTownTierCommandImpl(this.progressionCommandContext(), command),
       handleCollectShardCommand: (command) => handleCollectShardCommandImpl(this.progressionCommandContext(), command),
+      handleShardMobilizeCommand: (command) => handleShardMobilizeCommandImpl({
+        players: this.state.players, now: () => this.now(), settleManpower: (player) => { this.applyEconomyAccrual(player, this.now()); this.refreshManpowerOnly(player); },
+        playerManpowerCap: (player) => this.playerManpowerCap(player), getAbilityCooldownUntil: (playerId, abilityKey) => this.getAbilityCooldownUntil(playerId, abilityKey),
+        spendStrategicResource: (player, resource, amount) => this.spendStrategicResource(player, resource, amount), invalidateEconomySnapshot: (playerId) => this.economyCaches.economySnapshotCacheByPlayer.delete(playerId),
+        emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command)
+      }, command),
       handleSyncAllianceCommand: (command) => this.handleSyncAllianceCommand(command),
       handleFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType),
       handleDevQueueEnqueueCommand: (command) => handleDevQueueEnqueueCommandImpl(this.devQueueCommandContext(), command),
