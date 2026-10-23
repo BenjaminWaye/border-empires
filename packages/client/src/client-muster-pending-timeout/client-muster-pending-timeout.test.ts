@@ -40,4 +40,15 @@ describe("pendingMusterAttackStalled", () => {
     expect(15 * MINUTE).toBeGreaterThan(ATTACK_COMMIT_TTL_MS);
     expect(attackCommitForTarget(state, 5, 0, 15 * MINUTE)).toBe(2_000);
   });
+
+  it("counts refilling after another attack drew the flag down as progress, not a stall", () => {
+    const state = makeState();
+    const entry = { targetX: 5, targetY: 0, queuedAt: 0 };
+    expect(pendingMusterAttackStalled(state, entry, 600, 0)).toBe(false);
+    // Another attack spends 500 from the same flag; it refills from 100.
+    for (let minute = 1; minute <= 8; minute += 1) {
+      expect(pendingMusterAttackStalled(state, entry, 100 + minute * 60, minute * MINUTE)).toBe(false);
+    }
+  });
 });
+

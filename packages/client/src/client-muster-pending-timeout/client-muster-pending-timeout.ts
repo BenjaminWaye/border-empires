@@ -44,11 +44,16 @@ export const pendingMusterAttackStalled = (
   flagAmount: number | undefined,
   now = Date.now()
 ): boolean => {
-  if (flagAmount !== undefined && flagAmount > (entry.progressAmount ?? Number.NEGATIVE_INFINITY)) {
+  // Progress is growth since the last reading, not a new high: another
+  // attack can draw the same flag down, and refilling below the old peak is
+  // still filling, not a stall.
+  if (flagAmount !== undefined) {
+    if (flagAmount > (entry.progressAmount ?? Number.NEGATIVE_INFINITY)) {
+      entry.progressAt = now;
+      const commit = attackCommitForTarget(state, entry.targetX, entry.targetY, now);
+      if (commit !== undefined) setAttackCommit(state, entry.targetX, entry.targetY, commit, now);
+    }
     entry.progressAmount = flagAmount;
-    entry.progressAt = now;
-    const commit = attackCommitForTarget(state, entry.targetX, entry.targetY, now);
-    if (commit !== undefined) setAttackCommit(state, entry.targetX, entry.targetY, commit, now);
   }
   const since = entry.progressAt ?? entry.queuedAt;
   return since !== undefined && now - since > MUSTER_PENDING_STALL_TIMEOUT_MS;
