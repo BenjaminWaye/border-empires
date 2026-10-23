@@ -21,21 +21,23 @@ export const createRelicCoreOverlay = (scene: Scene, capacity: number): RelicCor
   group.name = "relic-core-preview";
   scene.add(group);
 
-  const shellMaterial = createRelicAgedMaterial("#827c69", 0.02);
-  const armourMaterial = createRelicAgedMaterial("#a29a7e", 0.01);
-  const machineryMaterial = createRelicAgedMaterial("#4a5046", 0.15);
-  const recessMaterial = new MeshBasicMaterial({ color: "#36392d", side: DoubleSide });
+  const shellMaterial = createRelicAgedMaterial("#465760", 0.12);
+  const armourMaterial = createRelicAgedMaterial("#a3afb0", 0.08);
+  const machineryMaterial = createRelicAgedMaterial("#586366", 0.30);
+  const salvageMaterial = createRelicAgedMaterial("#9b7750", 0.20);
+  const recessMaterial = new MeshBasicMaterial({ color: "#202b2e", side: DoubleSide });
   const liveMaterial = new MeshBasicMaterial({ color: "#b8bf86", toneMapped: false, side: DoubleSide });
   const idleMaterial = new MeshBasicMaterial({ color: "#414538", side: DoubleSide });
-  const materials = [shellMaterial, armourMaterial, machineryMaterial, recessMaterial, liveMaterial, idleMaterial];
+  const materials = [shellMaterial, armourMaterial, machineryMaterial, salvageMaterial, recessMaterial, liveMaterial, idleMaterial];
 
   const shell = new InstancedMesh(geometry.shell, shellMaterial, capacity);
   const armour = new InstancedMesh(geometry.armour, armourMaterial, capacity);
   const machinery = new InstancedMesh(geometry.machinery, machineryMaterial, capacity);
+  const salvage = new InstancedMesh(geometry.salvage, salvageMaterial, capacity);
   const recess = new InstancedMesh(geometry.recess, recessMaterial, capacity);
   const liveLight = new InstancedMesh(geometry.light, liveMaterial, capacity);
   const idleLight = new InstancedMesh(geometry.light, idleMaterial, capacity);
-  const fixed = [shell, armour, machinery, recess];
+  const fixed = [shell, armour, machinery, salvage, recess];
   const meshes = [...fixed, liveLight, idleLight];
   for (const mesh of meshes) {
     mesh.count = 0;

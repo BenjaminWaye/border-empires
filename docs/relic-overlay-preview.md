@@ -2,15 +2,19 @@
 
 Status: active proposal
 Owner: Benjamin Waye (visual sign-off and relic fiction)
-Last verified: 2026-10-22
+Last verified: 2026-10-23
 Replacement target: the visual sections of [natural wonders](natural-wonders-design.md), if accepted and implemented in both map renderers.
 
 ## Direction
 
 One shared surface building serves different buried Concordance installations.
 The visible remnant is a weathered stepped ziggurat: broad terraces, chipped
-corners, an access stair, worn cladding, moss, fallen slabs and very faint
-light from surviving machinery. Avoid the Waystation's shelter-and-mast
+corners and an access stair. Its space-age construction remains visible:
+bleached composite skins over a dark structural chassis, sealed bulkheads,
+maintenance catches, inset vents and severed utility connections. Missing
+covers expose ribs and cables; detached skins, oxidation and some moss show
+long disuse. Surviving machinery emits only faint light. Avoid stone-brick
+masonry, the Waystation's shelter-and-mast
 silhouette and the polished ring-and-fin design tried before this revision.
 
 The proposed fiction is recorded as an open question in the

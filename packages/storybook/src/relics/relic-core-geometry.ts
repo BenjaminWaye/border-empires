@@ -1,10 +1,14 @@
-import { BoxGeometry, BufferGeometry, Color, ExtrudeGeometry, Float32BufferAttribute, Shape } from "three";
+import {
+  BoxGeometry, BufferGeometry, CatmullRomCurve3, Color, CylinderGeometry,
+  ExtrudeGeometry, Float32BufferAttribute, Shape, TubeGeometry, Vector3
+} from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 export type RelicCoreGeometry = {
   readonly shell: BufferGeometry;
   readonly armour: BufferGeometry;
   readonly machinery: BufferGeometry;
+  readonly salvage: BufferGeometry;
   readonly recess: BufferGeometry;
   readonly light: BufferGeometry;
 };
@@ -63,6 +67,7 @@ export const createRelicCoreGeometry = (): RelicCoreGeometry => {
   const shell: BufferGeometry[] = [];
   const armour: BufferGeometry[] = [];
   const machinery: BufferGeometry[] = [];
+  const salvage: BufferGeometry[] = [];
   const recess: BufferGeometry[] = [];
   const light: BufferGeometry[] = [];
   const levels = [
@@ -75,33 +80,66 @@ export const createRelicCoreGeometry = (): RelicCoreGeometry => {
     shell.push(terrace(level.width, level.height, level.bottom, level.bite));
     armour.push(terrace(level.width + 0.035, 0.035, level.bottom + level.height - 0.018, level.bite));
     const edge = level.width / 2 + 0.006;
-    const seams = 3 + index;
     for (let side = 0; side < 4; side += 1) {
       const angle = side * Math.PI / 2;
-      for (let i = 1; i < seams; i += 1) {
-        const offset = -edge + i * level.width / seams;
-        recess.push(box(0.012, level.height * 0.68, 0.008, offset, level.bottom + level.height * 0.45, edge).rotateY(angle));
+      const count = index < 2 ? 3 : 2;
+      const panelWidth = (level.width - 0.13) / count;
+      for (let i = 0; i < count; i += 1) {
+        const offset = (i - (count - 1) / 2) * panelWidth;
+        const y = level.bottom + level.height * 0.47;
+        // One missing skin on each face reveals the ribs of the old machine.
+        if ((side + index) % 3 === 0 && i === 0) {
+          recess.push(box(panelWidth - 0.04, 0.12, 0.012, offset, y, edge + 0.008).rotateY(angle));
+          for (let rib = 0; rib < 4; rib += 1) {
+            machinery.push(box(0.018, 0.105, 0.021, offset + (rib - 1.5) * 0.055, y, edge + 0.02).rotateY(angle));
+          }
+          salvage.push(box(panelWidth - 0.08, 0.015, 0.027, offset, y - 0.06, edge + 0.025).rotateY(angle));
+          continue;
+        }
+        armour.push(box(panelWidth - 0.035, 0.115, 0.028, offset, y, edge + 0.012).rotateY(angle));
+        // Long inset slots and catches communicate manufactured cladding.
+        recess.push(box(panelWidth * 0.57, 0.012, 0.01, offset, y + 0.024, edge + 0.032).rotateY(angle));
+        machinery.push(box(0.025, 0.032, 0.012, offset + panelWidth * 0.32, y - 0.016, edge + 0.035).rotateY(angle));
       }
-      if ((side + index) % 2 === 0) {
-        machinery.push(box(0.19, 0.055, 0.008, -0.18, level.bottom + 0.085, edge + 0.003).rotateY(angle));
-      }
+      // Faded connection strips run along the terrace, interrupted by damage.
+      machinery.push(box(level.width * 0.60, 0.018, 0.024, -0.03, level.bottom + level.height - 0.041, edge + 0.012).rotateY(angle));
     }
   }
-  // A single stair rises toward the sealed machine access at the summit.
+  // A corroded service stair keeps the ziggurat silhouette human-readable.
   for (let step = 0; step < 13; step += 1) {
     const y = 0.035 + step * 0.055;
     const z = 1.12 - step * 0.065;
     const chip = step === 3 || step === 9 ? 0.035 : 0;
     armour.push(box(0.36 - chip, 0.06, 0.10, chip / 2, y, z));
     recess.push(box(0.30 - chip, 0.008, 0.012, chip / 2, y + 0.022, z + 0.048));
+    if (step % 4 !== 1) machinery.push(box(0.28 - chip, 0.01, 0.055, chip / 2, y + 0.035, z));
   }
   shell.push(terrace(0.43, 0.21, 0.77, 0.055));
   armour.push(terrace(0.49, 0.045, 0.97, 0.09));
   recess.push(box(0.155, 0.15, 0.012, 0, 0.85, 0.224));
   machinery.push(box(0.19, 0.025, 0.035, 0, 0.934, 0.235));
-  light.push(box(0.012, 0.10, 0.013, -0.057, 0.845, 0.233));
-  light.push(box(0.012, 0.10, 0.013, 0.057, 0.845, 0.233));
-  // Broken outer enclosure, buried conduit caps and scattered fallen slabs.
+  // Sealed summit bulkhead with a mechanical frame, not an open temple doorway.
+  machinery.push(box(0.025, 0.17, 0.024, -0.099, 0.851, 0.236));
+  machinery.push(box(0.025, 0.17, 0.024, 0.099, 0.851, 0.236));
+  armour.push(box(0.065, 0.125, 0.012, -0.037, 0.85, 0.238));
+  armour.push(box(0.065, 0.125, 0.012, 0.037, 0.85, 0.238));
+  salvage.push(box(0.016, 0.055, 0.01, -0.105, 0.85, 0.251));
+  salvage.push(box(0.016, 0.055, 0.01, 0.105, 0.85, 0.251));
+  // Roof maintenance hardware stays low so the stepped mass remains dominant.
+  machinery.push(box(0.19, 0.012, 0.13, -0.08, 1.014, -0.03));
+  for (let vent = 0; vent < 5; vent += 1) {
+    recess.push(box(0.11, 0.008, 0.009, -0.08, 1.022, -0.075 + vent * 0.023));
+  }
+  salvage.push(new CylinderGeometry(0.038, 0.043, 0.055, 6).translate(0.11, 1.035, 0.05));
+  // A detached roof skin exposes a dark service compartment on the right terrace.
+  recess.push(box(0.13, 0.013, 0.19, 0.30, 0.784, -0.03));
+  for (let cell = 0; cell < 3; cell += 1) {
+    machinery.push(box(0.07, 0.025, 0.028, 0.30, 0.796, -0.09 + cell * 0.055));
+  }
+  armour.push(box(0.12, 0.012, 0.17, 0, 0, 0).rotateZ(0.27).translate(0.38, 0.80, -0.03));
+  light.push(box(0.012, 0.10, 0.013, -0.078, 0.845, 0.247));
+  light.push(box(0.012, 0.10, 0.013, 0.078, 0.845, 0.247));
+  // Broken conduit covers and detached composite skins lie around the base.
   for (const [x, z, width, angle] of [
     [-0.85, 1.13, 0.43, 0.06], [0.88, 1.10, 0.34, -0.16],
     [-1.12, -0.48, 0.37, 1.7], [1.12, 0.52, 0.31, 1.4]
@@ -115,7 +153,24 @@ export const createRelicCoreGeometry = (): RelicCoreGeometry => {
     armour.push(box(size * 1.5, size * 0.6, size, 0, size * 0.3, 0)
       .rotateY(angle).translate(Math.cos(angle) * radius, 0, Math.sin(angle) * radius));
   }
+  for (const side of [-1, 1]) {
+    const cable = new CatmullRomCurve3([
+      new Vector3(side * 0.76, 0.34, 0.68), new Vector3(side * 0.94, 0.25, 0.77),
+      new Vector3(side * 1.06, 0.07, 0.88), new Vector3(side * 1.18, 0.045, 0.83)
+    ]);
+    machinery.push(new TubeGeometry(cable, 10, 0.012, 5, false));
+    salvage.push(box(0.06, 0.045, 0.035, side * 1.18, 0.045, 0.83));
+  }
+  // Exposed utility connection, long since severed from its external network.
+  recess.push(box(0.20, 0.10, 0.012, 0.56, 0.11, 1.005));
+  for (let socket = 0; socket < 3; socket += 1) {
+    salvage.push(new CylinderGeometry(0.022, 0.026, 0.05, 8)
+      .rotateX(Math.PI / 2).translate(0.49 + socket * 0.065, 0.11, 1.035));
+  }
   light.push(box(0.07, 0.009, 0.008, 0.53, 0.49, 0.588));
   light.push(box(0.008, 0.009, 0.08, -0.789, 0.30, -0.31));
-  return { shell: merge(shell), armour: merge(armour), machinery: merge(machinery), recess: merge(recess), light: merge(light) };
+  return {
+    shell: merge(shell), armour: merge(armour), machinery: merge(machinery),
+    salvage: merge(salvage), recess: merge(recess), light: merge(light)
+  };
 };
