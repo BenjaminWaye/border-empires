@@ -19,8 +19,7 @@
 //                Survey Line).
 //
 // Persisted to localStorage, with a `?breachedge=<style>` URL param taking
-// precedence (handy for screenshots and regression checks) -- same pattern as
-// client-siege-tower-rotation-mode.ts.
+// precedence (handy for screenshots and regression checks).
 
 export type IncursionBreachStyle = "straight" | "spikes" | "ember" | "ink" | "veil";
 

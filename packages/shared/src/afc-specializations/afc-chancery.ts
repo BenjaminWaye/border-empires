@@ -6,14 +6,12 @@ export const AFC_CHANCERY = [
     "tier": 1,
     "branch": "chancery",
     "name": "Envoy Accreditation",
-    "description": "Each mutual ally adds these benefits, with no ally-count limit. Accredited envoys coordinate allied credit, ancillary contingents and reserve facilities.",
-    "mechanicalSummary": "Per ally: +2 Coin/day | +0.02 manpower/min | +30 manpower cap.",
+    "description": "Gain a share of each mutual ally’s Coin income, manpower capacity and regeneration. Allies keep their full amounts. Contributions exclude Envoy Accreditation bonuses, so they cannot compound. Accredited envoys coordinate allied credit and reserve facilities.",
+    "mechanicalSummary": "Gain 10% of each ally’s Coin income, manpower cap and regeneration.",
     "category": "ongoing",
     "requiresTechId": "",
     "effects": {
-      "allianceGoldPerDay": 2,
-      "allianceManpowerRegenPerMinute": 0.02,
-      "allianceManpowerCapAdd": 30
+      "allianceContributionShare": 0.1
     }
   },
   {

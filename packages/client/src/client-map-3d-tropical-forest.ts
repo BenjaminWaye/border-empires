@@ -1,31 +1,18 @@
 // Tropical/jungle tree variant for tiles gated by isTropicalForestTileAt
-// (equatorial-belt forest, see worldgen-latitude.ts) -- a distinct palm-like
-// silhouette (tall thin trunk, wide flat frond canopy) so the equatorial
-// belt actually reads differently from the temperate pine/spruce forest
-// instead of using the same tree everywhere. Mirrors createForest's
-// InstancedMesh/layout/hash scheme (client-map-3d-forest.ts) rather than a
-// shared abstraction, since the two only share the layout/hash constants,
-// not the geometry or per-tile logic.
-import {
-  type Color,
-  ConeGeometry,
-  CylinderGeometry,
-  InstancedMesh,
-  Matrix4,
-  MeshStandardMaterial,
-  Scene
-} from "three";
+// (equatorial-belt forest, see worldgen-latitude.ts) -- a distinct palm
+// silhouette (tall curved trunk, crown of drooping fronds; model in
+// client-map-3d-tree-models.ts) so the equatorial belt actually reads
+// differently from the temperate pine/spruce forest instead of using the same
+// tree everywhere. Mirrors createForest's InstancedMesh/layout/hash scheme
+// (client-map-3d-forest.ts) rather than a shared abstraction, since the two
+// only share the layout/hash constants, not the geometry or per-tile logic.
+import { Color, InstancedMesh, Matrix4, Scene } from "three";
 import { LAYOUTS, TREES_PER_TILE, tileHash } from "./client-map-3d-forest.js";
 import { riverBankTreeFilter } from "./client-map-3d-rivers/client-map-3d-river-bank-trees.js";
-import { commitInstanceTint, setInstanceTint } from "./client-map-3d-instance-tint.js";
-import { markUnexploredStormClip } from "./client-map-3d-unexplored-storm/client-map-3d-unexplored-storm-clip.js";
-
-const PALM_TRUNK_HEIGHT = 0.5;
-// Trunk base sits a touch below the surface so it never floats on slopes.
-const PALM_TRUNK_Y = PALM_TRUNK_HEIGHT / 2 - 0.03;
-const PALM_CANOPY_HEIGHT = 0.11;
-// Frond canopy straddles the trunk top.
-const PALM_CANOPY_Y = PALM_TRUNK_HEIGHT - 0.03 + PALM_CANOPY_HEIGHT / 2 - 0.02;
+import { commitInstanceTint } from "./client-map-3d-instance-tint.js";
+import { createTreeMaterial, driveTreeWind } from "./client-map-3d-trees/client-map-3d-tree-material.js";
+import { createPalmGeometry } from "./client-map-3d-trees/client-map-3d-tree-models.js";
+import { composeTreeInstance, createTreePlacement } from "./client-map-3d-trees/client-map-3d-tree-variation.js";
 
 export type TropicalForest = {
   readonly clear: () => void;
@@ -35,29 +22,22 @@ export type TropicalForest = {
 };
 
 export const createTropicalForest = (scene: Scene, maxTiles: number): TropicalForest => {
-  // A very flat, wide cone reads as a palm's frond canopy at this scale
-  // without needing individual leaf geometry.
   // Sized like createForest's trees: roughly half a mountain massif's height.
-  const canopyGeometry = new ConeGeometry(0.17, PALM_CANOPY_HEIGHT, 6, 1, false);
-  const canopyMaterial = markUnexploredStormClip(new MeshStandardMaterial({ color: "#4f9a4a", roughness: 0.85, metalness: 0, flatShading: true }));
-
-  const trunkGeometry = new CylinderGeometry(0.022, 0.04, PALM_TRUNK_HEIGHT, 5);
-  const trunkMaterial = markUnexploredStormClip(new MeshStandardMaterial({ color: "#8a6b45", roughness: 0.82, metalness: 0, flatShading: true }));
-
+  // Double-sided: fronds are open sheets, seen from below as they droop.
+  const geometry = createPalmGeometry();
+  const material = createTreeMaterial({ doubleSided: true });
   const maxInstances = maxTiles * TREES_PER_TILE;
-  const canopyMesh = new InstancedMesh(canopyGeometry, canopyMaterial, maxInstances);
-  const trunkMesh = new InstancedMesh(trunkGeometry, trunkMaterial, maxInstances);
-
-  for (const mesh of [canopyMesh, trunkMesh]) {
-    mesh.frustumCulled = false;
-    mesh.count = 0;
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-  }
-  scene.add(canopyMesh, trunkMesh);
+  const mesh = new InstancedMesh(geometry, material, maxInstances);
+  mesh.frustumCulled = false;
+  mesh.count = 0;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  driveTreeWind(mesh);
+  scene.add(mesh);
 
   const tempMatrix = new Matrix4();
-  const scaleMatrix = new Matrix4();
+  const tempColor = new Color();
+  const placement = createTreePlacement();
   let count = 0;
 
   const clear = (): void => {
@@ -68,43 +48,37 @@ export const createTropicalForest = (scene: Scene, maxTiles: number): TropicalFo
     const layoutIdx = tileHash(worldX, worldZ, 7, LAYOUTS.length);
     const layout = LAYOUTS[layoutIdx]!;
     const inRiverBank = riverBankTreeFilter(worldX, worldZ);
+    placement.y = surfaceY;
+    placement.worldX = worldX;
+    placement.worldZ = worldZ;
+    placement.tint = tint;
 
-    for (const tree of layout) {
-      if (count >= maxInstances) continue;
-      if (inRiverBank?.(tree.ox, tree.oz)) continue;
-      scaleMatrix.makeScale(tree.scale, tree.scale, tree.scale);
-      tempMatrix.copy(scaleMatrix);
-      tempMatrix.setPosition(sceneX + tree.ox, surfaceY + PALM_TRUNK_Y * tree.scale, sceneZ + tree.oz);
-      trunkMesh.setMatrixAt(count, tempMatrix);
-
-      tempMatrix.copy(scaleMatrix);
-      tempMatrix.setPosition(sceneX + tree.ox, surfaceY + PALM_CANOPY_Y * tree.scale, sceneZ + tree.oz);
-      canopyMesh.setMatrixAt(count, tempMatrix);
-      setInstanceTint(trunkMesh, count, tint);
-      setInstanceTint(canopyMesh, count, tint);
+    layout.forEach((tree, slot) => {
+      if (count >= maxInstances) return;
+      if (inRiverBank?.(tree.ox, tree.oz)) return;
+      placement.x = sceneX + tree.ox;
+      placement.z = sceneZ + tree.oz;
+      placement.scale = tree.scale;
+      placement.slot = slot;
+      composeTreeInstance(placement, tempMatrix, tempColor);
+      mesh.setMatrixAt(count, tempMatrix);
+      mesh.setColorAt(count, tempColor);
       count += 1;
-    }
+    });
   };
 
   const commit = (): void => {
-    canopyMesh.count = count;
-    trunkMesh.count = count;
-    canopyMesh.instanceMatrix.clearUpdateRanges();
-    canopyMesh.instanceMatrix.addUpdateRange(0, canopyMesh.count * 16);
-    canopyMesh.instanceMatrix.needsUpdate = true;
-    trunkMesh.instanceMatrix.clearUpdateRanges();
-    trunkMesh.instanceMatrix.addUpdateRange(0, trunkMesh.count * 16);
-    trunkMesh.instanceMatrix.needsUpdate = true;
-    commitInstanceTint(canopyMesh);
-    commitInstanceTint(trunkMesh);
+    mesh.count = count;
+    mesh.instanceMatrix.clearUpdateRanges();
+    mesh.instanceMatrix.addUpdateRange(0, mesh.count * 16);
+    mesh.instanceMatrix.needsUpdate = true;
+    commitInstanceTint(mesh);
   };
 
   const dispose = (): void => {
-    scene.remove(canopyMesh, trunkMesh);
-    canopyGeometry.dispose();
-    trunkGeometry.dispose();
-    canopyMaterial.dispose();
-    trunkMaterial.dispose();
+    scene.remove(mesh);
+    geometry.dispose();
+    material.dispose();
   };
 
   return { clear, addInstance, commit, dispose };

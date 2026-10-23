@@ -63,6 +63,7 @@ describe("counter-offers", () => {
       {
         type: "TRUCE_REQUEST",
         targetPlayerName: "Tove",
+        targetPlayerId: "ai-10",
         durationHours: 24,
         terms: { give: { gold: 0, shard: 0 }, ask: { gold: 24, shard: 0 } },
         counters: { kind: "alliance", requestId: "alliance-1" }
@@ -75,6 +76,7 @@ describe("counter-offers", () => {
     expect(counterOfferScreenInput("truce", "missing", { playerNameForOwner, state })).toBeUndefined();
     expect(counterOfferScreenInput("alliance", "alliance-1", { playerNameForOwner, state })).toEqual({
       targetName: "Tove",
+      targetPlayerId: "ai-10",
       kind: "alliance",
       durationHours: 12,
       counters: { kind: "alliance", requestId: "alliance-1" }

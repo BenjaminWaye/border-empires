@@ -1,41 +1,8 @@
-// Finishing touches shared by the town layouts: banners flying the owner's
-// colour round the plate's edge (and down the megatower), park fountains with spray leaping over a
-// mirror pool, flower beds, and rooftop gardens.
-import { loopRate, loopSpeed } from "./town-animation-shaders.js";
+// Finishing touches shared by the town layouts: park fountains with spray
+// leaping over a mirror pool, flower beds, and rooftop gardens.
+import { loopRate } from "./town-animation-shaders.js";
 import type { TownColor } from "./town-mesh-builder.js";
-import { at, facingOut, polar, type TownBuilders } from "./town-parts.js";
-
-/** Flagpole at (x, z) flying a banner `length` long, hoisted towards ry. */
-export const flagpole = (t: TownBuilders, x: number, z: number, h: number, length: number, ry: number): void => {
-  t.body.cylinder(x, 0, z, 0.0022, 0.003, h, "iron", 5);
-  t.body.gem(x, h + 0.003, z, 0.0035, 0.006, "brass");
-  const depth = length * 0.62;
-  const anim = { a: [x, 0, z, loopSpeed(5 + t.random() * 2)], b: [0.2, 0, 0, t.random()] } as const;
-  t.banner.withAnim(anim, () => t.banner.cloth(x, h - depth / 2 - 0.002, z, length, depth, "cloth", ry));
-};
-
-/** Four banners on the plate's alternate corners, flying round it. Each
- * cloth faces a diagonal, so every quarter-turn of the town shows all four
- * at the same slant instead of two face-on and two edge-on. */
-export const plateBanners = (t: TownBuilders, radius: number, h: number): void => {
-  for (let k = 0; k < 4; k += 1) {
-    const degrees = 22.5 + k * 90;
-    const [x, z] = polar(radius * 0.8, degrees);
-    flagpole(t, x, z, h, h * 0.62, facingOut(degrees + 22.5));
-  }
-};
-
-/** Long banner hung flat down a wall from (x, top, z), facing out along ry,
- * stirring so gently (WALL_BANNER_SWING) that it never touches the wall
- * WALL_BANNER_GAP behind it. */
-export const WALL_BANNER_GAP = 0.004;
-const WALL_BANNER_SWING = 0.04;
-export const wallBanner = (t: TownBuilders, x: number, top: number, z: number, w: number, h: number, ry: number): void => {
-  const [hx, hz] = at(x, z, ry, -w / 2, 0);
-  const anim = { a: [hx, 0, hz, loopSpeed(1.6 + t.random())], b: [WALL_BANNER_SWING, 0, 0, t.random()] } as const;
-  t.banner.withAnim(anim, () => t.banner.cloth(hx, top - h / 2, hz, w, h, "cloth", ry));
-  t.body.box(x, top, z, w * 1.25, 0.003, 0.004, "brass", ry);
-};
+import { at, polar, type TownBuilders } from "./town-parts.js";
 
 /** Round fountain: a stone basin round a mirror pool, spray leaping from a brass jet. */
 export const fountain = (t: TownBuilders, x: number, z: number, radius: number): void => {

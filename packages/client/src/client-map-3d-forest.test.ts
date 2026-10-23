@@ -11,13 +11,14 @@ import { createForest } from "./client-map-3d-forest.js";
 // every visible tree could re-roll its species/layout on every rebuild
 // instead of staying fixed for that world tile. addInstance now takes the
 // tile's absolute world coordinates separately and hashes on those instead.
-// createForest adds [pineCanopyMesh, spruceCanopyMesh, leafCanopyMesh,
-// trunkMesh] to the scene in that order (client-map-3d-forest.ts), so
-// children[3] is always the trunk InstancedMesh.
+// createForest adds one InstancedMesh per species (pine, spruce, leaf --
+// trunk and canopy merged); a single addInstance fills exactly one of them.
+const firstTreeMesh = (scene: Scene): InstancedMesh =>
+  scene.children.find((c): c is InstancedMesh => c instanceof InstancedMesh && c.count > 0)!;
+
 const firstTrunkLocalOffset = (scene: Scene): { x: number; z: number } => {
-  const trunkMesh = scene.children[3] as unknown as { getMatrixAt: (index: number, matrix: Matrix4) => void };
   const matrix = new Matrix4();
-  trunkMesh.getMatrixAt(0, matrix);
+  firstTreeMesh(scene).getMatrixAt(0, matrix);
   const position = new Vector3();
   position.setFromMatrixPosition(matrix);
   return { x: position.x, z: position.z };
@@ -45,6 +46,13 @@ describe("createForest addInstance variant selection", () => {
     // layout both times.
     expect(offsetA.x).toBeCloseTo(offsetB.x - 500, 4);
     expect(offsetA.z).toBeCloseTo(offsetB.z + 500, 4);
+    // The per-tree turn/lean/size and colour are world-keyed too.
+    const linearA = new Matrix4();
+    const linearB = new Matrix4();
+    firstTreeMesh(sceneA).getMatrixAt(0, linearA);
+    firstTreeMesh(sceneB).getMatrixAt(0, linearB);
+    for (const i of [0, 1, 2, 4, 5, 6, 8, 9, 10]) expect(linearA.elements[i]).toBeCloseTo(linearB.elements[i]!, 5);
+    expect(Array.from(firstTreeMesh(sceneA).instanceColor!.array.slice(0, 3))).toEqual(Array.from(firstTreeMesh(sceneB).instanceColor!.array.slice(0, 3)));
 
     forestA.dispose();
     forestB.dispose();
@@ -67,21 +75,20 @@ describe("createForest addInstance variant selection", () => {
   });
 });
 
-// Regression: the trunk pool's capacity guard compared against
-// `trunkMesh.count + capacity`, and trunkMesh.count still held the PREVIOUS
-// commit's total -- so after any full rebuild the next one could push the
-// trunk count past the InstancedMesh's allocated capacity.
-describe("createForest trunk capacity", () => {
-  it("never commits more trunks than the trunk pool holds, across rebuilds", () => {
+// Regression: the (old, separate) trunk pool's capacity guard compared
+// against the PREVIOUS commit's count, so after any full rebuild the next one
+// could push past the InstancedMesh's allocated capacity. Every species pool
+// must stay within its own capacity across rebuilds.
+describe("createForest instance capacity", () => {
+  it("never commits more trees than any species pool holds, across rebuilds", () => {
     const scene = new Scene();
     const forest = createForest(scene, 1);
-    const trunkMesh = scene.children[3] as InstancedMesh;
-    const capacity = trunkMesh.instanceMatrix.count;
+    const meshes = scene.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh);
     for (let rebuild = 0; rebuild < 2; rebuild += 1) {
       forest.clear();
-      for (let tile = 0; tile < 4; tile += 1) forest.addInstance(tile, 0, 0, tile, 0);
+      for (let tile = 0; tile < 12; tile += 1) forest.addInstance(tile, 0, 0, tile, 0);
       forest.commit();
-      expect(trunkMesh.count).toBeLessThanOrEqual(capacity);
+      for (const mesh of meshes) expect(mesh.count).toBeLessThanOrEqual(mesh.instanceMatrix.count);
     }
     forest.dispose();
   });

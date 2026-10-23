@@ -62,7 +62,6 @@ describe("processPendingMusterAttacks lifecycle", () => {
       pushFeed: vi.fn(),
       renderHud: vi.fn(),
       sendSetMuster,
-      sendAttack
     });
 
     expect(sendAttack).not.toHaveBeenCalled();
@@ -161,7 +160,7 @@ describe("processPendingMusterAttacks lifecycle", () => {
 
     expect(state.pendingMusterAttacks).toHaveLength(0);
     expect(state.queuedTargetKeys.has("5,0")).toBe(false);
-    expect(pushFeed).toHaveBeenCalledWith(expect.stringContaining("never staged enough manpower"), "combat", "warn");
+    expect(pushFeed).toHaveBeenCalledWith(expect.stringContaining("cancelled after 5 minutes without progress"), "combat", "warn");
   });
 
   // Companion to the WATCH_MUSTER regression above: once nothing is left in
@@ -225,7 +224,6 @@ describe("processPendingMusterAttacks lifecycle", () => {
       pushFeed: vi.fn(),
       renderHud: vi.fn(),
       sendSetMuster: vi.fn(),
-      sendAttack: vi.fn()
     });
 
     expect(state.pendingMusterAttacks).toHaveLength(1);
@@ -264,7 +262,6 @@ describe("processPendingMusterAttacks lifecycle", () => {
       pushFeed: vi.fn(),
       renderHud: vi.fn(),
       sendSetMuster: vi.fn(),
-      sendAttack: vi.fn(),
       sendGameMessage
     });
 
@@ -304,7 +301,6 @@ describe("processPendingMusterAttacks lifecycle", () => {
       pushFeed: vi.fn(),
       renderHud: vi.fn(),
       sendSetMuster,
-      sendAttack: vi.fn()
     });
 
     expect(sendSetMuster).not.toHaveBeenCalled();

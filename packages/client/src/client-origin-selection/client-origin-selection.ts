@@ -5,6 +5,7 @@ import type { SupportTownStructureKey } from "../client-support-structures/clien
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { isFrontierOriginCutOff } from "../client-tile-menu-status/client-tile-menu-status.js";
+import { ownTileSiegeAt } from "../client-muster-siege/client-muster-siege.js";
 
 type OriginSelectionDeps = {
   state: ClientState;
@@ -255,13 +256,20 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
       state.tiles.get(keyFor(wrapX(tx + 1), wrapY(ty + 1))),
       state.tiles.get(keyFor(wrapX(tx - 1), wrapY(ty + 1)))
     ].filter((t): t is Tile => Boolean(t));
-    const adjacent = pickBestOrigin(
-      candidates.filter((t) =>
-        t.ownerId === state.me
-          ? (allowOptimisticExpandOrigin || t.optimisticPending !== "expand") && !isFrontierOriginCutOff(t)
-          : allowOptimisticExpandOrigin && hasPendingExpandClaim(t)
-      )
+    const usable = candidates.filter((t) =>
+      t.ownerId === state.me
+        ? (allowOptimisticExpandOrigin || t.optimisticPending !== "expand") && !isFrontierOriginCutOff(t)
+        : allowOptimisticExpandOrigin && hasPendingExpandClaim(t)
     );
+    // A tile an enemy is attacking can't launch anything until that fight
+    // resolves (the server answers LOCKED), so prefer any other neighbour.
+    // Only when every neighbour is under attack is a besieged one returned:
+    // a muster-funded attack is then held until the siege ends
+    // (client-queue-muster-dispatch.ts); anything else is refused LOCKED
+    // with the "launch tile is under attack" explanation.
+    const nowMs = Date.now();
+    const adjacent =
+      pickBestOrigin(usable.filter((t) => !ownTileSiegeAt(state, t.x, t.y, nowMs))) ?? pickBestOrigin(usable);
     if (adjacent) return adjacent;
     const dockOrigin = pickDockOriginForTarget(tx, ty, allowAdjacentToDock, allowOptimisticExpandOrigin);
     if (dockOrigin) return dockOrigin;

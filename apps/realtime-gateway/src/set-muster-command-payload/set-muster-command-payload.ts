@@ -1,4 +1,5 @@
-// Durable-command payload for a client SET_MUSTER, pulled out of
+// Durable-command payloads for a client SET_MUSTER and UPGRADE_MUSTER_CAP
+// (the latter at the bottom), pulled out of
 // gateway-app.ts's already-oversized dispatch chain (see
 // check-file-line-limits.mjs). The simulation's parseSetMusterPayload
 // (runtime-command-parsers.ts) reads commitManpower from here and stores it on
@@ -31,4 +32,13 @@ export const setMusterCommandPayload = (message: SetMusterClientMessage): SetMus
   ...(typeof message.targetX === "number" ? { targetX: message.targetX } : {}),
   ...(typeof message.targetY === "number" ? { targetY: message.targetY } : {}),
   ...(typeof message.commitManpower === "number" ? { commitManpower: message.commitManpower } : {})
+});
+
+// UPGRADE_MUSTER_CAP's payload, forwarded the same way so a manual attack's
+// fitManpower (expand the flag to hold the chosen commitment) reaches the
+// simulation's parseUpgradeMusterCapPayload instead of being dropped here.
+export const upgradeMusterCapCommandPayload = (message: { x: number; y: number; fitManpower?: number | undefined }): { x: number; y: number; fitManpower?: number } => ({
+  x: message.x,
+  y: message.y,
+  ...(typeof message.fitManpower === "number" ? { fitManpower: message.fitManpower } : {})
 });

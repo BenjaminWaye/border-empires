@@ -2,8 +2,8 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const RICHER_TERRAIN_CHANGELOG: ClientChangelogEntry[] = [
   {
-    createdAt: 1792526017884, // Date.now() captured for this entry.
-    introducedIn: "2026.10.20.2",
+    createdAt: 1792777625574, // Date.now() captured for this entry.
+    introducedIn: "2026.10.23.2",
     title: "Richer 3D terrain",
     why: "Fields showed a tile-sized checkerboard and read as flat, uniform colour.",
     changes: [

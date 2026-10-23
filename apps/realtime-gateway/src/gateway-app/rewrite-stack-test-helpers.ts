@@ -133,9 +133,9 @@ export const nextNonBootstrapMessage = async (
     }
     // Ambient connect-time state pushes, not responses to the command under
     // test: the live subscribe delivers the authoritative reach border and the
-    // visible Aether Tower shields to every socket as it joins
-    // (live-subscribe-reach-push.ts).
-    if (message.type === "REACH_UPDATE" || message.type === "AETHER_SHIELDS") {
+    // visible Aether Tower shields and the island name list to every socket as
+    // it joins (live-subscribe-reach-push.ts).
+    if (message.type === "REACH_UPDATE" || message.type === "AETHER_SHIELDS" || message.type === "ISLAND_NAMES") {
       continue;
     }
     if (message.type === "TILE_DELTA_BATCH" && typeof message.commandId === "string" && message.commandId.startsWith("bootstrap:")) {

@@ -1,5 +1,5 @@
 import type { PlayerEventLogEntry } from "@border-empires/game-domain";
-import type { AutoSettlePrefs, ChosenTrickleResource } from "@border-empires/shared";
+import type { AutoSettlePrefs, ChosenTrickleResource, IslandNameClaim } from "@border-empires/shared";
 import type { ServerDevQueueEntry, ServerWaypointQueueEntry } from "../player-runtime-summary.js";
 import type { TownSettledAtEntry } from "../recovered-town-state/recovered-town-state.js";
 
@@ -35,6 +35,7 @@ export type RecoveredPlayerState = {
   strategicResources?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
   chosenTrickleResource?: ChosenTrickleResource;
   imperialWardCharges?: number;
+  islandNames?: IslandNameClaim[];
   autoSettle?: AutoSettlePrefs;
   // Waystation activation's pooled resource-slot bump -- see
   // runtime-waystation-activation.ts. Must round-trip here or a restart
@@ -78,5 +79,6 @@ export const cloneRecoveredPlayerState = (player: RecoveredPlayerState): Recover
   ...(player.waypointQueue
     ? { waypointQueue: player.waypointQueue.map((entry) => ({ ...entry, target: { ...entry.target } })) }
     : {}),
-  ...(player.devQueue ? { devQueue: player.devQueue.map((entry) => ({ ...entry })) } : {})
+  ...(player.devQueue ? { devQueue: player.devQueue.map((entry) => ({ ...entry })) } : {}),
+  ...(player.islandNames ? { islandNames: player.islandNames.map((claim) => ({ ...claim })) } : {})
 });

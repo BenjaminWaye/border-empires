@@ -38,7 +38,7 @@ const render = (args: Args): HTMLElement => {
   if (args.battleDistance > 0) {
     const target = { x: args.battleDistance, y: 0 }; // battle east of the tower
     const animate = (): void => {
-      overlay.update(performance.now(), target);
+      overlay.update(performance.now(), () => target);
       rafId = requestAnimationFrame(animate);
     };
     let rafId = requestAnimationFrame(animate);
@@ -82,7 +82,7 @@ export const BothVariants:
       overlay.commit();
       const target = { x: 5, y: 0 };
       const animate = (): void => {
-        overlay.update(performance.now(), target);
+        overlay.update(performance.now(), () => target);
         rafId = requestAnimationFrame(animate);
       };
       let rafId = requestAnimationFrame(animate);

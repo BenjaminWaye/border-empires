@@ -80,7 +80,7 @@ import { applyTileDeltasToSnapshot } from "../subscription-snapshot-sync/subscri
 import { mergeTileDetailIntoSnapshot } from "../tile-detail-merge/tile-detail-merge.js";
 import { supportedClientMessageTypes } from "../supported-client-messages/supported-client-messages.js";
 import { migratedDurableCommandTypes } from "../migrated-command-types/migrated-command-types.js";
-import { devQueueWaypointCommandPayload, isDevQueueWaypointMessageType } from "../dev-queue-waypoint-message/dev-queue-waypoint-message.js"; import { setMusterCommandPayload } from "../set-muster-command-payload/set-muster-command-payload.js";
+import { devQueueWaypointCommandPayload, isDevQueueWaypointMessageType } from "../dev-queue-waypoint-message/dev-queue-waypoint-message.js"; import { setMusterCommandPayload, upgradeMusterCapCommandPayload } from "../set-muster-command-payload/set-muster-command-payload.js";
 import { createRequestTracer } from "../request-tracer.js";
 import { buildPendingInputToStateEvents, sweepStalePendingInputToState } from "../pending-input-to-state-events.js";
 import { pushAuthoritativeTileDetail } from "../tile-detail-push/tile-detail-push.js";
@@ -2498,7 +2498,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           } else if (message.type === "SET_MUSTER") {
             await dispatchDurableCommand("SET_MUSTER", setMusterCommandPayload(message));
           } else if (message.type === "CLEAR_MUSTER" || message.type === "UPGRADE_MUSTER_CAP") {
-            await dispatchDurableCommand(message.type, { x: message.x, y: message.y });
+            await dispatchDurableCommand(message.type, message.type === "UPGRADE_MUSTER_CAP" ? upgradeMusterCapCommandPayload(message) : { x: message.x, y: message.y });
           } else if (message.type === "WATCH_MUSTER") {
             await ephemeralSimCommands.watchMuster(session, authedSession.playerId, message.x, message.y);
           } else if (message.type === "UNWATCH_MUSTER") {
@@ -2585,8 +2585,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             // Emperor-endorsement bonus (galaxy meta-layer Phase 1). No
             // anchor tile — zero-field payload, unlike AEGIS_LOCK.
             await dispatchDurableCommand("ACTIVATE_IMPERIAL_WARD", {}, true);
-          } else if (message.type === "UPGRADE_TOWN_TIER" || message.type === "COLLECT_SHARD") {
-            await dispatchDurableCommand(message.type, { x: message.x, y: message.y }, true);
+          } else if (message.type === "UPGRADE_TOWN_TIER" || message.type === "COLLECT_SHARD" || message.type === "NAME_ISLAND") {
+            await dispatchDurableCommand(message.type, { x: message.x, y: message.y, ...(message.type === "NAME_ISLAND" ? { name: message.name } : {}) }, true);
           } else if (message.type === "SET_AUTO_SETTLE_PREFS") {
             await dispatchDurableCommand("SET_AUTO_SETTLE_PREFS", { towns: message.towns, food: message.food, resources: message.resources });
           } else if (isDevQueueWaypointMessageType(message.type)) {

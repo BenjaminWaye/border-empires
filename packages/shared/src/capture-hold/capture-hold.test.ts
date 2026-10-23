@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildFrontierCombatPreview } from "../frontier-combat/frontier-combat.js";
-import { CAPTURE_HOLD_DEFENSE_MULT, isCaptureHoldActive, isUndefendedFrontierTile } from "./capture-hold.js";
+import { CAPTURE_HOLD_DEFENSE_MULT, advanceFlagCommitForTarget, isCaptureHoldActive, flagCommitForTarget, isCommitOddsEligibleTarget, isUndefendedFrontierTile } from "./capture-hold.js";
 
 const NOW = 1_000_000;
 
@@ -18,6 +18,45 @@ describe("capture hold", () => {
     expect(isUndefendedFrontierTile({ ownershipState: "FRONTIER", captureHoldUntil: NOW - 1 }, NOW)).toBe(true);
     expect(isUndefendedFrontierTile({ ownershipState: "FRONTIER", captureHoldUntil: NOW + 1 }, NOW)).toBe(false);
     expect(isUndefendedFrontierTile({ ownershipState: "SETTLED" }, NOW)).toBe(false);
+  });
+
+  it("lets commitment scale the odds on SETTLED and held FRONTIER tiles only", () => {
+    expect(isCommitOddsEligibleTarget({ ownershipState: "SETTLED" }, NOW)).toBe(true);
+    expect(isCommitOddsEligibleTarget({ ownershipState: "FRONTIER", captureHoldUntil: NOW + 1 }, NOW)).toBe(true);
+    expect(isCommitOddsEligibleTarget({ ownershipState: "FRONTIER", captureHoldUntil: NOW }, NOW)).toBe(false);
+    expect(isCommitOddsEligibleTarget({ ownershipState: "FRONTIER" }, NOW)).toBe(false);
+    expect(isCommitOddsEligibleTarget(undefined, NOW)).toBe(false);
+  });
+
+  it("keeps a flag's effort ratio when its commitment hits a held tile", () => {
+    const held = { ownershipState: "FRONTIER", captureHoldUntil: NOW + 1 };
+    // Flags commit against MUSTER_ATTACK_COST (60); a held tile's floor is 15.
+    expect(flagCommitForTarget(held, 60, NOW)).toBe(15);
+    expect(flagCommitForTarget(held, 120, NOW)).toBe(30);
+    expect(flagCommitForTarget({ ownershipState: "SETTLED" }, 120, NOW)).toBe(120);
+    expect(flagCommitForTarget({ ownershipState: "FRONTIER" }, 120, NOW)).toBeUndefined();
+    expect(flagCommitForTarget(held, undefined, NOW)).toBeUndefined();
+  });
+
+  it("scales an ADVANCE flag's effort to each target's own floor", () => {
+    const settled = { ownershipState: "SETTLED" };
+    // Double (120 against the generic 60 floor) is 2x whatever the target needs.
+    expect(advanceFlagCommitForTarget(settled, 120, 60, 1_000, NOW)).toBe(120);
+    expect(advanceFlagCommitForTarget(settled, 120, 150, 1_000, NOW)).toBe(300);
+    expect(advanceFlagCommitForTarget(settled, 90, 150, 1_000, NOW)).toBe(225);
+    expect(advanceFlagCommitForTarget(settled, undefined, 150, 1_000, NOW)).toBeUndefined();
+    // Non-SETTLED targets keep flagCommitForTarget's rules.
+    expect(advanceFlagCommitForTarget({ ownershipState: "FRONTIER", captureHoldUntil: NOW + 1 }, 120, 15, 1_000, NOW)).toBe(30);
+    expect(advanceFlagCommitForTarget({ ownershipState: "FRONTIER" }, 120, 15, 1_000, NOW)).toBeUndefined();
+  });
+
+  it("caps an ADVANCE flag's effort at Double and at the manpower cap, never below the floor", () => {
+    const settled = { ownershipState: "SETTLED" };
+    // An oversized (e.g. old absolute) commitment is read as at most 2x.
+    expect(advanceFlagCommitForTarget(settled, 1_500, 150, 10_000, NOW)).toBe(300);
+    expect(advanceFlagCommitForTarget({ ownershipState: "FRONTIER", captureHoldUntil: NOW + 1 }, 1_500, 15, 10_000, NOW)).toBe(30);
+    expect(advanceFlagCommitForTarget(settled, 120, 150, 200, NOW)).toBe(200);
+    expect(advanceFlagCommitForTarget(settled, 120, 300, 200, NOW)).toBe(300);
   });
 
   // Regression: a freshly captured dock landed as FRONTIER with zero defense,

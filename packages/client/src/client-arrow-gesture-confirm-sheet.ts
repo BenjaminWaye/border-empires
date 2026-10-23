@@ -4,7 +4,7 @@ import { buildArrowGestureSetMusterPayload } from "./client-arrow-gesture-confir
 import { showEffortConfirmSheet, type EffortConfirmSheetHandle } from "./client-effort-confirm-sheet/client-effort-confirm-sheet.js";
 import type { ArrowGesturePoint } from "./client-arrow-gesture-confirm-payload.js";
 import type { ClientState } from "./client-state/client-state.js";
-import { triggerWinChancePaintOnMarchArm } from "./client-win-chance-paint-trigger.js";
+import { describeMarchWinChance, triggerWinChancePaintOnMarchArm } from "./client-win-chance-paint-trigger.js";
 
 // F-revision (docs/replenishment-update-plan.md, "the hold-drag gesture is
 // replaced by click-to-target"): the confirm sheet shown after a March-To
@@ -12,7 +12,8 @@ import { triggerWinChancePaintOnMarchArm } from "./client-win-chance-paint-trigg
 // (slider, Normal/Extra/Double presets, Escape/Enter handling) is the shared
 // effort sheet in client-effort-confirm-sheet.ts -- the same one Launch
 // Attack and Expand To & Attack open -- and this module only adds the
-// march-specific parts: the SET_MUSTER payload on "Go" and
+// march-specific parts: the SET_MUSTER payload on "Go", a live win-chance
+// line under the slider (describeMarchWinChance), and
 // client-win-chance-paint-trigger.ts's label trigger -- called once on open
 // and again on every slider/preset change, passing the currently chosen
 // commitManpower so the win-chance labels along the arrow are slider-live
@@ -24,7 +25,7 @@ export type ArrowGestureConfirmSheetDeps = {
   renderHud: () => void;
 };
 
-/** Slider floor: the target tile's fort requirement if settled, else the generic attack cost -- same rule buildMusterCommitView uses. */
+/** Slider floor: the target tile's fort requirement if settled, else the generic attack cost -- same rule buildMusterCommitView uses (a held tile's flag commitment is scaled to its own floor server-side, see flagCommitForTarget). */
 const floorForTarget = (state: Pick<ClientState, "tiles"> & Partial<Pick<ClientState, "domainIds">>, target: ArrowGesturePoint, keyFor: (x: number, y: number) => string): number => {
   const targetTile = state.tiles.get(keyFor(target.x, target.y));
   return targetTile?.ownershipState === "SETTLED"
@@ -70,6 +71,7 @@ export const showArrowGestureConfirmSheet = (
     floor,
     cap: Math.max(floor, state.manpowerCap),
     mode: "slider",
+    describe: (commitManpower) => describeMarchWinChance(state, target, keyFor, { committedManpower: commitManpower, baseMusterCost: floor }),
     onChange: (commitManpower) =>
       triggerWinChancePaintOnMarchArm(state, origin.x, origin.y, target.x, target.y, "visible", keyFor, performance.now(), {
         committedManpower: commitManpower,

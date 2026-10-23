@@ -95,4 +95,12 @@ describe("createCombatManpowerLog", () => {
     expect(entries[0]!.defenderGoldLoss).toBe(0);
     expect(entries[0]!.targetWasSettled).toBe(false);
   });
+
+  it("keeps the defense and launch tile through a persist/restore round trip", () => {
+    const now = 1_000;
+    const log = createCombatManpowerLog({ now: () => now });
+    const entry: CombatManpowerLoss = { ...loss(now), defenseVariant: "PALISADE", originX: 4, originY: 5 };
+    log.restore([JSON.parse(JSON.stringify(entry)) as CombatManpowerLoss], now);
+    expect(log.entries()[0]).toMatchObject({ defenseVariant: "PALISADE", originX: 4, originY: 5 });
+  });
 });

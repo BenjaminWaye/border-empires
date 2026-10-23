@@ -1,7 +1,7 @@
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 import { type AiDiplomacySnapshot } from "../ai-diplomacy-stance/ai-diplomacy-stance-input.js";
-import { evaluateAiDiplomacy, type AiDiplomacyContext } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
+import { evaluateAiDiplomacy, type AiDiplomacyContextSource } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
 import type { SocialState } from "../social-state/social-state.js";
 import { extractAllianceRequestFromPayloads, extractTruceRequestFromPayloads, type SeededAiDiplomacyResponder } from "../seeded-ai-diplomacy-responder/seeded-ai-diplomacy-responder.js";
 
@@ -45,7 +45,7 @@ export type ProactiveAiDiplomacyDeps = {
   hasLiveSocket: (id: string) => boolean;
   nameForPlayerId?: (id: string) => Promise<string | undefined>;
   responder: SeededAiDiplomacyResponder;
-  diplomacyContext: (requesterId: string, aiPlayerId: string) => AiDiplomacyContext;
+  diplomacyContext: AiDiplomacyContextSource;
   syncForcedTruce?: (playerId: string, targetPlayerId: string) => Promise<void>;
   fanout: (payloads: Map<string, unknown[]>) => void;
   recordEvent: (level: "info" | "warn" | "error", name: string, payload?: Record<string, unknown>) => void;
@@ -87,11 +87,13 @@ export function createProactiveAiDiplomacy(deps: ProactiveAiDiplomacyDeps): { ti
       if (!targetId) return;
       const target = await deps.fetchSnapshot(targetId);
       const targetName = await deps.nameForPlayerId?.(targetId) ?? target?.player?.name;
+      // Awaited before the live-socket check: a human may claim this AI during any of these round trips.
+      const context = await deps.diplomacyContext(targetId, aiId);
       if (stopped || !target?.player || !targetName || deps.hasLiveSocket(aiId)) return;
       const targetSocial = deps.socialState.snapshotForPlayer(targetId);
       const evaluation = evaluateAiDiplomacy({ aiPlayerId: aiId, aiName: ai.player.name ?? aiId,
         aiSnapshot: ai, requesterId: targetId, requesterSnapshot: target,
-        ...deps.diplomacyContext(targetId, aiId) });
+        ...context });
       if (!evaluation) return;
       const { stance } = evaluation;
       const aiLand = ai.tiles.filter(tile => tile.ownerId === aiId).length;

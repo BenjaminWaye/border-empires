@@ -1,4 +1,4 @@
-import type { WaystationGoldTier, WaystationGrantedEffect } from "@border-empires/shared";
+import type { FortVariant, NaturalWonderType, WaystationGoldTier, WaystationGrantedEffect } from "@border-empires/shared";
 
 // Shared response types for the personal Activity dashboard's 24h "Yours"
 // timeline (docs/activity-dashboard-plan.md), mirroring
@@ -14,8 +14,28 @@ import type { WaystationGoldTier, WaystationGrantedEffect } from "@border-empire
 // apps/simulation/src/personal-impact-log exists -- not stubbed here ahead
 // of a real producer.
 export const PERSONAL_ACTIVITY_TIMELINE_CARD_CAP = 100;
+export const PERSONAL_ACTIVITY_RIVAL_CAP = 5;
 
 export type PersonalActivityDirection = "GAINED" | "LOST";
+
+// Something standing on a tile when it changed hands, so a card can say what
+// fell with the land ("−3 tiles lost · incl. your Dock") instead of a bare
+// count. A built structure carries its structure id (a FortVariant,
+// SiegeBatteryVariant, "OBSERVATORY" or an EconomicStructureType -- kept a
+// plain string, like BUILDING_COMPLETED's structureType, so a newer server's
+// id still renders). Towns are not listed: they get their own TOWN_* cards.
+export type PersonalActivityTileFeature =
+  | { kind: "STRUCTURE"; structureType: string }
+  | { kind: "DOCK" }
+  | { kind: "AFC" }
+  | { kind: "NATURAL_WONDER"; wonderType: NaturalWonderType };
+
+// Each list is what the viewing player lost or gained: a player who took a
+// tile is only credited with what survived the capture (siege batteries and
+// relay beacons are razed), while the player who lost it lost everything.
+// Features are always sent counted by kind, so a long push that took many
+// palisades is still one small entry rather than a list that grows per tile.
+export type PersonalActivityTileFeatureCount = PersonalActivityTileFeature & { count: number };
 
 export type PersonalActivityTerritoryCard = {
   kind: "TERRITORY_FLIP_GROUP";
@@ -26,6 +46,8 @@ export type PersonalActivityTerritoryCard = {
   tileCount: number;
   x: number;
   y: number;
+  /** What stood on these tiles when they changed hands. */
+  features?: PersonalActivityTileFeatureCount[];
 };
 
 export type PersonalActivityCombatCard = {
@@ -43,6 +65,83 @@ export type PersonalActivityCombatCard = {
   pillagedGold: number;
   defenderGoldLoss: number;
   targetWasSettled: boolean;
+  /** Fortification defending the target when the attack resolved, if any. */
+  defenseVariant?: FortVariant;
+  /** A failed attack whose launch tile the defender took in return. */
+  originSeized?: boolean;
+  /** What stood on the target tile when this attack captured it. */
+  capturedFeatures?: PersonalActivityTileFeatureCount[];
+  /** What stood on the launch tile the defender seized (with `originSeized`). */
+  seizedOriginFeatures?: PersonalActivityTileFeatureCount[];
+};
+
+// Several attacks between the player and one rival close together in time
+// and place (excluding same-tile sieges), folded into one card. `role` is the
+// viewing player's side: ATTACKER for "your assault on Maren", DEFENDER for
+// "Maren's raids on your border".
+export type PersonalActivityCombatGroupCard = {
+  kind: "COMBAT_GROUP";
+  id: string;
+  /** Time of the latest attack in the group. */
+  occurredAt: number;
+  role: "ATTACKER" | "DEFENDER";
+  counterpartyPlayerId: string | undefined;
+  attempts: number;
+  /** Attacks that captured their target. */
+  captures: number;
+  /** Failed attacks whose launch tile the defender took in return. */
+  originsSeized: number;
+  /** Manpower the attacking side lost across the group. */
+  manpowerLoss: number;
+  pillagedGold: number;
+  defenderGoldLoss: number;
+  x: number;
+  y: number;
+  /** What stood on the tiles the group's attacks captured. */
+  capturedFeatures?: PersonalActivityTileFeatureCount[];
+  /** What stood on the launch tiles counted in `originsSeized`. */
+  seizedOriginFeatures?: PersonalActivityTileFeatureCount[];
+};
+
+// Head-to-head tally against one opponent over the timeline window.
+export type PersonalActivityRival = {
+  playerId: string;
+  tilesTaken: number;
+  tilesLost: number;
+  /** Their attacks on you that failed. */
+  attacksRepelled: number;
+  /** Your attacks on them that failed. */
+  attacksFailed: number;
+};
+
+// Several assaults on one of the player's tiles, folded into a single card
+// in place of the per-attack COMBAT cards they replace. A siege runs from the
+// first logged assault on the tile until the assault that captured it
+// (outcome FELL) or, if none has yet, is still HOLDING. Only ever produced
+// for the defending player.
+export type PersonalActivitySiegeCard = {
+  kind: "SIEGE";
+  id: string;
+  /** Time of the latest assault in the siege (the breaking one when it fell). */
+  occurredAt: number;
+  startedAt: number;
+  x: number;
+  y: number;
+  outcome: "FELL" | "HOLDING";
+  assaultsRepelled: number;
+  /** Repelled assaults whose launch tile the player took in return. */
+  originsSeized: number;
+  /** Distinct attackers in order of first assault. */
+  attackerIds: string[];
+  /** Manpower attackers lost across every assault, including the breaking one. */
+  manpowerSpentAgainst: number;
+  /** Fortification defending the tile at the latest assault, if any. */
+  defenseVariant?: FortVariant;
+  capturedBy?: string;
+  /** What stood on the tile when it fell (includes the fortification itself). */
+  capturedFeatures?: PersonalActivityTileFeatureCount[];
+  /** What stood on the attackers' launch tiles counted in `originsSeized`. */
+  seizedOriginFeatures?: PersonalActivityTileFeatureCount[];
 };
 
 export type PersonalActivityWaystationCard = {
@@ -107,6 +206,8 @@ export type PersonalActivityTruncationNoteCard = {
 export type PersonalActivityCard =
   | PersonalActivityTerritoryCard
   | PersonalActivityCombatCard
+  | PersonalActivityCombatGroupCard
+  | PersonalActivitySiegeCard
   | PersonalActivityWaystationCard
   | PersonalActivityTownCard
   | PersonalActivityBuildingCard
@@ -119,6 +220,10 @@ export type PersonalActivitySummary = {
   townsCaptured: number;
   townsLost: number;
   buildingsCompleted: number;
+  // What stood on every tile the player lost / took from another player in
+  // the window, counted by kind. Optional: an older simulation omits them.
+  featuresLost?: PersonalActivityTileFeatureCount[];
+  featuresCaptured?: PersonalActivityTileFeatureCount[];
 };
 
 export type PersonalActivityTimeline = {
@@ -135,6 +240,9 @@ export type PersonalActivityTimeline = {
   // attackerId === playerId.
   manpowerSpentAttacking: number;
   cards: PersonalActivityCard[];
+  // Most active opponents first, capped at PERSONAL_ACTIVITY_RIVAL_CAP.
+  // Optional: a simulation older than this field omits it.
+  rivals?: PersonalActivityRival[];
   // True when `from` predates the 24h retention cutoff, i.e. the caller
   // asked for more history than the rolling logs can provide.
   truncated: boolean;

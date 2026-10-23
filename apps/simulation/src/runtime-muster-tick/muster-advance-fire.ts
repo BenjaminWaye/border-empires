@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { MUSTER_MAX_CONCURRENT_ACTIONS, musterFlagCap } from "@border-empires/shared";
+import { MUSTER_MAX_CONCURRENT_ACTIONS, advanceFlagCommitForTarget, musterCapLevelToFit, musterFlagCap } from "@border-empires/shared";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { MusterTickInput } from "./runtime-muster-tick.js";
 import { maybeMarchFire } from "./runtime-muster-march.js";
@@ -109,8 +109,10 @@ export const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileS
   // spending on a cheaper, farther one; only a target the flag can't hold
   // (above its musterFlagCap) is skipped, and reported in `unfundable`.
   const player = input.players.get(playerId);
+  const manpowerCap = player ? input.playerManpowerCap(player) : Number.MAX_SAFE_INTEGER;
+  const flagCap = musterFlagCap(manpowerCap, musterTile.muster?.capLevel);
   const { best, unfundable } = nearest
-    ? pickAdvanceTarget(nearest, nearestAffordable, availableMuster, musterFlagCap(player ? input.playerManpowerCap(player) : Number.MAX_SAFE_INTEGER, musterTile.muster?.capLevel))
+    ? pickAdvanceTarget(nearest, nearestAffordable, availableMuster, flagCap)
     : { best: undefined, unfundable: undefined };
 
   // Nothing attackable at all, or the nearest candidate is beyond the hard
@@ -167,6 +169,20 @@ export const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileS
 
   const bestFrom = best.from;
   const nearestEnemy = best.enemy;
+  // docs/replenishment-update-plan.md D6: the flag's chosen effort, scaled to
+  // this target's own floor. An Extra/Double flag saves up for the full
+  // commitment rather than firing an attack the muster can't fund yet, and
+  // grows to fit it (musterCapLevelToFit, as SET_MUSTER does for a March To
+  // commitment) -- otherwise Double on a Palisade (300) would wait forever at
+  // a default 150-manpower flag.
+  const commitManpower = advanceFlagCommitForTarget(nearestEnemy, musterTile.muster?.commitManpower, best.required, manpowerCap, input.nowMs);
+  if (commitManpower !== undefined && commitManpower > availableMuster) {
+    const nextActionAt = input.nowMs + ADVANCE_EMPTY_COOLDOWN_MS;
+    input.advanceCooldowns.set(originKey, nextActionAt);
+    const capLevel = commitManpower > flagCap ? musterCapLevelToFit(manpowerCap, musterTile.muster?.capLevel, commitManpower) : undefined;
+    syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, { inFlight: inFlightLocks.length > 0, inFlightCount: inFlightLocks.length, nextActionAt, insufficientManpower: true, unfundableTarget: unfundable, ...(capLevel !== undefined ? { capLevel } : {}) });
+    return;
+  }
 
   if (best.hops > ADVANCE_THROTTLE_DIST) {
     input.advanceCooldowns.set(originKey, input.nowMs + ADVANCE_FAR_COOLDOWN_MS);
@@ -199,8 +215,8 @@ export const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileS
       clientSeq: 0,
       issuedAt: input.nowMs,
       type: "ATTACK",
-      // docs/replenishment-update-plan.md D6: carry this flag's chosen commitment into the ATTACK it fires -- only against a SETTLED target (see the matching comment in runtime-muster-march.ts's maybeMarchFire).
-      payloadJson: JSON.stringify({ fromX: bestFrom.x, fromY: bestFrom.y, toX: nearestEnemy.x, toY: nearestEnemy.y, musterSourceX: musterTile.x, musterSourceY: musterTile.y, ...(nearestEnemy.ownershipState === "SETTLED" && musterTile.muster?.commitManpower ? { commitManpower: musterTile.muster.commitManpower } : {}) })
+      // docs/replenishment-update-plan.md D6: carry this flag's chosen commitment into the ATTACK it fires -- only against a target where it scales the odds -- SETTLED or holding captured ground (see the matching comment in runtime-muster-march.ts's maybeMarchFire).
+      payloadJson: JSON.stringify({ fromX: bestFrom.x, fromY: bestFrom.y, toX: nearestEnemy.x, toY: nearestEnemy.y, musterSourceX: musterTile.x, musterSourceY: musterTile.y, ...(commitManpower ? { commitManpower } : {}) })
     },
     "ATTACK"
   );

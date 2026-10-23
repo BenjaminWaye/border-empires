@@ -25,6 +25,25 @@ describe("march cap advice", () => {
     expect(pushFeed).not.toHaveBeenCalled();
   });
 
+  // Regression: unexplored ground used to cancel the march instead of
+  // arming it, so a flag could never be sent into the unknown.
+  it("an unexplored target click arms the march and says the target is unknown", () => {
+    const pushFeed = vi.fn();
+    const state = targetingState(10, 10);
+    const result = handleMusterMarchTargetClick(state, 14, 12, "unexplored", { pushFeed });
+    expect(result).toEqual({ type: "armed", originX: 10, originY: 10, targetX: 14, targetY: 12 });
+    expect(state.musterMarchTargeting.active).toBe(false);
+    expect(pushFeed).toHaveBeenCalledWith("(14, 12) is unexplored: the flag will march into the unknown.", "combat", "info");
+    expect(pushFeed).not.toHaveBeenCalledWith("March target cancelled.", "combat", "info");
+  });
+
+  it("clicking the flag's own tile cancels even when it reads as unexplored", () => {
+    const pushFeed = vi.fn();
+    const result = handleMusterMarchTargetClick(targetingState(10, 10), 10, 10, "unexplored", { pushFeed });
+    expect(result).toEqual({ type: "cancelled" });
+    expect(pushFeed).toHaveBeenCalledWith("March target cancelled.", "combat", "info");
+  });
+
   it("clicking the flag's own tile cancels instead of arming", () => {
     const pushFeed = vi.fn();
     const state = targetingState(10, 10);

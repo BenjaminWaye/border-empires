@@ -73,6 +73,7 @@ export type LiveSubscribeRegistry = {
 export type LiveSubscribeReachRuntime = {
   resendReachForPlayer: (playerId: string) => void;
   resendAetherShieldsForPlayer: (playerId: string) => void;
+  resendIslandNamesForPlayer: (playerId: string) => void;
 };
 
 export type LiveSubscribeReachLog = {
@@ -120,5 +121,11 @@ export const registerSubscribeAndMaybePushReach = (
     runtime.resendAetherShieldsForPlayer(playerId);
   } catch (error) {
     log.error({ err: error, playerId }, "live subscribe aether shields push failed");
+  }
+  // ISLAND_NAMES (island-names/island-names-ticker.ts) is change-driven too.
+  try {
+    runtime.resendIslandNamesForPlayer(playerId);
+  } catch (error) {
+    log.error({ err: error, playerId }, "live subscribe island names push failed");
   }
 };

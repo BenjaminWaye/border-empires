@@ -16,7 +16,7 @@ const siegeFactory = (variant: "SIEGE_TOWER" | "DREAD_TOWER") => (scene: Scene):
   const overlay = createSiegeTowerOverlay(scene, 2, () => "structure");
   return { ...overlay,
     addInstance: (x, z, y, wx, wy, frozen) => overlay.addInstance(x, z, y, wx, wy, variant, frozen),
-    update: (now) => overlay.update(now, { x: 8, y: 8 })
+    update: (now) => { overlay.update(now, () => ({ x: 8, y: 8 })); }
   };
 };
 const factories: Array<[string, (scene: Scene) => Overlay]> = [

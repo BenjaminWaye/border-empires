@@ -2,15 +2,27 @@ import { describe, expect, it, vi } from "vitest";
 import { COMBAT_LOCK_MS, applyOddsScale } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
+import type { SimulationRuntimeOptions } from "../runtime-types.js";
 import { buildPlayer, collectEvents } from "./runtime.test-helpers.js";
+
+type SeedTile = NonNullable<SimulationRuntimeOptions["initialState"]>["tiles"][number];
 
 // docs/replenishment-update-plan.md D6: end-to-end coverage for the
 // commitment-choice ATTACK payload field, threaded through
 // runtime-command-parsers.ts -> runtime-frontier-command.ts ->
 // validateFrontierCommand (game-domain) -> resolveAttackCombat
 // (runtime-combat-support.ts).
+const FORTIFIED_TARGET: SeedTile = {
+  x: 10,
+  y: 11,
+  terrain: "LAND",
+  ownerId: "player-2",
+  ownershipState: "SETTLED",
+  fort: { ownerId: "player-2", status: "active", variant: "FORT" }
+};
+
 describe("ATTACK commitManpower (D6 commitment choice)", () => {
-  const buildRuntime = () =>
+  const buildRuntime = (target: SeedTile = FORTIFIED_TARGET) =>
     new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
@@ -30,14 +42,7 @@ describe("ATTACK commitManpower (D6 commitment choice)", () => {
             // above it to commit more.
             muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
           },
-          {
-            x: 10,
-            y: 11,
-            terrain: "LAND",
-            ownerId: "player-2",
-            ownershipState: "SETTLED",
-            fort: { ownerId: "player-2", status: "active", variant: "FORT" as const }
-          },
+          target,
           // §5.4: FORT needs 1 TITANIUM slot to not go dormant.
           { x: 9, y: 11, terrain: "LAND", resource: "TITANIUM", ownerId: "player-2", ownershipState: "SETTLED" },
           { x: 21, y: 20, terrain: "LAND" }
@@ -46,11 +51,11 @@ describe("ATTACK commitManpower (D6 commitment choice)", () => {
       }
     });
 
-  const combatResultFor = async (commitManpower: number | undefined) => {
+  const combatResultFor = async (commitManpower: number | undefined, target?: SeedTile) => {
     vi.useFakeTimers();
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.5);
     try {
-      const runtime = buildRuntime();
+      const runtime = buildRuntime(target);
       const seen = collectEvents(runtime);
       runtime.submitCommand({
         commandId: "commit-attack-1",
@@ -96,6 +101,20 @@ describe("ATTACK commitManpower (D6 commitment choice)", () => {
   it("falls back to the floor (unchanged behavior) when no commitment is requested", async () => {
     const result = await combatResultFor(undefined);
     expect(result?.manpowerDelta).toBeCloseTo(-300, 6);
+  });
+
+  // Regression: a tile still holding captured ground (capture-hold.ts) is
+  // FRONTIER but rolls real combat, yet the commit multiplier was gated on
+  // SETTLED -- so Double effort spent 2x manpower and still rolled 50%.
+  it("scales odds by commitment against a FRONTIER tile still holding captured ground", async () => {
+    const heldTarget: SeedTile = { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER", captureHoldUntil: 1_000 + 60_000 };
+    const baseline = await combatResultFor(undefined, heldTarget); // FRONTIER_ATTACK_MUSTER_COST floor = 15
+    const boosted = await combatResultFor(30, heldTarget); // Double effort -> 2x odds-ratio scale
+
+    expect(baseline?.combatResult?.winChance).toBeCloseTo(0.5, 6);
+    expect(boosted?.combatResult?.winChance).toBeCloseTo(applyOddsScale(0.5, 2), 6);
+    // Fixed loss = commitment, like a SETTLED target -- extra effort isn't free on a win.
+    expect(boosted?.manpowerDelta).toBeCloseTo(-30, 6);
   });
 
   it("rejects the attack when the requested commitment exceeds the origin's available muster", async () => {

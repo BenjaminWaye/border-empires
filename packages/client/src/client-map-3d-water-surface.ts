@@ -98,7 +98,7 @@ export type WaterSurface = {
   // by the v9 river water (client-map-3d-rivers.ts) so rivers shimmer too.
   readonly material: MeshPhysicalMaterial;
   readonly clear: () => void;
-  /** `fogged`: remembered (explored, not in sight) -- tinted toward the print tone. */
+  /** `fogged`: remembered (explored, not in sight) -- tinted toward the fogged slate. */
   readonly addTile: (centerX: number, centerZ: number, shallow: boolean, worldX: number, worldZ: number, fogged?: boolean) => void;
   readonly commit: () => void;
   readonly tick: (nowMs: number) => void;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InstancedMesh, MeshBasicMaterial, Scene } from "three";
+import { InstancedMesh, Matrix4, MeshBasicMaterial, Quaternion, Scene, Vector3 } from "three";
 import { createSiegeTowerOverlay } from "./client-map-3d-siege-tower-overlay.js";
 import type { SiegeTowerVariant } from "./client-map-3d-siege-tower-palette.js";
 
@@ -119,7 +119,7 @@ describe("createSiegeTowerOverlay", () => {
     expect(new Float32Array(lensMesh.instanceMatrix.array)).toEqual(parkedLens);
     expect(beamMaterial.opacity).toBe(0);
 
-    overlay.update(500, { x: 30, y: 10 }); // battle directly east of the tower
+    overlay.update(500, () => ({ x: 30, y: 10 })); // battle directly east of the tower
     const aimedLens = new Float32Array(lensMesh.instanceMatrix.array);
     expect(aimedLens).not.toEqual(parkedLens); // cradle pitches/tracks toward the battle
     expect(beamMaterial.opacity).toBeGreaterThan(0);
@@ -127,6 +127,62 @@ describe("createSiegeTowerOverlay", () => {
 
     for (let i = 0; i < 300; i += 1) overlay.update(1000 + i * 16); // battle ends; 5%/frame ease snaps to 0 below 0.0005
     expect(beamMaterial.opacity).toBe(0); // beam dims out
+    overlay.dispose();
+  });
+
+  it("beams only from towers that have a battle of their own, and reports those battles", () => {
+    const scene = new Scene();
+    const overlay = createSiegeTowerOverlay(scene, 8, () => "lens");
+    overlay.addInstance(0, 0, 0, 10, 10, "SIEGE_TOWER");
+    overlay.addInstance(40, 0, 0, 50, 10, "SIEGE_TOWER");
+    overlay.commit();
+    const beamMesh = pieceMesh(scene, "SIEGE_TOWER", "beam");
+    const beamLength = (index: number): number => {
+      const matrix = new Matrix4();
+      beamMesh.getMatrixAt(index, matrix);
+      const scale = new Vector3();
+      matrix.decompose(new Vector3(), new Quaternion(), scale);
+      return scale.y;
+    };
+
+    const beamed = overlay.update(0, (wx) => (wx === 10 ? { x: 13, y: 10 } : undefined));
+
+    expect(beamed).toEqual([{ x: 13, y: 10 }]);
+    expect(beamLength(0)).toBeGreaterThan(0);
+    expect(beamLength(1)).toBe(0); // the idle tower shows no beam while the other fires
+    expect(overlay.update(16)).toEqual([]);
+    overlay.dispose();
+  });
+
+  it("fades each tower's beam on its own, and never flashes one on a tower that wasn't firing", () => {
+    const scene = new Scene();
+    const overlay = createSiegeTowerOverlay(scene, 8, () => "lens");
+    overlay.addInstance(0, 0, 0, 10, 10, "SIEGE_TOWER");
+    overlay.addInstance(40, 0, 0, 50, 10, "SIEGE_TOWER");
+    overlay.addInstance(80, 0, 0, 90, 10, "SIEGE_TOWER");
+    overlay.commit();
+    const beamMesh = pieceMesh(scene, "SIEGE_TOWER", "beam");
+    const beamLength = (index: number): number => {
+      const matrix = new Matrix4();
+      beamMesh.getMatrixAt(index, matrix);
+      const scale = new Vector3();
+      matrix.decompose(new Vector3(), new Quaternion(), scale);
+      return scale.y;
+    };
+    // Towers 0 and 1 fire; tower 2 stays idle throughout.
+    for (let i = 0; i < 120; i += 1) overlay.update(i * 16, (wx) => (wx === 10 ? { x: 13, y: 10 } : wx === 50 ? { x: 53, y: 10 } : undefined));
+    const fullLength = beamLength(0);
+
+    // Tower 0's battle ends while tower 1 keeps firing: its beam shrinks, not pops.
+    overlay.update(2000, (wx) => (wx === 50 ? { x: 53, y: 10 } : undefined));
+    expect(beamLength(0)).toBeGreaterThan(fullLength * 0.5);
+    expect(beamLength(0)).toBeLessThan(fullLength);
+
+    // Every battle ends: the idle tower never shows a beam while the rest fade.
+    for (let i = 0; i < 20; i += 1) {
+      overlay.update(2100 + i * 16);
+      expect(beamLength(2)).toBe(0);
+    }
     overlay.dispose();
   });
 
@@ -138,7 +194,7 @@ describe("createSiegeTowerOverlay", () => {
       overlay.commit();
       const platformMesh = pieceMesh(scene, "DREAD_TOWER", "platform");
       const parkedPlatform = new Float32Array(platformMesh.instanceMatrix.array);
-      overlay.update(0, { x: 30, y: 10 }); // battle east of the tower
+      overlay.update(0, () => ({ x: 30, y: 10 })); // battle east of the tower
       const moved = new Float32Array(platformMesh.instanceMatrix.array);
       if (mode === "lens") {
         expect(moved).toEqual(parkedPlatform); // only the lens assembly rotates

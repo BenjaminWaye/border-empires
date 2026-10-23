@@ -12,14 +12,14 @@ import { makePlayer } from "./muster-march-test-support.js";
 // Scenarios sit in an empty part of the map; the flag is at (BASE, BASE).
 const BASE = 60;
 
-const buildRuntime = (targets: Array<{ x: number; y: number }>) =>
+const buildRuntime = (targets: Array<{ x: number; y: number }>, targetTerrain: "LAND" | "SEA" = "LAND") =>
   new SimulationRuntime({
     now: () => 1_000,
     initialPlayers: new Map([["player-1", makePlayer("player-1")]]),
     initialState: {
       tiles: [
         { x: BASE, y: BASE, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-        ...targets.map(({ x, y }) => ({ x, y, terrain: "LAND" as const, ownershipState: "FRONTIER" as const }))
+        ...targets.map(({ x, y }) => (targetTerrain === "LAND" ? { x, y, terrain: "LAND" as const, ownershipState: "FRONTIER" as const } : { x, y, terrain: targetTerrain }))
       ],
       activeLocks: []
     }
@@ -64,6 +64,16 @@ describe("march distance cap", () => {
   it("measures a diagonal by its larger axis, not the sum", async () => {
     const diagonalOk = { x: BASE + MUSTER_MARCH_MAX_DISTANCE_TILES, y: BASE + MUSTER_MARCH_MAX_DISTANCE_TILES };
     const events = await setMarch(buildRuntime([diagonalOk]), diagonalOk.x, diagonalOk.y);
+    expect(rejection(events)).toBeUndefined();
+    expect(events.some((event) => event.eventType === "COMMAND_RESOLVED")).toBe(true);
+  });
+
+  // A march may target unexplored ground the player can't know is water, so a
+  // non-land target is accepted (no error) and the march stops short instead
+  // (muster-march-stop-short.test.ts).
+  it("accepts a non-land target without an error", async () => {
+    const target = { x: BASE + 3, y: BASE };
+    const events = await setMarch(buildRuntime([target], "SEA"), target.x, target.y);
     expect(rejection(events)).toBeUndefined();
     expect(events.some((event) => event.eventType === "COMMAND_RESOLVED")).toBe(true);
   });

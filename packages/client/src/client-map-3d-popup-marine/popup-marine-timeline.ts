@@ -70,6 +70,9 @@ export type BattleOverlayRenderEntry = {
   // resolved battle picking up from a skirmish keeps every marine's
   // offset/perp/fire-schedule identical across the transition.
   hashSeed: number;
+  // An active siege structure of the attacker's is in range of the target
+  // (client-siege-battle-targets.ts): only then does the opening lance play.
+  siegeBoosted?: boolean;
   // Target tile is capture-held: its garrison defends (popup-marine-garrison.ts).
   defenderGarrison?: GarrisonFacing;
 };
@@ -96,6 +99,8 @@ export type BattleOverlaySkirmishEntry = {
   // troops have even arrived — see client-map-3d-capture-overlays.ts's
   // syncBattleOverlayFx for where this is computed.
   holdApproachUntilElapsed?: number;
+  // See BattleOverlayRenderEntry.siegeBoosted.
+  siegeBoosted?: boolean;
   // See BattleOverlayRenderEntry.defenderGarrison.
   defenderGarrison?: GarrisonFacing;
 };

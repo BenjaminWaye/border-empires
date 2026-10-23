@@ -1,5 +1,6 @@
 import { handleIntelResult } from "./client-network-intel-result.js";
 import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
+import { applyMapPushMessage } from "./client-map-push-messages.js";
 import { notifyCombatResult } from "./client-combat-result-notifications.js";
 import { musterReportFlagKey, trackMusterReportStart } from "../client-muster-combat-reports/client-muster-combat-reports.js";
 import { COMBAT_LOCK_MS, isChosenTrickleResource, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
@@ -15,7 +16,6 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { SeasonStatsView } from "../client-types.js";
 import { setServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
-import { applyServerReachUpdate } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { buildServerErrorContext } from "../client-server-error-context/client-server-error-context.js";
 import { persistWaypointQueueForPlayer, waypointCancelWirePayload } from "../client-waypoint-planner/client-waypoint-persistence.js";
 import { cancelWaypointsBlockedByOutOfReach } from "../client-waypoint-out-of-reach/client-waypoint-out-of-reach.js";
@@ -34,7 +34,6 @@ import { applyRespawnNoticeToState, normalizeRespawnNotice } from "../client-res
 import { applyTechUpdateToState, updateTechAffordabilityPulses } from "../client-tech-update-state/client-tech-update-state.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, fogRevealLog, recordClientDebugEvent, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "../client-debug/client-debug.js";
 import { createDebugTileStateLogger } from "./client-network-debug-tile-log.js";
-import { applyAetherShieldsMessage } from "../client-aether-tower-protection/client-aether-shield-state.js";
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule, resetAttackPreviewState } from "../client-queue-logic/client-queue-logic.js";
 import { applyAutoSettlementQueueFromServer } from "../client-development-queue/client-development-queue.js";
 import { handleDiplomacySocketMessage } from "../client-diplomacy-notifications/client-diplomacy-messages.js";
@@ -346,7 +345,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   };
 
   const syncDesiredFogDisabled = (): void => {
-    if (!state.authSessionReady) return;
+    if (!state.authSessionReady || state.connection !== "initialized") return;
     if (!state.mapRevealEligible) return;
     if (!state.serverSupportedMessageTypes.has("REQUEST_REVEAL_MAP")) return;
     if (state.fogDisabled === state.mapRevealEnabled) return;
@@ -780,7 +779,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       clearDeferredBootstrapRefreshTimer();
       deferredBootstrapRefreshTimer = window.setTimeout(() => {
         deferredBootstrapRefreshTimer = undefined;
-        if (ws.readyState !== ws.OPEN || !state.authSessionReady) return;
+        if (ws.readyState !== ws.OPEN || !state.authSessionReady || state.connection !== "initialized") return;
         if (state.actionInFlight || state.capture || state.actionQueue.length > 0) return;
         requestViewRefresh(2, true);
       }, 400);
@@ -1011,10 +1010,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
     if (msg.type === "JOIN_SEASON_ACK") { state.joinSeasonPending = false; if (msg.spawned) { state.needsSeasonJoin = false; state.joinSeasonOverlayOpen = false; applyJoinSeasonSpawnRecenter(state, parseJoinSeasonAckSpawnTile(msg.spawnTile), requestViewRefreshSafely); } renderHud(); return; }
-    // Authoritative reach (client-reach-authoritative.ts) — replaces the old client-side approximation.
-    if (msg.type === "REACH_UPDATE") { if (applyServerReachUpdate(state, msg as Record<string, unknown>)) renderHud(); return; }
-    // Other players' Aether Tower shields (client-aether-shield-state.ts); the map reads it on its next frame.
-    if (msg.type === "AETHER_SHIELDS") { applyAetherShieldsMessage(state, msg as Record<string, unknown>); return; }
+    if (applyMapPushMessage(state, msg as Record<string, unknown>, renderHud)) return; // REACH_UPDATE / AETHER_SHIELDS / ISLAND_NAMES
     if (msg.type === "AFC_FLAG_DETECTIONS") { applyAfcStateMessage(state, msg); renderHud(); return; }
     if (msg.type === "PLAYER_UPDATE") {
       applyAfcStateMessage(state, msg);
@@ -2173,7 +2169,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           );
         }
       }
-      if (errorCode === "SEASON_PENDING") { state.joinSeasonPending = false; state.seasonPending = true; state.seasonPendingScheduledStartAt = typeof msg.scheduledStartAt === "number" ? msg.scheduledStartAt : Date.now(); state.needsSeasonJoin = true; state.joinSeasonOverlayOpen = true; renderHud(); return; } if (errorCode === "SEASON_FULL") { state.joinSeasonPending = false; applySeasonFullError(state, errorMessage); setAuthStatus(""); syncAuthOverlay(); return; } if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") {
+      if (errorCode === "SEASON_PENDING") { state.joinSeasonPending = false; state.seasonPending = true; state.seasonPendingScheduledStartAt = typeof msg.scheduledStartAt === "number" ? msg.scheduledStartAt : Date.now(); state.needsSeasonJoin = true; state.joinSeasonOverlayOpen = true; renderHud(); return; } if (errorCode === "SEASON_FULL") { state.joinSeasonPending = false; applySeasonFullError(state, errorMessage); setAuthStatus(""); syncAuthOverlay(); return; } if (errorCode === "AUTH_FAIL" || (errorCode === "NO_AUTH" && state.connection === "initialized") || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") {
         state.authSessionReady = false;
         if ((errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") && firebaseAuth?.currentUser) {
           state.connection = ws.readyState === ws.OPEN ? "connected" : "disconnected";
@@ -2304,7 +2300,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         errorCode === "NOT_ADJACENT" ||
         errorCode === "ATTACK_TARGET_INVALID" ||
         errorCode === "ATTACK_COOLDOWN" ||
-        errorCode === "LOCKED" ||
+        errorCode === "LOCKED" || errorCode === "MUSTER_UNDER_SIEGE" ||
         errorCode === "ALLY_TARGET" ||
         errorCode === "SHIELDED" || errorCode === "AETHER_WALL_BLOCKED" ||
         errorCode === "BARRIER" ||

@@ -39,6 +39,7 @@ describe("buildRuntimeExportPlayers WARPRESS export", () => {
       playerManpowerBreakdown: () => ({ cap: [], regen: [] }),
       growthStalledNoFoodCounter: 0,
       incomePerMinuteForPlayer: () => 0,
+      envoyIncomePerMinuteForPlayer: () => 0,
       summaryForPlayer: () => createEmptyPlayerRuntimeSummary()
     });
 
@@ -70,6 +71,7 @@ describe("buildRuntimeExportPlayers WARPRESS export", () => {
       playerManpowerBreakdown: () => ({ cap: [], regen: [] }),
       growthStalledNoFoodCounter: 0,
       incomePerMinuteForPlayer: () => 0,
+      envoyIncomePerMinuteForPlayer: () => 0,
       summaryForPlayer: () => createEmptyPlayerRuntimeSummary()
     });
 

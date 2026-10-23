@@ -4,9 +4,7 @@ export type AfcSpecializationRuleset = typeof AFC_SPECIALIZATION_RULESET;
 export type AfcSpecializationBranch = "vanguard" | "bastion" | "dominion" | "exchequer" | "oracle" | "chancery";
 export type AfcSpecializationTier = 1 | 2 | 3 | 4 | 5;
 export interface AfcSpecializationEffects {
-  readonly allianceGoldPerDay?: number;
-  readonly allianceManpowerCapAdd?: number;
-  readonly allianceManpowerRegenPerMinute?: number;
+  readonly allianceContributionShare?: number;
   readonly alliedDockIncomeMult?: number;
   readonly attackResolveSpeedReduceMs?: number;
   readonly attackVsBarbariansMult?: number;

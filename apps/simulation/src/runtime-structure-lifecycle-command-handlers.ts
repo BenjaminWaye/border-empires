@@ -27,8 +27,10 @@ import type { RuntimeStructureCommandContext } from "./runtime-structure-command
 import { stripRetiredStockpileCost } from "./runtime-structure-command-handlers.js";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { playerMusterFlagLimit } from "./runtime-muster-tick/muster-auto-fire-shared.js";
+import { fittedCapLevelField } from "./runtime-muster-cap-upgrade-command.js";
 import type { StrategicResourceKey } from "./runtime-types.js";
 import { creditManpower } from "./runtime-manpower-ceiling.js";
+import { rejectIfMusterBesieged } from "./muster-siege-guard/muster-siege-guard.js";
 
 function rejectCommand(
   context: RuntimeStructureCommandContext,
@@ -167,14 +169,16 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
     rejectCommand(context, command, "MUSTER_INVALID", "owned LAND tile required to muster");
     return;
   }
+  if (payload.mode !== "HOLD" && target.muster && rejectIfMusterBesieged(context.locksByTile, command, targetKey, (c, code, message) => rejectCommand(context, c, code, message))) return;
   if (payload.mode === "MARCH") {
     if (payload.targetX === payload.x && payload.targetY === payload.y) {
       rejectCommand(context, command, "MUSTER_INVALID", "march target must differ from the flag tile");
       return;
     }
     const marchTarget = context.tiles.get(simulationTileKey(payload.targetX!, payload.targetY!));
-    if (!marchTarget || marchTarget.terrain !== "LAND") {
-      rejectCommand(context, command, "MUSTER_INVALID", "march target must be a LAND tile");
+    // Any terrain: unexplored targets may be impassable; maybeMarchFire stops short.
+    if (!marchTarget) {
+      rejectCommand(context, command, "MUSTER_INVALID", "march target must be on the map");
       return;
     }
     // The client checks this first and shows the same text as plain advice, so
@@ -213,6 +217,9 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
         : target.muster?.commitManpower != null
           ? { commitManpower: target.muster.commitManpower }
           : {}),
+      // Keep earlier Expand Capacity presses across a mode change, and expand
+      // further so a newly chosen commitment fits on the flag at all.
+      ...fittedCapLevelField(context.playerManpowerCap(actor), isNewMuster ? undefined : target.muster?.capLevel, payload.commitManpower),
       setAt: isNewMuster ? now : (target.muster!.setAt ?? now),
       updatedAt: now
     }
@@ -259,6 +266,7 @@ export function handleClearMusterCommand(context: RuntimeStructureCommandContext
     rejectCommand(context, command, "MUSTER_INVALID", "no muster on owned tile");
     return;
   }
+  if (rejectIfMusterBesieged(context.locksByTile, command, targetKey, (c, code, message) => rejectCommand(context, c, code, message))) return;
   creditManpower(actor, target.muster.amount, context.playerManpowerCap(actor));
   const updatedTile: DomainTileState = { ...target, muster: undefined };
   context.replaceTileState(targetKey, updatedTile, command.commandId);

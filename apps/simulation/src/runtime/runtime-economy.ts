@@ -1,27 +1,10 @@
 import { afcEnvoyBenefits, applyAfcEnvoyIncome } from "../afc-specializations/afc-coalition.js";
-import { multiplicativeEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
-// Stage 3 economy/manpower extraction out of runtime.ts (see AGENTS.md /
-// docs/agents/topic-runbooks.md for the god-class breakup plan). These are
-// pure relocations of existing runtime.ts method bodies into free functions
-// that take their dependencies explicitly via RuntimeManpowerEconomyContext,
-// mirroring the build*CommandContext pattern used in Stage 1/2. No numeric
-// formula or rounding behavior was changed — only moved.
-import { LANDING_MANPOWER_RESERVE, MANPOWER_EPSILON } from "@border-empires/shared";
-import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
+// Runtime economy caches use explicit context dependencies. Domestic income
+// stays cached independently of allied Envoy contributions; manpower formulas
+// and settlement live in runtime-manpower-economy.ts and are re-exported here.
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { RuntimePlayer } from "../runtime-types.js";
 import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
-import type { ManpowerStructureBonus } from "../runtime-manpower-structure-bonus.js";
-import {
-  accrueManpower,
-  effectiveManpowerAt as effectiveManpowerAtImpl,
-  playerManpowerBreakdownFromSummary,
-  playerManpowerCapFromSummary,
-  playerManpowerRegenPerMinuteFromSummary
-} from "../runtime-manpower.js";
-import { TITANIUM_LEVY_REGEN_FREEZE_KEY } from "../runtime-titanium-levy-command.js";
-import { grantOverflowManpower, manpowerCeiling, settleWaystationManpowerOverflow } from "../runtime-manpower-ceiling.js";
-import * as wonderEffects from "../runtime-natural-wonders.js";
 import { buildPlayerDefensibilityMetrics, type PlayerDefensibilityMetrics } from "../player-defensibility-metrics.js";
 import { buildPlayerUpdateEconomySnapshot, type PlayerUpdateEconomySnapshot } from "../player-update-economy/player-update-economy.js";
 import { buildUpkeepAccrualSnapshot, type UpkeepAccrualSnapshot } from "../player-upkeep-incremental/player-upkeep-incremental.js";
@@ -40,147 +23,11 @@ const UPKEEP_ACCRUAL_REBUILD_INTERVAL = 256;
 // share one definition instead of drifting independently.
 export const AI_DERIVED_CACHE_COALESCE_MS = 5_000;
 
-export interface RuntimeManpowerEconomyContext {
-  players?: ReadonlyMap<string, DomainPlayer>;
-  now: () => number;
-  summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
-  cachedManpowerStructureBonusForPlayer: (player: RuntimePlayer) => ManpowerStructureBonus;
-  wonderCacheByPlayer: Map<string, Set<string>>;
-  getAbilityCooldownUntil: (playerId: string, abilityKey: string) => number;
-  applyEconomyAccrual: (player: RuntimePlayer, nowMs: number) => void;
-}
-
-export function playerManpowerCap(ctx: RuntimeManpowerEconomyContext, player: RuntimePlayer): number {
-  if (player.id === "barbarian-1") return Number.MAX_SAFE_INTEGER;
-  const { ancillaryDepotCount, reserveLatticeNetworkAncillaryDepotCount, ancillaryFactoryCapacityBonusByTown } = ctx.cachedManpowerStructureBonusForPlayer(player);
-  return (
-    playerManpowerCapFromSummary(ctx.summaryForPlayer(player.id), ancillaryFactoryCapacityBonusByTown ? 0 : ancillaryDepotCount, ancillaryFactoryCapacityBonusByTown ? 0 : reserveLatticeNetworkAncillaryDepotCount, ancillaryFactoryCapacityBonusByTown) +
-    (wonderEffects.playerHasWonderType(ctx.wonderCacheByPlayer, player.id, "CONSCRIPTION_ENGINE") ? 2000 : 0) +
-    (ctx.players ? afcEnvoyBenefits(player, ctx.players).manpowerCap : 0)
-  );
-}
-
-export function playerManpowerRegenPerMinute(ctx: RuntimeManpowerEconomyContext, player: RuntimePlayer): number {
-  // The Iron Levy (tech-tree redesign): a 2-hour empire-wide manpower
-  // regen freeze after triggering the muster ability.
-  if (ctx.getAbilityCooldownUntil(player.id, TITANIUM_LEVY_REGEN_FREEZE_KEY) > ctx.now()) return 0;
-  const { neuralWorksNetworkAncillaryFactoryCount, ancillaryFactoryCount, censusDirectorateManpowerBuildingCount } =
-    ctx.cachedManpowerStructureBonusForPlayer(player);
-  return playerManpowerRegenPerMinuteFromSummary(
-    ctx.summaryForPlayer(player.id),
-    neuralWorksNetworkAncillaryFactoryCount,
-    ancillaryFactoryCount,
-    censusDirectorateManpowerBuildingCount,
-    player.galacticWonderManpowerRegenBonusPerMinute ?? 0
-  ) + (ctx.players ? afcEnvoyBenefits(player, ctx.players).manpowerRegenPerMinute : 0);
-}
-
-export function playerLogisticsThroughputPerMinute(ctx: RuntimeManpowerEconomyContext, player: RuntimePlayer): number {
-  // Logistics throughput = same as manpower regen for now; tune later.
-  return playerManpowerRegenPerMinute(ctx, player) * multiplicativeEffectForPlayer(player, "logisticsThroughputMult");
-}
-
-export function playerManpowerBreakdown(ctx: RuntimeManpowerEconomyContext, player: RuntimePlayer): ManpowerBreakdown {
-  const {
-    ancillaryDepotCount,
-    reserveLatticeNetworkAncillaryDepotCount,
-    neuralWorksNetworkAncillaryFactoryCount,
-    ancillaryFactoryCount,
-    censusDirectorateManpowerBuildingCount,
-    ancillaryFactoryCapacityBonusByTown
-  } = ctx.cachedManpowerStructureBonusForPlayer(player);
-  const breakdown = playerManpowerBreakdownFromSummary(
-    ctx.summaryForPlayer(player.id),
-    ancillaryFactoryCapacityBonusByTown ? 0 : ancillaryDepotCount,
-    ancillaryFactoryCapacityBonusByTown ? 0 : reserveLatticeNetworkAncillaryDepotCount,
-    neuralWorksNetworkAncillaryFactoryCount,
-    ancillaryFactoryCount,
-    censusDirectorateManpowerBuildingCount,
-    player.galacticWonderManpowerRegenBonusPerMinute ?? 0,
-    ancillaryFactoryCapacityBonusByTown
-  );
-  const envoy = ctx.players ? afcEnvoyBenefits(player, ctx.players) : undefined;
-  if (envoy?.manpowerCap) breakdown.cap.push({ label: "Envoy Accreditation", amount: envoy.manpowerCap });
-  if (envoy?.manpowerRegenPerMinute) breakdown.regen.push({ label: "Envoy Accreditation", amount: ctx.getAbilityCooldownUntil(player.id, TITANIUM_LEVY_REGEN_FREEZE_KEY) > ctx.now() ? 0 : envoy.manpowerRegenPerMinute });
-  return breakdown;
-}
-
-export function effectiveManpowerAtForPlayer(
-  ctx: RuntimeManpowerEconomyContext,
-  player: RuntimePlayer,
-  nowMs: number
-): number {
-  const cap = playerManpowerCap(ctx, player);
-  return effectiveManpowerAtImpl(player, cap, playerManpowerRegenPerMinute(ctx, player), nowMs);
-}
-
-export function applyManpowerRegenForPlayer(
-  ctx: RuntimeManpowerEconomyContext,
-  player: RuntimePlayer,
-  nowMs: number
-): void {
-  ctx.applyEconomyAccrual(player, nowMs);
-  refreshManpowerOnlyForPlayer(ctx, player, nowMs);
-}
-
-// A player's first manpower settle is the start of their empire: a new human
-// just joined, or an AI empire at season start (persisted players already
-// carry manpowerUpdatedAt, so nobody existing gets it). Every new empire lands
-// with the one-time LANDING_MANPOWER_RESERVE, allowed above the cap like a
-// Waystation grant. landingReserveGranted is persisted and also set on records
-// rebuilt from existing territory (runtime-gross-income-repair.ts), so it can
-// never be granted twice. Barbarians are not empires (their cap is
-// effectively unlimited -- see playerManpowerCap).
-const grantLandingManpowerReserve = (player: RuntimePlayer, cap: number): void => {
-  if (player.id.startsWith("barbarian-") || player.landingReserveGranted) return;
-  grantOverflowManpower(player, LANDING_MANPOWER_RESERVE, cap);
-  player.landingReserveGranted = true;
-};
-
-/**
- * Manpower-only variant of {@link applyManpowerRegenForPlayer} that skips the
- * economy-accrual side effect. The accrual is O(territory tiles) per call
- * (it sorts the player's territory tile keys for upkeep collection); doing
- * it per player on every planner-state export was the dominant source of
- * the recurring 1.4-2.0 s `sync_players_export` block on staging. Skipping
- * here is safe because the accrual still runs on every real command path
- * and on the periodic tick, so player gold/resources catch up within a
- * single planner cycle.
- */
-export function refreshManpowerOnlyForPlayer(
-  ctx: RuntimeManpowerEconomyContext,
-  player: RuntimePlayer,
-  nowMs: number
-): void {
-  const cap = playerManpowerCap(ctx, player);
-  if (!Number.isFinite(player.manpower)) {
-    player.manpower = cap;
-    delete player.manpowerBanked;
-    grantLandingManpowerReserve(player, cap);
-    player.manpowerUpdatedAt = nowMs;
-    player.manpowerCapSnapshot = cap;
-    return;
-  }
-  const previousCap = Number.isFinite(player.manpowerCapSnapshot) ? player.manpowerCapSnapshot! : cap;
-  if (cap > previousCap) {
-    player.manpower = Math.min(manpowerCeiling(player, cap), Math.max(0, player.manpower) + (cap - previousCap));
-  }
-  if (!Number.isFinite(player.manpowerUpdatedAt)) {
-    player.manpower = Math.max(0, Math.min(manpowerCeiling(player, cap), player.manpower));
-    grantLandingManpowerReserve(player, cap);
-    settleWaystationManpowerOverflow(player, cap);
-    player.manpowerUpdatedAt = nowMs;
-    player.manpowerCapSnapshot = cap;
-    return;
-  }
-  const { manpower, banked } = accrueManpower(player, cap, playerManpowerRegenPerMinute(ctx, player), nowMs);
-  player.manpower = manpower;
-  if (banked > MANPOWER_EPSILON) player.manpowerBanked = banked;
-  else delete player.manpowerBanked;
-  settleWaystationManpowerOverflow(player, cap);
-  player.manpowerUpdatedAt = nowMs;
-  player.manpowerCapSnapshot = cap;
-}
+export {
+  type RuntimeManpowerEconomyContext, playerManpowerCap, playerManpowerRegenPerMinute,
+  playerLogisticsThroughputPerMinute, playerManpowerBreakdown, effectiveManpowerAtForPlayer,
+  applyManpowerRegenForPlayer, refreshManpowerOnlyForPlayer
+} from "./runtime-manpower-economy.js";
 
 export interface RuntimeEconomyCacheContext {
   now: () => number;
@@ -221,7 +68,7 @@ export interface RuntimeEconomyCacheContext {
  * Cache miss cost: O(settled tiles). Cache hit cost: O(1).
  * Invalidated on every replaceTileState — O(1) per mutation.
  */
-export function cachedEconomySnapshot(
+function cachedBaseEconomySnapshot(
   ctx: RuntimeEconomyCacheContext,
   player: RuntimePlayer
 ): PlayerUpdateEconomySnapshot {
@@ -262,7 +109,6 @@ export function cachedEconomySnapshot(
       ctx.dormantEconomicStructureKeysForPlayer(player.id),
       ctx.now()
     );
-    applyAfcEnvoyIncome(snapshot, afcEnvoyBenefits(player, ctx.players));
     ctx.economySnapshotCacheByPlayer.set(player.id, snapshot);
     ctx.economySnapshotDirtyPlayerIds.delete(player.id);
     ctx.economySnapshotLastRebuiltAtMsByPlayer.set(player.id, ctx.now());
@@ -273,6 +119,19 @@ export function cachedEconomySnapshot(
   return ctx.trackSyncMainThreadTask
     ? ctx.trackSyncMainThreadTask("cached_economy_snapshot_rebuild", { playerId: player.id }, rebuild)
     : rebuild();
+}
+
+/** Refresh alliance-derived income on cache hits too, without recursively reading an ally's bonuses. */
+export function cachedEconomySnapshot(ctx: RuntimeEconomyCacheContext, player: RuntimePlayer): PlayerUpdateEconomySnapshot {
+  const base = cachedBaseEconomySnapshot(ctx, player);
+  const benefits = afcEnvoyBenefits(player, ctx.players, ally => ({
+    goldPerMinute: cachedBaseEconomySnapshot(ctx, ally).incomePerMinute,
+    manpowerCap: 0, manpowerRegenPerMinute: 0
+  }));
+  if (benefits.goldPerMinute <= 0) return base;
+  return applyAfcEnvoyIncome({ ...base, economyBreakdown: { ...base.economyBreakdown,
+    GOLD: { ...base.economyBreakdown.GOLD, sources: [...base.economyBreakdown.GOLD.sources] }
+  } }, benefits);
 }
 
 /**

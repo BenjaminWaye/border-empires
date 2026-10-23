@@ -184,6 +184,13 @@ export class SqliteSimulationCommandStore implements SimulationCommandStore {
     return rows.map(toStored);
   }
 
+  // Walks the rowid (insertion order, which tracks queued_at) backwards so
+  // SQLite stops after `limit` rows without a table scan or a new index.
+  async loadRecentCommands(limit: number): Promise<StoredSimulationCommand[]> {
+    const rows = this.db.prepare(`${SELECT_JOINED} ORDER BY c.rowid DESC LIMIT ?`).all(limit) as Row[];
+    return rows.map(toStored);
+  }
+
   // See SimulationCommandStore.loadMaxClientSeqByPlayer for the full rationale.
   // Reads from client_seq_watermarks (not MAX(client_seq) GROUP BY on commands)
   // so this stays correct once retention pruning removes old commands rows.

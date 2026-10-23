@@ -77,4 +77,41 @@ describe("3d muster banner overlay", () => {
     expect(Math.abs(bannerRestPoint(1, 0.5).x)).toBeLessThan(0.5);
     expect(MUSTER_PLINTH_RADIUS * 1.03).toBeLessThan(0.5);
   });
+
+  it("rings a besieged flag in red and stands its soldiers guard until the siege ends", () => {
+    const scene = new Scene();
+    const overlay = createMusterOverlay(scene);
+    const ring = meshNamed(scene, "muster-siege-ring");
+    const now = Date.now();
+    overlay.addMuster(1, 2, 0.3, 0.5, "#ff0000", false, 1, 2, now + 60_000);
+    overlay.addMuster(4, 5, 0.1, 0.5, "#00ff00", false, 4, 5);
+    overlay.commit();
+    overlay.tick(0);
+    expect(ring.count).toBe(1);
+    overlay.clear();
+    overlay.addMuster(1, 2, 0.3, 0.5, "#ff0000", false, 1, 2, now - 1);
+    overlay.commit();
+    overlay.tick(0);
+    expect(ring.count).toBe(0);
+    overlay.dispose();
+  });
+
+  it("floats a progress badge over flags the badge lookup knows, and none over the rest", () => {
+    const scene = new Scene();
+    const overlay = createMusterOverlay(scene, undefined, () => (key) =>
+      key === "1,2" ? { ratio: 0.4, kind: "attack", staged: 40, required: 100 } : undefined
+    );
+    overlay.addMuster(1, 2, 0.3, 0.5, "#ff0000", false, 1, 2);
+    overlay.addMuster(4, 5, 0.1, 0.5, "#00ff00", false, 4, 5);
+    overlay.commit();
+    overlay.tick(0);
+
+    const badges = scene.children.filter((c) => c.name === "muster-progress-badge" && c.visible);
+    expect(badges).toHaveLength(1);
+    expect(badges[0]!.position.x).toBe(1);
+    expect(badges[0]!.position.z).toBe(2);
+    expect(badges[0]!.position.y).toBeGreaterThan(0.3 + 1);
+    overlay.dispose();
+  });
 });
+

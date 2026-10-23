@@ -12,9 +12,9 @@ export const isUnexploredCoastRing = (isExploredAt: (ox: number, oy: number) => 
 };
 
 /**
- * Whether any of a tile's 8 neighbours is in sight. A ring tile prints like
+ * Whether any of a tile's 8 neighbours is in sight. A ring tile is fogged like
  * the remembered land it borders unless it touches land in sight, so the
- * ring never shows a full-colour strip against faded remembered tiles.
+ * ring never shows a full-colour strip against fogged remembered tiles.
  */
 export const touchesLandInSight = (neighbourVisibility: (ox: number, oy: number) => TileVisibilityState): boolean => {
   for (let k = 0; k < 9; k += 1) if (k !== 4 && neighbourVisibility((k % 3) - 1, Math.floor(k / 3) - 1) === "visible") return true;

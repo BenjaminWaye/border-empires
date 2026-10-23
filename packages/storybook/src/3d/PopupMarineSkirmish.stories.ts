@@ -67,7 +67,9 @@ const render = (args: Args): HTMLElement => {
     attackerColor: args.attackerColor,
     defenderColor: args.defenderColor,
     startAt,
-    hashSeed: 1
+    hashSeed: 1,
+    // A beaming tower is boosting this fight, so the opening lance plays too.
+    siegeBoosted: args.siegeTowerBeaming
   };
 
   const label = document.createElement("div");
@@ -91,7 +93,7 @@ const render = (args: Args): HTMLElement => {
   const animate = (): void => {
     const now = performance.now();
     const elapsed = now - startAt;
-    fx.tick(now, [], [skirmish], args.siegeTowerBeaming ? SIEGE_TOWER_TARGET : undefined);
+    fx.tick(now, [], [skirmish], args.siegeTowerBeaming ? [SIEGE_TOWER_TARGET] : []);
     const strikeLayer = stage.scene.getObjectByName("battle-strike-fx");
     const strikeCount = strikeLayer?.children.length ?? 0;
     if (strikeCount > prevStrikeCount) strikesSeen += strikeCount - prevStrikeCount;

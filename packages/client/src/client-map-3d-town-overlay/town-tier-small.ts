@@ -1,9 +1,8 @@
 // SETTLEMENT, TOWN and CITY layouts: clockwork skyscrapers on an octagonal
 // plate. A town grows outward and upward: a handful of low towers round a cog
 // lamp, then a street grid of blocks (town-street-grid.ts) rising to a few
-// glass towers, then a denser grid with a skybridged glass downtown -- each
-// flying its owner's banners from the plate's corners.
-import { flowerBed, plateBanners } from "./town-flourishes.js";
+// glass towers, then a denser grid with a skybridged glass downtown.
+import { flowerBed } from "./town-flourishes.js";
 import { lampPost, octagonPlate, polar, tree, type TownBuilders } from "./town-parts.js";
 import { buildStreetGrid, type StreetGridSpec } from "./town-street-grid.js";
 import { cogLamp, towerRing } from "./town-skyscraper.js";
@@ -13,7 +12,6 @@ export const buildSettlement = (t: TownBuilders): void => {
   towerRing(t, { count: 4, radius: 0.19, startDeg: 45, w: 0.085, h: [0.09, 0.13], crowns: ["dome", "flat", "dome", "flat"] });
   cogLamp(t, 0, 0, 0.035);
   flowerBed(t, 0, 0, 0.072, 6, 0.011);
-  plateBanners(t, 0.32, 0.09);
   for (const degrees of [90, 270]) {
     const [x, z] = polar(0.2, degrees);
     tree(t, x, z, 0.09);
@@ -34,14 +32,8 @@ export const CITY_GRID: StreetGridSpec = {
 
 /** A street grid of blocks round a small park with the orrery, rising to a
  * cluster of towers. */
-export const buildTown = (t: TownBuilders): void => {
-  buildStreetGrid(t, TOWN_GRID);
-  plateBanners(t, TOWN_GRID.plateRadius, 0.1);
-};
+export const buildTown = (t: TownBuilders): void => buildStreetGrid(t, TOWN_GRID);
 
 /** A denser grid rising to a glass downtown of skybridged towers, with a
  * central park round the orrery and a second park with a pool. */
-export const buildCity = (t: TownBuilders): void => {
-  buildStreetGrid(t, CITY_GRID);
-  plateBanners(t, CITY_GRID.plateRadius, 0.11);
-};
+export const buildCity = (t: TownBuilders): void => buildStreetGrid(t, CITY_GRID);

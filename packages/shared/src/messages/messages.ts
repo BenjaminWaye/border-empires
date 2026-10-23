@@ -48,14 +48,15 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     requestId: z.string().min(1).optional()
   }),
   z.object({ type: z.literal("CHOOSE_TECH"), techId: z.string().min(1) }),
-  z.object({ type: z.literal("ALLIANCE_REQUEST"), targetPlayerName: z.string().min(1), terms: DiplomacyTermsSchema.optional(), counters: DiplomacyCounterRefSchema.optional() }),
+  // targetPlayerId (optional): address the target by id, so a name shared by two empires can't misdirect the offer.
+  z.object({ type: z.literal("ALLIANCE_REQUEST"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional(), terms: DiplomacyTermsSchema.optional(), counters: DiplomacyCounterRefSchema.optional() }),
   z.object({ type: z.literal("ALLIANCE_ACCEPT"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("ALLIANCE_REJECT"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("ALLIANCE_CANCEL"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("ALLIANCE_BREAK"), targetPlayerId: z.string().min(1) }),
-  z.object({ type: z.literal("TRUCE_REQUEST"), targetPlayerName: z.string().min(1), durationHours: z.union([z.literal(12), z.literal(24)]), terms: DiplomacyTermsSchema.optional(), counters: DiplomacyCounterRefSchema.optional() }),
+  z.object({ type: z.literal("TRUCE_REQUEST"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional(), durationHours: z.union([z.literal(12), z.literal(24)]), terms: DiplomacyTermsSchema.optional(), counters: DiplomacyCounterRefSchema.optional() }),
   // Trade screen: asks how an AI target feels about you, and its prices. Read-only.
-  z.object({ type: z.literal("DIPLOMACY_STANCE_REQUEST"), targetPlayerName: z.string().min(1) }),
+  z.object({ type: z.literal("DIPLOMACY_STANCE_REQUEST"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional() }),
   z.object({ type: z.literal("TRUCE_ACCEPT"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("TRUCE_REJECT"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("TRUCE_CANCEL"), requestId: z.string().min(1) }),
@@ -223,7 +224,15 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     ...FrontierCommandMetadataSchema
   }),
   z.object({ type: z.literal("CLEAR_MUSTER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
-  z.object({ type: z.literal("UPGRADE_MUSTER_CAP"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
+  z.object({
+    type: z.literal("UPGRADE_MUSTER_CAP"),
+    x: z.number().int(),
+    y: z.number().int(),
+    // Expand just far enough to stage this much (a manual attack's chosen
+    // commitment) instead of by one press -- see musterCapLevelToFit.
+    fitManpower: z.number().positive().optional(),
+    ...FrontierCommandMetadataSchema
+  }),
   z.object({ type: z.literal("REVEAL_EMPIRE"), targetPlayerId: z.string().min(1), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("REVEAL_EMPIRE_STATS"), targetPlayerId: z.string().min(1), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("SURVEY_SWEEP"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
@@ -380,6 +389,14 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     towns: z.boolean(),
     food: z.boolean(),
     resources: z.boolean()
+  }),
+  // Rename the island under (x, y); only its full garrison holder may
+  // (shared island-names.ts). The sim re-validates the name and the hold.
+  z.object({
+    type: z.literal("NAME_ISLAND"),
+    x: z.number().int(),
+    y: z.number().int(),
+    name: z.string().max(64)
   })
 ]);
 

@@ -28,6 +28,8 @@ import {
   ATTACK_MANPOWER_COST,
   ATTACK_MANPOWER_MIN,
   COMBAT_LOCK_MS,
+  COMBAT_LOCK_ORIGIN_UNDER_ATTACK_MESSAGE,
+  COMBAT_LOCK_TARGET_MESSAGE,
   defendingFortVariant,
   EXPAND_MANPOWER_COST,
   isFortDefending,
@@ -36,6 +38,7 @@ import {
   type ProspectSignature,
   type AutoSettlePrefs,
   type ChosenTrickleResource,
+  type IslandNameClaim,
   type MusterState,
   type Tile,
   type WaystationTileState
@@ -121,6 +124,9 @@ export type DomainPlayer = {
   // ephemeral runtime state (Runtime.abilityCooldowns), not persisted here —
   // same convention as Aegis Lock.
   imperialWardCharges?: number;
+  // Islands this player renamed (shared island-names.ts). Persisted with the
+  // player; the sim drops a claim when its fade runs out or a rival renames.
+  islandNames?: IslandNameClaim[];
   // Pooled resource-slot supply bump granted by activated Waystations (see
   // WAYSTATION_RESOURCE_SLOT_BONUS / runtime-waystation-activation.ts) --
   // one flat +1-per-resource entry per activation, merged into
@@ -380,7 +386,7 @@ export const validateFrontierCommand = (
   }
   if (typeof input.originLockedUntil === "number" && input.originLockedUntil > input.now) {
     if (input.originLockOwnerId && input.originLockOwnerId !== input.actor.id) {
-      return { ok: false, code: "LOCKED", message: "tile locked in combat" };
+      return { ok: false, code: "LOCKED", message: COMBAT_LOCK_ORIGIN_UNDER_ATTACK_MESSAGE };
     }
     // Attacking again from your own recently used origin tile is allowed --
     // the attack cooldown gate was removed for feeling buggy/confusing. It
@@ -388,9 +394,9 @@ export const validateFrontierCommand = (
   }
   if (typeof input.targetLockedUntil === "number" && input.targetLockedUntil > input.now) {
     if (input.targetLockOwnerId && input.targetLockOwnerId !== input.actor.id) {
-      return { ok: false, code: "LOCKED", message: "tile locked in combat" };
+      return { ok: false, code: "LOCKED", message: COMBAT_LOCK_TARGET_MESSAGE };
     }
-    return { ok: false, code: "LOCKED", message: "tile locked in combat" };
+    return { ok: false, code: "LOCKED", message: COMBAT_LOCK_TARGET_MESSAGE };
   }
   if ((input.actionType === "ATTACK" || input.actionType === "EXPAND") && input.actor.points < input.actionGoldCost) {
     return {

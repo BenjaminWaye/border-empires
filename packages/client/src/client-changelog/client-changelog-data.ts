@@ -7,11 +7,35 @@ import { AETHER_ABILITY_ICONS_CHANGELOG } from "./client-changelog-aether-abilit
 import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-art-october.js";
 import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
 import { AFC_UPGRADES_ICON_CHANGELOG } from "./client-changelog-afc-upgrades-icon.js";
+import { GAMEPLAY_SETTINGS_CLEANUP_CHANGELOG } from "./client-changelog-gameplay-settings-cleanup.js";
 import { MUSTER_BANNER_CHANGELOG } from "./client-changelog-muster-banner.js";
-import { BATTLE_TILE_SOUND_CHANGELOG } from "./client-changelog-battle-tile-sound.js";
-import { TOWN_VISUALS_CHANGELOG } from "./client-changelog-town-visuals.js";
+import { ADVANCE_VISIBLE_ONLY_CHANGELOG } from "./client-changelog-advance-visible-only.js";
+import { CLIENT_CHANGELOG_ENTRIES_OCT_19_20 } from "./client-changelog-oct-19-20.js";
+import { CLIENT_CHANGELOG_ENTRIES_OCT_13_16 } from "./client-changelog-oct-13-16.js";
+import { CAPTURE_HOLD_EFFORT_CHANGELOG } from "./client-changelog-capture-hold-effort.js";
+import { HETZNER_CLIENT_HOSTING_CHANGELOG } from "./client-changelog-hetzner-client-hosting.js";
+import { AI_DEAL_SUGGEST_CHANGELOG } from "./client-changelog-ai-deal-suggest.js";
+import { TOWN_MARBLE_CHANGELOG } from "./client-changelog-town-marble.js";
+import { SIEGE_REPORTS_CHANGELOG } from "./client-changelog-siege-reports.js";
+import { RICHER_FORESTS_CHANGELOG } from "./client-changelog-richer-forests.js";
+import { SIEGE_FX_GATE_CHANGELOG } from "./client-changelog-siege-fx-gate.js";
+import { INCURSION_HATCH_HILLS_CHANGELOG } from "./client-changelog-incursion-hatch-hills.js";
+import { MARCH_ACROSS_WATER_CHANGELOG } from "./client-changelog-march-across-water.js";
+import { MARCH_UNEXPLORED_CHANGELOG } from "./client-changelog-march-unexplored.js";
+import { MARCH_STOP_SHORT_CHANGELOG } from "./client-changelog-march-stop-short.js";
+import { RECONNECT_NO_AUTH_CHANGELOG } from "./client-changelog-reconnect-no-auth.js";
+import { PLANETARY_DEFENSE_MUSTER_FLAG_CHANGELOG } from "./client-changelog-planetary-defense-muster-flag.js";
+import { YOURS_TILE_COORDS_CHANGELOG } from "./client-changelog-yours-tile-coords.js";
+import { MAP_NAMES_CHANGELOG } from "./client-changelog-map-names.js";
+import { REACH_OWNER_NAME_CHANGELOG } from "./client-changelog-reach-owner-name.js";
+import { MUSTER_COMMIT_BADGE_CHANGELOG } from "./client-changelog-muster-commit-badge.js";
+import { ACTIVITY_RESTART_WINDOW_CHANGELOG } from "./client-changelog-activity-restart-window.js";
+import { FOGGED_MIST_FEATURES_CHANGELOG } from "./client-changelog-fogged-mist-features.js";
+import { EXPIRED_TRUCE_OFFERS_CHANGELOG } from "./client-changelog-expired-truce-offers.js";
+import { LOST_STRUCTURES_CHANGELOG } from "./client-changelog-lost-structures.js";
+import { CAPTURED_MUSTER_CLEAR_CHANGELOG } from "./client-changelog-captured-muster-clear.js";
+import { ADVANCE_EFFORT_CHANGELOG } from "./client-changelog-advance-effort.js";
 import { RICHER_TERRAIN_CHANGELOG } from "./client-changelog-richer-terrain.js";
-import { TOWN_BANNERS_CHANGELOG } from "./client-changelog-town-banners.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -20,6 +44,7 @@ import { TOWN_BANNERS_CHANGELOG } from "./client-changelog-town-banners.js";
 // of that window, move those entries into the next
 // client-changelog-data-earlier-N.ts (historical record, left unreferenced)
 // and delete them here and from the per-feature files below.
+import { ALLIED_PROSPERITY_CHANGELOG } from "./client-changelog-allied-prosperity.js";
 import { RECENT_CLIENT_CHANGELOG_ENTRIES } from "./client-changelog-data-october.js";
 import { TILE_YIELD_REMOVAL_CHANGELOG } from "./client-changelog-tile-yield-removal.js";
 import { AI_PROGRESSION_AETHER_CHANGELOG } from "./client-changelog-ai-progression-aether.js";
@@ -50,6 +75,7 @@ import { CLIENT_CHANGELOG_ENTRIES_OCT_12 } from "./client-changelog-data-oct-12.
 import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog-town-growth-loading.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY } from "./client-changelog-town-growth-war-integrity.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_105 } from "./client-changelog-data-earlier-105.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -112,6 +138,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_RECENT,
   ...CLIENT_CHANGELOG_ENTRIES_MUSTER_SAVE_UP,
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
+  ...ALLIED_PROSPERITY_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_SEPT_24_26,
   ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,
   ...CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS,
@@ -162,233 +189,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AI_PROGRESSION_AETHER_CHANGELOG,
   ...FAIRER_AI_DEALS_CHANGELOG,
   ...OVERLAY_PERSISTENCE_CHANGELOG,
-  {
-    createdAt: 1792187006316, // frozen Date.now() value for this release
-    introducedIn: "2026.10.16.1",
-    title: "New empires land with a manpower reserve",
-    why: "New players ran out of manpower within the first 15-20 minutes, and manpower only refills every few hours.",
-    changes: [
-      "Every new empire -- yours when you join, and AI empires when a season starts -- lands with a one-time +1,000 manpower on top of its starting manpower",
-      "The reserve can sit above your manpower cap; regeneration pauses until you have spent back below the cap"
-    ]
-  },
-  {
-    createdAt: 1791905157542, // frozen Date.now() value for this release
-    introducedIn: "2026.10.13.1",
-    title: "Relay Beacons show where to build them",
-    why: "Playtesters placed Relay Beacons by trial and error -- dropping them inside reach they already had, or cancelling and re-placing them -- and the new-player checklist said to build a beacon without showing where.",
-    changes: [
-      "When nothing worth taking is in reach, the new-player checklist now marks the tile to build your Relay Beacon on, aimed at the nearest town or food you still need",
-      "On that marked tile, Build Relay Beacon is tagged ★ Recommended and listed first",
-      "Choosing Build Relay Beacon now lets you pick the spot first, with the new land it would reach shaded before you confirm",
-      "Works on both the 3D and 2D maps"
-    ]
-  },
-  {
-    createdAt: 1792006774817, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.14.3",
-    title: "AI empires stand down after a truce",
-    why: "An AI empire kept its muster flag, and the manpower in it, up for days after signing a truce with the player it was fighting.",
-    changes: [
-      "An AI empire now disbands a muster flag once it has nothing left to attack, such as after it signs a truce or alliance with no barbarians nearby, and gets that manpower back",
-      "AI empires no longer plant new muster flags or plan attacks against players they have a truce or alliance with"
-    ]
-  },
-  {
-    createdAt: 1791922964029, // Date.now() captured once for this release.
-    introducedIn: "2026.10.13.2",
-    title: "Manifest panel tabs",
-    why: "Your Manifests sat at the very bottom of the panel, below every choice.",
-    changes: ["The Manifest panel has Available and Owned tabs; a Tree view / List view toggle in the panel header replaces Expand Tree, and the tree now fills the whole window", "Owned shows how many Manifests you hold, your Manifest bonuses, and your Manifests grouped by branch", "Panels on mobile use the same brass-and-leather look as on desktop instead of a blue background", "On mobile the Manifest panel uses the full screen height in both views", "The tree's zoom control sits on one row with the unlocked/ready/total counts, and the tree's bottom edge is no longer cut off"]
-  },
-  {
-    createdAt: 1791836603366, // Date.now() captured once for this release.
-    introducedIn: "2026.10.13.1",
-    title: "Combat reports for each muster flag",
-    why: "Simultaneous muster attacks interrupted play with repeated battle-result overlays.",
-    changes: ["Automatic muster battles appear in each flag’s Recent combat tab with unread counts", "Manpower losses show in red and coin plunder in green", "Keep up to 40 reports per flag in this browser for this season", "New results keep your reading position and leave unrelated manual orders running"]
-  },
-  {
-    createdAt: 1791969446372, // Date.now() captured once for this release.
-    introducedIn: "2026.10.14.4",
-    title: "Smoother fog reveals in the 3D map",
-    why: "Fog rolling back could leave tile-shaped cuts in the glowing edge between newly explored tiles.",
-    changes: ["The 3D fog and its glowing edge now stay continuous across tile boundaries during reveals"]
-  },
-  {
-    createdAt: 1791921497137,
-    introducedIn: "2026.10.13.1",
-    title: "Hydrogardens no longer stand on the old farm plot",
-    why: "The hydroponic glass dome was drawn on top of the conventional 3D crop-field plot, so it looked like a greenhouse dropped onto a normal farm.",
-    changes: ["A built Hydrogarden now replaces the old 3D farm plot, so the dome stands on clean ground"]
-  },
-  {
-    createdAt: 1791922549550, // Date.now() captured once for this release.
-    introducedIn: "2026.10.13.2",
-    title: "Economy panel says Coin",
-    why: "The economy panel still called the currency Gold while the rest of the game says Coin.",
-    changes: ["The economy panel's currency card and detail heading now read Coin"]
-  },
-  {
-    createdAt: 1791925158695, // Date.now() captured once for this release.
-    introducedIn: "2026.10.13.3",
-    title: "Your border shows up as soon as you log in",
-    why: "In the 3D map, your Aether Survey Line border and the dormant-frontier and rival-incursion tints could stay hidden after login until something on screen changed. If you were idle and didn't move the camera, they might never appear.",
-    changes: ["The 3D border appears right after login, even with a still camera", "Reach updates from the server redraw the 3D border straight away"]
-  },
-  {
-    createdAt: 1791925495773, // Date.now() captured once for this release.
-    introducedIn: "2026.10.13.2",
-    title: "Tell your own territory apart",
-    why: "Every empire's reach border looked the same apart from colour, neighbours could pick near-identical colours, and enemy tiles taken inside your reach looked like your own.",
-    changes: [
-      "Your reach border now glows brighter and thicker with a white core and a slow pulse; other empires' borders are thinner and dimmer",
-      "On your screen, rival colours that are too close to yours are shifted away from it",
-      "Enemy tiles inside your reach are striped in their colour and yours, with an outline around the pocket",
-      "The 2D map draws your reach border in your colour with a white core, and shows the same striping"
-    ]
-  },
-  {
-    createdAt: 1791959048426,
-    introducedIn: "2026.10.14.1",
-    title: "3D map shows frontier claims on time",
-    why: "The 3D map timed frontier-attack claims with the wrong clock, so it often missed muster and enemy claims starting or ending until something else refreshed the map.",
-    changes: ["An enemy's frontier colour clears as soon as your muster attack's claim sweep begins", "Your frontier tile's colour clears as soon as an enemy's claim sweep begins on it", "A frontier tile's colour comes back as soon as a claim ends"]
-  },
-  {
-    createdAt: 1791971113032,
-    introducedIn: "2026.10.14.2",
-    title: "Next manpower batch front and centre",
-    why: "The manpower panel buried when your next batch arrives inside a long paragraph, and showed the time until full as raw minutes like \"738m 18s\".",
-    changes: [
-      "The manpower panel now shows \"Next batch in ...\" as a large callout at the top in hours and minutes, e.g. \"0h 19m\" (or \"Full\" / \"Paused\")",
-      "Time until full also reads in hours and minutes, e.g. \"Manpower full in 12h 19m\"",
-      "The explanation of how manpower works is tucked behind a \"?\" toggle"
-    ]
-  },
-  {
-    createdAt: 1791970096634, // Date.now() captured once for this release.
-    introducedIn: "2026.10.14.3",
-    title: "AI names in Alliances",
-    why: "The Alliances tab showed generic AI numbers instead of the empires' names.",
-    changes: ["Met AI empires and allies show their seasonal names", "Alliance and truce offers still reach the correct AI"]
-  },
-  {
-    createdAt: 1791977894863,
-    introducedIn: "2026.10.14.4",
-    title: "Testing new outlines for enemy land inside your border",
-    why: "Enemy tiles taken inside your reach only get a plain outline, which doesn't read as a break-in. Admins are trying new looks on the 3D map before one becomes the default.",
-    changes: [
-      "Nothing changes for players yet: the outline stays as it is until a new look is chosen",
-      "Admins can try a spiked front line in the attacker's colour, an ember seam, an ink bleed or an aether veil under Settings > Admin"
-    ]
-  },
-  {
-    createdAt: 1792001165636, // Date.now() captured once for this release.
-    introducedIn: "2026.10.14.5",
-    title: "Coin everywhere",
-    why: "Several places still called the currency gold while the HUD and economy panel say Coin.",
-    changes: [
-      "Structure details, Mintworks and Sell Off modifiers, upkeep lines, the Harbor Exchange, Imperial Exchange and Siege Engine entries now say coin",
-      "Activity feed, raid and plunder summaries, town capture character, season-end income, the respawn prompt, natural wonder boons and two Manifest descriptions now say coin",
-      "Fixed the not-enough-coin alert for attacks and frontier claims, which could miss its dedicated message because the server still said gold"
-    ]
-  },
-  {
-    createdAt: 1791969150437, // Date.now() captured for this update.
-    introducedIn: "2026.10.14.1",
-    title: "Softer 3D map daylight",
-    why: "Strong stacked lighting made terrain and pale buildings look washed out.",
-    changes: ["Reduced 3D daylight and exposure to preserve surface detail", "Neutral fill light keeps terrain and building colours clearer"]
-  },
-  {
-    createdAt: 1791970552590, // Date.now() captured for this release.
-    introducedIn: "2026.10.14.2",
-    title: "Manifest recommendations visible in the list",
-    why: "Recommendations were hidden in details and suggested Hydrogardens without usable Farms or a need for more Food.",
-    changes: [
-      "Good pick now appears in both the compact Manifest list and expanded tree; click a Manifest for its explanation",
-      "Building recommendations check for an owned, unoccupied tile of the required kind and available development capacity",
-      "Hydroworks recommendations require a nearby active Hydrogarden that does not already have its bonus",
-      "Hydrogarden, Hydroworks and Fish Food bonuses are only recommended with one spare Food slot or less"
-    ]
-  },
-  {
-    createdAt: 1791982864990, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.14.1",
-    title: "Town resource discoveries get a lasting popup",
-    why: "Important resource clues were easy to miss in brief map labels and the retiring Alerts panel.",
-    changes: [
-      "Town surveys use the game's brass panels, parchment text, and familiar buttons in both map renderers",
-      "Unresolved resource surveys remain available in Activity → Yours with a View survey button, even beyond the 24-hour history window",
-      "New surveys open a centered popup that stays until you choose View survey or Got it, even when the clue is off-screen"
-    ]
-  },
-  {
-    createdAt: 1792006593148, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.14.5",
-    title: "Flags head into enemy territory instead of around it",
-    why: "Marching flags could keep claiming neutral tiles beside an enemy border, and advancing flags on a dock wandered their island while fighting the enemy dock across the water.",
-    changes: [
-      "Marching flags now follow the straight line to their target, attacking enemy tiles on that line rather than detouring onto neutral land beside them",
-      "Advancing flags on a dock keep their manpower on the fight at the linked enemy dock instead of wandering around their own island"
-    ]
-  },
-  {
-    createdAt: 1792006675564, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.15.1",
-    title: "Snow shows up on the 3D map",
-    why: "Snowfields near the poles were drawing exactly like the surrounding tundra in 3D, so the snow never appeared.",
-    changes: ["The coldest polar ground now renders as white snow in 3D, matching the 2D map"]
-  },
-  {
-    createdAt: 1792044983124, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.15.1",
-    title: "Trade screen for truces and alliances",
-    why: "Offering a truce was a single button with no way to sweeten the deal or know how it would land.",
-    changes: [
-      "Offering a truce or alliance opens a trade screen: add coin or Shards you give or ask for, and see the empire's mood toward you",
-      "Against AI empires the screen shows live whether they would accept, and how much more coin they want",
-      "AI empires remember how you treat them: taking their land, attacking, breaking truces and paying them all shift their attitude, shown on the trade screen",
-      "Truce prices depend on whether you're at war and who is winning; AIs won't talk peace right after you attack, and charge more each time you buy peace",
-      "Alliances need an AI that likes you and would be the largest empire in the alliance (Diplomatic Dominance goes to the largest member); AIs never pay to join one",
-      "An AI gives 24h notice to leave an alliance once a partner grows larger than it",
-      "AI empires counter-offer with a price you can actually pay, or tell you their price is more than you can offer",
-      "Coin and Shards change hands only when the deal is accepted, and the deal falls through if either side can no longer pay",
-      "Pending offers show their terms in the Alliances panel"
-    ]
-  },
-  {
-    createdAt: 1792042002455, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.15.1",
-    title: "War music stops when your flag has nothing to fight",
-    why: "An advancing muster flag on a border with a truce partner kept battle music playing even though it could not attack.",
-    changes: [
-      "Advance and March flags with no target in range no longer keep battle music playing"
-    ]
-  },
-  {
-    createdAt: 1792062991009, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.15.1",
-    title: "Captured tiles can't be taken straight back",
-    why: "A freshly captured dock or town lands as frontier, and frontier had no defense, so the old owner could retake it for free and captures just went back and forth.",
-    changes: [
-      "For 1 minute after you capture a tile from another player, your troops stay standing on it and it defends like ordinary ground, so retaking it is a real fight",
-      "If it is attacked during that minute, those troops are the defenders in the battle; time to garrison it is what the minute is for",
-      "The tile menu shows a Holding captured ground countdown, and in 2D the holding troops are drawn on the tile with a bar for the time left"
-    ]
-  },
-  {
-    createdAt: 1792203815485,
-    introducedIn: "2026.10.17.1",
-    title: "Enemy breakthroughs get a spiked front line",
-    why: "Enemy tiles taken inside your reach only had a plain outline, which didn't read as a break-in.",
-    changes: [
-      "On the 3D map, enemy land inside your reach is now outlined by a thin front line in the attacker's colour, with tall spikes pointing into your land",
-      "Spikes only appear where the enemy touches your own land, and the line stops at the old border when they push across it",
-      "The 2D map keeps the plain outline for now"
-    ]
-  },
+  ...CLIENT_CHANGELOG_ENTRIES_OCT_13_16,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_105,
   {
     createdAt: 1792269690926, // Date.now() captured when this entry was written.
     introducedIn: "2026.10.17.2",
@@ -459,8 +261,11 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["The Recent combat tab is now just \"Combat\", with its unread count as a small bubble on the tab's corner, so all the tile popup tabs fit on one row", "Combat reports use the same brass-and-parchment look as the rest of the popup"]
   },
   ...RELIABLE_DIPLOMACY_CHANGELOG,
+  ...GAMEPLAY_SETTINGS_CLEANUP_CHANGELOG,
   ...AFC_UPGRADES_ICON_CHANGELOG,
   ...MUSTER_BANNER_CHANGELOG,
+  ...ADVANCE_VISIBLE_ONLY_CHANGELOG,
+  ...AI_DEAL_SUGGEST_CHANGELOG,
   {
     createdAt: 1792442407428, // Date.now() captured for this entry.
     introducedIn: "2026.10.19.4",
@@ -471,16 +276,39 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "All 30 upgrade cards use short effect lines with percentages; expanded details explain conditions"
     ]
   },
-  ...BATTLE_TILE_SOUND_CHANGELOG,
-  ...TOWN_VISUALS_CHANGELOG,
-  ...TOWN_BANNERS_CHANGELOG,
+  ...CLIENT_CHANGELOG_ENTRIES_OCT_19_20,
+  ...HETZNER_CLIENT_HOSTING_CHANGELOG,
+  ...CAPTURE_HOLD_EFFORT_CHANGELOG,
+  ...TOWN_MARBLE_CHANGELOG,
   {
-    createdAt: 1792510291974, // Date.now() captured for this entry.
-    introducedIn: "2026.10.20.1",
-    title: "Play independently of Vercel",
-    why: "A shared hosting limit could prevent players from opening the game even while the game servers were healthy.",
-    changes: ["Production and staging can serve the game directly from their existing game servers"]
+    createdAt: 1792528401682, // Date.now() captured for this entry.
+    introducedIn: "2026.10.21.2",
+    title: "Muster flag bases no longer look black",
+    why: "On the 3D map, the base under a muster flag was dark iron that showed as a black band wherever the ground sloped away from it.",
+    changes: [
+      "In the 3D map, muster flags stand on a stone foundation that widens towards the ground and catches the light",
+      "Town bases widen towards the ground the same way, so their stone walls catch more light on sloping tiles"
+    ]
   },
+  ...SIEGE_REPORTS_CHANGELOG,
+  ...RICHER_FORESTS_CHANGELOG,
+  ...SIEGE_FX_GATE_CHANGELOG,
+  ...INCURSION_HATCH_HILLS_CHANGELOG,
+  ...MARCH_ACROSS_WATER_CHANGELOG,
+  ...MARCH_UNEXPLORED_CHANGELOG,
+  ...MARCH_STOP_SHORT_CHANGELOG,
+  ...RECONNECT_NO_AUTH_CHANGELOG,
+  ...PLANETARY_DEFENSE_MUSTER_FLAG_CHANGELOG,
+  ...YOURS_TILE_COORDS_CHANGELOG,
+  ...MAP_NAMES_CHANGELOG,
+  ...REACH_OWNER_NAME_CHANGELOG,
+  ...MUSTER_COMMIT_BADGE_CHANGELOG,
+  ...ACTIVITY_RESTART_WINDOW_CHANGELOG,
+  ...FOGGED_MIST_FEATURES_CHANGELOG,
+  ...EXPIRED_TRUCE_OFFERS_CHANGELOG,
+  ...LOST_STRUCTURES_CHANGELOG,
+  ...CAPTURED_MUSTER_CLEAR_CHANGELOG,
+  ...ADVANCE_EFFORT_CHANGELOG,
   ...RICHER_TERRAIN_CHANGELOG
 ];
 

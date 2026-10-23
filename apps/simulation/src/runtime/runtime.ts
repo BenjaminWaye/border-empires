@@ -1,3 +1,6 @@
+import { settleEnvoyDependents, settleEnvoyDependentsBeforeTileChange } from "./runtime-manpower-economy.js";
+import { afcEnvoyIncomeInSnapshot } from "../afc-specializations/afc-coalition.js";
+import { settleBootstrapManpower } from "./runtime-bootstrap-manpower.js";
 import { afcCampaignGuardCounters, afcCampaignStateGauges } from "../afc-specializations/afc-diagnostics.js";
 import { oracleDetectionDiagnostics } from "../afc-specializations/afc-oracle-detections.js";
 import { buildPlayerCombatSummary } from "../afc-specializations/afc-player-combat-facts.js";
@@ -10,6 +13,8 @@ import { expandTileDeltasWithLinkedDocks } from "../runtime-linked-dock-deltas.j
 import { planDirectFrontierCommand } from "../ai/direct-frontier-planner.js";
 import { buildAiTacticalView, type AiTacticalView } from "../ai/ai-tactical-view.js";
 import { resolvePendingSettlement as resolvePendingSettlementImpl, type SettlementResolutionInput } from "./runtime-settlement-resolution.js";
+import { startSettlementProcess as startSettlementProcessImpl, type SettlementStartInput } from "./runtime-settlement-start.js";
+import { createIslandNamesTicker } from "../island-names/island-names-ticker.js";
 import { EventEmitter } from "node:events";
 import type { CommandEnvelope, ManpowerBreakdown, SimulationEvent } from "@border-empires/sim-protocol";
 import type { PlayerRespawnNotice, PlayerRespawnReasonCode } from "@border-empires/shared";
@@ -53,7 +58,7 @@ import {
   integrityGrowthMult,
   DEVELOPMENT_PROCESS_LIMIT,
   GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE, GALACTIC_WONDER_VISION_RADIUS_BONUS,
-  SETTLE_COST, isAutoSettleAllowed, settleIgnoresReach,
+  isAutoSettleAllowed, settleIgnoresReach,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   type Terrain,
@@ -208,7 +213,7 @@ import { restoreRecoveredTownOrder, restoreTownSettledAt } from "../recovered-to
 import { TileDeltaStringifyCache } from "../tile-delta-stringify-cache/tile-delta-stringify-cache.js";
 import { tileDeltaFromState as tileDeltaFromStateImpl } from "../runtime-tile-delta-from-state.js";
 import { PlayerCandidateIndex } from "../player-candidate-index/player-candidate-index.js";
-import { applySettleCost, refundSettleCost, settleRejectionForActor, settlementBaseDurationMsForTile, settlementDurationMsForPlayer } from "../runtime-settlement-rules.js";
+import { refundSettleCost, settleRejectionForActor } from "../runtime-settlement-rules.js";
 import {
   applyBarbarianWalkOrMultiply as applyBarbarianWalkOrMultiplyImpl,
   applyBreachToNeighbors as applyBreachToNeighborsImpl,
@@ -621,6 +626,11 @@ export class SimulationRuntime {
   // shrinks this map by itself; it only changes what's available to defend
   // a tile the next time a rival anchor contests it.
   private reachBorder: Map<string, string> = new Map();
+  // ISLAND_NAMES push (island-names/island-names-ticker.ts); derived, never snapshotted.
+  private readonly islandNamesTicker = createIslandNamesTicker({
+    tiles: () => this.state.tiles, players: () => this.state.players,
+    isPlayerSubscribed: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false, emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload)
+  });
   // Change-driven REACH_UPDATE push bookkeeping — see runtime-reach-update.ts.
   private readonly reachUpdateState: ReachUpdateState = createReachUpdateState(); private readonly reachContestedDirtyState: ReachChangedTilesDirtyState = createReachChangedTilesDirtyState(); // changed-reach-tile TILE_DELTA_BATCH dirty set, see runtime-reach-contested-tiles.ts
   private frontierAutoHealQueue: FrontierAutoHealQueue = createFrontierAutoHealQueue(); // deadline-ordered; derived state, rebuilt at hydration, never snapshotted -- see runtime-frontier-auto-heal.ts
@@ -665,6 +675,7 @@ export class SimulationRuntime {
   // guard silently stops firing on some future refactor) is observable in
   // prod — see feedback_counter_on_skip_paths.md.
   private manpowerCapBootstrapRestampedCount = 0;
+  private manpowerReady = false;
   private readonly wonderCacheByPlayer = new Map<string, Set<string>>();
   // Event-driven auto-settle eligibility, replacing AutoSettlementQueueCache
   // -- see runtime-auto-settle-eligibility.ts's doc comment. Neither map is
@@ -932,28 +943,8 @@ export class SimulationRuntime {
     for (const player of options.initialState?.players ?? []) {
       if (player.ownedTownTileKeys?.length) restoreRecoveredTownOrder(this.summaryForPlayer(player.id), player.ownedTownTileKeys);
     }
-    // Moved here (see the long comment above, right after this.state.tiles is
-    // assigned) from immediately after `this.state.players` was built: this is the
-    // first point where ancillaryDepotTilesByOwner/neuralWorksTilesByOwner/
-    // reserveLatticeTilesByOwner/ancillaryFactoryTilesByOwner all reflect the
-    // recovered tiles, so playerManpowerCap sees the TRUE cap for every
-    // recovered player on its very first read — the boot-order bug (manpower
-    // silently clamped down at boot, then snapped back up to full cap on the
-    // player's next tile mutation) can no longer occur.
-    for (const player of this.state.players.values()) {
-      const previousCapSnapshot = player.manpowerCapSnapshot;
-      this.applyManpowerRegen(player);
-      // Counter (see manpowerCapBootstrapRestampedCount's declaration): a
-      // recovered player whose persisted manpowerCapSnapshot doesn't match
-      // what boot hydration just computed. Expected to fire roughly
-      // once per structure-owning player per restart (their old snapshot
-      // predates this boot's tile hydration) and settle back to 0 — a count
-      // that keeps climbing during steady-state, not just at startup, means
-      // this guard itself has regressed.
-      if (Number.isFinite(previousCapSnapshot) && previousCapSnapshot !== player.manpowerCapSnapshot) {
-        this.manpowerCapBootstrapRestampedCount += 1;
-      }
-    }
+    this.manpowerCapBootstrapRestampedCount += settleBootstrapManpower(this.state.players.values(), player => this.applyManpowerRegen(player));
+    this.manpowerReady = true;
     for (const playerId of this.state.players.keys()) {
       this.rebuildPlannerCandidateIndexesForPlayer(playerId);
     }
@@ -1150,6 +1141,16 @@ export class SimulationRuntime {
     this.oracleDetections.sendTo(playerId);
   }
 
+  /** Throttled inside; see island-names/island-names-ticker.ts. */
+  tickIslandNames(nowMs: number = this.now()): void {
+    this.islandNamesTicker.tick(nowMs);
+  }
+
+  /** Live-subscribe push of the ISLAND_NAMES label list (simulation-service/live-subscribe-reach-push.ts). */
+  resendIslandNamesForPlayer(playerId: string): void {
+    this.islandNamesTicker.sendTo(playerId, this.now());
+  }
+
   async tickTerritoryAutomation(nowMs: number = this.now(), yieldToEventLoop?: () => Promise<void>): Promise<void> {
     resolveOverduePendingSettlements({ pendingSettlementsByTile: this.pendingSettlementsByTile, nowMs, summaryForPlayer: (id) => this.summaryForPlayer(id), resolve: (record) => this.resolvePendingSettlement(record) });
     if (!this.dormantClaimSweepDone) { this.dormantClaimSweepDone = true; const sweepOwners = new Set<string>(); for (const { tileKey, ownerId } of dormantOwnedActivatables(this.state.tiles)) { this.activateReachClaimedTile(tileKey, ownerId, `dormant-claim-sweep:${tileKey}`); sweepOwners.add(ownerId); } for (const playerId of sweepOwners) this.emitPlayerStateUpdate({ commandId: `dormant-claim-sweep:${playerId}`, playerId }); }
@@ -1195,14 +1196,11 @@ export class SimulationRuntime {
 
   private musterTickContext(): MusterTickContext {
     return buildMusterTickContext({
-      players: this.state.players,
-      tiles: this.state.tiles,
+      state: this.state,
       activeSiegeBatteriesByOwner: this.ownerIndexes.activeSiegeBatteriesByOwner,
       activeRelayBeaconsByOwner: this.ownerIndexes.activeRelayBeaconsByOwner,
       neuralWorksTilesByOwner: this.ownerIndexes.neuralWorksTilesByOwner,
-      locksByTile: this.state.locksByTile,
       advanceCooldowns: this.musterAdvanceCooldowns as MusterAdvanceCooldowns,
-      dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
       activeAetherBridgesForPlayer: (playerId: string) => this.activeAetherBridgesForPlayer(playerId),
       applyManpowerRegen: (player: RuntimePlayer, at?: number) => this.applyManpowerRegen(player, at),
       playerManpowerCap: (player: RuntimePlayer) => this.playerManpowerCap(player),
@@ -1574,6 +1572,7 @@ export class SimulationRuntime {
   }
 
   private applyManpowerRegen(player: RuntimePlayer, nowMs = this.now()): void {
+    if (this.manpowerReady) settleEnvoyDependents(this.manpowerEconomyContext(), [player.id], nowMs);
     applyManpowerRegenForPlayerImpl(this.manpowerEconomyContext(), player, nowMs);
   }
 
@@ -1693,6 +1692,7 @@ export class SimulationRuntime {
     this.tileDeltaStringifyCache.invalidate(tileKey);
     const previous = this.state.tiles.get(tileKey);
     const tile = withAfcFortFacts(withoutStaleCaptureHold(previous, nextTile, this.now()), this.state.players);
+    if (this.manpowerReady) settleEnvoyDependentsBeforeTileChange(this.manpowerEconomyContext(), previous, tile);
     const sameOwner = Boolean(previous?.ownerId && previous.ownerId === tile.ownerId);
     // See refreshEconomyCachesForTileChange for why this is gated on SETTLED
     // ownership instead of invalidating unconditionally on every mutation.
@@ -2000,6 +2000,7 @@ export class SimulationRuntime {
       playerLogisticsThroughputPerMinute: this.playerLogisticsThroughputPerMinute.bind(this),
       playerManpowerBreakdown: this.playerManpowerBreakdown.bind(this),
       incomePerMinuteForPlayer: this.incomePerMinuteForPlayer.bind(this),
+      envoyIncomePerMinuteForPlayer: player => afcEnvoyIncomeInSnapshot(this.cachedEconomySnapshot(player)),
       summaryForPlayer: this.summaryForPlayer.bind(this),
       growthStalledNoFoodCounter: this.growthStalledNoFoodCounter,
       recordedEventsByCommandId: this.replayCache.recordedEventsByCommandId,
@@ -2165,6 +2166,10 @@ export class SimulationRuntime {
       applyManpowerRegen: (player: RuntimePlayer) => this.applyManpowerRegen(player),
       refreshManpowerOnly: (player: RuntimePlayer) => this.refreshManpowerOnly(player),
       incomePerMinuteForPlayer: (incomePlayerId: string) => this.incomePerMinuteForPlayer(incomePlayerId),
+      playerManpowerCap: (player: RuntimePlayer) => this.playerManpowerCap(player),
+      playerManpowerRegenPerMinute: (player: RuntimePlayer) => this.playerManpowerRegenPerMinute(player),
+      playerLogisticsThroughputPerMinute: (player: RuntimePlayer) => this.playerLogisticsThroughputPerMinute(player),
+      playerManpowerBreakdown: (player: RuntimePlayer) => this.playerManpowerBreakdown(player),
       cachedEconomySnapshot: (player: RuntimePlayer) => this.cachedEconomySnapshot(player),
       // Seeds the sparse-delta cache's baseline for every tile a player sees
       // at connect time, so their subsequent command/tick deltas for
@@ -2672,7 +2677,11 @@ export class SimulationRuntime {
       {
         settleEconomyBeforeChange: (player) => { this.applyEconomyAccrual(player, this.now()); this.refreshManpowerOnly(player); },
         invalidateEconomyAfterChange: (id) => { this.economyCaches.invalidateEconomySnapshot(id); this.economyCaches.clearTownNetworks(); this.economyCaches.upkeepAccrualCacheByPlayer.delete(id); },
-        emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+        emitPlayerStateUpdate: (command) => {
+          const player = this.state.players.get(command.playerId);
+          if (player) player.manpowerCapSnapshot = this.playerManpowerCap(player);
+          this.emitPlayerStateUpdate(command);
+        },
         players: this.state.players,
         visibilityCoverage: this.state.visibilityCoverage,
         visionTransitionCallbacks: this.visionTransitions.callbacks, reachBorder: this.reachBorder,
@@ -2717,50 +2726,12 @@ export class SimulationRuntime {
 
   private handleFrontierCommand(command: CommandEnvelope, actionType: FrontierCommandType): FrontierCommandResult { return handleFrontierCommandImpl(this.frontierCommandContext(), command, actionType); }
 
-  private startSettlementProcess(input: {
-    commandId: string;
-    playerId: string;
-    targetKey: string;
-    target: DomainTileState;
-    startedAt: number;
-    emitStartedUpdate?: boolean;
-  }): void {
-    const actor = this.state.players.get(input.playerId);
-    if (!actor) return;
-    applySettleCost(actor);
-    const settleDurationMs = settlementDurationMsForPlayer(actor, settlementBaseDurationMsForTile(input.target));
-    const resolvesAt = input.startedAt + settleDurationMs;
-    this.addPendingSettlement({
-      ownerId: input.playerId,
-      tileKey: input.targetKey,
-      startedAt: input.startedAt,
-      resolvesAt,
-      goldCost: SETTLE_COST,
-      commandId: input.commandId
-    });
-    // Armed before the emits below: if either throws (callers like the
-    // territory-automation tick catch and log), the slot must still free.
-    this.scheduleAfter(settleDurationMs, () =>
-      this.resolvePendingSettlement({
-        ownerId: input.playerId,
-        tileKey: input.targetKey,
-        startedAt: input.startedAt,
-        resolvesAt,
-        commandId: input.commandId
-      })
-    );
-    this.emitEvent({
-      eventType: "SETTLEMENT_STARTED",
-      commandId: input.commandId,
-      playerId: input.playerId,
-      tileKey: input.targetKey,
-      startedAt: input.startedAt,
-      resolvesAt,
-      goldCost: SETTLE_COST
-    });
-    if (input.emitStartedUpdate !== false) {
-      this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.playerId });
-    }
+  private startSettlementProcess(input: SettlementStartInput): void {
+    startSettlementProcessImpl({
+      players: this.state.players, addPendingSettlement: (record) => this.addPendingSettlement(record), scheduleAfter: this.scheduleAfter,
+      resolvePendingSettlement: (resolution) => this.resolvePendingSettlement(resolution), emitEvent: (event) => this.emitEvent(event),
+      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command)
+    }, input);
   }
 
   // Extracted from startSettlementProcess's scheduled-timer closure so
@@ -3406,7 +3377,7 @@ export class SimulationRuntime {
     return resolveMusterSourceImpl(actorId, originKey, requiredMuster, preferredKey, {
       tiles: this.state.tiles,
       musterTilesByOwner: this.ownerIndexes.musterTilesByOwner,
-      musterReservedByKey: this.musterReservedByKey
+      musterReservedByKey: this.musterReservedByKey, locksByTile: this.state.locksByTile
     });
   }
 

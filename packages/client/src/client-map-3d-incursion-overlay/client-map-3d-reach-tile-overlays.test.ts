@@ -89,3 +89,25 @@ describe("addReachTileOverlays3D my tiles inside a rival's reach", () => {
     expect(calls).toHaveLength(1);
   });
 });
+
+describe("addReachTileOverlays3D on a hill", () => {
+  it("hands the incursion hatch the hill drape for its tile", () => {
+    const drape = (): number => 0.3;
+    const drapes: unknown[] = [];
+    const asked: string[] = [];
+    addReachTileOverlays3D(
+      {
+        addDormantFrontierTile: () => undefined,
+        addIncursionTile: (_x, _z, _y, _hatch, _edgeColor, _edges, _breach, tileDrape) => drapes.push(tileDrape)
+      },
+      tiles.get(keyFor(5, 5))!,
+      5,
+      5,
+      { x: 0, z: 0, y: 0 },
+      new Set([keyFor(5, 5), keyFor(6, 5)]),
+      { tiles, keyFor, wrapX: (x) => x, wrapY: (y) => y, me: "me", ownerColor: () => "#7be05a", hillDrapeAt: (wx, wy) => (asked.push(keyFor(wx, wy)), drape) }
+    );
+    expect(asked).toEqual([keyFor(5, 5)]);
+    expect(drapes).toEqual([drape]);
+  });
+});

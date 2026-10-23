@@ -1,14 +1,15 @@
 import { Scene, type Texture } from "three";
 import { CONSTRUCTION_PHASES, type ConstructionSite } from "../client-construction-phase/client-construction-phase.js";
 import { createStructurePieceBuilder } from "../client-map-3d-structure-builder.js";
-import { createConstructionCrewLayer, MAX_CONSTRUCTION_SITES } from "./client-map-3d-construction-crew.js";
+import { constructionSiteKey, createConstructionCrewLayer, MAX_CONSTRUCTION_SITES } from "./client-map-3d-construction-crew.js";
 import { DEFAULT_CONSTRUCTION_LAYOUT, stackCenterFor, type ConstructionLayout } from "./client-map-3d-construction-layout.js";
+import { podTransitBudgetMs } from "./client-map-3d-construction-pod-flight.js";
 import { createConstructionPodFxLayer } from "./client-map-3d-construction-pod-fx.js";
 import { registerConstructionScaffold } from "./client-map-3d-construction-scaffold.js";
 
 // Everything that surrounds a structure under construction, apart from the
 // structure's own (phase-gated) geometry: scaffolding, the parts stack and
-// ancillary crew, and the delivery pod dropped at each new phase
+// ancillary crew, and the parts pod the AFC flies in at each new phase
 // (docs/construction-animation-plan.md). One bundle so each 3D overlay that can
 // show a construction site (the shared structure overlay, the Relay Beacon
 // overlay, later forts) wires up the same five calls instead of re-deriving
@@ -40,12 +41,15 @@ export const createConstructionPresentation = (scene: Scene, envMap?: Texture): 
   let phasesLastRebuild = new Map<string, number>();
   let phasesThisRebuild = new Map<string, number>();
   let earliestPhaseAtMs = Infinity;
+  // A new phase's crates arrive with its pod: until it lands, the stack shows empty.
+  let frameNowMs = 0;
+  const awaitingDelivery = (siteKey: string): boolean => pods.awaitingDelivery(siteKey, frameNowMs);
 
   const addSite: ConstructionPresentation["addSite"] = (sceneX, sceneZ, surfaceY, site, structureHeight, layout = DEFAULT_CONSTRUCTION_LAYOUT) => {
     scaffold.place(sceneX, surfaceY, sceneZ, structureHeight, site.visibleBands, CONSTRUCTION_PHASES);
     crew.add(sceneX, sceneZ, surfaceY, site, layout);
     if (site.nextPhaseAtMs !== undefined) earliestPhaseAtMs = Math.min(earliestPhaseAtMs, site.nextPhaseAtMs);
-    const siteKey = `${site.x},${site.y}`;
+    const siteKey = constructionSiteKey(site);
     phasesThisRebuild.set(siteKey, site.phase);
     const previousPhase = phasesLastRebuild.get(siteKey);
     // A new phase brings a fresh batch of fabricated parts, flown out from the owner's AFC
@@ -54,7 +58,9 @@ export const createConstructionPresentation = (scene: Scene, envMap?: Texture): 
     // Pods already flying to this site follow it to its new scene position (this rebuild may have re-anchored the scene).
     pods.relocate(siteKey, sceneX + stack.x, sceneZ + stack.z, surfaceY);
     if (site.direction === "build" && !site.stalled && previousPhase !== undefined && site.phase > previousPhase && site.afcOffset) {
-      pods.spawn(siteKey, sceneX + stack.x, sceneZ + stack.z, surfaceY, performance.now(), { dx: site.afcOffset.dx - stack.x, dz: site.afcOffset.dy - stack.z });
+      // The stack stands empty until the pod lands, so a short phase gets a quicker trip.
+      const maxTransitMs = podTransitBudgetMs((site.completesAtMs - site.startedAtMs) / CONSTRUCTION_PHASES);
+      pods.spawn(siteKey, sceneX + stack.x, sceneZ + stack.z, surfaceY, performance.now(), { dx: site.afcOffset.dx - stack.x, dz: site.afcOffset.dy - stack.z }, { maxTransitMs });
     }
   };
 
@@ -75,7 +81,8 @@ export const createConstructionPresentation = (scene: Scene, envMap?: Texture): 
       pods.retainOnly(new Set(phasesThisRebuild.keys()));
     },
     update: (nowMs: number): void => {
-      crew.update(Date.now());
+      frameNowMs = nowMs;
+      crew.update(Date.now(), pods.activeCount() > 0 ? awaitingDelivery : undefined);
       pods.update(nowMs);
     },
     boundaryPassed: (): boolean => Date.now() >= earliestPhaseAtMs,

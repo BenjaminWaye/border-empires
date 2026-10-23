@@ -1,6 +1,6 @@
 /**
- * Frontier supply lines: which way supply flows out to the viewer's frontier
- * that sits beyond their reach.
+ * Frontier supply lines: where the viewer's frontier beyond reach hangs on a
+ * single tile.
  *
  * Mirrors the simulation's encirclement rule
  * (apps/simulation/src/encirclement/encirclement.ts): a FRONTIER tile stays
@@ -8,15 +8,18 @@
  * plus active Aether bridge links) reaches one of their SETTLED tiles or one
  * of their FRONTIER dock tiles. Cut that path and everything past the cut is
  * lost at once. Out-of-reach frontier can't be settled, so that path is the
- * only thing keeping it -- this model is what the map draws to make that
- * visible.
+ * only thing keeping it.
  *
- * A multi-source BFS gives every tile its fewest-steps route back to supply
- * (ties prefer straight steps). Lines are drawn only out to the frontier's
- * tips -- tiles with nothing of the viewer's further out -- so a snake or a
- * branch gets one line, and a wide area gets a few lines to its far edge
- * instead of a line into every tile. Side-by-side tips at the same distance
- * (the edge of a block, the end of a two-wide corridor) share one line.
+ * Most land beyond reach has several ways back to supply, and losing any one
+ * tile changes nothing; drawing it is noise. So the model only keeps the
+ * fragile part: beyond-reach land that sits past a cut tile -- a single
+ * FRONTIER tile whose loss would cut it off (an articulation point of the
+ * supply graph). Each such stretch gets a line from the nearest supply tile
+ * (settled land or a frontier dock), through the cut tile, which the
+ * renderers mark, out to its tips -- tiles with nothing further out -- along
+ * the fewest-steps supply path (ties prefer straight steps). Side-by-side tips
+ * at the same distance share one line. Nested cuts (a snake is all cut tiles)
+ * report only the one nearest supply: losing it loses the most.
  *
  * Pure and O(owned tiles).
  */
@@ -34,16 +37,14 @@ export type FrontierSupplyTile = {
 export type FrontierSupplyLink = {
   from: { x: number; y: number };
   to: { x: number; y: number };
-  /** Hops beyond reach at the child end (1 = first tile past the reach edge). Drawn fainter the further out it is. */
-  depthBeyondReach: number;
-  /** Beyond-reach tiles this hop carries: everything fed through `to`, plus undrawn branches beside it that the line stands in for. Drawn as line thickness. */
-  downstream: number;
-  /** `to` is a frontier tip the line ends at: drawn with an arrowhead. */
+  /** `to` is a frontier tip the line ends at. */
   tip: boolean;
 };
 
 export type FrontierSupplyModel = {
   links: FrontierSupplyLink[];
+  /** Cut tiles: each is the single tile some drawn stretch of beyond-reach land hangs on. */
+  cuts: Array<{ x: number; y: number }>;
 };
 
 export type FrontierSupplyInput = {
@@ -57,7 +58,7 @@ export type FrontierSupplyInput = {
   worldHeight?: number;
 };
 
-export const EMPTY_FRONTIER_SUPPLY_MODEL: FrontierSupplyModel = { links: [] };
+export const EMPTY_FRONTIER_SUPPLY_MODEL: FrontierSupplyModel = { links: [], cuts: [] };
 
 const NEIGHBOR_OFFSETS: ReadonlyArray<readonly [number, number]> = [
   [-1, -1], [0, -1], [1, -1],
@@ -143,7 +144,6 @@ export const computeFrontierSupplyModel = (input: FrontierSupplyInput): Frontier
     return Math.min(dx, width - dx) + Math.min(dy, height - dy) === 1;
   };
   const parent = new Int32Array(nodeCount).fill(-1);
-  const depth = new Int32Array(nodeCount);
   for (let n = 1; n < tail; n += 1) {
     const i = order[n]!;
     let best = -1;
@@ -152,19 +152,14 @@ export const computeFrontierSupplyModel = (input: FrontierSupplyInput): Frontier
       if (best === -1 || (candidate > 0 && isStraightStep(i, candidate) && !(best > 0 && isStraightStep(i, best)))) best = candidate;
     }
     parent[i] = best;
-    depth[i] = beyondReach(i) ? depth[best]! + 1 : 0;
   }
 
-  // How many beyond-reach tiles each hop feeds: accumulate up the supply
-  // tree in reverse BFS order, so every child is counted before its parent.
-  const fed = new Int32Array(nodeCount);
-  for (let n = tail - 1; n >= 1; n -= 1) {
-    const i = order[n]!;
-    if (beyondReach(i)) fed[i]! += 1;
-    if (parent[i]! > 0) fed[parent[i]!]! += fed[i]!;
-  }
+  // Any FRONTIER tile can be taken and cut what hangs on it -- a frontier dock
+  // included, though it is also a supply source. Settled tiles are not cuts.
+  const cutOf = cutTilesFor(adjacency, (i) => nodeTiles[i]!.ownershipState === "FRONTIER");
+  const fragile = (i: number): boolean => beyondReach(i) && cutOf[i]! > 0;
 
-  // Tips: where the frontier ends. Group side-by-side beyond-reach tiles at
+  // Tips: where a fragile stretch ends. Group side-by-side fragile tiles at
   // the same distance from supply; a group is an edge of the frontier only if
   // none of its tiles has a neighbour further out (so a block's near corners,
   // which sit level with tiles that lead on, don't count, and nor does the
@@ -174,7 +169,7 @@ export const computeFrontierSupplyModel = (input: FrontierSupplyInput): Frontier
   const grouped = new Uint8Array(nodeCount);
   for (let n = 1; n < tail; n += 1) {
     const seed = order[n]!;
-    if (grouped[seed] === 1 || !beyondReach(seed)) continue;
+    if (grouped[seed] === 1 || !fragile(seed)) continue;
     const group: number[] = [seed];
     grouped[seed] = 1;
     let leadsFurther = false;
@@ -184,7 +179,7 @@ export const computeFrontierSupplyModel = (input: FrontierSupplyInput): Frontier
         // Only beyond-reach land counts: a deeper in-reach neighbour (a concave
         // reach border) doesn't make this out-of-reach pocket any less of an edge.
         if (level[j]! > level[i]! && beyondReach(j)) leadsFurther = true;
-        if (level[j] === level[i] && grouped[j] === 0 && beyondReach(j)) {
+        if (level[j] === level[i] && grouped[j] === 0 && fragile(j)) {
           grouped[j] = 1;
           group.push(j);
         }
@@ -215,26 +210,15 @@ export const computeFrontierSupplyModel = (input: FrontierSupplyInput): Frontier
     isTip[middle] = 1;
   }
 
-  // Keep only the hops on a route out to a tip.
+  // Keep only the hops from each tip back to the supply tile nearest it (the
+  // last tile before the virtual root). Every supply path from the tip runs
+  // through its cut, so its supply-tree path does too.
   const onRoute = new Uint8Array(nodeCount);
+  const cutNodes = new Set<number>();
   for (let i = 1; i < nodeCount; i += 1) {
     if (isTip[i] !== 1) continue;
-    for (let node = i; node > 0 && beyondReach(node) && onRoute[node] === 0; node = parent[node]!) onRoute[node] = 1;
-  }
-
-  // A drawn line stands in for the undrawn land beside it: give each drawn
-  // hop the weight of its pruned sibling branches too, so the single line into
-  // a wide block draws as thick as the land it carries.
-  const carried = Int32Array.from(fed);
-  const firstDrawnChild = new Int32Array(nodeCount).fill(-1);
-  for (let i = 1; i < nodeCount; i += 1) {
-    if (onRoute[i] === 1 && parent[i]! >= 0 && firstDrawnChild[parent[i]!] === -1) firstDrawnChild[parent[i]!] = i;
-  }
-  for (let i = 1; i < nodeCount; i += 1) {
-    const p = parent[i]!;
-    if (onRoute[i] === 1 || p < 0 || !beyondReach(i)) continue;
-    const stand = firstDrawnChild[p]!;
-    if (stand > 0) carried[stand]! += fed[i]!;
+    cutNodes.add(cutOf[i]!);
+    for (let node = i; node > 0 && !isSource[node] && onRoute[node] === 0; node = parent[node]!) onRoute[node] = 1;
   }
 
   const links: FrontierSupplyLink[] = [];
@@ -243,14 +227,65 @@ export const computeFrontierSupplyModel = (input: FrontierSupplyInput): Frontier
     if (from <= 0 || onRoute[i] !== 1) continue;
     const fromTile = nodeTiles[from]!;
     const toTile = nodeTiles[i]!;
-    links.push({
-      from: { x: fromTile.x, y: fromTile.y },
-      to: { x: toTile.x, y: toTile.y },
-      depthBeyondReach: depth[i]!,
-      downstream: carried[i]!,
-      tip: isTip[i] === 1
-    });
+    links.push({ from: { x: fromTile.x, y: fromTile.y }, to: { x: toTile.x, y: toTile.y }, tip: isTip[i] === 1 });
+  }
+  const cuts = [...cutNodes].sort((a, b) => a - b).map((i) => ({ x: nodeTiles[i]!.x, y: nodeTiles[i]!.y }));
+
+  return { links, cuts };
+};
+
+/**
+ * For every node, the cut tile nearest supply that it hangs on, or -1: a
+ * tile allowed by `canCut` whose removal disconnects the node from the root
+ * (node 0).
+ *
+ * Iterative Tarjan articulation points from the root: a DFS-tree child c of v
+ * (v not the root) has its whole subtree cut off by v when no back edge from
+ * that subtree climbs above v (low[c] >= disc[v]). Walking the tree top-down,
+ * a node inherits its parent's cut if it has one, so the cut reported is the
+ * one nearest supply. Parallel edges (a bridge link beside a neighbour edge)
+ * and the edge back to the DFS parent only lower `low` to disc[v] at most,
+ * which leaves the test unchanged.
+ */
+const cutTilesFor = (adjacency: number[][], canCut: (node: number) => boolean): Int32Array => {
+  const nodeCount = adjacency.length;
+  const disc = new Int32Array(nodeCount).fill(-1);
+  const low = new Int32Array(nodeCount);
+  const dfsParent = new Int32Array(nodeCount).fill(-1);
+  const nextEdge = new Int32Array(nodeCount);
+  const preorder: number[] = [0];
+  const stack: number[] = [0];
+  disc[0] = 0;
+  let time = 1;
+  while (stack.length > 0) {
+    const u = stack[stack.length - 1]!;
+    const edges = adjacency[u]!;
+    if (nextEdge[u]! < edges.length) {
+      const w = edges[nextEdge[u]!]!;
+      nextEdge[u]! += 1;
+      if (disc[w] === -1) {
+        disc[w] = time;
+        low[w] = time;
+        time += 1;
+        dfsParent[w] = u;
+        preorder.push(w);
+        stack.push(w);
+      } else if (disc[w]! < low[u]!) {
+        low[u] = disc[w]!;
+      }
+      continue;
+    }
+    stack.pop();
+    const p = dfsParent[u]!;
+    if (p >= 0 && low[u]! < low[p]!) low[p] = low[u]!;
   }
 
-  return { links };
+  const cutOf = new Int32Array(nodeCount).fill(-1);
+  for (const n of preorder) {
+    const p = dfsParent[n]!;
+    if (p <= 0) continue;
+    if (cutOf[p]! > 0) cutOf[n] = cutOf[p]!;
+    else if (low[n]! >= disc[p]! && canCut(p)) cutOf[n] = p;
+  }
+  return cutOf;
 };

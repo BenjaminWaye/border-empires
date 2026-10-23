@@ -24,7 +24,7 @@ const makePlayer = (id: string) => ({
 
 // Flag at (50,50) holding `amount`. A SETTLED enemy sits one hop away at
 // (51,50); a cheap FRONTIER enemy sits three hops away at (47,50).
-const scenario = (amount: number, settledFort?: "PALISADE" | "FORT" | "THUNDER_BASTION") => {
+const scenario = (amount: number, settledFort?: "PALISADE" | "FORT" | "THUNDER_BASTION", commitManpower?: number) => {
   const tiles: SeedTileInput[] = [
     {
       x: 50,
@@ -32,7 +32,7 @@ const scenario = (amount: number, settledFort?: "PALISADE" | "FORT" | "THUNDER_B
       terrain: "LAND",
       ownerId: "player-1",
       ownershipState: "SETTLED",
-      muster: { ownerId: "player-1", amount, mode: "ADVANCE", updatedAt: 1_000 }
+      muster: { ownerId: "player-1", amount, mode: "ADVANCE", updatedAt: 1_000, ...(commitManpower ? { commitManpower } : {}) }
     },
     { x: 49, y: 50, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
     { x: 48, y: 50, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
@@ -134,6 +134,73 @@ describe("ADVANCE saves up for its nearest target", () => {
       const { frontier } = await runOnce(runtime);
       expect(frontier?.ownerId).toBe("player-2");
       expect(runtime.exportState().tiles.find((t) => t.x === 51 && t.y === 50)?.ownerId).toBe("player-1");
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("saves up for its chosen effort (Double) before attacking the settled tile", async () => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      // 60 covers the settled tile's floor, but Double commits 120 to it.
+      const runtime = scenario(60, undefined, 120);
+      const { frontier, flag } = await runOnce(runtime);
+      expect(frontier?.ownerId).toBe("player-2");
+      expect(runtime.exportState().tiles.find((t) => t.x === 51 && t.y === 50)?.ownerId).toBe("player-2");
+      const muster = JSON.parse(flag?.musterJson ?? "{}");
+      expect(muster.amount).toBe(60);
+      expect(muster.insufficientManpower).toBe(true);
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("attacks with its full Double effort once the flag holds it", async () => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      const runtime = scenario(120, undefined, 120);
+      const { frontier, flag } = await runOnce(runtime);
+      expect(frontier?.ownerId).toBe("player-2");
+      expect(runtime.exportState().tiles.find((t) => t.x === 51 && t.y === 50)?.ownerId).toBe("player-1");
+      // The whole 120 went into the fight, not just the 60 floor.
+      expect(JSON.parse(flag?.musterJson ?? "{}").amount ?? 0).toBe(0);
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("scales Double to a Palisade's own floor and grows the flag to hold it", async () => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      // Palisade floor 150: Double is 300, above the default 150 flag cap.
+      const runtime = scenario(200, "PALISADE", 120);
+      const { flag } = await runOnce(runtime);
+      expect(runtime.exportState().tiles.find((t) => t.x === 51 && t.y === 50)?.ownerId).toBe("player-2");
+      const muster = JSON.parse(flag?.musterJson ?? "{}");
+      expect(muster.amount).toBe(200);
+      expect(muster.insufficientManpower).toBe(true);
+      // Grown by Expand Capacity levels (each adds a share of the manpower cap).
+      expect(muster.capLevel ?? 0).toBeGreaterThan(0);
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("commits Double's 300 to a Palisade once the flag holds it", async () => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      const runtime = scenario(300, "PALISADE", 120);
+      const { flag } = await runOnce(runtime);
+      expect(runtime.exportState().tiles.find((t) => t.x === 51 && t.y === 50)?.ownerId).toBe("player-1");
+      expect(JSON.parse(flag?.musterJson ?? "{}").amount ?? 0).toBe(0);
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();

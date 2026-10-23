@@ -55,7 +55,8 @@ const DURABLE_COMMAND_TYPES = [
   "WAYPOINT_CANCEL",
   "WAYPOINT_CANCEL_ALL",
   "CLAIM_CONTINUATION_SET",
-  "SET_AUTO_SETTLE_PREFS"
+  "SET_AUTO_SETTLE_PREFS",
+  "NAME_ISLAND"
 ] as const;
 
 // DEV_QUEUE_*/WAYPOINT_* commands mutate PlayerRuntimeSummary.devQueue/
