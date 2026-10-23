@@ -10,6 +10,7 @@ const socket = {} as import("ws").WebSocket;
 
 const truceDeps = (overrides: Partial<TruceSocketMessageDeps>): TruceSocketMessageDeps => ({
   requestTruce: () => okResult, acceptTruce: () => okResult, rejectTruce: () => okResult, cancelTruce: () => okResult, breakTruce: () => okResult,
+  syncPlayers: () => ({ payloadsByPlayerId: new Map() }), takeStaleOfferSync: () => undefined,
   sendJson: vi.fn(), fanoutPlayerPayloads: vi.fn(), syncTruceToSimulation: vi.fn(async () => true),
   maybeAutoRespondToSeededAiTruce: vi.fn(async () => {}), sendGameplayEmailAlert: vi.fn(),
   sendTruceRequestAlert: vi.fn(async () => ({ sent: false }) as unknown as Awaited<ReturnType<TruceSocketMessageDeps["sendTruceRequestAlert"]>>),
@@ -46,5 +47,45 @@ describe("diplomacy player-funnel hook", () => {
     await handleAllianceSocketMessage(allianceDeps({ onDiplomacyInteraction }), { type: "ALLIANCE_ACCEPT", requestId: "r1" } as ClientMessage, "p1", socket);
     await handleAllianceSocketMessage(allianceDeps({ onDiplomacyInteraction }), { type: "ALLIANCE_BREAK", targetPlayerId: "p2" } as ClientMessage, "p1", socket);
     expect(onDiplomacyInteraction.mock.calls).toEqual([["p1", "p2"], ["p1", "p2"]]);
+  });
+});
+
+describe("stale truce offer resync", () => {
+  const invalid = { ok: false as const, code: "TRUCE_REQUEST_INVALID", message: "request invalid or expired" };
+
+  it.each(["TRUCE_ACCEPT", "TRUCE_REJECT", "TRUCE_CANCEL"] as const)("%s on a dropped offer sends the error, then the actor's fresh state", async (type) => {
+    const sent: string[] = [];
+    const resync = new Map<string, unknown[]>([["p1", [{ type: "TRUCE_UPDATE", incomingTruceRequests: [] }]]]);
+    const syncPlayers = vi.fn(() => ({ payloadsByPlayerId: resync }));
+    const deps = truceDeps({
+      sendJson: vi.fn((_socket, payload: unknown) => { sent.push((payload as { type: string }).type); }),
+      fanoutPlayerPayloads: vi.fn((payloads: Map<string, unknown[]>) => { sent.push(payloads === resync ? "resync" : "other"); }),
+      syncPlayers, acceptTruce: () => invalid, rejectTruce: () => invalid, cancelTruce: () => invalid
+    });
+    await handleTruceSocketMessage(deps, { type, requestId: "stale" } as ClientMessage, "p1", socket);
+    expect(syncPlayers).toHaveBeenCalledWith(["p1"]);
+    expect(sent).toEqual(["ERROR", "resync"]);
+  });
+
+  it("also flushes the other side of an offer a failed accept just deleted", async () => {
+    const fanoutPlayerPayloads = vi.fn();
+    const stale = new Map<string, unknown[]>([["p2", [{ type: "TRUCE_UPDATE", outgoingTruceRequests: [] }]]]);
+    const lockedOut = { ok: false as const, code: "TRUCE_LOCKED_OUT", message: "one player broke a truce recently and is locked out" };
+    const deps = truceDeps({ fanoutPlayerPayloads, acceptTruce: () => lockedOut, takeStaleOfferSync: () => ({ payloadsByPlayerId: stale }) });
+    await handleTruceSocketMessage(deps, { type: "TRUCE_ACCEPT", requestId: "r1" } as ClientMessage, "p1", socket);
+    expect(fanoutPlayerPayloads).toHaveBeenLastCalledWith(stale);
+  });
+
+  it("does not resync on failures that say nothing about a stale offer", async () => {
+    const syncPlayers = vi.fn(() => ({ payloadsByPlayerId: new Map() }));
+    const settling = { ok: false as const, code: "OFFER_SETTLING", message: "That offer is being settled right now." };
+    await handleTruceSocketMessage(truceDeps({ syncPlayers, acceptTruce: () => settling }), { type: "TRUCE_ACCEPT", requestId: "r1" } as ClientMessage, "p1", socket);
+    expect(syncPlayers).not.toHaveBeenCalled();
+  });
+
+  it("does not resync after a successful accept beyond the normal fanout", async () => {
+    const syncPlayers = vi.fn(() => ({ payloadsByPlayerId: new Map() }));
+    await handleTruceSocketMessage(truceDeps({ syncPlayers }), { type: "TRUCE_ACCEPT", requestId: "r1" } as ClientMessage, "p1", socket);
+    expect(syncPlayers).not.toHaveBeenCalled();
   });
 });
