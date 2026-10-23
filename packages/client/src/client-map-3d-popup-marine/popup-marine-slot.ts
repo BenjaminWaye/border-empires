@@ -9,8 +9,13 @@ import { attachOcclusionSilhouette, MARINE_RENDER_ORDER, type MarineSilhouette }
 import { MARINES_PER_SIDE, type MarineStance } from "./popup-marine-timeline.js";
 import type { MarineArmor } from "./popup-marine-armor.js";
 
-// Rig bone the muzzle flash is pinned to (the Mixamo humanoid's pistol hand).
-const HAND_BONE_NAME = "RightHand";
+// Rig bone the muzzle flash is pinned to: the standard marine's pistol hand,
+// but the titanium war-walker's LEFT hand -- its gatling arm (the right arm
+// carries the buzz-saw claw; see bake-popup-marine-titanium-model.py).
+const HAND_BONE_BY_ARMOR: Record<MarineArmor, string> = {
+  standard: "RightHand",
+  titanium: "LeftHand"
+};
 
 export type MarineSlot = {
   /** Whole cloned model root — the asset carries its scale on its own root
@@ -27,9 +32,9 @@ export type MarineSlot = {
   phase: number;
 };
 
-// Titanium armour reads as bare polished plate rather than painted kit: more
-// metallic and a little glossier, on top of its own heavier sculpt. The team
-// tint still drives the colour, so sides stay readable.
+// The titanium war-walker reads as bare polished titanium rather than
+// painted kit: more metallic and a little glossier, on top of its own walker
+// model. The team tint still drives the colour, so sides stay readable.
 const FINISH_BY_ARMOR: Record<MarineArmor, { roughness: number; metalness: number }> = {
   standard: { roughness: 0.4, metalness: 0.4 },
   titanium: { roughness: 0.28, metalness: 0.75 }
@@ -78,7 +83,7 @@ export const createMarineSlot = (scene: Scene, template: PopupMarineTemplate, in
     silhouette,
     mixer,
     actions,
-    handBone: root.getObjectByName(HAND_BONE_NAME),
+    handBone: root.getObjectByName(HAND_BONE_BY_ARMOR[armor]),
     // Spread the loop phase across the squad so a firing line doesn't
     // breathe/step in perfect unison.
     phase: (index % MARINES_PER_SIDE) * 0.37

@@ -40,9 +40,12 @@ SRC_RIG = argv[0]
 CLIP_DIR = argv[1]
 OUT = argv[2]
 TARGET_TRIS = int(argv[3]) if len(argv) > 3 else 6000
-# 1.4x the standard marine's 0.052 local units: a war-walker should tower
-# over the infantry it fights alongside.
-TARGET_HEIGHT = 0.052 * 1.4
+# The standard marine's height (0.052 local units). The walker already
+# reads as far heavier than infantry -- with its shoulder plates and weapon
+# arms it is about twice a marine's width -- and the squad formation spaces
+# eight figures for marine-width bodies: at 1.4x height (tried first) the
+# squad merged into one solid wall in the battle overlay.
+TARGET_HEIGHT = 0.052
 # Voxel size as a fraction of the walker's height; fine enough to keep the
 # gatling barrels, saw and cooling stacks readable at the triangle budget.
 VOXEL_DIVISIONS = 220

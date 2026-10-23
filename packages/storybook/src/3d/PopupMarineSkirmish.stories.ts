@@ -6,6 +6,7 @@ import {
   CLASH_MS,
   type BattleOverlaySkirmishEntry
 } from "@client/client-map-3d-popup-marine/popup-marine-overlay-fx.js";
+import type { MarineArmor } from "@client/client-map-3d-popup-marine/popup-marine-armor.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
 // The SKIRMISH loop on its own: a siege whose outcome the server has not
@@ -31,6 +32,10 @@ type Args = {
   defenderColor: string;
   cameraDistance: number;
   siegeTowerBeaming: boolean;
+  // "titanium" fields the war-walker an empire owning a Titanium Weapons
+  // Factory sends into battle (popup-marine-armor.ts).
+  attackerArmor: MarineArmor;
+  defenderArmor: MarineArmor;
 };
 
 // hashSeed 1 == tileHashSeed(0, 1) — the tile coordinate the "siege tower
@@ -68,6 +73,8 @@ const render = (args: Args): HTMLElement => {
     defenderColor: args.defenderColor,
     startAt,
     hashSeed: 1,
+    attackerArmor: args.attackerArmor,
+    defenderArmor: args.defenderArmor,
     // A beaming tower is boosting this fight, so the opening lance plays too.
     siegeBoosted: args.siegeTowerBeaming
   };
@@ -127,13 +134,17 @@ const meta: Meta<Args> = {
     attackerColor: { control: "color" },
     defenderColor: { control: "color" },
     cameraDistance: { control: { type: "range", min: 2, max: 12, step: 0.5 } },
-    siegeTowerBeaming: { control: "boolean" }
+    siegeTowerBeaming: { control: "boolean" },
+    attackerArmor: { control: "inline-radio", options: ["standard", "titanium"] },
+    defenderArmor: { control: "inline-radio", options: ["standard", "titanium"] }
   },
   args: {
     attackerColor: "#4fb3ff",
     defenderColor: "#ff5d5d",
     cameraDistance: 5,
-    siegeTowerBeaming: false
+    siegeTowerBeaming: false,
+    attackerArmor: "standard",
+    defenderArmor: "standard"
   },
   render
 };
@@ -156,3 +167,13 @@ export const StandoffCloseUp: Story = { args: { cameraDistance: 2.5 } };
  * popup-marine-siege-victim.ts. Watch the defender side (right) the moment
  * "STANDOFF" appears in the label. */
 export const KillShotCloseUp: Story = { args: { cameraDistance: 2.5, siegeTowerBeaming: true } };
+
+/** Titanium war-walkers (left, an empire owning a Titanium Weapons Factory)
+ * against standard marines (right), close enough to compare scale and
+ * stances. */
+export const TitaniumVsStandard: Story = { args: { cameraDistance: 3, attackerArmor: "titanium" } };
+
+/** Walkers on both sides. */
+export const TitaniumVsTitanium: Story = {
+  args: { cameraDistance: 3, attackerArmor: "titanium", defenderArmor: "titanium" }
+};
