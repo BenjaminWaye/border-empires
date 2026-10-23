@@ -1,71 +1,17 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
-// Split out of client-changelog-data.ts to keep it under the line cap. These
-// entries had aged out of the 6-day window (historical record, unreferenced).
-export const CLIENT_CHANGELOG_ENTRIES_EARLIER_106: ClientChangelogEntry[] = [
+// Inline entries from the 2026.10.13 - 2026.10.16 releases, moved out of
+// client-changelog-data.ts to keep that file under the 500-line cap. Order
+// doesn't matter: entries are sorted by createdAt at render time.
+export const CLIENT_CHANGELOG_ENTRIES_OCT_13_16: ClientChangelogEntry[] = [
   {
-    createdAt: 1791969768256, // Frozen Date.now() timestamp for the changelog gate.
-    introducedIn: "2026.10.14.2",
-    title: "Waystation rewards show current technology names",
-    why: "The tile overview showed old technology names such as Leatherworking instead of their current Manifest names.",
-    changes: ["All Waystation technology rewards now use the current tech catalog name in the tile overview, including previously activated sites"]
-  },
-  {
-    createdAt: 1791969340091, // Date.now() captured once for this release.
-    introducedIn: "2026.10.14.4",
-    title: "Manifest details stay where you scroll",
-    why: "Live game updates kept rebuilding Manifest details and jumping the menu back to the top.",
-    changes: ["Mobile and desktop Manifest details keep their scroll position while coin and unlock status update"]
-  },
-  {
-    createdAt: 1791970194502,
-    introducedIn: "2026.10.14.2",
-    title: "Hidden dock connections stay hidden",
-    why: "Selecting an enemy dock lit up undiscovered linked docks on the minimap and offered navigation into fog.",
-    changes: ["Selecting a dock no longer reveals hidden connections on the minimap or either map renderer", "Dock navigation only visits discovered destinations; garrisoning a dock reveals its links", "3D dock routes update as soon as linked docks are discovered, even while the same dock stays selected"]
-  },
-  {
-    createdAt: 1792009197862, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.14.3",
-    title: "AI empires weigh your truce and alliance offers",
-    why: "AI empires accepted truces almost instantly, and repeat offers could be spammed at any player.",
+    createdAt: 1792187006316, // frozen Date.now() value for this release
+    introducedIn: "2026.10.16.1",
+    title: "New empires land with a manpower reserve",
+    why: "New players ran out of manpower within the first 15-20 minutes, and manpower only refills every few hours.",
     changes: [
-      "AI empires now judge relative strength, shared borders, food, and past broken truces, and tell you why they accepted or declined",
-      "AI empires now answer alliance offers too",
-      "After an offer is declined or cancelled, you can't send that player the same kind of offer for 30 minutes (10 minutes after an unanswered truce offer expires)"
-    ]
-  },
-  {
-    createdAt: 1791920134069, // Date.now() frozen for this entry.
-    introducedIn: "2026.10.13.1",
-    title: "New towns on the 3D map",
-    why: "Towns on the 3D map looked out of place next to the bright terrain and the AFC.",
-    changes: [
-      "Every town tier on the 3D map has new art: clockwork skyscrapers of glass and grey stone banded in brass, with lamplit windows and crowns of brass cog clocks, needle spires, glowing alien bulbs and finned crystals, on an octagonal base plate",
-      "Towns and cities are laid out on street grids with lamplit crossings, parks and skybridges between their towers, and cities rise to a downtown of sheer glass skyscrapers",
-      "Towns grow visibly through their tiers, from a few low towers round a cog lamp to a metropolis round a brass-haloed megatower crowned with an aether crystal",
-      "Towns are alive: steam rises from rooftop stacks, windows flicker with lamplight, clock cogs and orreries turn, crystals spin, and airships circle the bigger cities",
-      "Neighbouring towns of the same tier now face different ways, so they no longer look like copies"
-    ]
-  },
-  {
-    createdAt: 1791921253260, // frozen Date.now() value for this release
-    introducedIn: "2026.10.13.1",
-    title: "Empire Integrity moves to the Economy panel",
-    why: "Playtesters watched Empire Integrity fall as they expanded and read it as being punished. In fact it was still a bonus, and some updates briefly showed it lower than it really was.",
-    changes: [
-      "Empire Integrity now lives in the Economy panel; the top bar only shows it, with a warning, once it drops below 50% and actually reduces your coin and growth",
-      "Fixed integrity sometimes showing lower than it really was (e.g. 80% for a small new empire) after changing your profile or colour, toggling auto-garrison, or using an ability"
-    ]
-  },
-  {
-    createdAt: 1791927499454, // frozen Date.now() value for this release
-    introducedIn: "2026.10.13.1",
-    title: "Top bar icons are labelled",
-    why: "Playtesters couldn't tell what the icons in the top-right corner opened without hovering over each one.",
-    changes: [
-      "Manifest, Allies, Ranks, Activity, Sharding and Settings now show their name under the icon on desktop",
-      "The Alerts (bell) button has been removed from the top bar and the mobile menu while the alerts feed is reworked -- the Activity dashboard is where to see what happened"
+      "Every new empire -- yours when you join, and AI empires when a season starts -- lands with a one-time +1,000 manpower on top of its starting manpower",
+      "The reserve can sit above your manpower cap; regeneration pauses until you have spent back below the cap"
     ]
   },
   {
