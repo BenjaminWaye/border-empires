@@ -9,15 +9,18 @@
 // that deploy. Those numbers are presented as a trailing 24h, so a deploy made
 // them quietly wrong rather than obviously missing.
 //
-// Why one blob on the season summary's existing persist cadence rather than
-// append-only rows through the SQLite writer worker: a per-record write path
-// (plus a chunked prune and a new table) is a large amount of machinery on the
-// hottest path in the sim, for data a single periodic upsert already covers.
+// Why one blob saved with the season summary rather than append-only rows
+// through the SQLite writer worker: a per-record write path (plus a chunked
+// prune and a new table) is a large amount of machinery on the hottest path in
+// the sim, for data a single periodic upsert already covers. That upsert runs
+// at boot, on every season-victory recheck (at most 5 minutes apart) and on a
+// graceful shutdown, so a deploy loses nothing and a crash loses <=5 minutes.
 //
 // The blob is the whole of each log, with no tighter cap of its own. Each log
 // is already bounded by its 24h prune and its entry cap (50,000 for the public
 // logs, 5,000 for personal impacts), so that is the ceiling here too: about
-// 17 MB and ~16 ms of JSON.stringify if both public logs are full. An earlier
+// 17 MB if both public logs are full (~16 ms of JSON.stringify on a dev
+// laptop; prod's shared vCPU will be slower). An earlier
 // 5,000-entry persist cap assumed a few hundred flips per day; every capture
 // and expansion world-wide is a flip, so a busy day passed it within hours and
 // each restart cut every player's "Yours" timeline back to that newest slice.

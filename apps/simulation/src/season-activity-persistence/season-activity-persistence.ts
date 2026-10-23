@@ -53,3 +53,22 @@ export const restoreSeasonActivityState = async (
   await restoreDeadliestTiles(store, seasonId, runtime.manpowerLossByTileKey);
   runtime.restoreActivityLogs(await store.loadActivityLogs(seasonId));
 };
+
+/**
+ * Saves the activity state one last time on a graceful shutdown (every
+ * deploy). The periodic save only runs on the season-victory recheck timer,
+ * so without this a restart drops everything recorded since that last tick.
+ * Never throws: a failed save must not block the rest of shutdown.
+ */
+export const saveShutdownSeasonActivityState = async (
+  store: SeasonSummaryStore,
+  seasonId: string,
+  runtime: PersistableRuntime,
+  log: Pick<Console, "error">
+): Promise<void> => {
+  try {
+    await persistSeasonActivityState(store, seasonId, runtime);
+  } catch (error) {
+    log.error({ err: error }, "simulation shutdown activity save failed");
+  }
+};
