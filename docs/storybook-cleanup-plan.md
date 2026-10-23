@@ -1,7 +1,6 @@
 # Storybook cleanup
 
-Status: done (2026-10-23), except one open decision: whether to show the 8
-unwired AFC module models in game. The day-to-day rules now live in
+Status: done (2026-10-23). The day-to-day rules now live in
 [`packages/storybook/README.md`](../packages/storybook/README.md); this file
 records what was wrong and what changed.
 
@@ -79,13 +78,12 @@ player sees.
 - **Guardrails:** accepted as proposed, including the 30-day sandbox limit
   (decided 2026-10-23). `Sandbox/Grouped Building Menu` was given
   `added: 2026-10-23`.
-- **Open: the 8 unwired AFC module models.** Bastion Master-Die, Hive Mind I
-  and II, Thunderplate Induction, Neural Assembly Core, Reserve Lattice,
-  Ancillary Control Core and Catalyst Fabricator are built and tested, and each
-  matches an `AFC_MODULE` tech in `tech-tree.json`. None is in
-  `MODULE_FAMILY_FACTORIES` (`client-map-3d-afc-module-family.ts`), so in game
-  those techs dock the generic cartridge. `Map/AFC/Modules` labels them
-  "not in game".
-  - Wiring them in is a change players will see, so it needs a changelog entry
-    and a lore check, and the 2D AFC glyph must be checked (renderer parity).
-  - `cryptography` (the Counterphase Core Module) has no model at all.
+- **The 8 unwired AFC module models:** wired into the game (decided
+  2026-10-23). Bastion Master-Die, Hive Mind I and II, Thunderplate
+  Induction, Neural Assembly Core, Reserve Lattice, Ancillary Control Core and
+  Catalyst Fabricator were built and tested but missing from
+  `MODULE_FAMILY_FACTORIES` (`client-map-3d-afc-module-family.ts`), so their
+  techs docked the generic cartridge. They now dock their own models in the 3D
+  renderer; the 2D renderer keeps its shared AFC glyph, as for every module
+  except Industrial Tooling. `cryptography` (Counterphase Core) still has no
+  model.
