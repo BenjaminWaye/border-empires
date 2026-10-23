@@ -70,7 +70,7 @@ export const openAccountDeletion = (auth: Auth, wsUrl: string): void => {
     ${needsPassword ? '<label>Password<input name="password" type="password" autocomplete="current-password" required></label>' : ""}
     <label>Type DELETE to confirm<input name="confirmation" autocomplete="off" required pattern="DELETE"></label>
     <p role="status" aria-live="polite"></p>
-    <div class="account-deletion-actions"><button type="button" class="panel-btn" data-cancel>Cancel</button><button type="submit" class="panel-btn account-deletion-confirm">Delete account</button></div>
+    <div class="account-deletion-actions"><button type="button" class="panel-btn" data-cancel autofocus>Cancel</button><button type="submit" class="panel-btn account-deletion-confirm">Delete account</button></div>
   </form>`;
   const form = dialog.querySelector<HTMLFormElement>("form")!;
   const status = dialog.querySelector<HTMLElement>('[role="status"]')!;
@@ -137,6 +137,6 @@ export const openAccountDeletion = (auth: Auth, wsUrl: string): void => {
       if (event.shiftKey && current <= 0) { event.preventDefault(); controls[controls.length - 1]?.focus(); }
       else if (!event.shiftKey && current === controls.length - 1) { event.preventDefault(); controls[0]?.focus(); }
     });
-    dialog.querySelector<HTMLElement>("input, button")?.focus();
+    cancel.focus();
   }
 };

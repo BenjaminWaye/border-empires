@@ -309,7 +309,19 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...LOST_STRUCTURES_CHANGELOG,
   ...CAPTURED_MUSTER_CLEAR_CHANGELOG,
   ...ADVANCE_EFFORT_CHANGELOG,
-  ...MOBILE_APP_CHANGELOG
+  ...MOBILE_APP_CHANGELOG,
+  {
+    createdAt: 1792700099152, // Date.now() captured for this entry.
+    introducedIn: "2026.10.22.1",
+    title: "Account deletion and support",
+    why: "Players need a direct way to remove their account and find privacy and support information.",
+    changes: [
+      "Settings → Account now lets guests and signed-in players confirm permanent account deletion",
+      "A deletion receipt explains when associated game data will be removed or anonymised",
+      "Public support and account-deletion pages provide the same flow outside the apps",
+      "The iOS map and controls stay clear of the camera cutout in portrait and landscape"
+    ]
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

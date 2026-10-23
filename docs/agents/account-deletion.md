@@ -102,7 +102,8 @@ production merely to test it; rehearse on an isolated database first.
    The active environments use `/data/border-empires.db` without legacy snapshot
    directories. An environment using a bootstrap directory must also remove or
    anonymise that directory's identity/profile records before restarting.
-5. Remove account-linked support reports from Slack/support correspondence unless
+5. Remove account-linked support reports/notifications from the Resend delivery
+   records, support inbox and any Slack operational alerts unless
    there is a documented security/legal need to retain them. Do not claim those
    external records were erased by the SQLite tool.
 6. Check the completed receipt, foreign keys and retained neighbours. Restart the

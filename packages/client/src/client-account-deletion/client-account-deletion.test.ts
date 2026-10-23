@@ -53,7 +53,8 @@ describe("account deletion requests", () => {
       openAccountDeletion(getAuth(), "wss://api.borderempires.com/ws");
       const dialog = document.querySelector<HTMLDialogElement>("dialog")!;
       expect(dialog.parentElement?.className).toBe("account-deletion-backdrop");
-      expect(document.activeElement?.getAttribute("name")).toBe("confirmation");
+      expect(document.activeElement?.textContent).toBe("Cancel");
+      dialog.querySelector<HTMLInputElement>("input")?.focus();
       dialog.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true }));
       expect(document.activeElement?.textContent).toBe("Delete account");
       dialog.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));

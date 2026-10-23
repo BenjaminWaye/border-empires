@@ -1,3 +1,5 @@
+import { Capacitor } from "@capacitor/core";
+
 // Extracted out of client-map-3d.ts (500-line file cap, AGENTS.md): the
 // localhost-only "[3d-ownership-debug]" console/window probe for the
 // selected tile's ownership tint is a self-contained debug concern, not part
@@ -24,4 +26,3 @@ export const createOwnershipDebugEmitter = (): ((payload: Record<string, unknown
     console.info("[3d-ownership-debug]", payload);
   };
 };
-import { Capacitor } from "@capacitor/core";

@@ -21,3 +21,5 @@
 .account-deletion-dialog button:focus-visible, .account-deletion-dialog input:focus-visible { outline: 2px solid #e4c983; outline-offset: 3px; }
 .account-deletion-backdrop { position: fixed; inset: 0; z-index: 2147483647; display: grid; place-items: center; background: #000b; padding: 1rem; }
 .account-deletion-backdrop .account-deletion-dialog { position: relative; margin: 0; }
+.account-settings-links { display: flex; flex-wrap: wrap; gap: 12px; }
+.account-settings-links a { display: inline-flex; align-items: center; min-height: 44px; color: #e4c983; text-underline-offset: 3px; }

@@ -169,6 +169,12 @@ The identifiers and initial upload are recorded in `apps/mobile/store/apple-app.
 Do not reuse the account's unrelated apps. Google Play verification was reported
 complete by the owner on the same date.
 
+On 2026-10-23 the Play Console was checked directly: Wayepoint studios is an
+organisation account (`5127532228576010025`), the organisation/representative
+documents are **in review**, and phone verification is gated on their approval.
+There are no apps yet; **Create app is disabled** until account verification
+finishes. Submitting the documents was successful, but approval is still pending.
+
 On 2026-10-21 the signed device archive and App Store export both succeeded.
 The exported `App.ipa` signature, explicit store provisioning profile, production
 build metadata, bundle ID, clean source-commit marker and disabled debugger
@@ -186,9 +192,10 @@ Reassess this declaration if encryption dependencies or functionality change.
 
 The listing subtitle and Games → Strategy category were saved. Persistence of the
 description, keywords and marketing URL was verified on 2026-10-22.
-Support/copyright and private review-contact inputs are now available, but have
-not yet been saved in the signed-out console. Screenshots and declarations remain
-incomplete. A new-app warning said
+On 2026-10-23 the owner signed back into App Store Connect. The public support
+URL, copyright and private review contact were saved and verified after reload.
+Private contact details remain only in the console. Privacy policy and deletion
+URLs were also entered; screenshots and data declarations remain incomplete. A new-app warning said
 user access settings could not be saved and all existing team users have access;
 review the App Information access settings if a restriction is intended.
 
@@ -238,6 +245,19 @@ rotated into landscape. That exposed a fixed-panel/camera-cutout overlap; the ne
 native `GameViewController` constrains the whole WebView to safe-area guides for
 both renderers. Simulator builds succeed; the updated visual/device checks are
 still in progress. No physical phone has been connected or verified.
+
+The updated iPhone layout keeps the camera cutout clear in landscape; portrait
+guest gameplay and opening/cancelling account deletion were verified. A real
+1320×2868 portrait capture is preserved locally under
+`apps/mobile/ios/App/output/screenshots/qa-20261023/`. It is a staging QA capture,
+not proof of a production release. The fresh 13-inch iPad simulator initially
+stalled before the app process launched; iPad QA/captures remain unverified.
+
+Local CI found a timer escaping the launch-only muster fixture into a later
+simulation test. A regression reproduces the late events and the fixture now
+freezes its scheduled callbacks before returning. The focused test passes.
+The full local rerun was stopped to avoid competing with another worktree's
+full CI on this Mac; require the updated PR's complete CI before merging.
 
 The app-level privacy manifest and [native privacy inventory](../../apps/mobile/store/privacy-inventory.md)
 record account, gameplay, first-party usage and optional support/diagnostic data.

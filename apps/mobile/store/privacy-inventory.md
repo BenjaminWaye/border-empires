@@ -4,7 +4,8 @@ Status: prepared from source on 2026-10-23; console declarations still pending.
 This is evidence for completing App Privacy and Data Safety, not an API payload.
 
 The native apps use Firebase Authentication, our Hetzner game servers and optional
-support reports delivered to our private Slack workspace. They do not initialise
+support reports/game notifications delivered through Resend email. Operational
+alerts may reach our private Slack workspace. They do not initialise
 Google Analytics, use advertising SDKs, access IDFA, or track across other
 companies' apps/sites. Guest accounts still have a Firebase UID and game profile.
 
@@ -16,7 +17,7 @@ companies' apps/sites. Guest accounts still have a Firebase UID and game profile
 | Random installation/browser visitor ID | First-party acquisition funnel | `packages/client/src/client-acquisition-funnel/`; no IDFA or advertising identifier |
 | Gameplay content | Territory, progression, alliances, rankings, shared-world state and feature analysis | Simulation checkpoint/event stores and gateway social/galaxy stores |
 | App interactions | Session times and gameplay milestones | Gateway `player-funnel-tracker/`; sessions/acquisition records pruned after 180 days |
-| Support content | Optional bug reports and suggestions | `packages/client/src/client-bug-report/`, gateway `http-routes/bug-report-routes.ts` |
+| Support content | Optional bug reports and suggestions sent to the support inbox through Resend | `packages/client/src/client-bug-report/`, gateway `http-routes/bug-report-routes.ts` and `email-alerts/bug-report-email-alert.ts` |
 | Performance and diagnostic data | Connection/renderer performance, recent client/server events attached to reports | Client bug-report payload includes user agent, player ID/name and performance metrics |
 | Other technical data, including IP address | Networking, abuse prevention and operational logs | Gateway HTTP handling/rate limits and rotated server logs |
 
