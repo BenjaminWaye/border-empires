@@ -18,6 +18,7 @@
 import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "../ai/planner-world-view.js";
 import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
+import type { DomainTileState } from "@border-empires/game-domain";
 import {
   buildRuntimeExportPlayers,
   buildRuntimeExportState,
@@ -138,6 +139,16 @@ export function aiPlayerMetricsSnapshotForRuntime(ctx: RuntimeExportContext): Ru
 
 export function tilesForKeysForRuntime(ctx: RuntimeExportContext, tileKeys: Iterable<string>): PlannerTileView[] {
   return exportPlannerTilesForKeys(ctx.tiles, tileKeys);
+}
+
+/** The live tile states behind `tileKeys`, skipping keys with no tile. */
+export function existingTilesForKeys(tiles: ReadonlyMap<string, DomainTileState>, tileKeys: Iterable<string>): DomainTileState[] {
+  const result: DomainTileState[] = [];
+  for (const key of tileKeys) {
+    const tile = tiles.get(key);
+    if (tile) result.push(tile);
+  }
+  return result;
 }
 
 // Cheap O(players) aggregate of empire sizes for the scale metric. Uses the

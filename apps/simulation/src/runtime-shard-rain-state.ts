@@ -4,6 +4,7 @@ import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { RuntimeState } from "./runtime/runtime-state.js";
 import { computeShardRainWelcomeNotice } from "./runtime-shard-rain-rules.js";
 import { emitShardRainHelloFor, tickShardRain, type ShardRainRuntimeInput } from "./runtime-shard-rain-tick.js";
+import { TerritoryPeakTracker } from "./shard-rain-comeback/shard-rain-comeback.js";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
 
 /** What shard rain reads from and writes to the simulation runtime. */
@@ -13,14 +14,17 @@ export interface RuntimeShardRainDeps {
   replaceTileState(tileKey: string, tile: DomainTileState): void;
   emitEvent(event: SimulationEvent): void;
   tileDeltaFromState(tile: DomainTileState): SimulationTileWireDelta;
+  territoryTileKeysForPlayer(playerId: string): ReadonlySet<string>;
 }
 
 /**
  * The live shard-rain event's bookkeeping: the current wave's site count and
  * expiry, which schedule slots already spawned or warned, recently used and
- * currently active FALL sites, and the per-player hello dedup. All of it is
- * derived state: boot rebuilds it from the snapshot's FALL sites through
- * recordRecoveredFallSite, and nothing here is persisted.
+ * currently active FALL sites, the per-player hello dedup and the decaying
+ * territory peaks behind comeback rain. All of it is derived state: boot
+ * rebuilds the wave from the snapshot's FALL sites through
+ * recordRecoveredFallSite, the peaks rebuild from live territory, and
+ * nothing here is persisted.
  */
 export class RuntimeShardRain {
   private lastSpawnSlotKey: string | undefined;
@@ -31,6 +35,7 @@ export class RuntimeShardRain {
   private readonly lastHelloByPlayer = new Map<string, number>();
   private readonly recentTileKeys = new Set<string>();
   private readonly activeFallSiteKeys = new Set<string>();
+  private readonly territoryPeaks = new TerritoryPeakTracker();
   private readonly input: ShardRainRuntimeInput;
 
   constructor(deps: RuntimeShardRainDeps) {
@@ -42,6 +47,8 @@ export class RuntimeShardRain {
       recentShardRainTileKeys: this.recentTileKeys,
       activeShardFallSiteKeys: this.activeFallSiteKeys,
       lastShardRainHelloByPlayer: this.lastHelloByPlayer,
+      territoryPeaks: this.territoryPeaks,
+      territoryTileKeysForPlayer: (playerId) => deps.territoryTileKeysForPlayer(playerId),
       getCurrentShardRainExpiresAt: () => rain.currentExpiresAt,
       setCurrentShardRainExpiresAt: (expiresAt) => { rain.currentExpiresAt = expiresAt; },
       getCurrentShardRainSiteCount: () => rain.currentSiteCount,

@@ -9,7 +9,8 @@ const createShardRain = () =>
     now: () => 0,
     replaceTileState: () => undefined,
     emitEvent: () => undefined,
-    tileDeltaFromState: (tile) => ({ x: tile.x, y: tile.y })
+    tileDeltaFromState: (tile) => ({ x: tile.x, y: tile.y }),
+    territoryTileKeysForPlayer: () => new Set<string>()
   });
 
 describe("RuntimeShardRain", () => {

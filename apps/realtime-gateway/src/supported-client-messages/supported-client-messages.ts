@@ -57,6 +57,7 @@ export const supportedClientMessageTypes = [
   "AEGIS_LOCK",
   "ASTRAL_DOCK_LAUNCH",
   "ACTIVATE_IMPERIAL_WARD",
+  "SHARD_MOBILIZE",
   "UPGRADE_TOWN_TIER",
   "COLLECT_SHARD",
   "SET_TILE_COLOR",

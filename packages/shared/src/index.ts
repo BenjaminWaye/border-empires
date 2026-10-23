@@ -6,6 +6,7 @@ export * from "./diplomacy-terms/diplomacy-terms.js";
 export * from "./muster-config.js";
 export * from "./manpower-refill.js";
 export * from "./landing-manpower-reserve.js";
+export * from "./shard-mobilize.js";
 export * from "./tech-economy.js";
 export * from "./afc-build-cost.js";
 export * from "./afc-module-call-down.js";
