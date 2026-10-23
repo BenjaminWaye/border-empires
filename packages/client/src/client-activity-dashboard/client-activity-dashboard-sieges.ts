@@ -2,7 +2,7 @@ import type { PersonalActivityCard, PersonalActivityTimeline } from "@border-emp
 
 import { escapeActivityDashboardHtml } from "./client-activity-dashboard-escape.js";
 import { siegeDetail, siegeHeadline } from "./client-activity-dashboard-combat-text.js";
-import { activityCardTimeLabel } from "./client-activity-dashboard-format.js";
+import { activityCardCoordinatesLabel, activityCardTimeLabel } from "./client-activity-dashboard-format.js";
 import type { PlayerNameLookup } from "./client-activity-dashboard-names.js";
 
 type SiegeCard = Extract<PersonalActivityCard, { kind: "SIEGE" }>;
@@ -21,7 +21,7 @@ export const siegeSectionHtml = (timeline: PersonalActivityTimeline | undefined,
     <h3>Sieges</h3>
     <p>How your defenses held up under repeated attack in the last 24 hours.</p>
     ${sieges.map((card) => `<div class="activity-dashboard-card activity-dashboard-siege ${card.outcome === "FELL" ? "is-fallen" : "is-holding"}">
-      <span class="activity-dashboard-card-text"><strong>${escapeActivityDashboardHtml(siegeHeadline(card, playerNames))}</strong><br>${activityCardTimeLabel(card)} · ${escapeActivityDashboardHtml(siegeDetail(card, playerNames))}</span>
+      <span class="activity-dashboard-card-text"><strong>${escapeActivityDashboardHtml(siegeHeadline(card, playerNames))}</strong><br>${activityCardTimeLabel(card)} · ${escapeActivityDashboardHtml(siegeDetail(card, playerNames))} <span class="activity-dashboard-card-coords">${activityCardCoordinatesLabel(card) ?? ""}</span></span>
       <button class="activity-dashboard-center-btn" type="button" data-activity-focus-x="${card.x}" data-activity-focus-y="${card.y}">Center</button>
     </div>`).join("")}
   </section>`;

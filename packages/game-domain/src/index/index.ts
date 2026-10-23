@@ -38,6 +38,7 @@ import {
   type ProspectSignature,
   type AutoSettlePrefs,
   type ChosenTrickleResource,
+  type IslandNameClaim,
   type MusterState,
   type Tile,
   type WaystationTileState
@@ -123,6 +124,9 @@ export type DomainPlayer = {
   // ephemeral runtime state (Runtime.abilityCooldowns), not persisted here —
   // same convention as Aegis Lock.
   imperialWardCharges?: number;
+  // Islands this player renamed (shared island-names.ts). Persisted with the
+  // player; the sim drops a claim when its fade runs out or a rival renames.
+  islandNames?: IslandNameClaim[];
   // Pooled resource-slot supply bump granted by activated Waystations (see
   // WAYSTATION_RESOURCE_SLOT_BONUS / runtime-waystation-activation.ts) --
   // one flat +1-per-resource entry per activation, merged into

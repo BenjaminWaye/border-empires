@@ -25,7 +25,8 @@
  * socket whichever it did not already receive. Re-sending is safe: the client
  * drops any REACH_UPDATE revision at or below the one it already applied
  * (packages/client/src/client-reach-authoritative/client-reach-authoritative.ts),
- * and AETHER_SHIELDS is a full replacement list.
+ * and AETHER_SHIELDS / ISLAND_NAMES are full replacement lists
+ * (ISLAND_NAMES: apps/simulation/src/island-names/island-names-ticker.ts).
  *
  * Bounds (docs/agents/state-and-persistence-discipline.md): one entry per
  * player (holding at most one payload per replayed type), dropped by `forget`
@@ -35,7 +36,7 @@
  * gateway's gauge and eviction counter.
  */
 
-export type ReplayedPlayerMessageType = "REACH_UPDATE" | "AETHER_SHIELDS" | "AFC_FLAG_DETECTIONS";
+export type ReplayedPlayerMessageType = "REACH_UPDATE" | "AETHER_SHIELDS" | "AFC_FLAG_DETECTIONS" | "ISLAND_NAMES";
 export type ReplayedPlayerMessage = Record<string, unknown> & { type: ReplayedPlayerMessageType };
 
 export type PlayerMessageReplayOptions = {
@@ -62,7 +63,7 @@ type ReplayEntry<TSocket extends object> = {
 /** Only well-formed payloads of the replayed types are kept. */
 export const isReplayedPlayerMessage = (payload: Record<string, unknown>): payload is ReplayedPlayerMessage =>
   (payload.type === "REACH_UPDATE" && Array.isArray(payload.tileKeys)) || (payload.type === "AETHER_SHIELDS" && Array.isArray(payload.towers)) ||
-  (payload.type === "AFC_FLAG_DETECTIONS" && Array.isArray(payload.flags));
+  (payload.type === "AFC_FLAG_DETECTIONS" && Array.isArray(payload.flags)) || (payload.type === "ISLAND_NAMES" && Array.isArray(payload.islands));
 
 export const createPlayerMessageReplay = <TSocket extends object>(options: PlayerMessageReplayOptions): PlayerMessageReplay<TSocket> => {
   const maxEntries = Math.max(1, Math.floor(options.maxEntries));

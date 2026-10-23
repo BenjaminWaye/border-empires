@@ -48,6 +48,15 @@ describe("buildTerrainDistanceField", () => {
     expect(early.has(sea)).toBe(false);
   });
 
+  it("crosses water through linked tiles such as docks", () => {
+    // Without links the wall forces the long detour; a dock pair straddling
+    // it at (14,5) <-> (16,5) makes the crossing a single step.
+    const links = new Map([["14,5", ["16,5"]], ["16,5", ["14,5"]]]);
+    const field = buildTerrainDistanceField(20, 5, getTile, 200, undefined, (key) => links.get(key));
+    expect(field.get(simulationTileKey(14, 5))).toBe(5);
+    expect(field.get(simulationTileKey(10, 5))).toBe(9);
+  });
+
   it("wraps around the world edge like the rest of the muster code", () => {
     const wrapTiles = new Map<string, DomainTileState>();
     for (const x of [0, 1, WORLD_WIDTH - 1]) wrapTiles.set(simulationTileKey(x, 5), { x, y: 5, terrain: "LAND" } as DomainTileState);

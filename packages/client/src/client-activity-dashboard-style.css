@@ -153,6 +153,12 @@
   overflow-wrap: anywhere;
 }
 
+.activity-dashboard-card-coords {
+  color: #9fb8a8;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 .activity-dashboard-center-btn {
   flex: 0 0 auto;
   padding: 4px 10px;

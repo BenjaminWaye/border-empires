@@ -5,7 +5,8 @@ import type { FrontierSupplyLink, FrontierSupplyModel } from "./client-frontier-
 /**
  * Turns the supply model's per-tile hops into drawable routes: one polyline
  * per unbranched stretch of the supply tree, smoothed, with each point's
- * distance from the cut tile (so dashes run continuously across a fork).
+ * distance from the supply tile the line starts at (so the travelling pulses
+ * run on continuously through a fork).
  * Shared by the 2D and 3D renderers so both draw the same shapes.
  *
  * Points are in tile units, tile centres at integer coordinates. A route's
@@ -17,7 +18,7 @@ import type { FrontierSupplyLink, FrontierSupplyModel } from "./client-frontier-
 export type SupplyRoutePoint = {
   x: number;
   y: number;
-  /** Distance along the supply tree from the cut tile, tiles. */
+  /** Distance along the supply tree from the supply tile the line starts at, tiles. */
   distance: number;
 };
 

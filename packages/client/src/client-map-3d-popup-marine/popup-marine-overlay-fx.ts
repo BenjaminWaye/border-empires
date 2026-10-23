@@ -213,16 +213,16 @@ export function createPopupMarineOverlayFx(scene: Scene) {
     nowMs: number,
     battles: BattleOverlayRenderEntry[],
     skirmishes: BattleOverlaySkirmishEntry[] = [],
-    // The tile a siege tower is currently locked onto (see
-    // client-map-3d-siege-tower-overlay.ts), if any real tower exists on the
-    // map — undefined when there is no tower to attribute a kill shot to.
-    siegeTowerTarget?: { x: number; y: number },
+    // The battle tiles siege towers are beaming this frame (see
+    // client-map-3d-siege-tower-overlay.ts) — empty when no tower is boosting
+    // a battle, so there is no tower to attribute a kill shot to.
+    siegeTowerTargets: ReadonlyArray<{ x: number; y: number }> = [],
     // Capture-held tiles' standing squads (popup-marine-garrison.ts), drawn
     // after real fights so they never take a slot a battle needs.
     garrisons: GarrisonRenderEntry[] = []
   ): void => {
     if (battles.length === 0 && skirmishes.length === 0 && garrisons.length === 0) { clear(); return; }
-    const siegeTargetHash = siegeTowerTarget ? tileHashSeed(siegeTowerTarget.x, siegeTowerTarget.y) : undefined;
+    const siegeTargetHashes = new Set(siegeTowerTargets.map((target) => tileHashSeed(target.x, target.y)));
 
     // Prune stale strike dedup entries (a battle that resolved/expired
     // without ever crossing STRIKE_LEAD_MS, e.g. a resolved battle that
@@ -269,8 +269,8 @@ export function createPopupMarineOverlayFx(scene: Scene) {
       // battle; the strike beam plays for the skirmish approach below
       // instead. Kept here too so a battle whose clashAt is still ahead
       // (e.g. a slow first frame) still gets its shot.
-      maybeFireStrike(`b:${b.hashSeed}`, b.clashAt, tileX, tileY, tileZ, nowMs);
-      const battleVictim = siegeTargetHash === b.hashSeed ? battleSiegeVictim(b) : undefined;
+      if (b.siegeBoosted) maybeFireStrike(`b:${b.hashSeed}`, b.clashAt, tileX, tileY, tileZ, nowMs);
+      const battleVictim = siegeTargetHashes.has(b.hashSeed) ? battleSiegeVictim(b) : undefined;
       siegeKillTracker.fire(`bk:${b.hashSeed}`, b.hashSeed, battleVictim, tileX, tileY, tileZ, perpX, perpZ, ux, uz, nowMs);
 
       for (let side = 0 as 0 | 1; side < 2; side++) {
@@ -323,8 +323,8 @@ export function createPopupMarineOverlayFx(scene: Scene) {
       // squads' firefight starts — mirrors computeSkirmishPose/skirmishCycleT's
       // own approachMs-with-hold override so the strike never lands ahead of
       // a held (in-transit) approach.
-      maybeFireStrike(`s:${b.hashSeed}`, b.startAt + Math.max(APPROACH_MS, b.holdApproachUntilElapsed ?? 0), tileX, tileY, tileZ, nowMs);
-      const skirmishVictim = siegeTargetHash === b.hashSeed ? skirmishSiegeVictim(b) : undefined;
+      if (b.siegeBoosted) maybeFireStrike(`s:${b.hashSeed}`, b.startAt + Math.max(APPROACH_MS, b.holdApproachUntilElapsed ?? 0), tileX, tileY, tileZ, nowMs);
+      const skirmishVictim = siegeTargetHashes.has(b.hashSeed) ? skirmishSiegeVictim(b) : undefined;
       siegeKillTracker.fire(`sk:${b.hashSeed}`, b.hashSeed, skirmishVictim, tileX, tileY, tileZ, perpX, perpZ, ux, uz, nowMs);
 
       for (let side = 0 as 0 | 1; side < 2; side++) {

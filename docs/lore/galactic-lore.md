@@ -294,6 +294,26 @@ anchor machinery rather than a fortress. It has no walls, no crenellations
 and no weapon mounts, so it stands tall, open and unarmoured, and reads at
 a glance against the squat, armed Siege Battery.
 
+### Charting the land
+
+The Court's survey charts give every island of note a name, drawn from the
+local naming traditions that also name its towns. Those names belong to the
+chart, not to any House. A Duke whose garrisons hold every acre of an
+island may enter a new name in the charts, and Houses prize this as a
+public mark of complete possession.
+
+The charts are revised only slowly. A chosen name stands as long as its
+House keeps most of the island garrisoned. Rival gains mark it as contested,
+but they do not strike it out. Once the House's hold falls below a majority,
+the Court's cartographers allow a day for it to recover. If it does not, the
+entry reverts to the survey name. A Duke who garrisons the whole island in
+turn may then enter a name of their own.
+
+Seen from high above, the charts also show each House's name written across
+its garrisoned heartland, but only over ground held in depth, not over a
+thin line of outposts. The exact thresholds belong in the
+[gameplay reference](../game-mechanics.md).
+
 ## 11. Houses and the planetary economy
 
 ### Knowledge, landings and seasons

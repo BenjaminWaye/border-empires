@@ -193,7 +193,11 @@ export const handleFrontierCommandImpl = (
     payload.musterSourceX != null && payload.musterSourceY != null
       ? simulationTileKey(payload.musterSourceX, payload.musterSourceY)
       : undefined;
-  const musterSource = actionType === "ATTACK" && !(to.ownerId === "barbarian-1" && !advancePreferredKey) && actor.id !== "barbarian-1"
+  // Attacks on Planetary Defense (barbarian-1) tiles are ordinary
+  // muster-funded attacks since raids were removed, so they search for a
+  // nearby flag exactly like any other target. Only barbarian-origin attacks
+  // skip muster (cooldown-gated instead).
+  const musterSource = actionType === "ATTACK" && actor.id !== "barbarian-1"
     ? ctx.resolveMusterSource(actor.id, simulationTileKey(from.x, from.y), musterNeeded, advancePreferredKey)
     : undefined;
   const validation = validateFrontierCommand({

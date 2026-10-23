@@ -21,11 +21,12 @@ describe("computeFrontierSupplyModel", () => {
     expect(computeFrontierSupplyModel({ tiles: snake(2), me: ME, reach: reachToX12, ...WORLD })).toEqual({ links: [], cuts: [] });
   });
 
-  it("draws a snake past reach as one line from the tile it hangs on out to its tip", () => {
-    // Every tile past (11,10) hangs on it: it is the cut nearest supply, so the line starts there.
+  it("draws a snake past reach as one line from the nearest settled tile, through the tile it hangs on, out to its tip", () => {
+    // Every tile past (11,10) hangs on it: it is the cut nearest supply. The line starts at the town behind it.
     const model = computeFrontierSupplyModel({ tiles: snake(5), me: ME, reach: reachToX12, ...WORLD });
     expect(cuts(model)).toEqual(["11,10"]);
     expect(model.links).toEqual([
+      { from: { x: 10, y: 10 }, to: { x: 11, y: 10 }, tip: false },
       { from: { x: 11, y: 10 }, to: { x: 12, y: 10 }, tip: false },
       { from: { x: 12, y: 10 }, to: { x: 13, y: 10 }, tip: false },
       { from: { x: 13, y: 10 }, to: { x: 14, y: 10 }, tip: false },
@@ -58,10 +59,10 @@ describe("computeFrontierSupplyModel", () => {
     const model = computeFrontierSupplyModel({ tiles, me: ME, reach: keys([10, 10], [10, 11], [11, 10], [11, 11]), ...WORLD });
     // (16,10) is where it narrows: it alone carries everything past it.
     expect(cuts(model)).toEqual(["16,10"]);
-    expect(hops(model)).toEqual(["16,10>17,10", "17,10>18,10"]);
+    expect(hops(model)).toEqual(["10,10>11,10", "11,10>12,10", "12,10>13,10", "13,10>14,10", "14,10>15,10", "15,10>16,10", "16,10>17,10", "17,10>18,10"]);
   });
 
-  it("follows the fewest-steps route back to the cut", () => {
+  it("follows the fewest-steps route back to the nearest settled tile", () => {
     // A straight snake to (16,10), plus a long detour loop hanging under it that rejoins further along.
     const tiles = [settled(10, 10)];
     for (let x = 11; x <= 16; x += 1) tiles.push(frontier(x, 10));
@@ -69,7 +70,7 @@ describe("computeFrontierSupplyModel", () => {
     const model = computeFrontierSupplyModel({ tiles, me: ME, reach: keys([10, 10], [11, 10]), ...WORLD });
     const route: string[] = [];
     for (let at: { x: number; y: number } | undefined = { x: 16, y: 10 }; at; at = feederOf(model, at.x, at.y)) route.push(`${at.x},${at.y}`);
-    expect(route).toEqual(["16,10", "15,10", "14,10", "13,10", "12,10", "11,10"]);
+    expect(route).toEqual(["16,10", "15,10", "14,10", "13,10", "12,10", "11,10", "10,10"]);
   });
 
   it("branches at a fork: both branches end in a tip and share the one cut nearest supply", () => {
@@ -84,7 +85,10 @@ describe("computeFrontierSupplyModel", () => {
     const loop = [settled(10, 10), frontier(11, 9), frontier(12, 9), frontier(11, 11), frontier(12, 11), frontier(13, 10), frontier(14, 10), frontier(15, 10)];
     const model = computeFrontierSupplyModel({ tiles: loop, me: ME, reach: keys([10, 10]), ...WORLD });
     expect(cuts(model)).toEqual(["13,10"]);
-    expect(hops(model)).toEqual(["13,10>14,10", "14,10>15,10"]);
+    // The line runs back through the loop (one arm, fewest steps) to the town.
+    expect(hops(model)).toHaveLength(5);
+    expect(hops(model).slice(-2)).toEqual(["13,10>14,10", "14,10>15,10"]);
+    expect(model.links[0]!.from).toEqual({ x: 10, y: 10 });
   });
 
   it("flags the other arm of a loop once an enemy takes a tile on one arm", () => {
@@ -92,7 +96,7 @@ describe("computeFrontierSupplyModel", () => {
     const captured = loop.map((tile) => (tile.x === 12 && tile.y === 9 ? { ...tile, ownerId: "rival" } : tile));
     const model = computeFrontierSupplyModel({ tiles: captured, me: ME, reach: keys([10, 10]), ...WORLD });
     expect(cuts(model)).toEqual(["11,11"]);
-    expect(hops(model).sort()).toEqual(["11,11>12,11", "12,11>13,10", "13,10>14,10", "14,10>15,10"]);
+    expect(hops(model).sort()).toEqual(["10,10>11,11", "11,11>12,11", "12,11>13,10", "13,10>14,10", "14,10>15,10"]);
   });
 
   it("reroutes the line around a tile an enemy takes when another route exists", () => {
@@ -147,13 +151,13 @@ describe("computeFrontierSupplyModel", () => {
   it("follows an Aether bridge link as a supply path", () => {
     const tiles = [settled(10, 10), frontier(11, 10), frontier(30, 10)];
     const model = computeFrontierSupplyModel({ tiles, me: ME, reach: keys([10, 10], [11, 10]), extraLinks: [["11,10", "30,10"]], ...WORLD });
-    expect(hops(model)).toEqual(["11,10>30,10"]);
+    expect(hops(model)).toEqual(["10,10>11,10", "11,10>30,10"]);
   });
 
   it("wraps across the world edge", () => {
     const model = computeFrontierSupplyModel({ tiles: [settled(0, 5), frontier(99, 5), frontier(98, 5)], me: ME, reach: keys([0, 5]), ...WORLD });
     expect(cuts(model)).toEqual(["99,5"]);
-    expect(hops(model)).toEqual(["99,5>98,5"]);
+    expect(hops(model)).toEqual(["0,5>99,5", "99,5>98,5"]);
   });
 
   it("ignores other players' tiles and never paths through them", () => {
@@ -164,6 +168,6 @@ describe("computeFrontierSupplyModel", () => {
   it("handles a very long snake without recursion", () => {
     const model = computeFrontierSupplyModel({ tiles: snake(5_000), me: ME, reach: reachToX12, worldWidth: 10_000, worldHeight: 100 });
     expect(cuts(model)).toEqual(["11,10"]);
-    expect(model.links).toHaveLength(4_999);
+    expect(model.links).toHaveLength(5_000);
   });
 });

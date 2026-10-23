@@ -34,6 +34,13 @@ import { simulationTileKey } from "../seed-state/seed-state.js";
  * magnitude. If `stopAtKey` is never reached the flood runs to the cap, as
  * without it.
  *
+ * `linkedKeysFor` adds non-adjacent one-step edges -- dock links and the
+ * player's active aether bridges -- the same extra neighbors the MARCH BFS
+ * walks through owned territory. Without them the flood stopped at the
+ * shoreline, so a target across water never reached the flag and every
+ * shore tile fell back to the straight-line estimate across the sea: the
+ * march walked to the beach and stalled instead of heading for the dock.
+ *
  * The inner loop avoids the per-neighbor coordinate arrays and key strings
  * the shared radius helper allocates: a numeric visited set filters repeat
  * visits first, so each tile builds its string key at most once.
@@ -43,7 +50,8 @@ export const buildTerrainDistanceField = (
   rootY: number,
   getTile: (x: number, y: number) => DomainTileState | undefined,
   maxSteps: number,
-  stopAtKey?: string
+  stopAtKey?: string,
+  linkedKeysFor?: (key: string) => readonly string[] | undefined
 ): Map<string, number> => {
   const dist = new Map<string, number>();
   const rootKey = simulationTileKey(rootX, rootY);
@@ -53,7 +61,22 @@ export const buildTerrainDistanceField = (
   const queueX: number[] = [rootX];
   const queueY: number[] = [rootY];
   const queueDist: number[] = [0];
+  const queueKey: string[] = [rootKey];
   let stopDist = maxSteps;
+  const visit = (x: number, y: number, nextDist: number): void => {
+    const numericKey = y * WORLD_WIDTH + x;
+    if (visited.has(numericKey)) return;
+    visited.add(numericKey);
+    const tile = getTile(x, y);
+    if (!tile || tile.terrain !== "LAND") return;
+    const key = simulationTileKey(x, y);
+    dist.set(key, nextDist);
+    queueX.push(x);
+    queueY.push(y);
+    queueDist.push(nextDist);
+    queueKey.push(key);
+    if (key === stopAtKey) stopDist = Math.min(stopDist, nextDist);
+  };
   for (let head = 0; head < queueX.length; head += 1) {
     const currentDist = queueDist[head]!;
     if (currentDist >= stopDist) break;
@@ -62,20 +85,12 @@ export const buildTerrainDistanceField = (
     for (let dy = -1; dy <= 1; dy += 1) {
       for (let dx = -1; dx <= 1; dx += 1) {
         if (dx === 0 && dy === 0) continue;
-        const x = wrapX(cx + dx, WORLD_WIDTH);
-        const y = wrapY(cy + dy, WORLD_HEIGHT);
-        const numericKey = y * WORLD_WIDTH + x;
-        if (visited.has(numericKey)) continue;
-        visited.add(numericKey);
-        const tile = getTile(x, y);
-        if (!tile || tile.terrain !== "LAND") continue;
-        const key = simulationTileKey(x, y);
-        dist.set(key, currentDist + 1);
-        queueX.push(x);
-        queueY.push(y);
-        queueDist.push(currentDist + 1);
-        if (key === stopAtKey) stopDist = Math.min(stopDist, currentDist + 1);
+        visit(wrapX(cx + dx, WORLD_WIDTH), wrapY(cy + dy, WORLD_HEIGHT), currentDist + 1);
       }
+    }
+    for (const linkedKey of linkedKeysFor?.(queueKey[head]!) ?? []) {
+      const [lx, ly] = linkedKey.split(",").map(Number);
+      visit(lx!, ly!, currentDist + 1);
     }
   }
   return dist;
