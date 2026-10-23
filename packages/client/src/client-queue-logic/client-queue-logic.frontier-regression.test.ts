@@ -126,7 +126,6 @@ describe("frontier queue regressions", () => {
       pickOriginForTarget: () => origin,
       notifyInsufficientGoldForFrontierAction,
       sendSetMuster: vi.fn(),
-      sendAttack: vi.fn(),
       applyOptimisticTileState: vi.fn(),
       pushFeed,
       renderHud: vi.fn()
@@ -171,7 +170,6 @@ describe("frontier queue regressions", () => {
       pickOriginForTarget: () => origin,
       notifyInsufficientGoldForFrontierAction: vi.fn(),
       sendSetMuster: vi.fn(),
-      sendAttack: vi.fn(),
       applyOptimisticTileState,
       pushFeed: vi.fn(),
       renderHud: vi.fn()
@@ -222,7 +220,6 @@ describe("frontier queue regressions", () => {
       pickOriginForTarget: (_x, _y, _allowDock, allowOptimisticOrigin) => (allowOptimisticOrigin ? optimisticOrigin : undefined),
       notifyInsufficientGoldForFrontierAction: vi.fn(),
       sendSetMuster: vi.fn(),
-      sendAttack: vi.fn(),
       applyOptimisticTileState: vi.fn(),
       pushFeed: vi.fn(),
       renderHud: vi.fn()
@@ -259,7 +256,6 @@ describe("frontier queue regressions", () => {
 
     const send = vi.fn();
     const sendSetMuster = vi.fn();
-    const sendAttack = vi.fn();
 
     const started = processActionQueue(state, {
       ws: { OPEN: 1, readyState: 1, send } as unknown as RealtimeSocket,
@@ -270,14 +266,13 @@ describe("frontier queue regressions", () => {
       pickOriginForTarget: (_x, _y, _allowDock, allowOptimisticOrigin) => (allowOptimisticOrigin ? optimisticOrigin : undefined),
       notifyInsufficientGoldForFrontierAction: vi.fn(),
       sendSetMuster,
-      sendAttack,
       applyOptimisticTileState: vi.fn(),
       pushFeed: vi.fn(),
       renderHud: vi.fn()
     });
 
     expect(started).toBe(false);
-    expect(sendAttack).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
     expect(sendSetMuster).toHaveBeenCalledWith(11, 18, "HOLD");
     expect(state.pendingMusterAttacks).toEqual([
       expect.objectContaining({ targetX: 12, targetY: 18, fromX: 11, fromY: 18 })
@@ -453,7 +448,6 @@ describe("frontier queue regressions", () => {
       pickOriginForTarget: () => origin,
       notifyInsufficientGoldForFrontierAction: vi.fn(),
       sendSetMuster: vi.fn(),
-      sendAttack: vi.fn(),
       applyOptimisticTileState: vi.fn(),
       pushFeed: vi.fn(),
       renderHud: vi.fn()

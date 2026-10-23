@@ -17,6 +17,7 @@ import type { LockRecord, LockedCombatResolution, SimulationTileWireDelta } from
 import type { PersonalImpactTown } from "./personal-impact-log/personal-impact-log.js";
 import { creditManpower } from "./runtime-manpower-ceiling.js";
 import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
+import type { TerritoryFlip } from "./territory-flip-log/territory-flip-log.js";
 
 export type RuntimeLockResolutionContext = {
   hasPendingClaim?: (key: string) => boolean;
@@ -91,7 +92,7 @@ export type RuntimeLockResolutionContext = {
   // whose ownerId actually changes, win or lose, real player or neutral/
   // barbarian. No-op cost when unset (tests that don't care about the
   // activity feed can omit it).
-  recordTileFlip?: (flip: { tileId: string; x: number; y: number; fromOwner: string | undefined; toOwner: string | undefined; at: number }) => void;
+  recordTileFlip?: (flip: TerritoryFlip) => void;
   recordPersonalImpact?: (event: PersonalImpactTown) => void;
 };
 

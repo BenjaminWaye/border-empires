@@ -7,6 +7,8 @@
 // kind of pure 24h activity feed, same reasons it's not snapshot state (see
 // docs/agents/state-and-persistence-discipline.md): rebuilt empty on
 // restart is fine since nothing downstream reads past the 24h window.
+import type { FortVariant } from "@border-empires/shared";
+
 export const COMBAT_MANPOWER_WINDOW_MS = 24 * 60 * 60_000;
 export const COMBAT_MANPOWER_LOG_MAX_ENTRIES = 50_000;
 
@@ -24,6 +26,22 @@ export type CombatManpowerLoss = {
   defenderGoldLoss: number;
   /** Whether the target tile was SETTLED at the moment of resolution. */
   targetWasSettled: boolean;
+  /**
+   * The fortification actually defending the target when the attack was
+   * rolled at launch (active, owned by the defender, not dormant -- same gate
+   * as the combat roll itself), or
+   * undefined for an unfortified tile. Feeds the personal timeline's siege
+   * cards ("your Palisade held off 4 assaults").
+   */
+  defenseVariant?: FortVariant;
+  /**
+   * The attacker's launch tile. A failed attack hands it to the defender, so
+   * the personal timeline matches that ownership flip back to this combat
+   * instead of showing it as an unrelated "+1 tile claimed" row. Optional
+   * because entries persisted before this field existed don't carry it.
+   */
+  originX?: number;
+  originY?: number;
 };
 
 export type CombatManpowerLogGauge = {

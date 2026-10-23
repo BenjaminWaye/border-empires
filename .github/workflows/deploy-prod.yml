@@ -214,7 +214,15 @@ jobs:
         env:
           DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
 
+      - name: Deploy client to Hetzner
+        if: vars.PROD_BACKEND == 'hetzner'
+        run: node ./scripts/deploy-client-hetzner.mjs production
+        env:
+          GIT_COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+          BE_CLIENT_SSH_TARGET: hetzner-target
+
       - name: Deploy client to Vercel production alias
+        if: vars.PROD_BACKEND != 'hetzner'
         run: node ./scripts/deploy-client-prod.mjs
         env:
           GIT_COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}

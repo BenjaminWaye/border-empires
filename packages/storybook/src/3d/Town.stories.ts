@@ -49,16 +49,19 @@ const meta: Meta<Args> = {
     docs: {
       description: {
         component: [
-          "The shipped procedural town overlay (createTownOverlay): clockwork skyscrapers of glass and grey stone banded in the",
-          "AFC's aged brass, with lamplit window strips and crowns of brass cog clocks, needle spires, glowing alien bulbs and",
-          "finned crystals, ringed round an octagonal plaza. Animated in the shaders: rooftop steam, flickering lamplight, turning",
-          "cogs and orreries, spinning crystals and circling airships. See TownOnTerrain for the towns beside an AFC.",
+          "The shipped procedural town overlay (createTownOverlay): clockwork skyscrapers of mirror glass and grey stone banded in",
+          "the AFC's aged brass, with street lamps throwing additive pools of light onto the paving, lamplit window",
+          "strips, baked ambient occlusion grounding every tower, and crowns of brass cog clocks, needle spires, glowing alien bulbs",
+          "and finned crystals, the tallest blinking red warning lights, all on a polished marble plinth like the muster banner's;",
+          "parks hold fountains and flower beds. Animated in the shaders: rooftop steam, fountain spray, flickering lamplight,",
+          "blinking beacons, turning cogs and orreries, spinning crystals, courier gyros and circling airships. See TownOnTerrain",
+          "for the towns beside an AFC.",
           "",
           "SETTLEMENT · four low towers round a cog lamp.",
           "TOWN · a street grid of blocks with lamplit crossings, rising to a few glass towers, round a small park with the orrery.",
           "CITY · a denser grid rising to a Manhattan-style downtown of sheer glass towers tied by skybridges, with two parks.",
-          "GREAT_CITY · ten ring towers round four tall skybridged towers, with an airship.",
-          "METROPOLIS · twelve ring towers and six inner towers round a brass-haloed octagonal megatower, two airships."
+          "GREAT_CITY · ten ring towers round four tall skybridged towers, with an airship and two lanes of courier gyros.",
+          "METROPOLIS · twelve ring towers and six inner towers round a brass-haloed octagonal megatower, two airships and three gyro lanes."
         ].join("\n")
       }
     }

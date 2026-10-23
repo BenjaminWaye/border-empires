@@ -34,8 +34,18 @@ export const diplomacyTradeStyles = `
   }
   .diplomacy-trade-modifiers li[data-tone="good"] span { color: #9cc983; }
   .diplomacy-trade-modifiers li[data-tone="bad"] span { color: #e08a64; }
+  .diplomacy-trade-war { margin: -8px 0 16px; font-size: 13px; color: var(--sp-parchment-muted, #bda880); }
+  .diplomacy-trade-war-head {
+    display: block; margin-bottom: 2px; color: var(--sp-brass-300, #d9ad52);
+    font: 600 11px/1.4 var(--sp-font-mono, "Space Mono", monospace); letter-spacing: .06em; text-transform: uppercase;
+  }
+  .diplomacy-trade-war ul { margin: 0; padding: 0; list-style: none; }
+  .diplomacy-trade-war li span {
+    display: inline-block; min-width: 32px; color: var(--sp-parchment-100, #f2e8d3);
+    font: 600 12px/1.6 var(--sp-font-mono, "Space Mono", monospace);
+  }
   .diplomacy-trade-kinds { display: flex; gap: 8px; margin-bottom: 16px; }
-  .diplomacy-trade-kinds button, .diplomacy-trade-actions button, .diplomacy-trade-topup {
+  .diplomacy-trade-kinds button, .diplomacy-trade-actions button, .diplomacy-trade-suggest {
     flex: 1; min-height: 40px; padding: 8px 12px;
     border: 1px solid var(--sp-brass-700, #8a611f); border-radius: 6px;
     background: rgba(60, 41, 25, .5); color: var(--sp-parchment-100, #f2e8d3);
@@ -45,7 +55,7 @@ export const diplomacyTradeStyles = `
   .diplomacy-trade-kinds button[aria-pressed="true"], .diplomacy-trade-actions [data-trade-send] {
     background: rgba(217, 173, 82, .18); border-color: var(--sp-brass-500, #b8862f);
   }
-  .diplomacy-trade-actions [data-trade-send]:disabled { opacity: .55; cursor: not-allowed; }
+  .diplomacy-trade-actions [data-trade-send]:disabled, .diplomacy-trade-suggest:disabled { opacity: .55; cursor: not-allowed; }
   .diplomacy-trade-grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 8px 12px; align-items: center; margin-bottom: 16px; }
   .diplomacy-trade-grid .diplomacy-trade-head {
     color: var(--sp-brass-300, #d9ad52); font: 600 11px/1.4 var(--sp-font-mono, "Space Mono", monospace);
@@ -60,7 +70,7 @@ export const diplomacyTradeStyles = `
   .diplomacy-trade-verdict[data-tone="good"] { border-left: 3px solid #7fb069; }
   .diplomacy-trade-verdict[data-tone="bad"] { border-left: 3px solid #c8643c; }
   .diplomacy-trade-verdict[data-tone="neutral"] { border-left: 3px solid var(--sp-brass-500, #b8862f); }
-  .diplomacy-trade-topup { flex: none; width: 100%; margin-bottom: 12px; }
+  .diplomacy-trade-suggest { flex: none; width: 100%; margin-bottom: 12px; }
   .diplomacy-trade-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
   .diplomacy-trade-popup button:focus-visible, .diplomacy-trade-popup input:focus-visible {
     outline: 2px solid var(--sp-brass-300, #d9ad52); outline-offset: 2px;

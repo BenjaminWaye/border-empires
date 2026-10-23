@@ -16,6 +16,9 @@
 //     pocket in a colour contrasting with the intruder's fill
 //     (incursionMarkColor). If the front-line buffer is full, a tile falls
 //     back to the strips so it never loses its outline.
+// On a hill tile (`drape`) the hatch and strips are fine grids draped over the
+// dome (client-map-3d-incursion-hill-drape.ts) rather than one flat plane the
+// hill's bumps broke through.
 // Rebuilt from the throttled terrain rebuild (clear/add/commit), like the
 // dormant-frontier tint it sits beside in client-map-3d-aether-survey-line.ts.
 
@@ -23,6 +26,7 @@ import { BufferAttribute, BufferGeometry, Color, DoubleSide, Group, Material, Me
 import { normalizeColorForThree } from "../client-three-color/client-three-color.js";
 import type { IncursionEdges, incursionHatchColors } from "../client-reach-incursion/client-reach-incursion.js";
 import { createIncursionBreachFx3D, type IncursionBreachFx3D, type IncursionBreachTile } from "./client-map-3d-incursion-breach-fx.js";
+import { tileBorderTopY, type TileDrapeHeightAt } from "./client-map-3d-incursion-hill-drape.js";
 
 type IncursionHatchColors = ReturnType<typeof incursionHatchColors>;
 
@@ -35,6 +39,14 @@ const EDGE_LIFT = 0.002;
 /** Theirs+mine stripe pairs across a tile; must be whole so stripes continue across tile boundaries (matches the 2D HATCH_STRIPES). */
 const HATCH_STRIPE_PAIRS_PER_TILE = 4;
 const MAX_EDGE_QUADS_PER_TILE = 4;
+/** Cells per side of a draped hill tile; matches the dome mesh's SUBDIV (client-map-3d-hills.ts) so the drape stays parallel to it. */
+const HILL_SUBDIV = 10;
+/**
+ * Hatched hill tiles drawn draped per rebuild. Pockets are a handful of tiles
+ * and hills a minority terrain, so this is generous; past it a hill tile falls
+ * back to the flat quad rather than going unhatched.
+ */
+const MAX_HILL_TILES = 256;
 
 export type IncursionOverlay3D = {
   readonly clear: () => void;
@@ -46,7 +58,9 @@ export type IncursionOverlay3D = {
     hatch: IncursionHatchColors,
     edgeColor: string,
     edges: IncursionEdges,
-    breach?: IncursionBreachTile
+    breach?: IncursionBreachTile,
+    /** On a hill tile: the surface to drape the hatch and strips over; the breach front line then sits on its border (tileBorderTopY). */
+    drape?: TileDrapeHeightAt
   ) => void;
   readonly commit: () => void;
   /** Advances the breach animation; call every frame. */
@@ -105,70 +119,133 @@ const createHatchMaterial = (): ShaderMaterial =>
     side: DoubleSide
   });
 
-type QuadBuffer = {
+type PatchBuffer = {
   readonly geometry: BufferGeometry;
   readonly mesh: Mesh;
   readonly positions: Float32Array;
-  /** One flat-per-quad RGB attribute per name, in the order the colour attribute names were given. */
+  /** One flat-per-patch RGB attribute per name, in the order the colour attribute names were given. */
   readonly colors: readonly Float32Array[];
   readonly uvs: Float32Array | undefined;
   readonly attributeNames: readonly string[];
-  readonly maxQuads: number;
+  readonly maxPatches: number;
+  /** Each patch is a cols x rows grid of cells: 1 x 1 for a flat quad, finer for one draped over a hill. */
+  readonly cols: number;
+  readonly rows: number;
   count: number;
 };
 
-const createQuadBuffer = (maxQuads: number, material: Material, colorNames: readonly string[], uvName: string | undefined, renderOrder: number): QuadBuffer => {
+const vertsPerPatch = (buf: Pick<PatchBuffer, "cols" | "rows">): number => (buf.cols + 1) * (buf.rows + 1);
+
+const createPatchBuffer = (
+  maxPatches: number,
+  cols: number,
+  rows: number,
+  material: Material,
+  colorNames: readonly string[],
+  uvName: string | undefined,
+  renderOrder: number
+): PatchBuffer => {
   const geometry = new BufferGeometry();
-  const positions = new Float32Array(maxQuads * 4 * 3);
-  const colors = colorNames.map(() => new Float32Array(maxQuads * 4 * 3));
-  const uvs = uvName ? new Float32Array(maxQuads * 4 * 2) : undefined;
-  const indices = new Uint32Array(maxQuads * 6);
-  for (let q = 0; q < maxQuads; q += 1) {
-    const b = q * 4;
-    indices.set([b, b + 1, b + 2, b + 1, b + 3, b + 2], q * 6);
+  const verts = maxPatches * vertsPerPatch({ cols, rows });
+  const positions = new Float32Array(verts * 3);
+  const colors = colorNames.map(() => new Float32Array(verts * 3));
+  const uvs = uvName ? new Float32Array(verts * 2) : undefined;
+  const indicesPerPatch = cols * rows * 6;
+  const indices = new Uint32Array(maxPatches * indicesPerPatch);
+  let i = 0;
+  for (let q = 0; q < maxPatches; q += 1) {
+    const base = q * vertsPerPatch({ cols, rows });
+    for (let b = 0; b < rows; b += 1) {
+      for (let a = 0; a < cols; a += 1) {
+        // Same diagonal split as the hill dome mesh (client-map-3d-hills.ts), so a draped patch stays parallel to it.
+        const i00 = base + b * (cols + 1) + a;
+        const i01 = i00 + cols + 1;
+        indices.set([i00, i01, i00 + 1, i00 + 1, i01, i01 + 1], i);
+        i += 6;
+      }
+    }
   }
   geometry.setAttribute("position", new BufferAttribute(positions, 3));
-  colorNames.forEach((name, i) => geometry.setAttribute(name, new BufferAttribute(colors[i]!, 3)));
+  colorNames.forEach((name, n) => geometry.setAttribute(name, new BufferAttribute(colors[n]!, 3)));
   if (uvName && uvs) geometry.setAttribute(uvName, new BufferAttribute(uvs, 2));
   geometry.setIndex(new BufferAttribute(indices, 1));
   geometry.setDrawRange(0, 0);
   const mesh = new Mesh(geometry, material);
   mesh.frustumCulled = false;
   mesh.renderOrder = renderOrder;
-  return { geometry, mesh, positions, colors, uvs, attributeNames: ["position", ...colorNames, ...(uvName ? [uvName] : [])], maxQuads, count: 0 };
+  return { geometry, mesh, positions, colors, uvs, attributeNames: ["position", ...colorNames, ...(uvName ? [uvName] : [])], maxPatches, cols, rows, count: 0 };
 };
 
-/** Writes one flat quad spanning [x0,x1] x [z0,z1] at height y, one colour per colour attribute. Returns false when the buffer is full. */
-const writeQuad = (buf: QuadBuffer, x0: number, x1: number, z0: number, z1: number, y: number, colors: readonly Color[]): boolean => {
-  if (buf.count >= buf.maxQuads) return false;
-  const v = buf.count * 4;
-  buf.positions.set([x0, y, z0, x1, y, z0, x0, y, z1, x1, y, z1], v * 3);
-  buf.colors.forEach((array, i) => {
-    const color = colors[i]!;
-    for (let k = 0; k < 4; k += 1) array.set([color.r, color.g, color.b], (v + k) * 3);
-  });
-  buf.uvs?.set([0, 1, 1, 1, 0, 0, 1, 0], v * 2);
+/** Scene-space height of a point on the patch being written. */
+type PatchHeightAt = (x: number, z: number) => number;
+
+/**
+ * Writes one patch spanning [x0,x1] x [z0,z1], its vertices at heightAt, one colour per colour
+ * attribute. `alongZ` runs the patch's columns down z instead of across x (a draped west/east
+ * strip). UVs run 0..1 across the patch, matching the flat quad's. Returns false when the buffer is full.
+ */
+const writePatch = (
+  buf: PatchBuffer,
+  x0: number,
+  x1: number,
+  z0: number,
+  z1: number,
+  heightAt: PatchHeightAt,
+  colors: readonly Color[],
+  alongZ = false
+): boolean => {
+  if (buf.count >= buf.maxPatches) return false;
+  const { cols, rows } = buf;
+  let v = buf.count * vertsPerPatch(buf);
+  for (let b = 0; b <= rows; b += 1) {
+    for (let a = 0; a <= cols; a += 1) {
+      const fx = alongZ ? b / rows : a / cols;
+      const fz = alongZ ? a / cols : b / rows;
+      const x = x0 + (x1 - x0) * fx;
+      const z = z0 + (z1 - z0) * fz;
+      buf.positions.set([x, heightAt(x, z), z], v * 3);
+      buf.colors.forEach((array, n) => {
+        const color = colors[n]!;
+        array.set([color.r, color.g, color.b], v * 3);
+      });
+      buf.uvs?.set([fx, 1 - fz], v * 2);
+      v += 1;
+    }
+  }
   buf.count += 1;
   return true;
 };
 
-const upload = (buf: QuadBuffer): void => {
+const upload = (buf: PatchBuffer): void => {
   for (const name of buf.attributeNames) {
     const attr = buf.geometry.getAttribute(name) as BufferAttribute;
     attr.clearUpdateRanges();
-    attr.addUpdateRange(0, buf.count * 4 * attr.itemSize);
+    attr.addUpdateRange(0, buf.count * vertsPerPatch(buf) * attr.itemSize);
     attr.needsUpdate = true;
   }
-  buf.geometry.setDrawRange(0, buf.count * 6);
+  buf.geometry.setDrawRange(0, buf.count * buf.cols * buf.rows * 6);
 };
 
 export const createIncursionOverlay3D = (parent: Group, maxTiles: number): IncursionOverlay3D => {
   const hatchMaterial = createHatchMaterial();
-  const hatch = createQuadBuffer(maxTiles, hatchMaterial, ["hatchTheirs", "hatchMine"], "hatchUv", 8);
+  const hatch = createPatchBuffer(maxTiles, 1, 1, hatchMaterial, ["hatchTheirs", "hatchMine"], "hatchUv", 8);
   const edgeMaterial = new MeshBasicMaterial({ toneMapped: false, vertexColors: true, transparent: true, opacity: EDGE_OPACITY, depthWrite: false, side: DoubleSide });
-  const edges = createQuadBuffer(maxTiles * MAX_EDGE_QUADS_PER_TILE, edgeMaterial, ["color"], undefined, 9);
+  const edges = createPatchBuffer(maxTiles * MAX_EDGE_QUADS_PER_TILE, 1, 1, edgeMaterial, ["color"], undefined, 9);
   const buffers = [hatch, edges];
   parent.add(hatch.mesh, edges.mesh);
+  // Draped hill buffers, also created on first use: most views hatch no hill.
+  let hill: { readonly hatch: PatchBuffer; readonly edges: PatchBuffer } | undefined;
+  const hillBuffers = (): { readonly hatch: PatchBuffer; readonly edges: PatchBuffer } => {
+    if (hill) return hill;
+    const tiles = Math.min(maxTiles, MAX_HILL_TILES);
+    hill = {
+      hatch: createPatchBuffer(tiles, HILL_SUBDIV, HILL_SUBDIV, hatchMaterial, ["hatchTheirs", "hatchMine"], "hatchUv", 8),
+      edges: createPatchBuffer(tiles * MAX_EDGE_QUADS_PER_TILE, HILL_SUBDIV, 1, edgeMaterial, ["color"], undefined, 9)
+    };
+    buffers.push(hill.hatch, hill.edges);
+    parent.add(hill.hatch.mesh, hill.edges.mesh);
+    return hill;
+  };
   // Created on first use, so a client with no breached pocket on screen (or on
   // the old straight style) never pays for the breach buffers or shaders.
   let breachFx: IncursionBreachFx3D | undefined;
@@ -176,29 +253,41 @@ export const createIncursionOverlay3D = (parent: Group, maxTiles: number): Incur
   const mine = new Color();
   const edge = new Color();
 
-  const addTile: IncursionOverlay3D["addTile"] = (x, z, surfaceY, hatchColors, edgeColor, tileEdges, breach) => {
+  const addTile: IncursionOverlay3D["addTile"] = (x, z, surfaceY, hatchColors, edgeColor, tileEdges, breach, drape) => {
     const x0 = x - 0.5;
     const x1 = x + 0.5;
     const z0 = z - 0.5;
     const z1 = z + 0.5;
     theirs.set(normalizeColorForThree(hatchColors.theirs));
     mine.set(normalizeColorForThree(hatchColors.mine));
-    if (!writeQuad(hatch, x0, x1, z0, z1, surfaceY, [theirs, mine])) return;
+    // Past the hill budget a hill tile falls back to the flat quad.
+    const hillHeightAt: PatchHeightAt | undefined = drape && ((px, pz) => drape(px - x0, pz - z0));
+    const draped = hillHeightAt && writePatch(hillBuffers().hatch, x0, x1, z0, z1, hillHeightAt, [theirs, mine]) ? hillHeightAt : undefined;
+    if (!draped && !writePatch(hatch, x0, x1, z0, z1, () => surfaceY, [theirs, mine])) return;
     edge.set(normalizeColorForThree(edgeColor));
     let strips = tileEdges;
     if (breach && breach.style !== "straight") {
       breachFx ??= createIncursionBreachFx3D(parent);
+      const f = breach.layout.frontEdges;
+      const veil = breach.layout.veilSides;
+      // On a hill, seat the flat front line on the drape along the sides it runs down.
+      const frontSides = {
+        north: f.north || veil.includes("north"),
+        east: f.east || veil.includes("east"),
+        south: f.south || veil.includes("south"),
+        west: f.west || veil.includes("west")
+      };
       // A full front-line buffer draws nothing for this tile: give it the plain strips instead.
-      if (!breachFx.add(x, z, surfaceY, breach, theirs, edge)) {
-        const f = breach.layout.frontEdges;
+      if (!breachFx.add(x, z, draped && drape ? tileBorderTopY(drape, frontSides) : surfaceY, breach, theirs, edge)) {
         strips = { north: strips.north || f.north, east: strips.east || f.east, south: strips.south || f.south, west: strips.west || f.west };
       }
     }
-    const y = surfaceY + EDGE_LIFT;
-    if (strips.north) writeQuad(edges, x0, x1, z0, z0 + EDGE_WIDTH, y, [edge]);
-    if (strips.south) writeQuad(edges, x0, x1, z1 - EDGE_WIDTH, z1, y, [edge]);
-    if (strips.west) writeQuad(edges, x0, x0 + EDGE_WIDTH, z0, z1, y, [edge]);
-    if (strips.east) writeQuad(edges, x1 - EDGE_WIDTH, x1, z0, z1, y, [edge]);
+    const stripBuf = draped ? hillBuffers().edges : edges;
+    const stripY: PatchHeightAt = draped ? (px, pz) => draped(px, pz) + EDGE_LIFT : () => surfaceY + EDGE_LIFT;
+    if (strips.north) writePatch(stripBuf, x0, x1, z0, z0 + EDGE_WIDTH, stripY, [edge]);
+    if (strips.south) writePatch(stripBuf, x0, x1, z1 - EDGE_WIDTH, z1, stripY, [edge]);
+    if (strips.west) writePatch(stripBuf, x0, x0 + EDGE_WIDTH, z0, z1, stripY, [edge], true);
+    if (strips.east) writePatch(stripBuf, x1 - EDGE_WIDTH, x1, z0, z1, stripY, [edge], true);
   };
 
   return {

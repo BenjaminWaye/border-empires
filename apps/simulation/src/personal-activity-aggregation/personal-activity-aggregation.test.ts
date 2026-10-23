@@ -167,7 +167,8 @@ describe("aggregatePersonalActivity", () => {
 
   it("caps cards and adds a truthful truncation note when there are more than the cap", () => {
     const combat: CombatManpowerLoss[] = Array.from({ length: 105 }, (_, i) =>
-      loss({ attackerId: "player-1", defenderId: "player-2", manpowerLoss: i + 1, x: i, y: i, at: 1_000 + i })
+      // Tiles spread 10 apart so the fights stay separate cards rather than one combat group.
+      loss({ attackerId: "player-1", defenderId: "player-2", manpowerLoss: i + 1, x: i * 10, y: i * 10, at: 1_000 + i })
     );
     const timeline = aggregatePersonalActivity("player-1", { from: 0, to: 1_000_000 }, [], combat);
     expect(timeline.cards).toHaveLength(100);

@@ -8,6 +8,7 @@
 // on the plate; drawStreetGrid turns a plan into the town.
 import type { TownColor } from "./town-mesh-builder.js";
 import { insideOctagon, lampPost, octagonApothem, octagonPlate, skyBridge, tree, type TownBuilders } from "./town-parts.js";
+import { flowerBed, fountain } from "./town-flourishes.js";
 import { orrery, skyscraper, type Crown } from "./town-skyscraper.js";
 
 export type StreetGridSpec = {
@@ -138,10 +139,10 @@ export const planStreetGrid = (spec: StreetGridSpec, random: () => number): Stre
 
 const drawStreetGrid = (t: TownBuilders, spec: StreetGridSpec, plan: StreetGridPlan): void => {
   // The plate is the street; blocks are raised sidewalks.
-  octagonPlate(t, spec.plateRadius, false, "plateDark");
+  octagonPlate(t, spec.plateRadius, false);
   const [orreryCol, orreryRow] = spec.parks[0] ?? [-1, -1];
   for (const block of plan.blocks) {
-    t.body.box(block.x, 0, block.z, block.size, 0.005, block.size, block.park ? "foliage" : "plate");
+    t.body.box(block.x, 0, block.z, block.size, 0.005, block.size, block.park ? "foliage" : "paving");
     if (block.park && block.size < spec.cell) {
       tree(t, block.x - block.size * 0.2, block.z, block.size * 0.7);
       tree(t, block.x + block.size * 0.22, block.z + block.size * 0.15, block.size * 0.6);
@@ -150,8 +151,9 @@ const drawStreetGrid = (t: TownBuilders, spec: StreetGridSpec, plan: StreetGridP
     if (block.park) {
       if (block.col === orreryCol && block.row === orreryRow) {
         orrery(t, block.x, block.z, spec.cell * 7);
+        flowerBed(t, block.x, block.z, spec.cell * 0.36, 4, spec.cell * 0.06);
       } else {
-        t.body.box(block.x, 0.005, block.z + spec.cell * 0.2, spec.cell * 0.5, 0.003, spec.cell * 0.22, "water");
+        fountain(t, block.x, block.z, spec.cell * 0.22);
       }
       for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
         tree(t, block.x + sx * spec.cell * 0.33, block.z + sz * spec.cell * 0.33, spec.cell * 0.5);

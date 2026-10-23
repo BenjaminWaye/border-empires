@@ -13,10 +13,10 @@ const leaderboardNameForOwner = (state: Pick<ClientState, "leaderboard">, ownerI
 };
 
 // Used for player-identifying purposes (e.g. truce/alliance target names sent
-// to the gateway): AI players must keep the stable "AI N" name here, because
-// social-state's resolveByName only recognizes that cosmetic default, not the
-// live seasonal name the leaderboard reports (see
-// apps/realtime-gateway/src/auth-identity/auth-identity.ts).
+// to the gateway): playerNames holds the name social-state's resolveByName
+// knows, which for an AI is its listed seasonal name derived from the id (see
+// apps/realtime-gateway/src/auth-identity/auth-identity.ts). Offers also carry
+// the player id, which the gateway prefers when a name is shared.
 export const playerNameForOwnerFromState = (
   state: Pick<ClientState, "me" | "meName" | "playerNames" | "leaderboard">,
   ownerId?: string | null
@@ -30,9 +30,8 @@ export const playerNameForOwnerFromState = (
 };
 
 // Used purely for display (e.g. the tile description panel's owner label).
-// Prefers the leaderboard's live seasonal name over the client's playerNames
-// map, which keeps the stable diplomacy name received at init
-// (playerNames intentionally stays "AI N" for social-state resolvability; see
+// Prefers the leaderboard's live name over the client's playerNames map,
+// which keeps the diplomacy name received at init (see
 // playerNameForOwnerFromState above). Not safe to use for truce/alliance
 // target names.
 export const playerDisplayNameForOwnerFromState = (

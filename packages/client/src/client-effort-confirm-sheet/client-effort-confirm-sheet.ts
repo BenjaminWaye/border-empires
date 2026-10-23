@@ -70,37 +70,40 @@ export const showEffortConfirmSheet = (options: EffortConfirmSheetOptions): Effo
   const overlay = document.createElement("div");
   overlay.className = "effort-confirm-overlay";
   overlay.setAttribute("role", "presentation");
-  overlay.style.cssText = "position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;align-items:flex-end;justify-content:flex-end;max-width:calc(100vw - 32px)";
 
+  // Look lives in client-effort-confirm-sheet-style.css (the steampunk
+  // brass-panel tokens the tile menu uses), not inline styles -- the sheet
+  // used to hard-code the pre-reskin navy palette and stood out from every
+  // other panel in the game.
   const card = document.createElement("div");
   card.className = "effort-confirm-card";
   card.setAttribute("role", "dialog");
   card.setAttribute("aria-modal", "false");
   card.setAttribute("aria-label", options.title);
-  card.style.cssText =
-    "width:280px;max-width:100%;box-sizing:border-box;padding:14px 16px;background:#161b29;color:#e6e9f2;border:1px solid #2a3247;border-radius:10px;box-shadow:0 14px 40px rgba(0,0,0,0.55);font-family:inherit";
-
-  const presetButtonStyle = "flex:1;padding:6px 0;background:#1c2335;border:1px solid #2a3247;color:#e6e9f2;border-radius:6px;cursor:pointer;font-size:12px;";
   card.innerHTML = `
-    <h3 style="margin:0 0 6px;font-size:14px;letter-spacing:0.01em;">${escapeHtml(options.title)}</h3>
-    ${options.subtitle ? `<p style="margin:0 0 10px;color:#9aa6c2;font-size:12px;line-height:1.4;">${escapeHtml(options.subtitle)}</p>` : ""}
+    <h3 class="effort-confirm-title">${escapeHtml(options.title)}</h3>
+    ${options.subtitle ? `<p class="effort-confirm-subtitle">${escapeHtml(options.subtitle)}</p>` : ""}
     ${
       options.mode === "slider"
-        ? `<input type="range" data-effort-slider aria-label="Manpower to commit" min="${floor}" max="${cap}" value="${commitManpower}" style="width:100%;" />
-    <div style="display:flex;justify-content:space-between;margin:2px 0 10px;font-size:12px;color:#9aa6c2;">
-      <span>Manpower: <span data-effort-value>${commitManpower}</span></span>
+        ? `<div class="effort-confirm-dial">
+      <div class="effort-confirm-readout"><span class="effort-confirm-readout-value" data-effort-value>${commitManpower}</span><span class="effort-confirm-readout-unit">manpower</span></div>
+      <input type="range" class="effort-confirm-range" data-effort-slider aria-label="Manpower to commit" min="${floor}" max="${cap}" value="${commitManpower}" />
+      <div class="effort-confirm-scale"><span>${floor}</span><span>${cap}</span></div>
     </div>`
         : ""
     }
-    <div style="display:flex;gap:6px;margin-bottom:10px;">
+    <div class="effort-confirm-presets">
       ${presets
-        .map(({ key, amount }) => `<button type="button" data-effort-preset="${key}" data-effort-amount="${amount}" style="${presetButtonStyle}">${PRESET_LABELS[key]}</button>`)
+        .map(
+          ({ key, amount }) =>
+            `<button type="button" class="effort-confirm-preset" data-effort-preset="${key}" data-effort-amount="${amount}"><span>${PRESET_LABELS[key]}</span><small>${amount}</small></button>`
+        )
         .join("")}
     </div>
-    <p data-effort-info style="margin:0 0 12px;min-height:16px;font-size:12px;color:#c9d2e8;line-height:1.4;"></p>
-    <div style="display:flex;justify-content:flex-end;gap:8px;">
-      <button type="button" data-effort-cancel style="padding:8px 14px;background:transparent;border:1px solid #2a3247;color:#9aa6c2;border-radius:6px;cursor:pointer;">Cancel</button>
-      <button type="button" data-effort-go style="padding:8px 14px;background:#3a5286;border:1px solid #3a5286;color:#fff;border-radius:6px;cursor:pointer;">${escapeHtml(options.confirmLabel ?? "Go")}</button>
+    <p class="effort-confirm-info" data-effort-info></p>
+    <div class="effort-confirm-actions">
+      <button type="button" class="effort-confirm-cancel" data-effort-cancel>Cancel</button>
+      <button type="button" class="effort-confirm-go" data-effort-go>${escapeHtml(options.confirmLabel ?? "Go")}</button>
     </div>
   `;
   overlay.appendChild(card);
@@ -111,13 +114,16 @@ export const showEffortConfirmSheet = (options: EffortConfirmSheetOptions): Effo
   const presetButtons = Array.from(card.querySelectorAll<HTMLButtonElement>("[data-effort-preset]"));
 
   const refresh = (): void => {
-    if (slider) slider.value = String(commitManpower);
+    if (slider) {
+      slider.value = String(commitManpower);
+      // Drives the brass fill left of the thumb (WebKit has no ::-range-progress).
+      slider.style.setProperty("--effort-fill", `${cap > floor ? ((commitManpower - floor) / (cap - floor)) * 100 : 100}%`);
+    }
     if (valueEl) valueEl.textContent = String(commitManpower);
     for (const btn of presetButtons) {
       const selected = btn.dataset.effortPreset === preset;
       btn.setAttribute("aria-pressed", String(selected));
-      btn.style.background = selected ? "#3a5286" : "#1c2335";
-      btn.style.borderColor = selected ? "#5b78b8" : "#2a3247";
+      btn.classList.toggle("is-active", selected);
     }
     if (infoEl && options.describe) infoEl.textContent = options.describe(commitManpower, preset);
   };

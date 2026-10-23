@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildFrontierCombatPreview } from "../frontier-combat/frontier-combat.js";
-import { CAPTURE_HOLD_DEFENSE_MULT, isCaptureHoldActive, isUndefendedFrontierTile } from "./capture-hold.js";
+import { CAPTURE_HOLD_DEFENSE_MULT, isCaptureHoldActive, flagCommitForTarget, isCommitOddsEligibleTarget, isUndefendedFrontierTile } from "./capture-hold.js";
 
 const NOW = 1_000_000;
 
@@ -18,6 +18,24 @@ describe("capture hold", () => {
     expect(isUndefendedFrontierTile({ ownershipState: "FRONTIER", captureHoldUntil: NOW - 1 }, NOW)).toBe(true);
     expect(isUndefendedFrontierTile({ ownershipState: "FRONTIER", captureHoldUntil: NOW + 1 }, NOW)).toBe(false);
     expect(isUndefendedFrontierTile({ ownershipState: "SETTLED" }, NOW)).toBe(false);
+  });
+
+  it("lets commitment scale the odds on SETTLED and held FRONTIER tiles only", () => {
+    expect(isCommitOddsEligibleTarget({ ownershipState: "SETTLED" }, NOW)).toBe(true);
+    expect(isCommitOddsEligibleTarget({ ownershipState: "FRONTIER", captureHoldUntil: NOW + 1 }, NOW)).toBe(true);
+    expect(isCommitOddsEligibleTarget({ ownershipState: "FRONTIER", captureHoldUntil: NOW }, NOW)).toBe(false);
+    expect(isCommitOddsEligibleTarget({ ownershipState: "FRONTIER" }, NOW)).toBe(false);
+    expect(isCommitOddsEligibleTarget(undefined, NOW)).toBe(false);
+  });
+
+  it("keeps a flag's effort ratio when its commitment hits a held tile", () => {
+    const held = { ownershipState: "FRONTIER", captureHoldUntil: NOW + 1 };
+    // Flags commit against MUSTER_ATTACK_COST (60); a held tile's floor is 15.
+    expect(flagCommitForTarget(held, 60, NOW)).toBe(15);
+    expect(flagCommitForTarget(held, 120, NOW)).toBe(30);
+    expect(flagCommitForTarget({ ownershipState: "SETTLED" }, 120, NOW)).toBe(120);
+    expect(flagCommitForTarget({ ownershipState: "FRONTIER" }, 120, NOW)).toBeUndefined();
+    expect(flagCommitForTarget(held, undefined, NOW)).toBeUndefined();
   });
 
   // Regression: a freshly captured dock landed as FRONTIER with zero defense,

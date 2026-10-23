@@ -19,6 +19,7 @@ import {
 import { CURRENT_WORLDGEN_VERSION, INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed } from "@border-empires/shared";
 
 import { type ProtoSimulationEvent, type TileDeltaBatchTile, toProtoEvent, isWireInternalEvent, toFullSnapshotProtoTile } from "./proto-serialization.js";
+import { toCommandEnvelope, type ProtoCommandEnvelope } from "./proto-command-envelope.js";
 import { buildTileDeltaGroupKey } from "./tile-delta-group-key.js";
 import { createOwnershipChangeHandler } from "./ownership-change-alert.js";
 import { getAiDecisionDiagnostics, recordAiCommandRejectionMessage, recordAiDecisionDiagnosticFromPlanner } from "../ai/ai-decision-diagnostics.js";
@@ -27,6 +28,7 @@ import { createSimulationCommandStore } from "../command-store-factory/command-s
 import { createSimulationEventStore } from "../event-store-factory/event-store-factory.js";
 import { createSimulationSnapshotStore } from "../snapshot-store-factory/snapshot-store-factory.js";
 import { createSimulationCheckpointManager, saveShutdownCheckpoint } from "./simulation-service-checkpointing.js";
+import { shutdownGrpcServer } from "./simulation-service-grpc-shutdown.js";
 import {
   createHybridSnapshotStringifier,
   createWorkerSnapshotStringifier,
@@ -54,7 +56,7 @@ import { applyTileDeltasToSnapshot } from "../subscription-snapshot-cache/subscr
 import { applyNonTileEventToCache, createPlayerSnapshotCache } from "../player-snapshot-cache/player-snapshot-cache.js";
 import { SimulationRuntime, type VisibilityAuditSample } from "../runtime/runtime.js";
 import { handleGetAdminPlayers, type ProtoAdminPlayersRequest, type ProtoAdminPlayersResponse } from "../admin-players-snapshot/admin-players-snapshot.js";
-import { handleGetRecentCommands, type ProtoGetRecentCommandsRequest, type ProtoGetRecentCommandsResponse } from "../recent-commands-snapshot.js";
+import { handleGetRecentCommands, type ProtoGetRecentCommandsRequest, type ProtoGetRecentCommandsResponse } from "../recent-commands-snapshot/recent-commands-snapshot.js";
 import { handleGetPlayerCombatSummary, type ProtoPlayerCombatSummaryRequest, type ProtoPlayerCombatSummaryResponse } from "../player-combat-summary-snapshot.js";
 import { handleGetSeasonParticipationForPlayer, type ProtoSeasonArchivesResponse, type ProtoSeasonParticipationRequest, type ProtoSeasonParticipationResponse, type ProtoSeasonSummaryRequest, type ProtoSeasonSummaryResponse } from "../season-participation-rpc-handler.js";
 import { handleGetActivityDashboard, type ProtoActivityDashboardRequest, type ProtoActivityDashboardResponse } from "../activity-dashboard/activity-dashboard-rpc-handler.js";
@@ -72,7 +74,7 @@ import { createPerPlayerAiBudgetTrackers, createPlayerBudgetCheck } from "../ai/
 import { AI_PLANNER_PHASES, createSimulationMetrics, type AiPlannerPhase } from "../metrics/metrics.js";
 import { applyAiPlayerDebugSnapshotToMetrics, sampleRuntimeGaugeMetrics } from "./simulation-service-metrics-sampling.js";
 import { recoveredStateFromSeedWorld } from "../recovered-state-from-seed-world/recovered-state-from-seed-world.js";
-import { persistSeasonActivityState, restoreSeasonActivityState } from "../season-activity-persistence/season-activity-persistence.js";
+import { persistSeasonActivityState, restoreSeasonActivityState, saveShutdownSeasonActivityState } from "../season-activity-persistence/season-activity-persistence.js";
 import { createSeasonSummaryStore } from "../season-summary-store-factory.js";
 import { GALAXY_ARCHIVE_LIMIT } from "../season-summary-store.js";
 import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from "../season-summary/season-summary.js";
@@ -134,15 +136,6 @@ export type SimulationHealthSnapshot = {
   };
 };
 
-type ProtoCommandEnvelope = {
-  command_id: string;
-  session_id: string;
-  player_id: string;
-  client_seq: number;
-  issued_at: number;
-  type: string;
-  payload_json: string;
-};
 type ProtoGetAiDecisionDiagnosticsRequest = {
   player_id?: string;
 };
@@ -187,16 +180,6 @@ const proto = loadPackageDefinition(packageDefinition) as unknown as ProtoPackag
 
 const formatGrpcBindAddress = (host: string, port: number): string =>
   host.includes(":") && !host.startsWith("[") ? `[${host}]:${port}` : `${host}:${port}`;
-
-const toCommandEnvelope = (value: ProtoCommandEnvelope): CommandEnvelope => ({
-  commandId: value.command_id,
-  sessionId: value.session_id,
-  playerId: value.player_id,
-  clientSeq: value.client_seq,
-  issuedAt: value.issued_at,
-  type: value.type as CommandEnvelope["type"],
-  payloadJson: value.payload_json
-});
 
 const randomSeasonWorldSeed = (): number => crypto.randomInt(1, 1_000_000_000);
 
@@ -1161,8 +1144,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const scheduleSeasonVictoryRecheck = (at: number | undefined): void => {
     clearSeasonVictoryTimer();
     if (currentSeasonState.status === "ended") return;
-    // `at` undefined = no contested objective (or a pending season, recheck at scheduledStartAt); 5-min fallback keeps season-victory fresh (Phase 3b).
-    const effectiveAt = at ?? (currentSeasonState.status === "pending" ? currentSeasonState.scheduledStartAt : undefined), delayMs = typeof effectiveAt === "number" ? Math.max(0, effectiveAt - Date.now()) : 300_000;
+    // `at` undefined = no contested objective (or a pending season, recheck at scheduledStartAt); 5-min cap keeps season-victory and the activity-log save fresh during long holds.
+    const effectiveAt = at ?? (currentSeasonState.status === "pending" ? currentSeasonState.scheduledStartAt : undefined), delayMs = typeof effectiveAt === "number" ? Math.min(300_000, Math.max(0, effectiveAt - Date.now())) : 300_000;
     seasonVictoryTimer = setTimeout(() => {
       void recomputeAndPersistCurrentSummary({ forcePersist: true, commandId: `season-victory:${Date.now()}` });
     }, delayMs);
@@ -2436,6 +2419,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         if (currentSeasonState.status === "ended") return;
         runtime.tickWatchtowerReveals(Date.now());
         runtime.tickAetherShields(Date.now()); // bounded per-tick work inside -- aether-shield/aether-shield-tick.ts
+        runtime.tickIslandNames(Date.now()); // throttled to ~2s inside -- island-names/island-names-ticker.ts
       }, 1_000);
       let passiveIncomeRunning = false;
       passiveIncomeTicker = setInterval(() => {
@@ -2710,15 +2694,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (startupReplayCompactionPromise) {
         await startupReplayCompactionPromise;
       }
-      await new Promise<void>((resolve, reject) => {
-        server.tryShutdown((error) => {
-          if (error) {
-            reject(error);
-            return;
-          }
-          resolve();
-        });
-      });
+      await shutdownGrpcServer(server);
       // Nothing may change the world after the last event is persisted: the
       // shutdown checkpoint below must capture one consistent moment.
       runtime.freezeScheduledTasks();
@@ -2726,6 +2702,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       globalStatusBroadcaster.dispose();
       await persistenceQueue.whenIdle();
       await saveShutdownCheckpoint(snapshotCheckpointManager, log);
+      await saveShutdownSeasonActivityState(seasonSummaryStore, currentSeasonState.seasonId, runtime, log);
       // All persistence tasks have resolved — their acks mean the writer worker
       // has committed every write. Safe to terminate the worker now.
       await writerChannel?.terminate();

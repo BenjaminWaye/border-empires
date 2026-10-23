@@ -1,3 +1,5 @@
+import { FRONTIER_ATTACK_MUSTER_COST, MUSTER_ATTACK_COST } from "../config.js";
+
 // Capture hold: a tile taken by ATTACK lands as FRONTIER, and FRONTIER ground
 // otherwise has zero defense (defenderBattle in frontier-combat.ts) -- so the
 // previous owner could retake a freshly captured dock or town at a guaranteed
@@ -24,3 +26,33 @@ export const isUndefendedFrontierTile = (
   tile: { ownershipState?: string | undefined; captureHoldUntil?: number | undefined } | undefined,
   nowMs: number
 ): boolean => tile?.ownershipState === "FRONTIER" && !isCaptureHoldActive(tile, nowMs);
+
+/**
+ * Targets where committing manpower above the attack floor scales the odds
+ * (commitOddsMultiplier): SETTLED ground, plus a FRONTIER tile inside its
+ * hold window -- the only FRONTIER ground that rolls combat at all. Plain
+ * FRONTIER is a guaranteed capture, so extra commitment there buys nothing.
+ */
+export const isCommitOddsEligibleTarget = (
+  tile: { ownershipState?: string | undefined; captureHoldUntil?: number | undefined } | undefined,
+  nowMs: number
+): boolean => tile?.ownershipState === "SETTLED" || isCaptureHoldActive(tile, nowMs);
+
+/**
+ * The commitment a muster flag's attack carries into `tile`, or undefined
+ * when commitment can't change the odds there. A flag's commitManpower is
+ * chosen against the generic MUSTER_ATTACK_COST floor for any non-SETTLED
+ * target (commit tab, March To sheet), but a held tile's real floor is the
+ * cheaper FRONTIER_ATTACK_MUSTER_COST -- so keep the chosen effort ratio
+ * (Normal 1x, Double 2x) instead of sending the raw amount, which would
+ * silently turn a default flag into 4x odds.
+ */
+export const flagCommitForTarget = (
+  tile: { ownershipState?: string | undefined; captureHoldUntil?: number | undefined } | undefined,
+  flagCommit: number | undefined,
+  nowMs: number
+): number | undefined => {
+  if (!flagCommit || !isCommitOddsEligibleTarget(tile, nowMs)) return undefined;
+  if (tile?.ownershipState === "SETTLED") return flagCommit;
+  return Math.max(FRONTIER_ATTACK_MUSTER_COST, Math.round((flagCommit * FRONTIER_ATTACK_MUSTER_COST) / MUSTER_ATTACK_COST));
+};

@@ -91,7 +91,6 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
       pushFeed: vi.fn(),
       renderHud: vi.fn(),
       sendSetMuster,
-      sendAttack
     });
 
     // Must not park behind a new/duplicate muster flag — the whole point of
@@ -153,7 +152,6 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
       pushFeed: vi.fn(),
       renderHud: vi.fn(),
       sendSetMuster,
-      sendAttack
     });
 
     // Fires from the dock (5,5) — funded remotely from the flag at (8,5) —
@@ -207,7 +205,6 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
       pushFeed: vi.fn(),
       renderHud: vi.fn(),
       sendSetMuster: vi.fn(),
-      sendAttack
     });
 
     // Both attacks arm independently (neither blocks the other), then both
@@ -263,7 +260,6 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
       pushFeed: vi.fn(),
       renderHud: vi.fn(),
       sendSetMuster,
-      sendAttack
     });
 
     // Fires from the border origin (4,0), not the flag's own tile (0,0) —

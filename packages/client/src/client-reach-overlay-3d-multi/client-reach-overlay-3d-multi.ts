@@ -12,6 +12,7 @@ import {
 // reach overlays (dormant frontier + rival incursions) are re-exported here for the 3D caller.
 export { reachEmphasisFor } from "../client-reach-border-emphasis/client-reach-border-emphasis.js";
 export { addReachTileOverlays3D } from "../client-map-3d-incursion-overlay/client-map-3d-reach-tile-overlays.js";
+export { createIncursionHillDrape } from "../client-map-3d-incursion-overlay/client-map-3d-incursion-hill-drape.js";
 
 // Fans traceReachBoundaryEdgeLoops/samplePerimeterPylons (built for a single
 // "my reach" set) out over every OTHER visible owner's reach too, so the 3D

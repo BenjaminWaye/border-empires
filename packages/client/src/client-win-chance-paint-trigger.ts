@@ -59,9 +59,8 @@ export const tilesAlongLine = (x0: number, y0: number, x1: number, y1: number): 
 /**
  * Computes and stashes state.winChancePaint: a "XX%" label for every
  * enemy-owned tile the origin->target line crosses (the player's own origin
- * tile is never labeled). No-op when targeting was cancelled (vis is
- * "unexplored") or origin===target, same cancel rule
- * handleMusterMarchTargetClick applies.
+ * tile is never labeled). No-op when vis is "unexplored" (nothing known to
+ * label) or origin===target.
  *
  * `commit`, when passed, scores every label against that chosen
  * commitManpower over the target tile's own base muster cost (the confirm

@@ -1,6 +1,46 @@
-# Auto-TLS (Let's Encrypt) + WebSocket passthrough. The DNS record for
-# BE_HOSTNAME must point at this server before Caddy can get a certificate.
-{$BE_HOSTNAME} {
+# Serve the client on the API origin too, so a DNS cutover cannot block play.
+# The custom client hostname can move here independently of backend deploys.
+{$BE_HOSTNAME}, {$BE_CLIENT_HOSTNAME} {
+	root * /srv/client/current
+	encode zstd gzip
+
+	header /assets/* Cache-Control "public, max-age=31536000, immutable"
+	header /audio/* Cache-Control "public, max-age=3600"
+	header /models/* Cache-Control "public, max-age=3600"
+	header /textures/* Cache-Control "public, max-age=3600"
+	header / Cache-Control "no-cache"
+	header /index.html Cache-Control "no-cache"
+	header /admin* Cache-Control "no-cache"
+	header /__build_sha.txt Cache-Control "no-store"
+
+	@firebase path /__/auth/* /__/firebase/*
+	handle @firebase {
+		reverse_proxy https://border-empires.firebaseapp.com {
+			header_up Host border-empires.firebaseapp.com
+		}
+	}
+
+	# Keep a previous build's lazy-loaded chunks available during a release.
+	handle /assets/* {
+		root * /srv/client
+		try_files /current{path} /previous{path}
+		file_server
+	}
+
+	@client_routes path / /index.html /admin /admin/ /r/* /rally/new
+	handle @client_routes {
+		@admin path /admin /admin/
+		rewrite @admin /admin.html
+		try_files {path} /index.html
+		file_server
+	}
+
+	@static file {path}
+	handle @static {
+		file_server
+	}
+
+	# Keep all backend routes, including /admin/* JSON, health and WebSockets.
 	reverse_proxy app:8080 {
 		# The gateway streams WebSocket/event traffic; don't buffer.
 		flush_interval -1

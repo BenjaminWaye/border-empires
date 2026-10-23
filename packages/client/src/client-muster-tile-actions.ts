@@ -1,4 +1,5 @@
 import { MUSTER_ADVANCE_RANGE_STEPS, MUSTER_MARCH_MAX_DISTANCE_TILES, musterFlagCap } from "@border-empires/shared";
+import { clearAttackCommit } from "./client-attack-commit/client-attack-commit.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile, TileActionDef } from "./client-types.js";
 import { isMusterUnlocked } from "./client-muster-unlock/client-muster-unlock-storage.js";
@@ -6,6 +7,7 @@ import { musterStatusText } from "./client-side-panel-html/client-side-panel-htm
 import { armMusterMarchTargeting, cancelMarchAction, MARCH_CANCEL_ACTION_IDS, type MarchCancelActionId } from "./client-muster-march-targeting.js";
 import { announceDiscoveryTipForState } from "./client-onboarding-ui-gate/client-onboarding-ui-overlays.js";
 import { predictedMusterAmount } from "./client-muster-prediction/client-muster-prediction.js";
+import { musterSiegeReason, ownTileSiegeAt } from "./client-muster-siege/client-muster-siege.js";
 
 // Inline to avoid circular dependency with client-tile-action-logic.ts
 // (which imports buildMusterActions from here).
@@ -22,7 +24,12 @@ const avail = (): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> =>
  */
 export const buildMusterActions = (
   tile: Tile,
-  state: Pick<ClientState, "me" | "authEmail" | "manpowerCap" | "manpower" | "musterAmountRateByTile" | "bridgeDebugSeasonId">
+  state: Pick<
+    ClientState,
+    | "me" | "authEmail" | "manpowerCap" | "manpower" | "musterAmountRateByTile" | "bridgeDebugSeasonId" | "incomingAttacksByTile" | "tiles"
+    | "pendingMusterAttacks"
+  >,
+  nowMs = Date.now()
 ): TileActionDef[] => {
   if (tile.terrain !== "LAND" || tile.ownerId !== state.me) return [];
   if (!tile.muster && !isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId)) return [];
@@ -64,19 +71,27 @@ export const buildMusterActions = (
       unfundableTarget: muster.unfundableTarget,
       clearing: muster.clearing
     });
+    // An enemy attack on this flag's tile pins its troops until the fight
+    // resolves (the server refuses these with MUSTER_UNDER_SIEGE): no
+    // advancing or marching out, and no clearing the flag to pull the troops
+    // back before the tile falls. Hold, Cancel March and Expand Capacity stay
+    // open -- none of them moves troops off the tile.
+    const siege = ownTileSiegeAt(state, tile.x, tile.y, nowMs);
+    const siegeLock = (): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> =>
+      siege ? { disabled: true, disabledReason: musterSiegeReason(siege, nowMs) } : avail();
     // Muster flag exists — offer mode toggle and clear.
     if (muster.mode === "HOLD") {
       out.push({
         id: "muster_advance",
         label: "Set Advance",
         detail: `Mustering… ${staged}/${cap} manpower staged · clears Planetary Defense and enemies within ${MUSTER_ADVANCE_RANGE_STEPS} steps, then reports back.`,
-        ...avail()
+        ...siegeLock()
       });
       out.push({
         id: "muster_march",
         label: "March To…",
         detail: `Mustering… ${staged}/${cap} manpower staged · pick a target tile (up to ${MUSTER_MARCH_MAX_DISTANCE_TILES} tiles away) to fight toward.`,
-        ...avail()
+        ...siegeLock()
       });
     } else if (muster.mode === "ADVANCE") {
       out.push({
@@ -89,7 +104,7 @@ export const buildMusterActions = (
         id: "muster_march",
         label: "March To…",
         detail: `${status} (${staged}/${cap} staged) · pick a target tile (up to ${MUSTER_MARCH_MAX_DISTANCE_TILES} tiles away) to fight toward.`,
-        ...avail()
+        ...siegeLock()
       });
     } else {
       out.push({
@@ -113,11 +128,24 @@ export const buildMusterActions = (
       disabled: maxedOut,
       ...(maxedOut ? { disabledReason: "Already at your manpower cap" } : {})
     });
+    // A manual attack parked on this flag shows only as the badge over it
+    // (client-muster-flag-badge.ts) -- no banner with a Cancel button any
+    // more, and touch players have no Esc -- so cancelling lives here.
+    const queued = state.pendingMusterAttacks.filter((entry) => entry.musterTileKey === `${tile.x},${tile.y}`);
+    if (queued.length > 0) {
+      const targets = queued.map((entry) => `(${entry.targetX}, ${entry.targetY})`).join(", ");
+      out.push({
+        id: "muster_cancel_queued_attack",
+        label: queued.length === 1 ? "Cancel Queued Attack" : "Cancel Queued Attacks",
+        detail: `Stop waiting to attack ${targets}. Manpower already staged stays on this flag.`,
+        ...avail()
+      });
+    }
     out.push({
       id: "muster_clear",
       label: "Clear Muster",
       detail: `Return ${staged} manpower to pool and remove the flag.`,
-      ...avail()
+      ...siegeLock()
     });
   }
 
@@ -166,6 +194,20 @@ export const dispatchMusterTileAction = (actionId: string, tile: Tile, deps: Mus
   }
   if (actionId === "muster_expand_cap") {
     deps.sendGameMessage({ type: "UPGRADE_MUSTER_CAP", x, y });
+    return true;
+  }
+  if (actionId === "muster_cancel_queued_attack") {
+    const flagKey = `${x},${y}`;
+    const before = deps.state.pendingMusterAttacks.length;
+    // Drop each cancelled target's recorded effort too, or a later attack on
+    // the same tile would silently re-send it (attackWireMessage).
+    for (const entry of deps.state.pendingMusterAttacks) if (entry.musterTileKey === flagKey) clearAttackCommit(deps.state, entry.targetX, entry.targetY);
+    deps.state.pendingMusterAttacks = deps.state.pendingMusterAttacks.filter((entry) => entry.musterTileKey !== flagKey);
+    // processPendingMusterAttacks only unwatches when it empties the list
+    // itself, and it doesn't run at all once the list is empty.
+    if (before > 0 && deps.state.pendingMusterAttacks.length === 0) deps.sendGameMessage({ type: "UNWATCH_MUSTER" });
+    deps.pushFeed(`Queued attack from (${x}, ${y}) cancelled`, "combat", "info");
+    deps.renderHud();
     return true;
   }
   return false;

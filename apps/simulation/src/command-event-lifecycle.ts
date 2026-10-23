@@ -45,7 +45,10 @@ export const SERVER_GENERATED_COMMAND_ID_PREFIXES = [
   "income-tick:",
   "breach:",
   "auto-fill:",
-  "reach-update:"
+  "reach-update:",
+  // ISLAND_NAMES pushes (island-names/island-names-ticker.ts): a full label
+  // list per viewer, never client-resubmitted.
+  "island-names:"
 ] as const;
 
 /**

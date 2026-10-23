@@ -4,6 +4,7 @@ import { geometryHalfExtents, verticalHalfExtent } from "../client-map-3d-constr
 import { CONSTRUCTION_PHASES, type ConstructionSite } from "../client-construction-phase/client-construction-phase.js";
 import { createContactShadowOverlay } from "../client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
 import { createStructureOverlay } from "./client-map-3d-structure-overlay.js";
+import { podsDrawn } from "../client-map-3d-construction/client-map-3d-construction-pod.test-helpers.js";
 
 // docs/construction-animation-plan.md: structures under construction are laid
 // out band by band, with scaffolding and an ancillary crew around them.
@@ -122,8 +123,14 @@ describe("structure overlay under construction", () => {
   describe("delivery pods", () => {
     // Parts come from the owner's AFC (4 tiles west, 3 north of the site).
     const podSite = (bands: number, over: Partial<ConstructionSite> = {}): ConstructionSite => siteAt(bands, { afcOffset: { dx: -4, dy: -3 }, ...over });
-    const pods = (scene: Scene): number => scene.children.filter((c) => c.type === "Group").length;
+    let overlayUnderTest: ReturnType<typeof createStructureOverlay> | undefined;
+    // Pods in the air a moment after the latest rebuild (they are instances of shared meshes).
+    const pods = (scene: Scene): number => {
+      overlayUnderTest?.update(performance.now() + 1_200);
+      return podsDrawn(scene);
+    };
     const rebuild = (overlay: ReturnType<typeof createStructureOverlay>, site?: ConstructionSite): void => {
+      overlayUnderTest = overlay;
       overlay.clear();
       overlay.addInstance(0, 0, 0, "MANUFACTORY", undefined, site);
       overlay.commit();

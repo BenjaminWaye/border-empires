@@ -2,6 +2,7 @@
 // plate. A town grows outward and upward: a handful of low towers round a cog
 // lamp, then a street grid of blocks (town-street-grid.ts) rising to a few
 // glass towers, then a denser grid with a skybridged glass downtown.
+import { flowerBed } from "./town-flourishes.js";
 import { lampPost, octagonPlate, polar, tree, type TownBuilders } from "./town-parts.js";
 import { buildStreetGrid, type StreetGridSpec } from "./town-street-grid.js";
 import { cogLamp, towerRing } from "./town-skyscraper.js";
@@ -10,6 +11,7 @@ export const buildSettlement = (t: TownBuilders): void => {
   octagonPlate(t, 0.32);
   towerRing(t, { count: 4, radius: 0.19, startDeg: 45, w: 0.085, h: [0.09, 0.13], crowns: ["dome", "flat", "dome", "flat"] });
   cogLamp(t, 0, 0, 0.035);
+  flowerBed(t, 0, 0, 0.072, 6, 0.011);
   for (const degrees of [90, 270]) {
     const [x, z] = polar(0.2, degrees);
     tree(t, x, z, 0.09);

@@ -4,6 +4,8 @@ import type { ConstructionSite } from "../client-construction-phase/client-const
 import { createConstructionCrewLayer } from "./client-map-3d-construction-crew.js";
 import { DEFAULT_CONSTRUCTION_LAYOUT, stackCenterFor } from "./client-map-3d-construction-layout.js";
 import { createConstructionPresentation, createLazyConstructionPresentation } from "./client-map-3d-construction-presentation.js";
+import { planPodFlight } from "./client-map-3d-construction-pod-flight.js";
+import { firstPodXZ, podsDrawn } from "./client-map-3d-construction-pod.test-helpers.js";
 
 const HOUR = 3_600_000;
 const site = (phase: number): ConstructionSite => ({
@@ -64,11 +66,14 @@ describe("construction layout", () => {
     presentation.addSite(5, 6, 0, { ...site(0), afcOffset }, 0.5, layout);
     presentation.clear(); // next rebuild: the site is now known
     presentation.addSite(5, 6, 0, { ...site(1), afcOffset }, 0.5, layout); // phase advanced -> pod
-    const pod = scene.children.find((c) => c.type === "Group");
-    expect(pod).toBeDefined();
     const stack = stackCenterFor(layout);
-    expect(pod!.position.x).toBeCloseTo(5 + stack.x, 5);
-    expect(pod!.position.z).toBeCloseTo(6 + stack.z, 5);
+    // Partway down on the drone's line, straight above the stack.
+    const plan = planPodFlight(afcOffset.dx - stack.x, afcOffset.dy - stack.z);
+    presentation.update(performance.now() + (plan.lowerAtMs + plan.touchdownAtMs) / 2);
+    const pod = firstPodXZ(scene);
+    expect(pod).toBeDefined();
+    expect(pod!.x).toBeCloseTo(5 + stack.x, 2);
+    expect(pod!.z).toBeCloseTo(6 + stack.z, 2);
     presentation.dispose();
   });
 });
@@ -94,8 +99,9 @@ describe("lazy construction presentation", () => {
   it("does not fire a pod for the very first site it sees", () => {
     const scene = new Scene();
     const presentation = createLazyConstructionPresentation(scene);
-    presentation.addSite(0, 0, 0, site(3), 0.5);
-    expect(scene.children.some((c) => c.type === "Group")).toBe(false);
+    presentation.addSite(0, 0, 0, { ...site(3), afcOffset: { dx: -4, dy: 0 } }, 0.5);
+    presentation.update(performance.now() + 1_200);
+    expect(podsDrawn(scene)).toBe(0);
     presentation.dispose();
   });
 });

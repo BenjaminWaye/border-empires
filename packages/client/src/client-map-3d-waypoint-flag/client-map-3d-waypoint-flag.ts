@@ -17,7 +17,7 @@ import {
 // The waypoint flag is a small planted pennant: iron pole, spiked tip,
 // a banner-color pennant, and a ground glow ring. Deliberately modest —
 // it marks a mere movement destination, not a rallying point — unlike
-// the elaborate tower used for mustering (client-map-3d-muster-overlay.ts).
+// the war banner on its octagonal plinth used for mustering (client-map-3d-muster-overlay.ts).
 // Extracted here so both the live 3D renderer and Storybook can build the
 // identical model — one active waypoint (full empire-color tint, full
 // opacity) plus any number of queued waypoints behind it (dimmed,

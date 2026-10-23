@@ -1,9 +1,16 @@
-import { DEVELOPMENT_PROCESS_LIMIT, TRICKLE_RESOURCE_KEYS } from "@border-empires/shared";
+import { DEVELOPMENT_PROCESS_LIMIT, MUSTER_MARCH_TARGET_NOT_LAND_MESSAGE, TRICKLE_RESOURCE_KEYS } from "@border-empires/shared";
 import type { ClientState } from "./client-state/client-state.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import { promptForTrickleResource, type TrickleOption } from "./client-trickle-pick-modal.js";
 import type { ActiveTruceView, FeedSeverity, FeedType } from "./client-types.js";
 import { readyAfcUpgradeCount } from "./client-afc-upgrade-ready/client-afc-upgrade-ready.js";
+import { explainCombatLockRejection } from "./client-muster-siege/client-muster-siege.js";
+
+/** State the LOCKED / MUSTER_UNDER_SIEGE explanation reads to name the blocked tile and its countdown. */
+export type CombatLockExplainContext = {
+  state: Pick<ClientState, "incomingAttacksByTile" | "tiles" | "me" | "actionCurrent">;
+  wrap: (x: number, y: number) => { x: number; y: number };
+};
 
 export type PlayerActionDeps = {
   state: ClientState;
@@ -191,8 +198,14 @@ export const chooseDomainFromUi = (domainIdRaw: string | undefined, deps: Player
 export const explainActionFailureFromServer = (
   code: string,
   message: string,
-  opts?: { cooldownRemainingMs?: number; formatCooldownShort?: (ms: number) => string }
+  opts?: { cooldownRemainingMs?: number; formatCooldownShort?: (ms: number) => string; combatLock?: CombatLockExplainContext }
 ): string => {
+  if (opts?.combatLock) {
+    const { state, wrap } = opts.combatLock;
+    const target = state.actionCurrent;
+    const lockText = explainCombatLockRejection(state, { code, message, targetX: target?.x, targetY: target?.y, nowMs: Date.now() }, wrap);
+    if (lockText) return lockText;
+  }
   if (code === "INSUFFICIENT_GOLD") return `Action blocked: ${message}.`;
   if (code === "SETTLE_INVALID") return `Cannot garrison: ${message}.`;
   if (code === "FORT_BUILD_INVALID") return `Cannot build fort: ${message}.`;
@@ -229,8 +242,9 @@ export const explainActionFailureFromServer = (
   if (code === "INSUFFICIENT_MUSTER") return "Attack blocked: stage manpower on this tile first. Tap the tile → Stage Muster, then wait for it to fill.";
   if (code === "MUSTER_DISABLED") return "Mustering is not enabled on this server.";
   if (code === "MUSTER_MARCH_TOO_FAR") return message;
-  if (code === "MUSTER_INVALID") return "Action blocked: you can only stage muster on your own land tiles.";
+  if (code === "MUSTER_INVALID") return message === MUSTER_MARCH_TARGET_NOT_LAND_MESSAGE ? message : "Action blocked: you can only stage muster on your own land tiles.";
   if (code === "LOCKED") return "Action blocked: the tile is already in combat.";
+  if (code === "MUSTER_UNDER_SIEGE") return "Action blocked: this muster is under siege until the battle on its tile ends.";
   if (code === "BARRIER") return "Action blocked: only land tiles can be claimed or attacked.";
   if (code === "AETHER_WALL_BLOCKED") return "Action blocked: that border is sealed by an Aether Wall.";
   if (code === "SHIELDED") return "Action blocked: that empire is still under spawn protection.";

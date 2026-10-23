@@ -1,10 +1,11 @@
 // GPU-side town animation, driven by the per-vertex animA/animB attributes
 // the town-mesh-builder bakes in (see TownAnim there) and one shared time
 // uniform. Nothing moves on the CPU: spinning parts (cogs, orrery hoops,
-// halos, crystals, circling airships) rotate in the vertex shader, lamplight
-// flickers in the glow fragment shader, and steam puffs rise, swell and fade
-// in their own shader -- so a screen full of towns costs no per-frame work
-// beyond setting the time.
+// halos, crystals, courier gyros, circling airships) rotate in the vertex
+// shader, lamplight (and the light pools under it) flickers and warning
+// beacons blink in the glow fragment shader, and steam puffs rise, swell and
+// fade in their own shader -- so a screen full of towns costs no per-frame
+// work beyond setting the time.
 import type { Material, MeshBasicMaterial, MeshDepthMaterial, MeshStandardMaterial } from "three";
 
 /** The shader clock wraps every this many seconds, so float precision never
@@ -54,10 +55,20 @@ if (animA.w != 0.0) {
 }
 `;
 
+/** A flicker phase at or above this marks an aircraft-warning beacon: it
+ * blinks on and off (TOWN_BEACON_RATE times a second) instead of flickering. */
+export const TOWN_BEACON_PHASE = 2;
+const TOWN_BEACON_RATE = loopRate(0.8);
+
 const FLICKER = /* glsl */ `
 #include <color_fragment>
-diffuseColor.rgb *= 0.86 + 0.14 * sin(uTownTime * ${loopSpeed(2.1).toFixed(8)} + vTownPhase * 6.2832)
-  * sin(uTownTime * ${loopSpeed(0.67).toFixed(8)} + vTownPhase * 17.0);
+if (vTownPhase >= ${TOWN_BEACON_PHASE.toFixed(1)}) {
+  float townBlink = fract(uTownTime * ${TOWN_BEACON_RATE.toFixed(8)} + vTownPhase);
+  diffuseColor.rgb *= 0.12 + 1.5 * (1.0 - smoothstep(0.0, 0.28, townBlink));
+} else {
+  diffuseColor.rgb *= 0.86 + 0.14 * sin(uTownTime * ${loopSpeed(2.1).toFixed(8)} + vTownPhase * 6.2832)
+    * sin(uTownTime * ${loopSpeed(0.67).toFixed(8)} + vTownPhase * 17.0);
+}
 `;
 
 type ShaderHookMaterial = MeshStandardMaterial | MeshBasicMaterial | MeshDepthMaterial;

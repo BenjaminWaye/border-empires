@@ -60,6 +60,17 @@ describe("createPlayerMessageReplay", () => {
     expect(sent).toHaveLength(0);
   });
 
+  it("replays the latest ISLAND_NAMES list to a socket that joined after it", () => {
+    const { replay, sent, send } = createHarness();
+    const existing = { id: "tab-1" };
+    const joining = { id: "tab-2" };
+    replay.observe("p1", { type: "ISLAND_NAMES", islands: [{ id: "1,1", name: "Old" }] }, [existing]);
+    replay.observe("p1", { type: "ISLAND_NAMES", islands: [{ id: "1,1", name: "New" }] }, [existing]);
+    replay.observe("p1", { type: "ISLAND_NAMES" }, [existing]);
+    expect(replay.replayTo("p1", joining, send)).toBe(true);
+    expect(sent).toEqual([{ socket: joining, payload: { type: "ISLAND_NAMES", islands: [{ id: "1,1", name: "New" }] } }]);
+  });
+
   it("ignores payloads of other types and malformed replayed ones", () => {
     const { replay } = createHarness();
     replay.observe("p1", { type: "PLAYER_UPDATE", gold: 5 }, []);

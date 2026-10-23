@@ -28,6 +28,12 @@ export type SimulationCommandStore = {
   loadRecoverableCommands(): Promise<StoredSimulationCommand[]>;
   loadAllCommands(): Promise<StoredSimulationCommand[]>;
   /**
+   * Newest `limit` commands, newest first. Admin diagnostics must use this
+   * instead of loadAllCommands: the full table holds the whole retention
+   * window (payload JSON included) and materializing it OOM'd the sim worker.
+   */
+  loadRecentCommands(limit: number): Promise<StoredSimulationCommand[]>;
+  /**
    * Highest ever-persisted client_seq per player, regardless of status AND
    * regardless of whether the underlying commands row still exists. Used to
    * seed each command producer's next-seq counter on boot so reissued seqs
@@ -114,6 +120,10 @@ export class InMemorySimulationCommandStore implements SimulationCommandStore {
 
   async loadAllCommands(): Promise<StoredSimulationCommand[]> {
     return [...this.commands.values()].sort((left, right) => left.queuedAt - right.queuedAt);
+  }
+
+  async loadRecentCommands(limit: number): Promise<StoredSimulationCommand[]> {
+    return [...this.commands.values()].sort((left, right) => right.queuedAt - left.queuedAt).slice(0, limit);
   }
 
   async loadMaxClientSeqByPlayer(): Promise<Record<string, number>> {

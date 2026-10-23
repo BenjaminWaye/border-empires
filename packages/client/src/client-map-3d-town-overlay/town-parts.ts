@@ -1,15 +1,21 @@
 // Shared town pieces -- the octagonal base plate, brass cogs, skybridges,
-// airships, trees and street lamps -- built from the town-mesh-builder
-// primitives. Each takes the solid `body` builder (iron/brass route to the
-// metal mesh by colour) and the unlit `glow` builder (lamplight, aether).
-import { loopRate, loopSpeed } from "./town-animation-shaders.js";
+// airships, trees, street lamps and warning beacons -- built from the
+// town-mesh-builder primitives. Each takes the solid `body` builder
+// (iron/brass and glass route to their own meshes by colour), the unlit
+// `glow` builder (lamplight, aether) and the additive `halo` builder (the
+// pools of light they throw on the paving).
+import { loopRate, loopSpeed, TOWN_BEACON_PHASE } from "./town-animation-shaders.js";
 import type { TownColor, TownMeshBuilder } from "./town-mesh-builder.js";
 
 export type TownBuilders = {
   readonly body: TownMeshBuilder;
   readonly glow: TownMeshBuilder;
+  /** Additive light pools on the ground, breathing with the lamps. */
+  readonly halo: TownMeshBuilder;
   /** Animated steam puffs (see applyTownSteam). */
   readonly steam: TownMeshBuilder;
+  /** The base plate -- its top, kerb and walls -- drawn in polished marble like the muster banner's plinth. */
+  readonly plinth: TownMeshBuilder;
   /** Deterministic 0..1 roll, seeded per tier. */
   readonly random: () => number;
 };
@@ -24,7 +30,21 @@ export const spinning = (
   t.body.withAnim(anim, () => t.glow.withAnim(anim, draw));
 };
 
+/** Draws `draw` (glow and halo alike) flickering in step at `phase`, so a light and its pool breathe together. */
+export const inStep = (t: TownBuilders, phase: number, draw: () => void): void => {
+  const anim = { a: [0, 0, 0, 0], b: [0, 0, 0, phase] } as const;
+  t.glow.withAnim(anim, () => t.halo.withAnim(anim, draw));
+};
+
+/** Red aircraft-warning light at (x, y, z), blinking (see TOWN_BEACON_PHASE). */
+export const beacon = (t: TownBuilders, x: number, y: number, z: number, size = 0.006): void => {
+  inStep(t, TOWN_BEACON_PHASE + t.random(), () => t.glow.gem(x, y, z, size, size * 1.4, "beacon"));
+};
+
 const Y_AXIS = [0, 1, 0] as const;
+
+/** Light pools sit just over the raised sidewalks (0.005), clear of z-fighting. */
+export const TOWN_HALO_Y = 0.0068;
 
 /** Smokestack on a roof at (x, y, z), with steam puffs looping out of it. */
 export const steamVent = (t: TownBuilders, x: number, y: number, z: number, h = 0.035): void => {
@@ -67,16 +87,66 @@ export const insideOctagon = (x: number, z: number, apothem: number): boolean =>
   return true;
 };
 
-/** Octagonal base plate, its top at y = 0: grey stone inside a brass band on
- * an iron skirt that runs well below 0, so a sloped tile never shows a gap
- * under it (the overlay lifts the whole town; see TOWN_BASE_LIFT). */
-export const octagonPlate = (t: TownBuilders, radius: number, plazaRing = true, top: TownColor = "plate"): void => {
+/** How much wider a plate's skirt is at its foot (y = -0.1) than at its top.
+ * Kept small enough that the largest plate's foot stays inside its tile. */
+export const PLATE_SKIRT_FLARE = 1.12;
+
+/** Radius of a plateSkirt of `radius` (top at `topY`) at height `y`. */
+const skirtRadiusAt = (radius: number, topY: number, y: number): number =>
+  radius * (1 + ((PLATE_SKIRT_FLARE - 1) * (topY - y)) / (topY + 0.1));
+
+/** Stone foundation under an octagonal plate, from y = -0.1 up to `topY`,
+ * widening towards the ground so its sides tilt up into the light. It runs
+ * well below 0 so a sloped tile never shows a gap under the plate (the
+ * overlays lift the plate only by TOWN_BASE_LIFT), which means a lot of it
+ * shows on a tile whose corners sit lower; a dark metal skirt read as a black
+ * band there. */
+export const plateSkirt = (body: TownMeshBuilder, radius: number, topY: number, color: TownColor = "stoneDark"): void => {
+  body.cylinder(0, -0.1, 0, radius, radius * PLATE_SKIRT_FLARE, topY + 0.1, color, 8, Math.PI / 8);
+};
+
+/** Top of a town plate's skirt: just under its brass band's top (-0.008). */
+export const TOWN_SKIRT_TOP_Y = -0.009;
+
+/** Ledges (heights in the town's frame) the base plate's marble walls rise
+ * from: the black course and the paving. See applyMarbleFinish. */
+export const TOWN_PLINTH_LEDGES: readonly number[] = [-0.02, 0];
+
+/** Octagonal base plate, its top at y = 0: polished black-and-gold marble
+ * streets inside a low marble kerb and a brass band, on a flared charcoal
+ * marble wall (plateSkirt) girdled by a black marble course, running well below 0 so a
+ * sloped tile never shows a gap under it (the overlay lifts the whole town;
+ * see TOWN_BASE_LIFT). */
+export const octagonPlate = (t: TownBuilders, radius: number, plazaRing = true): void => {
   const turn = Math.PI / 8;
-  t.body.cylinder(0, -0.1, 0, radius, radius * 1.02, 0.092, "ironDark", 8, turn);
-  t.body.cylinder(0, -0.016, 0, radius * 1.012, radius * 1.012, 0.008, "brass", 8, turn);
-  t.body.cylinder(0, -0.008, 0, radius * 0.985, radius * 0.985, 0.008, top, 8, turn);
-  // Inlaid brass ring round the central plaza.
-  if (plazaRing) t.body.ring(0, 0, 0, radius * 0.42, "brassDark", 0.03);
+  // Mid stone, which the marble finish turns to charcoal with pale veins: the
+  // skirt shows wherever the tile slopes away, so it must not read as a black
+  // band (dark stone would come out black marble, like the streets). Its top
+  // stops just under the brass band's, so the two never z-fight.
+  plateSkirt(t.plinth, radius, TOWN_SKIRT_TOP_Y, "stone");
+  // The brass band keeps its lip over the flared wall below it.
+  const band = skirtRadiusAt(radius, -0.008, -0.016) + radius * 0.01;
+  t.body.cylinder(0, -0.016, 0, band, band, 0.008, "brass", 8, turn);
+  // The streets are the plinth's polished top: dark stone, which the marble
+  // finish turns to black marble shot with gold, like the course below.
+  t.plinth.cylinder(0, -0.008, 0, radius * 0.985, radius * 0.985, 0.008, "graphite", 8, turn);
+  // A black marble course just under the band, following the skirt's flare.
+  const course = (y: number): number => skirtRadiusAt(radius, -0.008, y) + radius * 0.006;
+  t.plinth.cylinder(0, -0.03, 0, course(-0.02), course(-0.03), 0.01, "graphite", 8, turn);
+  // Low kerb round the edge of the paving.
+  const apothem = octagonApothem(radius);
+  const edge = 2 * apothem * Math.tan(Math.PI / 8) - 0.006;
+  for (let k = 0; k < 8; k += 1) {
+    const degrees = k * 45;
+    const [x, z] = polar(apothem - 0.005, degrees);
+    t.plinth.box(x, 0, z, edge, 0.006, 0.008, "stoneLight", facingOut(degrees));
+  }
+  if (plazaRing) {
+    // A raised flagstone plaza inside an inlaid brass ring, a paler rosette at its heart.
+    t.body.cylinder(0, 0, 0, radius * 0.42, radius * 0.42, 0.003, "paving", 16);
+    t.body.cylinder(0, 0.003, 0, radius * 0.2, radius * 0.2, 0.003, "stoneLight", 8, Math.PI / 8);
+    t.body.ring(0, 0.003, 0, radius * 0.42, "brassDark", 0.03);
+  }
 };
 
 /** Brass cog facing +z (turned ry), centred on (x, y, z), turning slowly. */
@@ -120,14 +190,20 @@ export const airship = (t: TownBuilders, x: number, y: number, z: number, length
   }
 };
 
+/** Tree with a two-lobed crown: a dark lower mass under a sunlit top. */
 export const tree = (t: TownBuilders, x: number, z: number, size: number): void => {
+  const light = t.random() < 0.5;
   t.body.cylinder(x, 0, z, size * 0.12, size * 0.16, size * 0.45, "trunk", 5);
-  t.body.blob(x, size * 0.62, z, size * 0.42, t.random() < 0.5 ? "foliage" : "foliageLight");
+  t.body.blob(x, size * 0.58, z, size * 0.42, light ? "foliage" : "foliageLight");
+  t.body.blob(x + size * 0.08, size * 0.84, z - size * 0.06, size * 0.27, light ? "foliageLight" : "foliage");
 };
 
-/** Street lamp: slim iron post with a lamplit lantern. */
+/** Street lamp: slim iron post with a lamplit lantern throwing a pool of light round its foot. */
 export const lampPost = (t: TownBuilders, x: number, z: number, h = 0.05, light: TownColor = "lamp"): void => {
   t.body.cylinder(x, 0, z, 0.0035, 0.0045, h, "iron", 5);
   t.body.cylinder(x, h - 0.002, z, 0.008, 0.005, 0.006, "brass", 6);
-  t.glow.gem(x, h + 0.008, z, 0.007, 0.011, light);
+  inStep(t, t.random(), () => {
+    t.glow.gem(x, h + 0.008, z, 0.007, 0.011, light);
+    t.halo.pool(x, TOWN_HALO_Y, z, h * 0.95, light);
+  });
 };

@@ -1,15 +1,19 @@
 // Clockwork skyscrapers: grey stone or glass curtain-wall towers stepping back
 // in art-deco setbacks, each set off by an aged-brass band, with lamplit
-// window strips up every face and a crown -- a brass cog clock, a needle spire, an alien
-// glowing bulb, ribbed fins round a spinning crystal, a brass dome, or a
-// steaming smokestack. Plus the plaza centrepieces: a turning clockwork
-// orrery and a cog lamp.
+// window strips up every face and a crown -- a brass cog clock, a needle spire, an alien glowing
+// bulb, ribbed fins round a spinning crystal, a brass dome, a rooftop garden
+// or a steaming smokestack beside a water tank -- the tallest blinking red
+// warning lights.
+// Plus the plaza centrepieces: a turning clockwork orrery and a cog lamp.
 import type { TownColor } from "./town-mesh-builder.js";
-import { at, facingOut, gear, polar, spinning, steamVent, type TownBuilders } from "./town-parts.js";
+import { roofGarden } from "./town-flourishes.js";
+import { at, beacon, facingOut, gear, polar, spinning, steamVent, type TownBuilders } from "./town-parts.js";
 
 // Clearance off a wall so a window strip never z-fights the wall face.
 const FACE_GAP = 0.0025;
 const STRIP_PITCH = 0.026;
+/** Towers at least this tall carry a blinking warning light on their crown. */
+export const BEACON_MIN_HEIGHT = 0.3;
 
 export type Crown = "clock" | "spire" | "pod" | "fins" | "dome" | "flat";
 
@@ -43,6 +47,13 @@ const windowStrips = (
     if (!isLit && !darkStrips) continue;
     (isLit ? t.glow : t.body).panel(px, y + h * 0.5, pz, 0.007, h * 0.78, isLit ? "lamp" : "window", ry);
   }
+};
+
+/** Wooden water tank on a post, with a conical iron cap. */
+const waterTank = (t: TownBuilders, x: number, y: number, z: number, radius: number): void => {
+  t.body.cylinder(x, y, z, radius * 0.18, radius * 0.18, radius * 0.7, "iron", 4);
+  t.body.cylinder(x, y + radius * 0.7, z, radius, radius, radius * 1.3, "trunk", 7);
+  t.body.cone(x, y + radius * 2, z, radius * 1.08, radius * 0.75, "iron", 7);
 };
 
 /** Glass curtain-wall section framed by stone corner piers and floor bands,
@@ -96,6 +107,7 @@ export const skyscraper = (t: TownBuilders, o: SkyscraperOptions): number => {
     y += sh;
   });
   const size = Math.min(w, d);
+  const tall = o.h >= BEACON_MIN_HEIGHT;
   switch (o.crown) {
     case "clock": {
       for (const quarter of [0, 2]) {
@@ -104,12 +116,20 @@ export const skyscraper = (t: TownBuilders, o: SkyscraperOptions): number => {
         gear(t, gx, y - o.h * 0.14 * 0.5, gz, size * 0.36, faceRy);
       }
       t.body.pyramid(o.x, y, o.z, w + 0.006, size * 1.1, d + 0.006, "brass", o.ry);
-      return y + size * 1.1;
+      if (tall) beacon(t, o.x, y + size * 1.1 + 0.004, o.z);
+      return y + size * 1.1 + (tall ? 0.012 : 0);
     }
     case "spire":
       t.body.pyramid(o.x, y, o.z, w, size * 0.5, d, "brassDark", o.ry);
       t.body.cylinder(o.x, y + size * 0.4, o.z, 0.0, 0.009, 0.12, "brass", 6);
       spinning(t, o.x, 0, o.z, [0, 1, 0], 1.2, () => t.glow.gem(o.x, y + size * 0.4 + 0.13, o.z, 0.009, 0.016, "aether"));
+      // A pair flanking the needle halfway up, under the crystal.
+      if (tall) {
+        for (const side of [-1, 1]) {
+          const [bx, bz] = at(o.x, o.z, o.ry, side * 0.0075, 0);
+          beacon(t, bx, y + size * 0.4 + 0.055, bz, 0.004);
+        }
+      }
       return y + size * 0.4 + 0.14;
     case "pod": {
       // Alien bulb on a stalk, ringed in light.
@@ -118,7 +138,8 @@ export const skyscraper = (t: TownBuilders, o: SkyscraperOptions): number => {
       t.body.ellipsoid(o.x, podY, o.z, size * 0.5, size * 0.42, size * 0.5, "graphite");
       t.glow.cylinder(o.x, podY - size * 0.04, o.z, size * 0.5, size * 0.5, size * 0.07, "aether", 12);
       t.body.ring(o.x, podY + size * 0.2, o.z, size * 0.4, "brass", 0.08);
-      return podY + size * 0.45;
+      if (tall) beacon(t, o.x, podY + size * 0.42 + 0.004, o.z);
+      return podY + size * 0.45 + (tall ? 0.01 : 0);
     }
     case "fins": {
       // Four ribbed fins curling up round a floating crystal.
@@ -127,6 +148,7 @@ export const skyscraper = (t: TownBuilders, o: SkyscraperOptions): number => {
         const [fx, fz] = at(o.x, o.z, finRy, 0, size * 0.5);
         t.body.tiltedBox(fx, y + size * 0.45, fz, 0.006, size * 0.9, size * 0.22, "graphite", finRy, 0);
         t.body.gem(fx, y + size * 0.92, fz, 0.006, 0.012, "brass");
+        if (tall && quarter === 0) beacon(t, fx, y + size * 0.92 + 0.012, fz, 0.0045);
       }
       spinning(t, o.x, 0, o.z, [0, 1, 0], 0.9, () => t.glow.gem(o.x, y + size * 0.6, o.z, size * 0.2, size * 0.32, "aether"));
       return y + size * 0.95;
@@ -134,12 +156,22 @@ export const skyscraper = (t: TownBuilders, o: SkyscraperOptions): number => {
     case "dome":
       t.body.dome(o.x, y, o.z, size * 0.48, "brass", 10, 0.9);
       t.body.gem(o.x, y + size * 0.48, o.z, 0.006, 0.016, "brassDark");
-      return y + size * 0.5;
+      if (tall) beacon(t, o.x, y + size * 0.48 + 0.02, o.z);
+      return y + size * 0.5 + (tall ? 0.026 : 0);
     case "flat": {
-      // Plant room with a steaming stack.
+      // A rooftop garden, or a plant room with a steaming stack and, where
+      // the roof has room, a water tank.
+      if (size > 0.05 && t.random() < 0.35) {
+        roofGarden(t, o.x, y, o.z, w, d, o.ry);
+        return y + size * 0.4;
+      }
       t.body.box(o.x, y, o.z, w * 0.5, 0.014, d * 0.5, "iron", o.ry);
       const [vx, vz] = at(o.x, o.z, o.ry, w * 0.12, 0);
       steamVent(t, vx, y + 0.014, vz);
+      if (size > 0.05) {
+        const [tx, tz] = at(o.x, o.z, o.ry, -w * 0.3, d * 0.22);
+        waterTank(t, tx, y, tz, size * 0.12);
+      }
       return y + 0.05;
     }
   }
@@ -157,12 +189,13 @@ export type TowerRingOptions = {
   readonly annexH?: readonly [number, number];
 };
 
-/** Ring of skyscrapers round the plate, fronts facing the plaza. */
+/** Ring of skyscrapers round the plate, fronts facing the plaza, each on its own paved sidewalk. */
 export const towerRing = (t: TownBuilders, o: TowerRingOptions): void => {
   const shells = o.shells ?? ["stone", "stoneLight", "stoneDark", "stone"];
   for (let i = 0; i < o.count; i += 1) {
     const degrees = o.startDeg + (i * 360) / o.count;
     const [x, z] = polar(o.radius, degrees);
+    t.body.box(x, 0, z, o.w * 1.45, 0.005, o.w * 1.45, "paving", facingOut(degrees + 180));
     skyscraper(t, {
       x, z,
       w: o.w,
@@ -176,6 +209,7 @@ export const towerRing = (t: TownBuilders, o: TowerRingOptions): void => {
     if (o.annexH) {
       const between = degrees + 180 / o.count;
       const [ax, az] = polar(o.radius + 0.01, between);
+      t.body.box(ax, 0, az, o.w * 1.15, 0.005, o.w * 1.25, "paving", facingOut(between + 180));
       skyscraper(t, {
         x: ax, z: az,
         w: o.w * 0.78,

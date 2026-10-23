@@ -1,31 +1,59 @@
-import { Color, ConeGeometry, InstancedMesh, MeshBasicMaterial, Object3D, Scene } from "three";
+import {
+  Color,
+  ConeGeometry,
+  InstancedBufferAttribute,
+  InstancedMesh,
+  Matrix4,
+  MeshBasicMaterial,
+  MeshDepthMaterial,
+  MeshPhysicalMaterial,
+  MeshStandardMaterial,
+  Object3D,
+  RGBADepthPacking,
+  RingGeometry,
+  Scene,
+  type Texture
+} from "three";
 
-import { buildTowerPartSpecs, computeTowerAnim, type TowerAnim } from "./client-map-3d-muster-tower-parts.js";
+import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
+import { createMusterBannerClothMaterials } from "./client-map-3d-muster-banner/muster-banner-cloth-material.js";
+import { getMusterBannerGeometry, MUSTER_PLINTH_LEDGES } from "./client-map-3d-muster-banner/muster-banner-geometry.js";
+import { applyMarbleFinish } from "./client-map-3d-muster-banner/muster-banner-marble-material.js";
+import { createMusterProgressBadgeLayer, type MusterProgressBadgeSlot } from "./client-map-3d-muster-progress-badge.js";
+import type { MusterBadgeInfo } from "./client-muster-flag-badge/client-muster-flag-badge.js";
+import { TOWN_BASE_LIFT } from "./client-map-3d-town-overlay.js";
 
-// Muster overlay: the same steampunk tower/banner model that used to mark
-// a single waypoint now marks every mustering tile — a tower reads as a
-// rallying point far better than it does as a mere movement destination.
-// Soldier dots still march from tile perimeter toward the tower base,
-// showing troops assembling; the waypoint queue now uses a small pennant
-// instead (client-map-3d-waypoint-flag/), which never shows soldier dots.
+// Muster overlay: every mustering tile carries a war banner in its owner's
+// colour, a board-game piece standing on an octagonal marble-and-brass
+// plate as the towns (client-map-3d-muster-banner/). The cloth flies in the
+// wind entirely in its shader; soldier dots still march in from the tile's
+// edges to the plinth, showing troops assembling. The waypoint queue uses a
+// small pennant instead (client-map-3d-waypoint-flag/), with no soldiers.
 //
 // Design:
-//   • Up to MAX towers on screen at once — mustering on several border
-//     tiles simultaneously is an explicit play pattern, so every part is
-//     one InstancedMesh shared across all mustering tiles rather than a
-//     Group of raw meshes per tile (that would be MAX * ~20 draw calls).
-//   • Tinted parts (glow ring, pedestal glow, banner, medallion face,
-//     smoke) get the tile owner's color per-instance via instanceColor;
-//     brighter (lerped toward white) in ADVANCE mode reads as more urgent.
+//   • Up to MAX banners on screen at once — mustering on several border
+//     tiles simultaneously is an explicit play pattern, so each part (matte
+//     stone, metalwork, owner-coloured enamel, cloth) is one InstancedMesh
+//     shared across all mustering tiles, all four sharing one transform
+//     buffer. The banners never move, so transforms upload on commit only.
+//   • Lit, depth-tested and shadow-casting like the towns, so the pieces sit
+//     in the world rather than float over it.
+//   • ADVANCE mode: the colour is lifted toward white and the banner whips
+//     faster in the wind; soldier dots march faster.
 //   • Dot count scales with fill ratio (sparse at start, dense near full).
-//   • ADVANCE mode: soldier dots march faster.
+//   • Under siege (an enemy attack targets the flag's own tile, so its troops
+//     are pinned -- client-muster-siege.ts): a red ring pulses round the
+//     plinth and the soldiers stop marching in and stand guard at its rim.
+//     Driven by siegeEndsAt in tick(), so it switches off on its own when the
+//     fight resolves, without waiting for a terrain rebuild.
+//   • Our own flags carry a percentage badge above the banner -- how far the
+//     flag is toward the attack it's gathering for, or how full it is
+//     (client-muster-flag-badge.ts, client-map-3d-muster-progress-badge.ts).
+//     Its source is read every tick, so the number climbs between terrain
+//     rebuilds too.
 
-// Matches the original (pre-tower) pennant overlay's cap — the per-frame
-// matrix-recompute cost at this ceiling (MAX * ~19 tower parts) is the same
-// order of magnitude as the soldier-dot cost already paid every frame below
-// (MAX * SOLDIERS_MAX), so there's no perf reason to cap lower than before.
 const MAX = 256;
-const FLAG_Y = 0.014; // rise above surface
+const ADVANCE_WIND_SPEED = 1.6;
 
 const SOLDIER_W = 0.022;
 const SOLDIER_H = 0.048;
@@ -34,6 +62,13 @@ const SOLDIERS_MAX = 16;
 const SOLDIERS_MIN = 3;
 const MARCH_HOLD_MS = 3400;
 const MARCH_ADVANCE_MS = 2000;
+/** Soldiers halt at the plinth's rim rather than marching into it. */
+const MARCH_REACH = 0.4;
+const SIEGE_GUARD_RADIUS = 0.3;
+const SIEGE_RING_INNER = 0.38;
+const SIEGE_RING_OUTER = 0.47;
+const SIEGE_RING_LIFT = 0.012;
+const SIEGE_PULSE_MS = 900;
 
 // Murmur3-style hash [0,1) — same mixing as the settle overlay wanderHash.
 const hash01 = (wx: number, wy: number, i: number, salt: number): number => {
@@ -46,12 +81,12 @@ const hash01 = (wx: number, wy: number, i: number, salt: number): number => {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
 };
 
-// Returns tile-local {x, z} in [-0.46, 0.46] for a soldier marching toward center.
+// Returns tile-local {x, z} for a soldier marching from the tile edge toward the plinth.
 const soldierPos = (
   nowMs: number, wx: number, wy: number, i: number, periodMs: number
 ): { x: number; z: number } => {
   const offset = hash01(wx, wy, i, 7) * periodMs;
-  const t = ((nowMs + offset) % periodMs) / periodMs; // 0=edge, 1=center
+  const t = ((nowMs + offset) % periodMs) / periodMs; // 0=edge, 1=plinth
 
   const edge = Math.floor(hash01(wx, wy, i, 31) * 4);
   const along = (hash01(wx, wy, i, 53) - 0.5) * 0.9;
@@ -61,7 +96,15 @@ const soldierPos = (
   else if (edge === 2) { sx = along; sz = -0.46; }
   else                 { sx = along; sz =  0.46; }
 
-  return { x: sx * (1 - t), z: sz * (1 - t) };
+  const scale = 1 - t * MARCH_REACH;
+  return { x: sx * scale, z: sz * scale };
+};
+
+// Besieged: soldiers stop marching in and stand evenly round the plinth rim,
+// guarding the flag.
+const siegeGuardPos = (i: number, count: number): { x: number; z: number } => {
+  const angle = (i / Math.max(1, count)) * Math.PI * 2;
+  return { x: Math.cos(angle) * SIEGE_GUARD_RADIUS, z: Math.sin(angle) * SIEGE_GUARD_RADIUS };
 };
 
 type TileEntry = {
@@ -69,6 +112,8 @@ type TileEntry = {
   fillRatio: number; advance: boolean;
   worldTileX: number; worldTileY: number;
   tintColor: Color;
+  /** Epoch ms the siege on this flag's tile resolves; 0 when not besieged. */
+  siegeEndsAt: number;
 };
 
 export type MusterOverlay = {
@@ -76,22 +121,66 @@ export type MusterOverlay = {
   readonly addMuster: (
     sceneX: number, sceneZ: number, surfaceY: number,
     fillRatio: number, ownerColor: string, advance: boolean,
-    worldTileX: number, worldTileY: number
+    worldTileX: number, worldTileY: number, siegeEndsAt?: number
   ) => void;
   readonly commit: () => void;
   readonly tick:    (nowMs: number) => void;
   readonly dispose: () => void;
 };
 
-export const createMusterOverlay = (scene: Scene): MusterOverlay => {
-  const specs = buildTowerPartSpecs();
-  const meshes = specs.map((spec) => {
-    const mesh = new InstancedMesh(spec.geometry, spec.material, MAX * spec.subCount);
-    mesh.frustumCulled = false;
-    mesh.count = 0;
-    mesh.renderOrder = spec.renderOrder;
-    return mesh;
+/**
+ * `badgeLookup` is called once per tick and returns a per-flag lookup (tile
+ * key `${x},${y}` -> badge, undefined for rival flags) -- see
+ * client-muster-flag-badge.ts's musterBadgeLookup. Omitted, no badges are drawn.
+ */
+export const createMusterOverlay = (
+  scene: Scene,
+  envMap?: Texture,
+  badgeLookup?: () => (tileKey: string) => MusterBadgeInfo | undefined
+): MusterOverlay => {
+  const geometry = getMusterBannerGeometry();
+  // The towns' AFC-style metalwork (client-map-3d-town-overlay.ts); the
+  // plinth is polished marble under a light clearcoat, so it doesn't read as
+  // plastic up close.
+  const bodyMaterial = new MeshPhysicalMaterial({
+    vertexColors: true, roughness: 0.22, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.08, flatShading: true
   });
+  applyMarbleFinish(bodyMaterial, MUSTER_PLINTH_LEDGES);
+  const metalMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.7, flatShading: true });
+  // Lacquered enamel in the owner's colour, from instanceColor: a clearcoat
+  // over the paint, like a premium miniature's varnish.
+  const enamelMaterial = new MeshPhysicalMaterial({
+    color: "#ffffff", roughness: 0.4, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.12, flatShading: true
+  });
+  for (const material of [bodyMaterial, metalMaterial, enamelMaterial]) applyBuildingEnvMap(material, envMap);
+  const clothMaterials = createMusterBannerClothMaterials();
+  applyBuildingEnvMap(clothMaterials.cloth, envMap);
+  const depthMaterial = new MeshDepthMaterial({ depthPacking: RGBADepthPacking });
+
+  // Each overlay gets its own copy of the cloth so its per-instance wind
+  // attribute never clashes with another overlay's.
+  const clothGeometry = geometry.cloth.clone();
+  const wind = new InstancedBufferAttribute(new Float32Array(MAX * 2), 2);
+  clothGeometry.setAttribute("aBannerWind", wind);
+
+  const body = new InstancedMesh(geometry.body, bodyMaterial, MAX);
+  const metal = new InstancedMesh(geometry.metal, metalMaterial, MAX);
+  const enamel = new InstancedMesh(geometry.tinted, enamelMaterial, MAX);
+  const cloth = new InstancedMesh(clothGeometry, clothMaterials.cloth, MAX);
+  body.customDepthMaterial = depthMaterial;
+  metal.customDepthMaterial = depthMaterial;
+  enamel.customDepthMaterial = depthMaterial;
+  cloth.customDepthMaterial = clothMaterials.depth;
+  const pieceMeshes = [body, metal, enamel, cloth];
+  for (const [i, mesh] of pieceMeshes.entries()) {
+    mesh.name = `muster-banner-${["body", "metal", "enamel", "cloth"][i]}`;
+    // One transform buffer, uploaded once for all four parts.
+    if (mesh !== body) mesh.instanceMatrix = body.instanceMatrix;
+    mesh.frustumCulled = false;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.count = 0;
+  }
 
   const soldierGeom = new ConeGeometry(SOLDIER_W * 0.5, SOLDIER_H, 4); // tiny soldier silhouette
   const soldierMat  = new MeshBasicMaterial({ toneMapped: false, color: "#0a0d18", depthTest: false, depthWrite: false, transparent: true });
@@ -100,10 +189,23 @@ export const createMusterOverlay = (scene: Scene): MusterOverlay => {
   soldierMesh.count = 0;
   soldierMesh.renderOrder = 36;
 
-  scene.add(...meshes, soldierMesh);
+  const siegeRingGeom = new RingGeometry(SIEGE_RING_INNER, SIEGE_RING_OUTER, 32);
+  siegeRingGeom.rotateX(-Math.PI / 2);
+  const siegeRingMat = new MeshBasicMaterial({ toneMapped: false, color: "#ff3b30", transparent: true, depthWrite: false, opacity: 0.6 });
+  const siegeRingMesh = new InstancedMesh(siegeRingGeom, siegeRingMat, MAX);
+  siegeRingMesh.name = "muster-siege-ring";
+  siegeRingMesh.frustumCulled = false;
+  siegeRingMesh.count = 0;
+  siegeRingMesh.renderOrder = 35;
+
+  scene.add(...pieceMeshes, soldierMesh, siegeRingMesh);
+  const progressBadges = createMusterProgressBadgeLayer(scene);
+  const badgeSlots: MusterProgressBadgeSlot[] = [];
 
   const entries: TileEntry[] = [];
   const tmpColor = new Color();
+  const white = new Color("#ffffff");
+  const matrix = new Matrix4();
   const dummy = new Object3D();
 
   const clear = (): void => { entries.length = 0; };
@@ -111,70 +213,55 @@ export const createMusterOverlay = (scene: Scene): MusterOverlay => {
   const addMuster = (
     sceneX: number, sceneZ: number, surfaceY: number,
     fillRatio: number, ownerColor: string, advance: boolean,
-    worldTileX: number, worldTileY: number
+    worldTileX: number, worldTileY: number, siegeEndsAt = 0
   ): void => {
     if (entries.length >= MAX) return;
     tmpColor.set(ownerColor);
-    if (advance) tmpColor.lerp(new Color("#ffffff"), 0.30); // brighter in ADVANCE
-    entries.push({ sceneX, sceneZ, surfaceY, fillRatio, advance, worldTileX, worldTileY, tintColor: tmpColor.clone() });
+    if (advance) tmpColor.lerp(white, 0.30); // brighter in ADVANCE
+    entries.push({ sceneX, sceneZ, surfaceY, fillRatio, advance, worldTileX, worldTileY, tintColor: tmpColor.clone(), siegeEndsAt });
   };
 
   const commit = (): void => {
-    for (let p = 0; p < specs.length; p++) {
-      const spec = specs[p]!;
-      const mesh = meshes[p]!;
-      mesh.count = entries.length * spec.subCount;
-      if (!spec.tinted) continue;
-      for (let i = 0; i < entries.length; i++) {
-        const color = entries[i]!.tintColor;
-        for (let sub = 0; sub < spec.subCount; sub++) mesh.setColorAt(i * spec.subCount + sub, color);
-      }
-      if (mesh.instanceColor) {
-        mesh.instanceColor.clearUpdateRanges();
-        mesh.instanceColor.addUpdateRange(0, mesh.count * 3);
-        mesh.instanceColor.needsUpdate = true;
-      }
+    const count = entries.length;
+    for (const mesh of pieceMeshes) mesh.count = count;
+    for (let i = 0; i < count; i++) {
+      const e = entries[i]!;
+      body.setMatrixAt(i, matrix.makeTranslation(e.sceneX, e.surfaceY + TOWN_BASE_LIFT, e.sceneZ));
+      enamel.setColorAt(i, e.tintColor);
+      cloth.setColorAt(i, e.tintColor);
+      wind.setXY(i, hash01(e.worldTileX, e.worldTileY, 0, 99), e.advance ? ADVANCE_WIND_SPEED : 1);
     }
-  };
-
-  const applyTowerMatrices = (nowMs: number): void => {
-    if (entries.length === 0) return;
-    const perEntry: Array<{ anim: TowerAnim; base: number }> = entries.map((e) => {
-      const phase = hash01(e.worldTileX, e.worldTileY, 0, 99) * Math.PI * 2;
-      const t = nowMs / 1000 + phase;
-      return { anim: computeTowerAnim(t), base: e.surfaceY + FLAG_Y + Math.sin(t * 1.4) * 0.03 };
-    });
-    for (let p = 0; p < specs.length; p++) {
-      const spec = specs[p]!;
-      const mesh = meshes[p]!;
-      for (let i = 0; i < entries.length; i++) {
-        const e = entries[i]!;
-        const { anim, base } = perEntry[i]!;
-        for (let sub = 0; sub < spec.subCount; sub++) {
-          const local = spec.local(sub, anim);
-          dummy.position.set(e.sceneX + local.x, base + local.y, e.sceneZ + local.z);
-          dummy.rotation.set(local.rx, local.ry, local.rz);
-          dummy.updateMatrix();
-          mesh.setMatrixAt(i * spec.subCount + sub, dummy.matrix);
-        }
-      }
-      mesh.instanceMatrix.clearUpdateRanges();
-      mesh.instanceMatrix.addUpdateRange(0, mesh.count * 16);
-      mesh.instanceMatrix.needsUpdate = true;
+    body.instanceMatrix.clearUpdateRanges();
+    wind.clearUpdateRanges();
+    if (count === 0) return;
+    body.instanceMatrix.addUpdateRange(0, count * 16);
+    body.instanceMatrix.needsUpdate = true;
+    wind.addUpdateRange(0, count * 2);
+    wind.needsUpdate = true;
+    for (const mesh of [enamel, cloth]) {
+      const colors = mesh.instanceColor;
+      if (!colors) continue;
+      colors.clearUpdateRanges();
+      colors.addUpdateRange(0, count * 3);
+      colors.needsUpdate = true;
     }
   };
 
   const applySoldierMatrices = (nowMs: number): void => {
     if (entries.length === 0) { soldierMesh.count = 0; return; }
     let writeIdx = 0;
+    const epochMs = Date.now();
     for (const e of entries) {
       const period = e.advance ? MARCH_ADVANCE_MS : MARCH_HOLD_MS;
+      const besieged = e.siegeEndsAt > epochMs;
       const activeSoldiers = Math.max(
         SOLDIERS_MIN,
         Math.round(SOLDIERS_MIN + e.fillRatio * (SOLDIERS_MAX - SOLDIERS_MIN))
       );
       for (let i = 0; i < activeSoldiers; i++) {
-        const { x, z } = soldierPos(nowMs, e.worldTileX, e.worldTileY, i, period);
+        const { x, z } = besieged
+          ? siegeGuardPos(i, activeSoldiers)
+          : soldierPos(nowMs, e.worldTileX, e.worldTileY, i, period);
         dummy.position.set(e.sceneX + x, e.surfaceY + SOLDIER_Y, e.sceneZ + z);
         dummy.rotation.set(0, 0, 0);
         dummy.updateMatrix();
@@ -187,16 +274,57 @@ export const createMusterOverlay = (scene: Scene): MusterOverlay => {
     soldierMesh.instanceMatrix.needsUpdate = true;
   };
 
+  const applySiegeRings = (nowMs: number): void => {
+    const epochMs = Date.now();
+    let writeIdx = 0;
+    for (const e of entries) {
+      if (e.siegeEndsAt <= epochMs) continue;
+      siegeRingMesh.setMatrixAt(writeIdx++, matrix.makeTranslation(e.sceneX, e.surfaceY + SIEGE_RING_LIFT, e.sceneZ));
+    }
+    siegeRingMesh.count = writeIdx;
+    if (writeIdx === 0) return;
+    siegeRingMat.opacity = 0.35 + 0.45 * (0.5 + 0.5 * Math.sin((nowMs / SIEGE_PULSE_MS) * Math.PI * 2));
+    siegeRingMesh.instanceMatrix.clearUpdateRanges();
+    siegeRingMesh.instanceMatrix.addUpdateRange(0, writeIdx * 16);
+    siegeRingMesh.instanceMatrix.needsUpdate = true;
+  };
+
+  const applyProgressBadges = (nowMs: number): void => {
+    badgeSlots.length = 0;
+    const lookup = entries.length > 0 ? badgeLookup?.() : undefined;
+    if (lookup) {
+      for (const e of entries) {
+        const badge = lookup(`${e.worldTileX},${e.worldTileY}`);
+        if (!badge) continue;
+        badgeSlots.push({
+          sceneX: e.sceneX, sceneZ: e.sceneZ, surfaceY: e.surfaceY + TOWN_BASE_LIFT,
+          ratio: badge.ratio, kind: badge.kind, phase: hash01(e.worldTileX, e.worldTileY, 0, 41)
+        });
+      }
+    }
+    progressBadges.sync(badgeSlots, nowMs);
+  };
+
   const tick = (nowMs: number): void => {
-    applyTowerMatrices(nowMs);
+    clothMaterials.tick(nowMs);
     applySoldierMatrices(nowMs);
+    applySiegeRings(nowMs);
+    applyProgressBadges(nowMs);
   };
 
   const dispose = (): void => {
-    scene.remove(...meshes, soldierMesh);
-    for (const spec of specs) { spec.geometry.dispose(); spec.material.dispose(); }
+    scene.remove(...pieceMeshes, soldierMesh, siegeRingMesh);
+    // The baked plinth geometry is shared across overlays; only the cloth copy is ours.
+    clothGeometry.dispose();
+    for (const material of [bodyMaterial, metalMaterial, enamelMaterial, depthMaterial]) material.dispose();
+    clothMaterials.dispose();
+    for (const mesh of pieceMeshes) mesh.dispose();
     soldierGeom.dispose();
     soldierMat.dispose();
+    siegeRingGeom.dispose();
+    siegeRingMat.dispose();
+    siegeRingMesh.dispose();
+    progressBadges.dispose();
   };
 
   return { clear, addMuster, commit, tick, dispose };

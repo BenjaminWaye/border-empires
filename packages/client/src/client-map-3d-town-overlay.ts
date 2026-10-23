@@ -1,15 +1,21 @@
 // Procedural 3D towns. Each tier is baked once into a vertex-coloured,
 // flat-shaded clockwork city (town-tier-geometry.ts): grey stone skyscrapers
 // banded in the AFC's aged brass, lit by lamplight and aether, round an
-// octagonal plaza plate. Drawn per tier as three instanced meshes that share one
-// transform buffer: the matte body, the metalwork and glass (metallic, like
-// the AFC's), the unlit glow (window strips, lamps, aether) and the steam.
-// Cogs, orrery hoops, halos, crystals and circling airships turn, lamplight
-// flickers and steam rises entirely in the shaders (town-animation-shaders.ts).
+// octagonal plaza plate. Drawn per tier as instanced meshes that share one
+// transform buffer: the matte body, the metalwork (metallic, like the AFC's),
+// the mirror glass, the unlit glow (window strips, lamps, aether,
+// beacons), the additive light pools on the paving, the steam, and the base
+// plate (street top, kerb, wall and course) in polished marble, like the
+// muster banner's plinth.
+// Cogs, orrery hoops, halos, crystals, courier gyros and circling airships turn,
+// lamplight flickers, beacons blink and steam rises entirely in the shaders
+// (town-animation-shaders.ts).
 //
 // Each town is turned a quarter-turn picked from its world tile, so
 // neighbouring towns of the same tier don't read as stamped copies.
 import {
+  AdditiveBlending,
+  FrontSide,
   InstancedMesh,
   Matrix4,
   MeshBasicMaterial,
@@ -23,6 +29,8 @@ import {
 } from "three";
 import { applyTownSpin, applyTownSteam, tickTownTime } from "./client-map-3d-town-overlay/town-animation-shaders.js";
 import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
+import { applyMarbleFinish } from "./client-map-3d-muster-banner/muster-banner-marble-material.js";
+import { TOWN_PLINTH_LEDGES } from "./client-map-3d-town-overlay/town-parts.js";
 import { getTownTierGeometry, TOWN_TIERS, type TownTier } from "./client-map-3d-town-overlay/town-tier-geometry.js";
 
 export { TOWN_TIERS, type TownTier } from "./client-map-3d-town-overlay/town-tier-geometry.js";
@@ -42,7 +50,7 @@ export const townQuarterTurnForTile = (tileX: number, tileY: number): number => 
 
 type TierSlot = {
   readonly body: InstancedMesh;
-  /** Metal and glow meshes drawing with the body's instance matrices. */
+  /** Metal, glass, glow, halo, steam and marble plinth meshes drawing with the body's instance matrices. */
   readonly followers: readonly InstancedMesh[];
   count: number;
 };
@@ -61,16 +69,42 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
   // Matches the AFC's iron/brass finish (client-map-3d-fabrication-complex.ts).
   const metalMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.7, flatShading: true });
   applyBuildingEnvMap(metalMaterial, envMap);
+  // Curtain walls: near-mirror glass, so the downtown towers carry the sky.
+  const glassMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.2, metalness: 0.85, flatShading: true });
+  applyBuildingEnvMap(glassMaterial, envMap);
   // Unlit and outside tone mapping so windows and aether stay luminous under the warm sun.
   const glowMaterial = new MeshBasicMaterial({ toneMapped: false, vertexColors: true });
+  // Pools of lamplight added onto the paving under them: black
+  // rims add nothing, so each fades out softly, and the low opacity keeps
+  // sunlit paving from blowing out. Fog would add its own colour.
+  // Pulled towards the camera, since the pools sit closer over the paving
+  // than the depth buffer resolves when zoomed right out.
+  const haloMaterial = new MeshBasicMaterial({
+    toneMapped: false, vertexColors: true, transparent: true, opacity: 0.32, blending: AdditiveBlending, depthWrite: false, fog: false,
+    polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4
+  });
   const steamMaterial = new MeshStandardMaterial({
     vertexColors: true, roughness: 1, metalness: 0, flatShading: true, transparent: true, opacity: 0.6, depthWrite: false
   });
+  // The base plate (its street top, kerb, wall and course): the muster
+  // banner plinth's polished marble (client-map-3d-muster-overlay.ts), so the
+  // town stands on the same premium board-game base instead of a grey tray.
+  // Without the muster's clearcoat: this covers every town's whole
+  // footprint, so it skips that second specular lobe per fragment.
+  const plinthMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.22, metalness: 0, flatShading: true });
+  applyMarbleFinish(plinthMaterial, TOWN_PLINTH_LEDGES);
+  applyBuildingEnvMap(plinthMaterial, envMap);
   // Shadow pass: spins like the visible meshes, so a circling airship's shadow follows it.
   const depthMaterial = new MeshDepthMaterial({ depthPacking: RGBADepthPacking });
+  // The tier geometry drops the undersides of static parts, which three's
+  // shadow pass would otherwise draw (it renders a FrontSide material's back
+  // faces), so these cast from their front faces instead.
+  for (const material of [bodyMaterial, metalMaterial, glassMaterial, plinthMaterial]) material.shadowSide = FrontSide;
   applyTownSpin(bodyMaterial);
   applyTownSpin(metalMaterial);
+  applyTownSpin(glassMaterial);
   applyTownSpin(glowMaterial, true);
+  applyTownSpin(haloMaterial, true);
   applyTownSpin(depthMaterial);
   applyTownSteam(steamMaterial);
 
@@ -91,8 +125,11 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
     const followers: InstancedMesh[] = [];
     for (const [suffix, part, material, shadowed] of [
       ["metal", geometry.metal, metalMaterial, true],
+      ["glass", geometry.glass, glassMaterial, true],
       ["glow", geometry.glow, glowMaterial, false],
-      ["steam", geometry.steam, steamMaterial, false]
+      ["halo", geometry.halo, haloMaterial, false],
+      ["steam", geometry.steam, steamMaterial, false],
+      ["plinth", geometry.plinth, plinthMaterial, true]
     ] as const) {
       if (!part) continue;
       const mesh = new InstancedMesh(part, material, capacity);
@@ -132,7 +169,12 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
   const commit = (): void => {
     for (const slot of slots.values()) {
       slot.body.count = slot.count;
-      for (const follower of slot.followers) follower.count = slot.count;
+      // A tier with no town on screen costs no draw calls at all.
+      slot.body.visible = slot.count > 0;
+      for (const follower of slot.followers) {
+        follower.count = slot.count;
+        follower.visible = slot.count > 0;
+      }
       // Upload only the instances actually drawn, not the whole tile-budget buffer.
       slot.body.instanceMatrix.clearUpdateRanges();
       if (slot.count === 0) continue;
@@ -150,6 +192,9 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
     slots.clear();
     bodyMaterial.dispose();
     metalMaterial.dispose();
+    glassMaterial.dispose();
+    haloMaterial.dispose();
+    plinthMaterial.dispose();
     steamMaterial.dispose();
     depthMaterial.dispose();
     glowMaterial.dispose();

@@ -43,6 +43,28 @@ export const musterFlagCap = (manpowerCap: number, capLevel: number | undefined)
   return Math.min(raw, manpowerCap);
 };
 
+/**
+ * The smallest capLevel at which musterFlagCap holds `required` manpower,
+ * never lower than the flag's current level (capacity is only ever expanded
+ * here, not shrunk). Used when the player commits more to an attack than the
+ * flag can stage -- the launch slider goes up to the whole manpower pool, so
+ * without this a big commitment left the flag pinned at its cap forever,
+ * "Mustering 0/N" never filling. A `required` above the manpower cap is
+ * clamped to it, since musterFlagCap can't exceed that anyway.
+ */
+export const musterCapLevelToFit = (manpowerCap: number, capLevel: number | undefined, required: number): number => {
+  const level = capLevel ?? 0;
+  const target = Math.min(required, manpowerCap);
+  if (musterFlagCap(manpowerCap, level) >= target) return level;
+  const share = manpowerCap * MUSTER_FLAG_CAP_MANPOWER_FRACTION;
+  if (share <= 0) return level;
+  const base = Math.max(MUSTER_FLAG_BASE_CAP_FLOOR, share);
+  // The epsilon keeps float noise (e.g. 2.0000000001) from overshooting by a
+  // whole level; the re-check below catches the opposite rounding.
+  const fit = Math.max(level, Math.ceil((target - base) / share - 1e-9));
+  return musterFlagCap(manpowerCap, fit) >= target ? fit : fit + 1;
+};
+
 // Longest MARCH a flag may be given, in tiles (toroidal Chebyshev distance
 // from the flag to its target). Troops walking across the map take far longer
 // than raising a muster flag next to the fight, and a long march also makes
@@ -67,6 +89,16 @@ export const musterMarchTooFarAdvice = (distanceTiles: number): string | undefin
   distanceTiles > MUSTER_MARCH_MAX_DISTANCE_TILES
     ? `That target is ${distanceTiles} tiles from this flag, and marches are limited to ${MUSTER_MARCH_MAX_DISTANCE_TILES} tiles. Raise a muster flag closer to the target instead: troops take much longer to walk across the map than it takes to muster next to the fight.`
     : undefined;
+
+/**
+ * SET_MUSTER's rejection text (code MUSTER_INVALID) for a MARCH target that
+ * isn't LAND. A march can target unexplored ground, so the player may only
+ * learn the tile is water or a mountain from this rejection; shared so the
+ * client can recognise it and show it instead of its generic MUSTER_INVALID
+ * text about the flag's own tile.
+ */
+export const MUSTER_MARCH_TARGET_NOT_LAND_MESSAGE =
+  "March blocked: that target isn't land, and marches can only head for land tiles. Your flag keeps its current orders.";
 
 // How far (in steps through the flag owner's own and neutral land) an ADVANCE
 // flag looks for hostile tiles to attack or approach. Shared so the player-facing

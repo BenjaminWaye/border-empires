@@ -42,6 +42,12 @@ export const markUnexploredStormClip = <T extends Material>(material: T, kind: S
   return material;
 };
 
+/** How a material is flagged by markUnexploredStormClip, if at all. */
+export const unexploredStormClipKindOf = (material: Material): StormClipKind | undefined => {
+  const kind = material.userData[STORM_CLIP_FLAG] as StormClipKind | undefined;
+  return kind === "feature" || kind === "ground" ? kind : undefined;
+};
+
 // Vertex stage only. stormClipField returns the storm's contour field s
 // (soft field + edge wobble + clearance; > 1 on deep fog, -1 on fully
 // explored tiles).
@@ -161,8 +167,8 @@ export const applyUnexploredStormClipToScene = (root: Object3D, uniforms: StormC
     if (!material) return;
     let shadowKind: StormClipKind | undefined;
     for (const entry of Array.isArray(material) ? material : [material]) {
-      const kind = entry.userData[STORM_CLIP_FLAG] as StormClipKind | undefined;
-      if (kind !== "feature" && kind !== "ground") continue;
+      const kind = unexploredStormClipKindOf(entry);
+      if (!kind) continue;
       shadowKind = shadowKind ?? kind;
       if (patched.has(entry)) continue;
       patched.add(entry);

@@ -26,9 +26,9 @@ describe("alliance list AI names", () => {
       document.querySelector<HTMLButtonElement>("[data-trade-send]")!.click();
     }
     closeDiplomacyTradeScreen();
-    // The trade screen addresses the target by its diplomacy name, not the seasonal display name.
-    expect(sendGameMessage).toHaveBeenCalledWith({ type: "DIPLOMACY_STANCE_REQUEST", targetPlayerName: "AI 1" }, expect.any(String));
-    expect(sendGameMessage).toHaveBeenCalledWith({ type: "TRUCE_REQUEST", targetPlayerName: "AI 1", durationHours: 12 }, expect.any(String));
+    // The trade screen addresses the target by its id and diplomacy name, not the seasonal display name.
+    expect(sendGameMessage).toHaveBeenCalledWith({ type: "DIPLOMACY_STANCE_REQUEST", targetPlayerName: "AI 1", targetPlayerId: "ai-1" }, expect.any(String));
+    expect(sendGameMessage).toHaveBeenCalledWith({ type: "TRUCE_REQUEST", targetPlayerName: "AI 1", targetPlayerId: "ai-1", durationHours: 12 }, expect.any(String));
     state.allies = ["ai-1"];
     renderAllianceLists(state, dom, (_label, _fallback, render) => render(), "fallback");
     expect(dom.alliesListEl.querySelector(".player-link")?.textContent).toBe("Freja Sund");

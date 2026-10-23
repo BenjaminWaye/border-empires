@@ -80,6 +80,8 @@ const payloadForCommand = (type: RestartCommandType): Record<string, unknown> =>
       return { x: 10, y: 10 };
     case "WAYPOINT_CANCEL_ALL":
       return {};
+    case "NAME_ISLAND":
+      return { x: 10, y: 10, name: "Isle of Brass" };
   }
 };
 

@@ -7,6 +7,7 @@ These rules apply to every task. Task-conditional details are in `docs/agents/`;
 - **Staging and production both run the rewrite stack** (`apps/realtime-gateway` + `apps/simulation`, combined). Both run on Hetzner Cloud (staging `api-staging.borderempires.com`, production `api.borderempires.com`); the Fly apps `border-empires-combined-staging` / `border-empires-combined` are stopped legacy rollbacks.
 - **The rewrite stack is the only runtime.** The legacy `packages/server` stack was deleted in PR #264; docs that still cite `packages/server/...` paths (mostly under `docs/archive/`) are historical — map them to `apps/simulation` / `apps/realtime-gateway` instead of recreating legacy code.
 - Full deploy/Hetzner/Vercel details: read `docs/agents/deploys.md` before any deploy or CLI work.
+- The static game client also runs on Hetzner via Caddy. API origins serve the game as a fallback while client DNS is migrated; Hetzner CI deploys must not invoke Vercel.
 
 ## Renderer parity (2D canvas + true-3D map)
 

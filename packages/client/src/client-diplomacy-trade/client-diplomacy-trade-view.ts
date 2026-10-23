@@ -2,6 +2,8 @@
 // and whether the offer can be sent. Uses the same shared pricing rules the
 // gateway decides with, so "would accept" here means the AI really accepts.
 import {
+  aiCounterOffer,
+  emptyDiplomacyTerms,
   evaluateAiOffer,
   requiredForOffer,
   netValueToAi,
@@ -24,7 +26,8 @@ export type DiplomacyStanceReply =
       ai: true;
       stance?: { kind: DiplomacyStanceKind; reason: string };
       attitude?: { level: DiplomacyAttitude; score: number; modifiers: Array<{ label: string; value: number }> };
-      war?: { atWar: boolean; aiWinning: boolean; aiLosing: boolean };
+      /** The tile counts are absent from a gateway older than the war tally. */
+      war?: { atWar: boolean; aiWinning: boolean; aiLosing: boolean; tilesTakenFromAi?: number; tilesTakenByAi?: number };
       truceRefusal?: string;
       allianceRefusal?: string;
       pricing?: AiDiplomacyPricing;
@@ -47,6 +50,20 @@ export const attitudeSummary = (reply: DiplomacyStanceReply | undefined): string
   return `${ATTITUDE_LABEL[reply.attitude.level]}${war}`;
 };
 
+/**
+ * The tiles each side has taken in this war, as the AI counts them (recent
+ * captures weigh most; old ones fade). Being 2+ tiles behind makes the AI
+ * call itself losing, and 2+ ahead winning, but strength counts too: an
+ * outmatched or desperate AI can be losing while level, and one that feels
+ * stronger can be winning. undefined when not at war.
+ */
+export const warTally = (reply: DiplomacyStanceReply | undefined): { youTook: number; theyTook: number } | undefined => {
+  if (!reply?.found || !reply.ai || !reply.war?.atWar) return undefined;
+  const { tilesTakenFromAi, tilesTakenByAi } = reply.war;
+  if (tilesTakenFromAi === undefined || tilesTakenByAi === undefined) return undefined;
+  return { youTook: tilesTakenFromAi, theyTook: tilesTakenByAi };
+};
+
 export type TradeSelection = { kind: DiplomacyOfferKind; durationHours: 12 | 24; terms: DiplomacyTerms };
 
 export type TradeVerdict = {
@@ -54,8 +71,6 @@ export type TradeVerdict = {
   text: string;
   canSend: boolean;
   sendLabel: string;
-  /** Coin the player could add to their side to turn a no into a yes, when they have it. */
-  topUpCoin?: number;
 };
 
 const offerLabel = (selection: TradeSelection): string =>
@@ -101,7 +116,23 @@ export const tradeVerdict = (input: {
       ? `${targetName} would refuse: wants about ${verdict.shortfall} more coin.`
       : `${targetName} wants about ${Math.max(0, Math.ceil(required - offered))} coin for this, more than you can offer.`,
     canSend: true,
-    sendLabel,
-    ...(spareCoin >= verdict.shortfall ? { topUpCoin: verdict.shortfall } : {})
+    sendLabel
   };
+};
+
+/**
+ * Civ's "what would make this deal work?": the best terms for the player that
+ * the AI still accepts. An AI that wants peace badly enough to pay is asked
+ * for all it would pay; otherwise it is offered the least of the player's
+ * coin, then Shards, that covers its price. undefined when no deal is
+ * possible: a human target, an unread AI, a refusal, or a price the player
+ * can't meet.
+ */
+export const suggestedDeal = (reply: DiplomacyStanceReply | undefined, selection: TradeSelection, own: DiplomacyGoods): DiplomacyTerms | undefined => {
+  if (!reply?.found || !reply.ai || !reply.pricing) return undefined;
+  const required = requiredForOffer(reply.pricing, selection.kind, selection.durationHours);
+  if (required === null) return undefined;
+  if (required < 0) return { give: { gold: 0, shard: 0 }, ask: { gold: Math.min(-required, reply.pricing.aiHoldings.gold), shard: 0 } };
+  const counter = aiCounterOffer(reply.pricing, selection.kind, selection.durationHours, emptyDiplomacyTerms(), own);
+  return counter.kind === "counter" ? counter.terms : undefined;
 };

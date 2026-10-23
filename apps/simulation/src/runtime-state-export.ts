@@ -1,3 +1,4 @@
+import { afcPlayerExportFields } from "./afc-specializations/afc-player-export.js";
 import { activeAfcModuleTechIds } from "./ai/ai-build-unlocks.js";
 import type { AiTacticalView } from "./ai/ai-tactical-view.js";
 import { TILE_OVERLAY_WIRE_FIELDS, type ManpowerBreakdown, type TileOverlayJsonFields } from "@border-empires/sim-protocol";
@@ -10,7 +11,7 @@ import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { activeDevelopmentProcessCountForSummary, cloneStrategicProduction, waypointQueueWireEntries, type PendingSettlementRecord, type WaypointQueueWireEntry } from "./player-runtime-summary.js";
 import { toPersistedDevQueueEntries, type ExportedDevQueueEntry } from "./runtime-dev-queue-restore.js";
 import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
-import type { AutoSettlePrefs, FrontierDecayKind, ProspectSignature, SlotResource, Terrain } from "@border-empires/shared";
+import type { AutoSettlePrefs, FrontierDecayKind, IslandNameClaim, ProspectSignature, SlotResource, Terrain } from "@border-empires/shared";
 import type { PlannerPlayerView, PlannerTileView } from "./ai/planner-world-view.js";
 import type { PlannerOwnedStructureCounts } from "./ai/planner-owned-structure-counts.js";
 import { toPlannerTileView } from "./ai/planner-world-view-slice.js";
@@ -65,9 +66,11 @@ export type RuntimeExportState = {
     settledTileCount?: number;
     townCount?: number;
     incomePerMinute?: number;
+    afcEnvoyIncomePerMinute?: number;
     strategicProductionPerMinute?: Record<StrategicResourceKey, number>;
     activeDevelopmentProcessCount?: number;
     imperialWardCharges?: number;
+    islandNames?: IslandNameClaim[];
     autoSettle?: AutoSettlePrefs;
     // Waystation activation's pooled resource-slot bump -- see
     // runtime-waystation-activation.ts's grantWaystationResourceSlotBonus.
@@ -136,6 +139,7 @@ type RuntimeExportInput = Omit<SnapshotExportInput, "recordedEventsByCommandId">
   playerLogisticsThroughputPerMinute: (player: DomainPlayer) => number;
   playerManpowerBreakdown: (player: DomainPlayer) => ManpowerBreakdown;
   growthStalledNoFoodCounter: number;
+  envoyIncomePerMinuteForPlayer: (player: DomainPlayer) => number;
 };
 
 const toRuntimeExportTile = (
@@ -198,10 +202,7 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
         techIds: [...player.techIds].sort(),
         domainIds: [...(player.domainIds ?? [])].sort(),
-        ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
-          ...(player.afcCoreTownKeys ? { afcCoreTownKeys: [...player.afcCoreTownKeys] } : {}),
-          ...(player.afcScarcityFoodSlots ? { afcScarcityFoodSlots: player.afcScarcityFoodSlots } : {}),
-          ...(player.afcCampaign ? { afcCampaign: structuredClone(player.afcCampaign) } : {}),
+        ...afcPlayerExportFields(player),
         strategicResources: { ...(player.strategicResources ?? {}) },
         allies: [...player.allies].sort(),
         truces: [...(player.truces ?? [])].sort(),
@@ -212,9 +213,11 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         settledTileCount: summary.settledTileCount,
         townCount: summary.townCount,
         incomePerMinute: input.incomePerMinuteForPlayer(player.id),
+        afcEnvoyIncomePerMinute: input.envoyIncomePerMinuteForPlayer(player),
         strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
         activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
         ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
+        ...(player.islandNames?.length ? { islandNames: player.islandNames.map((claim) => ({ ...claim })) } : {}),
         autoSettle: { ...player.autoSettle },
         ...(player.waystationResourceSlotBonus ? { waystationResourceSlotBonus: { ...player.waystationResourceSlotBonus } } : {}),
         ...(typeof player.wonderLastFreeRushBuyAt === "number" ? { wonderLastFreeRushBuyAt: player.wonderLastFreeRushBuyAt } : {}),

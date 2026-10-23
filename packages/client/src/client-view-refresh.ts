@@ -110,6 +110,7 @@ export const requestViewRefresh = (
   state: Pick<
     ClientState,
     | "authSessionReady"
+    | "connection"
     | "fogDisabled"
     | "mapRevealEnabled"
     | "camX"
@@ -136,8 +137,11 @@ export const requestViewRefresh = (
     recordClientDebugEvent("info", "chunk-sync", "subscribe-skipped", { reason: "ws-not-open", readyState: deps.ws.readyState });
     return;
   }
-  if (!state.authSessionReady) {
-    recordClientDebugEvent("info", "chunk-sync", "subscribe-skipped", { reason: "auth-session-not-ready" });
+  // authSessionReady survives an in-place reconnect, and the reopened socket
+  // reports OPEN before AUTH is sent; only INIT on this socket sets
+  // "initialized". Subscribing earlier gets NO_AUTH back from the server.
+  if (!state.authSessionReady || state.connection !== "initialized") {
+    recordClientDebugEvent("info", "chunk-sync", "subscribe-skipped", { reason: "auth-session-not-ready", connection: state.connection });
     return;
   }
   const effectiveRadius = effectiveFogDisabled(state) ? deps.fullMapChunkRadius : deps.radius ?? 2;
@@ -177,6 +181,7 @@ export const maybeRefreshForCamera = (
   state: Pick<
     ClientState,
     | "authSessionReady"
+    | "connection"
     | "camX"
     | "camY"
     | "zoom"
@@ -207,7 +212,7 @@ export const maybeRefreshForCamera = (
   // client-discovered-tiles-storage.ts).
   maybeSaveDiscoveredTiles(state);
   if (deps.ws.readyState !== deps.ws.OPEN) return;
-  if (!state.authSessionReady) return;
+  if (!state.authSessionReady || state.connection !== "initialized") return;
   if (!deps.force && (state.actionInFlight || state.capture || state.actionQueue.length > 0)) return;
   const cx = Math.floor(state.camX / CHUNK_SIZE);
   const cy = Math.floor(state.camY / CHUNK_SIZE);

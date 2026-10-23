@@ -4,6 +4,10 @@ Status: canonical reference
 
 > **Status: current design reference.** Effects are adjusted for the post-rewrite economy.
 >
+> **Relic proposal:** [`relics-design.md`](relics-design.md) proposes
+> recasting these as relics with three shared looks and a shatter-zone terrain
+> ring, keeping every effect below unchanged.
+>
 > **How to read it:** §1 motivates. §2 specifies each wonder with updated
 > mechanics. §3 defines shared placement rules. §4 lists open questions.
 
@@ -35,8 +39,8 @@ Design goals:
 
 ### 2.1 — The Foundry Heart
 
-**Effect:** Owner gains +1 slot of each resource type (FOOD, IRON, CRYSTAL,
-SUPPLY). The slot bonuses increase the empire's capacity to build slot-consuming
+**Effect:** Owner gains +1 slot of each resource type (FOOD, TITANIUM, CRYSTAL,
+UMBRITE). The slot bonuses increase the empire's capacity to build slot-consuming
 structures.
 
 **Spawn:** CRYSTAL_WASTES region only. LAND tile, up to 5000 attempts.

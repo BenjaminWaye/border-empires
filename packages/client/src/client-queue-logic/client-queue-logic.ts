@@ -1,5 +1,5 @@
 import { EXPAND_MANPOWER_COST, SETTLE_COST, SETTLE_MANPOWER_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
-import { MUSTER_AUTO_FLAG_THRESHOLD_TILES, canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "../client-constants.js";
+import { canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "../client-constants.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import {
   devQueueCancelWirePayload,
@@ -7,8 +7,8 @@ import {
   pruneExpiredAutoSettlementQueueVisibleHolds
 } from "../client-development-queue/client-development-queue.js";
 import { createNextFrontierCommandIdentity } from "../client-frontier-command/client-frontier-command.js";
-import { dropStuckPendingMusterAttack, findClosestMuster, findFundedMusterWithinRange, isDockCrossingBetween, isPendingAttackFundedFromOrigin, parkOrReuseMusterFlagForAttack } from "../client-muster-attack-gate/client-muster-attack-gate.js";
-import { armMusterTransit } from "../client-muster-transit/client-muster-transit.js";
+import { findClosestMuster, holdUnfundedPendingMusterAttack, isDockCrossingBetween, isPendingAttackFundedFromOrigin } from "../client-muster-attack-gate/client-muster-attack-gate.js";
+import { dispatchMusterFundedAttack } from "./client-queue-muster-dispatch.js";
 import { requiredMusterWithCommit, noteWaypointStepEnqueued } from "../client-attack-commit/client-attack-commit.js";
 import { enqueueTarget } from "./client-queue-enqueue-target.js"; export { enqueueTarget };
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js"; import { pauseWaypointForManpowerIfNeeded } from "./client-waypoint-manpower-pause.js";
@@ -33,6 +33,7 @@ import {
   attackPreviewBreakdownForTarget, commitPreviewWinChanceForTarget,
   attackPreviewIsStaleForTarget, attackPreviewPendingForTarget, captureCombatSnapshotForAttack
 } from "./client-attack-preview-logic.js";
+import { pendingMusterAttackStalled } from "../client-muster-pending-timeout/client-muster-pending-timeout.js";
 export {
   resetAttackPreviewState,
   requestAttackPreviewForHover,
@@ -777,16 +778,6 @@ const musterPromotionDebugLastLoggedAtByTarget = new Map<string, number>();
 const musterPromotionDebugLastSignatureByTarget = new Map<string, string>();
 const MUSTER_PROMOTION_DEBUG_LOG_INTERVAL_MS = 5_000;
 
-// Backstop so a parked attack can never sit in pendingMusterAttacks forever
-// with no feedback. dropStuckPendingMusterAttack (client-muster-attack-gate.ts)
-// only fires when a brand-new flag was just requested (entry.musterRequestedAt
-// set) — an entry parked against an already-existing flag has no such field,
-// so if that flag never becomes usable (cleared, captured away, amount/
-// required never converging, or any other reason) it previously had no
-// expiry at all. This hard cap is independent of *why* it's stuck — it
-// guarantees eventual feedback regardless of which sub-condition is failing.
-const MUSTER_PENDING_HARD_TIMEOUT_MS = 5 * 60 * 1000;
-
 // Check all pending muster attacks; promote those whose muster tile has reached
 // MUSTER_ATTACK_COST into the real action queue.
 export const processPendingMusterAttacks = (
@@ -823,21 +814,21 @@ export const processPendingMusterAttacks = (
     const required = requiredMusterWithCommit(state, target);
 
     // Hard backstop: no matter which sub-condition below is failing, an
-    // entry parked for this long has clearly stalled — drop it with visible
-    // feedback rather than leaving it silently stuck forever.
-    if (entry.queuedAt != null && Date.now() - entry.queuedAt > MUSTER_PENDING_HARD_TIMEOUT_MS) {
+    // entry whose flag has stopped filling for this long has clearly stalled —
+    // drop it with visible feedback rather than leaving it silently stuck forever.
+    if (pendingMusterAttackStalled(state, entry, musterTile?.muster?.ownerId === state.me ? musterTile.muster.amount : undefined)) {
       attackSyncLog("pending-muster-attack-hard-timeout", {
         targetKey,
         musterTileKey: entry.musterTileKey,
         queuedAt: entry.queuedAt,
-        elapsedMs: Date.now() - entry.queuedAt,
+        elapsedMs: entry.queuedAt != null ? Date.now() - entry.queuedAt : undefined, progressAt: entry.progressAt,
         musterTileAmount: musterTile?.muster?.amount,
         musterTileOwnerId: musterTile?.muster?.ownerId,
         required
       });
       state.queuedTargetKeys.delete(targetKey);
       deps.pushFeed(
-        `Attack on (${entry.targetX}, ${entry.targetY}) never staged enough manpower — cancelled after 5 minutes. Try again.`,
+        `Attack on (${entry.targetX}, ${entry.targetY}) stopped staging manpower — cancelled after 5 minutes without progress. Try again.`,
         "combat",
         "warn"
       );
@@ -867,7 +858,7 @@ export const processPendingMusterAttacks = (
     }
 
     if ((!closest || !closestIsAdjacentOrLinked) && !isPendingAttackFundedFromOrigin(state, entry, required, deps.isAdjacent)) {
-      if (!dropStuckPendingMusterAttack(state, entry, { pushFeed: deps.pushFeed, keyFor: deps.keyFor, sendGameMessage: deps.sendGameMessage })) remaining.push(entry);
+      if (!holdUnfundedPendingMusterAttack(state, entry, required, { pushFeed: deps.pushFeed, keyFor: deps.keyFor, sendGameMessage: deps.sendGameMessage })) remaining.push(entry);
       continue;
     }
 
@@ -902,7 +893,6 @@ export const processActionQueue = (
     pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
     renderHud: () => void;
     sendSetMuster: (x: number, y: number, mode: "HOLD") => void;
-    sendAttack: (fromX: number, fromY: number, toX: number, toY: number, commandId: string, clientSeq: number, commitManpower?: number) => void; // commitManpower: D6 commitment choice, above the floor
     sendGameMessage?: (payload: unknown) => boolean;
   }
 ): boolean => {
@@ -1241,90 +1231,11 @@ export const processActionQueue = (
       });
     } else {
       // Attacking/claiming an owned tile is also free (FRONTIER_CLAIM_COST is 0 gold).
-      if (to.ownerId !== "barbarian-1") {
-        const closest = findClosestMuster(state, to.x, to.y);
-        // A "ready" flag found by findClosestMuster must itself be adjacent (or dock-linked) to fire directly — merely "in range" gets NOT_ADJACENT server-side.
-        const closestIsAdjacentOrLinked =
-          closest != null &&
-          (deps.isAdjacent(closest.tile.x, closest.tile.y, to.x, to.y) ||
-            isDockCrossingBetween(state, closest.tile.x, closest.tile.y, to.x, to.y));
-        if (!closest || closest.dist >= MUSTER_AUTO_FLAG_THRESHOLD_TILES || !closestIsAdjacentOrLinked) {
-          // No flag itself sits adjacent — but the server auto-funds an ATTACK from any owned flag within remote-funding range of the firing tile (see findFundedMusterWithinRange), same as ADVANCE already relies on. Fire from the normal border origin instead of parking behind a redundant new flag.
-          const funded = findFundedMusterWithinRange(state, from.x, from.y, requiredMusterWithCommit(state, to));
-          if (funded) {
-            // Real travel time: the company doesn't march until it reaches
-            // the target, so the ATTACK itself isn't even sent (let alone
-            // its 30s combat lock started) until armMusterTransit's local
-            // timer elapses — see client-muster-transit.ts and
-            // fireDueMusterTransits, which is what actually sends it once
-            // due. Distance is from the *funding flag* to the firing tile
-            // (the flag's own march to the front), matching what the flag
-            // physically has to cover, not the trivial firing-tile-to-target
-            // adjacency.
-            armMusterTransit(state, deps.keyFor, {
-              musterX: funded.tile.x, musterY: funded.tile.y,
-              fromX: from.x, fromY: from.y, toX: to.x, toY: to.y,
-              transitTiles: Math.max(1, funded.dist),
-              commandId, clientSeq
-            });
-            deps.pushFeed(
-              `Company marching from a flag ${funded.dist} tile${funded.dist === 1 ? "" : "s"} away — attack will fire on arrival`,
-              "combat", "info"
-            );
-            deps.renderHud();
-            continue;
-          }
-          // No fully-funded flag nearby — reuse an existing flag if one's in
-          // range, or (if none exists and we're not at the muster cap) stage
-          // a new one. See parkOrReuseMusterFlagForAttack for the full
-          // decision.
-          state.capture = undefined;
-          state.actionInFlight = false;
-          state.actionCurrent = undefined;
-          state.actionTargetKey = "";
-          state.actionAcceptedAck = false;
-          state.combatStartAck = false;
-          state.actionAcceptTimeoutHandledAt = 0;
-          state.queuedTargetKeys.delete(targetKey);
-          parkOrReuseMusterFlagForAttack(state, { from, to, closest }, deps);
-          continue;
-        }
-        // Flag found within range already has enough manpower staged
-        // (findClosestMuster only returns flags at/above MUSTER_ATTACK_COST)
-        // — arm its march instead of firing instantly. The flag is already
-        // adjacent/dock-linked to the target (closestIsAdjacentOrLinked,
-        // checked above), so it fires from itself once the march completes.
-        armMusterTransit(state, deps.keyFor, {
-          musterX: closest.tile.x, musterY: closest.tile.y,
-          fromX: closest.tile.x, fromY: closest.tile.y, toX: to.x, toY: to.y,
-          transitTiles: Math.max(1, closest.dist),
-          commandId, clientSeq
-        });
-        deps.pushFeed(
-          `Company marching from flag ${closest.dist} tile${closest.dist === 1 ? "" : "s"} away — attack will fire on arrival`,
-          "combat",
-          "info"
-        );
-        deps.renderHud();
-        continue;
-      }
-      deps.sendAttack(from.x, from.y, to.x, to.y, commandId, clientSeq);
-      attackSyncLog("send", {
-        actionType: "ATTACK",
-        target: { x: to.x, y: to.y },
-        origin: { x: from.x, y: from.y },
-        targetKey,
-        startedAt: state.actionStartedAt,
-        wsReadyState: deps.ws.readyState
-      });
-      logActionQueue("action-send", {
-        type: "ATTACK",
-        from: { x: from.x, y: from.y },
-        to: { x: to.x, y: to.y },
-        toOwnerId: to.ownerId,
-        toOwnershipState: to.ownershipState
-      });
-      deps.pushFeed(`Queued attack (${to.x}, ${to.y}) from (${from.x}, ${from.y})`, "combat", "info");
+      // Every manual ATTACK -- Planetary Defense (barbarian-1) targets
+      // included, since raids were removed -- is muster-funded, so it always
+      // goes through the flag lookup rather than straight to the server.
+      dispatchMusterFundedAttack(state, { entry: next, from, to, targetKey, commandId, clientSeq }, deps);
+      continue;
     }
     state.selected = { x: to.x, y: to.y };
     deps.renderHud();
