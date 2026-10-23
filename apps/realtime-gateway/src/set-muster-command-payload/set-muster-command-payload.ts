@@ -1,4 +1,5 @@
-// Durable-command payload for a client SET_MUSTER, pulled out of
+// Durable-command payloads for a client SET_MUSTER and UPGRADE_MUSTER_CAP
+// (the latter at the bottom), pulled out of
 // gateway-app.ts's already-oversized dispatch chain (see
 // check-file-line-limits.mjs). The simulation's parseSetMusterPayload
 // (runtime-command-parsers.ts) reads commitManpower from here and stores it on

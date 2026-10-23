@@ -114,10 +114,18 @@ export const parseSetMusterPayload = (
 
 export const parseClearMusterPayload = parseTilePayload;
 export const parseUpgradeMusterCapPayload = (payloadJson: string): { x: number; y: number; fitManpower?: number } | null => {
-  const tile = parseTilePayload(payloadJson);
-  if (!tile) return null;
-  const { fitManpower } = JSON.parse(payloadJson) as Record<string, unknown>;
-  return typeof fitManpower === "number" && Number.isFinite(fitManpower) && fitManpower > 0 ? { ...tile, fitManpower } : tile;
+  try {
+    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
+    if (typeof parsed.x !== "number" || typeof parsed.y !== "number") return null;
+    const { fitManpower } = parsed;
+    return {
+      x: parsed.x,
+      y: parsed.y,
+      ...(typeof fitManpower === "number" && Number.isFinite(fitManpower) && fitManpower > 0 ? { fitManpower } : {})
+    };
+  } catch {
+    return null;
+  }
 };
 
 export const parseBuildStructurePayload = (payloadJson: string): { x: number; y: number; structureType: string } | null => {

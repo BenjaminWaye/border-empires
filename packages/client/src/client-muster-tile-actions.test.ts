@@ -152,7 +152,10 @@ describe("dispatchMusterTileAction muster_cancel_queued_attack", () => {
     const sendGameMessage = vi.fn(() => true);
     const deps = { state, sendGameMessage, pushFeed: vi.fn(), renderHud: vi.fn() };
 
+    state.attackCommitByTargetKey.set("4,3", { commitManpower: 600, setAt: Date.now() });
     expect(dispatchMusterTileAction("muster_cancel_queued_attack", ownTile(), deps)).toBe(true);
+    // A cancelled attack's chosen effort mustn't ride along on a later attack on that tile.
+    expect(state.attackCommitByTargetKey.has("4,3")).toBe(false);
     expect(state.pendingMusterAttacks.map((e) => e.musterTileKey)).toEqual(["8,8"]);
     expect(sendGameMessage).not.toHaveBeenCalled();
 

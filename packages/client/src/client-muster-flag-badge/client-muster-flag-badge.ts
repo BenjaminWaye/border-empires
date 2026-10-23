@@ -1,4 +1,4 @@
-import { musterFlagCap } from "@border-empires/shared";
+import { flagCommitForTarget, musterFlagCap } from "@border-empires/shared";
 import { requiredMusterWithCommit } from "../client-attack-commit/client-attack-commit.js";
 import { predictedMusterAmount } from "../client-muster-prediction/client-muster-prediction.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -12,7 +12,8 @@ import type { Tile } from "../client-types.js";
 // flag is gathering for:
 //   - "attack" (brass ring): a manual attack parked on the flag
 //     (state.pendingMusterAttacks) -> that attack's requirement; otherwise a
-//     MARCH/ADVANCE flag with a chosen commitment -> that commitment.
+//     MARCH/ADVANCE flag with a chosen commitment that its fights will
+//     actually spend -> that commitment.
 //   - "capacity" (verdigris ring): a HOLD flag, or ADVANCE with no chosen
 //     commitment -> how full the flag is against its own cap (musterFlagCap).
 // Rival flags get no badge: their amounts aren't predicted here and aren't
@@ -55,23 +56,41 @@ export const musterBadgeForFlag = (
 ): MusterBadgeInfo | undefined => {
   const muster = tile?.muster;
   if (!muster || muster.ownerId !== state.me) return undefined;
-  const commitment = muster.mode !== "HOLD" && muster.commitManpower ? muster.commitManpower : undefined;
-  const attackRequired = pendingRequired ?? commitment;
+  // Before INIT/PLAYER_UPDATE lands the manpower cap reads 0, and every flag
+  // would show a bogus empty/full badge for a moment.
+  const flagCap = Math.floor(musterFlagCap(state.manpowerCap, muster.capLevel));
+  if (flagCap <= 0) return undefined;
+  const attackRequired = pendingRequired ?? flagCommitment(state, muster);
   if (attackRequired !== undefined && attackRequired > 0) {
     // Capped just *below* the requirement, never at or above it: the attack
     // fires off the real (non-extrapolated) amount, and the rate estimate
     // from a short first sample commonly overshoots the true tick pace -- so
     // a badge allowed to reach the requirement could sit on 100% long before
-    // anything happens. A hair behind reality, never ahead of it.
-    const cap = Math.max(muster.amount, attackRequired - 1);
+    // anything happens. A hair behind reality, never ahead of it -- and never
+    // past the flag's own cap, where the server stops filling it (before a
+    // capacity fit lands, or when the requirement is beyond the manpower cap).
+    const cap = Math.max(muster.amount, Math.min(attackRequired - 1, flagCap));
     const staged = Math.floor(predictedMusterAmount(state.musterAmountRateByTile, tileKey, tile, state.me, cap, state.manpower));
     return { ratio: Math.max(0, Math.min(1, staged / attackRequired)), kind: "attack", staged, required: attackRequired };
   }
   // Nothing to fire at yet: how full the flag is. Accrual really does stop at
   // the cap, so reaching 100% here is honest.
-  const flagCap = Math.floor(musterFlagCap(state.manpowerCap, muster.capLevel));
   const staged = Math.floor(predictedMusterAmount(state.musterAmountRateByTile, tileKey, tile, state.me, flagCap, state.manpower));
-  return { ratio: flagCap > 0 ? Math.max(0, Math.min(1, staged / flagCap)) : 1, kind: "capacity", staged, required: flagCap };
+  return { ratio: Math.max(0, Math.min(1, staged / flagCap)), kind: "capacity", staged, required: flagCap };
+};
+
+/**
+ * The commitment a MARCH/ADVANCE flag's fights will actually spend, or
+ * undefined. Auto-fire only spends it on commit-eligible targets
+ * (flagCommitForTarget: not Planetary Defense, not undefended frontier) and
+ * otherwise fires at the floor, so a MARCH on such a target isn't "gathering
+ * for" the commitment at all. ADVANCE picks its targets as it goes, so its
+ * chosen commitment is the best available answer.
+ */
+const flagCommitment = (state: Pick<MusterBadgeState, "tiles">, muster: NonNullable<Tile["muster"]>): number | undefined => {
+  if (muster.mode === "HOLD" || !muster.commitManpower) return undefined;
+  if (muster.mode !== "MARCH" || muster.targetX === undefined || muster.targetY === undefined) return muster.commitManpower;
+  return flagCommitForTarget(state.tiles.get(`${muster.targetX},${muster.targetY}`), muster.commitManpower, Date.now());
 };
 
 /**
