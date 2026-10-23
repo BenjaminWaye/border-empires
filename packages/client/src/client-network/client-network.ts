@@ -3,6 +3,7 @@ import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js
 import { applyMapPushMessage } from "./client-map-push-messages.js";
 import { notifyCombatResult } from "./client-combat-result-notifications.js";
 import { musterReportFlagKey, trackMusterReportStart } from "../client-muster-combat-reports/client-muster-combat-reports.js";
+import { applyPlayerUpdateManpowerFields } from "../client-player-update-manpower/client-player-update-manpower.js";
 import { COMBAT_LOCK_MS, isChosenTrickleResource, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
 import { resetFrontierActionStateAfterError } from "./client-frontier-error-reset.js";
 import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
@@ -1049,10 +1050,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.eventLog = incomingEventLog; occupationSurveyController.reconcile(incomingEventLog); notifyWaystationActivationsFromEventLog(incomingEventLog, state, eventLogDepsFromClientState(state, requestViewRefresh, renderHud));
       }
       state.economyBreakdown = (msg.economyBreakdown as typeof state.economyBreakdown | undefined) ?? state.economyBreakdown;
-      state.manpower = (msg.manpower as number | undefined) ?? state.manpower;
-      state.manpowerCap = (msg.manpowerCap as number | undefined) ?? state.manpowerCap;
-      state.manpowerRegenPerMinute = (msg.manpowerRegenPerMinute as number | undefined) ?? state.manpowerRegenPerMinute;
-      state.logisticsThroughputPerMinute = (msg.logisticsThroughputPerMinute as number | undefined) ?? state.logisticsThroughputPerMinute;
+      applyPlayerUpdateManpowerFields(state, msg);
       state.upkeepPerMinute = (msg.upkeepPerMinute as typeof state.upkeepPerMinute | undefined) ?? state.upkeepPerMinute;
       state.upkeepLastTick = (msg.upkeepLastTick as typeof state.upkeepLastTick | undefined) ?? state.upkeepLastTick;
       refreshAllGatewayDerivedTownSummaries({ state, keyFor });

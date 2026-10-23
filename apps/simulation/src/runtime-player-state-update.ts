@@ -1,4 +1,4 @@
-import { DEVELOPMENT_PROCESS_LIMIT, empireIntegrity, normalizeAutoSettlePrefs } from "@border-empires/shared";
+import { DEVELOPMENT_PROCESS_LIMIT, empireIntegrity, expandManpowerCostForFrontierCount, normalizeAutoSettlePrefs } from "@border-empires/shared";
 import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { additiveEffectForPlayer, buildModBreakdownForPlayer, recomputeMods } from "./tech-domain-bridge/tech-domain-bridge.js";
@@ -74,6 +74,8 @@ export function emitPlayerStateUpdate(
       manpower: player.manpower,
       manpowerCap: context.playerManpowerCap(player),
       manpowerRegenPerMinute: context.playerManpowerRegenPerMinute(player),
+      // EXPAND's current price, so the client's menus and pre-checks match what the sim will charge.
+      expandManpowerCost: expandManpowerCostForFrontierCount(summary.frontierTileKeys.size),
       logisticsThroughputPerMinute: context.playerLogisticsThroughputPerMinute(player),
       manpowerBreakdown: context.playerManpowerBreakdown(player),
       incomePerMinute: economy.incomePerMinute,

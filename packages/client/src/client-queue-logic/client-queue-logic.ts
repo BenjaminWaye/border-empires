@@ -1,4 +1,4 @@
-import { EXPAND_MANPOWER_COST, SETTLE_COST, SETTLE_MANPOWER_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { SETTLE_COST, SETTLE_MANPOWER_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 import { canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "../client-constants.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import {
@@ -604,7 +604,7 @@ export const topUpFromWaypoint = (
   }
   const firstStep = plan.steps[0];
   if (!firstStep) return false;
-  if (pauseWaypointForManpowerIfNeeded(waypoint, firstStep, state.manpower, pushFeed)) return false;
+  if (pauseWaypointForManpowerIfNeeded(waypoint, firstStep, state.manpower, pushFeed, state.expandManpowerCost)) return false;
   const stepKey = keyFor(firstStep.target.x, firstStep.target.y);
   // If the planner re-emits the exact step we just enqueued, ownership has not advanced yet. Two common causes: (a) FRONTIER_RESULT arrives
   // before the TILE_DELTA that flips ownerId, so the next top-up sees a
@@ -1200,8 +1200,8 @@ export const processActionQueue = (
     resetAttackPreviewState(state);
     if (!to.ownerId) {
       // Frontier expand is free (FRONTIER_CLAIM_COST is 0 gold) — only manpower gates it.
-      if (state.manpower < EXPAND_MANPOWER_COST) {
-        deps.pushFeed(`Need ${EXPAND_MANPOWER_COST} manpower to claim this tile.`, "combat", "error");
+      if (state.manpower < state.expandManpowerCost) {
+        deps.pushFeed(`Need ${state.expandManpowerCost} manpower to claim this tile.`, "combat", "error");
         state.capture = undefined;
         state.actionInFlight = false;
         state.actionCurrent = undefined;
@@ -1213,7 +1213,7 @@ export const processActionQueue = (
         deps.renderHud();
         continue;
       }
-      deps.ws.send(JSON.stringify({ type: "EXPAND", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y, commandId, clientSeq })); state.manpower = Math.max(0, state.manpower - EXPAND_MANPOWER_COST);
+      deps.ws.send(JSON.stringify({ type: "EXPAND", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y, commandId, clientSeq })); state.manpower = Math.max(0, state.manpower - state.expandManpowerCost);
       attackSyncLog("send", {
         actionType: "EXPAND",
         target: { x: to.x, y: to.y },

@@ -60,7 +60,9 @@ defines what these systems mean in the fiction; follow the
   is the source for those interactions (Ancillary Factory/Ancillary Depot,
   Reserve Lattice, Ancillary Factory, Neural Works, Census Directorate, seasonal
   bonuses).
-- Core action anchors: **EXPAND 10**, **SETTLE 20**, ordinary ATTACK **60**,
+- Core action anchors: **EXPAND 10** (base; it rises with the frontier tiles
+  held, to 50 at 1,000 and 100 at 2,000 — see `expandManpowerCostForFrontierCount`),
+  **SETTLE 20**, ordinary ATTACK **60**,
   and Deep Strike/Naval Infiltration **120** manpower. Structure costs are
   data-driven; inspect the registry instead of assuming a common price.
 
