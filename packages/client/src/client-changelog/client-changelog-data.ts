@@ -25,6 +25,7 @@ import { YOURS_TILE_COORDS_CHANGELOG } from "./client-changelog-yours-tile-coord
 import { MAP_NAMES_CHANGELOG } from "./client-changelog-map-names.js";
 import { REACH_OWNER_NAME_CHANGELOG } from "./client-changelog-reach-owner-name.js";
 import { ACTIVITY_RESTART_WINDOW_CHANGELOG } from "./client-changelog-activity-restart-window.js";
+import { FOGGED_MIST_FEATURES_CHANGELOG } from "./client-changelog-fogged-mist-features.js";
 import { EXPIRED_TRUCE_OFFERS_CHANGELOG } from "./client-changelog-expired-truce-offers.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
@@ -485,6 +486,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...MAP_NAMES_CHANGELOG,
   ...REACH_OWNER_NAME_CHANGELOG,
   ...ACTIVITY_RESTART_WINDOW_CHANGELOG,
+  ...FOGGED_MIST_FEATURES_CHANGELOG,
   ...EXPIRED_TRUCE_OFFERS_CHANGELOG
 ];
 
