@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { MUSTER_MAX_CONCURRENT_ACTIONS, flagCommitForTarget, musterFlagCap } from "@border-empires/shared";
+import { MUSTER_MAX_CONCURRENT_ACTIONS, advanceFlagCommitForTarget, musterFlagCap } from "@border-empires/shared";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { MusterTickInput } from "./runtime-muster-tick.js";
 import { maybeMarchFire } from "./runtime-muster-march.js";
@@ -109,8 +109,9 @@ export const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileS
   // spending on a cheaper, farther one; only a target the flag can't hold
   // (above its musterFlagCap) is skipped, and reported in `unfundable`.
   const player = input.players.get(playerId);
+  const flagCap = musterFlagCap(player ? input.playerManpowerCap(player) : Number.MAX_SAFE_INTEGER, musterTile.muster?.capLevel);
   const { best, unfundable } = nearest
-    ? pickAdvanceTarget(nearest, nearestAffordable, availableMuster, musterFlagCap(player ? input.playerManpowerCap(player) : Number.MAX_SAFE_INTEGER, musterTile.muster?.capLevel))
+    ? pickAdvanceTarget(nearest, nearestAffordable, availableMuster, flagCap)
     : { best: undefined, unfundable: undefined };
 
   // Nothing attackable at all, or the nearest candidate is beyond the hard
@@ -167,6 +168,16 @@ export const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileS
 
   const bestFrom = best.from;
   const nearestEnemy = best.enemy;
+  // docs/replenishment-update-plan.md D6: the flag's chosen effort, scaled to
+  // this target's own floor. An Extra/Double flag saves up for the full
+  // commitment rather than firing an attack the muster can't fund yet.
+  const commitManpower = advanceFlagCommitForTarget(nearestEnemy, musterTile.muster?.commitManpower, best.required, flagCap, input.nowMs);
+  if (commitManpower !== undefined && commitManpower > availableMuster) {
+    const nextActionAt = input.nowMs + ADVANCE_EMPTY_COOLDOWN_MS;
+    input.advanceCooldowns.set(originKey, nextActionAt);
+    syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, { inFlight: inFlightLocks.length > 0, inFlightCount: inFlightLocks.length, nextActionAt, insufficientManpower: true, unfundableTarget: unfundable });
+    return;
+  }
 
   if (best.hops > ADVANCE_THROTTLE_DIST) {
     input.advanceCooldowns.set(originKey, input.nowMs + ADVANCE_FAR_COOLDOWN_MS);
@@ -191,7 +202,6 @@ export const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileS
     simulationTileKey(nearestEnemy.x, nearestEnemy.y),
     input.nowMs
   );
-  const commitManpower = flagCommitForTarget(nearestEnemy, musterTile.muster?.commitManpower, input.nowMs);
   const result = input.handleFrontierCommand(
     {
       commandId,

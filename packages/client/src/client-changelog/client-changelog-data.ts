@@ -34,6 +34,7 @@ import { FOGGED_MIST_FEATURES_CHANGELOG } from "./client-changelog-fogged-mist-f
 import { EXPIRED_TRUCE_OFFERS_CHANGELOG } from "./client-changelog-expired-truce-offers.js";
 import { LOST_STRUCTURES_CHANGELOG } from "./client-changelog-lost-structures.js";
 import { CAPTURED_MUSTER_CLEAR_CHANGELOG } from "./client-changelog-captured-muster-clear.js";
+import { ADVANCE_EFFORT_CHANGELOG } from "./client-changelog-advance-effort.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -305,7 +306,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...FOGGED_MIST_FEATURES_CHANGELOG,
   ...EXPIRED_TRUCE_OFFERS_CHANGELOG,
   ...LOST_STRUCTURES_CHANGELOG,
-  ...CAPTURED_MUSTER_CLEAR_CHANGELOG
+  ...CAPTURED_MUSTER_CLEAR_CHANGELOG,
+  ...ADVANCE_EFFORT_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

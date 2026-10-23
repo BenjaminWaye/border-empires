@@ -67,19 +67,41 @@ export const tilesAlongLine = (x0: number, y0: number, x1: number, y1: number): 
  * sheet's slider-live recompute) instead of each tile's own "just enough"
  * default (commit === base, i.e. no boost/penalty) used when omitted.
  */
-export const triggerWinChancePaintOnMarchArm = (
-  state: Pick<ClientState, "tiles" | "winChancePaint" | "me">,
+/**
+ * Client-side win-chance estimate for one enemy tile (the same math as the
+ * march arrow's labels) -- the fallback when no server ATTACK_PREVIEW for it
+ * is cached yet.
+ */
+export const estimateTileWinChance = (
+  state: Pick<ClientState, "tiles">,
+  tile: Tile,
+  commit: { committedManpower: number; baseMusterCost: number }
+): number =>
+  winChanceForTile(previewTileFor(tile), {
+    knownShieldAmount: tile.ownerId ? findKnownShieldAmount(tile.x, tile.y, tile.ownerId, collectKnownShieldFlags(state.tiles.values())) : 0,
+    modifiers: { nowMs: Date.now() },
+    committedManpower: commit.committedManpower,
+    baseMusterCost: commit.baseMusterCost
+  }).winChance;
+
+type WinChanceEntry = { x: number; y: number; winChance: number; color: string };
+
+/**
+ * The "XX%" label data for every enemy-owned tile the origin->target line
+ * crosses (never the player's own origin tile), scored against `commit` when
+ * passed -- see triggerWinChancePaintOnMarchArm. Pure: shared by the map
+ * paint and the March To sheet's live win-chance line.
+ */
+export const winChanceEntriesAlongLine = (
+  state: Pick<ClientState, "tiles" | "me">,
   originX: number,
   originY: number,
   targetX: number,
   targetY: number,
-  vis: "visible" | "fogged" | "unexplored",
   keyFor: (x: number, y: number) => string,
-  nowMs: number,
   commit?: { committedManpower: number; baseMusterCost: number }
-): void => {
-  if (vis === "unexplored" || (targetX === originX && targetY === originY)) return;
-  const entries: { x: number; y: number; winChance: number; color: string }[] = [];
+): WinChanceEntry[] => {
+  const entries: WinChanceEntry[] = [];
   // F3: the same client-known shield flags the shield-area overlay uses
   // (client-known-shield-flags.ts) -- never a hidden/predicted defender
   // shield, only whatever's currently in state.tiles.
@@ -97,5 +119,57 @@ export const triggerWinChancePaintOnMarchArm = (
     });
     entries.push({ x, y, winChance, color });
   }
+  return entries;
+};
+
+/**
+ * Computes and stashes state.winChancePaint: a "XX%" label for every
+ * enemy-owned tile the origin->target line crosses (the player's own origin
+ * tile is never labeled). No-op when targeting was cancelled (vis is
+ * "unexplored") or origin===target, same cancel rule
+ * handleMusterMarchTargetClick applies.
+ *
+ * `commit`, when passed, scores every label against that chosen
+ * commitManpower over the target tile's own base muster cost (the confirm
+ * sheet's slider-live recompute) instead of each tile's own "just enough"
+ * default (commit === base, i.e. no boost/penalty) used when omitted.
+ */
+export const triggerWinChancePaintOnMarchArm = (
+  state: Pick<ClientState, "tiles" | "winChancePaint" | "me">,
+  originX: number,
+  originY: number,
+  targetX: number,
+  targetY: number,
+  vis: "visible" | "fogged" | "unexplored",
+  keyFor: (x: number, y: number) => string,
+  nowMs: number,
+  commit?: { committedManpower: number; baseMusterCost: number }
+): void => {
+  if (vis === "unexplored" || (targetX === originX && targetY === originY)) return;
+  const entries = winChanceEntriesAlongLine(state, originX, originY, targetX, targetY, keyFor, commit);
   state.winChancePaint = { targetX, targetY, expiresAt: nowMs + WIN_CHANCE_PAINT_DURATION_MS, entries };
+};
+
+const pct = (winChance: number): string => `${Math.round(winChance * 100)}%`;
+
+/**
+ * The March To sheet's live info line: the win chance at the march target
+ * at the chosen commitment, plus the weakest odds on the way there when an
+ * enemy tile en route is harder than the target itself.
+ */
+export const describeMarchWinChance = (
+  state: Pick<ClientState, "tiles" | "me">,
+  origin: { x: number; y: number },
+  target: { x: number; y: number },
+  keyFor: (x: number, y: number) => string,
+  commit: { committedManpower: number; baseMusterCost: number }
+): string => {
+  const entries = winChanceEntriesAlongLine(state, origin.x, origin.y, target.x, target.y, keyFor, commit);
+  const cost = `commits ${commit.committedManpower} manpower per attack`;
+  if (entries.length === 0) return `No enemy tiles on this route yet · ${cost}`;
+  const atTarget = entries.find((e) => e.x === target.x && e.y === target.y);
+  const weakest = entries.reduce((low, e) => (e.winChance < low.winChance ? e : low));
+  if (!atTarget) return `Lowest win chance on route ${pct(weakest.winChance)} · ${cost}`;
+  const route = weakest.winChance < atTarget.winChance ? ` · lowest on route ${pct(weakest.winChance)}` : "";
+  return `Win chance ${pct(atTarget.winChance)}${route} · ${cost}`;
 };

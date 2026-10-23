@@ -7,6 +7,7 @@ import { attackFloorForPlayer } from "../client-attack-commit/client-attack-floo
 // instead of inventing new target-picking UI.
 import { MUSTER_ATTACK_COST, commitOddsMultiplier, flagCommitForTarget, requiredMusterForFort } from "@border-empires/shared";
 import { commitPreviewWinChanceForTarget } from "../client-queue-logic/client-attack-preview-logic.js";
+import { estimateTileWinChance } from "../client-win-chance-paint-trigger.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 
@@ -29,6 +30,10 @@ const MUSTER_COMMIT_PRESET_LABELS: Record<MusterCommitPreset, string> = {
 
 export const musterCommitPresetAmount = (preset: MusterCommitPreset, floor: number): number =>
   Math.ceil(floor * MUSTER_COMMIT_PRESET_MULTIPLIERS[preset]);
+
+/** An ADVANCE flag has no single target: its commitment is a ratio over the floor, applied to whichever tile each auto-attack picks. */
+export const advanceCommitOddsText = (commitManpower: number, floor: number): string =>
+  `×${Math.round(commitOddsMultiplier(commitManpower, floor) * 100) / 100} odds on each auto-attack (scaled to each target's floor)`;
 
 export type MusterCommitView = {
   mode: "HOLD" | "ADVANCE" | "MARCH";
@@ -84,8 +89,18 @@ export const buildMusterCommitView = (
   // Score what the flag will actually send: a held tile gets the commitment
   // scaled to its own floor (flagCommitForTarget), same as the server.
   const sentCommit = (amount: number): number => flagCommitForTarget(targetTile, amount, Date.now()) ?? amount;
-  const winChance = targetTile ? commitPreviewWinChanceForTarget(state, targetTile, sentCommit(commitManpower), previewDeps) : undefined;
-  const baseWinChance = targetTile ? commitPreviewWinChanceForTarget(state, targetTile, sentCommit(floor), previewDeps) : undefined;
+  const previewWinChance = targetTile ? commitPreviewWinChanceForTarget(state, targetTile, sentCommit(commitManpower), previewDeps) : undefined;
+  const previewBaseWinChance = targetTile ? commitPreviewWinChanceForTarget(state, targetTile, sentCommit(floor), previewDeps) : undefined;
+  // No ATTACK_PREVIEW cached for this pair (the common case for a march
+  // target that doesn't border us yet): fall back to the client-side
+  // estimate the march arrow's labels use, so the slider still shows odds.
+  const estimate = (amount: number): number | undefined =>
+    targetTile?.ownerId && targetTile.ownerId !== deps.me
+      ? estimateTileWinChance(state, targetTile, { committedManpower: amount, baseMusterCost: floor })
+      : undefined;
+  const usePreview = previewWinChance != null && previewBaseWinChance != null;
+  const winChance = usePreview ? previewWinChance : estimate(commitManpower);
+  const baseWinChance = usePreview ? previewBaseWinChance : estimate(floor);
   return {
     mode: muster.mode,
     hasTarget,

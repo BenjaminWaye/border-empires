@@ -56,3 +56,26 @@ export const flagCommitForTarget = (
   if (tile?.ownershipState === "SETTLED") return flagCommit;
   return Math.max(FRONTIER_ATTACK_MUSTER_COST, Math.round((flagCommit * FRONTIER_ATTACK_MUSTER_COST) / MUSTER_ATTACK_COST));
 };
+
+/**
+ * The commitment an ADVANCE flag's auto-attack carries into `tile`, whose
+ * own floor is `required`. An ADVANCE flag has no fixed target, so its
+ * effort (Set Advance's Normal / Extra / Double sheet) is chosen against
+ * the generic MUSTER_ATTACK_COST floor and kept as a ratio for every target
+ * it picks -- otherwise "Double" (120) against a 150-manpower Palisade would
+ * clamp back up to the floor and buy nothing. Capped at `flagCap` (but never
+ * below `required`) so a high effort can't leave the flag saving up forever
+ * for more manpower than it can ever hold.
+ */
+export const advanceFlagCommitForTarget = (
+  tile: { ownershipState?: string | undefined; captureHoldUntil?: number | undefined } | undefined,
+  flagCommit: number | undefined,
+  required: number,
+  flagCap: number,
+  nowMs: number
+): number | undefined => {
+  if (tile?.ownershipState !== "SETTLED") return flagCommitForTarget(tile, flagCommit, nowMs);
+  if (!flagCommit) return undefined;
+  const scaled = Math.round((flagCommit * required) / MUSTER_ATTACK_COST);
+  return Math.max(required, Math.min(scaled, flagCap));
+};

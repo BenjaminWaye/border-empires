@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildMusterCommitView, musterCommitPresetAmount } from "./client-muster-commit-tab.js";
+import { advanceCommitOddsText, buildMusterCommitView, musterCommitPresetAmount } from "./client-muster-commit-tab.js";
+import { estimateTileWinChance } from "../client-win-chance-paint-trigger.js";
 import { createInitialState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 
@@ -122,6 +123,34 @@ describe("buildMusterCommitView", () => {
     // A preview cached for the closer tile's own hover, not the flag's.
     state.attackPreviewCacheByKey.set("6,4->6,5", { fromKey: "6,4", toKey: "6,5", valid: true, winChance: 0.9, receivedAt: Date.now() });
     const view = buildMusterCommitView(flagTile, state, { me: "me", keyFor: deps.keyFor });
-    expect(view?.winChancePercent).toBeUndefined();
+    // Falls back to the client-side estimate, never the other origin's 90%.
+    const estimate = Math.round(estimateTileWinChance(state, state.tiles.get("6,5")!, { committedManpower: 60, baseMusterCost: 60 }) * 100);
+    expect(view?.winChancePercent).toBe(estimate);
+    expect(view?.winChancePercent).not.toBe(90);
+  });
+
+  // Regression: a march target with no cached ATTACK_PREVIEW (e.g. one that
+  // doesn't border us yet) showed "Win chance unavailable" on the slider.
+  it("estimates win chance client-side when no preview is cached, rising with commitment", () => {
+    const state = createInitialState();
+    state.manpowerCap = 1_000;
+    state.tiles.set("9,5", makeTile({ x: 9, y: 5, ownerId: "enemy", ownershipState: "SETTLED" }));
+    const at = (commitManpower: number) =>
+      buildMusterCommitView(
+        makeTile({ x: 5, y: 5, ownerId: "me", muster: { ownerId: "me", amount: 500, mode: "MARCH", targetX: 9, targetY: 5, updatedAt: 0, commitManpower } }),
+        state,
+        deps
+      );
+    const normal = at(60);
+    const double = at(120);
+    expect(normal?.baseWinChancePercent).toBeTypeOf("number");
+    expect(normal?.winChancePercent).toBe(normal?.baseWinChancePercent);
+    expect(double?.winChancePercent).toBeGreaterThan(normal!.winChancePercent!);
+  });
+
+  it("describes an ADVANCE flag's commitment as an odds ratio on each auto-attack", () => {
+    expect(advanceCommitOddsText(60, 60)).toContain("×1 odds");
+    expect(advanceCommitOddsText(90, 60)).toContain("×1.5 odds");
+    expect(advanceCommitOddsText(120, 60)).toContain("×2 odds");
   });
 });
