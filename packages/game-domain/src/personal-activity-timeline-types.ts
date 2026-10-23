@@ -1,4 +1,4 @@
-import type { WaystationGoldTier, WaystationGrantedEffect } from "@border-empires/shared";
+import type { FortVariant, WaystationGoldTier, WaystationGrantedEffect } from "@border-empires/shared";
 
 // Shared response types for the personal Activity dashboard's 24h "Yours"
 // timeline (docs/activity-dashboard-plan.md), mirroring
@@ -14,6 +14,7 @@ import type { WaystationGoldTier, WaystationGrantedEffect } from "@border-empire
 // apps/simulation/src/personal-impact-log exists -- not stubbed here ahead
 // of a real producer.
 export const PERSONAL_ACTIVITY_TIMELINE_CARD_CAP = 100;
+export const PERSONAL_ACTIVITY_RIVAL_CAP = 5;
 
 export type PersonalActivityDirection = "GAINED" | "LOST";
 
@@ -43,6 +44,71 @@ export type PersonalActivityCombatCard = {
   pillagedGold: number;
   defenderGoldLoss: number;
   targetWasSettled: boolean;
+  /** Fortification defending the target when the attack resolved, if any. */
+  defenseVariant?: FortVariant;
+  /** A failed attack whose launch tile the defender took in return. */
+  originSeized?: boolean;
+};
+
+// Several attacks between the player and one rival close together in time
+// and place (excluding same-tile sieges), folded into one card. `role` is the
+// viewing player's side: ATTACKER for "your assault on Maren", DEFENDER for
+// "Maren's raids on your border".
+export type PersonalActivityCombatGroupCard = {
+  kind: "COMBAT_GROUP";
+  id: string;
+  /** Time of the latest attack in the group. */
+  occurredAt: number;
+  role: "ATTACKER" | "DEFENDER";
+  counterpartyPlayerId: string | undefined;
+  attempts: number;
+  /** Attacks that captured their target. */
+  captures: number;
+  /** Failed attacks whose launch tile the defender took in return. */
+  originsSeized: number;
+  /** Manpower the attacking side lost across the group. */
+  manpowerLoss: number;
+  pillagedGold: number;
+  defenderGoldLoss: number;
+  x: number;
+  y: number;
+};
+
+// Head-to-head tally against one opponent over the timeline window.
+export type PersonalActivityRival = {
+  playerId: string;
+  tilesTaken: number;
+  tilesLost: number;
+  /** Their attacks on you that failed. */
+  attacksRepelled: number;
+  /** Your attacks on them that failed. */
+  attacksFailed: number;
+};
+
+// Several assaults on one of the player's tiles, folded into a single card
+// in place of the per-attack COMBAT cards they replace. A siege runs from the
+// first logged assault on the tile until the assault that captured it
+// (outcome FELL) or, if none has yet, is still HOLDING. Only ever produced
+// for the defending player.
+export type PersonalActivitySiegeCard = {
+  kind: "SIEGE";
+  id: string;
+  /** Time of the latest assault in the siege (the breaking one when it fell). */
+  occurredAt: number;
+  startedAt: number;
+  x: number;
+  y: number;
+  outcome: "FELL" | "HOLDING";
+  assaultsRepelled: number;
+  /** Repelled assaults whose launch tile the player took in return. */
+  originsSeized: number;
+  /** Distinct attackers in order of first assault. */
+  attackerIds: string[];
+  /** Manpower attackers lost across every assault, including the breaking one. */
+  manpowerSpentAgainst: number;
+  /** Fortification defending the tile at the latest assault, if any. */
+  defenseVariant?: FortVariant;
+  capturedBy?: string;
 };
 
 export type PersonalActivityWaystationCard = {
@@ -107,6 +173,8 @@ export type PersonalActivityTruncationNoteCard = {
 export type PersonalActivityCard =
   | PersonalActivityTerritoryCard
   | PersonalActivityCombatCard
+  | PersonalActivityCombatGroupCard
+  | PersonalActivitySiegeCard
   | PersonalActivityWaystationCard
   | PersonalActivityTownCard
   | PersonalActivityBuildingCard
@@ -135,6 +203,9 @@ export type PersonalActivityTimeline = {
   // attackerId === playerId.
   manpowerSpentAttacking: number;
   cards: PersonalActivityCard[];
+  // Most active opponents first, capped at PERSONAL_ACTIVITY_RIVAL_CAP.
+  // Optional: a simulation older than this field omits it.
+  rivals?: PersonalActivityRival[];
   // True when `from` predates the 24h retention cutoff, i.e. the caller
   // asked for more history than the rolling logs can provide.
   truncated: boolean;

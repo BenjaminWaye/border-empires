@@ -72,6 +72,15 @@ export const drawForestOverlay = (
   if (isForest && prospectClue?.signature === "BLACKWOOD_CANOPY" && prospectClue.propsAllowed) drawBlackwoodSwirl(ctx, wx, wy, px, py - canopyYOffset, size);
 };
 
+// Soft contact shadow under each tree, cast down-right like the 3D map's sun,
+// so trees sit on the ground instead of floating as flat icons.
+const drawTreeShadow = (ctx: CanvasRenderingContext2D, tx: number, ty: number, radius: number, pulse: number): void => {
+  ctx.fillStyle = `rgba(12, 26, 8, ${0.2 + pulse * 0.06})`;
+  ctx.beginPath();
+  ctx.ellipse(tx + radius * 0.25, ty + radius * 0.12, radius * 0.62, radius * 0.22, 0, 0, Math.PI * 2);
+  ctx.fill();
+};
+
 const drawConiferOrLeafAnchor = (
   ctx: CanvasRenderingContext2D,
   tx: number,
@@ -85,68 +94,98 @@ const drawConiferOrLeafAnchor = (
   const trunkW = Math.max(1, size * 0.045 * sizeMult);
   const canopyW = size * (0.2 + i * 0.015) * sizeMult;
   const canopyH = canopyW * 0.92;
-  ctx.fillStyle = `rgba(28, 54, 27, ${0.4 + pulse * 0.16})`;
+  drawTreeShadow(ctx, tx, ty + size * 0.08 * sizeMult, canopyW, pulse);
+  ctx.fillStyle = `rgba(62, 40, 28, ${0.62 + pulse * 0.14})`;
   ctx.fillRect(tx - trunkW / 2, ty - size * 0.02, trunkW, size * 0.12 * sizeMult);
   if (isLeaf) {
-    // Leaf/deciduous: a broad rounded canopy (two overlapping circular
-    // lobes) in a warmer, lighter green -- reads distinctly from the
-    // conifer triangle below even at small tile sizes.
-    ctx.fillStyle = `rgba(74, 115, 46, ${0.74 + pulse * 0.12})`;
+    // Leaf/deciduous: a broad rounded crown of overlapping lobes in a warmer,
+    // lighter green -- reads distinctly from the conifer tiers below even at
+    // small tile sizes. Shaded body, then a sunlit cap up and to the left
+    // (the 3D map's leaf crowns light the same way).
+    ctx.fillStyle = `rgba(50, 82, 32, ${0.8 + pulse * 0.12})`;
     ctx.beginPath();
-    ctx.arc(tx - canopyW * 0.18, ty - canopyH * 0.28, canopyW * 0.34, 0, Math.PI * 2);
-    ctx.arc(tx + canopyW * 0.18, ty - canopyH * 0.28, canopyW * 0.34, 0, Math.PI * 2);
-    ctx.arc(tx, ty - canopyH * 0.5, canopyW * 0.36, 0, Math.PI * 2);
+    ctx.arc(tx - canopyW * 0.18, ty - canopyH * 0.26, canopyW * 0.34, 0, Math.PI * 2);
+    ctx.arc(tx + canopyW * 0.2, ty - canopyH * 0.24, canopyW * 0.32, 0, Math.PI * 2);
+    ctx.arc(tx, ty - canopyH * 0.52, canopyW * 0.37, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = `rgba(122, 156, 78, ${0.34 + pulse * 0.08})`;
+    ctx.fillStyle = `rgba(104, 144, 62, ${0.7 + pulse * 0.12})`;
     ctx.beginPath();
-    ctx.arc(tx - canopyW * 0.1, ty - canopyH * 0.56, canopyW * 0.2, 0, Math.PI * 2);
+    ctx.arc(tx - canopyW * 0.08, ty - canopyH * 0.58, canopyW * 0.26, 0, Math.PI * 2);
+    ctx.arc(tx - canopyW * 0.24, ty - canopyH * 0.32, canopyW * 0.18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = `rgba(160, 192, 98, ${0.38 + pulse * 0.1})`;
+    ctx.beginPath();
+    ctx.arc(tx - canopyW * 0.14, ty - canopyH * 0.66, canopyW * 0.12, 0, Math.PI * 2);
     ctx.fill();
     return;
   }
-  ctx.fillStyle = `rgba(14, 41, 18, ${0.72 + pulse * 0.12})`;
+  // Conifer: three stacked needle tiers, each split into a shaded and a
+  // sunlit half -- the 2D read of the 3D map's tiered pines and spruces.
+  const tiers = [0, 1, 2].map((k) => ({
+    halfW: canopyW * (0.5 - k * 0.12),
+    baseY: ty + canopyH * (0.14 - k * 0.26),
+    apexY: ty + canopyH * (0.14 - k * 0.26) - canopyH * (0.52 - k * 0.06)
+  }));
+  ctx.fillStyle = `rgba(16, 44, 22, ${0.8 + pulse * 0.12})`;
   ctx.beginPath();
-  ctx.moveTo(tx, ty - canopyH * 0.64);
-  ctx.lineTo(tx - canopyW * 0.46, ty + canopyH * 0.14);
-  ctx.lineTo(tx + canopyW * 0.46, ty + canopyH * 0.14);
-  ctx.closePath();
+  for (const tier of tiers) {
+    ctx.moveTo(tx, tier.apexY);
+    ctx.lineTo(tx - tier.halfW, tier.baseY);
+    ctx.lineTo(tx + tier.halfW, tier.baseY);
+    ctx.closePath();
+  }
   ctx.fill();
-  ctx.fillStyle = `rgba(52, 96, 45, ${0.32 + pulse * 0.08})`;
+  ctx.fillStyle = `rgba(56, 102, 58, ${0.72 + pulse * 0.12})`;
   ctx.beginPath();
-  ctx.moveTo(tx, ty - canopyH * 0.52);
-  ctx.lineTo(tx - canopyW * 0.24, ty - canopyH * 0.05);
-  ctx.lineTo(tx + canopyW * 0.12, ty - canopyH * 0.14);
-  ctx.closePath();
+  for (const tier of tiers) {
+    ctx.moveTo(tx, tier.apexY);
+    ctx.lineTo(tx - tier.halfW, tier.baseY);
+    ctx.lineTo(tx - tier.halfW * 0.1, tier.baseY - (tier.baseY - tier.apexY) * 0.12);
+    ctx.closePath();
+  }
   ctx.fill();
 };
 
 // Palm/jungle-tree variant for tropical-latitude forest tiles (see
-// worldgen-latitude.ts): a tall thin trunk with a fan of frond wedges at
-// the top instead of a solid pine triangle, so the equatorial belt reads
-// visibly different from temperate forest here too.
+// worldgen-latitude.ts): a tall, slightly curved trunk with a fan of frond
+// blades at the top instead of a solid pine triangle, so the equatorial belt
+// reads visibly different from temperate forest here too.
 const drawPalmTreeAnchor = (ctx: CanvasRenderingContext2D, tx: number, ty: number, size: number, i: number, pulse: number): void => {
   const trunkW = Math.max(1, size * 0.035);
   const trunkH = size * (0.22 + i * 0.01);
   const frondLen = size * (0.16 + i * 0.012);
-  ctx.fillStyle = `rgba(90, 68, 40, ${0.5 + pulse * 0.12})`;
-  ctx.fillRect(tx - trunkW / 2, ty - trunkH * 0.1, trunkW, trunkH);
   const crownY = ty - trunkH * 0.1;
-  ctx.fillStyle = `rgba(58, 122, 58, ${0.68 + pulse * 0.14})`;
+  const footY = crownY + trunkH;
+  drawTreeShadow(ctx, tx + frondLen * 0.3, footY, frondLen * 1.1, pulse);
+  ctx.strokeStyle = `rgba(96, 72, 44, ${0.62 + pulse * 0.12})`;
+  ctx.lineWidth = trunkW;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(tx - trunkW * 0.8, footY);
+  ctx.quadraticCurveTo(tx - trunkW * 1.4, crownY + trunkH * 0.45, tx, crownY);
+  ctx.stroke();
   const frondAngles = [-1.15, -0.55, 0, 0.55, 1.15];
   const frondHalfWidth = frondLen * 0.22;
-  for (const angle of frondAngles) {
+  const blade = (angle: number, length: number, litHalf: boolean): void => {
     // Frond tip: crown center offset by (sin, -cos)*length; the wedge base
     // is perpendicular to that direction so each frond reads as a blade.
     const dirX = Math.sin(angle);
     const dirY = -Math.cos(angle);
-    const tipX = tx + dirX * frondLen;
-    const tipY = crownY + dirY * frondLen;
+    const tipX = tx + dirX * length;
+    const tipY = crownY + dirY * length;
     const perpX = -dirY * frondHalfWidth;
     const perpY = dirX * frondHalfWidth;
-    ctx.beginPath();
     ctx.moveTo(tx, crownY);
     ctx.lineTo(tipX - perpX, tipY - perpY);
-    ctx.lineTo(tipX + perpX, tipY + perpY);
+    ctx.lineTo(litHalf ? tipX : tipX + perpX, litHalf ? tipY : tipY + perpY);
     ctx.closePath();
-    ctx.fill();
-  }
+  };
+  ctx.fillStyle = `rgba(40, 96, 42, ${0.74 + pulse * 0.14})`;
+  ctx.beginPath();
+  for (const angle of frondAngles) blade(angle, frondLen, false);
+  ctx.fill();
+  ctx.fillStyle = `rgba(112, 170, 76, ${0.6 + pulse * 0.14})`;
+  ctx.beginPath();
+  for (const angle of frondAngles) blade(angle, frondLen * 0.92, true);
+  ctx.fill();
 };

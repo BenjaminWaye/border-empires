@@ -1,5 +1,5 @@
 import { domainCatalogForPlayer, openDomainChoices, reachableDomainChoices } from "../../../simulation/src/tech-domain-bridge/tech-domain-catalogs.js";
-import { recoverEntryNameFromSnapshot, recoverOptionalEntryNameFromSnapshot, recoverSeasonVictoryNamesFromSnapshot } from "./init-payload-name-recovery.js";
+import { displayNameForSeedPlayer, recoverEntryNameFromSnapshot, recoverOptionalEntryNameFromSnapshot, recoverSeasonVictoryNamesFromSnapshot } from "./init-payload-name-recovery.js";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { exportDockPairs, type DockPairView } from "./dock-pair-export.js";
@@ -15,7 +15,7 @@ import {
   type SeasonWinnerView,
   type WorldStyle,
   WORLD_HEIGHT,
-  WORLD_WIDTH, PLANETARY_DEFENSE_DISPLAY_NAME
+  WORLD_WIDTH
 } from "@border-empires/shared";
 import { reconnectPassthroughFields, type LeaderboardMetricEntry, type LeaderboardOverallEntry, type ManpowerBreakdown, type PlayerSubscriptionSnapshot, type ReconnectPassthroughFields } from "@border-empires/sim-protocol";
 import type { LegacySnapshotBootstrap } from "../../../simulation/src/legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
@@ -216,13 +216,6 @@ export const hexColorForPlayerId = (playerId: string): string => {
   return `#${toHex(r1)}${toHex(g1)}${toHex(b1)}`;
 };
 
-const displayNameForSeedPlayer = (playerId: string, fallbackName: string): string => {
-  if (playerId === "player-1") return fallbackName;
-  if (playerId === "barbarian-1") return PLANETARY_DEFENSE_DISPLAY_NAME;
-  if (playerId.startsWith("ai-")) return `AI ${playerId.slice(3)}`;
-  return playerId;
-};
-
 const firstOwnedTile = (playerId: string, snapshot: PlayerSubscriptionSnapshot): { x: number; y: number } | undefined => {
   const townTile = snapshot.tiles.find((tile: PlayerSubscriptionSnapshot["tiles"][number]) => tile.ownerId === playerId && tile.townType);
   if (townTile) return { x: townTile.x, y: townTile.y };
@@ -321,7 +314,7 @@ export const buildGatewayInitPayload = (
     id: playerId,
     name:
       snapshotBootstrap?.playerProfiles.get(playerId)?.name ??
-      (playerId.startsWith("ai-") ? `AI ${playerId.slice(3)}` : (liveVisibleNameByPlayerId.get(playerId) ?? displayNameForSeedPlayer(playerId, playerIdentity.playerName))),
+      displayNameForSeedPlayer(playerId, playerIdentity.playerName, liveVisibleNameByPlayerId.get(playerId)),
     tileColor: hexColorForPlayerId(playerId),
     ...(dukeAuthUids?.has(playerId) ? { duke: true } : {})
   }));

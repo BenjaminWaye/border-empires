@@ -15,12 +15,29 @@ const speciesAt = (wx: number, wy: number): number => (((wx * 73856093) ^ (wy * 
 
 type MockCanvasContext = Pick<
   CanvasRenderingContext2D,
-  "save" | "restore" | "fillRect" | "beginPath" | "moveTo" | "lineTo" | "arc" | "closePath" | "fill" | "fillStyle"
+  | "save"
+  | "restore"
+  | "fillRect"
+  | "beginPath"
+  | "moveTo"
+  | "lineTo"
+  | "arc"
+  | "ellipse"
+  | "quadraticCurveTo"
+  | "closePath"
+  | "fill"
+  | "stroke"
+  | "fillStyle"
+  | "strokeStyle"
+  | "lineWidth"
+  | "lineCap"
 >;
 
-const createMockContext = (): { ctx: CanvasRenderingContext2D; fillRectCalls: number; arcCalls: number } => {
+const createMockContext = (): { ctx: CanvasRenderingContext2D; fillRectCalls: number; arcCalls: number; ellipseCalls: number; moveToCalls: number } => {
   let fillRectCalls = 0;
   let arcCalls = 0;
+  let ellipseCalls = 0;
+  let moveToCalls = 0;
   const ctx: MockCanvasContext = {
     fillStyle: "",
     save: () => undefined,
@@ -29,12 +46,22 @@ const createMockContext = (): { ctx: CanvasRenderingContext2D; fillRectCalls: nu
       fillRectCalls += 1;
     },
     beginPath: () => undefined,
-    moveTo: () => undefined,
+    moveTo: () => {
+      moveToCalls += 1;
+    },
     lineTo: () => undefined,
     arc: () => {
       arcCalls += 1;
     },
+    ellipse: () => {
+      ellipseCalls += 1;
+    },
+    quadraticCurveTo: () => undefined,
     closePath: () => undefined,
+    stroke: () => undefined,
+    strokeStyle: "",
+    lineWidth: 1,
+    lineCap: "butt",
     fill: () => undefined
   };
   return {
@@ -44,6 +71,12 @@ const createMockContext = (): { ctx: CanvasRenderingContext2D; fillRectCalls: nu
     },
     get arcCalls() {
       return arcCalls;
+    },
+    get ellipseCalls() {
+      return ellipseCalls;
+    },
+    get moveToCalls() {
+      return moveToCalls;
     }
   };
 };
@@ -107,5 +140,21 @@ describe("2D forest overlay light-grass scatter sapling", () => {
     drawForestOverlay(mock.ctx, scatterTile!.x, scatterTile!.y, 0, 0, 48);
     expect(mock.fillRectCalls).toBe(1); // exactly one sapling trunk, not a full forest layout
     expect(mock.arcCalls).toBeGreaterThan(0); // leaf shape, not the conifer triangle
+  });
+});
+
+// The 2D read of the 3D map's tiered, shaded trees: each tree stands on a
+// soft ground shadow, and each conifer is three stacked tiers drawn twice
+// (shaded body, then the sunlit half).
+describe("2D forest overlay tree shading", () => {
+  it("gives every conifer a ground shadow and three shaded tiers", () => {
+    setWorldSeed(1);
+    let wx = 0;
+    while (speciesAt(wx, 30) === 2) wx += 1;
+    const mock = createMockContext();
+    drawForestOverlay(mock.ctx, wx, 30, 0, 0, 48, undefined, () => true);
+    const trees = 4; // tiles 44px and up draw four trees
+    expect(mock.ellipseCalls).toBe(trees);
+    expect(mock.moveToCalls).toBe(trees * 3 * 2);
   });
 });

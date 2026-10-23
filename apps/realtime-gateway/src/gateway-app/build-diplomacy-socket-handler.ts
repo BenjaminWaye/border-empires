@@ -14,6 +14,7 @@ import { createAiAllianceReview } from "../ai-diplomacy-stance/ai-alliance-revie
 import { recheckAiOffer } from "../ai-diplomacy-stance/ai-offer-recheck.js";
 import type { AiDiplomacyContext } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
 import { answerDiplomacyStanceQuery } from "../ai-diplomacy-stance/diplomacy-stance-query.js";
+import { createSeasonLeaderboardCache } from "../ai-diplomacy-stance/season-leaderboard-cache.js";
 import { createAllianceBreakFinalizer } from "../alliance-break-finalizer/alliance-break-finalizer.js";
 import { handleAllianceSocketMessage, type AllianceSocketMessageDeps } from "../alliance-socket-messages/alliance-socket-messages.js";
 import { rejectCounteredOffer } from "../diplomacy-counter-offer/diplomacy-counter-offer.js";
@@ -59,8 +60,9 @@ export type DiplomacySocketHandler = {
   ) => Promise<boolean>;
   /**
    * Recurring alliance upkeep (call every minute): finalizes break notices
-   * whose 24h ran out, and has AIs leave alliances they no longer lead
-   * (self-throttled to every 5 minutes).
+   * whose 24h ran out, has AIs leave alliances they no longer lead
+   * (self-throttled to every 5 minutes), and tells both sides of any truce
+   * offer that expired or was dropped since the last run.
    */
   runAllianceMaintenance: () => void;
   /** Routes deal-settlement verdicts and combat (for AI memory) from the simulation event stream. */
@@ -121,14 +123,19 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
   const requesterSnapshot = async (playerId: string): Promise<PlayerSubscriptionSnapshot | undefined> =>
     deps.cachedSnapshotForPlayer(playerId) ?? (await deps.ensureSubscribed(playerId));
   const alliesOf = (playerId: string): readonly string[] => socialState.snapshotForPlayer(playerId).allies;
-  const diplomacyContext = (requesterId: string, aiPlayerId: string): AiDiplomacyContext => {
+  // AI snapshots come from a live subscribe without world status, so the bloc
+  // check's sizes come from the season leaderboard (cached, bounded wait).
+  const seasonLeaderboard = createSeasonLeaderboardCache({ fetch: deps.fetchSeasonLeaderboard, now: () => Date.now() });
+  const diplomacyContext = async (requesterId: string, aiPlayerId: string): Promise<AiDiplomacyContext> => {
     const breaks = socialState.snapshotForPlayer(requesterId).truceBreaksThisSeason;
+    const leaderboard = await seasonLeaderboard();
     return {
       requesterBrokeTruceWithAi: breaks.some((record) => record.targetPlayerId === aiPlayerId),
       requesterTruceBreaksWithOthers: breaks.filter((record) => record.targetPlayerId !== aiPlayerId).length,
       memory: memory.view(aiPlayerId, requesterId),
       now: Date.now(),
-      alliesOf
+      alliesOf,
+      ...(leaderboard ? { seasonLeaderboard: leaderboard } : {})
     };
   };
   const reviewAiAlliances = createAiAllianceReview({
@@ -192,13 +199,15 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
       const payload = await answerDiplomacyStanceQuery(
         {
           resolvePlayerByName: socialState.resolvePlayerByName,
+          resolvePlayerById: socialState.resolvePlayerById,
           isAutoRespondingAi: (targetId) => deps.seededAiPlayerIds.has(targetId) && !deps.hasLiveSocket(targetId),
           fetchAiSnapshot,
           requesterSnapshot,
           diplomacyContext
         },
         playerId,
-        message.targetPlayerName
+        message.targetPlayerName,
+        message.targetPlayerId
       );
       deps.sendJson(socket, payload);
       return true;
@@ -237,6 +246,8 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
         rejectTruce: socialState.rejectTruce,
         cancelTruce: socialState.cancelTruce,
         breakTruce: socialState.breakTruce,
+        syncPlayers: socialState.syncPlayers,
+        takeStaleOfferSync: socialState.takeStaleOfferSync,
         sendJson: deps.sendJson,
         fanoutPlayerPayloads: deps.fanoutPlayerPayloads,
         syncTruceToSimulation: deps.syncTruceToSimulation,
@@ -262,6 +273,8 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     runAllianceMaintenance: () => {
       void finalizeExpiredAllianceBreaks();
       void reviewAiAlliances();
+      const staleOffers = socialState.takeStaleOfferSync();
+      if (staleOffers) deps.fanoutPlayerPayloads(staleOffers.payloadsByPlayerId);
     },
     observeSimulationEvent: (event) => {
       settlement.observe(event);

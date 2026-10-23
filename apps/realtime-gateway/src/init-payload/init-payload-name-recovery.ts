@@ -1,5 +1,20 @@
-import { anonymizedEmpireNameForId, isOpaquePlayerId, type SeasonVictoryObjectiveView } from "@border-empires/shared";
+import { aiDisplayNameForId, anonymizedEmpireNameForId, isOpaquePlayerId, PLANETARY_DEFENSE_DISPLAY_NAME, type SeasonVictoryObjectiveView } from "@border-empires/shared";
 import type { LegacySnapshotBootstrap } from "../../../simulation/src/legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
+
+/**
+ * Name for a player with no stored profile name. AIs always get their listed
+ * seasonal name from the id alone, exactly as the gateway's diplomacy names do
+ * (auth-identity.ts), so a name the client shows resolves for an offer even
+ * if the live leaderboard spells the AI differently.
+ */
+export const displayNameForSeedPlayer = (playerId: string, fallbackName: string, liveName?: string): string => {
+  if (playerId === "barbarian-1") return PLANETARY_DEFENSE_DISPLAY_NAME;
+  const aiName = aiDisplayNameForId(playerId);
+  if (aiName) return aiName;
+  if (liveName) return liveName;
+  if (playerId === "player-1") return fallbackName;
+  return playerId;
+};
 
 const liveNameNeedsSnapshotRecovery = (playerId: string, name: string | undefined): boolean => {
   if (!name) return true;

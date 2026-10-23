@@ -12,6 +12,9 @@ export type AiWarState = {
   atWar: boolean;
   /** Tiles the AI took from the player minus tiles the player took from it, both fading. */
   balance: number;
+  /** The two sides of `balance`, rounded for display: the trade screen's war tally. */
+  tilesTakenFromAi: number;
+  tilesTakenByAi: number;
   aiWinning: boolean;
   aiLosing: boolean;
 };
@@ -68,5 +71,10 @@ export const computeAiOpinion = (input: {
   // an AI taking tiles from a stronger empire is winning that war, not paying for peace.
   const aiLosing = atWar && (balance <= -2 || ((input.stanceKind === "SEEKING_PEACE" || input.stanceKind === "OUTMATCHED") && balance <= 0));
   const aiWinning = atWar && !aiLosing && (balance >= 2 || input.stanceKind === "WINNING");
-  return { attitude: attitudeForScore(score), score, modifiers, war: { atWar, balance, aiWinning, aiLosing } };
+  return {
+    attitude: attitudeForScore(score),
+    score,
+    modifiers,
+    war: { atWar, balance, tilesTakenFromAi: Math.round(memory.tilesTakenFromAi), tilesTakenByAi: Math.round(memory.tilesTakenByAi), aiWinning, aiLosing }
+  };
 };

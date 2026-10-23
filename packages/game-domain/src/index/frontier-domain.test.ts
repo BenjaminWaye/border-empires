@@ -223,7 +223,7 @@ describe("game domain frontier validation", () => {
     expect(result).toEqual({
       ok: false,
       code: "LOCKED",
-      message: "tile locked in combat"
+      message: "launch tile is under attack"
     });
   });
 

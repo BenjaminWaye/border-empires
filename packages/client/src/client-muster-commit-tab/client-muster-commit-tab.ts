@@ -5,7 +5,7 @@ import { attackFloorForPlayer } from "../client-attack-commit/client-attack-floo
 // set via SET_MUSTER, the mechanism the future drag-arrow gesture upgrades
 // rather than replaces), so this tab reads/writes that existing state
 // instead of inventing new target-picking UI.
-import { MUSTER_ATTACK_COST, commitOddsMultiplier, requiredMusterForFort } from "@border-empires/shared";
+import { MUSTER_ATTACK_COST, commitOddsMultiplier, flagCommitForTarget, requiredMusterForFort } from "@border-empires/shared";
 import { commitPreviewWinChanceForTarget } from "../client-queue-logic/client-attack-preview-logic.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
@@ -81,8 +81,11 @@ export const buildMusterCommitView = (
   // look up the wrong ATTACK_PREVIEW cache key (a different fromKey) and
   // silently show no odds (or someone else's) instead of this flag's.
   const previewDeps = { keyFor: deps.keyFor, pickOriginForTarget: () => tile };
-  const winChance = targetTile ? commitPreviewWinChanceForTarget(state, targetTile, commitManpower, previewDeps) : undefined;
-  const baseWinChance = targetTile ? commitPreviewWinChanceForTarget(state, targetTile, floor, previewDeps) : undefined;
+  // Score what the flag will actually send: a held tile gets the commitment
+  // scaled to its own floor (flagCommitForTarget), same as the server.
+  const sentCommit = (amount: number): number => flagCommitForTarget(targetTile, amount, Date.now()) ?? amount;
+  const winChance = targetTile ? commitPreviewWinChanceForTarget(state, targetTile, sentCommit(commitManpower), previewDeps) : undefined;
+  const baseWinChance = targetTile ? commitPreviewWinChanceForTarget(state, targetTile, sentCommit(floor), previewDeps) : undefined;
   return {
     mode: muster.mode,
     hasTarget,

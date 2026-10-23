@@ -1,5 +1,7 @@
 import { showCaptureAlert } from "../client-alerts/client-alerts.js";
 import { createHostileMusterAnnouncer, type HostileMusterNearBorder } from "../client-hostile-muster-alerts/client-hostile-muster-alerts.js";
+import { createPopupBlockedCheck } from "../client-map-unobstructed/client-popup-gate.js";
+import { occupationSurveyController } from "../client-occupation-survey.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { drawPersistentAlertLocators, persistentAlertsForState, type PersistentAlert } from "./client-persistent-alerts.js";
 
@@ -30,7 +32,12 @@ export const createPersistentAlertsFrame = (
   let computedAt = 0;
   const hostileMusterAnnouncer = createHostileMusterAnnouncer();
   let warmUpUntil: number | undefined;
+  // The town-survey popup is held (not dropped) while What's New, the
+  // Activity dashboard or the lobby is open or about to open.
+  const surveyPopupGate = createPopupBlockedCheck();
   return (nowMs, drawDeps) => {
+    occupationSurveyController.installViewHandler((report) => { state.camX = report.x; state.camY = report.y; });
+    occupationSurveyController.sync({ camX: state.camX, camY: state.camY, camSubX: 0, camSubY: 0, selected: undefined, techIds: state.techIds ?? [], presentationReady: !surveyPopupGate.isBlocked(state, Date.now()) }, drawDeps.worldToScreen, drawDeps.size, drawDeps.halfW, drawDeps.halfH);
     if (computedAt === 0 || nowMs - computedAt >= PERSISTENT_ALERTS_RECOMPUTE_INTERVAL_MS) {
       cache = persistentAlertsForState(state);
       computedAt = nowMs;

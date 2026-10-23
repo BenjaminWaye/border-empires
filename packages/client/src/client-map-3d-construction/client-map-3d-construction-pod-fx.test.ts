@@ -1,86 +1,85 @@
 import { describe, expect, it } from "vitest";
-import { Scene, Vector3 } from "three";
+import { InstancedMesh, Matrix4, Scene } from "three";
+import { podMeshName, type PodMeshKey } from "./client-map-3d-construction-pod-assets.js";
+import { dronesDrawn, podsDrawn } from "./client-map-3d-construction-pod.test-helpers.js";
+import { POD_UNPACK_MS, planPodFlight } from "./client-map-3d-construction-pod-flight.js";
 import { createConstructionPodFxLayer } from "./client-map-3d-construction-pod-fx.js";
 
-// Parts are fabricated at the owner's AFC and flown to the site; nothing drops from orbit.
-const pod = (scene: Scene) => scene.children[0]!.children[0]!;
-// A snapshot: the pod's position vector is mutated on every update.
-const where = (scene: Scene) => pod(scene).position.clone();
+const mesh = (scene: Scene, key: PodMeshKey): InstancedMesh => scene.getObjectByName(podMeshName(key)) as InstancedMesh;
 
 describe("construction pod fx", () => {
-  it("launches at the AFC, arcs over the ground, and lands on the site's stack", () => {
+  it("follows the delivery plan from the AFC's chamber to the site's stack", () => {
     const scene = new Scene();
     const layer = createConstructionPodFxLayer(scene);
-    layer.spawn("s", 10, 20, 0, 1_000, { dx: -6, dz: -4 });
+    const plan = planPodFlight(-6, -4);
+    layer.spawn("s", 10, 20, 0.5, 1_000, { dx: -6, dz: -4 });
     expect(layer.activeCount()).toBe(1);
 
-    layer.update(1_000);
-    const start = where(scene);
-    // Local to the landing point: at the AFC (6 west, 4 north of the site), low, as it leaves.
-    expect(start.x).toBeCloseTo(-6, 1);
-    expect(start.z).toBeCloseTo(-4, 1);
-    expect(start.y).toBeLessThan(0.5);
-
-    // Mid-flight: roughly half way along the ground and higher than either end (an arc).
-    layer.update(1_000 + 900);
-    const mid = where(scene);
-    expect(Math.abs(mid.x)).toBeLessThan(6);
-    expect(Math.abs(mid.x)).toBeGreaterThan(0);
-    expect(mid.y).toBeGreaterThan(start.y + 0.3);
-
-    // Just before touchdown: at the stack.
-    layer.update(1_000 + 2_050); // flight is about 2.1 s for a site 7 tiles from its AFC
-    const end = where(scene);
-    expect(Math.hypot(end.x, end.z)).toBeLessThan(0.6);
-    expect(end.y).toBeLessThan(0.4);
+    const start = layer.snapshot(1_000)[0]!;
+    expect(start.stage).toBe("fabricate");
+    expect(start.x).toBeCloseTo(4, 5);
+    expect(start.z).toBeCloseTo(16, 5);
+    expect(start.droneStage).toBe("spool");
+    const carried = layer.snapshot(1_000 + (plan.cruiseAtMs + plan.lowerAtMs) / 2)[0]!;
+    expect(carried.drone.y).toBeGreaterThan(carried.y); // hanging under the drone
+    const landing = layer.snapshot(1_000 + plan.touchdownAtMs)[0]!;
+    expect(landing.x).toBeCloseTo(10, 5);
+    expect(landing.y).toBeCloseTo(0.5, 5);
+    expect(landing.z).toBeCloseTo(20, 5);
+    expect(landing.drone.x).toBeCloseTo(10, 5); // hovering straight above it
     layer.dispose();
   });
 
-  it("never comes from orbit: the pod never rises above the arc's own peak", () => {
+  it("draws every pod through the same fixed set of instanced meshes", () => {
     const scene = new Scene();
     const layer = createConstructionPodFxLayer(scene);
-    layer.spawn("s", 0, 0, 0, 0, { dx: -3, dz: 0 });
-    let highest = 0;
-    for (let t = 0; t < 4_000; t += 20) {
-      layer.update(t);
-      if (scene.children[0]) highest = Math.max(highest, pod(scene).position.y);
-    }
-    expect(highest).toBeLessThan(1.5); // a short hop, nowhere near the 3 tile drop height it used to start from
+    const meshCount = scene.children.length;
+    for (let i = 0; i < 5; i += 1) layer.spawn(`s${i}`, i, 0, 0, 0, { dx: -3, dz: 0 });
+    layer.update(1_300); // all five on their way
+    expect(scene.children).toHaveLength(meshCount); // no per-delivery objects or draw calls
+    expect(podsDrawn(scene)).toBe(5);
+    expect(dronesDrawn(scene)).toBe(5);
+    expect(mesh(scene, "line").count).toBe(5); // each pod on its drone's line
+    expect(mesh(scene, "glow").count).toBeGreaterThanOrEqual(20); // rotor blur discs
     layer.dispose();
-  });
-
-  it("flies farther sites for longer, and arcs higher", () => {
-    const flightEnd = (dx: number): number => {
-      const scene = new Scene();
-      const layer = createConstructionPodFxLayer(scene);
-      layer.spawn("s", 0, 0, 0, 0, { dx, dz: 0 });
-      let t = 0;
-      while (layer.activeCount() > 0 && t < 10_000) {
-        t += 25;
-        layer.update(t);
-      }
-      layer.dispose();
-      return t;
-    };
-    expect(flightEnd(-12)).toBeGreaterThan(flightEnd(-2));
-  });
-
-  it("still hops (does not teleport) when the AFC is right next to the site", () => {
-    const scene = new Scene();
-    const layer = createConstructionPodFxLayer(scene);
-    layer.spawn("s", 0, 0, 0, 0, { dx: -1, dz: 0 });
-    layer.update(450);
-    expect(pod(scene).position.y).toBeGreaterThan(0.1);
-    layer.dispose();
-  });
-
-  it("retires itself after touchdown", () => {
-    const scene = new Scene();
-    const layer = createConstructionPodFxLayer(scene);
-    layer.spawn("s", 1, 2, 0, 1_000, { dx: -4, dz: -4 });
-    layer.update(1_000 + 10_000);
-    expect(layer.activeCount()).toBe(0);
     expect(scene.children).toHaveLength(0);
+  });
+
+  it("lowers, unpacks and retires itself once the drone is home, hiding its meshes again", () => {
+    const scene = new Scene();
+    const layer = createConstructionPodFxLayer(scene);
+    const plan = planPodFlight(-4, -4);
+    layer.spawn("s", 1, 2, 0, 1_000, { dx: -4, dz: -4 });
+    layer.update(1_000 + plan.touchdownAtMs - 300);
+    expect(mesh(scene, "dust").count).toBeGreaterThan(0); // rotor wash over the site
+    // The walls fold open: a wall's top swings out and down, close to the ground.
+    layer.update(1_000 + plan.touchdownAtMs + 660);
+    const m = new Matrix4();
+    const panels = mesh(scene, "panel");
+    expect(panels.count).toBe(4);
+    panels.getMatrixAt(0, m);
+    expect(Math.abs(m.elements[5]!)).toBeLessThan(0.2); // the wall's up axis now lies nearly flat
+
+    // The pod is gone but its drone is still flying home.
+    layer.update(1_000 + plan.touchdownAtMs + POD_UNPACK_MS + 10);
+    expect(plan.dockAtMs).toBeGreaterThan(plan.touchdownAtMs + POD_UNPACK_MS + 10);
+    expect(podsDrawn(scene)).toBe(0);
+    expect(dronesDrawn(scene)).toBe(1);
+    layer.update(1_000 + plan.endAtMs + 1);
+    expect(layer.activeCount()).toBe(0);
+    for (const child of scene.children) expect(child.visible).toBe(false);
+    layer.dispose();
+  });
+
+  it("keeps the crates back until the pod has set them down", () => {
+    const scene = new Scene();
+    const layer = createConstructionPodFxLayer(scene);
+    const plan = planPodFlight(-6, 0);
+    layer.spawn("a", 0, 0, 0, 0, { dx: -6, dz: 0 });
+    expect(layer.awaitingDelivery("a", 0)).toBe(true);
+    expect(layer.awaitingDelivery("a", plan.touchdownAtMs - 1)).toBe(true);
+    expect(layer.awaitingDelivery("a", plan.touchdownAtMs + 100)).toBe(false);
+    expect(layer.awaitingDelivery("b", 0)).toBe(false); // other sites are unaffected
     layer.dispose();
   });
 
@@ -89,23 +88,12 @@ describe("construction pod fx", () => {
     const layer = createConstructionPodFxLayer(scene);
     for (let i = 0; i < 100; i += 1) layer.spawn("s", i, 0, 0, 0, { dx: -3, dz: 0 });
     expect(layer.activeCount()).toBe(24);
+    layer.update(1_300);
+    expect(podsDrawn(scene)).toBe(24);
     layer.clear();
+    layer.update(1_300);
     expect(layer.activeCount()).toBe(0);
-    expect(scene.children).toHaveLength(0);
-    layer.dispose();
-  });
-
-  it("aims the trail at launch too: no stray default-orientation streak on the first frame", () => {
-    const scene = new Scene();
-    const layer = createConstructionPodFxLayer(scene);
-    layer.spawn("s", 10, 20, 0, 1_000, { dx: -6, dz: 0 });
-    layer.update(1_000); // age exactly 0: the case a backward sample could not orient
-    const trail = scene.children[0]!.children[1]!;
-    // The trail lies along the flight direction (west to east here), not the default vertical cylinder at the landing point.
-    expect(Math.abs(trail.position.x + 6)).toBeLessThan(1);
-    expect(trail.position.x).toBeLessThan(0);
-    const up = new Vector3(0, 1, 0).applyQuaternion(trail.quaternion);
-    expect(Math.abs(up.x)).toBeGreaterThan(0.5); // tilted along x, not standing upright
+    expect(podsDrawn(scene)).toBe(0);
     layer.dispose();
   });
 
@@ -113,22 +101,11 @@ describe("construction pod fx", () => {
     const scene = new Scene();
     const layer = createConstructionPodFxLayer(scene);
     layer.spawn("s", 0, 0, 0, 1_000, { dx: -6, dz: -4 });
-    layer.update(990); // the frame started 10 ms before the pod was spawned
-    const p = scene.children[0]!.children[0]!.position;
+    const p = layer.snapshot(990)[0]!; // the frame started 10 ms before the pod was spawned
+    expect(p.stage).toBe("fabricate");
     expect(p.x).toBeCloseTo(-6, 5);
     expect(p.z).toBeCloseTo(-4, 5);
-    expect(p.y).toBeCloseTo(0.3, 5); // still at the AFC's launch height
-    layer.dispose();
-  });
-
-  // The flight shows how far the parts travel: no cap, so a distant AFC means a visibly longer trip.
-  it("does not cap the flight time for a distant AFC", () => {
-    const scene = new Scene();
-    const layer = createConstructionPodFxLayer(scene);
-    layer.spawn("s", 0, 0, 0, 0, { dx: -100, dz: 0 });
-    layer.update(10_000);
-    expect(pod(scene).visible).toBe(true); // 100 tiles takes ~18 s; the old cap landed it by 3.2 s
-    expect(pod(scene).position.x).toBeLessThan(-1);
+    expect(() => layer.update(990)).not.toThrow();
     layer.dispose();
   });
 
@@ -136,11 +113,13 @@ describe("construction pod fx", () => {
   it("relocate moves a site's pods to its new landing point and leaves other sites' alone", () => {
     const scene = new Scene();
     const layer = createConstructionPodFxLayer(scene);
+    const plan = planPodFlight(-6, 0);
     layer.spawn("a", 10, 20, 0, 0, { dx: -6, dz: 0 });
     layer.spawn("b", 50, 50, 0, 0, { dx: -6, dz: 0 });
     layer.relocate("a", 3, 4, 0.5);
-    expect(scene.children[0]!.position.toArray()).toEqual([3, 0.5, 4]);
-    expect(scene.children[1]!.position.toArray()).toEqual([50, 0, 50]);
+    const [a, b] = layer.snapshot(plan.touchdownAtMs);
+    expect([a!.x, a!.y, a!.z]).toEqual([3, 0.5, 4]);
+    expect([b!.x, b!.y, b!.z]).toEqual([50, 0, 50]);
     layer.dispose();
   });
 
@@ -151,7 +130,7 @@ describe("construction pod fx", () => {
     layer.spawn("b", 0, 0, 0, 0, { dx: -6, dz: 0 });
     layer.retainOnly(new Set(["b"]));
     expect(layer.activeCount()).toBe(1);
-    expect(scene.children).toHaveLength(1);
+    expect(layer.snapshot(0).map((p) => p.siteKey)).toEqual(["b"]);
     layer.dispose();
   });
 });

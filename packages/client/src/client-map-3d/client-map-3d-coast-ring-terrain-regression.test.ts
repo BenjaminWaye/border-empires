@@ -23,8 +23,14 @@ describe("first fog ring loads its natural terrain in 3D", () => {
     expect(flag).toBeGreaterThan(fogBranchStart);
     // A full-colour ring beside faded remembered land read as a bright strip
     // (and before that, a darkened ring beside live land read as a hole).
-    expect(source).toContain("if (fogIsHill && printAsFogged) {\n            fogDarkenOverlay.addHillTile(");
-    expect(source).toContain("} else if (printAsFogged) {\n            fogDarkenOverlay.addTile(");
+    expect(source).toContain("if (printAsFogged) addFoggedOverlayTile(fogDarkenOverlay, fogTile, fogWash);");
+  });
+
+  it("fits both fog overlays, on the ground, to the fogged mist's edge", () => {
+    // Drawing the wash on the raised mist sheet instead shifted it off its
+    // tiles (parallax) and over the owner tint and placement previews.
+    expect(source).toContain('applyFoggedEdgeClipToOverlay(fogDarkenOverlay, atmosphere.foggedMist.edgeUniforms, "alpha");');
+    expect(source).toContain('applyFoggedEdgeClipToOverlay(fogOwnershipOverlay, atmosphere.foggedMist.edgeUniforms, "multiply");');
   });
 
   it("keeps natural terrain (mountains, forests, grass scatter) on every fogged tile, ring included", () => {
@@ -38,10 +44,10 @@ describe("first fog ring loads its natural terrain in 3D", () => {
     expect(block).not.toMatch(/if \((isFogRing|printAsFogged)\)/); // every fogged tile, not just some
   });
 
-  it("prints remembered land, features and (non-ring) sea in sepia", () => {
-    expect(source).toContain("const fogPrintSepia = new Color(FOGGED_PRINT_SEPIA), fogFeatureTint = new Color(FOGGED_PRINT_FEATURE_TINT);");
+  it("dims remembered land, features and (non-ring) sea in the fogged slate", () => {
+    expect(source).toContain("const fogWash = new Color(FOGGED_WASH), fogFeatureTint = new Color(FOGGED_FEATURE_TINT);");
     // A normal-blend wash, not a multiply: a multiply can only darken, which left remembered grass dark olive.
-    expect(source).toContain('{ settled: FOGGED_PRINT_WASH_OPACITY, frontier: FOGGED_PRINT_WASH_OPACITY }, undefined, { settled: "normal", frontier: "normal" }');
+    expect(source).toContain('{ settled: FOGGED_WASH_OPACITY, frontier: FOGGED_WASH_OPACITY }, undefined, { settled: "normal", frontier: "normal" }');
     expect(source).toContain("const featureTint = printAsFogged ? fogFeatureTint : undefined;");
     expect(source).toContain("mountainMassifs.addInstance(x, z, surfaceY, wx, wy, featureTint)");
     expect(source).not.toContain("tmpBlack");

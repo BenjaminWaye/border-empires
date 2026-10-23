@@ -164,8 +164,7 @@ import type {
   TileMenuTab,
   TileMenuView,
   TileOverviewLine,
-  TileTimedProgress,
-  TileVisibilityState
+  TileTimedProgress
 } from "./client-types.js";
 import { debugTileLog, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
 import { createMusterWatchGuard } from "./client-muster-watch/client-muster-watch.js";
@@ -184,18 +183,8 @@ type ActionFlowDeps = Record<string, any> & {
   placementOverlayEl: HTMLDivElement;
   placementLabelEl: HTMLDivElement;
 };
-type TileDetailRequestOptions = {
-  force?: boolean;
-};
-
-export const shouldSendTileDetailRequest = (tile: Tile | undefined, me: string, options: TileDetailRequestOptions = {}): tile is Tile => {
-  if (!tile || tile.fogged) return false;
-  if (options.force) return true;
-  return tile.detailLevel !== "full" || ownTownDetailRecoveryNeeded(tile, me);
-};
-
-export const shouldRefreshTileDetailOnPress = (tile: Tile | undefined, visibility: TileVisibilityState): tile is Tile =>
-  Boolean(tile && visibility === "visible" && !tile.fogged);
+export { shouldRefreshTileDetailOnPress, shouldSendTileDetailRequest } from "./client-tile-interaction/client-tile-detail-request-rules.js";
+import { shouldRefreshTileDetailOnPress, shouldSendTileDetailRequest, type TileDetailRequestOptions } from "./client-tile-interaction/client-tile-detail-request-rules.js";
 
 export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const {
@@ -248,14 +237,14 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       ? "Server is reconnecting. Please wait a moment."
       : "Finish sign-in before interacting with the map."
   ): boolean => {
-    if (state.authReady && state.authSessionReady) return true;
-    if (!state.authReady && ws.readyState === ws.OPEN && state.authSessionReady) return true;
+    if (state.authReady && state.authSessionReady && state.connection === "initialized") return true;
+    if (!state.authReady && ws.readyState === ws.OPEN && state.authSessionReady && state.connection === "initialized") return true;
     if (!state.authReady) {
       setAuthStatus(message, "error");
       syncAuthOverlay();
       return false;
     }
-    if (state.authSessionReady) return true;
+    if (state.authSessionReady && state.connection === "initialized") return true;
     setAuthStatus(message, "error");
     syncAuthOverlay();
     return false;
@@ -364,7 +353,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     // the partial gate detects), in which case a fresh REQUEST_TILE_DETAIL
     // is the recovery path.
     if (!shouldSendTileDetailRequest(tile, state.me, options)) return;
-    if (ws.readyState !== ws.OPEN || !state.authSessionReady) return;
+    if (ws.readyState !== ws.OPEN || !state.authSessionReady || state.connection !== "initialized") return;
     const tileKey = keyFor(tile.x, tile.y);
     const now = Date.now();
     const lastRequestedAt = state.tileDetailRequestedAt.get(tileKey) ?? 0;
@@ -400,7 +389,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     code: string,
     message: string,
     opts?: { cooldownRemainingMs?: number; formatCooldownShort?: (ms: number) => string }
-  ): string => explainActionFailureFromServer(code, message, opts);
+  ): string => explainActionFailureFromServer(code, message, { ...opts, combatLock: { state, wrap: (x, y) => ({ x: wrapX(x), y: wrapY(y) }) } });
 
   const enqueueTarget = (x: number, y: number): boolean => enqueueTargetFromModule(state, x, y, keyFor);
 
@@ -590,7 +579,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const processDevelopmentQueue = (): boolean =>
     processDevelopmentQueueFromModule(state, {
       ws,
-      authSessionReady: state.authSessionReady,
+      authSessionReady: state.authSessionReady && state.connection === "initialized",
       developmentSlotSummary,
       requestSettlement: (x, y, opts) => requestSettlement(x, y, opts),
       sendDevelopmentBuild: (payload, optimistic, opts) => sendDevelopmentBuild(payload, optimistic, opts),
@@ -601,14 +590,14 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       sendGameMessage
     });
 
-  // Shared by the action queue's direct send and the muster-transit deferred send; carries the chosen effort (client-attack-commit.ts).
+  // The muster-transit deferred send; carries the chosen effort (client-attack-commit.ts).
   const sendAttackMessage = (fromX: number, fromY: number, toX: number, toY: number, commandId: string, clientSeq: number, commitManpower?: number): void =>
     ws.send(JSON.stringify(attackWireMessage(state, { fromX, fromY, toX, toY, commandId, clientSeq, commitManpower })));
 
   const processActionQueue = (): boolean =>
     processActionQueueFromModule(state, {
       ws,
-      authSessionReady: state.authSessionReady,
+      authSessionReady: state.authSessionReady && state.connection === "initialized",
       keyFor,
       isAdjacent,
       isTileOwnedByAlly,
@@ -618,7 +607,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       pushFeed,
       renderHud,
       sendSetMuster: (x, y, mode) => sendGameMessage({ type: "SET_MUSTER", x, y, mode }),
-      sendAttack: sendAttackMessage,
       sendGameMessage
     });
 
@@ -748,7 +736,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const requestAttackPreviewForTarget = (to: Tile): void =>
     requestAttackPreviewForTargetFromModule(state, to, {
       ws,
-      authSessionReady: state.authSessionReady,
+      authSessionReady: state.authSessionReady && state.connection === "initialized",
       keyFor,
       pickOriginForTarget,
       onPreviewTimeout: () => {

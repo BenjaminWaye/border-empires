@@ -13,6 +13,7 @@ import { cameraLocationInitialState, readUrlTileFocus } from "./client-camera-st
 import { createInitialReachState } from "./client-reach-state-defaults.js";
 import { createInitialTileActionMenuState } from "./client-tile-action-menu-state-defaults.js";
 import { createInitialAetherShieldState } from "../client-aether-tower-protection/client-aether-shield-state.js";
+import { createInitialIslandNamesState } from "../client-map-name-labels/client-island-names-state.js";
 import { createInitialSocialState } from "./client-state-social-defaults.js"; import { createInitialSiegeBombardmentState } from "./client-state-siege-bombardment-defaults.js"; import { createInitialAfcDeliveryState } from "./client-state-afc-delivery-defaults.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, MUSTER_MAX_TILES, type BuildableStructureType, type FrontierCombatSideBreakdown, type SlotResource } from "@border-empires/shared";
@@ -50,29 +51,8 @@ import type { ClientWaypoint } from "./client-waypoint-state.js"; import type { 
 type QueuedOptimisticKind = OptimisticStructureKind;
 type QueuedBuildPayload = { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: string } | { type: "REMOVE_STRUCTURE"; x: number; y: number };
 
-export const storageGet = (keyName: string): string | null => {
-  try {
-    return window.localStorage.getItem(keyName);
-  } catch {
-    return null;
-  }
-};
-
-export const storageSet = (keyName: string, value: string): void => {
-  try {
-    window.localStorage.setItem(keyName, value);
-  } catch {
-    // Ignore storage failures in restricted browser contexts.
-  }
-};
-
-export const storageRemove = (keyName: string): void => {
-  try {
-    window.localStorage.removeItem(keyName);
-  } catch {
-    // Ignore storage failures in restricted browser contexts.
-  }
-};
+export { storageGet, storageRemove, storageSet } from "./client-storage.js";
+import { storageGet } from "./client-storage.js";
 
 export const createInitialState = () => ({
   me: "",
@@ -316,7 +296,7 @@ export const createInitialState = () => ({
   ...createInitialSpaceViewState(),
   showWeakDefensibility: false,
   ...createInitialReachState(),
-  ...createInitialAetherShieldState(),
+  ...createInitialAetherShieldState(), ...createInitialIslandNamesState(), // ISLAND_NAMES push, see client-map-name-labels/
   ...createInitialShardRainState(),
   victoryHoldAlert: undefined as VictoryHoldAlert | undefined, victoryHoldAlertCollapsed: false, acknowledgedVictoryHoldAlertKeys: new Set<string>(), // never fully hides while a hold is active — see client-victory-alert.ts
   respawnNotice: undefined as PlayerRespawnNotice | undefined,
@@ -468,7 +448,7 @@ export const createInitialState = () => ({
     applied?: boolean;
   }>,
   mapRevealEligible: false,
-  mapRevealEnabled: false, photoModeActive: false, // photoModeActive: Settings > Admin's photo-mode toggle (client-photo-mode.ts), not persisted, resets on login like mapRevealEnabled -- kept on this line since client-state.ts is already over the file-line cap and must not grow
+  mapRevealEnabled: false, photoModeActive: false, // photoModeActive: Settings > Gameplay's photo-mode toggle / Ctrl+P (client-photo-mode.ts), not persisted, resets on login like mapRevealEnabled -- kept on this line since client-state.ts is already over the file-line cap and must not grow
   lastSubCx: Number.NaN,
   lastSubCy: Number.NaN,
   lastSubRadius: Number.NaN,

@@ -1,6 +1,10 @@
 import type { PersonalActivityCard, PersonalActivitySummary, PersonalActivityTimeline } from "@border-empires/game-domain";
 import { structureDisplayName } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
+import { combatCardText, combatGroupCardText, siegeCardText } from "./client-activity-dashboard-combat-text.js";
+import { nameOf, roundedAmount, type PlayerNameLookup } from "./client-activity-dashboard-names.js";
+
+export type { PlayerNameLookup };
 
 // Materiality gate for the manpower-spent-attacking headline (plan §2.3):
 // only surface it up top when it's both a large absolute number and a
@@ -14,21 +18,17 @@ export const shouldShowManpowerHeadline = (manpowerSpentAttacking: number, repor
   reportEndManpowerCap > 0 &&
   manpowerSpentAttacking / reportEndManpowerCap >= MANPOWER_HEADLINE_MIN_CAP_SHARE;
 
-// Gold/manpower amounts are summed from per-combat values that are each
-// independently rounded to cents (or not rounded at all -- see
-// previewSettledCapturePlunder's defenderGoldLoss) at the source. Summing
-// several such floats with plain `+` reintroduces binary floating-point
-// error (e.g. 12.34 + 0.66 + 5.01 + 2.33 = 20.339999999999996) well before
-// it reaches display. Round once, here, at the last step before rendering.
-const roundedAmount = (value: number): number => Math.round(value);
+// Coin amounts this small aren't worth headline space (and a sub-coin
+// amount would otherwise round to a meaningless "−0 coin raided").
+const SUMMARY_MIN_COIN = 5;
 
 /** Line 1: counts and one-off transfers -- never merged with line 2's effects. */
 export const summaryCountsLine = (summary: PersonalActivitySummary, timeline: PersonalActivityTimeline, reportEndManpowerCap: number): string => {
   const parts: string[] = [];
   if (summary.tilesClaimed > 0) parts.push(`+${summary.tilesClaimed} tiles claimed`);
   if (summary.tilesLost > 0) parts.push(`−${summary.tilesLost} tiles lost`);
-  if (timeline.goldRaidedFromYou > 0) parts.push(`−${roundedAmount(timeline.goldRaidedFromYou)} coin raided`);
-  if (timeline.goldPlundered > 0) parts.push(`+${roundedAmount(timeline.goldPlundered)} coin plundered`);
+  if (roundedAmount(timeline.goldRaidedFromYou) >= SUMMARY_MIN_COIN) parts.push(`−${roundedAmount(timeline.goldRaidedFromYou)} coin raided`);
+  if (roundedAmount(timeline.goldPlundered) >= SUMMARY_MIN_COIN) parts.push(`+${roundedAmount(timeline.goldPlundered)} coin plundered`);
   if (summary.waystationsActivated > 0) parts.push(`${summary.waystationsActivated} waystation${summary.waystationsActivated === 1 ? "" : "s"} activated`);
   if (summary.townsCaptured > 0) parts.push(`+${summary.townsCaptured} town${summary.townsCaptured === 1 ? "" : "s"} captured`);
   if (summary.townsLost > 0) parts.push(`−${summary.townsLost} town${summary.townsLost === 1 ? "" : "s"} lost`);
@@ -57,18 +57,9 @@ const timeLabel = (occurredAt: number): string => {
   return `${hh}:${mm}`;
 };
 
-// Cards carry only stable player ids by design (game-domain's own comment:
-// a renamed/deleted player still renders correctly since the client resolves
-// display names from its own live roster at render time, not from the card).
-// That roster is built by activityPlayerNameLookup below; these are display
-// names only, never safe as gateway identity (truce/alliance target) names.
-// An unresolvable id (e.g. a player who left before ever being seen) falls
-// back to the raw id.
-export type PlayerNameLookup = (playerId: string) => string | undefined;
-
-// An AI player's ClientState.playerNames entry is the stable "AI N" diplomacy
-// name (see client-owner-name.ts), so AI display names come from the
-// leaderboard's live seasonal name. Everyone else keeps resolving through
+// An AI player's ClientState.playerNames entry is its diplomacy name (see
+// client-owner-name.ts), so AI display names come from the leaderboard's live
+// name, which is what the rest of the UI shows for them. Everyone else keeps resolving through
 // playerNames, which a PLAYER_STYLE rename updates immediately while the
 // leaderboard lags until the next status update. Build once per render.
 export const activityPlayerNameLookup = (state: Pick<ClientState, "playerNames" | "leaderboard">): PlayerNameLookup => {
@@ -83,25 +74,6 @@ export const activityPlayerNameLookup = (state: Pick<ClientState, "playerNames" 
 // Resolves a tech id to its player-facing name (ClientState.techCatalog);
 // an unknown id falls back to the raw id.
 export type TechNameLookup = (techId: string) => string | undefined;
-
-const nameOf = (playerId: string, playerNames: PlayerNameLookup): string => playerNames(playerId) ?? playerId;
-
-const combatCardText = (card: Extract<PersonalActivityCard, { kind: "COMBAT" }>, playerId: string, playerNames: PlayerNameLookup): string => {
-  const iWasAttacker = card.attackerId === playerId;
-  const otherId = iWasAttacker ? card.defenderId : card.attackerId;
-  const otherName = otherId ? nameOf(otherId, playerNames) : undefined;
-  const outcome = card.attackerWon
-    ? iWasAttacker
-      ? otherName ? `captured a tile from ${otherName}` : "captured a tile"
-      : `lost a tile to ${nameOf(card.attackerId, playerNames)}`
-    : iWasAttacker
-      ? otherName ? `attack on ${otherName} was repelled` : "attack was repelled"
-      : `defended successfully against ${nameOf(card.attackerId, playerNames)}`;
-  const parts = [outcome];
-  if (iWasAttacker && card.pillagedGold > 0) parts.push(`${roundedAmount(card.pillagedGold)} coin plundered`);
-  if (!iWasAttacker && card.defenderGoldLoss > 0) parts.push(`−${roundedAmount(card.defenderGoldLoss)} coin raided from you`);
-  return parts.join(" · ");
-};
 
 const territoryCardText = (card: Extract<PersonalActivityCard, { kind: "TERRITORY_FLIP_GROUP" }>, playerNames: PlayerNameLookup): string => {
   const counterparty = card.counterpartyPlayerId ? ` (${nameOf(card.counterpartyPlayerId, playerNames)})` : "";
@@ -136,11 +108,16 @@ const buildingCardText = (card: Extract<PersonalActivityCard, { kind: "BUILDING_
 /** One timeline row's display text, given the viewing player's id and a way to resolve names. */
 export const activityCardText = (card: PersonalActivityCard, playerId: string, playerNames: PlayerNameLookup, techName: TechNameLookup = () => undefined): string => {
   if (card.kind === "COMBAT") return combatCardText(card, playerId, playerNames);
+  if (card.kind === "COMBAT_GROUP") return combatGroupCardText(card, playerNames);
+  if (card.kind === "SIEGE") return siegeCardText(card, playerNames);
   if (card.kind === "TERRITORY_FLIP_GROUP") return territoryCardText(card, playerNames);
   if (card.kind === "WAYSTATION_ACTIVATED") return waystationCardText(card, techName);
   if (card.kind === "TOWN_CAPTURED" || card.kind === "TOWN_LOST") return townCardText(card);
   if (card.kind === "BUILDING_COMPLETED") return buildingCardText(card);
-  return `${card.hiddenCount} smaller event${card.hiddenCount === 1 ? "" : "s"} not shown`;
+  if (card.kind === "TRUNCATION_NOTE") return `${card.hiddenCount} smaller event${card.hiddenCount === 1 ? "" : "s"} not shown`;
+  // A card kind from a newer server than this client: say something true
+  // rather than misreading it as a truncation note.
+  return "Activity on your territory";
 };
 
 export const activityCardTimeLabel = (card: PersonalActivityCard): string => timeLabel(card.occurredAt);
@@ -148,3 +125,9 @@ export const activityCardTimeLabel = (card: PersonalActivityCard): string => tim
 /** Every concrete activity card carries a map location; the truncation note never does. */
 export const activityCardCoordinates = (card: PersonalActivityCard): { x: number; y: number } | undefined =>
   card.kind === "TRUNCATION_NOTE" ? undefined : { x: card.x, y: card.y };
+
+/** The "(x, y)" tile label shown on a timeline row, matching the feed's coordinate format. */
+export const activityCardCoordinatesLabel = (card: PersonalActivityCard): string | undefined => {
+  const coords = activityCardCoordinates(card);
+  return coords ? `(${coords.x}, ${coords.y})` : undefined;
+};

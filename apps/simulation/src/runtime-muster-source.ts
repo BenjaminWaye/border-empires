@@ -1,11 +1,15 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
+import type { CombatLockTileReader } from "./combat-lock-index/combat-lock-index.js";
+import { besiegingLockAt } from "./muster-siege-guard/muster-siege-guard.js";
 
 /** State {@link resolveMusterSource} reads to find an eligible muster tile. */
 export type RuntimeMusterSourceContext = {
   tiles: ReadonlyMap<string, DomainTileState>;
   musterTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   musterReservedByKey: ReadonlyMap<string, number>;
+  /** Live combat locks; a flag whose tile an enemy is attacking is under siege and can't fund. */
+  locksByTile?: CombatLockTileReader;
 };
 
 /**
@@ -13,6 +17,8 @@ export type RuntimeMusterSourceContext = {
  * manpower, preferring (in order): the origin tile itself, `preferredKey`
  * (already distance-verified by the advance-system BFS), then the nearest
  * eligible muster tile within Chebyshev distance 10 (world-wrapped).
+ * A flag under siege (its tile is the target of an enemy fight) never funds:
+ * its troops are pinned until that fight resolves.
  */
 export function resolveMusterSource(
   actorId: string,
@@ -21,12 +27,13 @@ export function resolveMusterSource(
   preferredKey: string | undefined,
   context: RuntimeMusterSourceContext
 ): { sourceKey: string; available: number } | undefined {
-  const { tiles, musterTilesByOwner, musterReservedByKey } = context;
+  const { tiles, musterTilesByOwner, musterReservedByKey, locksByTile } = context;
   const origin = tiles.get(originKey);
   if (!origin) return undefined;
+  const besieged = (tileKey: string): boolean => locksByTile !== undefined && besiegingLockAt(locksByTile, tileKey, actorId) !== undefined;
 
   // Fast path: origin tile's own muster suffices.
-  if (origin.muster?.ownerId === actorId) {
+  if (origin.muster?.ownerId === actorId && !besieged(originKey)) {
     const reserved = musterReservedByKey.get(originKey) ?? 0;
     const available = origin.muster.amount - reserved;
     if (available >= requiredMuster) return { sourceKey: originKey, available };
@@ -36,7 +43,7 @@ export function resolveMusterSource(
   // already verified connectivity through owned territory.
   if (preferredKey && preferredKey !== originKey) {
     const preferred = tiles.get(preferredKey);
-    if (preferred?.muster?.ownerId === actorId) {
+    if (preferred?.muster?.ownerId === actorId && !besieged(preferredKey)) {
       const reserved = musterReservedByKey.get(preferredKey) ?? 0;
       const available = preferred.muster.amount - reserved;
       if (available >= requiredMuster) return { sourceKey: preferredKey, available };
@@ -54,6 +61,7 @@ export function resolveMusterSource(
     if (tileKey === preferredKey) continue; // already checked above
     const tile = tiles.get(tileKey);
     if (!tile?.muster || tile.muster.ownerId !== actorId) continue;
+    if (besieged(tileKey)) continue;
     const reserved = musterReservedByKey.get(tileKey) ?? 0;
     const available = tile.muster.amount - reserved;
     if (available < requiredMuster) continue;

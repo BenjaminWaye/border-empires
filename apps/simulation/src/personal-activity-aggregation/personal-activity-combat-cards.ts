@@ -1,7 +1,11 @@
 import type { CombatManpowerLoss } from "../combat-manpower-log/combat-manpower-log.js";
 import type { PersonalActivityCombatCard } from "@border-empires/game-domain";
 
-export const combatCardsForPlayer = (playerId: string, combat: readonly CombatManpowerLoss[]): PersonalActivityCombatCard[] =>
+export const combatCardsForPlayer = (
+  playerId: string,
+  combat: readonly CombatManpowerLoss[],
+  originSeized: ReadonlySet<CombatManpowerLoss> = new Set()
+): PersonalActivityCombatCard[] =>
   combat
     .filter((loss) => loss.attackerId === playerId || loss.defenderId === playerId)
     .map((loss) => ({
@@ -16,5 +20,7 @@ export const combatCardsForPlayer = (playerId: string, combat: readonly CombatMa
       y: loss.y,
       pillagedGold: loss.pillagedGold,
       defenderGoldLoss: loss.defenderGoldLoss,
-      targetWasSettled: loss.targetWasSettled
+      targetWasSettled: loss.targetWasSettled,
+      ...(loss.defenseVariant ? { defenseVariant: loss.defenseVariant } : {}),
+      ...(originSeized.has(loss) ? { originSeized: true } : {})
     }));

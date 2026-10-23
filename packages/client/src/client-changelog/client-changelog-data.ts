@@ -7,10 +7,25 @@ import { AETHER_ABILITY_ICONS_CHANGELOG } from "./client-changelog-aether-abilit
 import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-art-october.js";
 import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
 import { AFC_UPGRADES_ICON_CHANGELOG } from "./client-changelog-afc-upgrades-icon.js";
+import { GAMEPLAY_SETTINGS_CLEANUP_CHANGELOG } from "./client-changelog-gameplay-settings-cleanup.js";
 import { MUSTER_BANNER_CHANGELOG } from "./client-changelog-muster-banner.js";
-import { BATTLE_TILE_SOUND_CHANGELOG } from "./client-changelog-battle-tile-sound.js";
-import { TOWN_VISUALS_CHANGELOG } from "./client-changelog-town-visuals.js";
-import { TOWN_BANNERS_CHANGELOG } from "./client-changelog-town-banners.js";
+import { ADVANCE_VISIBLE_ONLY_CHANGELOG } from "./client-changelog-advance-visible-only.js";
+import { CLIENT_CHANGELOG_ENTRIES_OCT_19_20 } from "./client-changelog-oct-19-20.js";
+import { CAPTURE_HOLD_EFFORT_CHANGELOG } from "./client-changelog-capture-hold-effort.js";
+import { HETZNER_CLIENT_HOSTING_CHANGELOG } from "./client-changelog-hetzner-client-hosting.js";
+import { AI_DEAL_SUGGEST_CHANGELOG } from "./client-changelog-ai-deal-suggest.js";
+import { TOWN_MARBLE_CHANGELOG } from "./client-changelog-town-marble.js";
+import { SIEGE_REPORTS_CHANGELOG } from "./client-changelog-siege-reports.js";
+import { RICHER_FORESTS_CHANGELOG } from "./client-changelog-richer-forests.js";
+import { SIEGE_FX_GATE_CHANGELOG } from "./client-changelog-siege-fx-gate.js";
+import { MARCH_ACROSS_WATER_CHANGELOG } from "./client-changelog-march-across-water.js";
+import { RECONNECT_NO_AUTH_CHANGELOG } from "./client-changelog-reconnect-no-auth.js";
+import { PLANETARY_DEFENSE_MUSTER_FLAG_CHANGELOG } from "./client-changelog-planetary-defense-muster-flag.js";
+import { YOURS_TILE_COORDS_CHANGELOG } from "./client-changelog-yours-tile-coords.js";
+import { MAP_NAMES_CHANGELOG } from "./client-changelog-map-names.js";
+import { REACH_OWNER_NAME_CHANGELOG } from "./client-changelog-reach-owner-name.js";
+import { FOGGED_MIST_FEATURES_CHANGELOG } from "./client-changelog-fogged-mist-features.js";
+import { EXPIRED_TRUCE_OFFERS_CHANGELOG } from "./client-changelog-expired-truce-offers.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -19,6 +34,7 @@ import { TOWN_BANNERS_CHANGELOG } from "./client-changelog-town-banners.js";
 // of that window, move those entries into the next
 // client-changelog-data-earlier-N.ts (historical record, left unreferenced)
 // and delete them here and from the per-feature files below.
+import { ALLIED_PROSPERITY_CHANGELOG } from "./client-changelog-allied-prosperity.js";
 import { RECENT_CLIENT_CHANGELOG_ENTRIES } from "./client-changelog-data-october.js";
 import { TILE_YIELD_REMOVAL_CHANGELOG } from "./client-changelog-tile-yield-removal.js";
 import { AI_PROGRESSION_AETHER_CHANGELOG } from "./client-changelog-ai-progression-aether.js";
@@ -49,6 +65,7 @@ import { CLIENT_CHANGELOG_ENTRIES_OCT_12 } from "./client-changelog-data-oct-12.
 import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog-town-growth-loading.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY } from "./client-changelog-town-growth-war-integrity.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_105 } from "./client-changelog-data-earlier-105.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -111,6 +128,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_RECENT,
   ...CLIENT_CHANGELOG_ENTRIES_MUSTER_SAVE_UP,
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
+  ...ALLIED_PROSPERITY_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_SEPT_24_26,
   ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,
   ...CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS,
@@ -357,37 +375,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Pending offers show their terms in the Alliances panel"
     ]
   },
-  {
-    createdAt: 1792042002455, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.15.1",
-    title: "War music stops when your flag has nothing to fight",
-    why: "An advancing muster flag on a border with a truce partner kept battle music playing even though it could not attack.",
-    changes: [
-      "Advance and March flags with no target in range no longer keep battle music playing"
-    ]
-  },
-  {
-    createdAt: 1792062991009, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.15.1",
-    title: "Captured tiles can't be taken straight back",
-    why: "A freshly captured dock or town lands as frontier, and frontier had no defense, so the old owner could retake it for free and captures just went back and forth.",
-    changes: [
-      "For 1 minute after you capture a tile from another player, your troops stay standing on it and it defends like ordinary ground, so retaking it is a real fight",
-      "If it is attacked during that minute, those troops are the defenders in the battle; time to garrison it is what the minute is for",
-      "The tile menu shows a Holding captured ground countdown, and in 2D the holding troops are drawn on the tile with a bar for the time left"
-    ]
-  },
-  {
-    createdAt: 1792203815485,
-    introducedIn: "2026.10.17.1",
-    title: "Enemy breakthroughs get a spiked front line",
-    why: "Enemy tiles taken inside your reach only had a plain outline, which didn't read as a break-in.",
-    changes: [
-      "On the 3D map, enemy land inside your reach is now outlined by a thin front line in the attacker's colour, with tall spikes pointing into your land",
-      "Spikes only appear where the enemy touches your own land, and the line stops at the old border when they push across it",
-      "The 2D map keeps the plain outline for now"
-    ]
-  },
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_105,
   {
     createdAt: 1792269690926, // Date.now() captured when this entry was written.
     introducedIn: "2026.10.17.2",
@@ -458,8 +446,11 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["The Recent combat tab is now just \"Combat\", with its unread count as a small bubble on the tab's corner, so all the tile popup tabs fit on one row", "Combat reports use the same brass-and-parchment look as the rest of the popup"]
   },
   ...RELIABLE_DIPLOMACY_CHANGELOG,
+  ...GAMEPLAY_SETTINGS_CLEANUP_CHANGELOG,
   ...AFC_UPGRADES_ICON_CHANGELOG,
   ...MUSTER_BANNER_CHANGELOG,
+  ...ADVANCE_VISIBLE_ONLY_CHANGELOG,
+  ...AI_DEAL_SUGGEST_CHANGELOG,
   {
     createdAt: 1792442407428, // Date.now() captured for this entry.
     introducedIn: "2026.10.19.4",
@@ -470,16 +461,31 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "All 30 upgrade cards use short effect lines with percentages; expanded details explain conditions"
     ]
   },
-  ...BATTLE_TILE_SOUND_CHANGELOG,
-  ...TOWN_VISUALS_CHANGELOG,
-  ...TOWN_BANNERS_CHANGELOG,
+  ...CLIENT_CHANGELOG_ENTRIES_OCT_19_20,
+  ...HETZNER_CLIENT_HOSTING_CHANGELOG,
+  ...CAPTURE_HOLD_EFFORT_CHANGELOG,
+  ...TOWN_MARBLE_CHANGELOG,
   {
-    createdAt: 1792510291974, // Date.now() captured for this entry.
-    introducedIn: "2026.10.20.1",
-    title: "Play independently of Vercel",
-    why: "A shared hosting limit could prevent players from opening the game even while the game servers were healthy.",
-    changes: ["Production and staging can serve the game directly from their existing game servers"]
-  }
+    createdAt: 1792528401682, // Date.now() captured for this entry.
+    introducedIn: "2026.10.21.2",
+    title: "Muster flag bases no longer look black",
+    why: "On the 3D map, the base under a muster flag was dark iron that showed as a black band wherever the ground sloped away from it.",
+    changes: [
+      "In the 3D map, muster flags stand on a stone foundation that widens towards the ground and catches the light",
+      "Town bases widen towards the ground the same way, so their stone walls catch more light on sloping tiles"
+    ]
+  },
+  ...SIEGE_REPORTS_CHANGELOG,
+  ...RICHER_FORESTS_CHANGELOG,
+  ...SIEGE_FX_GATE_CHANGELOG,
+  ...MARCH_ACROSS_WATER_CHANGELOG,
+  ...RECONNECT_NO_AUTH_CHANGELOG,
+  ...PLANETARY_DEFENSE_MUSTER_FLAG_CHANGELOG,
+  ...YOURS_TILE_COORDS_CHANGELOG,
+  ...MAP_NAMES_CHANGELOG,
+  ...REACH_OWNER_NAME_CHANGELOG,
+  ...FOGGED_MIST_FEATURES_CHANGELOG,
+  ...EXPIRED_TRUCE_OFFERS_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

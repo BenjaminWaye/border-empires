@@ -7,7 +7,9 @@
 //   - scaled by attitude, and up 50% for every truce the player bought recently
 //   - minus the base price entirely when the AI is desperate (armies spent, starving)
 // An AI that is losing a war will pay for peace instead (the loser pays),
-// but only once per war and never more than a quarter of its coin.
+// but only once per war and never more than a quarter of its coin. Losing
+// also overrides fury: an AI that hates you still wants a war it is losing
+// over -- unless you broke a truce with it, which it never deals past.
 // Alliances need an AI that is at least Pleased, hasn't fought the player for
 // a day, and would be the largest member of the resulting bloc (Diplomatic
 // Dominance victory goes to the bloc's largest member); the AI never pays to
@@ -68,7 +70,9 @@ export const aiDiplomacyPricing = (input: {
   // --- truce ---
   let truceRefusal: string | undefined;
   const minutesSinceAttack = memory.lastPlayerAttackAt === undefined ? undefined : (input.now - memory.lastPlayerAttackAt) / 60_000;
-  if (opinion.attitude === "FURIOUS") truceRefusal = `${aiName} is furious with you and won't talk peace.`;
+  // Betrayal is the one grudge losing doesn't soften: no paying a truce-breaker for a truce it can break again.
+  const furyHolds = !war.aiLosing || input.requesterBrokeTruceWithAi;
+  if (opinion.attitude === "FURIOUS" && furyHolds) truceRefusal = `${aiName} is furious with you and won't talk peace.`;
   else if (minutesSinceAttack !== undefined && minutesSinceAttack * 60_000 < TRUCE_COOLDOWN_AFTER_ATTACK_MS) {
     truceRefusal = `You attacked ${aiName} ${Math.max(1, Math.round(minutesSinceAttack))} min ago. They won't talk peace yet.`;
   }
@@ -99,11 +103,12 @@ export const aiDiplomacyPricing = (input: {
   // --- alliance ---
   let allianceRefusal: string | undefined;
   const foughtRecently = memory.lastCombatAt !== undefined && input.now - memory.lastCombatAt < ALLIANCE_NO_FIGHTING_MS;
+  // Refusals that don't depend on bloc sizes come first, so the player hears the real reason.
   if (input.requesterBrokeTruceWithAi) allianceRefusal = `${aiName} will never ally with someone who broke a truce with them.`;
-  else if (input.aiWouldLeadAlliance === undefined) allianceRefusal = `${aiName} can't weigh up an alliance right now. Try again shortly.`;
-  else if (!input.aiWouldLeadAlliance) allianceRefusal = `${aiName} won't join an alliance it wouldn't lead: your alliance is too large.`;
   else if (foughtRecently) allianceRefusal = `${aiName} won't ally with an empire it fought within the last day.`;
   else if (ATTITUDE_RANK[opinion.attitude] < ATTITUDE_RANK.PLEASED) allianceRefusal = `${aiName} doesn't think well enough of you for an alliance.`;
+  else if (input.aiWouldLeadAlliance === undefined) allianceRefusal = `${aiName} can't weigh up an alliance right now. Try again shortly.`;
+  else if (!input.aiWouldLeadAlliance) allianceRefusal = `${aiName} won't join an alliance it wouldn't lead: your alliance is too large.`;
   const allianceHours = allianceRefusal ? undefined : ALLIANCE_HOURS[opinion.attitude];
   const alliance = allianceHours === undefined ? null : hoursToCoin(allianceHours, priceIncome);
 

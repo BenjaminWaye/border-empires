@@ -73,7 +73,7 @@ const render = (args: Args): HTMLElement => {
       viewportWidth: canvas.width,
       viewportHeight: canvas.height,
       ownerColor: DEMO_COLOR,
-      nowMs
+      nowMs: performance.now()
     });
     rafId = requestAnimationFrame(frame);
   };
@@ -96,8 +96,8 @@ const meta: Meta<Args> = {
       description: {
         component:
           "Frontier supply lines on the 2D canvas map (the fallback renderer for devices without 3D). Same model and look as the " +
-          "3D overlay: routes run from the reach edge out to each frontier tip, thicker where more land depends on them, fading " +
-          "further out, with pulses flowing outward."
+          "3D overlay: only land beyond reach that hangs on a single tile is flagged, with a pale pulsing line from the nearest " +
+          "settled tile, through that tile (marked with a ring), out to the land's far edge."
       }
     }
   },
@@ -119,5 +119,5 @@ export const Branching: Story = { args: { scenario: "branching" } };
 export const Reroute: Story = { args: { scenario: "reroute" } };
 export const SmallTiles: Story = {
   args: { tileSize: 16 },
-  parameters: { docs: { description: { story: "Zoomed out: one chevron per hop instead of two, so the stream stays readable." } } }
+  parameters: { docs: { description: { story: "Zoomed out: the line and ring keep a one-pixel minimum width." } } }
 };

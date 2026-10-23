@@ -16,6 +16,7 @@ import {
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { setBuildingEnvIntensity } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 import { createUnexploredStormLayer, type UnexploredStormLayer } from "./client-map-3d-unexplored-storm/client-map-3d-unexplored-storm.js";
+import { createFoggedMistLayer, type FoggedMistLayer } from "./client-map-3d-fogged-mist/client-map-3d-fogged-mist.js";
 import type { TerrainWindow } from "./client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import type { TileVisibilityState } from "./client-types.js";
 import { UNEXPLORED_STORM_DARK, UNEXPLORED_STORM_MID } from "./client-unexplored-storm/client-unexplored-storm-palette.js";
@@ -101,6 +102,7 @@ export type AtmosphereResources = {
   // rebuilds instead of snapping only when sceneOrigin re-anchors.
   readonly updateShadowTarget: (sceneX: number, sceneZ: number) => void;
   readonly unexploredStorm: UnexploredStormLayer;
+  readonly foggedMist: FoggedMistLayer;
   // Called once per terrain rebuild with the new built window (whose camX/camY
   // is the new sceneOrigin in client-map-3d.ts) and its raw visibility lookup.
   readonly onTerrainRebuilt: (window: TerrainWindow, visibilityAt: (wx: number, wy: number) => TileVisibilityState) => void;
@@ -269,8 +271,10 @@ export const createAtmosphere = (
   // Keeps the light rigidly offset from its target along sunOffset's
   // direction so the frustum recenters without changing the sun's angle.
   const unexploredStorm = createUnexploredStormLayer(scene);
+  const foggedMist = createFoggedMistLayer(scene);
   const updateShadowTarget = (sceneX: number, sceneZ: number): void => {
     unexploredStorm.recenter(sceneX, sceneZ);
+    foggedMist.recenter(sceneX, sceneZ);
     sun.target.position.set(sceneX, 0, sceneZ);
     sun.position.set(sceneX + sunOffset.x, sunOffset.y, sceneZ + sunOffset.z);
   };
@@ -278,6 +282,7 @@ export const createAtmosphere = (
   const onTerrainRebuilt = (window: TerrainWindow, visibilityAt: (wx: number, wy: number) => TileVisibilityState): void => {
     updateShadowFrame(Math.max(window.halfW, window.halfH));
     unexploredStorm.rebuild(window, visibilityAt);
+    foggedMist.rebuild(window, visibilityAt);
   };
 
   // Single place every tunable light value is applied, both at startup (the
@@ -315,6 +320,7 @@ export const createAtmosphere = (
     sun.shadow.dispose();
     scene.fog = null;
     unexploredStorm.dispose();
+    foggedMist.dispose();
     buildingEnvironmentTexture?.dispose();
   };
 
@@ -329,6 +335,7 @@ export const createAtmosphere = (
     updateShadowFrame,
     updateShadowTarget,
     unexploredStorm,
+    foggedMist,
     onTerrainRebuilt,
     dispose
   };

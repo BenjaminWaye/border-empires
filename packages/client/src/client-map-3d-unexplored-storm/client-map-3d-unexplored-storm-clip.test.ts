@@ -95,6 +95,10 @@ describe("unexplored storm clip", () => {
     const scene = new Scene();
     const forest = createForest(scene, 4);
     const tropical = createTropicalForest(scene, 4);
+    // Every tree species shares one material per forest, so check the tree
+    // meshes by name rather than by counting distinct materials.
+    const treeMaterials = scene.children.flatMap((child) => ((child as Mesh).material instanceof MeshStandardMaterial ? [(child as Mesh).material as MeshStandardMaterial] : []));
+    expect(scene.children).toHaveLength(4); // pine, spruce, leaf, palm
     const mountains = createMountainMassifs(scene, 4, { isMountainAt: () => true, isColdAt: () => false, wrapX: (x) => x, wrapY: (y) => y });
     const groundMaterial = new MeshStandardMaterial();
     createHillTerrain(scene, 4, groundMaterial);
@@ -107,7 +111,8 @@ describe("unexplored storm clip", () => {
       const material = (object as Mesh).material;
       if (material instanceof MeshStandardMaterial) featureMaterials.add(material);
     });
-    expect(featureMaterials.size).toBeGreaterThan(5);
+    expect(featureMaterials.size).toBeGreaterThan(3);
+    for (const material of treeMaterials) expect(featureMaterials.has(material)).toBe(true);
     for (const material of featureMaterials) expect(isPatched(material)).toBe(true);
     // Shadows match: the default depth material would still cast unpressed
     // hills and hidden trees (a hill's old top shadowed the pressed ground).

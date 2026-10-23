@@ -1,9 +1,10 @@
-// Polished-marble finish for the muster banner's plinth. The towns' flat,
-// even grey (one vertex colour per part, one roughness) reads as moulded
-// plastic on a piece this close to the camera, so this patches the matte
-// material's shaders to carve the plinth from marble like a premium
-// board-game piece: the lighter stone parts become charcoal marble with pale
-// veining, the darkest (the pedestal) black marble shot with gold, both
+// Polished-marble finish for the muster banner's plinth and the towns' base
+// plates (client-map-3d-town-overlay.ts). Flat, even grey (one vertex colour
+// per part, one roughness) reads as moulded plastic, so this patches a
+// vertex-coloured material's shaders to carve the piece from marble like a
+// premium board-game base: the lighter stone parts (a town plate's wall and
+// kerb) become charcoal marble with pale veining, the darkest (the muster
+// plinth, a town's streets and course) black marble shot with gold, both
 // polished to a low roughness, with a little shade pooled where each wall
 // rises from the ledge below and a bright polished edge along each wall top.
 //

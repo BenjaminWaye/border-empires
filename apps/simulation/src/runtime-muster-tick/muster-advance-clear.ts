@@ -38,7 +38,9 @@ const winsTie = (a: DomainTileState, b: DomainTileState): boolean => {
  * Nearest hostile tile within ADVANCE_MAX_RANGE_TILES *steps* of the flag, where
  * a step moves through the flag owner's own land or neutral land -- never water
  * or mountains, and never another player's land (that is a target, not a road).
- * Hostile means a barbarian or a player who is not an ally and has no truce.
+ * Hostile means a barbarian or a player who is not an ally and has no truce,
+ * on a tile the flag owner can currently see -- a hostile in the fog is
+ * ignored, so the flag never expands out exploring for one.
  *
  * This is how far a flag can really send troops, so it is also what decides
  * whether the order is finished: an enemy across a lake or behind a mountain
@@ -79,6 +81,9 @@ export const nearestHostileWithinSteps = (input: MusterTickInput, flag: DomainTi
       return;
     }
     if (!isAttackableState(tile.ownershipState) || isAlliedOrTruced(actor, tile.ownerId)) return;
+    // Only advance on what the player can see: a flag holds a front, it
+    // doesn't scout, so a hostile out in the fog never pulls it off to expand.
+    if (!input.isTileVisibleToPlayer(playerId, x, y)) return;
     if (!best || depth + 1 < best.steps || (depth + 1 === best.steps && winsTie(tile, best.tile))) {
       best = { tile, steps: depth + 1 };
     }

@@ -19,6 +19,7 @@ import {
 import { CURRENT_WORLDGEN_VERSION, INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed } from "@border-empires/shared";
 
 import { type ProtoSimulationEvent, type TileDeltaBatchTile, toProtoEvent, isWireInternalEvent, toFullSnapshotProtoTile } from "./proto-serialization.js";
+import { toCommandEnvelope, type ProtoCommandEnvelope } from "./proto-command-envelope.js";
 import { buildTileDeltaGroupKey } from "./tile-delta-group-key.js";
 import { createOwnershipChangeHandler } from "./ownership-change-alert.js";
 import { getAiDecisionDiagnostics, recordAiCommandRejectionMessage, recordAiDecisionDiagnosticFromPlanner } from "../ai/ai-decision-diagnostics.js";
@@ -54,7 +55,7 @@ import { applyTileDeltasToSnapshot } from "../subscription-snapshot-cache/subscr
 import { applyNonTileEventToCache, createPlayerSnapshotCache } from "../player-snapshot-cache/player-snapshot-cache.js";
 import { SimulationRuntime, type VisibilityAuditSample } from "../runtime/runtime.js";
 import { handleGetAdminPlayers, type ProtoAdminPlayersRequest, type ProtoAdminPlayersResponse } from "../admin-players-snapshot/admin-players-snapshot.js";
-import { handleGetRecentCommands, type ProtoGetRecentCommandsRequest, type ProtoGetRecentCommandsResponse } from "../recent-commands-snapshot.js";
+import { handleGetRecentCommands, type ProtoGetRecentCommandsRequest, type ProtoGetRecentCommandsResponse } from "../recent-commands-snapshot/recent-commands-snapshot.js";
 import { handleGetPlayerCombatSummary, type ProtoPlayerCombatSummaryRequest, type ProtoPlayerCombatSummaryResponse } from "../player-combat-summary-snapshot.js";
 import { handleGetSeasonParticipationForPlayer, type ProtoSeasonArchivesResponse, type ProtoSeasonParticipationRequest, type ProtoSeasonParticipationResponse, type ProtoSeasonSummaryRequest, type ProtoSeasonSummaryResponse } from "../season-participation-rpc-handler.js";
 import { handleGetActivityDashboard, type ProtoActivityDashboardRequest, type ProtoActivityDashboardResponse } from "../activity-dashboard/activity-dashboard-rpc-handler.js";
@@ -134,15 +135,6 @@ export type SimulationHealthSnapshot = {
   };
 };
 
-type ProtoCommandEnvelope = {
-  command_id: string;
-  session_id: string;
-  player_id: string;
-  client_seq: number;
-  issued_at: number;
-  type: string;
-  payload_json: string;
-};
 type ProtoGetAiDecisionDiagnosticsRequest = {
   player_id?: string;
 };
@@ -187,16 +179,6 @@ const proto = loadPackageDefinition(packageDefinition) as unknown as ProtoPackag
 
 const formatGrpcBindAddress = (host: string, port: number): string =>
   host.includes(":") && !host.startsWith("[") ? `[${host}]:${port}` : `${host}:${port}`;
-
-const toCommandEnvelope = (value: ProtoCommandEnvelope): CommandEnvelope => ({
-  commandId: value.command_id,
-  sessionId: value.session_id,
-  playerId: value.player_id,
-  clientSeq: value.client_seq,
-  issuedAt: value.issued_at,
-  type: value.type as CommandEnvelope["type"],
-  payloadJson: value.payload_json
-});
 
 const randomSeasonWorldSeed = (): number => crypto.randomInt(1, 1_000_000_000);
 
@@ -2436,6 +2418,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         if (currentSeasonState.status === "ended") return;
         runtime.tickWatchtowerReveals(Date.now());
         runtime.tickAetherShields(Date.now()); // bounded per-tick work inside -- aether-shield/aether-shield-tick.ts
+        runtime.tickIslandNames(Date.now()); // throttled to ~2s inside -- island-names/island-names-ticker.ts
       }, 1_000);
       let passiveIncomeRunning = false;
       passiveIncomeTicker = setInterval(() => {
