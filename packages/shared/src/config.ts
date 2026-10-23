@@ -306,8 +306,13 @@ export const AFC_LANDING_GUARANTEED_REACH_RADIUS = 1;
 // version of the same grant for ground that was already held.
 export const FRONTIER_AUTO_HEAL_MS = 30 * 60 * 1000;
 
-export const DOCK_DEFENSE_MULT = 1.5;
-export const DOCK_CROSSING_COOLDOWN_MS = 30_000;
+// Beach landings: a dock crossing may land on the linked dock itself or on
+// any coastal LAND tile within this Chebyshev radius of it (see
+// dock-landing/dock-landing.ts). 1 keeps the landing ground to the harbour's
+// own shoreline -- the tiles the dock already reveals to whoever holds the
+// other end of the link -- so the defender watches a short stretch of coast
+// rather than one tile, without letting a landing bypass the harbour.
+export const DOCK_LANDING_RADIUS = 1;
 export const DOCK_PAIRS_MIN = 15;
 export const DOCK_PAIRS_MAX = 45;
 
