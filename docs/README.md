@@ -31,6 +31,7 @@ remain authoritative for runtime behavior.
 | Reach-vision implementation record | [`reach-border-vision-plan.md`](reach-border-vision-plan.md) |
 | Rivers remake, river heads and river mountains (renderer + worldgen v11/v12) | [`rivers-remake-plan.md`](rivers-remake-plan.md) |
 | Stacking-building adjacency / industrial districts (proposed) | [`stacking-adjacency-plan.md`](stacking-adjacency-plan.md) |
+| Storybook cleanup: dead stories/assets, taxonomy, guardrails (proposed) | [`storybook-cleanup-plan.md`](storybook-cleanup-plan.md) |
 | Current manpower and resource-slot rules | [`product/resource-and-manpower-economy.md`](product/resource-and-manpower-economy.md) |
 | Starter-site contract and new-player guidance | [`product/new-player-opening.md`](product/new-player-opening.md) |
 | Adding a structure | [`adding-a-structure-playbook.md`](adding-a-structure-playbook.md) |
