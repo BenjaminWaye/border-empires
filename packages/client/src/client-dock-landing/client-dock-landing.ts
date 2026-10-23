@@ -46,7 +46,7 @@ const isDockEndpoint = (dockPairs: readonly DockPair[], x: number, y: number): b
   dockPairs.some((pair) => (pair.ax === x && pair.ay === y) || (pair.bx === x && pair.by === y));
 
 /** LAND tiles of a dock's landing ground, as keys. */
-const landingGroundKeys = (state: Pick<DockLandingState, "tiles">, dockX: number, dockY: number): string[] => {
+export const landingGroundKeys = (state: Pick<DockLandingState, "tiles">, dockX: number, dockY: number): string[] => {
   const terrainAt = clientTerrainAt(state.tiles);
   return dockLandingGroundCoords(dockX, dockY, terrainAt)
     .filter(({ x, y }) => terrainAt(x, y) === "LAND")

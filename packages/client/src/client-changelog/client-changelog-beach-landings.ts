@@ -8,6 +8,7 @@ export const BEACH_LANDINGS_CHANGELOG: ClientChangelogEntry[] = [
     why: "A sea crossing could only land on the far dock itself, so a harbour was defended by watching one tile.",
     changes: [
       "A crossing from your dock can now land on any coastal tile right next to the dock it links to, not just the dock",
+      "Your coast is marked in orange wherever an enemy-held dock can land troops on it, so you can see which beaches to watch",
       "Select a dock to see its landing ground highlighted at both ends of its sea routes; the tile panel also names the docks whose crossings can land on a tile",
       "A beach landing is supplied through the dock you sailed from: lose that dock and the landing is cut off at once",
       "Supply lines draw the sea leg back to your home dock, with a ring on the dock the landing depends on",
