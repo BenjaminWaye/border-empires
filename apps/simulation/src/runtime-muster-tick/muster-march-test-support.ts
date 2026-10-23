@@ -16,9 +16,7 @@ export const makePlayer = (id: string) => ({
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local",
   allies: new Set<string>(),
-  // Required on RuntimePlayer: a capture that resolves on a real timer after
-  // the test ends (a MARCH claiming an out-of-reach dock) reads it, and its
-  // absence threw an uncaught error into whichever test file ran next.
+  // Real players always carry auto-settle prefs (runtime-player-factory.ts).
   autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS }
 });
 

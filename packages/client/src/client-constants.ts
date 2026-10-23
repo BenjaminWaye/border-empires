@@ -97,9 +97,9 @@ export const settleDurationMsForTile = (x: number, y: number): number => {
   return SETTLE_MS;
 };
 
-export const frontierClaimCostLabelForTile = (x: number, y: number): string => {
+export const frontierClaimCostLabelForTile = (x: number, y: number, expandManpowerCost = EXPAND_MANPOWER_COST): string => {
   const seconds = Math.round(frontierClaimDurationMsForTile(x, y) / 1000);
-  const costLabel = `${EXPAND_MANPOWER_COST} manpower + ${FRONTIER_CLAIM_COST} coin`;
+  const costLabel = `${expandManpowerCost} manpower + ${FRONTIER_CLAIM_COST} coin`;
   if (isForestTile(x, y)) return `${costLabel} • ${seconds}s (Forest)`;
   if (isHillsTile(x, y)) return `${costLabel} • ${seconds}s (Hills)`;
   return `${costLabel} • ${seconds}s`;

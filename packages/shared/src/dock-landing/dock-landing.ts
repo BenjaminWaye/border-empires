@@ -14,9 +14,15 @@
  * supply lines) so both always agree on the rule.
  */
 
-import { DOCK_LANDING_RADIUS, WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { wrapX, wrapY } from "../math/math.js";
 import type { Terrain } from "../types.js";
+
+// Chebyshev radius of a linked dock's landing ground. 1 keeps it to the
+// harbour's own shoreline -- the tiles the dock already reveals to whoever
+// holds the other end of the link -- so the defender watches a short stretch
+// of coast rather than one tile, without letting a landing bypass the harbour.
+export const DOCK_LANDING_RADIUS = 1;
 
 // Plain strings are accepted so planner tile views (whose terrain is typed
 // `string`) can be read directly; anything but these literals counts as land-like.

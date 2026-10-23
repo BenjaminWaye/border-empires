@@ -45,6 +45,7 @@ export * from "./forest-terrain/forest-terrain.js";
 export * from "./forest-terrain/forest-clearing.js";
 export * from "./hills-terrain/hills-terrain.js";
 export * from "./frontier-claim-duration/frontier-claim-duration.js";
+export * from "./expand-manpower-cost/expand-manpower-cost.js";
 export * from "./frontier-combat/frontier-combat.js";
 export * from "./capture-hold/capture-hold.js";
 export * from "./frontier-combat/frontier-combat-win-chance-paint.js";

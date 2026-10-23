@@ -67,7 +67,11 @@ export const FOREST_VISION_RANGE = 1;
 // normal effective radius (before forest clamping is applied). See
 // isHillsTileAt in hills-terrain.ts and vision-footprint-table.ts.
 export const HILLS_VISION_BONUS = 1;
-export const COMBAT_LOCK_MS = 30_000;
+// Halved from 30_000 so fronts move faster: a flag runs at most
+// MUSTER_MAX_CONCURRENT_ACTIONS attacks at once, so this lock is what caps how
+// fast it can take frontier ground (settled ground stays capped by muster
+// inflow). attackResolveSpeedReduceMs bonuses were halved to match.
+export const COMBAT_LOCK_MS = 15_000;
 // How long a muster flag's company takes to march one tile before its
 // ATTACK actually fires/resolves. Single source of truth shared by both
 // runtimes: the client's own pre-send march for a manually-clicked attack
@@ -306,13 +310,6 @@ export const AFC_LANDING_GUARANTEED_REACH_RADIUS = 1;
 // version of the same grant for ground that was already held.
 export const FRONTIER_AUTO_HEAL_MS = 30 * 60 * 1000;
 
-// Beach landings: a dock crossing may land on the linked dock itself or on
-// any coastal LAND tile within this Chebyshev radius of it (see
-// dock-landing/dock-landing.ts). 1 keeps the landing ground to the harbour's
-// own shoreline -- the tiles the dock already reveals to whoever holds the
-// other end of the link -- so the defender watches a short stretch of coast
-// rather than one tile, without letting a landing bypass the harbour.
-export const DOCK_LANDING_RADIUS = 1;
 export const DOCK_PAIRS_MIN = 15;
 export const DOCK_PAIRS_MAX = 45;
 
