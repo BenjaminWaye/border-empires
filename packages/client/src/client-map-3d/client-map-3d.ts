@@ -66,6 +66,7 @@ import { createSurveySweepPingOverlay } from "../client-map-3d-survey-sweep-ping
 import { createAnchoredFxLayers } from "../client-map-3d-anchored-fx/client-map-3d-anchored-fx-layers.js"; import { isAfcHiddenForJoinDrop, isForestTileWithAfcLandingHold, terrainWithAfcLandingHold } from "../client-afc-join-drop/client-afc-join-drop-state.js"; import { createCameraShakeFx } from "../client-map-3d-camera-shake-fx/client-map-3d-camera-shake-fx.js";
 import { createFxCastOverlaySyncs } from "./client-map-3d-fx-cast-overlays.js";
 import { shouldShowTownSmoke, shouldShowTownUnfedWarning, shouldShowTownUpgradeReadyBadge } from "../client-town-growth/client-town-growth.js";
+import { dockRotationAt } from "../client-map-3d-dock-rotation/client-map-3d-dock-rotation.js";
 import { createDockOverlay } from "../client-map-3d-dock-overlay.js"; import { createDockRouteOverlay } from "../client-map-3d-dock-route-overlay.js"; import { createDockRouteSync } from "../client-map-3d-dock-route-sync.js";
 import { createPlanetaryDefenseOverlay } from "../client-map-3d-planetary-defense-overlay.js"; import { planetaryDefenseEngagedTileKeys } from "../client-map-3d-planetary-defense-engagement.js";
 import { createShardOverlay } from "../client-map-3d-shard-overlay.js"; import { createWatchtowerOverlay } from "../client-map-3d-watchtower-overlay.js"; import { createWaystationOverlay } from "../client-map-3d-waystation-overlay.js"; import { createAfcOverlayGroup } from "../client-map-3d-afc-module-family.js";
@@ -89,7 +90,7 @@ import { createReachOverlay3D } from "../client-map-3d-aether-survey-line/client
 import { reachCacheKey, resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { filterReachToLand, samplePerimeterPylons, traceReachBoundaryEdgeLoops } from "../client-reach-overlay/client-reach-overlay.js";
 import { ARRIVE_STAGGER_MS, createTransitionTracker, diffTransitions } from "../client-reach-overlay/client-reach-overlay-transitions.js";
-import { addReachTileOverlays3D, computeOtherOwnersReachPylons, reachEmphasisFor, type OwnedPylonPoint, type OwnedPylonSegment } from "../client-reach-overlay-3d-multi/client-reach-overlay-3d-multi.js";
+import { addReachTileOverlays3D, createIncursionHillDrape, computeOtherOwnersReachPylons, reachEmphasisFor, type OwnedPylonPoint, type OwnedPylonSegment } from "../client-reach-overlay-3d-multi/client-reach-overlay-3d-multi.js";
 import { createBorderDustFxLayer } from "../client-map-3d-border-dust-fx/client-map-3d-border-dust-fx.js";
 import { borderContactSeamsToDustSeams, computeBorderContactRenderState, resolveBorderContactVisual, pointKey, splitSegmentByContact, EMPTY_BORDER_CONTACT_STATE, BORDER_CONTACT_BEAM_COLOR, BORDER_CONTACT_OPACITY_MULT, type BorderContactRenderState } from "../client-map-3d-border-contact-render/client-map-3d-border-contact-render.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
@@ -748,7 +749,20 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     // true-3D renderer is actually active.
     const reach3DActive = isTrue3DRendererActive();
     const reach3DDeps = { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY };
-    const reachTileDeps3D = { ...reach3DDeps, me: deps.state.me, ownerColor: deps.effectiveOverlayColor }; // per-tile reach overlays below (dormant frontier + rival incursions)
+    // Per-tile reach overlays below (dormant frontier + rival incursions); the incursion hatch drapes over hills.
+    const reachTileDeps3D = {
+      ...reach3DDeps,
+      me: deps.state.me,
+      ownerColor: deps.effectiveOverlayColor,
+      hillDrapeAt: createIncursionHillDrape({
+        cornerYAt: (x, y) => heightfield.cornerYAt(x, y),
+        isHillsAt: isHillsTile,
+        wrapX: deps.wrapX,
+        wrapY: deps.wrapY,
+        hillCutAt,
+        rise: OVERLAY_RISE_ABOVE_HEIGHTFIELD
+      })
+    };
     if (reach3DActive) {
       const reach3DKey = reachCacheKey(deps.state); // other owners' reach comes from tile.reachOwnerId, already covered by tilesRevision
       if (reach3DCacheRevision !== reach3DKey) {
@@ -875,22 +889,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         // Dock 3D pier/quay/harbor — anchored to the tile's land Y so
         // the deck sits on the ground inland and overhangs the water.
         if (tile?.dockId || dockEndpointKeys.has(tileKey)) {
-          const cardinalsForDock: Array<{ dx: number; dy: number; rot: number }> = [
-            { dx: 0, dy: 1, rot: 0 },
-            { dx: 1, dy: 0, rot: -Math.PI / 2 },
-            { dx: 0, dy: -1, rot: Math.PI },
-            { dx: -1, dy: 0, rot: Math.PI / 2 }
-          ];
-          let dockRotation = 0;
-          for (const c of cardinalsForDock) {
-            const nwx = deps.wrapX(wx + c.dx);
-            const nwy = deps.wrapY(wy + c.dy);
-            const nt = terrainForWorldTile(nwx, nwy);
-            if (nt === "SEA" || nt === "COASTAL_SEA") {
-              dockRotation = c.rot;
-              break;
-            }
-          }
+          const dockRotation = dockRotationAt(wx, wy, terrainForWorldTile, deps.wrapX, deps.wrapY);
           const dockSurfaceY = Math.max(heightfield.elevationAt(wx, wy), -0.04) + 0.02;
           dockOverlay.addInstance(x, z, dockSurfaceY, dockRotation, wx, wy);
           contactShadowOverlay.addShadow(x, z, dockSurfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);

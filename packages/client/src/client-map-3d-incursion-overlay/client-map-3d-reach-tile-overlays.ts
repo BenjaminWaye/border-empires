@@ -2,6 +2,7 @@ import { isDormantFrontierTile } from "../client-reach-overlay/client-reach-over
 import { incursionHatchColors, incursionMarkColor, incursionNeighbourKindAt, reachPocketAt, type IncursionDeps } from "../client-reach-incursion/client-reach-incursion.js";
 import { cachedIncursionBreachLayout } from "../client-reach-incursion/client-incursion-breach-layout-cache.js";
 import { incursionBreachStyle, type IncursionBreachStyle } from "../client-reach-incursion/client-incursion-breach-style.js";
+import type { TileDrapeHeightAt } from "./client-map-3d-incursion-hill-drape.js";
 import type { ReachOverlay3D } from "../client-map-3d-aether-survey-line/client-map-3d-aether-survey-line.js";
 import type { Tile } from "../client-types.js";
 
@@ -11,6 +12,8 @@ export type ReachTileOverlayDeps = IncursionDeps & {
   readonly ownerColor: (ownerId: string) => string;
   /** Pocket-edge look on sides facing the viewer's land; defaults to the live setting (spikes unless an admin changed it; client-incursion-breach-style.ts). */
   readonly breachStyle?: IncursionBreachStyle;
+  /** The hill dome to drape a hatched hill tile over (createIncursionHillDrape); without it the hatch is a flat quad. */
+  readonly hillDrapeAt?: (wx: number, wy: number) => TileDrapeHeightAt | undefined;
 };
 
 /**
@@ -44,6 +47,7 @@ export const addReachTileOverlays3D = (
     incursionHatchColors(pusherColor, deps.ownerColor(pocket.defender)),
     incursionMarkColor(pusherColor),
     layout.straightEdges,
-    { style, worldX: wx, worldY: wy, layout }
+    { style, worldX: wx, worldY: wy, layout },
+    deps.hillDrapeAt?.(wx, wy)
   );
 };
