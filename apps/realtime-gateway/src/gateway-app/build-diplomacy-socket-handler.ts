@@ -60,8 +60,9 @@ export type DiplomacySocketHandler = {
   ) => Promise<boolean>;
   /**
    * Recurring alliance upkeep (call every minute): finalizes break notices
-   * whose 24h ran out, and has AIs leave alliances they no longer lead
-   * (self-throttled to every 5 minutes).
+   * whose 24h ran out, has AIs leave alliances they no longer lead
+   * (self-throttled to every 5 minutes), and tells both sides of any truce
+   * offer that expired or was dropped since the last run.
    */
   runAllianceMaintenance: () => void;
   /** Routes deal-settlement verdicts and combat (for AI memory) from the simulation event stream. */
@@ -245,6 +246,8 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
         rejectTruce: socialState.rejectTruce,
         cancelTruce: socialState.cancelTruce,
         breakTruce: socialState.breakTruce,
+        syncPlayers: socialState.syncPlayers,
+        takeStaleOfferSync: socialState.takeStaleOfferSync,
         sendJson: deps.sendJson,
         fanoutPlayerPayloads: deps.fanoutPlayerPayloads,
         syncTruceToSimulation: deps.syncTruceToSimulation,
@@ -270,6 +273,8 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     runAllianceMaintenance: () => {
       void finalizeExpiredAllianceBreaks();
       void reviewAiAlliances();
+      const staleOffers = socialState.takeStaleOfferSync();
+      if (staleOffers) deps.fanoutPlayerPayloads(staleOffers.payloadsByPlayerId);
     },
     observeSimulationEvent: (event) => {
       settlement.observe(event);

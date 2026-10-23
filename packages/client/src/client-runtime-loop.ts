@@ -1,5 +1,7 @@
 import { drawMapSelection2D } from "./client-garrison-many/client-map-selection-2d.js";
 import { MIN_ZOOM, isForestTile } from "./client-constants.js"; import { startTileMenuDecayTicker } from "./client-tile-menu-decay-ticker/client-tile-menu-decay-ticker.js"; import { startMusterStatusTicker } from "./client-muster-status-ticker/client-muster-status-ticker.js"; import { startMusterMenuRepaintTicker } from "./client-muster-menu-repaint-ticker/client-muster-menu-repaint-ticker.js";
+import { startLoadingTimerTicker } from "./client-loading-timer-ticker/client-loading-timer-ticker.js";
+import { startTruceRequestExpiryTicker } from "./client-truce-request-expiry/client-truce-request-expiry.js";
 import { updateMusicForGameState } from "./client-audio/client-audio.js";
 import { computeWarMusicSignals } from "./client-war-music-signal/client-war-music-signal.js";
 import { drawableIncomingAttack } from "./client-siege-tracking/client-siege-tracking.js";
@@ -1436,6 +1438,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     updateMusicForGameState(computeWarMusicSignals(state));
   }, 500);
   startMusterStatusTicker(state, deps.renderHud);
+  startTruceRequestExpiryTicker(state, deps.renderHud);
   setInterval(() => {
     if (state.connection !== "initialized") return;
     if (state.actionInFlight || state.capture || state.actionQueue.length > 0) return;
@@ -1478,23 +1481,5 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
   }, 300);
 
-  // Refresh "loading for Xs" timers on tile-detail loader rows once per second
-  // without forcing a full menu re-render. Each loader row carries the start
-  // ms in data-loading-timer-since; we just rewrite the visible text.
-  setInterval(() => {
-    if (typeof document === "undefined") return;
-    const elements = document.querySelectorAll<HTMLElement>("[data-loading-timer-since]");
-    if (elements.length === 0) return;
-    const now = Date.now();
-    elements.forEach((element) => {
-      const since = Number(element.dataset.loadingTimerSince);
-      if (!Number.isFinite(since) || since <= 0) return;
-      const elapsedSeconds = Math.max(0, Math.round((now - since) / 1000));
-      const text =
-        elapsedSeconds < 60
-          ? `${elapsedSeconds}s`
-          : `${Math.floor(elapsedSeconds / 60)}m ${elapsedSeconds % 60}s`;
-      if (element.textContent !== text) element.textContent = text;
-    });
-  }, 1000);
+  startLoadingTimerTicker();
 };
