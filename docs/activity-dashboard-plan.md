@@ -302,8 +302,11 @@ Keep and reuse the existing durable, bounded 24-hour logs:
 - `combat-manpower-log` is the source for manpower spent on attacks. Extend
   its record only with combat facts needed for the report, not presentation
   strings.
-- `activity-log-persistence.ts` persists their bounded newest tail across
-  restarts and is the model for every new rolling log.
+- `activity-log-persistence.ts` persists each log's whole 24h window across
+  restarts (bounded only by the log's own TTL and entry cap) and is the model
+  for every new rolling log. An earlier 5,000-entry persisted-tail cap was
+  removed: world-wide flips passed it within hours on a busy day, so every
+  restart cut players' timelines short.
 
 ### 3.2 New bounded personal-impact log
 
@@ -337,7 +340,7 @@ type PersistedActivityLogs = {
 
 It uses the same restart restore/prune rules as the existing logs. Choose a
 separate realistic cap for personal impacts after measuring production traffic
-(initially no higher than the existing 5,000 persisted-tail cap), and gauge
+(it shipped at 5,000 in memory, which is also what is persisted), and gauge
 the entry count, oldest/newest timestamps, cap hits, exported byte size, and
 events discarded from a client response.
 

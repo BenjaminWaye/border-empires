@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  ACTIVITY_LOG_PERSIST_LIMIT,
-  exportActivityLogs,
-  restoreActivityLogs
-} from "./activity-log-persistence.js";
+import { exportActivityLogs, restoreActivityLogs } from "./activity-log-persistence.js";
+import { createRuntimeActivityLogs } from "./runtime-activity-logs.js";
 import { createCombatManpowerLog } from "../combat-manpower-log/combat-manpower-log.js";
 import { computeManpowerLostTotal24h } from "../combat-manpower-log/combat-manpower-log-aggregations.js";
 import { createPersonalImpactLog } from "../personal-impact-log/personal-impact-log.js";
@@ -122,19 +119,25 @@ describe("activity log persistence", () => {
     expect(computeManpowerLostTotal24h(combatLog.entries())).toBe(30);
   });
 
-  it("persists only the newest entries once past the cap", () => {
-    const flipLog = createTerritoryFlipLog({ now: () => NOW });
-    const combatLog = createCombatManpowerLog({ now: () => NOW });
-    const personalImpactLog = createPersonalImpactLog({ now: () => NOW });
-    for (let i = 0; i < ACTIVITY_LOG_PERSIST_LIMIT + 50; i += 1) {
-      flipLog.record(flip(NOW - HOUR_MS + i, `${i},0`));
+  it("keeps a player's early-day timeline across a restart after a busy day", () => {
+    // Regression: persisting only the newest 5,000 entries world-wide meant
+    // other empires' flips pushed this player's morning out of the blob, so
+    // every restart cut their "Yours" timeline short.
+    let now = NOW - 20 * HOUR_MS;
+    const before = createRuntimeActivityLogs(() => now);
+    before.recordTileFlip({ ...flip(now, "5,5"), fromOwner: undefined, toOwner: "player-1" });
+    for (let i = 0; i < 12_000; i += 1) {
+      now = NOW - 19 * HOUR_MS + i * 5_000;
+      before.recordTileFlip({ ...flip(now, `${i % 400},${Math.floor(i / 400)}`), fromOwner: "ai-1", toOwner: "ai-2" });
     }
+    now = NOW;
 
-    const persisted = exportActivityLogs(flipLog, combatLog, personalImpactLog);
+    const after = createRuntimeActivityLogs(() => now);
+    after.restore(before.export());
 
-    expect(persisted.flips).toHaveLength(ACTIVITY_LOG_PERSIST_LIMIT);
-    // The newest window is what the aggregations report, so the tail is kept.
-    expect(persisted.flips[persisted.flips.length - 1]?.tileId).toBe(`${ACTIVITY_LOG_PERSIST_LIMIT + 49},0`);
+    const timeline = after.personalTimeline("player-1", NOW - 24 * HOUR_MS, NOW);
+    expect(timeline.summary.tilesClaimed).toBe(1);
+    expect(timeline.cards.map((card) => card.occurredAt)).toContain(NOW - 20 * HOUR_MS);
   });
 
   it("treats missing or malformed persisted logs as no history", () => {

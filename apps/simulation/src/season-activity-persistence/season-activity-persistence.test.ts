@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { persistSeasonActivityState, restoreSeasonActivityState } from "./season-activity-persistence.js";
+import { persistSeasonActivityState, restoreSeasonActivityState, saveShutdownSeasonActivityState } from "./season-activity-persistence.js";
 import type { PersistedActivityLogs } from "../activity-dashboard/activity-log-persistence.js";
 import { InMemorySeasonSummaryStore } from "../season-summary-store.js";
 import { findMostDeadlyTile } from "../season-stats/season-stats.js";
@@ -71,5 +71,28 @@ describe("season activity persistence", () => {
 
     expect(nextSeason.manpowerLossByTileKey.size).toBe(0);
     expect(nextSeason.restoredLogs()).toBeUndefined();
+  });
+
+  it("saves the latest activity on shutdown so a deploy keeps it", async () => {
+    const store = new InMemorySeasonSummaryStore();
+    const errors: unknown[] = [];
+
+    await saveShutdownSeasonActivityState(store, "season-1", fakeRuntime({ logs: sampleLogs() }), { error: (...args: unknown[]) => errors.push(args) });
+
+    await expect(store.loadActivityLogs("season-1")).resolves.toEqual(sampleLogs());
+    expect(errors).toEqual([]);
+  });
+
+  it("logs rather than throws when the shutdown save fails", async () => {
+    const store = new InMemorySeasonSummaryStore();
+    store.saveActivityLogs = async () => {
+      throw new Error("disk full");
+    };
+    const errors: unknown[] = [];
+
+    await expect(
+      saveShutdownSeasonActivityState(store, "season-1", fakeRuntime({ logs: sampleLogs() }), { error: (...args: unknown[]) => errors.push(args) })
+    ).resolves.toBeUndefined();
+    expect(errors).toHaveLength(1);
   });
 });
