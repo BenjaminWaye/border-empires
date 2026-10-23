@@ -144,7 +144,7 @@ const render = (args: Args): HTMLElement => {
   caption.style.cssText = "padding:14px 18px;color:#b9c9c1;background:#152126;font:13px/1.6 system-ui";
   caption.textContent = args.context
     ? "Waystation (left) · Relic core (centre) · Town (right). Drag to orbit · scroll to zoom · toggle capture."
-    : "Toggle capture to compare the dormant ruin with its operating state and House marker.";
+    : "Toggle capture to compare the dormant ruin with its operating lights and House-coloured terrace panels.";
   container.append(caption);
 
   // Labels follow their actual world positions while the camera orbits.

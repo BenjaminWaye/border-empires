@@ -41,10 +41,13 @@ another angle.
 - Game zoom: distance 38 and tilt 0.6, matching the game's default-camera reference.
 - Close view and Top down: inspect the silhouette and surfaces.
 - Captured/Unclaimed: toggle faint operating lights, a small House marker on
-  the summit bulkhead. The weathered structure stays unchanged. Territory
+  the summit bulkhead and House-coloured panels on all four upper terrace
+  faces, continuing onto the terrace top. These give ownership its own
+  visible surface because the wide base hides the central tile's tint.
+  The weathered structure stays unchanged. Territory
   tint is not included in this isolated building preview.
 - Captured and Captured On Map stories open directly in the owned state;
-  Storybook's owner-colour control changes the marker.
+  Storybook's owner-colour control changes the marker and terrace panels.
 - Drag to orbit and scroll to zoom.
 
 Source is isolated under `packages/storybook/src/relics/`. It is not wired
