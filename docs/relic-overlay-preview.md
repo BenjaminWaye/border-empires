@@ -2,7 +2,7 @@
 
 Status: active proposal
 Owner: Benjamin Waye (visual sign-off and relic fiction)
-Last verified: 2026-10-23
+Last verified: 2026-10-24
 Replacement target: the visual sections of [natural wonders](natural-wonders-design.md), if accepted and implemented in both map renderers.
 
 ## Direction
@@ -216,10 +216,11 @@ or other consequences of restarting its aether plant. These ideas are retained
 for a later design pass. No cost, probability, encounter or extra activation
 step has been selected. The initial release must not silently add them.
 
-### Proposed mappings of existing effects to installations
+### Earlier keep-effects mappings (superseded by the 2026-10-24 revision)
 
-These are fiction candidates for the current effects, not approved final
-names or rule changes. Ongoing benefits need an ongoing service or output:
+These preserve-effects fiction candidates are retained for context. The
+2026-10-24 catalogue below takes priority as the current design direction;
+none of these catalogue changes has been implemented. Ongoing benefits need an ongoing service or output:
 losing the site should stop that contribution without pretending that a House
 forgets knowledge or that permanent retrofit parts disappear.
 
@@ -280,3 +281,57 @@ set. Add extra family-specific art variants only after the core set is good.
 **Next concrete milestone:** one finished Warpress capture dialog using the
 painted artwork, followed by the nine-row installation/effect/name catalogue.
 No further full-set art production should depend on unresolved identities.
+
+
+## Revised relic catalogue — 2026-10-24
+
+Status: active gameplay redesign. User-provided directions below supersede
+the earlier assumption that every existing effect will be preserved. All
+runtime behavior and shared labels remain unchanged until implementation.
+Numbers explicitly supplied by the user are recorded as design targets;
+agent recommendations and unresolved parameters are identified separately.
+
+### User directions
+
+| Existing family | Revised identity/direction | Gameplay direction and unresolved details |
+|---|---|---|
+| Deepwater Engine | Aether-powered antimatter marine-engine plant | Faster ships/dock operations, a surprise-attack bonus from docks and increased dock income. The current game has implicit movement rather than separately controlled ships: decide whether speed means a shorter dock-launched attack duration or another naval-operation timer. Percentages and eligible attack origins remain to be fixed. Suggested name: Antimatter Drive Works. |
+| Foundry Heart | Scarcity-weighted resource reward | Randomly choose a resource with increased probability for a resource the player lacks, considering only resource types they have revealed. Raise the reward to around four, with potentially different Crystal/Umbrite/Titanium amounts. Current resources are slot pools, not stockpiles. Recommendation: a capacity reward, with +4 Titanium as a candidate baseline and separate Crystal/Umbrite tuning; whether FOOD is eligible and when/how long the grant applies remain open. |
+| Conscription Engine | Ancillary Vault | An existing reserve of ancillary bodies ready to connect to House control. Supplies actual bodies rather than equipment described as manpower. The current first-claim reward gives a usable starting point, but quantity and retention/removal of the old cap bonus need a decision. Recommended: a finite vault that does not refill on recapture. |
+| Warpress | Aether-powered combat-suit factory | A limited supply empowers the next 100 attacks with +50% attack strength. This replaces the old mustering-speed/extra-flag concept. Counter scope, eligible attacks, failed/cancelled attacks, concurrent launches and behavior after loss remain to be specified. Recommended: a site-wide stock of 100 empowered deployments, usable while held, with no refill on recapture. Do not silently count this as 100 individual suits. |
+| Bastion Frame | Ancient force-field generator | Protect held tiles against early attacks; possibly limited or prone to breakdown. The exact defense is exploratory. Existing afc-v1 Bastion V already blocks the first otherwise successful attack on a ready fort, recharging after 24 hours; Observatory shielding and Aegis protection are separate existing systems. Recommendation: a finite-charge local field affecting garrisoned land, with a visible defense bonus and predictable charge consumption. Radius, strength and charge count remain open. If breakdowns are retained, disclose stability and avoid a hidden failure after the attack preview. |
+| Calculating Engine | Replace the Manifest coin discount with a more direct capability | User rejects an insufficient explanation of cheaper Manifests and requests a logical adjacent effect. Recommended candidate: Fabrication Coordinator, allowing one additional simultaneous Development project by coordinating crews and fabrication. This is a proposal, not a chosen effect; it needs queue/economy and specialization review. House knowledge and offworld commercial recognition are not fabricated by a calculating machine. |
+| Quickforge | Limited nanofabrication reserve | Replace the endless daily discount framing with a finite supply of nanofabrication material/assemblers. Recommended name: Nanofabricator Reserve. Decide whether each dose accelerates construction, completes a defined construction phase, or offsets a rush cost; dose count and valid targets remain open. No free Manifests or Shards are implied. |
+| Watchtower Engine | An older, much longer-range aether tower | Preserve the tower role, with substantially stronger range. Suggested name: Concordance Resonator. Exact casting, ordinary-vision, detection and protection radii must be specified independently: a larger casting radius must not silently grant all four. Compare existing Oracle range upgrades and preserve a coherent cooldown/slot policy. |
+| Cartographer's Lens | Rethink both name and function | Recommended candidate: Subsurface Survey Array, periodically marking resource signatures in unexplored ground. Restrict eligible resource types to those the player can already discover; markers reveal no enemy ownership, forces or extra tile details. This is geological prospecting, distinct from Oracle's hostile-flag detection. Pulse frequency, radius, marker lifetime and whether the supply is finite remain open. |
+
+### Rules to settle before implementation
+
+- **Capacity versus stockpile:** express the Foundry reward in the current
+  resource model unless a separate resource-economy redesign is intended.
+  Determine whether the capacity belongs to the held site or becomes a
+  permanent claim reward. Changing that choice changes capture incentives.
+- **Weighted reward:** compare shortage relative to the player's resource
+  needs, rather than raw FOOD/Titanium/Crystal/Umbrite totals alone. Define
+  revealed-type eligibility and the no-eligible-resource fallback. Decide
+  when the draw occurs and how to prevent recapture/reroll farming, while
+  preserving the revealed-only restriction for each eligible recipient.
+- **Finite reserves:** explicitly choose whether remaining stock lives on
+  the site or is awarded as inventory to a House. The recommended default
+  is site stock that persists across captures. Already awarded ancillary
+  bodies are not removed from a House merely because it loses the vault.
+- **Empowered attacks:** choose when a deployment is reserved/consumed, which
+  attack types qualify, and what happens if an attack is cancelled or a ward
+  blocks it. Attack previews and battle results must use the same committed
+  bonus. Remaining supply must survive restart and ownership changes.
+- **Exhausted relics:** finite caches can leave later players with empty
+  prizes. Decide deliberately whether exhausted sites retain another useful
+  capability, slowly replenish, or remain spent. No replenishment is assumed
+  by the user's limited-supply direction.
+- **Force-field identity:** compare against Bastion's first-breach ward,
+  Observatory anti-aether protection and Aegis before choosing an effect.
+  Distinguish conventional attack defense from hostile aether-cast immunity.
+- **Catalogue-first delivery:** finalize effects and installation identities
+  before generating the remaining paintings or wiring permanent runtime
+  behavior. The approved armour-works painting still fits the combat-suit
+  factory; its old dialog benefits must change when the redesign is built.

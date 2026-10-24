@@ -164,6 +164,16 @@ is accepting the established danger of aether-work, not discovering that the
 old machinery is harmless. This does not imply a new Warden-spawn rule,
 repair charge or reactivation-risk mechanic; those are gameplay decisions.
 
+Relic remnants can include finite reserves as well as working machinery.
+An **Ancillary Vault** holds ancillary bodies already prepared to connect to
+House control. Those bodies exist before the House opens the vault. An
+aether-powered combat-suit factory can likewise retain a limited stock of
+usable suits and compatible components, while a nanofabrication installation
+can hold a finite reserve of fabrication material and assemblers. Their
+quantities, replenishment, ownership and battlefield effects remain gameplay
+design choices; an installation's survival does not establish an inexhaustible
+supply.
+
 ## 5. Why arriving is dangerous
 
 An infestation left undisturbed for years is dormant compared to what it
@@ -512,8 +522,7 @@ not infer new gameplay rules from them while implementing unrelated work.
 | Rank before a first victory | §2 says winning grants the rank of Duke, while later passages call campaign participants Dukes. Define first-time contenders' rank and returning Dukes' participation. |
 | Permanent holdings and map resets | §2 grants permanent rights to a won world; §8 preserves titles but allows the map to reset. Define what persists across a seasonal campaign and an age ending with the Court's fall. |
 | Writs and the revolt | §7 says accepting a Writ restores the Court's grip; §8 says a Writ does not weaken the revolt. Clarify the relationship before assigning metagame effects. |
-| Natural wonders as relics (proposed) | [Relics proposal](../relics-design.md) §1 proposes that natural wonders are Concordance Terrain-Shaping anchors, distinct from Shards (§3) and the original of the Relay Beacon's anchor technology (§10). Unreconciled with §1 (Monuments as the surviving Concordance aether constructs), §2 and §10 (the Court's own anchor technology), §4 (the Wardens destroying Concordance aether infrastructure) and §5 (aether-work drawing Wardens); "relic" also already names a Warden ship in the galactic campaign. Not yet accepted canon; accept or revise before the relic look ships. |
-| Relic installation catalogue and locator beams | The shared surface interface, fixed planetary installations and aether-powered machinery left dormant by locals are established in §4. The [relic plan](../relic-overlay-preview.md) proposes mappings from existing effects to individual installation families. Those mappings, and how a locator beam operates while the main machinery is dormant, still need final fiction choices. Repair costs and reactivation risks are retained as future design ideas, not established mechanics. |
+| Relic installation catalogue and locator beams | The shared surface interface, fixed planetary installations and aether-powered machinery left dormant by locals are established in §4. The [relic plan](../relic-overlay-preview.md) proposes mappings from existing effects to individual installation families. Those mappings, and how a locator beam operates while the main machinery is dormant, still need final fiction choices. The 2026-10-24 catalogue redesign includes finite combat-suit and nanofabricator reserves, a naval engine plant and an Ancillary Vault; specific effects, quantities, depletion and force-field behavior are tracked in the relic plan. Repair costs and reactivation risks are retained as future design ideas, not established mechanics. |
 
 ### Consolidation sources
 
