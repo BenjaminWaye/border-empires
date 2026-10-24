@@ -1,4 +1,5 @@
 import { musterReportsHtml } from "./client-muster-combat-reports/client-muster-combat-reports-ui.js";
+import { advanceCommitOddsText } from "./client-muster-commit-tab/client-muster-commit-tab.js";
 import { escapeHtml } from "./client-duke-panel/client-duke-escape.js";
 import { afcModuleTabHtml } from "./client-afc-module-tab/client-afc-module-tab.js";
 import { autoSettleOptionHtml } from "./client-auto-settle-prompt/client-auto-settle-tile-option.js";
@@ -157,6 +158,7 @@ const abilityActionIconHtml = (actionId: TileActionDef["id"]): string | undefine
 const actionIcon = (id: TileActionDef["id"]): string => {
   if (id.startsWith("redeploy_afc_module:")) return "⇣";
   if (id === "expand_here") return "⚐";
+  if (id.startsWith("march_attack_")) return "⚑";
   if (id === "clear_waypoint_and_expand_here") return "↺⚐";
   if (id === "cancel_waypoint") return "✕";
   if (id === "cancel_all_waypoints") return "✕⚐";
@@ -334,14 +336,16 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
     if (!commit) return `<div class="tile-menu-empty">No muster flag here.</div>`;
     const oddsText = commit.winChancePercent != null
       ? `${commit.winChancePercent}% win chance`
-      : commit.hasTarget
-        ? "Win chance unavailable — open Launch Attack on the target tile once to preview odds"
-        : "Set a march target to preview odds";
+      : commit.mode === "ADVANCE"
+        ? advanceCommitOddsText(commit.commitManpower, commit.floor)
+        : commit.hasTarget
+          ? "Win chance unavailable — open Launch Attack on the target tile once to preview odds"
+          : "Set a march target to preview odds";
     return `
       <div class="muster-commit-card">
         <div class="muster-commit-row">
           <label for="muster-commit-slider">Commit manpower</label>
-          <input id="muster-commit-slider" type="range" min="${commit.floor}" max="${commit.cap}" step="1" value="${commit.commitManpower}" data-muster-commit-slider data-muster-commit-floor="${commit.floor}" data-muster-commit-base-odds="${commit.baseWinChancePercent ?? ""}" />
+          <input id="muster-commit-slider" type="range" min="${commit.floor}" max="${commit.cap}" step="1" value="${commit.commitManpower}" data-muster-commit-slider data-muster-commit-floor="${commit.floor}" data-muster-commit-base-odds="${commit.baseWinChancePercent ?? ""}"${commit.mode === "ADVANCE" ? " data-muster-commit-advance" : ""} />
           <span class="muster-commit-value" data-muster-commit-value>${commit.commitManpower}</span>
         </div>
         <div class="muster-commit-presets">

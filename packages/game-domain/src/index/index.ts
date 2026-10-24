@@ -212,6 +212,7 @@ export type DomainTileState = {
             | "foodUpkeepPerMinute"
             | "captureShockUntil"
             | "populationBeforeCapture"
+            | "forcedAncillarificationCooldownUntil"
             | "nearbyWarPausedUntil"
             | "nearbyWarLastAt"
             | "growthModifiers"
@@ -275,6 +276,8 @@ export type ValidateFrontierCommandInput = {
    */
   originIsAlliedDockCrossing?: boolean;
   expandClaimDurationMs?: number | undefined;
+  /** EXPAND's manpower price for this actor (scales with frontier held); defaults to EXPAND_MANPOWER_COST. */
+  expandManpowerCost?: number | undefined;
   /** Manpower currently mustered on the origin tile — attacks consume this. */
   originMuster?: number | undefined;
   /** Required muster for this attack (defaults to MUSTER_ATTACK_COST). */
@@ -321,13 +324,14 @@ export type ValidateFrontierCommandResult =
 
 const manpowerRequirements = (
   actionType: FrontierCommandType,
-  target: DomainTileState
+  target: DomainTileState,
+  expandManpowerCost: number
 ): { manpowerMin: number; manpowerCost: number } => {
   const attackMultiplier = actionType === "ATTACK" ? fortAttackManpowerMultiplier(target) : 1;
   if (actionType === "EXPAND") {
     // Manpower-economy rewrite:
     // claiming a frontier tile is the cheapest manpower-gated action.
-    return { manpowerMin: EXPAND_MANPOWER_COST, manpowerCost: EXPAND_MANPOWER_COST };
+    return { manpowerMin: expandManpowerCost, manpowerCost: expandManpowerCost };
   }
   return {
     manpowerMin: actionType === "ATTACK" ? ATTACK_MANPOWER_MIN * attackMultiplier : 0,
@@ -338,7 +342,7 @@ const manpowerRequirements = (
 export const validateFrontierCommand = (
   input: ValidateFrontierCommandInput
 ): ValidateFrontierCommandResult => {
-  const legacy = manpowerRequirements(input.actionType, input.to);
+  const legacy = manpowerRequirements(input.actionType, input.to, input.expandManpowerCost ?? EXPAND_MANPOWER_COST);
   const musterAttack = input.actionType === "ATTACK";
   const requiredMuster = input.requiredMuster ?? MUSTER_ATTACK_COST;
   const isBarbarianAttack = musterAttack && input.actor.id === "barbarian-1";

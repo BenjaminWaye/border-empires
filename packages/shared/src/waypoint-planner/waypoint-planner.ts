@@ -411,8 +411,8 @@ export const planWaypoint = (
     }
     const action: WaypointAction = classified.kind === "ENEMY" ? "ATTACK" : "EXPAND";
     const goldCost = FRONTIER_CLAIM_COST;
-    const manpowerCost = action === "ATTACK" ? requiredMusterForTarget(nextTile, state.domainIds) : EXPAND_MANPOWER_COST;
-    const manpowerMin = action === "ATTACK" ? requiredMusterForTarget(nextTile, state.domainIds) : EXPAND_MANPOWER_COST;
+    const manpowerCost = action === "ATTACK" ? requiredMusterForTarget(nextTile, state.domainIds) : state.expandManpowerCost ?? EXPAND_MANPOWER_COST;
+    const manpowerMin = action === "ATTACK" ? requiredMusterForTarget(nextTile, state.domainIds) : state.expandManpowerCost ?? EXPAND_MANPOWER_COST;
     const throughFog = Boolean(nextTile?.fogged);
     const step: WaypointStep = {
       origin: prev,

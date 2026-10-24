@@ -8,6 +8,7 @@ import { armMusterMarchTargeting, cancelMarchAction, MARCH_CANCEL_ACTION_IDS, ty
 import { announceDiscoveryTipForState } from "./client-onboarding-ui-gate/client-onboarding-ui-overlays.js";
 import { predictedMusterAmount } from "./client-muster-prediction/client-muster-prediction.js";
 import { musterSiegeReason, ownTileSiegeAt } from "./client-muster-siege/client-muster-siege.js";
+import { promptMusterAdvanceEffort } from "./client-muster-advance-effort/client-muster-advance-effort.js";
 
 // Inline to avoid circular dependency with client-tile-action-logic.ts
 // (which imports buildMusterActions from here).
@@ -175,9 +176,17 @@ export type MusterTileActionDeps = {
  */
 export const dispatchMusterTileAction = (actionId: string, tile: Tile, deps: MusterTileActionDeps): boolean => {
   const { x, y } = tile;
-  if (actionId === "muster_hold" || actionId === "muster_advance") {
-    deps.sendGameMessage({ type: "SET_MUSTER", x, y, mode: actionId === "muster_hold" ? "HOLD" : "ADVANCE" });
+  const announceFirstMuster = (): void => {
     if (deps.state.discoveryTipQueue) announceDiscoveryTipForState(deps.state, "FIRST_MUSTER", deps.renderHud, { x, y });
+  };
+  if (actionId === "muster_hold") {
+    deps.sendGameMessage({ type: "SET_MUSTER", x, y, mode: "HOLD" });
+    announceFirstMuster();
+    return true;
+  }
+  if (actionId === "muster_advance") {
+    // Pick the effort level (Normal / Extra / Double) before advancing.
+    promptMusterAdvanceEffort(x, y, { sendGameMessage: deps.sendGameMessage, onSent: announceFirstMuster });
     return true;
   }
   if (actionId === "muster_march") {

@@ -24,7 +24,7 @@ import {
   explainActionFailureFromServer
 } from "./client-player-actions.js";
 import { createPlayerActionShortcuts } from "./client-player-action-shortcuts/client-player-action-shortcuts.js";
-import { createNextFrontierCommandIdentity } from "./client-frontier-command/client-frontier-command.js";
+import { ensureClientCommandEnvelope } from "./client-command-envelope/client-command-envelope.js";
 import { clearMusterTransitForTarget } from "./client-muster-transit/client-muster-transit.js";
 import { handleMusterMarchTargetClick } from "./client-muster-march-targeting.js"; import { handleArrowGestureConfirm } from "./client-arrow-gesture-confirm.js";
 import { dispatchMusterTileAction } from "./client-muster-tile-actions.js";
@@ -250,28 +250,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     return false;
   };
 
-  const rewriteEnvelopeTypes = new Set([
-    "ATTACK",
-    "EXPAND",
-    "SETTLE",
-    "CANCEL_CAPTURE",
-    "UNCAPTURE_TILE",
-    "CHOOSE_TECH",
-    "CHOOSE_DOMAIN",
-    "SET_CONVERTER_STRUCTURE_ENABLED",
-    "SET_CONVERTER_STRUCTURE_MODE",
-    "REVEAL_EMPIRE",
-    "REVEAL_EMPIRE_STATS",
-    "AETHER_LANCE",
-    "CAST_AETHER_BRIDGE",
-    "CAST_AETHER_WALL",
-    "SIPHON_TILE",
-    "PURGE_SIPHON", "CANCEL_SIPHON",
-    "CREATE_MOUNTAIN",
-    "REMOVE_MOUNTAIN",
-    "SKY_DOCK_BOMBARD",
-    "COLLECT_SHARD"
-  ]);
 
   const sendGameMessage = (payload: unknown, message?: string): boolean => {
     if (!requireAuthedSession(message)) {
@@ -290,16 +268,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       payload && typeof payload === "object"
         ? (payload as { type?: unknown; commandId?: unknown; clientSeq?: unknown; disabled?: unknown })
         : undefined;
-    if (
-      maybeRewritePayload &&
-      typeof maybeRewritePayload.type === "string" &&
-      rewriteEnvelopeTypes.has(maybeRewritePayload.type) &&
-      (typeof maybeRewritePayload.commandId !== "string" || !maybeRewritePayload.commandId || typeof maybeRewritePayload.clientSeq !== "number")
-    ) {
-      const { commandId, clientSeq } = createNextFrontierCommandIdentity(state);
-      maybeRewritePayload.commandId = commandId;
-      maybeRewritePayload.clientSeq = clientSeq;
-    }
+    ensureClientCommandEnvelope(state, maybeRewritePayload);
     if (
       typeof window !== "undefined" &&
       (window.location.hostname === "localhost" ||
@@ -1210,7 +1179,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
 
-    if (handleWaypointAction({ state, selected: selectedCoords, actionId, keyFor, pushFeed, renderHud, hideTileActionMenu, showCaptureAlert, processActionQueue, sendGameMessage })) return;
+    if (handleWaypointAction({ state, selected: selectedCoords, actionId, keyFor, pushFeed, renderHud, hideTileActionMenu, showCaptureAlert, processActionQueue, sendGameMessage, originKey: _originKeyOverride })) return;
 
     if (actionId === "settle_many" && selected) {
       clearCrystalTargeting();

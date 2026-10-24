@@ -60,9 +60,29 @@ defines what these systems mean in the fiction; follow the
   is the source for those interactions (Ancillary Factory/Ancillary Depot,
   Reserve Lattice, Ancillary Factory, Neural Works, Census Directorate, seasonal
   bonuses).
-- Core action anchors: **EXPAND 10**, **SETTLE 20**, ordinary ATTACK **60**,
+- Core action anchors: **EXPAND 10** (base; it rises with the frontier tiles
+  held, to 50 at 1,000 and 100 at 2,000 — see `expandManpowerCostForFrontierCount`),
+  **SETTLE 20**, ordinary ATTACK **60**,
   and Deep Strike/Naval Infiltration **120** manpower. Structure costs are
   data-driven; inspect the registry instead of assuming a common price.
+
+### Forced Ancillarification
+
+Selecting an active, owned, garrisoned Ancillary Factory offers **Forced
+Ancillarification**. It permanently removes **2% of its assigned town's current
+population, rounded up**, for **100 immediate manpower**. This reserve can exceed
+the manpower cap, using the same overflow accounting as paid recruitment.
+A town must retain at least **10,000 residents**; population loss can lower its
+tier. There is a **4-hour cooldown per town**, shared by all factories supporting
+it, retained through captures and restarts. Dormant, inactive, unfinished and
+temporarily disabled factories cannot use it. Overlapping support rings use the
+ordinary town assignment rule. The factory menu previews the exact population
+cost as a resident count, without displaying the percentage, with the shared
+calculation used by the server.
+
+Sources: `packages/shared/src/forced-ancillarification/forced-ancillarification.ts`,
+`apps/simulation/src/forced-ancillarification/forced-ancillarification-command.ts`,
+`packages/client/src/client-forced-ancillarification/client-forced-ancillarification.ts`.
 
 ### Allied prosperity (Envoy Accreditation)
 

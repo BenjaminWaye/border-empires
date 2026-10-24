@@ -16,7 +16,7 @@ import { createInitialAetherShieldState } from "../client-aether-tower-protectio
 import { createInitialIslandNamesState } from "../client-map-name-labels/client-island-names-state.js";
 import { createInitialSocialState } from "./client-state-social-defaults.js"; import { createInitialSiegeBombardmentState } from "./client-state-siege-bombardment-defaults.js"; import { createInitialAfcDeliveryState } from "./client-state-afc-delivery-defaults.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
-import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, MUSTER_MAX_TILES, type BuildableStructureType, type FrontierCombatSideBreakdown, type SlotResource } from "@border-empires/shared";
+import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, EXPAND_MANPOWER_COST, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, MUSTER_MAX_TILES, type BuildableStructureType, type FrontierCombatSideBreakdown, type SlotResource } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
 import type { VictoryHoldAlert } from "../client-victory-alert/client-victory-alert.js";
 import { createInitialAttackDispatchState } from "./client-state-attack-dispatch-defaults.js";
@@ -115,6 +115,7 @@ export const createInitialState = () => ({
   manpowerCap: MANPOWER_BASE_CAP,
   manpowerRegenPerMinute: MANPOWER_BASE_REGEN_PER_MINUTE,
   logisticsThroughputPerMinute: MANPOWER_BASE_REGEN_PER_MINUTE,
+  expandManpowerCost: EXPAND_MANPOWER_COST, // frontier-scaled EXPAND price; real value arrives via PLAYER_UPDATE
   manpowerBreakdown: {
     cap: [{ label: "Base", amount: MANPOWER_BASE_CAP }],
     regen: [{ label: "Base", amount: MANPOWER_BASE_REGEN_PER_MINUTE }]
@@ -247,7 +248,7 @@ export const createInitialState = () => ({
   // state.capture.startAt so a brand-new claim (different startAt) always
   // reopens the banner even on the same tile. See client-capture-effects.ts.
   dismissedCaptureStartAt: undefined as number | undefined,
-  // See client-state-battle-overlay-defaults.ts: activeBattles, skirmishSeenAt.
+  // See client-state-battle-overlay-defaults.ts: activeBattles, skirmishSeenAt, squadGearByOwner.
   ...createInitialBattleOverlayState(),
   // Keyed by target tile key: a muster flag's ADVANCE-mode auto-fire attack in
   // flight (never occupies `capture`, a single slot for this client's own manually-dispatched action; see client-siege-tracking.ts). transitEndsAt/musterOriginX/Y: its mechanical travel-time delay, when the server sent it. isExpand: true for a MARCH-mode neutral-tile claim, not a fight — the skirmish overlay skips it.

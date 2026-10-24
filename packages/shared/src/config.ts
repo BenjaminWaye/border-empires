@@ -67,7 +67,11 @@ export const FOREST_VISION_RANGE = 1;
 // normal effective radius (before forest clamping is applied). See
 // isHillsTileAt in hills-terrain.ts and vision-footprint-table.ts.
 export const HILLS_VISION_BONUS = 1;
-export const COMBAT_LOCK_MS = 30_000;
+// Halved from 30_000 so fronts move faster: a flag runs at most
+// MUSTER_MAX_CONCURRENT_ACTIONS attacks at once, so this lock is what caps how
+// fast it can take frontier ground (settled ground stays capped by muster
+// inflow). attackResolveSpeedReduceMs bonuses were halved to match.
+export const COMBAT_LOCK_MS = 15_000;
 // How long a muster flag's company takes to march one tile before its
 // ATTACK actually fires/resolves. Single source of truth shared by both
 // runtimes: the client's own pre-send march for a manually-clicked attack

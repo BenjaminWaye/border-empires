@@ -1,7 +1,8 @@
+import { forcedAncillarificationActions } from "../client-forced-ancillarification/client-forced-ancillarification.js";
+export { canPlaceAetherWallFromOrigin, validAetherWallDirectionsForTile, aetherWallDirectionTargetTiles } from "./client-aether-wall-placement.js";
 import { afcTowerSuppressionAction } from "../client-afc-upgrades/client-afc-tower-action.js";
 import { afcEffectMultiplier } from "../client-afc-upgrades/client-afc-effect.js";
 import {
-  buildAetherWallSegments,
   nextTownGrowthUpgrade,
   type BuildableStructureType,
   SETTLE_COST, SETTLE_MANPOWER_COST,
@@ -71,7 +72,6 @@ export { hasOwnedLandWithinClientRange } from "../client-owned-land-range.js";
 
 type BuildableStructureId = BuildableStructureType;
 type AbilityCooldownId = keyof ClientState["abilityCooldowns"];
-type AetherWallLength = 1 | 2 | 3;
 
 export { hasFreeResourceSlots, missingResourceSlotReason } from "./client-resource-slot-gate.js";
 import { hasFreeResourceSlots, missingResourceSlotReason } from "./client-resource-slot-gate.js";
@@ -122,70 +122,6 @@ export const hasRetortRecastingCapability = (state: ClientState): boolean => pla
 
 export const hasTerrainShapingCapability = (state: ClientState): boolean => state.techIds.includes("terrain-engineering");
 
-
-export const canPlaceAetherWallFromOrigin = (
-  state: ClientState,
-  originX: number,
-  originY: number,
-  direction: ClientState["aetherWallTargeting"]["direction"],
-  length: AetherWallLength,
-  deps: Pick<TileActionLogicDeps, "wrapX" | "wrapY" | "keyFor" | "terrainAt">
-): boolean => {
-  const localhostOverride = hasLocalDevAetherWallOverride(state);
-  const segments = buildAetherWallSegments(originX, originY, direction, length, deps.wrapX, deps.wrapY);
-  if (segments.length !== length) return false;
-  for (const segment of segments) {
-    const baseTile = state.tiles.get(deps.keyFor(segment.baseX, segment.baseY));
-    if (!baseTile || baseTile.fogged || baseTile.ownerId !== state.me || baseTile.terrain !== "LAND") {
-      return false;
-    }
-    if (!localhostOverride && baseTile.ownershipState !== "SETTLED") {
-      return false;
-    }
-    const outwardTile = state.tiles.get(deps.keyFor(segment.toX, segment.toY));
-    if (outwardTile) {
-      if (outwardTile.fogged || outwardTile.terrain !== "LAND" || outwardTile.ownerId === state.me) return false;
-      continue;
-    }
-    if (!localhostOverride) return false;
-    if (deps.terrainAt(segment.toX, segment.toY) !== "LAND") return false;
-  }
-  return true;
-};
-
-export const validAetherWallDirectionsForTile = (
-  state: ClientState,
-  tile: Tile,
-  deps: Pick<TileActionLogicDeps, "wrapX" | "wrapY" | "keyFor" | "terrainAt">
-): Array<ClientState["aetherWallTargeting"]["direction"]> => {
-  if (tile.fogged || tile.ownerId !== state.me || tile.terrain !== "LAND") return [];
-  if (!hasLocalDevAetherWallOverride(state) && tile.ownershipState !== "SETTLED") return [];
-  const out: Array<ClientState["aetherWallTargeting"]["direction"]> = [];
-  const directions: Array<ClientState["aetherWallTargeting"]["direction"]> = ["N", "E", "S", "W"];
-  for (const direction of directions) {
-    if ([1, 2, 3].some((length) => canPlaceAetherWallFromOrigin(state, tile.x, tile.y, direction, length as 1 | 2 | 3, deps))) out.push(direction);
-  }
-  return out;
-};
-
-export const aetherWallDirectionTargetTiles = (
-  state: ClientState,
-  tile: Tile,
-  deps: Pick<TileActionLogicDeps, "wrapX" | "wrapY" | "keyFor" | "terrainAt">
-): Array<{ x: number; y: number; direction: ClientState["aetherWallTargeting"]["direction"]; dx: number; dy: number }> =>
-  validAetherWallDirectionsForTile(state, tile, deps)
-    .map((direction) => {
-      const segment = buildAetherWallSegments(tile.x, tile.y, direction, 1, deps.wrapX, deps.wrapY)[0];
-      if (!segment) return undefined;
-      return {
-        x: segment.toX,
-        y: segment.toY,
-        direction,
-        dx: segment.toX - segment.baseX,
-        dy: segment.toY - segment.baseY
-      };
-    })
-    .filter((value): value is { x: number; y: number; direction: ClientState["aetherWallTargeting"]["direction"]; dx: number; dy: number } => Boolean(value));
 
 // fortActionFromTier/siegeActionFromTier and their build/upgrade lookups
 // live in client-tile-action-fort-siege-variants.ts (extracted to keep this
@@ -266,7 +202,7 @@ const frontierBuildDetailSuffix = (tile: Tile): string =>
 
 // Also appends "Cancel March" on an own March-To order's destination tile (client-muster-march-targets.ts).
 export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] =>
-  appendMarchCancelAction(menuActionsForSingleTileInner(state, tile, deps), state, tile);
+  appendMarchCancelAction([...menuActionsForSingleTileInner(state, tile, deps), ...forcedAncillarificationActions(state, tile)], state, tile);
 
 const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] => {
   if (tile.fogged) return foggedTileActions(state, tile, deps);

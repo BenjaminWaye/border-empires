@@ -85,12 +85,12 @@
       "id": "titanium-vanguard",
       "tier": 2,
       "name": "Steam Vanguard",
-      "description": "Boiler-fed assault columns commit before the enemy can dig in. Attacks resolve 5s faster, and one more muster flag can be held at once.",
+      "description": "Boiler-fed assault columns commit before the enemy can dig in. Attacks resolve 2.5s faster, and one more muster flag can be held at once.",
       "requiresTechId": "fortified-walls",
       "cost": { "gold": 200, "shard": 1 },
       "effects": {
         "musterMaxTilesAdd": 1,
-        "attackResolveSpeedReduceMs": 5000
+        "attackResolveSpeedReduceMs": 2500
       }
     },
     {

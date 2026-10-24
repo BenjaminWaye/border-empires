@@ -6,6 +6,7 @@ import {
   CLASH_MS,
   type BattleOverlaySkirmishEntry
 } from "@client/client-map-3d-popup-marine/popup-marine-overlay-fx.js";
+import { createBuildingEnvironmentTexture } from "@client/client-map-3d-atmosphere.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
 // The SKIRMISH loop on its own: a siege whose outcome the server has not
@@ -23,6 +24,11 @@ import { createStage, wrapWithCleanup } from "../three-stage.js";
 //
 // PopupMarineOverlayFx/FullAttackLifecycle shows this phase handing over to
 // a resolved battle; this story just lets it run.
+//
+// The factory toggles show each side's weapons-factory gear: the heavy
+// armour (Titanium), and Umbrite rounds (violet core, orange glow, ember
+// bursts). The stage gets the game's building environment map so the
+// armour's titanium edging reflects as it does on the map.
 
 const TILE_GAP = 2.4;
 
@@ -31,6 +37,10 @@ type Args = {
   defenderColor: string;
   cameraDistance: number;
   siegeTowerBeaming: boolean;
+  attackerTitanium: boolean;
+  attackerUmbrite: boolean;
+  defenderTitanium: boolean;
+  defenderUmbrite: boolean;
 };
 
 // hashSeed 1 == tileHashSeed(0, 1) — the tile coordinate the "siege tower
@@ -50,7 +60,8 @@ const makeTerritoryTile = (x: number, color: string): Mesh => {
 
 const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, background: "#0d0f16" });
-  const fx = createPopupMarineOverlayFx(stage.scene);
+  const envMap = createBuildingEnvironmentTexture(stage.renderer);
+  const fx = createPopupMarineOverlayFx(stage.scene, envMap);
 
   const attackerTile = makeTerritoryTile(-TILE_GAP / 2, args.attackerColor);
   const defenderTile = makeTerritoryTile(TILE_GAP / 2, args.defenderColor);
@@ -69,7 +80,9 @@ const render = (args: Args): HTMLElement => {
     startAt,
     hashSeed: 1,
     // A beaming tower is boosting this fight, so the opening lance plays too.
-    siegeBoosted: args.siegeTowerBeaming
+    siegeBoosted: args.siegeTowerBeaming,
+    attackerGear: { titanium: args.attackerTitanium, umbrite: args.attackerUmbrite },
+    defenderGear: { titanium: args.defenderTitanium, umbrite: args.defenderUmbrite }
   };
 
   const label = document.createElement("div");
@@ -111,6 +124,7 @@ const render = (args: Args): HTMLElement => {
     () => {
       cancelAnimationFrame(rafId);
       fx.dispose();
+      envMap.dispose();
       attackerTile.geometry.dispose();
       (attackerTile.material as MeshStandardMaterial).dispose();
       defenderTile.geometry.dispose();
@@ -127,13 +141,21 @@ const meta: Meta<Args> = {
     attackerColor: { control: "color" },
     defenderColor: { control: "color" },
     cameraDistance: { control: { type: "range", min: 2, max: 12, step: 0.5 } },
-    siegeTowerBeaming: { control: "boolean" }
+    siegeTowerBeaming: { control: "boolean" },
+    attackerTitanium: { control: "boolean" },
+    attackerUmbrite: { control: "boolean" },
+    defenderTitanium: { control: "boolean" },
+    defenderUmbrite: { control: "boolean" }
   },
   args: {
     attackerColor: "#4fb3ff",
     defenderColor: "#ff5d5d",
     cameraDistance: 5,
-    siegeTowerBeaming: false
+    siegeTowerBeaming: false,
+    attackerTitanium: false,
+    attackerUmbrite: false,
+    defenderTitanium: false,
+    defenderUmbrite: false
   },
   render
 };
@@ -156,3 +178,14 @@ export const StandoffCloseUp: Story = { args: { cameraDistance: 2.5 } };
  * popup-marine-siege-victim.ts. Watch the defender side (right) the moment
  * "STANDOFF" appears in the label. */
 export const KillShotCloseUp: Story = { args: { cameraDistance: 2.5, siegeTowerBeaming: true } };
+
+/** Blue owns a Titanium Weapons Factory (heavy armour), red an Umbrite
+ * Weapons Factory (Umbrite rounds). */
+export const WeaponsFactoryGear: Story = {
+  args: { cameraDistance: 2.5, attackerTitanium: true, defenderUmbrite: true }
+};
+
+/** Both factories on both sides: heavy armour and Umbrite rounds together. */
+export const BothFactoriesBothSides: Story = {
+  args: { cameraDistance: 2.5, attackerTitanium: true, attackerUmbrite: true, defenderTitanium: true, defenderUmbrite: true }
+};

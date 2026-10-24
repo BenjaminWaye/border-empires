@@ -35,8 +35,9 @@ export type MusterMarchTargetResult =
  * flag scouts, and the server routes against the real map (expanding across
  * neutral land as it goes), so the client needs nothing but coordinates.
  * The player is told the target is unknown, since the confirm sheet has no
- * tile data to show for it; if the tile turns out not to be LAND the server
- * rejects the SET_MUSTER with MUSTER_MARCH_TARGET_NOT_LAND_MESSAGE.
+ * tile data to show for it; if the tile turns out to be a mountain, sea or an
+ * unreachable isle, the server's march stops short at the closest point and
+ * quietly falls back to HOLD (maybeMarchFire).
  */
 export const handleMusterMarchTargetClick = (
   state: Pick<ClientState, "musterMarchTargeting">,

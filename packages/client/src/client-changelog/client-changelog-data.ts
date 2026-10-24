@@ -22,6 +22,7 @@ import { SIEGE_FX_GATE_CHANGELOG } from "./client-changelog-siege-fx-gate.js";
 import { INCURSION_HATCH_HILLS_CHANGELOG } from "./client-changelog-incursion-hatch-hills.js";
 import { MARCH_ACROSS_WATER_CHANGELOG } from "./client-changelog-march-across-water.js";
 import { MARCH_UNEXPLORED_CHANGELOG } from "./client-changelog-march-unexplored.js";
+import { MARCH_STOP_SHORT_CHANGELOG } from "./client-changelog-march-stop-short.js";
 import { RECONNECT_NO_AUTH_CHANGELOG } from "./client-changelog-reconnect-no-auth.js";
 import { PLANETARY_DEFENSE_MUSTER_FLAG_CHANGELOG } from "./client-changelog-planetary-defense-muster-flag.js";
 import { YOURS_TILE_COORDS_CHANGELOG } from "./client-changelog-yours-tile-coords.js";
@@ -33,6 +34,10 @@ import { FOGGED_MIST_FEATURES_CHANGELOG } from "./client-changelog-fogged-mist-f
 import { EXPIRED_TRUCE_OFFERS_CHANGELOG } from "./client-changelog-expired-truce-offers.js";
 import { LOST_STRUCTURES_CHANGELOG } from "./client-changelog-lost-structures.js";
 import { CAPTURED_MUSTER_CLEAR_CHANGELOG } from "./client-changelog-captured-muster-clear.js";
+import { ADVANCE_EFFORT_CHANGELOG } from "./client-changelog-advance-effort.js";
+import { FASTER_ATTACKS_FRONTIER_COST_CHANGELOG } from "./client-changelog-faster-attacks-frontier-cost.js";
+import { MARCH_ATTACK_DEEP_CHANGELOG } from "./client-changelog-march-attack-deep.js";
+import { WAR_INDUSTRY_SQUADS_CHANGELOG } from "./client-changelog-war-industry-squads.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -293,6 +298,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...INCURSION_HATCH_HILLS_CHANGELOG,
   ...MARCH_ACROSS_WATER_CHANGELOG,
   ...MARCH_UNEXPLORED_CHANGELOG,
+  ...MARCH_STOP_SHORT_CHANGELOG,
   ...RECONNECT_NO_AUTH_CHANGELOG,
   ...PLANETARY_DEFENSE_MUSTER_FLAG_CHANGELOG,
   ...YOURS_TILE_COORDS_CHANGELOG,
@@ -303,7 +309,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...FOGGED_MIST_FEATURES_CHANGELOG,
   ...EXPIRED_TRUCE_OFFERS_CHANGELOG,
   ...LOST_STRUCTURES_CHANGELOG,
-  ...CAPTURED_MUSTER_CLEAR_CHANGELOG
+  ...CAPTURED_MUSTER_CLEAR_CHANGELOG,
+  ...ADVANCE_EFFORT_CHANGELOG,
+  ...FASTER_ATTACKS_FRONTIER_COST_CHANGELOG,
+  ...MARCH_ATTACK_DEEP_CHANGELOG,
+  {
+    createdAt: 1792832339274, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.24.1",
+    title: "Forced Ancillarification",
+    why: "A flat population sacrifice becomes trivial in large towns. The cost should grow with the population at stake.",
+    changes: ["Active Ancillary Factories can convert residents from their supported town into 100 immediate manpower, even above the cap. The menu shows exactly how many people will be taken.", "Each town can be forced once every four hours and must retain at least 10,000 residents. The factory menu shows the exact population cost."]
+  },
+  ...WAR_INDUSTRY_SQUADS_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

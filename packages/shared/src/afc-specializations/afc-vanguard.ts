@@ -19,13 +19,13 @@ export const AFC_VANGUARD = [
     "tier": 2,
     "branch": "vanguard",
     "name": "Assault Command Lattice",
-    "description": "Field one extra muster flag and shorten attack resolution by 10 seconds. Travel time stays the same; the AFC adds command channels for another formation.",
-    "mechanicalSummary": "+1 muster flag | Attack resolution −10 sec.",
+    "description": "Field one extra muster flag and shorten attack resolution by 5 seconds. Travel time stays the same; the AFC adds command channels for another formation.",
+    "mechanicalSummary": "+1 muster flag | Attack resolution −5 sec.",
     "category": "ongoing",
     "requiresTechId": "",
     "effects": {
       "musterMaxTilesAdd": 1,
-      "attackResolveSpeedReduceMs": 10000
+      "attackResolveSpeedReduceMs": 5000
     }
   },
   {

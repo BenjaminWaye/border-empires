@@ -1,5 +1,13 @@
 import { APPROACH_MS, CLASH_MS, ROUT_MS } from "../client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import type { ClientState } from "../client-state/client-state.js";
+import {
+  ownedFactories,
+  squadGearFromStructures,
+  squadGearFromWire,
+  type SquadGear,
+  type SquadGearFields,
+  type WireWarGear
+} from "../client-map-3d-popup-marine/popup-marine-gear.js";
 
 // Wire shape of a TILE_DELTA_BATCH tile delta's `combatJson` field (mirrors
 // CombatBroadcastPayload in @border-empires/sim-protocol — duplicated here
@@ -18,6 +26,10 @@ type CombatBroadcastPayload = {
   // shield fired by seeing it, the same way every other hidden enemy
   // strength number stays hidden until a fight reveals it).
   shield?: { x: number; y: number };
+  // Each side's cosmetic war industry (CombatBroadcastPayload's
+  // BattleWarGear): one flag per weapons factory type the empire owns.
+  attackerGear?: WireWarGear;
+  defenderGear?: WireWarGear;
 };
 
 const isCombatBroadcastPayload = (value: unknown): value is CombatBroadcastPayload =>
@@ -47,7 +59,70 @@ export type ActiveBattleOverlay = {
   // attacker's own march-in from originX/originY.
   shieldX?: number;
   shieldY?: number;
+  attackerGear?: SquadGear;
+  defenderGear?: SquadGear;
 };
+
+// Comfortably above any real season's empire count; only a guard against a
+// very long session accumulating ids (AGENTS.md state discipline).
+const MAX_REMEMBERED_GEAR_OWNERS = 512;
+
+const hasAnyGear = (gear: SquadGear): boolean => ownedFactories(gear).length > 0;
+
+/** Records what a broadcast says an owner's war industry is, so a later
+ * pre-resolution skirmish involving them can show it before its own
+ * broadcast lands. A broadcast without any gear clears the owner, so an
+ * empire that lost its last factory goes back to plain infantry. */
+const rememberSquadGear = (owners: Map<string, SquadGear>, ownerId: string, gear: SquadGear): void => {
+  owners.delete(ownerId);
+  if (!hasAnyGear(gear)) return;
+  owners.set(ownerId, gear);
+  if (owners.size > MAX_REMEMBERED_GEAR_OWNERS) {
+    const oldest = owners.keys().next().value;
+    if (oldest !== undefined) owners.delete(oldest);
+  }
+};
+
+type SquadGearState = Pick<ClientState, "squadGearByOwner" | "tiles" | "me" | "tilesRevision">;
+
+/** Squad gear to render for `ownerId` when no broadcast has said otherwise
+ * for this specific fight (skirmishes, capture-hold garrisons, marches). The
+ * local player's own gear comes straight off their tiles, which are always
+ * current -- their first fight already shows a factory they just built. */
+export const knownSquadGearFor = (state: SquadGearState, ownerId: string | undefined): SquadGear => {
+  if (ownerId !== undefined && ownerId === state.me) return localPlayerSquadGear(state);
+  return (ownerId ? state.squadGearByOwner.get(ownerId) : undefined) ?? {};
+};
+
+// One entry: the last scan, valid until any render-relevant tile change
+// (tilesRevision covers structures and ownership) or a different player.
+let ownGearCache: { tiles: ClientState["tiles"]; revision: number; me: string | undefined; gear: SquadGear } | undefined;
+
+/** The local player's own gear, read straight off their tiles -- needs no
+ * battle broadcast. Scans every tile, but only once per tile revision. */
+export const localPlayerSquadGear = (state: Pick<ClientState, "tiles" | "me" | "tilesRevision">): SquadGear => {
+  const cached = ownGearCache;
+  if (cached && cached.tiles === state.tiles && cached.revision === state.tilesRevision && cached.me === state.me) return cached.gear;
+  const owned = new Set<string>();
+  for (const tile of state.tiles.values()) {
+    if (tile.ownerId === state.me && tile.economicStructure) owned.add(tile.economicStructure.type);
+  }
+  const gear = squadGearFromStructures(owned);
+  ownGearCache = { tiles: state.tiles, revision: state.tilesRevision, me: state.me, gear };
+  return gear;
+};
+
+/** Both sides' gear for a battle/skirmish render entry: a resolved battle's
+ * own broadcast wins, otherwise whatever is known per owner. */
+export const squadGearFields = (
+  state: SquadGearState,
+  attackerOwnerId: string,
+  defenderOwnerId: string,
+  resolved?: Pick<ActiveBattleOverlay, "attackerGear" | "defenderGear">
+): SquadGearFields => ({
+  attackerGear: resolved?.attackerGear ?? knownSquadGearFor(state, attackerOwnerId),
+  defenderGear: resolved?.defenderGear ?? knownSquadGearFor(state, defenderOwnerId)
+});
 
 /** Parses a tile delta's raw `combatJson` field (if present) and, when valid,
  * registers/refreshes an entry in state.activeBattles keyed by the target
@@ -56,7 +131,7 @@ export type ActiveBattleOverlay = {
  * overlay FX. Purely additive: never touches state.capture or the frontier
  * action-queue HUD. */
 export const registerActiveBattleFromTileDelta = (
-  state: Pick<ClientState, "activeBattles" | "skirmishSeenAt">,
+  state: Pick<ClientState, "activeBattles" | "skirmishSeenAt" | "squadGearByOwner">,
   keyFor: (x: number, y: number) => string,
   update: { x: number; y: number; combatJson?: string },
   nowMs: number
@@ -92,6 +167,10 @@ export const registerActiveBattleFromTileDelta = (
   // its approach open past the default APPROACH_MS. Skipping the approach
   // outright sidesteps both — there's no timing to inherit or race over.
   const seenAt = state.skirmishSeenAt.get(key);
+  const attackerGear = squadGearFromWire(parsed.attackerGear);
+  const defenderGear = squadGearFromWire(parsed.defenderGear);
+  rememberSquadGear(state.squadGearByOwner, parsed.attackerOwnerId, attackerGear);
+  rememberSquadGear(state.squadGearByOwner, parsed.defenderOwnerId, defenderGear);
   const startAt = nowMs - APPROACH_MS;
   const clashAt = nowMs;
   state.activeBattles.set(key, {
@@ -112,7 +191,9 @@ export const registerActiveBattleFromTileDelta = (
     // re-plays its death animation instead of starting collapsed, not a
     // full restart.
     fromSkirmish: seenAt !== undefined,
-    ...(parsed.shield ? { shieldX: parsed.shield.x, shieldY: parsed.shield.y } : {})
+    ...(parsed.shield ? { shieldX: parsed.shield.x, shieldY: parsed.shield.y } : {}),
+    attackerGear,
+    defenderGear
   });
 };
 
