@@ -66,7 +66,7 @@ import { createSurveySweepPingOverlay } from "../client-map-3d-survey-sweep-ping
 import { createAnchoredFxLayers } from "../client-map-3d-anchored-fx/client-map-3d-anchored-fx-layers.js"; import { isAfcHiddenForJoinDrop, isForestTileWithAfcLandingHold, terrainWithAfcLandingHold } from "../client-afc-join-drop/client-afc-join-drop-state.js"; import { createCameraShakeFx } from "../client-map-3d-camera-shake-fx/client-map-3d-camera-shake-fx.js";
 import { createFxCastOverlaySyncs } from "./client-map-3d-fx-cast-overlays.js";
 import { shouldShowTownSmoke, shouldShowTownUnfedWarning, shouldShowTownUpgradeReadyBadge } from "../client-town-growth/client-town-growth.js";
-import { dockRotationAt } from "../client-map-3d-dock-rotation/client-map-3d-dock-rotation.js";
+import { addHarbourPieceAt, buildHarbourFrame, type HarbourPieceDeps } from "../client-map-3d-harbour/client-map-3d-harbour-placement.js";
 import { createDockOverlay } from "../client-map-3d-dock-overlay.js"; import { createDockRouteOverlay } from "../client-map-3d-dock-route-overlay.js"; import { createDockRouteSync } from "../client-map-3d-dock-route-sync.js";
 import { createPlanetaryDefenseOverlay } from "../client-map-3d-planetary-defense-overlay.js"; import { planetaryDefenseEngagedTileKeys } from "../client-map-3d-planetary-defense-engagement.js";
 import { createShardOverlay } from "../client-map-3d-shard-overlay.js"; import { createWatchtowerOverlay } from "../client-map-3d-watchtower-overlay.js"; import { createWaystationOverlay } from "../client-map-3d-waystation-overlay.js"; import { createAfcOverlayGroup } from "../client-map-3d-afc-module-family.js";
@@ -344,6 +344,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
     return terrainWithAfcLandingHold(deps.state.afcJoinDrop, wx, wy, tile?.terrain ?? deps.terrainAt(wx, wy)); // footprint mountains stay until the join drop lands
   };
+  const harbourPieceDeps: HarbourPieceDeps = { dockOverlay, terrainAt: terrainForWorldTile, landYAt: (wx, wy) => heightfield.elevationAt(wx, wy), addShadow: (x, z, y, kind) => contactShadowOverlay.addShadow(x, z, y, kind === "quay" ? DEFAULT_CONTACT_SHADOW_RADIUS_TILES : SMALL_CONTACT_SHADOW_RADIUS_TILES) };
   // visualLandBiomeAt re-derives the same deterministic mechanical biome a
   // visible tile's tile.landBiome would carry, plus (from worldgenVersion 8)
   // the cosmetic-only PLAINS/JUNGLE/MARSH/SNOW promotions that field can
@@ -731,14 +732,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     structureOverlay.clear();
     ambaricTransformerOverlay.clear();
     defensibilityOverlay.clear();
-    // Build the dock-endpoint key set the same way the 2D runtime loop
-    // does, since `tile.dockId` is not reliably populated on every
-    // dock-endpoint tile snapshot.
-    const dockEndpointKeys = new Set<string>();
-    for (const pair of deps.state.dockPairs) {
-      dockEndpointKeys.add(deps.keyFor(pair.ax, pair.ay));
-      dockEndpointKeys.add(deps.keyFor(pair.bx, pair.by));
-    }
+    const harbourFrame = buildHarbourFrame(deps.state, deps.keyFor, terrainForWorldTile);
     const selectedCoord = deps.state.selected;
     let selectedOwnershipDebug: Record<string, unknown> | undefined;
 
@@ -886,14 +880,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           waterSurface.addTile(x, z, isShallowSeaTile(wx, wy, terrainForWorldTile, deps.wrapX, deps.wrapY), wx, wy);
           continue;
         }
-        // Dock 3D pier/quay/harbor — anchored to the tile's land Y so
-        // the deck sits on the ground inland and overhangs the water.
-        if (tile?.dockId || dockEndpointKeys.has(tileKey)) {
-          const dockRotation = dockRotationAt(wx, wy, terrainForWorldTile, deps.wrapX, deps.wrapY);
-          const dockSurfaceY = Math.max(heightfield.elevationAt(wx, wy), -0.04) + 0.02;
-          dockOverlay.addInstance(x, z, dockSurfaceY, dockRotation, wx, wy);
-          contactShadowOverlay.addShadow(x, z, dockSurfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
-        }
+        addHarbourPieceAt(harbourFrame, harbourPieceDeps, tile, tileKey, wx, wy, x, z); // quay on a dock, landing slipway on its beaches
         if (terrain === "MOUNTAIN") {
           mountainMassifs.addInstance(x, z, surfaceY, wx, wy);
           continue;

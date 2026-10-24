@@ -292,6 +292,23 @@ defender has to watch a stretch of coast, not only the quay. A landing has
 no road home. It is supplied by sea, through the harbour it sailed from, and
 a rival who takes that harbour strands everything put ashore from it.
 
+### What a harbour looks like
+
+A frontier harbour is ordinary machinery, like everything else a town will
+run: coal, steam, timber and iron, with no aether-work in it. The quay is
+dressed stone with an iron-capped edge and a timber pier on piles. A toll and
+harbourmaster's house keeps the freight and the tolls that back a House's Coin
+(§11), a coal-fired steam derrick swings cargo off the pier, a lamp burns at
+the pier head for the sea lane, and a paddle-steamer ferry lies alongside.
+
+The beaches beside the quay are part of the harbour. Each carries a slipway:
+a timber ramp with iron rails running down into the water, a flat-bottomed
+landing barge hauled up it, a winch, a lantern and stacked supplies brought
+in by sea. They are where the harbour's landings come ashore, which is why a
+defender watches the whole stretch and not only the quay. A harbour is a
+transport hub, not a fortification: it carries no guns and no walls, and a
+Palisade is what defends it.
+
 ### What a beacon looks like
 
 A slender lattice tower of dark iron, with four legs that converge on a

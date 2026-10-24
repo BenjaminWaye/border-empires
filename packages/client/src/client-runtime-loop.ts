@@ -55,6 +55,7 @@ import { clampedTileHalfExtents, resolveTileBudget } from "./client-map-3d-tile-
 import { drawTileGround2D } from "./client-map-render-2d-tile-ground/client-map-render-2d-tile-ground.js";
 import { drawShardRainFx2D } from "./client-shard-rain-fx-2d/client-shard-rain-fx-2d.js";
 import { drawLandingGroundAndSupply2D } from "./client-dock-landing/client-dock-landing-2d.js";
+import { dockEndpointKeySet } from "./client-harbour-slipways/client-harbour-slipways.js";
 import { drawAetherTowerSprite2D } from "./client-aether-tower-sprite-2d/client-aether-tower-sprite-2d.js";
 import { drawSiphonOverlay2D } from "./client-siphon-overlay-2d/client-siphon-overlay-2d.js"; import { drawArrowGesture2D, drawShieldAreaTile2D, drawWinChanceLabel2D, winChancePaintColorForTile2D } from "./client-map-render-2d-combat-overlays.js"; import { collectKnownShieldFlags, tileShieldCoverage } from "./client-known-shield-flags.js";
 
@@ -237,11 +238,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
     const size = state.zoom;
     const { halfW, halfH } = clampedTileHalfExtents(Math.floor(deps.canvas.width / size / 2), Math.floor(deps.canvas.height / size / 2), resolveTileBudget(MIN_ZOOM));
-    const dockEndpointKeys = new Set<string>();
-    for (const pair of state.dockPairs) {
-      dockEndpointKeys.add(deps.keyFor(pair.ax, pair.ay));
-      dockEndpointKeys.add(deps.keyFor(pair.bx, pair.by));
-    }
+    const dockEndpointKeys = dockEndpointKeySet(state.dockPairs, deps.keyFor);
     // Reach overlay: resolveMyReachCached recomputes only when tiles or the
     // server reach actually changed (same cache the 3D renderer uses).
     const myReach = isTrue3DRendererActive() ? state.myReach : resolveMyReachCached(state);
@@ -1199,7 +1196,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         viewportWidth: deps.canvas.width,
         viewportHeight: deps.canvas.height,
         ownerColor: deps.effectiveOverlayColor(state.me),
-        nowMs
+        nowMs,
+        tileVisible: (x, y) => effectiveFogDisabled(state) || deps.tileVisibilityStateAt(x, y, state.tiles.get(deps.keyFor(x, y))) === "visible"
       });
     }
 

@@ -1,4 +1,5 @@
 import { resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
+import { drawSlipways2D } from "../client-harbour-slipways/client-harbour-slipways-2d.js";
 import { drawFrontierSupplyForState2D, type FrontierSupply2DDeps } from "../client-frontier-supply/client-frontier-supply-2d.js";
 import type { FrontierSupplyState } from "../client-frontier-supply/client-frontier-supply-state.js";
 import { landingAshoreDirection, landingGroundKeysForSelection, type DockLandingState } from "./client-dock-landing.js";
@@ -130,12 +131,17 @@ export const drawHostileLandingGround2D = (
     borderAlpha: HOSTILE_LANDING_BORDER_ALPHA
   }, deps);
 
-/** The 2D map's maritime pass, after the tile loop: hostile landing ground, the selection's landing ground, then the frontier supply lines. */
+/**
+ * The 2D map's maritime pass, after the tile loop: the harbours' landing
+ * slipways, hostile landing ground, the selection's landing ground, then the
+ * frontier supply lines.
+ */
 export const drawLandingGroundAndSupply2D = (
   ctx: CanvasRenderingContext2D,
   state: FrontierSupplyState & HostileLandingState & { readonly selected: { x: number; y: number } | undefined },
-  deps: FrontierSupply2DDeps
+  deps: FrontierSupply2DDeps & { readonly tileVisible: (x: number, y: number) => boolean }
 ): void => {
+  drawSlipways2D(ctx, state, deps);
   drawHostileLandingGround2D(ctx, state, resolveMyReachCached(state), Date.now(), deps);
   drawLandingGround2D(ctx, state, deps);
   drawFrontierSupplyForState2D(ctx, state, deps);

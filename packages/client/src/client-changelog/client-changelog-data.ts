@@ -323,7 +323,9 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A beach landing is supplied through the dock you sailed from: lose that dock and the landing is cut off at once",
       "Supply lines draw the sea leg back to your home dock, with a ring on the dock the landing depends on",
       "Muster flags on Advance or March use beach landings too",
-      "Barbarians holding a dock can land on those beaches as well"
+      "Barbarians holding a dock can land on those beaches as well",
+      "Docks are redrawn as harbours: a stone quay with a toll house, a steam derrick and a moored paddle steamer, and a landing slipway with a beached landing barge on each beach beside it, so you can see where crossings come ashore without selecting anything",
+      "Docks on east and west coasts now face the sea instead of inland"
     ]
   }
 ];
