@@ -22,6 +22,17 @@ describe("createFortOverlay variant wiring", () => {
     overlay.dispose();
   });
 
+  it("drops every open wall but keeps the corner towers", () => {
+    const scene = new Scene();
+    const overlay = createFortOverlay(scene, 4);
+    overlay.addInstance(0, 0, 0, "FORT", "EAST_WEST");
+    overlay.addInstance(2, 0, 0, "PALISADE", "NORTH_EAST_SOUTH_WEST");
+    overlay.commit();
+    const pieces = instancedMeshesIn(scene).reduce((total, mesh) => total + mesh.count, 0);
+    expect(pieces).toBe((2 + 4) + (0 + 4));
+    overlay.dispose();
+  });
+
   it("renders bastions with their own metal meshes, not the stone or wood fort meshes", () => {
     const scene = new Scene();
     const overlay = createFortOverlay(scene, 4);

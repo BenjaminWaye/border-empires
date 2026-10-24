@@ -50,13 +50,19 @@ const families = {
   }
 };
 
-const openings = {
-  CLOSED: "closed",
-  NORTH: "open-north",
-  EAST: "open-east",
-  SOUTH: "open-south",
-  WEST: "open-west"
-};
+// Every combination of open sides, matching FORTIFICATION_OPENINGS in
+// packages/client/src/client-fortification-overlays/client-fortification-overlays.ts.
+// A fort opens every wall touching a same-owner fort; "NORTH_EAST" is written
+// as fort-ring-overlay-open-north-east.svg.
+const sideOrder = ["NORTH", "EAST", "SOUTH", "WEST"];
+const openings = Object.fromEntries(
+  Array.from({ length: 16 }, (_, mask) => {
+    const sides = sideOrder.filter((_, bit) => mask & (1 << bit));
+    if (sides.length === 0) return ["CLOSED", "closed"];
+    return [sides.join("_"), `open-${sides.map((side) => side.toLowerCase()).join("-")}`];
+  })
+);
+const openSides = (opening) => (opening === "CLOSED" ? [] : opening.split("_"));
 
 const wallShapes = {
   NORTH: {
@@ -223,12 +229,11 @@ const wallSurfaceDetails = (style, direction, colors) => {
   return "";
 };
 
-const shouldRenderWall = (direction, opening) => direction !== opening;
+const shouldRenderWall = (direction, opening) => !openSides(opening).includes(direction);
 
-const shouldRenderTower = (tower, opening) => {
-  if (opening === "CLOSED") return true;
-  return !cardinalForTower[tower].includes(opening);
-};
+// A corner tower drops when either wall beside it opens, so a block of forts
+// keeps towers only at its outer corners.
+const shouldRenderTower = (tower, opening) => !cardinalForTower[tower].some((side) => openSides(opening).includes(side));
 
 const renderWall = (direction, opening, colors) => {
   if (!shouldRenderWall(direction, opening)) return "";
@@ -261,16 +266,17 @@ const renderTower = (tower, opening, colors) => {
 
 const crenels = (opening, colors) => {
   const tags = [];
-  if (opening !== "NORTH") {
+  const open = openSides(opening);
+  if (!open.includes("NORTH")) {
     for (let x = 18; x <= 44; x += 9) tags.push(`<rect x="${x}" y="2.2" width="4.5" height="2.2" rx="1" fill="${colors.inner}" opacity="0.95" />`);
   }
-  if (opening !== "SOUTH") {
+  if (!open.includes("SOUTH")) {
     for (let x = 17; x <= 45; x += 9) tags.push(`<rect x="${x}" y="59.8" width="5" height="2.2" rx="1" fill="${colors.inner}" opacity="0.95" />`);
   }
-  if (opening !== "WEST") {
+  if (!open.includes("WEST")) {
     for (let y = 18; y <= 44; y += 9) tags.push(`<rect x="1.8" y="${y}" width="2.2" height="4.5" rx="1" fill="${colors.inner}" opacity="0.95" />`);
   }
-  if (opening !== "EAST") {
+  if (!open.includes("EAST")) {
     for (let y = 18; y <= 44; y += 9) tags.push(`<rect x="60" y="${y}" width="2.2" height="4.5" rx="1" fill="${colors.inner}" opacity="0.95" />`);
   }
   return `<g>${tags.join("")}</g>`;
@@ -284,7 +290,11 @@ const banner = (opening, colors) => {
     SOUTH: [31.5, 13.5, 0],
     WEST: [48.5, 31.5, 90]
   };
-  const [x, y, rotate] = placements[opening];
+  // Several sides open: the banner stands on the first wall still up, or in
+  // the middle of the tile once every wall is open.
+  const firstClosedWall = ["NORTH", "SOUTH", "WEST", "EAST"].find((side) => !openSides(opening).includes(side));
+  const wallPlacements = { NORTH: placements.CLOSED, SOUTH: placements.NORTH, WEST: placements.EAST, EAST: placements.WEST };
+  const [x, y, rotate] = placements[opening] ?? (firstClosedWall ? wallPlacements[firstClosedWall] : [31.5, 31.5, 0]);
   return `
     <g transform="translate(${x} ${y}) rotate(${rotate})">
       <rect x="-0.8" y="-4.4" width="1.6" height="8.8" rx="0.8" fill="${colors.shadow}" />

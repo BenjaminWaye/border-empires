@@ -6,7 +6,11 @@ import {
   Scene,
   Texture
 } from "three";
-import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
+import {
+  fortificationOpeningSides,
+  type FortificationOpening,
+  type FortificationOverlayKind
+} from "./client-fortification-overlays/client-fortification-overlays.js";
 import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 import { createSiegeMachineOverlay } from "./client-map-3d-siege-machine-overlay.js";
 import { CONSTRUCTION_PHASES, type ConstructionSite } from "./client-construction-phase/client-construction-phase.js";
@@ -15,10 +19,9 @@ import { FORT_CONSTRUCTION_LAYOUT } from "./client-map-3d-construction/client-ma
 
 // Fort 3D overlay: stone, wood, and the two metal fort-ladder variants
 // (TITANIUM_BASTION, THUNDER_BASTION) each get a 4-wall + 4-corner-tower
-// silhouette (no floor — terrain shows through) with one wall optionally
-// omitted to mirror the `fortificationOpeningForTile` rule (1 cardinal
-// opening max). SIEGE_BATTERY is an armored siege machine with a big
-// forward cannon and a rotating aether targeting head, built by
+// silhouette (no floor — terrain shows through) with every wall that
+// touches a same-owner fort omitted, mirroring `fortificationOpeningForTile`.
+// SIEGE_BATTERY is an armored siege machine with a big forward cannon and a rotating aether targeting head, built by
 // client-map-3d-siege-machine-overlay.ts. RELAY_BEACON has its own dedicated
 // overlay (client-map-3d-relay-beacon-overlay.ts).
 
@@ -85,10 +88,8 @@ const wallOffsetFor = (dir: DirectionKey): { dx: number; dz: number } => {
   }
 };
 
-const openingToDirection = (opening: FortificationOpening): DirectionKey | undefined => {
-  if (opening === "CLOSED") return undefined;
-  return opening === "NORTH" ? "N" : opening === "EAST" ? "E" : opening === "SOUTH" ? "S" : "W";
-};
+const openingToDirections = (opening: FortificationOpening): ReadonlySet<DirectionKey> =>
+  new Set(fortificationOpeningSides(opening).map((side): DirectionKey => (side === "NORTH" ? "N" : side === "EAST" ? "E" : side === "SOUTH" ? "S" : "W")));
 
 export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnvironmentTexture?: Texture): FortOverlay => {
   const wallAlongXGeometry = new BoxGeometry(WALL_LENGTH, WALL_HEIGHT, WALL_THICKNESS);
@@ -170,12 +171,12 @@ export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnviro
     worldX: number,
     worldZ: number,
     surfaceY: number,
-    skipDir: DirectionKey | undefined,
+    skipDirs: ReadonlySet<DirectionKey>,
     heightFraction = 1
   ): void => {
     const directions: DirectionKey[] = ["N", "E", "S", "W"];
     for (const dir of directions) {
-      if (dir === skipDir) continue;
+      if (skipDirs.has(dir)) continue;
       const off = wallOffsetFor(dir);
       const mesh = dir === "N" ? meshes.wallN : dir === "S" ? meshes.wallS : dir === "E" ? meshes.wallE : meshes.wallW;
       const counterKey = dir === "N" ? "wallN" : dir === "S" ? "wallS" : dir === "E" ? "wallE" : "wallW";
@@ -211,18 +212,18 @@ export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnviro
     facingRad?: number,
     construction?: FortConstruction
   ): void => {
-    const skipDir = openingToDirection(opening);
+    const skipDirs = openingToDirections(opening);
     const heightFraction = construction && !construction.keepStanding ? construction.site.visibleBands / CONSTRUCTION_PHASES : 1;
     const isFortTier = kind === "FORT" || kind === "TITANIUM_BASTION" || kind === "THUNDER_BASTION" || kind === "PALISADE";
     if (construction && isFortTier) presentation.addSite(worldX, worldZ, surfaceY, construction.site, TOWER_HEIGHT, FORT_CONSTRUCTION_LAYOUT);
     if (kind === "FORT") {
-      addFortPieces(stone, stoneCounters, worldX, worldZ, surfaceY, skipDir, heightFraction);
+      addFortPieces(stone, stoneCounters, worldX, worldZ, surfaceY, skipDirs, heightFraction);
     } else if (kind === "TITANIUM_BASTION") {
-      addFortPieces(titanium, titaniumCounters, worldX, worldZ, surfaceY, skipDir, heightFraction);
+      addFortPieces(titanium, titaniumCounters, worldX, worldZ, surfaceY, skipDirs, heightFraction);
     } else if (kind === "THUNDER_BASTION") {
-      addFortPieces(thunder, thunderCounters, worldX, worldZ, surfaceY, skipDir, heightFraction);
+      addFortPieces(thunder, thunderCounters, worldX, worldZ, surfaceY, skipDirs, heightFraction);
     } else if (kind === "PALISADE") {
-      addFortPieces(wood, woodCounters, worldX, worldZ, surfaceY, skipDir, heightFraction);
+      addFortPieces(wood, woodCounters, worldX, worldZ, surfaceY, skipDirs, heightFraction);
     } else if (kind === "SIEGE_BATTERY") {
       siegeMachine.addInstance(worldX, worldZ, surfaceY, wx ?? 0, wy ?? 0, facingRad ?? 0);
     }

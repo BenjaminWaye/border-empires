@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  FORTIFICATION_OPENINGS,
   fortificationOpeningForTile,
+  fortificationOpeningFromSides,
+  fortificationOpeningSides,
   fortificationOverlayKindForTile,
   fortificationOverlayAlphaForTile,
   isFortificationOverlayTile,
@@ -56,6 +59,32 @@ describe("fortification overlay selection", () => {
 
     expect(fortificationOpeningForTile(west, { tiles, keyFor, wrapX: wrap, wrapY: wrap })).toBe("EAST");
     expect(fortificationOpeningForTile(east, { tiles, keyFor, wrapX: wrap, wrapY: wrap })).toBe("WEST");
+  });
+
+  it("opens every wall that touches a same-owner fort, not just the first", () => {
+    const fortAt = (x: number, y: number, ownerId = "p1"): Tile => ({ ...landTile(x, y), ownerId, fort: { ownerId, status: "active" as const } });
+    const center = fortAt(5, 5);
+    const tiles = new Map<string, Tile>(
+      [center, fortAt(4, 5), fortAt(6, 5), fortAt(5, 4, "p2")].map((tile) => [keyFor(tile.x, tile.y), tile])
+    );
+    const deps = { tiles, keyFor, wrapX: wrap, wrapY: wrap };
+
+    // West and east neighbours are ours; the rival fort to the north keeps that wall up.
+    expect(fortificationOpeningForTile(center, deps)).toBe("EAST_WEST");
+
+    const south = fortAt(5, 6);
+    const north = fortAt(5, 4);
+    tiles.set(keyFor(south.x, south.y), south);
+    tiles.set(keyFor(north.x, north.y), north);
+    expect(fortificationOpeningForTile(center, deps)).toBe("NORTH_EAST_SOUTH_WEST");
+  });
+
+  it("round-trips every opening through its open sides", () => {
+    for (const opening of FORTIFICATION_OPENINGS) {
+      expect(fortificationOpeningFromSides(fortificationOpeningSides(opening))).toBe(opening);
+    }
+    expect(fortificationOpeningFromSides(["WEST", "NORTH"])).toBe("NORTH_WEST");
+    expect(fortificationOpeningSides("CLOSED")).toEqual([]);
   });
 
   it("treats palisades and Relay Beacons as fortification overlay tiles", () => {
