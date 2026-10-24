@@ -25,9 +25,9 @@ export const createRelicCoreOverlay = (scene: Scene, capacity: number): RelicCor
   const armourMaterial = createRelicAgedMaterial("#a3afb0", 0.08);
   const machineryMaterial = createRelicAgedMaterial("#586366", 0.30);
   const salvageMaterial = createRelicAgedMaterial("#9b7750", 0.20);
-  const recessMaterial = new MeshBasicMaterial({ color: "#202b2e", side: DoubleSide });
-  const liveMaterial = new MeshBasicMaterial({ color: "#b8bf86", toneMapped: false, side: DoubleSide });
-  const idleMaterial = new MeshBasicMaterial({ color: "#414538", side: DoubleSide });
+  const recessMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#202b2e", side: DoubleSide });
+  const liveMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#b8bf86", side: DoubleSide });
+  const idleMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#414538", side: DoubleSide });
   const materials = [shellMaterial, armourMaterial, machineryMaterial, salvageMaterial, recessMaterial, liveMaterial, idleMaterial];
 
   const shell = new InstancedMesh(geometry.shell, shellMaterial, capacity);

@@ -1,4 +1,4 @@
-import { syntheticRelicPreviewTile } from "./client-relic-overlay/relic-preview-tile.js";
+import { syntheticOverlayTileFor3DPopulation } from "./client-map-3d-population/client-map-3d-synthetic-overlay-tile.js";
 import { drawMapSelection2D } from "./client-garrison-many/client-map-selection-2d.js";
 import { MIN_ZOOM } from "./client-constants.js"; import { startTileMenuDecayTicker } from "./client-tile-menu-decay-ticker/client-tile-menu-decay-ticker.js"; import { startMusterStatusTicker } from "./client-muster-status-ticker/client-muster-status-ticker.js"; import { startMusterMenuRepaintTicker } from "./client-muster-menu-repaint-ticker/client-muster-menu-repaint-ticker.js";
 import { startLoadingTimerTicker } from "./client-loading-timer-ticker/client-loading-timer-ticker.js";
@@ -281,7 +281,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
     const overlayTiles: VisibleRenderTile[] = []; if (!isTrue3DRendererActive() && state.winChancePaint && performance.now() > state.winChancePaint.expiresAt && !state.pendingArrowGestureConfirm) state.winChancePaint = undefined; const knownShieldFlags2D = !isTrue3DRendererActive() ? collectKnownShieldFlags(state.tiles.values()) : []; // F4: 2D counterparts of F0's expiry sweep + F3's per-frame known-flag scan (client-map-3d.ts)
     const aetherProtection2D = !isTrue3DRendererActive() && isAetherProtectionFieldShown(state, deps.keyFor) ? aetherProtectionField(state, Date.now()) : undefined; // Aether Tower protection field, 2D parity of client-map-3d-aether-protection-overlay.ts
-    const syntheticOverlayTileAt = (wx: number, wy: number, tile: Tile | undefined): Tile | undefined => syntheticRelicPreviewTile(wx, wy, tile, isTrue3DRendererActive() && revealWholeMapInTrue3DMode);
+    const syntheticOverlayTileAt = (wx: number, wy: number, tile: Tile | undefined): Tile | undefined => syntheticOverlayTileFor3DPopulation(wx, wy, tile, isTrue3DRendererActive() && revealWholeMapInTrue3DMode);
     const drawAetherWallEdge = (
       baseX: number,
       baseY: number,

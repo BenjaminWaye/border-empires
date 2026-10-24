@@ -1,3 +1,4 @@
+import { applyRelicAndProgressionUpdate, type RelicHintClientState } from "../client-relic-overlay/relic-map-hints.js";
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 
@@ -23,6 +24,11 @@ describe("client network Imperial Ward message regression", () => {
     const networkSource = readFileSync(new URL("./client-network.ts", import.meta.url), "utf8");
 
     expect(initSource).toContain("state.imperialWardCharges = (player as { imperialWardCharges?: number }).imperialWardCharges;");
-    expect(networkSource).toContain('(msg as { imperialWardCharges?: unknown }).imperialWardCharges === "number"');
+    expect(networkSource).toContain("applyRelicAndProgressionUpdate(state, msg);");
+    const state: RelicHintClientState = { relicMapHints: new Map(), tilesRevision: 0, relicMapHintsRevision: 0, chosenTrickleResource: undefined, imperialWardCharges: undefined, wonderLastFreeRushBuyAt: undefined };
+    applyRelicAndProgressionUpdate(state, { imperialWardCharges: 3 });
+    expect(state.imperialWardCharges).toBe(3);
+    applyRelicAndProgressionUpdate(state, { imperialWardCharges: "invalid" });
+    expect(state.imperialWardCharges).toBe(3);
   });
 });

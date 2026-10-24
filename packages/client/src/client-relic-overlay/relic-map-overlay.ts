@@ -54,7 +54,7 @@ export const createRelicMapOverlay = (scene: Scene, capacity: number): RelicMapO
   }
   if (ctx) { ctx.fillStyle = "#f2e8d3"; ctx.font = "bold 17px sans-serif"; ctx.textAlign = "center"; ctx.fillText("Depleted", 48, 83); }
   const texture = new CanvasTexture(markerCanvas);
-  const markerMaterial = new SpriteMaterial({ map: texture, depthTest: false, depthWrite: false, toneMapped: false });
+  const markerMaterial = new SpriteMaterial({ toneMapped: false, map: texture, depthTest: false, depthWrite: false });
   const markers = Array.from({ length: capacity }, () => {
     const sprite = new Sprite(markerMaterial);
     sprite.renderOrder = 122; sprite.scale.set(0.48, 0.46, 1); sprite.visible = false; group.add(sprite);

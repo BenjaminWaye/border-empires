@@ -1,6 +1,6 @@
 # Relic redesign implementation
 
-Status: active implementation
+Status: implemented; ready for review
 Owner: Benjamin Waye (product); Codex (implementation)
 Last verified: 2026-10-24
 Replaces: the earlier blade-anchor proposal in `relics-design.md`; final shipped rules will replace the corresponding sections of `natural-wonders-design.md`.
@@ -23,7 +23,7 @@ future work, not hidden additions to this release.
    presentation, fog-safe light columns, minimap marker and tile information.
 5. [x] Capture experience: painted illustration, current effect/reserve,
    first-reveal versus recapture notification, revisitable information.
-6. [ ] Verification and delivery: focused tests, persistence/transfer tests,
+6. [x] Verification and delivery: focused tests, persistence/transfer tests,
    browser checks, complete local CI, changelog, gameplay/lore documentation.
 
 ## Working defaults for implementation
@@ -81,4 +81,10 @@ No deployment or production-world regeneration is part of implementation.
 - Production 2D and 3D lifecycle models inspected side by side in Storybook.
 - First full local run passed 3,528 simulation tests and caught the nanofabricator
   dependency gap. It is fixed and its end-to-end regression now passes.
-- A fresh complete local CI run is required before delivery; no deployment.
+- The final local CI run passed shared/domain/protocol checks, 3,533 simulation
+  tests, performance and world-generation stress suites, and 1,496 gateway tests.
+  It caught three client source guards affected by helper extraction/material
+  ordering; those were repaired and the complete client suite then passed all
+  5,405 tests, TypeScript lint and the production build.
+- Source-size, documentation, changelog and Storybook TypeScript checks pass.
+  No deployment or existing-world regeneration was performed.

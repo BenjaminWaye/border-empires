@@ -7,7 +7,7 @@ export function createRelicHintOverlay(scene: Scene): {
 } {
   const group = new Group(); scene.add(group);
   const beamGeometry = new CylinderGeometry(0.012, 0.065, 3.8, 6).translate(0, 1.9, 0);
-  const beamMaterial = new MeshBasicMaterial({ color: "#d3e7be", opacity: 0.32, transparent: true, depthTest: false, depthWrite: false, toneMapped: false });
+  const beamMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#d3e7be", opacity: 0.32, transparent: true, depthTest: false, depthWrite: false });
   const beams = new InstancedMesh(beamGeometry, beamMaterial, 9); beams.renderOrder = 120; beams.frustumCulled = false; group.add(beams);
   const shapes: Array<{ mesh: InstancedMesh; material: MeshBasicMaterial; texture: CanvasTexture; count: number }> = [];
   const plane = new PlaneGeometry(0.32, 0.32).rotateX(-Math.PI / 2);
@@ -19,7 +19,7 @@ export function createRelicHintOverlay(scene: Scene): {
       ctx.fillStyle = "#eee7cd"; ctx.font = "bold 26px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(label, 32, 33);
     }
     const texture = new CanvasTexture(canvas);
-    const material = new MeshBasicMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false, toneMapped: false });
+    const material = new MeshBasicMaterial({ toneMapped: false, map: texture, transparent: true, depthTest: false, depthWrite: false });
     const mesh = new InstancedMesh(plane, material, 4096); mesh.renderOrder = 121; mesh.frustumCulled = false; group.add(mesh);
     shapes.push({ mesh, material, texture, count: 0 });
   }
