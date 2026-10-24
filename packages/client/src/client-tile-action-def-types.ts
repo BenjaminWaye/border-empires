@@ -89,6 +89,7 @@ export type TileActionDef = {
     | "break_truce"
     | "aether_lance"
     | "suppress_aether_tower"
+    | "forced_ancillarification"
     | "retort_recast_food"
     | "retort_recast_titanium"
     | "retort_recast_crystal"

@@ -69,7 +69,7 @@ export type RuntimeAbilityCommandContext = {
   // §5.4: see pickReadyOwnedObservatoryForTarget/Any — Survey Sweep targets a
   // specific observatory tile directly rather than going through a picker, so
   // it needs its own dormancy gate.
-  isStructureDormant: (playerId: string, tileKey: string, field: "observatory") => boolean;
+  isStructureDormant: (playerId: string, tileKey: string, field: "observatory" | "economicStructure") => boolean;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   // Re-checks the owner's frontier connectivity after a tile of theirs was purged (AETHER_LANCE).
   applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { bfsCap?: number }) => void;

@@ -367,6 +367,12 @@ remade bodies. It is the capacity committed to expansion, armies and
 construction. Its numerical pool, regeneration and relationship to town
 population are gameplay rules.
 
+An **Ancillary Factory** remakes local people into bodies under House control.
+**Forced Ancillarification** is a coercive emergency levy: residents are taken
+from the factory's supporting town and remade into an immediate manpower
+reserve. They cease to count among that town's civilian population. The
+population sacrifice and recovery interval belong in the economy reference.
+
 Food supports people and local development. Titanium and Umbrite are
 strategic materials used in machinery, construction and military equipment.
 Crystal is usable aether (§3), and Shards are fragments of the shattered
