@@ -232,8 +232,10 @@ const wallSurfaceDetails = (style, direction, colors) => {
 const shouldRenderWall = (direction, opening) => !openSides(opening).includes(direction);
 
 // A corner tower drops when either wall beside it opens, so a block of forts
-// keeps towers only at its outer corners.
-const shouldRenderTower = (tower, opening) => !cardinalForTower[tower].some((side) => openSides(opening).includes(side));
+// keeps towers only at its outer corners. A fort open on all four sides keeps
+// all four towers, or it would draw as bare land in the middle of a block.
+const shouldRenderTower = (tower, opening) =>
+  openSides(opening).length === 4 || !cardinalForTower[tower].some((side) => openSides(opening).includes(side));
 
 const renderWall = (direction, opening, colors) => {
   if (!shouldRenderWall(direction, opening)) return "";

@@ -93,6 +93,10 @@ export const fortificationOpeningForTile = (
   if (!kind || kind === "RELAY_BEACON" || kind === "SIEGE_BATTERY") return "CLOSED";
   const ownerId = fortificationOwnerIdForTile(tile);
   if (!ownerId) return "CLOSED";
+  // Walls only join between standing forts: a fresh site (or one being torn
+  // down) would otherwise gut a finished neighbour's walls while it is still
+  // a bare plot. A fort mid-upgrade still stands, see isFortDefending.
+  if (!isFortDefending(tile.fort)) return "CLOSED";
   const open: FortificationSide[] = [];
   for (const step of CARDINAL_STEPS) {
     const neighbor = deps.tiles.get(deps.keyFor(deps.wrapX(tile.x + step.dx), deps.wrapY(tile.y + step.dy)));
@@ -101,6 +105,7 @@ export const fortificationOpeningForTile = (
       continue;
     }
     if (fortificationOwnerIdForTile(neighbor) !== ownerId) continue;
+    if (!isFortDefending(neighbor?.fort)) continue;
     open.push(step.opening);
   }
   return fortificationOpeningFromSides(open);

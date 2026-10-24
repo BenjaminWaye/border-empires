@@ -8,6 +8,7 @@ import {
 } from "three";
 import {
   fortificationOpeningSides,
+  recordForEachFortificationOpening,
   type FortificationOpening,
   type FortificationOverlayKind
 } from "./client-fortification-overlays/client-fortification-overlays.js";
@@ -89,8 +90,10 @@ const wallOffsetFor = (dir: DirectionKey): { dx: number; dz: number } => {
   }
 };
 
-const openingToDirections = (opening: FortificationOpening): ReadonlySet<DirectionKey> =>
-  new Set(fortificationOpeningSides(opening).map((side): DirectionKey => (side === "NORTH" ? "N" : side === "EAST" ? "E" : side === "SOUTH" ? "S" : "W")));
+// Built once: addInstance runs per fort on every rebuild, including camera pans.
+const OPEN_DIRECTIONS: Record<FortificationOpening, ReadonlySet<DirectionKey>> = recordForEachFortificationOpening(
+  (opening) => new Set(fortificationOpeningSides(opening).map((side): DirectionKey => (side === "NORTH" ? "N" : side === "EAST" ? "E" : side === "SOUTH" ? "S" : "W")))
+);
 
 export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnvironmentTexture?: Texture): FortOverlay => {
   const wallAlongXGeometry = new BoxGeometry(WALL_LENGTH, WALL_HEIGHT, WALL_THICKNESS);
@@ -213,7 +216,7 @@ export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnviro
     facingRad?: number,
     construction?: FortConstruction
   ): void => {
-    const skipDirs = openingToDirections(opening);
+    const skipDirs = OPEN_DIRECTIONS[opening];
     const heightFraction = construction && !construction.keepStanding ? construction.site.visibleBands / CONSTRUCTION_PHASES : 1;
     const isFortTier = kind === "FORT" || kind === "TITANIUM_BASTION" || kind === "THUNDER_BASTION" || kind === "PALISADE";
     if (construction && isFortTier) presentation.addSite(worldX, worldZ, surfaceY, construction.site, TOWER_HEIGHT, FORT_CONSTRUCTION_LAYOUT);

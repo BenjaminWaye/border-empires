@@ -79,6 +79,26 @@ describe("fortification overlay selection", () => {
     expect(fortificationOpeningForTile(center, deps)).toBe("NORTH_EAST_SOUTH_WEST");
   });
 
+  it("keeps walls up toward fort sites that are still being built or torn down", () => {
+    const fortAt = (x: number, y: number, status: "active" | "under_construction" | "removing", upgradingFrom?: "PALISADE"): Tile => ({
+      ...landTile(x, y),
+      fort: { ownerId: "p1", status, ...(upgradingFrom ? { upgradingFrom } : {}) }
+    });
+    const center = fortAt(5, 5, "active");
+    const tiles = new Map<string, Tile>(
+      [center, fortAt(5, 4, "under_construction"), fortAt(6, 5, "removing"), fortAt(4, 5, "under_construction", "PALISADE")].map((tile) => [
+        keyFor(tile.x, tile.y),
+        tile
+      ])
+    );
+    const deps = { tiles, keyFor, wrapX: wrap, wrapY: wrap };
+
+    // Only the west neighbour stands (an upgrade keeps the old tier up and defending).
+    expect(fortificationOpeningForTile(center, deps)).toBe("WEST");
+    // A fresh site keeps its own walls too, so both sides of the shared edge agree.
+    expect(fortificationOpeningForTile(tiles.get(keyFor(5, 4)), deps)).toBe("CLOSED");
+  });
+
   it("round-trips every opening through its open sides", () => {
     for (const opening of FORTIFICATION_OPENINGS) {
       expect(fortificationOpeningFromSides(fortificationOpeningSides(opening))).toBe(opening);
