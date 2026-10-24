@@ -328,7 +328,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...WAR_INDUSTRY_SQUADS_CHANGELOG,
   ...FORT_WALL_OPENINGS_CHANGELOG,
-  ...HILL_GARRISON_FILL_CHANGELOG
+  ...HILL_GARRISON_FILL_CHANGELOG,
+  {
+    createdAt: 1792873662311, // Frozen Date.now() timestamp for the changelog gate.
+    introducedIn: "2026.10.24.3",
+    title: "Titanium-armoured soldiers no longer collapse when they move",
+    why: "The heavy armour's animations were copied from the standard soldier onto a differently shaped body, so the armour crumpled the moment a soldier ran, stood or knelt.",
+    changes: [
+      "Soldiers in heavy armour now stand, run, march and kneel with the same poses and arm positions as standard soldiers",
+      "This is cosmetic and only shows on the 3D map"
+    ]
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
