@@ -1,8 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { knownSquadGearFor, registerActiveBattleFromTileDelta, squadGearFields } from "./client-battle-overlay.js";
+import { knownSquadGearFor, localPlayerSquadGear, registerActiveBattleFromTileDelta, squadGearFields } from "./client-battle-overlay.js";
 import type { SquadGear } from "../client-map-3d-popup-marine/popup-marine-gear.js";
+import type { ClientState } from "../client-state/client-state.js";
 import { APPROACH_MS } from "../client-map-3d-popup-marine/popup-marine-overlay-fx.js";
+
+// Gear lookups also read the local player's own tiles; these fixtures have
+// none, and a spectator's id that matches no owner.
+const gearState = () => ({
+  squadGearByOwner: new Map<string, SquadGear>(),
+  tiles: new Map() as ClientState["tiles"],
+  me: "spectator",
+  tilesRevision: 0
+});
 
 const keyFor = (x: number, y: number) => `${x},${y}`;
 
@@ -103,7 +113,7 @@ describe("registerActiveBattleFromTileDelta", () => {
 
   // War gear: one flag per weapons factory type an empire owns (server's
   // CombatBroadcastPayload.attackerGear/defenderGear), which
-  // popup-marine-units.ts turns into specialist slots in its squad.
+  // popup-marine-gear.ts turns into the squad's look.
   it("reads each side's war gear from the broadcast", () => {
     const state = { activeBattles: new Map(), skirmishSeenAt: new Map(), squadGearByOwner: new Map<string, SquadGear>() };
 
@@ -120,7 +130,7 @@ describe("registerActiveBattleFromTileDelta", () => {
   });
 
   it("remembers an owner's gear for later skirmishes, and forgets it once a broadcast shows none", () => {
-    const state = { activeBattles: new Map(), skirmishSeenAt: new Map(), squadGearByOwner: new Map<string, SquadGear>() };
+    const state = { ...gearState(), activeBattles: new Map(), skirmishSeenAt: new Map() };
 
     registerActiveBattleFromTileDelta(state, keyFor, { x: 5, y: 5, combatJson: combatJson({ defenderGear: { umbriteArms: true } }) }, 5000);
     expect(knownSquadGearFor(state, "victim")).toEqual({ umbrite: true });
@@ -135,11 +145,37 @@ describe("registerActiveBattleFromTileDelta", () => {
   });
 
   it("prefers a resolved battle's own gear over the per-owner memory", () => {
-    const state = { squadGearByOwner: new Map<string, SquadGear>([["attacker", { titanium: true }]]) };
+    const state = { ...gearState(), squadGearByOwner: new Map<string, SquadGear>([["attacker", { titanium: true }]]) };
 
     expect(squadGearFields(state, "attacker", "victim", { attackerGear: {}, defenderGear: { titanium: true } })).toEqual({
       attackerGear: {},
       defenderGear: { titanium: true }
     });
+  });
+
+  // The local player's own factories are on their own tiles, so their
+  // squads show them before any broadcast has said so -- and the march that
+  // precedes a fight never disagrees with the fight itself.
+  it("reads the local player's own gear off their tiles, ahead of any broadcast", () => {
+    const tiles = new Map([
+      ["1,1", { x: 1, y: 1, ownerId: "me", economicStructure: { type: "TITANIUM_WEAPONS_FACTORY" } }],
+      ["2,2", { x: 2, y: 2, ownerId: "rival", economicStructure: { type: "UMBRITE_WEAPONS_FACTORY" } }]
+    ]) as unknown as ClientState["tiles"];
+    const state = { ...gearState(), tiles, me: "me", tilesRevision: 1 };
+
+    expect(knownSquadGearFor(state, "me")).toEqual({ titanium: true });
+    expect(squadGearFields(state, "me", "rival")).toEqual({ attackerGear: { titanium: true }, defenderGear: {} });
+  });
+
+  it("rescans the local player's tiles only when the tile revision moves", () => {
+    const tiles = new Map([["1,1", { x: 1, y: 1, ownerId: "me" }]]) as unknown as ClientState["tiles"];
+    const state = { ...gearState(), tiles, me: "me", tilesRevision: 7 };
+    expect(localPlayerSquadGear(state)).toEqual({});
+
+    tiles.set("1,1", { x: 1, y: 1, ownerId: "me", economicStructure: { type: "TITANIUM_WEAPONS_FACTORY" } } as never);
+    // Same revision: the cached scan stands (no per-frame full-map scan).
+    expect(localPlayerSquadGear(state)).toEqual({});
+    state.tilesRevision = 8;
+    expect(localPlayerSquadGear(state)).toEqual({ titanium: true });
   });
 });

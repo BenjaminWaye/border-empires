@@ -13,7 +13,7 @@ import { squadColorForOwner } from "./client-planetary-defense-style.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile } from "./client-types.js";
 
-type GarrisonState = Pick<ClientState, "tiles" | "activeBattles" | "squadGearByOwner">;
+type GarrisonState = Pick<ClientState, "tiles" | "activeBattles" | "squadGearByOwner" | "me" | "tilesRevision">;
 
 const TILE_CENTER_OFFSET = 0.5;
 // The overlay only has marine slots for this many squads at once anyway, so

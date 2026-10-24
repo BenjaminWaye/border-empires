@@ -15,10 +15,10 @@ function makePlayer(id: string): DomainPlayer {
   return { id, isAi: false, points: 0, manpower: 0, techIds: new Set(), allies: new Set() };
 }
 
-// War gear (popup-marine-gear.ts / popup-marine-units.ts on the client): each
-// side's weapons-factory flags, rolled into LockedCombatResolution by
-// buildLockedCombatResolution, must reach the client on the combat broadcast
-// -- otherwise those empires' squads render without their specialists.
+// War gear (popup-marine-gear.ts on the client): each side's weapons-factory
+// flags, rolled into LockedCombatResolution by buildLockedCombatResolution,
+// must reach the client on the combat broadcast -- otherwise those empires'
+// squads render in standard kit (no heavy armour, no Umbrite rounds).
 const resolveWithGear = (gear: Pick<LockedCombatResolution, "attackerGear" | "defenderGear">): Record<string, unknown> => {
   const tiles = new Map<string, DomainTileState>([
     [ORIGIN_KEY, { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED" }],

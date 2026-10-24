@@ -83,26 +83,39 @@ const rememberSquadGear = (owners: Map<string, SquadGear>, ownerId: string, gear
   }
 };
 
+type SquadGearState = Pick<ClientState, "squadGearByOwner" | "tiles" | "me" | "tilesRevision">;
+
 /** Squad gear to render for `ownerId` when no broadcast has said otherwise
- * for this specific fight (skirmishes, capture-hold garrisons). */
-export const knownSquadGearFor = (state: Pick<ClientState, "squadGearByOwner">, ownerId: string | undefined): SquadGear =>
-  (ownerId ? state.squadGearByOwner.get(ownerId) : undefined) ?? {};
+ * for this specific fight (skirmishes, capture-hold garrisons, marches). The
+ * local player's own gear comes straight off their tiles, which are always
+ * current -- their first fight already shows a factory they just built. */
+export const knownSquadGearFor = (state: SquadGearState, ownerId: string | undefined): SquadGear => {
+  if (ownerId !== undefined && ownerId === state.me) return localPlayerSquadGear(state);
+  return (ownerId ? state.squadGearByOwner.get(ownerId) : undefined) ?? {};
+};
+
+// One entry: the last scan, valid until any render-relevant tile change
+// (tilesRevision covers structures and ownership) or a different player.
+let ownGearCache: { tiles: ClientState["tiles"]; revision: number; me: string | undefined; gear: SquadGear } | undefined;
 
 /** The local player's own gear, read straight off their tiles -- needs no
- * battle broadcast, so their first march already shows their specialists.
- * Scans every tile, so call it only on frames that need it. */
-export const localPlayerSquadGear = (state: Pick<ClientState, "tiles" | "me">): SquadGear => {
+ * battle broadcast. Scans every tile, but only once per tile revision. */
+export const localPlayerSquadGear = (state: Pick<ClientState, "tiles" | "me" | "tilesRevision">): SquadGear => {
+  const cached = ownGearCache;
+  if (cached && cached.tiles === state.tiles && cached.revision === state.tilesRevision && cached.me === state.me) return cached.gear;
   const owned = new Set<string>();
   for (const tile of state.tiles.values()) {
     if (tile.ownerId === state.me && tile.economicStructure) owned.add(tile.economicStructure.type);
   }
-  return squadGearFromStructures(owned);
+  const gear = squadGearFromStructures(owned);
+  ownGearCache = { tiles: state.tiles, revision: state.tilesRevision, me: state.me, gear };
+  return gear;
 };
 
 /** Both sides' gear for a battle/skirmish render entry: a resolved battle's
  * own broadcast wins, otherwise whatever is known per owner. */
 export const squadGearFields = (
-  state: Pick<ClientState, "squadGearByOwner">,
+  state: SquadGearState,
   attackerOwnerId: string,
   defenderOwnerId: string,
   resolved?: Pick<ActiveBattleOverlay, "attackerGear" | "defenderGear">

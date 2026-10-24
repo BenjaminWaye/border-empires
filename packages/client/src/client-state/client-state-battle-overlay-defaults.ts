@@ -20,7 +20,7 @@ export const createInitialBattleOverlayState = () => ({
   skirmishSeenAt: new Map<string, number>(),
   // Each owner's last-seen war industry (a combat broadcast's
   // attackerGear/defenderGear), so a later pre-resolution skirmish involving
-  // them already shows its titanium/Umbrite specialists. Updated by every
+  // them already shows its heavy armour / Umbrite rounds. Updated by every
   // broadcast either way and capped -- see rememberSquadGear in
   // client-battle-overlay.ts.
   squadGearByOwner: new Map<string, SquadGear>()

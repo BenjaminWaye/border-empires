@@ -35,6 +35,15 @@
 # export) -- read that file's comments for the Blender 5.x glTF traps each
 # step avoids.
 #
+# Source sculpt (not checked in, like the standard marine's sources): made
+# with Meshy from a concept generated off front/side renders of the standard
+# marine -- image-to-image task 01a16d2f-5ab1-72b5-8266-13cb43356a8f (concept),
+# image-to-3d task 01a16db4-d2d0-754f-8600-ccf3bd974406 (textured A-pose
+# mesh, decimated locally to 150k triangles), then auto-rigged by rigging
+# task 01a16db8-529a-70eb-bd0c-22ce759b2738 (height 1.9 m). Meshy keeps task
+# outputs only for a limited time; to rebuild after they expire, regenerate
+# from a new concept the same way.
+#
 # Run (Blender 5.x, or `python -I` with the bpy wheel):
 #   blender --background --python bake-popup-marine-heavy-model.py -- \
 #     <meshy-rigged.glb> <popup-marine-titan-24bone.glb> <out.glb> [targetTriangleCount]

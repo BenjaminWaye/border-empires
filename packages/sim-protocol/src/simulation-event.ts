@@ -21,9 +21,9 @@ import type { TileOverlayJsonFields } from "./tile-overlay-fields/tile-overlay-f
 //
 // `attackerGear`/`defenderGear` are the cosmetic war industry behind each
 // side's battle squad: `titaniumArmor` once the empire owns a Titanium
-// Weapons Factory (two of its squad's slots become titanium war-walkers),
-// `umbriteArms` once it owns an Umbrite Weapons Factory (two become Umbrite
-// heavy-weapon troopers). Omitted when a side has neither. Factory ownership
+// Weapons Factory (every soldier wears the heavy armour model),
+// `umbriteArms` once it owns an Umbrite Weapons Factory (the whole side
+// fires Umbrite rounds). Omitted when a side has neither. Factory ownership
 // is not a secret -- the attack preview already names a side "missing
 // Titanium Weapons Factory" -- so this reveals nothing the combat UI doesn't
 // already.
