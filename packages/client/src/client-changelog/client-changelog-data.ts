@@ -321,7 +321,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Select a dock to see its landing ground highlighted at both ends of its sea routes; the tile panel also names the docks whose crossings can land on a tile",
       "A beach landing is supplied through the dock you sailed from: lose that dock and the landing is cut off at once",
       "Supply lines draw the sea leg back to your home dock, with a ring on the dock the landing depends on",
-      "Muster flags on Advance or March use beach landings too"
+      "Muster flags on Advance or March use beach landings too",
+      "Barbarians holding a dock can land on those beaches as well"
     ]
   }
 ];

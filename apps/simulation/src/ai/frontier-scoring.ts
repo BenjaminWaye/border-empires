@@ -3,7 +3,7 @@
  * extracted to keep that file under the repo's 500-line file cap.
  */
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
-import { isSeaTerrain, type Terrain, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { dockLandingGroundCoords, isSeaTerrain, type Terrain, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 
 import type { SettlementCandidateEvaluation } from "./ai-settlement-priority.js";
 import { dockCrossingCandidateTileKeys } from "../dock-network/dock-network.js";
@@ -93,14 +93,42 @@ export const coastlineDiscoveryValue = (tilesByKey: PlannerTileLookup, tile: Pla
   return score;
 };
 
+/**
+ * Tiles a dock crossing from `from` may target. Without `beachLandingsFrom`
+ * that is the linked docks only; with it, the whole landing ground of each
+ * linked dock (packages/shared dock-landing), read from the planner's own
+ * tile view -- a tile the view lacks is simply not offered, and the sim
+ * re-validates every crossing anyway.
+ */
+export const dockCrossingTargetKeysForOrigin = (
+  from: PlannerTile,
+  dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>,
+  beachLandingsFrom?: PlannerTileLookup
+): string[] => {
+  const fromKey = tileKeyOf(from.x, from.y);
+  const linkedKeys = dockCrossingCandidateTileKeys(fromKey, dockLinksByDockTileKey);
+  if (!beachLandingsFrom) return linkedKeys;
+  const terrainAt = (x: number, y: number) => beachLandingsFrom.get(`${x},${y}`)?.terrain;
+  const targetKeys = new Set<string>();
+  for (const linkedKey of linkedKeys) {
+    const [x, y] = linkedKey.split(",").map(Number) as [number, number];
+    for (const ground of dockLandingGroundCoords(x, y, terrainAt)) {
+      const groundKey = tileKeyOf(ground.x, ground.y);
+      if (groundKey !== fromKey && (groundKey === linkedKey || terrainAt(ground.x, ground.y) === "LAND")) targetKeys.add(groundKey);
+    }
+  }
+  return [...targetKeys];
+};
+
 export const candidateKeysForOrigin = (
   from: PlannerTile,
-  dockLinksByDockTileKey?: ReadonlyMap<string, readonly string[]>
+  dockLinksByDockTileKey?: ReadonlyMap<string, readonly string[]>,
+  beachLandingsFrom?: PlannerTileLookup
 ): string[] => {
   const candidateKeys = new Set<string>();
   forEachFrontierNeighbor(from.x, from.y, (nx, ny) => candidateKeys.add(`${nx},${ny}`));
   if (from.dockId && dockLinksByDockTileKey) {
-    for (const tileKey of dockCrossingCandidateTileKeys(tileKeyOf(from.x, from.y), dockLinksByDockTileKey)) {
+    for (const tileKey of dockCrossingTargetKeysForOrigin(from, dockLinksByDockTileKey, beachLandingsFrom)) {
       candidateKeys.add(tileKey);
     }
   }

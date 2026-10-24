@@ -28,7 +28,10 @@ const buildRuntime = (tiles: DomainTileState[]) =>
   new SimulationRuntime({
     now: () => 1_000,
     seedTiles: new Map(),
-    initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 10_000, manpower: 10_000 })]]),
+    initialPlayers: new Map([
+      ["player-1", buildPlayer("player-1", { points: 10_000, manpower: 10_000 })],
+      ["barbarian-1", buildPlayer("barbarian-1", { points: 10_000, manpower: 10_000 })]
+    ]),
     initialState: {
       tiles,
       docks: [
@@ -39,10 +42,10 @@ const buildRuntime = (tiles: DomainTileState[]) =>
     }
   });
 
-const expand = (commandId: string, clientSeq: number, from: { x: number; y: number }, to: { x: number; y: number }) => ({
+const expand = (commandId: string, clientSeq: number, from: { x: number; y: number }, to: { x: number; y: number }, playerId = "player-1") => ({
   commandId,
   sessionId: "session-1",
-  playerId: "player-1",
+  playerId,
   clientSeq,
   issuedAt: 1_000,
   type: "EXPAND" as const,
@@ -73,6 +76,18 @@ describe("dock beach landings", () => {
     const event = outcome(seen, "inland");
     expect(event?.eventType).toBe("COMMAND_REJECTED");
     expect(event && "code" in event ? event.code : undefined).toBe("NOT_ADJACENT");
+  });
+
+  it("accepts a barbarian beach landing from a barbarian-held dock", async () => {
+    const runtime = buildRuntime(
+      harbourTiles().map((tile) =>
+        tile.x === 10 && tile.y === 10 ? { ...tile, ownerId: "barbarian-1", ownershipState: "BARBARIAN" as const } : tile
+      )
+    );
+    const seen = collectEvents(runtime);
+    runtime.submitCommand(expand("barb-beach", 1, { x: 10, y: 10 }, { x: 50, y: 51 }, "barbarian-1"));
+    await Promise.resolve();
+    expect(outcome(seen, "barb-beach")?.eventType).toBe("COMMAND_ACCEPTED");
   });
 
   it("finds the home dock for a stale-origin beach crossing", async () => {

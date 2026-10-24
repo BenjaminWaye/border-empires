@@ -67,4 +67,16 @@ describe("applyEncirclement — dock sea lanes", () => {
     expect(tiles.get("50,51")?.ownerId).toBeUndefined();
     expect(tiles.get("50,52")?.ownerId).toBeUndefined();
   });
+
+  it("keeps a captured far dock and the beach beside it when the home dock falls", () => {
+    // A FRONTIER dock is its own supply point (stranded-frontier-finder
+    // isTerminal), so holding the far harbour keeps the landing beside it
+    // whatever happens to the dock it sailed from.
+    const tiles = world("player-2");
+    tiles.set("50,50", { x: 50, y: 50, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", dockId: "dock-b" });
+    applyEncirclement(harness(tiles), ["10,10"], "player-1", "cmd-1", { bfsCap: 1 });
+    expect(tiles.get("50,50")?.ownerId).toBe("player-1");
+    expect(tiles.get("50,51")?.ownerId).toBe("player-1");
+    expect(tiles.get("50,52")?.ownerId).toBe("player-1");
+  });
 });
