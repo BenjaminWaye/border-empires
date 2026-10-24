@@ -54,7 +54,7 @@ export const openUnexploredTileActionMenu = (
     buildings: [],
     crystal: []
   };
-  injectWaypointActions(view, placeholder, state, { keyFor: deps.keyFor, pickOriginForTarget: deps.pickOriginForTarget });
+  injectWaypointActions(view, placeholder, state);
   state.tileActionMenu.mode = "single";
   state.tileActionMenu.bulkKeys = [];
   state.tileActionMenu.currentTileKey = deps.keyFor(wx, wy);

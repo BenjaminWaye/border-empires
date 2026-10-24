@@ -157,7 +157,8 @@ export type ServerWaypointQueueWireEntry = {
 // target-only (steps omitted) rather than dropped outright, degrading
 // gracefully to today's single-leg server drain for that one waypoint
 // rather than having the whole enqueue rejected. commitManpower is the
-// Expand To & Attack effort choice for the final ATTACK leg (see
+// effort choice for the final ATTACK leg (set by the former Expand To &
+// Attack; kept so already-queued waypoints still carry it -- see
 // client-attack-commit.ts), so the server's offline drain fires it the same.
 export const waypointEnqueueWirePayload = (
   target: { x: number; y: number },
