@@ -62,6 +62,11 @@ type HillCorners = {
   readonly corner01Y: number;
   readonly corner11Y: number;
   readonly bumps: HillBumpCluster;
+  // Scene-space tile extents, so tick() can re-drape the sweeping fill.
+  readonly x0: number;
+  readonly x1: number;
+  readonly z0: number;
+  readonly z1: number;
   // Road / AFC-pad cut through the dome (hillRoadCutMask), so the drape follows the same carved surface.
   readonly hillCut?: RoadCutDirections | undefined;
 };
@@ -174,7 +179,12 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
   hillTintGeom.setAttribute("position", new BufferAttribute(new Float32Array(maxHillTiles * HILL_VERTS_PER_TILE * 3), 3));
   hillTintGeom.setAttribute("color", new BufferAttribute(new Float32Array(maxHillTiles * HILL_VERTS_PER_TILE * 3), 3));
   hillTintGeom.setIndex(new BufferAttribute(new Uint32Array(maxHillTiles * HILL_INDICES_PER_TILE), 1));
-  const hillTintMesh = new Mesh(hillTintGeom, tintMaterial);
+  // Own material: the draped mesh carries the owner colour per vertex, which
+  // the flat plate's instance-coloured material would ignore (rendering the
+  // hill fill plain white).
+  const hillTintMaterial = tintMaterial.clone();
+  hillTintMaterial.vertexColors = true;
+  const hillTintMesh = new Mesh(hillTintGeom, hillTintMaterial);
   hillTintMesh.renderOrder = 5;
   hillTintMesh.frustumCulled = false;
   scene.add(hillTintMesh);
@@ -199,6 +209,28 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
   // sample the dome's real height at each element's own position (via
   // `hillSurfaceYAt`) rather than one fixed peak height.
   const hillEntries: TileEntry[] = [];
+
+  // Drapes hill slot `slot` over the west `fill` fraction of its tile: the
+  // grid is squeezed into [0, fill] and re-sampled on the dome there, so the
+  // colour sweeps in from the west like the flat plate while staying flush.
+  const writeHillDrape = (slot: number, e: TileEntry, fill: number): void => {
+    const hill = e.hill!;
+    const positions = hillTintGeom.getAttribute("position") as BufferAttribute;
+    let p = slot * HILL_VERTS_PER_TILE * 3;
+    for (let b = 0; b <= HILL_SUBDIV; b += 1) {
+      for (let a = 0; a <= HILL_SUBDIV; a += 1) {
+        const fx = (a / HILL_SUBDIV) * fill;
+        const fz = b / HILL_SUBDIV;
+        positions.array[p + 0] = hill.x0 + (hill.x1 - hill.x0) * fx;
+        positions.array[p + 1] = hillSurfaceYAt(hill, fx, fz, e.worldTileX, e.worldTileY);
+        positions.array[p + 2] = hill.z0 + (hill.z1 - hill.z0) * fz;
+        p += 3;
+      }
+    }
+  };
+
+  const fillFor = (e: TileEntry, nowDate: number): number =>
+    Math.max(0.04, Math.min(1, (nowDate - e.startAt) / Math.max(1, e.resolvesAt - e.startAt)));
 
   const clear = (): void => {
     entries.length = 0;
@@ -239,15 +271,16 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
     hillCut?: RoadCutDirections
   ): void => {
     if (hillTintCount >= maxHillTiles) return;
-    const hill: HillCorners = { corner00Y, corner10Y, corner01Y, corner11Y, bumps: hillBumpsWithCorridorAt(worldTileX, worldTileY, hillNeighbors), hillCut };
+    const hill: HillCorners = { corner00Y, corner10Y, corner01Y, corner11Y, bumps: hillBumpsWithCorridorAt(worldTileX, worldTileY, hillNeighbors), hillCut, x0, x1, z0, z1 };
     // surfaceY is unused for hill entries — both read sites (commit()'s
     // frame placement and tick()'s people placement) branch on `hill`
     // first and always take that branch for a hill entry. Stored as 0
     // rather than a computed placeholder purely to satisfy the shared
     // TileEntry shape; flat entries are the ones that rely on it.
-    hillEntries.push({ worldTileX, worldTileY, sceneX: (x0 + x1) * 0.5, sceneZ: (z0 + z1) * 0.5, surfaceY: 0, startAt, resolvesAt, hill });
+    const entry: TileEntry = { worldTileX, worldTileY, sceneX: (x0 + x1) * 0.5, sceneZ: (z0 + z1) * 0.5, surfaceY: 0, startAt, resolvesAt, hill };
+    hillEntries.push(entry);
+    writeHillDrape(hillTintCount, entry, fillFor(entry, Date.now()));
 
-    const positions = hillTintGeom.getAttribute("position") as BufferAttribute;
     const colors = hillTintGeom.getAttribute("color") as BufferAttribute;
     const indices = hillTintGeom.getIndex() as BufferAttribute;
 
@@ -257,12 +290,7 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
 
     for (let b = 0; b <= HILL_SUBDIV; b += 1) {
       for (let a = 0; a <= HILL_SUBDIV; a += 1) {
-        const fx = a / HILL_SUBDIV;
-        const fz = b / HILL_SUBDIV;
         const p = vi * 3;
-        positions.array[p + 0] = x0 + (x1 - x0) * fx;
-        (positions.array as Float32Array)[p + 1] = hillSurfaceYAt(hill, fx, fz, worldTileX, worldTileY);
-        positions.array[p + 2] = z0 + (z1 - z0) * fz;
         colors.array[p + 0] = ownerColor.r;
         colors.array[p + 1] = ownerColor.g;
         colors.array[p + 2] = ownerColor.b;
@@ -372,9 +400,8 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
     // Tint plate animates here every frame so the fill grows continuously
     // even between rebuilds. Compose translation + non-uniform scale per
     // entry: width = TINT_SIZE * progress, anchored at the west edge so
-    // the colour sweeps in from the left. Hill tiles skip this (their
-    // tint is the vertex-draped hillTintMesh, which doesn't animate a
-    // fill sweep) but still get people wander below.
+    // the colour sweeps in from the left. Hill tiles re-drape their
+    // hillTintMesh slot over the same filled fraction instead.
     // startAt / resolvesAt are recorded as Date.now() at addInstance time
     // (matches the queue-logic side); read the wall clock once per tick
     // and reuse for every entry.
@@ -386,8 +413,10 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
       const totalMs = Math.max(1, e.resolvesAt - e.startAt);
       const progress = Math.max(0, Math.min(1, (nowDate - e.startAt) / totalMs));
 
-      if (!isHill) {
-        const fillProgress = Math.max(0.04, progress);
+      if (isHill) {
+        writeHillDrape(idx - entries.length, e, fillFor(e, nowDate));
+      } else {
+        const fillProgress = fillFor(e, nowDate);
         const halfWidth = TINT_HALF * fillProgress;
         const centerX = e.sceneX - TINT_HALF + halfWidth;
         tmpScale.x = fillProgress;
@@ -426,6 +455,12 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
     tintMesh.instanceMatrix.clearUpdateRanges();
     tintMesh.instanceMatrix.addUpdateRange(0, tintMesh.count * 16);
     tintMesh.instanceMatrix.needsUpdate = true;
+    if (hillEntries.length > 0) {
+      const posAttr = hillTintGeom.getAttribute("position") as BufferAttribute;
+      posAttr.clearUpdateRanges();
+      posAttr.addUpdateRange(0, hillEntries.length * HILL_VERTS_PER_TILE * 3);
+      posAttr.needsUpdate = true;
+    }
 
     // Pulse the frame brightness so the tile reads as "in progress".
     const pulse = 0.5 + 0.5 * Math.sin(nowMs / 180);
@@ -442,6 +477,7 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
     hillTintGeom.dispose();
     personMaterial.dispose();
     tintMaterial.dispose();
+    hillTintMaterial.dispose();
     frameMaterial.dispose();
   };
 

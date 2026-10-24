@@ -41,6 +41,7 @@ import { MARCH_ATTACK_DEEP_CHANGELOG } from "./client-changelog-march-attack-dee
 import { WAR_INDUSTRY_SQUADS_CHANGELOG } from "./client-changelog-war-industry-squads.js";
 import { MARCH_ATTACK_ROUTES_CHANGELOG } from "./client-changelog-march-attack-routes.js";
 import { FORT_WALL_OPENINGS_CHANGELOG } from "./client-changelog-fort-wall-openings.js";
+import { HILL_GARRISON_FILL_CHANGELOG } from "./client-changelog-hill-garrison-fill.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -326,7 +327,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["Active Ancillary Factories can convert residents from their supported town into 100 immediate manpower, even above the cap. The menu shows exactly how many people will be taken.", "Each town can be forced once every four hours and must retain at least 10,000 residents. The factory menu shows the exact population cost."]
   },
   ...WAR_INDUSTRY_SQUADS_CHANGELOG,
-  ...FORT_WALL_OPENINGS_CHANGELOG
+  ...FORT_WALL_OPENINGS_CHANGELOG,
+  ...HILL_GARRISON_FILL_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
