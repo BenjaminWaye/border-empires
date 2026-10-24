@@ -24,6 +24,16 @@ export function revealCapacityForPlayer(player: DomainPlayer, revealTargetCount:
   return player.techIds.has("beacon-towers") || revealTargetCount > 0 ? 1 : 0;
 }
 
+/** The player's live REVEAL_EMPIRE target set, created empty on first use. */
+export function revealTargetsForPlayer(revealTargetsByPlayer: Map<string, Set<string>>, playerId: string): Set<string> {
+  let targets = revealTargetsByPlayer.get(playerId);
+  if (!targets) {
+    targets = new Set<string>();
+    revealTargetsByPlayer.set(playerId, targets);
+  }
+  return targets;
+}
+
 export function getAbilityCooldownUntil(
   abilityCooldowns: ReadonlyMap<string, ReadonlyMap<string, number>>,
   playerId: string,

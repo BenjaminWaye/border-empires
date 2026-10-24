@@ -161,7 +161,8 @@ Strategic phases that emerge from the AI planner: opening expansion, mid-game ec
 ## 9. Seasons and world events
 
 - **Seasons**: time-bounded game instances with `startAt`, `endAt`, `worldSeed`, `techTreeConfigId`, `status`. Single shared season across all players. `packages/shared/src/types.ts:423-430`
-- **Shard rain**: scheduled scatter of high-value shard sites. Schedule: `SHARD_RAIN_SCHEDULE_HOURS = [12, 20]`. Each rain spawns 3–6 sites with a 30-minute TTL. Shards feed monument construction. `packages/game-domain/src/server-game-constants/server-game-constants.ts:29-32`
+- **Shard rain**: scheduled scatter of high-value shard sites. Schedule: `SHARD_RAIN_SCHEDULE_HOURS = [8, 21]` (UTC). Each rain spawns 3–6 sites, plus 1 per 4 human players, with a 30-minute TTL. Shards feed monument construction and Shard Mobilization (1 Shard donated to the Court refills manpower to the cap; see the economy reference). `apps/simulation/src/runtime-shard-rain-rules.ts`
+- **Comeback shard rain**: up to half of each rain's sites (rounded up) land on the own territory of human players who recently lost a large share of their land, at most one per player per rain. "Recently lost" is measured against a decaying peak territory size (half-life 24 hours, observed every minute): players qualify once their peak was at least 20 tiles and they have lost at least 40% of it, and are drawn with probability proportional to the share lost. The peaks are not persisted; after a restart they rebuild from live territory. The site lands on a FRONTIER or SETTLED tile the player still owns, so they can collect it directly. `apps/simulation/src/shard-rain-comeback/shard-rain-comeback.ts`
 - **Barbarian spawning**: continuous; see §2.
 - **Client visibility**: season status, victory pressure, leader hold-time, shard rain sites, and barbarian positions are streamed live to clients. No hidden standings.
 

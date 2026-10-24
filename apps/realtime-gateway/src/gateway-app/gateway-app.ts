@@ -2581,10 +2581,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await dispatchDurableCommand("AEGIS_LOCK", { fromX: message.fromX, fromY: message.fromY }, true);
           } else if (message.type === "ASTRAL_DOCK_LAUNCH") {
             await dispatchDurableCommand("ASTRAL_DOCK_LAUNCH", { fromX: message.fromX, fromY: message.fromY }, true);
-          } else if (message.type === "ACTIVATE_IMPERIAL_WARD") {
-            // Emperor-endorsement bonus (galaxy meta-layer Phase 1). No
-            // anchor tile — zero-field payload, unlike AEGIS_LOCK.
-            await dispatchDurableCommand("ACTIVATE_IMPERIAL_WARD", {}, true);
+          } else if (message.type === "ACTIVATE_IMPERIAL_WARD" || message.type === "SHARD_MOBILIZE") {
+            // Per-player abilities with no anchor tile (Imperial Ward, Shard
+            // Mobilization) — zero-field payload, unlike AEGIS_LOCK.
+            await dispatchDurableCommand(message.type, {}, true);
           } else if (message.type === "UPGRADE_TOWN_TIER" || message.type === "COLLECT_SHARD" || message.type === "NAME_ISLAND") {
             await dispatchDurableCommand(message.type, { x: message.x, y: message.y, ...(message.type === "NAME_ISLAND" ? { name: message.name } : {}) }, true);
           } else if (message.type === "SET_AUTO_SETTLE_PREFS") {
