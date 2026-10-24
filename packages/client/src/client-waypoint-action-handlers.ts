@@ -11,6 +11,7 @@ import {
 import { showVisibleActionWarning } from "./client-visible-action-warning.js";
 import { promptAttackEffortForTarget } from "./client-launch-attack-effort/client-launch-attack-effort.js";
 import { announceDiscoveryTipForState } from "./client-onboarding-ui-gate/client-onboarding-ui-overlays.js";
+import { dispatchMarchAttackAction } from "./client-march-attack-actions/client-march-attack-actions.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { WaypointPlan } from "./client-waypoint-planner/client-waypoint-planner.js";
 
@@ -119,6 +120,14 @@ const clearAllWaypoints = (params: {
 
 export const handleWaypointAction = (deps: WaypointHandlerDeps): boolean => {
   const { state, selected, actionId, keyFor, pushFeed, renderHud, hideTileActionMenu, showCaptureAlert, processActionQueue, sendGameMessage } = deps;
+
+  // March Attack rows sit where Expand To & Attack used to on a deep hostile
+  // tile (injectWaypointActions), so they dispatch from here too.
+  if (selected && sendGameMessage && dispatchMarchAttackAction(actionId, selected, state, { pushFeed, sendGameMessage, renderHud, keyFor })) {
+    hideTileActionMenu();
+    renderHud();
+    return true;
+  }
 
   if (actionId === "cancel_waypoint") {
     const index = selected ? state.waypoint.findIndex((w) => w.target.x === selected.x && w.target.y === selected.y) : -1;

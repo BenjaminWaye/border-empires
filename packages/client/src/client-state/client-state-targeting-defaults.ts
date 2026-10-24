@@ -11,7 +11,9 @@ export type InitialTargetingState = {
   musterMarchTargeting: { active: boolean; originX: number; originY: number };
   winChancePaint: { targetX: number; targetY: number; expiresAt: number; entries: { x: number; y: number; winChance: number; color: string }[] } | undefined;
   arrowGesture: ArrowGesture | undefined;
-  pendingArrowGestureConfirm: ArrowGesture | undefined;
+  // newFlag: the origin tile had no flag when the sheet opened -- "Go" raises
+  // one there (March Attack from New Flag), so a missing flag isn't stale.
+  pendingArrowGestureConfirm: (ArrowGesture & { newFlag?: boolean }) | undefined;
   garrisonMany: GarrisonManyState;
 };
 

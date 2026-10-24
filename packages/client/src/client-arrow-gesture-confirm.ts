@@ -38,7 +38,8 @@ export const handleArrowGestureConfirm = (
     deps.pushFeed(tooFarAdvice, "combat", "info");
     return;
   }
-  state.pendingArrowGestureConfirm = { origin, target };
+  const newFlag = state.tiles.get(deps.keyFor(origin.x, origin.y))?.muster?.ownerId !== state.me;
+  state.pendingArrowGestureConfirm = { origin, target, ...(newFlag ? { newFlag } : {}) };
   state.arrowGesture = { origin, target };
   showArrowGestureConfirmSheet(state, origin, target, deps.keyFor, {
     sendGameMessage: deps.sendGameMessage,
