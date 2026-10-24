@@ -99,11 +99,20 @@ const waystationCardText = (card: Extract<PersonalActivityCard, { kind: "WAYSTAT
   return "Waystation activated · permanent vision revealed";
 };
 
-const townCardText = (card: Extract<PersonalActivityCard, { kind: "TOWN_CAPTURED" | "TOWN_LOST" }>): string => {
+const townCardText = (card: Extract<PersonalActivityCard, { kind: "TOWN_CAPTURED" | "TOWN_LOST" }>, playerNames: PlayerNameLookup): string => {
   const town = card.townName ?? card.townTier.toLowerCase();
-  const outcome = card.kind === "TOWN_CAPTURED" ? `Captured ${town}` : `Lost ${town}`;
-  const aftermath = card.townSurvived ? `${card.populationAfter} population remaining` : "settlement razed";
+  const counterparty = card.counterpartyPlayerId ? nameOf(card.counterpartyPlayerId, playerNames) : undefined;
+  const outcome = card.kind === "TOWN_CAPTURED"
+    ? `Captured ${town}${counterparty ? ` from ${counterparty}` : ""}`
+    : `Lost ${town}${counterparty ? ` to ${counterparty}` : ""}`;
+  const aftermath = card.townSurvived ? `${roundedAmount(card.populationAfter)} population remaining` : "settlement razed";
   return `${outcome} · ${aftermath}`;
+};
+
+const dockCardText = (card: Extract<PersonalActivityCard, { kind: "DOCK_CAPTURED" | "DOCK_LOST" }>, playerNames: PlayerNameLookup): string => {
+  const counterparty = card.counterpartyPlayerId ? nameOf(card.counterpartyPlayerId, playerNames) : undefined;
+  if (card.kind === "DOCK_CAPTURED") return `Captured a Dock${counterparty ? ` from ${counterparty}` : ""}`;
+  return `Lost your Dock${counterparty ? ` to ${counterparty}` : ""}`;
 };
 
 const buildingCardText = (card: Extract<PersonalActivityCard, { kind: "BUILDING_COMPLETED" }>): string => {
@@ -120,7 +129,8 @@ export const activityCardText = (card: PersonalActivityCard, playerId: string, p
   if (card.kind === "SIEGE") return siegeCardText(card, playerNames);
   if (card.kind === "TERRITORY_FLIP_GROUP") return territoryCardText(card, playerNames);
   if (card.kind === "WAYSTATION_ACTIVATED") return waystationCardText(card, techName);
-  if (card.kind === "TOWN_CAPTURED" || card.kind === "TOWN_LOST") return townCardText(card);
+  if (card.kind === "TOWN_CAPTURED" || card.kind === "TOWN_LOST") return townCardText(card, playerNames);
+  if (card.kind === "DOCK_CAPTURED" || card.kind === "DOCK_LOST") return dockCardText(card, playerNames);
   if (card.kind === "BUILDING_COMPLETED") return buildingCardText(card);
   if (card.kind === "TRUNCATION_NOTE") return `${card.hiddenCount} smaller event${card.hiddenCount === 1 ? "" : "s"} not shown`;
   // A card kind from a newer server than this client: say something true

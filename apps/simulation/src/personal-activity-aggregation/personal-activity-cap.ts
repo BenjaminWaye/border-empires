@@ -11,6 +11,7 @@ const impactOf = (card: PersonalActivityCard): number => {
   if (card.kind === "COMBAT_GROUP") return card.manpowerLoss;
   if (card.kind === "TOWN_CAPTURED" || card.kind === "TOWN_LOST") return card.populationBefore;
   if (card.kind === "WAYSTATION_ACTIVATED") return 100;
+  if (card.kind === "DOCK_CAPTURED" || card.kind === "DOCK_LOST") return 100;
   if (card.kind === "BUILDING_COMPLETED") return 10;
   return 0;
 };

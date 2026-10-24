@@ -77,8 +77,13 @@ export function applyWinningTileCapture(context: RuntimeLockResolutionContext, l
         capturedStructureTypes
       };
       const occurredAt = context.now();
-      context.recordPersonalImpact?.({ id: `town-captured:${lock.commandId}`, kind: "TOWN_CAPTURED", playerId: lock.playerId, occurredAt, x: lock.targetX, y: lock.targetY, ...townImpact });
-      context.recordPersonalImpact?.({ id: `town-lost:${lock.commandId}`, kind: "TOWN_LOST", playerId: previousOwnerId, occurredAt, x: lock.targetX, y: lock.targetY, ...townImpact });
+      context.recordPersonalImpact?.({ id: `town-captured:${lock.commandId}`, kind: "TOWN_CAPTURED", playerId: lock.playerId, occurredAt, x: lock.targetX, y: lock.targetY, ...townImpact, counterpartyPlayerId: previousOwnerId });
+      context.recordPersonalImpact?.({ id: `town-lost:${lock.commandId}`, kind: "TOWN_LOST", playerId: previousOwnerId, occurredAt, x: lock.targetX, y: lock.targetY, ...townImpact, counterpartyPlayerId: lock.playerId });
+    }
+    if (previousTarget?.dockId && previousOwnerId && previousOwnerId !== lock.playerId) {
+      const occurredAt = context.now();
+      context.recordPersonalImpact?.({ id: `dock-captured:${lock.commandId}`, kind: "DOCK_CAPTURED", playerId: lock.playerId, occurredAt, x: lock.targetX, y: lock.targetY, counterpartyPlayerId: previousOwnerId });
+      context.recordPersonalImpact?.({ id: `dock-lost:${lock.commandId}`, kind: "DOCK_LOST", playerId: previousOwnerId, occurredAt, x: lock.targetX, y: lock.targetY, counterpartyPlayerId: lock.playerId });
     }
     if (previousOwnerId !== resolvedTarget.ownerId) {
       context.recordTileFlip?.({

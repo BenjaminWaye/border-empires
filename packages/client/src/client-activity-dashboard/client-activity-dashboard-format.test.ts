@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { activityCardCoordinates, activityCardCoordinatesLabel, activityCardText, activityPlayerNameLookup, shouldShowManpowerHeadline, summaryCountsLine, truncationLabel } from "./client-activity-dashboard-format.js";
+import { activityCardTone } from "./client-activity-dashboard-tone.js";
 
 describe("shouldShowManpowerHeadline", () => {
   it("is false below the absolute floor even at a huge cap share", () => {
@@ -144,6 +145,21 @@ describe("activityCardText / activityCardCoordinates", () => {
     const building = { kind: "BUILDING_COMPLETED" as const, structureType: "MANUFACTORY", instantGold: 100, x: 4, y: 7 };
     expect(activityCardText(town as any, "me", noNames)).toContain("settlement razed");
     expect(activityCardText(building as any, "me", noNames)).toContain("+100 coin");
+  });
+
+  it("names who took or gave up a town and rounds its population", () => {
+    const base = { townName: "Aurienspire Ring", townTier: "CITY", townSurvived: true, populationBefore: 50_000, populationAfter: 25354.069705641472, capturedStructureTypes: [], x: 5, y: 9 };
+    const names = namesFrom({ kara: "Kara" });
+    expect(activityCardText({ ...base, kind: "TOWN_LOST", counterpartyPlayerId: "kara" } as any, "me", names)).toBe("Lost Aurienspire Ring to Kara · 25354 population remaining");
+    expect(activityCardText({ ...base, kind: "TOWN_CAPTURED", counterpartyPlayerId: "kara" } as any, "me", names)).toBe("Captured Aurienspire Ring from Kara · 25354 population remaining");
+    expect(activityCardText({ ...base, kind: "TOWN_LOST" } as any, "me", names)).toBe("Lost Aurienspire Ring · 25354 population remaining");
+  });
+
+  it("gives a lost or captured dock its own note naming the other player", () => {
+    const names = namesFrom({ kara: "Kara" });
+    expect(activityCardText({ kind: "DOCK_LOST", counterpartyPlayerId: "kara", x: 5, y: 9 } as any, "me", names)).toBe("Lost your Dock to Kara");
+    expect(activityCardText({ kind: "DOCK_CAPTURED", counterpartyPlayerId: "kara", x: 5, y: 9 } as any, "me", names)).toBe("Captured a Dock from Kara");
+    expect(activityCardTone({ kind: "DOCK_LOST", x: 5, y: 9 } as any, "me")).toBe("loss");
   });
 
   it("names completed buildings by their player-facing name, not the backend id", () => {

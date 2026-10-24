@@ -83,3 +83,42 @@ describe("aggregatePersonalActivity duplicate rows", () => {
     expect(timeline.summary).toMatchObject({ tilesClaimed: 1, tilesLost: 1 });
   });
 });
+
+describe("matchCombatToFlips known captures", () => {
+  // The 2026-10-23 prod case: a restart kept the TOWN_LOST note but dropped
+  // the town tile's flip, so Kara's winning assault read as repelled and the
+  // siege card said "Your Palisade is holding".
+  const townLost = (overrides: Partial<{ attackerId: string; at: number; x: number }> = {}) =>
+    ({ x: 10, y: 10, at: 2 * MINUTE, defenderId: "me", attackerId: "kara", ...overrides });
+
+  it("keeps a win with no flip when a town-lost note records the capture", () => {
+    const win = testCombat({ attackerId: "kara", defenderId: "me", attackerWon: true, at: 0 });
+    expect(matchCombatToFlips([win], [], COMBAT_FLIP_MATCH_WINDOW_MS, [townLost()]).combat[0]?.attackerWon).toBe(true);
+  });
+
+  it("still reverses a win when the town-lost note is for another tile or captor", () => {
+    const win = testCombat({ attackerId: "kara", defenderId: "me", attackerWon: true, at: 0 });
+    expect(matchCombatToFlips([win], [], COMBAT_FLIP_MATCH_WINDOW_MS, [townLost({ x: 11 })]).combat[0]?.attackerWon).toBe(false);
+    expect(matchCombatToFlips([win], [], COMBAT_FLIP_MATCH_WINDOW_MS, [townLost({ attackerId: "maren" })]).combat[0]?.attackerWon).toBe(false);
+  });
+
+  it("shows a dock-lost note and treats it as proof of the capture", () => {
+    const timeline = aggregatePersonalActivity("me", { from: 0, to: 60 * MINUTE }, [], [
+      testCombat({ attackerId: "kara", defenderId: "me", at: 0 }),
+      testCombat({ attackerId: "kara", defenderId: "me", attackerWon: true, at: MINUTE })
+    ], [{ id: "dock-lost:1", kind: "DOCK_LOST", playerId: "me", occurredAt: 2 * MINUTE, x: 10, y: 10, counterpartyPlayerId: "kara" }]);
+    expect(timeline.cards.find((card) => card.kind === "DOCK_LOST")).toMatchObject({ counterpartyPlayerId: "kara", x: 10, y: 10 });
+    expect(timeline.cards.find((card) => card.kind === "SIEGE")).toMatchObject({ outcome: "FELL", capturedBy: "kara" });
+  });
+
+  it("reports the siege as fallen to the captor", () => {
+    const timeline = aggregatePersonalActivity("me", { from: 0, to: 60 * MINUTE }, [], [
+      testCombat({ attackerId: "kara", defenderId: "me", at: 0 }),
+      testCombat({ attackerId: "kara", defenderId: "me", attackerWon: true, at: MINUTE })
+    ], [{
+      id: "town-lost:1", kind: "TOWN_LOST", playerId: "me", occurredAt: 2 * MINUTE, x: 10, y: 10, counterpartyPlayerId: "kara",
+      townTier: "CITY", townSurvived: true, populationBefore: 50_000, populationAfter: 25_000, capturedStructureTypes: []
+    }]);
+    expect(timeline.cards.find((card) => card.kind === "SIEGE")).toMatchObject({ outcome: "FELL", capturedBy: "kara", assaultsRepelled: 1 });
+  });
+});
