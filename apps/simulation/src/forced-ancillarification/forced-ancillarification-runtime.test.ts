@@ -28,22 +28,22 @@ describe("Forced Ancillarification through the real runtime", () => {
     const before = runtime.exportSnapshotSections().initialState;
     runtime.submitCommand(command("1")); await flush();
     expect(seen.filter(event => event.eventType === "COMMAND_REJECTED")).toEqual([]);
-    expect(population(runtime)).toBe(18_000);
+    expect(population(runtime)).toBe(19_600);
     const after = runtime.exportSnapshotSections().initialState;
     expect(after.players?.find(player => player.id === "p")?.manpower).toBe(5100);
     const cooldown = 1000 + FORCED_ANCILLARIFICATION_COOLDOWN_MS;
     expect(after.tiles.find(tile => tile.town)?.town?.forcedAncillarificationCooldownUntil).toBe(cooldown);
     const recovered = applySimulationEventsToRecoveredState(before, seen.filter(event => event.eventType !== "PLAYER_MESSAGE"));
-    expect(recovered.tiles.find(tile => tile.town)?.town).toMatchObject({ population: 18_000, forcedAncillarificationCooldownUntil: cooldown });
+    expect(recovered.tiles.find(tile => tile.town)?.town).toMatchObject({ population: 19_600, forcedAncillarificationCooldownUntil: cooldown });
     expect(recovered.players?.find(player => player.id === "p")).toMatchObject({ manpower: 5100, waystationManpowerOverflow: after.players?.find(player => player.id === "p")?.waystationManpowerOverflow });
     runtime.submitCommand(command("1")); await flush();
-    expect(population(runtime)).toBe(18_000);
+    expect(population(runtime)).toBe(19_600);
   });
   it("shares a cooldown across factories, retains it in snapshots, and becomes available at expiry", async () => {
     const { runtime, seen, setNow } = setup([town(), factory(), factory(9)]);
     runtime.submitCommand(command("1")); await flush();
     runtime.submitCommand(command("2", 9)); await flush();
-    expect(population(runtime)).toBe(18_000);
+    expect(population(runtime)).toBe(19_600);
     expect(seen.some(event => event.eventType === "COMMAND_REJECTED" && event.commandId === "2")).toBe(true);
     const snapshot = runtime.exportSnapshotSections().initialState;
     const restarted = new SimulationRuntime({ now: () => 2000, scheduleAfter: () => {}, seedTiles: new Map(), initialState: snapshot });
@@ -52,7 +52,7 @@ describe("Forced Ancillarification through the real runtime", () => {
     expect(restartedEvents.some(event => event.eventType === "COMMAND_REJECTED")).toBe(true);
     setNow(1000 + FORCED_ANCILLARIFICATION_COOLDOWN_MS);
     runtime.submitCommand(command("4", 9)); await flush();
-    expect(population(runtime)).toBe(16_200);
+    expect(population(runtime)).toBe(19_208);
   });
   it("rejects absent, foreign, unfinished, inactive and resource-starved factories or too-small towns", async () => {
     const cases: Array<{ tiles: DomainTileState[]; food?: number }> = [
@@ -77,6 +77,6 @@ describe("Forced Ancillarification through the real runtime", () => {
     const city = town(100_000); city.town!.populationTier = "CITY";
     const { runtime } = setup([city, factory()]);
     runtime.submitCommand(command("1")); await flush();
-    expect(runtime.exportSnapshotSections().initialState.tiles.find(tile => tile.town)?.town).toMatchObject({ population: 90_000, populationTier: "TOWN" });
+    expect(runtime.exportSnapshotSections().initialState.tiles.find(tile => tile.town)?.town).toMatchObject({ population: 98_000, populationTier: "TOWN" });
   });
 });

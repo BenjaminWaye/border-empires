@@ -17,7 +17,7 @@ export function forcedAncillarificationActions(state: Pick<ClientState, "me" | "
     : !quote.available ? "Must leave at least 10,000 residents" : "";
   return [{
     id: "forced_ancillarification", label: "Forced Ancillarification",
-    detail: `Permanently convert ${quote.populationCost.toLocaleString("en-US")} residents (10% of ${town?.name ?? "the town"}) into +${quote.manpower} immediate manpower. Works above your cap. 4h cooldown per town; population loss can reduce its tier.`,
+    detail: `Permanently convert ${quote.populationCost.toLocaleString("en-US")} residents from ${town?.name ?? "the town"} into +${quote.manpower} immediate manpower. Works above your cap. 4h cooldown per town; population loss can reduce its tier.`,
     cost: `${quote.populationCost.toLocaleString("en-US")} population → +${quote.manpower} manpower`,
     disabled: Boolean(reason), ...(reason ? { disabledReason: reason } : {})
   }];

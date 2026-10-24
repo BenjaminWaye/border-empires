@@ -69,7 +69,7 @@ defines what these systems mean in the fiction; follow the
 ### Forced Ancillarification
 
 Selecting an active, owned, garrisoned Ancillary Factory offers **Forced
-Ancillarification**. It permanently removes **10% of its assigned town's current
+Ancillarification**. It permanently removes **2% of its assigned town's current
 population, rounded up**, for **100 immediate manpower**. This reserve can exceed
 the manpower cap, using the same overflow accounting as paid recruitment.
 A town must retain at least **10,000 residents**; population loss can lower its
@@ -77,7 +77,8 @@ tier. There is a **4-hour cooldown per town**, shared by all factories supportin
 it, retained through captures and restarts. Dormant, inactive, unfinished and
 temporarily disabled factories cannot use it. Overlapping support rings use the
 ordinary town assignment rule. The factory menu previews the exact population
-cost with the shared calculation used by the server.
+cost as a resident count, without displaying the percentage, with the shared
+calculation used by the server.
 
 Sources: `packages/shared/src/forced-ancillarification/forced-ancillarification.ts`,
 `apps/simulation/src/forced-ancillarification/forced-ancillarification-command.ts`,

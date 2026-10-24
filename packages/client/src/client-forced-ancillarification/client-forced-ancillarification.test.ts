@@ -18,9 +18,12 @@ function setup() {
 describe("Forced Ancillarification factory action (both map renderers)", () => {
   it("previews the actual cost and sends factory coordinates", () => {
     const { state, factory, town } = setup();
-    expect(forcedAncillarificationActions(state, factory, 1000)[0]).toMatchObject({ disabled: false, cost: "2,000 population → +100 manpower" });
+    expect(forcedAncillarificationActions(state, factory, 1000)[0]).toMatchObject({ disabled: false, cost: "400 population → +100 manpower" });
+    const action = forcedAncillarificationActions(state, factory, 1000)[0]!;
+    expect(action.detail).toContain("400 residents from Test Town");
+    expect(`${action.detail} ${action.cost}`).not.toContain("%");
     town.town!.population = 1_000_000;
-    expect(forcedAncillarificationActions(state, factory, 1000)[0]?.cost).toBe("100,000 population → +100 manpower");
+    expect(forcedAncillarificationActions(state, factory, 1000)[0]?.cost).toBe("20,000 population → +100 manpower");
     const send = vi.fn(() => true);
     dispatchTileAetherAction("forced_ancillarification", factory, { aetherLanceFxQueue: [] }, send);
     expect(send).toHaveBeenCalledWith({ type: "FORCED_ANCILLARIFICATION", x: 11, y: 10 });
