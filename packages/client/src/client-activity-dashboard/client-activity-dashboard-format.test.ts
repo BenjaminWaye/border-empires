@@ -160,6 +160,7 @@ describe("activityCardText / activityCardCoordinates", () => {
     expect(activityCardText({ kind: "DOCK_LOST", counterpartyPlayerId: "kara", x: 5, y: 9 } as any, "me", names)).toBe("Lost your Dock to Kara");
     expect(activityCardText({ kind: "DOCK_CAPTURED", counterpartyPlayerId: "kara", x: 5, y: 9 } as any, "me", names)).toBe("Captured a Dock from Kara");
     expect(activityCardTone({ kind: "DOCK_LOST", x: 5, y: 9 } as any, "me")).toBe("loss");
+    expect(activityCardTone({ kind: "DOCK_CAPTURED", x: 5, y: 9 } as any, "me")).toBe("gain");
   });
 
   it("names completed buildings by their player-facing name, not the backend id", () => {

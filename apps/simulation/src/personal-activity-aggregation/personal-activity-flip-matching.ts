@@ -72,20 +72,24 @@ export const matchCombatToFlips = (
   const seizedOrigin = new Map<CombatManpowerLoss, readonly PersonalActivityTileFeature[]>();
   // Captures first, for every entry, so a later fight's capture of a launch
   // tile is never mistaken for an earlier failed attack's seized origin.
+  const claimKnown = (loss: CombatManpowerLoss): KnownCapture | undefined => {
+    const known = knownCaptures.find((entry) => !usedKnownCaptures.has(entry) && isKnownCapture(loss, entry));
+    if (known) usedKnownCaptures.add(known);
+    return known;
+  };
   const confirmed = sortedCombat.map((loss) => {
     if (!loss.attackerWon) return loss;
     const capture = claim(loss, isCaptureFlip);
     if (capture) {
+      // The flip already tells this capture; its note must not confirm a
+      // second, reversed win on the same tile as well.
+      claimKnown(loss);
       if (capture.features?.length) captured.set(loss, capture.features);
       return loss;
     }
     // Still in flight: its flip may simply not have landed yet.
     if (now - loss.at < COMBAT_FLIP_MATCH_WINDOW_MS) return loss;
-    const known = knownCaptures.find((entry) => !usedKnownCaptures.has(entry) && isKnownCapture(loss, entry));
-    if (known) {
-      usedKnownCaptures.add(known);
-      return loss;
-    }
+    if (claimKnown(loss)) return loss;
     return { ...loss, attackerWon: false, pillagedGold: 0, defenderGoldLoss: 0 };
   });
   const originSeized = new Set<CombatManpowerLoss>();
