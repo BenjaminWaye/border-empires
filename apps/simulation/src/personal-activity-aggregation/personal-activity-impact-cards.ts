@@ -1,5 +1,6 @@
 import type {
   PersonalActivityBuildingCard,
+  PersonalActivityDockCard,
   PersonalActivityTownCard,
   PersonalActivityWaystationCard
 } from "@border-empires/game-domain";
@@ -9,17 +10,20 @@ import type { PersonalImpactEvent } from "../personal-impact-log/personal-impact
 export type PersonalImpactCards = {
   waystations: PersonalActivityWaystationCard[];
   towns: PersonalActivityTownCard[];
+  docks: PersonalActivityDockCard[];
   buildings: PersonalActivityBuildingCard[];
 };
 
 export const personalImpactCardsForPlayer = (playerId: string, events: readonly PersonalImpactEvent[]): PersonalImpactCards => {
-  const cards: PersonalImpactCards = { waystations: [], towns: [], buildings: [] };
+  const cards: PersonalImpactCards = { waystations: [], towns: [], docks: [], buildings: [] };
   for (const event of events) {
     if (event.playerId !== playerId) continue;
     if (event.kind === "WAYSTATION_ACTIVATED") {
       cards.waystations.push({ ...event });
     } else if (event.kind === "TOWN_CAPTURED" || event.kind === "TOWN_LOST") {
       cards.towns.push({ ...event });
+    } else if (event.kind === "DOCK_CAPTURED" || event.kind === "DOCK_LOST") {
+      cards.docks.push({ ...event });
     } else if (event.kind === "BUILDING_COMPLETED") {
       cards.buildings.push({ ...event });
     }
