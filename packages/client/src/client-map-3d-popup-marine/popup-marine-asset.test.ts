@@ -16,6 +16,7 @@ import { Bone, Box3, SkinnedMesh, Vector3 } from "three";
 import type { GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { MARINE_CLIP_NAMES } from "./popup-marine-asset.js";
+import { titaniumTrimWeight } from "./popup-marine-trim-material.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MODEL_PATH = resolve(__dirname, "../../public/models/popup-marine-titan-24bone.glb");
@@ -112,5 +113,49 @@ describe("popup-marine-titan-24bone.glb (real checked-in asset)", () => {
       expect(spread(xs)).toBeLessThan(EXPECTED_HEIGHT);
       expect(spread(zs)).toBeLessThan(EXPECTED_HEIGHT);
     }
+  });
+});
+
+// The titanium trim (popup-marine-trim-material.ts) is masked off this
+// model's baked paint. It once caught the backpack too -- the bake's "neck"
+// group is the pack, not the collar -- so pin the mask to the real paint.
+describe("titanium trim mask on the real marine paint", () => {
+  const regionWeights = async (): Promise<Map<string, number[]>> => {
+    const gltf = await parseModel();
+    let mesh: SkinnedMesh | undefined;
+    gltf.scene.traverse((child) => {
+      if (!mesh && child instanceof SkinnedMesh) mesh = child;
+    });
+    const geometry = mesh!.geometry;
+    const color = geometry.getAttribute("color");
+    const position = geometry.getAttribute("position");
+    const joints = geometry.getAttribute("skinIndex");
+    const weights = geometry.getAttribute("skinWeight");
+    const byRegion = new Map<string, number[]>();
+    for (let v = 0; v < color.count; v++) {
+      let best = 0;
+      for (let k = 1; k < 4; k++) if (weights.getComponent(v, k) > weights.getComponent(v, best)) best = k;
+      const bone = mesh!.skeleton.bones[joints.getComponent(v, best)]!.name;
+      const list = byRegion.get(bone) ?? [];
+      list.push(titaniumTrimWeight(color.getY(v), position.getZ(v)));
+      byRegion.set(bone, list);
+    }
+    return byRegion;
+  };
+
+  it("trims the shoulder plates all round and never the backpack, arms or helmet", async () => {
+    const byRegion = await regionWeights();
+    for (const bone of ["LeftShoulder", "RightShoulder"]) {
+      expect(Math.min(...byRegion.get(bone)!)).toBe(1);
+    }
+    for (const bone of ["neck", "LeftArm", "RightArm", "Head", "Spine01", "Hips"]) {
+      expect(Math.max(...byRegion.get(bone)!)).toBe(0);
+    }
+  });
+
+  it("trims the chest on the front of the torso only", async () => {
+    const chest = (await regionWeights()).get("Spine02")!;
+    expect(chest.filter((w) => w === 1).length).toBeGreaterThan(chest.length / 2);
+    expect(chest.some((w) => w === 0)).toBe(true);
   });
 });

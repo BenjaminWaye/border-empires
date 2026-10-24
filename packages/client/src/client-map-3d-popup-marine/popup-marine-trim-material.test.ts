@@ -10,8 +10,9 @@ const { createMarineMaterial } = await import("./popup-marine-trim-material.js")
 const compile = (material: ReturnType<typeof createMarineMaterial>["material"]): WebGLProgramParametersWithUniforms => {
   const shader = {
     uniforms: {},
-    vertexShader: "",
-    fragmentShader: "#include <common>\n#include <color_fragment>\n#include <metalnessmap_fragment>\n#include <roughnessmap_fragment>"
+    vertexShader: "#include <common>\n#include <begin_vertex>",
+    fragmentShader:
+      "#include <common>\n#include <color_fragment>\n#include <metalnessmap_fragment>\n#include <roughnessmap_fragment>\n#include <lights_fragment_maps>"
   } as unknown as WebGLProgramParametersWithUniforms;
   material.onBeforeCompile(shader, {} as WebGLRenderer);
   return shader;
@@ -21,7 +22,13 @@ describe("createMarineMaterial", () => {
   it("patches the armour-plate titanium blend into the fragment shader", () => {
     const { material } = createMarineMaterial();
     const shader = compile(material);
-    expect(shader.fragmentShader).toContain("smoothstep(0.66, 0.74, vColor.g)");
+    // Shoulders and the front of the chest, never the backpack band below them.
+    expect(shader.fragmentShader).toContain("smoothstep(0.855, 0.87, vColor.g)");
+    expect(shader.fragmentShader).toContain("smoothstep(0.805, 0.82, vColor.g)");
+    expect(shader.fragmentShader).toContain("smoothstep(-0.003, -0.001, vBindZ)");
+    expect(shader.vertexShader).toContain("vBindZ = position.z;");
+    // Reflections stay on the plates rather than lightening the whole suit.
+    expect(shader.fragmentShader).toContain("radiance *= titaniumPlate;");
     expect(shader.fragmentShader).toContain("metalnessFactor = mix(");
     expect(shader.fragmentShader).toContain("roughnessFactor = mix(");
   });
