@@ -91,7 +91,6 @@ import {
   findOwnedAetherBridgeOriginForCrossing as findOwnedAetherBridgeOriginForCrossingImpl,
   type DockCrossingOrigin
 } from "./runtime-crossing.js";
-import { forEachFrontierNeighbor } from "../frontier-topology.js";
 import {
   isSettledTownAnchor,
   TOWN_AUTO_FRONTIER_RADIUS
@@ -328,6 +327,7 @@ import {
   pickReadyOwnedObservatoryAny as pickReadyOwnedObservatoryAnyImpl,
   pickReadyOwnedObservatoryForTarget as pickReadyOwnedObservatoryForTargetImpl,
   revealCapacityForPlayer as revealCapacityForPlayerImpl,
+  revealTargetsForPlayer as revealTargetsForPlayerImpl,
   setAbilityCooldownUntil as setAbilityCooldownUntilImpl,
   wallSegments as wallSegmentsImpl,
   type AetherWallSegment
@@ -357,7 +357,9 @@ import {
   handleUpgradeTownTierCommand as handleUpgradeTownTierCommandImpl,
   type RuntimeProgressionCommandContext
 } from "../runtime-progression-command-handlers.js";
+import { buildShardMobilizeCommandContext, handleShardMobilizeCommand as handleShardMobilizeCommandImpl, type ShardMobilizeCommandContext } from "../shard-mobilize/shard-mobilize-command-handler.js";
 import { buildProgressionCommandContext } from "./runtime-progression-command-context.js";
+import { adjacentTileStates as adjacentTileStatesImpl, existingTilesForKeys } from "./runtime-tile-lookups.js";
 import {
   adjustOwnedStructureCount as adjustOwnedStructureCountImpl,
   ownedStructureCountForPlayer as ownedStructureCountForPlayerImpl,
@@ -695,7 +697,8 @@ export class SimulationRuntime {
       now: () => runtime.now(),
       replaceTileState: (tileKey, tile) => runtime.replaceTileState(tileKey, tile),
       emitEvent: (event) => runtime.emitEvent(event),
-      tileDeltaFromState: (tile) => runtime.tileDeltaFromState(tile)
+      tileDeltaFromState: (tile) => runtime.tileDeltaFromState(tile),
+      territoryTileKeysForPlayer: (playerId) => runtime.summaryForPlayer(playerId).territoryTileKeys
     });
   })();
   private readonly nextTerritoryAutomationCommandId = createTerritoryAutomationCommandIdGenerator();
@@ -1869,14 +1872,7 @@ export class SimulationRuntime {
     return pendingSettlement;
   }
 
-  private tileKeySetToTiles(keys: Iterable<string>): DomainTileState[] {
-    const result: DomainTileState[] = [];
-    for (const key of keys) {
-      const tile = this.state.tiles.get(key);
-      if (tile) result.push(tile);
-    }
-    return result;
-  }
+  private tileKeySetToTiles(keys: Iterable<string>): DomainTileState[] { return existingTilesForKeys(this.state.tiles, keys); }
 
   // In-process barbarian planner for the non-worker system producer (local dev/tests); same rules as the worker.
   private barbarianBridgeCache: RuntimeBarbarianBridge | undefined;
@@ -2943,6 +2939,15 @@ export class SimulationRuntime {
 
   private isTileShieldedByAegisLock(actorId: string, targetX: number, targetY: number): boolean { return isTileShieldedByAegisLockImpl(this.state.tiles, this.abilityCooldowns, this.now(), actorId, targetX, targetY); }
 
+  private shardMobilizeCommandContext(): ShardMobilizeCommandContext {
+    return buildShardMobilizeCommandContext(this.progressionCommandContext(), {
+      playerManpowerCap: (player) => this.playerManpowerCap(player),
+      getAbilityCooldownUntil: (playerId, abilityKey) => this.getAbilityCooldownUntil(playerId, abilityKey),
+      spendStrategicResource: (player, resource, amount) => this.spendStrategicResource(player, resource, amount),
+      emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload)
+    });
+  }
+
   private progressionCommandContext(): RuntimeProgressionCommandContext {
     return buildProgressionCommandContext({
       settleEconomyBeforeUpgrade: (player) => { this.applyEconomyAccrual(player, this.now()); this.refreshManpowerOnly(player); },
@@ -2996,14 +3001,7 @@ export class SimulationRuntime {
     });
   }
 
-  private revealTargetsForPlayer(playerId: string): Set<string> {
-    let targets = this.revealTargetsByPlayer.get(playerId);
-    if (!targets) {
-      targets = new Set<string>();
-      this.revealTargetsByPlayer.set(playerId, targets);
-    }
-    return targets;
-  }
+  private revealTargetsForPlayer(playerId: string): Set<string> { return revealTargetsForPlayerImpl(this.revealTargetsByPlayer, playerId); }
 
   private revealCapacityForPlayer(player: DomainPlayer): number { return revealCapacityForPlayerImpl(player, this.revealTargetsForPlayer(player.id).size); }
 
@@ -3155,14 +3153,7 @@ export class SimulationRuntime {
 
   private ownedTileCountForPlayer(playerId: string): number { return this.summaryForPlayer(playerId).territoryTileKeys.size; }
 
-  private adjacentTileStates(x: number, y: number): DomainTileState[] {
-    const result: DomainTileState[] = [];
-    forEachFrontierNeighbor(x, y, (nx, ny) => {
-      const tile = this.state.tiles.get(simulationTileKey(nx, ny));
-      if (tile) result.push(tile);
-    });
-    return result;
-  }
+  private adjacentTileStates(x: number, y: number): DomainTileState[] { return adjacentTileStatesImpl(this.state.tiles, x, y); }
 
   private extendFortPatrolGrace(tileKey: string, graceUntil: number): void { this.fortPatrolGraceUntilByTile.set(tileKey, Math.max(this.fortPatrolGraceUntilByTile.get(tileKey) ?? 0, graceUntil)); }
 
@@ -3418,7 +3409,7 @@ export class SimulationRuntime {
       handleRemoveStructureCommand: (command) => handleRemoveStructureCommandImpl(this.structureCommandContext(), command),
       handleCancelSiegeBatteryBuildCommand: (command) => handleCancelSiegeBatteryBuildCommandImpl(this.structureCommandContext(), command),
       handleCheckStrandedRegionCommand: (command) => handleCheckStrandedRegionCommandImpl(this.strandedFrontier, command),
-      handleUncaptureTileCommand: (command) => handleUncaptureTileCommandImpl(this.economicStructureCommandContext(), command),
+      handleUncaptureTileCommand: (command) => this.shardRain.runVoluntaryLoss(command.playerId, () => handleUncaptureTileCommandImpl(this.economicStructureCommandContext(), command)),
       handleChooseTechCommand: (command) => handleChooseTechCommandImpl(this.progressionCommandContext(), command),
       handleChooseDomainCommand: (command) => handleChooseDomainCommandImpl(this.progressionCommandContext(), command),
       handleSetConverterStructureEnabledCommand: (command) => handleSetConverterStructureEnabledCommandImpl(this.economicStructureCommandContext(), command),
@@ -3436,6 +3427,7 @@ export class SimulationRuntime {
       ...buildMapCommandDispatchHandlers(() => this.mapCommandContext()),
       handleUpgradeTownTierCommand: (command) => handleUpgradeTownTierCommandImpl(this.progressionCommandContext(), command),
       handleCollectShardCommand: (command) => handleCollectShardCommandImpl(this.progressionCommandContext(), command),
+      handleShardMobilizeCommand: (command) => handleShardMobilizeCommandImpl(this.shardMobilizeCommandContext(), command),
       handleSyncAllianceCommand: (command) => this.handleSyncAllianceCommand(command),
       handleFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType),
       handleDevQueueEnqueueCommand: (command) => handleDevQueueEnqueueCommandImpl(this.devQueueCommandContext(), command),

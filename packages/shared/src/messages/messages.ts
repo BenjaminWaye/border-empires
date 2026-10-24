@@ -281,6 +281,9 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // player 10 minutes of total invulnerability on all owned tiles. No anchor
   // tile — a pure per-player toggle, unlike AEGIS_LOCK.
   z.object({ type: z.literal("ACTIVATE_IMPERIAL_WARD"), ...FrontierCommandMetadataSchema }),
+  // Comeback lever: burns one Shard to refill manpower to the cap instantly.
+  // No anchor tile — a per-player action like ACTIVATE_IMPERIAL_WARD.
+  z.object({ type: z.literal("SHARD_MOBILIZE"), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("SUPPRESS_AETHER_TOWER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("FORCED_ANCILLARIFICATION"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("RECRUIT_ANCILLARIES"), coin: z.number().int().positive().safe(), ...FrontierCommandMetadataSchema }),

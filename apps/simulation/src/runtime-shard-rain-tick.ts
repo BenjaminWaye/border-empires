@@ -7,6 +7,12 @@ import {
 import type { RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import {
+  comebackSiteBudget,
+  pickComebackPlayers,
+  pickComebackTileKey,
+  type TerritoryPeakTracker
+} from "./shard-rain-comeback/shard-rain-comeback.js";
+import {
   SHARD_RAIN_COMMAND_ID_PREFIX,
   SHARD_RAIN_SYSTEM_PLAYER_ID,
   SHARD_RAIN_TTL_MS,
@@ -27,6 +33,10 @@ export type ShardRainRuntimeInput = {
   // in expireShardFallSites. Populated by spawnShardRain, cleared on expiry.
   activeShardFallSiteKeys: Set<string>;
   lastShardRainHelloByPlayer: Map<string, number>;
+  // Decaying per-player peak territory, observed every tick, that steers part
+  // of each rain onto recently beaten-down players' land (shard-rain-comeback.ts).
+  territoryPeaks: TerritoryPeakTracker;
+  territoryTileKeysForPlayer: (playerId: string) => ReadonlySet<string>;
   getCurrentShardRainExpiresAt: () => number | undefined;
   setCurrentShardRainExpiresAt: (expiresAt: number | undefined) => void;
   getCurrentShardRainSiteCount: () => number;
@@ -42,6 +52,7 @@ export type ShardRainRuntimeInput = {
 };
 
 export const tickShardRain = (input: ShardRainRuntimeInput, nowMs: number): void => {
+  observeTerritoryPeaks(input, nowMs);
   expireShardFallSites(input, nowMs);
   maybeBroadcastShardRainWarning(input, nowMs);
   maybeSpawnScheduledShardRain(input, nowMs);
@@ -105,6 +116,60 @@ const maybeSpawnScheduledShardRain = (input: ShardRainRuntimeInput, nowMs: numbe
   spawnShardRain(input, nowMs);
 };
 
+const observeTerritoryPeaks = (input: ShardRainRuntimeInput, nowMs: number): void => {
+  input.territoryPeaks.prune((playerId) => input.players.has(playerId));
+  for (const player of input.players.values()) {
+    if (!isEligibleShardRainPlayer(player)) continue;
+    input.territoryPeaks.observe(player.id, input.territoryTileKeysForPlayer(player.id).size, nowMs);
+  }
+};
+
+const placeFallSite = (
+  input: ShardRainRuntimeInput,
+  tileKey: string,
+  tile: DomainTileState,
+  expiresAt: number,
+  placed: { tileKey: string; tile: DomainTileState }[]
+): void => {
+  const amount = Math.random() > 0.8 ? 2 : 1;
+  const updated: DomainTileState = { ...tile, shardSite: { kind: "FALL", amount, expiresAt } };
+  input.replaceTileState(tileKey, updated);
+  input.recentShardRainTileKeys.add(tileKey);
+  input.activeShardFallSiteKeys.add(tileKey);
+  placed.push({ tileKey, tile: updated });
+};
+
+// Up to comebackSiteBudget(count) sites land on the own territory of players
+// who recently lost a large share of their land, weighted by that share.
+const placeComebackSites = (
+  input: ShardRainRuntimeInput,
+  nowMs: number,
+  count: number,
+  expiresAt: number,
+  placed: { tileKey: string; tile: DomainTileState }[]
+): void => {
+  const candidates: { playerId: string; lossFraction: number }[] = [];
+  for (const player of input.players.values()) {
+    if (!isEligibleShardRainPlayer(player)) continue;
+    const tileCount = input.territoryTileKeysForPlayer(player.id).size;
+    // An eliminated player has nowhere to receive a site; leaving them in the
+    // draw would burn budget a surviving comeback player could use.
+    if (tileCount === 0) continue;
+    candidates.push({ playerId: player.id, lossFraction: input.territoryPeaks.lossFraction(player.id, tileCount, nowMs) });
+  }
+  const canHost = (tile: DomainTileState | undefined, tileKey: string): boolean =>
+    canHostShardFallSiteAt(tile, tileKey, input.recentShardRainTileKeys);
+  const picked = pickComebackPlayers(candidates, comebackSiteBudget(count));
+  for (const playerId of picked) {
+    const tileKey = pickComebackTileKey(playerId, input.territoryTileKeysForPlayer(playerId), input.tiles, canHost);
+    const tile = tileKey ? input.tiles.get(tileKey) : undefined;
+    if (tileKey && tile) placeFallSite(input, tileKey, tile, expiresAt, placed);
+  }
+  // Twice a day: lets us see in the logs whether comeback rain fires at all
+  // (the peaks reset on every restart).
+  if (picked.length > 0) console.info(`[shard-rain] comeback picked=${picked.length} placed=${placed.length} budget=${comebackSiteBudget(count)}`);
+};
+
 const spawnShardRain = (input: ShardRainRuntimeInput, nowMs: number): void => {
   let eligiblePlayerCount = 0;
   for (const player of input.players.values()) {
@@ -115,6 +180,7 @@ const spawnShardRain = (input: ShardRainRuntimeInput, nowMs: number): void => {
   const expiresAt = nowMs + SHARD_RAIN_TTL_MS;
   const startsAt = nowMs;
   const placed: { tileKey: string; tile: DomainTileState }[] = [];
+  placeComebackSites(input, nowMs, count, expiresAt, placed);
   let attempts = 0;
   while (placed.length < count && attempts < count * 300) {
     attempts += 1;
@@ -124,12 +190,7 @@ const spawnShardRain = (input: ShardRainRuntimeInput, nowMs: number): void => {
     const tile = input.tiles.get(tileKey);
     if (!canHostShardFallSiteAt(tile, tileKey, input.recentShardRainTileKeys)) continue;
     if (!tile) continue;
-    const amount = Math.random() > 0.8 ? 2 : 1;
-    const updated: DomainTileState = { ...tile, shardSite: { kind: "FALL", amount, expiresAt } };
-    input.replaceTileState(tileKey, updated);
-    input.recentShardRainTileKeys.add(tileKey);
-    input.activeShardFallSiteKeys.add(tileKey);
-    placed.push({ tileKey, tile: updated });
+    placeFallSite(input, tileKey, tile, expiresAt, placed);
   }
   if (placed.length === 0) return;
   const currentExpiresAt = input.getCurrentShardRainExpiresAt();
