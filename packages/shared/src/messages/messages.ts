@@ -344,7 +344,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
         })
       )
       .optional(),
-    // Expand To & Attack effort (docs/replenishment-update-plan.md D6) for
+    // (Former) Expand To & Attack effort (docs/replenishment-update-plan.md D6) for
     // the plan's final ATTACK leg -- same meaning as ATTACK.commitManpower.
     commitManpower: z.number().positive().optional()
   }),

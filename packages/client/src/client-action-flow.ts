@@ -1136,8 +1136,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     renderHud,
     requestAttackPreviewForTarget,
     keyFor,
-    isTileOwnedByAlly,
-    pickOriginForTarget
+    isTileOwnedByAlly
   });
 
   const renderTileActionMenu = (view: TileMenuView, clientX: number, clientY: number): void =>

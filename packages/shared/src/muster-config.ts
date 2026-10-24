@@ -72,6 +72,15 @@ export const musterCapLevelToFit = (manpowerCap: number, capLevel: number | unde
 // order is advice rather than a feature: raise a flag closer instead.
 export const MUSTER_MARCH_MAX_DISTANCE_TILES = 15;
 
+// Longest real route a MARCH may take, in tile steps through passable land
+// (a dock link or aether bridge counts as one step). The straight-line cap
+// above can't see that a target 5 tiles across a strait is 25 steps away
+// through the nearest dock, so the server's route search floods this far
+// (plus its local candidate radius) instead of only the straight-line
+// distance, and the client only offers March Attack origins whose route to
+// the target fits within it.
+export const MUSTER_MARCH_MAX_ROUTE_STEPS = 2 * MUSTER_MARCH_MAX_DISTANCE_TILES;
+
 /** Toroidal Chebyshev distance in tiles between two points on the wrapping world. */
 export const musterMarchDistanceTiles = (ax: number, ay: number, bx: number, by: number): number => {
   const dx = Math.abs(ax - bx);
