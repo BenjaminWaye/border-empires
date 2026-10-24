@@ -115,7 +115,7 @@ one-off materials for everything.
 ## 8. Client: 2D icon (required)
 
 Add an SVG to `packages/client/public/overlays/<kebab-name>-overlay.svg`.
-No registration needed — `packages/storybook/src/2d/Overlays.stories.ts`
+No registration needed — `packages/storybook/src/assets/SvgOverlays.stories.ts`
 auto-discovers every file in that directory via `import.meta.glob`, and
 `imageFor()` (step 9) is the only place that needs to reference the path.
 
@@ -254,7 +254,7 @@ Client-side, add the matching label in two places:
 
 ## 13. Storybook demo
 
-`packages/storybook/src/3d/StructureOverlay.stories.ts` — add the type to
+`packages/storybook/src/map/structures/AllStructures.stories.ts` — add the type to
 the `KINDS` array (for the `AllKinds`/gallery view) and a single-instance
 `export const <Name>: Story = { args: { structures: ["<TYPE>"], cameraDistance: <N> } };`.
 The 2D icon needs no story of its own (auto-discovered, see step 8).

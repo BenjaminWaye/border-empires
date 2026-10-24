@@ -37,7 +37,7 @@ import type { MarineModelKey } from "./popup-marine-gear.js";
 // contents unprocessed at the site root), matching how every other static
 // game asset in this package — /overlays/*.svg, /audio/*.m4a — is referenced
 // by plain string path rather than imported as a module.
-const ACTIVE_POPUP_MARINE_MODEL_URL = "/models/popup-marine-titan-24bone.glb";
+export const ACTIVE_POPUP_MARINE_MODEL_URL = "/models/popup-marine-titan-24bone.glb";
 // The heavy armour every soldier of an empire owning a Titanium Weapons
 // Factory wears (popup-marine-gear.ts): the standard marine's clips and rifle
 // on a Meshy sculpt in thicker plate, with a bare-metal surface mask (see
