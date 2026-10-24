@@ -8,6 +8,7 @@ import { playLocationTheme } from "../client-audio/client-audio.js";
 import { tileMenuRenderSignature } from "../client-tile-menu-render-signature/client-tile-menu-render-signature.js";
 import { rememberTileMenuScrollTop, restoreTileMenuScrollTop } from "../client-tile-menu-scroll/client-tile-menu-scroll.js";
 import { injectWaypointActions } from "../client-waypoint-menu-actions/client-waypoint-menu-actions.js";
+import { injectMarchAttackActions } from "../client-march-attack-actions/client-march-attack-actions.js";
 import { injectTileMenuExtras } from "../client-tile-menu-injections/client-tile-menu-injections.js";
 import { wireDockNavigatorButtons } from "../client-dock-navigator/client-dock-navigator.js";
 import { resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
@@ -45,12 +46,6 @@ type TileActionMenuUiDeps = {
   requestAttackPreviewForTarget: (tile: Tile) => void;
   keyFor: (x: number, y: number) => string;
   isTileOwnedByAlly: (tile: Tile) => boolean;
-  pickOriginForTarget: (
-    tx: number,
-    ty: number,
-    allowAdjacentToDock?: boolean,
-    allowOptimisticExpandOrigin?: boolean
-  ) => Tile | undefined;
 };
 
 export const renderTileActionMenu = (
@@ -67,7 +62,7 @@ export const renderTileActionMenu = (
   if (state.tileActionMenu.mode === "single" && state.tileActionMenu.currentTileKey) {
     const menuTile = state.tiles.get(state.tileActionMenu.currentTileKey);
     if (menuTile) {
-      injectTileMenuExtras(view, menuTile, state, { keyFor: deps.keyFor, pickOriginForTarget: deps.pickOriginForTarget });
+      injectTileMenuExtras(view, menuTile, state);
     }
   }
   const previousScrollBody = deps.tileActionMenuEl.querySelector<HTMLElement>("[data-tile-menu-scroll]");
@@ -425,10 +420,9 @@ export const openSingleTileActionMenu = (
     state.tileActionMenu.renderSignature = "";
   }
   const view = deps.tileMenuViewForTile(tile);
-  injectWaypointActions(view, tile, state, {
-    keyFor: deps.keyFor,
-    pickOriginForTarget: deps.pickOriginForTarget
-  });
+  // Before the active tab is picked, so rows that force "actions" first count.
+  injectWaypointActions(view, tile, state);
+  injectMarchAttackActions(view, tile, state);
   if (!options.preserveTab) {
     state.tileActionMenu.activeTab = (options.openTab && view.tabs.includes(options.openTab)) ? options.openTab : (view.tabs[0] ?? "overview");
   }

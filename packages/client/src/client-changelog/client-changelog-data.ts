@@ -38,6 +38,7 @@ import { ADVANCE_EFFORT_CHANGELOG } from "./client-changelog-advance-effort.js";
 import { FASTER_ATTACKS_FRONTIER_COST_CHANGELOG } from "./client-changelog-faster-attacks-frontier-cost.js";
 import { MARCH_ATTACK_DEEP_CHANGELOG } from "./client-changelog-march-attack-deep.js";
 import { WAR_INDUSTRY_SQUADS_CHANGELOG } from "./client-changelog-war-industry-squads.js";
+import { MARCH_ATTACK_ROUTES_CHANGELOG } from "./client-changelog-march-attack-routes.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -313,6 +314,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...ADVANCE_EFFORT_CHANGELOG,
   ...FASTER_ATTACKS_FRONTIER_COST_CHANGELOG,
   ...MARCH_ATTACK_DEEP_CHANGELOG,
+  ...MARCH_ATTACK_ROUTES_CHANGELOG,
   {
     createdAt: 1792832339274, // Date.now() captured once for this entry.
     introducedIn: "2026.10.24.1",

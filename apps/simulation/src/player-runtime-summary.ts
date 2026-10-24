@@ -83,7 +83,7 @@ export type ServerWaypointQueueEntry = {
   /** Index into `steps` of the next unattempted step. Undefined/0 == start. */
   cursor?: number;
   stalled?: boolean;
-  /** Expand To & Attack effort for the final ATTACK leg -- see runtime-waypoint-drain.ts commitManpowerForStep. */
+  /** (Former) Expand To & Attack effort, on waypoints queued before its removal, for the final ATTACK leg -- see runtime-waypoint-drain.ts commitManpowerForStep. */
   commitManpower?: number;
 };
 
