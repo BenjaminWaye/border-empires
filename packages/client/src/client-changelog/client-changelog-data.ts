@@ -328,7 +328,14 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...WAR_INDUSTRY_SQUADS_CHANGELOG,
   ...FORT_WALL_OPENINGS_CHANGELOG,
-  ...HILL_GARRISON_FILL_CHANGELOG
+  ...HILL_GARRISON_FILL_CHANGELOG,
+  {
+    createdAt: 1792854395082, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.24.relics",
+    title: "Concordance relic installations",
+    why: "Relics are surviving planetary machinery, with useful installations and finite reserves worth fighting over.",
+    changes: ["New planets select seven installation families, represented by weathered ziggurats with House banners. Nearby anonymous light columns and minimap markers guide exploration.", "Garrison relics to use their installations. Combat suits, defensive field cells, ancillary bodies and nanofabrication material have persistent finite reserves; recapture never refills them.", "Capture artwork explains the buried installation and its benefit. Depleted sites remain on the map with an empty-reserve marker. Existing campaigns retain their original wonder rules."]
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

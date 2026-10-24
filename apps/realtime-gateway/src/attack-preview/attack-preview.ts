@@ -1,5 +1,5 @@
 import { afcMomentumStacks, requiredMusterForFort } from "@border-empires/shared";
-import type { AfcCombatFacts } from "@border-empires/sim-protocol";
+import type { AfcCombatFacts, RelicCombatFacts } from "@border-empires/sim-protocol";
 import {
   buildFrontierCombatPreview,
   defendingFortVariant,
@@ -95,7 +95,8 @@ export const attackPreviewResult = async (
   attackerDomainIds?: readonly string[],
   getPlayerTechDomainIds?: (playerId: string) => Promise<{ techIds: readonly string[]; domainIds: readonly string[] } | undefined>,
   getPlayerFactoryCounts?: (playerId: string) => Promise<{ titanium: number; umbrite: number } | undefined>,
-  getAfcCombatFacts?: (playerId: string) => Promise<AfcCombatFacts | undefined>
+  getAfcCombatFacts?: (playerId: string) => Promise<AfcCombatFacts | undefined>,
+  getRelicCombatFacts?: (playerId: string) => Promise<RelicCombatFacts | undefined>
 ): Promise<Record<string, unknown>> => {
   const from = { x: message.fromX, y: message.fromY };
   const to = { x: message.toX, y: message.toY };
@@ -155,6 +156,7 @@ export const attackPreviewResult = async (
       ?? weaponsFactoryCountsForPlayer(target.ownerId, tileMap.values())
     : { titanium: 0, umbrite: 0 };
   const [attackerFacts, defenderFacts] = await Promise.all([getAfcCombatFacts?.(playerId), getAfcCombatFacts?.(target.ownerId)]);
+  const [attackerRelics, defenderRelics] = await Promise.all([getRelicCombatFacts?.(playerId), getRelicCombatFacts?.(target.ownerId)]);
   const attackerEquivalent = attackerFacts?.factoryEquivalents ?? attackerFactoryCounts;
   const defenderEquivalent = defenderFacts?.factoryEquivalents ?? defenderFactoryCounts;
   const defenseContribution = defenderPlayerData?.domainIds.includes("afc-bastion-2") ? 2 : 1;
@@ -184,6 +186,9 @@ export const attackPreviewResult = async (
     { ...target, fortVariant: targetHasActiveFort ? defendingFortVariant(target.fort) : undefined },
     {
       attackerOutpostMult,
+      relicAttackMult: attackerRelics?.attackMultiplier,
+      relicDefenseMult: defenderRelics?.defenseMultiplier,
+      dockAttackMult: origin.dockId ? attackerRelics?.dockAttackMultiplier : undefined,
       defenderOwnerId: target.ownerId,
       ...factoryModifiers,
       // Always pass nowMs, same as the sim's resolveAttackCombat: the
@@ -220,6 +225,7 @@ type SnapshotLookup = (playerId: string) => {
 
 export type PlayerCombatSummaryLookup = (playerId: string, target?: { x: number; y: number }) => Promise<{
   afcCombatFacts?: AfcCombatFacts;
+  relicCombatFacts?: RelicCombatFacts;
   techIds: readonly string[];
   domainIds: readonly string[];
   weaponsFactoryCounts: { titanium: number; umbrite: number };
@@ -315,6 +321,7 @@ export const buildAttackPreviewResponse = (
     previewSnapshot?.player?.domainIds,
     makeGetPlayerTechDomainIds(snapshotForPlayer, getPlayerCombatSummary),
     makeGetPlayerFactoryCounts(snapshotForPlayer, getPlayerCombatSummary),
-    async id => (await safeGetPlayerCombatSummary(getPlayerCombatSummary, id))?.afcCombatFacts
+    async id => (await safeGetPlayerCombatSummary(getPlayerCombatSummary, id))?.afcCombatFacts,
+    async id => (await safeGetPlayerCombatSummary(getPlayerCombatSummary, id))?.relicCombatFacts
   );
 };

@@ -236,3 +236,12 @@ For event-driven indexes (chunk aggregates, focus invalidation, etc.), these are
 - `packages/shared/src/types.ts` — core type definitions.
 - `packages/shared/src/exposure/exposure.ts` — neighbor and wrap helpers.
 - `docs/archive/design-history-2026/ai-goap-plan.md` — original (pre-rewrite) GOAP design intent. Historical context; some details (3 victory paths, `packages/server` paths) are out of date — the legacy stack was deleted in PR #264.
+
+## Concordance relics
+
+New worlds use the [relic installation rules](relics.md): seven seed-selected
+families, ordinary garrison activation, site-owned finite reserves, anonymous
+proximity signals and persistent depleted ruins. Existing unversioned wonders
+retain their earlier behavior. The implementation contracts are in
+`packages/shared/src/relics/`, `apps/simulation/src/runtime-relics.ts` and
+`packages/game-domain/src/server-worldgen-natural-wonders.ts`.

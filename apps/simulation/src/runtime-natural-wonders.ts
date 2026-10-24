@@ -1,5 +1,5 @@
 import { appendPlayerEventLogEntry, type DomainTileState } from "@border-empires/game-domain";
-import { quickforgeAdjustedRushPrice as sharedQuickforgeAdjustedRushPrice } from "@border-empires/shared";
+import { RELIC_DEFINITIONS, isRedesignedRelic, quickforgeAdjustedRushPrice as sharedQuickforgeAdjustedRushPrice } from "@border-empires/shared";
 import type { RuntimePlayer } from "./runtime-types.js";
 import type { ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 import { naturalWonderClaimEventText } from "./natural-wonder-claim-text.js";
@@ -27,10 +27,18 @@ export const refreshPlayerWonders = (
   players: Map<string, RuntimePlayer>
 ): void => {
   const set = new Set<string>();
-  for (const tile of settledTiles) if (tile.naturalWonder) set.add(tile.naturalWonder.type);
+  const redesigned = new Set<string>();
+  for (const tile of settledTiles) {
+    if (!tile.naturalWonder) continue;
+    (isRedesignedRelic(tile.naturalWonder) ? redesigned : set).add(tile.naturalWonder.type);
+  }
   wonderCacheByPlayer.set(playerId, set);
   const player = players.get(playerId);
-  if (player) applyWonderBonusFields(player, set);
+  if (player) {
+    applyWonderBonusFields(player, set);
+    player.relicDevelopmentBonus = redesigned.has("CALCULATING_ENGINE") ? 1 : 0;
+    if (redesigned.has("DEEPWATER_ENGINE")) { player.wonderDockGoldMultiplier = 2; player.wonderDockAttackMultiplier = 1.15; }
+  }
 };
 
 export const playerHasWonderType = (wonderCacheByPlayer: WonderCacheByPlayer, playerId: string, type: string): boolean =>
@@ -40,7 +48,7 @@ export const playerHasWonderType = (wonderCacheByPlayer: WonderCacheByPlayer, pl
 // instant +2000 manpower to whoever just took it. `claimedAt` is the
 // once-only latch; later ownership changes on the same tile no-op here.
 export const applyConscriptionEngineFirstClaim = (tile: DomainTileState, players: Map<string, RuntimePlayer>, nowMs: number): void => {
-  if (tile.naturalWonder?.type !== "CONSCRIPTION_ENGINE" || tile.naturalWonder.claimedAt || !tile.ownerId) return;
+  if (isRedesignedRelic(tile.naturalWonder) || tile.naturalWonder?.type !== "CONSCRIPTION_ENGINE" || tile.naturalWonder.claimedAt || !tile.ownerId) return;
   tile.naturalWonder.claimedAt = nowMs;
   const player = players.get(tile.ownerId);
   if (player) player.manpower += 2000;
@@ -55,7 +63,7 @@ export const announceNaturalWonderClaim = (tile: DomainTileState, players: Map<s
   if (!player || player.id.startsWith("barbarian-") || player.isAi) return;
   appendPlayerEventLogEntry(player, {
     type: "NATURAL_WONDER_CLAIMED",
-    text: naturalWonderClaimEventText(tile.naturalWonder.type),
+    text: isRedesignedRelic(tile.naturalWonder) ? `You secured ${RELIC_DEFINITIONS[tile.naturalWonder.type].name}. Garrison the installation to operate its surviving machinery and reserves.` : naturalWonderClaimEventText(tile.naturalWonder.type),
     occurredAt: nowMs,
     x: tile.x,
     y: tile.y
@@ -109,8 +117,25 @@ export const syncWatchtowerObservatory = (tile: DomainTileState): void => {
   if (tile.naturalWonder?.type !== "WATCHTOWER_ENGINE") return;
   // A same-owner re-sync (e.g. the wonder tile settling) must not drop an
   // active Siphon lock; an owner change ends it (siphon-mode-lifecycle.ts).
-  const siphon = tile.observatory?.ownerId === tile.ownerId ? tile.observatory?.siphon : undefined;
+  const sameOwner = tile.observatory?.ownerId === tile.ownerId;
+  const { siphon, ...preserved } = tile.observatory ?? {};
   tile.observatory = tile.ownerId
-    ? { ownerId: tile.ownerId, status: "active", cooldownUntil: tile.observatory?.cooldownUntil, ...(siphon ? { siphon } : {}) }
+    ? { ...preserved, ownerId: tile.ownerId, status: isRedesignedRelic(tile.naturalWonder) && tile.ownershipState !== "SETTLED" ? "inactive" : "active", ...(sameOwner && siphon ? { siphon } : {}) }
     : undefined;
 };
+
+/** Refresh owner-derived fields when control, garrison or installation kind changes. */
+export function refreshWonderOwners(tile: DomainTileState, previous: DomainTileState | undefined, settledTiles: (id: string) => Iterable<DomainTileState>, cache: WonderCacheByPlayer, players: Map<string, RuntimePlayer>, now: number): void {
+  if (!tile.naturalWonder && !previous?.naturalWonder) return;
+  if (tile.ownerId === previous?.ownerId && tile.ownershipState === previous?.ownershipState && tile.naturalWonder?.type === previous?.naturalWonder?.type && tile.naturalWonder?.relicVersion === previous?.naturalWonder?.relicVersion) return;
+  for (const id of new Set([previous?.ownerId, tile.ownerId])) if (id) refreshPlayerWonders(id, settledTiles(id), cache, players);
+  if (tile.ownerId !== previous?.ownerId) announceNaturalWonderClaim(tile, players, now);
+}
+
+/** Run before snapshotting, only for ownership/garrison/installation transitions. */
+export function prepareWonderTileWrite(tile: DomainTileState, previous: DomainTileState | undefined, players: Map<string, RuntimePlayer>, now: number): void {
+  const changed = tile.ownerId !== previous?.ownerId || tile.ownershipState !== previous?.ownershipState || tile.naturalWonder?.type !== previous?.naturalWonder?.type || tile.naturalWonder?.relicVersion !== previous?.naturalWonder?.relicVersion;
+  if (!changed) return;
+  syncWatchtowerObservatory(tile);
+  if (tile.ownerId !== previous?.ownerId) applyConscriptionEngineFirstClaim(tile, players, now);
+}

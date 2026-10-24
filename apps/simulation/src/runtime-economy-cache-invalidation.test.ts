@@ -96,3 +96,10 @@ describe("refreshEconomyCachesForTileChange — field-aware invalidation", () =>
     expect(economyRelevantTileFieldsChanged(withTown, { ...withTown, town: { ...withTown.town! } })).toBe(true);
   });
 });
+
+it("does not rebuild empire economy when a relic spends a charge, but does for a new reclamation allocation", () => {
+  const suit = { ...settledTile("p"), naturalWonder: { type: "WARPRESS" as const, relicVersion: 1 as const, remainingUses: 1 } };
+  expect(economyRelevantTileFieldsChanged(suit, { ...suit, naturalWonder: { ...suit.naturalWonder, remainingUses: 0 } })).toBe(false);
+  const foundry = { ...settledTile("p"), naturalWonder: { type: "FOUNDRY_HEART" as const, relicVersion: 1 as const } };
+  expect(economyRelevantTileFieldsChanged(foundry, { ...foundry, naturalWonder: { ...foundry.naturalWonder, resourceBonus: { resource: "TITANIUM", amount: 4 } } })).toBe(true);
+});

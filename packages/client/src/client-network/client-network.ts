@@ -1,10 +1,11 @@
+import { applyRelicAndProgressionUpdate } from "../client-relic-overlay/relic-map-hints.js";
 import { handleIntelResult } from "./client-network-intel-result.js";
 import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
 import { applyMapPushMessage } from "./client-map-push-messages.js";
 import { notifyCombatResult } from "./client-combat-result-notifications.js";
 import { musterReportFlagKey, trackMusterReportStart } from "../client-muster-combat-reports/client-muster-combat-reports.js";
 import { applyPlayerUpdateManpowerFields } from "../client-player-update-manpower/client-player-update-manpower.js";
-import { COMBAT_LOCK_MS, isChosenTrickleResource, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
 import { resetFrontierActionStateAfterError } from "./client-frontier-error-reset.js";
 import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
@@ -1126,9 +1127,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (typeof msg.canToggleFog === "boolean") state.mapRevealEligible = msg.canToggleFog;
       applyIncomingRespawnNotice((msg as { respawnNotice?: unknown }).respawnNotice);
       state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
-      const techMsgTrickle = (msg as { chosenTrickleResource?: unknown }).chosenTrickleResource;
-      if (isChosenTrickleResource(techMsgTrickle)) state.chosenTrickleResource = techMsgTrickle;
-      if (typeof (msg as { imperialWardCharges?: unknown }).imperialWardCharges === "number") state.imperialWardCharges = (msg as { imperialWardCharges: number }).imperialWardCharges; if (typeof (msg as { wonderLastFreeRushBuyAt?: unknown }).wonderLastFreeRushBuyAt === "number") state.wonderLastFreeRushBuyAt = (msg as { wonderLastFreeRushBuyAt: number }).wonderLastFreeRushBuyAt;
+      applyRelicAndProgressionUpdate(state, msg);
       state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
       state.domainCatalog = (msg.domainCatalog as any[]) ?? state.domainCatalog;
       if (

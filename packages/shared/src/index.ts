@@ -70,3 +70,9 @@ export * from "./season-rollover-close/season-rollover-close.js";
 export * from "./afc-specializations/afc-specializations.js";
 export * from "./combat-lock-messages/combat-lock-messages.js";
 export * from "./forced-ancillarification/forced-ancillarification.js";
+
+export * from "./relics/relic-catalog.js";
+export * from "./relics/relic-state.js";
+export * from "./relics/relic-resource-reward.js";
+
+export * from "./relics/relic-map-hints.js";

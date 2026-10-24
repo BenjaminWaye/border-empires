@@ -1,3 +1,5 @@
+import { RelicMapHintIndex } from "../runtime-relic-map-hints.js";
+import { activateUnallocatedFoundries, activateRelic, addRelicResourceSupply } from "../runtime-relics.js";
 import { settleEnvoyDependents, settleEnvoyDependentsBeforeTileChange } from "./runtime-manpower-economy.js";
 import { afcEnvoyIncomeInSnapshot } from "../afc-specializations/afc-coalition.js";
 import { settleBootstrapManpower } from "./runtime-bootstrap-manpower.js";
@@ -589,6 +591,7 @@ export class SimulationRuntime {
   // refreshNeutralBeaconIndexForTileImpl; rebuilt from this.state.tiles in the
   // constructor.  Changes increment beaconGeneration so export caches can
   // detect staleness without re-scanning the set.
+  private readonly relicMapHintIndex = new RelicMapHintIndex();
   private readonly neutralBeaconTileKeys = new Set<string>();
   private beaconGeneration = 0;
   // Per-player cache for the expansion objective selected from beacon indexes.
@@ -874,6 +877,7 @@ export class SimulationRuntime {
         this.shardRain.recordRecoveredFallSite(tileKey, site.expiresAt);
       }
       this.ownerIndexes.seedFromBootTile(tileKey, tile);
+      this.relicMapHintIndex.refresh(tileKey, tile);
       // Populate neutralBeaconTileKeys index (unowned towns/docks/resources).
       if (isNeutralBeaconTileImpl(tile)) this.neutralBeaconTileKeys.add(tileKey);
       // Both seeds run in this unconditional first pass, and through the same
@@ -1295,6 +1299,7 @@ export class SimulationRuntime {
 
   private frontierCommandContext(): RuntimeFrontierCommandContext {
     return {
+      relicContext: this.combatSupportContext(),
       now: this.now,
       players: this.state.players,
       tiles: this.state.tiles,
@@ -1686,13 +1691,17 @@ export class SimulationRuntime {
   private replaceTileState(tileKey: string, nextTile: DomainTileState, commandId = `tile-owner-change:${tileKey}`): void {
     this.tileDeltaStringifyCache.invalidate(tileKey);
     const previous = this.state.tiles.get(tileKey);
-    const tile = withAfcFortFacts(withoutStaleCaptureHold(previous, nextTile, this.now()), this.state.players);
+    let tile = withAfcFortFacts(withoutStaleCaptureHold(previous, nextTile, this.now()), this.state.players);
+    const relicOwner = tile.ownerId ? this.state.players.get(tile.ownerId) : undefined;
+    const relicTotals = tile.naturalWonder?.relicVersion === 1 && tile.naturalWonder.type === "FOUNDRY_HEART" && !tile.naturalWonder.resourceBonus && relicOwner ? { supply: this.resourceSlotSupplyForPlayer(relicOwner.id), demand: this.resourceSlotDemandForPlayer(relicOwner.id) } : undefined;
+    tile = activateRelic(tile, relicOwner, this.now(), tile.naturalWonder?.relicVersion === 1 && tile.naturalWonder.type === "CONSCRIPTION_ENGINE" && relicOwner ? this.playerManpowerCap(relicOwner) : 0, relicTotals, { commandId, emitEvent: event => this.emitEvent(event) });
+    wonderEffects.prepareWonderTileWrite(tile, previous, this.state.players, this.now());
     if (this.manpowerReady) settleEnvoyDependentsBeforeTileChange(this.manpowerEconomyContext(), previous, tile);
     const sameOwner = Boolean(previous?.ownerId && previous.ownerId === tile.ownerId);
     // See refreshEconomyCachesForTileChange for why this is gated on SETTLED
     // ownership instead of invalidating unconditionally on every mutation.
     this.economyCaches.refreshForTileChange(tileKey, previous, tile, this.state.players);
-    const wasSettledForSameOwner = updateTileSettledAt(this.tileSettledAtByKey, tileKey, previous, tile, this.now());
+    updateTileSettledAt(this.tileSettledAtByKey, tileKey, previous, tile, this.now());
     const previousOwnerTileOrder =
       previous?.ownerId && sameOwner
         ? [...this.summaryForPlayer(previous.ownerId).territoryTileKeys]
@@ -1708,6 +1717,7 @@ export class SimulationRuntime {
     }
     if (previous) this.removeTileFromPlayerSummaries(tileKey, previous);
     this.state.tiles.set(tileKey, tile);
+    this.relicMapHintIndex.refresh(tileKey, tile);
     this.snapshotTileCache.set(tileKey, mapTile(tile));
     this.applyTileToPlayerSummaries(tileKey, tile);
     if (!sameOwner) {
@@ -1742,22 +1752,7 @@ export class SimulationRuntime {
     // ownedStructureCountForPlayer contract used by structureBuildGoldCost.
     this.refreshOwnedStructureCountIndexForTile(previous, tile);
     if (previous?.ownerId !== tile.ownerId) this.cancelPendingSettlementIfOwnerChanged(tileKey, tile.ownerId, commandId);
-    // Wonder bonus fields (e.g. Deepwater Engine's dock gold multiplier) must be
-    // refreshed both on ownership change AND when a same-owner tile finishes
-    // settling (FRONTIER → SETTLED) — refreshPlayerWonders only counts SETTLED
-    // tiles, so claim-then-settle (the common path) used to leave the bonus
-    // fields stuck at their pre-claim values until some unrelated !sameOwner
-    // mutation happened to touch the tile again.
-    const justBecameSettledForSameOwner = sameOwner && tile.ownershipState === "SETTLED" && !wasSettledForSameOwner;
-    if (tile.naturalWonder && (!sameOwner || justBecameSettledForSameOwner)) {
-      wonderEffects.syncWatchtowerObservatory(tile);
-      if (previous?.ownerId) wonderEffects.refreshPlayerWonders(previous.ownerId, this.settledTilesForPlayer(previous.ownerId), this.wonderCacheByPlayer, this.state.players);
-      if (tile.ownerId) wonderEffects.refreshPlayerWonders(tile.ownerId, this.settledTilesForPlayer(tile.ownerId), this.wonderCacheByPlayer, this.state.players);
-      if (!sameOwner) {
-        wonderEffects.applyConscriptionEngineFirstClaim(tile, this.state.players, this.now());
-        wonderEffects.announceNaturalWonderClaim(tile, this.state.players, this.now());
-      }
-    }
+    wonderEffects.refreshWonderOwners(tile, previous, id => this.settledTilesForPlayer(id), this.wonderCacheByPlayer, this.state.players, this.now());
     flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.state.tiles, dockLinksByDockTileKey: this.state.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
     reconcileTownVisionBonus({ players: this.state.players, coverage: this.state.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
     reconcileOutpostVisionBonus(this.structureVision.outpostVisionDeps(), previous, tile);
@@ -2142,9 +2137,9 @@ export class SimulationRuntime {
 
   private visibleStateDeps(): RuntimeVisibleStateContext {
     return {
+      ...this.playerStateUpdateContext(),
       tiles: this.state.tiles,
       locksByCommandId: this.locksByCommandId,
-      players: this.state.players,
       pendingSettlementsByTile: this.pendingSettlementsByTile,
       docks: this.state.docks,
       playerYieldCollectionEpochByPlayer: this.lastIncomeTickAtMsByPlayer,
@@ -2157,15 +2152,8 @@ export class SimulationRuntime {
         redacted: boolean,
         classification: RuntimeVisibilityClassification
       ) => this.emitVisibilityAudit(visiblePlayerId, tile, tileKey, redacted, classification),
-      summaryForPlayer: (summaryPlayerId: string) => this.summaryForPlayer(summaryPlayerId),
-      applyManpowerRegen: (player: RuntimePlayer) => this.applyManpowerRegen(player),
       refreshManpowerOnly: (player: RuntimePlayer) => this.refreshManpowerOnly(player),
       incomePerMinuteForPlayer: (incomePlayerId: string) => this.incomePerMinuteForPlayer(incomePlayerId),
-      playerManpowerCap: (player: RuntimePlayer) => this.playerManpowerCap(player),
-      playerManpowerRegenPerMinute: (player: RuntimePlayer) => this.playerManpowerRegenPerMinute(player),
-      playerLogisticsThroughputPerMinute: (player: RuntimePlayer) => this.playerLogisticsThroughputPerMinute(player),
-      playerManpowerBreakdown: (player: RuntimePlayer) => this.playerManpowerBreakdown(player),
-      cachedEconomySnapshot: (player: RuntimePlayer) => this.cachedEconomySnapshot(player),
       // Seeds the sparse-delta cache's baseline for every tile a player sees
       // at connect time, so their subsequent command/tick deltas for
       // already-visible tiles can be genuinely sparse. This is a perf/
@@ -2393,7 +2381,7 @@ export class SimulationRuntime {
   private resourceSlotSupplyForPlayer(playerId: string, forceFresh = false): ResourceSlotTotals {
     return this.economyCaches.resourceSlotSupply(playerId, forceFresh, () => {
       const playerOf = (id: string): RuntimePlayer | undefined => this.state.players.get(id); // Siphon: drained resource tiles' slots move from owner to caster (siphon-slot-transfer.ts).
-      const totals = resourceSlotSupplyWithSiphonTransfer({ playerId, tiles: this.state.tiles, settledTilesForPlayer: (id) => this.settledTilesForPlayer(id), activeObservatoryKeysForPlayer: (id) => this.ownerIndexes.activeObservatoriesByOwner.get(id) ?? [], grantedSupplyForPlayer: (id) => { const p = playerOf(id); return p ? mergeResourceSlotGrants(domainGrantedResourceSlots(p), p.waystationResourceSlotBonus) : undefined; }, fishFoodSlotBonusForPlayer: (id) => { const p = playerOf(id); return p ? techGrantedFishFoodSlotBonus(p) : 0; } }); wonderEffects.applyFoundryHeartSlotBonus(wonderEffects.playerHasWonderType(this.wonderCacheByPlayer, playerId, "FOUNDRY_HEART"), totals); return totals;
+      const totals = resourceSlotSupplyWithSiphonTransfer({ playerId, tiles: this.state.tiles, settledTilesForPlayer: (id) => this.settledTilesForPlayer(id), activeObservatoryKeysForPlayer: (id) => this.ownerIndexes.activeObservatoriesByOwner.get(id) ?? [], grantedSupplyForPlayer: (id) => { const p = playerOf(id); return p ? mergeResourceSlotGrants(domainGrantedResourceSlots(p), p.waystationResourceSlotBonus) : undefined; }, fishFoodSlotBonusForPlayer: (id) => { const p = playerOf(id); return p ? techGrantedFishFoodSlotBonus(p) : 0; } }); wonderEffects.applyFoundryHeartSlotBonus(wonderEffects.playerHasWonderType(this.wonderCacheByPlayer, playerId, "FOUNDRY_HEART"), totals); addRelicResourceSupply({ tiles: this.state.tiles, summaryForPlayer: id => this.summaryForPlayer(id) }, playerOf(playerId), totals); return totals;
     });
   }
 
@@ -2629,6 +2617,7 @@ export class SimulationRuntime {
   // Tech-unlock hook -- see sweepFrontierResourceTechUnlock's own doc comment.
   private sweepFrontierResourceTechUnlock(playerId: string, revealedCategory: string): void {
     this.autoSettleEligibilityRuntime().sweepFrontierResourceTechUnlock(playerId, revealedCategory);
+    const player = this.state.players.get(playerId); if (player) activateUnallocatedFoundries(this.combatSupportContext(), player, this.now(), { supply: this.resourceSlotSupplyForPlayer(playerId), demand: this.resourceSlotDemandForPlayer(playerId) });
   }
 
   private autoSettlementQueueForPlayer(playerId: string): Array<{ x: number; y: number }> {
@@ -2642,6 +2631,7 @@ export class SimulationRuntime {
   private playerStateUpdateContext(): RuntimePlayerStateUpdateContext {
     return {
       players: this.state.players,
+      relicMapHintsForPlayer: id => { const player = this.state.players.get(id); return player ? this.relicMapHintIndex.hintsFor({ tiles: this.state.tiles, summaryForPlayer: pid => this.summaryForPlayer(pid) }, player) : []; },
       lastEmittedStorageCapByPlayer: this.lastEmittedStorageCapByPlayer,
       hasActiveOwnedAfc: id => [...this.summaryForPlayer(id).ownedAfcTileKeys].some(key => this.state.tiles.get(key)?.afc?.status === "active"),
       applyManpowerRegen: (player) => this.applyManpowerRegen(player),
@@ -2695,7 +2685,7 @@ export class SimulationRuntime {
   private hasAvailableDevelopmentSlot(playerId: string): boolean {
     return (
       this.activeDevelopmentProcessCountForPlayer(playerId) <
-      DEVELOPMENT_PROCESS_LIMIT +
+      DEVELOPMENT_PROCESS_LIMIT + (this.state.players.get(playerId)?.relicDevelopmentBonus ?? 0) +
         additiveEffectForPlayer(
           this.state.players.get(playerId) ?? { techIds: new Set<string>(), domainIds: new Set<string>() },
           "developmentProcessCapacityAdd"
@@ -2759,6 +2749,7 @@ export class SimulationRuntime {
   private rushBuyCommandContext(): RuntimeRushBuyCommandContext {
     return buildRushBuyCommandContext({
       players: this.state.players,
+      relicContext: this.combatSupportContext(),
       pendingSettlementsByTile: this.pendingSettlementsByTile,
       locksByTile: this.state.locksByTile,
       tiles: this.state.tiles,

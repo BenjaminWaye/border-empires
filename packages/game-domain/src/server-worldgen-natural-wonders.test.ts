@@ -79,16 +79,15 @@ const ALL_WONDER_TYPES: readonly NaturalWonderType[] = [
 ];
 
 describe("createServerWorldgenNaturalWonders", () => {
-  it("places every wonder type exactly once when the world satisfies all predicates", () => {
+  it("selects seven distinct versioned relic families when the world satisfies all preferences", () => {
     const deps = buildDeps();
     const runtime = createServerWorldgenNaturalWonders(deps);
     runtime.generateNaturalWonders(42);
 
     const placedTypes = [...deps.naturalWondersByTile.values()].map((site) => site.type);
     expect(new Set(placedTypes).size).toBe(placedTypes.length); // no duplicates
-    for (const type of ALL_WONDER_TYPES) {
-      expect(placedTypes).toContain(type);
-    }
+    expect(placedTypes).toHaveLength(7);
+    for (const site of deps.naturalWondersByTile.values()) { expect(ALL_WONDER_TYPES).toContain(site.type); expect(site.relicVersion).toBe(1); }
   });
 
   it("respects each wonder's spawn predicate", () => {
@@ -156,20 +155,25 @@ describe("createServerWorldgenNaturalWonders", () => {
     }
   });
 
-  it("omits a wonder gracefully when no tile on the map satisfies its predicate", () => {
+  it("uses vacant land when the preferred surface biomes no longer exist", () => {
     const deps = buildDeps();
-    // No CRYSTAL_WASTES region anywhere on this world -> FOUNDRY_HEART must be omitted, not throw.
-    deps.regionTypeAtLocal = (x: number) => {
-      const region = regionTypeAtLocal(x);
-      return region === "CRYSTAL_WASTES" ? undefined : region;
-    };
-    const runtime = createServerWorldgenNaturalWonders(deps);
-    expect(() => runtime.generateNaturalWonders(42)).not.toThrow();
-
-    const placedTypes = [...deps.naturalWondersByTile.values()].map((site) => site.type);
-    expect(placedTypes).not.toContain("FOUNDRY_HEART");
-    // The rest of the world is unaffected and still gets placed.
-    expect(placedTypes).toContain("CONSCRIPTION_ENGINE");
+    deps.regionTypeAtLocal = () => undefined;
+    deps.landBiomeAt = () => "SAND";
+    deps.terrainAt = () => "LAND";
+    createServerWorldgenNaturalWonders(deps).generateNaturalWonders(42);
+    expect(deps.naturalWondersByTile.size).toBe(7);
+  });
+  it("varies the selection across seeds and reduces site counts on small maps", () => {
+    const deps = buildDeps(); const runtime = createServerWorldgenNaturalWonders(deps);
+    const selections = new Set<string>();
+    for (let seed = 1; seed <= 100; seed += 1) {
+      runtime.generateNaturalWonders(seed);
+      selections.add([...deps.naturalWondersByTile.values()].map(s => s.type).sort().join(","));
+    }
+    expect(selections.size).toBeGreaterThan(20);
+    const small = { ...buildDeps(), WORLD_WIDTH: 20, WORLD_HEIGHT: 20, terrainAt: () => "LAND" as const };
+    createServerWorldgenNaturalWonders(small).generateNaturalWonders(42);
+    expect(small.naturalWondersByTile.size).toBe(2);
   });
 
   it("never places a wonder on an occupied tile (dock/cluster/town)", () => {

@@ -148,6 +148,50 @@ a Warden's eye. Aether-work is a known danger, not a lost art — the
 townspeople could build it if they had the pieces, and choose, instead,
 not to.
 
+### Surviving relic installations
+
+Relics are fixed remnants of the Concordance's planetary megastructures.
+Their shared ziggurat-shaped surface buildings are access and control
+structures; different installations survive below them and provide different
+capabilities. The installations remain part of the planet after a war game.
+Their physical survival does not establish continued House ownership or
+bonuses between campaigns.
+
+These machines are aether-powered. Active aether-work attracts the Wardens,
+so frontier communities have left the installations dormant. A House can
+establish a garrison and put a surviving installation back into service; it
+is accepting the established danger of aether-work, not discovering that the
+old machinery is harmless. This does not imply a new Warden-spawn rule,
+repair charge or reactivation-risk mechanic; those are gameplay decisions.
+
+Relic remnants can include finite reserves as well as working machinery.
+An **Ancillary Vault** holds ancillary bodies already prepared to connect to
+House control. Those bodies exist before the House opens the vault. An
+aether-powered combat-suit factory can likewise retain a limited stock of
+usable suits and compatible components, while a nanofabrication installation
+can hold a finite reserve of fabrication material and assemblers. Their
+quantities, replenishment, ownership and battlefield effects remain gameplay
+design choices; an installation's survival does not establish an inexhaustible
+supply.
+
+Surviving installations include reclamation works, marine drive works,
+ancillary vaults, combat-suit factories, defensive field generators, industrial
+fabrication coordinators, sealed nanofabrication reserves, long-range aether
+resonators and geological survey arrays. Their common surface structure was a
+standard Concordance access and control interface. A reclamation plant supplies
+material already recognizable to a House; it does not reveal unknown resources.
+A fabrication coordinator coordinates concurrent construction rather than
+making House Manifests cheaper. A survey array detects geological signatures,
+not enemy activity. Marine drive works service freight and naval deployments.
+
+Relics have a separate low-power optical maintenance transponder, driven by a
+sealed conventional standby supply. It can produce a narrow locator column
+while the main aether-powered installation is dormant. Detecting it
+provides a location, not knowledge of who holds the site or whether its main
+machinery still works. This does not exempt operating machinery from the
+established risks of aether-work. Replenishment, signal detection range and
+force-field coverage are numerical rules in the [relic reference](../relics.md).
+
 ## 5. Why arriving is dangerous
 
 An infestation left undisturbed for years is dormant compared to what it
@@ -496,7 +540,7 @@ not infer new gameplay rules from them while implementing unrelated work.
 | Rank before a first victory | §2 says winning grants the rank of Duke, while later passages call campaign participants Dukes. Define first-time contenders' rank and returning Dukes' participation. |
 | Permanent holdings and map resets | §2 grants permanent rights to a won world; §8 preserves titles but allows the map to reset. Define what persists across a seasonal campaign and an age ending with the Court's fall. |
 | Writs and the revolt | §7 says accepting a Writ restores the Court's grip; §8 says a Writ does not weaken the revolt. Clarify the relationship before assigning metagame effects. |
-| Natural wonders as relics (proposed) | [Relics proposal](../relics-design.md) §1 proposes that natural wonders are Concordance Terrain-Shaping anchors, distinct from Shards (§3) and the original of the Relay Beacon's anchor technology (§10). Unreconciled with §1 (Monuments as the surviving Concordance aether constructs), §2 and §10 (the Court's own anchor technology), §4 (the Wardens destroying Concordance aether infrastructure) and §5 (aether-work drawing Wardens); "relic" also already names a Warden ship in the galactic campaign. Not yet accepted canon; accept or revise before the relic look ships. |
+| Relic reactivation costs and risks | Installation families, common surface access structures and the low-power locator transponder are established in §4. Repair costs, activation encounters and random breakdowns remain future design ideas; they are not established mechanics. Current quantities and effects belong in the [relic reference](../relics.md). |
 
 ### Consolidation sources
 

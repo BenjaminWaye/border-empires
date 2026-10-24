@@ -1,3 +1,4 @@
+import { activeRelicTiles, fieldGeneratorForTarget } from "./runtime-relics.js";
 import { coalitionAttackMult } from "./afc-specializations/afc-coalition.js";
 import { flagMomentumAttackMult, pickBreakthroughTarget } from "./afc-specializations/afc-battle-effects.js";
 import type { CommandEnvelope, LockedFrontierCombatResult, SimulationEvent } from "@border-empires/sim-protocol";
@@ -252,6 +253,8 @@ const resolveAttackCombat = (
   const attacker = ctx.players.get(lock.playerId); const dockAttackMult = wonderEffects.dockAttackMultiplierForOrigin(attacker, ctx.tiles.get(lock.originKey), lock.playerId);
   const targetHasActiveFort = targetHasActiveFortFor(ctx, previousTarget, defenderOwnerId, lock.targetKey);
   const combatModifiers = {
+    relicAttackMult: activeRelicTiles(ctx, lock.playerId, "WARPRESS").length ? 1.5 : 1,
+    relicDefenseMult: previousTarget && defenderOwnerId && fieldGeneratorForTarget(ctx, defenderOwnerId, previousTarget) ? 1.5 : 1,
     attackerOutpostMult: outpostMult,
     dockAttackMult,
     attackVsSettledMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsSettledMult") : 1,

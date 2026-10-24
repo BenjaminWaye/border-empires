@@ -76,3 +76,8 @@ describe("cards and summary name what fell with the tiles", () => {
       .toBe("Your Palisade fell to Maren after a 1h siege (with your Dock) · Held off 3 assaults from Maren · seized 1 of their tiles (incl. their Foundry Heart wonder) · cost them 240 manpower");
   });
 });
+
+it("names redesigned relics while preserving historical wonder labels", () => {
+  expect(featureListLabel([{ kind: "NATURAL_WONDER", wonderType: "WARPRESS", relicVersion: 1, count: 1 }])).toBe("Combat-Suit Factory relic");
+  expect(featureListLabel([{ kind: "NATURAL_WONDER", wonderType: "WARPRESS", count: 1 }])).toContain("wonder");
+});

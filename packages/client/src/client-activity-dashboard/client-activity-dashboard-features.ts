@@ -1,5 +1,5 @@
 import type { PersonalActivityTileFeatureCount } from "@border-empires/game-domain";
-import { NATURAL_WONDER_LABELS, structureDisplayName, type NaturalWonderType } from "@border-empires/shared";
+import { RELIC_DEFINITIONS, NATURAL_WONDER_LABELS, structureDisplayName, type NaturalWonderType } from "@border-empires/shared";
 
 import { listNames } from "./client-activity-dashboard-names.js";
 
@@ -19,7 +19,7 @@ const featureName = (feature: PersonalActivityTileFeatureCount): string => {
   if (feature.kind === "STRUCTURE") return withoutArticle(structureDisplayName(feature.structureType));
   if (feature.kind === "DOCK") return "Dock";
   if (feature.kind === "AFC") return AFC_NAME;
-  if (feature.kind === "NATURAL_WONDER") return wonderName(feature.wonderType);
+  if (feature.kind === "NATURAL_WONDER") return feature.relicVersion === 1 ? `${RELIC_DEFINITIONS[feature.wonderType].name} relic` : wonderName(feature.wonderType);
   // A feature kind from a newer server than this client.
   return "landmark";
 };
