@@ -3428,7 +3428,7 @@ export class SimulationRuntime {
         players: this.state.players, now: () => this.now(), settleManpower: (player) => { this.applyEconomyAccrual(player, this.now()); this.refreshManpowerOnly(player); },
         playerManpowerCap: (player) => this.playerManpowerCap(player), getAbilityCooldownUntil: (playerId, abilityKey) => this.getAbilityCooldownUntil(playerId, abilityKey),
         spendStrategicResource: (player, resource, amount) => this.spendStrategicResource(player, resource, amount), invalidateEconomySnapshot: (playerId) => this.economyCaches.economySnapshotCacheByPlayer.delete(playerId),
-        emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command)
+        emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command), emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload)
       }, command),
       handleSyncAllianceCommand: (command) => this.handleSyncAllianceCommand(command),
       handleFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType),

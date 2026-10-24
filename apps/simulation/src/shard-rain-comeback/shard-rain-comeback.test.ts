@@ -12,9 +12,10 @@ import {
 } from "./shard-rain-comeback.js";
 
 const HOUR = 60 * 60_000;
-// 2026-10-23 07:00 UTC, an hour before the 08:00 scheduled rain.
-const BEFORE_RAIN = Date.UTC(2026, 9, 23, 7, 0, 0);
-const RAIN_AT = Date.UTC(2026, 9, 23, 8, 0, 0);
+// An hour before the 08:00 scheduled rain on 2026-10-23.
+// Local-time dates: the rain schedule reads getHours(), which is UTC only on the servers.
+const BEFORE_RAIN = new Date(2026, 9, 23, 7, 0, 0).getTime();
+const RAIN_AT = new Date(2026, 9, 23, 8, 0, 0).getTime();
 
 describe("TerritoryPeakTracker", () => {
   it("reports the share of a recent peak that was lost", () => {

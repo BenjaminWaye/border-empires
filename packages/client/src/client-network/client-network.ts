@@ -8,7 +8,7 @@ import { applyPlayerUpdateManpowerFields } from "../client-player-update-manpowe
 import { COMBAT_LOCK_MS, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
 import { resetFrontierActionStateAfterError } from "./client-frontier-error-reset.js";
 import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
-import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
+import { ABILITY_RESULT_MESSAGE_TYPES, applyAbilityResultMessage } from "../client-ability-result-messages/client-ability-result-messages.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { startAuthProgressLogger } from "../client-auth-progress-log/client-auth-progress-log.js";
 import { parseIncomingMessage } from "../client-init-transfer/client-login-timeline.js";
@@ -2493,8 +2493,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       });
       renderHud();
     }
-    if (msg.type === "IMPERIAL_WARD_ACTIVATED") {
-      applyImperialWardActivatedMessage(state, msg);
+    if (typeof msg.type === "string" && ABILITY_RESULT_MESSAGE_TYPES.has(msg.type)) {
+      applyAbilityResultMessage(state, msg);
       renderHud();
     }
     } catch (error) {
