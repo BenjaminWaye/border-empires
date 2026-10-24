@@ -15,7 +15,7 @@
 // the metal reflects it, so the painted plates are lit exactly like the
 // standard marine's. Glowing parts emit their own colour.
 import { MeshStandardMaterial, type Texture } from "three";
-import { getLightingSettings } from "../client-lighting-tuner/client-lighting-tuner-settings.js";
+import { applyBuildingEnvMap } from "../client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 
 // How much of the team colour tints the bare metal: enough that a soldier
 // reads as its side's at battle zoom, not so much that it stops reading as
@@ -66,9 +66,6 @@ export const createMarineMaterial = (surfaceMasked: boolean, envMap?: Texture): 
   const material = new MeshStandardMaterial({ color: "#ffffff", vertexColors: true, roughness: 0.4, metalness: 0.4 });
   if (!surfaceMasked) return material;
   applySurfaceMask(material);
-  if (envMap) {
-    material.envMap = envMap;
-    material.envMapIntensity = getLightingSettings().envIntensity;
-  }
+  applyBuildingEnvMap(material, envMap);
   return material;
 };
