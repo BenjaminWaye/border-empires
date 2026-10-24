@@ -37,3 +37,4 @@ coverage/
 
 # Vite writes these next to vite.config.ts while bundling the config.
 *.timestamp-*.mjs
+__pycache__/

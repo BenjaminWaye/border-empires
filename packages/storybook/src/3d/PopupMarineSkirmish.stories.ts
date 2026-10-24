@@ -25,10 +25,10 @@ import { createStage, wrapWithCleanup } from "../three-stage.js";
 // PopupMarineOverlayFx/FullAttackLifecycle shows this phase handing over to
 // a resolved battle; this story just lets it run.
 //
-// The factory toggles show each side's weapons-factory gear: titanium trim on
-// the shoulder plates and chest, and Umbrite rounds (violet core, orange
-// glow, ember bursts). The stage gets the game's building environment map so
-// the titanium reflects as it does on the map.
+// The factory toggles show each side's weapons-factory gear: the heavy
+// armour (Titanium), and Umbrite rounds (violet core, orange glow, ember
+// bursts). The stage gets the game's building environment map so the
+// armour's titanium edging reflects as it does on the map.
 
 const TILE_GAP = 2.4;
 
@@ -179,13 +179,13 @@ export const StandoffCloseUp: Story = { args: { cameraDistance: 2.5 } };
  * "STANDOFF" appears in the label. */
 export const KillShotCloseUp: Story = { args: { cameraDistance: 2.5, siegeTowerBeaming: true } };
 
-/** Blue owns a Titanium Weapons Factory (titanium trim on shoulders and
- * chest), red an Umbrite Weapons Factory (Umbrite rounds). */
+/** Blue owns a Titanium Weapons Factory (heavy armour), red an Umbrite
+ * Weapons Factory (Umbrite rounds). */
 export const WeaponsFactoryGear: Story = {
   args: { cameraDistance: 2.5, attackerTitanium: true, defenderUmbrite: true }
 };
 
-/** Both factories on both sides: trim and Umbrite rounds together. */
+/** Both factories on both sides: heavy armour and Umbrite rounds together. */
 export const BothFactoriesBothSides: Story = {
   args: { cameraDistance: 2.5, attackerTitanium: true, attackerUmbrite: true, defenderTitanium: true, defenderUmbrite: true }
 };

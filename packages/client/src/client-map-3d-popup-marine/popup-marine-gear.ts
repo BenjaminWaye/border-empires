@@ -2,11 +2,11 @@
 // factories its empire owns (the server's CombatBroadcastPayload
 // attackerGear/defenderGear, remembered per owner by client-battle-overlay.ts
 // so a pre-resolution skirmish already shows it). Each factory adds its own
-// touch to the same squad -- Titanium: titanium trim on the soldiers' armour
-// (popup-marine-trim-material.ts); Umbrite: Umbrite rounds instead of
-// standard bolts (popup-marine-shot-render.ts) -- so any combination just
-// composes. Purely cosmetic: the combat bonuses themselves are applied
-// server-side regardless of what renders.
+// touch to the same squad -- Titanium: every soldier wears the heavy armour
+// model (marineModelFor, popup-marine-asset.ts); Umbrite: Umbrite rounds
+// instead of standard bolts (popup-marine-shot-render.ts) -- so any
+// combination just composes. Purely cosmetic: the combat bonuses themselves
+// are applied server-side regardless of what renders.
 //
 // Adding a weapons factory: add its kind here with its wire flag (the
 // matching BattleWarGear field the simulation sets in battleWarGearFor) and
@@ -31,6 +31,13 @@ export const STRUCTURE_BY_FACTORY = {
 } as const satisfies Record<WeaponsFactoryKind, string>;
 
 export type SquadGear = Partial<Record<WeaponsFactoryKind, boolean>>;
+
+/** The soldier models a squad can wear: the standard marine, or the heavy
+ * armour of an empire running a Titanium Weapons Factory. */
+export const MARINE_MODEL_KEYS = ["standard", "heavy"] as const;
+export type MarineModelKey = (typeof MARINE_MODEL_KEYS)[number];
+
+export const marineModelFor = (gear: SquadGear | undefined): MarineModelKey => (gear?.titanium === true ? "heavy" : "standard");
 
 /** Per-side gear on a battle/skirmish render entry; absent = no factories. */
 export type SquadGearFields = {

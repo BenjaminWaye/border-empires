@@ -34,7 +34,7 @@ export type GarrisonRenderEntry = GarrisonFacing & {
   hashSeed: number;
   /** End of the hold window, on the overlay's nowMs (performance.now()) clock. */
   endsAt: number;
-  /** The holding empire's war industry (titanium trim, Umbrite rounds); absent = none. */
+  /** The holding empire's war industry (heavy armour, Umbrite rounds); absent = none. */
   gear?: SquadGear;
 };
 

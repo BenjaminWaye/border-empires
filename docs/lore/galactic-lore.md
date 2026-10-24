@@ -380,13 +380,14 @@ Engine. These meanings do not prescribe stockpiles, resource-slot costs or
 per-cast consumption: those details follow the current gameplay reference.
 
 A House's war industry shows on its soldiers. Once a House runs a Titanium
-Weapons Factory, its troops' shoulder plates and chest plate are trimmed in
-polished titanium, because titanium is first and foremost an armour
-material. Once it runs an Umbrite Weapons Factory, its rifles fire Umbrite
-rounds: heavier bolts with a violet core in an orange glow that burst into
-embers where they strike. A House with both shows both. The look only
-reflects the industry; the combat effect is whatever the current gameplay
-reference gives each factory.
+Weapons Factory, its troops go to war in heavy plate -- thick House-coloured
+plates edged and riveted in polished titanium, stacked pauldrons and a
+sealed helmet -- because titanium is first and foremost an armour material.
+Once it runs an Umbrite Weapons Factory, its rifles fire Umbrite rounds:
+heavier bolts with a violet core in an orange glow that burst into embers
+where they strike. A House with both shows both. The look only reflects the
+industry; the combat effect is whatever the current gameplay reference gives
+each factory.
 
 ## 12. Manifests and AFC modules
 

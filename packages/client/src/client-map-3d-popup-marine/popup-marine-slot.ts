@@ -7,7 +7,8 @@ import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js
 import { MARINE_CLIP_NAMES, firstSkinnedMesh, type PopupMarineTemplate } from "./popup-marine-asset.js";
 import { attachOcclusionSilhouette, MARINE_RENDER_ORDER, type MarineSilhouette } from "./popup-marine-occlusion-silhouette.js";
 import { MARINES_PER_SIDE, type MarineStance } from "./popup-marine-timeline.js";
-import { createMarineMaterial } from "./popup-marine-trim-material.js";
+import type { MarineModelKey } from "./popup-marine-gear.js";
+import { createMarineMaterial } from "./popup-marine-material.js";
 
 // Rig bone the muzzle flash is pinned to (the Mixamo humanoid's pistol hand).
 const HAND_BONE_NAME = "RightHand";
@@ -17,8 +18,6 @@ export type MarineSlot = {
    * node, so the group (not the bare SkinnedMesh) is what gets placed. */
   root: Object3D;
   material: MeshStandardMaterial;
-  /** Titanium trim on the shoulder plates and chest (popup-marine-trim-material.ts). */
-  setTitaniumTrim: (on: boolean) => void;
   /** Team-tinted x-ray pass, seen only where something hides the marine. */
   silhouette: MarineSilhouette;
   mixer: AnimationMixer;
@@ -29,11 +28,18 @@ export type MarineSlot = {
   phase: number;
 };
 
-/** `envMap`: what titanium-trimmed marines reflect (the shared building
- * environment map; see popup-marine-trim-material.ts). */
-export const createMarineSlot = (scene: Scene, template: PopupMarineTemplate, index: number, envMap?: Texture): MarineSlot => {
+/** `model` is which soldier `template` is; `envMap` is what the heavy
+ * armour's bare metal reflects (the shared building environment map; see
+ * popup-marine-material.ts). */
+export const createMarineSlot = (
+  scene: Scene,
+  template: PopupMarineTemplate,
+  index: number,
+  model: MarineModelKey = "standard",
+  envMap?: Texture
+): MarineSlot => {
   const root = cloneSkinned(template.root) as Object3D;
-  const { material, setTitaniumTrim } = createMarineMaterial(envMap);
+  const material = createMarineMaterial(model === "heavy", envMap);
   const mesh = firstSkinnedMesh(root);
   mesh.material = material;
   mesh.frustumCulled = false;
@@ -56,7 +62,6 @@ export const createMarineSlot = (scene: Scene, template: PopupMarineTemplate, in
   return {
     root,
     material,
-    setTitaniumTrim,
     silhouette,
     mixer,
     actions,

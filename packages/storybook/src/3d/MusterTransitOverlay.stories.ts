@@ -52,8 +52,8 @@ type Args = {
   // > 0: the company steps onto the target and stands at ease this long (the
   // frontier-claim timer) instead of vanishing on arrival.
   standMs: number;
-  // The marching empire owns a Titanium Weapons Factory: titanium trim on
-  // the company's shoulder plates and chest.
+  // The marching empire owns a Titanium Weapons Factory: the company
+  // marches in the heavy armour.
   titanium: boolean;
 };
 
@@ -179,6 +179,6 @@ export const StandAtEaseDuringClaim: Story = {
 export const TitaniumCompany: Story = {
   args: { titanium: true, cameraDistance: 5 },
   parameters: {
-    docs: { description: { story: "The marching empire owns a Titanium Weapons Factory: the company wears titanium trim on its shoulder plates and chest." } }
+    docs: { description: { story: "The marching empire owns a Titanium Weapons Factory: the company marches in the heavy armour." } }
   }
 };
