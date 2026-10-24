@@ -1,4 +1,5 @@
-// Shard Mobilization: the comeback lever. Burning one Shard refills the
+// Shard Mobilization: the comeback lever. Donating one Shard to the Court
+// buys an Imperial delivery of ready-made ancillaries that refills the
 // empire's manpower to its cap instantly, so a House that was beaten down
 // while offline can return and fight back straight away instead of waiting
 // out several 4-hour refill windows (manpower-refill.ts).

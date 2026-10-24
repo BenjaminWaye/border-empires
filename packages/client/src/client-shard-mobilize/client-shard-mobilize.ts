@@ -1,7 +1,7 @@
 import { SHARD_MOBILIZE_SHARD_COST } from "@border-empires/shared";
 
-// Shard Mobilization card for the manpower panel: burns one Shard to refill
-// manpower to the cap at once (SHARD_MOBILIZE; server rules in
+// Shard Mobilization card for the manpower panel: donates one Shard to the
+// Court for an Imperial delivery that refills manpower to the cap at once (SHARD_MOBILIZE; server rules in
 // apps/simulation/src/shard-mobilize/). The result arrives through the
 // ordinary PLAYER_UPDATE (manpower and Shard count), so there is no one-off
 // result message to handle; rejections use the SHARD_MOBILIZE_INVALID code.
@@ -27,9 +27,9 @@ export const shardMobilizeCardHtml = (input: ShardMobilizeCardInput): string => 
   return `
     <section class="card manpower-detail-card shard-mobilize-card">
       <h4>Shard Mobilization</h4>
-      <div class="economy-footnote">Burn ${SHARD_MOBILIZE_SHARD_COST} Shard to refill your manpower to the cap at once. You hold ${Math.floor(input.shards)}.</div>
+      <div class="economy-footnote">Donate ${SHARD_MOBILIZE_SHARD_COST} Shard to the Court and it ships an Imperial delivery of ready-made ancillaries, filling your manpower to the cap at once. You hold ${Math.floor(input.shards)}.</div>
       <button class="panel-btn" type="button" data-shard-mobilize${reason ? " disabled" : ""}>
-        ${reason ? "Mobilize" : `Mobilize +${missing} manpower`}
+        ${reason ? "Donate Shard" : `Donate Shard: +${missing} manpower`}
       </button>
       ${reason ? `<div class="economy-footnote">${reason}</div>` : ""}
     </section>
@@ -40,7 +40,7 @@ export const bindShardMobilizeButtons = (root: ParentNode, sendGameMessage: (pay
   root.querySelectorAll<HTMLButtonElement>("[data-shard-mobilize]").forEach((button) => {
     button.onclick = () => {
       if (button.disabled) return;
-      sendGameMessage({ type: "SHARD_MOBILIZE" }, "Finish sign-in before mobilizing.");
+      sendGameMessage({ type: "SHARD_MOBILIZE" }, "Finish sign-in before donating a Shard.");
     };
   });
 };
