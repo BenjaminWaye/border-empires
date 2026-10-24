@@ -29,7 +29,10 @@ export const handleArrowGestureConfirm = (
   state: Pick<ClientState, "tiles" | "manpowerCap" | "pendingArrowGestureConfirm" | "arrowGesture" | "me" | "winChancePaint">,
   origin: ArrowGesturePoint,
   target: ArrowGesturePoint,
-  deps: ArrowGestureConfirmDeps
+  deps: ArrowGestureConfirmDeps,
+  // March Attack from New Flag: "Go" raises the flag, so the sheet must not
+  // be dismissed for the origin having none (arrowGestureConfirmInvalidated…).
+  options: { newFlag?: boolean } = {}
 ): void => {
   // Over the march cap: advise raising a flag closer instead of opening a
   // sheet whose "Go" the server would refuse. Plain advice, not an error.
@@ -38,7 +41,7 @@ export const handleArrowGestureConfirm = (
     deps.pushFeed(tooFarAdvice, "combat", "info");
     return;
   }
-  state.pendingArrowGestureConfirm = { origin, target };
+  state.pendingArrowGestureConfirm = { origin, target, ...(options.newFlag ? { newFlag: true } : {}) };
   state.arrowGesture = { origin, target };
   showArrowGestureConfirmSheet(state, origin, target, deps.keyFor, {
     sendGameMessage: deps.sendGameMessage,

@@ -109,6 +109,7 @@ export type TileActionDef = {
     | "cancel_waypoint"
     | "cancel_all_waypoints" | "clear_waypoint_and_expand_here"
     | "expand_here"
+    | "march_attack_flag" | "march_attack_flag_2" | "march_attack_flag_3" | "march_attack_new_flag"
     | `redeploy_afc_module:${string}`;
   label: string;
   cost?: string;
