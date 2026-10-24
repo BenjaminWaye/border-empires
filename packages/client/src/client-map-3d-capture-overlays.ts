@@ -1,3 +1,4 @@
+import { dockLandingFor, landingBattleSource } from "./client-dock-landing/client-dock-landing.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { Heightfield } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { type BattleOverlayFx, type BattleOverlayRenderEntry, type BattleOverlaySkirmishEntry } from "./client-map-3d-popup-marine/popup-marine-overlay-fx.js";
@@ -127,6 +128,21 @@ export function syncBattleOverlayFx(
 ): void {
   const standY = (x: number, y: number): number =>
     Math.max(heightfield.elevationAt(x, y), heightfield.cornerYAt(x, y)) + standLiftAt(x, y);
+  const { entries, skirmishes, garrisons } = collectBattleRenderEntries(state, keyFor, playerColorFor, standY, originX, originY, nowMs);
+  if (entries.length === 0 && skirmishes.length === 0 && garrisons.length === 0) { battleOverlayFx.clear(); return; }
+  battleOverlayFx.tick(nowMs, entries, skirmishes, siegeTowerTargets, garrisons);
+}
+
+/** Shared battle selection and clocks for the 3D map and 2D accessibility map. */
+export function collectBattleRenderEntries(
+  state: ClientState,
+  keyFor: (x: number, y: number) => string,
+  playerColorFor: (ownerId: string) => string,
+  standY: (x: number, y: number) => number,
+  originX: number,
+  originY: number,
+  nowMs: number
+): { entries: BattleOverlayRenderEntry[]; skirmishes: BattleOverlaySkirmishEntry[]; garrisons: ReturnType<typeof buildCaptureHoldGarrisons> } {
   pruneExpiredActiveBattles(state, nowMs);
   // `nowMs` is performance.now() (page uptime) — the clock every battle/FX
   // timestamp is stamped in. Siege countdowns (`resolvesAt`) are server epoch
@@ -143,7 +159,9 @@ export function syncBattleOverlayFx(
     const srcDy = toroidDelta(originY, battle.originY, WORLD_HEIGHT);
     const tgtDx = toroidDelta(originX, battle.targetX, WORLD_WIDTH);
     const tgtDy = toroidDelta(originY, battle.targetY, WORLD_HEIGHT);
+    const landing = dockLandingFor(state, battle.originX, battle.originY, battle.targetX, battle.targetY, state.skirmishSeenAt.get(keyFor(battle.targetX, battle.targetY)) ?? battle.startAt);
     entries.push({
+      ...(landing ? { landing } : {}),
       srcWorldX: srcDx + TILE_CENTER_OFFSET,
       srcWorldZ: srcDy + TILE_CENTER_OFFSET,
       tgtWorldX: tgtDx + TILE_CENTER_OFFSET,
@@ -193,7 +211,9 @@ export function syncBattleOverlayFx(
     const srcDy = toroidDelta(originY, srcY, WORLD_HEIGHT);
     const tgtDx = toroidDelta(originX, target.x, WORLD_WIDTH);
     const tgtDy = toroidDelta(originY, target.y, WORLD_HEIGHT);
+    const landing = dockLandingFor(state, srcX, srcY, target.x, target.y, startAt);
     skirmishes.push({
+      ...(landing ? { landing } : {}),
       srcWorldX: srcDx + TILE_CENTER_OFFSET,
       srcWorldZ: srcDy + TILE_CENTER_OFFSET,
       tgtWorldX: tgtDx + TILE_CENTER_OFFSET,
@@ -322,8 +342,11 @@ export function syncBattleOverlayFx(
   }
 
   const garrisons = buildCaptureHoldGarrisons(state, keyFor, new Set([...state.activeBattles.keys(), ...skirmishKeys]), playerColorFor, standY, originX, originY, nowMs, nowEpochMs);
-  if (entries.length === 0 && skirmishes.length === 0 && garrisons.length === 0) { battleOverlayFx.clear(); return; }
-  battleOverlayFx.tick(nowMs, entries, skirmishes, siegeTowerTargets, garrisons);
+  for (const entry of [...entries, ...skirmishes]) {
+    const source = landingBattleSource(entry.landing, entry.tgtWorldX, entry.tgtWorldZ, entry.srcWorldX, entry.srcWorldZ);
+    entry.srcWorldX = source.x; entry.srcWorldZ = source.z;
+  }
+  return { entries, skirmishes, garrisons };
 }
 
 

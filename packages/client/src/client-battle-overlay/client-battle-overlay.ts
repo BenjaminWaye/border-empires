@@ -1,4 +1,4 @@
-import { APPROACH_MS, CLASH_MS, ROUT_MS } from "../client-map-3d-popup-marine/popup-marine-overlay-fx.js";
+import { APPROACH_MS, CLASH_MS, ROUT_MS } from "../client-map-3d-popup-marine/popup-marine-timeline.js";
 import type { ClientState } from "../client-state/client-state.js";
 import {
   ownedFactories,
