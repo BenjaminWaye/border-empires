@@ -37,6 +37,13 @@ describe("TerritoryPeakTracker", () => {
     expect(peaks.lossFraction("p1", 1, 0)).toBe(0);
   });
 
+  it("forgives land the player gave up themselves", () => {
+    const peaks = new TerritoryPeakTracker();
+    peaks.observe("p1", 100, 0);
+    peaks.forgive("p1", 45, 0);
+    expect(peaks.lossFraction("p1", 55, 0)).toBe(0);
+  });
+
   it("reports no loss for a growing empire and drops departed players", () => {
     const peaks = new TerritoryPeakTracker();
     peaks.observe("p1", 100, 0);
@@ -91,6 +98,17 @@ describe("pickComebackTileKey", () => {
     expect(pickComebackTileKey("p1", new Set(["1,1", "2,2", "3,3"]), tiles, canHost)).toBe("3,3");
     expect(pickComebackTileKey("p1", new Set(), tiles, canHost)).toBeUndefined();
   });
+
+  it("prefers settled land over the frontier, falling back to the frontier when nothing settled can host", () => {
+    const frontier = { ...landTile(1, 1, "p1"), ownershipState: "FRONTIER" } as DomainTileState;
+    const tiles = new Map<string, DomainTileState>([["1,1", frontier], ["2,2", landTile(2, 2, "p1")]]);
+    const keys = new Set(["1,1", "2,2"]);
+    let i = 0;
+    const alternate = () => (i++ % 2 === 0 ? 0 : 0.99);
+    expect(pickComebackTileKey("p1", keys, tiles, () => true, alternate)).toBe("2,2");
+    const onlyFrontierHosts = (tile: DomainTileState | undefined) => tile?.ownershipState === "FRONTIER";
+    expect(pickComebackTileKey("p1", keys, tiles, onlyFrontierHosts, alternate)).toBe("1,1");
+  });
 });
 
 describe("comeback shard rain (RuntimeShardRain tick)", () => {
@@ -105,7 +123,7 @@ describe("comeback shard rain (RuntimeShardRain tick)", () => {
     vi.restoreAllMocks();
   });
 
-  const setup = () => {
+  const setup = (extraPlayers: RuntimePlayer[] = []) => {
     const tiles = new Map<string, DomainTileState>();
     const territory = new Set<string>();
     for (let x = 0; x < 10; x += 1) {
@@ -115,16 +133,18 @@ describe("comeback shard rain (RuntimeShardRain tick)", () => {
       }
     }
     const players = new Map<string, RuntimePlayer>([["player-1", { id: "player-1", isAi: false } as RuntimePlayer]]);
+    for (const player of extraPlayers) players.set(player.id, player);
+    const territoryByPlayer = new Map<string, Set<string>>([["player-1", territory]]);
     const rain = new RuntimeShardRain({
       state: { players, tiles },
       now: () => RAIN_AT,
       replaceTileState: (tileKey, tile) => { tiles.set(tileKey, tile); },
       emitEvent: () => undefined,
       tileDeltaFromState: (tile) => ({ x: tile.x, y: tile.y }),
-      territoryTileKeysForPlayer: () => territory
+      territoryTileKeysForPlayer: (playerId) => territoryByPlayer.get(playerId) ?? new Set()
     });
     const sitesOnTerritory = () => [...territory].filter((key) => tiles.get(key)?.shardSite?.kind === "FALL");
-    return { rain, territory, sitesOnTerritory };
+    return { rain, territory, territoryByPlayer, sitesOnTerritory };
   };
 
   it("drops a site on the land of a player who just lost most of their territory", () => {
@@ -144,5 +164,33 @@ describe("comeback shard rain (RuntimeShardRain tick)", () => {
     rain.tick(RAIN_AT);
 
     expect(sitesOnTerritory()).toHaveLength(0);
+  });
+
+  it("does not reward land the player abandoned themselves", () => {
+    const { rain, territory, sitesOnTerritory } = setup();
+    rain.tick(BEFORE_RAIN);
+    rain.runVoluntaryLoss("player-1", () => {
+      for (const key of [...territory].slice(10)) territory.delete(key);
+    });
+
+    rain.tick(RAIN_AT);
+
+    expect(sitesOnTerritory()).toHaveLength(0);
+  });
+
+  it("does not spend the comeback budget on eliminated players or AI empires", () => {
+    // Five wiped-out humans (loss 1.0) would fill this rain's whole comeback
+    // budget of 4 ahead of the surviving player if they were left in the draw.
+    const eliminated = ["player-2", "player-3", "player-4", "player-5", "player-6"].map((id) => ({ id, isAi: false }) as RuntimePlayer);
+    const ai = { id: "ai-1", isAi: true } as RuntimePlayer;
+    const { rain, territory, territoryByPlayer, sitesOnTerritory } = setup([...eliminated, ai]);
+    for (const player of [...eliminated, ai]) territoryByPlayer.set(player.id, new Set(Array.from({ length: 30 }, (_, i) => `${player.id}:${i}`)));
+    rain.tick(BEFORE_RAIN);
+    for (const player of [...eliminated, ai]) territoryByPlayer.get(player.id)?.clear();
+    for (const key of [...territory].slice(10)) territory.delete(key);
+
+    rain.tick(RAIN_AT);
+
+    expect(sitesOnTerritory()).toHaveLength(1);
   });
 });

@@ -43,7 +43,9 @@ export const bindShardMobilizeButtons = (root: ParentNode, sendGameMessage: (pay
   root.querySelectorAll<HTMLButtonElement>("[data-shard-mobilize]").forEach((button) => {
     button.onclick = () => {
       if (button.disabled) return;
-      sendGameMessage({ type: "SHARD_MOBILIZE" }, "Finish sign-in before donating a Shard.");
+      // Stay disabled until the next HUD render brings the new pool and Shard
+      // count, so a double-click can't send a second donation.
+      if (sendGameMessage({ type: "SHARD_MOBILIZE" }, "Finish sign-in before donating a Shard.")) button.disabled = true;
     };
   });
 };

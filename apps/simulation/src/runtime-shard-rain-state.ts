@@ -71,6 +71,18 @@ export class RuntimeShardRain {
     tickShardRain(this.input, nowMs);
   }
 
+  /**
+   * Runs a command in which the player gives up land themselves (UNCAPTURE_TILE)
+   * and forgives whatever territory it cost, cut-offs included, so it never
+   * counts toward comeback rain.
+   */
+  runVoluntaryLoss(playerId: string, run: () => void): void {
+    const before = this.input.territoryTileKeysForPlayer(playerId).size;
+    run();
+    const lost = before - this.input.territoryTileKeysForPlayer(playerId).size;
+    if (lost > 0) this.territoryPeaks.forgive(playerId, lost, this.input.now());
+  }
+
   emitHelloFor(playerId: string, nowMs: number): void {
     emitShardRainHelloFor(this.input, playerId, nowMs);
   }

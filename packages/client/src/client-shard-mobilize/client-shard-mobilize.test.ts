@@ -38,6 +38,16 @@ describe("bindShardMobilizeButtons", () => {
     root.querySelector<HTMLButtonElement>("[data-shard-mobilize]")?.click();
     expect(sendGameMessage).toHaveBeenCalledWith({ type: "SHARD_MOBILIZE" }, expect.any(String));
   });
+
+  it("ignores a second click until the HUD re-renders, so a double-click donates once", () => {
+    const root = mount(shardMobilizeCardHtml(ready));
+    const sendGameMessage = vi.fn(() => true);
+    bindShardMobilizeButtons(root, sendGameMessage);
+    const button = root.querySelector<HTMLButtonElement>("[data-shard-mobilize]");
+    button?.click();
+    button?.click();
+    expect(sendGameMessage).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("manpower panel", () => {

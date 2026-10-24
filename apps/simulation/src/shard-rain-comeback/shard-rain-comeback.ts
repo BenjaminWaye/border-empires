@@ -39,6 +39,17 @@ export class TerritoryPeakTracker {
     this.peaks.set(playerId, { peak, observedAt: nowMs });
   }
 
+  /**
+   * Lowers the player's peak by land they gave up themselves (UNCAPTURE_TILE
+   * and anything it cut off), so abandoning land right before a scheduled
+   * rain does not read as a loss and farm a comeback site.
+   */
+  forgive(playerId: string, tiles: number, nowMs: number): void {
+    const entry = this.peaks.get(playerId);
+    if (!entry || tiles <= 0) return;
+    this.peaks.set(playerId, { peak: Math.max(0, this.decayedPeak(entry, nowMs) - tiles), observedAt: nowMs });
+  }
+
   /** 0..1 share of the decayed peak the player no longer holds; 0 for empires that never reached COMEBACK_MIN_PEAK_TILES. */
   lossFraction(playerId: string, tileCount: number, nowMs: number): number {
     const entry = this.peaks.get(playerId);
@@ -90,7 +101,12 @@ export const pickComebackPlayers = (
   return picked;
 };
 
-/** A random tile of the player's own land that can host a fall site, or undefined when none turns up. */
+/**
+ * A random tile of the player's own land that can host a fall site, or
+ * undefined when none turns up. SETTLED land is tried first: a FRONTIER tile
+ * is usually the front line, where the attacker can capture it (and the
+ * Shard) before the beaten-down owner collects, or where it decays.
+ */
 export const pickComebackTileKey = (
   playerId: string,
   territoryTileKeys: ReadonlySet<string>,
@@ -100,12 +116,13 @@ export const pickComebackTileKey = (
 ): string | undefined => {
   if (territoryTileKeys.size === 0) return undefined;
   const keys = [...territoryTileKeys];
-  for (let attempt = 0; attempt < COMEBACK_TILE_PICK_ATTEMPTS; attempt += 1) {
-    const tileKey = keys[Math.floor(random() * keys.length)]!;
-    const tile = tiles.get(tileKey);
-    if (tile?.ownerId !== playerId) continue;
-    if (tile.ownershipState !== "FRONTIER" && tile.ownershipState !== "SETTLED") continue;
-    if (canHost(tile, tileKey)) return tileKey;
+  for (const states of [["SETTLED"], ["SETTLED", "FRONTIER"]]) {
+    for (let attempt = 0; attempt < COMEBACK_TILE_PICK_ATTEMPTS; attempt += 1) {
+      const tileKey = keys[Math.floor(random() * keys.length)]!;
+      const tile = tiles.get(tileKey);
+      if (tile?.ownerId !== playerId || !states.includes(tile.ownershipState ?? "")) continue;
+      if (canHost(tile, tileKey)) return tileKey;
+    }
   }
   return undefined;
 };

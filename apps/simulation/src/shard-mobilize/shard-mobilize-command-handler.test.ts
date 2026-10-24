@@ -3,7 +3,8 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 import type { DomainPlayer } from "@border-empires/game-domain";
 import { spendStrategicResource } from "../runtime-strategic-resource-ledger.js";
 import { TITANIUM_LEVY_REGEN_FREEZE_KEY } from "../runtime-titanium-levy-command.js";
-import { handleShardMobilizeCommand, SHARD_MOBILIZE_INVALID, type ShardMobilizeCommandContext } from "./shard-mobilize-command-handler.js";
+import type { RuntimeProgressionCommandContext } from "../runtime-progression-command-handlers.js";
+import { buildShardMobilizeCommandContext, handleShardMobilizeCommand, SHARD_MOBILIZE_INVALID, type ShardMobilizeCommandContext } from "./shard-mobilize-command-handler.js";
 
 const NOW = 1_700_000_000_000;
 const CAP = 1_500;
@@ -30,7 +31,7 @@ const makeContext = (player: DomainPlayer, cooldowns: Record<string, number> = {
   const context: ShardMobilizeCommandContext = {
     players: new Map([[player.id, player]]),
     now: () => NOW,
-    settleManpower,
+    settleEconomyBeforeUpgrade: settleManpower,
     playerManpowerCap: () => CAP,
     getAbilityCooldownUntil: (_playerId, key) => cooldowns[key] ?? 0,
     spendStrategicResource,
@@ -102,5 +103,14 @@ describe("handleShardMobilizeCommand", () => {
     expect(settleManpower).not.toHaveBeenCalled();
     expect(player.manpower).toBe(120);
     expect(player.strategicResources?.SHARD).toBe(2);
+  });
+});
+
+describe("buildShardMobilizeCommandContext", () => {
+  const accessors = { playerManpowerCap: () => CAP, getAbilityCooldownUntil: () => 0, spendStrategicResource, emitPlayerMessage: vi.fn() };
+
+  it("refuses a progression context without the economy settle, so manpower is never refilled from a stale pool", () => {
+    const progression = { players: new Map(), now: () => NOW } as unknown as RuntimeProgressionCommandContext;
+    expect(() => buildShardMobilizeCommandContext(progression, accessors)).toThrow(/settleEconomyBeforeUpgrade/);
   });
 });
