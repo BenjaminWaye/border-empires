@@ -1,10 +1,13 @@
 import { SHARD_MOBILIZE_SHARD_COST } from "@border-empires/shared";
+import { pushFeed, type FeedMutableState } from "../client-alerts/client-alerts.js";
+import { showShardDonationOverlay } from "../client-shard-collect/client-shard-collect.js";
 
 // Shard Mobilization card for the manpower panel: donates one Shard to the
 // Court for an Imperial delivery that refills manpower to the cap at once (SHARD_MOBILIZE; server rules in
 // apps/simulation/src/shard-mobilize/). The result arrives through the
-// ordinary PLAYER_UPDATE (manpower and Shard count), so there is no one-off
-// result message to handle; rejections use the SHARD_MOBILIZE_INVALID code.
+// ordinary PLAYER_UPDATE (manpower and Shard count); the one-off
+// SHARD_MOBILIZED message only drives the delivery announcement. Rejections
+// use the SHARD_MOBILIZE_INVALID code.
 
 export type ShardMobilizeCardInput = {
   shards: number;
@@ -43,4 +46,11 @@ export const bindShardMobilizeButtons = (root: ParentNode, sendGameMessage: (pay
       sendGameMessage({ type: "SHARD_MOBILIZE" }, "Finish sign-in before donating a Shard.");
     };
   });
+};
+
+/** SHARD_MOBILIZED: the server accepted the donation; announce the Court's delivery in a card and the Activity Feed. */
+export const applyShardMobilizedMessage = (state: FeedMutableState, msg: Record<string, unknown>): void => {
+  const delivered = typeof msg.delivered === "number" ? Math.max(0, Math.floor(msg.delivered)) : 0;
+  pushFeed(state, `The Court looks favourably on your donation. A delivery of ${delivered.toLocaleString()} ancillaries has arrived.`, "info", "success");
+  showShardDonationOverlay(delivered);
 };

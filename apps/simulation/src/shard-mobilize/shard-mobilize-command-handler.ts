@@ -17,6 +17,7 @@ export interface ShardMobilizeCommandContext {
   invalidateEconomySnapshot(playerId: string): void;
   emitEvent(event: SimulationEvent): void;
   emitPlayerStateUpdate(command: Pick<CommandEnvelope, "commandId" | "playerId">): void;
+  emitPlayerMessage(command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: Record<string, unknown>): void;
 }
 
 const reject = (context: ShardMobilizeCommandContext, command: CommandEnvelope, code: string, message: string): void => {
@@ -48,10 +49,14 @@ export function handleShardMobilizeCommand(context: ShardMobilizeCommandContext,
     reject(context, command, SHARD_MOBILIZE_INVALID, `needs ${SHARD_MOBILIZE_SHARD_COST} Shard`);
     return;
   }
+  const delivered = Math.floor(cap - actor.manpower);
   actor.manpower = cap;
   // The bank only holds regen still owed below the cap; a full pool owes none.
   delete actor.manpowerBanked;
   context.invalidateEconomySnapshot(actor.id);
   context.emitPlayerStateUpdate(command);
+  // One-off confirmation so the client can announce the Imperial delivery;
+  // the new pool and Shard count arrive through the player update above.
+  context.emitPlayerMessage(command, { type: "SHARD_MOBILIZED", delivered });
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }

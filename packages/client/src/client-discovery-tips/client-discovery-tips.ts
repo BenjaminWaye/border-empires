@@ -9,7 +9,7 @@ import { NATURAL_WONDER_LABELS, type NaturalWonderType } from "@border-empires/s
 import type { Tile } from "../client-types.js";
 import { isDiscoveryTipSeen, isDiscoveryTipsMuted, markDiscoveryTipSeen, muteDiscoveryTips } from "./client-discovery-tips-storage.js";
 
-export type DiscoveryTipId = "TOWN" | "TOWN_TERRAIN_PROFILE" | "DOCK" | "BARBARIAN" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "FIRST_MUSTER" | "ENEMY_EMPIRE" | "OUT_OF_REACH_EXPAND" | "WAYSTATION" | NaturalWonderType;
+export type DiscoveryTipId = "TOWN" | "TOWN_TERRAIN_PROFILE" | "DOCK" | "BARBARIAN" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "FIRST_MUSTER" | "FIRST_SHARD" | "ENEMY_EMPIRE" | "OUT_OF_REACH_EXPAND" | "WAYSTATION" | NaturalWonderType;
 
 export type DiscoveryTipDef = { id: DiscoveryTipId; title: string; body: string };
 
@@ -82,6 +82,11 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
     id: "FIRST_MUSTER",
     title: "First Muster Flag Placed!",
     body: "Muster Flags gather manpower to attack from. Distance to your target sets how long the strike takes. Cracking a garrisoned tile takes 60 manpower; a fort takes far more."
+  },
+  FIRST_SHARD: {
+    id: "FIRST_SHARD",
+    title: "First Shard Collected!",
+    body: "Shards are fragments of the shattered Sovereign Siege Engine, the rarest resource on any world, so keep them. Every Monumental part costs 1 Shard. You can also donate 1 Shard to the Court from the Manpower panel: it ships a delivery of ancillaries that refills your manpower to the cap at once. Shard rain falls twice a day and each site fades after 30 minutes."
   },
   ENEMY_EMPIRE: {
     id: "ENEMY_EMPIRE",

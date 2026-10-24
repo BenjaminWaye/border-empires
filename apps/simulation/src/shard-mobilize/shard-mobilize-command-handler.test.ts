@@ -26,6 +26,7 @@ const makeContext = (player: DomainPlayer, cooldowns: Record<string, number> = {
   const settleManpower = vi.fn();
   const emitPlayerStateUpdate = vi.fn();
   const invalidateEconomySnapshot = vi.fn();
+  const emitPlayerMessage = vi.fn();
   const context: ShardMobilizeCommandContext = {
     players: new Map([[player.id, player]]),
     now: () => NOW,
@@ -35,9 +36,10 @@ const makeContext = (player: DomainPlayer, cooldowns: Record<string, number> = {
     spendStrategicResource,
     invalidateEconomySnapshot,
     emitEvent: (event) => events.push(event),
-    emitPlayerStateUpdate
+    emitPlayerStateUpdate,
+    emitPlayerMessage
   };
-  return { context, events, settleManpower, emitPlayerStateUpdate, invalidateEconomySnapshot };
+  return { context, events, settleManpower, emitPlayerStateUpdate, emitPlayerMessage, invalidateEconomySnapshot };
 };
 
 const rejection = (events: SimulationEvent[]) => events.find((event) => event.eventType === "COMMAND_REJECTED");
@@ -45,7 +47,7 @@ const rejection = (events: SimulationEvent[]) => events.find((event) => event.ev
 describe("handleShardMobilizeCommand", () => {
   it("spends one Shard and refills manpower to the cap", () => {
     const player = makePlayer();
-    const { context, events, settleManpower, emitPlayerStateUpdate, invalidateEconomySnapshot } = makeContext(player);
+    const { context, events, settleManpower, emitPlayerStateUpdate, emitPlayerMessage, invalidateEconomySnapshot } = makeContext(player);
 
     handleShardMobilizeCommand(context, command);
 
@@ -55,6 +57,7 @@ describe("handleShardMobilizeCommand", () => {
     expect(player.strategicResources?.SHARD).toBe(1);
     expect(invalidateEconomySnapshot).toHaveBeenCalledWith("p1");
     expect(emitPlayerStateUpdate).toHaveBeenCalledWith(command);
+    expect(emitPlayerMessage).toHaveBeenCalledWith(command, { type: "SHARD_MOBILIZED", delivered: CAP - 120 });
     expect(events.map((event) => event.eventType)).toEqual(["COMMAND_RESOLVED"]);
   });
 

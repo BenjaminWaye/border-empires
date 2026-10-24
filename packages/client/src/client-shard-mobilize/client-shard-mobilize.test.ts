@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { renderManpowerPanelHtml } from "../client-side-panel-html/client-side-panel-html.js";
-import { bindShardMobilizeButtons, shardMobilizeCardHtml } from "./client-shard-mobilize.js";
+import { applyShardMobilizedMessage, bindShardMobilizeButtons, shardMobilizeCardHtml } from "./client-shard-mobilize.js";
 
 const ready = { shards: 2, manpower: 100, manpowerCap: 900, manpowerRegenPerMinute: 3 };
 
@@ -57,5 +57,16 @@ describe("manpower panel", () => {
 
   it("omits it for callers that pass no Shard count", () => {
     expect(renderManpowerPanelHtml(panelArgs)).not.toContain("data-shard-mobilize");
+  });
+});
+
+describe("applyShardMobilizedMessage", () => {
+  it("announces the Court's delivery in the feed and the shard card", () => {
+    const state = { feed: [] as { text?: string; severity?: string }[] };
+    applyShardMobilizedMessage(state as never, { type: "SHARD_MOBILIZED", delivered: 768 });
+    expect(state.feed[0]).toMatchObject({ severity: "success" });
+    expect(state.feed[0]?.text).toContain("delivery of 768 ancillaries");
+    expect(document.getElementById("shard-collect-overlay")?.textContent).toContain("The Court looks favourably on your donation");
+    document.getElementById("shard-collect-overlay")?.remove();
   });
 });
