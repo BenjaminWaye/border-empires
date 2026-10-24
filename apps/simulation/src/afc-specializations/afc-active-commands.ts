@@ -1,3 +1,4 @@
+import { handleForcedAncillarification } from "../forced-ancillarification/forced-ancillarification-command.js";
 import { afcPlayerStatePayload } from "./afc-player-state.js";
 import type { DomainPlayer } from "@border-empires/game-domain";
 import { AETHER_LANCE_COOLDOWN_MS } from "@border-empires/game-domain";
@@ -18,6 +19,7 @@ export interface AfcActiveCommandContext {
   emitPlayerStateUpdate: (command: { commandId: string; playerId: string }) => void;
 }
 export function handleAfcActiveCommand(context: AfcActiveCommandContext, command: CommandEnvelope): void {
+  if (command.type === "FORCED_ANCILLARIFICATION") return handleForcedAncillarification(context, command);
   const { abilities } = context;
   const reject = (message: string): void => abilities.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code: "AFC_UPGRADE_INVALID", message });
   const actor = abilities.players.get(command.playerId);
