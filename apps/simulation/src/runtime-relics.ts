@@ -46,14 +46,22 @@ export function consumeRelicTile(context: RelicMutationContext, tile: DomainTile
 }
 
 /** Called before a tile enters snapshot and economy caches. It never resets a saved reserve. */
-export function activateRelic(tile: DomainTileState, player: DomainPlayer | undefined, now: number, manpowerCap: number, totals?: { supply: ResourceSlotTotals; demand: ResourceSlotTotals }): DomainTileState {
+export function activateRelic(tile: DomainTileState, player: DomainPlayer | undefined, now: number, manpowerCap: number, totals?: { supply: ResourceSlotTotals; demand: ResourceSlotTotals }, journal?: { commandId: string; emitEvent: RelicMutationContext["emitEvent"] }): DomainTileState {
   const state = tile.naturalWonder;
   if (!state || !isRedesignedRelic(state) || !player || tile.ownerId !== player.id || tile.ownershipState !== "SETTLED") return tile;
   let next = state;
   if (state.activatedAt === undefined) next = { ...next, activatedAt: now };
   if (state.type === "CONSCRIPTION_ENGINE") {
     const consumed = consumeRelicUse(next);
-    if (consumed.consumed) { grantOverflowManpower(player, 2000, manpowerCap); next = consumed.state; }
+    if (consumed.consumed) {
+      grantOverflowManpower(player, 2000, manpowerCap);
+      next = consumed.state;
+      // PLAYER_UPDATE is transient. Journal the balance as well as the empty vault
+      // so replay after the last checkpoint cannot discard the recovered bodies.
+      journal?.emitEvent({ eventType: "DOMAIN_UPDATE", commandId: journal.commandId, playerId: player.id,
+        payloadJson: JSON.stringify({ manpower: player.manpower, manpowerUpdatedAt: player.manpowerUpdatedAt,
+          manpowerBanked: player.manpowerBanked ?? 0, waystationManpowerOverflow: player.waystationManpowerOverflow ?? 0 }) });
+    }
   }
   if (state.type === "FOUNDRY_HEART" && !state.resourceBonus && totals) {
     const resources: readonly RelicResource[] = ["TITANIUM", "CRYSTAL", "UMBRITE"];

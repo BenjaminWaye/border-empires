@@ -2,12 +2,12 @@ import type { Meta, StoryObj } from "@storybook/html-vite";
 import { Light, Mesh, MeshStandardMaterial, PlaneGeometry } from "three";
 import { createRelicState } from "@border-empires/shared";
 import { createAtmosphere } from "@client/client-map-3d-atmosphere.js";
-import { createRelicMapOverlay } from "../../../client/src/client-relic-overlay/relic-map-overlay.js";
-import { drawRelicOverlay2D } from "../../../client/src/client-relic-overlay/relic-overlay-2d.js";
-import { createStage, wrapWithCleanup } from "../three-stage.js";
+import { createRelicMapOverlay } from "@client/client-relic-overlay/relic-map-overlay.js";
+import { drawRelicOverlay2D } from "@client/client-relic-overlay/relic-overlay-2d.js";
+import { createStage, wrapWithCleanup } from "../../../fixtures/three-stage.js";
 
 const meta: Meta = {
-  title: "Relics/Lifecycle", parameters: { layout: "fullscreen" },
+  id: "relics-lifecycle", title: "Map/Natural Wonders/Relics/Lifecycle", parameters: { layout: "fullscreen" },
   render: () => {
     const stage = createStage({ width: 1200, height: 500, cameraDistance: 7, cameraTilt: 0.9, background: "#24343a" });
     for (const light of stage.scene.children.filter(object => object instanceof Light)) stage.scene.remove(light);

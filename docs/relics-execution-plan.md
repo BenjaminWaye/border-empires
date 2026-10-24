@@ -88,3 +88,11 @@ No deployment or production-world regeneration is part of implementation.
   5,405 tests, TypeScript lint and the production build.
 - Source-size, documentation, changelog and Storybook TypeScript checks pass.
   No deployment or existing-world regeneration was performed.
+
+## Review fixes
+
+- Journal ancillary manpower and above-cap allowance alongside vault depletion,
+  so recovery from events before the next checkpoint retains the bodies. The
+  runtime regression failed before the fix and now verifies replay plus restart.
+- Adapt relic Map/UI stories and shared fixtures to the current Storybook
+  catalogue layout; preserve existing story IDs and preview URLs.

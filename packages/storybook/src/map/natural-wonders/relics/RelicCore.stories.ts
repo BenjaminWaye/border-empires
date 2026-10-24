@@ -7,10 +7,10 @@ import { createForest } from "@client/client-map-3d-forest.js";
 import { createMountainMassifs } from "@client/client-map-3d-mountain-massif.js";
 import { createTownOverlay } from "@client/client-map-3d-town-overlay.js";
 import { createWaystationOverlay } from "@client/client-map-3d-waystation-overlay.js";
-import { createStage, wrapWithCleanup } from "../three-stage.js";
-import { createRelicCoreOverlay } from "./relic-core-overlay.js";
-import { createRelicScaleFigure } from "./relic-scale-figure.js";
-import { createRelicCapturePreview } from "./relic-capture-preview.js";
+import { createStage, wrapWithCleanup } from "../../../fixtures/three-stage.js";
+import { createRelicCoreOverlay } from "../../../fixtures/relics/relic-core-overlay.js";
+import { createRelicScaleFigure } from "../../../fixtures/relics/relic-scale-figure.js";
+import { createRelicCapturePreview } from "../../../fixtures/relics/relic-capture-preview.js";
 
 type Args = {
   active: boolean;
@@ -184,7 +184,7 @@ const render = (args: Args): HTMLElement => {
 };
 
 const meta: Meta<Args> = {
-  title: "Relics/Buried Core",
+  id: "relics-buried-core", title: "Map/Natural Wonders/Relics/Buried Core",
   parameters: { layout: "fullscreen" },
   args: { active: false, context: true, cameraDistance: 10, cameraTilt: 0.68, ownerColor: "#3d7fd6" },
   argTypes: {

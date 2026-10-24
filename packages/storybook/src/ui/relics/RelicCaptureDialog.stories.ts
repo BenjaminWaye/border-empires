@@ -1,10 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createRelicState, RELIC_DEFINITIONS, type NaturalWonderType } from "@border-empires/shared";
-import { createRelicCaptureDialog } from "../../../client/src/client-relic-dialog/relic-capture-dialog.js";
+import { createRelicCaptureDialog } from "@client/client-relic-dialog/relic-capture-dialog.js";
 
 type Args = { installation: NaturalWonderType; garrisoned: boolean; depleted: boolean };
 const meta: Meta<Args> = {
-  title: "Relics/Capture Dialog", parameters: { layout: "fullscreen" },
+  id: "relics-capture-dialog", title: "UI/Relics/Capture Dialog", parameters: { layout: "fullscreen" },
   args: { installation: "WARPRESS", garrisoned: true, depleted: false },
   argTypes: { installation: { control: "select", options: Object.keys(RELIC_DEFINITIONS) } },
   render: args => {

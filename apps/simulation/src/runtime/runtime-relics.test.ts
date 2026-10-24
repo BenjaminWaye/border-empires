@@ -92,6 +92,7 @@ describe("redesigned relic runtime", () => {
       tiles: [{ ...relicTile("CONSCRIPTION_ENGINE"), ownershipState: "FRONTIER" }, { x: 10, y: 9, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } }], activeLocks: []
     } });
     const events = collectEvents(runtime);
+    const before = runtime.exportSnapshotSections().initialState;
     const beforeManpower = runtime.exportState().players.find(p => p.id === "p")!.manpower;
     const command = { sessionId: "s", playerId: "p", issuedAt: 1000, payloadJson: JSON.stringify({ x: 10, y: 10 }) };
     runtime.submitCommand({ ...command, commandId: "settle", clientSeq: 1, type: "SETTLE" }); await Promise.resolve();
@@ -102,6 +103,14 @@ describe("redesigned relic runtime", () => {
     expect(runtime.exportState().players.find(p => p.id === "p")!.manpower).toBeGreaterThanOrEqual(beforeManpower + 1900);
     const snapshot = runtime.exportSnapshotSections();
     expect(JSON.stringify(snapshot)).toContain('"remainingUses":0');
+    const recovered = applySimulationEventsToRecoveredState(before, events.filter(event => event.eventType !== "PLAYER_MESSAGE"));
+    const awarded = snapshot.initialState.players?.find(player => player.id === "p");
+    expect(recovered.players?.find(player => player.id === "p")).toMatchObject({
+      manpower: awarded?.manpower, waystationManpowerOverflow: awarded?.waystationManpowerOverflow
+    });
+    expect(recovered.tiles.find(tile => tile.x === 10 && tile.y === 10)?.naturalWonder?.remainingUses).toBe(0);
+    const restarted = new SimulationRuntime({ now: () => 1000, scheduleAfter: () => {}, seedTiles: new Map(), initialState: recovered });
+    expect(restarted.exportSnapshotSections().initialState.players?.find(player => player.id === "p")?.manpower).toBe(awarded?.manpower);
   });
 });
 

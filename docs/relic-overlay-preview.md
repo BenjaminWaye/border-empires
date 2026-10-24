@@ -86,7 +86,8 @@ This is a Storybook dialog preview only. It is not connected to capture
 events or either live map renderer. Its graphic currently requires WebGL;
 a non-WebGL graphic remains required before shipping to the 2D fallback.
 
-Source is isolated under `packages/storybook/src/relics/`. It is not wired
+Preview helpers are under `packages/storybook/src/fixtures/relics/`, with catalogue
+stories under `map/natural-wonders/relics/` and `ui/relics/`. The original prototype was not wired
 into either live map renderer. The requested prototype covers 3D only; a 2D
 counterpart and runtime integration remain required before shipping. The
 visual foundation extends beyond the central tile without changing terrain,
@@ -95,8 +96,8 @@ placement, ownership, visibility, rewards or existing wonder effects.
 ## Painted capture artwork
 
 The preferred visual direction is now the generated
-[armour-works artwork](../packages/storybook/src/relics/artwork/armour-works-v1.png),
-with its [generation prompt](../packages/storybook/src/relics/artwork/armour-works-v1.prompt.txt).
+[armour-works artwork](../packages/storybook/src/fixtures/relics/artwork/armour-works-v1.png),
+with its [generation prompt](../packages/storybook/src/fixtures/relics/artwork/armour-works-v1.prompt.txt).
 It replaces the small, literal model section as the illustration direction:
 a weathered surface ziggurat opens into a far larger buried industrial
 installation, mostly abandoned with a surviving armour line. The original
