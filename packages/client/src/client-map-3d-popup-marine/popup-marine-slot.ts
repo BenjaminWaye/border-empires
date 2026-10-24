@@ -2,11 +2,13 @@
 // tinted material, occlusion silhouette and AnimationMixer. Split out of
 // popup-marine-overlay-fx.ts (500-line cap) when the capture-hold garrison
 // was added -- the overlay only places and poses these slots each frame.
-import { AnimationMixer, MeshStandardMaterial, Object3D, Scene, SkinnedMesh, type AnimationAction } from "three";
+import { AnimationMixer, MeshStandardMaterial, Object3D, Scene, SkinnedMesh, type AnimationAction, type Texture } from "three";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { MARINE_CLIP_NAMES, firstSkinnedMesh, type PopupMarineTemplate } from "./popup-marine-asset.js";
 import { attachOcclusionSilhouette, MARINE_RENDER_ORDER, type MarineSilhouette } from "./popup-marine-occlusion-silhouette.js";
 import { MARINES_PER_SIDE, type MarineStance } from "./popup-marine-timeline.js";
+import type { MarineModelKey } from "./popup-marine-gear.js";
+import { createMarineMaterial } from "./popup-marine-material.js";
 
 // Rig bone the muzzle flash is pinned to (the Mixamo humanoid's pistol hand).
 const HAND_BONE_NAME = "RightHand";
@@ -26,24 +28,18 @@ export type MarineSlot = {
   phase: number;
 };
 
-const buildMaterial = (): MeshStandardMaterial =>
-  // vertexColors:true multiplies the per-region greyscale painted by
-  // bake-popup-marine-titan-model.py's paint pass (bright armor plates on
-  // shoulders/chest, mid-tone torso and upper limbs, dark under-suit on
-  // forearms/shins, near-black helmet, gloves, pistol and boots) against
-  // both this material's own .color (set per-marine per-frame by the
-  // overlay — the attacker/defender tint, replacing InstancedMesh.setColorAt
-  // now that each marine has its own material) and the scene's real lighting.
-  //
-  // That paint is deliberately greyscale, never hued: every value is
-  // literally "how much team color does this part show", so the squad stays
-  // readable as blue-vs-red at gameplay zoom instead of the kit's own colors
-  // competing with the side tint.
-  new MeshStandardMaterial({ color: "#ffffff", vertexColors: true, roughness: 0.4, metalness: 0.4 });
-
-export const createMarineSlot = (scene: Scene, template: PopupMarineTemplate, index: number): MarineSlot => {
+/** `model` is which soldier `template` is; `envMap` is what the heavy
+ * armour's bare metal reflects (the shared building environment map; see
+ * popup-marine-material.ts). */
+export const createMarineSlot = (
+  scene: Scene,
+  template: PopupMarineTemplate,
+  index: number,
+  model: MarineModelKey = "standard",
+  envMap?: Texture
+): MarineSlot => {
   const root = cloneSkinned(template.root) as Object3D;
-  const material = buildMaterial();
+  const material = createMarineMaterial(model === "heavy", envMap);
   const mesh = firstSkinnedMesh(root);
   mesh.material = material;
   mesh.frustumCulled = false;

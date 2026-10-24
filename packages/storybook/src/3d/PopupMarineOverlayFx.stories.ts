@@ -239,7 +239,8 @@ const keyForSim = (_x: number, _y: number): string => SIEGE_KEY;
 const computeHandoff = (args: LifecycleArgs): { startAt: number; clashAt: number; endAt: number } => {
   const state = {
     activeBattles: new Map<string, ActiveBattleOverlay>(),
-    skirmishSeenAt: new Map([[SIEGE_KEY, 0]])
+    skirmishSeenAt: new Map([[SIEGE_KEY, 0]]),
+    squadGearByOwner: new Map()
   };
   const combatJson = JSON.stringify({
     attackerOwnerId: "attacker",

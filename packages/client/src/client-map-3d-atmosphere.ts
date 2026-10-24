@@ -120,7 +120,7 @@ export type AtmosphereResources = {
 // rendered near-black regardless of how bright hemi/sun/fill were pushed --
 // which earlier hemi/fill boosts could not fully fix. A cheap generated room
 // environment (no HDR asset, no network fetch) gives them that missing source.
-const createBuildingEnvironmentTexture = (renderer: WebGLRenderer): Texture => {
+export const createBuildingEnvironmentTexture = (renderer: WebGLRenderer): Texture => {
   const pmremGenerator = new PMREMGenerator(renderer);
   const envTexture = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
   // The generator itself (not the texture it produces) is what's disposable;

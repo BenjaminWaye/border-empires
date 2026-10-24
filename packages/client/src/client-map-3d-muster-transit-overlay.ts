@@ -1,4 +1,4 @@
-import { AnimationMixer, MeshStandardMaterial, Object3D, Quaternion, Scene, SkinnedMesh, Vector3, type AnimationAction } from "three";
+import { AnimationMixer, MeshStandardMaterial, Object3D, Quaternion, Scene, SkinnedMesh, Vector3, type AnimationAction, type Texture } from "three";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import {
   firstSkinnedMesh,
@@ -6,6 +6,8 @@ import {
   type PopupMarineTemplate
 } from "./client-map-3d-popup-marine/popup-marine-asset.js";
 import { MARINE_MODEL_SCALE } from "./client-map-3d-popup-marine/popup-marine-timeline.js";
+import { MARINE_MODEL_KEYS, marineModelFor, type MarineModelKey, type SquadGear } from "./client-map-3d-popup-marine/popup-marine-gear.js";
+import { createMarineMaterial } from "./client-map-3d-popup-marine/popup-marine-material.js";
 
 // Muster transit overlay: a company marching hop-by-hop along the actual
 // owned-territory path from a mustering flag to the enemy tile it's
@@ -43,7 +45,10 @@ import { MARINE_MODEL_SCALE } from "./client-map-3d-popup-marine/popup-marine-ti
 // far below the dot version's MAX_TRANSITS: MAX_RENDERED_TRANSITS *
 // SOLDIERS_PER_COMPANY marine slots exist up front (comparable to the battle
 // overlay's own MAX_CONCURRENT_BATTLES * MARINES_PER_SIDE ceiling), and any
-// transit beyond that cap simply isn't rendered.
+// transit beyond that cap simply isn't rendered. There is one such pool per
+// soldier model: a company of an empire owning a Titanium Weapons Factory
+// marches in the heavy armour, whose pool is only built the first time such
+// a company is seen.
 const MAX_TRANSITS = 10;
 const SOLDIERS_PER_COMPANY = 7;
 const WALK_CLIP_NAME = "PistolWalk";
@@ -82,6 +87,9 @@ export type MusterTransit = {
   // troops on the target tile for the length of its frontier-claim timer.
   standUntil?: number;
   ownerColor: string;
+  // The marching empire's weapons-factory gear; titanium puts the company
+  // in the heavy armour, same as in battle.
+  gear?: SquadGear;
 };
 
 // Builds a real tile-by-tile route between two points by king-move stepping
@@ -128,20 +136,18 @@ type Soldier = {
   phase: number;
 };
 
-// Same paint-times-tint material the battle overlay uses (see
-// popup-marine-overlay-fx.ts's buildMaterial) — a separate instance per pool
-// rather than a shared import so this overlay can dispose its own materials
-// independently of the battle overlay's lifecycle.
-const buildMaterial = (): MeshStandardMaterial =>
-  new MeshStandardMaterial({ color: "#ffffff", vertexColors: true, roughness: 0.4, metalness: 0.4 });
-
-export const createMusterTransitOverlay = (scene: Scene): MusterTransitOverlay => {
+// Same material the battle overlay uses (popup-marine-material.ts) — a
+// separate instance per soldier so this overlay can dispose its own
+// materials independently of the battle overlay's lifecycle. envMap is the
+// shared building environment map the heavy armour's bare metal reflects.
+export const createMusterTransitOverlay = (scene: Scene, envMap?: Texture): MusterTransitOverlay => {
   let disposed = false;
-  let pool: Soldier[] = [];
+  const pools: Record<MarineModelKey, Soldier[]> = { standard: [], heavy: [] };
+  const requested = new Set<MarineModelKey>();
 
-  const makeSoldier = (template: PopupMarineTemplate, index: number): Soldier => {
+  const makeSoldier = (template: PopupMarineTemplate, index: number, model: MarineModelKey): Soldier => {
     const root = cloneSkinned(template.root) as Object3D;
-    const material = buildMaterial();
+    const material = createMarineMaterial(model === "heavy", envMap);
     const mesh = firstSkinnedMesh(root);
     mesh.material = material;
     mesh.frustumCulled = false;
@@ -178,17 +184,22 @@ export const createMusterTransitOverlay = (scene: Scene): MusterTransitOverlay =
     soldier.material.dispose();
   };
 
-  loadPopupMarineTemplate()
-    .then((template) => {
-      if (disposed) return;
-      pool = Array.from({ length: MAX_TRANSITS * SOLDIERS_PER_COMPANY }, (_, i) => makeSoldier(template, i));
-    })
-    .catch((err: unknown) => {
-      // Nothing renders rather than crashing the whole 3D map: the pool
-      // simply stays empty, so a march shows its supply line with no troops
-      // instead of taking down the renderer.
-      console.error("popup-marine model failed to load; muster transit troops will not render", err);
-    });
+  const request = (model: MarineModelKey): void => {
+    if (requested.has(model)) return;
+    requested.add(model);
+    loadPopupMarineTemplate(model)
+      .then((template) => {
+        if (disposed) return;
+        pools[model] = Array.from({ length: MAX_TRANSITS * SOLDIERS_PER_COMPANY }, (_, i) => makeSoldier(template, i, model));
+      })
+      .catch((err: unknown) => {
+        // Nothing renders rather than crashing the whole 3D map: a missing
+        // standard model leaves marches with no troops (just the supply
+        // line); a missing heavy model keeps those companies standard.
+        console.error(`popup-marine ${model} model failed to load; muster transit troops fall back or will not render`, err);
+      });
+  };
+  request("standard");
 
   let entries: MusterTransit[] = [];
   const tmpQuat = new Quaternion();
@@ -219,11 +230,17 @@ export const createMusterTransitOverlay = (scene: Scene): MusterTransitOverlay =
   };
 
   const tick = (nowMs: number): void => {
-    for (const soldier of pool) soldier.root.visible = false;
-    if (entries.length === 0 || pool.length === 0) return;
+    for (const model of MARINE_MODEL_KEYS) for (const soldier of pools[model]) soldier.root.visible = false;
+    if (entries.length === 0) return;
 
-    let writeIdx = 0;
+    const writeIdx: Record<MarineModelKey, number> = { standard: 0, heavy: 0 };
     for (const e of entries) {
+      let model = marineModelFor(e.gear);
+      if (model !== "standard") request(model);
+      // Until the heavy armour has loaded (or if it failed), march in the
+      // standard model rather than not at all.
+      if (pools[model].length === 0) model = "standard";
+      const pool = pools[model];
       const totalHops = e.path.length - 1;
       const span = Math.max(1, e.arriveAt - e.startAt);
       const rawT = Math.min(1, Math.max(0, (nowMs - e.startAt) / span));
@@ -237,8 +254,8 @@ export const createMusterTransitOverlay = (scene: Scene): MusterTransitOverlay =
       const yaw = Math.atan2(lead.dirX, lead.dirZ);
 
       for (const member of FORMATION) {
-        const soldier = pool[writeIdx];
-        writeIdx++;
+        const soldier = pool[writeIdx[model]];
+        writeIdx[model]++;
         if (!soldier) continue;
 
         // member.along is in world (tile) units; within whichever hop the
@@ -282,8 +299,10 @@ export const createMusterTransitOverlay = (scene: Scene): MusterTransitOverlay =
 
   const dispose = (): void => {
     disposed = true;
-    for (const soldier of pool) disposeSoldier(soldier);
-    pool = [];
+    for (const model of MARINE_MODEL_KEYS) {
+      for (const soldier of pools[model]) disposeSoldier(soldier);
+      pools[model] = [];
+    }
   };
 
   return { clear, addTransit, commit, tick, dispose };

@@ -31,6 +31,7 @@ import type { LockRecord, LockedCombatResolution, RuntimePlayer, SimulationTileW
 import type { CombatManpowerLoss } from "./combat-manpower-log/combat-manpower-log.js";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import {
+  battleWarGearFor,
   noWarIndustryVulnerabilityLabelForAttacker,
   noWarIndustryVulnerabilityLabelForDefender,
   noWarIndustryVulnerabilityMultForAttacker,
@@ -399,6 +400,8 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
     levelDelta: 0
   };
   const defendedFrontier = lock.actionType === "ATTACK" && previousTarget?.ownershipState === "FRONTIER" && combat !== GUARANTEED_CAPTURE_COMBAT_PREVIEW;
+  const attackerGear = battleWarGearFor(ctx, lock.playerId);
+  const defenderGear = battleWarGearFor(ctx, defenderOwnerId);
   return {
     result,
     ...(flag?.ownerId === lock.playerId ? { momentumSource: { key: flagKey, setAt: flag.setAt ?? 0 } } : {}),
@@ -406,7 +409,9 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
     defenderGoldLoss: plunder?.defenderGoldLoss ?? 0,
     targetRecentlyPillaged,
     ...(combat.shield ? { shield: combat.shield } : {}),
-    ...(defendedFrontier ? { defendedFrontier: true } : {})
+    ...(defendedFrontier ? { defendedFrontier: true } : {}),
+    ...(attackerGear ? { attackerGear } : {}),
+    ...(defenderGear ? { defenderGear } : {})
   };
 };
 
