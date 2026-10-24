@@ -105,6 +105,9 @@ describe("MARCH routes around a strait through a distant dock", () => {
     expect(captured).toHaveLength(1);
     expect(captured[0]!.type).toBe("EXPAND");
     const payload = JSON.parse(captured[0]!.command.payloadJson!);
+    // Either frontier tile at x=10 is 4 steps from the dock at (14,1); what
+    // matters is that the march heads east along the shore, not into the sea.
     expect(payload.toX).toBe(10);
+    expect([0, 1]).toContain(payload.toY);
   });
 });

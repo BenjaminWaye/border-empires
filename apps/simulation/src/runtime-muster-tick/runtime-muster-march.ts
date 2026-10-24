@@ -184,11 +184,11 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
 
   // Real tile-step distances to the target, flooded outward from the target
   // itself (see buildTerrainDistanceField) instead of guessed from
-  // coordinates. Capped past both legs of the trip the BFS below could need
-  // to estimate -- the longest route a march may take, plus the local radius
-  // the owned-territory walk is bounded to -- so it covers every candidate the
-  // search can reach without flooding the whole map when the target is far
-  // away or unreachable.
+  // coordinates. Capped at the longest route a march may take (the same cap
+  // the client offers March Attack origins within), so it covers every
+  // candidate that matters without flooding the whole map when the target is
+  // far away or unreachable: the flood stops at the flag, and a candidate is
+  // only taken if it is closer to the target than the flag already is.
   // Same dock/bridge edges the owned-territory BFS below walks, so a target
   // across water is measured through the crossing rather than across the sea.
   const bridgeLinksByKey = input.aetherBridgeNeighborKeysForPlayer(playerId);
@@ -205,9 +205,10 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
     // Sized to the real route, not the straight line: a target a few tiles
     // across a strait can be MUSTER_MARCH_MAX_ROUTE_STEPS away through the
     // nearest dock, and a flood that stops short of the flag strands the
-    // march on the beach. The flood stops as soon as it reaches the flag, so
-    // the larger cap only costs a march whose flag isn't routable at all.
-    MUSTER_MARCH_MAX_ROUTE_STEPS + ADVANCE_MAX_RANGE_TILES + 2,
+    // march on the beach. A march with a route of d steps floods about
+    // (2d+1)^2 tiles a tick, as it always has; only a flag with no route at
+    // all floods the full cap (~4k tiles, up from ~3k).
+    MUSTER_MARCH_MAX_ROUTE_STEPS + 2,
     originKey,
     crossingKeysFor
   );

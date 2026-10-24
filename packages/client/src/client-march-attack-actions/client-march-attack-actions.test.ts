@@ -5,6 +5,7 @@ vi.mock("../client-arrow-gesture-confirm.js", () => ({ handleArrowGestureConfirm
 import { handleArrowGestureConfirm } from "../client-arrow-gesture-confirm.js";
 import { createInitialState, type ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
+import { markMusterUnlocked } from "../client-muster-unlock/client-muster-unlock-storage.js";
 import { buildMarchAttackActions, dispatchMarchAttackAction, injectMarchAttackActions, marchAttackOptions } from "./client-march-attack-actions.js";
 
 const own = (x: number, y: number, overrides: Partial<Tile> = {}): Tile => ({ x, y, terrain: "LAND", ownerId: "me", ...overrides });
@@ -116,13 +117,38 @@ describe("injectMarchAttackActions", () => {
   it("offers nothing against an empire you have a truce with", () => {
     const state = stateWith([flag(14, 10), own(17, 10), target]);
     state.activeTruces = [{ otherPlayerId: "rival", otherPlayerName: "Rival", startedAt: 0, endsAt: Date.now() + 60_000, createdByPlayerId: "me" } as never];
-    expect(buildMarchAttackActions(target, state)).toEqual([]);
+    expect(buildMarchAttackActions(target, state)).toEqual({ rows: [] });
     state.activeTruces = [{ otherPlayerId: "rival", otherPlayerName: "Rival", startedAt: 0, endsAt: Date.now() - 1, createdByPlayerId: "me" } as never];
-    expect(buildMarchAttackActions(target, state).length).toBeGreaterThan(0);
+    expect(buildMarchAttackActions(target, state).rows.length).toBeGreaterThan(0);
   });
 
-  it("offers nothing when no flag or owned tile is within march range", () => {
-    expect(buildMarchAttackActions(target, stateWith([flag(1, 1), own(2, 1), target]))).toEqual([]);
+  it("explains on the disabled Launch Attack why no march is possible", () => {
+    const unlocked = { authEmail: "a@example.com", bridgeDebugSeasonId: "season-1" };
+    const storage = new Map<string, string>();
+    vi.stubGlobal("window", { localStorage: { getItem: (k: string) => storage.get(k) ?? null, setItem: (k: string, v: string) => storage.set(k, v), removeItem: (k: string) => storage.delete(k) } });
+    markMusterUnlocked(unlocked.authEmail, unlocked.bridgeDebugSeasonId);
+    const reasonFor = (state: ClientState): string | undefined => {
+      const view = menu({ disabled: true, disabledReason: "No bordering origin tile or linked dock" });
+      injectMarchAttackActions(view, target, state);
+      expect(view.actions.map((action) => action.id)).toEqual(["launch_attack", "reveal_empire"]);
+      return view.actions[0]?.disabledReason;
+    };
+    expect(reasonFor(stateWith([own(2, 1), target], unlocked))).toBe("No muster flag or owned tile within march range (15 tiles)");
+    expect(reasonFor(stateWith([flag(1, 1), flag(2, 1), target], unlocked))).toBe("Muster flags full (2/2) and none can march here");
+    vi.unstubAllGlobals();
+  });
+
+  it("offers march rows on a fogged enemy tile, whose menu has no attack row at all", () => {
+    const fogged: Tile = { ...target, fogged: true };
+    const state = stateWith([flag(14, 10), own(17, 10), fogged]);
+    const view: TileMenuView = { title: "", subtitle: "", tabs: ["overview"], overviewLines: [], actions: [], buildings: [], crystal: [] };
+    injectMarchAttackActions(view, fogged, state);
+    expect(view.actions.map((action) => action.id)).toEqual(["march_attack_flag", "march_attack_new_flag"]);
+    expect(view.tabs[0]).toBe("actions");
+    const allied = stateWith([flag(14, 10), own(17, 10), fogged], { allies: ["rival"] });
+    const alliedView: TileMenuView = { ...view, actions: [], tabs: ["overview"] };
+    injectMarchAttackActions(alliedView, fogged, allied);
+    expect(alliedView.actions).toEqual([]);
   });
 });
 

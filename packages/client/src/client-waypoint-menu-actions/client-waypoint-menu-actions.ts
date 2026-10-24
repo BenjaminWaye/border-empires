@@ -23,14 +23,14 @@ const prependWaypointAction = (view: TileMenuView, action: TileActionDef): void 
 // by a misclick just before signing in), leaving no way to select it and
 // use "cancel_waypoint". Appending this on every tile's menu -- not just
 // the waypoint's own target -- means any tile the player can currently
-// select is enough to clear the whole queue. Safe to call unconditionally:
-// view.actions is rebuilt fresh per render (client-tile-menu-view.ts), so
-// there's nothing to de-duplicate against across renders.
+// select is enough to clear the whole queue. Skipped when already present:
+// openSingleTileActionMenu injects into a view it then renders, which
+// injects again.
 const appendCancelAllWaypointsAction = (
   view: TileMenuView,
   state: Pick<ClientState, "waypoint">
 ): void => {
-  if (state.waypoint.length === 0) return;
+  if (state.waypoint.length === 0 || view.actions.some((action) => action.id === "cancel_all_waypoints")) return;
   view.actions.push({
     id: "cancel_all_waypoints",
     label: `Cancel All Waypoints (${state.waypoint.length})`,
@@ -46,9 +46,9 @@ const appendCancelAllWaypointsAction = (
 // gets "Expand To" (client-tile-action-neutral.ts).
 export const injectWaypointActions = (view: TileMenuView, tile: Tile, state: Pick<ClientState, "waypoint">): void => {
   // Idempotent: renderTileActionMenu fires repeatedly for the same tile
-  // (initial open + HUD re-render on every server tick).
-  const firstActionId = view.actions[0]?.id;
-  const alreadyInjected = firstActionId === "cancel_waypoint" || firstActionId === "clear_waypoint_and_expand_here";
+  // (initial open + HUD re-render on every server tick), and March Attack
+  // rows may since have been prepended above an injected Cancel Waypoint.
+  const alreadyInjected = view.actions.some((action) => action.id === "cancel_waypoint" || action.id === "clear_waypoint_and_expand_here");
   const activeWaypoint = state.waypoint[0];
   if (!alreadyInjected && activeWaypoint && activeWaypoint.target.x === tile.x && activeWaypoint.target.y === tile.y) {
     prependWaypointAction(view, { id: "cancel_waypoint", label: "Cancel Waypoint", detail: formatWaypointSummary(activeWaypoint.plan) });

@@ -107,6 +107,24 @@ describe("injectWaypointActions", () => {
     expect(v.tabs[0]).toBe("actions");
   });
 
+  // Regression: openSingleTileActionMenu injects waypoint rows, then March
+  // Attack rows above them, then renders the same view, which injects again.
+  it("does not duplicate Cancel Waypoint or Cancel All Waypoints when injected twice", () => {
+    const tiles = [tile(3, 3, { ownerId: "me" }), tile(8, 3)];
+    const state = stateWith(tiles, {
+      waypoint: [{
+        target: { x: 8, y: 3 },
+        plan: { target: { x: 8, y: 3 }, steps: [], totalGold: 5, totalManpower: 0, totalDurationMs: 5000, expandCount: 5, attackCount: 0, reachable: true }
+      }]
+    });
+    const v = view();
+    injectWaypointActions(v, tile(8, 3), state);
+    v.actions = [{ id: "march_attack_flag", label: "March Attack from Flag (1, 1)" }, ...v.actions];
+    injectWaypointActions(v, tile(8, 3), state);
+    expect(v.actions.filter((a) => a.id === "cancel_waypoint")).toHaveLength(1);
+    expect(v.actions.filter((a) => a.id === "cancel_all_waypoints")).toHaveLength(1);
+  });
+
   // Regression: a waypoint's target tile can be off-screen or never
   // explored (e.g. queued by a misclick just before signing in), so the
   // only way to cancel it can't be gated on selecting that exact tile.

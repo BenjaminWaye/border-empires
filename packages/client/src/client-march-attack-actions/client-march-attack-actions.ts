@@ -40,28 +40,31 @@ const byDistance = (a: MarchAttackOrigin, b: MarchAttackOrigin): number => a.dis
  * straight-line march cap, which it checks on SET_MUSTER.
  */
 export const marchAttackOptions = (state: MarchAttackState, target: { x: number; y: number }, nowMs = Date.now()): MarchAttackOptions => {
-  const flags: MarchAttackOrigin[] = [];
   let flagCount = 0;
+  for (const tile of state.tiles.values()) if (tile.ownerId === state.me && tile.muster?.ownerId === state.me) flagCount += 1;
+  const canRaiseFlag = flagCount < state.musterFlagLimit;
+  const flags: MarchAttackOrigin[] = [];
   let newFlag: MarchAttackOrigin | undefined;
-  const routeSteps = marchRouteStepsFromTarget(state, target, nowMs);
-  for (const tile of state.tiles.values()) {
-    if (tile.ownerId !== state.me || tile.terrain !== "LAND") continue;
-    const distance = routeSteps.get(originKey(tile)) ?? Number.POSITIVE_INFINITY;
-    const inRange =
-      distance > 0 && Number.isFinite(distance) && musterMarchDistanceTiles(tile.x, tile.y, target.x, target.y) <= MUSTER_MARCH_MAX_DISTANCE_TILES;
-    if (tile.muster?.ownerId === state.me) {
-      flagCount += 1;
-      if (inRange && !ownTileSiegeAt(state, tile.x, tile.y, nowMs)) flags.push({ x: tile.x, y: tile.y, distance });
-      continue;
-    }
-    if (!inRange || ownTileSiegeAt(state, tile.x, tile.y, nowMs)) continue;
-    const candidate = { x: tile.x, y: tile.y, distance };
-    if (!newFlag || byDistance(candidate, newFlag) < 0) newFlag = candidate;
-  }
+  let doneAt: number | undefined;
+  marchRouteStepsFromTarget(state, target, nowMs, undefined, {
+    reached: (key, distance) => {
+      const tile = state.tiles.get(key);
+      if (!tile || tile.ownerId !== state.me || tile.terrain !== "LAND") return;
+      if (musterMarchDistanceTiles(tile.x, tile.y, target.x, target.y) > MUSTER_MARCH_MAX_DISTANCE_TILES) return;
+      if (ownTileSiegeAt(state, tile.x, tile.y, nowMs)) return;
+      const candidate = { x: tile.x, y: tile.y, distance };
+      if (tile.muster?.ownerId === state.me) flags.push(candidate);
+      else if (!newFlag || byDistance(candidate, newFlag) < 0) newFlag = candidate;
+      // Reached in step order: once every row is filled, finish this level
+      // (for a deterministic tiebreak) and stop.
+      if (doneAt === undefined && flags.length >= MARCH_ATTACK_FLAG_ACTION_IDS.length && (newFlag || !canRaiseFlag)) doneAt = distance;
+    },
+    doneAtSteps: () => doneAt
+  });
   flags.sort(byDistance);
   return {
     flags: flags.slice(0, MARCH_ATTACK_FLAG_ACTION_IDS.length),
-    ...(newFlag && flagCount < state.musterFlagLimit ? { newFlag } : {})
+    ...(newFlag && canRaiseFlag ? { newFlag } : {})
   };
 };
 
@@ -74,19 +77,34 @@ const flagModeText = (tile: Tile | undefined): string => {
 };
 
 /**
- * The March Attack rows for a hostile `tile`, or [] when there's no way to
- * march on it (muster not unlocked yet, no flag / owned tile in range, or a
- * truce with its owner -- a march never attacks a truced empire, so the flag
- * would just sit at the border with its manpower locked). Each row carries
- * its origin as originKey so a click dispatches the origin it names.
+ * The March Attack rows for a hostile `tile`, or why there are none: [] with
+ * no reason for a tile a march never attacks (own, or a truced empire -- the
+ * flag would just sit at the border with its manpower locked), else the
+ * reason no flag or tile can march on it. Each row carries its origin as
+ * originKey so a click dispatches the origin it names.
  */
-export const buildMarchAttackActions = (tile: Tile, state: MarchAttackState, nowMs = Date.now()): TileActionDef[] => {
-  if (!tile.ownerId || tile.ownerId === state.me) return [];
-  if (state.activeTruces.some((truce) => truce.otherPlayerId === tile.ownerId && truce.endsAt > nowMs)) return [];
+export const buildMarchAttackActions = (
+  tile: Tile,
+  state: MarchAttackState,
+  nowMs = Date.now()
+): { rows: TileActionDef[]; unavailableReason?: string } => {
+  if (!tile.ownerId || tile.ownerId === state.me) return { rows: [] };
+  if (state.activeTruces.some((truce) => truce.otherPlayerId === tile.ownerId && truce.endsAt > nowMs)) return { rows: [] };
   const options = marchAttackOptions(state, tile, nowMs);
-  if (options.flags.length === 0 && !options.newFlag) return [];
-  if (options.flags.length === 0 && !isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId)) return [];
-  const out: TileActionDef[] = options.flags.map((flag, index) => ({
+  if (options.flags.length === 0 && !isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId)) {
+    return { rows: [], unavailableReason: "Muster flags unlock once you meet an enemy" };
+  }
+  if (options.flags.length === 0 && !options.newFlag) {
+    const flagCount = [...state.tiles.values()].filter((t) => t.ownerId === state.me && t.muster?.ownerId === state.me).length;
+    return {
+      rows: [],
+      unavailableReason:
+        flagCount >= state.musterFlagLimit
+          ? `Muster flags full (${flagCount}/${state.musterFlagLimit}) and none can march here`
+          : `No muster flag or owned tile within march range (${MUSTER_MARCH_MAX_DISTANCE_TILES} tiles)`
+    };
+  }
+  const rows: TileActionDef[] = options.flags.map((flag, index) => ({
     id: MARCH_ATTACK_FLAG_ACTION_IDS[index]!,
     label: `March Attack from Flag (${flag.x}, ${flag.y})`,
     detail: `${flag.distance}-tile route · the flag ${flagModeText(state.tiles.get(originKey(flag)))} and fights its way here.`,
@@ -95,7 +113,7 @@ export const buildMarchAttackActions = (tile: Tile, state: MarchAttackState, now
   }));
   if (options.newFlag) {
     const { x, y, distance } = options.newFlag;
-    out.push({
+    rows.push({
       id: MARCH_ATTACK_NEW_FLAG_ACTION_ID,
       label: "March Attack from New Flag",
       detail: `Raises a muster flag at (${x}, ${y}), a ${distance}-tile route away, which musters troops then marches here.`,
@@ -103,7 +121,7 @@ export const buildMarchAttackActions = (tile: Tile, state: MarchAttackState, now
       disabled: false
     });
   }
-  return out;
+  return { rows };
 };
 
 // The disabled reason buildTileActions puts on Launch Attack when the target
@@ -113,16 +131,30 @@ export const buildMarchAttackActions = (tile: Tile, state: MarchAttackState, now
 const NO_BORDERING_ORIGIN_REASON = "No bordering origin tile or linked dock";
 
 /**
- * Replaces a hostile tile's disabled "Launch Attack" (no bordering origin)
- * with the March Attack rows at the top of the menu: a march from a flag is
- * the way to strike deep. Idempotent across re-renders.
+ * Puts the March Attack rows at the top of a deep hostile tile's menu: in
+ * place of its disabled "Launch Attack" (no bordering origin), or on a
+ * fogged enemy tile, whose menu (foggedTileActions) has no attack row at all.
+ * When no march is possible the disabled Launch Attack row stays and says
+ * why. Idempotent across re-renders.
  */
-export const injectMarchAttackActions = (view: TileMenuView, tile: Tile, state: MarchAttackState): void => {
+export const injectMarchAttackActions = (
+  view: TileMenuView,
+  tile: Tile,
+  state: MarchAttackState & Pick<ClientState, "allies">
+): void => {
   if (view.actions.some((action) => MARCH_ATTACK_ACTION_IDS.includes(action.id))) return;
   const launch = view.actions.find((action) => action.id === "launch_attack");
-  if (!launch?.disabled || launch.disabledReason !== NO_BORDERING_ORIGIN_REASON) return;
-  const rows = buildMarchAttackActions(tile, state);
-  if (rows.length === 0) return;
+  const deepEnemy = launch
+    ? launch.disabled === true && launch.disabledReason === NO_BORDERING_ORIGIN_REASON
+    : Boolean(tile.fogged && tile.terrain === "LAND" && tile.ownerId && tile.ownerId !== state.me && !state.allies.includes(tile.ownerId));
+  if (!deepEnemy) return;
+  const { rows, unavailableReason } = buildMarchAttackActions(tile, state);
+  if (rows.length === 0) {
+    if (!unavailableReason) return;
+    const explained: TileActionDef = { ...(launch ?? { id: "launch_attack", label: "Launch Attack" }), disabled: true, disabledReason: unavailableReason };
+    view.actions = launch ? view.actions.map((action) => (action === launch ? explained : action)) : [explained, ...view.actions];
+    return;
+  }
   view.actions = [...rows, ...view.actions.filter((action) => action !== launch)];
   view.tabs = ["actions", ...view.tabs.filter((tab) => tab !== "actions")];
 };

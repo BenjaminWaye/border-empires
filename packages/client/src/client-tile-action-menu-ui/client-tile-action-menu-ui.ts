@@ -46,12 +46,6 @@ type TileActionMenuUiDeps = {
   requestAttackPreviewForTarget: (tile: Tile) => void;
   keyFor: (x: number, y: number) => string;
   isTileOwnedByAlly: (tile: Tile) => boolean;
-  pickOriginForTarget: (
-    tx: number,
-    ty: number,
-    allowAdjacentToDock?: boolean,
-    allowOptimisticExpandOrigin?: boolean
-  ) => Tile | undefined;
 };
 
 export const renderTileActionMenu = (
