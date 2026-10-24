@@ -222,7 +222,7 @@ export function observatoryCastRadiusFor(player: DomainPlayer | undefined): numb
 export const WATCHTOWER_ENGINE_OBSERVATORY_RANGE = OBSERVATORY_CAST_RADIUS + 10;
 
 const observatoryRangeForTile = (tile: DomainTileState, playerRange: number): number =>
-  tile.naturalWonder?.type === "WATCHTOWER_ENGINE" ? WATCHTOWER_ENGINE_OBSERVATORY_RANGE : playerRange;
+  tile.naturalWonder?.type === "WATCHTOWER_ENGINE" ? (tile.naturalWonder.relicVersion === 1 ? 50 : WATCHTOWER_ENGINE_OBSERVATORY_RANGE) : playerRange;
 
 export function pickReadyOwnedObservatoryForTarget(input: {
   tiles: ReadonlyMap<string, DomainTileState>;

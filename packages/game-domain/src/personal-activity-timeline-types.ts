@@ -28,7 +28,7 @@ export type PersonalActivityTileFeature =
   | { kind: "STRUCTURE"; structureType: string }
   | { kind: "DOCK" }
   | { kind: "AFC" }
-  | { kind: "NATURAL_WONDER"; wonderType: NaturalWonderType };
+  | { kind: "NATURAL_WONDER"; wonderType: NaturalWonderType; relicVersion?: 1 };
 
 // Each list is what the viewing player lost or gained: a player who took a
 // tile is only credited with what survived the capture (siege batteries and

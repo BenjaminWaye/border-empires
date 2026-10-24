@@ -1,9 +1,11 @@
-import { parseAfcCombatFacts } from "@border-empires/sim-protocol";
+import { parseAfcCombatFacts, parseRelicCombatFacts } from "@border-empires/sim-protocol";
 import type { PlayerCombatSummary } from "@border-empires/sim-protocol";
 
 export type ProtoPlayerCombatSummaryAck = {
   afc_combat_facts_json?: string;
   afcCombatFactsJson?: string;
+  relic_combat_facts_json?: string;
+  relicCombatFactsJson?: string;
   ok: boolean;
   found?: boolean;
   tech_ids?: string[];
@@ -48,7 +50,9 @@ export const getPlayerCombatSummaryRpcCall = (
         return;
       }
       const facts = parseAfcCombatFacts(response.afc_combat_facts_json ?? response.afcCombatFactsJson);
+      const relicFacts = parseRelicCombatFacts(response.relic_combat_facts_json ?? response.relicCombatFactsJson);
       resolve({
+        ...(relicFacts ? { relicCombatFacts: relicFacts } : {}),
         ...(facts ? { afcCombatFacts: facts } : {}),
         techIds: response.tech_ids ?? response.techIds ?? [],
         domainIds: response.domain_ids ?? response.domainIds ?? [],

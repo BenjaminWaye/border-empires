@@ -54,6 +54,8 @@ export type FrontierCombatPreview = {
 // defender-side multipliers come from the defender's. The caller is expected
 // to resolve both and pass them in here together.
 export type FrontierCombatModifiers = {
+  relicAttackMult?: number | undefined;
+  relicDefenseMult?: number | undefined;
   attackerOutpostMult?: number;
   // Applied when the attack originates from a dock-crossing (origin tile is an owned dock).
   dockAttackMult?: number | undefined;
@@ -180,6 +182,7 @@ const attackerBattle = (target: FrontierCombatPreviewTile, modifiers: FrontierCo
   mult *= foldMult(entries, "Siege/outpost proximity", modifiers.attackerOutpostMult);
   mult *= foldMult(entries, modifiers.noWarIndustryVulnerabilityLabel ?? "Target has no war industry", modifiers.noWarIndustryVulnerabilityMult);
   mult *= foldMult(entries, "Dock crossing", modifiers.dockAttackMult);
+  mult *= foldMult(entries, "Combat suits", modifiers.relicAttackMult);
   if (target.ownershipState === "SETTLED") mult *= foldMult(entries, "Tech vs garrisoned tiles", modifiers.attackVsSettledMult);
   if (target.fortVariant) mult *= foldMult(entries, "Tech vs forts", modifiers.attackVsFortsMult);
   if (modifiers.defenderOwnerId?.startsWith("barbarian")) mult *= foldMult(entries, "Tech vs Planetary Defense", modifiers.attackVsBarbariansMult);
@@ -200,6 +203,7 @@ const defenderBattle = (target: FrontierCombatPreviewTile, modifiers: FrontierCo
   if (holdingGround) {
     mult *= foldMult(entries, "Holding captured ground", CAPTURE_HOLD_DEFENSE_MULT);
   } else {
+    mult *= foldMult(entries, "Ancient force field", modifiers.relicDefenseMult);
     mult *= foldMult(entries, "Garrisoned tile", target.ownershipState === "SETTLED" ? 1.3 : undefined);
     mult *= foldMult(entries, "Town", target.townType ? 1.2 : undefined);
     if (target.fortVariant) {

@@ -1,9 +1,11 @@
 # Relics — Natural Wonders Remade as Concordance Anchors
 
-Status: active proposal
+Status: historical proposal — superseded by the accepted ziggurat and gameplay redesign
 Owner: Benjamin Waye (design sign-off on canon, variant mapping and terrain rules)
 Last verified: 2026-10-22
 Replaces: the fiction and 3D/2D look in [`natural-wonders-design.md`](natural-wonders-design.md) §2 (effects and spawn rules stay canonical there until this ships)
+
+Current direction: [execution plan](relics-execution-plan.md) and [visual/design decisions](relic-overlay-preview.md). The blade silhouettes, unchanged-effects assumption and mandatory shatter terrain below are historical proposals, not implementation requirements.
 
 ## Problem
 

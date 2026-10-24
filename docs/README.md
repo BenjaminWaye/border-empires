@@ -11,6 +11,7 @@ remain authoritative for runtime behavior.
 | Need | Read |
 |---|---|
 | Repository-wide operating rules | [`../AGENTS.md`](../AGENTS.md) |
+| Relic mechanics, reserves, discovery and legacy compatibility | [`relics.md`](relics.md) |
 | Lore entrypoint and required gameplay-change lore check | [`lore/README.md`](lore/README.md) |
 | Canonical setting, Houses, Coin, Manifests and AFC fiction | [`lore/galactic-lore.md`](lore/galactic-lore.md) |
 | Local setup, package layout, CI, and release notes | [`../README.md`](../README.md) |
@@ -27,7 +28,7 @@ remain authoritative for runtime behavior.
 | AFC Specializations: campaign rules, thirty rewards and lore | [`afc-specializations-catalog.md`](afc-specializations-catalog.md) |
 | AFC Specializations: implementation and verification | [`afc-specializations-execution.md`](afc-specializations-execution.md) |
 | AFC Specializations: original design and UI decisions | [`afc-specializations-plan.md`](afc-specializations-plan.md) |
-| Relics: natural wonders remade as Concordance anchors (proposal) | [`relics-design.md`](relics-design.md) |
+| Historical relic anchor proposal (superseded) | [`relics-design.md`](relics-design.md) |
 | Reach-vision implementation record | [`reach-border-vision-plan.md`](reach-border-vision-plan.md) |
 | Rivers remake, river heads and river mountains (renderer + worldgen v11/v12) | [`rivers-remake-plan.md`](rivers-remake-plan.md) |
 | Stacking-building adjacency / industrial districts (proposed) | [`stacking-adjacency-plan.md`](stacking-adjacency-plan.md) |
@@ -35,7 +36,8 @@ remain authoritative for runtime behavior.
 | Current manpower and resource-slot rules | [`product/resource-and-manpower-economy.md`](product/resource-and-manpower-economy.md) |
 | Starter-site contract and new-player guidance | [`product/new-player-opening.md`](product/new-player-opening.md) |
 | Adding a structure | [`adding-a-structure-playbook.md`](adding-a-structure-playbook.md) |
-| Proposed relic ziggurat: interactive 3D preview and renderer scope | [`relic-overlay-preview.md`](relic-overlay-preview.md) |
+| Relic redesign: execution stages, finite reserves and depleted map state | [`relics-execution-plan.md`](relics-execution-plan.md) |
+| Accepted relic ziggurat: visual references and implementation history | [`relic-overlay-preview.md`](relic-overlay-preview.md) |
 
 ## Document lifecycle
 

@@ -25,7 +25,7 @@ export const tileFeaturesForActivity = (tile: DomainTileState | undefined): Pers
   if (tile.economicStructure && isBuilt(tile.economicStructure.status)) features.push({ kind: "STRUCTURE", structureType: tile.economicStructure.type });
   if (tile.afc) features.push({ kind: "AFC" });
   if (tile.dockId) features.push({ kind: "DOCK" });
-  if (tile.naturalWonder) features.push({ kind: "NATURAL_WONDER", wonderType: tile.naturalWonder.type });
+  if (tile.naturalWonder) features.push({ kind: "NATURAL_WONDER", wonderType: tile.naturalWonder.type, ...(tile.naturalWonder.relicVersion === 1 ? { relicVersion: 1 } : {}) });
   return features;
 };
 

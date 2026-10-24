@@ -3,14 +3,14 @@
 // the server's Quickforge once-per-UTC-day discount (quickforgeAdjustedRushPrice,
 // same shared formula the server uses at apps/simulation/src/runtime-natural-wonders.ts)
 // so the "⏩💰N" chip isn't just wrong whenever the viewer owns the wonder.
-import { quickforgeAdjustedRushPrice, rushBuyPriceGold } from "@border-empires/shared";
+import { isRedesignedRelic, relicRemainingUses, RELIC_RULES, quickforgeAdjustedRushPrice, rushBuyPriceGold } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
-export type QuickforgeRushBuyContext = { hasQuickforge: boolean; wonderLastFreeRushBuyAt: number; nowMs: number };
+export type QuickforgeRushBuyContext = { hasQuickforge: boolean; hasNanofabricator?: boolean; wonderLastFreeRushBuyAt: number; nowMs: number };
 
 export const rushBuyLabel = (remainingMs: number, totalMs: number, manpowerCost: number, quickforge: QuickforgeRushBuyContext): string => {
   const basePrice = rushBuyPriceGold(remainingMs, totalMs, manpowerCost);
-  const price = quickforgeAdjustedRushPrice(quickforge.hasQuickforge, basePrice, quickforge.wonderLastFreeRushBuyAt, quickforge.nowMs);
+  const price = quickforge.hasNanofabricator ? Math.max(0, basePrice - RELIC_RULES.nanoDiscount) : quickforgeAdjustedRushPrice(quickforge.hasQuickforge, basePrice, quickforge.wonderLastFreeRushBuyAt, quickforge.nowMs);
   return `⏩ 💰${price}`;
 };
 
@@ -21,7 +21,7 @@ export const rushBuyLabel = (remainingMs: number, totalMs: number, manpowerCost:
 // since wonder ownership itself isn't sent to the client as a flag.
 export const viewerOwnsWonderType = (tiles: ReadonlyMap<string, Tile>, viewerId: string, wonderType: string): boolean => {
   for (const tile of tiles.values()) {
-    if (tile.ownerId === viewerId && tile.ownershipState === "SETTLED" && tile.naturalWonder?.type === wonderType) return true;
+    if (tile.ownerId === viewerId && tile.ownershipState === "SETTLED" && tile.naturalWonder?.type === wonderType && !isRedesignedRelic(tile.naturalWonder)) return true;
   }
   return false;
 };
@@ -29,6 +29,7 @@ export const viewerOwnsWonderType = (tiles: ReadonlyMap<string, Tile>, viewerId:
 // Convenience for callers (client-action-flow.ts) that just want "the
 // Quickforge context for the current viewer" in one call.
 export const quickforgeRushBuyContextForState = (state: { tiles: ReadonlyMap<string, Tile>; me: string; wonderLastFreeRushBuyAt?: number | undefined }): QuickforgeRushBuyContext => ({
+  hasNanofabricator: [...state.tiles.values()].some(tile => tile.ownerId === state.me && tile.ownershipState === "SETTLED" && tile.naturalWonder?.type === "QUICKFORGE" && isRedesignedRelic(tile.naturalWonder) && (relicRemainingUses(tile.naturalWonder) ?? 0) > 0),
   hasQuickforge: viewerOwnsWonderType(state.tiles, state.me, "QUICKFORGE"),
   wonderLastFreeRushBuyAt: state.wonderLastFreeRushBuyAt ?? 0,
   nowMs: Date.now()

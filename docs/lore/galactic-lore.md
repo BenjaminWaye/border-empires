@@ -174,6 +174,24 @@ quantities, replenishment, ownership and battlefield effects remain gameplay
 design choices; an installation's survival does not establish an inexhaustible
 supply.
 
+Surviving installations include reclamation works, marine drive works,
+ancillary vaults, combat-suit factories, defensive field generators, industrial
+fabrication coordinators, sealed nanofabrication reserves, long-range aether
+resonators and geological survey arrays. Their common surface structure was a
+standard Concordance access and control interface. A reclamation plant supplies
+material already recognizable to a House; it does not reveal unknown resources.
+A fabrication coordinator coordinates concurrent construction rather than
+making House Manifests cheaper. A survey array detects geological signatures,
+not enemy activity. Marine drive works service freight and naval deployments.
+
+Relics have a separate low-power optical maintenance transponder, driven by a
+sealed conventional standby supply. It can produce a narrow locator column
+while the main aether-powered installation is dormant. Detecting it
+provides a location, not knowledge of who holds the site or whether its main
+machinery still works. This does not exempt operating machinery from the
+established risks of aether-work. Replenishment, signal detection range and
+force-field coverage are numerical rules in the [relic reference](../relics.md).
+
 ## 5. Why arriving is dangerous
 
 An infestation left undisturbed for years is dormant compared to what it
@@ -522,7 +540,7 @@ not infer new gameplay rules from them while implementing unrelated work.
 | Rank before a first victory | §2 says winning grants the rank of Duke, while later passages call campaign participants Dukes. Define first-time contenders' rank and returning Dukes' participation. |
 | Permanent holdings and map resets | §2 grants permanent rights to a won world; §8 preserves titles but allows the map to reset. Define what persists across a seasonal campaign and an age ending with the Court's fall. |
 | Writs and the revolt | §7 says accepting a Writ restores the Court's grip; §8 says a Writ does not weaken the revolt. Clarify the relationship before assigning metagame effects. |
-| Relic installation catalogue and locator beams | The shared surface interface, fixed planetary installations and aether-powered machinery left dormant by locals are established in §4. The [relic plan](../relic-overlay-preview.md) proposes mappings from existing effects to individual installation families. Those mappings, and how a locator beam operates while the main machinery is dormant, still need final fiction choices. The 2026-10-24 catalogue redesign includes finite combat-suit and nanofabricator reserves, a naval engine plant and an Ancillary Vault; specific effects, quantities, depletion and force-field behavior are tracked in the relic plan. Repair costs and reactivation risks are retained as future design ideas, not established mechanics. |
+| Relic reactivation costs and risks | Installation families, common surface access structures and the low-power locator transponder are established in §4. Repair costs, activation encounters and random breakdowns remain future design ideas; they are not established mechanics. Current quantities and effects belong in the [relic reference](../relics.md). |
 
 ### Consolidation sources
 

@@ -77,6 +77,7 @@ Each player controls a civilization that starts from a single land tile, expands
 - **Alliances**: mutual relationships that block friendly-fire and affect diplomatic victory scoring.
 - **Truces**: non-aggression pacts (12h or 24h). Breaking a truce early locks the breaker out of requesting or accepting any new truce for 24h; the other party is unaffected. A rejected or cancelled truce/alliance offer can't be re-sent to the same player for 30 minutes. AI empires answer offers based on their stance toward you and explain why. Offers can carry coin and Shards through the trade screen, which previews an AI's answer; AIs counter-offer within what you can pay. They can also propose a 12h truce when threatened or an alliance against a shared enemy.
 - **AI aether**: AI empires build Aether Towers and use Purge, EMP, Siphon, bridges, walls and terrain shaping against useful visible targets. Worker-mode AIs consume survey clues as expansion objectives. Builds check installed AFC modules and resource-slot capacity.
+- **Concordance relics**: newly seeded worlds select seven surviving installation families. Garrison their shared ziggurats to operate the machinery; finite reserves persist through recapture, and depleted ruins remain marked in both renderers. See [relic rules and compatibility](docs/relics.md).
 - **Shard rain**: scheduled world events scattering high-value shard sites with a 30-minute TTL, feeding monument construction.
 
 ### Victory Conditions
@@ -215,14 +216,18 @@ control tower cab at `~0.36`).
 Merge anything you can into a shared material; reuse a colour rather than adding a
 fifth material for one small part.
 
-Keeping inside the footprint and height caps matters because structures sit one per
-tile — an oversized model visually collides with its neighbours.
+These budgets target ordinary buildable structures. Concordance relic landmarks
+use the accepted larger shared ziggurat (about two tiles wide and one tile high),
+while retaining one logical claim tile. Their House banner makes ownership
+readable above the overhanging base; see [the relic footprint rules](docs/relics.md).
+For ordinary structures, staying inside the caps avoids collisions with neighbors.
 
 ### Style
 
-The existing look is **flat-shaded, low-poly, solid-colour**: `MeshStandardMaterial`
-with `flatShading: true`, hand-picked hex colours, and no textures anywhere in the
-project. Match it.
+Ordinary structure meshes use a **flat-shaded, low-poly, solid-colour** style:
+`MeshStandardMaterial` with `flatShading: true` and hand-picked hex colours.
+Relic shaders add procedural weathering; their capture illustrations use bitmap
+artwork. Keep new assets consistent with their surrounding structure family.
 
 - Prefer **untextured** models using per-material colour.
 - If a texture is genuinely needed: a **single 256×256 power-of-two atlas** shared

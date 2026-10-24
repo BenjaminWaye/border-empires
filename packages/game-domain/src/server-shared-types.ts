@@ -9,7 +9,7 @@ import type {
   MissionKind,
   MissionState,
   MissionStats,
-  NaturalWonderType,
+  NaturalWonderState,
   OwnershipState,
   Player,
   ResourceType,
@@ -314,9 +314,8 @@ export interface WaystationSiteState {
   activatedByPlayerId?: string;
 }
 
-export interface NaturalWonderSiteState {
+export interface NaturalWonderSiteState extends NaturalWonderState {
   tileKey: TileKey;
-  type: NaturalWonderType;
 }
 
 export interface TileHistoryState {

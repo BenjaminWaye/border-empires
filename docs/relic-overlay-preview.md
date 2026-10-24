@@ -1,6 +1,6 @@
 # Relic ziggurat preview
 
-Status: active proposal
+Status: visual reference and implementation history
 Owner: Benjamin Waye (visual sign-off and relic fiction)
 Last verified: 2026-10-24
 Replacement target: the visual sections of [natural wonders](natural-wonders-design.md), if accepted and implemented in both map renderers.
@@ -285,7 +285,7 @@ No further full-set art production should depend on unresolved identities.
 
 ## Revised relic catalogue — 2026-10-24
 
-Status: active gameplay redesign. User-provided directions below supersede
+Status: accepted design history; current rules are in [relics.md](relics.md). User-provided directions below supersede
 the earlier assumption that every existing effect will be preserved. All
 runtime behavior and shared labels remain unchanged until implementation.
 Numbers explicitly supplied by the user are recorded as design targets;

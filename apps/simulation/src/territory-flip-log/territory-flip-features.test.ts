@@ -45,3 +45,7 @@ describe("tileFeaturesForActivity", () => {
     }
   });
 });
+
+it("keeps the relic version in captured feature records so old and new names remain distinguishable", () => {
+  expect(tileFeaturesForActivity(tile({ naturalWonder: { type: "WARPRESS", relicVersion: 1 } }))).toEqual([{ kind: "NATURAL_WONDER", wonderType: "WARPRESS", relicVersion: 1 }]);
+});

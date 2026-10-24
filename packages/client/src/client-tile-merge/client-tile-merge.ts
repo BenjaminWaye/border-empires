@@ -1,3 +1,4 @@
+import { notifyRelicCapture } from "../client-relic-dialog/relic-capture-dialog.js";
 import { clearForestAroundAfcTile, clearForestOnTownOrDockTile, type FrontierDecayKind, type ProspectSignature } from "@border-empires/shared";
 import { keyForTile } from "../client-app-runtime-utils.js";
 import { noteCaptureHoldDeadline } from "../client-capture-hold/client-capture-hold.js";
@@ -181,6 +182,7 @@ export const applyCommonTileFields = (
     else delete merged.history;
   }
 
+  notifyRelicCapture(existing, merged, ctx.me);
   return merged;
 };
 

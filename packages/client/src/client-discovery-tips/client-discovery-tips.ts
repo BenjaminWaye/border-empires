@@ -5,11 +5,12 @@
 // client-discovery-tips-storage.ts), and the player can mute all discovery
 // tips for the same window via the toast's checkbox.
 
-import { NATURAL_WONDER_LABELS, type NaturalWonderType } from "@border-empires/shared";
+import { RELIC_DEFINITIONS, isRedesignedRelic, relicRemainingUses, NATURAL_WONDER_LABELS, type NaturalWonderType } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { isDiscoveryTipSeen, isDiscoveryTipsMuted, markDiscoveryTipSeen, muteDiscoveryTips } from "./client-discovery-tips-storage.js";
 
-export type DiscoveryTipId = "TOWN" | "TOWN_TERRAIN_PROFILE" | "DOCK" | "BARBARIAN" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "FIRST_MUSTER" | "ENEMY_EMPIRE" | "OUT_OF_REACH_EXPAND" | "WAYSTATION" | NaturalWonderType;
+type RelicDiscoveryTipId = `RELIC_${NaturalWonderType}`;
+export type DiscoveryTipId = "TOWN" | "TOWN_TERRAIN_PROFILE" | "DOCK" | "BARBARIAN" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "FIRST_MUSTER" | "ENEMY_EMPIRE" | "OUT_OF_REACH_EXPAND" | "WAYSTATION" | NaturalWonderType | RelicDiscoveryTipId | "DEPLETED_RELIC";
 
 export type DiscoveryTipDef = { id: DiscoveryTipId; title: string; body: string };
 
@@ -37,7 +38,13 @@ const NATURAL_WONDER_DISCOVERY_TIPS: Record<NaturalWonderType, DiscoveryTipDef> 
   ])
 ) as Record<NaturalWonderType, DiscoveryTipDef>;
 
+const RELIC_DISCOVERY_TIPS = Object.fromEntries(Object.entries(RELIC_DEFINITIONS).map(([type, definition]) => [
+  `RELIC_${type}`, { id: `RELIC_${type}`, title: `Concordance Relic Discovered: ${definition.name}`, body: `${definition.description} Garrison the site to activate it. ${definition.benefit}` }
+])) as Record<RelicDiscoveryTipId, DiscoveryTipDef>;
+
 export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
+  ...RELIC_DISCOVERY_TIPS,
+  DEPLETED_RELIC: { id: "DEPLETED_RELIC", title: "Depleted Relic Discovered", body: "This Concordance installation has exhausted its surviving reserve. The ruin can still be claimed, but capture cannot replenish it." },
   TOWN: {
     id: "TOWN",
     title: "First Town Discovered!",
@@ -123,7 +130,10 @@ const discoveryTipIdForTileResource = (resource: string | undefined): DiscoveryT
 export const discoveryTipIdForNewlySeenTile = (
   tile: Pick<Tile, "town" | "resource" | "dockId" | "ownerId" | "naturalWonder" | "waystation">
 ): DiscoveryTipId | undefined => {
-  if (tile.naturalWonder) return tile.naturalWonder.type;
+  if (tile.naturalWonder) {
+    if (isRedesignedRelic(tile.naturalWonder)) return relicRemainingUses(tile.naturalWonder) === 0 ? "DEPLETED_RELIC" : `RELIC_${tile.naturalWonder.type}`;
+    return tile.naturalWonder.type;
+  }
   if (tile.town) return "TOWN";
   if (tile.dockId) return "DOCK";
   if (tile.waystation) return "WAYSTATION";

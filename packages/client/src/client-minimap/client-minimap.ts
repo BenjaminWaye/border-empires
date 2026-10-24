@@ -1,3 +1,4 @@
+import { relicRemainingUses } from "@border-empires/shared";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { drawAetherBridgeLane, hexWithAlpha } from "../client-map-render/client-map-render.js";
 import { drawResourceIconOnCanvas } from "../client-resource-icons/client-resource-icons.js";
@@ -85,6 +86,7 @@ export const drawMiniMap = (options: {
     // a captured waystation's minimap dot kept showing its pre-capture bright
     // color until some unrelated tile was added or removed.
     tilesRevision: number;
+    relicMapHints?: ReadonlyMap<string, import("@border-empires/shared").RelicMapHint>;
     dockPairs: DockPair[];
     shardRainPingsByTile: Map<string, ClientShardRainPing>;
     // Drives how long the minimap arrow/ring stays up: the "started" phase's
@@ -300,6 +302,20 @@ export const drawMiniMap = (options: {
       cctx.fillStyle = `rgba(${tint}, 0.98)`;
       drawResourceIconOnCanvas(cctx, "SHARD", tx, ty, 11, "8px monospace");
     }
+    const drawRelicHint = (hint: import("@border-empires/shared").RelicMapHint): void => {
+      const wrappedX = wrapCoordNearBoxCenter(hint.x, box.x0, box.w, WORLD_WIDTH);
+      const wrappedY = wrapCoordNearBoxCenter(hint.y, box.y0, box.h, WORLD_HEIGHT);
+      if (!inBox(wrappedX, wrappedY) && hint.kind !== "RELIC") return;
+      const edge = !inBox(wrappedX, wrappedY) ? miniMapEdgeArrowPoint(wxToPx(wrappedX), wyToPy(wrappedY), w, h) : undefined;
+      const x = edge?.x ?? wxToPx(wrappedX), y = edge?.y ?? wyToPy(wrappedY);
+      const known = options.state.tiles.get(`${hint.x},${hint.y}`)?.naturalWonder;
+      const depleted = known && relicRemainingUses(known) === 0;
+      cctx.strokeStyle = depleted ? "#aba89c" : hint.kind === "RELIC" ? "#e7d69c" : "#a9d3bd";
+      cctx.lineWidth = 1.5; cctx.strokeRect(x - 2.5, y - 2.5, 5, 5);
+      if (edge) { cctx.save(); cctx.translate(x, y); cctx.rotate(edge.angle); cctx.beginPath(); cctx.moveTo(7, 0); cctx.lineTo(3, -3); cctx.lineTo(3, 3); cctx.closePath(); cctx.stroke(); cctx.restore(); }
+      if (depleted) { cctx.beginPath(); cctx.moveTo(x - 3.5, y + 3.5); cctx.lineTo(x + 3.5, y - 3.5); cctx.stroke(); }
+    };
+    for (const hint of options.state.relicMapHints?.values() ?? []) drawRelicHint(hint);
     const rainStatus = options.state.shardRainStatus;
     const rainOngoing = rainStatus?.phase === "started" && options.nowMs < rainStatus.expiresAt;
     const pingPhase = 0.5 + 0.5 * Math.sin(options.nowMs / 240);
@@ -341,6 +357,7 @@ export const drawMiniMap = (options: {
     // revealed 10x10-ish area (matches the 3D flicker; see
     // client-map-3d-watchtower-overlay.ts).
     for (const tile of options.state.tiles.values()) {
+      if (tile.naturalWonder?.relicVersion === 1 && options.state.relicMapHints?.get(`${tile.x},${tile.y}`)?.kind !== "RELIC") drawRelicHint({ x: tile.x, y: tile.y, kind: "RELIC" });
       if (!tile.watchtower) continue;
       if (!effectiveFogDisabled(options.state) && tile.fogged && !tile.watchtower.activated) continue;
       if (!inBox(tile.x, tile.y)) continue;

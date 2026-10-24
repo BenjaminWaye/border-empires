@@ -17,6 +17,7 @@ import {
  */
 export type Map3DRebuildTriggers = {
   crystalTargetingActive: boolean;
+  relicHintsRevision?: number;
   // Forces a rebuild on claim start/end -- see activeFrontierAttackClaimTargetKeys.
   frontierAttackClaimKeys: string;
   // See reach3DRebuildKey.
@@ -88,11 +89,12 @@ export const aetherProtectionRebuildKey = (state: AetherProtectionTriggerState, 
   isAetherProtectionFieldShown(state, keyFor) ? `on:${aetherProtectionFieldKey(aetherProtectionField(state, Date.now()))}` : "";
 
 export const captureMap3DRebuildTriggers = (
-  state: Pick<ClientState, "crystalTargeting" | "capture" | "outgoingMusterAttacksByTile" | "tiles" | "incomingAttacksByTile" | "me" | "serverReach" | "serverReachRevision" | "techIds" | "techCatalog"> & AetherProtectionTriggerState,
+  state: Pick<ClientState, "crystalTargeting" | "capture" | "outgoingMusterAttacksByTile" | "tiles" | "incomingAttacksByTile" | "me" | "serverReach" | "serverReachRevision" | "techIds" | "techCatalog"> & { relicMapHintsRevision?: number } & AetherProtectionTriggerState,
   keyFor: (x: number, y: number) => string,
   reach3DActive: boolean
 ): Map3DRebuildTriggers => ({
   crystalTargetingActive: state.crystalTargeting.active,
+  relicHintsRevision: state.relicMapHintsRevision ?? 0,
   frontierAttackClaimKeys: frontierAttackClaimRebuildSnapshot(state, keyFor),
   reachKey: reach3DRebuildKey(reach3DActive, state),
   incursionBreachStyle: incursionBreachStyle(),
@@ -101,6 +103,7 @@ export const captureMap3DRebuildTriggers = (
 });
 
 export const map3DRebuildTriggersChanged = (built: Map3DRebuildTriggers, now: Map3DRebuildTriggers): boolean =>
+  (built.relicHintsRevision ?? 0) !== (now.relicHintsRevision ?? 0) ||
   built.crystalTargetingActive !== now.crystalTargetingActive ||
   built.frontierAttackClaimKeys !== now.frontierAttackClaimKeys ||
   built.reachKey !== now.reachKey ||

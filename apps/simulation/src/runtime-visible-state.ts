@@ -27,6 +27,7 @@ import { overlayJsonFieldsFromTile, townWireFields } from "./tile-overlay-fields
 
 type VisibilityPlayerProjectionDeps = {
   players: ReadonlyMap<string, RuntimePlayer>;
+  relicMapHintsForPlayer?: (id: string) => import("@border-empires/shared").RelicMapHint[];
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   applyManpowerRegen: (player: RuntimePlayer) => void;
   refreshManpowerOnly: (player: RuntimePlayer) => void;
@@ -297,6 +298,8 @@ function visiblePlayersProjection(
           ? economy!.strategicProductionPerMinute
           : cloneStrategicProduction(summary.strategicProductionPerMinute),
         activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
+        relicDevelopmentBonus: player.relicDevelopmentBonus ?? 0,
+        ...(player.id === visiblePlayerId && input.relicMapHintsForPlayer ? { relicMapHints: input.relicMapHintsForPlayer(player.id) } : {}),
         autoSettle: { ...player.autoSettle },
         // This reconnect/login snapshot path (exportVisibleStateForPlayerAsync)
         // never carried devQueue/waypointQueue -- only the separate full
