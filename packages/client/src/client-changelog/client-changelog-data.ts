@@ -328,7 +328,19 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...WAR_INDUSTRY_SQUADS_CHANGELOG,
   ...FORT_WALL_OPENINGS_CHANGELOG,
-  ...HILL_GARRISON_FILL_CHANGELOG
+  ...HILL_GARRISON_FILL_CHANGELOG,
+  {
+    createdAt: 1792865803163, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.24.2",
+    title: "Lost towns and docks name who took them",
+    why: "A lost town only said \"Lost Aurienspire Ring\", with an unrounded population, and a lost Dock had no note of its own. If the town tile's own record was missing, the siege card could still say your Palisade was holding after it had fallen.",
+    changes: [
+      "Town cards in Yours say who took the town, or whom you took it from",
+      "Town populations on those cards are rounded to whole numbers",
+      "Losing or capturing a Dock gets its own note in Yours, naming the other player",
+      "A siege on a town or Dock you lost now shows as fallen, even when its tile record is missing"
+    ]
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
