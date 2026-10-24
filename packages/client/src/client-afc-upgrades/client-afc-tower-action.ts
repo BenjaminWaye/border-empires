@@ -9,6 +9,7 @@ export function afcTowerSuppressionAction(tile: Tile, options: { installed: bool
 
 /** Shared tile-targeted actions; suppression uses its own command and preserves ordinary Purge effects. */
 export function dispatchTileAetherAction(actionId: string, selected: Pick<Tile, "x" | "y">, state: Pick<ClientState, "aetherLanceFxQueue">, send: (payload: unknown) => boolean): void {
+  if (actionId === "forced_ancillarification") send({ type: "FORCED_ANCILLARIFICATION", x: selected.x, y: selected.y });
   if (actionId === "suppress_aether_tower") send({ type: "SUPPRESS_AETHER_TOWER", x: selected.x, y: selected.y });
   if (actionId === "aether_lance" && send({ type: "AETHER_LANCE", x: selected.x, y: selected.y })) state.aetherLanceFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
 }

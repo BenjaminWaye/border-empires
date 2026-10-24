@@ -56,6 +56,7 @@ export type TownWireSummary = {
   foodUpkeepPerMinute?: number;
   captureShockUntil?: number;
   populationBeforeCapture?: number;
+  forcedAncillarificationCooldownUntil?: number;
   nearbyWarPausedUntil?: number;
   nearbyWarLastAt?: number;
   growthModifiers?: Array<{ label: "Recently captured" | "Nearby war" | "Long time peace"; deltaPerMinute: number }>;

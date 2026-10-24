@@ -31,12 +31,23 @@
 import { AnimationClip, Group, SkinnedMesh } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { Object3D } from "three";
+import type { MarineModelKey } from "./popup-marine-gear.js";
 
 // Served straight from packages/client/public (Vite serves that directory's
 // contents unprocessed at the site root), matching how every other static
 // game asset in this package — /overlays/*.svg, /audio/*.m4a — is referenced
 // by plain string path rather than imported as a module.
 export const ACTIVE_POPUP_MARINE_MODEL_URL = "/models/popup-marine-titan-24bone.glb";
+// The heavy armour every soldier of an empire owning a Titanium Weapons
+// Factory wears (popup-marine-gear.ts): the standard marine's clips and rifle
+// on a Meshy sculpt in thicker plate, with a bare-metal surface mask (see
+// popup-marine-material.ts) -- built by
+// packages/client/scripts/bake-popup-marine-heavy-model.py.
+const HEAVY_POPUP_MARINE_MODEL_URL = "/models/popup-marine-heavy-24bone.glb";
+const MODEL_URL_BY_KEY: Record<MarineModelKey, string> = {
+  standard: ACTIVE_POPUP_MARINE_MODEL_URL,
+  heavy: HEAVY_POPUP_MARINE_MODEL_URL
+};
 
 // Kept only as documented, easy revert targets: models this file used before
 // the animated Titan rig became the default. Not currently loaded by
@@ -58,7 +69,8 @@ export type PopupMarineTemplate = {
   clips: Map<string, AnimationClip>;
 };
 
-let cached: Promise<PopupMarineTemplate> | undefined;
+// One entry per model at most, so this never grows past MarineModelKey's size.
+const cachedByModel = new Map<MarineModelKey, Promise<PopupMarineTemplate>>();
 
 export const firstSkinnedMesh = (root: Object3D): SkinnedMesh => {
   let found: SkinnedMesh | undefined;
@@ -73,13 +85,14 @@ export const firstSkinnedMesh = (root: Object3D): SkinnedMesh => {
 /** Loads (and caches) the marine template every pooled per-marine clone (see
  * popup-marine-overlay-fx.ts, via SkeletonUtils.clone) is copied from. Safe
  * to call from multiple overlay instances — the GLTF fetch/parse only ever
- * happens once per page load. */
-export const loadPopupMarineTemplate = (): Promise<PopupMarineTemplate> => {
+ * happens once per page load per model. */
+export const loadPopupMarineTemplate = (model: MarineModelKey = "standard"): Promise<PopupMarineTemplate> => {
+  let cached = cachedByModel.get(model);
   if (!cached) {
     const loader = new GLTFLoader();
     cached = new Promise<PopupMarineTemplate>((resolve, reject) => {
       loader.load(
-        ACTIVE_POPUP_MARINE_MODEL_URL,
+        MODEL_URL_BY_KEY[model],
         (gltf) => {
           try {
             // Throws if the model has no skin at all, so a broken asset
@@ -98,6 +111,7 @@ export const loadPopupMarineTemplate = (): Promise<PopupMarineTemplate> => {
         (err) => reject(err instanceof Error ? err : new Error(String(err)))
       );
     });
+    cachedByModel.set(model, cached);
   }
   return cached;
 };

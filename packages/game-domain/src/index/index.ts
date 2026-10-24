@@ -212,6 +212,7 @@ export type DomainTileState = {
             | "foodUpkeepPerMinute"
             | "captureShockUntil"
             | "populationBeforeCapture"
+            | "forcedAncillarificationCooldownUntil"
             | "nearbyWarPausedUntil"
             | "nearbyWarLastAt"
             | "growthModifiers"

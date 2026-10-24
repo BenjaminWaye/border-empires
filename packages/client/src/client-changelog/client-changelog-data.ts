@@ -37,6 +37,8 @@ import { CAPTURED_MUSTER_CLEAR_CHANGELOG } from "./client-changelog-captured-mus
 import { ADVANCE_EFFORT_CHANGELOG } from "./client-changelog-advance-effort.js";
 import { FASTER_ATTACKS_FRONTIER_COST_CHANGELOG } from "./client-changelog-faster-attacks-frontier-cost.js";
 import { AFC_MODULE_MODELS_CHANGELOG } from "./client-changelog-afc-module-models.js";
+import { MARCH_ATTACK_DEEP_CHANGELOG } from "./client-changelog-march-attack-deep.js";
+import { WAR_INDUSTRY_SQUADS_CHANGELOG } from "./client-changelog-war-industry-squads.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -311,7 +313,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CAPTURED_MUSTER_CLEAR_CHANGELOG,
   ...ADVANCE_EFFORT_CHANGELOG,
   ...FASTER_ATTACKS_FRONTIER_COST_CHANGELOG,
-  ...AFC_MODULE_MODELS_CHANGELOG
+  ...AFC_MODULE_MODELS_CHANGELOG,
+  ...MARCH_ATTACK_DEEP_CHANGELOG,
+  {
+    createdAt: 1792832339274, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.24.1",
+    title: "Forced Ancillarification",
+    why: "A flat population sacrifice becomes trivial in large towns. The cost should grow with the population at stake.",
+    changes: ["Active Ancillary Factories can convert residents from their supported town into 100 immediate manpower, even above the cap. The menu shows exactly how many people will be taken.", "Each town can be forced once every four hours and must retain at least 10,000 residents. The factory menu shows the exact population cost."]
+  },
+  ...WAR_INDUSTRY_SQUADS_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

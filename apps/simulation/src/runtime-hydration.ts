@@ -13,6 +13,7 @@ import { isReplayTrackedCommandId } from "./command-event-lifecycle.js";
 import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
 import { lockSourceFromCommandId } from "./runtime-types.js";
 import type { LockedCombatResolution, LockRecord, RuntimePlayer } from "./runtime-types.js";
+import { parseBattleWarGear } from "./runtime-weapons-factory-mults.js";
 
 const isSyntheticSettlementTown = (
   town: DomainTileState["town"] | undefined,
@@ -219,12 +220,21 @@ const parseRecoveredCombatResolution = (combatResolutionJson?: string): LockedCo
   try {
     const parsed = JSON.parse(combatResolutionJson) as Partial<LockedCombatResolution> | undefined;
     if (!parsed || typeof parsed !== "object") return undefined;
-    if (parsed.result) return {
-      result: parsed.result,
-      defenderGoldLoss: typeof parsed.defenderGoldLoss === "number" ? parsed.defenderGoldLoss : 0,
-      targetRecentlyPillaged: parsed.targetRecentlyPillaged === true,
-      ...(parsed.defendedFrontier === true ? { defendedFrontier: true } : {})
-    };
+    if (parsed.result) {
+      // The battle squads' cosmetic war gear rides on the resolution too;
+      // dropping it here showed a lock that resolved after a restart in
+      // plain kit, and wiped what every client remembered for both sides.
+      const attackerGear = parseBattleWarGear(parsed.attackerGear);
+      const defenderGear = parseBattleWarGear(parsed.defenderGear);
+      return {
+        result: parsed.result,
+        defenderGoldLoss: typeof parsed.defenderGoldLoss === "number" ? parsed.defenderGoldLoss : 0,
+        targetRecentlyPillaged: parsed.targetRecentlyPillaged === true,
+        ...(parsed.defendedFrontier === true ? { defendedFrontier: true } : {}),
+        ...(attackerGear ? { attackerGear } : {}),
+        ...(defenderGear ? { defenderGear } : {})
+      };
+    }
     return parsed as LockedCombatResolution | undefined;
   } catch {
     return undefined;

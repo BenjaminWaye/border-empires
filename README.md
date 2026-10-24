@@ -30,6 +30,7 @@ Each player controls a civilization that starts from a single land tile, expands
 ### Economy
 
 - **Manpower** is the empire's primary resource, funding every physical action: expanding, garrisoning (internally SETTLE), building structures, and attacking. It regenerates from an empire-wide pool sized by town population tier, paid out in one refill every four hours; a depleted empire cannot afford sustained expansion or warfare.
+- **Forced Ancillarification** at an active Ancillary Factory converts residents from its supporting town for 100 immediate manpower, once per town every four hours, while retaining at least 10,000 residents.
 - **Coin** funds Manifest commissions, the actions that carry a coin cost, and *rush-buys* of in-progress builds or garrisons. Its fictional meaning is defined in the [world bible](docs/lore/galactic-lore.md#11-houses-and-the-planetary-economy); current income, costs and town-support rules are in the [economy reference](docs/product/resource-and-manpower-economy.md).
 - **Strategic resources** — Food, Titanium, Crystal, Umbrite — are permanent slot allocations, not stockpiles: a structure or town either has a free slot backed by an owned resource tile (or a synthesizer) or it goes **dormant** (loses its effect, but isn't destroyed) until a slot frees up. A floating badge and detail-panel line flag dormant tiles and which resource they're missing.
 - **Shard** remains flow-collected (including from scheduled shard-rain events) and funds monument construction.
