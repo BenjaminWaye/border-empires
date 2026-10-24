@@ -143,7 +143,7 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
   // Own material: the draped mesh carries the owner colour per vertex (the
   // flat plate's instance-coloured material ignored it, rendering white), and
   // it has no normals, so it is unlit like the ownership overlay's hill drape.
-  const hillTintMaterial = new MeshBasicMaterial({ color: "#ffffff", vertexColors: true, transparent: true, opacity: 0.55, depthWrite: false });
+  const hillTintMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#ffffff", vertexColors: true, transparent: true, opacity: 0.55, depthWrite: false });
   const hillTintMesh = new Mesh(hillTintGeom, hillTintMaterial);
   hillTintMesh.renderOrder = 5;
   hillTintMesh.frustumCulled = false;
