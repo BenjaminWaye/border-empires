@@ -60,13 +60,14 @@ describe("injectMarchAttackActions", () => {
     crystal: []
   });
 
-  it("replaces the unreachable Launch Attack and Expand To & Attack with march rows", () => {
+  it("replaces the unreachable Launch Attack with march rows, keeping Expand To & Attack below them", () => {
     const state = stateWith([flag(14, 10), own(17, 10), target]);
     const view = menu({ disabled: true, disabledReason: "No bordering origin tile or linked dock" });
     injectMarchAttackActions(view, target, state);
     injectMarchAttackActions(view, target, state);
-    expect(view.actions.map((action) => action.id)).toEqual(["march_attack_flag", "march_attack_new_flag", "reveal_empire"]);
+    expect(view.actions.map((action) => action.id)).toEqual(["march_attack_flag", "march_attack_new_flag", "expand_here", "reveal_empire"]);
     expect(view.actions[0]?.label).toBe("March Attack from Flag (14, 10)");
+    expect(view.actions.map((action) => action.originKey)).toEqual(["14,10", "17,10", undefined, undefined]);
     expect(view.tabs[0]).toBe("actions");
   });
 
@@ -80,6 +81,14 @@ describe("injectMarchAttackActions", () => {
     expect(shielded.actions.map((action) => action.id)).toEqual(["expand_here", "launch_attack", "reveal_empire"]);
   });
 
+  it("offers nothing against an empire you have a truce with", () => {
+    const state = stateWith([flag(14, 10), own(17, 10), target]);
+    state.activeTruces = [{ otherPlayerId: "rival", otherPlayerName: "Rival", startedAt: 0, endsAt: Date.now() + 60_000, createdByPlayerId: "me" } as never];
+    expect(buildMarchAttackActions(target, state)).toEqual([]);
+    state.activeTruces = [{ otherPlayerId: "rival", otherPlayerName: "Rival", startedAt: 0, endsAt: Date.now() - 1, createdByPlayerId: "me" } as never];
+    expect(buildMarchAttackActions(target, state).length).toBeGreaterThan(0);
+  });
+
   it("offers nothing when no flag or owned tile is within march range", () => {
     expect(buildMarchAttackActions(target, stateWith([flag(1, 1), own(2, 1), target]))).toEqual([]);
   });
@@ -90,13 +99,24 @@ describe("dispatchMarchAttackAction", () => {
 
   it("opens the March-To commit sheet from the chosen flag or the new-flag tile", () => {
     const state = stateWith([flag(14, 10), own(17, 10), target]);
-    expect(dispatchMarchAttackAction("march_attack_flag", target, state, deps)).toBe(true);
-    expect(handleArrowGestureConfirm).toHaveBeenLastCalledWith(state, { x: 14, y: 10 }, { x: 20, y: 10 }, deps);
-    expect(dispatchMarchAttackAction("march_attack_new_flag", target, state, deps)).toBe(true);
-    expect(handleArrowGestureConfirm).toHaveBeenLastCalledWith(state, { x: 17, y: 10 }, { x: 20, y: 10 }, deps);
+    expect(dispatchMarchAttackAction("march_attack_flag", target, "14,10", state, deps)).toBe(true);
+    expect(handleArrowGestureConfirm).toHaveBeenLastCalledWith(state, { x: 14, y: 10 }, { x: 20, y: 10 }, deps, { newFlag: false });
+    expect(dispatchMarchAttackAction("march_attack_new_flag", target, "17,10", state, deps)).toBe(true);
+    expect(handleArrowGestureConfirm).toHaveBeenLastCalledWith(state, { x: 17, y: 10 }, { x: 20, y: 10 }, deps, { newFlag: true });
+  });
+
+  it("refuses a row whose flag is no longer valid instead of marching the flag now in its slot", () => {
+    const state = stateWith([flag(14, 10), flag(10, 10), target]);
+    // The row was rendered for (14, 10); that flag is now under siege, so
+    // slot 0 of a fresh list is (10, 10) -- which must not be redirected.
+    state.incomingAttacksByTile.set("14,10", { attackerName: "Rival", resolvesAt: Date.now() + 60_000 } as never);
+    vi.mocked(handleArrowGestureConfirm).mockClear();
+    expect(dispatchMarchAttackAction("march_attack_flag", target, "14,10", state, deps)).toBe(true);
+    expect(handleArrowGestureConfirm).not.toHaveBeenCalled();
+    expect(deps.pushFeed).toHaveBeenLastCalledWith("That flag can no longer march on this tile.", "combat", "warn");
   });
 
   it("ignores other action ids", () => {
-    expect(dispatchMarchAttackAction("launch_attack", target, stateWith([target]), deps)).toBe(false);
+    expect(dispatchMarchAttackAction("launch_attack", target, undefined, stateWith([target]), deps)).toBe(false);
   });
 });

@@ -89,8 +89,6 @@ const injectWaypointActionsInner = (
   // must not stack duplicate waypoint actions on the view each time.
   const firstActionId = view.actions[0]?.id;
   if (firstActionId === "expand_here" || firstActionId === "cancel_waypoint" || firstActionId === "clear_waypoint_and_expand_here") return;
-  // Already replaced by March Attack rows (injectMarchAttackActions).
-  if (firstActionId?.startsWith("march_attack_")) return;
   const activeWaypoint = state.waypoint.length > 0 ? state.waypoint[0] : undefined;
   if (activeWaypoint && activeWaypoint.target.x === tile.x && activeWaypoint.target.y === tile.y) {
     prependWaypointAction(view, { id: "cancel_waypoint", label: "Cancel Waypoint", detail: formatWaypointSummary(activeWaypoint.plan) });

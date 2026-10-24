@@ -26,6 +26,8 @@ type WaypointHandlerDeps = {
   showCaptureAlert: (title: string, detail: string, tone?: "error" | "success" | "warn", manpowerLoss?: number) => void;
   processActionQueue: () => boolean;
   sendGameMessage?: (payload: unknown) => boolean;
+  /** The clicked button's data-origin-key (March Attack rows carry their origin flag/tile). */
+  originKey?: string | undefined;
 };
 
 const setWaypointForSelected = (
@@ -121,9 +123,9 @@ const clearAllWaypoints = (params: {
 export const handleWaypointAction = (deps: WaypointHandlerDeps): boolean => {
   const { state, selected, actionId, keyFor, pushFeed, renderHud, hideTileActionMenu, showCaptureAlert, processActionQueue, sendGameMessage } = deps;
 
-  // March Attack rows sit where Expand To & Attack used to on a deep hostile
-  // tile (injectWaypointActions), so they dispatch from here too.
-  if (selected && sendGameMessage && dispatchMarchAttackAction(actionId, selected, state, { pushFeed, sendGameMessage, renderHud, keyFor })) {
+  // March Attack rows sit above Expand To & Attack on a deep hostile tile
+  // (injectMarchAttackActions), so they dispatch from here too.
+  if (selected && sendGameMessage && dispatchMarchAttackAction(actionId, selected, deps.originKey, state, { pushFeed, sendGameMessage, renderHud, keyFor })) {
     hideTileActionMenu();
     renderHud();
     return true;

@@ -23,7 +23,7 @@ export type MarchAttackOptions = { flags: MarchAttackOrigin[]; newFlag?: MarchAt
 
 type MarchAttackState = Pick<
   ClientState,
-  "me" | "tiles" | "musterFlagLimit" | "incomingAttacksByTile" | "authEmail" | "bridgeDebugSeasonId"
+  "me" | "tiles" | "musterFlagLimit" | "incomingAttacksByTile" | "authEmail" | "bridgeDebugSeasonId" | "activeTruces"
 >;
 
 const byDistance = (a: MarchAttackOrigin, b: MarchAttackOrigin): number => a.distance - b.distance || a.x - b.x || a.y - b.y;
@@ -59,6 +59,8 @@ export const marchAttackOptions = (state: MarchAttackState, target: { x: number;
   };
 };
 
+const originKey = (origin: { x: number; y: number }): string => `${origin.x},${origin.y}`;
+
 const flagModeText = (tile: Tile | undefined): string => {
   const muster = tile?.muster;
   if (muster?.mode === "MARCH" && muster.targetX !== undefined && muster.targetY !== undefined) {
@@ -69,17 +71,22 @@ const flagModeText = (tile: Tile | undefined): string => {
 
 /**
  * The March Attack rows for a hostile `tile`, or [] when there's no way to
- * march on it (muster not unlocked yet, or no flag / owned tile in range).
+ * march on it (muster not unlocked yet, no flag / owned tile in range, or a
+ * truce with its owner -- a march never attacks a truced empire, so the flag
+ * would just sit at the border with its manpower locked). Each row carries
+ * its origin as originKey so a click dispatches the origin it names.
  */
 export const buildMarchAttackActions = (tile: Tile, state: MarchAttackState, nowMs = Date.now()): TileActionDef[] => {
   if (!tile.ownerId || tile.ownerId === state.me) return [];
+  if (state.activeTruces.some((truce) => truce.otherPlayerId === tile.ownerId && truce.endsAt > nowMs)) return [];
   const options = marchAttackOptions(state, tile, nowMs);
   if (options.flags.length === 0 && !options.newFlag) return [];
   if (options.flags.length === 0 && !isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId)) return [];
   const out: TileActionDef[] = options.flags.map((flag, index) => ({
     id: MARCH_ATTACK_FLAG_ACTION_IDS[index]!,
     label: `March Attack from Flag (${flag.x}, ${flag.y})`,
-    detail: `${flag.distance} tiles away · the flag ${flagModeText(state.tiles.get(`${flag.x},${flag.y}`))} and fights its way here.`,
+    detail: `${flag.distance} tiles away · the flag ${flagModeText(state.tiles.get(originKey(flag)))} and fights its way here.`,
+    originKey: originKey(flag),
     disabled: false
   }));
   if (options.newFlag) {
@@ -88,6 +95,7 @@ export const buildMarchAttackActions = (tile: Tile, state: MarchAttackState, now
       id: MARCH_ATTACK_NEW_FLAG_ACTION_ID,
       label: "March Attack from New Flag",
       detail: `Raises a muster flag at (${x}, ${y}), ${distance} tiles away, which musters troops then marches here.`,
+      originKey: originKey(options.newFlag),
       disabled: false
     });
   }
@@ -102,10 +110,11 @@ const NO_BORDERING_ORIGIN_REASON = "No bordering origin tile or linked dock";
 
 /**
  * Replaces a hostile tile's disabled "Launch Attack" (no bordering origin)
- * and the waypoint chain's "Expand To & Attack" with the March Attack rows
- * at the top of the menu: a march from a flag is the way to strike deep.
- * Both stay as they were when no march is possible. Idempotent across
- * re-renders.
+ * with the March Attack rows at the top of the menu: a march from a flag is
+ * the way to strike deep. The waypoint chain's "Expand To & Attack" stays
+ * below them, since march range is straight-line distance and a flag across
+ * water may not connect to the target where the planner's chain does.
+ * Idempotent across re-renders.
  */
 export const injectMarchAttackActions = (view: TileMenuView, tile: Tile, state: MarchAttackState): void => {
   if (view.actions.some((action) => MARCH_ATTACK_ACTION_IDS.includes(action.id))) return;
@@ -113,33 +122,37 @@ export const injectMarchAttackActions = (view: TileMenuView, tile: Tile, state: 
   if (!launch?.disabled || launch.disabledReason !== NO_BORDERING_ORIGIN_REASON) return;
   const rows = buildMarchAttackActions(tile, state);
   if (rows.length === 0) return;
-  view.actions = [...rows, ...view.actions.filter((action) => action !== launch && action.id !== "expand_here")];
+  view.actions = [...rows, ...view.actions.filter((action) => action !== launch)];
   view.tabs = ["actions", ...view.tabs.filter((tab) => tab !== "actions")];
 };
 
 /**
  * Handles a March Attack row: recomputes the options (the menu may be a few
- * ticks stale) and opens the March-To commit sheet from the chosen origin.
- * Returns false for any other action id.
+ * ticks stale) and opens the March-To commit sheet from the origin the row
+ * named (`rowOriginKey`, the button's data-origin-key) -- only if that
+ * origin is still valid, never a different flag that has since moved into
+ * the row's slot. Returns false for any other action id.
  */
 export const dispatchMarchAttackAction = (
   actionId: string,
   target: { x: number; y: number },
+  rowOriginKey: string | undefined,
   state: MarchAttackState & Parameters<typeof handleArrowGestureConfirm>[0],
   deps: ArrowGestureConfirmDeps
 ): boolean => {
   if (!MARCH_ATTACK_ACTION_IDS.includes(actionId)) return false;
   const options = marchAttackOptions(state, target);
-  const flagIndex = (MARCH_ATTACK_FLAG_ACTION_IDS as readonly string[]).indexOf(actionId);
-  const origin = flagIndex >= 0 ? options.flags[flagIndex] : options.newFlag;
+  const isFlagRow = actionId !== MARCH_ATTACK_NEW_FLAG_ACTION_ID;
+  const candidates = isFlagRow ? options.flags : options.newFlag ? [options.newFlag] : [];
+  const origin = candidates.find((candidate) => originKey(candidate) === rowOriginKey);
   if (!origin) {
     deps.pushFeed(
-      flagIndex >= 0 ? "That flag can no longer march on this tile." : "No owned tile in march range to raise a new flag on.",
+      isFlagRow ? "That flag can no longer march on this tile." : "That tile can no longer raise a new flag to march on this tile.",
       "combat",
       "warn"
     );
     return true;
   }
-  handleArrowGestureConfirm(state, { x: origin.x, y: origin.y }, { x: target.x, y: target.y }, deps);
+  handleArrowGestureConfirm(state, { x: origin.x, y: origin.y }, { x: target.x, y: target.y }, deps, { newFlag: !isFlagRow });
   return true;
 };
