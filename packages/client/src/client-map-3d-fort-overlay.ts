@@ -21,7 +21,8 @@ import { FORT_CONSTRUCTION_LAYOUT } from "./client-map-3d-construction/client-ma
 // (TITANIUM_BASTION, THUNDER_BASTION) each get a 4-wall + 4-corner-tower
 // silhouette (no floor — terrain shows through) with every wall that
 // touches a same-owner fort omitted, mirroring `fortificationOpeningForTile`.
-// SIEGE_BATTERY is an armored siege machine with a big forward cannon and a rotating aether targeting head, built by
+// SIEGE_BATTERY is an armored siege machine with a big forward cannon and
+// a rotating aether targeting head, built by
 // client-map-3d-siege-machine-overlay.ts. RELAY_BEACON has its own dedicated
 // overlay (client-map-3d-relay-beacon-overlay.ts).
 
