@@ -1,14 +1,21 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
-import { AnimationMixer, Box3, PerspectiveCamera, SkinnedMesh, Vector3 } from "three";
+import { AnimationMixer, Box3, type AnimationClip, PerspectiveCamera, SkinnedMesh, Vector3 } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { ACTIVE_POPUP_MARINE_MODEL_URL } from "@client/client-map-3d-popup-marine/popup-marine-asset.js";
+import { ACTIVE_POPUP_MARINE_MODEL_URL, HEAVY_POPUP_MARINE_MODEL_URL, firstSkinnedMesh } from "@client/client-map-3d-popup-marine/popup-marine-asset.js";
+import { createMarineMaterial } from "@client/client-map-3d-popup-marine/popup-marine-material.js";
+import { createBuildingEnvironmentTexture } from "@client/client-map-3d-atmosphere.js";
 import { createStage, wrapWithCleanup } from "../../../fixtures/three-stage.js";
 
-// Every clip baked into the shipped 24-bone Titan Vanguard rig (the model
-// popup-marine-asset.ts loads), driven through a real AnimationMixer so each
-// captured animation can be reviewed on its own.
-const MODEL_URL = ACTIVE_POPUP_MARINE_MODEL_URL;
+// Every clip baked into the shipped 24-bone rigs -- the standard Titan
+// Vanguard and the Titanium Weapons Factory heavy armour -- driven through a
+// real AnimationMixer so each captured animation can be reviewed on its own,
+// side by side. The heavy model ships only the Pistol* clips, so Walking /
+// Running / Dead play on the standard marine alone.
+const MODEL_URLS = { standard: ACTIVE_POPUP_MARINE_MODEL_URL, heavy: HEAVY_POPUP_MARINE_MODEL_URL } as const;
+type ModelChoice = keyof typeof MODEL_URLS;
+// Not a clip: no action plays, so each model shows the pose it was bound in.
+const REST_POSE = "Rest pose";
 const CLIP_NAMES = ["Walking", "Running", "Dead", "PistolIdle", "PistolKneelingIdle", "PistolRun"] as const;
 
 const styleButton = (el: HTMLElement, active = false): void => {
@@ -21,7 +28,7 @@ const styleButton = (el: HTMLElement, active = false): void => {
   el.style.font = "12px monospace";
 };
 
-type Args = { color: string };
+type Args = { color: string; model: ModelChoice | "both" };
 
 const render = (args: Args): HTMLElement => {
   // Framed once from the model's own rest-pose bounding box (below) rather
@@ -53,40 +60,66 @@ const render = (args: Args): HTMLElement => {
   buttonsRow.style.gap = "6px";
   buttonsRow.style.flexWrap = "wrap";
 
-  let mixer: AnimationMixer | undefined;
+  const envMap = createBuildingEnvironmentTexture(stage.renderer);
+  const choices: ModelChoice[] = args.model === "both" ? ["standard", "heavy"] : [args.model];
+  const GAP = 0.04; // local units between side-by-side models (a marine is ~0.052 tall)
+  type Loaded = { choice: ModelChoice; mixer: AnimationMixer; clips: Map<string, AnimationClip> };
+  const loaded: Loaded[] = [];
   let activeName = "PistolIdle";
   const buttons = new Map<string, HTMLButtonElement>();
-
   const loader = new GLTFLoader();
-  loader.load(
-    MODEL_URL,
-    (gltf) => {
-      const root = gltf.scene;
-      stage.scene.add(root);
-      mixer = new AnimationMixer(root);
-      const clipsByName = new Map(gltf.animations.map((c) => [c.name, c]));
-      statusEl.textContent = `loaded — clips: ${gltf.animations.map((c) => c.name).join(", ")}`;
 
+  const playByName = (name: string): void => {
+    activeName = name;
+    for (const [n, btn] of buttons) styleButton(btn, n === name);
+    for (const { mixer, clips } of loaded) {
+      mixer.stopAllAction();
+      const clip = clips.get(name);
+      if (clip && name !== REST_POSE) mixer.clipAction(clip).reset().play();
+      else mixer.setTime(0);
+    }
+  };
+
+  const loadOne = (choice: ModelChoice, index: number): Promise<Loaded> =>
+    new Promise((resolve, reject) => {
+      loader.load(
+        MODEL_URLS[choice],
+        (gltf) => {
+          const root = gltf.scene;
+          // The same material the game puts on each model (heavy: surface
+          // mask + env-map metal), not GLTFLoader's default.
+          const mesh = firstSkinnedMesh(root);
+          const material = createMarineMaterial(choice === "heavy", envMap);
+          material.color.set(args.color);
+          mesh.material = material;
+          mesh.frustumCulled = false;
+          root.position.x = (index - (choices.length - 1) / 2) * GAP;
+          stage.scene.add(root);
+          resolve({ choice, mixer: new AnimationMixer(root), clips: new Map(gltf.animations.map((c) => [c.name, c])) });
+        },
+        undefined,
+        reject
+      );
+    });
+
+  Promise.all(choices.map(loadOne))
+    .then((models) => {
+      loaded.push(...models);
+      stage.scene.updateMatrixWorld(true);
       // Frame from the BONES' world positions, not from
       // geometry.boundingBox x mesh.matrixWorld. For a skinned mesh the
       // rendered position comes from the bone matrices; the mesh node's own
-      // transform is not what places the vertices. Since this rig carries
-      // its scale on the root node, multiplying the (already final-scale)
+      // transform is not what places the vertices. Since these rigs carry
+      // their scale on the root node, multiplying the (already final-scale)
       // geometry box by the mesh's world matrix double-applies that scale
       // and yields a ~16-micron box, which frames the camera inside its own
       // near plane and renders nothing. Bone world positions are correct in
       // both conventions.
-      let skinned: SkinnedMesh | undefined;
-      root.traverse((o) => {
-        if (!skinned && o instanceof SkinnedMesh) skinned = o;
-      });
-      if (!skinned) throw new Error("no SkinnedMesh found in loaded model");
-      root.updateMatrixWorld(true);
       const bb = new Box3();
       const boneWorld = new Vector3();
-      for (const bone of skinned.skeleton.bones) {
-        bb.expandByPoint(bone.getWorldPosition(boneWorld));
-      }
+      stage.scene.traverse((o) => {
+        if (o instanceof SkinnedMesh) for (const bone of o.skeleton.bones) bb.expandByPoint(bone.getWorldPosition(boneWorld));
+      });
       const size = new Vector3();
       const center = new Vector3();
       bb.getSize(size);
@@ -99,17 +132,9 @@ const render = (args: Args): HTMLElement => {
       controls.maxDistance = radius * 10;
       controls.update();
 
-      const playByName = (name: string): void => {
-        const clip = clipsByName.get(name);
-        if (!clip || !mixer) return;
-        activeName = name;
-        for (const [n, btn] of buttons) styleButton(btn, n === name);
-        mixer.stopAllAction();
-        mixer.clipAction(clip).reset().play();
-      };
-
-      for (const name of CLIP_NAMES) {
-        if (!clipsByName.has(name)) continue;
+      statusEl.textContent = models.map((m) => `${m.choice}: ${[...m.clips.keys()].join(", ")}`).join("  |  ");
+      for (const name of [...CLIP_NAMES, REST_POSE]) {
+        if (name !== REST_POSE && !models.some((m) => m.clips.has(name))) continue;
         const btn = document.createElement("button");
         btn.type = "button";
         btn.textContent = name;
@@ -119,12 +144,10 @@ const render = (args: Args): HTMLElement => {
         buttonsRow.appendChild(btn);
       }
       playByName(activeName);
-    },
-    undefined,
-    (err) => {
+    })
+    .catch((err: unknown) => {
       statusEl.textContent = `failed to load: ${err instanceof Error ? err.message : String(err)}`;
-    }
-  );
+    });
 
   const panel = document.createElement("div");
   panel.style.padding = "10px 12px";
@@ -141,7 +164,7 @@ const render = (args: Args): HTMLElement => {
     const now = performance.now();
     const dt = (now - lastT) / 1000;
     lastT = now;
-    mixer?.update(dt);
+    for (const m of loaded) m.mixer.update(dt);
     controls.update();
     rafId = requestAnimationFrame(animate);
   };
@@ -151,6 +174,7 @@ const render = (args: Args): HTMLElement => {
     () => {
       cancelAnimationFrame(rafId);
       controls.dispose();
+      envMap.dispose();
     }
   ]);
   stageEl.appendChild(panel);
@@ -159,7 +183,8 @@ const render = (args: Args): HTMLElement => {
 
 const meta: Meta<Args> = {
   title: "Map/Combat/Popup Marines/Titan Rig",
-  args: { color: "#4fb3ff" },
+  args: { color: "#4fb3ff", model: "both" },
+  argTypes: { model: { control: "inline-radio", options: ["both", "standard", "heavy"] } },
   render
 };
 

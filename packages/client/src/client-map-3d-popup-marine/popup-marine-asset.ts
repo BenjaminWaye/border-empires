@@ -43,7 +43,7 @@ export const ACTIVE_POPUP_MARINE_MODEL_URL = "/models/popup-marine-titan-24bone.
 // on a Meshy sculpt in thicker plate, with a bare-metal surface mask (see
 // popup-marine-material.ts) -- built by
 // packages/client/scripts/bake-popup-marine-heavy-model.py.
-const HEAVY_POPUP_MARINE_MODEL_URL = "/models/popup-marine-heavy-24bone.glb";
+export const HEAVY_POPUP_MARINE_MODEL_URL = "/models/popup-marine-heavy-24bone.glb";
 const MODEL_URL_BY_KEY: Record<MarineModelKey, string> = {
   standard: ACTIVE_POPUP_MARINE_MODEL_URL,
   heavy: HEAVY_POPUP_MARINE_MODEL_URL
