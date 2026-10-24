@@ -34,7 +34,8 @@ defines what these systems mean in the fiction; follow the
   the cap (tracked as `waystationManpowerOverflow`), and regen pauses until it
   is spent back under the cap.
 - **Shard Mobilization** (`SHARD_MOBILIZE`, `SHARD_MOBILIZE_SHARD_COST` = **1
-  Shard**) refills manpower to the cap at once, from the Manpower panel. It
+  Shard**, donated to the Court for an Imperial delivery of ancillaries) refills
+  manpower to the cap at once, from the Manpower panel. It
   settles manpower first, never goes above the cap (it is rejected when the
   pool is already at or over the cap, so overflow from the landing reserve or a
   Waystation is never trimmed), clears `manpowerBanked`, and is rejected while
