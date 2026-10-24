@@ -144,3 +144,28 @@ export const landingGroundMenuLine = (state: DockLandingState & { readonly me: s
   const names = ordered.map(([key, mine]) => `${mine ? "your dock" : "the dock"} at (${key.replace(",", ", ")})`);
   return `Landing ground: sea crossings from ${names.join(" or ")} can come ashore here.`;
 };
+
+const ASHORE_CARDINALS: ReadonlyArray<readonly [number, number]> = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+
+/**
+ * Which way a landing at (x, y) comes ashore: a unit step pointing away from
+ * the tile's water side(s), for the landing chevrons both renderers draw.
+ * Two opposite water sides cancel out; the first one found then wins. Land
+ * with no water beside it points south.
+ */
+export const landingAshoreDirection = (tiles: ReadonlyMap<string, Tile>, x: number, y: number): { dx: number; dy: number } => {
+  const terrainAt = clientTerrainAt(tiles);
+  let dx = 0;
+  let dy = 0;
+  let first: readonly [number, number] | undefined;
+  for (const [ox, oy] of ASHORE_CARDINALS) {
+    const terrain = terrainAt((x + ox + WORLD_WIDTH) % WORLD_WIDTH, (y + oy + WORLD_HEIGHT) % WORLD_HEIGHT);
+    if (terrain !== "SEA" && terrain !== "COASTAL_SEA") continue;
+    first ??= [ox, oy];
+    dx -= ox;
+    dy -= oy;
+  }
+  if (dx === 0 && dy === 0) return first ? { dx: -first[0], dy: -first[1] } : { dx: 0, dy: 1 };
+  const length = Math.hypot(dx, dy);
+  return { dx: dx / length, dy: dy / length };
+};

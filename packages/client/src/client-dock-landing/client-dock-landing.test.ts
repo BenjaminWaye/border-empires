@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DockPair, Tile } from "../client-types.js";
 import { drawLandingGround2D } from "./client-dock-landing-2d.js";
-import { landingGroundKeysForSelection, landingGroundMenuLine, seaLaneSupplyLinksFor } from "./client-dock-landing.js";
+import { landingAshoreDirection, landingGroundKeysForSelection, landingGroundMenuLine, seaLaneSupplyLinksFor } from "./client-dock-landing.js";
 
 // My dock at (5,5) links to a far dock at (40,40). The far harbour has sea to
 // the north (row 39), so (39,40) and (41,40) are beaches; (40,41) is inland.
@@ -62,20 +62,41 @@ describe("landingGroundMenuLine", () => {
   });
 });
 
+describe("landingAshoreDirection", () => {
+  it("points away from the water side", () => {
+    // Far harbour: sea to the north, so landings come ashore heading south.
+    expect(landingAshoreDirection(world().tiles, 40, 40)).toEqual({ dx: 0, dy: 1 });
+    // My beach (5,4): sea to the west only.
+    expect(landingAshoreDirection(world().tiles, 5, 4)).toEqual({ dx: 1, dy: 0 });
+  });
+
+  it("points south on land with no water beside it", () => {
+    expect(landingAshoreDirection(world().tiles, 40, 41)).toEqual({ dx: 0, dy: 1 });
+  });
+});
+
 describe("drawLandingGround2D", () => {
-  it("tints every landing tile of the selection (the 3D overlay reads the same keys)", () => {
-    const fills: Array<[number, number]> = [];
+  it("marks every landing tile of the selection with a tint, a waterline glow and a chevron (the 3D overlay reads the same keys)", () => {
+    const tileFills: Array<[number, number]> = [];
+    const waterlines: Array<[number, number]> = [];
+    let chevrons = 0;
+    const gradient = { addColorStop: () => {} };
     const ctx = {
       save: () => {}, restore: () => {}, setLineDash: () => {}, strokeRect: () => {},
-      fillRect: (x: number, y: number) => fills.push([x, y]),
-      fillStyle: "", strokeStyle: "", lineWidth: 1, globalAlpha: 1
-    } as unknown as CanvasRenderingContext2D;
-    drawLandingGround2D(ctx, { ...world(), selected: { x: 41, y: 40 } }, {
+      beginPath: () => {}, moveTo: () => {}, lineTo: () => {}, stroke: () => { chevrons += 1; },
+      createLinearGradient: () => gradient,
+      fillRect(x: number, y: number) { (this.fillStyle === gradient ? waterlines : tileFills).push([x, y]); },
+      fillStyle: "" as unknown, strokeStyle: "", lineWidth: 1, globalAlpha: 1
+    };
+    drawLandingGround2D(ctx as unknown as CanvasRenderingContext2D, { ...world(), selected: { x: 41, y: 40 } }, {
       tileCenter: (x, y) => ({ sx: x * 10, sy: y * 10 }),
       size: 10,
       viewportWidth: 1_000,
       viewportHeight: 1_000
     });
-    expect(fills).toHaveLength(3);
+    expect(tileFills).toHaveLength(3);
+    // All three tiles face the sea to the north: one band each, starting at the tile's north edge.
+    expect(waterlines.map(([, y]) => y).sort()).toEqual([395 - 4.2, 395 - 4.2, 395 - 4.2]);
+    expect(chevrons).toBe(3);
   });
 });
