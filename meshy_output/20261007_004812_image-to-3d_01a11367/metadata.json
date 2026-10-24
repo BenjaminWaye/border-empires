@@ -1,0 +1,20 @@
+{
+  "project_name": "image-to-3d",
+  "folder": "20261007_004812_image-to-3d_01a11367",
+  "root_task_id": "01a11367-2ee9-72ab-8379-98deeee3be43",
+  "created_at": "2026-10-06T22:48:12.445Z",
+  "updated_at": "2026-10-06T22:49:05.307Z",
+  "tasks": [
+    {
+      "task_id": "01a11367-2ee9-72ab-8379-98deeee3be43",
+      "task_type": "image-to-3d",
+      "stage": "model",
+      "status": "SUCCEEDED",
+      "files": [
+        "model.glb",
+        "model_base_color.png"
+      ],
+      "created_at": "2026-10-06T22:49:05.307Z"
+    }
+  ]
+}

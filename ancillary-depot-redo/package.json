@@ -1,0 +1,17 @@
+{
+  "name": "ancillary-depot-redo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "storybook": "storybook dev -p 6040 --no-open"
+  },
+  "devDependencies": {
+    "@storybook/addon-essentials": "^8.6.14",
+    "@storybook/blocks": "^8.6.14",
+    "@storybook/html": "^8.6.14",
+    "@storybook/html-vite": "^8.6.14",
+    "three": "^0.165.0",
+    "vite": "^5.3.4"
+  }
+}

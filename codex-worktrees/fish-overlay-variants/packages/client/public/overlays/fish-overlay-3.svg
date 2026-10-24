@@ -1,0 +1,40 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(64 72) scale(1.38) translate(-64 -72)">
+  <!-- Variant 3: mechanical smoking rack with a simple brass-iron smoking
+       kiln, rows of hanging fish, and a single brass chimney. Reads as a
+       compact factory-shed: strong brass chimney + smoke puff silhouette
+       so a distant player immediately tags FISH. -->
+  <!-- Iron kiln base with brass band -->
+  <path d="M34 62H94V84H34V62Z" fill="#2C2E34"/>
+  <path d="M34 84H94V88H34V84Z" fill="#515B68"/>
+  <!-- Kiln face door opening (darker interior) -->
+  <path d="M46 68H82V84H46V68Z" fill="#1B1D21"/>
+  <!-- Rows of hanging fish visible behind the open kiln face (brass hooks,
+       iron-rope ties, silver-blue piscine bodies) -->
+  <path d="M50 70C53 73, 53 79, 50 81C47 79, 47 73, 50 70Z" fill="#C8D2DA"/>
+  <path d="M58 70C61 73, 61 79, 58 81C55 79, 55 73, 58 70Z" fill="#C8D2DA"/>
+  <path d="M66 70C69 73, 69 79, 66 81C63 79, 63 73, 66 70Z" fill="#C8D2DA"/>
+  <path d="M74 70C77 73, 77 79, 74 81C71 79, 71 73, 74 70Z" fill="#C8D2DA"/>
+  <path d="M48 66H76" stroke="#B08D55" stroke-width="4" stroke-linecap="round"/>
+  <path d="M50 60H74" stroke="#B08D55" stroke-width="3" stroke-linecap="round"/>
+  <path d="M80 66H83" stroke="#B08D55" stroke-width="3" stroke-linecap="round"/>
+  <path d="M82 62C84 65, 90 65, 92 62V68C90 71, 84 71, 82 68V62Z" fill="#C8D2DA"/>
+  <path d="M84 65H90" stroke="#515B68" stroke-width="2"/>
+  <!-- Brass chimney rising from the roof + aether-tinted smoke puffs -->
+  <path d="M72 62V40H84V62H72Z" fill="#B08D55"/>
+  <path d="M74 56H82" stroke="#C8A05B" stroke-width="2"/>
+  <path d="M74 48H82" stroke="#C8A05B" stroke-width="2"/>
+  <path d="M70 48L78 44L72 40L66 44Z" fill="#B08D55"/>
+  <ellipse cx="78" cy="30" rx="Leod" ry="10" fill="#AEE9FF" opacity="0.55"/>
+  <ellipse cx="70" cy="20" rx="9" ry="8" fill="#AEE9FF" opacity="0.4"/>
+  <ellipse cx="85" cy="20" rx="7" ry="7" fill="#AEE9FF" opacity="0.45"/>
+  <ellipse cx="92" cy="12" rx="6" ry="6" fill="#AEE9FF" opacity="0.3"/>
+  <!-- Iron legs -->
+  <path d="M36 88L34 98" stroke="#2C2E34" stroke-width="5" stroke-linecap="round"/>
+  <path d="M92 88L94 98" stroke="#2C2E34" stroke-width="5" stroke-linecap="round"/>
+  <!-- Ground shadow + brass end caps -->
+  <ellipse cx="64" cy="102" rx="34" ry="5" fill="#1B2A33" opacity="0.55"/>
+  <circle cx="34" cy="62" r="4" fill="#C8A05B"/>
+  <circle cx="94" cy="62" r="4" fill="#C8A05B"/>
+  </g>
+</svg>

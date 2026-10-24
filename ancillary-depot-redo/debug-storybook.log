@@ -1,0 +1,34 @@
+[16:17:15.460] [INFO] storybook v10.6.1
+[16:17:17.055] [DEBUG] Getting package.json info for /private/tmp/ancillary-depot-redo/package.json...
+[16:17:17.063] [WARN] Could not resolve addon "@storybook/addon-essentials", skipping. Is it installed?
+[16:17:17.065] [ERROR] [38;2;241;97;97mSB_CORE-SERVER_0002 (CriticalPresetLoadError): Storybook failed to load the following preset: @storybook/html-vite/preset.
+
+Please check whether your setup is correct, the Storybook dependencies (and their peer dependencies) are installed correctly and there are no package version clashes.
+
+If you believe this is a bug, please open an issue on Github.
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@storybook/html-vite' imported from /Users/benjaminwaye/.npm/_npx/6fe9a9991b157df1/node_modules/storybook/dist/_node-chunks/chunk-563U7QZ2.js
+    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)
+    at packageResolve (node:internal/modules/esm/resolve:768:81)
+    at moduleResolve (node:internal/modules/esm/resolve:859:18)
+    at defaultResolve (node:internal/modules/esm/resolve:991:11)
+    at nextResolve (node:internal/modules/esm/hooks:769:28)
+    at AsyncLoaderHooksOnLoaderHookWorker.resolve (node:internal/modules/esm/hooks:265:30)
+    at MessagePort.handleMessage (node:internal/modules/esm/worker:251:24)
+    at [nodejs.internal.kHybridDispatch] (node:internal/event_target:843:20)
+    at MessagePort.<anonymous> (node:internal/per_context/messageport:23:28)
+
+More info: 
+[39m
+    at loadPreset (file:///Users/benjaminwaye/.npm/_npx/6fe9a9991b157df1/node_modules/storybook/dist/_node-chunks/chunk-A5M3SXLF.js:13257:13)
+    at async Promise.all (index 0)
+    at async loadPresets (file:///Users/benjaminwaye/.npm/_npx/6fe9a9991b157df1/node_modules/storybook/dist/_node-chunks/chunk-A5M3SXLF.js:13266:73)
+    at async getPresets (file:///Users/benjaminwaye/.npm/_npx/6fe9a9991b157df1/node_modules/storybook/dist/_node-chunks/chunk-A5M3SXLF.js:13297:23)
+    at async buildDevStandalone (file:///Users/benjaminwaye/.npm/_npx/6fe9a9991b157df1/node_modules/storybook/dist/core-server/index.js:9254:52)
+    at async withTelemetry (file:///Users/benjaminwaye/.npm/_npx/6fe9a9991b157df1/node_modules/storybook/dist/_node-chunks/chunk-IRB26IIA.js:142:12)
+    at async dev (file:///Users/benjaminwaye/.npm/_npx/6fe9a9991b157df1/node_modules/storybook/dist/bin/core.js:4877:3)
+    at async _Command.<anonymous> (file:///Users/benjaminwaye/.npm/_npx/6fe9a9991b157df1/node_modules/storybook/dist/bin/core.js:4985:3)
+[16:17:17.068] [WARN] Broken build, fix the error above.
+You may need to refresh the browser.
+[16:17:17.069] [WARN] Could not resolve addon "@storybook/addon-essentials", skipping. Is it installed?
+[16:17:17.072] [INFO] Storybook collects completely anonymous usage telemetry. We use it to shape Storybook's roadmap and prioritize features. You can learn more, including how to opt out, at https://storybook.js.org/telemetry

@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "projects": [
+    {
+      "folder": "20261007_004812_image-to-3d_01a11367",
+      "prompt": "",
+      "task_type": "image-to-3d",
+      "root_task_id": "01a11367-2ee9-72ab-8379-98deeee3be43",
+      "created_at": "2026-10-06T22:48:12.445Z",
+      "updated_at": "2026-10-06T22:49:05.307Z",
+      "task_count": 1
+    }
+  ]
+}
