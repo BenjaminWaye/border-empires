@@ -5,6 +5,7 @@
 // (client-map-3d-popup-marine/popup-marine-garrison.ts). The 2D renderer's
 // counterpart is client-map-2d-capture-hold-overlay.ts.
 import { WORLD_HEIGHT, WORLD_WIDTH, isCaptureHoldActive } from "@border-empires/shared";
+import { knownSquadGearFor } from "./client-battle-overlay/client-battle-overlay.js";
 import { isHoldingCapturedGround, liveCaptureHoldKeys } from "./client-capture-hold/client-capture-hold.js";
 import type { GarrisonFacing, GarrisonRenderEntry } from "./client-map-3d-popup-marine/popup-marine-garrison.js";
 import { toroidDelta } from "./client-map-3d-pointer-pick.js";
@@ -12,7 +13,7 @@ import { squadColorForOwner } from "./client-planetary-defense-style.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile } from "./client-types.js";
 
-type GarrisonState = Pick<ClientState, "tiles" | "activeBattles">;
+type GarrisonState = Pick<ClientState, "tiles" | "activeBattles" | "squadGearByOwner">;
 
 const TILE_CENTER_OFFSET = 0.5;
 // The overlay only has marine slots for this many squads at once anyway, so
@@ -119,7 +120,8 @@ export function buildCaptureHoldGarrisons(
       color: squadColorForOwner(tile.ownerId, playerColorFor),
       hashSeed: tile.x * 92821 + tile.y,
       // captureHoldUntil is server epoch ms; the overlay ticks on performance.now().
-      endsAt: nowMs + (tile.captureHoldUntil! - nowEpochMs)
+      endsAt: nowMs + (tile.captureHoldUntil! - nowEpochMs),
+      gear: knownSquadGearFor(state, tile.ownerId)
     });
   }
   for (const key of facingByTile.keys()) if (!live.has(key)) facingByTile.delete(key);

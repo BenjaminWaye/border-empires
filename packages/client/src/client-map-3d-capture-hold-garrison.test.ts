@@ -11,7 +11,7 @@ const NOW = 5_000;
 // The tile merge feeds the held-tile index in the real client; do it here.
 const makeState = (tiles: Tile[], activeBattles: ClientState["activeBattles"] = new Map()) => {
   for (const t of tiles) noteCaptureHoldDeadline(keyFor(t.x, t.y), t.captureHoldUntil, NOW_EPOCH);
-  return { tiles: new Map(tiles.map((t) => [keyFor(t.x, t.y), t])), activeBattles };
+  return { tiles: new Map(tiles.map((t) => [keyFor(t.x, t.y), t])), activeBattles, squadGearByOwner: new Map() };
 };
 
 const held = (overrides: Partial<Tile> = {}): Tile => ({

@@ -1,4 +1,4 @@
-import { AnimationMixer, MeshStandardMaterial, Object3D, Quaternion, Scene, SkinnedMesh, Vector3, type AnimationAction } from "three";
+import { AnimationMixer, MeshStandardMaterial, Object3D, Quaternion, Scene, SkinnedMesh, Vector3, type AnimationAction, type Texture } from "three";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import {
   firstSkinnedMesh,
@@ -6,6 +6,8 @@ import {
   type PopupMarineTemplate
 } from "./client-map-3d-popup-marine/popup-marine-asset.js";
 import { MARINE_MODEL_SCALE } from "./client-map-3d-popup-marine/popup-marine-timeline.js";
+import type { SquadGear } from "./client-map-3d-popup-marine/popup-marine-gear.js";
+import { createMarineMaterial } from "./client-map-3d-popup-marine/popup-marine-trim-material.js";
 
 // Muster transit overlay: a company marching hop-by-hop along the actual
 // owned-territory path from a mustering flag to the enemy tile it's
@@ -82,6 +84,9 @@ export type MusterTransit = {
   // troops on the target tile for the length of its frontier-claim timer.
   standUntil?: number;
   ownerColor: string;
+  // The marching empire's weapons-factory gear; titanium shows as trim on
+  // the company's shoulder plates and chest, same as in battle.
+  gear?: SquadGear;
 };
 
 // Builds a real tile-by-tile route between two points by king-move stepping
@@ -122,26 +127,25 @@ const easeInOutSine = (t: number): number => -(Math.cos(Math.PI * t) - 1) / 2;
 type Soldier = {
   root: Object3D;
   material: MeshStandardMaterial;
+  setTitaniumTrim: (on: boolean) => void;
   mixer: AnimationMixer;
   action: AnimationAction;
   idleAction: AnimationAction | undefined;
   phase: number;
 };
 
-// Same paint-times-tint material the battle overlay uses (see
-// popup-marine-overlay-fx.ts's buildMaterial) — a separate instance per pool
-// rather than a shared import so this overlay can dispose its own materials
-// independently of the battle overlay's lifecycle.
-const buildMaterial = (): MeshStandardMaterial =>
-  new MeshStandardMaterial({ color: "#ffffff", vertexColors: true, roughness: 0.4, metalness: 0.4 });
-
-export const createMusterTransitOverlay = (scene: Scene): MusterTransitOverlay => {
+// Same paint-times-tint material (and titanium trim) the battle overlay uses
+// (popup-marine-trim-material.ts) — a separate instance per soldier so this
+// overlay can dispose its own materials independently of the battle
+// overlay's lifecycle. envMap is the shared building environment map the
+// trimmed plates reflect.
+export const createMusterTransitOverlay = (scene: Scene, envMap?: Texture): MusterTransitOverlay => {
   let disposed = false;
   let pool: Soldier[] = [];
 
   const makeSoldier = (template: PopupMarineTemplate, index: number): Soldier => {
     const root = cloneSkinned(template.root) as Object3D;
-    const material = buildMaterial();
+    const { material, setTitaniumTrim } = createMarineMaterial(envMap);
     const mesh = firstSkinnedMesh(root);
     mesh.material = material;
     mesh.frustumCulled = false;
@@ -165,7 +169,7 @@ export const createMusterTransitOverlay = (scene: Scene): MusterTransitOverlay =
       idleAction.setEffectiveWeight(0);
     }
     scene.add(root);
-    return { root, material, mixer, action: action!, idleAction, phase: (index % SOLDIERS_PER_COMPANY) * PHASE_STEP };
+    return { root, material, setTitaniumTrim, mixer, action: action!, idleAction, phase: (index % SOLDIERS_PER_COMPANY) * PHASE_STEP };
   };
 
   const disposeSoldier = (soldier: Soldier): void => {
@@ -261,6 +265,7 @@ export const createMusterTransitOverlay = (scene: Scene): MusterTransitOverlay =
         soldier.root.quaternion.copy(tmpQuat);
         soldier.root.scale.setScalar(MARINE_MODEL_SCALE);
         soldier.material.color.set(e.ownerColor);
+        soldier.setTitaniumTrim(e.gear?.titanium === true);
         soldier.root.visible = true;
 
         // Blend between the two looping clips by weight rather than

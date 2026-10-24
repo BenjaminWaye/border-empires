@@ -38,7 +38,8 @@
 // client-map-2d-capture-hold-overlay.ts); see AGENTS.md's renderer-parity note and the PR
 // description for why that's a documented scope decision, not a
 // regression.
-import { Matrix4, Quaternion, Scene, Vector3 } from "three";
+import { Matrix4, Quaternion, Scene, Vector3, type Texture } from "three";
+import type { SquadGear } from "./popup-marine-gear.js";
 import { loadPopupMarineTemplate } from "./popup-marine-asset.js";
 import { createMarineSlot, disposeMarineSlot, playMarineStance, type MarineSlot } from "./popup-marine-slot.js";
 import {
@@ -104,7 +105,10 @@ const MAX_BOLTS = MAX_MARINES * 2 * 3;
 
 export type BattleOverlayFx = ReturnType<typeof createPopupMarineOverlayFx>;
 
-export function createPopupMarineOverlayFx(scene: Scene) {
+/** `envMap`: the shared building environment map, reflected by the titanium
+ * trim of an empire owning a Titanium Weapons Factory
+ * (popup-marine-trim-material.ts). */
+export function createPopupMarineOverlayFx(scene: Scene, envMap?: Texture) {
   const flashFx = createFlashMesh(scene, FLASH_SIZE, MAX_MARINES * 2);
   const flashMesh = flashFx.mesh;
   const shots = createShotRenderer(scene, MARINE_MODEL_SCALE, MAX_BOLTS);
@@ -126,8 +130,8 @@ export function createPopupMarineOverlayFx(scene: Scene) {
   loadPopupMarineTemplate()
     .then((template) => {
       if (disposed) return;
-      attackerPool = Array.from({ length: MAX_MARINES }, (_, i) => createMarineSlot(scene, template, i));
-      defenderPool = Array.from({ length: MAX_MARINES }, (_, i) => createMarineSlot(scene, template, i));
+      attackerPool = Array.from({ length: MAX_MARINES }, (_, i) => createMarineSlot(scene, template, i, envMap));
+      defenderPool = Array.from({ length: MAX_MARINES }, (_, i) => createMarineSlot(scene, template, i, envMap));
     })
     .catch((err: unknown) => {
       // Nothing renders rather than crashing the whole 3D map: the overlay's
@@ -169,6 +173,7 @@ export function createPopupMarineOverlayFx(scene: Scene) {
   const writeMarine = (
     slot: MarineSlot,
     color: string,
+    gear: SquadGear | undefined,
     tileX: number,
     tileY: number,
     tileZ: number,
@@ -187,6 +192,7 @@ export function createPopupMarineOverlayFx(scene: Scene) {
     slot.root.quaternion.copy(tmpQuat);
     slot.root.scale.setScalar(Math.max(0, pose.scale) * MARINE_MODEL_SCALE);
     slot.material.color.set(color);
+    slot.setTitaniumTrim(gear?.titanium === true);
     slot.silhouette.material.color.set(color);
     // A falling marine is sinking out of the fight on purpose; don't x-ray
     // it back up through the ground (see popup-marine-occlusion-silhouette.ts).
@@ -242,10 +248,10 @@ export function createPopupMarineOverlayFx(scene: Scene) {
     let slotCount = 0;
     shots.beginFrame();
 
-    const writeOne = (pool: MarineSlot[], writeIndex: number, color: string, tileX: number, tileY: number, tileZ: number, pose: MarinePose): void => {
+    const writeOne = (pool: MarineSlot[], writeIndex: number, color: string, gear: SquadGear | undefined, tileX: number, tileY: number, tileZ: number, pose: MarinePose): void => {
       const slot = pool[writeIndex];
       if (!slot) return;
-      writeMarine(slot, color, tileX, tileY, tileZ, pose, nowMs);
+      writeMarine(slot, color, gear, tileX, tileY, tileZ, pose, nowMs);
       flashWrite = writeFlash(flashWrite, slot, pose);
     };
 
@@ -281,13 +287,14 @@ export function createPopupMarineOverlayFx(scene: Scene) {
         const fwdZ = isAttacker ? uz : -uz;
         const pool = isAttacker ? attackerPool : defenderPool;
         const color = isAttacker ? b.attackerColor : b.defenderColor;
+        const gear = isAttacker ? b.attackerGear : b.defenderGear;
 
         shots.beginSide(side);
         for (let i = 0; i < MARINES_PER_SIDE; i++) {
           const garrisonStart = isAttacker ? undefined : garrisonStartFor(b.defenderGarrison, b.hashSeed, i);
           const pose = computeBattlePose(b, side, i, nowMs, entryLocalX, entryLocalZ, perpX, perpZ, fwdX, fwdZ, battleVictim?.index, garrisonStart);
           const writeIndex = isAttacker ? atkWrite : defWrite;
-          writeOne(pool, writeIndex, color, tileX, tileY, tileZ, pose);
+          writeOne(pool, writeIndex, color, gear, tileX, tileY, tileZ, pose);
           // A marine that is dead/collapsed this frame has stopped shooting.
           const down = pose.fallT > 0 || pose.scale <= 0;
           shots.push(
@@ -301,7 +308,7 @@ export function createPopupMarineOverlayFx(scene: Scene) {
           if (isAttacker) atkWrite++; else defWrite++;
         }
       }
-      shots.emit(b.hashSeed, b.attackerColor, b.defenderColor);
+      shots.emit(b.hashSeed, b.attackerColor, b.defenderColor, b.attackerGear, b.defenderGear);
     }
 
     for (let s = 0; s < skirmishes.length && slotCount < MAX_CONCURRENT_BATTLES; s++, slotCount++) {
@@ -335,13 +342,14 @@ export function createPopupMarineOverlayFx(scene: Scene) {
         const fwdZ = isAttacker ? uz : -uz;
         const pool = isAttacker ? attackerPool : defenderPool;
         const color = isAttacker ? b.attackerColor : b.defenderColor;
+        const gear = isAttacker ? b.attackerGear : b.defenderGear;
 
         shots.beginSide(side);
         for (let i = 0; i < MARINES_PER_SIDE; i++) {
           const garrisonStart = isAttacker ? undefined : garrisonStartFor(b.defenderGarrison, b.hashSeed, i);
           const pose = computeSkirmishPose(b, side, i, nowMs, entryLocalX, entryLocalZ, perpX, perpZ, fwdX, fwdZ, skirmishVictim?.index, garrisonStart);
           const writeIndex = isAttacker ? atkWrite : defWrite;
-          writeOne(pool, writeIndex, color, tileX, tileY, tileZ, pose);
+          writeOne(pool, writeIndex, color, gear, tileX, tileY, tileZ, pose);
           const down = pose.fallT > 0 || pose.scale <= 0;
           shots.push(
             side,
@@ -354,13 +362,13 @@ export function createPopupMarineOverlayFx(scene: Scene) {
           if (isAttacker) atkWrite++; else defWrite++;
         }
       }
-      shots.emit(b.hashSeed, b.attackerColor, b.defenderColor);
+      shots.emit(b.hashSeed, b.attackerColor, b.defenderColor, b.attackerGear, b.defenderGear);
     }
 
     for (let g = 0; g < garrisons.length && slotCount < MAX_CONCURRENT_BATTLES; g++, slotCount++) {
       const garrison = garrisons[g]!;
       for (let i = 0; i < MARINES_PER_SIDE; i++) {
-        writeOne(defenderPool, defWrite, garrison.color, garrison.tgtWorldX, garrison.tgtSurfaceY, garrison.tgtWorldZ, computeGarrisonPose(garrison, i, nowMs));
+        writeOne(defenderPool, defWrite, garrison.color, garrison.gear, garrison.tgtWorldX, garrison.tgtSurfaceY, garrison.tgtWorldZ, computeGarrisonPose(garrison, i, nowMs));
         defWrite++;
       }
     }

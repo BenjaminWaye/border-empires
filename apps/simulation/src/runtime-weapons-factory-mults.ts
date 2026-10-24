@@ -10,6 +10,7 @@ import {
   arsenalMultiplierForFactoryCount,
   type BuildableStructureType
 } from "@border-empires/shared";
+import type { BattleWarGear } from "@border-empires/sim-protocol";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { countSupportedStructures } from "./economy-network/economy-network.js";
@@ -86,6 +87,24 @@ export const hasTitaniumFactory = (ctx: WeaponsFactoryMultContext, ownerId: stri
   ctx.ownedStructureCountForPlayer(ownerId, "TITANIUM_WEAPONS_FACTORY") > 0;
 export const hasUmbriteFactory = (ctx: WeaponsFactoryMultContext, ownerId: string): boolean =>
   ctx.ownedStructureCountForPlayer(ownerId, "UMBRITE_WEAPONS_FACTORY") > 0;
+// Cosmetic battle kit for one side's squad (CombatBroadcastPayload's
+// attackerGear/defenderGear): one flag per weapons factory type the empire
+// owns any of -- the same existence check the "unarmed" vulnerability below
+// uses, so the look and the combat label never disagree. A new weapons
+// factory that should show in battle adds a row here (and its specialists on
+// the client: popup-marine-gear.ts / popup-marine-units.ts).
+const WAR_GEAR_FLAG_BY_FACTORY: ReadonlyArray<readonly [BuildableStructureType, keyof BattleWarGear]> = [
+  ["TITANIUM_WEAPONS_FACTORY", "titaniumArmor"],
+  ["UMBRITE_WEAPONS_FACTORY", "umbriteArms"]
+];
+export const battleWarGearFor = (ctx: WeaponsFactoryMultContext, ownerId: string | undefined): BattleWarGear | undefined => {
+  if (!ownerId) return undefined;
+  const gear: BattleWarGear = {};
+  for (const [structureType, flag] of WAR_GEAR_FLAG_BY_FACTORY) {
+    if (ctx.ownedStructureCountForPlayer(ownerId, structureType) > 0) gear[flag] = true;
+  }
+  return Object.keys(gear).length > 0 ? gear : undefined;
+};
 const hasWarIndustry = (ctx: WeaponsFactoryMultContext, ownerId: string): boolean =>
   hasTitaniumFactory(ctx, ownerId) && hasUmbriteFactory(ctx, ownerId);
 export const noWarIndustryVulnerabilityMultForDefender = (ctx: WeaponsFactoryMultContext, defenderOwnerId: string | undefined): number =>

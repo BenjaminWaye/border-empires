@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { syncMusterTransitOverlay } from "./client-map-3d-capture-overlays.js";
+import { syncMusterTransitOverlay } from "./client-map-3d-muster-transit-sync.js";
 import { CLASH_MS } from "./client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import type { Heightfield } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 import type { MusterTransit, MusterTransitOverlay } from "./client-map-3d-muster-transit-overlay.js";
@@ -41,7 +41,10 @@ const baseBattle: ActiveBattleOverlay = {
   fromSkirmish: false
 };
 
-const makeState = (activeBattles: ClientState["activeBattles"]): ClientState =>
+const makeState = (
+  activeBattles: ClientState["activeBattles"],
+  squadGearByOwner: ClientState["squadGearByOwner"] = new Map()
+): ClientState =>
   ({
     camX: 0,
     camY: 0,
@@ -51,6 +54,8 @@ const makeState = (activeBattles: ClientState["activeBattles"]): ClientState =>
     outgoingMusterAttacksByTile: new Map(),
     incomingAttacksByTile: new Map(),
     deferredAttackByTile: new Map(),
+    tiles: new Map(),
+    squadGearByOwner,
     activeBattles
   }) as unknown as ClientState;
 
@@ -98,5 +103,28 @@ describe("syncMusterTransitOverlay -- shield reinforcement march", () => {
     syncMusterTransitOverlay(state, () => "#color", makeHeightfield(), overlay, 0, 0, () => "");
 
     expect(overlay.addTransit).toHaveBeenCalledTimes(2);
+  });
+
+  it("marches the reinforcement in the defender's weapons-factory gear, not the local player's", () => {
+    const overlay = makeOverlay();
+    const state = makeState(
+      new Map([["10,11", { ...baseBattle, shieldX: 10, shieldY: 15 }]]),
+      new Map([["defender", { titanium: true }]])
+    );
+
+    syncMusterTransitOverlay(state, () => "#color", makeHeightfield(), overlay, 0, 0, () => "");
+
+    const transit = (overlay.addTransit as ReturnType<typeof vi.fn>).mock.calls[0]![0] as MusterTransit;
+    expect(transit.gear).toEqual({ titanium: true });
+  });
+
+  it("prefers the gear the battle broadcast carried for the defender", () => {
+    const overlay = makeOverlay();
+    const state = makeState(new Map([["10,11", { ...baseBattle, shieldX: 10, shieldY: 15, defenderGear: { umbrite: true } }]]));
+
+    syncMusterTransitOverlay(state, () => "#color", makeHeightfield(), overlay, 0, 0, () => "");
+
+    const transit = (overlay.addTransit as ReturnType<typeof vi.fn>).mock.calls[0]![0] as MusterTransit;
+    expect(transit.gear).toEqual({ umbrite: true });
   });
 });
