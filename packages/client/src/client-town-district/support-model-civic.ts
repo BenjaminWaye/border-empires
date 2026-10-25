@@ -40,7 +40,9 @@ export const buildCivic = (t: TownBuilders, kind: string): boolean => {
       windowStrip(t, 0, 0.18, -0.084, 5);
       t.body.box(0, 0.005, 0.09, 0.18, 0.018, 0.2, "paving");
       t.body.cylinder(0, 0.025, 0.1, 0.04, 0.055, 0.03, "stoneLight", 8);
-      t.body.gem(0, 0.095, 0.1, 0.022, 0.065, "brass");
+      for (const x of [-0.045, 0.045]) crate(t, x, 0.1);
+      t.body.box(0, 0.083, 0.1, 0.15, 0.013, 0.075, "iron");
+      t.glow.box(0, 0.098, 0.142, 0.08, 0.005, 0.004, "aether");
       t.body.box(0, 0.283, -0.15, 0.12, 0.05, 0.06, "stoneLight");
       t.glow.box(0, 0.298, -0.115, 0.075, 0.008, 0.004, "aether");
       return true;

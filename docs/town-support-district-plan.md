@@ -9,8 +9,8 @@ Implementation progress: the production kit, all 45 remodeled models, generated
 2D art, authoritative anchor projection, live renderer adapters and bounded
 routing are implemented on the feature branch. The new production gallery
 covers construction, removal, inactivity, dormancy, town tiers and slopes.
-The refined art pass gives all 45 structures distinct advanced-technology
-massing and matching exports; a three-view monochrome guard compares all 990
+The refined art pass gives the 43 current structures and two saved retired
+types distinct advanced-technology massing and matching exports; a three-view monochrome guard compares all 990
 model pairs. Focused model/network/instance tests and simulation login/reveal
 tests pass.
 See [the implementation reference](town-support-districts.md) for entrypoints

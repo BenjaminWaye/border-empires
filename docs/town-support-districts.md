@@ -56,18 +56,49 @@ Titanium processing uses a low rolling mill; Umbrite processing uses a tall
 sealed retort. Weapons factories use a rectangular press and a forked containment
 crucible respectively. High-yield plants add substantial elevated processing
 frames or paired recovery towers, so upgrades remain legible without colour.
-The civic set separates a record tower, circular colonnaded exchange, U-shaped
-palace and logistics shed. Instruments, reserves and Project commissions have
+The civic set separates a record tower, circular colonnaded exchange and
+provincial provisioning court. Retired logistics art is isolated from the
+current-building review. Instruments, reserves and Project commissions have
 their own outlines instead of sharing a generic tower or factory shell.
 
-`IdentityReview` in the production Storybook displays all 45 named exports,
-with monochrome and 64px controls. A regression guard rasterizes the actual
+`IdentityReview` in the production Storybook is an orbitable, lit 3D inspection
+of the 43 current buildings, with a verified gameplay role and visual brief
+beside each model. `RetiredCompatibility` separately displays the two retired
+save types. The primary review never lists those as current buildables. A regression guard rasterizes the actual
 uncoloured model geometry from three camera directions, excludes shared slabs
 and effects, and compares all 990 pairs. Any pair with more than 86% combined
 silhouette overlap fails. This catches near-duplicate massing; human review at
 gameplay zoom still matters. The existing footprint, height, material-layer and
 3,000-triangle budgets remain enforced for every model. The revised catalogue
 peaks at 2,848 triangles, six layers and 0.555 tile units in height.
+
+## Verify the building before designing it
+
+Do not infer a building's purpose from its name, an older model, an AI planner's
+build preference, or historical tech names. Audit the current implementation
+before making its visual brief:
+
+1. `packages/shared/src/structure-registry-index.ts` and
+   `structure-registry-economic.ts` establish whether it is buildable.
+   Quartermaster's Office and Weapons Workshop are retired save-compatible
+   types, not current construction options.
+2. `packages/shared/src/config.ts`, simulation build-completion/population
+   modules and the `game-domain/structure-modifier-catalog/` establish effects.
+   Incubation Engine grants +10,000 population once and +10% ongoing growth;
+   FOOD is its input slot, not an output or food-efficiency effect.
+3. The lore bible establishes fiction. Current Project component descriptions
+   identify the commissioned part: Orbital Array is a tracking dish, Shield
+   Lattice is a hexagonal panel, Census Engine is a rotary population index.
+4. Record the resulting role and large identifying assembly in
+   `district-model-briefs.ts`, then review the actual 3D model. Population
+   briefs reuse the constant-backed structure description so they cannot
+   contradict the menu's corrected figures.
+
+The previous food claim for Incubation Engine and growth claim for Census Hall
+were stale menu copy. They have been replaced, with failing-before/passing-after
+regressions in `client-population-structure-info/`. Use the
+[population reference](product/resource-and-manpower-economy.md#incubation-engine-and-census-hall)
+for the current source trail.
 
 ## Routing, terrain and lifecycle
 
@@ -151,19 +182,21 @@ on the same 24-building ordinary-support fixture and camera. The button warms
 calls, triangles, resources and cold creation time. This isolates the model
 change; it does not represent a full game frame or physical mobile hardware.
 
-Local desktop sample, 2026-10-25 (millisecond timers are quantized):
+Latest local desktop sample, 2026-10-25, during the full client test run
+(millisecond timers are quantized and background CPU contention was present):
 
 | Measurement | Existing, full | District, full | Existing, reduced | District, reduced |
 |---|---:|---:|---:|---:|
-| p95 completed frame, ms | 0.8 | 0.3 | 0.6 | 0.3 |
-| Draw calls | 200 | 104 | 200 | 84 |
-| Triangles | 31,260 | 65,486 | 31,260 | 63,326 |
-| Uploaded geometries | 267 | 102 | 267 | 82 |
-| Cold creation, ms | 12.7 | 27.6 | 11.2 | 33.3 |
+| p95 completed frame, ms | 8.9 | 0.3 | 5.4 | 0.3 |
+| Draw calls | 200 | 103 | 200 | 83 |
+| Triangles | 31,260 | 64,794 | 31,260 | 62,634 |
+| Uploaded geometries | 267 | 101 | 267 | 81 |
+| Cold creation, ms | 45.4 | 46.8 | 16.6 | 38.1 |
 
-The samples pass the proposed desktop frame-regression gate. Baseline timings
-varied between runs on the shared desktop; these are local observations, not
-a device-independent speedup estimate. More triangles
+The samples have fewer draw calls and show no frame regression in this local
+fixture. Baseline p95 varied widely with background load (0.6–8.9ms across
+runs); draw counts are the more stable comparison. These elapsed times are
+local observations, not a device-independent speedup estimate. More triangles
 are offset by fewer draw calls, while cold creation costs more. Geometry is
 reused across subsequent rebuilds. Physical lower-end/mobile measurements and
 full-client build/remove lifecycle checks remain release validation work.

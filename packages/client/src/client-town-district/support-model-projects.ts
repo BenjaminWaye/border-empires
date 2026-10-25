@@ -57,7 +57,8 @@ const PARTS: Readonly<Partial<Record<DistrictBuildingKind, PartBuilder>>> = {
   SOVEREIGN_SIEGE_ENGINE_PART_2: t => {
     // Fracture Core: split crystal under four inward-leaning containment claws.
     t.body.cylinder(0, 0.015, 0, 0.16, 0.19, 0.045, "stoneLight", 8);
-    t.body.gem(0, 0.22, 0, 0.09, 0.27, "ironDark");
+    t.body.gem(0, 0.22, 0, 0.09, 0.27, "glass");
+    t.glow.gem(0, 0.22, 0, 0.043, 0.22, "aether");
     for (let i = 0; i < 4; i += 1) {
       const a = i * Math.PI / 2;
       const x = Math.sin(a), z = Math.cos(a);
@@ -78,16 +79,16 @@ const PARTS: Readonly<Partial<Record<DistrictBuildingKind, PartBuilder>>> = {
     t.body.pipe(-0.2, 0.07, -0.06, 0.2, 0.07, -0.06, 0.009, "iron");
   },
   AEGIS_DOME_PART_1: t => {
-    // Shield Lattice: raised square field of connected diagonal emitters.
-    for (const x of [-0.17, 0, 0.17]) for (const z of [-0.17, 0, 0.17]) {
-      t.body.cylinder(x, 0.015, z, 0.02, 0.035, 0.04, "stoneLight", 6);
-      t.body.box(x, 0.055, z, 0.025, 0.1, 0.025, "iron", Math.PI / 4);
-      t.glow.gem(x, 0.17, z, 0.018, 0.025, "aether");
-      if (x < 0.17) t.body.pipe(x, 0.13, z, x + 0.17, 0.13, z, 0.008, "brass");
-      if (z < 0.17) t.body.pipe(x, 0.13, z, x, 0.13, z + 0.17, 0.008, "brass");
+    // A physical hexagonal shield-panel fragment, held upright for assembly.
+    for (const x of [-0.17, 0.17]) t.body.box(x, 0.015, 0, 0.05, 0.035, 0.21, "stoneLight");
+    for (const [cx, cy] of [[-0.115, 0.15], [0, 0.15], [0.115, 0.15], [-0.0575, 0.25], [0.0575, 0.25]] as const) {
+      for (let i = 0; i < 6; i += 1) {
+        const a = i * Math.PI / 3, b = (i + 1) * Math.PI / 3;
+        t.body.pipe(cx + Math.cos(a) * 0.065, cy + Math.sin(a) * 0.065, 0, cx + Math.cos(b) * 0.065, cy + Math.sin(b) * 0.065, 0, 0.006, "brass");
+      }
+      t.body.panel(cx, cy, 0, 0.065, 0.08, "glass");
+      t.glow.gem(cx, cy, 0.008, 0.009, 0.018, "aether");
     }
-    t.body.pipe(-0.17, 0.13, -0.17, 0.17, 0.13, 0.17, 0.006, "iron");
-    t.body.pipe(-0.17, 0.13, 0.17, 0.17, 0.13, -0.17, 0.006, "iron");
   },
   AEGIS_DOME_PART_2: t => {
     // Ward Anchor: heavy stepped obelisk and four broad flying buttresses.
@@ -113,27 +114,31 @@ const PARTS: Readonly<Partial<Record<DistrictBuildingKind, PartBuilder>>> = {
     t.body.dome(0, 0.055, 0, 0.11, "glass", 10, 0.55);
   },
   ASTRAL_DOCK_PART_1: t => {
-    // Launch Cradle: empty keel bed and four tall inward-leaning supports.
+    // Curved empty satellite berth; no civil aircraft or launch weapon.
     t.body.box(0, 0.015, 0, 0.32, 0.035, 0.4, "stoneLight");
-    for (const x of [-0.14, 0.14]) for (const z of [-0.14, 0.14]) {
-      t.body.pipe(x, 0.05, z, x, 0.23, z, 0.02, "iron");
-      t.body.pipe(x, 0.23, z, x * 0.5, 0.29, z, 0.017, "brassDark");
+    for (const z of [-0.14, 0.14]) {
+      const curve = [[-0.17, 0.27], [-0.13, 0.12], [0, 0.075], [0.13, 0.12], [0.17, 0.27]] as const;
+      for (let i = 1; i < curve.length; i += 1) {
+        const a = curve[i - 1]!, b = curve[i]!;
+        t.body.pipe(a[0], a[1], z, b[0], b[1], z, 0.018, "iron");
+      }
+      for (const x of [-0.13, 0.13]) t.body.box(x, 0.05, z, 0.04, 0.07, 0.045, "brassDark");
     }
     for (const x of [-0.065, 0.065]) t.body.box(x, 0.06, 0, 0.018, 0.018, 0.38, "brass");
     ribs(t, 0, 0.05, 0, 0.12, 5, 0.025, 0.29);
   },
   ASTRAL_DOCK_PART_2: t => {
-    // Orbital Array: four oversized horizontal collectors around a raised hub.
-    t.body.cylinder(0, 0.015, 0, 0.065, 0.12, 0.09, "stoneLight", 8);
-    t.body.cylinder(0, 0.105, 0, 0.025, 0.05, 0.18, "iron", 8);
-    spinning(t, 0, 0.3, 0, [0, 1, 0], 0.18, () => {
-      for (const [x, z] of [[-0.16, 0], [0.16, 0], [0, -0.16], [0, 0.16]] as const) {
-        t.body.box(x, 0.3, z, x ? 0.16 : 0.1, 0.012, x ? 0.1 : 0.16, "brassDark");
-        t.body.box(x, 0.314, z, x ? 0.145 : 0.085, 0.004, x ? 0.085 : 0.145, "glassLight");
-        t.body.pipe(0, 0.3, 0, x, 0.3, z, 0.009, "brass");
-      }
-      t.body.dome(0, 0.3, 0, 0.045, "brass", 8, 0.7);
+    // Satellite tracking dish, separate from the forward relay's optics.
+    t.body.cylinder(0, 0.015, 0, 0.075, 0.13, 0.055, "stoneLight", 8);
+    t.body.cylinder(0, 0.07, 0, 0.03, 0.055, 0.2, "iron", 8);
+    spinning(t, 0, 0.31, 0, [0, 1, 0], 0.14, () => {
+      t.body.disc(0, 0.31, 0, 0.14, 0.04, "brassDark");
+      t.body.disc(0, 0.31, 0.026, 0.115, 0.015, "stoneLight");
+      t.body.disc(0, 0.31, 0.038, 0.065, 0.008, "glass");
+      for (const x of [-0.11, 0.11]) t.body.pipe(x, 0.31, 0.04, 0, 0.31, 0.17, 0.005, "iron");
+      t.glow.gem(0, 0.31, 0.18, 0.015, 0.025, "aether");
     });
+    housing(t, -0.16, 0.14, 0.095, 0.075, 0.09);
   },
   ASTRAL_DOCK_PART_3: t => {
     // Aether Sail: two tall diamond sails and a narrow mast.
@@ -147,14 +152,18 @@ const PARTS: Readonly<Partial<Record<DistrictBuildingKind, PartBuilder>>> = {
     t.glow.gem(0, 0.46, 0, 0.015, 0.025, "aether");
   },
   CENSUS_DIRECTORATE_PART_1: t => {
-    // Census Engine: three tall sealed data cabinets with an elevated optical bus.
-    for (const x of [-0.16, 0, 0.16]) {
-      housing(t, x, -0.04, 0.1, 0.2 + (x === 0 ? 0.09 : 0), 0.2);
-      for (const y of [0.08, 0.13, 0.18]) t.glow.box(x, y, 0.068, 0.07, 0.006, 0.014, "aether");
-      t.body.box(x, 0.015, 0.16, 0.09, 0.025, 0.075, "glassLight");
+    // Rotary population index, sealed but still visibly a physical drum.
+    housing(t, -0.16, 0.015, 0.1, 0.15, 0.23);
+    t.body.cylinder(0.065, 0.015, -0.035, 0.115, 0.145, 0.035, "stoneLight", 10);
+    t.body.cylinder(0.065, 0.05, -0.035, 0.105, 0.105, 0.24, "iron", 12);
+    for (const y of [0.065, 0.16, 0.28]) band(t, 0.065, y, -0.035, 0.115);
+    for (let i = 0; i < 8; i += 1) {
+      const a = i * Math.PI / 4;
+      t.body.box(0.065 + Math.sin(a) * 0.105, 0.08, -0.035 + Math.cos(a) * 0.105, 0.044, 0.17, 0.012, "stoneLight", a);
     }
-    t.body.box(0, 0.34, -0.04, 0.065, 0.035, 0.08, "brass");
-    t.body.pipe(-0.16, 0.24, -0.04, 0.16, 0.24, -0.04, 0.012, "iron");
+    t.body.dome(0.065, 0.29, -0.035, 0.1, "graphite", 10, 0.5);
+    t.glow.box(-0.16, 0.105, 0.135, 0.06, 0.04, 0.005, "aether");
+    t.body.box(0.065, 0.02, 0.19, 0.15, 0.04, 0.065, "brassDark");
   },
   CENSUS_DIRECTORATE_PART_2: t => {
     // Registry Vault: squat armoured bunker and oversized circular vault door.

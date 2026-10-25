@@ -1,3 +1,4 @@
+import { CURRENT_DISTRICT_KINDS, RETIRED_DISTRICT_KINDS } from "./town-district-review-kinds.js";
 import { renderDistrictIdentityReview } from "./town-district-identity-review.js";
 import { renderDistrictBenchmark } from "./town-district-benchmark.js";
 import type { Meta, StoryObj } from "@storybook/html-vite";
@@ -23,6 +24,7 @@ type Args = {
   state: "active" | "construction" | "removing" | "inactive" | "dormant";
   yaw: number;
   stacking: boolean;
+  compatibility: boolean;
 };
 
 const fixtureFor = (args: Args) => {
@@ -32,7 +34,7 @@ const fixtureFor = (args: Args) => {
   let i = 0;
   for (let dy = -args.radius; dy <= args.radius; dy += 1) for (let dx = -args.radius; dx <= args.radius; dx += 1) {
     if ((!dx && !dy) || (args.occupancy === "sparse" && (dx + dy) % 2)) continue;
-    const kind = DISTRICT_BUILDING_KINDS[(i * 7) % DISTRICT_BUILDING_KINDS.length] ?? "MANUFACTORY";
+    const kind = CURRENT_DISTRICT_KINDS[(i * 7) % CURRENT_DISTRICT_KINDS.length] ?? "MANUFACTORY";
     const building: Tile = { x: 100 + dx, y: 100 + dy, terrain: "LAND", ownerId: "p1", ownershipState: "SETTLED" };
     const inProgress = args.state === "construction" || args.state === "removing";
     const record = { ownerId: "p1", status: args.state === "construction" ? "under_construction" as const : args.state === "removing" ? "removing" as const : args.state === "inactive" ? "inactive" as const : "active" as const,
@@ -116,7 +118,7 @@ const render = (args: Args): HTMLElement => {
     const overlay = createDistrictOverlay(stage.scene, 50, environment.texture);
     const labels = document.createElement("div");
     labels.style.cssText = "display:grid;grid-template-columns:repeat(6,1fr);gap:8px;padding:12px;color:#c9c3b5;font:12px sans-serif";
-    for (const [i, kind] of DISTRICT_BUILDING_KINDS.entries()) {
+    for (const [i, kind] of (args.compatibility ? RETIRED_DISTRICT_KINDS : CURRENT_DISTRICT_KINDS).entries()) {
       const x = i % 8 - 3.5, z = Math.floor(i / 8) - 2;
       overlay.add({ kind, x, z, y: elevation(100 + x, 100 + z), foundation: true, operational: true });
       const label = document.createElement("div"); label.textContent = `${i + 1}. ${kind.replaceAll("_", " ")}`; labels.appendChild(label);
@@ -145,7 +147,7 @@ const render = (args: Args): HTMLElement => {
 
 const meta: Meta<Args> = {
   title: "Map/Structures/Town/District", parameters: { layout: "fullscreen" },
-  args: { view: "district", radius: 2, tier: "METROPOLIS", slope: false, occupancy: "full", state: "active", yaw: 0, stacking: false },
+  args: { view: "district", radius: 2, tier: "METROPOLIS", slope: false, occupancy: "full", state: "active", yaw: 0, stacking: false, compatibility: false },
   argTypes: {
     view: { control: "inline-radio", options: ["district", "catalogue", "2D"] },
     radius: { control: "inline-radio", options: [1, 2] },
@@ -171,3 +173,5 @@ export const ReducedQualityComparison: Story = { render: () => renderDistrictBen
 export const SharedTiles: Story = { args: { stacking: true, radius: 1 } };
 
 export const IdentityReview: Story = { render: () => renderDistrictIdentityReview() };
+
+export const RetiredCompatibility: Story = { render: () => renderDistrictIdentityReview(true) };

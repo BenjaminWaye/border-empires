@@ -1,6 +1,6 @@
-import { gear, spinning, type TownBuilders } from "../client-map-3d-town-overlay/town-parts.js";
+import { gear, type TownBuilders } from "../client-map-3d-town-overlay/town-parts.js";
 import { depot } from "./support-model-core.js";
-import { band, gantry, housing, ribs } from "./support-model-detail.js";
+import { band, gantry, housing } from "./support-model-detail.js";
 
 export const buildManpower = (t: TownBuilders, kind: string): boolean => {
   switch (kind) {
@@ -19,16 +19,19 @@ export const buildManpower = (t: TownBuilders, kind: string): boolean => {
       for (const x of [-0.18, 0.18]) t.body.pipe(x, 0.09, 0, 0, 0.26, -0.17, 0.008, "brass");
       return true;
     case "NEURAL_WORKS":
-      // A split hemisphere in an angular cradle, not another beacon spire.
-      t.body.cylinder(0, 0.015, 0, 0.13, 0.17, 0.06, "stoneLight", 10);
-      t.body.dome(0, 0.13, 0, 0.13, "glass", 12, 1);
-      for (const x of [-0.19, 0.19]) {
-        t.body.box(x, 0.02, 0, 0.035, 0.28, 0.15, "iron");
-        t.body.pipe(x, 0.3, 0, x * 0.4, 0.37, 0, 0.012, "brass");
-        t.glow.pipe(x * 0.4, 0.37, 0, 0, 0.33, 0, 0.004, "aether");
+      // Connected-network mustering command centre, with visible dispatch bays.
+      housing(t, 0, -0.045, 0.29, 0.19, 0.22);
+      t.body.box(0, 0.21, -0.02, 0.34, 0.065, 0.15, "iron");
+      t.body.box(0, 0.228, 0.058, 0.28, 0.035, 0.008, "glassLight");
+      t.body.box(0, 0.279, -0.02, 0.37, 0.015, 0.18, "brassDark");
+      for (const x of [-0.17, 0.17]) {
+        t.body.box(x, 0.015, 0.095, 0.075, 0.11, 0.15, "stoneLight");
+        t.body.box(x, 0.045, 0.174, 0.045, 0.065, 0.009, "ironDark");
+        t.glow.pipe(x, 0.022, 0.19, x, 0.022, 0.27, 0.005, "aether");
+        t.body.pipe(x, 0.28, -0.08, x, 0.39, -0.08, 0.006, "brass");
       }
-      t.body.box(0, 0.13, 0, 0.012, 0.14, 0.26, "brass");
-      for (const x of [-0.1, 0.1]) ribs(t, x, 0.015, 0.19, 0.12, 4, 0.06, 0.07);
+      t.body.box(0, 0.297, -0.04, 0.12, 0.025, 0.08, "glass");
+      t.glow.box(0, 0.13, 0.071, 0.13, 0.025, 0.005, "aether");
       return true;
     case "ANCILLARY_FACTORY":
       // Exposed assembly spine and three work cells beneath a travelling beam.
@@ -44,16 +47,23 @@ export const buildManpower = (t: TownBuilders, kind: string): boolean => {
       gear(t, 0.2, 0.13, -0.08, 0.048, Math.PI / 2, 0.4);
       return true;
     case "RESERVE_LATTICE":
-      // Six sealed reserve cells in a tall two-level honeycomb rack.
-      for (const x of [-0.14, 0, 0.14]) for (const y of [0.055, 0.22]) {
-        t.body.pipe(x, y, -0.12, x, y, 0.1, 0.055, "ironDark");
-        t.body.disc(x, y, 0.115, 0.057, 0.025, "brassDark");
-        t.body.disc(x, y, 0.132, 0.038, 0.012, "glass");
-        t.glow.box(x, y - 0.006, 0.143, 0.035, 0.008, 0.005, "aether");
+      // Open coordination lattice: network nodes, not another ancillary vault.
+      for (const x of [-0.2, 0.2]) for (const z of [-0.12, 0.12]) {
+        t.body.box(x, 0.015, z, 0.035, 0.03, 0.045, "stoneLight");
+        t.body.box(x, 0.045, z, 0.018, 0.3, 0.018, "iron");
       }
-      for (const x of [-0.23, 0.23]) t.body.box(x, 0.015, -0.005, 0.023, 0.32, 0.27, "stoneLight");
-      for (const y of [0.012, 0.16, 0.33]) t.body.box(0, y, -0.005, 0.48, 0.016, 0.28, "iron");
-      spinning(t, 0, 0.375, -0.005, [0, 1, 0], 0.25, () => t.body.box(0, 0.37, -0.005, 0.12, 0.014, 0.05, "brass"));
+      for (const y of [0.12, 0.3]) {
+        t.body.box(0, y, 0, 0.44, 0.018, 0.28, "brassDark");
+        for (const x of [-0.14, 0, 0.14]) {
+          t.body.box(x, y + 0.018, 0, 0.045, 0.055, 0.065, "iron");
+          t.glow.box(x, y + 0.034, 0.035, 0.025, 0.02, 0.005, "aether");
+        }
+      }
+      for (const z of [-0.12, 0.12]) {
+        t.body.pipe(-0.2, 0.05, z, 0.2, 0.3, z, 0.008, "brass");
+        t.body.pipe(0.2, 0.05, z, -0.2, 0.3, z, 0.008, "brass");
+      }
+      t.body.box(0, 0.015, 0.2, 0.16, 0.065, 0.065, "stoneLight");
       return true;
     default: return false;
   }
