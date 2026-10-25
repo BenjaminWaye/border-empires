@@ -1,3 +1,4 @@
+import { districtArtUrl } from "../client-town-district/district-art.js";
 // Per-structure 2D art (public/overlays SVGs). The structure info card shows
 // it as the card art, and the build menu and the Manifest detail's "What you
 // get" rows use it as each building's icon. Moved out of client-map-display.ts
@@ -83,7 +84,7 @@ const BUILD_MENU_EXTRA_ART: Readonly<Record<string, string>> = {
 const lookup = (table: Readonly<Record<string, string>>, key: string): string | undefined =>
   Object.prototype.hasOwnProperty.call(table, key) ? table[key] : undefined;
 
-export const structureInfoArtUrl = (key: string): string | undefined => lookup(STRUCTURE_INFO_ART, key);
+export const structureInfoArtUrl = (key: string): string | undefined => districtArtUrl(key) ?? lookup(STRUCTURE_INFO_ART, key);
 
 export const buildMenuArtUrl = (structureType: string): string | undefined =>
   structureInfoArtUrl(structureType) ?? lookup(BUILD_MENU_EXTRA_ART, structureType);

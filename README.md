@@ -184,6 +184,12 @@ Generation runs in a Web Worker so the UI stays responsive even while the seed-r
 > repo today will not make it a buildable structure. The historical proposal is
 > retained at `docs/archive/design-history-2026/gltf-model-pipeline-plan.md`.
 
+Town support structures use the shared procedural district kit in
+`packages/client/src/client-town-district/`, including matching foundations,
+service connections and generated 2D SVG artwork. See
+[the district renderer reference](docs/town-support-districts.md) for coverage,
+model entrypoints and icon regeneration.
+
 ### Format
 
 | | |

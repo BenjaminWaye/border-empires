@@ -38,7 +38,7 @@ import { createPersistentAlertsFrame } from "./client-persistent-alerts/client-p
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { drawTileFeatureOverlays2D } from "./client-map-2d-tile-feature-overlays.js";
 import { drawTownSupportPlot2D } from "./client-map-2d-town-support-tile-overlay.js";
-import { townSupportPlotMapFor2D } from "./client-town-support-plot-lookup.js";
+import { createDistrictCanvas } from "./client-town-district/district-canvas.js";
 import { fireDueMusterTransits } from "./client-muster-transit/client-muster-transit.js";
 import { drawMusterOverlays2D } from "./client-muster-supply-lines-2d.js";
 import { createConstructionCountdownOverlay2D } from "./client-construction-countdown/client-construction-countdown-overlay-2d.js";
@@ -185,6 +185,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     state.activePanel = "domains"; state.mobilePanel = "domains"; state.domainDetailOpen = false; state.techDetailOpen = false; deps.renderHud();
   });
   const drawPersistentAlertsFrame = createPersistentAlertsFrame(state);
+  const districtCanvas = createDistrictCanvas({ state, ctx: deps.ctx, visibilityAt: deps.tileVisibilityStateAt, terrainAt, worldToScreen: deps.worldToScreen });
   // Player names (zoomed out) / island names (zoomed in), 2D map only: true-3D paints them onto the ground instead (client-map-3d-name-decal).
   const mapNameLabels = createMapNameLabels({ state, ctx: deps.ctx, isExploredAt: (x, y) => deps.tileVisibilityStateAt(x, y, state.tiles.get(deps.keyFor(x, y))) !== "unexplored", wrapX: deps.wrapX, wrapY: deps.wrapY });
   const drawConstructionCountdownOverlay = createConstructionCountdownOverlay2D(deps);
@@ -264,12 +265,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       queueIndex.set(deps.keyFor(q.x, q.y), i + 1);
     }
     // 2D support-plot ring; shared eligibility logic in client-town-support-plot-lookup.ts
-    const townSupportPlots = isTrue3DRendererActive()
-      ? new Map<string, boolean>()
-      : townSupportPlotMapFor2D(
-          state.selected ? state.tiles.get(deps.keyFor(state.selected.x, state.selected.y)) : undefined,
-          { tiles: state.tiles, wrapX: deps.wrapX, wrapY: deps.wrapY, keyFor: deps.keyFor, terrainAt, me: state.me }
-        );
+    const townSupportPlots = districtCanvas.plots(isTrue3DRendererActive());
     if (size >= 14 && (roadNetworkBuiltAt === 0 || nowMs - roadNetworkBuiltAt > 450)) {
       roadNetwork = buildRoadNetwork({
         tiles: state.tiles,
@@ -1058,6 +1054,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
     }
     const roadOverlayMs = phaseMs();
+    if (!isTrue3DRendererActive()) districtCanvas.draw(size, halfW, halfH);
 
     for (const overlayTile of overlayTiles) renderOverlayTile(overlayTile); if (!isTrue3DRendererActive() && state.arrowGesture) drawArrowGesture2D(deps.ctx, state.arrowGesture, (wx2, wy2) => deps.worldToScreen(wx2, wy2, size, halfW, halfH), size); // F4: 2D arrow-gesture visual (F1/F2 parity)
     afcMapOverlays.render(overlayTiles, { size, project: (x, y) => deps.worldToScreen(x, y, size, halfW, halfH) });

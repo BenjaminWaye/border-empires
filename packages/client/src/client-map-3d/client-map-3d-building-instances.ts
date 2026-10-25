@@ -1,3 +1,4 @@
+import type { DistrictMap3D } from "../client-town-district/district-map-3d.js";
 import type { Tile } from "../client-types.js";
 import { constructionSiteForRebuild } from "../client-construction-afc-offset/client-construction-afc-offset.js";
 import { DEFAULT_CONTACT_SHADOW_RADIUS_TILES, type ContactShadowOverlay } from "../client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
@@ -9,6 +10,7 @@ import type { AmbaricTransformerOverlay } from "../client-map-3d-ambaric-transfo
 import type { ObservatoryCooldownBadgeOverlay } from "../client-map-3d-observatory-cooldown-badge-overlay/client-map-3d-observatory-cooldown-badge-overlay.js";
 
 type BuildingOverlays = {
+  district?: Pick<DistrictMap3D, "addTile">;
   contactShadowOverlay: Pick<ContactShadowOverlay, "addShadow">;
   structureOverlay: Pick<StructureOverlay, "addInstance">;
   umbriteExtractionRigOverlay: Pick<UmbriteExtractionRigOverlay, "addInstance">;
@@ -40,8 +42,9 @@ export const addBuildingInstancesForTile = (
   if (tile.terrain !== "LAND") return;
   const { x, z, surfaceY, wx, wy } = site;
   const shadow = (): void => overlays.contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
+  const handled = overlays.district?.addTile(tile, site, rebuildStartAt);
   const structure = tile.economicStructure;
-  if (structure) {
+  if (structure && !handled?.economic) {
     const frozen = buildingAnimationFrozen(structure.status);
     if (structure.type === "UMBRITE_RIG") {
       overlays.umbriteExtractionRigOverlay.addInstance(x, z, surfaceY, wx, wy);
@@ -57,7 +60,7 @@ export const addBuildingInstancesForTile = (
     }
   }
   if (tile.observatory) {
-    if (tile.naturalWonder?.type !== "WATCHTOWER_ENGINE") {
+    if (!handled?.observatory && tile.naturalWonder?.type !== "WATCHTOWER_ENGINE") {
       const { status } = tile.observatory;
       overlays.ambaricTransformerOverlay.addInstance(x, z, surfaceY, wx, wy, buildingAnimationFrozen(status), aetherTowerDisabled(status));
       shadow();

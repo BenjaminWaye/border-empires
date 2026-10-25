@@ -114,6 +114,12 @@ one-off materials for everything.
 
 ## 8. Client: 2D icon (required)
 
+For town-support structures and district utilities, follow the shared model,
+platform, port and generated 2D-art contract in
+[`town-support-districts.md`](town-support-districts.md). Add the kind to the
+district catalogue/model dispatch and regenerate its icon; a dedicated old
+overlay must not bypass the production district renderer.
+
 Add an SVG to `packages/client/public/overlays/<kebab-name>-overlay.svg`.
 No registration needed — `packages/storybook/src/assets/SvgOverlays.stories.ts`
 auto-discovers every file in that directory via `import.meta.glob`, and

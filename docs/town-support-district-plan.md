@@ -2,8 +2,18 @@
 
 Status: active implementation plan; visual direction accepted, production integration unshipped
 Owner: Benjamin Waye (visual direction); Codex (implementation)
-Last verified: 2026-10-24
+Last verified: 2026-10-25
 Replaces: none; extends the accepted Storybook art study
+
+Implementation progress: the production kit, all 45 remodeled models, generated
+2D art, authoritative anchor projection, live renderer adapters and bounded
+routing are implemented on the feature branch. The new production gallery
+covers construction, removal, inactivity, dormancy, town tiers and slopes.
+Focused model/network/instance tests and simulation login/reveal tests pass.
+See [the implementation reference](town-support-districts.md) for entrypoints
+and the measured desktop performance comparison. Full CI, actual game-client
+lifecycle checks, physical mobile performance and staging verification remain
+release gates; this plan is not delivered or archived yet.
 
 ## Outcome and boundaries
 
@@ -249,7 +259,7 @@ clear them on world/session replacement and dispose GPU resources. Follow the
 
 ## Verification and acceptance
 
-- [ ] Coverage test derives eligible types from placement/registry data and
+- [x] Coverage test derives eligible types from placement/registry data and
   fails when a current or newly introduced support type lacks a visual
   definition, upgraded variant or matching 2D icon. Explicitly cover dedicated
   render paths such as Umbrite Weapons Factory, Trade Nexus and utilities.
@@ -295,5 +305,5 @@ clear them on world/session replacement and dispose GPU resources. Follow the
 
 The complete feature is delivered only when the asset coverage matrix,
 terrain/lifecycle handling and both renderer implementations pass together.
-The next implementation step is Phase 1, followed by the three-building live
-vertical slice in Phase 2.
+The next work is completing the remaining validation and release gates;
+implementation entrypoints and measured results are recorded in the reference.
