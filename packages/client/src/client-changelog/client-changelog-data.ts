@@ -433,6 +433,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The supply check now looks only at your frontier, not your whole empire, so large empires lose cut-off frontier immediately",
       "This applies to captures, lost attack origins and abilities that remove tiles"
     ]
+  },
+  {
+    createdAt: 1792930581798, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "Distinct advanced support structures",
+    why: "Similar building shapes made support structures hard to identify at a glance.",
+    changes: ["Support structures now have distinct silhouettes and specialized machinery, with refined metal, ceramic and aether details suited to the Empire’s advanced technology.", "High-yield plants have larger signature assemblies, and map and menu artwork match the new models."]
   }
 ];
 

@@ -45,7 +45,7 @@ export const createDistrictMaterials = (envMap?: Texture): {
   const plinth = solid(0.22, 0);
   applyMarbleFinish(plinth, TOWN_PLINTH_LEDGES);
   const layers = {
-    body: solid(0.82, 0.02), metal: solid(0.45, 0.7), glass: solid(0.2, 0.85), plinth,
+    body: solid(0.64, 0.04), metal: solid(0.32, 0.76), glass: solid(0.16, 0.65), plinth,
     glow: new MeshBasicMaterial({ toneMapped: false, vertexColors: true }),
     halo: new MeshBasicMaterial({ toneMapped: false, vertexColors: true, transparent: true, opacity: 0.32,
       blending: AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 }),

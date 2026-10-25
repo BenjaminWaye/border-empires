@@ -41,6 +41,34 @@ did not mutate. A hidden competing town is never replaced by a guessed visible
 competitor. Both endpoints and route samples must be currently visible before
 drawing a surface link; remembered structures retain the existing fog policy.
 
+## Visual identity and technology
+
+The family depicts a highly advanced, spacefaring civilization. Precision
+actuators, sealed material-processing vessels, optical data cabinets, magnetic
+drives, contained aether instruments and ceramic cargo cases sit within the
+towns' established stone, dark metal and restrained brass architecture. Thermal
+exhaust is industrial cooling; timber crates, paper-feed machinery and exposed
+clockwork are not the visual basis of the new production kit. This art direction
+does not introduce propulsion mechanics or new capabilities.
+
+Each of the 45 models has distinct massing and a large identifying assembly.
+Titanium processing uses a low rolling mill; Umbrite processing uses a tall
+sealed retort. Weapons factories use a rectangular press and a forked containment
+crucible respectively. High-yield plants add substantial elevated processing
+frames or paired recovery towers, so upgrades remain legible without colour.
+The civic set separates a record tower, circular colonnaded exchange, U-shaped
+palace and logistics shed. Instruments, reserves and Project commissions have
+their own outlines instead of sharing a generic tower or factory shell.
+
+`IdentityReview` in the production Storybook displays all 45 named exports,
+with monochrome and 64px controls. A regression guard rasterizes the actual
+uncoloured model geometry from three camera directions, excludes shared slabs
+and effects, and compares all 990 pairs. Any pair with more than 86% combined
+silhouette overlap fails. This catches near-duplicate massing; human review at
+gameplay zoom still matters. The existing footprint, height, material-layer and
+3,000-triangle budgets remain enforced for every model. The revised catalogue
+peaks at 2,848 triangles, six layers and 0.555 tile units in height.
+
 ## Routing, terrain and lifecycle
 
 Tile-boundary corridors use deterministic bounded searches, shared segments,
@@ -127,11 +155,11 @@ Local desktop sample, 2026-10-25 (millisecond timers are quantized):
 
 | Measurement | Existing, full | District, full | Existing, reduced | District, reduced |
 |---|---:|---:|---:|---:|
-| p95 completed frame, ms | 0.6 | 0.2 | 3.3 | 0.2 |
-| Draw calls | 200 | 107 | 200 | 80 |
-| Triangles | 31,260 | 74,856 | 31,260 | 71,576 |
-| Uploaded geometries | 267 | 105 | 267 | 78 |
-| Cold creation, ms | 10.0 | 42.2 | 14.8 | 34.1 |
+| p95 completed frame, ms | 0.8 | 0.3 | 0.6 | 0.3 |
+| Draw calls | 200 | 104 | 200 | 84 |
+| Triangles | 31,260 | 65,486 | 31,260 | 63,326 |
+| Uploaded geometries | 267 | 102 | 267 | 82 |
+| Cold creation, ms | 12.7 | 27.6 | 11.2 | 33.3 |
 
 The samples pass the proposed desktop frame-regression gate. Baseline timings
 varied between runs on the shared desktop; these are local observations, not

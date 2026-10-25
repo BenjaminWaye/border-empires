@@ -1,6 +1,7 @@
+import { housing } from "./support-model-detail.js";
 import { DISTRICT_RADIUS, DISTRICT_PORT_Y, DISTRICT_PORT_RADIUS } from "./district-catalog.js";
 import {
-  gear, lampPost, octagonPlate, spinning, steamVent, tree,
+  lampPost, octagonPlate, spinning, steamVent, tree,
   type TownBuilders
 } from "../client-map-3d-town-overlay/town-parts.js";
 
@@ -15,8 +16,10 @@ export const windowStrip = (t: TownBuilders, x: number, y: number, z: number, co
 };
 
 export const crate = (t: TownBuilders, x: number, z: number): void => {
-  t.body.box(x, 0.008, z, 0.055, 0.047, 0.052, "trunk");
+  t.body.box(x, 0.008, z, 0.055, 0.047, 0.052, "ironDark");
   for (const dx of [-0.018, 0.018]) t.body.box(x + dx, 0.008, z, 0.004, 0.05, 0.055, "brassDark");
+  t.body.box(x, 0.018, z + 0.027, 0.027, 0.023, 0.003, "stoneLight");
+  t.glow.box(x, 0.045, z + 0.029, 0.018, 0.003, 0.002, "aether");
 };
 
 export const hall = (t: TownBuilders, x: number, z: number, w: number, h: number, d: number): void => {
@@ -48,13 +51,18 @@ export const hall = (t: TownBuilders, x: number, z: number, w: number, h: number
 
 export const manufactory = (t: TownBuilders): void => {
   hall(t, -0.035, -0.065, 0.36, 0.17, 0.23);
-  // A loading door, steps, pallets and an exposed flywheel preserve the
+  // A loading door, steps, pallets and a magnetic drive hub preserve the
   // civilian workshop silhouette instead of turning it into another tower.
   t.body.box(-0.035, 0.028, 0.057, 0.08, 0.12, 0.014, "ironDark");
   for (let i = 0; i < 3; i += 1) {
     t.body.box(-0.035, 0.002, 0.1 + i * 0.025, 0.1, 0.027 - i * 0.008, 0.027, "stoneLight");
   }
-  for (const x of [-0.15, 0.09]) steamVent(t, x, 0.28, -0.12, 0.12);
+  for (const [x, h] of [[-0.15, 0.19], [0.09, 0.12]] as const) {
+    t.body.cylinder(x, 0.22, -0.12, 0.018, 0.025, h, "iron", 8);
+    t.body.cylinder(x, 0.22 + h, -0.12, 0.028, 0.028, 0.013, "brass", 8);
+    t.body.box(x, 0.245, -0.095, 0.015, h * 0.7, 0.006, "glassLight");
+    t.glow.box(x, 0.26, -0.091, 0.006, h * 0.48, 0.003, "aether");
+  }
   // Roof lanterns and paired vents give the roof its own readable rhythm.
   for (const x of [-0.15, -0.04, 0.07]) {
     t.body.box(x, 0.244, -0.03, 0.057, 0.03, 0.075, "brassDark");
@@ -63,7 +71,9 @@ export const manufactory = (t: TownBuilders): void => {
   }
   t.body.cylinder(0.19, 0.01, -0.035, 0.052, 0.06, 0.11, "iron", 10);
   for (const y of [0.025, 0.105]) t.body.ring(0.19, y, -0.035, 0.057, "brass", 0.07);
-  gear(t, 0.19, 0.09, 0.075, 0.059, Math.PI / 2, 0.55);
+  t.body.disc(0.19, 0.09, 0.075, 0.059, 0.018, "brassDark");
+  t.body.disc(0.19, 0.09, 0.088, 0.043, 0.01, "ironDark");
+  t.glow.disc(0.19, 0.09, 0.095, 0.021, 0.004, "aether");
   t.body.pipe(0.19, 0.11, -0.035, 0.12, 0.11, -0.035, 0.01, "brass");
   for (const x of [-0.19, 0.16, 0.22]) crate(t, x, 0.18);
   t.body.box(-0.13, 0.025, 0.18, 0.025, 0.018, 0.055, "iron");
@@ -76,24 +86,28 @@ export const depot = (t: TownBuilders): void => {
   t.body.cylinder(0, 0.047, -0.025, 0.13, 0.13, 0.18, "iron", 12);
   t.body.cylinder(0, 0.22, -0.025, 0.143, 0.143, 0.013, "brass", 12);
   t.body.dome(0, 0.233, -0.025, 0.133, "graphite", 12, 0.5);
-  for (let i = 0; i < 12; i += 1) {
-    const angle = i / 12 * Math.PI * 2;
+  for (let i = 0; i < 8; i += 1) {
+    const angle = i / 8 * Math.PI * 2;
     const x = Math.sin(angle) * 0.163;
     const z = -0.025 + Math.cos(angle) * 0.163;
-    t.body.box(x, 0.025, z, 0.054, 0.19, 0.065, "ironDark", angle);
+    t.body.box(x, 0.025, z, 0.07, 0.19, 0.065, "ironDark", angle);
     t.body.box(x, 0.025, z, 0.06, 0.015, 0.073, "brass", angle);
     t.body.box(x, 0.2, z, 0.06, 0.016, 0.073, "brass", angle);
-    t.glow.box(x, 0.07, z, 0.057, 0.005, 0.069, "aether", angle);
-    t.body.box(x, 0.11, z, 0.057, 0.005, 0.069, "brassDark", angle);
-    t.body.box(x, 0.16, z, 0.057, 0.005, 0.069, "brassDark", angle);
+    t.glow.box(x, 0.07, z, 0.073, 0.005, 0.069, "aether", angle);
+    t.body.box(x, 0.11, z, 0.073, 0.005, 0.069, "brassDark", angle);
+    t.body.box(x, 0.16, z, 0.073, 0.005, 0.069, "brassDark", angle);
   }
   hall(t, 0, 0.17, 0.15, 0.09, 0.1);
   t.body.box(0, 0.029, 0.226, 0.055, 0.07, 0.012, "ironDark");
   t.body.box(0, 0.005, 0.259, 0.09, 0.025, 0.035, "stoneLight");
   t.body.cylinder(0, 0.29, -0.025, 0.022, 0.032, 0.025, "brass", 8);
   t.glow.gem(0, 0.328, -0.025, 0.014, 0.023, "aether");
-  crate(t, -0.19, 0.17);
-  crate(t, 0.2, 0.16);
+  for (const x of [-0.2, 0.2]) {
+    t.body.box(x, 0.02, 0.13, 0.035, 0.15, 0.035, "stoneLight");
+    t.body.box(x, 0.17, 0.13, 0.05, 0.015, 0.05, "brass");
+  }
+  t.body.box(0, 0.315, -0.025, 0.08, 0.02, 0.065, "ironDark");
+  crate(t, -0.19, 0.21);
 };
 
 export const condenser = (t: TownBuilders): void => {
@@ -116,8 +130,12 @@ export const condenser = (t: TownBuilders): void => {
     }
   }
   t.body.pipe(-0.11, 0.15, 0, 0.11, 0.15, 0.06, 0.012, "brass");
+  for (const x of [-0.18, 0.18]) {
+    t.body.pipe(x, 0.04, 0.11, x, 0.12, 0.11, 0.01, "iron");
+    t.body.disc(x, 0.125, 0.12, 0.023, 0.008, "brass");
+  }
   t.body.pipe(0.11, 0.18, 0.06, 0.08, 0.18, -0.15, 0.01, "brass");
-  hall(t, -0.04, 0.18, 0.19, 0.09, 0.09);
+  housing(t, -0.04, 0.18, 0.19, 0.09, 0.09);
   steamVent(t, -0.23, 0.03, -0.15, 0.16);
   spinning(t, -0.11, 0.38, 0, [0, 1, 0], 0.45, () => {
     t.body.ring(-0.11, 0.38, 0, 0.06, "brass", 0.055);

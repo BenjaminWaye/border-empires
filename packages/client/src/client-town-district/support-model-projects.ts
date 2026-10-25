@@ -1,141 +1,214 @@
-import { gear, spinning, type TownBuilders } from "../client-map-3d-town-overlay/town-parts.js";
-import { crate, hall } from "./support-model-core.js";
+import { spinning, type TownBuilders } from "../client-map-3d-town-overlay/town-parts.js";
+import { band, gantry, housing, ribs } from "./support-model-detail.js";
 import type { DistrictBuildingKind } from "./district-catalog.js";
 
 type PartBuilder = (t: TownBuilders) => void;
-// Each preparation has its own recognizable machine; shared architectural
-// fittings do not erase the names/roles of these commissioned project parts.
+// Each named commission has a large identifying object and its own massing.
+// Detail supports that object instead of hiding it inside another generic hall.
 const PARTS: Readonly<Partial<Record<DistrictBuildingKind, PartBuilder>>> = {
   IMPERIAL_EXCHANGE_PART_1: t => {
-    hall(t, 0, -0.06, 0.32, 0.14, 0.24);
-    t.body.box(0, 0.02, 0.15, 0.21, 0.06, 0.09, "brassDark");
-    for (let i = 0; i < 6; i += 1) t.body.box(0, 0.08 + i * 0.008, 0.15, 0.17, 0.004, 0.075, "brass");
-    t.body.pyramid(0, 0.25, -0.06, 0.13, 0.07, 0.13, "brass");
+    // Golden Ledger: broad terraced archive and a luminous data ledger.
+    housing(t, 0, -0.09, 0.37, 0.12, 0.22);
+    t.body.box(0, 0.173, -0.09, 0.24, 0.035, 0.18, "brassDark");
+    for (const side of [-1, 1]) {
+      t.body.box(side * 0.06, 0.21, -0.09, 0.115, 0.015, 0.16, "glassLight");
+      for (const z of [-0.13, -0.09, -0.05]) t.glow.box(side * 0.06, 0.226, z, 0.075, 0.003, 0.006, "aether");
+    }
+    t.body.box(0, 0.205, -0.09, 0.012, 0.035, 0.19, "brass");
+    for (const x of [-0.12, 0.12]) ribs(t, x, 0.015, 0.16, 0.13, 4, 0.065, 0.09);
   },
   IMPERIAL_EXCHANGE_PART_2: t => {
-    hall(t, 0, -0.14, 0.24, 0.12, 0.11);
-    for (const x of [-0.17, -0.055, 0.055, 0.17]) {
-      t.body.box(x, 0.02, 0.03, 0.055, 0.12, 0.18, "iron");
-      gear(t, x, 0.18, 0.06, 0.054, 0, x > 0 ? 0.4 : -0.4);
+    // Counting Engine: three magnetic computing drums, low stepped silhouette.
+    t.body.box(0, 0.015, 0, 0.43, 0.04, 0.3, "stoneLight");
+    for (const [x, y, r] of [[-0.15, 0.14, 0.075], [0, 0.2, 0.105], [0.16, 0.13, 0.06]] as const) {
+      t.body.box(x, 0.055, -0.035, 0.045, y, 0.055, "iron");
+      spinning(t, x, y, 0.015, [0, 0, 1], x > 0 ? 0.4 : -0.4, () => {
+        t.body.disc(x, y, 0.015, r, 0.06, "iron");
+        t.body.disc(x, y, 0.05, r * 0.83, 0.009, "brassDark");
+        t.body.disc(x, y, 0.058, r * 0.62, 0.006, "glassLight");
+        t.glow.disc(x, y, 0.063, r * 0.24, 0.003, "aether");
+      });
     }
+    t.body.pipe(-0.21, 0.08, -0.1, 0.21, 0.08, -0.1, 0.02, "brassDark");
+    ribs(t, 0.02, 0.04, 0.15, 0.23, 7, 0.045, 0.06);
   },
   IMPERIAL_EXCHANGE_PART_3: t => {
-    hall(t, 0, -0.15, 0.26, 0.1, 0.1);
-    t.body.cylinder(0, 0.02, 0.06, 0.095, 0.13, 0.08, "stoneLight", 8);
-    t.body.disc(0, 0.2, 0.06, 0.1, 0.035, "brass");
-    t.body.disc(0, 0.2, 0.081, 0.07, 0.01, "iron");
-    t.glow.gem(0, 0.2, 0.09, 0.035, 0.06, "lamp");
+    // Sovereign Seal: huge vertical stamped medallion in an A-frame stand.
+    t.body.box(0, 0.012, 0, 0.34, 0.035, 0.25, "stoneLight");
+    for (const x of [-0.15, 0.15]) t.body.pipe(x, 0.047, 0.08, x * 0.5, 0.24, -0.035, 0.018, "iron");
+    t.body.disc(0, 0.25, -0.035, 0.135, 0.04, "brassDark");
+    t.body.disc(0, 0.25, -0.009, 0.108, 0.015, "brass");
+    t.body.disc(0, 0.25, 0.002, 0.075, 0.008, "ironDark");
+    t.body.gem(0, 0.25, 0.018, 0.045, 0.07, "brass");
+    t.glow.box(0, 0.08, 0.12, 0.15, 0.008, 0.035, "lamp");
   },
   SOVEREIGN_SIEGE_ENGINE_PART_1: t => {
-    for (const x of [-0.2, 0.2]) t.body.box(x, 0.02, 0, 0.055, 0.12, 0.17, "stoneLight");
-    t.body.pipe(-0.24, 0.18, 0, 0.24, 0.18, 0, 0.055, "iron");
-    for (const x of [-0.18, 0, 0.18]) t.body.pipe(x - 0.012, 0.18, 0, x + 0.012, 0.18, 0, 0.063, "brass");
-    hall(t, 0, 0.19, 0.23, 0.085, 0.09);
+    // Long Barrel: horizontal gun tube, broad trunnions and exposed breech.
+    for (const x of [-0.15, 0.15]) {
+      t.body.box(x, 0.015, 0, 0.07, 0.025, 0.25, "stoneLight");
+      t.body.box(x, 0.04, 0, 0.04, 0.15, 0.12, "iron");
+    }
+    t.body.pipe(-0.25, 0.2, 0, 0.25, 0.2, 0, 0.055, "iron");
+    for (const x of [-0.2, 0.04, 0.2]) t.body.pipe(x - 0.012, 0.2, 0, x + 0.012, 0.2, 0, 0.068, "brassDark");
+    t.body.box(-0.2, 0.15, 0, 0.09, 0.12, 0.15, "ironDark");
+    t.body.pipe(0.24, 0.2, 0, 0.255, 0.2, 0, 0.038, "ironDark");
+    ribs(t, -0.03, 0.015, 0.18, 0.2, 5, 0.055, 0.06);
   },
   SOVEREIGN_SIEGE_ENGINE_PART_2: t => {
-    t.body.cylinder(0, 0.015, 0, 0.13, 0.16, 0.065, "iron", 8);
-    t.body.gem(0, 0.2, 0, 0.08, 0.24, "ironDark");
-    for (const x of [-0.14, 0.14]) {
-      t.body.box(x, 0.05, 0, 0.03, 0.24, 0.08, "brassDark");
-      t.glow.pipe(x, 0.1, 0.045, x, 0.27, 0.045, 0.006, "lampWarm");
+    // Fracture Core: split crystal under four inward-leaning containment claws.
+    t.body.cylinder(0, 0.015, 0, 0.16, 0.19, 0.045, "stoneLight", 8);
+    t.body.gem(0, 0.22, 0, 0.09, 0.27, "ironDark");
+    for (let i = 0; i < 4; i += 1) {
+      const a = i * Math.PI / 2;
+      const x = Math.sin(a), z = Math.cos(a);
+      t.body.pipe(x * 0.16, 0.06, z * 0.16, x * 0.17, 0.27, z * 0.17, 0.02, "iron");
+      t.body.pipe(x * 0.17, 0.27, z * 0.17, x * 0.07, 0.38, z * 0.07, 0.016, "brassDark");
+      t.glow.pipe(x * 0.075, 0.17, z * 0.075, x * 0.075, 0.28, z * 0.075, 0.005, "lampWarm");
     }
-    t.body.ring(0, 0.3, 0, 0.13, "brass", 0.06);
   },
   SOVEREIGN_SIEGE_ENGINE_PART_3: t => {
-    hall(t, 0, 0.11, 0.28, 0.12, 0.15);
-    t.body.cylinder(0, 0.02, -0.08, 0.028, 0.06, 0.27, "iron", 8);
-    t.body.disc(0, 0.31, -0.08, 0.09, 0.025, "brass");
-    t.body.disc(0, 0.31, -0.062, 0.065, 0.01, "glass");
-    for (const x of [-0.2, 0.2]) t.body.pipe(x, 0.02, -0.12, x, 0.22, -0.12, 0.007, "brass");
+    // Sky-Marking Array: three inclined sighting tubes on a fan-shaped base.
+    housing(t, 0, 0.15, 0.29, 0.07, 0.1);
+    for (const x of [-0.17, 0, 0.17]) {
+      t.body.cylinder(x, 0.015, -0.06, 0.025, 0.045, 0.14, "iron", 8);
+      t.body.pipe(x, 0.17, 0.015, x, 0.3, -0.17, x ? 0.025 : 0.04, "brassDark");
+      t.body.pipe(x, 0.3, -0.17, x, 0.32, -0.2, x ? 0.03 : 0.047, "brass");
+      t.glow.gem(x, 0.32, -0.205, 0.016, 0.025, "aether");
+    }
+    t.body.pipe(-0.2, 0.07, -0.06, 0.2, 0.07, -0.06, 0.009, "iron");
   },
   AEGIS_DOME_PART_1: t => {
-    for (const x of [-0.16, 0, 0.16]) for (const z of [-0.15, 0, 0.15]) {
-      t.body.cylinder(x, 0.01, z, 0.018, 0.027, 0.12, "iron", 6);
-      t.glow.gem(x, 0.15, z, 0.013, 0.025, "aether");
-      if (x < 0.16) t.body.pipe(x, 0.1, z, x + 0.16, 0.1, z, 0.008, "brass");
-      if (z < 0.15) t.body.pipe(x, 0.1, z, x, 0.1, z + 0.15, 0.008, "brass");
+    // Shield Lattice: raised square field of connected diagonal emitters.
+    for (const x of [-0.17, 0, 0.17]) for (const z of [-0.17, 0, 0.17]) {
+      t.body.cylinder(x, 0.015, z, 0.02, 0.035, 0.04, "stoneLight", 6);
+      t.body.box(x, 0.055, z, 0.025, 0.1, 0.025, "iron", Math.PI / 4);
+      t.glow.gem(x, 0.17, z, 0.018, 0.025, "aether");
+      if (x < 0.17) t.body.pipe(x, 0.13, z, x + 0.17, 0.13, z, 0.008, "brass");
+      if (z < 0.17) t.body.pipe(x, 0.13, z, x, 0.13, z + 0.17, 0.008, "brass");
     }
+    t.body.pipe(-0.17, 0.13, -0.17, 0.17, 0.13, 0.17, 0.006, "iron");
+    t.body.pipe(-0.17, 0.13, 0.17, 0.17, 0.13, -0.17, 0.006, "iron");
   },
   AEGIS_DOME_PART_2: t => {
-    t.body.cylinder(0, 0.01, 0, 0.12, 0.16, 0.09, "stoneLight", 8);
-    t.body.cylinder(0, 0.1, 0, 0.055, 0.09, 0.23, "iron", 8);
-    for (const y of [0.12, 0.2, 0.3]) t.body.ring(0, y, 0, 0.095, "brass", 0.06);
-    t.glow.gem(0, 0.35, 0, 0.04, 0.07, "aether");
+    // Ward Anchor: heavy stepped obelisk and four broad flying buttresses.
+    t.body.box(0, 0.015, 0, 0.29, 0.04, 0.29, "stoneLight");
+    t.body.box(0, 0.055, 0, 0.11, 0.28, 0.11, "iron");
+    t.body.pyramid(0, 0.335, 0, 0.14, 0.12, 0.14, "brassDark");
+    for (const x of [-1, 1]) for (const z of [-1, 1]) {
+      t.body.pipe(x * 0.15, 0.055, z * 0.15, x * 0.065, 0.24, z * 0.065, 0.022, "stoneDark");
+    }
+    t.glow.box(0, 0.11, 0.058, 0.022, 0.19, 0.005, "aether");
+    for (const y of [0.08, 0.3]) t.body.box(0, y, 0, 0.14, 0.014, 0.14, "brass");
   },
   AEGIS_DOME_PART_3: t => {
-    t.body.cylinder(0, 0.01, 0, 0.15, 0.18, 0.05, "stoneLight", 8);
-    t.body.dome(0, 0.06, 0, 0.14, "glass", 12, 0.8);
-    t.body.ring(0, 0.11, 0, 0.15, "brass", 0.05);
+    // Aegis Crown: a low open crown with eight inward-pointing shield petals.
+    t.body.cylinder(0, 0.015, 0, 0.17, 0.2, 0.04, "stoneLight", 8);
+    band(t, 0, 0.12, 0, 0.17);
     for (let i = 0; i < 8; i += 1) {
-      const a = i * Math.PI / 4;
-      t.body.cone(Math.sin(a) * 0.145, 0.1, Math.cos(a) * 0.145, 0.014, 0.14, "brass", 6);
+      const a = i * Math.PI / 4, x = Math.sin(a), z = Math.cos(a);
+      t.body.pipe(x * 0.16, 0.055, z * 0.16, x * 0.19, 0.17, z * 0.19, 0.012, "brass");
+      t.body.pipe(x * 0.19, 0.17, z * 0.19, x * 0.1, 0.29, z * 0.1, 0.012, "brass");
+      t.glow.gem(x * 0.1, 0.3, z * 0.1, 0.012, 0.024, "aether");
     }
+    t.body.dome(0, 0.055, 0, 0.11, "glass", 10, 0.55);
   },
   ASTRAL_DOCK_PART_1: t => {
-    t.body.box(0, 0.01, 0, 0.32, 0.05, 0.33, "iron");
-    for (const x of [-0.13, 0.13]) {
-      t.body.box(x, 0.06, 0, 0.035, 0.16, 0.3, "brassDark");
-      t.body.pipe(x, 0.23, -0.15, x, 0.23, 0.15, 0.012, "brass");
+    // Launch Cradle: empty keel bed and four tall inward-leaning supports.
+    t.body.box(0, 0.015, 0, 0.32, 0.035, 0.4, "stoneLight");
+    for (const x of [-0.14, 0.14]) for (const z of [-0.14, 0.14]) {
+      t.body.pipe(x, 0.05, z, x, 0.23, z, 0.02, "iron");
+      t.body.pipe(x, 0.23, z, x * 0.5, 0.29, z, 0.017, "brassDark");
     }
-    t.body.ellipsoid(0, 0.13, 0, 0.2, 0.05, 0.055, "stoneLight", Math.PI / 2);
+    for (const x of [-0.065, 0.065]) t.body.box(x, 0.06, 0, 0.018, 0.018, 0.38, "brass");
+    ribs(t, 0, 0.05, 0, 0.12, 5, 0.025, 0.29);
   },
   ASTRAL_DOCK_PART_2: t => {
-    hall(t, 0, 0.17, 0.24, 0.09, 0.1);
-    t.body.cylinder(0, 0.01, -0.06, 0.04, 0.075, 0.25, "iron", 8);
-    spinning(t, 0, 0.28, -0.06, [0, 1, 0], 0.35, () => {
-      for (const x of [-0.14, 0.14]) t.body.box(x, 0.27, -0.06, 0.2, 0.015, 0.14, "glass");
-      t.body.pipe(-0.23, 0.27, -0.06, 0.23, 0.27, -0.06, 0.007, "brass");
+    // Orbital Array: four oversized horizontal collectors around a raised hub.
+    t.body.cylinder(0, 0.015, 0, 0.065, 0.12, 0.09, "stoneLight", 8);
+    t.body.cylinder(0, 0.105, 0, 0.025, 0.05, 0.18, "iron", 8);
+    spinning(t, 0, 0.3, 0, [0, 1, 0], 0.18, () => {
+      for (const [x, z] of [[-0.16, 0], [0.16, 0], [0, -0.16], [0, 0.16]] as const) {
+        t.body.box(x, 0.3, z, x ? 0.16 : 0.1, 0.012, x ? 0.1 : 0.16, "brassDark");
+        t.body.box(x, 0.314, z, x ? 0.145 : 0.085, 0.004, x ? 0.085 : 0.145, "glassLight");
+        t.body.pipe(0, 0.3, 0, x, 0.3, z, 0.009, "brass");
+      }
+      t.body.dome(0, 0.3, 0, 0.045, "brass", 8, 0.7);
     });
   },
   ASTRAL_DOCK_PART_3: t => {
-    t.body.box(0, 0.02, 0, 0.29, 0.04, 0.24, "stoneLight");
-    t.body.pipe(0, 0.06, 0, 0, 0.36, 0, 0.008, "brass");
-    for (const x of [-0.12, 0.12]) {
-      t.body.panel(x, 0.22, 0, 0.19, 0.22, "glass");
-      t.body.pipe(x * 2, 0.1, 0, x * 2, 0.34, 0, 0.006, "brassDark");
+    // Aether Sail: two tall diamond sails and a narrow mast.
+    t.body.box(0, 0.015, 0, 0.27, 0.035, 0.2, "stoneLight");
+    t.body.pipe(0, 0.05, 0, 0, 0.44, 0, 0.009, "brass");
+    for (const side of [-1, 1]) {
+      t.body.gem(side * 0.11, 0.255, 0, 0.11, 0.3, "glassLight");
+      t.body.pipe(0, 0.1, 0, side * 0.22, 0.255, 0, 0.005, "brassDark");
+      t.body.pipe(side * 0.22, 0.255, 0, 0, 0.42, 0, 0.005, "brassDark");
     }
-    t.glow.gem(0, 0.37, 0, 0.02, 0.04, "aether");
+    t.glow.gem(0, 0.46, 0, 0.015, 0.025, "aether");
   },
   CENSUS_DIRECTORATE_PART_1: t => {
-    hall(t, 0, -0.12, 0.3, 0.14, 0.14);
-    for (const x of [-0.13, 0, 0.13]) {
-      t.body.box(x, 0.02, 0.08, 0.065, 0.15, 0.14, "iron");
-      gear(t, x, 0.2, 0.11, 0.045, 0, 0.5);
-      t.glow.box(x, 0.05, 0.155, 0.04, 0.04, 0.005, "lamp");
+    // Census Engine: three tall sealed data cabinets with an elevated optical bus.
+    for (const x of [-0.16, 0, 0.16]) {
+      housing(t, x, -0.04, 0.1, 0.2 + (x === 0 ? 0.09 : 0), 0.2);
+      for (const y of [0.08, 0.13, 0.18]) t.glow.box(x, y, 0.068, 0.07, 0.006, 0.014, "aether");
+      t.body.box(x, 0.015, 0.16, 0.09, 0.025, 0.075, "glassLight");
     }
+    t.body.box(0, 0.34, -0.04, 0.065, 0.035, 0.08, "brass");
+    t.body.pipe(-0.16, 0.24, -0.04, 0.16, 0.24, -0.04, 0.012, "iron");
   },
   CENSUS_DIRECTORATE_PART_2: t => {
-    hall(t, 0, -0.02, 0.35, 0.2, 0.28);
-    t.body.disc(0, 0.13, 0.13, 0.067, 0.02, "iron");
-    t.body.disc(0, 0.13, 0.145, 0.052, 0.008, "brass");
-    t.body.box(0, 0.125, 0.153, 0.07, 0.01, 0.012, "ironDark");
+    // Registry Vault: squat armoured bunker and oversized circular vault door.
+    housing(t, 0, -0.035, 0.36, 0.2, 0.3);
+    for (const x of [-0.17, 0.17]) t.body.box(x, 0.03, 0.025, 0.045, 0.25, 0.25, "stoneLight");
+    t.body.box(0, 0.253, -0.035, 0.29, 0.025, 0.25, "iron");
+    t.body.disc(0, 0.13, 0.13, 0.09, 0.035, "brassDark");
+    t.body.disc(0, 0.13, 0.153, 0.07, 0.015, "iron");
+    for (const a of [0, Math.PI / 2]) t.body.box(0, 0.125, 0.165, 0.105, 0.012, 0.01, "brass", a);
+    t.body.box(0, 0.005, 0.21, 0.15, 0.025, 0.06, "paving");
   },
   CENSUS_DIRECTORATE_PART_3: t => {
-    hall(t, 0, -0.08, 0.28, 0.12, 0.19);
-    t.body.box(0, 0.015, 0.15, 0.18, 0.035, 0.1, "stoneLight");
-    for (const x of [-0.05, 0.05]) t.body.box(x, 0.05, 0.15, 0.07, 0.008, 0.06, "paving");
-    t.body.cylinder(0, 0.24, -0.08, 0.007, 0.01, 0.12, "brass", 6);
-    t.body.panel(0.038, 0.32, -0.08, 0.07, 0.05, "stoneLight");
+    // Levy Charter: open civic lectern beneath a narrow pointed canopy.
+    gantry(t, 0, -0.07, 0.26, 0.28, 0.045);
+    t.body.pyramid(0, 0.34, -0.07, 0.34, 0.08, 0.19, "glass");
+    t.body.box(0, 0.015, 0.06, 0.25, 0.03, 0.24, "stoneLight");
+    t.body.box(0, 0.045, 0.075, 0.06, 0.12, 0.07, "brassDark");
+    t.body.box(0, 0.165, 0.075, 0.16, 0.015, 0.1, "glassLight");
+    t.glow.box(0, 0.185, 0.075, 0.11, 0.003, 0.07, "aether");
+    for (const x of [-0.12, 0.12]) t.body.cylinder(x, 0.02, 0.15, 0.012, 0.018, 0.13, "stoneLight", 6);
   },
   TITANIUM_LEVY_PART_1: t => {
-    hall(t, 0, 0.12, 0.28, 0.11, 0.17);
-    t.body.cylinder(0, 0.01, -0.08, 0.025, 0.045, 0.27, "iron", 8);
-    for (const side of [-1, 1]) t.body.pipe(side * 0.02, 0.29, -0.08, side * 0.15, 0.29, -0.08, 0.035, "brass");
+    // Muster Klaxon: three flared horns, conspicuous from both ends.
+    t.body.cylinder(0, 0.015, 0, 0.075, 0.13, 0.045, "stoneLight", 8);
+    t.body.box(0, 0.06, 0, 0.065, 0.18, 0.09, "iron");
+    for (const [y, z] of [[0.22, -0.1], [0.3, 0], [0.22, 0.1]] as const) {
+      t.body.pipe(-0.19, y, z, 0.19, y, z, 0.02, "brassDark");
+      for (const side of [-1, 1]) {
+        t.body.pipe(side * 0.12, y, z, side * 0.23, y, z, 0.055, "brass");
+        t.body.pipe(side * 0.23, y, z, side * 0.242, y, z, 0.04, "ironDark");
+      }
+    }
+    ribs(t, 0, 0.02, 0.19, 0.14, 4, 0.055, 0.06);
   },
   TITANIUM_LEVY_PART_2: t => {
-    t.body.cylinder(0, 0.01, 0, 0.1, 0.16, 0.08, "stoneLight", 8);
-    t.body.cylinder(0, 0.09, 0, 0.01, 0.015, 0.3, "brass", 8);
-    t.body.panel(0.055, 0.3, 0, 0.12, 0.12, "iron");
-    t.body.panel(0.055, 0.3, 0.002, 0.075, 0.075, "stoneLight");
-    for (const x of [-0.2, 0.2]) crate(t, x, 0.1);
+    // Titanium Standard: one broad metal banner on a braced ceremonial pole.
+    t.body.box(0, 0.015, 0, 0.29, 0.035, 0.21, "stoneLight");
+    t.body.box(-0.1, 0.05, 0, 0.018, 0.37, 0.018, "brass");
+    t.body.box(0.02, 0.22, 0, 0.23, 0.17, 0.016, "iron");
+    t.body.box(0.02, 0.233, 0.011, 0.19, 0.14, 0.008, "stoneLight");
+    t.body.gem(0.02, 0.3, 0.025, 0.03, 0.055, "brass");
+    t.body.pipe(-0.19, 0.05, 0.065, -0.1, 0.21, 0, 0.009, "iron");
+    t.body.gem(-0.1, 0.445, 0, 0.015, 0.03, "brass");
   },
   TITANIUM_LEVY_PART_3: t => {
-    hall(t, 0, -0.03, 0.36, 0.13, 0.25);
-    for (const x of [-0.12, 0, 0.12]) {
-      t.body.box(x, 0.015, 0.16, 0.07, 0.04, 0.08, "brassDark");
-      t.body.box(x, 0.055, 0.16, 0.055, 0.006, 0.06, "paving");
-    }
-    t.body.gem(0, 0.25, -0.03, 0.034, 0.06, "brass");
+    // Levy Writ: a armoured authorization press with an overhead magnetic actuator.
+    housing(t, 0, -0.15, 0.27, 0.075, 0.075);
+    gantry(t, 0, 0.045, 0.23, 0.21, 0.085);
+    t.body.box(0, 0.045, 0.07, 0.19, 0.035, 0.18, "brassDark");
+    t.body.box(0, 0.08, 0.07, 0.15, 0.006, 0.14, "glassLight");
+    t.body.cylinder(0, 0.09, 0.045, 0.014, 0.014, 0.24, "iron", 8);
+    for (const y of [0.19, 0.23, 0.27]) band(t, 0, y, 0.045, 0.025);
+    t.body.cylinder(0, 0.315, 0.045, 0.06, 0.06, 0.03, "brassDark", 10);
+    t.glow.box(0, 0.11, 0.095, 0.08, 0.007, 0.008, "aether");
   }
 };
 

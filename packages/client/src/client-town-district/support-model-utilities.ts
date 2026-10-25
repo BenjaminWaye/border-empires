@@ -1,68 +1,89 @@
-import { gear, spinning, steamVent, type TownBuilders } from "../client-map-3d-town-overlay/town-parts.js";
-import { hall } from "./support-model-core.js";
+import { gear, spinning, type TownBuilders } from "../client-map-3d-town-overlay/town-parts.js";
+import { band, housing, ribs, vessel } from "./support-model-detail.js";
 
 export const buildUtility = (t: TownBuilders, kind: string): boolean => {
   switch (kind) {
     case "HYDROWORKS":
-      hall(t, -0.08, -0.1, 0.25, 0.12, 0.18);
-      t.body.cylinder(0.14, 0.015, 0.06, 0.1, 0.11, 0.09, "stoneLight", 12);
-      t.body.cylinder(0.14, 0.106, 0.06, 0.083, 0.083, 0.004, "water", 12);
-      t.body.pipe(-0.07, 0.07, 0.06, 0.14, 0.07, 0.06, 0.015, "brass");
-      gear(t, -0.12, 0.12, 0.14, 0.075, 0, 0.4);
+      // Open settling basin and a large vertical waterwheel.
+      housing(t, -0.145, -0.08, 0.13, 0.16, 0.24);
+      t.body.cylinder(0.095, 0.012, 0.035, 0.14, 0.16, 0.07, "stoneLight", 12);
+      t.body.cylinder(0.095, 0.083, 0.035, 0.123, 0.123, 0.003, "water", 12);
+      t.body.cylinder(0.095, 0.086, 0.035, 0.015, 0.025, 0.055, "brass", 8);
+      t.body.pipe(-0.13, 0.16, -0.08, 0.095, 0.16, 0.035, 0.014, "brassDark");
+      t.body.pipe(0.095, 0.16, 0.035, 0.095, 0.11, 0.035, 0.014, "brass");
+      gear(t, -0.13, 0.16, 0.095, 0.095, 0, 0.25);
+      for (const x of [-0.17, 0.16]) t.body.box(x, 0.008, 0.21, 0.06, 0.025, 0.045, "stoneLight");
       return true;
     case "ORE_REFINERY":
-      hall(t, -0.06, -0.07, 0.31, 0.16, 0.23);
-      for (const x of [0.13, 0.22]) {
-        t.body.cylinder(x, 0.02, -0.04, 0.038, 0.05, 0.23, "iron", 8);
-        t.body.cone(x, 0.25, -0.04, 0.05, 0.06, "graphite", 8);
-        t.body.ring(x, 0.18, -0.04, 0.045, "brass", 0.08);
+      // Twin square smelter stacks and a sloping raw-ore feed chute.
+      for (const x of [-0.13, 0.06]) {
+        t.body.box(x, 0.015, -0.07, 0.14, 0.035, 0.19, "stoneLight");
+        t.body.pyramid(x, 0.05, -0.07, 0.14, 0.1, 0.19, "iron");
+        t.body.box(x, 0.15, -0.07, 0.08, x < 0 ? 0.23 : 0.16, 0.09, "stoneDark");
+        t.body.box(x, x < 0 ? 0.36 : 0.29, -0.07, 0.1, 0.025, 0.11, "brassDark");
+        t.body.box(x, 0.055, 0.032, 0.065, 0.065, 0.012, "ironDark");
+        t.glow.box(x, 0.065, 0.04, 0.045, 0.04, 0.005, "lampWarm");
       }
-      t.body.box(-0.05, 0.02, 0.16, 0.28, 0.025, 0.1, "iron");
-      for (const x of [-0.15, -0.05, 0.05]) t.body.blob(x, 0.06, 0.16, 0.035, "stoneDark");
-      steamVent(t, -0.16, 0.25, -0.13, 0.13);
+      t.body.box(0, 0.01, 0.18, 0.35, 0.025, 0.09, "ironDark");
+      for (const x of [-0.13, -0.04, 0.05, 0.14]) t.body.gem(x, 0.065, 0.18, 0.035, 0.045, "stoneDark");
+      t.body.pipe(0.19, 0.03, 0.17, 0.19, 0.22, -0.12, 0.028, "iron");
+      ribs(t, 0.19, 0.19, -0.15, 0.09, 4, 0.04, 0.1);
       return true;
     case "SKY_DOCK":
-      hall(t, -0.13, 0.06, 0.15, 0.12, 0.22);
-      t.body.box(0.06, 0.02, -0.04, 0.26, 0.035, 0.37, "iron");
-      for (const x of [-0.06, 0.18]) {
-        t.body.box(x, 0.055, -0.04, 0.02, 0.14, 0.34, "brassDark");
-        t.glow.pipe(x, 0.2, -0.2, x, 0.2, 0.12, 0.004, "lamp");
+      // Elevated airship berth: one overhead hull and a cantilever mooring arm.
+      housing(t, -0.16, 0.08, 0.1, 0.12, 0.22);
+      for (const z of [-0.16, 0.14]) {
+        t.body.box(0.1, 0.015, z, 0.18, 0.028, 0.06, "stoneLight");
+        t.body.box(0.1, 0.043, z, 0.028, 0.19, 0.035, "iron");
       }
-      spinning(t, 0.06, 0.25, -0.04, [0, 1, 0], 0.12, () => {
-        t.body.ellipsoid(0.06, 0.25, -0.04, 0.17, 0.05, 0.06, "stoneLight", Math.PI / 2);
-        t.body.box(0.06, 0.18, -0.04, 0.04, 0.03, 0.08, "brass");
-      });
+      t.body.box(0.1, 0.235, -0.01, 0.19, 0.025, 0.36, "iron");
+      for (const x of [0.005, 0.195]) t.body.pipe(x, 0.27, -0.17, x, 0.27, 0.15, 0.006, "brass");
+      t.body.ellipsoid(0.045, 0.375, -0.025, 0.215, 0.075, 0.075, "stoneLight");
+      t.body.box(0.045, 0.278, -0.025, 0.075, 0.045, 0.055, "brassDark");
+      for (const x of [-0.075, 0.16]) t.body.pipe(x, 0.3, -0.025, x, 0.4, -0.025, 0.005, "brass");
+      t.body.panel(-0.17, 0.4, -0.025, 0.06, 0.085, "iron");
       return true;
     case "AMBARIC_TRANSFORMER":
-      hall(t, 0, 0.18, 0.25, 0.09, 0.1);
+      // Two massive fin banks and a low horseshoe busbar.
       for (const x of [-0.13, 0.13]) {
-        t.body.cylinder(x, 0.015, -0.04, 0.045, 0.055, 0.22, "iron", 10);
-        for (let i = 0; i < 5; i += 1) t.body.ring(x, 0.055 + i * 0.035, -0.04, 0.06, "brass", 0.07);
-        t.glow.gem(x, 0.26, -0.04, 0.022, 0.045, "aether");
+        t.body.box(x, 0.015, -0.035, 0.14, 0.035, 0.21, "stoneLight");
+        ribs(t, x, 0.05, -0.035, 0.125, 7, 0.18, 0.18);
+        for (const z of [-0.08, 0.015]) {
+          t.body.cylinder(x, 0.24, z, 0.018, 0.028, 0.09, "stoneLight", 6);
+          band(t, x, 0.28, z, 0.03);
+          t.glow.gem(x, 0.35, z, 0.015, 0.025, "aether");
+        }
       }
-      t.body.pipe(-0.13, 0.12, -0.04, 0.13, 0.12, -0.04, 0.022, "ironDark");
+      for (const x of [-0.13, 0.13]) t.body.pipe(x, 0.12, 0.04, x, 0.12, 0.18, 0.017, "brass");
+      t.body.pipe(-0.13, 0.12, 0.18, 0.13, 0.12, 0.18, 0.017, "brass");
       return true;
     case "RELAY_BEACON":
-      t.body.cylinder(0, 0.015, 0, 0.1, 0.15, 0.08, "stoneLight", 8);
-      t.body.cylinder(0, 0.095, 0, 0.045, 0.075, 0.17, "iron", 8);
-      t.body.cone(0, 0.265, 0, 0.09, 0.065, "brass", 8);
-      for (const y of [0.11, 0.2, 0.26]) t.body.ring(0, y, 0, 0.075, "brass", 0.06);
-      t.glow.gem(0, 0.35, 0, 0.037, 0.09, "aether");
-      for (const x of [-0.16, 0.16]) {
-        t.body.box(x, 0.015, 0.04, 0.07, 0.065, 0.11, "iron");
-        t.body.pipe(x, 0.065, 0.04, 0, 0.065, 0, 0.01, "brass");
-      }
+      // Forked radio mast and broad directional dish, visibly asymmetric.
+      housing(t, -0.115, 0.06, 0.15, 0.075, 0.19);
+      t.body.cylinder(0.075, 0.015, -0.04, 0.075, 0.11, 0.045, "stoneLight", 8);
+      for (const x of [0.035, 0.115]) t.body.box(x, 0.06, -0.04, 0.024, 0.28, 0.045, "iron");
+      spinning(t, 0.075, 0.33, -0.04, [0, 1, 0], 0.12, () => {
+        t.body.disc(0.075, 0.33, -0.04, 0.1, 0.035, "brassDark");
+        t.body.disc(0.075, 0.33, -0.017, 0.077, 0.01, "stoneLight");
+        t.body.pipe(0.075, 0.33, -0.01, 0.075, 0.33, 0.09, 0.006, "iron");
+        t.glow.gem(0.075, 0.33, 0.095, 0.013, 0.018, "aether");
+      });
+      ribs(t, -0.13, 0.13, 0.06, 0.1, 5, 0.025, 0.09);
       return true;
     case "OBSERVATORY":
-      hall(t, 0, 0.15, 0.27, 0.09, 0.1);
-      t.body.cylinder(0, 0.015, -0.05, 0.075, 0.13, 0.08, "stoneLight", 8);
-      t.body.cylinder(0, 0.095, -0.05, 0.05, 0.075, 0.24, "iron", 8);
-      for (const y of [0.12, 0.23, 0.32]) t.body.ring(0, y, -0.05, 0.082, "brass", 0.06);
-      t.glow.gem(0, 0.385, -0.05, 0.05, 0.095, "aether");
-      spinning(t, 0, 0.38, -0.05, [0, 1, 0], 0.35, () => {
-        t.body.ring(0, 0.38, -0.05, 0.12, "brass", 0.05);
-        for (const x of [-0.12, 0.12]) t.glow.gem(x, 0.38, -0.05, 0.012, 0.025, "aether");
+      // Armillary instrument in an open three-legged cradle.
+      t.body.cylinder(0, 0.012, 0, 0.16, 0.19, 0.045, "stoneLight", 10);
+      vessel(t, 0, 0, 0.065, 0.08);
+      for (let i = 0; i < 3; i += 1) {
+        const a = i * Math.PI * 2 / 3;
+        t.body.pipe(Math.sin(a) * 0.17, 0.045, Math.cos(a) * 0.17, Math.sin(a) * 0.1, 0.26, Math.cos(a) * 0.1, 0.017, "iron");
+      }
+      spinning(t, 0, 0.29, 0, [0, 0, 1], 0.2, () => {
+        t.body.ring(0, 0.29, 0, 0.13, "brass", 0.06);
+        t.body.pipe(-0.08, 0.21, 0, 0.08, 0.37, 0, 0.012, "brassDark");
+        t.glow.gem(0, 0.29, 0, 0.04, 0.085, "aether");
       });
+      housing(t, 0, 0.21, 0.16, 0.055, 0.065);
       return true;
     default: return false;
   }

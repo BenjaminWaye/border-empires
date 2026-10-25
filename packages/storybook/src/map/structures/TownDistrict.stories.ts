@@ -1,3 +1,4 @@
+import { renderDistrictIdentityReview } from "./town-district-identity-review.js";
 import { renderDistrictBenchmark } from "./town-district-benchmark.js";
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { Mesh, MeshStandardMaterial, PlaneGeometry, PMREMGenerator } from "three";
@@ -168,3 +169,5 @@ export const Inactive: Story = { args: { state: "inactive" } };
 export const PerformanceComparison: Story = { render: () => renderDistrictBenchmark() };
 export const ReducedQualityComparison: Story = { render: () => renderDistrictBenchmark(true) };
 export const SharedTiles: Story = { args: { stacking: true, radius: 1 } };
+
+export const IdentityReview: Story = { render: () => renderDistrictIdentityReview() };
