@@ -84,6 +84,8 @@ const watchMenuVisibility = (menuEl: HTMLElement): void => {
 export const dockTileActionMenuForHudV2 = (state: ClientState, view: TileMenuView, deps: TileDockDeps, rerender: () => void): void => {
   const menuEl = deps.tileActionMenuEl;
   if (!isHudV2Active(deps.isMobile)) {
+    // Flag off and never docked: leave the legacy menu completely untouched.
+    if (!dock) return;
     menuEl.classList.remove(DOCKED, EXPANDED);
     hideBar();
     return;
