@@ -78,7 +78,7 @@ and status indicators remain in their normal overlay paths.
   adapters, seating, selection emphasis and cleanup.
 - `apps/simulation/src/town-district/town-district-projection.ts`: authoritative
   per-viewer anchor projection and local refreshes.
-- `packages/storybook/src/3d/TownDistrict.stories.ts`: complete catalogue,
+- `packages/storybook/src/map/structures/TownDistrict.stories.ts`: complete catalogue,
   first/second rings, slopes, construction, dormancy and 2D previews using
   production modules.
 

@@ -22,11 +22,13 @@ town-matched marble foundations, stone and dark iron buildings, aged brass,
 warm windows, machinery-specific accents, and raised service connections.
 Each building must remain identifiable at ordinary gameplay zoom.
 
-The accepted reference implementation is
-[`TownSupportCluster.stories.ts`](../packages/storybook/src/3d/TownSupportCluster.stories.ts).
-Its three models, fixed eight-building ring and raised foundations are an art
-study. Production work must support arbitrary occupancy, all town tiers,
-terrain, world wrapping, visibility, construction and both renderers.
+The production reference is
+[`TownDistrict.stories.ts`](../packages/storybook/src/map/structures/TownDistrict.stories.ts).
+It replaces the accepted three-model art study with the complete catalogue,
+production renderer adapters and lifecycle previews. The initial art study is
+retained in this branch's Git history. Production work supports arbitrary
+occupancy, town tiers, terrain, world wrapping, visibility and construction in
+both renderers.
 
 This is a presentation change. Keep costs, unlocks, support radii, assignment,
 stacking, resource slots and economic effects unchanged. Existing buildings

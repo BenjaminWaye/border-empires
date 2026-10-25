@@ -1,12 +1,9 @@
+import { DISTRICT_RADIUS, DISTRICT_PORT_Y, DISTRICT_PORT_RADIUS } from "./district-catalog.js";
 import {
   gear, lampPost, octagonPlate, spinning, steamVent, tree,
   type TownBuilders
 } from "../client-map-3d-town-overlay/town-parts.js";
 
-export type SupportStudyKind = "MANUFACTORY" | "ANCILLARY_DEPOT" | "AETHER_CONDENSER";
-export const SUPPORT_PLATE_RADIUS = 0.38;
-export const SUPPORT_SOCKET_Y = 0.075;
-export const CLUSTER_BASE_Y = 0.1;
 
 export const windowStrip = (t: TownBuilders, x: number, y: number, z: number, count: number): void => {
   for (let i = 0; i < count; i += 1) {
@@ -128,12 +125,8 @@ export const condenser = (t: TownBuilders): void => {
   });
 };
 
-const BUILDERS: Readonly<Record<SupportStudyKind, (t: TownBuilders) => void>> = {
-  MANUFACTORY: manufactory, ANCILLARY_DEPOT: depot, AETHER_CONDENSER: condenser
-};
-
 export const buildSupportFoundation = (t: TownBuilders): void => {
-  octagonPlate(t, SUPPORT_PLATE_RADIUS, false);
+  octagonPlate(t, DISTRICT_RADIUS, false);
   // Identical trim, service sockets, paving and small landscaping give the
   // family a common scale without making every building the same shape.
   for (const side of [-1, 1]) {
@@ -143,15 +136,10 @@ export const buildSupportFoundation = (t: TownBuilders): void => {
   }
   for (let i = 0; i < 8; i += 1) {
     const angle = i * Math.PI / 4;
-    const x = Math.sin(angle) * 0.341;
-    const z = Math.cos(angle) * 0.341;
-    t.body.cylinder(x, 0, z, 0.022, 0.027, SUPPORT_SOCKET_Y, "iron", 8);
-    t.body.cylinder(x, SUPPORT_SOCKET_Y - 0.008, z, 0.028, 0.028, 0.009, "brass", 8);
-    t.glow.gem(x, SUPPORT_SOCKET_Y + 0.008, z, 0.008, 0.013, "lamp");
+    const x = Math.sin(angle) * DISTRICT_PORT_RADIUS;
+    const z = Math.cos(angle) * DISTRICT_PORT_RADIUS;
+    t.body.cylinder(x, 0, z, 0.022, 0.027, DISTRICT_PORT_Y, "iron", 8);
+    t.body.cylinder(x, DISTRICT_PORT_Y - 0.008, z, 0.028, 0.028, 0.009, "brass", 8);
+    t.glow.gem(x, DISTRICT_PORT_Y + 0.008, z, 0.008, 0.013, "lamp");
   }
-};
-
-export const buildSupportStudy = (t: TownBuilders, kind: SupportStudyKind): void => {
-  buildSupportFoundation(t);
-  BUILDERS[kind](t);
 };
