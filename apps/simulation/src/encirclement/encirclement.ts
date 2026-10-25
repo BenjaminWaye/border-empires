@@ -54,6 +54,21 @@ const connectedNeighborKeys = (tileKey: string, extraNeighborKeys?: ExtraNeighbo
 };
 
 /**
+ * Allocation-free variant of connectedNeighborKeys for the hot component
+ * flood: writes into `out` (cleared first) instead of building a new array.
+ */
+const writeNeighborKeys = (tileKey: string, out: string[], extraNeighborKeys?: ExtraNeighborKeys): void => {
+  out.length = 0;
+  const comma = tileKey.indexOf(",");
+  const cx = Number(tileKey.slice(0, comma));
+  const cy = Number(tileKey.slice(comma + 1));
+  for (const { dx, dy } of NEIGHBOR_OFFSETS) out.push(`${wrapX(cx + dx, WORLD_WIDTH)},${wrapY(cy + dy, WORLD_HEIGHT)}`);
+  if (extraNeighborKeys) {
+    for (const extraKey of extraNeighborKeys(tileKey)) out.push(extraKey);
+  }
+};
+
+/**
  * Minimal tile shape this module needs from the runtime tile map.
  * Runtime uses DomainTileState; pure functions here only require what they
  * read so they can be called from tests without the full type.
@@ -121,18 +136,20 @@ export const isFrontierConnected = (
 };
 
 /**
- * Cap on the tiles computeEncirclementDeltas may flood in any one frontier
- * component (Option C).
+ * Per-component work cap for computeEncirclementDeltas (Option C): the number
+ * of neighbour lookups one frontier component's flood may make (about eight
+ * per flooded tile), the same unit the old whole-territory walk was bounded by.
  *
  * The flood only crosses the affected player's own FRONTIER tiles (settled
  * land is a supply terminal and is never traversed), so its cost tracks the
  * size of the frontier around the change, not the whole empire. A component
- * that grows past the cap stops flooding: if it has already touched supply it
+ * that exhausts the cap stops flooding: if it has already touched supply it
  * is classified supplied (correct, since supply is all that matters), and
  * otherwise it is left unclassified and reported through `onCapExceeded`.
- * Other components touched by the same change are still classified. A skipped
- * component is not retried automatically; the stranded-frontier region check
- * (stranded-frontier-cleanup.ts) is the backstop.
+ * Other components touched by the same change are still classified, each with
+ * its own budget. A skipped component is not retried automatically; the
+ * stranded-frontier region check (stranded-frontier-cleanup.ts) is the
+ * backstop.
  */
 export const ENCIRCLEMENT_BFS_CAP = 10_000;
 
@@ -199,20 +216,23 @@ export const computeEncirclementDeltas = (
   // are the same component: inherit that component's verdict.
   const components: FrontierComponent[] = [];
   const componentOf = new Map<string, number>();
+  const neighborKeys: string[] = [];
   for (const seed of seeds) {
     if (componentOf.has(seed)) continue;
     const index = components.length;
     const component: FrontierComponent = { keys: [seed], status: "unsupplied" };
     components.push(component);
     componentOf.set(seed, index);
-    let supplied = false;
+    // Seeds were read as own FRONTIER above; a frontier dock is its own supply.
+    let supplied = Boolean(getTile(seed)?.dockId);
     let joinsUnknown = false;
     let capped = false;
+    let lookups = 0;
     const queue = [seed];
     for (let head = 0; head < queue.length && !capped; head += 1) {
-      const current = queue[head]!;
-      if (getTile(current)?.dockId) supplied = true;
-      for (const nk of connectedNeighborKeys(current, options?.extraNeighborKeys)) {
+      writeNeighborKeys(queue[head]!, neighborKeys, options?.extraNeighborKeys);
+      lookups += neighborKeys.length;
+      for (const nk of neighborKeys) {
         const earlier = componentOf.get(nk);
         if (earlier !== undefined) {
           if (earlier === index) continue;
@@ -226,16 +246,17 @@ export const computeEncirclementDeltas = (
           componentOf.set(nk, index);
           component.keys.push(nk);
           queue.push(nk);
+          if (neighbor.dockId) supplied = true;
         } else if (isSupplyTerminal(neighbor)) {
           supplied = true;
         }
       }
-      if (bfsCap > 0 && component.keys.length > bfsCap) capped = true;
+      if (bfsCap > 0 && lookups > bfsCap) capped = true;
     }
     if (supplied) component.status = "supplied";
     else if (capped || joinsUnknown) {
       component.status = "unknown";
-      if (capped) options?.onCapExceeded?.(affectedPlayerId, component.keys.length, bfsCap);
+      if (capped) options?.onCapExceeded?.(affectedPlayerId, lookups, bfsCap);
     }
   }
 
