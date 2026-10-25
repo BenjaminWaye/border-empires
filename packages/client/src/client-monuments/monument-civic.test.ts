@@ -4,6 +4,13 @@ import { structureModelBriefFor } from "../client-structure-info-catalog/structu
 import { TITANIUM_LEVY_MANPOWER_CONVERSION_RATIO, TITANIUM_LEVY_REGEN_FREEZE_MS } from "@border-empires/game-domain";
 
 describe("revised civic monuments", () => {
+  it("terminates the Census stone columns beneath the roof rim", () => {
+    const model = createDistrictGeometry("CENSUS_DIRECTORATE", false);
+    const stone = model.layers.body!;
+    stone.computeBoundingBox();
+    expect(stone.boundingBox!.max.y).toBeLessThanOrEqual(0.648);
+    for (const geometry of Object.values(model.layers)) geometry.dispose();
+  });
   it("keeps the Census side galleries low and its entrance free of a detached kiosk", () => {
     const model = createDistrictGeometry("CENSUS_DIRECTORATE", false);
     let galleryVertices = 0;

@@ -165,7 +165,7 @@ const census = (t: TownBuilders): void => {
   t.body.cylinder(0, 0.63, -0.045, 0.13, 0.13, 0.018, "brass", 24);
   t.body.cylinder(0, 0.648, -0.045, 0.085, 0.12, 0.035, "iron", 24);
   for (const x of [-0.12, 0.12]) {
-    t.body.pipe(x, 0.08, -0.045, x, 0.67, -0.045, 0.015, "stoneLight");
+    t.body.pipe(x, 0.08, -0.045, x, 0.636, -0.045, 0.015, "stoneLight");
   }
   // Recessed entrance and broad stair replace the detached screen kiosk.
   t.body.box(0, 0.075, 0.071, 0.082, 0.13, 0.018, "ironDark");
