@@ -19,7 +19,7 @@ export const buildSovereignSiege = (t: TownBuilders): void => {
   t.body.cylinder(0, 0.14, 0, 0.225, 0.235, 0.018, "brassDark", 24);
   for (const x of [-0.18, 0.18]) {
     t.body.box(x, 0.09, -0.025, 0.105, 0.19, 0.37, "ironDark");
-    t.body.tiltedBox(x, 0.19, -0.035, 0.095, 0.22, 0.16, "iron", 0, x < 0 ? -0.18 : 0.18);
+    t.body.tiltedBox(x, 0.30, -0.035, 0.095, 0.22, 0.16, "iron", 0, x < 0 ? -0.18 : 0.18);
     t.body.pipe(x * 1.2, axis(-0.035), -0.035, x < 0 ? -0.075 : 0.075, axis(-0.035), -0.035, 0.067, "brassDark");
     t.body.pipe(x * 1.18, axis(-0.035), -0.035, x * 1.24, axis(-0.035), -0.035, 0.052, "iron");
     for (const z of [-0.155, -0.045, 0.065]) {

@@ -46,6 +46,15 @@ describe("monument detail integrity", () => {
     }
     for (const geometry of Object.values(model.layers)) geometry.dispose(); material.dispose();
   });
+  it("fills the gap between each trunnion and its carriage", () => {
+    const model = createDistrictGeometry("SOVEREIGN_SIEGE_ENGINE", false), material = new MeshBasicMaterial({ side: DoubleSide });
+    const mesh = new Mesh(model.layers.metal, material); mesh.updateMatrixWorld();
+    for (const side of [-1, 1]) {
+      const ray = new Raycaster(new Vector3(side * 0.4, 0.325, -0.035), new Vector3(-side, 0, 0));
+      expect(ray.intersectObject(mesh)[0]?.distance ?? Infinity).toBeLessThan(0.2);
+    }
+    for (const geometry of Object.values(model.layers)) geometry.dispose(); material.dispose();
+  });
   it("keeps the rear core enclosed instead of protruding above its breech", () => {
     const model = createDistrictGeometry("SOVEREIGN_SIEGE_ENGINE", false);
     const glow = model.layers.glow!.getAttribute("position");

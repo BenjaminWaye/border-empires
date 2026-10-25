@@ -1,6 +1,6 @@
 # Completed Great Project models
 
-Status: implementation reference; reviewed in 3D, awaiting merge
+Status: implementation reference
 
 The six completed Great Projects use `client-monuments/monument-models.ts` and
 are rendered through the shared district geometry/material/construction pipeline.
