@@ -1,14 +1,5 @@
 import type { TownBuilders } from "../client-map-3d-town-overlay/town-parts.js";
 
-/** A genuinely open circular collar facing +z, rather than a filled disc. */
-export const verticalCollar = (t: TownBuilders, x: number, y: number, z: number, radius: number): void => {
-  for (let i = 0; i < 20; i++) {
-    const a = i * Math.PI / 10, b = (i + 1) * Math.PI / 10;
-    t.body.pipe(x + Math.sin(a) * radius, y + Math.cos(a) * radius, z,
-      x + Math.sin(b) * radius, y + Math.cos(b) * radius, z, 0.008, "brass");
-  }
-};
-
 /** Recessed rear service hatch with a metal frame and inset readout. */
 export const archiveHatch = (t: TownBuilders, x: number, z: number, height = 0.16, base = 0.10): void => {
   t.body.box(x, base, z, 0.08, height, 0.012, "ironDark");

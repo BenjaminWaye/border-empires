@@ -30,19 +30,19 @@ describe("monument detail integrity", () => {
     expect(distance("glow")).toBeLessThan(distance("metal"));
     for (const geometry of Object.values(model.layers)) geometry.dispose(); material.dispose();
   });
-  it("supports the siege sighting tubes across their former air gap", () => {
+  it("anchors the siege trunnions to its heavy recoil beds", () => {
     const model = createDistrictGeometry("SOVEREIGN_SIEGE_ENGINE", false), material = new MeshBasicMaterial({ side: DoubleSide });
     const mesh = new Mesh(model.layers.metal, material); mesh.updateMatrixWorld();
-    const ray = new Raycaster(new Vector3(0.11, 0.37, 0.05), new Vector3(0, 0, -1));
+    const ray = new Raycaster(new Vector3(0.32, 0.33, -0.035), new Vector3(-1, 0, 0));
     expect(ray.intersectObject(mesh)[0]?.distance ?? Infinity).toBeLessThan(0.12);
     for (const geometry of Object.values(model.layers)) geometry.dispose(); material.dispose();
   });
   it("has a recessed muzzle cavity instead of a flat disc across its opening", () => {
     const model = createDistrictGeometry("SOVEREIGN_SIEGE_ENGINE", false), material = new MeshBasicMaterial({ side: DoubleSide });
     const mesh = new Mesh(model.layers.metal, material); mesh.updateMatrixWorld();
-    const ray = new Raycaster(new Vector3(0, 0.32, 0.4), new Vector3(0, 0, -1));
+    const ray = new Raycaster(new Vector3(0, 0.43 + 0.46 * 0.55, 0.46), new Vector3(0, -0.55, -1).normalize());
     const hit = ray.intersectObject(mesh)[0]; expect(hit).toBeDefined();
-    expect(hit!.point.z).toBeLessThan(0.22);
+    expect(hit!.point.z).toBeLessThan(0.10);
     for (const geometry of Object.values(model.layers)) geometry.dispose(); material.dispose();
   });
   it("keeps the satellite clear of the launch arms throughout its rotation", () => {

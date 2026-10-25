@@ -1,4 +1,5 @@
-import { archiveHatch, verticalCollar } from "./monument-detail.js";
+import { buildSovereignSiege } from "./monument-siege.js";
+import { archiveHatch } from "./monument-detail.js";
 import type { TownBuilders } from "../client-map-3d-town-overlay/town-parts.js";
 import { spinning } from "../client-map-3d-town-overlay/town-parts.js";
 import { windowStrip } from "../client-town-district/support-model-core.js";
@@ -44,41 +45,6 @@ const exchange = (t: TownBuilders): void => {
   t.glow.disc(0, 0.205, 0.258, 0.025, 0.005, "lamp");
   t.body.cylinder(0, 0.45, 0, 0.035, 0.055, 0.06, "brass", 8);
   t.glow.gem(0, 0.535, 0, 0.024, 0.05, "lampWarm");
-};
-const siege = (t: TownBuilders): void => {
-  footing(t);
-  for (const x of [-0.14, 0.14]) {
-    t.body.box(x, 0.075, -0.02, 0.09, 0.17, 0.3, "ironDark");
-    t.body.tiltedBox(x, 0.20, 0.0, 0.075, 0.25, 0.08, "brassDark", 0, x < 0 ? -0.3 : 0.3);
-    t.body.disc(x, 0.28, 0, 0.047, 0.06, "brass", Math.PI / 2);
-    for (const z of [-0.11, -0.02, 0.07]) {
-      t.body.box(x, 0.10, z, 0.095, 0.085, 0.045, "stoneDark");
-      t.glow.box(x, 0.19, z, 0.06, 0.004, 0.025, "aether");
-    }
-  }
-  // Magnetic barrel with a visible bore, containment collars and parallel rails.
-  t.body.pipe(0, 0.32, -0.20, 0, 0.32, 0.19, 0.061, "ironDark");
-  for (const z of [-0.18, -0.07, 0.04, 0.15]) {
-    t.body.disc(0, 0.32, z, 0.071, 0.018, "brassDark");
-    t.body.disc(0, 0.32, z + 0.011, 0.054, 0.004, "ironDark");
-  }
-  for (const x of [-0.045, 0.045]) t.glow.pipe(x, 0.365, -0.19, x, 0.365, 0.25, 0.006, "aether");
-  verticalCollar(t, 0, 0.32, 0.285, 0.061);
-  for (let i = 0; i < 20; i++) {
-    const a = i * Math.PI / 10, x = Math.sin(a) * 0.054, y = 0.32 + Math.cos(a) * 0.054;
-    t.body.pipe(x, y, 0.185, x, y, 0.28, 0.009, "ironDark");
-  }
-  t.glow.gem(0, 0.30, -0.235, 0.06, 0.16, "aether");
-  for (const x of [-0.11, 0.11]) {
-    t.body.pipe(x, 0.1, -0.18, x * 0.4, 0.43, -0.235, 0.014, "brass");
-    for (const z of [-0.045, 0.115]) {
-      const y = 0.43 + (z + 0.06) / 0.22 * 0.03;
-      t.body.pipe(x, 0.24, z, x, y, z, 0.008, "brassDark");
-      t.body.blob(x, y, z, 0.019, "brassDark");
-    }
-    t.body.pipe(x, 0.43, -0.06, x, 0.46, 0.16, 0.017, "iron");
-    t.glow.disc(x, 0.46, 0.17, 0.014, 0.004, "lamp");
-  }
 };
 const aegis = (t: TownBuilders): void => {
   footing(t);
@@ -221,7 +187,7 @@ const levy = (t: TownBuilders): void => {
 export const buildMonument = (t: TownBuilders, kind: MonumentKind): void => {
   switch (kind) {
     case "IMPERIAL_EXCHANGE": return exchange(t);
-    case "SOVEREIGN_SIEGE_ENGINE": return siege(t);
+    case "SOVEREIGN_SIEGE_ENGINE": footing(t); return buildSovereignSiege(t);
     case "AEGIS_DOME": return aegis(t);
     case "ASTRAL_DOCK": return astral(t);
     case "CENSUS_DIRECTORATE": return census(t);

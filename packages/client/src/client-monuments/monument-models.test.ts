@@ -33,14 +33,14 @@ describe("completed Great Project models", () => {
       expect(similarity(a.mask, b.mask), `${a.kind} / ${b.kind}`).toBeLessThan(0.82);
     }
   });
-  it("retains a long horizontal firing assembly on the completed siege weapon", () => {
+  it("retains a long elevated firing assembly on the completed siege weapon", () => {
     const model = createDistrictGeometry("SOVEREIGN_SIEGE_ENGINE", false);
     const zs: number[] = [];
     for (const layer of ["body", "metal"] as const) {
       const positions = model.layers[layer]?.getAttribute("position");
       if (!positions) continue;
       for (let i = 0; i < positions.count; i++) {
-        if (Math.abs(positions.getX(i)) < 0.075 && positions.getY(i) > 0.25 && positions.getY(i) < 0.395) zs.push(positions.getZ(i));
+        if (Math.abs(positions.getX(i)) < 0.075 && positions.getY(i) > 0.25 && positions.getY(i) < 0.74) zs.push(positions.getZ(i));
       }
     }
     expect(Math.max(...zs) - Math.min(...zs)).toBeGreaterThan(0.44);
