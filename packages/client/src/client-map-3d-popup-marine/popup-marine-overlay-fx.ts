@@ -318,6 +318,7 @@ export function createPopupMarineOverlayFx(scene: Scene, envMap?: Texture) {
       siegeKillTracker.fire(`sk:${b.hashSeed}`, b.hashSeed, skirmishVictim, tileX, tileY, tileZ, perpX, perpZ, ux, uz, nowMs);
 
       for (let side = 0 as 0 | 1; side < 2; side++) {
+        shots.beginSide(side);
         if (side === 1 && b.unopposed) continue;
         const isAttacker = side === 0;
         const entryLocalX = isAttacker ? -ux * 0.46 : ux * 0.46;
@@ -327,7 +328,6 @@ export function createPopupMarineOverlayFx(scene: Scene, envMap?: Texture) {
         const color = isAttacker ? b.attackerColor : b.defenderColor;
         const gear = isAttacker ? b.attackerGear : b.defenderGear;
 
-        shots.beginSide(side);
         for (let i = 0; i < MARINES_PER_SIDE; i++) {
           const garrisonStart = isAttacker ? undefined : garrisonStartFor(b.defenderGarrison, b.hashSeed, i);
           const basePose = computeSkirmishPose(b, side, i, nowMs, entryLocalX, entryLocalZ, perpX, perpZ, fwdX, fwdZ, skirmishVictim?.index, garrisonStart);

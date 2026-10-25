@@ -1,3 +1,4 @@
+import type { DockPair } from "../client-types.js";
 import { describe, expect, it } from "vitest";
 import { DockLandingMemory } from "./client-dock-landing-memory.js";
 import type { DockLanding } from "./client-dock-landing.js";
@@ -15,7 +16,7 @@ describe("bounded dock landing continuity", () => {
     expect(memory.metrics).toEqual({ entries: 0, expired: 1, evicted: 0 });
   });
   it("starts a fresh attack afresh and clears on a new world route set", () => {
-    const memory = new DockLandingMemory(); const routes = [];
+    const memory = new DockLandingMemory(); const routes: DockPair[] = [];
     memory.syncRoutes(routes);
     memory.remember("5,1", "1,1", landing, 100, false);
     const next = { ...landing, startAt: 200 };

@@ -385,4 +385,28 @@ describe("popup-marine overlay fx", () => {
     }
     fx.dispose();
   });
+  it("does not reuse defender shots from an opposed battle at an unopposed landing", async () => {
+    const scene = new Scene(); const fx = await createLoadedFx(scene);
+    const battle = makeBattle();
+    const landing: BattleOverlaySkirmishEntry = {
+      ...battle, tgtWorldZ: 3, srcWorldZ: 3, unopposed: true,
+      holdApproachUntilElapsed: Infinity,
+      landing: { startAt: 0, inwardX: 1, inwardZ: 0, route: [{ x: -1, z: 0 }, { x: -0.72, z: -0.45 }] }
+    };
+    let observedFire = false;
+    for (let t = APPROACH_MS; t < APPROACH_MS + CLASH_MS; t += 50) {
+      fx.tick(t, [battle]);
+      const bolts = boltMeshIn(scene).count; const sparks = sparkMeshIn(scene).count;
+      observedFire ||= bolts > 0;
+      fx.tick(t, [battle], [landing]);
+      expect(boltMeshIn(scene).count).toBe(bolts);
+      expect(sparkMeshIn(scene).count).toBe(sparks);
+      fx.tick(t, [], [landing]);
+      expect(boltMeshIn(scene).count).toBe(0);
+      expect(sparkMeshIn(scene).count).toBe(0);
+    }
+    expect(observedFire).toBe(true);
+    fx.dispose();
+  });
+
 });
