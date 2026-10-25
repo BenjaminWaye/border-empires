@@ -44,8 +44,14 @@ export const aggregatePersonalActivity = (
   const knownCaptures = [...knownCaptureByKey.values()];
   const matches = matchCombatToFlips(loggedCombat, relevantFlips, to, knownCaptures);
   const relevantCombat = matches.combat;
-  const territoryCards = groupTerritoryFlipsForPlayer(playerId, relevantFlips.filter((flip) => !matches.consumedFlips.has(flip)));
-  const sieges = siegeCardsForDefender(playerId, relevantCombat, matches.originSeized, matches.tileFeatures);
+  const unclaimedFlips = relevantFlips.filter((flip) => !matches.consumedFlips.has(flip));
+  // Tiles the player lost to someone that no winning assault explains: never
+  // claimed, or claimed only as the launch tile of the player's own failed
+  // counter-attack. Either way a siege on that tile ended there.
+  const unexplainedLosses = relevantFlips.filter((flip) => flip.fromOwner === playerId && flip.toOwner !== undefined && flip.toOwner !== playerId &&
+    (!matches.consumedFlips.has(flip) || matches.seizedFlips.has(flip)));
+  const sieges = siegeCardsForDefender(playerId, relevantCombat, matches.originSeized, matches.tileFeatures, unexplainedLosses);
+  const territoryCards = groupTerritoryFlipsForPlayer(playerId, unclaimedFlips.filter((flip) => !sieges.consumedFlips.has(flip)));
   const combatCards = combatCardsWithGroups(playerId, relevantCombat.filter((loss) => !sieges.consumed.has(loss)), matches.originSeized, matches.tileFeatures);
   const impactCards = personalImpactCardsForPlayer(playerId, relevantImpacts);
   const allCards: PersonalActivityCard[] = [...territoryCards, ...combatCards, ...sieges.cards, ...impactCards.waystations, ...impactCards.towns, ...impactCards.docks, ...impactCards.buildings];

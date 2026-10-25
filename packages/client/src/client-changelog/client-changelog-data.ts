@@ -401,6 +401,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Its win-chance row names just those types, e.g. \"Attacker missing Titanium Weapons Factory\"",
       "Two empires with no Weapons Factories get no bonus either way"
     ]
+  },
+  {
+    createdAt: 1792929923604, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "Sieges say when your defenses fell",
+    why: "A Palisade taken without one of the siege's own assaults winning, such as by a Breakthrough, still read \"Your Palisade is holding\", with the loss shown as a separate tile row.",
+    changes: [
+      "A siege on a tile you then lost now shows that it fell and who took it, even when the final blow came another way",
+      "Fallen sieges read \"Held off 2 assaults before it fell · Kara spent 300 manpower attacking it\"",
+      "Yours names barbarians as Planetary Defense instead of their internal id"
+    ]
   }
 ];
 

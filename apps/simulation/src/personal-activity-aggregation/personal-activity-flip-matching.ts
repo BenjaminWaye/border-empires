@@ -24,6 +24,9 @@ export type CombatFlipMatches = {
   consumedFlips: ReadonlySet<TerritoryFlip>;
   // Failed attacks (entries of `combat`) whose launch tile the defender took.
   originSeized: ReadonlySet<CombatManpowerLoss>;
+  // The flips those seized launch tiles were matched to (a subset of
+  // consumedFlips). A besieged tile lost this way still ends its siege.
+  seizedFlips: ReadonlySet<TerritoryFlip>;
   // What stood on each captured target and each seized launch tile (keyed by
   // entries of `combat`), read off the matched flip, so a combat card can say
   // "your Palisade fell" -- those flips no longer get a territory card.
@@ -93,12 +96,14 @@ export const matchCombatToFlips = (
     return { ...loss, attackerWon: false, pillagedGold: 0, defenderGoldLoss: 0 };
   });
   const originSeized = new Set<CombatManpowerLoss>();
+  const seizedFlips = new Set<TerritoryFlip>();
   for (const loss of confirmed) {
     if (loss.attackerWon) continue;
     const seized = claim(loss, isSeizedOriginFlip);
     if (!seized) continue;
     originSeized.add(loss);
+    seizedFlips.add(seized);
     if (seized.features?.length) seizedOrigin.set(loss, seized.features);
   }
-  return { combat: confirmed, consumedFlips, originSeized, tileFeatures: { captured, seizedOrigin } };
+  return { combat: confirmed, consumedFlips, originSeized, seizedFlips, tileFeatures: { captured, seizedOrigin } };
 };

@@ -1,5 +1,6 @@
 import type { PersonalActivityCard, PersonalActivitySummary, PersonalActivityTimeline } from "@border-empires/game-domain";
-import { structureDisplayName } from "@border-empires/shared";
+import { PLANETARY_DEFENSE_DISPLAY_NAME, structureDisplayName } from "@border-empires/shared";
+import { isPlanetaryDefenseOwnerId } from "../client-planetary-defense-style.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { combatCardText, combatGroupCardText, siegeCardText } from "./client-activity-dashboard-combat-text.js";
 import { featureListLabel, featuresPart } from "./client-activity-dashboard-features.js";
@@ -73,7 +74,9 @@ export const activityPlayerNameLookup = (state: Pick<ClientState, "playerNames" 
   for (const entry of [...overall, ...byTiles, ...byIncome, ...byTechs]) {
     if (entry.id.startsWith("ai-") && !aiNames.has(entry.id)) aiNames.set(entry.id, entry.name);
   }
-  return (playerId) => aiNames.get(playerId) ?? state.playerNames.get(playerId);
+  // Barbarians are Planetary Defense everywhere else in the UI; without this a
+  // siege lost to them read "fell to barbarian-1".
+  return (playerId) => (isPlanetaryDefenseOwnerId(playerId) ? PLANETARY_DEFENSE_DISPLAY_NAME : aiNames.get(playerId) ?? state.playerNames.get(playerId));
 };
 
 // Resolves a tech id to its player-facing name (ClientState.techCatalog);
