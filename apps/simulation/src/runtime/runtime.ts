@@ -29,6 +29,7 @@ import { normalizeLegacyBuildCommand } from "./normalize-legacy-build-command.js
 import { createOnboardingMilestoneTracker } from "../onboarding-milestones/onboarding-milestones.js";
 import type { PersistedActivityLogs } from "../activity-dashboard/activity-log-persistence.js";
 import { addStrategicResource as addStrategicResourceImpl, spendStrategicResource as spendStrategicResourceImpl, strategicResourceAmount as strategicResourceAmountImpl } from "../runtime-strategic-resource-ledger.js";
+import { filterDistrictDeltasForRuntime, type DistrictDeltaInput } from "../town-district/town-district-projection.js";
 import { RuntimeState } from "./runtime-state.js";
 import { reachBorderOwnerAt as reachBorderOwnerAtImpl, grantAetherBridgeReach as grantAetherBridgeReachImpl, tickAetherBridgeReachExpiry as tickAetherBridgeReachExpiryImpl } from "../runtime-aether-bridge-reach.js";
 import { createReachUpdateState, markReachForResend, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
@@ -63,7 +64,6 @@ import {
   isAutoSettleAllowed, settleIgnoresReach,
   WORLD_HEIGHT,
   WORLD_WIDTH,
-  type Terrain,
   type BuildableStructureType,
   type EconomicStructureType,
   type MonumentalStructureType,
@@ -128,7 +128,6 @@ import {
 } from "../tech-domain-bridge/tech-domain-bridge.js";
 import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js"; import { techGrantedFishFoodSlotBonus } from "../tech-domain-bridge/fish-food-slot-bonus.js";
 import {
-  filterTileDeltasForPlayer as filterTileDeltasForPlayerImpl,
   type TileDeltaVisibilityFilterOptions, type VisibilityAuditSample
 } from "../tile-delta-visibility-filter.js";
 import {
@@ -2196,25 +2195,14 @@ export class SimulationRuntime {
     );
   }
 
-  filterTileDeltasForPlayer<TDelta extends { x: number; y: number; terrain?: Terrain | undefined; ownerId?: string | undefined; forceVisibleForPlayerId?: string | readonly string[] | undefined }>(
-    tileDeltas: readonly TDelta[], playerId: string, options?: TileDeltaVisibilityFilterOptions
-  ): TDelta[] {
-    return filterTileDeltasForPlayerImpl(
-      {
-        players: this.state.players,
-        tiles: this.state.tiles,
-        locksByTile: this.state.locksByTile,
-        docks: this.state.docks,
-        dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
-        summaryForPlayer: (id) => this.summaryForPlayer(id),
-        visibilityCoverage: this.state.visibilityCoverage,
-        hasFullVision: (pid) => this.getAbilityCooldownUntil(pid, ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY) > this.now(),
-        ...(this.onVisibilityAudit ? { onVisibilityAudit: this.onVisibilityAudit } : {})
-      },
-      tileDeltas,
-      playerId,
-      options
-    );
+  filterTileDeltasForPlayer(
+    tileDeltas: readonly DistrictDeltaInput[], playerId: string, options?: TileDeltaVisibilityFilterOptions
+  ): SimulationTileWireDelta[] {
+    return filterDistrictDeltasForRuntime(this.state, tileDeltas, playerId, options, {
+      summaryForPlayer: id => this.summaryForPlayer(id),
+      hasFullVision: pid => this.getAbilityCooldownUntil(pid, ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY) > this.now(),
+      ...(this.onVisibilityAudit ? { onVisibilityAudit: this.onVisibilityAudit } : {})
+    });
   }
 
   private settledTilesForPlayer(playerId: string): DomainTileState[] {
@@ -3142,7 +3130,8 @@ export class SimulationRuntime {
   }
 
   private tileDeltaRevealOnly(tile: DomainTileState, playerId?: string): SimulationTileWireDelta {
-    return tileDeltaRevealOnlyImpl(tile, this.tileDeltaStringifyCache, playerId ? this.state.players.get(playerId) : undefined, (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y));
+    return tileDeltaRevealOnlyImpl(tile, this.tileDeltaStringifyCache, playerId ? this.state.players.get(playerId) : undefined, (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y),
+      playerId ? { tiles: this.state.tiles, canSee: key => this.state.visibilityCoverage.isVisible(playerId, key) || this.getAbilityCooldownUntil(playerId, ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY) > this.now() } : undefined);
   }
 
   private strategicResourceAmount(player: DomainPlayer, resource: StrategicResourceKey): number { return strategicResourceAmountImpl(player, resource); }

@@ -1,3 +1,4 @@
+import { renderStructureIdentityReview } from "./town-district-identity-review.js";
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { Group, Scene } from "three";
 import { createStructurePieceBuilder } from "@client/client-map-3d-structure-builder.js";
@@ -41,7 +42,7 @@ const buildStage = (stage: Stage, opts: { displayYaw?: number; grassRadius: numb
 };
 
 const meta: Meta<Args> = {
-  title: "Map/Structures/Ancillary Depot",
+  title: "Map/Structures/Legacy Ancillary Depot",
   argTypes: {
     cameraDistance: { control: { type: "range", min: 1, max: 10, step: 0.25 } }
   },
@@ -104,3 +105,6 @@ export const OnGrass: Story = {
     return wrapWithCleanup(stage, cleanups);
   }
 };
+
+// Use the current map model for identity and gameplay-copy review.
+export const CurrentProductionModel: Story = { render: () => renderStructureIdentityReview(["ANCILLARY_DEPOT"]) };

@@ -1,13 +1,15 @@
+import { districtMenuArtCrops } from "../client-town-district/district-art.js";
 // Where each building's art sits inside its overlay SVG, as fractions of the
 // (square) SVG canvas: [x, y, width, height]. The overlays are drawn to sit on
 // a map tile, so most buildings only fill part of the canvas; the build menu
-// crops to this box so every thumbnail fills its slot. Measured by rendering
-// each SVG and taking the bounding box of pixels with alpha > 24/255.
+// crops to this box so every thumbnail fills its slot. Legacy bounds use
+// rendered alpha > 24/255; district bounds are generated from vector paths.
 // client-build-menu-icons.test.ts fails if a build-menu art file is missing here.
 
 export type ArtCropBox = readonly [x: number, y: number, width: number, height: number];
 
 export const BUILD_MENU_ART_CROP: Readonly<Record<string, ArtCropBox>> = {
+  ...districtMenuArtCrops(),
   "/overlays/high-yield-aether-condenser-overlay.svg": [0.078, 0.289, 0.789, 0.5],
   "/overlays/high-yield-titanium-works-overlay.svg": [0.078, 0.23, 0.789, 0.594],
   "/overlays/high-yield-umbrite-works-overlay.svg": [0.078, 0.199, 0.785, 0.648],
@@ -61,5 +63,5 @@ export const BUILD_MENU_ART_CROP: Readonly<Record<string, ArtCropBox>> = {
   "/overlays/umbrite-weapons-factory-overlay.svg": [0.141, 0.094, 0.672, 0.813],
   "/overlays/weapons-workshop-overlay.svg": [0.141, 0.313, 0.641, 0.438],
   "/overlays/palisade-ring-overlay-closed.svg": [0.016, 0.031, 0.969, 0.969],
-  "/overlays/sovereign-siege-engine-overlay.svg": [0.047, 0.102, 0.91, 0.742]
+  "/overlays/sovereign-siege-engine-overlay.svg": [0.0546875, 0.0546875, 0.890625, 0.890625]
 };

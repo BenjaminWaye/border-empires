@@ -3,7 +3,7 @@
 // 500-line cap) so adding new resource overlays doesn't grow that file — see
 // AGENTS.md's file-size discipline. Re-exported from client-map-render so
 // existing importers keep working unchanged.
-import { createOverlayVariantSet } from "./client-map-overlay-images.js";
+import { createOverlayVariantSet, structureOverlayImages } from "./client-map-overlay-images.js";
 import type { Tile } from "../client-types.js";
 
 const builtResourceOverlayVariants = {
@@ -39,11 +39,11 @@ export const resourceOverlayForTile = (tile: Tile): HTMLImageElement | undefined
 };
 
 export const builtResourceOverlayForTile = (tile: Tile): HTMLImageElement | undefined => {
+  if (tile.economicStructure?.type === "HYDROWORKS") return structureOverlayImages.HYDROWORKS;
   if (!tile.resource || !tile.economicStructure) return undefined;
   const key =
     tile.resource === "FARM" && tile.economicStructure.type === "HYDROGARDEN" ? "FARM_HYDROPONIC"
-    : tile.resource === "FARM" && tile.economicStructure.type === "HYDROWORKS" ? "FARM_HYDROGARDEN"
-    : tile.resource === "FISH" && (tile.economicStructure.type === "HYDROGARDEN" || tile.economicStructure.type === "HYDROWORKS") ? "FISH_HYDROGARDEN"
+    : tile.resource === "FISH" && tile.economicStructure.type === "HYDROGARDEN" ? "FISH_HYDROGARDEN"
     : tile.resource === "UMBRITE" && tile.economicStructure.type === "UMBRITE_RIG" ? "UMBRITE_RIG"
     : tile.resource === "TITANIUM" && tile.economicStructure.type === "MINE" ? "TITANIUM_MINE"
     : tile.resource === "GEMS" && tile.economicStructure.type === "MINE" ? "GEMS_MINE"

@@ -33,7 +33,7 @@ export type StructurePieceGeometry =
 // `growable`: only boxes and cylinders read as "partly built" when cut in Y; a cut cone, sphere
 // or torus just looks squashed (a flattened roof or dome), so those wait to appear whole. Checked by
 // `type`, not instanceof: three's ConeGeometry extends CylinderGeometry.
-type Slot = { mesh: InstancedMesh; count: number; cap: number; extents: HalfExtents; growable: boolean };
+type Slot = { mesh?: InstancedMesh; geo: StructurePieceGeometry; mat: MeshStandardMaterial; count: number; cap: number; extents: HalfExtents; growable: boolean };
 
 // Builder API used by per-family files to register their meshes and
 // place instances. Families never touch the underlying slots/scene
@@ -113,38 +113,25 @@ export const createStructurePieceBuilder = (
   const ownedGeos = new Set<BufferGeometry>();
   const ownedMaterials = new Set<MeshStandardMaterial>();
 
-  const makeSlot = (
-    key: string,
-    geo: StructurePieceGeometry,
-    mat: MeshStandardMaterial,
-    cap: number
-  ): void => {
-    const mesh = new InstancedMesh(geo, mat, cap);
+  // Allocate instance buffers only for models actually placed in this scene.
+  // The finite old registry remains available for saved/monument/resource
+  // models without reserving maxTiles matrices for every superseded support.
+  const ensureMesh = (slot: Slot): InstancedMesh => {
+    if (slot.mesh) return slot.mesh;
+    const mesh = new InstancedMesh(slot.geo, slot.mat, slot.cap);
     mesh.frustumCulled = false;
     mesh.count = 0;
-    // Every economic/late-game/civic/infrastructure/industrial/manpower/
-    // worldbreaker/imperial-exchange/astral-dock/census-directorate structure
-    // piece funnels through this one factory, so casting/receiving real
-    // shadows here covers all of them at once instead of touching each
-    // per-family file. Town buildings, forts, watchtowers, mountains, and
-    // docks build their InstancedMeshes directly rather than through this
-    // shared builder, so they're each wired up separately at their own
-    // construction sites. Still not covered: resource deposits (farm/fish/
-    // fur/iron/gems, titanium, umbrite), Relay Beacon, Shard, Trade Nexus,
-    // and the Aether Tower -- those still only get the flat contact-shadow
-    // decal.
     mesh.castShadow = true;
     mesh.receiveShadow = true;
-    // Gives metallic materials (iron/brass/rivet finishes -- see makeSlot's
-    // JSDoc-less but well-commented sibling, client-map-3d-atmosphere.ts) a
-    // specular reflection source. A material with `metalness: 0` still
-    // technically samples `envMap` for its (much smaller) IBL diffuse term,
-    // but every family funneling through this shared builder is a genuine
-    // structure, not a flat/unlit overlay, so there's no metalness:0 case
-    // here worth carving out.
-    applyBuildingEnvMap(mat, envMap);
+    applyBuildingEnvMap(slot.mat, envMap);
     scene.add(mesh);
-    slots.set(key, { mesh, count: 0, cap, extents: geometryHalfExtents(geo), growable: geo.type === "BoxGeometry" || geo.type === "CylinderGeometry" });
+    slot.mesh = mesh;
+    return mesh;
+  };
+
+  const makeSlot = (key: string, geo: StructurePieceGeometry, mat: MeshStandardMaterial, cap: number): void => {
+    applyBuildingEnvMap(mat, envMap);
+    slots.set(key, { geo, mat, count: 0, cap, extents: geometryHalfExtents(geo), growable: geo.type === "BoxGeometry" || geo.type === "CylinderGeometry" });
     ownedGeos.add(geo);
     ownedMaterials.add(mat);
   };
@@ -223,7 +210,7 @@ export const createStructurePieceBuilder = (
       }
     }
     const index = slot.count;
-    slot.mesh.setMatrixAt(index, matrix);
+    ensureMesh(slot).setMatrixAt(index, matrix);
     slot.count += 1;
     return index;
   };
@@ -231,18 +218,21 @@ export const createStructurePieceBuilder = (
   const setMatrixAt = (key: string, index: number, target: Matrix4): void => {
     const slot = slots.get(key);
     if (!slot || index < 0 || index >= slot.count) return;
-    slot.mesh.setMatrixAt(index, target);
+    slot.mesh?.setMatrixAt(index, target);
   };
 
   const uploadSlot = (key: string): void => {
     const slot = slots.get(key);
-    if (!slot || slot.count === 0) return;
+    if (!slot?.mesh || slot.count === 0) return;
     slot.mesh.instanceMatrix.clearUpdateRanges();
     slot.mesh.instanceMatrix.addUpdateRange(0, slot.count * 16);
     slot.mesh.instanceMatrix.needsUpdate = true;
   };
 
-  const getMesh = (key: string): InstancedMesh | undefined => slots.get(key)?.mesh;
+  const getMesh = (key: string): InstancedMesh | undefined => {
+    const slot = slots.get(key);
+    return slot ? ensureMesh(slot) : undefined;
+  };
 
   const setGate = (cutY: number | undefined): void => {
     gateY = cutY;
@@ -265,13 +255,14 @@ export const createStructurePieceBuilder = (
 
   const commit = (): void => {
     for (const slot of slots.values()) {
+      if (!slot.mesh) continue;
       slot.mesh.count = slot.count;
       slot.mesh.instanceMatrix.needsUpdate = true;
     }
   };
 
   const dispose = (): void => {
-    for (const slot of slots.values()) scene.remove(slot.mesh);
+    for (const slot of slots.values()) if (slot.mesh) { scene.remove(slot.mesh); slot.mesh.dispose(); }
     for (const g of ownedGeos) g.dispose();
     for (const m of ownedMaterials) m.dispose();
   };

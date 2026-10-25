@@ -1,3 +1,4 @@
+import { districtOverlayImages } from "../client-town-district/district-art.js";
 import {
   fortificationOpeningSides,
   recordForEachFortificationOpening,
@@ -11,7 +12,7 @@ import {
 // in packages/client/public/overlays/, cache-busted by
 // overlayAssetVersion — bump it whenever overlay art changes.
 
-const overlayAssetVersion = "20261024-fort-openings";
+const overlayAssetVersion = "20261025-preserved-buildings";
 export const overlaySrc = (filename: string): string => `/overlays/${filename}?v=${overlayAssetVersion}`;
 const loadOverlayImage = (filename: string): HTMLImageElement => {
   const image = new Image();
@@ -43,7 +44,7 @@ export const aetherBridgeAnchorImage = loadOverlayImage("aether-pylon-overlay.sv
 export const aetherWallPylonImage = loadOverlayImage("aether-wall-pylon-overlay.svg");
 
 export const dockOverlayVariants = createOverlayVariantSet(["dock-overlay-1.svg", "dock-overlay-2.svg", "dock-overlay-3.svg"]);
-export const structureOverlayImages = {
+const legacyStructureOverlayImages = {
   OBSERVATORY: loadOverlayImage("observatory-overlay.svg"),
   MANUFACTORY: loadOverlayImage("manufactory-overlay.svg"),
   INCUBATION_ENGINE: loadOverlayImage("incubation-engine-overlay.svg"),
@@ -113,3 +114,4 @@ export const fortificationOverlayImages: Record<FortificationOverlayKind, Record
   PALISADE: createDirectionalOverlaySet("palisade-ring-overlay"),
   RELAY_BEACON: createDirectionalOverlaySet("relay-beacon-overlay", "static")
 };
+export const structureOverlayImages = { ...legacyStructureOverlayImages, ...districtOverlayImages(loadOverlayImage) };

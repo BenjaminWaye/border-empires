@@ -1,3 +1,4 @@
+import { renderStructureIdentityReview } from "./town-district-identity-review.js";
 import { ACESFilmicToneMapping, CanvasTexture, DirectionalLight, Mesh, MeshBasicMaterial, PlaneGeometry } from "three";
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createFortOverlay } from "@client/client-map-3d-fort-overlay.js";
@@ -118,7 +119,7 @@ const renderHero = (background: string): HTMLElement => {
 };
 
 const meta: Meta<Args> = {
-  title: "Map/Structures/Trade Nexus",
+  title: "Map/Structures/Legacy Trade Nexus",
   argTypes: {
     cameraDistance: { control: { type: "range", min: 2, max: 20, step: 0.5 } },
     spacing: { control: { type: "range", min: 1.4, max: 4, step: 0.1 } },
@@ -247,3 +248,5 @@ export const PerformanceHUD: Story = {
     ]);
   }
 };
+// Use the current map model for identity and gameplay-copy review.
+export const CurrentProductionModel: Story = { render: () => renderStructureIdentityReview(["TRADE_NEXUS"]) };

@@ -327,6 +327,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "A flat population sacrifice becomes trivial in large towns. The cost should grow with the population at stake.",
     changes: ["Active Ancillary Factories can convert residents from their supported town into 100 immediate manpower, even above the cap. The menu shows exactly how many people will be taken.", "Each town can be forced once every four hours and must retain at least 10,000 residents. The factory menu shows the exact population cost."]
   },
+  {
+    createdAt: 1792870664672, // Date.now() captured once when this entry was created.
+    introducedIn: "2026.10.24.1",
+    title: "Towns and their support buildings now form connected districts",
+    why: "Town industries and services now share a consistent architectural style and show which town they serve.",
+    changes: [
+      "Support buildings and Project preparations have been remodeled on matching marble platforms, with shared brass detailing and distinct machinery.",
+      "Service connections follow the town's actual support assignments, including second-ring plots, terrain and overlapping towns. Connections are visual and do not change building costs or bonuses.",
+      "The 2D fallback has matching building artwork and service links. Construction, inactive buildings and existing saved structures retain their normal behavior."
+    ]
+  },
   ...WAR_INDUSTRY_SQUADS_CHANGELOG,
   ...FORT_WALL_OPENINGS_CHANGELOG,
   ...HILL_GARRISON_FILL_CHANGELOG,
@@ -422,6 +433,41 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The supply check now looks only at your frontier, not your whole empire, so large empires lose cut-off frontier immediately",
       "This applies to captures, lost attack origins and abilities that remove tiles"
     ]
+  },
+  {
+    createdAt: 1792930581798, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "Distinct advanced support structures",
+    why: "Similar building shapes made support structures hard to identify at a glance.",
+    changes: ["Support structures now have distinct silhouettes and specialized machinery, with refined metal, ceramic and aether details suited to the Empire’s advanced technology.", "High-yield plants have larger signature assemblies, and map and menu artwork match the new models."]
+  },
+  {
+    createdAt: 1792931842668, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "Correct population-building descriptions",
+    why: "Incubation Engine information still described a retired food effect, while Census Hall listed an outdated growth bonus.",
+    changes: ["Incubation Engine now correctly states +10,000 population on completion and +10% ongoing growth. Census Hall describes its population-capacity and town-upgrade benefits. These descriptions use the same shared constants as the game rules."]
+  },
+  {
+    createdAt: 1792944374596, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "Verified structure identities",
+    why: "Some structure descriptions still quoted retired rules and previews showed superseded artwork.",
+    changes: ["Structure information now shares canonical names and verified roles with the 3D review. Thunder Bastion and Ancillary Depot descriptions reflect current rules; retired structures are labelled clearly.", "The completed Sovereign Siege Engine now includes its long barrel, power core and targeting assembly, with matching 2D artwork."]
+  },
+  {
+    createdAt: 1792952553863, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "Preserved tower and military artwork",
+    why: "The district remodel is limited to the approved buildings.",
+    changes: ["Relay Beacon and Aether Tower keep their original 3D models and 2D artwork. Fort, Umbrite Rig, Dread Tower and Siege Battery also retain their existing models."]
+  },
+  {
+    createdAt: 1792952901276, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "Clearer support connections and converter information",
+    why: "Hidden connections could leave stray posts, and converter help omitted Sell Off rates and its mode-change lock.",
+    changes: ["Hidden and unselected buried service connections now hide their posts as well as their pipes.", "Converter building information shows the current Sell Off Coin/day return and mode-change cooldown from the game rules."]
   }
 ];
 

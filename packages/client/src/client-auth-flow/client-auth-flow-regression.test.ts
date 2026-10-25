@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { RealtimeSocket } from "../client-socket-types.js";
 
 const clientSource = (): string => {
@@ -84,6 +84,12 @@ vi.mock("firebase/analytics", () => ({
 }));
 
 describe("email-link sign-in on Safari with blocked storage", () => {
+  // Cold compilation of the full client import graph belongs to setup, not
+  // the five-second budget for the storage-error behavior being asserted.
+  beforeAll(async (): Promise<void> => {
+    await import("./client-auth-flow.js");
+  });
+
   const makeButton = (): HTMLButtonElement =>
     ({ disabled: false, onclick: null, style: { display: "" }, dataset: {} } as unknown as HTMLButtonElement);
   const makeInput = (): HTMLInputElement => ({ disabled: false, value: "", focus: vi.fn() } as unknown as HTMLInputElement);

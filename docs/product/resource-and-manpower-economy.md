@@ -76,6 +76,23 @@ defines what these systems mean in the fiction; follow the
   and Deep Strike/Naval Infiltration **120** manpower. Structure costs are
   data-driven; inspect the registry instead of assuming a common price.
 
+### Incubation Engine and Census Hall
+
+Incubation Engine grants **+10,000 population once on completion** and **+10%
+ongoing population growth** to its supported town. It does not boost Hydrogarden
+output or reduce FOOD demand; it consumes a FOOD slot. Census Hall adds
+**20,000 population capacity per connected town with an active Incubation Engine**
+and reduces its own town's tier-upgrade Coin cost by **25%**.
+
+Sources: `packages/shared/src/config.ts` (population constants),
+`apps/simulation/src/runtime-structure-build-completion.ts`
+(`grantIncubationEnginePopulationBurst`),
+`packages/game-domain/src/server-game-constants/server-game-constants.ts`
+(`incubationEngineGrowthMultiplier`), and
+`apps/simulation/src/runtime-census-hall-bonus.ts`. Structure-info copy is
+rendered from those shared constants in `client-population-structure-info/`;
+old food-efficiency descriptions have been removed from current references.
+
 ### Forced Ancillarification
 
 Selecting an active, owned, garrisoned Ancillary Factory offers **Forced

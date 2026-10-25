@@ -33,6 +33,8 @@ remain authoritative for runtime behavior.
 | Reach-vision implementation record | [`reach-border-vision-plan.md`](reach-border-vision-plan.md) |
 | Rivers remake, river heads and river mountains (renderer + worldgen v11/v12) | [`rivers-remake-plan.md`](rivers-remake-plan.md) |
 | Stacking-building adjacency / industrial districts (proposed) | [`stacking-adjacency-plan.md`](stacking-adjacency-plan.md) |
+| Connected town support buildings: complete remodel and both renderer implementations (planned) | [`town-support-district-plan.md`](town-support-district-plan.md) |
+| Connected town support buildings: renderer, model and anchor contract | [`town-support-districts.md`](town-support-districts.md) |
 | Storybook cleanup: what was removed, the new layout and guardrails | [`storybook-cleanup-plan.md`](storybook-cleanup-plan.md) |
 | Current manpower and resource-slot rules | [`product/resource-and-manpower-economy.md`](product/resource-and-manpower-economy.md) |
 | Starter-site contract and new-player guidance | [`product/new-player-opening.md`](product/new-player-opening.md) |
