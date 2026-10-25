@@ -362,7 +362,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     introducedIn: "2026.10.25.1",
     title: "No battle sound for undefended frontier",
     why: "Tapping a frontier tile being taken played the clash of regiments, even though no troops stand on frontier ground to fight.",
-    changes: ["The battle sound now only plays when troops are holding the tile, matching the battle animation"]
+    changes: ["Tapping a frontier tile under attack only plays the battle sound while a garrison is holding it. Attacks on settled land still sound as before"]
   }
 ];
 

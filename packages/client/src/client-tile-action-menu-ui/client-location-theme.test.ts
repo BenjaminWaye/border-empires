@@ -53,15 +53,34 @@ describe("isTileInOngoingBattle", () => {
     expect(isTileInOngoingBattle(state, tileAt({ ownerId: "rival" }), NOW)).toBe(false);
   });
 
-  it("stays silent for an attack on undefended FRONTIER ground, but plays once a capture hold garrisons it", () => {
+  const frontier = tileAt({ ownerId: "rival", ownershipState: "FRONTIER" });
+  const garrisoned = tileAt({ ownerId: "rival", ownershipState: "FRONTIER", captureHoldUntil: NOW + 30_000 });
+
+  it("stays silent for a manual attack on undefended FRONTIER ground, but plays once a capture hold garrisons it", () => {
     const state = createInitialState();
     state.me = "me";
     state.capture = { startAt: NOW - 1_000, resolvesAt: NOW + 2_000, target: { x: 5, y: 7 }, actionType: "ATTACK" };
-    state.outgoingMusterAttacksByTile.set("5,7", { originX: 4, originY: 7, targetX: 5, targetY: 7, resolvesAt: NOW + 2_000 });
-    const frontier = tileAt({ ownerId: "rival", ownershipState: "FRONTIER" });
     expect(isTileInOngoingBattle(state, frontier, NOW)).toBe(false);
-    const garrisoned = tileAt({ ownerId: "rival", ownershipState: "FRONTIER", captureHoldUntil: NOW + 30_000 });
     expect(isTileInOngoingBattle(state, garrisoned, NOW)).toBe(true);
+  });
+
+  it("stays silent for a muster attack on undefended FRONTIER ground, but plays once a capture hold garrisons it", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.outgoingMusterAttacksByTile.set("5,7", { originX: 4, originY: 7, targetX: 5, targetY: 7, resolvesAt: NOW + 2_000 });
+    expect(isTileInOngoingBattle(state, frontier, NOW)).toBe(false);
+    expect(isTileInOngoingBattle(state, garrisoned, NOW)).toBe(true);
+  });
+
+  it("prefers the attack's locked odds over the hold state when they are known", () => {
+    const state = createInitialState();
+    state.me = "me";
+    // Hold already expired, but the attack was locked against a defended tile.
+    state.outgoingMusterAttacksByTile.set("5,7", { originX: 4, originY: 7, targetX: 5, targetY: 7, resolvesAt: NOW + 2_000, winChance: 0.6 });
+    expect(isTileInOngoingBattle(state, frontier, NOW)).toBe(true);
+    // A certain capture is undefended even while a hold still shows.
+    state.outgoingMusterAttacksByTile.set("5,7", { originX: 4, originY: 7, targetX: 5, targetY: 7, resolvesAt: NOW + 2_000, winChance: 1 });
+    expect(isTileInOngoingBattle(state, garrisoned, NOW)).toBe(false);
   });
 
   it("stays silent for an arrived incoming attack on the viewer's undefended FRONTIER tile", () => {
