@@ -5,8 +5,7 @@ import {
   defendingFortVariant,
   isFortDefending,
   scanOutpostMult,
-  NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT,
-  noWarIndustryLabel,
+  warIndustryEdge,
   TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
   TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
   UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
@@ -160,8 +159,10 @@ export const attackPreviewResult = async (
   const attackerEquivalent = attackerFacts?.factoryEquivalents ?? attackerFactoryCounts;
   const defenderEquivalent = defenderFacts?.factoryEquivalents ?? defenderFactoryCounts;
   const defenseContribution = defenderPlayerData?.domainIds.includes("afc-bastion-2") ? 2 : 1;
-  const defenderHasWarIndustry = defenderFactoryCounts.titanium > 0 && defenderFactoryCounts.umbrite > 0;
-  const attackerHasWarIndustry = attackerFactoryCounts.titanium > 0 && attackerFactoryCounts.umbrite > 0;
+  const attackerPresence = { titanium: attackerFactoryCounts.titanium > 0, umbrite: attackerFactoryCounts.umbrite > 0 };
+  const defenderPresence = { titanium: defenderFactoryCounts.titanium > 0, umbrite: defenderFactoryCounts.umbrite > 0 };
+  const attackEdge = warIndustryEdge("Target", attackerPresence, defenderPresence);
+  const defenseEdge = warIndustryEdge("Attacker", defenderPresence, attackerPresence);
   const factoryModifiers = {
     weaponsWorkshopAttackMult: 1 + ownedWeaponsWorkshopCount(playerId) * WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING,
     weaponsWorkshopDefenseMult: 1 + (target.ownerId ? ownedWeaponsWorkshopCount(target.ownerId) : 0) * WEAPONS_WORKSHOP_DEFENSE_MULT_PER_BUILDING,
@@ -169,10 +170,10 @@ export const attackPreviewResult = async (
     titaniumWeaponsFactoryDefenseMult: 1 + defenderEquivalent.titanium * TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING * defenseContribution,
     umbriteWeaponsFactoryAttackMult: 1 + attackerEquivalent.umbrite * UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
     umbriteWeaponsFactoryDefenseMult: 1 + defenderEquivalent.umbrite * UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING * defenseContribution,
-    noWarIndustryVulnerabilityMult: defenderHasWarIndustry ? 1 : NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT,
-    noWarIndustryVulnerabilityLabel: noWarIndustryLabel("Target", defenderFactoryCounts.titanium > 0, defenderFactoryCounts.umbrite > 0),
-    noWarIndustryDefenseVulnerabilityMult: attackerHasWarIndustry ? 1 : NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT,
-    noWarIndustryDefenseVulnerabilityLabel: noWarIndustryLabel("Attacker", attackerFactoryCounts.titanium > 0, attackerFactoryCounts.umbrite > 0)
+    noWarIndustryVulnerabilityMult: attackEdge.mult,
+    noWarIndustryVulnerabilityLabel: attackEdge.label,
+    noWarIndustryDefenseVulnerabilityMult: defenseEdge.mult,
+    noWarIndustryDefenseVulnerabilityLabel: defenseEdge.label
   };
   const targetHasActiveFort = Boolean(target.fort && isFortDefending(target.fort) && target.fort.ownerId === target.ownerId);
   const flag = parseStructureJson<{ momentum?: { stacks: number; decayAt: number } }>(origin.musterJson);

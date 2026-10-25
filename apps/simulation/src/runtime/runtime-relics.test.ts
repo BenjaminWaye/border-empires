@@ -154,7 +154,7 @@ it("freezes the final suit and field bonuses in an accepted runtime battle", asy
   expect(events.filter(e => e.eventType === "COMMAND_REJECTED")).toEqual([]);
   const lock = runtime.exportState().activeLocks[0];
   const frozen: { result: { atkEff: number; defEff: number } } = JSON.parse(lock!.combatResolutionJson!);
-  expect(frozen.result.atkEff).toBe(30); expect(frozen.result.defEff).toBe(39);
+  expect(frozen.result.atkEff).toBe(15); expect(frozen.result.defEff).toBeCloseTo(19.5, 6); // 1.5x relics; no factories on either side, so no war-industry 2x
   expect(runtime.getPlayerCombatSummary("p", target)?.relicCombatFacts?.attackMultiplier).toBe(1);
   expect(runtime.getPlayerCombatSummary("q", target)?.relicCombatFacts?.defenseMultiplier).toBe(1);
 });
