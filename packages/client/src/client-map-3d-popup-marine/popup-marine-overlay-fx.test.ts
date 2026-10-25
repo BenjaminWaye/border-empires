@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 // mixers, and "which animation is this marine playing" is exactly the
 // behaviour worth pinning now that stance comes from real clips rather than
 // hand-rolled bone math.
-const HIPS_X_BY_CLIP: Record<string, number> = { PistolRun: 1, PistolIdle: 2, PistolKneelingIdle: 3 };
+const HIPS_X_BY_CLIP: Record<string, number> = { PistolRun: 1, PistolIdle: 2, PistolKneelingIdle: 3, Dead: 4 };
 
 vi.mock("./popup-marine-asset.js", async () => {
   const THREE = await import("three");
@@ -35,15 +35,16 @@ vi.mock("./popup-marine-asset.js", async () => {
     const clips = new Map(
       Object.entries(HIPS_X_BY_CLIP).map(([name, x]) => [
         name,
-        new THREE.AnimationClip(name, 1, [
-          new THREE.VectorKeyframeTrack("Hips.position", [0, 1], [x, 0, 0, x, 0, 0])
+        // 2.4s like the real Dead clip, so its fall window (1s..2s) is in range.
+        new THREE.AnimationClip(name, name === "Dead" ? 2.4 : 1, [
+          new THREE.VectorKeyframeTrack("Hips.position", [0, 2.4], [x, 0, 0, x, 0, 0])
         ])
       ])
     );
     return { root, clips };
   };
   return {
-    MARINE_CLIP_NAMES: { run: "PistolRun", stand: "PistolIdle", kneel: "PistolKneelingIdle" },
+    MARINE_CLIP_NAMES: { run: "PistolRun", stand: "PistolIdle", kneel: "PistolKneelingIdle", dead: "Dead" },
     firstSkinnedMesh: (root: Object3D): SkinnedMesh => {
       let found: SkinnedMesh | undefined;
       root.traverse((child) => {
@@ -57,7 +58,7 @@ vi.mock("./popup-marine-asset.js", async () => {
 });
 
 import { createPopupMarineOverlayFx } from "./popup-marine-overlay-fx.js";
-import { APPROACH_MS, CLASH_MS, LINEUP_MS, MARINES_PER_SIDE, ROUT_MS } from "./popup-marine-timeline.js";
+import { APPROACH_MS, CLASH_MS, LINEUP_MS, LOSER_DEATHS, MARINES_PER_SIDE, ROUT_MS, WINNER_DEATHS } from "./popup-marine-timeline.js";
 import type { BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "./popup-marine-timeline.js";
 import { STRIKE_LEAD_MS } from "./popup-marine-strike-fx.js";
 import { skirmishSiegeVictim, tileHashSeed } from "./popup-marine-siege-victim.js";
@@ -264,7 +265,11 @@ describe("popup-marine overlay fx", () => {
     expect(visibleMarinesIn(scene).map(stanceOf)).toContain("PistolRun");
 
     fx.tick(battle.clashAt + CLASH_MS * 0.5, [battle]); // mid-firefight
-    const firing = visibleMarinesIn(scene).map(stanceOf);
+    // Anyone already hit by now is falling (Dead, or still cross-fading into it,
+    // which matches no single clip); everyone else is shooting.
+    const stances = visibleMarinesIn(scene).map(stanceOf);
+    const firing = stances.filter((stance) => stance !== "Dead" && stance !== undefined);
+    expect(stances.length - firing.length).toBeLessThanOrEqual(WINNER_DEATHS + LOSER_DEATHS);
     expect(firing.length).toBeGreaterThan(0);
     for (const stance of firing) {
       expect(["PistolIdle", "PistolKneelingIdle"]).toContain(stance);
@@ -359,9 +364,10 @@ describe("popup-marine overlay fx", () => {
     fx.dispose();
   });
 
-  // A killed marine topples and sinks into the ground on purpose; x-raying
-  // it would make the corpse glow through the terrain instead of leaving.
-  it("hides a fallen marine's silhouette while upright marines keep theirs", async () => {
+  // A killed marine plays the rig's Dead clip down onto the ground; x-raying
+  // it would make the corpse glow through the terrain. Its root stays upright
+  // (no whole-body topple on top of the clip, which crumpled it into a bundle).
+  it("plays a fallen marine's Dead clip upright and hides its silhouette", async () => {
     const skirmish: BattleOverlaySkirmishEntry = {
       srcWorldX: -1, srcWorldZ: 0,
       tgtWorldX: 1, tgtWorldZ: 0,
@@ -375,13 +381,14 @@ describe("popup-marine overlay fx", () => {
     // The siege tower's victim dies at combat start; well past its fall.
     fx.tick(APPROACH_MS + 5000, [], [skirmish], [{ x: 3, y: 4 }]);
 
-    // A fallen marine's root is tipped over; an upright one's up axis stays vertical.
     const isUpright = (m: Object3D): boolean => new Vector3(0, 1, 0).applyQuaternion(m.quaternion).y > 0.999;
     const marines = visibleMarinesIn(scene);
-    expect(marines.some((m) => !isUpright(m))).toBe(true);
-    expect(marines.some(isUpright)).toBe(true);
+    const fallen = marines.filter((m) => stanceOf(m) === "Dead");
+    expect(fallen.length).toBeGreaterThan(0);
+    expect(fallen.length).toBeLessThan(marines.length);
     for (const marine of marines) {
-      expect(marine.getObjectByName(MARINE_SILHOUETTE_NAME)!.visible).toBe(isUpright(marine));
+      expect(isUpright(marine)).toBe(true);
+      expect(marine.getObjectByName(MARINE_SILHOUETTE_NAME)!.visible).toBe(stanceOf(marine) !== "Dead");
     }
     fx.dispose();
   });

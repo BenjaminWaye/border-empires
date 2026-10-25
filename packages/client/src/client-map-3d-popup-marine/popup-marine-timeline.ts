@@ -25,9 +25,9 @@ export const BATTLE_OVERLAY_TOTAL_MS = APPROACH_MS + CLASH_MS + ROUT_MS;
 export const MARINES_PER_SIDE = 7; // matches the muster-transit march company size (SOLDIERS_PER_COMPANY)
 export const WINNER_DEATHS = 1;
 export const LOSER_DEATHS = 2;
-// Fraction of CLASH_MS a falling marine takes to finish collapsing once its
-// death moment (DeathKit.at) arrives.
-const DEATH_FADE_T = 0.16;
+// How long a killed marine's fall (the rig's Dead clip) takes. Under ROUT_MS,
+// so even a death at the firefight's last moment is down before endAt.
+const DEATH_FALL_MS = 900;
 // Fraction of ROUT_MS spent blending out of the firefight's standing-aim
 // pose rather than snapping straight into the rout pose.
 const ROUT_SETTLE_T = 0.15;
@@ -66,7 +66,7 @@ export type DeathKit = { roll: number; at: number };
 
 // Overall marine model scale multiplier — applied both to the rendered mesh
 // (see MARINE_MODEL_SCALE's use in popup-marine-overlay-fx.ts's
-// slot.mesh.scale, and its CROUCH_DROP/FALL_DROP/FLASH_SIZE) and to the
+// slot.mesh.scale, and its FLASH_SIZE) and to the
 // spacing constants below, so the squad's formation footprint grows in
 // lockstep with the model instead of the marines outgrowing their own
 // slots and fusing together.
@@ -310,15 +310,15 @@ export const computeBattlePose = (
     const t = clamp01((nowMs - b.clashAt) / CLASH_MS);
     const flash = muzzleFlashIntensity(kit, t);
     if (dying && t >= dKit.at) {
-      const fallT = clamp01((t - dKit.at) / DEATH_FADE_T);
-      return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 1 - fallT * 0.4, crouchT: 1 - fallT, fallT, flash: 0 };
+      const fallT = clamp01(((t - dKit.at) * CLASH_MS) / DEATH_FALL_MS);
+      return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 1, crouchT: 1 - fallT, fallT, flash: 0 };
     }
     return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 1, crouchT: 1, fallT: 0, flash };
   }
 
   if (dying) {
-    // Already fell during the firefight above — stays collapsed through rout.
-    return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 0.6, crouchT: 0, fallT: 1, flash: 0 };
+    // Fell during the firefight above — finishes that fall, then stays down through rout.
+    return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 1, crouchT: 0, fallT: clamp01((nowMs - b.clashAt - dKit.at * CLASH_MS) / DEATH_FALL_MS), flash: 0 };
   }
 
   const routT = clamp01(routElapsed / ROUT_MS);
@@ -432,11 +432,12 @@ export const computeSkirmishPose = (
   const flash = muzzleFlashIntensity(kit, cycleT);
 
   if (dying && firstFirefightT >= dKit.at && firstFirefightT < 1) {
-    const fallT = clamp01((firstFirefightT - dKit.at) / DEATH_FADE_T);
-    return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 1 - fallT * 0.4, crouchT: 1 - fallT, fallT, flash: 0 };
+    const fallT = clamp01(((firstFirefightT - dKit.at) * CLASH_MS) / DEATH_FALL_MS);
+    return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 1, crouchT: 1 - fallT, fallT, flash: 0 };
   }
   if (dying && firstFirefightT >= 1) {
-    return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 0.6, crouchT: 0, fallT: 1, flash: 0 };
+    const fallT = clamp01(((firstFirefightT - dKit.at) * CLASH_MS) / DEATH_FALL_MS);
+    return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 1, crouchT: 0, fallT, flash: 0 };
   }
 
   return { stance: firingStance, localX: firingX, localZ: firingZ, yaw, scale: 1, crouchT: 1, fallT: 0, flash };
