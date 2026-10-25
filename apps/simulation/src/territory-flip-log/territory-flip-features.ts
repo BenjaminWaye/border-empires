@@ -11,8 +11,9 @@ const isBuilt = (status: string): boolean => status !== "under_construction";
  * fell" rather than only "−2 tiles lost". A fort counts while it stands: an
  * active or being-removed fort, or, mid-upgrade, the tier it is upgrading
  * from (defendingFortVariant). The same forts capturedStructureFields hands
- * to the captor. Towns are left out -- their capture already has its own
- * TOWN_CAPTURED / TOWN_LOST impact card.
+ * to the captor. Towns and docks are left out -- their capture already has
+ * its own TOWN_* / DOCK_* impact card, so naming them here would report the
+ * same loss twice on the timeline.
  */
 export const tileFeaturesForActivity = (tile: DomainTileState | undefined): PersonalActivityTileFeature[] => {
   if (!tile) return [];
@@ -24,7 +25,6 @@ export const tileFeaturesForActivity = (tile: DomainTileState | undefined): Pers
   if (tile.observatory && isBuilt(tile.observatory.status)) features.push({ kind: "STRUCTURE", structureType: "OBSERVATORY" });
   if (tile.economicStructure && isBuilt(tile.economicStructure.status)) features.push({ kind: "STRUCTURE", structureType: tile.economicStructure.type });
   if (tile.afc) features.push({ kind: "AFC" });
-  if (tile.dockId) features.push({ kind: "DOCK" });
   if (tile.naturalWonder) features.push({ kind: "NATURAL_WONDER", wonderType: tile.naturalWonder.type, ...(tile.naturalWonder.relicVersion === 1 ? { relicVersion: 1 } : {}) });
   return features;
 };

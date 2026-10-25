@@ -20,8 +20,10 @@ export const activityCardTone = (card: PersonalActivityCard, playerId: string): 
     case "SIEGE":
       return card.outcome === "FELL" ? "loss" : "hold";
     case "TOWN_CAPTURED":
+    case "DOCK_CAPTURED":
       return "gain";
     case "TOWN_LOST":
+    case "DOCK_LOST":
       return "loss";
     default:
       return "neutral";

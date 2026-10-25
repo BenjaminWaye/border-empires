@@ -337,7 +337,19 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Relics are surviving planetary machinery, with useful installations and finite reserves worth fighting over.",
     changes: ["New planets select seven installation families, represented by weathered ziggurats with House banners. Nearby anonymous light columns and minimap markers guide exploration.", "Garrison relics to use their installations. Combat suits, defensive field cells, ancillary bodies and nanofabrication material have persistent finite reserves; recapture never refills them.", "Capture artwork explains the buried installation and its benefit. Depleted sites remain on the map with an empty-reserve marker. Existing campaigns retain their original wonder rules."]
   },
-  ...SHARD_COMEBACK_CHANGELOG
+  ...SHARD_COMEBACK_CHANGELOG,
+  {
+    createdAt: 1792907228760, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.24.2",
+    title: "Lost towns and docks name who took them",
+    why: "A lost town only said \"Lost Aurienspire Ring\", with an unrounded population, and a lost Dock had no note of its own. If the town tile's own record was missing, the siege card could still say your Palisade was holding after it had fallen.",
+    changes: [
+      "Town cards in Yours say who took the town, or whom you took it from",
+      "Town populations on those cards are rounded to whole numbers",
+      "Losing or capturing a Dock gets its own note in Yours, naming the other player",
+      "A siege on a town or Dock you lost now shows as fallen, even when its tile record is missing"
+    ]
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
