@@ -1,3 +1,4 @@
+import { PLANETARY_DEFENSE_DISPLAY_NAME } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 import { activityCardCoordinates, activityCardCoordinatesLabel, activityCardText, activityPlayerNameLookup, shouldShowManpowerHeadline, summaryCountsLine, truncationLabel } from "./client-activity-dashboard-format.js";
 import { activityCardTone } from "./client-activity-dashboard-tone.js";
@@ -193,6 +194,11 @@ describe("activityPlayerNameLookup", () => {
   it("keeps a human's fresh playerNames entry over a stale leaderboard name", () => {
     const lookup = activityPlayerNameLookup({ playerNames: new Map([["player-2", "Rex"]]), leaderboard: leaderboardWith([{ id: "player-2", name: "Bob" }]) });
     expect(lookup("player-2")).toBe("Rex");
+  });
+
+  it("names barbarians as Planetary Defense, as the rest of the UI does", () => {
+    const lookup = activityPlayerNameLookup({ playerNames: new Map(), leaderboard: leaderboardWith([]) });
+    expect(lookup("barbarian-1")).toBe(PLANETARY_DEFENSE_DISPLAY_NAME);
   });
 
   it("falls back to playerNames for an AI missing from the leaderboard", () => {
