@@ -11,7 +11,7 @@ compatibility fixtures; they are not the current live-map dispatch.
 | Current project | Identifying machinery and massing |
 |---|---|
 | Imperial Exchange | Colonnaded financial rotunda, ribbed gold roof, ledger-vault wings, counting court and sovereign seal |
-| Sovereign Siege Engine | Massive elevated accelerator barrel and open bore, armoured collars, trunnions, recoil pistons and caged rear Fracture Core |
+| Sovereign Siege Engine | Massive elevated accelerator barrel and open bore, armoured collars, trunnions, recoil pistons and shielded coaxial Fracture Core |
 | Aegis Dome | Transparent hemispherical shield, meridional lattice ribs, six grounding anchors and apex crown |
 | Astral Dock | Four curved launch arms, suspended satellite with four framed crystalline sails and a tracking dish |
 | Census Directorate | Tall seven-drum citizen index, continuous crescent archive, reading columns and a recessed civic entrance |
@@ -56,5 +56,10 @@ Its enclosed assembly hall and deployment court express this existing function.
 
 The Sovereign Siege Engine uses `client-monuments/monument-siege.ts`: a large
 elevated accelerator barrel on a traversing armoured mount, with an open bore,
-containment collars, recoil pistons and a caged Fracture Core. Its silhouette
+containment collars, recoil pistons and a shielded coaxial Fracture Core. Its silhouette
 expresses the existing Worldbreaker role; strike rules and effects are unchanged.
+
+The rear Fracture Core is enclosed in the breech rather than displayed as an
+exposed crystal. A recessed inspection iris, stepped pressure cap and captive
+service plates provide detail. Trunnion centres align with the barrel axis,
+so the gun is supported through its carriage rather than resting above it.

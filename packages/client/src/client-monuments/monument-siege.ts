@@ -20,8 +20,8 @@ export const buildSovereignSiege = (t: TownBuilders): void => {
   for (const x of [-0.18, 0.18]) {
     t.body.box(x, 0.09, -0.025, 0.105, 0.19, 0.37, "ironDark");
     t.body.tiltedBox(x, 0.19, -0.035, 0.095, 0.22, 0.16, "iron", 0, x < 0 ? -0.18 : 0.18);
-    t.body.pipe(x, 0.33, -0.035, x < 0 ? -0.115 : 0.115, 0.33, -0.035, 0.079, "brassDark");
-    t.body.pipe(x * 1.18, 0.33, -0.035, x * 1.24, 0.33, -0.035, 0.052, "iron");
+    t.body.pipe(x * 1.2, axis(-0.035), -0.035, x < 0 ? -0.075 : 0.075, axis(-0.035), -0.035, 0.067, "brassDark");
+    t.body.pipe(x * 1.18, axis(-0.035), -0.035, x * 1.24, axis(-0.035), -0.035, 0.052, "iron");
     for (const z of [-0.155, -0.045, 0.065]) {
       t.body.box(x, 0.10, z, 0.13, 0.045, 0.055, "stoneDark");
       t.body.box(x * 1.31, 0.16, z, 0.008, 0.055, 0.025, "brass");
@@ -54,13 +54,25 @@ export const buildSovereignSiege = (t: TownBuilders): void => {
     t.glow.pipe(x, axis(-0.20) + y * cos + 0.012, -0.20 - y * sin,
       x, axis(0.29) + y * cos + 0.012, 0.29 - y * sin, 0.004, "aether");
   }
-  // Rear Fracture Core: a dangerous shard held inside an armoured containment cage.
-  t.body.cylinder(0, 0.14, -0.235, 0.09, 0.11, 0.08, "iron", 12);
-  t.glow.gem(0, 0.36, -0.235, 0.07, 0.24, "aether");
-  for (const x of [-0.082, 0.082]) {
-    t.body.pipe(x, 0.18, -0.235, x, 0.46, -0.235, 0.014, "brassDark");
-    t.body.pipe(x, 0.46, -0.235, x * 0.45, 0.51, -0.235, 0.012, "brass");
-    t.body.tiltedBox(x * 1.45, 0.30, -0.235, 0.015, 0.24, 0.09, "iron", 0, x < 0 ? -0.24 : 0.24);
+  // Shielded Fracture Core sits coaxially inside the breech. Only its
+  // recessed rear inspection iris glows; no loose shard protrudes above it.
+  t.body.pipe(0, axis(-0.315), -0.315, 0, axis(-0.19), -0.19, 0.116, "ironDark");
+  collar(t, -0.30, 0.116, 0.012, "brassDark");
+  collar(t, -0.20, 0.116, 0.012, "brassDark");
+  t.body.pipe(0, axis(-0.327), -0.327, 0, axis(-0.31), -0.31, 0.092, "iron");
+  t.glow.pipe(0, axis(-0.33), -0.33, 0, axis(-0.328), -0.328, 0.048, "aether");
+  collar(t, -0.332, 0.068, 0.009, "brass");
+  for (let i = 0; i < 4; i++) {
+    const a = i * Math.PI / 2, x = Math.sin(a) * 0.11, y = Math.cos(a) * 0.11;
+    t.body.pipe(x, axis(-0.30) + y * cos, -0.30 - y * sin,
+      x, axis(-0.20) + y * cos, -0.20 - y * sin, 0.012, "iron");
   }
-  t.body.pipe(-0.037, 0.51, -0.235, 0.037, 0.51, -0.235, 0.016, "brass");
+  // Side service plates and captive fasteners give the recoil housings scale.
+  for (const side of [-1, 1]) {
+    t.body.box(side * 0.2365, 0.20, -0.05, 0.008, 0.055, 0.12, "iron");
+    for (const z of [-0.095, -0.005]) {
+      t.body.pipe(side * 0.24, 0.214, z, side * 0.246, 0.214, z, 0.007, "brassDark");
+      t.body.pipe(side * 0.24, 0.242, z, side * 0.246, 0.242, z, 0.007, "brassDark");
+    }
+  }
 };

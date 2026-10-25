@@ -33,9 +33,30 @@ describe("monument detail integrity", () => {
   it("anchors the siege trunnions to its heavy recoil beds", () => {
     const model = createDistrictGeometry("SOVEREIGN_SIEGE_ENGINE", false), material = new MeshBasicMaterial({ side: DoubleSide });
     const mesh = new Mesh(model.layers.metal, material); mesh.updateMatrixWorld();
-    const ray = new Raycaster(new Vector3(0.32, 0.33, -0.035), new Vector3(-1, 0, 0));
+    const ray = new Raycaster(new Vector3(0.32, 0.41075, -0.035), new Vector3(-1, 0, 0));
     expect(ray.intersectObject(mesh)[0]?.distance ?? Infinity).toBeLessThan(0.12);
     for (const geometry of Object.values(model.layers)) geometry.dispose(); material.dispose();
+  });
+  it("supports the barrel at its axis instead of leaving trunnions below it", () => {
+    const model = createDistrictGeometry("SOVEREIGN_SIEGE_ENGINE", false), material = new MeshBasicMaterial({ side: DoubleSide });
+    const mesh = new Mesh(model.layers.metal, material); mesh.updateMatrixWorld();
+    for (const x of [0.15, 0.195]) {
+      const ray = new Raycaster(new Vector3(x, 0.7, -0.035), new Vector3(0, -1, 0));
+      expect(ray.intersectObject(mesh)[0]?.point.y ?? 0).toBeGreaterThan(0.44);
+    }
+    for (const geometry of Object.values(model.layers)) geometry.dispose(); material.dispose();
+  });
+  it("keeps the rear core enclosed instead of protruding above its breech", () => {
+    const model = createDistrictGeometry("SOVEREIGN_SIEGE_ENGINE", false);
+    const glow = model.layers.glow!.getAttribute("position");
+    for (let i = 0; i < glow.count; i++) {
+      if (glow.getZ(i) < -0.23) {
+        const radial = Math.hypot(glow.getX(i), (glow.getY(i) - 0.43 - glow.getZ(i) * 0.55) / Math.hypot(1, 0.55));
+        // The 0.14 envelope includes the external accelerator rails.
+        expect(radial).toBeLessThan(0.14);
+      }
+    }
+    for (const geometry of Object.values(model.layers)) geometry.dispose();
   });
   it("has a recessed muzzle cavity instead of a flat disc across its opening", () => {
     const model = createDistrictGeometry("SOVEREIGN_SIEGE_ENGINE", false), material = new MeshBasicMaterial({ side: DoubleSide });
