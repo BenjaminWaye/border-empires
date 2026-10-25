@@ -121,16 +121,22 @@ export const isFrontierConnected = (
 };
 
 /**
- * Cap on the frontier tiles computeEncirclementDeltas may visit (Option C).
+ * Cap on the tiles computeEncirclementDeltas may flood in any one frontier
+ * component (Option C).
  *
- * The walk only crosses the affected player's own FRONTIER tiles (settled
- * land is a supply terminal and is never traversed), so its cost
- * tracks the size of the frontier around the change, not the whole empire. If
- * it still visits more than the cap we bail out and return empty sets — i.e.,
- * we skip the encirclement check for this mutation and retry on the next one.
- * Callers count that bail-out through `onCapExceeded`.
+ * The flood only crosses the affected player's own FRONTIER tiles (settled
+ * land is a supply terminal and is never traversed), so its cost tracks the
+ * size of the frontier around the change, not the whole empire. A component
+ * that grows past the cap stops flooding: if it has already touched supply it
+ * is classified supplied (correct, since supply is all that matters), and
+ * otherwise it is left unclassified and reported through `onCapExceeded`.
+ * Other components touched by the same change are still classified. A skipped
+ * component is not retried automatically; the stranded-frontier region check
+ * (stranded-frontier-cleanup.ts) is the backstop.
  */
 export const ENCIRCLEMENT_BFS_CAP = 10_000;
+
+type FrontierComponent = { keys: string[]; status: "supplied" | "unsupplied" | "unknown" };
 
 /**
  * Given a set of tile keys that may have been affected by a recent ownership
@@ -149,14 +155,9 @@ export const ENCIRCLEMENT_BFS_CAP = 10_000;
  * frontier tiles only, and classify the whole component at once.
  *
  * This used to walk every tile the player owned from the change (settled
- * included) and count unowned border tiles toward the cap, so any empire of
- * roughly 1,800+ connected tiles hit the 2,000 cap combat passes and silently
- * skipped encirclement — a lost attack origin never cut off the frontier
- * behind it.
- *
- * Option C — lazy partial BFS: if the flood visits more than `bfsCap` frontier
- * tiles, the function returns empty sets and calls `onCapExceeded`. The
- * encirclement state of affected tiles is unchanged.
+ * included) and count unowned border tiles toward one shared cap, so any
+ * empire of roughly 1,800+ connected tiles hit the 2,000 cap combat passes and
+ * silently skipped encirclement.
  */
 export const computeEncirclementDeltas = (
   changedKeys: Iterable<string>,
@@ -193,40 +194,55 @@ export const computeEncirclementDeltas = (
     }
   }
 
-  // Flood each seed's frontier component, recording whether it touches supply.
-  const components: Array<{ keys: string[]; supplied: boolean }> = [];
-  const visited = new Set<string>();
+  // Flood each seed's frontier component. A flood only stops early at the
+  // cap, so running into a tile an earlier flood already claimed means both
+  // are the same component: inherit that component's verdict.
+  const components: FrontierComponent[] = [];
+  const componentOf = new Map<string, number>();
   for (const seed of seeds) {
-    if (visited.has(seed)) continue;
-    visited.add(seed);
-    const component = { keys: [seed], supplied: false };
+    if (componentOf.has(seed)) continue;
+    const index = components.length;
+    const component: FrontierComponent = { keys: [seed], status: "unsupplied" };
+    components.push(component);
+    componentOf.set(seed, index);
+    let supplied = false;
+    let joinsUnknown = false;
+    let capped = false;
     const queue = [seed];
-    for (let head = 0; head < queue.length; head += 1) {
+    for (let head = 0; head < queue.length && !capped; head += 1) {
       const current = queue[head]!;
-      if (getTile(current)?.dockId) component.supplied = true;
+      if (getTile(current)?.dockId) supplied = true;
       for (const nk of connectedNeighborKeys(current, options?.extraNeighborKeys)) {
-        if (visited.has(nk)) continue;
+        const earlier = componentOf.get(nk);
+        if (earlier !== undefined) {
+          if (earlier === index) continue;
+          if (components[earlier]!.status === "supplied") supplied = true;
+          else joinsUnknown = true;
+          continue;
+        }
         const neighbor = getTile(nk);
         if (neighbor?.ownerId !== affectedPlayerId) continue;
         if (neighbor.ownershipState === "FRONTIER") {
-          visited.add(nk);
+          componentOf.set(nk, index);
           component.keys.push(nk);
           queue.push(nk);
         } else if (isSupplyTerminal(neighbor)) {
-          component.supplied = true;
+          supplied = true;
         }
       }
-      if (bfsCap > 0 && visited.size > bfsCap) {
-        options?.onCapExceeded?.(affectedPlayerId, visited.size, bfsCap);
-        return { cutOff, reconnected };
-      }
+      if (bfsCap > 0 && component.keys.length > bfsCap) capped = true;
     }
-    components.push(component);
+    if (supplied) component.status = "supplied";
+    else if (capped || joinsUnknown) {
+      component.status = "unknown";
+      if (capped) options?.onCapExceeded?.(affectedPlayerId, component.keys.length, bfsCap);
+    }
   }
 
-  for (const { keys, supplied } of components) {
+  for (const { keys, status } of components) {
+    if (status === "unknown") continue;
     for (const key of keys) {
-      if (!supplied) {
+      if (status === "unsupplied") {
         if (!options?.skipCutOff) cutOff.add(key);
         continue;
       }

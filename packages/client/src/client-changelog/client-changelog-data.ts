@@ -419,7 +419,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Encirclement works for large empires",
     why: "Once an empire grew past roughly 1,800 connected tiles, the supply check gave up before it finished. Frontier cut off from supply, for example behind an origin lost to a counter-attack, stayed owned when it should have been lost.",
     changes: [
-      "Frontier cut off from supply is now lost immediately, however large the empire",
+      "The supply check now looks only at your frontier, not your whole empire, so large empires lose cut-off frontier immediately",
       "This applies to captures, lost attack origins and abilities that remove tiles"
     ]
   }

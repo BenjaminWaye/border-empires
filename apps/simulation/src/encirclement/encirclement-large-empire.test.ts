@@ -42,19 +42,58 @@ describe("encirclement on large empires", () => {
     expect([...cutOff]).toEqual([strandedKey]);
   });
 
-  it("LE2: a frontier tile still bordering the settled block is not cut off", () => {
+  it("LE2: a frontier tile beside the lost origin that still borders the settled block is not cut off", () => {
     const { tiles, originKey } = lostOriginScenario(60);
-    tiles.set("160,140", { ownerId: "player-1", ownershipState: "FRONTIER" });
-    const { cutOff } = computeEncirclementDeltas([originKey, "161,140"], "player-1", (key) => tiles.get(key), 1_000, { bfsCap: COMBAT_BFS_CAP });
-    expect(cutOff.has("160,140")).toBe(false);
+    // Touches the origin (160,100) and the settled block's edge (159,98).
+    tiles.set("160,98", { ownerId: "player-1", ownershipState: "FRONTIER" });
+    tiles.delete("160,99");
+    const { cutOff } = computeEncirclementDeltas([originKey], "player-1", (key) => tiles.get(key), 1_000, { bfsCap: COMBAT_BFS_CAP });
+    expect(cutOff.has("160,98")).toBe(false);
+    expect(cutOff.has("161,100")).toBe(true);
   });
 
-  it("LE3: the walk visits only frontier tiles, never the settled interior", () => {
+  it("LE3: the flood reads only the frontier rings, never the settled interior", () => {
     const { tiles, originKey } = lostOriginScenario(60);
     const read = new Set<string>();
     computeEncirclementDeltas([originKey], "player-1", (key) => { read.add(key); return tiles.get(key); }, 1_000, { bfsCap: COMBAT_BFS_CAP });
-    // Only the origin's ring and the stranded tile's ring are ever read.
-    expect(read.size).toBeLessThan(30);
+    // The origin's ring plus the stranded tile's ring: at most 1 + 8 + 8 keys.
+    expect(read.size).toBeLessThanOrEqual(17);
+    for (const key of read) {
+      const [x, y] = key.split(",").map(Number) as [number, number];
+      expect(x >= 159 && x <= 162 && y >= 99 && y <= 101, key).toBe(true);
+    }
+  });
+
+  it("LE3b: a supplied frontier band larger than the cap does not mask a stranded tile beside the same change", () => {
+    const tiles = new Map<string, TileStub>();
+    // A 60x60 frontier band west of the origin, supplied by one settled tile at its far end.
+    tiles.set("39,30", { ownerId: "player-1", ownershipState: "SETTLED" });
+    for (let x = 40; x < 100; x += 1) {
+      for (let y = 0; y < 60; y += 1) tiles.set(`${x},${y}`, { ownerId: "player-1", ownershipState: "FRONTIER" });
+    }
+    tiles.set("100,30", { ownerId: "player-2", ownershipState: "FRONTIER" }); // lost origin
+    for (const y of [28, 29, 31, 32]) tiles.set(`100,${y}`, { ownerId: "player-2", ownershipState: "SETTLED" });
+    for (const y of [29, 31]) tiles.set(`101,${y}`, { ownerId: "player-2", ownershipState: "SETTLED" });
+    tiles.set("101,30", { ownerId: "player-1", ownershipState: "FRONTIER" }); // stranded
+    tiles.set("102,30", { ownerId: "player-2", ownershipState: "SETTLED" });
+    let capHits = 0;
+    const { cutOff } = computeEncirclementDeltas(["100,30"], "player-1", (key) => tiles.get(key), 1_000, {
+      bfsCap: COMBAT_BFS_CAP,
+      onCapExceeded: () => { capHits += 1; }
+    });
+    expect([...cutOff]).toEqual(["101,30"]);
+    expect(capHits).toBe(1); // the band capped out before reaching its supply
+  });
+
+  it("LE3c: a component that caps out before finding supply is never cut off", () => {
+    const tiles = new Map<string, TileStub>();
+    tiles.set("0,30", { ownerId: "player-1", ownershipState: "SETTLED" });
+    for (let x = 1; x < 100; x += 1) {
+      for (let y = 0; y < 60; y += 1) tiles.set(`${x},${y}`, { ownerId: "player-1", ownershipState: "FRONTIER" });
+    }
+    tiles.set("100,30", { ownerId: "player-2", ownershipState: "FRONTIER" });
+    const { cutOff } = computeEncirclementDeltas(["100,30"], "player-1", (key) => tiles.get(key), 1_000, { bfsCap: COMBAT_BFS_CAP });
+    expect(cutOff.size).toBe(0);
   });
 
   it("LE4: a frontier dock keeps its component supplied", () => {
