@@ -363,6 +363,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "No battle sound for undefended frontier",
     why: "Tapping a frontier tile being taken played the clash of regiments, even though no troops stand on frontier ground to fight.",
     changes: ["Tapping a frontier tile under attack only plays the battle sound while a garrison is holding it. Attacks on settled land still sound as before"]
+  },
+  {
+    createdAt: 1792909372604, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "More useful sync-delay debug logs",
+    why: "Debug downloads could confirm delayed attacks but failed to collect the server evidence needed to explain them.",
+    changes: ["Debug downloads now collect authenticated diagnostics for your own commands, actual network send timings, browser stalls, recent sync-warning windows and disconnect details."]
   }
 ];
 
