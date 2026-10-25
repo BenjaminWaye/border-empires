@@ -72,3 +72,16 @@ describe("live 3D district adapter", () => {
     fixture.map.dispose();
   });
 });
+
+describe("completed monument live-map dispatch", () => {
+  it.each(["IMPERIAL_EXCHANGE", "SOVEREIGN_SIEGE_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK", "CENSUS_DIRECTORATE", "TITANIUM_LEVY"] as const)("uses the remodeled %s model on the live terrain path", kind => {
+    const fixture = setup();
+    fixture.building.economicStructure!.type = kind;
+    const handled = fixture.map.addTile(fixture.building, { x: 1.5, z: 0.5, wx: 101, wy: 100, surfaceY: 0 }, 1000);
+    fixture.map.commit();
+    expect(handled.economic).toBe(true);
+    expect(fixture.map.diagnostics.models.instances).toBe(1);
+    fixture.map.dispose();
+    expect(fixture.scene.children).toHaveLength(0);
+  });
+});

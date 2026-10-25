@@ -8,7 +8,7 @@ import { constructionSiteForRebuild } from "../client-construction-afc-offset/cl
 import { hillFootprintTopY } from "../client-map-3d-tile-surface-y/client-map-3d-tile-surface-y.js";
 import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "../client-map-3d-heightfield-terrain.js";
 import { hillBumpsWithCorridorAt, hillNeighborFlagsAt, hillShapeHeight, type RoadCutDirections } from "../client-map-3d-hill-shape.js";
-import { DISTRICT_RADIUS, isDistrictBuilding } from "./district-catalog.js";
+import { DISTRICT_RADIUS, isDistrictBuilding, isDistrictProject } from "./district-catalog.js";
 import { buildDistrictNetwork, districtOperational, districtRecord, type DistrictPoint } from "./district-network.js";
 import { createDistrictOverlay } from "./district-overlay.js";
 import { createDistrictLinks3D } from "./district-links-3d.js";
@@ -68,7 +68,7 @@ export const createDistrictMap3D = (scene: Scene, maxTiles: number, deps: Distri
   const links = createDistrictLinks3D(scene, maxTiles * 24, { origin, surfaceAt, selectedTown: () => districtSelectedTown(deps.state) }, envMap);
   return {
     addTile: (tile: Tile, site: DistrictSite, rebuildAt: number): { economic: boolean; observatory: boolean } => {
-      const economic = isDistrictBuilding(tile.economicStructure?.type);
+      const economic = (isDistrictBuilding(tile.economicStructure?.type) || isDistrictProject(tile.economicStructure?.type));
       const visible = deps.visibilityAt(tile.x, tile.y, tile) === "visible";
       if (!visible || tile.terrain !== "LAND") return { economic: false, observatory: false };
       const record = tile.economicStructure;
@@ -88,7 +88,7 @@ export const createDistrictMap3D = (scene: Scene, maxTiles: number, deps: Distri
           ...(construction ? { site: construction } : {})
         });
       };
-      if (economic && isDistrictBuilding(tile.economicStructure?.type)) add(tile.economicStructure.type, -0.18);
+      if (economic && (isDistrictBuilding(tile.economicStructure?.type) || isDistrictProject(tile.economicStructure?.type))) add(tile.economicStructure.type, -0.18);
       return { economic, observatory: false };
     },
     clear: () => { builtDormancy = deps.state.dormantStructures; nextDisabledExpiry = Infinity; models.clear(); sites.clear(); candidates.length = 0; dormant = new Set(deps.state.dormantStructures.map(entry => entry.key)); },

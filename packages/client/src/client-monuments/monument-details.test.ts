@@ -1,0 +1,73 @@
+import { describe, expect, it } from "vitest";
+import { DoubleSide, InstancedMesh, Mesh, MeshBasicMaterial, MeshStandardMaterial, Raycaster, Scene, Vector3 } from "three";
+import { createDistrictGeometry } from "../client-town-district/district-geometry.js";
+import { createDistrictOverlay } from "../client-town-district/district-overlay.js";
+
+describe("monument detail integrity", () => {
+  it("renders the Aegis field as transparent glass instead of an opaque cap", () => {
+    const scene = new Scene(), overlay = createDistrictOverlay(scene, 1);
+    overlay.add({ kind: "AEGIS_DOME", x: 0, y: 0, z: 0, foundation: true, operational: true }); overlay.commit();
+    const glass = scene.children.find((mesh): mesh is InstancedMesh => mesh instanceof InstancedMesh && mesh.name.endsWith("-glass"));
+    expect(glass).toBeDefined();
+    expect(glass!.castShadow).toBe(false);
+    const material = glass!.material;
+    expect(material).toBeInstanceOf(MeshStandardMaterial);
+    if (material instanceof MeshStandardMaterial) {
+      expect(material.transparent).toBe(true);
+      expect(material.opacity).toBeLessThan(0.5);
+      expect(material.depthWrite).toBe(false);
+    }
+    overlay.dispose();
+  });
+  it("puts the Astral Dock's launch-arm light strip outside its opaque housing", () => {
+    const model = createDistrictGeometry("ASTRAL_DOCK", false), material = new MeshBasicMaterial({ side: DoubleSide });
+    const radial = new Vector3(Math.SQRT1_2, 0, Math.SQRT1_2);
+    const ray = new Raycaster(radial.clone().multiplyScalar(0.18).add(new Vector3(0, 0.175, 0)), radial);
+    const distance = (layer: "metal" | "glow"): number => {
+      const mesh = new Mesh(model.layers[layer], material); mesh.updateMatrixWorld();
+      return ray.intersectObject(mesh)[0]?.distance ?? Infinity;
+    };
+    expect(distance("glow")).toBeLessThan(distance("metal"));
+    for (const geometry of Object.values(model.layers)) geometry.dispose(); material.dispose();
+  });
+  it("supports the siege sighting tubes across their former air gap", () => {
+    const model = createDistrictGeometry("SOVEREIGN_SIEGE_ENGINE", false), material = new MeshBasicMaterial({ side: DoubleSide });
+    const mesh = new Mesh(model.layers.metal, material); mesh.updateMatrixWorld();
+    const ray = new Raycaster(new Vector3(0.11, 0.37, 0.05), new Vector3(0, 0, -1));
+    expect(ray.intersectObject(mesh)[0]?.distance ?? Infinity).toBeLessThan(0.12);
+    for (const geometry of Object.values(model.layers)) geometry.dispose(); material.dispose();
+  });
+  it("has a recessed muzzle cavity instead of a flat disc across its opening", () => {
+    const model = createDistrictGeometry("SOVEREIGN_SIEGE_ENGINE", false), material = new MeshBasicMaterial({ side: DoubleSide });
+    const mesh = new Mesh(model.layers.metal, material); mesh.updateMatrixWorld();
+    const ray = new Raycaster(new Vector3(0, 0.32, 0.4), new Vector3(0, 0, -1));
+    const hit = ray.intersectObject(mesh)[0]; expect(hit).toBeDefined();
+    expect(hit!.point.z).toBeLessThan(0.22);
+    for (const geometry of Object.values(model.layers)) geometry.dispose(); material.dispose();
+  });
+  it("keeps the satellite clear of the launch arms throughout its rotation", () => {
+    const model = createDistrictGeometry("ASTRAL_DOCK", false); let animated = 0;
+    for (const geometry of Object.values(model.layers)) {
+      const positions = geometry.getAttribute("position"), anim = geometry.getAttribute("animA");
+      for (let i = 0; i < positions.count; i++) {
+        if (Math.abs(anim.getW(i)) < 0.001) continue;
+        animated++;
+        // Rotation about y preserves this radius. The closest cradle tips
+        // are 0.13 from its axis, so every pose must keep this clearance.
+        expect(Math.hypot(positions.getX(i), positions.getZ(i))).toBeLessThan(0.12);
+      }
+      geometry.dispose();
+    }
+    expect(animated).toBeGreaterThan(0);
+  });
+  it("keeps the Exchange's upper roof ribs above its curved roof skin", () => {
+    const model = createDistrictGeometry("IMPERIAL_EXCHANGE", false);
+    const geometry = model.layers.metal!, positions = geometry.getAttribute("position"), colors = geometry.getAttribute("color");
+    const exposed: number[] = [];
+    for (let i = 0; i < positions.count; i++) {
+      if (colors.getX(i) > 0.4 && Math.abs(positions.getX(i)) < 0.02 && positions.getY(i) > 0.4 && positions.getY(i) < 0.425) exposed.push(positions.getZ(i));
+    }
+    expect(Math.max(...exposed)).toBeGreaterThan(0.145);
+    for (const geometry of Object.values(model.layers)) geometry.dispose();
+  });
+});
