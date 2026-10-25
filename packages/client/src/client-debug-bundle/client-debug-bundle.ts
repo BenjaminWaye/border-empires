@@ -1,7 +1,12 @@
 import type { ClientState } from "../client-state/client-state.js";
-import { snapshotClientDebugEvents } from "../client-debug/client-debug.js";
+import { snapshotClientDebugEvents, snapshotClientDebugIncidents } from "../client-debug/client-debug.js";
 import { rendererFailureSnapshot, webGLProbe } from "../client-webgl-probe/client-webgl-probe.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js";
+import { buildCommandTimings } from "../client-sync-diagnostics/client-command-timings.js";
+import { diagnosticAuthorization } from "../client-sync-diagnostics/client-server-diagnostics.js";
+import { snapshotDisconnectHistory } from "../client-connection-diagnostics/client-connection-diagnostics.js";
+import { snapshotSyncDiagnostics } from "../client-sync-diagnostics/client-sync-diagnostics.js";
+import { snapshotPerformanceMetrics } from "../client-performance-metrics/client-performance-metrics.js";
 import { MIN_ZOOM } from "../client-constants.js";
 
 type DebugBundleState = Pick<
@@ -31,7 +36,7 @@ type DebugBundleState = Pick<
   | "bridgeDebugSnapshotLabel"
   | "bridgeDebugInitialTileCount"
   | "bridgeDebugSupportedMessageCount"
->;
+> & Partial<Pick<ClientState, "bridgeDebugServerBuildSha">>;
 
 export type JsonFetchResult =
   | { ok: true; status: number; body: unknown }
@@ -58,7 +63,7 @@ export const serverHttpOriginFromWsUrl = (wsUrl: string): string => {
   return url.origin;
 };
 
-export const withTimeout = async (url: string): Promise<JsonFetchResult> => {
+export const withTimeout = async (url: string, authorization?: string): Promise<JsonFetchResult> => {
   const controller = new AbortController();
   const timeout = globalThis.setTimeout(() => controller.abort(), DEBUG_FETCH_TIMEOUT_MS);
   try {
@@ -66,15 +71,15 @@ export const withTimeout = async (url: string): Promise<JsonFetchResult> => {
       method: "GET",
       credentials: "omit",
       signal: controller.signal,
-      headers: { Accept: "application/json" }
+      headers: { Accept: "application/json", ...(authorization ? { Authorization: authorization } : {}) }
     });
-    const body = await response.json().catch(() => undefined);
+    const body: unknown = await response.json().catch(() => undefined);
     if (!response.ok) {
-      return {
-        ok: false,
-        status: response.status,
-        error: typeof (body as { message?: unknown } | undefined)?.message === "string" ? (body as { message: string }).message : `HTTP ${response.status}`
-      };
+      const message = typeof body === "object" && body !== null
+        ? ("message" in body && typeof body.message === "string" ? body.message
+          : "error" in body && typeof body.error === "string" ? body.error : undefined)
+        : undefined;
+      return { ok: false, status: response.status, error: message ?? `HTTP ${response.status}` };
     }
     return { ok: true, status: response.status, body };
   } catch (error) {
@@ -84,6 +89,35 @@ export const withTimeout = async (url: string): Promise<JsonFetchResult> => {
     };
   } finally {
     globalThis.clearTimeout(timeout);
+  }
+};
+
+export const fetchPlayerServerDiagnostics = async (serverOrigin: string): Promise<JsonFetchResult> => {
+  // Bound token acquisition as well as HTTP. A broken auth refresh must not
+  // prevent the player downloading the client-side evidence.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let authTimedOut = false;
+  try {
+    const authorization = await Promise.race([
+      diagnosticAuthorization(),
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => { authTimedOut = true; reject(new Error("auth timeout")); }, DEBUG_FETCH_TIMEOUT_MS);
+      })
+    ]);
+    if (!authorization) return { ok: false, error: "No signed-in user; server diagnostics unavailable" };
+    const result = await withTimeout(`${serverOrigin}/api/player/sync-diagnostics`, authorization);
+    if (!result.ok) return result;
+    const body = result.body;
+    if (typeof body !== "object" || body === null || !("ok" in body) || body.ok !== true ||
+      !("playerId" in body) || typeof body.playerId !== "string" ||
+      !("recentServerEvents" in body) || !Array.isArray(body.recentServerEvents)) {
+      return { ok: false, status: result.status, error: "Server diagnostics returned an unexpected response" };
+    }
+    return result;
+  } catch {
+    return { ok: false, error: authTimedOut ? "Diagnostic authentication timed out after 4 seconds" : "Unable to authenticate server diagnostics" };
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
   }
 };
 
@@ -110,6 +144,7 @@ const stateSnapshot = (state: DebugBundleState): Record<string, unknown> => ({
   bridgeDebugWsUrl: state.bridgeDebugWsUrl,
   bridgeDebugSeasonId: state.bridgeDebugSeasonId,
   bridgeDebugRuntimeFingerprint: state.bridgeDebugRuntimeFingerprint,
+  bridgeDebugServerBuildSha: state.bridgeDebugServerBuildSha,
   bridgeDebugSnapshotLabel: state.bridgeDebugSnapshotLabel,
   bridgeDebugInitialTileCount: state.bridgeDebugInitialTileCount,
   bridgeDebugSupportedMessageCount: state.bridgeDebugSupportedMessageCount
@@ -131,23 +166,45 @@ const attackDebugClientEvents = (events: ClientDebugEvent[]) => {
   };
 };
 
+const readServerEvents = (body: unknown): Array<{ at: number; event: string; payload: Record<string, unknown> }> => {
+  if (typeof body !== "object" || body === null || !("recentServerEvents" in body) || !Array.isArray(body.recentServerEvents)) return [];
+  return body.recentServerEvents.filter((event): event is { at: number; event: string; payload: Record<string, unknown> } =>
+    typeof event === "object" && event !== null && typeof event.at === "number" &&
+    typeof event.event === "string" && typeof event.payload === "object" && event.payload !== null);
+};
+
 export const buildClientDebugBundle = async (args: {
   state: DebugBundleState;
   wsUrl: string;
 }): Promise<Record<string, unknown>> => {
   const serverOrigin = serverHttpOriginFromWsUrl(args.wsUrl);
-  const clientEvents = snapshotClientDebugEvents(300);
+  const capturedAt = new Date().toISOString();
+  const clientEvents = snapshotClientDebugEvents();
+  const incidents = snapshotClientDebugIncidents();
+  const clientState = structuredClone(stateSnapshot(args.state));
+  const syncDiagnostics = snapshotSyncDiagnostics();
   const [health, debugBundle] = await Promise.all([
     withTimeout(`${serverOrigin}/health`),
-    withTimeout(`${serverOrigin}/admin/runtime/debug-bundle`)
+    fetchPlayerServerDiagnostics(serverOrigin)
   ]);
   return {
+    schemaVersion: 2,
     generatedAt: new Date().toISOString(),
+    capturedAt,
+    clientBuildSha: typeof __APP_VERSION__ === "string" ? __APP_VERSION__ : "",
+    syncDiagnostics,
+    performanceMetrics: snapshotPerformanceMetrics(),
+    incidents,
+    commandTimings: buildCommandTimings(
+      [...incidents.windows.flatMap((incident) => incident.events), ...clientEvents].sort((a, b) => a.at - b.at),
+      debugBundle.ok ? readServerEvents(debugBundle.body) : []
+    ),
+    disconnectHistory: snapshotDisconnectHistory(),
     pageUrl: browserLocationHref(),
     userAgent: browserUserAgent(),
     wsUrl: args.wsUrl,
     serverOrigin,
-    clientState: stateSnapshot(args.state),
+    clientState,
     // The whole point of the probe on a device we can't reproduce on: this is
     // what tells us whether 3D failed for lack of webgl2, a refused context, a
     // lost context, or something else entirely.
@@ -162,8 +219,7 @@ export const buildClientDebugBundle = async (args: {
       server:
         debugBundle.ok && typeof debugBundle.body === "object" && debugBundle.body !== null
           ? {
-              timeline: (debugBundle.body as { attackDebug?: unknown }).attackDebug,
-              traces: (debugBundle.body as { attackTraces?: unknown }).attackTraces
+              timeline: readServerEvents(debugBundle.body)
             }
           : undefined
     },

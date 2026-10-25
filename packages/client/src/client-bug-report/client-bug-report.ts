@@ -1,7 +1,7 @@
 import { snapshotClientDebugEvents } from "../client-debug/client-debug.js";
 import { snapshotPerformanceMetrics, initPerformanceMetrics } from "../client-performance-metrics/client-performance-metrics.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
-import { serverHttpOriginFromWsUrl, withTimeout, type JsonFetchResult } from "../client-debug-bundle/client-debug-bundle.js";
+import { serverHttpOriginFromWsUrl, fetchPlayerServerDiagnostics, type JsonFetchResult } from "../client-debug-bundle/client-debug-bundle.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 // ---------------------------------------------------------------------------
@@ -131,7 +131,7 @@ export const buildReportPayload = async (args: {
 }): Promise<ReportPayload> => {
   initPerformanceMetrics();
   const serverOrigin = serverHttpOriginFromWsUrl(args.wsUrl);
-  const serverBundle = await withTimeout(`${serverOrigin}/admin/runtime/debug-bundle`);
+  const serverBundle = await fetchPlayerServerDiagnostics(serverOrigin);
   return {
     metadata: buildMetadata(args.wsUrl),
     description: args.description.slice(0, MAX_DESCRIPTION_LENGTH),

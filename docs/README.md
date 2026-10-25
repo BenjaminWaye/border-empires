@@ -17,6 +17,7 @@ remain authoritative for runtime behavior.
 | Local setup, package layout, CI, and release notes | [`../README.md`](../README.md) |
 | Deploying or using Fly/Vercel/Hetzner | [`agents/deploys.md`](agents/deploys.md) |
 | Fly → Hetzner migration plan | [`hetzner-migration-plan.md`](hetzner-migration-plan.md) |
+| Sync-delay exports, timing interpretation and player-scoped server traces | [`agents/topics/sync-delay-diagnostics.md`](agents/topics/sync-delay-diagnostics.md) |
 | Tests, debugging, and regression expectations | [`agents/testing-and-debugging.md`](agents/testing-and-debugging.md) |
 | Concurrent worktree and branch safety | [`agents/concurrent-agents.md`](agents/concurrent-agents.md) |
 | Landing a PR end to end (review → fix → merge to `develop`) | [`../.claude/skills/review-fix-merge/SKILL.md`](../.claude/skills/review-fix-merge/SKILL.md) |
