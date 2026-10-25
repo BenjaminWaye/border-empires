@@ -110,7 +110,9 @@ first placement or explicit mesh access. Registering or measuring an unused
 legacy model no longer reserves a full visible-window buffer. District storage
 is capped by visible instances and a finite catalogue; overflow counters and
 instance/slot counts are exposed through the renderer adapter diagnostics.
-Reduced 3D quality omits decorative steam and ground-light layers.
+Reduced 3D quality omits decorative steam and ground-light layers. Superseded
+dedicated overlays also defer allocation until an explicit legacy/demo placement;
+normal district rendering does not reserve their unused instance buffers.
 
 The Storybook `PerformanceComparison` and `ReducedQualityComparison` stories
 compare the existing production model dispatcher against the district adapter

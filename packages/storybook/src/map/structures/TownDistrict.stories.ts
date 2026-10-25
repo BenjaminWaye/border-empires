@@ -2,6 +2,7 @@ import { renderDistrictBenchmark } from "./town-district-benchmark.js";
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { Mesh, MeshStandardMaterial, PlaneGeometry, PMREMGenerator } from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { createFortOverlay } from "@client/client-map-3d-fort-overlay.js";
 import { createTownOverlay } from "@client/client-map-3d-town-overlay.js";
 import { createDistrictMap3D } from "@client/client-town-district/district-map-3d.js";
 import { createDistrictOverlay } from "@client/client-town-district/district-overlay.js";
@@ -20,6 +21,7 @@ type Args = {
   occupancy: "full" | "sparse";
   state: "active" | "construction" | "removing" | "inactive" | "dormant";
   yaw: number;
+  stacking: boolean;
 };
 
 const fixtureFor = (args: Args) => {
@@ -38,6 +40,13 @@ const fixtureFor = (args: Args) => {
     else building.economicStructure = { ...record, type: kind };
     fixture.tiles.set(`${building.x},${building.y}`, building);
     i += 1;
+  }
+  if (args.stacking) {
+    const fortified = fixture.tiles.get("99,100");
+    if (fortified) fortified.fort = { ownerId: "p1", status: "active", variant: "TITANIUM_BASTION" };
+    const shared = fixture.tiles.get("101,100");
+    if (shared) shared.observatory = { ownerId: "p1", status: "active", supportAnchor: { x: 100, y: 100 } };
+    fixture.town.economicStructure = { type: "MANUFACTORY", ownerId: "p1", status: "active", supportAnchor: { x: 100, y: 100 } };
   }
   return { ...fixture, state: {
     tiles: fixture.tiles, tilesRevision: 1, me: "p1", selected: { x: 100, y: 100 }, camX: 100, camY: 100,
@@ -122,6 +131,11 @@ const render = (args: Args): HTMLElement => {
   town.addInstance(0.5, 0.5, townY, args.tier); town.commit();
   for (const tile of tiles.values()) map.addTile(tile, { x: tile.x - 100 + 0.5, z: tile.y - 100 + 0.5, wx: tile.x, wy: tile.y, surfaceY: tile === townTile ? townY : elevation(tile.x, tile.y) }, performance.now());
   map.commit();
+  if (args.stacking) {
+    const forts = createFortOverlay(stage.scene, 4, environment.texture);
+    for (const tile of tiles.values()) if (tile.fort) forts.addInstance(tile.x - 99.5, tile.y - 99.5, 0.01, "TITANIUM_BASTION", "CLOSED");
+    forts.commit(); cleanups.push(forts.dispose);
+  }
   let raf = 0;
   const tick = (): void => { map.update(performance.now()); raf = requestAnimationFrame(tick); };
   tick(); cleanups.push(map.dispose, town.dispose, () => cancelAnimationFrame(raf));
@@ -130,12 +144,12 @@ const render = (args: Args): HTMLElement => {
 
 const meta: Meta<Args> = {
   title: "Map/Structures/Town/District", parameters: { layout: "fullscreen" },
-  args: { view: "district", radius: 2, tier: "METROPOLIS", slope: false, occupancy: "full", state: "active", yaw: 0 },
+  args: { view: "district", radius: 2, tier: "METROPOLIS", slope: false, occupancy: "full", state: "active", yaw: 0, stacking: false },
   argTypes: {
     view: { control: "inline-radio", options: ["district", "catalogue", "2D"] },
     radius: { control: "inline-radio", options: [1, 2] },
     tier: { control: "inline-radio", options: ["SETTLEMENT", "TOWN", "CITY", "GREAT_CITY", "METROPOLIS"] },
-    slope: { control: "boolean" }, occupancy: { control: "inline-radio", options: ["full", "sparse"] },
+    slope: { control: "boolean" }, stacking: { control: "boolean" }, occupancy: { control: "inline-radio", options: ["full", "sparse"] },
     state: { control: "inline-radio", options: ["active", "construction", "removing", "inactive", "dormant"] },
     yaw: { control: { type: "range", min: -180, max: 180, step: 15 } }
   }, render
@@ -153,3 +167,4 @@ export const BeingRemoved: Story = { args: { state: "removing" } };
 export const Inactive: Story = { args: { state: "inactive" } };
 export const PerformanceComparison: Story = { render: () => renderDistrictBenchmark() };
 export const ReducedQualityComparison: Story = { render: () => renderDistrictBenchmark(true) };
+export const SharedTiles: Story = { args: { stacking: true, radius: 1 } };
