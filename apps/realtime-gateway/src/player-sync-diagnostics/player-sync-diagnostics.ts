@@ -17,16 +17,29 @@ const METRIC_NAMES = new Set([
 type Deps = Pick<RegisterGatewayHttpRoutesDeps,
   "authenticateBearer" | "playerSyncDiagnosticSnapshot" | "recentEvents" | "health" | "metrics" | "startupStartedAt">;
 
-export const playerSyncEvents = (events: GatewayDebugEvent[], playerId: string): GatewayDebugEvent[] =>
-  events.filter((event) => event.payload.playerId === playerId && typeof event.payload.commandId === "string")
-    .sort((a, b) => a.at - b.at).slice(-200).map((event) => ({
-      at: event.at, level: event.level, event: event.event,
-      payload: Object.fromEntries(Object.entries(event.payload).filter(([key, value]) =>
-        SAFE_FIELDS.has(key) && (typeof value === "number" || typeof value === "boolean" || typeof value === "string")))
-    }));
+const parsePriorityCommandIds = (value: unknown): { ids: string[]; ignored: number } => {
+  const raw = typeof value === "string" ? [value] : Array.isArray(value) ? value : [];
+  const valid = raw.filter((id): id is string => typeof id === "string" && id.length > 0 && id.length <= 160);
+  const ids = [...new Set(valid)].slice(0, 20);
+  return { ids, ignored: raw.length - ids.length };
+};
+
+export const playerSyncEvents = (events: GatewayDebugEvent[], playerId: string, priorityCommandIds: string[] = []): GatewayDebugEvent[] => {
+  const owned = events.filter((event) => event.payload.playerId === playerId && typeof event.payload.commandId === "string");
+  const priority = new Set(priorityCommandIds);
+  // Preserve up to twenty incident traces (24 events each), independently
+  // of the recent-traffic window. Identity filtering happens before selection.
+  const incidents = owned.filter((event) => priority.has(String(event.payload.commandId))).slice(-480);
+  const recent = owned.filter((event) => !priority.has(String(event.payload.commandId))).sort((a, b) => a.at - b.at).slice(-200);
+  return [...incidents, ...recent].sort((a, b) => a.at - b.at).map((event) => ({
+    at: event.at, level: event.level, event: event.event,
+    payload: Object.fromEntries(Object.entries(event.payload).filter(([key, value]) =>
+      SAFE_FIELDS.has(key) && (typeof value === "number" || typeof value === "boolean" || typeof value === "string")))
+  }));
+};
 
 export const registerPlayerSyncDiagnostics = (app: FastifyInstance, deps: Deps): void => {
-  app.get("/api/player/sync-diagnostics", async (request, reply) => {
+  app.get<{ Querystring: { commandId?: string | string[] } }>("/api/player/sync-diagnostics", async (request, reply) => {
     reply.header("Cache-Control", "no-store");
     const identity = await deps.authenticateBearer?.(request.headers.authorization).catch(() => undefined);
     if (!identity) {
@@ -37,7 +50,9 @@ export const registerPlayerSyncDiagnostics = (app: FastifyInstance, deps: Deps):
     const health = deps.health();
     const retained = deps.playerSyncDiagnosticSnapshot?.(identity.playerId);
     const source = retained?.events ?? deps.recentEvents();
-    const recentServerEvents = playerSyncEvents(source, identity.playerId);
+    const priority = parsePriorityCommandIds(request.query.commandId);
+    const recentServerEvents = playerSyncEvents(source, identity.playerId, priority.ids);
+    const priorityIds = new Set(priority.ids);
     return {
       ok: true, at, playerId: identity.playerId,
       serverBuildSha: process.env.BUILD_SHA ?? process.env.GATEWAY_BUILD_SHA ?? "",
@@ -55,7 +70,10 @@ export const registerPlayerSyncDiagnostics = (app: FastifyInstance, deps: Deps):
       retention: {
         ...retained?.retention,
         playerEventsAvailable: source.filter((event) => event.payload.playerId === identity.playerId && typeof event.payload.commandId === "string").length,
-        playerEventsReturned: recentServerEvents.length
+        playerEventsReturned: recentServerEvents.length,
+        priorityCommandIdsRequested: priority.ids.length,
+        priorityCommandIdsIgnored: priority.ignored,
+        priorityEventsReturned: recentServerEvents.filter((event) => priorityIds.has(String(event.payload.commandId))).length
       },
       recentServerEvents
     };

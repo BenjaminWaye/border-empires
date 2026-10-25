@@ -47,8 +47,13 @@ The full `/admin/runtime/debug-bundle` remains admin-only.
 
 The gateway keeps an independent diagnostic journal for explicitly observed
 client ATTACK/EXPAND commands: at most 200 commands, 24 events each, for 30
-minutes. Routine AI/automation traffic cannot enter it. The endpoint returns
-at most 200 events. Journal counts/evictions are exported; restart clears the
+minutes. Routine AI/automation traffic cannot enter it. The client requests the
+command IDs of its preserved warning windows (up to 20), so later traffic cannot
+crowd those traces out of the response while they remain in the journal. The
+endpoint returns up to 480 incident events plus 200 recent non-incident events
+(680 total). Requested IDs are filtered by authenticated ownership before
+selection; they cannot fetch another player's traces. ID caps and event counts
+are exported. Journal counts/evictions are exported; restart clears the
 journal. Gateway event-loop window max and the latest cached simulation backlog
 are sampled with frontier stages. These are context, not a CPU stack trace.
 Collection-time Prometheus samples are separately labeled `metricsAt`.

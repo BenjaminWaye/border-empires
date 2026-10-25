@@ -18,7 +18,7 @@ describe("client debug bundle", () => {
   });
 
   it("builds a bundle with client events and fetched server diagnostics", async () => {
-    recordClientDebugEvent("warn", "attack-sync", "action-accept-timeout", { targetKey: "12,34" });
+    recordClientDebugEvent("warn", "attack-sync", "action-accept-timeout", { targetKey: "12,34", current: { commandId: "preserved-incident" } });
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
@@ -106,7 +106,7 @@ describe("client debug bundle", () => {
         }
       }
     });
-    expect(fetch).toHaveBeenCalledWith("https://border-empires.fly.dev/api/player/sync-diagnostics", expect.objectContaining({ headers: { Accept: "application/json", Authorization: "Bearer test-id-token" } }));
+    expect(fetch).toHaveBeenCalledWith("https://border-empires.fly.dev/api/player/sync-diagnostics?commandId=preserved-incident", expect.objectContaining({ headers: { Accept: "application/json", Authorization: "Bearer test-id-token" } }));
     expect(JSON.stringify(bundle)).not.toContain("test-id-token");
     expect((bundle.clientEvents as Array<{ event: string }>).some((event) => event.event === "action-accept-timeout")).toBe(true);
   });

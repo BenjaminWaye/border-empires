@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCommandTimings } from "./client-command-timings.js";
+import { buildCommandTimings, incidentCommandIds } from "./client-command-timings.js";
 import type { DebugEvent } from "../client-debug/client-debug-incidents.js";
 
 const entry = (event: string, type: string, mono: number, wall: number): DebugEvent => ({
@@ -20,4 +20,10 @@ describe("command timing export", () => {
   it("leaves missing evidence unset rather than treating it as zero latency", () => {
     expect(buildCommandTimings([entry("wire-sent", "EXPAND", 1, 1)], [])[0]).toMatchObject({ clientSendToAcceptedMs: undefined, serverReceivedToAcceptedSendMs: undefined });
   });
+  it("prioritizes the incident's triggering command rather than unrelated surrounding traffic", () => {
+    const warning: DebugEvent = { at: 10, level: "info", scope: "attack-sync", event: "action-accept-timeout", payload: { current: { commandId: "delayed" } } };
+    const windows = [{ at: 10, trigger: "action-accept-timeout", events: [entry("wire-sent", "ATTACK", 1, 1), warning] }];
+    expect(incidentCommandIds([...windows, ...windows])).toEqual(["delayed"]);
+  });
+
 });

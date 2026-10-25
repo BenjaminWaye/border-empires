@@ -9,6 +9,16 @@ const elapsed = (start: DebugEvent | undefined, end: DebugEvent | undefined): nu
   return a !== undefined && b !== undefined ? b - a : undefined;
 };
 
+export const incidentCommandIds = (windows: Array<{ at: number; trigger: string; events: DebugEvent[] }>): string[] => {
+  const ids = windows.map((window) => {
+    const trigger = window.events.filter((event) => event.at === window.at && event.event === window.trigger).at(-1);
+    const current = trigger?.payload.current ?? trigger?.payload.currentAction;
+    const nestedId = typeof current === "object" && current !== null && "commandId" in current ? current.commandId : undefined;
+    return trigger?.payload.commandId ?? nestedId;
+  }).filter((id): id is string => typeof id === "string" && id.length > 0 && id.length <= 160);
+  return [...new Set(ids)].slice(-20);
+};
+
 export const buildCommandTimings = (events: DebugEvent[], serverEvents: ServerEvent[]) => {
   const sends = events.filter((event) => event.event === "wire-sent" &&
     ["ATTACK", "EXPAND"].includes(String(event.payload.type)) && typeof event.payload.commandId === "string");

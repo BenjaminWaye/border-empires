@@ -2,12 +2,16 @@ import type { ClientState } from "../client-state/client-state.js";
 import { snapshotClientDebugEvents, snapshotClientDebugIncidents } from "../client-debug/client-debug.js";
 import { rendererFailureSnapshot, webGLProbe } from "../client-webgl-probe/client-webgl-probe.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js";
-import { buildCommandTimings } from "../client-sync-diagnostics/client-command-timings.js";
+import { buildCommandTimings, incidentCommandIds } from "../client-sync-diagnostics/client-command-timings.js";
 import { diagnosticAuthorization } from "../client-sync-diagnostics/client-server-diagnostics.js";
 import { snapshotDisconnectHistory } from "../client-connection-diagnostics/client-connection-diagnostics.js";
 import { snapshotSyncDiagnostics } from "../client-sync-diagnostics/client-sync-diagnostics.js";
 import { snapshotPerformanceMetrics } from "../client-performance-metrics/client-performance-metrics.js";
 import { MIN_ZOOM } from "../client-constants.js";
+
+// Vite supplies this macro in the game build. Consumers such as Storybook
+// do not include the client's global.d.ts; keep this contract module-local.
+declare const __APP_VERSION__: string;
 
 type DebugBundleState = Pick<
   ClientState,
@@ -92,7 +96,7 @@ export const withTimeout = async (url: string, authorization?: string): Promise<
   }
 };
 
-export const fetchPlayerServerDiagnostics = async (serverOrigin: string): Promise<JsonFetchResult> => {
+export const fetchPlayerServerDiagnostics = async (serverOrigin: string, priorityCommandIds: string[] = []): Promise<JsonFetchResult> => {
   // Bound token acquisition as well as HTTP. A broken auth refresh must not
   // prevent the player downloading the client-side evidence.
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -105,7 +109,11 @@ export const fetchPlayerServerDiagnostics = async (serverOrigin: string): Promis
       })
     ]);
     if (!authorization) return { ok: false, error: "No signed-in user; server diagnostics unavailable" };
-    const result = await withTimeout(`${serverOrigin}/api/player/sync-diagnostics`, authorization);
+    const query = new URLSearchParams();
+    for (const id of [...new Set(priorityCommandIds)].slice(-20)) query.append("commandId", id);
+    const encodedQuery = query.toString();
+    const suffix = encodedQuery ? `?${encodedQuery}` : "";
+    const result = await withTimeout(`${serverOrigin}/api/player/sync-diagnostics${suffix}`, authorization);
     if (!result.ok) return result;
     const body = result.body;
     if (typeof body !== "object" || body === null || !("ok" in body) || body.ok !== true ||
@@ -185,7 +193,7 @@ export const buildClientDebugBundle = async (args: {
   const syncDiagnostics = snapshotSyncDiagnostics();
   const [health, debugBundle] = await Promise.all([
     withTimeout(`${serverOrigin}/health`),
-    fetchPlayerServerDiagnostics(serverOrigin)
+    fetchPlayerServerDiagnostics(serverOrigin, incidentCommandIds(incidents.windows))
   ]);
   return {
     schemaVersion: 2,
