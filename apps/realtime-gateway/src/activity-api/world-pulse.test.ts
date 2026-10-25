@@ -7,8 +7,8 @@ const activity = (): ActivityApiResponse => ({
   generatedAt: "2026-09-26T12:00:00.000Z",
   alliances: [], allianceBreaks: [], truceWatch: [], fortification: [],
   wars: [
-    { playerA: "barbarian-1", playerB: "me", playerAName: "Barbarians", playerBName: "Me", tileFlips24h: 999, lastFlipAt: 1 },
-    { playerA: "a", playerB: "b", playerAName: "Aria", playerBName: "Bram", tileFlips24h: 5, lastFlipAt: 1 }
+    { playerA: "barbarian-1", playerB: "me", playerAName: "Barbarians", playerBName: "Me", tileFlips24h: 999, tilesContested24h: 999, lastFlipAt: 1 },
+    { playerA: "a", playerB: "b", playerAName: "Aria", playerBName: "Bram", tileFlips24h: 5, tilesContested24h: 5, lastFlipAt: 1 }
   ],
   territoryMomentum: [
     { playerId: "barbarian-1", playerName: "Barbarians", tilesGained24h: 999, tilesLost24h: 0, net24h: 999 },
@@ -49,7 +49,7 @@ describe("buildWorldPulse", () => {
     source.powerScore = ["me", "a", "b", "c", "d", "e"].map((id, index) => ({
       id, name: id === "me" || id === "a" ? "Same name" : id, tiles: 10 - index, incomePerMinute: 1, techs: 1, manpowerCap: 1, score: 10 - index, rank: index + 1
     }));
-    source.wars = [{ playerA: "me", playerB: "b", playerAName: "Same name", playerBName: "b", tileFlips24h: 10, lastFlipAt: 1 }];
+    source.wars = [{ playerA: "me", playerB: "b", playerAName: "Same name", playerBName: "b", tileFlips24h: 10, tilesContested24h: 10, lastFlipAt: 1 }];
     const pulse = buildWorldPulse({ activity: source, playerId: "me", seasonId: "season-3" });
     expect(pulse.leadingPowers).toHaveLength(5);
     expect(pulse.stories.some((story) => story.type === "OPEN_WAR")).toBe(false);

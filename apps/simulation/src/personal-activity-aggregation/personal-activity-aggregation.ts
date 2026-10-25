@@ -1,4 +1,4 @@
-import { TERRITORY_FLIP_WINDOW_MS, type TerritoryFlip } from "../territory-flip-log/territory-flip-log.js";
+import { TERRITORY_FLIP_WINDOW_MS, uniqueTileCount, type TerritoryFlip } from "../territory-flip-log/territory-flip-log.js";
 import type { CombatManpowerLoss } from "../combat-manpower-log/combat-manpower-log.js";
 import { PERSONAL_ACTIVITY_TIMELINE_CARD_CAP, type PersonalActivityCard, type PersonalActivityTimeline } from "@border-empires/game-domain";
 import { groupTerritoryFlipsForPlayer } from "./personal-activity-territory-grouping.js";
@@ -80,8 +80,8 @@ export const aggregatePersonalActivity = (
     from,
     to,
     summary: {
-      tilesClaimed: claimedFlips.length,
-      tilesLost: lostFlips.length,
+      tilesClaimed: uniqueTileCount(claimedFlips),
+      tilesLost: uniqueTileCount(lostFlips),
       waystationsActivated: impactCards.waystations.length,
       townsCaptured: impactCards.towns.filter((card) => card.kind === "TOWN_CAPTURED").length,
       townsLost: impactCards.towns.filter((card) => card.kind === "TOWN_LOST").length,

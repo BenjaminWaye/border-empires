@@ -74,7 +74,7 @@ const buildOpenWar = (wars: DailyStoryInput["wars"]): DailyStoryEvent | undefine
   return story({
     type: "OPEN_WAR",
     headline: "Open War",
-    text: `${top.playerAName} and ${top.playerBName} are at war — ${pluralize(top.tileFlips24h, "tile")} changed hands today.`,
+    text: `${top.playerAName} and ${top.playerBName} are at war — ${pluralize(top.tilesContested24h, "tile")} changed hands today.`,
     significance: normalizeSignificance(top.tileFlips24h, SIGNIFICANCE_SCALE.flipCount),
     players: [top.playerAName, top.playerBName]
   }, [top.playerA, top.playerB]);

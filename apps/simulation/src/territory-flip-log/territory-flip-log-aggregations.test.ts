@@ -26,7 +26,16 @@ describe("computeWars", () => {
       flip({ tileId: "t-2", fromOwner: "p2", toOwner: "p1", at: 200 })
     ];
     const wars = computeWars(flips, new Set(), "barbarian-1");
-    expect(wars).toEqual([{ playerA: "p1", playerB: "p2", tileFlips24h: 2, lastFlipAt: 200 }]);
+    expect(wars).toEqual([{ playerA: "p1", playerB: "p2", tileFlips24h: 2, tilesContested24h: 2, lastFlipAt: 200 }]);
+  });
+
+  it("counts every flip for intensity but each tile once for tiles contested", () => {
+    const flips = [
+      flip({ tileId: "t-1", fromOwner: "p1", toOwner: "p2", at: 100 }),
+      flip({ tileId: "t-1", fromOwner: "p2", toOwner: "p1", at: 200 }),
+      flip({ tileId: "t-1", fromOwner: "p1", toOwner: "p2", at: 300 })
+    ];
+    expect(computeWars(flips, new Set(), "barbarian-1")).toEqual([{ playerA: "p1", playerB: "p2", tileFlips24h: 3, tilesContested24h: 1, lastFlipAt: 300 }]);
   });
 
   it("excludes pairs with an active alliance", () => {
@@ -52,13 +61,24 @@ describe("computeWars", () => {
 describe("computeTerritoryMomentum", () => {
   it("computes gains, losses, and net per player", () => {
     const flips = [
-      flip({ fromOwner: undefined, toOwner: "p1" }),
-      flip({ fromOwner: "p1", toOwner: "p2" }),
-      flip({ fromOwner: "p2", toOwner: "p1" })
+      flip({ tileId: "t-1", fromOwner: undefined, toOwner: "p1" }),
+      flip({ tileId: "t-2", fromOwner: "p1", toOwner: "p2" }),
+      flip({ tileId: "t-3", fromOwner: "p2", toOwner: "p1" })
     ];
     const momentum = computeTerritoryMomentum(flips);
     const byPlayer = Object.fromEntries(momentum.map((m) => [m.playerId, m]));
     expect(byPlayer.p1).toEqual({ playerId: "p1", tilesGained24h: 2, tilesLost24h: 1, net24h: 1 });
+    expect(byPlayer.p2).toEqual({ playerId: "p2", tilesGained24h: 1, tilesLost24h: 1, net24h: 0 });
+  });
+
+  it("counts distinct tiles, not flips, when a tile changes hands repeatedly", () => {
+    const flips = [
+      flip({ tileId: "t-1", fromOwner: "p1", toOwner: "p2", at: 1 }),
+      flip({ tileId: "t-1", fromOwner: "p2", toOwner: "p1", at: 2 }),
+      flip({ tileId: "t-1", fromOwner: "p1", toOwner: "p2", at: 3 })
+    ];
+    const byPlayer = Object.fromEntries(computeTerritoryMomentum(flips).map((m) => [m.playerId, m]));
+    expect(byPlayer.p1).toEqual({ playerId: "p1", tilesGained24h: 1, tilesLost24h: 1, net24h: 0 });
     expect(byPlayer.p2).toEqual({ playerId: "p2", tilesGained24h: 1, tilesLost24h: 1, net24h: 0 });
   });
 });
@@ -70,9 +90,9 @@ describe("computeBiggestSwing24h", () => {
 
   it("returns the player who lost the most tiles with the flip time window", () => {
     const flips = [
-      flip({ fromOwner: "p1", toOwner: "p2", at: 100 }),
-      flip({ fromOwner: "p1", toOwner: "p2", at: 500 }),
-      flip({ fromOwner: "p3", toOwner: "p2", at: 300 })
+      flip({ tileId: "t-1", fromOwner: "p1", toOwner: "p2", at: 100 }),
+      flip({ tileId: "t-2", fromOwner: "p1", toOwner: "p2", at: 500 }),
+      flip({ tileId: "t-3", fromOwner: "p3", toOwner: "p2", at: 300 })
     ];
     expect(computeBiggestSwing24h(flips)).toEqual({ playerId: "p1", tilesLost: 2, windowStart: 100, windowEnd: 500 });
   });

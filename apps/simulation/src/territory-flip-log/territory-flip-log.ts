@@ -72,6 +72,17 @@ export type TerritoryFlipLog = {
   restore: (entries: readonly TerritoryFlip[], now: number) => void;
 };
 
+/**
+ * Distinct tiles across a set of flips. Summaries count tiles, not flips: a
+ * tile that changes hands three times is still one tile taken. Per-tile flip
+ * counts (frontline hotspots) and the per-flip timeline keep the raw log.
+ */
+export const uniqueTileCount = (flips: Iterable<Pick<TerritoryFlip, "tileId">>): number => {
+  const tiles = new Set<string>();
+  for (const flip of flips) tiles.add(flip.tileId);
+  return tiles.size;
+};
+
 export const createTerritoryFlipLog = (options: { now?: () => number } = {}): TerritoryFlipLog => {
   const now = options.now ?? (() => Date.now());
   let flips: TerritoryFlip[] = [];
