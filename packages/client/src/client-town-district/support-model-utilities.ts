@@ -30,7 +30,7 @@ export const buildUtility = (t: TownBuilders, kind: string): boolean => {
       ribs(t, 0.19, 0.19, -0.15, 0.09, 4, 0.04, 0.1);
       return true;
     case "SKY_DOCK":
-      // Elevated airship berth: one overhead hull and a cantilever mooring arm.
+      // Elevated shuttle berth: swept lifting body, canopy and paired drives.
       housing(t, -0.16, 0.08, 0.1, 0.12, 0.22);
       for (const z of [-0.16, 0.14]) {
         t.body.box(0.1, 0.015, z, 0.18, 0.028, 0.06, "stoneLight");
@@ -38,10 +38,15 @@ export const buildUtility = (t: TownBuilders, kind: string): boolean => {
       }
       t.body.box(0.1, 0.235, -0.01, 0.19, 0.025, 0.36, "iron");
       for (const x of [0.005, 0.195]) t.body.pipe(x, 0.27, -0.17, x, 0.27, 0.15, 0.006, "brass");
-      t.body.ellipsoid(0.045, 0.375, -0.025, 0.215, 0.075, 0.075, "stoneLight");
-      t.body.box(0.045, 0.278, -0.025, 0.075, 0.045, 0.055, "brassDark");
-      for (const x of [-0.075, 0.16]) t.body.pipe(x, 0.3, -0.025, x, 0.4, -0.025, 0.005, "brass");
-      t.body.panel(-0.17, 0.4, -0.025, 0.06, 0.085, "iron");
+      t.body.gem(0.005, 0.36, -0.025, 0.17, 0.018, "iron");
+      t.body.ellipsoid(0.045, 0.37, -0.025, 0.2, 0.045, 0.06, "stoneLight");
+      t.body.ellipsoid(0.13, 0.405, -0.025, 0.065, 0.018, 0.035, "glassLight");
+      for (const z of [-0.125, 0.075]) {
+        t.body.pipe(-0.17, 0.365, z, -0.04, 0.365, z, 0.025, "ironDark");
+        t.body.disc(-0.176, 0.365, z, 0.027, 0.012, "brassDark", Math.PI / 2);
+        t.glow.disc(-0.184, 0.365, z, 0.018, 0.004, "aether", Math.PI / 2);
+        t.body.pipe(0.045, 0.27, z * 0.45, 0.045, 0.33, z * 0.45, 0.009, "iron");
+      }
       return true;
     case "AMBARIC_TRANSFORMER":
       // Two massive fin banks and a low horseshoe busbar.
