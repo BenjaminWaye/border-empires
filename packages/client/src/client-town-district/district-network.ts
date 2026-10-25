@@ -1,3 +1,4 @@
+import { townIdentityForTile } from "../client-town-identity.js";
 import { districtWrapX as wrapX, districtWrapY as wrapY } from "./district-coordinates.js";
 import { WORLD_HEIGHT, WORLD_WIDTH, supportRingRadiusForTier } from "@border-empires/shared";
 import type { Tile, TileVisibilityState } from "../client-types.js";
@@ -76,11 +77,12 @@ export const buildDistrictNetwork = (deps: DistrictNetworkDeps, candidates: Iter
     if (deps.visibilityAt(tile.x, tile.y, tile) !== "visible") continue;
     const townKey = keyOf(anchor.x, anchor.y);
     const town = deps.tiles.get(townKey);
-    if (!town?.town || town.ownerId !== tile.ownerId || record.ownerId !== tile.ownerId || town.ownershipState !== "SETTLED") continue;
-    if (town.town.populationTier === "SETTLEMENT" || deps.visibilityAt(town.x, town.y, town) !== "visible") continue;
+    const identity = townIdentityForTile(town);
+    if (!town || !identity || town.ownerId !== tile.ownerId || record.ownerId !== tile.ownerId || town.ownershipState !== "SETTLED") continue;
+    if (identity.populationTier === "SETTLEMENT" || deps.visibilityAt(town.x, town.y, town) !== "visible") continue;
     const dx = toroidDelta(town.x, tile.x, WORLD_WIDTH);
     const dy = toroidDelta(town.y, tile.y, WORLD_HEIGHT);
-    const radius = supportRingRadiusForTier(town.town.populationTier);
+    const radius = supportRingRadiusForTier(identity.populationTier);
     if ((!dx && !dy) || Math.max(Math.abs(dx), Math.abs(dy)) > radius) continue;
     const sx = Math.sign(dx) || 1;
     const sy = Math.sign(dy) || 1;
@@ -89,7 +91,7 @@ export const buildDistrictNetwork = (deps: DistrictNetworkDeps, candidates: Iter
     const start: Pair = [dx ? dx - sx * 0.5 : 0.5, dy ? dy - sy * 0.5 : 0.5];
     const root: Pair = [sx * 0.5, sy * 0.5];
     const active = districtOperational(tile, deps.isDormant?.(tile));
-    const townRadius = town.town.populationTier === "TOWN" ? 0.36 : town.town.populationTier === "CITY" ? 0.4 : 0.427;
+    const townRadius = identity.populationTier === "TOWN" ? 0.36 : identity.populationTier === "CITY" ? 0.4 : 0.427;
     const townPort: Pair = Math.abs(dx) >= Math.abs(dy) ? [sx * townRadius, 0] : [0, sy * townRadius];
     const world = (p: Pair): DistrictPoint => ({ x: wrapX(town.x + 0.5 + p[0]), y: wrapY(town.y + 0.5 + p[1]) });
     const add = (a: Pair, b: Pair, buried = false): void => {

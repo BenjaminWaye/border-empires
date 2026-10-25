@@ -8,6 +8,15 @@ const network = (tiles: ReadonlyMap<string, Tile>, candidates: Iterable<Tile> = 
   buildDistrictNetwork({ tiles, visibilityAt: (_x, _y, tile) => tile?.fogged ? "fogged" : tile ? "visible" : "unexplored" }, candidates);
 
 describe("town district connections", () => {
+  it("connects on login before the town's detailed economy summary is loaded", () => {
+    const { tiles, town } = districtFixture();
+    town.townType = town.town!.type;
+    town.townPopulationTier = town.town!.populationTier;
+    delete town.town;
+    expect(network(tiles).length).toBeGreaterThan(0);
+    town.townPopulationTier = "SETTLEMENT";
+    expect(network(tiles)).toEqual([]);
+  });
   it("connects all 24 occupied plots and prunes removed branches without moving survivors", () => {
     const { tiles } = districtFixture();
     const buildings: Tile[] = [];

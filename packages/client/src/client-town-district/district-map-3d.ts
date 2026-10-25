@@ -1,3 +1,4 @@
+import { tileHasTownIdentity } from "../client-town-identity.js";
 import { districtWrapX as wrapX, districtWrapY as wrapY } from "./district-coordinates.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { Scene, Texture } from "three";
@@ -27,7 +28,7 @@ type DistrictMapDeps = {
 export const districtSelectedTown = (state: Pick<ClientState, "selected" | "tiles">): string | undefined => {
   const selected = state.selected ? state.tiles.get(`${state.selected.x},${state.selected.y}`) : undefined;
   if (!selected) return undefined;
-  if (selected.town) return `${selected.x},${selected.y}`;
+  if (tileHasTownIdentity(selected)) return `${selected.x},${selected.y}`;
   const anchor = districtRecord(selected)?.supportAnchor;
   return anchor ? `${anchor.x},${anchor.y}` : undefined;
 };
@@ -56,7 +57,7 @@ export const createDistrictMap3D = (scene: Scene, maxTiles: number, deps: Distri
     const x = wrapX(Math.floor(p.x)), y = wrapY(Math.floor(p.y));
     const u = p.x - Math.floor(p.x), v = p.y - Math.floor(p.y);
     const site = sites.get(`${x},${y}`);
-    if (site && Math.hypot(u - 0.5, v - 0.5) < (site.tile.town ? 0.49 : 0.42)) return site.seat;
+    if (site && Math.hypot(u - 0.5, v - 0.5) < (tileHasTownIdentity(site.tile) ? 0.49 : 0.42)) return site.seat;
     const c00 = deps.cornerYAt(x, y), c10 = deps.cornerYAt(wrapX(x + 1), y);
     const c01 = deps.cornerYAt(x, wrapY(y + 1)), c11 = deps.cornerYAt(wrapX(x + 1), wrapY(y + 1));
     let height = (c00 * (1 - u) + c10 * u) * (1 - v) + (c01 * (1 - u) + c11 * u) * v;
@@ -73,10 +74,11 @@ export const createDistrictMap3D = (scene: Scene, maxTiles: number, deps: Distri
       if (!visible || tile.terrain !== "LAND") return { economic: false, observatory: false };
       const record = tile.economicStructure;
       if (record?.disabledUntil && record.disabledUntil > Date.now()) nextDisabledExpiry = Math.min(nextDisabledExpiry, record.disabledUntil);
-      const y = tile.town ? site.surfaceY : seatAt(tile);
+      const hasTown = tileHasTownIdentity(tile);
+      const y = hasTown ? site.surfaceY : seatAt(tile);
       if (sites.size < maxTiles) { sites.set(`${tile.x},${tile.y}`, { tile, seat: y }); candidates.push(tile); }
-      const combined = Boolean(tile.fort || tile.town || (economic && observatory));
-      if (combined && !tile.town && (economic || observatory)) models.add({ x: site.x, y, z: site.z, foundation: true, operational: true });
+      const combined = Boolean(tile.fort || hasTown || (economic && observatory));
+      if (combined && !hasTown && (economic || observatory)) models.add({ x: site.x, y, z: site.z, foundation: true, operational: true });
       const add = (kind: Parameters<typeof models.add>[0]["kind"], field: "economicStructure" | "observatory", offset: number): void => {
         if (!kind) return;
         const record = tile[field];

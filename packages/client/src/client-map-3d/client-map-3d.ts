@@ -1,6 +1,7 @@
 import { relicRemainingUses } from "@border-empires/shared";
 import { createRelicHintOverlay } from "../client-relic-overlay/relic-hints-3d.js";
 import { createCornerSurfaceSampler } from "../client-map-3d-heightfield/client-map-3d-surface-average.js";
+import { townIdentityForTile } from "../client-town-identity.js";
 import { createTownSupportMarkerSync } from "../client-town-district/town-support-marker-sync.js";
 import { createDistrictMap3D } from "../client-town-district/district-map-3d.js";
 import { singleTileSelectionForMap } from "../client-garrison-many/client-garrison-many-model.js";
@@ -851,7 +852,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy);
           contactShadowOverlay.addShadow(x, z, surfaceY, SMALL_CONTACT_SHADOW_RADIUS_TILES);
         } else if (shouldDrawLightGrassScatterInstance(lightGrassScatterTile, tile)) forest.addSparseLeafInstance(x, z, surfaceY, wx, wy);
-        const realTier = tile?.town?.populationTier;
+        const realTier = townIdentityForTile(tile)?.populationTier;
         const demoTier = isTownDemoTile(wx, wy, window.camX, window.camY);
         const renderedTier: TownTier | undefined = realTier ?? demoTier;
         if (renderedTier && terrain === "LAND") {

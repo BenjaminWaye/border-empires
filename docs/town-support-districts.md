@@ -30,6 +30,8 @@ resolver. Per-viewer login and delta projections attach optional
 `supportAnchor: { x, y } | null` metadata to economic/observatory JSON records.
 Absent metadata means unavailable knowledge or an older server; null confirms
 no assigned town. The renderer never guesses an anchor from visible neighbours.
+Both renderer adapters use the existing compact town identity while its detailed
+economy summary is loading, so a fresh login does not wait for a town click.
 No domain state/checkpoint is mutated and no new protocol field number is
 required: the existing optional JSON overlay fields carry the metadata.
 
@@ -130,7 +132,9 @@ Local desktop sample, 2026-10-25 (millisecond timers are quantized):
 The sample passes the proposed desktop frame-regression gate. More triangles
 are offset by fewer draw calls, while cold creation costs more. Geometry is
 reused across subsequent rebuilds. Physical lower-end/mobile measurements and
-full-client lifecycle checks remain release validation work.
+full-client build/remove lifecycle checks remain release validation work.
+Fresh-login rendering and panning have been checked through an isolated local
+gateway and simulation; the existing world/economy is not used for that fixture.
 
 Run the repository's full local CI before a PR. Review live districts in both
 renderers after the Hetzner staging deployment. Preserve the current world and

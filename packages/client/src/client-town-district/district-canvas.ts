@@ -1,3 +1,4 @@
+import { tileHasTownIdentity } from "../client-town-identity.js";
 import { districtWrapX as wrapX, districtWrapY as wrapY } from "./district-coordinates.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
@@ -60,7 +61,7 @@ export const createDistrictCanvas = (deps: CanvasDeps): {
       }
       const selected = state.selected ? state.tiles.get(`${state.selected.x},${state.selected.y}`) : undefined;
       const anchor = selected && districtRecord(selected)?.supportAnchor;
-      const selectedTown = selected?.town ? `${selected.x},${selected.y}` : anchor ? `${anchor.x},${anchor.y}` : undefined;
+      const selectedTown = selected && tileHasTownIdentity(selected) ? `${selected.x},${selected.y}` : anchor ? `${anchor.x},${anchor.y}` : undefined;
       ctx.save();
       ctx.lineCap = "round";
       for (const edge of edges) {

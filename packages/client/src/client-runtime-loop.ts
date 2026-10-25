@@ -1,4 +1,5 @@
 import { syntheticOverlayTileFor3DPopulation } from "./client-map-3d-population/client-map-3d-synthetic-overlay-tile.js";
+import { tileHasTownIdentity } from "./client-town-identity.js";
 import { drawMapSelection2D } from "./client-garrison-many/client-map-selection-2d.js";
 import { MIN_ZOOM } from "./client-constants.js"; import { startTileMenuDecayTicker } from "./client-tile-menu-decay-ticker/client-tile-menu-decay-ticker.js"; import { startMusterStatusTicker } from "./client-muster-status-ticker/client-muster-status-ticker.js"; import { startMusterMenuRepaintTicker } from "./client-muster-menu-repaint-ticker/client-muster-menu-repaint-ticker.js";
 import { startLoadingTimerTicker } from "./client-loading-timer-ticker/client-loading-timer-ticker.js";
@@ -385,7 +386,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
       }
 
-      if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
+      if (overlayTile && overlayVisible && tileHasTownIdentity(overlayTile) && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
 
       drawTileFeatureOverlays2D(tileFeatureDeps2D, t, wk, vis, px, py, size, nowMs);
       if (vis === "visible" && !isTrue3DRendererActive() && townSupportPlots.has(wk)) drawTownSupportPlot2D(deps.ctx, px, py, size, townSupportPlots.get(wk)!); if (!isTrue3DRendererActive() && vis === "visible") { const shieldCoverage2D = tileShieldCoverage(wx, wy, knownShieldFlags2D); if (shieldCoverage2D) drawShieldAreaTile2D(deps.ctx, deps.effectiveOverlayColor(shieldCoverage2D.ownerId), px, py, size); const winChanceLabel2D = winChancePaintColorForTile2D(state.winChancePaint, wx, wy); if (winChanceLabel2D) drawWinChanceLabel2D(deps.ctx, winChanceLabel2D, px, py, size); } // F4: 2D win-chance paint (F0) + shield-area (F3) parity
@@ -814,7 +815,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           }
         }
 
-        if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
+        if (overlayTile && overlayVisible && tileHasTownIdentity(overlayTile) && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
 
         drawTileFeatureOverlays2D(tileFeatureDeps2D, t, wk, vis, px, py, size, nowMs);
 
