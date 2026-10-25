@@ -37,9 +37,9 @@ export function dockLandingFor(
   };
   // Do not draw a fabricated straight route over islands. Older payloads
   // without a sea path get just the final approach from a known sea neighbour.
-  const lastSea = [...route].reverse().find((p) => sea(p.x, p.y) &&
-    Math.max(Math.abs(toroidDelta(targetX, p.x, WORLD_WIDTH)), Math.abs(toroidDelta(targetY, p.y, WORLD_HEIGHT))) <= 1 &&
-    (p.x !== targetX || p.y !== targetY));
+  // Server waypoints already encode the frozen world's sea. Do not filter
+  // them through procedural client terrain, which may disagree with it.
+  const lastSea = [...route].reverse().find((p) => p.x !== targetX || p.y !== targetY);
   const shore = lastSea ?? [{ x: targetX, y: targetY + 1 }, { x: targetX + 1, y: targetY },
     { x: targetX, y: targetY - 1 }, { x: targetX - 1, y: targetY }].find((p) => sea(p.x, p.y));
   if (!shore) return undefined;
@@ -49,13 +49,14 @@ export function dockLandingFor(
   const inwardX = -sx / length;
   const inwardZ = -sz / length;
   // Beach beside the pier, keeping the bow clear of the dock's centre.
-  const berth = { x: -inwardX * BERTH_DISTANCE + inwardZ * 0.45,
-    z: -inwardZ * BERTH_DISTANCE - inwardX * 0.45 };
+  const berthDistance = Math.max(BERTH_DISTANCE, length - 0.28);
+  const berth = { x: -inwardX * berthDistance + inwardZ * 0.45,
+    z: -inwardZ * berthDistance - inwardX * 0.45 };
   // Unwrap backwards from the landing so a route crossing the world seam
   // stays continuous and ends at the correct beach.
   const points: LandingPoint[] = [];
   let x = targetX; let y = targetY; let px = 0; let pz = 0;
-  const seaRoute = route.filter((p) => sea(p.x, p.y));
+  const seaRoute = route;
   for (let i = seaRoute.length - 1; i >= 0; i--) {
     const p = seaRoute[i]!;
     px += toroidDelta(x, p.x, WORLD_WIDTH);
@@ -63,7 +64,7 @@ export function dockLandingFor(
     points.push({ x: px, z: pz }); x = p.x; y = p.y;
   }
   points.reverse();
-  if (points.length === 0) points.push({ x: -inwardX * 2.5, z: -inwardZ * 2.5 });
+  if (points.length === 0) points.push({ x: sx, z: sz });
   points.push(berth);
   return { startAt, inwardX, inwardZ, route: points };
 }
@@ -108,8 +109,8 @@ export function landingMarinePose(base: MarinePose, landing: DockLanding | undef
   const shoreT = clamp01((t - 0.55) / 0.45);
   const localX = t < 0.55 ? fromX * (1 - rampT) + exitX * rampT : exitX * (1 - shoreT) + firingX * shoreT;
   const localZ = t < 0.55 ? fromZ * (1 - rampT) + exitZ * rampT : exitZ * (1 - shoreT) + firingZ * shoreT;
-  const depth = -(localX * landing.inwardX + localZ * landing.inwardZ);
-  return { ...base, localX, localZ, localY: clamp01((depth - 0.18) / 0.24) * 0.055, scale: 1, flash: 0,
+  const alongRamp = (localX - berth.x) * landing.inwardX + (localZ - berth.z) * landing.inwardZ;
+  return { ...base, localX, localZ, localY: clamp01((0.54 - alongRamp) / 0.24) * 0.055, scale: 1, flash: 0,
     stance: t < 1 ? "run" : base.stance,
     yaw: t < 0.55 ? Math.atan2(landing.inwardX, landing.inwardZ) : Math.atan2(firingX - exitX, firingZ - exitZ) };
 }
@@ -117,4 +118,10 @@ export function landingMarinePose(base: MarinePose, landing: DockLanding | undef
 /** The battle axes must point inland, regardless of the remote departure dock. */
 export function landingBattleSource(landing: DockLanding | undefined, targetX: number, targetZ: number, srcX: number, srcZ: number): LandingPoint {
   return landing ? { x: targetX - landing.inwardX, z: targetZ - landing.inwardZ } : { x: srcX, z: srcZ };
+}
+
+/** A moving vessel, unlike a route polyline, needs its own nearest world copy. */
+export function landingCarrierScenePoint(targetX: number, targetZ: number, pose: LandingPoint): LandingPoint {
+  const centered = (value: number, size: number): number => ((value + size / 2) % size + size) % size - size / 2;
+  return { x: centered(targetX + pose.x, WORLD_WIDTH), z: centered(targetZ + pose.z, WORLD_HEIGHT) };
 }

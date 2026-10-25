@@ -1,7 +1,8 @@
+import { garrisonStartFor } from "../client-map-3d-popup-marine/popup-marine-garrison.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { collectBattleRenderEntries } from "../client-map-3d-capture-overlays.js";
 import { computeBattlePose, computeSkirmishPose, MARINES_PER_SIDE, clampLocal } from "../client-map-3d-popup-marine/popup-marine-timeline.js";
-import { landingCarrierPose, landingMarinePose } from "./client-dock-landing.js";
+import { landingCarrierPose, landingCarrierScenePoint, landingMarinePose } from "./client-dock-landing.js";
 
 type WorldToScreen = (x: number, y: number, size: number, halfW: number, halfH: number) => { sx: number; sy: number };
 
@@ -17,8 +18,10 @@ export function drawDockLandings2D(
     const landing = b.landing;
     const carrier = landingCarrierPose(landing, nowMs);
     const target = worldToScreen(b.tgtWorldX - 0.5, b.tgtWorldZ - 0.5, size, halfW, halfH);
+    const point = landingCarrierScenePoint(b.tgtWorldX, b.tgtWorldZ, carrier);
+    const boat = worldToScreen(point.x - 0.5, point.z - 0.5, size, halfW, halfH);
     ctx.save(); ctx.translate(target.sx, target.sy); ctx.scale(size, size);
-    ctx.save(); ctx.translate(carrier.x, carrier.z); ctx.rotate(-carrier.yaw);
+    ctx.save(); ctx.translate((boat.sx - target.sx) / size, (boat.sy - target.sy) / size); ctx.rotate(-carrier.yaw);
     ctx.fillStyle = "#17222b"; ctx.fillRect(-0.23, -0.34, 0.46, 0.66);
     ctx.fillStyle = "#576b78";
     ctx.fillRect(-0.26, -0.34, 0.11, 0.67); ctx.fillRect(0.15, -0.34, 0.11, 0.67);
@@ -30,10 +33,12 @@ export function drawDockLandings2D(
     ctx.restore();
     const ux = landing.inwardX; const uz = landing.inwardZ;
     for (const side of [0, 1] as const) {
+      if (side === 1 && "unopposed" in b && b.unopposed) continue;
       const forward = side === 0 ? 1 : -1;
       for (let i = 0; i < MARINES_PER_SIDE; i++) {
         const args = [side, i, nowMs, -forward * ux * 0.46, -forward * uz * 0.46, -uz, ux, forward * ux, forward * uz] as const;
-        const raw = "clashAt" in b ? computeBattlePose(b, ...args) : computeSkirmishPose(b, ...args);
+        const garrison = side === 1 ? garrisonStartFor(b.defenderGarrison, b.hashSeed, i) : undefined;
+        const raw = "clashAt" in b ? computeBattlePose(b, ...args, undefined, garrison) : computeSkirmishPose(b, ...args, undefined, garrison);
         const clamped = { ...raw, localX: clampLocal(raw.localX), localZ: clampLocal(raw.localZ) };
         const pose = side === 0 ? landingMarinePose(clamped, landing, i, nowMs, b.hashSeed) : clamped;
         if (pose.scale <= 0) continue;

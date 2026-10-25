@@ -70,4 +70,26 @@ describe("dock assault landing", () => {
     fx.tick([], START + 7000); expect(scene.children.some((child) => child.visible)).toBe(false);
     fx.dispose(); expect(scene.children).toHaveLength(0);
   });
+  it("trusts authoritative sea waypoints even when client terrain disagrees", () => {
+    const tiles = new Map(state.tiles);
+    for (const [key, tile] of tiles) tiles.set(key, { ...tile, terrain: "LAND" });
+    for (const [x, y] of [[5, 0], [5, 2], [6, 1]]) tiles.set(`${x},${y}`, { x: x!, y: y!, terrain: "LAND" });
+    const result = dockLandingFor({ ...state, tiles }, 1, 1, 5, 1, START);
+    expect(result?.route.map((p) => p.x)).toEqual([-3, -2, -1, -0.72]);
+  });
+  it("lands beside the authoritative coast for a dock two tiles inland", () => {
+    const pair = { ...state.dockPairs[0]!, bx: 6 };
+    const tiles = new Map(state.tiles);
+    for (const [x, y] of [[6, 0], [6, 2], [5, 1], [7, 1]]) tiles.set(`${x},${y}`, { x: x!, y: y!, terrain: "LAND" });
+    const result = dockLandingFor({ dockPairs: [pair], tiles }, 1, 1, 6, 1, START);
+    expect(result?.route.at(-1)?.x).toBeCloseTo(-1.72);
+  });
+  it("draws the nearest world copy of a sailing carrier on a long sea route", () => {
+    const scene = new Scene(); const fx = createDockCarrierOverlay(scene);
+    const b = battle();
+    fx.tick([{ ...b, tgtWorldX: -239.5, landing: { ...b.landing!, route: [{ x: -389, z: 0 }, { x: -0.72, z: 0 }] } }], START);
+    expect(scene.children.find((child) => child.visible)?.position.x).toBeCloseTo(11.5);
+    fx.dispose();
+  });
+
 });

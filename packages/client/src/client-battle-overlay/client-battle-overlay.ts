@@ -131,7 +131,7 @@ export const squadGearFields = (
  * overlay FX. Purely additive: never touches state.capture or the frontier
  * action-queue HUD. */
 export const registerActiveBattleFromTileDelta = (
-  state: Pick<ClientState, "activeBattles" | "skirmishSeenAt" | "squadGearByOwner">,
+  state: Pick<ClientState, "activeBattles" | "skirmishSeenAt" | "squadGearByOwner"> & Partial<Pick<ClientState, "dockLandings" | "dockPairs">>,
   keyFor: (x: number, y: number) => string,
   update: { x: number; y: number; combatJson?: string },
   nowMs: number
@@ -145,7 +145,7 @@ export const registerActiveBattleFromTileDelta = (
   }
   if (!isCombatBroadcastPayload(parsed)) return;
   const key = keyFor(update.x, update.y);
-  // The resolved battle always starts already standing at the firing line —
+  // An ordinary resolved battle starts already standing at the firing line —
   // it never replays the run-in-from-the-tile-edge approach. By the time a
   // resolution broadcast lands, the pre-resolution skirmish (see
   // client-map-3d-capture-overlays.ts) has, in every real case, already run
@@ -171,8 +171,13 @@ export const registerActiveBattleFromTileDelta = (
   const defenderGear = squadGearFromWire(parsed.defenderGear);
   rememberSquadGear(state.squadGearByOwner, parsed.attackerOwnerId, attackerGear);
   rememberSquadGear(state.squadGearByOwner, parsed.defenderOwnerId, defenderGear);
-  const startAt = nowMs - APPROACH_MS;
-  const clashAt = nowMs;
+  state.dockLandings?.syncRoutes(state.dockPairs);
+  const landing = state.dockLandings?.get(key, keyFor(parsed.originX, parsed.originY), nowMs);
+  // A late observer can still be unloading when the outcome arrives. Finish
+  // that existing landing before showing shots/casualties, without delaying
+  // authoritative gameplay or replaying the approach for ordinary battles.
+  const clashAt = Math.max(nowMs, landing ? landing.startAt + APPROACH_MS : nowMs);
+  const startAt = clashAt - APPROACH_MS;
   state.activeBattles.set(key, {
     originX: parsed.originX,
     originY: parsed.originY,
@@ -190,7 +195,7 @@ export const registerActiveBattleFromTileDelta = (
     // already fell during the skirmish's own firefight loop briefly
     // re-plays its death animation instead of starting collapsed, not a
     // full restart.
-    fromSkirmish: seenAt !== undefined,
+    fromSkirmish: seenAt !== undefined || landing !== undefined,
     ...(parsed.shield ? { shieldX: parsed.shield.x, shieldY: parsed.shield.y } : {}),
     attackerGear,
     defenderGear

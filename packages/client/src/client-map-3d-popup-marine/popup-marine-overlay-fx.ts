@@ -318,6 +318,7 @@ export function createPopupMarineOverlayFx(scene: Scene, envMap?: Texture) {
       siegeKillTracker.fire(`sk:${b.hashSeed}`, b.hashSeed, skirmishVictim, tileX, tileY, tileZ, perpX, perpZ, ux, uz, nowMs);
 
       for (let side = 0 as 0 | 1; side < 2; side++) {
+        if (side === 1 && b.unopposed) continue;
         const isAttacker = side === 0;
         const entryLocalX = isAttacker ? -ux * 0.46 : ux * 0.46;
         const entryLocalZ = isAttacker ? -uz * 0.46 : uz * 0.46;

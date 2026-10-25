@@ -37,6 +37,8 @@ export type BattleOverlayRenderEntry = {
 // oscillation at the tile center with muzzle flashes and first-cycle
 // casualties (WINNER_DEATHS per side), but no rout phase.
 export type BattleOverlaySkirmishEntry = {
+  /** A frontier landing with no defending force: unload and hold, without a firefight. */
+  unopposed?: boolean;
   srcWorldX: number;
   srcWorldZ: number;
   tgtWorldX: number;

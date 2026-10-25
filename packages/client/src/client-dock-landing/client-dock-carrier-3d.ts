@@ -1,7 +1,7 @@
 import { BoxGeometry, Group, Mesh, MeshStandardMaterial, type Scene } from "three";
 import { WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
 import { clamp01 } from "../client-map-3d-popup-marine/popup-marine-timeline.js";
-import { landingCarrierPose, SAIL_MS } from "./client-dock-landing.js";
+import { landingCarrierPose, landingCarrierScenePoint, SAIL_MS } from "./client-dock-landing.js";
 import type { BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "./client-battle-render-types.js";
 
 type CarrierBattle = BattleOverlayRenderEntry | BattleOverlaySkirmishEntry;
@@ -58,7 +58,8 @@ export function createDockCarrierOverlay(scene: Scene): {
       carrier.root.visible = true;
       const beachT = clamp01((nowMs - battle.landing.startAt - SAIL_MS * 0.8) / (SAIL_MS * 0.2));
       const surfaceY = WATER_SURFACE_Y + (battle.tgtSurfaceY - WATER_SURFACE_Y) * beachT;
-      carrier.root.position.set(battle.tgtWorldX + pose.x, surfaceY, battle.tgtWorldZ + pose.z);
+      const point = landingCarrierScenePoint(battle.tgtWorldX, battle.tgtWorldZ, pose);
+      carrier.root.position.set(point.x, surfaceY, point.z);
       carrier.root.rotation.y = pose.yaw;
       // Closed vertical bow door lowers to a gently sloping beach ramp.
       carrier.hinge.rotation.x = -Math.PI / 2 + pose.rampOpen * (Math.PI / 2 + 0.18);

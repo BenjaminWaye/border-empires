@@ -51,4 +51,42 @@ describe("dock carrier battle lifecycle in both renderers", () => {
     state.capture = undefined; vi.mocked(ctx.fillRect).mockClear(); draw(NOW + 5000);
     expect(ctx.fillRect).not.toHaveBeenCalled();
   });
+  it("preserves landing timing through the COMBAT_RESULT before TILE_DELTA gap", () => {
+    const state = fixture();
+    const before = collect(state, NOW).skirmishes[0]!;
+    state.capture = undefined;
+    collect(state, NOW + 300); // A render between the two independent messages.
+    registerActiveBattleFromTileDelta(state, keyFor, { x: 5, y: 1, combatJson: JSON.stringify({
+      attackerOwnerId: "attacker", defenderOwnerId: "defender", attackerWon: true, originX: 1, originY: 1
+    }) }, NOW + 500);
+    const after = collect(state, NOW + 500).entries[0]!;
+    expect(after.landing).toEqual(before.landing);
+    expect(after.clashAt).toBeGreaterThanOrEqual(NOW + 3400);
+    expect(after.endAt).toBeGreaterThan(after.clashAt);
+  });
+  it("preserves capture-garrison casualties on the canvas map", () => {
+    const state = fixture();
+    state.tiles.set("5,1", { ...state.tiles.get("5,1")!, ownershipState: "FRONTIER", captureHoldUntil: Date.now() + 10_000 });
+    const ctx = { save: vi.fn(), restore: vi.fn(), translate: vi.fn(), scale: vi.fn(), rotate: vi.fn(),
+      fillRect: vi.fn(), beginPath: vi.fn(), arc: vi.fn(), fill: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), stroke: vi.fn()
+    } as unknown as CanvasRenderingContext2D;
+    const draw = (nowMs: number): void => drawDockLandings2D(state, keyFor, (x, y) => ({ sx: x * 40, sy: y * 40 }), ctx, () => "#0088ff", 40, 10, 10, nowMs);
+    draw(NOW); vi.mocked(ctx.arc).mockClear(); draw(NOW + 1000);
+    // Attacking infantry is still aboard. Only six surviving defenders stand.
+    expect(ctx.arc).toHaveBeenCalledTimes(6);
+  });
+
+  it("unloads at an undefended frontier dock without inventing defenders or a firefight", () => {
+    const state = fixture();
+    state.tiles.set("5,1", { ...state.tiles.get("5,1")!, ownershipState: "FRONTIER" });
+    const entry = collect(state, NOW).skirmishes[0]!;
+    expect(entry.landing).toBeDefined(); expect(entry.unopposed).toBe(true);
+    const ctx = { save: vi.fn(), restore: vi.fn(), translate: vi.fn(), scale: vi.fn(), rotate: vi.fn(),
+      fillRect: vi.fn(), beginPath: vi.fn(), arc: vi.fn(), fill: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), stroke: vi.fn()
+    } as unknown as CanvasRenderingContext2D;
+    drawDockLandings2D(state, keyFor, (x, y) => ({ sx: x * 40, sy: y * 40 }), ctx, () => "#0088ff", 40, 10, 10, NOW + 8000);
+    expect(ctx.arc).toHaveBeenCalledTimes(7);
+    expect(ctx.stroke).not.toHaveBeenCalled();
+  });
+
 });
