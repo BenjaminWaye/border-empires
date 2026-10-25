@@ -330,7 +330,11 @@ away.
   be online, and shards pay for domains and monuments.
 - Truces (12h or 24h) and victory holds (24h) are sized in days too.
 
-### 4.4 Season loop (30 days, `SEASON_LENGTH_DAYS`): "pick a path and hold it"
+### 4.4 Season loop (no fixed length): "pick a path and hold it"
+
+A season has no maximum length. It ends when one empire holds a victory path
+for 24 hours (`SEASON_VICTORY_HOLD_MS`). `SEASON_LENGTH_DAYS = 30` is still
+declared in `packages/shared/src/config.ts`, but nothing reads it.
 
 The phases the AI planner models (`docs/game-mechanics.md` §7), which match
 the player arc:
@@ -533,7 +537,7 @@ town-engine loop at small scale.
 | Passive income inactivity cap (a human idle this long stops earning; converter gold upkeep is then netted against income instead of drained from the treasury) | 24h | `PASSIVE_INCOME_INACTIVITY_CAP_MS`, `runtime-upkeep-accrual.ts` |
 | Shard rain | 08:00 and 21:00 UTC, 3–6 sites, 30-min TTL | `runtime-shard-rain-rules.ts` |
 | Victory hold | 24h | `SEASON_VICTORY_HOLD_MS` |
-| Season | 30 days | `SEASON_LENGTH_DAYS` |
+| Season | No fixed length; ends on a 24h victory hold (`SEASON_LENGTH_DAYS` = 30 is declared but unused) | `SEASON_VICTORY_HOLD_MS` |
 
 ## 10. Return triggers and what happens while you're away
 
