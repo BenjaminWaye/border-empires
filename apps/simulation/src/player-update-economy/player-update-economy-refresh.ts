@@ -1,3 +1,4 @@
+import { emptyNetworkSiteCounts, type NetworkSiteCounts } from "@border-empires/shared";
 // refreshTownEconomyFields split out of player-update-economy.ts to keep
 // that file under the repo's 500-line cap.
 import type { DomainTileState } from "@border-empires/game-domain";
@@ -21,7 +22,8 @@ export const refreshTownEconomyFields = (
   fedTownKeys: ReadonlySet<string>,
   firstThreeTownKeys?: ReadonlySet<string>,
   connectedClearingHouseKeys?: readonly string[],
-  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
+  dormantEconomicStructureKeys: ReadonlySet<string> = new Set(),
+  networkSites: NetworkSiteCounts = emptyNetworkSiteCounts()
 ): NonNullable<DomainTileState["town"]> => {
   if (typeof town.supportMax !== "number" || typeof town.supportCurrent !== "number") return town;
   if (tile.ownerId !== player.id) return town;
@@ -38,7 +40,8 @@ export const refreshTownEconomyFields = (
     firstThreeTownKeys,
     connectedClearingHouseKeys,
     dormantEconomicStructureKeys,
-    supportedConverterGoldPerMinuteForTown(player.id, tile, tiles, dormantEconomicStructureKeys).total
+    supportedConverterGoldPerMinuteForTown(player.id, tile, tiles, dormantEconomicStructureKeys).total,
+    networkSites
   );
   // Re-stamp isFed from the fresh fed-key set (settlements always fed).
   const isFed = isSettlement ? true : fedTownKeys.has(`${tile.x},${tile.y}`);

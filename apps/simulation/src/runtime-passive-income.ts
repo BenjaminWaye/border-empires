@@ -48,7 +48,8 @@ export const applyPassiveIncomeForPlayer = (
   ctx: RuntimePassiveIncomeContext,
   player: RuntimePlayer,
   nowMs: number,
-  inactivityCapMs: number
+  inactivityCapMs: number,
+  emitUpdate = true
 ): void => {
   if (isPassiveIncomePaused(player, ctx.lastActiveAtMsByPlayer.get(player.id), nowMs, inactivityCapMs)) return;
 
@@ -95,7 +96,7 @@ export const applyPassiveIncomeForPlayer = (
 
   ctx.lastIncomeTickAtMsByPlayer.set(player.id, nowMs);
 
-  if (anyCredited) {
+  if (anyCredited && emitUpdate) {
     ctx.emitPlayerStateUpdate({ commandId: `income-tick:${player.id}:${nowMs}`, playerId: player.id });
   }
 };

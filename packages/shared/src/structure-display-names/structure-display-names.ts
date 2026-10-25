@@ -21,6 +21,12 @@ export const STRUCTURE_DISPLAY_NAMES: Readonly<Record<StructureDisplayKey, strin
   HYDROWORKS: "Hydroworks",
   UMBRITE_RIG: "Umbrite Rig",
   MINE: "Mine",
+  RESIN_EXTRACTOR: "Resin Extractor",
+  IMPLANT_FOUNDRY: "Implant Foundry",
+  CATALYST_REFINERY: "Catalyst Refinery",
+  CULTIVATION_ESTATE: "Cultivation Estate",
+  RECLAMATION_WORKS: "Reclamation Works",
+
   INCUBATION_ENGINE: "Incubation Engine",
   CENSUS_HALL: "Census Hall",
   CLEARING_HOUSE: "Clearing House",

@@ -188,3 +188,39 @@ slot until removal completes.
    if the player-visible rule changes.
 4. Confirm clients receive new economy/slot state through the relevant protocol
    path; a server-only update is not sufficient for a player-visible rule.
+
+## Frontier resource networks
+
+New seasons contain five economic deposits in addition to the slot resources.
+They are visible when explored, but require a specialised Manifest and an
+owned, settled matching extraction installation before supplying benefits.
+Every new extraction installation occupies 1 FOOD slot and costs manpower:
+Resin Extractor 120, Implant Foundry 150, Catalyst Refinery 150, Cultivation
+Estate 100, Reclamation Works 180. Base construction seconds equal manpower.
+
+For each resource separately, the first 3 developed sites count fully, the
+next 3 half, and further sites add no output (maximum effective count 4.5).
+Each effective neural resin site adds 4 Ancillaries per active Ancillary
+Factory per four-hour batch; conductive minerals add 2. This is banked at
+4/240 and 2/240 per minute respectively, never an instant grant. Storage cap
+is unchanged and towns remain the source of bodies.
+
+Each effective catalyst or luxury-biota site adds 0.5 Coin/day per active,
+supported Trade Nexus. Each effective precursor salvage site adds 0.5 Coin/day
+per active, supported Manufactory. Existing fed-town and non-Settlement-tier
+industry gates apply, as do existing applicable town-output modifiers. These
+flows represent campaign credit backed by concessions and improved output.
+Coin breakdowns attribute them to Frontier export concessions and Precursor
+reclamation; town display uses the same calculation as actual income.
+
+A site needs its owning House's required Manifest even after capture. Dormant,
+inactive, unfinished, neutral and ungarrisoned installations contribute
+nothing. Site and beneficiary losses invalidate the existing economy caches;
+network owners settle accrued income and manpower at the old rate before a
+relevant tile mutation. The first useful three sites reward concentrated
+investment without requiring continent-wide collection.
+
+The full balance, 780-site standard-map budget, Manifests, visuals and rollout
+are recorded in [the resource-network plan](../resource-networks-plan.md).
+Sources: `packages/shared/src/resource-networks/`,
+`apps/simulation/src/resource-networks/`, `resource-networks-worldgen.ts`.

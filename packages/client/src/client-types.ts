@@ -12,6 +12,7 @@ export type OptimisticStructureKind =
   | "ASTRAL_DOCK_PART_2"
   | "ASTRAL_DOCK_PART_3"
   | "ASTRAL_DOCK"
+  | import("@border-empires/shared").NetworkBuilding
   | "HYDROGARDEN"
   | "HYDROWORKS"
   | "UMBRITE_RIG"
@@ -130,6 +131,7 @@ export type Tile = {
       | "FORT"
       | "SIEGE_BATTERY"
       | "OBSERVATORY"
+      | import("@border-empires/shared").NetworkBuilding
       | "HYDROGARDEN"
       | "HYDROWORKS"
       | "UMBRITE_RIG"
@@ -163,6 +165,7 @@ export type Tile = {
       | "FORT"
       | "SIEGE_BATTERY"
       | "OBSERVATORY"
+      | import("@border-empires/shared").NetworkBuilding
       | "HYDROGARDEN"
       | "HYDROWORKS"
       | "UMBRITE_RIG"
@@ -368,6 +371,7 @@ export type StrategicReplayEvent = {
     | "FORT"
     | "SIEGE_BATTERY"
     | "OBSERVATORY"
+    | import("@border-empires/shared").NetworkBuilding
     | "HYDROGARDEN"
     | "UMBRITE_RIG"
     | "MINE"

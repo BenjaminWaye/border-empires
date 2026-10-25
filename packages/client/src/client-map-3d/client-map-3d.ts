@@ -16,7 +16,7 @@ import {
   LineSegments,
   Scene
 } from "three";
-import { MAX_SUPPORT_RING_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, riverCornerWidthsForCurrentSeed, visualLandBiomeAt, worldgenVersion, type ResourceType, type SlotResource } from "@border-empires/shared";
+import { MAX_SUPPORT_RING_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, riverCornerWidthsForCurrentSeed, visualLandBiomeAt, worldgenVersion, type SlotResource } from "@border-empires/shared";
 import type { Tile, TileVisibilityState } from "../client-types.js";
 import { isHillsTile, isLightGrassScatterTile, isTropicalForestLatitude, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance, shouldDrawLightGrassScatterInstance } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile, musterBadgeLookup } from "../client-map-3d-muster-fill.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js"; import { markRendererFirstRenderStarted, markRendererFirstRenderCompleted } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
@@ -91,7 +91,7 @@ import {
   LARGE_CONTACT_SHADOW_RADIUS_TILES,
   SMALL_CONTACT_SHADOW_RADIUS_TILES
 } from "../client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
-import { resourceFor3DPopulation } from "../client-map-3d-population/client-map-3d-population.js";
+import { resolvedMapResource3D, shouldRenderRawResource } from "../client-resource-networks/network-resource-3d.js";
 import { createRoadElevationAt } from "../client-map-3d-road-overlay/client-map-3d-road-elevation.js";
 import { createRoadOverlay } from "../client-map-3d-road-overlay/client-map-3d-road-overlay.js";
 import { createReachOverlay3D } from "../client-map-3d-aether-survey-line/client-map-3d-aether-survey-line.js";
@@ -924,22 +924,12 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         // resource overlay (for the icon) AND by the structure overlay
         // (so a MINE on a GEMS tile loads its cart with blue crystals
         // instead of grey iron ore, keeping the resource readable).
-        let tileResource: ResourceType | undefined;
-        if (terrain === "LAND") {
-          // Use the same resource source as the 2D path (`resourceFor3DPopulation`).
-          // When ?reveal=1, this synthesises a resource on land tiles that
-          // don't yet have a real `state.tiles` entry — mirroring the
-          // `syntheticOverlayTileAt` path in client-runtime-loop.ts.
-          const biome = landBiomeAt(wx, wy);
-          const resolvedResource = resourceFor3DPopulation(wx, wy, terrain, tile, revealWholeMapInTrue3DMode, biome, forestTile);
-          if (resolvedResource) {
-            const validResources: ReadonlyArray<ResourceType> = ["FARM", "TITANIUM", "GEMS", "FISH", "UMBRITE"];
-            if ((validResources as ReadonlyArray<string>).includes(resolvedResource)) {
-              tileResource = resolvedResource as ResourceType;
-              if (tileResource === "FARM") { if (!structureReplacesFarmlandPlot(tile?.economicStructure?.type)) farmlandOverlay.addInstance(x, z, surfaceY, wx, wy); } else if (tileResource === "FISH") { fishingOverlay.addInstance(x, z, surfaceY, wx, wy, fishingWaterDirection((nx, ny) => { const nt = terrainForWorldTile(deps.wrapX(nx), deps.wrapY(ny)); return nt === "SEA" || nt === "COASTAL_SEA"; }, wx, wy)); } else if (tileResource === "TITANIUM") { titaniumDepositOverlay.addInstance(x, z, surfaceY, wx, wy); } else if (tileResource === "UMBRITE") { umbriteDepositOverlay.addInstance(x, z, surfaceY, wx, wy); } else { resourceOverlay.addInstance(x, z, surfaceY, tileResource, wx, wy); }
-              contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
-            }
-          }
+        const tileResource = terrain === "LAND"
+          ? resolvedMapResource3D(wx, wy, terrain, tile, revealWholeMapInTrue3DMode, landBiomeAt(wx, wy), forestTile)
+          : undefined;
+        if (tileResource) {
+          if (tileResource === "FARM") { if (!structureReplacesFarmlandPlot(tile?.economicStructure?.type)) farmlandOverlay.addInstance(x, z, surfaceY, wx, wy); } else if (tileResource === "FISH") { fishingOverlay.addInstance(x, z, surfaceY, wx, wy, fishingWaterDirection((nx, ny) => { const nt = terrainForWorldTile(deps.wrapX(nx), deps.wrapY(ny)); return nt === "SEA" || nt === "COASTAL_SEA"; }, wx, wy)); } else if (tileResource === "TITANIUM") { titaniumDepositOverlay.addInstance(x, z, surfaceY, wx, wy); } else if (tileResource === "UMBRITE") { umbriteDepositOverlay.addInstance(x, z, surfaceY, wx, wy); } else if (shouldRenderRawResource(tileResource, tile)) { resourceOverlay.addInstance(x, z, surfaceY, tileResource, wx, wy); }
+          contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
         }
         const incomingAttack = deps.state.incomingAttacksByTile.get(deps.keyFor(wx, wy));
         if (incomingAttack && incomingAttack.resolvesAt > Date.now() && terrain === "LAND") {

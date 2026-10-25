@@ -436,6 +436,35 @@ They do not mint the offworld credit itself. The historical building name
 Mintworks has been replaced by Manufactory; exact income, stacking and
 Clearing House effects are maintained in the economy reference.
 
+### Frontier concessions and ancillary supply
+
+A House may develop neural resin groves and conductive mineral seams into
+suppliers for its Ancillary Factories. Resin Extractors refine native compounds
+that integrate neural controls with remade bodies; Implant Foundries turn
+conductive ore into implants, command circuitry and replacement components.
+Towns provide the bodies. These industries improve the factories' ability to
+ready them, not the supply of people. Ancillary Depots provide storage and
+custody for the resulting reserve.
+
+Catalyst Refineries develop rare catalyst-bearing deposits for offworld
+chemical and fabrication industries. Cultivation Estates grow native luxury
+biota for fragrances, pigments and intoxicants sought in the Core. Trade Nexuses
+secure commercial arrangements against these concessions, increasing the
+campaign credit the House factor can advance against future output.
+
+Precursor salvage fields contain recoverable pre-Court industrial machinery.
+Reclamation Works supply tools and components that improve Manufactory output;
+the resulting goods provide additional backing for campaign credit. These
+fields are industrial remains, distinct from aether Shards and the great
+Monuments. No claim that a field is itself an active Concordance construct is
+implied by the term precursor.
+
+Specialised warrants and charters commission the crews, processing standards
+and commercial rights needed to exploit these sites. A discovered deposit is
+an opportunity before it is a working supply industry. Losing a concession
+weakens the industries and credit arrangements it supports across the House's
+holdings. Numerical yields and network limits belong in the economy reference.
+
 ### Manpower and materials
 
 **Manpower** represents bodies under House control, including captured or

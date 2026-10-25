@@ -45,6 +45,11 @@ export const aetherWallPylonImage = loadOverlayImage("aether-wall-pylon-overlay.
 
 export const dockOverlayVariants = createOverlayVariantSet(["dock-overlay-1.svg", "dock-overlay-2.svg", "dock-overlay-3.svg"]);
 const legacyStructureOverlayImages = {
+  RESIN_EXTRACTOR: loadOverlayImage("resin-extractor-overlay.svg"),
+  IMPLANT_FOUNDRY: loadOverlayImage("implant-foundry-overlay.svg"),
+  CATALYST_REFINERY: loadOverlayImage("catalyst-refinery-overlay.svg"),
+  CULTIVATION_ESTATE: loadOverlayImage("cultivation-estate-overlay.svg"),
+  RECLAMATION_WORKS: loadOverlayImage("reclamation-works-overlay.svg"),
   OBSERVATORY: loadOverlayImage("observatory-overlay.svg"),
   MANUFACTORY: loadOverlayImage("manufactory-overlay.svg"),
   INCUBATION_ENGINE: loadOverlayImage("incubation-engine-overlay.svg"),

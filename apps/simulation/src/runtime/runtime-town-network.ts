@@ -1,3 +1,4 @@
+import { developedNetworkSites } from "../resource-networks/resource-networks.js";
 // Stage 4 town network/connectivity extraction out of runtime.ts (see
 // AGENTS.md / docs/agents/topic-runbooks.md for the god-class breakup plan).
 // These are pure relocations of existing runtime.ts method bodies into free
@@ -166,6 +167,7 @@ export function tileYieldEconomyContextForPlayer(ctx: RuntimeTownNetworkContext,
     const settledTiles = ctx.settledTilesForPlayer(player.id);
     const context: RuntimeTileYieldEconomyContext = {
       player,
+      networkSites: developedNetworkSites(settledTiles, player.id, ctx.dormantEconomicStructureKeysForPlayer(player.id), player.techIds),
       townNetwork: cachedTownNetworkForPlayer(ctx, player, settledTiles, 16),
       fedTownKeys: fedTownKeysForPlayer(ctx, player),
       // Skip expensive first-three-town key computation if the player has no
@@ -204,7 +206,8 @@ export function enrichTileWithTownContext(
         context.fedTownKeys,
         context.firstThreeTownKeys,
         context.townNetwork?.get(tileKey)?.connectedClearingHouseKeys,
-        context.dormantEconomicStructureKeys
+        context.dormantEconomicStructureKeys,
+        context.networkSites
       )
     : networkTown;
   return { ...tile, town: refreshedTown };

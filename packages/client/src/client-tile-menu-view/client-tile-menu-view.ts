@@ -1,3 +1,4 @@
+import { isNetworkResource, RESOURCE_NETWORKS } from "@border-empires/shared";
 import { afcEffectMultiplier } from "../client-afc-upgrades/client-afc-effect.js";
 import { attackFloorForPlayer } from "../client-attack-commit/client-attack-floor.js";
 import { battleOverviewLines, battleMenuHeaderStatus } from "../client-battle-progress/client-tracked-battle-progress.js";
@@ -257,6 +258,13 @@ export const menuOverviewForTile = (
   } else if (tile.resource && tile.ownershipState === "SETTLED" && !productionHtml) {
     const slotHtml = resourceSlotProductionHtml(tile);
     if (slotHtml) pushLine(`Production: ${slotHtml}`);
+  }
+  if (isNetworkResource(tile.resource)) {
+    const network = RESOURCE_NETWORKS[tile.resource];
+    pushLine(network.description);
+    pushLine(network.effect);
+    pushLine("Developed sites support your whole empire: first 3 full value, next 3 half value; maximum 6 useful sites per resource.");
+    if (tile.economicStructure?.type !== network.building) pushLine(`Develop with a ${network.buildingName}.`);
   }
   if (tile.dockId && tile.ownershipState === "SETTLED") {
     const connectedDockCount = tile.dock?.connectedDockCount ?? deps.connectedDockCountForTile(tile);

@@ -399,6 +399,7 @@ import {
   type RuntimePlayerStateUpdateContext
 } from "../runtime-player-state-update.js";
 import {
+  applyPassiveIncomeForPlayer as applyPassiveIncomeForPlayerImpl,
   applyPassiveIncome as applyPassiveIncomeImpl,
   applyPassiveIncomeAsync as applyPassiveIncomeAsyncImpl,
   welcomeBackSummaryForPlayer,
@@ -1548,6 +1549,7 @@ export class SimulationRuntime {
       cachedManpowerStructureBonusForPlayer: (player) => this.cachedManpowerStructureBonusForPlayer(player),
       wonderCacheByPlayer: this.wonderCacheByPlayer,
       getAbilityCooldownUntil: (playerId, abilityKey) => this.getAbilityCooldownUntil(playerId, abilityKey),
+      settlePassiveIncome: (player, nowMs) => applyPassiveIncomeForPlayerImpl(this.passiveIncomeContext(), player, nowMs, PASSIVE_INCOME_INACTIVITY_CAP_MS, false),
       applyEconomyAccrual: (player, nowMs) => this.applyEconomyAccrual(player, nowMs)
     };
   }
@@ -2479,13 +2481,7 @@ export class SimulationRuntime {
       {
         tiles: this.state.tiles,
         manpowerStructureBonusCacheByPlayer: this.economyCaches.manpowerStructureBonusCacheByPlayer,
-        ancillaryDepotTilesByOwner: this.ownerIndexes.ancillaryDepotTilesByOwner,
-        neuralWorksTilesByOwner: this.ownerIndexes.neuralWorksTilesByOwner,
-        reserveLatticeTilesByOwner: this.ownerIndexes.reserveLatticeTilesByOwner,
-        ancillaryFactoryTilesByOwner: this.ownerIndexes.ancillaryFactoryTilesByOwner,
-        quartermastersOfficeTilesByOwner: this.ownerIndexes.quartermastersOfficeTilesByOwner,
-        incubationEngineTilesByOwner: this.ownerIndexes.incubationEngineTilesByOwner,
-        censusHallTilesByOwner: this.ownerIndexes.censusHallTilesByOwner,
+        ...this.ownerIndexes.manpowerIndexes(),
         townNetworkCacheByPlayer: this.economyCaches.townNetworkCacheByPlayer,
         activeMonumentOwnerByType: this.activeMonumentOwnerByType,
         dormantEconomicStructureKeysForPlayer: (playerId) => this.dormantEconomicStructureKeysForPlayer(playerId),

@@ -1,3 +1,4 @@
+import { RESOURCE_NETWORKS, networkResourceForBuilding, type NetworkBuilding } from "@border-empires/shared";
 import { TITANIUM_LEVY_MANPOWER_CONVERSION_RATIO, TITANIUM_LEVY_REGEN_FREEZE_MS, AEGIS_LOCK_DURATION_MS, IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS, SOVEREIGN_SIEGE_ENGINE_STRIKE_COOLDOWN_MS } from "@border-empires/game-domain";
 import { FORT_TIER_LADDER } from "@border-empires/shared";
 import { DISTRICT_MODEL_BRIEFS, type DistrictModelBrief } from "../client-town-district/district-model-briefs.js";
@@ -7,7 +8,7 @@ import type { StructureInfoKey } from "../client-map-display.js";
 const brief = (role: string, landmark: string): DistrictModelBrief => ({ role, landmark });
 // The remaining live-map models outside the district kit. Names are never
 // duplicated here; the shared structure-name table supplies all visible labels.
-const OTHER: Readonly<Record<Exclude<StructureInfoKey, DistrictBuildingKind>, DistrictModelBrief>> = {
+const OTHER: Readonly<Record<Exclude<StructureInfoKey, DistrictBuildingKind | NetworkBuilding>, DistrictModelBrief>> = {
   RELAY_BEACON: brief("Receives the House AI's orbital command stream through gravitational signals and maintains a local control field for settlement systems. Extends settlement reach and frontier vision; supplied frontier can advance beyond reach.", "Nested octagonal sensing frames around a suspended precision instrument, above a tapered pedestal with three local field projectors."),
   OBSERVATORY: brief("Aether Tower: local vision, protection of owned nearby territory and access to Crystal abilities.", "Swept stone-and-metal containment piers, enclosed energy column, moving field rings and a transmission crown."),
   PALISADE: brief(`Light perimeter fortification providing ${FORT_TIER_LADDER.PALISADE.defenseMult}x defense.`, "Timber perimeter walls and corner posts, with terrain visible inside."),
@@ -29,5 +30,8 @@ const OTHER: Readonly<Record<Exclude<StructureInfoKey, DistrictBuildingKind>, Di
   TITANIUM_LEVY: brief(`Activate to spend ${TITANIUM_LEVY_MANPOWER_CONVERSION_RATIO * 100}% of stored manpower on an immediate army at this monument, then freeze empire-wide manpower regeneration for ${TITANIUM_LEVY_REGEN_FREEZE_MS / 3_600_000} hours; requires Ambaric power.`, "Armoured assembly hall opening onto a deployment court through a muster gate, with a Titanium Standard, three klaxons and a levy-writ terminal.")
 };
 
-export const structureModelBriefFor = (kind: StructureInfoKey): DistrictModelBrief =>
-  isDistrictBuilding(kind) ? DISTRICT_MODEL_BRIEFS[kind] : OTHER[kind];
+export const structureModelBriefFor = (kind: StructureInfoKey): DistrictModelBrief => {
+  const resource = networkResourceForBuilding(kind);
+  if (resource) return brief(RESOURCE_NETWORKS[resource].description + " " + RESOURCE_NETWORKS[resource].effect, "Resource-processing installation with brass service equipment and material-specific production machinery.");
+  return isDistrictBuilding(kind) ? DISTRICT_MODEL_BRIEFS[kind] : OTHER[kind as keyof typeof OTHER];
+};

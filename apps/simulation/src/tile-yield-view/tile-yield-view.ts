@@ -84,6 +84,7 @@ export const buildTileYieldView = (
   tile: DomainTileState,
   now: number,
   economyContext?: Partial<DockEconomyContext> & {
+    networkSites?: import("@border-empires/shared").NetworkSiteCounts;
     player?: EconomyPlayer | undefined;
     fedTownKeys?: ReadonlySet<string> | undefined;
     firstThreeTownKeys?: ReadonlySet<string> | undefined;
@@ -109,7 +110,8 @@ export const buildTileYieldView = (
       economyContext.firstThreeTownKeys,
       undefined,
       new Set(),
-      supportedConverterGoldPerMinuteForTown(economyPlayer.id, tile, economyContext.tiles).total
+      supportedConverterGoldPerMinuteForTown(economyPlayer.id, tile, economyContext.tiles).total,
+      economyContext.networkSites
     );
   })();
   const dockContext =

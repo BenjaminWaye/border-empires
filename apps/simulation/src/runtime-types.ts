@@ -12,6 +12,7 @@ import type { MainThreadTaskTracker } from "./main-thread-task-tracker/main-thre
 import type { OwnershipChangeSample } from "./runtime/runtime-ownership-change-sample.js";
 
 export type RuntimeTileYieldEconomyContext = {
+  networkSites?: import("@border-empires/shared").NetworkSiteCounts;
   player: DomainPlayer;
   townNetwork: ReturnType<typeof buildConnectedTownNetworkForPlayer>;
   fedTownKeys: Set<string>;

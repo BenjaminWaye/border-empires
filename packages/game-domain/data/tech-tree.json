@@ -743,6 +743,79 @@
         "unlockRetortRecasting": true
       },
       "manifestCategory": "AFC_MODULE"
+    },
+    {
+      "id": "neural-resin-processing",
+      "tier": 3,
+      "branch": "manpower",
+      "name": "Neural Resin Processing Warrant",
+      "description": "Adapts native resin for integrating town-supplied bodies with Ancillary controls.",
+      "prereqIds": [
+        "remade-concordat"
+      ],
+      "cost": {
+        "gold": 10
+      },
+      "researchTimeSeconds": 7200,
+      "effects": {
+        "unlockResinExtractor": true
+      },
+      "manifestCategory": "CHARTER_WARRANT"
+    },
+    {
+      "id": "implant-metallurgy",
+      "tier": 3,
+      "branch": "manpower",
+      "name": "Implant Metallurgy Warrant",
+      "description": "Refines local conductive ores into Ancillary implant components.",
+      "prereqIds": [
+        "remade-concordat"
+      ],
+      "cost": {
+        "gold": 10
+      },
+      "researchTimeSeconds": 7200,
+      "effects": {
+        "unlockImplantFoundry": true
+      },
+      "manifestCategory": "CHARTER_WARRANT"
+    },
+    {
+      "id": "frontier-concessions",
+      "tier": 3,
+      "branch": "economy",
+      "name": "Frontier Export Charter",
+      "description": "Secures offworld contracts against catalyst and luxury-biota concessions.",
+      "prereqIds": [
+        "ledger-keeping"
+      ],
+      "cost": {
+        "gold": 10
+      },
+      "researchTimeSeconds": 7200,
+      "effects": {
+        "unlockCatalystRefinery": true,
+        "unlockCultivationEstate": true
+      },
+      "manifestCategory": "CHARTER_WARRANT"
+    },
+    {
+      "id": "salvage-reclamation",
+      "tier": 3,
+      "branch": "economy",
+      "name": "Precursor Reclamation Warrant",
+      "description": "Authorises recovery of pre-Court industrial machinery for local Manufactories.",
+      "prereqIds": [
+        "mining"
+      ],
+      "cost": {
+        "gold": 10
+      },
+      "researchTimeSeconds": 7200,
+      "effects": {
+        "unlockReclamationWorks": true
+      },
+      "manifestCategory": "CHARTER_WARRANT"
     }
   ]
 }

@@ -36,6 +36,7 @@ remain authoritative for runtime behavior.
 | Connected town support buildings: complete remodel and both renderer implementations (planned) | [`town-support-district-plan.md`](town-support-district-plan.md) |
 | Connected town support buildings: renderer, model and anchor contract | [`town-support-districts.md`](town-support-districts.md) |
 | Storybook cleanup: what was removed, the new layout and guardrails | [`storybook-cleanup-plan.md`](storybook-cleanup-plan.md) |
+| Frontier resource networks: balance, map budget, structures and renderer scope | [`resource-networks-plan.md`](resource-networks-plan.md) |
 | Current manpower and resource-slot rules | [`product/resource-and-manpower-economy.md`](product/resource-and-manpower-economy.md) |
 | Starter-site contract and new-player guidance | [`product/new-player-opening.md`](product/new-player-opening.md) |
 | Completed Great Project models and matching 2D artwork | [`monument-models.md`](monument-models.md) |

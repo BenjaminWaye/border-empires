@@ -1,4 +1,6 @@
 import { createDistrictOverlay } from "../client-town-district/district-overlay.js";
+import { NETWORK_RESOURCES, RESOURCE_NETWORKS, type NetworkBuilding } from "@border-empires/shared";
+import { registerNetworkStructures } from "../client-resource-networks/network-models.js";
 import type { Scene, Texture } from "three";
 import { createStructurePieceBuilder } from "../client-map-3d-structure-builder.js";
 import {
@@ -76,6 +78,7 @@ import { createLazyConstructionPresentation } from "../client-map-3d-constructio
 // whenever the tile carries an observatory record.
 
 export type StructureKind =
+  | NetworkBuilding
   | EconomicStructureKind
   | LateGameStructureKind
   | CivicStructureKind
@@ -90,6 +93,7 @@ export type StructureKind =
 export type { StructureResourceHint } from "../client-map-3d-structure-economic.js";
 
 export const STRUCTURE_KINDS_HANDLED_BY_3D: ReadonlySet<StructureKind> = new Set<StructureKind>([
+  ...NETWORK_RESOURCES.map(resource => RESOURCE_NETWORKS[resource].building),
   ...ECONOMIC_STRUCTURE_KINDS,
   ...LATE_GAME_STRUCTURE_KINDS,
   ...CIVIC_STRUCTURE_KINDS,
@@ -176,6 +180,7 @@ export const createStructureOverlay = (
   // blue crystal) are available to industrial (ORE_REFINERY/ADV_TITANIUM_WORKS
   // reuse the forge palette; the aether condensers reuse the blue
   // crystal material).
+  const network = registerNetworkStructures(builder);
   const economic = registerEconomicStructures(builder);
   const lateGame = registerLateGameStructures(builder);
   const civic = registerCivicStructures(builder);
@@ -193,6 +198,7 @@ export const createStructureOverlay = (
     (sx, sy, sz) => fn(sx, sy, sz);
 
   const layouts: Partial<Record<StructureKind, UniformLayoutFn>> = {};
+  for (const [kind, layout] of Object.entries(network.layouts)) layouts[kind as NetworkBuilding] = ignoreResource(layout);
   for (const [k, fn] of Object.entries(economic.layouts)) {
     layouts[k as EconomicStructureKind] = fn;
   }

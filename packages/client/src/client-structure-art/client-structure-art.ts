@@ -7,6 +7,11 @@ import { districtArtUrl } from "../client-town-district/district-art.js";
 // so they all share one table.
 
 const STRUCTURE_INFO_ART: Readonly<Record<string, string>> = {
+  RESIN_EXTRACTOR: "/overlays/resin-extractor-overlay.svg",
+  IMPLANT_FOUNDRY: "/overlays/implant-foundry-overlay.svg",
+  CATALYST_REFINERY: "/overlays/catalyst-refinery-overlay.svg",
+  CULTIVATION_ESTATE: "/overlays/cultivation-estate-overlay.svg",
+  RECLAMATION_WORKS: "/overlays/reclamation-works-overlay.svg",
   MANUFACTORY: "/overlays/manufactory-overlay.svg",
   INCUBATION_ENGINE: "/overlays/incubation-engine-overlay.svg",
   CENSUS_HALL: "/overlays/census-hall-overlay.svg",

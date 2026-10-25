@@ -1,3 +1,4 @@
+import { isNetworkResource, RESOURCE_NETWORKS } from "@border-empires/shared";
 import { hasInstalledAiBuildModule } from "./ai-build-unlocks.js";
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 import {
@@ -258,7 +259,12 @@ export const chooseBestEconomicBuild = (
     let openSupportNeighbors: readonly StructurePlannerTile[] | undefined;
     let existingSupportStructureTypes: ReadonlySet<EconomicStructureType> | undefined;
     const townKey = tileKeyOf(tile.x, tile.y);
-    if (tile.resource === "FARM") {
+    if (isNetworkResource(tile.resource)) {
+      const spec = RESOURCE_NETWORKS[tile.resource];
+      const developed = plannedOwnedStructureCount(player, counts, spec.building);
+      const beneficiaries = plannedOwnedStructureCount(player, counts, spec.target);
+      if (developed < 6 && beneficiaries > 0) candidates.push({ type: spec.building, score: (developed < 3 ? 84 : 55) + Math.min(12, beneficiaries * 2) });
+    } else if (tile.resource === "FARM") {
       // HYDROGARDEN is FARM-only (structure-placement-metadata.json's
       // resourceTypes) — it has no effect on fish production (§5.3), so a
       // FISH candidate here would always fail structureVisibleOnTile below

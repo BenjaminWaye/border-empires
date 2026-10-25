@@ -15,6 +15,12 @@ const builtResourceOverlayVariants = {
   GEMS_MINE: createOverlayVariantSet(["gems-mine-overlay-1.svg", "gems-mine-overlay-2.svg", "gems-mine-overlay-3.svg", "gems-mine-overlay-4.svg"])
 } as const;
 const resourceOverlayVariants = {
+  NEURAL_RESIN: createOverlayVariantSet(["neural-resin-deposit.svg"]),
+  CONDUCTIVE_MINERALS: createOverlayVariantSet(["conductive-minerals-deposit.svg"]),
+  CATALYTIC_DEPOSIT: createOverlayVariantSet(["catalytic-deposit-deposit.svg"]),
+  LUXURY_BIOTA: createOverlayVariantSet(["luxury-biota-deposit.svg"]),
+  PRECURSOR_SALVAGE: createOverlayVariantSet(["precursor-salvage-deposit.svg"]),
+
   FARM: createOverlayVariantSet(["farm-overlay-1.svg", "farm-overlay-2.svg", "farm-overlay-3.svg"]),
   FISH: createOverlayVariantSet(["fish-overlay-1.svg", "fish-overlay-2.svg", "fish-overlay-3.svg"]),
   UMBRITE: createOverlayVariantSet(["umbrite-overlay-1.svg", "umbrite-overlay-2.svg", "umbrite-overlay-3.svg"]),
@@ -39,6 +45,7 @@ export const resourceOverlayForTile = (tile: Tile): HTMLImageElement | undefined
 };
 
 export const builtResourceOverlayForTile = (tile: Tile): HTMLImageElement | undefined => {
+  if (tile.economicStructure && ["RESIN_EXTRACTOR", "IMPLANT_FOUNDRY", "CATALYST_REFINERY", "CULTIVATION_ESTATE", "RECLAMATION_WORKS"].includes(tile.economicStructure.type)) return structureOverlayImages[tile.economicStructure.type as keyof typeof structureOverlayImages];
   if (tile.economicStructure?.type === "HYDROWORKS") return structureOverlayImages.HYDROWORKS;
   if (!tile.resource || !tile.economicStructure) return undefined;
   const key =

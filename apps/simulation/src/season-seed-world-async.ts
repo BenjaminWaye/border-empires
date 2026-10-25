@@ -1,3 +1,4 @@
+import { seedResourceNetworks } from "./resource-networks-worldgen.js";
 import type { DomainPlayer, DomainTileState, FairSpawnSite } from "@border-empires/game-domain";
 import {
   CURRENT_WORLDGEN_VERSION,
@@ -337,6 +338,8 @@ export const createSeasonSeedWorldAsync = async (
       tiles.set(tk, buildSeasonSeedTile(x, y, tk, tileAssemblyDeps));
     }
   }
+
+  seedResourceNetworks(tiles, worldSeed, WORLD_WIDTH, WORLD_HEIGHT);
 
   const perPlayer = [
     ...Array.from({ length: humanPlayerCount }, (_, index) => ({

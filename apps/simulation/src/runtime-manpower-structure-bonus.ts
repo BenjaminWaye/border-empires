@@ -1,3 +1,5 @@
+import { developedNetworkSites } from "./resource-networks/resource-networks.js";
+import { networkFactoryRegenPerMinute } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { MonumentalStructureType } from "@border-empires/shared";
 import {
@@ -12,6 +14,7 @@ import type { RuntimePlayer } from "./runtime-types.js";
 
 /** §4.4 manpower structure bonuses for one player. */
 export type ManpowerStructureBonus = {
+  resourceNetworkRegenPerMinute?: number;
   ancillaryDepotCount: number;
   reserveLatticeNetworkAncillaryDepotCount: number;
   neuralWorksNetworkAncillaryFactoryCount: number;
@@ -175,6 +178,9 @@ export const cachedManpowerStructureBonusForPlayer = (
     neuralWorksNetworkAncillaryFactoryCount,
     ancillaryFactoryCount,
     censusDirectorateManpowerBuildingCount,
+    resourceNetworkRegenPerMinute: ancillaryFactoryCount > 0 ? networkFactoryRegenPerMinute(
+      developedNetworkSites(ctx.settledTilesForPlayer(player.id), player.id, dormantEconomicStructureKeys ?? new Set(), player.techIds), ancillaryFactoryCount
+    ) : 0,
     ...(ancillaryFactoryCapacityBonusByTown.size > 0 ? { ancillaryFactoryCapacityBonusByTown } : {})
   };
   ctx.manpowerStructureBonusCacheByPlayer.set(player.id, result);
