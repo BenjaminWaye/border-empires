@@ -272,11 +272,19 @@ After a PR merges, remove the worktree and branch before marking the task done. 
 
 ---
 
+## Sync-delay debug logs
+
+Download the debug log soon after a sync warning. It includes actual command
+send/accept timings, recent warning windows, browser stalls and disconnect
+history. Signed-in players also get their own server command traces; server
+collection failures are explicit. See the [diagnostic runbook](docs/agents/topics/sync-delay-diagnostics.md)
+for timing interpretation, privacy boundaries and retention limits.
+
 ## Client Release Notes
 
 When shipping a user-facing client update, add a new entry to `packages/client/src/client-changelog/client-changelog-data.ts` (`CLIENT_CHANGELOG_ENTRIES`) in the same branch:
 
-- Each entry: `createdAt` (`Date.now()`), `introducedIn`, `title`, `why`, `changes`.
+- Each entry: `createdAt` (a frozen numeric timestamp captured once from `Date.now()`), `introducedIn`, `title`, `why`, `changes`.
 - Entries are unordered in the source — append yours anywhere; `client-changelog.ts` sorts by `createdAt` before rendering. There's no shared `version` field, so parallel branches adding entries don't conflict.
 - Write both why the change was made and what changed.
 - `pnpm check:client-changelog` fails when product code changes on a branch without a new changelog entry (a new `createdAt` timestamp).
