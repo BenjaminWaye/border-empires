@@ -356,6 +356,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Troop carriers at dock landings",
     why: "An army crossing the sea should arrive aboard a landing carrier.",
     changes: ["Dock-to-dock attacks now show futuristic carriers sailing in, lowering their bow ramps and unloading infantry into combat. Carriers stay beached until the battle ends, on both 3D and 2D maps."]
+  },
+  {
+    createdAt: 1792907644912, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "No battle sound for undefended frontier",
+    why: "Tapping a frontier tile being taken played the clash of regiments, even though no troops stand on frontier ground to fight.",
+    changes: ["Tapping a frontier tile under attack only plays the battle sound while a garrison is holding it. Attacks on settled land still sound as before"]
   }
 ];
 
