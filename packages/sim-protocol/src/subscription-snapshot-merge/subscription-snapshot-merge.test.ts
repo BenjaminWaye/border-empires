@@ -198,3 +198,11 @@ describe("applyPlayerMessageToSnapshot", () => {
     expect(applyPlayerMessageToSnapshot(original, { type: "SOMETHING_ELSE" })).toBe(original);
   });
 });
+
+it("retains anonymous relic hints through updates and clears expired survey access", () => {
+  const hints = [{ x: 10, y: 12, kind: "RELIC" as const }, { x: 11, y: 12, kind: "RESOURCE" as const, resource: "TITANIUM" as const }];
+  const updated = applyPlayerMessageToSnapshot(snapshot(), { type: "PLAYER_UPDATE", relicMapHints: hints });
+  expect(updated.player?.relicMapHints).toEqual(hints);
+  const cleared = applyPlayerMessageToSnapshot(updated, { type: "PLAYER_UPDATE", relicMapHints: [] });
+  expect(cleared.player?.relicMapHints).toEqual([]);
+});

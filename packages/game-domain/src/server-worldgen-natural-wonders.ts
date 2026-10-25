@@ -1,22 +1,11 @@
 import type { NaturalWonderType } from "@border-empires/shared";
-import { isSeaTerrain } from "@border-empires/shared";
+import { createRelicState, RELIC_RULES, isSeaTerrain } from "@border-empires/shared";
 
 import type { ServerWorldgenNaturalWondersDeps, ServerWorldgenNaturalWondersRuntime } from "./server-world-runtime-types.js";
 
-/**
- * World-generated natural wonders: one of each of the 9 NaturalWonderType
- * values, placed at world seed time per docs/natural-wonders-design.md §3.2.
- * Each type has its own spawn predicate (region/biome/terrain proximity, see
- * §2 of the design doc); rarer/tighter predicates are placed first so they
- * get first pick of matching tiles. A wonder is omitted gracefully if 5000
- * random attempts fail to find a valid tile (design §3.2 step 5) — this is
- * expected on small or terrain-constrained maps.
- *
- * Unlike the "≥8 from any player spawn" rule in the design doc, spawn
- * positions don't exist yet at the point worldgen calls this (mirrors the
- * existing shard/watchtower precedent: placed first, then any wonder a spawn
- * happens to land on is deleted by the spawn-placement step).
- */
+/** Seven seed-selected installations on normal worlds. Biomes are preferences,
+ * not prerequisites: a buried factory survives changes to its surface climate.
+ * Small worlds reduce the site count and spacing; occupied tiles stay excluded. */
 const MIN_DIST_FROM_CLUSTER = 12;
 const MIN_DIST_FROM_WONDER = 8;
 const MAX_ATTEMPTS_PER_WONDER = 5_000;
@@ -66,20 +55,27 @@ export const createServerWorldgenNaturalWonders = (deps: ServerWorldgenNaturalWo
     naturalWondersByTile.clear();
     const clusterCenters = [...clustersById.values()].map((cluster) => ({ x: cluster.centerX, y: cluster.centerY }));
     const placed: Array<{ x: number; y: number }> = [];
+    const count = Math.min(RELIC_RULES.normalPlanetCount, Math.max(1, Math.floor(WORLD_WIDTH * WORLD_HEIGHT / 200)));
+    const selection = new Set([...WONDER_SPAWN_ORDER].sort((a, b) =>
+      seeded01(WONDER_SPAWN_ORDER.indexOf(a), 701, seed) - seeded01(WONDER_SPAWN_ORDER.indexOf(b), 701, seed)
+    ).slice(0, count).map(entry => entry.type));
+    const spacing = Math.min(MIN_DIST_FROM_WONDER, Math.max(2, Math.floor(Math.min(WORLD_WIDTH, WORLD_HEIGHT) / 4)));
+    const clusterSpacing = Math.min(MIN_DIST_FROM_CLUSTER, Math.max(2, Math.floor(Math.min(WORLD_WIDTH, WORLD_HEIGHT) / 3)));
     let wonderIndex = 0;
     for (const { type, predicate } of WONDER_SPAWN_ORDER) {
+      if (!selection.has(type)) continue;
       wonderIndex += 1;
       for (let attempt = 0; attempt < MAX_ATTEMPTS_PER_WONDER; attempt += 1) {
         const x = Math.floor(seeded01(attempt * 53 + wonderIndex * 7, attempt * 61 + wonderIndex * 11, seed + 31_000 + wonderIndex * 97) * WORLD_WIDTH);
         const y = Math.floor(seeded01(attempt * 67 + wonderIndex * 13, attempt * 71 + wonderIndex * 17, seed + 31_500 + wonderIndex * 101) * WORLD_HEIGHT);
         if (!isVacantLandTile(x, y)) continue;
-        if (!predicate(x, y)) continue;
-        const tooCloseToCluster = clusterCenters.some((c) => manhattanWrap(x, y, c.x, c.y, WORLD_WIDTH, WORLD_HEIGHT) < MIN_DIST_FROM_CLUSTER);
+        if (attempt < MAX_ATTEMPTS_PER_WONDER / 2 && !predicate(x, y)) continue;
+        const tooCloseToCluster = clusterCenters.some((c) => manhattanWrap(x, y, c.x, c.y, WORLD_WIDTH, WORLD_HEIGHT) < clusterSpacing);
         if (tooCloseToCluster) continue;
-        const tooCloseToWonder = placed.some((p) => manhattanWrap(x, y, p.x, p.y, WORLD_WIDTH, WORLD_HEIGHT) < MIN_DIST_FROM_WONDER);
+        const tooCloseToWonder = placed.some((p) => manhattanWrap(x, y, p.x, p.y, WORLD_WIDTH, WORLD_HEIGHT) < spacing);
         if (tooCloseToWonder) continue;
         placed.push({ x, y });
-        naturalWondersByTile.set(key(x, y), { tileKey: key(x, y), type });
+        naturalWondersByTile.set(key(x, y), { tileKey: key(x, y), ...createRelicState(type) });
         break;
       }
     }

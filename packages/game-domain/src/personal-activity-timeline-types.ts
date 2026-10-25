@@ -28,7 +28,7 @@ export type PersonalActivityTileFeature =
   | { kind: "STRUCTURE"; structureType: string }
   | { kind: "DOCK" }
   | { kind: "AFC" }
-  | { kind: "NATURAL_WONDER"; wonderType: NaturalWonderType };
+  | { kind: "NATURAL_WONDER"; wonderType: NaturalWonderType; relicVersion?: 1 };
 
 // Each list is what the viewing player lost or gained: a player who took a
 // tile is only credited with what survived the capture (siege batteries and
@@ -175,12 +175,29 @@ type PersonalActivityTownCardBase = {
   populationBefore: number;
   populationAfter: number;
   capturedStructureTypes: string[];
+  // The other side of the capture: who took the town on a TOWN_LOST card,
+  // whom it was taken from on a TOWN_CAPTURED card. Absent on events
+  // recorded before this field existed.
+  counterpartyPlayerId?: string;
 };
 
 export type PersonalActivityTownCard = PersonalActivityTownCardBase & (
   | { kind: "TOWN_CAPTURED" }
   | { kind: "TOWN_LOST" }
 );
+
+// A Dock changing hands. Docks also show as a feature on the tile-loss card,
+// but that card depends on the flip log; this note is the dock's own record,
+// like a town's.
+export type PersonalActivityDockCard = {
+  kind: "DOCK_CAPTURED" | "DOCK_LOST";
+  id: string;
+  occurredAt: number;
+  x: number;
+  y: number;
+  // Who took it on DOCK_LOST, whom it was taken from on DOCK_CAPTURED.
+  counterpartyPlayerId?: string;
+};
 
 export type PersonalActivityBuildingCard = {
   kind: "BUILDING_COMPLETED";
@@ -210,6 +227,7 @@ export type PersonalActivityCard =
   | PersonalActivitySiegeCard
   | PersonalActivityWaystationCard
   | PersonalActivityTownCard
+  | PersonalActivityDockCard
   | PersonalActivityBuildingCard
   | PersonalActivityTruncationNoteCard;
 

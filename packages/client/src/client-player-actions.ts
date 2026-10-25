@@ -265,6 +265,7 @@ export const explainActionFailureFromServer = (
   if (code === "TECH_INVALID") return `Research failed: ${message}.`;
   if (code === "COLLECT_EMPTY") return "Collect failed: there is nothing to collect on this tile yet.";
   if (code === "COLLECT_NOT_OWNED") return "Collect failed: that tile is no longer owned by you.";
+  if (code === "SHARD_MOBILIZE_INVALID") return `Cannot mobilize: ${message}.`;
   if (message.includes("development slots are busy")) {
     return `Cannot start development: ${message}. You can run up to ${DEVELOPMENT_PROCESS_LIMIT} at once.`;
   }

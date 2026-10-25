@@ -1,3 +1,4 @@
+import { drawDockLandings2D } from "./client-dock-landing/client-dock-landing-2d.js";
 import {
   activeMusterSupplyLines,
   outgoingMusterAttackTransitLines,
@@ -71,6 +72,7 @@ export function drawMusterOverlays2D(
   nowMs: number
 ): void {
   drawMusterSupplyLines2D(state, keyFor, worldToScreen, ctx, effectiveOverlayColor, size, halfW, halfH, nowMs);
+  drawDockLandings2D(state, keyFor, worldToScreen, ctx, effectiveOverlayColor, size, halfW, halfH, nowMs);
   drawMusterBadges2D(state, keyFor, worldToScreen, ctx, size, halfW, halfH, nowMs);
 }
 

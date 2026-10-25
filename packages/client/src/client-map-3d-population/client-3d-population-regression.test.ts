@@ -14,7 +14,8 @@ describe("3d reveal population regression guard", () => {
     expect(source).not.toContain("createClientThreeResourceLayer");
     expect(source).not.toContain("createClientThreeTownLayer");
     const runtimeLoop = clientSource("../client-runtime-loop.ts");
-    expect(runtimeLoop).toContain("resourceFor3DPopulation");
+    expect(runtimeLoop).toContain("syntheticOverlayTileFor3DPopulation(wx, wy, tile, isTrue3DRendererActive() && revealWholeMapInTrue3DMode)");
+    expect(clientSource("./client-map-3d-synthetic-overlay-tile.ts")).toContain("resourceFor3DPopulation(x, y, terrain, undefined, true,");
     expect(runtimeLoop).toContain("const overlayTile = t ?? syntheticOverlayTileAt(wx, wy, t);");
     // The sprite draw itself lives in the shared 2D helper both tile loops call
     // (it used to be duplicated inline in client-runtime-loop.ts).

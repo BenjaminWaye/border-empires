@@ -213,3 +213,5 @@ export * from "./reconnect-passthrough-fields/reconnect-passthrough-fields.js";
 export * from "./tile-overlay-fields/tile-overlay-fields.js";
 
 export * from "./afc-combat-facts.js";
+
+export * from "./relic-combat-facts.js";

@@ -1,4 +1,4 @@
-import type { DiplomacyTerms, FrontierDecayKind, MusterState, NaturalWonderType, ObservatorySiphonMode, ProspectSignature, Terrain, WaystationTileState } from "@border-empires/shared";
+import type { DiplomacyTerms, FrontierDecayKind, MusterState,  ObservatorySiphonMode, ProspectSignature, Terrain, WaystationTileState } from "@border-empires/shared";
 import type { ClientTileEconomicStructure } from "./client-tile-economic-structure-type.js";
 import type { ClientTownWireSummary } from "./client-tile-town-type.js";
 import type { ClientTileFort } from "./client-tile-fort-type.js";
@@ -112,7 +112,7 @@ export type Tile = {
     expiresAt?: number;
   } | null;
   watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null; waystation?: WaystationTileState | null; // Watchtower site (server-worldgen-watchtowers.ts; revealUntil = ~10s post-activation flicker window) and Waystation site (server-worldgen-waystations.ts; permanent activation, no revealUntil -- grantedEffect/detail fields read by client-waystation-activation/'s result popup).
-  naturalWonder?: { type: NaturalWonderType; claimedAt?: number } | null;
+  naturalWonder?: import("@border-empires/shared").NaturalWonderState | null;
   town?: ClientTownWireSummary;
   fort?: ClientTileFort;
   observatory?: { ownerId: string; status: "under_construction" | "active" | "inactive" | "removing"; completesAt?: number; startedAt?: number; pausedAt?: number; suppressedUntil?: number; cooldownUntil?: number; siphon?: ObservatorySiphonMode };

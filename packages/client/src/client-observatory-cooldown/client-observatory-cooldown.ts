@@ -1,4 +1,4 @@
-import { isAetherTowerSuppressed, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { relicCastRadius, isAetherTowerSuppressed, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
 const wrappedDelta = (a: number, b: number, size: number): number => Math.min(Math.abs(a - b), size - Math.abs(a - b));
@@ -25,7 +25,7 @@ export const readyOwnedObservatoryCooldownRemainingMs = (
     if (tile.fogged) continue;
     if (isAetherTowerSuppressed(tile.observatory, nowMs)) continue;
     if (tile.observatory.siphon) continue; // locked into Siphon until cancelled — can't cast anything else
-    if (chebyshevDistanceWrapped(tile.x, tile.y, target.x, target.y) > castRadius) continue;
+    if (chebyshevDistanceWrapped(tile.x, tile.y, target.x, target.y) > relicCastRadius(tile.naturalWonder, castRadius)) continue;
     hasInRange = true;
     const remaining = Math.max(0, (tile.observatory.cooldownUntil ?? 0) - nowMs);
     if (remaining <= 0) return 0;

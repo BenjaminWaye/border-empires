@@ -1,5 +1,6 @@
+import { syntheticOverlayTileFor3DPopulation } from "./client-map-3d-population/client-map-3d-synthetic-overlay-tile.js";
 import { drawMapSelection2D } from "./client-garrison-many/client-map-selection-2d.js";
-import { MIN_ZOOM, isForestTile } from "./client-constants.js"; import { startTileMenuDecayTicker } from "./client-tile-menu-decay-ticker/client-tile-menu-decay-ticker.js"; import { startMusterStatusTicker } from "./client-muster-status-ticker/client-muster-status-ticker.js"; import { startMusterMenuRepaintTicker } from "./client-muster-menu-repaint-ticker/client-muster-menu-repaint-ticker.js";
+import { MIN_ZOOM } from "./client-constants.js"; import { startTileMenuDecayTicker } from "./client-tile-menu-decay-ticker/client-tile-menu-decay-ticker.js"; import { startMusterStatusTicker } from "./client-muster-status-ticker/client-muster-status-ticker.js"; import { startMusterMenuRepaintTicker } from "./client-muster-menu-repaint-ticker/client-muster-menu-repaint-ticker.js";
 import { startLoadingTimerTicker } from "./client-loading-timer-ticker/client-loading-timer-ticker.js";
 import { startTruceRequestExpiryTicker } from "./client-truce-request-expiry/client-truce-request-expiry.js";
 import { updateMusicForGameState } from "./client-audio/client-audio.js";
@@ -18,7 +19,6 @@ import { paintFpsAndZoomReadouts } from "./client-fps-monitor/client-fps-readout
 import { tickJoinExperienceForFrame } from "./client-onboarding-ui-gate/client-join-experience-frame.js";
 import { recordDrawFrame, recordFramePhaseSample } from "./client-performance-metrics/client-performance-metrics.js";
 import { RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, shouldShowRendererPrompt } from "./client-renderer-prompt/client-renderer-prompt.js";
-import { resourceFor3DPopulation } from "./client-map-3d-population/client-map-3d-population.js";
 import { effectiveFogDisabled } from "./client-map-reveal/client-map-reveal.js";
 import { drawTileFortificationOverlays2D } from "./client-fortification-overlays/client-fortification-overlay-2d-draw.js";
 import { renderBuildingPlacementPreview2D } from "./client-placement-preview-2d/client-placement-preview-2d.js";
@@ -48,7 +48,7 @@ import type { ClientState } from "./client-state/client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileMenuView, TileVisibilityState, TileTimedProgress } from "./client-types.js";
 import { createVisibleTileDetailRequester } from "./client-visible-tile-detail/client-visible-tile-detail.js";
 import { sweepExpiredFrontierRecovery } from "./client-frontier-recovery/client-frontier-recovery.js";
-import { WORLD_HEIGHT, WORLD_WIDTH, buildAetherWallSegments, landBiomeAt, terrainAt } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, buildAetherWallSegments, terrainAt } from "@border-empires/shared";
 import { devQueueBadgeIndex } from "./client-dev-queue-badge-index/client-dev-queue-badge-index.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
 import { clampedTileHalfExtents, resolveTileBudget } from "./client-map-3d-tile-budget/client-map-3d-tile-budget.js";
@@ -247,7 +247,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const myReach = isTrue3DRendererActive() ? state.myReach : resolveMyReachCached(state);
     const reachTileDeps2D = { me: state.me, tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, ownerColor: deps.effectiveOverlayColor }; // hoisted: drawReachTileTreatments2D runs per visible tile per frame
     const aetherTowerSpriteDeps2D = { ctx: deps.ctx, sprite: deps.structureOverlayImages.OBSERVATORY, structureAccentColor: deps.structureAccentColor };
-    const tileFeatureDeps2D = { ctx: deps.ctx, structureAccentColor: deps.structureAccentColor, effectiveOverlayColor: deps.effectiveOverlayColor, afcJoinDrop: state.afcJoinDrop, afcModuleDeliveryLandedAt: state.afcModuleDeliveryLandedAt }; // hoisted: drawTileFeatureOverlays2D runs per visible tile per frame
+    const tileFeatureDeps2D = { relicMapHints: state.relicMapHints, ctx: deps.ctx, structureAccentColor: deps.structureAccentColor, effectiveOverlayColor: deps.effectiveOverlayColor, afcJoinDrop: state.afcJoinDrop, afcModuleDeliveryLandedAt: state.afcModuleDeliveryLandedAt }; // hoisted: drawTileFeatureOverlays2D runs per visible tile per frame
     const crystalTargetingActive = state.crystalTargeting.active;
     const crystalTone = crystalTargetingActive ? deps.crystalTargetingTone(state.crystalTargeting.ability) : "amber";
     const debugWindow = typeof window !== "undefined" ? (window as Window & { __be3dCanvasOverlayDebug?: unknown }) : undefined;
@@ -281,22 +281,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
     const overlayTiles: VisibleRenderTile[] = []; if (!isTrue3DRendererActive() && state.winChancePaint && performance.now() > state.winChancePaint.expiresAt && !state.pendingArrowGestureConfirm) state.winChancePaint = undefined; const knownShieldFlags2D = !isTrue3DRendererActive() ? collectKnownShieldFlags(state.tiles.values()) : []; // F4: 2D counterparts of F0's expiry sweep + F3's per-frame known-flag scan (client-map-3d.ts)
     const aetherProtection2D = !isTrue3DRendererActive() && isAetherProtectionFieldShown(state, deps.keyFor) ? aetherProtectionField(state, Date.now()) : undefined; // Aether Tower protection field, 2D parity of client-map-3d-aether-protection-overlay.ts
-    const syntheticOverlayTileAt = (wx: number, wy: number, tile: Tile | undefined): Tile | undefined => {
-      if (tile) return undefined;
-      if (!isTrue3DRendererActive() || !revealWholeMapInTrue3DMode) return undefined;
-      const terrain = terrainAt(wx, wy);
-      if (terrain !== "LAND") return undefined;
-      const biome = landBiomeAt(wx, wy);
-      const forestTile = isForestTile(wx, wy);
-      const resource = resourceFor3DPopulation(wx, wy, terrain, undefined, true, biome, forestTile);
-      if (!resource) return undefined;
-      return {
-        x: wx,
-        y: wy,
-        terrain,
-        resource
-      };
-    };
+    const syntheticOverlayTileAt = (wx: number, wy: number, tile: Tile | undefined): Tile | undefined => syntheticOverlayTileFor3DPopulation(wx, wy, tile, isTrue3DRendererActive() && revealWholeMapInTrue3DMode);
     const drawAetherWallEdge = (
       baseX: number,
       baseY: number,

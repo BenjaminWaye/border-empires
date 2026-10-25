@@ -1,3 +1,5 @@
+import { createDockCarrierOverlay } from "../client-dock-landing/client-dock-carrier-3d.js";
+import { landingMarinePose } from "../client-dock-landing/client-dock-landing.js";
 // Renders every concurrently active combat as a small squad of space-marine
 // soldiers per side (MARINES_PER_SIDE, see popup-marine-timeline.ts) that
 // rush in from the target tile's edge, each halt at its own chosen distance,
@@ -32,9 +34,10 @@
 // that took a tile standing on it for the hold window, which then defends
 // it in any fight there.
 //
-// True-3D renderer only (see client-map-3d/client-map-3d.ts's
-// isTrue3DRendererActive() gate) — the 2D canvas renderer has no equivalent
-// animation and never did (the garrison gets a 2D marker instead, see
+// Infantry models are true-3D only (see client-map-3d/client-map-3d.ts's
+// isTrue3DRendererActive() gate). Dock landings share their boat/ramp/infantry
+// animation with client-dock-landing-2d.ts; other battles have no canvas
+// infantry animation (the garrison gets a 2D marker instead, see
 // client-map-2d-capture-hold-overlay.ts); see AGENTS.md's renderer-parity note and the PR
 // description for why that's a documented scope decision, not a
 // regression.
@@ -102,6 +105,7 @@ export type BattleOverlayFx = ReturnType<typeof createPopupMarineOverlayFx>;
  * metal of the heavy armour an empire owning a Titanium Weapons Factory
  * fields (popup-marine-material.ts). */
 export function createPopupMarineOverlayFx(scene: Scene, envMap?: Texture) {
+  const carriers = createDockCarrierOverlay(scene);
   const flashFx = createFlashMesh(scene, FLASH_SIZE, MAX_MARINES * 2);
   const flashMesh = flashFx.mesh;
   const shots = createShotRenderer(scene, MARINE_MODEL_SCALE, MAX_BOLTS);
@@ -124,6 +128,7 @@ export function createPopupMarineOverlayFx(scene: Scene, envMap?: Texture) {
   const flashScale = new Vector3();
 
   const clear = (): void => {
+    carriers.clear();
     pools.hideAll();
     flashMesh.count = 0;
     shots.clear();
@@ -156,7 +161,7 @@ export function createPopupMarineOverlayFx(scene: Scene, envMap?: Texture) {
   ): void => {
     slot.root.visible = pose.scale > 0;
     if (!slot.root.visible) return;
-    slot.root.position.set(tileX + clampLocal(pose.localX), tileY + MARINE_Y_OFFSET, tileZ + clampLocal(pose.localZ));
+    slot.root.position.set(tileX + pose.localX, tileY + MARINE_Y_OFFSET + (pose.localY ?? 0), tileZ + pose.localZ);
     // A killed marine's fall is the rig's own Dead clip (playMarineStance),
     // so the root stays upright and on the ground rather than toppling.
     tmpQuat.setFromAxisAngle(UP_AXIS, pose.yaw);
@@ -164,8 +169,8 @@ export function createPopupMarineOverlayFx(scene: Scene, envMap?: Texture) {
     slot.root.scale.setScalar(Math.max(0, pose.scale) * MARINE_MODEL_SCALE);
     slot.material.color.set(color);
     slot.silhouette.material.color.set(color);
-    // A falling marine is sinking out of the fight on purpose; don't x-ray
-    // it back up through the ground (see popup-marine-occlusion-silhouette.ts).
+    // A falling marine is going down onto the ground; don't x-ray it through
+    // the terrain (see popup-marine-occlusion-silhouette.ts).
     slot.silhouette.visible = pose.fallT <= 0;
     playMarineStance(slot, pose.stance, nowMs, pose.fallT);
     slot.root.updateMatrixWorld(true);
@@ -198,6 +203,7 @@ export function createPopupMarineOverlayFx(scene: Scene, envMap?: Texture) {
     garrisons: GarrisonRenderEntry[] = []
   ): void => {
     if (battles.length === 0 && skirmishes.length === 0 && garrisons.length === 0) { clear(); return; }
+    carriers.tick([...battles, ...skirmishes].slice(0, MAX_CONCURRENT_BATTLES), nowMs);
     const siegeTargetHashes = new Set(siegeTowerTargets.map((target) => tileHashSeed(target.x, target.y)));
 
     // Prune stale strike dedup entries (a battle that resolved/expired
@@ -258,7 +264,9 @@ export function createPopupMarineOverlayFx(scene: Scene, envMap?: Texture) {
         shots.beginSide(side);
         for (let i = 0; i < MARINES_PER_SIDE; i++) {
           const garrisonStart = isAttacker ? undefined : garrisonStartFor(b.defenderGarrison, b.hashSeed, i);
-          const pose = computeBattlePose(b, side, i, nowMs, entryLocalX, entryLocalZ, perpX, perpZ, fwdX, fwdZ, battleVictim?.index, garrisonStart);
+          const basePose = computeBattlePose(b, side, i, nowMs, entryLocalX, entryLocalZ, perpX, perpZ, fwdX, fwdZ, battleVictim?.index, garrisonStart);
+          const clampedPose = { ...basePose, localX: clampLocal(basePose.localX), localZ: clampLocal(basePose.localZ) };
+          const pose = side === 0 ? landingMarinePose(clampedPose, b.landing, i, nowMs, b.hashSeed) : clampedPose;
           writeOne(side, color, gear, tileX, tileY, tileZ, pose);
           // A marine that is dead/collapsed this frame has stopped shooting.
           const down = pose.fallT > 0 || pose.scale <= 0;
@@ -299,6 +307,8 @@ export function createPopupMarineOverlayFx(scene: Scene, envMap?: Texture) {
       siegeKillTracker.fire(`sk:${b.hashSeed}`, b.hashSeed, skirmishVictim, tileX, tileY, tileZ, perpX, perpZ, ux, uz, nowMs);
 
       for (let side = 0 as 0 | 1; side < 2; side++) {
+        shots.beginSide(side);
+        if (side === 1 && b.unopposed) continue;
         const isAttacker = side === 0;
         const entryLocalX = isAttacker ? -ux * 0.46 : ux * 0.46;
         const entryLocalZ = isAttacker ? -uz * 0.46 : uz * 0.46;
@@ -307,10 +317,11 @@ export function createPopupMarineOverlayFx(scene: Scene, envMap?: Texture) {
         const color = isAttacker ? b.attackerColor : b.defenderColor;
         const gear = isAttacker ? b.attackerGear : b.defenderGear;
 
-        shots.beginSide(side);
         for (let i = 0; i < MARINES_PER_SIDE; i++) {
           const garrisonStart = isAttacker ? undefined : garrisonStartFor(b.defenderGarrison, b.hashSeed, i);
-          const pose = computeSkirmishPose(b, side, i, nowMs, entryLocalX, entryLocalZ, perpX, perpZ, fwdX, fwdZ, skirmishVictim?.index, garrisonStart);
+          const basePose = computeSkirmishPose(b, side, i, nowMs, entryLocalX, entryLocalZ, perpX, perpZ, fwdX, fwdZ, skirmishVictim?.index, garrisonStart);
+          const clampedPose = { ...basePose, localX: clampLocal(basePose.localX), localZ: clampLocal(basePose.localZ) };
+          const pose = side === 0 ? landingMarinePose(clampedPose, b.landing, i, nowMs, b.hashSeed) : clampedPose;
           writeOne(side, color, gear, tileX, tileY, tileZ, pose);
           const down = pose.fallT > 0 || pose.scale <= 0;
           shots.push(
@@ -342,6 +353,7 @@ export function createPopupMarineOverlayFx(scene: Scene, envMap?: Texture) {
     flashFx.dispose();
     shots.dispose();
     strikeFx.dispose();
+    carriers.dispose();
     pools.dispose();
   };
 

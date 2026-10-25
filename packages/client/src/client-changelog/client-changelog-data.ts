@@ -42,6 +42,7 @@ import { WAR_INDUSTRY_SQUADS_CHANGELOG } from "./client-changelog-war-industry-s
 import { MARCH_ATTACK_ROUTES_CHANGELOG } from "./client-changelog-march-attack-routes.js";
 import { FORT_WALL_OPENINGS_CHANGELOG } from "./client-changelog-fort-wall-openings.js";
 import { HILL_GARRISON_FILL_CHANGELOG } from "./client-changelog-hill-garrison-fill.js";
+import { SHARD_COMEBACK_CHANGELOG } from "./client-changelog-shard-comeback.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -346,8 +347,42 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "A soldier killed in a 3D battle was tipped over whole and shrunk, so they sank into a small bundle on the ground instead of falling.",
     changes: [
       "Killed soldiers, in standard or heavy armour, now play a real fall and lie full size on the battlefield",
-      "This is cosmetic and only shows on the 3D map"
+      "On the 2D map, soldiers killed during a dock landing now fade out over about a second instead of vanishing almost at once"
     ]
+  },
+  {
+    createdAt: 1792854395082, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.24.relics",
+    title: "Concordance relic installations",
+    why: "Relics are surviving planetary machinery, with useful installations and finite reserves worth fighting over.",
+    changes: ["New planets select seven installation families, represented by weathered ziggurats with House banners. Nearby anonymous light columns and minimap markers guide exploration.", "Garrison relics to use their installations. Combat suits, defensive field cells, ancillary bodies and nanofabrication material have persistent finite reserves; recapture never refills them.", "Capture artwork explains the buried installation and its benefit. Depleted sites remain on the map with an empty-reserve marker. Existing campaigns retain their original wonder rules."]
+  },
+  ...SHARD_COMEBACK_CHANGELOG,
+  {
+    createdAt: 1792907228760, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.24.2",
+    title: "Lost towns and docks name who took them",
+    why: "A lost town only said \"Lost Aurienspire Ring\", with an unrounded population, and a lost Dock had no note of its own. If the town tile's own record was missing, the siege card could still say your Palisade was holding after it had fallen.",
+    changes: [
+      "Town cards in Yours say who took the town, or whom you took it from",
+      "Town populations on those cards are rounded to whole numbers",
+      "Losing or capturing a Dock gets its own note in Yours, naming the other player",
+      "A siege on a town or Dock you lost now shows as fallen, even when its tile record is missing"
+    ]
+  },
+  {
+    createdAt: 1792869724355, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.24.2",
+    title: "Troop carriers at dock landings",
+    why: "An army crossing the sea should arrive aboard a landing carrier.",
+    changes: ["Dock-to-dock attacks now show futuristic carriers sailing in, lowering their bow ramps and unloading infantry into combat. Carriers stay beached until the battle ends, on both 3D and 2D maps."]
+  },
+  {
+    createdAt: 1792907644912, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "No battle sound for undefended frontier",
+    why: "Tapping a frontier tile being taken played the clash of regiments, even though no troops stand on frontier ground to fight.",
+    changes: ["Tapping a frontier tile under attack only plays the battle sound while a garrison is holding it. Attacks on settled land still sound as before"]
   }
 ];
 
