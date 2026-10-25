@@ -39,8 +39,7 @@ const fixtureFor = (args: Args) => {
     const inProgress = args.state === "construction" || args.state === "removing";
     const record = { ownerId: "p1", status: args.state === "construction" ? "under_construction" as const : args.state === "removing" ? "removing" as const : args.state === "inactive" ? "inactive" as const : "active" as const,
       supportAnchor: { x: 100, y: 100 }, ...(inProgress ? { startedAt: Date.now() - 50_000, completesAt: Date.now() + 50_000, pausedAt: Date.now() } : {}) };
-    if (kind === "OBSERVATORY") building.observatory = record;
-    else building.economicStructure = { ...record, type: kind };
+    building.economicStructure = { ...record, type: kind };
     fixture.tiles.set(`${building.x},${building.y}`, building);
     i += 1;
   }

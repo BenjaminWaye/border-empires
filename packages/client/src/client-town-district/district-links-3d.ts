@@ -61,13 +61,13 @@ export const createDistrictLinks3D = (scene: Scene, maxEdges: number, deps: Dist
     const segments: Array<{ a: Vector3; b: Vector3; edge: DistrictEdge }> = [];
     const posts = new Map<string, Vector3>();
     for (const edge of edges) {
+      if (!edge.traceable || (edge.buried && edge.townKey !== selected)) continue;
       const a = point(edge.from), b = point(edge.to);
       // World wrapping must also choose the short endpoint displacement.
       b.x = a.x + toroidDelta(edge.from.x, edge.to.x, WORLD_WIDTH);
       b.z = a.z + toroidDelta(edge.from.y, edge.to.y, WORLD_HEIGHT);
       posts.set(`${edge.from.x},${edge.from.y}`, a);
       posts.set(`${edge.to.x},${edge.to.y}`, b);
-      if (!edge.traceable) continue;
       if (!edge.buried) segments.push({ a, b, edge });
       else if (edge.townKey === selected) {
         const steps = Math.max(2, Math.ceil(a.distanceTo(b) / 0.08));

@@ -461,6 +461,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Preserved tower and military artwork",
     why: "The district remodel is limited to the approved buildings.",
     changes: ["Relay Beacon and Aether Tower keep their original 3D models and 2D artwork. Fort, Umbrite Rig, Dread Tower and Siege Battery also retain their existing models."]
+  },
+  {
+    createdAt: 1792952901276, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "Clearer support connections and converter information",
+    why: "Hidden connections could leave stray posts, and converter help omitted Sell Off rates and its mode-change lock.",
+    changes: ["Hidden and unselected buried service connections now hide their posts as well as their pipes.", "Converter building information shows the current Sell Off Coin/day return and mode-change cooldown from the game rules."]
   }
 ];
 

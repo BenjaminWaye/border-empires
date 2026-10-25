@@ -1,3 +1,4 @@
+import { converterInfoEffects } from "./client-structure-info-catalog/converter-info.js";
 import { structureDisplayName, type StructureDisplayKey } from "@border-empires/shared";
 import { STRUCTURE_PRESENTATION } from "./client-structure-info-catalog/structure-presentation.js";
 import { structureModelBriefFor } from "./client-structure-info-catalog/structure-model-briefs.js";
@@ -157,6 +158,8 @@ export const structureInfoForKey = (
   // this list is only for qualitative bullets that don't reduce to a
   // Modifier line (mechanic descriptions, "requires power", limits, etc).
   const effectsFor = (key: StructureInfoKey): string[] => {
+    const converter = converterInfoEffects(key);
+    if (converter) return converter;
     if (key === "FORT") return ["Prevents failed attacks from immediately flipping the fortified origin tile"];
     if (key === "TITANIUM_BASTION") return ["Upgrades Forts into Titanium Bastions", "Also keeps the +10% garrisoned defense from Bastion Walls"];
     if (key === "THUNDER_BASTION") return ["Upgrades Titanium Bastions into Thunder Bastions", "Improves resistance to siege and lance pressure"];
@@ -175,9 +178,6 @@ export const structureInfoForKey = (
     if (key === "CENSUS_HALL") return [];
     if (key === "CLEARING_HOUSE") return [];
     if (key === "TRADE_NEXUS") return ["Enables the connected-town income bonus for this road network"];
-    if (key === "UMBRITE_WORKS" || key === "HIGH_YIELD_UMBRITE_WORKS") return ["Sell off: 1 umbrite slot → coin"];
-    if (key === "TITANIUM_WORKS" || key === "HIGH_YIELD_TITANIUM_WORKS") return ["Sell off: 1 titanium slot → coin"];
-    if (key === "AETHER_CONDENSER" || key === "HIGH_YIELD_AETHER_CONDENSER") return ["Sell off: 1 crystal slot → coin"];
     if (key === "ORE_REFINERY") return [];
     if (key === "HARBOR_EXCHANGE") return [];
     if (key === "MINISTRY_HALL") return [];
