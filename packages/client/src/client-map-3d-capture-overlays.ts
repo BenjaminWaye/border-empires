@@ -1,3 +1,4 @@
+import { dockLandingFor, landingBattleSource } from "./client-dock-landing/client-dock-landing.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { Heightfield } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { type BattleOverlayFx, type BattleOverlayRenderEntry, type BattleOverlaySkirmishEntry } from "./client-map-3d-popup-marine/popup-marine-overlay-fx.js";
@@ -127,6 +128,23 @@ export function syncBattleOverlayFx(
 ): void {
   const standY = (x: number, y: number): number =>
     Math.max(heightfield.elevationAt(x, y), heightfield.cornerYAt(x, y)) + standLiftAt(x, y);
+  const { entries, skirmishes, garrisons } = collectBattleRenderEntries(state, keyFor, playerColorFor, standY, originX, originY, nowMs);
+  if (entries.length === 0 && skirmishes.length === 0 && garrisons.length === 0) { battleOverlayFx.clear(); return; }
+  battleOverlayFx.tick(nowMs, entries, skirmishes, siegeTowerTargets, garrisons);
+}
+
+/** Shared battle selection and clocks for the 3D map and 2D accessibility map. */
+export function collectBattleRenderEntries(
+  state: ClientState,
+  keyFor: (x: number, y: number) => string,
+  playerColorFor: (ownerId: string) => string,
+  standY: (x: number, y: number) => number,
+  originX: number,
+  originY: number,
+  nowMs: number
+): { entries: BattleOverlayRenderEntry[]; skirmishes: BattleOverlaySkirmishEntry[]; garrisons: ReturnType<typeof buildCaptureHoldGarrisons> } {
+  state.dockLandings?.syncRoutes(state.dockPairs);
+  state.dockLandings?.prune(nowMs);
   pruneExpiredActiveBattles(state, nowMs);
   // `nowMs` is performance.now() (page uptime) — the clock every battle/FX
   // timestamp is stamped in. Siege countdowns (`resolvesAt`) are server epoch
@@ -143,7 +161,10 @@ export function syncBattleOverlayFx(
     const srcDy = toroidDelta(originY, battle.originY, WORLD_HEIGHT);
     const tgtDx = toroidDelta(originX, battle.targetX, WORLD_WIDTH);
     const tgtDy = toroidDelta(originY, battle.targetY, WORLD_HEIGHT);
+    const candidate = dockLandingFor(state, battle.originX, battle.originY, battle.targetX, battle.targetY, state.skirmishSeenAt.get(keyFor(battle.targetX, battle.targetY)) ?? battle.startAt);
+    const landing = candidate && (state.dockLandings?.remember(keyFor(battle.targetX, battle.targetY), keyFor(battle.originX, battle.originY), candidate, nowMs, true) ?? candidate);
     entries.push({
+      ...(landing ? { landing } : {}),
       srcWorldX: srcDx + TILE_CENTER_OFFSET,
       srcWorldZ: srcDy + TILE_CENTER_OFFSET,
       tgtWorldX: tgtDx + TILE_CENTER_OFFSET,
@@ -176,7 +197,8 @@ export function syncBattleOverlayFx(
     target: { x: number; y: number },
     attackerOwnerId: string,
     defenderOwnerId: string,
-    holdApproachUntilElapsed?: number
+    holdApproachUntilElapsed?: number,
+    unopposed = false
   ): void => {
     if (skirmishKeys.has(key)) return;
     skirmishKeys.add(key);
@@ -193,7 +215,10 @@ export function syncBattleOverlayFx(
     const srcDy = toroidDelta(originY, srcY, WORLD_HEIGHT);
     const tgtDx = toroidDelta(originX, target.x, WORLD_WIDTH);
     const tgtDy = toroidDelta(originY, target.y, WORLD_HEIGHT);
+    const candidate = dockLandingFor(state, srcX, srcY, target.x, target.y, startAt);
+    const landing = candidate && (state.dockLandings?.remember(key, keyFor(srcX, srcY), candidate, nowMs, false) ?? candidate);
     skirmishes.push({
+      ...(landing ? { landing } : {}),
       srcWorldX: srcDx + TILE_CENTER_OFFSET,
       srcWorldZ: srcDy + TILE_CENTER_OFFSET,
       tgtWorldX: tgtDx + TILE_CENTER_OFFSET,
@@ -204,10 +229,10 @@ export function syncBattleOverlayFx(
       defenderColor: squadColorForOwner(defenderOwnerId, playerColorFor),
       startAt,
       hashSeed: target.x * 92821 + target.y,
-      siegeBoosted: battleIsSiegeBoosted(state, keyFor, attackerOwnerId, target.x, target.y),
+      siegeBoosted: !unopposed && battleIsSiegeBoosted(state, keyFor, attackerOwnerId, target.x, target.y),
       ...defenderGarrisonField(state, keyFor, key, defenderOwnerId, nowEpochMs),
       ...squadGearFields(state, attackerOwnerId, defenderOwnerId),
-      ...(holdApproachUntilElapsed !== undefined ? { holdApproachUntilElapsed } : {})
+      ...(unopposed ? { unopposed: true, holdApproachUntilElapsed: Infinity } : holdApproachUntilElapsed !== undefined ? { holdApproachUntilElapsed } : {})
     });
   };
 
@@ -221,10 +246,12 @@ export function syncBattleOverlayFx(
       if (!target) continue;
       // Undefended FRONTIER ground has no combat to show — see
       // runtime-lock-resolution.ts's hasDefendingForce, which no longer
-      // emits a combatJson/battle broadcast for these attacks at all. The
-      // claim-plate overlay (syncFrontierClaimPlates) carries the "this is
+      // emits a combatJson/battle broadcast for these attacks at all. Dock
+      // crossings still unload infantry, but never invent defenders or shots.
+      // The claim-plate overlay (syncFrontierClaimPlates) carries the "this is
       // becoming mine" visual instead.
-      if (frontierAttackIsUndefended(target, incoming.winChance, nowEpochMs)) continue;
+      const unopposed = frontierAttackIsUndefended(target, incoming.winChance, nowEpochMs);
+      if (unopposed && !dockLandingFor(state, incoming.fromX, incoming.fromY, target.x, target.y, nowMs)) continue;
       // Hold the approach plateau open until the real (mechanical) transit
       // delay ends, instead of the default ~3.4s march animation, so the
       // defender sees "company still approaching" for the actual travel
@@ -235,7 +262,7 @@ export function syncBattleOverlayFx(
         incoming.transitEndsAt !== undefined && incoming.transitEndsAt > nowEpochMs
           ? nowMs - startAt + (incoming.transitEndsAt - nowEpochMs)
           : undefined;
-      pushSkirmish(key, incoming.fromX, incoming.fromY, target, incoming.attackerId, state.me, holdApproachUntilElapsed);
+      pushSkirmish(key, incoming.fromX, incoming.fromY, target, incoming.attackerId, state.me, holdApproachUntilElapsed, unopposed);
     }
 
     // Attacking: the server addresses ATTACK_ALERT to the defender only (see
@@ -265,10 +292,11 @@ export function syncBattleOverlayFx(
       // through to the skirmish approach below, same as before, since the
       // server alone knows whether it's actually undefended.
       const knownTarget = state.tiles.get(key);
-      if (!state.activeBattles.has(key) && !frontierAttackIsUndefended(knownTarget, capture.combatSnapshot?.winChance, nowEpochMs)) {
+      const unopposed = frontierAttackIsUndefended(knownTarget, capture.combatSnapshot?.winChance, nowEpochMs);
+      if (!state.activeBattles.has(key) && (!unopposed || dockLandingFor(state, capture.origin.x, capture.origin.y, capture.target.x, capture.target.y, nowMs))) {
         const knownOwnerId = knownTarget?.ownerId;
         const defenderOwnerId = knownOwnerId && knownOwnerId !== state.me ? knownOwnerId : UNKNOWN_ENEMY_OWNER_ID;
-        pushSkirmish(key, capture.origin.x, capture.origin.y, capture.target, state.me, defenderOwnerId);
+        pushSkirmish(key, capture.origin.x, capture.origin.y, capture.target, state.me, defenderOwnerId, undefined, unopposed);
       }
     }
 
@@ -292,10 +320,11 @@ export function syncBattleOverlayFx(
       if (outgoing.transitEndsAt !== undefined && outgoing.transitEndsAt > nowEpochMs) continue;
       // Same FRONTIER exclusion as the manual-attack branch above.
       const knownTarget = state.tiles.get(key);
-      if (frontierAttackIsUndefended(knownTarget, outgoing.winChance, nowEpochMs)) continue;
+      const unopposed = frontierAttackIsUndefended(knownTarget, outgoing.winChance, nowEpochMs);
+      if (unopposed && !dockLandingFor(state, outgoing.originX, outgoing.originY, outgoing.targetX, outgoing.targetY, nowMs)) continue;
       const knownOwnerId = knownTarget?.ownerId;
       const defenderOwnerId = knownOwnerId && knownOwnerId !== state.me ? knownOwnerId : UNKNOWN_ENEMY_OWNER_ID;
-      pushSkirmish(key, outgoing.originX, outgoing.originY, { x: outgoing.targetX, y: outgoing.targetY }, state.me, defenderOwnerId);
+      pushSkirmish(key, outgoing.originX, outgoing.originY, { x: outgoing.targetX, y: outgoing.targetY }, state.me, defenderOwnerId, undefined, unopposed);
     }
   }
 
@@ -322,8 +351,11 @@ export function syncBattleOverlayFx(
   }
 
   const garrisons = buildCaptureHoldGarrisons(state, keyFor, new Set([...state.activeBattles.keys(), ...skirmishKeys]), playerColorFor, standY, originX, originY, nowMs, nowEpochMs);
-  if (entries.length === 0 && skirmishes.length === 0 && garrisons.length === 0) { battleOverlayFx.clear(); return; }
-  battleOverlayFx.tick(nowMs, entries, skirmishes, siegeTowerTargets, garrisons);
+  for (const entry of [...entries, ...skirmishes]) {
+    const source = landingBattleSource(entry.landing, entry.tgtWorldX, entry.tgtWorldZ, entry.srcWorldX, entry.srcWorldZ);
+    entry.srcWorldX = source.x; entry.srcWorldZ = source.z;
+  }
+  return { entries, skirmishes, garrisons };
 }
 
 

@@ -390,6 +390,14 @@ must commission the equipment and personnel needed there. The relationship
 between campaign resets and permanent ducal holdings remains a canon
 question in §14.
 
+### Coastal assault carriers
+
+House armies crossing between linked coastal docks deploy in armored,
+seagoing troop carriers. The carriers beach at the destination, lower their
+bow doors as ramps, and release infantry to fight inland. They remain at
+the beachhead until the engagement ends. These local amphibious transports
+are distinct from the offworld landing equipment used to establish an AFC.
+
 ### Coin and local production
 
 **Coin is offworld purchasing credit backed by planetary output.** It is a

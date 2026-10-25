@@ -11,8 +11,9 @@
 // anything — attackerWon is already known before the first frame renders;
 // this module only stages the reveal. The whole fight happens on the target
 // tile (the tile under attack), clamped to TILE_LOCAL_MAX same as before.
-import type { GarrisonFacing, GarrisonStart } from "./popup-marine-garrison.js";
-import type { SquadGearFields } from "./popup-marine-gear.js";
+import type { GarrisonStart } from "./popup-marine-garrison.js";
+import type { BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "../client-dock-landing/client-battle-render-types.js";
+export type { BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "../client-dock-landing/client-battle-render-types.js";
 
 export const LINEUP_MS = 2500; // "cover" — squad rushes to position, staggered pop-in
 export const MARCH_MS = 900; // "advance" — squad closes from tile edge to the firing line
@@ -47,64 +48,6 @@ export function hash01(a: number, b: number, salt: number): number {
   h = (h >> 16) ^ h;
   return (h >>> 0) / 0xffffffff;
 }
-
-export type BattleOverlayRenderEntry = {
-  srcWorldX: number;
-  srcWorldZ: number;
-  tgtWorldX: number;
-  tgtWorldZ: number;
-  srcSurfaceY: number;
-  tgtSurfaceY: number;
-  attackerColor: string;
-  defenderColor: string;
-  attackerWon: boolean;
-  startAt: number;
-  clashAt: number;
-  endAt: number;
-  // When true the battle continues a pre-resolution skirmish that already
-  // shed WINNER_DEATHS marines per side during its first firefight cycle —
-  // those marines stay collapsed rather than re-falling, and only the
-  // loser's remaining deaths emerge over the battle's own firefight window.
-  fromSkirmish: boolean;
-  // Stable per-tile hash seed (target tile coordinates), NOT an array index
-  // — must be derived the same way a preceding skirmish's hashSeed was, so a
-  // resolved battle picking up from a skirmish keeps every marine's
-  // offset/perp/fire-schedule identical across the transition.
-  hashSeed: number;
-  // An active siege structure of the attacker's is in range of the target
-  // (client-siege-battle-targets.ts): only then does the opening lance play.
-  siegeBoosted?: boolean;
-  // Target tile is capture-held: its garrison defends (popup-marine-garrison.ts).
-  defenderGarrison?: GarrisonFacing;
-} & SquadGearFields;
-
-// A siege still counting down — outcome unknown. Plays the same cover-
-// >advance approach as a resolved battle, then indefinite firefight-
-// oscillation at the tile center with muzzle flashes and first-cycle
-// casualties (WINNER_DEATHS per side), but no rout phase.
-export type BattleOverlaySkirmishEntry = {
-  srcWorldX: number;
-  srcWorldZ: number;
-  tgtWorldX: number;
-  tgtWorldZ: number;
-  srcSurfaceY: number;
-  tgtSurfaceY: number;
-  attackerColor: string;
-  defenderColor: string;
-  startAt: number;
-  hashSeed: number;
-  // Defender skirmish: hold the approach plateau open past the default
-  // APPROACH_MS until the attacker's REAL (mechanical) transit delay
-  // elapses, so a defender sees "company still approaching" for the actual
-  // travel window rather than the firefight starting before the attacker's
-  // troops have even arrived — see client-map-3d-capture-overlays.ts's
-  // syncBattleOverlayFx for where this is computed.
-  holdApproachUntilElapsed?: number;
-  // See BattleOverlayRenderEntry.siegeBoosted.
-  siegeBoosted?: boolean;
-  // See BattleOverlayRenderEntry.defenderGarrison.
-  defenderGarrison?: GarrisonFacing;
-} & SquadGearFields;
 
 export type MarineKit = {
   offset: number; // lineup pop-in stagger, [0, 0.22)
@@ -254,6 +197,8 @@ export type MarinePose = {
   stance: MarineStance;
   localX: number;
   localZ: number;
+  /** Height above the ground while walking down a landing ramp. */
+  localY?: number;
   yaw: number;
   scale: number;
   crouchT: number; // 0 = down in cover, 1 = standing/firing
