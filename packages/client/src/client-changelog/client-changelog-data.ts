@@ -412,6 +412,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Fallen sieges read \"Held off 2 assaults before it fell · Kara spent 300 manpower attacking it\"",
       "Yours names barbarians as Planetary Defense instead of their internal id"
     ]
+  },
+  {
+    createdAt: 1792908043500, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "Encirclement works for large empires",
+    why: "Once an empire grew past roughly 1,800 connected tiles, the supply check gave up before it finished. Frontier cut off from supply, for example behind an origin lost to a counter-attack, stayed owned when it should have been lost.",
+    changes: [
+      "The supply check now looks only at your frontier, not your whole empire, so large empires lose cut-off frontier immediately",
+      "This applies to captures, lost attack origins and abilities that remove tiles"
+    ]
   }
 ];
 
