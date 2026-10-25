@@ -255,7 +255,7 @@ export const buildPlayerSubscriptionSnapshot = (
   const enrichedTiles =
     options?.fullVisibility === true && options?.sharedFullVisibilityTiles
       ? options.sharedFullVisibilityTiles
-      : enrichSnapshotTilesForPlayer(playerId, runtimeState, tiles, liveEconomy);
+      : enrichSnapshotTilesForPlayer(playerId, runtimeState, tiles, liveEconomy, options?.fullVisibility === true);
   const docks: PlayerSubscriptionDock[] = (runtimeState.docks ?? []).map((dock) => ({
     dockId: dock.dockId,
     tileKey: dock.tileKey,

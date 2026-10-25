@@ -1,3 +1,5 @@
+import { enrichSnapshotTilesForGlobalVisibility } from "../live-snapshot-view/live-snapshot-view.js";
+import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snapshot.js";
 import { describe, expect, it } from "vitest";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { buildPlayer } from "../runtime/runtime.test-helpers.js";
@@ -17,6 +19,16 @@ describe("district runtime projection paths", () => {
     expect(runtime.wireDeltaForTileKey("12,10", "p1")?.economicStructureJson).toContain(anchor);
     expect(runtime.exportVisibleStateForPlayer("p1").tiles.find(tile => tile.x === 12)?.economicStructureJson).toContain(anchor);
     expect(runtime.filterTileDeltasForPlayer([{ x: 12, y: 10 }], "p1")[0]?.economicStructureJson).toContain(anchor);
+    for (const fullVisibility of [false, true]) {
+      expect(runtime.exportTilesInAreaForPlayer("p1", 12, 10, 1, { fullVisibility })
+        .find(tile => tile.x === 12 && tile.y === 10)?.economicStructureJson).toContain(anchor);
+    }
+    const fullState = runtime.exportState();
+    const sharedFullVisibilityTiles = enrichSnapshotTilesForGlobalVisibility(fullState);
+    for (const options of [{ fullVisibility: true }, { fullVisibility: true, sharedFullVisibilityTiles }]) {
+      expect(buildPlayerSubscriptionSnapshot("p1", fullState, options).tiles
+        .find(tile => tile.x === 12 && tile.y === 10)?.economicStructureJson).toContain(anchor);
+    }
     // Checkpoint/domain records retain only gameplay state, never viewer metadata.
     expect(runtime.exportState().tiles.find(tile => tile.x === 12)?.economicStructureJson).not.toContain("supportAnchor");
   });

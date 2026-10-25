@@ -189,7 +189,9 @@ export function exportTilesInAreaForPlayer(input: {
         tile.ownerId && ownerForContext && tile.ownerId === ownerForContext.id ? tileYieldContext : undefined,
         { full: true }
       );
-      collected.push(delta);
+      collected.push(input.fullVisibility
+        ? { ...delta, ...districtOverlayProjection(input.tiles, tile, () => true) }
+        : delta);
     }
   }
   if (input.fullVisibility) return collected;
