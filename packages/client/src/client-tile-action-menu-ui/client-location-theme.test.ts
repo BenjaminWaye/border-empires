@@ -53,6 +53,25 @@ describe("isTileInOngoingBattle", () => {
     expect(isTileInOngoingBattle(state, tileAt({ ownerId: "rival" }), NOW)).toBe(false);
   });
 
+  it("stays silent for an attack on undefended FRONTIER ground, but plays once a capture hold garrisons it", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.capture = { startAt: NOW - 1_000, resolvesAt: NOW + 2_000, target: { x: 5, y: 7 }, actionType: "ATTACK" };
+    state.outgoingMusterAttacksByTile.set("5,7", { originX: 4, originY: 7, targetX: 5, targetY: 7, resolvesAt: NOW + 2_000 });
+    const frontier = tileAt({ ownerId: "rival", ownershipState: "FRONTIER" });
+    expect(isTileInOngoingBattle(state, frontier, NOW)).toBe(false);
+    const garrisoned = tileAt({ ownerId: "rival", ownershipState: "FRONTIER", captureHoldUntil: NOW + 30_000 });
+    expect(isTileInOngoingBattle(state, garrisoned, NOW)).toBe(true);
+  });
+
+  it("stays silent for an arrived incoming attack on the viewer's undefended FRONTIER tile", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.incomingAttacksByTile.set("5,7", { attackerName: "Rival", resolvesAt: NOW + 5_000 });
+    expect(isTileInOngoingBattle(state, tileAt({ ownerId: "me", ownershipState: "FRONTIER" }), NOW)).toBe(false);
+    expect(isTileInOngoingBattle(state, tileAt({ ownerId: "me", ownershipState: "SETTLED" }), NOW)).toBe(true);
+  });
+
   it("is false on a fogged tile even if stale battle state lingers", () => {
     const state = createInitialState();
     state.activeBattles.set("5,7", resolvedBattle(NOW + 500));
