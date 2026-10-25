@@ -1,4 +1,4 @@
-import { AEGIS_LOCK_DURATION_MS, IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS, SOVEREIGN_SIEGE_ENGINE_STRIKE_COOLDOWN_MS } from "@border-empires/game-domain";
+import { TITANIUM_LEVY_MANPOWER_CONVERSION_RATIO, TITANIUM_LEVY_REGEN_FREEZE_MS, AEGIS_LOCK_DURATION_MS, IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS, SOVEREIGN_SIEGE_ENGINE_STRIKE_COOLDOWN_MS } from "@border-empires/game-domain";
 import { FORT_TIER_LADDER } from "@border-empires/shared";
 import { DISTRICT_MODEL_BRIEFS, type DistrictModelBrief } from "../client-town-district/district-model-briefs.js";
 import { isDistrictBuilding, type DistrictBuildingKind } from "../client-town-district/district-catalog.js";
@@ -25,8 +25,8 @@ const OTHER: Readonly<Record<Exclude<StructureInfoKey, DistrictBuildingKind>, Di
   SOVEREIGN_SIEGE_ENGINE: brief(`Unique completed Great Project that fires Worldbreaker strikes every ${SOVEREIGN_SIEGE_ENGINE_STRIKE_COOLDOWN_MS / 60_000} minutes, destroying a target structure and reducing its town's population; requires Ambaric power.`, "Long magnetic barrel, containment collars, a rear fracture core and paired sighting instruments."),
   AEGIS_DOME: brief(`Unique completed Great Project that protects a core area and can trigger a ${AEGIS_LOCK_DURATION_MS / 60_000}-minute Aegis Lock; requires Ambaric power.`, "Transparent shield dome with meridional lattice ribs, six grounding anchors and a raised crown."),
   ASTRAL_DOCK: brief("Unique completed Great Project that launches a satellite for temporary full-map vision; requires Ambaric power.", "Four curved launch-cradle arms surrounding a satellite with crystalline sail panels and a tracking dish."),
-  CENSUS_DIRECTORATE: brief("Unique completed Great Project that increases empire-wide manpower regeneration for owned Manpower-branch buildings.", "Seven stacked citizen-index drums between archive vaults, with twin reading columns and a charter terminal."),
-  TITANIUM_LEVY: brief("Unique completed Great Project that converts banked manpower into a one-time army and then freezes regeneration; requires Ambaric power.", "Broad muster gate carrying an armoured standard, three klaxon mouths, deployment lanes and a levy-writ terminal.")
+  CENSUS_DIRECTORATE: brief("Unique completed Great Project that increases empire-wide manpower regeneration for owned Manpower-branch buildings.", "Seven stacked citizen-index drums above a continuous crescent archive, with twin reading columns and a recessed civic entrance."),
+  TITANIUM_LEVY: brief(`Activate to spend ${TITANIUM_LEVY_MANPOWER_CONVERSION_RATIO * 100}% of stored manpower on an immediate army at this monument, then freeze empire-wide manpower regeneration for ${TITANIUM_LEVY_REGEN_FREEZE_MS / 3_600_000} hours; requires Ambaric power.`, "Armoured assembly hall opening onto a deployment court through a muster gate, with a Titanium Standard, three klaxons and a levy-writ terminal.")
 };
 
 export const structureModelBriefFor = (kind: StructureInfoKey): DistrictModelBrief =>

@@ -14,8 +14,8 @@ compatibility fixtures; they are not the current live-map dispatch.
 | Sovereign Siege Engine | Horizontal magnetic barrel and bore, containment collars, rear Fracture Core and sighting instruments |
 | Aegis Dome | Transparent hemispherical shield, meridional lattice ribs, six grounding anchors and apex crown |
 | Astral Dock | Four curved launch arms, suspended satellite with four framed crystalline sails and a tracking dish |
-| Census Directorate | Tall seven-drum citizen index, archive vaults, reading columns and a charter terminal |
-| The Titanium Levy | Broad muster gate, armoured standard, three klaxon mouths, deployment lanes and levy-writ terminal |
+| Census Directorate | Tall seven-drum citizen index, continuous crescent archive, reading columns and a recessed civic entrance |
+| The Titanium Levy | Armoured assembly hall, muster gate, Titanium Standard, three klaxon mouths, deployment court and levy-writ terminal |
 
 These are architectural representations of existing Project roles and named
 components. Gameplay names, effects, costs, power requirements and abilities
@@ -46,3 +46,10 @@ hatches, framed sail panels, joint collars and connected footings are included.
 
 The previously excluded Fort, Relay Beacon, Aether Tower, Umbrite Rig, Dread Tower
 and Siege Battery retain their existing artwork and renderer paths.
+
+The Census revision removes the detached archive blocks and screen kiosk. Its
+low crescent gallery forms a continuous civic building around the index tower.
+The Titanium Levy is a mobilisation facility: activation spends half the stored
+manpower on an army at the monument and freezes regeneration for two hours
+(current values verified in shared constants and the simulation command handler).
+Its enclosed assembly hall and deployment court express this existing function.

@@ -5,5 +5,5 @@ export const MONUMENT_ICON_CROPS: Readonly<Record<string, readonly [number, numb
   "/overlays/aegis-dome-overlay.svg": [0.054688, 0.11875, 0.890625, 0.7625],
   "/overlays/astral-dock-overlay.svg": [0.063281, 0.054688, 0.873438, 0.890625],
   "/overlays/census-directorate-overlay.svg": [0.124219, 0.054688, 0.751562, 0.890625],
-  "/overlays/titanium-levy-overlay.svg": [0.090625, 0.054688, 0.81875, 0.890625],
+  "/overlays/titanium-levy-overlay.svg": [0.085156, 0.054688, 0.829687, 0.890625],
 };

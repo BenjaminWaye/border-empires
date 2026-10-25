@@ -141,12 +141,16 @@ const astral = (t: TownBuilders): void => {
 };
 const census = (t: TownBuilders): void => {
   footing(t);
-  for (const x of [-0.205, 0.205]) {
-    t.body.box(x, 0.075, 0, 0.12, 0.24, 0.25, "stoneDark");
-    t.body.box(x, 0.315, 0, 0.135, 0.018, 0.265, "brass");
-    for (const y of [0.12, 0.21]) windowStrip(t, x, y, 0.132, 2);
-    t.body.disc(x, 0.15, 0.14, 0.04, 0.015, "brassDark");
-    archiveHatch(t, x, -0.133);
+  // One continuous crescent archive, integrated with the index tower.
+  // Low galleries keep the tower dominant instead of flanking it with boxes.
+  for (let i = 0; i < 9; i++) {
+    const a = -Math.PI * 0.6 + i * Math.PI * 0.15;
+    const x = Math.sin(a) * 0.185, z = -0.045 - Math.cos(a) * 0.185;
+    t.body.box(x, 0.075, z, 0.098, 0.125, 0.075, "stoneDark", -a);
+    t.body.box(x, 0.20, z, 0.103, 0.012, 0.084, "brassDark", -a);
+    t.body.pipe(x, 0.085, z, x, 0.22, z, 0.009, "brass");
+    t.glow.box(x + Math.sin(a) * 0.039, 0.15, z - Math.cos(a) * 0.039,
+      0.046, 0.009, 0.003, "lampWarm", -a);
   }
   // Tall rotary citizen index, with visible separate tabulating drums.
   t.body.cylinder(0, 0.075, -0.045, 0.085, 0.11, 0.55, "ironDark", 12);
@@ -158,17 +162,35 @@ const census = (t: TownBuilders): void => {
       t.glow.box(Math.sin(a) * 0.106, y + 0.006, -0.045 + Math.cos(a) * 0.106, 0.022, 0.013, 0.008, "aether", a);
     }
   }
-  t.body.box(0, 0.635, -0.045, 0.25, 0.02, 0.13, "brass");
+  t.body.cylinder(0, 0.63, -0.045, 0.13, 0.13, 0.018, "brass", 24);
+  t.body.cylinder(0, 0.648, -0.045, 0.085, 0.12, 0.035, "iron", 24);
   for (const x of [-0.12, 0.12]) {
     t.body.pipe(x, 0.08, -0.045, x, 0.67, -0.045, 0.015, "stoneLight");
     t.glow.gem(x, 0.69, -0.045, 0.017, 0.06, "lampWarm");
   }
-  t.body.box(0, 0.08, 0.22, 0.1, 0.10, 0.10, "iron");
-  t.body.tiltedBox(0, 0.20, 0.22, 0.09, 0.04, 0.08, "brass", 0, -0.18);
-  t.glow.panel(0, 0.215, 0.265, 0.055, 0.028, "aether");
+  // Recessed entrance and broad stair replace the detached screen kiosk.
+  t.body.box(0, 0.075, 0.071, 0.082, 0.13, 0.018, "ironDark");
+  for (const x of [-0.048, 0.048]) t.body.pipe(x, 0.075, 0.087, x, 0.21, 0.087, 0.008, "brass");
+  t.body.pipe(-0.048, 0.21, 0.087, 0.048, 0.21, 0.087, 0.008, "brass");
+  for (let i = 0; i < 3; i++) {
+    t.body.box(0, 0.075 + i * 0.014, 0.21 - i * 0.033, 0.16 - i * 0.015, 0.014, 0.11 - i * 0.027, "stoneLight");
+  }
+
 };
 const levy = (t: TownBuilders): void => {
   footing(t);
+  // Armoured assembly hall feeds the open deployment court through a gate.
+  t.body.box(0, 0.075, -0.15, 0.36, 0.19, 0.15, "ironDark");
+  t.body.gable(0, 0.265, -0.15, 0.40, 0.085, 0.19, "iron");
+  for (const x of [-0.16, -0.08, 0, 0.08, 0.16]) {
+    t.body.pipe(x, 0.09, -0.245, x, 0.27, -0.245, 0.009, "brassDark");
+    t.body.pipe(x, 0.27, -0.245, x, 0.35, -0.15, 0.009, "brass");
+    t.body.pipe(x, 0.35, -0.15, x, 0.27, -0.055, 0.009, "brass");
+  }
+  for (const x of [-0.105, 0, 0.105]) {
+    t.body.box(x, 0.078, -0.068, 0.077, 0.15, 0.008, "window");
+    t.glow.box(x, 0.225, -0.061, 0.07, 0.008, 0.005, "lampWarm");
+  }
   // Muster gate and broad Titanium Standard make a horizontal silhouette,
   // distinct from the Directorate's slender vertical index tower.
   for (const x of [-0.21, 0.21]) {
@@ -177,10 +199,10 @@ const levy = (t: TownBuilders): void => {
     t.body.pipe(x, 0.09, -0.12, x, 0.39, -0.035, 0.02, "brassDark");
   }
   t.body.box(0, 0.42, -0.035, 0.51, 0.055, 0.16, "iron");
-  t.body.box(0, 0.485, -0.035, 0.36, 0.14, 0.018, "stoneLight");
-  t.body.box(0, 0.49, -0.02, 0.31, 0.025, 0.008, "brass");
-  t.body.box(0, 0.615, -0.02, 0.38, 0.012, 0.025, "brassDark");
-  for (const x of [-0.145, 0.145]) t.body.box(x, 0.495, -0.02, 0.012, 0.11, 0.022, "brassDark");
+  t.body.box(0, 0.485, -0.035, 0.28, 0.14, 0.018, "ironDark");
+  t.body.box(0, 0.49, -0.02, 0.25, 0.025, 0.008, "brass");
+  t.body.box(0, 0.615, -0.02, 0.30, 0.012, 0.025, "brassDark");
+  for (const x of [-0.12, 0.12]) t.body.box(x, 0.495, -0.02, 0.012, 0.11, 0.022, "brassDark");
   t.body.disc(0, 0.555, -0.018, 0.04, 0.012, "brass");
   t.glow.disc(0, 0.555, -0.009, 0.016, 0.004, "beacon");
   // Three klaxon mouths face the deployment court; the writ sits below.
