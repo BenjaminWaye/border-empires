@@ -339,6 +339,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...SHARD_COMEBACK_CHANGELOG,
   {
+    createdAt: 1792908991472, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "Respawns start with full manpower",
+    why: "A brand-new House starts with 720 manpower, but a House that was wiped out and respawned came back with only 100, which made a comeback much slower than a fresh start.",
+    changes: ["After a respawn your manpower is topped up to the same 720 a brand-new player starts with"]
+  },
+  {
     createdAt: 1792907228760, // Date.now() captured once for this entry.
     introducedIn: "2026.10.24.2",
     title: "Lost towns and docks name who took them",
