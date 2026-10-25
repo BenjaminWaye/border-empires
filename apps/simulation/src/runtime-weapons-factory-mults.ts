@@ -1,6 +1,4 @@
 import {
-  NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT,
-  noWarIndustryLabel,
   TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
   TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
   UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
@@ -8,7 +6,9 @@ import {
   WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING,
   WEAPONS_WORKSHOP_DEFENSE_MULT_PER_BUILDING,
   arsenalMultiplierForFactoryCount,
-  type BuildableStructureType
+  warIndustryEdge,
+  type BuildableStructureType,
+  type WarIndustryPresence
 } from "@border-empires/shared";
 import type { BattleWarGear } from "@border-empires/sim-protocol";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
@@ -81,7 +81,8 @@ export const umbriteWeaponsFactoryDefenseMultForPlayer = (ctx: WeaponsFactoryMul
 
 // "Unarmed" vulnerability (design doc, confirmed scope): owning zero of a
 // factory type ANYWHERE in one's empire (existence check, not network-scoped)
-// hands the OTHER side the same flat multiplier on their effective power.
+// hands the OTHER side the same flat multiplier on their effective power —
+// but only if that other side owns the type (warIndustryEdge).
 // Missing one type or both is the same flat multiplier — no stacking to 4x.
 export const hasTitaniumFactory = (ctx: WeaponsFactoryMultContext, ownerId: string): boolean =>
   ctx.ownedStructureCountForPlayer(ownerId, "TITANIUM_WEAPONS_FACTORY") > 0;
@@ -115,14 +116,15 @@ export const parseBattleWarGear = (value: unknown): BattleWarGear | undefined =>
   }
   return Object.keys(gear).length > 0 ? gear : undefined;
 };
-const hasWarIndustry = (ctx: WeaponsFactoryMultContext, ownerId: string): boolean =>
-  hasTitaniumFactory(ctx, ownerId) && hasUmbriteFactory(ctx, ownerId);
-export const noWarIndustryVulnerabilityMultForDefender = (ctx: WeaponsFactoryMultContext, defenderOwnerId: string | undefined): number =>
-  defenderOwnerId && !hasWarIndustry(ctx, defenderOwnerId) ? NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT : 1;
-export const noWarIndustryVulnerabilityMultForAttacker = (ctx: WeaponsFactoryMultContext, attackerOwnerId: string): number =>
-  hasWarIndustry(ctx, attackerOwnerId) ? 1 : NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT;
-
-export const noWarIndustryVulnerabilityLabelForDefender = (ctx: WeaponsFactoryMultContext, defenderOwnerId: string): string =>
-  noWarIndustryLabel("Target", hasTitaniumFactory(ctx, defenderOwnerId), hasUmbriteFactory(ctx, defenderOwnerId));
-export const noWarIndustryVulnerabilityLabelForAttacker = (ctx: WeaponsFactoryMultContext, attackerOwnerId: string): string =>
-  noWarIndustryLabel("Attacker", hasTitaniumFactory(ctx, attackerOwnerId), hasUmbriteFactory(ctx, attackerOwnerId));
+const warIndustryPresence = (ctx: WeaponsFactoryMultContext, ownerId: string): WarIndustryPresence => ({
+  titanium: hasTitaniumFactory(ctx, ownerId),
+  umbrite: hasUmbriteFactory(ctx, ownerId)
+});
+// Attack-side edge (feeds noWarIndustryVulnerabilityMult/Label): the
+// attacker owns a factory type the defender lacks. Four O(1) index reads.
+export const noWarIndustryEdgeForAttacker = (ctx: WeaponsFactoryMultContext, attackerOwnerId: string, defenderOwnerId: string | undefined): { mult: number; label: string | undefined } =>
+  defenderOwnerId ? warIndustryEdge("Target", warIndustryPresence(ctx, attackerOwnerId), warIndustryPresence(ctx, defenderOwnerId)) : { mult: 1, label: undefined };
+// Defense-side mirror (feeds noWarIndustryDefenseVulnerabilityMult/Label):
+// the defender owns a factory type the attacker lacks.
+export const noWarIndustryEdgeForDefender = (ctx: WeaponsFactoryMultContext, attackerOwnerId: string, defenderOwnerId: string | undefined): { mult: number; label: string | undefined } =>
+  defenderOwnerId ? warIndustryEdge("Attacker", warIndustryPresence(ctx, defenderOwnerId), warIndustryPresence(ctx, attackerOwnerId)) : { mult: 1, label: undefined };

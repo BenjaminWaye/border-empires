@@ -390,6 +390,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "More useful sync-delay debug logs",
     why: "Debug downloads could confirm delayed attacks but failed to collect the server evidence needed to explain them.",
     changes: ["Debug downloads now collect authenticated diagnostics for your own commands, actual network send timings, browser stalls, recent sync-warning windows and disconnect details."]
+  },
+  {
+    createdAt: 1792909218843, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "Weapons Factory bonus needs a factory",
+    why: "An empire with no Weapons Factories still got +100% attack against anyone missing one, which cancelled out the edge a real factory owner had over it.",
+    changes: [
+      "The +100% war-industry bonus now applies only for a Weapons Factory type you own and your opponent lacks",
+      "Its win-chance row names just those types, e.g. \"Attacker missing Titanium Weapons Factory\"",
+      "Two empires with no Weapons Factories get no bonus either way"
+    ]
   }
 ];
 

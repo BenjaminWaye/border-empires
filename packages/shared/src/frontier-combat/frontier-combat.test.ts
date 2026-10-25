@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { applyOddsScale, buildFrontierCombatPreview, commitOddsMultiplier, estimatedSettledAttackManpowerLoss, noWarIndustryLabel, rollFrontierCombat, shieldDefenseMultiplier } from "./frontier-combat.js";
+import { applyOddsScale, buildFrontierCombatPreview, commitOddsMultiplier, estimatedSettledAttackManpowerLoss, noWarIndustryLabel, rollFrontierCombat, shieldDefenseMultiplier, warIndustryEdge } from "./frontier-combat.js";
 
 describe("frontier combat", () => {
   it("builds preview values for a settled town target", () => {
@@ -220,6 +220,25 @@ describe("frontier combat", () => {
       { noWarIndustryDefenseVulnerabilityMult: 2.0 }
     );
     expect(defensePreview.defender.battle.find((e) => e.mult === 2.0)?.label).toBe("Attacker has no war industry");
+  });
+
+  describe("warIndustryEdge", () => {
+    const none = { titanium: false, umbrite: false };
+    const ti = { titanium: true, umbrite: false };
+    const um = { titanium: false, umbrite: true };
+    const both = { titanium: true, umbrite: true };
+    it("grants nothing for a type the holder doesn't own itself", () => {
+      expect(warIndustryEdge("Target", none, none)).toEqual({ mult: 1, label: undefined });
+      expect(warIndustryEdge("Target", none, ti)).toEqual({ mult: 1, label: undefined });
+      expect(warIndustryEdge("Target", ti, ti)).toEqual({ mult: 1, label: undefined });
+      expect(warIndustryEdge("Target", both, both)).toEqual({ mult: 1, label: undefined });
+    });
+    it("grants a flat 2x for owned types the other side lacks, naming only those", () => {
+      expect(warIndustryEdge("Attacker", ti, none)).toEqual({ mult: 2, label: "Attacker missing Titanium Weapons Factory" });
+      expect(warIndustryEdge("Target", um, ti)).toEqual({ mult: 2, label: "Target missing Umbrite Weapons Factory" });
+      expect(warIndustryEdge("Target", both, ti)).toEqual({ mult: 2, label: "Target missing Umbrite Weapons Factory" });
+      expect(warIndustryEdge("Target", both, none)).toEqual({ mult: 2, label: "Target missing Titanium & Umbrite Weapons Factory" });
+    });
   });
 
   describe("noWarIndustryLabel", () => {
