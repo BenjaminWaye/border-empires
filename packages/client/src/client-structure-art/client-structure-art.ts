@@ -38,8 +38,8 @@ const STRUCTURE_INFO_ART: Readonly<Record<string, string>> = {
   TITANIUM_LEVY: "/overlays/titanium-levy-overlay.svg",
   // Each of the 18 monument components gets its own distinct overlay,
   // named after the component (not the monument) since each is a unique
-  // structure now, not 3 identical copies of one "Part" icon. Aegis Dome and
-  // Titanium Levy components have no art yet, so their cards keep the glyph.
+  // structure now, not 3 identical copies of one "Part" icon. The district
+  // catalogue takes precedence and supplies all 18 preparations.
   IMPERIAL_EXCHANGE_PART_1: "/overlays/golden-ledger-overlay.svg",
   IMPERIAL_EXCHANGE_PART_2: "/overlays/counting-engine-overlay.svg",
   IMPERIAL_EXCHANGE_PART_3: "/overlays/sovereign-seal-overlay.svg",

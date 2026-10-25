@@ -10,7 +10,7 @@ export const buildIndustry = (t: TownBuilders, kind: string): boolean => {
       if (kind === "HIGH_YIELD_AETHER_CONDENSER") {
         for (const x of [-0.24, 0.24]) {
           t.body.cylinder(x, 0.02, -0.04, 0.03, 0.035, 0.24, "iron", 8);
-          t.body.ring(x, 0.24, -0.04, 0.036, "brass");
+          t.body.cylinder(x, 0.236, -0.04, 0.04, 0.04, 0.008, "brass", 8);
           t.glow.pipe(x, 0.06, -0.004, x, 0.23, -0.004, 0.005, "aether");
         }
       }

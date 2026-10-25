@@ -24,15 +24,19 @@ describe("complete district model coverage", () => {
   it.each(DISTRICT_BUILDING_KINDS)("keeps %s inside its tile and exports matching 2D art", kind => {
     const geometry = createDistrictGeometry(kind);
     expect(geometry.height).toBeGreaterThan(0.1);
-    expect(geometry.height).toBeLessThan(0.65);
+    expect(geometry.height).toBeLessThanOrEqual(0.6);
+    expect(Object.keys(geometry.layers).length).toBeLessThanOrEqual(6);
+    let triangles = 0;
     for (const [layer, mesh] of Object.entries(geometry.layers)) {
+      triangles += (mesh.index?.count ?? mesh.getAttribute("position").count) / 3;
       if (layer !== "halo" && layer !== "steam") {
         const bounds = mesh.boundingBox;
-        expect(Math.max(Math.abs(bounds?.min.x ?? 0), Math.abs(bounds?.max.x ?? 0)), `${kind}:${layer}:x`).toBeLessThan(0.5);
-        expect(Math.max(Math.abs(bounds?.min.z ?? 0), Math.abs(bounds?.max.z ?? 0)), `${kind}:${layer}:z`).toBeLessThan(0.5);
+        expect(Math.max(Math.abs(bounds?.min.x ?? 0), Math.abs(bounds?.max.x ?? 0)), `${kind}:${layer}:x`).toBeLessThanOrEqual(0.4);
+        expect(Math.max(Math.abs(bounds?.min.z ?? 0), Math.abs(bounds?.max.z ?? 0)), `${kind}:${layer}:z`).toBeLessThanOrEqual(0.4);
       }
       mesh.dispose();
     }
+    expect(triangles, `${kind}:triangle budget`).toBeLessThanOrEqual(3000);
     const svg = districtIconSvg(kind);
     const filename = `${kind.toLowerCase().replaceAll("_", "-")}.svg`;
     expect(readFileSync(new URL(`../../public/overlays/town-district/${filename}`, import.meta.url), "utf8")).toBe(svg);

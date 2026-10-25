@@ -101,13 +101,13 @@ export const condenser = (t: TownBuilders): void => {
   // the depot. Cyan is concentrated in the process machinery.
   const vessels = [[-0.11, 0, 0.085, 0.28], [0.11, 0.06, 0.065, 0.21], [0.08, -0.15, 0.055, 0.32]] as const;
   for (const [x, z, r, h] of vessels) {
-    t.body.cylinder(x, 0.008, z, r + 0.015, r + 0.025, 0.025, "stoneLight", 10);
-    t.body.cylinder(x, 0.033, z, r, r, h, "iron", 10);
-    for (const y of [0.05, h * 0.55, h + 0.015]) t.body.ring(x, y, z, r + 0.003, "brass", 0.06);
-    t.body.dome(x, h + 0.033, z, r, "graphite", 10, 0.5);
+    t.body.cylinder(x, 0.008, z, r + 0.015, r + 0.025, 0.025, "stoneLight", 8);
+    t.body.cylinder(x, 0.033, z, r, r, h, "iron", 8);
+    for (const y of [0.05, h + 0.015]) t.body.cylinder(x, y - 0.004, z, r + 0.009, r + 0.009, 0.008, "brass", 8);
+    t.body.dome(x, h + 0.033, z, r, "graphite", 8, 0.5);
     t.body.cylinder(x, h + 0.033 + r * 0.45, z, r * 0.25, r * 0.36, 0.025, "brass", 8);
-    for (let i = 0; i < 8; i += 1) {
-      const angle = i * Math.PI / 4;
+    for (let i = 0; i < 4; i += 1) {
+      const angle = i * Math.PI / 2;
       t.body.box(x + Math.sin(angle) * r, 0.05, z + Math.cos(angle) * r, 0.008, h * 0.88, 0.012, "brassDark", angle);
     }
     for (const side of [-1, 1]) {

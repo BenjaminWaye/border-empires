@@ -101,7 +101,9 @@ pnpm --filter @border-empires/storybook storybook:build
 
 The generator uses the installed Vite dependency, writes static SVGs under
 `packages/client/public/overlays/town-district/`, and removes its temporary
-bundle. The geometry test checks tile bounds, height bands and exact agreement
+bundle. It also writes measured vector crop bounds for build-menu and Manifest
+thumbnails, so the new art fills the existing slots. The geometry test checks
+tile bounds, the 3,000-triangle/six-layer budget, height bands and exact agreement
 between generated assets and the model source. Network tests cover both seams,
 second rings, hidden data, loss of town ownership and buried routes.
 
@@ -123,15 +125,17 @@ change; it does not represent a full game frame or physical mobile hardware.
 
 Local desktop sample, 2026-10-25 (millisecond timers are quantized):
 
-| Measurement | Existing models | District, full quality | District, reduced quality |
-|---|---:|---:|---:|
-| p95 completed frame, ms | 0.6 | 0.2 | 0.2 |
-| Draw calls | 200 | 107 | 80 |
-| Triangles | 31,260 | 76,916 | 73,636 |
-| Uploaded geometries | 267 | 105 | 78 |
-| Cold creation, ms | 9–15 | 35 | 35 |
+| Measurement | Existing, full | District, full | Existing, reduced | District, reduced |
+|---|---:|---:|---:|---:|
+| p95 completed frame, ms | 0.6 | 0.2 | 3.3 | 0.2 |
+| Draw calls | 200 | 107 | 200 | 80 |
+| Triangles | 31,260 | 74,856 | 31,260 | 71,576 |
+| Uploaded geometries | 267 | 105 | 267 | 78 |
+| Cold creation, ms | 10.0 | 42.2 | 14.8 | 34.1 |
 
-The sample passes the proposed desktop frame-regression gate. More triangles
+The samples pass the proposed desktop frame-regression gate. Baseline timings
+varied between runs on the shared desktop; these are local observations, not
+a device-independent speedup estimate. More triangles
 are offset by fewer draw calls, while cold creation costs more. Geometry is
 reused across subsequent rebuilds. Physical lower-end/mobile measurements and
 full-client build/remove lifecycle checks remain release validation work.
