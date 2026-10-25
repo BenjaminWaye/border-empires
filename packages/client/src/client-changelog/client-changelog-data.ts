@@ -475,6 +475,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Monumental Great Project models",
     why: "Completed Great Projects needed distinct, detailed models that visibly incorporate their commissioned components.",
     changes: ["All six completed Great Projects have new 3D models, matching foundations and specialized machinery: a financial rotunda, massive elevated Worldbreaker cannon with an armoured core housing, lattice shield, orbital cradle, census index and muster gate.", "Their 2D map artwork and menu icons are generated from the same models. The Census Directorate has an integrated crescent archive and an unlit crown, and the Titanium Levy has a military assembly hall and deployment court. Project abilities and costs are unchanged."]
+  },
+  {
+    createdAt: 1792967953137, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "New desktop HUD preview (opt-in)",
+    why: "The map screen is being redesigned; this first pass is opt-in so it can be tried without replacing the current HUD.",
+    changes: ["Add ?hud=v2 to the game URL on desktop to try it, and ?hud=legacy to switch back.", "Resources, slots and settings sit in one bar at the top, with your crest and panel buttons under it. A tracker on the left lists free build slots, AFC upgrades, muster flags and timers; click a row to jump to it.", "Truces and allies show top-right, the minimap moves bottom-left and manpower is an orb bottom-right. Selecting a tile shows its main actions at the bottom; Build, Aether and ⋯ open the full menu."]
   }
 ];
 

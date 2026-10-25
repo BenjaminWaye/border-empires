@@ -1,0 +1,199 @@
+/* Redesigned desktop HUD (flag-gated by body.hud-v2). Brass-on-ink to match
+   the existing steampunk chips; legacy chrome it replaces is hidden here. */
+
+#hud-v2 {
+  --v2-ink: rgba(12, 10, 8, 0.86);
+  --v2-ink-solid: #14110d;
+  --v2-brass: #c9a24a;
+  --v2-brass-dim: rgba(201, 162, 74, 0.45);
+  --v2-text: #f1e6cc;
+  --v2-muted: #b5a78a;
+  --v2-amber: #f2b33d;
+  --v2-danger: #e0634f;
+  --v2-good: #8fce7a;
+  --v2-aether: #7fd3e6;
+  display: none;
+  color: var(--v2-text);
+  font-variant-numeric: tabular-nums;
+}
+
+body.hud-v2 #hud-v2 { display: block; }
+body.hud-v2 #top-strip,
+body.hud-v2 #floating-info { display: none !important; }
+
+/* ---- Shared surfaces ---- */
+#hud-v2 button { font: inherit; color: inherit; cursor: pointer; }
+.hud-v2-bar,
+.hud-v2-season,
+.hud-v2-tracker,
+.hud-v2-tile {
+  background: var(--v2-ink);
+  border: 1px solid var(--v2-brass-dim);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 230, 170, 0.08);
+  backdrop-filter: blur(6px);
+}
+
+/* ---- Top-left: resource bar, crest + bubbles ---- */
+.hud-v2-top { position: fixed; top: 10px; left: 12px; z-index: 22; display: grid; gap: 8px; justify-items: start; }
+.hud-v2-bar { display: flex; align-items: stretch; gap: 2px; padding: 4px 6px; }
+.hud-v2-chip {
+  display: grid; grid-auto-flow: column; align-items: baseline; gap: 4px;
+  padding: 4px 9px; border: 0; border-radius: 8px; background: transparent;
+}
+.hud-v2-chip:hover, .hud-v2-chip:focus-visible { background: rgba(201, 162, 74, 0.14); outline: none; }
+.hud-v2-chip-label { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--v2-muted); }
+.hud-v2-chip-value { font-size: 15px; font-weight: 700; }
+.hud-v2-chip-of { font-size: 13px; color: var(--v2-muted); }
+.hud-v2-chip-rate { font-size: 12px; color: var(--v2-good); }
+.hud-v2-over { font-size: 15px; font-weight: 800; color: var(--v2-amber); }
+.hud-v2-sep { width: 1px; margin: 4px 4px; background: var(--v2-brass-dim); }
+.hud-v2-gear {
+  margin-left: 4px; width: 32px; border: 0; border-radius: 8px; background: transparent;
+  font-size: 17px; color: var(--v2-brass);
+}
+.hud-v2-gear:hover { background: rgba(201, 162, 74, 0.18); }
+
+.hud-v2-nav { display: flex; align-items: center; gap: 8px; }
+.hud-v2-crest {
+  width: 52px; height: 52px; padding: 3px; border: 2px solid var(--v2-brass); border-radius: 50%;
+  background: var(--v2-ink-solid); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+.hud-v2-crest-mark {
+  display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%;
+  font-weight: 800; font-size: 20px; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+.hud-v2-bubbles { display: flex; gap: 6px; }
+.hud-v2-bubble {
+  position: relative; display: grid; place-items: center; width: 40px; height: 40px; padding: 0;
+  border: 1px solid var(--v2-brass-dim); border-radius: 50%; background: var(--v2-ink);
+}
+.hud-v2-bubble:hover, .hud-v2-bubble:focus-visible { border-color: var(--v2-brass); outline: none; }
+.hud-v2-bubble-active { border-color: var(--v2-brass); box-shadow: 0 0 0 2px rgba(201, 162, 74, 0.35); }
+.hud-v2-bubble .tab-icon-img { width: 24px; height: 24px; }
+.hud-v2-bubble-badge {
+  position: absolute; top: -3px; right: -3px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px;
+  background: var(--v2-amber); color: #1a1206; font-size: 10px; font-weight: 800; line-height: 16px;
+}
+.hud-v2-bubble-label {
+  position: absolute; top: 44px; left: 50%; transform: translateX(-50%); padding: 2px 6px; border-radius: 4px;
+  background: var(--v2-ink-solid); font-size: 11px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.12s;
+}
+.hud-v2-bubble:hover .hud-v2-bubble-label, .hud-v2-bubble:focus-visible .hud-v2-bubble-label { opacity: 1; }
+
+/* ---- Top-right: season line + rivals ---- */
+.hud-v2-right { position: fixed; top: 10px; right: 12px; z-index: 21; display: grid; gap: 8px; justify-items: end; max-width: 320px; }
+.hud-v2-season { display: grid; gap: 2px; padding: 7px 12px; text-align: right; }
+.hud-v2-season-title { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--v2-brass); }
+.hud-v2-season-line { font-size: 13px; color: var(--v2-muted); }
+.hud-v2-season-holding { color: var(--v2-amber); }
+.hud-v2-rivals { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.hud-v2-rival {
+  display: grid; grid-template-columns: auto auto; grid-template-rows: auto auto; column-gap: 6px; align-items: center;
+  padding: 4px 8px 4px 4px; border: 1px solid var(--v2-brass-dim); border-radius: 18px; background: var(--v2-ink); text-align: left;
+}
+.hud-v2-rival:hover { border-color: var(--v2-brass); }
+.hud-v2-rival-token {
+  position: relative; grid-row: 1 / span 2; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+  font-weight: 800; font-size: 13px; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+.hud-v2-rival-badge {
+  position: absolute; right: -4px; bottom: -4px; display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%;
+  background: var(--v2-ink-solid); border: 1px solid var(--v2-brass);
+}
+.hud-v2-rival-badge svg { fill: none; stroke: var(--v2-text); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.hud-v2-rival-name { font-size: 12px; font-weight: 700; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hud-v2-rival-stance { font-size: 10px; letter-spacing: 0.06em; color: var(--v2-muted); }
+.hud-v2-rival-truce .hud-v2-rival-stance { color: var(--v2-amber); }
+.hud-v2-rival-ally .hud-v2-rival-stance { color: var(--v2-good); }
+.hud-v2-rival-more {
+  min-width: 36px; height: 38px; padding: 0 10px; border: 1px solid var(--v2-brass-dim); border-radius: 18px;
+  background: var(--v2-ink); font-weight: 700; color: var(--v2-brass);
+}
+
+/* ---- Left: tracker ---- */
+.hud-v2-tracker {
+  position: fixed; top: 132px; left: 12px; z-index: 20; width: 268px; max-height: calc(100vh - 132px - 300px);
+  overflow-y: auto; display: grid; gap: 2px; padding: 6px;
+}
+.hud-v2-tracker:empty { display: none; }
+.hud-v2-tracker-head {
+  padding: 6px 6px 3px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--v2-brass);
+}
+.hud-v2-tracker-head-needs { color: var(--v2-amber); }
+.hud-v2-tracker-row {
+  display: grid; gap: 3px; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; text-align: left;
+}
+.hud-v2-tracker-row:hover, .hud-v2-tracker-row:focus-visible { background: rgba(201, 162, 74, 0.12); outline: none; }
+.hud-v2-tracker-title { display: flex; gap: 4px; align-items: baseline; font-size: 13px; }
+.hud-v2-tracker-amt { margin-left: auto; color: var(--v2-muted); font-size: 12px; }
+.hud-v2-tracker-sub { font-size: 12px; color: var(--v2-muted); }
+.hud-v2-need-flag .hud-v2-tracker-sub { color: var(--v2-amber); }
+.hud-v2-tracker-bar { height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.hud-v2-tracker-bar > span { display: block; height: 100%; background: var(--v2-brass); }
+.hud-v2-tracker-timed { grid-template-columns: 1fr auto; align-items: baseline; }
+.hud-v2-tracker-time { font-size: 12px; color: var(--v2-brass); }
+.hud-v2-tracker-more { padding: 2px 8px 6px; font-size: 12px; color: var(--v2-muted); }
+
+/* ---- Bottom-left: minimap moves here ---- */
+body.hud-v2 #mini-map-wrap { left: 12px !important; right: auto !important; bottom: 12px; width: 200px; }
+body.hud-v2 #mini-map { width: 200px; height: 200px; }
+/* The new-empire checklist launcher measures the legacy info block (hidden here), so pin it above the minimap. */
+body.hud-v2 .onb-root { bottom: 262px !important; }
+
+/* ---- Bottom-centre: tile panel + action bar ---- */
+.hud-v2-tile {
+  position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 24;
+  width: min(660px, calc(100vw - 460px)); display: grid; gap: 8px; padding: 10px 12px;
+}
+.hud-v2-tile[hidden] { display: none; }
+.hud-v2-tile-head { display: flex; align-items: center; gap: 10px; }
+.hud-v2-tile-text { display: grid; gap: 1px; min-width: 0; flex: 1; }
+.hud-v2-tile-title { font-size: 15px; font-weight: 800; }
+.hud-v2-tile-sub { font-size: 12px; color: var(--v2-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hud-v2-tile-sub [data-player-name-id] { color: var(--v2-text); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.hud-v2-tile-status { font-size: 12px; padding: 2px 8px; border-radius: 10px; background: rgba(255, 255, 255, 0.08); }
+.hud-v2-tile-status-warning { color: var(--v2-amber); }
+.hud-v2-tile-close { width: 26px; height: 26px; border: 0; border-radius: 6px; background: transparent; color: var(--v2-muted); }
+.hud-v2-tile-close:hover { background: rgba(255, 255, 255, 0.08); color: var(--v2-text); }
+.hud-v2-act-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.hud-v2-act {
+  display: grid; gap: 1px; justify-items: center; min-width: 92px; padding: 7px 14px;
+  border: 1px solid var(--v2-brass-dim); border-radius: 9px; background: rgba(40, 32, 20, 0.85);
+}
+.hud-v2-act:hover:not(:disabled) { border-color: var(--v2-brass); background: rgba(70, 54, 28, 0.9); }
+.hud-v2-act-label { font-size: 13px; font-weight: 700; }
+.hud-v2-act-cost { font-size: 11px; color: var(--v2-muted); }
+.hud-v2-act-primary { background: linear-gradient(180deg, #d9b25a, #a8812f); border-color: #f0cf82; color: #1c1406; }
+.hud-v2-act-primary .hud-v2-act-cost { color: rgba(28, 20, 6, 0.75); }
+.hud-v2-act-primary:hover:not(:disabled) { background: linear-gradient(180deg, #e8c46d, #b88f38); }
+.hud-v2-act-disabled { opacity: 0.5; cursor: not-allowed !important; }
+.hud-v2-act-aether { border-color: rgba(127, 211, 230, 0.5); color: var(--v2-aether); }
+.hud-v2-act-more { min-width: 44px; font-size: 16px; font-weight: 800; }
+.hud-v2-tile .tile-auto-settle-option { font-size: 12px; color: var(--v2-muted); }
+
+/* The floating menu is hidden while docked; Build / Aether / ⋯ expand it as a right-hand sidebar. */
+body.hud-v2 #tile-action-menu.hud-v2-docked:not(.hud-v2-expanded) { display: none !important; }
+body.hud-v2 #tile-action-menu.hud-v2-docked.hud-v2-expanded {
+  left: auto !important; right: 12px; top: 120px !important; bottom: 186px; width: 348px !important; overflow-y: auto; z-index: 26;
+}
+body.hud-v2 #side-panel { top: 120px; bottom: 186px; }
+
+/* ---- Bottom-right: manpower orb ---- */
+.hud-v2-orb-slot { position: fixed; right: 14px; bottom: 12px; z-index: 22; }
+.hud-v2-orb { position: relative; display: block; width: 160px; height: 160px; padding: 0; border: 0; border-radius: 50%; background: transparent; }
+.hud-v2-orb svg { position: absolute; inset: 0; width: 100%; height: 100%; filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.55)); }
+.hud-v2-orb-rim { fill: #2a2117; stroke: var(--v2-brass); stroke-width: 4; }
+.hud-v2-orb-glass { fill: #0d0b09; }
+.hud-v2-orb-liquid { fill: #a8362b; transition: d 0.6s ease; }
+.hud-v2-orb-ring { fill: none; stroke: rgba(255, 220, 160, 0.25); stroke-width: 2; }
+.hud-v2-orb-empty .hud-v2-orb-rim { stroke: var(--v2-danger); }
+.hud-v2-orb-text {
+  position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+.hud-v2-orb-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--v2-muted); }
+.hud-v2-orb-value { font-size: 26px; font-weight: 800; line-height: 1.05; }
+.hud-v2-orb-cap { font-size: 12px; color: var(--v2-muted); }
+.hud-v2-orb-refill { margin-top: 2px; font-size: 11px; color: var(--v2-brass); }
+.hud-v2-orb:focus-visible { outline: 2px solid var(--v2-brass); outline-offset: 3px; }
