@@ -440,6 +440,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Distinct advanced support structures",
     why: "Similar building shapes made support structures hard to identify at a glance.",
     changes: ["Support structures now have distinct silhouettes and specialized machinery, with refined metal, ceramic and aether details suited to the Empire’s advanced technology.", "High-yield plants have larger signature assemblies, and map and menu artwork match the new models."]
+  },
+  {
+    createdAt: 1792931842668, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "Correct population-building descriptions",
+    why: "Incubation Engine information still described a retired food effect, while Census Hall listed an outdated growth bonus.",
+    changes: ["Incubation Engine now correctly states +10,000 population on completion and +10% ongoing growth. Census Hall describes its population-capacity and town-upgrade benefits. These descriptions use the same shared constants as the game rules."]
   }
 ];
 

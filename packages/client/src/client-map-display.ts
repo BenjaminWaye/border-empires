@@ -1,3 +1,4 @@
+import { populationStructureInfoView } from "./client-population-structure-info/client-population-structure-info.js";
 import {
   TILE_SLOT_BOOST_STRUCTURES, HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS,
   economicStructureBuildDurationMs, type SlotStructureType
@@ -367,26 +368,8 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "INCUBATION_ENGINE") {
-    return structure({
-      title: "Incubation Engine",
-      detail: "Incubation Engines are built on a town support tile. They strengthen nearby Hydrogardens within 10 tiles and reduce the supported town's food upkeep.",
-      glyph: "🍞",
-      placement: "Build on an open garrisoned support tile for a town you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  }
-  if (type === "CENSUS_HALL") {
-    return structure({
-      title: "Census Hall",
-      detail: "Census Halls are built on a town support tile. They add +25% local population growth.",
-      glyph: "⌘",
-      placement: "Build on an open garrisoned support tile for a town you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  }
+  const populationInfo = populationStructureInfoView(type, { structure, imageFor, costBitsFor, buildTimeLabelFor });
+  if (populationInfo) return populationInfo;
   if (type === "CLEARING_HOUSE") {
     return structure({
       title: "Clearing House",

@@ -185,7 +185,7 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
    * specifically on FOOD (Runtime.foodDormantEconomicStructureKeysForPlayer)
    * — feeds food-slot-relief.ts's chooseFoodConsumingStructureToDisable, the
    * FREE_FOOD_SLOT decision class's fallback disable target when FOOD slots
-   * are fully exhausted, no HYDROGARDEN/HYDROWORKS/INCUBATION_ENGINE build can grow
+   * are fully exhausted, no HYDROGARDEN/HYDROWORKS build can grow
    * supply, and no RELAY_BEACON exists to disable instead. Preferred when
    * present, but no longer required — see that function's doc comment.
    */
