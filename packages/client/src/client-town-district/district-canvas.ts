@@ -6,7 +6,7 @@ import type { Tile, TileVisibilityState } from "../client-types.js";
 import { townSupportPlotMapFor2D } from "../client-town-support-plot-lookup.js";
 import { toroidDelta } from "../client-map-3d-pointer-pick.js";
 import { buildDistrictNetwork, districtRecord, type DistrictEdge } from "./district-network.js";
-import { isDistrictBuilding } from "./district-catalog.js";
+import { isDistrictBuilding, isDistrictProject } from "./district-catalog.js";
 
 type CanvasDeps = {
   readonly state: Pick<ClientState, "tiles" | "tilesRevision" | "selected" | "me" | "dormantStructures" | "camX" | "camY">;
@@ -33,7 +33,7 @@ export const createDistrictCanvas = (deps: CanvasDeps): {
       const plots = townSupportPlotMapFor2D(selected, { tiles: state.tiles, wrapX, wrapY, keyFor: (x, y) => `${x},${y}`, terrainAt: deps.terrainAt, me: state.me });
       for (const key of plots.keys()) {
         const tile = state.tiles.get(key);
-        if (isDistrictBuilding(tile?.economicStructure?.type)) plots.delete(key);
+        if (isDistrictBuilding(tile?.economicStructure?.type) || isDistrictProject(tile?.economicStructure?.type)) plots.delete(key);
       }
       return plots;
     },

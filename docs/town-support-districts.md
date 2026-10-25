@@ -10,7 +10,7 @@ Town-support buildings share octagonal marble foundations, dark iron and
 stone, aged brass, warm windows and stable edge service sockets. The client
 catalogue contains 43 remodeled types: 17 ordinary support structures, 18
 Great Project preparations, six general utilities and two retired saved
-structures. Completed Great Projects retain their monumental models and
+structures. Completed Great Projects use the [monument model kit](monument-models.md) and
 participate through service endpoints; fortifications retain their models.
 
 The approved merge scope preserves the existing Fort, Relay Beacon, Aether

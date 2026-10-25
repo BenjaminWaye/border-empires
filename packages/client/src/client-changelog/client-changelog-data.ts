@@ -468,6 +468,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Clearer support connections and converter information",
     why: "Hidden connections could leave stray posts, and converter help omitted Sell Off rates and its mode-change lock.",
     changes: ["Hidden and unselected buried service connections now hide their posts as well as their pipes.", "Converter building information shows the current Sell Off Coin/day return and mode-change cooldown from the game rules."]
+  },
+  {
+    createdAt: 1792960254810, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "Monumental Great Project models",
+    why: "Completed Great Projects needed distinct, detailed models that visibly incorporate their commissioned components.",
+    changes: ["All six completed Great Projects have new 3D models, matching foundations and specialized machinery: a financial rotunda, massive elevated Worldbreaker cannon with an armoured core housing, lattice shield, orbital cradle, census index and muster gate.", "Their 2D map artwork and menu icons are generated from the same models. The Census Directorate has an integrated crescent archive and an unlit crown, and the Titanium Levy has a military assembly hall and deployment court. Project abilities and costs are unchanged."]
   }
 ];
 

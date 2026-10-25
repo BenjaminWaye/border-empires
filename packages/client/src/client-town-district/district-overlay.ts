@@ -2,12 +2,12 @@ import { InstancedBufferAttribute, InstancedMesh, Matrix4, Quaternion, Vector3, 
 import { tickTownTime } from "../client-map-3d-town-overlay/town-animation-shaders.js";
 import { createLazyConstructionPresentation } from "../client-map-3d-construction/client-map-3d-construction-presentation.js";
 import { CONSTRUCTION_PHASES, type ConstructionSite } from "../client-construction-phase/client-construction-phase.js";
-import { DISTRICT_BASE_LIFT, type DistrictBuildingKind } from "./district-catalog.js";
+import { DISTRICT_BASE_LIFT, isDistrictProject, type DistrictVisualKind } from "./district-catalog.js";
 import { createDistrictGeometry, DISTRICT_LAYERS, type DistrictGeometry } from "./district-geometry.js";
 import { createDistrictMaterials } from "./district-materials.js";
 
 type Placement = {
-  readonly x: number; readonly y: number; readonly z: number; readonly kind?: DistrictBuildingKind; readonly scale?: number;
+  readonly x: number; readonly y: number; readonly z: number; readonly kind?: DistrictVisualKind; readonly scale?: number;
   readonly operational: boolean; readonly foundation: boolean; readonly site?: ConstructionSite;
 };
 type Slot = { readonly meshes: readonly InstancedMesh[]; readonly geometry: DistrictGeometry; readonly states: InstancedBufferAttribute; readonly capacity: number };
@@ -53,10 +53,12 @@ export const createDistrictOverlay = (scene: Scene, maxTiles: number, envMap?: T
       const geo = geometry.layers[layer];
       if (!geo) continue;
       geo.setAttribute("districtState", states);
-      const mesh = new InstancedMesh(geo, materials.layers[layer], capacity);
+      const shield = first.kind === "AEGIS_DOME" && layer === "glass";
+      const material = shield ? materials.shieldGlass : isDistrictProject(first.kind) && layer === "metal" ? materials.monumentMetal : materials.layers[layer];
+      const mesh = new InstancedMesh(geo, material, capacity);
       mesh.name = `town-district-${key}-${layer}`;
       mesh.frustumCulled = false;
-      mesh.castShadow = layer === "body" || layer === "metal" || layer === "glass" || layer === "plinth";
+      mesh.castShadow = !shield && (layer === "body" || layer === "metal" || layer === "glass" || layer === "plinth");
       mesh.receiveShadow = mesh.castShadow;
       mesh.customDepthMaterial = materials.depth;
       mesh.onBeforeRender = tickTownTime;

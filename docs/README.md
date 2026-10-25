@@ -38,6 +38,7 @@ remain authoritative for runtime behavior.
 | Storybook cleanup: what was removed, the new layout and guardrails | [`storybook-cleanup-plan.md`](storybook-cleanup-plan.md) |
 | Current manpower and resource-slot rules | [`product/resource-and-manpower-economy.md`](product/resource-and-manpower-economy.md) |
 | Starter-site contract and new-player guidance | [`product/new-player-opening.md`](product/new-player-opening.md) |
+| Completed Great Project models and matching 2D artwork | [`monument-models.md`](monument-models.md) |
 | Adding a structure | [`adding-a-structure-playbook.md`](adding-a-structure-playbook.md) |
 | Relic redesign: execution stages, finite reserves and depleted map state | [`relics-execution-plan.md`](relics-execution-plan.md) |
 | Accepted relic ziggurat: visual references and implementation history | [`relic-overlay-preview.md`](relic-overlay-preview.md) |

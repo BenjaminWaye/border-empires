@@ -3,7 +3,8 @@ import {
   createRoutedTownBuilder, createTownMeshBuilder, createTownRandom
 } from "../client-map-3d-town-overlay/town-mesh-builder.js";
 import type { TownBuilders } from "../client-map-3d-town-overlay/town-parts.js";
-import type { DistrictBuildingKind } from "./district-catalog.js";
+import { isDistrictProject, type DistrictVisualKind } from "./district-catalog.js";
+import { buildMonument } from "../client-monuments/monument-models.js";
 import { buildSupportFoundation } from "./support-model-core.js";
 import { buildIndustry } from "./support-model-industry.js";
 import { buildProjectPart } from "./support-model-projects.js";
@@ -16,15 +17,16 @@ export type DistrictGeometry = {
   readonly height: number;
 };
 
-export const buildDistrictModel = (t: TownBuilders, kind: DistrictBuildingKind, foundation = true): void => {
+export const buildDistrictModel = (t: TownBuilders, kind: DistrictVisualKind, foundation = true): void => {
   if (foundation) buildSupportFoundation(t);
+  if (isDistrictProject(kind)) { buildMonument(t, kind); return; }
   if (buildIndustry(t, kind) || buildProjectPart(t, kind) || buildUtility(t, kind)) return;
   throw new Error(`Missing district model: ${kind}`);
 };
 
 // The caller owns this geometry. Live overlays cache only the finite catalogue
 // and instance it; gallery/icon generation uses exactly the same model source.
-export const createDistrictGeometry = (kind: DistrictBuildingKind | undefined, foundation = true): DistrictGeometry => {
+export const createDistrictGeometry = (kind: DistrictVisualKind | undefined, foundation = true): DistrictGeometry => {
   const matte = createTownMeshBuilder({ occlusion: true, weathering: 0.1 });
   const metal = createTownMeshBuilder({ occlusion: true });
   const glass = createTownMeshBuilder({ occlusion: true, sheen: 0.35 });
