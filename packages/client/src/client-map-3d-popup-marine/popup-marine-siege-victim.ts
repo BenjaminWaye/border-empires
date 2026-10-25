@@ -77,7 +77,7 @@ export const battleSiegeVictim = (
   return { index, deathAtMs: b.clashAt };
 };
 
-// A small window (matching DEATH_FADE_T's real duration, ~0.16 * CLASH_MS)
+// A small window (about the first quarter of the victim's DEATH_FALL_MS fall)
 // rather than a single exact frame, so a slow tick or a backgrounded tab
 // doesn't skip the beam entirely for landing a frame late.
 const SIEGE_KILL_FIRE_WINDOW_MS = 220;

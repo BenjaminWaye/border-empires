@@ -338,6 +338,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Soldiers in heavy armour now stand, run, march and kneel with the same poses and arm positions as standard soldiers",
       "This is cosmetic and only shows on the 3D map"
     ]
+  },
+  {
+    createdAt: 1792909803859, // Frozen Date.now() timestamp for the changelog gate.
+    introducedIn: "2026.10.24.3",
+    title: "Soldiers killed in battle now fall properly",
+    why: "A soldier killed in a 3D battle was tipped over whole and shrunk, so they sank into a small bundle on the ground instead of falling.",
+    changes: [
+      "Killed soldiers, in standard or heavy armour, now play a real fall and lie full size on the battlefield",
+      "This is cosmetic and only shows on the 3D map"
+    ]
   }
 ];
 

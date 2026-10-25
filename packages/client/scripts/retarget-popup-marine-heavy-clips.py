@@ -27,8 +27,16 @@
 # on the clip's full-length frame times, because the old bake stored bones it
 # saw as unmoving as 2-key tracks that cannot hold a per-frame result.
 #
+# The old bake also never copied the Dead clip the battle overlay plays for a
+# killed marine (popup-marine-slot.ts), so ADDED_CLIPS are created from scratch
+# -- a rotation track per bone plus the Hips translation, on the standard
+# clip's own frame times -- and then filled by the same re-targeting loop.
+#
 # Run: python3 -I retarget-popup-marine-heavy-clips.py \
 #        <popup-marine-titan-24bone.glb> <heavy-in.glb> <heavy-out.glb>
+# where heavy-in is the bake's original output (git history), not an already
+# re-targeted .glb -- re-running on its own output leaves the replaced tracks
+# behind as dead weight in the file.
 import json
 import struct
 import sys
@@ -54,20 +62,26 @@ def read_accessor(data, doc, bin_off, index):
 
 
 def append_accessor(rig, values):
-    """Adds `values` (N x 3 or N x 4 floats) to the end of the binary chunk as
-    a new bufferView + accessor and returns the accessor's index."""
+    """Adds `values` (N x 1, N x 3 or N x 4 floats) to the end of the binary
+    chunk as a new bufferView + accessor and returns the accessor's index."""
     raw = values.astype("<f4").tobytes()
     rig.extra += b"\0" * (-len(rig.extra) % 4)
     view = {"buffer": 0, "byteOffset": rig.bin_len + len(rig.extra), "byteLength": len(raw)}
     rig.extra += raw
     rig.doc["bufferViews"].append(view)
-    rig.doc["accessors"].append({
+    accessor = {
         "bufferView": len(rig.doc["bufferViews"]) - 1,
         "componentType": 5126,
         "count": len(values),
-        "type": "VEC4" if values.shape[1] == 4 else "VEC3",
-    })
-    return len(rig.doc["accessors"]) - 1
+        "type": {1: "SCALAR", 3: "VEC3", 4: "VEC4"}[values.shape[1]],
+    }
+    if values.shape[1] == 1:  # keyframe times: glTF requires their bounds
+        accessor["min"] = [float(values.min())]
+        accessor["max"] = [float(values.max())]
+    rig.doc["accessors"].append(accessor)
+    index = len(rig.doc["accessors"]) - 1
+    rig.appended[index] = values
+    return index
 
 
 # Quaternions are xyzw, like glTF.
@@ -123,6 +137,9 @@ class Rig:
         self.data, self.doc, self.bin_off = load_glb(path)
         self.bin_len = struct.unpack("<I", self.data[self.bin_off - 8:self.bin_off - 4])[0]
         self.extra = b""
+        # Accessors added this run (index -> values), which live in `extra`
+        # rather than `data` -- see read().
+        self.appended = {}
         nodes = self.doc["nodes"]
         self.by_name = {n.get("name"): i for i, n in enumerate(nodes)}
         self.parent = {}
@@ -156,6 +173,12 @@ class Rig:
         for c in reversed(chain):
             q = qmul(q, local[c])
         return q
+
+    def read(self, index):
+        """An accessor's values, including one appended this run."""
+        if index in self.appended:
+            return self.appended[index]
+        return read_accessor(self.data, self.doc, self.bin_off, index)
 
     def clip(self, name):
         return next(a for a in self.doc["animations"] if a["name"] == name)
@@ -192,8 +215,27 @@ def sample_vec(rig, track, t):
     return vals[i] * (1 - f) + vals[i + 1] * f
 
 
+ADDED_CLIPS = ["Dead"]
+
+
+def add_clip(std, hv, name):
+    """Appends an empty heavy-rig clip `name` -- a rotation track per bone and
+    the Hips translation, on the standard clip's frame times -- for main()'s
+    loop to fill like any other clip."""
+    s_pos = std.tracks(std.clip(name), "translation")
+    times = append_accessor(hv, std.read(s_pos[std.hips][0]))
+    channels, samplers = [], []
+    for node, path in [(n, "rotation") for n in hv.order] + [(hv.hips, "translation")]:
+        samplers.append({"input": times, "output": None, "interpolation": "LINEAR"})
+        channels.append({"sampler": len(samplers) - 1, "target": {"node": node, "path": path}})
+    hv.doc["animations"].append({"name": name, "channels": channels, "samplers": samplers})
+
+
 def main(std_path, heavy_in, heavy_out):
     std, hv = Rig(std_path), Rig(heavy_in)
+    for name in ADDED_CLIPS:
+        if not any(a["name"] == name for a in hv.doc["animations"]):
+            add_clip(std, hv, name)
     # World-space hip height ratio (rig scales differ too).
     std_h = std.rest_pos[std.hips][1] * std.armature_scale
     hv_h = hv.rest_pos[hv.hips][1] * hv.armature_scale
@@ -217,7 +259,7 @@ def main(std_path, heavy_in, heavy_out):
         std_clip = std.clip(name)
         s_rot, s_pos = std.tracks(std_clip, "rotation"), std.tracks(std_clip, "translation")
         h_rot, h_pos = hv.tracks(hv_clip, "rotation"), hv.tracks(hv_clip, "translation")
-        times = read_accessor(hv.data, hv.doc, hv.bin_off, h_rot[hv.hips][0])[:, 0]
+        times = hv.read(h_rot[hv.hips][0])[:, 0]
         frames = {n: np.zeros((len(times), 4)) for n in hv.order}
         hips_t = np.zeros((len(times), 3))
         std_hips_rest_t = std.rest_pos[std.hips]

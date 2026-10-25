@@ -9,8 +9,8 @@
 // Walking/Running/Dead clips plus Mixamo PistolIdle / PistolKneelingIdle /
 // PistolRun / PistolWalk clips.
 //
-// The battle overlay plays PistolRun/PistolIdle/PistolKneelingIdle through
-// an AnimationMixer per marine (popup-marine-overlay-fx.ts) instead of
+// The battle overlay plays PistolRun/PistolIdle/PistolKneelingIdle (and Dead
+// for a killed marine) through an AnimationMixer per marine (popup-marine-overlay-fx.ts) instead of
 // rotating bones by hand, so the squad's motion is authored animation
 // rather than tuned constants. Which clip a marine should be in at a given
 // moment is still decided by the deterministic timeline (MarinePose.stance),
@@ -55,11 +55,14 @@ const MODEL_URL_BY_KEY: Record<MarineModelKey, string> = {
 export const POPUP_MARINE_FALLBACK_MODEL_URL = "/models/popup-marine.glb";
 export const POPUP_MARINE_PREVIOUS_MESHY_MODEL_URL = "/models/popup-marine-meshy.glb";
 
-/** Clip names baked into the active model by the bake script. */
+/** Clip names baked into the active model by the bake script. `dead` is the
+ * fall a killed marine plays (popup-marine-slot.ts) — every model must carry
+ * it, the heavy armour's via retarget-popup-marine-heavy-clips.py. */
 export const MARINE_CLIP_NAMES = {
   run: "PistolRun",
   stand: "PistolIdle",
-  kneel: "PistolKneelingIdle"
+  kneel: "PistolKneelingIdle",
+  dead: "Dead"
 } as const;
 
 export type PopupMarineTemplate = {
