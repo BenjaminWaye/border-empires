@@ -10,13 +10,13 @@ import { createStage, wrapWithCleanup } from "../../../fixtures/three-stage.js";
 // Every clip baked into the shipped 24-bone rigs -- the standard Titan
 // Vanguard and the Titanium Weapons Factory heavy armour -- driven through a
 // real AnimationMixer so each captured animation can be reviewed on its own,
-// side by side. The heavy model ships only the Pistol* clips, so Walking /
-// Running / Dead play on the standard marine alone.
+// side by side. The heavy model ships only the Pistol* clips and Dead, so
+// Walking / Running play on the standard marine alone.
 const MODEL_URLS = { standard: ACTIVE_POPUP_MARINE_MODEL_URL, heavy: HEAVY_POPUP_MARINE_MODEL_URL } as const;
 type ModelChoice = keyof typeof MODEL_URLS;
 // Not a clip: no action plays, so each model shows the pose it was bound in.
 const REST_POSE = "Rest pose";
-const CLIP_NAMES = ["Walking", "Running", "Dead", "PistolIdle", "PistolKneelingIdle", "PistolRun"] as const;
+const CLIP_NAMES = ["Walking", "Running", "Dead", "PistolIdle", "PistolKneelingIdle", "PistolRun", "PistolWalk"] as const;
 
 const styleButton = (el: HTMLElement, active = false): void => {
   el.style.padding = "8px 12px";

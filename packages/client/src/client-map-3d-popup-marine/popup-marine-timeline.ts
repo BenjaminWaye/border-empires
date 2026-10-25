@@ -66,7 +66,7 @@ export type DeathKit = { roll: number; at: number };
 
 // Overall marine model scale multiplier — applied both to the rendered mesh
 // (see MARINE_MODEL_SCALE's use in popup-marine-overlay-fx.ts's
-// slot.mesh.scale, and its CROUCH_DROP/FALL_DROP/FLASH_SIZE) and to the
+// slot.mesh.scale, and its FLASH_SIZE) and to the
 // spacing constants below, so the squad's formation footprint grows in
 // lockstep with the model instead of the marines outgrowing their own
 // slots and fusing together.

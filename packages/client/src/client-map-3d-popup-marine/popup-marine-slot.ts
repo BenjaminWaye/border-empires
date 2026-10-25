@@ -15,9 +15,14 @@ const HAND_BONE_NAME = "RightHand";
 // The part of the Dead clip a killed marine plays, in clip seconds: the clip
 // opens with ~1s of stagger (hit, recoil, straighten up) before the actual
 // fall, and lies still after ~2s. A fall in the timeline (MarinePose.fallT
-// 0 -> 1) runs through just this window.
-const DEAD_FALL_START_S = 1.0;
+// 0 -> 1) runs through just this window. A kneeling marine joins it later, at
+// ~1.2s, where the clip's hips have already dropped to kneeling height, so it
+// doesn't pop up into the stagger's standing pose first.
+const DEAD_FALL_START_S: Record<MarineStance, number> = { run: 1.0, stand: 1.0, kneel: 1.2 };
 const DEAD_FALL_END_S = 2.0;
+// Share of the fall over which the firing clip cross-fades into the Dead clip,
+// so the fall's first frame doesn't snap the body (and rifle) into a new pose.
+const DEAD_BLEND_T = 0.2;
 
 export type MarineSlot = {
   /** Whole cloned model root — the asset carries its scale on its own root
@@ -97,18 +102,21 @@ export const disposeMarineSlot = (scene: Scene, slot: MarineSlot): void => {
  * rejoin lands on the same frame of the same loop instead of wherever a
  * stateful playhead happened to drift to — the same
  * pure-function-of-the-clock rule the rest of the overlay follows. A falling
- * marine (fallT > 0) plays the Dead clip instead, its time set by fallT the
+ * marine (fallT > 0) blends into the Dead clip, its time set by fallT the
  * same way, so a scrub lands mid-fall rather than restarting it. */
 export const playMarineStance = (slot: MarineSlot, stance: MarineStance, nowMs: number, fallT = 0): void => {
-  const falling = fallT > 0;
-  slot.deadAction.enabled = falling;
-  slot.deadAction.setEffectiveWeight(falling ? 1 : 0);
-  if (falling) slot.deadAction.time = DEAD_FALL_START_S + Math.min(1, fallT) * (DEAD_FALL_END_S - DEAD_FALL_START_S);
+  const deadWeight = Math.min(1, Math.max(0, fallT) / DEAD_BLEND_T);
+  slot.deadAction.enabled = deadWeight > 0;
+  slot.deadAction.setEffectiveWeight(deadWeight);
+  if (deadWeight > 0) {
+    const start = DEAD_FALL_START_S[stance];
+    slot.deadAction.time = start + Math.min(1, fallT) * (DEAD_FALL_END_S - start);
+  }
   for (const name of ["run", "stand", "kneel"] as const) {
     const action = slot.actions[name];
-    const live = !falling && name === stance;
+    const live = name === stance && deadWeight < 1;
     action.enabled = live;
-    action.setEffectiveWeight(live ? 1 : 0);
+    action.setEffectiveWeight(live ? 1 - deadWeight : 0);
     if (!live) continue;
     const duration = action.getClip().duration;
     action.time = duration > 0 ? (nowMs * 0.001 + slot.phase) % duration : 0;

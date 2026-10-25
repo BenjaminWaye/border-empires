@@ -58,7 +58,7 @@ vi.mock("./popup-marine-asset.js", async () => {
 });
 
 import { createPopupMarineOverlayFx } from "./popup-marine-overlay-fx.js";
-import { APPROACH_MS, CLASH_MS, LINEUP_MS, MARINES_PER_SIDE, ROUT_MS } from "./popup-marine-timeline.js";
+import { APPROACH_MS, CLASH_MS, LINEUP_MS, LOSER_DEATHS, MARINES_PER_SIDE, ROUT_MS, WINNER_DEATHS } from "./popup-marine-timeline.js";
 import type { BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "./popup-marine-timeline.js";
 import { STRIKE_LEAD_MS } from "./popup-marine-strike-fx.js";
 import { skirmishSiegeVictim, tileHashSeed } from "./popup-marine-siege-victim.js";
@@ -265,8 +265,11 @@ describe("popup-marine overlay fx", () => {
     expect(visibleMarinesIn(scene).map(stanceOf)).toContain("PistolRun");
 
     fx.tick(battle.clashAt + CLASH_MS * 0.5, [battle]); // mid-firefight
-    // Anyone already hit by now is playing Dead; everyone else is shooting.
-    const firing = visibleMarinesIn(scene).map(stanceOf).filter((stance) => stance !== "Dead");
+    // Anyone already hit by now is falling (Dead, or still cross-fading into it,
+    // which matches no single clip); everyone else is shooting.
+    const stances = visibleMarinesIn(scene).map(stanceOf);
+    const firing = stances.filter((stance) => stance !== "Dead" && stance !== undefined);
+    expect(stances.length - firing.length).toBeLessThanOrEqual(WINNER_DEATHS + LOSER_DEATHS);
     expect(firing.length).toBeGreaterThan(0);
     for (const stance of firing) {
       expect(["PistolIdle", "PistolKneelingIdle"]).toContain(stance);

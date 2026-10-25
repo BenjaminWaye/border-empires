@@ -35,8 +35,8 @@
 # Run: python3 -I retarget-popup-marine-heavy-clips.py \
 #        <popup-marine-titan-24bone.glb> <heavy-in.glb> <heavy-out.glb>
 # where heavy-in is the bake's original output (git history), not an already
-# re-targeted .glb -- re-running on its own output leaves the replaced tracks
-# behind as dead weight in the file.
+# re-targeted .glb. The replaced tracks are left in the file unreferenced
+# (~40 KB per run), so re-running on its own output only piles more on.
 import json
 import struct
 import sys
