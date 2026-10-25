@@ -1,4 +1,4 @@
-import { TERRITORY_FLIP_WINDOW_MS, uniqueTileCount, type TerritoryFlip } from "../territory-flip-log/territory-flip-log.js";
+import { latestFlipPerTile, TERRITORY_FLIP_WINDOW_MS, uniqueTileCount, type TerritoryFlip } from "../territory-flip-log/territory-flip-log.js";
 import type { CombatManpowerLoss } from "../combat-manpower-log/combat-manpower-log.js";
 import { PERSONAL_ACTIVITY_TIMELINE_CARD_CAP, type PersonalActivityCard, type PersonalActivityTimeline } from "@border-empires/game-domain";
 import { groupTerritoryFlipsForPlayer } from "./personal-activity-territory-grouping.js";
@@ -59,12 +59,14 @@ export const aggregatePersonalActivity = (
 
   const claimedFlips = relevantFlips.filter((flip) => flip.toOwner === playerId && flip.fromOwner !== playerId);
   const lostFlips = relevantFlips.filter((flip) => flip.fromOwner === playerId && flip.toOwner !== playerId);
-  // Every flip, like the tile counts: what fell is named up top even when its
-  // card was folded into a combat card or dropped by the card cap. Docks are
-  // not flip features (they have their own notes), so they come from those.
+  // Every tile, like the tile counts: what fell is named up top even when its
+  // card was folded into a combat card or dropped by the card cap. A tile lost
+  // or taken more than once names its features once, from its latest flip.
+  // Docks are not flip features (they have their own notes), so they come
+  // from those.
   const dockFeatures = (kind: "DOCK_LOST" | "DOCK_CAPTURED") => impactCards.docks.filter((card) => card.kind === kind).map(() => ({ kind: "DOCK" as const }));
-  const featuresLost = viewerFeatureCounts([...lostFlips.flatMap((flip) => flip.features ?? []), ...dockFeatures("DOCK_LOST")], false);
-  const featuresCaptured = viewerFeatureCounts([...claimedFlips.filter((flip) => flip.fromOwner !== undefined).flatMap((flip) => flip.features ?? []), ...dockFeatures("DOCK_CAPTURED")], true);
+  const featuresLost = viewerFeatureCounts([...latestFlipPerTile(lostFlips).flatMap((flip) => flip.features ?? []), ...dockFeatures("DOCK_LOST")], false);
+  const featuresCaptured = viewerFeatureCounts([...latestFlipPerTile(claimedFlips.filter((flip) => flip.fromOwner !== undefined)).flatMap((flip) => flip.features ?? []), ...dockFeatures("DOCK_CAPTURED")], true);
   const manpowerSpentAttacking = relevantCombat
     .filter((loss) => loss.attackerId === playerId)
     .reduce((sum, loss) => sum + loss.manpowerLoss, 0);

@@ -39,7 +39,7 @@ describe("buildDailyStory", () => {
     ]);
   });
 
-  it("narrates an open war between the two most active combatants, counting distinct tiles", () => {
+  it("narrates the open war where the most distinct tiles changed hands, not the most flips", () => {
     const events = buildDailyStory(
       {
         ...emptyInput,
@@ -53,9 +53,9 @@ describe("buildDailyStory", () => {
     expect(events[0]).toEqual({
       type: "OPEN_WAR",
       headline: "Open War",
-      text: "A and B are at war — 30 tiles changed hands today.",
-      significance: 95, // normalizeSignificance(95, SIGNIFICANCE_SCALE.flipCount=100)
-      players: ["A", "B"]
+      text: "Milo Ash and Barbarians are at war — 40 tiles changed hands today.",
+      significance: 27, // normalizeSignificance(40, SIGNIFICANCE_SCALE.tileCount=150)
+      players: ["Milo Ash", "Barbarians"]
     });
   });
 

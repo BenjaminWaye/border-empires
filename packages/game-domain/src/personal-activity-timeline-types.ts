@@ -106,8 +106,15 @@ export type PersonalActivityCombatGroupCard = {
 // Head-to-head tally against one opponent over the timeline window.
 export type PersonalActivityRival = {
   playerId: string;
+  /** Distinct tiles taken from / lost to them in the window. */
   tilesTaken: number;
   tilesLost: number;
+  /**
+   * Tiles you hold now that they held, minus the reverse -- who's ahead on
+   * ground once back-and-forth trades cancel. Optional: an older simulation
+   * omits it.
+   */
+  netTiles?: number;
   /** Their attacks on you that failed. */
   attacksRepelled: number;
   /** Your attacks on them that failed. */

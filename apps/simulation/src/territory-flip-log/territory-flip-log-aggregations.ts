@@ -59,27 +59,38 @@ export const alliancePairKeySet = (alliances: ReadonlyArray<{ playerA: string; p
   new Set(alliances.map(({ playerA, playerB }) => orderedPairKey(playerA, playerB)));
 
 // Distinct tiles gained / lost per player: retaking the same tile twice in
-// the window is still one tile gained.
+// the window is still one tile gained. Net is gains minus losses counted per
+// flip, which per tile telescopes to the real change (+1 / 0 / -1) -- a tile
+// traded away, back and away again is one tile gained, one lost, net -1.
 export const computeTerritoryMomentum = (flipLog: readonly TerritoryFlip[]): TerritoryMomentum[] => {
-  const byPlayer = new Map<string, { gained: Set<string>; lost: Set<string> }>();
-  const touch = (playerId: string): { gained: Set<string>; lost: Set<string> } => {
+  type Momentum = { gained: Set<string>; lost: Set<string>; net: number };
+  const byPlayer = new Map<string, Momentum>();
+  const touch = (playerId: string): Momentum => {
     let entry = byPlayer.get(playerId);
     if (!entry) {
-      entry = { gained: new Set(), lost: new Set() };
+      entry = { gained: new Set(), lost: new Set(), net: 0 };
       byPlayer.set(playerId, entry);
     }
     return entry;
   };
   for (const flip of flipLog) {
-    if (flip.toOwner && flip.toOwner !== flip.fromOwner) touch(flip.toOwner).gained.add(flip.tileId);
-    if (flip.fromOwner && flip.fromOwner !== flip.toOwner) touch(flip.fromOwner).lost.add(flip.tileId);
+    if (flip.toOwner && flip.toOwner !== flip.fromOwner) {
+      const entry = touch(flip.toOwner);
+      entry.gained.add(flip.tileId);
+      entry.net += 1;
+    }
+    if (flip.fromOwner && flip.fromOwner !== flip.toOwner) {
+      const entry = touch(flip.fromOwner);
+      entry.lost.add(flip.tileId);
+      entry.net -= 1;
+    }
   }
   return [...byPlayer.entries()]
-    .map(([playerId, { gained, lost }]) => ({
+    .map(([playerId, { gained, lost, net }]) => ({
       playerId,
       tilesGained24h: gained.size,
       tilesLost24h: lost.size,
-      net24h: gained.size - lost.size
+      net24h: net
     }))
     .sort((a, b) => b.net24h - a.net24h);
 };

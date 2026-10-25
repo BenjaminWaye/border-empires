@@ -83,6 +83,16 @@ export const uniqueTileCount = (flips: Iterable<Pick<TerritoryFlip, "tileId">>):
   return tiles.size;
 };
 
+/** Each tile's most recent flip, so a summary names what stood on it once. */
+export const latestFlipPerTile = (flips: readonly TerritoryFlip[]): TerritoryFlip[] => {
+  const byTile = new Map<string, TerritoryFlip>();
+  for (const flip of flips) {
+    const existing = byTile.get(flip.tileId);
+    if (!existing || flip.at >= existing.at) byTile.set(flip.tileId, flip);
+  }
+  return [...byTile.values()];
+};
+
 export const createTerritoryFlipLog = (options: { now?: () => number } = {}): TerritoryFlipLog => {
   const now = options.now ?? (() => Date.now());
   let flips: TerritoryFlip[] = [];

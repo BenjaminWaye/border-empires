@@ -39,7 +39,7 @@ describe("cards and summary name what fell with the tiles", () => {
   it("names them on the summary line", () => {
     const summary = { tilesClaimed: 1, tilesLost: 5, waystationsActivated: 0, townsCaptured: 0, townsLost: 0, buildingsCompleted: 0, featuresLost: [palisade, dock, wonder], featuresCaptured: [dock] };
     const timeline = { goldPlundered: 0, goldRaidedFromYou: 0, manpowerSpentAttacking: 0 } as PersonalActivityTimeline;
-    expect(summaryCountsLine(summary, timeline, 1000)).toBe("+1 tiles claimed · −5 tiles lost · Lost your Palisade, Dock and Foundry Heart wonder · Captured their Dock");
+    expect(summaryCountsLine(summary, timeline, 1000)).toBe("+1 tile claimed · −5 tiles lost · Lost your Palisade, Dock and Foundry Heart wonder · Captured their Dock");
   });
 
   it("names them on a rival's push", () => {

@@ -78,8 +78,9 @@ describe("computeTerritoryMomentum", () => {
       flip({ tileId: "t-1", fromOwner: "p1", toOwner: "p2", at: 3 })
     ];
     const byPlayer = Object.fromEntries(computeTerritoryMomentum(flips).map((m) => [m.playerId, m]));
-    expect(byPlayer.p1).toEqual({ playerId: "p1", tilesGained24h: 1, tilesLost24h: 1, net24h: 0 });
-    expect(byPlayer.p2).toEqual({ playerId: "p2", tilesGained24h: 1, tilesLost24h: 1, net24h: 0 });
+    // p1 held it, lost it, retook it and lost it again: p2 ends up with it.
+    expect(byPlayer.p1).toEqual({ playerId: "p1", tilesGained24h: 1, tilesLost24h: 1, net24h: -1 });
+    expect(byPlayer.p2).toEqual({ playerId: "p2", tilesGained24h: 1, tilesLost24h: 1, net24h: 1 });
   });
 });
 

@@ -8,7 +8,7 @@ const activity = (): ActivityApiResponse => ({
   alliances: [], allianceBreaks: [], truceWatch: [], fortification: [],
   wars: [
     { playerA: "barbarian-1", playerB: "me", playerAName: "Barbarians", playerBName: "Me", tileFlips24h: 999, tilesContested24h: 999, lastFlipAt: 1 },
-    { playerA: "a", playerB: "b", playerAName: "Aria", playerBName: "Bram", tileFlips24h: 5, tilesContested24h: 5, lastFlipAt: 1 }
+    { playerA: "a", playerB: "b", playerAName: "Aria", playerBName: "Bram", tileFlips24h: 30, tilesContested24h: 30, lastFlipAt: 1 }
   ],
   territoryMomentum: [
     { playerId: "barbarian-1", playerName: "Barbarians", tilesGained24h: 999, tilesLost24h: 0, net24h: 999 },
