@@ -1,4 +1,5 @@
 import { formatMetricValue } from "./metrics-format.js";
+import { renderEncirclementPrometheusLines } from "../encirclement/encirclement-metrics.js";
 import { renderStrandedFrontierPrometheusLines } from "../stranded-frontier/stranded-frontier-metrics.js";
 import {
   AI_PLANNER_PHASES,
@@ -333,5 +334,6 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
   }
 
   lines.push(...renderStrandedFrontierPrometheusLines());
+  lines.push(...renderEncirclementPrometheusLines());
   return lines.join("\n");
 };
