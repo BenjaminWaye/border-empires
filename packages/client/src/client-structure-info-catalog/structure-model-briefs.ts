@@ -1,0 +1,31 @@
+import { AEGIS_LOCK_DURATION_MS, IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS, SOVEREIGN_SIEGE_ENGINE_STRIKE_COOLDOWN_MS } from "@border-empires/game-domain";
+import { FORT_TIER_LADDER } from "@border-empires/shared";
+import { DISTRICT_MODEL_BRIEFS, type DistrictModelBrief } from "../client-town-district/district-model-briefs.js";
+import { isDistrictBuilding, type DistrictBuildingKind } from "../client-town-district/district-catalog.js";
+import type { StructureInfoKey } from "../client-map-display.js";
+
+const brief = (role: string, landmark: string): DistrictModelBrief => ({ role, landmark });
+// The remaining live-map models outside the district kit. Names are never
+// duplicated here; the shared structure-name table supplies all visible labels.
+const OTHER: Readonly<Record<Exclude<StructureInfoKey, DistrictBuildingKind>, DistrictModelBrief>> = {
+  PALISADE: brief(`Light perimeter fortification providing ${FORT_TIER_LADDER.PALISADE.defenseMult}x defense.`, "Timber perimeter walls and corner posts, with terrain visible inside."),
+  FORT: brief(`Stone perimeter fortification providing ${FORT_TIER_LADDER.FORT.defenseMult}x defense. An active fort prevents immediate counter-capture of its origin after a failed attack.`, "Four stone walls and corner towers; adjacent owned forts share openings."),
+  TITANIUM_BASTION: brief(`Titanium-armoured Fort upgrade providing ${FORT_TIER_LADDER.TITANIUM_BASTION.defenseMult}x defense.`, "Pale metal wall sections and reinforced corner towers."),
+  THUNDER_BASTION: brief(`Thunderplate-armoured Bastion upgrade providing ${FORT_TIER_LADDER.THUNDER_BASTION.defenseMult}x defense, with improved resistance to siege pressure.`, "Dark armoured perimeter and heavy corner towers."),
+  SIEGE_BATTERY: brief("Offensive staging structure that strengthens attacks launched from its own tile.", "Low armoured siege machine with a forward cannon and a targeting head."),
+  SIEGE_TOWER: brief("Upgraded Siege Battery for stronger attacks from its tile.", "Tall braced siege engine carrying a large aiming lens and lance assembly."),
+  DREAD_TOWER: brief("Final siege-ladder upgrade for assaults against heavily fortified targets.", "Braced reactor pylon, a large violet core and four precessing brass rings."),
+  HYDROGARDEN: brief("Hydroponic cultivation installation that adds FOOD slots on grain-resource tiles; it does not improve fish tiles.", "Glass growing dome, visible crops and hydroponic service equipment."),
+  MINE: brief("Excavation installation that adds a slot of the tile's Titanium or Crystal resource.", "Excavation pit and resource-handling cart; its load matches the actual mineral."),
+  UMBRITE_RIG: brief("Umbrite extraction installation that adds an Umbrite slot on its resource tile.", "Dark purple extraction machinery and deep drilling components."),
+  HARBOR_EXCHANGE: brief("Quayside freight and trade installation that adds Coin income for connected owned docks.", "Harbor warehouse, cargo handling and waterside exchange frontage."),
+  IMPERIAL_EXCHANGE: brief(`Unique completed Great Project that can levy a chosen rival's Coin every ${IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS / 3_600_000} hours; requires Ambaric power.`, "Monumental financial rotunda, colonnade and golden dome."),
+  SOVEREIGN_SIEGE_ENGINE: brief(`Unique completed Great Project that fires Worldbreaker strikes every ${SOVEREIGN_SIEGE_ENGINE_STRIKE_COOLDOWN_MS / 60_000} minutes, destroying a target structure and reducing its town's population; requires Ambaric power.`, "Assembled long-barrel weapon, crystalline power core and targeting array."),
+  AEGIS_DOME: brief(`Unique completed Great Project that protects a core area and can trigger a ${AEGIS_LOCK_DURATION_MS / 60_000}-minute Aegis Lock; requires Ambaric power.`, "Protective field dome, shield panels, grounding anchors and an apex crown."),
+  ASTRAL_DOCK: brief("Unique completed Great Project that launches a satellite for temporary full-map vision; requires Ambaric power.", "Orbital launch pad, tilted launch guides and a central aether launch focus."),
+  CENSUS_DIRECTORATE: brief("Unique completed Great Project that increases empire-wide manpower regeneration for owned Manpower-branch buildings.", "Stepped census monument, twin registry columns and a stacked tabulating crown."),
+  TITANIUM_LEVY: brief("Unique completed Great Project that converts banked manpower into a one-time army and then freezes regeneration; requires Ambaric power.", "Hexagonal muster drum, tilted conscription ring and a tall orders horn.")
+};
+
+export const structureModelBriefFor = (kind: StructureInfoKey): DistrictModelBrief =>
+  isDistrictBuilding(kind) ? DISTRICT_MODEL_BRIEFS[kind] : OTHER[kind];

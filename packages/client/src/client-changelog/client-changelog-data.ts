@@ -447,6 +447,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Correct population-building descriptions",
     why: "Incubation Engine information still described a retired food effect, while Census Hall listed an outdated growth bonus.",
     changes: ["Incubation Engine now correctly states +10,000 population on completion and +10% ongoing growth. Census Hall describes its population-capacity and town-upgrade benefits. These descriptions use the same shared constants as the game rules."]
+  },
+  {
+    createdAt: 1792944374596, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "Verified structure identities",
+    why: "Some structure descriptions still quoted retired rules and previews showed superseded artwork.",
+    changes: ["Structure information now shares canonical names and verified roles with the 3D review. Thunder Bastion and Ancillary Depot descriptions reflect current rules; retired structures are labelled clearly.", "The completed Sovereign Siege Engine now includes its long barrel, power core and targeting assembly, with matching 2D artwork."]
   }
 ];
 

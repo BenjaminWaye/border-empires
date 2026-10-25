@@ -100,6 +100,37 @@ regressions in `client-population-structure-info/`. Use the
 [population reference](product/resource-and-manpower-economy.md#incubation-engine-and-census-hall)
 for the current source trail.
 
+## Full structure identity audit
+
+The All Structures / All Kinds story covers all **60 current buildable types**:
+43 district structures, five fort/battery types, two siege towers, the Umbrite
+Rig, three other resource/trade models and six completed Great Projects. Its
+selector derives from the live registry; the two retired compatibility types
+remain in their separate review. Names and component checklist labels come
+from `structureDisplayName`, rather than hand-maintained copies.
+
+`client-structure-info-catalog/` owns presentation metadata, non-district role
+and landmark briefs, the production-model review dispatcher and coverage tests.
+The menu and 3D review use the same verified role. Source priority is the current
+registry, shared constants and runtime effects, then the lore bible. The visual
+landmark describes visible machinery; it does not invent an additional bonus.
+
+The audit corrected Thunder Bastion's obsolete 8× defense claim to the actual
+6.5× multiplier, removed Ancillary Depot's retired flat reserve bonus, and
+marked retired types explicitly. The completed Sovereign Siege Engine now has
+its long barrel, core and sighting assembly in 3D. Its matching 2D SVG is exported
+with `node scripts/generate-structure-review-icons.mjs`; an exact-art regression
+prevents those representations diverging. Existing fort tiers retain their
+shared perimeter silhouette and distinct material palettes; the 2D fallback
+also retains its shared fort/siege tier symbols. This audit does not claim a
+new unique mesh for those pre-existing tiers.
+
+All 60 production models were inspected in the orbitable review. Tests verify
+canonical labels, visible geometry, resource-specific Mine art and cleanup,
+with failing-before/passing-after checks for stale copy and the missing barrel.
+Earlier bespoke support previews are labelled Legacy so they cannot be mistaken
+for the current district models.
+
 ## Routing, terrain and lifecycle
 
 Tile-boundary corridors use deterministic bounded searches, shared segments,

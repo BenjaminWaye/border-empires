@@ -1,3 +1,5 @@
+import { HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS, NEURAL_WORKS_MUSTER_RADIUS } from "@border-empires/shared";
+import { AMBARIC_TRANSFORMER_RADIUS } from "@border-empires/game-domain";
 import { populationStructureDescription } from "../client-population-structure-info/client-population-structure-info.js";
 import type { DistrictBuildingKind } from "./district-catalog.js";
 
@@ -13,7 +15,7 @@ export const DISTRICT_MODEL_BRIEFS: Readonly<Record<DistrictBuildingKind, Distri
   CLEARING_HOUSE: brief("Amplifies Manufactory income in its town and directly connected towns.", "Circular financial rotunda and colonnade."),
   TRADE_NEXUS: brief("Enables the road network's connected-town income bonus.", "Freight-transfer portal between paired exchange warehouses."),
   ANCILLARY_DEPOT: brief("Holds ancillary reserves and increases manpower capacity; amplified by Reserve Lattice.", "Sealed custody drum with radial reserve compartments."),
-  NEURAL_WORKS: brief("Amplifies Ancillary Factory manpower regeneration across its connected network and accelerates nearby outpost muster.", "Mustering command bridge, dispatch lanes and network antennas."),
+  NEURAL_WORKS: brief(`Amplifies Ancillary Factory manpower regeneration across its connected network and accelerates outpost muster within ${NEURAL_WORKS_MUSTER_RADIUS} tiles.`, "Mustering command bridge, dispatch lanes and network antennas."),
   ANCILLARY_FACTORY: brief("Remakes local people into controlled ancillary bodies; regenerates manpower and supports Forced Ancillarification.", "Distinct processing cells and overhead precision manipulators."),
   RESERVE_LATTICE: brief("Amplifies the capacity supplied by Ancillary Depots in its connected-town network.", "Open reserve-coordination lattice and linked control nodes."),
   TITANIUM_WORKS: brief("Refine mode supplies a Titanium slot; Sell Off mode exchanges a Titanium slot for Coin.", "Low refining line with three roof bays and rolling equipment."),
@@ -24,12 +26,12 @@ export const DISTRICT_MODEL_BRIEFS: Readonly<Record<DistrictBuildingKind, Distri
   HIGH_YIELD_AETHER_CONDENSER: brief("Upgraded Crystal converter with a higher Sell Off return and refining upkeep.", "Three vessels under an elevated condenser bridge."),
   TITANIUM_WEAPONS_FACTORY: brief("Forges Titanium armour plating; emphasizes empire-wide defense with an attack benefit.", "Open rectangular forging press, armour dies and plate output."),
   UMBRITE_WEAPONS_FACTORY: brief("Outfits Umbrite-equipped raiders; emphasizes empire-wide attack with a defense benefit.", "Forked containment crucible and charged blade racks."),
-  HYDROWORKS: brief("Irrigation infrastructure that improves nearby Hydrogardens' FOOD slot supply.", "Open water basin, pumping manifold and distribution channels."),
+  HYDROWORKS: brief(`Irrigation infrastructure that supplies +${HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS} FOOD slots to nearby active Hydrogardens.`, "Open water basin, pumping manifold and distribution channels."),
   ORE_REFINERY: brief("Improves nearby active Mines' resource-slot output.", "Twin separation towers, intake chute and raw-ore feed."),
   MINISTRY_HALL: brief("Reduces nearby towns' FOOD-slot demand through provincial provisioning.", "Administrative wings around a provisioning and distribution court."),
   RESONANCE_GRID: brief("Blocks hostile aerial bombardment and reveals its origin; requires Ambaric power.", "Broad counterphase tuning frame and horizontal resonator."),
   SKY_DOCK: brief("Launches aerial bombardment that strips hostile ownership in an area; requires Ambaric power.", "Armed aircraft berth, launch rails and visible ordnance servicing."),
-  AMBARIC_TRANSFORMER: brief("Supplies power to advanced structures and monuments; other Transformers extend the chain.", "Paired fin banks, high-voltage insulators and a connected busbar."),
+  AMBARIC_TRANSFORMER: brief(`Supplies advanced structures and monuments within a ${AMBARIC_TRANSFORMER_RADIUS}-tile radius; other Transformers extend the power chain.`, "Paired fin banks, high-voltage insulators and a connected busbar."),
   RELAY_BEACON: brief("A cheap offensive staging point that extends vision without a Siege Battery's attack bonus.", "Field relay mast, observation head and ground-level staging equipment."),
   OBSERVATORY: brief("Aether Tower: local vision, protection of owned nearby territory and access to Crystal abilities.", "Aether focus in an open instrument cradle and protective field fittings."),
   IMPERIAL_EXCHANGE_PART_1: brief("Golden Ledger: account-record component commissioned for the Imperial Exchange.", "Large brass-bound ledger on a terraced account archive."),

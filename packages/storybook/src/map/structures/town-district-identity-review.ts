@@ -1,17 +1,20 @@
-import { DirectionalLight, Mesh, MeshStandardMaterial, PCFSoftShadowMap, PlaneGeometry, PMREMGenerator } from "three";
+import { DirectionalLight, Mesh, MeshStandardMaterial, OrthographicCamera, PCFSoftShadowMap, PlaneGeometry, PMREMGenerator, Vector3 } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { structureDisplayName } from "@border-empires/shared";
-import { createDistrictOverlay } from "@client/client-town-district/district-overlay.js";
-import { DISTRICT_MODEL_BRIEFS } from "@client/client-town-district/district-model-briefs.js";
+import { createStructureReviewModel, type StructureReviewModel } from "@client/client-structure-info-catalog/structure-review-model.js";
+import type { StructureInfoKey } from "@client/client-map-display.js";
+import { structureModelBriefFor } from "@client/client-structure-info-catalog/structure-model-briefs.js";
 import { createStage, wrapWithCleanup } from "../../fixtures/three-stage.js";
 import { CURRENT_DISTRICT_KINDS, RETIRED_DISTRICT_KINDS } from "./town-district-review-kinds.js";
 
 /** One actual production 3D model at a time, using the live map's materials,
  * animation and geometry. The current registry controls the default selection. */
-export const renderDistrictIdentityReview = (retired = false): HTMLElement => {
-  const kinds = retired ? RETIRED_DISTRICT_KINDS : CURRENT_DISTRICT_KINDS;
-  const stage = createStage({ width: 1040, height: 660, camera: "orthographic", orthoHalfHeight: 0.53, background: "#18232b" });
+export const renderDistrictIdentityReview = (retired = false): HTMLElement =>
+  renderStructureIdentityReview(retired ? RETIRED_DISTRICT_KINDS : CURRENT_DISTRICT_KINDS, retired ? "Retired compatibility structure" : "Current support structure", retired);
+
+export const renderStructureIdentityReview = (kinds: readonly StructureInfoKey[], label = "Current structure", retired = false): HTMLElement => {
+  const stage = createStage({ width: 1040, height: 440, camera: "orthographic", orthoHalfHeight: 0.53, background: "#18232b" });
   stage.camera.position.set(1.2, 1, 1.6); stage.camera.lookAt(0, 0.15, 0);
   stage.renderer.shadowMap.enabled = true; stage.renderer.shadowMap.type = PCFSoftShadowMap;
   const sun = stage.scene.children.find((object): object is DirectionalLight => object instanceof DirectionalLight);
@@ -25,14 +28,14 @@ export const renderDistrictIdentityReview = (retired = false): HTMLElement => {
   const groundGeometry = new PlaneGeometry(200, 200).rotateX(-Math.PI / 2);
   const groundMaterial = new MeshStandardMaterial({ color: "#263a36", roughness: 0.92 });
   const ground = new Mesh(groundGeometry, groundMaterial); ground.position.y = -0.105; ground.receiveShadow = true; stage.scene.add(ground);
-  const overlay = createDistrictOverlay(stage.scene, 2, environment.texture);
+  let model: StructureReviewModel | undefined;
   const controls = new OrbitControls(stage.camera, stage.canvas);
   controls.target.set(0, 0.15, 0); controls.enableDamping = true; controls.enablePan = false;
   controls.minZoom = 0.6; controls.maxZoom = 2.5; controls.maxPolarAngle = Math.PI * 0.48; controls.update();
   const bar = document.createElement("div");
   bar.style.cssText = "display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:16px;color:#e3d7ba;background:#18232b;font:14px system-ui";
   const select = document.createElement("select");
-  select.setAttribute("aria-label", retired ? "Retired compatibility structure" : "Current support structure");
+  select.setAttribute("aria-label", label);
   select.style.cssText = "padding:10px;background:#24363e;color:#f0e5cb;border:1px solid #65716b;font:inherit;max-width:100%";
   for (const kind of kinds) {
     const option = document.createElement("option"); option.value = kind; option.textContent = structureDisplayName(kind); select.appendChild(option);
@@ -45,11 +48,20 @@ export const renderDistrictIdentityReview = (retired = false): HTMLElement => {
   const rebuild = (): void => {
     const kind = kinds[index]; if (!kind) return;
     select.value = kind;
-    overlay.clear(); overlay.add({ kind, x: 0, z: 0, y: 0, foundation: true, operational: true }); overlay.commit();
+    model?.dispose(); model = createStructureReviewModel(stage.scene, kind, environment.texture);
+    const center = model.bounds.getCenter(new Vector3()), size = model.bounds.getSize(new Vector3());
+    const radius = Math.max(size.x, size.y, size.z, 0.5);
+    controls.target.copy(center); stage.camera.position.copy(center).add(new Vector3(1.2, 1, 1.6).multiplyScalar(radius * 2));
+    if (stage.camera instanceof OrthographicCamera) {
+      const half = radius * 0.85, aspect = 1040 / 440;
+      Object.assign(stage.camera, { left: -half * aspect, right: half * aspect, top: half, bottom: -half, zoom: 1 });
+      stage.camera.updateProjectionMatrix();
+    }
+    controls.update();
     details.replaceChildren();
     const title = document.createElement("h2"); title.textContent = structureDisplayName(kind); title.style.cssText = "margin:0 0 8px;color:#e9d4a5";
-    const role = document.createElement("p"); role.textContent = DISTRICT_MODEL_BRIEFS[kind].role;
-    const landmark = document.createElement("p"); landmark.textContent = `Visual brief: ${DISTRICT_MODEL_BRIEFS[kind].landmark}`;
+    const role = document.createElement("p"); role.textContent = structureModelBriefFor(kind).role;
+    const landmark = document.createElement("p"); landmark.textContent = `Visual brief: ${structureModelBriefFor(kind).landmark}`;
     details.append(title, role, landmark);
   };
   const button = (label: string, step: number): HTMLButtonElement => {
@@ -61,7 +73,8 @@ export const renderDistrictIdentityReview = (retired = false): HTMLElement => {
   bar.append(button("Previous", -1), select, button("Next", 1), count);
   rebuild();
   let raf = 0;
-  const tick = (): void => { controls.update(); overlay.update(performance.now()); raf = requestAnimationFrame(tick); }; tick();
-  const root = wrapWithCleanup(stage, [overlay.dispose, () => controls.dispose(), () => environment.dispose(), () => groundGeometry.dispose(), () => groundMaterial.dispose(), () => cancelAnimationFrame(raf)]);
+  const tick = (): void => { controls.update(); model?.update(performance.now()); raf = requestAnimationFrame(tick); }; tick();
+  const root = wrapWithCleanup(stage, [() => model?.dispose(), () => controls.dispose(), () => environment.dispose(), () => groundGeometry.dispose(), () => groundMaterial.dispose(), () => cancelAnimationFrame(raf)]);
+  root.style.cssText = "max-width:1040px;margin:0 auto";
   root.prepend(bar); root.append(details); return root;
 };

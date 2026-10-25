@@ -63,5 +63,5 @@ export const BUILD_MENU_ART_CROP: Readonly<Record<string, ArtCropBox>> = {
   "/overlays/umbrite-weapons-factory-overlay.svg": [0.141, 0.094, 0.672, 0.813],
   "/overlays/weapons-workshop-overlay.svg": [0.141, 0.313, 0.641, 0.438],
   "/overlays/palisade-ring-overlay-closed.svg": [0.016, 0.031, 0.969, 0.969],
-  "/overlays/sovereign-siege-engine-overlay.svg": [0.047, 0.102, 0.91, 0.742]
+  "/overlays/sovereign-siege-engine-overlay.svg": [0.0546875, 0.0546875, 0.890625, 0.890625]
 };

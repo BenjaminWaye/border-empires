@@ -1,3 +1,4 @@
+import { renderStructureIdentityReview } from "./town-district-identity-review.js";
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createStructureOverlay } from "@client/client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { createContactShadowOverlay } from "@client/client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
@@ -36,7 +37,7 @@ const render = (args: Args): HTMLElement => {
 };
 
 const meta: Meta<Args> = {
-  title: "Map/Structures/Manufactory",
+  title: "Map/Structures/Legacy Manufactory",
   parameters: {
     docs: {
       description: {
@@ -57,3 +58,6 @@ type Story = StoryObj<Args>;
 export const Default: Story = {};
 export const CloseUp: Story = { args: { cameraDistance: 1.5 } };
 export const FullView: Story = { args: { cameraDistance: 3 } };
+
+// Use the current map model for identity and gameplay-copy review.
+export const CurrentProductionModel: Story = { render: () => renderStructureIdentityReview(["MANUFACTORY"]) };

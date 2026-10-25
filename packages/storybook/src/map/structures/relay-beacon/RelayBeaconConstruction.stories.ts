@@ -111,7 +111,7 @@ const scrub = (args: Args): HTMLElement => {
 };
 
 const meta: Meta<Args> = {
-  title: "Map/Structures/Relay Beacon/Construction",
+  title: "Map/Structures/Relay Beacon/Legacy Construction",
   argTypes: {
     hours: { control: { type: "range", min: 1, max: 24, step: 1 } },
     progress: { control: { type: "range", min: 0, max: 0.999, step: 0.01 } },

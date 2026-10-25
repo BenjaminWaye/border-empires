@@ -188,7 +188,10 @@ Town support structures use the shared procedural district kit in
 `packages/client/src/client-town-district/`, including matching foundations,
 service connections and generated 2D SVG artwork. See
 [the district renderer reference](docs/town-support-districts.md) for coverage,
-model entrypoints and icon regeneration.
+model entrypoints and icon regeneration. Storybook’s **Map / Structures / All
+Structures** reviews all current buildable structures using their production 3D
+models, canonical names and shared gameplay descriptions; superseded studies
+are labelled Legacy.
 
 ### Format
 

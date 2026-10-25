@@ -1,3 +1,4 @@
+import { renderStructureIdentityReview } from "./town-district-identity-review.js";
 import { ACESFilmicToneMapping, CanvasTexture, DirectionalLight, Mesh, MeshBasicMaterial, PlaneGeometry } from "three";
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createTitaniumDepositOverlay } from "@client/client-map-3d-titanium-deposit.js";
@@ -107,7 +108,7 @@ const render = (args: Args, groundRadius: number): HTMLElement => {
 };
 
 const meta: Meta<Args> = {
-  title: "Map/Structures/Umbrite Weapons Factory",
+  title: "Map/Structures/Legacy Umbrite Weapons Factory",
   argTypes: {
     cameraDistance: { control: { type: "range", min: 2, max: 16, step: 0.5 } },
     spacing: { control: { type: "range", min: 0.8, max: 2.5, step: 0.1 } },
@@ -188,3 +189,6 @@ export const FactoryVsTitanium: Story = {
     return wrapWithCleanup(stage, [cancel, factory.dispose, titanium.dispose, ground.dispose]);
   }
 };
+
+// Use the current map model for identity and gameplay-copy review.
+export const CurrentProductionModel: Story = { render: () => renderStructureIdentityReview(["UMBRITE_WEAPONS_FACTORY"]) };

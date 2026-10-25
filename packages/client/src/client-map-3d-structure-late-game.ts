@@ -79,6 +79,10 @@ export const registerLateGameStructures = (
   const sovereignSiegeEngineTier3Geo = new BoxGeometry(0.18, 0.10, 0.14);
   const sovereignSiegeEngineSpireGeo = new CylinderGeometry(0.022, 0.045, 0.22, 8);
   const sovereignSiegeEngineCoreGeo = new OctahedronGeometry(0.08, 0);
+  const sovereignBarrelGeo = new CylinderGeometry(0.038, 0.052, 0.42, 12).rotateX(Math.PI / 2);
+  const sovereignMuzzleGeo = new CylinderGeometry(0.058, 0.058, 0.035, 12).rotateX(Math.PI / 2);
+  const sovereignBoreGeo = new CylinderGeometry(0.032, 0.032, 0.004, 12).rotateX(Math.PI / 2);
+  const sovereignSightGeo = new CylinderGeometry(0.012, 0.018, 0.16, 8).rotateX(Math.PI / 2);
   const exchangeBaseGeo = new CylinderGeometry(0.22, 0.24, 0.04, 18);
   const exchangeDrumGeo = new CylinderGeometry(0.16, 0.16, 0.18, 18);
   const exchangeDomeGeo = new SphereGeometry(0.16, 18, 9, 0, Math.PI * 2, 0, Math.PI * 0.5);
@@ -117,6 +121,10 @@ export const registerLateGameStructures = (
   builder.makeSlot("sovereignSiegeEngineTier3", sovereignSiegeEngineTier3Geo, sovereignSiegeEngineStoneMaterial, C);
   builder.makeSlot("sovereignSiegeEngineSpire", sovereignSiegeEngineSpireGeo, sovereignSiegeEngineDarkMaterial, C);
   builder.makeSlot("sovereignSiegeEngineCore", sovereignSiegeEngineCoreGeo, sovereignSiegeEngineCoreMaterial, C);
+  builder.makeSlot("sovereignBarrel", sovereignBarrelGeo, sovereignSiegeEngineDarkMaterial, C);
+  builder.makeSlot("sovereignMuzzle", sovereignMuzzleGeo, shieldLatticeBrassMaterial, C);
+  builder.makeSlot("sovereignBore", sovereignBoreGeo, sovereignSiegeEngineDarkMaterial, C);
+  builder.makeSlot("sovereignSight", sovereignSightGeo, shieldLatticeBrassMaterial, C * 2);
   builder.makeSlot("exchangeBase", exchangeBaseGeo, exchangeMarbleMaterial, C);
   builder.makeSlot("exchangeDrum", exchangeDrumGeo, exchangeMarbleMaterial, C);
   builder.makeSlot("exchangeDome", exchangeDomeGeo, exchangeDomeMaterial, C);
@@ -205,8 +213,12 @@ export const registerLateGameStructures = (
     builder.addPiece("sovereignSiegeEngineTier1", sx, sy, sz, 0, 0.05, 0);
     builder.addPiece("sovereignSiegeEngineTier2", sx, sy, sz, 0, 0.15, 0);
     builder.addPiece("sovereignSiegeEngineTier3", sx, sy, sz, 0, 0.25, 0);
-    builder.addPiece("sovereignSiegeEngineSpire", sx, sy, sz, 0, 0.41, 0);
-    builder.addPiece("sovereignSiegeEngineCore", sx, sy, sz, 0, 0.56, 0, 1, 1.2, 1, Math.PI * 0.125, 0, 0);
+    builder.addPiece("sovereignBarrel", sx, sy, sz, 0, 0.29, 0.035);
+    builder.addPiece("sovereignMuzzle", sx, sy, sz, 0, 0.29, 0.25);
+    builder.addPiece("sovereignBore", sx, sy, sz, 0, 0.29, 0.27);
+    builder.addPiece("sovereignSiegeEngineSpire", sx, sy, sz, -0.13, 0.32, -0.08, 1, 0.7, 1);
+    builder.addPiece("sovereignSiegeEngineCore", sx, sy, sz, 0.12, 0.32, -0.08, 0.7, 1, 0.7, Math.PI * 0.125);
+    for (const x of [-0.1, 0.1]) builder.addPiece("sovereignSight", sx, sy, sz, x, 0.36, 0.055);
   };
 
   const addImperialExchange: LateGameStructureLayout = (sx, sy, sz) => {
