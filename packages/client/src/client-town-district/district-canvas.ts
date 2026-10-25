@@ -33,7 +33,7 @@ export const createDistrictCanvas = (deps: CanvasDeps): {
       const plots = townSupportPlotMapFor2D(selected, { tiles: state.tiles, wrapX, wrapY, keyFor: (x, y) => `${x},${y}`, terrainAt: deps.terrainAt, me: state.me });
       for (const key of plots.keys()) {
         const tile = state.tiles.get(key);
-        if (isDistrictBuilding(tile?.economicStructure?.type) || tile?.observatory) plots.delete(key);
+        if (isDistrictBuilding(tile?.economicStructure?.type)) plots.delete(key);
       }
       return plots;
     },
@@ -56,7 +56,7 @@ export const createDistrictCanvas = (deps: CanvasDeps): {
           if (record && "disabledUntil" in record && (record.disabledUntil ?? 0) > Date.now()) nextDisabledExpiry = Math.min(nextDisabledExpiry, record.disabledUntil!);
         }
         const dormant = new Set(state.dormantStructures.map(entry => entry.key));
-        edges = buildDistrictNetwork({ tiles: state.tiles, visibilityAt: deps.visibilityAt, isDormant: tile => dormant.has(`${tile.x},${tile.y}:economicStructure`) || dormant.has(`${tile.x},${tile.y}:observatory`) }, candidates);
+        edges = buildDistrictNetwork({ tiles: state.tiles, visibilityAt: deps.visibilityAt, isDormant: tile => dormant.has(`${tile.x},${tile.y}:economicStructure`) }, candidates);
         cacheKey = key; cachedTiles = state.tiles; cachedDormancy = state.dormantStructures;
       }
       const selected = state.selected ? state.tiles.get(`${state.selected.x},${state.selected.y}`) : undefined;

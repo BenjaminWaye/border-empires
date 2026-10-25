@@ -13,7 +13,7 @@ describe("district JSON compatibility at the real client wire boundary", () => {
     expect(first[field]?.supportAnchor).toEqual({ x: 100, y: 100 });
     Object.assign(building, first);
     const network = () => buildDistrictNetwork({ tiles, visibilityAt: () => "visible" }, [building]);
-    expect(network().length).toBeGreaterThan(0);
+    expect(network().length > 0).toBe(field === "economicStructure");
     Object.assign(building, parse({ ...record, supportAnchor: null }));
     expect(network()).toEqual([]);
     const { supportAnchor: _anchor, ...olderRecord } = record;
@@ -21,6 +21,6 @@ describe("district JSON compatibility at the real client wire boundary", () => {
     expect(building[field]).not.toHaveProperty("supportAnchor");
     expect(network()).toEqual([]);
     Object.assign(building, parse(record));
-    expect(network().length).toBeGreaterThan(0);
+    expect(network().length > 0).toBe(field === "economicStructure");
   });
 });

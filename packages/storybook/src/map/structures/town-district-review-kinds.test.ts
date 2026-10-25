@@ -5,7 +5,7 @@ import { CURRENT_DISTRICT_KINDS, RETIRED_DISTRICT_KINDS } from "./town-district-
 
 describe("current district 3D review", () => {
   it("never presents retired save-compatible types as current buildings", () => {
-    expect(CURRENT_DISTRICT_KINDS).toHaveLength(43);
+    expect(CURRENT_DISTRICT_KINDS).toHaveLength(41);
     expect(CURRENT_DISTRICT_KINDS).not.toContain("QUARTERMASTERS_OFFICE");
     expect(CURRENT_DISTRICT_KINDS).not.toContain("WEAPONS_WORKSHOP");
     expect(RETIRED_DISTRICT_KINDS).toEqual(["WEAPONS_WORKSHOP", "QUARTERMASTERS_OFFICE"]);

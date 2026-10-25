@@ -4,6 +4,8 @@ import type { StructureInfoKey } from "../client-map-display.js";
 export type GenericReviewKind = "HYDROGARDEN" | "MINE" | "HARBOR_EXCHANGE" | "IMPERIAL_EXCHANGE" | "SOVEREIGN_SIEGE_ENGINE" | "AEGIS_DOME" | "ASTRAL_DOCK" | "CENSUS_DIRECTORATE" | "TITANIUM_LEVY";
 export type StructureOverlayRoute =
   | { readonly family: "district"; readonly kind: DistrictBuildingKind }
+  | { readonly family: "relay"; readonly kind: "RELAY_BEACON" }
+  | { readonly family: "aether-tower"; readonly kind: "OBSERVATORY" }
   | { readonly family: "fort"; readonly kind: "PALISADE" | "FORT" | "TITANIUM_BASTION" | "THUNDER_BASTION" | "SIEGE_BATTERY" }
   | { readonly family: "siege-tower"; readonly kind: "SIEGE_TOWER" | "DREAD_TOWER" }
   | { readonly family: "umbrite-rig"; readonly kind: "UMBRITE_RIG" }
@@ -14,6 +16,8 @@ export type StructureOverlayRoute =
 export const structureOverlayRoute = (kind: StructureInfoKey): StructureOverlayRoute => {
   if (isDistrictBuilding(kind)) return { family: "district", kind };
   switch (kind) {
+    case "RELAY_BEACON": return { family: "relay", kind };
+    case "OBSERVATORY": return { family: "aether-tower", kind };
     case "PALISADE": case "FORT": case "TITANIUM_BASTION": case "THUNDER_BASTION": case "SIEGE_BATTERY": return { family: "fort", kind };
     case "SIEGE_TOWER": case "DREAD_TOWER": return { family: "siege-tower", kind };
     case "UMBRITE_RIG": return { family: "umbrite-rig", kind };

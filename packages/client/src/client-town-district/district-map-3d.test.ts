@@ -58,13 +58,13 @@ describe("live 3D district adapter", () => {
     expect(fixture.map.diagnostics.models.instances).toBe(0);
     fixture.map.dispose(); expect(fixture.scene.children).toHaveLength(0);
   });
-  it("uses a shared slab and compact bodies when an observatory shares a support tile", () => {
+  it("leaves a shared Aether Tower to its original renderer and compacts only the support building", () => {
     const fixture = setup();
     fixture.building.observatory = { ownerId: "p1", status: "active", supportAnchor: { x: 100, y: 100 } };
     fixture.rebuild();
-    expect(fixture.map.diagnostics.models.instances).toBe(3);
+    expect(fixture.map.diagnostics.models.instances).toBe(1);
     const bodies = fixture.scene.children.filter((child): child is InstancedMesh => child instanceof InstancedMesh && child.name.endsWith("-body") && !child.name.includes("undefined"));
-    expect(bodies).toHaveLength(2);
+    expect(bodies).toHaveLength(1);
     for (const mesh of bodies) {
       const matrix = new Matrix4(), scale = new Vector3(); mesh.getMatrixAt(0, matrix); scale.setFromMatrixScale(matrix);
       expect(scale.x).toBeCloseTo(0.5);

@@ -39,7 +39,7 @@ each other, so a missing renderer is visible at a glance.
 **Map / Structures / All Structures / All Kinds** derives every buildable choice
 from the current registry and dispatches to the same 3D overlay family as the
 live map. It shows the canonical name, verified gameplay role and visible
-landmark. **Town / District / Identity Review** focuses on the 43 current
+landmark. **Town / District / Identity Review** focuses on the 41 current
 support models; retired save types have a separate compatibility review.
 Superseded bespoke support studies are labelled Legacy.
 

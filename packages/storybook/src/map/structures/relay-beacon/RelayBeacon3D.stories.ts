@@ -118,7 +118,7 @@ const renderHero = (background: string): HTMLElement => {
 };
 
 const meta: Meta<Args> = {
-  title: "Map/Structures/Relay Beacon/Legacy 3D",
+  title: "Map/Structures/Relay Beacon/3D",
   argTypes: {
     cameraDistance: { control: { type: "range", min: 2, max: 16, step: 0.5 } },
     spacing: { control: { type: "range", min: 0.8, max: 2.5, step: 0.1 } },

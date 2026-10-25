@@ -69,7 +69,6 @@ export const createDistrictMap3D = (scene: Scene, maxTiles: number, deps: Distri
   return {
     addTile: (tile: Tile, site: DistrictSite, rebuildAt: number): { economic: boolean; observatory: boolean } => {
       const economic = isDistrictBuilding(tile.economicStructure?.type);
-      const observatory = Boolean(tile.observatory && tile.naturalWonder?.type !== "WATCHTOWER_ENGINE");
       const visible = deps.visibilityAt(tile.x, tile.y, tile) === "visible";
       if (!visible || tile.terrain !== "LAND") return { economic: false, observatory: false };
       const record = tile.economicStructure;
@@ -77,25 +76,23 @@ export const createDistrictMap3D = (scene: Scene, maxTiles: number, deps: Distri
       const hasTown = tileHasTownIdentity(tile);
       const y = hasTown ? site.surfaceY : seatAt(tile);
       if (sites.size < maxTiles) { sites.set(`${tile.x},${tile.y}`, { tile, seat: y }); candidates.push(tile); }
-      const combined = Boolean(tile.fort || hasTown || (economic && observatory));
-      if (combined && !hasTown && (economic || observatory)) models.add({ x: site.x, y, z: site.z, foundation: true, operational: true });
-      const add = (kind: Parameters<typeof models.add>[0]["kind"], field: "economicStructure" | "observatory", offset: number): void => {
+      const combined = Boolean(tile.fort || hasTown || tile.observatory);
+      if (combined && !hasTown && economic && !tile.observatory) models.add({ x: site.x, y, z: site.z, foundation: true, operational: true });
+      const add = (kind: Parameters<typeof models.add>[0]["kind"], offset: number): void => {
         if (!kind) return;
-        const record = tile[field];
-        const construction = constructionSiteForRebuild(deps.state, tile, field, rebuildAt);
+        const construction = constructionSiteForRebuild(deps.state, tile, "economicStructure", rebuildAt);
         models.add({
           kind, x: site.x + (combined ? offset : 0), y, z: site.z + (combined ? 0.18 : 0),
-          foundation: !combined, scale: combined ? 0.5 : 1,
-          operational: record?.status === "active" && !dormant.has(`${tile.x},${tile.y}:${field}`) && (field !== "economicStructure" || districtOperational(tile)),
+          foundation: !combined || Boolean(tile.observatory), scale: combined ? 0.5 : 1,
+          operational: record?.status === "active" && !dormant.has(`${tile.x},${tile.y}:economicStructure`) && districtOperational(tile),
           ...(construction ? { site: construction } : {})
         });
       };
-      if (economic && isDistrictBuilding(tile.economicStructure?.type)) add(tile.economicStructure.type, "economicStructure", -0.18);
-      if (observatory) add("OBSERVATORY", "observatory", economic ? 0.18 : -0.18);
-      return { economic, observatory };
+      if (economic && isDistrictBuilding(tile.economicStructure?.type)) add(tile.economicStructure.type, -0.18);
+      return { economic, observatory: false };
     },
     clear: () => { builtDormancy = deps.state.dormantStructures; nextDisabledExpiry = Infinity; models.clear(); sites.clear(); candidates.length = 0; dormant = new Set(deps.state.dormantStructures.map(entry => entry.key)); },
-    commit: nextOrigin => { if (nextOrigin) Object.assign(origin, { camX: nextOrigin.camX, camY: nextOrigin.camY }); models.commit(); links.commit(buildDistrictNetwork({ tiles: deps.state.tiles, visibilityAt: deps.visibilityAt, isDormant: tile => dormant.has(`${tile.x},${tile.y}:economicStructure`) || dormant.has(`${tile.x},${tile.y}:observatory`) }, candidates)); },
+    commit: nextOrigin => { if (nextOrigin) Object.assign(origin, { camX: nextOrigin.camX, camY: nextOrigin.camY }); models.commit(); links.commit(buildDistrictNetwork({ tiles: deps.state.tiles, visibilityAt: deps.visibilityAt, isDormant: tile => dormant.has(`${tile.x},${tile.y}:economicStructure`) }, candidates)); },
     update: (nowMs: number) => { models.update(nowMs); links.refreshSelection(); },
     boundaryPassed: () => builtDormancy !== deps.state.dormantStructures || Date.now() >= nextDisabledExpiry || models.boundaryPassed(),
     dispose: () => { models.dispose(); links.dispose(); sites.clear(); candidates.length = 0; dormant.clear(); },

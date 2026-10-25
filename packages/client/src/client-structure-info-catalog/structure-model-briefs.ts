@@ -8,6 +8,8 @@ const brief = (role: string, landmark: string): DistrictModelBrief => ({ role, l
 // The remaining live-map models outside the district kit. Names are never
 // duplicated here; the shared structure-name table supplies all visible labels.
 const OTHER: Readonly<Record<Exclude<StructureInfoKey, DistrictBuildingKind>, DistrictModelBrief>> = {
+  RELAY_BEACON: brief("A cheap offensive staging point that extends vision without a Siege Battery's attack bonus.", "Original tall field relay with a heliograph head and braced lattice supports."),
+  OBSERVATORY: brief("Aether Tower: local vision, protection of owned nearby territory and access to Crystal abilities.", "Original tall aether tower, floating rings, luminous core and ground glyph."),
   PALISADE: brief(`Light perimeter fortification providing ${FORT_TIER_LADDER.PALISADE.defenseMult}x defense.`, "Timber perimeter walls and corner posts, with terrain visible inside."),
   FORT: brief(`Stone perimeter fortification providing ${FORT_TIER_LADDER.FORT.defenseMult}x defense. An active fort prevents immediate counter-capture of its origin after a failed attack.`, "Four stone walls and corner towers; adjacent owned forts share openings."),
   TITANIUM_BASTION: brief(`Titanium-armoured Fort upgrade providing ${FORT_TIER_LADDER.TITANIUM_BASTION.defenseMult}x defense.`, "Pale metal wall sections and reinforced corner towers."),

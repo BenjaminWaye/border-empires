@@ -32,8 +32,6 @@ export const DISTRICT_MODEL_BRIEFS: Readonly<Record<DistrictBuildingKind, Distri
   RESONANCE_GRID: brief("Blocks hostile aerial bombardment and reveals its origin; requires Ambaric power.", "Broad counterphase tuning frame and horizontal resonator."),
   SKY_DOCK: brief("Launches aerial bombardment that strips hostile ownership in an area; requires Ambaric power.", "Armed aircraft berth, launch rails and visible ordnance servicing."),
   AMBARIC_TRANSFORMER: brief(`Supplies advanced structures and monuments within a ${AMBARIC_TRANSFORMER_RADIUS}-tile radius; other Transformers extend the power chain.`, "Paired fin banks, high-voltage insulators and a connected busbar."),
-  RELAY_BEACON: brief("A cheap offensive staging point that extends vision without a Siege Battery's attack bonus.", "Field relay mast, observation head and ground-level staging equipment."),
-  OBSERVATORY: brief("Aether Tower: local vision, protection of owned nearby territory and access to Crystal abilities.", "Aether focus in an open instrument cradle and protective field fittings."),
   IMPERIAL_EXCHANGE_PART_1: brief("Golden Ledger: account-record component commissioned for the Imperial Exchange.", "Large brass-bound ledger on a terraced account archive."),
   IMPERIAL_EXCHANGE_PART_2: brief("Counting Engine: tallying drum commissioned to reconcile the Imperial Exchange's treasuries.", "Stepped computing drums with luminous readouts."),
   IMPERIAL_EXCHANGE_PART_3: brief("Sovereign Seal: authority stamp commissioned for the Imperial Exchange's levy.", "Large upright seal in a supported stamping frame."),

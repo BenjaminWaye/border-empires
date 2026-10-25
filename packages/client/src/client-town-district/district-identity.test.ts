@@ -59,7 +59,7 @@ const similarity = (a: readonly Uint8Array[], b: readonly Uint8Array[]): number 
 };
 
 describe("support building visual identity", () => {
-  it("keeps all 990 pairs distinct as small monochrome silhouettes", () => {
+  it("keeps all 903 pairs distinct as small monochrome silhouettes", () => {
     const models = DISTRICT_BUILDING_KINDS.map(kind => ({ kind, masks: silhouettes(kind) }));
     const collisions: string[] = [];
     for (let i = 0; i < models.length; i += 1) for (let j = i + 1; j < models.length; j += 1) {

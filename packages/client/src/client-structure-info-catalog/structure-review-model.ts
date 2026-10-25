@@ -1,3 +1,5 @@
+import { createRelayBeaconOverlay } from "../client-map-3d-relay-beacon-overlay.js";
+import { createAmbaricTransformerOverlay } from "../client-map-3d-ambaric-transformer-overlay.js";
 import { Box3, InstancedMesh, Mesh, type Scene, type Texture } from "three";
 import { createDistrictOverlay } from "../client-town-district/district-overlay.js";
 import { createFortOverlay } from "../client-map-3d-fort-overlay.js";
@@ -15,6 +17,16 @@ export const createStructureReviewModel = (scene: Scene, kind: StructureInfoKey,
   let update: (now: number) => void = () => {};
   let dispose: () => void;
   switch (route.family) {
+    case "relay": {
+      const model = createRelayBeaconOverlay(scene, 1, envMap);
+      model.addInstance(0, 0, 0, 0, 0); model.commit();
+      update = model.update; dispose = model.dispose; break;
+    }
+    case "aether-tower": {
+      const model = createAmbaricTransformerOverlay(scene, 1, envMap);
+      model.addInstance(0, 0, 0, 0, 0); model.commit();
+      update = model.update; dispose = model.dispose; break;
+    }
     case "district": {
       const model = createDistrictOverlay(scene, 1, envMap);
       model.add({ kind: route.kind, x: 0, z: 0, y: 0, foundation: true, operational: true }); model.commit();

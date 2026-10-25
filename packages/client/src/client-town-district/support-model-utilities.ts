@@ -1,5 +1,5 @@
-import { spinning, type TownBuilders } from "../client-map-3d-town-overlay/town-parts.js";
-import { band, housing, ribs, vessel } from "./support-model-detail.js";
+import type { TownBuilders } from "../client-map-3d-town-overlay/town-parts.js";
+import { band, housing, ribs } from "./support-model-detail.js";
 
 export const buildUtility = (t: TownBuilders, kind: string): boolean => {
   switch (kind) {
@@ -69,39 +69,6 @@ export const buildUtility = (t: TownBuilders, kind: string): boolean => {
       }
       for (const x of [-0.13, 0.13]) t.body.pipe(x, 0.12, 0.04, x, 0.12, 0.18, 0.017, "brass");
       t.body.pipe(-0.13, 0.12, 0.18, 0.13, 0.12, 0.18, 0.017, "brass");
-      return true;
-    case "RELAY_BEACON":
-      // Cheap forward observation/staging equipment, without a siege weapon.
-      housing(t, -0.115, 0.04, 0.13, 0.075, 0.15);
-      t.body.cylinder(0.065, 0.015, -0.055, 0.065, 0.09, 0.035, "stoneLight", 8);
-      for (const x of [-0.005, 0.135]) {
-        t.body.pipe(x, 0.05, -0.055, 0.065, 0.3, -0.055, 0.012, "iron");
-      }
-      t.body.pipe(0.065, 0.05, -0.13, 0.065, 0.3, -0.055, 0.012, "iron");
-      spinning(t, 0.065, 0.325, -0.055, [0, 1, 0], 0.16, () => {
-        t.body.box(0.065, 0.3, -0.055, 0.11, 0.055, 0.075, "iron");
-        for (const x of [0.035, 0.095]) t.glow.disc(x, 0.327, -0.011, 0.014, 0.006, "lamp");
-        t.body.box(0.065, 0.36, -0.055, 0.13, 0.012, 0.09, "brassDark");
-      });
-      for (const x of [-0.11, 0.02, 0.15]) {
-        t.body.box(x, 0.015, 0.16, 0.075, 0.03, 0.07, "ironDark");
-        t.glow.box(x, 0.047, 0.16, 0.04, 0.004, 0.04, "aether");
-      }
-      return true;
-    case "OBSERVATORY":
-      // Armillary instrument in an open three-legged cradle.
-      t.body.cylinder(0, 0.012, 0, 0.16, 0.19, 0.045, "stoneLight", 10);
-      vessel(t, 0, 0, 0.065, 0.08);
-      for (let i = 0; i < 3; i += 1) {
-        const a = i * Math.PI * 2 / 3;
-        t.body.pipe(Math.sin(a) * 0.17, 0.045, Math.cos(a) * 0.17, Math.sin(a) * 0.1, 0.26, Math.cos(a) * 0.1, 0.017, "iron");
-      }
-      spinning(t, 0, 0.29, 0, [0, 0, 1], 0.2, () => {
-        t.body.ring(0, 0.29, 0, 0.13, "brass", 0.06);
-        t.body.pipe(-0.08, 0.21, 0, 0.08, 0.37, 0, 0.012, "brassDark");
-        t.glow.gem(0, 0.29, 0, 0.04, 0.085, "aether");
-      });
-      housing(t, 0, 0.21, 0.16, 0.055, 0.065);
       return true;
     default: return false;
   }

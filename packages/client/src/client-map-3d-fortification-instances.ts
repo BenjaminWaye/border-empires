@@ -43,8 +43,7 @@ export const addFortificationInstancesForTile = (
   site: FortificationInstanceSite,
   overlays: FortificationInstanceOverlays,
   deps: FortificationInstanceDeps,
-  nowMs: number,
-  districtBeacon = false
+  nowMs: number
 ): void => {
   const { x, z, surfaceY, wx, wy } = site;
   const siegeTowerVariant = tile.siegeBattery?.variant === "SIEGE_TOWER" || tile.siegeBattery?.variant === "DREAD_TOWER" ? tile.siegeBattery.variant : undefined;
@@ -60,7 +59,6 @@ export const addFortificationInstancesForTile = (
   }
   const fortKind = fortificationOverlayKindForTile(tile);
   if (fortKind === "RELAY_BEACON") {
-    if (districtBeacon) return;
     overlays.relayBeaconOverlay.addInstance(x, z, surfaceY, wx, wy, beaconInactive, beaconSite);
     overlays.contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
     return;
@@ -78,5 +76,5 @@ export const addFortificationInstancesForTile = (
   overlays.contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES);
   // A beacon stacked under the fort gets its own mesh: the walls ring the tile
   // edge and the beacon stands in the middle, so the fort no longer hides it.
-  if (!districtBeacon && stackedRelayBeaconForTile(tile)) overlays.relayBeaconOverlay.addInstance(x, z, surfaceY, wx, wy, beaconInactive, beaconSite);
+  if (stackedRelayBeaconForTile(tile)) overlays.relayBeaconOverlay.addInstance(x, z, surfaceY, wx, wy, beaconInactive, beaconSite);
 };

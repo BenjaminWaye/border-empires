@@ -19,9 +19,9 @@ type Pair = readonly [number, number];
 const keyOf = (x: number, y: number): string => `${wrapX(x)},${wrapY(y)}`;
 const pointKey = (p: DistrictPoint): string => `${p.x.toFixed(4)},${p.y.toFixed(4)}`;
 
-export const districtRecord = (tile: Tile): Tile["economicStructure"] | Tile["observatory"] =>
+export const districtRecord = (tile: Tile): Tile["economicStructure"] =>
   tile.economicStructure && (isDistrictBuilding(tile.economicStructure.type) || isDistrictProject(tile.economicStructure.type))
-    ? tile.economicStructure : tile.observatory;
+    ? tile.economicStructure : undefined;
 
 export const districtOperational = (tile: Tile, dormant = false): boolean => {
   const record = districtRecord(tile);

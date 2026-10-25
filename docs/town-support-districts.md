@@ -8,12 +8,19 @@ Last verified: 2026-10-25
 
 Town-support buildings share octagonal marble foundations, dark iron and
 stone, aged brass, warm windows and stable edge service sockets. The client
-catalogue contains 45 remodeled types: 17 ordinary support structures, 18
-Great Project preparations, eight general utilities and two retired saved
+catalogue contains 43 remodeled types: 17 ordinary support structures, 18
+Great Project preparations, six general utilities and two retired saved
 structures. Completed Great Projects retain their monumental models and
 participate through service endpoints; fortifications retain their models.
 
-Every model is generated from the same geometry kit as the towns. Geometry
+The approved merge scope preserves the existing Fort, Relay Beacon, Aether
+Tower (`OBSERVATORY`), Umbrite Rig, Dread Tower and Siege Battery artwork.
+Relay Beacon and Aether Tower use their original dedicated 3D overlays and
+2D/menu assets, with no district slab or connection replacing them. The other
+four already retained their existing geometry. Regression coverage prevents
+all six from entering the district replacement catalogue.
+
+Every remodeled model is generated from the same geometry kit as the towns. Geometry
 is baked per kind/foundation variant and batched with instancing. The 2D
 fallback uses SVGs exported from those production models and the same logical
 connection graph. Preparation markers remain visible on empty selected-town
@@ -51,7 +58,7 @@ exhaust is industrial cooling; timber crates, paper-feed machinery and exposed
 clockwork are not the visual basis of the new production kit. This art direction
 does not introduce propulsion mechanics or new capabilities.
 
-Each of the 45 models has distinct massing and a large identifying assembly.
+Each of the 43 models has distinct massing and a large identifying assembly.
 Titanium processing uses a low rolling mill; Umbrite processing uses a tall
 sealed retort. Weapons factories use a rectangular press and a forked containment
 crucible respectively. High-yield plants add substantial elevated processing
@@ -62,11 +69,11 @@ current-building review. Instruments, reserves and Project commissions have
 their own outlines instead of sharing a generic tower or factory shell.
 
 `IdentityReview` in the production Storybook is an orbitable, lit 3D inspection
-of the 43 current buildings, with a verified gameplay role and visual brief
+of the 41 current buildings, with a verified gameplay role and visual brief
 beside each model. `RetiredCompatibility` separately displays the two retired
 save types. The primary review never lists those as current buildables. A regression guard rasterizes the actual
 uncoloured model geometry from three camera directions, excludes shared slabs
-and effects, and compares all 990 pairs. Any pair with more than 86% combined
+and effects, and compares all 903 pairs. Any pair with more than 86% combined
 silhouette overlap fails. This catches near-duplicate massing; human review at
 gameplay zoom still matters. The existing footprint, height, material-layer and
 3,000-triangle budgets remain enforced for every model. The revised catalogue
@@ -103,7 +110,7 @@ for the current source trail.
 ## Full structure identity audit
 
 The All Structures / All Kinds story covers all **60 current buildable types**:
-43 district structures, five fort/battery types, two siege towers, the Umbrite
+41 district structures, two preserved utility models, five fort/battery types, two siege towers, the Umbrite
 Rig, three other resource/trade models and six completed Great Projects. Its
 selector derives from the live registry; the two retired compatibility types
 remain in their separate review. Names and component checklist labels come

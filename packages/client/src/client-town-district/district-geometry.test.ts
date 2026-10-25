@@ -11,12 +11,12 @@ describe("complete district model coverage", () => {
     for (const kind of Object.keys(metadata)) {
       if (structureRequiresTownOrSupportTile(kind as StructurePlacementType)) expect(isDistrictBuilding(kind), kind).toBe(true);
     }
-    expect(DISTRICT_BUILDING_KINDS).toHaveLength(45);
+    expect(DISTRICT_BUILDING_KINDS).toHaveLength(43);
     // General utilities do not require a town, but still need a deliberate
     // visual classification. New support-compatible metadata cannot silently
     // bypass either the remodeled kit or an explicitly preserved model.
     const preserved: ReadonlySet<string> = new Set([...DISTRICT_PROJECT_KINDS,
-      "FORT", "TITANIUM_BASTION", "THUNDER_BASTION", "PALISADE", "SIEGE_BATTERY", "SIEGE_TOWER", "DREAD_TOWER"]);
+      "FORT", "TITANIUM_BASTION", "THUNDER_BASTION", "PALISADE", "SIEGE_BATTERY", "SIEGE_TOWER", "DREAD_TOWER", "RELAY_BEACON", "OBSERVATORY"]);
     for (const [kind, placement] of Object.entries(metadata)) {
       if (placement.showOn.some(surface => surface === "support")) expect(isDistrictBuilding(kind) || preserved.has(kind), kind).toBe(true);
     }

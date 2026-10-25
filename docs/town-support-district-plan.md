@@ -5,11 +5,11 @@ Owner: Benjamin Waye (visual direction); Codex (implementation)
 Last verified: 2026-10-25
 Replaces: none; extends the accepted Storybook art study
 
-Implementation progress: the production kit, all 45 remodeled models, generated
+Implementation progress: the production kit, all 43 approved remodeled models, generated
 2D art, authoritative anchor projection, live renderer adapters and bounded
 routing are implemented on the feature branch. The new production gallery
 covers construction, removal, inactivity, dormancy, town tiers and slopes.
-The refined art pass gives the 43 current structures and two saved retired
+The refined art pass gives the 41 current structures and two saved retired
 types distinct advanced-technology massing and matching exports; a three-view monochrome guard compares all 990
 model pairs. Focused model/network/instance tests and simulation login/reveal
 tests pass.
@@ -17,6 +17,11 @@ See [the implementation reference](town-support-districts.md) for entrypoints
 and the measured desktop performance comparison. Full CI, actual game-client
 lifecycle checks, physical mobile performance and staging verification remain
 release gates; this plan is not delivered or archived yet.
+
+The final approved scope excludes the existing Fort, Relay Beacon, Aether Tower,
+Umbrite Rig, Dread Tower and Siege Battery artwork from replacement. Relay Beacon
+and Aether Tower remain on their dedicated renderers in both 2D and 3D. This
+supersedes their inclusion in the original broad remodel proposal.
 
 ## Outcome and boundaries
 
@@ -49,7 +54,7 @@ Inventory is based on placement metadata, the active structure registry and
 display names, not on which models happen to use the generic 3D dispatcher.
 At verification there are **17 active ordinary town-support types plus 18
 Great Project preparation types**, all requiring a complete remodel. There
-are also **eight active general-purpose utilities** requiring matching art.
+are also **six active general-purpose utilities** requiring matching art.
 
 `placementMode === "town_support"` is insufficient: several repeatable
 support buildings deliberately use `same_tile`. Use
@@ -90,7 +95,7 @@ The shorthand `PART_1/2/3` above represents three separate existing IDs.
 
 | Category | Types | Treatment |
 |---|---|---|
-| Eight active utilities | `HYDROWORKS`, `ORE_REFINERY`, `MINISTRY_HALL`, `RESONANCE_GRID`, `SKY_DOCK`, `AMBARIC_TRANSFORMER`, `RELAY_BEACON`, `OBSERVATORY` (Aether Tower) | Remodel to match the family everywhere they occur; use town service sockets when on an assigned support plot. Preserve their independent effects, animations and targeting |
+| Six active utilities | `HYDROWORKS`, `ORE_REFINERY`, `MINISTRY_HALL`, `RESONANCE_GRID`, `SKY_DOCK`, `AMBARIC_TRANSFORMER` | Remodel to match the family everywhere they occur; use town service sockets when on an assigned support plot. Preserve their independent effects, animations and targeting |
 | Retired saved structures | `WEAPONS_WORKSHOP`, `QUARTERMASTERS_OFFICE` | Supply matching compatibility variants; preserve saved identities/effects and keep them unavailable for new construction |
 | Completed Great Projects | `IMPERIAL_EXCHANGE`, `SOVEREIGN_SIEGE_ENGINE`, `AEGIS_DOME`, `ASTRAL_DOCK`, `CENSUS_DIRECTORATE`, `TITANIUM_LEVY` | Preserve their monumental silhouettes and special footprints; adapt materials/foundations and provide a compatible service endpoint where appropriate, rather than shrinking them into an ordinary workshop |
 | Fortifications and siege assets | `FORT`, `TITANIUM_BASTION`, `THUNDER_BASTION`, `PALISADE`, `SIEGE_BATTERY`, `SIEGE_TOWER`, `DREAD_TOWER` | Preserve military models and placement rules; handle co-location and route clearance explicitly. These do not become town-dependent utility buildings |
@@ -221,10 +226,10 @@ without stale links or changing the underlying rules.
 
 | Phase | Work | Exit criterion |
 |---|---|---|
-| 1. Production kit and coverage manifest | Extract shared geometry/material/port helpers; define typed asset coverage and states; create a gallery for all 35 support types, eight utilities and compatibility cases | Complete catalogue with no implicit old-model fallback; platform bounds, ports and scale contracts tested |
+| 1. Production kit and coverage manifest | Extract shared geometry/material/port helpers; define typed asset coverage and states; create a gallery for all 35 support types, six utilities and compatibility cases | Complete catalogue with no implicit old-model fallback; platform bounds, ports and scale contracts tested |
 | 2. One live vertical slice | Port the three prototype models; add authoritative anchor metadata, terrain seating and the shared graph; connect them in 3D and 2D | A real sparse/dense district works on flat and hilly terrain, wraps correctly, survives capture/reconnect, and preserves economy |
 | 3. Remodel ordinary support set | Finish all 17 ordinary types, including upgraded converters, civic, manpower, trade and weapons families; produce matching 2D icons | Every ordinary type appears in the gallery and the live map with distinct, consistent art and all lifecycle states |
-| 4. Complete remaining asset coverage | Remodel all 18 Project parts and eight utilities; integrate completed Projects, retired structures and military coexistence | Coverage test passes for the complete matrix; special overlays cannot bypass slabs, ports or state handling |
+| 4. Complete remaining asset coverage | Remodel all 18 Project parts and six utilities; integrate completed Projects, retired structures and military coexistence | Coverage test passes for the complete matrix; special overlays cannot bypass slabs, ports or state handling |
 | 5. Finish routing and interaction | Complete radius-two networks, overlapping towns, obstacles/buried routes, visibility clipping, selection emphasis, quality tiers and incremental rebuilds | Both renderers agree for every routing fixture; dense and changing worlds have stable, readable networks |
 | 6. Validate and release | Run full checks, performance comparisons, visual review and live gameplay checks; add changelog/docs; land through develop and verify staging | Acceptance checklist below passes; production promotion follows the existing release runbook |
 

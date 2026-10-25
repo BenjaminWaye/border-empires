@@ -12,7 +12,7 @@ import {
 // in packages/client/public/overlays/, cache-busted by
 // overlayAssetVersion — bump it whenever overlay art changes.
 
-const overlayAssetVersion = "20261025-structure-audit";
+const overlayAssetVersion = "20261025-preserved-buildings";
 export const overlaySrc = (filename: string): string => `/overlays/${filename}?v=${overlayAssetVersion}`;
 const loadOverlayImage = (filename: string): HTMLImageElement => {
   const image = new Image();
@@ -112,6 +112,6 @@ export const fortificationOverlayImages: Record<FortificationOverlayKind, Record
   FORT: fortRingOverlaySet, TITANIUM_BASTION: fortRingOverlaySet, THUNDER_BASTION: fortRingOverlaySet,
   SIEGE_BATTERY: createDirectionalOverlaySet("siege-battery-overlay", "static"),
   PALISADE: createDirectionalOverlaySet("palisade-ring-overlay"),
-  RELAY_BEACON: createDirectionalOverlaySet("town-district/relay-beacon", "static")
+  RELAY_BEACON: createDirectionalOverlaySet("relay-beacon-overlay", "static")
 };
 export const structureOverlayImages = { ...legacyStructureOverlayImages, ...districtOverlayImages(loadOverlayImage) };
