@@ -5,36 +5,35 @@ export const RESOURCE_NETWORKS = {
   NEURAL_RESIN: {
     name: "Neural resin", building: "RESIN_EXTRACTOR", buildingName: "Resin Extractor",
     tech: "neural-resin-processing", color: "#e8aa48", glyph: "◉", manpowerCost: 120,
-    // Resin follows terrain-derived single trees; zero means no additional quota.
-    batchBonus: 12, creditPerDay: 0, target: "ANCILLARY_FACTORY", sitesPerStandardMap: 0,
+    batchBonus: 12, creditPerDay: 0, target: "ANCILLARY_FACTORY", sitesPerStandardMap: 1000,
     description: "Native resin used to integrate town-supplied bodies with Ancillary control systems.",
     effect: "Supplies one resin slot: +12 Ancillaries per batch at one active Ancillary Factory."
   },
   CONDUCTIVE_MINERALS: {
     name: "Conductive minerals", building: "IMPLANT_FOUNDRY", buildingName: "Implant Foundry",
-    tech: "implant-metallurgy", color: "#62d7cd", glyph: "ϟ", manpowerCost: 150,
-    batchBonus: 6, creditPerDay: 0, target: "ANCILLARY_FACTORY", sitesPerStandardMap: 180,
+    tech: "organized-supply", color: "#62d7cd", glyph: "ϟ", manpowerCost: 150,
+    batchBonus: 6, creditPerDay: 0, target: "ANCILLARY_FACTORY", sitesPerStandardMap: 1000,
     description: "Conductive ores refined into implants, command circuitry and replacement components.",
     effect: "Supplies one conductive-mineral slot: +6 Ancillaries per batch at one active Ancillary Factory."
   },
   CATALYTIC_DEPOSIT: {
     name: "Catalytic deposit", building: "CATALYST_REFINERY", buildingName: "Catalyst Refinery",
     tech: "frontier-concessions", color: "#e0cf82", glyph: "⬡", manpowerCost: 150,
-    batchBonus: 0, creditPerDay: 1.5, target: "TRADE_NEXUS", sitesPerStandardMap: 150,
+    batchBonus: 0, creditPerDay: 1.5, target: "TRADE_NEXUS", sitesPerStandardMap: 1000,
     description: "Rare catalyst-bearing ores prized by offworld chemical and fabrication industries.",
     effect: "Supplies one catalyst slot: +1.5 Coin/day at one active Trade Nexus."
   },
   LUXURY_BIOTA: {
     name: "Luxury biota", building: "CULTIVATION_ESTATE", buildingName: "Cultivation Estate",
     tech: "frontier-concessions", color: "#e88eae", glyph: "❋", manpowerCost: 100,
-    batchBonus: 0, creditPerDay: 1.5, target: "TRADE_NEXUS", sitesPerStandardMap: 150,
+    batchBonus: 0, creditPerDay: 1.5, target: "TRADE_NEXUS", sitesPerStandardMap: 1000,
     description: "Native plants cultivated for fragrances, pigments and intoxicants sought in the Core.",
     effect: "Supplies one luxury slot: +1.5 Coin/day at one active Trade Nexus."
   },
   PRECURSOR_SALVAGE: {
     name: "Precursor salvage", building: "RECLAMATION_WORKS", buildingName: "Reclamation Works",
-    tech: "salvage-reclamation", color: "#97aec7", glyph: "⚙", manpowerCost: 180,
-    batchBonus: 0, creditPerDay: 1.5, target: "MANUFACTORY", sitesPerStandardMap: 120,
+    tech: "trade", color: "#97aec7", glyph: "⚙", manpowerCost: 180,
+    batchBonus: 0, creditPerDay: 1.5, target: "MANUFACTORY", sitesPerStandardMap: 1000,
     description: "Buried pre-Court machinery whose recoverable tools and components improve local manufacturing.",
     effect: "Supplies one salvage slot: +1.5 Coin/day at one active Manufactory."
   }

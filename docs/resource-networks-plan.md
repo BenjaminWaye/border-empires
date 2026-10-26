@@ -83,50 +83,56 @@ Titanium/Crystal/Umbrite reveal rules stay intact.
 | Manifest | Branch / tier | Prerequisite | Base commission | Unlocks |
 |---|---|---|---|---|
 | Neural Resin Processing Warrant | Manpower / 3 | Ancillary Control Core | 10 Coin, 2h | Resin Extractor |
-| Implant Metallurgy Warrant | Manpower / 3 | Ancillary Control Core | 10 Coin, 2h | Implant Foundry |
+| Reserve Custody Cadre (`organized-supply`) | Manpower / 1 | Existing Depot unlock | 10 Coin, 8h | Ancillary Depot and Implant Foundry |
 | Frontier Export Charter | Economy / 3 | Trade Circuit Charter | 10 Coin, 2h | Catalyst Refinery, Cultivation Estate |
-| Precursor Reclamation Warrant | Economy / 3 | Prospector Crew | 10 Coin, 2h | Reclamation Works |
+| Industrial Tooling Module (`trade`) | Economy / 1 | Existing Manufactory unlock | 10 Coin, 1h | Manufactory and Reclamation Works |
 
-Existing global commission-price modifiers apply. These are charter/warrant
-Manifests, so they do not occupy additional AFC module slots. They authorise
-local processing or commercial arrangements; Houses retain technical knowledge
+Existing global commission-price modifiers apply. Resin and export processing
+use their own warrants/charters. Implant Foundry shares the existing Depot
+commission; Reclamation Works shares the existing Manufactory module, including
+its active-AFC installation requirement for construction. There are no separate
+Implant Metallurgy or Precursor Reclamation warrants. Houses retain technical knowledge
 between campaigns. On an owned undeveloped deposit, the disabled build action
 names and links the missing Manifest. It becomes a real build action when
 commissioned. Each installation is restricted to its matching deposit.
 
 ## Map budget
 
-The standard world is 640×320 (204,800 tiles):
+The standard world is 640×320 (204,800 tiles), targeting **1,000 resource tiles
+of each type**, or 5,000 total. At 320×160 the target is 250 each; at 160×80 it
+is 63 each after rounding. These are resource-tile counts, not cluster counts.
 
-| Deposit | Sites per standard map |
-|---|---:|
-| Neural resin | Every eligible scattered single-tree position (terrain-derived) |
-| Conductive minerals | 180 |
-| Catalytic deposit | 150 |
-| Luxury biota | 150 |
-| Precursor salvage | 120 |
-| **Fixed deposits** | **600, plus scattered resin trees** |
+Deposits form cardinally connected groups of **1–3 tiles**. A one-tile gap
+between deposits of the same resource prevents even diagonal contact from
+merging them into larger veins. Different resources may be adjacent. There
+are roughly 500–650 deposits per resource, depending on coastlines and habitat.
 
-Each site is one developable tile. Resin uses the existing scattered broadleaf
-pattern: 30% of light grass candidates, excluding forests, hills and land
-cleared of forest. Every eligible single tree becomes a usable resin site;
-there is no separate resin quota. Dense forest remains forest. Occupied tiles
-and protected landing footprints take precedence.
+| Resource | Preferred habitat | Secondary habitat |
+|---|---|---|
+| Neural resin | Forested grassland groves | Other grassland |
+| Conductive minerals | Tundra and rocky grassland near hills/mountains | Other grassland |
+| Catalytic deposits | Sand and coastal sand | Exposed tundra |
+| Luxury biota | Tropical or wet grassland | Temperate grassland |
+| Precursor salvage | Hills and mountain foothills | Any land biome |
 
-The other four types scale with total map area, rounded per type: at 320×160
-the targets are 45/38/38/30 (151 fixed deposits), plus resin trees. Custom maps
-with insufficient eligible land place as many as they can without overwriting
-existing content. Resin is placed first, so the other deposits cannot consume
-its tree positions.
+Placement exhausts preferred habitat before secondary habitat. Geographic
+32×32-sector round-robin placement spreads opportunities across the map.
+Budgets scale by map area; maps without enough eligible habitat may underfill,
+and generation reports the shortfall rather than overwriting occupied land.
 
-Fixed-deposit placement is seeded and deterministic, distributed round-robin across 32×32
-geographic sectors. It uses unoccupied LAND and preserves existing slot
-resources, towns, docks, relics, Shards, watchtowers, Waystations and structures.
-The 5×5 area around an existing landing AFC and the clear 3×3 footprints
-of fifty qualified future landing sites are protected. Both synchronous
-and asynchronous season generators use the same placement function. This
-provides regional spread, not a guarantee that every small island has every
-resource. Expansion or trade in territory remains useful.
+Existing resources, towns, docks, relics, Shards, watchtowers, Waystations and
+structures are preserved. The 5×5 area around an existing AFC and the clear
+3×3 footprints of fifty qualified future landings remain protected. Both
+synchronous and asynchronous generators call the same placement function.
+
+The old light-grass single-tree scatter and its resin conversion are removed.
+Resin is a budgeted grove resource, shown as a small stand of the existing
+broadleaf trees. Resource plots replace overlapping decorative canopy in both
+renderers; normal forest terrain mechanics are unchanged.
+
+A real-pipeline check of seed 1037 on both continents and islands placed exactly
+1,000 tiles of each resource, with every same-resource connected component
+containing at most three tiles.
 
 ## Presentation in both renderers
 
@@ -182,12 +188,10 @@ caches; worker planners receive existing tile/structure state.
 
 ## Rollout
 
-This is a feature branch targeting `develop`. On full-campaign recovery,
-previously decorative scattered single trees become resin resources on eligible
-unoccupied land. The same tile fields persist these resources through snapshots;
-recovery preserves ownership and existing content. Forest clearing is restored
-before deriving tree sites. The other four new resources appear in newly generated
-seasons. No season reset is required for the resin conversion.
+This is a feature branch targeting `develop`. Clustered resource geography
+applies to newly generated seasons. Recovery preserves existing deposit and
+ownership state; it no longer adds the old scattered resin trees. A deployment
+does not reset existing campaigns or redistribute their developed sites.
 The new resources are excluded from Resource Monopoly's existing resource list.
 
 A normal factory produces 12 Ancillaries per four-hour batch. Resin doubles
@@ -195,9 +199,9 @@ that to 24; conductive supply alone gives 18; both give 30. At base rates,
 the 120-manpower extractor repays its manpower cost in 40 hours of supplied
 production, while the 150-manpower foundry takes 100 hours. These payback
 figures exclude technology, construction, FOOD and opportunity costs. Resin is
-now more common; its access is terrain-driven while bonuses remain bounded
+budgeted like the other four resources; bonuses remain bounded
 by developed sites, factory count and upkeep. The foundry cost and the effect
-of common resin require playtesting before treating the values as final.
+of the larger resource budgets require playtesting before treating the values as final.
 
 The figures above are starting balance, not evidence from a long-running
 multiplayer playtest. After staging, compare developed-site counts, income

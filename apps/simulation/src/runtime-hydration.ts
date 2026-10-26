@@ -1,6 +1,5 @@
-import { seedResourceNetworks } from "./resource-networks-worldgen.js";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
-import { WORLD_HEIGHT, WORLD_WIDTH, worldSeed, isResinTreeSiteAt, clearForestAroundAfcTiles, clearForestOnTownAndDockTiles, isChosenTrickleResource, landBiomeAt, normalizeAutoSettlePrefs, resetForestClearings } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, clearForestAroundAfcTiles, clearForestOnTownAndDockTiles, isChosenTrickleResource, landBiomeAt, normalizeAutoSettlePrefs, resetForestClearings } from "@border-empires/shared";
 import { backfillProspectClues } from "./prospect-clue-backfill/prospect-clue-backfill.js";
 import { MANPOWER_BASE_CAP, POPULATION_MAX, type DomainTileState } from "@border-empires/game-domain";
 import { recomputeMods } from "./tech-domain-bridge/tech-domain-bridge.js";
@@ -127,10 +126,6 @@ const withAfcForestClearings = (tiles: Map<string, DomainTileState>): Map<string
   resetForestClearings();
   clearForestAroundAfcTiles(tiles.values());
   clearForestOnTownAndDockTiles(tiles.values());
-  // Persisted full campaigns gain the formerly decorative single-tree sites.
-  // Small runtime fixtures are not campaign geography. Existing content wins.
-  if (tiles.size >= WORLD_WIDTH * WORLD_HEIGHT)
-    seedResourceNetworks(tiles, worldSeed(), WORLD_WIDTH, WORLD_HEIGHT, isResinTreeSiteAt, true);
   return tiles;
 };
 

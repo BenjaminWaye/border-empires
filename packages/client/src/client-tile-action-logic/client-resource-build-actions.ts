@@ -18,7 +18,7 @@ export function resourceBuildActions(state: ClientState, tile: Tile, blocked: bo
   if (isNetworkResource(tile.resource)) {
     const spec = RESOURCE_NETWORKS[tile.resource];
     build = { type: spec.building, id: networkBuildAction(tile.resource), name: spec.buildingName, tech: spec.tech,
-      requirement: `Requires ${spec.tech.split("-").join(" ")}`, effect: spec.effect };
+      requirement: `Requires ${state.techCatalog.find(tech => tech.id === spec.tech)?.name ?? spec.tech.split("-").join(" ")}`, effect: spec.effect };
   } else if (tile.resource === "FARM") {
     build = { type: "HYDROGARDEN", id: "build_hydrogarden", name: "Hydrogarden", tech: "agriculture", requirement: "Requires Hyperfeed Seedstock Consignment", effect: `+${TILE_SLOT_BOOST_STRUCTURES.HYDROGARDEN} FOOD slot` };
   } else if (tile.resource === "UMBRITE") {

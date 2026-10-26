@@ -439,14 +439,17 @@ Clearing House effects are maintained in the economy reference.
 ### Frontier concessions and ancillary supply
 
 A House may develop neural resin groves and conductive mineral seams into
-suppliers for its Ancillary Factories. The scattered broadleaf trees of open
-grassland carry neural resin in amber seams beneath their bark; dense forest
-is a separate landscape, not a resin deposit. Resin Extractors refine native compounds
+suppliers for its Ancillary Factories. Resin-bearing broadleaf groves favour
+forested grassland, with amber seams beneath their bark; ordinary trees are
+not automatically resin deposits. Conductive seams favour rocky grassland
+and tundra. Resin Extractors refine native compounds
 that integrate neural controls with remade bodies; Implant Foundries turn
 conductive ore into implants, command circuitry and replacement components.
 Towns provide the bodies. These industries improve the factories' ability to
 ready them, not the supply of people. Ancillary Depots provide storage and
-custody for the resulting reserve.
+custody for the resulting reserve. The Reserve Custody Cadre authorises both
+Depots and Implant Foundries, supplying the custody and implant expertise
+needed to maintain an Ancillary reserve.
 
 A working site provides a continuing contracted supply, committed to a
 particular recipient industry. Opening more factories does not duplicate
@@ -456,15 +459,19 @@ An idle or lost recipient releases the commitment for another eligible
 building; the physical deposit remains.
 
 Catalyst Refineries develop rare catalyst-bearing deposits for offworld
-chemical and fabrication industries. Cultivation Estates grow native luxury
-biota for fragrances, pigments and intoxicants sought in the Core. Trade Nexuses
+chemical and fabrication industries. These deposits favour sandy ground
+and exposed tundra. Cultivation Estates grow native luxury
+biota for fragrances, pigments and intoxicants sought in the Core. These
+plants favour warm, wet grasslands, with temperate varieties also cultivated. Trade Nexuses
 secure commercial arrangements against these concessions, increasing the
 campaign credit the House factor can advance against future output.
 
 Precursor salvage fields contain recoverable pre-Court industrial machinery.
 Reclamation Works supply tools and components that improve Manufactory output;
 the resulting goods provide additional backing for campaign credit. These
-fields are industrial remains, distinct from aether Shards and the great
+fields occur across the planet, often exposed in hills and mountain
+foothills. The Industrial Tooling Module authorises both Manufactories and
+Reclamation Works. Salvage fields are industrial remains, distinct from aether Shards and the great
 Monuments. No claim that a field is itself an active Concordance construct is
 implied by the term precursor.
 

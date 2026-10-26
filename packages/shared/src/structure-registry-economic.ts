@@ -28,10 +28,10 @@ export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureTyp
   UMBRITE_RIG: "leatherworking",
   MINE: "mining",
   RESIN_EXTRACTOR: "neural-resin-processing",
-  IMPLANT_FOUNDRY: "implant-metallurgy",
+  IMPLANT_FOUNDRY: "organized-supply",
   CATALYST_REFINERY: "frontier-concessions",
   CULTIVATION_ESTATE: "frontier-concessions",
-  RECLAMATION_WORKS: "salvage-reclamation",
+  RECLAMATION_WORKS: "trade",
 
   MANUFACTORY: "trade",
   INCUBATION_ENGINE: "pottery",

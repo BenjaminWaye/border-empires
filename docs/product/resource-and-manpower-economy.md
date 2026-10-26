@@ -224,12 +224,16 @@ network owners settle accrued income and manpower at the old rate before a
 relevant tile mutation. These exclusive supply slots reward concentrated
 investment without requiring continent-wide collection.
 
-Scattered single broadleaf trees are usable resin sites, including on recovered
-campaigns where the land is unoccupied and outside protected landing footprints.
-Dense forests remain unchanged. New standard maps also receive 600 fixed
-deposits across the other four types.
+New standard 640×320 maps target 1,000 tiles of each of the five resources,
+in separated deposits of 1–3 tiles. Habitat preferences and secondary biomes
+are documented in [the resource-network plan](../resource-networks-plan.md).
+The decorative lone-tree pattern is removed; resin appears as distinct groves.
+Saved campaigns preserve their existing geography on recovery.
 
-The full balance, terrain-derived resin placement, Manifests, visuals and rollout
-are recorded in [the resource-network plan](../resource-networks-plan.md).
+Implant Foundry shares Reserve Custody Cadre (`organized-supply`) with the
+Ancillary Depot. Reclamation Works shares Industrial Tooling Module (`trade`)
+with the Manufactory. Resin Extractor and export installations retain their
+separate warrant/charter. There are no additional implant or salvage warrants.
+
 Sources: `packages/shared/src/resource-networks/`,
 `apps/simulation/src/resource-networks/`, `resource-networks-worldgen.ts`.

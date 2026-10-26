@@ -67,9 +67,6 @@ export const isHillsTile = isHillsTileAt;
 // Call only for a tile already known to draw as forest (see isTropicalForestLatitudeAt).
 export const isTropicalForestLatitude = isTropicalForestLatitudeAt;
 
-// Compatibility for tree asset stories; live sites come from tile.resource.
-export { isResinTreeSiteAt as isLightGrassScatterTile } from "@border-empires/shared";
-
 // Was previously reimplemented locally -- now delegates to the shared
 // formula so it can't drift out of sync with the sim's authoritative one.
 export const frontierClaimDurationMsForTile = frontierClaimDurationMsAt;

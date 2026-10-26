@@ -1,3 +1,4 @@
+import { isNetworkResource } from "@border-empires/shared";
 import type { TechInfo, Tile } from "../client-types.js";
 import { createRetiredProspectCluesLookup } from "../client-prospect-clue/client-prospect-clue.js";
 import { drawProspectSignatureOverlay, prospectClueDrawFor } from "../client-prospect-signature-overlay.js";
@@ -20,7 +21,7 @@ export const drawVisibleTerrain2D = (
   tile: Tile,
   wx: number, wy: number, px: number, py: number, size: number
 ): void => {
-  deps.drawForestOverlay(wx, wy, px, py, size);
+  if (!isNetworkResource(tile.resource)) deps.drawForestOverlay(wx, wy, px, py, size);
   deps.drawHillsOverlay(wx, wy, px, py, size);
   if (tile.ownerId) drawLiveOwnershipTint2D(deps.ctx, tile, deps.effectiveOverlayColor(tile.ownerId), wx, wy, px, py, size);
   const clue = prospectClueDrawFor(tile, true, retiredClues(techState.techIds, techState.techCatalog));

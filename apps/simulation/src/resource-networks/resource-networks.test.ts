@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { NETWORK_RESOURCES, RESOURCE_NETWORKS, emptyNetworkSiteCounts } from "@border-empires/shared";
+import { NETWORK_RESOURCES, RESOURCE_NETWORKS, emptyNetworkSiteCounts, type NetworkBiomeContext } from "@border-empires/shared";
 import { developedNetworkSites } from "./resource-networks.js";
 import { seedResourceNetworks } from "../resource-networks-worldgen.js";
 
+export const testBiome = (tile: DomainTileState): NetworkBiomeContext => ({
+  biome: tile.x % 3 === 0 ? "SAND" : tile.x % 3 === 1 ? "GRASS" : "TUNDRA",
+  forest: tile.y % 3 === 0, hills: tile.y % 3 === 1, tropical: tile.y % 3 === 2, nearMountains: false
+});
 const site = (overrides: Partial<DomainTileState> = {}): DomainTileState => ({
   x: 2, y: 3, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED", resource: "NEURAL_RESIN",
   economicStructure: { ownerId: "p", type: "RESIN_EXTRACTOR", status: "active" }, ...overrides
@@ -35,14 +39,14 @@ describe("economic resource map generation", () => {
     const a = build(), b = build();
     a.set("1,1", { x:1,y:1,terrain:"LAND",resource:"FARM" });
     b.set("1,1", { x:1,y:1,terrain:"LAND",resource:"FARM" });
-    seedResourceNetworks(a, 123, 160, 80, () => false); seedResourceNetworks(b, 123, 160, 80, () => false);
+    seedResourceNetworks(a, 123, 160, 80, testBiome); seedResourceNetworks(b, 123, 160, 80, testBiome);
     expect(a).toEqual(b);
     for (const resource of NETWORK_RESOURCES) expect([...a.values()].filter(tile => tile.resource === resource)).toHaveLength(Math.round(RESOURCE_NETWORKS[resource].sitesPerStandardMap / 16));
     expect(a.get("1,1")?.resource).toBe("FARM");
-    const c = build(); seedResourceNetworks(c, 124, 160, 80, () => false);
+    const c = build(); seedResourceNetworks(c, 124, 160, 80, testBiome);
     expect(c).not.toEqual(a);
     const d = new Map<string,DomainTileState>([["1,1",{x:1,y:1,terrain:"SEA"}], ["2,2",{x:2,y:2,terrain:"LAND",town:{name:"Town",type:"MARKET",populationTier:"TOWN"}}]]);
-    seedResourceNetworks(d, 123, 640, 320, () => false);
+    seedResourceNetworks(d, 123, 640, 320, testBiome);
     expect([...d.values()].some(tile => tile.resource)).toBe(false);
   });
 });

@@ -75,11 +75,7 @@ export type Forest = {
   readonly clear: () => void;
   /** `tint`: optional per-instance colour multiply (remembered tiles), see client-map-3d-instance-tint.ts. */
   readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number, tint?: Color) => void;
-  // Decorative-only single sapling (leaf species, smaller scale) for light-
-  // grass "scatter" tiles -- see isLightGrassScatterTile in
-  // client-constants.ts. Shares the leaf instance pool with addInstance; a
-  // tile is only ever real forest or scatter, never both, so this never grows
-  // the mesh's total instance budget beyond maxTiles.
+  // Reference asset placement for species/scale QA; live maps use resource groves.
   readonly addSparseLeafInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number, tint?: Color) => void;
   readonly commit: () => void;
   readonly dispose: () => void;

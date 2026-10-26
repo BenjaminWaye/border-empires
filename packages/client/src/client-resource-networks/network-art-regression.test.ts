@@ -9,7 +9,7 @@ import { createNetworkGeometry, createNetworkOverlay } from "./network-models.js
 
 describe("resin uses the existing map broadleaf asset", () => {
   it("retains its exact canopy, trunk, colours and normals, with sap added after the tree", () => {
-    const original = createLeafGeometry().scale(0.34 / 0.53, 0.34 / 0.53, 0.34 / 0.53);
+    const original = createLeafGeometry().scale(0.38 / 0.53, 0.38 / 0.53, 0.38 / 0.53).translate(-0.13, 0, -0.02);
     const site = createNetworkGeometry("NEURAL_RESIN", false);
     const tree = site.layers.body!;
     for (const name of ["position", "normal", "color"]) {

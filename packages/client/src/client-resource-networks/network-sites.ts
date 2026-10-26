@@ -16,7 +16,9 @@ export const mineralOutcrop = (t: TownBuilders, x: number, z: number, size: numb
 export const buildNetworkSite = (t: TownBuilders, resource: NetworkResource): void => {
   switch (resource) {
     case "NEURAL_RESIN":
-      resinTree(t, 0, 0, 0.34);
+      resinTree(t, -0.13, -0.02, 0.38);
+      resinTree(t, 0.12, -0.1, 0.32);
+      resinTree(t, 0.1, 0.17, 0.25);
       break;
     case "CONDUCTIVE_MINERALS":
       buildConductiveField(t);

@@ -1,3 +1,4 @@
+import { NETWORK_RESOURCES } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 import { shouldDrawForestInstance } from "./client-map-3d-forest-structure-gate.js";
 import type { Tile } from "./client-types.js";
@@ -24,4 +25,10 @@ describe("shouldDrawForestInstance", () => {
   it("draws when there is no tile data yet (nothing built there)", () => {
     expect(shouldDrawForestInstance(true, undefined)).toBe(true);
   });
+});
+
+
+it("keeps frontier resource plots readable through forest canopy", () => {
+  for (const resource of NETWORK_RESOURCES)
+    expect(shouldDrawForestInstance(true, { ...baseTile, resource })).toBe(false);
 });

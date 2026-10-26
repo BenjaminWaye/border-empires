@@ -15,7 +15,7 @@ describe("resource placement preserves future landings", () => {
     expect(sites.length).toBeGreaterThan(0);
     for (let seed=0;seed<12;seed++) {
       const tiles=new Map(original);
-      seedResourceNetworks(tiles,seed,160,80, () => true);
+      seedResourceNetworks(tiles,seed,160,80, () => ({ biome: "GRASS", forest: true, hills: false, tropical: true, nearMountains: false }));
       for (const site of sites) for (let dy=-1;dy<=1;dy++) for (let dx=-1;dx<=1;dx++)
         expect(tiles.get(`${site.x+dx},${site.y+dy}`)?.resource,`seed=${seed}, landing=${site.x},${site.y}`).toBeUndefined();
     }
