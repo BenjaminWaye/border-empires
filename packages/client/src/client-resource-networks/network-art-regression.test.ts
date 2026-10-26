@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { networkIconExports } from "./network-icon-svg.js";
 import { describe, expect, it } from "vitest";
 import { MeshStandardMaterial, Scene } from "three";
 import { createLeafGeometry } from "../client-map-3d-trees/client-map-3d-tree-models.js";
@@ -40,4 +42,10 @@ it("catalyst host rock faces outwards so it reads as solid geology", () => {
   const last = normal.count - 1;
   expect(normal.getY(last)).toBeGreaterThan(0);
   Object.values(geometry.layers).forEach(layer => layer.dispose());
+});
+
+
+it("ships 2D overlays exported from the current production models", () => {
+  for (const { filename, svg } of networkIconExports())
+    expect(readFileSync(new URL(`../../public/overlays/${filename}`, import.meta.url), "utf8"), filename).toBe(svg);
 });

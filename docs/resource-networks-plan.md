@@ -136,7 +136,7 @@ its own silhouette and material colour, with matching SVG and instanced 3D art:
 | Resource | Raw site | Developed installation |
 |---|---|---|
 | Neural resin / amber | Existing broadleaf tree model with amber bark seams | Tapped trees, trunk collars, pipes, collection vessel and pump |
-| Conductive minerals / turquoise | Dark rock with bright seams | Precision assembly workshop, press gantry and ore hopper |
+| Conductive minerals / oxidised teal and silver | Fractured dark ridge with embedded branching metal veins, exposed plates and scree | Precision assembly workshop, press gantry and ore hopper |
 | Catalysts / oxidised copper | Irregular fractured slate with thin catalyst strata | Banded distillation columns, transfer pipes, access ladder and ore bins |
 | Luxury biota / wine and sage | Folded, waxy rosettes and upright scent bracts | Glazed cultivation house over planted rows |
 | Salvage / weathered blue-grey | Collapsed armoured power train, exposed turbine, severed ribs and cable looms | Reclamation yard with crane and recovered machinery |
