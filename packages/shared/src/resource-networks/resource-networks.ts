@@ -5,7 +5,8 @@ export const RESOURCE_NETWORKS = {
   NEURAL_RESIN: {
     name: "Neural resin", building: "RESIN_EXTRACTOR", buildingName: "Resin Extractor",
     tech: "neural-resin-processing", color: "#e8aa48", glyph: "◉", manpowerCost: 120,
-    batchBonus: 12, creditPerDay: 0, target: "ANCILLARY_FACTORY", sitesPerStandardMap: 180,
+    // Resin follows terrain-derived single trees; zero means no additional quota.
+    batchBonus: 12, creditPerDay: 0, target: "ANCILLARY_FACTORY", sitesPerStandardMap: 0,
     description: "Native resin used to integrate town-supplied bodies with Ancillary control systems.",
     effect: "Supplies one resin slot: +12 Ancillaries per batch at one active Ancillary Factory."
   },

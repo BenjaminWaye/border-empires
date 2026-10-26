@@ -35,14 +35,14 @@ describe("economic resource map generation", () => {
     const a = build(), b = build();
     a.set("1,1", { x:1,y:1,terrain:"LAND",resource:"FARM" });
     b.set("1,1", { x:1,y:1,terrain:"LAND",resource:"FARM" });
-    seedResourceNetworks(a, 123, 160, 80); seedResourceNetworks(b, 123, 160, 80);
+    seedResourceNetworks(a, 123, 160, 80, () => false); seedResourceNetworks(b, 123, 160, 80, () => false);
     expect(a).toEqual(b);
     for (const resource of NETWORK_RESOURCES) expect([...a.values()].filter(tile => tile.resource === resource)).toHaveLength(Math.round(RESOURCE_NETWORKS[resource].sitesPerStandardMap / 16));
     expect(a.get("1,1")?.resource).toBe("FARM");
-    const c = build(); seedResourceNetworks(c, 124, 160, 80);
+    const c = build(); seedResourceNetworks(c, 124, 160, 80, () => false);
     expect(c).not.toEqual(a);
     const d = new Map<string,DomainTileState>([["1,1",{x:1,y:1,terrain:"SEA"}], ["2,2",{x:2,y:2,terrain:"LAND",town:{name:"Town",type:"MARKET",populationTier:"TOWN"}}]]);
-    seedResourceNetworks(d, 123, 640, 320);
+    seedResourceNetworks(d, 123, 640, 320, () => false);
     expect([...d.values()].some(tile => tile.resource)).toBe(false);
   });
 });

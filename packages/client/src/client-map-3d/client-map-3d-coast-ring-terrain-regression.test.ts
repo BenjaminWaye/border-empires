@@ -36,14 +36,14 @@ describe("first fog ring loads its natural terrain in 3D", () => {
     expect(fogOverlaysSource).toContain('applyFoggedEdgeClipToOverlay(fogOwnershipOverlay, edgeUniforms, "multiply");');
   });
 
-  it("keeps natural terrain (mountains, forests, grass scatter) on every fogged tile, ring included", () => {
+  it("keeps natural terrain (mountains and forests) on every fogged tile, ring included", () => {
     const fogBranchStart = source.indexOf('if (visibility === "fogged" && !revealWholeMapInTrue3DMode) {');
     const features = source.indexOf("// Natural terrain is not live data, so it stays", fogBranchStart);
     expect(features).toBeGreaterThan(fogBranchStart);
     const block = source.slice(features, source.indexOf("continue;", features));
     expect(block).toContain("mountainMassifs.addInstance(");
     expect(block).toContain("shouldDrawForestInstance(forestTile, tile)");
-    expect(block).toContain("shouldDrawLightGrassScatterInstance(lightGrassScatterTile, tile)");
+    expect(source).not.toContain("forest.addSparseLeafInstance("); // Single trees are real resource overlays.
     expect(block).not.toMatch(/if \((isFogRing|printAsFogged)\)/); // every fogged tile, not just some
   });
 

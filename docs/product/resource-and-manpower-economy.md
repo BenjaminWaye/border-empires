@@ -224,7 +224,12 @@ network owners settle accrued income and manpower at the old rate before a
 relevant tile mutation. These exclusive supply slots reward concentrated
 investment without requiring continent-wide collection.
 
-The full balance, 780-site standard-map budget, Manifests, visuals and rollout
+Scattered single broadleaf trees are usable resin sites, including on recovered
+campaigns where the land is unoccupied and outside protected landing footprints.
+Dense forests remain unchanged. New standard maps also receive 600 fixed
+deposits across the other four types.
+
+The full balance, terrain-derived resin placement, Manifests, visuals and rollout
 are recorded in [the resource-network plan](../resource-networks-plan.md).
 Sources: `packages/shared/src/resource-networks/`,
 `apps/simulation/src/resource-networks/`, `resource-networks-worldgen.ts`.

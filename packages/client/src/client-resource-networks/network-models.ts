@@ -1,4 +1,4 @@
-import { NETWORK_RESOURCES, RESOURCE_NETWORKS, WORLD_WIDTH, WORLD_HEIGHT, type NetworkResource } from "@border-empires/shared";
+import type { NetworkResource } from "@border-empires/shared";
 import { MeshStandardMaterial, type Scene, type Texture } from "three";
 import { createDistrictGeometryFromModel, type DistrictGeometry } from "../client-town-district/district-geometry.js";
 import { createModelOverlay, type ModelOverlay } from "../client-town-district/model-overlay.js";
@@ -11,16 +11,17 @@ export const createNetworkGeometry = (resource: NetworkResource, developed: bool
   createDistrictGeometryFromModel(t => developed ? buildNetworkInstallation(t, resource) : buildNetworkSite(t, resource));
 
 export const createNetworkOverlay = (scene: Scene, maxTiles: number, developed: boolean, envMap?: Texture): ModelOverlay<NetworkResource> => {
-  // Sparse sites cannot consume a visible-terrain-sized buffer per model.
-  // The finite catalogue grows buffers only when used, up to four wrapped maps.
-  const scale = WORLD_WIDTH * WORLD_HEIGHT / (640 * 320);
-  const budget = NETWORK_RESOURCES.reduce((sum, resource) => sum + RESOURCE_NETWORKS[resource].sitesPerStandardMap, 0);
-  return createModelOverlay(scene, Math.min(maxTiles, Math.max(32, Math.ceil(budget * scale) * 4)),
+  // Resin follows the terrain's scattered trees. Allocate lazily, bounded by visible tiles.
+  return createModelOverlay(scene, maxTiles,
     resource => {
       if (!resource) throw new Error("A frontier model requires a resource kind");
       return createNetworkGeometry(resource, developed);
     }, envMap, 0, environment => {
       const materials = createDistrictMaterials(environment);
+      if (materials.layers.body instanceof MeshStandardMaterial) {
+        materials.layers.body.flatShading = false;
+        materials.layers.body.roughness = 0.9;
+      }
       if (developed && materials.layers.glass instanceof MeshStandardMaterial) {
         materials.layers.glass.transparent = true;
         materials.layers.glass.opacity = 0.3;

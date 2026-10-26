@@ -7,14 +7,9 @@ import {
   OBSERVATORY_VISION_BONUS as SHARED_OBSERVATORY_VISION_BONUS,
   SETTLE_MS,
   frontierClaimDurationMsAt,
-  grassShadeAt,
   isForestTileAt,
   isHillsTileAt,
-  isTropicalForestLatitudeAt,
-  landBiomeAt,
-  seeded01,
-  wasForestBeforeClearingAt,
-  worldSeed
+  isTropicalForestLatitudeAt
 } from "@border-empires/shared";
 
 
@@ -72,19 +67,8 @@ export const isHillsTile = isHillsTileAt;
 // Call only for a tile already known to draw as forest (see isTropicalForestLatitudeAt).
 export const isTropicalForestLatitude = isTropicalForestLatitudeAt;
 
-// Purely cosmetic (no vision/claim-timing effect, unlike isForestTile/
-// isHillsTile above): a sparse decorative scattering of the leaf/deciduous
-// tree species (see client-map-3d-forest.ts / client-map-render-forest-
-// overlay.ts) on light-shaded grass tiles, so light grass doesn't read as
-// completely bare next to dense dark-grass forest. Never on a tile that's
-// already a real forest or hills tile, nor on one an AFC landing cleared of
-// forest (that ground is meant to read as cleared).
-const LIGHT_GRASS_SCATTER_CHANCE = 0.3;
-export const isLightGrassScatterTile = (x: number, y: number): boolean => {
-  if (isForestTile(x, y) || isHillsTile(x, y) || wasForestBeforeClearingAt(x, y)) return false;
-  if (landBiomeAt(x, y) !== "GRASS" || grassShadeAt(x, y) !== "LIGHT") return false;
-  return seeded01(x * 131 + 7, y * 197 + 13, worldSeed() + 90210) < LIGHT_GRASS_SCATTER_CHANCE;
-};
+// Compatibility for tree asset stories; live sites come from tile.resource.
+export { isResinTreeSiteAt as isLightGrassScatterTile } from "@border-empires/shared";
 
 // Was previously reimplemented locally -- now delegates to the shared
 // formula so it can't drift out of sync with the sim's authoritative one.

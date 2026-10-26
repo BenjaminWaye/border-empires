@@ -439,7 +439,9 @@ Clearing House effects are maintained in the economy reference.
 ### Frontier concessions and ancillary supply
 
 A House may develop neural resin groves and conductive mineral seams into
-suppliers for its Ancillary Factories. Resin Extractors refine native compounds
+suppliers for its Ancillary Factories. The scattered broadleaf trees of open
+grassland carry neural resin in amber seams beneath their bark; dense forest
+is a separate landscape, not a resin deposit. Resin Extractors refine native compounds
 that integrate neural controls with remade bodies; Implant Foundries turn
 conductive ore into implants, command circuitry and replacement components.
 Towns provide the bodies. These industries improve the factories' ability to

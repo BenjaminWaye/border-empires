@@ -2,7 +2,7 @@
 
 Status: implementation and validation in progress on `agent/resource-networks`
 Owner: Border Empires game design / this task
-Last reviewed: 2026-10-25
+Last reviewed: 2026-10-26
 
 ## Intended play
 
@@ -100,19 +100,26 @@ The standard world is 640×320 (204,800 tiles):
 
 | Deposit | Sites per standard map |
 |---|---:|
-| Neural resin | 180 |
+| Neural resin | Every eligible scattered single-tree position (terrain-derived) |
 | Conductive minerals | 180 |
 | Catalytic deposit | 150 |
 | Luxury biota | 150 |
 | Precursor salvage | 120 |
-| **Total** | **780** |
+| **Fixed deposits** | **600, plus scattered resin trees** |
 
-Each site is one developable tile. Counts scale with total map area, rounded
-per type: at 320×160 the targets are 45/45/38/38/30 (196 total). At 160×80 they
-are 11/11/9/9/8 (48 total). Custom maps with insufficient eligible land place
-as many as they can without overwriting existing content.
+Each site is one developable tile. Resin uses the existing scattered broadleaf
+pattern: 30% of light grass candidates, excluding forests, hills and land
+cleared of forest. Every eligible single tree becomes a usable resin site;
+there is no separate resin quota. Dense forest remains forest. Occupied tiles
+and protected landing footprints take precedence.
 
-Placement is seeded and deterministic, distributed round-robin across 32×32
+The other four types scale with total map area, rounded per type: at 320×160
+the targets are 45/38/38/30 (151 fixed deposits), plus resin trees. Custom maps
+with insufficient eligible land place as many as they can without overwriting
+existing content. Resin is placed first, so the other deposits cannot consume
+its tree positions.
+
+Fixed-deposit placement is seeded and deterministic, distributed round-robin across 32×32
 geographic sectors. It uses unoccupied LAND and preserves existing slot
 resources, towns, docks, relics, Shards, watchtowers, Waystations and structures.
 The 5×5 area around an existing landing AFC and the clear 3×3 footprints
@@ -128,11 +135,11 @@ its own silhouette and material colour, with matching SVG and instanced 3D art:
 
 | Resource | Raw site | Developed installation |
 |---|---|---|
-| Neural resin / amber | Sap-bearing trees | Tapped trees, trunk collars, pipes, collection vessel and pump |
+| Neural resin / amber | Existing broadleaf tree model with amber bark seams | Tapped trees, trunk collars, pipes, collection vessel and pump |
 | Conductive minerals / turquoise | Dark rock with bright seams | Precision assembly workshop, press gantry and ore hopper |
-| Catalysts / pale gold | Ochre ore outcrop | Banded distillation columns, transfer pipes, access ladder and ore bins |
-| Luxury biota / rose | Flowering native shrubs | Glazed cultivation house over planted rows |
-| Salvage / weathered blue-grey | Broken, half-buried machine ribs and scattered components | Reclamation yard with crane and recovered machinery |
+| Catalysts / oxidised copper | Irregular fractured slate with thin catalyst strata | Banded distillation columns, transfer pipes, access ladder and ore bins |
+| Luxury biota / wine and sage | Folded, waxy rosettes and upright scent bracts | Glazed cultivation house over planted rows |
+| Salvage / weathered blue-grey | Collapsed armoured power train, exposed turbine, severed ribs and cable looms | Reclamation yard with crane and recovered machinery |
 
 The live 3D resource dispatcher accepts all five deposit kinds; the existing
 structure dispatcher handles all five installations. Shared construction
@@ -155,7 +162,7 @@ Storybook gallery shows all raw and developed models alongside their 2D art.
 
 1. Shared catalog: types, constants, balance formulas, structure placement,
    costs, slot requirements, schemas and Manifest unlocks.
-2. Season generation: exact deterministic area-scaled budget, protected
+2. Season generation: terrain-derived resin plus deterministic fixed-deposit budget, protected
    content and shared sync/async integration.
 3. Economy: cached developed-site counts, real batch and Coin effects,
    current-rate settlement, loss/dormancy invalidation and display parity.
@@ -175,12 +182,22 @@ caches; worker planners receive existing tile/structure state.
 
 ## Rollout
 
-This is a feature branch targeting `develop`. Existing campaigns do not gain
-or lose deposits on restart. Generation takes effect for a newly generated
-season after the change is deployed. A season reset is a separate operational
-action, never an incidental part of installing this feature. Existing worlds
-remain playable with zero network deposits and retain their prior economy.
+This is a feature branch targeting `develop`. On full-campaign recovery,
+previously decorative scattered single trees become resin resources on eligible
+unoccupied land. The same tile fields persist these resources through snapshots;
+recovery preserves ownership and existing content. Forest clearing is restored
+before deriving tree sites. The other four new resources appear in newly generated
+seasons. No season reset is required for the resin conversion.
 The new resources are excluded from Resource Monopoly's existing resource list.
+
+A normal factory produces 12 Ancillaries per four-hour batch. Resin doubles
+that to 24; conductive supply alone gives 18; both give 30. At base rates,
+the 120-manpower extractor repays its manpower cost in 40 hours of supplied
+production, while the 150-manpower foundry takes 100 hours. These payback
+figures exclude technology, construction, FOOD and opportunity costs. Resin is
+now more common; its access is terrain-driven while bonuses remain bounded
+by developed sites, factory count and upkeep. The foundry cost and the effect
+of common resin require playtesting before treating the values as final.
 
 The figures above are starting balance, not evidence from a long-running
 multiplayer playtest. After staging, compare developed-site counts, income

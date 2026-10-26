@@ -126,7 +126,7 @@ describe("2D forest overlay leaf/deciduous species selection", () => {
 });
 
 describe("2D forest overlay light-grass scatter sapling", () => {
-  it("draws a leaf-shaped (arc-based) tree for a scatter tile, at a smaller scale than a real forest tile", () => {
+  it("leaves former decorative single-tree tiles to the authoritative resin overlay", () => {
     setWorldSeed(2024);
     let scatterTile: { x: number; y: number } | undefined;
     for (let x = 0; x < 200 && !scatterTile; x += 1) {
@@ -138,8 +138,8 @@ describe("2D forest overlay light-grass scatter sapling", () => {
 
     const mock = createMockContext();
     drawForestOverlay(mock.ctx, scatterTile!.x, scatterTile!.y, 0, 0, 48);
-    expect(mock.fillRectCalls).toBe(1); // exactly one sapling trunk, not a full forest layout
-    expect(mock.arcCalls).toBeGreaterThan(0); // leaf shape, not the conifer triangle
+    expect(mock.fillRectCalls).toBe(0);
+    expect(mock.arcCalls).toBe(0);
   });
 });
 

@@ -198,6 +198,8 @@ export type TownAnim = {
 };
 
 export type TownMeshBuilder = {
+  /** Copies a pre-coloured asset, preserving its authored geometry and normals. */
+  readonly authored: (geometry: BufferGeometry) => void;
   /** Box of size w x h x d standing on (x, y, z), turned ry about y. */
   readonly box: (x: number, y: number, z: number, w: number, h: number, d: number, color: TownColor, ry?: number) => void;
   /** Gable roof, ridge along the (turned) x axis. */
@@ -344,6 +346,15 @@ export const createTownMeshBuilder = (options: TownMeshBuilderOptions = {}): Tow
   };
 
   return {
+    authored: source => {
+      const part = nonIndexed(source).clone();
+      for (const name of Object.keys(part.attributes))
+        if (name !== "position" && name !== "normal" && name !== "color") part.deleteAttribute(name);
+      const count = part.getAttribute("position").count;
+      part.setAttribute("animA", new BufferAttribute(new Float32Array(count * 4), 4));
+      part.setAttribute("animB", new BufferAttribute(new Float32Array(count * 4), 4));
+      parts.push(part);
+    },
     box: (x, y, z, w, h, d, color, ry = 0) => push(UNIT_BOX, color, x, y, z, w, h, d, ry),
     gable: (x, y, z, w, h, d, color, ry = 0) => push(UNIT_GABLE, color, x, y, z, w, h, d, ry),
     pyramid: (x, y, z, w, h, d, color, ry = 0) => push(UNIT_PYRAMID, color, x, y, z, w, h, d, ry),
@@ -397,6 +408,7 @@ export const createTownMeshBuilder = (options: TownMeshBuilderOptions = {}): Tow
 export const createRoutedTownBuilder = (matte: TownMeshBuilder, metal: TownMeshBuilder, glass: TownMeshBuilder = metal): TownMeshBuilder => {
   const to = (color: TownColor): TownMeshBuilder => (TOWN_METAL_COLORS.has(color) ? metal : TOWN_GLASS_COLORS.has(color) ? glass : matte);
   return {
+    authored: geometry => matte.authored(geometry),
     box: (x, y, z, w, h, d, color, ry) => to(color).box(x, y, z, w, h, d, color, ry),
     gable: (x, y, z, w, h, d, color, ry) => to(color).gable(x, y, z, w, h, d, color, ry),
     pyramid: (x, y, z, w, h, d, color, ry) => to(color).pyramid(x, y, z, w, h, d, color, ry),

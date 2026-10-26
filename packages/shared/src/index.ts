@@ -81,3 +81,5 @@ export * from "./relics/relic-resource-reward.js";
 export * from "./relics/relic-map-hints.js";
 
 export * from "./resource-networks/resource-networks.js";
+
+export * from "./worldgen/resin-tree-sites.js";
