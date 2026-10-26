@@ -57,6 +57,7 @@ export type TruceRequestRow = {
   from_name: string | null;
   to_name: string | null;
   terms_json?: string | null;
+  extends_truce?: number | null;
 };
 export type ActiveTruceRow = {
   origin?: string | null;
@@ -113,7 +114,8 @@ export const truceRequestFromRow = (row: TruceRequestRow): SocialTruceRequest[] 
       durationHours: row.duration_hours as 12 | 24,
       ...(row.from_name ? { fromName: row.from_name } : {}),
       ...(row.to_name ? { toName: row.to_name } : {}),
-      ...terms
+      ...terms,
+      ...(row.extends_truce ? { extendsTruce: true as const } : {})
     }
   ];
 };

@@ -3,6 +3,7 @@ export * from "./retort-recast.js";
 export * from "./town-terrain-profile.js";
 export * from "./muster-state.js";
 export * from "./diplomacy-terms/diplomacy-terms.js";
+export * from "./truce-extension/truce-extension.js";
 export * from "./muster-config.js";
 export * from "./manpower-refill.js";
 export * from "./landing-manpower-reserve.js";

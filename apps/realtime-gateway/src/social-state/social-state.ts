@@ -23,7 +23,15 @@ import {
   type SocialTruceBreakRecord,
   type SocialTruceRequest
 } from "./social-state-types.js";
-import { aiNameFromStored, diplomacyTermsAreEmpty, numberedAiNameForId, type DiplomacyTerms } from "@border-empires/shared";
+import {
+  aiNameFromStored,
+  diplomacyTermsAreEmpty,
+  extendedTruceEndsAt,
+  numberedAiNameForId,
+  TRUCE_EXTENSION_MAX_AHEAD_MS,
+  truceExtensionFits,
+  type DiplomacyTerms
+} from "@border-empires/shared";
 
 import { buildUpdatePayloads } from "./social-state-payloads.js";
 import { buildSocialSnapshot } from "./social-state-snapshot.js";
@@ -330,8 +338,10 @@ export const createSocialState = (options: {
       if (playerIsTruceLockedOut(actor.id, truceLockoutUntilByPlayerId, now())) {
         return { ok: false, code: "TRUCE_LOCKED_OUT", message: "you broke a truce recently and cannot request a new truce yet" };
       }
-      if (activeTruceBetween(actor.id, target.id, trucesByPair, now())) {
-        return { ok: false, code: "TRUCE_EXISTS", message: "you already have an active truce with that player" };
+      // During a truce the offer extends it, within the cap on how far ahead a truce may run.
+      const runningTruce = activeTruceBetween(actor.id, target.id, trucesByPair, now());
+      if (runningTruce && !truceExtensionFits(runningTruce.endsAt, durationHours, now())) {
+        return { ok: false, code: "TRUCE_EXTENSION_CAP", message: `a truce can run at most ${TRUCE_EXTENSION_MAX_AHEAD_MS / 3_600_000}h ahead` };
       }
       if (findTruceRequestBetweenPlayers(truceRequests.values(), actor.id, target.id)) {
         return { ok: false, code: "TRUCE_REQUEST_PENDING", message: "a truce offer is already pending" };
@@ -347,7 +357,8 @@ export const createSocialState = (options: {
         durationHours,
         fromName: actor.name,
         toName: target.name,
-        ...termsField(offerOptions?.terms)
+        ...termsField(offerOptions?.terms),
+        ...(runningTruce ? { extendsTruce: true as const } : {})
       };
       truceRequests.set(request.id, request);
       sink?.saveTruceRequest(request);
@@ -380,23 +391,23 @@ export const createSocialState = (options: {
         staleOfferPlayerIds.add(from.id);
         return { ok: false, code: "TRUCE_LOCKED_OUT", message: "one player broke a truce recently and is locked out" };
       }
-      if (activeTruceBetween(actor.id, from.id, trucesByPair, now())) {
-        truceRequests.delete(requestId);
-        sink?.deleteTruceRequest(requestId);
-        staleOfferPlayerIds.add(from.id);
-        return { ok: false, code: "TRUCE_EXISTS", message: "you already have an active truce with that player" };
-      }
-      const truce: SocialActiveTruce = {
-        playerAId: actor.id < from.id ? actor.id : from.id,
-        playerBId: actor.id < from.id ? from.id : actor.id,
-        startedAt: now(),
-        endsAt: now() + request.durationHours * 60 * 60_000,
-        createdByPlayerId: from.id
-      };
+      // A running truce is extended (capped); otherwise, even for an extension whose truce lapsed meanwhile, a new one starts.
+      const running = activeTruceBetween(actor.id, from.id, trucesByPair, now());
+      const truce: SocialActiveTruce = running
+        ? { ...running, endsAt: extendedTruceEndsAt(running.endsAt, request.durationHours, now()) }
+        : {
+            playerAId: actor.id < from.id ? actor.id : from.id,
+            playerBId: actor.id < from.id ? from.id : actor.id,
+            startedAt: now(),
+            endsAt: now() + request.durationHours * 60 * 60_000,
+            createdByPlayerId: from.id
+          };
       truceRequests.delete(requestId);
       trucesByPair.set(pairKey(actor.id, from.id), truce);
       sink?.deleteTruceRequest(requestId); sink?.saveActiveTruce(truce);
-      const announcement = `${actor.name} and ${from.name} agreed to a ${request.durationHours}h truce.`;
+      const announcement = running
+        ? `${actor.name} and ${from.name} extended their truce by ${request.durationHours}h.`
+        : `${actor.name} and ${from.name} agreed to a ${request.durationHours}h truce.`;
       return ok([actor.id, from.id], announcementByPlayerId ?? { [actor.id]: announcement, [from.id]: announcement });
     },
     rejectTruce(playerId, requestId, options) {
