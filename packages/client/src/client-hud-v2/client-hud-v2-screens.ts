@@ -5,6 +5,7 @@
 
 import { acknowledgeActivitySeen, requestPersonalActivity } from "../client-activity-dashboard/client-activity-dashboard-network.js";
 import { counterOfferScreenInput } from "../client-alliance/client-alliance-counter-offer.js";
+import { showCaptureAlert } from "../client-alerts/client-alerts.js";
 import { diplomacyTradeDepsFor, openDiplomacyTradeScreen } from "../client-diplomacy-trade/client-diplomacy-trade.js";
 import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
 import type { TileActionDef } from "../client-types.js";
@@ -108,7 +109,7 @@ const renderRanks = (deps: HudV2Deps): void => {
     overall: lb.overall,
     selfOverall: lb.selfOverall,
     nameOf: (id: string) => nameOf(deps, id),
-    colorOf: (id: string) => deps.state.playerColors.get(id)
+    colorOf: (id: string) => deps.ownerColor(id)
   };
   writeHtml("v2s-head-right", ranksBannerHtml(input));
   bodyMode = "ranks";
@@ -130,7 +131,7 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
       incomingTruce: state.incomingTruceRequests,
       leaderboard: state.leaderboard.overall,
       nameOf: (id) => nameOf(deps, id),
-      colorOf: (id) => state.playerColors.get(id),
+      colorOf: (id) => deps.ownerColor(id),
       nowMs: Date.now()
     }));
     return;
@@ -149,7 +150,7 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
   writeHtml("v2s-dip-you", dealSideHtml({
     id: state.me,
     name: nameOf(deps, state.me) || "You",
-    color: state.playerColors.get(state.me),
+    color: deps.ownerColor(state.me),
     role: "YOU",
     rows: [
       { label: "Tiles", value: tilesOf(state.me) },
@@ -162,20 +163,31 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
   writeHtml("v2s-dip-them", dealSideHtml({
     id: target,
     name: nameOf(deps, target) || "Empire",
-    color: state.playerColors.get(target),
+    color: deps.ownerColor(target),
     role: stance.label.toUpperCase(),
     rows: [{ label: "Tiles", value: tilesOf(target) }]
   }));
+};
+
+export const offerSentTitle = (payload: unknown): string => {
+  if (typeof payload !== "object" || payload === null) return "Offer sent";
+  if ("type" in payload && payload.type === "ALLIANCE_REQUEST") return "Alliance offered";
+  const hours = "durationHours" in payload ? payload.durationHours : undefined;
+  return `Truce offered${typeof hours === "number" ? ` · ${hours}h` : ""}`;
 };
 
 /** Opens the existing trade view and moves it into the deal's middle column; closing it returns to the list. */
 const hostTradeView = (deps: HudV2Deps, targetId: string, input?: Parameters<typeof openDiplomacyTradeScreen>[0]): void => {
   const { state } = deps;
   const ally = state.allies.includes(targetId);
-  openDiplomacyTradeScreen(
-    input ?? { targetName: nameOf(deps, targetId), targetPlayerId: targetId, kind: ally ? "alliance" : "truce", durationHours: 24 },
-    diplomacyTradeDepsFor(state, deps.sendGameMessage)
-  );
+  const offer = input ?? { targetName: nameOf(deps, targetId), targetPlayerId: targetId, kind: ally ? "alliance" as const : "truce" as const, durationHours: 24 as const };
+  // The deal view closes on send; say the offer went out (the reply replaces this alert, above the screen).
+  const send = (payload: unknown, notSignedInMessage: string): boolean => {
+    const sent = deps.sendGameMessage(payload, notSignedInMessage);
+    if (sent) showCaptureAlert(state, offerSentTitle(payload), `Waiting for ${offer.targetName}`, "success");
+    return sent;
+  };
+  openDiplomacyTradeScreen(offer, diplomacyTradeDepsFor(state, send));
   const host = document.getElementById("v2s-dip-host");
   const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay");
   if (!host || !overlay) return;
@@ -201,7 +213,7 @@ const renderChronicle = (deps: HudV2Deps): void => {
     rivalFilter: screen.chronicleRival,
     selectedId: screen.chronicleSelectedId,
     nameOf: (id) => state.playerNames.get(id),
-    colorOf: (id) => state.playerColors.get(id),
+    colorOf: (id) => deps.ownerColor(id),
     techName: (id) => state.techCatalog.find((t) => t.id === id)?.name,
     nowMs: Date.now()
   }));

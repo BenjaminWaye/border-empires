@@ -77,7 +77,7 @@ export const battleOnMenuView = (view: TileMenuView, tileKey: string): void => {
 const sideFor = (deps: HudV2Deps, id: string, role: string, sub: string): BattleSide => ({
   id,
   name: id === deps.state.me ? deps.state.playerNames.get(id) ?? "You" : deps.state.playerNames.get(id) ?? "Empire",
-  color: deps.state.playerColors.get(id),
+  color: deps.ownerColor(id),
   role,
   sub
 });

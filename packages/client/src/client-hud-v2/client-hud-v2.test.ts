@@ -72,10 +72,20 @@ describe("tracker", () => {
     expect(html).toContain("+2 more");
     expect(html).toContain('data-hud-v2-focus-x="0" data-hud-v2-focus-y="0"');
   });
+
+  // Regression: a frontier expansion was listed as "Battle at".
+  it("labels a frontier expansion as expanding, and only a battle opens the battle screen", () => {
+    const expanding = trackerHtml({ ...base, capture: { x: 2, y: 3, resolvesAt: 60_000, battle: false } });
+    expect(expanding).toContain("Expanding to (2, 3)");
+    expect(expanding).not.toContain('data-hud-v2-open="battle"');
+    const battle = trackerHtml({ ...base, capture: { x: 2, y: 3, resolvesAt: 60_000, battle: true } });
+    expect(battle).toContain("Battle at (2, 3)");
+    expect(battle).toContain('data-hud-v2-open="battle"');
+  });
 });
 
 describe("rivals strip", () => {
-  it("puts truces first (soonest first), then allies, and counts everyone else as hidden", () => {
+  it("puts truces first (soonest first), then allies, then everyone else met", () => {
     const { shown, hidden } = rivalTokens({
       me: "me",
       metPlayerIds: new Set(["a", "b", "c", "d"]),
@@ -88,9 +98,16 @@ describe("rivals strip", () => {
       colorOf: () => "#123456",
       nowMs: 0
     });
-    expect(shown.map((t) => [t.id, t.stance])).toEqual([["a", "truce"], ["b", "truce"], ["c", "ally"]]);
+    expect(shown.map((t) => [t.id, t.stance])).toEqual([["a", "truce"], ["b", "truce"], ["c", "ally"], ["d", "met"]]);
     expect(shown[0]?.label).toBe("TRUCE 2h");
-    expect(hidden).toBe(1);
+    expect(hidden).toBe(0);
+  });
+
+  // Regression: meeting one empire showed "+1" instead of its name and colour.
+  it("shows a single met empire by name, not as an overflow count", () => {
+    const { shown, hidden } = rivalTokens({ me: "me", metPlayerIds: new Set(["me", "p2"]), allies: [], activeTruces: [], nameOf: () => "Vasker", colorOf: () => "#c33", nowMs: 0 });
+    expect(shown).toEqual([{ id: "p2", name: "Vasker", initial: "V", color: "#c33", stance: "met", label: "MET" }]);
+    expect(hidden).toBe(0);
   });
 
   it("caps the strip", () => {
@@ -129,6 +146,18 @@ describe("action bar", () => {
     expect(plain).toEqual([]);
     const worth = selectBarButtons(view({ actions: [act("settle_land", { label: "Garrison", recommended: true })] }));
     expect(worth[0]).toMatchObject({ primary: true, action: { id: "settle_land" } });
+  });
+
+  // Regression: a resource tile led with Relay Beacon; garrisoning the resource is what the player wants there.
+  it("leads with Garrison over Relay Beacon on a resource, town or dock tile", () => {
+    const v = view({
+      actions: [act("settle_land", { label: "Garrison", recommended: true }), act("muster_hold", { label: "Raise flag" })],
+      buildings: [act("build_relay_beacon", { label: "Relay Beacon" })],
+      tabs: ["actions", "buildings"]
+    });
+    const buttons = selectBarButtons(v);
+    expect(buttons[0]).toMatchObject({ primary: true, action: { id: "settle_land" } });
+    expect(buttons.some((b) => b.kind === "panel" && b.panel === "build")).toBe(true);
   });
 
   it("makes Expand To (settle_land on neutral land) the main action", () => {

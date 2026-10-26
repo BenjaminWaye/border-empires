@@ -18,12 +18,13 @@ type PostBootstrapDeps = {
   renderHud: () => void;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   actionFlow: HudV2ActionFlow;
+  ownerColor: (ownerId: string) => string;
 } & Pick<DiscoveryTipCenterDeps, "wrapX" | "wrapY" | "requestViewRefresh">;
 
-export const installPostBootstrapHooks = ({ state, renderHud, sendGameMessage, actionFlow, wrapX, wrapY, requestViewRefresh }: PostBootstrapDeps): void => {
+export const installPostBootstrapHooks = ({ state, renderHud, sendGameMessage, actionFlow, wrapX, wrapY, requestViewRefresh, ownerColor }: PostBootstrapDeps): void => {
   installDiscoveryTipCenterBinding({ state, wrapX, wrapY, requestViewRefresh, renderHud });
   installDebugSeasonEndOverlay(state, renderHud);
-  installHudV2({ state, renderHud, requestViewRefresh, wrapX, wrapY, isMobile, sendGameMessage, actionFlow }); // ?hud=v2 redesigned desktop HUD
+  installHudV2({ state, renderHud, requestViewRefresh, wrapX, wrapY, isMobile, sendGameMessage, actionFlow, ownerColor }); // ?hud=v2 redesigned desktop HUD
   installAutoSettleSettingsBinding((payload) => sendGameMessage(payload, "Finish sign-in before changing auto-garrison."));
   installAutoSettleTileOptionBinding(state, (payload) => sendGameMessage(payload, "Finish sign-in before changing auto-garrison."));
   // One-time "name this landmass" prompt once the player garrisons a whole landmass (throttled inside).

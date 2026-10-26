@@ -185,7 +185,7 @@ const onEscape = (deps: HudV2Deps, event: KeyboardEvent): void => {
 
 const NAV_ACTIVE: Partial<Record<HudV2ScreenId, string>> = { manifest: "manifest", afc: "afc", diplomacy: "diplomacy", ranks: "ranks", chronicle: "chronicle" };
 
-const renderFast = (state: ClientState, nowMs: number): void => {
+const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], nowMs: number): void => {
   writeRegion("bar", resourceBarHtml({
     gold: state.gold,
     incomePerMinute: state.incomePerMinute,
@@ -196,7 +196,7 @@ const renderFast = (state: ClientState, nowMs: number): void => {
   }));
   writeRegion("nav", navHtml({
     name: state.playerNames.get(state.me) ?? "You",
-    color: state.playerColors.get(state.me) ?? "#b08a3e",
+    color: ownerColor(state.me),
     afcReady: readyAfcUpgradeCount(state),
     diplomacyRequests: state.incomingAllianceRequests.length + state.incomingTruceRequests.length,
     active: screen.id ? NAV_ACTIVE[screen.id] : undefined
@@ -208,7 +208,7 @@ const renderFast = (state: ClientState, nowMs: number): void => {
     allies: state.allies,
     activeTruces: state.activeTruces,
     nameOf: (id) => state.playerNames.get(id) ?? "",
-    colorOf: (id) => state.playerColors.get(id),
+    colorOf: ownerColor,
     nowMs
   }));
   writeRegion("overlays", overlaysHtml(state.showDiplomacyOverlay));
@@ -236,7 +236,9 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
     };
   }
   const elapsed = nowMs - trackerScan.at;
-  const capture = state.capture && !state.capture.silent ? { x: state.capture.target.x, y: state.capture.target.y, resolvesAt: state.capture.resolvesAt } : undefined;
+  const capture = state.capture && !state.capture.silent
+    ? { x: state.capture.target.x, y: state.capture.target.y, resolvesAt: state.capture.resolvesAt, battle: state.capture.actionType === "ATTACK" || Boolean(state.capture.combatSnapshot) }
+    : undefined;
   writeRegion("tracker", trackerHtml({
     freeBuildSlots: trackerScan.freeBuildSlots,
     afcReady: readyAfcUpgradeCount(state),
@@ -284,7 +286,7 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     if (!flagOn && deps.state.showDiplomacyOverlay) deps.state.showDiplomacyOverlay = false;
     if (!onScreen || !deps.state.me) return;
     const nowMs = Date.now();
-    renderFast(deps.state, nowMs);
+    renderFast(deps.state, deps.ownerColor, nowMs);
     if (tick % TRACKER_EVERY_TICKS === 0) renderTracker(deps.state, nowMs);
     if (screen.id && screen.id !== "town") renderScreen(deps);
     tick += 1;

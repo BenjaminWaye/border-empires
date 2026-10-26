@@ -4,10 +4,11 @@
 // Details ▾, which shows the full overview inside the panel.
 
 import { structureModifiersFor, type ModifierStructureType } from "@border-empires/game-domain";
-import { structureDisplayName, type SlotStructureType, type StructureDisplayKey } from "@border-empires/shared";
+import { isRedesignedRelic, NATURAL_WONDER_LABELS, relicOperationalState, RELIC_DEFINITIONS, structureDisplayName, type SlotStructureType, type StructureDisplayKey } from "@border-empires/shared";
 import { resourceSlotProductionHtml } from "../client-tile-menu-view/client-tile-resource-slot-production.js";
 import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
-import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
+import { displayTownPopulationTierLabel, isTownGrowthPaused, populationPerMinuteLabel, townNextGrowthEtaLabel } from "../client-town-growth/client-town-growth.js";
+import { ownTownGrowthRatePending } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
 import { upkeepDescriptorFor } from "../client-structure-upkeep-text/client-structure-upkeep-text.js";
 import type { Tile, TileMenuView } from "../client-types.js";
 
@@ -60,12 +61,23 @@ const structureFacts = (s: StructureSlot, mine: boolean, nowMs: number): TileFac
 
 const coinPerDay = (goldPerMinute: number): string => `${(goldPerMinute * 1440).toFixed(1)}/day`;
 
-const townFacts = (tile: Tile): TileFact[] => {
+export type TownGrowth = { rate: string; eta: string; paused: boolean };
+
+/** Your town's growth rate and when it reaches the next tier; undefined while the rate hasn't arrived. */
+export const townGrowth = (town: NonNullable<Tile["town"]>, nowMs: number = Date.now()): TownGrowth | undefined => {
+  if (ownTownGrowthRatePending(town)) return undefined;
+  const paused = isTownGrowthPaused(town, { explainUnfed: true, nowMs });
+  return { rate: paused ? "Paused" : populationPerMinuteLabel(town.populationGrowthPerMinute ?? 0), eta: townNextGrowthEtaLabel(town, { explainUnfed: true, nowMs }), paused };
+};
+
+const townFacts = (tile: Tile, mine: boolean, nowMs: number): TileFact[] => {
   const town = tile.town;
   if (!town) return [];
   const facts: TileFact[] = [{ label: "Town", value: displayTownPopulationTierLabel(town.populationTier) }];
   if (tile.ownershipState === "SETTLED") facts.push({ label: "Coin", value: coinPerDay(tile.yieldRate?.goldPerMinute ?? 0) });
   if (typeof town.isFed === "boolean") facts.push(town.isFed ? { label: "Food", value: "Fed", tone: "good" } : { label: "Food", value: "Unfed", tone: "warn" });
+  const growth = mine && tile.ownershipState === "SETTLED" ? townGrowth(town, nowMs) : undefined;
+  if (growth) facts.push(growth.paused ? { label: "Growth", value: "Paused", tone: "warn" } : { label: "Growth", value: growth.rate });
   return facts;
 };
 
@@ -109,6 +121,37 @@ const fightFacts = (view: Pick<TileMenuView, "combatBreakdown" | "overviewLines"
   return facts;
 };
 
+const sentenceCase = (text: string): string => text.replace(/^the /i, "").replace(/^./, (c) => c.toUpperCase());
+
+/** A natural wonder's name, for the panel title (the tile itself only knows its terrain). */
+export const wonderName = (tile: Tile | undefined): string | undefined => {
+  const wonder = tile?.naturalWonder;
+  if (!wonder) return undefined;
+  return isRedesignedRelic(wonder) ? RELIC_DEFINITIONS[wonder.type].name : sentenceCase(NATURAL_WONDER_LABELS[wonder.type].name);
+};
+
+/** What a wonder gives and whether it is working; the long description stays in Details. */
+const wonderFacts = (tile: Tile, mine: boolean): TileFact[] => {
+  const wonder = tile.naturalWonder;
+  if (!wonder) return [];
+  const garrisoned = Boolean(tile.ownerId && tile.ownershipState === "SETTLED");
+  if (isRedesignedRelic(wonder)) {
+    const state = relicOperationalState(wonder, garrisoned);
+    const gives = RELIC_DEFINITIONS[wonder.type].benefit.split(/[;.]/)[0]?.trim() ?? "";
+    return [
+      { label: "Relic", value: RELIC_DEFINITIONS[wonder.type].name },
+      state === "active" && mine ? { label: "State", value: "Active", tone: "good" } : state === "depleted" ? { label: "State", value: "Depleted", tone: "warn" } : { label: "State", value: mine ? "Garrison to activate" : "Dormant" },
+      ...(gives ? [{ label: "Gives", value: gives }] : [])
+    ];
+  }
+  const { name, boon } = NATURAL_WONDER_LABELS[wonder.type];
+  return [
+    { label: "Wonder", value: sentenceCase(name) },
+    mine && garrisoned ? { label: "State", value: "Active", tone: "good" } : { label: "State", value: mine ? "Garrison to activate" : tile.ownerId ? "Held" : "Unclaimed" },
+    { label: "Gives", value: boon }
+  ];
+};
+
 /** Waystation section of the overview: what it granted, or that it is dormant. */
 export const waystationFacts = (view: Pick<TileMenuView, "overviewLines">): TileFact[] => {
   const start = view.overviewLines.findIndex((l) => l.kind === "section" && plainText(l.html) === "Waystation");
@@ -140,11 +183,12 @@ export const tileFactsFor = (
   const structure = structureOn(tile);
   // On someone else's tile the fight comes first; the cap then trims what their building gives.
   const facts = [
+    ...wonderFacts(tile, mine),
     ...(!mine ? fightFacts(view) : []),
     ...(structure ? structureFacts(structure, mine, nowMs) : []),
-    ...townFacts(tile),
+    ...townFacts(tile, mine, nowMs),
     ...dockFacts(tile),
-    ...(!structure && !tile.town ? landFacts(tile, mine) : [])
+    ...(!structure && !tile.town && !tile.naturalWonder ? landFacts(tile, mine) : [])
   ];
   return facts.slice(0, MAX_FACTS);
 };

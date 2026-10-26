@@ -13,7 +13,8 @@ export type TrackerInput = {
   flags: ManpowerPanelMusterFlag[];
   flagCap: number;
   building: DevelopmentSlotOccupant[];
-  capture?: { x: number; y: number; resolvesAt: number } | undefined;
+  /** battle: an attack (opens the battle screen); otherwise a frontier expansion still landing. */
+  capture?: { x: number; y: number; resolvesAt: number; battle: boolean } | undefined;
   nowMs: number;
 };
 
@@ -74,7 +75,10 @@ export const trackerHtml = (input: TrackerInput): string => {
     }));
   }
   const timed: Array<{ label: string; ms: number; x: number; y: number; open?: string }> = input.building.map((b) => ({ label: b.label, ms: b.remainingMs, x: b.x, y: b.y }));
-  if (input.capture) timed.unshift({ label: `Battle at (${input.capture.x}, ${input.capture.y})`, ms: input.capture.resolvesAt - input.nowMs, x: input.capture.x, y: input.capture.y, open: "battle" });
+  if (input.capture) {
+    const c = input.capture;
+    timed.unshift({ label: `${c.battle ? "Battle at" : "Expanding to"} (${c.x}, ${c.y})`, ms: c.resolvesAt - input.nowMs, x: c.x, y: c.y, ...(c.battle ? { open: "battle" } : {}) });
+  }
   if (timed.length > 0) {
     parts.push(`<div class="hud-v2-tracker-head"><span>In progress</span></div>`);
     parts.push(capped(timed, (t) => `<button type="button" class="hud-v2-tracker-row hud-v2-tracker-timed"${t.open ? ` data-hud-v2-open="${t.open}"` : focusAttrs(t.x, t.y)}><span class="hud-v2-tracker-title">${esc(t.label)}</span><span class="hud-v2-tracker-time">${formatRemaining(t.ms)}</span></button>`));

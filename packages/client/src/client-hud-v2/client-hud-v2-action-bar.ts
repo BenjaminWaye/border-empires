@@ -49,13 +49,18 @@ const isGarrison = (a: TileActionDef): boolean => a.id === "settle_land" && a.la
 const relayBeacon = (view: BarView): TileActionDef | undefined =>
   [...view.actions, ...view.buildings].find((a) => RELAY_BEACON_IDS.includes(a.id) && !a.disabled);
 
-/** Attack-type actions first, then a Relay Beacon, then Expand To or a Garrison worth it (recommended: resources, towns, docks). */
+/**
+ * Attack-type actions first, then a Garrison worth it (recommended: resources, towns, docks), then a Relay
+ * Beacon, then Expand To. On plain frontier the beacon leads and Garrison sits in the minor row.
+ */
 const primaryAction = (view: BarView): TileActionDef | undefined => {
   for (const id of PRIMARY_ORDER) {
     const hit = view.actions.find((a) => a.id === id && !a.disabled);
     if (hit) return hit;
   }
-  return relayBeacon(view) ?? view.actions.find((a) => a.id === "settle_land" && !a.disabled && (!isGarrison(a) || a.recommended));
+  return view.actions.find((a) => isGarrison(a) && a.recommended && !a.disabled)
+    ?? relayBeacon(view)
+    ?? view.actions.find((a) => a.id === "settle_land" && !a.disabled && !isGarrison(a));
 };
 
 export const selectBarButtons = (view: BarView): BarButton[] => {

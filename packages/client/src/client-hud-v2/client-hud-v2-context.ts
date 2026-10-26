@@ -20,6 +20,8 @@ export type HudV2Deps = {
   isMobile: () => boolean;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   actionFlow: HudV2ActionFlow;
+  /** The colour the map paints an owner's land (rivals are hue-shifted away from yours); badges must match it. */
+  ownerColor: (ownerId: string) => string;
 };
 
 export type HudV2ScreenId = "manifest" | "afc" | "diplomacy" | "ranks" | "chronicle" | "town" | "battle";

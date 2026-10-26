@@ -37,6 +37,8 @@ body.hud-v2-screen-battle .onb-root { display: none !important; }
 /* The effort sheet keeps working underneath; the battle screen is its view. */
 body.hud-v2-screen-battle .effort-confirm-overlay { opacity: 0 !important; pointer-events: none !important; }
 body.hud-v2-screen-open #player-profile-overlay { z-index: 70; }
+/* Outcome alerts (truce accepted, offer sent) sit above an open screen instead of behind it. The battle screen hides them. */
+body.hud-v2-screen-open #capture-overlay { z-index: 72; }
 /* Settings / Manpower opened from the bar or orb sit above whichever screen is open. */
 body.hud-v2-screen-open #side-panel { z-index: 47; }
 
