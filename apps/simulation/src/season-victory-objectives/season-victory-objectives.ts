@@ -22,6 +22,7 @@ import {
 } from "@border-empires/game-domain";
 import type { LeaderboardOverallEntry, SeasonVictoryObjectiveSnapshot } from "@border-empires/sim-protocol";
 import { objectiveSelfProgress, objectiveSelfProgressLabel } from "./season-victory-self-progress.js";
+import { MAX_SEASON_VICTORY_CONTENDERS, withContenders } from "./season-victory-contenders.js";
 import { revealResourceCategoryForTech } from "../tech-domain-bridge/tech-domain-bridge.js";
 
 type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
@@ -162,6 +163,13 @@ export const buildEconomicHegemonyObjective = (
     progress
   };
   if (leaderPlayerId) objective.leaderPlayerId = leaderPlayerId;
+  // Runners-up use the same income-over-leader measure as a non-leader's selfProgress (season-victory-self-progress.ts).
+  const denominator = Math.max(leaderValue, SEASON_VICTORY_ECONOMY_MIN_INCOME);
+  const contenders = ranked
+    .slice(1, 1 + MAX_SEASON_VICTORY_CONTENDERS)
+    .filter((entry) => entry.incomePerMinute > 0)
+    .map((entry) => ({ playerId: entry.id, name: entry.name, progress: denominator > 0 ? clamp01(entry.incomePerMinute / denominator) : 0 }));
+  if (contenders.length > 0) objective.contenders = contenders;
   return objective;
 };
 
@@ -422,7 +430,8 @@ export const computeSeasonVictory = (
     if (progresses.size > 0) selfProgressByPlayerId.set(pid, progresses);
   }
 
-  return { objectives, selfProgressLabelsByPlayerId, selfProgressByPlayerId };
+  const nameOf = (playerId: string): string => ctx.metricsByPlayerId.get(playerId)?.name ?? playerId;
+  return { objectives: withContenders(objectives, selfProgressByPlayerId, nameOf), selfProgressLabelsByPlayerId, selfProgressByPlayerId };
 };
 
 // `values` is the numeric 0..1 companion (computeSeasonVictory's selfProgressByPlayerId);

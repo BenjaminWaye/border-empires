@@ -145,6 +145,8 @@ export interface SeasonVictoryObjectiveView {
   /** Leader's and the viewer's own 0..1 progress to the win line (Ranks race tracks). */
   progress?: number;
   selfProgress?: number;
+  /** Up to two runners-up behind the leader, best first (progress means the same as selfProgress). */
+  contenders?: Array<{ playerId: PlayerId; name: string; progress: number }>;
 }
 
 export interface SeasonWinnerView {

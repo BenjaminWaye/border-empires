@@ -168,6 +168,8 @@ body.hud-v2-screen-afc #side-panel {
   font-family: var(--v2-display); font-size: 14px; font-weight: 700; color: #f6ecd4; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
 }
 .v2r-you { border-color: var(--v2-gold-hi); box-shadow: 0 0 0 3px rgba(240, 207, 130, 0.35); }
+.v2r-rival { width: 24px; height: 24px; font-size: 11px; border-width: 1px; opacity: 0.85; }
+.v2r-pin-rival:hover .v2r-rival { opacity: 1; }
 .v2r-holding { outline: 3px dashed var(--v2-red-hi); outline-offset: 3px; }
 .v2r-status { font-size: 13px; color: var(--v2-soft); }
 .v2r-status-hold { color: var(--v2-red-hi); }

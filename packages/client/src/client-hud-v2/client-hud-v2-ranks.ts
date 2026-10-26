@@ -1,5 +1,5 @@
 // Ranks for the new HUD, drawn as the race for the Duke's seat: one track per
-// victory path from zero to the win line, with the leader's crest and yours
+// victory path from zero to the win line, with the top three's crests and yours
 // placed by their numeric progress. Standings below keep the plain ranking.
 
 import type { LeaderboardOverallEntry, SeasonVictoryObjectiveView } from "../client-types.js";
@@ -27,15 +27,19 @@ export const leaderShare = (o: SeasonVictoryObjectiveView): number | undefined =
 /** Your own share; the leader's value when you lead the path. */
 export const selfShare = (o: SeasonVictoryObjectiveView, me: string): number | undefined => {
   if (o.leaderPlayerId === me) return leaderShare(o);
-  if (typeof o.selfProgress !== "number") return undefined;
-  // Economic Hegemony's self value is your income as a share of the leader's (season-victory-self-progress.ts),
+  return typeof o.selfProgress === "number" ? nonLeaderShare(o, o.selfProgress) : undefined;
+};
+
+/** A non-leader's track position from their raw progress (the viewer's selfProgress or a contender's). */
+export const nonLeaderShare = (o: SeasonVictoryObjectiveView, progress: number): number | undefined => {
+  // Economic Hegemony's non-leader value is income as a share of the leader's (season-victory-self-progress.ts),
   // not distance to the win line like the leader's. Scale it onto the leader's position so the top earner is
-  // never drawn behind you.
+  // never drawn behind anyone.
   if (o.id === "ECONOMIC_HEGEMONY") {
     const lead = leaderShare(o);
-    return lead === undefined ? undefined : clamp01(o.selfProgress * lead);
+    return lead === undefined ? undefined : clamp01(progress * lead);
   }
-  return clamp01(o.selfProgress);
+  return clamp01(progress);
 };
 
 export const formatHold = (seconds: number | undefined): string => {
@@ -63,6 +67,13 @@ const trackHtml = (o: SeasonVictoryObjectiveView, input: RanksInput): string => 
   const leaderPin = lead !== undefined && o.leaderPlayerId && !iLead
     ? `<span class="v2r-pin" style="left:${(lead * 100).toFixed(1)}%" title="${esc(leaderName)} · ${esc(o.progressLabel)}">${crest(leaderName, input.colorOf(o.leaderPlayerId), holding ? "v2r-holding" : "")}</span>`
     : "";
+  // Runners-up (2nd and 3rd); the viewer is drawn by their own pin instead.
+  const contenderPins = (o.contenders ?? []).filter((c) => c.playerId !== input.me).map((c) => {
+    const share = nonLeaderShare(o, c.progress);
+    if (share === undefined) return "";
+    const name = input.nameOf(c.playerId) || c.name;
+    return `<span class="v2r-pin v2r-pin-rival" style="left:${(share * 100).toFixed(1)}%" title="${esc(name)}">${crest(name, input.colorOf(c.playerId), "v2r-rival")}</span>`;
+  }).join("");
   const youPin = mine !== undefined
     ? `<span class="v2r-pin v2r-pin-you" style="left:${(mine * 100).toFixed(1)}%" title="You · ${esc(iLead ? o.progressLabel : o.selfProgressLabel ?? "")}">${crest(input.nameOf(input.me) || "You", input.colorOf(input.me), `v2r-you${iLead && holding ? " v2r-holding" : ""}`)}</span>`
     : "";
@@ -75,7 +86,7 @@ const trackHtml = (o: SeasonVictoryObjectiveView, input: RanksInput): string => 
         : `<span class="v2r-status">No contender</span>`;
   return `<div class="v2r-row">
     <div class="v2r-path"><span class="v2r-path-name">${esc(o.name)}</span><span class="v2r-path-line">${esc(o.thresholdLabel)}</span></div>
-    <div class="v2r-track" role="img" aria-label="${esc(o.name)}: ${esc(o.progressLabel)}"><span class="v2r-rail"></span><span class="v2r-line" aria-hidden="true"></span>${leaderPin}${youPin}</div>
+    <div class="v2r-track" role="img" aria-label="${esc(o.name)}: ${esc(o.progressLabel)}"><span class="v2r-rail"></span><span class="v2r-line" aria-hidden="true"></span>${contenderPins}${leaderPin}${youPin}</div>
     <div class="v2r-side">${status}<span class="v2r-path-line">${esc(iLead ? o.progressLabel : o.selfProgressLabel ?? o.progressLabel)}</span></div>
   </div>`;
 };
