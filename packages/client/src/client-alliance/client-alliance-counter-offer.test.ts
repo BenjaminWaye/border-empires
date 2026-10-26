@@ -18,7 +18,7 @@ const truce: TruceRequest = {
   terms: { give: { gold: 10, shard: 0 }, ask: { gold: 0, shard: 1 } }
 };
 const alliance: AllianceRequest = { id: "alliance-1", fromPlayerId: "ai-10", toPlayerId: "me", createdAt: 1_000 };
-const state = { gold: 500, strategicResources: { SHARD: 3 }, incomingTruceRequests: [truce], incomingAllianceRequests: [alliance] };
+const state = { gold: 500, strategicResources: { SHARD: 3 }, incomingTruceRequests: [truce], incomingAllianceRequests: [alliance], activeTruces: [] };
 
 const mountCards = () => {
   const root = document.createElement("div");

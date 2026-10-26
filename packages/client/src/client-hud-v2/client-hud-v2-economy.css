@@ -1,0 +1,22 @@
+/* Economy panel under the new HUD (client-economy-rows.ts): one row per resource in the side panel. */
+.v2e { display: grid; gap: 8px; color: var(--v2-text); font-family: var(--v2-body); }
+.v2e-row { display: grid; gap: 6px; padding: 10px 12px; background: var(--v2-ink); border: 1px solid var(--v2-line); border-left: 3px solid var(--v2-line); }
+.v2e-focus { border-color: var(--v2-edge); border-left-color: var(--v2-gold); }
+.v2e-short { border-left-color: var(--v2-red); }
+.v2e-locked { opacity: 0.6; }
+.v2e-head { display: flex; align-items: center; gap: 8px; }
+.v2e-head .resource-icon, .v2e-head img, .v2e-head svg { width: 18px; height: 18px; }
+.v2e-name { font-family: var(--v2-display); font-size: 14px; font-weight: 700; letter-spacing: 0.06em; }
+.v2e-amount { margin-left: auto; font-family: var(--v2-mono); font-size: 16px; }
+.v2e-status { min-width: 74px; text-align: right; font-family: var(--v2-mono); font-size: 12px; }
+.v2e-good { color: var(--v2-green-hi); }
+.v2e-warn { color: var(--v2-amber); }
+.v2e-bad { color: var(--v2-red-hi); }
+.v2e-muted { color: var(--v2-muted); }
+.v2e-list { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 12.5px; }
+.v2e-list-h { width: 52px; flex: none; font-family: var(--v2-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--v2-muted); }
+.v2e-item { display: inline-flex; gap: 5px; color: var(--v2-soft); }
+.v2e-item b { font-family: var(--v2-mono); font-weight: 400; color: var(--v2-text); }
+.v2e-item.v2e-warn, .v2e-item.v2e-warn b { color: var(--v2-amber); }
+.v2e-none, .v2e-more { color: var(--v2-muted); }
+.v2e-note { font-size: 12px; }

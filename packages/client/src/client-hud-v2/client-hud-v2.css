@@ -58,6 +58,8 @@ body.hud-v2 #floating-info { display: none !important; }
   background: var(--v2-chip); border: 1px solid var(--v2-line); font-family: var(--v2-mono); font-size: 13px;
 }
 .hud-v2-chip:hover { border-color: var(--v2-gold); }
+.hud-v2-chip-static { cursor: default; }
+.hud-v2-chip-static:hover { border-color: var(--v2-line); }
 .hud-v2-chip-label { font-size: 11px; color: var(--v2-muted); }
 .hud-v2-chip-value { font-weight: 700; }
 .hud-v2-chip-of { color: var(--v2-muted); }

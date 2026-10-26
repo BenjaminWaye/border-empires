@@ -31,6 +31,7 @@ import "./client-hud-v2.css";
 import "./client-hud-v2-screens.css";
 import "./client-hud-v2-town-battle.css";
 import "./client-hud-v2-profile.css";
+import "./client-hud-v2-economy.css";
 
 export type { HudV2Deps } from "./client-hud-v2-context.js";
 
@@ -96,7 +97,7 @@ const openTarget = (deps: HudV2Deps, open: string): void => {
 };
 
 const CHIP_FOCUS: Readonly<Record<string, ClientState["economyFocus"]>> = {
-  coin: "GOLD", food: "FOOD", titanium: "TITANIUM", crystal: "CRYSTAL", umbrite: "UMBRITE", shard: "ALL"
+  coin: "GOLD", food: "FOOD", titanium: "TITANIUM", crystal: "CRYSTAL", umbrite: "UMBRITE"
 };
 
 /** Chips that open a panel of their own rather than Economy on a resource. */

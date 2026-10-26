@@ -43,7 +43,8 @@ export const resourceBarHtml = (input: ResourceBarInput): string => {
     const usedHtml = over ? `<b class="hud-v2-over">${fmt(used)}</b>` : `<span class="hud-v2-chip-value">${fmt(used)}</span>`;
     return chip(key.toLowerCase(), label, `${usedHtml}<span class="hud-v2-chip-of">/${fmt(total)}</span>`);
   }).join("");
-  const shard = chip("shard", "Shard", `<span class="hud-v2-chip-value">${fmt(input.shard)}</span>`);
+  // Shards are not a slot resource and have no breakdown, so the chip is a read-out, not a button.
+  const shard = `<span class="hud-v2-chip hud-v2-chip-static" title="Shards"><span class="hud-v2-chip-label">Shard</span><span class="hud-v2-chip-value">${fmt(input.shard)}</span></span>`;
   const integrity = input.integrityPct === undefined
     ? ""
     : chip("integrity", "Integrity", `<span class="hud-v2-chip-value">${Math.round(input.integrityPct)}%</span>`);
