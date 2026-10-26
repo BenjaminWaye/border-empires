@@ -22,9 +22,11 @@ import { overlaysHtml } from "./client-hud-v2-overlays.js";
 import { resourceBarHtml } from "./client-hud-v2-resource-bar.js";
 import { rivalsHtml, seasonClockHtml } from "./client-hud-v2-rivals.js";
 import { closeScreen, openScreen, renderScreen, screenClick, screenEscape } from "./client-hud-v2-screens.js";
+import { profileScreenStep } from "./client-hud-v2-profile.js";
+import { chronicleBadgeCount, takeOverLegacyDashboard } from "./client-hud-v2-chronicle-runtime.js";
 import { setDockListener } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, townOnMenuView } from "./client-hud-v2-town-runtime.js";
-import { trackerHtml } from "./client-hud-v2-tracker.js";
+import { captureIsBattle, trackerHtml } from "./client-hud-v2-tracker.js";
 import "./client-hud-v2.css";
 import "./client-hud-v2-screens.css";
 import "./client-hud-v2-town-battle.css";
@@ -43,7 +45,8 @@ const shellHtml = `
   <section id="hud-v2-build" class="v2t-right hud-v2-build-side" hidden aria-label="Build"></section>
   <div id="${SCREEN_HOST_ID}" class="hud-v2-screen"></div>
   <div id="hud-v2-overlays" class="hud-v2-overlays"></div>
-  <div id="hud-v2-orb-slot" class="hud-v2-orb-slot"></div>`;
+  <div id="hud-v2-orb-slot" class="hud-v2-orb-slot"></div>
+  <div class="hud-v2-dim" data-hud-v2-dim aria-hidden="true"></div>`;
 
 type Region = "bar" | "nav" | "season" | "rivals" | "tracker" | "orb-slot" | "overlays";
 
@@ -110,6 +113,12 @@ const openResourcePanel = (deps: HudV2Deps, chip: string): void => {
 const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   const target = event.target instanceof Element ? event.target : null;
   if (!target || target.closest("#hud-v2-tile")) return;
+  // Settings opens centred over a dimmed map; clicking the dim closes it.
+  if (target.closest("[data-hud-v2-dim]")) {
+    deps.state.activePanel = null;
+    deps.renderHud();
+    return;
+  }
   if (target.closest(`#${SCREEN_HOST_ID}`) && screenClick(deps, target)) return;
   const open = target.closest<HTMLElement>("[data-hud-v2-open]");
   if (open?.dataset.hudV2Open) {
@@ -169,6 +178,13 @@ const onEscape = (deps: HudV2Deps, event: KeyboardEvent): void => {
     consume();
     return;
   }
+  // A building / ability info card (opened from a Manifest chip) closes before the screen under it.
+  if (state.structureInfoKey || state.crystalAbilityInfoKey) {
+    state.structureInfoKey = "";
+    state.crystalAbilityInfoKey = "";
+    consume();
+    return;
+  }
   // A panel over a screen (Settings from the gear) closes before the screen; AFC's panel is its screen.
   if (state.activePanel && screen.id !== "afc") {
     state.activePanel = null;
@@ -185,7 +201,7 @@ const onEscape = (deps: HudV2Deps, event: KeyboardEvent): void => {
 
 const NAV_ACTIVE: Partial<Record<HudV2ScreenId, string>> = { manifest: "manifest", afc: "afc", diplomacy: "diplomacy", ranks: "ranks", chronicle: "chronicle" };
 
-const renderFast = (state: ClientState, nowMs: number): void => {
+const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], nowMs: number): void => {
   writeRegion("bar", resourceBarHtml({
     gold: state.gold,
     incomePerMinute: state.incomePerMinute,
@@ -196,9 +212,10 @@ const renderFast = (state: ClientState, nowMs: number): void => {
   }));
   writeRegion("nav", navHtml({
     name: state.playerNames.get(state.me) ?? "You",
-    color: state.playerColors.get(state.me) ?? "#b08a3e",
+    color: ownerColor(state.me),
     afcReady: readyAfcUpgradeCount(state),
     diplomacyRequests: state.incomingAllianceRequests.length + state.incomingTruceRequests.length,
+    chronicleUnread: chronicleBadgeCount(state),
     active: screen.id ? NAV_ACTIVE[screen.id] : undefined
   }));
   writeRegion("season", seasonClockHtml(state.seasonVictory));
@@ -208,7 +225,7 @@ const renderFast = (state: ClientState, nowMs: number): void => {
     allies: state.allies,
     activeTruces: state.activeTruces,
     nameOf: (id) => state.playerNames.get(id) ?? "",
-    colorOf: (id) => state.playerColors.get(id),
+    colorOf: ownerColor,
     nowMs
   }));
   writeRegion("overlays", overlaysHtml(state.showDiplomacyOverlay));
@@ -217,7 +234,7 @@ const renderFast = (state: ClientState, nowMs: number): void => {
 
 /** The tracker's tile scans (three passes over every known tile), reused until tiles change or it goes stale. */
 const TRACKER_SCAN_MAX_AGE_MS = 5_000;
-let trackerScan: { key: string; at: number; freeBuildSlots: number; flags: ReturnType<typeof buildManpowerPanelMusterFlags>; building: ReturnType<typeof deriveDevelopmentPanelData>["activeSlots"] } | undefined;
+let trackerScan: { key: string; at: number; buildSlots: { busy: number; limit: number }; flags: ReturnType<typeof buildManpowerPanelMusterFlags>; building: ReturnType<typeof deriveDevelopmentPanelData>["activeSlots"] } | undefined;
 
 const trackerScanKey = (state: ClientState): string =>
   [state.tilesRevision, state.settleProgressByTile.size, state.developmentQueue.length, state.activeDevelopmentProcessCount, state.manpower, state.manpowerCap].join("|");
@@ -230,15 +247,17 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
     trackerScan = {
       key,
       at: nowMs,
-      freeBuildSlots: Math.max(0, development.limit - development.busy),
+      buildSlots: { busy: development.busy, limit: development.limit },
       flags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me, state.manpowerCap, state.manpower, state.musterAmountRateByTile),
       building: development.activeSlots
     };
   }
   const elapsed = nowMs - trackerScan.at;
-  const capture = state.capture && !state.capture.silent ? { x: state.capture.target.x, y: state.capture.target.y, resolvesAt: state.capture.resolvesAt } : undefined;
+  const capture = state.capture && !state.capture.silent
+    ? { x: state.capture.target.x, y: state.capture.target.y, resolvesAt: state.capture.resolvesAt, battle: captureIsBattle(state.capture) }
+    : undefined;
   writeRegion("tracker", trackerHtml({
-    freeBuildSlots: trackerScan.freeBuildSlots,
+    buildSlots: trackerScan.buildSlots,
     afcReady: readyAfcUpgradeCount(state),
     flags: trackerScan.flags,
     flagCap: musterFlagCap(state.manpowerCap, 0),
@@ -280,12 +299,26 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     const onScreen = flagOn && hudV2GameOnScreen(deps.state, document.body);
     document.body.classList.toggle("hud-v2", flagOn);
     document.body.classList.toggle("hud-v2-waiting", flagOn && !onScreen);
+    document.body.classList.toggle("hud-v2-settings-open", onScreen && deps.state.activePanel === "settings");
     // The overlay's toggle and legend live in this HUD; without it (phone width) the tint goes too.
     if (!flagOn && deps.state.showDiplomacyOverlay) deps.state.showDiplomacyOverlay = false;
+    // Leaving the new HUD (phone width) must not strand a screen: a hosted profile, or a Chronicle that popups wait on.
+    if (!flagOn && screen.id) closeScreen(deps);
+    deps.state.activityDashboard.chronicleOpen = onScreen && screen.id === "chronicle";
     if (!onScreen || !deps.state.me) return;
     const nowMs = Date.now();
-    renderFast(deps.state, nowMs);
+    renderFast(deps.state, deps.ownerColor, nowMs);
     if (tick % TRACKER_EVERY_TICKS === 0) renderTracker(deps.state, nowMs);
+    // The legacy activity dashboard (login briefing, release notes) opens as the Chronicle on the same tab.
+    const dashboardTab = takeOverLegacyDashboard(deps.state, screen.id);
+    if (dashboardTab) {
+      screen.chronicleTab = dashboardTab;
+      openScreen(deps, "chronicle");
+    }
+    // A player profile (crest, a name, Ranks) opens as its own screen; dismissing it closes the screen.
+    const profileStep = profileScreenStep(deps.state.activePlayerProfileId, screen.id);
+    if (profileStep === "open") openScreen(deps, "profile");
+    else if (profileStep === "close") closeScreen(deps);
     if (screen.id && screen.id !== "town") renderScreen(deps);
     tick += 1;
   };

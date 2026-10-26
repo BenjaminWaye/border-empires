@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ActiveTruceView, TileActionDef, TileMenuView } from "../client-types.js";
-import { actionBarHtml, moreActions, selectBarButtons, tileFacts } from "./client-hud-v2-action-bar.js";
+import { actionBarHtml, moreActions, selectBarButtons } from "./client-hud-v2-action-bar.js";
+import { waystationFacts } from "./client-hud-v2-tile-facts.js";
 import { HUD_V2_STORAGE_KEY, readHudV2Flag } from "./client-hud-v2-flag.js";
 import { orbFill, orbHtml } from "./client-hud-v2-orb.js";
 import { resourceBarHtml, slotChipState } from "./client-hud-v2-resource-bar.js";
@@ -48,20 +49,19 @@ describe("resource bar", () => {
 });
 
 describe("tracker", () => {
-  const base = { freeBuildSlots: 0, afcReady: 0, flags: [], flagCap: 100, building: [], nowMs: 0 };
+  const base = { buildSlots: { busy: 0, limit: 3 }, afcReady: 0, flags: [], flagCap: 100, building: [], nowMs: 0 };
 
   it("lists free build slots, AFC upgrades and stalled flags as needs", () => {
     const needs = trackerNeeds({
       ...base,
-      freeBuildSlots: 2,
       afcReady: 1,
       flags: [
         { x: 4, y: 5, amount: 10, mode: "ADVANCE", insufficientManpower: true },
         { x: 6, y: 7, amount: 50, mode: "HOLD" }
       ]
     });
-    expect(needs.map((n) => n.kind)).toEqual(["build_slot", "afc", "flag"]);
-    expect(needs[2]).toMatchObject({ x: 4, y: 5, sub: "Needs manpower" });
+    expect(needs.map((n) => n.kind)).toEqual(["afc", "flag"]);
+    expect(needs[1]).toMatchObject({ x: 4, y: 5, sub: "Needs manpower" });
   });
 
   it("caps each group and shows the overflow count", () => {
@@ -71,10 +71,27 @@ describe("tracker", () => {
     expect(html).toContain("+2 more");
     expect(html).toContain('data-hud-v2-focus-x="0" data-hud-v2-focus-y="0"');
   });
+
+  it("always shows development slots, calling out free ones", () => {
+    const html = trackerHtml({ ...base, buildSlots: { busy: 2, limit: 3 } });
+    expect(html.match(/hud-v2-slot-busy/g)).toHaveLength(2);
+    expect(html).toContain("2/3 · 1 free");
+    expect(trackerHtml({ ...base, buildSlots: { busy: 3, limit: 3 } })).toContain(">3/3<");
+  });
+
+  // Regression: a frontier expansion was listed as "Battle at".
+  it("labels a frontier expansion as expanding, and only a battle opens the battle screen", () => {
+    const expanding = trackerHtml({ ...base, capture: { x: 2, y: 3, resolvesAt: 60_000, battle: false } });
+    expect(expanding).toContain("Expanding to (2, 3)");
+    expect(expanding).not.toContain('data-hud-v2-open="battle"');
+    const battle = trackerHtml({ ...base, capture: { x: 2, y: 3, resolvesAt: 60_000, battle: true } });
+    expect(battle).toContain("Battle at (2, 3)");
+    expect(battle).toContain('data-hud-v2-open="battle"');
+  });
 });
 
 describe("rivals strip", () => {
-  it("puts truces first (soonest first), then allies, and counts everyone else as hidden", () => {
+  it("puts truces first (soonest first), then allies, then everyone else met", () => {
     const { shown, hidden } = rivalTokens({
       me: "me",
       metPlayerIds: new Set(["a", "b", "c", "d"]),
@@ -87,9 +104,16 @@ describe("rivals strip", () => {
       colorOf: () => "#123456",
       nowMs: 0
     });
-    expect(shown.map((t) => [t.id, t.stance])).toEqual([["a", "truce"], ["b", "truce"], ["c", "ally"]]);
+    expect(shown.map((t) => [t.id, t.stance])).toEqual([["a", "truce"], ["b", "truce"], ["c", "ally"], ["d", "met"]]);
     expect(shown[0]?.label).toBe("TRUCE 2h");
-    expect(hidden).toBe(1);
+    expect(hidden).toBe(0);
+  });
+
+  // Regression: meeting one empire showed "+1" instead of its name and colour.
+  it("shows a single met empire by name, not as an overflow count", () => {
+    const { shown, hidden } = rivalTokens({ me: "me", metPlayerIds: new Set(["me", "p2"]), allies: [], activeTruces: [], nameOf: () => "Vasker", colorOf: () => "#c33", nowMs: 0 });
+    expect(shown).toEqual([{ id: "p2", name: "Vasker", initial: "V", color: "#c33", stance: "met", label: "MET" }]);
+    expect(hidden).toBe(0);
   });
 
   it("caps the strip", () => {
@@ -130,6 +154,18 @@ describe("action bar", () => {
     expect(worth[0]).toMatchObject({ primary: true, action: { id: "settle_land" } });
   });
 
+  // Regression: a resource tile led with Relay Beacon; garrisoning the resource is what the player wants there.
+  it("leads with Garrison over Relay Beacon on a resource, town or dock tile", () => {
+    const v = view({
+      actions: [act("settle_land", { label: "Garrison", recommended: true }), act("muster_hold", { label: "Raise flag" })],
+      buildings: [act("build_relay_beacon", { label: "Relay Beacon" })],
+      tabs: ["actions", "buildings"]
+    });
+    const buttons = selectBarButtons(v);
+    expect(buttons[0]).toMatchObject({ primary: true, action: { id: "settle_land" } });
+    expect(buttons.some((b) => b.kind === "panel" && b.panel === "build")).toBe(true);
+  });
+
   it("makes Expand To (settle_land on neutral land) the main action", () => {
     const buttons = selectBarButtons(view({ actions: [act("settle_land", { label: "Expand To" })] }));
     expect(buttons[0]).toMatchObject({ primary: true, action: { label: "Expand To" } });
@@ -147,8 +183,8 @@ describe("action bar", () => {
       { html: '<span class="tile-overview-effect-name">Status:</span><span class="tile-overview-effect-mod is-positive">Active</span>', kind: "effect" as const },
       { html: '<span class="tile-overview-effect-name">Granted:</span><span class="tile-overview-effect-mod is-positive">+2,000 Coin</span>', kind: "effect" as const }
     ];
-    expect(tileFacts({ overviewLines: lines })).toEqual(["Waystation", "Active", "Granted: +2,000 Coin"]);
-    expect(tileFacts({ overviewLines: lines.slice(0, 2).map((l, i) => (i === 1 ? { ...l, html: l.html.replace("Active", "Dormant") } : l)) })).toEqual(["Waystation", "Dormant", "One random bonus when claimed"]);
+    expect(waystationFacts({ overviewLines: lines })).toEqual([{ label: "Waystation", value: "Active" }, { label: "Granted", value: "+2,000 Coin" }]);
+    expect(waystationFacts({ overviewLines: lines.slice(0, 2).map((l, i) => (i === 1 ? { ...l, html: l.html.replace("Active", "Dormant") } : l)) })).toEqual([{ label: "Waystation", value: "Dormant" }, { label: "When claimed", value: "One random bonus" }]);
   });
 });
 

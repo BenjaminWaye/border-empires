@@ -3,13 +3,13 @@
 // over the live map; town and battle have their own runtimes. Opening one
 // hides the map HUD (CSS, keyed off body classes set in the context module).
 
-import { acknowledgeActivitySeen, requestPersonalActivity } from "../client-activity-dashboard/client-activity-dashboard-network.js";
 import { counterOfferScreenInput } from "../client-alliance/client-alliance-counter-offer.js";
+import { showCaptureAlert } from "../client-alerts/client-alerts.js";
 import { diplomacyTradeDepsFor, openDiplomacyTradeScreen } from "../client-diplomacy-trade/client-diplomacy-trade.js";
 import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
 import type { TileActionDef } from "../client-types.js";
 import { battleClick, battleEscape, renderBattle } from "./client-hud-v2-battle-runtime.js";
-import { chronicleHtml } from "./client-hud-v2-chronicle.js";
+import { chronicleTabClick, loadChronicleTab, renderChronicle } from "./client-hud-v2-chronicle-runtime.js";
 import {
   clearScreen,
   focusCamera,
@@ -24,6 +24,7 @@ import {
 } from "./client-hud-v2-context.js";
 import { dealSideHtml, dealSkeletonHtml, diplomacyListHtml, empireStance } from "./client-hud-v2-diplomacy.js";
 import { MANIFEST_LEGEND_HTML, manifestDetailHtml, manifestHeadRightHtml, manifestTreeHtml } from "./client-hud-v2-manifest.js";
+import { hostProfileOverlay, unhostProfileOverlay } from "./client-hud-v2-profile.js";
 import { ranksBannerHtml, ranksBodyHtml } from "./client-hud-v2-ranks.js";
 import { expandDockedMenu, suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, myTowns, renderTownScreen, runTileActionOn, stepTown } from "./client-hud-v2-town-runtime.js";
@@ -40,7 +41,8 @@ export const openScreen = (deps: HudV2Deps, id: HudV2ScreenId, options: { diplom
   if (screen.id && screen.id !== id) closeScreen(deps);
   if (id === "chronicle") {
     setScreen("chronicle", `<aside class="v2c-drawer" id="v2c-drawer" aria-label="Chronicle"></aside>`);
-    requestPersonalActivity(deps.state, deps);
+    screen.chronicleUpdatesBaseline = undefined;
+    loadChronicleTab(deps, screen.chronicleTab);
   } else {
     setScreen(id, FRAME_SKELETON);
     bodyMode = "";
@@ -69,6 +71,10 @@ export const closeScreen = (deps: HudV2Deps): void => {
     return;
   }
   if (id === "afc" && deps.state.activePanel === "domains") deps.state.activePanel = null;
+  if (id === "profile") {
+    unhostProfileOverlay();
+    deps.state.activePlayerProfileId = undefined;
+  }
   document.querySelector(".diplomacy-trade-overlay")?.remove();
   screen.diplomacyTargetId = undefined;
   bodyMode = "";
@@ -108,7 +114,7 @@ const renderRanks = (deps: HudV2Deps): void => {
     overall: lb.overall,
     selfOverall: lb.selfOverall,
     nameOf: (id: string) => nameOf(deps, id),
-    colorOf: (id: string) => deps.state.playerColors.get(id)
+    colorOf: (id: string) => deps.ownerColor(id)
   };
   writeHtml("v2s-head-right", ranksBannerHtml(input));
   bodyMode = "ranks";
@@ -130,7 +136,7 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
       incomingTruce: state.incomingTruceRequests,
       leaderboard: state.leaderboard.overall,
       nameOf: (id) => nameOf(deps, id),
-      colorOf: (id) => state.playerColors.get(id),
+      colorOf: (id) => deps.ownerColor(id),
       nowMs: Date.now()
     }));
     return;
@@ -149,7 +155,7 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
   writeHtml("v2s-dip-you", dealSideHtml({
     id: state.me,
     name: nameOf(deps, state.me) || "You",
-    color: state.playerColors.get(state.me),
+    color: deps.ownerColor(state.me),
     role: "YOU",
     rows: [
       { label: "Tiles", value: tilesOf(state.me) },
@@ -162,20 +168,34 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
   writeHtml("v2s-dip-them", dealSideHtml({
     id: target,
     name: nameOf(deps, target) || "Empire",
-    color: state.playerColors.get(target),
+    color: deps.ownerColor(target),
     role: stance.label.toUpperCase(),
     rows: [{ label: "Tiles", value: tilesOf(target) }]
   }));
+};
+
+/** The alert title for a sent offer; undefined for anything else the deal view sends (e.g. its stance lookup on open). */
+export const offerSentTitle = (payload: unknown): string | undefined => {
+  if (typeof payload !== "object" || payload === null || !("type" in payload)) return undefined;
+  if (payload.type === "ALLIANCE_REQUEST") return "Alliance offered";
+  if (payload.type !== "TRUCE_REQUEST") return undefined;
+  const hours = "durationHours" in payload ? payload.durationHours : undefined;
+  return `Truce offered${typeof hours === "number" ? ` · ${hours}h` : ""}`;
 };
 
 /** Opens the existing trade view and moves it into the deal's middle column; closing it returns to the list. */
 const hostTradeView = (deps: HudV2Deps, targetId: string, input?: Parameters<typeof openDiplomacyTradeScreen>[0]): void => {
   const { state } = deps;
   const ally = state.allies.includes(targetId);
-  openDiplomacyTradeScreen(
-    input ?? { targetName: nameOf(deps, targetId), targetPlayerId: targetId, kind: ally ? "alliance" : "truce", durationHours: 24 },
-    diplomacyTradeDepsFor(state, deps.sendGameMessage)
-  );
+  const offer = input ?? { targetName: nameOf(deps, targetId), targetPlayerId: targetId, kind: ally ? "alliance" as const : "truce" as const, durationHours: 24 as const };
+  // The deal view closes on send; say the offer went out (the reply replaces this alert, above the screen).
+  const send = (payload: unknown, notSignedInMessage: string): boolean => {
+    const sent = deps.sendGameMessage(payload, notSignedInMessage);
+    const title = sent ? offerSentTitle(payload) : undefined;
+    if (title) showCaptureAlert(state, title, `Waiting for ${offer.targetName}`, "success");
+    return sent;
+  };
+  openDiplomacyTradeScreen(offer, diplomacyTradeDepsFor(state, send));
   const host = document.getElementById("v2s-dip-host");
   const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay");
   if (!host || !overlay) return;
@@ -190,22 +210,11 @@ const hostTradeView = (deps: HudV2Deps, targetId: string, input?: Parameters<typ
   }).observe(host, { childList: true });
 };
 
-const renderChronicle = (deps: HudV2Deps): void => {
-  const { state } = deps;
-  const dash = state.activityDashboard;
-  writeHtml("v2c-drawer", chronicleHtml({
-    me: state.me,
-    timeline: dash.timeline,
-    loading: dash.loading,
-    error: dash.error,
-    rivalFilter: screen.chronicleRival,
-    selectedId: screen.chronicleSelectedId,
-    nameOf: (id) => state.playerNames.get(id),
-    colorOf: (id) => state.playerColors.get(id),
-    techName: (id) => state.techCatalog.find((t) => t.id === id)?.name,
-    nowMs: Date.now()
-  }));
-  if (dash.timeline) acknowledgeActivitySeen(state, state.bridgeDebugSeasonId, deps);
+
+const renderProfile = (deps: HudV2Deps): void => {
+  const id = deps.state.activePlayerProfileId;
+  writeHtml("v2s-title", id ? (id === deps.state.me ? "Your Empire" : deps.state.playerNames.get(id) ?? "Empire") : "");
+  hostProfileOverlay();
 };
 
 /** Panels opened from the always-visible bar or orb, which sit above an open screen instead of being closed by it. */
@@ -225,6 +234,7 @@ export const renderScreen = (deps: HudV2Deps): void => {
     case "chronicle": return renderChronicle(deps);
     case "town": return renderTownScreen(deps);
     case "battle": return renderBattle(deps);
+    case "profile": return renderProfile(deps);
     case "afc":
       if (deps.state.activePanel !== "domains") closeScreen(deps);
       return;
@@ -258,6 +268,14 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
   if (pick) {
     screen.manifestSelectedId = pick.dataset.v2ManifestSelect ?? "";
     renderScreen(deps);
+    return true;
+  }
+  // Building and ability chips open the same info card the old tech panel did (it draws above screens).
+  const info = target.closest<HTMLElement>("[data-v2-info-structure], [data-v2-info-ability]");
+  if (info) {
+    deps.state.structureInfoKey = info.dataset.v2InfoStructure ?? "";
+    deps.state.crystalAbilityInfoKey = info.dataset.v2InfoAbility ?? "";
+    deps.renderHud();
     return true;
   }
   const commission = target.closest<HTMLButtonElement>("[data-v2-manifest-commission]");
@@ -299,6 +317,7 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
     renderScreen(deps);
     return true;
   }
+  if (chronicleTabClick(deps, target)) return true;
   const filter = target.closest<HTMLElement>("[data-v2-chronicle-filter]");
   if (filter) {
     screen.chronicleRival = filter.dataset.v2ChronicleFilter ?? "";

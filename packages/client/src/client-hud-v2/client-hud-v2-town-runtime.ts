@@ -6,7 +6,7 @@ import type { Terrain } from "@border-empires/shared";
 import { supportPlotAnchorTown } from "../client-town-support-plot-lookup.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import { closeUpOn, endCloseUp, TOWN_ZOOM } from "./client-hud-v2-camera.js";
-import { clearScreen, focusCamera, screen, screenCentre, setScreen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
+import { clearScreen, focusCamera, screen, SCREEN_HOST_ID, screenCentre, setScreen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
 import { suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
 import { TOWN_SCREEN_SKELETON, townScreenRegions } from "./client-hud-v2-town.js";
 
@@ -75,14 +75,20 @@ let mapGuardInstalled = false;
  * The map hides the tile menu on any mousedown outside it (client-map-input.ts), which would close and
  * reopen the town screen (zooming out and back in) on every support-tile click. While the town screen is
  * open, a mousedown on the map stops at the canvas: its own pan/select handlers still run, and the click
- * that follows decides whether the screen stays (a tile of this town) or closes (anything else).
+ * that follows decides whether the screen stays (a tile of this town) or closes (anything else). A mousedown
+ * inside the town screen stops at its host for the same reason.
  */
-const installMapGuard = (): void => {
+export const installMapGuard = (): void => {
   if (mapGuardInstalled) return;
   const canvas = document.getElementById("game");
   if (!canvas) return;
   mapGuardInstalled = true;
   canvas.addEventListener("mousedown", (event) => {
+    if (screen.id === "town") event.stopPropagation();
+  });
+  // The same window listener fired for clicks inside the town screen itself (build list, Place, stats),
+  // hiding the menu and so closing the screen before the click landed.
+  document.getElementById(SCREEN_HOST_ID)?.addEventListener("mousedown", (event) => {
     if (screen.id === "town") event.stopPropagation();
   });
 };

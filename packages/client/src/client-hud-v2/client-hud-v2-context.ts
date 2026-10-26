@@ -20,12 +20,14 @@ export type HudV2Deps = {
   isMobile: () => boolean;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   actionFlow: HudV2ActionFlow;
+  /** The colour the map paints an owner's land (rivals are hue-shifted away from yours); badges must match it. */
+  ownerColor: (ownerId: string) => string;
 };
 
-export type HudV2ScreenId = "manifest" | "afc" | "diplomacy" | "ranks" | "chronicle" | "town" | "battle";
+export type HudV2ScreenId = "manifest" | "afc" | "diplomacy" | "ranks" | "chronicle" | "town" | "battle" | "profile";
 
 /** Screens drawn in the shared full-screen frame over the darkened map. */
-export const FRAME_SCREENS: ReadonlySet<HudV2ScreenId> = new Set<HudV2ScreenId>(["manifest", "afc", "diplomacy", "ranks"]);
+export const FRAME_SCREENS: ReadonlySet<HudV2ScreenId> = new Set<HudV2ScreenId>(["manifest", "afc", "diplomacy", "ranks", "profile"]);
 
 export type HudV2ScreenState = {
   id: HudV2ScreenId | null;
@@ -33,6 +35,9 @@ export type HudV2ScreenState = {
   manifestClosedLanes: Set<string>;
   diplomacyTargetId: string | undefined;
   chronicleRival: string;
+  chronicleTab: "yours" | "world" | "updates";
+  /** Changelog watermark when Updates opened, so the list does not collapse once it is marked seen. */
+  chronicleUpdatesBaseline: number | undefined;
   chronicleSelectedId: string | undefined;
   townBuildSelection: string | undefined;
   townCategory: BuildingCategory | undefined;
@@ -44,6 +49,8 @@ export const screen: HudV2ScreenState = {
   manifestClosedLanes: new Set<string>(),
   diplomacyTargetId: undefined,
   chronicleRival: "",
+  chronicleTab: "yours",
+  chronicleUpdatesBaseline: undefined,
   chronicleSelectedId: undefined,
   townBuildSelection: undefined,
   townCategory: undefined

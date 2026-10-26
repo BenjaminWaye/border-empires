@@ -6,6 +6,7 @@
 import { townFoodSlotDemandForTier } from "@border-empires/shared";
 import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
 import { buildCategories, buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
+import { townGrowth } from "./client-hud-v2-tile-facts.js";
 import { displayTownPopulationTierLabel, townNextPopulationMilestone } from "../client-town-growth/client-town-growth.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 
@@ -47,11 +48,15 @@ const leftPanelHtml = (input: TownScreenInput): string => {
   const target = nextTier?.requiredPopulation ?? milestone?.targetPopulation;
   const growthPct = target ? Math.min(100, Math.round((town.population / target) * 100)) : 100;
   const growthLabel = milestone ? `Growth to ${milestone.label}` : "Population";
+  const growth = townGrowth(town);
+  // A town still being garrisoned (or a partial summary) has no economy fields yet: show a dash, never NaN.
+  const known = (v: number | undefined): v is number => typeof v === "number" && Number.isFinite(v);
+  const fed = typeof town.isFed === "boolean" ? (town.isFed ? "Fed" : "Unfed") : "";
   const stats = [
-    { k: "COIN", v: `+${fmt(town.goldPerMinute * 60)}/h`, n: town.isFed ? "Fed" : "Unfed", tone: town.isFed ? "" : " v2t-warn" },
-    { k: "MANPOWER CAP", v: town.manpowerCap !== undefined ? `+${fmt(town.manpowerCap)}` : "—", n: "", tone: " v2t-gold" },
+    { k: "COIN", v: known(town.goldPerMinute) ? `+${fmt(town.goldPerMinute * 60)}/h` : "—", n: fed, tone: town.isFed === false ? " v2t-warn" : "" },
+    { k: "MANPOWER CAP", v: known(town.manpowerCap) ? `+${fmt(town.manpowerCap)}` : "—", n: "", tone: " v2t-gold" },
     { k: "FOOD UPKEEP", v: `${townFoodSlotDemandForTier(town.populationTier)} slots`, n: "", tone: "" },
-    { k: "SUPPORT RING", v: `${town.supportCurrent} / ${town.supportMax}`, n: "", tone: "" }
+    { k: "SUPPORT RING", v: known(town.supportCurrent) && known(town.supportMax) ? `${town.supportCurrent} / ${town.supportMax}` : "—", n: "", tone: "" }
   ];
   const built = (town.townModifierTotals ?? []).map((g) => `<div class="v2t-built"><span class="v2t-built-ico" aria-hidden="true"></span><span><span class="v2t-built-name">${esc(g.heading)}</span><span class="v2t-built-mods">${g.modifiers.map((m) => `<span class="v2t-mod-${m.tone}">${esc(m.statLabel)} ${esc(m.valueText)}</span>`).join(" · ")}</span></span></div>`).join("");
   const grow = [...input.townView.actions, ...input.townView.buildings].find((a) => GROW_IDS.has(a.id));
@@ -63,7 +68,7 @@ const leftPanelHtml = (input: TownScreenInput): string => {
       <span class="v2t-name"><span class="v2t-title">${esc(name)}</span><span class="v2t-sub">${displayTownPopulationTierLabel(town.populationTier)} · ${town.type === "MARKET" ? "Market town" : "Farming town"}</span></span>
       <button type="button" class="v2t-step" data-v2-town-step="1" aria-label="Next town"${input.townCount > 1 ? "" : " disabled"}>▷</button>
     </div>
-    <div class="v2t-growth"><div class="v2t-growth-row"><span>${growthLabel}</span><span>${fmt(town.population)}${target ? ` / ${fmt(target)}` : ""}</span></div><div class="v2t-bar"><span style="width:${growthPct}%"></span></div></div>
+    <div class="v2t-growth"><div class="v2t-growth-row"><span>${growthLabel}</span><span>${fmt(town.population)}${target ? ` / ${fmt(target)}` : ""}</span></div><div class="v2t-bar"><span style="width:${growthPct}%"></span></div>${growth ? `<div class="v2t-growth-row v2t-growth-rate${growth.paused ? " v2t-warn" : ""}"><span>${esc(growth.eta)}</span><span>${esc(growth.rate)}</span></div>` : ""}</div>
     <div class="v2t-stats">${stats.map((s) => `<div class="v2t-stat"><span class="v2t-stat-k">${s.k}</span><span class="v2t-stat-v${s.tone}">${s.v}</span>${s.n ? `<span class="v2t-stat-n">${s.n}</span>` : ""}</div>`).join("")}</div>
     ${built ? `<div class="v2t-h">In this town</div><div class="v2t-built-list" data-v2-scroll="town-built">${built}</div>` : ""}
     <div class="v2t-grow-wrap">${growHtml}</div>`;

@@ -160,15 +160,16 @@ export const manifestLayout = (techs: readonly TechInfo[], owned: ReadonlySet<st
   return { lanes, nodes, segments, tiers, width: colX(tiers) + MANIFEST_CARD_W + 4, height: y + 8 };
 };
 
-type Unlock = { icon: string; label: string; kind: "structure" | "ability" | "resource" };
+/** `infoKey` opens the structure or ability info card when the chip is pressed. */
+type Unlock = { icon: string; label: string; kind: "structure" | "ability" | "resource"; infoKey?: string };
 
 export const manifestUnlocks = (tech: TechInfo): Unlock[] => {
   const out: Unlock[] = [];
   for (const type of relatedStructureTypesForTech(tech)) {
     if (MONUMENT_COMPONENT_KEYS.has(type)) continue;
-    out.push({ kind: "structure", label: STRUCTURE_DISPLAY_NAMES[type] ?? type, icon: structureArtIconHtml(type, "v2m-ico-img") ?? `<span class="v2m-ico-txt">${esc((STRUCTURE_DISPLAY_NAMES[type] ?? type).slice(0, 2))}</span>` });
+    out.push({ kind: "structure", infoKey: type, label: STRUCTURE_DISPLAY_NAMES[type] ?? type, icon: structureArtIconHtml(type, "v2m-ico-img") ?? `<span class="v2m-ico-txt">${esc((STRUCTURE_DISPLAY_NAMES[type] ?? type).slice(0, 2))}</span>` });
   }
-  for (const key of relatedCrystalAbilitiesForTech(tech)) out.push({ kind: "ability", label: crystalAbilityNameForKey(key), icon: abilityIconHtml(key, "v2m-ico-img") });
+  for (const key of relatedCrystalAbilitiesForTech(tech)) out.push({ kind: "ability", infoKey: key, label: crystalAbilityNameForKey(key), icon: abilityIconHtml(key, "v2m-ico-img") });
   for (const resource of relatedStrategicResourcesForTech(tech)) {
     out.push({ kind: "resource", label: `Reveal ${resource.charAt(0)}${resource.slice(1).toLowerCase()}`, icon: resourceIconHtml(resource) });
   }
@@ -246,7 +247,12 @@ export const manifestDetailHtml = (input: ManifestInput): string => {
   const state = manifestNodeState(tech, input.owned, input.choices);
   const lane = LANES.find(([b]) => b === tech.branch)?.[1] ?? "Other";
   const meta = `${tech.manifestCategory ? CATEGORY_NAME[tech.manifestCategory] : "Manifest"} · ${lane} · Tier ${romanTier(tech.tier)}`;
-  const chips = manifestUnlocks(tech).map((u) => `<span class="v2m-chip"><span class="v2m-ico v2m-ico-${u.kind}">${u.icon}</span>${esc(u.label)}</span>`).join("");
+  const chips = manifestUnlocks(tech).map((u) => {
+    const inner = `<span class="v2m-ico v2m-ico-${u.kind}">${u.icon}</span>${esc(u.label)}`;
+    return u.infoKey
+      ? `<button type="button" class="v2m-chip v2m-chip-info" data-v2-info-${u.kind}="${esc(u.infoKey)}" title="About ${esc(u.label)}">${inner}</button>`
+      : `<span class="v2m-chip">${inner}</span>`;
+  }).join("");
   const byId = new Map(input.techs.map((t) => [t.id, t]));
   const prereqs = tech.prereqIds ?? [];
   const missing = prereqs.some((id) => !input.owned.has(id));

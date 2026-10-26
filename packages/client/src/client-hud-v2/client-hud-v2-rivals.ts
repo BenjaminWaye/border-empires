@@ -1,6 +1,6 @@
 // Top-right of the new HUD: the season clock line and the rivals strip.
-// Rivals show only who matters now (truces, allies), capped, with an overflow
-// count that opens Diplomacy. Stance is an icon plus text, never colour alone.
+// Rivals show truces first, then allies, then everyone else you've met, capped,
+// with an overflow count that opens Diplomacy. Stance is an icon plus text, never colour alone.
 
 import type { ActiveTruceView, SeasonVictoryObjectiveView } from "../client-types.js";
 
@@ -26,7 +26,7 @@ const hoursLeft = (endsAt: number, nowMs: number): string => {
   return h >= 1 ? `${h}h` : "<1h";
 };
 
-/** Truces first (soonest to end), then allies; everyone else is behind the overflow count. */
+/** Truces first (soonest to end), then allies, then the rest you've met; past the cap is the overflow count. */
 export const rivalTokens = (input: RivalInput): { shown: RivalToken[]; hidden: number } => {
   const tokens: RivalToken[] = [];
   const seen = new Set<string>();
@@ -41,8 +41,12 @@ export const rivalTokens = (input: RivalInput): { shown: RivalToken[]; hidden: n
     seen.add(id);
     tokens.push(token(input, id, "ally", "ALLY"));
   }
-  const others = [...input.metPlayerIds].filter((id) => id !== input.me && !seen.has(id)).length;
-  return { shown: tokens.slice(0, RIVAL_STRIP_CAP), hidden: Math.max(0, tokens.length - RIVAL_STRIP_CAP) + others };
+  for (const id of input.metPlayerIds) {
+    if (id === input.me || seen.has(id)) continue;
+    seen.add(id);
+    tokens.push(token(input, id, "met", "MET"));
+  }
+  return { shown: tokens.slice(0, RIVAL_STRIP_CAP), hidden: Math.max(0, tokens.length - RIVAL_STRIP_CAP) };
 };
 
 const token = (input: RivalInput, id: string, stance: RivalToken["stance"], label: string): RivalToken => {
