@@ -6,7 +6,7 @@
 // broadcast cadence rather than adding a new timer.
 import { applyPlayerMessageToSnapshot, type CurrentSeasonSummary } from "@border-empires/sim-protocol";
 import { toProtoEvent, type ProtoSimulationEvent } from "../simulation-service/proto-serialization.js";
-import { buildLeaderboardFromPlayers, buildWorldStatusSnapshot } from "../world-status-snapshot/world-status-snapshot.js";
+import { buildLeaderboardFromPlayers, type SelfProgressCache } from "../world-status-snapshot/world-status-snapshot.js";
 import { buildEconomicHegemonyObjective, seasonVictoryForBroadcast } from "../season-victory-objectives/season-victory-objectives.js";
 import { leaderboardSignature } from "../season-summary/season-summary.js";
 import type { PlayerSubscriptionRegistry } from "../subscription-registry/subscription-registry.js";
@@ -28,7 +28,7 @@ export type GlobalStatusBroadcastPayloadDeps = {
   setCurrentSummary: (summary: CurrentSeasonSummary) => void;
   getCurrentSummarySignature: () => string;
   setCurrentSummarySignature: (signature: string) => void;
-  getSelfProgress: () => ReturnType<typeof buildWorldStatusSnapshot>["allPlayerSelfProgressLabels"];
+  getSelfProgress: () => SelfProgressCache;
 };
 
 export const createGlobalStatusBroadcastPayload = (
@@ -85,7 +85,7 @@ export const createGlobalStatusBroadcastPayload = (
         ...(selfByIncome ? { selfByIncome } : {}),
         ...(selfByTechs ? { selfByTechs } : {})
       };
-      const seasonVictory = seasonVictoryForBroadcast(currentSummary?.seasonVictory ?? [], selfProgress.get(subscribedPlayerId), liveEconomicHegemony, subscribedPlayerId, selfOverall?.incomePerMinute);
+      const seasonVictory = seasonVictoryForBroadcast(currentSummary?.seasonVictory ?? [], selfProgress.labels.get(subscribedPlayerId), liveEconomicHegemony, subscribedPlayerId, selfOverall?.incomePerMinute, selfProgress.values.get(subscribedPlayerId));
       const seasonWinner = currentSummary?.seasonWinner;
       const payload = {
         type: "GLOBAL_STATUS_UPDATE" as const,

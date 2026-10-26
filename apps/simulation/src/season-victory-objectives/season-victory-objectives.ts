@@ -182,7 +182,8 @@ export const seasonVictoryForBroadcast = (
   cachedSelfProgressLabels: Map<SeasonVictoryPathId, string> | undefined,
   liveEconomicHegemony: SeasonVictoryObjectiveSnapshot,
   playerId: string,
-  playerIncomePerMinute: number | undefined
+  playerIncomePerMinute: number | undefined,
+  cachedSelfProgressValues?: Map<SeasonVictoryPathId, number>
 ): SeasonVictoryObjectiveSnapshot[] => {
   const objectives = cachedObjectives.map((objective) =>
     objective.id === "ECONOMIC_HEGEMONY" ? liveEconomicHegemony : objective
@@ -191,7 +192,7 @@ export const seasonVictoryForBroadcast = (
     liveEconomicHegemony.leaderPlayerId !== playerId && typeof playerIncomePerMinute === "number"
       ? new Map(cachedSelfProgressLabels).set("ECONOMIC_HEGEMONY", economicHegemonySelfProgressLabel(playerIncomePerMinute))
       : cachedSelfProgressLabels;
-  return mergeSelfProgress(objectives, selfProgressLabels);
+  return mergeSelfProgress(objectives, selfProgressLabels, cachedSelfProgressValues);
 };
 
 type SeasonVictoryContext = {
@@ -424,13 +425,19 @@ export const computeSeasonVictory = (
   return { objectives, selfProgressLabelsByPlayerId, selfProgressByPlayerId };
 };
 
+// `values` is the numeric 0..1 companion (computeSeasonVictory's selfProgressByPlayerId);
+// it rides as `selfProgress` so the client's Ranks race can place the player's crest.
 export const mergeSelfProgress = (
   objectives: SeasonVictoryObjectiveSnapshot[],
-  labels: Map<SeasonVictoryPathId, string> | undefined
+  labels: Map<SeasonVictoryPathId, string> | undefined,
+  values?: Map<SeasonVictoryPathId, number>
 ): SeasonVictoryObjectiveSnapshot[] =>
-  labels
+  labels || values
     ? objectives.map((o) => {
-        const selfProgressLabel = labels.get(o.id);
-        return selfProgressLabel ? { ...o, selfProgressLabel } : o;
+        const selfProgressLabel = labels?.get(o.id);
+        const value = values?.get(o.id);
+        const selfProgress = typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : undefined;
+        if (!selfProgressLabel && selfProgress === undefined) return o;
+        return { ...o, ...(selfProgressLabel ? { selfProgressLabel } : {}), ...(selfProgress !== undefined ? { selfProgress } : {}) };
       })
     : objectives;

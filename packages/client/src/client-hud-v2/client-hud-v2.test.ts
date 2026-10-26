@@ -1,0 +1,147 @@
+import { describe, expect, it } from "vitest";
+import type { ActiveTruceView, TileActionDef } from "../client-types.js";
+import { selectBarButtons } from "./client-hud-v2-action-bar.js";
+import { HUD_V2_STORAGE_KEY, readHudV2Flag } from "./client-hud-v2-flag.js";
+import { orbFill, orbHtml } from "./client-hud-v2-orb.js";
+import { resourceBarHtml, slotChipState } from "./client-hud-v2-resource-bar.js";
+import { RIVAL_STRIP_CAP, rivalTokens } from "./client-hud-v2-rivals.js";
+import { TRACKER_GROUP_CAP, trackerHtml, trackerNeeds } from "./client-hud-v2-tracker.js";
+
+const memoryStorage = () => {
+  const map = new Map<string, string>();
+  return {
+    getItem: (k: string) => map.get(k) ?? null,
+    setItem: (k: string, v: string) => void map.set(k, v),
+    removeItem: (k: string) => void map.delete(k)
+  };
+};
+
+const truce = (otherPlayerId: string, endsAt: number): ActiveTruceView => ({ otherPlayerId, otherPlayerName: otherPlayerId, startedAt: 0, endsAt, createdByPlayerId: "me" });
+
+const act = (id: TileActionDef["id"], extra: Partial<TileActionDef> = {}): TileActionDef => ({ id, label: id, ...extra });
+
+describe("hud v2 flag", () => {
+  it("is off by default, turned on by ?hud=v2 and off again by ?hud=legacy", () => {
+    const storage = memoryStorage();
+    expect(readHudV2Flag("", storage)).toBe(false);
+    expect(readHudV2Flag("?hud=v2", storage)).toBe(true);
+    expect(storage.getItem(HUD_V2_STORAGE_KEY)).toBe("1");
+    expect(readHudV2Flag("", storage)).toBe(true);
+    expect(readHudV2Flag("?hud=legacy", storage)).toBe(false);
+  });
+});
+
+describe("resource bar", () => {
+  it("warns only when a slot is over capacity, not when full", () => {
+    expect(slotChipState(2, 2)).toBe("normal");
+    expect(slotChipState(3, 2)).toBe("over");
+  });
+
+  it("renders the used count in amber only when over", () => {
+    const slots = { FOOD: 2, TITANIUM: 2, CRYSTAL: 0, UMBRITE: 0 };
+    const html = resourceBarHtml({ gold: 1200, incomePerMinute: 2, slotSupply: slots, slotDemand: { ...slots, TITANIUM: 3 }, shard: 1, integrityPct: 62 });
+    expect(html).toContain('<b class="hud-v2-over">3</b><span class="hud-v2-chip-of">/2</span>');
+    expect(html.match(/hud-v2-over/g)).toHaveLength(1);
+    expect(html).toContain("+120/h");
+    expect(html).toContain('data-hud-v2-open="settings"');
+  });
+});
+
+describe("tracker", () => {
+  const base = { freeBuildSlots: 0, afcReady: 0, flags: [], flagCap: 100, building: [], nowMs: 0 };
+
+  it("lists free build slots, AFC upgrades and stalled flags as needs", () => {
+    const needs = trackerNeeds({
+      ...base,
+      freeBuildSlots: 2,
+      afcReady: 1,
+      flags: [
+        { x: 4, y: 5, amount: 10, mode: "ADVANCE", insufficientManpower: true },
+        { x: 6, y: 7, amount: 50, mode: "HOLD" }
+      ]
+    });
+    expect(needs.map((n) => n.kind)).toEqual(["build_slot", "afc", "flag"]);
+    expect(needs[2]).toMatchObject({ x: 4, y: 5, sub: "Needs manpower" });
+  });
+
+  it("caps each group and shows the overflow count", () => {
+    const building = Array.from({ length: TRACKER_GROUP_CAP + 2 }, (_, i) => ({ tileKey: `${i},0`, x: i, y: 0, label: "Mine", remainingMs: 60_000, totalMs: 60_000 }));
+    const html = trackerHtml({ ...base, building });
+    expect(html.match(/hud-v2-tracker-timed/g)).toHaveLength(TRACKER_GROUP_CAP);
+    expect(html).toContain("+2 more");
+    expect(html).toContain('data-hud-v2-focus-x="0" data-hud-v2-focus-y="0"');
+  });
+});
+
+describe("rivals strip", () => {
+  it("puts truces first (soonest first), then allies, and counts everyone else as hidden", () => {
+    const { shown, hidden } = rivalTokens({
+      me: "me",
+      metPlayerIds: new Set(["a", "b", "c", "d"]),
+      allies: ["c"],
+      activeTruces: [
+        truce("b", 10 * 3_600_000),
+        truce("a", 2 * 3_600_000)
+      ],
+      nameOf: (id) => `Empire ${id}`,
+      colorOf: () => "#123456",
+      nowMs: 0
+    });
+    expect(shown.map((t) => [t.id, t.stance])).toEqual([["a", "truce"], ["b", "truce"], ["c", "ally"]]);
+    expect(shown[0]?.label).toBe("TRUCE 2h");
+    expect(hidden).toBe(1);
+  });
+
+  it("caps the strip", () => {
+    const allies = Array.from({ length: RIVAL_STRIP_CAP + 3 }, (_, i) => `p${i}`);
+    const { shown, hidden } = rivalTokens({ me: "me", metPlayerIds: new Set(allies), allies, activeTruces: [], nameOf: (id) => id, colorOf: () => undefined, nowMs: 0 });
+    expect(shown).toHaveLength(RIVAL_STRIP_CAP);
+    expect(hidden).toBe(3);
+  });
+});
+
+describe("action bar", () => {
+  it("makes attack the main action and keeps garrison secondary on plain land", () => {
+    const buttons = selectBarButtons({
+      actions: [act("settle_land", { label: "Garrison" }), act("launch_attack"), act("diplomacy"), act("muster_hold")],
+      buildings: [],
+      crystal: [],
+      tabs: ["overview", "actions"]
+    });
+    expect(buttons[0]).toMatchObject({ kind: "action", primary: true, action: { id: "launch_attack" } });
+    expect(buttons.filter((b) => b.kind === "action" && !b.primary)).toHaveLength(2);
+    expect(buttons.at(-1)).toMatchObject({ kind: "tab", tone: "more" });
+  });
+
+  it("makes garrison the main action only when the tile is worth it", () => {
+    const plain = selectBarButtons({ actions: [act("settle_land", { label: "Garrison" })], buildings: [], crystal: [], tabs: ["actions"] });
+    expect(plain[0]).toMatchObject({ primary: false });
+    const worth = selectBarButtons({ actions: [act("settle_land", { label: "Garrison", recommended: true })], buildings: [], crystal: [], tabs: ["actions"] });
+    expect(worth[0]).toMatchObject({ primary: true, action: { id: "settle_land" } });
+  });
+
+  it("makes Expand To (settle_land on neutral land) the main action", () => {
+    const buttons = selectBarButtons({ actions: [act("settle_land", { label: "Expand To" })], buildings: [], crystal: [], tabs: ["actions"] });
+    expect(buttons[0]).toMatchObject({ primary: true, action: { label: "Expand To" } });
+  });
+
+  it("never puts the new-flag march on the bar and offers Build and Aether tabs", () => {
+    const buttons = selectBarButtons({
+      actions: [act("march_attack_new_flag")],
+      buildings: [act("build_mine")],
+      crystal: [act("aether_lance")],
+      tabs: ["overview", "actions", "buildings", "crystal"]
+    });
+    expect(buttons.some((b) => b.kind === "action" && b.action.id === "march_attack_new_flag")).toBe(false);
+    expect(buttons.filter((b) => b.kind === "tab").map((b) => b.kind === "tab" && b.tab)).toEqual(["buildings", "crystal", "actions"]);
+  });
+});
+
+describe("manpower orb", () => {
+  it("clamps the fill and shows the refill only while below cap", () => {
+    expect(orbFill(150, 100)).toBe(1);
+    expect(orbFill(-5, 100)).toBe(0);
+    expect(orbHtml({ manpower: 40, manpowerCap: 100, nextRefillAt: 30 * 60_000, nowMs: 0 })).toContain("refill 30m");
+    expect(orbHtml({ manpower: 100, manpowerCap: 100, nextRefillAt: 30 * 60_000, nowMs: 0 })).not.toContain("refill");
+  });
+});
