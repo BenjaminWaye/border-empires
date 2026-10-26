@@ -477,6 +477,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["All six completed Great Projects have new 3D models, matching foundations and specialized machinery: a financial rotunda, massive elevated Worldbreaker cannon with an armoured core housing, lattice shield, orbital cradle, census index and muster gate.", "Their 2D map artwork and menu icons are generated from the same models. The Census Directorate has an integrated crescent archive and an unlit crown, and the Titanium Levy has a military assembly hall and deployment court. Project abilities and costs are unchanged."]
   },
   {
+    createdAt: 1793015570376, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.26.1",
+    title: "Visible ore survey clues",
+    why: "Ownership colours could cover small ground-level resource clues.",
+    changes: ["Titanium ore flecks and crystal survey clues stay visible above ownership colours in both the 3D and 2D maps."]
+  },
+  {
     createdAt: 1793013072070, // Date.now() captured for this entry.
     introducedIn: "2026.10.26.9",
     title: "Richer 3D terrain",
