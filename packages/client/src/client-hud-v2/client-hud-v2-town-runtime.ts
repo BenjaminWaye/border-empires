@@ -119,23 +119,23 @@ export const closeTownScreen = (keepPosition = false): void => {
   if (screen.id === "town") clearScreen();
 };
 
-/** Runs a tile action on `targetKey` (the town) when the menu is open on another tile (a support tile). */
+/**
+ * Runs a tile action on `targetKey` (the town) while a support tile is selected: the town's own menu is opened
+ * first, so the action -- and anything it opens that reads the selection later -- targets the town. The town
+ * screen then shows the town itself as the build target.
+ */
 export const runTileActionOn = (deps: HudV2Deps, actionId: TileActionDef["id"], targetKey: string | undefined, originKey: string | undefined): void => {
   const menu = deps.state.tileActionMenu;
-  const previous = menu.currentTileKey;
-  if (!targetKey || targetKey === previous || menu.mode !== "single") {
+  const target = targetKey ? deps.state.tiles.get(targetKey) : undefined;
+  if (!target || targetKey === menu.currentTileKey || menu.mode !== "single") {
     deps.actionFlow.handleTileAction(actionId, targetKey, originKey);
     return;
   }
-  const target = deps.state.tiles.get(targetKey);
-  menu.currentTileKey = targetKey;
-  if (target) deps.state.selected = { x: target.x, y: target.y };
+  suppressAutoExpand();
+  deps.state.selected = { x: target.x, y: target.y };
+  const centre = screenCentre();
+  deps.actionFlow.openSingleTileActionMenu(target, centre.x, centre.y);
   deps.actionFlow.handleTileAction(actionId, targetKey, originKey);
-  if (menu.visible && menu.currentTileKey === targetKey) {
-    menu.currentTileKey = previous;
-    const back = deps.state.tiles.get(previous);
-    if (back) deps.state.selected = { x: back.x, y: back.y };
-  }
 };
 
 /** ◁ ▷: open the previous / next town and move the camera there. */

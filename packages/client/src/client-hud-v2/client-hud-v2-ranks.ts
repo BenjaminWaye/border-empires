@@ -25,8 +25,18 @@ export const leaderShare = (o: SeasonVictoryObjectiveView): number | undefined =
   o.conditionMet ? 1 : typeof o.progress === "number" ? clamp01(o.progress) : undefined;
 
 /** Your own share; the leader's value when you lead the path. */
-export const selfShare = (o: SeasonVictoryObjectiveView, me: string): number | undefined =>
-  o.leaderPlayerId === me ? leaderShare(o) : typeof o.selfProgress === "number" ? clamp01(o.selfProgress) : undefined;
+export const selfShare = (o: SeasonVictoryObjectiveView, me: string): number | undefined => {
+  if (o.leaderPlayerId === me) return leaderShare(o);
+  if (typeof o.selfProgress !== "number") return undefined;
+  // Economic Hegemony's self value is your income as a share of the leader's (season-victory-self-progress.ts),
+  // not distance to the win line like the leader's. Scale it onto the leader's position so the top earner is
+  // never drawn behind you.
+  if (o.id === "ECONOMIC_HEGEMONY") {
+    const lead = leaderShare(o);
+    return lead === undefined ? undefined : clamp01(o.selfProgress * lead);
+  }
+  return clamp01(o.selfProgress);
+};
 
 export const formatHold = (seconds: number | undefined): string => {
   if (seconds === undefined) return "";

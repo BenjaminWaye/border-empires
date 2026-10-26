@@ -38,6 +38,9 @@ type DockState = {
 let dock: DockState | undefined;
 let listener: DockListener | undefined;
 let suppressAutoExpandUntil = 0;
+/** Last pointer-up on the map canvas: only a menu opened by a real map click may claim land. */
+let lastMapClickAt = 0;
+const MAP_CLICK_WINDOW_MS = 800;
 
 const BAR_ID = "hud-v2-tile";
 const DOCKED = "hud-v2-docked";
@@ -139,6 +142,8 @@ export const dockTileActionMenuForHudV2 = (state: ClientState, view: TileMenuVie
     // The map closes the tile menu on any mousedown outside it (client-map-input.ts); the bar is part of that menu.
     bar.addEventListener("mousedown", (event) => event.stopPropagation());
     watchMenuVisibility(menuEl);
+    // Feed/alert "Center" buttons, tips and other code also open tile menus; those must never claim land.
+    document.getElementById("game")?.addEventListener("pointerup", () => { lastMapClickAt = Date.now(); }, true);
     dock = { deps, state, rerender, expandedKey: undefined, lastHtml: "", lastView: undefined, lastKey: "" };
   }
   dock.deps = deps;
@@ -151,7 +156,8 @@ export const dockTileActionMenuForHudV2 = (state: ClientState, view: TileMenuVie
   if (dock.expandedKey !== undefined && dock.expandedKey !== state.tileActionMenu.currentTileKey) dock.expandedKey = undefined;
   menuEl.classList.add(DOCKED);
   menuEl.classList.toggle(EXPANDED, dock.expandedKey !== undefined);
-  if (fresh && key && Date.now() > suppressAutoExpandUntil && shouldAutoExpand(state, state.tiles.get(key), view)) {
+  const fromMapClick = Date.now() - lastMapClickAt < MAP_CLICK_WINDOW_MS;
+  if (fresh && key && fromMapClick && Date.now() > suppressAutoExpandUntil && shouldAutoExpand(state, state.tiles.get(key), view)) {
     hideBar();
     deps.handleTileAction("settle_land");
     return;

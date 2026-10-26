@@ -23,8 +23,6 @@ export const DIPLOMACY_OVERLAY_LABELS: Readonly<Record<DiplomacyOverlayStance, s
   barbarian: "Barbarian"
 };
 
-const BARBARIAN_OWNER_ID = "barbarian-1";
-
 type StanceState = Pick<ClientState, "me" | "allies" | "activeTruces">;
 
 export type DiplomacyStanceLookup = (ownerId: string | undefined) => DiplomacyOverlayStance | undefined;
@@ -35,7 +33,8 @@ export const diplomacyStanceLookup = (state: StanceState): DiplomacyStanceLookup
   const truces = new Set(state.activeTruces.map((t) => t.otherPlayerId));
   return (ownerId) => {
     if (!ownerId || ownerId === state.me) return undefined;
-    if (ownerId === BARBARIAN_OWNER_ID) return "barbarian";
+    // Shared code knows both "barbarian" and "barbarian-1"; the rest of the client matches the prefix.
+    if (ownerId.startsWith("barbarian")) return "barbarian";
     if (allies.has(ownerId)) return "ally";
     if (truces.has(ownerId)) return "truce";
     return "none";

@@ -13,6 +13,7 @@ import { nextManpowerRefillForPlayer } from "../client-manpower-gauge/client-man
 import { buildManpowerPanelMusterFlags } from "../client-muster-flags-panel/client-muster-flags-panel.js";
 import { battleOnBarAction, battleOnMenuView, installBattleWatch, reopenLiveBattle } from "./client-hud-v2-battle-runtime.js";
 import { focusCamera, screen, SCREEN_HOST_ID, type HudV2Deps, type HudV2ScreenId } from "./client-hud-v2-context.js";
+import { escapeOpensSettings } from "./client-hud-v2-escape.js";
 import { initHudV2Flag, isHudV2Active } from "./client-hud-v2-flag.js";
 import { navHtml } from "./client-hud-v2-nav.js";
 import { orbHtml } from "./client-hud-v2-orb.js";
@@ -134,20 +135,29 @@ const onEscape = (deps: HudV2Deps, event: KeyboardEvent): void => {
   if (el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName))) return;
   if (document.querySelector(".effort-confirm-overlay, .diplomacy-trade-overlay") && screen.id !== "diplomacy") return;
   const { state } = deps;
+  // Whatever this handler closes, the keypress stops here: the map's own Esc would also cancel
+  // the attack in flight, crystal targeting and placement (client-map-input.ts).
+  const consume = (): void => {
+    event.stopPropagation();
+    deps.renderHud();
+  };
   if (state.activePlayerProfileId) {
     state.activePlayerProfileId = undefined;
-    deps.renderHud();
+    consume();
     return;
   }
   // A panel over a screen (Settings from the gear) closes before the screen; AFC's panel is its screen.
   if (state.activePanel && screen.id !== "afc") {
     state.activePanel = null;
-    deps.renderHud();
+    consume();
     return;
   }
-  if (screenEscape(deps)) return;
-  const busy = state.tileActionMenu.visible || state.capture !== undefined || state.buildingPlacement.active;
-  if (!busy) openTarget(deps, "settings");
+  if (screenEscape(deps)) {
+    // Leaving the town screen also closes its tile menu (done in closeScreen); nothing else should react.
+    event.stopPropagation();
+    return;
+  }
+  if (escapeOpensSettings(state, document)) openTarget(deps, "settings");
 };
 
 const NAV_ACTIVE: Partial<Record<HudV2ScreenId, string>> = { manifest: "manifest", afc: "afc", diplomacy: "diplomacy", ranks: "ranks", chronicle: "chronicle" };
@@ -182,16 +192,35 @@ const renderFast = (state: ClientState, nowMs: number): void => {
   writeRegion("orb-slot", orbHtml({ manpower: state.manpower, manpowerCap: state.manpowerCap, nextRefillAt: nextManpowerRefillForPlayer(state.me, nowMs), nowMs }));
 };
 
+/** The tracker's tile scans (three passes over every known tile), reused until tiles change or it goes stale. */
+const TRACKER_SCAN_MAX_AGE_MS = 5_000;
+let trackerScan: { key: string; at: number; freeBuildSlots: number; flags: ReturnType<typeof buildManpowerPanelMusterFlags>; building: ReturnType<typeof deriveDevelopmentPanelData>["activeSlots"] } | undefined;
+
+const trackerScanKey = (state: ClientState): string =>
+  [state.tilesRevision, state.settleProgressByTile.size, state.developmentQueue.length, state.activeDevelopmentProcessCount, state.manpower, state.manpowerCap].join("|");
+
 const renderTracker = (state: ClientState, nowMs: number): void => {
-  const busy = Math.max(state.activeDevelopmentProcessCount, busyDevelopmentProcessCount(state.tiles.values(), state.me, state.settleProgressByTile.size));
-  const development = deriveDevelopmentPanelData(state.tiles, state.me, state.settleProgressByTile, state.developmentQueue, busy, state.developmentProcessLimit);
+  const key = trackerScanKey(state);
+  if (!trackerScan || trackerScan.key !== key || nowMs - trackerScan.at > TRACKER_SCAN_MAX_AGE_MS) {
+    const busy = Math.max(state.activeDevelopmentProcessCount, busyDevelopmentProcessCount(state.tiles.values(), state.me, state.settleProgressByTile.size));
+    const development = deriveDevelopmentPanelData(state.tiles, state.me, state.settleProgressByTile, state.developmentQueue, busy, state.developmentProcessLimit);
+    trackerScan = {
+      key,
+      at: nowMs,
+      freeBuildSlots: Math.max(0, development.limit - development.busy),
+      flags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me, state.manpowerCap, state.manpower, state.musterAmountRateByTile),
+      building: development.activeSlots
+    };
+  }
+  const elapsed = nowMs - trackerScan.at;
   const capture = state.capture && !state.capture.silent ? { x: state.capture.target.x, y: state.capture.target.y, resolvesAt: state.capture.resolvesAt } : undefined;
   writeRegion("tracker", trackerHtml({
-    freeBuildSlots: Math.max(0, development.limit - development.busy),
+    freeBuildSlots: trackerScan.freeBuildSlots,
     afcReady: readyAfcUpgradeCount(state),
-    flags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me, state.manpowerCap, state.manpower, state.musterAmountRateByTile),
+    flags: trackerScan.flags,
     flagCap: musterFlagCap(state.manpowerCap, 0),
-    building: development.activeSlots,
+    // Timers count down between scans without rescanning the tiles.
+    building: trackerScan.building.map((b) => ({ ...b, remainingMs: Math.max(0, b.remainingMs - elapsed) })),
     capture,
     nowMs
   }));
@@ -226,6 +255,8 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     const signedIn = deps.state.authSessionReady && !deps.state.profileSetupRequired;
     const active = isHudV2Active(deps.isMobile) && signedIn;
     document.body.classList.toggle("hud-v2", active);
+    // The overlay's toggle and legend live in this HUD; without it (phone width, signed out) the tint goes too.
+    if (!active && deps.state.showDiplomacyOverlay) deps.state.showDiplomacyOverlay = false;
     if (!active || !deps.state.me) return;
     const nowMs = Date.now();
     renderFast(deps.state, nowMs);

@@ -5,13 +5,14 @@
 // capture, then shows whether the tile fell. Frontier attacks never get here:
 // the sheet only opens for garrisoned targets.
 
+import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileCombatBreakdown, TileMenuView } from "../client-types.js";
 import { battleLiveHtml, battlePreviewHtml, battleResultHtml, parseWinPct, type BattleEffort, type BattleSide } from "./client-hud-v2-battle.js";
 import { BATTLE_ZOOM, closeUpOn, endCloseUp } from "./client-hud-v2-camera.js";
 import { clearScreen, focusCamera, screen, setScreen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
 import { isHudV2Active } from "./client-hud-v2-flag.js";
 
-type BattleMode = "preview" | "pending" | "live" | "result";
+type BattleMode = "preview" | "pending" | "live" | "settling" | "result";
 
 type Battle = {
   mode: BattleMode;
@@ -26,9 +27,29 @@ type Battle = {
   headline?: string;
   detail?: string;
   manpowerLoss?: number | undefined;
+  /** The capture alert on screen when the fight went live; only a newer one is this fight's result. */
+  alertBefore?: ClientState["captureAlert"];
+};
+
+type CaptureAlert = NonNullable<ClientState["captureAlert"]>;
+
+/**
+ * The fight's outcome, from the alert the game shows when a combat resolves -- never guessed from tile
+ * ownership: a cancelled attack, a resync or a timeout also clear the capture, and ownership can land late.
+ */
+export const battleOutcomeFromAlert = (
+  alert: ClientState["captureAlert"],
+  before: ClientState["captureAlert"],
+  nowMs: number
+): { won: boolean; headline: string; detail: string; manpowerLoss: number | undefined } | undefined => {
+  if (!alert || alert === before || alert.until <= nowMs) return undefined;
+  const a: CaptureAlert = alert;
+  return { won: a.tone === "success", headline: a.title, detail: a.detail, manpowerLoss: a.manpowerLoss };
 };
 
 const ATTACK_CONTEXT_TTL_MS = 4_000;
+/** How long after the capture clears to wait for its result before closing quietly. */
+const SETTLE_TIMEOUT_MS = 4_000;
 const PENDING_TIMEOUT_MS = 5_000;
 const SHEET = ".effort-confirm-overlay";
 
@@ -131,15 +152,10 @@ const captureMatches = (deps: HudV2Deps, b: Battle): boolean => {
   return Boolean(c && `${c.target.x},${c.target.y}` === b.tileKey);
 };
 
-const resolve = (deps: HudV2Deps, b: Battle): void => {
-  const alert = deps.state.captureAlert;
-  const fresh = alert && alert.until > Date.now() ? alert : undefined;
-  b.won = deps.state.tiles.get(b.tileKey)?.ownerId === deps.state.me;
-  b.headline = b.won ? "Tile captured" : "Defender held";
-  b.detail = fresh?.detail ?? (b.won ? "The tile is yours" : `${deps.state.playerNames.get(b.defenderId) ?? "The defender"} kept the tile`);
-  b.manpowerLoss = fresh?.manpowerLoss;
-  b.mode = "result";
-  b.since = Date.now();
+const settle = (deps: HudV2Deps, b: Battle): void => {
+  const outcome = battleOutcomeFromAlert(deps.state.captureAlert, b.alertBefore, Date.now());
+  if (!outcome) return;
+  Object.assign(b, outcome, { mode: "result" as const, since: Date.now() });
 };
 
 export const renderBattle = (deps: HudV2Deps): void => {
@@ -149,6 +165,7 @@ export const renderBattle = (deps: HudV2Deps): void => {
   if (b.mode === "pending") {
     if (captureMatches(deps, b)) {
       b.mode = "live";
+      b.alertBefore = deps.state.captureAlert;
       b.winPct = deps.state.capture?.combatSnapshot ? Math.round(deps.state.capture.combatSnapshot.winChance * 100) : b.winPct;
     } else if (now - b.since > PENDING_TIMEOUT_MS) {
       closeBattle();
@@ -157,7 +174,17 @@ export const renderBattle = (deps: HudV2Deps): void => {
       return;
     }
   }
-  if (b.mode === "live" && !captureMatches(deps, b)) resolve(deps, b);
+  if (b.mode === "live" && !captureMatches(deps, b)) {
+    b.mode = "settling";
+    b.since = now;
+  }
+  if (b.mode === "settling") {
+    settle(deps, b);
+    if (b.mode === "settling" && now - b.since > SETTLE_TIMEOUT_MS) {
+      closeBattle();
+      return;
+    }
+  }
   const { you, them } = sides(deps, b);
   const base = { title: b.title, coords: b.coords, you, them, breakdown: b.breakdown };
   if (b.mode === "preview") {
@@ -167,7 +194,7 @@ export const renderBattle = (deps: HudV2Deps): void => {
     writeHtml("v2b-stage", battlePreviewHtml({ ...base, winPct: b.winPct, efforts: sheetEfforts(), commit: Number.isFinite(value) ? value : undefined }));
     return;
   }
-  if (b.mode === "live") {
+  if (b.mode === "live" || b.mode === "settling") {
     const c = deps.state.capture;
     const total = c ? Math.max(1, Math.round((c.resolvesAt - c.startAt) / 1000)) : 1;
     const left = c ? Math.max(0, Math.ceil((c.resolvesAt - now) / 1000)) : 0;
@@ -192,6 +219,7 @@ export const reopenLiveBattle = (deps: HudV2Deps): boolean => {
   if (!tile?.ownerId || tile.ownerId === deps.state.me) return false;
   battle = {
     mode: "live",
+    alertBefore: deps.state.captureAlert,
     tileKey: `${tile.x},${tile.y}`,
     coords: { x: tile.x, y: tile.y },
     title: stripCoords(deps.actionFlow.tileMenuViewForTile(tile).title),

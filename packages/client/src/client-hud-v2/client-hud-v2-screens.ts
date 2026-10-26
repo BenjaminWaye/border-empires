@@ -26,7 +26,7 @@ import { dealSideHtml, dealSkeletonHtml, diplomacyListHtml, empireStance } from 
 import { MANIFEST_LEGEND_HTML, manifestDetailHtml, manifestHeadRightHtml, manifestTreeHtml } from "./client-hud-v2-manifest.js";
 import { ranksBannerHtml, ranksBodyHtml } from "./client-hud-v2-ranks.js";
 import { expandDockedMenu, suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
-import { closeTownScreen, renderTownScreen, runTileActionOn, stepTown } from "./client-hud-v2-town-runtime.js";
+import { closeTownScreen, myTowns, renderTownScreen, runTileActionOn, stepTown } from "./client-hud-v2-town-runtime.js";
 
 const TITLES: Partial<Record<HudV2ScreenId, string>> = { manifest: "Manifest", afc: "AFC Upgrades", diplomacy: "Diplomacy", ranks: "The Duke's Seat" };
 
@@ -78,7 +78,14 @@ export const closeScreen = (deps: HudV2Deps): void => {
 
 const ownedTechs = (deps: HudV2Deps): Set<string> => new Set(deps.state.techIds);
 
+/** The tree is rebuilt only when what it shows changes, not on every HUD tick. */
+let manifestKey = "";
+
 const renderManifest = (deps: HudV2Deps): void => {
+  const nextCost = deps.state.techCatalog.find((t) => !deps.state.techIds.includes(t.id))?.requirements.gold ?? 0;
+  const key = [deps.state.techIds.join(","), deps.state.techCatalog.length, screen.manifestSelectedId, [...screen.manifestClosedLanes].join(","), deps.state.gold >= nextCost, nextCost, bodyMode].join("|");
+  if (key === manifestKey) return;
+  manifestKey = key;
   const owned = ownedTechs(deps);
   const techs = deps.state.techCatalog;
   const afcTier = Math.max(0, ...techs.filter((t) => owned.has(t.id)).map((t) => t.tier));
@@ -106,12 +113,6 @@ const renderRanks = (deps: HudV2Deps): void => {
   writeHtml("v2s-head-right", ranksBannerHtml(input));
   bodyMode = "ranks";
   writeHtml("v2s-body", ranksBodyHtml(input));
-};
-
-const myTownCount = (deps: HudV2Deps): number => {
-  let n = 0;
-  for (const tile of deps.state.tiles.values()) if (tile.town && tile.ownerId === deps.state.me) n += 1;
-  return n;
 };
 
 const renderDiplomacy = (deps: HudV2Deps): void => {
@@ -152,7 +153,7 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
     role: "YOU",
     rows: [
       { label: "Tiles", value: tilesOf(state.me) },
-      { label: "Towns", value: String(myTownCount(deps)) },
+      { label: "Towns", value: String(myTowns(deps).length) },
       { label: "Coin", value: Math.floor(state.gold).toLocaleString("en-US") },
       { label: "Shards", value: String(Math.floor(state.strategicResources.SHARD)) },
       { label: "Allies", value: state.allies.map((id) => nameOf(deps, id)).filter(Boolean).join(", ") || "—" }

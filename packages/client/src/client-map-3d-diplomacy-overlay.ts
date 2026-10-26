@@ -7,8 +7,8 @@ import { DIPLOMACY_OVERLAY_COLORS, DIPLOMACY_OVERLAY_STANCES, type DiplomacyOver
 // barbarian), one instanced mesh per stance.
 
 const PLANE_SIZE = 0.96;
-// Just above the weak-defensibility plane (0.014) so both stay visible.
-const PLANE_Y_OFFSET = 0.018;
+// Clear of the ownership surface and the ground's rendered bumps; still depth-tested, so structures and hills cover it.
+const PLANE_Y_OFFSET = 0.08;
 
 export type DiplomacyOverlay3D = {
   readonly group: Group;
@@ -28,8 +28,12 @@ export const createDiplomacyOverlay3D = (scene: Scene, maxTiles: number): Diplom
   const counts = new Map<DiplomacyOverlayStance, number>();
   for (const stance of DIPLOMACY_OVERLAY_STANCES) {
     // Higher alpha than 2D's 0.36: the ownership colour underneath would otherwise wash it out.
-    // depthTest off, like the crystal-targeting fill: the ownership surface sits within a hair of this plane and hid it.
-    const material = new MeshBasicMaterial({ toneMapped: false, color: DIPLOMACY_OVERLAY_COLORS[stance], transparent: true, opacity: 0.5, depthTest: false, depthWrite: false });
+    // Depth-tested so structures, forests and hills still hide it; the polygon offset wins the near-tie with the
+    // ownership surface, which otherwise hid the plane entirely.
+    const material = new MeshBasicMaterial({
+      toneMapped: false, color: DIPLOMACY_OVERLAY_COLORS[stance], transparent: true, opacity: 0.5, depthWrite: false,
+      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -8
+    });
     const mesh = new InstancedMesh(geometry, material, maxTiles);
     mesh.frustumCulled = false;
     mesh.count = 0;

@@ -17,10 +17,11 @@ const safeStorage = (): FlagStorage | undefined => {
 /** Applies a `?hud=` override from the URL, then reports whether the flag is on. */
 export const readHudV2Flag = (search: string, storage: FlagStorage | undefined = safeStorage()): boolean => {
   const param = new URLSearchParams(search).get("hud");
+  if (!storage) return param === "v2";
   try {
-    if (param === "v2") storage?.setItem(HUD_V2_STORAGE_KEY, "1");
-    if (param === "legacy") storage?.removeItem(HUD_V2_STORAGE_KEY);
-    return storage?.getItem(HUD_V2_STORAGE_KEY) === "1";
+    if (param === "v2") storage.setItem(HUD_V2_STORAGE_KEY, "1");
+    if (param === "legacy") storage.removeItem(HUD_V2_STORAGE_KEY);
+    return storage.getItem(HUD_V2_STORAGE_KEY) === "1";
   } catch {
     return param === "v2";
   }
