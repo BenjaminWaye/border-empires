@@ -43,6 +43,7 @@ const ROW = 42;
 const TOP = 34;
 const BAND_PAD = 8;
 const CLOSED_H = 34;
+const MAX_CARD_ICONS = 2;
 
 const LANES: ReadonlyArray<[string, string]> = [["economy", "Economy"], ["manpower", "Manpower"], ["war", "War"], ["aether", "Aether"]];
 const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII"];
@@ -64,18 +65,29 @@ export const romanTier = (tier: number): string => ROMAN[tier - 1] ?? String(tie
 const esc = (text: string): string =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-export const manifestNodeState = (tech: TechInfo, owned: ReadonlySet<string>): ManifestNodeState => {
+/**
+ * Available means you may commission it now, whether or not you can pay: the server's `canResearch` is
+ * "a current choice AND affordable", so it can't decide this on its own (every unaffordable Manifest showed
+ * Locked). Like the legacy panel, a current tech choice is available; with no choice list yet, prerequisites decide.
+ */
+export const manifestNodeState = (tech: TechInfo, owned: ReadonlySet<string>, choices?: ReadonlySet<string>): ManifestNodeState => {
   if (owned.has(tech.id)) return "owned";
+  if (tech.lockedReason) return "locked";
   const prereqsMet = (tech.prereqIds ?? []).every((id) => owned.has(id));
-  return prereqsMet && tech.requirements.canResearch !== false && !tech.lockedReason ? "available" : "locked";
+  const isChoice = choices && choices.size > 0 ? choices.has(tech.id) : prereqsMet;
+  return isChoice || tech.requirements.canResearch === true ? "available" : "locked";
 };
+
+/** Whether an available Manifest can be paid for right now (live `canResearch`, else a plain Coin check). */
+export const manifestAffordable = (tech: TechInfo, gold: number): boolean =>
+  typeof tech.requirements.canResearch === "boolean" ? tech.requirements.canResearch : gold >= tech.requirements.gold;
 
 const laneOf = (tech: TechInfo): string => (LANES.some(([b]) => b === tech.branch) ? (tech.branch as string) : "other");
 
 const colX = (tier: number): number => LEFT + (tier - 1) * (MANIFEST_CARD_W + COL_GAP);
 
 /** Lays the tree out: one band per lane, a column per tier, children ordered under their parents. */
-export const manifestLayout = (techs: readonly TechInfo[], owned: ReadonlySet<string>, closedLanes: ReadonlySet<string>): ManifestLayout => {
+export const manifestLayout = (techs: readonly TechInfo[], owned: ReadonlySet<string>, closedLanes: ReadonlySet<string>, choices?: ReadonlySet<string>): ManifestLayout => {
   const byId = new Map(techs.map((t) => [t.id, t]));
   const tiers = Math.max(1, ...techs.map((t) => t.tier));
   const laneDefs = [...LANES, ...(techs.some((t) => laneOf(t) === "other") ? [["other", "Other"] as [string, string]] : [])];
@@ -85,7 +97,7 @@ export const manifestLayout = (techs: readonly TechInfo[], owned: ReadonlySet<st
   for (const [branch, name] of laneDefs) {
     const items = techs.filter((t) => laneOf(t) === branch);
     if (items.length === 0) continue;
-    const states = [...items].sort((a, b) => a.tier - b.tier || a.name.localeCompare(b.name)).map((t) => manifestNodeState(t, owned));
+    const states = [...items].sort((a, b) => a.tier - b.tier || a.name.localeCompare(b.name)).map((t) => manifestNodeState(t, owned, choices));
     const summary = {
       owned: states.filter((s) => s === "owned").length,
       available: states.filter((s) => s === "available").length,
@@ -171,6 +183,8 @@ export type ManifestInput = {
   selectedId: string;
   closedLanes: ReadonlySet<string>;
   gold: number;
+  /** The server's current tech choices (state.techChoices). */
+  choices: ReadonlySet<string>;
   /** Highest AFC upgrade tier the owned Manifests open. */
   afcTier: number;
 };
@@ -186,10 +200,11 @@ export const manifestHeadRightHtml = (input: Pick<ManifestInput, "techs" | "owne
 };
 
 const nodeHtml = (tech: TechInfo, pos: { x: number; y: number }, input: ManifestInput): string => {
-  const state = manifestNodeState(tech, input.owned);
+  const state = manifestNodeState(tech, input.owned, input.choices);
   const unlocks = manifestUnlocks(tech);
-  const icons = unlocks.slice(0, 3).map((u) => `<span class="v2m-ico v2m-ico-${u.kind}" title="${esc(u.label)}">${u.icon}</span>`).join("");
-  const more = unlocks.length > 3 ? `<span class="v2m-ico v2m-ico-more">+${unlocks.length - 3}</span>` : "";
+  // Two icons at most, so the name keeps room to be read; the detail bar lists every unlock.
+  const icons = unlocks.slice(0, MAX_CARD_ICONS).map((u) => `<span class="v2m-ico v2m-ico-${u.kind}" title="${esc(u.label)}">${u.icon}</span>`).join("");
+  const more = unlocks.length > MAX_CARD_ICONS ? `<span class="v2m-ico v2m-ico-more">+${unlocks.length - MAX_CARD_ICONS}</span>` : "";
   const selected = tech.id === input.selectedId ? " v2m-node-sel" : "";
   const tag = tech.manifestCategory ? CATEGORY_TAG[tech.manifestCategory] : "";
   const stateLabel = state === "owned" ? "commissioned" : state;
@@ -209,7 +224,7 @@ const laneHtml = (lane: ManifestLaneLayout, width: number): string => {
 
 export const manifestTreeHtml = (input: ManifestInput): string => {
   if (input.techs.length === 0) return `<div class="v2s-empty">Loading Manifests…</div>`;
-  const layout = manifestLayout(input.techs, input.owned, input.closedLanes);
+  const layout = manifestLayout(input.techs, input.owned, input.closedLanes, input.choices);
   const tierHeads = Array.from({ length: layout.tiers }, (_, i) => {
     const tier = i + 1;
     const count = input.techs.filter((t) => t.tier === tier).length;
@@ -226,9 +241,9 @@ export const manifestTreeHtml = (input: ManifestInput): string => {
 };
 
 export const manifestDetailHtml = (input: ManifestInput): string => {
-  const tech = input.techs.find((t) => t.id === input.selectedId) ?? input.techs.find((t) => manifestNodeState(t, input.owned) === "available");
+  const tech = input.techs.find((t) => t.id === input.selectedId) ?? input.techs.find((t) => manifestNodeState(t, input.owned, input.choices) === "available");
   if (!tech) return "";
-  const state = manifestNodeState(tech, input.owned);
+  const state = manifestNodeState(tech, input.owned, input.choices);
   const lane = LANES.find(([b]) => b === tech.branch)?.[1] ?? "Other";
   const meta = `${tech.manifestCategory ? CATEGORY_NAME[tech.manifestCategory] : "Manifest"} · ${lane} · Tier ${romanTier(tech.tier)}`;
   const chips = manifestUnlocks(tech).map((u) => `<span class="v2m-chip"><span class="v2m-ico v2m-ico-${u.kind}">${u.icon}</span>${esc(u.label)}</span>`).join("");
@@ -241,7 +256,7 @@ export const manifestDetailHtml = (input: ManifestInput): string => {
       ? `Requires ${prereqs.map((id) => `${esc(shortName(byId.get(id)?.name ?? id))}${input.owned.has(id) ? " ✓" : ""}`).join(" · ")}`
       : "No requirements";
   const cost = tech.requirements.gold;
-  const affordable = input.gold >= cost;
+  const affordable = manifestAffordable(tech, input.gold);
   const button = state === "owned"
     ? `<button type="button" class="v2s-btn" disabled>Commissioned</button>`
     : state === "available"

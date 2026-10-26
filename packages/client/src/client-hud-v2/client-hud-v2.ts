@@ -14,6 +14,7 @@ import { buildManpowerPanelMusterFlags } from "../client-muster-flags-panel/clie
 import { battleOnBarAction, battleOnMenuView, installBattleWatch, reopenLiveBattle } from "./client-hud-v2-battle-runtime.js";
 import { focusCamera, screen, SCREEN_HOST_ID, type HudV2Deps, type HudV2ScreenId } from "./client-hud-v2-context.js";
 import { escapeOpensSettings } from "./client-hud-v2-escape.js";
+import { hudV2GameOnScreen } from "./client-hud-v2-ready.js";
 import { initHudV2Flag, isHudV2Active } from "./client-hud-v2-flag.js";
 import { navHtml } from "./client-hud-v2-nav.js";
 import { orbHtml } from "./client-hud-v2-orb.js";
@@ -89,6 +90,22 @@ const openTarget = (deps: HudV2Deps, open: string): void => {
   deps.renderHud();
 };
 
+const CHIP_FOCUS: Readonly<Record<string, ClientState["economyFocus"]>> = {
+  coin: "GOLD", food: "FOOD", titanium: "TITANIUM", crystal: "CRYSTAL", umbrite: "UMBRITE", shard: "ALL"
+};
+
+/** Resource chips open the Economy panel on that resource; Integrity opens its own panel. */
+const openResourcePanel = (deps: HudV2Deps, chip: string): void => {
+  const { state } = deps;
+  const panel: ClientState["activePanel"] = chip === "integrity" ? "defensibility" : "economy";
+  const focus = CHIP_FOCUS[chip];
+  // A second click on the same chip closes its panel.
+  const alreadyOpen = state.activePanel === panel && (!focus || state.economyFocus === focus);
+  if (focus) state.economyFocus = focus;
+  state.activePanel = alreadyOpen ? null : panel;
+  deps.renderHud();
+};
+
 const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   const target = event.target instanceof Element ? event.target : null;
   if (!target || target.closest("#hud-v2-tile")) return;
@@ -96,6 +113,11 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   const open = target.closest<HTMLElement>("[data-hud-v2-open]");
   if (open?.dataset.hudV2Open) {
     openTarget(deps, open.dataset.hudV2Open);
+    return;
+  }
+  const chip = target.closest<HTMLElement>("[data-hud-v2-chip]");
+  if (chip?.dataset.hudV2Chip) {
+    openResourcePanel(deps, chip.dataset.hudV2Chip);
     return;
   }
   if (target.closest("[data-hud-v2-overlay='diplomacy']")) {
@@ -251,13 +273,15 @@ export const installHudV2 = (deps: HudV2Deps): void => {
   installBattleWatch(deps);
   let tick = 0;
   const frame = (): void => {
-    // Until sign-in finishes the sign-in screen owns the page; the HUD stays out of its way.
-    const signedIn = deps.state.authSessionReady && !deps.state.profileSetupRequired;
-    const active = isHudV2Active(deps.isMobile) && signedIn;
-    document.body.classList.toggle("hud-v2", active);
-    // The overlay's toggle and legend live in this HUD; without it (phone width, signed out) the tint goes too.
-    if (!active && deps.state.showDiplomacyOverlay) deps.state.showDiplomacyOverlay = false;
-    if (!active || !deps.state.me) return;
+    // body.hud-v2 (which hides the legacy chrome) follows the flag alone, so the old HUD never flashes during
+    // loading; sign-in, map preparation, the first load and the season lobby only hold the new layer back.
+    const flagOn = isHudV2Active(deps.isMobile);
+    const onScreen = flagOn && hudV2GameOnScreen(deps.state, document.body);
+    document.body.classList.toggle("hud-v2", flagOn);
+    document.body.classList.toggle("hud-v2-waiting", flagOn && !onScreen);
+    // The overlay's toggle and legend live in this HUD; without it (phone width) the tint goes too.
+    if (!flagOn && deps.state.showDiplomacyOverlay) deps.state.showDiplomacyOverlay = false;
+    if (!onScreen || !deps.state.me) return;
     const nowMs = Date.now();
     renderFast(deps.state, nowMs);
     if (tick % TRACKER_EVERY_TICKS === 0) renderTracker(deps.state, nowMs);

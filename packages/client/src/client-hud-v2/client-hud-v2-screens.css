@@ -62,6 +62,8 @@ body.hud-v2-screen-open #side-panel { z-index: 47; }
 
 /* ---- Frame: map darkened and blurred behind, header under the bubbles ---- */
 .v2s-backdrop { position: fixed; inset: 0; background: rgba(9, 8, 6, 0.66); backdrop-filter: blur(4px); }
+/* The tree's small labels need a near-solid backdrop to read; the map only hints through. */
+body.hud-v2-screen-manifest .v2s-backdrop { background: rgba(9, 8, 6, 0.9); backdrop-filter: blur(6px); }
 .v2s-head { position: fixed; top: 140px; left: 16px; right: 16px; display: flex; align-items: center; gap: 18px; }
 .v2s-back {
   display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px 0 10px; background: var(--v2-well); border: 1px solid var(--v2-edge-strong);
@@ -72,9 +74,10 @@ body.hud-v2-screen-open #side-panel { z-index: 47; }
 .v2s-title { margin: 0; font-family: var(--v2-display); font-size: 24px; font-weight: 700; letter-spacing: 0.12em; color: var(--v2-gold); }
 .v2s-head-right { margin-left: auto; }
 .v2s-body { position: fixed; top: 192px; left: 16px; right: 16px; bottom: 16px; display: flex; flex-direction: column; min-height: 0; }
+/* AFC upgrades fill the frame like the other screens. */
 body.hud-v2-screen-afc #side-panel {
-  top: 192px !important; bottom: 16px !important; left: 50% !important; right: auto !important; transform: translateX(-50%);
-  width: min(960px, calc(100vw - 32px)) !important; z-index: 46; border-radius: 0; border-color: var(--v2-edge-strong);
+  top: 192px !important; bottom: 16px !important; left: 16px !important; right: 16px !important; transform: none;
+  width: auto !important; max-width: none !important; z-index: 46; border-radius: 0; border-color: var(--v2-edge-strong);
   background: rgba(15, 13, 10, 0.97);
 }
 
@@ -83,10 +86,10 @@ body.hud-v2-screen-afc #side-panel {
 .v2m-tree { position: relative; margin: 0 auto; }
 .v2m-tier { position: absolute; top: 0; display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 6px; border-bottom: 1px solid var(--v2-edge); }
 .v2m-tier-n { font-family: var(--v2-display); font-size: 15px; font-weight: 700; color: var(--v2-gold); }
-.v2m-tier-afc { font-family: var(--v2-mono); font-size: 10px; color: var(--v2-muted); }
+.v2m-tier-afc { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-soft); }
 .v2m-tier-open { color: var(--v2-green); }
-.v2m-band { position: absolute; left: 0; background: rgba(0, 0, 0, 0.14); border-top: 1px solid rgba(90, 72, 40, 0.45); }
-.v2m-band:nth-of-type(2n) { background: rgba(255, 240, 210, 0.025); }
+.v2m-band { position: absolute; left: 0; background: rgba(0, 0, 0, 0.3); border-top: 1px solid rgba(90, 72, 40, 0.6); }
+.v2m-band:nth-of-type(2n) { background: rgba(255, 240, 210, 0.04); }
 .v2m-lane {
   position: absolute; left: 4px; display: flex; align-items: center; gap: 6px; width: 116px; height: 24px; padding: 0 4px;
   background: none; border: 0; color: var(--v2-gold); font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-align: left;
@@ -109,10 +112,12 @@ body.hud-v2-screen-afc #side-panel {
 }
 .v2m-node-owned { background: rgba(47, 90, 51, 0.96); border-color: var(--v2-green); }
 .v2m-node-available { background: rgba(44, 74, 107, 0.96); border-color: var(--v2-blue); }
-.v2m-node-locked { opacity: 0.8; }
+/* Locked stays fully opaque (it sat over the map at 80%); muted text carries the state instead. */
+.v2m-node-locked { background: #1d1913; }
+.v2m-node-locked .v2m-name { color: var(--v2-soft); }
 .v2m-node-sel { outline: 2px solid var(--v2-gold-hi); outline-offset: 1px; }
-.v2m-tag { flex: none; width: 34px; display: grid; place-items: center; background: rgba(0, 0, 0, 0.35); border-right: 1px solid rgba(0, 0, 0, 0.4); font-family: var(--v2-mono); font-size: 8px; color: var(--v2-soft); }
-.v2m-name { flex: 1; min-width: 0; display: flex; align-items: center; padding: 0 6px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-family: var(--v2-display); font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; }
+.v2m-tag { flex: none; width: 34px; display: grid; place-items: center; background: rgba(0, 0, 0, 0.35); border-right: 1px solid rgba(0, 0, 0, 0.4); font-family: var(--v2-mono); font-size: 9px; color: var(--v2-text); }
+.v2m-name { flex: 1; min-width: 0; display: flex; align-items: center; padding: 0 6px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-family: var(--v2-body); font-size: 13.5px; font-weight: 600; letter-spacing: 0; color: var(--v2-text); }
 .v2m-icos { flex: none; display: flex; align-items: center; gap: 2px; padding-right: 5px; }
 .v2m-ico { width: 22px; height: 22px; display: grid; place-items: center; overflow: hidden; background: rgba(0, 0, 0, 0.35); border: 1px solid var(--v2-gold); }
 .v2m-ico-ability { border-color: var(--v2-aether); }
@@ -125,7 +130,7 @@ body.hud-v2-screen-afc #side-panel {
 .v2m-ico > img:not(.v2m-ico-img), .v2m-ico > svg { width: 16px; height: 16px; }
 .v2m-ico-txt { font-family: var(--v2-mono); font-size: 8px; font-weight: 700; color: var(--v2-gold); }
 .v2m-check { width: 12px; text-align: center; color: var(--v2-green-hi); font-size: 12px; }
-.v2m-legend { display: flex; gap: 14px; padding: 8px 4px; font-family: var(--v2-mono); font-size: 10px; color: var(--v2-soft); }
+.v2m-legend { display: flex; gap: 14px; padding: 8px 4px; font-family: var(--v2-mono); font-size: 11px; color: var(--v2-soft); }
 .v2m-legend span { display: flex; align-items: center; gap: 4px; }
 .v2m-detail {
   display: grid; grid-template-columns: 320px minmax(0, 1fr) 260px; gap: 20px; align-items: center; min-height: 68px; padding: 8px 20px;
@@ -134,11 +139,11 @@ body.hud-v2-screen-afc #side-panel {
 .v2m-detail:empty { display: none; }
 .v2m-detail-name { display: grid; gap: 4px; }
 .v2m-detail-title { font-family: var(--v2-display); font-size: 17px; font-weight: 700; letter-spacing: 0.06em; color: var(--v2-gold-hi); }
-.v2m-detail-meta { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
+.v2m-detail-meta { font-family: var(--v2-mono); font-size: 12px; color: var(--v2-soft); }
 .v2m-detail-mid { display: grid; gap: 6px; min-width: 0; }
 .v2m-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .v2m-chip { display: flex; align-items: center; gap: 6px; padding: 3px 8px 3px 3px; background: var(--v2-well); border: 1px solid var(--v2-line); font-size: 13px; }
-.v2m-req { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
+.v2m-req { font-family: var(--v2-mono); font-size: 12px; color: var(--v2-soft); }
 .v2m-req-missing { color: var(--v2-amber); }
 
 /* ---- Ranks ---- */

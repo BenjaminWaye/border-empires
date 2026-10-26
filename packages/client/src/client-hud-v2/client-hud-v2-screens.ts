@@ -83,13 +83,13 @@ let manifestKey = "";
 
 const renderManifest = (deps: HudV2Deps): void => {
   const nextCost = deps.state.techCatalog.find((t) => !deps.state.techIds.includes(t.id))?.requirements.gold ?? 0;
-  const key = [deps.state.techIds.join(","), deps.state.techCatalog.length, screen.manifestSelectedId, [...screen.manifestClosedLanes].join(","), deps.state.gold >= nextCost, nextCost, bodyMode].join("|");
+  const key = [deps.state.techIds.join(","), deps.state.techChoices.join(","), deps.state.techCatalog.filter((t) => t.requirements.canResearch).length, deps.state.techCatalog.length, screen.manifestSelectedId, [...screen.manifestClosedLanes].join(","), deps.state.gold >= nextCost, nextCost, bodyMode].join("|");
   if (key === manifestKey) return;
   manifestKey = key;
   const owned = ownedTechs(deps);
   const techs = deps.state.techCatalog;
   const afcTier = Math.max(0, ...techs.filter((t) => owned.has(t.id)).map((t) => t.tier));
-  const input = { techs, owned, selectedId: screen.manifestSelectedId, closedLanes: screen.manifestClosedLanes, gold: deps.state.gold, afcTier };
+  const input = { techs, owned, selectedId: screen.manifestSelectedId, closedLanes: screen.manifestClosedLanes, gold: deps.state.gold, afcTier, choices: new Set(deps.state.techChoices) };
   writeHtml("v2s-head-right", manifestHeadRightHtml(input));
   if (bodyMode !== "manifest") {
     writeHtml("v2s-body", `<div class="v2m-scroll" id="v2m-scroll" data-v2-scroll="manifest"></div>${MANIFEST_LEGEND_HTML}<div class="v2m-detail" id="v2m-detail"></div>`);
@@ -208,10 +208,13 @@ const renderChronicle = (deps: HudV2Deps): void => {
   if (dash.timeline) acknowledgeActivitySeen(state, state.bridgeDebugSeasonId, deps);
 };
 
+/** Panels opened from the always-visible bar or orb, which sit above an open screen instead of being closed by it. */
+const SCREEN_SAFE_PANELS: ReadonlySet<string> = new Set(["settings", "manpower", "economy", "defensibility"]);
+
 /** Renders the open screen; called on the HUD's timer and after clicks. */
 export const renderScreen = (deps: HudV2Deps): void => {
   // Legacy flows (a commission, a request) can reopen their side panel; the open screen replaces it.
-  if (screen.id && screen.id !== "afc" && screen.id !== "town" && deps.state.activePanel && deps.state.activePanel !== "settings" && deps.state.activePanel !== "manpower") {
+  if (screen.id && screen.id !== "afc" && screen.id !== "town" && deps.state.activePanel && !SCREEN_SAFE_PANELS.has(deps.state.activePanel)) {
     deps.state.activePanel = null;
     deps.renderHud();
   }
