@@ -54,7 +54,9 @@ export const HUD_V2_PREVIEW_CHANGELOG: ClientChangelogEntry[] = [
       "The Diplomacy view recolours other empires' land by your standing with them instead of drawing over it. Its toggle is an icon on the minimap.",
       "Clicking anywhere in the tile panel no longer closes it, and Your frontier opens its explanation. Details no longer repeats what the panel already shows.",
       "The Victory race panel opens Ranks. The crest and screen buttons stay visible on the Manifest, AFC, Diplomacy, Ranks and profile screens.",
-      "Settings opens in the middle of the screen straight away instead of sliding across."
+      "Settings opens in the middle of the screen straight away instead of sliding across.",
+      "Economy shows one row per resource (Coin, Food, Titanium, Crystal, Umbrite): what you have, where it comes from and what uses it. Dev slots open the Development panel.",
+      "The deal screen no longer offers a truce while one is already running."
     ]
   }
 ];
