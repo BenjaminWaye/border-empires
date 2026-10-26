@@ -28,7 +28,8 @@ export const createDiplomacyOverlay3D = (scene: Scene, maxTiles: number): Diplom
   const counts = new Map<DiplomacyOverlayStance, number>();
   for (const stance of DIPLOMACY_OVERLAY_STANCES) {
     // Higher alpha than 2D's 0.36: the ownership colour underneath would otherwise wash it out.
-    const material = new MeshBasicMaterial({ toneMapped: false, color: DIPLOMACY_OVERLAY_COLORS[stance], transparent: true, opacity: 0.5, depthWrite: false });
+    // depthTest off, like the crystal-targeting fill: the ownership surface sits within a hair of this plane and hid it.
+    const material = new MeshBasicMaterial({ toneMapped: false, color: DIPLOMACY_OVERLAY_COLORS[stance], transparent: true, opacity: 0.5, depthTest: false, depthWrite: false });
     const mesh = new InstancedMesh(geometry, material, maxTiles);
     mesh.frustumCulled = false;
     mesh.count = 0;
