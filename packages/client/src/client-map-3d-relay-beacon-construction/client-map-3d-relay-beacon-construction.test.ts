@@ -94,6 +94,25 @@ describe("relay beacon under construction", () => {
     overlay.dispose();
   });
 
+  it.each(["build", "remove"] as const)("keeps the mast and receiver joined during %s", direction => {
+    const { scene, overlay } = build(siteAt(3, { direction }));
+    const mast = meshes(scene).find(mesh => mesh.name.includes("RELAY_HOUSING") && mesh.name.endsWith("-body"))!;
+    mast.geometry.computeBoundingBox();
+    const cut = mast.geometry.getAttribute("districtState").getY(0);
+    expect(cut).toBeGreaterThanOrEqual(mast.geometry.boundingBox!.max.y);
+    const frames = sensors(scene)!;
+    for (let i = 0; i < frames.count; i++) {
+      const e = matrixAt(frames, i).elements;
+      expect(Math.hypot(e[0]!, e[1]!, e[2]!)).toBe(0);
+    }
+    overlay.update(2500);
+    for (let i = 0; i < frames.count; i++) {
+      const e = matrixAt(frames, i).elements;
+      expect(Math.hypot(e[0]!, e[1]!, e[2]!)).toBe(0);
+    }
+    overlay.dispose();
+  });
+
   it("builds the array in the last phase", () => {
     const { scene, overlay } = build(siteAt(CONSTRUCTION_PHASES));
     overlay.update(500);

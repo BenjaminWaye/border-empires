@@ -34,6 +34,8 @@ the town-support replacement/connection catalogue.
 Aether Tower retains its existing frozen construction presentation: this art
 change does not introduce new staged clipping for its native field machinery.
 Relay, Mine and Harbor Exchange use their existing construction/removal sites.
+Relay housing and its native sensing assembly share one construction height;
+rigid sensing frames remain hidden until their full height has been built.
 
 `node scripts/generate-infrastructure-icons.mjs` projects the production meshes
 into all thirteen existing overlay filenames, including Titanium/Crystal Mine

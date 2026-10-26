@@ -142,7 +142,9 @@ export const createRelayBeaconOverlay = (
         measuredTop = Math.max(measuredTop, oy + half);
         return false;
       }
-      if (oy - half > (cutY as number)) {
+      // Sensing frames are rigid assemblies: expose them only when their
+      // highest point is built, rather than revealing a whole frame on first contact.
+      if ((key === "sensorSegment" ? oy + half : oy - half) > (cutY as number)) {
         if (!keepHiddenSlots) return false;
         // A zero-scale placeholder keeps the animated pieces' slot indices aligned across beacons.
         matrix.compose(position, identityQuat, scale.set(0, 0, 0));
@@ -264,7 +266,7 @@ export const createRelayBeaconOverlay = (
     } else {
       arrayVisible = addBeacon(sceneX, surfaceY, sceneZ);
     }
-    presentation.add({ kind: "RELAY_HOUSING", x: sceneX, y: surfaceY, z: sceneZ, foundation: true, operational: !disabled && !site, ...(site ? { site } : {}) });
+    presentation.add({ kind: "RELAY_HOUSING", x: sceneX, y: surfaceY, z: sceneZ, foundation: true, constructionHeight: totalHeight, operational: !disabled && !site, ...(site ? { site } : {}) });
     instances.push({ x: sceneX, y: surfaceY, z: sceneZ, phase, disabled, arrayVisible, underConstruction: site !== undefined });
   };
 

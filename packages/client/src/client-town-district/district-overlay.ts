@@ -10,6 +10,8 @@ import { createDistrictMaterials } from "./district-materials.js";
 type Placement = {
   readonly x: number; readonly y: number; readonly z: number; readonly kind?: DistrictVisualKind; readonly scale?: number;
   readonly operational: boolean; readonly foundation: boolean; readonly site?: ConstructionSite;
+  /** Full assembly height above placement.y, including any companion meshes. */
+  readonly constructionHeight?: number;
 };
 type Slot = { readonly meshes: readonly InstancedMesh[]; readonly geometry: DistrictGeometry; readonly states: InstancedBufferAttribute; readonly capacity: number };
 
@@ -93,13 +95,16 @@ export const createDistrictOverlay = (scene: Scene, maxTiles: number, envMap?: T
         const slot = slotFor(key, placements);
         for (const [index, placement] of placements.entries()) {
           const { site } = placement;
-          const cut = site ? slot.geometry.height * site.visibleBands / CONSTRUCTION_PHASES : 1000;
+          const fraction = site ? site.visibleBands / CONSTRUCTION_PHASES : 1;
+          const cut = site ? placement.constructionHeight === undefined
+            ? slot.geometry.height * fraction
+            : (placement.constructionHeight * fraction - DISTRICT_BASE_LIFT) / (placement.scale ?? 1) : 1000;
           slot.states.setXY(index, placement.operational && !site ? 1 : 0, cut);
           position.set(placement.x, placement.y + DISTRICT_BASE_LIFT, placement.z);
           scale.setScalar(placement.scale ?? 1);
           matrix.compose(position, rotation, scale);
           for (const mesh of slot.meshes) mesh.setMatrixAt(index, matrix);
-          if (site) presentation.addSite(placement.x, placement.z, placement.y, site, slot.geometry.height * (placement.scale ?? 1));
+          if (site) presentation.addSite(placement.x, placement.z, placement.y, site, placement.constructionHeight ?? slot.geometry.height * (placement.scale ?? 1));
         }
         slot.states.needsUpdate = true;
         for (const mesh of slot.meshes) {
