@@ -12,5 +12,18 @@ export const HUD_V2_PREVIEW_CHANGELOG: ClientChangelogEntry[] = [
       "Selecting your town or a tile around it opens the town screen with its build list. Attacking a garrisoned tile opens the battle screen with both sides' strength and your odds, then follows the fight.",
       "New Manifest tree, Diplomacy, Ranks race and Chronicle screens. Esc goes back; with nothing open it opens Settings."
     ]
+  },
+  {
+    createdAt: 1793042494163, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.26.1",
+    title: "HUD preview fixes",
+    why: "Fixes from the first round of testing the opt-in ?hud=v2 preview.",
+    changes: [
+      "The new HUD no longer shows over the loading and join screens.",
+      "Manifest: techs you can research but can't afford show as available, not locked. Card text is larger and easier to read.",
+      "AFC upgrades fill the screen. Clicking a resource in the top bar opens its breakdown.",
+      "Your own tiles show Relay Beacon first, then Raise flag and Build ▸, which opens a build list at the side. Other actions such as Garrison sit in a row of small buttons below, not in a hidden menu.",
+      "Selecting a waystation shows the bonus it gives straight away."
+    ]
   }
 ];
