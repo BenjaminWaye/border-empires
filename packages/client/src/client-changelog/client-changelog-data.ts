@@ -399,7 +399,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Coasts stepped along the tile grid, and territory colour stopped in square steps short of the water.",
     changes: [
       "Coastlines curve naturally instead of stepping along the tile grid, with surf following the shore",
-      "Beaches fade softly into grass, with a thin damp edge at the waterline",
+      "Beaches get a thin damp edge of sand at the waterline",
       "Territory colour runs out across the beach to the waterline and fades softly at the water's edge; where two empires meet on a coast, the beach splits cleanly between them"
     ]
   }

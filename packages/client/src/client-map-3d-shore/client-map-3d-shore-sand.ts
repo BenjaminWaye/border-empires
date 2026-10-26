@@ -8,21 +8,8 @@
 // of tile edges. The fringe is purely visual: which tiles are land or sea is
 // untouched, and nothing gameplay-facing reads its height.
 //
-// Shape: the waterline is where a smoothly blurred map of which tiles are
-// land (a quadratic B-spline over tile centres) crosses SHORE_FIELD_THRESHOLD,
-// sampled at a position warped by world noise at two scales. Blurring
-// straightens a staircase coast into a diagonal shore, fills notches and
-// keeps points gently rounded, and the warp adds irregularity that isn't
-// keyed to the tile grid. (An earlier offset-curve shape -- an arc round
-// every convex corner, a fillet in every notch -- turned a stepped coast
-// into a regular row of scallops.) Two clamps: sand never reaches past
-// SHORE_SAND_MAX_REACH from real land, so every sea tile keeps open water at
-// its centre and a one-tile inlet never silts up; and a SHORE_SAND_MIN_BAND
-// of sand always rings land, so a land tip never shows its square corner.
-// Both clamps are eased in rather than cut, so neither leaves a corner.
-// The reach pinches to nothing at river mouths so the fringe never dams a
-// river. Everything is a function of world position, so adjacent sea tiles
-// meet seamlessly; the shore foam reads the same waterline.
+// Shape: see client-map-3d-shore-waterline.ts. The fringe fills the sand
+// side of that waterline, cut along it on a per-tile sample grid.
 //
 // Surface: drawn with the heightfield's own material, coloured from the
 // land's rendered coast corners (cornerAt) and starting at the land's exact
@@ -33,32 +20,8 @@
 import { BufferAttribute, BufferGeometry, Mesh, type Material, type Scene } from "three";
 import type { HeightfieldCornerAttributes } from "../client-map-3d-heightfield/client-map-3d-heightfield-corners.js";
 import { COAST_EDGE_Y } from "../client-map-3d-heightfield-terrain.js";
-import { foamMouthFade } from "./client-map-3d-shore.js";
+import type { ShoreWaterline } from "./client-map-3d-shore-waterline.js";
 
-// Blurred land field (1 deep inland, 0.5 on a straight coast's tile edge)
-// threshold: 0.22 puts a straight coast's waterline ~0.34 tiles out.
-const SHORE_FIELD_THRESHOLD = 0.22;
-// d(field)/d(distance) near that waterline, to read the field as tiles.
-const SHORE_FIELD_SLOPE = 0.66;
-/** Furthest (tiles) the beach ever reaches into the sea from real land. */
-export const SHORE_SAND_MAX_REACH = 0.48;
-const SHORE_SAND_MIN_BAND = 0.12;
-// On a steep stepped coast (one tile across per few down) the blurred
-// curve fills the notch under each step well past the reach cap, so a hard
-// cap cut that fill off square: a shelf with a sharp corner at every step,
-// which territory colour then carried along the beach as a row of notches.
-// A smooth minimum rounds the shelf into the beach; it only ever sits at or
-// below both terms, so the reach bound still holds.
-const SHORE_SAND_REACH_BLEND = 0.25;
-// Likewise the minimum band is eased in where it takes over from the curve
-// (round a land tile sticking out of the coast), so the tile's square
-// corner doesn't show through as a notch.
-const SHORE_SAND_BAND_BLEND = 0.15;
-// Domain warp of the field sample: broad bays/headlands plus fine wiggle.
-const SHORE_WARP_BROAD = 0.22;
-const SHORE_WARP_BROAD_SCALE = 0.9;
-const SHORE_WARP_FINE = 0.07;
-const SHORE_WARP_FINE_SCALE = 2.6;
 // Sample grid per sea tile, per side. Cost grows with its square, and the
 // fringe is rebuilt on the main thread on every terrain rebuild: 8 cost
 // ~0.75 ms per coastal tile (seconds for a zoomed-out coast); 4 is ~0.14 ms
@@ -67,9 +30,11 @@ const SHORE_WARP_FINE_SCALE = 2.6;
 export const SHORE_SAND_SUBDIV = 4;
 export const SHORE_SAND_SUBDIV_FAR = 2;
 // Width (tiles) of the band inside the waterline that ShoreSandBuffers.seaward
-// ramps across. Under a typical ~0.3-tile beach, so the band sits on the
-// fringe and the land tile's own overlay meets it at full strength.
-const SHORE_SEAWARD_BAND = 0.18;
+// ramps across. The fringe is cut along its inner edge, so the ramp follows
+// the waterline; kept under the narrowest beach (~0.11, at a diagonal
+// coast's outer corners) so territory reaches full strength on the sand
+// before its square tile edge.
+const SHORE_SEAWARD_BAND = 0.1;
 // Above the calm water at the waterline -- and clear of the shore foam
 // (FOAM_LIFT_Y, 0.004), which otherwise z-fought through the fringe as a
 // square patch in concave corners; above the land's own edge at the coast
@@ -77,92 +42,6 @@ const SHORE_SEAWARD_BAND = 0.18;
 const WATERLINE_LIFT = 0.008;
 const LAND_EDGE_LIFT = 0.002;
 
-const hash = (x: number, z: number): number => {
-  const h = Math.sin(x * 127.1 + z * 311.7) * 43758.5453;
-  return h - Math.floor(h);
-};
-const valueNoise = (x: number, z: number): number => {
-  const ix = Math.floor(x);
-  const iz = Math.floor(z);
-  const fx = x - ix;
-  const fz = z - iz;
-  const ux = fx * fx * (3 - 2 * fx);
-  const uz = fz * fz * (3 - 2 * fz);
-  const a = hash(ix, iz);
-  const b = hash(ix + 1, iz);
-  const c = hash(ix, iz + 1);
-  const d = hash(ix + 1, iz + 1);
-  return a + (b - a) * ux + (c - a) * uz + (a - b - c + d) * ux * uz;
-};
-
-const bspline = (t: number): number => {
-  const a = Math.abs(t);
-  if (a < 0.5) return 0.75 - a * a;
-  if (a < 1.5) return 0.5 * (1.5 - a) * (1.5 - a);
-  return 0;
-};
-
-const distanceToLandNear = (x: number, z: number, isLandTile: (gc: number, gr: number) => boolean): number => {
-  const cx = Math.floor(x);
-  const cz = Math.floor(z);
-  let best = Infinity;
-  for (let j = cz - 1; j <= cz + 1; j++) {
-    for (let i = cx - 1; i <= cx + 1; i++) {
-      if (!isLandTile(i, j)) continue;
-      const d = Math.hypot(x - Math.min(Math.max(x, i), i + 1), z - Math.min(Math.max(z, j), j + 1));
-      if (d < best) best = d;
-    }
-  }
-  return best;
-};
-
-/** Signed shoreline at scene point (x, z), in tiles: > 0 inside the sand, < 0 out over the water. */
-export type ShoreWaterline = (x: number, z: number) => number;
-
-/**
- * The soft waterline for one water commit (scene grid coords). The sand
- * fringe draws where it is > 0 and the shore foam fades out from its zero
- * line, so the two always agree.
- */
-export const createShoreWaterline = (
-  isLandTile: (gc: number, gr: number) => boolean,
-  worldOffsetX: number,
-  worldOffsetZ: number,
-  mouths: ReadonlyArray<{ readonly x: number; readonly z: number }>
-): ShoreWaterline => (x, z) => {
-  const wx = x + worldOffsetX;
-  const wz = z + worldOffsetZ;
-  const b = SHORE_WARP_BROAD_SCALE;
-  const f = SHORE_WARP_FINE_SCALE;
-  const px =
-    x + (valueNoise(wx * b, wz * b) - 0.5) * 2 * SHORE_WARP_BROAD + (valueNoise(wx * f + 17, wz * f + 3) - 0.5) * 2 * SHORE_WARP_FINE;
-  const pz =
-    z + (valueNoise(wx * b + 31, wz * b + 7) - 0.5) * 2 * SHORE_WARP_BROAD + (valueNoise(wx * f + 5, wz * f + 29) - 0.5) * 2 * SHORE_WARP_FINE;
-  let field = 0;
-  for (let j = Math.floor(pz - 1.5); j <= Math.floor(pz + 1.5); j++) {
-    const wzj = bspline(pz - (j + 0.5));
-    if (wzj === 0) continue;
-    for (let i = Math.floor(px - 1.5); i <= Math.floor(px + 1.5); i++) {
-      if (isLandTile(i, j)) field += bspline(px - (i + 0.5)) * wzj;
-    }
-  }
-  const d = distanceToLandNear(x, z, isLandTile);
-  // No land within a tile: open water (and keeps Infinity out of the maths
-  // below -- 0 * Infinity there came out NaN, which drew foam as solid bars).
-  if (d === Infinity) return -1;
-  const curve = (field - SHORE_FIELD_THRESHOLD) / SHORE_FIELD_SLOPE;
-  const reach = SHORE_SAND_MAX_REACH - d;
-  const band = SHORE_SAND_MIN_BAND - d;
-  // Smooth max with the band, then smooth min with the reach cap: the
-  // smooth min sits at or below its terms, so the reach bound still holds.
-  const banded = (curve + band + Math.hypot(curve - band, SHORE_SAND_BAND_BLEND)) / 2;
-  const shaped = (banded + reach - Math.hypot(banded - reach, SHORE_SAND_REACH_BLEND)) / 2;
-  if (mouths.length === 0) return shaped;
-  // Squared: the foam's own fade still left a sand lip across the river
-  // just off the mouth; this pinches the strip to nothing there.
-  const fade = foamMouthFade(x, z, mouths) ** 2;
-  return shaped * fade - (1 - fade) * d;
-};
 
 // `corners` caches the square's four rendered corners (or null when one
 // wasn't drawn), read once per sea tile rather than per fringe vertex.
@@ -287,8 +166,10 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
     if (ok) buffers.colors.push(lerp("r"), lerp("g"), lerp("b"));
     else buffers.colors.push(244 / 255, 232 / 255, 198 / 255);
     buffers.tundra.push(ok ? lerp("tundraZone") : 0);
-    const inBand = Math.min(1, depth / SHORE_SEAWARD_BAND);
-    buffers.seaward.push(1 - inBand * inBand * (3 - 2 * inBand));
+    // Linear in s: the fringe is cut along the s = SHORE_SEAWARD_BAND contour
+    // (clipTriangle), so this ramps evenly between two lines that both
+    // follow the waterline.
+    buffers.seaward.push(1 - Math.min(1, depth / SHORE_SEAWARD_BAND));
     buffers.uvs.push(x + worldOffsetX, z + worldOffsetZ);
     return index;
   };
@@ -352,7 +233,11 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
       (fp <= 0 ? near : far).push(p);
       if (fp <= 0 !== fq <= 0) {
         const t = fp / (fp - fq);
-        const cut: FringePoint = [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, p[2] + (q[2] - p[2]) * t];
+        const cx = p[0] + (q[0] - p[0]) * t;
+        const cz = p[1] + (q[1] - p[1]) * t;
+        // The waterline isn't linear: read it here (cuts are rare) so the
+        // seam's height and fade match the beach around it.
+        const cut: FringePoint = [cx, cz, waterline(cx, cz)];
         near.push(cut);
         far.push(cut);
       }
@@ -370,7 +255,26 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
       if (p.s > 0) poly.push([p.x, p.z, p.s]);
       if (p.s > 0 !== q.s > 0) poly.push(crossing(p, q));
     }
-    if (poly.length >= 3) splitByLand(poly, 0);
+    if (poly.length < 3) return;
+    // Cut along the inner edge of the seaward fade too: interpolated across
+    // the sample grid's triangles, the fade otherwise stepped along their
+    // diagonals into a zigzag down the faded territory edge.
+    const inner: FringePoint[] = [];
+    const outer: FringePoint[] = [];
+    for (let e = 0; e < poly.length; e++) {
+      const p = poly[e]!;
+      const q = poly[(e + 1) % poly.length]!;
+      const pIn = p[2] >= SHORE_SEAWARD_BAND;
+      (pIn ? inner : outer).push(p);
+      if (pIn !== q[2] >= SHORE_SEAWARD_BAND) {
+        const t = (SHORE_SEAWARD_BAND - p[2]) / (q[2] - p[2]);
+        const cut: FringePoint = [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, SHORE_SEAWARD_BAND];
+        inner.push(cut);
+        outer.push(cut);
+      }
+    }
+    if (inner.length >= 3) splitByLand(inner, 0);
+    if (outer.length >= 3) splitByLand(outer, 0);
   };
   for (let j = 0; j < n; j++) {
     for (let i = 0; i < n; i++) {

@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { HeightfieldCornerAttributes } from "../client-map-3d-heightfield/client-map-3d-heightfield-corners.js";
-import {
-  appendShoreSand,
-  createShoreWaterline,
-  SHORE_SAND_MAX_REACH,
-  type ShoreSandBuffers,
-  type ShoreSandTileInputs
-} from "./client-map-3d-shore-sand.js";
+import { appendShoreSand, type ShoreSandBuffers, type ShoreSandTileInputs } from "./client-map-3d-shore-sand.js";
+import { createShoreWaterline, SHORE_SAND_MAX_REACH } from "./client-map-3d-shore-waterline.js";
 
 const WATER_Y = -0.06;
 const LAND_EDGE_Y = -0.04;
@@ -138,6 +133,32 @@ describe("shore sand fringe", () => {
     }
     // ~0.3 with the hard cap; ~0.11 eased.
     expect(worst).toBeLessThan(0.2);
+  });
+
+  it("runs a diagonal coast straight past its land corners, without teeth", () => {
+    // Land below a 45-degree staircase. Each step's outer corner used to jut
+    // into the sea as a tooth: the waterline ran right through the corners,
+    // the warp dragged it inside them, a 0.48 reach cap dented it between
+    // them and a 0.12 band pushed it out round them.
+    const diagonal = (x: number, z: number): boolean => x + z < 0;
+    const waterline = createShoreWaterline(diagonal, 100, 100, []);
+    const n = Math.SQRT1_2;
+    // How far out the waterline sits along the coast's normal, from a line
+    // inland; through a corner at t = k + 0.5, between corners at t = k.
+    const out = (t: number): number => {
+      let s = 0;
+      while (waterline(t - 2 * n + s * n, -t - 2 * n + s * n) > 0 && s < 6) s += 0.005;
+      return s;
+    };
+    let tooth = 0;
+    for (let k = 0; k < 12; k++) tooth += (out(k + 0.5) - (out(k) + out(k + 1)) / 2) / 12;
+    // ~0.31 before; ~0.11 now, the blurred field's own wobble along a staircase.
+    expect(tooth).toBeLessThan(0.15);
+  });
+
+  it("keeps open water in the middle of a one-tile lake", () => {
+    const lake = (x: number, z: number): boolean => !(x === 0 && z === 0);
+    expect(createShoreWaterline(lake, 100, 100, [])(0.5, 0.5)).toBeLessThan(0);
   });
 
   it("gives each piece of fringe to exactly one land tile, split cleanly between neighbours", () => {

@@ -14,6 +14,29 @@ export type HeightfieldSkirt = {
   readonly skirtMesh: Mesh;
 };
 
+/**
+ * The coast skirt's material, shared by the main grid's skirt and the hill
+ * domes' (client-map-3d-hills.ts) so the two match exactly.
+ */
+export const createSkirtMaterial = (): MeshStandardMaterial =>
+  // Clipped under the unexplored storm: the fog's first ring is drawn, so
+  // its outer edge grows a skirt that would show at the brass edge's corners.
+  markUnexploredStormClip(new MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 1,
+    metalness: 0,
+    side: DoubleSide,
+    // The shore's sand fringe (client-map-3d-shore-sand.ts) starts at the
+    // coast edge this wall hangs from, a hair above its top. Seen edge-on
+    // (coast edges running toward the camera) the two were close enough in
+    // depth to fight, and the wall's top showed through the beach as a
+    // dashed grey line along the old square coastline. Biased back in
+    // depth, the wall loses those near-ties to the beach.
+    polygonOffset: true,
+    polygonOffsetFactor: 2,
+    polygonOffsetUnits: 4
+  }), "ground");
+
 export const createHeightfieldSkirt = (QUAD_COUNT: number): HeightfieldSkirt => {
   // Skirt: a vertical wall dropped from every coastal land edge (where a
   // drawn land tile borders a skipped sea/unexplored tile) down to
@@ -37,24 +60,7 @@ export const createHeightfieldSkirt = (QUAD_COUNT: number): HeightfieldSkirt => 
   skirtGeometry.setAttribute("normal", new BufferAttribute(skirtNormals, 3));
   skirtGeometry.setIndex(new BufferAttribute(skirtIndices, 1));
   skirtGeometry.setDrawRange(0, 0);
-  // Clipped under the unexplored storm: the fog's first ring is drawn, so
-  // its outer edge grows a skirt that would show at the brass edge's corners.
-  const skirtMaterial = markUnexploredStormClip(new MeshStandardMaterial({
-    vertexColors: true,
-    roughness: 1,
-    metalness: 0,
-    side: DoubleSide,
-    // The shore's sand fringe (client-map-3d-shore-sand.ts) starts at the
-    // coast edge this wall hangs from, a hair above its top. Seen edge-on
-    // (coast edges running toward the camera) the two were close enough in
-    // depth to fight, and the wall's top showed through the beach as a
-    // dashed grey line along the old square coastline. Biased back in
-    // depth, the wall loses every near-tie; where nothing covers it (a river
-    // mouth, the unexplored edge) it draws exactly as before.
-    polygonOffset: true,
-    polygonOffsetFactor: 2,
-    polygonOffsetUnits: 4
-  }), "ground");
+  const skirtMaterial = createSkirtMaterial();
   const skirtMesh = new Mesh(skirtGeometry, skirtMaterial);
   skirtMesh.frustumCulled = false;
   skirtMesh.receiveShadow = false;

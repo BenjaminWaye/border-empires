@@ -1,6 +1,6 @@
 import type { Texture, WebGLProgramParametersWithUniforms } from "three";
 import { SNOW_MASK_GLSL } from "./client-map-3d-snow-mask.js";
-import { BEACH_GRASS_EDGE_GLSL, BEACH_NOISE_GLSL, BEACH_WET_ROUGHNESS_GLSL, BEACH_WET_SAND_GLSL } from "./client-map-3d-beach-shading-glsl.js";
+import { BEACH_NOISE_GLSL, BEACH_WET_ROUGHNESS_GLSL, BEACH_WET_SAND_GLSL } from "./client-map-3d-beach-shading-glsl.js";
 
 // The main heightfield material's onBeforeCompile patch, split out from
 // client-map-3d-heightfield.ts (which was already over the 500-line cap) so
@@ -70,8 +70,10 @@ ${BEACH_NOISE_GLSL}`
     // grass/sand textures tile every 8 world units, but each individual
     // world tile hashes its coord into a 90° rotation + random offset so it
     // samples a different region of the texture — the eye stops noticing
-    // repetition. The grass/sand edge is feathered and the waterline gets a
-    // damp band -- see client-map-3d-beach-shading-glsl.ts.
+    // repetition. Soft-narrow biome cut keeps the grass/sand boundary
+    // anti-aliased without the mid-blend zone that read as a darker green
+    // band before. The waterline gets a damp band -- see
+    // client-map-3d-beach-shading-glsl.ts.
     shader.fragmentShader = shader.fragmentShader.replace(
       "#include <map_fragment>",
       `
@@ -96,12 +98,13 @@ ${BEACH_NOISE_GLSL}`
       vec4 sandSample = texture2D( sandColorMap, sampleUv );
       vec4 tundraSample = texture2D( tundraColorMap, sampleUv );
       float greenBias = vColor.g - 0.5 * (vColor.r + vColor.b);
-      // Feathered grass/sand cut (see BEACH_GRASS_EDGE_GLSL): a plain wide
-      // smoothstep averaged the two textures into a muddy green-into-tan
-      // band. TUNDRA's pale palette sits too close to SAND's in this
-      // color-inferred space to tell apart the same way, so it uses an
-      // explicit per-vertex mask (vTundraZone) instead, blended in on top last.
-${BEACH_GRASS_EDGE_GLSL}
+      // Soft-narrow biome cut: 0.03-wide blend zone, just enough to
+      // antialias the seam without a visible mid-blend band of
+      // muddy-green-into-tan. TUNDRA's pale palette sits too close to
+      // SAND's in this color-inferred space to tell apart the same way, so
+      // it uses an explicit per-vertex mask (vTundraZone) instead, blended
+      // in on top last.
+      float grassMask = smoothstep(0.055, 0.085, greenBias);
       vec3 biomeColor = mix(sandSample.rgb, grassSample.rgb, grassMask);
       float tundraMask = smoothstep(0.4, 0.6, vTundraZone);
       biomeColor = mix(biomeColor, tundraSample.rgb, tundraMask);

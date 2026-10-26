@@ -33,11 +33,23 @@ describe("shore layers", () => {
       return true;
     };
     const fringes: number[] = [];
-    const layers = createShoreLayers(scene, { material, cornerAt, onFringe: (fringe) => fringes.push(fringe.positions.length / 3) });
+    let coveredEdgeXs: number[] = [];
+    const layers = createShoreLayers(scene, {
+      material,
+      cornerAt,
+      onFringe: (fringe) => {
+        fringes.push(fringe.positions.length / 3);
+        coveredEdgeXs = [];
+        for (let i = 0; i < fringe.positions.length; i += 3) if (fringe.positions[i + 2] === 0) coveredEdgeXs.push(fringe.positions[i]!);
+      }
+    });
     const tiles = Array.from({ length: 6 }, (_, gc) => ({ gc, gr: 0 }));
     for (const windowTiles of [40, 160]) {
       layers.rebuild({ tiles, isLandTile: (_x, z) => z < 0, windowTiles, worldOffsetX: 100, worldOffsetZ: 100, waterY: -0.06, mouths: [] });
     }
+    // The coarse fringe still runs the whole length of the land edge, so it
+    // keeps covering the coast skirt.
+    for (let x = 0; x <= 6; x += 0.5) expect(coveredEdgeXs).toContain(x);
     layers.rebuild(null);
     expect(fringes).toHaveLength(3);
     const [near, far, cleared] = fringes as [number, number, number];

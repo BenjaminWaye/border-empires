@@ -11,8 +11,15 @@
 
 import { BufferAttribute, BufferGeometry, DoubleSide, Mesh, MeshBasicMaterial, type Scene } from "three";
 
-/** Wave calm by distance (in corner rings) from the nearest corner touching land. */
-const SHORE_CALM_BY_RING = [1, 0.6, 0.25] as const;
+/**
+ * Wave calm by distance (in corner rings) from the nearest corner touching
+ * land. Ring 1 is nearly flat: the shore sand fringe (client-map-3d-shore-
+ * sand.ts) reaches ~0.3-0.55 of a tile into those sea tiles and its outer
+ * lip sits only 0.008 above calm water, so a 0.6 calm there (waves still
+ * ~0.09 at ring 1) rose through the lip as straight, tile-aligned slivers
+ * of water across the beach.
+ */
+const SHORE_CALM_BY_RING = [1, 0.95, 0.5, 0.2] as const;
 
 /**
  * Per-vertex shore calm for a (vCols x vRows) corner grid. `isLandTile(c, r)`
