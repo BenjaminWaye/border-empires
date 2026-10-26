@@ -58,11 +58,11 @@ const STANCE_ICON: Record<RivalToken["stance"], string> = {
 
 export const rivalsHtml = (input: RivalInput): string => {
   const { shown, hidden } = rivalTokens(input);
-  const items = shown.map((t) => `<button type="button" class="hud-v2-rival hud-v2-rival-${t.stance}" data-hud-v2-profile="${esc(t.id)}" aria-label="${esc(t.name)}, ${esc(t.label.toLowerCase())}">
+  const items = shown.map((t) => `<button type="button" class="hud-v2-rival hud-v2-rival-${t.stance}" data-hud-v2-diplomacy="${esc(t.id)}" aria-label="${esc(t.name)}, ${esc(t.label.toLowerCase())}">
       <span class="hud-v2-rival-token" style="background:${esc(t.color)}">${esc(t.initial)}<span class="hud-v2-rival-badge"><svg width="11" height="11" viewBox="0 0 18 18" aria-hidden="true"><path d="${STANCE_ICON[t.stance]}"/></svg></span></span>
       <span class="hud-v2-rival-name">${esc(t.name)}</span><span class="hud-v2-rival-stance">${esc(t.label)}</span>
     </button>`).join("");
-  const more = hidden > 0 ? `<button type="button" class="hud-v2-rival-more" data-hud-v2-open="alliance" aria-label="All empires you've met">+${hidden}</button>` : "";
+  const more = hidden > 0 ? `<button type="button" class="hud-v2-rival-more" data-hud-v2-open="diplomacy" aria-label="All empires you've met">+${hidden}</button>` : "";
   return items + more;
 };
 

@@ -62,7 +62,7 @@ export const trackerHtml = (input: TrackerInput): string => {
   if (needs.length > 0) {
     parts.push(`<div class="hud-v2-tracker-head hud-v2-tracker-head-needs"><span>Needs you · ${needs.length}</span></div>`);
     parts.push(capped(needs, (n) => {
-      const open = n.kind === "afc" ? ` data-hud-v2-open="domains"` : "";
+      const open = n.kind === "afc" ? ` data-hud-v2-open="afc"` : "";
       return `<button type="button" class="hud-v2-tracker-row hud-v2-need-${n.kind}"${focusAttrs(n.x, n.y)}${open}><span class="hud-v2-tracker-title">${esc(n.title)}</span>${n.sub ? `<span class="hud-v2-tracker-sub">${esc(n.sub)}</span>` : ""}</button>`;
     }));
   }
@@ -73,11 +73,11 @@ export const trackerHtml = (input: TrackerInput): string => {
       return `<button type="button" class="hud-v2-tracker-row"${focusAttrs(f.x, f.y)}><span class="hud-v2-tracker-title">⚑ (${f.x}, ${f.y}) · <b>${MODE_LABEL[f.mode]}</b><span class="hud-v2-tracker-amt">${Math.round(f.amount)} / ${Math.round(input.flagCap)}</span></span><span class="hud-v2-tracker-bar"><span style="width:${pct}%"></span></span><span class="hud-v2-tracker-sub">${esc(musterStatusText(f, input.nowMs))}</span></button>`;
     }));
   }
-  const timed: Array<{ label: string; ms: number; x: number; y: number }> = input.building.map((b) => ({ label: b.label, ms: b.remainingMs, x: b.x, y: b.y }));
-  if (input.capture) timed.unshift({ label: `Battle at (${input.capture.x}, ${input.capture.y})`, ms: input.capture.resolvesAt - input.nowMs, x: input.capture.x, y: input.capture.y });
+  const timed: Array<{ label: string; ms: number; x: number; y: number; open?: string }> = input.building.map((b) => ({ label: b.label, ms: b.remainingMs, x: b.x, y: b.y }));
+  if (input.capture) timed.unshift({ label: `Battle at (${input.capture.x}, ${input.capture.y})`, ms: input.capture.resolvesAt - input.nowMs, x: input.capture.x, y: input.capture.y, open: "battle" });
   if (timed.length > 0) {
     parts.push(`<div class="hud-v2-tracker-head"><span>In progress</span></div>`);
-    parts.push(capped(timed, (t) => `<button type="button" class="hud-v2-tracker-row hud-v2-tracker-timed"${focusAttrs(t.x, t.y)}><span class="hud-v2-tracker-title">${esc(t.label)}</span><span class="hud-v2-tracker-time">${formatRemaining(t.ms)}</span></button>`));
+    parts.push(capped(timed, (t) => `<button type="button" class="hud-v2-tracker-row hud-v2-tracker-timed"${t.open ? ` data-hud-v2-open="${t.open}"` : focusAttrs(t.x, t.y)}><span class="hud-v2-tracker-title">${esc(t.label)}</span><span class="hud-v2-tracker-time">${formatRemaining(t.ms)}</span></button>`));
   }
   return parts.join("");
 };

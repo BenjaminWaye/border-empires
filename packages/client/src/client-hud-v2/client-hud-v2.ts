@@ -1,8 +1,8 @@
 // Controller for the redesigned desktop HUD (flag-gated, see client-hud-v2-flag.ts).
 // It mounts its own layer over the map and re-renders it from ClientState on a
-// short timer, writing each region only when its HTML changed. Panels, profiles
-// and tile actions all go through the existing handlers, so the legacy panels
-// still do the work; this layer only replaces how you reach them.
+// short timer, writing each region only when its HTML changed. Tile actions go
+// through the existing handlers; the destination screens live in
+// client-hud-v2-screens.ts, the town and battle screens in their runtimes.
 
 import { musterFlagCap } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
@@ -11,22 +11,22 @@ import { deriveDevelopmentPanelData } from "../client-development-panel/client-d
 import { busyDevelopmentProcessCount } from "../client-development-queue/client-development-queue.js";
 import { nextManpowerRefillForPlayer } from "../client-manpower-gauge/client-manpower-refill.js";
 import { buildManpowerPanelMusterFlags } from "../client-muster-flags-panel/client-muster-flags-panel.js";
+import { battleOnBarAction, battleOnMenuView, installBattleWatch, reopenLiveBattle } from "./client-hud-v2-battle-runtime.js";
+import { focusCamera, screen, SCREEN_HOST_ID, type HudV2Deps, type HudV2ScreenId } from "./client-hud-v2-context.js";
 import { initHudV2Flag, isHudV2Active } from "./client-hud-v2-flag.js";
 import { navHtml } from "./client-hud-v2-nav.js";
 import { orbHtml } from "./client-hud-v2-orb.js";
 import { resourceBarHtml } from "./client-hud-v2-resource-bar.js";
 import { rivalsHtml, seasonClockHtml } from "./client-hud-v2-rivals.js";
+import { closeScreen, openScreen, renderScreen, screenClick, screenEscape } from "./client-hud-v2-screens.js";
+import { setDockListener } from "./client-hud-v2-tile-dock.js";
+import { closeTownScreen, townOnMenuView } from "./client-hud-v2-town-runtime.js";
 import { trackerHtml } from "./client-hud-v2-tracker.js";
 import "./client-hud-v2.css";
+import "./client-hud-v2-screens.css";
+import "./client-hud-v2-town-battle.css";
 
-export type HudV2Deps = {
-  state: ClientState;
-  renderHud: () => void;
-  requestViewRefresh: () => void;
-  wrapX: (x: number) => number;
-  wrapY: (y: number) => number;
-  isMobile: () => boolean;
-};
+export type { HudV2Deps } from "./client-hud-v2-context.js";
 
 const FAST_TICK_MS = 250;
 /** The tracker scans owned tiles, so it refreshes on every 4th tick (1 s) instead of every tick. */
@@ -37,6 +37,7 @@ const shellHtml = `
   <div class="hud-v2-right"><div id="hud-v2-season" class="hud-v2-season"></div><div id="hud-v2-rivals" class="hud-v2-rivals"></div></div>
   <aside id="hud-v2-tracker" class="hud-v2-tracker" aria-label="Tracker"></aside>
   <section id="hud-v2-tile" class="hud-v2-tile" hidden aria-label="Selected tile"></section>
+  <div id="${SCREEN_HOST_ID}" class="hud-v2-screen"></div>
   <div id="hud-v2-orb-slot" class="hud-v2-orb-slot"></div>`;
 
 type Region = "bar" | "nav" | "season" | "rivals" | "tracker" | "orb-slot";
@@ -51,34 +52,44 @@ const writeRegion = (region: Region, html: string): void => {
   written.set(region, html);
 };
 
-const legacyPanelButton = (selector: string): HTMLElement | null => document.querySelector<HTMLElement>(selector);
-
-/** Opens a panel the way its legacy button would, so every side effect of that button still happens. */
-const openTarget = (deps: HudV2Deps, open: string): void => {
-  if (open === "activity") legacyPanelButton("[data-open-activity-dashboard]")?.click();
-  else if (open === "manpower") legacyPanelButton('#stats-chips [data-panel="manpower"]')?.click();
-  else if (open === "self") legacyPanelButton("#stats-chips .stat-chip-player")?.click();
-  else legacyPanelButton(`#panel-actions [data-panel="${open}"]`)?.click();
-  deps.renderHud();
+const SCREEN_TARGETS: Readonly<Record<string, HudV2ScreenId>> = {
+  manifest: "manifest",
+  afc: "afc",
+  diplomacy: "diplomacy",
+  ranks: "ranks",
+  chronicle: "chronicle"
 };
 
-const focusTile = (deps: HudV2Deps, x: number, y: number): void => {
-  const { state } = deps;
-  state.camX = deps.wrapX(x);
-  state.camY = deps.wrapY(y);
-  state.camSubX = 0;
-  state.camSubY = 0;
-  state.selected = { x: state.camX, y: state.camY };
-  deps.requestViewRefresh();
+const legacyButton = (selector: string): HTMLElement | null => document.querySelector<HTMLElement>(selector);
+
+/** Opens a screen, or a panel the way its legacy button would (so every side effect of that button still happens). */
+const openTarget = (deps: HudV2Deps, open: string): void => {
+  const id = SCREEN_TARGETS[open];
+  if (id) {
+    if (screen.id === id) closeScreen(deps);
+    else openScreen(deps, id);
+    return;
+  }
+  if (open === "battle" && reopenLiveBattle(deps)) return;
+  if (screen.id === "town") closeTownScreen();
+  if (open === "manpower") legacyButton('#stats-chips [data-panel="manpower"]')?.click();
+  else if (open === "self") legacyButton("#stats-chips .stat-chip-player")?.click();
+  else legacyButton(`#panel-actions [data-panel="${open}"]`)?.click();
   deps.renderHud();
 };
 
 const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   const target = event.target instanceof Element ? event.target : null;
   if (!target || target.closest("#hud-v2-tile")) return;
+  if (target.closest(`#${SCREEN_HOST_ID}`) && screenClick(deps, target)) return;
   const open = target.closest<HTMLElement>("[data-hud-v2-open]");
   if (open?.dataset.hudV2Open) {
     openTarget(deps, open.dataset.hudV2Open);
+    return;
+  }
+  const dip = target.closest<HTMLElement>("[data-hud-v2-diplomacy]");
+  if (dip?.dataset.hudV2Diplomacy) {
+    openScreen(deps, "diplomacy", { diplomacyTarget: dip.dataset.hudV2Diplomacy });
     return;
   }
   const profile = target.closest<HTMLElement>("[data-hud-v2-profile]");
@@ -91,18 +102,23 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   if (focus) {
     const x = Number(focus.dataset.hudV2FocusX);
     const y = Number(focus.dataset.hudV2FocusY);
-    if (Number.isFinite(x) && Number.isFinite(y)) focusTile(deps, x, y);
+    if (Number.isFinite(x) && Number.isFinite(y)) {
+      focusCamera(deps, x, y);
+      deps.renderHud();
+    }
   }
 };
 
 /**
- * Esc with nothing open toggles Settings (the system menu); with a panel open it closes it.
+ * Esc closes the open screen, profile or panel; with nothing open it toggles Settings (the system menu).
  * Runs in the capture phase so it sees the state before the map's own Esc handler clears the selection.
  */
 const onEscape = (deps: HudV2Deps, event: KeyboardEvent): void => {
   if (event.key !== "Escape" || !isHudV2Active(deps.isMobile)) return;
   const el = event.target instanceof HTMLElement ? event.target : null;
   if (el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName))) return;
+  if (document.querySelector(".effort-confirm-overlay, .diplomacy-trade-overlay") && screen.id !== "diplomacy") return;
+  if (screenEscape(deps)) return;
   const { state } = deps;
   if (state.activePlayerProfileId) {
     state.activePlayerProfileId = undefined;
@@ -118,6 +134,8 @@ const onEscape = (deps: HudV2Deps, event: KeyboardEvent): void => {
   if (!busy) openTarget(deps, "settings");
 };
 
+const NAV_ACTIVE: Partial<Record<HudV2ScreenId, string>> = { manifest: "manifest", afc: "afc", diplomacy: "diplomacy", ranks: "ranks", chronicle: "chronicle" };
+
 const renderFast = (state: ClientState, nowMs: number): void => {
   writeRegion("bar", resourceBarHtml({
     gold: state.gold,
@@ -132,7 +150,7 @@ const renderFast = (state: ClientState, nowMs: number): void => {
     color: state.playerColors.get(state.me) ?? "#b08a3e",
     afcReady: readyAfcUpgradeCount(state),
     diplomacyRequests: state.incomingAllianceRequests.length + state.incomingTruceRequests.length,
-    activePanel: state.activePanel
+    active: screen.id ? NAV_ACTIVE[screen.id] : undefined
   }));
   writeRegion("season", seasonClockHtml(state.seasonVictory));
   writeRegion("rivals", rivalsHtml({
@@ -174,6 +192,17 @@ export const installHudV2 = (deps: HudV2Deps): void => {
   (document.getElementById("hud") ?? document.body).appendChild(layer);
   layer.addEventListener("click", (event) => onLayerClick(deps, event));
   window.addEventListener("keydown", (event) => onEscape(deps, event), true);
+  setDockListener({
+    onMenuView: (view, tileKey) => {
+      battleOnMenuView(view, tileKey);
+      return townOnMenuView(deps, view, tileKey);
+    },
+    onMenuHidden: () => {
+      if (screen.id === "town") closeTownScreen();
+    },
+    onBarAction: battleOnBarAction
+  });
+  installBattleWatch(deps);
   let tick = 0;
   const frame = (): void => {
     const active = isHudV2Active(deps.isMobile);
@@ -182,6 +211,7 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     const nowMs = Date.now();
     renderFast(deps.state, nowMs);
     if (tick % TRACKER_EVERY_TICKS === 0) renderTracker(deps.state, nowMs);
+    if (screen.id && screen.id !== "town") renderScreen(deps);
     tick += 1;
   };
   frame();
