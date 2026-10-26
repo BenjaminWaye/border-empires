@@ -1,26 +1,31 @@
+import { resourceSupplyCoinValue, missingResourceSupply, clampedResourceSupply, RESOURCE_SUPPLY_COIN_VALUE_PER_DAY } from "../resource-supply-trades/resource-supply-valuation.js";
 // Terms attached to a truce or alliance offer, and the pure rules an AI uses
 // to price them. Shared so the client's live "would they accept?" preview
 // and the gateway's real decision run the exact same arithmetic.
 //
-// Only gold and Shards are tradeable: they are the only real stockpiles.
-// FOOD/TITANIUM/CRYSTAL/UMBRITE are slot-gated, not spendable stock (see
-// stripRetiredStockpileCost in the simulation).
+// Coin and Shards settle once; optional resource amounts are continuing supply
+// commitments, backed by actual production instead of stockpile deductions.
 import { z } from "zod";
+import { ResourceSupplyOfferSchema, hasResourceSupplyOffer, supplyResourceLabel, TRADABLE_SUPPLY_RESOURCES } from "../resource-supply-trades/resource-supply-trades.js";
 
 export type DiplomacyOfferKind = "truce" | "alliance";
-export type DiplomacyGoods = { gold: number; shard: number };
+export type DiplomacyGoods = z.infer<typeof DiplomacyGoodsSchema>;
 
 /** From the proposer's point of view: `give` goes to the target, `ask` comes from the target. */
-export type DiplomacyTerms = { give: DiplomacyGoods; ask: DiplomacyGoods };
+export type DiplomacyTerms = z.infer<typeof DiplomacyTermsSchema>;
 
 /** Per-item cap on a single offer -- far above any real stockpile, but rules out absurd payloads. */
 export const MAX_DIPLOMACY_TERM_AMOUNT = 1_000_000;
 
-const goodsSchema = z.object({
+export const DiplomacyGoodsSchema = z.object({
   gold: z.number().int().min(0).max(MAX_DIPLOMACY_TERM_AMOUNT),
-  shard: z.number().int().min(0).max(MAX_DIPLOMACY_TERM_AMOUNT)
+  shard: z.number().int().min(0).max(MAX_DIPLOMACY_TERM_AMOUNT),
+  resources: ResourceSupplyOfferSchema.optional()
 });
-export const DiplomacyTermsSchema = z.object({ give: goodsSchema, ask: goodsSchema });
+export const DiplomacyTermsSchema = z.object({
+  give: DiplomacyGoodsSchema, ask: DiplomacyGoodsSchema,
+  supplyDurationHours: z.union([z.literal(12), z.literal(24)]).optional()
+});
 
 /**
  * Marks a truce/alliance request as a counter to an offer the sender received:
@@ -34,15 +39,24 @@ export const EMPTY_DIPLOMACY_GOODS: DiplomacyGoods = { gold: 0, shard: 0 };
 export const emptyDiplomacyTerms = (): DiplomacyTerms => ({ give: { ...EMPTY_DIPLOMACY_GOODS }, ask: { ...EMPTY_DIPLOMACY_GOODS } });
 
 export const diplomacyTermsAreEmpty = (terms: DiplomacyTerms | undefined): boolean =>
-  !terms || (terms.give.gold === 0 && terms.give.shard === 0 && terms.ask.gold === 0 && terms.ask.shard === 0);
+  !terms || (terms.give.gold === 0 && terms.give.shard === 0 && terms.ask.gold === 0 && terms.ask.shard === 0 &&
+    !hasResourceSupplyOffer(terms.give.resources) && !hasResourceSupplyOffer(terms.ask.resources));
 
 /** The same deal seen from the other side. */
-export const swapDiplomacyTerms = (terms: DiplomacyTerms): DiplomacyTerms => ({ give: { ...terms.ask }, ask: { ...terms.give } });
+export const swapDiplomacyTerms = (terms: DiplomacyTerms): DiplomacyTerms => ({
+  give: { ...terms.ask, ...(terms.ask.resources ? { resources: { ...terms.ask.resources } } : {}) },
+  ask: { ...terms.give, ...(terms.give.resources ? { resources: { ...terms.give.resources } } : {}) },
+  ...(terms.supplyDurationHours ? { supplyDurationHours: terms.supplyDurationHours } : {})
+});
 
 const goodsLabel = (goods: DiplomacyGoods): string => {
   const parts: string[] = [];
   if (goods.gold > 0) parts.push(`${goods.gold} coin`);
   if (goods.shard > 0) parts.push(`${goods.shard} ${goods.shard === 1 ? "Shard" : "Shards"}`);
+  for (const resource of TRADABLE_SUPPLY_RESOURCES) {
+    const count = goods.resources?.[resource] ?? 0;
+    if (count > 0) parts.push(`${count} ${supplyResourceLabel(resource)} supply ${count === 1 ? "slot" : "slots"}`);
+  }
   return parts.join(" and ");
 };
 
@@ -54,7 +68,9 @@ export const describeDiplomacyTermsForRecipient = (terms: DiplomacyTerms | undef
   const youPay = goodsLabel(terms.ask);
   if (theyPay) parts.push(`${proposerName} pays ${theyPay}`);
   if (youPay) parts.push(`you pay ${youPay}`);
-  return parts.join("; ");
+  const text = parts.join("; ");
+  return hasResourceSupplyOffer(terms.give.resources) || hasResourceSupplyOffer(terms.ask.resources)
+    ? `${text}; resource supply for ${terms.supplyDurationHours ?? 12}h` : text;
 };
 
 /** "you pay 50 coin; Milo pays 2 Shards" -- from the proposer's point of view. */
@@ -65,7 +81,9 @@ export const describeDiplomacyTermsForProposer = (terms: DiplomacyTerms | undefi
   const theyPay = goodsLabel(terms.ask);
   if (youPay) parts.push(`you pay ${youPay}`);
   if (theyPay) parts.push(`${targetName} pays ${theyPay}`);
-  return parts.join("; ");
+  const text = parts.join("; ");
+  return hasResourceSupplyOffer(terms.give.resources) || hasResourceSupplyOffer(terms.ask.resources)
+    ? `${text}; resource supply for ${terms.supplyDurationHours ?? 12}h` : text;
 };
 
 // --- AI pricing -----------------------------------------------------------
@@ -90,11 +108,12 @@ export const requiredForOffer = (pricing: AiDiplomacyPricing, kind: DiplomacyOff
   return durationHours === 24 ? pricing.required.truce24 : pricing.required.truce12;
 };
 
-const asksAnything = (terms: DiplomacyTerms): boolean => terms.ask.gold > 0 || terms.ask.shard > 0;
+const asksAnything = (terms: DiplomacyTerms): boolean => terms.ask.gold > 0 || terms.ask.shard > 0 || hasResourceSupplyOffer(terms.ask.resources);
 
 /** Net coin-equivalent flowing to the AI target under these terms. */
 export const netValueToAi = (terms: DiplomacyTerms, shardCoinValue: number): number =>
-  terms.give.gold + terms.give.shard * shardCoinValue - terms.ask.gold - terms.ask.shard * shardCoinValue;
+  terms.give.gold + terms.give.shard * shardCoinValue - terms.ask.gold - terms.ask.shard * shardCoinValue +
+  resourceSupplyCoinValue(terms.give.resources, terms.supplyDurationHours ?? 12) - resourceSupplyCoinValue(terms.ask.resources, terms.supplyDurationHours ?? 12);
 
 export type AiOfferVerdict =
   | { accepts: true }
@@ -113,11 +132,13 @@ export const evaluateAiOffer = (
   const required = requiredForOffer(pricing, kind, durationHours);
   if (required === null) return { accepts: false, reason: "refuses" };
   if (kind === "alliance" && asksAnything(terms)) return { accepts: false, reason: "aiWontPay" };
-  const missing = {
+  const missing: DiplomacyGoods = {
     gold: Math.max(0, terms.ask.gold - pricing.aiHoldings.gold),
     shard: Math.max(0, terms.ask.shard - pricing.aiHoldings.shard)
   };
-  if (missing.gold > 0 || missing.shard > 0) return { accepts: false, reason: "aiCannotPay", missing };
+  const missingSupply = missingResourceSupply(terms.ask.resources, pricing.aiHoldings.resources);
+  if (hasResourceSupplyOffer(missingSupply)) missing.resources = missingSupply;
+  if (missing.gold > 0 || missing.shard > 0 || hasResourceSupplyOffer(missingSupply)) return { accepts: false, reason: "aiCannotPay", missing };
   const shortfall = required - netValueToAi(terms, pricing.shardCoinValue);
   return shortfall > 0 ? { accepts: false, reason: "shortfall", shortfall: Math.ceil(shortfall) } : { accepts: true };
 };
@@ -144,13 +165,18 @@ export const aiCounterOffer = (
   const required = requiredForOffer(pricing, kind, durationHours);
   if (required === null) return { kind: "refuses" };
   const next: DiplomacyTerms = {
-    give: { ...terms.give },
+    give: { ...terms.give, ...(terms.give.resources ? { resources: { ...terms.give.resources } } : {}) },
     // Never counter by asking the AI to pay more than it holds, nor anything at all for an alliance.
     ask:
       kind === "alliance"
         ? { gold: 0, shard: 0 }
         : { gold: Math.min(terms.ask.gold, pricing.aiHoldings.gold), shard: Math.min(terms.ask.shard, pricing.aiHoldings.shard) }
   };
+  if (terms.supplyDurationHours) next.supplyDurationHours = terms.supplyDurationHours;
+  if (kind !== "alliance") {
+    const resources = clampedResourceSupply(terms.ask.resources, pricing.aiHoldings.resources);
+    if (hasResourceSupplyOffer(resources)) next.ask.resources = resources;
+  }
   let deficit = required - netValueToAi(next, pricing.shardCoinValue);
   if (deficit <= 0) return { kind: "counter", terms: next };
   const value = pricing.shardCoinValue;
@@ -163,6 +189,12 @@ export const aiCounterOffer = (
     next.ask.shard -= dropAskShard;
     deficit -= dropAskShard * value;
   }
+  for (const resource of TRADABLE_SUPPLY_RESOURCES) {
+    if (deficit <= 0) break;
+    const unitValue = RESOURCE_SUPPLY_COIN_VALUE_PER_DAY[resource] * (next.supplyDurationHours ?? 12) / 24;
+    const drop = Math.min(next.ask.resources?.[resource] ?? 0, Math.ceil(deficit / unitValue));
+    if (drop > 0 && next.ask.resources) { next.ask.resources[resource] = (next.ask.resources[resource] ?? 0) - drop; deficit -= drop * unitValue; }
+  }
   if (deficit > 0) {
     const addGold = Math.min(Math.max(0, requesterHoldings.gold - next.give.gold), Math.ceil(deficit));
     next.give.gold += addGold;
@@ -172,6 +204,13 @@ export const aiCounterOffer = (
     const addShard = Math.min(Math.max(0, requesterHoldings.shard - next.give.shard), Math.ceil(deficit / value));
     next.give.shard += addShard;
     deficit -= addShard * value;
+  }
+  for (const resource of TRADABLE_SUPPLY_RESOURCES) {
+    if (deficit <= 0) break;
+    const unitValue = RESOURCE_SUPPLY_COIN_VALUE_PER_DAY[resource] * (next.supplyDurationHours ?? 12) / 24;
+    const available = Math.max(0, (requesterHoldings.resources?.[resource] ?? 0) - (next.give.resources?.[resource] ?? 0));
+    const add = Math.min(available, Math.ceil(deficit / unitValue));
+    if (add > 0) { next.give.resources ??= {}; next.give.resources[resource] = (next.give.resources[resource] ?? 0) + add; deficit -= add * unitValue; }
   }
   if (deficit > 0) return { kind: "cannotAfford", shortfall: Math.ceil(deficit) };
   return { kind: "counter", terms: next };

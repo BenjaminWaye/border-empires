@@ -469,6 +469,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Town surveys remember your dismissal",
     why: "The same survey popup could return every time you reopened the game.",
     changes: ["Got it and View survey now remember dismissed clues in this browser for your player and season. Clues remain in Activity, and new discoveries can still appear."]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "2026.10.26.1",
+    title: "Negotiate resource supply",
+    why: "Spare resource output can support another House's industry and become part of a diplomatic bargain.",
+    changes: ["Truce and alliance offers can include any of the nine supply resources for 12h or 24h, alongside Coin and Shards.", "The diplomacy screen shows spare slots and active deliveries. A shortage pauses both resource deliveries; expiry returns the slots to their suppliers."]
   }
 ];
 

@@ -36,6 +36,7 @@ import type { RuntimePlayer, RuntimeTileYieldEconomyContext } from "../runtime-t
 import type { MainThreadTaskTracker } from "../main-thread-task-tracker/main-thread-task-tracker.js";
 
 export interface RuntimeTownNetworkContext {
+  networkSitesForPlayer?: (id: string) => import("@border-empires/shared").NetworkSiteCounts | undefined;
   tiles: Map<string, DomainTileState>;
   townNetworkCacheByPlayer: Map<string, Map<string, ConnectedTownNetworkEntry>>;
   townConnectivityStateByPlayer: Map<string, TownConnectivityState>;
@@ -169,7 +170,7 @@ export function tileYieldEconomyContextForPlayer(ctx: RuntimeTownNetworkContext,
     const context: RuntimeTileYieldEconomyContext = {
       player,
       networkCreditByTown: allocateNetworkCredit(player.id, ctx.tiles, fedTownKeysForPlayer(ctx, player), ctx.dormantEconomicStructureKeysForPlayer(player.id),
-        developedNetworkSites(settledTiles, player.id, ctx.dormantEconomicStructureKeysForPlayer(player.id), player.techIds)),
+        ctx.networkSitesForPlayer?.(player.id) ?? developedNetworkSites(settledTiles, player.id, ctx.dormantEconomicStructureKeysForPlayer(player.id), player.techIds)),
       townNetwork: cachedTownNetworkForPlayer(ctx, player, settledTiles, 16),
       fedTownKeys: fedTownKeysForPlayer(ctx, player),
       // Skip expensive first-three-town key computation if the player has no

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { DomainPlayer } from "@border-empires/game-domain";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 
-import { handleDiplomacySettlementCommand } from "./runtime-diplomacy-settlement-command.js";
+import { handleDiplomacySettlementCommand, type RuntimeDiplomacySettlementContext } from "./runtime-diplomacy-settlement-command.js";
 
 const player = (id: string, points: number, shard = 0): DomainPlayer => ({
   id,
@@ -80,5 +80,49 @@ describe("SETTLE_DIPLOMACY_TERMS", () => {
       command({ proposerId: "p1", targetId: "p2", proposerPays: { gold: -5, shard: 0 }, targetPays: { gold: 0, shard: 0 } })
     );
     expect(events).toEqual([expect.objectContaining({ eventType: "COMMAND_REJECTED", code: "BAD_COMMAND" })]);
+  });
+});
+
+
+describe("resource-backed settlement", () => {
+  const terms = { proposerId: "p1", targetId: "p2", proposerPays: { gold: 3, shard: 0, resources: { FOOD: 2 } }, targetPays: { gold: 0, shard: 0 }, supplyDurationHours: 24 };
+  it("refuses unsupported resource trading before moving currency", () => {
+    const a = player("p1", 10), b = player("p2", 20), { context, events } = setup(a, b);
+    handleDiplomacySettlementCommand(context, command(terms));
+    expect(events.at(-1)).toMatchObject({ eventType: "COMMAND_REJECTED", code: "RESOURCE_TRADING_UNAVAILABLE" });
+    expect([a.points, b.points]).toEqual([10, 20]);
+  });
+  it("registers the renewable commitment for the chosen term, then moves currency", () => {
+    const a = player("p1", 10), b = player("p2", 20), { context, events } = setup(a, b);
+    const enhanced: RuntimeDiplomacySettlementContext = { ...context, now: () => 100, resourceSupply: {
+      create: agreement => {
+        expect(agreement).toMatchObject({ id: "diplomacy-settle:1", proposerGives: { FOOD: 2 }, startedAt: 100, expiresAt: 100 + 24 * 3_600_000 });
+        expect([a.points, b.points]).toEqual([10, 20]);
+        return { ok: true };
+      }, cancelRefunded: () => { throw new Error("not a refund"); }
+    } };
+    handleDiplomacySettlementCommand(enhanced, command(terms));
+    expect([a.points, b.points]).toEqual([7, 23]);
+    expect(events.at(-1)).toMatchObject({ eventType: "COMMAND_RESOLVED" });
+  });
+  it("keeps both balances unchanged when the promised supply is no longer free", () => {
+    const a = player("p1", 10), b = player("p2", 20), { context, events } = setup(a, b);
+    const enhanced: RuntimeDiplomacySettlementContext = { ...context, resourceSupply: {
+      create: () => ({ ok: false, message: "No free FOOD supply." }), cancelRefunded: () => undefined
+    } };
+    handleDiplomacySettlementCommand(enhanced, command(terms));
+    expect([a.points, b.points]).toEqual([10, 20]);
+    expect(events.at(-1)).toMatchObject({ code: "DIPLOMACY_SETTLEMENT_RESOURCE_SUPPLY" });
+  });
+  it("releases the original promise on refund instead of creating an inverse agreement", () => {
+    const a = player("p1", 10), b = player("p2", 20), { context } = setup(a, b);
+    const cancelled: string[] = [];
+    const enhanced: RuntimeDiplomacySettlementContext = { ...context, resourceSupply: {
+      create: () => { throw new Error("refund cannot create a new agreement"); },
+      cancelRefunded: id => { cancelled.push(id); }
+    } };
+    handleDiplomacySettlementCommand(enhanced, command({ ...terms, refundOf: "original", proposerPays: terms.targetPays, targetPays: terms.proposerPays }));
+    expect(cancelled).toEqual(["original"]);
+    expect([a.points, b.points]).toEqual([13, 17]);
   });
 });

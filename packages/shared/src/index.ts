@@ -83,3 +83,7 @@ export * from "./relics/relic-map-hints.js";
 export * from "./resource-networks/resource-networks.js";
 
 export * from "./resource-networks/resource-network-biomes.js";
+
+export * from "./resource-supply-trades/resource-supply-trades.js";
+
+export type { ResourceSupplyPlayerState, ResourceSupplyAgreementStatus } from "./resource-supply-trades/resource-supply-player-state.js";

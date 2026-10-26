@@ -25,6 +25,7 @@ export type ManpowerStructureBonus = {
 
 /** Dependencies {@link cachedManpowerStructureBonusForPlayer} reads. */
 export type ManpowerStructureBonusContext = {
+  networkSitesForPlayer?: (id: string) => import("@border-empires/shared").NetworkSiteCounts | undefined;
   tiles: ReadonlyMap<string, DomainTileState>;
   manpowerStructureBonusCacheByPlayer: Map<string, ManpowerStructureBonus>;
   ancillaryDepotTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
@@ -179,7 +180,7 @@ export const cachedManpowerStructureBonusForPlayer = (
     ancillaryFactoryCount,
     censusDirectorateManpowerBuildingCount,
     resourceNetworkRegenPerMinute: ancillaryFactoryCount > 0 ? networkFactoryRegenPerMinute(
-      developedNetworkSites(ctx.settledTilesForPlayer(player.id), player.id, dormantEconomicStructureKeys ?? new Set(), player.techIds), ancillaryFactoryCount
+      ctx.networkSitesForPlayer?.(player.id) ?? developedNetworkSites(ctx.settledTilesForPlayer(player.id), player.id, dormantEconomicStructureKeys ?? new Set(), player.techIds), ancillaryFactoryCount
     ) : 0,
     ...(ancillaryFactoryCapacityBonusByTown.size > 0 ? { ancillaryFactoryCapacityBonusByTown } : {})
   };

@@ -1,3 +1,4 @@
+import { ResourceSupplyAgreementSchema, MAX_RESOURCE_SUPPLY_AGREEMENTS, type ResourceSupplyAgreement } from "@border-empires/shared";
 import { applyRecoveredDiplomacy } from "./event-recovery-diplomacy.js";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationSeasonState } from "@border-empires/sim-protocol";
@@ -59,6 +60,7 @@ export type RecoveredSimulationState = {
   activeLocks: RecoveredLock[];
   season?: SimulationSeasonState;
   players?: RecoveredPlayerState[];
+  resourceSupplyAgreements?: readonly ResourceSupplyAgreement[];
   pendingSettlements?: PendingSettlementRecord[];
   playerYieldCollectionEpochByPlayer?: Array<{ playerId: string; collectedAt: number }>;
 };
@@ -69,6 +71,7 @@ type RecoveredSimulationAccumulator = {
   activeLocks: Map<string, RecoveredLock>;
   season?: SimulationSeasonState;
   players: NonNullable<RecoveredSimulationState["players"]>;
+  resourceSupplyAgreements: ResourceSupplyAgreement[];
   pendingSettlements: NonNullable<RecoveredSimulationState["pendingSettlements"]>;
   playerYieldCollectionEpochByPlayer: Map<string, number>;
 };
@@ -111,6 +114,7 @@ export const createRecoveredSimulationAccumulator = (
     activeLocks,
     ...(baseState.season ? { season: { ...baseState.season, ...(baseState.season.winner ? { winner: { ...baseState.season.winner } } : {}), victoryTrackers: baseState.season.victoryTrackers.map((tracker: SimulationSeasonState["victoryTrackers"][number]) => ({ ...tracker })) } } : {}),
     players: baseState.players ? baseState.players.map(cloneRecoveredPlayerState) : [],
+    resourceSupplyAgreements: [...(baseState.resourceSupplyAgreements ?? [])],
     pendingSettlements: baseState.pendingSettlements ? [...baseState.pendingSettlements] : [],
     playerYieldCollectionEpochByPlayer: new Map(
       (baseState.playerYieldCollectionEpochByPlayer ?? []).map((entry) => [entry.playerId, entry.collectedAt])
@@ -223,6 +227,15 @@ export const applySimulationEventsToRecoveredAccumulator = (
   events: SimulationEvent[]
 ): void => {
   for (const event of events) {
+    if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "RESOURCE_SUPPLY_CHANGED") {
+      const payload = JSON.parse(event.payloadJson) as { action?: string; agreement?: ResourceSupplyAgreement };
+      const row = ResourceSupplyAgreementSchema.parse(payload.agreement);
+      accumulator.resourceSupplyAgreements = accumulator.resourceSupplyAgreements.filter(entry => entry.id !== row.id);
+      if (payload.action === "created") {
+        if (accumulator.resourceSupplyAgreements.length >= MAX_RESOURCE_SUPPLY_AGREEMENTS) throw new RangeError("Resource agreement recovery capacity exceeded");
+        accumulator.resourceSupplyAgreements.push(row);
+      }
+    }
     if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "SOCIAL_STATE_SYNCED") {
       applyRecoveredDiplomacy(accumulator.players, event.playerId, event.payloadJson);
       continue;
@@ -368,6 +381,7 @@ export const finalizeRecoveredSimulationAccumulator = (
   activeLocks: [...accumulator.activeLocks.values()].sort((left, right) => left.commandId.localeCompare(right.commandId)),
   ...("season" in accumulator && accumulator.season ? { season: accumulator.season } : {}),
   players: [...accumulator.players],
+  resourceSupplyAgreements: [...accumulator.resourceSupplyAgreements],
   pendingSettlements: [...accumulator.pendingSettlements],
   playerYieldCollectionEpochByPlayer: [...accumulator.playerYieldCollectionEpochByPlayer.entries()]
     .map(([playerId, collectedAt]) => ({ playerId, collectedAt }))
@@ -387,6 +401,7 @@ export const recoverSimulationStateFromEvents = (
       docks: seedWorld.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })),
       activeLocks: [],
       players: [],
+      resourceSupplyAgreements: [],
       pendingSettlements: [],
       playerYieldCollectionEpochByPlayer: [],
     },

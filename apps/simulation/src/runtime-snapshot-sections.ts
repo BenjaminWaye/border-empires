@@ -15,6 +15,7 @@ export type SnapshotExportInput = {
   tiles: ReadonlyMap<string, DomainTileState>;
   locksByCommandId: ReadonlyMap<string, LockRecord>;
   players: ReadonlyMap<string, DomainPlayer>;
+  resourceSupplyAgreements?: readonly import("@border-empires/shared").ResourceSupplyAgreement[] | undefined;
   pendingSettlementsByTile: ReadonlyMap<string, PendingSettlementRecord>;
   playerYieldCollectionEpochByPlayer: ReadonlyMap<string, number>;
   // Runtime.tileSettledAtByKey; only town stamps are saved (recovered-town-state.ts).
@@ -52,6 +53,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
   return {
     initialState: {
       tiles,
+      ...(input.resourceSupplyAgreements?.length ? { resourceSupplyAgreements: input.resourceSupplyAgreements } : {}),
       activeLocks: [...input.locksByCommandId.values()]
         .map((lock) => ({
           commandId: lock.commandId,

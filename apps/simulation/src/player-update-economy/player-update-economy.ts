@@ -238,7 +238,8 @@ export const buildPlayerUpdateEconomySnapshot = (
   // Capture resets modeLockedUntil as its shock timer (capture-structures.ts,
   // no separate captureShockUntil field) — EXCHANGE payout is suppressed
   // while mode is locked, from a build, flip, or capture reset alike.
-  now: number = Date.now()
+  now: number = Date.now(),
+  suppliedSites?: import("@border-empires/shared").NetworkSiteCounts
 ): PlayerUpdateEconomySnapshot => {
   const incomeMultiplier = player.mods?.income ?? 1;
   let countedAfcBaseline = false;
@@ -260,7 +261,7 @@ export const buildPlayerUpdateEconomySnapshot = (
   const strategicProductionPerMinute = buildStrategicProductionForSettledTiles(summary, settledTiles, hydroworksKeys);
 
   const fedTownKeys = buildFedTownKeys(player.id, summary, tiles, foodDormantTownKeys);
-  const sites = developedNetworkSites(settledTiles, player.id, dormantEconomicStructureKeys, player.techIds);
+  const sites = suppliedSites ?? developedNetworkSites(settledTiles, player.id, dormantEconomicStructureKeys, player.techIds);
   const networkCreditByTown = allocateNetworkCredit(player.id, tiles, fedTownKeys, dormantEconomicStructureKeys, sites);
   const goldSources = new Map<string, EconomyBucket>();
   const goldSinks = new Map<string, EconomyBucket>();

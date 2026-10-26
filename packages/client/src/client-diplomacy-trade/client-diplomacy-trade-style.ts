@@ -123,6 +123,24 @@ export const diplomacyTradeStyles = `
   .diplomacy-trade-popup button:focus-visible, .diplomacy-trade-popup input:focus-visible {
     outline: 2px solid var(--sp-brass-300, #d9ad52); outline-offset: 2px;
   }
+  .diplomacy-resource-terms { margin: 16px 0; border-top: 1px solid rgba(184,134,47,.3); padding-top: 12px; }
+  .diplomacy-resource-terms h3 { font-size: 15px; margin: 0 0 8px; }
+  .diplomacy-resource-terms p { font-size: 12px; line-height: 1.5; opacity: .75; }
+  .diplomacy-resource-terms table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .diplomacy-resource-terms th { text-align: left; font-weight: 400; font-size: 12px; }
+  .diplomacy-resource-terms th:first-child { width: 46%; }
+  .diplomacy-resource-terms td, .diplomacy-resource-terms th { padding: 6px 4px; border-bottom: 1px solid rgba(184,134,47,.15); }
+  .diplomacy-trade-popup:has(.diplomacy-resource-terms table) { width: min(620px, 100%); }
+  .diplomacy-resource-terms input { width: 100%; box-sizing: border-box; padding: 8px; min-height: 36px;
+    border: 1px solid var(--sp-brass-700, #8a611f); border-radius: 4px;
+    background: rgba(12,9,6,.45); color: var(--sp-parchment-100, #f2e8d3); font: inherit; }
+  .diplomacy-resource-agreement { font-size: 12px; line-height: 1.6; padding: 8px 0; }
+  [data-resource-agreements]:empty { display: none; }
+  .diplomacy-trade-actions { position: sticky; bottom: -24px; background: #20190f; padding: 12px 0; }
+  #diplomacy-trade-title:focus { outline: none; }
+  .diplomacy-resource-terms small { display: block; opacity: .65; font-size: 11px; margin-top: 3px; }
+  .diplomacy-supply-term { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; }
+  .diplomacy-supply-term select { background: #211b14; color: inherit; border: 1px solid #8c6a32; border-radius: 4px; padding: 8px; }
   @media (max-width: 420px) { .diplomacy-trade-popup { padding: 16px; } }
   /* By the screen's own width: HUD v2 hosts it in a column narrower than the viewport. */
   @container (max-width: 390px) { .diplomacy-trade-sides { grid-template-columns: 1fr; } }

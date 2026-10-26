@@ -27,7 +27,7 @@ export type { RuntimeAiPlayerMetricsRow } from "./runtime-ai-player-metrics-row.
 export { buildRuntimePlayerDebugSnapshot } from "./runtime-player-debug-snapshot.js";
 export type { RuntimePlayerDebugSnapshot } from "./runtime-player-debug-snapshot.js";
 
-type RuntimeExportInput = Omit<SnapshotExportInput, "recordedEventsByCommandId"> & {
+type RuntimeExportInput = { supplyStateForPlayer?: (id: string) => import("@border-empires/shared").ResourceSupplyPlayerState } & Omit<SnapshotExportInput, "recordedEventsByCommandId"> & {
   terrainEpoch: number;
   tileDeltaStringifyCache: TileDeltaStringifyCache;
   applyManpowerRegen: (player: DomainPlayer) => void;
@@ -88,6 +88,7 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
       input.applyManpowerRegen(player);
       const summary = input.summaryForPlayer(player.id);
       return {
+        ...input.supplyStateForPlayer?.(player.id),
         id: player.id,
         ...(player.name ? { name: player.name } : {}),
         points: player.points,

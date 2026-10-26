@@ -73,7 +73,7 @@ export const buildLivePlayerEconomySnapshot = (
   // §14.2: reuses the dormancy already computed above for fedTownKeys/
   // dormantEconomicStructureKeys, so this can never disagree with them.
   const dormantStructures = dormantStructureDetailsFromDormancy(dormancyByPlayer.get(playerId) ?? emptyResourceSlotDormancy());
-  const sites = developedNetworkSites(settledDomainTilesByPlayerId.get(playerId) ?? [], playerId, dormantEconomicStructureKeys, economyPlayer?.techIds);
+  const sites = player?.effectiveNetworkSupply ?? developedNetworkSites(settledDomainTilesByPlayerId.get(playerId) ?? [], playerId, dormantEconomicStructureKeys, economyPlayer?.techIds);
   const networkCreditByTown = allocateNetworkCredit(playerId, domainTilesByKey, fedTownKeys, dormantEconomicStructureKeys, sites);
   const bonusSupply = networkSupplyStatus(sites, networkCreditByTown, settledDomainTilesByPlayerId.get(playerId) ?? [], dormantEconomicStructureKeys);
   if (bonusSupply) resourceSlots.bonusSupply = bonusSupply;
@@ -248,7 +248,7 @@ const resourceSlotsForPlayer = (
       sink(resource, grant.kind, grant.id, count);
     }
   }
-  return { supply, demand: resourceSlotDemandForPlayer(ownedSlotTiles, playerId, waivers), sources: rows() };
+  return { supply: player?.effectiveResourceSupply ?? supply, demand: resourceSlotDemandForPlayer(ownedSlotTiles, playerId, waivers), sources: rows() };
 };
 
 type EconomyResultArgs = {

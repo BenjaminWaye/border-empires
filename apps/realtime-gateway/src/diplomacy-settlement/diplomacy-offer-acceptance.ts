@@ -1,7 +1,7 @@
 // Accepting an offer: lock it, let the proposer re-check it if it is an AI
 // (its standing counter-offer may be stale), have the simulation move any
 // coin/Shards, then record the agreement.
-import { diplomacyTermsAreEmpty, swapDiplomacyTerms } from "@border-empires/shared";
+import { diplomacyTermsAreEmpty, swapDiplomacyTerms, hasResourceSupplyOffer } from "@border-empires/shared";
 
 import type { SocialActionResult, SocialPendingOffer, SocialState } from "../social-state/social-state-types.js";
 import type { DiplomacySettlement } from "./diplomacy-settlement.js";
@@ -24,8 +24,8 @@ export type DiplomacyOfferAcceptanceDeps = {
 };
 
 export type DiplomacyOfferAcceptance = {
-  acceptTruce: (playerId: string, requestId: string, announcementByPlayerId?: Announcements) => Promise<SocialActionResult>;
-  acceptAlliance: (playerId: string, requestId: string, announcementByPlayerId?: Announcements) => Promise<SocialActionResult>;
+  acceptTruce: (playerId: string, requestId: string, announcementByPlayerId?: Announcements, confirmedResourceSupply?: boolean) => Promise<SocialActionResult>;
+  acceptAlliance: (playerId: string, requestId: string, announcementByPlayerId?: Announcements, confirmedResourceSupply?: boolean) => Promise<SocialActionResult>;
 };
 
 export const createDiplomacyOfferAcceptance = (deps: DiplomacyOfferAcceptanceDeps): DiplomacyOfferAcceptance => {
@@ -33,11 +33,16 @@ export const createDiplomacyOfferAcceptance = (deps: DiplomacyOfferAcceptanceDep
     kind: "truce" | "alliance",
     playerId: string,
     requestId: string,
-    record: () => SocialActionResult
+    record: () => SocialActionResult,
+    confirmedResourceSupply = true
   ): Promise<SocialActionResult> => {
     const begun = deps.socialState.beginSettlement(kind, playerId, requestId);
     if (!begun.ok) return begun;
     const { request } = begun.offer;
+    if (!confirmedResourceSupply && (hasResourceSupplyOffer(request.terms?.give.resources) || hasResourceSupplyOffer(request.terms?.ask.resources))) {
+      deps.socialState.endSettlement(requestId);
+      return { ok: false, code: "RESOURCE_TERMS_CONFIRMATION_REQUIRED", message: "Refresh the game and review the resource supply terms before accepting this offer." };
+    }
     const recheck = await deps.recheckProposer?.(kind, request);
     if (recheck) {
       deps.socialState.endSettlement(requestId);
@@ -63,7 +68,7 @@ export const createDiplomacyOfferAcceptance = (deps: DiplomacyOfferAcceptanceDep
       // that started meanwhile can still refuse the agreement: give the
       // payment back so nobody pays for a deal that didn't happen.
       deps.socialState.endSettlement(requestId);
-      const refund = await deps.settlement.settle({ proposerId: request.fromPlayerId, targetId: request.toPlayerId, terms: swapDiplomacyTerms(terms), refundIfLate: false });
+      const refund = await deps.settlement.settle({ proposerId: request.fromPlayerId, targetId: request.toPlayerId, terms: swapDiplomacyTerms(terms), refundIfLate: false, ...(paid.settlementId ? { refundOf: paid.settlementId } : {}) });
       deps.recordGatewayEvent(refund.ok ? "warn" : "error", "gateway_diplomacy_settlement_refunded", {
         requestId,
         kind,
@@ -77,9 +82,9 @@ export const createDiplomacyOfferAcceptance = (deps: DiplomacyOfferAcceptanceDep
   };
 
   return {
-    acceptTruce: (playerId, requestId, announcementByPlayerId) =>
-      accept("truce", playerId, requestId, () => deps.socialState.acceptTruce(playerId, requestId, announcementByPlayerId)),
-    acceptAlliance: (playerId, requestId, announcementByPlayerId) =>
-      accept("alliance", playerId, requestId, () => deps.socialState.acceptAlliance(playerId, requestId, announcementByPlayerId))
+    acceptTruce: (playerId, requestId, announcementByPlayerId, confirmedResourceSupply) =>
+      accept("truce", playerId, requestId, () => deps.socialState.acceptTruce(playerId, requestId, announcementByPlayerId), confirmedResourceSupply),
+    acceptAlliance: (playerId, requestId, announcementByPlayerId, confirmedResourceSupply) =>
+      accept("alliance", playerId, requestId, () => deps.socialState.acceptAlliance(playerId, requestId, announcementByPlayerId), confirmedResourceSupply)
   };
 };

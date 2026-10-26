@@ -1,3 +1,4 @@
+import { TRADABLE_SUPPLY_RESOURCES, supplyResourceLabel } from "@border-empires/shared";
 // Pure view logic for the diplomacy trade screen: what the verdict line says
 // and whether the offer can be sent. Uses the same shared pricing rules the
 // gateway decides with, so "would accept" here means the AI really accepts.
@@ -102,6 +103,8 @@ export const tradeVerdict = (input: {
   if (selection.terms.give.gold > own.gold || selection.terms.give.shard > own.shard) {
     return { tone: "bad", text: `You only have ${own.gold} coin and ${own.shard} Shards.`, canSend: false, sendLabel };
   }
+  const missingResource = TRADABLE_SUPPLY_RESOURCES.find(resource => (selection.terms.give.resources?.[resource] ?? 0) > (own.resources?.[resource] ?? 0));
+  if (missingResource) return { tone: "bad", text: `You only have ${own.resources?.[missingResource] ?? 0} spare ${supplyResourceLabel(missingResource)} slots.`, canSend: false, sendLabel };
   if (reply && !reply.found) return { tone: "bad", text: `No empire named ${targetName}.`, canSend: false, sendLabel };
   if (!reply) return { tone: "neutral", text: `Reading ${targetName}'s mood…`, canSend: true, sendLabel };
   if (!reply.ai) return { tone: "neutral", text: `${targetName} will decide for themselves.`, canSend: true, sendLabel };

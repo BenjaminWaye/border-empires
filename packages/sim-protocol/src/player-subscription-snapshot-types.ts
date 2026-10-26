@@ -15,7 +15,7 @@ export type PlayerSubscriptionDock = {
 
 export type PlayerSubscriptionSnapshot = {
   playerId: string;
-  player?: {
+  player?: Pick<import("@border-empires/shared").ResourceSupplyPlayerState, "resourceTradeHoldings" | "resourceTradeAgreements"> & {
     id: string;
     name?: string;
     gold: number;

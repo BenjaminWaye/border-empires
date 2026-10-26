@@ -19,7 +19,7 @@ export type RuntimeState = {
     townName?: string;
     townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
   } & TileOverlayJsonFields>;
-  players: Array<{
+  players: Array<import("@border-empires/shared").ResourceSupplyPlayerState & {
     id: string;
     name?: string;
     points: number;

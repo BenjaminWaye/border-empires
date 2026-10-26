@@ -1,0 +1,128 @@
+import { revealedResourceValueForPlayer } from "../tech-domain-bridge/tech-resource-reveal.js";
+import type { DomainTileState } from "@border-empires/game-domain";
+import { NETWORK_RESOURCES, UPKEEP_TRADE_RESOURCES, TRADABLE_SUPPLY_RESOURCES,
+  type NetworkSiteCounts, type ResourceSupplyAgreement, type ResourceSupplyFlow, type ResourceSupplyOffer } from "@border-empires/shared";
+import { developedNetworkSites } from "../resource-networks/resource-networks.js";
+import { resourceSlotDemandForPlayer, resourceSlotDormantContributorsForPlayer, type ResourceSlotTotals } from "../resource-slot-view/resource-slot-view.js";
+import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js";
+import type { RuntimePlayer } from "../runtime-types.js";
+import { ResourceSupplyLedger, type ResourceSupplyLedgerContext, type SupplyLedgerResult } from "./resource-supply-ledger.js";
+
+export interface RuntimeResourceSupplyContext {
+  now(): number;
+  player(id: string): RuntimePlayer | undefined;
+  ownedTiles(id: string): DomainTileState[];
+  physicalUpkeep(id: string): ResourceSlotTotals;
+  networkUsed(id: string, sites: NetworkSiteCounts): NetworkSiteCounts;
+  tileSettledAtByKey: ReadonlyMap<string, number>;
+  beforeChange: ResourceSupplyLedgerContext["beforeChange"];
+  invalidate: ResourceSupplyLedgerContext["invalidate"];
+  changed: ResourceSupplyLedgerContext["changed"];
+  capacityRejected?: () => void;
+  publish?: (participantIds: readonly string[]) => void;
+}
+
+/** Supply rights are continuing commitments. Domestic output, never imports,
+ * backs exports. All allocation state is bounded by the ledger's agreement cap. */
+export class RuntimeResourceSupply {
+  readonly ledger: ResourceSupplyLedger;
+  constructor(private readonly ctx: RuntimeResourceSupplyContext, restored: readonly ResourceSupplyAgreement[] = []) {
+    this.ledger = new ResourceSupplyLedger({ ...ctx, capacityFor: (id, phase, flows) =>
+      phase === "upkeep" ? ctx.physicalUpkeep(id) : this.physicalNetwork(id, flows.get(id)) }, restored);
+  }
+  private physicalNetwork(id: string, upkeepFlow?: ResourceSupplyFlow): NetworkSiteCounts {
+    const tiles = this.ctx.ownedTiles(id), player = this.ctx.player(id);
+    const supply = this.applyUpkeep(this.ctx.physicalUpkeep(id), upkeepFlow);
+    const dormancy = resourceSlotDormantContributorsForPlayer(tiles, id, supply, player ? slotWaiversForPlayer(player) : undefined, this.ctx.tileSettledAtByKey);
+    const dormant = new Set([...dormancy.FOOD].filter(key => key.endsWith(":economicStructure")).map(key => key.slice(0, -18)));
+    return developedNetworkSites(tiles, id, dormant, player?.techIds);
+  }
+  private applyUpkeep(physical: ResourceSlotTotals, flow?: ResourceSupplyFlow): ResourceSlotTotals {
+    const result = { ...physical };
+    for (const resource of UPKEEP_TRADE_RESOURCES) result[resource] = Math.max(0, result[resource] + (flow?.incoming[resource] ?? 0) - (flow?.outgoing[resource] ?? 0));
+    return result;
+  }
+  upkeep(id: string): ResourceSlotTotals {
+    return this.applyUpkeep(this.ctx.physicalUpkeep(id), this.ledger.allocation(this.ctx.now()).flows.get(id));
+  }
+  network(id: string): NetworkSiteCounts {
+    const flow = this.ledger.allocation(this.ctx.now()).flows.get(id);
+    const sites = this.physicalNetwork(id, flow);
+    for (const resource of NETWORK_RESOURCES) sites[resource] = Math.max(0, sites[resource] + (flow?.incoming[resource] ?? 0) - (flow?.outgoing[resource] ?? 0));
+    return sites;
+  }
+  available(id: string): ResourceSupplyOffer {
+    const flow = this.ledger.allocation(this.ctx.now()).flows.get(id), tiles = this.ctx.ownedTiles(id), player = this.ctx.player(id);
+    const physical = { ...this.ctx.physicalUpkeep(id), ...this.physicalNetwork(id, flow) };
+    const effective = { ...this.applyUpkeep(this.ctx.physicalUpkeep(id), flow), ...this.network(id) };
+    const demand = { ...resourceSlotDemandForPlayer(tiles, id, player ? slotWaiversForPlayer(player) : undefined, this.ctx.tileSettledAtByKey),
+      ...this.ctx.networkUsed(id, this.network(id)) };
+    const result: ResourceSupplyOffer = {};
+    for (const resource of TRADABLE_SUPPLY_RESOURCES) {
+      if (resource !== "FOOD" && !revealedResourceValueForPlayer(resource, player)) continue;
+      const spare = Math.min(10_000, Math.max(0, Math.floor(Math.min(physical[resource] - (flow?.outgoing[resource] ?? 0), effective[resource] - demand[resource]))));
+      if (spare) result[resource] = spare;
+    }
+    return result;
+  }
+  create(row: ResourceSupplyAgreement): SupplyLedgerResult {
+    for (const [id, offer] of [[row.proposerId, row.proposerGives], [row.targetId, row.targetGives]] as const) {
+      const available = this.available(id);
+      if (TRADABLE_SUPPLY_RESOURCES.some(resource => (offer[resource] ?? 0) > (available[resource] ?? 0)))
+        return { ok: false, message: "The promised resource slots are already in use or committed to another deal." };
+    }
+    return this.ledger.add(row, this.ctx.now());
+  }
+  playerState(id: string): import("@border-empires/shared").ResourceSupplyPlayerState {
+    const allocation = this.ledger.allocation(this.ctx.now());
+    return { resourceTradeHoldings: this.available(id), effectiveResourceSupply: this.upkeep(id), effectiveNetworkSupply: this.network(id),
+      resourceTradeAgreements: this.ledger.rows().filter(row => row.proposerId === id || row.targetId === id)
+        .map(row => ({ ...row, fulfilled: allocation.fulfilled.has(row.id) })) };
+  }
+  playerWillChange(id: string): void {
+    if (this.ledger.participantIds().includes(id)) {
+      this.ledger.advanceTo(this.ctx.now()); this.ctx.beforeChange(this.ctx.now(), this.ledger.affectedParticipantIds([id]));
+    }
+  }
+  playerDidChange(id: string): void {
+    if (this.ledger.participantIds().includes(id)) { const ids = this.ledger.affectedParticipantIds([id]); this.ledger.invalidate(); this.ctx.invalidate(ids); this.ctx.publish?.(ids); }
+  }
+  private affectedTileParticipants(previous: DomainTileState | undefined, next: DomainTileState): readonly string[] {
+    const seeds = [previous?.ownerId, next.ownerId].filter((id): id is string => Boolean(id));
+    return this.ledger.affectedParticipantIds(seeds);
+  }
+  private affectsTrades(previous: DomainTileState | undefined, next: DomainTileState): boolean {
+    if (!this.ledger.size) return false;
+    const relevant = (tile: DomainTileState | undefined): boolean => Boolean(tile && (tile.resource || tile.town || tile.economicStructure || tile.fort || tile.observatory || tile.siegeBattery || tile.naturalWonder || tile.waystation));
+    if (!relevant(previous) && !relevant(next)) return false;
+    if (previous && previous.ownerId === next.ownerId && previous.ownershipState === next.ownershipState &&
+        previous.resource === next.resource && previous.town?.populationTier === next.town?.populationTier &&
+        previous.economicStructure === next.economicStructure && previous.fort === next.fort &&
+        previous.observatory === next.observatory && previous.siegeBattery === next.siegeBattery &&
+        previous.naturalWonder === next.naturalWonder && previous.waystation === next.waystation) return false;
+    const participants = this.ledger.participantIds();
+    return participants.some(id => id === previous?.ownerId || id === next.ownerId);
+  }
+  sourceWillChange(previous: DomainTileState | undefined, next: DomainTileState): void {
+    if (this.affectsTrades(previous, next)) {
+      this.ledger.advanceTo(this.ctx.now());
+      this.ctx.beforeChange(this.ctx.now(), this.affectedTileParticipants(previous, next));
+    }
+  }
+  sourceDidChange(previous: DomainTileState | undefined, next: DomainTileState): void {
+    if (this.affectsTrades(previous, next)) {
+      this.ledger.invalidate(); this.ctx.invalidate(this.affectedTileParticipants(previous, next));
+    }
+  }
+  sourceChangesPublished(previous: DomainTileState | undefined, next: DomainTileState): void {
+    if (this.affectsTrades(previous, next)) {
+      // Structure/siphon indices are now current; refresh allocations rebuilt
+      // by intermediate tile-yield reads before publishing either player's view.
+      this.ledger.invalidate(); this.ctx.invalidate(this.affectedTileParticipants(previous, next)); this.ctx.publish?.(this.affectedTileParticipants(previous, next));
+    }
+  }
+  cancelRefunded(id: string, proposerId: string, targetId: string): void {
+    const row = this.ledger.rows().find(row => row.id === id);
+    if (row && row.proposerId === proposerId && row.targetId === targetId) this.ledger.remove(id, this.ctx.now());
+  }
+}

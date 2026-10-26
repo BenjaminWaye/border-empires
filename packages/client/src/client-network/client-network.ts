@@ -1,3 +1,4 @@
+import { applyPlayerResourceState } from "../client-diplomacy-trade/client-player-resource-state.js";
 import { applyRelicAndProgressionUpdate } from "../client-relic-overlay/relic-map-hints.js";
 import { handleIntelResult } from "./client-network-intel-result.js";
 import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
@@ -1028,13 +1029,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.incomePerMinute = (msg.incomePerMinute as number) ?? state.incomePerMinute;
       if (state.incomePerMinute === 0 && !state.needsSeasonJoin && !state.seasonPending) maybeShowRuinsPrompt();
       state.strategicResources = (msg.strategicResources as typeof state.strategicResources | undefined) ?? state.strategicResources;
-      if (msg.storageCap && typeof msg.storageCap === "object") {
-        state.storageCap = msg.storageCap as typeof state.storageCap;
-      }
       state.strategicProductionPerMinute =
         (msg.strategicProductionPerMinute as typeof state.strategicProductionPerMinute | undefined) ?? state.strategicProductionPerMinute;
-      state.resourceSlots = (msg.resourceSlots as typeof state.resourceSlots | undefined) ?? state.resourceSlots;
-      state.dormantStructures = (msg.dormantStructures as typeof state.dormantStructures | undefined) ?? state.dormantStructures;
+      applyPlayerResourceState(state, msg);
       if (msg.eventLog) {
         const incomingEventLog = msg.eventLog as typeof state.eventLog;
         if (!state.eventLogFeedSeenIds) {
