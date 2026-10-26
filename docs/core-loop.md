@@ -332,8 +332,12 @@ away.
 
 ### 4.4 Season loop (no fixed length): "pick a path and hold it"
 
-A season has no maximum length. It ends when one empire holds a victory path
-for 24 hours (`SEASON_VICTORY_HOLD_MS`). `SEASON_LENGTH_DAYS = 30` is still
+A season has no maximum length. It ends when one empire (for Diplomatic
+Dominance, an alliance, crowning its largest member) holds a victory path
+continuously for 24 hours (`SEASON_VICTORY_HOLD_MS`); the hold restarts if the
+leader changes or the condition lapses. The only other way a season ends is an
+admin forced rollover (`POST /admin/season/start-next?force=true`), which
+archives the season with no winner. `SEASON_LENGTH_DAYS = 30` is still
 declared in `packages/shared/src/config.ts`, but nothing reads it.
 
 The phases the AI planner models (`docs/game-mechanics.md` §7), which match
@@ -537,7 +541,7 @@ town-engine loop at small scale.
 | Passive income inactivity cap (a human idle this long stops earning; converter gold upkeep is then netted against income instead of drained from the treasury) | 24h | `PASSIVE_INCOME_INACTIVITY_CAP_MS`, `runtime-upkeep-accrual.ts` |
 | Shard rain | 08:00 and 21:00 UTC, 3–6 sites, 30-min TTL | `runtime-shard-rain-rules.ts` |
 | Victory hold | 24h | `SEASON_VICTORY_HOLD_MS` |
-| Season | No fixed length; ends on a 24h victory hold (`SEASON_LENGTH_DAYS` = 30 is declared but unused) | `SEASON_VICTORY_HOLD_MS` |
+| Season | No fixed length; ends on a 24h victory hold or an admin forced rollover | `season-lifecycle.ts`, `startNextSeason` |
 
 ## 10. Return triggers and what happens while you're away
 
