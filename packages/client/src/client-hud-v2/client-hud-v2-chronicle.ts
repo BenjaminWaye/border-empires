@@ -111,8 +111,12 @@ const filtersHtml = (timeline: PersonalActivityTimeline, input: ChronicleInput):
   return `<div class="v2c-filters" role="tablist" aria-label="Filter by rival">${btn("", "All")}${ids.map((id) => btn(id, input.nameOf(id) ?? "Empire")).join("")}</div>`;
 };
 
-export const chronicleHtml = (input: ChronicleInput): string => {
-  const head = `<div class="v2c-head"><span class="v2c-title">Chronicle</span><button type="button" class="v2c-close" data-v2-close aria-label="Close Chronicle">Esc ✕</button></div>`;
+/** Title, close and (when given) the Yours / World / Updates tabs. */
+export const chronicleHeadHtml = (tabs = ""): string =>
+  `<div class="v2c-head"><span class="v2c-title">Chronicle</span><button type="button" class="v2c-close" data-v2-close aria-label="Close Chronicle">Esc ✕</button></div>${tabs}`;
+
+export const chronicleHtml = (input: ChronicleInput, tabs = ""): string => {
+  const head = chronicleHeadHtml(tabs);
   const timeline = input.timeline;
   if (!timeline) {
     const msg = input.error ?? (input.loading ? "Loading…" : "No activity yet");

@@ -35,6 +35,9 @@ export type HudV2ScreenState = {
   manifestClosedLanes: Set<string>;
   diplomacyTargetId: string | undefined;
   chronicleRival: string;
+  chronicleTab: "yours" | "world" | "updates";
+  /** Changelog watermark when Updates opened, so the list does not collapse once it is marked seen. */
+  chronicleUpdatesBaseline: number | undefined;
   chronicleSelectedId: string | undefined;
   townBuildSelection: string | undefined;
   townCategory: BuildingCategory | undefined;
@@ -46,6 +49,8 @@ export const screen: HudV2ScreenState = {
   manifestClosedLanes: new Set<string>(),
   diplomacyTargetId: undefined,
   chronicleRival: "",
+  chronicleTab: "yours",
+  chronicleUpdatesBaseline: undefined,
   chronicleSelectedId: undefined,
   townBuildSelection: undefined,
   townCategory: undefined

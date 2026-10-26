@@ -285,3 +285,23 @@ body.hud-v2-screen-afc #side-panel {
   font-family: var(--v2-display); font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
 }
 .v2c-show:hover { background: var(--v2-gold); color: #120f0b; }
+/* Chronicle tabs (Yours / World / Updates). The legacy activity dashboard they replace never shows under the new HUD. */
+body.hud-v2 #activity-dashboard-overlay { display: none !important; }
+.v2c-tabs { display: flex; gap: 2px; padding: 0 14px; border-bottom: 1px solid var(--v2-line); }
+.v2c-tab { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--v2-soft); font-family: var(--v2-display); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+.v2c-tab:hover { color: var(--v2-text); }
+.v2c-tab-on { color: var(--v2-gold-hi); border-bottom-color: var(--v2-gold); }
+.v2c-tab-badge { min-width: 18px; padding: 0 5px; background: var(--v2-red-hi); color: #fff; font-family: var(--v2-mono); font-size: 10px; line-height: 16px; text-align: center; }
+.v2c-world-rank { display: flex; justify-content: space-between; align-items: baseline; padding: 12px 14px 4px; }
+.v2c-world-label { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
+.v2c-world-you { font-family: var(--v2-display); font-size: 18px; font-weight: 700; color: var(--v2-gold-hi); }
+.v2c-rank-change { margin-left: 6px; font-family: var(--v2-mono); font-size: 12px; }
+.v2c-up { color: #b9dca0; }
+.v2c-down { color: #f0b48a; }
+.v2c-powers { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 14px 10px; }
+.v2c-power { padding: 3px 8px; border: 1px solid var(--v2-line); background: var(--v2-well); font-size: 12px; }
+.v2c-power-score { font-family: var(--v2-mono); color: var(--v2-muted); }
+.v2c-story { padding: 10px 14px; border-bottom: 1px solid var(--v2-line); }
+.v2c-story h3 { margin: 0 0 4px; font-family: var(--v2-display); font-size: 14px; color: var(--v2-text); }
+.v2c-story p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--v2-soft); }
+.v2c-updates { padding: 4px 14px 14px; font-size: 13px; line-height: 1.45; color: var(--v2-soft); }

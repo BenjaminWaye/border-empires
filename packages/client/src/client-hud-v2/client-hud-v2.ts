@@ -23,6 +23,7 @@ import { resourceBarHtml } from "./client-hud-v2-resource-bar.js";
 import { rivalsHtml, seasonClockHtml } from "./client-hud-v2-rivals.js";
 import { closeScreen, openScreen, renderScreen, screenClick, screenEscape } from "./client-hud-v2-screens.js";
 import { profileScreenStep } from "./client-hud-v2-profile.js";
+import { chronicleBadgeCount, takeOverLegacyDashboard } from "./client-hud-v2-chronicle-runtime.js";
 import { setDockListener } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, townOnMenuView } from "./client-hud-v2-town-runtime.js";
 import { trackerHtml } from "./client-hud-v2-tracker.js";
@@ -207,6 +208,7 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
     color: ownerColor(state.me),
     afcReady: readyAfcUpgradeCount(state),
     diplomacyRequests: state.incomingAllianceRequests.length + state.incomingTruceRequests.length,
+    chronicleUnread: chronicleBadgeCount(state),
     active: screen.id ? NAV_ACTIVE[screen.id] : undefined
   }));
   writeRegion("season", seasonClockHtml(state.seasonVictory));
@@ -297,10 +299,18 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     const nowMs = Date.now();
     renderFast(deps.state, deps.ownerColor, nowMs);
     if (tick % TRACKER_EVERY_TICKS === 0) renderTracker(deps.state, nowMs);
+    // The legacy activity dashboard (login briefing, release notes) opens as the Chronicle on the same tab.
+    const dashboardTab = takeOverLegacyDashboard(deps.state);
+    if (dashboardTab) {
+      screen.chronicleTab = dashboardTab;
+      if (screen.id === "chronicle") renderScreen(deps);
+      else openScreen(deps, "chronicle");
+    }
     // A player profile (crest, a name, Ranks) opens as its own screen; dismissing it closes the screen.
     const profileStep = profileScreenStep(deps.state.activePlayerProfileId, screen.id);
     if (profileStep === "open") openScreen(deps, "profile");
     else if (profileStep === "close") closeScreen(deps);
+    deps.state.activityDashboard.chronicleOpen = screen.id === "chronicle";
     if (screen.id && screen.id !== "town") renderScreen(deps);
     tick += 1;
   };

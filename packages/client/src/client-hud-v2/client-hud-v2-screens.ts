@@ -3,14 +3,13 @@
 // over the live map; town and battle have their own runtimes. Opening one
 // hides the map HUD (CSS, keyed off body classes set in the context module).
 
-import { acknowledgeActivitySeen, requestPersonalActivity } from "../client-activity-dashboard/client-activity-dashboard-network.js";
 import { counterOfferScreenInput } from "../client-alliance/client-alliance-counter-offer.js";
 import { showCaptureAlert } from "../client-alerts/client-alerts.js";
 import { diplomacyTradeDepsFor, openDiplomacyTradeScreen } from "../client-diplomacy-trade/client-diplomacy-trade.js";
 import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
 import type { TileActionDef } from "../client-types.js";
 import { battleClick, battleEscape, renderBattle } from "./client-hud-v2-battle-runtime.js";
-import { chronicleHtml } from "./client-hud-v2-chronicle.js";
+import { chronicleTabClick, loadChronicleTab, renderChronicle } from "./client-hud-v2-chronicle-runtime.js";
 import {
   clearScreen,
   focusCamera,
@@ -42,7 +41,7 @@ export const openScreen = (deps: HudV2Deps, id: HudV2ScreenId, options: { diplom
   if (screen.id && screen.id !== id) closeScreen(deps);
   if (id === "chronicle") {
     setScreen("chronicle", `<aside class="v2c-drawer" id="v2c-drawer" aria-label="Chronicle"></aside>`);
-    requestPersonalActivity(deps.state, deps);
+    loadChronicleTab(deps, screen.chronicleTab);
   } else {
     setScreen(id, FRAME_SKELETON);
     bodyMode = "";
@@ -207,23 +206,6 @@ const hostTradeView = (deps: HudV2Deps, targetId: string, input?: Parameters<typ
   }).observe(host, { childList: true });
 };
 
-const renderChronicle = (deps: HudV2Deps): void => {
-  const { state } = deps;
-  const dash = state.activityDashboard;
-  writeHtml("v2c-drawer", chronicleHtml({
-    me: state.me,
-    timeline: dash.timeline,
-    loading: dash.loading,
-    error: dash.error,
-    rivalFilter: screen.chronicleRival,
-    selectedId: screen.chronicleSelectedId,
-    nameOf: (id) => state.playerNames.get(id),
-    colorOf: (id) => deps.ownerColor(id),
-    techName: (id) => state.techCatalog.find((t) => t.id === id)?.name,
-    nowMs: Date.now()
-  }));
-  if (dash.timeline) acknowledgeActivitySeen(state, state.bridgeDebugSeasonId, deps);
-};
 
 const renderProfile = (deps: HudV2Deps): void => {
   const id = deps.state.activePlayerProfileId;
@@ -331,6 +313,7 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
     renderScreen(deps);
     return true;
   }
+  if (chronicleTabClick(deps, target)) return true;
   const filter = target.closest<HTMLElement>("[data-v2-chronicle-filter]");
   if (filter) {
     screen.chronicleRival = filter.dataset.v2ChronicleFilter ?? "";

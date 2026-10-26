@@ -25,6 +25,8 @@ describe("isMapUnobstructed", () => {
     ["profile setup pending", (s: ReturnType<typeof clearState>) => { s.profileSetupRequired = true; }],
     ["changelog open", (s: ReturnType<typeof clearState>) => { s.changelog.open = true; }],
     ["activity dashboard open", (s: ReturnType<typeof clearState>) => { s.activityDashboard.open = true; }],
+    // The new HUD hands the dashboard's auto-open to its Chronicle; popups must still wait for it.
+    ["new HUD Chronicle open", (s: ReturnType<typeof clearState>) => { s.activityDashboard.chronicleOpen = true; }],
     ["join-season lobby full-screen", (s: ReturnType<typeof clearState>) => { s.needsSeasonJoin = true; s.joinSeasonOverlayOpen = true; }],
     ["respawn notice open", (s: ReturnType<typeof clearState>) => { s.respawnOverlayOpen = true; }]
   ])("is false while %s", (_label, block) => {

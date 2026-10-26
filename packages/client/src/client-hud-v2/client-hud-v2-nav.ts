@@ -8,6 +8,8 @@ export type NavInput = {
   color: string;
   afcReady: number;
   diplomacyRequests: number;
+  /** Unread activity plus unseen release notes. */
+  chronicleUnread: number;
   /** The open screen's bubble key, lit while it's open. */
   active: string | undefined;
 };
@@ -23,7 +25,7 @@ export const navHtml = (input: NavInput): string => {
     { open: "afc", icon: "domains", label: "AFC", badge: input.afcReady },
     { open: "diplomacy", icon: "alliance", label: "Diplomacy", badge: input.diplomacyRequests },
     { open: "ranks", icon: "leaderboard", label: "Ranks" },
-    { open: "chronicle", icon: "activity", label: "Chronicle" }
+    { open: "chronicle", icon: "activity", label: "Chronicle", badge: input.chronicleUnread }
   ];
   const initial = (input.name.trim()[0] ?? "?").toUpperCase();
   const crest = `<button type="button" class="hud-v2-crest" data-hud-v2-open="self" aria-label="${esc(input.name)}, your profile" title="${esc(input.name)}"><span class="hud-v2-crest-mark" style="background:${esc(input.color)}">${esc(initial)}</span></button>`;

@@ -38,6 +38,7 @@ export const HUD_V2_PREVIEW_CHANGELOG: ClientChangelogEntry[] = [
       "Resource, town and dock tiles lead with Garrison. Empires you've only met show by name and in their map colour.",
       "The town screen shows growth rate and stays open when you use its build list; a town still being garrisoned no longer shows NaN.",
       "Sending a truce or alliance offer confirms it, and the reply shows above the open screen.",
+      "Chronicle now holds Yours, World and Updates (release notes) tabs and replaces the old Activity dashboard; its badge counts new activity and unread updates.",
       "Ranks race tracks show the top three on each path, plus you.",
       "Pressing a building or ability in the Manifest opens its info card. Settings opens in the middle of the screen over a dimmed map. Player profiles open as a full screen like the Manifest, and screens hide the crest so their Map / Esc button stays visible."
     ]
