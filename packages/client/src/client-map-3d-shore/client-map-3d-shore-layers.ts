@@ -12,8 +12,11 @@ import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { createShoreFoamLayer, FOAM_LIFT_Y } from "./client-map-3d-shore.js";
 import { createShoreSandLayer, createShoreWaterline } from "./client-map-3d-shore-sand.js";
 
-// Foam and fringe would be sub-pixel this far out (window wider than this many tiles).
-const SHORE_MAX_WINDOW_TILES = 140;
+// Foam would be sub-pixel this far out (window wider than this many tiles).
+// The sand fringe is never gated: it changes the coast's shape, and the
+// window size (the box around the sea in view) swings either side of any
+// threshold while panning, which flipped coasts between curved and square.
+const SHORE_FOAM_MAX_WINDOW_TILES = 140;
 
 export type ShoreSandWiring = {
   /** The heightfield's own material, so the fringe continues the beach exactly. */
@@ -47,14 +50,15 @@ export const createShoreLayers = (scene: Scene, sandWiring: ShoreSandWiring | un
   const sand = sandWiring ? createShoreSandLayer(scene, sandWiring.material) : null;
 
   const rebuild: ShoreLayers["rebuild"] = (commit) => {
-    if (!commit || commit.windowTiles > SHORE_MAX_WINDOW_TILES) {
+    if (!commit) {
       foam.rebuild([], () => false, 0, false);
       sand?.clear();
       return;
     }
     const { tiles, isLandTile, worldOffsetX, worldOffsetZ, waterY, mouths } = commit;
     const waterline = sand ? createShoreWaterline(isLandTile, worldOffsetX, worldOffsetZ, mouths) : undefined;
-    foam.rebuild(tiles, isLandTile, waterY + FOAM_LIFT_Y, true, mouths, waterline);
+    const foamEnabled = commit.windowTiles <= SHORE_FOAM_MAX_WINDOW_TILES;
+    foam.rebuild(tiles, isLandTile, waterY + FOAM_LIFT_Y, foamEnabled, mouths, waterline);
     if (!sand || !sandWiring || !waterline) return;
     sand.rebuild(tiles, {
       isLandTile,
