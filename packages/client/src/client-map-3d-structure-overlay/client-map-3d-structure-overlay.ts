@@ -1,3 +1,4 @@
+import { createDistrictOverlay } from "../client-town-district/district-overlay.js";
 import type { Scene, Texture } from "three";
 import { createStructurePieceBuilder } from "../client-map-3d-structure-builder.js";
 import {
@@ -167,6 +168,7 @@ export const createStructureOverlay = (
   // scene.environment.
   buildingEnvironmentTexture?: Texture
 ): StructureOverlay => {
+  const remodeled = createDistrictOverlay(scene, maxTiles, buildingEnvironmentTexture);
   const { builder, clear: clearBuilder, commit: commitBuilder, dispose: disposeBuilder } =
     createStructurePieceBuilder(scene, maxTiles, buildingEnvironmentTexture);
 
@@ -250,6 +252,11 @@ export const createStructureOverlay = (
     resource: StructureResourceHint = undefined,
     site: ConstructionSite | undefined = undefined
   ): void => {
+    if (kind === "MINE" || kind === "HARBOR_EXCHANGE") {
+      remodeled.add({ kind: kind === "MINE" && resource === "GEMS" ? "CRYSTAL_MINE" : kind,
+        x: sceneX, y: surfaceY, z: sceneZ, foundation: true, operational: !site, ...(site ? { site } : {}) });
+      return;
+    }
     const layout = layouts[kind];
     if (!layout) return;
     if (site) {
@@ -275,6 +282,7 @@ export const createStructureOverlay = (
   // owner (client-map-3d.ts), once, after every caller has had a turn — not
   // here, since this module doesn't own it.
   const clear = (): void => {
+    remodeled.clear();
     economic.clear();
     clearBuilder();
     presentation.clear();
@@ -283,16 +291,19 @@ export const createStructureOverlay = (
   return {
     clear,
     addInstance,
-    constructionBoundaryPassed: presentation.boundaryPassed,
+    constructionBoundaryPassed: () => presentation.boundaryPassed() || remodeled.boundaryPassed(),
     commit: (): void => {
+      remodeled.commit();
       commitBuilder();
       presentation.commit();
     },
     update: (nowMs: number): void => {
+      remodeled.update(nowMs);
       economic.update(nowMs);
       presentation.update(nowMs);
     },
     dispose: (): void => {
+      remodeled.dispose();
       presentation.dispose();
       disposeBuilder();
     }

@@ -1,3 +1,4 @@
+import { infrastructureMenuCrops } from "../client-infrastructure/infrastructure-art.js";
 import { monumentMenuCrops } from "../client-monuments/monument-art.js";
 import { districtMenuArtCrops } from "../client-town-district/district-art.js";
 // Where each building's art sits inside its overlay SVG, as fractions of the
@@ -12,6 +13,7 @@ export type ArtCropBox = readonly [x: number, y: number, width: number, height: 
 export const BUILD_MENU_ART_CROP: Readonly<Record<string, ArtCropBox>> = {
   ...districtMenuArtCrops(),
   ...monumentMenuCrops(),
+  ...infrastructureMenuCrops(),
   "/overlays/high-yield-aether-condenser-overlay.svg": [0.078, 0.289, 0.789, 0.5],
   "/overlays/high-yield-titanium-works-overlay.svg": [0.078, 0.23, 0.789, 0.594],
   "/overlays/high-yield-umbrite-works-overlay.svg": [0.078, 0.199, 0.785, 0.648],
@@ -27,7 +29,6 @@ export const BUILD_MENU_ART_CROP: Readonly<Record<string, ArtCropBox>> = {
   "/overlays/clearing-house-overlay.svg": [0.125, 0.438, 0.734, 0.391],
   "/overlays/counting-engine-overlay.svg": [0.156, 0.297, 0.563, 0.547],
   "/overlays/aether-condenser-overlay.svg": [0.109, 0.477, 0.703, 0.32],
-  "/overlays/harbor-exchange-overlay.svg": [0.082, 0.453, 0.801, 0.402],
   "/overlays/exchange-house-overlay.svg": [0.125, 0.453, 0.688, 0.348],
   "/overlays/farm-hydrogarden-overlay-1.svg": [0.082, 0.219, 0.699, 0.563],
   "/overlays/farm-hydroponic-overlay-1.svg": [0.172, 0.145, 0.656, 0.676],
@@ -41,21 +42,17 @@ export const BUILD_MENU_ART_CROP: Readonly<Record<string, ArtCropBox>> = {
   "/overlays/levy-charter-overlay.svg": [0.375, 0.313, 0.297, 0.516],
   "/overlays/long-barrel-overlay.svg": [0.141, 0.344, 0.766, 0.5],
   "/overlays/manufactory-overlay.svg": [0.06, 0.07, 0.89, 0.90],
-  "/overlays/observatory-overlay.svg": [0.203, 0.125, 0.625, 0.703],
   "/overlays/orbital-array-overlay.svg": [0.063, 0.176, 0.859, 0.652],
   "/overlays/quartermasters-office-overlay.svg": [0.109, 0.395, 0.797, 0.402],
   "/overlays/resonance-grid-overlay.svg": [0.125, 0.223, 0.637, 0.582],
   "/overlays/reserve-lattice-overlay.svg": [0.109, 0.484, 0.758, 0.367],
   "/overlays/registry-vault-overlay.svg": [0.141, 0.484, 0.609, 0.375],
-  "/overlays/relay-beacon-overlay.svg": [0.219, 0.094, 0.59, 0.875],
   "/overlays/siege-battery-overlay.svg": [0.184, 0.359, 0.633, 0.625],
   "/overlays/sky-marking-array-overlay.svg": [0.156, 0.102, 0.699, 0.742],
   "/overlays/sovereign-seal-overlay.svg": [0.172, 0.359, 0.547, 0.469],
-  "/overlays/titanium-mine-overlay-1.svg": [0.094, 0.422, 0.719, 0.367],
   "/overlays/titanium-weapons-factory-overlay.svg": [0.141, 0.434, 0.641, 0.316],
   "/overlays/titanium-works-overlay.svg": [0.109, 0.344, 0.719, 0.48],
   "/overlays/trade-nexus-overlay.svg": [0.117, 0.094, 0.883, 0.863],
-  "/overlays/umbrite-rig-overlay-1.svg": [0.109, 0.258, 0.719, 0.602],
   "/overlays/umbrite-works-overlay.svg": [0.133, 0.297, 0.641, 0.547],
   "/overlays/umbrite-weapons-factory-overlay.svg": [0.141, 0.094, 0.672, 0.813],
   "/overlays/weapons-workshop-overlay.svg": [0.141, 0.313, 0.641, 0.438],

@@ -13,12 +13,12 @@ Great Project preparations, six general utilities and two retired saved
 structures. Completed Great Projects use the [monument model kit](monument-models.md) and
 participate through service endpoints; fortifications retain their models.
 
-The approved merge scope preserves the existing Fort, Relay Beacon, Aether
-Tower (`OBSERVATORY`), Umbrite Rig, Dread Tower and Siege Battery artwork.
-Relay Beacon and Aether Tower use their original dedicated 3D overlays and
-2D/menu assets, with no district slab or connection replacing them. The other
-four already retained their existing geometry. Regression coverage prevents
-all six from entering the district replacement catalogue.
+The original support-district merge preserved Fort, Relay Beacon, Aether Tower,
+Umbrite Rig, Dread Tower and Siege Battery artwork. The later
+[infrastructure phase](infrastructure-models.md) remodels Relay Beacon and
+Aether Tower, and adds a platform to Umbrite Rig through their dedicated
+renderers. They remain outside the town-support replacement and connection
+catalogue. Fort, Dread Tower and Siege Battery remain unchanged.
 
 Every remodeled model is generated from the same geometry kit as the towns. Geometry
 is baked per kind/foundation variant and batched with instancing. The 2D

@@ -1,3 +1,4 @@
+import type { InfrastructureModelKind } from "../client-infrastructure/infrastructure-models.js";
 import type { EconomicStructureType } from "@border-empires/shared";
 
 export const DISTRICT_BUILDING_KINDS = [
@@ -24,7 +25,7 @@ export const DISTRICT_PROJECT_KINDS = [
 ] as const;
 const projects: ReadonlySet<string> = new Set(DISTRICT_PROJECT_KINDS);
 export type MonumentKind = typeof DISTRICT_PROJECT_KINDS[number];
-export type DistrictVisualKind = DistrictBuildingKind | MonumentKind;
+export type DistrictVisualKind = DistrictBuildingKind | MonumentKind | InfrastructureModelKind;
 export const isDistrictProject = (kind: string | undefined): kind is MonumentKind => kind !== undefined && projects.has(kind);
 
 export const DISTRICT_PORT_RADIUS = 0.341;

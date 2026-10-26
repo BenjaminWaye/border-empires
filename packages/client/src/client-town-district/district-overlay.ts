@@ -1,3 +1,4 @@
+import { isInfrastructureModel } from "../client-infrastructure/infrastructure-models.js";
 import { InstancedBufferAttribute, InstancedMesh, Matrix4, Quaternion, Vector3, type Scene, type Texture } from "three";
 import { tickTownTime } from "../client-map-3d-town-overlay/town-animation-shaders.js";
 import { createLazyConstructionPresentation } from "../client-map-3d-construction/client-map-3d-construction-presentation.js";
@@ -9,6 +10,8 @@ import { createDistrictMaterials } from "./district-materials.js";
 type Placement = {
   readonly x: number; readonly y: number; readonly z: number; readonly kind?: DistrictVisualKind; readonly scale?: number;
   readonly operational: boolean; readonly foundation: boolean; readonly site?: ConstructionSite;
+  /** Full assembly height above placement.y, including any companion meshes. */
+  readonly constructionHeight?: number;
 };
 type Slot = { readonly meshes: readonly InstancedMesh[]; readonly geometry: DistrictGeometry; readonly states: InstancedBufferAttribute; readonly capacity: number };
 
@@ -54,7 +57,7 @@ export const createDistrictOverlay = (scene: Scene, maxTiles: number, envMap?: T
       if (!geo) continue;
       geo.setAttribute("districtState", states);
       const shield = first.kind === "AEGIS_DOME" && layer === "glass";
-      const material = shield ? materials.shieldGlass : isDistrictProject(first.kind) && layer === "metal" ? materials.monumentMetal : materials.layers[layer];
+      const material = shield ? materials.shieldGlass : (isDistrictProject(first.kind) || isInfrastructureModel(first.kind)) && layer === "metal" ? materials.monumentMetal : materials.layers[layer];
       const mesh = new InstancedMesh(geo, material, capacity);
       mesh.name = `town-district-${key}-${layer}`;
       mesh.frustumCulled = false;
@@ -92,16 +95,24 @@ export const createDistrictOverlay = (scene: Scene, maxTiles: number, envMap?: T
         const slot = slotFor(key, placements);
         for (const [index, placement] of placements.entries()) {
           const { site } = placement;
-          const cut = site ? slot.geometry.height * site.visibleBands / CONSTRUCTION_PHASES : 1000;
+          const fraction = site ? site.visibleBands / CONSTRUCTION_PHASES : 1;
+          const cut = site ? placement.constructionHeight === undefined
+            ? slot.geometry.height * fraction
+            : (placement.constructionHeight * fraction - DISTRICT_BASE_LIFT) / (placement.scale ?? 1) : 1000;
           slot.states.setXY(index, placement.operational && !site ? 1 : 0, cut);
           position.set(placement.x, placement.y + DISTRICT_BASE_LIFT, placement.z);
           scale.setScalar(placement.scale ?? 1);
           matrix.compose(position, rotation, scale);
           for (const mesh of slot.meshes) mesh.setMatrixAt(index, matrix);
-          if (site) presentation.addSite(placement.x, placement.z, placement.y, site, slot.geometry.height * (placement.scale ?? 1));
+          if (site) presentation.addSite(placement.x, placement.z, placement.y, site, placement.constructionHeight ?? slot.geometry.height * (placement.scale ?? 1));
         }
         slot.states.needsUpdate = true;
-        for (const mesh of slot.meshes) { mesh.count = placements.length; mesh.instanceMatrix.needsUpdate = true; }
+        for (const mesh of slot.meshes) {
+          mesh.count = placements.length;
+          mesh.instanceMatrix.clearUpdateRanges();
+          mesh.instanceMatrix.addUpdateRange(0, placements.length * 16);
+          mesh.instanceMatrix.needsUpdate = true;
+        }
       }
       presentation.commit();
     },

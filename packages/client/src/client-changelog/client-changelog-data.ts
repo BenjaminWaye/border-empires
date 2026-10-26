@@ -90,7 +90,7 @@ export type ClientChangelogEntry = {
   why: string;
   changes: string[];
 };
-// Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
+// Register every client release here or in feature groups; createdAt determines display order.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AFC_SPECIALIZATIONS_CHANGELOG,
   ...ALLIANCES_TAB_CHANGELOG,

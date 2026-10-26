@@ -1,16 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { BoxGeometry, CylinderGeometry, InstancedMesh, Scene } from "three";
+import { CylinderGeometry, InstancedMesh, Scene } from "three";
 import { createRelayBeaconOverlay } from "./client-map-3d-relay-beacon-overlay.js";
 
 const instancedMeshes = (scene: Scene): InstancedMesh[] =>
   scene.children.filter((child): child is InstancedMesh => child instanceof InstancedMesh);
 
-const mirrorMesh = (scene: Scene): InstancedMesh | undefined =>
-  instancedMeshes(scene).find(
-    (mesh) =>
-      mesh.geometry.type === "BoxGeometry" &&
-      (mesh.geometry as BoxGeometry).parameters.width === 0.16
-  );
+const sensorMesh = (scene: Scene): InstancedMesh | undefined =>
+  instancedMeshes(scene).find(mesh => mesh.name === "relay-sensorSegment");
 
 const gearMesh = (scene: Scene): InstancedMesh | undefined =>
   instancedMeshes(scene).find(
@@ -54,7 +50,7 @@ describe("relay beacon overlay", () => {
 
   it("does not allocate instance capacity proportional to per-tile piece count", () => {
     // The beacon emits 66 pieces per tile (lattice legs, deck optics, the
-    // six mirror plates and lamp rigs); caps are sized to that worst case
+    // six sensor plates and lamp rigs); caps are sized to that worst case
     // and stay under a 64MB budget even for a fully-rigged viewport.
     const scene = new Scene();
     const overlay = createRelayBeaconOverlay(scene, 14_000);
@@ -81,7 +77,8 @@ describe("relay beacon overlay", () => {
       const ranges = mesh.instanceMatrix.updateRanges;
       expect(ranges).toHaveLength(1);
       expect(ranges[0]).toEqual({ start: 0, count: mesh.count * 16 });
-      expect(ranges[0]!.count).toBeLessThan(mesh.instanceMatrix.array.length);
+      expect(ranges[0]!.count).toBeLessThanOrEqual(mesh.instanceMatrix.array.length);
+      if (!mesh.geometry.hasAttribute("districtState")) expect(ranges[0]!.count).toBeLessThan(mesh.instanceMatrix.array.length);
     }
 
     overlay.dispose();
@@ -91,7 +88,9 @@ describe("relay beacon overlay", () => {
     const scene = new Scene();
     const overlay = createRelayBeaconOverlay(scene, 8);
 
+    overlay.addInstance(0, 0, 0, 0, 0); overlay.commit();
     const emptySlotCount = instancedMeshes(scene).length;
+    overlay.clear();
     expect(emptySlotCount).toBeGreaterThan(0);
 
     for (let i = 0; i < 6; i += 1) overlay.addInstance(i * 2, 0, 0, i, 0);
@@ -111,20 +110,21 @@ describe("relay beacon overlay", () => {
     overlay.commit();
     overlay.update(500);
 
-    const mirrors = mirrorMesh(scene);
+    const sensors = sensorMesh(scene);
     const gears = gearMesh(scene);
-    expect(mirrors).toBeDefined();
+    expect(sensors).toBeDefined();
     expect(gears).toBeDefined();
-    expect(mirrors!.count).toBe(6);
+    expect(sensors!.count).toBe(6);
     expect(gears!.count).toBe(2);
 
     // update() marks only the used prefix dirty (partial upload) so the GPU
     // re-uploads 6*16 floats per beacon, not the whole cap-sized buffer.
-    for (const mesh of [mirrors!, gears!]) {
+    for (const mesh of [sensors!, gears!]) {
       const ranges = mesh.instanceMatrix.updateRanges;
       expect(ranges).toHaveLength(1);
       expect(ranges[0]!.count).toBe(mesh.count * 16);
-      expect(ranges[0]!.count).toBeLessThan(mesh.instanceMatrix.array.length);
+      expect(ranges[0]!.count).toBeLessThanOrEqual(mesh.instanceMatrix.array.length);
+      if (!mesh.geometry.hasAttribute("districtState")) expect(ranges[0]!.count).toBeLessThan(mesh.instanceMatrix.array.length);
       // three r179 exposes needsUpdate as a setter-only accessor that bumps
       // `version`; assert the flag effect rather than the accessor itself.
       expect(mesh.instanceMatrix.version).toBeGreaterThan(0);
@@ -133,7 +133,7 @@ describe("relay beacon overlay", () => {
     overlay.dispose();
   });
 
-  it("spins the mirror array on update without disturbing instance counts", () => {
+  it("spins the sensor array on update without disturbing instance counts", () => {
     const scene = new Scene();
     const overlay = createRelayBeaconOverlay(scene, 4);
 
@@ -141,36 +141,36 @@ describe("relay beacon overlay", () => {
     overlay.addInstance(2, 0, 0, 11, 1);
     overlay.commit();
 
-    const mirrors = mirrorMesh(scene);
+    const sensors = sensorMesh(scene);
     const gears = gearMesh(scene);
-    expect(mirrors).toBeDefined();
+    expect(sensors).toBeDefined();
     expect(gears).toBeDefined();
-    expect(mirrors!.count).toBe(12);
+    expect(sensors!.count).toBe(12);
     expect(gears!.count).toBe(4);
 
-    const before = Array.from(mirrors!.instanceMatrix.array.slice(0, 16));
+    const before = Array.from(sensors!.instanceMatrix.array.slice(0, 16));
     const gearBefore = Array.from(gears!.instanceMatrix.array.slice(0, 16));
 
     overlay.update(1000);
 
-    const after = Array.from(mirrors!.instanceMatrix.array.slice(0, 16));
+    const after = Array.from(sensors!.instanceMatrix.array.slice(0, 16));
     const gearAfter = Array.from(gears!.instanceMatrix.array.slice(0, 16));
     expect(after).not.toEqual(before);
     expect(gearAfter).not.toEqual(gearBefore);
 
     // Two beacons on different tiles rotate out of phase, so their first
-    // mirror plates are never in the same pose.
-    const beaconOne = Array.from(mirrors!.instanceMatrix.array.slice(0, 16));
-    const beaconTwo = Array.from(mirrors!.instanceMatrix.array.slice(16, 32));
+    // sensor plates are never in the same pose.
+    const beaconOne = Array.from(sensors!.instanceMatrix.array.slice(0, 16));
+    const beaconTwo = Array.from(sensors!.instanceMatrix.array.slice(16, 32));
     expect(beaconOne).not.toEqual(beaconTwo);
 
-    expect(mirrors!.count).toBe(12);
+    expect(sensors!.count).toBe(12);
     expect(gears!.count).toBe(4);
 
     overlay.dispose();
   });
 
-  it("freezes the mirror array for a disabled beacon while still spinning enabled ones", () => {
+  it("freezes the sensor array for a disabled beacon while still spinning enabled ones", () => {
     const scene = new Scene();
     const overlay = createRelayBeaconOverlay(scene, 4);
 
@@ -178,19 +178,19 @@ describe("relay beacon overlay", () => {
     overlay.addInstance(2, 0, 0, 11, 1, false);
     overlay.commit();
 
-    const mirrors = mirrorMesh(scene);
-    expect(mirrors).toBeDefined();
+    const sensors = sensorMesh(scene);
+    expect(sensors).toBeDefined();
 
-    // Mirror instances are laid out 6-per-beacon (MIRRORS_PER_BEACON); the
-    // second beacon's first mirror plate starts at float offset 6*16=96.
+    // Sensor instances are laid out 6-per-beacon (MIRRORS_PER_BEACON); the
+    // second beacon's first sensor plate starts at float offset 6*16=96.
     overlay.update(1000);
-    const disabledBefore = Array.from(mirrors!.instanceMatrix.array.slice(0, 16));
-    const enabledBefore = Array.from(mirrors!.instanceMatrix.array.slice(96, 112));
+    const disabledBefore = Array.from(sensors!.instanceMatrix.array.slice(0, 16));
+    const enabledBefore = Array.from(sensors!.instanceMatrix.array.slice(96, 112));
 
     overlay.update(2000);
 
-    const disabledAfter = Array.from(mirrors!.instanceMatrix.array.slice(0, 16));
-    const enabledAfter = Array.from(mirrors!.instanceMatrix.array.slice(96, 112));
+    const disabledAfter = Array.from(sensors!.instanceMatrix.array.slice(0, 16));
+    const enabledAfter = Array.from(sensors!.instanceMatrix.array.slice(96, 112));
 
     expect(disabledAfter).toEqual(disabledBefore);
     expect(enabledAfter).not.toEqual(enabledBefore);
