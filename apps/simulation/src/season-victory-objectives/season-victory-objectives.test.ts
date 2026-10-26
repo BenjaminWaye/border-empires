@@ -367,4 +367,11 @@ describe("mergeSelfProgress", () => {
     expect(mergeSelfProgress([baseObjective], undefined)).toEqual([baseObjective]);
     expect(mergeSelfProgress([baseObjective], new Map())).toEqual([baseObjective]);
   });
+
+  it("attaches the numeric self progress, clamped to 0..1, for the Ranks race", () => {
+    const merged = mergeSelfProgress([baseObjective], new Map([["ECONOMIC_HEGEMONY", "4.0 gold/m"]]), new Map([["ECONOMIC_HEGEMONY", 0.4]]));
+    expect(merged[0]).toMatchObject({ selfProgressLabel: "4.0 gold/m", selfProgress: 0.4 });
+    expect(mergeSelfProgress([baseObjective], undefined, new Map([["ECONOMIC_HEGEMONY", 1.7]]))[0]?.selfProgress).toBe(1);
+    expect(mergeSelfProgress([baseObjective], undefined, new Map([["ECONOMIC_HEGEMONY", Number.NaN]]))).toEqual([baseObjective]);
+  });
 });

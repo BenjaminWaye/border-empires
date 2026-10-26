@@ -90,7 +90,7 @@ export type ClientChangelogEntry = {
   why: string;
   changes: string[];
 };
-// Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
+// Register every client release here or in feature groups; createdAt determines display order.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AFC_SPECIALIZATIONS_CHANGELOG,
   ...ALLIANCES_TAB_CHANGELOG,
@@ -468,6 +468,27 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Clearer support connections and converter information",
     why: "Hidden connections could leave stray posts, and converter help omitted Sell Off rates and its mode-change lock.",
     changes: ["Hidden and unselected buried service connections now hide their posts as well as their pipes.", "Converter building information shows the current Sell Off Coin/day return and mode-change cooldown from the game rules."]
+  },
+  {
+    createdAt: 1792960254810, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "Monumental Great Project models",
+    why: "Completed Great Projects needed distinct, detailed models that visibly incorporate their commissioned components.",
+    changes: ["All six completed Great Projects have new 3D models, matching foundations and specialized machinery: a financial rotunda, massive elevated Worldbreaker cannon with an armoured core housing, lattice shield, orbital cradle, census index and muster gate.", "Their 2D map artwork and menu icons are generated from the same models. The Census Directorate has an integrated crescent archive and an unlit crown, and the Titanium Levy has a military assembly hall and deployment court. Project abilities and costs are unchanged."]
+  },
+  {
+    createdAt: 1793015570376, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.26.1",
+    title: "Visible ore survey clues",
+    why: "Ownership colours could cover small ground-level resource clues.",
+    changes: ["Titanium ore flecks and crystal survey clues stay visible above ownership colours in both the 3D and 2D maps."]
+  },
+  {
+    createdAt: 1793022988700, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.26.1",
+    title: "No false combat delays on a wrong device clock",
+    why: "A device clock running fast made every expansion look overdue, so tiles were rolled back and \"Combat result delayed\" appeared.",
+    changes: ["Expansion and attack timers now follow the server's clock, even when your device clock is off."]
   }
 ];
 

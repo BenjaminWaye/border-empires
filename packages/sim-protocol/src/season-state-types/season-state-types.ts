@@ -32,6 +32,9 @@ export type SeasonVictoryObjectiveSnapshot = {
    *  tiering (docs/galactic-campaign-design.md §3), which needs a numeric
    *  progress measure — the existing progressLabel is display text only. */
   progress?: number;
+  /** The viewing player's own 0..1 progress on an objective they don't lead
+   *  (numeric companion to selfProgressLabel; per-player, merged at broadcast). */
+  selfProgress?: number;
 };
 
 // A point-in-time snapshot of the winning player's economy, taken at the

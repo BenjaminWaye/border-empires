@@ -27,8 +27,8 @@ const SUMMARY_MIN_COIN = 5;
 /** Line 1: counts and one-off transfers -- never merged with line 2's effects. */
 export const summaryCountsLine = (summary: PersonalActivitySummary, timeline: PersonalActivityTimeline, reportEndManpowerCap: number): string => {
   const parts: string[] = [];
-  if (summary.tilesClaimed > 0) parts.push(`+${summary.tilesClaimed} tiles claimed`);
-  if (summary.tilesLost > 0) parts.push(`−${summary.tilesLost} tiles lost`);
+  if (summary.tilesClaimed > 0) parts.push(`+${summary.tilesClaimed} tile${summary.tilesClaimed === 1 ? "" : "s"} claimed`);
+  if (summary.tilesLost > 0) parts.push(`−${summary.tilesLost} tile${summary.tilesLost === 1 ? "" : "s"} lost`);
   const featuresLost = featureListLabel(summary.featuresLost);
   if (featuresLost) parts.push(`Lost your ${featuresLost}`);
   const featuresCaptured = featureListLabel(summary.featuresCaptured);

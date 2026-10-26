@@ -11,7 +11,7 @@ import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock
 import { ABILITY_RESULT_MESSAGE_TYPES, applyAbilityResultMessage } from "../client-ability-result-messages/client-ability-result-messages.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { startAuthProgressLogger } from "../client-auth-progress-log/client-auth-progress-log.js";
-import { parseIncomingMessage } from "../client-init-transfer/client-login-timeline.js";
+import { parseServerMessage } from "../client-server-clock/client-server-clock.js";
 import { resetClientForNewSeason } from "../client-season-rollover/client-season-rollover.js"; import { applyJoinSeasonSpawnRecenter, parseJoinSeasonAckSpawnTile } from "../client-join-season-spawn-recenter.js";
 import { feedEntryForEventLogEntry, seedFeedFromEventLog } from "../client-event-log-html.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { occupationSurveyController } from "../client-occupation-survey.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -858,7 +858,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     // still have their own more specific handling on top of this.
     let msg: Record<string, unknown> | undefined;
     try {
-    msg = parseIncomingMessage(ev.data as string);
+    msg = parseServerMessage(ev.data as string);
     const msgType = typeof msg.type === "string" ? msg.type : "UNKNOWN";
     // CHUNK_FULL/CHUNK_BATCH are recorded explicitly below, after the
     // generation check, so their `applied` flag is accurate — skip them

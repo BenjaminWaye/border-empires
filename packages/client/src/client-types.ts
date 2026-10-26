@@ -215,6 +215,9 @@ export type SeasonVictoryObjectiveView = {
   holdRemainingSeconds?: number;
   statusLabel: string;
   conditionMet: boolean;
+  /** Leader's and the viewer's own 0..1 progress to the win line (Ranks race tracks). */
+  progress?: number;
+  selfProgress?: number;
 };
 
 export type TileTimedProgress = {

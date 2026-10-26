@@ -1,6 +1,6 @@
 import { districtWrapX as wrapX, districtWrapY as wrapY } from "./district-coordinates.js";
 import type { Tile } from "../client-types.js";
-import type { DistrictBuildingKind } from "./district-catalog.js";
+import type { DistrictBuildingKind, MonumentKind } from "./district-catalog.js";
 
 export const districtTownFixture = (x = 100, y = 100, tier: NonNullable<Tile["town"]>["populationTier"] = "METROPOLIS"): Tile => ({
   x, y, terrain: "LAND", ownerId: "p1", ownershipState: "SETTLED",
@@ -12,7 +12,7 @@ export const districtTownFixture = (x = 100, y = 100, tier: NonNullable<Tile["to
   }
 });
 
-export const districtFixture = (kind: DistrictBuildingKind | "OBSERVATORY" = "MANUFACTORY", dx = 1, dy = 0, x = 100, y = 100): {
+export const districtFixture = (kind: DistrictBuildingKind | MonumentKind | "OBSERVATORY" = "MANUFACTORY", dx = 1, dy = 0, x = 100, y = 100): {
   tiles: Map<string, Tile>; town: Tile; building: Tile
 } => {
   const town = districtTownFixture(x, y);

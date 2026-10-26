@@ -26,54 +26,71 @@ export const orderedPairKey = (a: string, b: string): string => (a < b ? `${a}:$
  * barbarian system player (`excludeBarbarianId`) are excluded too -- routine
  * frontier skirmishing against the permanent NPC faction reads as an actual
  * rival "war" otherwise (see BARBARIAN_PLAYER_ID's doc comment).
+ * `tileFlips24h` (war intensity, used for ranking) counts every flip;
+ * `tilesContested24h` counts distinct tiles, for "N tiles changed hands".
  */
 export const computeWars = (
   flipLog: readonly TerritoryFlip[],
   alliedPairKeys: ReadonlySet<string>,
   excludeBarbarianId: string
 ): WarSummary[] => {
-  const byPair = new Map<string, WarSummary>();
+  const byPair = new Map<string, { war: WarSummary; tiles: Set<string> }>();
   for (const flip of flipLog) {
     if (!flip.fromOwner || !flip.toOwner || flip.fromOwner === flip.toOwner) continue;
     if (flip.fromOwner === excludeBarbarianId || flip.toOwner === excludeBarbarianId) continue;
     const key = orderedPairKey(flip.fromOwner, flip.toOwner);
     if (alliedPairKeys.has(key)) continue;
     const [playerA, playerB] = flip.fromOwner < flip.toOwner ? [flip.fromOwner, flip.toOwner] : [flip.toOwner, flip.fromOwner];
-    const existing = byPair.get(key);
-    if (existing) {
-      existing.tileFlips24h += 1;
-      if (flip.at > existing.lastFlipAt) existing.lastFlipAt = flip.at;
-    } else {
-      byPair.set(key, { playerA, playerB, tileFlips24h: 1, lastFlipAt: flip.at });
+    let entry = byPair.get(key);
+    if (!entry) {
+      entry = { war: { playerA, playerB, tileFlips24h: 0, tilesContested24h: 0, lastFlipAt: flip.at }, tiles: new Set() };
+      byPair.set(key, entry);
     }
+    entry.war.tileFlips24h += 1;
+    entry.tiles.add(flip.tileId);
+    entry.war.tilesContested24h = entry.tiles.size;
+    if (flip.at > entry.war.lastFlipAt) entry.war.lastFlipAt = flip.at;
   }
-  return [...byPair.values()].sort((a, b) => b.tileFlips24h - a.tileFlips24h);
+  return [...byPair.values()].map(({ war }) => war).sort((a, b) => b.tileFlips24h - a.tileFlips24h);
 };
 
 /** Alliance pair keys in the same `orderedPairKey` shape computeWars expects. */
 export const alliancePairKeySet = (alliances: ReadonlyArray<{ playerA: string; playerB: string }>): Set<string> =>
   new Set(alliances.map(({ playerA, playerB }) => orderedPairKey(playerA, playerB)));
 
+// Distinct tiles gained / lost per player: retaking the same tile twice in
+// the window is still one tile gained. Net is gains minus losses counted per
+// flip, which per tile telescopes to the real change (+1 / 0 / -1) -- a tile
+// traded away, back and away again is one tile gained, one lost, net -1.
 export const computeTerritoryMomentum = (flipLog: readonly TerritoryFlip[]): TerritoryMomentum[] => {
-  const byPlayer = new Map<string, { gained: number; lost: number }>();
-  const touch = (playerId: string): { gained: number; lost: number } => {
+  type Momentum = { gained: Set<string>; lost: Set<string>; net: number };
+  const byPlayer = new Map<string, Momentum>();
+  const touch = (playerId: string): Momentum => {
     let entry = byPlayer.get(playerId);
     if (!entry) {
-      entry = { gained: 0, lost: 0 };
+      entry = { gained: new Set(), lost: new Set(), net: 0 };
       byPlayer.set(playerId, entry);
     }
     return entry;
   };
   for (const flip of flipLog) {
-    if (flip.toOwner && flip.toOwner !== flip.fromOwner) touch(flip.toOwner).gained += 1;
-    if (flip.fromOwner && flip.fromOwner !== flip.toOwner) touch(flip.fromOwner).lost += 1;
+    if (flip.toOwner && flip.toOwner !== flip.fromOwner) {
+      const entry = touch(flip.toOwner);
+      entry.gained.add(flip.tileId);
+      entry.net += 1;
+    }
+    if (flip.fromOwner && flip.fromOwner !== flip.toOwner) {
+      const entry = touch(flip.fromOwner);
+      entry.lost.add(flip.tileId);
+      entry.net -= 1;
+    }
   }
   return [...byPlayer.entries()]
-    .map(([playerId, { gained, lost }]) => ({
+    .map(([playerId, { gained, lost, net }]) => ({
       playerId,
-      tilesGained24h: gained,
-      tilesLost24h: lost,
-      net24h: gained - lost
+      tilesGained24h: gained.size,
+      tilesLost24h: lost.size,
+      net24h: net
     }))
     .sort((a, b) => b.net24h - a.net24h);
 };

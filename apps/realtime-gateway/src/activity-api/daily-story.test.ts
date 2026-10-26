@@ -39,13 +39,13 @@ describe("buildDailyStory", () => {
     ]);
   });
 
-  it("narrates an open war between the two most active combatants", () => {
+  it("narrates the open war where the most distinct tiles changed hands, not the most flips", () => {
     const events = buildDailyStory(
       {
         ...emptyInput,
         wars: [
-          { playerA: "p1", playerB: "p2", playerAName: "Milo Ash", playerBName: "Barbarians", tileFlips24h: 40, lastFlipAt: 0 },
-          { playerA: "p3", playerB: "p4", playerAName: "A", playerBName: "B", tileFlips24h: 95, lastFlipAt: 0 }
+          { playerA: "p1", playerB: "p2", playerAName: "Milo Ash", playerBName: "Barbarians", tileFlips24h: 40, tilesContested24h: 40, lastFlipAt: 0 },
+          { playerA: "p3", playerB: "p4", playerAName: "A", playerBName: "B", tileFlips24h: 95, tilesContested24h: 30, lastFlipAt: 0 }
         ]
       },
       nameFor
@@ -53,9 +53,9 @@ describe("buildDailyStory", () => {
     expect(events[0]).toEqual({
       type: "OPEN_WAR",
       headline: "Open War",
-      text: "A and B are at war — 95 tiles changed hands today.",
-      significance: 95, // normalizeSignificance(95, SIGNIFICANCE_SCALE.flipCount=100)
-      players: ["A", "B"]
+      text: "Milo Ash and Barbarians are at war — 40 tiles changed hands today.",
+      significance: 27, // normalizeSignificance(40, SIGNIFICANCE_SCALE.tileCount=150)
+      players: ["Milo Ash", "Barbarians"]
     });
   });
 
@@ -291,7 +291,7 @@ describe("buildDailyStory", () => {
       {
         ...emptyInput,
         biggestSwing24h: { playerId: "p1", playerName: "Milo Ash", tilesLost: 1, windowStart: 0, windowEnd: 1000 },
-        wars: [{ playerA: "p1", playerB: "p2", playerAName: "Milo Ash", playerBName: "Barbarians", tileFlips24h: 1, lastFlipAt: 0 }],
+        wars: [{ playerA: "p1", playerB: "p2", playerAName: "Milo Ash", playerBName: "Barbarians", tileFlips24h: 1, tilesContested24h: 1, lastFlipAt: 0 }],
         frontlineHotspots: [
           { tileId: "434,154", x: 434, y: 154, flips24h: 1, contestedBy: ["p3"], contestedByNames: ["Sigrid"], manpowerLost24h: 0 }
         ],
@@ -349,7 +349,7 @@ describe("buildDailyStory", () => {
           // BIGGEST_DEFEAT (tiles=30 -> 20); both are wholly about the same
           // pair the alliance break already named.
           allianceBreaks: [{ playerA: "p1", playerB: "p2", brokenBy: "p1", brokenAt: 900, noticeEndsAt: 1900 }],
-          wars: [{ playerA: "p1", playerB: "p2", playerAName: "p1", playerBName: "p2", tileFlips24h: 40, lastFlipAt: 0 }],
+          wars: [{ playerA: "p1", playerB: "p2", playerAName: "p1", playerBName: "p2", tileFlips24h: 40, tilesContested24h: 40, lastFlipAt: 0 }],
           biggestSwing24h: { playerId: "p1", playerName: "p1", tilesLost: 30, windowStart: 0, windowEnd: 1000 }
         },
         (id) => id
@@ -364,7 +364,7 @@ describe("buildDailyStory", () => {
           allianceBreaks: [{ playerA: "p1", playerB: "p2", brokenBy: "p1", brokenAt: 900, noticeEndsAt: 1900 }],
           // Shares p1 with the alliance break above but also names p3 -- a
           // three-way situation the reader hasn't been told about yet.
-          wars: [{ playerA: "p1", playerB: "p3", playerAName: "p1", playerBName: "p3", tileFlips24h: 40, lastFlipAt: 0 }]
+          wars: [{ playerA: "p1", playerB: "p3", playerAName: "p1", playerBName: "p3", tileFlips24h: 40, tilesContested24h: 40, lastFlipAt: 0 }]
         },
         (id) => id
       );
@@ -390,7 +390,7 @@ describe("buildDailyStory", () => {
       const events = buildDailyStory(
         {
           ...emptyInput,
-          wars: [{ playerA: "p1", playerB: "p2", playerAName: "p1", playerBName: "p2", tileFlips24h: 90, lastFlipAt: 0 }],
+          wars: [{ playerA: "p1", playerB: "p2", playerAName: "p1", playerBName: "p2", tileFlips24h: 90, tilesContested24h: 90, lastFlipAt: 0 }],
           frontlineHotspots: [
             { tileId: "5,5", x: 5, y: 5, flips24h: 10, contestedBy: ["p1", "p2"], contestedByNames: ["p1", "p2"], manpowerLost24h: 0 }
           ]
@@ -418,7 +418,7 @@ describe("buildDailyStory", () => {
         {
           ...emptyInput,
           biggestSwing24h: { playerId: "p1", playerName: "SirExodus", tilesLost: 226, windowStart: 0, windowEnd: 1000 },
-          wars: [{ playerA: "p2", playerB: "p1", playerAName: "Wayepoint", playerBName: "SirExodus", tileFlips24h: 301, lastFlipAt: 0 }],
+          wars: [{ playerA: "p2", playerB: "p1", playerAName: "Wayepoint", playerBName: "SirExodus", tileFlips24h: 301, tilesContested24h: 301, lastFlipAt: 0 }],
           frontlineHotspots: [
             { tileId: "1,1", x: 1, y: 1, flips24h: 21, contestedBy: ["p2", "p1"], contestedByNames: ["Wayepoint", "SirExodus"], manpowerLost24h: 320 }
           ],

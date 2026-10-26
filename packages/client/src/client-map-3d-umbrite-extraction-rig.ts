@@ -1,3 +1,4 @@
+import { createDistrictOverlay } from "./client-town-district/district-overlay.js";
 // 3D Umbrite Extraction Rig overlay — a squat, heavily reinforced imperial
 // drilling platform that sinks a rotating iron auger into an exposed Umbrite
 // vein and bleeds the volatile mineral straight into a riveted containment
@@ -39,6 +40,7 @@ export type UmbriteExtractionRigOverlay = {
 
 export const createUmbriteExtractionRigOverlay = (scene: Scene, maxTiles: number, buildingEnvironmentTexture?: Texture): UmbriteExtractionRigOverlay => {
   const C = maxTiles;
+  const platform = createDistrictOverlay(scene, maxTiles, buildingEnvironmentTexture);
   const PI_2 = Math.PI / 2;
 
   // ─── Materials (shared by piece type) ───────────────────────────────
@@ -217,8 +219,8 @@ export const createUmbriteExtractionRigOverlay = (scene: Scene, maxTiles: number
   ): void => {
     const slot = slots.get(key);
     if (!slot || slot.count >= slot.cap) return;
-    position.set(wx + ox, sy + oy, wz + oz);
-    scale.set(sx, sy2, sz);
+    position.set(wx + ox * 0.8, sy + oy * 0.8 + 0.075, wz + oz * 0.8);
+    scale.set(sx * 0.8, sy2 * 0.8, sz * 0.8);
     if (rotX === 0 && rotY === 0 && rotZ === 0) {
       matrix.compose(position, identityQuat, scale);
     } else {
@@ -302,14 +304,17 @@ export const createUmbriteExtractionRigOverlay = (scene: Scene, maxTiles: number
 
   // ─── Public API ─────────────────────────────────────────────────────
   const clear = (): void => {
+    platform.clear();
     for (const slot of slots.values()) slot.count = 0;
   };
 
   const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number): void => {
+    platform.add({ kind: "INFRASTRUCTURE_SLAB", x: sceneX, y: surfaceY, z: sceneZ, foundation: true, operational: true });
     addRig(sceneX, surfaceY, sceneZ);
   };
 
   const commit = (): void => {
+    platform.commit();
     for (const slot of slots.values()) {
       const { mesh, count } = slot;
       mesh.count = count;
@@ -321,6 +326,7 @@ export const createUmbriteExtractionRigOverlay = (scene: Scene, maxTiles: number
   };
 
   const dispose = (): void => {
+    platform.dispose();
     for (const slot of slots.values()) scene.remove(slot.mesh);
     [
       deckGeo, plateGeo, footGeo, spikeGeo, columnLowGeo, ringBigGeo, columnUpGeo,

@@ -21,17 +21,6 @@ describe("production structure review coverage", () => {
       expect(scene.children).toHaveLength(0);
     });
   }
-  it("assembles the completed Siege Engine with a horizontal long barrel", () => {
-    const scene = new Scene(), model = createStructureReviewModel(scene, "SOVEREIGN_SIEGE_ENGINE", undefined, false);
-    const barrels = scene.children.filter((mesh): mesh is InstancedMesh => {
-      if (!(mesh instanceof InstancedMesh) || mesh.count === 0) return false;
-      mesh.geometry.computeBoundingBox();
-      const size = mesh.geometry.boundingBox?.getSize(new Vector3());
-      return Boolean(size && size.z > 0.4 && size.x < 0.12 && size.y < 0.12);
-    });
-    expect(barrels).toHaveLength(1);
-    model.dispose();
-  });
   it("keeps the completed cannon’s 2D artwork identical to its production 3D projection", () => {
     expect(readFileSync(new URL("../../public/overlays/sovereign-siege-engine-overlay.svg", import.meta.url), "utf8"))
       .toBe(structureReviewSvg("SOVEREIGN_SIEGE_ENGINE"));

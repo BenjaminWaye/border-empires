@@ -35,6 +35,8 @@ const instanceState = (material: DistrictMaterial, layer: DistrictLayer | "depth
 export const createDistrictMaterials = (envMap?: Texture): {
   readonly layers: Readonly<Record<DistrictLayer, MeshStandardMaterial | MeshBasicMaterial>>;
   readonly depth: MeshDepthMaterial;
+  readonly shieldGlass: MeshStandardMaterial;
+  readonly monumentMetal: MeshStandardMaterial;
   readonly dispose: () => void;
 } => {
   const solid = (roughness: number, metalness: number): MeshStandardMaterial => {
@@ -56,8 +58,17 @@ export const createDistrictMaterials = (envMap?: Texture): {
     else if (key !== "plinth") applyTownSpin(material, key === "glow" || key === "halo");
   }
   for (const layer of ["body", "metal", "glass", "plinth", "glow", "halo", "steam"] as const) instanceState(layers[layer], layer);
+  // Only the Aegis field uses transparent glass. Windows, sails and all
+  // previously approved support structures keep their existing opaque finish.
+  const monumentMetal = solid(0.28, 0.82);
+  monumentMetal.flatShading = false;
+  applyTownSpin(monumentMetal); instanceState(monumentMetal, "metal");
+  const shieldGlass = solid(0.2, 0.08);
+  shieldGlass.flatShading = false;
+  shieldGlass.transparent = true; shieldGlass.opacity = 0.28; shieldGlass.depthWrite = false;
+  applyTownSpin(shieldGlass); instanceState(shieldGlass, "glass");
   const depth = new MeshDepthMaterial({ depthPacking: RGBADepthPacking });
   applyTownSpin(depth);
   instanceState(depth, "depth");
-  return { layers, depth, dispose: () => { for (const material of Object.values(layers)) material.dispose(); depth.dispose(); } };
+  return { layers, depth, shieldGlass, monumentMetal, dispose: () => { for (const material of Object.values(layers)) material.dispose(); shieldGlass.dispose(); monumentMetal.dispose(); depth.dispose(); } };
 };
