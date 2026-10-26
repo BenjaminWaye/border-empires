@@ -39,7 +39,7 @@ const TRACKER_EVERY_TICKS = 4;
 
 const shellHtml = `
   <div class="hud-v2-top"><div id="hud-v2-bar" class="hud-v2-bar"></div><div id="hud-v2-nav" class="hud-v2-nav"></div></div>
-  <div class="hud-v2-right"><div id="hud-v2-season" class="hud-v2-season"></div><div id="hud-v2-rivals" class="hud-v2-rivals"></div></div>
+  <div class="hud-v2-right"><button type="button" id="hud-v2-season" class="hud-v2-season" data-hud-v2-open="ranks" title="Ranks" aria-label="Victory race: open Ranks"></button><div id="hud-v2-rivals" class="hud-v2-rivals"></div></div>
   <aside id="hud-v2-tracker" class="hud-v2-tracker" aria-label="Tracker"></aside>
   <section id="hud-v2-tile" class="hud-v2-tile" hidden aria-label="Selected tile"></section>
   <section id="hud-v2-build" class="v2t-right hud-v2-build-side" hidden aria-label="Build"></section>

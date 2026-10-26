@@ -38,6 +38,8 @@ body.hud-v2 #floating-info { display: none !important; }
 :where(#hud-v2) button:disabled { cursor: not-allowed; }
 #hud-v2 :focus-visible { outline: 2px solid var(--v2-gold-hi); outline-offset: 2px; }
 
+/* Panels are solid to the pointer: #hud lets clicks through to the map, and a click on a panel's
+   padding or text must not select the tile underneath (which closes the tile panel). */
 .hud-v2-bar,
 .hud-v2-season,
 .hud-v2-tracker,
@@ -45,6 +47,7 @@ body.hud-v2 #floating-info { display: none !important; }
   background: var(--v2-ink);
   border: 1px solid var(--v2-edge);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
 }
 
 /* ---- Top-left: resource bar, crest + bubbles ---- */
@@ -97,7 +100,9 @@ body.hud-v2 #floating-info { display: none !important; }
 
 /* ---- Top-right: victory line + rivals ---- */
 .hud-v2-right { position: fixed; top: 12px; right: 16px; z-index: 40; display: grid; gap: 10px; justify-items: end; max-width: 340px; }
-.hud-v2-season { display: grid; gap: 4px; padding: 10px 14px; text-align: right; }
+/* The victory line is the way into Ranks. */
+.hud-v2-season { display: grid; gap: 4px; padding: 10px 14px; text-align: right; color: inherit; font: inherit; cursor: pointer; }
+.hud-v2-season:hover { border-color: var(--v2-edge-strong); background: #1b170f; }
 .hud-v2-season-title { font-family: var(--v2-display); font-size: 15px; font-weight: 700; letter-spacing: 0.08em; color: var(--v2-gold); }
 .hud-v2-season-line { font-size: 13px; color: var(--v2-muted); }
 .hud-v2-season-holding { color: var(--v2-text); }
