@@ -15,7 +15,7 @@ import { battleOnBarAction, battleOnMenuView, installBattleWatch, reopenLiveBatt
 import { focusCamera, screen, SCREEN_HOST_ID, type HudV2Deps, type HudV2ScreenId } from "./client-hud-v2-context.js";
 import { escapeOpensSettings } from "./client-hud-v2-escape.js";
 import { hudV2GameOnScreen } from "./client-hud-v2-ready.js";
-import { initHudV2Flag, isHudV2Active } from "./client-hud-v2-flag.js";
+import { initHudV2Flag, isHudV2Active, setHudV2Driving } from "./client-hud-v2-flag.js";
 import { navHtml } from "./client-hud-v2-nav.js";
 import { orbHtml } from "./client-hud-v2-orb.js";
 import { overlaysHtml } from "./client-hud-v2-overlays.js";
@@ -297,9 +297,9 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     // loading; sign-in, map preparation, the first load and the season lobby only hold the new layer back.
     const flagOn = isHudV2Active(deps.isMobile);
     const onScreen = flagOn && hudV2GameOnScreen(deps.state, document.body);
+    setHudV2Driving(flagOn);
     document.body.classList.toggle("hud-v2", flagOn);
     document.body.classList.toggle("hud-v2-waiting", flagOn && !onScreen);
-    document.body.classList.toggle("hud-v2-settings-open", onScreen && deps.state.activePanel === "settings");
     // The overlay's toggle and legend live in this HUD; without it (phone width) the tint goes too.
     if (!flagOn && deps.state.showDiplomacyOverlay) deps.state.showDiplomacyOverlay = false;
     // Leaving the new HUD (phone width) must not strand a screen: a hosted profile, or a Chronicle that popups wait on.

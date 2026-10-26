@@ -45,3 +45,13 @@ export const initHudV2Flag = (search: string): boolean => {
 
 /** True when the new HUD should drive this frame: flag on and not a phone layout. */
 export const isHudV2Active = (isMobile: () => boolean): boolean => enabledForSession && !isMobile();
+
+let drivingFrame = false;
+
+/** Set by the new HUD's frame each tick: whether it is the HUD on screen right now (flag on, desktop width). */
+export const setHudV2Driving = (driving: boolean): void => {
+  drivingFrame = driving;
+};
+
+/** Legacy views the new HUD replaces (the activity dashboard) stand down while this is true. */
+export const hudV2IsDriving = (): boolean => drivingFrame;

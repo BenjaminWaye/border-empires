@@ -1,10 +1,10 @@
 // Chronicle tabs for the new HUD. Chronicle replaces the legacy activity
 // dashboard under ?hud=v2: Yours (the personal timeline, with Show buttons),
-// World (the daily world pulse) and Updates (release notes). The dashboard's
+// World (the daily world pulse) and Updates (release notes, in
+// client-hud-v2-chronicle-updates.ts). The dashboard's
 // own auto-open is routed here with the tab it would have shown.
 
 import type { WorldPulse } from "@border-empires/game-domain";
-import { changelogBodyHtml, sortedClientChangelogEntries, unseenClientChangelogEntries } from "../client-changelog/client-changelog.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { HudV2ScreenState } from "./client-hud-v2-context.js";
 
@@ -41,13 +41,4 @@ export const worldTabHtml = (input: WorldTabInput): string => {
     ? pulse.stories.map((s) => `<article class="v2c-story"><h3>${esc(s.headline)}</h3><p>${esc(s.text)}</p></article>`).join("")
     : `<div class="v2s-empty">The realm is quiet in the last day</div>`;
   return `${rank}${powers}<div class="v2c-list" data-v2-scroll="chronicle-world">${stories}</div>`;
-};
-
-/** Unseen release notes, or the recent ten when everything has been read. `baselineSeenAt` pins the list while the tab is open. */
-export const updatesTabHtml = (baselineSeenAt: number): string => {
-  const unseen = unseenClientChangelogEntries(baselineSeenAt);
-  const entries = unseen.length > 0 ? unseen : sortedClientChangelogEntries().slice(0, 10);
-  if (entries.length === 0) return `<div class="v2s-empty">No release notes yet</div>`;
-  const label = unseen.length > 0 ? `${unseen.length} new` : "Recent";
-  return `<div class="v2c-day">${label}</div><div class="v2c-list v2c-updates changelog-entry-list" data-v2-scroll="chronicle-updates">${changelogBodyHtml(entries)}</div>`;
 };

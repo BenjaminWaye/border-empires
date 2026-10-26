@@ -304,4 +304,15 @@ body.hud-v2 #activity-dashboard-overlay { display: none !important; }
 .v2c-story { padding: 10px 14px; border-bottom: 1px solid var(--v2-line); }
 .v2c-story h3 { margin: 0 0 4px; font-family: var(--v2-display); font-size: 14px; color: var(--v2-text); }
 .v2c-story p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--v2-soft); }
-.v2c-updates { padding: 4px 14px 14px; font-size: 13px; line-height: 1.45; color: var(--v2-soft); }
+/* Updates: one line per release, opened in place (client-hud-v2-chronicle-updates.ts). */
+.v2u-row { display: grid; grid-template-columns: 8px minmax(0, 1fr) 12px; align-items: center; gap: 10px; width: 100%; padding: 8px 14px; border: 0; border-left: 3px solid transparent; background: transparent; color: var(--v2-soft); text-align: left; cursor: pointer; }
+.v2u-row:hover { background: #1b170f; color: var(--v2-text); }
+.v2u-open { background: #221c13; border-left-color: var(--v2-gold); color: var(--v2-text); }
+.v2u-dot { width: 6px; height: 6px; }
+.v2u-new .v2u-dot { background: var(--v2-gold-hi); box-shadow: 0 0 6px rgba(240, 207, 130, 0.6); }
+.v2u-title { font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.03em; line-height: 1.3; }
+.v2u-new .v2u-title { color: var(--v2-gold-hi); }
+.v2u-caret { font-size: 10px; color: var(--v2-muted); }
+.v2u-changes { margin: 0; padding: 2px 14px 12px 35px; background: #221c13; border-left: 3px solid var(--v2-gold); list-style: none; display: grid; gap: 6px; }
+.v2u-changes li { position: relative; font-size: 13px; line-height: 1.4; color: var(--v2-soft); }
+.v2u-changes li::before { content: ""; position: absolute; left: -12px; top: 0.55em; width: 4px; height: 4px; background: var(--v2-gold); }

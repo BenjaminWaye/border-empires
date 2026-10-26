@@ -42,6 +42,7 @@ export const openScreen = (deps: HudV2Deps, id: HudV2ScreenId, options: { diplom
   if (id === "chronicle") {
     setScreen("chronicle", `<aside class="v2c-drawer" id="v2c-drawer" aria-label="Chronicle"></aside>`);
     screen.chronicleUpdatesBaseline = undefined;
+    screen.chronicleOpenUpdate = undefined;
     loadChronicleTab(deps, screen.chronicleTab);
   } else {
     setScreen(id, FRAME_SKELETON);

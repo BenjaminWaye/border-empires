@@ -8,6 +8,7 @@
 import { autoSettleOptionHtml } from "../client-auto-settle-prompt/client-auto-settle-tile-option.js";
 import type { TileActionDef, TileMenuView } from "../client-types.js";
 import { plainText, type TileFact } from "./client-hud-v2-tile-facts.js";
+import { detailLinesBeyondFacts } from "./client-hud-v2-tile-details.js";
 
 export type BarPanel = "aether" | "build" | "details";
 
@@ -147,7 +148,9 @@ const factsHtml = (facts: readonly TileFact[]): string =>
     ? `<div class="hud-v2-tile-facts">${facts.map((f) => `<span class="hud-v2-fact${f.tone ? ` hud-v2-fact-${f.tone}` : ""}"><span class="hud-v2-fact-label">${esc(f.label)}</span>${esc(f.value)}</span>`).join("")}</div>`
     : "";
 
-export const actionBarHtml = (view: TileMenuView, panel?: BarPanel, facts: readonly TileFact[] = []): string => {
+export const actionBarHtml = (fullView: TileMenuView, panel?: BarPanel, facts: readonly TileFact[] = []): string => {
+  // Details never repeats the fact strip; with nothing else to say it has no button.
+  const view = { ...fullView, overviewLines: detailLinesBeyondFacts(fullView.overviewLines, facts) };
   const buttons = selectBarButtons(view);
   const status = view.statusText ? `<span class="hud-v2-tile-status hud-v2-tile-status-${view.statusTone ?? "neutral"}">${esc(view.statusText)}</span>` : "";
   const head = `<div class="hud-v2-tile-head"><span class="hud-v2-tile-text"><span class="hud-v2-tile-title">${esc(view.title)}</span><span class="hud-v2-tile-sub">${view.subtitleHtml ?? esc(view.subtitle)}</span></span>${status}<button type="button" class="hud-v2-tile-close" data-hud-v2-close aria-label="Close">✕</button></div>`;
