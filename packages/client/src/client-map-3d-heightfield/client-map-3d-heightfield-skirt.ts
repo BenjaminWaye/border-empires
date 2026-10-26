@@ -43,7 +43,17 @@ export const createHeightfieldSkirt = (QUAD_COUNT: number): HeightfieldSkirt => 
     vertexColors: true,
     roughness: 1,
     metalness: 0,
-    side: DoubleSide
+    side: DoubleSide,
+    // The shore's sand fringe (client-map-3d-shore-sand.ts) starts at the
+    // coast edge this wall hangs from, a hair above its top. Seen edge-on
+    // (coast edges running toward the camera) the two were close enough in
+    // depth to fight, and the wall's top showed through the beach as a
+    // dashed grey line along the old square coastline. Biased back in
+    // depth, the wall loses every near-tie; where nothing covers it (a river
+    // mouth, the unexplored edge) it draws exactly as before.
+    polygonOffset: true,
+    polygonOffsetFactor: 2,
+    polygonOffsetUnits: 4
   }), "ground");
   const skirtMesh = new Mesh(skirtGeometry, skirtMaterial);
   skirtMesh.frustumCulled = false;
