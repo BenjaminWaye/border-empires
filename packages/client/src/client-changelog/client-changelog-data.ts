@@ -1,4 +1,3 @@
-import { INFRASTRUCTURE_CHANGELOG } from "./client-changelog-infrastructure.js";
 import { RELIABLE_DIPLOMACY_CHANGELOG } from "./client-changelog-reliable-diplomacy.js";
 import { AFC_SPECIALIZATIONS_CHANGELOG } from "./client-changelog-afc-specializations.js";
 import { ALLIANCES_TAB_CHANGELOG } from "./client-changelog-alliances-tab.js";
@@ -91,7 +90,7 @@ export type ClientChangelogEntry = {
   why: string;
   changes: string[];
 };
-// Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
+// Register every client release here or in feature groups; createdAt determines display order.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AFC_SPECIALIZATIONS_CHANGELOG,
   ...ALLIANCES_TAB_CHANGELOG,
@@ -490,18 +489,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "No false combat delays on a wrong device clock",
     why: "A device clock running fast made every expansion look overdue, so tiles were rolled back and \"Combat result delayed\" appeared.",
     changes: ["Expansion and attack timers now follow the server's clock, even when your device clock is off."]
-  },
-  ...INFRASTRUCTURE_CHANGELOG,
-  {
-    createdAt: 1793020488390, introducedIn: "2026.10.26.1", title: "Gravitational Relay Beacon",
-    why: "The House AI’s orbital link should express the civilisation’s advanced technology.",
-    changes: ["Replaced the radio dish with nested gravity-sensing frames and a suspended instrument. Local field projectors explain settlement reach. Updated lore, descriptions, 3D and matching 2D art. Construction completes the mast before revealing the sensing frames."]
-  },
-  {
-    createdAt: 1793015430836, introducedIn: "2026.10.26.1", title: "Relay Beacon finish",
-    why: "The orbital receiver needed cleaner reflections and more convincing mechanical joins.",
-    changes: ["Smoothed the curved receiver, refined its brass seams and added transmitter mounts, cable routing and a recessed service hatch. Both 3D and matching 2D artwork updated."]
-  },
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
