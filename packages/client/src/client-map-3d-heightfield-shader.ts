@@ -1,12 +1,6 @@
 import type { Texture, WebGLProgramParametersWithUniforms } from "three";
 import { SNOW_MASK_GLSL } from "./client-map-3d-snow-mask.js";
-import {
-  TERRAIN_BUMP_NORMAL_GLSL,
-  TERRAIN_NOISE_GLSL,
-  TERRAIN_SURFACE_LAYERS_GLSL,
-  TERRAIN_SURFACE_NOISE_GLSL,
-  TERRAIN_WET_ROUGHNESS_GLSL
-} from "./client-map-3d-terrain-surface-glsl.js";
+import { BEACH_GRASS_EDGE_GLSL, BEACH_NOISE_GLSL, BEACH_WET_ROUGHNESS_GLSL, BEACH_WET_SAND_GLSL } from "./client-map-3d-beach-shading-glsl.js";
 
 // The main heightfield material's onBeforeCompile patch, split out from
 // client-map-3d-heightfield.ts (which was already over the 500-line cap) so
@@ -52,7 +46,7 @@ vForestZone = forestZone;
 vTundraZone = tundraZone;
 vRockZone = rockZone;`
     );
-    // World-space height for the wet-shoreline band (client-map-3d-terrain-surface-glsl.ts).
+    // World-space height for the damp band at the waterline (client-map-3d-beach-shading-glsl.ts).
     shader.vertexShader = shader.vertexShader.replace(
       "#include <begin_vertex>",
       `#include <begin_vertex>
@@ -69,45 +63,48 @@ varying float vTerrainWorldY;
 varying float vForestZone;
 varying float vTundraZone;
 varying float vRockZone;
-${TERRAIN_NOISE_GLSL}`
+${BEACH_NOISE_GLSL}`
     );
     // Replace three.js's built-in <map_fragment> with a biome-aware
-    // texture blend. Each painted biome texture is read twice in continuous
-    // world space and the two reads are noise-blended
-    // (terrainSampleBiome), which hides the 8-tile repeat without anything
-    // keyed to individual tiles -- see client-map-3d-terrain-surface-glsl.ts.
-    // Soft-narrow biome cut keeps the grass/sand boundary anti-aliased
-    // without the mid-blend zone that read as a darker green band before.
+    // two-texture blend that also adds per-tile variation. The painted
+    // grass/sand textures tile every 8 world units, but each individual
+    // world tile hashes its coord into a 90° rotation + random offset so it
+    // samples a different region of the texture — the eye stops noticing
+    // repetition. The grass/sand edge is feathered and the waterline gets a
+    // damp band -- see client-map-3d-beach-shading-glsl.ts.
     shader.fragmentShader = shader.fragmentShader.replace(
       "#include <map_fragment>",
       `
-    float terrainWetMask = 0.0;
-    float terrainBumpHeight = 0.0;
-    float terrainBumpStrength = 1.0;
+    float beachWetMask = 0.0;
     #ifdef USE_MAP
-${TERRAIN_SURFACE_NOISE_GLSL}
-      vec3 grassSample = terrainSampleBiome( map, vTerrainWorldUv, terrainLayerMask );
-      vec3 sandSample = terrainSampleBiomeEven( sandColorMap, vTerrainWorldUv, terrainLayerMask );
-      vec3 tundraSample = terrainSampleBiome( tundraColorMap, vTerrainWorldUv, terrainLayerMask );
+      // ---- Per-tile UV variation ----
+      vec2 tileId = floor(vTerrainWorldUv);
+      float h1 = fract(sin(dot(tileId, vec2(12.9898, 78.233))) * 43758.5453);
+      float h2 = fract(sin(dot(tileId, vec2(63.7264, 10.873))) * 43758.5453);
+      float angle = floor(h1 * 4.0) * 1.5707963267948966;
+      float ca = cos(angle);
+      float sa = sin(angle);
+      mat2 R = mat2(ca, -sa, sa, ca);
+      vec2 inTile = vTerrainWorldUv - tileId;
+      vec2 rotated = R * (inTile - 0.5) + 0.5;
+      vec2 offset = vec2(h2 * 8.0, fract(h2 * 7.31) * 8.0);
+      // Multiply by 1/tilesPerRepeat (8) to put back into texture-local UV;
+      // the texture has RepeatWrapping so any value samples cleanly.
+      vec2 sampleUv = (tileId + rotated + offset) * 0.125;
+
+      vec4 grassSample = texture2D( map, sampleUv );
+      vec4 sandSample = texture2D( sandColorMap, sampleUv );
+      vec4 tundraSample = texture2D( tundraColorMap, sampleUv );
       float greenBias = vColor.g - 0.5 * (vColor.r + vColor.b);
-      // Feathered biome cut: the grass/sand threshold is pushed around by
-      // the grass texture's own light/dark detail and by world noise
-      // (terrainBiomeEdgeOffset), so sand shows through the gaps between
-      // grass clumps for a soft, organic shoreline edge. A plain wide
-      // smoothstep instead averaged the two textures into a muddy
-      // green-into-tan band. TUNDRA's pale palette sits too close to
-      // SAND's in this color-inferred space to tell apart the same way, so
-      // it uses an explicit per-vertex mask (vTundraZone) instead, blended
-      // in on top last.
-      float grassMask = smoothstep(0.07, 0.13, greenBias + terrainBiomeEdgeOffset(grassSample, terrainMeso, terrainGrain));
-      vec3 biomeColor = mix(sandSample, grassSample, grassMask);
-      // Feathered like the grass/sand cut (terrainBiomeEdgeOffset) so the
-      // tundra edge wanders organically instead of tracing a corner blob.
-      // Narrow cut, wide wander: blending tundra's blue-grey into sand's tan
-      // makes a muddy khaki, so the in-between band stays thin while the
-      // noise offset moves where it falls.
-      float tundraMask = smoothstep(0.44, 0.56, vTundraZone + terrainTundraEdgeOffset(terrainMeso, terrainGrain));
-      biomeColor = mix(biomeColor, tundraSample, tundraMask);
+      // Feathered grass/sand cut (see BEACH_GRASS_EDGE_GLSL): a plain wide
+      // smoothstep averaged the two textures into a muddy green-into-tan
+      // band. TUNDRA's pale palette sits too close to SAND's in this
+      // color-inferred space to tell apart the same way, so it uses an
+      // explicit per-vertex mask (vTundraZone) instead, blended in on top last.
+${BEACH_GRASS_EDGE_GLSL}
+      vec3 biomeColor = mix(sandSample.rgb, grassSample.rgb, grassMask);
+      float tundraMask = smoothstep(0.4, 0.6, vTundraZone);
+      biomeColor = mix(biomeColor, tundraSample.rgb, tundraMask);
       // SNOW: same tundraZone as TUNDRA, told apart only by its near-white
       // vertex colour -- see client-map-3d-snow-mask.ts.
       float vertLum = max(0.001, dot(vColor.rgb, vec3(0.299, 0.587, 0.114)));
@@ -121,7 +118,7 @@ ${SNOW_MASK_GLSL}
       // biome's texture, never grey.
       float rockMask = smoothstep(0.28, 0.55, vRockZone);
       biomeColor = mix(biomeColor, vec3(0.56, 0.55, 0.52), rockMask);
-${TERRAIN_SURFACE_LAYERS_GLSL}
+${BEACH_WET_SAND_GLSL}
 
       // Forest halo: where the grass is within 2 tiles of a tree tile
       // (vForestZone interpolates 0..1 from the per-corner average),
@@ -142,12 +139,7 @@ ${TERRAIN_SURFACE_LAYERS_GLSL}
     shader.fragmentShader = shader.fragmentShader.replace(
       "#include <roughnessmap_fragment>",
       `#include <roughnessmap_fragment>
-${TERRAIN_WET_ROUGHNESS_GLSL}`
-    );
-    shader.fragmentShader = shader.fragmentShader.replace(
-      "#include <normal_fragment_maps>",
-      `#include <normal_fragment_maps>
-${TERRAIN_BUMP_NORMAL_GLSL}`
+${BEACH_WET_ROUGHNESS_GLSL}`
     );
 
     // Brightness floor: lifts pure-black cliff walls (near-vertical faces

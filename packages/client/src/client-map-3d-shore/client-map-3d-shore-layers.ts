@@ -10,7 +10,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { HeightfieldCornerAttributes } from "../client-map-3d-heightfield/client-map-3d-heightfield-corners.js";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { createShoreFoamLayer, FOAM_LIFT_Y } from "./client-map-3d-shore.js";
-import { createShoreSandLayer, createShoreWaterline } from "./client-map-3d-shore-sand.js";
+import { createShoreSandLayer, createShoreWaterline, EMPTY_SHORE_FRINGE, type ShoreFringe } from "./client-map-3d-shore-sand.js";
 
 // Foam would be sub-pixel this far out (window wider than this many tiles).
 // The sand fringe is never gated: it changes the coast's shape, and the
@@ -23,6 +23,8 @@ export type ShoreSandWiring = {
   readonly material: Material;
   /** The heightfield's rendered corner at absolute world corner (x, z). */
   readonly cornerAt: (worldX: number, worldZ: number, out: HeightfieldCornerAttributes) => boolean;
+  /** Handed each commit's fringe, so tile overlays can extend over it (client-map-3d-ownership-shore.ts). */
+  readonly onFringe?: (fringe: ShoreFringe) => void;
 };
 
 export type ShoreCommit = {
@@ -53,6 +55,7 @@ export const createShoreLayers = (scene: Scene, sandWiring: ShoreSandWiring | un
     if (!commit) {
       foam.rebuild([], () => false, 0, false);
       sand?.clear();
+      sandWiring?.onFringe?.(EMPTY_SHORE_FRINGE);
       return;
     }
     const { tiles, isLandTile, worldOffsetX, worldOffsetZ, waterY, mouths } = commit;
@@ -60,7 +63,7 @@ export const createShoreLayers = (scene: Scene, sandWiring: ShoreSandWiring | un
     const foamEnabled = commit.windowTiles <= SHORE_FOAM_MAX_WINDOW_TILES;
     foam.rebuild(tiles, isLandTile, waterY + FOAM_LIFT_Y, foamEnabled, mouths, waterline);
     if (!sand || !sandWiring || !waterline) return;
-    sand.rebuild(tiles, {
+    const fringe = sand.rebuild(tiles, {
       isLandTile,
       worldOffsetX,
       worldOffsetZ,
@@ -72,6 +75,7 @@ export const createShoreLayers = (scene: Scene, sandWiring: ShoreSandWiring | un
         return sandWiring.cornerAt(wx, wz, out);
       }
     });
+    sandWiring.onFringe?.(fringe);
   };
 
   const dispose = (): void => {

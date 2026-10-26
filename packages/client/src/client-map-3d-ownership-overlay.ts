@@ -12,6 +12,8 @@ import {
 import { hillBumpsWithCorridorAt, hillShapeHeight, type HillNeighborFlags, type RoadCutDirections } from "./client-map-3d-hill-shape.js";
 import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { RENDER_ORDER, type OverlayRenderOrders } from "./client-map-3d-render-order.js";
+import { createOwnershipShoreTint, shoreTintKey, type ShoreTileTint } from "./client-map-3d-ownership-shore.js";
+import type { ShoreFringe } from "./client-map-3d-shore/client-map-3d-shore-sand.js";
 
 // Blends a fully-saturated owner color toward white by (1 - opacity), so a
 // straight multiply against whatever's already in the framebuffer (the
@@ -131,6 +133,11 @@ export type OwnershipOverlay = {
   readonly setFrontierTileColor: (index: number, color: Color) => void;
   readonly setFrontierHillTileColor: (index: number, color: Color) => void;
   readonly commit: () => void;
+  // Carries this commit's tiles out over the soft beach fringe beside them
+  // (client-map-3d-ownership-shore.ts). Call after commit(), once the
+  // water has built this commit's fringe. `edgeOpacity` fades the tint out
+  // toward the waterline (OWNERSHIP_SHORE_EDGE_OPACITY); 1 keeps it even.
+  readonly extendOntoShore: (fringe: ShoreFringe, edgeOpacity?: number) => void;
   readonly dispose: () => void;
 };
 
@@ -222,6 +229,22 @@ export const createOwnershipOverlay = (
   const frontierHill = createMesh(maxHillTiles * HILL_VERTS_PER_TILE, maxHillTiles * HILL_INDICES_PER_TILE, opacities?.frontier ?? FRONTIER_OPACITY, frontierBlend);
   frontierHill.mesh.renderOrder = renderOrders.frontier;
   scene.add(settled.mesh, frontier.mesh, settledHill.mesh, frontierHill.mesh);
+  const shore = createOwnershipShoreTint(scene, {
+    settled: { material: settled.material, renderOrder: renderOrders.settled, fade: settledBlend === "multiply" ? "toWhite" : "alpha" },
+    frontier: { material: frontier.material, renderOrder: renderOrders.frontier, fade: frontierBlend === "multiply" ? "toWhite" : "alpha" }
+  });
+  // This commit's tiles by scene grid tile (top-left corner), for
+  // extendOntoShore; bounded by the tile caps above and emptied by clear().
+  const shoreTints = new Map<number, ShoreTileTint>();
+  const recordShoreTint = (x0: number, z0: number, color: Color, isFrontier: boolean): void => {
+    const target = isFrontier ? frontier : settled;
+    shoreTints.set(shoreTintKey(Math.round(x0), Math.round(z0)), {
+      r: colorComponentFor(target, color.r),
+      g: colorComponentFor(target, color.g),
+      b: colorComponentFor(target, color.b),
+      frontier: isFrontier
+    });
+  };
 
   let settledCount = 0;
   let frontierCount = 0;
@@ -233,6 +256,7 @@ export const createOwnershipOverlay = (
     frontierCount = 0;
     settledHillCount = 0;
     frontierHillCount = 0;
+    shoreTints.clear();
   };
 
   const addTile = (
@@ -280,6 +304,7 @@ export const createOwnershipOverlay = (
 
     if (isFrontier) frontierCount += 1;
     else settledCount += 1;
+    recordShoreTint(corner00X, corner00Z, color, isFrontier);
     return count;
   };
 
@@ -341,6 +366,7 @@ export const createOwnershipOverlay = (
 
     if (isFrontier) frontierHillCount += 1;
     else settledHillCount += 1;
+    recordShoreTint(x0, z0, color, isFrontier);
     return count;
   };
 
@@ -432,7 +458,11 @@ export const createOwnershipOverlay = (
     }
   };
 
+  const extendOntoShore = (fringe: ShoreFringe, edgeOpacity = 1): void =>
+    shore.rebuild(fringe, (gc, gr) => shoreTints.get(shoreTintKey(gc, gr)), edgeOpacity);
+
   const dispose = (): void => {
+    shore.dispose();
     scene.remove(settled.mesh, frontier.mesh, settledHill.mesh, frontierHill.mesh);
     for (const target of [settled, frontier, settledHill, frontierHill]) {
       target.geometry.dispose();
@@ -452,6 +482,7 @@ export const createOwnershipOverlay = (
     setFrontierTileColor,
     setFrontierHillTileColor,
     commit,
+    extendOntoShore,
     dispose
   };
 };

@@ -400,14 +400,12 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1793013072070, // Date.now() captured for this entry.
     introducedIn: "2026.10.26.9",
-    title: "Richer 3D terrain",
-    why: "Fields showed a tile-sized checkerboard and read as flat, uniform colour.",
+    title: "Natural coastlines",
+    why: "Coasts stepped along the tile grid, and territory colour stopped in square steps short of the water.",
     changes: [
-      "Ground textures flow continuously across tiles instead of repeating per tile",
-      "Meadows are a fresher, richer green and vary between sun-dried and lush patches, with soft rolling light and fine close-up detail",
-      "Beaches fade softly into grass, with a thin damp edge at the waterline",
       "Coastlines curve naturally instead of stepping along the tile grid, with surf following the shore",
-      "Tundra shows soft moss patches and scattered stones, and snow carries faint wind-drift streaks"
+      "Beaches fade softly into grass, with a thin damp edge at the waterline",
+      "Territory colour runs out across the beach to the waterline and fades softly at the water's edge; where two empires meet on a coast, the beach splits cleanly between them"
     ]
   }
 ];

@@ -46,7 +46,7 @@ import { createTownSupportTileSync } from "../client-map-3d-town-support-tile/cl
 import type { RoadCutDirections } from "../client-map-3d-hill-shape.js";
 import { type TownSupportLookupDeps } from "../client-town-support-plot-lookup.js";
 import { createForest } from "../client-map-3d-forest.js"; import { createTropicalForest } from "../client-map-3d-tropical-forest.js";
-import { createOwnershipOverlay } from "../client-map-3d-ownership-overlay.js"; import { hillNeighborFlagsAt } from "../client-map-3d-hill-shape.js"; import { tileSurfaceHeights } from "../client-map-3d-tile-surface-y/client-map-3d-tile-surface-y.js";
+import { createOwnershipOverlay } from "../client-map-3d-ownership-overlay.js"; import { OWNERSHIP_SHORE_EDGE_OPACITY } from "../client-map-3d-ownership-shore.js"; import { hillNeighborFlagsAt } from "../client-map-3d-hill-shape.js"; import { tileSurfaceHeights } from "../client-map-3d-tile-surface-y/client-map-3d-tile-surface-y.js";
 import { createFrontierDecayPulseTracker } from "../client-map-3d-frontier-decay-pulse.js"; import { createBarbarianFrontierTintTracker, observeBarbarianFrontierTint } from "../client-map-3d-barbarian-frontier-tint.js";
 import {
   createBendingMarkerGeometry,
@@ -146,7 +146,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   heightfield.setGridlinesVisible(true);
   const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES, { isMountainAt: (x, y) => terrainForWorldTile(x, y) === "MOUNTAIN", isColdAt: (x, y) => { const k = heightfieldKindAt(x, y); return k === "TUNDRA" || k === "SNOW"; }, wrapX: deps.wrapX, wrapY: deps.wrapY }); // lambdas: both lookups are declared further down
   const hillTerrain = createHillTerrain(scene, MAX_VISIBLE_TILES, heightfield.material);
-  const { waterSurface, riverOverlay } = createMapWater(scene, MAX_VISIBLE_TILES, { heightfield, mountainLookup: mountainMassifs.lookup, wrapX: deps.wrapX, wrapY: deps.wrapY, terrainAt: deps.terrainAt });
+  const { waterSurface, riverOverlay } = createMapWater(scene, MAX_VISIBLE_TILES, { heightfield, mountainLookup: mountainMassifs.lookup, wrapX: deps.wrapX, wrapY: deps.wrapY, terrainAt: deps.terrainAt, onShoreFringe: (fringe) => { ownershipOverlay.extendOntoShore(fringe, OWNERSHIP_SHORE_EDGE_OPACITY); fogDarkenOverlay.extendOntoShore(fringe); fogOwnershipOverlay.extendOntoShore(fringe); } }); // ownership (fading toward the waterline) + fog tints carry over the beach fringe (client-map-3d-ownership-shore.ts)
   const villageEffects = createVillageEffects(scene);
   const townSupportTiles = createTownSupportTileOverlay(scene, (2 * MAX_SUPPORT_RING_RADIUS + 1) ** 2 - 1); // sized for a wide-ring (GREAT_CITY/METROPOLIS) anchor, not the base 8 -- a fixed 8 cap used to silently drop tiles past the 8th
   // Per-tile last-seen captureShockUntil. Used to detect newly-shocked towns (capture event) so the floating "-pop" indicator fires once per capture.

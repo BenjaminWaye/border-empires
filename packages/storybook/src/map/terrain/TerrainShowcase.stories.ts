@@ -1,14 +1,16 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
-import { ACESFilmicToneMapping, DirectionalLight, HemisphereLight, Light, PCFShadowMap, SRGBColorSpace } from "three";
+import { ACESFilmicToneMapping, Color, DirectionalLight, HemisphereLight, Light, PCFShadowMap, SRGBColorSpace } from "three";
 import { createHeightfield, type HeightfieldTerrainKind } from "@client/client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { createHillTerrain } from "@client/client-map-3d-hills.js";
 import { createWaterSurface } from "@client/client-map-3d-water-surface.js";
+import { createOwnershipOverlay } from "@client/client-map-3d-ownership-overlay.js";
+import { OWNERSHIP_SHORE_EDGE_OPACITY } from "@client/client-map-3d-ownership-shore.js";
 import { DEFAULT_LIGHTING, SUN_DISTANCE } from "@client/client-lighting-tuner/client-lighting-tuner-settings.js";
 import { createStage, wrapWithCleanup } from "../../fixtures/three-stage.js";
 
 // A whole island under the game's own lighting rig (DEFAULT_LIGHTING, ACES,
 // sun shadows) rather than the generic preview rig -- the place to judge the
-// terrain surface shader the way players actually see it. Patterns sit at a
+// coastline and beach shading the way players actually see it. Patterns sit at a
 // real in-range coordinate (CENTER), not around (0, 0): the heightfield
 // wraps negative world coords, see HillsOnTerrain.stories.ts.
 const CENTER = 100;
@@ -20,7 +22,15 @@ type Args = {
   // Scene point (tiles from the island center) the camera looks at.
   focusX: number;
   focusZ: number;
+  // Two empires' territory over the coast (west settled, east with a
+  // frontier rim), to judge how ownership meets the beach fringe.
+  ownership: boolean;
 };
+
+// Same lift the game's ownership loop puts over the heightfield (client-map-3d.ts).
+const OWNERSHIP_RISE_ABOVE_HEIGHTFIELD = 0.022;
+const WEST_OWNER = new Color("#d0453a");
+const EAST_OWNER = new Color("#3a6fd0");
 
 const hash = (x: number, y: number): number => {
   const h = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
@@ -115,6 +125,7 @@ const render = (args: Args): HTMLElement => {
   hf.rebuild({ ...shared, isHillsAt, isForestAt });
   hillTerrain.rebuild({ ...shared, isHillsAt });
 
+  const ownership = createOwnershipOverlay(stage.scene, (HALF * 2 + 1) ** 2);
   // isLandAt + shoreSand drive the calm shoreline, shore foam and soft
   // beach fringe, wired as in the game (client-map-3d-water-wiring.ts).
   const water = createWaterSurface(stage.scene, (HALF * 2 + 1) ** 2, {
@@ -122,7 +133,7 @@ const render = (args: Args): HTMLElement => {
       const kind = tileKindAt(wx, wz);
       return kind !== "SEA" && kind !== "COASTAL_SEA";
     },
-    shoreSand: { material: hf.material, cornerAt: hf.cornerAttributesAt }
+    shoreSand: { material: hf.material, cornerAt: hf.cornerAttributesAt, onFringe: (fringe) => ownership.extendOntoShore(fringe, OWNERSHIP_SHORE_EDGE_OPACITY) }
   });
   for (let wy = CENTER - HALF; wy <= CENTER + HALF; wy += 1) {
     for (let wx = CENTER - HALF; wx <= CENTER + HALF; wx += 1) {
@@ -132,6 +143,28 @@ const render = (args: Args): HTMLElement => {
       }
     }
   }
+  if (args.ownership) {
+    for (let wy = CENTER - HALF; wy <= CENTER + HALF; wy += 1) {
+      for (let wx = CENTER - HALF; wx <= CENTER + HALF; wx += 1) {
+        const kind = tileKindAt(wx, wy);
+        if (kind === "SEA" || kind === "COASTAL_SEA" || isHillsAt(wx, wy)) continue;
+        const x = wx - CENTER;
+        const y = wy - CENTER;
+        const west = x < 0;
+        const frontier = !west && islandRadiusAt(x, y) > 10;
+        const cy = (cx: number, cz: number): number => hf.cornerYAt(cx, cz) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+        ownership.addTile(
+          x, cy(wx, wy), y,
+          x + 1, cy(wx + 1, wy), y,
+          x, cy(wx, wy + 1), y + 1,
+          x + 1, cy(wx + 1, wy + 1), y + 1,
+          west ? WEST_OWNER : EAST_OWNER,
+          frontier
+        );
+      }
+    }
+  }
+  ownership.commit();
   water.commit();
   const start = performance.now();
   let rafId = 0;
@@ -146,6 +179,7 @@ const render = (args: Args): HTMLElement => {
     () => { stage.scene.remove(hf.mesh, hf.skirtMesh); },
     removeLighting,
     water.dispose,
+    ownership.dispose,
     hillTerrain.dispose,
     hf.dispose
   ]);
@@ -157,7 +191,7 @@ const meta: Meta<Args> = {
     docs: {
       description: {
         component:
-          "A mixed island (grass, plains, jungle, marsh, tundra/snow, beach, coast, hills, a forest halo) lit with the game's shipped lighting rig, tone mapping and sun shadows — for judging the terrain surface shader as players see it."
+          "A mixed island (grass, plains, jungle, marsh, tundra/snow, beach, coast, hills, a forest halo) lit with the game's shipped lighting rig, tone mapping and sun shadows — for judging the coastline, beaches and (OwnedCoast) how territory colour meets them, as players see it."
       }
     }
   },
@@ -167,7 +201,7 @@ const meta: Meta<Args> = {
     focusX: { control: { type: "range", min: -HALF, max: HALF, step: 1 } },
     focusZ: { control: { type: "range", min: -HALF, max: HALF, step: 1 } }
   },
-  args: { cameraDistance: 30, cameraTilt: 0.6, focusX: 0, focusZ: 0 },
+  args: { cameraDistance: 30, cameraTilt: 0.6, focusX: 0, focusZ: 0, ownership: false },
   render
 };
 
@@ -177,3 +211,4 @@ type Story = StoryObj<Args>;
 export const Island: Story = {};
 export const CloseUp: Story = { args: { cameraDistance: 11, cameraTilt: 0.75 } };
 export const Shoreline: Story = { args: { cameraDistance: 8, cameraTilt: 0.75, focusX: -12, focusZ: 3 } };
+export const OwnedCoast: Story = { args: { cameraDistance: 14, cameraTilt: 0.8, focusX: 0, focusZ: 8, ownership: true } };

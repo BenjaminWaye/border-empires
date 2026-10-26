@@ -8,6 +8,7 @@
 import type { Scene } from "three";
 import type { Tile, TileVisibilityState } from "../client-types.js";
 import { createWaterSurface, type WaterSurface } from "../client-map-3d-water-surface.js";
+import type { ShoreSandWiring } from "../client-map-3d-shore/client-map-3d-shore-layers.js";
 import { createRiverOverlay, type RiverOverlay, type RiverOverlayDeps } from "../client-map-3d-rivers/client-map-3d-rivers.js";
 import { riverMouthCalmCorners } from "../client-map-3d-rivers/client-map-3d-river-mouths.js";
 import { createRiverCascades, type RiverCascadeDeps } from "../client-map-3d-rivers/client-map-3d-river-cascade.js";
@@ -19,6 +20,8 @@ export type MapWaterDeps = {
   readonly wrapX: (x: number) => number;
   readonly wrapY: (y: number) => number;
   readonly terrainAt: (x: number, y: number) => Tile["terrain"];
+  /** Each commit's beach fringe, for the tile overlays that extend over it. */
+  readonly onShoreFringe?: ShoreSandWiring["onFringe"];
 };
 
 export type MapWater = { readonly waterSurface: WaterSurface; readonly riverOverlay: RiverOverlay };
@@ -30,7 +33,7 @@ export const createMapWater = (scene: Scene, maxTiles: number, deps: MapWaterDep
   };
   // The soft beach fringe continues the heightfield's own coast, so it
   // draws with the heightfield's material and reads its rendered corners.
-  const shoreSand = { material: deps.heightfield.material, cornerAt: deps.heightfield.cornerAttributesAt };
+  const shoreSand: ShoreSandWiring = { material: deps.heightfield.material, cornerAt: deps.heightfield.cornerAttributesAt, ...(deps.onShoreFringe ? { onFringe: deps.onShoreFringe } : {}) };
   const waterSurface = createWaterSurface(scene, maxTiles, { waveCalmCorners: riverMouthCalmCorners, isLandAt, shoreSand });
   const rivers = createRiverOverlay(scene, { heightfield: deps.heightfield });
   const cascades = createRiverCascades(scene, { heightfield: deps.heightfield, mountainLookup: deps.mountainLookup });

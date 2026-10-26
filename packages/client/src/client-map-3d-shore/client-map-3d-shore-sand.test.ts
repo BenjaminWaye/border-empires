@@ -11,7 +11,7 @@ import {
 const WATER_Y = -0.06;
 const LAND_EDGE_Y = -0.04;
 
-const emptyBuffers = (): ShoreSandBuffers => ({ positions: [], colors: [], uvs: [], tundra: [], indices: [] });
+const emptyBuffers = (): ShoreSandBuffers => ({ positions: [], colors: [], uvs: [], tundra: [], seaward: [], indices: [], polygons: [] });
 const cornerAt = (_x: number, _z: number, out: HeightfieldCornerAttributes): boolean => {
   out.y = LAND_EDGE_Y;
   out.r = 0.9;
@@ -111,5 +111,54 @@ describe("shore sand fringe", () => {
     // Right at the mouth the strip pinches to nothing: whatever is left there
     // hugs the land edge instead of reaching out over the river's water.
     for (const v of vertices(b)) if (Math.hypot(v.x - 0.5, v.z) < 0.15) expect(v.z).toBeLessThan(0.02);
+  });
+
+  it("curves smoothly past the steps of a steep stepped coast", () => {
+    // Land east of a staircase one tile across per three down. The blurred
+    // curve fills the notch under each step past the reach cap; a hard cap
+    // cut that fill off square, a shelf whose corner showed (and carried
+    // territory colour) as a notch in the beach.
+    const steep = (x: number, z: number): boolean => x >= Math.floor(z / 3);
+    const waterline = createShoreWaterline(steep, 100, 100, []);
+    const waterlineX = (z: number): number => {
+      let x = Math.floor(z / 3);
+      while (waterline(x - 1 / 64, z) > 0) x -= 1 / 64;
+      return x;
+    };
+    // A corner is a sudden change of direction: the largest second
+    // difference of the waterline's position between neighbouring rows.
+    const h = 1 / 16;
+    let worst = 0;
+    for (let z = 0.03; z < 9; z += h) {
+      // Skip the rows beside each step's own land corner (z = 3, 6), which
+      // the waterline has to turn round either way.
+      const toCorner = Math.abs(z - Math.round(z / 3) * 3);
+      if (toCorner < 0.25) continue;
+      worst = Math.max(worst, Math.abs(waterlineX(z + h) - 2 * waterlineX(z) + waterlineX(z - h)));
+    }
+    // ~0.3 with the hard cap; ~0.11 eased.
+    expect(worst).toBeLessThan(0.2);
+  });
+
+  it("gives each piece of fringe to exactly one land tile, split cleanly between neighbours", () => {
+    // Sea tile (0, 0) sits in the elbow of land to the west and north: its
+    // beach must split along the diagonal between them, not in a sawtooth.
+    const elbow = (x: number, z: number): boolean => x < 0 || z < 0;
+    const b = emptyBuffers();
+    appendShoreSand(b, inputs(0, 0, elbow));
+    const owners = new Set(b.polygons.map((p) => `${p.landGc},${p.landGr}`));
+    expect(owners.has("-1,0")).toBe(true);
+    expect(owners.has("0,-1")).toBe(true);
+    for (const polygon of b.polygons) {
+      for (let v = 0; v < polygon.count; v++) {
+        const i = (polygon.start + v) * 3;
+        const x = b.positions[i]!;
+        const z = b.positions[i + 2]!;
+        // Within the tile, distance to the west tile is x and to the north
+        // tile z: every vertex lies on its own tile's side of x = z.
+        if (polygon.landGc === -1) expect(x).toBeLessThanOrEqual(z + 1e-9);
+        else if (polygon.landGr === -1) expect(z).toBeLessThanOrEqual(x + 1e-9);
+      }
+    }
   });
 });
