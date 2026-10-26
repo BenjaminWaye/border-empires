@@ -16,6 +16,7 @@ import { CAPTURE_HOLD_EFFORT_CHANGELOG } from "./client-changelog-capture-hold-e
 import { HETZNER_CLIENT_HOSTING_CHANGELOG } from "./client-changelog-hetzner-client-hosting.js";
 import { AI_DEAL_SUGGEST_CHANGELOG } from "./client-changelog-ai-deal-suggest.js";
 import { TOWN_MARBLE_CHANGELOG } from "./client-changelog-town-marble.js";
+import { HUD_V2_PREVIEW_CHANGELOG } from "./client-changelog-hud-v2-preview.js";
 import { SIEGE_REPORTS_CHANGELOG } from "./client-changelog-siege-reports.js";
 import { RICHER_FORESTS_CHANGELOG } from "./client-changelog-richer-forests.js";
 import { SIEGE_FX_GATE_CHANGELOG } from "./client-changelog-siege-fx-gate.js";
@@ -287,6 +288,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...HETZNER_CLIENT_HOSTING_CHANGELOG,
   ...CAPTURE_HOLD_EFFORT_CHANGELOG,
   ...TOWN_MARBLE_CHANGELOG,
+  ...HUD_V2_PREVIEW_CHANGELOG,
   {
     createdAt: 1792528401682, // Date.now() captured for this entry.
     introducedIn: "2026.10.21.2",
@@ -477,16 +479,11 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["All six completed Great Projects have new 3D models, matching foundations and specialized machinery: a financial rotunda, massive elevated Worldbreaker cannon with an armoured core housing, lattice shield, orbital cradle, census index and muster gate.", "Their 2D map artwork and menu icons are generated from the same models. The Census Directorate has an integrated crescent archive and an unlit crown, and the Titanium Levy has a military assembly hall and deployment court. Project abilities and costs are unchanged."]
   },
   {
-    createdAt: 1792967953137, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.25.1",
-    title: "New desktop HUD preview (opt-in)",
-    why: "The whole interface is being redesigned; this preview is opt-in so it can be tried without replacing the current HUD.",
-    changes: [
-      "Add ?hud=v2 to the game URL on desktop to try it, and ?hud=legacy to switch back.",
-      "Map: one resource bar with settings, your crest and screen buttons under it, a tracker on the left, truces and allies top-right, the minimap bottom-left (with a Diplomacy toggle that tints other empires' land as ally, truce or no agreement) and manpower as an orb. Selecting a tile shows its main actions at the bottom; neutral land next to yours is claimed on the click.",
-      "Selecting your town or a tile around it opens the town screen with its build list. Attacking a garrisoned tile opens the battle screen with both sides' strength and your odds, then follows the fight.",
-      "New Manifest tree, Diplomacy, Ranks race and Chronicle screens. Esc goes back; with nothing open it opens Settings."
-    ]
+    createdAt: 1793015570376, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.26.1",
+    title: "Visible ore survey clues",
+    why: "Ownership colours could cover small ground-level resource clues.",
+    changes: ["Titanium ore flecks and crystal survey clues stay visible above ownership colours in both the 3D and 2D maps."]
   }
 ];
 
