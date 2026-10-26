@@ -484,6 +484,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Visible ore survey clues",
     why: "Ownership colours could cover small ground-level resource clues.",
     changes: ["Titanium ore flecks and crystal survey clues stay visible above ownership colours in both the 3D and 2D maps."]
+  },
+  {
+    createdAt: 1793022988700, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.26.1",
+    title: "No false combat delays on a wrong device clock",
+    why: "A device clock running fast made every expansion look overdue, so tiles were rolled back and \"Combat result delayed\" appeared.",
+    changes: ["Expansion and attack timers now follow the server's clock, even when your device clock is off."]
   }
 ];
 
