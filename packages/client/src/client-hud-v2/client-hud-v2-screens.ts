@@ -272,6 +272,14 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
     renderScreen(deps);
     return true;
   }
+  // Building and ability chips open the same info card the old tech panel did (it draws above screens).
+  const info = target.closest<HTMLElement>("[data-v2-info-structure], [data-v2-info-ability]");
+  if (info) {
+    deps.state.structureInfoKey = info.dataset.v2InfoStructure ?? "";
+    deps.state.crystalAbilityInfoKey = info.dataset.v2InfoAbility ?? "";
+    deps.renderHud();
+    return true;
+  }
   const commission = target.closest<HTMLButtonElement>("[data-v2-manifest-commission]");
   if (commission && !commission.disabled) {
     deps.actionFlow.chooseTech(commission.dataset.v2ManifestCommission);

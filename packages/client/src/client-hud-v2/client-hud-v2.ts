@@ -43,7 +43,8 @@ const shellHtml = `
   <section id="hud-v2-build" class="v2t-right hud-v2-build-side" hidden aria-label="Build"></section>
   <div id="${SCREEN_HOST_ID}" class="hud-v2-screen"></div>
   <div id="hud-v2-overlays" class="hud-v2-overlays"></div>
-  <div id="hud-v2-orb-slot" class="hud-v2-orb-slot"></div>`;
+  <div id="hud-v2-orb-slot" class="hud-v2-orb-slot"></div>
+  <div class="hud-v2-dim" data-hud-v2-dim aria-hidden="true"></div>`;
 
 type Region = "bar" | "nav" | "season" | "rivals" | "tracker" | "orb-slot" | "overlays";
 
@@ -110,6 +111,12 @@ const openResourcePanel = (deps: HudV2Deps, chip: string): void => {
 const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   const target = event.target instanceof Element ? event.target : null;
   if (!target || target.closest("#hud-v2-tile")) return;
+  // Settings opens centred over a dimmed map; clicking the dim closes it.
+  if (target.closest("[data-hud-v2-dim]")) {
+    deps.state.activePanel = null;
+    deps.renderHud();
+    return;
+  }
   if (target.closest(`#${SCREEN_HOST_ID}`) && screenClick(deps, target)) return;
   const open = target.closest<HTMLElement>("[data-hud-v2-open]");
   if (open?.dataset.hudV2Open) {
@@ -282,6 +289,7 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     const onScreen = flagOn && hudV2GameOnScreen(deps.state, document.body);
     document.body.classList.toggle("hud-v2", flagOn);
     document.body.classList.toggle("hud-v2-waiting", flagOn && !onScreen);
+    document.body.classList.toggle("hud-v2-settings-open", onScreen && deps.state.activePanel === "settings");
     // The overlay's toggle and legend live in this HUD; without it (phone width) the tint goes too.
     if (!flagOn && deps.state.showDiplomacyOverlay) deps.state.showDiplomacyOverlay = false;
     if (!onScreen || !deps.state.me) return;

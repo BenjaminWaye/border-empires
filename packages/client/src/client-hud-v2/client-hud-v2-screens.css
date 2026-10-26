@@ -39,6 +39,8 @@ body.hud-v2-screen-battle .effort-confirm-overlay { opacity: 0 !important; point
 body.hud-v2-screen-open #player-profile-overlay { z-index: 70; }
 /* Outcome alerts (truce accepted, offer sent) sit above an open screen instead of behind it. The battle screen hides them. */
 body.hud-v2-screen-open #capture-overlay { z-index: 72; }
+/* Building / ability info cards opened from a screen (Manifest chips) sit above it. */
+body.hud-v2-screen-open #structure-info-overlay { z-index: 71; }
 /* Settings / Manpower opened from the bar or orb sit above whichever screen is open. */
 body.hud-v2-screen-open #side-panel { z-index: 47; }
 
@@ -145,6 +147,8 @@ body.hud-v2-screen-afc #side-panel {
 .v2m-detail-mid { display: grid; gap: 6px; min-width: 0; }
 .v2m-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .v2m-chip { display: flex; align-items: center; gap: 6px; padding: 3px 8px 3px 3px; background: var(--v2-well); border: 1px solid var(--v2-line); font-size: 13px; }
+.v2m-chip-info { color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
+.v2m-chip-info:hover { border-color: var(--v2-gold); color: var(--v2-gold-hi); }
 .v2m-req { font-family: var(--v2-mono); font-size: 12px; color: var(--v2-soft); }
 .v2m-req-missing { color: var(--v2-amber); }
 
