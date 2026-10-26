@@ -51,19 +51,6 @@ export const tileSurfaceHeights = (inputs: TileSurfaceInputs): TileSurfaceHeight
   return { surfaceY, flatOverlayY: Math.min(surfaceY, Math.max(domeY, groundY) + rise) };
 };
 
-export type HillRiseInputs = Pick<TileSurfaceInputs, "isHillsAt" | "wrapX" | "wrapY" | "roadDirsAt">;
-
-// How far a hill dome stands above the tile's flat ground at tile-local
-// (u, v) -- 0 off hill tiles. Joined hill tiles stay raised right up to
-// their shared edges, so anything drawn from the flat corner heights alone
-// (the hover/selection outline) sat below the visible hill and looked
-// shifted against it; adding this puts it back on the surface.
-export const hillRiseAt = (inputs: HillRiseInputs, wx: number, wy: number, u: number, v: number): number => {
-  if (!inputs.isHillsAt(wx, wy)) return 0;
-  const bumps = hillBumpsWithCorridorAt(wx, wy, hillNeighborFlagsAt(wx, wy, inputs.isHillsAt, inputs.wrapX, inputs.wrapY));
-  return HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, bumps, wx, wy, inputs.roadDirsAt(wx, wy));
-};
-
 export type HillFootprintTopInputs = {
   readonly cornerYAt: (cornerX: number, cornerZ: number) => number;
   readonly wx: number;

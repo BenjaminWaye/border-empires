@@ -16,7 +16,6 @@ import {
   type HeightfieldTerrainKind
 } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { accumulateHeightfieldNormals } from "./client-map-3d-heightfield-normals.js";
-import { smoothSharedHillEdgeNormals } from "./client-map-3d-hills-edge-normals.js";
 import { hillBumpsWithCorridorAt, hillShapeHeight, HILL_CORE_RADIUS, HILL_DOME_RADIUS, type RoadCutDirections } from "./client-map-3d-hill-shape.js";
 import { createFlatCornerResolver } from "./client-map-3d-hills-corner.js";
 import { markUnexploredStormClip } from "./client-map-3d-unexplored-storm/client-map-3d-unexplored-storm-clip.js";
@@ -208,9 +207,9 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
       return nk === "SEA" || nk === "COASTAL_SEA";
     };
     // Is this neighbour a hill dome we'd also render (mirrors the top-of-
-    // loop skip condition exactly) — used to run a plateau ridge toward it
-    // (see hillBumpsWithCorridorAt) so adjacent hill tiles read as one
-    // connected massif instead of separate stamped mounds.
+    // loop skip condition exactly) — used to raise a low corridor of land
+    // toward that edge (see hillCorridorBumpsFor) so two adjacent hill
+    // tiles read as one connected range instead of separate stamped mounds.
     const isHillNeighbor = (nwx: number, nwy: number): boolean => {
       const wnwx = wrap(nwx, worldWidth);
       const wnwy = wrap(nwy, worldHeight);
@@ -276,11 +275,7 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
           north: isHillNeighbor(wx, wy - 1),
           south: isHillNeighbor(wx, wy + 1),
           east: isHillNeighbor(wx + 1, wy),
-          west: isHillNeighbor(wx - 1, wy),
-          northEast: isHillNeighbor(wx + 1, wy - 1),
-          northWest: isHillNeighbor(wx - 1, wy - 1),
-          southEast: isHillNeighbor(wx + 1, wy + 1),
-          southWest: isHillNeighbor(wx - 1, wy + 1)
+          west: isHillNeighbor(wx - 1, wy)
         });
         const roadDirs = roadDirsAt?.(wx, wy);
         // This dome's own ground elevation/colour, used as flatCorner's
@@ -373,7 +368,6 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
     }
 
     accumulateHeightfieldNormals(positions, indices, idxCount, normals, vertCount);
-    smoothSharedHillEdgeNormals(positions, normals, vertCount, SUBDIV);
 
     // Ranged upload: this dome buffer is sized for maxHillTiles (the worst
     // case of every visible tile being a hill), but only vertCount/idxCount

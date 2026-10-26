@@ -46,7 +46,7 @@ import { createTownSupportTileSync } from "../client-map-3d-town-support-tile/cl
 import type { RoadCutDirections } from "../client-map-3d-hill-shape.js";
 import { type TownSupportLookupDeps } from "../client-town-support-plot-lookup.js";
 import { createForest } from "../client-map-3d-forest.js"; import { createTropicalForest } from "../client-map-3d-tropical-forest.js";
-import { createOwnershipOverlay } from "../client-map-3d-ownership-overlay.js"; import { hillNeighborFlagsAt } from "../client-map-3d-hill-shape.js"; import { hillRiseAt, tileSurfaceHeights } from "../client-map-3d-tile-surface-y/client-map-3d-tile-surface-y.js";
+import { createOwnershipOverlay } from "../client-map-3d-ownership-overlay.js"; import { hillNeighborFlagsAt } from "../client-map-3d-hill-shape.js"; import { tileSurfaceHeights } from "../client-map-3d-tile-surface-y/client-map-3d-tile-surface-y.js";
 import { createFrontierDecayPulseTracker } from "../client-map-3d-frontier-decay-pulse.js"; import { createBarbarianFrontierTintTracker, observeBarbarianFrontierTint } from "../client-map-3d-barbarian-frontier-tint.js";
 import {
   createBendingMarkerGeometry,
@@ -373,7 +373,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     if (biome === "MARSH") return "MARSH";
     return "GRASS"; // GRASS and v9 GRASSLAND (which reuses GRASS's art)
   };
-  const tileHighlightDeps = { sceneOrigin, wrapX: deps.wrapX, wrapY: deps.wrapY, cornerYAt: heightfield.cornerYAt.bind(heightfield), toroidDelta, hillRiseAt: (x: number, y: number, u: number, v: number) => hillRiseAt({ isHillsAt: isHillsTile, wrapX: deps.wrapX, wrapY: deps.wrapY, roadDirsAt: (cx, cy) => latestHillCutAt(cx, cy) }, x, y, u, v) };
+  const tileHighlightDeps = { sceneOrigin, wrapX: deps.wrapX, wrapY: deps.wrapY, cornerYAt: heightfield.cornerYAt.bind(heightfield), toroidDelta };
   const syncHighlightMarker = (marker: LineSegments, tile: { x: number; y: number } | undefined, rise: number): void =>
     syncTileHighlightMarker(tileHighlightDeps, marker, tile, rise);
   const garrisonSelection = createGarrisonSelection3D(scene);

@@ -486,7 +486,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Meadows are a fresher, richer green and vary between sun-dried and lush patches, with soft rolling light and fine close-up detail",
       "Beaches fade softly into grass, with a thin damp edge at the waterline",
       "Coastlines curve naturally instead of stepping along the tile grid, with surf following the shore",
-      "Hills rise softly from the meadow, and neighbouring hill tiles merge into one rolling landform instead of a grid of separate mounds",
       "Tundra shows soft moss patches and scattered stones, and snow carries faint wind-drift streaks"
     ]
   }

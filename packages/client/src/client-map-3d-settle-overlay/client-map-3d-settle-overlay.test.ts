@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { HILL_INDICES_PER_TILE, HILL_SUBDIV, HILL_VERTS_PER_TILE } from "./client-map-3d-settle-hill-drape.js";
 import { createSettleOverlay } from "./client-map-3d-settle-overlay.js";
 
-const NO_HILL_NEIGHBORS = { north: false, south: false, east: false, west: false, northEast: false, northWest: false, southEast: false, southWest: false };
+const NO_HILL_NEIGHBORS = { north: false, south: false, east: false, west: false };
 const RED = new Color("#ff0000");
 const BLUE = new Color("#0000ff");
 
