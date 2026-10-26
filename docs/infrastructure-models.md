@@ -12,7 +12,7 @@ The fortifications, siege structures and completed Great Projects are unchanged.
 |---|---|---|
 | Mine | Mechanised drill gantry, extraction mouth, separation housing and material tray | Titanium loads are ingots; Crystal loads are crystalline; construction/removal clipping |
 | Harbor Exchange | Customs hall, watch drum, bonded cargo, gantry crane and bollards | Connected-dock Coin effect; construction/removal clipping |
-| Relay Beacon | Skyward segmented receiver dish, focal feed and three local transmitter panels | Native rotating head, fixed animation slots, disabled poses and staged construction |
+| Relay Beacon | Skyward segmented receiver dish, focal feed and three local transmitter panels | Smooth curved receiver with closed backing, tracking head, fixed animation slots, disabled poses and staged construction |
 | Aether Tower (`OBSERVATORY`) | Swept containment piers, energy column, moving field rings and transmission crown | Native links, clusters, cooldown/siphon badges, frozen/disabled machinery and dimmed core |
 | Umbrite Rig | Original drilling and containment equipment on a plain marble platform | Original relative machinery layout and material palette |
 

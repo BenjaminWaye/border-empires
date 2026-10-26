@@ -77,12 +77,24 @@ const relayHousing = (t: TownBuilders): void => {
     t.body.pipe(x * 0.12, 0.70, z * 0.12, x * 0.245, 0.76, z * 0.245, 0.018, "brassDark");
     t.body.box(x * 0.245, 0.60, z * 0.245, 0.105, 0.30, 0.038, "iron", Math.PI / 2 - a);
     t.body.box(x * 0.267, 0.63, z * 0.267, 0.075, 0.24, 0.012, "glassLight", Math.PI / 2 - a);
+    for (const y of [0.66, 0.72, 0.78, 0.84]) {
+      t.body.box(x * 0.274, y, z * 0.274, 0.075, 0.006, 0.007, "brassDark", Math.PI / 2 - a);
+    }
+    t.body.pipe(x * 0.12, 0.63, z * 0.12, x * 0.235, 0.64, z * 0.235, 0.009, "iron");
+    t.body.pipe(x * 0.12, 0.86, z * 0.12, x * 0.235, 0.86, z * 0.235, 0.009, "iron");
+    t.body.cylinder(x * 0.19, 0.09, z * 0.19, 0.032, 0.04, 0.045, "brassDark", 12);
     t.body.pipe(x * 0.095, 1.25, z * 0.095, x * 0.23, 1.65, z * 0.23, 0.016, "brassDark");
   }
   for (const y of [0.15, 0.55, 1.12]) t.body.cylinder(0, y, 0, 0.16 - y * 0.035, 0.165 - y * 0.035, 0.022, "brassDark", 16);
   t.body.cylinder(0, 1.275, 0, 0.15, 0.105, 0.12, "iron", 16);
   t.body.cylinder(0, 1.395, 0, 0.15, 0.15, 0.025, "brass", 16);
   t.body.cylinder(0, 1.42, 0, 0.075, 0.12, 0.12, "ironDark", 16);
+  // Recessed service hatch and cable routing sit against the pedestal shell.
+  t.body.box(0, 0.145, 0.143, 0.10, 0.17, 0.026, "brassDark");
+  t.body.box(0, 0.155, 0.157, 0.078, 0.145, 0.008, "iron");
+  t.body.box(0.024, 0.215, 0.163, 0.008, 0.025, 0.007, "brass");
+  t.body.cylinder(0, 1.50, 0, 0.063, 0.08, 0.055, "brassDark", 24);
+  t.body.ring(0, 1.55, 0, 0.07, "iron", 0.14);
   // Skyward focal receiver; stays connected to the bowl by its central feed.
   t.body.cylinder(0, 1.82, 0, 0.028, 0.018, 0.055, "brass", 12);
   t.glow.cylinder(0, 1.875, 0, 0.021, 0.028, 0.012, "aether", 12);

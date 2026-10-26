@@ -27,7 +27,7 @@ export type RelayBeaconAssets = {
 export const createRelayBeaconAssets = (scene: Scene, C: number, buildingEnvironmentTexture?: Texture): RelayBeaconAssets => {
   const material = new MeshStandardMaterial({ color: "#b1935b", roughness: 0.28, metalness: 0.88 });
   applyBuildingEnvMap(material, buildingEnvironmentTexture);
-  const reflectorMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.16, metalness: 0.9 });
+  const reflectorMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.24, metalness: 0.72 });
   applyBuildingEnvMap(reflectorMaterial, buildingEnvironmentTexture);
   const definitions: readonly [string, BufferGeometry, number][] = [
     ["spindle", new CylinderGeometry(0.015, 0.018, 1, 12), C],
