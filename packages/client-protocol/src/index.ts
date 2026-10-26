@@ -88,6 +88,9 @@ export type ActionAcceptedMessage = {
   origin: { x: number; y: number };
   target: { x: number; y: number };
   resolvesAt: number;
+  // Gateway wall clock when this was sent; the client uses it to convert
+  // resolvesAt/transitEndsAt to its own (possibly skewed) clock.
+  serverNow?: number;
   // ADVANCE/MARCH auto-fire's own mechanical travel-time delay (see
   // runtime-frontier-command.ts) -- present for both ATTACK and EXPAND, but
   // an ATTACK also gets its own separate COMBAT_START message carrying the
