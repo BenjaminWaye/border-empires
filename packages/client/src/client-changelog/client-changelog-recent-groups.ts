@@ -1,4 +1,5 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
+import { HUD_V2_PREVIEW_CHANGELOG } from "./client-changelog-hud-v2-preview.js";
 import { CLIENT_CHANGELOG_ENTRIES_BUILD_MENU_SUPPORT_SLOTS } from "./client-changelog-build-menu-support-slots.js";
 import { CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_ATTACK } from "./client-changelog-arrow-gesture-attack.js";
 import { CLIENT_CHANGELOG_ENTRIES_ENEMY_CONSTRUCTION_ACTIONS } from "./client-changelog-enemy-construction-actions.js";
@@ -83,5 +84,6 @@ export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_CUT_OFF_BUILDINGS_SURVIVE,
   ...RIVAL_REACH_OVER_MY_TILES_CHANGELOG,
   ...PROSPECT_CLUE_SWIRL_CHANGELOG,
-  ...SURVEY_POPUP_AFTER_WHATS_NEW_CHANGELOG
+  ...SURVEY_POPUP_AFTER_WHATS_NEW_CHANGELOG,
+  ...HUD_V2_PREVIEW_CHANGELOG
 ];

@@ -16,7 +16,6 @@ import { CAPTURE_HOLD_EFFORT_CHANGELOG } from "./client-changelog-capture-hold-e
 import { HETZNER_CLIENT_HOSTING_CHANGELOG } from "./client-changelog-hetzner-client-hosting.js";
 import { AI_DEAL_SUGGEST_CHANGELOG } from "./client-changelog-ai-deal-suggest.js";
 import { TOWN_MARBLE_CHANGELOG } from "./client-changelog-town-marble.js";
-import { HUD_V2_PREVIEW_CHANGELOG } from "./client-changelog-hud-v2-preview.js";
 import { SIEGE_REPORTS_CHANGELOG } from "./client-changelog-siege-reports.js";
 import { RICHER_FORESTS_CHANGELOG } from "./client-changelog-richer-forests.js";
 import { SIEGE_FX_GATE_CHANGELOG } from "./client-changelog-siege-fx-gate.js";
@@ -288,7 +287,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...HETZNER_CLIENT_HOSTING_CHANGELOG,
   ...CAPTURE_HOLD_EFFORT_CHANGELOG,
   ...TOWN_MARBLE_CHANGELOG,
-  ...HUD_V2_PREVIEW_CHANGELOG,
   {
     createdAt: 1792528401682, // Date.now() captured for this entry.
     introducedIn: "2026.10.21.2",
