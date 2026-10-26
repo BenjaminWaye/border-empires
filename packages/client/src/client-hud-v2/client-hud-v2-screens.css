@@ -5,7 +5,8 @@
 .hud-v2-screen > * { pointer-events: auto; }
 .hud-v2-screen:empty { display: none; }
 
-/* What each screen hides. Frame screens keep the resource bar and bubbles. */
+/* What each screen hides. Frame screens keep the resource bar; the crest and screen buttons under it would cover the frame's ◁ Map Esc button. */
+body.hud-v2-screen-frame .hud-v2-nav,
 body.hud-v2-screen-frame .hud-v2-right,
 body.hud-v2-screen-frame .hud-v2-tracker,
 body.hud-v2-screen-frame .hud-v2-tile,
