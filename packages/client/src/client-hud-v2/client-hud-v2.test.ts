@@ -49,20 +49,19 @@ describe("resource bar", () => {
 });
 
 describe("tracker", () => {
-  const base = { freeBuildSlots: 0, afcReady: 0, flags: [], flagCap: 100, building: [], nowMs: 0 };
+  const base = { buildSlots: { busy: 0, limit: 3 }, afcReady: 0, flags: [], flagCap: 100, building: [], nowMs: 0 };
 
   it("lists free build slots, AFC upgrades and stalled flags as needs", () => {
     const needs = trackerNeeds({
       ...base,
-      freeBuildSlots: 2,
       afcReady: 1,
       flags: [
         { x: 4, y: 5, amount: 10, mode: "ADVANCE", insufficientManpower: true },
         { x: 6, y: 7, amount: 50, mode: "HOLD" }
       ]
     });
-    expect(needs.map((n) => n.kind)).toEqual(["build_slot", "afc", "flag"]);
-    expect(needs[2]).toMatchObject({ x: 4, y: 5, sub: "Needs manpower" });
+    expect(needs.map((n) => n.kind)).toEqual(["afc", "flag"]);
+    expect(needs[1]).toMatchObject({ x: 4, y: 5, sub: "Needs manpower" });
   });
 
   it("caps each group and shows the overflow count", () => {
@@ -71,6 +70,13 @@ describe("tracker", () => {
     expect(html.match(/hud-v2-tracker-timed/g)).toHaveLength(TRACKER_GROUP_CAP);
     expect(html).toContain("+2 more");
     expect(html).toContain('data-hud-v2-focus-x="0" data-hud-v2-focus-y="0"');
+  });
+
+  it("always shows development slots, calling out free ones", () => {
+    const html = trackerHtml({ ...base, buildSlots: { busy: 2, limit: 3 } });
+    expect(html.match(/hud-v2-slot-busy/g)).toHaveLength(2);
+    expect(html).toContain("2/3 · 1 free");
+    expect(trackerHtml({ ...base, buildSlots: { busy: 3, limit: 3 } })).toContain(">3/3<");
   });
 
   // Regression: a frontier expansion was listed as "Battle at".

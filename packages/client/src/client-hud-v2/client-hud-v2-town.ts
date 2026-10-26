@@ -49,11 +49,14 @@ const leftPanelHtml = (input: TownScreenInput): string => {
   const growthPct = target ? Math.min(100, Math.round((town.population / target) * 100)) : 100;
   const growthLabel = milestone ? `Growth to ${milestone.label}` : "Population";
   const growth = townGrowth(town);
+  // A town still being garrisoned (or a partial summary) has no economy fields yet: show a dash, never NaN.
+  const known = (v: number | undefined): v is number => typeof v === "number" && Number.isFinite(v);
+  const fed = typeof town.isFed === "boolean" ? (town.isFed ? "Fed" : "Unfed") : "";
   const stats = [
-    { k: "COIN", v: `+${fmt(town.goldPerMinute * 60)}/h`, n: town.isFed ? "Fed" : "Unfed", tone: town.isFed ? "" : " v2t-warn" },
-    { k: "MANPOWER CAP", v: town.manpowerCap !== undefined ? `+${fmt(town.manpowerCap)}` : "—", n: "", tone: " v2t-gold" },
+    { k: "COIN", v: known(town.goldPerMinute) ? `+${fmt(town.goldPerMinute * 60)}/h` : "—", n: fed, tone: town.isFed === false ? " v2t-warn" : "" },
+    { k: "MANPOWER CAP", v: known(town.manpowerCap) ? `+${fmt(town.manpowerCap)}` : "—", n: "", tone: " v2t-gold" },
     { k: "FOOD UPKEEP", v: `${townFoodSlotDemandForTier(town.populationTier)} slots`, n: "", tone: "" },
-    { k: "SUPPORT RING", v: `${town.supportCurrent} / ${town.supportMax}`, n: "", tone: "" }
+    { k: "SUPPORT RING", v: known(town.supportCurrent) && known(town.supportMax) ? `${town.supportCurrent} / ${town.supportMax}` : "—", n: "", tone: "" }
   ];
   const built = (town.townModifierTotals ?? []).map((g) => `<div class="v2t-built"><span class="v2t-built-ico" aria-hidden="true"></span><span><span class="v2t-built-name">${esc(g.heading)}</span><span class="v2t-built-mods">${g.modifiers.map((m) => `<span class="v2t-mod-${m.tone}">${esc(m.statLabel)} ${esc(m.valueText)}</span>`).join(" · ")}</span></span></div>`).join("");
   const grow = [...input.townView.actions, ...input.townView.buildings].find((a) => GROW_IDS.has(a.id));

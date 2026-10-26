@@ -150,6 +150,14 @@ describe("town screen", () => {
     expect(regions.place).toContain("Build on (6, 5)");
   });
 
+  // Regression: a town still being garrisoned showed "undefined / undefined" support and NaN coin.
+  it("shows dashes, not NaN or undefined, before the town's economy arrives", () => {
+    const partial = { ...town, ownershipState: "FRONTIER", town: { ...town.town, goldPerMinute: undefined, supportCurrent: undefined, supportMax: undefined, isFed: undefined } } as unknown as Tile;
+    const { left } = townScreenRegions({ town: partial, focus: partial, townView: view({}), focusView: view({}), townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined });
+    expect(left).not.toMatch(/NaN|undefined/);
+    expect(left).toContain("—");
+  });
+
   it("only lists categories that have something to build", () => {
     expect(townBuildCategories([act("build_hydrogarden"), act("build_fortification")]).every((c) => c.count > 0)).toBe(true);
   });

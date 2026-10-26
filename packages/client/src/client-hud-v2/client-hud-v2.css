@@ -134,6 +134,13 @@ body.hud-v2 #floating-info { display: none !important; }
 .hud-v2-tracker:empty { display: none; }
 .hud-v2-tracker-head { padding: 10px 14px 4px; font-family: var(--v2-display); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; color: var(--v2-gold); }
 .hud-v2-tracker-head-needs { color: var(--v2-amber); }
+.hud-v2-slots { display: flex; align-items: center; gap: 8px; padding: 10px 14px 2px; font-size: 12px; color: var(--v2-soft); }
+.hud-v2-slots-label { font-family: var(--v2-display); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--v2-gold); }
+.hud-v2-slot-pips { display: inline-flex; gap: 4px; }
+.hud-v2-slot-pip { width: 10px; height: 10px; border: 1px solid var(--v2-gold); transform: rotate(45deg); }
+.hud-v2-slot-busy { background: var(--v2-gold); }
+.hud-v2-slots-count { font-family: var(--v2-mono); color: var(--v2-text); }
+.hud-v2-slots-free .hud-v2-slots-count { color: var(--v2-amber); }
 .hud-v2-tracker-row { display: grid; gap: 3px; padding: 6px 14px; border: 0; border-left: 3px solid transparent; background: transparent; text-align: left; }
 .hud-v2-tracker-row:hover { background: #221c13; border-left-color: var(--v2-gold); }
 .hud-v2-tracker-title { display: flex; gap: 5px; align-items: baseline; font-size: 14px; }

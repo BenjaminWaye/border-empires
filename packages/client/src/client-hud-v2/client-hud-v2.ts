@@ -217,7 +217,7 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
 
 /** The tracker's tile scans (three passes over every known tile), reused until tiles change or it goes stale. */
 const TRACKER_SCAN_MAX_AGE_MS = 5_000;
-let trackerScan: { key: string; at: number; freeBuildSlots: number; flags: ReturnType<typeof buildManpowerPanelMusterFlags>; building: ReturnType<typeof deriveDevelopmentPanelData>["activeSlots"] } | undefined;
+let trackerScan: { key: string; at: number; buildSlots: { busy: number; limit: number }; flags: ReturnType<typeof buildManpowerPanelMusterFlags>; building: ReturnType<typeof deriveDevelopmentPanelData>["activeSlots"] } | undefined;
 
 const trackerScanKey = (state: ClientState): string =>
   [state.tilesRevision, state.settleProgressByTile.size, state.developmentQueue.length, state.activeDevelopmentProcessCount, state.manpower, state.manpowerCap].join("|");
@@ -230,7 +230,7 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
     trackerScan = {
       key,
       at: nowMs,
-      freeBuildSlots: Math.max(0, development.limit - development.busy),
+      buildSlots: { busy: development.busy, limit: development.limit },
       flags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me, state.manpowerCap, state.manpower, state.musterAmountRateByTile),
       building: development.activeSlots
     };
@@ -240,7 +240,7 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
     ? { x: state.capture.target.x, y: state.capture.target.y, resolvesAt: state.capture.resolvesAt, battle: state.capture.actionType === "ATTACK" || Boolean(state.capture.combatSnapshot) }
     : undefined;
   writeRegion("tracker", trackerHtml({
-    freeBuildSlots: trackerScan.freeBuildSlots,
+    buildSlots: trackerScan.buildSlots,
     afcReady: readyAfcUpgradeCount(state),
     flags: trackerScan.flags,
     flagCap: musterFlagCap(state.manpowerCap, 0),
