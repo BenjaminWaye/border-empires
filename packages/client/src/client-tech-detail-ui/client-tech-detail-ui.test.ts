@@ -199,12 +199,12 @@ describe("tech detail structure mapping", () => {
       prettyToken: (value: string) => value
     };
 
-    expect(structureInfoForKey("CLEARING_HOUSE", deps).image).toBe("/overlays/clearing-house-overlay.svg");
-    expect(structureInfoForKey("NEURAL_WORKS", deps).image).toBe("/overlays/neural-works-overlay.svg");
-    expect(structureInfoForKey("AEGIS_DOME", deps).image).toBe("/overlays/aegis-dome-overlay.svg");
-    expect(structureInfoForKey("ASTRAL_DOCK", deps).image).toBe("/overlays/astral-dock-overlay.svg");
-    expect(structureInfoForKey("IMPERIAL_EXCHANGE", deps).image).toBe("/overlays/imperial-exchange-overlay.svg");
-    expect(structureInfoForKey("SOVEREIGN_SIEGE_ENGINE", deps).image).toBe("/overlays/sovereign-siege-engine-overlay.svg");
+    expect(structureInfoForKey("CLEARING_HOUSE", deps).image).toContain("/overlays/town-district/clearing-house.svg?");
+    expect(structureInfoForKey("NEURAL_WORKS", deps).image).toContain("/overlays/town-district/neural-works.svg?");
+    expect(structureInfoForKey("AEGIS_DOME", deps).image).toBe("/overlays/aegis-dome-overlay.svg?v=20261025-monuments");
+    expect(structureInfoForKey("ASTRAL_DOCK", deps).image).toBe("/overlays/astral-dock-overlay.svg?v=20261025-monuments");
+    expect(structureInfoForKey("IMPERIAL_EXCHANGE", deps).image).toBe("/overlays/imperial-exchange-overlay.svg?v=20261025-monuments");
+    expect(structureInfoForKey("SOVEREIGN_SIEGE_ENGINE", deps).image).toBe("/overlays/sovereign-siege-engine-overlay.svg?v=20261025-monuments");
   });
 });
 

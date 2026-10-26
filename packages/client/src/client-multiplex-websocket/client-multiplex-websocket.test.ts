@@ -1,3 +1,4 @@
+import { snapshotClientDebugEvents } from "../client-debug/client-debug.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createMultiplexWebSocket } from "./client-multiplex-websocket.js";
 
@@ -64,6 +65,24 @@ describe("client-multiplex-websocket", () => {
     FakeWebSocket.instances = [];
     vi.restoreAllMocks();
     globalThis.WebSocket = originalWebSocket;
+  });
+
+  it("records actual sends, skipped sends, receipts and handler durations without logging auth tokens", () => {
+    globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
+    const socket = createMultiplexWebSocket("wss://example.com/ws");
+    const command = JSON.stringify({ type: "ATTACK", commandId: "wire-test-cmd", clientSeq: 1, toX: 2, toY: 3 });
+    socket.send(command);
+    const [control, bulk] = FakeWebSocket.instances;
+    control?.open(); bulk?.open();
+    socket.send(JSON.stringify({ type: "AUTH", token: "never-export-this-token" }));
+    socket.send(command);
+    control?.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ type: "ACTION_ACCEPTED", commandId: "wire-test-cmd", secret: "private-combat" }) }));
+    const events = snapshotClientDebugEvents().filter((e) => e.scope === "sync-wire" && e.payload.commandId === "wire-test-cmd");
+    expect(events.map((e) => e.event)).toEqual(["wire-send-skipped", "wire-sent", "wire-received", "wire-applied"]);
+    expect(events[1]?.payload).toMatchObject({ channel: "control", generation: 0, monotonicAtMs: expect.any(Number) });
+    expect(events[3]?.payload.handlerMs).toEqual(expect.any(Number));
+    expect(JSON.stringify(snapshotClientDebugEvents())).not.toContain("never-export-this-token");
+    expect(JSON.stringify(events)).not.toContain("private-combat");
   });
 
   it("routes control and bulk messages to separate sockets once both sockets are open", () => {

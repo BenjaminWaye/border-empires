@@ -566,7 +566,7 @@ deliberately no decay for simply being offline.
 |---|---|---|---|
 | Out of manpower | Overspent | Can't act | Wait for regen or rush-buy with gold |
 | Dormant structure | Lost its slot-backing tile | Stops giving its bonus but stays standing | Retake the resource or free a slot |
-| Unfed town | Not enough food support | Gold income pauses | Add FOOD slots or build a Incubation Engine |
+| Unfed town | Not enough food support | Gold income pauses | Add FOOD slots or use Ministry Hall provisioning to reduce demand |
 | Out-of-reach frontier | Lost the anchor | Decays in 5 min | Re-anchor with a beacon or recapture |
 | Eliminated | Last tile lost | Respawn (`respawnIfEliminated`) | Start again mid-season |
 | Lost the season | Someone held a path for 24h | Season ends, score graph | Next season; the galactic layer if you won |

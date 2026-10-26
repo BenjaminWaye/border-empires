@@ -1,3 +1,5 @@
+import { recordDebugIncident, copyDebugEvent } from "./client-debug-incidents.js";
+export { snapshotClientDebugIncidents } from "./client-debug-incidents.js";
 import type { Tile } from "../client-types.js";
 
 const DEBUG_TILE_STORAGE_KEY = "debug_tile_key";
@@ -32,11 +34,14 @@ export const recordClientDebugEvent = (
     event,
     payload
   });
-  while (clientDebugEvents.length > MAX_CLIENT_DEBUG_EVENTS) clientDebugEvents.shift();
+  const evicted = clientDebugEvents.length > MAX_CLIENT_DEBUG_EVENTS;
+  if (evicted) clientDebugEvents.shift();
+  const entry = clientDebugEvents[clientDebugEvents.length - 1];
+  if (entry) recordDebugIncident(entry, clientDebugEvents, evicted);
 };
 
 export const snapshotClientDebugEvents = (limit = MAX_CLIENT_DEBUG_EVENTS) =>
-  clientDebugEvents.slice(-Math.max(1, limit));
+  clientDebugEvents.slice(-Math.max(1, limit)).map(copyDebugEvent);
 
 export const tileSyncDebugEnabled = (): boolean => {
   try {

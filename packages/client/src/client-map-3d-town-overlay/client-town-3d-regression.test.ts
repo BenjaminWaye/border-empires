@@ -26,7 +26,7 @@ describe("3d town rendering regression guard", () => {
     // wrapper, so non-3D renderers keep their SVG town icons.
     const runtimeSource = clientSource("../client-runtime-loop.ts");
     expect(runtimeSource).toContain(
-      'overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);'
+      'overlayTile && overlayVisible && tileHasTownIdentity(overlayTile) && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);'
     );
   });
 });

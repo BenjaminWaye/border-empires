@@ -72,7 +72,7 @@ describe("renderManifestDetailHtml", () => {
   it("gives each unlock row its own icon: building art, the ability's icon, the resource icon", () => {
     const html = renderManifestDetailHtml(context());
     expect(html).toContain('<span class="manifest-gain__art"><img src="/overlays/fort-ring-overlay-closed.svg"');
-    expect(html).toContain('<img src="/overlays/titanium-weapons-factory-overlay.svg"');
+    expect(html).toContain('<img src="/overlays/town-district/titanium-weapons-factory.svg?');
     expect(html).toMatch(/<span class="manifest-gain__icon" aria-hidden="true"><img class="resource-icon-img" [^>]*alt="Titanium"/);
     const augury: TechInfo = { ...bastion, id: "beacon-towers", prereqIds: [], effects: { unlockSurveySweep: true, unlockRevealEmpire: true } };
     const abilities = renderManifestDetailHtml(context({ tech: augury }));

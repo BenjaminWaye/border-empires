@@ -1,3 +1,4 @@
+import { renderStructureIdentityReview } from "./town-district-identity-review.js";
 import { ACESFilmicToneMapping, CanvasTexture, DirectionalLight, Mesh, MeshBasicMaterial, PlaneGeometry } from "three";
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createAmbaricTransformerOverlay } from "@client/client-map-3d-ambaric-transformer-overlay.js";
@@ -112,7 +113,7 @@ const render = (args: Args, groundRadius: number): HTMLElement => {
 };
 
 const meta: Meta<Args> = {
-  title: "Map/Structures/Ambaric Transformer",
+  title: "Map/Structures/Legacy Ambaric Transformer",
   argTypes: {
     cameraDistance: { control: { type: "range", min: 2, max: 20, step: 0.5 } },
     spacing: { control: { type: "range", min: 1.4, max: 4.2, step: 0.1 } },
@@ -302,3 +303,5 @@ export const PerformanceHUD: Story = {
     ]);
   }
 };
+// Use the current map model for identity and gameplay-copy review.
+export const CurrentProductionModel: Story = { render: () => renderStructureIdentityReview(["AMBARIC_TRANSFORMER"]) };

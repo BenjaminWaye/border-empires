@@ -1,3 +1,4 @@
+import { renderStructureIdentityReview } from "./town-district-identity-review.js";
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createStructurePieceBuilder } from "@client/client-map-3d-structure-builder.js";
 import { registerCivicStructures } from "@client/client-map-3d-structure-civic.js";
@@ -21,7 +22,7 @@ const render = (args: Args): HTMLElement => {
 };
 
 const meta: Meta<Args> = {
-  title: "Map/Structures/Census Hall",
+  title: "Map/Structures/Legacy Census Hall",
   parameters: {
     docs: { description: { component: "Census Hall: a modest records office with a small brass tally drum, scaled like the other minor support structures (Harbor Exchange, Exchange House)." } }
   },
@@ -36,3 +37,6 @@ export default meta;
 type Story = StoryObj<Args>;
 export const Default: Story = {};
 export const CloseUp: Story = { args: { cameraDistance: 2 } };
+
+// Use the current map model for identity and gameplay-copy review.
+export const CurrentProductionModel: Story = { render: () => renderStructureIdentityReview(["CENSUS_HALL"]) };

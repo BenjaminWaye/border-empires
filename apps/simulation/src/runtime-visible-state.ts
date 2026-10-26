@@ -1,3 +1,4 @@
+import { districtOverlayProjection } from "./town-district/town-district-projection.js";
 import { afcEnvoyIncomeInSnapshot } from "./afc-specializations/afc-coalition.js";
 import type { PlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
 import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
@@ -188,7 +189,9 @@ export function exportTilesInAreaForPlayer(input: {
         tile.ownerId && ownerForContext && tile.ownerId === ownerForContext.id ? tileYieldContext : undefined,
         { full: true }
       );
-      collected.push(delta);
+      collected.push(input.fullVisibility
+        ? { ...delta, ...districtOverlayProjection(input.tiles, tile, () => true) }
+        : delta);
     }
   }
   if (input.fullVisibility) return collected;
@@ -196,7 +199,7 @@ export function exportTilesInAreaForPlayer(input: {
 }
 
 function visibleTileProjection(
-  input: Pick<VisibleStateSharedDeps, "emitVisibilityAudit" | "players" | "reachBorderOwnerAt">,
+  input: Pick<VisibleStateSharedDeps, "emitVisibilityAudit" | "players" | "reachBorderOwnerAt" | "tiles">,
   playerId: string,
   tile: DomainTileState,
   lockTargetOnlyKeys: ReadonlySet<string>,
@@ -240,7 +243,9 @@ function visibleTileProjection(
     // reached a reconnecting client. Truthy-guarded: this bulk login /
     // full-visibility export reports what IS there, not what changed; a stale
     // local belief is corrected by REQUEST_TILE_DETAIL, same as before.
-    ...overlayJsonFieldsFromTile(tile)
+    ...overlayJsonFieldsFromTile(tile),
+    ...districtOverlayProjection(input.tiles, tile, key => classification.visibleKeys.has(key) &&
+      !(classification.lockTargetOnlyKeys.has(key) && !allyAndSelfIds.has(input.tiles.get(key)?.ownerId ?? "")))
   };
 }
 

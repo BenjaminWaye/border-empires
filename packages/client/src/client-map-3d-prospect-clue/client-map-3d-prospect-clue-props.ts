@@ -16,6 +16,7 @@ import {
   Vector3
 } from "three";
 import type { ProspectSignature } from "@border-empires/shared";
+import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { markUnexploredStormClip } from "../client-map-3d-unexplored-storm/client-map-3d-unexplored-storm-clip.js";
 import { prospectClueJitter as jitter, prospectCluePropCount, prospectCluePropMax, prospectCluePropOffset } from "../client-prospect-clue/client-prospect-clue.js";
 import { createBlackwoodSwirls } from "./client-map-3d-blackwood-swirl.js";
@@ -53,6 +54,12 @@ export const createProspectClueProps = (scene: Scene, maxTiles: number): Prospec
     mesh.frustumCulled = false;
     mesh.count = 0;
     mesh.receiveShadow = true;
+    // Ownership is transparent and slightly raised above terrain. Ground
+    // flecks can sit below that drape, so opaque rendering lets it tint them.
+    // Join the transparent pass at full opacity, after ownership, retaining
+    // depth tests/writes so terrain and buildings still occlude the props.
+    mesh.material.transparent = true;
+    mesh.renderOrder = RENDER_ORDER.prospectClues;
   }
   scene.add(...meshes);
 

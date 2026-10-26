@@ -12,7 +12,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { Bone, Box3, SkinnedMesh, Vector3 } from "three";
+import { AnimationMixer, Bone, Box3, SkinnedMesh, Vector3 } from "three";
 import type { GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { MARINE_CLIP_NAMES } from "./popup-marine-asset.js";
@@ -165,5 +165,31 @@ describe("popup-marine-heavy-24bone.glb surface and rifle", () => {
     // spans a fraction of the rifle's length.
     expect(onHand.length).toBeGreaterThan(200);
     expect(box.getSize(new Vector3()).length()).toBeGreaterThan(height * 0.2);
+  });
+
+  // Regression: the bake copied the standard marine's absolute bone
+  // orientations onto the differently posed heavy rig, so every clip hunched
+  // the armour over (PistolIdle's head sat ~14% lower than the standard
+  // marine's). retarget-popup-marine-heavy-clips.py fixes it; a re-bake that
+  // skips that step must fail here.
+  it("stands as tall as the standard marine in every clip it shares", async () => {
+    const headHeight = async (file: string, clipName: string, t: number): Promise<number> => {
+      const gltf = await parseModel(file);
+      const mixer = new AnimationMixer(gltf.scene);
+      const action = mixer.clipAction(gltf.animations.find((c) => c.name === clipName)!);
+      action.play();
+      action.time = t;
+      mixer.update(0);
+      gltf.scene.updateMatrixWorld(true);
+      return gltf.scene.getObjectByName("Head")!.getWorldPosition(new Vector3()).y;
+    };
+    // Dead only at its start (still upright): once down, head heights are
+    // too close to the ground for a ratio to mean anything.
+    const samples: [string, number][] = [["PistolIdle", 0], ["PistolIdle", 0.6], ["PistolKneelingIdle", 1], ["PistolRun", 0.3], ["PistolWalk", 0.4], ["Dead", 0.5]];
+    for (const [clipName, t] of samples) {
+      const ratio = (await headHeight("popup-marine-heavy-24bone.glb", clipName, t)) / (await headHeight("popup-marine-titan-24bone.glb", clipName, t));
+      expect(ratio, `${clipName} @ ${t}s`).toBeGreaterThan(0.94);
+      expect(ratio, `${clipName} @ ${t}s`).toBeLessThan(1.08);
+    }
   });
 });

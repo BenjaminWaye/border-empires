@@ -31,10 +31,24 @@ const createState = (): TriggerState => ({
   dormantStructures: [],
   aetherShieldTowers: undefined,
   techIds: [],
-  techCatalog: []
+  techCatalog: [],
+  showDiplomacyOverlay: false,
+  activeTruces: []
 });
 
 describe("3D map rebuild triggers", () => {
+  it("rebuilds when the Diplomacy overlay is toggled or a stance changes while it's on", () => {
+    const state = createState();
+    const off = captureMap3DRebuildTriggers(state, keyFor, true);
+    state.allies = ["ally-1"];
+    expect(map3DRebuildTriggersChanged(off, captureMap3DRebuildTriggers(state, keyFor, true))).toBe(false);
+    state.showDiplomacyOverlay = true;
+    const on = captureMap3DRebuildTriggers(state, keyFor, true);
+    expect(map3DRebuildTriggersChanged(off, on)).toBe(true);
+    state.activeTruces = [{ otherPlayerId: "rival", otherPlayerName: "Rival", startedAt: 0, endsAt: 1, createdByPlayerId: "me" }];
+    expect(map3DRebuildTriggersChanged(on, captureMap3DRebuildTriggers(state, keyFor, true))).toBe(true);
+  });
+
   // Review finding: the server sends a reveal tech's deposit tiles before
   // TECH_UPDATE, so the tile-change rebuild ran with the old techIds and kept
   // the retired clue's swirl/chips; nothing rebuilt once techIds caught up.

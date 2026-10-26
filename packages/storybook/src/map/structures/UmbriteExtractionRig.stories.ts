@@ -94,7 +94,7 @@ const render = (args: Args, groundRadius: number): HTMLElement => {
 };
 
 const meta: Meta<Args> = {
-  title: "Map/Structures/Umbrite Extraction Rig",
+  title: "Map/Structures/Umbrite Rig",
   argTypes: {
     cameraDistance: { control: { type: "range", min: 2, max: 16, step: 0.5 } },
     spacing: { control: { type: "range", min: 0.8, max: 2.5, step: 0.1 } },

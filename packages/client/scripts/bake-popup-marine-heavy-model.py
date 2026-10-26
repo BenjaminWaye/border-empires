@@ -20,6 +20,14 @@
 # translate) reproduces each bone's actual on-screen orientation, then a
 # visual bake writes real keys for the new rig.
 #
+# NOTE: that world-rotation copy is NOT enough on its own -- it is relative to
+# each bone's rest pose that skinning works, so the baked clips crumple the
+# armour (see retarget-popup-marine-heavy-clips.py's header). Always run that
+# script on this bake's output before shipping it; it also adds the Dead clip
+# the bake leaves out. popup-marine-asset.test.ts fails a crumpled model. The
+# retarget only aligns the arm bones' direction, not their twist, so the rifle
+# aims a few degrees off the standard marine's, not "precisely" as below.
+#
 # The rifle: Meshy drops anything held when it builds an A-pose model, so the
 # sculpt's hands are empty. The standard marine's right hand and rifle (one
 # shell, skinned to RightHand) are grafted on instead, placed in the new

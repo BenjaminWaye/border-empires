@@ -184,6 +184,18 @@ Generation runs in a Web Worker so the UI stays responsive even while the seed-r
 > repo today will not make it a buildable structure. The historical proposal is
 > retained at `docs/archive/design-history-2026/gltf-model-pipeline-plan.md`.
 
+Town support structures use the shared procedural district kit in
+`packages/client/src/client-town-district/`, including matching foundations,
+service connections and generated 2D SVG artwork. See
+[the district renderer reference](docs/town-support-districts.md) for coverage,
+model entrypoints and icon regeneration. The six completed Great Projects use
+`packages/client/src/client-monuments/`; see [the monument model reference](docs/monument-models.md)
+for their component identities, renderer routing and artwork generation. Storybook’s **Map / Structures / All
+Structures** reviews all current buildable structures using their production 3D
+models, canonical names and shared gameplay descriptions; superseded studies
+are labelled Legacy. Mine, harbor, relay, aether and Umbrite platform art is covered
+in the [infrastructure model reference](docs/infrastructure-models.md).
+
 ### Format
 
 | | |
@@ -272,11 +284,19 @@ After a PR merges, remove the worktree and branch before marking the task done. 
 
 ---
 
+## Sync-delay debug logs
+
+Download the debug log soon after a sync warning. It includes actual command
+send/accept timings, recent warning windows, browser stalls and disconnect
+history. Signed-in players also get their own server command traces; server
+collection failures are explicit. See the [diagnostic runbook](docs/agents/topics/sync-delay-diagnostics.md)
+for timing interpretation, privacy boundaries and retention limits.
+
 ## Client Release Notes
 
 When shipping a user-facing client update, add a new entry to `packages/client/src/client-changelog/client-changelog-data.ts` (`CLIENT_CHANGELOG_ENTRIES`) in the same branch:
 
-- Each entry: `createdAt` (`Date.now()`), `introducedIn`, `title`, `why`, `changes`.
+- Each entry: `createdAt` (a frozen numeric timestamp captured once from `Date.now()`), `introducedIn`, `title`, `why`, `changes`.
 - Entries are unordered in the source — append yours anywhere; `client-changelog.ts` sorts by `createdAt` before rendering. There's no shared `version` field, so parallel branches adding entries don't conflict.
 - Write both why the change was made and what changed.
 - `pnpm check:client-changelog` fails when product code changes on a branch without a new changelog entry (a new `createdAt` timestamp).

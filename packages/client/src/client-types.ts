@@ -1,4 +1,5 @@
-import type { DiplomacyTerms, FrontierDecayKind, MusterState,  ObservatorySiphonMode, ProspectSignature, Terrain, WaystationTileState } from "@border-empires/shared";
+import type { ClientTileObservatory, ClientTileSiegeBattery } from "./client-tile-defense-types.js";
+import type { DiplomacyTerms, FrontierDecayKind, MusterState, ProspectSignature, Terrain, WaystationTileState } from "@border-empires/shared";
 import type { ClientTileEconomicStructure } from "./client-tile-economic-structure-type.js";
 import type { ClientTownWireSummary } from "./client-tile-town-type.js";
 import type { ClientTileFort } from "./client-tile-fort-type.js";
@@ -115,15 +116,8 @@ export type Tile = {
   naturalWonder?: import("@border-empires/shared").NaturalWonderState | null;
   town?: ClientTownWireSummary;
   fort?: ClientTileFort;
-  observatory?: { ownerId: string; status: "under_construction" | "active" | "inactive" | "removing"; completesAt?: number; startedAt?: number; pausedAt?: number; suppressedUntil?: number; cooldownUntil?: number; siphon?: ObservatorySiphonMode };
-  siegeBattery?: {
-    ownerId: string;
-    status: "under_construction" | "active" | "removing";
-    variant?: "SIEGE_BATTERY" | "SIEGE_TOWER" | "DREAD_TOWER";
-    completesAt?: number;
-    startedAt?: number;
-    pausedAt?: number;
-  };
+  observatory?: ClientTileObservatory;
+  siegeBattery?: ClientTileSiegeBattery;
   economicStructure?: ClientTileEconomicStructure;
   upkeepEntries?: TileUpkeepEntry[];
   sabotage?: { ownerId: string; endsAt: number; outputMultiplier: number; observatoryTileKey?: string };
@@ -221,6 +215,9 @@ export type SeasonVictoryObjectiveView = {
   holdRemainingSeconds?: number;
   statusLabel: string;
   conditionMet: boolean;
+  /** Leader's and the viewer's own 0..1 progress to the win line (Ranks race tracks). */
+  progress?: number;
+  selfProgress?: number;
 };
 
 export type TileTimedProgress = {

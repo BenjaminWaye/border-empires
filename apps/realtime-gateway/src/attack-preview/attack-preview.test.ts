@@ -6,6 +6,8 @@ describe("attackPreviewResult", () => {
   // Both factory types owned by the defender, so the "no war industry"
   // vulnerability multiplier (empire-wide, always evaluated) stays neutral
   // and these tests isolate only the multiplier they're actually about.
+  // Titanium (+1.5%) x Umbrite (+3%) attack from one copy of each.
+  const ATTACKER_FACTORY_MULT = 1.015 * 1.03;
   const warIndustryTiles = (ownerId: string) => [
     { x: 2, y: 0, ownerId, ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ ownerId, type: "TITANIUM_WEAPONS_FACTORY", status: "active" }) },
     { x: 3, y: 0, ownerId, ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ ownerId, type: "UMBRITE_WEAPONS_FACTORY", status: "active" }) }
@@ -114,19 +116,34 @@ describe("attackPreviewResult", () => {
     expect(wrongOwnerPreview.defMult).toBeCloseTo(1.3, 6);
   });
 
-  it("doubles the defender's defMult when the attacker has no war industry, and clears once both factory types exist", async () => {
+  it("doubles the defender's defMult only for a factory type the defender owns and the attacker lacks", async () => {
     const message = { fromX: 0, fromY: 0, toX: 1, toY: 0 };
-    const buildTiles = (attackerFactories: ReturnType<typeof warIndustryTiles>) => [
+    const titaniumFactory = (ownerId: string, x: number) => ({ x, y: 0, ownerId, ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ ownerId, type: "TITANIUM_WEAPONS_FACTORY", status: "active" }) });
+    const buildTiles = (...extra: ReturnType<typeof titaniumFactory>[]) => [
       { x: 0, y: 0, ownerId: "player-1", ownershipState: "SETTLED" },
       { x: 1, y: 0, ownerId: "player-2", ownershipState: "SETTLED" },
-      ...attackerFactories
+      ...extra
     ];
+    type BattleRow = { label: string; mult: number };
+    const battleRows = (side: unknown): BattleRow[] => (side as { battle: BattleRow[] }).battle;
 
-    const noWarIndustry = await attackPreviewResult("player-1", buildTiles([]), undefined, message, [], []);
-    const bothFactoryTypes = await attackPreviewResult("player-1", buildTiles(warIndustryTiles("player-1")), undefined, message, [], []);
+    // Neither side owns a factory: no war-industry bonus either way.
+    const neither = await attackPreviewResult("player-1", buildTiles(), undefined, message, [], []);
+    expect(neither.atkMult).toBeCloseTo(1, 6);
+    expect(neither.defMult).toBeCloseTo(1.3, 6);
 
-    expect(noWarIndustry.defMult).toBeCloseTo(1.3 * 2.0, 6);
-    expect(bothFactoryTypes.defMult).toBeCloseTo(1.3, 6);
+    // Regression: attacker with no factories vs a Titanium-only defender.
+    // The attacker used to get +100% for the defender's missing Umbrite and
+    // the defender's row read "Attacker missing Titanium & Umbrite".
+    const titaniumDefender = await attackPreviewResult("player-1", buildTiles(titaniumFactory("player-2", 2)), undefined, message, [], []);
+    expect(titaniumDefender.atkMult).toBeCloseTo(1, 6);
+    expect(titaniumDefender.defMult).toBeCloseTo(1.3 * 1.03 * 2.0, 6);
+    expect(battleRows(titaniumDefender.attacker).some((row) => row.label.includes("Weapons Factory"))).toBe(false);
+    expect(battleRows(titaniumDefender.defender).find((row) => row.mult === 2)?.label).toBe("Attacker missing Titanium Weapons Factory");
+
+    // Both own Titanium: neither side holds an edge.
+    const bothTitanium = await attackPreviewResult("player-1", buildTiles(titaniumFactory("player-1", -1), titaniumFactory("player-2", 2)), undefined, message, [], []);
+    expect(bothTitanium.defMult).toBeCloseTo(1.3 * 1.03, 6);
   });
 
   // Regression: breaking an alliance immediately drops the shared ally
@@ -142,9 +159,13 @@ describe("attackPreviewResult", () => {
     const message = { fromX: 0, fromY: 0, toX: 1, toY: 0 };
     // The attacker's own tileMap only carries the target's border tile —
     // the ex-ally's interior factory tiles have fallen out of vision.
+    // The attacker owns both factory types (read from its own tileMap), so
+    // a false "defender is missing factories" reading would show up as a
+    // 2x attack edge.
     const tiles = [
       { x: 0, y: 0, ownerId: "player-1", ownershipState: "SETTLED" },
-      { x: 1, y: 0, ownerId: "player-2", ownershipState: "SETTLED" }
+      { x: 1, y: 0, ownerId: "player-2", ownershipState: "SETTLED" },
+      ...warIndustryTiles("player-1")
     ];
     const getPlayerFactoryCounts = async (playerId: string) =>
       playerId === "player-2" ? { titanium: 1, umbrite: 1 } : undefined;
@@ -161,8 +182,8 @@ describe("attackPreviewResult", () => {
       getPlayerFactoryCounts
     );
 
-    expect(withoutAuthoritativeCounts.atkMult).toBeCloseTo(2.0, 6);
-    expect(withAuthoritativeCounts.atkMult).toBeCloseTo(1.0, 6);
+    expect(withoutAuthoritativeCounts.atkMult).toBeCloseTo(ATTACKER_FACTORY_MULT * 2.0, 6);
+    expect(withAuthoritativeCounts.atkMult).toBeCloseTo(ATTACKER_FACTORY_MULT, 6);
   });
 
   // Regression: a second, still-live gap in the same mechanism as above.
@@ -178,9 +199,13 @@ describe("attackPreviewResult", () => {
   // GetPlayerCombatSummary RPC) instead of returning undefined.
   it("does not apply the no-war-industry penalty against an offline defender when getPlayerCombatSummary reports their factories", async () => {
     const message = { fromX: 0, fromY: 0, toX: 1, toY: 0 };
+    // The attacker owns both factory types (read from its own tileMap), so
+    // a false "defender is missing factories" reading would show up as a
+    // 2x attack edge.
     const tiles = [
       { x: 0, y: 0, ownerId: "player-1", ownershipState: "SETTLED" },
-      { x: 1, y: 0, ownerId: "player-2", ownershipState: "SETTLED" }
+      { x: 1, y: 0, ownerId: "player-2", ownershipState: "SETTLED" },
+      ...warIndustryTiles("player-1")
     ];
     // Neither player has a live cached subscription snapshot (both offline).
     const snapshotForPlayer = () => undefined;
@@ -201,8 +226,8 @@ describe("attackPreviewResult", () => {
       makeGetPlayerFactoryCounts(snapshotForPlayer, getPlayerCombatSummary)
     );
 
-    expect(withoutCombatSummaryFallback.atkMult).toBeCloseTo(2.0, 6);
-    expect(withCombatSummaryFallback.atkMult).toBeCloseTo(1.0, 6);
+    expect(withoutCombatSummaryFallback.atkMult).toBeCloseTo(ATTACKER_FACTORY_MULT * 2.0, 6);
+    expect(withCombatSummaryFallback.atkMult).toBeCloseTo(ATTACKER_FACTORY_MULT, 6);
   });
 
   it("getPlayerCombatSummary fallback errors are swallowed rather than rejecting the whole preview", async () => {

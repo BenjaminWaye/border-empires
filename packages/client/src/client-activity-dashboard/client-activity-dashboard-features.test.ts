@@ -39,7 +39,7 @@ describe("cards and summary name what fell with the tiles", () => {
   it("names them on the summary line", () => {
     const summary = { tilesClaimed: 1, tilesLost: 5, waystationsActivated: 0, townsCaptured: 0, townsLost: 0, buildingsCompleted: 0, featuresLost: [palisade, dock, wonder], featuresCaptured: [dock] };
     const timeline = { goldPlundered: 0, goldRaidedFromYou: 0, manpowerSpentAttacking: 0 } as PersonalActivityTimeline;
-    expect(summaryCountsLine(summary, timeline, 1000)).toBe("+1 tiles claimed · −5 tiles lost · Lost your Palisade, Dock and Foundry Heart wonder · Captured their Dock");
+    expect(summaryCountsLine(summary, timeline, 1000)).toBe("+1 tile claimed · −5 tiles lost · Lost your Palisade, Dock and Foundry Heart wonder · Captured their Dock");
   });
 
   it("names them on a rival's push", () => {
@@ -71,9 +71,9 @@ describe("cards and summary name what fell with the tiles", () => {
       kind: "SIEGE", id: "s", occurredAt: 60 * 60_000, startedAt: 0, x: 211, y: 186, outcome: "FELL", assaultsRepelled: 3, originsSeized: 0,
       attackerIds: ["maren"], manpowerSpentAgainst: 240, defenseVariant: "PALISADE", capturedBy: "maren", capturedFeatures: [palisade]
     };
-    expect(siegeCardText(siege, names)).toBe("Your Palisade fell to Maren after a 1h siege · Held off 3 assaults from Maren · cost them 240 manpower");
+    expect(siegeCardText(siege, names)).toBe("Your Palisade fell to Maren after a 1h siege · Held off 3 assaults before it fell · Maren spent 240 manpower attacking it");
     expect(siegeCardText({ ...siege, capturedFeatures: [palisade, dock], originsSeized: 1, seizedOriginFeatures: [wonder] }, names))
-      .toBe("Your Palisade fell to Maren after a 1h siege (with your Dock) · Held off 3 assaults from Maren · seized 1 of their tiles (incl. their Foundry Heart wonder) · cost them 240 manpower");
+      .toBe("Your Palisade fell to Maren after a 1h siege (with your Dock) · Held off 3 assaults before it fell · seized 1 of their tiles (incl. their Foundry Heart wonder) · Maren spent 240 manpower attacking it");
   });
 });
 

@@ -1,4 +1,4 @@
-import { TERRITORY_FLIP_WINDOW_MS, type TerritoryFlip } from "../territory-flip-log/territory-flip-log.js";
+import { latestFlipPerTile, TERRITORY_FLIP_WINDOW_MS, uniqueTileCount, type TerritoryFlip } from "../territory-flip-log/territory-flip-log.js";
 import type { CombatManpowerLoss } from "../combat-manpower-log/combat-manpower-log.js";
 import { PERSONAL_ACTIVITY_TIMELINE_CARD_CAP, type PersonalActivityCard, type PersonalActivityTimeline } from "@border-empires/game-domain";
 import { groupTerritoryFlipsForPlayer } from "./personal-activity-territory-grouping.js";
@@ -44,8 +44,14 @@ export const aggregatePersonalActivity = (
   const knownCaptures = [...knownCaptureByKey.values()];
   const matches = matchCombatToFlips(loggedCombat, relevantFlips, to, knownCaptures);
   const relevantCombat = matches.combat;
-  const territoryCards = groupTerritoryFlipsForPlayer(playerId, relevantFlips.filter((flip) => !matches.consumedFlips.has(flip)));
-  const sieges = siegeCardsForDefender(playerId, relevantCombat, matches.originSeized, matches.tileFeatures);
+  const unclaimedFlips = relevantFlips.filter((flip) => !matches.consumedFlips.has(flip));
+  // Tiles the player lost to someone that no winning assault explains: never
+  // claimed, or claimed only as the launch tile of the player's own failed
+  // counter-attack. Either way a siege on that tile ended there.
+  const unexplainedLosses = relevantFlips.filter((flip) => flip.fromOwner === playerId && flip.toOwner !== undefined && flip.toOwner !== playerId &&
+    (!matches.consumedFlips.has(flip) || matches.seizedFlips.has(flip)));
+  const sieges = siegeCardsForDefender(playerId, relevantCombat, matches.originSeized, matches.tileFeatures, unexplainedLosses);
+  const territoryCards = groupTerritoryFlipsForPlayer(playerId, unclaimedFlips.filter((flip) => !sieges.consumedFlips.has(flip)));
   const combatCards = combatCardsWithGroups(playerId, relevantCombat.filter((loss) => !sieges.consumed.has(loss)), matches.originSeized, matches.tileFeatures);
   const impactCards = personalImpactCardsForPlayer(playerId, relevantImpacts);
   const allCards: PersonalActivityCard[] = [...territoryCards, ...combatCards, ...sieges.cards, ...impactCards.waystations, ...impactCards.towns, ...impactCards.docks, ...impactCards.buildings];
@@ -53,12 +59,14 @@ export const aggregatePersonalActivity = (
 
   const claimedFlips = relevantFlips.filter((flip) => flip.toOwner === playerId && flip.fromOwner !== playerId);
   const lostFlips = relevantFlips.filter((flip) => flip.fromOwner === playerId && flip.toOwner !== playerId);
-  // Every flip, like the tile counts: what fell is named up top even when its
-  // card was folded into a combat card or dropped by the card cap. Docks are
-  // not flip features (they have their own notes), so they come from those.
+  // Every tile, like the tile counts: what fell is named up top even when its
+  // card was folded into a combat card or dropped by the card cap. A tile lost
+  // or taken more than once names its features once, from its latest flip.
+  // Docks are not flip features (they have their own notes), so they come
+  // from those.
   const dockFeatures = (kind: "DOCK_LOST" | "DOCK_CAPTURED") => impactCards.docks.filter((card) => card.kind === kind).map(() => ({ kind: "DOCK" as const }));
-  const featuresLost = viewerFeatureCounts([...lostFlips.flatMap((flip) => flip.features ?? []), ...dockFeatures("DOCK_LOST")], false);
-  const featuresCaptured = viewerFeatureCounts([...claimedFlips.filter((flip) => flip.fromOwner !== undefined).flatMap((flip) => flip.features ?? []), ...dockFeatures("DOCK_CAPTURED")], true);
+  const featuresLost = viewerFeatureCounts([...latestFlipPerTile(lostFlips).flatMap((flip) => flip.features ?? []), ...dockFeatures("DOCK_LOST")], false);
+  const featuresCaptured = viewerFeatureCounts([...latestFlipPerTile(claimedFlips.filter((flip) => flip.fromOwner !== undefined)).flatMap((flip) => flip.features ?? []), ...dockFeatures("DOCK_CAPTURED")], true);
   const manpowerSpentAttacking = relevantCombat
     .filter((loss) => loss.attackerId === playerId)
     .reduce((sum, loss) => sum + loss.manpowerLoss, 0);
@@ -74,8 +82,8 @@ export const aggregatePersonalActivity = (
     from,
     to,
     summary: {
-      tilesClaimed: claimedFlips.length,
-      tilesLost: lostFlips.length,
+      tilesClaimed: uniqueTileCount(claimedFlips),
+      tilesLost: uniqueTileCount(lostFlips),
       waystationsActivated: impactCards.waystations.length,
       townsCaptured: impactCards.towns.filter((card) => card.kind === "TOWN_CAPTURED").length,
       townsLost: impactCards.towns.filter((card) => card.kind === "TOWN_LOST").length,

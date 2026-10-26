@@ -114,26 +114,36 @@ one-off materials for everything.
 
 ## 8. Client: 2D icon (required)
 
+For town-support structures and district utilities, follow the shared model,
+platform, port and generated 2D-art contract in
+[`town-support-districts.md`](town-support-districts.md). Add the kind to the
+district catalogue/model dispatch, verify its role against the current registry
+and effect implementation, record its brief in `district-model-briefs.ts`, and
+regenerate its icon; a dedicated old
+overlay must not bypass the production district renderer.
+
 Add an SVG to `packages/client/public/overlays/<kebab-name>-overlay.svg`.
 No registration needed — `packages/storybook/src/assets/SvgOverlays.stories.ts`
 auto-discovers every file in that directory via `import.meta.glob`, and
-`imageFor()` (step 9) is the only place that needs to reference the path.
+the structure-art mapping (step 9) is the only place that needs to reference the path.
 
 ## 9. Client: display text, icon lookup, tooltip (required)
 
-All in `packages/client/src/client-map-display.ts`:
-- Add the type to `StructureInfoKey` and to `STRUCTURE_BRANCH_BY_KEY`
+The structure-info key type derives from the canonical shared display-name keys.
+- Add the type to `STRUCTURE_BRANCH_BY_KEY` in `client-map-display.ts`
   (War/Economy/Manpower/Aether — for the branch-tag UI).
 - Display name: comes from `STRUCTURE_DISPLAY_NAMES` (step 1); never hardcode it.
-- `structureBaseKey()`'s return-type union: add the type here too (only if
-  it isn't an upgrade-tier alias of an existing type).
-- `effectsFor()`: bullet-point list shown in the detail tooltip.
-- `imageFor()`: the SVG path from step 8.
-- **The explicit `if (type === "<TYPE>") { return structure({...}) }`
-  tooltip block.** This is easy to skip because there's a silent fallback
-  at the end of the function — skip this and the structure's tooltip
-  silently renders as "Siege Battery" (a real, still-unfixed bug for
-  several older structures; don't add a new instance of it).
+- Add glyph and placement guidance in
+  `client-structure-info-catalog/structure-presentation.ts`.
+- Record the verified gameplay role and identifying visible assembly in
+  `client-town-district/district-model-briefs.ts` for district models, or
+  `client-structure-info-catalog/structure-model-briefs.ts` otherwise. Check
+  runtime effects and shared constants before writing this copy. The menu and
+  3D identity review share the role; keep numeric values constant-backed.
+- `structureBaseKey()` in `client-structure-cost-bits.ts`: add the type if
+  it is not an upgrade-tier alias of an existing type.
+- `effectsFor()` in `client-map-display.ts`: qualitative tooltip bullets.
+- Register the SVG in `client-structure-art/client-structure-art.ts`.
 - `costBitsFor()` usually needs no per-type entry — it derives generically
   from `structureCostDefinition` unless the structure has a non-standard
   upgrade-tier cost curve (see the `IRON_BASTION`/`SIEGE_TOWER` special
@@ -254,10 +264,13 @@ Client-side, add the matching label in two places:
 
 ## 13. Storybook demo
 
-`packages/storybook/src/map/structures/AllStructures.stories.ts` — add the type to
-the `KINDS` array (for the `AllKinds`/gallery view) and a single-instance
-`export const <Name>: Story = { args: { structures: ["<TYPE>"], cameraDistance: <N> } };`.
-The 2D icon needs no story of its own (auto-discovered, see step 8).
+`packages/storybook/src/map/structures/AllStructures.stories.ts` derives its
+60 current choices from `STRUCTURE_REGISTRY`, excludes retired save types, and
+shows the actual live-map 3D model beside its canonical name and verified role.
+Extend `client-structure-info-catalog/structure-overlay-route.ts` when adding a
+new renderer family; the coverage test requires visible geometry and clean
+disposal for every registry entry. Superseded art studies must be labelled
+Legacy. The 2D icon is auto-discovered (step 8).
 
 ## 14. Changelog entry (required to push — pre-push hook enforced)
 

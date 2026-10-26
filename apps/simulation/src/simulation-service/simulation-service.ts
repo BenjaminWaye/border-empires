@@ -66,7 +66,7 @@ import { parsePendingImperialWard } from "../runtime-imperial-ward-command-handl
 import { buildFilteredTileDeltasForSubscriber } from "../tile-delta-fanout-filter.js";
 import { loadSimulationStartupRecovery } from "../startup-recovery/startup-recovery.js";
 import { createStartupReplayCompactionRunner } from "../startup-replay-compaction.js";
-import { buildWorldStatusSnapshot } from "../world-status-snapshot/world-status-snapshot.js";
+import { buildWorldStatusSnapshot, emptySelfProgressCache, selfProgressCacheOf, type SelfProgressCache } from "../world-status-snapshot/world-status-snapshot.js";
 import { createGlobalStatusBroadcastScheduler } from "../global-status-broadcast-scheduler/global-status-broadcast-scheduler.js";
 import { parseSubscribeOptions, shouldServeCachedSubscribeSnapshot } from "../parse-subscribe-options/parse-subscribe-options.js";
 import { laneForCommand } from "../command-lane/command-lane.js";
@@ -985,7 +985,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let currentSummarySignature = currentSummary ? leaderboardSignature(currentSummary) : "";
   // Bounded by competitive player count (same lifecycle as currentSummary.overall);
   // replaced wholesale on every recompute below, never persisted, never appended to.
-  let currentSummaryPlayerSelfProgress: ReturnType<typeof buildWorldStatusSnapshot>["allPlayerSelfProgressLabels"] = new Map();
+  let currentSummaryPlayerSelfProgress: SelfProgressCache = emptySelfProgressCache();
   let lastCurrentSummaryPersistedAt = currentSummary?.updatedAt ?? 0;
   let seasonVictoryTimer: ReturnType<typeof setTimeout> | undefined;
   let seasonRolloverInFlight = false;
@@ -1181,7 +1181,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms(),
       ...(options.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : {})
     });
-    currentSummaryPlayerSelfProgress = worldStatus.allPlayerSelfProgressLabels;
+    currentSummaryPlayerSelfProgress = selfProgressCacheOf(worldStatus);
     const baseSummary = buildCurrentSeasonSummary({
       seasonState: currentSeasonState,
       runtimeState,
@@ -1821,7 +1821,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       });
       currentSummary = nextSummary;
       currentSummarySignature = leaderboardSignature(nextSummary);
-      currentSummaryPlayerSelfProgress = nextWorldStatus.allPlayerSelfProgressLabels;
+      currentSummaryPlayerSelfProgress = selfProgressCacheOf(nextWorldStatus);
       lastCurrentSummaryPersistedAt = nextSummary.updatedAt;
       // Old timer's closure captured the previous season's state, so clear it —
       // but re-arm the 5-min fallback for the new season, otherwise no code

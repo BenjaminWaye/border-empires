@@ -94,14 +94,7 @@ const FLASH_SIZE = 0.006 * MARINE_MODEL_SCALE;
 // from the marine root's scale below, so the flash stays attached to the
 // muzzle at any model scale without double-scaling this offset.
 const MUZZLE_LOCAL_OFFSET = new Vector3(0, 0, 0.017);
-// How far a collapsed (killed) marine sinks, in tile-local units — applied
-// to the root's position rather than mesh-local space, so unlike
-// MUZZLE_LOCAL_OFFSET this DOES need MARINE_MODEL_SCALE applied directly to
-// stay visually proportional to the model.
-const FALL_DROP = 0.018 * MARINE_MODEL_SCALE;
 const UP_AXIS = new Vector3(0, 1, 0);
-// Axis a killed marine topples around.
-const FWD_AXIS = new Vector3(0, 0, 1);
 // Up to 3 fire pulses can be in flight per marine at once (one per fireAt);
 // the shot renderer sizes its own bolt/spark pools from this.
 const MAX_BOLTS = MAX_MARINES * 2 * 3;
@@ -129,7 +122,6 @@ export function createPopupMarineOverlayFx(scene: Scene, envMap?: Texture) {
   const pools = createMarinePools(scene, MAX_MARINES, envMap);
 
   const tmpQuat = new Quaternion();
-  const fallQuat = new Quaternion();
   const flashPos = new Vector3();
   const flashM = new Matrix4();
   const flashQuat = new Quaternion();
@@ -167,23 +159,20 @@ export function createPopupMarineOverlayFx(scene: Scene, envMap?: Texture) {
     pose: MarinePose,
     nowMs: number
   ): void => {
-    const yOffset = -FALL_DROP * pose.fallT;
     slot.root.visible = pose.scale > 0;
     if (!slot.root.visible) return;
-    slot.root.position.set(tileX + pose.localX, tileY + MARINE_Y_OFFSET + yOffset + (pose.localY ?? 0), tileZ + pose.localZ);
+    slot.root.position.set(tileX + pose.localX, tileY + MARINE_Y_OFFSET + (pose.localY ?? 0), tileZ + pose.localZ);
+    // A killed marine's fall is the rig's own Dead clip (playMarineStance),
+    // so the root stays upright and on the ground rather than toppling.
     tmpQuat.setFromAxisAngle(UP_AXIS, pose.yaw);
-    if (pose.fallT > 0) {
-      fallQuat.setFromAxisAngle(FWD_AXIS, (Math.PI / 2) * pose.fallT);
-      tmpQuat.multiply(fallQuat);
-    }
     slot.root.quaternion.copy(tmpQuat);
     slot.root.scale.setScalar(Math.max(0, pose.scale) * MARINE_MODEL_SCALE);
     slot.material.color.set(color);
     slot.silhouette.material.color.set(color);
-    // A falling marine is sinking out of the fight on purpose; don't x-ray
-    // it back up through the ground (see popup-marine-occlusion-silhouette.ts).
+    // A falling marine is going down onto the ground; don't x-ray it through
+    // the terrain (see popup-marine-occlusion-silhouette.ts).
     slot.silhouette.visible = pose.fallT <= 0;
-    playMarineStance(slot, pose.stance, nowMs);
+    playMarineStance(slot, pose.stance, nowMs, pose.fallT);
     slot.root.updateMatrixWorld(true);
   };
 

@@ -1,4 +1,5 @@
 import { syntheticOverlayTileFor3DPopulation } from "./client-map-3d-population/client-map-3d-synthetic-overlay-tile.js";
+import { tileHasTownIdentity } from "./client-town-identity.js";
 import { drawMapSelection2D } from "./client-garrison-many/client-map-selection-2d.js";
 import { MIN_ZOOM } from "./client-constants.js"; import { startTileMenuDecayTicker } from "./client-tile-menu-decay-ticker/client-tile-menu-decay-ticker.js"; import { startMusterStatusTicker } from "./client-muster-status-ticker/client-muster-status-ticker.js"; import { startMusterMenuRepaintTicker } from "./client-muster-menu-repaint-ticker/client-muster-menu-repaint-ticker.js";
 import { startLoadingTimerTicker } from "./client-loading-timer-ticker/client-loading-timer-ticker.js";
@@ -7,11 +8,11 @@ import { updateMusicForGameState } from "./client-audio/client-audio.js";
 import { computeWarMusicSignals } from "./client-war-music-signal/client-war-music-signal.js";
 import { drawableIncomingAttack } from "./client-siege-tracking/client-siege-tracking.js";
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
-import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "./client-defensibility-tile.js";
+import { drawTileIntelOverlays2D, tileIntelDeps2D } from "./client-map-2d-tile-intel/client-map-2d-tile-intel.js";
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import { drawResourceOverlay2D } from "./client-resource-overlay-2d/client-resource-overlay-2d.js";
 import { drawLoopMinFrameGapMs } from "./client-runtime-loop-frame-gap.js";
-import { drawLiveOwnershipTint2D } from "./client-map-render/client-map-render-live-ownership-tint.js";
+import { drawVisibleTerrain2D } from "./client-map-render/client-map-render-visible-terrain.js";
 import { drawSelectedDockSeaRoute2D } from "./client-dock-route-draw.js";
 import { isStructureHandledBy3D } from "./client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor/client-fps-monitor.js";
@@ -38,7 +39,7 @@ import { createPersistentAlertsFrame } from "./client-persistent-alerts/client-p
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { drawTileFeatureOverlays2D } from "./client-map-2d-tile-feature-overlays.js";
 import { drawTownSupportPlot2D } from "./client-map-2d-town-support-tile-overlay.js";
-import { townSupportPlotMapFor2D } from "./client-town-support-plot-lookup.js";
+import { createDistrictCanvas } from "./client-town-district/district-canvas.js";
 import { fireDueMusterTransits } from "./client-muster-transit/client-muster-transit.js";
 import { drawMusterOverlays2D } from "./client-muster-supply-lines-2d.js";
 import { createConstructionCountdownOverlay2D } from "./client-construction-countdown/client-construction-countdown-overlay-2d.js";
@@ -185,6 +186,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     state.activePanel = "domains"; state.mobilePanel = "domains"; state.domainDetailOpen = false; state.techDetailOpen = false; deps.renderHud();
   });
   const drawPersistentAlertsFrame = createPersistentAlertsFrame(state);
+  const districtCanvas = createDistrictCanvas({ state, ctx: deps.ctx, visibilityAt: deps.tileVisibilityStateAt, terrainAt, worldToScreen: deps.worldToScreen });
   // Player names (zoomed out) / island names (zoomed in), 2D map only: true-3D paints them onto the ground instead (client-map-3d-name-decal).
   const mapNameLabels = createMapNameLabels({ state, ctx: deps.ctx, isExploredAt: (x, y) => deps.tileVisibilityStateAt(x, y, state.tiles.get(deps.keyFor(x, y))) !== "unexplored", wrapX: deps.wrapX, wrapY: deps.wrapY });
   const drawConstructionCountdownOverlay = createConstructionCountdownOverlay2D(deps);
@@ -245,6 +247,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     // Reach overlay: resolveMyReachCached recomputes only when tiles or the
     // server reach actually changed (same cache the 3D renderer uses).
     const myReach = isTrue3DRendererActive() ? state.myReach : resolveMyReachCached(state);
+    const tileIntel2D = tileIntelDeps2D(state, { keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, terrainAt }, isTrue3DRendererActive()); // weak-defensibility + Diplomacy tint, client-map-2d-tile-intel.ts
     const reachTileDeps2D = { me: state.me, tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, ownerColor: deps.effectiveOverlayColor }; // hoisted: drawReachTileTreatments2D runs per visible tile per frame
     const aetherTowerSpriteDeps2D = { ctx: deps.ctx, sprite: deps.structureOverlayImages.OBSERVATORY, structureAccentColor: deps.structureAccentColor };
     const tileFeatureDeps2D = { relicMapHints: state.relicMapHints, ctx: deps.ctx, structureAccentColor: deps.structureAccentColor, effectiveOverlayColor: deps.effectiveOverlayColor, afcJoinDrop: state.afcJoinDrop, afcModuleDeliveryLandedAt: state.afcModuleDeliveryLandedAt }; // hoisted: drawTileFeatureOverlays2D runs per visible tile per frame
@@ -264,12 +267,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       queueIndex.set(deps.keyFor(q.x, q.y), i + 1);
     }
     // 2D support-plot ring; shared eligibility logic in client-town-support-plot-lookup.ts
-    const townSupportPlots = isTrue3DRendererActive()
-      ? new Map<string, boolean>()
-      : townSupportPlotMapFor2D(
-          state.selected ? state.tiles.get(deps.keyFor(state.selected.x, state.selected.y)) : undefined,
-          { tiles: state.tiles, wrapX: deps.wrapX, wrapY: deps.wrapY, keyFor: deps.keyFor, terrainAt, me: state.me }
-        );
+    const townSupportPlots = districtCanvas.plots(isTrue3DRendererActive());
     if (size >= 14 && (roadNetworkBuiltAt === 0 || nowMs - roadNetworkBuiltAt > 450)) {
       roadNetwork = buildRoadNetwork({
         tiles: state.tiles,
@@ -389,7 +387,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
       }
 
-      if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
+      if (overlayTile && overlayVisible && tileHasTownIdentity(overlayTile) && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
 
       drawTileFeatureOverlays2D(tileFeatureDeps2D, t, wk, vis, px, py, size, nowMs);
       if (vis === "visible" && !isTrue3DRendererActive() && townSupportPlots.has(wk)) drawTownSupportPlot2D(deps.ctx, px, py, size, townSupportPlots.get(wk)!); if (!isTrue3DRendererActive() && vis === "visible") { const shieldCoverage2D = tileShieldCoverage(wx, wy, knownShieldFlags2D); if (shieldCoverage2D) drawShieldAreaTile2D(deps.ctx, deps.effectiveOverlayColor(shieldCoverage2D.ownerId), px, py, size); const winChanceLabel2D = winChancePaintColorForTile2D(state.winChancePaint, wx, wy); if (winChanceLabel2D) drawWinChanceLabel2D(deps.ctx, winChanceLabel2D, px, py, size); } // F4: 2D win-chance paint (F0) + shield-area (F3) parity
@@ -573,49 +571,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           });
         }
       }
-      if (state.showWeakDefensibility && vis === "visible" && isOwnedSettledLandTile(t, state.me)) {
-        const exposedSides = exposedSidesForTile(t, {
-          tiles: state.tiles,
-          me: state.me,
-          keyFor: deps.keyFor,
-          wrapX: deps.wrapX,
-          wrapY: deps.wrapY,
-          terrainAt
-        });
-        const severity = weakDefensibilitySeverity(exposedSides.length);
-        if (severity) {
-          const critical = severity === "critical";
-          deps.ctx.fillStyle = critical ? "rgba(255, 84, 84, 0.18)" : "rgba(255, 173, 92, 0.12)";
-          deps.ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
-          deps.ctx.strokeStyle = critical ? "rgba(255, 84, 84, 0.92)" : "rgba(255, 173, 92, 0.88)";
-          deps.ctx.lineWidth = critical ? 4 : 3;
-          deps.ctx.beginPath();
-          if (exposedSides.includes("north")) {
-            deps.ctx.moveTo(px + 1, py + 2);
-            deps.ctx.lineTo(px + size - 1, py + 2);
-          }
-          if (exposedSides.includes("east")) {
-            deps.ctx.moveTo(px + size - 2, py + 1);
-            deps.ctx.lineTo(px + size - 2, py + size - 1);
-          }
-          if (exposedSides.includes("south")) {
-            deps.ctx.moveTo(px + 1, py + size - 2);
-            deps.ctx.lineTo(px + size - 1, py + size - 2);
-          }
-          if (exposedSides.includes("west")) {
-            deps.ctx.moveTo(px + 2, py + 1);
-            deps.ctx.lineTo(px + 2, py + size - 1);
-          }
-          deps.ctx.stroke();
-          if (size >= 12) {
-            deps.ctx.fillStyle = critical ? "rgba(255, 84, 84, 0.96)" : "rgba(255, 196, 92, 0.96)";
-            deps.ctx.beginPath();
-            deps.ctx.arc(px + size * 0.5, py + size * 0.5, critical ? 2.3 : 1.8, 0, Math.PI * 2);
-            deps.ctx.fill();
-          }
-          deps.ctx.lineWidth = 1;
-        }
-      }
+      drawTileIntelOverlays2D(deps.ctx, t, vis, px, py, size, tileIntel2D);
 
       drawMapSelection2D(state, deps, wx, wy, t, px, py, size, myReach);
       const incomingAttack = drawableIncomingAttack(state, wk, Date.now());
@@ -687,10 +643,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           drawTileGround2D(deps.ctx, { wx, wy, px, py, size, tile: t, vis, terrainWhenMissing, terrainAt, drawTerrainTile: deps.drawTerrainTile, drawTerrainDetail, neighbourVisibility, nowMs: tileStartAt });
         }
 
-        if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") { deps.drawForestOverlay(wx, wy, px, py, size); deps.drawHillsOverlay(wx, wy, px, py, size); }
-
-        if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND" && t.ownerId) {
-          drawLiveOwnershipTint2D(deps.ctx, t, deps.effectiveOverlayColor(t.ownerId), wx, wy, px, py, size);
+        if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") {
+          drawVisibleTerrain2D(deps, state, t, wx, wy, px, py, size);
         }
 
         // Fogged tiles show the last-witnessed owner at a fixed dim tint —
@@ -818,7 +772,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           }
         }
 
-        if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
+        if (overlayTile && overlayVisible && tileHasTownIdentity(overlayTile) && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
 
         drawTileFeatureOverlays2D(tileFeatureDeps2D, t, wk, vis, px, py, size, nowMs);
 
@@ -946,49 +900,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             });
           }
         }
-        if (state.showWeakDefensibility && vis === "visible" && isOwnedSettledLandTile(t, state.me)) {
-          const exposedSides = exposedSidesForTile(t, {
-            tiles: state.tiles,
-            me: state.me,
-            keyFor: deps.keyFor,
-            wrapX: deps.wrapX,
-            wrapY: deps.wrapY,
-            terrainAt
-          });
-          const severity = weakDefensibilitySeverity(exposedSides.length);
-          if (severity) {
-            const critical = severity === "critical";
-            deps.ctx.fillStyle = critical ? "rgba(255, 84, 84, 0.18)" : "rgba(255, 173, 92, 0.12)";
-            deps.ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
-            deps.ctx.strokeStyle = critical ? "rgba(255, 84, 84, 0.92)" : "rgba(255, 173, 92, 0.88)";
-            deps.ctx.lineWidth = critical ? 4 : 3;
-            deps.ctx.beginPath();
-            if (exposedSides.includes("north")) {
-              deps.ctx.moveTo(px + 1, py + 2);
-              deps.ctx.lineTo(px + size - 1, py + 2);
-            }
-            if (exposedSides.includes("east")) {
-              deps.ctx.moveTo(px + size - 2, py + 1);
-              deps.ctx.lineTo(px + size - 2, py + size - 1);
-            }
-            if (exposedSides.includes("south")) {
-              deps.ctx.moveTo(px + 1, py + size - 2);
-              deps.ctx.lineTo(px + size - 1, py + size - 2);
-            }
-            if (exposedSides.includes("west")) {
-              deps.ctx.moveTo(px + 2, py + 1);
-              deps.ctx.lineTo(px + 2, py + size - 1);
-            }
-            deps.ctx.stroke();
-            if (size >= 12) {
-              deps.ctx.fillStyle = critical ? "rgba(255, 84, 84, 0.96)" : "rgba(255, 196, 92, 0.96)";
-              deps.ctx.beginPath();
-              deps.ctx.arc(px + size * 0.5, py + size * 0.5, critical ? 2.3 : 1.8, 0, Math.PI * 2);
-              deps.ctx.fill();
-            }
-            deps.ctx.lineWidth = 1;
-          }
-        }
+        drawTileIntelOverlays2D(deps.ctx, t, vis, px, py, size, tileIntel2D);
 
         drawMapSelection2D(state, deps, wx, wy, t, px, py, size, myReach);
         const incomingAttack = drawableIncomingAttack(state, wk, Date.now());
@@ -1058,6 +970,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
     }
     const roadOverlayMs = phaseMs();
+    if (!isTrue3DRendererActive()) districtCanvas.draw(size, halfW, halfH);
 
     for (const overlayTile of overlayTiles) renderOverlayTile(overlayTile); if (!isTrue3DRendererActive() && state.arrowGesture) drawArrowGesture2D(deps.ctx, state.arrowGesture, (wx2, wy2) => deps.worldToScreen(wx2, wy2, size, halfW, halfH), size); // F4: 2D arrow-gesture visual (F1/F2 parity)
     afcMapOverlays.render(overlayTiles, { size, project: (x, y) => deps.worldToScreen(x, y, size, halfW, halfH) });
