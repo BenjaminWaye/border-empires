@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { ActiveTruceView, TileActionDef } from "../client-types.js";
-import { selectBarButtons } from "./client-hud-v2-action-bar.js";
+import type { ActiveTruceView, TileActionDef, TileMenuView } from "../client-types.js";
+import { actionBarHtml, moreActions, selectBarButtons, tileFacts } from "./client-hud-v2-action-bar.js";
 import { HUD_V2_STORAGE_KEY, readHudV2Flag } from "./client-hud-v2-flag.js";
 import { orbFill, orbHtml } from "./client-hud-v2-orb.js";
 import { resourceBarHtml, slotChipState } from "./client-hud-v2-resource-bar.js";
@@ -101,39 +101,54 @@ describe("rivals strip", () => {
 });
 
 describe("action bar", () => {
-  it("makes attack the main action and keeps garrison secondary on plain land", () => {
-    const buttons = selectBarButtons({
-      actions: [act("settle_land", { label: "Garrison" }), act("launch_attack"), act("diplomacy"), act("muster_hold")],
-      buildings: [],
-      crystal: [],
-      tabs: ["overview", "actions"]
+  const view = (over: Partial<TileMenuView>): TileMenuView => ({ title: "Sand (1, 1)", subtitle: "", tabs: ["actions"], overviewLines: [], actions: [], buildings: [], crystal: [], ...over });
+
+  it("makes attack the main action with Raise flag next, and keeps Garrison off the main row", () => {
+    const buttons = selectBarButtons(view({ actions: [act("settle_land", { label: "Garrison" }), act("launch_attack"), act("diplomacy"), act("muster_hold")] }));
+    expect(buttons.map((b) => (b.kind === "action" ? b.action.id : b.panel))).toEqual(["launch_attack", "muster_hold", "diplomacy"]);
+  });
+
+  // The order asked for on your own tiles: Relay Beacon, Raise flag, Build, then Garrison (and Garrison many) below.
+  it("orders your own tile Relay Beacon, Raise flag, Build, with Garrison in the minor row", () => {
+    const v = view({
+      actions: [act("settle_land", { label: "Garrison" }), act("settle_many", { label: "Garrison many…" }), act("muster_hold", { label: "Raise flag" })],
+      buildings: [act("build_relay_beacon", { label: "Relay Beacon" }), act("build_fortification", { label: "Fort" })],
+      tabs: ["actions", "buildings"]
     });
-    expect(buttons[0]).toMatchObject({ kind: "action", primary: true, action: { id: "launch_attack" } });
-    expect(buttons.filter((b) => b.kind === "action" && !b.primary)).toHaveLength(2);
-    expect(buttons.at(-1)).toMatchObject({ kind: "tab", tone: "more" });
+    const buttons = selectBarButtons(v);
+    expect(buttons.map((b) => (b.kind === "action" ? b.action.id : b.panel))).toEqual(["build_relay_beacon", "muster_hold", "build"]);
+    expect(moreActions(v, buttons).map((a) => a.id)).toEqual(["settle_land", "settle_many"]);
+    const html = actionBarHtml(v);
+    expect(html).toContain('class="hud-v2-minor-row"');
+    expect(html).not.toContain("⋯");
   });
 
   it("makes garrison the main action only when the tile is worth it", () => {
-    const plain = selectBarButtons({ actions: [act("settle_land", { label: "Garrison" })], buildings: [], crystal: [], tabs: ["actions"] });
-    expect(plain[0]).toMatchObject({ primary: false });
-    const worth = selectBarButtons({ actions: [act("settle_land", { label: "Garrison", recommended: true })], buildings: [], crystal: [], tabs: ["actions"] });
+    const plain = selectBarButtons(view({ actions: [act("settle_land", { label: "Garrison" })] }));
+    expect(plain).toEqual([]);
+    const worth = selectBarButtons(view({ actions: [act("settle_land", { label: "Garrison", recommended: true })] }));
     expect(worth[0]).toMatchObject({ primary: true, action: { id: "settle_land" } });
   });
 
   it("makes Expand To (settle_land on neutral land) the main action", () => {
-    const buttons = selectBarButtons({ actions: [act("settle_land", { label: "Expand To" })], buildings: [], crystal: [], tabs: ["actions"] });
+    const buttons = selectBarButtons(view({ actions: [act("settle_land", { label: "Expand To" })] }));
     expect(buttons[0]).toMatchObject({ primary: true, action: { label: "Expand To" } });
   });
 
-  it("never puts the new-flag march on the bar and offers Build and Aether tabs", () => {
-    const buttons = selectBarButtons({
-      actions: [act("march_attack_new_flag")],
-      buildings: [act("build_mine")],
-      crystal: [act("aether_lance")],
-      tabs: ["overview", "actions", "buildings", "crystal"]
-    });
+  it("never puts the new-flag march on the main row and offers Build and Aether", () => {
+    const buttons = selectBarButtons(view({ actions: [act("march_attack_new_flag")], buildings: [act("build_mine")], crystal: [act("aether_lance")], tabs: ["actions", "buildings", "crystal"] }));
     expect(buttons.some((b) => b.kind === "action" && b.action.id === "march_attack_new_flag")).toBe(false);
-    expect(buttons.filter((b) => b.kind === "tab").map((b) => b.kind === "tab" && b.tab)).toEqual(["buildings", "crystal", "actions"]);
+    expect(buttons.flatMap((b) => (b.kind === "panel" ? [b.panel] : []))).toEqual(["build", "aether"]);
+  });
+
+  it("shows what a waystation gives, straight away", () => {
+    const lines = [
+      { html: "Waystation", kind: "section" as const },
+      { html: '<span class="tile-overview-effect-name">Status:</span><span class="tile-overview-effect-mod is-positive">Active</span>', kind: "effect" as const },
+      { html: '<span class="tile-overview-effect-name">Granted:</span><span class="tile-overview-effect-mod is-positive">+2,000 Coin</span>', kind: "effect" as const }
+    ];
+    expect(tileFacts({ overviewLines: lines })).toEqual(["Waystation", "Active", "Granted: +2,000 Coin"]);
+    expect(tileFacts({ overviewLines: lines.slice(0, 2).map((l, i) => (i === 1 ? { ...l, html: l.html.replace("Active", "Dormant") } : l)) })).toEqual(["Waystation", "Dormant", "One random bonus when claimed"]);
   });
 });
 

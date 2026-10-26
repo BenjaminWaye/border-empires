@@ -7,7 +7,9 @@
 
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuTab, TileMenuView } from "../client-types.js";
-import { actionBarHtml } from "./client-hud-v2-action-bar.js";
+import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
+import { actionBarHtml, barBuildings, selectBarButtons, type BarPanel } from "./client-hud-v2-action-bar.js";
+import { buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
 import { isHudV2Active } from "./client-hud-v2-flag.js";
 
 export type TileDockDeps = {
@@ -33,6 +35,10 @@ type DockState = {
   lastHtml: string;
   lastView: TileMenuView | undefined;
   lastKey: string;
+  /** Open list or sidebar for the current tile (⋯, Aether, Build); reset on a new tile. */
+  panel: BarPanel | undefined;
+  buildSelection: string | undefined;
+  buildCategory: BuildingCategory | undefined;
 };
 
 let dock: DockState | undefined;
@@ -43,6 +49,8 @@ let lastMapClickAt = 0;
 const MAP_CLICK_WINDOW_MS = 800;
 
 const BAR_ID = "hud-v2-tile";
+const BUILD_ID = "hud-v2-build";
+const BUILDING_BODY_CLASS = "hud-v2-building";
 const DOCKED = "hud-v2-docked";
 const EXPANDED = "hud-v2-expanded";
 
@@ -57,11 +65,54 @@ export const suppressAutoExpand = (ms = 1_500): void => {
 
 const barEl = (): HTMLElement | null => document.getElementById(BAR_ID);
 
+const hideBuildSidebar = (): void => {
+  const side = document.getElementById(BUILD_ID);
+  if (side) side.hidden = true;
+  document.body.classList.remove(BUILDING_BODY_CLASS);
+};
+
 const hideBar = (): void => {
+  hideBuildSidebar();
   const bar = barEl();
   if (!bar) return;
   bar.hidden = true;
-  if (dock) dock.lastHtml = "";
+  if (dock) {
+    dock.lastHtml = "";
+    dock.panel = undefined;
+  }
+};
+
+/** Writes the bar (and the build sidebar while Build is open) for the current view. */
+const paintBar = (): void => {
+  const bar = barEl();
+  if (!dock || !bar || !dock.lastView) return;
+  const view = dock.lastView;
+  const html = actionBarHtml(view, dock.panel === "build" ? "build" : dock.panel);
+  if (html !== dock.lastHtml) {
+    bar.innerHTML = html;
+    dock.lastHtml = html;
+  }
+  bar.hidden = false;
+  const side = document.getElementById(BUILD_ID);
+  if (!side) return;
+  if (dock.panel !== "build") {
+    hideBuildSidebar();
+    return;
+  }
+  const key = dock.state.tileActionMenu.currentTileKey;
+  const [x, y] = key.split(",");
+  const primary = selectBarButtons(view).find((b) => b.kind === "action" && b.primary);
+  const buildings = barBuildings(view, primary?.kind === "action" ? primary.action : undefined);
+  const place = { buildings, selection: dock.buildSelection, targetKey: key, placeLabel: "Place" };
+  side.innerHTML = buildListHtml({
+    ...place,
+    focusLabel: `(${x}, ${y})`,
+    focusHighlighted: true,
+    category: dock.buildCategory,
+    emptyText: "Nothing to build here"
+  }) + `<div class="hud-v2-build-place">${buildPlaceHtml(place)}</div>`;
+  side.hidden = false;
+  document.body.classList.add(BUILDING_BODY_CLASS);
 };
 
 /** Shows the full legacy menu docked on the right, on `tab`. */
@@ -82,7 +133,29 @@ const onBarClick = (event: MouseEvent): void => {
   if (action && !action.disabled) {
     const id = action.dataset.hudV2Action as TileActionDef["id"];
     if (dock.lastView) listener?.onBarAction(id, dock.lastView, state.tileActionMenu.currentTileKey);
+    dock.panel = undefined;
     deps.handleTileAction(id, action.dataset.targetKey, action.dataset.originKey);
+    paintBar();
+    return;
+  }
+  const panel = target.closest<HTMLElement>("[data-hud-v2-panel]");
+  if (panel) {
+    const next = panel.dataset.hudV2Panel as BarPanel;
+    dock.panel = dock.panel === next ? undefined : next;
+    paintBar();
+    return;
+  }
+  const pick = target.closest<HTMLElement>("[data-v2-build-pick]");
+  if (pick) {
+    dock.buildSelection = pick.dataset.v2BuildPick;
+    paintBar();
+    return;
+  }
+  const category = target.closest<HTMLElement>("[data-v2-build-category]");
+  if (category) {
+    dock.buildCategory = category.dataset.v2BuildCategory as BuildingCategory;
+    dock.buildSelection = undefined;
+    paintBar();
     return;
   }
   const tab = target.closest<HTMLElement>("[data-hud-v2-tab]");
@@ -138,13 +211,16 @@ export const dockTileActionMenuForHudV2 = (state: ClientState, view: TileMenuVie
   const bar = barEl();
   if (!bar) return;
   if (!dock) {
-    bar.addEventListener("click", onBarClick);
-    // The map closes the tile menu on any mousedown outside it (client-map-input.ts); the bar is part of that menu.
-    bar.addEventListener("mousedown", (event) => event.stopPropagation());
+    // The map closes the tile menu on any mousedown outside it (client-map-input.ts); the bar and the build
+    // sidebar are part of that menu.
+    for (const el of [bar, document.getElementById(BUILD_ID)]) {
+      el?.addEventListener("click", onBarClick);
+      el?.addEventListener("mousedown", (event) => event.stopPropagation());
+    }
     watchMenuVisibility(menuEl);
     // Feed/alert "Center" buttons, tips and other code also open tile menus; those must never claim land.
     document.getElementById("game")?.addEventListener("pointerup", () => { lastMapClickAt = Date.now(); }, true);
-    dock = { deps, state, rerender, expandedKey: undefined, lastHtml: "", lastView: undefined, lastKey: "" };
+    dock = { deps, state, rerender, expandedKey: undefined, lastHtml: "", lastView: undefined, lastKey: "", panel: undefined, buildSelection: undefined, buildCategory: undefined };
   }
   dock.deps = deps;
   dock.state = state;
@@ -153,6 +229,11 @@ export const dockTileActionMenuForHudV2 = (state: ClientState, view: TileMenuVie
   const key = state.tileActionMenu.mode === "single" ? state.tileActionMenu.currentTileKey : "";
   const fresh = key !== dock.lastKey;
   dock.lastKey = key;
+  if (fresh) {
+    dock.panel = undefined;
+    dock.buildSelection = undefined;
+    dock.buildCategory = undefined;
+  }
   if (dock.expandedKey !== undefined && dock.expandedKey !== state.tileActionMenu.currentTileKey) dock.expandedKey = undefined;
   menuEl.classList.add(DOCKED);
   menuEl.classList.toggle(EXPANDED, dock.expandedKey !== undefined);
@@ -166,10 +247,5 @@ export const dockTileActionMenuForHudV2 = (state: ClientState, view: TileMenuVie
     hideBar();
     return;
   }
-  const html = actionBarHtml(view);
-  if (html !== dock.lastHtml) {
-    bar.innerHTML = html;
-    dock.lastHtml = html;
-  }
-  bar.hidden = false;
+  paintBar();
 };
