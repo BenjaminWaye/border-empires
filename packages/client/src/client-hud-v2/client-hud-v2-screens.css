@@ -38,6 +38,18 @@ body.hud-v2-screen-battle .onb-root { display: none !important; }
 /* The effort sheet keeps working underneath; the battle screen is its view. */
 body.hud-v2-screen-battle .effort-confirm-overlay { opacity: 0 !important; pointer-events: none !important; }
 body.hud-v2-screen-open #player-profile-overlay { z-index: 70; }
+/* The player profile, hosted in the frame body (client-hud-v2-profile.ts): a page in the frame, not a modal. */
+.v2s-body #player-profile-overlay { position: static; inset: auto; display: block !important; padding: 0; overflow-y: auto; z-index: auto; pointer-events: auto; }
+.v2s-body #player-profile-overlay .intel-backdrop,
+.v2s-body #player-profile-overlay .intel-hero-sigil,
+.v2s-body #player-profile-overlay .intel-actions { display: none; }
+.v2s-body #player-profile-overlay .intel-modal {
+  width: auto; max-width: 1100px; max-height: none; margin: 0 auto; padding: 22px 26px; border-radius: 0;
+  background: var(--v2-ink-solid); border: 1px solid var(--v2-edge); box-shadow: none; color: var(--v2-text); font-family: var(--v2-body);
+}
+.v2s-body #player-profile-overlay .intel-title { font-family: var(--v2-display); color: var(--v2-gold-hi); letter-spacing: 0.06em; }
+.v2s-body #player-profile-overlay .intel-kicker, .v2s-body #player-profile-overlay .intel-section-label { font-family: var(--v2-display); color: var(--v2-gold); letter-spacing: 0.12em; }
+.v2s-body #player-profile-overlay .intel-summary { color: var(--v2-soft); }
 /* Outcome alerts (truce accepted, offer sent) sit above an open screen instead of behind it. The battle screen hides them. */
 body.hud-v2-screen-open #capture-overlay { z-index: 72; }
 /* Building / ability info cards opened from a screen (Manifest chips) sit above it. */

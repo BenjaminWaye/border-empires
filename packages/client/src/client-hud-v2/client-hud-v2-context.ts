@@ -24,10 +24,10 @@ export type HudV2Deps = {
   ownerColor: (ownerId: string) => string;
 };
 
-export type HudV2ScreenId = "manifest" | "afc" | "diplomacy" | "ranks" | "chronicle" | "town" | "battle";
+export type HudV2ScreenId = "manifest" | "afc" | "diplomacy" | "ranks" | "chronicle" | "town" | "battle" | "profile";
 
 /** Screens drawn in the shared full-screen frame over the darkened map. */
-export const FRAME_SCREENS: ReadonlySet<HudV2ScreenId> = new Set<HudV2ScreenId>(["manifest", "afc", "diplomacy", "ranks"]);
+export const FRAME_SCREENS: ReadonlySet<HudV2ScreenId> = new Set<HudV2ScreenId>(["manifest", "afc", "diplomacy", "ranks", "profile"]);
 
 export type HudV2ScreenState = {
   id: HudV2ScreenId | null;

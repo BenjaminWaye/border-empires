@@ -25,6 +25,7 @@ import {
 } from "./client-hud-v2-context.js";
 import { dealSideHtml, dealSkeletonHtml, diplomacyListHtml, empireStance } from "./client-hud-v2-diplomacy.js";
 import { MANIFEST_LEGEND_HTML, manifestDetailHtml, manifestHeadRightHtml, manifestTreeHtml } from "./client-hud-v2-manifest.js";
+import { hostProfileOverlay, unhostProfileOverlay } from "./client-hud-v2-profile.js";
 import { ranksBannerHtml, ranksBodyHtml } from "./client-hud-v2-ranks.js";
 import { expandDockedMenu, suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, myTowns, renderTownScreen, runTileActionOn, stepTown } from "./client-hud-v2-town-runtime.js";
@@ -70,6 +71,10 @@ export const closeScreen = (deps: HudV2Deps): void => {
     return;
   }
   if (id === "afc" && deps.state.activePanel === "domains") deps.state.activePanel = null;
+  if (id === "profile") {
+    unhostProfileOverlay();
+    deps.state.activePlayerProfileId = undefined;
+  }
   document.querySelector(".diplomacy-trade-overlay")?.remove();
   screen.diplomacyTargetId = undefined;
   bodyMode = "";
@@ -220,6 +225,12 @@ const renderChronicle = (deps: HudV2Deps): void => {
   if (dash.timeline) acknowledgeActivitySeen(state, state.bridgeDebugSeasonId, deps);
 };
 
+const renderProfile = (deps: HudV2Deps): void => {
+  const id = deps.state.activePlayerProfileId;
+  writeHtml("v2s-title", id ? (id === deps.state.me ? "Your Empire" : deps.state.playerNames.get(id) ?? "Empire") : "");
+  hostProfileOverlay();
+};
+
 /** Panels opened from the always-visible bar or orb, which sit above an open screen instead of being closed by it. */
 const SCREEN_SAFE_PANELS: ReadonlySet<string> = new Set(["settings", "manpower", "economy", "defensibility"]);
 
@@ -237,6 +248,7 @@ export const renderScreen = (deps: HudV2Deps): void => {
     case "chronicle": return renderChronicle(deps);
     case "town": return renderTownScreen(deps);
     case "battle": return renderBattle(deps);
+    case "profile": return renderProfile(deps);
     case "afc":
       if (deps.state.activePanel !== "domains") closeScreen(deps);
       return;

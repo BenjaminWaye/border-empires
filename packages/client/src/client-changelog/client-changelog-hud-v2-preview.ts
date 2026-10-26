@@ -39,7 +39,7 @@ export const HUD_V2_PREVIEW_CHANGELOG: ClientChangelogEntry[] = [
       "The town screen shows growth rate and stays open when you use its build list; a town still being garrisoned no longer shows NaN.",
       "Sending a truce or alliance offer confirms it, and the reply shows above the open screen.",
       "Ranks race tracks show the top three on each path, plus you.",
-      "Pressing a building or ability in the Manifest opens its info card. Settings opens in the middle of the screen over a dimmed map."
+      "Pressing a building or ability in the Manifest opens its info card. Settings opens in the middle of the screen over a dimmed map. Player profiles open as a full screen like the Manifest, and screens hide the crest so their Map / Esc button stays visible."
     ]
   }
 ];

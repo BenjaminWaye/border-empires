@@ -22,6 +22,7 @@ import { overlaysHtml } from "./client-hud-v2-overlays.js";
 import { resourceBarHtml } from "./client-hud-v2-resource-bar.js";
 import { rivalsHtml, seasonClockHtml } from "./client-hud-v2-rivals.js";
 import { closeScreen, openScreen, renderScreen, screenClick, screenEscape } from "./client-hud-v2-screens.js";
+import { profileScreenStep } from "./client-hud-v2-profile.js";
 import { setDockListener } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, townOnMenuView } from "./client-hud-v2-town-runtime.js";
 import { trackerHtml } from "./client-hud-v2-tracker.js";
@@ -296,6 +297,10 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     const nowMs = Date.now();
     renderFast(deps.state, deps.ownerColor, nowMs);
     if (tick % TRACKER_EVERY_TICKS === 0) renderTracker(deps.state, nowMs);
+    // A player profile (crest, a name, Ranks) opens as its own screen; dismissing it closes the screen.
+    const profileStep = profileScreenStep(deps.state.activePlayerProfileId, screen.id);
+    if (profileStep === "open") openScreen(deps, "profile");
+    else if (profileStep === "close") closeScreen(deps);
     if (screen.id && screen.id !== "town") renderScreen(deps);
     tick += 1;
   };
