@@ -8,7 +8,7 @@ import { updateMusicForGameState } from "./client-audio/client-audio.js";
 import { computeWarMusicSignals } from "./client-war-music-signal/client-war-music-signal.js";
 import { drawableIncomingAttack } from "./client-siege-tracking/client-siege-tracking.js";
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
-import { drawTileIntelOverlays2D, tileIntelDeps2D } from "./client-map-2d-tile-intel/client-map-2d-tile-intel.js";
+import { drawTileIntelOverlays2D } from "./client-map-2d-tile-intel/client-map-2d-tile-intel.js";
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import { drawResourceOverlay2D } from "./client-resource-overlay-2d/client-resource-overlay-2d.js";
 import { drawLoopMinFrameGapMs } from "./client-runtime-loop-frame-gap.js";
@@ -247,7 +247,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     // Reach overlay: resolveMyReachCached recomputes only when tiles or the
     // server reach actually changed (same cache the 3D renderer uses).
     const myReach = isTrue3DRendererActive() ? state.myReach : resolveMyReachCached(state);
-    const tileIntel2D = tileIntelDeps2D(state, { keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, terrainAt }, isTrue3DRendererActive()); // weak-defensibility + Diplomacy tint, client-map-2d-tile-intel.ts
+    const tileIntel2D = { state, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, terrainAt }; // weak-defensibility, client-map-2d-tile-intel.ts
     const reachTileDeps2D = { me: state.me, tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, ownerColor: deps.effectiveOverlayColor }; // hoisted: drawReachTileTreatments2D runs per visible tile per frame
     const aetherTowerSpriteDeps2D = { ctx: deps.ctx, sprite: deps.structureOverlayImages.OBSERVATORY, structureAccentColor: deps.structureAccentColor };
     const tileFeatureDeps2D = { relicMapHints: state.relicMapHints, ctx: deps.ctx, structureAccentColor: deps.structureAccentColor, effectiveOverlayColor: deps.effectiveOverlayColor, afcJoinDrop: state.afcJoinDrop, afcModuleDeliveryLandedAt: state.afcModuleDeliveryLandedAt }; // hoisted: drawTileFeatureOverlays2D runs per visible tile per frame

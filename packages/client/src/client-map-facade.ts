@@ -41,6 +41,7 @@ import { drawHillsOverlay as drawHillsOverlayOnCanvas } from "./client-map-rende
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
 import type { RoadDirections } from "./client-road-network/client-road-network.js";
 import type { ClientState } from "./client-state/client-state.js";
+import { diplomacyOwnerColor } from "./client-diplomacy-overlay/client-diplomacy-overlay.js";
 import { incomingFrontierClaimAt } from "./client-incoming-frontier-claim/client-incoming-frontier-claim.js";
 import { drawMusterSiegeBadge } from "./client-map-render/client-map-render-muster-siege-badge.js";
 import type { DockPair, EmpireVisualStyle, StrategicReplayEvent, Tile, TileVisibilityState } from "./client-types.js";
@@ -143,8 +144,10 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     return playerNameForOwnerFromState(state, ownerId);
   };
 
+  // The Diplomacy view recolours other empires' land by stance in every renderer by swapping the colour here.
+  const diplomacyColor = diplomacyOwnerColor(state);
   const effectiveOverlayColor = (ownerId: string): string =>
-    effectiveOverlayColorFromModule(ownerId, { ownerColor: effectiveColor, visualStyleForOwner });
+    diplomacyColor(ownerId) ?? effectiveOverlayColorFromModule(ownerId, { ownerColor: effectiveColor, visualStyleForOwner });
   const borderColorForOwner = (ownerId: string, stateName?: Tile["ownershipState"]): string =>
     borderColorForOwnerFromModule(ownerId, stateName, visualStyleForOwner);
   const shouldDrawOwnershipBorder = (tile: Tile): boolean => shouldDrawOwnershipBorderFromModule(tile, visualStyleForOwner);
