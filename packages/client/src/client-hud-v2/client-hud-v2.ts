@@ -30,6 +30,7 @@ import { captureIsBattle, trackerHtml } from "./client-hud-v2-tracker.js";
 import "./client-hud-v2.css";
 import "./client-hud-v2-screens.css";
 import "./client-hud-v2-town-battle.css";
+import "./client-hud-v2-profile.css";
 
 export type { HudV2Deps } from "./client-hud-v2-context.js";
 
@@ -303,7 +304,7 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     // The overlay's toggle and legend live in this HUD; without it (phone width) the tint goes too.
     if (!flagOn && deps.state.showDiplomacyOverlay) deps.state.showDiplomacyOverlay = false;
     // Leaving the new HUD (phone width) must not strand a screen: a hosted profile, or a Chronicle that popups wait on.
-    if (!flagOn && screen.id) closeScreen(deps);
+    if (!flagOn && screen.id) closeScreen(deps, { toMap: true });
     deps.state.activityDashboard.chronicleOpen = onScreen && screen.id === "chronicle";
     if (!onScreen || !deps.state.me) return;
     const nowMs = Date.now();

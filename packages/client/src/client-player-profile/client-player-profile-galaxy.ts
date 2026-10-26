@@ -11,13 +11,13 @@ import { sectorNumberLabel } from "../client-galaxy-view/galaxy-sector-label.js"
 // Falls back to the raw seasonSequence label only when the gateway hasn't
 // been redeployed with sector numbering yet (sectorNumber absent) -- same
 // reasoning as client-galaxy-view's sectorOrSeasonLabel.
-const sectorOrSeasonLabel = (holding: GalaxyHoldingsPlanetView | GalaxyHoldingsOutpostView): string =>
+export const sectorOrSeasonLabel = (holding: GalaxyHoldingsPlanetView | GalaxyHoldingsOutpostView): string =>
   holding.sectorNumber !== undefined ? sectorNumberLabel(holding.sectorNumber) : `Season ${holding.seasonSequence}`;
 
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[char] ?? char);
 
-const specializationLabel = (specialization: string): string => {
+export const specializationLabel = (specialization: string): string => {
   const label = specialization.charAt(0) + specialization.slice(1).toLowerCase();
   return label.replace(/_/g, " ");
 };
@@ -25,7 +25,7 @@ const specializationLabel = (specialization: string): string => {
 // One icon per victory condition (docs/galactic-campaign-design.md / README),
 // so a trophy case reads as a specialization pattern at a glance rather than
 // a flat count.
-const TROPHY_ICON_BY_OBJECTIVE_ID: Record<string, string> = {
+export const TROPHY_ICON_BY_OBJECTIVE_ID: Record<string, string> = {
   TOWN_CONTROL: "🏰",
   ECONOMIC_HEGEMONY: "💰",
   RESOURCE_MONOPOLY: "🌾",

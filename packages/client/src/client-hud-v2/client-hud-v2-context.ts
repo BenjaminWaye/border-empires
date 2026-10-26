@@ -112,7 +112,7 @@ export const clearScreen = (): void => {
 };
 
 export const FRAME_SKELETON = `<div class="v2s-backdrop" aria-hidden="true"></div>
-  <header class="v2s-head"><button type="button" class="v2s-back" data-v2-close><span aria-hidden="true">◁</span> Map <kbd>Esc</kbd></button><h1 class="v2s-title" id="v2s-title"></h1><div class="v2s-head-right" id="v2s-head-right"></div></header>
+  <header class="v2s-head"><button type="button" class="v2s-back" data-v2-close><span class="v2s-back-arrow" aria-hidden="true">◁</span> <span id="v2s-back-label">Map</span> <kbd>Esc</kbd></button><h1 class="v2s-title" id="v2s-title"></h1><div class="v2s-head-right" id="v2s-head-right"></div></header>
   <div class="v2s-body" id="v2s-body"></div>`;
 
 export const focusCamera = (deps: Pick<HudV2Deps, "state" | "wrapX" | "wrapY" | "requestViewRefresh">, x: number, y: number): void => {
