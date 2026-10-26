@@ -99,10 +99,13 @@ const CHIP_FOCUS: Readonly<Record<string, ClientState["economyFocus"]>> = {
   coin: "GOLD", food: "FOOD", titanium: "TITANIUM", crystal: "CRYSTAL", umbrite: "UMBRITE", shard: "ALL"
 };
 
-/** Resource chips open the Economy panel on that resource; Integrity opens its own panel. */
+/** Chips that open a panel of their own rather than Economy on a resource. */
+const CHIP_PANEL: Readonly<Record<string, ClientState["activePanel"]>> = { integrity: "defensibility", development: "development" };
+
+/** Resource chips open the Economy panel on that resource; Integrity and the dev-slot row open their own panels. */
 const openResourcePanel = (deps: HudV2Deps, chip: string): void => {
   const { state } = deps;
-  const panel: ClientState["activePanel"] = chip === "integrity" ? "defensibility" : "economy";
+  const panel: ClientState["activePanel"] = CHIP_PANEL[chip] ?? "economy";
   const focus = CHIP_FOCUS[chip];
   // A second click on the same chip closes its panel.
   const alreadyOpen = state.activePanel === panel && (!focus || state.economyFocus === focus);

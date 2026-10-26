@@ -54,16 +54,13 @@ const token = (input: RivalInput, id: string, stance: RivalToken["stance"], labe
   return { id, name, initial: (name.trim()[0] ?? "?").toUpperCase(), color: input.colorOf(id) ?? "#5a4828", stance, label };
 };
 
-const STANCE_ICON: Record<RivalToken["stance"], string> = {
-  truce: "M5 3h8M5 15h8M6 3c0 4 6 4 6 6s-6 2-6 6M12 3c0 4-6 4-6 6s6 2 6 6",
-  ally: "M4 9l3.5 3.5L14 6",
-  met: "M3 9h12"
-};
+/** "TRUCE 22h" → "Truce 22h" for the hover title; the stance line under the name already says it. */
+const stanceTitle = (label: string): string => label.charAt(0) + label.slice(1).replace(/^[A-Z]+/, (w) => w.toLowerCase());
 
 export const rivalsHtml = (input: RivalInput): string => {
   const { shown, hidden } = rivalTokens(input);
-  const items = shown.map((t) => `<button type="button" class="hud-v2-rival hud-v2-rival-${t.stance}" data-hud-v2-diplomacy="${esc(t.id)}" aria-label="${esc(t.name)}, ${esc(t.label.toLowerCase())}">
-      <span class="hud-v2-rival-token" style="background:${esc(t.color)}">${esc(t.initial)}<span class="hud-v2-rival-badge"><svg width="11" height="11" viewBox="0 0 18 18" aria-hidden="true"><path d="${STANCE_ICON[t.stance]}"/></svg></span></span>
+  const items = shown.map((t) => `<button type="button" class="hud-v2-rival hud-v2-rival-${t.stance}" data-hud-v2-diplomacy="${esc(t.id)}" aria-label="${esc(t.name)}, ${esc(t.label.toLowerCase())}" title="${esc(t.name)} · ${esc(stanceTitle(t.label))}">
+      <span class="hud-v2-rival-token" style="background:${esc(t.color)}">${esc(t.initial)}</span>
       <span class="hud-v2-rival-name">${esc(t.name)}</span><span class="hud-v2-rival-stance">${esc(t.label)}</span>
     </button>`).join("");
   const more = hidden > 0 ? `<button type="button" class="hud-v2-rival-more" data-hud-v2-open="diplomacy" aria-label="All empires you've met">+${hidden}</button>` : "";
