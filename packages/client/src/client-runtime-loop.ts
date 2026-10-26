@@ -12,7 +12,7 @@ import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity 
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import { drawResourceOverlay2D } from "./client-resource-overlay-2d/client-resource-overlay-2d.js";
 import { drawLoopMinFrameGapMs } from "./client-runtime-loop-frame-gap.js";
-import { drawLiveOwnershipTint2D } from "./client-map-render/client-map-render-live-ownership-tint.js";
+import { drawVisibleTerrain2D } from "./client-map-render/client-map-render-visible-terrain.js";
 import { drawSelectedDockSeaRoute2D } from "./client-dock-route-draw.js";
 import { isStructureHandledBy3D } from "./client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor/client-fps-monitor.js";
@@ -684,10 +684,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           drawTileGround2D(deps.ctx, { wx, wy, px, py, size, tile: t, vis, terrainWhenMissing, terrainAt, drawTerrainTile: deps.drawTerrainTile, drawTerrainDetail, neighbourVisibility, nowMs: tileStartAt });
         }
 
-        if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") { deps.drawForestOverlay(wx, wy, px, py, size); deps.drawHillsOverlay(wx, wy, px, py, size); }
-
-        if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND" && t.ownerId) {
-          drawLiveOwnershipTint2D(deps.ctx, t, deps.effectiveOverlayColor(t.ownerId), wx, wy, px, py, size);
+        if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") {
+          drawVisibleTerrain2D(deps, state, t, wx, wy, px, py, size);
         }
 
         // Fogged tiles show the last-witnessed owner at a fixed dim tint —
