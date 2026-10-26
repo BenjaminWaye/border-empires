@@ -165,7 +165,7 @@ export const structureInfoForKey = (
     if (key === "THUNDER_BASTION") return ["Upgrades Titanium Bastions into Thunder Bastions", "Improves resistance to siege and lance pressure"];
     if (key === "OBSERVATORY") return ["Crystal range grows with tech"];
     if (key === "PALISADE") return ["Light defensive fortification", "No iron upkeep"];
-    if (key === "RELAY_BEACON") return ["Cheap offensive staging point", "Faster, weaker alternative to a Siege Battery"];
+    if (key === "RELAY_BEACON") return ["Relays the House AI’s orbital command signal", "Extends settlement reach and frontier vision", "Supplied frontier can advance beyond reach"];
     if (key === "SIEGE_BATTERY") return ["Improves attacks launched from this tile"];
     if (key === "SIEGE_TOWER") return ["Upgrades Siege Batteries into Siege Towers"];
     if (key === "DREAD_TOWER") return ["Upgrades Siege Towers into Dread Towers, effective against heavy fortified targets"];

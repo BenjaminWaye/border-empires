@@ -1,4 +1,4 @@
-import { createTownMeshBuilder } from "./client-map-3d-town-overlay/town-mesh-builder.js";
+import { createRelayReceiverPetal } from "./client-map-3d-relay-receiver.js";
 import {
   BufferGeometry,
   CylinderGeometry,
@@ -27,18 +27,14 @@ export type RelayBeaconAssets = {
 export const createRelayBeaconAssets = (scene: Scene, C: number, buildingEnvironmentTexture?: Texture): RelayBeaconAssets => {
   const material = new MeshStandardMaterial({ color: "#b1935b", roughness: 0.28, metalness: 0.88 });
   applyBuildingEnvMap(material, buildingEnvironmentTexture);
-  const reflector = createTownMeshBuilder();
-  reflector.box(0, -0.025, 0, 0.12, 0.05, 0.012, "brassDark");
-  reflector.box(0, -0.018, 0.007, 0.10, 0.036, 0.004, "glassLight");
-  reflector.box(0, -0.018, -0.011, 0.10, 0.036, 0.004, "glassLight");
   const reflectorMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.16, metalness: 0.9 });
   applyBuildingEnvMap(reflectorMaterial, buildingEnvironmentTexture);
   const definitions: readonly [string, BufferGeometry, number][] = [
     ["spindle", new CylinderGeometry(0.015, 0.018, 1, 12), C],
     ["hub", new CylinderGeometry(0.045, 0.05, 0.05, 16), C],
-    ["arrayRing", new TorusGeometry(0.16, 0.014, 8, 24), C],
+    ["arrayRing", new TorusGeometry(0.36, 0.009, 8, 48), C],
     ["arrayGear", new CylinderGeometry(0.03, 0.03, 0.03, 8), C * GEARS_PER_BEACON],
-    ["mirror", reflector.build()!, C * MIRRORS_PER_BEACON]
+    ["mirror", createRelayReceiverPetal(), C * MIRRORS_PER_BEACON]
   ];
   const slots = new Map<string, BeaconSlot>();
   for (const [key, geometry, cap] of definitions) {

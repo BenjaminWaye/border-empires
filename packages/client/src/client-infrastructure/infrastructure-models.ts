@@ -65,26 +65,27 @@ const harbor = (t: TownBuilders): void => {
   }
 };
 const relayHousing = (t: TownBuilders): void => {
-  // Directional optical mast; its moving mirror head remains on the native
-  // beacon animation path above this structural housing.
-  t.body.cylinder(0, 0, 0, 0.20, 0.24, 0.09, "stoneDark", 12);
-  t.body.cylinder(0, 0.09, 0, 0.18, 0.20, 0.018, "brassDark", 12);
-  t.body.cylinder(0, 0.108, 0, 0.085, 0.15, 1.15, "ironDark", 12);
-  for (let i = 0; i < 4; i++) {
-    const a = i * Math.PI / 2, x = Math.cos(a), z = Math.sin(a);
-    t.body.pipe(x * 0.21, 0.02, z * 0.21, x * 0.11, 0.62, z * 0.11, 0.025, "stoneLight");
-    t.body.pipe(x * 0.11, 0.62, z * 0.11, x * 0.07, 1.24, z * 0.07, 0.016, "brassDark");
-    t.glow.pipe(x * 0.137, 0.25, z * 0.137, x * 0.09, 1.1, z * 0.09, 0.006, "aether");
+  // Orbital downlink: a reinforced receiver pedestal and three outward-facing
+  // local transmitters. The native six-panel dish tracks above this housing.
+  t.body.cylinder(0, 0, 0, 0.19, 0.25, 0.10, "stoneDark", 16);
+  t.body.cylinder(0, 0.10, 0, 0.18, 0.19, 0.025, "brassDark", 16);
+  t.body.cylinder(0, 0.125, 0, 0.10, 0.155, 1.15, "ironDark", 16);
+  for (let i = 0; i < 3; i++) {
+    const a = i * Math.PI * 2 / 3, x = Math.cos(a), z = Math.sin(a);
+    t.body.pipe(x * 0.20, 0.05, z * 0.20, x * 0.095, 1.27, z * 0.095, 0.025, "stoneLight");
+    t.glow.pipe(x * 0.147, 0.20, z * 0.147, x * 0.105, 1.12, z * 0.105, 0.005, "aether");
+    t.body.pipe(x * 0.12, 0.70, z * 0.12, x * 0.245, 0.76, z * 0.245, 0.018, "brassDark");
+    t.body.box(x * 0.245, 0.60, z * 0.245, 0.105, 0.30, 0.038, "iron", Math.PI / 2 - a);
+    t.body.box(x * 0.267, 0.63, z * 0.267, 0.075, 0.24, 0.012, "glassLight", Math.PI / 2 - a);
+    t.body.pipe(x * 0.095, 1.25, z * 0.095, x * 0.23, 1.65, z * 0.23, 0.016, "brassDark");
   }
-  for (const y of [0.36, 0.75, 1.16]) t.body.cylinder(0, y, 0, 0.13, 0.14, 0.025, "brassDark", 16);
-  t.body.cylinder(0, 1.26, 0, 0.20, 0.14, 0.04, "iron", 16);
-  t.body.cylinder(0, 1.30, 0, 0.19, 0.20, 0.025, "brassDark", 16);
-  t.body.cylinder(0, 1.325, 0, 0.17, 0.17, 0.13, "glass", 16);
-  t.body.cylinder(0, 1.455, 0, 0.19, 0.19, 0.02, "iron", 16);
-  for (let i = 0; i < 8; i++) {
-    const a = i * Math.PI / 4;
-    t.body.pipe(Math.cos(a) * 0.173, 1.325, Math.sin(a) * 0.173, Math.cos(a) * 0.173, 1.455, Math.sin(a) * 0.173, 0.007, "brass");
-  }
+  for (const y of [0.15, 0.55, 1.12]) t.body.cylinder(0, y, 0, 0.16 - y * 0.035, 0.165 - y * 0.035, 0.022, "brassDark", 16);
+  t.body.cylinder(0, 1.275, 0, 0.15, 0.105, 0.12, "iron", 16);
+  t.body.cylinder(0, 1.395, 0, 0.15, 0.15, 0.025, "brass", 16);
+  t.body.cylinder(0, 1.42, 0, 0.075, 0.12, 0.12, "ironDark", 16);
+  // Skyward focal receiver; stays connected to the bowl by its central feed.
+  t.body.cylinder(0, 1.82, 0, 0.028, 0.018, 0.055, "brass", 12);
+  t.glow.cylinder(0, 1.875, 0, 0.021, 0.028, 0.012, "aether", 12);
 };
 const aetherHousing = (t: TownBuilders): void => {
   t.body.cylinder(0, 0, 0, 0.23, 0.28, 0.11, "stoneDark", 16);

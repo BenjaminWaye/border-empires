@@ -302,13 +302,19 @@ behave the way section 5 describes at full strength, with no rival fleet or
 vote to blame — until the lead shrinks, by loss or by the field catching
 up, and the Court's protection quietly returns.
 
-## 10. Relay Beacons: flags of anchored ground
+## 10. Relay Beacons: orbital links and anchored ground
 
 Where a Duke's towns are the heart of a claim, the **Relay Beacon** is its
 flag. It is the cheapest and quickest form of the Court's anchor technology:
 a tall, unarmed tower raised on frontier ground to declare, in a way the
 Bleed and every rival can read from miles away, that this stretch of land is
 now anchored to a Duke.
+
+A House AI coordinates its planetary ancillaries and fabrication systems from
+space. Relay Beacons receive its orbital command signal and retransmit it
+locally, extending the coverage in which settlement and anchoring machinery
+can operate. This coverage is called **reach**. A beacon is an unarmed
+communications and anchoring installation, not an AI housed in a tower.
 
 A beacon does not fight. Its work is to mark and to watch:
 
@@ -317,7 +323,7 @@ A beacon does not fight. Its work is to mark and to watch:
   claim is the Duke's to settle and build on. Land outside it is still open
   frontier, and section 5 applies to it in full: it resists quietly until a
   border reaches it, then either yields or reclaims what was pushed into it.
-- **It watches.** A beacon's height and its rotating heliograph give a Duke
+- **It watches.** A beacon's elevated receiver and local sensor links give a Duke
   a long view of the frontier around it, so infestations, Wardens and rival
   banners are seen before they arrive.
 
@@ -344,14 +350,14 @@ belong in the [gameplay reference](../game-mechanics.md).
 
 ### What a beacon looks like
 
-A slender lattice tower of dark iron, with four legs that converge on a
-small enclosed deck. Geared brass periscopes sweep the horizon from the
-deck, and above it a spindle turns a rotating array of brass heliograph
-mirrors that flash light to anyone within sight. Amber signal lamps and a
-small aether-gas tank with brass feed pipes mark it as a working piece of
-anchor machinery rather than a fortress. It has no walls, no crenellations
-and no weapon mounts, so it stands tall, open and unarmoured, and reads at
-a glance against the squat, armed Siege Battery.
+A dark, tapered pedestal rises from a pale stone platform into a broad,
+segmented receiver dish aimed skyward. A central focal feed receives the
+orbital link; three outward-facing transmitter panels distribute it across
+the surrounding ground. Brass structural ribs, enclosed conduits and restrained
+cyan status lighting express precise communications machinery. The receiver
+tracks slowly, while its pedestal and local panels remain fixed. It has no
+walls, crenellations or weapon mounts and must read clearly as a communications
+installation beside the armed Siege Battery or the Aether Tower's field rings.
 
 ### Charting the land
 

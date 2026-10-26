@@ -12,13 +12,15 @@ The fortifications, siege structures and completed Great Projects are unchanged.
 |---|---|---|
 | Mine | Mechanised drill gantry, extraction mouth, separation housing and material tray | Titanium loads are ingots; Crystal loads are crystalline; construction/removal clipping |
 | Harbor Exchange | Customs hall, watch drum, bonded cargo, gantry crane and bollards | Connected-dock Coin effect; construction/removal clipping |
-| Relay Beacon | Tapered mast, glazed optical deck and framed directional reflectors | Native rotating head, fixed animation slots, disabled poses and staged construction |
+| Relay Beacon | Skyward segmented receiver dish, focal feed and three local transmitter panels | Native rotating head, fixed animation slots, disabled poses and staged construction |
 | Aether Tower (`OBSERVATORY`) | Swept containment piers, energy column, moving field rings and transmission crown | Native links, clusters, cooldown/siphon badges, frozen/disabled machinery and dimmed core |
 | Umbrite Rig | Original drilling and containment equipment on a plain marble platform | Original relative machinery layout and material palette |
 
 Roles, names and powers come from the current shared registry, modifier
 catalogue and simulation handlers, not visual inference. No capability, cost,
-resource meaning or gameplay rule is changed. Lore reviewed; no canon change.
+resource meaning or gameplay rule is changed. Relay Beacon lore now explains
+reach as the House AI’s orbital command coverage, received and relayed locally;
+see the canonical world bible §10.
 
 `client-infrastructure/infrastructure-models.ts` owns the new merged geometry.
 Mine and Harbor Exchange are routed through the existing generic overlay API;

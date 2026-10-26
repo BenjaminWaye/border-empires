@@ -1,5 +1,5 @@
 // Relay Beacon: batched communications-mast architecture plus a native
-// rotating optical array. Construction clipping, stable animation slots and
+// tracking orbital receiver. Construction clipping, stable animation slots and
 // per-instance disabled poses are shared by the production map and review.
 
 import { Euler, Matrix4, Quaternion, Scene, Texture, Vector3 } from "three";
@@ -31,16 +31,14 @@ export type RelayBeaconOverlay = {
 const PI_2 = Math.PI / 2;
 const ARRAY_SPEED = 0.0006;
 const HUB_Y = 1.58;
-const MIRROR_RADIUS = 0.145;
+
 // Tall, upward pieces that grow with the build instead of appearing whole: a
 // full-height leg or column in phase 1 would make the tower look finished.
 const GROWING_PIECES: ReadonlySet<string> = new Set(["leg", "column", "pipe", "spindle"]);
 const MIN_GROWING_SLOPE = 0.2;
 
-// The mirror-array pieces (plates + drive gears) are the only animated parts.
-// Each piece stores its offset from the hub centre (lx,ly,lz), the yaw it has
-// when the array angle is 0, and a fixed tilt so the plates catch the light
-// from different directions as the array sweeps.
+// Receiver petals and drive hubs share a slow tracking rotation. Their fixed
+// local transforms keep all six curved sectors joined into one skyward bowl.
 type ArrayPiece = {
   readonly key: "mirror" | "arrayGear";
   readonly slotIndex: number;
@@ -55,16 +53,16 @@ type ArrayPiece = {
 const buildArrayPieces = (): ArrayPiece[] => {
   const pieces: ArrayPiece[] = [];
   for (let i = 0; i < MIRRORS_PER_BEACON; i += 1) {
-    const baseA = (i * Math.PI) / 3 + (i % 2) * 0.22;
+    const baseA = (i * Math.PI) / 3;
     pieces.push({
       key: "mirror",
       slotIndex: i,
-      lx: Math.cos(baseA) * MIRROR_RADIUS,
-      ly: 0.06,
-      lz: Math.sin(baseA) * MIRROR_RADIUS,
-      baseYaw: PI_2 - baseA,
-      rotX: i % 2 === 0 ? 0.38 : -0.3,
-      rotZ: ((i % 3) - 1) * 0.22
+      lx: 0,
+      ly: 0,
+      lz: 0,
+      baseYaw: baseA,
+      rotX: 0,
+      rotZ: 0
     });
   }
   pieces.push({ key: "arrayGear", slotIndex: 0, lx: 0.055, ly: 0.004, lz: 0, baseYaw: 0.3, rotX: 0, rotZ: 0 });
@@ -80,7 +78,7 @@ type RelayBeaconInstance = {
   readonly z: number;
   readonly phase: number;
   readonly disabled: boolean;
-  // False while the heliograph array is not built yet; its slots are held as zero-scale placeholders, so update() must not animate them.
+  // False while the orbital receiver array is not built yet; its slots are held as zero-scale placeholders, so update() must not animate them.
   readonly arrayVisible: boolean;
   readonly underConstruction: boolean;
 };
@@ -202,12 +200,12 @@ export const createRelayBeaconOverlay = (
   };
 
   // ─── Beacon placement ───────────────────────────────────────────────
-  // Returns whether the heliograph array was built (it is the last thing up the tower).
+  // Returns whether the orbital receiver array was built (it is the last thing up the tower).
   const addBeacon = (wx: number, sy: number, wz: number): boolean => {
-    // Heliograph spindle, hub and array disc (static; plates animate).
-    addPieceAlong("spindle", wx, sy, wz, 0, 1.49, 0, 0, 1, 0, 0.33);
+    // Orbital receiver spindle, hub and array disc (static; plates animate).
+    addPieceAlong("spindle", wx, sy, wz, 0, 1.68, 0, 0, 1, 0, 0.35);
     addPiece("hub", wx, sy, wz, 0, HUB_Y, 0);
-    addPiece("arrayRing", wx, sy, wz, 0, 1.6, 0, 1, 1, 1, 0, PI_2, 0);
+    addPiece("arrayRing", wx, sy, wz, 0, 1.78, 0, 1, 1, 1, 0, PI_2, 0);
     // The animated pieces are addressed by slot index (i * perBeacon + slotIndex), so a
     // gated-out one still takes its slot as a zero-scale placeholder.
     let arrayBuilt = false;
