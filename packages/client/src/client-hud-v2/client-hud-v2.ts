@@ -40,6 +40,7 @@ const shellHtml = `
   <div class="hud-v2-right"><div id="hud-v2-season" class="hud-v2-season"></div><div id="hud-v2-rivals" class="hud-v2-rivals"></div></div>
   <aside id="hud-v2-tracker" class="hud-v2-tracker" aria-label="Tracker"></aside>
   <section id="hud-v2-tile" class="hud-v2-tile" hidden aria-label="Selected tile"></section>
+  <section id="hud-v2-build" class="v2t-right hud-v2-build-side" hidden aria-label="Build"></section>
   <div id="${SCREEN_HOST_ID}" class="hud-v2-screen"></div>
   <div id="hud-v2-overlays" class="hud-v2-overlays"></div>
   <div id="hud-v2-orb-slot" class="hud-v2-orb-slot"></div>`;

@@ -67,7 +67,7 @@
 .v2t-act small { font-family: var(--v2-mono); font-size: 10px; font-weight: 400; color: var(--v2-soft); }
 .v2t-act:hover:not(:disabled) { border-color: var(--v2-gold); }
 .v2t-act:disabled { opacity: 0.5; }
-.v2t-act-more { flex: none; width: 52px; color: var(--v2-gold); font-size: 18px; }
+.v2t-minor { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 0 6px; }
 .v2t-act-back { flex: none; padding: 0 14px; border-color: var(--v2-line); color: var(--v2-soft); font-size: 12px; }
 
 /* ---- Battle: you left, defender right, outcome bottom centre ---- */

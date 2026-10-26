@@ -333,16 +333,16 @@ const townClick = (deps: HudV2Deps, target: Element): boolean => {
     stepTown(deps, Number(step.dataset.v2TownStep));
     return true;
   }
-  const category = target.closest<HTMLElement>("[data-v2-town-category]");
+  const category = target.closest<HTMLElement>("[data-v2-build-category]");
   if (category) {
-    screen.townCategory = category.dataset.v2TownCategory as BuildingCategory;
+    screen.townCategory = category.dataset.v2BuildCategory as BuildingCategory;
     screen.townBuildSelection = undefined;
     renderTownScreen(deps);
     return true;
   }
-  const build = target.closest<HTMLElement>("[data-v2-town-build]");
+  const build = target.closest<HTMLElement>("[data-v2-build-pick]");
   if (build) {
-    screen.townBuildSelection = build.dataset.v2TownBuild;
+    screen.townBuildSelection = build.dataset.v2BuildPick;
     renderTownScreen(deps);
     return true;
   }

@@ -4,13 +4,8 @@
 // Overclock at the bottom. All actions reuse the tile menu's own definitions.
 
 import { townFoodSlotDemandForTier } from "@border-empires/shared";
-import { buildActionIconHtml } from "../client-build-menu-icons/client-build-menu-icons.js";
-import {
-  BUILDING_CATEGORY_LABELS,
-  BUILDING_CATEGORY_ORDER,
-  buildingActionCategory,
-  type BuildingCategory
-} from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
+import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
+import { buildCategories, buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
 import { displayTownPopulationTierLabel, townNextPopulationMilestone } from "../client-town-growth/client-town-growth.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 
@@ -38,8 +33,7 @@ const targetAttrs = (a: TileActionDef, fallbackKey: string): string =>
 const keyOf = (t: Tile): string => `${t.x},${t.y}`;
 
 /** Categories that have something to build here, in the build menu's order. */
-export const townBuildCategories = (buildings: readonly TileActionDef[]): Array<{ category: BuildingCategory; count: number }> =>
-  BUILDING_CATEGORY_ORDER.map((category) => ({ category, count: buildings.filter((b) => buildingActionCategory(b) === category).length })).filter((c) => c.count > 0);
+export const townBuildCategories = buildCategories;
 
 const actionFor = (view: TileMenuView, id: TileActionDef["id"]): TileActionDef | undefined =>
   view.actions.find((a) => a.id === id) ?? view.buildings.find((a) => a.id === id);
@@ -76,31 +70,27 @@ const leftPanelHtml = (input: TownScreenInput): string => {
 };
 
 const buildPanelHtml = (input: TownScreenInput): string => {
-  const buildings = input.focusView.buildings;
-  const cats = townBuildCategories(buildings);
-  const category = cats.some((c) => c.category === input.category) ? input.category : cats[0]?.category;
   const supportFocus = keyOf(input.focus) !== keyOf(input.town);
-  const focusLabel = supportFocus ? `(${input.focus.x}, ${input.focus.y})` : esc(input.townView.title);
-  const tabs = cats.map((c) => `<button type="button" role="tab" class="v2t-tab${c.category === category ? " v2t-tab-on" : ""}" aria-selected="${c.category === category}" data-v2-town-category="${c.category}">${esc(BUILDING_CATEGORY_LABELS[c.category].replace(/­/g, ""))} · ${c.count}</button>`).join("");
-  const rows = buildings.filter((b) => buildingActionCategory(b) === category).map((b) => {
-    const on = b.id === input.buildSelection;
-    const icon = buildActionIconHtml(b.id) ?? "";
-    return `<button type="button" class="v2t-build${on ? " v2t-build-on" : ""}${b.disabled ? " v2t-build-off" : ""}" data-v2-town-build="${esc(b.id)}" aria-pressed="${on}">
-      <span class="v2t-build-ico">${icon}</span>
-      <span class="v2t-build-text"><span class="v2t-build-name">${esc(b.label)}</span>${b.detail ? `<span class="v2t-build-detail">${esc(b.detail)}</span>` : ""}<span class="v2t-build-cost${b.disabled ? " v2t-warn" : ""}">${esc(b.disabled ? b.disabledReason ?? "Unavailable" : b.cost ?? "")}</span></span>
-    </button>`;
-  }).join("");
-  const empty = buildings.length === 0 ? `<div class="v2s-empty">Nothing to build ${supportFocus ? "on this tile" : "here"}</div>` : "";
-  return `<div class="v2t-build-head"><span class="v2t-build-title">Build</span><span class="v2t-focus${supportFocus ? " v2t-focus-on" : ""}">${focusLabel}</span></div>
-    ${tabs ? `<div class="v2t-tabs" role="tablist" aria-label="Building categories">${tabs}</div>` : ""}
-    <div class="v2t-build-list" data-v2-scroll="town-build">${rows}${empty}</div>`;
+  return buildListHtml({
+    buildings: input.focusView.buildings,
+    focusLabel: supportFocus ? `(${input.focus.x}, ${input.focus.y})` : input.townView.title,
+    focusHighlighted: supportFocus,
+    selection: input.buildSelection,
+    category: input.category,
+    emptyText: `Nothing to build ${supportFocus ? "on this tile" : "here"}`,
+    targetKey: keyOf(input.focus),
+    placeLabel: supportFocus ? `Build on (${input.focus.x}, ${input.focus.y})` : "Place"
+  });
 };
 
 const placeHtml = (input: TownScreenInput): string => {
-  const sel = input.focusView.buildings.find((b) => b.id === input.buildSelection && !b.disabled);
-  if (!sel) return "";
-  const where = keyOf(input.focus) !== keyOf(input.town) ? `Build on (${input.focus.x}, ${input.focus.y})` : "Place";
-  return `<div class="v2t-place"><span class="v2t-place-name">${esc(sel.label)}</span><button type="button" class="v2s-btn v2s-btn-primary" data-hud-v2-action="${esc(sel.id)}"${targetAttrs(sel, keyOf(input.focus))}>${where}</button></div>`;
+  const supportFocus = keyOf(input.focus) !== keyOf(input.town);
+  return buildPlaceHtml({
+    buildings: input.focusView.buildings,
+    selection: input.buildSelection,
+    targetKey: keyOf(input.focus),
+    placeLabel: supportFocus ? `Build on (${input.focus.x}, ${input.focus.y})` : "Place"
+  });
 };
 
 const barHtml = (input: TownScreenInput): string => {
@@ -108,8 +98,12 @@ const barHtml = (input: TownScreenInput): string => {
     a
       ? `<button type="button" class="v2t-act" data-hud-v2-action="${esc(a.id)}"${targetAttrs(a, keyOf(input.town))}${a.disabled ? " disabled" : ""} title="${esc(a.disabled ? a.disabledReason ?? "" : a.detail ?? "")}">${label}${a.cost ? `<small>${esc(a.cost)}</small>` : ""}</button>`
       : "";
+  // Everything else the town tile offers, as small text buttons (no hidden ⋯ menu).
+  const shownIds = new Set<TileActionDef["id"]>(["muster_hold", "city_overclock", ...GROW_IDS]);
+  const minor = input.townView.actions.filter((a) => !shownIds.has(a.id)).map((a) =>
+    `<button type="button" class="hud-v2-minor${a.disabled ? " hud-v2-minor-off" : ""}" data-hud-v2-action="${esc(a.id)}"${targetAttrs(a, keyOf(input.town))}${a.disabled ? " disabled" : ""} title="${esc(a.disabled ? a.disabledReason ?? a.label : a.cost ?? a.detail ?? a.label)}">${esc(a.label)}</button>`).join("");
   return `${btn(actionFor(input.townView, "muster_hold"), "Raise flag")}${btn(actionFor(input.townView, "city_overclock"), "Overclock")}
-    <button type="button" class="v2t-act v2t-act-more" data-hud-v2-tab="actions" aria-label="More actions">⋯</button>
+    ${minor ? `<span class="v2t-minor">${minor}</span>` : ""}
     <button type="button" class="v2t-act v2t-act-back" data-v2-close>◁ Map · Esc</button>`;
 };
 
