@@ -1,3 +1,5 @@
+import { renderNetworkSupplyReview } from "./resource-network-supply-review.js";
+import { renderStructureIdentityReview } from "../structures/town-district-identity-review.js";
 import { createContactShadowOverlay } from "@client/client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { NETWORK_RESOURCES, RESOURCE_NETWORKS } from "@border-empires/shared";
@@ -6,7 +8,7 @@ import { createStructureOverlay } from "@client/client-map-3d-structure-overlay/
 import { createStage, wrapWithCleanup } from "../../fixtures/three-stage.js";
 
 function gallery(): HTMLElement {
-  const stage = createStage({ width:1100,height:480,camera:"orthographic",orthoHalfHeight:2.1,background:"#18232b" });
+  const stage = createStage({ width:1100,height:400,camera:"orthographic",orthoHalfHeight:1.7,background:"#18232b" });
   stage.camera.position.set(0,6,7); stage.camera.lookAt(0,0,0);
   const deposits = createResourceOverlay(stage.scene, 5);
   const shadows = createContactShadowOverlay(stage.scene, 20);
@@ -32,3 +34,9 @@ function gallery(): HTMLElement {
 const meta: Meta = { title:"Map/Resources/Resource Networks",render:gallery };
 export default meta;
 export const DepositsAndBuildings: StoryObj = {};
+
+export const InstallationReview: StoryObj = {
+  render: () => renderStructureIdentityReview(NETWORK_RESOURCES.map(resource => RESOURCE_NETWORKS[resource].building), "Frontier installation")
+};
+
+export const SupplySlots: StoryObj = { render: renderNetworkSupplyReview };

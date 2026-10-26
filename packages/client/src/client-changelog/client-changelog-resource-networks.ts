@@ -10,7 +10,7 @@ export const RESOURCE_NETWORKS_CHANGELOG: ClientChangelogEntry[] = [{
     "Explore deposits, commission their specialised Manifest, and build the matching extraction installation.",
     "Developed resin and conductive sites increase Ancillary Factory batches; towns still supply the bodies and depots determine storage.",
     "Catalysts and luxury exports back more Coin credit through Trade Nexuses; reclaimed machinery improves Manufactory-backed credit.",
-    "The first three sites of each resource give full bonuses, the next three half bonuses, with no extra bonus beyond six.",
+    "Each developed site supplies one building: resin grants +12 Ancillaries per batch, conductive minerals +6, and credit resources +1.5 Coin/day. Extra buildings need additional supply slots.",
     "Deposits and extraction buildings have art in both the 2D and 3D maps. Existing campaign geography is unchanged."
   ]
 }];

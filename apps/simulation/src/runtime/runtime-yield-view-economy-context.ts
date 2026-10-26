@@ -11,7 +11,7 @@ export const yieldViewEconomyContext = (
   players?: ReadonlyMap<string, RuntimePlayer>
 ): Parameters<typeof buildTileYieldView>[2] => ({
   ...(player ? { player } : {}),
-  ...(ctx ? { fedTownKeys: ctx.fedTownKeys, firstThreeTownKeys: ctx.firstThreeTownKeys, ...(ctx.networkSites ? { networkSites: ctx.networkSites } : {}) } : {}),
+  ...(ctx ? { fedTownKeys: ctx.fedTownKeys, firstThreeTownKeys: ctx.firstThreeTownKeys, ...(ctx.networkCreditByTown ? { networkCreditByTown: ctx.networkCreditByTown } : {}) } : {}),
   ...(players ? { players } : {}),
   tiles,
   dockLinksByDockTileKey

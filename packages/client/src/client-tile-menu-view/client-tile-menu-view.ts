@@ -263,7 +263,7 @@ export const menuOverviewForTile = (
     const network = RESOURCE_NETWORKS[tile.resource];
     pushLine(network.description);
     pushLine(network.effect);
-    pushLine("Developed sites support your whole empire: first 3 full value, next 3 half value; maximum 6 useful sites per resource.");
+    pushLine("Each developed site supplies one building. A building can use one slot of each relevant resource; extra buildings need additional supply.");
     if (tile.economicStructure?.type !== network.building) pushLine(`Develop with a ${network.buildingName}.`);
   }
   if (tile.dockId && tile.ownershipState === "SETTLED") {

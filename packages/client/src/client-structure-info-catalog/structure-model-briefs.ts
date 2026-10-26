@@ -5,6 +5,13 @@ import { DISTRICT_MODEL_BRIEFS, type DistrictModelBrief } from "../client-town-d
 import { isDistrictBuilding, type DistrictBuildingKind } from "../client-town-district/district-catalog.js";
 import type { StructureInfoKey } from "../client-map-display.js";
 
+const NETWORK_LANDMARKS = {
+  NEURAL_RESIN: "Tapped native trees, brass trunk collars and pipes, a collection vessel and pump.",
+  CONDUCTIVE_MINERALS: "Precision assembly hall with an open press gantry, glowing work cells and ore hopper.",
+  CATALYTIC_DEPOSIT: "Tall banded distillation columns with transfer pipes, access ladder and control hut.",
+  LUXURY_BIOTA: "Twin brass-framed conservatory bays, flowering rows and a packing lodge.",
+  PRECURSOR_SALVAGE: "Broken machine ribs beneath a travelling crane, sorting beds and salvage workshop."
+} as const;
 const brief = (role: string, landmark: string): DistrictModelBrief => ({ role, landmark });
 // The remaining live-map models outside the district kit. Names are never
 // duplicated here; the shared structure-name table supplies all visible labels.
@@ -32,6 +39,6 @@ const OTHER: Readonly<Record<Exclude<StructureInfoKey, DistrictBuildingKind | Ne
 
 export const structureModelBriefFor = (kind: StructureInfoKey): DistrictModelBrief => {
   const resource = networkResourceForBuilding(kind);
-  if (resource) return brief(RESOURCE_NETWORKS[resource].description + " " + RESOURCE_NETWORKS[resource].effect, "Resource-processing installation with brass service equipment and material-specific production machinery.");
+  if (resource) return brief(RESOURCE_NETWORKS[resource].description + " " + RESOURCE_NETWORKS[resource].effect, NETWORK_LANDMARKS[resource]);
   return isDistrictBuilding(kind) ? DISTRICT_MODEL_BRIEFS[kind] : OTHER[kind as keyof typeof OTHER];
 };

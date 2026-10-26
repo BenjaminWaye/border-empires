@@ -446,6 +446,13 @@ Towns provide the bodies. These industries improve the factories' ability to
 ready them, not the supply of people. Ancillary Depots provide storage and
 custody for the resulting reserve.
 
+A working site provides a continuing contracted supply, committed to a
+particular recipient industry. Opening more factories does not duplicate
+that supply: another equipped production line needs another supplier. Supply
+slots represent this exclusive commitment, not ore units spent down to zero.
+An idle or lost recipient releases the commitment for another eligible
+building; the physical deposit remains.
+
 Catalyst Refineries develop rare catalyst-bearing deposits for offworld
 chemical and fabrication industries. Cultivation Estates grow native luxury
 biota for fragrances, pigments and intoxicants sought in the Core. Trade Nexuses

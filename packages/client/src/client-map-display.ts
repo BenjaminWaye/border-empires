@@ -165,7 +165,7 @@ export const structureInfoForKey = (
   // Modifier line (mechanic descriptions, "requires power", limits, etc).
   const effectsFor = (key: StructureInfoKey): string[] => {
     const resource = networkResourceForBuilding(key);
-    if (resource) return [RESOURCE_NETWORKS[resource].effect, "Empire-wide: first 3 sites full value, next 3 half value; later sites add no further bonus."];
+    if (resource) return [RESOURCE_NETWORKS[resource].effect, "One renewable slot supplies one eligible building. Each building uses at most one slot of each resource; spare slots remain available."];
     const converter = converterInfoEffects(key);
     if (converter) return converter;
     if (key === "FORT") return ["Prevents failed attacks from immediately flipping the fortified origin tile"];

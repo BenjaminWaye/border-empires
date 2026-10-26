@@ -1,3 +1,4 @@
+import { networkSupplyHtml } from "../client-resource-networks/network-supply-html.js";
 import {
   townFoodSlotDemandForTier,
   structureSlotRequirements,
@@ -56,7 +57,7 @@ export type EconomyPanelArgs = {
   rateToneClass: (rate: number) => string;
   resourceLabel: (resource: string) => string;
   economicStructureName: (type: EconomicStructureType) => string;
-  resourceSlots: { supply: Record<SlotResource, number>; demand: Record<SlotResource, number>; sources?: ResourceSlotSources };
+  resourceSlots: { supply: Record<SlotResource, number>; demand: Record<SlotResource, number>; sources?: ResourceSlotSources; bonusSupply?: import("@border-empires/shared").NetworkSupplyStatus };
   dormantStructures: Array<{ key: string; resources: SlotResource[] }>;
   /** Names for the upgrade / player ids in resourceSlots.sources. */
   slotSourceNames?: SlotSourceNames;
@@ -354,6 +355,7 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
         ${args.integrityPct === undefined ? "" : economyIntegrityCardHtml(args.integrityPct, args.rateToneClass)}
       </div>
       ${totals ? `<div class="economy-overview-note">${args.isMobile ? "Tap a resource above to switch the breakdown." : totals}</div>` : args.isMobile ? `<div class="economy-overview-note">Tap a resource above to switch the breakdown.</div>` : ""}
+      ${networkSupplyHtml(args.resourceSlots.bonusSupply)}
       ${visibleResources
         .map((resource) => {
           const foodFootnote = resource === "FOOD" ? `<div class="economy-footnote">Food coverage ${Math.round((args.upkeepLastTick.foodCoverage ?? 1) * 100)}% · unfed towns stop producing until food support catches up.</div>` : "";

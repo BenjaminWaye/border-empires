@@ -23,37 +23,47 @@ rules; this document records implementation scope, rollout and visual decisions.
 
 ## Starting balance
 
-| Deposit | Installation | Build manpower / seconds | Ongoing occupancy | Benefit per effective developed site |
+| Deposit | Installation | Build manpower / seconds | Ongoing occupancy | Benefit from one supply slot |
 |---|---|---:|---|---|
-| Neural resin | Resin Extractor | 120 / 120 | 1 FOOD slot | +4 Ancillaries per factory per 4-hour batch |
-| Conductive minerals | Implant Foundry | 150 / 150 | 1 FOOD slot | +2 Ancillaries per factory per batch |
-| Catalytic deposit | Catalyst Refinery | 150 / 150 | 1 FOOD slot | +0.5 Coin/day per active supported Trade Nexus |
-| Luxury biota | Cultivation Estate | 100 / 100 | 1 FOOD slot | +0.5 Coin/day per active supported Trade Nexus |
-| Precursor salvage | Reclamation Works | 180 / 180 | 1 FOOD slot | +0.5 Coin/day per active supported Manufactory |
+| Neural resin | Resin Extractor | 120 / 120 | 1 FOOD slot | +12 Ancillaries at one factory per 4-hour batch |
+| Conductive minerals | Implant Foundry | 150 / 150 | 1 FOOD slot | +6 Ancillaries at one factory per batch |
+| Catalytic deposit | Catalyst Refinery | 150 / 150 | 1 FOOD slot | +1.5 Coin/day at one active supported Trade Nexus |
+| Luxury biota | Cultivation Estate | 100 / 100 | 1 FOOD slot | +1.5 Coin/day at one active supported Trade Nexus |
+| Precursor salvage | Reclamation Works | 180 / 180 | 1 FOOD slot | +1.5 Coin/day at one active supported Manufactory |
 
 Build times above are base times; existing build-speed effects apply. Build
 Coin costs are zero, matching the existing physical-construction economy.
 These are additive bonuses, leaving current buildings' base output and other
 network upgrades intact. They never grant an immediate batch or refill.
 
-For each resource independently, sites 1–3 count fully, sites 4–6 count half,
-and sites 7 onward add no bonus. Effective count is therefore capped at 4.5.
-Extra sites still provide redundancy and deny opponents access. The cap is
-empire-wide, not per town or building, and applies before multiplication by
-beneficiary count. It prevents unlimited deposit-by-factory growth, while
-additional factories and Manufactories remain useful.
+Each active extraction installation supplies **one renewable bonus slot** of
+its resource. A beneficiary uses at most one slot of each applicable type.
+A factory can therefore use one resin and one conductive-mineral slot; a
+Trade Nexus can use one catalyst and one luxury slot. A Manufactory can use
+one salvage slot. These are optional enhancements: an unsupplied beneficiary
+retains normal output. Supply does not run out over time, and occupying a slot
+does not consume the deposit. Spare slots remain available for new consumers.
+There is no diminishing-return tier or six-site cap.
+
+For each resource, supplied buildings = min(active developed sites, eligible
+active beneficiaries). Extra factories cannot reuse already occupied slots.
 
 Examples:
 
-- Two resin sites and one mineral site give each factory +10 Ancillaries per
-  batch. Four factories receive +40 per complete four-hour window.
-- Six resin and six mineral sites give +27 per factory per batch. The base
-  standalone factory provides +12, so the fully supplied standalone factory
-  provides 39 before existing Neural Works and other effects.
-- Two catalyst sites and one luxury site give +1.5 Coin/day per Trade Nexus.
-- Two salvage sites and four Manufactories add +4 Coin/day in total.
-- Maximum extra credit is +4.5 Coin/day per Trade Nexus and +2.25/day per
-  Manufactory, before the existing applicable town-output effects.
+- One resin site and ten factories give +12 Ancillaries total per batch. Nine
+  factories retain their normal output until another resin slot is developed.
+- Two resin sites, one mineral site and three factories give +30 total per
+  batch: 2×12 + 1×6. The same supply with one factory gives +18.
+- One catalyst and one luxury site support +3 Coin/day total, whether the
+  House owns one Trade Nexus or twenty. Each relevant slot needs a beneficiary.
+- Two salvage sites and one Manufactory supply +1.5 Coin/day, with one salvage
+  slot free. A second Manufactory can use the other slot for another +1.5/day.
+
+Credit slots are assigned in stable town-key order to eligible supported
+buildings, so snapshots, town displays and actual income agree. Dormant,
+lost or unsupported consumers release slots on the next economy recomputation.
+The manpower pool is empire-wide, so equivalent factory assignments require
+no additional persisted state or per-factory order.
 
 Factories only receive the bonus while active and not FOOD-dormant. Credit
 beneficiaries retain their normal supported-town and fed-town requirements;
@@ -105,7 +115,8 @@ as many as they can without overwriting existing content.
 Placement is seeded and deterministic, distributed round-robin across 32×32
 geographic sectors. It uses unoccupied LAND and preserves existing slot
 resources, towns, docks, relics, Shards, watchtowers, Waystations and structures.
-The 5×5 area around an existing landing AFC is protected. Both synchronous
+The 5×5 area around an existing landing AFC and the clear 3×3 footprints
+of fifty qualified future landing sites are protected. Both synchronous
 and asynchronous season generators use the same placement function. This
 provides regional spread, not a guarantee that every small island has every
 resource. Expansion or trade in territory remains useful.
@@ -117,20 +128,25 @@ its own silhouette and material colour, with matching SVG and instanced 3D art:
 
 | Resource | Raw site | Developed installation |
 |---|---|---|
-| Neural resin / amber | Sap-bearing trees | Trees connected to a brass collection vat |
-| Conductive minerals / turquoise | Dark rock with bright seams | Implant workshop with induction coil and service mast |
-| Catalysts / pale gold | Ochre ore outcrop | Twin separation columns with pale ore fittings |
+| Neural resin / amber | Sap-bearing trees | Tapped trees, trunk collars, pipes, collection vessel and pump |
+| Conductive minerals / turquoise | Dark rock with bright seams | Precision assembly workshop, press gantry and ore hopper |
+| Catalysts / pale gold | Ochre ore outcrop | Banded distillation columns, transfer pipes, access ladder and ore bins |
 | Luxury biota / rose | Flowering native shrubs | Glazed cultivation house over planted rows |
-| Salvage / weathered blue-grey | Broken machine pylons and a buried ring | Reclamation yard with crane and recovered machinery |
+| Salvage / weathered blue-grey | Broken, half-buried machine ribs and scattered components | Reclamation yard with crane and recovered machinery |
 
 The live 3D resource dispatcher accepts all five deposit kinds; the existing
 structure dispatcher handles all five installations. Shared construction
 phases, scene origin placement, instancing, disposal and shadows remain in
-use. The 2D resource and built-resource paths load dedicated SVGs. Neither
+use. Models use the existing town primitive kit, aged brass/iron/glass palette,
+marble foundation, working fittings and shader-driven machinery. The 2D
+resource and built-resource paths load SVGs exported from the same model
+source with `node scripts/generate-network-icons.mjs`. Neither
 renderer requires a new image-generation service or external asset license.
 
-Tile details explain purpose, development building and diminishing returns.
-Manpower breakdown includes the actual resource-network regeneration delta.
+Tile details explain purpose, development building and one-slot supply.
+The economy panel shows Industrial supply: occupied/total slots, free slots
+and the supplied output. Both live updates and reconnects carry authoritative
+counters. Manpower breakdown includes the actual resource-network regeneration delta.
 Coin sources distinguish frontier export concessions and precursor reclamation.
 Town income and empire credit totals use the same bonus calculation. A new
 Storybook gallery shows all raw and developed models alongside their 2D art.
@@ -146,7 +162,7 @@ Storybook gallery shows all raw and developed models alongside their 2D art.
 4. Client: build click dispatch, optimistic construction, Manifest links,
    descriptions, icons, live 2D/3D art and Storybook review.
 5. AI: use the existing bounded economic build selector, requiring a matching
-   beneficiary and stopping extraction development at six per resource.
+   beneficiary with an unfilled resource slot, without an arbitrary site cap.
 6. Validation: shared rules/schema/placement tests; real-runtime payout,
    construction, missing-tech and partial-window loss tests; resource-site
    eligibility and generation tests; client action and visual checks; full

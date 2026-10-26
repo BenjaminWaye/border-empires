@@ -1,4 +1,5 @@
 import { infrastructureMenuCrops } from "../client-infrastructure/infrastructure-art.js";
+import { NETWORK_ICON_CROPS } from "../client-resource-networks/network-icon-crops.js";
 import { monumentMenuCrops } from "../client-monuments/monument-art.js";
 import { districtMenuArtCrops } from "../client-town-district/district-art.js";
 // Where each building's art sits inside its overlay SVG, as fractions of the
@@ -12,11 +13,7 @@ export type ArtCropBox = readonly [x: number, y: number, width: number, height: 
 
 export const BUILD_MENU_ART_CROP: Readonly<Record<string, ArtCropBox>> = {
   ...districtMenuArtCrops(),
-  "/overlays/resin-extractor-overlay.svg": [0.0625,0.1015625,0.875,0.8125],
-  "/overlays/implant-foundry-overlay.svg": [0.0625,0.25,0.875,0.6640625],
-  "/overlays/catalyst-refinery-overlay.svg": [0.0625,0.15625,0.875,0.7578125],
-  "/overlays/cultivation-estate-overlay.svg": [0.0625,0.203125,0.875,0.7109375],
-  "/overlays/reclamation-works-overlay.svg": [0.0625,0.1484375,0.875,0.765625],
+  ...NETWORK_ICON_CROPS,
   ...monumentMenuCrops(),
   ...infrastructureMenuCrops(),
   "/overlays/high-yield-aether-condenser-overlay.svg": [0.078, 0.289, 0.789, 0.5],

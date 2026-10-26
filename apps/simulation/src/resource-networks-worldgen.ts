@@ -1,4 +1,4 @@
-import type { DomainTileState } from "@border-empires/game-domain";
+import { computeFairSpawnSites, type DomainTileState } from "@border-empires/game-domain";
 import { NETWORK_RESOURCES, RESOURCE_NETWORKS } from "@border-empires/shared";
 
 const hash = (seed: number, x: number, y: number): number => {
@@ -10,12 +10,20 @@ const hash = (seed: number, x: number, y: number): number => {
 /** Bounded by the world area; balanced across 32x32 sectors, independent of ownership. */
 export function seedResourceNetworks(tiles: Map<string, DomainTileState>, seed: number, width: number, height: number): void {
   const sectors = new Map<string, DomainTileState[]>();
-  const afcs = [...tiles.values()].filter(tile => tile.afc);
+  // Resources block an AFC's clear 3x3 landing footprint. Preserve the same
+  // fifty qualified future starts that the season's fairness gate guarantees.
+  const tileList = [...tiles.values()];
+  const protectedKeys = new Set<string>();
+  const protect = (x: number, y: number, radius: number): void => {
+    for (let dy = -radius; dy <= radius; dy += 1) for (let dx = -radius; dx <= radius; dx += 1)
+      protectedKeys.add(`${(x + dx + width) % width},${(y + dy + height) % height}`);
+  };
+  for (const tile of tileList) if (tile.afc) protect(tile.x, tile.y, 2);
+  for (const site of computeFairSpawnSites(tileList, 50, { requireStarterEconomy: true, width, height })) protect(site.x, site.y, 1);
   for (const tile of tiles.values()) {
     if (tile.terrain !== "LAND" || tile.resource || tile.town || tile.dockId || tile.afc ||
         tile.naturalWonder || tile.shardSite || tile.watchtower || tile.waystation || tile.economicStructure) continue;
-    if (afcs.some(afc => Math.min(Math.abs(tile.x - afc.x), width - Math.abs(tile.x - afc.x)) <= 2 &&
-      Math.min(Math.abs(tile.y - afc.y), height - Math.abs(tile.y - afc.y)) <= 2)) continue;
+    if (protectedKeys.has(`${tile.x},${tile.y}`)) continue;
     const key = `${Math.floor(tile.x / 32)},${Math.floor(tile.y / 32)}`;
     const sector = sectors.get(key) ?? [];
     sector.push(tile);

@@ -1,6 +1,5 @@
 import { isNetworkResource, type NetworkResource } from "@border-empires/shared";
-import { registerNetworkModels } from "./client-resource-networks/network-models.js";
-import { createStructurePieceBuilder } from "./client-map-3d-structure-builder.js";
+import { createNetworkOverlay } from "./client-resource-networks/network-models.js";
 import {
   BoxGeometry,
   ConeGeometry,
@@ -51,8 +50,7 @@ export type ResourceOverlay = {
 };
 
 export const createResourceOverlay = (scene: Scene, maxTiles: number, buildingEnvironmentTexture?: Texture): ResourceOverlay => {
-  const network = createStructurePieceBuilder(scene, maxTiles, buildingEnvironmentTexture);
-  const networkLayouts = registerNetworkModels(network.builder, false);
+  const network = createNetworkOverlay(scene, maxTiles, false, buildingEnvironmentTexture);
   // Materials + geometries live in their own factory (client-map-3d-resource-overlay-assets.ts)
   // to keep this file under the 500-line cap.
   const {
@@ -255,7 +253,7 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number, buildingEn
     // doesn't reshuffle a tile's layout. Scene coords are used only for
     // placement.
     const v = variantHash(worldTileX, worldTileY, resource.length * 31);
-    if (isNetworkResource(resource)) networkLayouts[resource](sceneX, surfaceY, sceneZ);
+    if (isNetworkResource(resource)) network.add({ x: sceneX, y: surfaceY, z: sceneZ, kind: resource, operational: true, foundation: false });
     if (resource === "GEMS") addGems(sceneX, surfaceY, sceneZ, v);
   };
 

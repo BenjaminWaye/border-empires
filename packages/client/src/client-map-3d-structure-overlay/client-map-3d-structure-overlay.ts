@@ -1,6 +1,6 @@
 import { createDistrictOverlay } from "../client-town-district/district-overlay.js";
-import { NETWORK_RESOURCES, RESOURCE_NETWORKS, type NetworkBuilding } from "@border-empires/shared";
-import { registerNetworkStructures } from "../client-resource-networks/network-models.js";
+import { NETWORK_RESOURCES, RESOURCE_NETWORKS, networkResourceForBuilding, type NetworkBuilding } from "@border-empires/shared";
+import { createNetworkOverlay } from "../client-resource-networks/network-models.js";
 import type { Scene, Texture } from "three";
 import { createStructurePieceBuilder } from "../client-map-3d-structure-builder.js";
 import {
@@ -180,7 +180,7 @@ export const createStructureOverlay = (
   // blue crystal) are available to industrial (ORE_REFINERY/ADV_TITANIUM_WORKS
   // reuse the forge palette; the aether condensers reuse the blue
   // crystal material).
-  const network = registerNetworkStructures(builder);
+  const network = createNetworkOverlay(scene, maxTiles, true, buildingEnvironmentTexture);
   const economic = registerEconomicStructures(builder);
   const lateGame = registerLateGameStructures(builder);
   const civic = registerCivicStructures(builder);
@@ -198,7 +198,6 @@ export const createStructureOverlay = (
     (sx, sy, sz) => fn(sx, sy, sz);
 
   const layouts: Partial<Record<StructureKind, UniformLayoutFn>> = {};
-  for (const [kind, layout] of Object.entries(network.layouts)) layouts[kind as NetworkBuilding] = ignoreResource(layout);
   for (const [k, fn] of Object.entries(economic.layouts)) {
     layouts[k as EconomicStructureKind] = fn;
   }
@@ -263,6 +262,12 @@ export const createStructureOverlay = (
         x: sceneX, y: surfaceY, z: sceneZ, foundation: true, operational: !site, ...(site ? { site } : {}) });
       return;
     }
+    const networkResource = networkResourceForBuilding(kind);
+    if (networkResource) {
+      network.add({ x: sceneX, y: surfaceY, z: sceneZ, kind: networkResource, operational: !site, foundation: true, ...(site ? { site } : {}) });
+      contactShadows.addShadow(sceneX, sceneZ, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
+      return;
+    }
     const layout = layouts[kind];
     if (!layout) return;
     if (site) {
@@ -289,6 +294,7 @@ export const createStructureOverlay = (
   // here, since this module doesn't own it.
   const clear = (): void => {
     remodeled.clear();
+    network.clear();
     economic.clear();
     clearBuilder();
     presentation.clear();
@@ -297,19 +303,22 @@ export const createStructureOverlay = (
   return {
     clear,
     addInstance,
-    constructionBoundaryPassed: () => presentation.boundaryPassed() || remodeled.boundaryPassed(),
+    constructionBoundaryPassed: () => presentation.boundaryPassed() || remodeled.boundaryPassed() || network.boundaryPassed(),
     commit: (): void => {
       remodeled.commit();
+      network.commit();
       commitBuilder();
       presentation.commit();
     },
     update: (nowMs: number): void => {
       remodeled.update(nowMs);
+      network.update(nowMs);
       economic.update(nowMs);
       presentation.update(nowMs);
     },
     dispose: (): void => {
       remodeled.dispose();
+      network.dispose();
       presentation.dispose();
       disposeBuilder();
     }

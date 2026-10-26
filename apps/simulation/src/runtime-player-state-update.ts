@@ -94,7 +94,8 @@ export function emitPlayerStateUpdate(
       resourceSlots: {
         supply: context.resourceSlotSupplyForPlayer(playerId),
         demand: context.resourceSlotDemandForPlayer(playerId),
-        ...(() => { const sources = context.resourceSlotSourcesForPlayer(playerId); return sources ? { sources } : {}; })()
+        ...(() => { const sources = context.resourceSlotSourcesForPlayer(playerId); return sources ? { sources } : {}; })(),
+        ...(economy.networkSupply ? { bonusSupply: economy.networkSupply } : {})
       },
       // §14.2: which of this player's structures are currently dormant
       // (slot demand not covered by supply), and which resource(s) each one
