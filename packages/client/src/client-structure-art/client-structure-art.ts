@@ -1,3 +1,4 @@
+import { infrastructureArtUrl } from "../client-infrastructure/infrastructure-art.js";
 import { monumentArtUrl } from "../client-monuments/monument-art.js";
 import { districtArtUrl } from "../client-town-district/district-art.js";
 // Per-structure 2D art (public/overlays SVGs). The structure info card shows
@@ -9,7 +10,6 @@ const STRUCTURE_INFO_ART: Readonly<Record<string, string>> = {
   MANUFACTORY: "/overlays/manufactory-overlay.svg",
   INCUBATION_ENGINE: "/overlays/incubation-engine-overlay.svg",
   CENSUS_HALL: "/overlays/census-hall-overlay.svg",
-  OBSERVATORY: "/overlays/observatory-overlay.svg",
   TRADE_NEXUS: "/overlays/trade-nexus-overlay.svg",
   UMBRITE_WORKS: "/overlays/umbrite-works-overlay.svg",
   HIGH_YIELD_UMBRITE_WORKS: "/overlays/high-yield-umbrite-works-overlay.svg",
@@ -18,7 +18,6 @@ const STRUCTURE_INFO_ART: Readonly<Record<string, string>> = {
   AETHER_CONDENSER: "/overlays/aether-condenser-overlay.svg",
   HIGH_YIELD_AETHER_CONDENSER: "/overlays/high-yield-aether-condenser-overlay.svg",
   ORE_REFINERY: "/overlays/ore-refinery-overlay.svg",
-  HARBOR_EXCHANGE: "/overlays/harbor-exchange-overlay.svg",
   CLEARING_HOUSE: "/overlays/clearing-house-overlay.svg",
   MINISTRY_HALL: "/overlays/ministry-hall-overlay.svg",
   // ANCILLARY_DEPOT ("Ancillary Depot") has its own storage-drum art;
@@ -69,17 +68,14 @@ const BUILD_MENU_EXTRA_ART: Readonly<Record<string, string>> = {
   DREAD_TOWER: "/overlays/siege-battery-overlay.svg",
   HYDROGARDEN: "/overlays/farm-hydroponic-overlay-1.svg",
   HYDROWORKS: "/overlays/farm-hydrogarden-overlay-1.svg",
-  MINE: "/overlays/titanium-mine-overlay-1.svg",
-  UMBRITE_RIG: "/overlays/umbrite-rig-overlay-1.svg",
   BANK: "/overlays/bank-overlay.svg",
   EXCHANGE_HOUSE: "/overlays/exchange-house-overlay.svg",
-  RELAY_BEACON: "/overlays/relay-beacon-overlay.svg"
 };
 
 const lookup = (table: Readonly<Record<string, string>>, key: string): string | undefined =>
   Object.prototype.hasOwnProperty.call(table, key) ? table[key] : undefined;
 
-export const structureInfoArtUrl = (key: string): string | undefined => monumentArtUrl(key) ?? districtArtUrl(key) ?? lookup(STRUCTURE_INFO_ART, key);
+export const structureInfoArtUrl = (key: string): string | undefined => infrastructureArtUrl(key) ?? monumentArtUrl(key) ?? districtArtUrl(key) ?? lookup(STRUCTURE_INFO_ART, key);
 
 export const buildMenuArtUrl = (structureType: string): string | undefined =>
   structureInfoArtUrl(structureType) ?? lookup(BUILD_MENU_EXTRA_ART, structureType);

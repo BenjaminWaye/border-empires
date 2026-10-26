@@ -20,6 +20,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuTab, TileMenuView } from "../client-types.js";
 import { afcModulePickerStateForTitle, bindAfcModulePicker, fitAfcModulePicker } from "../client-afc-module-tab/client-afc-module-tab.js";
 import { openTechDetailFromTileMenu } from "../client-tile-action-support/client-tech-locked-tile-action.js";
+import { dockTileActionMenuForHudV2 } from "../client-hud-v2/client-hud-v2-tile-dock.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -93,6 +94,10 @@ export const renderTileActionMenu = (
   state.tileActionMenu.visible = true;
   state.tileActionMenu.x = clientX;
   state.tileActionMenu.y = clientY;
+  dockTileActionMenuForHudV2(state, view, deps, () => {
+    const tile = state.tileActionMenu.currentTileKey ? state.tiles.get(state.tileActionMenu.currentTileKey) : undefined;
+    if (tile) renderTileActionMenu(state, deps.tileMenuViewForTile(tile), state.tileActionMenu.x, state.tileActionMenu.y, deps);
+  });
   if (!shouldReuseRenderedMenu) {
     const closeBtn = deps.tileActionMenuEl.querySelector<HTMLButtonElement>("#tile-action-close");
     if (closeBtn) closeBtn.onclick = () => deps.hideTileActionMenu();

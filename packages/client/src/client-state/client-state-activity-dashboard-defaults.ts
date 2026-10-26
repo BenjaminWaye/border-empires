@@ -13,6 +13,8 @@ import type { ActivityDashboardView } from "../client-activity-dashboard/client-
 export const createInitialActivityDashboardState = () => ({
   activityDashboard: {
     open: false,
+    /** The new HUD's Chronicle, which replaces this dashboard under ?hud=v2, is open (popups wait for it the same way). */
+    chronicleOpen: false,
     loading: false,
     timeline: undefined as PersonalActivityTimeline | undefined,
     error: undefined as string | undefined,

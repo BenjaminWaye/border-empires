@@ -302,13 +302,25 @@ behave the way section 5 describes at full strength, with no rival fleet or
 vote to blame — until the lead shrinks, by loss or by the field catching
 up, and the Court's protection quietly returns.
 
-## 10. Relay Beacons: flags of anchored ground
+## 10. Relay Beacons: orbital links and anchored ground
 
 Where a Duke's towns are the heart of a claim, the **Relay Beacon** is its
 flag. It is the cheapest and quickest form of the Court's anchor technology:
 a tall, unarmed tower raised on frontier ground to declare, in a way the
 Bleed and every rival can read from miles away, that this stretch of land is
 now anchored to a Duke.
+
+A House AI coordinates its planetary ancillaries and fabrication systems from
+space. Relay Beacons receive its orbital command stream through deliberately
+modulated gravitational waves. Precision sensing frames isolate a suspended
+instrument from local disturbances, while ground projectors maintain a local
+control field for ancillary, fabrication and anchoring systems. The useful
+coverage of that local field is called **reach**; it is not the distance the
+orbital gravitational signal can travel. Compact gravitational transmitters,
+receivers and this control field are established capabilities of the setting.
+The gravitational link carries signals at light speed, not instantaneously.
+A beacon is an unarmed communications and anchoring installation, not an AI
+housed in a tower.
 
 A beacon does not fight. Its work is to mark and to watch:
 
@@ -317,7 +329,7 @@ A beacon does not fight. Its work is to mark and to watch:
   claim is the Duke's to settle and build on. Land outside it is still open
   frontier, and section 5 applies to it in full: it resists quietly until a
   border reaches it, then either yields or reclaims what was pushed into it.
-- **It watches.** A beacon's height and its rotating heliograph give a Duke
+- **It watches.** A beacon's elevated receiver and local sensor links give a Duke
   a long view of the frontier around it, so infestations, Wardens and rival
   banners are seen before they arrive.
 
@@ -344,14 +356,14 @@ belong in the [gameplay reference](../game-mechanics.md).
 
 ### What a beacon looks like
 
-A slender lattice tower of dark iron, with four legs that converge on a
-small enclosed deck. Geared brass periscopes sweep the horizon from the
-deck, and above it a spindle turns a rotating array of brass heliograph
-mirrors that flash light to anyone within sight. Amber signal lamps and a
-small aether-gas tank with brass feed pipes mark it as a working piece of
-anchor machinery rather than a fortress. It has no walls, no crenellations
-and no weapon mounts, so it stands tall, open and unarmoured, and reads at
-a glance against the squat, armed Siege Battery.
+A dark, tapered pedestal rises from a pale stone platform into three nested,
+faceted sensing frames surrounding a small suspended instrument. These are
+precision gravity sensors, not a reflective radio dish. Fine suspension members,
+small calibration blocks and brass edge inlays make the assembly read as an
+instrument; slow calibration movement and restrained status lighting replace
+bright reactor effects. Three outward-facing field projectors maintain the
+local settlement control coverage. The receiver has no weapon mounts and must
+remain visually distinct from the Aether Tower's luminous field machinery.
 
 ### Charting the land
 

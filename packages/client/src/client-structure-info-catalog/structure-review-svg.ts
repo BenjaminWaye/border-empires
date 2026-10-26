@@ -1,12 +1,12 @@
-import { BufferGeometry, Color, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, Scene, Vector3 } from "three";
+import { AdditiveBlending, BufferGeometry, Color, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, Scene, Vector3 } from "three";
 import { structureDisplayName } from "@border-empires/shared";
 import type { StructureInfoKey } from "../client-map-display.js";
 import { createStructureReviewModel } from "./structure-review-model.js";
 
 type Face = { readonly points: readonly Vector3[]; readonly depth: number; readonly fill: string; readonly opacity: number };
 /** Deterministic 2D projection of the production mesh, for exports and audits. */
-export const structureReviewSvg = (kind: StructureInfoKey): string => {
-  const scene = new Scene(), model = createStructureReviewModel(scene, kind, undefined, false);
+export const structureReviewSvg = (kind: StructureInfoKey, mineResource: "TITANIUM" | "GEMS" = "TITANIUM"): string => {
+  const scene = new Scene(), model = createStructureReviewModel(scene, kind, undefined, false, mineResource);
   const forward = new Vector3(0.65, 0.85, 1).normalize();
   const right = new Vector3(1, 0, -0.65).normalize(), up = new Vector3().crossVectors(forward, right);
   const light = new Vector3(-0.3, 0.85, 0.55).normalize();
@@ -24,6 +24,7 @@ export const structureReviewSvg = (kind: StructureInfoKey): string => {
         const group = geometry.groups.find(group => n >= group.start && n < group.start + group.count);
         const material = Array.isArray(mesh.material) ? mesh.material[group?.materialIndex ?? 0] : mesh.material;
         if (!(material instanceof MeshStandardMaterial) && !(material instanceof MeshBasicMaterial)) continue;
+        if (material.blending === AdditiveBlending) continue;
         const ids = [0, 1, 2].map(offset => index ? index.getX(n + offset) : n + offset);
         const vertices = ids.map(id => new Vector3().fromBufferAttribute(positions, id).applyMatrix4(transform));
         const [a, b, c] = vertices; if (!a || !b || !c) continue;
@@ -57,3 +58,5 @@ export const structureReviewSvg = (kind: StructureInfoKey): string => {
 };
 
 export { DISTRICT_PROJECT_KINDS as structureReviewMonumentKinds } from "../client-town-district/district-catalog.js";
+
+export { INFRASTRUCTURE_EXPORTS as structureReviewInfrastructureExports } from "../client-infrastructure/infrastructure-art.js";

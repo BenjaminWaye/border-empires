@@ -1,3 +1,4 @@
+import { buildInfrastructure, isInfrastructureModel } from "../client-infrastructure/infrastructure-models.js";
 import type { BufferGeometry } from "three";
 import {
   createRoutedTownBuilder, createTownMeshBuilder, createTownRandom
@@ -18,6 +19,10 @@ export type DistrictGeometry = {
 };
 
 export const buildDistrictModel = (t: TownBuilders, kind: DistrictVisualKind, foundation = true): void => {
+  if (isInfrastructureModel(kind)) {
+    if (foundation && kind !== "INFRASTRUCTURE_SLAB") buildSupportFoundation(t);
+    buildInfrastructure(t, kind); return;
+  }
   if (foundation) buildSupportFoundation(t);
   if (isDistrictProject(kind)) { buildMonument(t, kind); return; }
   if (buildIndustry(t, kind) || buildProjectPart(t, kind) || buildUtility(t, kind)) return;
