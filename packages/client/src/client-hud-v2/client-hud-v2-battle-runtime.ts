@@ -7,6 +7,7 @@
 
 import type { Tile, TileActionDef, TileCombatBreakdown, TileMenuView } from "../client-types.js";
 import { battleLiveHtml, battlePreviewHtml, battleResultHtml, parseWinPct, type BattleEffort, type BattleSide } from "./client-hud-v2-battle.js";
+import { BATTLE_ZOOM, closeUpOn, endCloseUp } from "./client-hud-v2-camera.js";
 import { clearScreen, focusCamera, screen, setScreen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
 import { isHudV2Active } from "./client-hud-v2-flag.js";
 
@@ -33,6 +34,7 @@ const SHEET = ".effort-confirm-overlay";
 
 let attack: { tileKey: string; view: TileMenuView; at: number } | undefined;
 let battle: Battle | undefined;
+let battleDeps: HudV2Deps | undefined;
 /** Set when the sheet was confirmed (its Go button or Enter), so closing it means "launched", not "backed out". */
 let confirmed = false;
 
@@ -83,6 +85,7 @@ const onSheetOpened = (deps: HudV2Deps): void => {
   };
   attack = undefined;
   confirmed = false;
+  closeUpOn(deps, tile.x, tile.y, BATTLE_ZOOM);
   setScreen("battle", BATTLE_SKELETON);
   renderBattle(deps);
 };
@@ -99,6 +102,7 @@ const onSheetClosed = (): void => {
 
 /** Watches for the effort sheet being added to / removed from the page. */
 export const installBattleWatch = (deps: HudV2Deps): void => {
+  battleDeps = deps;
   const isSheet = (node: Node): boolean => node instanceof HTMLElement && node.matches(SHEET);
   document.addEventListener("click", (event) => {
     if (event.target instanceof Element && event.target.closest(`${SHEET} [data-effort-go]`)) confirmed = true;
@@ -173,8 +177,10 @@ export const renderBattle = (deps: HudV2Deps): void => {
   writeHtml("v2b-stage", battleResultHtml({ ...base, won: b.won ?? false, headline: b.headline ?? "", detail: b.detail ?? "", manpowerLoss: b.manpowerLoss }));
 };
 
-export const closeBattle = (): void => {
+/** `keepPosition` leaves the camera on the tile (Show tile) instead of returning to the earlier view. */
+export const closeBattle = (keepPosition = false): void => {
   battle = undefined;
+  if (battleDeps) endCloseUp(battleDeps, keepPosition);
   if (screen.id === "battle") clearScreen();
 };
 
@@ -194,6 +200,7 @@ export const reopenLiveBattle = (deps: HudV2Deps): boolean => {
     since: Date.now(),
     winPct: c.combatSnapshot ? Math.round(c.combatSnapshot.winChance * 100) : undefined
   };
+  closeUpOn(deps, tile.x, tile.y, BATTLE_ZOOM);
   setScreen("battle", BATTLE_SKELETON);
   renderBattle(deps);
   return true;
@@ -225,7 +232,7 @@ export const battleClick = (deps: HudV2Deps, target: Element): boolean => {
   }
   if (target.closest("[data-v2-battle-show]") && battle) {
     const { x, y } = battle.coords;
-    closeBattle();
+    closeBattle(true);
     focusCamera(deps, x, y);
     deps.renderHud();
     return true;

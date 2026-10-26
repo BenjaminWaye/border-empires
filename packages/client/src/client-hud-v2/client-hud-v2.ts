@@ -70,8 +70,16 @@ const openTarget = (deps: HudV2Deps, open: string): void => {
     else openScreen(deps, id);
     return;
   }
-  if (open === "battle" && reopenLiveBattle(deps)) return;
-  if (screen.id === "town") closeTownScreen();
+  if (open === "battle") {
+    // Attacks reopen the live battle; an expansion in progress just centres the map on it.
+    const c = deps.state.capture;
+    if (!reopenLiveBattle(deps) && c) {
+      focusCamera(deps, c.target.x, c.target.y);
+      deps.renderHud();
+    }
+    return;
+  }
+  if (screen.id === "town") closeTownScreen(true);
   if (open === "manpower") legacyButton('#stats-chips [data-panel="manpower"]')?.click();
   else if (open === "self") legacyButton("#stats-chips .stat-chip-player")?.click();
   else legacyButton(`#panel-actions [data-panel="${open}"]`)?.click();
@@ -199,7 +207,7 @@ export const installHudV2 = (deps: HudV2Deps): void => {
       return townOnMenuView(deps, view, tileKey);
     },
     onMenuHidden: () => {
-      if (screen.id === "town") closeTownScreen();
+      if (screen.id === "town") closeTownScreen(true);
     },
     onBarAction: battleOnBarAction
   });

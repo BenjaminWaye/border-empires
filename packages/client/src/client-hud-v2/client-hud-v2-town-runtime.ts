@@ -5,6 +5,7 @@
 import type { Terrain } from "@border-empires/shared";
 import { supportPlotAnchorTown } from "../client-town-support-plot-lookup.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
+import { closeUpOn, endCloseUp, TOWN_ZOOM } from "./client-hud-v2-camera.js";
 import { clearScreen, focusCamera, screen, screenCentre, setScreen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
 import { suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
 import { TOWN_SCREEN_SKELETON, townScreenRegions } from "./client-hud-v2-town.js";
@@ -12,6 +13,8 @@ import { TOWN_SCREEN_SKELETON, townScreenRegions } from "./client-hud-v2-town.js
 type TownContext = { townKey: string; focusKey: string; focusView: TileMenuView };
 
 let current: TownContext | undefined;
+/** Kept so closing from places without deps (menu hidden, another screen) can still restore the camera. */
+let lastDeps: HudV2Deps | undefined;
 
 const keyOf = (t: { x: number; y: number }): string => `${t.x},${t.y}`;
 
@@ -66,15 +69,38 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
   writeHtml("v2t-bar", regions.bar);
 };
 
+let mapGuardInstalled = false;
+
+/**
+ * The map hides the tile menu on any mousedown outside it (client-map-input.ts), which would close and
+ * reopen the town screen (zooming out and back in) on every support-tile click. While the town screen is
+ * open, a mousedown on the map stops at the canvas: its own pan/select handlers still run, and the click
+ * that follows decides whether the screen stays (a tile of this town) or closes (anything else).
+ */
+const installMapGuard = (): void => {
+  if (mapGuardInstalled) return;
+  const canvas = document.getElementById("game");
+  if (!canvas) return;
+  mapGuardInstalled = true;
+  canvas.addEventListener("mousedown", (event) => {
+    if (screen.id === "town") event.stopPropagation();
+  });
+};
+
 /** Dock listener: returns true when the town screen takes this tile. */
 export const townOnMenuView = (deps: HudV2Deps, view: TileMenuView, tileKey: string): boolean => {
   if (screen.id !== null && screen.id !== "town") return false;
   const town = townForTile(deps, deps.state.tiles.get(tileKey));
   if (!town) {
-    if (screen.id === "town") closeTownScreen();
+    // Selecting a tile outside the town: zoom back out but stay where the player is looking.
+    if (screen.id === "town") closeTownScreen(true);
     return false;
   }
   if (current?.focusKey !== tileKey) screen.townBuildSelection = undefined;
+  // Close in on the town when the screen opens or moves to another town; picking support tiles doesn't move the camera.
+  if (screen.id !== "town" || current?.townKey !== keyOf(town)) closeUpOn(deps, town.x, town.y, TOWN_ZOOM);
+  lastDeps = deps;
+  installMapGuard();
   current = { townKey: keyOf(town), focusKey: tileKey, focusView: view };
   if (screen.id !== "town" && deps.state.activePanel) {
     // A legacy side panel would sit under the build list; the town screen replaces it.
@@ -86,9 +112,10 @@ export const townOnMenuView = (deps: HudV2Deps, view: TileMenuView, tileKey: str
   return true;
 };
 
-export const closeTownScreen = (): void => {
+export const closeTownScreen = (keepPosition = false): void => {
   current = undefined;
   screen.townBuildSelection = undefined;
+  if (lastDeps) endCloseUp(lastDeps, keepPosition);
   if (screen.id === "town") clearScreen();
 };
 

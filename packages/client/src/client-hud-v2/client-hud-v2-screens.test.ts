@@ -2,6 +2,7 @@ import type { PersonalActivityCard } from "@border-empires/game-domain";
 import { describe, expect, it } from "vitest";
 import type { SeasonVictoryObjectiveView, TechInfo, Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import { parseWinPct } from "./client-hud-v2-battle.js";
+import { closeUpOn, endCloseUp, TOWN_ZOOM } from "./client-hud-v2-camera.js";
 import { cardCounterparties, chronicleGroups, dayHeading } from "./client-hud-v2-chronicle.js";
 import { diplomacyEmpires, empireStance } from "./client-hud-v2-diplomacy.js";
 import { manifestLayout, manifestNodeState, nextManifestCost } from "./client-hud-v2-manifest.js";
@@ -168,5 +169,30 @@ describe("battle and neutral expand", () => {
     expect(shouldAutoExpand({ tiles, me: "me" }, { x: 9, y: 9, terrain: "LAND" }, expand)).toBe(false);
     expect(shouldAutoExpand({ tiles, me: "me" }, neutral, { actions: [act("settle_land", { label: "Expand To", disabled: true })] })).toBe(false);
     expect(shouldAutoExpand({ tiles, me: "me" }, { ...neutral, ownerId: "them" }, expand)).toBe(false);
+  });
+});
+
+describe("detail-screen close-up camera", () => {
+  const camDeps = () => {
+    const state = { zoom: 22, camX: 1, camY: 2, camSubX: 0.5, camSubY: 0.25 };
+    return { state, wrapX: (x: number) => x, wrapY: (y: number) => y, requestViewRefresh: () => undefined } as unknown as Parameters<typeof closeUpOn>[0] & { state: typeof state };
+  };
+
+  it("zooms in on the tile and returns to the earlier view", () => {
+    const deps = camDeps();
+    closeUpOn(deps, 30, 40, TOWN_ZOOM);
+    expect(deps.state).toMatchObject({ zoom: TOWN_ZOOM, camX: 30, camY: 40, camSubX: 0 });
+    closeUpOn(deps, 31, 40, TOWN_ZOOM);
+    endCloseUp(deps);
+    expect(deps.state).toMatchObject({ zoom: 22, camX: 1, camY: 2, camSubX: 0.5 });
+  });
+
+  it("never zooms out to reach the close-up, and can stay on the tile", () => {
+    const deps = camDeps();
+    deps.state.zoom = 150;
+    closeUpOn(deps, 30, 40, TOWN_ZOOM);
+    expect(deps.state.zoom).toBe(150);
+    endCloseUp(deps, true);
+    expect(deps.state).toMatchObject({ zoom: 150, camX: 30, camY: 40 });
   });
 });
