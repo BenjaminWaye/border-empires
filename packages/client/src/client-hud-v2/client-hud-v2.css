@@ -151,10 +151,22 @@ body.hud-v2 #mini-map { width: 200px; height: 200px; }
 /* The new-empire checklist launcher measures the legacy info block (hidden here), so pin it above the minimap. */
 body.hud-v2 .onb-root { bottom: 266px !important; }
 
+/* Overlay toggles sit right of the minimap; the legend stacks above the button while on. */
+.hud-v2-overlays { position: fixed; left: 226px; bottom: 16px; z-index: 37; display: grid; gap: 6px; justify-items: start; }
+.hud-v2-overlay-btn {
+  height: 32px; padding: 0 12px; background: var(--v2-ink); border: 1px solid var(--v2-edge-strong);
+  font-family: var(--v2-display); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: var(--v2-soft);
+}
+.hud-v2-overlay-btn:hover { border-color: var(--v2-gold); color: var(--v2-text); }
+.hud-v2-overlay-on { background: #2a2216; border-color: var(--v2-gold); color: var(--v2-gold-hi); }
+.hud-v2-overlay-legend { display: grid; gap: 4px; padding: 8px 10px; background: var(--v2-ink); border: 1px solid var(--v2-edge); font-size: 12px; }
+.hud-v2-overlay-legend span { display: flex; align-items: center; gap: 6px; }
+.hud-v2-overlay-legend i { width: 12px; height: 12px; border: 1px solid rgba(0, 0, 0, 0.5); }
+
 /* ---- Bottom-centre: tile panel + action bar ---- */
 .hud-v2-tile {
   position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 39;
-  width: min(660px, calc(100vw - 480px)); display: grid; gap: 10px; padding: 12px 14px;
+  width: min(660px, calc(100vw - 720px)); display: grid; gap: 10px; padding: 12px 14px;
   border-color: var(--v2-edge-strong);
 }
 .hud-v2-tile[hidden] { display: none; }

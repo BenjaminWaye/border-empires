@@ -100,8 +100,7 @@ import { ARRIVE_STAGGER_MS, createTransitionTracker, diffTransitions } from "../
 import { addReachTileOverlays3D, createIncursionHillDrape, computeOtherOwnersReachPylons, reachEmphasisFor, type OwnedPylonPoint, type OwnedPylonSegment } from "../client-reach-overlay-3d-multi/client-reach-overlay-3d-multi.js";
 import { createBorderDustFxLayer } from "../client-map-3d-border-dust-fx/client-map-3d-border-dust-fx.js";
 import { borderContactSeamsToDustSeams, computeBorderContactRenderState, resolveBorderContactVisual, pointKey, splitSegmentByContact, EMPTY_BORDER_CONTACT_STATE, BORDER_CONTACT_BEAM_COLOR, BORDER_CONTACT_OPACITY_MULT, type BorderContactRenderState } from "../client-map-3d-border-contact-render/client-map-3d-border-contact-render.js";
-import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
-import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
+import { createTileIntelOverlays3D } from "../client-map-3d-tile-intel/client-map-3d-tile-intel.js";
 import { buildTerrainCutLookups } from "./client-map-3d-terrain-cut-lookups.js"; import { createProspectClueLayer } from "../client-map-3d-prospect-clue/client-map-3d-prospect-clue-layer.js";
 import { revealWholeMapInTrue3DMode, isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
@@ -228,7 +227,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const fortificationInstanceOverlays = { fortOverlay, relayBeaconOverlay, siegeTowerOverlay, contactShadowOverlay };
   const structureOverlay = createStructureOverlay(scene, MAX_VISIBLE_TILES, contactShadowOverlay, atmosphere.buildingEnvironmentTexture);
   const ambaricTransformerOverlay = createDeferredBuildingOverlay(() => createAmbaricTransformerOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture));
-  const defensibilityOverlay = createDefensibilityOverlay(scene, MAX_VISIBLE_TILES);
+  const tileIntel3D = createTileIntelOverlays3D(scene, MAX_VISIBLE_TILES, { keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, terrainAt: deps.terrainAt }); // weak defensibility + Diplomacy tint
 
   const { isTownDemoTile, fortDemoSpec, structureDemoEntryFor } = createDemoTileSpecs();
 
@@ -679,7 +678,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     contactShadowOverlay.clear();
     structureOverlay.clear();
     ambaricTransformerOverlay.clear();
-    defensibilityOverlay.clear();
+    tileIntel3D.begin(deps.state);
     // Build the dock-endpoint key set the same way the 2D runtime loop
     // does, since `tile.dockId` is not reliably populated on every
     // dock-endpoint tile snapshot.
@@ -1071,18 +1070,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         if (reach3DActive && reach3DCache && tile && visibility === "visible") {
           addReachTileOverlays3D(reachOverlay3D, tile, wx, wy, { x, z, y: flatOverlayY }, reach3DCache, reachTileDeps3D);
         }
-        if (deps.state.showWeakDefensibility && isOwnedSettledLandTile(tile, deps.state.me)) {
-          const exposedSides = exposedSidesForTile(tile, {
-            tiles: deps.state.tiles,
-            me: deps.state.me,
-            keyFor: deps.keyFor,
-            wrapX: deps.wrapX,
-            wrapY: deps.wrapY,
-            terrainAt: deps.terrainAt
-          });
-          const severity = weakDefensibilitySeverity(exposedSides.length);
-          if (severity) defensibilityOverlay.addInstance(x, z, flatOverlayY, severity);
-        }
+        tileIntel3D.addTile(tile, visibility, x, z, flatOverlayY);
         if (deps.state.crystalTargeting.active && tile && visibility === "visible" && deps.state.crystalTargeting.validTargets.has(tileKey)) {
           crystalTargetingOverlay.addInstance(x, z, flatOverlayY);
         }
@@ -1137,7 +1125,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     structureOverlay.commit();
     ambaricTransformerOverlay.commit();
     contactShadowOverlay.commit();
-    defensibilityOverlay.commit();
+    tileIntel3D.commit();
     const commitMs = performance.now() - commitStartAt;
 
     recordTerrainRebuildSample({
@@ -1446,7 +1434,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     ambaricTransformerOverlay.dispose();
     district.dispose();
     contactShadowOverlay.dispose();
-    defensibilityOverlay.dispose();
+    tileIntel3D.dispose();
     forest.dispose(); tropicalForest.dispose();
     villageEffects.dispose();
     floatingText.dispose(); anchoredFx.root.dispose();

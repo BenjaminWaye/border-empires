@@ -8,7 +8,7 @@ import { updateMusicForGameState } from "./client-audio/client-audio.js";
 import { computeWarMusicSignals } from "./client-war-music-signal/client-war-music-signal.js";
 import { drawableIncomingAttack } from "./client-siege-tracking/client-siege-tracking.js";
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
-import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "./client-defensibility-tile.js";
+import { drawTileIntelOverlays2D, tileIntelDeps2D } from "./client-map-2d-tile-intel/client-map-2d-tile-intel.js";
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import { drawResourceOverlay2D } from "./client-resource-overlay-2d/client-resource-overlay-2d.js";
 import { drawLoopMinFrameGapMs } from "./client-runtime-loop-frame-gap.js";
@@ -247,6 +247,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     // Reach overlay: resolveMyReachCached recomputes only when tiles or the
     // server reach actually changed (same cache the 3D renderer uses).
     const myReach = isTrue3DRendererActive() ? state.myReach : resolveMyReachCached(state);
+    const tileIntel2D = tileIntelDeps2D(state, { keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, terrainAt }, isTrue3DRendererActive()); // weak-defensibility + Diplomacy tint, client-map-2d-tile-intel.ts
     const reachTileDeps2D = { me: state.me, tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, ownerColor: deps.effectiveOverlayColor }; // hoisted: drawReachTileTreatments2D runs per visible tile per frame
     const aetherTowerSpriteDeps2D = { ctx: deps.ctx, sprite: deps.structureOverlayImages.OBSERVATORY, structureAccentColor: deps.structureAccentColor };
     const tileFeatureDeps2D = { relicMapHints: state.relicMapHints, ctx: deps.ctx, structureAccentColor: deps.structureAccentColor, effectiveOverlayColor: deps.effectiveOverlayColor, afcJoinDrop: state.afcJoinDrop, afcModuleDeliveryLandedAt: state.afcModuleDeliveryLandedAt }; // hoisted: drawTileFeatureOverlays2D runs per visible tile per frame
@@ -570,49 +571,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           });
         }
       }
-      if (state.showWeakDefensibility && vis === "visible" && isOwnedSettledLandTile(t, state.me)) {
-        const exposedSides = exposedSidesForTile(t, {
-          tiles: state.tiles,
-          me: state.me,
-          keyFor: deps.keyFor,
-          wrapX: deps.wrapX,
-          wrapY: deps.wrapY,
-          terrainAt
-        });
-        const severity = weakDefensibilitySeverity(exposedSides.length);
-        if (severity) {
-          const critical = severity === "critical";
-          deps.ctx.fillStyle = critical ? "rgba(255, 84, 84, 0.18)" : "rgba(255, 173, 92, 0.12)";
-          deps.ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
-          deps.ctx.strokeStyle = critical ? "rgba(255, 84, 84, 0.92)" : "rgba(255, 173, 92, 0.88)";
-          deps.ctx.lineWidth = critical ? 4 : 3;
-          deps.ctx.beginPath();
-          if (exposedSides.includes("north")) {
-            deps.ctx.moveTo(px + 1, py + 2);
-            deps.ctx.lineTo(px + size - 1, py + 2);
-          }
-          if (exposedSides.includes("east")) {
-            deps.ctx.moveTo(px + size - 2, py + 1);
-            deps.ctx.lineTo(px + size - 2, py + size - 1);
-          }
-          if (exposedSides.includes("south")) {
-            deps.ctx.moveTo(px + 1, py + size - 2);
-            deps.ctx.lineTo(px + size - 1, py + size - 2);
-          }
-          if (exposedSides.includes("west")) {
-            deps.ctx.moveTo(px + 2, py + 1);
-            deps.ctx.lineTo(px + 2, py + size - 1);
-          }
-          deps.ctx.stroke();
-          if (size >= 12) {
-            deps.ctx.fillStyle = critical ? "rgba(255, 84, 84, 0.96)" : "rgba(255, 196, 92, 0.96)";
-            deps.ctx.beginPath();
-            deps.ctx.arc(px + size * 0.5, py + size * 0.5, critical ? 2.3 : 1.8, 0, Math.PI * 2);
-            deps.ctx.fill();
-          }
-          deps.ctx.lineWidth = 1;
-        }
-      }
+      drawTileIntelOverlays2D(deps.ctx, t, vis, px, py, size, tileIntel2D);
 
       drawMapSelection2D(state, deps, wx, wy, t, px, py, size, myReach);
       const incomingAttack = drawableIncomingAttack(state, wk, Date.now());
@@ -943,49 +902,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             });
           }
         }
-        if (state.showWeakDefensibility && vis === "visible" && isOwnedSettledLandTile(t, state.me)) {
-          const exposedSides = exposedSidesForTile(t, {
-            tiles: state.tiles,
-            me: state.me,
-            keyFor: deps.keyFor,
-            wrapX: deps.wrapX,
-            wrapY: deps.wrapY,
-            terrainAt
-          });
-          const severity = weakDefensibilitySeverity(exposedSides.length);
-          if (severity) {
-            const critical = severity === "critical";
-            deps.ctx.fillStyle = critical ? "rgba(255, 84, 84, 0.18)" : "rgba(255, 173, 92, 0.12)";
-            deps.ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
-            deps.ctx.strokeStyle = critical ? "rgba(255, 84, 84, 0.92)" : "rgba(255, 173, 92, 0.88)";
-            deps.ctx.lineWidth = critical ? 4 : 3;
-            deps.ctx.beginPath();
-            if (exposedSides.includes("north")) {
-              deps.ctx.moveTo(px + 1, py + 2);
-              deps.ctx.lineTo(px + size - 1, py + 2);
-            }
-            if (exposedSides.includes("east")) {
-              deps.ctx.moveTo(px + size - 2, py + 1);
-              deps.ctx.lineTo(px + size - 2, py + size - 1);
-            }
-            if (exposedSides.includes("south")) {
-              deps.ctx.moveTo(px + 1, py + size - 2);
-              deps.ctx.lineTo(px + size - 1, py + size - 2);
-            }
-            if (exposedSides.includes("west")) {
-              deps.ctx.moveTo(px + 2, py + 1);
-              deps.ctx.lineTo(px + 2, py + size - 1);
-            }
-            deps.ctx.stroke();
-            if (size >= 12) {
-              deps.ctx.fillStyle = critical ? "rgba(255, 84, 84, 0.96)" : "rgba(255, 196, 92, 0.96)";
-              deps.ctx.beginPath();
-              deps.ctx.arc(px + size * 0.5, py + size * 0.5, critical ? 2.3 : 1.8, 0, Math.PI * 2);
-              deps.ctx.fill();
-            }
-            deps.ctx.lineWidth = 1;
-          }
-        }
+        drawTileIntelOverlays2D(deps.ctx, t, vis, px, py, size, tileIntel2D);
 
         drawMapSelection2D(state, deps, wx, wy, t, px, py, size, myReach);
         const incomingAttack = drawableIncomingAttack(state, wk, Date.now());

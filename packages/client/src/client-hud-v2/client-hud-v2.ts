@@ -16,6 +16,7 @@ import { focusCamera, screen, SCREEN_HOST_ID, type HudV2Deps, type HudV2ScreenId
 import { initHudV2Flag, isHudV2Active } from "./client-hud-v2-flag.js";
 import { navHtml } from "./client-hud-v2-nav.js";
 import { orbHtml } from "./client-hud-v2-orb.js";
+import { overlaysHtml } from "./client-hud-v2-overlays.js";
 import { resourceBarHtml } from "./client-hud-v2-resource-bar.js";
 import { rivalsHtml, seasonClockHtml } from "./client-hud-v2-rivals.js";
 import { closeScreen, openScreen, renderScreen, screenClick, screenEscape } from "./client-hud-v2-screens.js";
@@ -38,9 +39,10 @@ const shellHtml = `
   <aside id="hud-v2-tracker" class="hud-v2-tracker" aria-label="Tracker"></aside>
   <section id="hud-v2-tile" class="hud-v2-tile" hidden aria-label="Selected tile"></section>
   <div id="${SCREEN_HOST_ID}" class="hud-v2-screen"></div>
+  <div id="hud-v2-overlays" class="hud-v2-overlays"></div>
   <div id="hud-v2-orb-slot" class="hud-v2-orb-slot"></div>`;
 
-type Region = "bar" | "nav" | "season" | "rivals" | "tracker" | "orb-slot";
+type Region = "bar" | "nav" | "season" | "rivals" | "tracker" | "orb-slot" | "overlays";
 
 const written = new Map<Region, string>();
 
@@ -93,6 +95,11 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   const open = target.closest<HTMLElement>("[data-hud-v2-open]");
   if (open?.dataset.hudV2Open) {
     openTarget(deps, open.dataset.hudV2Open);
+    return;
+  }
+  if (target.closest("[data-hud-v2-overlay='diplomacy']")) {
+    deps.state.showDiplomacyOverlay = !deps.state.showDiplomacyOverlay;
+    deps.requestViewRefresh();
     return;
   }
   const dip = target.closest<HTMLElement>("[data-hud-v2-diplomacy]");
@@ -171,6 +178,7 @@ const renderFast = (state: ClientState, nowMs: number): void => {
     colorOf: (id) => state.playerColors.get(id),
     nowMs
   }));
+  writeRegion("overlays", overlaysHtml(state.showDiplomacyOverlay));
   writeRegion("orb-slot", orbHtml({ manpower: state.manpower, manpowerCap: state.manpowerCap, nextRefillAt: nextManpowerRefillForPlayer(state.me, nowMs), nowMs }));
 };
 
