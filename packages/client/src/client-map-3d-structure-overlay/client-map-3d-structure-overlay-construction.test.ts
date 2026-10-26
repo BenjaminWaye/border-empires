@@ -203,7 +203,12 @@ describe("structure overlay under construction", () => {
     const topAt = (kind: "AMBARIC_TRANSFORMER" | "HYDROGARDEN" | "SOVEREIGN_SIEGE_ENGINE", bands: number | undefined): number => {
       const scene = new Scene();
       const overlay = createStructureOverlay(scene, 2, createContactShadowOverlay(scene, 2));
+      // Warm only this model's lazily allocated meshes before scaffolding
+      // is added, then clear the placements for the requested phase.
+      overlay.addInstance(0, 0, 0, kind);
+      overlay.commit();
       const own = new Set(scene.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh));
+      overlay.clear();
       overlay.addInstance(0, 0, 0, kind, undefined, bands === undefined ? undefined : siteAt(bands));
       overlay.commit();
       let top = 0;

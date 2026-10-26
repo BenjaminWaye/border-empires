@@ -1,3 +1,5 @@
+import { monumentArtUrl } from "../client-monuments/monument-art.js";
+import { districtArtUrl } from "../client-town-district/district-art.js";
 // Per-structure 2D art (public/overlays SVGs). The structure info card shows
 // it as the card art, and the build menu and the Manifest detail's "What you
 // get" rows use it as each building's icon. Moved out of client-map-display.ts
@@ -25,20 +27,14 @@ const STRUCTURE_INFO_ART: Readonly<Record<string, string>> = {
   SKY_DOCK: "/overlays/sky-dock-overlay.svg",
   RESONANCE_GRID: "/overlays/resonance-grid-overlay.svg",
   AMBARIC_TRANSFORMER: "/overlays/ambaric-tower-overlay.svg",
-  AEGIS_DOME: "/overlays/aegis-dome-overlay.svg",
-  ASTRAL_DOCK: "/overlays/astral-dock-overlay.svg",
   NEURAL_WORKS: "/overlays/neural-works-overlay.svg",
-  IMPERIAL_EXCHANGE: "/overlays/imperial-exchange-overlay.svg",
-  SOVEREIGN_SIEGE_ENGINE: "/overlays/sovereign-siege-engine-overlay.svg",
   QUARTERMASTERS_OFFICE: "/overlays/quartermasters-office-overlay.svg",
   ANCILLARY_FACTORY: "/overlays/ancillary-factory-overlay.svg",
   RESERVE_LATTICE: "/overlays/reserve-lattice-overlay.svg",
-  CENSUS_DIRECTORATE: "/overlays/census-directorate-overlay.svg",
-  TITANIUM_LEVY: "/overlays/titanium-levy-overlay.svg",
   // Each of the 18 monument components gets its own distinct overlay,
   // named after the component (not the monument) since each is a unique
-  // structure now, not 3 identical copies of one "Part" icon. Aegis Dome and
-  // Titanium Levy components have no art yet, so their cards keep the glyph.
+  // structure now, not 3 identical copies of one "Part" icon. The district
+  // catalogue takes precedence and supplies all 18 preparations.
   IMPERIAL_EXCHANGE_PART_1: "/overlays/golden-ledger-overlay.svg",
   IMPERIAL_EXCHANGE_PART_2: "/overlays/counting-engine-overlay.svg",
   IMPERIAL_EXCHANGE_PART_3: "/overlays/sovereign-seal-overlay.svg",
@@ -83,7 +79,7 @@ const BUILD_MENU_EXTRA_ART: Readonly<Record<string, string>> = {
 const lookup = (table: Readonly<Record<string, string>>, key: string): string | undefined =>
   Object.prototype.hasOwnProperty.call(table, key) ? table[key] : undefined;
 
-export const structureInfoArtUrl = (key: string): string | undefined => lookup(STRUCTURE_INFO_ART, key);
+export const structureInfoArtUrl = (key: string): string | undefined => monumentArtUrl(key) ?? districtArtUrl(key) ?? lookup(STRUCTURE_INFO_ART, key);
 
 export const buildMenuArtUrl = (structureType: string): string | undefined =>
   structureInfoArtUrl(structureType) ?? lookup(BUILD_MENU_EXTRA_ART, structureType);

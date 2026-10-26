@@ -1,3 +1,4 @@
+import { districtOverlayProjection } from "./town-district/town-district-projection.js";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 
 import { simulationTileKey } from "./seed-state/seed-state.js";
@@ -11,7 +12,8 @@ export const tileDeltaRevealOnly = (
   tile: DomainTileState,
   cache: TileDeltaStringifyCache,
   viewer?: Pick<DomainPlayer, "techIds">,
-  reachBorderOwnerAt?: (x: number, y: number) => string | undefined
+  reachBorderOwnerAt?: (x: number, y: number) => string | undefined,
+  district?: { readonly tiles: ReadonlyMap<string, DomainTileState>; readonly canSee: (key: string) => boolean }
 ): SimulationTileWireDelta => {
   const tileKey = simulationTileKey(tile.x, tile.y);
   const cached = cache.getOrComputeAll(tileKey, tile);
@@ -26,6 +28,7 @@ export const tileDeltaRevealOnly = (
     ...(tile.prospectSignature ? { prospectSignature: tile.prospectSignature } : {}),
     ...(tile.dockId ? { dockId: tile.dockId } : {}),
     ...overlayJsonFieldsFrom(cached),
+    ...(district ? districtOverlayProjection(district.tiles, tile, district.canSee) : {}),
     // Explicit `undefined` vs `...({})` is load-bearing: subscribers diff by
     // own-property existence to detect clears (uncapture, structure removal).
     // This path also fires for a tile's first-ever exposure to a given

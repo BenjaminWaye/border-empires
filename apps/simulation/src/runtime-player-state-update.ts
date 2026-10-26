@@ -14,6 +14,7 @@ import type { DormantStructureDetail, ResourceSlotTotals } from "./resource-slot
 /** Dependencies {@link emitPlayerStateUpdate} needs to build and emit a PLAYER_UPDATE message. */
 export type RuntimePlayerStateUpdateContext = {
   players: ReadonlyMap<string, RuntimePlayer>;
+  relicMapHintsForPlayer?: (id: string) => import("@border-empires/shared").RelicMapHint[];
   hasActiveOwnedAfc?: (playerId: string) => boolean;
   lastEmittedStorageCapByPlayer: Map<string, EmpireStorageCap>;
   applyManpowerRegen: (player: RuntimePlayer) => void;
@@ -68,6 +69,7 @@ export function emitPlayerStateUpdate(
       ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
       ...(player.afcUpgradeRuleset && context.hasActiveOwnedAfc ? { afcUpgradeInstallAllowed: context.hasActiveOwnedAfc(player.id) } : {}),
       type: "PLAYER_UPDATE",
+      ...(context.relicMapHintsForPlayer ? { relicMapHints: context.relicMapHintsForPlayer(playerId) } : {}),
       gold: player.points,
       mods: player.mods ?? recomputeMods(player),
       modBreakdown: buildModBreakdownForPlayer(player, context.weaponsFactoryCountsForPlayer(playerId)),
@@ -124,7 +126,7 @@ export function emitPlayerStateUpdate(
         queuedAt: entry.queuedAt
       })),
       waypointQueue: waypointQueueWireEntries(summary.waypointQueue),
-      developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT + additiveEffectForPlayer(player, "developmentProcessCapacityAdd"),
+      developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT + (player.relicDevelopmentBonus ?? 0) + additiveEffectForPlayer(player, "developmentProcessCapacityAdd"),
       activeDevelopmentProcessCount: context.activeDevelopmentProcessCountForPlayer(playerId),
       // Base MUSTER_MAX_TILES plus tech/domain/wonder bonuses -- the same cap
       // handleSetMusterCommand enforces server-side. Sent down so the client

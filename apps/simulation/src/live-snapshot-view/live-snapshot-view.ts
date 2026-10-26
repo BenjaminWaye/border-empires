@@ -1,3 +1,4 @@
+import { districtOverlayProjection } from "../town-district/town-district-projection.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { buildDockLinksByDockTileKey } from "../dock-network/dock-network.js";
 import { buildConnectedTownNetworkForPlayer } from "../economy-network/economy-network.js";
@@ -129,9 +130,13 @@ export const enrichSnapshotTilesForGlobalVisibility = (
         tiles: domainTilesByKey,
         dockLinksByDockTileKey
       });
-      if (!town) return { ...tile, ...yieldFields };
+      const domainTile = tile.economicStructureJson || tile.observatoryJson
+        ? domainTilesByKey.get(keyFor(tile.x, tile.y)) : undefined;
+      const district = domainTile ? districtOverlayProjection(domainTilesByKey, domainTile, () => true) : {};
+      if (!town) return { ...tile, ...yieldFields, ...district };
       return {
         ...tile,
+        ...district,
         townJson: JSON.stringify(town),
         townType: town.type,
         ...(town.name ? { townName: town.name } : {}),
@@ -235,9 +240,18 @@ export const enrichSnapshotTilesForPlayer = (
   playerId: string,
   runtimeState: RuntimeState,
   visibleTiles: RuntimeState["tiles"],
-  playerEconomy: LivePlayerEconomySnapshot
+  playerEconomy: LivePlayerEconomySnapshot,
+  fullVisibility = false
 ): RuntimeState["tiles"] => {
   const ctx = buildEnrichmentContext(runtimeState, playerEconomy, visibleTiles);
   const playersById = new Map(runtimeState.players.map((entry) => [entry.id, entry] as const));
-  return visibleTiles.map((tile) => buildEnrichedTile(playerId, tile, ctx, playersById));
+  return visibleTiles.map((tile) => {
+    const enriched = buildEnrichedTile(playerId, tile, ctx, playersById);
+    // Only full-vision snapshots may derive an assignment from this map.
+    // Normal views carry the authoritative, privacy-clipped wire metadata;
+    // recomputing from their partial tiles could pick a different town.
+    const domainTile = fullVisibility && (tile.economicStructureJson || tile.observatoryJson)
+      ? ctx.domainTilesByKey.get(keyFor(tile.x, tile.y)) : undefined;
+    return domainTile ? { ...enriched, ...districtOverlayProjection(ctx.domainTilesByKey, domainTile, () => true) } : enriched;
+  });
 };

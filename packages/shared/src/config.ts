@@ -423,7 +423,8 @@ export const UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING = 0.03;
 export const UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING = 0.015;
 // "Unarmed" vulnerability: a player who owns zero of a given factory type
 // ANYWHERE in their empire (not network-scoped — this is an empire-wide
-// existence check, not a clustering bonus) is markedly easier to attack.
+// existence check, not a clustering bonus) is markedly easier to fight for
+// an opponent who DOES own that type (warIndustryEdge in frontier-combat.ts).
 // Missing one type or both types applies the same flat multiplier (does not
 // stack to a larger number if both are missing — confirmed design decision).
 export const NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT = 2.0;

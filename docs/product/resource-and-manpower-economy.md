@@ -33,6 +33,16 @@ defines what these systems mean in the fiction; follow the
   in `refreshManpowerOnlyForPlayer`. Like a Waystation grant it may sit above
   the cap (tracked as `waystationManpowerOverflow`), and regen pauses until it
   is spent back under the cap.
+- **Shard Mobilization** (`SHARD_MOBILIZE`, `SHARD_MOBILIZE_SHARD_COST` = **1
+  Shard**, donated to the Court for an Imperial delivery of ancillaries) refills
+  manpower to the cap at once, from the Manpower panel. It
+  settles manpower first, never goes above the cap (it is rejected when the
+  pool is already at or over the cap, so overflow from the landing reserve or a
+  Waystation is never trimmed), clears `manpowerBanked`, and is rejected while
+  the Titanium Levy's regen freeze is active. It is the comeback lever for an
+  empire that lost its pool while offline; see the comeback-weighted shard rain
+  in [game mechanics §9](../game-mechanics.md#9-seasons-and-world-events).
+  `apps/simulation/src/shard-mobilize/`
 - **Regeneration is paid out in refills, not continuously.** Regen accrues at
   the per-minute rates below into a bank (`manpowerBanked`) that is settled at
   the current rate on every settle (every command and the 15s player-update
@@ -65,6 +75,41 @@ defines what these systems mean in the fiction; follow the
   **SETTLE 20**, ordinary ATTACK **60**,
   and Deep Strike/Naval Infiltration **120** manpower. Structure costs are
   data-driven; inspect the registry instead of assuming a common price.
+
+### Incubation Engine and Census Hall
+
+Incubation Engine grants **+10,000 population once on completion** and **+10%
+ongoing population growth** to its supported town. It does not boost Hydrogarden
+output or reduce FOOD demand; it consumes a FOOD slot. Census Hall adds
+**20,000 population capacity per connected town with an active Incubation Engine**
+and reduces its own town's tier-upgrade Coin cost by **25%**.
+
+Sources: `packages/shared/src/config.ts` (population constants),
+`apps/simulation/src/runtime-structure-build-completion.ts`
+(`grantIncubationEnginePopulationBurst`),
+`packages/game-domain/src/server-game-constants/server-game-constants.ts`
+(`incubationEngineGrowthMultiplier`), and
+`apps/simulation/src/runtime-census-hall-bonus.ts`. Structure-info copy is
+rendered from those shared constants in `client-population-structure-info/`;
+old food-efficiency descriptions have been removed from current references.
+
+### Forced Ancillarification
+
+Selecting an active, owned, garrisoned Ancillary Factory offers **Forced
+Ancillarification**. It permanently removes **2% of its assigned town's current
+population, rounded up**, for **100 immediate manpower**. This reserve can exceed
+the manpower cap, using the same overflow accounting as paid recruitment.
+A town must retain at least **10,000 residents**; population loss can lower its
+tier. There is a **4-hour cooldown per town**, shared by all factories supporting
+it, retained through captures and restarts. Dormant, inactive, unfinished and
+temporarily disabled factories cannot use it. Overlapping support rings use the
+ordinary town assignment rule. The factory menu previews the exact population
+cost as a resident count, without displaying the percentage, with the shared
+calculation used by the server.
+
+Sources: `packages/shared/src/forced-ancillarification/forced-ancillarification.ts`,
+`apps/simulation/src/forced-ancillarification/forced-ancillarification-command.ts`,
+`packages/client/src/client-forced-ancillarification/client-forced-ancillarification.ts`.
 
 ### Allied prosperity (Envoy Accreditation)
 

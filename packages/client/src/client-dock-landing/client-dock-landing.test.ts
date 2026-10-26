@@ -1,102 +1,95 @@
 import { describe, expect, it } from "vitest";
-import type { DockPair, Tile } from "../client-types.js";
-import { drawLandingGround2D } from "./client-dock-landing-2d.js";
-import { landingAshoreDirection, landingGroundKeysForSelection, landingGroundMenuLine, seaLaneSupplyLinksFor } from "./client-dock-landing.js";
+import { Scene } from "three";
+import { WORLD_WIDTH } from "@border-empires/shared";
+import { dockLandingFor, landingCarrierPose, landingMarinePose, SAIL_MS, RAMP_MS } from "./client-dock-landing.js";
+import { createDockCarrierOverlay } from "./client-dock-carrier-3d.js";
+import { APPROACH_MS, type MarinePose } from "../client-map-3d-popup-marine/popup-marine-timeline.js";
+import type { BattleOverlaySkirmishEntry } from "./client-battle-render-types.js";
+import type { ClientState } from "../client-state/client-state.js";
+import type { Tile } from "../client-types.js";
 
-// My dock at (5,5) links to a far dock at (40,40). The far harbour has sea to
-// the north (row 39), so (39,40) and (41,40) are beaches; (40,41) is inland.
-// My own dock has sea to its west, so (5,4) and (5,6) are my beaches.
-const tile = (x: number, y: number, overrides: Partial<Tile> = {}): Tile => ({ x, y, terrain: "LAND", ...overrides });
-const world = (extra: Tile[] = []) => {
-  const tiles = new Map<string, Tile>();
-  const put = (t: Tile) => tiles.set(`${t.x},${t.y}`, t);
-  for (let x = 38; x <= 42; x += 1) put(tile(x, 39, { terrain: "SEA" }));
-  for (let x = 38; x <= 42; x += 1) for (let y = 40; y <= 42; y += 1) put(tile(x, y));
-  for (let y = 3; y <= 7; y += 1) put(tile(4, y, { terrain: "SEA" }));
-  for (let y = 3; y <= 7; y += 1) for (let x = 5; x <= 7; x += 1) put(tile(x, y, { ownerId: "me", ownershipState: "SETTLED" }));
-  put(tile(5, 5, { ownerId: "me", ownershipState: "SETTLED", dockId: "dock-a" }));
-  put(tile(40, 40, { dockId: "dock-b" }));
-  for (const t of extra) put(t);
-  const dockPairs: DockPair[] = [{ ax: 5, ay: 5, bx: 40, by: 40, route: [{ x: 41, y: 38 }, { x: 4, y: 5 }] }];
-  return { tiles, dockPairs, me: "me" };
+const START = 100;
+const sea = (x: number, y: number): Tile => ({ x, y, terrain: "SEA" });
+const state: Pick<ClientState, "dockPairs" | "tiles"> = {
+  dockPairs: [{ ax: 1, ay: 1, bx: 5, by: 1, route: [{ x: 2, y: 1 }, { x: 3, y: 1 }, { x: 4, y: 1 }] }],
+  tiles: new Map([["2,1", sea(2, 1)], ["3,1", sea(3, 1)], ["4,1", sea(4, 1)], ["5,1", { x: 5, y: 1, terrain: "LAND" }]])
 };
-
-describe("landingGroundKeysForSelection", () => {
-  it("shows the landing ground at both ends of a selected dock's sea lanes", () => {
-    const keys = landingGroundKeysForSelection({ ...world(), selected: { x: 5, y: 5 } });
-    expect(keys).toEqual(new Set(["5,5", "5,4", "5,6", "40,40", "39,40", "41,40"]));
-  });
-
-  it("shows a harbour's landing ground when one of its beaches is selected", () => {
-    const keys = landingGroundKeysForSelection({ ...world(), selected: { x: 41, y: 40 } });
-    expect(keys).toEqual(new Set(["40,40", "39,40", "41,40"]));
-  });
-
-  it("shows nothing for inland ground or with nothing selected", () => {
-    expect(landingGroundKeysForSelection({ ...world(), selected: { x: 40, y: 41 } }).size).toBe(0);
-    expect(landingGroundKeysForSelection({ ...world(), selected: undefined }).size).toBe(0);
-  });
+const landing = () => dockLandingFor(state, 1, 1, 5, 1, START)!;
+const base: MarinePose = { localX: -0.1, localZ: 0.2, stance: "stand", yaw: 0, scale: 1, crouchT: 0, fallT: 0, flash: 1 };
+const battle = (): BattleOverlaySkirmishEntry => ({
+  srcWorldX: -1, srcWorldZ: 0, tgtWorldX: 0, tgtWorldZ: 0, srcSurfaceY: 0, tgtSurfaceY: 0,
+  attackerColor: "#0088ff", defenderColor: "#ff0000", startAt: START, hashSeed: 5, landing: landing()
 });
 
-describe("seaLaneSupplyLinksFor", () => {
-  it("links my dock to my frontier on the far shore's landing ground, along the sea route read from my dock", () => {
-    const state = world([tile(41, 40, { ownerId: "me", ownershipState: "FRONTIER" }), tile(40, 41, { ownerId: "me", ownershipState: "FRONTIER" })]);
-    // Only the beach is a sea-lane landing; (40,41) hangs on it by land.
-    expect(seaLaneSupplyLinksFor(state)).toEqual([
-      { dockKey: "5,5", landingKey: "41,40", via: [{ x: 4, y: 5 }, { x: 41, y: 38 }] }
-    ]);
+describe("dock assault landing", () => {
+  it("uses linked dock crossings and excludes adjacent overland and unlinked attacks", () => {
+    expect(landing().inwardX).toBe(1);
+    expect(dockLandingFor(state, 4, 1, 5, 1, START)).toBeUndefined();
+    expect(dockLandingFor({ ...state, dockPairs: [] }, 1, 1, 5, 1, START)).toBeUndefined();
   });
-});
+  it("sails before opening the ramp, then holds exactly at the beach throughout combat", () => {
+    const l = landing();
+    expect(landingCarrierPose(l, START).x).toBe(-3);
+    expect(landingCarrierPose(l, START + SAIL_MS / 2).x).toBeLessThan(-0.72);
+    expect(landingCarrierPose(l, START + SAIL_MS).rampOpen).toBe(0);
+    expect(landingCarrierPose(l, START + SAIL_MS + RAMP_MS).rampOpen).toBe(1);
+    const beached = landingCarrierPose(l, START + APPROACH_MS);
+    expect(landingCarrierPose(l, START + 60_000)).toEqual(beached);
+    expect(beached.x).toBeCloseTo(-0.72);
+  });
+  it("keeps infantry aboard until the ramp is down and staggers their exit into two files", () => {
+    const l = landing();
+    expect(landingMarinePose(base, l, 0, START + SAIL_MS).scale).toBe(0);
+    const now = START + SAIL_MS + RAMP_MS + 50;
+    const left = landingMarinePose(base, l, 0, now);
+    const right = landingMarinePose(base, l, 1, now);
+    expect(left.scale).toBe(1); expect(left.stance).toBe("run"); expect(left.flash).toBe(0);
+    expect(left.localX).toBeLessThan(-0.46);
+    expect(left.localZ).not.toBe(right.localZ);
+    expect(landingMarinePose(base, l, 0, START + 2100).localZ).toBeCloseTo(-0.505);
+    expect(landingMarinePose(base, l, 6, now).scale).toBe(0);
+    expect(landingMarinePose(base, l, 0, START + APPROACH_MS)).toBe(base);
+  });
+  it("keeps sea routes continuous across the world seam and reverses them for return attacks", () => {
+    const wrapped = { dockPairs: [{ ax: WORLD_WIDTH - 2, ay: 1, bx: 1, by: 1,
+      route: [{ x: WORLD_WIDTH - 1, y: 1 }, { x: 0, y: 1 }] }],
+      tiles: new Map([[`${WORLD_WIDTH - 1},1`, sea(WORLD_WIDTH - 1, 1)], ["0,1", sea(0, 1)]]) };
+    const l = dockLandingFor(wrapped, WORLD_WIDTH - 2, 1, 1, 1, START)!;
+    expect(l.route[0]!.x).toBe(-2); expect(l.inwardX).toBe(1);
+    const back = dockLandingFor(wrapped, 1, 1, WORLD_WIDTH - 2, 1, START)!;
+    expect(back.inwardX).toBe(-1); expect(back.route[0]!.x).toBe(2);
+  });
+  it("repositions the beached model with the scene origin and removes it after combat", () => {
+    const scene = new Scene(); const fx = createDockCarrierOverlay(scene);
+    const b = battle();
+    fx.tick([b], START + 5000);
+    const root = scene.children.find((child) => child.visible)!;
+    const x = root.position.x; const z = root.position.z;
+    fx.tick([{ ...b, tgtWorldX: 7, tgtWorldZ: 4 }], START + 6000);
+    expect(root.position.x).toBeCloseTo(x + 7); expect(root.position.z).toBe(z + 4);
+    fx.tick([], START + 7000); expect(scene.children.some((child) => child.visible)).toBe(false);
+    fx.dispose(); expect(scene.children).toHaveLength(0);
+  });
+  it("trusts authoritative sea waypoints even when client terrain disagrees", () => {
+    const tiles = new Map(state.tiles);
+    for (const [key, tile] of tiles) tiles.set(key, { ...tile, terrain: "LAND" });
+    for (const [x, y] of [[5, 0], [5, 2], [6, 1]]) tiles.set(`${x},${y}`, { x: x!, y: y!, terrain: "LAND" });
+    const result = dockLandingFor({ ...state, tiles }, 1, 1, 5, 1, START);
+    expect(result?.route.map((p) => p.x)).toEqual([-3, -2, -1, -0.72]);
+  });
+  it("lands beside the authoritative coast for a dock two tiles inland", () => {
+    const pair = { ...state.dockPairs[0]!, bx: 6 };
+    const tiles = new Map(state.tiles);
+    for (const [x, y] of [[6, 0], [6, 2], [5, 1], [7, 1]]) tiles.set(`${x},${y}`, { x: x!, y: y!, terrain: "LAND" });
+    const result = dockLandingFor({ dockPairs: [pair], tiles }, 1, 1, 6, 1, START);
+    expect(result?.route.at(-1)?.x).toBeCloseTo(-1.72);
+  });
+  it("draws the nearest world copy of a sailing carrier on a long sea route", () => {
+    const scene = new Scene(); const fx = createDockCarrierOverlay(scene);
+    const b = battle();
+    fx.tick([{ ...b, tgtWorldX: -239.5, landing: { ...b.landing!, route: [{ x: -389, z: 0 }, { x: -0.72, z: 0 }] } }], START);
+    expect(scene.children.find((child) => child.visible)?.position.x).toBeCloseTo(11.5);
+    fx.dispose();
+  });
 
-describe("landingGroundMenuLine", () => {
-  it("names my dock as the crossing that can land on a far beach", () => {
-    expect(landingGroundMenuLine(world(), 41, 40)).toBe("Landing ground: sea crossings from your dock at (5, 5) can come ashore here.");
-  });
-
-  it("warns on my own shore which dock's crossings can land there", () => {
-    expect(landingGroundMenuLine(world(), 5, 4)).toBe("Landing ground: sea crossings from the dock at (40, 40) can come ashore here.");
-  });
-
-  it("says nothing inland", () => {
-    expect(landingGroundMenuLine(world(), 40, 41)).toBeUndefined();
-  });
-});
-
-describe("landingAshoreDirection", () => {
-  it("points away from the water side", () => {
-    // Far harbour: sea to the north, so landings come ashore heading south.
-    expect(landingAshoreDirection(world().tiles, 40, 40)).toEqual({ dx: 0, dy: 1 });
-    // My beach (5,4): sea to the west only.
-    expect(landingAshoreDirection(world().tiles, 5, 4)).toEqual({ dx: 1, dy: 0 });
-  });
-
-  it("points south on land with no water beside it", () => {
-    expect(landingAshoreDirection(world().tiles, 40, 41)).toEqual({ dx: 0, dy: 1 });
-  });
-});
-
-describe("drawLandingGround2D", () => {
-  it("marks every landing tile of the selection with a tint, a waterline glow and a chevron (the 3D overlay reads the same keys)", () => {
-    const tileFills: Array<[number, number]> = [];
-    const waterlines: Array<[number, number]> = [];
-    let chevrons = 0;
-    const gradient = { addColorStop: () => {} };
-    const ctx = {
-      save: () => {}, restore: () => {}, setLineDash: () => {}, strokeRect: () => {},
-      beginPath: () => {}, moveTo: () => {}, lineTo: () => {}, stroke: () => { chevrons += 1; },
-      createLinearGradient: () => gradient,
-      fillRect(x: number, y: number) { (this.fillStyle === gradient ? waterlines : tileFills).push([x, y]); },
-      fillStyle: "" as unknown, strokeStyle: "", lineWidth: 1, globalAlpha: 1
-    };
-    drawLandingGround2D(ctx as unknown as CanvasRenderingContext2D, { ...world(), selected: { x: 41, y: 40 } }, {
-      tileCenter: (x, y) => ({ sx: x * 10, sy: y * 10 }),
-      size: 10,
-      viewportWidth: 1_000,
-      viewportHeight: 1_000
-    });
-    expect(tileFills).toHaveLength(3);
-    // All three tiles face the sea to the north: one band each, starting at the tile's north edge.
-    expect(waterlines.map(([, y]) => y).sort()).toEqual([395 - 4.2, 395 - 4.2, 395 - 4.2]);
-    expect(chevrons).toBe(3);
-  });
 });

@@ -108,6 +108,7 @@ export type PlayerSubscriptionSnapshot = {
     // once-per-UTC-day discount gate (quickforgeAdjustedRushPrice in
     // @border-empires/shared) — the server remains authoritative on price.
     wonderLastFreeRushBuyAt?: number;
+    relicMapHints?: import("@border-empires/shared").RelicMapHint[];
     // Galactic meta-layer v0 (docs/galactic-campaign-design.md §5, §12): a
     // one-time Wonder-style starting bonus granted to the most recent
     // season's Planet winner (§3) for their next season — a manpower-regen

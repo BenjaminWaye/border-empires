@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { applyOddsScale, buildFrontierCombatPreview, commitOddsMultiplier, estimatedSettledAttackManpowerLoss, noWarIndustryLabel, rollFrontierCombat, shieldDefenseMultiplier } from "./frontier-combat.js";
+import { applyOddsScale, buildFrontierCombatPreview, commitOddsMultiplier, estimatedSettledAttackManpowerLoss, rollFrontierCombat, shieldDefenseMultiplier } from "./frontier-combat.js";
 
 describe("frontier combat", () => {
   it("builds preview values for a settled town target", () => {
@@ -149,86 +149,6 @@ describe("frontier combat", () => {
       { titaniumWeaponsFactoryDefenseMult: 1.5, umbriteWeaponsFactoryDefenseMult: 1.5 }
     );
     expect(preview.defMult).toBe(0);
-  });
-
-  it("doubles attack effectiveness via noWarIndustryVulnerabilityMult when the defender has no war industry", () => {
-    const baseline = buildFrontierCombatPreview({ terrain: "LAND", ownershipState: "SETTLED" });
-    const boosted = buildFrontierCombatPreview(
-      { terrain: "LAND", ownershipState: "SETTLED" },
-      { noWarIndustryVulnerabilityMult: 2.0 }
-    );
-
-    expect(baseline.atkMult).toBe(1);
-    expect(boosted.atkMult).toBeCloseTo(2.0, 6);
-    expect(boosted.atkEff).toBeCloseTo(20, 6);
-    expect(boosted.winChance).toBeGreaterThan(baseline.winChance);
-  });
-
-  it("combines noWarIndustryVulnerabilityMult multiplicatively with other attack mults", () => {
-    const preview = buildFrontierCombatPreview(
-      { terrain: "LAND", ownershipState: "SETTLED" },
-      { titaniumWeaponsFactoryAttackMult: 1.03, noWarIndustryVulnerabilityMult: 2.0 }
-    );
-    expect(preview.atkMult).toBeCloseTo(1.03 * 2.0, 6);
-  });
-
-  it("doubles defense effectiveness via noWarIndustryDefenseVulnerabilityMult when the attacker has no war industry", () => {
-    const baseline = buildFrontierCombatPreview({ terrain: "LAND", ownershipState: "SETTLED" });
-    const boosted = buildFrontierCombatPreview(
-      { terrain: "LAND", ownershipState: "SETTLED" },
-      { noWarIndustryDefenseVulnerabilityMult: 2.0 }
-    );
-
-    expect(baseline.defMult).toBeCloseTo(1.3, 6);
-    expect(boosted.defMult).toBeCloseTo(1.3 * 2.0, 6);
-    expect(boosted.winChance).toBeLessThan(baseline.winChance);
-  });
-
-  it("combines noWarIndustryDefenseVulnerabilityMult multiplicatively with other defense mults", () => {
-    const preview = buildFrontierCombatPreview(
-      { terrain: "LAND", ownershipState: "SETTLED" },
-      { titaniumWeaponsFactoryDefenseMult: 1.03, noWarIndustryDefenseVulnerabilityMult: 2.0 }
-    );
-    expect(preview.defMult).toBeCloseTo(1.3 * 1.03 * 2.0, 6);
-  });
-
-  it("uses the caller-supplied noWarIndustryVulnerabilityLabel naming the specific missing factory", () => {
-    const preview = buildFrontierCombatPreview(
-      { terrain: "LAND", ownershipState: "SETTLED" },
-      { noWarIndustryVulnerabilityMult: 2.0, noWarIndustryVulnerabilityLabel: "Target missing Umbrite Weapons Factory" }
-    );
-    expect(preview.attacker.battle.find((e) => e.mult === 2.0)?.label).toBe("Target missing Umbrite Weapons Factory");
-  });
-
-  it("uses the caller-supplied noWarIndustryDefenseVulnerabilityLabel naming the specific missing factory", () => {
-    const preview = buildFrontierCombatPreview(
-      { terrain: "LAND", ownershipState: "SETTLED" },
-      { noWarIndustryDefenseVulnerabilityMult: 2.0, noWarIndustryDefenseVulnerabilityLabel: "Attacker missing Titanium Weapons Factory" }
-    );
-    expect(preview.defender.battle.find((e) => e.mult === 2.0)?.label).toBe("Attacker missing Titanium Weapons Factory");
-  });
-
-  it("falls back to the generic war-industry label when no override label is supplied", () => {
-    const attackPreview = buildFrontierCombatPreview(
-      { terrain: "LAND", ownershipState: "SETTLED" },
-      { noWarIndustryVulnerabilityMult: 2.0 }
-    );
-    expect(attackPreview.attacker.battle.find((e) => e.mult === 2.0)?.label).toBe("Target has no war industry");
-
-    const defensePreview = buildFrontierCombatPreview(
-      { terrain: "LAND", ownershipState: "SETTLED" },
-      { noWarIndustryDefenseVulnerabilityMult: 2.0 }
-    );
-    expect(defensePreview.defender.battle.find((e) => e.mult === 2.0)?.label).toBe("Attacker has no war industry");
-  });
-
-  describe("noWarIndustryLabel", () => {
-    it("names the specific factory type missing, or both, or falls back to the generic phrasing", () => {
-      expect(noWarIndustryLabel("Target", false, true)).toBe("Target missing Titanium Weapons Factory");
-      expect(noWarIndustryLabel("Target", true, false)).toBe("Target missing Umbrite Weapons Factory");
-      expect(noWarIndustryLabel("Attacker", false, false)).toBe("Attacker missing Titanium & Umbrite Weapons Factory");
-      expect(noWarIndustryLabel("Attacker", true, true)).toBe("Attacker has no war industry");
-    });
   });
 
   it("leaves atkMult unchanged when dockAttackMult is undefined", () => {

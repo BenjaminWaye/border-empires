@@ -255,7 +255,7 @@ export const buildPlayerSubscriptionSnapshot = (
   const enrichedTiles =
     options?.fullVisibility === true && options?.sharedFullVisibilityTiles
       ? options.sharedFullVisibilityTiles
-      : enrichSnapshotTilesForPlayer(playerId, runtimeState, tiles, liveEconomy);
+      : enrichSnapshotTilesForPlayer(playerId, runtimeState, tiles, liveEconomy, options?.fullVisibility === true);
   const docks: PlayerSubscriptionDock[] = (runtimeState.docks ?? []).map((dock) => ({
     dockId: dock.dockId,
     tileKey: dock.tileKey,
@@ -286,6 +286,7 @@ export const buildPlayerSubscriptionSnapshot = (
             imperialWardCharges: livePlayer.imperialWardCharges ?? 0,
             autoSettle: normalizeAutoSettlePrefs(livePlayer.autoSettle),
             wonderLastFreeRushBuyAt: livePlayer.wonderLastFreeRushBuyAt ?? 0,
+            relicMapHints: livePlayer.relicMapHints ?? [],
             eventLog: livePlayer.eventLog ?? [],
             strategicResources: {
               FOOD: livePlayer.strategicResources.FOOD ?? 0,
@@ -307,7 +308,7 @@ export const buildPlayerSubscriptionSnapshot = (
             upkeepPerMinute: liveEconomy.upkeepPerMinute,
             upkeepLastTick: liveEconomy.upkeepLastTick,
             developmentProcessLimit:
-              DEVELOPMENT_PROCESS_LIMIT +
+              DEVELOPMENT_PROCESS_LIMIT + (livePlayer?.relicDevelopmentBonus ?? 0) +
               (liveProgressionPlayer
                 ? additiveEffectForPlayer(liveProgressionPlayer, "developmentProcessCapacityAdd")
                 : 0),

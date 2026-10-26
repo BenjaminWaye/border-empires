@@ -1,6 +1,6 @@
 // Food-slot relief: when a player is fully out of FOOD slots (demand ≥
 // supply, nothing left over) and has no way to grow FOOD supply directly
-// (no HYDROGARDEN/HYDROWORKS/INCUBATION_ENGINE build available — chooseBestEconomicBuild
+// (no HYDROGARDEN/HYDROWORKS build available — chooseBestEconomicBuild
 // found nothing), the AI was previously just stuck: every FOOD-consuming
 // build stays illegal forever, RELAY_BEACON included (it costs its own FOOD
 // slot once the built-in waiver is used up), so an AI that reaches this

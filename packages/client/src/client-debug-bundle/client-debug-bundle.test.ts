@@ -1,10 +1,14 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { buildClientDebugBundle, serverHttpOriginFromWsUrl } from "./client-debug-bundle.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { buildClientDebugBundle, serverHttpOriginFromWsUrl, fetchPlayerServerDiagnostics } from "./client-debug-bundle.js";
+import { diagnosticAuthorization } from "../client-sync-diagnostics/client-server-diagnostics.js";
+vi.mock("../client-sync-diagnostics/client-server-diagnostics.js", () => ({ diagnosticAuthorization: vi.fn(async () => "Bearer test-id-token") }));
 import { recordClientDebugEvent } from "../client-debug/client-debug.js";
 
 describe("client debug bundle", () => {
+  afterEach(() => vi.useRealTimers());
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.mocked(diagnosticAuthorization).mockResolvedValue("Bearer test-id-token");
   });
 
   it("derives the server origin from websocket URLs", () => {
@@ -14,7 +18,7 @@ describe("client debug bundle", () => {
   });
 
   it("builds a bundle with client events and fetched server diagnostics", async () => {
-    recordClientDebugEvent("warn", "attack-sync", "action-accept-timeout", { targetKey: "12,34" });
+    recordClientDebugEvent("warn", "attack-sync", "action-accept-timeout", { targetKey: "12,34", current: { commandId: "preserved-incident" } });
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
@@ -28,20 +32,10 @@ describe("client debug bundle", () => {
         return new Response(
           JSON.stringify({
             ok: true,
-            recentServerEvents: [{ event: "frontier_action_received" }],
-            attackTraces: [
-              {
-                traceId: "trace-1",
-                firstAt: 1,
-                lastAt: 2,
-                events: [{ event: "frontier_action_received" }]
-              }
-            ],
-            attackDebug: {
-              controlPath: [{ event: "frontier_action_accept_timing" }],
-              hotPath: [{ event: "player_update_timing" }],
-              slowOrWarn: [{ event: "slow_player_update" }]
-            }
+            recentServerEvents: [{ at: 1, event: "frontier_action_received", payload: { commandId: "c1" } }],
+            playerId: "p1",
+            serverBuildSha: "server-sha",
+            serverStartedAt: 1000
           }),
           {
             status: 200,
@@ -83,6 +77,9 @@ describe("client debug bundle", () => {
     });
 
     expect(bundle).toMatchObject({
+      schemaVersion: 2,
+      clientBuildSha: expect.any(String),
+      disconnectHistory: expect.any(Array),
       wsUrl: "wss://border-empires.fly.dev/ws",
       serverOrigin: "https://border-empires.fly.dev",
       attackDebug: {
@@ -90,16 +87,7 @@ describe("client debug bundle", () => {
           timeouts: [expect.objectContaining({ event: "action-accept-timeout" })]
         },
         server: {
-          timeline: {
-            controlPath: [{ event: "frontier_action_accept_timing" }],
-            hotPath: [{ event: "player_update_timing" }],
-            slowOrWarn: [{ event: "slow_player_update" }]
-          },
-          traces: [
-            expect.objectContaining({
-              traceId: "trace-1"
-            })
-          ]
+          timeline: [{ at: 1, event: "frontier_action_received", payload: { commandId: "c1" } }]
         }
       },
       serverHealth: {
@@ -112,12 +100,42 @@ describe("client debug bundle", () => {
         status: 200,
         body: {
           ok: true,
-          recentServerEvents: [{ event: "frontier_action_received" }],
-          attackDebug: expect.any(Object),
-          attackTraces: expect.any(Array)
+          recentServerEvents: [{ at: 1, event: "frontier_action_received", payload: { commandId: "c1" } }],
+          serverBuildSha: "server-sha",
+          serverStartedAt: 1000
         }
       }
     });
+    expect(fetch).toHaveBeenCalledWith("https://border-empires.fly.dev/api/player/sync-diagnostics?commandId=preserved-incident", expect.objectContaining({ headers: { Accept: "application/json", Authorization: "Bearer test-id-token" } }));
+    expect(JSON.stringify(bundle)).not.toContain("test-id-token");
     expect((bundle.clientEvents as Array<{ event: string }>).some((event) => event.event === "action-accept-timeout")).toBe(true);
+  });
+  it("keeps authentication failures explicit without issuing an unauthenticated admin request", async () => {
+    vi.mocked(diagnosticAuthorization).mockResolvedValue(undefined);
+    vi.stubGlobal("fetch", vi.fn());
+    expect(await fetchPlayerServerDiagnostics("https://example.test")).toMatchObject({ ok: false, error: expect.stringContaining("No signed-in user") });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("reports an unexpected successful HTTP response as a collection failure", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("<html>game fallback</html>", { status: 200 })));
+    await expect(fetchPlayerServerDiagnostics("https://example.test")).resolves.toEqual({ ok: false, status: 200, error: "Server diagnostics returned an unexpected response" });
+  });
+
+  it("still completes collection when Firebase token refresh never settles", async () => {
+    vi.useFakeTimers();
+    vi.mocked(diagnosticAuthorization).mockReturnValue(new Promise<string | undefined>(() => undefined));
+    vi.stubGlobal("fetch", vi.fn());
+    const pending = fetchPlayerServerDiagnostics("https://example.test");
+    await vi.advanceTimersByTimeAsync(4001);
+    await expect(pending).resolves.toEqual({ ok: false, error: "Diagnostic authentication timed out after 4 seconds" });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("preserves HTTP failures and does not leak failed token refresh errors", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 401 })));
+    expect(await fetchPlayerServerDiagnostics("https://example.test")).toMatchObject({ ok: false, status: 401 });
+    vi.mocked(diagnosticAuthorization).mockRejectedValue(new Error("secret-token"));
+    expect(await fetchPlayerServerDiagnostics("https://example.test")).toEqual({ ok: false, error: "Unable to authenticate server diagnostics" });
   });
 });

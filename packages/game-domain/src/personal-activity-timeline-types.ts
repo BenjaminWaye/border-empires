@@ -28,7 +28,7 @@ export type PersonalActivityTileFeature =
   | { kind: "STRUCTURE"; structureType: string }
   | { kind: "DOCK" }
   | { kind: "AFC" }
-  | { kind: "NATURAL_WONDER"; wonderType: NaturalWonderType };
+  | { kind: "NATURAL_WONDER"; wonderType: NaturalWonderType; relicVersion?: 1 };
 
 // Each list is what the viewing player lost or gained: a player who took a
 // tile is only credited with what survived the capture (siege batteries and
@@ -106,8 +106,15 @@ export type PersonalActivityCombatGroupCard = {
 // Head-to-head tally against one opponent over the timeline window.
 export type PersonalActivityRival = {
   playerId: string;
+  /** Distinct tiles taken from / lost to them in the window. */
   tilesTaken: number;
   tilesLost: number;
+  /**
+   * Tiles you hold now that they held, minus the reverse -- who's ahead on
+   * ground once back-and-forth trades cancel. Optional: an older simulation
+   * omits it.
+   */
+  netTiles?: number;
   /** Their attacks on you that failed. */
   attacksRepelled: number;
   /** Your attacks on them that failed. */
@@ -175,12 +182,29 @@ type PersonalActivityTownCardBase = {
   populationBefore: number;
   populationAfter: number;
   capturedStructureTypes: string[];
+  // The other side of the capture: who took the town on a TOWN_LOST card,
+  // whom it was taken from on a TOWN_CAPTURED card. Absent on events
+  // recorded before this field existed.
+  counterpartyPlayerId?: string;
 };
 
 export type PersonalActivityTownCard = PersonalActivityTownCardBase & (
   | { kind: "TOWN_CAPTURED" }
   | { kind: "TOWN_LOST" }
 );
+
+// A Dock changing hands. Docks also show as a feature on the tile-loss card,
+// but that card depends on the flip log; this note is the dock's own record,
+// like a town's.
+export type PersonalActivityDockCard = {
+  kind: "DOCK_CAPTURED" | "DOCK_LOST";
+  id: string;
+  occurredAt: number;
+  x: number;
+  y: number;
+  // Who took it on DOCK_LOST, whom it was taken from on DOCK_CAPTURED.
+  counterpartyPlayerId?: string;
+};
 
 export type PersonalActivityBuildingCard = {
   kind: "BUILDING_COMPLETED";
@@ -210,6 +234,7 @@ export type PersonalActivityCard =
   | PersonalActivitySiegeCard
   | PersonalActivityWaystationCard
   | PersonalActivityTownCard
+  | PersonalActivityDockCard
   | PersonalActivityBuildingCard
   | PersonalActivityTruncationNoteCard;
 

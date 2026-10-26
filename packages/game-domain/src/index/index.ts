@@ -79,6 +79,7 @@ export type DomainPlayer = {
   wonderMusterExtraFlag?: number;
   wonderFortDefenseBonus?: number;
   wonderTechGoldDiscount?: number;
+  relicDevelopmentBonus?: number;
   wonderLastFreeRushBuyAt?: number;
   // Galactic meta-layer v0 (docs/galactic-campaign-design.md §5, §12): a
   // simplified stand-in for the full Wonder system, which needs a persistent
@@ -212,6 +213,7 @@ export type DomainTileState = {
             | "foodUpkeepPerMinute"
             | "captureShockUntil"
             | "populationBeforeCapture"
+            | "forcedAncillarificationCooldownUntil"
             | "nearbyWarPausedUntil"
             | "nearbyWarLastAt"
             | "growthModifiers"
@@ -237,12 +239,7 @@ export type DomainTileState = {
       }
     | undefined;
   muster?: MusterState | undefined;
-  naturalWonder?:
-    | {
-        type: import("@border-empires/shared").NaturalWonderType;
-        claimedAt?: number;
-      }
-    | undefined;
+  naturalWonder?: import("@border-empires/shared").NaturalWonderState | undefined;
 };
 
 export type ValidateFrontierCommandInput = {

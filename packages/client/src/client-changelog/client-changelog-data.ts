@@ -36,6 +36,13 @@ import { LOST_STRUCTURES_CHANGELOG } from "./client-changelog-lost-structures.js
 import { CAPTURED_MUSTER_CLEAR_CHANGELOG } from "./client-changelog-captured-muster-clear.js";
 import { ADVANCE_EFFORT_CHANGELOG } from "./client-changelog-advance-effort.js";
 import { FASTER_ATTACKS_FRONTIER_COST_CHANGELOG } from "./client-changelog-faster-attacks-frontier-cost.js";
+import { AFC_MODULE_MODELS_CHANGELOG } from "./client-changelog-afc-module-models.js";
+import { MARCH_ATTACK_DEEP_CHANGELOG } from "./client-changelog-march-attack-deep.js";
+import { WAR_INDUSTRY_SQUADS_CHANGELOG } from "./client-changelog-war-industry-squads.js";
+import { MARCH_ATTACK_ROUTES_CHANGELOG } from "./client-changelog-march-attack-routes.js";
+import { FORT_WALL_OPENINGS_CHANGELOG } from "./client-changelog-fort-wall-openings.js";
+import { HILL_GARRISON_FILL_CHANGELOG } from "./client-changelog-hill-garrison-fill.js";
+import { SHARD_COMEBACK_CHANGELOG } from "./client-changelog-shard-comeback.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -76,6 +83,7 @@ import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hi
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog-town-growth-loading.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY } from "./client-changelog-town-growth-war-integrity.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_105 } from "./client-changelog-data-earlier-105.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_106 } from "./client-changelog-data-earlier-106.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -85,6 +93,7 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_106,
   ...AFC_SPECIALIZATIONS_CHANGELOG,
   ...ALLIANCES_TAB_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_OCT_17,
@@ -147,43 +156,10 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON,
   ...MOBILE_LOADING_FIT_CHANGELOG,
   ...AETHER_ABILITY_ICONS_CHANGELOG,
-  {
-    createdAt: 1791920134069, // Date.now() frozen for this entry.
-    introducedIn: "2026.10.13.1",
-    title: "New towns on the 3D map",
-    why: "Towns on the 3D map looked out of place next to the bright terrain and the AFC.",
-    changes: [
-      "Every town tier on the 3D map has new art: clockwork skyscrapers of glass and grey stone banded in brass, with lamplit windows and crowns of brass cog clocks, needle spires, glowing alien bulbs and finned crystals, on an octagonal base plate",
-      "Towns and cities are laid out on street grids with lamplit crossings, parks and skybridges between their towers, and cities rise to a downtown of sheer glass skyscrapers",
-      "Towns grow visibly through their tiers, from a few low towers round a cog lamp to a metropolis round a brass-haloed megatower crowned with an aether crystal",
-      "Towns are alive: steam rises from rooftop stacks, windows flicker with lamplight, clock cogs and orreries turn, crystals spin, and airships circle the bigger cities",
-      "Neighbouring towns of the same tier now face different ways, so they no longer look like copies"
-    ]
-  },
   ...AFC_MODULE_TAB_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION,
   ...CLIENT_CHANGELOG_ENTRIES_OCT_12,
   ...CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT,
-  {
-    createdAt: 1791921253260, // frozen Date.now() value for this release
-    introducedIn: "2026.10.13.1",
-    title: "Empire Integrity moves to the Economy panel",
-    why: "Playtesters watched Empire Integrity fall as they expanded and read it as being punished. In fact it was still a bonus, and some updates briefly showed it lower than it really was.",
-    changes: [
-      "Empire Integrity now lives in the Economy panel; the top bar only shows it, with a warning, once it drops below 50% and actually reduces your coin and growth",
-      "Fixed integrity sometimes showing lower than it really was (e.g. 80% for a small new empire) after changing your profile or colour, toggling auto-garrison, or using an ability"
-    ]
-  },
-  {
-    createdAt: 1791927499454, // frozen Date.now() value for this release
-    introducedIn: "2026.10.13.1",
-    title: "Top bar icons are labelled",
-    why: "Playtesters couldn't tell what the icons in the top-right corner opened without hovering over each one.",
-    changes: [
-      "Manifest, Allies, Ranks, Activity, Sharding and Settings now show their name under the icon on desktop",
-      "The Alerts (bell) button has been removed from the top bar and the mobile menu while the alerts feed is reworked -- the Activity dashboard is where to see what happened"
-    ]
-  },
   ...OCTOBER_STRUCTURE_ART_CHANGELOG,
   ...TILE_YIELD_REMOVAL_CHANGELOG,
   ...AI_PROGRESSION_AETHER_CHANGELOG,
@@ -310,6 +286,165 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CAPTURED_MUSTER_CLEAR_CHANGELOG,
   ...ADVANCE_EFFORT_CHANGELOG,
   ...FASTER_ATTACKS_FRONTIER_COST_CHANGELOG,
+  ...AFC_MODULE_MODELS_CHANGELOG,
+  ...MARCH_ATTACK_DEEP_CHANGELOG,
+  ...MARCH_ATTACK_ROUTES_CHANGELOG,
+  {
+    createdAt: 1792832339274, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.24.1",
+    title: "Forced Ancillarification",
+    why: "A flat population sacrifice becomes trivial in large towns. The cost should grow with the population at stake.",
+    changes: ["Active Ancillary Factories can convert residents from their supported town into 100 immediate manpower, even above the cap. The menu shows exactly how many people will be taken.", "Each town can be forced once every four hours and must retain at least 10,000 residents. The factory menu shows the exact population cost."]
+  },
+  {
+    createdAt: 1792870664672, // Date.now() captured once when this entry was created.
+    introducedIn: "2026.10.24.1",
+    title: "Towns and their support buildings now form connected districts",
+    why: "Town industries and services now share a consistent architectural style and show which town they serve.",
+    changes: [
+      "Support buildings and Project preparations have been remodeled on matching marble platforms, with shared brass detailing and distinct machinery.",
+      "Service connections follow the town's actual support assignments, including second-ring plots, terrain and overlapping towns. Connections are visual and do not change building costs or bonuses.",
+      "The 2D fallback has matching building artwork and service links. Construction, inactive buildings and existing saved structures retain their normal behavior."
+    ]
+  },
+  ...WAR_INDUSTRY_SQUADS_CHANGELOG,
+  ...FORT_WALL_OPENINGS_CHANGELOG,
+  ...HILL_GARRISON_FILL_CHANGELOG,
+  {
+    createdAt: 1792873662311, // Frozen Date.now() timestamp for the changelog gate.
+    introducedIn: "2026.10.24.3",
+    title: "Titanium-armoured soldiers no longer collapse when they move",
+    why: "The heavy armour's animations were copied from the standard soldier onto a differently shaped body, so the armour crumpled the moment a soldier ran, stood or knelt.",
+    changes: [
+      "Soldiers in heavy armour now stand, run, march and kneel with the same poses and arm positions as standard soldiers",
+      "This is cosmetic and only shows on the 3D map"
+    ]
+  },
+  {
+    createdAt: 1792909803859, // Frozen Date.now() timestamp for the changelog gate.
+    introducedIn: "2026.10.24.3",
+    title: "Soldiers killed in battle now fall properly",
+    why: "A soldier killed in a 3D battle was tipped over whole and shrunk, so they sank into a small bundle on the ground instead of falling.",
+    changes: [
+      "Killed soldiers, in standard or heavy armour, now play a real fall and lie full size on the battlefield",
+      "On the 2D map, soldiers killed during a dock landing now fade out over about a second instead of vanishing almost at once"
+    ]
+  },
+  {
+    createdAt: 1792854395082, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.24.relics",
+    title: "Concordance relic installations",
+    why: "Relics are surviving planetary machinery, with useful installations and finite reserves worth fighting over.",
+    changes: ["New planets select seven installation families, represented by weathered ziggurats with House banners. Nearby anonymous light columns and minimap markers guide exploration.", "Garrison relics to use their installations. Combat suits, defensive field cells, ancillary bodies and nanofabrication material have persistent finite reserves; recapture never refills them.", "Capture artwork explains the buried installation and its benefit. Depleted sites remain on the map with an empty-reserve marker. Existing campaigns retain their original wonder rules."]
+  },
+  ...SHARD_COMEBACK_CHANGELOG,
+  {
+    createdAt: 1792907228760, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.24.2",
+    title: "Lost towns and docks name who took them",
+    why: "A lost town only said \"Lost Aurienspire Ring\", with an unrounded population, and a lost Dock had no note of its own. If the town tile's own record was missing, the siege card could still say your Palisade was holding after it had fallen.",
+    changes: [
+      "Town cards in Yours say who took the town, or whom you took it from",
+      "Town populations on those cards are rounded to whole numbers",
+      "Losing or capturing a Dock gets its own note in Yours, naming the other player",
+      "A siege on a town or Dock you lost now shows as fallen, even when its tile record is missing"
+    ]
+  },
+  {
+    createdAt: 1792869724355, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.24.2",
+    title: "Troop carriers at dock landings",
+    why: "An army crossing the sea should arrive aboard a landing carrier.",
+    changes: ["Dock-to-dock attacks now show futuristic carriers sailing in, lowering their bow ramps and unloading infantry into combat. Carriers stay beached until the battle ends, on both 3D and 2D maps."]
+  },
+  {
+    createdAt: 1792907644912, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "No battle sound for undefended frontier",
+    why: "Tapping a frontier tile being taken played the clash of regiments, even though no troops stand on frontier ground to fight.",
+    changes: ["Tapping a frontier tile under attack only plays the battle sound while a garrison is holding it. Attacks on settled land still sound as before"]
+  },
+  {
+    createdAt: 1792909372604, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "More useful sync-delay debug logs",
+    why: "Debug downloads could confirm delayed attacks but failed to collect the server evidence needed to explain them.",
+    changes: ["Debug downloads now collect authenticated diagnostics for your own commands, actual network send timings, browser stalls, recent sync-warning windows and disconnect details."]
+  },
+  {
+    createdAt: 1792909218843, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "Weapons Factory bonus needs a factory",
+    why: "An empire with no Weapons Factories still got +100% attack against anyone missing one, which cancelled out the edge a real factory owner had over it.",
+    changes: [
+      "The +100% war-industry bonus now applies only for a Weapons Factory type you own and your opponent lacks",
+      "Its win-chance row names just those types, e.g. \"Attacker missing Titanium Weapons Factory\"",
+      "Two empires with no Weapons Factories get no bonus either way"
+    ]
+  },
+  {
+    createdAt: 1792929923604, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "Sieges say when your defenses fell",
+    why: "A Palisade taken without one of the siege's own assaults winning, such as by a Breakthrough, still read \"Your Palisade is holding\", with the loss shown as a separate tile row.",
+    changes: [
+      "A siege on a tile you then lost now shows that it fell and who took it, even when the final blow came another way",
+      "Fallen sieges read \"Held off 2 assaults before it fell · Kara spent 300 manpower attacking it\"",
+      "Yours names barbarians as Planetary Defense instead of their internal id"
+    ]
+  },
+  {
+    createdAt: 1792908043500, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "Encirclement works for large empires",
+    why: "Once an empire grew past roughly 1,800 connected tiles, the supply check gave up before it finished. Frontier cut off from supply, for example behind an origin lost to a counter-attack, stayed owned when it should have been lost.",
+    changes: [
+      "The supply check now looks only at your frontier, not your whole empire, so large empires lose cut-off frontier immediately",
+      "This applies to captures, lost attack origins and abilities that remove tiles"
+    ]
+  },
+  {
+    createdAt: 1792930581798, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "Distinct advanced support structures",
+    why: "Similar building shapes made support structures hard to identify at a glance.",
+    changes: ["Support structures now have distinct silhouettes and specialized machinery, with refined metal, ceramic and aether details suited to the Empire’s advanced technology.", "High-yield plants have larger signature assemblies, and map and menu artwork match the new models."]
+  },
+  {
+    createdAt: 1792931842668, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "Correct population-building descriptions",
+    why: "Incubation Engine information still described a retired food effect, while Census Hall listed an outdated growth bonus.",
+    changes: ["Incubation Engine now correctly states +10,000 population on completion and +10% ongoing growth. Census Hall describes its population-capacity and town-upgrade benefits. These descriptions use the same shared constants as the game rules."]
+  },
+  {
+    createdAt: 1792944374596, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "Verified structure identities",
+    why: "Some structure descriptions still quoted retired rules and previews showed superseded artwork.",
+    changes: ["Structure information now shares canonical names and verified roles with the 3D review. Thunder Bastion and Ancillary Depot descriptions reflect current rules; retired structures are labelled clearly.", "The completed Sovereign Siege Engine now includes its long barrel, power core and targeting assembly, with matching 2D artwork."]
+  },
+  {
+    createdAt: 1792952553863, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "Preserved tower and military artwork",
+    why: "The district remodel is limited to the approved buildings.",
+    changes: ["Relay Beacon and Aether Tower keep their original 3D models and 2D artwork. Fort, Umbrite Rig, Dread Tower and Siege Battery also retain their existing models."]
+  },
+  {
+    createdAt: 1792952901276, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "Clearer support connections and converter information",
+    why: "Hidden connections could leave stray posts, and converter help omitted Sell Off rates and its mode-change lock.",
+    changes: ["Hidden and unselected buried service connections now hide their posts as well as their pipes.", "Converter building information shows the current Sell Off Coin/day return and mode-change cooldown from the game rules."]
+  },
+  {
+    createdAt: 1792960254810, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.25.1",
+    title: "Monumental Great Project models",
+    why: "Completed Great Projects needed distinct, detailed models that visibly incorporate their commissioned components.",
+    changes: ["All six completed Great Projects have new 3D models, matching foundations and specialized machinery: a financial rotunda, massive elevated Worldbreaker cannon with an armoured core housing, lattice shield, orbital cradle, census index and muster gate.", "Their 2D map artwork and menu icons are generated from the same models. The Census Directorate has an integrated crescent archive and an unlit crown, and the Titanium Levy has a military assembly hall and deployment court. Project abilities and costs are unchanged."]
+  },
   {
     createdAt: 1792759228659, // Date.now() captured once for this entry.
     introducedIn: "2026.10.23.2",

@@ -59,7 +59,7 @@ export type FrontierSupplyInput = {
   reach: ReadonlySet<string>;
   /** Extra supply links (active Aether bridges the viewer owns), as tile-key pairs. */
   extraLinks?: ReadonlyArray<readonly [string, string]>;
-  /** The viewer's dock sea lanes: a dock and a landing it supplies, with the sea route from the dock (client-dock-landing.ts). */
+  /** The viewer's dock sea lanes: a dock and a landing it supplies, with the sea route from the dock (client-dock-landing-ground.ts). */
   seaLanes?: ReadonlyArray<{ dockKey: string; landingKey: string; via: ReadonlyArray<{ x: number; y: number }> }>;
   worldWidth?: number;
   worldHeight?: number;

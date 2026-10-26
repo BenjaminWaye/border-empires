@@ -1,5 +1,5 @@
 import { WORLD_HEIGHT, WORLD_WIDTH, dockLandingGroundCoords, type LandingTerrainAt } from "@border-empires/shared";
-import { clientTerrainAt } from "../client-dock-landing/client-dock-landing.js";
+import { clientTerrainAt } from "../client-dock-landing-ground/client-dock-landing-ground.js";
 import type { DockPair, Tile } from "../client-types.js";
 
 /**

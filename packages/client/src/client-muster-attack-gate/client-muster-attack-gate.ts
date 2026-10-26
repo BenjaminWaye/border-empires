@@ -4,7 +4,7 @@ import { MUSTER_FLAG_REQUEST_TIMEOUT_MS } from "../client-constants.js";
 import { chebyshevDistanceClient } from "../client-tile-action-support/client-tile-action-support.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
-import { isDockLandingTargetFrom } from "../client-dock-landing/client-dock-landing.js";
+import { isDockLandingTargetFrom } from "../client-dock-landing-ground/client-dock-landing-ground.js";
 
 // Sea crossings between a player's dock and a dock-linked target have no
 // meaningful grid distance (the two docks can be anywhere on the map), so a
@@ -32,7 +32,7 @@ const isAdjacentWrapped = (ax: number, ay: number, bx: number, by: number): bool
 
 // True when (originX, originY) is a dock tile whose paired/connected sea
 // route can land on (targetX, targetY): the linked dock or a beach beside it
-// (the server's beach-landing rule, client-dock-landing.ts).
+// (the server's beach-landing rule, client-dock-landing-ground.ts).
 export const isDockCrossingBetween = (
   state: Pick<ClientState, "dockPairs" | "tiles">,
   originX: number,

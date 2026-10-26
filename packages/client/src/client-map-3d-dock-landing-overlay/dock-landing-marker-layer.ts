@@ -15,7 +15,7 @@ import {
   Vector3
 } from "three";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
-import { landingAshoreDirection } from "../client-dock-landing/client-dock-landing.js";
+import { landingAshoreDirection } from "../client-dock-landing-ground/client-dock-landing-ground.js";
 import { tileCornerMeanY } from "../client-map-3d-beacon-placement-overlay/client-map-3d-beacon-placement-overlay.js";
 import { toroidDelta } from "../client-map-3d-pointer-pick.js";
 import type { SelectionRangeOverlaysDeps } from "../client-map-3d-selection-range-overlays/client-map-3d-selection-range-overlays.js";
@@ -27,7 +27,7 @@ import type { SelectionRangeOverlaysDeps } from "../client-map-3d-selection-rang
 // every side of the tile that faces the sea, so the strip of shore a crossing
 // can reach reads as one landing beach. The 2D
 // counterpart draws the same edge, waterline and a chevron
-// (client-dock-landing-2d.ts).
+// (client-dock-landing-ground-2d.ts).
 
 const CHEVRONS_PER_TILE = 2;
 // One chevron's trip from the seaward edge to the tile centre.

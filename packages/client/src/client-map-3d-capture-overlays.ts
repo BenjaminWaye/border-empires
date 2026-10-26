@@ -1,7 +1,8 @@
+import { dockLandingFor, landingBattleSource } from "./client-dock-landing/client-dock-landing.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { Heightfield } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
-import { CLASH_MS, type BattleOverlayFx, type BattleOverlayRenderEntry, type BattleOverlaySkirmishEntry } from "./client-map-3d-popup-marine/popup-marine-overlay-fx.js";
-import { pruneExpiredActiveBattles } from "./client-battle-overlay/client-battle-overlay.js";
+import { type BattleOverlayFx, type BattleOverlayRenderEntry, type BattleOverlaySkirmishEntry } from "./client-map-3d-popup-marine/popup-marine-overlay-fx.js";
+import { pruneExpiredActiveBattles, squadGearFields } from "./client-battle-overlay/client-battle-overlay.js";
 import { battleIsSiegeBoosted } from "./client-battle-overlay/client-siege-battle-targets.js";
 import { pruneExpiredIncomingAttacks, pruneExpiredOutgoingMusterAttacks } from "./client-siege-tracking/client-siege-tracking.js";
 import {
@@ -10,28 +11,14 @@ import {
   resolveAdvanceMusterFallbackSource,
   type AdvanceMusterFallbackCache
 } from "./client-muster-transit/client-muster-transit.js";
-import { isDockCrossingBetween } from "./client-muster-attack-gate/client-muster-attack-gate.js";
 import { toroidDelta } from "./client-map-3d-pointer-pick.js";
 import type { SupplyLineOverlay } from "./client-map-3d-supply-line-overlay.js";
-import { tileWalkPath, type MusterTransitOverlay } from "./client-map-3d-muster-transit-overlay.js";
-import { activeFrontierAttackClaimTargetKeys } from "./client-map-3d-frontier-claim-plates.js";
-import { activeIncomingFrontierClaims } from "./client-incoming-frontier-claim/client-incoming-frontier-claim.js";
 import type { ClientState } from "./client-state/client-state.js";
 import { squadColorForOwner } from "./client-planetary-defense-style.js";
 import { frontierAttackIsUndefended } from "./client-capture-hold/client-capture-hold.js";
 import { buildCaptureHoldGarrisons, defenderGarrisonField } from "./client-map-3d-capture-hold-garrison.js";
 
-// Short walk from the firing tile onto the claimed tile before the company
-// settles into its at-ease stance for the rest of the claim timer.
-const CLAIM_STEP_IN_MS = 700;
-
-// A shield's reinforcement company dashes in fast, well inside CLASH_MS,
-// rather than taking the whole clash+rout window to arrive -- it fought
-// this battle, so it needs to already be there once the firefight is
-// underway, not turn up only as the dust settles.
-const SHIELD_REINFORCEMENT_MARCH_MS = Math.round(CLASH_MS * 0.4);
-
-const TILE_CENTER_OFFSET = 0.5;
+export const TILE_CENTER_OFFSET = 0.5;
 
 // Placeholder passed to playerColorFor for the attacker's own skirmish when
 // the target tile's real owner isn't known client-side yet (see below) — any
@@ -41,12 +28,6 @@ const TILE_CENTER_OFFSET = 0.5;
 const UNKNOWN_ENEMY_OWNER_ID = "unknown-enemy";
 
 let advanceSrcCache: AdvanceMusterFallbackCache;
-// First-observed timestamp per ADVANCE/MARCH auto-fire transit (keyed by
-// target tile key), since the server tells us only transitEndsAt, not when
-// the march actually started — mirrors skirmishSeenAt's own pattern for the
-// same reason (this client never armed the transit itself the way it does
-// for a manual attack, so there's no local startAt to read).
-const advanceTransitSeenAt = new Map<string, number>();
 
 export function syncCaptureOverlays(
   state: ClientState,
@@ -147,6 +128,23 @@ export function syncBattleOverlayFx(
 ): void {
   const standY = (x: number, y: number): number =>
     Math.max(heightfield.elevationAt(x, y), heightfield.cornerYAt(x, y)) + standLiftAt(x, y);
+  const { entries, skirmishes, garrisons } = collectBattleRenderEntries(state, keyFor, playerColorFor, standY, originX, originY, nowMs);
+  if (entries.length === 0 && skirmishes.length === 0 && garrisons.length === 0) { battleOverlayFx.clear(); return; }
+  battleOverlayFx.tick(nowMs, entries, skirmishes, siegeTowerTargets, garrisons);
+}
+
+/** Shared battle selection and clocks for the 3D map and 2D accessibility map. */
+export function collectBattleRenderEntries(
+  state: ClientState,
+  keyFor: (x: number, y: number) => string,
+  playerColorFor: (ownerId: string) => string,
+  standY: (x: number, y: number) => number,
+  originX: number,
+  originY: number,
+  nowMs: number
+): { entries: BattleOverlayRenderEntry[]; skirmishes: BattleOverlaySkirmishEntry[]; garrisons: ReturnType<typeof buildCaptureHoldGarrisons> } {
+  state.dockLandings?.syncRoutes(state.dockPairs);
+  state.dockLandings?.prune(nowMs);
   pruneExpiredActiveBattles(state, nowMs);
   // `nowMs` is performance.now() (page uptime) — the clock every battle/FX
   // timestamp is stamped in. Siege countdowns (`resolvesAt`) are server epoch
@@ -163,7 +161,10 @@ export function syncBattleOverlayFx(
     const srcDy = toroidDelta(originY, battle.originY, WORLD_HEIGHT);
     const tgtDx = toroidDelta(originX, battle.targetX, WORLD_WIDTH);
     const tgtDy = toroidDelta(originY, battle.targetY, WORLD_HEIGHT);
+    const candidate = dockLandingFor(state, battle.originX, battle.originY, battle.targetX, battle.targetY, state.skirmishSeenAt.get(keyFor(battle.targetX, battle.targetY)) ?? battle.startAt);
+    const landing = candidate && (state.dockLandings?.remember(keyFor(battle.targetX, battle.targetY), keyFor(battle.originX, battle.originY), candidate, nowMs, true) ?? candidate);
     entries.push({
+      ...(landing ? { landing } : {}),
       srcWorldX: srcDx + TILE_CENTER_OFFSET,
       srcWorldZ: srcDy + TILE_CENTER_OFFSET,
       tgtWorldX: tgtDx + TILE_CENTER_OFFSET,
@@ -182,7 +183,8 @@ export function syncBattleOverlayFx(
       // preceding skirmish on the same tile.
       hashSeed: battle.targetX * 92821 + battle.targetY,
       siegeBoosted: battleIsSiegeBoosted(state, keyFor, battle.attackerOwnerId, battle.targetX, battle.targetY),
-      ...defenderGarrisonField(state, keyFor, keyFor(battle.targetX, battle.targetY), battle.defenderOwnerId, nowEpochMs)
+      ...defenderGarrisonField(state, keyFor, keyFor(battle.targetX, battle.targetY), battle.defenderOwnerId, nowEpochMs),
+      ...squadGearFields(state, battle.attackerOwnerId, battle.defenderOwnerId, battle)
     });
   }
 
@@ -195,7 +197,8 @@ export function syncBattleOverlayFx(
     target: { x: number; y: number },
     attackerOwnerId: string,
     defenderOwnerId: string,
-    holdApproachUntilElapsed?: number
+    holdApproachUntilElapsed?: number,
+    unopposed = false
   ): void => {
     if (skirmishKeys.has(key)) return;
     skirmishKeys.add(key);
@@ -212,7 +215,10 @@ export function syncBattleOverlayFx(
     const srcDy = toroidDelta(originY, srcY, WORLD_HEIGHT);
     const tgtDx = toroidDelta(originX, target.x, WORLD_WIDTH);
     const tgtDy = toroidDelta(originY, target.y, WORLD_HEIGHT);
+    const candidate = dockLandingFor(state, srcX, srcY, target.x, target.y, startAt);
+    const landing = candidate && (state.dockLandings?.remember(key, keyFor(srcX, srcY), candidate, nowMs, false) ?? candidate);
     skirmishes.push({
+      ...(landing ? { landing } : {}),
       srcWorldX: srcDx + TILE_CENTER_OFFSET,
       srcWorldZ: srcDy + TILE_CENTER_OFFSET,
       tgtWorldX: tgtDx + TILE_CENTER_OFFSET,
@@ -223,9 +229,10 @@ export function syncBattleOverlayFx(
       defenderColor: squadColorForOwner(defenderOwnerId, playerColorFor),
       startAt,
       hashSeed: target.x * 92821 + target.y,
-      siegeBoosted: battleIsSiegeBoosted(state, keyFor, attackerOwnerId, target.x, target.y),
+      siegeBoosted: !unopposed && battleIsSiegeBoosted(state, keyFor, attackerOwnerId, target.x, target.y),
       ...defenderGarrisonField(state, keyFor, key, defenderOwnerId, nowEpochMs),
-      ...(holdApproachUntilElapsed !== undefined ? { holdApproachUntilElapsed } : {})
+      ...squadGearFields(state, attackerOwnerId, defenderOwnerId),
+      ...(unopposed ? { unopposed: true, holdApproachUntilElapsed: Infinity } : holdApproachUntilElapsed !== undefined ? { holdApproachUntilElapsed } : {})
     });
   };
 
@@ -239,10 +246,12 @@ export function syncBattleOverlayFx(
       if (!target) continue;
       // Undefended FRONTIER ground has no combat to show — see
       // runtime-lock-resolution.ts's hasDefendingForce, which no longer
-      // emits a combatJson/battle broadcast for these attacks at all. The
-      // claim-plate overlay (syncFrontierClaimPlates) carries the "this is
+      // emits a combatJson/battle broadcast for these attacks at all. Dock
+      // crossings still unload infantry, but never invent defenders or shots.
+      // The claim-plate overlay (syncFrontierClaimPlates) carries the "this is
       // becoming mine" visual instead.
-      if (frontierAttackIsUndefended(target, incoming.winChance, nowEpochMs)) continue;
+      const unopposed = frontierAttackIsUndefended(target, incoming.winChance, nowEpochMs);
+      if (unopposed && !dockLandingFor(state, incoming.fromX, incoming.fromY, target.x, target.y, nowMs)) continue;
       // Hold the approach plateau open until the real (mechanical) transit
       // delay ends, instead of the default ~3.4s march animation, so the
       // defender sees "company still approaching" for the actual travel
@@ -253,7 +262,7 @@ export function syncBattleOverlayFx(
         incoming.transitEndsAt !== undefined && incoming.transitEndsAt > nowEpochMs
           ? nowMs - startAt + (incoming.transitEndsAt - nowEpochMs)
           : undefined;
-      pushSkirmish(key, incoming.fromX, incoming.fromY, target, incoming.attackerId, state.me, holdApproachUntilElapsed);
+      pushSkirmish(key, incoming.fromX, incoming.fromY, target, incoming.attackerId, state.me, holdApproachUntilElapsed, unopposed);
     }
 
     // Attacking: the server addresses ATTACK_ALERT to the defender only (see
@@ -283,10 +292,11 @@ export function syncBattleOverlayFx(
       // through to the skirmish approach below, same as before, since the
       // server alone knows whether it's actually undefended.
       const knownTarget = state.tiles.get(key);
-      if (!state.activeBattles.has(key) && !frontierAttackIsUndefended(knownTarget, capture.combatSnapshot?.winChance, nowEpochMs)) {
+      const unopposed = frontierAttackIsUndefended(knownTarget, capture.combatSnapshot?.winChance, nowEpochMs);
+      if (!state.activeBattles.has(key) && (!unopposed || dockLandingFor(state, capture.origin.x, capture.origin.y, capture.target.x, capture.target.y, nowMs))) {
         const knownOwnerId = knownTarget?.ownerId;
         const defenderOwnerId = knownOwnerId && knownOwnerId !== state.me ? knownOwnerId : UNKNOWN_ENEMY_OWNER_ID;
-        pushSkirmish(key, capture.origin.x, capture.origin.y, capture.target, state.me, defenderOwnerId);
+        pushSkirmish(key, capture.origin.x, capture.origin.y, capture.target, state.me, defenderOwnerId, undefined, unopposed);
       }
     }
 
@@ -310,10 +320,11 @@ export function syncBattleOverlayFx(
       if (outgoing.transitEndsAt !== undefined && outgoing.transitEndsAt > nowEpochMs) continue;
       // Same FRONTIER exclusion as the manual-attack branch above.
       const knownTarget = state.tiles.get(key);
-      if (frontierAttackIsUndefended(knownTarget, outgoing.winChance, nowEpochMs)) continue;
+      const unopposed = frontierAttackIsUndefended(knownTarget, outgoing.winChance, nowEpochMs);
+      if (unopposed && !dockLandingFor(state, outgoing.originX, outgoing.originY, outgoing.targetX, outgoing.targetY, nowMs)) continue;
       const knownOwnerId = knownTarget?.ownerId;
       const defenderOwnerId = knownOwnerId && knownOwnerId !== state.me ? knownOwnerId : UNKNOWN_ENEMY_OWNER_ID;
-      pushSkirmish(key, outgoing.originX, outgoing.originY, { x: outgoing.targetX, y: outgoing.targetY }, state.me, defenderOwnerId);
+      pushSkirmish(key, outgoing.originX, outgoing.originY, { x: outgoing.targetX, y: outgoing.targetY }, state.me, defenderOwnerId, undefined, unopposed);
     }
   }
 
@@ -340,155 +351,13 @@ export function syncBattleOverlayFx(
   }
 
   const garrisons = buildCaptureHoldGarrisons(state, keyFor, new Set([...state.activeBattles.keys(), ...skirmishKeys]), playerColorFor, standY, originX, originY, nowMs, nowEpochMs);
-  if (entries.length === 0 && skirmishes.length === 0 && garrisons.length === 0) { battleOverlayFx.clear(); return; }
-  battleOverlayFx.tick(nowMs, entries, skirmishes, siegeTowerTargets, garrisons);
+  for (const entry of [...entries, ...skirmishes]) {
+    const source = landingBattleSource(entry.landing, entry.tgtWorldX, entry.tgtWorldZ, entry.srcWorldX, entry.srcWorldZ);
+    entry.srcWorldX = source.x; entry.srcWorldZ = source.z;
+  }
+  return { entries, skirmishes, garrisons };
 }
 
-// Drives the marching-company overlay from state.musterTransitByTile/
-// deferredAttackByTile (client-muster-transit.ts) — this client's own
-// muster-funded attacks still in their local pre-send march (see
-// armMusterTransit in client-queue-logic.ts). Runs every frame (not just on
-// terrain rebuild, unlike syncCaptureOverlays' supply lines above) since the
-// company's position needs to advance continuously. Only ever covers the
-// local player's own outgoing marches — armMusterTransit is purely local
-// bookkeeping before the ATTACK is even sent, so there's nothing to show an
-// observer until the attack actually fires and the normal
-// incomingAttacksByTile/activeBattles machinery above takes over (which is
-// also, not coincidentally, exactly when this overlay should stop: an entry
-// leaves state.deferredAttackByTile the instant it's actually sent).
-export function syncMusterTransitOverlay(
-  state: ClientState,
-  effectiveOverlayColor: (ownerId: string) => string,
-  heightfield: Heightfield,
-  transitOverlay: MusterTransitOverlay,
-  originX: number,
-  originY: number,
-  keyFor: (x: number, y: number) => string
-): void {
-  const nowEpochMs = Date.now();
-  transitOverlay.clear();
-  const ownerColor = effectiveOverlayColor(state.me ?? "");
-
-  // Builds and adds one company's march, from (musterX,musterY) to
-  // (marchToX,marchToY) — the firing tile the transit's duration is
-  // actually budgeted for, NOT necessarily the real attack target (a
-  // remotely-funded attack's flag only marches to the front; the
-  // adjacency-only "hop" from there onto the target is the ATTACK itself,
-  // not additional travel — see MusterTransitEntry's marchToX comment).
-  const addMarch = (
-    musterX: number, musterY: number, marchToX: number, marchToY: number, startAt: number, arriveAt: number, standUntil?: number, color: string = ownerColor
-  ): void => {
-    const srcDx = toroidDelta(originX, musterX, WORLD_WIDTH);
-    const srcDy = toroidDelta(originY, musterY, WORLD_HEIGHT);
-    const tgtDx = toroidDelta(originX, marchToX, WORLD_WIDTH);
-    const tgtDy = toroidDelta(originY, marchToY, WORLD_HEIGHT);
-    // A dock crossing has no meaningful tile-by-tile route across open
-    // water (matches the fixed-hop treatment findClosestMuster/
-    // hasFundedMusterWithinRange already give it) — walk the real grid for
-    // every other march.
-    const isDock = isDockCrossingBetween(state, musterX, musterY, marchToX, marchToY);
-    const rawPath = isDock
-      ? [{ x: srcDx, z: srcDy }, { x: tgtDx, z: tgtDy }]
-      : tileWalkPath(srcDx, srcDy, tgtDx, tgtDy);
-    const srcSurfaceY = Math.max(heightfield.elevationAt(musterX, musterY), heightfield.cornerYAt(musterX, musterY));
-    const tgtSurfaceY = Math.max(heightfield.elevationAt(marchToX, marchToY), heightfield.cornerYAt(marchToX, marchToY));
-    transitOverlay.addTransit({
-      path: rawPath.map((p) => ({ x: p.x + TILE_CENTER_OFFSET, z: p.z + TILE_CENTER_OFFSET })),
-      groundY: (srcSurfaceY + tgtSurfaceY) / 2,
-      startAt,
-      arriveAt,
-      ...(standUntil !== undefined ? { standUntil } : {}),
-      ownerColor: color
-    });
-  };
-
-  for (const [flagKey, transit] of state.musterTransitByTile) {
-    // Only still-marching entries — once fired (no deferred entry left) or
-    // expired, the skirmish/battle overlay is the right visualization, not
-    // this one.
-    if (!state.deferredAttackByTile.has(flagKey) || nowEpochMs >= transit.transitEndsAt) continue;
-    addMarch(transit.musterX, transit.musterY, transit.marchToX, transit.marchToY, transit.transitStartAt, transit.transitEndsAt);
-  }
-
-  // ADVANCE/MARCH auto-fire's own mechanical travel-time delay (see
-  // runtime-frontier-command.ts) — server-dispatched, so there's no local
-  // armMusterTransit call to read a startAt from; approximate it as "the
-  // first frame this client observed the transit" instead.
-  const liveAdvanceKeys = new Set<string>();
-  for (const [targetKey, outgoing] of state.outgoingMusterAttacksByTile) {
-    if (outgoing.transitEndsAt === undefined || outgoing.musterOriginX === undefined || outgoing.musterOriginY === undefined) continue;
-    if (nowEpochMs >= outgoing.transitEndsAt) continue;
-    liveAdvanceKeys.add(targetKey);
-    let startAt = advanceTransitSeenAt.get(targetKey);
-    if (startAt === undefined) {
-      startAt = nowEpochMs;
-      advanceTransitSeenAt.set(targetKey, startAt);
-    }
-    addMarch(outgoing.musterOriginX, outgoing.musterOriginY, outgoing.originX, outgoing.originY, startAt, outgoing.transitEndsAt);
-  }
-  for (const key of advanceTransitSeenAt.keys()) {
-    if (!liveAdvanceKeys.has(key)) advanceTransitSeenAt.delete(key);
-  }
-
-  // Reactive shield reveal (docs/replenishment-update-plan.md workstream E):
-  // a resolved battle whose defender was shielded carries the shield tile's
-  // coordinates (client-battle-overlay.ts's ActiveBattleOverlay.shieldX/Y).
-  // March that flag's company from the shield tile to the fight, in the
-  // defender's colour, arriving quickly as the clash begins (not at the
-  // very end -- the reinforcement helped fight this battle, it didn't show
-  // up after it was over), then stands at ease for the rest of the clash
-  // and rout until the whole battle overlay expires and gets pruned, same
-  // as this loop's own next tick simply stops finding it in
-  // state.activeBattles. battle.startAt/clashAt are both already stamped at
-  // or before "now" at registration (a resolved battle never replays an
-  // approach -- see registerActiveBattleFromTileDelta's own comment), so
-  // clashAt is the earliest instant with any real elapsed time still ahead
-  // of it to actually animate a march across.
-  for (const battle of state.activeBattles.values()) {
-    if (battle.shieldX === undefined || battle.shieldY === undefined) continue;
-    addMarch(
-      battle.shieldX, battle.shieldY, battle.targetX, battle.targetY,
-      battle.clashAt, battle.clashAt + SHIELD_REINFORCEMENT_MARCH_MS, battle.endAt,
-      effectiveOverlayColor(battle.defenderOwnerId)
-    );
-  }
-
-  // Claim phase of an auto-fired EXPAND / FRONTIER-targeted ATTACK: the
-  // company steps from the firing tile onto the target and stands at ease
-  // there until the claim plate (client-map-3d-frontier-claim-plates.ts)
-  // finishes, instead of vanishing when the travel leg ends.
-  const claimKeys = activeFrontierAttackClaimTargetKeys(state, keyFor, nowEpochMs);
-  for (const [targetKey, outgoing] of state.outgoingMusterAttacksByTile) {
-    if (outgoing.transitEndsAt === undefined || outgoing.transitEndsAt > nowEpochMs) continue;
-    if (outgoing.resolvesAt <= nowEpochMs) continue;
-    if (!outgoing.isExpand && !claimKeys.has(targetKey)) continue;
-    addMarch(outgoing.originX, outgoing.originY, outgoing.targetX, outgoing.targetY, outgoing.transitEndsAt, outgoing.transitEndsAt + CLAIM_STEP_IN_MS, outgoing.resolvesAt);
-  }
-  // Same claim-phase step-in for this client's own manually-dispatched ATTACK
-  // on a known-FRONTIER tile (the single state.capture slot, which never
-  // reaches outgoingMusterAttacksByTile above). The skirmish FX skips these
-  // targets, so without this the plate sweep ran with no soldiers at all.
-  const manualClaim = state.capture;
-  if (
-    manualClaim?.actionType === "ATTACK" &&
-    manualClaim.origin &&
-    !manualClaim.fromMusterAdvance &&
-    manualClaim.resolvesAt > nowEpochMs &&
-    claimKeys.has(keyFor(manualClaim.target.x, manualClaim.target.y))
-  ) {
-    addMarch(manualClaim.origin.x, manualClaim.origin.y, manualClaim.target.x, manualClaim.target.y, manualClaim.startAt, manualClaim.startAt + CLAIM_STEP_IN_MS, manualClaim.resolvesAt);
-  }
-  // Defending side of the same capture: the attacker's company steps onto
-  // this player's FRONTIER tile, in the attacker's colour, and holds it until
-  // the claim resolves -- the skirmish FX deliberately skips these tiles.
-  for (const incoming of activeIncomingFrontierClaims(state, nowEpochMs)) {
-    if (incoming.fromX === undefined || incoming.fromY === undefined || !incoming.attackerId) continue;
-    addMarch(incoming.fromX, incoming.fromY, incoming.targetX, incoming.targetY, incoming.startAt, incoming.startAt + CLAIM_STEP_IN_MS, incoming.resolvesAt, effectiveOverlayColor(incoming.attackerId));
-  }
-
-  transitOverlay.commit();
-  transitOverlay.tick(nowEpochMs);
-}
 
 // syncFrontierClaimPlates moved to client-map-3d-frontier-claim-plates.ts
 // (kept this file under the 500-line cap) -- it now also covers ATTACK on

@@ -4,7 +4,7 @@ import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { MusterTickInput } from "./runtime-muster-tick.js";
 import { buildTerrainDistanceField, deviationFromMarchLine } from "./muster-march-pathfinding.js";
 import { ADVANCE_EMPTY_COOLDOWN_MS, ADVANCE_FAR_COOLDOWN_MS, ADVANCE_MAX_RANGE_TILES, ADVANCE_THROTTLE_DIST, locksSourcedFromMusterTile, syncMusterStatus } from "./muster-auto-fire-shared.js";
-import { MUSTER_MARCH_MAX_DISTANCE_TILES, MUSTER_MAX_CONCURRENT_ACTIONS, WORLD_HEIGHT, WORLD_WIDTH, flagCommitForTarget } from "@border-empires/shared";
+import { MUSTER_MARCH_MAX_ROUTE_STEPS, MUSTER_MAX_CONCURRENT_ACTIONS, WORLD_HEIGHT, WORLD_WIDTH, flagCommitForTarget } from "@border-empires/shared";
 import { isAlliedOrTruced } from "../runtime-player-factory.js";
 
 type MarchRouteScore = { routeLength: number; hitsSettled: boolean; remainingToTarget: number; lineDeviation: number };
@@ -184,12 +184,11 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
 
   // Real tile-step distances to the target, flooded outward from the target
   // itself (see buildTerrainDistanceField) instead of guessed from
-  // coordinates. Capped generously past both legs of the trip the BFS below
-  // could plausibly need to estimate -- the straight-line distance from the
-  // flag to the target, plus the local radius the owned-territory walk is
-  // bounded to -- so it covers every candidate the search can reach without
-  // flooding the whole map when the target is far away or unreachable.
-  const straightLineFlagToTarget = chebyshevDistanceToroidal(musterTile.x, musterTile.y, targetX, targetY);
+  // coordinates. Capped at the longest route a march may take (the same cap
+  // the client offers March Attack origins within), so it covers every
+  // candidate that matters without flooding the whole map when the target is
+  // far away or unreachable: the flood stops at the flag, and a candidate is
+  // only taken if it is closer to the target than the flag already is.
   // Same dock/bridge edges the owned-territory BFS below walks, so a target
   // across water is measured through the crossing rather than across the sea.
   const bridgeLinksByKey = input.aetherBridgeNeighborKeysForPlayer(playerId);
@@ -203,9 +202,13 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
     targetX,
     targetY,
     getTile,
-    // A flag set before the march cap existed can still have a far target;
-    // bound the flood by the cap so it cannot cost more than a capped march.
-    Math.min(straightLineFlagToTarget, MUSTER_MARCH_MAX_DISTANCE_TILES) + ADVANCE_MAX_RANGE_TILES + 2,
+    // Sized to the real route, not the straight line: a target a few tiles
+    // across a strait can be MUSTER_MARCH_MAX_ROUTE_STEPS away through the
+    // nearest dock, and a flood that stops short of the flag strands the
+    // march on the beach. A march with a route of d steps floods about
+    // (2d+1)^2 tiles a tick, as it always has; only a flag with no route at
+    // all floods the full cap (~4k tiles, up from ~3k).
+    MUSTER_MARCH_MAX_ROUTE_STEPS + 2,
     originKey,
     crossingKeysFor
   );

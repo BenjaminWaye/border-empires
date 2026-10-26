@@ -8,8 +8,8 @@ export const dispatchAfcOrRevealCommand = async (message: GatewayCommandMessage,
     await dispatch("RECRUIT_ANCILLARIES", { coin: message.coin }, true);
     return true;
   }
-  if (message.type === "SUPPRESS_AETHER_TOWER" && typeof message.x === "number" && typeof message.y === "number") {
-    await dispatch("SUPPRESS_AETHER_TOWER", { x: message.x, y: message.y }, true);
+  if ((message.type === "SUPPRESS_AETHER_TOWER" || message.type === "FORCED_ANCILLARIFICATION") && typeof message.x === "number" && typeof message.y === "number") {
+    await dispatch(message.type, { x: message.x, y: message.y }, true);
     return true;
   }
   if (message.type === "REVEAL_EMPIRE" && message.targetPlayerId) {

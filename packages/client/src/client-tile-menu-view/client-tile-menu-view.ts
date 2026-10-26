@@ -20,7 +20,7 @@ import { ownershipHelpSubtitleHtml, type OwnershipHelpKind } from "../client-til
 import { tileFeatureLeadLines, tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
 import { foreignTileOwnershipLabel, tileMenuOverviewIntroLines, tileMenuSubtitleText } from "../client-tile-menu-copy/client-tile-menu-copy.js";
-import { landingGroundMenuLine, type DockLandingState } from "../client-dock-landing/client-dock-landing.js";
+import { landingGroundMenuLine, type DockLandingState } from "../client-dock-landing-ground/client-dock-landing-ground.js";
 import { captureRecoveryRemainingMsForTile, tileMenuHeaderStatusForTile, type TileMenuHeaderStatus } from "../client-tile-menu-status/client-tile-menu-status.js";
 import { ownTileHeaderStatus } from "../client-tile-menu-status/client-tile-menu-reach-owners.js";
 import type { ReachAuthoritativeState } from "../client-reach-authoritative/client-reach-authoritative.js";

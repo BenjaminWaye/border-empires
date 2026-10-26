@@ -11,11 +11,13 @@ remain authoritative for runtime behavior.
 | Need | Read |
 |---|---|
 | Repository-wide operating rules | [`../AGENTS.md`](../AGENTS.md) |
+| Relic mechanics, reserves, discovery and legacy compatibility | [`relics.md`](relics.md) |
 | Lore entrypoint and required gameplay-change lore check | [`lore/README.md`](lore/README.md) |
 | Canonical setting, Houses, Coin, Manifests and AFC fiction | [`lore/galactic-lore.md`](lore/galactic-lore.md) |
 | Local setup, package layout, CI, and release notes | [`../README.md`](../README.md) |
 | Deploying or using Fly/Vercel/Hetzner | [`agents/deploys.md`](agents/deploys.md) |
 | Fly → Hetzner migration plan | [`hetzner-migration-plan.md`](hetzner-migration-plan.md) |
+| Sync-delay exports, timing interpretation and player-scoped server traces | [`agents/topics/sync-delay-diagnostics.md`](agents/topics/sync-delay-diagnostics.md) |
 | Tests, debugging, and regression expectations | [`agents/testing-and-debugging.md`](agents/testing-and-debugging.md) |
 | Concurrent worktree and branch safety | [`agents/concurrent-agents.md`](agents/concurrent-agents.md) |
 | Landing a PR end to end (review → fix → merge to `develop`) | [`../.claude/skills/review-fix-merge/SKILL.md`](../.claude/skills/review-fix-merge/SKILL.md) |
@@ -27,13 +29,19 @@ remain authoritative for runtime behavior.
 | AFC Specializations: campaign rules, thirty rewards and lore | [`afc-specializations-catalog.md`](afc-specializations-catalog.md) |
 | AFC Specializations: implementation and verification | [`afc-specializations-execution.md`](afc-specializations-execution.md) |
 | AFC Specializations: original design and UI decisions | [`afc-specializations-plan.md`](afc-specializations-plan.md) |
-| Relics: natural wonders remade as Concordance anchors (proposal) | [`relics-design.md`](relics-design.md) |
+| Historical relic anchor proposal (superseded) | [`relics-design.md`](relics-design.md) |
 | Reach-vision implementation record | [`reach-border-vision-plan.md`](reach-border-vision-plan.md) |
 | Rivers remake, river heads and river mountains (renderer + worldgen v11/v12) | [`rivers-remake-plan.md`](rivers-remake-plan.md) |
 | Stacking-building adjacency / industrial districts (proposed) | [`stacking-adjacency-plan.md`](stacking-adjacency-plan.md) |
+| Connected town support buildings: complete remodel and both renderer implementations (planned) | [`town-support-district-plan.md`](town-support-district-plan.md) |
+| Connected town support buildings: renderer, model and anchor contract | [`town-support-districts.md`](town-support-districts.md) |
+| Storybook cleanup: what was removed, the new layout and guardrails | [`storybook-cleanup-plan.md`](storybook-cleanup-plan.md) |
 | Current manpower and resource-slot rules | [`product/resource-and-manpower-economy.md`](product/resource-and-manpower-economy.md) |
 | Starter-site contract and new-player guidance | [`product/new-player-opening.md`](product/new-player-opening.md) |
+| Completed Great Project models and matching 2D artwork | [`monument-models.md`](monument-models.md) |
 | Adding a structure | [`adding-a-structure-playbook.md`](adding-a-structure-playbook.md) |
+| Relic redesign: execution stages, finite reserves and depleted map state | [`relics-execution-plan.md`](relics-execution-plan.md) |
+| Accepted relic ziggurat: visual references and implementation history | [`relic-overlay-preview.md`](relic-overlay-preview.md) |
 
 ## Document lifecycle
 

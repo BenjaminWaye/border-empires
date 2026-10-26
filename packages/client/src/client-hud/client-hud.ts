@@ -22,7 +22,7 @@ import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-dia
 import { buildDisconnectHistoryBundle } from "../client-connection-diagnostics/client-connection-diagnostics.js";
 import { renderBugReportOverlay } from "../client-bug-report/client-bug-report-hud.js";
 import { buildMapLoadingView, isMapLoadingOverlayActive } from "../client-map-loading-view/client-map-loading-view.js";
-import { buildManpowerPanelMusterFlags, wireManpowerPanel } from "../client-muster-flags-panel/client-muster-flags-panel.js";
+import { renderHudManpowerPanel } from "./client-hud-manpower-panel.js";
 import { renderRespawnOverlay } from "../client-respawn-overlay.js";
 import { activityDashboardUnreadCount, renderClientActivityDashboardOverlay, toggleActivityDashboard } from "../client-activity-dashboard/client-activity-dashboard.js";
 import { renderJoinSeasonOverlay } from "../client-join-season-overlay.js";
@@ -674,19 +674,10 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.panelDevelopmentEl.innerHTML = dom.mobilePanelDevelopmentEl.innerHTML = safeValue("developmentPanelHtml", fallbackCard("Development"), () =>
     renderDevelopmentPanelHtml(deriveDevelopmentPanelData(state.tiles, state.me, state.settleProgressByTile, state.developmentQueue, development.busy, development.limit))
   );
-  const manpowerPanelHtml = safeValue("renderManpowerPanelHtml", fallbackCard("Manpower"), () =>
-    deps.renderManpowerPanelHtml({
-      manpower: state.manpower,
-      manpowerCap: state.manpowerCap,
-      manpowerRegenPerMinute: state.manpowerRegenPerMinute,
-      manpowerBreakdown: state.manpowerBreakdown,
-      musterFlags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me, state.manpowerCap, state.manpower, state.musterAmountRateByTile),
-      formatManpowerAmount,
-      rateToneClass, nextRefillAtMs: nextManpowerRefillForPlayer(state.me, Date.now())
-    })
-  );
-  dom.panelManpowerEl.innerHTML = dom.mobilePanelManpowerEl.innerHTML = manpowerPanelHtml;
-  wireManpowerPanel(dom.hud, state, { wrapX, wrapY, requestViewRefresh, rerender: () => renderClientHud(deps) });
+  renderHudManpowerPanel({
+    state, dom, renderManpowerPanelHtml: deps.renderManpowerPanelHtml, formatManpowerAmount, rateToneClass, wrapX, wrapY, requestViewRefresh, sendGameMessage,
+    rerender: () => renderClientHud(deps), safeHtml: safeValue, fallbackHtml: fallbackCard("Manpower")
+  });
   dom.leaderboardEl.innerHTML = dom.mobileLeaderboardEl.innerHTML = safeValue(
     "leaderboardHtml",
     fallbackCard("Leaderboard"),

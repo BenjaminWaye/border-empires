@@ -1,5 +1,5 @@
 import { reachCacheKey, resolveMyReachCached, type ReachCacheState } from "../client-reach-authoritative/client-reach-authoritative.js";
-import { seaLaneSupplyLinksFor } from "../client-dock-landing/client-dock-landing.js";
+import { seaLaneSupplyLinksFor } from "../client-dock-landing-ground/client-dock-landing-ground.js";
 import type { ActiveAetherBridgeView, DockPair } from "../client-types.js";
 import { computeFrontierSupplyModel, EMPTY_FRONTIER_SUPPLY_MODEL, type FrontierSupplyModel } from "./client-frontier-supply.js";
 

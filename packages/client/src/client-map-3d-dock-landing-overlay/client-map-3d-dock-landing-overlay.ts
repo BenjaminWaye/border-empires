@@ -1,6 +1,6 @@
 import type { Scene } from "three";
-import { landingGroundKeysForSelection } from "../client-dock-landing/client-dock-landing.js";
-import { hostileLandingGroundKeys } from "../client-dock-landing/client-dock-landing-threat.js";
+import { landingGroundKeysForSelection } from "../client-dock-landing-ground/client-dock-landing-ground.js";
+import { hostileLandingGroundKeys } from "../client-dock-landing-ground/client-dock-landing-ground-threat.js";
 import {
   HOSTILE_LANDING_BORDER_ALPHA,
   HOSTILE_LANDING_COLOR,
@@ -8,12 +8,12 @@ import {
   LANDING_GROUND_BORDER_ALPHA,
   LANDING_GROUND_COLOR,
   LANDING_GROUND_FILL_ALPHA
-} from "../client-dock-landing/client-dock-landing-style.js";
+} from "../client-dock-landing-ground/client-dock-landing-ground-style.js";
 import type { SelectionRangeOverlaysDeps } from "../client-map-3d-selection-range-overlays/client-map-3d-selection-range-overlays.js";
 import { resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { createLandingMarkerLayer } from "./dock-landing-marker-layer.js";
 
-// True-3D counterpart of client-dock-landing-2d.ts, synced every frame by the
+// True-3D counterpart of client-dock-landing-ground-2d.ts, synced every frame by the
 // selection-range overlay hub. Each landing tile gets a fill, a bright edge
 // and chevrons sliding ashore (dock-landing-marker-layer.ts):
 // - always on, the viewer's coast where a hostile dock's crossings can land

@@ -7,7 +7,7 @@ import {
   MeshBasicMaterial,
   Scene
 } from "three";
-import { OBSERVATORY_RANGE_MAX, WORLD_HEIGHT, WORLD_WIDTH, reachRadiusForKind, type ReachAnchorKind } from "@border-empires/shared";
+import { RELIC_RULES, relicCastRadius, OBSERVATORY_RANGE_MAX, WORLD_HEIGHT, WORLD_WIDTH, reachRadiusForKind, type ReachAnchorKind } from "@border-empires/shared";
 import { SKY_DOCK_BOMBARD_RADIUS } from "../client-constants.js";
 import { HYDROWORKS_RADIUS } from "../client-structure-effects/client-structure-effects.js";
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
@@ -78,7 +78,7 @@ const makeRingMeshes = (maxRadius: number, materials: { border: LineBasicMateria
 
 export const createSelectionRangeOverlays = (scene: Scene): SelectionRangeOverlays => {
   const observatoryMaterials = makeRingMaterials("#6ab4ff", 0.55, 0.10);
-  const observatoryRing = makeRingMeshes(OBSERVATORY_RANGE_MAX, observatoryMaterials);
+  const observatoryRing = makeRingMeshes(Math.max(OBSERVATORY_RANGE_MAX, RELIC_RULES.castRadius), observatoryMaterials);
   const hydroworksMaterials = makeRingMaterials("#4caf74", 0.55, 0.10);
   const hydroworksRing = makeRingMeshes(HYDROWORKS_RADIUS, hydroworksMaterials);
   const skyDockMaterials = makeRingMaterials("#ff4444", 0.55, 0.10);
@@ -146,7 +146,7 @@ export const createSelectionRangeOverlays = (scene: Scene): SelectionRangeOverla
     if (deps.tileVisibilityStateAt(selectedTile.x, selectedTile.y, selectedTile) !== "visible") return;
     if (selectedTile.ownerId !== deps.state.me) return;
     if (selectedTile.observatory.status !== "active") return;
-    writeRingGeometry(observatoryRing, deps, selectedTile, ownObservatoryRange(deps.state));
+    writeRingGeometry(observatoryRing, deps, selectedTile, relicCastRadius(selectedTile.naturalWonder, ownObservatoryRange(deps.state)));
   };
 
   const syncHydroworksRing = (deps: SelectionRangeOverlaysDeps): void => {

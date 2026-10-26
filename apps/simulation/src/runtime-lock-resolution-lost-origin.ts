@@ -2,6 +2,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import { capturedStructureFields } from "./capture-structures/capture-structures.js";
 import { FORT_PATROL_GRACE_MS } from "./territory-automation/territory-automation.js";
 import { flipFeatures } from "./territory-flip-log/territory-flip-features.js";
+import { recordDockChangeImpacts } from "./personal-impact-log/dock-change-impacts.js";
 import type { LockRecord, SimulationTileWireDelta } from "./runtime-types.js";
 import type { RuntimeLockResolutionContext } from "./runtime-lock-resolution.js";
 
@@ -34,6 +35,7 @@ export function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: L
       at: context.now(),
       ...flipFeatures(previousOrigin)
     });
+    recordDockChangeImpacts(context, previousOrigin, resolvedOrigin.ownerId, lock.commandId);
   }
   if (originOwnershipState === "FRONTIER") context.extendFortPatrolGrace(lock.originKey, context.now() + FORT_PATROL_GRACE_MS);
   else context.clearFortPatrolGrace(lock.originKey);

@@ -90,6 +90,7 @@ export const RECONNECT_PASSTHROUGH_FIELDS = {
   logisticsThroughputPerMinute: numberField("logisticsThroughputPerMinute"),
   imperialWardCharges: numberField("imperialWardCharges"),
   wonderLastFreeRushBuyAt: numberField("wonderLastFreeRushBuyAt"),
+  relicMapHints: presentField("relicMapHints"),
   // Confirmed missing from init-payload.ts entirely until this fix (see
   // docs/player-wire-refactor-plan-phase3.md): real, durable player state
   // (granted once at spawn to the previous season's Planet winner, read

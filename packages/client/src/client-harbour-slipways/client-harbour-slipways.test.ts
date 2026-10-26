@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clientTerrainAt } from "../client-dock-landing/client-dock-landing.js";
+import { clientTerrainAt } from "../client-dock-landing-ground/client-dock-landing-ground.js";
 import type { ClientTownWireSummary } from "../client-tile-town-type.js";
 import type { DockPair, Tile } from "../client-types.js";
 import { harbourFacingAt, rotationForFacing, slipwayFitForTile, slipwayPlacementsFor } from "./client-harbour-slipways.js";

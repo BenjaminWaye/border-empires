@@ -54,6 +54,21 @@ const connectedNeighborKeys = (tileKey: string, extraNeighborKeys?: ExtraNeighbo
 };
 
 /**
+ * Allocation-free variant of connectedNeighborKeys for the hot component
+ * flood: writes into `out` (cleared first) instead of building a new array.
+ */
+const writeNeighborKeys = (tileKey: string, out: string[], extraNeighborKeys?: ExtraNeighborKeys): void => {
+  out.length = 0;
+  const comma = tileKey.indexOf(",");
+  const cx = Number(tileKey.slice(0, comma));
+  const cy = Number(tileKey.slice(comma + 1));
+  for (const { dx, dy } of NEIGHBOR_OFFSETS) out.push(`${wrapX(cx + dx, WORLD_WIDTH)},${wrapY(cy + dy, WORLD_HEIGHT)}`);
+  if (extraNeighborKeys) {
+    for (const extraKey of extraNeighborKeys(tileKey)) out.push(extraKey);
+  }
+};
+
+/**
  * Minimal tile shape this module needs from the runtime tile map.
  * Runtime uses DomainTileState; pure functions here only require what they
  * read so they can be called from tests without the full type.
@@ -121,19 +136,24 @@ export const isFrontierConnected = (
 };
 
 /**
- * Lazy cap for the backward BFS in computeEncirclementDeltas (Option C).
+ * Per-component work cap for computeEncirclementDeltas (Option C): the number
+ * of neighbour lookups one frontier component's flood may make (about eight
+ * per flooded tile), the same unit the old whole-territory walk was bounded by.
  *
- * At 250k owned tiles the backward BFS could visit the entire connected
- * territory component (250k tiles) when the changed key is near the centre.
- * This constant caps the visited-set size. If the backward BFS hits the cap
- * we bail out and return empty sets — i.e., we skip the encirclement check
- * for this tick and retry on the next mutation. This is semantically safe:
- * cut-off tiles stay cut off (their existing timer is preserved), and any
- * reconnection will be detected on the next mutation. The trade-off is
- * eventual consistency rather than same-tick detection in the rare case
- * where a central tile in a 250k+ empire changes ownership in one tick.
+ * The flood only crosses the affected player's own FRONTIER tiles (settled
+ * land is a supply terminal and is never traversed), so its cost tracks the
+ * size of the frontier around the change, not the whole empire. A component
+ * that exhausts the cap stops flooding: if it has already touched supply it
+ * is classified supplied (correct, since supply is all that matters), and
+ * otherwise it is left unclassified and reported through `onCapExceeded`.
+ * Other components touched by the same change are still classified, each with
+ * its own budget. A skipped component is not retried automatically; the
+ * stranded-frontier region check (stranded-frontier-cleanup.ts) is the
+ * backstop.
  */
 export const ENCIRCLEMENT_BFS_CAP = 10_000;
+
+type FrontierComponent = { keys: string[]; status: "supplied" | "unsupplied" | "unknown" };
 
 /**
  * Given a set of tile keys that may have been affected by a recent ownership
@@ -142,17 +162,19 @@ export const ENCIRCLEMENT_BFS_CAP = 10_000;
  *   - `reconnected`  — keys that had `frontierDecayAt` set (were cut off)
  *                      but are now connected again
  *
- * Only considers frontier tiles owned by `affectedPlayerId`. If
- * `affectedPlayerId` is undefined (e.g. tile was uncaptured), returns empty.
+ * Only considers frontier tiles owned by `affectedPlayerId`.
  *
- * Implementation: BFS from the changed tile key(s) outward to find the
- * affected region; re-checks connectivity only for tiles in that region.
- * This keeps the check local rather than scanning all player territory.
+ * Implementation: a frontier tile's connectivity depends only on the frontier
+ * component it sits in (8-neighbour connected through the player's own
+ * FRONTIER tiles) and whether that component touches a supply terminal. A
+ * change at tile X can therefore only affect the components containing X or
+ * one of X's neighbours. We seed from those tiles, flood each component through
+ * frontier tiles only, and classify the whole component at once.
  *
- * Option C — lazy partial BFS: if the backward BFS exceeds ENCIRCLEMENT_BFS_CAP
- * visited tiles, the function returns empty sets and logs a warning. The
- * encirclement state of affected tiles is unchanged (timers are preserved).
- * This is safe regression: we just skip detection for this tick.
+ * This used to walk every tile the player owned from the change (settled
+ * included) and count unowned border tiles toward one shared cap, so any
+ * empire of roughly 1,800+ connected tiles hit the 2,000 cap combat passes and
+ * silently skipped encirclement.
  */
 export const computeEncirclementDeltas = (
   changedKeys: Iterable<string>,
@@ -164,8 +186,6 @@ export const computeEncirclementDeltas = (
     /**
      * When true, skip cut-off detection — only detect reconnections.
      * Safe for EXPAND: adding a tile can never cut off the attacker's own territory.
-     * Callers that pass skipCutOff should also pass a tight bfsCap (e.g. 200) since
-     * only nearby tiles can be reconnected by a single expand.
      */
     skipCutOff?: boolean;
     extraNeighborKeys?: ExtraNeighborKeys;
@@ -175,124 +195,82 @@ export const computeEncirclementDeltas = (
   const bfsCap = options?.bfsCap ?? ENCIRCLEMENT_BFS_CAP;
   const cutOff = new Set<string>();
   const reconnected = new Set<string>();
+  const isOwnFrontier = (tile: EncirclementTileView | undefined): boolean =>
+    tile?.ownerId === affectedPlayerId && tile.ownershipState === "FRONTIER";
 
-  // Collect the frontier tiles we need to re-check by doing a BFS over the
-  // affected player's frontier territory from the changed tiles. Cap the
-  // expansion at ENCIRCLEMENT_BFS_CAP — if exceeded, bail out (Option C).
-  const toCheck = new Set<string>();
-  const bfsVisited = new Set<string>();
-  const bfsQueue: string[] = [];
-
+  // Seeds: every changed tile and its neighbours that is now one of the
+  // player's frontier tiles. The changed tile itself is often no longer the
+  // player's (a lost origin, a captured target), so its neighbours matter.
+  const seeds: string[] = [];
+  const seen = new Set<string>();
   for (const key of changedKeys) {
-    bfsQueue.push(key);
-    bfsVisited.add(key);
+    for (const candidate of [key, ...connectedNeighborKeys(key, options?.extraNeighborKeys)]) {
+      if (seen.has(candidate)) continue;
+      seen.add(candidate);
+      if (isOwnFrontier(getTile(candidate))) seeds.push(candidate);
+    }
   }
 
-  while (bfsQueue.length > 0) {
-    // biome-ignore lint: queue.shift() fine for bounded BFS
-    const current = bfsQueue.shift()!;
-    const tile = getTile(current);
-
-    if (tile?.ownerId === affectedPlayerId && tile.ownershipState === "FRONTIER") {
-      toCheck.add(current);
-    }
-
-    for (const nk of connectedNeighborKeys(current, options?.extraNeighborKeys)) {
-      if (bfsVisited.has(nk)) continue;
-      bfsVisited.add(nk);
-
-      const neighbor = getTile(nk);
-      if (neighbor?.ownerId === affectedPlayerId) {
-        bfsQueue.push(nk);
+  // Flood each seed's frontier component. A flood only stops early at the
+  // cap, so running into a tile an earlier flood already claimed means both
+  // are the same component: inherit that component's verdict.
+  const components: FrontierComponent[] = [];
+  const componentOf = new Map<string, number>();
+  const neighborKeys: string[] = [];
+  for (const seed of seeds) {
+    if (componentOf.has(seed)) continue;
+    const index = components.length;
+    const component: FrontierComponent = { keys: [seed], status: "unsupplied" };
+    components.push(component);
+    componentOf.set(seed, index);
+    // Seeds were read as own FRONTIER above; a frontier dock is its own supply.
+    let supplied = Boolean(getTile(seed)?.dockId);
+    let joinsUnknown = false;
+    let capped = false;
+    let lookups = 0;
+    const queue = [seed];
+    for (let head = 0; head < queue.length && !capped; head += 1) {
+      writeNeighborKeys(queue[head]!, neighborKeys, options?.extraNeighborKeys);
+      lookups += neighborKeys.length;
+      for (const nk of neighborKeys) {
+        const earlier = componentOf.get(nk);
+        if (earlier !== undefined) {
+          if (earlier === index) continue;
+          if (components[earlier]!.status === "supplied") supplied = true;
+          else joinsUnknown = true;
+          continue;
+        }
+        const neighbor = getTile(nk);
+        if (neighbor?.ownerId !== affectedPlayerId) continue;
+        if (neighbor.ownershipState === "FRONTIER") {
+          componentOf.set(nk, index);
+          component.keys.push(nk);
+          queue.push(nk);
+          if (neighbor.dockId) supplied = true;
+        } else if (isSupplyTerminal(neighbor)) {
+          supplied = true;
+        }
       }
+      if (bfsCap > 0 && lookups > bfsCap) capped = true;
     }
-
-    // Option C: if the backward BFS grows beyond the cap, bail out and
-    // skip this encirclement check. The caller's timers are preserved;
-    // detection will happen on the next mutation.
-    if (bfsCap > 0 && bfsVisited.size > bfsCap) {
-      options?.onCapExceeded?.(affectedPlayerId, bfsVisited.size, bfsCap);
-      return { cutOff, reconnected };
+    if (supplied) component.status = "supplied";
+    else if (capped || joinsUnknown) {
+      component.status = "unknown";
+      if (capped) options?.onCapExceeded?.(affectedPlayerId, lookups, bfsCap);
     }
   }
 
-  // Single forward BFS from all settled tiles owned by affectedPlayerId that
-  // border the affected region. This avoids O(N²) — instead of re-running BFS
-  // from every tile in toCheck, we do one pass and mark all reachable frontier
-  // tiles as connected.
-  //
-  // Strategy:
-  //   1. Collect settled tiles that are neighbors of any tile in bfsVisited
-  //      (the affected region). These are the "roots" of the forward BFS.
-  //   2. BFS outward through affectedPlayerId's frontier tiles from those roots.
-  //   3. Anything in toCheck reached by the BFS is connected; otherwise cut off.
-  const reachable = new Set<string>();
-  const fwdQueue: string[] = [];
-  const fwdVisited = new Set<string>();
-
-  // Collect supply terminals that border the affected region as BFS roots.
-  // Frontier dock tiles in the affected region itself also act as roots —
-  // they are their own supply terminal (no settled tile required).
-  //
-  // Frontier dock roots must also be added to reachable: unlike settled roots,
-  // they appear in toCheck (they are FRONTIER tiles), so the classification
-  // loop must see them as reachable to avoid a false positive cut-off.
-  for (const key of bfsVisited) {
-    for (const nk of connectedNeighborKeys(key, options?.extraNeighborKeys)) {
-      if (fwdVisited.has(nk)) continue;
-      const neighbor = getTile(nk);
-      if (neighbor?.ownerId === affectedPlayerId && isSupplyTerminal(neighbor)) {
-        fwdVisited.add(nk);
-        fwdQueue.push(nk);
-        if (neighbor.ownershipState === "FRONTIER") reachable.add(nk);
+  for (const { keys, status } of components) {
+    if (status === "unknown") continue;
+    for (const key of keys) {
+      if (status === "unsupplied") {
+        if (!options?.skipCutOff) cutOff.add(key);
+        continue;
       }
-    }
-    // A frontier dock tile in the affected region is its own supply root.
-    // Without this, a lone frontier dock tile would be collected in toCheck
-    // but never added as a root, causing a false positive cut-off.
-    if (fwdVisited.has(key)) continue;
-    const tile = getTile(key);
-    if (tile?.ownerId === affectedPlayerId && tile.ownershipState === "FRONTIER" && Boolean(tile.dockId)) {
-      fwdVisited.add(key);
-      fwdQueue.push(key);
-      reachable.add(key);
-    }
-  }
-
-  while (fwdQueue.length > 0) {
-    // biome-ignore lint: queue.shift() fine for bounded BFS
-    const current = fwdQueue.shift()!;
-
-    for (const nk of connectedNeighborKeys(current, options?.extraNeighborKeys)) {
-      if (fwdVisited.has(nk)) continue;
-      fwdVisited.add(nk);
-
-      const neighbor = getTile(nk);
-      if (neighbor?.ownerId !== affectedPlayerId) continue;
-
-      if (neighbor.ownershipState === "FRONTIER") {
-        reachable.add(nk);
-        fwdQueue.push(nk);
-      } else if (neighbor.ownershipState === "SETTLED") {
-        fwdQueue.push(nk);
-      }
-    }
-  }
-
-  // Classify tiles in toCheck using the reachable set.
-  for (const key of toCheck) {
-    const tile = getTile(key);
-    if (!tile || tile.ownerId !== affectedPlayerId || tile.ownershipState !== "FRONTIER") continue;
-
-    if (!reachable.has(key)) {
-      if (!options?.skipCutOff) cutOff.add(key);
-    } else if (
-      typeof tile.frontierDecayAt === "number" &&
-      tile.frontierDecayKind === "ENCIRCLEMENT"
-    ) {
+      const tile = getTile(key);
       // Was cut off by encirclement and is now reconnected. Natural decay
-      // timers are not ours to clear, even in their final 60 seconds.
-      reconnected.add(key);
+      // timers are not ours to clear.
+      if (typeof tile?.frontierDecayAt === "number" && tile.frontierDecayKind === "ENCIRCLEMENT") reconnected.add(key);
     }
   }
 

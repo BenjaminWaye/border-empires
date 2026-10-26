@@ -3,6 +3,7 @@
 // vanishing, and if the tile is attacked during that window those same
 // marines are the defenders in the fight. Pure pose math only -- no three.js
 // import -- so it is unit-tested in node like popup-marine-timeline.ts.
+import type { SquadGear } from "./popup-marine-gear.js";
 import {
   clamp01,
   deathKitFor,
@@ -33,6 +34,8 @@ export type GarrisonRenderEntry = GarrisonFacing & {
   hashSeed: number;
   /** End of the hold window, on the overlay's nowMs (performance.now()) clock. */
   endsAt: number;
+  /** The holding empire's war industry (heavy armour, Umbrite rounds); absent = none. */
+  gear?: SquadGear;
 };
 
 /** Where garrison marine `i` stands, or absent if it fell taking the tile. */

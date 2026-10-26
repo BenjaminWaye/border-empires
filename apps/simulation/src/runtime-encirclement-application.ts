@@ -3,6 +3,7 @@ import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { FRONTIER_AUTO_HEAL_MS, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 import { abandonedStructureFields } from "./capture-structures/capture-structures.js";
 import { computeEncirclementDeltas } from "./encirclement/encirclement.js";
+import { incrementEncirclementCounter } from "./encirclement/encirclement-metrics.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { findStrandedFrontier } from "./stranded-frontier/stranded-frontier-finder.js";
 import { incrementStrandedFrontierCounter } from "./stranded-frontier/stranded-frontier-metrics.js";
@@ -197,12 +198,14 @@ export function applyEncirclement(
 ): void {
   const getTile = (key: string) => context.tiles.get(key);
   const nowMs = context.now();
+  incrementEncirclementCounter("checks");
   const supplyNeighbors = supplyLinkNeighborKeysForPlayer(context, playerId);
   const { cutOff, reconnected } = computeEncirclementDeltas(changedKeys, playerId, getTile, nowMs, {
     extraNeighborKeys: supplyNeighbors,
     ...(options?.bfsCap !== undefined ? { bfsCap: options.bfsCap } : {}),
     ...(options?.skipCutOff ? { skipCutOff: true } : {}),
     onCapExceeded: (pid, visited, cap) => {
+      incrementEncirclementCounter("capHits");
       context.runtimeLogInfo(
         { playerId: pid, bfsVisited: visited, bfsCap: cap, changedKeysCount: changedKeys.length, commandId },
         "[applyEncirclement] BFS cap exceeded — skipping detection this tick"
@@ -211,6 +214,7 @@ export function applyEncirclement(
   });
 
   const tileDeltas = clearCutOffFrontierTiles(context, cutOff, commandId, nowMs);
+  if (cutOff.size > 0) incrementEncirclementCounter("tilesCutOff", cutOff.size);
   if (!options?.skipCutOff) {
     tileDeltas.push(...releaseStrandedSeaLaneLandings(context, changedKeys, playerId, supplyNeighbors, commandId, nowMs));
   }

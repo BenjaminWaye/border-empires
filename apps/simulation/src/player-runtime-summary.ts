@@ -83,7 +83,7 @@ export type ServerWaypointQueueEntry = {
   /** Index into `steps` of the next unattempted step. Undefined/0 == start. */
   cursor?: number;
   stalled?: boolean;
-  /** Expand To & Attack effort for the final ATTACK leg -- see runtime-waypoint-drain.ts commitManpowerForStep. */
+  /** (Former) Expand To & Attack effort, on waypoints queued before its removal, for the final ATTACK leg -- see runtime-waypoint-drain.ts commitManpowerForStep. */
   commitManpower?: number;
 };
 
@@ -105,6 +105,8 @@ export type ClaimContinuation = {
 
 export type PlayerRuntimeSummary = {
   territoryTileKeys: Set<string>;
+  /** At most nine world-generated sites; rebuilt from tiles on recovery. */
+  relicTileKeys?: Set<string>;
   frontierTileKeys: Set<string>;
   hotFrontierTileKeys: Set<string>;
   strategicFrontierTileKeys: Set<string>;
@@ -216,6 +218,7 @@ const activeStructureProcessCount = (tile: DomainTileState, ownerId: string): nu
 
 export const createEmptyPlayerRuntimeSummary = (): PlayerRuntimeSummary => ({
   territoryTileKeys: new Set<string>(),
+  relicTileKeys: new Set<string>(),
   frontierTileKeys: new Set<string>(),
   hotFrontierTileKeys: new Set<string>(),
   strategicFrontierTileKeys: new Set<string>(),
@@ -317,6 +320,11 @@ export const applyTileToPlayerSummary = (
 ): void => {
   if (!tile.ownerId) return;
   summary.territoryTileKeys.add(tileKey);
+  if (tile.naturalWonder) {
+    const keys = summary.relicTileKeys ??= new Set<string>();
+    if (!keys.has(tileKey) && keys.size >= 9) throw new RangeError("World relic limit exceeded");
+    keys.add(tileKey);
+  }
   if (tile.ownershipState === "FRONTIER") summary.frontierTileKeys.add(tileKey);
   if (tile.ownershipState === "SETTLED") {
     summary.settledTileCount += 1;
@@ -348,6 +356,7 @@ export const removeTileFromPlayerSummary = (
 ): void => {
   if (!tile.ownerId) return;
   summary.territoryTileKeys.delete(tileKey);
+  summary.relicTileKeys?.delete(tileKey);
   summary.frontierTileKeys.delete(tileKey);
   if (tile.ownershipState === "SETTLED") {
     summary.settledTileCount = Math.max(0, summary.settledTileCount - 1);

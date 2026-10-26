@@ -158,6 +158,7 @@ const abilityActionIconHtml = (actionId: TileActionDef["id"]): string | undefine
 const actionIcon = (id: TileActionDef["id"]): string => {
   if (id.startsWith("redeploy_afc_module:")) return "⇣";
   if (id === "expand_here") return "⚐";
+  if (id.startsWith("march_attack_")) return "⚑";
   if (id === "clear_waypoint_and_expand_here") return "↺⚐";
   if (id === "cancel_waypoint") return "✕";
   if (id === "cancel_all_waypoints") return "✕⚐";
