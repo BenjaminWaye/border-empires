@@ -30,6 +30,7 @@ Each player controls a civilization that starts from a single land tile, expands
 ### Economy
 
 - **Manpower** is the empire's primary resource, funding every physical action: expanding, garrisoning (internally SETTLE), building structures, and attacking. It regenerates from an empire-wide pool sized by town population tier, paid out in one refill every four hours; a depleted empire cannot afford sustained expansion or warfare.
+- **Forced Ancillarification** at an active Ancillary Factory converts residents from its supporting town for 100 immediate manpower, once per town every four hours, while retaining at least 10,000 residents.
 - **Coin** funds Manifest commissions, the actions that carry a coin cost, and *rush-buys* of in-progress builds or garrisons. Its fictional meaning is defined in the [world bible](docs/lore/galactic-lore.md#11-houses-and-the-planetary-economy); current income, costs and town-support rules are in the [economy reference](docs/product/resource-and-manpower-economy.md).
 - **Strategic resources** — Food, Titanium, Crystal, Umbrite — are permanent slot allocations, not stockpiles: a structure or town either has a free slot backed by an owned resource tile (or a synthesizer) or it goes **dormant** (loses its effect, but isn't destroyed) until a slot frees up. A floating badge and detail-panel line flag dormant tiles and which resource they're missing.
 - **Shard** remains flow-collected (including from scheduled shard-rain events) and funds monument construction.
@@ -76,6 +77,7 @@ Each player controls a civilization that starts from a single land tile, expands
 - **Alliances**: mutual relationships that block friendly-fire and affect diplomatic victory scoring.
 - **Truces**: non-aggression pacts (12h or 24h). Breaking a truce early locks the breaker out of requesting or accepting any new truce for 24h; the other party is unaffected. A rejected or cancelled truce/alliance offer can't be re-sent to the same player for 30 minutes. AI empires answer offers based on their stance toward you and explain why. Offers can carry coin and Shards through the trade screen, which previews an AI's answer; AIs counter-offer within what you can pay. They can also propose a 12h truce when threatened or an alliance against a shared enemy.
 - **AI aether**: AI empires build Aether Towers and use Purge, EMP, Siphon, bridges, walls and terrain shaping against useful visible targets. Worker-mode AIs consume survey clues as expansion objectives. Builds check installed AFC modules and resource-slot capacity.
+- **Concordance relics**: newly seeded worlds select seven surviving installation families. Garrison their shared ziggurats to operate the machinery; finite reserves persist through recapture, and depleted ruins remain marked in both renderers. See [relic rules and compatibility](docs/relics.md).
 - **Shard rain**: scheduled world events scattering high-value shard sites with a 30-minute TTL, feeding monument construction.
 
 ### Victory Conditions
@@ -182,6 +184,17 @@ Generation runs in a Web Worker so the UI stays responsive even while the seed-r
 > repo today will not make it a buildable structure. The historical proposal is
 > retained at `docs/archive/design-history-2026/gltf-model-pipeline-plan.md`.
 
+Town support structures use the shared procedural district kit in
+`packages/client/src/client-town-district/`, including matching foundations,
+service connections and generated 2D SVG artwork. See
+[the district renderer reference](docs/town-support-districts.md) for coverage,
+model entrypoints and icon regeneration. The six completed Great Projects use
+`packages/client/src/client-monuments/`; see [the monument model reference](docs/monument-models.md)
+for their component identities, renderer routing and artwork generation. Storybook’s **Map / Structures / All
+Structures** reviews all current buildable structures using their production 3D
+models, canonical names and shared gameplay descriptions; superseded studies
+are labelled Legacy.
+
 ### Format
 
 | | |
@@ -214,14 +227,18 @@ control tower cab at `~0.36`).
 Merge anything you can into a shared material; reuse a colour rather than adding a
 fifth material for one small part.
 
-Keeping inside the footprint and height caps matters because structures sit one per
-tile — an oversized model visually collides with its neighbours.
+These budgets target ordinary buildable structures. Concordance relic landmarks
+use the accepted larger shared ziggurat (about two tiles wide and one tile high),
+while retaining one logical claim tile. Their House banner makes ownership
+readable above the overhanging base; see [the relic footprint rules](docs/relics.md).
+For ordinary structures, staying inside the caps avoids collisions with neighbors.
 
 ### Style
 
-The existing look is **flat-shaded, low-poly, solid-colour**: `MeshStandardMaterial`
-with `flatShading: true`, hand-picked hex colours, and no textures anywhere in the
-project. Match it.
+Ordinary structure meshes use a **flat-shaded, low-poly, solid-colour** style:
+`MeshStandardMaterial` with `flatShading: true` and hand-picked hex colours.
+Relic shaders add procedural weathering; their capture illustrations use bitmap
+artwork. Keep new assets consistent with their surrounding structure family.
 
 - Prefer **untextured** models using per-material colour.
 - If a texture is genuinely needed: a **single 256×256 power-of-two atlas** shared
@@ -266,11 +283,19 @@ After a PR merges, remove the worktree and branch before marking the task done. 
 
 ---
 
+## Sync-delay debug logs
+
+Download the debug log soon after a sync warning. It includes actual command
+send/accept timings, recent warning windows, browser stalls and disconnect
+history. Signed-in players also get their own server command traces; server
+collection failures are explicit. See the [diagnostic runbook](docs/agents/topics/sync-delay-diagnostics.md)
+for timing interpretation, privacy boundaries and retention limits.
+
 ## Client Release Notes
 
 When shipping a user-facing client update, add a new entry to `packages/client/src/client-changelog/client-changelog-data.ts` (`CLIENT_CHANGELOG_ENTRIES`) in the same branch:
 
-- Each entry: `createdAt` (`Date.now()`), `introducedIn`, `title`, `why`, `changes`.
+- Each entry: `createdAt` (a frozen numeric timestamp captured once from `Date.now()`), `introducedIn`, `title`, `why`, `changes`.
 - Entries are unordered in the source — append yours anywhere; `client-changelog.ts` sorts by `createdAt` before rendering. There's no shared `version` field, so parallel branches adding entries don't conflict.
 - Write both why the change was made and what changed.
 - `pnpm check:client-changelog` fails when product code changes on a branch without a new changelog entry (a new `createdAt` timestamp).

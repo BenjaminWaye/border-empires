@@ -12,10 +12,8 @@ export function applyRecoveredAfcState(player: RecoveredPlayerState, payload: Re
   if (payload.afcUpgradeRuleset !== "afc-v1") return;
   player.afcUpgradeRuleset = "afc-v1";
   if (Array.isArray(payload.afcCoreTownKeys) && payload.afcCoreTownKeys.length <= 3 && payload.afcCoreTownKeys.every(key => typeof key === "string" && /^\d+,\d+$/.test(key))) player.afcCoreTownKeys = [...payload.afcCoreTownKeys];
-  for (const key of ["afcScarcityFoodSlots", "manpower", "manpowerUpdatedAt", "manpowerBanked", "waystationManpowerOverflow"] as const) {
-    const value = payload[key];
-    if (typeof value === "number" && Number.isFinite(value) && value >= 0) player[key] = value;
-  }
+  const scarcity = payload.afcScarcityFoodSlots;
+  if (typeof scarcity === "number" && Number.isFinite(scarcity) && scarcity >= 0) player.afcScarcityFoodSlots = scarcity;
   const raw = payload.afcCampaign;
   if (raw && typeof raw === "object" && !Array.isArray(raw)) {
     const data = raw as Record<string, unknown>;

@@ -1,3 +1,4 @@
+import { applyRelicAndProgressionUpdate } from "../client-relic-overlay/relic-map-hints.js";
 import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
 import { isChosenTrickleResource } from "@border-empires/shared";
 import { initDefensibilityPct } from "../client-init-defensibility/client-init-defensibility.js";
@@ -215,6 +216,8 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.chosenTrickleResource = isChosenTrickleResource(initialTrickle) ? initialTrickle : undefined;
   state.imperialWardCharges = (player as { imperialWardCharges?: number }).imperialWardCharges;
   state.wonderLastFreeRushBuyAt = (player as { wonderLastFreeRushBuyAt?: number }).wonderLastFreeRushBuyAt;
+  state.relicMapHints.clear();
+  applyRelicAndProgressionUpdate(state, player);
   state.revealCapacity = (player.revealCapacity as number) ?? state.revealCapacity;
   state.activeRevealTargets = (player.activeRevealTargets as string[]) ?? state.activeRevealTargets;
   state.abilityCooldowns = (player.abilityCooldowns as typeof state.abilityCooldowns | undefined) ?? state.abilityCooldowns;

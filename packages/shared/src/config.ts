@@ -67,7 +67,11 @@ export const FOREST_VISION_RANGE = 1;
 // normal effective radius (before forest clamping is applied). See
 // isHillsTileAt in hills-terrain.ts and vision-footprint-table.ts.
 export const HILLS_VISION_BONUS = 1;
-export const COMBAT_LOCK_MS = 30_000;
+// Halved from 30_000 so fronts move faster: a flag runs at most
+// MUSTER_MAX_CONCURRENT_ACTIONS attacks at once, so this lock is what caps how
+// fast it can take frontier ground (settled ground stays capped by muster
+// inflow). attackResolveSpeedReduceMs bonuses were halved to match.
+export const COMBAT_LOCK_MS = 15_000;
 // How long a muster flag's company takes to march one tile before its
 // ATTACK actually fires/resolves. Single source of truth shared by both
 // runtimes: the client's own pre-send march for a manually-clicked attack
@@ -421,7 +425,8 @@ export const UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING = 0.03;
 export const UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING = 0.015;
 // "Unarmed" vulnerability: a player who owns zero of a given factory type
 // ANYWHERE in their empire (not network-scoped — this is an empire-wide
-// existence check, not a clustering bonus) is markedly easier to attack.
+// existence check, not a clustering bonus) is markedly easier to fight for
+// an opponent who DOES own that type (warIndustryEdge in frontier-combat.ts).
 // Missing one type or both types applies the same flat multiplier (does not
 // stack to a larger number if both are missing — confirmed design decision).
 export const NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT = 2.0;

@@ -72,7 +72,7 @@ const removeSessionStorage = (key: string): void => {
  */
 const planFromServerSteps = (
   entry: ServerWaypointQueueWireEntry,
-  deps: { state: Pick<ClientState, "tiles"> & Partial<Pick<ClientState, "domainIds">>; keyFor: (x: number, y: number) => string }
+  deps: { state: Pick<ClientState, "tiles"> & Partial<Pick<ClientState, "domainIds" | "expandManpowerCost">>; keyFor: (x: number, y: number) => string }
 ): WaypointPlan | undefined => {
   const allSteps = entry.steps;
   if (!allSteps || allSteps.length === 0) return undefined;
@@ -86,7 +86,7 @@ const planFromServerSteps = (
   let attackCount = 0;
   const steps: WaypointStep[] = remaining.map((wireStep) => {
     const targetTile = deps.state.tiles.get(deps.keyFor(wireStep.target.x, wireStep.target.y));
-    const manpowerCost = wireStep.action === "ATTACK" ? attackFloorForPlayer(deps.state, targetTile) : EXPAND_MANPOWER_COST;
+    const manpowerCost = wireStep.action === "ATTACK" ? attackFloorForPlayer(deps.state, targetTile) : deps.state.expandManpowerCost ?? EXPAND_MANPOWER_COST;
     const durationMs = wireStep.action === "ATTACK" ? COMBAT_LOCK_MS : FRONTIER_CLAIM_MS;
     totalGold += FRONTIER_CLAIM_COST;
     totalManpower += manpowerCost;
@@ -157,7 +157,8 @@ export type ServerWaypointQueueWireEntry = {
 // target-only (steps omitted) rather than dropped outright, degrading
 // gracefully to today's single-leg server drain for that one waypoint
 // rather than having the whole enqueue rejected. commitManpower is the
-// Expand To & Attack effort choice for the final ATTACK leg (see
+// effort choice for the final ATTACK leg (set by the former Expand To &
+// Attack; kept so already-queued waypoints still carry it -- see
 // client-attack-commit.ts), so the server's offline drain fires it the same.
 export const waypointEnqueueWirePayload = (
   target: { x: number; y: number },

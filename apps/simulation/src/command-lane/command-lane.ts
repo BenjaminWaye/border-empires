@@ -35,6 +35,7 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "AETHER_EMP":
     case "SUPPRESS_AETHER_TOWER":
     case "RECRUIT_ANCILLARIES":
+    case "FORCED_ANCILLARIFICATION":
     case "CAST_AETHER_BRIDGE":
     case "CAST_AETHER_WALL":
     case "SIPHON_TILE":
@@ -50,6 +51,7 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "AEGIS_LOCK":
     case "ASTRAL_DOCK_LAUNCH":
     case "ACTIVATE_IMPERIAL_WARD":
+    case "SHARD_MOBILIZE":
     case "SOVEREIGN_SIEGE_ENGINE_STRIKE":
     case "TITANIUM_LEVY_MUSTER":
       return "human_interactive";

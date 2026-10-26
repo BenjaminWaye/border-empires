@@ -1,3 +1,5 @@
+import { createCommandDiagnosticJournal } from "../player-sync-diagnostics/command-diagnostic-journal.js";
+import { groupAttackTraces } from "./group-attack-traces.js";
 import { createAllianceSimulationSync } from "../alliance-simulation-sync/alliance-simulation-sync.js";
 import { seedAiColors } from "./seed-ai-colors.js";
 import { PerformanceObserver } from "node:perf_hooks";
@@ -167,8 +169,15 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   // Forward-declared so recordGatewayEvent can reference it before the initializer runs;
   // assigned after gatewayMetrics is created. Recorded events guard with a null check.
   let slackAlerter: SlackAlerter | undefined;
+  const commandDiagnostics = createCommandDiagnosticJournal(() => ({
+    eventLoopMaxMs: gatewayEventLoopWindowMaxMs,
+    backlogPendingCount: simulationHealth.backlogPendingCount,
+    simulationConnected: simulationHealth.connected
+  }));
   const recordGatewayEvent = (level: "info" | "warn" | "error", event: string, payload: Record<string, unknown> = {}): void => {
-    recentGatewayEvents.push({ at: Date.now(), level, event, payload });
+    const entry = { at: Date.now(), level, event, payload };
+    recentGatewayEvents.push(entry);
+    commandDiagnostics.record(entry);
     if (recentGatewayEvents.length > 250) recentGatewayEvents.splice(0, recentGatewayEvents.length - 250);
     if (event.startsWith("gateway_fog_")) {
       const logger = level === "error" ? app.log.error.bind(app.log) : level === "warn" ? app.log.warn.bind(app.log) : app.log.info.bind(app.log);
@@ -384,27 +393,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       )
     };
   };
-  const buildAttackTraces = () => {
-    const grouped = new Map<string, Array<{ at: number; level: "info" | "warn" | "error"; event: string; payload: Record<string, unknown> }>>();
-    for (const event of [...recentGatewayEvents, ...buildPendingInputToStateEvents(pendingInputToStateByCommandId, simulationHealth)]) {
-      const commandId = typeof event.payload.commandId === "string" ? event.payload.commandId : undefined;
-      if (!commandId) continue;
-      const existing = grouped.get(commandId);
-      if (existing) existing.push(event);
-      else grouped.set(commandId, [event]);
-    }
-    return [...grouped.entries()]
-      .map(([traceId, events]) => {
-        const sortedEvents = [...events].sort((left, right) => left.at - right.at);
-        return {
-          traceId,
-          firstAt: sortedEvents[0]?.at ?? 0,
-          lastAt: sortedEvents[sortedEvents.length - 1]?.at ?? 0,
-          events: sortedEvents
-        };
-      })
-      .sort((left, right) => right.lastAt - left.lastAt);
-  };
+  const buildAttackTraces = () => groupAttackTraces([
+    ...recentGatewayEvents, ...buildPendingInputToStateEvents(pendingInputToStateByCommandId, simulationHealth)
+  ]);
   let simulationHealthTimer: ReturnType<typeof setInterval> | undefined;
   const refreshCombinedSimulationHealth = (): void => {
     simulationHealth.connected = simulationRpcConnected && simulationEventStreamConnected;
@@ -904,7 +895,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     const payloadType = readPayloadType(payload);
     const session = sessionsBySocket.get(socket);
     const target = readPayloadTarget(payload);
-    recordGatewayEvent("info", event, {
+    const deliveryEvent = event === "gateway_command_payload_sent" && socket.readyState !== socket.OPEN ? "gateway_command_payload_skipped" : event;
+    recordGatewayEvent("info", deliveryEvent, {
       commandId,
       ...(payloadType ? { payloadType } : {}),
       ...(session?.playerId ? { playerId: session.playerId } : {}),
@@ -929,6 +921,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       recentGatewayEvents,
       buildAttackDebug,
       buildAttackTraces,
+      playerSyncDiagnosticSnapshot: commandDiagnostics.snapshot,
       gatewayMetrics,
       ...(options.simMetricsUrl ? { simMetricsUrl: options.simMetricsUrl } : {}),
       ...(options.simDiagnostics ? { simDiagnostics: options.simDiagnostics } : {}),
@@ -1733,6 +1726,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
           const message = parsed.data;
           messageType = message.type;
+          if ((message.type === "ATTACK" || message.type === "EXPAND") && session.playerId && typeof message.commandId === "string") {
+            recordGatewayEvent("info", "gateway_frontier_received", { commandId: message.commandId, clientSeq: message.clientSeq, playerId: session.playerId, actionType: message.type });
+          }
           if (message.type === "AUTH") {
             if (!claimAuthSlot(session, channel, recordGatewayEvent)) return;
             try { recordGatewayEvent("info", "gateway_auth", { channel });
@@ -2393,6 +2389,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               })
             : null;
           const submitDeps = {
+            recordGatewayEvent,
             createCommandId: preGeneratedCommandId
               ? () => preGeneratedCommandId
               : (options.createCommandId ?? (() => crypto.randomUUID())),
@@ -2581,10 +2578,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await dispatchDurableCommand("AEGIS_LOCK", { fromX: message.fromX, fromY: message.fromY }, true);
           } else if (message.type === "ASTRAL_DOCK_LAUNCH") {
             await dispatchDurableCommand("ASTRAL_DOCK_LAUNCH", { fromX: message.fromX, fromY: message.fromY }, true);
-          } else if (message.type === "ACTIVATE_IMPERIAL_WARD") {
-            // Emperor-endorsement bonus (galaxy meta-layer Phase 1). No
-            // anchor tile — zero-field payload, unlike AEGIS_LOCK.
-            await dispatchDurableCommand("ACTIVATE_IMPERIAL_WARD", {}, true);
+          } else if (message.type === "ACTIVATE_IMPERIAL_WARD" || message.type === "SHARD_MOBILIZE") {
+            // Per-player abilities with no anchor tile (Imperial Ward, Shard
+            // Mobilization) — zero-field payload, unlike AEGIS_LOCK.
+            await dispatchDurableCommand(message.type, {}, true);
           } else if (message.type === "UPGRADE_TOWN_TIER" || message.type === "COLLECT_SHARD" || message.type === "NAME_ISLAND") {
             await dispatchDurableCommand(message.type, { x: message.x, y: message.y, ...(message.type === "NAME_ISLAND" ? { name: message.name } : {}) }, true);
           } else if (message.type === "SET_AUTO_SETTLE_PREFS") {

@@ -39,8 +39,8 @@ const timelineWith = (cards: PersonalActivityCard[]): PersonalActivityTimeline =
 
 describe("siege activity cards", () => {
   it("summarizes how long a fortification held and what it cost the attackers", () => {
-    expect(activityCardText(siege(), "me", names)).toBe("Your Fort fell to Kael after a 5h siege · Held off 7 assaults from Kael and Vess · cost them 412 manpower");
-    expect(activityCardText(siege({ occurredAt: 90 * 60_000, originsSeized: 2 }), "me", names)).toBe("Your Fort fell to Kael after a 1h 30m siege · Held off 7 assaults from Kael and Vess · seized 2 of their tiles · cost them 412 manpower");
+    expect(activityCardText(siege(), "me", names)).toBe("Your Fort fell to Kael after a 5h siege · Held off 7 assaults before it fell · Kael and Vess spent 412 manpower attacking it");
+    expect(activityCardText(siege({ occurredAt: 90 * 60_000, originsSeized: 2 }), "me", names)).toBe("Your Fort fell to Kael after a 1h 30m siege · Held off 7 assaults before it fell · seized 2 of their tiles · Kael and Vess spent 412 manpower attacking it");
   });
 
   it("describes an unfortified tile that is still holding", () => {

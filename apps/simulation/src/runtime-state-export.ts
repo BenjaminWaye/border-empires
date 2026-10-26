@@ -1,17 +1,16 @@
 import { afcPlayerExportFields } from "./afc-specializations/afc-player-export.js";
 import { activeAfcModuleTechIds } from "./ai/ai-build-unlocks.js";
 import type { AiTacticalView } from "./ai/ai-tactical-view.js";
-import { TILE_OVERLAY_WIRE_FIELDS, type ManpowerBreakdown, type TileOverlayJsonFields } from "@border-empires/sim-protocol";
-import type { DomainPlayer, DomainTileState, FrontierCommandType, PlayerEventLogEntry } from "@border-empires/game-domain";
+import { TILE_OVERLAY_WIRE_FIELDS, type ManpowerBreakdown } from "@border-empires/sim-protocol";
+import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import { TileDeltaStringifyCache } from "./tile-delta-stringify-cache/tile-delta-stringify-cache.js";
-import type { StrategicResourceKey } from "./runtime-types.js";
-import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
-import { activeDevelopmentProcessCountForSummary, cloneStrategicProduction, waypointQueueWireEntries, type PendingSettlementRecord, type WaypointQueueWireEntry } from "./player-runtime-summary.js";
-import { toPersistedDevQueueEntries, type ExportedDevQueueEntry } from "./runtime-dev-queue-restore.js";
+import type { PendingSettlementRecord, PlayerRuntimeSummary } from "./player-runtime-summary.js";
+import { activeDevelopmentProcessCountForSummary, cloneStrategicProduction, waypointQueueWireEntries } from "./player-runtime-summary.js";
+import { toPersistedDevQueueEntries } from "./runtime-dev-queue-restore.js";
 import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
-import type { AutoSettlePrefs, FrontierDecayKind, IslandNameClaim, ProspectSignature, SlotResource, Terrain } from "@border-empires/shared";
+import type { SlotResource } from "@border-empires/shared";
 import type { PlannerPlayerView, PlannerTileView } from "./ai/planner-world-view.js";
 import type { PlannerOwnedStructureCounts } from "./ai/planner-owned-structure-counts.js";
 import { toPlannerTileView } from "./ai/planner-world-view-slice.js";
@@ -20,110 +19,8 @@ import { shouldYieldAt } from "./event-loop-yield.js";
 import { musterStagedManpowerForPlayer } from "./runtime-muster-staged-manpower.js";
 import type { SnapshotExportInput } from "./runtime-snapshot-sections.js";
 
-export type RuntimeExportState = {
-  tiles: Array<{
-    x: number;
-    y: number;
-    terrain: Terrain;
-    resource?: string;
-    prospectSignature?: ProspectSignature;
-    dockId?: string;
-    ownerId?: string;
-    ownershipState?: string;
-    /** Persistent-border reach owner (Runtime.reachBorder), independent of ownerId — see SimulationTileWireDelta.reachOwnerId. Populated only by the per-player visible-state export (runtime-visible-state.ts); the full-world export below does not currently source it. */
-    reachOwnerId?: string;
-    frontierDecayAt?: number;
-    frontierDecayKind?: FrontierDecayKind;
-    captureHoldUntil?: number;
-    townJson?: string;
-    townType?: "MARKET" | "FARMING";
-    townName?: string;
-    townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-  } & TileOverlayJsonFields>;
-  players: Array<{
-    id: string;
-    name?: string;
-    points: number;
-    manpower: number;
-    manpowerCap?: number;
-    manpowerRegenPerMinute?: number;
-    logisticsThroughputPerMinute?: number;
-    manpowerBreakdown?: ManpowerBreakdown;
-    manpowerCapSnapshot?: number;
-    techIds: string[];
-    domainIds: string[];
-    afcUpgradeRuleset?: "afc-v1";
-  afcCoreTownKeys?: string[];
-  afcScarcityFoodSlots?: number;
-  afcCampaign?: import("@border-empires/shared").AfcCampaignState;
-    strategicResources: Partial<Record<StrategicResourceKey, number>>;
-    allies: string[];
-    truces: string[];
-    vision: number;
-    visionRadiusBonus: number;
-    incomeMultiplier?: number;
-    ownedTownTileKeys: string[];
-    settledTileCount?: number;
-    townCount?: number;
-    incomePerMinute?: number;
-    afcEnvoyIncomePerMinute?: number;
-    strategicProductionPerMinute?: Record<StrategicResourceKey, number>;
-    activeDevelopmentProcessCount?: number;
-    imperialWardCharges?: number;
-    islandNames?: IslandNameClaim[];
-    autoSettle?: AutoSettlePrefs;
-    // Waystation activation's pooled resource-slot bump -- see
-    // runtime-waystation-activation.ts's grantWaystationResourceSlotBonus.
-    // Must round-trip through checkpoint/reconnect or a sim restart silently
-    // and permanently wipes it (the tile's one-shot `activated` guard means
-    // it can never be re-granted).
-    waystationResourceSlotBonus?: Partial<Record<StrategicResourceKey, number>>;
-    // Quickforge wonder: ms timestamp of this player's last discounted
-    // rush-buy (0/absent = never used). Sent to the client purely so the
-    // rush-buy price preview (client-tile-menu-view.ts) can replicate the
-    // exact UTC-day gate quickforgeAdjustedRushPrice enforces server-side —
-    // the server remains authoritative on the actual charged price.
-    wonderLastFreeRushBuyAt?: number;
-    // WARPRESS wonder's +1 muster-flag slot -- see runtime-natural-wonders.ts
-    // and player-snapshot.ts's musterFlagLimit.
-    wonderMusterExtraFlag?: number;
-    galacticWonderManpowerRegenBonusPerMinute?: number; // v0 Wonder stand-in (§5, §12) — see DomainPlayer.
-    galacticWonderVisionRadiusBonus?: number;
-    eventLog?: PlayerEventLogEntry[];
-    // Server-durable dev/expand queue tail (see player-runtime-summary.ts /
-    // runtime-dev-queue.ts / runtime-waypoint-queue.ts) -- carried through
-    // exportState so player-snapshot.ts can seed a reconnecting/fresh-login
-    // client with whatever survived while it was disconnected, the same way
-    // emitPlayerStateUpdate already does for the live PLAYER_UPDATE stream.
-    // reservedManpower/reservedSlotRequirements MUST round-trip: the reserve
-    // was already deducted from the persisted player.manpower above, so a
-    // restore that dropped them would owe a refund it no longer knows about
-    // and burn that manpower permanently (see runtime-dev-queue-restore.ts).
-    devQueue?: ExportedDevQueueEntry[];
-    waypointQueue?: WaypointQueueWireEntry[];
-  }>;
-  pendingSettlements: Array<PendingSettlementRecord>;
-  activeLocks: Array<{
-    commandId: string;
-    playerId: string;
-    actionType: FrontierCommandType;
-    originKey: string;
-    targetKey: string;
-    resolvesAt: number;
-    combatResolutionJson?: string;
-  }>;
-  docks: Array<{
-    dockId: string;
-    tileKey: string;
-    pairedDockId: string;
-    connectedDockIds?: readonly string[];
-    routeWaypointsByLinkedDockId?: Readonly<Record<string, ReadonlyArray<{ x: number; y: number }>>>;
-  }>;
-  playerYieldCollectionEpochByPlayer: Array<{ playerId: string; collectedAt: number }>;
-  terrainEpoch: number;
-  /** Cumulative count of town growth ticks skipped due to insufficient food. */
-  growthStalledNoFoodCounter?: number;
-};
+import type { RuntimeExportState } from "./runtime-export-state-types.js";
+export type { RuntimeExportState } from "./runtime-export-state-types.js";
 
 export type { RuntimeAiPlayerMetricsRow } from "./runtime-ai-player-metrics-row.js";
 
@@ -216,6 +113,7 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         afcEnvoyIncomePerMinute: input.envoyIncomePerMinuteForPlayer(player),
         strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
         activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
+        relicDevelopmentBonus: player.relicDevelopmentBonus ?? 0,
         ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
         ...(player.islandNames?.length ? { islandNames: player.islandNames.map((claim) => ({ ...claim })) } : {}),
         autoSettle: { ...player.autoSettle },

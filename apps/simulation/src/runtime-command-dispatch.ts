@@ -46,6 +46,7 @@ export type RuntimeCommandDispatchHandlers = {
   handleAstralDockLaunchCommand: (command: CommandEnvelope) => void;
   handleTitaniumLevyMusterCommand: (command: CommandEnvelope) => void;
   handleActivateImperialWardCommand: (command: CommandEnvelope) => void;
+  handleShardMobilizeCommand: (command: CommandEnvelope) => void;
   handleSetAutoSettlePrefsCommand: (command: CommandEnvelope) => void;
   handleNameIslandCommand: (command: CommandEnvelope) => void;
   handleUpgradeTownTierCommand: (command: CommandEnvelope) => void;
@@ -102,7 +103,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "REVEAL_EMPIRE_STATS") return handlers.handleRevealEmpireStatsCommand(command);
   if (command.type === "SURVEY_SWEEP") return handlers.handleSurveySweepCommand(command);
   if (command.type === "AETHER_LANCE") return handlers.handleAetherLanceCommand(command);
-  if (command.type === "SUPPRESS_AETHER_TOWER" || command.type === "RECRUIT_ANCILLARIES") return handlers.handleAfcSpecializationCommand?.(command);
+  if (command.type === "FORCED_ANCILLARIFICATION" || command.type === "SUPPRESS_AETHER_TOWER" || command.type === "RECRUIT_ANCILLARIES") return handlers.handleAfcSpecializationCommand?.(command);
   if (command.type === "AETHER_EMP") return handlers.handleAetherEmpCommand(command);
   if (command.type === "CAST_AETHER_BRIDGE") return handlers.handleCastAetherBridgeCommand(command);
   if (command.type === "CAST_AETHER_WALL") return handlers.handleCastAetherWallCommand(command);
@@ -120,6 +121,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "ASTRAL_DOCK_LAUNCH") return handlers.handleAstralDockLaunchCommand(command);
   if (command.type === "TITANIUM_LEVY_MUSTER") return handlers.handleTitaniumLevyMusterCommand(command);
   if (command.type === "ACTIVATE_IMPERIAL_WARD") return handlers.handleActivateImperialWardCommand(command);
+  if (command.type === "SHARD_MOBILIZE") return handlers.handleShardMobilizeCommand(command);
   if (command.type === "SET_AUTO_SETTLE_PREFS") return handlers.handleSetAutoSettlePrefsCommand(command);
   if (command.type === "NAME_ISLAND") return handlers.handleNameIslandCommand(command);
   if (command.type === "UPGRADE_TOWN_TIER") return handlers.handleUpgradeTownTierCommand(command);
@@ -178,6 +180,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "AETHER_EMP" ||
   command.type === "SUPPRESS_AETHER_TOWER" ||
   command.type === "RECRUIT_ANCILLARIES" ||
+  command.type === "FORCED_ANCILLARIFICATION" ||
   command.type === "CAST_AETHER_BRIDGE" ||
   command.type === "CAST_AETHER_WALL" ||
   command.type === "SIPHON_TILE" ||
@@ -195,6 +198,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "ASTRAL_DOCK_LAUNCH" ||
   command.type === "TITANIUM_LEVY_MUSTER" ||
   command.type === "ACTIVATE_IMPERIAL_WARD" ||
+  command.type === "SHARD_MOBILIZE" ||
   command.type === "SET_AUTO_SETTLE_PREFS" ||
   command.type === "NAME_ISLAND" ||
   command.type === "UPGRADE_TOWN_TIER" ||

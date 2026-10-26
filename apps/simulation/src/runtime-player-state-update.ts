@@ -1,4 +1,4 @@
-import { DEVELOPMENT_PROCESS_LIMIT, empireIntegrity, normalizeAutoSettlePrefs } from "@border-empires/shared";
+import { DEVELOPMENT_PROCESS_LIMIT, empireIntegrity, expandManpowerCostForFrontierCount, normalizeAutoSettlePrefs } from "@border-empires/shared";
 import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { additiveEffectForPlayer, buildModBreakdownForPlayer, recomputeMods } from "./tech-domain-bridge/tech-domain-bridge.js";
@@ -14,6 +14,7 @@ import type { DormantStructureDetail, ResourceSlotTotals } from "./resource-slot
 /** Dependencies {@link emitPlayerStateUpdate} needs to build and emit a PLAYER_UPDATE message. */
 export type RuntimePlayerStateUpdateContext = {
   players: ReadonlyMap<string, RuntimePlayer>;
+  relicMapHintsForPlayer?: (id: string) => import("@border-empires/shared").RelicMapHint[];
   hasActiveOwnedAfc?: (playerId: string) => boolean;
   lastEmittedStorageCapByPlayer: Map<string, EmpireStorageCap>;
   applyManpowerRegen: (player: RuntimePlayer) => void;
@@ -68,12 +69,15 @@ export function emitPlayerStateUpdate(
       ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
       ...(player.afcUpgradeRuleset && context.hasActiveOwnedAfc ? { afcUpgradeInstallAllowed: context.hasActiveOwnedAfc(player.id) } : {}),
       type: "PLAYER_UPDATE",
+      ...(context.relicMapHintsForPlayer ? { relicMapHints: context.relicMapHintsForPlayer(playerId) } : {}),
       gold: player.points,
       mods: player.mods ?? recomputeMods(player),
       modBreakdown: buildModBreakdownForPlayer(player, context.weaponsFactoryCountsForPlayer(playerId)),
       manpower: player.manpower,
       manpowerCap: context.playerManpowerCap(player),
       manpowerRegenPerMinute: context.playerManpowerRegenPerMinute(player),
+      // EXPAND's current price, so the client's menus and pre-checks match what the sim will charge.
+      expandManpowerCost: expandManpowerCostForFrontierCount(summary.frontierTileKeys.size),
       logisticsThroughputPerMinute: context.playerLogisticsThroughputPerMinute(player),
       manpowerBreakdown: context.playerManpowerBreakdown(player),
       incomePerMinute: economy.incomePerMinute,
@@ -122,7 +126,7 @@ export function emitPlayerStateUpdate(
         queuedAt: entry.queuedAt
       })),
       waypointQueue: waypointQueueWireEntries(summary.waypointQueue),
-      developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT + additiveEffectForPlayer(player, "developmentProcessCapacityAdd"),
+      developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT + (player.relicDevelopmentBonus ?? 0) + additiveEffectForPlayer(player, "developmentProcessCapacityAdd"),
       activeDevelopmentProcessCount: context.activeDevelopmentProcessCountForPlayer(playerId),
       // Base MUSTER_MAX_TILES plus tech/domain/wonder bonuses -- the same cap
       // handleSetMusterCommand enforces server-side. Sent down so the client

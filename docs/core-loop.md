@@ -125,7 +125,7 @@ flowchart LR
     K -->|settle by hand, 20 MP:<br/>plain tiles| C
     C -->|settled corridor links towns:<br/>+50/40/30% town gold| RN[Road network]
     RN --> G
-    A -->|10 MP| B[Expand To<br/>beyond reach]
+    A -->|10+ MP| B[Expand To<br/>beyond reach]
     B -->|town or dock:<br/>auto-settles, new anchor| K
     B -.->|anything else:<br/>decays in 5 min| X[Lost]
     K -->|town tiles auto-settle| D[Towns grow<br/>population tiers]
@@ -237,13 +237,13 @@ growing your economy *means* taking the land around you.
 | Verb | What it does | Primary cost | Where |
 |---|---|---|---|
 | **Relay Beacon** | The main growth verb. An outpost on a SETTLED tile that anchors reach radius 5. Every neutral tile in that radius becomes your FRONTIER for free | First five owned: 50 MP, instant, no food slots; later: 100 MP, 100s, one food slot | `relayBeaconManpowerCost`, `relayBeaconBuildDurationMs`, `OUTPOST_REACH_RADIUS` |
-| **Expand To** | Claim an adjacent neutral tile. Mostly used *beyond* reach to reach a town or dock, which then auto-settles and becomes an anchor. Other out-of-reach claims decay in 5 min | 10 MP, 7.5s (×1.5 forest/hills) | `EXPAND_MANPOWER_COST`, `FRONTIER_CLAIM_MS` |
+| **Expand To** | Claim an adjacent neutral tile. Mostly used *beyond* reach to reach a town or dock, which then auto-settles and becomes an anchor. Other out-of-reach claims decay in 5 min | 10 MP below 100 frontier tiles, rising to 50 at 1,000 and 100 at 2,000; 7.5s (×1.5 forest/hills) | `expandManpowerCostForFrontierCount`, `FRONTIER_CLAIM_MS` |
 | **Settle** | FRONTIER → SETTLED: produces yield, gains defense, can hold a structure. Only legal in reach (towns and docks excepted). Auto-settle does this for towns, docks, revealed resources and town-ring tiles, per the player's opt-in (see below) | 20 MP, 60s, uses a development slot | `SETTLE_MANPOWER_COST`, `SETTLE_MS` |
 | **Build** | Place one structure on a settled tile | MP (e.g. Hydrogarden 80, Fort/Bank 300) plus a resource slot, 1–10 min | `structure-registry*.ts`, `structure-slots.ts` |
 | **Upgrade town** | Raise a town's tier once its population passes the threshold | 20/40/80/160 gold plus 1 FOOD slot | `TOWN_TIER_UPGRADE_GOLD_COST` |
 | **Research** | Buy a tech (instant). Cost rises with the number already owned | 10 gold, then +30/+40/+50 per tech | `techGoldCostForResearchedCount` |
 | **Choose domain** | Pick one doctrine per tier (5 tiers) | 40 → 1,800 gold, plus shards from tier 2 | `domain-tree.json` |
-| **Muster / Attack** | Stage manpower on up to 2 flags (+ domain bonuses), then capture adjacent enemy tiles | Depends on the target: 10 MP (barbarian) to 960 MP (Thunder Bastion). See §7. 30s combat lock | `requiredMusterForTarget`, `ATTACK_MANPOWER_LOSS_RANGE`, `COMBAT_LOCK_MS` |
+| **Muster / Attack** | Stage manpower on up to 2 flags (+ domain bonuses), then capture adjacent enemy tiles | Depends on the target: 10 MP (barbarian) to 960 MP (Thunder Bastion). See §7. 15s combat lock | `requiredMusterForTarget`, `ATTACK_MANPOWER_LOSS_RANGE`, `COMBAT_LOCK_MS` |
 | **Build military** | Forts (defense), Siege Battery/Tower/Dread Tower (attack), Observatory (vision, protection from abilities) | Fort ladder 150–960 MP plus TITANIUM slots. Siege ladder 60 MP plus UMBRITE/TITANIUM slots | `FORT_TIER_LADDER`, `SIEGE_TIER_LADDER` |
 | **Build monument** | One of six globally unique monuments (Imperial Exchange, Sovereign Siege Engine, Aegis Dome, Astral Dock, Census Directorate, Titanium Levy). Built in 4 stages. Each is locked by a tech, and the first empire to build one locks everyone else out | 3 × (1,000 MP + 1 shard), then 1,600 MP + 2 shards: 4,600 MP and 5 shards in total | `MONUMENTAL_STRUCTURE_TYPES`, `structure-costs.ts` |
 | **Build Sky Dock** | Ability structure, not a monument. Needs a powered Aether Tower and grants Bombard (range 30, 20 min cooldown, 15% base miss chance, +25% against forts) | 150 MP, doubling per Sky Dock owned | `SKY_DOCK` in `structure-costs.ts`, `SKY_DOCK_BOMBARD_*` |
@@ -365,7 +365,7 @@ winners only.
 
 | Resource | Sources | Sinks | Role |
 |---|---|---|---|
-| **Manpower (MP)** | Cap and regen come from the starting capital (720 cap, 0.4/min average paid in four-hour refills) plus each owned town by tier. Cap and regen scale separately, so there's no fixed time to fill the pool. Regen weight per settlement drops (×1 for the first 5, ×0.5 up to 15, ×0.2 after). Ancillary Depot and neural-works bonuses | Expand 10, Garrison 20, Relay Beacon 50 for the first five / 100 later, structures 80–960, attacks 10–960 depending on target (via muster) | **The pacing gate.** Everything physical costs MP |
+| **Manpower (MP)** | Cap and regen come from the starting capital (720 cap, 0.4/min average paid in four-hour refills) plus each owned town by tier. Cap and regen scale separately, so there's no fixed time to fill the pool. Regen weight per settlement drops (×1 for the first 5, ×0.5 up to 15, ×0.2 after). Ancillary Depot and neural-works bonuses | Expand 10+ (scales with frontier held), Garrison 20, Relay Beacon 50 for the first five / 100 later, structures 80–960, attacks 10–960 depending on target (via muster) | **The pacing gate.** Everything physical costs MP |
 | **Gold** | **Towns**: about 10/day base per fed town, ×1 / 1.25 / 1.75 / 2.1 at Town / City / Great City / Metropolis (`townPopulationMultiplier`), times the road-network bonus and Mintworks. Paused while a town is unfed. **Docks**: a base amount per dock plus a bonus per connected dock (`DOCK_INCOME_PER_MIN`, Harbor Exchange adds more). Also Banks and barbarian clears (+5). Stops after 12h inactive | Tech (rising cost), domains, town upgrades, rush-buy, synthesizer upkeep, a few abilities | Support currency: progression and acceleration |
 | **FOOD / TITANIUM / CRYSTAL / UMBRITE** | *Slots* from owned resource tiles (FARM 1, FISH 2, …), boosted by structures, waystations and domains | Each structure or town tier permanently *occupies* a slot. If a slot is lost, the structure goes **dormant** instead of being destroyed | Slots, not stockpiles. Land quality limits development |
 | **Shard** | Initial scatter, shard rain, waystation/doctrine progress | Domains (tier 2+), monuments | Scarce and contested. Feeds late-game power |
@@ -443,7 +443,7 @@ to expansion and war.
    | Thunder Bastion | 800–960 |
 
    Each fort tier's maximum equals that fort's build cost: *attacking it costs
-   as much as building it*. There is a 30s combat lock (2s/tile march for
+   as much as building it*. There is a 15s combat lock (2s/tile march for
    muster auto-attacks). Win chance = atk² / (atk² + def²)
    (`frontier-combat.ts`). Siege buildings multiply attack (×1.6 / 1.8 / 2.0)
    and forts multiply defense (×1.35 / 2.5 / 4 / 8).
@@ -515,11 +515,11 @@ town-engine loop at small scale.
 | Knob | Value | Source |
 |---|---|---|
 | World | 640×320, toroidal | `config.ts` |
-| Expand | 10 MP, 7.5s (11.25s forest/hills) | `EXPAND_MANPOWER_COST`, `FRONTIER_CLAIM_MS` |
+| Expand | 10 MP (scales with frontier held, see game-mechanics.md), 7.5s (11.25s forest/hills) | `expandManpowerCostForFrontierCount`, `FRONTIER_CLAIM_MS` |
 | Settle | 20 MP, 60s (90s forest/hills) | `SETTLE_MANPOWER_COST`, `SETTLE_MS` |
 | Relay Beacon | First five: 50 MP, instant, no food slots; later: 100 MP, 100s, one food slot. Radius 5; claims neutral tiles as FRONTIER, free | `relayBeaconManpowerCost`, `OUTPOST_REACH_RADIUS` |
 | Development slots | 3 (+1 each from 4 domains) | `DEVELOPMENT_PROCESS_LIMIT` |
-| Attack | 10–960 MP depending on target (§7), 30s lock | `ATTACK_MANPOWER_LOSS_RANGE`, `COMBAT_LOCK_MS` |
+| Attack | 10–960 MP depending on target (§7), 15s lock | `ATTACK_MANPOWER_LOSS_RANGE`, `COMBAT_LOCK_MS` |
 | Structure build | Economic 5 min, Fort/Observatory 10 min, Beacon/Siege 1 min | `*_BUILD_MS` |
 | MP cap by town tier | 150 / 300 / 450 / 750 / 1,350, each tier's regen = cap / 720 min | `TOWN_MANPOWER_BY_TIER` |
 | MP regen weight per town | ×1 for the first 5, ×0.5 up to 15, ×0.2 after | `manpowerRegenWeightForSettlementIndex` |
@@ -566,7 +566,7 @@ deliberately no decay for simply being offline.
 |---|---|---|---|
 | Out of manpower | Overspent | Can't act | Wait for regen or rush-buy with gold |
 | Dormant structure | Lost its slot-backing tile | Stops giving its bonus but stays standing | Retake the resource or free a slot |
-| Unfed town | Not enough food support | Gold income pauses | Add FOOD slots or build a Incubation Engine |
+| Unfed town | Not enough food support | Gold income pauses | Add FOOD slots or use Ministry Hall provisioning to reduce demand |
 | Out-of-reach frontier | Lost the anchor | Decays in 5 min | Re-anchor with a beacon or recapture |
 | Eliminated | Last tile lost | Respawn (`respawnIfEliminated`) | Start again mid-season |
 | Lost the season | Someone held a path for 24h | Season ends, score graph | Next season; the galactic layer if you won |

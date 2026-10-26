@@ -1,4 +1,4 @@
-import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, PLANETARY_DEFENSE_DISPLAY_NAME } from "@border-empires/shared";
+import { FRONTIER_CLAIM_COST, PLANETARY_DEFENSE_DISPLAY_NAME } from "@border-empires/shared";
 import { prettyToken } from "../client-app-runtime-utils.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { resourceIconForKey } from "../client-map-display.js";
@@ -212,9 +212,9 @@ export const notifyInsufficientGoldForFrontierAction = (
 // nothing. This gives manpower the same immediate, visible rejection gold
 // already had.
 export const notifyInsufficientManpowerForFrontierClaim = (
-  state: Pick<ClientState, "manpower" | "captureAlert"> & FeedMutableState
+  state: Pick<ClientState, "manpower" | "expandManpowerCost" | "captureAlert"> & FeedMutableState
 ): void => {
-  const detail = `Frontier claim costs ${EXPAND_MANPOWER_COST} manpower. You have ${Math.floor(state.manpower)}.`;
+  const detail = `Frontier claim costs ${state.expandManpowerCost} manpower. You have ${Math.floor(state.manpower)}.`;
   showCaptureAlert(state, "Insufficient manpower", detail, "error");
 };
 

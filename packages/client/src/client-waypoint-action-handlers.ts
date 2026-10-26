@@ -9,8 +9,8 @@ import {
   WAYPOINT_QUEUE_CLIENT_CAP
 } from "./client-waypoint-planner/client-waypoint-persistence.js";
 import { showVisibleActionWarning } from "./client-visible-action-warning.js";
-import { promptAttackEffortForTarget } from "./client-launch-attack-effort/client-launch-attack-effort.js";
 import { announceDiscoveryTipForState } from "./client-onboarding-ui-gate/client-onboarding-ui-overlays.js";
+import { dispatchMarchAttackAction } from "./client-march-attack-actions/client-march-attack-actions.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { WaypointPlan } from "./client-waypoint-planner/client-waypoint-planner.js";
 
@@ -25,6 +25,8 @@ type WaypointHandlerDeps = {
   showCaptureAlert: (title: string, detail: string, tone?: "error" | "success" | "warn", manpowerLoss?: number) => void;
   processActionQueue: () => boolean;
   sendGameMessage?: (payload: unknown) => boolean;
+  /** The clicked button's data-origin-key (March Attack rows carry their origin flag/tile). */
+  originKey?: string | undefined;
 };
 
 const setWaypointForSelected = (
@@ -39,8 +41,7 @@ const setWaypointForSelected = (
     renderHud: () => void;
     sendGameMessage?: (payload: unknown) => boolean;
   },
-  feedPrefix?: string,
-  commitManpower?: number
+  feedPrefix?: string
 ): boolean => {
   const { state, selected, keyFor, pushFeed, hideTileActionMenu, showCaptureAlert, processActionQueue, renderHud, sendGameMessage } = params;
   if (state.waypoint.length >= WAYPOINT_QUEUE_CLIENT_CAP) {
@@ -76,16 +77,14 @@ const setWaypointForSelected = (
     plan,
     trackBarbarian,
     planId,
-    plannedAt,
-    ...(commitManpower != null ? { commitManpower } : {})
+    plannedAt
   });
   persistWaypointQueueForPlayer(state.me, state.waypoint);
   sendGameMessage?.(
     waypointEnqueueWirePayload({ x: selected.x, y: selected.y }, trackBarbarian, {
       planId,
       plannedAt,
-      steps: wireStepsForPlan(plan.steps),
-      ...(commitManpower != null ? { commitManpower } : {})
+      steps: wireStepsForPlan(plan.steps)
     })
   );
   const summary = plan.attackCount > 0
@@ -119,6 +118,14 @@ const clearAllWaypoints = (params: {
 
 export const handleWaypointAction = (deps: WaypointHandlerDeps): boolean => {
   const { state, selected, actionId, keyFor, pushFeed, renderHud, hideTileActionMenu, showCaptureAlert, processActionQueue, sendGameMessage } = deps;
+
+  // March Attack rows replaced Expand To & Attack on a deep hostile tile
+  // (injectMarchAttackActions), so they dispatch from here too.
+  if (selected && sendGameMessage && dispatchMarchAttackAction(actionId, selected, deps.originKey, state, { pushFeed, sendGameMessage, renderHud, keyFor })) {
+    hideTileActionMenu();
+    renderHud();
+    return true;
+  }
 
   if (actionId === "cancel_waypoint") {
     const index = selected ? state.waypoint.findIndex((w) => w.target.x === selected.x && w.target.y === selected.y) : -1;
@@ -155,24 +162,9 @@ export const handleWaypointAction = (deps: WaypointHandlerDeps): boolean => {
   }
 
   if (actionId === "expand_here" && selected) {
-    const params = { state, selected, keyFor, pushFeed, hideTileActionMenu, showCaptureAlert, processActionQueue, renderHud, ...(sendGameMessage ? { sendGameMessage } : {}) };
-    // An enemy SETTLED destination gets the same effort sheet as Launch
-    // Attack; the choice rides the waypoint to its final ATTACK leg.
-    const prompted = promptAttackEffortForTarget(
-      state,
-      state.tiles.get(keyFor(selected.x, selected.y)),
-      {
-        title: `Expand to & attack (${selected.x}, ${selected.y})`,
-        confirmLabel: "Set waypoint",
-        onConfirm: (commitManpower) => setWaypointForSelected(params, undefined, commitManpower)
-      },
-      { keyFor, pickOriginForTarget: () => undefined }
-    );
-    if (prompted) {
-      hideTileActionMenu();
-      return true;
-    }
-    return setWaypointForSelected(params);
+    // Only "Expand To" on a neutral target sends this now; an enemy target
+    // is marched on from a muster flag instead (March Attack rows).
+    return setWaypointForSelected({ state, selected, keyFor, pushFeed, hideTileActionMenu, showCaptureAlert, processActionQueue, renderHud, ...(sendGameMessage ? { sendGameMessage } : {}) });
   }
 
   return false;

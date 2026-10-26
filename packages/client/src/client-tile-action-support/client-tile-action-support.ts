@@ -1,3 +1,4 @@
+import { relicCastRadius } from "@border-empires/shared";
 import { requiredTechIdsForAbility } from "@border-empires/game-domain";
 import { isAetherTowerSuppressed, WORLD_HEIGHT, WORLD_WIDTH, isTownSupportPlacementStructure, structureShowsOnTile, structureSortRank, type BuildableStructureType, type SlotResource } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
@@ -492,7 +493,7 @@ export const ownedActiveObservatoryWithinRange = (
     if (candidate.fogged || candidate.ownerId !== state.me || candidate.terrain !== "LAND") continue;
     if (candidate.observatory?.ownerId !== state.me || candidate.observatory.status !== "active") continue;
     if (isAetherTowerSuppressed(candidate.observatory, Date.now())) continue;
-    if (chebyshevDistanceClient(candidate.x, candidate.y, tile.x, tile.y) <= range) return true;
+    if (chebyshevDistanceClient(candidate.x, candidate.y, tile.x, tile.y) <= relicCastRadius(candidate.naturalWonder, range)) return true;
   }
   return false;
 };

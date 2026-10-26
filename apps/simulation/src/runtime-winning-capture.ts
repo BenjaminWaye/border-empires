@@ -6,6 +6,7 @@ import { capturedTileWillAutoSettle } from "./runtime-out-of-reach-auto-settle/r
 import { isAiControlledActor } from "./runtime-player-factory.js";
 import { FORT_PATROL_GRACE_MS } from "./territory-automation/territory-automation.js";
 import { flipFeatures } from "./territory-flip-log/territory-flip-features.js";
+import { recordDockChangeImpacts } from "./personal-impact-log/dock-change-impacts.js";
 import type { SimulationTileWireDelta, LockRecord } from "./runtime-types.js";
 import type { RuntimeLockResolutionContext } from "./runtime-lock-resolution.js";
 /** One capture pipeline for regular wins and non-recursive Breakthrough capitulation. */
@@ -77,9 +78,10 @@ export function applyWinningTileCapture(context: RuntimeLockResolutionContext, l
         capturedStructureTypes
       };
       const occurredAt = context.now();
-      context.recordPersonalImpact?.({ id: `town-captured:${lock.commandId}`, kind: "TOWN_CAPTURED", playerId: lock.playerId, occurredAt, x: lock.targetX, y: lock.targetY, ...townImpact });
-      context.recordPersonalImpact?.({ id: `town-lost:${lock.commandId}`, kind: "TOWN_LOST", playerId: previousOwnerId, occurredAt, x: lock.targetX, y: lock.targetY, ...townImpact });
+      context.recordPersonalImpact?.({ id: `town-captured:${lock.commandId}`, kind: "TOWN_CAPTURED", playerId: lock.playerId, occurredAt, x: lock.targetX, y: lock.targetY, ...townImpact, counterpartyPlayerId: previousOwnerId });
+      context.recordPersonalImpact?.({ id: `town-lost:${lock.commandId}`, kind: "TOWN_LOST", playerId: previousOwnerId, occurredAt, x: lock.targetX, y: lock.targetY, ...townImpact, counterpartyPlayerId: lock.playerId });
     }
+    recordDockChangeImpacts(context, previousTarget, lock.playerId, lock.commandId);
     if (previousOwnerId !== resolvedTarget.ownerId) {
       context.recordTileFlip?.({
         tileId: lock.targetKey,

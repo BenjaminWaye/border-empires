@@ -1,3 +1,4 @@
+import { attackSyncLog } from "../client-debug/client-debug.js";
 import { MUSTER_TRANSIT_MS_PER_TILE } from "../client-constants.js";
 import type { ClientState } from "../client-state/client-state.js";
 
@@ -80,6 +81,7 @@ export const armMusterTransit = (
 ): void => {
   const now = Date.now();
   const transitMs = args.transitTiles * MUSTER_TRANSIT_MS_PER_TILE;
+  attackSyncLog("muster-transit-armed", { commandId: args.commandId, clientSeq: args.clientSeq, transitMs, transitEndsAt: now + transitMs, target: { x: args.toX, y: args.toY } });
   const flagKey = keyFor(args.musterX, args.musterY);
   state.musterTransitByTile.set(flagKey, {
     musterX: args.musterX,
@@ -162,6 +164,7 @@ export const fireDueMusterTransits = (
     state.actionStartedAt = now;
     state.actionTargetKey = deps.keyFor(deferred.toX, deferred.toY);
     state.actionCurrent = { x: deferred.toX, y: deferred.toY, retries: 0, actionType: "ATTACK", commandId: deferred.commandId, clientSeq: deferred.clientSeq };
+    attackSyncLog("muster-transit-ready", { commandId: deferred.commandId, clientSeq: deferred.clientSeq, transitEndsAt: transit.transitEndsAt, timerLateByMs: now - transit.transitEndsAt });
     deps.sendDeferredAttack(deferred.fromX, deferred.fromY, deferred.toX, deferred.toY, deferred.commandId, deferred.clientSeq);
     deps.requestViewRefresh();
     break;

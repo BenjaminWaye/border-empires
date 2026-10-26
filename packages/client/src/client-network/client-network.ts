@@ -1,12 +1,14 @@
+import { applyRelicAndProgressionUpdate } from "../client-relic-overlay/relic-map-hints.js";
 import { handleIntelResult } from "./client-network-intel-result.js";
 import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
 import { applyMapPushMessage } from "./client-map-push-messages.js";
 import { notifyCombatResult } from "./client-combat-result-notifications.js";
 import { musterReportFlagKey, trackMusterReportStart } from "../client-muster-combat-reports/client-muster-combat-reports.js";
-import { COMBAT_LOCK_MS, isChosenTrickleResource, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
+import { applyPlayerUpdateManpowerFields } from "../client-player-update-manpower/client-player-update-manpower.js";
+import { COMBAT_LOCK_MS, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
 import { resetFrontierActionStateAfterError } from "./client-frontier-error-reset.js";
 import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
-import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
+import { ABILITY_RESULT_MESSAGE_TYPES, applyAbilityResultMessage } from "../client-ability-result-messages/client-ability-result-messages.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { startAuthProgressLogger } from "../client-auth-progress-log/client-auth-progress-log.js";
 import { parseIncomingMessage } from "../client-init-transfer/client-login-timeline.js";
@@ -1049,10 +1051,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.eventLog = incomingEventLog; occupationSurveyController.reconcile(incomingEventLog); notifyWaystationActivationsFromEventLog(incomingEventLog, state, eventLogDepsFromClientState(state, requestViewRefresh, renderHud));
       }
       state.economyBreakdown = (msg.economyBreakdown as typeof state.economyBreakdown | undefined) ?? state.economyBreakdown;
-      state.manpower = (msg.manpower as number | undefined) ?? state.manpower;
-      state.manpowerCap = (msg.manpowerCap as number | undefined) ?? state.manpowerCap;
-      state.manpowerRegenPerMinute = (msg.manpowerRegenPerMinute as number | undefined) ?? state.manpowerRegenPerMinute;
-      state.logisticsThroughputPerMinute = (msg.logisticsThroughputPerMinute as number | undefined) ?? state.logisticsThroughputPerMinute;
+      applyPlayerUpdateManpowerFields(state, msg);
       state.upkeepPerMinute = (msg.upkeepPerMinute as typeof state.upkeepPerMinute | undefined) ?? state.upkeepPerMinute;
       state.upkeepLastTick = (msg.upkeepLastTick as typeof state.upkeepLastTick | undefined) ?? state.upkeepLastTick;
       refreshAllGatewayDerivedTownSummaries({ state, keyFor });
@@ -1128,9 +1127,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (typeof msg.canToggleFog === "boolean") state.mapRevealEligible = msg.canToggleFog;
       applyIncomingRespawnNotice((msg as { respawnNotice?: unknown }).respawnNotice);
       state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
-      const techMsgTrickle = (msg as { chosenTrickleResource?: unknown }).chosenTrickleResource;
-      if (isChosenTrickleResource(techMsgTrickle)) state.chosenTrickleResource = techMsgTrickle;
-      if (typeof (msg as { imperialWardCharges?: unknown }).imperialWardCharges === "number") state.imperialWardCharges = (msg as { imperialWardCharges: number }).imperialWardCharges; if (typeof (msg as { wonderLastFreeRushBuyAt?: unknown }).wonderLastFreeRushBuyAt === "number") state.wonderLastFreeRushBuyAt = (msg as { wonderLastFreeRushBuyAt: number }).wonderLastFreeRushBuyAt;
+      applyRelicAndProgressionUpdate(state, msg);
       state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
       state.domainCatalog = (msg.domainCatalog as any[]) ?? state.domainCatalog;
       if (
@@ -2496,8 +2493,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       });
       renderHud();
     }
-    if (msg.type === "IMPERIAL_WARD_ACTIVATED") {
-      applyImperialWardActivatedMessage(state, msg);
+    if (typeof msg.type === "string" && ABILITY_RESULT_MESSAGE_TYPES.has(msg.type)) {
+      applyAbilityResultMessage(state, msg);
       renderHud();
     }
     } catch (error) {

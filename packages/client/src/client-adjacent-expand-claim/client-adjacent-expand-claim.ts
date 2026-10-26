@@ -1,4 +1,4 @@
-import { EXPAND_MANPOWER_COST, wireStepsForPlan, type WaypointBlockReason } from "@border-empires/shared";
+import { wireStepsForPlan, type WaypointBlockReason } from "@border-empires/shared";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
 import {
   notifyInsufficientManpowerForFrontierClaim,
@@ -64,7 +64,7 @@ export const enqueueAdjacentExpandWaypoint = (
   // (rather than via the blockReason return + caller's generic "Frontier
   // claim blocked" warning) so the player gets the same prominent,
   // immediate "Insufficient manpower" alert the gold check already gives.
-  if (state.manpower < EXPAND_MANPOWER_COST) {
+  if (state.manpower < state.expandManpowerCost) {
     notifyInsufficientManpowerForFrontierClaim(state);
     return undefined;
   }

@@ -115,6 +115,18 @@ Monuments — most of all the **World Cannon**, because building it is, in
 the most literal sense, turning fragments of the very artifact that broke
 the galaxy back into something that can be aimed and fired.
 
+Few places on a world are as unsettled as ground a House has just been
+driven from: wrecked works, abandoned garrisons and aether-work left
+running with no hand on it. Falls gather over such ground, so a House that
+has recently lost much of its land is the likeliest to find Shards landing
+on what it still holds. A Shard is also the fastest way to put that House
+back on its feet. The Court covets every Shard for its own aether-works, and
+a House that donates one is repaid in kind: the Court ships it an **Imperial
+delivery** of ready-made ancillaries, enough to bring the House's manpower
+to its full complement at once rather than over weeks of recruitment
+(**Shard Mobilization**). The Court sends only as many as the House's land
+can support; it will not garrison a world on a House's behalf.
+
 ## 4. The Wardens and the infestations
 
 After the Engine shattered, the Concordance built and released the
@@ -147,6 +159,50 @@ and usually at terrible cost, exactly what wakes an infestation or draws
 a Warden's eye. Aether-work is a known danger, not a lost art — the
 townspeople could build it if they had the pieces, and choose, instead,
 not to.
+
+### Surviving relic installations
+
+Relics are fixed remnants of the Concordance's planetary megastructures.
+Their shared ziggurat-shaped surface buildings are access and control
+structures; different installations survive below them and provide different
+capabilities. The installations remain part of the planet after a war game.
+Their physical survival does not establish continued House ownership or
+bonuses between campaigns.
+
+These machines are aether-powered. Active aether-work attracts the Wardens,
+so frontier communities have left the installations dormant. A House can
+establish a garrison and put a surviving installation back into service; it
+is accepting the established danger of aether-work, not discovering that the
+old machinery is harmless. This does not imply a new Warden-spawn rule,
+repair charge or reactivation-risk mechanic; those are gameplay decisions.
+
+Relic remnants can include finite reserves as well as working machinery.
+An **Ancillary Vault** holds ancillary bodies already prepared to connect to
+House control. Those bodies exist before the House opens the vault. An
+aether-powered combat-suit factory can likewise retain a limited stock of
+usable suits and compatible components, while a nanofabrication installation
+can hold a finite reserve of fabrication material and assemblers. Their
+quantities, replenishment, ownership and battlefield effects remain gameplay
+design choices; an installation's survival does not establish an inexhaustible
+supply.
+
+Surviving installations include reclamation works, marine drive works,
+ancillary vaults, combat-suit factories, defensive field generators, industrial
+fabrication coordinators, sealed nanofabrication reserves, long-range aether
+resonators and geological survey arrays. Their common surface structure was a
+standard Concordance access and control interface. A reclamation plant supplies
+material already recognizable to a House; it does not reveal unknown resources.
+A fabrication coordinator coordinates concurrent construction rather than
+making House Manifests cheaper. A survey array detects geological signatures,
+not enemy activity. Marine drive works service freight and naval deployments.
+
+Relics have a separate low-power optical maintenance transponder, driven by a
+sealed conventional standby supply. It can produce a narrow locator column
+while the main aether-powered installation is dormant. Detecting it
+provides a location, not knowledge of who holds the site or whether its main
+machinery still works. This does not exempt operating machinery from the
+established risks of aether-work. Replenishment, signal detection range and
+force-field coverage are numerical rules in the [relic reference](../relics.md).
 
 ## 5. Why arriving is dangerous
 
@@ -280,8 +336,11 @@ frontier depends on an unbroken supply route back to established holdings;
 an enemy who cuts the route can strip away the exposed advance. Being
 outside reach alone does not erase the claim. Beacons extend the ground
 that can be settled and watched; supply determines whether an advance
-beyond it can be held. The exact supply and settlement rules belong in
-the [gameplay reference](../game-mechanics.md).
+beyond it can be held. A wide, ungarrisoned frontier also strains the
+towns whose levies hold it: every further claim draws its men across more
+open ground, so each new stretch of frontier costs more manpower until the
+ground behind it is garrisoned. The exact supply, settlement and cost rules
+belong in the [gameplay reference](../game-mechanics.md).
 
 ### What a beacon looks like
 
@@ -331,6 +390,14 @@ must commission the equipment and personnel needed there. The relationship
 between campaign resets and permanent ducal holdings remains a canon
 question in §14.
 
+### Coastal assault carriers
+
+House armies crossing between linked coastal docks deploy in armored,
+seagoing troop carriers. The carriers beach at the destination, lower their
+bow doors as ramps, and release infantry to fight inland. They remain at
+the beachhead until the engagement ends. These local amphibious transports
+are distinct from the offworld landing equipment used to establish an AFC.
+
 ### Coin and local production
 
 **Coin is offworld purchasing credit backed by planetary output.** It is a
@@ -364,11 +431,27 @@ remade bodies. It is the capacity committed to expansion, armies and
 construction. Its numerical pool, regeneration and relationship to town
 population are gameplay rules.
 
+An **Ancillary Factory** remakes local people into bodies under House control.
+**Forced Ancillarification** is a coercive emergency levy: residents are taken
+from the factory's supporting town and remade into an immediate manpower
+reserve. They cease to count among that town's civilian population. The
+population sacrifice and recovery interval belong in the economy reference.
+
 Food supports people and local development. Titanium and Umbrite are
 strategic materials used in machinery, construction and military equipment.
 Crystal is usable aether (§3), and Shards are fragments of the shattered
 Engine. These meanings do not prescribe stockpiles, resource-slot costs or
 per-cast consumption: those details follow the current gameplay reference.
+
+A House's war industry shows on its soldiers. Once a House runs a Titanium
+Weapons Factory, its troops go to war in heavy plate -- thick House-coloured
+plates edged and riveted in polished titanium, stacked pauldrons and a
+sealed helmet -- because titanium is first and foremost an armour material.
+Once it runs an Umbrite Weapons Factory, its rifles fire Umbrite rounds:
+heavier bolts with a violet core in an orange glow that burst into embers
+where they strike. A House with both shows both. The look only reflects the
+industry; the combat effect is whatever the current gameplay reference gives
+each factory.
 
 ## 12. Manifests and AFC modules
 
@@ -477,7 +560,7 @@ not infer new gameplay rules from them while implementing unrelated work.
 | Rank before a first victory | §2 says winning grants the rank of Duke, while later passages call campaign participants Dukes. Define first-time contenders' rank and returning Dukes' participation. |
 | Permanent holdings and map resets | §2 grants permanent rights to a won world; §8 preserves titles but allows the map to reset. Define what persists across a seasonal campaign and an age ending with the Court's fall. |
 | Writs and the revolt | §7 says accepting a Writ restores the Court's grip; §8 says a Writ does not weaken the revolt. Clarify the relationship before assigning metagame effects. |
-| Natural wonders as relics (proposed) | [Relics proposal](../relics-design.md) §1 proposes that natural wonders are Concordance Terrain-Shaping anchors, distinct from Shards (§3) and the original of the Relay Beacon's anchor technology (§10). Unreconciled with §1 (Monuments as the surviving Concordance aether constructs), §2 and §10 (the Court's own anchor technology), §4 (the Wardens destroying Concordance aether infrastructure) and §5 (aether-work drawing Wardens); "relic" also already names a Warden ship in the galactic campaign. Not yet accepted canon; accept or revise before the relic look ships. |
+| Relic reactivation costs and risks | Installation families, common surface access structures and the low-power locator transponder are established in §4. Repair costs, activation encounters and random breakdowns remain future design ideas; they are not established mechanics. Current quantities and effects belong in the [relic reference](../relics.md). |
 
 ### Consolidation sources
 

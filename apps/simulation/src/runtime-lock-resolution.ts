@@ -14,7 +14,7 @@ import { applyCombatEncirclement } from "./runtime-lock-resolution-encirclement.
 import { applyShieldConsumptionAndReveal } from "./runtime-lock-resolution-shield-reveal.js";
 import { applyResourceTileSteal } from "./runtime-resource-steal.js";
 import type { LockRecord, LockedCombatResolution, SimulationTileWireDelta } from "./runtime-types.js";
-import type { PersonalImpactTown } from "./personal-impact-log/personal-impact-log.js";
+import type { PersonalImpactDock, PersonalImpactTown } from "./personal-impact-log/personal-impact-log.js";
 import { creditManpower } from "./runtime-manpower-ceiling.js";
 import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
 import type { TerritoryFlip } from "./territory-flip-log/territory-flip-log.js";
@@ -93,7 +93,7 @@ export type RuntimeLockResolutionContext = {
   // barbarian. No-op cost when unset (tests that don't care about the
   // activity feed can omit it).
   recordTileFlip?: (flip: TerritoryFlip) => void;
-  recordPersonalImpact?: (event: PersonalImpactTown) => void;
+  recordPersonalImpact?: (event: PersonalImpactTown | PersonalImpactDock) => void;
 };
 
 function releaseReservedMuster(reservedByKey: Map<string, number>, tileKey: string, amount: number): void {
@@ -201,7 +201,9 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
         originX: lock.originX,
         originY: lock.originY,
         at: context.now(),
-        ...(combatResolution?.shield ? { shield: { x: combatResolution.shield.x, y: combatResolution.shield.y } } : {})
+        ...(combatResolution?.shield ? { shield: { x: combatResolution.shield.x, y: combatResolution.shield.y } } : {}),
+        ...(combatResolution?.attackerGear ? { attackerGear: combatResolution.attackerGear } : {}),
+        ...(combatResolution?.defenderGear ? { defenderGear: combatResolution.defenderGear } : {})
       } satisfies CombatBroadcastPayload)
     : undefined;
 

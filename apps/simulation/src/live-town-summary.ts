@@ -463,6 +463,7 @@ export const buildTownSummary = (
     foodUpkeepPerMinute: townFoodUpkeepPerMinute(populationTier),
     ...(typeof captureShockUntil === "number" ? { captureShockUntil } : {}),
     ...(typeof townPartial.populationBeforeCapture === "number" ? { populationBeforeCapture: townPartial.populationBeforeCapture } : {}),
+    ...(typeof townPartial.forcedAncillarificationCooldownUntil === "number" ? { forcedAncillarificationCooldownUntil: townPartial.forcedAncillarificationCooldownUntil } : {}),
     ...(growthModifiers.length > 0 ? { growthModifiers } : {}),
     ...(nextPopulationTierUpgrade ? { nextPopulationTierUpgrade } : {}),
     ...(townModifierTotals && townModifierTotals.length > 0 ? { townModifierTotals } : {})

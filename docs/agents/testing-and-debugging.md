@@ -75,6 +75,13 @@ time. Either direction reads to the player as "this bonus doesn't work."
 - Any continuous animation must instead run from an unconditional per-frame call in `renderLoop`, keyed on a `nowMs` parameter, independent of `maybeRebuild`'s throttle — follow `renderReachOverlay3DPylons`/`attackOverlay.tick`/`client-map-3d-frontier-decay-pulse.ts` as the reference pattern. The throttled rebuild should only recompute *which* things need to animate (e.g. the list of currently-decaying tiles), never the animation's clock-driven value itself.
 - One-shot 3D effects (anything positioned once at spawn that then plays out over time: bombard, unsettle, aegis lock, AFC drop, floating text, ...) must be created in `packages/client/src/client-map-3d-anchored-fx/client-map-3d-anchored-fx-layers.ts`, under the world-anchored root, and spawned at anchored-local coordinates (`fxXZ` / `anchoredFx.toLocal` in `client-map-3d-fx-cast-overlays.ts`). The 3D scene origin jumps to the camera whenever a pan forces a terrain rebuild; an effect parented straight to the scene keeps its old coordinates and slides with the viewport (this happened to the 10 s AFC join drop). `client-map-3d-anchored-fx-guard.test.ts` fails if a layer is created against the raw scene or spawns at plain scene-origin coordinates; it lists the few layers allowed outside the root with the reason each cannot drift.
 
+## Sync-delay exports
+
+Use [the sync-delay diagnostics runbook](topics/sync-delay-diagnostics.md) for
+player-scoped server traces, actual socket timing, browser stalls, warning
+retention and reconnect history. A healthy `/health` response at download time
+does not explain an earlier delay.
+
 ## Debugging workflow
 
 - When a bug is unclear or a fix doesn't work on the first pass, instrument the exact failing path before trying more speculative code changes.

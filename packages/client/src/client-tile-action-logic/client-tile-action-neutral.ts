@@ -3,7 +3,6 @@
 // file's line count from growing past the repo's 500-line new-growth cap
 // (AGENTS.md) -- no logic changes here, just a code move.
 import {
-  EXPAND_MANPOWER_COST,
   FRONTIER_CLAIM_COST,
   RELAY_BEACON_VISION_BONUS,
   SETTLE_COST,
@@ -80,9 +79,9 @@ export const expandToAction = (
       id,
       label: "Expand To",
       ...tileActionAvailability(
-        state.gold >= FRONTIER_CLAIM_COST && state.manpower >= EXPAND_MANPOWER_COST,
-        state.manpower < EXPAND_MANPOWER_COST ? `Need ${EXPAND_MANPOWER_COST} manpower` : `Need ${FRONTIER_CLAIM_COST} coin`,
-        frontierClaimCostLabelForTile(tile.x, tile.y)
+        state.gold >= FRONTIER_CLAIM_COST && state.manpower >= state.expandManpowerCost,
+        state.manpower < state.expandManpowerCost ? `Need ${state.expandManpowerCost} manpower` : `Need ${FRONTIER_CLAIM_COST} coin`,
+        frontierClaimCostLabelForTile(tile.x, tile.y, state.expandManpowerCost)
       )
     };
   }
@@ -107,9 +106,9 @@ export const expandToAction = (
 // (client-action-flow.ts): a live REQUEST_TILE_DETAIL is never sent for one
 // of these tiles by design, so this menu has to work from terrain alone.
 // A known owner (fogged, last-witnessed as someone else's) also returns no
-// actions here -- that's an attack target, offered separately via
-// injectWaypointActions's "Expand To & Attack" (client-waypoint-menu-actions.ts),
-// not this claim action.
+// actions here -- that's an attack target, offered separately as March Attack
+// rows (injectMarchAttackActions, client-march-attack-actions.ts), not this
+// claim action.
 export const foggedTileActions = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] => {
   if (tile.terrain !== "LAND" || tile.ownerId) return [];
   const action = expandToAction(state, tile, deps);
@@ -143,7 +142,7 @@ export const neutralTileActions = (
   // same policy as everything below.
   if (targetInReach) {
     const totalExploreGold = FRONTIER_CLAIM_COST + SETTLE_COST; // build cost is 0
-    const totalExploreManpower = EXPAND_MANPOWER_COST + SETTLE_MANPOWER_COST + relayBeaconManpowerCostForState(state);
+    const totalExploreManpower = state.expandManpowerCost + SETTLE_MANPOWER_COST + relayBeaconManpowerCostForState(state);
     const totalExploreMs = settleDurationMsForState(state, tile) + relayBeaconBuildDurationMsForState(state);
     const exploreEnabled =
       canAffordCost(state.gold, totalExploreGold) &&

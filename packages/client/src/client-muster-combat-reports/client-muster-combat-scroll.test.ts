@@ -20,7 +20,7 @@ it("keeps the report being read at the same position when new results arrive", (
     cancelQueuedWaypointEntry: no, moveWaypointToFront: no, cancelQueuedExpandEntry: no, moveActionQueueEntryToFront: no,
     cancelOngoingCapture: noop, sendGameMessage: no, applyOptimisticStructureCancel: noop,
     clearSettlementProgressByKey: noop, renderHud: noop, requestAttackPreviewForTarget: noop,
-    keyFor: (x, y) => `${x},${y}`, isTileOwnedByAlly: no, pickOriginForTarget: () => undefined
+    keyFor: (x, y) => `${x},${y}`, isTileOwnedByAlly: no
   };
   const record = (id: string) => recordMusterCombatReport(state, { commandId: id, target: { x: 4, y: 3 }, manpowerDelta: -60 }, "3,3", { title: id, detail: "Battle", tone: "warn" });
   const rectangles = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {

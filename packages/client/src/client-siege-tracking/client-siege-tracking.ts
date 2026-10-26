@@ -27,7 +27,7 @@ export const EXPIRED_SIEGE_GRACE_MS = 10_000;
  * combat actually resolving — NOT merely because some delta happened to touch
  * the besieged tile.
  *
- * A tile under attack stays the defender's own territory for the whole ~30s
+ * A tile under attack stays the defender's own territory for the whole ~15s
  * COMBAT_LOCK_MS countdown and keeps receiving ordinary periodic deltas the
  * entire time (yield refresh, population growth, muster/maintenance ticks, …).
  * Both delta paths used to delete unconditionally, so the entry was almost
@@ -136,7 +136,7 @@ export const isMusterAdvanceCommandId = (commandId: unknown): commandId is strin
  * `msg.result` here is the same early, already-computed prediction a manual
  * attack gets on its own COMBAT_START (see runtime-frontier-command.ts's
  * buildLockedCombatResolution, computed at accept time, not at the real
- * ~30s-later resolvesAt). The manual path deliberately does NOT apply it —
+ * ~15s-later resolvesAt). The manual path deliberately does NOT apply it —
  * it only stashes it in state.pendingCombatReveal and waits for the
  * authoritative COMBAT_RESULT (client-network.ts's COMBAT_START handler).
  * This used to apply it immediately instead, which flipped the tile's

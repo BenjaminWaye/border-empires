@@ -1,3 +1,4 @@
+import { activeRelicTiles, consumeBattleRelics, type RelicMutationContext } from "./runtime-relics.js";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
 import {
@@ -9,6 +10,7 @@ import {
   MUSTER_MARCH_MAX_DISTANCE_TILES,
   MUSTER_TRANSIT_MS_PER_TILE,
   anonymizedEmpireNameForId,
+  expandManpowerCostForFrontierCount,
   frontierClaimDurationMsAt,
   isOpaquePlayerId
 } from "@border-empires/shared";
@@ -48,6 +50,7 @@ export const attackAlertDisplayName = (playerId: string, actorName?: string): st
 export const frontierClaimDurationMsForCoords = frontierClaimDurationMsAt;
 
 export type RuntimeFrontierCommandContext = BarbarianLaunchContext & {
+  relicContext?: RelicMutationContext;
   now: () => number;
   players: Map<string, RuntimePlayer>;
   tiles: Map<string, DomainTileState>;
@@ -91,6 +94,8 @@ export type RuntimeFrontierCommandContext = BarbarianLaunchContext & {
   // tell "rival's border" apart from "neutral ground". Used below to open a
   // narrow EXPAND carve-out onto ground already inside a rival's reach.
   reachBorderOwnerAt: (x: number, y: number) => string | undefined;
+  /** How many FRONTIER tiles the player owns right now; EXPAND's manpower price scales with it. */
+  frontierTileCountForPlayer: (playerId: string) => number;
   /** Releases the origin's frontier component if it is cut off from supply; true means the origin is gone. */
   releaseIfStrandedOrigin: (originKey: string, ownerId: string, commandId: string) => boolean;
 };
@@ -176,6 +181,10 @@ export const handleFrontierCommandImpl = (
     !isAlliedOrTruced(actor, targetReachOwnerId) &&
     ctx.isInReach(actor.id, from.x, from.y);
   const expandClaimDurationMs = actionType === "EXPAND" ? frontierClaimDurationMsForCoords(to.x, to.y) : undefined;
+  // Barbarians keep the flat base price so their walk/multiply pacing is unchanged.
+  const expandManpowerCost = actionType === "EXPAND" && actor.id !== "barbarian-1"
+    ? expandManpowerCostForFrontierCount(ctx.frontierTileCountForPlayer(actor.id))
+    : undefined;
   const requiredMuster = actionType === "ATTACK"
     ? ctx.requiredMusterForTarget(to, actor.id)
     : undefined;
@@ -221,6 +230,7 @@ export const handleFrontierCommandImpl = (
     crossingBlockedByAetherWall: isDockCrossing ? false : ctx.crossingBlockedByAetherWall(from.x, from.y, to.x, to.y),
     defenderIsAlliedOrTruced: Boolean(to.ownerId && isAlliedOrTruced(actor, to.ownerId)),
     expandClaimDurationMs,
+    expandManpowerCost,
     originMuster: musterSource?.available ?? (from.muster?.ownerId === actor.id ? from.muster.amount : 0),
     requiredMuster,
     commitManpower: actionType === "ATTACK" ? payload.commitManpower : undefined,
@@ -300,15 +310,18 @@ export const handleFrontierCommandImpl = (
   }
   const transitEndsAt = transitMs > 0 ? ctx.now() + transitMs : undefined;
   // Steam Vanguard's attackResolveSpeedReduceMs shaves time off an ATTACK's
-  // resolution lock (30s base, per COMBAT_LOCK_MS) — floored so it can never
+  // resolution lock (15s base, per COMBAT_LOCK_MS) — floored so it can never
   // resolve instantly. Does not apply to EXPAND's own claim timer, but a
   // MARCH-issued EXPAND still gets transitMs added on top of it, same as ATTACK.
-  const resolvesAt = actionType === "ATTACK"
+  let resolvesAt = actionType === "ATTACK"
     ? Math.max(
         ctx.now() + MIN_ATTACK_RESOLVE_MS,
         validation.resolvesAt - additiveEffectForPlayer(actor, "attackResolveSpeedReduceMs")
       ) + transitMs
     : validation.resolvesAt + transitMs;
+  if (actionType === "ATTACK" && ctx.relicContext && ctx.tiles.get(resolvedOriginKey)?.dockId && activeRelicTiles(ctx.relicContext, actor.id, "DEEPWATER_ENGINE").length) {
+    resolvesAt = ctx.now() + Math.max(MIN_ATTACK_RESOLVE_MS, Math.round((resolvesAt - ctx.now()) * 0.75));
+  }
   const baseLock: LockRecord = {
     commandId: command.commandId,
     playerId: command.playerId,
@@ -353,6 +366,7 @@ export const handleFrontierCommandImpl = (
     actor.manpower = Math.max(0, actor.manpower - validation.manpowerCost);
   }
   const combatResolution = actionType === "EXPAND" ? undefined : ctx.buildLockedCombatResolution(baseLock);
+  if (combatResolution && ctx.relicContext) consumeBattleRelics(ctx.relicContext, actor.id, ctx.tiles.get(baseLock.targetKey), command.commandId);
   // Shield flags (docs/muster-fronts-proposal.md §4): reserve the matched
   // amount against the shield tile the same way the attacker's own
   // musterSourceKey is reserved above -- otherwise two attacks landing on

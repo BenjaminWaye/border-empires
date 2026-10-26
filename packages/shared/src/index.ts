@@ -6,6 +6,7 @@ export * from "./diplomacy-terms/diplomacy-terms.js";
 export * from "./muster-config.js";
 export * from "./manpower-refill.js";
 export * from "./landing-manpower-reserve.js";
+export * from "./shard-mobilize.js";
 export * from "./tech-economy.js";
 export * from "./afc-build-cost.js";
 export * from "./afc-module-call-down.js";
@@ -44,6 +45,7 @@ export * from "./forest-terrain/forest-terrain.js";
 export * from "./forest-terrain/forest-clearing.js";
 export * from "./hills-terrain/hills-terrain.js";
 export * from "./frontier-claim-duration/frontier-claim-duration.js";
+export * from "./expand-manpower-cost/expand-manpower-cost.js";
 export * from "./frontier-combat/frontier-combat.js";
 export * from "./capture-hold/capture-hold.js";
 export * from "./frontier-combat/frontier-combat-win-chance-paint.js";
@@ -68,3 +70,10 @@ export * from "./init-transfer/init-transfer.js";
 export * from "./season-rollover-close/season-rollover-close.js";
 export * from "./afc-specializations/afc-specializations.js";
 export * from "./combat-lock-messages/combat-lock-messages.js";
+export * from "./forced-ancillarification/forced-ancillarification.js";
+
+export * from "./relics/relic-catalog.js";
+export * from "./relics/relic-state.js";
+export * from "./relics/relic-resource-reward.js";
+
+export * from "./relics/relic-map-hints.js";

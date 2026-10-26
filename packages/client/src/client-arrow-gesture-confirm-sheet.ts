@@ -11,7 +11,7 @@ import { describeMarchWinChance, triggerWinChancePaintOnMarchArm } from "./clien
 // target click (client-arrow-gesture-confirm.ts's seam). The sheet's DOM
 // (slider, Normal/Extra/Double presets, Escape/Enter handling) is the shared
 // effort sheet in client-effort-confirm-sheet.ts -- the same one Launch
-// Attack and Expand To & Attack open -- and this module only adds the
+// Attack opens -- and this module only adds the
 // march-specific parts: the SET_MUSTER payload on "Go", a live win-chance
 // line under the slider (describeMarchWinChance), and
 // client-win-chance-paint-trigger.ts's label trigger -- called once on open
