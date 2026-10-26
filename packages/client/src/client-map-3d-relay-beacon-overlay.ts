@@ -1,17 +1,11 @@
-// 3D Relay Beacon overlay — a slender, lightly-crewed frontier observation
-// tower. Four dark-iron lattice legs converge into a small enclosed deck where
-// geared brass periscopes sweep the horizon; a vertical spindle drives a
-// slowly-rotating brass heliograph mirror array above the deck, while
-// pressure-fed amber signal lamps and an aether-gas tank with brass feed
-// pipes mark it as an outpost of industry rather than war. Tall, open and
-// unarmoured (no walls, crenellation or weapon mounts) so it reads instantly
-// against the squat Siege Battery. Call commit() after adding instances, then
-// update(nowMs) every frame to spin the mirror array.
+// Relay Beacon: batched communications-mast architecture plus a native
+// rotating optical array. Construction clipping, stable animation slots and
+// per-instance disabled poses are shared by the production map and review.
 
 import { Euler, Matrix4, Quaternion, Scene, Texture, Vector3 } from "three";
 import { createRelayBeaconAssets, GEARS_PER_BEACON, MIRRORS_PER_BEACON } from "./client-map-3d-relay-beacon-assets.js";
 import { CONSTRUCTION_PHASES, type ConstructionSite } from "./client-construction-phase/client-construction-phase.js";
-import { createLazyConstructionPresentation } from "./client-map-3d-construction/client-map-3d-construction-presentation.js";
+import { createDistrictOverlay } from "./client-town-district/district-overlay.js";
 import { verticalHalfExtent } from "./client-map-3d-construction/client-map-3d-vertical-extent.js";
 
 export type RelayBeaconOverlay = {
@@ -37,7 +31,7 @@ export type RelayBeaconOverlay = {
 const PI_2 = Math.PI / 2;
 const ARRAY_SPEED = 0.0006;
 const HUB_Y = 1.58;
-const MIRROR_RADIUS = 0.115;
+const MIRROR_RADIUS = 0.145;
 // Tall, upward pieces that grow with the build instead of appearing whole: a
 // full-height leg or column in phase 1 would make the tower look finished.
 const GROWING_PIECES: ReadonlySet<string> = new Set(["leg", "column", "pipe", "spindle"]);
@@ -109,9 +103,8 @@ export const createRelayBeaconOverlay = (
   const tmpQuat = new Quaternion();
   const tmpDir = new Vector3();
   const yAxis = new Vector3(0, 1, 0);
-  const zAxis = new Vector3(0, 0, 1);
 
-  const presentation = createLazyConstructionPresentation(scene, buildingEnvironmentTexture);
+  const presentation = createDistrictOverlay(scene, C, buildingEnvironmentTexture);
   // Construction state while one beacon is being laid out. `cutY` is the height of the
   // built part (undefined = fully built); `measuring` dry-runs the layout to find the finished height.
   let cutY: number | undefined;
@@ -173,15 +166,6 @@ export const createRelayBeaconOverlay = (
     return { rx: tmpEuler.x, ry: tmpEuler.y, rz: tmpEuler.z };
   };
 
-  // Variant that aligns the torus hole axis (local Z) with the direction,
-  // so joint rings wrap around their pipes.
-  const eulerFromDirZ = (dx: number, dy: number, dz: number): { rx: number; ry: number; rz: number } => {
-    tmpDir.set(dx, dy, dz).normalize();
-    tmpQuat.setFromUnitVectors(zAxis, tmpDir);
-    tmpEuler.setFromQuaternion(tmpQuat);
-    return { rx: tmpEuler.x, ry: tmpEuler.y, rz: tmpEuler.z };
-  };
-
   const addPieceAlong = (
     key: string,
     wx: number,
@@ -217,75 +201,9 @@ export const createRelayBeaconOverlay = (
     addPiece(key, wx, sy, wz, ox, oy, oz, 1, 1, len, e.ry, e.rx, e.rz);
   };
 
-  const addTorusAlong = (
-    key: string,
-    wx: number,
-    sy: number,
-    wz: number,
-    ox: number,
-    oy: number,
-    oz: number,
-    dx: number,
-    dy: number,
-    dz: number
-  ): void => {
-    const e = eulerFromDirZ(dx, dy, dz);
-    addPiece(key, wx, sy, wz, ox, oy, oz, 1, 1, 1, e.ry, e.rx, e.rz);
-  };
-
   // ─── Beacon placement ───────────────────────────────────────────────
   // Returns whether the heliograph array was built (it is the last thing up the tower).
   const addBeacon = (wx: number, sy: number, wz: number): boolean => {
-    // Small mechanical anchor base + control housing.
-    for (const ax of [-0.26, 0.26]) {
-      for (const az of [-0.26, 0.26]) {
-        addPiece("anchor", wx, sy, wz, ax, 0.02, az);
-      }
-    }
-    addPiece("baseBox", wx, sy, wz, 0, 0.05, 0);
-    addPiece("baseVent", wx, sy, wz, 0, 0.05, 0.131);
-
-    // Aether-gas pressure tank on the rear corner, piped up the tower.
-    addPiece("tank", wx, sy, wz, 0.24, 0.2, -0.16);
-    addPiece("tankBand", wx, sy, wz, 0.24, 0.11, -0.16, 1, 1, 1, 0, PI_2, 0);
-    addPiece("tankBand", wx, sy, wz, 0.24, 0.29, -0.16, 1, 1, 1, 0, PI_2, 0);
-    addPiece("tankCap", wx, sy, wz, 0.24, 0.378, -0.16);
-    addPiece("tankValve", wx, sy, wz, 0.24, 0.412, -0.16);
-    addPiece("valveWheel", wx, sy, wz, 0.24, 0.438, -0.16);
-
-    // Slender lattice column with a brass band.
-    addPieceAlong("column", wx, sy, wz, 0, 0.7, 0, 0, 1, 0, 1.16);
-    addPiece("columnBand", wx, sy, wz, 0, 0.95, 0, 1, 1, 1, 0, PI_2, 0);
-
-    // Four converging dark-iron lattice legs.
-    for (const lx of [-0.26, 0.26]) {
-      for (const lz of [-0.26, 0.26]) {
-        const dx = -lx * 0.423;
-        const dz = -lz * 0.423;
-        const len = Math.sqrt(dx * dx + 1.265 * 1.265 + dz * dz);
-        addPieceAlong("leg", wx, sy, wz, lx * 0.789, 0.6675, lz * 0.789, dx, 1.265, dz, len);
-      }
-    }
-
-    // Cross braces on the front face (two X levels).
-    addPieceAlong("brace", wx, sy, wz, 0, 0.72, 0.21, 0.42, 0.4, 0, 0.58);
-    addPieceAlong("brace", wx, sy, wz, 0, 0.72, 0.21, -0.42, 0.4, 0, 0.58);
-    addPieceAlong("brace", wx, sy, wz, 0, 1.12, 0.21, 0.42, 0.36, 0, 0.553);
-    addPieceAlong("brace", wx, sy, wz, 0, 1.12, 0.21, -0.42, 0.36, 0, 0.553);
-
-    // Brass feed pipes from tank and base up to the deck.
-    addPieceAlong("pipe", wx, sy, wz, 0.145, 0.85, -0.13, -0.11, 0.86, 0.06, 0.869);
-    addPieceAlong("pipe", wx, sy, wz, -0.1, 0.695, 0.18, 0.08, 1.13, -0.08, 1.135);
-    addTorusAlong("pipeJoint", wx, sy, wz, 0.16, 0.68, -0.14, -0.11, 0.86, 0.06);
-    addTorusAlong("pipeJoint", wx, sy, wz, -0.12, 0.41, 0.2, 0.08, 1.13, -0.08);
-    addTorusAlong("pipeJoint", wx, sy, wz, -0.075, 1.03, 0.16, 0.08, 1.13, -0.08);
-
-    // Observation deck: platform, railing and enclosed optics box.
-    addPiece("platform", wx, sy, wz, 0, 1.31, 0);
-    addPiece("rail", wx, sy, wz, 0, 1.34, 0);
-    addPiece("obsBox", wx, sy, wz, 0, 1.4, -0.01);
-    addPiece("obsWindow", wx, sy, wz, 0, 1.4, 0.056);
-
     // Heliograph spindle, hub and array disc (static; plates animate).
     addPieceAlong("spindle", wx, sy, wz, 0, 1.49, 0, 0, 1, 0, 0.33);
     addPiece("hub", wx, sy, wz, 0, HUB_Y, 0);
@@ -302,36 +220,9 @@ export const createRelayBeaconOverlay = (
       keepHiddenSlots = false;
     }
 
-    // Geared brass periscopes sweeping out over the deck edge.
-    addPeriscope(wx, sy, wz, 0.1, 1.34, 0.1, 0.44, -0.8, 0.28);
-    addPeriscope(wx, sy, wz, -0.1, 1.34, 0.1, -0.44, -0.8, 0.28);
-    addPeriscope(wx, sy, wz, 0, 1.35, -0.12, 0, -0.84, -0.5);
-
-    // Pressure-fed amber signal lamps on the deck edge.
-    addLamp(wx, sy, wz, 0.15, 0.09);
-    addLamp(wx, sy, wz, -0.15, 0.09);
-    addLamp(wx, sy, wz, 0, -0.16);
     return arrayBuilt;
   };
 
-
-  const addPeriscope = (wx: number, sy: number, wz: number, px: number, py: number, pz: number, dx: number, dy: number, dz: number): void => {
-    const dirLen = Math.sqrt(dx * dx + dy * dy + dz * dz);
-    const ux = dx / dirLen;
-    const uy = dy / dirLen;
-    const uz = dz / dirLen;
-    addPiece("periscopeGear", wx, sy, wz, px, py - 0.012, pz);
-    addPieceAlong("periscopeTube", wx, sy, wz, px + ux * 0.12, py + uy * 0.12, pz + uz * 0.12, ux, uy, uz, 0.24);
-    addPieceAlong("periscopeEyepiece", wx, sy, wz, px + ux * 0.22, py + uy * 0.22, pz + uz * 0.22, ux, uy, uz, 1);
-    addPieceAlong("periscopeLens", wx, sy, wz, px + ux * 0.25, py + uy * 0.25, pz + uz * 0.25, ux, uy, uz, 1);
-  };
-
-  const addLamp = (wx: number, sy: number, wz: number, lx: number, lz: number): void => {
-    addPieceAlong("lampBracket", wx, sy, wz, lx, 1.37, lz, 0, 0.1, 0, 1);
-    addPiece("lampHousing", wx, sy, wz, lx, 1.42, lz);
-    addPiece("lampGlow", wx, sy, wz, lx, 1.425, lz);
-    addPiece("lampCage", wx, sy, wz, lx, 1.42, lz, 1, 1, 1, 0, PI_2, 0);
-  };
 
   // Dry run of the finished beacon (nothing is placed) to learn its height.
   measuring = true;
@@ -372,10 +263,11 @@ export const createRelayBeaconOverlay = (
       } finally {
         cutY = undefined; // never leave the cut on for the next beacon
       }
-      presentation.addSite(sceneX, sceneZ, surfaceY, site, totalHeight);
+
     } else {
       arrayVisible = addBeacon(sceneX, surfaceY, sceneZ);
     }
+    presentation.add({ kind: "RELAY_HOUSING", x: sceneX, y: surfaceY, z: sceneZ, foundation: true, operational: !disabled && !site, ...(site ? { site } : {}) });
     instances.push({ x: sceneX, y: surfaceY, z: sceneZ, phase, disabled, arrayVisible, underConstruction: site !== undefined });
   };
 

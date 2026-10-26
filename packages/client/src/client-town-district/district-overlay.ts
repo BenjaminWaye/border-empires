@@ -1,3 +1,4 @@
+import { isInfrastructureModel } from "../client-infrastructure/infrastructure-models.js";
 import { InstancedBufferAttribute, InstancedMesh, Matrix4, Quaternion, Vector3, type Scene, type Texture } from "three";
 import { tickTownTime } from "../client-map-3d-town-overlay/town-animation-shaders.js";
 import { createLazyConstructionPresentation } from "../client-map-3d-construction/client-map-3d-construction-presentation.js";
@@ -54,7 +55,7 @@ export const createDistrictOverlay = (scene: Scene, maxTiles: number, envMap?: T
       if (!geo) continue;
       geo.setAttribute("districtState", states);
       const shield = first.kind === "AEGIS_DOME" && layer === "glass";
-      const material = shield ? materials.shieldGlass : isDistrictProject(first.kind) && layer === "metal" ? materials.monumentMetal : materials.layers[layer];
+      const material = shield ? materials.shieldGlass : (isDistrictProject(first.kind) || isInfrastructureModel(first.kind)) && layer === "metal" ? materials.monumentMetal : materials.layers[layer];
       const mesh = new InstancedMesh(geo, material, capacity);
       mesh.name = `town-district-${key}-${layer}`;
       mesh.frustumCulled = false;
@@ -101,7 +102,12 @@ export const createDistrictOverlay = (scene: Scene, maxTiles: number, envMap?: T
           if (site) presentation.addSite(placement.x, placement.z, placement.y, site, slot.geometry.height * (placement.scale ?? 1));
         }
         slot.states.needsUpdate = true;
-        for (const mesh of slot.meshes) { mesh.count = placements.length; mesh.instanceMatrix.needsUpdate = true; }
+        for (const mesh of slot.meshes) {
+          mesh.count = placements.length;
+          mesh.instanceMatrix.clearUpdateRanges();
+          mesh.instanceMatrix.addUpdateRange(0, placements.length * 16);
+          mesh.instanceMatrix.needsUpdate = true;
+        }
       }
       presentation.commit();
     },

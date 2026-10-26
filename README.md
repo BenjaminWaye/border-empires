@@ -190,6 +190,7 @@ service connections and generated 2D SVG artwork. See
 [the district renderer reference](docs/town-support-districts.md) for coverage,
 model entrypoints and icon regeneration. The six completed Great Projects use
 `packages/client/src/client-monuments/`; see [the monument model reference](docs/monument-models.md)
+- Mine, harbor, relay, aether and Umbrite platform art: [infrastructure model reference](docs/infrastructure-models.md).
 for their component identities, renderer routing and artwork generation. Storybook’s **Map / Structures / All
 Structures** reviews all current buildable structures using their production 3D
 models, canonical names and shared gameplay descriptions; superseded studies

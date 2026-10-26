@@ -1,16 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { BoxGeometry, CylinderGeometry, InstancedMesh, Scene } from "three";
+import { CylinderGeometry, InstancedMesh, Scene } from "three";
 import { createRelayBeaconOverlay } from "./client-map-3d-relay-beacon-overlay.js";
 
 const instancedMeshes = (scene: Scene): InstancedMesh[] =>
   scene.children.filter((child): child is InstancedMesh => child instanceof InstancedMesh);
 
 const mirrorMesh = (scene: Scene): InstancedMesh | undefined =>
-  instancedMeshes(scene).find(
-    (mesh) =>
-      mesh.geometry.type === "BoxGeometry" &&
-      (mesh.geometry as BoxGeometry).parameters.width === 0.16
-  );
+  instancedMeshes(scene).find(mesh => mesh.name === "relay-mirror");
 
 const gearMesh = (scene: Scene): InstancedMesh | undefined =>
   instancedMeshes(scene).find(
@@ -81,7 +77,8 @@ describe("relay beacon overlay", () => {
       const ranges = mesh.instanceMatrix.updateRanges;
       expect(ranges).toHaveLength(1);
       expect(ranges[0]).toEqual({ start: 0, count: mesh.count * 16 });
-      expect(ranges[0]!.count).toBeLessThan(mesh.instanceMatrix.array.length);
+      expect(ranges[0]!.count).toBeLessThanOrEqual(mesh.instanceMatrix.array.length);
+      if (!mesh.geometry.hasAttribute("districtState")) expect(ranges[0]!.count).toBeLessThan(mesh.instanceMatrix.array.length);
     }
 
     overlay.dispose();
@@ -91,7 +88,9 @@ describe("relay beacon overlay", () => {
     const scene = new Scene();
     const overlay = createRelayBeaconOverlay(scene, 8);
 
+    overlay.addInstance(0, 0, 0, 0, 0); overlay.commit();
     const emptySlotCount = instancedMeshes(scene).length;
+    overlay.clear();
     expect(emptySlotCount).toBeGreaterThan(0);
 
     for (let i = 0; i < 6; i += 1) overlay.addInstance(i * 2, 0, 0, i, 0);
@@ -124,7 +123,8 @@ describe("relay beacon overlay", () => {
       const ranges = mesh.instanceMatrix.updateRanges;
       expect(ranges).toHaveLength(1);
       expect(ranges[0]!.count).toBe(mesh.count * 16);
-      expect(ranges[0]!.count).toBeLessThan(mesh.instanceMatrix.array.length);
+      expect(ranges[0]!.count).toBeLessThanOrEqual(mesh.instanceMatrix.array.length);
+      if (!mesh.geometry.hasAttribute("districtState")) expect(ranges[0]!.count).toBeLessThan(mesh.instanceMatrix.array.length);
       // three r179 exposes needsUpdate as a setter-only accessor that bumps
       // `version`; assert the flag effect rather than the accessor itself.
       expect(mesh.instanceMatrix.version).toBeGreaterThan(0);

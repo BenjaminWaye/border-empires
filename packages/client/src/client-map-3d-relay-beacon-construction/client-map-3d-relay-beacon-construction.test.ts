@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BoxGeometry, InstancedMesh, Matrix4, Scene } from "three";
+import { InstancedMesh, Matrix4, Scene } from "three";
 import { CONSTRUCTION_PHASES, type ConstructionSite } from "../client-construction-phase/client-construction-phase.js";
 import { createRelayBeaconOverlay } from "../client-map-3d-relay-beacon-overlay.js";
 
@@ -29,22 +29,14 @@ const siteAt = (visibleBands: number, over: Partial<ConstructionSite> = {}): Con
 
 const meshes = (scene: Scene): InstancedMesh[] => scene.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh);
 const total = (scene: Scene): number => meshes(scene).reduce((n, m) => n + m.count, 0);
-const meshWith = (scene: Scene, width: number, height?: number): InstancedMesh | undefined =>
-  meshes(scene).find((m) => m.geometry.type === "BoxGeometry" && (m.geometry as BoxGeometry).parameters.width === width && (height === undefined || (m.geometry as BoxGeometry).parameters.height === height));
-const mirrors = (scene: Scene) => meshWith(scene, 0.16);
-const legs = (scene: Scene) => meshWith(scene, 0.03, 1);
+
+const mirrors = (scene: Scene) => meshes(scene).find(mesh => mesh.name === "relay-mirror");
 
 const matrixAt = (mesh: InstancedMesh, i: number): Matrix4 => {
   const m = new Matrix4();
   mesh.getMatrixAt(i, m);
   return m;
 };
-// Local Y scale of a placed piece (its length for the 1-tall leg geometry).
-const lengthOf = (mesh: InstancedMesh, i: number): number => {
-  const e = matrixAt(mesh, i).elements;
-  return Math.hypot(e[4]!, e[5]!, e[6]!);
-};
-
 const build = (...sites: Array<ConstructionSite | undefined>) => {
   const scene = new Scene();
   const overlay = createRelayBeaconOverlay(scene, 8);
@@ -67,21 +59,14 @@ describe("relay beacon under construction", () => {
     expect(counts[0]).toBeLessThan(counts[3]!);
   });
 
-  it("grows the lattice legs instead of showing them full height from phase 1", () => {
-    const finished = build(undefined);
-    const finishedLeg = lengthOf(legs(finished.scene)!, 0);
-    finished.overlay.dispose();
-
-    const early = build(siteAt(1));
-    const earlyLeg = lengthOf(legs(early.scene)!, 0);
-    early.overlay.dispose();
-
-    const last = build(siteAt(CONSTRUCTION_PHASES));
-    const lastLeg = lengthOf(legs(last.scene)!, 0);
-    last.overlay.dispose();
-
-    expect(earlyLeg).toBeLessThan(finishedLeg * 0.6);
-    expect(lastLeg).toBeCloseTo(finishedLeg, 4);
+  it("clips the communications mast below its finished height in the first phase", () => {
+    const { scene, overlay } = build(siteAt(1));
+    const mast = meshes(scene).find(mesh => mesh.name.includes("RELAY_HOUSING") && mesh.name.endsWith("-body"))!;
+    const cut = mast.geometry.getAttribute("districtState").getY(0);
+    mast.geometry.computeBoundingBox();
+    expect(cut).toBeGreaterThan(0);
+    expect(cut).toBeLessThan(mast.geometry.boundingBox!.max.y * 0.6);
+    overlay.dispose();
   });
 
   it("keeps the animated mirror array's slots aligned across beacons while one is still being built", () => {
@@ -140,11 +125,13 @@ describe("relay beacon under construction", () => {
     overlay.addInstance(0, 0, 0, 0, 0, false, siteAt(1));
     overlay.addInstance(2, 0, 0, 1, 0);
     overlay.commit();
-    const finishedLeg = lengthOf(legs(scene)!, 4); // legs 0-3 belong to the first beacon
+    const mast = meshes(scene).find(mesh => mesh.name.includes("RELAY_HOUSING") && mesh.name.endsWith("-body"))!;
+    const finishedCut = mast.geometry.getAttribute("districtState").getY(1);
     overlay.clear();
     overlay.addInstance(0, 0, 0, 0, 0);
     overlay.commit();
-    expect(finishedLeg).toBeCloseTo(lengthOf(legs(scene)!, 0), 4);
+    expect(finishedCut).toBe(1000);
+    expect(mast.geometry.getAttribute("districtState").getY(0)).toBe(finishedCut);
     overlay.dispose();
   });
 
