@@ -251,6 +251,7 @@ export const explainActionFailureFromServer = (
   if (code === "ALLY_TARGET") return "Action blocked: you cannot attack an allied or truced empire.";
   if (code === "TRUCE_TARGET") return "Cannot offer truce: target not found.";
   if (code === "TRUCE_EXISTS") return `Cannot offer truce: ${message}.`;
+  if (code === "TRUCE_EXTENSION_CAP") return `Cannot extend truce: ${message}.`;
   if (code === "TRUCE_INVALID") return `Cannot offer truce: ${message}.`;
   if (code === "TRUCE_REQUEST_PENDING") return "Cannot offer truce: a truce offer is already pending.";
   if (code === "TRUCE_REQUEST_INVALID") return `Cannot update truce request: ${message}.`;

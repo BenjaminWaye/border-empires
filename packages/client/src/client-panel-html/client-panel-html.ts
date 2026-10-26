@@ -286,7 +286,7 @@ export const truceRequestsHtml = (
       <div class="alliance-reference-top">
         <div class="alliance-reference-copy">
           ${allianceNameButtonHtml(playerId, playerName, playerColors)}
-          ${socialOfferLineHtml(kind, `a ${request.durationHours}h truce`)}
+          ${socialOfferLineHtml(kind, `a ${request.durationHours}h truce${request.extendsTruce ? " extension" : ""}`)}
         </div>
         <div class="alliance-reference-right">
           <div class="alliance-reference-duration">${socialClockIcon()}<span>${request.durationHours}h</span></div>

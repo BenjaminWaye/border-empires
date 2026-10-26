@@ -11,6 +11,7 @@ describe("HUD v2 review fixes", () => {
   // Review: opening a deal sends a stance lookup, which raised a false "Truce offered" alert.
   it("only confirms real truce and alliance offers", () => {
     expect(offerSentTitle({ type: "TRUCE_REQUEST", durationHours: 24 })).toBe("Truce offered · 24h");
+    expect(offerSentTitle({ type: "TRUCE_REQUEST", durationHours: 12 }, true)).toBe("Truce extension offered · 12h");
     expect(offerSentTitle({ type: "ALLIANCE_REQUEST" })).toBe("Alliance offered");
     expect(offerSentTitle({ type: "DIPLOMACY_STANCE_REQUEST" })).toBeUndefined();
     expect(offerSentTitle(null)).toBeUndefined();

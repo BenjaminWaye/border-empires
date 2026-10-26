@@ -3,7 +3,15 @@
 // Opened from "Offer Truce" on an enemy tile and from the Alliances panel.
 // Self-contained like client-occupation-survey.ts: mounts on document.body,
 // removes itself on close, keeps only the one open screen's state.
-import { emptyDiplomacyTerms, type DiplomacyCounterRef, type DiplomacyGoods, type DiplomacyOfferKind, type DiplomacyTerms } from "@border-empires/shared";
+import {
+  emptyDiplomacyTerms,
+  TRUCE_EXTENSION_MAX_AHEAD_MS,
+  truceExtensionFits,
+  type DiplomacyCounterRef,
+  type DiplomacyGoods,
+  type DiplomacyOfferKind,
+  type DiplomacyTerms
+} from "@border-empires/shared";
 
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 import { diplomacyTradeStyles } from "./client-diplomacy-trade-style.js";
@@ -24,7 +32,7 @@ export type DiplomacyTradeDeps = {
   /** Sends a client message; false when not signed in yet. */
   send: (payload: unknown, notSignedInMessage: string) => boolean;
   ownHoldings: () => DiplomacyGoods;
-  /** When your current truce with this empire ends, if you have one: the server refuses a second truce. */
+  /** When your current truce with this empire ends, if you have one: a truce offer then extends it. */
   truceEndsAt?: (targetPlayerId: string | undefined, targetName: string) => number | undefined;
 };
 
@@ -205,20 +213,27 @@ export const openDiplomacyTradeScreen = (
   overlay.className = "diplomacy-trade-overlay";
   const name = escapeHtml(targetName);
   const terms = input.terms ?? emptyDiplomacyTerms();
-  // A truce is already running: the server refuses another, so only an alliance (or a counter's terms) can be offered.
+  // A truce is already running: a truce offer extends it, up to the cap on how far ahead a truce may run.
+  const now = Date.now();
   const truceEndsAt = deps.truceEndsAt?.(input.targetPlayerId, targetName);
-  const inTruce = truceEndsAt !== undefined && truceEndsAt > Date.now();
-  const kind: DiplomacyOfferKind = inTruce ? "alliance" : input.kind;
+  const inTruce = truceEndsAt !== undefined && truceEndsAt > now;
+  const fits = (hours: 12 | 24): boolean => !inTruce || truceExtensionFits(truceEndsAt, hours, now);
+  const durationHours: 12 | 24 = fits(input.durationHours) ? input.durationHours : 12;
+  const kind: DiplomacyOfferKind = input.kind === "truce" && !fits(durationHours) ? "alliance" : input.kind;
+  const capTitle = `A truce can run at most ${TRUCE_EXTENSION_MAX_AHEAD_MS / 3_600_000}h ahead.`;
+  const truceButton = (hours: 12 | 24): string =>
+    inTruce
+      ? `<button type="button" data-trade-kind="truce:${hours}"${fits(hours) ? "" : ` disabled title="${capTitle}"`}>Extend ${hours}h</button>`
+      : `<button type="button" data-trade-kind="truce:${hours}">Truce ${hours}h</button>`;
   overlay.innerHTML = `<section class="diplomacy-trade-popup" role="dialog" aria-modal="true" aria-labelledby="diplomacy-trade-title">
     <span class="diplomacy-trade-kicker">Diplomacy</span>
     <h2 id="diplomacy-trade-title">${input.counters ? `Counter ${name}'s offer` : `Deal with ${name}`}</h2>
     <p class="diplomacy-trade-stance" data-trade-stance></p>
     <ul class="diplomacy-trade-modifiers" data-trade-modifiers hidden></ul>
     <div class="diplomacy-trade-war" data-trade-war hidden></div>
+    ${inTruce ? `<p class="diplomacy-trade-stance" data-trade-current>Truce · ${socialRemainingLabel(truceEndsAt, now)} left</p>` : ""}
     <div class="diplomacy-trade-kinds" role="group" aria-label="Offer type">
-      ${inTruce
-        ? `<span class="diplomacy-trade-current" data-trade-current>Truce · ${socialRemainingLabel(truceEndsAt, Date.now())} left</span>`
-        : `<button type="button" data-trade-kind="truce:12">Truce 12h</button><button type="button" data-trade-kind="truce:24">Truce 24h</button>`}
+      ${truceButton(12)}${truceButton(24)}
       <button type="button" data-trade-kind="alliance:0">Alliance</button>
     </div>
     ${tradeGoodsHtml()}
@@ -231,7 +246,7 @@ export const openDiplomacyTradeScreen = (
     targetName,
     targetPlayerId: input.targetPlayerId,
     counters: input.counters,
-    selection: { kind, durationHours: input.durationHours, terms },
+    selection: { kind, durationHours, terms, ...(inTruce ? { extendsTruce: true } : {}) },
     reply: undefined,
     expanded: undefined,
     reach: terms,
