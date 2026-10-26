@@ -2,7 +2,7 @@ import type { StructureInfoKey } from "../client-map-display.js";
 import { INFRASTRUCTURE_ICON_CROPS } from "./infrastructure-icon-crops.js";
 
 export const INFRASTRUCTURE_REVIEW_KINDS = ["MINE", "HARBOR_EXCHANGE", "RELAY_BEACON", "OBSERVATORY", "UMBRITE_RIG"] as const satisfies readonly StructureInfoKey[];
-export const INFRASTRUCTURE_ART_VERSION = "20261026-relay-polish";
+export const INFRASTRUCTURE_ART_VERSION = "20261026-gravity-relay";
 export const INFRASTRUCTURE_EXPORTS: readonly { kind: StructureInfoKey; filename: string; resource?: "TITANIUM" | "GEMS" }[] = [
   { kind: "RELAY_BEACON", filename: "relay-beacon-overlay.svg" },
   { kind: "OBSERVATORY", filename: "observatory-overlay.svg" },

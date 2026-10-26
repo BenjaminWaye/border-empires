@@ -3,7 +3,7 @@
 // per-instance disabled poses are shared by the production map and review.
 
 import { Euler, Matrix4, Quaternion, Scene, Texture, Vector3 } from "three";
-import { createRelayBeaconAssets, GEARS_PER_BEACON, MIRRORS_PER_BEACON } from "./client-map-3d-relay-beacon-assets.js";
+import { createRelayBeaconAssets, GEARS_PER_BEACON, SENSOR_SEGMENTS_PER_BEACON } from "./client-map-3d-relay-beacon-assets.js";
 import { CONSTRUCTION_PHASES, type ConstructionSite } from "./client-construction-phase/client-construction-phase.js";
 import { createDistrictOverlay } from "./client-town-district/district-overlay.js";
 import { verticalHalfExtent } from "./client-map-3d-construction/client-map-3d-vertical-extent.js";
@@ -29,19 +29,20 @@ export type RelayBeaconOverlay = {
 };
 
 const PI_2 = Math.PI / 2;
-const ARRAY_SPEED = 0.0006;
-const HUB_Y = 1.58;
+const ARRAY_SPEED = 0.00012;
+const HUB_Y = 1.82;
 
 // Tall, upward pieces that grow with the build instead of appearing whole: a
 // full-height leg or column in phase 1 would make the tower look finished.
 const GROWING_PIECES: ReadonlySet<string> = new Set(["leg", "column", "pipe", "spindle"]);
 const MIN_GROWING_SLOPE = 0.2;
 
-// Receiver petals and drive hubs share a slow tracking rotation. Their fixed
-// local transforms keep all six curved sectors joined into one skyward bowl.
+// Three closed octagonal sensing frames calibrate around a suspended instrument.
+// Each frame uses two halves with stable native animation slots.
 type ArrayPiece = {
-  readonly key: "mirror" | "arrayGear";
+  readonly key: "sensorSegment" | "arrayGear";
   readonly slotIndex: number;
+  readonly size: number;
   readonly lx: number;
   readonly ly: number;
   readonly lz: number;
@@ -52,21 +53,18 @@ type ArrayPiece = {
 
 const buildArrayPieces = (): ArrayPiece[] => {
   const pieces: ArrayPiece[] = [];
-  for (let i = 0; i < MIRRORS_PER_BEACON; i += 1) {
-    const baseA = (i * Math.PI) / 3;
+  for (let i = 0; i < SENSOR_SEGMENTS_PER_BEACON; i += 1) {
+    const frame = Math.floor(i / 2), half = i % 2;
     pieces.push({
-      key: "mirror",
-      slotIndex: i,
-      lx: 0,
-      ly: 0,
-      lz: 0,
-      baseYaw: baseA,
-      rotX: 0,
-      rotZ: 0
+      key: "sensorSegment", slotIndex: i, size: [0.32, 0.24, 0.16][frame]!,
+      lx: 0, ly: 0, lz: 0,
+      baseYaw: frame === 1 ? PI_2 : 0,
+      rotX: frame === 2 ? Math.PI / 3 : 0,
+      rotZ: half * Math.PI
     });
   }
-  pieces.push({ key: "arrayGear", slotIndex: 0, lx: 0.055, ly: 0.004, lz: 0, baseYaw: 0.3, rotX: 0, rotZ: 0 });
-  pieces.push({ key: "arrayGear", slotIndex: 1, lx: -0.055, ly: 0.004, lz: 0, baseYaw: 1.9, rotX: 0, rotZ: 0 });
+  pieces.push({ key: "arrayGear", slotIndex: 0, size: 1, lx: 0.055, ly: -0.30, lz: 0, baseYaw: 0.3, rotX: 0, rotZ: 0 });
+  pieces.push({ key: "arrayGear", slotIndex: 1, size: 1, lx: -0.055, ly: -0.30, lz: 0, baseYaw: 1.9, rotX: 0, rotZ: 0 });
   return pieces;
 };
 
@@ -99,6 +97,7 @@ export const createRelayBeaconOverlay = (
   const identityQuat = new Quaternion();
   const tmpEuler = new Euler();
   const tmpQuat = new Quaternion();
+  const trackingQuat = new Quaternion();
   const tmpDir = new Vector3();
   const yAxis = new Vector3(0, 1, 0);
 
@@ -202,17 +201,17 @@ export const createRelayBeaconOverlay = (
   // ─── Beacon placement ───────────────────────────────────────────────
   // Returns whether the orbital receiver array was built (it is the last thing up the tower).
   const addBeacon = (wx: number, sy: number, wz: number): boolean => {
-    // Orbital receiver spindle, hub and array disc (static; plates animate).
-    addPieceAlong("spindle", wx, sy, wz, 0, 1.68, 0, 0, 1, 0, 0.35);
+    // Lower bearing, suspended sensor and mounting collar; sensing frames animate.
+    addPieceAlong("spindle", wx, sy, wz, 0, 1.47, 0, 0, 1, 0, 0.14);
     addPiece("hub", wx, sy, wz, 0, HUB_Y, 0);
-    addPiece("arrayRing", wx, sy, wz, 0, 1.78, 0, 1, 1, 1, 0, PI_2, 0);
+    addPiece("arrayRing", wx, sy, wz, 0, 1.53, 0, 1, 1, 1, 0, PI_2, 0);
     // The animated pieces are addressed by slot index (i * perBeacon + slotIndex), so a
     // gated-out one still takes its slot as a zero-scale placeholder.
     let arrayBuilt = false;
     keepHiddenSlots = true;
     try {
       for (const piece of arrayPieces) {
-        if (addPiece(piece.key, wx, sy, wz, piece.lx, HUB_Y + piece.ly, piece.lz, 1, 1, 1, piece.baseYaw, piece.rotX, piece.rotZ)) arrayBuilt = true;
+        if (addPiece(piece.key, wx, sy, wz, piece.lx, HUB_Y + piece.ly, piece.lz, piece.size, piece.size, piece.size, piece.baseYaw, piece.rotX, piece.rotZ)) arrayBuilt = true;
       }
     } finally {
       keepHiddenSlots = false;
@@ -246,7 +245,7 @@ export const createRelayBeaconOverlay = (
     disabled = false,
     site: ConstructionSite | undefined = undefined
   ): void => {
-    // The mirror/gear animation buffers (and every static-piece buffer) are
+    // The sensor/drive animation buffers (and every static-piece buffer) are
     // preallocated for `C` beacons; instances beyond that would index past
     // the InstancedMesh's typed arrays in update(), so drop the excess here
     // rather than let addPiece's per-slot cap silently desync from `instances`.
@@ -285,7 +284,7 @@ export const createRelayBeaconOverlay = (
     presentation.update(nowMs);
     const count = instances.length;
     if (count === 0) return;
-    const mirrorSlot = slots.get("mirror");
+    const sensorSlot = slots.get("sensorSegment");
     const gearSlot = slots.get("arrayGear");
     for (let i = 0; i < count; i += 1) {
       const t = instances[i]!;
@@ -297,23 +296,23 @@ export const createRelayBeaconOverlay = (
       const baseY = t.y + HUB_Y;
       const baseZ = t.z;
       for (const piece of arrayPieces) {
-        const slot = piece.key === "mirror" ? mirrorSlot : gearSlot;
+        const slot = piece.key === "sensorSegment" ? sensorSlot : gearSlot;
         if (!slot) continue;
         const wx = baseX + piece.lx * cosA - piece.lz * sinA;
         const wz = baseZ + piece.lx * sinA + piece.lz * cosA;
         position.set(wx, baseY + piece.ly, wz);
-        scale.set(1, 1, 1);
-        tmpEuler.set(piece.rotX, piece.baseYaw + angle, piece.rotZ, "XYZ");
-        tmpQuat.setFromEuler(tmpEuler);
+        scale.setScalar(piece.size);
+        tmpEuler.set(piece.rotX, piece.baseYaw, piece.rotZ, "XYZ");
+        tmpQuat.setFromEuler(tmpEuler).premultiply(trackingQuat.setFromAxisAngle(yAxis, angle));
         matrix.compose(position, tmpQuat, scale);
-        const perKey = piece.key === "mirror" ? MIRRORS_PER_BEACON : GEARS_PER_BEACON;
+        const perKey = piece.key === "sensorSegment" ? SENSOR_SEGMENTS_PER_BEACON : GEARS_PER_BEACON;
         slot.mesh.setMatrixAt(i * perKey + piece.slotIndex, matrix);
       }
     }
-    if (mirrorSlot && mirrorSlot.count > 0) {
-      mirrorSlot.mesh.instanceMatrix.clearUpdateRanges();
-      mirrorSlot.mesh.instanceMatrix.addUpdateRange(0, mirrorSlot.count * 16);
-      mirrorSlot.mesh.instanceMatrix.needsUpdate = true;
+    if (sensorSlot && sensorSlot.count > 0) {
+      sensorSlot.mesh.instanceMatrix.clearUpdateRanges();
+      sensorSlot.mesh.instanceMatrix.addUpdateRange(0, sensorSlot.count * 16);
+      sensorSlot.mesh.instanceMatrix.needsUpdate = true;
     }
     if (gearSlot && gearSlot.count > 0) {
       gearSlot.mesh.instanceMatrix.clearUpdateRanges();

@@ -16,22 +16,21 @@ describe("current infrastructure art", () => {
     expect(readFileSync(new URL(`../../public/overlays/${entry.filename}`, import.meta.url), "utf8"))
       .toBe(structureReviewSvg(entry.kind, entry.resource));
   });
-  it("keeps the orbital receiver concave and skyward throughout tracking", () => {
+  it("keeps each sensing frame joined during calibration", () => {
     const scene = new Scene(), model = createStructureReviewModel(scene, "RELAY_BEACON");
-    const receiver = scene.children.find((mesh): mesh is InstancedMesh => mesh instanceof InstancedMesh && mesh.name === "relay-mirror")!;
+    const receiver = scene.children.find((mesh): mesh is InstancedMesh => mesh instanceof InstancedMesh && mesh.name === "relay-sensorSegment")!;
     expect(receiver.count).toBe(6);
-    const vertices = receiver.geometry.getAttribute("position"), matrix = new Matrix4();
+    const first = new Matrix4(), second = new Matrix4();
     for (const time of [0, 2500, 15000]) {
       model.update(time);
-      for (let panel = 0; panel < receiver.count; panel++) {
-        receiver.getMatrixAt(panel, matrix);
-        const up = new Vector3(0, 1, 0).transformDirection(matrix);
-        expect(up.y).toBeCloseTo(1);
-        for (let i = 0; i < vertices.count; i++) {
-          const radius = Math.hypot(vertices.getX(i), vertices.getZ(i));
-          const surface = 0.20 * (radius / 0.36) ** 2;
-          expect(Math.min(Math.abs(vertices.getY(i) - surface), Math.abs(vertices.getY(i) - surface + 0.009))).toBeLessThan(0.00001);
-        }
+      for (let frame = 0; frame < 3; frame++) {
+        receiver.getMatrixAt(frame * 2, first); receiver.getMatrixAt(frame * 2 + 1, second);
+        const a = new Vector3(0, 1, 0).applyMatrix4(first);
+        const b = new Vector3(0, -1, 0).applyMatrix4(second);
+        expect(a.distanceTo(b)).toBeLessThan(0.000001);
+        const c = new Vector3(0, -1, 0).applyMatrix4(first);
+        const d = new Vector3(0, 1, 0).applyMatrix4(second);
+        expect(c.distanceTo(d)).toBeLessThan(0.000001);
       }
     }
     model.dispose();

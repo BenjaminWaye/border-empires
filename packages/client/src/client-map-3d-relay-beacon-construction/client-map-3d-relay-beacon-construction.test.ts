@@ -30,7 +30,7 @@ const siteAt = (visibleBands: number, over: Partial<ConstructionSite> = {}): Con
 const meshes = (scene: Scene): InstancedMesh[] => scene.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh);
 const total = (scene: Scene): number => meshes(scene).reduce((n, m) => n + m.count, 0);
 
-const mirrors = (scene: Scene) => meshes(scene).find(mesh => mesh.name === "relay-mirror");
+const sensors = (scene: Scene) => meshes(scene).find(mesh => mesh.name === "relay-sensorSegment");
 
 const matrixAt = (mesh: InstancedMesh, i: number): Matrix4 => {
   const m = new Matrix4();
@@ -69,19 +69,19 @@ describe("relay beacon under construction", () => {
     overlay.dispose();
   });
 
-  it("keeps the animated mirror array's slots aligned across beacons while one is still being built", () => {
+  it("keeps the animated sensor array's slots aligned across beacons while one is still being built", () => {
     // Beacon 0 is early (array not built), beacons 1 and 2 are finished.
     const { scene, overlay } = build(siteAt(1), undefined, undefined);
     overlay.update(1_000);
-    const mirror = mirrors(scene)!;
-    expect(mirror.count).toBe(3 * 6); // every beacon holds all 6 slots, built or not
+    const sensor = sensors(scene)!;
+    expect(sensor.count).toBe(3 * 6); // every beacon holds all 6 slots, built or not
 
     const scaleOf = (i: number): number => {
-      const e = matrixAt(mirror, i).elements;
+      const e = matrixAt(sensor, i).elements;
       return Math.hypot(e[0]!, e[1]!, e[2]!);
     };
     for (let slot = 0; slot < 6; slot += 1) expect(scaleOf(slot)).toBe(0); // placeholder, never animated
-    for (let slot = 6; slot < 18; slot += 1) expect(scaleOf(slot)).toBeGreaterThan(0.5); // finished beacons animate
+    for (let slot = 6; slot < 18; slot += 1) expect(scaleOf(slot)).toBeCloseTo([0.32, 0.32, 0.24, 0.24, 0.16, 0.16][slot % 6]!); // finished beacons animate
     overlay.dispose();
   });
 
@@ -89,7 +89,7 @@ describe("relay beacon under construction", () => {
     const { scene, overlay } = build(siteAt(2));
     overlay.update(500);
     overlay.update(2_500);
-    const e = matrixAt(mirrors(scene)!, 0).elements;
+    const e = matrixAt(sensors(scene)!, 0).elements;
     expect(Math.hypot(e[0]!, e[1]!, e[2]!)).toBe(0);
     overlay.dispose();
   });
@@ -97,25 +97,25 @@ describe("relay beacon under construction", () => {
   it("builds the array in the last phase", () => {
     const { scene, overlay } = build(siteAt(CONSTRUCTION_PHASES));
     overlay.update(500);
-    const e = matrixAt(mirrors(scene)!, 0).elements;
-    expect(Math.hypot(e[0]!, e[1]!, e[2]!)).toBeGreaterThan(0.5);
+    const e = matrixAt(sensors(scene)!, 0).elements;
+    expect(Math.hypot(e[0]!, e[1]!, e[2]!)).toBeCloseTo(0.32);
     overlay.dispose();
   });
 
   it.each(["build", "remove"] as const)("freezes the visible array during %s and starts it after completion", (direction) => {
     const { scene, overlay } = build(siteAt(CONSTRUCTION_PHASES, { direction }), undefined);
-    const mirror = mirrors(scene)!;
-    const before = Array.from(mirror.instanceMatrix.array.slice(0, 12 * 16));
+    const sensor = sensors(scene)!;
+    const before = Array.from(sensor.instanceMatrix.array.slice(0, 12 * 16));
     overlay.update(500);
     overlay.update(2500);
-    expect(Array.from(mirror.instanceMatrix.array.slice(0, 6 * 16))).toEqual(before.slice(0, 6 * 16));
-    expect(Array.from(mirror.instanceMatrix.array.slice(6 * 16, 12 * 16))).not.toEqual(before.slice(6 * 16));
+    expect(Array.from(sensor.instanceMatrix.array.slice(0, 6 * 16))).toEqual(before.slice(0, 6 * 16));
+    expect(Array.from(sensor.instanceMatrix.array.slice(6 * 16, 12 * 16))).not.toEqual(before.slice(6 * 16));
     overlay.clear();
     overlay.addInstance(0, 0, 0, 0, 0);
     overlay.commit();
-    const completed = matrixAt(mirror, 0).elements;
+    const completed = matrixAt(sensor, 0).elements;
     overlay.update(5000);
-    expect(matrixAt(mirror, 0).elements).not.toEqual(completed);
+    expect(matrixAt(sensor, 0).elements).not.toEqual(completed);
     overlay.dispose();
   });
 

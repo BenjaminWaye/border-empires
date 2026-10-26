@@ -8,7 +8,7 @@ const brief = (role: string, landmark: string): DistrictModelBrief => ({ role, l
 // The remaining live-map models outside the district kit. Names are never
 // duplicated here; the shared structure-name table supplies all visible labels.
 const OTHER: Readonly<Record<Exclude<StructureInfoKey, DistrictBuildingKind>, DistrictModelBrief>> = {
-  RELAY_BEACON: brief("Relays the House AI's orbital command signal, extending settlement reach and frontier vision. Supplied frontier can advance beyond that reach.", "Skyward segmented receiver dish, central focal feed and three outward-facing local transmitter panels."),
+  RELAY_BEACON: brief("Receives the House AI's orbital command stream through gravitational signals and maintains a local control field for settlement systems. Extends settlement reach and frontier vision; supplied frontier can advance beyond reach.", "Nested octagonal sensing frames around a suspended precision instrument, above a tapered pedestal with three local field projectors."),
   OBSERVATORY: brief("Aether Tower: local vision, protection of owned nearby territory and access to Crystal abilities.", "Swept stone-and-metal containment piers, enclosed energy column, moving field rings and a transmission crown."),
   PALISADE: brief(`Light perimeter fortification providing ${FORT_TIER_LADDER.PALISADE.defenseMult}x defense.`, "Timber perimeter walls and corner posts, with terrain visible inside."),
   FORT: brief(`Stone perimeter fortification providing ${FORT_TIER_LADDER.FORT.defenseMult}x defense. An active fort prevents immediate counter-capture of its origin after a failed attack.`, "Four stone walls and corner towers; adjacent owned forts share openings."),

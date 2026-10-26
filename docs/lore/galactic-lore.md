@@ -311,10 +311,16 @@ Bleed and every rival can read from miles away, that this stretch of land is
 now anchored to a Duke.
 
 A House AI coordinates its planetary ancillaries and fabrication systems from
-space. Relay Beacons receive its orbital command signal and retransmit it
-locally, extending the coverage in which settlement and anchoring machinery
-can operate. This coverage is called **reach**. A beacon is an unarmed
-communications and anchoring installation, not an AI housed in a tower.
+space. Relay Beacons receive its orbital command stream through deliberately
+modulated gravitational waves. Precision sensing frames isolate a suspended
+instrument from local disturbances, while ground projectors maintain a local
+control field for ancillary, fabrication and anchoring systems. The useful
+coverage of that local field is called **reach**; it is not the distance the
+orbital gravitational signal can travel. Compact gravitational transmitters,
+receivers and this control field are established capabilities of the setting.
+The gravitational link carries signals at light speed, not instantaneously.
+A beacon is an unarmed communications and anchoring installation, not an AI
+housed in a tower.
 
 A beacon does not fight. Its work is to mark and to watch:
 
@@ -350,14 +356,14 @@ belong in the [gameplay reference](../game-mechanics.md).
 
 ### What a beacon looks like
 
-A dark, tapered pedestal rises from a pale stone platform into a broad,
-segmented receiver dish aimed skyward. A central focal feed receives the
-orbital link; three outward-facing transmitter panels distribute it across
-the surrounding ground. Brass structural ribs, enclosed conduits and restrained
-cyan status lighting express precise communications machinery. The receiver
-tracks slowly, while its pedestal and local panels remain fixed. It has no
-walls, crenellations or weapon mounts and must read clearly as a communications
-installation beside the armed Siege Battery or the Aether Tower's field rings.
+A dark, tapered pedestal rises from a pale stone platform into three nested,
+faceted sensing frames surrounding a small suspended instrument. These are
+precision gravity sensors, not a reflective radio dish. Fine suspension members,
+small calibration blocks and brass edge inlays make the assembly read as an
+instrument; slow calibration movement and restrained status lighting replace
+bright reactor effects. Three outward-facing field projectors maintain the
+local settlement control coverage. The receiver has no weapon mounts and must
+remain visually distinct from the Aether Tower's luminous field machinery.
 
 ### Charting the land
 

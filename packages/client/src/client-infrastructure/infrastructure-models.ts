@@ -66,7 +66,7 @@ const harbor = (t: TownBuilders): void => {
 };
 const relayHousing = (t: TownBuilders): void => {
   // Orbital downlink: a reinforced receiver pedestal and three outward-facing
-  // local transmitters. The native six-panel dish tracks above this housing.
+  // local field projectors. Nested sensing frames calibrate above this housing.
   t.body.cylinder(0, 0, 0, 0.19, 0.25, 0.10, "stoneDark", 16);
   t.body.cylinder(0, 0.10, 0, 0.18, 0.19, 0.025, "brassDark", 16);
   t.body.cylinder(0, 0.125, 0, 0.10, 0.155, 1.15, "ironDark", 16);
@@ -83,7 +83,7 @@ const relayHousing = (t: TownBuilders): void => {
     t.body.pipe(x * 0.12, 0.63, z * 0.12, x * 0.235, 0.64, z * 0.235, 0.009, "iron");
     t.body.pipe(x * 0.12, 0.86, z * 0.12, x * 0.235, 0.86, z * 0.235, 0.009, "iron");
     t.body.cylinder(x * 0.19, 0.09, z * 0.19, 0.032, 0.04, 0.045, "brassDark", 12);
-    t.body.pipe(x * 0.095, 1.25, z * 0.095, x * 0.23, 1.65, z * 0.23, 0.016, "brassDark");
+    t.body.pipe(x * 0.095, 1.25, z * 0.095, x * 0.115, 1.52, z * 0.115, 0.016, "brassDark");
   }
   for (const y of [0.15, 0.55, 1.12]) t.body.cylinder(0, y, 0, 0.16 - y * 0.035, 0.165 - y * 0.035, 0.022, "brassDark", 16);
   t.body.cylinder(0, 1.275, 0, 0.15, 0.105, 0.12, "iron", 16);
@@ -95,9 +95,7 @@ const relayHousing = (t: TownBuilders): void => {
   t.body.box(0.024, 0.215, 0.163, 0.008, 0.025, 0.007, "brass");
   t.body.cylinder(0, 1.50, 0, 0.063, 0.08, 0.055, "brassDark", 24);
   t.body.ring(0, 1.55, 0, 0.07, "iron", 0.14);
-  // Skyward focal receiver; stays connected to the bowl by its central feed.
-  t.body.cylinder(0, 1.82, 0, 0.028, 0.018, 0.055, "brass", 12);
-  t.glow.cylinder(0, 1.875, 0, 0.021, 0.028, 0.012, "aether", 12);
+
 };
 const aetherHousing = (t: TownBuilders): void => {
   t.body.cylinder(0, 0, 0, 0.23, 0.28, 0.11, "stoneDark", 16);
