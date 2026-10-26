@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ActiveTruceView, TileActionDef, TileMenuView } from "../client-types.js";
-import { actionBarHtml, moreActions, selectBarButtons, tileFacts } from "./client-hud-v2-action-bar.js";
+import { actionBarHtml, moreActions, selectBarButtons } from "./client-hud-v2-action-bar.js";
+import { waystationFacts } from "./client-hud-v2-tile-facts.js";
 import { HUD_V2_STORAGE_KEY, readHudV2Flag } from "./client-hud-v2-flag.js";
 import { orbFill, orbHtml } from "./client-hud-v2-orb.js";
 import { resourceBarHtml, slotChipState } from "./client-hud-v2-resource-bar.js";
@@ -147,8 +148,8 @@ describe("action bar", () => {
       { html: '<span class="tile-overview-effect-name">Status:</span><span class="tile-overview-effect-mod is-positive">Active</span>', kind: "effect" as const },
       { html: '<span class="tile-overview-effect-name">Granted:</span><span class="tile-overview-effect-mod is-positive">+2,000 Coin</span>', kind: "effect" as const }
     ];
-    expect(tileFacts({ overviewLines: lines })).toEqual(["Waystation", "Active", "Granted: +2,000 Coin"]);
-    expect(tileFacts({ overviewLines: lines.slice(0, 2).map((l, i) => (i === 1 ? { ...l, html: l.html.replace("Active", "Dormant") } : l)) })).toEqual(["Waystation", "Dormant", "One random bonus when claimed"]);
+    expect(waystationFacts({ overviewLines: lines })).toEqual([{ label: "Waystation", value: "Active" }, { label: "Granted", value: "+2,000 Coin" }]);
+    expect(waystationFacts({ overviewLines: lines.slice(0, 2).map((l, i) => (i === 1 ? { ...l, html: l.html.replace("Active", "Dormant") } : l)) })).toEqual([{ label: "Waystation", value: "Dormant" }, { label: "When claimed", value: "One random bonus" }]);
   });
 });
 

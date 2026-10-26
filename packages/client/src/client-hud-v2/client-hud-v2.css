@@ -207,8 +207,15 @@ body.hud-v2 .onb-root { bottom: 266px !important; }
 .hud-v2-minor-link { color: var(--v2-gold); }
 /* Facts that matter on sight (a waystation's bonus). */
 .hud-v2-tile-facts { display: flex; flex-wrap: wrap; gap: 6px; }
-.hud-v2-tile-facts span { padding: 3px 9px; border: 1px solid var(--v2-edge-strong); background: #221c13; font-size: 13px; color: var(--v2-gold-hi); }
-.hud-v2-tile-facts span:first-child { font-family: var(--v2-display); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: var(--v2-gold); }
+.hud-v2-fact { display: inline-flex; align-items: baseline; gap: 6px; padding: 3px 9px; border: 1px solid var(--v2-edge-strong); background: #221c13; font-size: 13px; color: var(--v2-text); }
+.hud-v2-fact-label { font-family: var(--v2-display); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--v2-gold); }
+.hud-v2-fact-good { color: #b9dca0; }
+.hud-v2-fact-warn { color: #f0b48a; border-color: rgba(240, 180, 138, 0.45); }
+.hud-v2-act-details { flex: 0 0 auto; min-width: 104px; font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.06em; }
+.hud-v2-details { gap: 4px; max-height: 300px; padding: 8px 10px; font-size: 13px; line-height: 1.4; color: var(--v2-soft); }
+.hud-v2-details .tile-overview-line { color: inherit; }
+.hud-v2-details .tile-overview-line-section { margin-top: 6px; font-family: var(--v2-display); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--v2-gold); }
+.hud-v2-details .tile-overview-line-section:first-child { margin-top: 0; }
 /* Aether list, opened from Aether ▾ above the main row. */
 .hud-v2-pop { display: grid; gap: 2px; max-height: 260px; overflow-y: auto; padding: 6px; background: var(--v2-ink-solid); border: 1px solid var(--v2-edge); }
 .hud-v2-pop-h { padding: 2px 6px 4px; font-family: var(--v2-display); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; color: var(--v2-aether); }

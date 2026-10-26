@@ -1,19 +1,21 @@
 // Bottom-centre tile panel + action bar for the new HUD. It is built from the
 // same TileMenuView the floating tile menu uses, so every action keeps its
 // existing handler. Size carries the hierarchy and nothing is hidden: one main
-// action, up to two others, Build ▸ (a build sidebar) and Aether ▾ (a list),
-// then every remaining action as a row of smaller text buttons underneath.
+// action, up to two others, Build ▸ (a build sidebar), Aether ▾ (a list) and
+// Details ▾ (the full tile overview), then every remaining action as a row of
+// smaller text buttons underneath. A fact strip above says what the tile is.
 
 import { autoSettleOptionHtml } from "../client-auto-settle-prompt/client-auto-settle-tile-option.js";
 import type { TileActionDef, TileMenuView } from "../client-types.js";
+import { plainText, type TileFact } from "./client-hud-v2-tile-facts.js";
 
-export type BarPanel = "aether" | "build";
+export type BarPanel = "aether" | "build" | "details";
 
 export type BarButton =
   | { kind: "action"; action: TileActionDef; primary: boolean }
   | { kind: "panel"; panel: BarPanel; label: string };
 
-type BarView = Pick<TileMenuView, "actions" | "buildings" | "crystal" | "tabs">;
+type BarView = Pick<TileMenuView, "actions" | "buildings" | "crystal" | "tabs"> & Partial<Pick<TileMenuView, "overviewLines">>;
 
 const PRIMARY_ORDER: ReadonlyArray<TileActionDef["id"]> = [
   "launch_attack",
@@ -70,8 +72,13 @@ export const selectBarButtons = (view: BarView): BarButton[] => {
   }
   if (barBuildings(view, primary).length > 0) buttons.push({ kind: "panel", panel: "build", label: "Build ▸" });
   if (view.crystal.length > 0) buttons.push({ kind: "panel", panel: "aether", label: "Aether ▾" });
+  if (hasDetails(view)) buttons.push({ kind: "panel", panel: "details", label: "Details ▾" });
   return buttons;
 };
+
+/** Details ▾ appears when the overview has more than a loading row to show. */
+export const hasDetails = (view: Partial<Pick<TileMenuView, "overviewLines">>): boolean =>
+  (view.overviewLines ?? []).some((l) => l.kind !== "loading" && plainText(l.html) !== "");
 
 /** The build list, without a Relay Beacon already on the bar as the main action. */
 export const barBuildings = (view: Pick<TileMenuView, "buildings">, primary: TileActionDef | undefined): TileActionDef[] =>
@@ -119,21 +126,23 @@ const minorRowHtml = (view: TileMenuView, buttons: readonly BarButton[]): string
   return minor.length > 0 ? `<div class="hud-v2-minor-row">${minor.join("")}</div>` : "";
 };
 
-/** Short facts that matter on sight, e.g. what a waystation gives (from the overview's Waystation section). */
-export const tileFacts = (view: Pick<TileMenuView, "overviewLines">): string[] => {
-  const start = view.overviewLines.findIndex((l) => l.kind === "section" && l.html.replace(/<[^>]+>/g, "").trim() === "Waystation");
-  if (start < 0) return [];
-  const facts: string[] = [];
-  for (const line of view.overviewLines.slice(start + 1)) {
-    if (line.kind === "section") break;
-    const text = line.html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").replace(/ :/g, ":").trim();
-    if (line.kind === "effect" && text && !text.startsWith("Activated by")) facts.push(text.replace(/^Status: /, ""));
-  }
-  if (facts.length === 1 && facts[0] === "Dormant") facts.push("One random bonus when claimed");
-  return [`Waystation`, ...facts];
+// Overview lines are trusted HTML the menu builds itself (the legacy panel renders them the same way). Their
+// structure-info buttons are wired to the legacy panel only, so they become plain text here.
+const detailLineHtml = (line: TileMenuView["overviewLines"][number]): string => {
+  const kind = line.kind ? ` hud-v2-detail-${line.kind}` : "";
+  const html = line.html.replace(/<button\b[^>]*>([\s\S]*?)<\/button>/g, "$1");
+  return `<div class="hud-v2-detail-line tile-overview-line${line.kind ? ` tile-overview-line-${line.kind}` : ""}${line.nested ? " tile-overview-line-nested" : ""}${kind}">${html}</div>`;
 };
 
-export const actionBarHtml = (view: TileMenuView, panel?: BarPanel): string => {
+const detailsHtml = (view: TileMenuView): string =>
+  `<div class="hud-v2-pop hud-v2-details" role="region" aria-label="Tile details">${view.overviewLines.filter((l) => l.kind !== "loading").map(detailLineHtml).join("")}</div>`;
+
+const factsHtml = (facts: readonly TileFact[]): string =>
+  facts.length > 0
+    ? `<div class="hud-v2-tile-facts">${facts.map((f) => `<span class="hud-v2-fact${f.tone ? ` hud-v2-fact-${f.tone}` : ""}"><span class="hud-v2-fact-label">${esc(f.label)}</span>${esc(f.value)}</span>`).join("")}</div>`
+    : "";
+
+export const actionBarHtml = (view: TileMenuView, panel?: BarPanel, facts: readonly TileFact[] = []): string => {
   const buttons = selectBarButtons(view);
   const status = view.statusText ? `<span class="hud-v2-tile-status hud-v2-tile-status-${view.statusTone ?? "neutral"}">${esc(view.statusText)}</span>` : "";
   const head = `<div class="hud-v2-tile-head"><span class="hud-v2-tile-text"><span class="hud-v2-tile-title">${esc(view.title)}</span><span class="hud-v2-tile-sub">${view.subtitleHtml ?? esc(view.subtitle)}</span></span>${status}<button type="button" class="hud-v2-tile-close" data-hud-v2-close aria-label="Close">✕</button></div>`;
@@ -142,9 +151,7 @@ export const actionBarHtml = (view: TileMenuView, panel?: BarPanel): string => {
     : `<button type="button" class="hud-v2-act hud-v2-act-${b.panel}${b.panel === panel ? " hud-v2-act-open" : ""}" data-hud-v2-panel="${b.panel}" aria-expanded="${b.panel === panel}">${esc(b.label)}</button>`)).join("");
   const primary = buttons.find((b): b is Extract<BarButton, { kind: "action" }> => b.kind === "action" && b.primary);
   const autoSettle = primary?.action.autoSettleOption;
-  const facts = tileFacts(view);
-  const factsHtml = facts.length > 0 ? `<div class="hud-v2-tile-facts">${facts.map((f) => `<span>${esc(f)}</span>`).join("")}</div>` : "";
   // A Garrison checkbox belongs with whichever Garrison button is showing (main or minor row).
   const garrisonOption = autoSettle ?? moreActions(view, buttons).find((a) => a.autoSettleOption)?.autoSettleOption;
-  return `${head}${factsHtml}${panel === "aether" ? aetherListHtml(view) : ""}${row ? `<div class="hud-v2-act-row">${row}</div>` : ""}${minorRowHtml(view, buttons)}${garrisonOption ? autoSettleOptionHtml(garrisonOption) : ""}`;
+  return `${head}${factsHtml(facts)}${panel === "aether" ? aetherListHtml(view) : ""}${panel === "details" ? detailsHtml(view) : ""}${row ? `<div class="hud-v2-act-row">${row}</div>` : ""}${minorRowHtml(view, buttons)}${garrisonOption ? autoSettleOptionHtml(garrisonOption) : ""}`;
 };

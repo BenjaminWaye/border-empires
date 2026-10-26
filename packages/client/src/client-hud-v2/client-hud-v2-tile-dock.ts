@@ -10,6 +10,7 @@ import type { Tile, TileActionDef, TileMenuTab, TileMenuView } from "../client-t
 import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
 import { actionBarHtml, barBuildings, selectBarButtons, type BarPanel } from "./client-hud-v2-action-bar.js";
 import { buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
+import { tileFactsFor } from "./client-hud-v2-tile-facts.js";
 import { isHudV2Active } from "./client-hud-v2-flag.js";
 
 export type TileDockDeps = {
@@ -87,7 +88,8 @@ const paintBar = (): void => {
   const bar = barEl();
   if (!dock || !bar || !dock.lastView) return;
   const view = dock.lastView;
-  const html = actionBarHtml(view, dock.panel === "build" ? "build" : dock.panel);
+  const facts = tileFactsFor(dock.state.tiles.get(dock.state.tileActionMenu.currentTileKey), view, dock.state.me);
+  const html = actionBarHtml(view, dock.panel, facts);
   if (html !== dock.lastHtml) {
     bar.innerHTML = html;
     dock.lastHtml = html;

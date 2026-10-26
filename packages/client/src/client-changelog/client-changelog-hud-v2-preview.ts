@@ -25,5 +25,16 @@ export const HUD_V2_PREVIEW_CHANGELOG: ClientChangelogEntry[] = [
       "Your own tiles show Relay Beacon first, then Raise flag and Build ▸, which opens a build list at the side. Other actions such as Garrison sit in a row of small buttons below, not in a hidden menu.",
       "Selecting a waystation shows the bonus it gives straight away."
     ]
+  },
+  {
+    createdAt: 1793045263832, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.26.1",
+    title: "HUD preview: tile facts and top three",
+    why: "The new tile panel had no way to see what a tile does, and the Ranks race showed only the leader and you.",
+    changes: [
+      "Selecting a tile shows a short strip of facts: a building's state, what it gives and its upkeep; a dock's coin and links; a town's tier, coin and food; your odds against an enemy tile.",
+      "Details ▾ in the tile panel opens the full tile overview in place.",
+      "Ranks race tracks show the top three on each path, plus you."
+    ]
   }
 ];
