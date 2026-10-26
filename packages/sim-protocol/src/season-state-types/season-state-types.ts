@@ -37,8 +37,9 @@ export type SeasonVictoryObjectiveSnapshot = {
   /** The viewing player's own 0..1 progress on an objective they don't lead
    *  (numeric companion to selfProgressLabel; per-player, merged at broadcast). */
   selfProgress?: number;
-  /** Up to two runners-up behind the leader (Ranks race tracks), best first. `progress` has
-   *  the same meaning as selfProgress for that player. */
+  /** Up to two runners-up behind the leader (Ranks race tracks), best first; none without a leader.
+   *  `progress` has the same meaning as selfProgress for that player, except Economic Hegemony,
+   *  where it is income as a share of the leader's (the client scales it onto the leader's position). */
   contenders?: SeasonVictoryContender[];
 };
 

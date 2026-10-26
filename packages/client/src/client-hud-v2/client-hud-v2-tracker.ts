@@ -19,6 +19,10 @@ export type TrackerInput = {
   nowMs: number;
 };
 
+/** An attack (opens the battle screen) rather than a frontier expansion still landing. */
+export const captureIsBattle = (capture: { actionType?: "EXPAND" | "ATTACK"; combatSnapshot?: unknown }): boolean =>
+  capture.actionType === "ATTACK" || Boolean(capture.combatSnapshot);
+
 /** Caps each group so a busy empire never pushes the tracker off screen. */
 export const TRACKER_GROUP_CAP = 4;
 

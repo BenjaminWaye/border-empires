@@ -25,11 +25,22 @@ describe("merged Chronicle", () => {
   // Regression: the old dashboard (What's new, World Pulse, activity) still opened alongside the Chronicle.
   it("takes over the legacy dashboard's auto-open, on the tab it would have shown", () => {
     const state = createInitialState();
-    expect(takeOverLegacyDashboard(state)).toBeUndefined();
+    expect(takeOverLegacyDashboard(state, null)).toBeUndefined();
     state.activityDashboard.open = true;
     state.activityDashboard.activeView = "UPDATES";
-    expect(takeOverLegacyDashboard(state)).toBe("updates");
+    expect(takeOverLegacyDashboard(state, null)).toBe("updates");
     expect(state.activityDashboard.open).toBe(false);
+  });
+
+  // Review: a timeline refetch while Chronicle (or another screen) is open re-ran the auto-open and flipped to Updates.
+  it("never interrupts a screen that is already open", () => {
+    const state = createInitialState();
+    state.activityDashboard.open = true;
+    state.activityDashboard.activeView = "UPDATES";
+    expect(takeOverLegacyDashboard(state, "chronicle")).toBeUndefined();
+    expect(state.activityDashboard.open).toBe(false);
+    state.activityDashboard.open = true;
+    expect(takeOverLegacyDashboard(state, "manifest")).toBeUndefined();
   });
 
   it("shows unseen release notes, then marks them seen without collapsing the list", () => {

@@ -70,9 +70,11 @@ export const chronicleTabClick = (deps: HudV2Deps, target: Element): boolean => 
 /**
  * The legacy dashboard opens itself on login (new activity, else unseen release notes) and from its old
  * buttons. Under the new HUD that becomes the Chronicle on the same tab; returns the tab to open, or undefined.
+ * It never interrupts a screen that is already open: every timeline refetch (each Chronicle open, a reconnect)
+ * re-runs that auto-open logic, which would otherwise flip an open Chronicle to Updates or replace the Manifest.
  */
-export const takeOverLegacyDashboard = (state: HudV2Deps["state"]): ChronicleTab | undefined => {
+export const takeOverLegacyDashboard = (state: HudV2Deps["state"], openScreenId: string | null): ChronicleTab | undefined => {
   if (!state.activityDashboard.open) return undefined;
   state.activityDashboard.open = false;
-  return chronicleTabForDashboardView(state.activityDashboard.activeView);
+  return openScreenId ? undefined : chronicleTabForDashboardView(state.activityDashboard.activeView);
 };

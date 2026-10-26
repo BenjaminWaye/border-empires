@@ -249,7 +249,7 @@ body.hud-v2 #side-panel { top: 128px; bottom: 236px; }
 /* Settings is a centred dialog over the dimmed map, not a side panel. */
 .hud-v2-dim { display: none; position: fixed; inset: 0; z-index: 48; background: rgba(8, 6, 3, 0.62); pointer-events: auto; }
 body.hud-v2-settings-open .hud-v2-dim { display: block; }
-body.hud-v2-settings-open #side-panel { top: 50%; left: 50%; right: auto; bottom: auto; transform: translate(-50%, -50%); width: min(560px, calc(100vw - 32px)); height: min(80vh, 760px); z-index: 49; }
+body.hud-v2.hud-v2-settings-open #side-panel { top: 50%; left: 50%; right: auto; bottom: auto; transform: translate(-50%, -50%); width: min(560px, calc(100vw - 32px)); height: min(80vh, 760px); z-index: 49; }
 
 /* ---- Bottom-right: manpower orb ---- */
 .hud-v2-orb-slot { position: fixed; right: 16px; bottom: 16px; z-index: 40; }

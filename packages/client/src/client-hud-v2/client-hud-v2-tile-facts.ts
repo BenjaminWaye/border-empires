@@ -3,8 +3,8 @@
 // coin, a fight's odds). Everything else stays one click away under
 // Details ▾, which shows the full overview inside the panel.
 
-import { structureModifiersFor, type ModifierStructureType } from "@border-empires/game-domain";
-import { isRedesignedRelic, NATURAL_WONDER_LABELS, relicOperationalState, RELIC_DEFINITIONS, structureDisplayName, type SlotStructureType, type StructureDisplayKey } from "@border-empires/shared";
+import { structureModifiersFor } from "@border-empires/game-domain";
+import { isRedesignedRelic, NATURAL_WONDER_LABELS, relicOperationalState, RELIC_DEFINITIONS, structureDisplayName } from "@border-empires/shared";
 import { resourceSlotProductionHtml } from "../client-tile-menu-view/client-tile-resource-slot-production.js";
 import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
 import { displayTownPopulationTierLabel, isTownGrowthPaused, populationPerMinuteLabel, townNextGrowthEtaLabel } from "../client-town-growth/client-town-growth.js";
@@ -20,8 +20,18 @@ const MAX_GIVES = 2;
 export const plainText = (html: string): string =>
   html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").replace(/ ([:,.])/g, "$1").trim();
 
+type StructureKey =
+  | NonNullable<Tile["economicStructure"]>["type"]
+  | NonNullable<NonNullable<Tile["fort"]>["variant"]>
+  | "FORT"
+  | NonNullable<NonNullable<Tile["siegeBattery"]>["variant"]>
+  | "OBSERVATORY";
+
+/** Upkeep that depends on how many you own (free first Relay Beacons, progressive Observatory cost): left to Details. */
+const COUNT_DEPENDENT_UPKEEP: ReadonlySet<StructureKey> = new Set<StructureKey>(["RELAY_BEACON", "OBSERVATORY"]);
+
 type StructureSlot = {
-  key: string;
+  key: StructureKey;
   status: "under_construction" | "active" | "inactive" | "removing";
   inactiveReason?: "manual" | "upkeep";
   disabledUntil?: number;
@@ -47,13 +57,13 @@ const stateFact = (s: StructureSlot, nowMs: number): TileFact => {
 
 const structureFacts = (s: StructureSlot, mine: boolean, nowMs: number): TileFact[] => {
   const facts: TileFact[] = [];
-  const name = structureDisplayName(s.key as StructureDisplayKey);
+  const name = structureDisplayName(s.key);
   if (name && plainText(name) !== "") facts.push({ label: "Building", value: name });
   facts.push(stateFact(s, nowMs));
-  const gives = structureModifiersFor(s.key as ModifierStructureType).slice(0, MAX_GIVES).map((m) => `${m.statLabel.charAt(0).toUpperCase()}${m.statLabel.slice(1)} ${m.valueText}`);
+  const gives = structureModifiersFor(s.key).slice(0, MAX_GIVES).map((m) => `${m.statLabel.charAt(0).toUpperCase()}${m.statLabel.slice(1)} ${m.valueText}`);
   if (gives.length > 0) facts.push({ label: "Gives", value: gives.join(" · ") });
-  if (mine) {
-    const upkeep = upkeepDescriptorFor(s.key as SlotStructureType);
+  if (mine && !COUNT_DEPENDENT_UPKEEP.has(s.key)) {
+    const upkeep = upkeepDescriptorFor(s.key);
     if (upkeep.length > 0) facts.push({ label: "Upkeep", value: upkeep.join(" · ") });
   }
   return facts;
@@ -74,15 +84,16 @@ const townFacts = (tile: Tile, mine: boolean, nowMs: number): TileFact[] => {
   const town = tile.town;
   if (!town) return [];
   const facts: TileFact[] = [{ label: "Town", value: displayTownPopulationTierLabel(town.populationTier) }];
-  if (tile.ownershipState === "SETTLED") facts.push({ label: "Coin", value: coinPerDay(tile.yieldRate?.goldPerMinute ?? 0) });
+  // Only your own towns carry their yield; a rival's would read 0.0/day.
+  if (mine && tile.ownershipState === "SETTLED") facts.push({ label: "Coin", value: coinPerDay(tile.yieldRate?.goldPerMinute ?? 0) });
   if (typeof town.isFed === "boolean") facts.push(town.isFed ? { label: "Food", value: "Fed", tone: "good" } : { label: "Food", value: "Unfed", tone: "warn" });
   const growth = mine && tile.ownershipState === "SETTLED" ? townGrowth(town, nowMs) : undefined;
   if (growth) facts.push(growth.paused ? { label: "Growth", value: "Paused", tone: "warn" } : { label: "Growth", value: growth.rate });
   return facts;
 };
 
-const dockFacts = (tile: Tile): TileFact[] => {
-  if (!tile.dockId || tile.ownershipState !== "SETTLED" || !tile.dock) return [];
+const dockFacts = (tile: Tile, mine: boolean): TileFact[] => {
+  if (!mine || !tile.dockId || tile.ownershipState !== "SETTLED" || !tile.dock) return [];
   const linked = tile.dock.connectedDockCount;
   return [
     { label: "Dock", value: coinPerDay(tile.dock.goldPerMinute) },
@@ -140,7 +151,9 @@ const wonderFacts = (tile: Tile, mine: boolean): TileFact[] => {
     const gives = RELIC_DEFINITIONS[wonder.type].benefit.split(/[;.]/)[0]?.trim() ?? "";
     return [
       { label: "Relic", value: RELIC_DEFINITIONS[wonder.type].name },
-      state === "active" && mine ? { label: "State", value: "Active", tone: "good" } : state === "depleted" ? { label: "State", value: "Depleted", tone: "warn" } : { label: "State", value: mine ? "Garrison to activate" : "Dormant" },
+      state === "depleted" ? { label: "State", value: "Depleted", tone: "warn" }
+        : state === "active" ? (mine ? { label: "State", value: "Active", tone: "good" } : { label: "State", value: "Held" })
+        : { label: "State", value: mine ? "Garrison to activate" : "Dormant" },
       ...(gives ? [{ label: "Gives", value: gives }] : [])
     ];
   }
@@ -187,7 +200,7 @@ export const tileFactsFor = (
     ...(!mine ? fightFacts(view) : []),
     ...(structure ? structureFacts(structure, mine, nowMs) : []),
     ...townFacts(tile, mine, nowMs),
-    ...dockFacts(tile),
+    ...dockFacts(tile, mine),
     ...(!structure && !tile.town && !tile.naturalWonder ? landFacts(tile, mine) : [])
   ];
   return facts.slice(0, MAX_FACTS);

@@ -26,7 +26,7 @@ import { profileScreenStep } from "./client-hud-v2-profile.js";
 import { chronicleBadgeCount, takeOverLegacyDashboard } from "./client-hud-v2-chronicle-runtime.js";
 import { setDockListener } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, townOnMenuView } from "./client-hud-v2-town-runtime.js";
-import { trackerHtml } from "./client-hud-v2-tracker.js";
+import { captureIsBattle, trackerHtml } from "./client-hud-v2-tracker.js";
 import "./client-hud-v2.css";
 import "./client-hud-v2-screens.css";
 import "./client-hud-v2-town-battle.css";
@@ -178,6 +178,13 @@ const onEscape = (deps: HudV2Deps, event: KeyboardEvent): void => {
     consume();
     return;
   }
+  // A building / ability info card (opened from a Manifest chip) closes before the screen under it.
+  if (state.structureInfoKey || state.crystalAbilityInfoKey) {
+    state.structureInfoKey = "";
+    state.crystalAbilityInfoKey = "";
+    consume();
+    return;
+  }
   // A panel over a screen (Settings from the gear) closes before the screen; AFC's panel is its screen.
   if (state.activePanel && screen.id !== "afc") {
     state.activePanel = null;
@@ -247,7 +254,7 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
   }
   const elapsed = nowMs - trackerScan.at;
   const capture = state.capture && !state.capture.silent
-    ? { x: state.capture.target.x, y: state.capture.target.y, resolvesAt: state.capture.resolvesAt, battle: state.capture.actionType === "ATTACK" || Boolean(state.capture.combatSnapshot) }
+    ? { x: state.capture.target.x, y: state.capture.target.y, resolvesAt: state.capture.resolvesAt, battle: captureIsBattle(state.capture) }
     : undefined;
   writeRegion("tracker", trackerHtml({
     buildSlots: trackerScan.buildSlots,
@@ -295,22 +302,23 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     document.body.classList.toggle("hud-v2-settings-open", onScreen && deps.state.activePanel === "settings");
     // The overlay's toggle and legend live in this HUD; without it (phone width) the tint goes too.
     if (!flagOn && deps.state.showDiplomacyOverlay) deps.state.showDiplomacyOverlay = false;
+    // Leaving the new HUD (phone width) must not strand a screen: a hosted profile, or a Chronicle that popups wait on.
+    if (!flagOn && screen.id) closeScreen(deps);
+    deps.state.activityDashboard.chronicleOpen = onScreen && screen.id === "chronicle";
     if (!onScreen || !deps.state.me) return;
     const nowMs = Date.now();
     renderFast(deps.state, deps.ownerColor, nowMs);
     if (tick % TRACKER_EVERY_TICKS === 0) renderTracker(deps.state, nowMs);
     // The legacy activity dashboard (login briefing, release notes) opens as the Chronicle on the same tab.
-    const dashboardTab = takeOverLegacyDashboard(deps.state);
+    const dashboardTab = takeOverLegacyDashboard(deps.state, screen.id);
     if (dashboardTab) {
       screen.chronicleTab = dashboardTab;
-      if (screen.id === "chronicle") renderScreen(deps);
-      else openScreen(deps, "chronicle");
+      openScreen(deps, "chronicle");
     }
     // A player profile (crest, a name, Ranks) opens as its own screen; dismissing it closes the screen.
     const profileStep = profileScreenStep(deps.state.activePlayerProfileId, screen.id);
     if (profileStep === "open") openScreen(deps, "profile");
     else if (profileStep === "close") closeScreen(deps);
-    deps.state.activityDashboard.chronicleOpen = screen.id === "chronicle";
     if (screen.id && screen.id !== "town") renderScreen(deps);
     tick += 1;
   };

@@ -47,4 +47,15 @@ describe("season victory contenders", () => {
     expect(objective.contenders?.map((c) => c.playerId)).toEqual(["p2", "p3"]);
     expect(objective.contenders?.[0]?.progress).toBeCloseTo(0.5);
   });
+
+  // Review: with the leader under the minimum income, runners-up were divided by the floor twice (drawn too far back).
+  it("measures Economic Hegemony runners-up against the leader's income, not the minimum", () => {
+    const objective = buildEconomicHegemonyObjective([entry("p1", 500 / 1440, 1), entry("p2", 400 / 1440, 2)]);
+    expect(objective.contenders?.[0]?.progress).toBeCloseTo(0.8);
+  });
+
+  it("has no runners-up on a path nobody leads", () => {
+    const progress = new Map<string, Map<SeasonVictoryPathId, number>>([["a", new Map([["TOWN_CONTROL", 0.4]])]]);
+    expect(topContenders({ id: "TOWN_CONTROL" }, progress, (id) => id)).toEqual([]);
+  });
 });

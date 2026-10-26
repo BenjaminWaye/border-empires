@@ -163,12 +163,14 @@ export const buildEconomicHegemonyObjective = (
     progress
   };
   if (leaderPlayerId) objective.leaderPlayerId = leaderPlayerId;
-  // Runners-up use the same income-over-leader measure as a non-leader's selfProgress (season-victory-self-progress.ts).
-  const denominator = Math.max(leaderValue, SEASON_VICTORY_ECONOMY_MIN_INCOME);
-  const contenders = ranked
-    .slice(1, 1 + MAX_SEASON_VICTORY_CONTENDERS)
-    .filter((entry) => entry.incomePerMinute > 0)
-    .map((entry) => ({ playerId: entry.id, name: entry.name, progress: denominator > 0 ? clamp01(entry.incomePerMinute / denominator) : 0 }));
+  // Runners-up carry their income as a share of the leader's; the client scales that onto the leader's
+  // position, so dividing by the minimum-income floor here as well would count it twice.
+  const contenders = leaderPlayerId && leaderValue > 0
+    ? ranked
+      .slice(1, 1 + MAX_SEASON_VICTORY_CONTENDERS)
+      .filter((entry) => entry.incomePerMinute > 0)
+      .map((entry) => ({ playerId: entry.id, name: entry.name, progress: clamp01(entry.incomePerMinute / leaderValue) }))
+    : [];
   if (contenders.length > 0) objective.contenders = contenders;
   return objective;
 };

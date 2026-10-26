@@ -41,6 +41,7 @@ export const openScreen = (deps: HudV2Deps, id: HudV2ScreenId, options: { diplom
   if (screen.id && screen.id !== id) closeScreen(deps);
   if (id === "chronicle") {
     setScreen("chronicle", `<aside class="v2c-drawer" id="v2c-drawer" aria-label="Chronicle"></aside>`);
+    screen.chronicleUpdatesBaseline = undefined;
     loadChronicleTab(deps, screen.chronicleTab);
   } else {
     setScreen(id, FRAME_SKELETON);
@@ -173,9 +174,11 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
   }));
 };
 
-export const offerSentTitle = (payload: unknown): string => {
-  if (typeof payload !== "object" || payload === null) return "Offer sent";
-  if ("type" in payload && payload.type === "ALLIANCE_REQUEST") return "Alliance offered";
+/** The alert title for a sent offer; undefined for anything else the deal view sends (e.g. its stance lookup on open). */
+export const offerSentTitle = (payload: unknown): string | undefined => {
+  if (typeof payload !== "object" || payload === null || !("type" in payload)) return undefined;
+  if (payload.type === "ALLIANCE_REQUEST") return "Alliance offered";
+  if (payload.type !== "TRUCE_REQUEST") return undefined;
   const hours = "durationHours" in payload ? payload.durationHours : undefined;
   return `Truce offered${typeof hours === "number" ? ` · ${hours}h` : ""}`;
 };
@@ -188,7 +191,8 @@ const hostTradeView = (deps: HudV2Deps, targetId: string, input?: Parameters<typ
   // The deal view closes on send; say the offer went out (the reply replaces this alert, above the screen).
   const send = (payload: unknown, notSignedInMessage: string): boolean => {
     const sent = deps.sendGameMessage(payload, notSignedInMessage);
-    if (sent) showCaptureAlert(state, offerSentTitle(payload), `Waiting for ${offer.targetName}`, "success");
+    const title = sent ? offerSentTitle(payload) : undefined;
+    if (title) showCaptureAlert(state, title, `Waiting for ${offer.targetName}`, "success");
     return sent;
   };
   openDiplomacyTradeScreen(offer, diplomacyTradeDepsFor(state, send));

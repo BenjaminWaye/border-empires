@@ -11,12 +11,13 @@ export const MAX_SEASON_VICTORY_CONTENDERS = 2;
 const byProgressDesc = (a: SeasonVictoryContender, b: SeasonVictoryContender): number =>
   (b.progress - a.progress) || a.playerId.localeCompare(b.playerId);
 
-/** Best two non-leaders with progress above zero, best first. */
+/** Best two non-leaders with progress above zero, best first; none on a path nobody leads. */
 export const topContenders = (
   objective: Pick<SeasonVictoryObjectiveSnapshot, "id" | "leaderPlayerId">,
   progressByPlayerId: ReadonlyMap<string, ReadonlyMap<SeasonVictoryPathId, number>>,
   nameOf: (playerId: string) => string
 ): SeasonVictoryContender[] => {
+  if (!objective.leaderPlayerId) return [];
   const all: SeasonVictoryContender[] = [];
   for (const [playerId, progresses] of progressByPlayerId) {
     if (playerId === objective.leaderPlayerId) continue;
