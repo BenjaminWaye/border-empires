@@ -14,7 +14,8 @@ import {
 } from "three";
 import { RENDER_ORDER } from "./client-map-3d-render-order.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
-import { computeShoreCalm, createShoreFoamLayer, FOAM_LIFT_Y } from "./client-map-3d-shore/client-map-3d-shore.js";
+import { computeShoreCalm } from "./client-map-3d-shore/client-map-3d-shore.js";
+import { createShoreLayers, type ShoreSandWiring } from "./client-map-3d-shore/client-map-3d-shore-layers.js";
 import { fillWaterVertexColors, WATER_DEEP_COLOR, WATER_SHALLOW_COLOR, type WaterTileState } from "./client-map-3d-water-surface-colors.js";
 
 export const WATER_SURFACE_Y = -0.06;
@@ -118,14 +119,13 @@ export type WaterSurfaceOptions = {
   // shore foam (client-map-3d-shore.ts); without it neither is drawn. Told
   // apart from undrawn (unexplored) sea, which must keep its waves.
   readonly isLandAt?: (worldX: number, worldZ: number) => boolean;
+  // Soft shoreline fringe (client-map-3d-shore-sand.ts); needs isLandAt too.
+  readonly shoreSand?: ShoreSandWiring;
 };
-
-// Foam would be sub-pixel this far out (window wider than this many tiles).
-const SHORE_FOAM_MAX_WINDOW_TILES = 140;
 
 export const createWaterSurface = (scene: Scene, _maxTiles: number, options: WaterSurfaceOptions = {}): WaterSurface => {
   const waveCalmCorners = options.waveCalmCorners ?? ((): ReadonlyMap<number, number> => new Map());
-  const shoreFoam = createShoreFoamLayer(scene, RENDER_ORDER.shoreFoam);
+  const shoreLayers = createShoreLayers(scene, options.shoreSand);
   // _maxTiles kept for API compatibility — merged geometry sizes itself.
 
   let tiles: TileEntry[] = [];
@@ -229,7 +229,7 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number, options: Wat
     }
     if (tiles.length === 0) {
       // No sea in view: drop the previous commit's foam too.
-      shoreFoam.rebuild([], () => false, WATER_SURFACE_Y, false);
+      shoreLayers.rebuild(null);
       return;
     }
 
@@ -400,9 +400,16 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number, options: Wat
       skirtMesh.renderOrder = 11;
       scene.add(skirtMesh);
     }
-    const foamEnabled = isLandAt !== undefined && Math.max(tileCols, tileRows) <= SHORE_FOAM_MAX_WINDOW_TILES;
-    // Foam works in scene grid coords; the land grid is relative to (minGC, minGR).
-    shoreFoam.rebuild(tiles, (gc, gr) => isLandTile(gc - minGC, gr - minGR), WATER_SURFACE_Y + FOAM_LIFT_Y, foamEnabled, mouthsInScene);
+    // Foam and fringe work in scene grid coords; the land grid is relative to (minGC, minGR).
+    shoreLayers.rebuild(isLandAt === undefined ? null : {
+      tiles,
+      isLandTile: (gc, gr) => isLandTile(gc - minGC, gr - minGR),
+      windowTiles: Math.max(tileCols, tileRows),
+      worldOffsetX: waveWorldOffsetX,
+      worldOffsetZ: waveWorldOffsetZ,
+      waterY: WATER_SURFACE_Y,
+      mouths: mouthsInScene
+    });
   };
 
   // Same swell+chop formula the main surface uses in tick() below — shared
@@ -470,7 +477,7 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number, options: Wat
     material.dispose();
     skirtMaterial.dispose();
     floorMaterial.dispose();
-    shoreFoam.dispose();
+    shoreLayers.dispose();
     swellMap.dispose();
     choppyMap.dispose();
   };
