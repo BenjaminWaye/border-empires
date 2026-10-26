@@ -10,13 +10,23 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { HeightfieldCornerAttributes } from "../client-map-3d-heightfield/client-map-3d-heightfield-corners.js";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { createShoreFoamLayer, FOAM_LIFT_Y } from "./client-map-3d-shore.js";
-import { createShoreSandLayer, createShoreWaterline, EMPTY_SHORE_FRINGE, type ShoreFringe } from "./client-map-3d-shore-sand.js";
+import {
+  createShoreSandLayer,
+  createShoreWaterline,
+  EMPTY_SHORE_FRINGE,
+  SHORE_SAND_SUBDIV,
+  SHORE_SAND_SUBDIV_FAR,
+  type ShoreFringe
+} from "./client-map-3d-shore-sand.js";
 
 // Foam would be sub-pixel this far out (window wider than this many tiles).
 // The sand fringe is never gated: it changes the coast's shape, and the
 // window size (the box around the sea in view) swings either side of any
 // threshold while panning, which flipped coasts between curved and square.
 const SHORE_FOAM_MAX_WINDOW_TILES = 140;
+// Past this window width the fringe drops to its coarse sample grid: it
+// keeps its curve (so no curved/square flip), just with fewer vertices.
+const SHORE_SAND_FINE_MAX_WINDOW_TILES = 100;
 
 export type ShoreSandWiring = {
   /** The heightfield's own material, so the fringe continues the beach exactly. */
@@ -65,6 +75,7 @@ export const createShoreLayers = (scene: Scene, sandWiring: ShoreSandWiring | un
     if (!sand || !sandWiring || !waterline) return;
     const fringe = sand.rebuild(tiles, {
       isLandTile,
+      subdiv: commit.windowTiles <= SHORE_SAND_FINE_MAX_WINDOW_TILES ? SHORE_SAND_SUBDIV : SHORE_SAND_SUBDIV_FAR,
       worldOffsetX,
       worldOffsetZ,
       waterY,

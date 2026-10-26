@@ -393,8 +393,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_OCT_25,
   ...CLIENT_CHANGELOG_ENTRIES_OCT_26,
   {
-    createdAt: 1793013072070, // Date.now() captured for this entry.
-    introducedIn: "2026.10.26.9",
+    createdAt: 1793053147136, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.26.3",
     title: "Natural coastlines",
     why: "Coasts stepped along the tile grid, and territory colour stopped in square steps short of the water.",
     changes: [

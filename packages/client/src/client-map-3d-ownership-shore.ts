@@ -20,10 +20,12 @@
 import { BufferAttribute, BufferGeometry, Mesh, type Material, type Scene } from "three";
 import type { ShoreFringe } from "./client-map-3d-shore/client-map-3d-shore-sand.js";
 
-// Same lift client-map-3d.ts puts the ownership quads over the heightfield
-// (OWNERSHIP_RISE_ABOVE_HEIGHTFIELD), so the fringe tint meets the tile's
-// own at the coast edge.
-const SHORE_TINT_RISE = 0.022;
+/**
+ * How far client-map-3d.ts lifts the ownership quads over the heightfield.
+ * The fringe tint uses the same lift, so it meets the tile's own at the
+ * coast edge.
+ */
+export const OWNERSHIP_RISE_ABOVE_HEIGHTFIELD = 0.022;
 
 /** Ownership tint strength at the waterline, relative to the tile's own (1 = no fade). */
 export const OWNERSHIP_SHORE_EDGE_OPACITY = 0.15;
@@ -99,7 +101,7 @@ export const createOwnershipShoreTint = (
       for (let v = 0; v < polygon.count; v++) {
         const i = polygon.start + v;
         const p = i * 3;
-        target.positions.push(fringe.positions[p]!, fringe.positions[p + 1]! + SHORE_TINT_RISE, fringe.positions[p + 2]!);
+        target.positions.push(fringe.positions[p]!, fringe.positions[p + 1]! + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD, fringe.positions[p + 2]!);
         const strength = 1 - (1 - edgeOpacity) * fringe.seaward[i]!;
         if (toWhite) target.colors.push(1 + (tint.r - 1) * strength, 1 + (tint.g - 1) * strength, 1 + (tint.b - 1) * strength, 1);
         else target.colors.push(tint.r, tint.g, tint.b, strength);

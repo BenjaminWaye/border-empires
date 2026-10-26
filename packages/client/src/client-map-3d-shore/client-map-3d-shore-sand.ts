@@ -59,7 +59,13 @@ const SHORE_WARP_BROAD = 0.22;
 const SHORE_WARP_BROAD_SCALE = 0.9;
 const SHORE_WARP_FINE = 0.07;
 const SHORE_WARP_FINE_SCALE = 2.6;
-const SHORE_SAND_SUBDIV = 8;
+// Sample grid per sea tile, per side. Cost grows with its square, and the
+// fringe is rebuilt on the main thread on every terrain rebuild: 8 cost
+// ~0.75 ms per coastal tile (seconds for a zoomed-out coast); 4 is ~0.14 ms
+// and looks the same up close. Far out, where a tile is a few pixels,
+// SHORE_SAND_SUBDIV_FAR is plenty (client-map-3d-shore-layers.ts picks).
+export const SHORE_SAND_SUBDIV = 4;
+export const SHORE_SAND_SUBDIV_FAR = 2;
 // Width (tiles) of the band inside the waterline that ShoreSandBuffers.seaward
 // ramps across. Under a typical ~0.3-tile beach, so the band sits on the
 // fringe and the land tile's own overlay meets it at full strength.
@@ -158,7 +164,11 @@ export const createShoreWaterline = (
   return shaped * fade - (1 - fade) * d;
 };
 
-type LandSquare = { readonly x: number; readonly z: number };
+// `corners` caches the square's four rendered corners (or null when one
+// wasn't drawn), read once per sea tile rather than per fringe vertex.
+type LandSquare = { readonly x: number; readonly z: number; corners?: HeightfieldCornerAttributes[] | null };
+// A fringe outline point and its waterline value (> 0 inside the sand).
+type FringePoint = readonly [x: number, z: number, s: number];
 
 export type ShoreSandTileInputs = {
   /** Scene grid coords of the sea tile. */
@@ -172,6 +182,8 @@ export type ShoreSandTileInputs = {
   readonly waterline: ShoreWaterline;
   /** Rendered land corner at scene corner (x, z); false if the heightfield didn't draw it. */
   readonly cornerAt: (sceneCornerX: number, sceneCornerZ: number, out: HeightfieldCornerAttributes) => boolean;
+  /** Sample grid per side (default SHORE_SAND_SUBDIV). */
+  readonly subdiv?: number;
 };
 
 /**
@@ -201,7 +213,6 @@ export type ShoreSandBuffers = {
 type Sample = { s: number; x: number; z: number };
 
 const newCorner = (): HeightfieldCornerAttributes => ({ y: 0, r: 0, g: 0, b: 0, forestZone: 0, tundraZone: 0 });
-const cornerScratch = [newCorner(), newCorner(), newCorner(), newCorner()];
 
 /** Appends the fringe for one sea tile. Open sea (no land among its 8 neighbours) adds nothing. */
 export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTileInputs): void => {
@@ -224,7 +235,7 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
     for (const sq of land) {
       const cx = Math.min(Math.max(x, sq.x), sq.x + 1);
       const cz = Math.min(Math.max(z, sq.z), sq.z + 1);
-      const d = Math.hypot(x - cx, z - cz);
+      const d = Math.sqrt((x - cx) * (x - cx) + (z - cz) * (z - cz));
       if (d < best) {
         best = d;
         nearest = sq;
@@ -235,18 +246,26 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
     return best;
   };
 
-  const emitVertex = (x: number, z: number): number => {
+  const cornersOf = (sq: LandSquare): HeightfieldCornerAttributes[] | null => {
+    if (sq.corners !== undefined) return sq.corners;
+    const c = [newCorner(), newCorner(), newCorner(), newCorner()];
+    const ok = cornerAt(sq.x, sq.z, c[0]!) && cornerAt(sq.x + 1, sq.z, c[1]!) && cornerAt(sq.x, sq.z + 1, c[2]!) && cornerAt(sq.x + 1, sq.z + 1, c[3]!);
+    sq.corners = ok ? c : null;
+    return sq.corners;
+  };
+
+  const emitVertex = (x: number, z: number, s: number): number => {
     // How far inside the sand this point is (0 on the waterline); the
     // distanceToLand call leaves `nearest`/`qx`/`qz` set for the corner lerp.
-    const depth = Math.max(0, waterline(x, z));
+    const depth = Math.max(0, s);
     const toLand = distanceToLand(x, z);
     const sq = nearest;
     const fx = qx - sq.x;
     const fz = qz - sq.z;
-    const [c00, c10, c01, c11] = cornerScratch as [HeightfieldCornerAttributes, HeightfieldCornerAttributes, HeightfieldCornerAttributes, HeightfieldCornerAttributes];
-    const ok =
-      cornerAt(sq.x, sq.z, c00) && cornerAt(sq.x + 1, sq.z, c10) && cornerAt(sq.x, sq.z + 1, c01) && cornerAt(sq.x + 1, sq.z + 1, c11);
+    const corners = cornersOf(sq);
+    const ok = corners !== null;
     const lerp = (k: keyof HeightfieldCornerAttributes): number => {
+      const [c00, c10, c01, c11] = corners as [HeightfieldCornerAttributes, HeightfieldCornerAttributes, HeightfieldCornerAttributes, HeightfieldCornerAttributes];
       const top = c00[k] + (c10[k] - c00[k]) * fx;
       const bottom = c01[k] + (c11[k] - c01[k]) * fx;
       return top + (bottom - top) * fz;
@@ -274,7 +293,7 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
     return index;
   };
 
-  const n = SHORE_SAND_SUBDIV;
+  const n = inputs.subdiv ?? SHORE_SAND_SUBDIV;
   const samples: Sample[] = [];
   for (let j = 0; j <= n; j++) {
     for (let i = 0; i <= n; i++) {
@@ -283,18 +302,21 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
       samples.push({ s: waterline(x, z), x, z });
     }
   }
-  const crossing = (a: Sample, b: Sample): [number, number] => {
+  const crossing = (a: Sample, b: Sample): FringePoint => {
     const k = a.s / (a.s - b.s);
-    return [a.x + (b.x - a.x) * k, a.z + (b.z - a.z) * k];
+    return [a.x + (b.x - a.x) * k, a.z + (b.z - a.z) * k, 0];
   };
-  const distanceToSquare = (sq: LandSquare, x: number, z: number): number =>
-    Math.hypot(x - Math.min(Math.max(x, sq.x), sq.x + 1), z - Math.min(Math.max(z, sq.z), sq.z + 1));
+  const distanceToSquare = (sq: LandSquare, x: number, z: number): number => {
+    const dx = x - Math.min(Math.max(x, sq.x), sq.x + 1);
+    const dz = z - Math.min(Math.max(z, sq.z), sq.z + 1);
+    return Math.sqrt(dx * dx + dz * dz);
+  };
   const nearestSquare = (x: number, z: number): LandSquare => {
     distanceToLand(x, z);
     return nearest;
   };
-  const emitPolygon = (poly: ReadonlyArray<readonly [number, number]>, sq: LandSquare): void => {
-    const ids = poly.map(([x, z]) => emitVertex(x, z));
+  const emitPolygon = (poly: ReadonlyArray<FringePoint>, sq: LandSquare): void => {
+    const ids = poly.map(([x, z, ws]) => emitVertex(x, z, ws));
     buffers.polygons.push({ start: ids[0]!, count: ids.length, landGc: sq.x, landGr: sq.z });
     for (let k = 1; k + 1 < ids.length; k++) buffers.indices.push(ids[0]!, ids[k]!, ids[k + 1]!);
   };
@@ -304,29 +326,35 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
   // then meet where two owners' tiles meet on the coast in a clean line,
   // instead of a sawtooth of whole triangles given to one or the other.
   // Convex in, convex out; depth is bounded by the 8 neighbouring squares.
-  const splitByLand = (poly: ReadonlyArray<readonly [number, number]>, depth: number): void => {
-    const owners = poly.map(([x, z]) => nearestSquare(x, z));
-    const first = owners[0]!;
-    const other = owners.find((sq) => sq.x !== first.x || sq.z !== first.z);
+  const splitByLand = (poly: ReadonlyArray<FringePoint>, depth: number): void => {
+    // Squares are compared by identity (nearestSquare returns `land`'s own
+    // objects); most pieces have a single owner and stop here unallocated.
+    const first = nearestSquare(poly[0]![0], poly[0]![1]);
+    let other: LandSquare | null = null;
+    for (let k = 1; k < poly.length && !other; k++) {
+      const sq = nearestSquare(poly[k]![0], poly[k]![1]);
+      if (sq !== first) other = sq;
+    }
     if (!other || depth >= 8) {
       emitPolygon(poly, other ? nearestSquare(poly.reduce((t, [x]) => t + x, 0) / poly.length, poly.reduce((t, [, z]) => t + z, 0) / poly.length) : first);
       return;
     }
-    const f = poly.map(([x, z]) => distanceToSquare(first, x, z) - distanceToSquare(other, x, z));
-    const near: [number, number][] = [];
-    const far: [number, number][] = [];
+    const split = other;
+    const f = poly.map(([x, z]) => distanceToSquare(first, x, z) - distanceToSquare(split, x, z));
+    const near: FringePoint[] = [];
+    const far: FringePoint[] = [];
     for (let e = 0; e < poly.length; e++) {
       const k = (e + 1) % poly.length;
       const p = poly[e]!;
       const q = poly[k]!;
       const fp = f[e]!;
       const fq = f[k]!;
-      (fp <= 0 ? near : far).push([p[0], p[1]]);
+      (fp <= 0 ? near : far).push(p);
       if (fp <= 0 !== fq <= 0) {
         const t = fp / (fp - fq);
-        const cut: [number, number] = [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t];
+        const cut: FringePoint = [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, p[2] + (q[2] - p[2]) * t];
         near.push(cut);
-        far.push([cut[0], cut[1]]);
+        far.push(cut);
       }
     }
     if (near.length >= 3) splitByLand(near, depth + 1);
@@ -335,11 +363,11 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
   // Keeps the inside (s > 0) part of triangle abc as a fan.
   const clipTriangle = (a: Sample, b: Sample, c: Sample): void => {
     const tri = [a, b, c];
-    const poly: [number, number][] = [];
+    const poly: FringePoint[] = [];
     for (let e = 0; e < 3; e++) {
       const p = tri[e]!;
       const q = tri[(e + 1) % 3]!;
-      if (p.s > 0) poly.push([p.x, p.z]);
+      if (p.s > 0) poly.push([p.x, p.z, p.s]);
       if (p.s > 0 !== q.s > 0) poly.push(crossing(p, q));
     }
     if (poly.length >= 3) splitByLand(poly, 0);

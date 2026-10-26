@@ -31,22 +31,23 @@ import { createFrontierClaimPlatePool, disposeFrontierClaimPlatePool } from "../
 import { applyPerspectiveCamera, createPerspectiveCamera } from "../client-map-3d-perspective-camera/client-map-3d-perspective-camera.js";
 import { createAtmosphere } from "../client-map-3d-atmosphere.js";
 import { addFoggedOverlayTile, type FoggedOverlayTile } from "../client-map-3d-fogged-mist/client-map-3d-fogged-tile-overlay.js";
-import { applyFoggedEdgeClipToOverlay } from "../client-map-3d-fogged-mist/client-map-3d-fogged-edge-clip.js";
+import { createFogOverlays } from "../client-map-3d-fogged-mist/client-map-3d-fog-overlays.js";
 import { createPointerPick, toroidDelta } from "../client-map-3d-pointer-pick.js";
 import { createHeightfield, type HeightfieldTerrainKind } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { createMountainMassifs } from "../client-map-3d-mountain-massif.js";
 import { createHillTerrain } from "../client-map-3d-hills.js";
 import { createMapWater, riverFoggedAt } from "./client-map-3d-water-wiring.js";
 import { hasLiveNeighbour, isShallowSeaTile, withUnexploredCoastRingAsFogged } from "./client-map-3d-terrain-tile-rules.js";
-import { FOGGED_FEATURE_TINT, FOGGED_WASH, FOGGED_WASH_OPACITY } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
-import { FOG_OVERLAY_RENDER_ORDERS, RENDER_ORDER } from "../client-map-3d-render-order.js";
+import { FOGGED_FEATURE_TINT, FOGGED_WASH } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
+import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { createVillageEffects } from "../client-map-3d-village-fx.js";
 import { createTownSupportTileOverlay } from "../client-map-3d-town-support-tile/client-map-3d-town-support-tile.js";
 import { createTownSupportTileSync } from "../client-map-3d-town-support-tile/client-map-3d-town-support-tile-sync.js";
 import type { RoadCutDirections } from "../client-map-3d-hill-shape.js";
 import { type TownSupportLookupDeps } from "../client-town-support-plot-lookup.js";
 import { createForest } from "../client-map-3d-forest.js"; import { createTropicalForest } from "../client-map-3d-tropical-forest.js";
-import { createOwnershipOverlay } from "../client-map-3d-ownership-overlay.js"; import { OWNERSHIP_SHORE_EDGE_OPACITY } from "../client-map-3d-ownership-shore.js"; import { hillNeighborFlagsAt } from "../client-map-3d-hill-shape.js"; import { tileSurfaceHeights } from "../client-map-3d-tile-surface-y/client-map-3d-tile-surface-y.js";
+import { createOwnershipOverlay } from "../client-map-3d-ownership-overlay.js";
+import { OWNERSHIP_RISE_ABOVE_HEIGHTFIELD, OWNERSHIP_SHORE_EDGE_OPACITY } from "../client-map-3d-ownership-shore.js"; import { hillNeighborFlagsAt } from "../client-map-3d-hill-shape.js"; import { tileSurfaceHeights } from "../client-map-3d-tile-surface-y/client-map-3d-tile-surface-y.js";
 import { createFrontierDecayPulseTracker } from "../client-map-3d-frontier-decay-pulse.js"; import { createBarbarianFrontierTintTracker, observeBarbarianFrontierTint } from "../client-map-3d-barbarian-frontier-tint.js";
 import {
   createBendingMarkerGeometry,
@@ -125,7 +126,6 @@ import type { ClientThreeTerrainRendererDeps } from "./client-map-3d-deps.js";
 const MAX_VISIBLE_TILES = resolveTileBudget(MIN_ZOOM); const AFC_MAX_INSTANCES = 48; // AFCs are rare (per-House + captures), unlike ordinary structures -- no need for the full tile budget
 const MAX_BRIDGE_PYLONS = 16; const MAX_WALL_PYLONS = 24; const MAX_WALL_ARCS = 12;
 const TILE_CENTER_OFFSET = 0.5;
-const OWNERSHIP_RISE_ABOVE_HEIGHTFIELD = 0.022;
 const MARKER_RISE_ABOVE_HEIGHTFIELD = 0.012;
 const OVERLAY_RISE_ABOVE_HEIGHTFIELD = 0.012;
 
@@ -145,7 +145,13 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   heightfield.setGridlinesVisible(true);
   const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES, { isMountainAt: (x, y) => terrainForWorldTile(x, y) === "MOUNTAIN", isColdAt: (x, y) => { const k = heightfieldKindAt(x, y); return k === "TUNDRA" || k === "SNOW"; }, wrapX: deps.wrapX, wrapY: deps.wrapY }); // lambdas: both lookups are declared further down
   const hillTerrain = createHillTerrain(scene, MAX_VISIBLE_TILES, heightfield.material);
-  const { waterSurface, riverOverlay } = createMapWater(scene, MAX_VISIBLE_TILES, { heightfield, mountainLookup: mountainMassifs.lookup, wrapX: deps.wrapX, wrapY: deps.wrapY, terrainAt: deps.terrainAt, onShoreFringe: (fringe) => { ownershipOverlay.extendOntoShore(fringe, OWNERSHIP_SHORE_EDGE_OPACITY); fogDarkenOverlay.extendOntoShore(fringe); fogOwnershipOverlay.extendOntoShore(fringe); } }); // ownership (fading toward the waterline) + fog tints carry over the beach fringe (client-map-3d-ownership-shore.ts)
+  const { waterSurface, riverOverlay } = createMapWater(scene, MAX_VISIBLE_TILES, { heightfield, mountainLookup: mountainMassifs.lookup, wrapX: deps.wrapX, wrapY: deps.wrapY, terrainAt: deps.terrainAt,
+    // Ownership (fading toward the waterline) and fog tints carry over the beach (client-map-3d-ownership-shore.ts); water commits after them.
+    onShoreFringe: (fringe) => {
+      ownershipOverlay.extendOntoShore(fringe, OWNERSHIP_SHORE_EDGE_OPACITY);
+      fogOverlays.extendOntoShore(fringe);
+    }
+  });
   const villageEffects = createVillageEffects(scene);
   const townSupportTiles = createTownSupportTileOverlay(scene, (2 * MAX_SUPPORT_RING_RADIUS + 1) ** 2 - 1); // sized for a wide-ring (GREAT_CITY/METROPOLIS) anchor, not the base 8 -- a fixed 8 cap used to silently drop tiles past the 8th
   // Per-tile last-seen captureShockUntil. Used to detect newly-shocked towns (capture event) so the floating "-pop" indicator fires once per capture.
@@ -155,14 +161,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const forest = createForest(scene, MAX_VISIBLE_TILES); const tropicalForest = createTropicalForest(scene, MAX_VISIBLE_TILES);
   const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES); const prospectClues = createProspectClueLayer(scene, MAX_VISIBLE_TILES);
   const frontierDecayPulse = createFrontierDecayPulseTracker(); const barbarianFrontierTint = createBarbarianFrontierTintTracker();
-  // Fogged tiles get a slate wash quad (normal blend at FOGGED_WASH_OPACITY, regardless of frontier/settled -- reuses both mesh buckets identically)
-  // plus a separate, dimmer ownership tint of the last-witnessed owner. Kept as distinct overlay instances from `ownershipOverlay` so the live
-  // SETTLED_OPACITY (0.85) constant is never touched. The owner tint is an explicit multiply blend -- alpha blend read washed-out.
-  const fogDarkenOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: FOGGED_WASH_OPACITY, frontier: FOGGED_WASH_OPACITY }, undefined, { settled: "normal", frontier: "normal" }, FOG_OVERLAY_RENDER_ORDERS); // slate wash: remembered land dimmed and desaturated under the fogged mist
-  const fogOwnershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.4, frontier: 0.12 }, undefined, { settled: "multiply", frontier: "multiply" }, FOG_OVERLAY_RENDER_ORDERS);
-  // Both end on the fogged mist's organic edge just past the tiles in sight, not on a square tile edge.
-  applyFoggedEdgeClipToOverlay(fogDarkenOverlay, atmosphere.foggedMist.edgeUniforms, "alpha");
-  applyFoggedEdgeClipToOverlay(fogOwnershipOverlay, atmosphere.foggedMist.edgeUniforms, "multiply");
+  const fogOverlays = createFogOverlays(scene, MAX_VISIBLE_TILES, atmosphere.foggedMist.edgeUniforms); // remembered land's slate wash + last-known-owner tint
+  const { fogDarkenOverlay, fogOwnershipOverlay } = fogOverlays;
   await deps.onStage?.("structures");
   const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture);
   const roadOverlay = createRoadOverlay(scene);

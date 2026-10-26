@@ -4,7 +4,7 @@ import { createHeightfield, type HeightfieldTerrainKind } from "@client/client-m
 import { createHillTerrain } from "@client/client-map-3d-hills.js";
 import { createWaterSurface } from "@client/client-map-3d-water-surface.js";
 import { createOwnershipOverlay } from "@client/client-map-3d-ownership-overlay.js";
-import { OWNERSHIP_SHORE_EDGE_OPACITY } from "@client/client-map-3d-ownership-shore.js";
+import { OWNERSHIP_RISE_ABOVE_HEIGHTFIELD, OWNERSHIP_SHORE_EDGE_OPACITY } from "@client/client-map-3d-ownership-shore.js";
 import { DEFAULT_LIGHTING, SUN_DISTANCE } from "@client/client-lighting-tuner/client-lighting-tuner-settings.js";
 import { createStage, wrapWithCleanup } from "../../fixtures/three-stage.js";
 
@@ -27,8 +27,6 @@ type Args = {
   ownership: boolean;
 };
 
-// Same lift the game's ownership loop puts over the heightfield (client-map-3d.ts).
-const OWNERSHIP_RISE_ABOVE_HEIGHTFIELD = 0.022;
 const WEST_OWNER = new Color("#d0453a");
 const EAST_OWNER = new Color("#3a6fd0");
 
