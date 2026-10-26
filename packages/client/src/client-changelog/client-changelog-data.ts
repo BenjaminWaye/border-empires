@@ -36,7 +36,6 @@ import { LOST_STRUCTURES_CHANGELOG } from "./client-changelog-lost-structures.js
 import { CAPTURED_MUSTER_CLEAR_CHANGELOG } from "./client-changelog-captured-muster-clear.js";
 import { ADVANCE_EFFORT_CHANGELOG } from "./client-changelog-advance-effort.js";
 import { FASTER_ATTACKS_FRONTIER_COST_CHANGELOG } from "./client-changelog-faster-attacks-frontier-cost.js";
-import { SHARD_COMEBACK_CHANGELOG } from "./client-changelog-shard-comeback.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -311,7 +310,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CAPTURED_MUSTER_CLEAR_CHANGELOG,
   ...ADVANCE_EFFORT_CHANGELOG,
   ...FASTER_ATTACKS_FRONTIER_COST_CHANGELOG,
-  ...SHARD_COMEBACK_CHANGELOG
+  {
+    createdAt: 1792792926334, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.23.1",
+    title: "Shards are now a way back after a heavy defeat",
+    why: "Coming back to find most of your land taken left you with an empty manpower pool and hours of waiting before you could fight back.",
+    changes: [
+      "Donate 1 Shard to the Court from the Manpower panel and it sends an Imperial delivery of ancillaries, refilling your manpower to its cap at once",
+      "The delivery card only appears while you hold a Shard; it never takes you above your cap, and it is unavailable while your Titanium Levy has regen frozen",
+      "Shard rain now favours empires that recently lost a large share of their land: up to half of each rain's sites fall on their own territory, so they can collect them straight away",
+      "The bigger your recent loss, the more likely a site lands on your land, and the effect fades over about a day as your empire settles at its new size"
+    ]
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
