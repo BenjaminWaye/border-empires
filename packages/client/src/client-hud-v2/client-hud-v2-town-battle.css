@@ -50,7 +50,8 @@
 .v2t-build-on { background: #221c13; border-left-color: var(--v2-gold); }
 .v2t-build-off { opacity: 0.6; }
 .v2t-build-ico { flex: none; width: 48px; height: 48px; display: grid; place-items: center; overflow: hidden; background: #2a2216; border: 1px solid var(--v2-edge-strong); }
-.v2t-build-ico img { width: 44px; height: 44px; object-fit: contain; }
+.v2t-build-ico > span { position: relative; display: block; width: 44px; height: 44px; overflow: hidden; }
+.v2t-build-ico > span img { position: absolute; max-width: none; }
 .v2t-build-text { flex: 1; display: grid; gap: 2px; min-width: 0; }
 .v2t-build-name { font-family: var(--v2-display); font-size: 14px; font-weight: 700; letter-spacing: 0.04em; }
 .v2t-build-detail { font-size: 13px; color: var(--v2-soft); }

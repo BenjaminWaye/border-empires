@@ -76,6 +76,11 @@ export const townOnMenuView = (deps: HudV2Deps, view: TileMenuView, tileKey: str
   }
   if (current?.focusKey !== tileKey) screen.townBuildSelection = undefined;
   current = { townKey: keyOf(town), focusKey: tileKey, focusView: view };
+  if (screen.id !== "town" && deps.state.activePanel) {
+    // A legacy side panel would sit under the build list; the town screen replaces it.
+    deps.state.activePanel = null;
+    queueMicrotask(deps.renderHud);
+  }
   setScreen("town", TOWN_SCREEN_SKELETON);
   renderTownScreen(deps);
   return true;

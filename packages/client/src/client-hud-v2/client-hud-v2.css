@@ -31,8 +31,9 @@ body.hud-v2 {
 body.hud-v2 #hud-v2 { display: block; }
 body.hud-v2 #top-strip,
 body.hud-v2 #floating-info { display: none !important; }
-#hud-v2 button { font: inherit; color: inherit; cursor: pointer; }
-#hud-v2 button:disabled { cursor: not-allowed; }
+/* Zero-specificity resets, so component classes (primary buttons' dark text) win. */
+:where(#hud-v2) button { font: inherit; color: inherit; cursor: pointer; }
+:where(#hud-v2) button:disabled { cursor: not-allowed; }
 #hud-v2 :focus-visible { outline: 2px solid var(--v2-gold-hi); outline-offset: 2px; }
 
 .hud-v2-bar,

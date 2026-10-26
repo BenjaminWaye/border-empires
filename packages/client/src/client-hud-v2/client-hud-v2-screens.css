@@ -28,10 +28,13 @@ body.hud-v2-screen-battle .hud-v2-tile,
 body.hud-v2-screen-battle .hud-v2-orb-slot,
 body.hud-v2-screen-battle #mini-map-wrap,
 body.hud-v2-screen-battle #capture-overlay,
+body.hud-v2-screen-battle #victory-alert-overlay,
 body.hud-v2-screen-battle .onb-root { display: none !important; }
 /* The effort sheet keeps working underneath; the battle screen is its view. */
 body.hud-v2-screen-battle .effort-confirm-overlay { opacity: 0 !important; pointer-events: none !important; }
 body.hud-v2-screen-open #player-profile-overlay { z-index: 70; }
+/* Settings / Manpower opened from the bar or orb sit above whichever screen is open. */
+body.hud-v2-screen-open #side-panel { z-index: 47; }
 
 /* ---- Shared bits ---- */
 .v2s-btn {
@@ -111,7 +114,11 @@ body.hud-v2-screen-afc #side-panel {
 .v2m-ico-ability { border-color: var(--v2-aether); }
 .v2m-ico-resource { border-color: #c9b26a; }
 .v2m-ico-more { font-family: var(--v2-mono); font-size: 9px; color: var(--v2-soft); border-color: var(--v2-line); }
-.v2m-ico img, .v2m-ico .v2m-ico-img { width: 18px; height: 18px; object-fit: contain; }
+/* Structure art comes as a cropped image inside a slot span; ability icons are a bare img. */
+.v2m-ico > span.v2m-ico-img { position: relative; display: block; width: 20px; height: 20px; overflow: hidden; }
+.v2m-ico > span.v2m-ico-img img { position: absolute; max-width: none; }
+.v2m-ico > img.v2m-ico-img { width: 18px; height: 18px; object-fit: contain; }
+.v2m-ico > img:not(.v2m-ico-img), .v2m-ico > svg { width: 16px; height: 16px; }
 .v2m-ico-txt { font-family: var(--v2-mono); font-size: 8px; font-weight: 700; color: var(--v2-gold); }
 .v2m-check { width: 12px; text-align: center; color: var(--v2-green-hi); font-size: 12px; }
 .v2m-legend { display: flex; gap: 14px; padding: 8px 4px; font-family: var(--v2-mono); font-size: 10px; color: var(--v2-soft); }
@@ -135,10 +142,10 @@ body.hud-v2-screen-afc #side-panel {
 .v2r-banner-hold { color: var(--v2-red-hi); }
 .v2r-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; overflow: auto; }
 .v2r-race { padding: 14px 20px; background: rgba(15, 13, 10, 0.94); border: 1px solid var(--v2-edge); }
-.v2r-axis { display: grid; grid-template-columns: 220px minmax(0, 1fr) 220px; font-family: var(--v2-mono); font-size: 10px; color: var(--v2-muted); }
+.v2r-axis { display: grid; grid-template-columns: 220px minmax(0, 1fr) 220px; gap: 32px; font-family: var(--v2-mono); font-size: 10px; color: var(--v2-muted); }
 .v2r-axis span:first-child { grid-column: 2; }
 .v2r-axis span:last-child { grid-column: 2; justify-self: end; }
-.v2r-row { display: grid; grid-template-columns: 220px minmax(0, 1fr) 220px; gap: 18px; align-items: center; padding: 18px 0; border-bottom: 1px solid var(--v2-line); }
+.v2r-row { display: grid; grid-template-columns: 220px minmax(0, 1fr) 220px; gap: 32px; align-items: center; padding: 18px 0; border-bottom: 1px solid var(--v2-line); }
 .v2r-row:last-child { border-bottom: 0; }
 .v2r-path, .v2r-side { display: grid; gap: 3px; }
 .v2r-path-name { font-family: var(--v2-display); font-size: 15px; font-weight: 700; letter-spacing: 0.04em; }

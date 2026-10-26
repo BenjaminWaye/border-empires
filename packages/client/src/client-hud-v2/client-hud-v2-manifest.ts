@@ -37,8 +37,8 @@ export type ManifestLayout = {
 
 export const MANIFEST_CARD_W = 240;
 const CARD_H = 36;
-const COL_GAP = 22;
-const LEFT = 130;
+const COL_GAP = 16;
+const LEFT = 120;
 const ROW = 42;
 const TOP = 34;
 const BAND_PAD = 8;
@@ -145,7 +145,7 @@ export const manifestLayout = (techs: readonly TechInfo[], owned: ReadonlySet<st
       line(mx, by, b.x - mx, 2, tone);
     }
   }
-  return { lanes, nodes, segments, tiers, width: colX(tiers) + MANIFEST_CARD_W + 16, height: y + 8 };
+  return { lanes, nodes, segments, tiers, width: colX(tiers) + MANIFEST_CARD_W + 4, height: y + 8 };
 };
 
 type Unlock = { icon: string; label: string; kind: "structure" | "ability" | "resource" };

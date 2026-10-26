@@ -209,6 +209,11 @@ const renderChronicle = (deps: HudV2Deps): void => {
 
 /** Renders the open screen; called on the HUD's timer and after clicks. */
 export const renderScreen = (deps: HudV2Deps): void => {
+  // Legacy flows (a commission, a request) can reopen their side panel; the open screen replaces it.
+  if (screen.id && screen.id !== "afc" && screen.id !== "town" && deps.state.activePanel && deps.state.activePanel !== "settings" && deps.state.activePanel !== "manpower") {
+    deps.state.activePanel = null;
+    deps.renderHud();
+  }
   switch (screen.id) {
     case "manifest": return renderManifest(deps);
     case "ranks": return renderRanks(deps);

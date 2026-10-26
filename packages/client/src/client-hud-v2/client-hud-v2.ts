@@ -118,18 +118,19 @@ const onEscape = (deps: HudV2Deps, event: KeyboardEvent): void => {
   const el = event.target instanceof HTMLElement ? event.target : null;
   if (el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName))) return;
   if (document.querySelector(".effort-confirm-overlay, .diplomacy-trade-overlay") && screen.id !== "diplomacy") return;
-  if (screenEscape(deps)) return;
   const { state } = deps;
   if (state.activePlayerProfileId) {
     state.activePlayerProfileId = undefined;
     deps.renderHud();
     return;
   }
-  if (state.activePanel) {
+  // A panel over a screen (Settings from the gear) closes before the screen; AFC's panel is its screen.
+  if (state.activePanel && screen.id !== "afc") {
     state.activePanel = null;
     deps.renderHud();
     return;
   }
+  if (screenEscape(deps)) return;
   const busy = state.tileActionMenu.visible || state.capture !== undefined || state.buildingPlacement.active;
   if (!busy) openTarget(deps, "settings");
 };
@@ -205,7 +206,9 @@ export const installHudV2 = (deps: HudV2Deps): void => {
   installBattleWatch(deps);
   let tick = 0;
   const frame = (): void => {
-    const active = isHudV2Active(deps.isMobile);
+    // Until sign-in finishes the sign-in screen owns the page; the HUD stays out of its way.
+    const signedIn = deps.state.authSessionReady && !deps.state.profileSetupRequired;
+    const active = isHudV2Active(deps.isMobile) && signedIn;
     document.body.classList.toggle("hud-v2", active);
     if (!active || !deps.state.me) return;
     const nowMs = Date.now();

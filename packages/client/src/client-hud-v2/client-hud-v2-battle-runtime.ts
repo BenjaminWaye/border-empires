@@ -36,6 +36,9 @@ let battle: Battle | undefined;
 /** Set when the sheet was confirmed (its Go button or Enter), so closing it means "launched", not "backed out". */
 let confirmed = false;
 
+/** Tile menu titles end in "(x, y)"; the battle header shows coordinates on their own line. */
+const stripCoords = (title: string): string => title.replace(/\s*\(-?\d+,\s*-?\d+\)\s*$/, "");
+
 const BATTLE_SKELETON = `<div class="v2b-vignette" aria-hidden="true"></div><div class="v2b-stage" id="v2b-stage"></div>`;
 
 export const battleOnBarAction = (actionId: TileActionDef["id"], view: TileMenuView, tileKey: string): void => {
@@ -72,7 +75,7 @@ const onSheetOpened = (deps: HudV2Deps): void => {
     mode: "preview",
     tileKey: attack.tileKey,
     coords: { x: tile.x, y: tile.y },
-    title: attack.view.title,
+    title: stripCoords(attack.view.title),
     defenderId: tile.ownerId,
     breakdown: attack.view.combatBreakdown,
     since: Date.now(),
@@ -185,7 +188,7 @@ export const reopenLiveBattle = (deps: HudV2Deps): boolean => {
     mode: "live",
     tileKey: `${tile.x},${tile.y}`,
     coords: { x: tile.x, y: tile.y },
-    title: deps.actionFlow.tileMenuViewForTile(tile).title,
+    title: stripCoords(deps.actionFlow.tileMenuViewForTile(tile).title),
     defenderId: tile.ownerId,
     breakdown: undefined,
     since: Date.now(),
