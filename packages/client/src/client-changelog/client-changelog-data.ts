@@ -1,3 +1,4 @@
+import { CLIENT_CHANGELOG_ENTRIES_OCT_26 } from "./client-changelog-oct-26.js";
 import { RELIABLE_DIPLOMACY_CHANGELOG } from "./client-changelog-reliable-diplomacy.js";
 import { AFC_SPECIALIZATIONS_CHANGELOG } from "./client-changelog-afc-specializations.js";
 import { ALLIANCES_TAB_CHANGELOG } from "./client-changelog-alliances-tab.js";
@@ -370,13 +371,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...SHARD_COMEBACK_CHANGELOG,
   {
-    createdAt: 1792908991472, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.25.1",
-    title: "Respawns start with full manpower",
-    why: "A brand-new House starts with 720 manpower, but a House that was wiped out and respawned came back with only 100, which made a comeback much slower than a fresh start.",
-    changes: ["After a respawn your manpower is topped up to the same 720 a brand-new player starts with"]
-  },
-  {
     createdAt: 1792907228760, // Date.now() captured once for this entry.
     introducedIn: "2026.10.24.2",
     title: "Lost towns and docks name who took them",
@@ -483,20 +477,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Completed Great Projects needed distinct, detailed models that visibly incorporate their commissioned components.",
     changes: ["All six completed Great Projects have new 3D models, matching foundations and specialized machinery: a financial rotunda, massive elevated Worldbreaker cannon with an armoured core housing, lattice shield, orbital cradle, census index and muster gate.", "Their 2D map artwork and menu icons are generated from the same models. The Census Directorate has an integrated crescent archive and an unlit crown, and the Titanium Levy has a military assembly hall and deployment court. Project abilities and costs are unchanged."]
   },
-  {
-    createdAt: 1793015570376, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.26.1",
-    title: "Visible ore survey clues",
-    why: "Ownership colours could cover small ground-level resource clues.",
-    changes: ["Titanium ore flecks and crystal survey clues stay visible above ownership colours in both the 3D and 2D maps."]
-  },
-  {
-    createdAt: 1793022988700, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.26.1",
-    title: "No false combat delays on a wrong device clock",
-    why: "A device clock running fast made every expansion look overdue, so tiles were rolled back and \"Combat result delayed\" appeared.",
-    changes: ["Expansion and attack timers now follow the server's clock, even when your device clock is off."]
-  }
+  ...CLIENT_CHANGELOG_ENTRIES_OCT_26
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

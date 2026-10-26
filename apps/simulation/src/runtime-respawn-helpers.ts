@@ -1,5 +1,5 @@
-import { STARTING_CAPITAL_MANPOWER_CAP, TOWN_REACH_RADIUS, WORLD_WIDTH, WORLD_HEIGHT, wrapX, wrapY, type PlayerRespawnNotice, type PlayerRespawnReasonCode } from "@border-empires/shared";
-import { hasWaterNeighbor, isAfcSiteClear, tileBlocksAfcSite, starterSiteQuality, type DomainTileState } from "@border-empires/game-domain";
+import { TOWN_REACH_RADIUS, WORLD_WIDTH, WORLD_HEIGHT, wrapX, wrapY, type PlayerRespawnNotice, type PlayerRespawnReasonCode } from "@border-empires/shared";
+import { STARTING_CAPITAL_MANPOWER_CAP, hasWaterNeighbor, isAfcSiteClear, tileBlocksAfcSite, starterSiteQuality, type DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { buildRewritePlayerRespawnNotice, type PendingRespawnNoticeContext } from "./player-respawn-notice.js";
 import { chooseLegacySpawnPlacement, RALLY_SPAWN_RADIUS, type LegacySpawnPlacementInput } from "./spawn-placement/spawn-placement.js";
