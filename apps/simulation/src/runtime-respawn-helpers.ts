@@ -1,5 +1,5 @@
 import { TOWN_REACH_RADIUS, WORLD_WIDTH, WORLD_HEIGHT, wrapX, wrapY, type PlayerRespawnNotice, type PlayerRespawnReasonCode } from "@border-empires/shared";
-import { hasWaterNeighbor, isAfcSiteClear, tileBlocksAfcSite, starterSiteQuality, type DomainTileState } from "@border-empires/game-domain";
+import { STARTING_CAPITAL_MANPOWER_CAP, hasWaterNeighbor, isAfcSiteClear, tileBlocksAfcSite, starterSiteQuality, type DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { buildRewritePlayerRespawnNotice, type PendingRespawnNoticeContext } from "./player-respawn-notice.js";
 import { chooseLegacySpawnPlacement, RALLY_SPAWN_RADIUS, type LegacySpawnPlacementInput } from "./spawn-placement/spawn-placement.js";
@@ -345,7 +345,7 @@ export const respawnPlayerOnUnownedLand = (ctx: RuntimeRespawnContext, playerId:
     ownershipState: "SETTLED",
     afc: { ownerId: playerId, status: "active", activatedAt: ctx.now(), landedAt: ctx.now() }
   };
-  actor.manpower = Math.max(actor.manpower, 100);
+  actor.manpower = Math.max(actor.manpower, STARTING_CAPITAL_MANPOWER_CAP);
   actor.points = Math.max(actor.points, ctx.respawnMinimumGold);
   const respawnCommandId = `${commandId}:respawn:${playerId}`;
   const flattenedTiles = prepareAfcLandingFootprint(ctx, spawn.x, spawn.y, respawnCommandId);
@@ -402,7 +402,7 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
     ownershipState: "SETTLED",
     afc: { ownerId: playerId, status: "active", activatedAt: ctx.now(), landedAt: ctx.now() }
   };
-  actor.manpower = Math.max(actor.manpower, 100);
+  actor.manpower = Math.max(actor.manpower, STARTING_CAPITAL_MANPOWER_CAP);
   actor.points = Math.max(actor.points, ctx.respawnMinimumGold);
   const respawnCommandId = `${commandId}:respawn:${playerId}`;
   const flattenedTiles = prepareAfcLandingFootprint(ctx, spawn.x, spawn.y, respawnCommandId);
