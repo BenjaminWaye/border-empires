@@ -134,7 +134,7 @@ export const renderManpowerPanelHtml = (args: {
   rateToneClass: (rate: number) => string;
   /** Epoch ms of the player's next refill (client-manpower-refill.ts); undefined before the player id is known. */
   nextRefillAtMs?: number | undefined;
-  /** Shards held; when given, the panel offers Shard Mobilization (client-shard-mobilize.ts). */
+  /** Shards held; when given, the panel offers the Imperial delivery (client-shard-mobilize.ts). */
   shards?: number | undefined;
 }): string => {
   const current = args.formatManpowerAmount(args.manpower);

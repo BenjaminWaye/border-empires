@@ -19,8 +19,12 @@ describe("shardMobilizeCardHtml", () => {
     expect(button?.textContent).toContain("+800");
   });
 
+  it("renders nothing without a Shard to donate", () => {
+    expect(shardMobilizeCardHtml({ ...ready, shards: 0 })).toBe("");
+    expect(shardMobilizeCardHtml({ ...ready, shards: 0.5 })).toBe("");
+  });
+
   it.each([
-    ["no Shard", { ...ready, shards: 0 }, "no Shards"],
     ["full manpower", { ...ready, manpower: 900 }, "already full"],
     ["a Titanium Levy freeze", { ...ready, manpowerRegenPerMinute: 0 }, "Titanium Levy"]
   ])("disables the button with a reason for %s", (_label, input, reason) => {
@@ -51,11 +55,12 @@ describe("manpower panel", () => {
     rateToneClass: () => ""
   };
 
-  it("includes the Shard Mobilization card when the Shard count is passed", () => {
+  it("includes the Imperial delivery card when the Shard count is passed", () => {
     expect(renderManpowerPanelHtml({ ...panelArgs, shards: 1 })).toContain("data-shard-mobilize");
   });
 
-  it("omits it for callers that pass no Shard count", () => {
+  it("omits it for callers that pass no Shard count, and when the player holds none", () => {
     expect(renderManpowerPanelHtml(panelArgs)).not.toContain("data-shard-mobilize");
+    expect(renderManpowerPanelHtml({ ...panelArgs, shards: 0 })).not.toContain("data-shard-mobilize");
   });
 });

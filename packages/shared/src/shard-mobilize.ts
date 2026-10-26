@@ -1,7 +1,9 @@
-// Shard Mobilization: the comeback lever. Burning one Shard refills the
+// Imperial delivery (SHARD_MOBILIZE): the comeback lever. Donating one Shard
+// to the Court buys a delivery of ready-made ancillaries that refills the
 // empire's manpower to its cap instantly, so a House that was beaten down
 // while offline can return and fight back straight away instead of waiting
-// out several 4-hour refill windows (manpower-refill.ts).
+// out several 4-hour refill windows (manpower-refill.ts). Fiction:
+// docs/lore/galactic-lore.md §3.
 //
 // Deliberately "to the cap", never above it: unlike the landing reserve or a
 // Waystation grant this is not overflow manpower, so it can't be stacked into

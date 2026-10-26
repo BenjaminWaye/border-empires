@@ -23,7 +23,8 @@ const reject = (context: ShardMobilizeCommandContext, command: CommandEnvelope, 
   context.emitEvent({ eventType: "COMMAND_REJECTED", commandId: command.commandId, playerId: command.playerId, code, message });
 };
 
-// SHARD_MOBILIZE: burns SHARD_MOBILIZE_SHARD_COST Shards to refill the
+// SHARD_MOBILIZE (player-facing: Imperial delivery): spends
+// SHARD_MOBILIZE_SHARD_COST Shards, donated to the Court, to refill the
 // caster's manpower to the cap at once (see packages/shared/src/shard-mobilize.ts).
 // No anchor tile: it is a per-player action, like ACTIVATE_IMPERIAL_WARD.
 export function handleShardMobilizeCommand(context: ShardMobilizeCommandContext, command: CommandEnvelope): void {

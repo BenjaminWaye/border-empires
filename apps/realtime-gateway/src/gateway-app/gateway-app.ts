@@ -2582,8 +2582,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           } else if (message.type === "ASTRAL_DOCK_LAUNCH") {
             await dispatchDurableCommand("ASTRAL_DOCK_LAUNCH", { fromX: message.fromX, fromY: message.fromY }, true);
           } else if (message.type === "ACTIVATE_IMPERIAL_WARD" || message.type === "SHARD_MOBILIZE") {
-            // Per-player abilities with no anchor tile (Imperial Ward, Shard
-            // Mobilization) — zero-field payload, unlike AEGIS_LOCK.
+            // Per-player abilities with no anchor tile (Imperial Ward, the
+            // Shard-for-ancillaries Imperial delivery) — zero-field payload, unlike AEGIS_LOCK.
             await dispatchDurableCommand(message.type, {}, true);
           } else if (message.type === "UPGRADE_TOWN_TIER" || message.type === "COLLECT_SHARD" || message.type === "NAME_ISLAND") {
             await dispatchDurableCommand(message.type, { x: message.x, y: message.y, ...(message.type === "NAME_ISLAND" ? { name: message.name } : {}) }, true);

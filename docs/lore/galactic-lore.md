@@ -115,16 +115,32 @@ Monuments — most of all the **World Cannon**, because building it is, in
 the most literal sense, turning fragments of the very artifact that broke
 the galaxy back into something that can be aimed and fired.
 
-Few places on a world are as unsettled as ground a House has just been
-driven from: wrecked works, abandoned garrisons and aether-work left
-running with no hand on it. Falls gather over such ground, so a House that
-has recently lost much of its land is the likeliest to find Shards landing
-on what it still holds. A Shard is also the fastest way to put that House
-back on its feet. Burned whole, its raw aether drives every transport,
-forge and drill-yard at once, and a single Shard can call up a House's full
-complement of bodies in hours rather than weeks (**Shard Mobilization**).
-It cannot raise more people than the House's land can support, only muster
-them all at once.
+**Shards are not a second currency.** Coin is a market claim (§11): the
+factor and offworld merchants take it for anything sold on the open books.
+A Shard is the one thing **the Court itself** wants, and it buys what the
+market cannot sell. Across the galaxy, fragments come down only on unstable
+frontier worlds, which are exactly the worlds the Court opens as Sectors
+(§2). A rain looks random from the ground, but it is the reason a Sector is
+worth opening, and the fragments that nobles fight over find their way to
+the Court. Why the Court wants them so badly is not something it explains
+(§14).
+
+A House that donates a Shard to the Court can call in an **Imperial
+delivery of ancillaries** (§11): fully converted cohorts made elsewhere and
+shipped in finished. They arrive at once because neither step that limits
+a House's own supply applies to them: nobody on this world has to be
+collected, and no vat has to finish a cycle. The delivery fills the House
+up to what its towns, depots and control cores can command and no further.
+Coin can hire recruits a handful at a time, but ancillaries by the
+thousand are trade the Court keeps for itself, priced in Engine fragments.
+
+The Court also has a reason to care where falls come down. A House crushed
+out of a Sector stops fighting, and a Sector that goes quiet stops yielding
+fragments, so the Court quietly steers falls onto what a recently broken
+House still holds. This is the counterpart of the Blind Eye (§9): the Court
+holds back whoever is running away with the contest, props up whoever has
+been routed, and keeps the war worth watching. Like the Blind Eye, it is
+never announced, and it fades once the House has settled at its new size.
 
 ## 4. The Wardens and the infestations
 
@@ -378,6 +394,14 @@ remade bodies. It is the capacity committed to expansion, armies and
 construction. Its numerical pool, regeneration and relationship to town
 population are gameplay rules.
 
+A House's soldiers and labour are **ancillaries**: locals taken into its
+conversion works and remade. Two things limit how fast a House can field
+them. Bodies have to be collected without rousing the suspicion of the
+people they are taken from, and conversion takes time, so new ancillaries
+arrive a batch at a time. Ancillary Factories and Neural Works convert;
+Ancillary Depots store dormant bodies. An Imperial delivery (§3) bypasses
+both limits by buying cohorts converted elsewhere.
+
 Food supports people and local development. Titanium and Umbrite are
 strategic materials used in machinery, construction and military equipment.
 Crystal is usable aether (§3), and Shards are fragments of the shattered
@@ -491,6 +515,7 @@ not infer new gameplay rules from them while implementing unrelated work.
 | Rank before a first victory | §2 says winning grants the rank of Duke, while later passages call campaign participants Dukes. Define first-time contenders' rank and returning Dukes' participation. |
 | Permanent holdings and map resets | §2 grants permanent rights to a won world; §8 preserves titles but allows the map to reset. Define what persists across a seasonal campaign and an age ending with the Court's fall. |
 | Writs and the revolt | §7 says accepting a Writ restores the Court's grip; §8 says a Writ does not weaken the revolt. Clarify the relationship before assigning metagame effects. |
+| Why the Court wants Shards (proposed) | §3 says the Court buys Engine fragments and trades Imperial ancillary deliveries for them, but not what it does with them. Two readings are open: it is keeping anyone else from rebuilding the Engine, or it is quietly rebuilding the Engine itself, which would tie into the World Cannon question above. Not yet accepted canon; decide before any story beat depends on it. |
 | Natural wonders as relics (proposed) | [Relics proposal](../relics-design.md) §1 proposes that natural wonders are Concordance Terrain-Shaping anchors, distinct from Shards (§3) and the original of the Relay Beacon's anchor technology (§10). Unreconciled with §1 (Monuments as the surviving Concordance aether constructs), §2 and §10 (the Court's own anchor technology), §4 (the Wardens destroying Concordance aether infrastructure) and §5 (aether-work drawing Wardens); "relic" also already names a Warden ship in the galactic campaign. Not yet accepted canon; accept or revise before the relic look ships. |
 
 ### Consolidation sources

@@ -33,8 +33,11 @@ defines what these systems mean in the fiction; follow the
   in `refreshManpowerOnlyForPlayer`. Like a Waystation grant it may sit above
   the cap (tracked as `waystationManpowerOverflow`), and regen pauses until it
   is spent back under the cap.
-- **Shard Mobilization** (`SHARD_MOBILIZE`, `SHARD_MOBILIZE_SHARD_COST` = **1
-  Shard**) refills manpower to the cap at once, from the Manpower panel. It
+- **Imperial delivery** (`SHARD_MOBILIZE`, `SHARD_MOBILIZE_SHARD_COST` = **1
+  Shard**): the player donates a Shard to the Court, which ships in ready-made
+  ancillaries that refill manpower to the cap at once
+  ([lore §3](../lore/galactic-lore.md#3-aether-made-physical-crystal-and-shard)).
+  The Manpower panel shows its card only while the player holds a Shard. It
   settles manpower first, never goes above the cap (it is rejected when the
   pool is already at or over the cap, so overflow from the landing reserve or a
   Waystation is never trimmed), clears `manpowerBanked`, and is rejected while

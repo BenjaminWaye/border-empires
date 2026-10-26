@@ -7,6 +7,7 @@ import "./client-muster-combat-reports/client-muster-combat-reports-style.css";
 // 4. keep implementation details out of this file
 import "./client-global-error-guard/client-global-error-guard.js";
 import "./style.css";
+import "./client-shard-mobilize/client-shard-mobilize-style.css";
 import "./client-lighting-tuner/client-lighting-tuner.css";
 import "./client-player-name-link-style.css";
 import "./client-placement-overlay-style.css";
