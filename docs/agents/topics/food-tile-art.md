@@ -29,3 +29,24 @@ Focused checks: client Vitest directories `client-map-3d-merged-glb`,
 
 Lore reviewed; no canon change. This is a visual update to existing production
 sites, with no change to resource output, buildings or capabilities.
+
+## Blender style study (27 October 2026)
+
+The Blender study is a proposal, not a runtime asset replacement. Export the
+actual Hydroworks and Manufactory reference geometry with
+`node scripts/export-food-style-reference.mjs <output-directory>`, then run
+`blender --background --factory-startup --python scripts/blender-fish-basin-study.py -- <repo-directory> <output-directory>`.
+It saves an editable `.blend`, a proposal close-up and a Cycles comparison
+with the actual production reference structures. The current fish asset is
+retained as a hidden reference collection in the Blender file.
+
+The proposed direction keeps both basins, their loading hoists and the open gap.
+Use the town palette: cool stone machinery feet and control house, dark iron
+basin walls, restrained aged-brass rims and hoists, and blue water. Narrow ribs
+and small bevels provide manufactured edges without adding a bridge, a new
+building, or luminous aether machinery.
+
+The current food overlay merges everything into one non-metallic material.
+For implementation, preserve separate instanced body, metal and water layers,
+following the district material responses, instead of baking metal into matte
+vertex colours. Update the 2D artwork in the same branch when adopting the study.
