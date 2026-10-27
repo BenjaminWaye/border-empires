@@ -63,3 +63,21 @@ bounded at 256 globally, 16 per House, 10,000 slots per resource per offer.
 
 Gameplay numbers: `docs/product/resource-and-manpower-economy.md`.
 Lore: `docs/lore/galactic-lore.md` §11.
+
+## Adversarial review follow-up
+
+Internal cancellation shares command-ID identity with settlements. The shared
+`command-sequence.ts` policy drives the live replay gate, checkpoint hydration,
+in-memory command store and both SQLite schema owners; migration replaces older
+partial indexes as well as the original full unique index. Consecutive cancels
+must not consume a player's normal sequence, including after restart.
+
+An asynchronous AI decision must recheck that its pending offer still exists
+before accepting or declining. A withdrawal while the AI is reading holdings
+is final. A settling transition reports whether the durable row still exists.
+
+Siphon changes invalidate connected trade participants, including a trading
+caster whose supplier is not trading. The five frontier slots follow the same
+exclusive transfer as other resource slots; the source extractor still needs
+its owner's Manifest and FOOD. The existing indexed tower list identifies
+stolen sources, with no new persistent state or unbounded cache.

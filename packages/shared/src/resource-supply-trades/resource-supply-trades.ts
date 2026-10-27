@@ -56,6 +56,12 @@ export const allocateResourceSupplyAgreements = (agreements: readonly ResourceSu
     .sort((a, b) => a.startedAt - b.startedAt || a.id.localeCompare(b.id));
   const suspended = new Set<string>();
   let remaining = active;
+  // Capacity reads can traverse a House's territory. Keep them bounded across
+  // shortage retries: domestic upkeep is invariant within this allocation,
+  // network capacity changes only when the complete upkeep-flow state changes.
+  const upkeepCapacity = new Map<string, ResourceSupplyOffer>();
+  const networkCapacity = new Map<string, ResourceSupplyOffer>();
+  let networkUpkeepSignature: string | undefined;
   for (let pass = 0; pass <= active.length; pass += 1) {
     const flows = new Map<string, { incoming: ResourceSupplyAmounts; outgoing: ResourceSupplyAmounts }>();
     const deliveries = new Map<string, { give: ResourceSupplyAmounts; ask: ResourceSupplyAmounts }>();
@@ -66,8 +72,16 @@ export const allocateResourceSupplyAgreements = (agreements: readonly ResourceSu
     }
     for (const phase of ["upkeep", "network"] as const) {
       const resources: readonly TradableSupplyResource[] = phase === "upkeep" ? UPKEEP_TRADE_RESOURCES : NETWORK_RESOURCES;
-      const capacities = new Map<string, ResourceSupplyOffer>();
-      for (const id of flows.keys()) capacities.set(id, { ...capacityFor(id, phase, flows) });
+      if (!remaining.some(row => resources.some(resource => (row.proposerGives[resource] ?? 0) + (row.targetGives[resource] ?? 0) > 0))) continue;
+      if (phase === "network") {
+        const signature = JSON.stringify([...flows].flatMap(([id, flow]) => {
+          const values = UPKEEP_TRADE_RESOURCES.flatMap(resource => [flow.incoming[resource], flow.outgoing[resource]]);
+          return values.some(value => value !== 0) ? [[id, ...values]] : [];
+        }).sort((a, b) => String(a[0]).localeCompare(String(b[0]))));
+        if (signature !== networkUpkeepSignature) { networkCapacity.clear(); networkUpkeepSignature = signature; }
+      }
+      const capacities = phase === "upkeep" ? upkeepCapacity : networkCapacity;
+      for (const id of flows.keys()) if (!capacities.has(id)) capacities.set(id, { ...capacityFor(id, phase, flows) });
       for (const row of remaining) {
         const transfer = (fromId: string, toId: string, offered: ResourceSupplyOffer, delivered: ResourceSupplyAmounts): void => {
           const from = flows.get(fromId)!, to = flows.get(toId)!, capacity = capacities.get(fromId)!;

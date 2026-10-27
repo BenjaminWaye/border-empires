@@ -4,7 +4,7 @@ import { MAX_PENDING_RESOURCE_TRADE_OFFERS as LIMIT, MAX_PENDING_RESOURCE_TRADE_
 export interface ResourceTradeOfferStore {
   rows(now: number): readonly ResourceTradeOffer[];
   insert(row: ResourceTradeOffer): boolean;
-  settling(id: string): void;
+  settling(id: string): boolean;
   remove(id: string): void;
   clear(): void;
 }
@@ -24,7 +24,11 @@ export class InMemoryResourceTradeOfferStore implements ResourceTradeOfferStore 
     if(this.offers.has(row.id)||!hasRoom(rows,row)) return false;
     this.offers.set(row.id,row);return true;
   }
-  settling(id:string):void {const row=this.offers.get(id);if(row)this.offers.set(id,{...row,status:"settling"});}
+  settling(id:string):boolean {
+    const row=this.offers.get(id);
+    if(!row)return false;
+    this.offers.set(id,{...row,status:"settling"});return true;
+  }
   remove(id:string):void {this.offers.delete(id);}
   clear():void {this.offers.clear();}
 }
@@ -47,7 +51,7 @@ export class SqliteResourceTradeOfferStore implements ResourceTradeOfferStore {
       .run(row.id,row.fromPlayerId,row.toPlayerId,row.expiresAt,row.status,JSON.stringify(row),LIMIT,
         row.fromPlayerId,row.fromPlayerId,PLAYER_LIMIT,row.toPlayerId,row.toPlayerId,PLAYER_LIMIT).changes>0;
   }
-  settling(id:string):void {this.db.prepare("UPDATE social_resource_trade_offers SET status='settling' WHERE id=?").run(id);}
+  settling(id:string):boolean {return this.db.prepare("UPDATE social_resource_trade_offers SET status='settling' WHERE id=?").run(id).changes>0;}
   remove(id:string):void {this.db.prepare("DELETE FROM social_resource_trade_offers WHERE id=?").run(id);}
   clear():void {this.db.exec("DELETE FROM social_resource_trade_offers");}
 }

@@ -58,4 +58,17 @@ describe("independent resource trades",()=>{
     expect(f.settle).toHaveBeenCalledOnce();
     expect(f.social.resourceTradeOffers.rows(1)).toEqual([]);
   });
+  it("does not settle a withdrawn offer after an asynchronous AI decision returns",async()=>{
+    const f=setup(true);
+    let release: (()=>void) | undefined;
+    const waiting=new Promise<void>(resolve=>{release=resolve;});
+    f.deps.aiHoldings=async()=>{await waiting;return {gold:10,shard:0,resources:{FOOD:2}};};
+    const pending=f.service.handle(request,"a",f.socket,false);
+    const row=f.social.resourceTradeOffers.rows(1)[0]!;
+    await f.service.handle({type:"RESOURCE_TRADE_REJECT",offerId:row.id},"a",f.socket,false);
+    release!();await pending;
+    expect(f.settle).not.toHaveBeenCalled();
+    expect(f.social.resourceTradeOffers.rows(1)).toEqual([]);
+  });
+
 });

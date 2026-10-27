@@ -4,6 +4,7 @@ import { resourceSlotProductionHtml } from "./client-tile-resource-slot-producti
 import { menuOverviewForTile } from "./client-tile-menu-view.js";
 import type { Tile } from "../client-types.js";
 import type { TileOverviewModifier } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
+import { NETWORK_RESOURCES, RESOURCE_NETWORKS } from "@border-empires/shared";
 import { resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
 
 const deps = {
@@ -69,4 +70,45 @@ describe("menuOverviewForTile — settled resource node production line", () => 
     const html = menuOverviewForTile(farmTile, deps).map((line) => line.html).join(" ");
     expect(html).not.toContain(`Production: ${resourceIconHtml("FOOD")} Food`);
   });
+});
+
+describe("every resource tile explains its role", () => {
+  it.each(["FARM", "FISH", "TITANIUM", "GEMS", "UMBRITE", ...NETWORK_RESOURCES] as const)("describes %s in the real tile overview", resource => {
+    for (const ownership of [undefined, "FRONTIER", "SETTLED"] as const) {
+      const tile: Tile = {x:1,y:1,terrain:"LAND",resource,...(ownership ? {ownerId:"me",ownershipState:ownership} : {})};
+      const lines = menuOverviewForTile(tile, deps).map(row => row.html).join(" ");
+      expect(lines.length).toBeGreaterThan(100);
+      if (NETWORK_RESOURCES.some(kind => kind === resource)) {
+        const spec = RESOURCE_NETWORKS[resource as keyof typeof RESOURCE_NETWORKS];
+        expect(lines).toContain(spec.description);
+        expect(lines).toContain(spec.buildingName);
+        expect(lines).toContain("alone provides no industrial bonus");
+        expect(lines).not.toMatch(/Claim and garrison this tile to start producing/);
+      } else expect(lines).toContain("Base supply:");
+    }
+  });
+  it("describes a visible coastal fishing marker before the sea early return", () => {
+    expect(menuOverviewForTile({x:1,y:1,terrain:"COASTAL_SEA",resource:"FISH"},deps).map(row=>row.html).join(" ")).toContain("Coastal fishing grounds");
+  });
+  it("does not call an unfinished or inactive extractor a working supplier", () => {
+    const tile: Tile = {x:1,y:1,terrain:"LAND",resource:"NEURAL_RESIN",ownerId:"me",ownershipState:"SETTLED",
+      economicStructure:{ownerId:"me",type:"RESIN_EXTRACTOR",status:"under_construction"}};
+    expect(menuOverviewForTile(tile,deps).map(row=>row.html).join(" ")).toContain("supply starts after completion");
+    tile.economicStructure!.status="active";
+    expect(menuOverviewForTile(tile,deps).map(row=>row.html).join(" ")).toContain("Inactive or unpowered sites provide no supply");
+  });
+});
+
+it("does not count an unfinished, inactive or legacy fish Hydrogarden as a source boost",()=>{
+  for(const status of ["under_construction","inactive","removing"] as const) {
+    expect(resourceSlotProductionHtml({x:1,y:1,terrain:"LAND",resource:"FARM",economicStructure:{ownerId:"me",type:"HYDROGARDEN",status}})).toContain("Food +1");
+  }
+  expect(resourceSlotProductionHtml({x:1,y:1,terrain:"LAND",resource:"FISH",economicStructure:{ownerId:"me",type:"HYDROGARDEN",status:"active"}})).toContain("Food +2");
+});
+it("reports diverted resource supply and explains the Siphon on frontier sites",()=>{
+  const sabotage={ownerId:"enemy",observatoryTileKey:"5,5",endsAt:Number.MAX_SAFE_INTEGER,outputMultiplier:0};
+  const tile:Tile={x:1,y:1,terrain:"LAND",resource:"FARM",ownerId:"me",ownershipState:"SETTLED",sabotage};
+  expect(resourceSlotProductionHtml(tile)).toContain("Food +0 (siphoned)");
+  tile.resource="NEURAL_RESIN";
+  expect(menuOverviewForTile(tile,deps).map(row=>row.html).join(" ")).toContain("Supply diverted by an active Siphon");
 });

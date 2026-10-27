@@ -36,4 +36,14 @@ describe("renewable resource supply contracts", () => {
     expect(ResourceSupplyOfferSchema.safeParse({ FOOD: -1 }).success).toBe(false);
     expect(ResourceSupplyOfferSchema.safeParse({ SHARD: 1 }).success).toBe(false);
   });
+  it("bounds expensive capacity reads during a world-wide network shortage",()=>{
+    const rows=Array.from({length:256},(_,i)=>deal({id:`shortage-${i}`,proposerId:`from-${i}`,targetId:`to-${i}`,
+      proposerGives:{NEURAL_RESIN:1},targetGives:{},expiresAt:undefined}));
+    let reads=0;
+    const allocation=allocateResourceSupplyAgreements(rows,50,()=>{reads++;return {};});
+    expect(allocation.suspended.size).toBe(256);
+    expect(allocation.fulfilled.size).toBe(0);
+    expect(reads).toBeLessThanOrEqual(512);
+  });
+
 });

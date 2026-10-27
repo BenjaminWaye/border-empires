@@ -1,3 +1,4 @@
+import { siphonedResourceTilesForPlayer } from "../siphon-mode/siphon-slot-transfer.js";
 import { runtimeLogInfo } from "../runtime-log/runtime-log.js";
 import { type ResourceSupplyAgreement, NETWORK_RESOURCES, emptyNetworkSiteCounts } from "@border-empires/shared";
 import { allocateNetworkCredit, networkSupplyStatus } from "../resource-networks/resource-network-credit.js";
@@ -19,6 +20,8 @@ export function createRuntimeResourceSupply(ctx: ResourceSupplyBridgeContext, re
   const supply = new RuntimeResourceSupply({ now: ctx.now, player: id => ctx.slots().players.get(id),
     ownedTiles: id => ownedResourceTiles(ctx.slots(), id), physicalUpkeep: id => physicalResourceSlots(ctx.slots(), id),
     tileSettledAtByKey: ctx.slots().tileSettledAtByKey,
+    siphonCasterIds: () => ctx.slots().activeObservatoryOwners?.() ?? [],
+    siphonedTiles: id => siphonedResourceTilesForPlayer({playerId:id,tiles:ctx.slots().tiles,activeObservatoryKeysForPlayer:ctx.slots().activeObservatoryKeysForPlayer}),
     cachedPlayerState: id => {
       const caches=ctx.slots().caches, projection=caches.economySnapshotCacheByPlayer.get(id)?.resourceTradeProjection;
       return projection && projection.dormancy===caches.resourceSlotDormancyCacheByPlayer.get(id) ? projection.state : undefined;

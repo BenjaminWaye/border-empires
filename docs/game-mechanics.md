@@ -250,3 +250,5 @@ proximity signals and persistent depleted ruins. Existing unversioned wonders
 retain their earlier behavior. The implementation contracts are in
 `packages/shared/src/relics/`, `apps/simulation/src/runtime-relics.ts` and
 `packages/game-domain/src/server-worldgen-natural-wonders.ts`.
+
+Frontier resource Siphon transfers only working extractor supply, preserving source Manifest and FOOD requirements. Undeveloped sites supply nothing. Changes to stolen supply settle and refresh dependent resource-trade agreements; cancelling the drain restores the original owner’s slot.

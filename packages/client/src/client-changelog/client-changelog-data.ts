@@ -476,6 +476,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "More varied frontier deposits",
     why: "Repeated resource silhouettes made neighbouring deposits look identical.",
     changes: ["Each of the five frontier resources has three distinct deposit layouts, including alternate groves, ore formations, biota stands and salvage wrecks.", "A tile keeps the same variant in both the 3D map and 2D fallback; resource yields stay the same.", "Reclamation Works now show an overhead salvage crane, a dismantling cradle, a sorting conveyor and a recovery workshop."]
+  },
+  {
+    createdAt: 1793084243762,
+    introducedIn: "2026.10.26.1",
+    title: "Clear resource descriptions and reliable supply agreements",
+    why: "Deposits need clear activation requirements, and supply changes must remain consistent through diplomacy and hostile abilities.",
+    changes: ["Every resource tile explains its purpose and renewable supply; frontier deposits explain their required industry and potential benefit.", "Supply agreements can be ended repeatedly and after reconnecting. Withdrawing an offer prevents a delayed AI response from accepting it.", "Siphon transfers working frontier-site supply without duplicating it; source changes pause or restore dependent trade deliveries."]
   }
 ];
 

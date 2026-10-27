@@ -6,7 +6,7 @@ export const RESOURCE_NETWORKS = {
     name: "Neural resin", building: "RESIN_EXTRACTOR", buildingName: "Resin Extractor",
     tech: "neural-resin-processing", color: "#e8aa48", glyph: "◉", manpowerCost: 120,
     batchBonus: 12, creditPerDay: 0, target: "ANCILLARY_FACTORY", sitesPerStandardMap: 1000,
-    description: "Native resin used to integrate town-supplied bodies with Ancillary control systems.",
+    description: "Amber resin gathered from native broadleaf trees, used to integrate town-supplied bodies with Ancillary control systems.",
     effect: "Supplies one resin slot: +12 Ancillaries per batch at one active Ancillary Factory."
   },
   CONDUCTIVE_MINERALS: {
@@ -20,7 +20,7 @@ export const RESOURCE_NETWORKS = {
     name: "Catalytic deposit", building: "CATALYST_REFINERY", buildingName: "Catalyst Refinery",
     tech: "frontier-concessions", color: "#e0cf82", glyph: "⬡", manpowerCost: 150,
     batchBonus: 0, creditPerDay: 1.5, target: "TRADE_NEXUS", sitesPerStandardMap: 1000,
-    description: "Rare catalyst-bearing ores prized by offworld chemical and fabrication industries.",
+    description: "Rare mineral compounds that accelerate chemical reactions, prized by offworld chemical and fabrication industries.",
     effect: "Supplies one catalyst slot: +1.5 Coin/day at one active Trade Nexus."
   },
   LUXURY_BIOTA: {

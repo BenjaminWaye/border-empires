@@ -25,7 +25,8 @@ export function createResourceTradeService(ctx:ResourceTradeServiceDeps):Resourc
     ctx.record("info","gateway_resource_trade_offers",{count:store.rows(ctx.now()).length});
   };
   const accept=async(row:ResourceTradeOffer):Promise<string|undefined>=>{
-    store.settling(row.id);publish([row.fromPlayerId,row.toPlayerId]);
+    if(!store.settling(row.id))return "This resource offer is no longer available.";
+    publish([row.fromPlayerId,row.toPlayerId]);
     const paid=await ctx.settlement.settle({proposerId:row.fromPlayerId,targetId:row.toPlayerId,terms:row.terms,
       commandId:`diplomacy-settle:resource-trade:${row.id}`,issuedAt:row.createdAt,refundIfLate:false});
     if(paid.ok||paid.rejected)store.remove(row.id);
@@ -54,7 +55,11 @@ export function createResourceTradeService(ctx:ResourceTradeServiceDeps):Resourc
       if(ctx.isAutoRespondingAi(to.id)){
         let holdings: DiplomacyGoods | undefined;
         try { holdings=await ctx.aiHoldings(to.id); } catch { ctx.record("warn","gateway_resource_trade_ai_unavailable",{playerId:to.id}); }
-        const terms=parsed.data.terms;
+        // The sender can withdraw while the AI snapshot request is in flight.
+        // A human takeover may also have accepted it; do not override that consent.
+        const current=store.rows(ctx.now()).find(row=>row.id===parsed.data.id);
+        if(!current||current.status!=="pending")return true;
+        const terms=current.terms;
         if(!holdings||!evaluateResourceTradeOffer(terms,holdings).accepts){store.remove(parsed.data.id);publish([from.id,to.id]);error(`${to.name} declines these resource terms.`);}
         else{const failure=await accept(parsed.data);if(failure)error(failure);}
       }

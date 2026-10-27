@@ -130,4 +130,36 @@ describe("resource trades in the production runtime",()=>{
     expect(f.player("buyer").points).toBeCloseTo(before.points);
   });
 
+  it("ends consecutive agreements without consuming sequence zero, including after checkpoint recovery",async()=>{
+    const f=fixture();await f.pay("first");
+    const end=(runtime:SimulationRuntime,id:string,agreementId:string)=>runtime.submitCommand({commandId:id,sessionId:"system-runtime:social",playerId:"buyer",clientSeq:0,issuedAt:start,type:"CANCEL_RESOURCE_SUPPLY",payloadJson:JSON.stringify({agreementId})});
+    await end(f.runtime,"cancel-first","first");
+    await f.pay("second");
+    await end(f.runtime,"cancel-second","second");
+    expect(f.player("buyer").resourceTradeAgreements).toEqual([]);
+    await f.pay("third");
+    const sections=f.runtime.exportSnapshotSections();
+    const restored=new SimulationRuntime({now:()=>start,seedTiles:new Map(),initialState:sections.initialState,mergeSeedTilesWithInitialState:false,
+      initialCommandHistory:{commands:[{commandId:"cancel-second",sessionId:"system-runtime:social",playerId:"buyer",clientSeq:0,type:"CANCEL_RESOURCE_SUPPLY",payloadJson:'{"agreementId":"second"}',queuedAt:start,status:"RESOLVED"}],
+        eventsByCommandId:new Map([["cancel-second",[{eventType:"COMMAND_RESOLVED",commandId:"cancel-second",playerId:"buyer"}]]])}});
+    await end(restored,"cancel-third","third");
+    expect(restored.exportState().players.find(row=>row.id==="buyer")?.resourceTradeAgreements).toEqual([]);
+  });
+
+  it("routes siphoned frontier-site slots through the real tower index and releases them on cancel",async()=>{
+    const base=fixture(true),initial=base.runtime.exportSnapshotSections().initialState;
+    const siteKeys=NETWORK_RESOURCES.map((_,index)=>`${20+index},20`);
+    initial.tiles.find(tile=>tile.x===40&&tile.y===39)!.observatory={ownerId:"buyer",status:"active",
+      siphon:{targetX:20,targetY:20,tileKeys:siteKeys,startedAt:start}};
+    initial.tiles.push({x:90,y:90,terrain:"LAND",resource:"GEMS",ownerId:"buyer",ownershipState:"SETTLED"});
+    for(const tile of initial.tiles)if(siteKeys.includes(`${tile.x},${tile.y}`))tile.sabotage={ownerId:"buyer",observatoryTileKey:"40,39",endsAt:Number.MAX_SAFE_INTEGER,outputMultiplier:0};
+    const runtime=new SimulationRuntime({now:()=>start,seedTiles:new Map(),initialState:initial,mergeSeedTilesWithInitialState:false});
+    const own=(id:string)=>runtime.exportState().players.find(player=>player.id===id)!;
+    for(const resource of NETWORK_RESOURCES){expect(own("seller").effectiveNetworkSupply?.[resource]).toBe(0);expect(own("buyer").effectiveNetworkSupply?.[resource]).toBe(1);}
+    expect((own("buyer").manpowerRegenPerMinute!-base.player("buyer").manpowerRegenPerMinute!)*240).toBeCloseTo(18);
+    runtime.submitCommand({commandId:"end-siphon",sessionId:"buyer",playerId:"buyer",clientSeq:100,issuedAt:start,type:"CANCEL_SIPHON",payloadJson:JSON.stringify({x:40,y:39})});
+    await Promise.resolve();
+    for(const resource of NETWORK_RESOURCES){expect(own("seller").effectiveNetworkSupply?.[resource]).toBe(1);expect(own("buyer").effectiveNetworkSupply?.[resource]).toBe(0);}
+  });
+
 });

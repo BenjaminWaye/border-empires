@@ -20,6 +20,7 @@ export interface RuntimeResourceSlotsContext {
   summaryForPlayer(id: string): PlayerRuntimeSummary;
   settledTilesForPlayer(id: string): DomainTileState[];
   activeObservatoryKeysForPlayer(id: string): Iterable<string>;
+  activeObservatoryOwners?: () => Iterable<string>;
   tradedSupply?: (id: string) => ResourceSlotTotals;
   advanceTrades?: () => void;
 }

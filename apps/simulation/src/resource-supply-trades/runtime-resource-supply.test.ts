@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { emptyNetworkSiteCounts, ResourceSupplyOfferSchema } from "@border-empires/shared";
 import { buildPlayer } from "../runtime/runtime.test-helpers.js";
 import { RuntimeResourceSupply } from "./runtime-resource-supply.js";
@@ -31,6 +31,42 @@ describe("resource trade inventory projection",()=>{
       physicalUpkeep:()=>({FOOD:0,TITANIUM:0,CRYSTAL:0,UMBRITE:0}),networkUsed:emptyNetworkSiteCounts,
       tileSettledAtByKey:new Map<string,number>(),beforeChange:()=>undefined,invalidate:()=>undefined,changed:()=>undefined});
     expect(supply.network("new")).toEqual(emptyNetworkSiteCounts());expect(reads).toBe(0);
+  });
+
+  it("refreshes supply for both a siphoned owner and a trading caster when sabotage changes",()=>{
+    let siphoned=false;
+    const beforeChange=vi.fn(),invalidate=vi.fn(),publish=vi.fn();
+    const supply=new RuntimeResourceSupply({now:()=>10,player:id=>buildPlayer(id),ownedTiles:()=>[],
+      physicalUpkeep:id=>({FOOD:id==="caster" ? Number(siphoned) : Number(!siphoned),TITANIUM:0,CRYSTAL:0,UMBRITE:0}),
+      networkUsed:emptyNetworkSiteCounts,tileSettledAtByKey:new Map<string,number>(),beforeChange,invalidate,changed:()=>undefined,publish},
+      [{id:"contract",proposerId:"caster",targetId:"buyer",proposerGives:{FOOD:1},targetGives:{},startedAt:1}]);
+    expect(supply.ledger.allocation(10).fulfilled.has("contract")).toBe(false);
+    const oldTile={x:1,y:1,terrain:"LAND" as const,ownerId:"victim",ownershipState:"SETTLED" as const,resource:"FARM" as const};
+    const next={...oldTile,sabotage:{ownerId:"caster",observatoryTileKey:"4,4",endsAt:Number.MAX_SAFE_INTEGER,outputMultiplier:0}};
+    supply.sourceWillChange(oldTile,next);siphoned=true;supply.sourceDidChange(oldTile,next);supply.sourceChangesPublished(oldTile,next);
+    expect(beforeChange).toHaveBeenCalledWith(10,expect.arrayContaining(["caster","buyer"]));
+    expect(invalidate).toHaveBeenCalledWith(expect.arrayContaining(["caster","buyer"]));
+    expect(supply.ledger.allocation(10).fulfilled.has("contract")).toBe(true);
+    expect(publish).toHaveBeenCalled();
+    supply.sourceWillChange(next,oldTile);siphoned=false;supply.sourceDidChange(next,oldTile);
+    expect(supply.ledger.allocation(10).fulfilled.has("contract")).toBe(false);
+  });
+
+  it("settles and invalidates a non-trading caster when its external supplier loses FOOD",()=>{
+    const beforeChange=vi.fn(),invalidate=vi.fn(),publish=vi.fn();
+    const drained={x:1,y:1,terrain:"LAND" as const,ownerId:"victim",ownershipState:"SETTLED" as const,resource:"NEURAL_RESIN" as const,
+      economicStructure:{ownerId:"victim",type:"RESIN_EXTRACTOR" as const,status:"active" as const},
+      sabotage:{ownerId:"caster",observatoryTileKey:"4,4",endsAt:Number.MAX_SAFE_INTEGER,outputMultiplier:0}};
+    const supply=new RuntimeResourceSupply({now:()=>10,player:id=>buildPlayer(id),ownedTiles:()=>[],
+      physicalUpkeep:()=>({FOOD:0,TITANIUM:0,CRYSTAL:0,UMBRITE:0}),networkUsed:emptyNetworkSiteCounts,
+      siphonCasterIds:()=>["caster"],siphonedTiles:id=>id==="caster"?[drained]:[],
+      tileSettledAtByKey:new Map<string,number>(),beforeChange,invalidate,changed:()=>undefined,publish});
+    const food={x:2,y:1,terrain:"LAND" as const,ownerId:"victim",ownershipState:"SETTLED" as const,resource:"FARM" as const};
+    const lost={...food,ownerId:"enemy"};
+    supply.sourceWillChange(food,lost);supply.sourceDidChange(food,lost);supply.sourceChangesPublished(food,lost);
+    expect(beforeChange).toHaveBeenCalledWith(10,expect.arrayContaining(["victim","caster"]));
+    expect(invalidate).toHaveBeenCalledWith(expect.arrayContaining(["caster"]));
+    expect(publish).toHaveBeenCalledWith(expect.arrayContaining(["caster"]));
   });
 
 });

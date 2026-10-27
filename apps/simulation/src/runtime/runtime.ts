@@ -1934,29 +1934,7 @@ export class SimulationRuntime {
   }
 
   submitCommand(command: CommandEnvelope): void {
-    this.replayCache.pruneReplayCaches();
-    if (this.replayCache.isTerminalOnlyReplayCommand(command.commandId)) return;
-    const existingEvents = this.replayCache.recordedEventsByCommandId.get(command.commandId);
-    if (existingEvents) {
-      for (const event of existingEvents) this.events.emit("event", event);
-      return;
-    }
-
-    if (command.type !== "SYNC_ALLIANCE" && command.type !== "SYNC_TRUCE" && command.type !== "SETTLE_DIPLOMACY_TERMS" && command.type !== "CHECK_STRANDED_REGION") {
-      const playerSeqKey = `${command.playerId}:${command.clientSeq}`;
-      const existingCommandId = this.replayCache.commandIdsByPlayerSeq.get(playerSeqKey);
-      if (existingCommandId) {
-        if (this.replayCache.isTerminalOnlyReplayCommand(existingCommandId)) return;
-        const replayEvents = this.replayCache.recordedEventsByCommandId.get(existingCommandId);
-        if (replayEvents) {
-          for (const event of replayEvents) this.events.emit("event", event);
-          return;
-        }
-        this.replayCache.commandIdsByPlayerSeq.delete(playerSeqKey);
-      }
-
-      this.replayCache.commandIdsByPlayerSeq.set(playerSeqKey, command.commandId);
-    }
+    if (this.replayCache.replayOrRegister(command, event => this.events.emit("event", event))) return;
     if (command.type !== "CHECK_STRANDED_REGION") this.persistence.recordCommand(command); // ephemeral: never retained
     this.queueCommandForProcessing(command);
   }
@@ -2367,6 +2345,7 @@ export class SimulationRuntime {
       tileSettledAtByKey: this.tileSettledAtByKey, wonderCacheByPlayer: this.wonderCacheByPlayer,
       summaryForPlayer: id => this.summaryForPlayer(id), settledTilesForPlayer: id => this.settledTilesForPlayer(id),
       activeObservatoryKeysForPlayer: id => this.ownerIndexes.activeObservatoriesByOwner.get(id) ?? [],
+      activeObservatoryOwners: () => this.ownerIndexes.activeObservatoriesByOwner.keys(),
       ...(this.resourceSupply ? { tradedSupply: id => this.resourceSupply!.upkeep(id), advanceTrades: () => this.resourceSupply!.ledger.advanceTo(this.now()) } : {}) };
   }
   private resourceSlotSupplyForPlayer(id: string, fresh = false): ResourceSlotTotals {

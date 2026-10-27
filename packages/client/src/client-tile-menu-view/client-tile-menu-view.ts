@@ -1,4 +1,5 @@
-import { isNetworkResource, RESOURCE_NETWORKS } from "@border-empires/shared";
+import { resourceTileDescriptionLines } from "./client-resource-tile-copy.js";
+import { isNetworkResource } from "@border-empires/shared";
 import { afcEffectMultiplier } from "../client-afc-upgrades/client-afc-effect.js";
 import { attackFloorForPlayer } from "../client-attack-commit/client-attack-floor.js";
 import { battleOverviewLines, battleMenuHeaderStatus } from "../client-battle-progress/client-tracked-battle-progress.js";
@@ -132,10 +133,12 @@ export const menuOverviewForTile = (
     ownerKind,
     productionLabel,
     resourceLabel: resourceLabelText,
+    requiresDevelopment: isNetworkResource(tile.resource),
     isDockEndpoint: Boolean(tile.dockId),
     hasTown: Boolean(tile.town),
     ownershipState: tile.ownershipState
   }).forEach(pushLine);
+  resourceTileDescriptionLines(tile).forEach(pushLine);
   if (!isLand) return lines;
   if (tile.ownershipState === "SETTLED" && tile.town?.populationTier === "SETTLEMENT") {
     pushLine("Settlements provide starter coin and manpower until they grow into towns.");
@@ -258,13 +261,6 @@ export const menuOverviewForTile = (
   } else if (tile.resource && tile.ownershipState === "SETTLED" && !productionHtml) {
     const slotHtml = resourceSlotProductionHtml(tile);
     if (slotHtml) pushLine(`Production: ${slotHtml}`);
-  }
-  if (isNetworkResource(tile.resource)) {
-    const network = RESOURCE_NETWORKS[tile.resource];
-    pushLine(network.description);
-    pushLine(network.effect);
-    pushLine("Each developed site supplies one building. A building can use one slot of each relevant resource; extra buildings need additional supply.");
-    if (tile.economicStructure?.type !== network.building) pushLine(`Develop with a ${network.buildingName}.`);
   }
   if (tile.dockId && tile.ownershipState === "SETTLED") {
     const connectedDockCount = tile.dock?.connectedDockCount ?? deps.connectedDockCountForTile(tile);
