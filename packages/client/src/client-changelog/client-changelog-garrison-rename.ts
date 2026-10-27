@@ -33,11 +33,11 @@ export const CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME: ClientChangelogEntry[] = 
   },
   {
     createdAt: 1793126121253, // frozen at authoring time
-    introducedIn: "2026.10.27.1",
+    introducedIn: "2026.10.27.3",
     title: "Integrity screen counts garrisoned tiles",
-    why: "The Empire Integrity breakdown said \"Tiles you own\" but only counted garrisoned tiles, so the number didn't match your territory.",
+    why: "The Empire Integrity breakdown said \"Tiles you own\", but only garrisoned tiles count toward integrity; held ground doesn't.",
     changes: [
-      "The integrity breakdown now says \"Garrisoned tiles\" and explains that only garrisoned tiles count"
+      "The integrity breakdown now says \"Garrisoned tiles\", shows the same count the score uses, and explains that only garrisoned tiles count"
     ]
   }
 ];
