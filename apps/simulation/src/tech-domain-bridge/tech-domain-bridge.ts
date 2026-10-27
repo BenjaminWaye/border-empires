@@ -3,7 +3,7 @@ import { afcPlayerStatePayload, afcInstallAllowed } from "../afc-specializations
 import { usesAfcSpecializations, TRICKLE_RESOURCE_KEYS, techGoldCostForResearchedCount, type ChosenTrickleResource } from "@border-empires/shared";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { techCatalogIdentityMetadata } from "./tech-catalog-identity-metadata.js";
-import { VISION_RADIUS, type SlotResource } from "@border-empires/shared";
+import { VISION_RADIUS, type ResourceSlotGrant, type SlotResource } from "@border-empires/shared";
 import { estimateIncomePerMinuteFromTiles } from "../player-runtime-summary.js";
 import { goldCostForTechResearch } from "../tech-wonder-gold-discount.js";
 import { weaponsFactoryCountsForPlayer, appendWeaponsFactoryBreakdownEntries } from "./weapons-factory-mod-breakdown.js";
@@ -316,21 +316,27 @@ export const domainHasResourceSubChoice = (domainId: string): boolean => {
   return typeof domain?.effects?.chosenResourceSlotGrant === "number" && (domain.effects.chosenResourceSlotGrant as number) > 0;
 };
 
-export const domainGrantedResourceSlots = (
+/** The installed upgrade's slot grant, with the upgrade it comes from (named in the Economy panel). */
+export const domainResourceSlotGrant = (
   player: Pick<DomainPlayer, "domainIds" | "chosenTrickleResource" | "afcScarcityFoodSlots">
-): Partial<Record<SlotResource, number>> | undefined => {
-  if (player.afcScarcityFoodSlots) return { FOOD: player.afcScarcityFoodSlots };
+): ResourceSlotGrant | undefined => {
+  // Exchequer II's scarcity fallback (afc-installation-grants.ts) is the only source of afcScarcityFoodSlots.
+  if (player.afcScarcityFoodSlots) return { kind: "UPGRADE", id: "afc-exchequer-2", supply: { FOOD: player.afcScarcityFoodSlots } };
   const chosen = player.chosenTrickleResource;
   if (chosen !== "TITANIUM" && chosen !== "UMBRITE" && chosen !== "CRYSTAL") return undefined;
   for (const domainId of player.domainIds ?? []) {
     const domain = domainEntryById.get(domainId);
     const grant = domain?.effects?.chosenResourceSlotGrant;
     if (typeof grant === "number" && grant > 0) {
-      return { [chosen]: grant };
+      return { kind: "UPGRADE", id: domainId, supply: { [chosen]: grant } };
     }
   }
   return undefined;
 };
+
+export const domainGrantedResourceSlots = (
+  player: Pick<DomainPlayer, "domainIds" | "chosenTrickleResource" | "afcScarcityFoodSlots">
+): Partial<Record<SlotResource, number>> | undefined => domainResourceSlotGrant(player)?.supply;
 
 export const chooseDomainForPlayer = (
   player: DomainPlayer,

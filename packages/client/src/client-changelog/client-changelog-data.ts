@@ -443,6 +443,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "\"You give\" and \"You ask\" now show Coin and Shards as tiles. Press one to open a slider that runs from 0 to what that side holds, with a box beside it for typing an exact amount.",
       "When asking an AI for coin or Shards, the slider stops at what it can actually pay."
     ]
+  },
+  {
+    createdAt: 1793125924000, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.27.5",
+    title: "Clearer economy resources",
+    why: "Unresearched resources cluttered the bar, and slot sources showed as a vague \"Other bonuses\".",
+    changes: ["Crystal, Titanium and Umbrite stay off the resource bar and Economy panel until researched, unless you already have slots or users for them.", "Economy slot sources now list every source by name: resource sites, Mines and Refineries, upgrades, Waystations, Siphons, Foundry Heart and relics.", "Slot sources now cover your whole empire, not just the area on screen."]
   }
 ];
 

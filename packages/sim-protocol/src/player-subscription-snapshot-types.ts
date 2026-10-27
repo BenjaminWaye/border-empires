@@ -1,7 +1,7 @@
 // Extracted from index.ts (500-line source budget, see AGENTS.md) to make
 // room for new tile-overlay wire fields without growing that file further.
 
-import type { AutoSettlePrefs, ChosenTrickleResource, FrontierDecayKind, PlayerRespawnNotice, SlotResource, VisibilityState, WaypointWireStep } from "@border-empires/shared";
+import type { AutoSettlePrefs, ChosenTrickleResource, FrontierDecayKind, PlayerRespawnNotice, ResourceSlotSources, SlotResource, VisibilityState, WaypointWireStep } from "@border-empires/shared";
 import type { ManpowerBreakdown, SimulationSeasonState, WorldStatusSnapshot } from "./index.js";
 import type { TileOverlayJsonFields } from "./tile-overlay-fields/tile-overlay-fields.js";
 
@@ -35,6 +35,8 @@ export type PlayerSubscriptionSnapshot = {
     resourceSlots?: {
       supply: Record<SlotResource, number>;
       demand: Record<SlotResource, number>;
+      // Where the supply comes from, one labelled row per source (adds up to supply).
+      sources?: ResourceSlotSources;
     };
     // §14.2: per-structure dormancy detail — which tile+field keys
     // ("x,y:fort"/"observatory"/"siegeBattery"/"economicStructure") are

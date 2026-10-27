@@ -14,7 +14,7 @@ import { renderDefensibilityPanels } from "./client-hud-defensibility-panel.js";
 import { isIntegrityWarningDismissed, wireIntegrityWarningDismissButtons } from "./client-integrity-warning-storage.js";
 import { exposedSidesForTile, isOwnedSettledLandTile } from "../client-defensibility-tile.js";
 import type { initClientDom } from "../client-dom.js";
-import { renderEconomyPanelHtml } from "../client-economy-html/client-economy-html.js";
+import { hudEconomyPanelHtml } from "./client-hud-economy-panel.js";
 import { imperialWardChipHtml, bindImperialWardChip } from "../client-imperial-ward/client-imperial-ward.js";
 import type { EconomyFocusKey } from "../client-economy-model.js";
 import { renderDevelopmentPanelHtml, deriveDevelopmentPanelData } from "../client-development-panel/client-development-html.js";
@@ -646,29 +646,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   });
 
   const economyPanelHtml = safeValue("renderEconomyPanelHtml", fallbackCard("Economy"), () =>
-    renderEconomyPanelHtml({
-      focus: state.economyFocus,
-      integrityPct: state.defensibilityPct,
-      gold: state.gold,
-      me: state.me,
-      incomePerMinute: state.incomePerMinute,
-      strategicResources: state.strategicResources,
-      storageCap: state.storageCap,
-      strategicProductionPerMinute: state.strategicProductionPerMinute,
-      resourceSlots: state.resourceSlots, dormantStructures: state.dormantStructures,
-      economyBreakdown: state.economyBreakdown,
-      upkeepPerMinute: state.upkeepPerMinute,
-      upkeepLastTick: state.upkeepLastTick,
-      activeRevealTargetsCount: state.activeRevealTargets.length,
-      tiles: state.tiles.values(),
-      isMobile: window.matchMedia("(max-width: 900px)").matches,
-      prettyToken,
-      resourceIconHtml,
-      rateToneClass,
-      resourceLabel,
-      economicStructureName,
-      isRevealed: (key) => hasRevealedResourceCategory(key, state.techIds, state.techCatalog)
-    })
+    hudEconomyPanelHtml(state, { prettyToken, resourceIconHtml, rateToneClass, resourceLabel, economicStructureName, hasRevealedResourceCategory })
   );
   dom.panelEconomyEl.innerHTML = dom.mobilePanelEconomyEl.innerHTML = economyPanelHtml;
   dom.panelDevelopmentEl.innerHTML = dom.mobilePanelDevelopmentEl.innerHTML = safeValue("developmentPanelHtml", fallbackCard("Development"), () =>
