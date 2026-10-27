@@ -195,8 +195,8 @@ New seasons contain five economic deposits in addition to the slot resources.
 They are visible when explored, but require a specialised Manifest and an
 owned, settled matching extraction installation before supplying benefits.
 Every new extraction installation occupies 1 FOOD slot and costs manpower:
-Resin Extractor 120, Implant Foundry 150, Catalyst Refinery 150, Cultivation
-Estate 100, Reclamation Works 180. Base construction seconds equal manpower.
+Resin Extractor 40, Implant Foundry 50, Catalyst Refinery 50, Cultivation
+Estate 33, Reclamation Works 60. Base construction seconds equal manpower.
 
 Each active developed site supplies one renewable bonus slot. One slot can
 supply one eligible building; each building uses at most one slot of each

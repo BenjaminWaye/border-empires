@@ -48,7 +48,7 @@ export function resourceTileStatsHtml(tile: Tile, techCatalog: readonly Pick<Tec
   return `<div class="tile-stat-grid resource-stat-grid">${[
     card("Potential bonus", bonus, `${interval} · 1 ${target}`),
     card("Supply", "1 exclusive slot", siphoned ? "Siphoned" : "Renewable · tradeable"),
-    card("Develop with", spec.buildingName, siteState),
+    card("Develop with", spec.buildingName, `${spec.manpowerCost} Ancillaries · ${siteState}`),
     card("Upkeep", "1 FOOD", "Powered site required"),
     card("Unlock", unlock, "Manifest required", true)
   ].join("")}</div>`;

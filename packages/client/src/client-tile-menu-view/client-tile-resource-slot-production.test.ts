@@ -87,6 +87,7 @@ describe("every resource tile explains its role", () => {
         const spec = RESOURCE_NETWORKS[resource as keyof typeof RESOURCE_NETWORKS];
         expect(lines).toContain(spec.description);
         expect(lines).toContain(spec.buildingName);
+        expect(lines).toContain(`${spec.manpowerCost} Ancillaries`);
         expect(lines).toContain("Build required");
         expect(lines).toContain("Potential bonus");
         expect(lines).not.toMatch(/Claim and garrison this tile to start producing/);

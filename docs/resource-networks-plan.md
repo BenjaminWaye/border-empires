@@ -25,11 +25,11 @@ rules; this document records implementation scope, rollout and visual decisions.
 
 | Deposit | Installation | Build manpower / seconds | Ongoing occupancy | Benefit from one supply slot |
 |---|---|---:|---|---|
-| Neural resin | Resin Extractor | 120 / 120 | 1 FOOD slot | +12 Ancillaries at one factory per 4-hour batch |
-| Conductive minerals | Implant Foundry | 150 / 150 | 1 FOOD slot | +6 Ancillaries at one factory per batch |
-| Catalytic deposit | Catalyst Refinery | 150 / 150 | 1 FOOD slot | +1.5 Coin/day at one active supported Trade Nexus |
-| Luxury biota | Cultivation Estate | 100 / 100 | 1 FOOD slot | +1.5 Coin/day at one active supported Trade Nexus |
-| Precursor salvage | Reclamation Works | 180 / 180 | 1 FOOD slot | +1.5 Coin/day at one active supported Manufactory |
+| Neural resin | Resin Extractor | 40 / 40 | 1 FOOD slot | +12 Ancillaries at one factory per 4-hour batch |
+| Conductive minerals | Implant Foundry | 50 / 50 | 1 FOOD slot | +6 Ancillaries at one factory per batch |
+| Catalytic deposit | Catalyst Refinery | 50 / 50 | 1 FOOD slot | +1.5 Coin/day at one active supported Trade Nexus |
+| Luxury biota | Cultivation Estate | 33 / 33 | 1 FOOD slot | +1.5 Coin/day at one active supported Trade Nexus |
+| Precursor salvage | Reclamation Works | 60 / 60 | 1 FOOD slot | +1.5 Coin/day at one active supported Manufactory |
 
 Build times above are base times; existing build-speed effects apply. Build
 Coin costs are zero, matching the existing physical-construction economy.

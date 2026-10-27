@@ -136,3 +136,10 @@ while checkpoints continue to store only authoritative state. Both Economy
 layouts show signed commitments. Full local CI before this integration passed
 3,673 simulation tests, both slow map suites, 1,527 gateway tests and 5,916 client
 tests plus builds; the affected integrations receive additional targeted checks.
+
+Truce-extension integration retains stale-offer validation before payment; an
+already-paying offer still resumes and compensates if its treaty changed.
+Installation costs are now roughly one third of the original values (40/50/50/
+33/60 Ancillaries), below an Ancillary Factory's base 150; construction seconds
+continue to follow manpower cost. Lore reviewed; no canon change for this balance
+adjustment.
