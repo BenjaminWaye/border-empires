@@ -53,7 +53,7 @@ const leftPanelHtml = (input: TownScreenInput): string => {
   const known = (v: number | undefined): v is number => typeof v === "number" && Number.isFinite(v);
   const fed = typeof town.isFed === "boolean" ? (town.isFed ? "Fed" : "Unfed") : "";
   const stats = [
-    { k: "COIN", v: known(town.goldPerMinute) ? `+${fmt(town.goldPerMinute * 60)}/h` : "—", n: fed, tone: town.isFed === false ? " v2t-warn" : "" },
+    { k: "COIN", v: known(town.goldPerMinute) ? `+${fmt(town.goldPerMinute * 1440)}/day` : "—", n: fed, tone: town.isFed === false ? " v2t-warn" : "" },
     { k: "MANPOWER CAP", v: known(town.manpowerCap) ? `+${fmt(town.manpowerCap)}` : "—", n: "", tone: " v2t-gold" },
     { k: "FOOD UPKEEP", v: `${townFoodSlotDemandForTier(town.populationTier)} slots`, n: "", tone: "" },
     { k: "SUPPORT RING", v: known(town.supportCurrent) && known(town.supportMax) ? `${town.supportCurrent} / ${town.supportMax}` : "—", n: "", tone: "" }

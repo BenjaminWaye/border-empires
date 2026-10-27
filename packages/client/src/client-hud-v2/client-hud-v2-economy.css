@@ -1,7 +1,9 @@
 /* Economy panel under the new HUD (client-economy-rows.ts): one row per resource in the side panel. */
-.v2e { display: grid; gap: 8px; color: var(--v2-text); font-family: var(--v2-body); }
-.v2e-row { display: grid; gap: 6px; padding: 10px 12px; background: var(--v2-ink); border: 1px solid var(--v2-line); border-left: 3px solid var(--v2-line); }
-.v2e-focus { border-color: var(--v2-edge); border-left-color: var(--v2-gold); }
+.v2e { display: grid; gap: 0; color: var(--v2-text); font-family: var(--v2-body); }
+/* A divided list, not a framed box per resource; the left bar marks focus/shortage. */
+.v2e-row { display: grid; gap: 6px; padding: 10px 12px; border-left: 3px solid transparent; }
+.v2e-row + .v2e-row { border-top: 1px solid var(--v2-line); }
+.v2e-focus { background: var(--v2-ink); border-left-color: var(--v2-gold); }
 .v2e-short { border-left-color: var(--v2-red); }
 .v2e-head { display: flex; align-items: center; gap: 8px; }
 .v2e-head .resource-icon, .v2e-head img, .v2e-head svg { width: 18px; height: 18px; }

@@ -1,4 +1,4 @@
-// Top resource bar for the new HUD: Coin with its hourly rate, the four slot
+// Top resource bar for the new HUD: Coin with its net daily rate, the four slot
 // resources as used / total, Shard and Integrity, plus the settings gear.
 // Manpower lives in the orb, not here.
 
@@ -6,7 +6,8 @@ import type { SlotResource } from "@border-empires/shared";
 
 export type ResourceBarInput = {
   gold: number;
-  incomePerMinute: number;
+  /** Net coin per minute: income less coin upkeep, the figure Economy shows. */
+  netPerMinute: number;
   slotSupply: Readonly<Record<SlotResource, number>>;
   slotDemand: Readonly<Record<SlotResource, number>>;
   shard: number;
@@ -31,12 +32,14 @@ const chip = (key: string, label: string, valueHtml: string, extraClass = ""): s
   `<button type="button" class="hud-v2-chip${extraClass}" data-hud-v2-chip="${key}"><span class="hud-v2-chip-label">${label}</span>${valueHtml}</button>`;
 
 export const resourceBarHtml = (input: ResourceBarInput): string => {
-  const ratePerHour = input.incomePerMinute * 60;
-  const rateSign = ratePerHour >= 0 ? "+" : "−";
+  // Per day, like Economy and the tile panel.
+  const ratePerDay = input.netPerMinute * 1440;
+  const rateSign = ratePerDay >= 0 ? "+" : "−";
+  const rateTone = ratePerDay < 0 ? " hud-v2-chip-rate-loss" : "";
   const coin = chip(
     "coin",
     "Coin",
-    `<span class="hud-v2-chip-value">${fmt(input.gold)}</span><span class="hud-v2-chip-rate">${rateSign}${fmt(Math.abs(ratePerHour))}/h</span>`
+    `<span class="hud-v2-chip-value">${fmt(input.gold)}</span><span class="hud-v2-chip-rate${rateTone}">${rateSign}${fmt(Math.abs(ratePerDay))}/day</span>`
   );
   const shown = (key: SlotResource): boolean =>
     key === "FOOD" || !input.isRevealed || input.isRevealed(key) || (input.slotSupply[key] ?? 0) > 0 || (input.slotDemand[key] ?? 0) > 0;

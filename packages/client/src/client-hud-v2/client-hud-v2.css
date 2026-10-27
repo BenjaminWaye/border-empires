@@ -64,6 +64,7 @@ body.hud-v2 #floating-info { display: none !important; }
 .hud-v2-chip-value { font-weight: 700; }
 .hud-v2-chip-of { color: var(--v2-muted); }
 .hud-v2-chip-rate { font-size: 11px; color: var(--v2-green); }
+.hud-v2-chip-rate-loss { color: var(--v2-red); }
 .hud-v2-over { font-weight: 700; color: var(--v2-amber); }
 .hud-v2-sep { width: 1px; height: 24px; margin: 0 4px; background: var(--v2-line); }
 .hud-v2-gear {
@@ -154,6 +155,13 @@ body.hud-v2 #floating-info { display: none !important; }
 .hud-v2-tracker-timed { grid-template-columns: 1fr auto; align-items: baseline; }
 .hud-v2-tracker-time { font-family: var(--v2-mono); font-size: 12px; color: var(--v2-soft); }
 .hud-v2-tracker-more { padding: 2px 14px 6px; font-size: 12px; color: var(--v2-muted); }
+/* Dev slots unfold in place: what fills each slot, then what waits for one. */
+.hud-v2-slots-fold { margin-left: auto; font-size: 11px; color: var(--v2-muted); }
+.hud-v2-slot-list { display: grid; padding: 2px 0 4px; }
+.hud-v2-slot-row { width: 100%; }
+.hud-v2-slot-row .hud-v2-tracker-time { margin-left: auto; }
+.hud-v2-tracker-at { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
+.hud-v2-slot-waiting .hud-v2-tracker-title { font-size: 13px; color: var(--v2-soft); }
 
 /* ---- Bottom-left: minimap moves here; the checklist launcher sits above it ---- */
 body.hud-v2 #mini-map-wrap { left: 16px !important; right: auto !important; bottom: 16px; width: 200px; z-index: 36; }
@@ -243,7 +251,7 @@ body.hud-v2 .onb-root { bottom: 266px !important; }
 .hud-v2-build-place:empty { display: none; }
 .hud-v2-build-place .v2t-place { border: 0; padding: 0; box-shadow: none; background: none; }
 body.hud-v2-building .hud-v2-right { display: none; }
-/* A side panel (Economy, Integrity, Development) opens over the right edge; the rival portraits would sit on its header. */
+/* A side panel (Economy, Integrity) opens over the right edge; the rival portraits would sit on its header. */
 body.hud-v2:has(#hud.desktop-side-panel-open) .hud-v2-rivals { display: none; }
 .hud-v2-tile .tile-auto-settle-option { font-size: 12px; color: var(--v2-muted); }
 

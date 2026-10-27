@@ -77,5 +77,5 @@ export const seasonClockHtml = (objectives: readonly SeasonVictoryObjectiveView[
   const holding = holdingObjective(objectives);
   if (!holding) return `<span class="hud-v2-season-title">Victory race</span><span class="hud-v2-season-line">Nobody holding a path</span>`;
   const left = holding.holdRemainingSeconds !== undefined ? ` · ${hoursLeft(Date.now() + holding.holdRemainingSeconds * 1000, Date.now())}` : "";
-  return `<span class="hud-v2-season-title">Victory race</span><span class="hud-v2-season-line hud-v2-season-holding">⌛ <b>${esc(holding.leaderName)}</b> holding ${esc(holding.name)}${left}</span>`;
+  return `<span class="hud-v2-season-title">Victory race</span><span class="hud-v2-season-line hud-v2-season-holding">⧗ <b>${esc(holding.leaderName)}</b> holding ${esc(holding.name)}${left}</span>`;
 };

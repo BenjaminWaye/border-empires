@@ -6,7 +6,7 @@
 
 import type { LeaderboardOverallEntry } from "@border-empires/game-domain";
 import type { CareerStatsView, GalaxyHoldingsView, SocialPublicView, TruceBreakView } from "../client-player-profile/client-player-profile-types.js";
-import { sectorOrSeasonLabel, specializationLabel, TROPHY_ICON_BY_OBJECTIVE_ID } from "../client-player-profile/client-player-profile-galaxy.js";
+import { sectorOrSeasonLabel, specializationLabel, trophyIconHtml } from "../client-player-profile/client-player-profile-galaxy.js";
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 
 type Loadable<T> = T | "loading" | undefined;
@@ -101,7 +101,7 @@ const trophiesHtml = (holdings: Loadable<GalaxyHoldingsView>): string => {
   const trophies = holdings.trophyCase ?? [];
   return panel("Trophies", trophies.length === 0
     ? `<p class="v2p-none">No season wins yet</p>`
-    : `<ul class="v2p-list">${trophies.map((t) => `<li><span class="v2p-icon" aria-hidden="true">${TROPHY_ICON_BY_OBJECTIVE_ID[t.objectiveId] ?? "🏆"}</span>${esc(t.objectiveName)}<b>×${t.count}</b></li>`).join("")}</ul>`);
+    : `<ul class="v2p-list">${trophies.map((t) => `<li><span class="v2p-icon" aria-hidden="true">${trophyIconHtml(t.objectiveId)}</span>${esc(t.objectiveName)}<b>×${t.count}</b></li>`).join("")}</ul>`);
 };
 
 const holdingsHtml = (holdings: Loadable<GalaxyHoldingsView>): string => {
