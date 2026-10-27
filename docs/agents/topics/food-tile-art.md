@@ -50,3 +50,20 @@ The current food overlay merges everything into one non-metallic material.
 For implementation, preserve separate instanced body, metal and water layers,
 following the district material responses, instead of baking metal into matte
 vertex colours. Update the 2D artwork in the same branch when adopting the study.
+
+### On-terrain foundation review
+
+The Fishing terrain study story compares the Blender proposal directly on the
+production grass heightfield with a low gray stone apron. The apron has a level
+top and a chamfered skirt fitted to the terrain corner heights, leaving a grass
+margin inside the tile. It is an art preview only, not a runtime overlay.
+
+Export the proposal with `blender --background <study.blend> --python scripts/export-blender-fish-study.py -- packages/storybook/public/studies/fishing-style-proposal.glb`.
+Study assets are served under `/studies` by Storybook and are excluded from
+the game client's public directory. The preview passes its renderer to the
+atmosphere so the metal and water use the production building environment map.
+
+The gray apron makes the disconnected props read as one work site. Keep it
+thin and rough, with subdued contrast against the surrounding grass; avoid
+a tall display plinth or a wooden bridge. Minor drainage/wear could further
+ground the basins if this direction is adopted in both game renderers.
