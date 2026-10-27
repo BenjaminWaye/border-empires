@@ -64,9 +64,6 @@ const slotRowHtml = (input: EconomyRowsInput, resource: SlotResource): string =>
   const focus = input.focus === resource ? " v2e-focus" : "";
   const head = (amount: string, status: string, tone: string): string =>
     `<div class="v2e-head">${input.resourceIconHtml(resource)}<span class="v2e-name">${NAMES[resource]}</span><b class="v2e-amount">${amount}</b><span class="v2e-status ${tone}">${status}</span></div>`;
-  if (!input.isRevealed(resource)) {
-    return `<section class="v2e-row v2e-locked${focus}" data-v2e-row="${resource}">${head("—", "Not discovered", "v2e-muted")}</section>`;
-  }
   const { supply, demand, sources, occupants } = input.slots[resource];
   const status = slotStatus(supply, demand);
   const fed = resource === "FOOD" && input.foodCoverage < 1
@@ -80,8 +77,9 @@ const slotRowHtml = (input: EconomyRowsInput, resource: SlotResource): string =>
   </section>`;
 };
 
+// A resource the player has not researched yet gets no row at all, same as the top bar.
 export const renderEconomyRowsHtml = (input: EconomyRowsInput): string =>
-  `<div class="v2e">${ROWS.map((r) => (r === "GOLD" ? coinRowHtml(input) : slotRowHtml(input, r))).join("")}</div>`;
+  `<div class="v2e">${ROWS.map((r) => (r === "GOLD" ? coinRowHtml(input) : input.isRevealed(r) ? slotRowHtml(input, r) : "")).join("")}</div>`;
 
 /** The classic panel's own calculations, handed in by client-economy-html.ts. */
 export type EconomyRowsHelpers = {

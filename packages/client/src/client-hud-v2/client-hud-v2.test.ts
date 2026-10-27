@@ -46,6 +46,14 @@ describe("resource bar", () => {
     expect(html).toContain("+120/h");
     expect(html).toContain('data-hud-v2-open="settings"');
   });
+
+  // Regression: Crystal showed as 0/0 on the bar before it was researched.
+  it("leaves unresearched resources off the bar", () => {
+    const slots = { FOOD: 2, TITANIUM: 2, CRYSTAL: 0, UMBRITE: 0 };
+    const html = resourceBarHtml({ gold: 0, incomePerMinute: 0, slotSupply: slots, slotDemand: slots, shard: 0, integrityPct: undefined, isRevealed: (r) => r !== "CRYSTAL" });
+    expect(html).not.toContain('data-hud-v2-chip="crystal"');
+    expect(html).toContain('data-hud-v2-chip="titanium"');
+  });
 });
 
 describe("tracker", () => {

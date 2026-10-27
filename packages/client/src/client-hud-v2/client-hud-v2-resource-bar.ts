@@ -11,6 +11,8 @@ export type ResourceBarInput = {
   slotDemand: Readonly<Record<SlotResource, number>>;
   shard: number;
   integrityPct: number | undefined;
+  /** Titanium/Crystal/Umbrite stay off the bar until researched; Food is always shown. */
+  isRevealed?: (resource: SlotResource) => boolean;
 };
 
 const SLOT_ORDER: ReadonlyArray<[SlotResource, string]> = [
@@ -36,7 +38,7 @@ export const resourceBarHtml = (input: ResourceBarInput): string => {
     "Coin",
     `<span class="hud-v2-chip-value">${fmt(input.gold)}</span><span class="hud-v2-chip-rate">${rateSign}${fmt(Math.abs(ratePerHour))}/h</span>`
   );
-  const slots = SLOT_ORDER.map(([key, label]) => {
+  const slots = SLOT_ORDER.filter(([key]) => !input.isRevealed || input.isRevealed(key)).map(([key, label]) => {
     const used = Math.max(0, input.slotDemand[key] ?? 0);
     const total = Math.max(0, input.slotSupply[key] ?? 0);
     const over = slotChipState(used, total) === "over";

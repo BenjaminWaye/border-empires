@@ -20,6 +20,7 @@ import { navHtml } from "./client-hud-v2-nav.js";
 import { orbHtml } from "./client-hud-v2-orb.js";
 import { overlaysHtml } from "./client-hud-v2-overlays.js";
 import { resourceBarHtml } from "./client-hud-v2-resource-bar.js";
+import { hasRevealedResourceCategory } from "../client-tech-html/client-tech-html.js";
 import { rivalsHtml, seasonClockHtml } from "./client-hud-v2-rivals.js";
 import { closeScreen, openScreen, renderScreen, screenClick, screenEscape } from "./client-hud-v2-screens.js";
 import { profileScreenStep } from "./client-hud-v2-profile.js";
@@ -213,7 +214,8 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
     slotSupply: state.resourceSlots.supply,
     slotDemand: state.resourceSlots.demand,
     shard: state.strategicResources.SHARD,
-    integrityPct: state.defensibilityPct
+    integrityPct: state.defensibilityPct,
+    isRevealed: (key) => hasRevealedResourceCategory(key, state.techIds, state.techCatalog)
   }));
   writeRegion("nav", navHtml({
     name: state.playerNames.get(state.me) ?? "You",

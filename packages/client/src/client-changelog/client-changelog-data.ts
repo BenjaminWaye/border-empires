@@ -443,6 +443,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "\"You give\" and \"You ask\" now show Coin and Shards as tiles. Press one to open a slider that runs from 0 to what that side holds, with a box beside it for typing an exact amount.",
       "When asking an AI for coin or Shards, the slider stops at what it can actually pay."
     ]
+  },
+  {
+    createdAt: 1793125924000, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.27.5",
+    title: "Clearer economy resources",
+    why: "Unresearched resources cluttered the bar, and slot sources were vague.",
+    changes: ["Crystal, Titanium and Umbrite stay off the resource bar and Economy panel until researched.", "Slot sources now read as sites (e.g. Titanium sites ×2), and an AFC upgrade's resource grant shows by name."]
   }
 ];
 

@@ -2,20 +2,15 @@ import {
   townFoodSlotDemandForTier,
   structureSlotRequirements,
   RELAY_BEACON_FREE_FOOD_SLOT_COUNT,
-  BASE_SLOTS_BY_TILE_RESOURCE,
-  TILE_SLOT_BOOST_STRUCTURES,
-  HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS,
-  ORE_REFINERY_MINE_SLOT_BONUS,
   isSlotSourceConverter,
   converterModeOf,
-  wrappedChebyshevDistance,
   type EmpireStorageCap,
   type SlotResource
 } from "@border-empires/shared";
 import { economyIntegrityCardHtml } from "./client-economy-integrity-card.js";
 import { economyRowsFromPanelArgs } from "./client-economy-rows.js";
 import { hudV2IsDriving } from "../client-hud-v2/client-hud-v2-flag.js";
-import { ORE_REFINERY_RADIUS, HYDROWORKS_RADIUS } from "../client-structure-effects/client-structure-effects.js";
+import { slotSourcesForResource } from "./client-economy-slot-sources.js";
 import { STRUCTURE_DISPLAY_NAMES } from "../client-structure-display-names.js";
 import type { EconomyBreakdown, EconomyBucket, EconomyFocusKey } from "../client-economy-model.js";
 import type { Tile } from "../client-types.js";
@@ -62,6 +57,8 @@ export type EconomyPanelArgs = {
   economicStructureName: (type: EconomicStructureType) => string;
   resourceSlots: { supply: Record<SlotResource, number>; demand: Record<SlotResource, number> };
   dormantStructures: Array<{ key: string; resources: SlotResource[] }>;
+  /** Installed AFC upgrade's chosen-resource slot grant, named in Slot Sources (domainSlotGrantFor). */
+  domainSlotGrant?: { label: string; resource: SlotResource; count: number };
   // Same reveal gate as the toolbar ribbon (client-panel-html.ts's
   // strategicRibbonHtml): TITANIUM/CRYSTAL/UMBRITE must stay hidden here too
   // until the viewing player has researched the tech that reveals them.
@@ -146,80 +143,6 @@ const slotOccupantsForResource = (args: EconomyPanelArgs, resource: SlotResource
       add(args.economicStructureName(type), count, isDormantOccupant(args, tile, "economicStructure", resource));
     }
   }
-  return [...buckets.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label));
-};
-
-// Mirrors resourceSlotSupplyForPlayer (apps/simulation/src/resource-slot-view/
-// resource-slot-view.ts): base slots per owned settled resource tile, +1 for
-// a same-tile boost structure (Hydrogarden/Mine/Umbrite Rig), +2 for a Hydrogarden
-// within Hydroworks radius or a Mine within Ore Refinery radius, plus +1 per active
-// SYNTHESIZE-mode converter of this resource. This is a client-side re-derivation
-// (same tradeoff as slotOccupantsForResource above) and does NOT see
-// domain/tech-effect supply grants (resourceSlotSupplyForPlayer's
-// domainGrantedSupply argument is server-only) — any gap between this
-// breakdown's total and the authoritative args.resourceSlots.supply is folded
-// into a trailing "Other bonuses" row so the two never visibly disagree.
-const isWithinRadiusOfActiveStructure = (
-  tiles: Iterable<Tile>,
-  ownerId: string,
-  target: Tile,
-  structureType: NonNullable<Tile["economicStructure"]>["type"],
-  radius: number
-): boolean => {
-  for (const candidate of tiles) {
-    const structure = candidate.economicStructure;
-    if (!structure || structure.ownerId !== ownerId || structure.type !== structureType || structure.status !== "active") continue;
-    if (wrappedChebyshevDistance(candidate.x, candidate.y, target.x, target.y) <= radius) return true;
-  }
-  return false;
-};
-
-const slotSourcesForResource = (args: EconomyPanelArgs, resource: SlotResource): EconomyBucket[] => {
-  const buckets = new Map<string, EconomyBucket>();
-  const add = (label: string, count: number): void => {
-    if (count <= 0) return;
-    const current = buckets.get(label);
-    if (current) {
-      current.amountPerMinute += count;
-      current.count += 1;
-      return;
-    }
-    buckets.set(label, { label, amountPerMinute: count, count: 1 });
-  };
-  const tiles = [...args.tiles];
-  let total = 0;
-  for (const tile of tiles) {
-    if (tile.ownerId !== args.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED") continue;
-    if (tile.fogged) continue;
-    const structure = tile.economicStructure;
-    const isActiveStructure = structure?.status === "active" && structure?.inactiveReason !== "manual";
-    const structureType = isActiveStructure ? structure!.type : undefined;
-    if (structureType && isSlotSourceConverter(structureType, converterModeOf(structure))) {
-      for (const req of structureSlotRequirements(structureType)) {
-        if (req.resource !== resource) continue;
-        add(args.economicStructureName(structureType), req.count);
-        total += req.count;
-      }
-    }
-    if (!tile.resource) continue;
-    const base = BASE_SLOTS_BY_TILE_RESOURCE[tile.resource as keyof typeof BASE_SLOTS_BY_TILE_RESOURCE];
-    if (!base || base.slotResource !== resource) continue;
-    let slots = base.baseSlots;
-    const label = args.prettyToken(args.resourceLabel(tile.resource));
-    const boostBlockedOnFish = structureType === "HYDROGARDEN" && tile.resource !== "FARM";
-    const boost = structureType && !boostBlockedOnFish ? TILE_SLOT_BOOST_STRUCTURES[structureType] : undefined;
-    if (boost) slots += boost;
-    if (structureType === "HYDROGARDEN" && tile.resource === "FARM" && isWithinRadiusOfActiveStructure(tiles, args.me, tile, "HYDROWORKS", HYDROWORKS_RADIUS)) {
-      slots += HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS;
-    }
-    if (structureType === "MINE" && isWithinRadiusOfActiveStructure(tiles, args.me, tile, "ORE_REFINERY", ORE_REFINERY_RADIUS)) {
-      slots += ORE_REFINERY_MINE_SLOT_BONUS;
-    }
-    add(label, slots);
-    total += slots;
-  }
-  const supply = args.resourceSlots.supply[resource];
-  if (supply > total + 0.5) add("Other bonuses", supply - total);
   return [...buckets.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label));
 };
 
