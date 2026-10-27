@@ -62,12 +62,12 @@ export const HUD_V2_PREVIEW_CHANGELOG: ClientChangelogEntry[] = [
   {
     createdAt: 1793122776434, // Date.now() captured once for this entry.
     introducedIn: "2026.10.27.1",
-    title: "HUD preview: cleaner profile",
-    why: "Tidying the opt-in ?hud=v2 preview.",
+    title: "Icons instead of emoji",
+    why: "Emoji clashed with the game's own icon art.",
     changes: [
-      "Trophies use the game's own icons instead of emoji, in both the preview and the classic profile.",
-      "A profile's season numbers sit in one strip instead of five separate boxes.",
-      "The Ranks marker and the unread dot in Updates no longer glow."
+      "Trophies use the game's own icons instead of emoji.",
+      "Fleets, the Senate, Space View, the tile menu, rush-buy, the Imperial Ward and victory alerts use plain symbols instead of emoji. Rush-buy now reads Rush ◉N.",
+      "HUD preview: a profile's season numbers sit in one strip, Economy is a divided list instead of a box per resource, and the Ranks marker and unread dot no longer glow."
     ]
   }
 ];

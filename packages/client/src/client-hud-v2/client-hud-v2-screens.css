@@ -243,7 +243,7 @@ body.hud-v2-screen-afc #side-panel {
 .v2c-summary { display: grid; gap: 8px; margin: 0 14px; padding: 10px 12px; background: var(--v2-chip); border: 1px solid var(--v2-edge); }
 .v2c-summary-h { font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.06em; }
 .v2c-chips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
-.v2c-chip { display: grid; padding: 6px; background: var(--v2-well); border: 1px solid var(--v2-line); }
+.v2c-chip { display: grid; padding: 6px; background: var(--v2-well); }
 .v2c-chip b { font-family: var(--v2-mono); font-size: 14px; }
 .v2c-chip span { font-size: 10.5px; color: var(--v2-muted); }
 .v2c-gain { color: var(--v2-green-hi); }

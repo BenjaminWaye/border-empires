@@ -14,7 +14,7 @@ import {
 } from "three";
 import { TOWER } from "../client-map-3d-ambaric-transformer-body.js";
 
-// Floats a small crystal-blue badge with an hourglass (⏳) above an owned
+// Floats a small crystal-blue badge with an hourglass (⧗) above an owned
 // observatory whose crystal-casting is still on cooldown
 // (`tile.observatory.cooldownUntil > now`). It mirrors the unfed-town
 // badge (see client-map-3d-unfed-badge-overlay.ts): one shared canvas
@@ -72,11 +72,11 @@ const drawBadgeCanvas = (): HTMLCanvasElement | null => {
   ctx.fill();
   ctx.stroke();
 
-  // ⏳ hourglass centred — the universal "recharging / wait" glyph.
+  // ⧗ hourglass centred — the universal "recharging / wait" glyph.
   ctx.font = `${Math.round(CANVAS_SIZE * 0.6)}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText("⏳", center, center + CANVAS_SIZE * 0.02);
+  ctx.fillText("⧗", center, center + CANVAS_SIZE * 0.02);
 
   return canvas;
 };

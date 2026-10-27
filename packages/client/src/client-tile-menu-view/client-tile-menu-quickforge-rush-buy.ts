@@ -2,7 +2,7 @@
 // (file-line growth cap) — the client-side price preview needs to replicate
 // the server's Quickforge once-per-UTC-day discount (quickforgeAdjustedRushPrice,
 // same shared formula the server uses at apps/simulation/src/runtime-natural-wonders.ts)
-// so the "⏩💰N" chip isn't just wrong whenever the viewer owns the wonder.
+// so the "Rush ◉N" chip isn't just wrong whenever the viewer owns the wonder.
 import { isRedesignedRelic, relicRemainingUses, RELIC_RULES, quickforgeAdjustedRushPrice, rushBuyPriceGold } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
@@ -11,7 +11,7 @@ export type QuickforgeRushBuyContext = { hasQuickforge: boolean; hasNanofabricat
 export const rushBuyLabel = (remainingMs: number, totalMs: number, manpowerCost: number, quickforge: QuickforgeRushBuyContext): string => {
   const basePrice = rushBuyPriceGold(remainingMs, totalMs, manpowerCost);
   const price = quickforge.hasNanofabricator ? Math.max(0, basePrice - RELIC_RULES.nanoDiscount) : quickforgeAdjustedRushPrice(quickforge.hasQuickforge, basePrice, quickforge.wonderLastFreeRushBuyAt, quickforge.nowMs);
-  return `⏩ 💰${price}`;
+  return `Rush ◉${price}`;
 };
 
 // Whether the viewer owns a settled tile carrying the given natural wonder

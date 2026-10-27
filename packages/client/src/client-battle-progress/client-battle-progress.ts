@@ -51,7 +51,7 @@ export const captureAttackProgressView = (
     note: "This tile will become frontier territory.",
     cancelLabel: "Cancel expansion",
     cancelActionId: "cancel_capture" as const,
-    rushBuyLabel: `⏩ 💰${rushBuyPriceGold(remainingMs, totalMs, EXPAND_MANPOWER_COST)}`,
+    rushBuyLabel: `Rush ◉${rushBuyPriceGold(remainingMs, totalMs, EXPAND_MANPOWER_COST)}`,
     rushBuyActionId: "rush_buy" as const
   };
 };
