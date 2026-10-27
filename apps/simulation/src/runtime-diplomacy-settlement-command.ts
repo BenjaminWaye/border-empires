@@ -16,6 +16,7 @@ export type RuntimeDiplomacySettlementContext = {
   settleEconomy?: (at: number, playerIds: readonly string[]) => void;
   resourceSupply?: {
     readonly create: (agreement: ResourceSupplyAgreement) => SupplyLedgerResult;
+    readonly cancel?: (id:string, actorId:string) => SupplyLedgerResult;
     readonly cancelRefunded: (id: string, proposerId: string, targetId: string) => void;
   };
   emitEvent: (event: SimulationEvent) => void;
@@ -71,7 +72,7 @@ export function handleDiplomacySettlementCommand(context: RuntimeDiplomacySettle
     const result = context.resourceSupply!.create({
       id: command.commandId, proposerId: proposer.id, targetId: target.id,
       proposerGives: payload.proposerPays.resources ?? {}, targetGives: payload.targetPays.resources ?? {},
-      startedAt: at, expiresAt: at + (payload.supplyDurationHours ?? 12) * 3_600_000
+      startedAt: at
     });
     if (!result.ok) return reject("DIPLOMACY_SETTLEMENT_RESOURCE_SUPPLY", result.message);
   }

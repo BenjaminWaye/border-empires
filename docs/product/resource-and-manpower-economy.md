@@ -240,25 +240,31 @@ Sources: `packages/shared/src/resource-networks/`,
 
 ## Diplomatic resource supply
 
-The diplomacy screen can attach spare supply to truce/alliance offers. All four
-upkeep resources and all five frontier resources use exclusive renewable slots;
-Shards remain a one-time stockpile transfer. Resources are not mined into a new
-trade inventory. Developed sites and normal domestic source output back exports.
-Received slots cannot themselves back another export, although imported FOOD can
-operate a domestic extraction site. Only surplus beyond current domestic use and
-existing export commitments may be promised. An accepted export takes priority
-over later domestic building demand. Additional consumers never duplicate a slot.
+All four upkeep resources and all five frontier resources can be negotiated in
+independent Resource trade offers or alongside a truce/alliance. These are
+exclusive renewable slots, not a new inventory of mined stockpiles. Shards remain
+a one-time transfer. Only surplus beyond current domestic use and existing export
+commitments may be newly promised. Received slots cannot back another export,
+although imported FOOD may operate a domestic extraction site. Accepted exports
+take priority over later domestic building demand.
 
-Each agreement supplies both promised directions for 12 or 24 hours, independently
-of the accompanying pact's term. Both resource deliveries pause when either House
-loses the required output, and resume if output recovers before expiry. The clock
-continues while paused. Coin and Shards change hands once on acceptance and are not
-automatically refunded for a later supply shortage. At expiry the supplier regains
-the slots. Active agreements survive recovery; incomes settle at the old rate
-before supply changes, including expiry after a server restart.
+Supply continues until either participating House ends the agreement. Both
+resource deliveries pause when either supplier loses required output and resume
+when output recovers. Ending supply releases both directions immediately after
+old-rate income/manpower settlement. One-time Coin and Shard payments are not
+refunded for a later shortage or cancellation. Supply contracts survive the
+accompanying treaty ending. Active agreements persist through recovery; new
+agreements have no expiry. Historical saved agreements may still contain an expiry
+and retain deadline settlement during recovery.
 
-Starting AI negotiation values per slot/day are FOOD 4 Coin, Titanium 4, Crystal 6,
+Independent offers can be accepted, declined or withdrawn without creating a
+truce or alliance. Unaccepted offers expire after 24 hours. A payment already
+being resolved cannot be withdrawn: either party finishes/retries the same accepted
+payment identity before deciding whether to end its resulting supply agreement.
+
+Starting AI negotiation values per slot are FOOD 4 Coin, Titanium 4, Crystal 6,
 Umbrite 4, resin 4, conductive minerals 2, and each credit resource 1.5. These are
-provisional AI negotiation weights, not guaranteed market prices or playtest-proven
-balance. Human offers can use other prices. At most 16 active agreements per House,
-256 per world, and 10,000 slots per resource per offer are accepted.
+one-day-equivalent negotiation weights for an open-ended promise, not recurring
+charges, guaranteed market prices or playtest-proven balance. Human offers can
+use other prices. Limits: 16 active supply agreements per House, 256 per world;
+16 pending offers per House, 256 globally; 10,000 slots per resource per offer.

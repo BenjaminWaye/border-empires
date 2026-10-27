@@ -42,12 +42,12 @@ describe("resource trades in the production runtime",()=>{
     expect(events.some(e=>e.eventType==="COMMAND_REJECTED"&&e.commandId==="duplicate-supply")).toBe(true);
     expect(f.player("seller").points).toBeCloseTo(103);
   });
-  it("expires at its deadline and releases the original supplier",async()=>{
+  it("continues supplying beyond twelve hours until cancelled",async()=>{
     const f=fixture(); await f.pay();
     expect(f.player("buyer").resourceTradeAgreements?.[0]?.fulfilled).toBe(true);
     f.setNow(start+12*3_600_000);
-    expect(f.player("seller").resourceTradeHoldings?.NEURAL_RESIN).toBe(1);
-    expect(f.player("buyer").resourceTradeAgreements).toEqual([]);
+    expect(f.player("seller").resourceTradeHoldings?.NEURAL_RESIN).toBeUndefined();
+    expect(f.player("buyer").resourceTradeAgreements?.[0]?.fulfilled).toBe(true);
   });
   it("preserves supply in durable checkpoints, event replay and the actual reconnect snapshot",async()=>{
     const f=fixture(), before=f.runtime.exportSnapshotSections().initialState, events=collectEvents(f.runtime);
@@ -79,14 +79,14 @@ describe("resource trades in the production runtime",()=>{
     expect(payload.resourceTradeAgreements?.[0]?.fulfilled).toBe(false);
     expect(payload.resourceSlots?.bonusSupply?.supply.NEURAL_RESIN ?? 0).toBe(0);
   });
-  it("settles an expired contract correctly when a checkpoint is restored after its deadline",async()=>{
+  it("preserves open-ended contracts when restoring after a long offline interval",async()=>{
     const f=fixture(); await f.pay();
     const initialState=f.runtime.exportSnapshotSections().initialState;
     const restartAt=start+13*3_600_000;
     const restored=new SimulationRuntime({ now:()=>restartAt,seedTiles:new Map(),initialState,mergeSeedTilesWithInitialState:false });
     f.setNow(restartAt);
     const expected=f.player("buyer"),actual=restored.exportState().players.find(p=>p.id==="buyer")!;
-    expect(actual.resourceTradeAgreements).toEqual([]);
+    expect(actual.resourceTradeAgreements?.[0]?.fulfilled).toBe(true);
     expect(actual.manpower).toBeCloseTo(expected.manpower);
     expect(actual.points).toBeCloseTo(expected.points);
   });
@@ -116,6 +116,18 @@ describe("resource trades in the production runtime",()=>{
     const ownAfter=buildPlayerSubscriptionSnapshot("buyer",f.runtime.exportVisibleStateForPlayer("buyer"),{tilesAlreadyVisible:true}).player!;
     expect(ownAfter.dormantStructures?.some(row=>row.key==="39,39:economicStructure")).toBe(false);
     expect(ownAfter.resourceSlots?.supply.FOOD).toBe(5);
+  });
+
+  it.each(["seller","buyer"])("lets %s end the same agreement and releases both players' supply",async(actorId)=>{
+    const f=fixture();await f.pay();
+    const before=f.player("buyer"),events=collectEvents(f.runtime);
+    f.runtime.submitCommand({commandId:"end-supply",sessionId:"system-runtime:social",playerId:actorId,clientSeq:0,issuedAt:start,type:"CANCEL_RESOURCE_SUPPLY",payloadJson:JSON.stringify({agreementId:"trade"})});
+    await Promise.resolve();
+    expect(events.some(event=>event.eventType==="COMMAND_REJECTED")).toBe(false);
+    expect(f.player("buyer").resourceTradeAgreements).toEqual([]);
+    expect(f.player("seller").resourceTradeHoldings?.NEURAL_RESIN).toBe(1);
+    expect((before.manpowerRegenPerMinute!-f.player("buyer").manpowerRegenPerMinute!)*240).toBeCloseTo(12);
+    expect(f.player("buyer").points).toBeCloseTo(before.points);
   });
 
 });

@@ -1,3 +1,4 @@
+import { InMemoryResourceTradeOfferStore, type ResourceTradeOfferStore } from "../resource-trade/resource-trade-store.js";
 import { createForcedTruces } from "./social-forced-truce.js";
 import crypto from "node:crypto";
 
@@ -62,7 +63,9 @@ export const createSocialState = (options: {
   players?: Array<{ id: string; name: string }>;
   initial?: SocialStateInitial;
   sink?: SocialStateSink;
+  resourceTradeOffers?: ResourceTradeOfferStore;
 } = {}): SocialState => {
+  const resourceTradeOffers = options.resourceTradeOffers ?? new InMemoryResourceTradeOfferStore();
   const now = options.now ?? (() => Date.now());
   const sink = options.sink;
   const playersById = new Map<string, SocialPlayerRecord>();
@@ -160,10 +163,12 @@ export const createSocialState = (options: {
 
   const snapshotForPlayer = (playerId: string): SocialSnapshot => {
     sweepExpired();
-    return buildSocialSnapshot(
+    const snapshot = buildSocialSnapshot(
       { forcedTruceCooldownUntil: forcedTruces.cooldownUntil(playerId), now, playersById, allianceRequests, allianceBreaksByPair, completedAllianceBreaks, truceRequests, trucesByPair, truceBreaksByPlayerId, offerCooldowns },
       ensurePlayer(playerId)
     );
+    const offers = resourceTradeOffers.rows(now()).filter(row => row.fromPlayerId === playerId || row.toPlayerId === playerId);
+    return offers.length ? { ...snapshot, resourceTradeOffers: offers } : snapshot;
   };
 
   const updatePayloadsFor = (
@@ -241,6 +246,7 @@ export const createSocialState = (options: {
         }
       }
     },
+    resourceTradeOffers,
     snapshotForPlayer,
     syncPlayers(playerIds, announcementByPlayerId) {
       return ok(playerIds, announcementByPlayerId);
@@ -319,7 +325,7 @@ export const createSocialState = (options: {
       return ok([playerId, request.toPlayerId]);
     },
     ...allianceBreaks,
-    resetAfcCampaign: () => forcedTruces.reset(),
+    resetAfcCampaign: () => { resourceTradeOffers.clear(); return forcedTruces.reset(); },
     forceTruce: (playerId, targetPlayerId) => { sweepExpired(); return forcedTruces.force(playerId, targetPlayerId); },
     requestTruce(fromPlayerId, targetPlayerName, durationHours, offerOptions) {
       sweepExpired();

@@ -1,3 +1,4 @@
+import { createSocialState } from "../social-state/social-state.js";
 // Builds the SocialStateSink adapter over a GatewaySocialStore, extracted
 // out of gateway-app.ts (already well over the repo's 500-line file-size gate
 // and may not grow further -- see AGENTS.md's file-and-type-discipline rule).
@@ -23,4 +24,10 @@ export const buildSocialStateSink = (socialStore: GatewaySocialStore): SocialSta
   saveTruceBreak: (playerId, record) => socialStore.saveTruceBreak(playerId, record),
   saveOfferCooldown: (cooldown) => socialStore.saveOfferCooldown(cooldown),
   pruneExpired: (now) => socialStore.pruneExpired(now)
+});
+
+export const buildGatewaySocialState = (store: GatewaySocialStore, initial: import("../social-store/social-store.js").SocialStoreSnapshot,
+  players: Array<{id:string;name:string}>, now?:()=>number): ReturnType<typeof createSocialState> => createSocialState({
+  players, initial, sink: buildSocialStateSink(store), ...(now ? {now} : {}),
+  ...(store.resourceTrades ? {resourceTradeOffers:store.resourceTrades} : {})
 });

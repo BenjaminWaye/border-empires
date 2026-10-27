@@ -1,3 +1,4 @@
+import type { ResourceTradeOfferStore } from "../resource-trade/resource-trade-store.js";
 // Type definitions and pure lookup helpers for social-state.ts, split out to
 // keep that file under the repo's 500-line cap. No state lives here — these
 // are just the shapes createSocialState operates on plus small pure helpers
@@ -63,6 +64,7 @@ export type SocialTruceBreakRecord = {
 };
 
 export type SocialSnapshot = {
+  resourceTradeOffers?: readonly import("@border-empires/shared").ResourceTradeOffer[];
   forcedTruceCooldownUntil?: number;
   allies: string[];
   activeAllianceBreaks: Array<{
@@ -179,6 +181,7 @@ export type SocialPendingOffer =
   | { kind: "alliance"; request: SocialAllianceRequest };
 
 export type SocialState = {
+  resourceTradeOffers: ResourceTradeOfferStore;
   resetAfcCampaign: () => void;
   forceTruce: (playerId: string, targetPlayerId: string) => SocialActionResult;
   registerPlayer: (playerId: string, name: string) => void;

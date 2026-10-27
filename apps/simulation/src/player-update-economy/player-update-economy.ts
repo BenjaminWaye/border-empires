@@ -56,6 +56,7 @@ type UpkeepLastTick = {
 };
 
 export type PlayerUpdateEconomySnapshot = {
+  resourceTradeProjection?: import("../resource-supply-trades/resource-supply-projection-cache.js").ResourceSupplyProjectionCache;
   networkSupply?: import("@border-empires/shared").NetworkSupplyStatus | undefined;
   incomePerMinute: number;
   strategicProductionPerMinute: Record<StrategicResourceKey, number>;

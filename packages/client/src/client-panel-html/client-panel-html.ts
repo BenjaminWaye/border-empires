@@ -257,6 +257,7 @@ export const alliesHtml = (
       </div>`
           : `<button class="panel-btn alliance-reference-action alliance-reference-action-break break-alliance" type="button" data-alliance-break-player-id="${id}">Break Alliance</button>`
       }
+      <button type="button" class="panel-btn propose-resource-trade" data-propose-player-id="${escapeHtml(id)}">Trade resources</button>
     </article>`;
     })
     .join("");

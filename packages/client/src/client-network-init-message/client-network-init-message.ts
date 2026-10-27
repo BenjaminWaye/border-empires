@@ -172,7 +172,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     (player.strategicResources as typeof state.strategicResources | undefined) ?? state.strategicResources;
   state.strategicProductionPerMinute =
     (player.strategicProductionPerMinute as typeof state.strategicProductionPerMinute | undefined) ?? state.strategicProductionPerMinute;
-  applyResourceTradeState(state, player);
+  applyResourceTradeState(state, player, true);
   state.resourceSlots = (player.resourceSlots as typeof state.resourceSlots | undefined) ?? state.resourceSlots;
   state.dormantStructures = (player.dormantStructures as typeof state.dormantStructures | undefined) ?? state.dormantStructures;
   state.eventLog = (player.eventLog as typeof state.eventLog | undefined) ?? state.eventLog;

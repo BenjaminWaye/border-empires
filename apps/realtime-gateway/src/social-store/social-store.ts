@@ -1,3 +1,4 @@
+import { InMemoryResourceTradeOfferStore, type ResourceTradeOfferStore } from "../resource-trade/resource-trade-store.js";
 import {
   MAX_TRUCE_BREAKS_PER_PLAYER,
   type SocialActiveTruce,
@@ -25,6 +26,7 @@ export type SocialStoreSnapshot = {
 };
 
 export type GatewaySocialStore = {
+  resourceTrades?: ResourceTradeOfferStore;
   loadSnapshot(): SocialStoreSnapshot;
   upsertPlayer(playerId: string, name: string): void;
   saveAllianceRequest(request: SocialAllianceRequest): void;
@@ -55,6 +57,7 @@ export const pairKey = (a: string, b: string): string => {
 };
 
 export class InMemoryGatewaySocialStore implements GatewaySocialStore {
+  readonly resourceTrades = new InMemoryResourceTradeOfferStore();
   private readonly players = new Map<string, { name: string; updatedAt: number }>();
   private readonly alliances = new Map<string, { aId: string; bId: string; createdAt: number }>();
   private readonly allianceRequests = new Map<string, SocialAllianceRequest>();
@@ -199,6 +202,7 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
   }
 
   clearSeasonData(): void {
+    this.resourceTrades.clear();
     this.forcedTruceCooldowns.clear();
     this.alliances.clear();
     this.allianceRequests.clear();

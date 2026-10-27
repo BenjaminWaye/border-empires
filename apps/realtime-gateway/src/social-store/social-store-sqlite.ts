@@ -1,3 +1,4 @@
+import { SqliteResourceTradeOfferStore } from "../resource-trade/resource-trade-store.js";
 import { applyForcedTruceSchema, loadForcedTruceCooldowns } from "./social-store-forced-truces.js";
 // SqliteGatewaySocialStore, extracted out of social-store.ts (already over
 // the repo's 500-line file-size gate and may not grow further -- see
@@ -36,7 +37,8 @@ import {
 } from "./social-store-row-mappers.js";
 
 export class SqliteGatewaySocialStore implements GatewaySocialStore {
-  constructor(private readonly db: DatabaseSync, private readonly now: () => number = () => Date.now()) {}
+  readonly resourceTrades: SqliteResourceTradeOfferStore;
+  constructor(private readonly db: DatabaseSync, private readonly now: () => number = () => Date.now()) { this.resourceTrades = new SqliteResourceTradeOfferStore(db); }
 
   applySchema(): void {
     this.db.exec(`
@@ -448,6 +450,7 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
   }
 
   clearSeasonData(): void {
+    this.resourceTrades.clear();
     this.db.exec("DELETE FROM social_forced_truce_cooldowns");
     this.db.exec(`DELETE FROM social_alliances`);
     this.db.exec(`DELETE FROM social_alliance_requests`);

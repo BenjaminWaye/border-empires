@@ -1,4 +1,4 @@
-import { applyPlayerResourceState } from "../client-diplomacy-trade/client-player-resource-state.js";
+import { applyPlayerResourceState, applyResourceTradeMessage } from "../client-diplomacy-trade/client-player-resource-state.js";
 import { applyRelicAndProgressionUpdate } from "../client-relic-overlay/relic-map-hints.js";
 import { handleIntelResult } from "./client-network-intel-result.js";
 import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
@@ -1015,6 +1015,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "JOIN_SEASON_ACK") { state.joinSeasonPending = false; if (msg.spawned) { state.needsSeasonJoin = false; state.joinSeasonOverlayOpen = false; applyJoinSeasonSpawnRecenter(state, parseJoinSeasonAckSpawnTile(msg.spawnTile), requestViewRefreshSafely); } renderHud(); return; }
     if (applyMapPushMessage(state, msg as Record<string, unknown>, renderHud)) return; // REACH_UPDATE / AETHER_SHIELDS / ISLAND_NAMES
     if (msg.type === "AFC_FLAG_DETECTIONS") { applyAfcStateMessage(state, msg); renderHud(); return; }
+    if (applyResourceTradeMessage(state, msg)) { renderHud(); return; }
     if (msg.type === "PLAYER_UPDATE") {
       applyAfcStateMessage(state, msg);
       applySettlementRepairDiagnostic(msg as Record<string, unknown>);

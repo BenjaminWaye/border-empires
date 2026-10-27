@@ -1,19 +1,20 @@
 # Resource supply trading
 
-Status: implemented in existing truce/alliance negotiations; validation in progress.
-Standalone resource-only offers are outside this iteration. Optional questions
-about scope had no answer; the implementation uses all nine resources and fixed
-12h/24h terms. Do not report independent trading or early cancellation as shipped.
+Status: implementation and validation in progress. User chose all nine resources,
+independent offers also usable alongside treaties, and supply until either party
+cancels. The earlier fixed-term/pact-only draft is superseded.
 
 ## Entry points
 
 - `packages/shared/src/resource-supply-trades/`: bounded agreement schema,
-  two-stage allocation, wire player-state projection and provisional AI values.
+  two-stage allocation, pending offer schema, wire projection and provisional AI values.
 - `packages/shared/src/diplomacy-terms/`: resource-bearing terms, descriptions,
   AI valuation and resource counter-offers. Legacy currency-only shapes stay valid.
 - `apps/simulation/src/resource-supply-trades/`: bounded active ledger, physical
   and effective supply, spare-output validation, old-rate settlement and cache
-  invalidation. Runtime slot access was extracted here from `runtime.ts`.
+  invalidation. Inventory projections share the existing economy cache cell,
+  keyed by dormancy identity; authoritative acceptance bypasses that projection.
+  Runtime slot access was extracted here from `runtime.ts`.
 - `runtime-diplomacy-settlement-command.ts`: preflight before currency transfer,
   agreement creation and trusted rollback by original settlement identity.
 - `event-recovery/` and `runtime-snapshot-sections.ts`: persist active agreements,
@@ -22,6 +23,7 @@ about scope had no answer; the implementation uses all nine resources and fixed
   `player-update-economy/`: actual factory/Coin effects use effective supply.
 - Runtime exports carry effective supply so cold/reconnect economy matches live
   updates. Own spare inventory and at most 16 agreements reach the client.
+- `apps/realtime-gateway/src/resource-trade/`: bounded SQLite/in-memory pending offers, recipient-only acceptance, stable settlement identity/timestamp for uncertain-payment recovery, AI fair-exchange checks, withdrawal and active cancellation.
 - `apps/realtime-gateway/src/diplomacy-settlement/`: offer lock, authoritative
   RPC, rollback/late refund cancels the original agreement instead of reversing
   supply. Socket accept requires resource-term confirmation from the new client;
@@ -40,10 +42,12 @@ Network transfers then resolve using that adjusted FOOD dormancy. Both direction
 pause on shortage. Recompute after removing one failing agreement per pass to
 retain oldest-first priority. At most agreement-count+1 passes, capped at 256.
 
-Terms keep running during suspension. Coin and Shards settle once. A later
-shortage does not refund them. Resource terms survive the accompanying pact
-ending and cannot be cancelled early through the client. Expiry and trusted
-failed-settlement rollback release the original agreement. Active state is
+Accepted supply has no expiry. Either House can cancel, releasing both
+directions after old-rate settlement. Coin and Shards settle once; later
+shortage/cancellation does not refund them. Supply survives the accompanying
+pact ending. Legacy expiries and trusted failed-settlement rollback still
+release the original agreement. Pending independent offers expire after 24h;
+a settling payment keeps its stable command identity until definitively resolved. Active state is
 bounded at 256 globally, 16 per House, 10,000 slots per resource per offer.
 
 ## Checks

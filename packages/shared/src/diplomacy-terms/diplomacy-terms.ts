@@ -24,6 +24,7 @@ export const DiplomacyGoodsSchema = z.object({
 });
 export const DiplomacyTermsSchema = z.object({
   give: DiplomacyGoodsSchema, ask: DiplomacyGoodsSchema,
+  // Accepted for older callers; new supply commitments continue until cancelled.
   supplyDurationHours: z.union([z.literal(12), z.literal(24)]).optional()
 });
 
@@ -70,7 +71,7 @@ export const describeDiplomacyTermsForRecipient = (terms: DiplomacyTerms | undef
   if (youPay) parts.push(`you pay ${youPay}`);
   const text = parts.join("; ");
   return hasResourceSupplyOffer(terms.give.resources) || hasResourceSupplyOffer(terms.ask.resources)
-    ? `${text}; resource supply for ${terms.supplyDurationHours ?? 12}h` : text;
+    ? `${text}; resource supply until cancelled` : text;
 };
 
 /** "you pay 50 coin; Milo pays 2 Shards" -- from the proposer's point of view. */
@@ -83,7 +84,7 @@ export const describeDiplomacyTermsForProposer = (terms: DiplomacyTerms | undefi
   if (theyPay) parts.push(`${targetName} pays ${theyPay}`);
   const text = parts.join("; ");
   return hasResourceSupplyOffer(terms.give.resources) || hasResourceSupplyOffer(terms.ask.resources)
-    ? `${text}; resource supply for ${terms.supplyDurationHours ?? 12}h` : text;
+    ? `${text}; resource supply until cancelled` : text;
 };
 
 // --- AI pricing -----------------------------------------------------------
@@ -113,7 +114,7 @@ const asksAnything = (terms: DiplomacyTerms): boolean => terms.ask.gold > 0 || t
 /** Net coin-equivalent flowing to the AI target under these terms. */
 export const netValueToAi = (terms: DiplomacyTerms, shardCoinValue: number): number =>
   terms.give.gold + terms.give.shard * shardCoinValue - terms.ask.gold - terms.ask.shard * shardCoinValue +
-  resourceSupplyCoinValue(terms.give.resources, terms.supplyDurationHours ?? 12) - resourceSupplyCoinValue(terms.ask.resources, terms.supplyDurationHours ?? 12);
+  resourceSupplyCoinValue(terms.give.resources, 24) - resourceSupplyCoinValue(terms.ask.resources, 24);
 
 export type AiOfferVerdict =
   | { accepts: true }
@@ -191,7 +192,7 @@ export const aiCounterOffer = (
   }
   for (const resource of TRADABLE_SUPPLY_RESOURCES) {
     if (deficit <= 0) break;
-    const unitValue = RESOURCE_SUPPLY_COIN_VALUE_PER_DAY[resource] * (next.supplyDurationHours ?? 12) / 24;
+    const unitValue = RESOURCE_SUPPLY_COIN_VALUE_PER_DAY[resource] * (24) / 24;
     const drop = Math.min(next.ask.resources?.[resource] ?? 0, Math.ceil(deficit / unitValue));
     if (drop > 0 && next.ask.resources) { next.ask.resources[resource] = (next.ask.resources[resource] ?? 0) - drop; deficit -= drop * unitValue; }
   }
@@ -207,7 +208,7 @@ export const aiCounterOffer = (
   }
   for (const resource of TRADABLE_SUPPLY_RESOURCES) {
     if (deficit <= 0) break;
-    const unitValue = RESOURCE_SUPPLY_COIN_VALUE_PER_DAY[resource] * (next.supplyDurationHours ?? 12) / 24;
+    const unitValue = RESOURCE_SUPPLY_COIN_VALUE_PER_DAY[resource] * (24) / 24;
     const available = Math.max(0, (requesterHoldings.resources?.[resource] ?? 0) - (next.give.resources?.[resource] ?? 0));
     const add = Math.min(available, Math.ceil(deficit / unitValue));
     if (add > 0) { next.give.resources ??= {}; next.give.resources[resource] = (next.give.resources[resource] ?? 0) + add; deficit -= add * unitValue; }

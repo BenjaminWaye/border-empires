@@ -1,5 +1,5 @@
 import { runtimeLogInfo } from "../runtime-log/runtime-log.js";
-import { type ResourceSupplyAgreement, emptyNetworkSiteCounts } from "@border-empires/shared";
+import { type ResourceSupplyAgreement, NETWORK_RESOURCES, emptyNetworkSiteCounts } from "@border-empires/shared";
 import { allocateNetworkCredit, networkSupplyStatus } from "../resource-networks/resource-network-credit.js";
 import { buildFedTownKeys } from "../economy-network/economy-network.js";
 import { resourceSlotDormantContributorsForPlayer } from "../resource-slot-view/resource-slot-view.js";
@@ -19,6 +19,14 @@ export function createRuntimeResourceSupply(ctx: ResourceSupplyBridgeContext, re
   const supply = new RuntimeResourceSupply({ now: ctx.now, player: id => ctx.slots().players.get(id),
     ownedTiles: id => ownedResourceTiles(ctx.slots(), id), physicalUpkeep: id => physicalResourceSlots(ctx.slots(), id),
     tileSettledAtByKey: ctx.slots().tileSettledAtByKey,
+    cachedPlayerState: id => {
+      const caches=ctx.slots().caches, projection=caches.economySnapshotCacheByPlayer.get(id)?.resourceTradeProjection;
+      return projection && projection.dormancy===caches.resourceSlotDormancyCacheByPlayer.get(id) ? projection.state : undefined;
+    },
+    cachePlayerState: (id,state) => {
+      const caches=ctx.slots().caches, cell=caches.economySnapshotCacheByPlayer.get(id);
+      if(cell)cell.resourceTradeProjection={dormancy:caches.resourceSlotDormancyCacheByPlayer.get(id),state};
+    },
     beforeChange: ctx.beforeChange, publish: ids => { for (const id of ids) ctx.publish?.(id); },
     capacityRejected: () => runtimeLogInfo({ resourceSupplyAgreementCount: supply.ledger.size }, "resource_supply_capacity_rejected"),
     changed: (action, agreement) => {
@@ -34,6 +42,7 @@ export function createRuntimeResourceSupply(ctx: ResourceSupplyBridgeContext, re
       }
     },
     networkUsed: (id, sites) => {
+      if (!NETWORK_RESOURCES.some(resource=>sites[resource]>0)) return emptyNetworkSiteCounts();
       const slots = ctx.slots(), tiles = ownedResourceTiles(slots, id), player = slots.players.get(id);
       const supply = slots.tradedSupply?.(id) ?? physicalResourceSlots(slots, id);
       const dormancy = resourceSlotDormantContributorsForPlayer(tiles, id, supply, player ? slotWaiversForPlayer(player) : undefined, slots.tileSettledAtByKey);

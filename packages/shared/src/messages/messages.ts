@@ -56,6 +56,11 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("ALLIANCE_BREAK"), targetPlayerId: z.string().min(1) }),
   z.object({ type: z.literal("TRUCE_REQUEST"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional(), durationHours: z.union([z.literal(12), z.literal(24)]), terms: DiplomacyTermsSchema.optional(), counters: DiplomacyCounterRefSchema.optional() }),
   // Trade screen: asks how an AI target feels about you, and its prices. Read-only.
+  z.object({ type:z.literal("RESOURCE_TRADE_REQUEST"),targetPlayerName:z.string().min(1),targetPlayerId:z.string().min(1).optional(),terms:DiplomacyTermsSchema }),
+  z.object({ type:z.literal("RESOURCE_TRADE_ACCEPT"),offerId:z.string().min(1).max(128) }),
+  z.object({ type:z.literal("RESOURCE_TRADE_REJECT"),offerId:z.string().min(1).max(128) }),
+  z.object({ type:z.literal("RESOURCE_TRADE_END"),agreementId:z.string().min(1).max(160) }),
+  z.object({ type:z.literal("RESOURCE_TRADE_SYNC") }),
   z.object({ type: z.literal("DIPLOMACY_STANCE_REQUEST"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional() }),
   z.object({ type: z.literal("TRUCE_ACCEPT"), requestId: z.string().min(1), confirmedResourceSupply: z.boolean().optional() }),
   z.object({ type: z.literal("TRUCE_REJECT"), requestId: z.string().min(1) }),

@@ -1,3 +1,4 @@
+import { resourceOfferCardsHtml } from "./client-resource-offer-cards.js";
 import { activeResourceDealsHtml } from "./client-active-resource-deals.js";
 import { resourceTermsHtml, readResourceTerms, writeResourceTerms, resourceTermsEqual } from "./client-diplomacy-resource-terms.js";
 // The diplomacy trade screen: pick truce or alliance, set what you give and
@@ -37,7 +38,7 @@ export type DiplomacyTradeDeps = {
   ownHoldings: () => DiplomacyGoods;
   /** When your current truce with this empire ends, if you have one: a truce offer then extends it. */
   truceEndsAt?: (targetPlayerId: string | undefined, targetName: string) => number | undefined;
-  activeSupply?: () => { ownId: string; agreements: readonly import("@border-empires/shared").ResourceSupplyAgreementStatus[] };
+  activeSupply?: () => { ownId: string; agreements: readonly import("@border-empires/shared").ResourceSupplyAgreementStatus[]; offers?: readonly import("@border-empires/shared").ResourceTradeOffer[] };
 };
 
 type OpenScreen = {
@@ -70,13 +71,13 @@ export const TRADE_HOLDINGS_CHECK_MS = 1_000;
  * them sends an offer without terms and the AI's verdict.
  */
 export const diplomacyTradeDepsFor = (
-  state: { me?: string; resourceTradeAgreements?: readonly import("@border-empires/shared").ResourceSupplyAgreementStatus[]; gold: number; strategicResources: { SHARD?: number }; resourceTradeHoldings?: import("@border-empires/shared").ResourceSupplyOffer | undefined; activeTruces?: ReadonlyArray<{ otherPlayerId: string; otherPlayerName: string; endsAt: number }> },
+  state: { resourceTradeOffers?: readonly import("@border-empires/shared").ResourceTradeOffer[]; me?: string; resourceTradeAgreements?: readonly import("@border-empires/shared").ResourceSupplyAgreementStatus[]; gold: number; strategicResources: { SHARD?: number }; resourceTradeHoldings?: import("@border-empires/shared").ResourceSupplyOffer | undefined; activeTruces?: ReadonlyArray<{ otherPlayerId: string; otherPlayerName: string; endsAt: number }> },
   send: DiplomacyTradeDeps["send"]
 ): DiplomacyTradeDeps => ({
   send,
   truceEndsAt: (targetPlayerId, targetName) =>
     state.activeTruces?.find((t) => (targetPlayerId ? t.otherPlayerId === targetPlayerId : t.otherPlayerName.toLocaleLowerCase() === targetName.toLocaleLowerCase()))?.endsAt,
-  activeSupply: () => ({ ownId: state.me ?? "", agreements: state.resourceTradeAgreements ?? [] }),
+  activeSupply: () => ({ ownId: state.me ?? "", agreements: state.resourceTradeAgreements ?? [], offers: state.resourceTradeOffers ?? [] }),
   ownHoldings: () => ({
     ...(state.resourceTradeHoldings ? { resources: state.resourceTradeHoldings } : {}),
     gold: Math.max(0, Math.floor(state.gold)),
@@ -123,7 +124,7 @@ const render = (screen: OpenScreen): void => {
   const { overlay, selection, reply, targetName } = screen;
   const own = screen.deps.ownHoldings();
   const active = screen.deps.activeSupply?.(), agreementsEl = overlay.querySelector<HTMLElement>("[data-resource-agreements]");
-  if (agreementsEl && active) agreementsEl.innerHTML = activeResourceDealsHtml(active.agreements, active.ownId, reply?.found ? reply.targetPlayerId : screen.targetPlayerId);
+  if (agreementsEl && active) agreementsEl.innerHTML = resourceOfferCardsHtml(active.offers ?? [], active.ownId, reply?.found ? reply.targetPlayerId : screen.targetPlayerId) + activeResourceDealsHtml(active.agreements, active.ownId, reply?.found ? reply.targetPlayerId : screen.targetPlayerId);
   screen.shownHoldings = own;
   screen.shownSupplySignature = JSON.stringify(active ?? null) + Math.floor(Date.now() / 60_000);
   for (const cell of Array.from(overlay.querySelectorAll<HTMLElement>("[data-supply-available]"))) {
@@ -158,7 +159,7 @@ const render = (screen: OpenScreen): void => {
   }
   for (const button of Array.from(overlay.querySelectorAll<HTMLButtonElement>("[data-trade-kind]"))) {
     const [kind, hours] = (button.dataset.tradeKind ?? "").split(":");
-    button.setAttribute("aria-pressed", String(kind === selection.kind && (kind === "alliance" || Number(hours) === selection.durationHours)));
+    button.setAttribute("aria-pressed", String(kind === selection.kind && ((kind === "alliance" || kind === "trade") || Number(hours) === selection.durationHours)));
   }
   writeResourceTerms(overlay, selection.terms);
   screen.expanded = renderTradeGoods(overlay, selection.terms, tradeGoodsLimits(own, reply, screen.reach), screen.expanded);
@@ -174,7 +175,7 @@ const render = (screen: OpenScreen): void => {
   const suggest = overlay.querySelector<HTMLButtonElement>("[data-trade-suggest]");
   if (suggest) {
     const deal = suggestedDeal(reply, selection, own);
-    suggest.hidden = !(reply?.found && reply.ai && reply.pricing);
+    suggest.hidden = selection.kind === "trade" || !(reply?.found && reply.ai && reply.pricing);
     suggest.disabled = !deal || termsEqual(deal, selection.terms);
     suggest.title = deal ? "" : `No deal ${targetName} would accept for this right now.`;
   }
@@ -206,8 +207,9 @@ const sendOffer = (screen: OpenScreen): void => {
     ...(!diplomacyTermsAreEmpty(terms) ? { terms } : {}),
     ...(screen.counters ? { counters: screen.counters } : {})
   };
-  const sent =
-    screen.selection.kind === "alliance"
+  const sent = screen.selection.kind === "trade"
+    ? screen.deps.send({type:"RESOURCE_TRADE_REQUEST",targetPlayerName:screen.targetName,...(screen.targetPlayerId?{targetPlayerId:screen.targetPlayerId}:{}),terms},"Finish sign-in before trading resources.")
+    : screen.selection.kind === "alliance"
       ? screen.deps.send({ type: "ALLIANCE_REQUEST", targetPlayerName: screen.targetName, ...termsField }, "Finish sign-in before sending alliance requests.")
       : screen.deps.send(
           { type: "TRUCE_REQUEST", targetPlayerName: screen.targetName, durationHours: screen.selection.durationHours, ...termsField },
@@ -217,7 +219,7 @@ const sendOffer = (screen: OpenScreen): void => {
 };
 
 export const openDiplomacyTradeScreen = (
-  input: { targetName: string; targetPlayerId?: string; kind: DiplomacyOfferKind; durationHours: 12 | 24; terms?: DiplomacyTerms; counters?: DiplomacyCounterRef },
+  input: { targetName: string; targetPlayerId?: string; kind: TradeSelection["kind"]; durationHours: 12 | 24; terms?: DiplomacyTerms; counters?: DiplomacyCounterRef },
   deps: DiplomacyTradeDeps
 ): void => {
   const targetName = input.targetName.trim();
@@ -249,6 +251,7 @@ export const openDiplomacyTradeScreen = (
     ${inTruce ? `<p class="diplomacy-trade-stance" data-trade-current>Truce · ${socialRemainingLabel(truceEndsAt, now)} left</p>` : ""}
     <div class="diplomacy-resource-terms" data-resource-agreements></div>
     <div class="diplomacy-trade-kinds" role="group" aria-label="Offer type">
+      ${deps.ownHoldings().resources ? '<button type="button" data-trade-kind="trade:0">Resource trade</button>' : ""}
       ${truceButton(12)}${truceButton(24)}
       <button type="button" data-trade-kind="alliance:0">Alliance</button>
     </div>
@@ -284,7 +287,7 @@ export const openDiplomacyTradeScreen = (
   for (const button of Array.from(overlay.querySelectorAll<HTMLButtonElement>("[data-trade-kind]"))) {
     button.addEventListener("click", () => {
       const [kind, hours] = (button.dataset.tradeKind ?? "").split(":");
-      screen.selection = { ...screen.selection, kind: kind === "alliance" ? "alliance" : "truce", durationHours: hours === "24" ? 24 : 12 };
+      screen.selection = { ...screen.selection, kind: kind === "trade" ? "trade" : kind === "alliance" ? "alliance" : "truce", durationHours: hours === "24" ? 24 : 12 };
       render(screen);
     });
   }
@@ -320,12 +323,20 @@ export const openDiplomacyTradeScreen = (
   overlay.querySelector<HTMLButtonElement>("[data-trade-send]")?.addEventListener("click", () => sendOffer(screen));
   overlay.querySelector<HTMLButtonElement>("[data-trade-cancel]")?.addEventListener("click", closeDiplomacyTradeScreen);
   overlay.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>("[data-resource-end], [data-resource-offer-accept], [data-resource-offer-reject]") : null;
+    if (!target) return;
+    const agreementId = target.dataset.resourceEnd, accept = target.dataset.resourceOfferAccept, reject = target.dataset.resourceOfferReject;
+    const payload = agreementId ? {type:"RESOURCE_TRADE_END",agreementId} : {type:accept?"RESOURCE_TRADE_ACCEPT":"RESOURCE_TRADE_REJECT",offerId:accept ?? reject};
+    if (deps.send(payload,"Finish sign-in before trading resources.")) target.disabled = true;
+  });
+  overlay.addEventListener("click", (event) => {
     if (event.target === overlay) closeDiplomacyTradeScreen();
   });
   document.addEventListener("keydown", onKey);
   document.body.appendChild(overlay);
   render(screen);
   overlay.querySelector<HTMLElement>("#diplomacy-trade-title")?.focus({ preventScroll: true });
+  if (deps.ownHoldings().resources) deps.send({type:"RESOURCE_TRADE_SYNC"},"Finish sign-in before trading resources.");
   deps.send(
     { type: "DIPLOMACY_STANCE_REQUEST", targetPlayerName: targetName, ...(input.targetPlayerId ? { targetPlayerId: input.targetPlayerId } : {}) },
     "Finish sign-in before making offers."

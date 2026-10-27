@@ -481,13 +481,14 @@ an opportunity before it is a working supply industry. Losing a concession
 weakens the industries and credit arrangements it supports across the House's
 holdings. Numerical yields and network limits belong in the economy reference.
 
-Houses may pledge spare resource output to one another as temporary supply
+Houses may pledge spare resource output to one another as continuing supply
 rights negotiated through diplomacy. The supplier retains the land and its
 installations; the recipient gains the exclusive use of the promised output for
-the agreed term. Such contracts can support another House's infrastructure or
+as long as both Houses maintain the arrangement. Either House may end the
+supply agreement; the land remains with its owner. Such contracts can support another House's infrastructure or
 industry without transferring towns, bodies or knowledge. They are distinct from
 a one-time Coin payment or transfer of aether Shards. An interrupted concession
-cannot deliver its promise until its output is restored. The duration, suspension
+cannot deliver its promise until its output is restored. The cancellation, suspension
 and settlement rules belong in the gameplay references.
 
 ### Manpower and materials

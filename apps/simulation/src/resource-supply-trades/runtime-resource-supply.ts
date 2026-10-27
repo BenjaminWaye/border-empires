@@ -1,6 +1,6 @@
 import { revealedResourceValueForPlayer } from "../tech-domain-bridge/tech-resource-reveal.js";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { NETWORK_RESOURCES, UPKEEP_TRADE_RESOURCES, TRADABLE_SUPPLY_RESOURCES,
+import { NETWORK_RESOURCES, RESOURCE_NETWORKS, emptyNetworkSiteCounts, UPKEEP_TRADE_RESOURCES, TRADABLE_SUPPLY_RESOURCES,
   type NetworkSiteCounts, type ResourceSupplyAgreement, type ResourceSupplyFlow, type ResourceSupplyOffer } from "@border-empires/shared";
 import { developedNetworkSites } from "../resource-networks/resource-networks.js";
 import { resourceSlotDemandForPlayer, resourceSlotDormantContributorsForPlayer, type ResourceSlotTotals } from "../resource-slot-view/resource-slot-view.js";
@@ -9,6 +9,8 @@ import type { RuntimePlayer } from "../runtime-types.js";
 import { ResourceSupplyLedger, type ResourceSupplyLedgerContext, type SupplyLedgerResult } from "./resource-supply-ledger.js";
 
 export interface RuntimeResourceSupplyContext {
+  cachedPlayerState?: (id:string) => import("@border-empires/shared").ResourceSupplyPlayerState | undefined;
+  cachePlayerState?: (id:string,state:import("@border-empires/shared").ResourceSupplyPlayerState) => void;
   now(): number;
   player(id: string): RuntimePlayer | undefined;
   ownedTiles(id: string): DomainTileState[];
@@ -31,7 +33,9 @@ export class RuntimeResourceSupply {
       phase === "upkeep" ? ctx.physicalUpkeep(id) : this.physicalNetwork(id, flows.get(id)) }, restored);
   }
   private physicalNetwork(id: string, upkeepFlow?: ResourceSupplyFlow): NetworkSiteCounts {
-    const tiles = this.ctx.ownedTiles(id), player = this.ctx.player(id);
+    const player = this.ctx.player(id);
+    if (!NETWORK_RESOURCES.some(resource => player?.techIds.has(RESOURCE_NETWORKS[resource].tech))) return emptyNetworkSiteCounts();
+    const tiles = this.ctx.ownedTiles(id);
     const supply = this.applyUpkeep(this.ctx.physicalUpkeep(id), upkeepFlow);
     const dormancy = resourceSlotDormantContributorsForPlayer(tiles, id, supply, player ? slotWaiversForPlayer(player) : undefined, this.ctx.tileSettledAtByKey);
     const dormant = new Set([...dormancy.FOOD].filter(key => key.endsWith(":economicStructure")).map(key => key.slice(0, -18)));
@@ -75,9 +79,12 @@ export class RuntimeResourceSupply {
   }
   playerState(id: string): import("@border-empires/shared").ResourceSupplyPlayerState {
     const allocation = this.ledger.allocation(this.ctx.now());
-    return { resourceTradeHoldings: this.available(id), effectiveResourceSupply: this.upkeep(id), effectiveNetworkSupply: this.network(id),
+    const cached = this.ctx.cachedPlayerState?.(id);
+    if (cached) return cached;
+    const state = { resourceTradeHoldings: this.available(id), effectiveResourceSupply: this.upkeep(id), effectiveNetworkSupply: this.network(id),
       resourceTradeAgreements: this.ledger.rows().filter(row => row.proposerId === id || row.targetId === id)
         .map(row => ({ ...row, fulfilled: allocation.fulfilled.has(row.id) })) };
+    this.ctx.cachePlayerState?.(id,state);return state;
   }
   playerWillChange(id: string): void {
     if (this.ledger.participantIds().includes(id)) {
@@ -120,6 +127,11 @@ export class RuntimeResourceSupply {
       // by intermediate tile-yield reads before publishing either player's view.
       this.ledger.invalidate(); this.ctx.invalidate(this.affectedTileParticipants(previous, next)); this.ctx.publish?.(this.affectedTileParticipants(previous, next));
     }
+  }
+  cancel(id: string, actorId: string): SupplyLedgerResult {
+    const row = this.ledger.rows().find(row => row.id === id);
+    if (row && row.proposerId !== actorId && row.targetId !== actorId) return {ok:false,message:"Only a House in this agreement can end its supply."};
+    this.ledger.remove(id,this.ctx.now()); return {ok:true};
   }
   cancelRefunded(id: string, proposerId: string, targetId: string): void {
     const row = this.ledger.rows().find(row => row.id === id);

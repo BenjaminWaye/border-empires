@@ -134,6 +134,7 @@ export const diplomacyTradeStyles = `
   .diplomacy-resource-terms input { width: 100%; box-sizing: border-box; padding: 8px; min-height: 36px;
     border: 1px solid var(--sp-brass-700, #8a611f); border-radius: 4px;
     background: rgba(12,9,6,.45); color: var(--sp-parchment-100, #f2e8d3); font: inherit; }
+  .resource-trade-action { background: #2b2115; color: inherit; border: 1px solid #8a611f; border-radius: 4px; padding: 6px 12px; margin: 8px 8px 0 0; cursor: pointer; font: inherit; }
   .diplomacy-resource-agreement { font-size: 12px; line-height: 1.6; padding: 8px 0; }
   [data-resource-agreements]:empty { display: none; }
   .diplomacy-trade-actions { position: sticky; bottom: -24px; background: #20190f; padding: 12px 0; }
