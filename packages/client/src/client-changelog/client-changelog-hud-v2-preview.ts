@@ -58,5 +58,16 @@ export const HUD_V2_PREVIEW_CHANGELOG: ClientChangelogEntry[] = [
       "Economy shows one row per resource (Coin, Food, Titanium, Crystal, Umbrite): what you have, where it comes from and what uses it. Dev slots open the Development panel.",
       "The deal screen no longer offers a truce while one is already running."
     ]
+  },
+  {
+    createdAt: 1793122776434, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.27.1",
+    title: "HUD preview: cleaner profile",
+    why: "Tidying the opt-in ?hud=v2 preview.",
+    changes: [
+      "Trophies use the game's own icons instead of emoji, in both the preview and the classic profile.",
+      "A profile's season numbers sit in one strip instead of five separate boxes.",
+      "The Ranks marker and the unread dot in Updates no longer glow."
+    ]
   }
 ];
