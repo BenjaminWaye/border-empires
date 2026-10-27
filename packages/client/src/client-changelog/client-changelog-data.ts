@@ -422,6 +422,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "A more detailed Fabrication Complex",
     why: "The House’s industrial seed should look like substantial, precision-built machinery.",
     changes: ["The 3D AFC now has beveled metalwork, brushed surfaces, reactor containment rings, cooling channels, detailed docking hardware and restrained cyan status lights. Its angular legs have layered titanium-coloured armour, offset actuators, illuminated knee rings and grounded stabilizer feet.", "The 2D fallback gains eight service bays, radial braces and brass fasteners. Module positions and gameplay are unchanged."]
+  },
+  {
+    createdAt: 1793127173514, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.27.3",
+    title: "AI empires start on the same ground as players",
+    why: "At season start, AI empires were placed by their own search, so one could start right beside a player's site and grab the land around it.",
+    changes: [
+      "From next season, AI empires and players pick their starting spots from the same list of good sites, each taking the open site farthest from everyone placed before it",
+      "AI empires only fall back to their old search if that list runs out"
+    ]
   }
 ];
 

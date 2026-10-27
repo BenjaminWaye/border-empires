@@ -43,7 +43,7 @@ export const createSeasonSeedPlayerSpawner = (
   const { WORLD_WIDTH, WORLD_HEIGHT, worldSeed, terrainAt, isSpawnableLand, wrapX, wrapY, key, chebyshevDistance, seeded01, townsByTile, docksByTile, ownership, clusterByTile, clustersById, shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile, createSettlementTown, townTypeAt, minTownSpacing } = deps;
 
   const spawnPositions: SeasonSeedSpawnPosition[] = [];
-  let humanSites: FairSpawnSite[] | undefined;
+  let rosterSites: FairSpawnSite[] | undefined;
   // A player's own settlement is planted directly on their spawn tile below,
   // so an existing town counted as "nearby" here must sit at least the same
   // minimum spacing away that towns keep from each other everywhere else —
@@ -103,15 +103,37 @@ export const createSeasonSeedPlayerSpawner = (
     // can start by accepting the remaining unoccupied spawnable tile.
     { tries: WORLD_WIDTH * WORLD_HEIGHT, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 0 } }
   ] as const;
-  const spawnPlayerAt = (playerId: string, isAi: boolean, playerIndex: number): void => {
-    let spawn: { x: number; y: number } | undefined;
-    if (!isAi) {
-      humanSites ??= computeFairSpawnSites(starterTilesForWorldgen({
-        WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key, townsByTile, docksByTile, clusterByTile, clustersById
-      }), 50, { requireStarterEconomy: true, width: WORLD_WIDTH, height: WORLD_HEIGHT });
-      spawn = humanSites.find((site) => !ownership.has(key(site.x, site.y)) && !hasNearbySpawn(site.x, site.y, 10));
-      if (!spawn) throw new Error(`no qualified starter site for season player ${playerId}`);
+  const wrappedDistance = (ax: number, ay: number, bx: number, by: number): number => {
+    const dx = Math.abs(ax - bx);
+    const dy = Math.abs(ay - by);
+    return Math.max(Math.min(dx, WORLD_WIDTH - dx), Math.min(dy, WORLD_HEIGHT - dy));
+  };
+  // Humans and AI empires both claim from the same pre-picked roster, so an
+  // AI never starts on worse land than a player or right next to an empty
+  // player site. Each claim takes the open site farthest from every start
+  // placed so far (ties keep roster order, which is itself spread out).
+  const claimRosterSite = (): FairSpawnSite | undefined => {
+    rosterSites ??= computeFairSpawnSites(starterTilesForWorldgen({
+      WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key, townsByTile, docksByTile, clusterByTile, clustersById
+    }), 50, { requireStarterEconomy: true, width: WORLD_WIDTH, height: WORLD_HEIGHT });
+    let best: FairSpawnSite | undefined;
+    let bestDistance = -1;
+    for (const site of rosterSites) {
+      if (ownership.has(key(site.x, site.y)) || hasNearbySpawn(site.x, site.y, 10)) continue;
+      let distance = Infinity;
+      for (const placed of spawnPositions) distance = Math.min(distance, wrappedDistance(site.x, site.y, placed.x, placed.y));
+      if (distance > bestDistance) {
+        best = site;
+        bestDistance = distance;
+      }
     }
+    return best;
+  };
+  const spawnPlayerAt = (playerId: string, isAi: boolean, playerIndex: number): void => {
+    let spawn: { x: number; y: number } | undefined = claimRosterSite();
+    if (!spawn && !isAi) throw new Error(`no qualified starter site for season player ${playerId}`);
+    // AI empires fall back to the seeded search only once the shared roster
+    // has no open site left.
     for (const [passIndex, pass] of spawnSearchOrder.entries()) {
       if (spawn) break;
       if (pass.tries === WORLD_WIDTH * WORLD_HEIGHT) {
