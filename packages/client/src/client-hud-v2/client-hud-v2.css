@@ -154,6 +154,12 @@ body.hud-v2 #floating-info { display: none !important; }
 .hud-v2-tracker-timed { grid-template-columns: 1fr auto; align-items: baseline; }
 .hud-v2-tracker-time { font-family: var(--v2-mono); font-size: 12px; color: var(--v2-soft); }
 .hud-v2-tracker-more { padding: 2px 14px 6px; font-size: 12px; color: var(--v2-muted); }
+/* Dev slots unfold in place: what fills each slot, then what waits for one. */
+.hud-v2-slots-fold { margin-left: auto; font-size: 11px; color: var(--v2-muted); }
+.hud-v2-slot-list { padding: 2px 0 4px; }
+.hud-v2-slot-row .hud-v2-tracker-time { margin-left: auto; }
+.hud-v2-tracker-at { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
+.hud-v2-slot-waiting .hud-v2-tracker-title { font-size: 13px; color: var(--v2-soft); }
 
 /* ---- Bottom-left: minimap moves here; the checklist launcher sits above it ---- */
 body.hud-v2 #mini-map-wrap { left: 16px !important; right: auto !important; bottom: 16px; width: 200px; z-index: 36; }

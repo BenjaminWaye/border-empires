@@ -102,9 +102,9 @@ const CHIP_FOCUS: Readonly<Record<string, ClientState["economyFocus"]>> = {
 };
 
 /** Chips that open a panel of their own rather than Economy on a resource. */
-const CHIP_PANEL: Readonly<Record<string, ClientState["activePanel"]>> = { integrity: "defensibility", development: "development" };
+const CHIP_PANEL: Readonly<Record<string, ClientState["activePanel"]>> = { integrity: "defensibility" };
 
-/** Resource chips open the Economy panel on that resource; Integrity and the dev-slot row open their own panels. */
+/** Resource chips open the Economy panel on that resource; Integrity opens its own panel. */
 const openResourcePanel = (deps: HudV2Deps, chip: string): void => {
   const { state } = deps;
   const panel: ClientState["activePanel"] = CHIP_PANEL[chip] ?? "economy";
@@ -115,6 +115,9 @@ const openResourcePanel = (deps: HudV2Deps, chip: string): void => {
   state.activePanel = alreadyOpen ? null : panel;
   deps.renderHud();
 };
+
+/** Whether the tracker's Dev slots section is unfolded; open until the player folds it. */
+let slotsOpen = true;
 
 const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   const target = event.target instanceof Element ? event.target : null;
@@ -129,6 +132,12 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   const open = target.closest<HTMLElement>("[data-hud-v2-open]");
   if (open?.dataset.hudV2Open) {
     openTarget(deps, open.dataset.hudV2Open);
+    return;
+  }
+  // Dev slots fold open in the tracker, next to the pips, instead of sending you to a side panel.
+  if (target.closest("[data-hud-v2-slots-toggle]")) {
+    slotsOpen = !slotsOpen;
+    deps.renderHud();
     return;
   }
   const chip = target.closest<HTMLElement>("[data-hud-v2-chip]");
@@ -241,7 +250,8 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
 
 /** The tracker's tile scans (three passes over every known tile), reused until tiles change or it goes stale. */
 const TRACKER_SCAN_MAX_AGE_MS = 5_000;
-let trackerScan: { key: string; at: number; buildSlots: { busy: number; limit: number }; flags: ReturnType<typeof buildManpowerPanelMusterFlags>; building: ReturnType<typeof deriveDevelopmentPanelData>["activeSlots"] } | undefined;
+type DevelopmentData = ReturnType<typeof deriveDevelopmentPanelData>;
+let trackerScan: { key: string; at: number; buildSlots: { busy: number; limit: number }; flags: ReturnType<typeof buildManpowerPanelMusterFlags>; building: DevelopmentData["activeSlots"]; queue: DevelopmentData["queue"] } | undefined;
 
 const trackerScanKey = (state: ClientState): string =>
   [state.tilesRevision, state.settleProgressByTile.size, state.developmentQueue.length, state.activeDevelopmentProcessCount, state.manpower, state.manpowerCap].join("|");
@@ -256,7 +266,8 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
       at: nowMs,
       buildSlots: { busy: development.busy, limit: development.limit },
       flags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me, state.manpowerCap, state.manpower, state.musterAmountRateByTile),
-      building: development.activeSlots
+      building: development.activeSlots,
+      queue: development.queue
     };
   }
   const elapsed = nowMs - trackerScan.at;
@@ -270,6 +281,8 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
     flagCap: musterFlagCap(state.manpowerCap, 0),
     // Timers count down between scans without rescanning the tiles.
     building: trackerScan.building.map((b) => ({ ...b, remainingMs: Math.max(0, b.remainingMs - elapsed) })),
+    queue: trackerScan.queue,
+    slotsOpen,
     capture,
     nowMs
   }));

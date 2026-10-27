@@ -60,7 +60,7 @@ describe("resource bar", () => {
 });
 
 describe("tracker", () => {
-  const base = { buildSlots: { busy: 0, limit: 3 }, afcReady: 0, flags: [], flagCap: 100, building: [], nowMs: 0 };
+  const base = { buildSlots: { busy: 0, limit: 3 }, afcReady: 0, flags: [], flagCap: 100, building: [], queue: [], slotsOpen: true, nowMs: 0 };
 
   it("lists free build slots, AFC upgrades and stalled flags as needs", () => {
     const needs = trackerNeeds({
@@ -75,12 +75,29 @@ describe("tracker", () => {
     expect(needs[1]).toMatchObject({ x: 4, y: 5, sub: "Needs manpower" });
   });
 
-  it("caps each group and shows the overflow count", () => {
-    const building = Array.from({ length: TRACKER_GROUP_CAP + 2 }, (_, i) => ({ tileKey: `${i},0`, x: i, y: 0, label: "Mine", remainingMs: 60_000, totalMs: 60_000 }));
-    const html = trackerHtml({ ...base, building });
-    expect(html.match(/hud-v2-tracker-timed/g)).toHaveLength(TRACKER_GROUP_CAP);
-    expect(html).toContain("+2 more");
+  it("caps the waiting list and shows the overflow count", () => {
+    const queue = Array.from({ length: TRACKER_GROUP_CAP + 2 }, (_, i) => ({ label: "Settle", x: i, y: 0 }));
+    const html = trackerHtml({ ...base, queue });
+    expect(html.match(/hud-v2-slot-waiting/g)).toHaveLength(TRACKER_GROUP_CAP);
+    expect(html).toContain("+2 waiting");
     expect(html).toContain('data-hud-v2-focus-x="0" data-hud-v2-focus-y="0"');
+  });
+
+  // Regression: the dev-slot row opened the Development side panel across the screen; the slots now unfold under the pips.
+  it("unfolds what fills each slot and what waits, under the pips", () => {
+    const building = [{ tileKey: "4,5", x: 4, y: 5, label: "Mine", remainingMs: 15_000, totalMs: 60_000 }];
+    const open = trackerHtml({ ...base, buildSlots: { busy: 1, limit: 3 }, building, queue: [{ label: "Settle", x: 7, y: 8 }] });
+    expect(open).toContain('aria-expanded="true"');
+    expect(open).not.toContain("data-hud-v2-chip");
+    expect(open.indexOf("hud-v2-slot-list")).toBeGreaterThan(open.indexOf("hud-v2-slots"));
+    expect(open).toContain('data-hud-v2-focus-x="4" data-hud-v2-focus-y="5"');
+    expect(open).toContain('style="width:75%"');
+    expect(open).toContain("Next · Settle");
+    // Builds live under Dev slots only, not again under In progress.
+    expect(open).not.toContain("In progress");
+    const folded = trackerHtml({ ...base, buildSlots: { busy: 1, limit: 3 }, building, slotsOpen: false });
+    expect(folded).toContain('aria-expanded="false"');
+    expect(folded).not.toContain("hud-v2-slot-list");
   });
 
   it("always shows development slots, calling out free ones", () => {

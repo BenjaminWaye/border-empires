@@ -3,11 +3,12 @@ import { rivalsHtml } from "./client-hud-v2-rivals.js";
 import { buildSlotsHtml } from "./client-hud-v2-tracker.js";
 
 describe("tracker and rival links", () => {
-  // Regression: the dev-slot row was plain text; the detailed Development view was unreachable from the new HUD.
-  it("opens the Development panel from the dev-slot row", () => {
-    const html = buildSlotsHtml({ busy: 1, limit: 3 });
+  // Regression: the dev-slot row was plain text, then opened a side panel across the screen; it now folds the slot list.
+  it("folds the slot list open and closed from the dev-slot row", () => {
+    const html = buildSlotsHtml({ busy: 1, limit: 3 }, false);
     expect(html).toContain("<button");
-    expect(html).toContain('data-hud-v2-chip="development"');
+    expect(html).toContain("data-hud-v2-slots-toggle");
+    expect(html).toContain('aria-expanded="false"');
   });
 
   // Regression: an unexplained hourglass badge repeated the stance line; the stance is spelled out on hover instead.
