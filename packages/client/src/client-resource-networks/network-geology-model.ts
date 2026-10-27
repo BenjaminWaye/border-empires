@@ -1,16 +1,20 @@
+import type { NetworkVariant } from "./network-variants.js";
 import { BufferAttribute, BufferGeometry, Color } from "three";
 import type { TownBuilders } from "../client-map-3d-town-overlay/town-parts.js";
 
 /** Irregular fractured host rock with thin copper-oxide catalyst strata. */
-export const catalystOutcrop = (t: TownBuilders, x: number, z: number, size: number): void => {
+export const catalystOutcrop = (t: TownBuilders, x: number, z: number, size: number, variant: NetworkVariant = 0): void => {
   const vertices: number[] = [], colors: number[] = [];
   const segments = 7;
   const rings = [0, 0.3, 0.32, 0.69, 0.71, 1];
+  const width = variant === 1 ? 0.84 : variant === 2 ? 1.12 : 1;
+  const height = variant === 1 ? 1.22 : variant === 2 ? 0.63 : 1;
+  const lean = variant === 1 ? 0.32 : variant === 2 ? -0.12 : 0.18;
   const point = (i: number, ring: number): readonly number[] => {
     const a = i * Math.PI * 2 / segments + 0.17;
     const radius = size * (1 - ring * 0.42) * (0.86 + 0.17 * Math.sin(i * 7.3 + 1));
-    return [x + Math.cos(a) * radius + ring * size * 0.18,
-      size * (ring * 0.94 + 0.045 * Math.sin(i * 5.1)), z + Math.sin(a) * radius * 0.78];
+    return [x + Math.cos(a) * radius * width + ring * size * lean,
+      size * (ring * 0.94 + 0.045 * Math.sin(i * 5.1)) * height, z + Math.sin(a) * radius * 0.78];
   };
   const triangle = (a: readonly number[], b: readonly number[], c: readonly number[], tint: string): void => {
     vertices.push(...a, ...c, ...b);
@@ -23,7 +27,7 @@ export const catalystOutcrop = (t: TownBuilders, x: number, z: number, size: num
     triangle(a, b, c, tint); triangle(a, c, d, tint);
   }
   for (let i = 0; i < segments; i += 1)
-    triangle(point(i, 1), point(i + 1, 1), [x + size * 0.18, size * 0.94, z], i % 2 ? "#777171" : "#65666b");
+    triangle(point(i, 1), point(i + 1, 1), [x + size * lean, size * 0.94 * height, z], i % 2 ? "#777171" : "#65666b");
   const geometry = new BufferGeometry();
   geometry.setAttribute("position", new BufferAttribute(new Float32Array(vertices), 3));
   geometry.setAttribute("color", new BufferAttribute(new Float32Array(colors), 3));

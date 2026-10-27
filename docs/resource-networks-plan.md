@@ -207,3 +207,16 @@ The figures above are starting balance, not evidence from a long-running
 multiplayer playtest. After staging, compare developed-site counts, income
 share, batch size and time to first useful installation for small islands
 versus large empires before changing the constants.
+
+### Three cosmetic deposit variants
+
+Each frontier resource has three authored raw-site models. World-tile coordinates
+choose the variant consistently in the true-3D renderer and the matching exported
+2D sprites; camera-relative coordinates never choose a variant. Standardised
+extraction buildings retain their installation models. These cosmetic variants do
+not change deposits, supply slots, biome eligibility or map counts. The existing
+native broadleaf mesh remains the source for every resin grove. Storybook's
+`Map/Resources/Resource Networks / Three Variants` compares all three of a resource;
+Deposit Review also has a variant selector. Lore reviewed; no canon change.
+
+Reclamation Works use a four-legged bridge crane lifting an armour section from a clamped precursor wreck, with a roller sorting bed and adjoining recovery workshop. The 2D overlay and building icon are exported from the same production model. This is a cosmetic readability update; supply and yields are unchanged. Lore reviewed; no canon change.

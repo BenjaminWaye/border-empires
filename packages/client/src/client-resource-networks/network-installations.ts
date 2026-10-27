@@ -1,8 +1,10 @@
 import type { NetworkResource } from "@border-empires/shared";
 import { gear, octagonPlate, lampPost, type TownBuilders } from "../client-map-3d-town-overlay/town-parts.js";
 import { crate, windowStrip } from "../client-town-district/support-model-core.js";
-import { band, gantry, housing, loadingDoor, ribs, vessel } from "../client-town-district/support-model-detail.js";
-import { luxuryPlant, mineralOutcrop, resinTree, salvageRib } from "./network-sites.js";
+import { band, gantry, housing, ribs, vessel } from "../client-town-district/support-model-detail.js";
+import { luxuryPlant, mineralOutcrop, resinTree } from "./network-sites.js";
+
+import { buildReclamationWorks } from "./network-reclamation-model.js";
 
 const foundation = (t: TownBuilders): void => {
   octagonPlate(t, 0.39, false);
@@ -99,24 +101,6 @@ const cultivationEstate = (t: TownBuilders): void => {
   }
 };
 
-const reclamationWorks = (t: TownBuilders): void => {
-  salvageRib(t, -0.05, 0.03, 0.21);
-  gantry(t, 0, -0.08, 0.46, 0.43, 0.055);
-  for (const z of [-0.15, 0]) t.body.box(0, 0.455, z, 0.49, 0.018, 0.015, "brassDark");
-  t.body.box(-0.07, 0.465, -0.08, 0.1, 0.035, 0.1, "iron");
-  t.body.pipe(-0.07, 0.47, -0.08, -0.07, 0.25, -0.08, 0.004, "ironDark");
-  t.body.pipe(-0.07, 0.25, -0.08, -0.035, 0.22, -0.08, 0.007, "brass");
-  housing(t, 0.18, 0.17, 0.12, 0.14, 0.14);
-  loadingDoor(t, 0.18, 0.246, 0.06, 0.09);
-  // Sorting beds show recovered components; three lamps mark the work area.
-  t.body.box(-0.14, 0.008, 0.22, 0.21, 0.025, 0.09, "ironDark");
-  for (const x of [-0.21, -0.14, -0.07]) {
-    t.body.box(x, 0.035, 0.22, 0.042, 0.022, 0.05, "stoneLight");
-    t.body.box(x, 0.057, 0.22, 0.027, 0.008, 0.032, "brassDark");
-  }
-  crate(t, -0.23, -0.18);
-};
-
 export const buildNetworkInstallation = (t: TownBuilders, resource: NetworkResource): void => {
   foundation(t);
   switch (resource) {
@@ -124,6 +108,6 @@ export const buildNetworkInstallation = (t: TownBuilders, resource: NetworkResou
     case "CONDUCTIVE_MINERALS": implantFoundry(t); break;
     case "CATALYTIC_DEPOSIT": catalystRefinery(t); break;
     case "LUXURY_BIOTA": cultivationEstate(t); break;
-    case "PRECURSOR_SALVAGE": reclamationWorks(t); break;
+    case "PRECURSOR_SALVAGE": buildReclamationWorks(t); break;
   }
 };

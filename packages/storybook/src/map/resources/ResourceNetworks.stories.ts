@@ -1,4 +1,4 @@
-import { renderResourceDepositReview } from "./resource-deposit-review.js";
+import { renderResourceDepositReview, renderResourceVariantsReview, renderReclamationWorksReview } from "./resource-deposit-review.js";
 import { PMREMGenerator } from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { renderNetworkSupplyReview } from "./resource-network-supply-review.js";
@@ -47,3 +47,7 @@ export const InstallationReview: StoryObj = {
 export const SupplySlots: StoryObj = { render: renderNetworkSupplyReview };
 
 export const DepositReview: StoryObj = { render: renderResourceDepositReview };
+
+export const ThreeVariants: StoryObj = { render: renderResourceVariantsReview };
+
+export const ReclamationWorks: StoryObj = { render: renderReclamationWorksReview };

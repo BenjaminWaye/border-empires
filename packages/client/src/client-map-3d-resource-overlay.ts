@@ -1,3 +1,4 @@
+import { networkVariantForTile } from "./client-resource-networks/network-variants.js";
 import { isNetworkResource, type NetworkResource } from "@border-empires/shared";
 import { createNetworkOverlay } from "./client-resource-networks/network-models.js";
 import {
@@ -253,7 +254,7 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number, buildingEn
     // doesn't reshuffle a tile's layout. Scene coords are used only for
     // placement.
     const v = variantHash(worldTileX, worldTileY, resource.length * 31);
-    if (isNetworkResource(resource)) network.add({ x: sceneX, y: surfaceY, z: sceneZ, kind: resource, operational: true, foundation: false });
+    if (isNetworkResource(resource)) network.add({ x: sceneX, y: surfaceY, z: sceneZ, kind: resource, variant: networkVariantForTile(worldTileX, worldTileY), operational: true, foundation: false });
     if (resource === "GEMS") addGems(sceneX, surfaceY, sceneZ, v);
   };
 

@@ -1,3 +1,5 @@
+import { isNetworkResource } from "@border-empires/shared";
+import { networkVariantForTile, networkDepositFilename, NETWORK_VARIANTS } from "../client-resource-networks/network-variants.js";
 // Resource / built-structure overlay sprite selection for the 2D canvas
 // renderer. Extracted from client-map-render.ts (which is already over the
 // 500-line cap) so adding new resource overlays doesn't grow that file — see
@@ -15,11 +17,11 @@ const builtResourceOverlayVariants = {
   GEMS_MINE: createOverlayVariantSet(["gems-mine-overlay-1.svg", "gems-mine-overlay-2.svg", "gems-mine-overlay-3.svg", "gems-mine-overlay-4.svg"])
 } as const;
 const resourceOverlayVariants = {
-  NEURAL_RESIN: createOverlayVariantSet(["neural-resin-deposit.svg"]),
-  CONDUCTIVE_MINERALS: createOverlayVariantSet(["conductive-minerals-deposit.svg"]),
-  CATALYTIC_DEPOSIT: createOverlayVariantSet(["catalytic-deposit-deposit.svg"]),
-  LUXURY_BIOTA: createOverlayVariantSet(["luxury-biota-deposit.svg"]),
-  PRECURSOR_SALVAGE: createOverlayVariantSet(["precursor-salvage-deposit.svg"]),
+  NEURAL_RESIN: createOverlayVariantSet(NETWORK_VARIANTS.map(variant => networkDepositFilename("NEURAL_RESIN",variant))),
+  CONDUCTIVE_MINERALS: createOverlayVariantSet(NETWORK_VARIANTS.map(variant => networkDepositFilename("CONDUCTIVE_MINERALS",variant))),
+  CATALYTIC_DEPOSIT: createOverlayVariantSet(NETWORK_VARIANTS.map(variant => networkDepositFilename("CATALYTIC_DEPOSIT",variant))),
+  LUXURY_BIOTA: createOverlayVariantSet(NETWORK_VARIANTS.map(variant => networkDepositFilename("LUXURY_BIOTA",variant))),
+  PRECURSOR_SALVAGE: createOverlayVariantSet(NETWORK_VARIANTS.map(variant => networkDepositFilename("PRECURSOR_SALVAGE",variant))),
 
   FARM: createOverlayVariantSet(["farm-overlay-1.svg", "farm-overlay-2.svg", "farm-overlay-3.svg"]),
   FISH: createOverlayVariantSet(["fish-overlay-1.svg", "fish-overlay-2.svg", "fish-overlay-3.svg"]),
@@ -41,7 +43,7 @@ export const resourceOverlayForTile = (tile: Tile): HTMLImageElement | undefined
   if (!tile.resource) return undefined;
   const variants = resourceOverlayVariants[tile.resource as keyof typeof resourceOverlayVariants];
   if (!variants) return undefined;
-  return variants[overlayVariantIndexAt(tile.x, tile.y, variants.length)];
+  return variants[isNetworkResource(tile.resource) ? networkVariantForTile(tile.x,tile.y) : overlayVariantIndexAt(tile.x, tile.y, variants.length)];
 };
 
 export const builtResourceOverlayForTile = (tile: Tile): HTMLImageElement | undefined => {

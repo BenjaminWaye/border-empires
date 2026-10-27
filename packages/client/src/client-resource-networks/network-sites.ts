@@ -1,3 +1,6 @@
+import type { NetworkVariant } from "./network-variants.js";
+import { RESIN_GROVES, CATALYST_FIELDS, LUXURY_GARDENS } from "./network-site-layouts.js";
+import { buildCollapsedGantry, buildShatteredRotor } from "./network-salvage-variants.js";
 import { buildConductiveField, conductiveOutcrop } from "./network-conductive-model.js";
 import { catalystOutcrop } from "./network-geology-model.js";
 import type { NetworkResource } from "@border-empires/shared";
@@ -13,24 +16,24 @@ export const mineralOutcrop = (t: TownBuilders, x: number, z: number, size: numb
   conductiveOutcrop(t, x, z, size);
 };
 
-export const buildNetworkSite = (t: TownBuilders, resource: NetworkResource): void => {
+export const buildNetworkSite = (t: TownBuilders, resource: NetworkResource, variant: NetworkVariant = 0): void => {
   switch (resource) {
     case "NEURAL_RESIN":
-      resinTree(t, -0.13, -0.02, 0.38);
-      resinTree(t, 0.12, -0.1, 0.32);
-      resinTree(t, 0.1, 0.17, 0.25);
+      for (const [x,z,height] of RESIN_GROVES[variant]) resinTree(t,x,z,height);
       break;
     case "CONDUCTIVE_MINERALS":
-      buildConductiveField(t);
+      buildConductiveField(t,variant);
       break;
     case "CATALYTIC_DEPOSIT":
-      for (const [x, z, size] of [[-0.17, 0.07, 0.17], [0.08, -0.04, 0.22], [0.23, 0.19, 0.1], [-0.11, -0.2, 0.09]] as const) mineralOutcrop(t, x, z, size, resource === "CATALYTIC_DEPOSIT");
+      for (const [x, z, size] of CATALYST_FIELDS[variant]) catalystOutcrop(t, x, z, size, variant);
       break;
     case "LUXURY_BIOTA":
-      for (const [x, z, size] of [[-0.21, 0.01, 0.23], [0.02, -0.16, 0.27], [0.22, 0.06, 0.2], [-0.02, 0.2, 0.21]] as const) luxuryPlant(t, x, z, size);
+      for (const [x, z, size] of LUXURY_GARDENS[variant]) luxuryPlant(t, x, z, size);
       break;
     case "PRECURSOR_SALVAGE":
-      buildSalvageField(t);
+      if (variant === 1) buildCollapsedGantry(t);
+      else if (variant === 2) buildShatteredRotor(t);
+      else buildSalvageField(t);
       break;
   }
 };

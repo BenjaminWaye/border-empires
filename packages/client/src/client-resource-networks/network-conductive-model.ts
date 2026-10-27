@@ -1,3 +1,4 @@
+import type { NetworkVariant } from "./network-variants.js";
 import { clipInlayToFacet, type UV, type UVTriangle } from "./network-surface-inlay.js";
 import { BufferAttribute, BufferGeometry, Color } from "three";
 import type { TownBuilders } from "../client-map-3d-town-overlay/town-parts.js";
@@ -132,7 +133,17 @@ export const conductiveOutcrop = (t: TownBuilders, x: number, z: number, size: n
 };
 
 /** One dominant vein-bearing ridge, split companions, and freshly broken scree. */
-export const buildConductiveField = (t: TownBuilders): void => {
+export const buildConductiveField = (t: TownBuilders, variant: NetworkVariant = 0): void => {
+  if (variant === 1) {
+    for (const [x,z,size,turn,salt] of [[-0.16,-0.1,0.215,0.45,4],[0.15,0.10,0.205,-0.75,5],[0.22,-0.21,0.085,0.9,2],[-0.22,0.21,0.075,-0.3,3],[-0.28,-0.25,0.035,0.2,1],[0.11,0.28,0.04,-0.2,2]] as const)
+      conductiveOutcrop(t,x,z,size,turn,salt);
+    return;
+  }
+  if (variant === 2) {
+    for (const [x,z,size,turn,salt] of [[-0.21,-0.12,0.16,-0.2,6],[0.02,0.0,0.18,0.9,7],[0.22,0.14,0.145,-0.45,2],[-0.19,0.20,0.09,0.3,3],[0.19,-0.22,0.07,-0.3,1],[-0.04,-0.29,0.035,0.4,2]] as const)
+      conductiveOutcrop(t,x,z,size,turn,salt);
+    return;
+  }
   conductiveOutcrop(t, -0.06, -0.055, 0.255, -0.21, 0);
   conductiveOutcrop(t, 0.23, 0.14, 0.135, -0.52, 1);
   conductiveOutcrop(t, -0.24, 0.16, 0.105, 0.39, 2);

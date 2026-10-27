@@ -5,5 +5,5 @@ export const NETWORK_ICON_CROPS: Readonly<Record<string, DistrictIconCrop>> = {
   "/overlays/implant-foundry-overlay.svg": [0.032031, 0, 0.935938, 1],
   "/overlays/catalyst-refinery-overlay.svg": [0.032031, 0.001562, 0.935938, 0.998437],
   "/overlays/cultivation-estate-overlay.svg": [0.032031, 0.067187, 0.935938, 0.932813],
-  "/overlays/reclamation-works-overlay.svg": [0.032031, 0, 0.935938, 1],
+  "/overlays/reclamation-works-overlay.svg": [0.078125, 0.028125, 0.84375, 0.935938],
 };

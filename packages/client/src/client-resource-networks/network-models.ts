@@ -1,4 +1,5 @@
-import type { NetworkResource } from "@border-empires/shared";
+import { NETWORK_VARIANTS, type NetworkVariant } from "./network-variants.js";
+import { isNetworkResource, type NetworkResource } from "@border-empires/shared";
 import { MeshStandardMaterial, type Scene, type Texture } from "three";
 import { createDistrictGeometryFromModel, type DistrictGeometry } from "../client-town-district/district-geometry.js";
 import { createModelOverlay, type ModelOverlay } from "../client-town-district/model-overlay.js";
@@ -7,15 +8,21 @@ import { buildNetworkSite } from "./network-sites.js";
 import { buildNetworkInstallation } from "./network-installations.js";
 
 /** 3D and SVG exports share the town's production kit, palette and model source. */
-export const createNetworkGeometry = (resource: NetworkResource, developed: boolean): DistrictGeometry =>
-  createDistrictGeometryFromModel(t => developed ? buildNetworkInstallation(t, resource) : buildNetworkSite(t, resource));
+export const createNetworkGeometry = (resource: NetworkResource, developed: boolean, variant: NetworkVariant = 0): DistrictGeometry =>
+  createDistrictGeometryFromModel(t => developed ? buildNetworkInstallation(t, resource) : buildNetworkSite(t, resource, variant));
 
-export const createNetworkOverlay = (scene: Scene, maxTiles: number, developed: boolean, envMap?: Texture): ModelOverlay<NetworkResource> => {
-  // Resin follows the terrain's scattered trees. Allocate lazily, bounded by visible tiles.
-  return createModelOverlay(scene, maxTiles,
-    resource => {
-      if (!resource) throw new Error("A frontier model requires a resource kind");
-      return createNetworkGeometry(resource, developed);
+type NetworkModelKey = `${NetworkResource}:${NetworkVariant}`;
+type NetworkPlacement = Parameters<ModelOverlay<NetworkResource>["add"]>[0] & {readonly variant?: NetworkVariant};
+export type NetworkOverlay = Omit<ModelOverlay<NetworkResource>, "add"> & {readonly add:(placement:NetworkPlacement)=>void};
+
+export const createNetworkOverlay = (scene: Scene, maxTiles: number, developed: boolean, envMap?: Texture): NetworkOverlay => {
+  // Fifteen finite raw-site kinds, allocated lazily and capped by visible tiles.
+  const overlay = createModelOverlay<NetworkModelKey>(scene, maxTiles,
+    key => {
+      const [resource,value] = (key ?? "").split(":");
+      if (!isNetworkResource(resource)) throw new Error("A frontier model requires a resource kind");
+      const variant = NETWORK_VARIANTS.find(candidate => String(candidate) === value) ?? 0;
+      return createNetworkGeometry(resource, developed, variant);
     }, envMap, 0, environment => {
       const materials = createDistrictMaterials(environment);
       if (materials.layers.body instanceof MeshStandardMaterial) {
@@ -30,4 +37,9 @@ export const createNetworkOverlay = (scene: Scene, maxTiles: number, developed: 
       }
       return materials;
     });
+  return {...overlay, add: placement => {
+    if (!placement.kind) throw new Error("A frontier placement requires a resource kind");
+    const variant = developed ? 0 : placement.variant ?? 0;
+    overlay.add({...placement,kind:`${placement.kind}:${variant}`});
+  }};
 };

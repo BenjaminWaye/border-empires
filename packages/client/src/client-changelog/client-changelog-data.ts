@@ -464,18 +464,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1793140036460, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.27.7",
-    title: "Town surveys remember your dismissal",
-    why: "The same survey popup could return every time you reopened the game.",
-    changes: ["Got it and View survey now remember dismissed clues in this browser for your player and season. Clues remain in Activity, and new discoveries can still appear."]
-  },
-  {
-    createdAt: Date.now(),
+    createdAt: 1793079818176,
     introducedIn: "2026.10.26.1",
     title: "Negotiate resource supply",
     why: "Spare resource output can support another House's industry and become part of a diplomatic bargain.",
-    changes: ["Truce and alliance offers can include any of the nine supply resources for 12h or 24h, alongside Coin and Shards.", "The diplomacy screen shows spare slots and active deliveries. A shortage pauses both resource deliveries; expiry returns the slots to their suppliers."]
+    changes: ["Make independent resource trade offers or include any of the nine supply resources alongside a treaty, Coin and Shards.", "Supply continues until either House ends the agreement. The diplomacy screen shows spare slots, offers and active deliveries; shortages pause both deliveries."]
+  },
+  {
+    createdAt: 1793079818177,
+    introducedIn: "2026.10.26.1",
+    title: "More varied frontier deposits",
+    why: "Repeated resource silhouettes made neighbouring deposits look identical.",
+    changes: ["Each of the five frontier resources has three distinct deposit layouts, including alternate groves, ore formations, biota stands and salvage wrecks.", "A tile keeps the same variant in both the 3D map and 2D fallback; resource yields stay the same.", "Reclamation Works now show an overhead salvage crane, a dismantling cradle, a sorting conveyor and a recovery workshop."]
   }
 ];
 
