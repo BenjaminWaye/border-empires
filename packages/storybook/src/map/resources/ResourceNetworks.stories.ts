@@ -1,3 +1,5 @@
+import { resourceTileStatsHtml } from "@client/client-tile-menu-view/client-resource-tile-copy.js";
+import "@client/client-town-stat-grid-style.css";
 import { renderResourceDepositReview, renderResourceVariantsReview, renderReclamationWorksReview } from "./resource-deposit-review.js";
 import { PMREMGenerator } from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
@@ -31,7 +33,7 @@ function gallery(): HTMLElement {
   for (const resource of NETWORK_RESOURCES) {
     const spec=RESOURCE_NETWORKS[resource], name=resource.toLowerCase().replaceAll("_","-"), building=spec.building.toLowerCase().replaceAll("_","-");
     const card=document.createElement("div");
-    card.innerHTML=`<strong>${spec.name}</strong><div><img alt="${spec.name}" width="80" height="80" src="/overlays/${name}-deposit.svg"><img alt="${spec.buildingName}" width="80" height="80" src="/overlays/${building}-overlay.svg"></div><strong>${spec.buildingName}</strong><p>${spec.effect}</p>`;
+    card.innerHTML=`<strong>${spec.name}</strong><div><img alt="${spec.name}" width="80" height="80" src="/overlays/${name}-deposit.svg"><img alt="${spec.buildingName}" width="80" height="80" src="/overlays/${building}-overlay.svg"></div><strong>${spec.buildingName}</strong>${resourceTileStatsHtml({ x: 0, y: 0, terrain: "LAND", resource })}`;
     cards.appendChild(card);
   }
   root.appendChild(cards);return root;

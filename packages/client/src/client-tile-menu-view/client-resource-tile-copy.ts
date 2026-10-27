@@ -1,39 +1,60 @@
 import { MANPOWER_REFILL_WINDOW_MS, BASE_SLOTS_BY_TILE_RESOURCE, RESOURCE_NETWORKS, isNetworkResource, isSiphonModeSabotage, type ResourceType } from "@border-empires/shared";
-import type { TechInfo, Tile } from "../client-types.js";
+import type { TechInfo, Tile, TileOverviewLine } from "../client-types.js";
 
 type BaseResource = Exclude<ResourceType, keyof typeof RESOURCE_NETWORKS>;
 const isBaseResource = (value: string): value is BaseResource =>
   value === "FARM" || value === "FISH" || value === "TITANIUM" || value === "GEMS" || value === "UMBRITE";
 const DEPOSIT_DESCRIPTIONS: Readonly<Record<BaseResource, string>> = {
-  FARM: "Fertile grainland supplies FOOD for towns, garrisons and industry. A Hydrogarden can increase its FOOD supply.",
-  FISH: "Coastal fishing grounds supply FOOD for towns, garrisons and industry. Fishing supply comes from the claimed land tile; the fish offshore mark its fishing grounds.",
-  TITANIUM: "Titanium ore provides metal for armour, construction and machinery. A Mine increases the site's Titanium supply.",
-  GEMS: "Crystal deposits contain dormant, mineralised aether used by advanced industry and control systems. A Mine increases their Crystal supply. Crystal is distinct from Shards.",
-  UMBRITE: "Umbrite deposits supply a strategic material for machinery and military equipment, including weapon rounds. An Umbrite Rig increases their Umbrite supply."
+  FARM: "Fertile grainland feeds towns, garrisons and industry.",
+  FISH: "Coastal fishing grounds feed nearby land-based garrisons and industry.",
+  TITANIUM: "Titanium ore supplies armour, construction and machinery.",
+  GEMS: "Mineralised aether powers advanced industry and control systems.",
+  UMBRITE: "Umbrite supplies military machinery and ammunition."
 };
+const escapeHtml = (value: string): string => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+const card = (label: string, value: string, sub: string, wide = false): string =>
+  `<div class="tile-stat${wide ? " tile-stat-span2" : ""}"><span class="tile-stat-label">${escapeHtml(label)}</span><span class="tile-stat-value">${escapeHtml(value)}</span><span class="tile-stat-sub">${escapeHtml(sub)}</span></div>`;
 
-/** Public geology and potential benefits, never another House's private production. */
-export function resourceTileDescriptionLines(tile: Tile, techCatalog: readonly Pick<TechInfo, "id" | "name">[] = []): readonly string[] {
+/** One sentence of public flavour; mechanics belong in the stat boxes. */
+export function resourceTileDescriptionLines(tile: Tile): readonly string[] {
   const resource = tile.resource;
   if (!resource) return [];
+  if (isNetworkResource(resource)) return [RESOURCE_NETWORKS[resource].description];
+  return isBaseResource(resource) ? [DEPOSIT_DESCRIPTIONS[resource]] : [];
+}
+
+/** Public potential, never a claim that an undeveloped or foreign site is producing. */
+export function resourceTileStatsHtml(tile: Tile, techCatalog: readonly Pick<TechInfo, "id" | "name">[] = []): string {
+  const resource = tile.resource;
+  if (!resource) return "";
+  const siphoned = isSiphonModeSabotage(tile.sabotage) && tile.sabotage.ownerId !== tile.ownerId;
   if (!isNetworkResource(resource)) {
-    if (!isBaseResource(resource)) return [];
+    if (!isBaseResource(resource)) return "";
     const slots = BASE_SLOTS_BY_TILE_RESOURCE[resource];
-    return [DEPOSIT_DESCRIPTIONS[resource], ...(slots ? [
-      `Base supply: ${slots.baseSlots} ${slots.slotResource === "CRYSTAL" ? "Crystal" : slots.slotResource === "TITANIUM" ? "Titanium" : slots.slotResource === "UMBRITE" ? "Umbrite" : "FOOD"} slot${slots.baseSlots === 1 ? "" : "s"} while owned and garrisoned. These are renewable supply slots, not a stockpile.`
-    ] : [])];
+    const label = slots.slotResource === "CRYSTAL" ? "Crystal" : slots.slotResource === "FOOD" ? "FOOD" : slots.slotResource === "TITANIUM" ? "Titanium" : "Umbrite";
+    return `<div class="tile-stat-grid resource-stat-grid">${card("Base supply", `+${slots.baseSlots} ${label}`, "Renewable slots")}${card("Requires", "Garrison", siphoned ? "Siphoned" : "Owned tile")}</div>`;
   }
   const spec = RESOURCE_NETWORKS[resource];
   const structure = tile.economicStructure;
-  const unlock = (techCatalog.find(tech => tech.id === spec.tech)?.name ?? "the matching Manifest")
-    .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
-  const status = isSiphonModeSabotage(tile.sabotage) && tile.sabotage.ownerId !== tile.ownerId
-    ? "Supply diverted by an active Siphon. A working extractor supplies the caster while the drain lasts, instead of its owner."
-    : structure?.type !== spec.building
-    ? `Develop this deposit with ${spec.buildingName} after unlocking ${unlock}. Claiming and garrisoning the deposit alone provides no industrial bonus.`
-    : structure.status === "under_construction"
-      ? `${spec.buildingName} under construction: supply starts after completion, while the site is owned, garrisoned, active and supplied with FOOD.`
-      : `${spec.buildingName}: supplies one slot while owned, garrisoned, active, authorised by its Manifest and supplied with FOOD. Inactive or unpowered sites provide no supply.`;
-  return [spec.description, `Potential benefit: ${spec.effect}${spec.batchBonus ? ` A production batch occurs every ${MANPOWER_REFILL_WINDOW_MS / 3_600_000} hours.` : ""}`, status,
-    "Each working site reserves one renewable supply slot for one eligible building. Extra buildings need extra supply; trading the slot commits it to the other House."];
+  const siteState = structure?.type !== spec.building ? "Build required"
+    : structure.status === "under_construction" ? "Under construction"
+    : structure.status !== "active" || structure.inactiveReason === "manual" ? "Inactive"
+    : "Garrison + active site";
+  const target = spec.target === "ANCILLARY_FACTORY" ? "Ancillary Factory" : spec.target === "TRADE_NEXUS" ? "Trade Nexus" : "Manufactory";
+  const bonus = spec.batchBonus ? `+${spec.batchBonus} Ancillaries` : `+${spec.creditPerDay} Coin`;
+  const interval = spec.batchBonus ? `per ${MANPOWER_REFILL_WINDOW_MS / 3_600_000}h batch` : "per day";
+  const unlock = techCatalog.find(tech => tech.id === spec.tech)?.name ?? "Matching Manifest";
+  return `<div class="tile-stat-grid resource-stat-grid">${[
+    card("Potential bonus", bonus, `${interval} · 1 ${target}`),
+    card("Supply", "1 exclusive slot", siphoned ? "Siphoned" : "Renewable · tradeable"),
+    card("Develop with", spec.buildingName, siteState),
+    card("Upkeep", "1 FOOD", "Powered site required"),
+    card("Unlock", unlock, "Manifest required", true)
+  ].join("")}</div>`;
+}
+
+export function resourceTileOverviewLines(tile: Tile, techCatalog: readonly Pick<TechInfo, "id" | "name">[] = []): TileOverviewLine[] {
+  const descriptions = resourceTileDescriptionLines(tile);
+  if (!descriptions.length) return [];
+  return [...descriptions.map(html => ({ html })), { kind: "statgrid", html: resourceTileStatsHtml(tile, techCatalog) }];
 }

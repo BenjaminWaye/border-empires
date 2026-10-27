@@ -483,6 +483,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Clear resource descriptions and reliable supply agreements",
     why: "Deposits need clear activation requirements, and supply changes must remain consistent through diplomacy and hostile abilities.",
     changes: ["Every resource tile explains its purpose and renewable supply; frontier deposits explain their required industry and potential benefit.", "Supply agreements can be ended repeatedly and after reconnecting. Withdrawing an offer prevents a delayed AI response from accepting it.", "Siphon transfers working frontier-site supply without duplicating it; source changes pause or restore dependent trade deliveries."]
+  },
+  {
+    createdAt: 1793123719143,
+    introducedIn: "2026.10.27.1",
+    title: "Compact resource panels",
+    why: "Resource descriptions took too long to scan.",
+    changes: ["One short sentence per resource, with bonuses and requirements in compact stat boxes."]
   }
 ];
 

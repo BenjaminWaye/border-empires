@@ -119,3 +119,13 @@
 .tile-stat-mini-value.is-attn {
   color: var(--sp-verdigris-300, #7fb8a4);
 }
+
+/* Resources use the same stat cards with compact, paired values. */
+.resource-stat-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.resource-stat-grid .tile-stat-value {
+  font-size: 13px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}

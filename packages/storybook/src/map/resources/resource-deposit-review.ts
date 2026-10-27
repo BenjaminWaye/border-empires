@@ -1,3 +1,5 @@
+import { resourceTileStatsHtml } from "@client/client-tile-menu-view/client-resource-tile-copy.js";
+import "@client/client-town-stat-grid-style.css";
 import { NETWORK_VARIANTS, NETWORK_VARIANT_NAMES, type NetworkVariant } from "@client/client-resource-networks/network-variants.js";
 import { DirectionalLight, Mesh, MeshStandardMaterial, PlaneGeometry, PMREMGenerator } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
@@ -57,12 +59,12 @@ const renderResourceReview = (compare: boolean, startDeveloped = false): HTMLEle
     const heading = document.createElement("h2"); heading.textContent = compare ? `${spec.name} — three variants` : checkbox.checked ? spec.buildingName : `${spec.name} — ${NETWORK_VARIANT_NAMES[resource][variant]}`;
     heading.style.cssText = "margin:0 0 8px;color:#e9d4a5";
     const description = document.createElement("p"); description.textContent = checkbox.checked && resource === "PRECURSOR_SALVAGE"
-      ? "A bridge crane lifts ancient armour from a clamped wreck. Crews dismantle its machinery, sort recovered components on the roller bed, and prepare them in the adjoining workshop."
+      ? "A salvage crane recovers ancient machinery for local industry."
       : spec.description;
-    const effect = document.createElement("p"); effect.textContent = spec.effect;
+    const stats = document.createElement("div"); stats.innerHTML = resourceTileStatsHtml({ x: 0, y: 0, terrain: "LAND", resource });
     const names=document.createElement("div");names.style.cssText="display:grid;grid-template-columns:repeat(3,1fr);text-align:center;margin-bottom:16px;color:#e9d4a5";
     for(const index of NETWORK_VARIANTS){const name=document.createElement("span");name.textContent=NETWORK_VARIANT_NAMES[resource][index];names.append(name);}
-    details.replaceChildren(...(compare?[names]:[]),heading,description,effect);
+    details.replaceChildren(...(compare?[names]:[]),heading,description,stats);
   };
   select.onchange = () => { const selected = NETWORK_RESOURCES.find(kind => kind === select.value); if (selected) resource = selected; rebuild(); };
   variantSelect.onchange = () => { variant=NETWORK_VARIANTS.find(index=>String(index)===variantSelect.value) ?? 0; rebuild(); };
