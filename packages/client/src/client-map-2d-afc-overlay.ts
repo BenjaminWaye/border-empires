@@ -45,6 +45,7 @@ export const drawAfc2D = (
   const deliveryActive = deliveryT >= 0 && deliveryT < 1;
   const deliveryBoost = deliveryActive ? 1 - deliveryT : 0;
 
+  ctx.save();
   // Shadow footprint.
   ctx.fillStyle = "rgba(20, 14, 6, 0.34)";
   ctx.beginPath();
@@ -62,10 +63,69 @@ export const drawAfc2D = (
     ctx.closePath();
   };
 
+  // Eight readable service bays and paired conduits echo the 3D silhouette.
+  for (let i = 0; i < 8; i++) {
+    const angle = i * Math.PI / 4;
+    const dx = Math.cos(angle);
+    const dy = Math.sin(angle);
+    const bx = cx + dx * size * 0.425;
+    const by = cy + dy * size * 0.425;
+    ctx.strokeStyle = "#424c56";
+    ctx.lineWidth = Math.max(1, size * 0.035);
+    ctx.beginPath();
+    ctx.moveTo(cx + dx * size * 0.26, cy + dy * size * 0.26);
+    ctx.lineTo(bx, by);
+    ctx.stroke();
+    ctx.fillStyle = "#1b242d";
+    ctx.strokeStyle = "#b99760";
+    ctx.lineWidth = Math.max(0.75, size * 0.012);
+    ctx.beginPath();
+    ctx.arc(bx, by, size * 0.055, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  // Four stabilizer feet sit between the service bays in the top-down view.
+  for (let i = 0; i < 4; i++) {
+    const angle = Math.PI / 8 + i * Math.PI / 2;
+    const dx = Math.cos(angle);
+    const dy = Math.sin(angle);
+    ctx.strokeStyle = "#63717b";
+    ctx.lineWidth = Math.max(1, size * 0.035);
+    ctx.beginPath();
+    ctx.moveTo(cx + dx * size * 0.25, cy + dy * size * 0.25);
+    ctx.lineTo(cx + dx * size * 0.41, cy + dy * size * 0.41);
+    ctx.stroke();
+    // A cooler armoured shin, side actuator and small knee encoder.
+    if (size >= 24) {
+      ctx.strokeStyle = "#70848e";
+      ctx.lineWidth = Math.max(1, size * 0.025);
+      ctx.beginPath();
+      ctx.moveTo(cx + dx * size * 0.345, cy + dy * size * 0.345);
+      ctx.lineTo(cx + dx * size * 0.395, cy + dy * size * 0.395);
+      ctx.stroke();
+      ctx.strokeStyle = afc.status === "active" ? "#37bcd6" : "#63717b";
+      ctx.lineWidth = Math.max(0.7, size * 0.009);
+      ctx.beginPath();
+      ctx.arc(cx + dx * size * 0.355, cy + dy * size * 0.355, size * 0.017, angle, angle + Math.PI * 1.5);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "#b99760";
+    ctx.beginPath();
+    ctx.arc(cx + dx * size * 0.41, cy + dy * size * 0.41, size * 0.025, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   // Blackened-iron reactor housing.
   ctx.fillStyle = "#23262b";
   octagon(size * 0.34);
   ctx.fill();
+
+  // A narrow inner highlight gives the casing a machined bevel at map scale.
+  ctx.strokeStyle = "#52616c";
+  ctx.lineWidth = Math.max(0.75, size * 0.012);
+  octagon(size * 0.312);
+  ctx.stroke();
 
   // Aged-brass rim.
   ctx.strokeStyle = "#b08a45";
@@ -78,6 +138,32 @@ export const drawAfc2D = (
   ctx.lineWidth = Math.max(1, size * 0.02);
   octagon(size * 0.22);
   ctx.stroke();
+
+  // Radial braces, inset cooling slots and fasteners articulate the housing.
+  for (let i = 0; i < 8; i++) {
+    const a = i * Math.PI / 4 + Math.PI / 8;
+    const dx = Math.cos(a);
+    const dy = Math.sin(a);
+    ctx.strokeStyle = "#63717b";
+    ctx.lineWidth = Math.max(1, size * 0.025);
+    ctx.beginPath();
+    ctx.moveTo(cx + dx * size * 0.14, cy + dy * size * 0.14);
+    ctx.lineTo(cx + dx * size * 0.28, cy + dy * size * 0.28);
+    ctx.stroke();
+    ctx.fillStyle = "#d0af75";
+    ctx.beginPath();
+    ctx.arc(cx + dx * size * 0.295, cy + dy * size * 0.295, size * 0.012, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Containment gimbals echo the mechanism visible inside the 3D chamber.
+  ctx.strokeStyle = "#a68a59";
+  ctx.lineWidth = Math.max(0.75, size * 0.012);
+  for (const tilt of [-0.6, 0.6]) {
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, size * 0.15, size * 0.09, tilt, 0, Math.PI * 2);
+    ctx.stroke();
+  }
 
   // Central aether core, breathing cyan while active.
   const active = afc.status === "active";
@@ -94,7 +180,8 @@ export const drawAfc2D = (
     ctx.arc(cx, cy, size * 0.2, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
-  }  if (deliveryActive) {
+  }
+  if (deliveryActive) {
     ctx.save();
     ctx.globalCompositeOperation = "screen";
     ctx.fillStyle = `rgba(255, 214, 140, ${0.5 * deliveryBoost})`;
@@ -109,4 +196,5 @@ export const drawAfc2D = (
     ctx.restore();
   }
   drawIndustrialToolingModule2D(ctx, afc, cx, cy, size);
+  ctx.restore();
 };

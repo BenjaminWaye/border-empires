@@ -246,6 +246,15 @@ artwork. Keep new assets consistent with their surrounding structure family.
   across the whole model, base colour only. No normal/roughness/metalness/AO maps.
 - No smooth-shading passes or subdivision — faceted geometry is the intended style.
 
+The AFC is a bespoke multi-tile industrial landmark. Its procedural reactor
+and articulated legs use beveled surfaces, shared metal finishes and a small
+64×64 roughness/bump texture; the additional machining detail is merged into
+four instanced material batches. Start at
+`packages/client/src/client-map-3d-fabrication-complex.ts` and its
+`client-map-3d-afc-*` helpers. Its eight module attachment points are shared by
+all docked module models, while `client-map-2d-afc-overlay.ts` supplies the
+simpler Canvas fallback.
+
 ---
 
 ## CI and branch flow

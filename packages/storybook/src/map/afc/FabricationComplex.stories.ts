@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import type { Scene } from "three";
+import { drawAfc2D } from "@client/client-map-2d-afc-overlay.js";
 import { createFabricationComplexOverlay } from "@client/client-map-3d-fabrication-complex.js";
 import { createContactShadow, glintStage, startUpdateLoop, studioStage } from "../../fixtures/stage-lighting.js";
 import { createGrassGround, wrapWithCleanup } from "../../fixtures/three-stage.js";
@@ -112,5 +113,35 @@ export const ModularDocking: Story = {
     const stage = studioStage({ cameraDistance: args.cameraDistance, orthoHalfHeight: 2.4, background: "#15161b" });
     const cleanups = buildAfc(stage.scene, args.modules, false, 0);
     return wrapWithCleanup(stage, cleanups);
+  }
+};
+
+// A lower camera exposes the machining, chamber and hydraulics for art review.
+export const MachiningDetail: Story = {
+  render: () => {
+    const stage = studioStage({ cameraDistance: 6, cameraTilt: 1.0, orthoHalfHeight: 1.75, background: "#15161b" });
+    return wrapWithCleanup(stage, buildAfc(stage.scene, 4, false, 0));
+  }
+};
+
+export const Fallback2D: Story = {
+  render: () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 960;
+    canvas.height = 420;
+    canvas.style.width = "100%";
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("2D context unavailable");
+    ctx.fillStyle = "#202b2b";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    for (const [index, status] of (["active", "inactive"] as const).entries()) {
+      const x = 160 + index * 430;
+      drawAfc2D(ctx, { x: index, y: 0, afc: { ownerId: "preview", status } }, x, 80, 230, 1000);
+      ctx.fillStyle = "#d3d8dc";
+      ctx.font = "16px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(status === "active" ? "Active AFC" : "Inactive AFC", x + 115, 350);
+    }
+    return canvas;
   }
 };
