@@ -16,10 +16,12 @@ describe("resource supply negotiation",()=>{
     const overlay=document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
     expect(overlay.querySelector('[data-trade-kind="trade:0"]')?.getAttribute("aria-pressed")).toBe("true");
     const edit=(selector:string,value:string)=>{ const field=overlay.querySelector<HTMLInputElement|HTMLSelectElement>(selector)!; field.value=value; field.dispatchEvent(new Event("input")); };
+    edit('[data-trade-exact="give-gold"]', "7");
     edit('[data-supply-give="NEURAL_RESIN"]',"2"); edit('[data-supply-ask="FOOD"]',"3");
+    edit('[data-trade-exact="ask-shard"]', "1");
     overlay.querySelector<HTMLButtonElement>("[data-trade-send]")!.click();
     const payload=send.mock.calls.at(-1)![0];
-    expect(payload).toMatchObject({ type:"RESOURCE_TRADE_REQUEST",terms:{give:{...empty,resources:{NEURAL_RESIN:2}},ask:{...empty,resources:{FOOD:3}}} });
+    expect(payload).toMatchObject({ type:"RESOURCE_TRADE_REQUEST",terms:{give:{gold:7,shard:0,resources:{NEURAL_RESIN:2}},ask:{gold:0,shard:1,resources:{FOOD:3}}} });
     expect(ClientMessageSchema.safeParse(payload).success).toBe(true);
   });
   it("prevents giving used slots and preserves resource terms when countering",()=>{

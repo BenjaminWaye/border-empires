@@ -108,7 +108,7 @@ export const economyRowsFromPanelArgs = (args: EconomyPanelArgs, helpers: Econom
   }])) as EconomyRowsInput["slots"];
   return renderEconomyRowsHtml({
     focus: args.focus,
-    bonusSupply: args.resourceSlots.bonusSupply,
+    ...(args.resourceSlots.bonusSupply ? { bonusSupply: args.resourceSlots.bonusSupply } : {}),
     gold: args.gold,
     coin: { netPerMinute: args.incomePerMinute - args.upkeepPerMinute.gold, sources: coin.sources, sinks: coin.sinks },
     slots,
