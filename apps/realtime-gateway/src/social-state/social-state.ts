@@ -23,17 +23,10 @@ import {
   type SocialTruceBreakRecord,
   type SocialTruceRequest
 } from "./social-state-types.js";
-import {
-  aiNameFromStored,
-  diplomacyTermsAreEmpty,
-  extendedTruceEndsAt,
-  numberedAiNameForId,
-  TRUCE_EXTENSION_MAX_AHEAD_MS,
-  truceExtensionFits,
-  type DiplomacyTerms
-} from "@border-empires/shared";
+import { aiNameFromStored, diplomacyTermsAreEmpty, numberedAiNameForId, type DiplomacyTerms } from "@border-empires/shared";
 
 import { buildUpdatePayloads } from "./social-state-payloads.js";
+import { extendTruce, STALE_TRUCE_OFFER, truceExtensionRequestError, truceOfferIsStale } from "./social-truce-extension.js";
 import { buildSocialSnapshot } from "./social-state-snapshot.js";
 import { createSocialAllianceBreaks } from "./social-state-alliance-breaks.js";
 import {
@@ -340,9 +333,8 @@ export const createSocialState = (options: {
       }
       // During a truce the offer extends it, within the cap on how far ahead a truce may run.
       const runningTruce = activeTruceBetween(actor.id, target.id, trucesByPair, now());
-      if (runningTruce && !truceExtensionFits(runningTruce.endsAt, durationHours, now())) {
-        return { ok: false, code: "TRUCE_EXTENSION_CAP", message: `a truce can run at most ${TRUCE_EXTENSION_MAX_AHEAD_MS / 3_600_000}h ahead` };
-      }
+      const extensionError = truceExtensionRequestError(runningTruce, durationHours, now());
+      if (extensionError) return extensionError;
       if (findTruceRequestBetweenPlayers(truceRequests.values(), actor.id, target.id)) {
         return { ok: false, code: "TRUCE_REQUEST_PENDING", message: "a truce offer is already pending" };
       }
@@ -391,10 +383,16 @@ export const createSocialState = (options: {
         staleOfferPlayerIds.add(from.id);
         return { ok: false, code: "TRUCE_LOCKED_OUT", message: "one player broke a truce recently and is locked out" };
       }
-      // A running truce is extended (capped); otherwise, even for an extension whose truce lapsed meanwhile, a new one starts.
+      // An extension extends the running truce (capped); an offer whose truce changed since is refused.
       const running = activeTruceBetween(actor.id, from.id, trucesByPair, now());
+      if (truceOfferIsStale(request, running)) {
+        truceRequests.delete(requestId);
+        sink?.deleteTruceRequest(requestId);
+        staleOfferPlayerIds.add(from.id);
+        return STALE_TRUCE_OFFER;
+      }
       const truce: SocialActiveTruce = running
-        ? { ...running, endsAt: extendedTruceEndsAt(running.endsAt, request.durationHours, now()) }
+        ? extendTruce(running, request.durationHours, now())
         : {
             playerAId: actor.id < from.id ? actor.id : from.id,
             playerBId: actor.id < from.id ? from.id : actor.id,
@@ -461,6 +459,8 @@ export const createSocialState = (options: {
       let offer: SocialPendingOffer | undefined;
       if (kind === "truce") {
         const request = truceRequests.get(requestId);
+        // Checked before any payment: the offer was priced for the truce as it stood.
+        if (request && truceOfferIsStale(request, activeTruceBetween(request.fromPlayerId, request.toPlayerId, trucesByPair, now()))) return STALE_TRUCE_OFFER;
         if (request && request.expiresAt >= now()) offer = { kind, request };
       } else {
         const request = allianceRequests.get(requestId);

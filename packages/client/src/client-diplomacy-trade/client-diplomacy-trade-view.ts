@@ -117,6 +117,8 @@ export const tradeVerdict = (input: {
   if (verdict.reason === "aiWontPay") return { tone: "bad", text: `${targetName} won't give anything to join an alliance.`, canSend: true, sendLabel };
   if (verdict.reason === "aiCannotPay") return { tone: "bad", text: `${targetName} doesn't have that much to give.`, canSend: true, sendLabel };
   const required = requiredForOffer(pricing, selection.kind, selection.durationHours) ?? 0;
+  // An extension costs a content AI nothing, and it never pays for one: the shortfall is only what was asked of it.
+  if (extendsTruce(selection) && required === 0) return { tone: "bad", text: `${targetName} won't pay anything to extend a truce.`, canSend: true, sendLabel };
   const spareCoin = Math.max(0, own.gold - selection.terms.give.gold);
   const affordable = spareCoin + Math.max(0, own.shard - selection.terms.give.shard) * reply.pricing.shardCoinValue >= verdict.shortfall;
   const offered = netValueToAi(selection.terms, reply.pricing.shardCoinValue);

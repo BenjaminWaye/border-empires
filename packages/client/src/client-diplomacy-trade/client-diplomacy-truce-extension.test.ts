@@ -65,7 +65,7 @@ describe("extension pricing in the trade view", () => {
 
   it("a losing AI pays for a new truce but not for an extension", () => {
     expect(verdictFor(selection(50, false)).tone).toBe("good");
-    expect(verdictFor(selection(50, true)).tone).toBe("bad");
+    expect(verdictFor(selection(50, true))).toMatchObject({ tone: "bad", text: "Elin won't pay anything to extend a truce." });
     expect(verdictFor(selection(0, true)).tone).toBe("good");
     expect(suggestedDeal(aiReply, selection(0, false), { gold: 100, shard: 0 })).toEqual({ give: { gold: 0, shard: 0 }, ask: { gold: 50, shard: 0 } });
     expect(suggestedDeal(aiReply, selection(0, true), { gold: 100, shard: 0 })).toEqual({ give: { gold: 0, shard: 0 }, ask: { gold: 0, shard: 0 } });

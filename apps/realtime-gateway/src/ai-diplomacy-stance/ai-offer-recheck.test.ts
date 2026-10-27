@@ -77,3 +77,22 @@ describe("recheckAiOffer", () => {
     await expect(recheck({}, null)).resolves.toEqual(expect.objectContaining({ withdraw: false }));
   });
 });
+
+describe("recheckAiOffer on a truce extension", () => {
+  // A losing AI (3 tiles down, fighting a minute ago) offered to pay 50 coin for peace.
+  const aiPays = { give: { gold: 50, shard: 0 }, ask: { gold: 0, shard: 0 } };
+  const recheckPaid = (extendsTruce: boolean) =>
+    recheckAiOffer(
+      {
+        fetchAiSnapshot: async () => snapshotFor(AI_ID, 1_000, 2),
+        requesterSnapshot: async () => snapshotFor(HUMAN_ID, 5_000, 1),
+        diplomacyContext: () => context({ tilesTakenFromAi: 3, lastCombatAt: NOW - 60_000 })
+      },
+      { aiPlayerId: AI_ID, aiName: "Alden Vale", playerId: HUMAN_ID, kind: "truce", durationHours: 12, termsFromAi: aiPays, extendsTruce }
+    );
+
+  it("stands by paying for a new truce but not for an extension", async () => {
+    await expect(recheckPaid(false)).resolves.toBeUndefined();
+    await expect(recheckPaid(true)).resolves.toEqual(expect.objectContaining({ withdraw: true }));
+  });
+});

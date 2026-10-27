@@ -21,15 +21,5 @@ export const CLIENT_CHANGELOG_ENTRIES_OCT_26: ClientChangelogEntry[] = [
     title: "Respawns start with full manpower",
     why: "A House that was wiped out and respawned came back with only 100 manpower, far below the 720 a starting capital holds, which made a comeback painfully slow.",
     changes: ["After your House is eliminated and respawns, its manpower is topped up to the full 720 a starting capital holds (up from 100)."]
-  },
-  {
-    createdAt: 1793055623271, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.26.2",
-    title: "Extend a running truce",
-    why: "A truce offer to an empire you already had a truce with was refused, so a truce could only lapse and be renegotiated.",
-    changes: [
-      "While a truce is running, the deal screen offers Extend 12h or Extend 24h. Once accepted, the hours are added to the current truce, which can run at most 48h ahead.",
-      "AI empires price an extension like a new truce of that length, but never pay you for one."
-    ]
   }
 ];
