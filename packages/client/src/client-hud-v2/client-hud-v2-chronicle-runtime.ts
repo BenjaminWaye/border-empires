@@ -9,7 +9,7 @@ import { storageSet } from "../client-state/client-storage.js";
 import { screen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
 import { chronicleHeadHtml, chronicleHtml } from "./client-hud-v2-chronicle.js";
 import { chronicleTabForDashboardView, chronicleTabsHtml, worldTabHtml, type ChronicleTab } from "./client-hud-v2-chronicle-tabs.js";
-import { toggledUpdate, updatesTabHtml } from "./client-hud-v2-chronicle-updates.js";
+import { toggledUpdate, updateKey, updatesTabHtml } from "./client-hud-v2-chronicle-updates.js";
 
 /** What the Chronicle button's badge counts: unread activity plus unseen release notes. */
 export const chronicleBadgeCount = (state: HudV2Deps["state"]): number =>
@@ -62,10 +62,11 @@ export const loadChronicleTab = (deps: HudV2Deps, tab: ChronicleTab): void => {
 
 /** Tab and release-note clicks inside the Chronicle; true when handled. */
 export const chronicleTabClick = (deps: HudV2Deps, target: Element): boolean => {
-  const update = Number(target.closest<HTMLElement>("[data-v2-update]")?.dataset.v2Update);
+  const update = target.closest<HTMLElement>("[data-v2-update]")?.dataset.v2Update;
   if (update) {
     const baseline = screen.chronicleUpdatesBaseline ?? deps.state.changelog.seenAt;
-    const newestUnread = unseenClientChangelogEntries(baseline)[0]?.createdAt;
+    const newest = unseenClientChangelogEntries(baseline)[0];
+    const newestUnread = newest ? updateKey(newest) : undefined;
     screen.chronicleOpenUpdate = toggledUpdate(screen.chronicleOpenUpdate, newestUnread, update);
     renderChronicle(deps);
     return true;

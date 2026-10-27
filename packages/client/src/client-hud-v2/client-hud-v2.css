@@ -173,7 +173,7 @@ body.hud-v2 .onb-root { bottom: 266px !important; }
 .hud-v2-overlay-btn:hover .tab-icon { opacity: 1; }
 .hud-v2-overlay-on { background: #2a2216; border-color: var(--v2-gold); border-left-color: transparent; }
 .hud-v2-overlay-on .tab-icon { opacity: 1; }
-.hud-v2-overlay-legend { position: absolute; top: 42px; left: 6px; display: grid; gap: 4px; white-space: nowrap; padding: 8px 10px; background: var(--v2-ink); border: 1px solid var(--v2-edge); font-size: 12px; }
+.hud-v2-overlay-legend { pointer-events: auto; position: absolute; top: 42px; left: 6px; display: grid; gap: 4px; white-space: nowrap; padding: 8px 10px; background: var(--v2-ink); border: 1px solid var(--v2-edge); font-size: 12px; }
 .hud-v2-overlay-legend span { display: flex; align-items: center; gap: 6px; }
 .hud-v2-overlay-legend i { width: 12px; height: 12px; border: 1px solid rgba(0, 0, 0, 0.5); }
 
@@ -237,7 +237,7 @@ body.hud-v2 .onb-root { bottom: 266px !important; }
 .hud-v2-pop-label { font-size: 14px; }
 .hud-v2-pop-note { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-soft); }
 /* Build ▸ sidebar on the map: same list as the town screen; the top-right column steps aside. */
-.hud-v2-build-side { top: 128px !important; }
+.hud-v2-build-side { top: 128px !important; pointer-events: auto; }
 .hud-v2-build-side[hidden] { display: none; }
 .hud-v2-build-place { padding: 10px 18px 14px; border-top: 1px solid var(--v2-line); }
 .hud-v2-build-place:empty { display: none; }

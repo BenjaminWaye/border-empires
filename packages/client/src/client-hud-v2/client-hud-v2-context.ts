@@ -38,8 +38,8 @@ export type HudV2ScreenState = {
   chronicleTab: "yours" | "world" | "updates";
   /** Changelog watermark when Updates opened, so the list does not collapse once it is marked seen. */
   chronicleUpdatesBaseline: number | undefined;
-  /** The release note opened on Updates (its createdAt); undefined opens the newest unread, null closes all. */
-  chronicleOpenUpdate: number | null | undefined;
+  /** The release note opened on Updates (its updateKey); undefined opens the newest unread, null closes all. */
+  chronicleOpenUpdate: string | null | undefined;
   chronicleSelectedId: string | undefined;
   townBuildSelection: string | undefined;
   townCategory: BuildingCategory | undefined;

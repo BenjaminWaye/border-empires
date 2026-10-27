@@ -56,4 +56,9 @@ describe("player profile screen", () => {
     expect(host.querySelectorAll(".v2p-none").length).toBeGreaterThanOrEqual(3);
     expect(host.querySelector(".v2p-rank span")?.textContent).toBe("Unranked");
   });
+
+  // Review: Diplomacy was offered on a barbarian's profile.
+  it("offers no Diplomacy for barbarians", () => {
+    expect(render({ ...base, id: "barbarian-1", name: "Barbarians" }).querySelector("[data-v2-profile-diplomacy]")).toBeNull();
+  });
 });

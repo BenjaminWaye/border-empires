@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
 import { latestClientChangelogTimestamp, sortedClientChangelogEntries } from "../client-changelog/client-changelog.js";
-import { toggledUpdate, updatesTabHtml } from "./client-hud-v2-chronicle-updates.js";
+import { toggledUpdate, updateKey, updatesTabHtml } from "./client-hud-v2-chronicle-updates.js";
 
 const render = (html: string): HTMLElement => {
   const host = document.createElement("div");
@@ -17,7 +17,7 @@ describe("Chronicle Updates tab", () => {
     const rows = host.querySelectorAll<HTMLElement>(".v2u-row");
     expect(rows.length).toBe(2);
     expect(host.querySelectorAll(".v2u-new").length).toBe(2);
-    expect(rows[0]?.dataset.v2Update).toBe(String(newest?.createdAt));
+    expect(rows[0]?.dataset.v2Update).toBe(newest ? updateKey(newest) : "");
     expect(rows[0]?.getAttribute("aria-expanded")).toBe("true");
     expect(host.querySelectorAll(".v2u-changes").length).toBe(1);
     expect(host.querySelectorAll(".v2u-changes li").length).toBe(newest?.changes.length);
@@ -32,12 +32,18 @@ describe("Chronicle Updates tab", () => {
   });
 
   it("opens the clicked release and closes it on a second click", () => {
-    expect(toggledUpdate(undefined, 5, 7)).toBe(7);
-    expect(toggledUpdate(undefined, 5, 5)).toBeNull();
-    expect(toggledUpdate(7, 5, 7)).toBeNull();
-    expect(toggledUpdate(null, 5, 5)).toBe(5);
+    expect(toggledUpdate(undefined, "5|a", "7|b")).toBe("7|b");
+    expect(toggledUpdate(undefined, "5|a", "5|a")).toBeNull();
+    expect(toggledUpdate("7|b", "5|a", "7|b")).toBeNull();
+    expect(toggledUpdate(null, "5|a", "5|a")).toBe("5|a");
     const [newest] = sortedClientChangelogEntries();
-    const host = render(updatesTabHtml(latestClientChangelogTimestamp(), newest?.createdAt));
+    const host = render(updatesTabHtml(latestClientChangelogTimestamp(), newest ? updateKey(newest) : undefined));
     expect(host.querySelectorAll(".v2u-changes").length).toBe(1);
+  });
+
+  // Rows were keyed by createdAt alone; two releases authored in the same millisecond would open together.
+  it("keys rows by time and title, so releases sharing a timestamp stay separate", () => {
+    expect(updateKey({ createdAt: 5, title: "A" })).not.toBe(updateKey({ createdAt: 5, title: "B" }));
+    expect(toggledUpdate(undefined, undefined, updateKey({ createdAt: 5, title: "B" }))).toBe("5|B");
   });
 });

@@ -24,6 +24,10 @@ export const DIPLOMACY_OVERLAY_LABELS: Readonly<Record<DiplomacyOverlayStance, s
   barbarian: "Barbarian"
 };
 
+/** Your own land in the Diplomacy view: a fixed blue outside the stance palette, so your own colour can never be mistaken for a stance. */
+export const DIPLOMACY_SELF_COLOR = "#5b8fd6";
+export const DIPLOMACY_SELF_LABEL = "You";
+
 type StanceState = Pick<ClientState, "me" | "allies" | "activeTruces">;
 
 export type DiplomacyStanceLookup = (ownerId: string | undefined) => DiplomacyOverlayStance | undefined;
@@ -49,8 +53,8 @@ export const diplomacyOverlayKey = (state: StanceState & Pick<ClientState, "show
     : "";
 
 /**
- * While the view is on, the colour another empire's land is painted in; undefined otherwise (and for your own
- * land), so the caller falls back to the owner's own colour. The stance lookup is rebuilt only when alliances,
+ * While the view is on, the colour an empire's land is painted in (your own in DIPLOMACY_SELF_COLOR); undefined
+ * otherwise, so the caller falls back to the owner's own colour. The stance lookup is rebuilt only when alliances,
  * truces or the viewer change: those arrays are replaced, never mutated, on every update.
  */
 export const diplomacyOwnerColor = (state: StanceState & Pick<ClientState, "showDiplomacyOverlay">): ((ownerId: string) => string | undefined) => {
@@ -58,6 +62,7 @@ export const diplomacyOwnerColor = (state: StanceState & Pick<ClientState, "show
   let lookup: DiplomacyStanceLookup = () => undefined;
   return (ownerId) => {
     if (!state.showDiplomacyOverlay) return undefined;
+    if (ownerId === state.me) return DIPLOMACY_SELF_COLOR;
     if (!builtFrom || builtFrom.allies !== state.allies || builtFrom.truces !== state.activeTruces || builtFrom.me !== state.me) {
       builtFrom = { allies: state.allies, truces: state.activeTruces, me: state.me };
       lookup = diplomacyStanceLookup(state);

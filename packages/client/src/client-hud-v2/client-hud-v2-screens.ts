@@ -224,7 +224,7 @@ const hostTradeView = (deps: HudV2Deps, targetId: string, input?: Parameters<typ
 const profileRelation = (state: HudV2Deps["state"], id: string): ProfileRelation => {
   if (id === state.me) return { kind: "self" };
   if (state.allies.includes(id)) return { kind: "ally" };
-  const truce = state.activeTruces.find((t) => t.otherPlayerId === id);
+  const truce = state.activeTruces.find((t) => t.otherPlayerId === id && t.endsAt > Date.now());
   return truce ? { kind: "truce", endsAt: truce.endsAt } : { kind: "none" };
 };
 

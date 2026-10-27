@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DIPLOMACY_OVERLAY_COLORS, diplomacyOverlayKey, diplomacyOwnerColor, diplomacyStanceLookup } from "./client-diplomacy-overlay.js";
+import { DIPLOMACY_OVERLAY_COLORS, DIPLOMACY_SELF_COLOR, diplomacyOverlayKey, diplomacyOwnerColor, diplomacyStanceLookup } from "./client-diplomacy-overlay.js";
 
 const truce = (otherPlayerId: string) => ({ otherPlayerId, otherPlayerName: otherPlayerId, startedAt: 0, endsAt: 1, createdByPlayerId: "me" });
 
@@ -23,14 +23,17 @@ describe("diplomacy overlay stance", () => {
 
 describe("diplomacy view colours", () => {
   // Regression: the view drew translucent tiles over each empire's land instead of recolouring it.
-  it("swaps other empires' owner colour for their stance while on, leaving yours alone", () => {
+  it("swaps every empire's owner colour for its stance while on, yours for a fixed You colour", () => {
     const state = { me: "me", allies: ["a"], activeTruces: [truce("t")], showDiplomacyOverlay: true };
     const colorOf = diplomacyOwnerColor(state);
     expect(["a", "t", "x", "barbarian-1"].map(colorOf)).toEqual([
       DIPLOMACY_OVERLAY_COLORS.ally, DIPLOMACY_OVERLAY_COLORS.truce, DIPLOMACY_OVERLAY_COLORS.none, DIPLOMACY_OVERLAY_COLORS.barbarian
     ]);
-    expect(colorOf("me")).toBeUndefined();
+    // Regression: your own land kept your colour, which could match a stance colour (a green empire read as an ally).
+    expect(colorOf("me")).toBe(DIPLOMACY_SELF_COLOR);
+    expect(Object.values(DIPLOMACY_OVERLAY_COLORS)).not.toContain(DIPLOMACY_SELF_COLOR);
     state.showDiplomacyOverlay = false;
+    expect(colorOf("me")).toBeUndefined();
     expect(colorOf("a")).toBeUndefined();
   });
 

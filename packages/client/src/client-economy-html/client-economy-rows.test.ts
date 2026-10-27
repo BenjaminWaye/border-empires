@@ -8,7 +8,7 @@ const slot = (supply: number, demand: number, sources: EconomyRowsInput["slots"]
 const input = (over: Partial<EconomyRowsInput> = {}): EconomyRowsInput => ({
   focus: "ALL",
   gold: 13.4,
-  coin: { netPerMinute: 58 / 1440, sources: [{ label: "Town", amountPerMinute: 40 / 1440, count: 3 }], sinks: [] },
+  coin: { netPerMinute: 58 / 1440, sources: [{ label: "Town", amountPerMinute: 40 / 1440, count: 3 }], sinks: [{ label: "Umbrite Works", amountPerMinute: 2 / 1440, count: 1, resourceKey: "UMBRITE" }] },
   slots: {
     FOOD: slot(10, 9, [{ label: "Farm", amountPerMinute: 4, count: 4 }], [{ label: "Town support", amountPerMinute: 9, count: 3 }]),
     TITANIUM: slot(2, 0),
@@ -53,5 +53,10 @@ describe("Economy rows (new HUD)", () => {
 
   it("highlights the row for the chip that opened the panel", () => {
     expect(render(input({ focus: "TITANIUM" })).querySelector(".v2e-focus")?.getAttribute("data-v2e-row")).toBe("TITANIUM");
+  });
+
+  // Review: upkeep paid in another resource read as Coin/day.
+  it("names the resource of upkeep that is not paid in coin", () => {
+    expect(render(input()).querySelector("[data-v2e-row='GOLD']")?.textContent).toContain("−2.0/day Umbrite");
   });
 });

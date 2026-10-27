@@ -45,4 +45,11 @@ describe("Details beyond the fact strip", () => {
     expect(actionBarHtml(view(lines), undefined, BEACON_FACTS)).not.toContain('data-hud-v2-panel="details"');
     expect(actionBarHtml(view(BEACON_LINES), "details", BEACON_FACTS)).not.toContain("Built: Relay Beacon");
   });
+
+  // Review: a numeric fact hid an unrelated line that ended in the same number.
+  it("does not drop a line just because its number matches a fact", () => {
+    const lines: TileMenuView["overviewLines"] = [{ html: "Garrison: 2" }, { html: "Built: Fort" }];
+    const facts: TileFact[] = [{ label: "Defense", value: "2" }, { label: "Building", value: "Fort" }];
+    expect(detailLinesBeyondFacts(lines, facts).map((l) => l.html)).toEqual(["Garrison: 2"]);
+  });
 });

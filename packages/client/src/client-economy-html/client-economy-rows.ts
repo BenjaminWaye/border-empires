@@ -40,12 +40,16 @@ const listHtml = (label: string, items: string[], empty: string): string => {
 const item = (text: string, amount: string, warn = false): string =>
   `<span class="v2e-item${warn ? " v2e-warn" : ""}"><span>${text}</span><b>${amount}</b></span>`;
 
+/** Upkeep on the Coin row is mostly coin; a cost paid in another resource names it, as the classic panel does. */
+const upkeepAmount = (b: EconomyBucket): string =>
+  b.resourceKey && b.resourceKey !== "GOLD" ? `${perDay(-b.amountPerMinute)} ${b.resourceKey === "SHARD" ? "Shards" : NAMES[b.resourceKey]}` : perDay(-b.amountPerMinute);
+
 const coinRowHtml = (input: EconomyRowsInput): string => {
   const { coin } = input;
   return `<section class="v2e-row${input.focus === "GOLD" ? " v2e-focus" : ""}" data-v2e-row="GOLD">
     <div class="v2e-head">${input.resourceIconHtml("GOLD")}<span class="v2e-name">Coin</span><b class="v2e-amount">${input.gold.toFixed(1)}</b><span class="v2e-status ${coin.netPerMinute >= 0 ? "v2e-good" : "v2e-bad"}">${perDay(coin.netPerMinute)}</span></div>
     ${listHtml("Earned", coin.sources.map((b) => item(named(b), perDay(b.amountPerMinute))), "No income yet")}
-    ${listHtml("Upkeep", coin.sinks.map((b) => item(named(b), perDay(-b.amountPerMinute))), "None")}
+    ${listHtml("Upkeep", coin.sinks.map((b) => item(named(b), upkeepAmount(b))), "None")}
   </section>`;
 };
 
@@ -102,7 +106,7 @@ export const economyRowsFromPanelArgs = (args: EconomyPanelArgs, helpers: Econom
     gold: args.gold,
     coin: { netPerMinute: args.incomePerMinute - args.upkeepPerMinute.gold, sources: coin.sources, sinks: coin.sinks },
     slots,
-    isRevealed: (r) => r === "FOOD" || !args.isRevealed || args.isRevealed(r),
+    isRevealed: (r) => !args.isRevealed || args.isRevealed(r),
     foodCoverage: args.upkeepLastTick.foodCoverage ?? 1,
     resourceIconHtml: args.resourceIconHtml
   });

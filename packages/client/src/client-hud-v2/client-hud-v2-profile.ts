@@ -52,7 +52,8 @@ const heroHtml = (input: ProfileInput): string => {
   const rank = input.entry
     ? `<div class="v2p-rank"><b>#${input.entry.rank}</b><span>Rank</span></div>`
     : `<div class="v2p-rank"><b>—</b><span>Unranked</span></div>`;
-  const diplomacy = input.relation.kind === "self"
+  // Barbarians take no deals.
+  const diplomacy = input.relation.kind === "self" || input.id.startsWith("barbarian")
     ? ""
     : `<button type="button" class="v2p-action" data-v2-profile-diplomacy="${esc(input.id)}">Diplomacy ▸</button>`;
   return `<aside class="v2p-hero">

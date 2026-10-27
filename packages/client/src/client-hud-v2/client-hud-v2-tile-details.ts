@@ -27,8 +27,10 @@ const isHeading = (line: OverviewLine): boolean => line.kind === "section" || li
 const repeatsFact = (line: OverviewLine, phrases: ReadonlySet<string>): boolean => {
   const text = plainText(line.html);
   if (phrases.has(norm(text))) return true;
+  // "Built: Relay Beacon" repeats the Building fact by its value alone; a bare number ("Garrison: 2") says nothing on its own.
   const split = text.indexOf(": ");
-  return split > 0 && phrases.has(norm(text.slice(split + 2)));
+  const value = split > 0 ? norm(text.slice(split + 2)) : "";
+  return /[a-z]/.test(value) && phrases.has(value);
 };
 
 export const detailLinesBeyondFacts = (lines: readonly OverviewLine[], facts: readonly TileFact[]): OverviewLine[] => {
