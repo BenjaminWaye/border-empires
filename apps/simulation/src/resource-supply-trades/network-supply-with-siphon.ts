@@ -15,7 +15,7 @@ export interface NetworkSiphonContext {
 }
 
 /** The supplier must still power and authorise its extractor. Siphon transfers
- * its one slot, never duplicates it or turns an undeveloped deposit into supply. */
+ * its supply slots, never duplicates them or turns an undeveloped deposit into supply. */
 export function networkSupplyWithSiphon(ctx: NetworkSiphonContext, playerId: string): NetworkSiteCounts {
   const domestic = (id: string, selected?: ReadonlySet<string>): NetworkSiteCounts => {
     const player = ctx.player(id);

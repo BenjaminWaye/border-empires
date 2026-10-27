@@ -23,10 +23,10 @@ rules; this document records implementation scope, rollout and visual decisions.
 
 ## Starting balance
 
-| Deposit | Installation | Build manpower / seconds | Ongoing occupancy | Benefit from one supply slot |
+| Deposit | Installation | Build manpower / seconds | Ongoing occupancy | Benefit per installation |
 |---|---|---:|---|---|
 | Neural resin | Resin Extractor | 40 / 40 | 1 FOOD slot | +12 Ancillaries at one factory per 4-hour batch |
-| Conductive minerals | Implant Foundry | 50 / 50 | 1 FOOD slot | +6 Ancillaries at one factory per batch |
+| Conductive minerals | Implant Foundry | 50 / 50 | 1 FOOD slot | +6 each at up to two factories per batch (+12 total) |
 | Catalytic deposit | Catalyst Refinery | 50 / 50 | 1 FOOD slot | +1.5 Coin/day at one active supported Trade Nexus |
 | Luxury biota | Cultivation Estate | 33 / 33 | 1 FOOD slot | +1.5 Coin/day at one active supported Trade Nexus |
 | Precursor salvage | Reclamation Works | 60 / 60 | 1 FOOD slot | +1.5 Coin/day at one active supported Manufactory |
@@ -36,8 +36,8 @@ Coin costs are zero, matching the existing physical-construction economy.
 These are additive bonuses, leaving current buildings' base output and other
 network upgrades intact. They never grant an immediate batch or refill.
 
-Each active extraction installation supplies **one renewable bonus slot** of
-its resource. A beneficiary uses at most one slot of each applicable type.
+Each active extraction installation supplies **one renewable bonus slot**, except
+an Implant Foundry which supplies **two conductive slots** for separate factories. A beneficiary uses at most one slot of each applicable type.
 A factory can therefore use one resin and one conductive-mineral slot; a
 Trade Nexus can use one catalyst and one luxury slot. A Manufactory can use
 one salvage slot. These are optional enhancements: an unsupplied beneficiary
@@ -45,15 +45,15 @@ retains normal output. Supply does not run out over time, and occupying a slot
 does not consume the deposit. Spare slots remain available for new consumers.
 There is no diminishing-return tier or six-site cap.
 
-Before exclusive trade and Siphon transfers, supplied buildings = min(active developed sites, eligible
+Before exclusive trade and Siphon transfers, supplied buildings = min(active developed sites × slots per site, eligible
 active beneficiaries). Extra factories cannot reuse already occupied slots.
 
 Examples:
 
 - One resin site and ten factories give +12 Ancillaries total per batch. Nine
   factories retain their normal output until another resin slot is developed.
-- Two resin sites, one mineral site and three factories give +30 total per
-  batch: 2×12 + 1×6. The same supply with one factory gives +18.
+- Two resin sites, one mineral site and three factories give +36 total per
+  batch: 2×12 + 2×6. The same supply with one factory gives +18.
 - One catalyst and one luxury site support +3 Coin/day total, whether the
   House owns one Trade Nexus or twenty. Each relevant slot needs a beneficiary.
 - Two salvage sites and one Manufactory supply +1.5 Coin/day, with one salvage

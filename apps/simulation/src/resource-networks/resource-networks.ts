@@ -1,7 +1,7 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import { emptyNetworkSiteCounts, NETWORK_RESOURCES, isNetworkResource, RESOURCE_NETWORKS, type NetworkSiteCounts } from "@border-empires/shared";
 
-/** Scan only the caller's settled tiles, once per existing economy/manpower cache rebuild. */
+/** Count renewable output slots from eligible sites, once per existing economy/manpower cache rebuild. */
 export function developedNetworkSites(
   tiles: Iterable<DomainTileState>, ownerId: string, dormant: ReadonlySet<string>, techIds?: ReadonlySet<string>
 ): NetworkSiteCounts {
@@ -12,7 +12,7 @@ export function developedNetworkSites(
     const spec = RESOURCE_NETWORKS[tile.resource];
     if (tile.economicStructure?.type !== spec.building || tile.economicStructure.status !== "active" || tile.economicStructure.ownerId !== ownerId ||
         dormant.has(`${tile.x},${tile.y}`) || (techIds && !techIds.has(spec.tech))) continue;
-    counts[tile.resource] += 1;
+    counts[tile.resource] += spec.slotsPerSite;
   }
   return counts;
 }

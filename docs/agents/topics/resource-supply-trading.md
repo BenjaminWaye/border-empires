@@ -143,3 +143,9 @@ Installation costs are now roughly one third of the original values (40/50/50/
 33/60 Ancillaries), below an Ancillary Factory's base 150; construction seconds
 continue to follow manpower cost. Lore reviewed; no canon change for this balance
 adjustment.
+
+Implant Foundries now provide two conductive supply slots. Each factory can use
+only one, yielding +6 Ancillaries per batch; two factories use both for +12.
+Trades can split these rights, and Siphon transfers both without duplication.
+Resin remains one slot giving +12 to one factory. The canonical lore now describes
+output divided into exclusive factory-line commitments.

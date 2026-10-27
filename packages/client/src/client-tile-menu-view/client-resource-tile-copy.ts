@@ -42,12 +42,12 @@ export function resourceTileStatsHtml(tile: Tile, techCatalog: readonly Pick<Tec
     : structure.status !== "active" || structure.inactiveReason === "manual" ? "Inactive"
     : "Garrison + active site";
   const target = spec.target === "ANCILLARY_FACTORY" ? "Ancillary Factory" : spec.target === "TRADE_NEXUS" ? "Trade Nexus" : "Manufactory";
-  const bonus = spec.batchBonus ? `+${spec.batchBonus} Ancillaries` : `+${spec.creditPerDay} Coin`;
+  const bonus = spec.batchBonus ? `+${spec.batchBonus * spec.slotsPerSite} Ancillaries` : `+${spec.creditPerDay} Coin`;
   const interval = spec.batchBonus ? `per ${MANPOWER_REFILL_WINDOW_MS / 3_600_000}h batch` : "per day";
   const unlock = techCatalog.find(tech => tech.id === spec.tech)?.name ?? "Matching Manifest";
   return `<div class="tile-stat-grid resource-stat-grid">${[
-    card("Potential bonus", bonus, `${interval} · 1 ${target}`),
-    card("Supply", "1 exclusive slot", siphoned ? "Siphoned" : "Renewable · tradeable"),
+    card("Potential bonus", bonus, spec.slotsPerSite > 1 ? `${spec.slotsPerSite} factories × +${spec.batchBonus} · ${interval}` : `${interval} · 1 ${target}`),
+    card("Supply", `${spec.slotsPerSite} exclusive slot${spec.slotsPerSite === 1 ? "" : "s"}`, siphoned ? "Siphoned" : "Renewable · tradeable"),
     card("Develop with", spec.buildingName, `${spec.manpowerCost} Ancillaries · ${siteState}`),
     card("Upkeep", "1 FOOD", "Powered site required"),
     card("Unlock", unlock, "Manifest required", true)

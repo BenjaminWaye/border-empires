@@ -451,9 +451,10 @@ custody for the resulting reserve. The Reserve Custody Cadre authorises both
 Depots and Implant Foundries, supplying the custody and implant expertise
 needed to maintain an Ancillary reserve.
 
-A working site provides a continuing contracted supply, committed to a
-particular recipient industry. Opening more factories does not duplicate
-that supply: another equipped production line needs another supplier. Supply
+A working site provides continuing contracted output divided into exclusive
+commitments to recipient industries. Implant Foundries can divide their output
+between separately equipped factory production lines. Opening more factories
+does not duplicate a commitment: each line needs its own reserved supply. Supply
 slots represent this exclusive commitment, not ore units spent down to zero.
 An idle or lost recipient releases the commitment for another eligible
 building; the physical deposit remains. A Siphon can divert a working site’s output to the caster, without duplicating its supply. Its crews and extraction systems must still be authorised and provisioned at the source; draining an undeveloped deposit creates no industry.

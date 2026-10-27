@@ -175,11 +175,11 @@ describe("resource trades in the production runtime",()=>{
     for(const tile of initial.tiles)if(siteKeys.includes(`${tile.x},${tile.y}`))tile.sabotage={ownerId:"buyer",observatoryTileKey:"40,39",endsAt:Number.MAX_SAFE_INTEGER,outputMultiplier:0};
     const runtime=new SimulationRuntime({now:()=>start,seedTiles:new Map(),initialState:initial,mergeSeedTilesWithInitialState:false});
     const own=(id:string)=>runtime.exportState().players.find(player=>player.id===id)!;
-    for(const resource of NETWORK_RESOURCES){expect(own("seller").effectiveNetworkSupply?.[resource]).toBe(0);expect(own("buyer").effectiveNetworkSupply?.[resource]).toBe(1);}
+    for(const resource of NETWORK_RESOURCES){expect(own("seller").effectiveNetworkSupply?.[resource]).toBe(0);expect(own("buyer").effectiveNetworkSupply?.[resource]).toBe(RESOURCE_NETWORKS[resource].slotsPerSite);}
     expect((own("buyer").manpowerRegenPerMinute!-base.player("buyer").manpowerRegenPerMinute!)*240).toBeCloseTo(18);
     runtime.submitCommand({commandId:"end-siphon",sessionId:"buyer",playerId:"buyer",clientSeq:100,issuedAt:start,type:"CANCEL_SIPHON",payloadJson:JSON.stringify({x:40,y:39})});
     await Promise.resolve();
-    for(const resource of NETWORK_RESOURCES){expect(own("seller").effectiveNetworkSupply?.[resource]).toBe(1);expect(own("buyer").effectiveNetworkSupply?.[resource]).toBe(0);}
+    for(const resource of NETWORK_RESOURCES){expect(own("seller").effectiveNetworkSupply?.[resource]).toBe(RESOURCE_NETWORKS[resource].slotsPerSite);expect(own("buyer").effectiveNetworkSupply?.[resource]).toBe(0);}
   });
 
   it("keeps another House's spare inventory and supply agreements private in visible snapshots",async()=>{

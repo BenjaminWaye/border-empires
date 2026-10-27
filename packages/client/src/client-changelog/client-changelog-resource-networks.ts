@@ -10,7 +10,7 @@ export const RESOURCE_NETWORKS_CHANGELOG: ClientChangelogEntry[] = [{
     "Explore deposits and develop them with the matching industry. Implant Foundry unlocks alongside Ancillary Depot; Reclamation Works unlocks alongside Manufactory.",
     "Developed resin and conductive sites increase Ancillary Factory batches; towns still supply the bodies and depots determine storage.",
     "Catalysts and luxury exports back more Coin credit through Trade Nexuses; reclaimed machinery improves Manufactory-backed credit.",
-    "Each developed site supplies one building: resin grants +12 Ancillaries per batch, conductive minerals +6, and credit resources +1.5 Coin/day. Extra buildings need additional supply slots.",
+    "Each supply slot supports one building: resin grants +12 Ancillaries per batch, conductive minerals +6, and credit resources +1.5 Coin/day. Extra buildings need additional supply slots.",
     "Conductive deposits expose branching metal seams in fractured rock; the Implant Foundry uses matching ore art in both map renderers.",
     "Deposits and extraction buildings have art in both the 2D and 3D maps. Decorative lone trees are removed; resin appears as distinct groves. Saved campaigns keep their existing deposits."
   ]
@@ -56,5 +56,13 @@ export const RESOURCE_NETWORKS_CHANGELOG: ClientChangelogEntry[] = [{
     title: "Cheaper resource installations",
     why: "Developing a deposit should cost less than another Ancillary Factory.",
     changes: ["Resource installations cost about one third as much: Resin Extractor 40, Implant Foundry 50, Catalyst Refinery 50, Cultivation Estate 33 and Reclamation Works 60 Ancillaries."]
+  },
+  {
+    createdAt: 1793139916650,
+    introducedIn: "2026.10.27.7",
+    title: "Implant Foundries support two factories",
+    why: "Conductive supply should match resin output when split across two factory lines.",
+    changes: ["One Implant Foundry provides two conductive slots: +6 Ancillaries per batch at each of two factories, +12 total. A single factory uses one slot; the spare slot can support another factory or be traded."]
   }
+
 ];

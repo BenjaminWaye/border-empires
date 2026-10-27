@@ -84,12 +84,13 @@ describe("resource networks in the real runtime", () => {
   it("does not duplicate supply slots across additional factories or towns", () => {
     const baseline=fixture(false,()=>boundary,0,techIds,true), developed=fixture(true,()=>boundary,0,techIds,true);
     const base=player(baseline), boost=player(developed);
-    expect((boost.manpowerRegenPerMinute!-base.manpowerRegenPerMinute!)*240).toBeCloseTo(18);
+    expect((boost.manpowerRegenPerMinute!-base.manpowerRegenPerMinute!)*240).toBeCloseTo(24);
     expect((boost.incomePerMinute!-base.incomePerMinute!)*1440).toBeCloseTo(4.5,3);
     const slots=buildLivePlayerEconomySnapshot("p",developed.exportState()).resourceSlots.bonusSupply;
     expect(slots?.supply.NEURAL_RESIN).toBe(1);
     expect(slots?.used.NEURAL_RESIN).toBe(1);
-    expect(slots?.used.CONDUCTIVE_MINERALS).toBe(1);
+    expect(slots?.supply.CONDUCTIVE_MINERALS).toBe(2);
+    expect(slots?.used.CONDUCTIVE_MINERALS).toBe(2);
     expect(slots?.used.CATALYTIC_DEPOSIT).toBe(1);
     expect(slots?.used.LUXURY_BIOTA).toBe(1);
     expect(slots?.used.PRECURSOR_SALVAGE).toBe(1);
