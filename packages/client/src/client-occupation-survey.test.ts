@@ -110,6 +110,18 @@ describe("occupation survey presentation", () => {
     expect(document.querySelector(".occupation-survey-overlay")).toBeNull();
   });
 
+  it("remembers Escape as an acknowledgement when the player scope is restored", () => {
+    const report = entry();
+    occupationSurveyController.reconcile([report], [], "escape-player:season");
+    sync(true);
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    occupationSurveyController.reconcile([], [], "another-player:season");
+    occupationSurveyController.reconcile([report], [], "escape-player:season");
+    sync(true);
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+  });
+
   it("defers the popup until the town panel is dismissed", () => {
     occupationSurveyController.beginCapture();
     occupationSurveyController.record(entry());
