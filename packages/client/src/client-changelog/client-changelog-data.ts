@@ -415,6 +415,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Territory colour on narrow beaches fades smoothly from the land instead of starting part-faded",
       "Coastlines rebuild about twice as fast while panning"
     ]
+  },
+  {
+    createdAt: 1793119941423, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.27.2",
+    title: "A more detailed Fabrication Complex",
+    why: "The House’s industrial seed should look like substantial, precision-built machinery.",
+    changes: ["The 3D AFC now has beveled metalwork, brushed surfaces, reactor containment rings, cooling channels, detailed docking hardware and restrained cyan status lights. Its angular legs have layered titanium-coloured armour, offset actuators, illuminated knee rings and grounded stabilizer feet.", "The 2D fallback gains eight service bays, radial braces and brass fasteners. Module positions and gameplay are unchanged."]
   }
 ];
 
