@@ -147,6 +147,67 @@ describe("diplomacy trade screen", () => {
     ]);
   });
 
+  // The terms are goods tiles that open a slider capped at what each side holds.
+  it("opens a slider from a goods tile, capped at what each side holds", () => {
+    const { overlay } = openScreen(67);
+    const coinTile = overlay.querySelector<HTMLButtonElement>("[data-trade-good='give-gold']")!;
+    const slider = overlay.querySelector<HTMLElement>("[data-trade-slider='give-gold']")!;
+    expect(slider.hidden).toBe(true);
+    expect(overlay.querySelector<HTMLButtonElement>("[data-trade-good='give-shard']")!.disabled).toBe(true);
+
+    coinTile.click();
+    expect(slider.hidden).toBe(false);
+    expect(coinTile.getAttribute("aria-expanded")).toBe("true");
+    const giveGold = overlay.querySelector<HTMLInputElement>("[data-trade-give-gold]")!;
+    expect(giveGold.type).toBe("range");
+    expect(giveGold.max).toBe("67");
+    giveGold.value = "30";
+    giveGold.dispatchEvent(new Event("input"));
+    expect(overlay.querySelector("[data-trade-amount='give-gold']")?.textContent).toBe("30");
+
+    // Opening another tile closes this one; asking an AI is capped at its own holdings.
+    receiveDiplomacyStance(aiReply);
+    overlay.querySelector<HTMLButtonElement>("[data-trade-good='ask-gold']")!.click();
+    expect(slider.hidden).toBe(true);
+    expect(overlay.querySelector<HTMLInputElement>("[data-trade-ask-gold]")!.max).toBe("30");
+    expect(overlay.querySelector<HTMLButtonElement>("[data-trade-good='ask-shard']")!.disabled).toBe(true);
+  });
+
+  // Regression (review): the slider's top end followed the chosen amount, so dragging a counter's 500 down shrank the scale under the pointer.
+  it("keeps a slider's top end fixed while it is dragged, and lets an exact amount go past it", () => {
+    const send = vi.fn().mockReturnValue(true);
+    openDiplomacyTradeScreen(
+      { targetName: "Valka", kind: "truce", durationHours: 12, terms: { give: { gold: 500, shard: 0 }, ask: { gold: 0, shard: 0 } } },
+      { send, ownHoldings: () => ({ gold: 100, shard: 0 }) }
+    );
+    const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
+    const giveGold = overlay.querySelector<HTMLInputElement>("[data-trade-give-gold]")!;
+    expect(giveGold.max).toBe("500");
+    giveGold.value = "400";
+    giveGold.dispatchEvent(new Event("input"));
+    expect(giveGold.max).toBe("500");
+
+    // A human's holdings are unknown: the slider stops at 100, but a typed amount reaches further.
+    overlay.querySelector<HTMLButtonElement>("[data-trade-good='ask-gold']")!.click();
+    const askGold = overlay.querySelector<HTMLInputElement>("[data-trade-ask-gold]")!;
+    expect(askGold.max).toBe("100");
+    const exact = overlay.querySelector<HTMLInputElement>("[data-trade-exact='ask-gold']")!;
+    exact.value = "2000";
+    exact.dispatchEvent(new Event("input"));
+    expect(askGold.max).toBe("2000");
+    expect(overlay.querySelector("[data-trade-amount='ask-gold']")?.textContent).toBe("2000");
+  });
+
+  it("closes an open slider whose tile runs out of anything to trade", () => {
+    const { overlay } = openScreen();
+    overlay.querySelector<HTMLButtonElement>("[data-trade-good='ask-shard']")!.click();
+    expect(overlay.querySelector<HTMLElement>("[data-trade-slider='ask-shard']")!.hidden).toBe(false);
+    // The AI's reply says it holds no Shards.
+    receiveDiplomacyStance(aiReply);
+    expect(overlay.querySelector<HTMLElement>("[data-trade-slider='ask-shard']")!.hidden).toBe(true);
+    expect(overlay.querySelector("[data-trade-good='ask-shard']")?.getAttribute("aria-expanded")).toBe("false");
+  });
+
   it("sends the offer with its terms and closes", () => {
     const { send, overlay } = openScreen();
     const giveGold = overlay.querySelector<HTMLInputElement>("[data-trade-give-gold]")!;
