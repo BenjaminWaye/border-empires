@@ -80,5 +80,14 @@ export const HUD_V2_PREVIEW_CHANGELOG: ClientChangelogEntry[] = [
       "Coin income reads per day, like Economy: in the top bar (net of upkeep, red when losing) and on town screens.",
       "The manpower jar fills with your empire's colour."
     ]
+  },
+  {
+    createdAt: 1793137601138, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.27.3",
+    title: "HUD preview: reopening a fight",
+    why: "Pressing a fight in progress sometimes only moved the map.",
+    changes: [
+      "Pressing Battle at in the tracker always reopens the battle view, even when the target tile is out of view."
+    ]
   }
 ];
