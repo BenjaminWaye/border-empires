@@ -12,11 +12,14 @@ const baseArgs = {
 };
 
 describe("renderManpowerPanelHtml refill summary", () => {
-  it("shows what one batch pays instead of a per-minute rate, and labels the per-minute breakdown", () => {
-    const html = renderManpowerPanelHtml({ ...baseArgs, manpowerRegenPerMinute: 0.4, musterFlags: [] });
+  it("shows what one batch pays instead of a per-minute rate, and converts each breakdown contribution to a batch", () => {
+    const html = renderManpowerPanelHtml({ ...baseArgs, manpowerRegenPerMinute: 0.4, manpowerBreakdown: { cap: [{ label: "Capacity", amount: 150 }], regen: [{ label: "Factory", amount: 0.05 }, { label: "Penalty", amount: -0.1 }] }, musterFlags: [] });
     expect(html).toContain("+96 per batch");
     expect(html).not.toContain("/m<");
-    expect(html).toContain("Regen modifiers (per minute)");
+    expect(html).toContain("Regen modifiers (per batch)");
+    expect(html).toContain("<strong>+12</strong>");
+    expect(html).toContain("<strong>-24</strong>");
+    expect(html).toContain("<strong>+150</strong>");
   });
 });
 
@@ -25,7 +28,7 @@ describe("renderManpowerPanelHtml next batch headline", () => {
 
   it("shows the next batch countdown as its own callout, not inside the explainer text", () => {
     const html = renderManpowerPanelHtml({ ...baseArgs, manpower: 330, manpowerCap: 1365, manpowerRegenPerMinute: 1.3, nextRefillAtMs: Date.now() + 19 * MIN, musterFlags: [] });
-    expect(html).toMatch(/manpower-next-batch-label">Next batch in<\/span><strong class="manpower-next-batch-value">0h 19m<\/strong>/);
+    expect(html).toMatch(/manpower-next-batch-label">\+312 in<\/span><strong class="manpower-next-batch-value">0h 19m<\/strong>/);
   });
 
   it("always shows hours as well as minutes, even on the hour", () => {

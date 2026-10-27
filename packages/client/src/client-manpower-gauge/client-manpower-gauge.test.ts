@@ -21,15 +21,22 @@ describe("manpowerGaugeChipHtml", () => {
     const html = manpowerGaugeChipHtml(input());
     expect(html).toContain('data-panel="manpower"');
     expect(html).toContain("412<small>/720</small>");
-    expect(html).toContain("Next batch in 1h 20m");
+    expect(html).toContain("+96 in 1h 20m");
     expect(html).toContain('style="width:57.22%"');
     expect(html).toContain('aria-valuenow="412"');
   });
 
   it("renders long and short countdown and label so CSS can pick by width", () => {
     const html = manpowerGaugeChipHtml(input());
-    expect(html).toContain('<i class="mp-gauge-refill-long">Next batch in 1h 20m</i><i class="mp-gauge-refill-short">1h 20m</i>');
+    expect(html).toContain('<i class="mp-gauge-refill-long">+96 in 1h 20m</i><i class="mp-gauge-refill-short">+96 in 1h 20m</i>');
     expect(html).toContain('<b class="mp-gauge-label-long">Manpower</b><b class="mp-gauge-label-short">MP</b>');
+  });
+
+  it("shows the batch amount on compact and wide chips, capped by pool space", () => {
+    const html = manpowerGaugeChipHtml(input({ regenPerMinute: 1.25, manpower: 0, nextRefillAtMs: NOW + 213 * 60_000 }));
+    expect(html).toContain('mp-gauge-refill-long">+300 in 3h 33m<');
+    expect(html).toContain('mp-gauge-refill-short">+300 in 3h 33m<');
+    expect(manpowerGaugeChipHtml(input({ manpower: 710 }))).toContain("+10 in 1h 20m");
   });
 
   it("turns ember below an ordinary attack and verdigris at the cap", () => {

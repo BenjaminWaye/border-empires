@@ -1,4 +1,4 @@
-import { ATTACK_MANPOWER_MIN, MANPOWER_REFILL_WINDOW_MS } from "@border-empires/shared";
+import { ATTACK_MANPOWER_MIN, MANPOWER_REFILL_WINDOW_MS, manpowerPerBatch } from "@border-empires/shared";
 import { formatRefillCountdown } from "./client-manpower-refill.js";
 
 /**
@@ -45,7 +45,8 @@ const refillText = (input: ManpowerGaugeInput): RefillText => {
   const remaining = input.nextRefillAtMs - input.nowMs;
   if (remaining <= 0) return { long: "Installing…", short: "now", quiet: false };
   const eta = formatRefillCountdown(remaining);
-  return { long: `Next batch in ${eta}`, short: eta, quiet: false };
+  const amount = input.formatAmount(Math.min(manpowerCap - manpower, manpowerPerBatch(input.regenPerMinute)));
+  return { long: `+${amount} in ${eta}`, short: `+${amount} in ${eta}`, quiet: false };
 };
 
 export const manpowerGaugeChipHtml = (input: ManpowerGaugeInput): string => {

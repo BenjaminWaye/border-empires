@@ -1,4 +1,4 @@
-import { MANPOWER_REFILL_WINDOW_MS } from "@border-empires/shared";
+import { MANPOWER_REFILL_WINDOW_MS, manpowerPerBatch } from "@border-empires/shared";
 import { formatHoursMinutes } from "../client-manpower-gauge/client-manpower-refill.js";
 
 /**
@@ -13,7 +13,7 @@ export const setManpowerInfoOpen = (open: boolean): void => {
   manpowerInfoOpen = open;
 };
 
-/** Big "Next batch in 0h 19m" callout; degrades to "Manpower full" / "Regen paused". Empty before the player id is known. */
+/** Big "+N in 0h 19m" callout; degrades to "Manpower full" / "Regen paused". Empty before the player id is known. */
 export const manpowerNextBatchHtml = (args: {
   manpower: number;
   manpowerCap: number;
@@ -26,7 +26,8 @@ export const manpowerNextBatchHtml = (args: {
   if (args.manpower >= args.manpowerCap) return callout("Manpower", "Full", "full");
   if (!(args.manpowerRegenPerMinute > 0)) return callout("Regeneration", "Paused", "paused");
   if (args.nextRefillAtMs === undefined) return "";
-  return callout("Next batch in", formatHoursMinutes(args.nextRefillAtMs - (args.nowMs ?? Date.now())), "pending");
+  const amount = Math.round(Math.min(args.manpowerCap - args.manpower, manpowerPerBatch(args.manpowerRegenPerMinute)));
+  return callout(`+${amount} in`, formatHoursMinutes(args.nextRefillAtMs - (args.nowMs ?? Date.now())), "pending");
 };
 
 export const manpowerInfoHtml = (): string => `

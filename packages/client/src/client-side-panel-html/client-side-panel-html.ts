@@ -178,7 +178,7 @@ export const renderManpowerPanelHtml = (args: {
       </section>
       ${args.shards !== undefined ? shardMobilizeCardHtml({ shards: args.shards, manpower: args.manpower, manpowerCap: args.manpowerCap, manpowerRegenPerMinute: regen }) : ""}
       ${sectionHtml("Cap modifiers", args.manpowerBreakdown.cap)}
-      ${sectionHtml("Regen modifiers (per minute)", args.manpowerBreakdown.regen)}
+      ${sectionHtml("Regen modifiers (per batch)", args.manpowerBreakdown.regen.map((line) => ({ ...line, amount: line.amount * (MANPOWER_REFILL_WINDOW_MS / 60_000) })))}
       ${musterFlagsSectionHtml(args.musterFlags)}
     </div>
   `;
