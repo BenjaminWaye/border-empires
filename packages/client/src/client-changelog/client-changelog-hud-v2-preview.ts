@@ -68,7 +68,8 @@ export const HUD_V2_PREVIEW_CHANGELOG: ClientChangelogEntry[] = [
       "Trophies use the game's own icons instead of emoji.",
       "Fleets, the Senate, Space View, the tile menu, rush-buy, the Imperial Ward and victory alerts use plain symbols instead of emoji. Rush-buy now reads Rush ◉N.",
       "HUD preview: a profile's season numbers sit in one strip, Economy is a divided list instead of a box per resource, and the Ranks marker and unread dot no longer glow.",
-      "HUD preview: pressing Dev slots unfolds the list under it: what fills each slot, how far along it is, and what waits next. Click a row to jump to the tile."
+      "HUD preview: pressing Dev slots unfolds the list under it: what fills each slot, how far along it is, and what waits next. Click a row to jump to the tile.",
+      "HUD preview: coin income reads per day in the top bar and on town screens, like Economy."
     ]
   }
 ];

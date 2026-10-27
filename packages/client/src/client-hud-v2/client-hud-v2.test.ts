@@ -43,7 +43,8 @@ describe("resource bar", () => {
     const html = resourceBarHtml({ gold: 1200, incomePerMinute: 2, slotSupply: slots, slotDemand: { ...slots, TITANIUM: 3 }, shard: 1, integrityPct: 62 });
     expect(html).toContain('<b class="hud-v2-over">3</b><span class="hud-v2-chip-of">/2</span>');
     expect(html.match(/hud-v2-over/g)).toHaveLength(1);
-    expect(html).toContain("+120/h");
+    // Regression: the coin chip said /h while Economy and the tile panel say /day.
+    expect(html).toContain("+2,880/day");
     expect(html).toContain('data-hud-v2-open="settings"');
   });
 

@@ -31,12 +31,13 @@ const chip = (key: string, label: string, valueHtml: string, extraClass = ""): s
   `<button type="button" class="hud-v2-chip${extraClass}" data-hud-v2-chip="${key}"><span class="hud-v2-chip-label">${label}</span>${valueHtml}</button>`;
 
 export const resourceBarHtml = (input: ResourceBarInput): string => {
-  const ratePerHour = input.incomePerMinute * 60;
-  const rateSign = ratePerHour >= 0 ? "+" : "−";
+  // Per day, like Economy and the tile panel.
+  const ratePerDay = input.incomePerMinute * 1440;
+  const rateSign = ratePerDay >= 0 ? "+" : "−";
   const coin = chip(
     "coin",
     "Coin",
-    `<span class="hud-v2-chip-value">${fmt(input.gold)}</span><span class="hud-v2-chip-rate">${rateSign}${fmt(Math.abs(ratePerHour))}/h</span>`
+    `<span class="hud-v2-chip-value">${fmt(input.gold)}</span><span class="hud-v2-chip-rate">${rateSign}${fmt(Math.abs(ratePerDay))}/day</span>`
   );
   const shown = (key: SlotResource): boolean =>
     key === "FOOD" || !input.isRevealed || input.isRevealed(key) || (input.slotSupply[key] ?? 0) > 0 || (input.slotDemand[key] ?? 0) > 0;
