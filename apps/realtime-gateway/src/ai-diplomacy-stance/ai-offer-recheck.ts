@@ -2,7 +2,7 @@
 // player accepts later. Before it is paid and recorded, the AI weighs it
 // again with what it knows *now*: a player who attacked since, outgrew the
 // AI's bloc, or made the AI furious must not lock in yesterday's price.
-import { emptyDiplomacyTerms, evaluateAiOffer, swapDiplomacyTerms, type DiplomacyOfferKind, type DiplomacyTerms } from "@border-empires/shared";
+import { emptyDiplomacyTerms, evaluateAiOffer, extensionPricing, swapDiplomacyTerms, type DiplomacyOfferKind, type DiplomacyTerms } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 import { evaluateAiDiplomacy, type AiDiplomacyContextSource } from "./ai-diplomacy-evaluation.js";
@@ -18,7 +18,7 @@ export type AiOfferRecheck = undefined | { reason: string; withdraw: boolean };
 
 export const recheckAiOffer = async (
   deps: AiOfferRecheckDeps,
-  offer: { aiPlayerId: string; aiName: string; playerId: string; kind: DiplomacyOfferKind; durationHours: 12 | 24; termsFromAi: DiplomacyTerms | undefined }
+  offer: { aiPlayerId: string; aiName: string; playerId: string; kind: DiplomacyOfferKind; durationHours: 12 | 24; termsFromAi: DiplomacyTerms | undefined; extendsTruce?: boolean }
 ): Promise<AiOfferRecheck> => {
   const [aiSnapshot, requesterSnapshot] = await Promise.all([
     deps.fetchAiSnapshot(offer.aiPlayerId),
@@ -38,7 +38,8 @@ export const recheckAiOffer = async (
   if (refusal) return { reason: `${offer.aiName} withdrew its offer. ${refusal}`, withdraw: true };
   // The player's side of the deal is the AI's terms swapped.
   const playerTerms = offer.termsFromAi ? swapDiplomacyTerms(offer.termsFromAi) : emptyDiplomacyTerms();
-  const verdict = evaluateAiOffer(evaluation.pricing, offer.kind, offer.durationHours, playerTerms);
+  const pricing = offer.extendsTruce ? extensionPricing(evaluation.pricing) : evaluation.pricing;
+  const verdict = evaluateAiOffer(pricing, offer.kind, offer.durationHours, playerTerms);
   if (verdict.accepts) return undefined;
   return { reason: `${offer.aiName} withdrew its offer: those terms no longer suit it. Open a new deal to see its price.`, withdraw: true };
 };

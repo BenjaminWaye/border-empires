@@ -25,7 +25,9 @@ const allianceDetail = (request: AllianceRequest): string =>
   `${senderName(request)} sent an alliance request${termsSuffix(request)}. Open Alliances to accept or reject.`;
 
 const truceDetail = (request: TruceRequest): string =>
-  `${senderName(request)} offered a ${request.durationHours}h truce${termsSuffix(request)}. Open Alliances to accept or reject.`;
+  request.extendsTruce
+    ? `${senderName(request)} offered to extend your truce by ${request.durationHours}h${termsSuffix(request)}. Open Alliances to accept or reject.`
+    : `${senderName(request)} offered a ${request.durationHours}h truce${termsSuffix(request)}. Open Alliances to accept or reject.`;
 
 const STORAGE_KEY = (playerId: string): string => `be:diplomacy:notified:${playerId}`;
 const MAX_STORED = 500;

@@ -130,6 +130,12 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
         // Column already exists from a previous applySchema() call.
       }
     }
+    // Truce extensions (an offer made during a running truce) came later still.
+    try {
+      this.db.exec(`ALTER TABLE social_truce_requests ADD COLUMN extends_truce INTEGER;`);
+    } catch {
+      // Column already exists from a previous applySchema() call.
+    }
     applyForcedTruceSchema(this.db);
   }
 
@@ -155,7 +161,7 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
       .all() as CompletedAllianceBreakRow[];
     const truceRequestRows = this.db
       .prepare(
-        `SELECT id, from_player_id, to_player_id, created_at, expires_at, duration_hours, from_name, to_name, terms_json FROM social_truce_requests`
+        `SELECT id, from_player_id, to_player_id, created_at, expires_at, duration_hours, from_name, to_name, terms_json, extends_truce FROM social_truce_requests`
       )
       .all() as TruceRequestRow[];
     const activeTruceRows = this.db
@@ -309,8 +315,8 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
   saveTruceRequest(request: SocialTruceRequest): void {
     this.db
       .prepare(
-        `INSERT INTO social_truce_requests (id, from_player_id, to_player_id, created_at, expires_at, duration_hours, from_name, to_name, terms_json)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO social_truce_requests (id, from_player_id, to_player_id, created_at, expires_at, duration_hours, from_name, to_name, terms_json, extends_truce)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            from_player_id = excluded.from_player_id,
            to_player_id = excluded.to_player_id,
@@ -319,7 +325,8 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
            duration_hours = excluded.duration_hours,
            from_name = excluded.from_name,
            to_name = excluded.to_name,
-           terms_json = excluded.terms_json`
+           terms_json = excluded.terms_json,
+           extends_truce = excluded.extends_truce`
       )
       .run(
         request.id,
@@ -330,7 +337,8 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
         request.durationHours,
         request.fromName ?? null,
         request.toName ?? null,
-        request.terms ? JSON.stringify(request.terms) : null
+        request.terms ? JSON.stringify(request.terms) : null,
+        request.extendsTruce ? 1 : null
       );
   }
 

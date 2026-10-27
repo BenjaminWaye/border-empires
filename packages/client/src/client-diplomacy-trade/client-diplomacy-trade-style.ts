@@ -56,10 +56,6 @@ export const diplomacyTradeStyles = `
   .diplomacy-trade-kinds button[aria-pressed="true"], .diplomacy-trade-actions [data-trade-send] {
     background: rgba(217, 173, 82, .18); border-color: var(--sp-brass-500, #b8862f);
   }
-  .diplomacy-trade-current {
-    flex: 1; display: grid; place-items: center; min-height: 40px; padding: 8px 12px; border: 1px dashed var(--sp-brass-700, #8a611f); border-radius: 6px;
-    color: var(--sp-brass-300, #e0a845); font: 600 14px/1.3 var(--sp-font-body, "Spectral", Georgia, serif);
-  }
   .diplomacy-trade-actions [data-trade-send]:disabled, .diplomacy-trade-suggest:disabled { opacity: .55; cursor: not-allowed; }
   .diplomacy-trade-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
   .diplomacy-trade-side {

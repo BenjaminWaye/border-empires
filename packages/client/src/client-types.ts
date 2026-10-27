@@ -271,6 +271,8 @@ export type TruceRequest = {
   fromName?: string;
   toName?: string;
   terms?: DiplomacyTerms;
+  /** Sent during a running truce: accepting extends it by durationHours. */
+  extendsTruce?: true;
 };
 
 export type ActiveTruceView = {

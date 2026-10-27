@@ -110,7 +110,8 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
           playerId: request.toPlayerId,
           kind,
           durationHours: "durationHours" in request ? request.durationHours : 12,
-          termsFromAi: request.terms
+          termsFromAi: request.terms,
+          extendsTruce: "extendsTruce" in request && request.extendsTruce === true
         }
       );
     },

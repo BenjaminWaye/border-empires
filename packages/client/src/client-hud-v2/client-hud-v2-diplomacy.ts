@@ -62,7 +62,7 @@ const termsText = (terms: AllianceRequest["terms"]): string => {
 
 const requestRow = (kind: "alliance" | "truce", r: AllianceRequest | TruceRequest, input: DiplomacyListInput): string => {
   const name = input.nameOf(r.fromPlayerId) || r.fromName || "Empire";
-  const what = kind === "alliance" ? "Alliance" : `Truce ${(r as TruceRequest).durationHours}h`;
+  const what = kind === "alliance" ? "Alliance" : `${(r as TruceRequest).extendsTruce ? "Extend truce" : "Truce"} ${(r as TruceRequest).durationHours}h`;
   const terms = termsText(r.terms);
   return `<div class="v2d-req">${crest(name, input.colorOf(r.fromPlayerId))}
     <span class="v2d-req-text"><b>${esc(name)}</b><span>${what}${terms ? ` · ${esc(terms)}` : ""}</span></span>

@@ -173,6 +173,8 @@ export interface TruceRequest {
   fromName?: string;
   toName?: string;
   terms?: DiplomacyTerms;
+  /** Sent while a truce was already running: accepting adds durationHours to its end. */
+  extendsTruce?: true;
 }
 
 export interface ActiveTruceView {
