@@ -109,16 +109,18 @@ for (const kind of ["truce", "alliance"] as const) {
   });
 }
 
-it("retains a paid offer for compensation when the real truce recorder refuses it", async () => {
+it.each(["lockout", "changed truce"] as const)("retains a paid offer for compensation after %s", async reason => {
   const store = new InMemoryGatewaySocialStore();
   const social = buildGatewaySocialState(store, store.loadSnapshot(), players, () => 1_000);
   social.requestTruce("a", "B", 12, { terms });
   const id = social.snapshotForPlayer("b").incomingTruceRequests[0]!.id;
   social.setSettlementPhase("truce", id, "paying");
-  const after = buildGatewaySocialState(store, { ...store.loadSnapshot(), truceLockouts: [{ playerId: "a", lockoutUntil: 100_000 }] }, players, () => 1_000);
+  const changedState = reason === "lockout" ? { truceLockouts: [{ playerId: "a", lockoutUntil: 100_000 }] }
+    : { activeTruces: [{ playerAId: "a", playerBId: "b", startedAt: 999, endsAt: 100_000, createdByPlayerId: "a" }] };
+  const after = buildGatewaySocialState(store, { ...store.loadSnapshot(), ...changedState }, players, () => 1_000);
   const settle = vi.fn(async (input: DiplomacySettlementInput): Promise<DiplomacySettlementResult> => ({ ok: true, settlementId: input.commandId }));
   const accept = createDiplomacyOfferAcceptance({ socialState: after, settlement: { settle }, recordGatewayEvent: () => undefined });
-  expect(await accept.acceptTruce("b", id)).toMatchObject({ ok: false, code: "TRUCE_LOCKED_OUT" });
+  expect(await accept.acceptTruce("b", id)).toMatchObject({ ok: false, code: reason === "lockout" ? "TRUCE_LOCKED_OUT" : "TRUCE_REQUEST_INVALID" });
   expect(settle).toHaveBeenLastCalledWith(expect.objectContaining({ refundOf: `diplomacy-settle:truce:${id}` }));
   expect(store.loadSnapshot().truceRequests).toHaveLength(0);
 });

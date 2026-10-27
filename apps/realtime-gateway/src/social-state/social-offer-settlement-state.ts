@@ -12,6 +12,7 @@ interface SettlementStateDeps {
   sweepExpired(): void;
   sink: Pick<SocialStateSink, "saveAllianceRequest" | "saveTruceRequest" | "deleteAllianceRequest" | "deleteTruceRequest"> | undefined;
   updates(ids: string[]): SocialActionResult;
+  validateTruceOffer(request: SocialTruceRequest): Extract<SocialActionResult, { ok: false }> | undefined;
 }
 
 /** Reuses the offer maps; persistent phases survive restart without a second ledger. */
@@ -31,6 +32,10 @@ export function createSocialOfferSettlementState(deps: SettlementStateDeps): Set
       const offer = offerFor(kind, requestId);
       if (!offer || offer.request.toPlayerId !== playerId || (offer.kind === "truce" && !offer.request.settlementPhase && offer.request.expiresAt < deps.now())) {
         return { ok: false, code: kind === "truce" ? "TRUCE_REQUEST_INVALID" : "ALLIANCE_REQUEST_INVALID", message: "request invalid or expired" };
+      }
+      if (offer.kind === "truce" && !offer.request.settlementPhase) {
+        const error = deps.validateTruceOffer(offer.request);
+        if (error) return error;
       }
       deps.settlingRequestIds.add(requestId);
       return { ok: true, offer };

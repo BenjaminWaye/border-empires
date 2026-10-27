@@ -465,7 +465,8 @@ export const createSocialState = (options: {
       const announcement = `${actor.name} broke the truce with ${target.name} early and is locked out of new truces for 24h.`;
       return ok([actor.id, target.id], { [actor.id]: announcement, [target.id]: `${actor.name} broke the truce with ${target.name}.` });
     },
-    ...createSocialOfferSettlementState({ allianceRequests, truceRequests, settlingRequestIds, now, sweepExpired, sink, updates: ids => ok(ids) }),
+    ...createSocialOfferSettlementState({ allianceRequests, truceRequests, settlingRequestIds, now, sweepExpired, sink, updates: ids => ok(ids),
+      validateTruceOffer: request => truceOfferIsStale(request, activeTruceBetween(request.fromPlayerId, request.toPlayerId, trucesByPair, now())) ? STALE_TRUCE_OFFER : undefined }),
     playerNameOf: (playerId) => playersById.get(playerId)?.name ?? playerId,
     resolvePlayerByName: (playerName) => {
       const player = resolveByName(playerName);

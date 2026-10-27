@@ -13,7 +13,10 @@ const setup = () => {
   const clock = { now: 1_000_000 };
   const savedTruces: SocialActiveTruce[] = [];
   const sink = new Proxy({} as SocialStateSink, {
-    get: (_target, property) => (property === "saveActiveTruce" ? (truce: SocialActiveTruce) => savedTruces.push({ ...truce }) : () => undefined)
+    get: (_target, property) => {
+      if (property === "commitAcceptedTruce" || property === "commitAcceptedAlliance") return undefined;
+      return property === "saveActiveTruce" ? (truce: SocialActiveTruce) => savedTruces.push({ ...truce }) : () => undefined;
+    }
   });
   const social = createSocialState({ now: () => clock.now, players, sink });
   const incomingId = (playerId: string): string => social.snapshotForPlayer(playerId).incomingTruceRequests[0]!.id;
