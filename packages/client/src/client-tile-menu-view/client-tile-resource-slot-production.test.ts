@@ -80,8 +80,8 @@ describe("every resource tile explains its role", () => {
       const lines = menuOverviewForTile(tile, deps).map(row => row.html).join(" ");
       const description = resourceTileDescriptionLines(tile);
       expect(description).toHaveLength(1);
-      expect(description[0].split(/[.!?]+/).filter(Boolean)).toHaveLength(1);
-      expect(description[0].split(/\s+/).length).toBeLessThanOrEqual(14);
+      expect(description[0]?.split(/[.!?]+/).filter(Boolean)).toHaveLength(1);
+      expect(description[0]?.split(/\s+/).length).toBeLessThanOrEqual(14);
       expect(lines).toContain('class="tile-stat-grid resource-stat-grid"');
       if (NETWORK_RESOURCES.some(kind => kind === resource)) {
         const spec = RESOURCE_NETWORKS[resource as keyof typeof RESOURCE_NETWORKS];

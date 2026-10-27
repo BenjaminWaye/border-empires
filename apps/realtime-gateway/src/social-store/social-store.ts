@@ -29,6 +29,8 @@ export type GatewaySocialStore = {
   resourceTrades?: ResourceTradeOfferStore;
   loadSnapshot(): SocialStoreSnapshot;
   upsertPlayer(playerId: string, name: string): void;
+  commitAcceptedAlliance?(requestId: string, playerAId: string, playerBId: string, createdAt: number): void;
+  commitAcceptedTruce?(requestId: string, truce: SocialActiveTruce): void;
   saveAllianceRequest(request: SocialAllianceRequest): void;
   deleteAllianceRequest(requestId: string): void;
   saveAllianceBreak(notice: SocialAllianceBreak): void;
@@ -188,7 +190,7 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
       if (entry.until <= now) this.offerCooldowns.delete(key);
     }
     for (const [id, request] of this.truceRequests) {
-      if (request.expiresAt <= now) this.truceRequests.delete(id);
+      if (request.expiresAt <= now && !request.settlementPhase) this.truceRequests.delete(id);
     }
     for (const [key, truce] of this.activeTruces) {
       if (truce.endsAt <= now) this.activeTruces.delete(key);

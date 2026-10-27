@@ -6,6 +6,8 @@ import type { GatewaySocialStore } from "../social-store/social-store.js";
 import type { SocialStateSink } from "../social-state/social-state.js";
 
 export const buildSocialStateSink = (socialStore: GatewaySocialStore): SocialStateSink => ({
+  ...(socialStore.commitAcceptedAlliance ? { commitAcceptedAlliance: socialStore.commitAcceptedAlliance.bind(socialStore) } : {}),
+  ...(socialStore.commitAcceptedTruce ? { commitAcceptedTruce: socialStore.commitAcceptedTruce.bind(socialStore) } : {}),
   upsertPlayer: (playerId, name) => socialStore.upsertPlayer(playerId, name),
   saveAllianceRequest: (request) => socialStore.saveAllianceRequest(request),
   deleteAllianceRequest: (requestId) => socialStore.deleteAllianceRequest(requestId),

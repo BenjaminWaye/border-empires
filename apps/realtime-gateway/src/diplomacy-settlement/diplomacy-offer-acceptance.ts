@@ -1,3 +1,4 @@
+import { settleResourceTreaty } from "./resource-treaty-settlement.js";
 // Accepting an offer: lock it, let the proposer re-check it if it is an AI
 // (its standing counter-offer may be stale), have the simulation move any
 // coin/Shards, then record the agreement.
@@ -9,10 +10,11 @@ import type { DiplomacySettlement } from "./diplomacy-settlement.js";
 type Announcements = Partial<Record<string, string>>;
 
 export type DiplomacyOfferAcceptanceDeps = {
-  socialState: Pick<SocialState, "beginSettlement" | "endSettlement" | "acceptTruce" | "acceptAlliance">;
+  socialState: Pick<SocialState, "beginSettlement" | "endSettlement" | "acceptTruce" | "acceptAlliance" | "setSettlementPhase" | "discardSettlement">;
   settlement: Pick<DiplomacySettlement, "settle">;
   recordGatewayEvent: (level: "info" | "warn" | "error", event: string, payload?: Record<string, unknown>) => void;
   /** After an agreement is recorded (and any terms paid). */
+  onDiscarded?: (result: Extract<SocialActionResult, { ok: true }>) => void;
   onAccepted?: (kind: "truce" | "alliance", request: SocialPendingOffer["request"]) => void;
   /**
    * Runs while the offer is locked, before anything is paid: an AI proposer
@@ -43,7 +45,7 @@ export const createDiplomacyOfferAcceptance = (deps: DiplomacyOfferAcceptanceDep
       deps.socialState.endSettlement(requestId);
       return { ok: false, code: "RESOURCE_TERMS_CONFIRMATION_REQUIRED", message: "Refresh the game and review the resource supply terms before accepting this offer." };
     }
-    const recheck = await deps.recheckProposer?.(kind, request);
+    const recheck = request.settlementPhase ? undefined : await deps.recheckProposer?.(kind, request);
     if (recheck) {
       deps.socialState.endSettlement(requestId);
       if (recheck.withdraw) deps.withdrawOffer?.(kind, request);
@@ -56,6 +58,9 @@ export const createDiplomacyOfferAcceptance = (deps: DiplomacyOfferAcceptanceDep
       const recordedFree = record();
       if (recordedFree.ok) deps.onAccepted?.(kind, request);
       return recordedFree;
+    }
+    if (hasResourceSupplyOffer(terms.give.resources) || hasResourceSupplyOffer(terms.ask.resources)) {
+      return settleResourceTreaty(deps, kind, request, terms, record);
     }
     const paid = await deps.settlement.settle({ proposerId: request.fromPlayerId, targetId: request.toPlayerId, terms });
     if (!paid.ok) {

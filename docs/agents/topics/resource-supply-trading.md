@@ -112,3 +112,15 @@ source is unchanged from the full local CI run.
 Code is ready for staging validation. No deployment or live campaign reset was
 performed. A fresh production-map load gate remains a release requirement;
 local test results do not certify that deployment gate.
+
+### Landing review follow-up
+
+Treaty-attached resource terms now persist their paying/refunding phase before
+submission, reuse one command identity through restart, and retain uncertain
+payments through offer expiry or withdrawal attempts. SQLite records the treaty
+and removes its offer in one transaction; failed recording resumes compensation
+instead of paying twice. The existing offer maps carry these phases, with no new
+cache or ledger. Schema application adds `settlement_phase` to both treaty-offer
+tables. Industrial supply also renders in the desktop HUD v2 Economy path.
+Resource panels and previews use one short sentence and compact stat boxes.
+Lore reviewed; no canon change in this recovery and presentation follow-up.

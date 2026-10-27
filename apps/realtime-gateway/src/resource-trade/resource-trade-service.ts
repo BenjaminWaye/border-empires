@@ -5,7 +5,7 @@ import type { WebSocket } from "ws";
 import type { SocialState } from "../social-state/social-state-types.js";
 import type { DiplomacySettlement } from "../diplomacy-settlement/diplomacy-settlement.js";
 export interface ResourceTradeServiceDeps {
-  social: Pick<SocialState,"resourceTradeOffers"|"resolvePlayerByName"|"resolvePlayerById">;
+  social: Pick<SocialState,"resourceTradeOffers"|"resolvePlayerByName"|"resolvePlayerById"|"isTreatySupplySettling">;
   settlement: Pick<DiplomacySettlement,"settle"|"cancel">;
   now():number;
   isAutoRespondingAi(id:string):boolean;
@@ -40,7 +40,7 @@ export function createResourceTradeService(ctx:ResourceTradeServiceDeps):Resourc
     if(isGuest){error("Finish sign-in before trading resources.");return true;}
     if(message.type==="RESOURCE_TRADE_END"){
       const unfinished=store.rows(ctx.now()).find(row=>`diplomacy-settle:resource-trade:${row.id}`===message.agreementId&&row.status==="settling"&&[row.fromPlayerId,row.toPlayerId].includes(actorId));
-      if(unfinished){error("Finish the accepted trade's payment before ending its supply.");return true;}
+      if(unfinished || ctx.social.isTreatySupplySettling(message.agreementId,actorId)){error("Finish the accepted trade's payment before ending its supply.");return true;}
       const result=await ctx.settlement.cancel(actorId,message.agreementId);if(!result.ok)error(result.message);return true;
     }
     if(message.type==="RESOURCE_TRADE_REQUEST"){

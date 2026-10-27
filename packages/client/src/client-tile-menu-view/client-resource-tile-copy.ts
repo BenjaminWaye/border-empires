@@ -31,6 +31,7 @@ export function resourceTileStatsHtml(tile: Tile, techCatalog: readonly Pick<Tec
   if (!isNetworkResource(resource)) {
     if (!isBaseResource(resource)) return "";
     const slots = BASE_SLOTS_BY_TILE_RESOURCE[resource];
+    if (!slots) return "";
     const label = slots.slotResource === "CRYSTAL" ? "Crystal" : slots.slotResource === "FOOD" ? "FOOD" : slots.slotResource === "TITANIUM" ? "Titanium" : "Umbrite";
     return `<div class="tile-stat-grid resource-stat-grid">${card("Base supply", `+${slots.baseSlots} ${label}`, "Renewable slots")}${card("Requires", "Garrison", siphoned ? "Siphoned" : "Owned tile")}</div>`;
   }

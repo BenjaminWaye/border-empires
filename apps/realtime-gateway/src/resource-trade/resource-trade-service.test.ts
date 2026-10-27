@@ -83,3 +83,13 @@ describe("independent resource trades",()=>{
   });
 
 });
+
+it("blocks ending treaty supply while its payment is still uncertain", async () => {
+  const f = setup();
+  f.social.requestTruce("a", "B", 12, { terms });
+  const id = f.social.snapshotForPlayer("b").incomingTruceRequests[0]!.id;
+  f.social.setSettlementPhase("truce", id, "paying");
+  await f.service.handle({ type: "RESOURCE_TRADE_END", agreementId: `diplomacy-settle:truce:${id}` }, "a", f.socket, false);
+  expect(f.cancel).not.toHaveBeenCalled();
+  expect(f.send).toHaveBeenCalledWith(f.socket, expect.objectContaining({ type: "ERROR" }));
+});

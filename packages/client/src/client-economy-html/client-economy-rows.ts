@@ -1,10 +1,11 @@
+import { networkSupplyHtml } from "../client-resource-networks/network-supply-html.js";
 // The new HUD's Economy panel: one row per resource (Coin, Food, Titanium,
 // Crystal, Umbrite), each with what you have, where it comes from and what
 // uses it. Integrity has its own panel and Shard is not a slot resource, so
 // neither is here. The numbers come from the same helpers as the classic
 // panel (client-economy-html.ts), which hands them in to avoid an import cycle.
 
-import type { SlotResource } from "@border-empires/shared";
+import type { NetworkSupplyStatus, SlotResource } from "@border-empires/shared";
 import type { EconomyBucket, EconomyFocusKey } from "../client-economy-model.js";
 import type { EconomyPanelArgs } from "./client-economy-html.js";
 
@@ -15,6 +16,7 @@ const MAX_ITEMS = 4;
 
 export type EconomyRowsInput = {
   focus: EconomyFocusKey;
+  bonusSupply?: NetworkSupplyStatus;
   gold: number;
   /** Coin per minute after upkeep, with where it is earned and spent. */
   coin: { netPerMinute: number; sources: EconomyBucket[]; sinks: EconomyBucket[] };
@@ -84,7 +86,7 @@ const showsSlotRow = (input: EconomyRowsInput, r: SlotResource): boolean =>
   input.isRevealed(r) || input.slots[r].supply > 0 || input.slots[r].demand > 0;
 
 export const renderEconomyRowsHtml = (input: EconomyRowsInput): string =>
-  `<div class="v2e">${ROWS.map((r) => (r === "GOLD" ? coinRowHtml(input) : showsSlotRow(input, r) ? slotRowHtml(input, r) : "")).join("")}</div>`;
+  `<div class="v2e">${ROWS.map((r) => (r === "GOLD" ? coinRowHtml(input) : showsSlotRow(input, r) ? slotRowHtml(input, r) : "")).join("")}${networkSupplyHtml(input.bonusSupply)}</div>`;
 
 /** The classic panel's own calculations, handed in by client-economy-html.ts. */
 export type EconomyRowsHelpers = {
@@ -106,6 +108,7 @@ export const economyRowsFromPanelArgs = (args: EconomyPanelArgs, helpers: Econom
   }])) as EconomyRowsInput["slots"];
   return renderEconomyRowsHtml({
     focus: args.focus,
+    bonusSupply: args.resourceSlots.bonusSupply,
     gold: args.gold,
     coin: { netPerMinute: args.incomePerMinute - args.upkeepPerMinute.gold, sources: coin.sources, sinks: coin.sinks },
     slots,

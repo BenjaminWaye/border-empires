@@ -490,6 +490,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Compact resource panels",
     why: "Resource descriptions took too long to scan.",
     changes: ["One short sentence per resource, with bonuses and requirements in compact stat boxes."]
+  },
+  {
+    createdAt: 1793134843253,
+    introducedIn: "2026.10.27.2",
+    title: "Reliable resource treaties",
+    why: "Resource treaty payments must survive interrupted connections without being charged twice.",
+    changes: ["Treaty resource payments resume safely after restart; industrial supply is visible in the desktop Economy panel."]
   }
 ];
 

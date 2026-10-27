@@ -1,3 +1,4 @@
+import { createSocialOfferSettlementState } from "./social-offer-settlement-state.js";
 import { InMemoryResourceTradeOfferStore, type ResourceTradeOfferStore } from "../resource-trade/resource-trade-store.js";
 import { createForcedTruces } from "./social-forced-truce.js";
 import crypto from "node:crypto";
@@ -14,7 +15,6 @@ import {
   type SocialAllianceBreak,
   type SocialAllianceRequest,
   type SocialCompletedAllianceBreak,
-  type SocialPendingOffer,
   type SocialPlayerRecord,
   type SocialSnapshot,
   type SocialState,
@@ -130,7 +130,7 @@ export const createSocialState = (options: {
     const current = now();
     let pruned = false;
     for (const [requestId, request] of truceRequests) {
-      if (request.expiresAt <= current && !settlingRequestIds.has(requestId)) {
+      if (request.expiresAt <= current && !request.settlementPhase && !settlingRequestIds.has(requestId)) {
         truceRequests.delete(requestId);
         startOfferCooldown("truce", request.fromPlayerId, request.toPlayerId, OFFER_EXPIRED_COOLDOWN_MS);
         staleOfferPlayerIds.add(request.fromPlayerId).add(request.toPlayerId);
@@ -292,13 +292,12 @@ export const createSocialState = (options: {
         sink?.deleteAllianceRequest(requestId);
         return { ok: false, code: "ALLIANCE_REQUEST_INVALID", message: "request sender offline/unknown" };
       }
+      if (sink?.commitAcceptedAlliance) sink.commitAcceptedAlliance(requestId, actor.id, from.id, now());
+      else { sink?.addAlliance(actor.id, from.id, now()); sink?.deleteAllianceRequest(requestId); sink?.removeCompletedAllianceBreak(actor.id, from.id); }
       actor.allies.add(from.id);
       from.allies.add(actor.id);
       allianceRequests.delete(requestId);
       completedAllianceBreaks.delete(pairKey(actor.id, from.id));
-      sink?.deleteAllianceRequest(requestId);
-      sink?.addAlliance(actor.id, from.id, now());
-      sink?.removeCompletedAllianceBreak(actor.id, from.id);
       settlingRequestIds.delete(requestId);
       const notifyPlayerIds = [actor.id, from.id];
       return { ok: true, notifyPlayerIds, payloadsByPlayerId: updatePayloadsFor(notifyPlayerIds, undefined, announcementByPlayerId) };
@@ -307,7 +306,7 @@ export const createSocialState = (options: {
       sweepExpired();
       const request = allianceRequests.get(requestId);
       if (!request || request.toPlayerId !== playerId) return { ok: false, code: "ALLIANCE_REQUEST_INVALID", message: "request invalid" };
-      if (settlingRequestIds.has(requestId)) return settlingError;
+      if (request.settlementPhase || settlingRequestIds.has(requestId)) return settlingError;
       allianceRequests.delete(requestId);
       sink?.deleteAllianceRequest(requestId);
       if (options?.startCooldown !== false) startOfferCooldown("alliance", request.fromPlayerId, request.toPlayerId, OFFER_REJECTED_COOLDOWN_MS);
@@ -318,7 +317,7 @@ export const createSocialState = (options: {
       sweepExpired();
       const request = allianceRequests.get(requestId);
       if (!request || request.fromPlayerId !== playerId) return { ok: false, code: "ALLIANCE_REQUEST_INVALID", message: "request invalid" };
-      if (settlingRequestIds.has(requestId)) return settlingError;
+      if (request.settlementPhase || settlingRequestIds.has(requestId)) return settlingError;
       allianceRequests.delete(requestId);
       sink?.deleteAllianceRequest(requestId);
       startOfferCooldown("alliance", request.fromPlayerId, request.toPlayerId, OFFER_REJECTED_COOLDOWN_MS);
@@ -376,24 +375,31 @@ export const createSocialState = (options: {
       const actor = ensurePlayer(playerId);
       const from = playersById.get(request.fromPlayerId);
       if (!from) {
-        truceRequests.delete(requestId);
-        sink?.deleteTruceRequest(requestId);
+        if (!request.settlementPhase) {
+          truceRequests.delete(requestId);
+          sink?.deleteTruceRequest(requestId);
+        }
         return { ok: false, code: "TRUCE_REQUEST_INVALID", message: "request sender offline/unknown" };
       }
       if (
         playerIsTruceLockedOut(actor.id, truceLockoutUntilByPlayerId, now()) ||
         playerIsTruceLockedOut(from.id, truceLockoutUntilByPlayerId, now())
       ) {
-        truceRequests.delete(requestId);
-        sink?.deleteTruceRequest(requestId);
+        if (!request.settlementPhase) {
+          truceRequests.delete(requestId);
+          sink?.deleteTruceRequest(requestId);
+        }
         staleOfferPlayerIds.add(from.id);
         return { ok: false, code: "TRUCE_LOCKED_OUT", message: "one player broke a truce recently and is locked out" };
       }
       // An extension extends the running truce (capped); an offer whose truce changed since is refused.
       const running = activeTruceBetween(actor.id, from.id, trucesByPair, now());
       if (truceOfferIsStale(request, running)) {
-        truceRequests.delete(requestId);
-        sink?.deleteTruceRequest(requestId);
+        if (!request.settlementPhase) {
+          truceRequests.delete(requestId);
+          sink?.deleteTruceRequest(requestId);
+        }
+
         staleOfferPlayerIds.add(from.id);
         return STALE_TRUCE_OFFER;
       }
@@ -406,9 +412,10 @@ export const createSocialState = (options: {
             endsAt: now() + request.durationHours * 60 * 60_000,
             createdByPlayerId: from.id
           };
+      if (sink?.commitAcceptedTruce) sink.commitAcceptedTruce(requestId, truce);
+      else { sink?.saveActiveTruce(truce); sink?.deleteTruceRequest(requestId); }
       truceRequests.delete(requestId);
       trucesByPair.set(pairKey(actor.id, from.id), truce);
-      sink?.deleteTruceRequest(requestId); sink?.saveActiveTruce(truce);
       const announcement = running
         ? `${actor.name} and ${from.name} extended their truce by ${request.durationHours}h.`
         : `${actor.name} and ${from.name} agreed to a ${request.durationHours}h truce.`;
@@ -420,7 +427,7 @@ export const createSocialState = (options: {
       if (!request || request.toPlayerId !== playerId || request.expiresAt < now()) {
         return { ok: false, code: "TRUCE_REQUEST_INVALID", message: "request invalid or expired" };
       }
-      if (settlingRequestIds.has(requestId)) return settlingError;
+      if (request.settlementPhase || settlingRequestIds.has(requestId)) return settlingError;
       truceRequests.delete(requestId);
       sink?.deleteTruceRequest(requestId);
       if (options?.startCooldown !== false) startOfferCooldown("truce", request.fromPlayerId, request.toPlayerId, OFFER_REJECTED_COOLDOWN_MS);
@@ -432,7 +439,7 @@ export const createSocialState = (options: {
       if (!request || request.fromPlayerId !== playerId || request.expiresAt < now()) {
         return { ok: false, code: "TRUCE_REQUEST_INVALID", message: "request invalid or expired" };
       }
-      if (settlingRequestIds.has(requestId)) return settlingError;
+      if (request.settlementPhase || settlingRequestIds.has(requestId)) return settlingError;
       truceRequests.delete(requestId);
       sink?.deleteTruceRequest(requestId);
       startOfferCooldown("truce", request.fromPlayerId, request.toPlayerId, OFFER_REJECTED_COOLDOWN_MS);
@@ -458,25 +465,7 @@ export const createSocialState = (options: {
       const announcement = `${actor.name} broke the truce with ${target.name} early and is locked out of new truces for 24h.`;
       return ok([actor.id, target.id], { [actor.id]: announcement, [target.id]: `${actor.name} broke the truce with ${target.name}.` });
     },
-    beginSettlement(kind, playerId, requestId) {
-      sweepExpired();
-      const invalid = { ok: false as const, code: kind === "truce" ? "TRUCE_REQUEST_INVALID" : "ALLIANCE_REQUEST_INVALID", message: "request invalid or expired" };
-      if (settlingRequestIds.has(requestId)) return { ok: false, code: "OFFER_SETTLING", message: "That offer is being settled right now." };
-      let offer: SocialPendingOffer | undefined;
-      if (kind === "truce") {
-        const request = truceRequests.get(requestId);
-        // Checked before any payment: the offer was priced for the truce as it stood.
-        if (request && truceOfferIsStale(request, activeTruceBetween(request.fromPlayerId, request.toPlayerId, trucesByPair, now()))) return STALE_TRUCE_OFFER;
-        if (request && request.expiresAt >= now()) offer = { kind, request };
-      } else {
-        const request = allianceRequests.get(requestId);
-        if (request) offer = { kind, request };
-      }
-      if (!offer || offer.request.toPlayerId !== playerId) return invalid;
-      settlingRequestIds.add(requestId);
-      return { ok: true, offer };
-    },
-    endSettlement: (requestId) => { settlingRequestIds.delete(requestId); },
+    ...createSocialOfferSettlementState({ allianceRequests, truceRequests, settlingRequestIds, now, sweepExpired, sink, updates: ids => ok(ids) }),
     playerNameOf: (playerId) => playersById.get(playerId)?.name ?? playerId,
     resolvePlayerByName: (playerName) => {
       const player = resolveByName(playerName);
