@@ -227,4 +227,10 @@ describe("manpower orb", () => {
     expect(orbHtml({ manpower: 40, manpowerCap: 100, nextRefillAt: 30 * 60_000, nowMs: 0 })).toContain("refill 30m");
     expect(orbHtml({ manpower: 100, manpowerCap: 100, nextRefillAt: 30 * 60_000, nowMs: 0 })).not.toContain("refill");
   });
+
+  it("fills the jar with your empire colour, darkened, and keeps gold for anything that is not a plain colour", () => {
+    expect(orbHtml({ manpower: 40, manpowerCap: 100, nextRefillAt: undefined, nowMs: 0, color: "#3f7fd0" })).toContain('style="fill: color-mix(in srgb, #3f7fd0 75%, #000)"');
+    expect(orbHtml({ manpower: 40, manpowerCap: 100, nextRefillAt: undefined, nowMs: 0, color: 'red" onload="x' })).not.toContain("style=");
+    expect(orbHtml({ manpower: 40, manpowerCap: 100, nextRefillAt: undefined, nowMs: 0 })).not.toContain("style=");
+  });
 });

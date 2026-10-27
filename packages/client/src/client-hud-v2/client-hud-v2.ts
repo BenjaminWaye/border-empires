@@ -241,7 +241,7 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
     nowMs
   }));
   writeRegion("overlays", overlaysHtml(state.showDiplomacyOverlay));
-  writeRegion("orb-slot", orbHtml({ manpower: state.manpower, manpowerCap: state.manpowerCap, nextRefillAt: nextManpowerRefillForPlayer(state.me, nowMs), nowMs }));
+  writeRegion("orb-slot", orbHtml({ manpower: state.manpower, manpowerCap: state.manpowerCap, nextRefillAt: nextManpowerRefillForPlayer(state.me, nowMs), nowMs, color: ownerColor(state.me) }));
 };
 
 /** The tracker's tile scans (three passes over every known tile), reused until tiles change or it goes stale. */
