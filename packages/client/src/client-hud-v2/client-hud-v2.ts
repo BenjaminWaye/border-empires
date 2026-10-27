@@ -17,6 +17,7 @@ import { escapeOpensSettings } from "./client-hud-v2-escape.js";
 import { hudV2GameOnScreen } from "./client-hud-v2-ready.js";
 import { initHudV2Flag, isHudV2Active, setHudV2Driving } from "./client-hud-v2-flag.js";
 import { navHtml } from "./client-hud-v2-nav.js";
+import { fallbackOwnerColor, resolveOwnerColor } from "../client-owner-colors/client-owner-colors.js";
 import { orbHtml } from "./client-hud-v2-orb.js";
 import { overlaysHtml } from "./client-hud-v2-overlays.js";
 import { resourceBarHtml } from "./client-hud-v2-resource-bar.js";
@@ -215,7 +216,7 @@ const NAV_ACTIVE: Partial<Record<HudV2ScreenId, string>> = { manifest: "manifest
 const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], nowMs: number): void => {
   writeRegion("bar", resourceBarHtml({
     gold: state.gold,
-    incomePerMinute: state.incomePerMinute,
+    netPerMinute: state.incomePerMinute - state.upkeepPerMinute.gold,
     slotSupply: state.resourceSlots.supply,
     slotDemand: state.resourceSlots.demand,
     shard: state.strategicResources.SHARD,
@@ -241,7 +242,7 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
     nowMs
   }));
   writeRegion("overlays", overlaysHtml(state.showDiplomacyOverlay));
-  writeRegion("orb-slot", orbHtml({ manpower: state.manpower, manpowerCap: state.manpowerCap, nextRefillAt: nextManpowerRefillForPlayer(state.me, nowMs), nowMs, color: ownerColor(state.me) }));
+  writeRegion("orb-slot", orbHtml({ manpower: state.manpower, manpowerCap: state.manpowerCap, nextRefillAt: nextManpowerRefillForPlayer(state.me, nowMs), nowMs, color: resolveOwnerColor(state.me, state.playerColors, fallbackOwnerColor) })); // Base colour: the Diplomacy view recolours ownerColor.
 };
 
 /** The tracker's tile scans (three passes over every known tile), reused until tiles change or it goes stale. */

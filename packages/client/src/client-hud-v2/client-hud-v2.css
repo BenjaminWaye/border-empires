@@ -64,6 +64,7 @@ body.hud-v2 #floating-info { display: none !important; }
 .hud-v2-chip-value { font-weight: 700; }
 .hud-v2-chip-of { color: var(--v2-muted); }
 .hud-v2-chip-rate { font-size: 11px; color: var(--v2-green); }
+.hud-v2-chip-rate-loss { color: var(--v2-red); }
 .hud-v2-over { font-weight: 700; color: var(--v2-amber); }
 .hud-v2-sep { width: 1px; height: 24px; margin: 0 4px; background: var(--v2-line); }
 .hud-v2-gear {

@@ -8,9 +8,29 @@ export type OrbInput = { manpower: number; manpowerCap: number; nextRefillAt: nu
 /** Plain colour values only, since it goes into a style attribute. */
 const SAFE_COLOR = /^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([0-9.,%\s]+\))$/i;
 
-/** The liquid is your empire's colour, darkened a quarter so the white numbers stay readable on light colours. Unknown colours keep the gold. */
-export const orbLiquidStyle = (color: string | undefined): string =>
-  color && SAFE_COLOR.test(color.trim()) ? ` style="fill: color-mix(in srgb, ${color.trim()} 75%, #000)"` : "";
+/** Relative luminance of a #rgb / #rrggbb colour, or undefined for other formats. */
+const hexLuminance = (color: string): number | undefined => {
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color)?.[1];
+  if (!hex) return undefined;
+  const full = hex.length === 3 ? hex.replace(/./g, "$&$&") : hex;
+  const [r, g, b] = [0, 2, 4].map((i) => {
+    const c = parseInt(full.slice(i, i + 2), 16) / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  }) as [number, number, number];
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+
+/**
+ * The liquid is your empire's colour, shaded so the level shows against the dark glass and the white numbers stay
+ * readable: near-black colours are lifted, pale ones darkened harder, the rest darkened a quarter. Unknown colours keep the gold.
+ */
+export const orbLiquidStyle = (color: string | undefined): string => {
+  const c = color?.trim();
+  if (!c || !SAFE_COLOR.test(c)) return "";
+  const lum = hexLuminance(c);
+  const mix = lum !== undefined && lum < 0.04 ? `${c} 55%, #fff` : lum !== undefined && lum > 0.4 ? `${c} 55%, #000` : `${c} 75%, #000`;
+  return ` style="fill: color-mix(in srgb, ${mix})"`;
+};
 
 /** Fill fraction, clamped to 0..1 so overflow manpower never draws outside the orb. */
 export const orbFill = (manpower: number, cap: number): number => (cap > 0 ? Math.max(0, Math.min(1, manpower / cap)) : 0);
