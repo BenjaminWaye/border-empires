@@ -24,7 +24,7 @@ export type RuntimePlayerStateUpdateContext = {
   resourceSlotSupplyForPlayer: (playerId: string) => ResourceSlotTotals;
   resourceSlotDemandForPlayer: (playerId: string) => ResourceSlotTotals;
   // Labelled rows behind the supply total; read after resourceSlotSupplyForPlayer (same cached rebuild).
-  resourceSlotSourcesForPlayer: (playerId: string) => ResourceSlotSources;
+  resourceSlotSourcesForPlayer: (playerId: string) => ResourceSlotSources | undefined;
   dormantStructuresForPlayer: (playerId: string) => DormantStructureDetail[];
   emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: Record<string, unknown>) => void;
   playerManpowerCap: (player: RuntimePlayer) => number;
@@ -94,7 +94,7 @@ export function emitPlayerStateUpdate(
       resourceSlots: {
         supply: context.resourceSlotSupplyForPlayer(playerId),
         demand: context.resourceSlotDemandForPlayer(playerId),
-        sources: context.resourceSlotSourcesForPlayer(playerId)
+        ...(() => { const sources = context.resourceSlotSourcesForPlayer(playerId); return sources ? { sources } : {}; })()
       },
       // §14.2: which of this player's structures are currently dormant
       // (slot demand not covered by supply), and which resource(s) each one

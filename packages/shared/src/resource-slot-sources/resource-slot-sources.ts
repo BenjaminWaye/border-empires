@@ -42,7 +42,8 @@ export const createResourceSlotSourceCollector = (): { sink: ResourceSlotSourceS
   const sources = emptyResourceSlotSources();
   const byKey = new Map<string, ResourceSlotSourceRow>();
   const sink: ResourceSlotSourceSink = (resource, kind, id, slots) => {
-    if (slots <= 0) return;
+    // A persisted grant can carry a non-slot key (e.g. SHARD); it has no row to go in.
+    if (slots <= 0 || !sources[resource]) return;
     const key = `${resource}|${kind}|${id}`;
     const row = byKey.get(key);
     if (row) {

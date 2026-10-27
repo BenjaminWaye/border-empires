@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { emptyResourceSlotSources, type ResourceSlotSources } from "@border-empires/shared";
+import type { ResourceSlotSources } from "@border-empires/shared";
 
 import type { ConnectedTownNetworkEntry } from "../economy-network/economy-network.js";
 import type { TownConnectivityState } from "../economy-network/town-connectivity-incremental.js";
@@ -153,8 +153,9 @@ export class RuntimeEconomyCaches {
   }
 
   /** The rows behind the last supply rebuild; read after resourceSlotSupply so they match its totals. */
-  resourceSlotSources(playerId: string): ResourceSlotSources {
-    return this.resourceSlotSourcesByPlayer.get(playerId) ?? emptyResourceSlotSources();
+  // Undefined (not empty rows) before the first rebuild, so the client shows its total-only fallback.
+  resourceSlotSources(playerId: string): ResourceSlotSources | undefined {
+    return this.resourceSlotSourcesByPlayer.get(playerId);
   }
 
   resourceSlotDemand(playerId: string, forceFresh: boolean, rebuild: () => ResourceSlotTotals): ResourceSlotTotals {

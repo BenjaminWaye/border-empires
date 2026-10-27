@@ -19,7 +19,7 @@ const titaniumArgs = (supply: number, sources: ResourceSlotSources | undefined, 
   activeRevealTargetsCount: 0, tiles, economyBreakdown: undefined, isMobile: true,
   prettyToken: (value) => value, resourceIconHtml: (resource) => resource,
   rateToneClass: () => "positive", resourceLabel: (resource) => resource, economicStructureName: (type) => type,
-  slotSourceNames: { domainName: (id) => (id === "afc-exchequer-2" ? "Exchequer II" : undefined), playerName: (id) => (id === "p2" ? "Rival" : undefined) }
+  slotSourceNames: { domainName: (id) => (id === "afc-exchequer-2" ? "Exchequer II" : undefined), playerName: (id) => (id === "p2" ? "<b>Rival" : undefined) }
 });
 
 const titaniumSources = (...rows: ResourceSlotSources["TITANIUM"]): ResourceSlotSources => ({ ...emptyResourceSlotSources(), TITANIUM: rows });
@@ -37,12 +37,14 @@ describe("Economy Slot Sources", () => {
     expect(slotSourcesForResource(titaniumArgs(5, sources), "TITANIUM")).toEqual([
       { label: "Titanium sites", amountPerMinute: 2, count: 2 },
       { label: "Foundry Heart", amountPerMinute: 1, count: 1 },
-      { label: "Siphon from Rival", amountPerMinute: 1, count: 1 },
+      { label: "Siphon from &lt;b&gt;Rival", amountPerMinute: 1, count: 1 },
       { label: "Waystation", amountPerMinute: 1, count: 1 }
     ]);
     const html = renderEconomyPanelHtml(titaniumArgs(5, sources));
     expect(html).toContain("Titanium sites");
     expect(html).not.toContain("Other bonuses");
+    // Review: a player-chosen name must not inject markup into the panel.
+    expect(html).not.toContain("<b>Rival");
   });
 
   it("names structure boosts, upgrades and techs", () => {

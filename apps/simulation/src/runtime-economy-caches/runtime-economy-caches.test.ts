@@ -38,9 +38,9 @@ describe("RuntimeEconomyCaches resource-slot reads", () => {
     const { caches } = createCaches();
     const sources = emptyResourceSlotSources();
     sources.FOOD.push({ kind: "TILE", id: "FARM", slots: 4, count: 4 });
-    expect(caches.resourceSlotSources("human").FOOD).toEqual([]);
+    expect(caches.resourceSlotSources("human")).toBeUndefined();
     caches.resourceSlotSupply("human", false, () => ({ totals: totals(4), sources }));
-    expect(caches.resourceSlotSources("human").FOOD).toEqual([{ kind: "TILE", id: "FARM", slots: 4, count: 4 }]);
+    expect(caches.resourceSlotSources("human")?.FOOD).toEqual([{ kind: "TILE", id: "FARM", slots: 4, count: 4 }]);
   });
 
   it("rebuilds a human's entry on the next read after one of their tiles changes", () => {
