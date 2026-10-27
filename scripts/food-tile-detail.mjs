@@ -1,7 +1,7 @@
 // Small authored additions, in the original exports' local coordinates.
 // Kept below the original silhouettes and inside their original footprints.
 export function addFoodTileDetail(three, parts, kind) {
-  const { BoxGeometry, BufferAttribute, Color, CylinderGeometry, IcosahedronGeometry, TorusGeometry } = three;
+  const { BoxGeometry, BufferAttribute, Color, IcosahedronGeometry, TorusGeometry } = three;
   const add = (geometry, color, x, y, z, rotation = 0) => {
     geometry.rotateY(rotation).translate(x, y, z);
     const part = geometry.index ? geometry.toNonIndexed() : geometry;
@@ -39,13 +39,6 @@ export function addFoodTileDetail(three, parts, kind) {
     box("#b8b39d", -0.201, 0.065, 0.32, 0.005, 0.006, 0.085);
     for (let i = 0; i < 6; i += 1) box("#929b94", -0.302, 0.18, 0.22 + i * 0.039, 0.006, 0.006, 0.002);
   } else {
-    // Open timber landing between the shore props and boats. Individual
-    // planks leave gaps so the underlying terrain/water is still visible.
-    for (let i = 0; i < 11; i += 1) box(i % 3 ? "#8d8069" : "#b3a080", -0.19 + i * 0.045, 0.017, 0.1, 0.039, 0.025, 0.16);
-    for (const x of [-0.2, 0.24]) for (const z of [0.03, 0.17]) {
-      add(new CylinderGeometry(0.014, 0.017, 0.1, 6), "#655b4a", x, 0.045, z);
-      add(new CylinderGeometry(0.018, 0.018, 0.008, 8), "#c3b294", x, 0.098, z);
-    }
     // Reinforced basin rims and visible water rings beneath the existing
     // hoists. These are holding basins, not boats or drying facilities.
     for (const z of [-0.2735, 0.4055]) {

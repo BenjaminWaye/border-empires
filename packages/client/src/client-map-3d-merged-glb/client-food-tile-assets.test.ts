@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { Box3, Mesh } from "three";
+import { Box3, Mesh, Raycaster, Vector3 } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { describe, expect, it } from "vitest";
 import { FARMLAND_MODEL_URL } from "../client-map-3d-farmland/client-map-3d-farmland.js";
@@ -11,6 +11,12 @@ const load = (url: string) => {
 };
 
 describe("detailed food assets", () => {
+  it("leaves the original gap between the fish basins open, without a wooden bridge", async () => {
+    const detailed = await load(FISHING_MODEL_URL);
+    detailed.scene.updateMatrixWorld(true);
+    const ray = new Raycaster(new Vector3(-0.01, 0.15, 0.1), new Vector3(0, -1, 0), 0, 0.15);
+    expect(ray.intersectObject(detailed.scene, true)).toHaveLength(0);
+  });
   it.each([["/models/farmland.glb", FARMLAND_MODEL_URL], ["/models/fishing2.glb", FISHING_MODEL_URL]])(
     "%s keeps its footprint and height with bounded extra detail",
     async (originalUrl, detailedUrl) => {

@@ -2,7 +2,7 @@
 // Holding basins with hoists that lower catches into the water.
 //
 // Source: fishing2.glb, enriched by scripts/bake-food-tile-models.mjs with
-// a service landing, reinforced basin rims and access ladders. Baked shading
+// reinforced basin rims and access ladders. Baked shading
 // and fine surface grain preserve the original footprint. There is no solid
 // ground plate: terrain (water or shore) shows between the working props.
 //
