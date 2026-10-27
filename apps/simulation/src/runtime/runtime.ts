@@ -36,7 +36,7 @@ import { filterDistrictDeltasForRuntime, type DistrictDeltaInput } from "../town
 import { RuntimeState } from "./runtime-state.js";
 import { reachBorderOwnerAt as reachBorderOwnerAtImpl, grantAetherBridgeReach as grantAetherBridgeReachImpl, tickAetherBridgeReachExpiry as tickAetherBridgeReachExpiryImpl } from "../runtime-aether-bridge-reach.js";
 import { createReachUpdateState, markReachForResend, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
-import { seedReachBorderFromAnchors } from "../runtime-reach-update/runtime-reach-border-seed.js";
+import { restoreReachBorder } from "../runtime-reach-update/runtime-reach-border-restore.js";
 import { applyReachAutoClaim, applyUnsettleDowngrade, createReachBorderApplyContext, type ReachBorderApplyContext } from "../runtime-reach-update/runtime-reach-border-apply.js"; import { createReachChangedTilesDirtyState, type ReachChangedTilesDirtyState } from "../runtime-reach-update/runtime-reach-contested-tiles.js"; import { flushAllReachUpdates } from "../runtime-reach-update/runtime-reach-flush-all.js";
 import { yieldViewEconomyContext as yieldViewEconomyContextImpl } from "./runtime-yield-view-economy-context.js";
 import { clearLegacyOutOfReachDecayStamps, isTileBeyondReach as isTileBeyondReachImpl } from "../runtime-reach-update/runtime-reach-out-of-reach.js"; import { applyReachAnchorActivationEffects, applyReachAnchorDeactivationEffects, syncReachVision, type ReachAnchorLifecycleDeps } from "../runtime-reach-update/runtime-reach-anchor-lifecycle.js"; import { autoSettleCapturedAnchor as autoSettleCapturedAnchorImpl, canAutoSettleCapturedAnchor as canAutoSettleCapturedAnchorImpl, type AutoSettleCapturedAnchorDeps } from "../runtime-out-of-reach-auto-settle/runtime-out-of-reach-auto-settle.js";
@@ -929,16 +929,9 @@ export class SimulationRuntime {
       seedObservatoryVisionBonus(this.structureVision.observatoryVisionDeps(), tile); seedWaystationVisionBonus(this.state.visibilityCoverage, this.visionTransitions.callbacks, tile);
       this.ownerIndexes.seedMusterAndManpowerStructuresFromBootTile(tileKey, tile);
     } for (const tile of this.state.tiles.values()) wonderEffects.syncWatchtowerObservatory(tile); for (const playerId of this.state.players.keys()) wonderEffects.refreshPlayerWonders(playerId, this.settledTilesForPlayer(playerId), this.wonderCacheByPlayer, this.state.players);
-    // Fixed-border reach: seed the persistent reachBorder from every anchor
-    // already present in the loaded/seeded world (indexes above are now
-    // fully populated). Applied one activation at a time through the same
-    // grantAnchorToBorder path a live activation uses, so any anchors that
-    // already overlap at load time resolve deterministically via live
-    // coverage rather than needing special-cased startup logic. No unsettle
-    // downgrade is expected to fire here in practice (persisted/seeded
-    // worlds start from a consistent state), but if it ever does, it's
-    // correct to let it — the tile genuinely isn't defended by anyone else.
-    seedReachBorderFromAnchors({ gatherReachAnchors: () => this.gatherReachAnchors(), applyReachAnchorActivation: (a, cid, o) => this.applyReachAnchorActivation(a, cid, o), tiles: this.state.tiles, reachBorder: () => this.reachBorder, runtimeLogInfo: (p, m) => runtimeLogInfo(p, m) });
+    // Restore the persisted reach border, then reconcile it with the loaded anchors
+    // (indexes above are now fully populated) -- see runtime-reach-border-restore.ts.
+    restoreReachBorder({ persisted: options.initialState?.reachBorder, tiles: this.state.tiles, gatherReachAnchors: () => this.gatherReachAnchors(), isLandTile: this.isLandTileQuery, setReachBorder: (border) => { this.reachBorder = border; }, reachBorder: () => this.reachBorder, syncReachVision: (oldBorder, newBorder, changedKeys) => this.reachAnchorLifecycleDeps().syncReachVision(oldBorder, newBorder, changedKeys), applyReachAnchorActivation: (a, cid, o) => this.applyReachAnchorActivation(a, cid, o), runtimeLogInfo: (p, m) => runtimeLogInfo(p, m) });
     this.clearPersistedOutOfReachDecayTimers();
     this.frontierAutoHealQueue = rebuildFrontierAutoHealQueue(this.state.tiles);
     // Boot-time seed for eligibleFrontierByOwner (one-time O(frontier) cold rebuild -- see field's doc comment).
@@ -1982,6 +1975,7 @@ export class SimulationRuntime {
       summaryForPlayer: this.summaryForPlayer.bind(this),
       growthStalledNoFoodCounter: this.growthStalledNoFoodCounter,
       recordedEventsByCommandId: this.replayCache.recordedEventsByCommandId,
+      reachBorder: () => this.reachBorder,
       prebuiltTiles: this.snapshotTileCache,
       plannerGatingLockPlayerIds: () => plannerGatingLockPlayerIdsImpl(this.state.locksByTile),
       refreshManpowerOnly: (player) => this.refreshManpowerOnly(player),
@@ -2270,7 +2264,7 @@ export class SimulationRuntime {
     });
   }
 
-  private reachAnchorLifecycleDeps(): ReachAnchorLifecycleDeps { return { reachBorder: this.reachBorder, reachUpdateState: this.reachUpdateState, reachBorderApplyContext: this.reachBorderApplyContext(), isLandTile: this.isLandTileQuery, syncReachVision: (oldBorder, newBorder, changedKeys) => syncReachVision(oldBorder, newBorder, changedKeys, { coverage: this.state.visibilityCoverage, viewersForOwner: (ownerId) => { const player = this.state.players.get(ownerId); return player ? [ownerId, ...player.allies] : [ownerId]; }, callbacks: this.visionTransitions.callbacks }) }; }
+  private reachAnchorLifecycleDeps(): ReachAnchorLifecycleDeps { return { reachBorder: this.reachBorder, reachUpdateState: this.reachUpdateState, reachBorderApplyContext: this.reachBorderApplyContext(), syncReachVision: (oldBorder, newBorder, changedKeys) => syncReachVision(oldBorder, newBorder, changedKeys, { coverage: this.state.visibilityCoverage, viewersForOwner: (ownerId) => { const player = this.state.players.get(ownerId); return player ? [ownerId, ...player.allies] : [ownerId]; }, callbacks: this.visionTransitions.callbacks }), emitBorderChanges: (changes, ownerId, cid) => this.emitEvent({ eventType: "REACH_BORDER_CHANGED", commandId: cid, playerId: ownerId, changes }) }; }
   private applyReachAnchorActivation(anchor: ReachAnchor, causeCommandId: string, options?: { skipNeutralAutoClaim?: boolean }): void {
     const result = applyReachAnchorActivationEffects(this.reachAnchorLifecycleDeps(), anchor, causeCommandId, options); this.reachBorder = result.border; if (result.autoClaimedTileKeys.length > 0) this.autoSettleEligibilityRuntime().evaluateFrontierKeysForOwner(anchor.ownerId, result.autoClaimedTileKeys);
   }

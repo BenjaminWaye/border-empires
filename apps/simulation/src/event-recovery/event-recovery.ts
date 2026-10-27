@@ -13,6 +13,7 @@ import { applyProgressionUpdateToRecoveredPlayer } from "./event-recovery-progre
 import { cloneRecoveredPlayerState, type RecoveredPlayerState } from "./event-recovery-player-state.js";
 import type { DockRouteDefinition } from "../dock-network/dock-network.js";
 import type { PendingSettlementRecord } from "../player-runtime-summary.js";
+import { applyReachBorderChanges, decodeReachBorder, encodeReachBorder, type ReachBorderSnapshot } from "../reach-border-snapshot/reach-border-snapshot.js";
 
 type RecoveredTileState = {
   x: number;
@@ -63,6 +64,8 @@ export type RecoveredSimulationState = {
   resourceSupplyAgreements?: readonly ResourceSupplyAgreement[];
   pendingSettlements?: PendingSettlementRecord[];
   playerYieldCollectionEpochByPlayer?: Array<{ playerId: string; collectedAt: number }>;
+  /** Persisted reach border (reach-border-snapshot.ts). Absent on snapshots written before it was saved. */
+  reachBorder?: ReachBorderSnapshot;
 };
 
 type RecoveredSimulationAccumulator = {
@@ -74,6 +77,13 @@ type RecoveredSimulationAccumulator = {
   resourceSupplyAgreements: ResourceSupplyAgreement[];
   pendingSettlements: NonNullable<RecoveredSimulationState["pendingSettlements"]>;
   playerYieldCollectionEpochByPlayer: Map<string, number>;
+  /**
+   * Undefined when the base state carries no border (a pre-persistence
+   * snapshot): REACH_BORDER_CHANGED diffs can't be applied to an unknown
+   * base, so they're dropped and the runtime falls back to rebuilding the
+   * border from tile ownership + anchors.
+   */
+  reachBorder?: Map<string, string>;
 };
 
 type TileDelta = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"][number];
@@ -119,6 +129,7 @@ export const createRecoveredSimulationAccumulator = (
     playerYieldCollectionEpochByPlayer: new Map(
       (baseState.playerYieldCollectionEpochByPlayer ?? []).map((entry) => [entry.playerId, entry.collectedAt])
     ),
+    ...(baseState.reachBorder ? { reachBorder: decodeReachBorder(baseState.reachBorder) } : {})
   };
 };
 
@@ -255,6 +266,11 @@ export const applySimulationEventsToRecoveredAccumulator = (
       continue;
     }
 
+    if (event.eventType === "REACH_BORDER_CHANGED") {
+      if (accumulator.reachBorder) applyReachBorderChanges(accumulator.reachBorder, event.changes);
+      continue;
+    }
+
     if (event.eventType === "SETTLEMENT_STARTED") {
       spendRecoveredPlayerGold(accumulator, event.playerId, event.goldCost);
       removeRecoveredPendingSettlement(accumulator, event.tileKey);
@@ -386,6 +402,7 @@ export const finalizeRecoveredSimulationAccumulator = (
   playerYieldCollectionEpochByPlayer: [...accumulator.playerYieldCollectionEpochByPlayer.entries()]
     .map(([playerId, collectedAt]) => ({ playerId, collectedAt }))
     .sort((left, right) => left.playerId.localeCompare(right.playerId)),
+  ...(accumulator.reachBorder ? { reachBorder: encodeReachBorder(accumulator.reachBorder) } : {})
 });
 
 export const recoverSimulationStateFromEvents = (
@@ -404,6 +421,8 @@ export const recoverSimulationStateFromEvents = (
       resourceSupplyAgreements: [],
       pendingSettlements: [],
       playerYieldCollectionEpochByPlayer: [],
+      // A fresh seed world has no border yet; every change since is in `events`.
+      reachBorder: []
     },
     events
   );

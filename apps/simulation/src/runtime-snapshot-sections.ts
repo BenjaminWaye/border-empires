@@ -8,6 +8,7 @@ import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import { shouldYieldAt } from "./event-loop-yield.js";
 import { overlaySubstructuresFrom } from "./tile-overlay-fields/tile-overlay-fields.js";
 import { townSettledAtForSnapshot } from "./recovered-town-state/recovered-town-state.js";
+import { encodeReachBorder } from "./reach-border-snapshot/reach-border-snapshot.js";
 
 export type SnapshotTile = SimulationSnapshotSections["initialState"]["tiles"][number];
 
@@ -21,6 +22,10 @@ export type SnapshotExportInput = {
   // Runtime.tileSettledAtByKey; only town stamps are saved (recovered-town-state.ts).
   tileSettledAtByKey?: ReadonlyMap<string, number>;
   docks: readonly DockRouteDefinition[];
+  // Runtime.reachBorder, read when the body is assembled (after the async
+  // tile copy's yields) so it matches players/locks rather than the border as
+  // it stood when the export started.
+  reachBorder: () => ReadonlyMap<string, string>;
   recordedEventsByCommandId: ReadonlyMap<string, SimulationEvent[]>;
   incomePerMinuteForPlayer: (playerId: string) => number;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
@@ -132,6 +137,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
       playerYieldCollectionEpochByPlayer: [...input.playerYieldCollectionEpochByPlayer.entries()]
         .map(([playerId, collectedAt]) => ({ playerId, collectedAt }))
         .sort((a, b) => a.playerId.localeCompare(b.playerId)),
+      reachBorder: encodeReachBorder(input.reachBorder()),
       ...(input.docks.length
         ? {
             docks: input.docks.map((dock) => ({

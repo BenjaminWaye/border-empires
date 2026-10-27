@@ -93,4 +93,13 @@ describe("RuntimeReplayCache.recordEvent gating", () => {
     expect(cache.recordedEventsByCommandId.has("client-uuid-0-aaaaaaaa-bbbb-cccc")).toBe(false);
     expect(cache.recordedEventsByCommandId.has("client-uuid-9-aaaaaaaa-bbbb-cccc")).toBe(true);
   });
+
+  it("never records a REACH_BORDER_CHANGED diff, so a duplicate submit can't persist a stale one again", () => {
+    const cache = new RuntimeReplayCache(100, 100);
+    const commandId = "00278e11-369b-4760-8f54-f1887b3467c0";
+    cache.recordEvent(deltaEvent(commandId));
+    cache.recordEvent({ eventType: "REACH_BORDER_CHANGED", commandId, playerId: "player-1", changes: [{ tileKey: "1,1", ownerId: null }] });
+
+    expect(cache.recordedEventsByCommandId.get(commandId)?.map((event) => event.eventType)).toEqual(["TILE_DELTA_BATCH"]);
+  });
 });
