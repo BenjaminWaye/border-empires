@@ -147,5 +147,11 @@ adjustment.
 Implant Foundries now provide two conductive supply slots. Each factory can use
 only one, yielding +6 Ancillaries per batch; two factories use both for +12.
 Trades can split these rights, and Siphon transfers both without duplication.
-Resin remains one slot giving +12 to one factory. The canonical lore now describes
+Resin is one slot giving +12 per cycle to one Ancillary Depot. The canonical lore now describes
 output divided into exclusive factory-line commitments.
+
+Resin now targets active supplied Ancillary Depots, independently of factory
+count, while conductive minerals target factories. Shared manpower math and
+used-slot counters receive both consumer counts, and AI development checks
+installation output slots against the matching beneficiary count. Powered
+recipient, separate-target and imported-resin regressions cover this rule.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NETWORK_RESOURCES, RESOURCE_NETWORKS, suppliedNetworkBuildings, emptyNetworkSiteCounts, networkCreditPerMinute, networkFactoryRegenPerMinute } from "./resource-networks.js";
+import { NETWORK_RESOURCES, RESOURCE_NETWORKS, suppliedNetworkBuildings, emptyNetworkSiteCounts, networkCreditPerMinute, networkManpowerRegenPerMinute } from "./resource-networks.js";
 import { ClientMessageSchema } from "../messages/messages.js";
 import { structureShowsOnTile } from "../structure-placement.js";
 
@@ -8,13 +8,19 @@ describe("resource networks", () => {
     expect([0,1,2,3,6,100].map(slots => suppliedNetworkBuildings(slots, 3))).toEqual([0,1,2,3,3,3]);
     expect(suppliedNetworkBuildings(100, 100)).toBe(100);
   });
-  it("adds 12 resin and 6 mineral Ancillaries only to supplied factories, without storage bonuses", () => {
+  it("adds 12 resin and 6 mineral Ancillaries to their separate supplied depot and factory consumers", () => {
     const counts = { ...emptyNetworkSiteCounts(), NEURAL_RESIN: 2, CONDUCTIVE_MINERALS: 1 };
-    expect(networkFactoryRegenPerMinute(counts, 3) * 240).toBeCloseTo(30);
-    expect(networkFactoryRegenPerMinute(counts, 30) * 240).toBeCloseTo(30);
-    expect(networkFactoryRegenPerMinute(counts, 1) * 240).toBeCloseTo(18);
-    expect(networkFactoryRegenPerMinute(counts, 0)).toBe(0);
-    expect(networkFactoryRegenPerMinute({ ...counts, NEURAL_RESIN: 100, CONDUCTIVE_MINERALS: 100 }, 1) * 240).toBeCloseTo(18);
+    expect(networkManpowerRegenPerMinute(counts, { factoryCount: 3, depotCount: 3 }) * 240).toBeCloseTo(30);
+    expect(networkManpowerRegenPerMinute(counts, { factoryCount: 30, depotCount: 30 }) * 240).toBeCloseTo(30);
+    expect(networkManpowerRegenPerMinute(counts, { factoryCount: 1, depotCount: 1 }) * 240).toBeCloseTo(18);
+    expect(networkManpowerRegenPerMinute(counts, { factoryCount: 0, depotCount: 0 })).toBe(0);
+    expect(networkManpowerRegenPerMinute({ ...counts, NEURAL_RESIN: 100, CONDUCTIVE_MINERALS: 100 }, { factoryCount: 1, depotCount: 1 }) * 240).toBeCloseTo(18);
+  });
+  it("resin supplies depots independently of factories", () => {
+    const supply = { ...emptyNetworkSiteCounts(), NEURAL_RESIN: 2 };
+    expect(networkManpowerRegenPerMinute(supply, { factoryCount: 10, depotCount: 0 })).toBe(0);
+    expect(networkManpowerRegenPerMinute(supply, { factoryCount: 0, depotCount: 1 }) * 240).toBe(12);
+    expect(networkManpowerRegenPerMinute(supply, { factoryCount: 0, depotCount: 2 }) * 240).toBe(24);
   });
   it("one credit slot can supply one relevant building, and idle supply grants no credit", () => {
     const counts = { ...emptyNetworkSiteCounts(), PRECURSOR_SALVAGE: 2, CATALYTIC_DEPOSIT: 1, LUXURY_BIOTA: 1 };

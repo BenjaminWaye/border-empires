@@ -5,9 +5,9 @@ export const RESOURCE_NETWORKS = {
   NEURAL_RESIN: {
     name: "Neural resin", building: "RESIN_EXTRACTOR", buildingName: "Resin Extractor",
     tech: "neural-resin-processing", color: "#e8aa48", glyph: "◉", manpowerCost: 40,
-    batchBonus: 12, slotsPerSite: 1, creditPerDay: 0, target: "ANCILLARY_FACTORY", sitesPerStandardMap: 1000,
-    description: "Native resin binds neural controls to remade bodies.",
-    effect: "Supplies one resin slot: +12 Ancillaries per batch at one active Ancillary Factory."
+    batchBonus: 12, slotsPerSite: 1, creditPerDay: 0, target: "ANCILLARY_DEPOT", sitesPerStandardMap: 1000,
+    description: "Native resin stabilises neural controls in stored Ancillaries.",
+    effect: "Supplies one resin slot: +12 Ancillaries per cycle at one active Ancillary Depot."
   },
   CONDUCTIVE_MINERALS: {
     name: "Conductive minerals", building: "IMPLANT_FOUNDRY", buildingName: "Implant Foundry",
@@ -59,10 +59,13 @@ export type NetworkSupplyStatus = { readonly supply: NetworkSiteCounts; readonly
 export const emptyNetworkSiteCounts = (): NetworkSiteCounts => ({
   NEURAL_RESIN: 0, CONDUCTIVE_MINERALS: 0, CATALYTIC_DEPOSIT: 0, LUXURY_BIOTA: 0, PRECURSOR_SALVAGE: 0
 });
-export const networkFactoryRegenPerMinute = (counts: NetworkSiteCounts, factoryCount: number): number =>
-  NETWORK_RESOURCES.reduce((sum, resource) =>
-    sum + suppliedNetworkBuildings(counts[resource], factoryCount) * RESOURCE_NETWORKS[resource].batchBonus, 0) /
-  (MANPOWER_REFILL_WINDOW_MS / 60_000);
+export type NetworkManpowerConsumers = { readonly factoryCount: number; readonly depotCount: number };
+export const networkManpowerRegenPerMinute = (counts: NetworkSiteCounts, consumers: NetworkManpowerConsumers): number =>
+  NETWORK_RESOURCES.reduce((sum, resource) => {
+    const spec = RESOURCE_NETWORKS[resource];
+    const recipients = spec.target === "ANCILLARY_DEPOT" ? consumers.depotCount : consumers.factoryCount;
+    return sum + suppliedNetworkBuildings(counts[resource], recipients) * spec.batchBonus;
+  }, 0) / (MANPOWER_REFILL_WINDOW_MS / 60_000);
 export const networkCreditPerMinute = (counts: NetworkSiteCounts, target: "MANUFACTORY" | "TRADE_NEXUS", buildings: number): number =>
   NETWORK_RESOURCES.reduce((sum, resource) => sum +
     (RESOURCE_NETWORKS[resource].target === target ? suppliedNetworkBuildings(counts[resource], buildings) * RESOURCE_NETWORKS[resource].creditPerDay : 0), 0) / 1440;

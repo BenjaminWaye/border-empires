@@ -263,7 +263,7 @@ export const chooseBestEconomicBuild = (
       const spec = RESOURCE_NETWORKS[tile.resource];
       const developed = plannedOwnedStructureCount(player, counts, spec.building);
       const beneficiaries = plannedOwnedStructureCount(player, counts, spec.target);
-      if (developed < beneficiaries) candidates.push({ type: spec.building, score: 84 + Math.min(12, beneficiaries * 2) });
+      if (developed * spec.slotsPerSite < beneficiaries) candidates.push({ type: spec.building, score: 84 + Math.min(12, beneficiaries * 2) });
     } else if (tile.resource === "FARM") {
       // HYDROGARDEN is FARM-only (structure-placement-metadata.json's
       // resourceTypes) — it has no effect on fish production (§5.3), so a

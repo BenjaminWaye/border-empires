@@ -44,10 +44,14 @@ export function networkSupplyStatus(sites: NetworkSiteCounts, allocation: Networ
   if (!NETWORK_RESOURCES.some(resource => sites[resource] > 0)) return undefined;
   const used = emptyNetworkSiteCounts();
   for (const row of allocation.values()) for (const resource of NETWORK_RESOURCES) used[resource] += row.slots[resource];
-  const factories = sites.NEURAL_RESIN + sites.CONDUCTIVE_MINERALS > 0 ? settledTiles.filter(tile =>
-    tile.economicStructure?.type === "ANCILLARY_FACTORY" && tile.economicStructure.status === "active" &&
-    tile.economicStructure.ownerId === tile.ownerId && !dormant.has(`${tile.x},${tile.y}`)).length : 0;
-  for (const resource of NETWORK_RESOURCES) if (RESOURCE_NETWORKS[resource].target === "ANCILLARY_FACTORY")
-    used[resource] = suppliedNetworkBuildings(sites[resource], factories);
+  const count = (type: "ANCILLARY_FACTORY" | "ANCILLARY_DEPOT"): number => settledTiles.filter(tile =>
+    tile.economicStructure?.type === type && tile.economicStructure.status === "active" &&
+    tile.economicStructure.ownerId === tile.ownerId && !dormant.has(`${tile.x},${tile.y}`)).length;
+  const factories = sites.CONDUCTIVE_MINERALS > 0 ? count("ANCILLARY_FACTORY") : 0;
+  const depots = sites.NEURAL_RESIN > 0 ? count("ANCILLARY_DEPOT") : 0;
+  for (const resource of NETWORK_RESOURCES) {
+    const target = RESOURCE_NETWORKS[resource].target;
+    if (target === "ANCILLARY_FACTORY" || target === "ANCILLARY_DEPOT") used[resource] = suppliedNetworkBuildings(sites[resource], target === "ANCILLARY_DEPOT" ? depots : factories);
+  }
   return { supply: { ...sites }, used };
 }

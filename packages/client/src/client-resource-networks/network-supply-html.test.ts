@@ -7,8 +7,8 @@ describe("industrial supply display", () => {
     const supply={...emptyNetworkSiteCounts(), NEURAL_RESIN:2, CATALYTIC_DEPOSIT:1};
     const used={...emptyNetworkSiteCounts(), NEURAL_RESIN:1, CATALYTIC_DEPOSIT:1};
     const html=networkSupplyHtml({supply,used});
-    expect(html).toContain("1 / 2 slots used · +12 Ancillaries/batch");
-    expect(html).toContain("One slot per Ancillary Factory · 1 free");
+    expect(html).toContain("1 / 2 slots used · +12 Ancillaries/cycle");
+    expect(html).toContain("One slot per Ancillary Depot · 1 free");
     expect(html).toContain("1 / 1 slots used · +1.5 Coin/day");
     expect(html).not.toContain("Conductive minerals");
   });

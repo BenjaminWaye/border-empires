@@ -201,9 +201,9 @@ Estate 33, Reclamation Works 60. Base construction seconds equal manpower.
 Each active developed site supplies one renewable bonus slot, except an Implant
 Foundry which supplies two conductive slots for two separate factories. One slot can
 supply one eligible building; each building uses at most one slot of each
-applicable resource. A supplied Ancillary Factory gains 12 Ancillaries per
-four-hour batch from resin and 6 from conductive minerals. Conductive slots equal
-twice the number of active supplied Implant Foundries. The actual empire bonus is 12×min(resin slots, active factories) + 6×min(mineral slots, active
+applicable resource. A supplied Ancillary Depot gains 12 Ancillaries per four-hour cycle from resin;
+a supplied Ancillary Factory gains 6 per batch from conductive minerals. Conductive slots equal
+twice the number of active supplied Implant Foundries. The actual empire bonus is 12×min(resin slots, active depots) + 6×min(mineral slots, active
 factories), banked over the 240-minute refill interval. Extra factories cannot
 reuse a slot. Unsupported factories retain normal output; there is no resource
 stockpile, permanent depletion, diminishing tier or six-site cap. Storage cap

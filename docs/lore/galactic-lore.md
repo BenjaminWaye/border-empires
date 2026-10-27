@@ -439,15 +439,16 @@ Clearing House effects are maintained in the economy reference.
 ### Frontier concessions and ancillary supply
 
 A House may develop neural resin groves and conductive mineral seams into
-suppliers for its Ancillary Factories. Resin-bearing broadleaf groves favour
+suppliers for its Ancillary reserves and factories. Resin-bearing broadleaf groves favour
 forested grassland, with amber seams beneath their bark; ordinary trees are
 not automatically resin deposits. Conductive seams favour rocky grassland
-and tundra. Resin Extractors refine native compounds
-that integrate neural controls with remade bodies; Implant Foundries turn
-conductive ore into implants, command circuitry and replacement components.
-Towns provide the bodies. These industries improve the factories' ability to
-ready them, not the supply of people. Ancillary Depots provide storage and
-custody for the resulting reserve. The Reserve Custody Cadre authorises both
+and tundra. Resin Extractors refine native compounds that stabilise neural
+controls during reserve preparation, letting supplied Ancillary Depots ready
+more remade Ancillaries for service. Implant Foundries turn conductive ore into
+implants, command circuitry and replacement components for factory lines.
+Towns provide the bodies. These industries improve reserve readiness and
+remaking throughput, not the supply of people. Depots still determine storage
+capacity and custody for the resulting reserve. The Reserve Custody Cadre authorises both
 Depots and Implant Foundries, supplying the custody and implant expertise
 needed to maintain an Ancillary reserve.
 

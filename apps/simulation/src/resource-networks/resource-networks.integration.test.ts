@@ -10,13 +10,14 @@ import { buildPlayer, collectEvents } from "../runtime/runtime.test-helpers.js";
 const boundary = lastManpowerRefillAtMs("p", 100 * MANPOWER_REFILL_WINDOW_MS);
 const techIds = new Set(NETWORK_RESOURCES.map(resource => RESOURCE_NETWORKS[resource].tech));
 const land = (x: number,y: number): DomainTileState => ({ x,y,terrain:"LAND",ownerId:"p",ownershipState:"SETTLED" });
-function fixture(developed: boolean, now: () => number, manpower = 0, techs: Set<string> = techIds, extraConsumers = false): SimulationRuntime {
+function fixture(developed: boolean, now: () => number, manpower = 0, techs: Set<string> = techIds, extraConsumers = false, consumers?: { factories: number; depots: number }): SimulationRuntime {
   const tiles: DomainTileState[] = [];
   for (let y = 9; y <= 11; y += 1) for (let x = 9; x <= 11; x += 1) tiles.push(land(x,y));
   tiles.find(tile => tile.x === 10 && tile.y === 10)!.town = { name:"Heartland",type:"MARKET",populationTier:"TOWN",population:50000,maxPopulation:100000 };
   for (const [x,y,type] of [[9,9,"ANCILLARY_FACTORY"],[9,10,"MANUFACTORY"],[9,11,"TRADE_NEXUS"]] as const) {
     tiles.find(tile => tile.x === x && tile.y === y)!.economicStructure = { ownerId:"p", type, status:"active" };
   }
+  tiles.find(tile => tile.x === 11 && tile.y === 10)!.economicStructure = { ownerId: "p", type: "ANCILLARY_DEPOT", status: "active" };
   if (extraConsumers) {
     tiles.find(tile => tile.x === 10 && tile.y === 9)!.economicStructure = { ownerId:"p",type:"ANCILLARY_FACTORY",status:"active" };
     tiles.find(tile => tile.x === 10 && tile.y === 11)!.economicStructure = { ownerId:"p",type:"ANCILLARY_FACTORY",status:"active" };
@@ -28,6 +29,11 @@ function fixture(developed: boolean, now: () => number, manpower = 0, techs: Set
   for (let i = 0; i < 24; i += 1) tiles.push({ ...land(40+i,40), resource:"FARM" });
   NETWORK_RESOURCES.forEach((resource,i) => tiles.push({ ...land(20+i,20), resource,
     ...(developed ? { economicStructure: { ownerId:"p",type:RESOURCE_NETWORKS[resource].building,status:"active" as const } } : {}) }));
+  if (consumers) {
+    for (const tile of tiles) if (tile.economicStructure?.type === "ANCILLARY_FACTORY" || tile.economicStructure?.type === "ANCILLARY_DEPOT") delete tile.economicStructure;
+    for (let i = 0; i < consumers.factories; i++) tiles.find(tile => tile.x === 9 + i && tile.y === 9)!.economicStructure = { ownerId: "p", type: "ANCILLARY_FACTORY", status: "active" };
+    for (const [x, y] of ([[11, 10], [11, 11]] as const).slice(0, consumers.depots)) tiles.find(tile => tile.x === x && tile.y === y)!.economicStructure = { ownerId: "p", type: "ANCILLARY_DEPOT", status: "active" };
+  }
   return new SimulationRuntime({ now, initialPlayers:new Map([["p",buildPlayer("p",{
     points:500,manpower,manpowerUpdatedAt:boundary,manpowerCapSnapshot:10000,landingReserveGranted:true,techIds:techs
   })]]), seedTiles:new Map(), initialState:{tiles,activeLocks:[]} });
@@ -35,6 +41,16 @@ function fixture(developed: boolean, now: () => number, manpower = 0, techs: Set
 const player = (runtime: SimulationRuntime) => runtime.exportState().players.find(entry => entry.id === "p")!;
 
 describe("resource networks in the real runtime", () => {
+  it.each([[0, 1, 12], [1, 0, 6], [2, 1, 24], [3, 1, 24], [0, 2, 12]])("%i factories and %i depots receive exactly %i resource Ancillaries per cycle", (factories, depots, expected) => {
+    const baseline = fixture(false, () => boundary, 0, techIds, false, { factories, depots });
+    const developed = fixture(true, () => boundary, 0, techIds, false, { factories, depots });
+    const base = player(baseline), boosted = player(developed);
+    expect((boosted.manpowerRegenPerMinute! - base.manpowerRegenPerMinute!) * 240).toBeCloseTo(expected);
+    expect(boosted.manpowerCap).toBe(base.manpowerCap);
+    const slots = buildLivePlayerEconomySnapshot("p", developed.exportState()).resourceSlots.bonusSupply!;
+    expect(slots.used.NEURAL_RESIN).toBe(Math.min(1, depots));
+    expect(slots.used.CONDUCTIVE_MINERALS).toBe(Math.min(2, factories));
+  });
   it("pays the actual additional Ancillaries at the batch boundary, without changing capacity", () => {
     let now = boundary;
     const baseline=fixture(false,()=>now), developed=fixture(true,()=>now);

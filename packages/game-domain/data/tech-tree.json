@@ -751,7 +751,7 @@
       "tier": 3,
       "branch": "manpower",
       "name": "Neural Resin Processing Warrant",
-      "description": "Adapts native resin for integrating town-supplied bodies with Ancillary controls.",
+      "description": "Refines native resin to improve Ancillary Depot replenishment.",
       "prereqIds": [
         "remade-concordat"
       ],

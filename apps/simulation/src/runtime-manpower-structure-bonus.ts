@@ -1,5 +1,5 @@
 import { developedNetworkSites } from "./resource-networks/resource-networks.js";
-import { networkFactoryRegenPerMinute } from "@border-empires/shared";
+import { networkManpowerRegenPerMinute } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { MonumentalStructureType } from "@border-empires/shared";
 import {
@@ -179,8 +179,8 @@ export const cachedManpowerStructureBonusForPlayer = (
     neuralWorksNetworkAncillaryFactoryCount,
     ancillaryFactoryCount,
     censusDirectorateManpowerBuildingCount,
-    resourceNetworkRegenPerMinute: ancillaryFactoryCount > 0 ? networkFactoryRegenPerMinute(
-      ctx.networkSitesForPlayer?.(player.id) ?? developedNetworkSites(ctx.settledTilesForPlayer(player.id), player.id, dormantEconomicStructureKeys ?? new Set(), player.techIds), ancillaryFactoryCount
+    resourceNetworkRegenPerMinute: ancillaryFactoryCount + ancillaryDepotCount > 0 ? networkManpowerRegenPerMinute(
+      ctx.networkSitesForPlayer?.(player.id) ?? developedNetworkSites(ctx.settledTilesForPlayer(player.id), player.id, dormantEconomicStructureKeys ?? new Set(), player.techIds), { factoryCount: ancillaryFactoryCount, depotCount: ancillaryDepotCount }
     ) : 0,
     ...(ancillaryFactoryCapacityBonusByTown.size > 0 ? { ancillaryFactoryCapacityBonusByTown } : {})
   };

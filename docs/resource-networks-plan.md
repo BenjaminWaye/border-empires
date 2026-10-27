@@ -25,7 +25,7 @@ rules; this document records implementation scope, rollout and visual decisions.
 
 | Deposit | Installation | Build manpower / seconds | Ongoing occupancy | Benefit per installation |
 |---|---|---:|---|---|
-| Neural resin | Resin Extractor | 40 / 40 | 1 FOOD slot | +12 Ancillaries at one factory per 4-hour batch |
+| Neural resin | Resin Extractor | 40 / 40 | 1 FOOD slot | +12 Ancillaries at one depot per 4-hour cycle |
 | Conductive minerals | Implant Foundry | 50 / 50 | 1 FOOD slot | +6 each at up to two factories per batch (+12 total) |
 | Catalytic deposit | Catalyst Refinery | 50 / 50 | 1 FOOD slot | +1.5 Coin/day at one active supported Trade Nexus |
 | Luxury biota | Cultivation Estate | 33 / 33 | 1 FOOD slot | +1.5 Coin/day at one active supported Trade Nexus |
@@ -38,7 +38,7 @@ network upgrades intact. They never grant an immediate batch or refill.
 
 Each active extraction installation supplies **one renewable bonus slot**, except
 an Implant Foundry which supplies **two conductive slots** for separate factories. A beneficiary uses at most one slot of each applicable type.
-A factory can therefore use one resin and one conductive-mineral slot; a
+A depot can use one resin slot and a factory one conductive slot; a
 Trade Nexus can use one catalyst and one luxury slot. A Manufactory can use
 one salvage slot. These are optional enhancements: an unsupplied beneficiary
 retains normal output. Supply does not run out over time, and occupying a slot
@@ -50,10 +50,10 @@ active beneficiaries). Extra factories cannot reuse already occupied slots.
 
 Examples:
 
-- One resin site and ten factories give +12 Ancillaries total per batch. Nine
-  factories retain their normal output until another resin slot is developed.
-- Two resin sites, one mineral site and three factories give +36 total per
-  batch: 2×12 + 2×6. The same supply with one factory gives +18.
+- One resin site and ten depots give +12 Ancillaries total per cycle; nine depots receive no resin bonus.
+- Two resin sites, two depots, one mineral site and three factories give +36 per
+  cycle: 2×12 + 2×6; only two factories receive the conductive bonus.
+- Resin with factories but no depot gives no bonus; a depot with resin needs no factory.
 - One catalyst and one luxury site support +3 Coin/day total, whether the
   House owns one Trade Nexus or twenty. Each relevant slot needs a beneficiary.
 - Two salvage sites and one Manufactory supply +1.5 Coin/day, with one salvage
@@ -194,14 +194,13 @@ ownership state; it no longer adds the old scattered resin trees. A deployment
 does not reset existing campaigns or redistribute their developed sites.
 The new resources are excluded from Resource Monopoly's existing resource list.
 
-A normal factory produces 12 Ancillaries per four-hour batch. Resin doubles
-that to 24; conductive supply alone gives 18; both give 30. At base rates,
-the 120-manpower extractor repays its manpower cost in 40 hours of supplied
-production, while the 150-manpower foundry takes 100 hours. These payback
-figures exclude technology, construction, FOOD and opportunity costs. Resin is
-budgeted like the other four resources; bonuses remain bounded
-by developed sites, factory count and upkeep. The foundry cost and the effect
-of the larger resource budgets require playtesting before treating the values as final.
+A normal factory produces 12 Ancillaries per four-hour batch; conductive supply
+adds 6 at each of two factories. Resin adds 12 per cycle at one supplied depot.
+At base rates, a 40-Ancillary extractor repays its cost in 13h 20m of supplied
+operation. A 50-Ancillary foundry takes 16h 40m with two factories or 33h 20m
+with one. These figures exclude technology, construction, FOOD and opportunity
+costs. Benefits remain bounded by developed sites, eligible depots/factories and
+upkeep; the larger deposit budgets still require multiplayer playtesting.
 
 The figures above are starting balance, not evidence from a long-running
 multiplayer playtest. After staging, compare developed-site counts, income

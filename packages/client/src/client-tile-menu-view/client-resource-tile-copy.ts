@@ -41,9 +41,9 @@ export function resourceTileStatsHtml(tile: Tile, techCatalog: readonly Pick<Tec
     : structure.status === "under_construction" ? "Under construction"
     : structure.status !== "active" || structure.inactiveReason === "manual" ? "Inactive"
     : "Garrison + active site";
-  const target = spec.target === "ANCILLARY_FACTORY" ? "Ancillary Factory" : spec.target === "TRADE_NEXUS" ? "Trade Nexus" : "Manufactory";
+  const target = spec.target === "ANCILLARY_DEPOT" ? "Ancillary Depot" : spec.target === "ANCILLARY_FACTORY" ? "Ancillary Factory" : spec.target === "TRADE_NEXUS" ? "Trade Nexus" : "Manufactory";
   const bonus = spec.batchBonus ? `+${spec.batchBonus * spec.slotsPerSite} Ancillaries` : `+${spec.creditPerDay} Coin`;
-  const interval = spec.batchBonus ? `per ${MANPOWER_REFILL_WINDOW_MS / 3_600_000}h batch` : "per day";
+  const interval = spec.batchBonus ? `per ${MANPOWER_REFILL_WINDOW_MS / 3_600_000}h ${spec.target === "ANCILLARY_DEPOT" ? "cycle" : "batch"}` : "per day";
   const unlock = techCatalog.find(tech => tech.id === spec.tech)?.name ?? "Matching Manifest";
   return `<div class="tile-stat-grid resource-stat-grid">${[
     card("Potential bonus", bonus, spec.slotsPerSite > 1 ? `${spec.slotsPerSite} factories × +${spec.batchBonus} · ${interval}` : `${interval} · 1 ${target}`),

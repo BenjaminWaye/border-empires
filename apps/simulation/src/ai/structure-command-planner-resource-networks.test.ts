@@ -9,9 +9,17 @@ describe("AI resource-network development",()=>{
     const player:StructurePlannerPlayer={id:"ai",points:100,manpower:1000,techIds:[spec.tech],ownedStructureCounts:{[spec.target]:1},slotSupplyByResource:{FOOD:10},slotDemandByResource:{FOOD:0}};
     const lookup=new Map([["10,10",tile]]);
     expect(chooseBestEconomicBuild(player,[tile],lookup)?.structureType).toBe(spec.building);
-    expect(chooseBestEconomicBuild({...player,ownedStructureCounts:{[spec.target]:8,[spec.building]:7}},[tile],lookup)?.structureType).toBe(spec.building);
+    expect(chooseBestEconomicBuild({...player,ownedStructureCounts:{[spec.target]:7*spec.slotsPerSite+1,[spec.building]:7}},[tile],lookup)?.structureType).toBe(spec.building);
     expect(chooseBestEconomicBuild({...player,techIds:[]},[tile],lookup)).toBeUndefined();
     expect(chooseBestEconomicBuild({...player,ownedStructureCounts:{}},[tile],lookup)).toBeUndefined();
     expect(chooseBestEconomicBuild({...player,ownedStructureCounts:{[spec.target]:1,[spec.building]:1}},[tile],lookup)).toBeUndefined();
   });
+});
+
+it("one Implant Foundry covers two factories before the AI develops another", () => {
+  const tile: StructurePlannerTile = { x: 10, y: 10, terrain: "LAND", ownerId: "ai", ownershipState: "SETTLED", resource: "CONDUCTIVE_MINERALS" };
+  const player: StructurePlannerPlayer = { id: "ai", points: 100, manpower: 1000, techIds: ["organized-supply"], ownedStructureCounts: { ANCILLARY_FACTORY: 2, IMPLANT_FOUNDRY: 1 }, slotSupplyByResource: { FOOD: 10 }, slotDemandByResource: { FOOD: 0 } };
+  const lookup = new Map([["10,10", tile]]);
+  expect(chooseBestEconomicBuild(player, [tile], lookup)).toBeUndefined();
+  expect(chooseBestEconomicBuild({ ...player, ownedStructureCounts: { ANCILLARY_FACTORY: 3, IMPLANT_FOUNDRY: 1 } }, [tile], lookup)?.structureType).toBe("IMPLANT_FOUNDRY");
 });

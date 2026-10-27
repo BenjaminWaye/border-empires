@@ -8,9 +8,9 @@ export const RESOURCE_NETWORKS_CHANGELOG: ClientChangelogEntry[] = [{
   changes: [
     "New standard maps target 1,000 tiles each of neural resin, conductive minerals, catalysts, luxury biota and precursor salvage, grouped into deposits of 1–3 tiles in suitable biomes.",
     "Explore deposits and develop them with the matching industry. Implant Foundry unlocks alongside Ancillary Depot; Reclamation Works unlocks alongside Manufactory.",
-    "Developed resin and conductive sites increase Ancillary Factory batches; towns still supply the bodies and depots determine storage.",
+    "Developed resin sites replenish supplied depots and conductive sites boost factory batches; towns still supply the bodies and depots determine storage.",
     "Catalysts and luxury exports back more Coin credit through Trade Nexuses; reclaimed machinery improves Manufactory-backed credit.",
-    "Each supply slot supports one building: resin grants +12 Ancillaries per batch, conductive minerals +6, and credit resources +1.5 Coin/day. Extra buildings need additional supply slots.",
+    "Each supply slot supports one building: resin grants +12 Ancillaries per depot cycle, conductive minerals +6 per supplied factory, and credit resources +1.5 Coin/day. Extra buildings need additional supply slots.",
     "Conductive deposits expose branching metal seams in fractured rock; the Implant Foundry uses matching ore art in both map renderers.",
     "Deposits and extraction buildings have art in both the 2D and 3D maps. Decorative lone trees are removed; resin appears as distinct groves. Saved campaigns keep their existing deposits."
   ]
@@ -63,6 +63,13 @@ export const RESOURCE_NETWORKS_CHANGELOG: ClientChangelogEntry[] = [{
     title: "Implant Foundries support two factories",
     why: "Conductive supply should match resin output when split across two factory lines.",
     changes: ["One Implant Foundry provides two conductive slots: +6 Ancillaries per batch at each of two factories, +12 total. A single factory uses one slot; the spare slot can support another factory or be traded."]
+  },
+  {
+    createdAt: 1793140658582,
+    introducedIn: "2026.10.27.7",
+    title: "Neural resin replenishes Ancillary Depots",
+    why: "Depots should benefit from the resource that keeps their reserves ready.",
+    changes: ["Each resin slot supplies one Ancillary Depot with +12 Ancillaries per four-hour cycle; factories use conductive supply instead."]
   }
 
 ];

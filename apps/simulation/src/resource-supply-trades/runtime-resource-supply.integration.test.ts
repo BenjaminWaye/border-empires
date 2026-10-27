@@ -22,6 +22,7 @@ function fixture(allResources = false, buyerFarms = 12) {
   if (allResources) for (const [y,type] of [[40,"TRADE_NEXUS"],[41,"MANUFACTORY"]] as const)
     tiles.find(t=>t.x===39&&t.y===y)!.economicStructure={ownerId:"buyer",type,status:"active"};
   tiles.find(t=>t.x===39&&t.y===39)!.economicStructure={ ownerId:"buyer",type:"ANCILLARY_FACTORY",status:"active" };
+  tiles.find(tile => tile.x === 41 && tile.y === 40)!.economicStructure = { ownerId: "buyer", type: "ANCILLARY_DEPOT", status: "active" };
   const runtime = new SimulationRuntime({ now:()=>now,seedTiles:new Map(),initialState:{ tiles,activeLocks:[] },
     initialPlayers:new Map(["seller","buyer"].map(id=>[id,buildPlayer(id,{ points:100,manpower:0,manpowerUpdatedAt:start,
       manpowerCapSnapshot:10000,landingReserveGranted:true,techIds:new Set(allResources ? NETWORK_RESOURCES.map(resource=>RESOURCE_NETWORKS[resource].tech) : ["neural-resin-processing"]) })])) });
@@ -29,7 +30,7 @@ function fixture(allResources = false, buyerFarms = 12) {
   return { runtime,pay,setNow:(at:number)=>{now=at;}, player:(id:string)=>runtime.exportState().players.find(p=>p.id===id)! };
 }
 describe("resource trades in the production runtime",()=>{
-  it("commits a supplier once, pays Coin, and adds the recipient's factory bonus",async()=>{
+  it("commits a supplier once, pays Coin, and adds the recipient's depot bonus",async()=>{
     const f=fixture(), events=collectEvents(f.runtime);
     expect(f.player("seller").resourceTradeHoldings?.NEURAL_RESIN).toBe(1);
     const before=f.player("buyer");
@@ -126,8 +127,16 @@ describe("resource trades in the production runtime",()=>{
     const paid=f.player("buyer").points-startPaid,base=baseline.player("buyer").points-startBase;
     expect(paid-base).toBeCloseTo(4.5/24,5);
   });
+  it("an imported resin slot cannot replenish an unpowered depot", async () => {
+    const f = fixture(false, 0), before = f.player("buyer").manpowerRegenPerMinute!;
+    await f.pay();
+    expect(f.player("buyer").manpowerRegenPerMinute).toBe(before);
+    const slots = buildPlayerSubscriptionSnapshot("buyer", f.runtime.exportVisibleStateForPlayer("buyer"), { tilesAlreadyVisible: true }).player!.resourceSlots!.bonusSupply!;
+    expect(slots.supply.NEURAL_RESIN).toBe(1);
+    expect(slots.used.NEURAL_RESIN).toBe(0);
+  });
   it("uses imported FOOD to wake dormant domestic industry without creating a stockpile",async()=>{
-    const f=fixture(false,4),before=f.player("buyer");
+    const f=fixture(false,5),before=f.player("buyer");
     const ownBefore=buildPlayerSubscriptionSnapshot("buyer",f.runtime.exportVisibleStateForPlayer("buyer"),{tilesAlreadyVisible:true}).player!;
     expect(ownBefore.dormantStructures?.some(row=>row.key==="39,39:economicStructure")).toBe(true);
     await f.pay("trade",{FOOD:1});
@@ -135,7 +144,7 @@ describe("resource trades in the production runtime",()=>{
     expect(f.player("buyer").strategicResources.FOOD ?? 0).toBe(before.strategicResources.FOOD ?? 0);
     const ownAfter=buildPlayerSubscriptionSnapshot("buyer",f.runtime.exportVisibleStateForPlayer("buyer"),{tilesAlreadyVisible:true}).player!;
     expect(ownAfter.dormantStructures?.some(row=>row.key==="39,39:economicStructure")).toBe(false);
-    expect(ownAfter.resourceSlots?.supply.FOOD).toBe(5);
+    expect(ownAfter.resourceSlots?.supply.FOOD).toBe(6);
   });
 
   it.each(["seller","buyer"])("lets %s end the same agreement and releases both players' supply",async(actorId)=>{

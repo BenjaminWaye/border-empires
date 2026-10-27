@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
-import { closeDiplomacyTradeScreen, openDiplomacyTradeScreen, receiveDiplomacyStance } from "../../../../client/src/client-diplomacy-trade/client-diplomacy-trade.js";
+import { closeDiplomacyTradeScreen, openDiplomacyTradeScreen, receiveDiplomacyStance } from "@client/client-diplomacy-trade/client-diplomacy-trade.js";
 const meta: Meta = { title:"UI/Diplomacy/Resource Supply", parameters:{layout:"fullscreen"}, render:()=>{
   closeDiplomacyTradeScreen();
   const host=document.createElement("div");

@@ -31,6 +31,8 @@ it("negotiates, pays, delivers and cancels consecutive independent trades over r
     economicStructure: { ownerId: "seller", type: "RESIN_EXTRACTOR", status: "active" } });
   tiles.push({ x: 39, y: 10, terrain: "LAND", ownerId: "buyer", ownershipState: "SETTLED",
     economicStructure: { ownerId: "buyer", type: "ANCILLARY_FACTORY", status: "active" } });
+  tiles.push({ x: 41, y: 10, terrain: "LAND", ownerId: "buyer", ownershipState: "SETTLED",
+    economicStructure: { ownerId: "buyer", type: "ANCILLARY_DEPOT", status: "active" } });
   const seed = new SimulationRuntime({ now: () => now, seedTiles: new Map(), initialState: { tiles, activeLocks: [] },
     initialPlayers: new Map(["seller", "buyer"].map(id => [id, buildPlayer(id, {
       name: id, points: 100, manpower: 0, manpowerUpdatedAt: now, landingReserveGranted: true,
