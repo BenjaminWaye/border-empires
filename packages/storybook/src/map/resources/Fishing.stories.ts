@@ -1,11 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
-import { createAtmosphere } from "@client/client-map-3d-atmosphere.js";
+import { createResourcePreviewAtmosphere } from "../../fixtures/resource-preview-atmosphere.js";
 import { createHeightfield, type HeightfieldTerrainKind } from "@client/client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { createHillTerrain } from "@client/client-map-3d-hills.js";
 import { createFishingOverlay, fishingWaterDirection } from "@client/client-map-3d-fishing/client-map-3d-fishing.js";
 import { createStage, wrapWithCleanup } from "../../fixtures/three-stage.js";
 
-// The fishing model placed on the real game terrain: the production heightfield,
+// The fish-basin model placed on the real game terrain: the production heightfield,
 // hill domes and atmosphere (sun, fog, environment map), with fishing tiles
 // laid out the way FISH resource tiles appear in play — a few adjacent
 // sites facing each shore of a lake, plus one inland. The model
@@ -31,7 +31,7 @@ const tileKindAt = (wx: number, wy: number): HeightfieldTerrainKind => (isWater(
 
 const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, cameraTilt: args.cameraTilt, background: "#1a2030" });
-  const atmosphere = createAtmosphere(stage.scene);
+  const atmosphere = createResourcePreviewAtmosphere(stage.scene);
   const hf = createHeightfield();
   stage.scene.add(hf.mesh, hf.skirtMesh, hf.gridlines);
   hf.setGridlinesVisible(args.showGridlines);
@@ -70,3 +70,16 @@ export default meta;
 type Story = StoryObj<Args>;
 
 export const Fishing: Story = {};
+
+export const BasinDetail: Story = {
+  render: () => {
+    const stage = createStage({ cameraDistance: 1.7, cameraTilt: 0.85, background: "#202c29" });
+    stage.camera.position.set(1.1, 1.15, 1.4);
+    stage.camera.lookAt(0, 0.12, 0);
+    const atmosphere = createResourcePreviewAtmosphere(stage.scene);
+    const overlay = createFishingOverlay(stage.scene, 1, atmosphere.buildingEnvironmentTexture);
+    overlay.addInstance(0, 0, 0, 100, 100, { dx: 1, dy: 0 });
+    overlay.commit();
+    return wrapWithCleanup(stage, [overlay.dispose, atmosphere.dispose]);
+  }
+};

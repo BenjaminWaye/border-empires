@@ -1,10 +1,10 @@
 // Farm plot drawn on every FARM resource tile in the 3D renderer. Replaces
 // the earlier procedural shell-stack barley field.
 //
-// Source: farmland4.glb — a low-poly farm tile (three crop fields, a silo,
-// a hay bale and a few bushes) authored in Blender: 16 small meshes over 10
-// flat-colour materials, ~1.1k triangles, ~0.95 x 0.3 x 0.98 units centred
-// on the origin. No textures.
+// Source: farmland.glb, enriched by scripts/bake-food-tile-models.mjs with
+// irrigation headers, crop clusters, silo bands and barn trim. The detailed
+// asset carries baked ambient occlusion in vertex colours and box-projected
+// UVs for fine surface grain, within the original footprint and height.
 //
 // At load every mesh is baked into ONE geometry (world transform applied,
 // each material's base colour written to a vertex-colour attribute) so all
@@ -13,13 +13,13 @@
 // degrees (stable per world tile) so neighbouring plots don't look alike.
 // The glb loads asynchronously; instances added before it lands are held
 // and applied when it arrives.
-import { Euler, InstancedMesh, Matrix4, MeshStandardMaterial, Quaternion, Vector3 } from "three";
+import { Euler, InstancedMesh, Matrix4, Quaternion, Vector3 } from "three";
 import type { BufferGeometry, Material, Scene, Texture } from "three";
 import { loadMergedGlbGeometry } from "../client-map-3d-merged-glb/client-map-3d-merged-glb.js";
-import { applyBuildingEnvMap } from "../client-map-3d-building-envmap/client-map-3d-building-envmap.js";
+import { createFoodTileMaterial } from "../client-map-3d-merged-glb/client-food-tile-material.js";
 import type { ClientTileEconomicStructure } from "../client-tile-economic-structure-type.js";
 
-export const FARMLAND_MODEL_URL = "/models/farmland.glb";
+export const FARMLAND_MODEL_URL = "/models/farmland-detailed.glb";
 
 // The model's lowest point sits this far below its origin; lifted so the
 // plot rests on the terrain instead of sinking into it.
@@ -108,8 +108,7 @@ export const createFarmlandOverlay = (scene: Scene, maxTiles: number, envMap?: T
 
   void loadFarmland().then(({ geometry }) => {
     if (disposed) return;
-    const material = new MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0, flatShading: true });
-    applyBuildingEnvMap(material, envMap);
+    const material = createFoodTileMaterial(envMap);
     mesh = new InstancedMesh(geometry, material, maxTiles);
     mesh.frustumCulled = false;
     mesh.count = 0;

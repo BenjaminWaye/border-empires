@@ -1,19 +1,39 @@
 <svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <g transform="translate(64 72) scale(1.22) translate(-64 -72)">
-  <path d="M54 78L60 50L65 50L59 78H54Z" fill="#8B5D34"/>
-  <path d="M89 78L83 50L88 50L94 78H89Z" fill="#8B5D34"/>
-  <path d="M61 54H85" stroke="#B88349" stroke-width="4" stroke-linecap="round"/>
-  <path d="M63 59C65 63, 65 70, 63 74C61 70, 61 63, 63 59Z" fill="#C8D2DA"/>
-  <path d="M71 59C73 63, 73 70, 71 74C69 70, 69 63, 71 59Z" fill="#C8D2DA"/>
-  <path d="M79 59C81 63, 81 70, 79 74C77 70, 77 63, 79 59Z" fill="#C8D2DA"/>
-  <path d="M87 59C89 63, 89 70, 87 74C85 70, 85 63, 87 59Z" fill="#C8D2DA"/>
-  <ellipse cx="24" cy="80" rx="6" ry="3" fill="#C48E53"/>
-  <path d="M18 80C19 90, 29 90, 30 80V91C29 99, 19 99, 18 91V80Z" fill="#9B6A3A"/>
-  <path d="M19 86H29" stroke="#515B68" stroke-width="2"/>
-  <path d="M19 93H29" stroke="#515B68" stroke-width="2"/>
-  <ellipse cx="37" cy="85" rx="6" ry="3" fill="#C48E53"/>
-  <path d="M31 85C32 95, 42 95, 43 85V96C42 104, 32 104, 31 96V85Z" fill="#875A32"/>
-  <path d="M32 91H42" stroke="#515B68" stroke-width="2"/>
-  <path d="M32 98H42" stroke="#515B68" stroke-width="2"/>
-  </g>
+<defs>
+<linearGradient id="basin3wall"><stop stop-color="#657b7a"/><stop offset=".45" stop-color="#b3bdb0"/><stop offset="1" stop-color="#526866"/></linearGradient>
+<linearGradient id="basin3water" x2="0" y2="1"><stop stop-color="#263f48"/><stop offset="1" stop-color="#4b6c70"/></linearGradient>
+<linearGradient id="basin3steel"><stop stop-color="#d6c48a"/><stop offset="1" stop-color="#8a7846"/></linearGradient>
+</defs>
+<ellipse cx="65" cy="100" rx="52" ry="15" fill="#132c2d" opacity=".25"/>
+<path d="M12 71L49 50L91 74V88L54 110L12 86Z" fill="#465758" stroke="#8a9b8f"/>
+<path d="M12 71L49 50L91 74L54 96Z" fill="#7a897c"/>
+<path d="M19 72L54 92L83 75M25 69L60 89M32 65L67 85M39 61L74 81" stroke="#526461" stroke-width="1.2"/>
+<path d="M18 57V35L38 25L54 34V57L37 68Z" fill="url(#basin3wall)" stroke="#334e52"/>
+<path d="M16 35L36 22L56 33L38 46Z" fill="#8e9c90" stroke="#c1c9b3"/>
+<path d="M23 43L33 49V60L23 55Z" fill="#29454d"/>
+<path d="M42 48L51 43V49L42 54Z" fill="#36585d" stroke="#abb69d"/>
+<path d="M64 53V64C64 79 112 79 112 64V53Z" fill="url(#basin3wall)" stroke="#4d6263"/>
+<ellipse cx="88" cy="53" rx="24" ry="12" fill="#bdc8b9" stroke="#566e70" stroke-width="1.2"/>
+<ellipse cx="88" cy="53" rx="20" ry="8.5" fill="url(#basin3water)" stroke="#394e53" stroke-width="1.5"/>
+<path d="M78 56Q88 61 99 55" stroke="#83acab" stroke-width="1.1" opacity=".7"/>
+<path d="M86 66V78M93 66V78M86 71H93M86 75H93" stroke="#d3d5ba" stroke-width="1.5"/>
+<path d="M64 84V95C64 110 112 110 112 95V84Z" fill="url(#basin3wall)" stroke="#4d6263"/>
+<ellipse cx="88" cy="84" rx="24" ry="12" fill="#bdc8b9" stroke="#566e70" stroke-width="1.2"/>
+<ellipse cx="88" cy="84" rx="20" ry="8.5" fill="url(#basin3water)" stroke="#394e53" stroke-width="1.5"/>
+<path d="M78 87Q88 92 99 86" stroke="#83acab" stroke-width="1.1" opacity=".7"/>
+<path d="M86 97V109M93 97V109M86 102H93M86 106H93" stroke="#d3d5ba" stroke-width="1.5"/>
+<path d="M52 65L58 61L64 65L58 69Z" fill="#657b78"/>
+<path d="M55 63V26H61V63Z" fill="url(#basin3steel)" stroke="#776a43"/>
+<path d="M58 27L89 13V19L60 34Z" fill="url(#basin3steel)" stroke="#d5c389"/>
+<path d="M88 18V42" stroke="#d0d4c5" stroke-width="1.2"/>
+<path d="M82 45L88 39L94 45L91 52H85Z" fill="#667d80" stroke="#354d58"/>
+<path d="M84 46H92M86 43V51M90 43V51" stroke="#a8b6b0" stroke-width=".7"/>
+<circle cx="58" cy="39" r="4" fill="#40565c" stroke="#afa37b"/>
+<path d="M46 97L52 93L58 97L52 101Z" fill="#657b78"/>
+<path d="M49 95V58H55V95Z" fill="url(#basin3steel)" stroke="#776a43"/>
+<path d="M52 59L83 45V51L54 66Z" fill="url(#basin3steel)" stroke="#d5c389"/>
+<path d="M82 50V74" stroke="#d0d4c5" stroke-width="1.2"/>
+<path d="M76 77L82 71L88 77L85 84H79Z" fill="#667d80" stroke="#354d58"/>
+<path d="M78 78H86M80 75V83M84 75V83" stroke="#a8b6b0" stroke-width=".7"/>
+<circle cx="52" cy="71" r="4" fill="#40565c" stroke="#afa37b"/>
 </svg>

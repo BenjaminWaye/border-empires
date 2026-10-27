@@ -1,22 +1,22 @@
 // Fishing site drawn on every FISH resource tile in the 3D renderer.
-// Replaces the earlier procedural boat + drying-rack boxes.
+// Holding basins with hoists that lower catches into the water.
 //
-// Source: fishing2.glb — a low-poly fishing scene (boats, a hut, a drying
-// rack, a flag pole) authored in Blender: flat-colour materials, no
-// textures. Its grey ground plate was cut out of the file so the terrain
-// (water or shore) shows underneath; only the props are drawn.
+// Source: fishing2.glb, enriched by scripts/bake-food-tile-models.mjs with
+// a service landing, reinforced basin rims and access ladders. Baked shading
+// and fine surface grain preserve the original footprint. There is no solid
+// ground plate: terrain (water or shore) shows between the working props.
 //
 // At load every mesh is baked into ONE geometry (see loadMergedGlbGeometry)
 // so all fishing tiles draw as a single InstancedMesh. The authored model is
 // off-centre and larger than a tile, so it is recentred on the tile, sat on
 // the surface and scaled down to fit.
-import { Box3, Euler, InstancedMesh, Matrix4, MeshStandardMaterial, Quaternion, Vector3 } from "three";
+import { Box3, Euler, InstancedMesh, Matrix4, Quaternion, Vector3 } from "three";
 import type { BufferGeometry, Material, Scene, Texture } from "three";
-import { applyBuildingEnvMap } from "../client-map-3d-building-envmap/client-map-3d-building-envmap.js";
+import { createFoodTileMaterial } from "../client-map-3d-merged-glb/client-food-tile-material.js";
 import { farmlandYawAt } from "../client-map-3d-farmland/client-map-3d-farmland.js";
 import { loadMergedGlbGeometry } from "../client-map-3d-merged-glb/client-map-3d-merged-glb.js";
 
-export const FISHING_MODEL_URL = "/models/fishing2.glb";
+export const FISHING_MODEL_URL = "/models/fishing-detailed.glb";
 
 // Longest footprint side of the placed model, in tile units (a tile is 1
 // wide), leaving a small margin so neighbouring sites don't touch.
@@ -36,8 +36,8 @@ export const fishingModelFitMatrix = (bounds: Box3): Matrix4 => {
 };
 
 // Scene axes: world +x is scene +x, world +y is scene +z. The authored model
-// has its boats and nets on local +x (its water side) and the hut, planks and
-// rack on local -x (its land side).
+// has its holding basins on local +x (its water side) and the hut and
+// service equipment on local -x (its land side).
 export type WaterDirection = { readonly dx: number; readonly dy: number };
 
 const CARDINALS: ReadonlyArray<WaterDirection> = [{ dx: 1, dy: 0 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 0, dy: -1 }];
@@ -115,8 +115,7 @@ export const createFishingOverlay = (scene: Scene, maxTiles: number, envMap?: Te
 
   void loadFishing().then((geometry) => {
     if (disposed) return;
-    const material = new MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0, flatShading: true });
-    applyBuildingEnvMap(material, envMap);
+    const material = createFoodTileMaterial(envMap);
     mesh = new InstancedMesh(geometry, material, maxTiles);
     mesh.frustumCulled = false;
     mesh.count = 0;
