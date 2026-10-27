@@ -17,7 +17,7 @@ import { createInitialIslandNamesState } from "../client-map-name-labels/client-
 import { createInitialSocialState } from "./client-state-social-defaults.js"; import { createInitialSiegeBombardmentState } from "./client-state-siege-bombardment-defaults.js"; import { createInitialAfcDeliveryState } from "./client-state-afc-delivery-defaults.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, EXPAND_MANPOWER_COST, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, MUSTER_MAX_TILES, type BuildableStructureType, type FrontierCombatSideBreakdown, type SlotResource } from "@border-empires/shared";
-import type { EconomyBreakdown } from "../client-economy-model.js";
+import type { ClientResourceSlots, EconomyBreakdown } from "../client-economy-model.js";
 import type { VictoryHoldAlert } from "../client-victory-alert/client-victory-alert.js";
 import { createInitialAttackDispatchState } from "./client-state-attack-dispatch-defaults.js";
 import type { MusterRateSample } from "../client-muster-prediction/client-muster-prediction.js";
@@ -96,7 +96,7 @@ export const createInitialState = () => ({
   // build time (Step 5 item 4 Slice A).
   resourceSlots: {
     supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } as Record<SlotResource, number>, demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } as Record<SlotResource, number>
-  },
+  } as ClientResourceSlots,
   // §14.2: per-structure dormancy detail, keyed by "x,y:field" — which structures are dormant right now, and which resource(s) they're short
   // on. Feeds the greyed-out/"unpowered" indicator in the tile detail view.
   dormantStructures: [] as Array<{ key: string; resources: SlotResource[] }>,

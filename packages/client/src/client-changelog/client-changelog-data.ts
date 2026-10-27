@@ -448,8 +448,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     createdAt: 1793125924000, // Date.now() captured once for this entry.
     introducedIn: "2026.10.27.5",
     title: "Clearer economy resources",
-    why: "Unresearched resources cluttered the bar, and slot sources were vague.",
-    changes: ["Crystal, Titanium and Umbrite stay off the resource bar and Economy panel until researched.", "Slot sources now read as sites (e.g. Titanium sites ×2), and an AFC upgrade's resource grant shows by name."]
+    why: "Unresearched resources cluttered the bar, and slot sources showed as a vague \"Other bonuses\".",
+    changes: ["Crystal, Titanium and Umbrite stay off the resource bar and Economy panel until researched, unless you already have slots or users for them.", "Economy slot sources now list every source by name: resource sites, Mines and Refineries, upgrades, Waystations, Siphons, Foundry Heart and relics.", "Slot sources are now correct for your whole empire, not just the area on screen."]
   }
 ];
 

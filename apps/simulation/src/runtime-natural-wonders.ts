@@ -1,5 +1,5 @@
 import { appendPlayerEventLogEntry, type DomainTileState } from "@border-empires/game-domain";
-import { RELIC_DEFINITIONS, isRedesignedRelic, quickforgeAdjustedRushPrice as sharedQuickforgeAdjustedRushPrice } from "@border-empires/shared";
+import { RELIC_DEFINITIONS, isRedesignedRelic, quickforgeAdjustedRushPrice as sharedQuickforgeAdjustedRushPrice, type ResourceSlotSourceSink } from "@border-empires/shared";
 import type { RuntimePlayer } from "./runtime-types.js";
 import type { ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 import { naturalWonderClaimEventText } from "./natural-wonder-claim-text.js";
@@ -71,12 +71,12 @@ export const announceNaturalWonderClaim = (tile: DomainTileState, players: Map<s
 };
 
 // Foundry Heart: +1 of every strategic resource slot for the controller.
-export const applyFoundryHeartSlotBonus = (hasFoundryHeart: boolean, totals: ResourceSlotTotals): void => {
+export const applyFoundryHeartSlotBonus = (hasFoundryHeart: boolean, totals: ResourceSlotTotals, onSource?: ResourceSlotSourceSink): void => {
   if (!hasFoundryHeart) return;
-  totals.FOOD += 1;
-  totals.TITANIUM += 1;
-  totals.CRYSTAL += 1;
-  totals.UMBRITE += 1;
+  for (const resource of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"] as const) {
+    totals[resource] += 1;
+    onSource?.(resource, "FOUNDRY_HEART", "", 1);
+  }
 };
 
 // Quickforge: discount one rush-buy per UTC day for the player. The "used

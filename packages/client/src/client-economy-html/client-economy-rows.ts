@@ -77,9 +77,14 @@ const slotRowHtml = (input: EconomyRowsInput, resource: SlotResource): string =>
   </section>`;
 };
 
-// A resource the player has not researched yet gets no row at all, same as the top bar.
+// A resource the player has not researched yet gets no row, same as the top bar,
+// unless it already has slots or users (e.g. an upgrade grant or a captured
+// structure) — hiding those would hide a real shortage.
+const showsSlotRow = (input: EconomyRowsInput, r: SlotResource): boolean =>
+  input.isRevealed(r) || input.slots[r].supply > 0 || input.slots[r].demand > 0;
+
 export const renderEconomyRowsHtml = (input: EconomyRowsInput): string =>
-  `<div class="v2e">${ROWS.map((r) => (r === "GOLD" ? coinRowHtml(input) : input.isRevealed(r) ? slotRowHtml(input, r) : "")).join("")}</div>`;
+  `<div class="v2e">${ROWS.map((r) => (r === "GOLD" ? coinRowHtml(input) : showsSlotRow(input, r) ? slotRowHtml(input, r) : "")).join("")}</div>`;
 
 /** The classic panel's own calculations, handed in by client-economy-html.ts. */
 export type EconomyRowsHelpers = {

@@ -2,7 +2,6 @@
 // client-hud.ts, which is over the file-line cap.
 
 import { renderEconomyPanelHtml } from "../client-economy-html/client-economy-html.js";
-import { domainSlotGrantFor } from "../client-economy-html/client-economy-slot-sources.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 export type HudEconomyPanelDeps = {
@@ -19,7 +18,6 @@ export type HudEconomyPanelDeps = {
 };
 
 export const hudEconomyPanelHtml = (state: ClientState, deps: HudEconomyPanelDeps): string => {
-  const domainSlotGrant = domainSlotGrantFor(state.domainCatalog, state.domainIds, state.chosenTrickleResource);
   return renderEconomyPanelHtml({
     focus: state.economyFocus,
     integrityPct: state.defensibilityPct,
@@ -31,7 +29,10 @@ export const hudEconomyPanelHtml = (state: ClientState, deps: HudEconomyPanelDep
     strategicProductionPerMinute: state.strategicProductionPerMinute,
     resourceSlots: state.resourceSlots,
     dormantStructures: state.dormantStructures,
-    ...(domainSlotGrant ? { domainSlotGrant } : {}),
+    slotSourceNames: {
+      domainName: (id) => state.domainCatalog.find((domain) => domain.id === id)?.name,
+      playerName: (id) => state.playerNames.get(id)
+    },
     economyBreakdown: state.economyBreakdown,
     upkeepPerMinute: state.upkeepPerMinute,
     upkeepLastTick: state.upkeepLastTick,

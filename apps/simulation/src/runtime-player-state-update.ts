@@ -1,4 +1,4 @@
-import { DEVELOPMENT_PROCESS_LIMIT, empireIntegrity, expandManpowerCostForFrontierCount, normalizeAutoSettlePrefs } from "@border-empires/shared";
+import { DEVELOPMENT_PROCESS_LIMIT, empireIntegrity, expandManpowerCostForFrontierCount, normalizeAutoSettlePrefs, type ResourceSlotSources } from "@border-empires/shared";
 import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { additiveEffectForPlayer, buildModBreakdownForPlayer, recomputeMods } from "./tech-domain-bridge/tech-domain-bridge.js";
@@ -23,6 +23,8 @@ export type RuntimePlayerStateUpdateContext = {
   cachedEconomySnapshot: (player: RuntimePlayer) => PlayerUpdateEconomySnapshot;
   resourceSlotSupplyForPlayer: (playerId: string) => ResourceSlotTotals;
   resourceSlotDemandForPlayer: (playerId: string) => ResourceSlotTotals;
+  // Labelled rows behind the supply total; read after resourceSlotSupplyForPlayer (same cached rebuild).
+  resourceSlotSourcesForPlayer: (playerId: string) => ResourceSlotSources;
   dormantStructuresForPlayer: (playerId: string) => DormantStructureDetail[];
   emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: Record<string, unknown>) => void;
   playerManpowerCap: (player: RuntimePlayer) => number;
@@ -91,7 +93,8 @@ export function emitPlayerStateUpdate(
       strategicProductionPerMinute: economy.strategicProductionPerMinute,
       resourceSlots: {
         supply: context.resourceSlotSupplyForPlayer(playerId),
-        demand: context.resourceSlotDemandForPlayer(playerId)
+        demand: context.resourceSlotDemandForPlayer(playerId),
+        sources: context.resourceSlotSourcesForPlayer(playerId)
       },
       // §14.2: which of this player's structures are currently dormant
       // (slot demand not covered by supply), and which resource(s) each one

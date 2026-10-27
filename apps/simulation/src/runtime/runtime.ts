@@ -1,5 +1,5 @@
 import { RelicMapHintIndex } from "../runtime-relic-map-hints.js";
-import { activateUnallocatedFoundries, activateRelic, addRelicResourceSupply } from "../runtime-relics.js";
+import { activateUnallocatedFoundries, activateRelic } from "../runtime-relics.js";
 import { settleEnvoyDependents, settleEnvoyDependentsBeforeTileChange } from "./runtime-manpower-economy.js";
 import { afcEnvoyIncomeInSnapshot } from "../afc-specializations/afc-coalition.js";
 import { settleBootstrapManpower } from "./runtime-bootstrap-manpower.js";
@@ -123,10 +123,9 @@ import { createSeedWorld, simulationTileKey } from "../seed-state/seed-state.js"
 import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
 import {
   additiveEffectForPlayer,
-  effectiveVisionRadiusForPlayer,
-  domainGrantedResourceSlots
+  effectiveVisionRadiusForPlayer
 } from "../tech-domain-bridge/tech-domain-bridge.js";
-import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js"; import { techGrantedFishFoodSlotBonus } from "../tech-domain-bridge/fish-food-slot-bonus.js";
+import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js";
 import {
   type TileDeltaVisibilityFilterOptions, type VisibilityAuditSample
 } from "../tile-delta-visibility-filter.js";
@@ -137,7 +136,7 @@ import {
   type DormantStructureDetail,
   type ResourceSlotDormancy,
   type ResourceSlotTotals
-} from "../resource-slot-view/resource-slot-view.js"; import { mergeResourceSlotGrants } from "../resource-slot-view/resource-slot-grants-merge.js";
+} from "../resource-slot-view/resource-slot-view.js"; import { buildResourceSlotSupply } from "../resource-slot-view/resource-slot-supply-build.js";
 import { refreshResourceSlotCachesForPlayer as refreshResourceSlotCachesForPlayerImpl } from "../resource-slot-view/resource-slot-cache-refresh.js";
 import { foodDormantEconomicStructureKeysFromDormancy } from "../snapshot-economy-helpers.js";
 import { flushRadiusYieldRefresh } from "../radius-yield-refresh/radius-yield-refresh.js";
@@ -342,7 +341,7 @@ import {
   type RuntimeAbilityCommandContext
 } from "../runtime-ability-command-handlers.js";
 import { buildAbilityCommandContext } from "./runtime-ability-command-context.js";
-import { handleCancelSiphonCommand as handleCancelSiphonCommandImpl, handlePurgeSiphonCommand as handlePurgeSiphonCommandImpl, handleSiphonTileCommand as handleSiphonTileCommandImpl } from "../runtime-siphon-command-handlers.js"; import { SiphonModeLifecycle } from "../siphon-mode/siphon-mode-lifecycle.js"; import { resourceSlotSupplyWithSiphonTransfer } from "../siphon-mode/siphon-slot-transfer.js"; import { stampObservatoryCooldown as stampObservatoryCooldownImpl } from "../observatory-cooldown-stamp/observatory-cooldown-stamp.js";
+import { handleCancelSiphonCommand as handleCancelSiphonCommandImpl, handlePurgeSiphonCommand as handlePurgeSiphonCommandImpl, handleSiphonTileCommand as handleSiphonTileCommandImpl } from "../runtime-siphon-command-handlers.js"; import { SiphonModeLifecycle } from "../siphon-mode/siphon-mode-lifecycle.js"; import { stampObservatoryCooldown as stampObservatoryCooldownImpl } from "../observatory-cooldown-stamp/observatory-cooldown-stamp.js";
 import { isObservatoryShielding, isTileShieldedByOwnersIndexedTowers } from "../aether-shield/aether-shield.js";
 import { createAetherShieldTicker, type AetherShieldTicker } from "../aether-shield/aether-shield-tick.js";
 import { handleSyncAllianceCommand as handleSyncAllianceCommandImpl } from "../runtime-alliance-sync-command.js";
@@ -2363,10 +2362,7 @@ export class SimulationRuntime {
   // — see RuntimeEconomyCaches for the caching and AI coalescing, and
   // refreshEconomyCachesForTileChange for the invalidation gates.
   private resourceSlotSupplyForPlayer(playerId: string, forceFresh = false): ResourceSlotTotals {
-    return this.economyCaches.resourceSlotSupply(playerId, forceFresh, () => {
-      const playerOf = (id: string): RuntimePlayer | undefined => this.state.players.get(id); // Siphon: drained resource tiles' slots move from owner to caster (siphon-slot-transfer.ts).
-      const totals = resourceSlotSupplyWithSiphonTransfer({ playerId, tiles: this.state.tiles, settledTilesForPlayer: (id) => this.settledTilesForPlayer(id), activeObservatoryKeysForPlayer: (id) => this.ownerIndexes.activeObservatoriesByOwner.get(id) ?? [], grantedSupplyForPlayer: (id) => { const p = playerOf(id); return p ? mergeResourceSlotGrants(domainGrantedResourceSlots(p), p.waystationResourceSlotBonus) : undefined; }, fishFoodSlotBonusForPlayer: (id) => { const p = playerOf(id); return p ? techGrantedFishFoodSlotBonus(p) : 0; } }); wonderEffects.applyFoundryHeartSlotBonus(wonderEffects.playerHasWonderType(this.wonderCacheByPlayer, playerId, "FOUNDRY_HEART"), totals); addRelicResourceSupply({ tiles: this.state.tiles, summaryForPlayer: id => this.summaryForPlayer(id) }, playerOf(playerId), totals); return totals;
-    });
+    return this.economyCaches.resourceSlotSupply(playerId, forceFresh, () => buildResourceSlotSupply({ players: this.state.players, tiles: this.state.tiles, settledTilesForPlayer: (id) => this.settledTilesForPlayer(id), activeObservatoryKeysForPlayer: (id) => this.ownerIndexes.activeObservatoriesByOwner.get(id) ?? [], hasFoundryHeart: (id) => wonderEffects.playerHasWonderType(this.wonderCacheByPlayer, id, "FOUNDRY_HEART"), summaryForPlayer: (id) => this.summaryForPlayer(id) }, playerId));
   }
 
   private resourceSlotDemandForPlayer(playerId: string, forceFresh = false): ResourceSlotTotals {
@@ -2623,6 +2619,7 @@ export class SimulationRuntime {
       cachedDefensibilityMetrics: (playerId, summary) => this.cachedDefensibilityMetrics(playerId, summary),
       cachedEconomySnapshot: (player) => this.cachedEconomySnapshot(player),
       resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
+      resourceSlotSourcesForPlayer: (playerId) => this.economyCaches.resourceSlotSources(playerId),
       resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId),
       dormantStructuresForPlayer: (playerId) => this.dormantStructuresForPlayer(playerId),
       emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload),

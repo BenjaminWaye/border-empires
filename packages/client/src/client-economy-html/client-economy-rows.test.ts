@@ -42,6 +42,12 @@ describe("Economy rows (new HUD)", () => {
     expect(host.textContent).not.toContain("Not discovered");
   });
 
+  // Review: hiding an unresearched resource also hid real slots (an upgrade grant) and shortages.
+  it("still shows an unresearched resource that has slots or users", () => {
+    const host = render(input({ slots: { ...input().slots, CRYSTAL: slot(1, 0) } }));
+    expect(host.querySelector("[data-v2e-row='CRYSTAL']")).not.toBeNull();
+  });
+
   it("gives used / supply, where supply comes from and what uses it", () => {
     const food = render(input()).querySelector("[data-v2e-row='FOOD']")!;
     expect(food.textContent).toContain("9 / 10");

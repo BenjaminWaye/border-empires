@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY, type AutoSettlePrefs, type SlotResource, type Terrain, type Tile } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY, type AutoSettlePrefs, type ResourceSlotSources, type SlotResource, type Terrain, type Tile } from "@border-empires/shared";
 import type { DomainTileState, PlayerEventLogEntry } from "@border-empires/game-domain";
 import type { EconomyPlayer } from "./economy-network/economy-network.js";
 import type { DormantStructureDetail, ResourceSlotDormancy } from "./resource-slot-view/resource-slot-view.js";
@@ -84,7 +84,7 @@ export type UpkeepLastTick = {
 export type LivePlayerEconomySnapshot = {
   incomePerMinute: number;
   strategicProductionPerMinute: Record<StrategicResourceKey, number>;
-  resourceSlots: { supply: Record<SlotResource, number>; demand: Record<SlotResource, number> };
+  resourceSlots: { supply: Record<SlotResource, number>; demand: Record<SlotResource, number>; sources?: ResourceSlotSources };
   dormantStructures: DormantStructureDetail[];
   upkeepPerMinute: UpkeepPerMinute;
   upkeepLastTick: UpkeepLastTick;

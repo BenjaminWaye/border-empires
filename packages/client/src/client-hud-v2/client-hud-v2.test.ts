@@ -53,6 +53,9 @@ describe("resource bar", () => {
     const html = resourceBarHtml({ gold: 0, incomePerMinute: 0, slotSupply: slots, slotDemand: slots, shard: 0, integrityPct: undefined, isRevealed: (r) => r !== "CRYSTAL" });
     expect(html).not.toContain('data-hud-v2-chip="crystal"');
     expect(html).toContain('data-hud-v2-chip="titanium"');
+    const inUse = resourceBarHtml({ gold: 0, incomePerMinute: 0, slotSupply: slots, slotDemand: { ...slots, CRYSTAL: 1 }, shard: 0, integrityPct: undefined, isRevealed: () => false });
+    expect(inUse).toContain('data-hud-v2-chip="crystal"');
+    expect(inUse).toContain('data-hud-v2-chip="food"');
   });
 });
 

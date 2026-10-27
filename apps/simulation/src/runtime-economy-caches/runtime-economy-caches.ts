@@ -1,4 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
+import { emptyResourceSlotSources, type ResourceSlotSources } from "@border-empires/shared";
 
 import type { ConnectedTownNetworkEntry } from "../economy-network/economy-network.js";
 import type { TownConnectivityState } from "../economy-network/town-connectivity-incremental.js";
@@ -6,6 +7,8 @@ import type { PlayerDefensibilityMetrics } from "../player-defensibility-metrics
 import type { PlayerUpdateEconomySnapshot } from "../player-update-economy/player-update-economy.js";
 import type { UpkeepAccrualSnapshot } from "../player-upkeep-incremental/player-upkeep-incremental.js";
 import type { ResourceSlotDormancy, ResourceSlotTotals } from "../resource-slot-view/resource-slot-view.js";
+
+export type ResourceSlotSupplyBuild = { totals: ResourceSlotTotals; sources: ResourceSlotSources };
 import { refreshEconomyCachesForTileChange } from "../runtime-economy-cache-invalidation.js";
 import { AI_DERIVED_CACHE_COALESCE_MS } from "../runtime/runtime-economy.js";
 import type { ManpowerStructureBonus } from "../runtime-manpower-structure-bonus.js";
@@ -69,6 +72,10 @@ export class RuntimeEconomyCaches {
   // refreshEconomyCachesForTileChange.
   readonly resourceSlotSupplyCacheByPlayer = new Map<string, ResourceSlotTotals>();
   readonly resourceSlotDemandCacheByPlayer = new Map<string, ResourceSlotTotals>();
+  // Labelled supply rows for the Economy panel, written by the same rebuild as
+  // resourceSlotSupplyCacheByPlayer so they always add up to its totals.
+  // Keyed by the same player ids (bounded by the player set, like that cache).
+  private readonly resourceSlotSourcesByPlayer = new Map<string, ResourceSlotSources>();
   // §5.4 dormancy: derived from both supply and demand, so it must be
   // invalidated on the union of their triggers — piggybacks on the demand
   // cache's unconditional (not SETTLED-gated) invalidation.
@@ -137,8 +144,17 @@ export class RuntimeEconomyCaches {
   }
 
   // forceFresh bypasses the AI coalescing window (build gates must see current slots).
-  resourceSlotSupply(playerId: string, forceFresh: boolean, rebuild: () => ResourceSlotTotals): ResourceSlotTotals {
-    return this.coalescedRead(this.resourceSlotSupplyCacheByPlayer, this.resourceSlotSupplyDirtyPlayerIds, this.resourceSlotSupplyLastRebuiltAtMsByPlayer, playerId, forceFresh, rebuild);
+  resourceSlotSupply(playerId: string, forceFresh: boolean, rebuild: () => ResourceSlotSupplyBuild): ResourceSlotTotals {
+    return this.coalescedRead(this.resourceSlotSupplyCacheByPlayer, this.resourceSlotSupplyDirtyPlayerIds, this.resourceSlotSupplyLastRebuiltAtMsByPlayer, playerId, forceFresh, () => {
+      const built = rebuild();
+      this.resourceSlotSourcesByPlayer.set(playerId, built.sources);
+      return built.totals;
+    });
+  }
+
+  /** The rows behind the last supply rebuild; read after resourceSlotSupply so they match its totals. */
+  resourceSlotSources(playerId: string): ResourceSlotSources {
+    return this.resourceSlotSourcesByPlayer.get(playerId) ?? emptyResourceSlotSources();
   }
 
   resourceSlotDemand(playerId: string, forceFresh: boolean, rebuild: () => ResourceSlotTotals): ResourceSlotTotals {

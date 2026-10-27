@@ -13,7 +13,7 @@
 // tower is always active; the lifecycle ends the siphon otherwise), which
 // the runtime already maintains and gauges.
 import type { DomainTileState } from "@border-empires/game-domain";
-import { isSiphonModeSabotage, type SlotResource } from "@border-empires/shared";
+import { isSiphonModeSabotage, type ResourceSlotGrant, type ResourceSlotSourceSink, type SlotResource } from "@border-empires/shared";
 import {
   emptyResourceSlotTotals,
   resourceSlotSupplyForPlayer,
@@ -29,10 +29,12 @@ export type SiphonSlotSupplyInput = {
   playerId: string;
   tiles: ReadonlyMap<string, DomainTileState>;
   settledTilesForPlayer: (playerId: string) => DomainTileState[];
-  // Same inputs the runtime already feeds resourceSlotSupplyForPlayer.
-  grantedSupplyForPlayer: (playerId: string) => Partial<Record<SlotResource, number>> | undefined;
+  // Flat grants (upgrade, waystation), each with its source for the breakdown.
+  grantsForPlayer: (playerId: string) => readonly ResourceSlotGrant[];
   fishFoodSlotBonusForPlayer: (playerId: string) => number;
   activeObservatoryKeysForPlayer: (playerId: string) => Iterable<string>;
+  // Told about every slot `playerId` gets, labelled by source (siphoned-in rows carry the victim's id).
+  onSource?: ResourceSlotSourceSink;
 };
 
 /** What `ownerId` would get from `drained` if it weren't siphoned — computed in the owner's own boost context. */
@@ -59,7 +61,10 @@ export const siphonedInSlotsForPlayer = (input: SiphonSlotSupplyInput): Resource
   }
   for (const [ownerId, drained] of drainedByOwner) {
     const slots = ownerSlotsForTiles(input, ownerId, drained);
-    for (const resource of Object.keys(slots) as SlotResource[]) totals[resource] += slots[resource];
+    for (const resource of Object.keys(slots) as SlotResource[]) {
+      totals[resource] += slots[resource];
+      input.onSource?.(resource, "SIPHON", ownerId, slots[resource]);
+    }
   }
   return totals;
 };
@@ -79,9 +84,18 @@ export const resourceSlotSupplyWithSiphonTransfer = (input: SiphonSlotSupplyInpu
     kept,
     hydroworksKeys,
     oreRefineryKeys,
-    input.grantedSupplyForPlayer(input.playerId),
-    input.fishFoodSlotBonusForPlayer(input.playerId)
+    undefined,
+    input.fishFoodSlotBonusForPlayer(input.playerId),
+    input.onSource
   );
+  for (const grant of input.grantsForPlayer(input.playerId)) {
+    for (const resource of Object.keys(grant.supply) as SlotResource[]) {
+      const count = grant.supply[resource] ?? 0;
+      if (count <= 0) continue;
+      totals[resource] += count;
+      input.onSource?.(resource, grant.kind, grant.id, count);
+    }
+  }
   const siphonedIn = siphonedInSlotsForPlayer(input);
   for (const resource of Object.keys(siphonedIn) as SlotResource[]) totals[resource] += siphonedIn[resource];
   return totals;

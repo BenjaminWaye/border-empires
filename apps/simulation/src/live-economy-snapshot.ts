@@ -2,7 +2,8 @@ import { mutualAfcAllies, applyAfcEnvoyIncome } from "./afc-specializations/afc-
 import { DOCK_INCOME_PER_MIN, PASSIVE_INCOME_MULT, type DomainTileState } from "@border-empires/game-domain";
 import { buildDockLinksByDockTileKey } from "./dock-network/dock-network.js";
 import { buildConnectedTownNetworkForPlayer, dockBaseGoldPerMinuteForPlayer } from "./economy-network/economy-network.js";
-import { domainGrantedResourceSlots } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { domainResourceSlotGrant } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { createResourceSlotSourceCollector, type ResourceSlotGrant, type ResourceSlotSources, type SlotResource } from "@border-empires/shared";
 import { techGrantedFishFoodSlotBonus } from "./tech-domain-bridge/fish-food-slot-bonus.js";
 import { slotWaiversForPlayer } from "./tech-domain-bridge/slot-waivers.js";
 import {
@@ -185,7 +186,7 @@ type OwnedSlotTile = Pick<DomainTileState, "x" | "y" | "fort" | "observatory" | 
 const resourceSlotsForPlayer = (
   playerId: string,
   runtimeState: RuntimeState
-): { supply: ReturnType<typeof resourceSlotSupplyForPlayer>; demand: ReturnType<typeof resourceSlotDemandForPlayer> } => {
+): { supply: ReturnType<typeof resourceSlotSupplyForPlayer>; demand: ReturnType<typeof resourceSlotDemandForPlayer>; sources: ResourceSlotSources } => {
   const settledSlotTiles: SettledSlotTile[] = [];
   const ownedSlotTiles: OwnedSlotTile[] = [];
   for (const tile of runtimeState.tiles) {
@@ -219,12 +220,23 @@ const resourceSlotsForPlayer = (
   const waivers = player
     ? slotWaiversForPlayer({ techIds: new Set(player.techIds), domainIds: new Set(player.domainIds) })
     : undefined;
-  const domainGranted = player ? domainGrantedResourceSlots({ domainIds: new Set(player.domainIds), chosenTrickleResource: player.chosenTrickleResource }) : undefined;
+  // Same labelled grants as the live runtime (resource-slot-supply-build.ts), so the
+  // Economy panel's rows on login match what PLAYER_UPDATE sends afterwards.
+  const upgrade = player ? domainResourceSlotGrant({ domainIds: new Set(player.domainIds), chosenTrickleResource: player.chosenTrickleResource, ...(player.afcScarcityFoodSlots ? { afcScarcityFoodSlots: player.afcScarcityFoodSlots } : {}) }) : undefined;
+  // This cold snapshot's player carries no waystation/siphon/relic state; PLAYER_UPDATE adds those.
+  const grants: ResourceSlotGrant[] = upgrade ? [upgrade] : [];
   const fishBonus = player ? techGrantedFishFoodSlotBonus(player) : 0;
-  return {
-    supply: resourceSlotSupplyForPlayer(settledSlotTiles, hydroworksKeys, oreRefineryKeys, domainGranted, fishBonus),
-    demand: resourceSlotDemandForPlayer(ownedSlotTiles, playerId, waivers)
-  };
+  const { sink, rows } = createResourceSlotSourceCollector();
+  const supply = resourceSlotSupplyForPlayer(settledSlotTiles, hydroworksKeys, oreRefineryKeys, undefined, fishBonus, sink);
+  for (const grant of grants) {
+    for (const resource of Object.keys(grant.supply) as SlotResource[]) {
+      const count = grant.supply[resource] ?? 0;
+      if (count <= 0) continue;
+      supply[resource] += count;
+      sink(resource, grant.kind, grant.id, count);
+    }
+  }
+  return { supply, demand: resourceSlotDemandForPlayer(ownedSlotTiles, playerId, waivers), sources: rows() };
 };
 
 type EconomyResultArgs = {

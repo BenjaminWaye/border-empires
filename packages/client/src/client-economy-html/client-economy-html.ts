@@ -5,12 +5,13 @@ import {
   isSlotSourceConverter,
   converterModeOf,
   type EmpireStorageCap,
+  type ResourceSlotSources,
   type SlotResource
 } from "@border-empires/shared";
 import { economyIntegrityCardHtml } from "./client-economy-integrity-card.js";
 import { economyRowsFromPanelArgs } from "./client-economy-rows.js";
 import { hudV2IsDriving } from "../client-hud-v2/client-hud-v2-flag.js";
-import { slotSourcesForResource } from "./client-economy-slot-sources.js";
+import { slotSourcesForResource, type SlotSourceNames } from "./client-economy-slot-sources.js";
 import { STRUCTURE_DISPLAY_NAMES } from "../client-structure-display-names.js";
 import type { EconomyBreakdown, EconomyBucket, EconomyFocusKey } from "../client-economy-model.js";
 import type { Tile } from "../client-types.js";
@@ -55,10 +56,10 @@ export type EconomyPanelArgs = {
   rateToneClass: (rate: number) => string;
   resourceLabel: (resource: string) => string;
   economicStructureName: (type: EconomicStructureType) => string;
-  resourceSlots: { supply: Record<SlotResource, number>; demand: Record<SlotResource, number> };
+  resourceSlots: { supply: Record<SlotResource, number>; demand: Record<SlotResource, number>; sources?: ResourceSlotSources };
   dormantStructures: Array<{ key: string; resources: SlotResource[] }>;
-  /** Installed AFC upgrade's chosen-resource slot grant, named in Slot Sources (domainSlotGrantFor). */
-  domainSlotGrant?: { label: string; resource: SlotResource; count: number };
+  /** Names for the upgrade / player ids in resourceSlots.sources. */
+  slotSourceNames?: SlotSourceNames;
   // Same reveal gate as the toolbar ribbon (client-panel-html.ts's
   // strategicRibbonHtml): TITANIUM/CRYSTAL/UMBRITE must stay hidden here too
   // until the viewing player has researched the tech that reveals them.

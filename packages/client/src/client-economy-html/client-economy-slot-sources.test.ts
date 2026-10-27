@@ -1,138 +1,70 @@
 import { describe, expect, it } from "vitest";
 
-import { EMPIRE_STORAGE_FLOOR } from "@border-empires/shared";
+import { EMPIRE_STORAGE_FLOOR, emptyResourceSlotSources, type ResourceSlotSources } from "@border-empires/shared";
 import { renderEconomyPanelHtml } from "./client-economy-html.js";
-import type { DomainInfo } from "../client-tech-info-types.js";
-import { domainSlotGrantFor, slotSourcesForResource } from "./client-economy-slot-sources.js";
+import { slotSourcesForResource } from "./client-economy-slot-sources.js";
 
-describe("renderEconomyPanelHtml — Slot Sources", () => {
-  it("lists Slot Sources for a slot resource, mirroring GOLD's Income Sources", () => {
-    const html = renderEconomyPanelHtml({
-      focus: "TITANIUM",
-      gold: 0,
-      me: "me",
-      incomePerMinute: 0,
-      strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
-      storageCap: EMPIRE_STORAGE_FLOOR,
-      resourceSlots: {
-        supply: { FOOD: 0, TITANIUM: 4, CRYSTAL: 0, UMBRITE: 0 },
-        demand: { FOOD: 0, TITANIUM: 1, CRYSTAL: 0, UMBRITE: 0 }
-      },
-      dormantStructures: [],
-      strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
-      upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
-      upkeepLastTick: { foodCoverage: 1 },
-      activeRevealTargetsCount: 0,
-      tiles: [
-        {
-          x: 0,
-          y: 0,
-          terrain: "LAND",
-          ownerId: "me",
-          ownershipState: "SETTLED",
-          resource: "TITANIUM",
-          economicStructure: { ownerId: "me", type: "MINE", status: "active" }
-        },
-        {
-          x: 1,
-          y: 0,
-          terrain: "LAND",
-          ownerId: "me",
-          ownershipState: "SETTLED",
-          fort: { ownerId: "me", status: "active", variant: "FORT" }
-        }
-      ],
-      economyBreakdown: undefined,
-      isMobile: true,
-      prettyToken: (value) => value,
-      resourceIconHtml: (resource) => resource,
-      rateToneClass: () => "positive",
-      resourceLabel: (resource) => resource,
-      economicStructureName: (type) => type
-    });
+type PanelArgs = Parameters<typeof renderEconomyPanelHtml>[0];
 
-    // base(1) + MINE same-tile boost(1) = 2 slots computed from the tile,
-    // plus a 2-slot residual "Other bonuses" row to reconcile against the
-    // authoritative supply of 4 (a domain-effect grant this client-side
-    // re-derivation can't see, per the "Other bonuses" fallback).
-    expect(html).toContain("Slot Sources");
-    expect(html).toContain("TITANIUM");
-    expect(html).toContain("+2 slots");
-    expect(html).toContain("Other bonuses");
-  });
+const titaniumArgs = (supply: number, sources: ResourceSlotSources | undefined, tiles: PanelArgs["tiles"] = []): PanelArgs => ({
+  focus: "TITANIUM", gold: 0, me: "me", incomePerMinute: 0,
+  strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 }, storageCap: EMPIRE_STORAGE_FLOOR,
+  resourceSlots: {
+    supply: { FOOD: 0, TITANIUM: supply, CRYSTAL: 0, UMBRITE: 0 },
+    demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+    ...(sources ? { sources } : {})
+  },
+  dormantStructures: [], strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+  upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 }, upkeepLastTick: { foodCoverage: 1 },
+  activeRevealTargetsCount: 0, tiles, economyBreakdown: undefined, isMobile: true,
+  prettyToken: (value) => value, resourceIconHtml: (resource) => resource,
+  rateToneClass: () => "positive", resourceLabel: (resource) => resource, economicStructureName: (type) => type,
+  slotSourceNames: { domainName: (id) => (id === "afc-exchequer-2" ? "Exchequer II" : undefined), playerName: (id) => (id === "p2" ? "Rival" : undefined) }
+});
 
-  it("omits the Other bonuses row when the computed total already matches supply", () => {
-    const html = renderEconomyPanelHtml({
-      focus: "TITANIUM",
-      gold: 0,
-      me: "me",
-      incomePerMinute: 0,
-      strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
-      storageCap: EMPIRE_STORAGE_FLOOR,
-      resourceSlots: {
-        supply: { FOOD: 0, TITANIUM: 2, CRYSTAL: 0, UMBRITE: 0 },
-        demand: { FOOD: 0, TITANIUM: 1, CRYSTAL: 0, UMBRITE: 0 }
-      },
-      dormantStructures: [],
-      strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
-      upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
-      upkeepLastTick: { foodCoverage: 1 },
-      activeRevealTargetsCount: 0,
-      tiles: [
-        {
-          x: 0,
-          y: 0,
-          terrain: "LAND",
-          ownerId: "me",
-          ownershipState: "SETTLED",
-          resource: "TITANIUM",
-          economicStructure: { ownerId: "me", type: "MINE", status: "active" }
-        }
-      ],
-      economyBreakdown: undefined,
-      isMobile: true,
-      prettyToken: (value) => value,
-      resourceIconHtml: (resource) => resource,
-      rateToneClass: () => "positive",
-      resourceLabel: (resource) => resource,
-      economicStructureName: (type) => type
-    });
+const titaniumSources = (...rows: ResourceSlotSources["TITANIUM"]): ResourceSlotSources => ({ ...emptyResourceSlotSources(), TITANIUM: rows });
 
-    expect(html).toContain("+2 slots");
+describe("Economy Slot Sources", () => {
+  // Regression: sources were re-derived from the client's loaded tiles (only the area around the
+  // camera), so off-screen ore sites and server-only grants showed as "Other bonuses".
+  it("shows the server's rows even when none of the tiles are loaded", () => {
+    const sources = titaniumSources(
+      { kind: "TILE", id: "TITANIUM", slots: 2, count: 2 },
+      { kind: "WAYSTATION", id: "", slots: 1, count: 1 },
+      { kind: "SIPHON", id: "p2", slots: 1, count: 1 },
+      { kind: "FOUNDRY_HEART", id: "", slots: 1, count: 1 }
+    );
+    expect(slotSourcesForResource(titaniumArgs(5, sources), "TITANIUM")).toEqual([
+      { label: "Titanium sites", amountPerMinute: 2, count: 2 },
+      { label: "Foundry Heart", amountPerMinute: 1, count: 1 },
+      { label: "Siphon from Rival", amountPerMinute: 1, count: 1 },
+      { label: "Waystation", amountPerMinute: 1, count: 1 }
+    ]);
+    const html = renderEconomyPanelHtml(titaniumArgs(5, sources));
+    expect(html).toContain("Titanium sites");
     expect(html).not.toContain("Other bonuses");
   });
 
-  const titaniumArgs = (supply: number, tiles: Parameters<typeof renderEconomyPanelHtml>[0]["tiles"], domainSlotGrant?: { label: string; resource: "TITANIUM"; count: number }): Parameters<typeof renderEconomyPanelHtml>[0] => ({
-    focus: "TITANIUM", gold: 0, me: "me", incomePerMinute: 0,
-    strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 }, storageCap: EMPIRE_STORAGE_FLOOR,
-    resourceSlots: { supply: { FOOD: 0, TITANIUM: supply, CRYSTAL: 0, UMBRITE: 0 }, demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } },
-    dormantStructures: [], strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
-    upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 }, upkeepLastTick: { foodCoverage: 1 },
-    activeRevealTargetsCount: 0, tiles, economyBreakdown: undefined, isMobile: true,
-    prettyToken: (value) => value.charAt(0) + value.slice(1).toLowerCase(), resourceIconHtml: (resource) => resource,
-    rateToneClass: () => "positive", resourceLabel: (resource) => resource, economicStructureName: (type) => type,
-    ...(domainSlotGrant ? { domainSlotGrant } : {})
+  it("names structure boosts, upgrades and techs", () => {
+    const sources = titaniumSources(
+      { kind: "TILE", id: "TITANIUM", slots: 1, count: 1 },
+      { kind: "STRUCTURE_BOOST", id: "MINE", slots: 1, count: 1 },
+      { kind: "STRUCTURE_BOOST", id: "ORE_REFINERY", slots: 2, count: 1 },
+      { kind: "UPGRADE", id: "afc-exchequer-2", slots: 1, count: 1 },
+      { kind: "TECH", id: "agriculture", slots: 1, count: 1 }
+    );
+    expect(slotSourcesForResource(titaniumArgs(6, sources), "TITANIUM").map((b) => b.label)).toEqual(
+      ["Ore Refinery", "Agrarian Works", "Exchequer II", "Mine", "Titanium site"]
+    );
   });
 
-  it("labels resource tiles as sites", () => {
-    const tile = (x: number) => ({ x, y: 0, terrain: "LAND" as const, ownerId: "me", ownershipState: "SETTLED" as const, resource: "TITANIUM" as const });
-    expect(slotSourcesForResource(titaniumArgs(2, [tile(0), tile(1)]), "TITANIUM")).toEqual([{ label: "Titanium sites", amountPerMinute: 2, count: 2 }]);
+  it("ignores loaded tiles; the rows are the whole story", () => {
+    const tiles: PanelArgs["tiles"] = [{ x: 0, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource: "TITANIUM" }];
+    expect(slotSourcesForResource(titaniumArgs(0, titaniumSources(), tiles), "TITANIUM")).toEqual([]);
   });
 
-  // Regression: an AFC upgrade's chosen-resource grant showed as "Other bonuses".
-  it("names the AFC upgrade that grants the slots instead of Other bonuses", () => {
-    const sources = slotSourcesForResource(titaniumArgs(2, [], { label: "Forge Charter", resource: "TITANIUM", count: 2 }), "TITANIUM");
-    expect(sources).toEqual([{ label: "Forge Charter", amountPerMinute: 2, count: 1 }]);
-  });
-
-  it("finds the installed upgrade with a chosen-resource grant", () => {
-    const requirements = { gold: 0, resources: {} };
-    const catalog: DomainInfo[] = [
-      { id: "a", tier: 1, name: "Plain", description: "", requiresTechId: "", mods: {}, requirements },
-      { id: "b", tier: 2, name: "Forge Charter", description: "", requiresTechId: "", mods: {}, effects: { chosenResourceSlotGrant: 2 }, requirements }
-    ];
-    expect(domainSlotGrantFor(catalog, ["a", "b"], "TITANIUM")).toEqual({ label: "Forge Charter", resource: "TITANIUM", count: 2 });
-    expect(domainSlotGrantFor(catalog, ["a", "b"], undefined)).toBeUndefined();
-    expect(domainSlotGrantFor(catalog, ["a"], "TITANIUM")).toBeUndefined();
+  it("falls back to the total when the server sent no rows", () => {
+    expect(slotSourcesForResource(titaniumArgs(3, undefined), "TITANIUM")).toEqual([{ label: "Slots", amountPerMinute: 3, count: 1 }]);
+    expect(slotSourcesForResource(titaniumArgs(0, undefined), "TITANIUM")).toEqual([]);
   });
 });
