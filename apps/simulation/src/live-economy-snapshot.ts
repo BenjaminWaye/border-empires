@@ -198,7 +198,7 @@ type OwnedSlotTile = Pick<DomainTileState, "x" | "y" | "fort" | "observatory" | 
 const resourceSlotsForPlayer = (
   playerId: string,
   runtimeState: RuntimeState
-): { supply: ReturnType<typeof resourceSlotSupplyForPlayer>; demand: ReturnType<typeof resourceSlotDemandForPlayer>; sources: ResourceSlotSources } => {
+): { supply: ReturnType<typeof resourceSlotSupplyForPlayer>; demand: ReturnType<typeof resourceSlotDemandForPlayer>; sources?: ResourceSlotSources } => {
   const settledSlotTiles: SettledSlotTile[] = [];
   const ownedSlotTiles: OwnedSlotTile[] = [];
   for (const tile of runtimeState.tiles) {
@@ -248,7 +248,7 @@ const resourceSlotsForPlayer = (
       sink(resource, grant.kind, grant.id, count);
     }
   }
-  return { supply: player?.effectiveResourceSupply ?? supply, demand: resourceSlotDemandForPlayer(ownedSlotTiles, playerId, waivers), sources: rows() };
+  return { supply: player?.effectiveResourceSupply ?? supply, demand: resourceSlotDemandForPlayer(ownedSlotTiles, playerId, waivers), ...(player?.effectiveResourceSources ? { sources: player.effectiveResourceSources } : player?.effectiveResourceSupply ? {} : { sources: rows() }) };
 };
 
 type EconomyResultArgs = {

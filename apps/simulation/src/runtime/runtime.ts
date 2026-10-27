@@ -2346,7 +2346,12 @@ export class SimulationRuntime {
       summaryForPlayer: id => this.summaryForPlayer(id), settledTilesForPlayer: id => this.settledTilesForPlayer(id),
       activeObservatoryKeysForPlayer: id => this.ownerIndexes.activeObservatoriesByOwner.get(id) ?? [],
       activeObservatoryOwners: () => this.ownerIndexes.activeObservatoriesByOwner.keys(),
-      ...(this.resourceSupply ? { tradedSupply: id => this.resourceSupply!.upkeep(id), advanceTrades: () => this.resourceSupply!.ledger.advanceTo(this.now()) } : {}) };
+      ...(this.resourceSupply ? {
+        tradedSupplyBuild: (id, physical) => this.resourceSupply!.upkeepWithSources(id, physical),
+        tradedSupply: id => this.resourceSupply!.upkeep(id),
+        advanceTrades: () => this.resourceSupply!.ledger.advanceTo(this.now())
+      } : {})
+    };
   }
   private resourceSlotSupplyForPlayer(id: string, fresh = false): ResourceSlotTotals {
     return cachedResourceSlots(this.resourceSlotsContext(), id, fresh);

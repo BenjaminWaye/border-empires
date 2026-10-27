@@ -496,7 +496,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     introducedIn: "2026.10.27.2",
     title: "Reliable resource treaties",
     why: "Resource treaty payments must survive interrupted connections without being charged twice.",
-    changes: ["Treaty resource payments resume safely after restart; industrial supply is visible in the desktop Economy panel."]
+    changes: ["Treaty resource payments resume safely after restart; industrial supply is visible in the desktop Economy panel. Trade imports and committed exports appear in both Economy layouts."]
   }
 ];
 

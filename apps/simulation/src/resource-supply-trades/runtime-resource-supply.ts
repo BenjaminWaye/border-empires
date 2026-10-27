@@ -1,3 +1,5 @@
+import { tradedSlotSources } from "./traded-slot-sources.js";
+import type { ResourceSlotSupplyBuild } from "../runtime-economy-caches/runtime-economy-caches.js";
 import { revealedResourceValueForPlayer } from "../tech-domain-bridge/tech-resource-reveal.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { isSiphonModeSabotage, NETWORK_RESOURCES, UPKEEP_TRADE_RESOURCES, TRADABLE_SUPPLY_RESOURCES,
@@ -12,6 +14,7 @@ export interface RuntimeResourceSupplyContext {
   cachedPlayerState?: (id:string) => import("@border-empires/shared").ResourceSupplyPlayerState | undefined;
   cachePlayerState?: (id:string,state:import("@border-empires/shared").ResourceSupplyPlayerState) => void;
   now(): number;
+  resourceSlotSources?: (id: string) => import("@border-empires/shared").ResourceSlotSources | undefined;
   player(id: string): RuntimePlayer | undefined;
   ownedTiles(id: string): DomainTileState[];
   physicalUpkeep(id: string): ResourceSlotTotals;
@@ -47,6 +50,10 @@ export class RuntimeResourceSupply {
   upkeep(id: string): ResourceSlotTotals {
     return this.applyUpkeep(this.ctx.physicalUpkeep(id), this.ledger.allocation(this.ctx.now()).flows.get(id));
   }
+  upkeepWithSources(id: string, physical: ResourceSlotSupplyBuild): ResourceSlotSupplyBuild {
+    const flow = this.ledger.allocation(this.ctx.now()).flows.get(id);
+    return { totals: this.applyUpkeep(physical.totals, flow), sources: tradedSlotSources(physical.sources, flow) };
+  }
   network(id: string): NetworkSiteCounts {
     const flows = this.ledger.allocation(this.ctx.now()).flows, flow = flows.get(id);
     const sites = this.physicalNetwork(id, flows);
@@ -79,7 +86,8 @@ export class RuntimeResourceSupply {
     const allocation = this.ledger.allocation(this.ctx.now());
     const cached = this.ctx.cachedPlayerState?.(id);
     if (cached) return cached;
-    const state = { resourceTradeHoldings: this.available(id), effectiveResourceSupply: this.upkeep(id), effectiveNetworkSupply: this.network(id),
+    const sources = this.ctx.resourceSlotSources?.(id);
+    const state = { ...(sources ? { effectiveResourceSources: sources } : {}), resourceTradeHoldings: this.available(id), effectiveResourceSupply: this.upkeep(id), effectiveNetworkSupply: this.network(id),
       resourceTradeAgreements: this.ledger.rows().filter(row => row.proposerId === id || row.targetId === id)
         .map(row => ({ ...row, fulfilled: allocation.fulfilled.has(row.id) })) };
     this.ctx.cachePlayerState?.(id,state);return state;

@@ -1,3 +1,4 @@
+import { slotSupplyAmountLabel } from "./client-economy-slot-sources.js";
 import { networkSupplyHtml } from "../client-resource-networks/network-supply-html.js";
 // The new HUD's Economy panel: one row per resource (Coin, Food, Titanium,
 // Crystal, Umbrite), each with what you have, where it comes from and what
@@ -73,7 +74,7 @@ const slotRowHtml = (input: EconomyRowsInput, resource: SlotResource): string =>
     : "";
   return `<section class="v2e-row${demand > supply ? " v2e-short" : ""}${focus}" data-v2e-row="${resource}">
     ${head(`${demand} / ${supply}`, status.text, status.tone)}
-    ${listHtml("From", sources.map((b) => item(named(b), `+${b.amountPerMinute}`)), "No tiles yet")}
+    ${listHtml("From", sources.map((b) => item(named(b), slotSupplyAmountLabel(b.amountPerMinute))), "No tiles yet")}
     ${listHtml("Used by", occupants.map((b) => item(`${named(b)}${b.dormantCount ? ` · ${b.dormantCount} dormant` : ""}`, String(b.amountPerMinute), Boolean(b.dormantCount))), "Nothing yet")}
     ${fed}
   </section>`;

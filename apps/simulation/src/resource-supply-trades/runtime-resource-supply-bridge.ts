@@ -6,7 +6,7 @@ import { buildFedTownKeys } from "../economy-network/economy-network.js";
 import { resourceSlotDormantContributorsForPlayer } from "../resource-slot-view/resource-slot-view.js";
 import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js";
 import { RuntimeResourceSupply } from "./runtime-resource-supply.js";
-import { ownedResourceTiles, physicalResourceSlots, type RuntimeResourceSlotsContext } from "./runtime-resource-slots.js";
+import { cachedResourceSlots, ownedResourceTiles, physicalResourceSlots, type RuntimeResourceSlotsContext } from "./runtime-resource-slots.js";
 import type { ResourceSupplyLedgerContext } from "./resource-supply-ledger.js";
 
 export interface ResourceSupplyBridgeContext {
@@ -19,6 +19,11 @@ export interface ResourceSupplyBridgeContext {
 export function createRuntimeResourceSupply(ctx: ResourceSupplyBridgeContext, restored: readonly ResourceSupplyAgreement[] = []): RuntimeResourceSupply {
   const supply = new RuntimeResourceSupply({ now: ctx.now, player: id => ctx.slots().players.get(id),
     ownedTiles: id => ownedResourceTiles(ctx.slots(), id), physicalUpkeep: id => physicalResourceSlots(ctx.slots(), id),
+    resourceSlotSources: id => {
+      const slots = ctx.slots();
+      cachedResourceSlots(slots, id, true);
+      return slots.caches.resourceSlotSources(id);
+    },
     tileSettledAtByKey: ctx.slots().tileSettledAtByKey,
     siphonCasterIds: () => ctx.slots().activeObservatoryOwners?.() ?? [],
     siphonedTiles: id => siphonedResourceTilesForPlayer({playerId:id,tiles:ctx.slots().tiles,activeObservatoryKeysForPlayer:ctx.slots().activeObservatoryKeysForPlayer}),

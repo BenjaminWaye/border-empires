@@ -22,10 +22,12 @@ export type ResourceSlotSourceKind =
   | "UPGRADE"
   | "WAYSTATION"
   | "SIPHON"
+  | "TRADE_IMPORT"
+  | "TRADE_EXPORT"
   | "FOUNDRY_HEART"
   | "RELIC";
 
-/** One source: `slots` in total from `count` contributions (e.g. 3 Titanium tiles). */
+/** One source: slots from count contributions; TRADE_EXPORT slots are negative commitments. */
 export type ResourceSlotSourceRow = { kind: ResourceSlotSourceKind; id: string; slots: number; count: number };
 
 export type ResourceSlotSources = Record<SlotResource, ResourceSlotSourceRow[]>;

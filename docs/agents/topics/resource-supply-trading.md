@@ -128,3 +128,11 @@ Lore reviewed; no canon change in this recovery and presentation follow-up.
 Paying/refunding treaty phases are pushed to both clients before command
 submission and survive local request expiry, keeping the recipient's retry
 control available while the payment outcome is uncertain.
+
+After the Economy source-label integration, cached supply totals and source rows
+share the physical builder; trade imports add rights and committed exports
+subtract them as signed rows. Owner reconnect projections carry the same rows,
+while checkpoints continue to store only authoritative state. Both Economy
+layouts show signed commitments. Full local CI before this integration passed
+3,673 simulation tests, both slow map suites, 1,527 gateway tests and 5,916 client
+tests plus builds; the affected integrations receive additional targeted checks.

@@ -12,7 +12,7 @@ import {
 import { economyIntegrityCardHtml } from "./client-economy-integrity-card.js";
 import { economyRowsFromPanelArgs } from "./client-economy-rows.js";
 import { hudV2IsDriving } from "../client-hud-v2/client-hud-v2-flag.js";
-import { slotSourcesForResource, type SlotSourceNames } from "./client-economy-slot-sources.js";
+import { slotSupplyAmountLabel, slotSourcesForResource, type SlotSourceNames } from "./client-economy-slot-sources.js";
 import { STRUCTURE_DISPLAY_NAMES } from "../client-structure-display-names.js";
 import type { EconomyBreakdown, EconomyBucket, EconomyFocusKey } from "../client-economy-model.js";
 import type { Tile } from "../client-types.js";
@@ -382,7 +382,7 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
             <div class="economy-detail-columns">
               <div class="economy-detail-column">
                 <h4>Slot Sources</h4>
-                ${sources.length > 0 ? sources.map((bucket) => `<div class="economy-line"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}</span><strong>+${bucket.amountPerMinute} slot${bucket.amountPerMinute === 1 ? "" : "s"}</strong></div>`).join("") : `<div class="economy-line muted"><span>No ${economyResourceName(args, resource)} slots yet</span></div>`}
+                ${sources.length > 0 ? sources.map((bucket) => `<div class="economy-line"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}</span><strong>${slotSupplyAmountLabel(bucket.amountPerMinute)} slot${bucket.amountPerMinute === 1 ? "" : "s"}</strong></div>`).join("") : `<div class="economy-line muted"><span>No ${economyResourceName(args, resource)} slots yet</span></div>`}
               </div>
               <div class="economy-detail-column">
                 <h4>Occupied by</h4>

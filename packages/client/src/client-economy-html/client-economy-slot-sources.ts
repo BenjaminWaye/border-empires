@@ -31,6 +31,8 @@ export const slotSourceLabel = (row: ResourceSlotSourceRow, names?: SlotSourceNa
     case "CONVERTER": return structureName(row.id);
     case "TECH": return TECH_NAMES[row.id] ?? prettyId(row.id);
     case "UPGRADE": return names?.domainName(row.id) ?? prettyId(row.id);
+    case "TRADE_IMPORT": return "Trade imports";
+    case "TRADE_EXPORT": return "Committed exports";
     case "WAYSTATION": return "Waystation";
     // Player names are user-chosen and this label is written into HTML.
     case "SIPHON": return `Siphon from ${escapeHtml(names?.playerName(row.id) ?? "a rival")}`;
@@ -48,3 +50,5 @@ export const slotSourcesForResource = (args: EconomyPanelArgs, resource: SlotRes
     .map((row) => ({ label: slotSourceLabel(row, args.slotSourceNames), amountPerMinute: row.slots, count: row.count }))
     .sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label));
 };
+
+export const slotSupplyAmountLabel = (amount: number): string => `${amount < 0 ? "−" : "+"}${Math.abs(amount)}`;

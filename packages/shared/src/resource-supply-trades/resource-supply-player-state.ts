@@ -1,3 +1,4 @@
+import type { ResourceSlotSources } from "../resource-slot-sources/resource-slot-sources.js";
 import type { NetworkSiteCounts } from "../resource-networks/resource-networks.js";
 import type { SlotResource } from "../structure-slots/structure-slots.js";
 import type { ResourceSupplyAgreement, ResourceSupplyOffer } from "./resource-supply-trades.js";
@@ -7,5 +8,6 @@ export type ResourceSupplyPlayerState = {
   resourceTradeHoldings?: ResourceSupplyOffer;
   resourceTradeAgreements?: readonly ResourceSupplyAgreementStatus[];
   effectiveResourceSupply?: Record<SlotResource, number>;
+  effectiveResourceSources?: ResourceSlotSources;
   effectiveNetworkSupply?: NetworkSiteCounts;
 };

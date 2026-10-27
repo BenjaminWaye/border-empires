@@ -1,14 +1,10 @@
+import { buildResourceSlotSupply } from "../resource-slot-view/resource-slot-supply-build.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { RuntimePlayer } from "../runtime-types.js";
 import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
-import type { RuntimeEconomyCaches } from "../runtime-economy-caches/runtime-economy-caches.js";
+import type { RuntimeEconomyCaches, ResourceSlotSupplyBuild } from "../runtime-economy-caches/runtime-economy-caches.js";
 import { resourceSlotDemandForPlayer, resourceSlotDormantContributorsForPlayer, type ResourceSlotTotals, type ResourceSlotDormancy } from "../resource-slot-view/resource-slot-view.js";
-import { resourceSlotSupplyWithSiphonTransfer } from "../siphon-mode/siphon-slot-transfer.js";
-import { domainGrantedResourceSlots } from "../tech-domain-bridge/tech-domain-bridge.js";
 import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js";
-import { techGrantedFishFoodSlotBonus } from "../tech-domain-bridge/fish-food-slot-bonus.js";
-import { mergeResourceSlotGrants } from "../resource-slot-view/resource-slot-grants-merge.js";
-import { addRelicResourceSupply } from "../runtime-relics.js";
 import * as wonderEffects from "../runtime-natural-wonders.js";
 
 export interface RuntimeResourceSlotsContext {
@@ -22,6 +18,7 @@ export interface RuntimeResourceSlotsContext {
   activeObservatoryKeysForPlayer(id: string): Iterable<string>;
   activeObservatoryOwners?: () => Iterable<string>;
   tradedSupply?: (id: string) => ResourceSlotTotals;
+  tradedSupplyBuild?: (id: string, physical: ResourceSlotSupplyBuild) => ResourceSlotSupplyBuild;
   advanceTrades?: () => void;
 }
 export function ownedResourceTiles(ctx: RuntimeResourceSlotsContext, id: string): DomainTileState[] {
@@ -29,19 +26,21 @@ export function ownedResourceTiles(ctx: RuntimeResourceSlotsContext, id: string)
     .filter((tile): tile is DomainTileState => Boolean(tile && tile.ownerId === id));
 }
 /** Physical source supply, deliberately independent of imports and dormancy. */
-export function physicalResourceSlots(ctx: RuntimeResourceSlotsContext, playerId: string): ResourceSlotTotals {
-  const playerOf = (id: string) => ctx.players.get(id);
-  const totals = resourceSlotSupplyWithSiphonTransfer({ playerId, tiles: ctx.tiles,
+export function physicalResourceSlotBuild(ctx: RuntimeResourceSlotsContext, playerId: string): ResourceSlotSupplyBuild {
+  return buildResourceSlotSupply({ players: ctx.players, tiles: ctx.tiles,
     settledTilesForPlayer: ctx.settledTilesForPlayer, activeObservatoryKeysForPlayer: ctx.activeObservatoryKeysForPlayer,
-    grantedSupplyForPlayer: id => { const p = playerOf(id); return p ? mergeResourceSlotGrants(domainGrantedResourceSlots(p), p.waystationResourceSlotBonus) : undefined; },
-    fishFoodSlotBonusForPlayer: id => { const p = playerOf(id); return p ? techGrantedFishFoodSlotBonus(p) : 0; } });
-  wonderEffects.applyFoundryHeartSlotBonus(wonderEffects.playerHasWonderType(ctx.wonderCacheByPlayer, playerId, "FOUNDRY_HEART"), totals);
-  addRelicResourceSupply({ tiles: ctx.tiles, summaryForPlayer: ctx.summaryForPlayer }, playerOf(playerId), totals);
-  return totals;
+    hasFoundryHeart: id => wonderEffects.playerHasWonderType(ctx.wonderCacheByPlayer, id, "FOUNDRY_HEART"),
+    summaryForPlayer: ctx.summaryForPlayer }, playerId);
+}
+export function physicalResourceSlots(ctx: RuntimeResourceSlotsContext, playerId: string): ResourceSlotTotals {
+  return physicalResourceSlotBuild(ctx, playerId).totals;
 }
 export function cachedResourceSlots(ctx: RuntimeResourceSlotsContext, id: string, fresh = false): ResourceSlotTotals {
   ctx.advanceTrades?.();
-  return ctx.caches.resourceSlotSupply(id, fresh, () => ctx.tradedSupply?.(id) ?? physicalResourceSlots(ctx, id));
+  return ctx.caches.resourceSlotSupply(id, fresh, () => {
+    const physical = physicalResourceSlotBuild(ctx, id);
+    return ctx.tradedSupplyBuild?.(id, physical) ?? physical;
+  });
 }
 export function cachedResourceDemand(ctx: RuntimeResourceSlotsContext, id: string, fresh = false): ResourceSlotTotals {
   return ctx.caches.resourceSlotDemand(id, fresh, () => {

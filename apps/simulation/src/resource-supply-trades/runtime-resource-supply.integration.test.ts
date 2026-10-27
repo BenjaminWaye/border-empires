@@ -42,6 +42,26 @@ describe("resource trades in the production runtime",()=>{
     expect(events.some(e=>e.eventType==="COMMAND_REJECTED"&&e.commandId==="duplicate-supply")).toBe(true);
     expect(f.player("seller").points).toBeCloseTo(103);
   });
+  it("keeps imported and committed source rows equal to actual supply, including reconnect snapshots", async () => {
+    const f = fixture();
+    await f.pay("trade", { FOOD: 2 });
+    for (const id of ["seller", "buyer"]) {
+      const player = buildPlayerSubscriptionSnapshot(id, f.runtime.exportVisibleStateForPlayer(id), { tilesAlreadyVisible: true }).player!;
+      const slots = player.resourceSlots!;
+      expect(slots.sources).toBeDefined();
+      for (const resource of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"] as const) {
+        expect(slots.sources![resource].reduce((sum, row) => sum + row.slots, 0)).toBe(slots.supply[resource]);
+      }
+      expect(slots.sources!.FOOD).toContainEqual(expect.objectContaining({ kind: id === "seller" ? "TRADE_EXPORT" : "TRADE_IMPORT", slots: id === "seller" ? -2 : 2 }));
+    }
+    expect(JSON.stringify(f.runtime.exportSnapshotSections().initialState)).not.toContain("effectiveResourceSources");
+    await f.runtime.submitCommand({ commandId: "cancel-source-display", sessionId: "system-runtime:social", playerId: "buyer", clientSeq: 0, issuedAt: start, type: "CANCEL_RESOURCE_SUPPLY", payloadJson: JSON.stringify({ agreementId: "trade" }) });
+    for (const id of ["seller", "buyer"]) {
+      const slots = buildPlayerSubscriptionSnapshot(id, f.runtime.exportVisibleStateForPlayer(id), { tilesAlreadyVisible: true }).player!.resourceSlots!;
+      expect(slots.sources!.FOOD.some(row => row.kind === "TRADE_IMPORT" || row.kind === "TRADE_EXPORT")).toBe(false);
+      expect(slots.sources!.FOOD.reduce((sum, row) => sum + row.slots, 0)).toBe(slots.supply.FOOD);
+    }
+  });
   it("continues supplying beyond twelve hours until cancelled",async()=>{
     const f=fixture(); await f.pay();
     expect(f.player("buyer").resourceTradeAgreements?.[0]?.fulfilled).toBe(true);
