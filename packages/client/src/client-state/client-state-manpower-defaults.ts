@@ -1,6 +1,18 @@
 import { EXPAND_MANPOWER_COST, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE } from "@border-empires/shared";
 
-export const createInitialManpowerState = () => ({
+type ManpowerModifier = { label: string; amount: number; note?: string };
+
+export type ManpowerState = {
+  manpower: number;
+  manpowerCap: number;
+  manpowerRegenPerMinute: number;
+  logisticsThroughputPerMinute: number;
+  expandManpowerCost: number;
+  manpowerBreakdown: { cap: ManpowerModifier[]; regen: ManpowerModifier[] };
+  nextManpowerBatchAmount: number | undefined;
+};
+
+export const createInitialManpowerState = (): ManpowerState => ({
   manpower: MANPOWER_BASE_CAP,
   manpowerCap: MANPOWER_BASE_CAP,
   manpowerRegenPerMinute: MANPOWER_BASE_REGEN_PER_MINUTE,
@@ -9,6 +21,6 @@ export const createInitialManpowerState = () => ({
   manpowerBreakdown: {
     cap: [{ label: "Base", amount: MANPOWER_BASE_CAP }],
     regen: [{ label: "Base", amount: MANPOWER_BASE_REGEN_PER_MINUTE }]
-  } as { cap: Array<{ label: string; amount: number; note?: string }>; regen: Array<{ label: string; amount: number; note?: string }> },
-  nextManpowerBatchAmount: undefined as number | undefined
+  },
+  nextManpowerBatchAmount: undefined
 });
