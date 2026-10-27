@@ -485,6 +485,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Reach stays put across server restarts",
     why: "A restart could hand ground both you and a neighbour reach over to the neighbour, even though you claimed it first.",
     changes: ["Where your reach overlaps a rival's, whoever claimed the ground first keeps it after a server restart or deploy, as long as their reach still covers it."]
+  },
+  {
+    createdAt: 1793140390237, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.27.6",
+    title: "Town manpower contributions",
+    why: "The town screen showed a dash for manpower capacity and omitted regeneration.",
+    changes: ["Towns now show their base manpower cap and regeneration per minute, including terrain and coastal modifiers. Building bonuses remain listed under In this town."]
   }
 ];
 

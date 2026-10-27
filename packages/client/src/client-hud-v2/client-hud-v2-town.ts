@@ -3,7 +3,8 @@
 // target). Town info on the left, the build list on the right, Raise flag /
 // Overclock at the bottom. All actions reuse the tile menu's own definitions.
 
-import { townFoodSlotDemandForTier } from "@border-empires/shared";
+import { terrainAdjustedTownManpower, townFoodSlotDemandForTier } from "@border-empires/shared";
+import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town-tile-terrain.js";
 import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
 import { buildCategories, buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
 import { townGrowth } from "./client-hud-v2-tile-facts.js";
@@ -52,9 +53,13 @@ const leftPanelHtml = (input: TownScreenInput): string => {
   // A town still being garrisoned (or a partial summary) has no economy fields yet: show a dash, never NaN.
   const known = (v: number | undefined): v is number => typeof v === "number" && Number.isFinite(v);
   const fed = typeof town.isFed === "boolean" ? (town.isFed ? "Fed" : "Unfed") : "";
+  // Match the town overview's base contribution; optional manpowerCap is
+  // not the town's tier-and-terrain contribution. Building bonuses stay below.
+  const { terrainProfile, coastal } = townTerrainForTile(input.town, town);
+  const manpower = terrainAdjustedTownManpower(town.populationTier, terrainProfile, coastal);
   const stats = [
     { k: "COIN", v: known(town.goldPerMinute) ? `+${fmt(town.goldPerMinute * 1440)}/day` : "—", n: fed, tone: town.isFed === false ? " v2t-warn" : "" },
-    { k: "MANPOWER CAP", v: known(town.manpowerCap) ? `+${fmt(town.manpowerCap)}` : "—", n: "", tone: " v2t-gold" },
+    { k: "MANPOWER CAP", v: `+${fmt(manpower.cap)}`, n: `Base town · +${manpower.regenPerMinute.toFixed(2)}/min regen`, tone: " v2t-gold" },
     { k: "FOOD UPKEEP", v: `${townFoodSlotDemandForTier(town.populationTier)} slots`, n: "", tone: "" },
     { k: "SUPPORT RING", v: known(town.supportCurrent) && known(town.supportMax) ? `${town.supportCurrent} / ${town.supportMax}` : "—", n: "", tone: "" }
   ];
