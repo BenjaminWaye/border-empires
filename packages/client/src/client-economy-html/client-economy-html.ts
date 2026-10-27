@@ -13,6 +13,8 @@ import {
   type SlotResource
 } from "@border-empires/shared";
 import { economyIntegrityCardHtml } from "./client-economy-integrity-card.js";
+import { economyRowsFromPanelArgs } from "./client-economy-rows.js";
+import { hudV2IsDriving } from "../client-hud-v2/client-hud-v2-flag.js";
 import { ORE_REFINERY_RADIUS, HYDROWORKS_RADIUS } from "../client-structure-effects/client-structure-effects.js";
 import { STRUCTURE_DISPLAY_NAMES } from "../client-structure-display-names.js";
 import type { EconomyBreakdown, EconomyBucket, EconomyFocusKey } from "../client-economy-model.js";
@@ -30,7 +32,7 @@ type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
 // part of this panel's resource list at all.
 const isSlotResource = (resource: EconomyResource): resource is SlotResource => resource !== "GOLD";
 
-type EconomyPanelArgs = {
+export type EconomyPanelArgs = {
   /** Empire Integrity 0-100 -- shown as its own summary card (client-economy-integrity-card.ts) when given. */
   integrityPct?: number;
   focus: EconomyFocusKey;
@@ -412,6 +414,8 @@ const economyBucketAmountLabel = (
 };
 
 export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
+  // The new desktop HUD shows one row per resource instead (client-economy-rows.ts); phones keep this layout.
+  if (hudV2IsDriving() && !args.isMobile) return economyRowsFromPanelArgs(args, { slotSources: slotSourcesForResource, slotOccupants: slotOccupantsForResource, coinDetail: economyDetailForResource });
   const isResourceRevealed = (resource: EconomyResource): boolean =>
     resource === "GOLD" || !args.isRevealed || args.isRevealed(resource);
   const revealedResources = resources.filter(isResourceRevealed);

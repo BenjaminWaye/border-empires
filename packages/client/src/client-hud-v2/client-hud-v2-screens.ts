@@ -24,7 +24,7 @@ import {
 } from "./client-hud-v2-context.js";
 import { dealSideHtml, dealSkeletonHtml, diplomacyListHtml, empireStance } from "./client-hud-v2-diplomacy.js";
 import { MANIFEST_LEGEND_HTML, manifestDetailHtml, manifestHeadRightHtml, manifestTreeHtml } from "./client-hud-v2-manifest.js";
-import { hostProfileOverlay, unhostProfileOverlay } from "./client-hud-v2-profile.js";
+import { profileHtml, type ProfileRelation } from "./client-hud-v2-profile.js";
 import { ranksBannerHtml, ranksBodyHtml } from "./client-hud-v2-ranks.js";
 import { expandDockedMenu, suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, myTowns, renderTownScreen, runTileActionOn, stepTown } from "./client-hud-v2-town-runtime.js";
@@ -36,12 +36,19 @@ let bodyMode = "";
 
 const nameOf = (deps: HudV2Deps, id: string): string => deps.state.playerNames.get(id) ?? "";
 
+/** Screens a profile can be opened from and returns to when closed. */
+const PROFILE_RETURNS: ReadonlySet<HudV2ScreenId> = new Set<HudV2ScreenId>(["manifest", "afc", "diplomacy", "ranks", "chronicle"]);
+let profileReturn: HudV2ScreenId | undefined;
+
 export const openScreen = (deps: HudV2Deps, id: HudV2ScreenId, options: { diplomacyTarget?: string } = {}): void => {
   if (screen.id === "town") deps.actionFlow.hideTileActionMenu();
-  if (screen.id && screen.id !== id) closeScreen(deps);
+  const from = screen.id;
+  if (screen.id && screen.id !== id) closeScreen(deps, { toMap: true });
+  if (id === "profile") profileReturn = from && PROFILE_RETURNS.has(from) ? from : undefined;
   if (id === "chronicle") {
     setScreen("chronicle", `<aside class="v2c-drawer" id="v2c-drawer" aria-label="Chronicle"></aside>`);
     screen.chronicleUpdatesBaseline = undefined;
+    screen.chronicleOpenUpdate = undefined;
     loadChronicleTab(deps, screen.chronicleTab);
   } else {
     setScreen(id, FRAME_SKELETON);
@@ -58,7 +65,8 @@ export const openScreen = (deps: HudV2Deps, id: HudV2ScreenId, options: { diplom
   deps.renderHud();
 };
 
-export const closeScreen = (deps: HudV2Deps): void => {
+/** Closes the open screen. A profile goes back to the screen it was opened from unless `toMap`. */
+export const closeScreen = (deps: HudV2Deps, options: { toMap?: boolean } = {}): void => {
   const id = screen.id;
   if (!id) return;
   if (id === "town") {
@@ -71,15 +79,17 @@ export const closeScreen = (deps: HudV2Deps): void => {
     return;
   }
   if (id === "afc" && deps.state.activePanel === "domains") deps.state.activePanel = null;
+  const back = id === "profile" && !options.toMap ? profileReturn : undefined;
   if (id === "profile") {
-    unhostProfileOverlay();
     deps.state.activePlayerProfileId = undefined;
+    profileReturn = undefined;
   }
   document.querySelector(".diplomacy-trade-overlay")?.remove();
   screen.diplomacyTargetId = undefined;
   bodyMode = "";
   clearScreen();
-  deps.renderHud();
+  if (back) openScreen(deps, back);
+  else deps.renderHud();
 };
 
 const ownedTechs = (deps: HudV2Deps): Set<string> => new Set(deps.state.techIds);
@@ -211,10 +221,36 @@ const hostTradeView = (deps: HudV2Deps, targetId: string, input?: Parameters<typ
 };
 
 
+const profileRelation = (state: HudV2Deps["state"], id: string): ProfileRelation => {
+  if (id === state.me) return { kind: "self" };
+  if (state.allies.includes(id)) return { kind: "ally" };
+  const truce = state.activeTruces.find((t) => t.otherPlayerId === id && t.endsAt > Date.now());
+  return truce ? { kind: "truce", endsAt: truce.endsAt } : { kind: "none" };
+};
+
 const renderProfile = (deps: HudV2Deps): void => {
-  const id = deps.state.activePlayerProfileId;
-  writeHtml("v2s-title", id ? (id === deps.state.me ? "Your Empire" : deps.state.playerNames.get(id) ?? "Empire") : "");
-  hostProfileOverlay();
+  const { state } = deps;
+  const id = state.activePlayerProfileId;
+  if (!id) return;
+  const self = id === state.me;
+  const social = state.socialViewByPlayerId.get(id);
+  const name = nameOf(deps, id) || "Empire";
+  writeHtml("v2s-title", self ? "Your Empire" : "Profile");
+  writeHtml("v2s-back-label", profileReturn ? TITLES[profileReturn] ?? "Chronicle" : "Map");
+  bodyMode = "profile";
+  writeHtml("v2s-body", profileHtml({
+    id,
+    name,
+    color: deps.ownerColor(id),
+    relation: profileRelation(state, id),
+    entry: state.leaderboard.overall.find((e) => e.id === id),
+    career: state.careerStatsByPlayerId.get(id),
+    holdings: state.galaxyHoldingsByPlayerId.get(id),
+    pacts: self ? { allies: state.allies, activeTruces: state.activeTruces } : social,
+    truceBreaks: self ? state.truceBreaksThisSeason : social === "loading" || social === undefined ? social : social.truceBreaksThisSeason,
+    nameOf: (other) => nameOf(deps, other) || undefined,
+    nowMs: Date.now()
+  }));
 };
 
 /** Panels opened from the always-visible bar or orb, which sit above an open screen instead of being closed by it. */
@@ -254,6 +290,11 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
   if (screen.id === "battle" && battleClick(deps, target)) return true;
   if (target.closest("[data-v2-close]")) {
     closeScreen(deps);
+    return true;
+  }
+  const diplomacyWith = target.closest<HTMLElement>("[data-v2-profile-diplomacy]")?.dataset.v2ProfileDiplomacy;
+  if (diplomacyWith) {
+    openScreen(deps, "diplomacy", { diplomacyTarget: diplomacyWith });
     return true;
   }
   const lane = target.closest<HTMLElement>("[data-v2-manifest-lane]");

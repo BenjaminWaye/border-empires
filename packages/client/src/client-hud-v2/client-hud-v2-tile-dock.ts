@@ -51,6 +51,7 @@ const MAP_CLICK_WINDOW_MS = 800;
 
 const BAR_ID = "hud-v2-tile";
 const BUILD_ID = "hud-v2-build";
+const OWNERSHIP_HELP = "details.tile-ownership-help";
 const BUILDING_BODY_CLASS = "hud-v2-building";
 const DOCKED = "hud-v2-docked";
 const EXPANDED = "hud-v2-expanded";
@@ -94,7 +95,12 @@ const paintBar = (): void => {
   const wonder = wonderName(tile);
   const html = actionBarHtml(wonder && tile ? { ...view, title: `${wonder} (${tile.x}, ${tile.y})` } : view, dock.panel, facts);
   if (html !== dock.lastHtml) {
+    // The ownership explainer ("Your frontier") is a <details>: keep it open across repaints of the same tile.
+    const key = dock.state.tileActionMenu.currentTileKey;
+    const helpOpen = bar.dataset.tileKey === key && Boolean(bar.querySelector<HTMLDetailsElement>(OWNERSHIP_HELP)?.open);
     bar.innerHTML = html;
+    bar.dataset.tileKey = key;
+    if (helpOpen) bar.querySelector<HTMLDetailsElement>(OWNERSHIP_HELP)?.setAttribute("open", "");
     dock.lastHtml = html;
   }
   bar.hidden = false;

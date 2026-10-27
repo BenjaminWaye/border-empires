@@ -4,7 +4,7 @@ import { latestClientChangelogTimestamp } from "../client-changelog/client-chang
 import { createInitialState } from "../client-state/client-state.js";
 import { screen, type HudV2Deps } from "./client-hud-v2-context.js";
 import { chronicleBadgeCount, chronicleTabClick, renderChronicle, takeOverLegacyDashboard } from "./client-hud-v2-chronicle-runtime.js";
-import { chronicleTabForDashboardView, updatesTabHtml, worldTabHtml } from "./client-hud-v2-chronicle-tabs.js";
+import { chronicleTabForDashboardView, worldTabHtml } from "./client-hud-v2-chronicle-tabs.js";
 
 const depsFor = (state: ReturnType<typeof createInitialState>): HudV2Deps =>
   ({ state, ownerColor: () => "#888", sendGameMessage: () => true, renderHud: () => undefined }) as unknown as HudV2Deps;
@@ -13,6 +13,7 @@ describe("merged Chronicle", () => {
   afterEach(() => {
     screen.chronicleTab = "yours";
     screen.chronicleUpdatesBaseline = undefined;
+    screen.chronicleOpenUpdate = undefined;
     document.body.innerHTML = "";
   });
 
@@ -53,8 +54,7 @@ describe("merged Chronicle", () => {
     expect(state.changelog.seenAt).toBe(latestClientChangelogTimestamp());
     expect(chronicleBadgeCount(state)).toBe(0);
     renderChronicle(depsFor(state));
-    expect(document.getElementById("v2c-drawer")?.innerHTML).toMatch(/\d+ new/);
-    expect(updatesTabHtml(latestClientChangelogTimestamp())).toContain("Recent");
+    expect(document.getElementById("v2c-drawer")?.querySelectorAll(".v2u-new").length).toBeGreaterThan(0);
   });
 
   it("switches tabs from the tab row", () => {

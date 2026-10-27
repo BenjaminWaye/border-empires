@@ -15,7 +15,7 @@ import { battleOnBarAction, battleOnMenuView, installBattleWatch, reopenLiveBatt
 import { focusCamera, screen, SCREEN_HOST_ID, type HudV2Deps, type HudV2ScreenId } from "./client-hud-v2-context.js";
 import { escapeOpensSettings } from "./client-hud-v2-escape.js";
 import { hudV2GameOnScreen } from "./client-hud-v2-ready.js";
-import { initHudV2Flag, isHudV2Active } from "./client-hud-v2-flag.js";
+import { initHudV2Flag, isHudV2Active, setHudV2Driving } from "./client-hud-v2-flag.js";
 import { navHtml } from "./client-hud-v2-nav.js";
 import { orbHtml } from "./client-hud-v2-orb.js";
 import { overlaysHtml } from "./client-hud-v2-overlays.js";
@@ -30,6 +30,8 @@ import { captureIsBattle, trackerHtml } from "./client-hud-v2-tracker.js";
 import "./client-hud-v2.css";
 import "./client-hud-v2-screens.css";
 import "./client-hud-v2-town-battle.css";
+import "./client-hud-v2-profile.css";
+import "./client-hud-v2-economy.css";
 
 export type { HudV2Deps } from "./client-hud-v2-context.js";
 
@@ -39,7 +41,7 @@ const TRACKER_EVERY_TICKS = 4;
 
 const shellHtml = `
   <div class="hud-v2-top"><div id="hud-v2-bar" class="hud-v2-bar"></div><div id="hud-v2-nav" class="hud-v2-nav"></div></div>
-  <div class="hud-v2-right"><div id="hud-v2-season" class="hud-v2-season"></div><div id="hud-v2-rivals" class="hud-v2-rivals"></div></div>
+  <div class="hud-v2-right"><button type="button" id="hud-v2-season" class="hud-v2-season" data-hud-v2-open="ranks" title="Ranks" aria-label="Victory race: open Ranks"></button><div id="hud-v2-rivals" class="hud-v2-rivals"></div></div>
   <aside id="hud-v2-tracker" class="hud-v2-tracker" aria-label="Tracker"></aside>
   <section id="hud-v2-tile" class="hud-v2-tile" hidden aria-label="Selected tile"></section>
   <section id="hud-v2-build" class="v2t-right hud-v2-build-side" hidden aria-label="Build"></section>
@@ -95,13 +97,16 @@ const openTarget = (deps: HudV2Deps, open: string): void => {
 };
 
 const CHIP_FOCUS: Readonly<Record<string, ClientState["economyFocus"]>> = {
-  coin: "GOLD", food: "FOOD", titanium: "TITANIUM", crystal: "CRYSTAL", umbrite: "UMBRITE", shard: "ALL"
+  coin: "GOLD", food: "FOOD", titanium: "TITANIUM", crystal: "CRYSTAL", umbrite: "UMBRITE"
 };
 
-/** Resource chips open the Economy panel on that resource; Integrity opens its own panel. */
+/** Chips that open a panel of their own rather than Economy on a resource. */
+const CHIP_PANEL: Readonly<Record<string, ClientState["activePanel"]>> = { integrity: "defensibility", development: "development" };
+
+/** Resource chips open the Economy panel on that resource; Integrity and the dev-slot row open their own panels. */
 const openResourcePanel = (deps: HudV2Deps, chip: string): void => {
   const { state } = deps;
-  const panel: ClientState["activePanel"] = chip === "integrity" ? "defensibility" : "economy";
+  const panel: ClientState["activePanel"] = CHIP_PANEL[chip] ?? "economy";
   const focus = CHIP_FOCUS[chip];
   // A second click on the same chip closes its panel.
   const alreadyOpen = state.activePanel === panel && (!focus || state.economyFocus === focus);
@@ -297,13 +302,13 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     // loading; sign-in, map preparation, the first load and the season lobby only hold the new layer back.
     const flagOn = isHudV2Active(deps.isMobile);
     const onScreen = flagOn && hudV2GameOnScreen(deps.state, document.body);
+    setHudV2Driving(flagOn);
     document.body.classList.toggle("hud-v2", flagOn);
     document.body.classList.toggle("hud-v2-waiting", flagOn && !onScreen);
-    document.body.classList.toggle("hud-v2-settings-open", onScreen && deps.state.activePanel === "settings");
     // The overlay's toggle and legend live in this HUD; without it (phone width) the tint goes too.
     if (!flagOn && deps.state.showDiplomacyOverlay) deps.state.showDiplomacyOverlay = false;
     // Leaving the new HUD (phone width) must not strand a screen: a hosted profile, or a Chronicle that popups wait on.
-    if (!flagOn && screen.id) closeScreen(deps);
+    if (!flagOn && screen.id) closeScreen(deps, { toMap: true });
     deps.state.activityDashboard.chronicleOpen = onScreen && screen.id === "chronicle";
     if (!onScreen || !deps.state.me) return;
     const nowMs = Date.now();

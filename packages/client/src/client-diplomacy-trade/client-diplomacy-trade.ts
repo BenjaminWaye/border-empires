@@ -5,6 +5,7 @@
 // removes itself on close, keeps only the one open screen's state.
 import { emptyDiplomacyTerms, type DiplomacyCounterRef, type DiplomacyGoods, type DiplomacyOfferKind, type DiplomacyTerms } from "@border-empires/shared";
 
+import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 import { diplomacyTradeStyles } from "./client-diplomacy-trade-style.js";
 import { attitudeSummary, suggestedDeal, tradeVerdict, warTally, type DiplomacyStanceReply, type TradeSelection } from "./client-diplomacy-trade-view.js";
 
@@ -14,6 +15,8 @@ export type DiplomacyTradeDeps = {
   /** Sends a client message; false when not signed in yet. */
   send: (payload: unknown, notSignedInMessage: string) => boolean;
   ownHoldings: () => DiplomacyGoods;
+  /** When your current truce with this empire ends, if you have one: the server refuses a second truce. */
+  truceEndsAt?: (targetPlayerId: string | undefined, targetName: string) => number | undefined;
 };
 
 type OpenScreen = {
@@ -41,10 +44,12 @@ export const TRADE_HOLDINGS_CHECK_MS = 1_000;
  * them sends an offer without terms and the AI's verdict.
  */
 export const diplomacyTradeDepsFor = (
-  state: { gold: number; strategicResources: { SHARD?: number } },
+  state: { gold: number; strategicResources: { SHARD?: number }; activeTruces: ReadonlyArray<{ otherPlayerId: string; otherPlayerName: string; endsAt: number }> },
   send: DiplomacyTradeDeps["send"]
 ): DiplomacyTradeDeps => ({
   send,
+  truceEndsAt: (targetPlayerId, targetName) =>
+    state.activeTruces.find((t) => (targetPlayerId ? t.otherPlayerId === targetPlayerId : t.otherPlayerName.toLocaleLowerCase() === targetName.toLocaleLowerCase()))?.endsAt,
   ownHoldings: () => ({
     gold: Math.max(0, Math.floor(state.gold)),
     shard: Math.max(0, Math.floor(state.strategicResources.SHARD ?? 0))
@@ -207,6 +212,10 @@ export const openDiplomacyTradeScreen = (
   overlay.className = "diplomacy-trade-overlay";
   const name = escapeHtml(targetName);
   const terms = input.terms ?? emptyDiplomacyTerms();
+  // A truce is already running: the server refuses another, so only an alliance (or a counter's terms) can be offered.
+  const truceEndsAt = deps.truceEndsAt?.(input.targetPlayerId, targetName);
+  const inTruce = truceEndsAt !== undefined && truceEndsAt > Date.now();
+  const kind: DiplomacyOfferKind = inTruce ? "alliance" : input.kind;
   const amountInput = (attr: string, label: string, value: number): string =>
     `<input type="number" inputmode="numeric" min="0" step="1" value="${value}" ${attr} aria-label="${label}">`;
   overlay.innerHTML = `<section class="diplomacy-trade-popup" role="dialog" aria-modal="true" aria-labelledby="diplomacy-trade-title">
@@ -216,8 +225,9 @@ export const openDiplomacyTradeScreen = (
     <ul class="diplomacy-trade-modifiers" data-trade-modifiers hidden></ul>
     <div class="diplomacy-trade-war" data-trade-war hidden></div>
     <div class="diplomacy-trade-kinds" role="group" aria-label="Offer type">
-      <button type="button" data-trade-kind="truce:12">Truce 12h</button>
-      <button type="button" data-trade-kind="truce:24">Truce 24h</button>
+      ${inTruce
+        ? `<span class="diplomacy-trade-current" data-trade-current>Truce · ${socialRemainingLabel(truceEndsAt, Date.now())} left</span>`
+        : `<button type="button" data-trade-kind="truce:12">Truce 12h</button><button type="button" data-trade-kind="truce:24">Truce 24h</button>`}
       <button type="button" data-trade-kind="alliance:0">Alliance</button>
     </div>
     <div class="diplomacy-trade-grid">
@@ -234,7 +244,7 @@ export const openDiplomacyTradeScreen = (
     targetName,
     targetPlayerId: input.targetPlayerId,
     counters: input.counters,
-    selection: { kind: input.kind, durationHours: input.durationHours, terms },
+    selection: { kind, durationHours: input.durationHours, terms },
     reply: undefined,
     overlay,
     deps,

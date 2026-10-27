@@ -1,7 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { drawTileIntelOverlays2D, tileIntelDeps2D } from "../client-map-2d-tile-intel/client-map-2d-tile-intel.js";
-import type { Tile } from "../client-types.js";
-import { DIPLOMACY_OVERLAY_COLORS, diplomacyOverlayKey, diplomacyStanceLookup } from "./client-diplomacy-overlay.js";
+import { describe, expect, it } from "vitest";
+import { DIPLOMACY_OVERLAY_COLORS, DIPLOMACY_SELF_COLOR, diplomacyOverlayKey, diplomacyOwnerColor, diplomacyStanceLookup } from "./client-diplomacy-overlay.js";
 
 const truce = (otherPlayerId: string) => ({ otherPlayerId, otherPlayerName: otherPlayerId, startedAt: 0, endsAt: 1, createdByPlayerId: "me" });
 
@@ -23,28 +21,27 @@ describe("diplomacy overlay stance", () => {
   });
 });
 
-describe("2D diplomacy tint", () => {
-  const fakeCtx = () => {
-    const fills: string[] = [];
-    const ctx = { fillRect: vi.fn(), strokeRect: vi.fn(), beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), stroke: vi.fn(), arc: vi.fn(), fill: vi.fn(), lineWidth: 1, strokeStyle: "" } as unknown as CanvasRenderingContext2D;
-    Object.defineProperty(ctx, "fillStyle", { set: (v: string) => fills.push(v), get: () => fills.at(-1) ?? "" });
-    return { ctx, fills };
-  };
-  const state = { tiles: new Map<string, Tile>(), me: "me", showWeakDefensibility: false, showDiplomacyOverlay: true, allies: ["a"], activeTruces: [] };
-  const base = { keyFor: (x: number, y: number) => `${x},${y}`, wrapX: (x: number) => x, wrapY: (y: number) => y, terrainAt: () => "LAND" as const };
-  const allyTile: Tile = { x: 1, y: 1, terrain: "LAND", ownerId: "a" };
-
-  it("tints an ally's tile in the ally colour", () => {
-    const { ctx, fills } = fakeCtx();
-    drawTileIntelOverlays2D(ctx, allyTile, "visible", 0, 0, 20, tileIntelDeps2D(state, base, false));
-    expect(fills[0]).toMatch(/^rgba\(111, 191, 115, 0\.36\)$/);
-    expect(DIPLOMACY_OVERLAY_COLORS.ally).toBe("#6fbf73");
+describe("diplomacy view colours", () => {
+  // Regression: the view drew translucent tiles over each empire's land instead of recolouring it.
+  it("swaps every empire's owner colour for its stance while on, yours for a fixed You colour", () => {
+    const state = { me: "me", allies: ["a"], activeTruces: [truce("t")], showDiplomacyOverlay: true };
+    const colorOf = diplomacyOwnerColor(state);
+    expect(["a", "t", "x", "barbarian-1"].map(colorOf)).toEqual([
+      DIPLOMACY_OVERLAY_COLORS.ally, DIPLOMACY_OVERLAY_COLORS.truce, DIPLOMACY_OVERLAY_COLORS.none, DIPLOMACY_OVERLAY_COLORS.barbarian
+    ]);
+    // Regression: your own land kept your colour, which could match a stance colour (a green empire read as an ally).
+    expect(colorOf("me")).toBe(DIPLOMACY_SELF_COLOR);
+    expect(Object.values(DIPLOMACY_OVERLAY_COLORS)).not.toContain(DIPLOMACY_SELF_COLOR);
+    state.showDiplomacyOverlay = false;
+    expect(colorOf("me")).toBeUndefined();
+    expect(colorOf("a")).toBeUndefined();
   });
 
-  it("draws nothing in 2D while the 3D renderer owns the map, or over unexplored land", () => {
-    const { ctx, fills } = fakeCtx();
-    drawTileIntelOverlays2D(ctx, allyTile, "visible", 0, 0, 20, tileIntelDeps2D(state, base, true));
-    drawTileIntelOverlays2D(ctx, allyTile, "unexplored", 0, 0, 20, tileIntelDeps2D(state, base, false));
-    expect(fills).toEqual([]);
+  it("follows a new alliance as soon as the allies list is replaced", () => {
+    const state = { me: "me", allies: [] as string[], activeTruces: [], showDiplomacyOverlay: true };
+    const colorOf = diplomacyOwnerColor(state);
+    expect(colorOf("a")).toBe(DIPLOMACY_OVERLAY_COLORS.none);
+    state.allies = ["a"];
+    expect(colorOf("a")).toBe(DIPLOMACY_OVERLAY_COLORS.ally);
   });
 });

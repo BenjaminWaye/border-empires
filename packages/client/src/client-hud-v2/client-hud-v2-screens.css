@@ -5,8 +5,7 @@
 .hud-v2-screen > * { pointer-events: auto; }
 .hud-v2-screen:empty { display: none; }
 
-/* What each screen hides. Frame screens keep the resource bar; the crest and screen buttons under it would cover the frame's ◁ Map Esc button. */
-body.hud-v2-screen-frame .hud-v2-nav,
+/* What each screen hides. Frame screens keep the resource bar and the crest and screen buttons (the open one lit), so you can move between screens. */
 body.hud-v2-screen-frame .hud-v2-right,
 body.hud-v2-screen-frame .hud-v2-tracker,
 body.hud-v2-screen-frame .hud-v2-tile,
@@ -37,19 +36,8 @@ body.hud-v2-screen-battle #victory-alert-overlay,
 body.hud-v2-screen-battle .onb-root { display: none !important; }
 /* The effort sheet keeps working underneath; the battle screen is its view. */
 body.hud-v2-screen-battle .effort-confirm-overlay { opacity: 0 !important; pointer-events: none !important; }
-body.hud-v2-screen-open #player-profile-overlay { z-index: 70; }
-/* The player profile, hosted in the frame body (client-hud-v2-profile.ts): a page in the frame, not a modal. */
-.v2s-body #player-profile-overlay { position: static; inset: auto; display: block !important; padding: 0; overflow-y: auto; z-index: auto; pointer-events: auto; }
-.v2s-body #player-profile-overlay .intel-backdrop,
-.v2s-body #player-profile-overlay .intel-hero-sigil,
-.v2s-body #player-profile-overlay .intel-actions { display: none; }
-.v2s-body #player-profile-overlay .intel-modal {
-  width: auto; max-width: 1100px; max-height: none; margin: 0 auto; padding: 22px 26px; border-radius: 0;
-  background: var(--v2-ink-solid); border: 1px solid var(--v2-edge); box-shadow: none; color: var(--v2-text); font-family: var(--v2-body);
-}
-.v2s-body #player-profile-overlay .intel-title { font-family: var(--v2-display); color: var(--v2-gold-hi); letter-spacing: 0.06em; }
-.v2s-body #player-profile-overlay .intel-kicker, .v2s-body #player-profile-overlay .intel-section-label { font-family: var(--v2-display); color: var(--v2-gold); letter-spacing: 0.12em; }
-.v2s-body #player-profile-overlay .intel-summary { color: var(--v2-soft); }
+/* The new HUD draws its own profile screen (client-hud-v2-profile.ts); the legacy overlay only keeps fetching. */
+body.hud-v2 #player-profile-overlay { display: none !important; }
 /* Outcome alerts (truce accepted, offer sent) sit above an open screen instead of behind it. The battle screen hides them. */
 body.hud-v2-screen-open #capture-overlay { z-index: 72; }
 /* Building / ability info cards opened from a screen (Manifest chips) sit above it. */
@@ -86,7 +74,7 @@ body.hud-v2-screen-manifest .v2s-backdrop { background: rgba(9, 8, 6, 0.9); back
   display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px 0 10px; background: var(--v2-well); border: 1px solid var(--v2-edge-strong);
   font-family: var(--v2-display); font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
 }
-.v2s-back > span { color: var(--v2-gold); font-size: 14px; }
+.v2s-back-arrow { color: var(--v2-gold); font-size: 14px; }
 .v2s-back kbd { padding: 0 4px; border: 1px solid var(--v2-line); font-family: var(--v2-mono); font-size: 10px; font-weight: 400; color: var(--v2-muted); }
 .v2s-title { margin: 0; font-family: var(--v2-display); font-size: 24px; font-weight: 700; letter-spacing: 0.12em; color: var(--v2-gold); }
 .v2s-head-right { margin-left: auto; }
@@ -304,4 +292,15 @@ body.hud-v2 #activity-dashboard-overlay { display: none !important; }
 .v2c-story { padding: 10px 14px; border-bottom: 1px solid var(--v2-line); }
 .v2c-story h3 { margin: 0 0 4px; font-family: var(--v2-display); font-size: 14px; color: var(--v2-text); }
 .v2c-story p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--v2-soft); }
-.v2c-updates { padding: 4px 14px 14px; font-size: 13px; line-height: 1.45; color: var(--v2-soft); }
+/* Updates: one line per release, opened in place (client-hud-v2-chronicle-updates.ts). */
+.v2u-row { display: grid; grid-template-columns: 8px minmax(0, 1fr) 12px; align-items: center; gap: 10px; width: 100%; padding: 8px 14px; border: 0; border-left: 3px solid transparent; background: transparent; color: var(--v2-soft); text-align: left; cursor: pointer; }
+.v2u-row:hover { background: #1b170f; color: var(--v2-text); }
+.v2u-open { background: #221c13; border-left-color: var(--v2-gold); color: var(--v2-text); }
+.v2u-dot { width: 6px; height: 6px; }
+.v2u-new .v2u-dot { background: var(--v2-gold-hi); box-shadow: 0 0 6px rgba(240, 207, 130, 0.6); }
+.v2u-title { font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.03em; line-height: 1.3; }
+.v2u-new .v2u-title { color: var(--v2-gold-hi); }
+.v2u-caret { font-size: 10px; color: var(--v2-muted); }
+.v2u-changes { margin: 0; padding: 2px 14px 12px 35px; background: #221c13; border-left: 3px solid var(--v2-gold); list-style: none; display: grid; gap: 6px; }
+.v2u-changes li { position: relative; font-size: 13px; line-height: 1.4; color: var(--v2-soft); }
+.v2u-changes li::before { content: ""; position: absolute; left: -12px; top: 0.55em; width: 4px; height: 4px; background: var(--v2-gold); }

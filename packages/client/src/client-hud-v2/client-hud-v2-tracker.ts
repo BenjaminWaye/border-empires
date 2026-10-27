@@ -59,7 +59,7 @@ export const buildSlotsHtml = (slots: TrackerInput["buildSlots"]): string => {
   const busy = Math.min(limit, Math.max(0, slots.busy));
   const free = limit - busy;
   const pips = Array.from({ length: limit }, (_, i) => `<span class="hud-v2-slot-pip${i < busy ? " hud-v2-slot-busy" : ""}"></span>`).join("");
-  return `<div class="hud-v2-slots${free > 0 ? " hud-v2-slots-free" : ""}" role="img" aria-label="Development slots ${busy} of ${limit} in use"><span class="hud-v2-slots-label">Dev slots</span><span class="hud-v2-slot-pips" aria-hidden="true">${pips}</span><span class="hud-v2-slots-count">${busy}/${limit}${free > 0 ? ` · ${free} free` : ""}</span></div>`;
+  return `<button type="button" class="hud-v2-slots${free > 0 ? " hud-v2-slots-free" : ""}" data-hud-v2-chip="development" aria-label="Development slots ${busy} of ${limit} in use" title="Development"><span class="hud-v2-slots-label">Dev slots</span><span class="hud-v2-slot-pips" aria-hidden="true">${pips}</span><span class="hud-v2-slots-count">${busy}/${limit}${free > 0 ? ` · ${free} free` : ""}</span></button>`;
 };
 
 const capped = <T>(items: T[], render: (item: T) => string): string => {

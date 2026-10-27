@@ -42,5 +42,21 @@ export const HUD_V2_PREVIEW_CHANGELOG: ClientChangelogEntry[] = [
       "Ranks race tracks show the top three on each path, plus you.",
       "Pressing a building or ability in the Manifest opens its info card. Settings opens in the middle of the screen over a dimmed map. Player profiles open as a full screen like the Manifest, and screens hide the crest so their Map / Esc button stays visible."
     ]
+  },
+  {
+    createdAt: 1793054112160, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.26.2",
+    title: "HUD preview: profiles, Updates and the Diplomacy view",
+    why: "Fixes from the third round of testing the opt-in ?hud=v2 preview.",
+    changes: [
+      "Player profiles are a full screen: crest, standing and rank beside this season's numbers, career, trophies, holdings and pacts. Closing one goes back to the screen it was opened from.",
+      "Chronicle Updates lists one line per release; tap one to see what changed. Unread ones are marked.",
+      "The Diplomacy view recolours other empires' land by your standing with them instead of drawing over it. Its toggle is an icon on the minimap.",
+      "Clicking anywhere in the tile panel no longer closes it, and Your frontier opens its explanation. Details no longer repeats what the panel already shows.",
+      "The Victory race panel opens Ranks. The crest and screen buttons stay visible on the Manifest, AFC, Diplomacy, Ranks and profile screens.",
+      "Settings opens in the middle of the screen straight away instead of sliding across.",
+      "Economy shows one row per resource (Coin, Food, Titanium, Crystal, Umbrite): what you have, where it comes from and what uses it. Dev slots open the Development panel.",
+      "The deal screen no longer offers a truce while one is already running."
+    ]
   }
 ];

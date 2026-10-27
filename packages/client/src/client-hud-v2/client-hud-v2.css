@@ -38,6 +38,8 @@ body.hud-v2 #floating-info { display: none !important; }
 :where(#hud-v2) button:disabled { cursor: not-allowed; }
 #hud-v2 :focus-visible { outline: 2px solid var(--v2-gold-hi); outline-offset: 2px; }
 
+/* Panels are solid to the pointer: #hud lets clicks through to the map, and a click on a panel's
+   padding or text must not select the tile underneath (which closes the tile panel). */
 .hud-v2-bar,
 .hud-v2-season,
 .hud-v2-tracker,
@@ -45,6 +47,7 @@ body.hud-v2 #floating-info { display: none !important; }
   background: var(--v2-ink);
   border: 1px solid var(--v2-edge);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
 }
 
 /* ---- Top-left: resource bar, crest + bubbles ---- */
@@ -55,6 +58,8 @@ body.hud-v2 #floating-info { display: none !important; }
   background: var(--v2-chip); border: 1px solid var(--v2-line); font-family: var(--v2-mono); font-size: 13px;
 }
 .hud-v2-chip:hover { border-color: var(--v2-gold); }
+.hud-v2-chip-static { cursor: default; }
+.hud-v2-chip-static:hover { border-color: var(--v2-line); }
 .hud-v2-chip-label { font-size: 11px; color: var(--v2-muted); }
 .hud-v2-chip-value { font-weight: 700; }
 .hud-v2-chip-of { color: var(--v2-muted); }
@@ -97,7 +102,9 @@ body.hud-v2 #floating-info { display: none !important; }
 
 /* ---- Top-right: victory line + rivals ---- */
 .hud-v2-right { position: fixed; top: 12px; right: 16px; z-index: 40; display: grid; gap: 10px; justify-items: end; max-width: 340px; }
-.hud-v2-season { display: grid; gap: 4px; padding: 10px 14px; text-align: right; }
+/* The victory line is the way into Ranks. */
+.hud-v2-season { display: grid; gap: 4px; padding: 10px 14px; text-align: right; color: inherit; font: inherit; cursor: pointer; }
+.hud-v2-season:hover { border-color: var(--v2-edge-strong); background: #1b170f; }
 .hud-v2-season-title { font-family: var(--v2-display); font-size: 15px; font-weight: 700; letter-spacing: 0.08em; color: var(--v2-gold); }
 .hud-v2-season-line { font-size: 13px; color: var(--v2-muted); }
 .hud-v2-season-holding { color: var(--v2-text); }
@@ -110,13 +117,6 @@ body.hud-v2 #floating-info { display: none !important; }
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
 }
 .hud-v2-rival-truce .hud-v2-rival-token { border-style: dashed; }
-.hud-v2-rival-badge {
-  position: absolute; right: -8px; bottom: -8px; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%;
-  background: var(--v2-ink-solid); border: 2px solid var(--v2-soft);
-}
-.hud-v2-rival-badge svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-.hud-v2-rival-truce .hud-v2-rival-badge { border-color: var(--v2-amber); color: var(--v2-amber); }
-.hud-v2-rival-ally .hud-v2-rival-badge { border-color: var(--v2-green); color: var(--v2-green); }
 .hud-v2-rival-name { max-width: 58px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--v2-mono); font-size: 10px; text-shadow: 0 1px 2px #000; }
 .hud-v2-rival-stance { font-family: var(--v2-mono); font-size: 9px; color: var(--v2-soft); text-shadow: 0 1px 2px #000; }
 .hud-v2-rival-truce .hud-v2-rival-stance { color: var(--v2-amber); }
@@ -134,7 +134,8 @@ body.hud-v2 #floating-info { display: none !important; }
 .hud-v2-tracker:empty { display: none; }
 .hud-v2-tracker-head { padding: 10px 14px 4px; font-family: var(--v2-display); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; color: var(--v2-gold); }
 .hud-v2-tracker-head-needs { color: var(--v2-amber); }
-.hud-v2-slots { display: flex; align-items: center; gap: 8px; padding: 10px 14px 2px; font-size: 12px; color: var(--v2-soft); }
+.hud-v2-slots { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 14px 2px; border: 0; background: transparent; font: inherit; font-size: 12px; color: var(--v2-soft); text-align: left; cursor: pointer; }
+.hud-v2-slots:hover .hud-v2-slots-label { color: var(--v2-gold-hi); }
 .hud-v2-slots-label { font-family: var(--v2-display); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--v2-gold); }
 .hud-v2-slot-pips { display: inline-flex; gap: 4px; }
 .hud-v2-slot-pip { width: 10px; height: 10px; border: 1px solid var(--v2-gold); transform: rotate(45deg); }
@@ -160,15 +161,19 @@ body.hud-v2 #mini-map { width: 200px; height: 200px; }
 /* The new-empire checklist launcher measures the legacy info block (hidden here), so pin it above the minimap. */
 body.hud-v2 .onb-root { bottom: 266px !important; }
 
-/* Overlay toggles sit right of the minimap; the legend stacks above the button while on. */
-.hud-v2-overlays { position: fixed; left: 226px; bottom: 16px; z-index: 37; display: grid; gap: 6px; justify-items: start; }
+/* Map view toggles: an icon tab hanging off the minimap's top-right edge (the map is 200px tall above a
+   ~44px label, from bottom 16px); the legend sits beside the minimap below it while on. */
+.hud-v2-overlays { position: fixed; left: 217px; bottom: 226px; z-index: 37; }
 .hud-v2-overlay-btn {
-  height: 32px; padding: 0 12px; background: var(--v2-ink); border: 1px solid var(--v2-edge-strong);
-  font-family: var(--v2-display); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: var(--v2-soft);
+  display: grid; place-items: center; width: 34px; height: 34px; padding: 0; background: var(--v2-ink);
+  border: 1px solid var(--v2-edge-strong); border-left-color: transparent; color: var(--v2-soft); cursor: pointer;
 }
-.hud-v2-overlay-btn:hover { border-color: var(--v2-gold); color: var(--v2-text); }
-.hud-v2-overlay-on { background: #2a2216; border-color: var(--v2-gold); color: var(--v2-gold-hi); }
-.hud-v2-overlay-legend { display: grid; gap: 4px; padding: 8px 10px; background: var(--v2-ink); border: 1px solid var(--v2-edge); font-size: 12px; }
+.hud-v2-overlay-btn .tab-icon { width: 20px; height: 20px; opacity: 0.8; }
+.hud-v2-overlay-btn:hover { border-color: var(--v2-gold); border-left-color: transparent; }
+.hud-v2-overlay-btn:hover .tab-icon { opacity: 1; }
+.hud-v2-overlay-on { background: #2a2216; border-color: var(--v2-gold); border-left-color: transparent; }
+.hud-v2-overlay-on .tab-icon { opacity: 1; }
+.hud-v2-overlay-legend { pointer-events: auto; position: absolute; top: 42px; left: 6px; display: grid; gap: 4px; white-space: nowrap; padding: 8px 10px; background: var(--v2-ink); border: 1px solid var(--v2-edge); font-size: 12px; }
 .hud-v2-overlay-legend span { display: flex; align-items: center; gap: 6px; }
 .hud-v2-overlay-legend i { width: 12px; height: 12px; border: 1px solid rgba(0, 0, 0, 0.5); }
 
@@ -232,12 +237,14 @@ body.hud-v2 .onb-root { bottom: 266px !important; }
 .hud-v2-pop-label { font-size: 14px; }
 .hud-v2-pop-note { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-soft); }
 /* Build ▸ sidebar on the map: same list as the town screen; the top-right column steps aside. */
-.hud-v2-build-side { top: 128px !important; }
+.hud-v2-build-side { top: 128px !important; pointer-events: auto; }
 .hud-v2-build-side[hidden] { display: none; }
 .hud-v2-build-place { padding: 10px 18px 14px; border-top: 1px solid var(--v2-line); }
 .hud-v2-build-place:empty { display: none; }
 .hud-v2-build-place .v2t-place { border: 0; padding: 0; box-shadow: none; background: none; }
 body.hud-v2-building .hud-v2-right { display: none; }
+/* A side panel (Economy, Integrity, Development) opens over the right edge; the rival portraits would sit on its header. */
+body.hud-v2:has(#hud.desktop-side-panel-open) .hud-v2-rivals { display: none; }
 .hud-v2-tile .tile-auto-settle-option { font-size: 12px; color: var(--v2-muted); }
 
 /* The floating menu is hidden while docked; Build / Aether / ⋯ expand it as a right-hand sidebar. */
@@ -248,8 +255,9 @@ body.hud-v2 #tile-action-menu.hud-v2-docked.hud-v2-expanded {
 body.hud-v2 #side-panel { top: 128px; bottom: 236px; }
 /* Settings is a centred dialog over the dimmed map, not a side panel. */
 .hud-v2-dim { display: none; position: fixed; inset: 0; z-index: 48; background: rgba(8, 6, 3, 0.62); pointer-events: auto; }
-body.hud-v2-settings-open .hud-v2-dim { display: block; }
-body.hud-v2.hud-v2-settings-open #side-panel { top: 50%; left: 50%; right: auto; bottom: auto; transform: translate(-50%, -50%); width: min(560px, calc(100vw - 32px)); height: min(80vh, 760px); z-index: 49; }
+/* Keyed off the panel's own class, set in the same render that opens it, so Settings never shows at the side first. */
+body.hud-v2:has(#side-panel.settings-panel-active) .hud-v2-dim { display: block; }
+body.hud-v2 #side-panel.settings-panel-active { top: 50%; left: 50%; right: auto; bottom: auto; transform: translate(-50%, -50%); width: min(560px, calc(100vw - 32px)); height: min(80vh, 760px); z-index: 49; }
 
 /* ---- Bottom-right: manpower orb ---- */
 .hud-v2-orb-slot { position: fixed; right: 16px; bottom: 16px; z-index: 40; }
