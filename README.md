@@ -102,7 +102,7 @@ Five concurrent paths, all requiring a 24-hour hold:
 
 - Real-time Canvas map with pan/zoom, fog of war, and chunk streaming.
 - HUD panels for missions, tech, alliances, leaderboard, identity settings, and an Activity dashboard. The dashboard combines a persistent 24-hour personal timeline, a player-safe World Pulse, and release updates.
-- Town resource surveys open a popup that stays until dismissed. Activity → Yours also keeps unresolved surveys available beyond the 24-hour timeline, with View survey actions to locate the clues.
+- Town resource surveys open a popup that stays until dismissed. Dismissals are remembered across reloads in the same browser for each player and season; new survey reports can still appear. Activity → Yours also keeps unresolved surveys available beyond the 24-hour timeline, with View survey actions to locate the clues.
 - Each muster flag has a Recent combat tab with unread counts, red manpower losses, and green plunder gains. Automatic flag battles keep up to 40 reports per flag in the current browser and season instead of opening result popups.
 - Mobile-first: touch pan/pinch-zoom and drawer navigation wired to live game state.
 - Established sessions reconnect in place through server updates without an automatic page refresh. A reconnect restarts after a minute without login or initial-session download progress; active queue and download updates extend that deadline.
