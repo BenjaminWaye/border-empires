@@ -117,11 +117,11 @@ export const renderDefensibilityPanelHtml = (args: DefensibilityArgs): string =>
     </article>
     <article class="card defense-breakdown-card">
       <strong>What is an "open side"?</strong>
-      <p class="defense-copy">Every land tile you own has 4 sides. A side is <em>open</em> if it touches enemy land or empty land — that's where enemies can walk in. Water and mountains block enemies, so those sides do <em>not</em> count as open. <strong>Fewer open sides = harder to invade = higher score.</strong></p>
+      <p class="defense-copy">Only garrisoned tiles count. Each has 4 sides. A side is <em>open</em> if it touches enemy land or empty land — that's where enemies can walk in. Water and mountains block enemies, so those sides do <em>not</em> count as open. <strong>Fewer open sides = harder to invade = higher score.</strong></p>
     </article>
     <article class="card defense-breakdown-card">
       <div class="defense-stat-grid">
-        <div class="defense-stat"><span>Tiles you own</span><strong>${summary.settledTiles}</strong></div>
+        <div class="defense-stat"><span>Garrisoned tiles</span><strong>${summary.settledTiles}</strong></div>
         <div class="defense-stat"><span>Open sides</span><strong>${summary.exposedEdges}</strong></div>
         <div class="defense-stat"><span>Walls (water + mountain)</span><strong>${summary.naturalShieldEdges}</strong></div>
         <div class="defense-stat"><span>Tile-to-tile borders</span><strong>${Math.round(summary.internalEdges / 2)}</strong></div>
