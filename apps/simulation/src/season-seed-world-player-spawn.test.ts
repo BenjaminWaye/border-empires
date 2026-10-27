@@ -1,17 +1,11 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { FairSpawnSite, TownDefinition } from "@border-empires/game-domain";
 import type { Tile, TileKey } from "@border-empires/shared";
 import { createSeasonSeedPlayerSpawner } from "./season-seed-world-player-spawn.js";
 
-const roster = vi.hoisted(() => ({ sites: [] as FairSpawnSite[] }));
-vi.mock("@border-empires/game-domain", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@border-empires/game-domain")>()),
-  computeFairSpawnSites: () => roster.sites
-}));
-
 const key = (x: number, y: number): TileKey => `${x},${y}`;
 
-const createSpawner = (width: number): ReturnType<typeof createSeasonSeedPlayerSpawner> => {
+const createSpawner = (width: number, fairSpawnSites: readonly FairSpawnSite[] = []): ReturnType<typeof createSeasonSeedPlayerSpawner> => {
   const ownership = new Map<TileKey, string>();
   const townsByTile = new Map<TileKey, TownDefinition>();
   return createSeasonSeedPlayerSpawner({
@@ -25,6 +19,7 @@ const createSpawner = (width: number): ReturnType<typeof createSeasonSeedPlayerS
     key,
     chebyshevDistance: (ax, ay, bx, by) => Math.max(Math.abs(ax - bx), Math.abs(ay - by)),
     seeded01: () => 0,
+    fairSpawnSites,
     townsByTile,
     docksByTile: new Map(),
     ownership,
@@ -51,10 +46,6 @@ const createSpawner = (width: number): ReturnType<typeof createSeasonSeedPlayerS
 };
 
 describe("createSeasonSeedPlayerSpawner", () => {
-  afterEach(() => {
-    roster.sites = [];
-  });
-
   it("uses an unoccupied spawnable tile when separation tiers are exhausted", () => {
     const spawner = createSpawner(2);
 
@@ -68,8 +59,7 @@ describe("createSeasonSeedPlayerSpawner", () => {
   });
 
   it("places AI empires on the same pre-picked roster as players, farthest from earlier starts", () => {
-    roster.sites = [{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 20, y: 0 }];
-    const spawner = createSpawner(40);
+    const spawner = createSpawner(40, [{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 20, y: 0 }]);
 
     spawner.spawnPlayerAt("player-1", false, 0);
     spawner.spawnPlayerAt("ai-1", true, 1);
@@ -78,5 +68,23 @@ describe("createSeasonSeedPlayerSpawner", () => {
       { playerId: "player-1", x: 0, y: 0, isAi: false },
       { playerId: "ai-1", x: 20, y: 0, isAi: true }
     ]);
+  });
+
+  it("falls back to the seeded search for an AI once the roster has no open site", () => {
+    const spawner = createSpawner(40, [{ x: 0, y: 0 }]);
+
+    spawner.spawnPlayerAt("ai-1", true, 0);
+    spawner.spawnPlayerAt("ai-2", true, 1);
+
+    expect(spawner.spawnPositions).toEqual([
+      { playerId: "ai-1", x: 0, y: 0, isAi: true },
+      { playerId: "ai-2", x: 35, y: 0, isAi: true }
+    ]);
+  });
+
+  it("still refuses a season player when the roster has no open site", () => {
+    const spawner = createSpawner(40);
+
+    expect(() => spawner.spawnPlayerAt("player-1", false, 0)).toThrow("no qualified starter site for season player player-1");
   });
 });

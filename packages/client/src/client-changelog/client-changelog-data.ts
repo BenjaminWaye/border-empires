@@ -427,10 +427,11 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     createdAt: 1793127173514, // Date.now() captured once for this entry.
     introducedIn: "2026.10.27.3",
     title: "AI empires start on the same ground as players",
-    why: "At season start, AI empires were placed by their own search, so one could start right beside a player's site and grab the land around it.",
+    why: "AI empires used to pick their starting spots with a separate search, so one could start right beside a good opening that a player would later join on, then grow into it.",
     changes: [
-      "From next season, AI empires and players pick their starting spots from the same list of good sites, each taking the open site farthest from everyone placed before it",
-      "AI empires only fall back to their old search if that list runs out"
+      "From next season, AI empires start on the same kind of good sites players join on, each taking the open site farthest from the empires already placed.",
+      "Players who join later pick from the good sites no AI has taken.",
+      "AI empires only fall back to their old search if every good site is taken."
     ]
   }
 ];

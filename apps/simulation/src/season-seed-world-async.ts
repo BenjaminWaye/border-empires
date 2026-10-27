@@ -1,4 +1,4 @@
-import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
+import type { DomainPlayer, DomainTileState, FairSpawnSite } from "@border-empires/game-domain";
 import {
   CURRENT_WORLDGEN_VERSION,
   WORLD_HEIGHT,
@@ -55,7 +55,7 @@ import {
 import { seedBarbarianTiles } from "./season-barbarian-seed/season-barbarian-seed.js"; import { createSeasonNaturalWondersRuntime } from "./season-seed-natural-wonders.js";
 import { buildSeasonSeedTile } from "./season-seed-world-tile-assembly.js";
 import { createSeasonSeedPlayerSpawner } from "./season-seed-world-player-spawn.js";
-import { countFairSpawnSitesForWorldgenCheck, FAIR_SPAWN_SITE_WORLDGEN_MINIMUM } from "./season-seed-world-fair-spawn-check.js";
+import { computeFairSpawnSitesForWorldgen, FAIR_SPAWN_SITE_WORLDGEN_MINIMUM } from "./season-seed-world-fair-spawn-check.js";
 import { fillMountainRingInteriors } from "./season-seed-world-ring-interiors.js";
 import { finalizeSeasonWorldDocks } from "./dock-network/dock-sea-routes.js";
 
@@ -227,7 +227,7 @@ export const createSeasonSeedWorldAsync = async (
   const naturalWondersRuntime = createSeasonNaturalWondersRuntime(terrainRuntime, naturalWondersByTile, docksByTile, clusterByTile, clustersById, townsByTile);
   let worldSeed = seed;
   let islandSummary = { sizes: [] as number[], significantCount: 0, largestShare: 1 };
-  let acceptedStarterWorld = false;
+  let acceptedFairSpawnSites: FairSpawnSite[] | undefined;
   for (let iteration = 0; iteration < 16; iteration += 1) {
     activeSeason.worldSeed = worldSeed;
     setWorldSeed(worldSeed, style, CURRENT_WORLDGEN_VERSION); // generation always uses the latest algorithm
@@ -259,19 +259,20 @@ export const createSeasonSeedWorldAsync = async (
     await onYield?.();
     // Reject (and regenerate, same as a bad island distribution or a bland
     // map) a candidate map that can't secure a full fair-spawn-site roster —
-    // see countFairSpawnSitesForWorldgenCheck.
-    const worldAccepted =
-      islandDistributionAccepted &&
-      !worldLooksBlandResult &&
-      countFairSpawnSitesForWorldgenCheck({ WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key, clusterByTile, clustersById, townsByTile, docksByTile }) >= FAIR_SPAWN_SITE_WORLDGEN_MINIMUM;
-    if (worldAccepted) { acceptedStarterWorld = true; break; }
+    // see computeFairSpawnSitesForWorldgen.
+    const candidateFairSpawnSites =
+      islandDistributionAccepted && !worldLooksBlandResult
+        ? computeFairSpawnSitesForWorldgen({ WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key, clusterByTile, clustersById, townsByTile, docksByTile })
+        : undefined;
+    if (candidateFairSpawnSites && candidateFairSpawnSites.length >= FAIR_SPAWN_SITE_WORLDGEN_MINIMUM) { acceptedFairSpawnSites = candidateFairSpawnSites; break; }
     if (iteration < 15) {
       worldSeed = Math.floor(terrainRuntime.seeded01(worldSeed + iteration * 101, worldSeed + iteration * 137, worldSeed + 9001) * 1_000_000_000);
     }
     await onYield?.();
   }
   // Island preferences remain best-effort; the starter economy is mandatory.
-  if (!acceptedStarterWorld && countFairSpawnSitesForWorldgenCheck({ WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key, clusterByTile, clustersById, townsByTile, docksByTile }) < FAIR_SPAWN_SITE_WORLDGEN_MINIMUM) throw new Error("worldgen could not secure 50 qualified starter sites after 16 seeds");
+  const fairSpawnSites = acceptedFairSpawnSites ?? computeFairSpawnSitesForWorldgen({ WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key, clusterByTile, clustersById, townsByTile, docksByTile });
+  if (fairSpawnSites.length < FAIR_SPAWN_SITE_WORLDGEN_MINIMUM) throw new Error("worldgen could not secure 50 qualified starter sites after 16 seeds");
   activeSeason.worldSeed = worldSeed;
   // Do NOT re-run setWorldSeed/ensureLandMassesReachSea here -- see the
   // matching comment in season-seed-world.ts (the sync sibling of this
@@ -297,7 +298,7 @@ export const createSeasonSeedWorldAsync = async (
 
   const { spawnPositions, spawnPlayerAt } = createSeasonSeedPlayerSpawner({
     WORLD_WIDTH, WORLD_HEIGHT, worldSeed, terrainAt, isSpawnableLand: (x, y) => landBiomeAt(x, y) === "GRASS", wrapX, wrapY, key,
-    chebyshevDistance, seeded01: terrainRuntime.seeded01,
+    chebyshevDistance, seeded01: terrainRuntime.seeded01, fairSpawnSites,
     townsByTile, docksByTile, ownership, clusterByTile, clustersById,
     shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile,
     createSettlementTown, townTypeAt: townsRuntime.townTypeAt, minTownSpacing: townsRuntime.minTownSpacing
