@@ -10,9 +10,10 @@ import type { ShoreFringe } from "./client-map-3d-shore/client-map-3d-shore-sand
 const fringe: ShoreFringe = {
   positions: [0.2, -0.04, 0, 0.8, -0.04, 0, 0.5, -0.05, 0.3, 1.2, -0.04, 0, 1.8, -0.04, 0, 1.5, -0.05, 0.3],
   seaward: [0, 0, 1, 0, 0, 1],
+  polygonVertices: [0, 1, 2, 3, 4, 5],
   polygons: [
-    { start: 0, count: 3, landGc: 0, landGr: -1 },
-    { start: 3, count: 3, landGc: 1, landGr: -1 }
+    { first: 0, count: 3, landGc: 0, landGr: -1 },
+    { first: 3, count: 3, landGc: 1, landGr: -1 }
   ]
 };
 

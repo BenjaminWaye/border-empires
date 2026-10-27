@@ -99,7 +99,7 @@ export const createOwnershipShoreTint = (
       const toWhite = (tint.frontier ? buckets.frontier : buckets.settled).fade === "toWhite";
       const base = target.positions.length / 3;
       for (let v = 0; v < polygon.count; v++) {
-        const i = polygon.start + v;
+        const i = fringe.polygonVertices[polygon.first + v]!;
         const p = i * 3;
         target.positions.push(fringe.positions[p]!, fringe.positions[p + 1]! + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD, fringe.positions[p + 2]!);
         const strength = 1 - (1 - edgeOpacity) * fringe.seaward[i]!;

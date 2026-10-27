@@ -402,6 +402,19 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Beaches get a thin damp edge of sand at the waterline",
       "Territory colour runs out across the beach to the waterline and fades softly at the water's edge; where two empires meet on a coast, the beach splits cleanly between them"
     ]
+  },
+  {
+    createdAt: 1793084624260, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.27.1",
+    title: "Cleaner coastlines",
+    why: "The new curved beaches had a few rough edges: faint dashed lines in territory along the old square coast, small inlets and lakes filling with sand, and occasional straight sand edges.",
+    changes: [
+      "No more faint dashed lines inside territory along the old square coastline",
+      "Narrow inlets, dead-end bays and one-tile lakes keep open water",
+      "Beach edges no longer jump into straight, grid-aligned steps",
+      "Territory colour on narrow beaches fades smoothly from the land instead of starting part-faded",
+      "Coastlines rebuild about twice as fast while panning"
+    ]
   }
 ];
 

@@ -24,9 +24,10 @@ import type { ShoreWaterline } from "./client-map-3d-shore-waterline.js";
 
 // Sample grid per sea tile, per side. Cost grows with its square, and the
 // fringe is rebuilt on the main thread on every terrain rebuild: 8 cost
-// ~0.75 ms per coastal tile (seconds for a zoomed-out coast); 4 is ~0.14 ms
-// and looks the same up close. Far out, where a tile is a few pixels,
-// SHORE_SAND_SUBDIV_FAR is plenty (client-map-3d-shore-layers.ts picks).
+// seconds for a zoomed-out coast; 4 is ~0.09 ms per coastal tile (~200 ms
+// for a 140x100 view that is nearly all coastline, on a desktop) and looks
+// the same up close. Far out, where a tile is a few pixels,
+// SHORE_SAND_SUBDIV_FAR (~0.04 ms) is plenty; client-map-3d-shore-layers.ts picks.
 export const SHORE_SAND_SUBDIV = 4;
 export const SHORE_SAND_SUBDIV_FAR = 2;
 // Width (tiles) of the band inside the waterline that ShoreSandBuffers.seaward
@@ -41,6 +42,13 @@ const SHORE_SEAWARD_BAND = 0.1;
 // so the fringe covers the land's coast skirt instead of z-fighting it.
 const WATERLINE_LIFT = 0.008;
 const LAND_EDGE_LIFT = 0.002;
+// How far (tiles) fringe vertices on a land tile's edge are tucked in under
+// that tile. The land tile meets the fringe with vertices only at its
+// corners while the fringe has many along the same edge, so the shared edge
+// rasterised with pinhole cracks (T-junctions) and the water below showed
+// through as faint dashed lines along the old square coastline. Both are
+// opaque and coloured alike, so the sub-pixel overlap doesn't show.
+export const LAND_EDGE_TUCK = 0.004;
 
 
 // `corners` caches the square's four rendered corners (or null when one
@@ -66,12 +74,12 @@ export type ShoreSandTileInputs = {
 };
 
 /**
- * One clipped piece of fringe: `count` consecutive vertices from `start`,
- * a convex fan, and the land tile (scene grid) nearest its middle -- the
- * tile whose overlays (ownership, fog) carry on over it, see
- * client-map-3d-ownership-shore.ts.
+ * One clipped piece of fringe: a convex fan of `count` vertices, whose
+ * indices are polygonVertices[first .. first + count), and the land tile
+ * (scene grid) nearest its middle -- the tile whose overlays (ownership,
+ * fog) carry on over it, see client-map-3d-ownership-shore.ts.
  */
-export type ShoreFringePolygon = { readonly start: number; readonly count: number; readonly landGc: number; readonly landGr: number };
+export type ShoreFringePolygon = { readonly first: number; readonly count: number; readonly landGc: number; readonly landGr: number };
 
 export type ShoreSandBuffers = {
   positions: number[];
@@ -87,9 +95,22 @@ export type ShoreSandBuffers = {
   seaward: number[];
   indices: number[];
   polygons: ShoreFringePolygon[];
+  /** Vertex indices of every polygon, see ShoreFringePolygon. */
+  polygonVertices: number[];
 };
 
-type Sample = { s: number; x: number; z: number };
+// Vertices already emitted for the current sea tile, by quantised position:
+// pieces of fringe share their corners, and building a vertex is the
+// costly part (one per piece per corner was ~3x the vertices, and most of
+// a coast-heavy rebuild's time). Cleared per tile; bounded by one tile's
+// vertex count.
+const tileVertexIndex = new Map<number, number>();
+const VERTEX_KEY_SCALE = 4096;
+const vertexKey = (x: number, z: number): number =>
+  (Math.round(x * VERTEX_KEY_SCALE) + 2 ** 20) * 2 ** 21 + (Math.round(z * VERTEX_KEY_SCALE) + 2 ** 20);
+
+// `owner`: index (in the tile's land list) of the land square nearest it.
+type Sample = { s: number; x: number; z: number; owner: number };
 
 const newCorner = (): HeightfieldCornerAttributes => ({ y: 0, r: 0, g: 0, b: 0, forestZone: 0, tundraZone: 0 });
 
@@ -133,7 +154,11 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
     return sq.corners;
   };
 
+  tileVertexIndex.clear();
   const emitVertex = (x: number, z: number, s: number): number => {
+    const key = vertexKey(x, z);
+    const existing = tileVertexIndex.get(key);
+    if (existing !== undefined) return existing;
     // How far inside the sand this point is (0 on the waterline); the
     // distanceToLand call leaves `nearest`/`qx`/`qz` set for the corner lerp.
     const depth = Math.max(0, s);
@@ -143,12 +168,12 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
     const fz = qz - sq.z;
     const corners = cornersOf(sq);
     const ok = corners !== null;
-    const lerp = (k: keyof HeightfieldCornerAttributes): number => {
-      const [c00, c10, c01, c11] = corners as [HeightfieldCornerAttributes, HeightfieldCornerAttributes, HeightfieldCornerAttributes, HeightfieldCornerAttributes];
-      const top = c00[k] + (c10[k] - c00[k]) * fx;
-      const bottom = c01[k] + (c11[k] - c01[k]) * fx;
-      return top + (bottom - top) * fz;
-    };
+    const w00 = (1 - fx) * (1 - fz);
+    const w10 = fx * (1 - fz);
+    const w01 = (1 - fx) * fz;
+    const w11 = fx * fz;
+    const lerp = (k: keyof HeightfieldCornerAttributes): number =>
+      corners![0]![k] * w00 + corners![1]![k] * w10 + corners![2]![k] * w01 + corners![3]![k] * w11;
     // Unreadable corner (outside the heightfield's built window): assume
     // the standard coast pin. Falling back to water level instead dropped
     // the fringe below the land edge, exposing the land's coast skirt as a
@@ -162,15 +187,39 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
     const ease = t * t * (3 - 2 * t);
     const y = edgeY + (waterY + WATERLINE_LIFT - edgeY) * ease;
     const index = buffers.positions.length / 3;
-    buffers.positions.push(x, y, z);
+    let px = x;
+    let pz = z;
+    if (toLand < 1e-9) {
+      // Straight into every land square touching this point (diagonally only
+      // at a square's corner), summed, so the nudge depends only on position
+      // and neighbouring fringe pieces (in this sea tile or the next) move a
+      // shared point the same way.
+      let tx = 0;
+      let tz = 0;
+      for (const l of land) {
+        if (distanceToSquare(l, x, z) > 1e-9) continue;
+        tx += x > l.x + 1e-9 && x < l.x + 1 - 1e-9 ? 0 : Math.sign(l.x + 0.5 - x);
+        tz += z > l.z + 1e-9 && z < l.z + 1 - 1e-9 ? 0 : Math.sign(l.z + 0.5 - z);
+      }
+      const len = Math.sqrt(tx * tx + tz * tz);
+      if (len > 0) {
+        px += (tx / len) * LAND_EDGE_TUCK;
+        pz += (tz / len) * LAND_EDGE_TUCK;
+      }
+    }
+    buffers.positions.push(px, y, pz);
     if (ok) buffers.colors.push(lerp("r"), lerp("g"), lerp("b"));
     else buffers.colors.push(244 / 255, 232 / 255, 198 / 255);
     buffers.tundra.push(ok ? lerp("tundraZone") : 0);
     // Linear in s: the fringe is cut along the s = SHORE_SEAWARD_BAND contour
     // (clipTriangle), so this ramps evenly between two lines that both
-    // follow the waterline.
-    buffers.seaward.push(1 - Math.min(1, depth / SHORE_SEAWARD_BAND));
-    buffers.uvs.push(x + worldOffsetX, z + worldOffsetZ);
+    // follow the waterline. Times `t` (0 at the land's edge): on a beach
+    // narrower than the band the fade must still start from nothing at the
+    // land tile, or the tile's own full-strength tint ends on its square
+    // edge against an already-faded beach.
+    buffers.seaward.push((1 - Math.min(1, depth / SHORE_SEAWARD_BAND)) * t);
+    buffers.uvs.push(px + worldOffsetX, pz + worldOffsetZ);
+    tileVertexIndex.set(key, index);
     return index;
   };
 
@@ -180,7 +229,9 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
     for (let i = 0; i <= n; i++) {
       const x = gc + i / n;
       const z = gr + j / n;
-      samples.push({ s: waterline(x, z), x, z });
+      const s = waterline(x, z);
+      distanceToLand(x, z);
+      samples.push({ s, x, z, owner: land.indexOf(nearest) });
     }
   }
   const crossing = (a: Sample, b: Sample): FringePoint => {
@@ -197,9 +248,11 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
     return nearest;
   };
   const emitPolygon = (poly: ReadonlyArray<FringePoint>, sq: LandSquare): void => {
-    const ids = poly.map(([x, z, ws]) => emitVertex(x, z, ws));
-    buffers.polygons.push({ start: ids[0]!, count: ids.length, landGc: sq.x, landGr: sq.z });
-    for (let k = 1; k + 1 < ids.length; k++) buffers.indices.push(ids[0]!, ids[k]!, ids[k + 1]!);
+    const first = buffers.polygonVertices.length;
+    for (const [x, z, ws] of poly) buffers.polygonVertices.push(emitVertex(x, z, ws));
+    buffers.polygons.push({ first, count: poly.length, landGc: sq.x, landGr: sq.z });
+    const v0 = buffers.polygonVertices[first]!;
+    for (let k = 1; k + 1 < poly.length; k++) buffers.indices.push(v0, buffers.polygonVertices[first + k]!, buffers.polygonVertices[first + k + 1]!);
   };
   // Splits a piece of fringe along the line halfway between the land
   // squares nearest its corners, so each piece belongs to exactly one land
@@ -235,9 +288,11 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
         const t = fp / (fp - fq);
         const cx = p[0] + (q[0] - p[0]) * t;
         const cz = p[1] + (q[1] - p[1]) * t;
-        // The waterline isn't linear: read it here (cuts are rare) so the
-        // seam's height and fade match the beach around it.
-        const cut: FringePoint = [cx, cz, waterline(cx, cz)];
+        // Interpolated, like every other point clipTriangle places: reading
+        // the true waterline here put a cut on the polygon's waterline chord
+        // (where s is 0 by construction) off zero, which showed as a bright
+        // notch in the territory fade wherever two owners met at the water.
+        const cut: FringePoint = [cx, cz, p[2] + (q[2] - p[2]) * t];
         near.push(cut);
         far.push(cut);
       }
@@ -247,6 +302,13 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
   };
   // Keeps the inside (s > 0) part of triangle abc as a fan.
   const clipTriangle = (a: Sample, b: Sample, c: Sample): void => {
+    // Corners all beside one land square (most triangles, at a quarter of a
+    // tile): no owner boundary to split along, so skip splitByLand's search.
+    const owner = a.owner === b.owner && b.owner === c.owner ? land[a.owner]! : null;
+    const place = (piece: ReadonlyArray<FringePoint>): void => {
+      if (owner) emitPolygon(piece, owner);
+      else splitByLand(piece, 0);
+    };
     const tri = [a, b, c];
     const poly: FringePoint[] = [];
     for (let e = 0; e < 3; e++) {
@@ -273,8 +335,8 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
         outer.push(cut);
       }
     }
-    if (inner.length >= 3) splitByLand(inner, 0);
-    if (outer.length >= 3) splitByLand(outer, 0);
+    if (inner.length >= 3) place(inner);
+    if (outer.length >= 3) place(outer);
   };
   for (let j = 0; j < n; j++) {
     for (let i = 0; i < n; i++) {
@@ -296,8 +358,9 @@ export type ShoreFringe = {
   /** Per vertex, see ShoreSandBuffers.seaward. */
   readonly seaward: ArrayLike<number>;
   readonly polygons: ReadonlyArray<ShoreFringePolygon>;
+  readonly polygonVertices: ArrayLike<number>;
 };
-export const EMPTY_SHORE_FRINGE: ShoreFringe = { positions: [], seaward: [], polygons: [] };
+export const EMPTY_SHORE_FRINGE: ShoreFringe = { positions: [], seaward: [], polygons: [], polygonVertices: [] };
 
 export type ShoreSandLayer = {
   readonly rebuild: (tiles: ReadonlyArray<{ readonly gc: number; readonly gr: number }>, tile: Omit<ShoreSandTileInputs, "gc" | "gr">) => ShoreFringe;
@@ -316,7 +379,7 @@ export const createShoreSandLayer = (scene: Scene, material: Material): ShoreSan
   };
   const rebuild: ShoreSandLayer["rebuild"] = (tiles, tile) => {
     clear();
-    const buffers: ShoreSandBuffers = { positions: [], colors: [], uvs: [], tundra: [], seaward: [], indices: [], polygons: [] };
+    const buffers: ShoreSandBuffers = { positions: [], colors: [], uvs: [], tundra: [], seaward: [], indices: [], polygons: [], polygonVertices: [] };
     for (const { gc, gr } of tiles) appendShoreSand(buffers, { ...tile, gc, gr });
     if (buffers.indices.length === 0) return EMPTY_SHORE_FRINGE;
     const vertCount = buffers.positions.length / 3;
@@ -338,7 +401,7 @@ export const createShoreSandLayer = (scene: Scene, material: Material): ShoreSan
     mesh.frustumCulled = false;
     mesh.receiveShadow = true;
     scene.add(mesh);
-    return { positions: buffers.positions, seaward: buffers.seaward, polygons: buffers.polygons };
+    return { positions: buffers.positions, seaward: buffers.seaward, polygons: buffers.polygons, polygonVertices: buffers.polygonVertices };
   };
   const dispose = (): void => clear();
   return { rebuild, clear, dispose };

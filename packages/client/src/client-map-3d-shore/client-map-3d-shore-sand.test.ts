@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { HeightfieldCornerAttributes } from "../client-map-3d-heightfield/client-map-3d-heightfield-corners.js";
-import { appendShoreSand, type ShoreSandBuffers, type ShoreSandTileInputs } from "./client-map-3d-shore-sand.js";
+import { appendShoreSand, LAND_EDGE_TUCK, type ShoreSandBuffers, type ShoreSandTileInputs } from "./client-map-3d-shore-sand.js";
 import { createShoreWaterline, SHORE_SAND_MAX_REACH } from "./client-map-3d-shore-waterline.js";
 
 const WATER_Y = -0.06;
 const LAND_EDGE_Y = -0.04;
 
-const emptyBuffers = (): ShoreSandBuffers => ({ positions: [], colors: [], uvs: [], tundra: [], seaward: [], indices: [], polygons: [] });
+const emptyBuffers = (): ShoreSandBuffers => ({ positions: [], colors: [], uvs: [], tundra: [], seaward: [], indices: [], polygons: [], polygonVertices: [] });
 const cornerAt = (_x: number, _z: number, out: HeightfieldCornerAttributes): boolean => {
   out.y = LAND_EDGE_Y;
   out.r = 0.9;
@@ -49,15 +49,18 @@ describe("shore sand fringe", () => {
     const vs = vertices(b);
     expect(vs.length).toBeGreaterThan(0);
     for (const v of vs) expect(v.z).toBeLessThanOrEqual(SHORE_SAND_MAX_REACH + 1e-6);
-    // Covers the land edge along the whole tile.
-    expect(vs.filter((v) => v.z === 0).length).toBeGreaterThan(5);
+    // Covers the land edge along the whole tile (tucked just under it).
+    const edgeXs = vs.filter((v) => v.z === -LAND_EDGE_TUCK).map((v) => v.x);
+    for (const x of [0, 0.25, 0.5, 0.75, 1]) expect(edgeXs).toContain(x);
   });
 
   it("starts at the land's own edge height and settles just above the water", () => {
     const b = emptyBuffers();
     appendShoreSand(b, inputs(0, 0, straightCoast));
     const vs = vertices(b);
-    for (const v of vs.filter((v) => v.z === 0)) expect(v.y).toBeCloseTo(LAND_EDGE_Y + 0.002, 6);
+    const edge = vs.filter((v) => v.z === -LAND_EDGE_TUCK);
+    expect(edge.length).toBeGreaterThan(0);
+    for (const v of edge) expect(v.y).toBeCloseTo(LAND_EDGE_Y + 0.002, 6);
     const outermost = vs.reduce((a, v) => (v.z > a.z ? v : a));
     expect(outermost.y).toBeGreaterThan(WATER_Y);
     expect(outermost.y).toBeLessThan(LAND_EDGE_Y);
@@ -161,6 +164,24 @@ describe("shore sand fringe", () => {
     expect(createShoreWaterline(lake, 100, 100, [])(0.5, 0.5)).toBeLessThan(0);
   });
 
+  it("tucks every land-edge vertex the same way, whichever sea tile or owner it belongs to", () => {
+    // The land tile meets the fringe with vertices only at its corners, so
+    // their shared edge cracked (T-junctions) and water showed through as
+    // dashed lines; the fringe now tucks under the land. A shared point must
+    // move identically in both neighbouring sea tiles or a new crack opens.
+    const elbow = (x: number, z: number): boolean => x < 0 || z < 0;
+    const a = emptyBuffers();
+    const b = emptyBuffers();
+    appendShoreSand(a, inputs(0, 0, elbow));
+    appendShoreSand(b, inputs(1, 0, elbow));
+    const atX1 = (buf: ShoreSandBuffers): Set<string> =>
+      new Set(vertices(buf).filter((v) => Math.abs(v.x - 1) < 1e-9 && v.z <= 0).map((v) => v.z.toFixed(9)));
+    // The point on the land edge at x = 1 is tucked straight in (z < 0, x unchanged) in both tiles.
+    expect([...atX1(a)]).toEqual([(-LAND_EDGE_TUCK).toFixed(9)]);
+    expect([...atX1(b)]).toEqual([(-LAND_EDGE_TUCK).toFixed(9)]);
+    for (const v of vertices(a)) expect(Math.min(v.x, v.z)).toBeGreaterThanOrEqual(-LAND_EDGE_TUCK - 1e-9);
+  });
+
   it("gives each piece of fringe to exactly one land tile, split cleanly between neighbours", () => {
     // Sea tile (0, 0) sits in the elbow of land to the west and north: its
     // beach must split along the diagonal between them, not in a sawtooth.
@@ -172,7 +193,7 @@ describe("shore sand fringe", () => {
     expect(owners.has("0,-1")).toBe(true);
     for (const polygon of b.polygons) {
       for (let v = 0; v < polygon.count; v++) {
-        const i = (polygon.start + v) * 3;
+        const i = b.polygonVertices[polygon.first + v]! * 3;
         const x = b.positions[i]!;
         const z = b.positions[i + 2]!;
         // Within the tile, distance to the west tile is x and to the north
