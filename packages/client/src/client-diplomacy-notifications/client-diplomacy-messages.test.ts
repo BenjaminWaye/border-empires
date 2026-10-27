@@ -51,7 +51,7 @@ describe("handleDiplomacySocketMessage", () => {
       terms: { give: { gold: 0, shard: 0 }, ask: { gold: 60, shard: 0 } }
     };
     handleDiplomacySocketMessage(state(), { type: "TRUCE_REQUEST_INCOMING", request }, handlerDeps);
-    expect(handlerDeps.pushFeed).toHaveBeenCalledWith("Milo offered a 12h truce (you pay 60 coin). Open Alliances to accept or reject.", "alliance", "warn");
+    expect(handlerDeps.pushFeed).toHaveBeenCalledWith("Milo offered a 12h truce (you pay 60 coin).", "alliance", "warn");
   });
 
   it("leaves other messages alone", () => {

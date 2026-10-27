@@ -28,6 +28,7 @@ import { aiNameFromStored, diplomacyTermsAreEmpty, numberedAiNameForId, type Dip
 import { buildUpdatePayloads } from "./social-state-payloads.js";
 import { buildSocialSnapshot } from "./social-state-snapshot.js";
 import { createSocialAllianceBreaks } from "./social-state-alliance-breaks.js";
+import { createDiplomacyHistory, diplomacyActivityCards } from "./social-diplomacy-history.js";
 import {
   createSocialOfferCooldowns,
   formatCooldownRemaining,
@@ -73,6 +74,7 @@ export const createSocialState = (options: {
   const truceLockoutUntilByPlayerId = new Map<string, number>();
   const truceBreaksByPlayerId = new Map<string, SocialTruceBreakRecord[]>();
   const offerCooldowns = createSocialOfferCooldowns(now, options.initial?.offerCooldowns);
+  const diplomacyHistory = createDiplomacyHistory(now);
   // Offers whose terms the simulation is paying out right now (beginSettlement).
   const settlingRequestIds = new Set<string>();
   // Players still showing a truce offer the server dropped on its own (see
@@ -136,6 +138,9 @@ export const createSocialState = (options: {
     for (const [key, truce] of trucesByPair) {
       if (truce.endsAt <= current) {
         trucesByPair.delete(key);
+        // Chronicle row for both sides, and a TRUCE_UPDATE on the next maintenance flush so their clients drop it.
+        diplomacyHistory.recordPair(ensurePlayer(truce.playerAId), ensurePlayer(truce.playerBId), "TRUCE_ENDED", truce.endsAt);
+        staleOfferPlayerIds.add(truce.playerAId).add(truce.playerBId);
         pruned = true;
       }
     }
@@ -291,6 +296,7 @@ export const createSocialState = (options: {
       completedAllianceBreaks.delete(pairKey(actor.id, from.id));
       sink?.deleteAllianceRequest(requestId);
       sink?.addAlliance(actor.id, from.id, now());
+      diplomacyHistory.recordPair(actor, from, "ALLIANCE_FORMED", now());
       sink?.removeCompletedAllianceBreak(actor.id, from.id);
       settlingRequestIds.delete(requestId);
       const notifyPlayerIds = [actor.id, from.id];
@@ -319,7 +325,13 @@ export const createSocialState = (options: {
     },
     ...allianceBreaks,
     resetAfcCampaign: () => forcedTruces.reset(),
-    forceTruce: (playerId, targetPlayerId) => { sweepExpired(); return forcedTruces.force(playerId, targetPlayerId); },
+    forceTruce: (playerId, targetPlayerId) => {
+      sweepExpired();
+      const result = forcedTruces.force(playerId, targetPlayerId);
+      const truce = result.ok ? trucesByPair.get(pairKey(playerId, targetPlayerId)) : undefined;
+      if (truce) diplomacyHistory.recordPair(ensurePlayer(playerId), ensurePlayer(targetPlayerId), "TRUCE_STARTED", truce.startedAt, { durationHours: Math.round((truce.endsAt - truce.startedAt) / 3_600_000), court: true });
+      return result;
+    },
     requestTruce(fromPlayerId, targetPlayerName, durationHours, offerOptions) {
       sweepExpired();
       const actor = ensurePlayer(fromPlayerId);
@@ -396,6 +408,7 @@ export const createSocialState = (options: {
       truceRequests.delete(requestId);
       trucesByPair.set(pairKey(actor.id, from.id), truce);
       sink?.deleteTruceRequest(requestId); sink?.saveActiveTruce(truce);
+      diplomacyHistory.recordPair(actor, from, "TRUCE_STARTED", truce.startedAt, { durationHours: request.durationHours });
       const announcement = `${actor.name} and ${from.name} agreed to a ${request.durationHours}h truce.`;
       return ok([actor.id, from.id], announcementByPlayerId ?? { [actor.id]: announcement, [from.id]: announcement });
     },
@@ -440,6 +453,7 @@ export const createSocialState = (options: {
       if (breaks.length > MAX_TRUCE_BREAKS_PER_PLAYER) breaks.splice(0, breaks.length - MAX_TRUCE_BREAKS_PER_PLAYER);
       truceBreaksByPlayerId.set(actor.id, breaks);
       sink?.saveTruceBreak(actor.id, breakRecord);
+      diplomacyHistory.recordPair(actor, target, "TRUCE_BROKEN", breakRecord.brokenAt, { byPlayerId: actor.id });
       const announcement = `${actor.name} broke the truce with ${target.name} early and is locked out of new truces for 24h.`;
       return ok([actor.id, target.id], { [actor.id]: announcement, [target.id]: `${actor.name} broke the truce with ${target.name}.` });
     },
@@ -475,6 +489,10 @@ export const createSocialState = (options: {
       const playerIds = [...staleOfferPlayerIds];
       staleOfferPlayerIds.clear();
       return ok(playerIds);
+    },
+    diplomacyActivityCards: (playerId, from, to) => {
+      sweepExpired();
+      return diplomacyActivityCards(diplomacyHistory.cardsFor(playerId, from, to), completedAllianceBreaks.values(), playerId, playersById, from, to);
     },
     activeTrucePairs: () => (sweepExpired(), [...trucesByPair.values()].map((truce): [string, string] => [truce.playerAId, truce.playerBId]))
   };

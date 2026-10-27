@@ -2,6 +2,7 @@
 // keep that file under the repo's 500-line cap. No state lives here — these
 // are just the shapes createSocialState operates on plus small pure helpers
 // shared by its request/truce lookups.
+import type { PersonalActivityDiplomacyCard } from "@border-empires/game-domain";
 import type { DiplomacyTerms } from "@border-empires/shared";
 
 import type { SocialOfferCooldown, SocialOfferKind } from "./social-offer-cooldowns.js";
@@ -212,6 +213,8 @@ export type SocialState = {
   rejectTruce: (playerId: string, requestId: string, options?: SocialRejectOptions) => SocialActionResult;
   cancelTruce: (playerId: string, requestId: string) => SocialActionResult;
   breakTruce: (playerId: string, targetPlayerId: string) => SocialActionResult;
+  /** Recent truce/alliance changes for the Chronicle timeline (social-diplomacy-history.ts). */
+  diplomacyActivityCards: (playerId: string, from: number, to: number) => PersonalActivityDiplomacyCard[];
   activeTrucePairs: () => Array<[string, string]>; // non-expired pairs; sweeps first, used to sync natural expirations
   /**
    * Fresh update payloads for every player whose truce offer was dropped
