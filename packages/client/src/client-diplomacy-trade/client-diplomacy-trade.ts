@@ -236,7 +236,7 @@ export const openDiplomacyTradeScreen = (
   const inTruce = truceEndsAt !== undefined && truceEndsAt > now;
   const fits = (hours: 12 | 24): boolean => !inTruce || truceExtensionFits(truceEndsAt, hours, now);
   const durationHours: 12 | 24 = fits(input.durationHours) ? input.durationHours : 12;
-  const kind: DiplomacyOfferKind = input.kind === "truce" && !fits(durationHours) ? "alliance" : input.kind;
+  const kind: TradeSelection["kind"] = input.kind === "truce" && !fits(durationHours) ? "alliance" : input.kind;
   const capTitle = `A truce can run at most ${TRUCE_EXTENSION_MAX_AHEAD_MS / 3_600_000}h ahead.`;
   const truceButton = (hours: 12 | 24): string =>
     inTruce
