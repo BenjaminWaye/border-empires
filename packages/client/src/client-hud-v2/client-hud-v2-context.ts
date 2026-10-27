@@ -8,7 +8,7 @@ import type { ClientState } from "../client-state/client-state.js";
 
 export type HudV2ActionFlow = Pick<
   ReturnType<typeof createClientActionFlow>,
-  "chooseTech" | "cancelOngoingCapture" | "openSingleTileActionMenu" | "handleTileAction" | "hideTileActionMenu" | "tileMenuViewForTile"
+  "chooseTech" | "cancelOngoingCapture" | "openSingleTileActionMenu" | "handleTileAction" | "hideTileActionMenu" | "tileMenuViewForTile" | "requestTileDetailIfNeeded"
 >;
 
 export type HudV2Deps = {
