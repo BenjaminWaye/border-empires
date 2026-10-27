@@ -32,8 +32,8 @@ describe("no colour emoji in UI source", () => {
         .split("\n")
         .forEach((line, i) => {
           if (/^\s*(\/\/|\*|\/\*)/.test(line)) return;
-          // U+FE0E after a symbol forces its text form, so it is not a colour emoji.
-          if (COLOR_EMOJI.test(line.replace(/.\\uFE0E/gu, ""))) hits.push(`${file}:${i + 1}`);
+          // U+FE0E after a symbol (escaped or literal) forces its text form, so it is not a colour emoji.
+          if (COLOR_EMOJI.test(line.replace(/.(\\uFE0E|\uFE0E)/gu, ""))) hits.push(`${file}:${i + 1}`);
         });
     }
     expect(hits).toEqual([]);

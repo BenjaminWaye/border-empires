@@ -95,6 +95,9 @@ describe("tracker", () => {
     expect(open).toContain("Next · Settle");
     // Builds live under Dev slots only, not again under In progress.
     expect(open).not.toContain("In progress");
+    // Review: an unfolded list sat above Needs you and pushed it below the tracker's scroll fold.
+    const withNeeds = trackerHtml({ ...base, afcReady: 1, building });
+    expect(withNeeds.indexOf("Needs you")).toBeLessThan(withNeeds.indexOf("hud-v2-slots"));
     const folded = trackerHtml({ ...base, buildSlots: { busy: 1, limit: 3 }, building, slotsOpen: false });
     expect(folded).toContain('aria-expanded="false"');
     expect(folded).not.toContain("hud-v2-slot-list");

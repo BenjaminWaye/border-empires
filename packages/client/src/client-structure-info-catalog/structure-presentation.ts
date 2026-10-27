@@ -61,7 +61,7 @@ export const STRUCTURE_PRESENTATION: Readonly<Record<StructureInfoKey, Structure
     placement: "Upgrade an existing Siege Tower on its current tile."
   },
   ORE_REFINERY: {
-    glyph: "⚙",
+    glyph: "⚙\uFE0E",
     placement: "Build on an open garrisoned support tile for a town you own."
   },
   HARBOR_EXCHANGE: {

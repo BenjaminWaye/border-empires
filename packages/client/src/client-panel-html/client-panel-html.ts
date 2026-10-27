@@ -38,7 +38,7 @@ export const feedAgeLabel = (atMs: number, nowMs: number): string => {
 const feedIcon = (type: FeedType): string => {
   if (type === "combat") return "⚔";
   if (type === "mission") return "✓";
-  if (type === "alliance") return "⚖";
+  if (type === "alliance") return "⚖\uFE0E";
   if (type === "tech") return "ϟ";
   if (type === "error") return "!";
   return "i";

@@ -37,7 +37,7 @@ const TROPHY_ICON_FILE_BY_OBJECTIVE_ID: Record<string, string> = {
 
 // The trophy's name is always written next to the icon, so the image is decorative.
 export const trophyIconHtml = (objectiveId: string): string =>
-  `<img class="trophy-icon" src="/icons/simple/${TROPHY_ICON_FILE_BY_OBJECTIVE_ID[objectiveId] ?? "leaderboard"}.svg" alt="" aria-hidden="true" draggable="false">`;
+  `<img class="trophy-icon" src="/icons/simple/${Object.hasOwn(TROPHY_ICON_FILE_BY_OBJECTIVE_ID, objectiveId) ? TROPHY_ICON_FILE_BY_OBJECTIVE_ID[objectiveId] : "leaderboard"}.svg" alt="" aria-hidden="true" draggable="false">`;
 
 export const fetchGalaxyHoldings = async (playerId: string, wsUrl: string): Promise<GalaxyHoldingsView | undefined> => {
   try {

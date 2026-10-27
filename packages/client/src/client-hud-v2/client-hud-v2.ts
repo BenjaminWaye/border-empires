@@ -27,7 +27,7 @@ import { profileScreenStep } from "./client-hud-v2-profile.js";
 import { chronicleBadgeCount, takeOverLegacyDashboard } from "./client-hud-v2-chronicle-runtime.js";
 import { setDockListener } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, townOnMenuView } from "./client-hud-v2-town-runtime.js";
-import { captureIsBattle, trackerHtml } from "./client-hud-v2-tracker.js";
+import { captureIsBattle, handleSlotsToggle, trackerHtml } from "./client-hud-v2-tracker.js";
 import "./client-hud-v2.css";
 import "./client-hud-v2-screens.css";
 import "./client-hud-v2-town-battle.css";
@@ -117,7 +117,7 @@ const openResourcePanel = (deps: HudV2Deps, chip: string): void => {
 };
 
 /** Whether the tracker's Dev slots section is unfolded; open until the player folds it. */
-let slotsOpen = true;
+const slotsFold = { open: true };
 
 const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   const target = event.target instanceof Element ? event.target : null;
@@ -135,11 +135,7 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
     return;
   }
   // Dev slots fold open in the tracker, next to the pips, instead of sending you to a side panel.
-  if (target.closest("[data-hud-v2-slots-toggle]")) {
-    slotsOpen = !slotsOpen;
-    deps.renderHud();
-    return;
-  }
+  if (handleSlotsToggle(target, slotsFold, () => renderTracker(deps.state, Date.now()))) return;
   const chip = target.closest<HTMLElement>("[data-hud-v2-chip]");
   if (chip?.dataset.hudV2Chip) {
     openResourcePanel(deps, chip.dataset.hudV2Chip);
@@ -282,7 +278,7 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
     // Timers count down between scans without rescanning the tiles.
     building: trackerScan.building.map((b) => ({ ...b, remainingMs: Math.max(0, b.remainingMs - elapsed) })),
     queue: trackerScan.queue,
-    slotsOpen,
+    slotsOpen: slotsFold.open,
     capture,
     nowMs
   }));

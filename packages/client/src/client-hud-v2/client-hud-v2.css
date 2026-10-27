@@ -250,7 +250,7 @@ body.hud-v2 .onb-root { bottom: 266px !important; }
 .hud-v2-build-place:empty { display: none; }
 .hud-v2-build-place .v2t-place { border: 0; padding: 0; box-shadow: none; background: none; }
 body.hud-v2-building .hud-v2-right { display: none; }
-/* A side panel (Economy, Integrity, Development) opens over the right edge; the rival portraits would sit on its header. */
+/* A side panel (Economy, Integrity) opens over the right edge; the rival portraits would sit on its header. */
 body.hud-v2:has(#hud.desktop-side-panel-open) .hud-v2-rivals { display: none; }
 .hud-v2-tile .tile-auto-settle-option { font-size: 12px; color: var(--v2-muted); }
 

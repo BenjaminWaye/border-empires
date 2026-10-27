@@ -1,6 +1,7 @@
+// @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
 import { rivalsHtml } from "./client-hud-v2-rivals.js";
-import { buildSlotsHtml } from "./client-hud-v2-tracker.js";
+import { buildSlotsHtml, handleSlotsToggle } from "./client-hud-v2-tracker.js";
 
 describe("tracker and rival links", () => {
   // Regression: the dev-slot row was plain text, then opened a side panel across the screen; it now folds the slot list.
@@ -9,6 +10,20 @@ describe("tracker and rival links", () => {
     expect(html).toContain("<button");
     expect(html).toContain("data-hud-v2-slots-toggle");
     expect(html).toContain('aria-expanded="false"');
+  });
+
+  // Review: the fold waited up to a second for the tracker's own refresh; it now repaints at once.
+  it("folds the slot list and repaints the tracker straight away", () => {
+    const row = document.createElement("div");
+    row.innerHTML = buildSlotsHtml({ busy: 1, limit: 3 }, true);
+    const pip = row.querySelector(".hud-v2-slot-pip")!;
+    const fold = { open: true };
+    let repaints = 0;
+    expect(handleSlotsToggle(pip, fold, () => repaints++)).toBe(true);
+    expect(fold).toEqual({ open: false });
+    expect(repaints).toBe(1);
+    expect(handleSlotsToggle(document.createElement("span"), fold, () => repaints++)).toBe(false);
+    expect(repaints).toBe(1);
   });
 
   // Regression: an unexplained hourglass badge repeated the stance line; the stance is spelled out on hover instead.

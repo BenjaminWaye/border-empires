@@ -60,9 +60,9 @@ describe("trophyCaseHtml", () => {
     const html = trophyCaseHtml({
       planets: [],
       outposts: [],
-      trophyCase: [{ objectiveId: "SOMETHING_NEW", objectiveName: "Something New", count: 1 }]
+      trophyCase: [{ objectiveId: "SOMETHING_NEW", objectiveName: "Something New", count: 1 }, { objectiveId: "constructor", objectiveName: "Odd", count: 1 }]
     });
-    expect(html).toContain("/icons/simple/leaderboard.svg");
+    expect(html.match(/\/icons\/simple\/leaderboard\.svg/g)).toHaveLength(2);
   });
 });
 

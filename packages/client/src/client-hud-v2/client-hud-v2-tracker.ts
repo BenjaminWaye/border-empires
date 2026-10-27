@@ -66,6 +66,14 @@ export const buildSlotsHtml = (slots: TrackerInput["buildSlots"], open: boolean)
   return `<button type="button" class="hud-v2-slots${free > 0 ? " hud-v2-slots-free" : ""}" data-hud-v2-slots-toggle aria-expanded="${open}" aria-label="Development slots ${busy} of ${limit} in use"><span class="hud-v2-slots-label">Dev slots</span><span class="hud-v2-slot-pips" aria-hidden="true">${pips}</span><span class="hud-v2-slots-count">${busy}/${limit}${free > 0 ? ` · ${free} free` : ""}</span><span class="hud-v2-slots-fold" aria-hidden="true">${open ? "▾" : "▸"}</span></button>`;
 };
 
+/** Folds the Dev slots list on a click of its row. The caller repaints the tracker at once: its own refresh runs only once a second. */
+export const handleSlotsToggle = (target: Element, fold: { open: boolean }, repaint: () => void): boolean => {
+  if (!target.closest("[data-hud-v2-slots-toggle]")) return false;
+  fold.open = !fold.open;
+  repaint();
+  return true;
+};
+
 /** What fills each slot (with its progress) and what waits for one, right under the pips. */
 export const slotListHtml = (input: Pick<TrackerInput, "building" | "queue">): string => {
   const busy = input.building.map((b) => {
@@ -86,8 +94,8 @@ const capped = <T>(items: T[], render: (item: T) => string): string => {
 
 export const trackerHtml = (input: TrackerInput): string => {
   const needs = trackerNeeds(input);
-  const parts: string[] = [buildSlotsHtml(input.buildSlots, input.slotsOpen)];
-  if (input.slotsOpen && (input.building.length > 0 || input.queue.length > 0)) parts.push(slotListHtml(input));
+  const parts: string[] = [];
+  // Needs you leads, so an unfolded slot list can never push it below the tracker's scroll fold.
   if (needs.length > 0) {
     parts.push(`<div class="hud-v2-tracker-head hud-v2-tracker-head-needs"><span>Needs you · ${needs.length}</span></div>`);
     parts.push(capped(needs, (n) => {
@@ -95,6 +103,8 @@ export const trackerHtml = (input: TrackerInput): string => {
       return `<button type="button" class="hud-v2-tracker-row hud-v2-need-${n.kind}"${focusAttrs(n.x, n.y)}${open}><span class="hud-v2-tracker-title">${esc(n.title)}</span>${n.sub ? `<span class="hud-v2-tracker-sub">${esc(n.sub)}</span>` : ""}</button>`;
     }));
   }
+  parts.push(buildSlotsHtml(input.buildSlots, input.slotsOpen));
+  if (input.slotsOpen && (input.building.length > 0 || input.queue.length > 0)) parts.push(slotListHtml(input));
   if (input.flags.length > 0) {
     parts.push(`<div class="hud-v2-tracker-head"><span>Flags · ${input.flags.length}</span></div>`);
     parts.push(capped(input.flags, (f) => {

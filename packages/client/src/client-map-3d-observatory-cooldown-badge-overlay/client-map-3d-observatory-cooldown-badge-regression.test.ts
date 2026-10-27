@@ -5,7 +5,7 @@ import { InstancedMesh, Matrix4, Scene, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 
 import { TOWER } from "../client-map-3d-ambaric-transformer-body.js";
-import { createObservatoryCooldownBadgeOverlay } from "./client-map-3d-observatory-cooldown-badge-overlay.js";
+import { createObservatoryCooldownBadgeOverlay, paintCooldownGlyph } from "./client-map-3d-observatory-cooldown-badge-overlay.js";
 
 const clientSource = (filename: string): string => {
   const here = dirname(fileURLToPath(import.meta.url));
@@ -13,6 +13,14 @@ const clientSource = (filename: string): string => {
 };
 
 describe("3d observatory-cooldown badge regression guard", () => {
+  // Regression: the text hourglass inherited the disc's pale-blue fill and vanished (the old ⏳ emoji ignored fillStyle).
+  it("paints the hourglass in the rim's dark blue, not the disc colour", () => {
+    const drawn: string[] = [];
+    const ctx = { font: "", textAlign: "start", textBaseline: "alphabetic", fillStyle: "#bfe8ff", fillText: () => drawn.push(String(ctx.fillStyle)) } as unknown as Parameters<typeof paintCooldownGlyph>[0];
+    paintCooldownGlyph(ctx, 64);
+    expect(drawn).toEqual(["#1f5d7a"]);
+  });
+
   it("wires the cooldown badge overlay into the 3D renderer lifecycle", () => {
     const source = clientSource("../client-map-3d/client-map-3d.ts");
     expect(source).toContain("createObservatoryCooldownBadgeOverlay");
