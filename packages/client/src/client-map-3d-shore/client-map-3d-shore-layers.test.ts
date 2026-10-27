@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MeshBasicMaterial, Scene, type Mesh } from "three";
 import { createShoreLayers } from "./client-map-3d-shore-layers.js";
+import { LAND_EDGE_TUCK } from "./client-map-3d-shore-sand.js";
 
 const sandMeshes = (scene: Scene, material: MeshBasicMaterial): number =>
   scene.children.filter((c) => (c as Mesh).material === material).length;
@@ -40,7 +41,7 @@ describe("shore layers", () => {
       onFringe: (fringe) => {
         fringes.push(fringe.positions.length / 3);
         coveredEdgeXs = [];
-        for (let i = 0; i < fringe.positions.length; i += 3) if (fringe.positions[i + 2] === 0) coveredEdgeXs.push(fringe.positions[i]!);
+        for (let i = 0; i < fringe.positions.length; i += 3) if (fringe.positions[i + 2] === -LAND_EDGE_TUCK) coveredEdgeXs.push(fringe.positions[i]!);
       }
     });
     const tiles = Array.from({ length: 6 }, (_, gc) => ({ gc, gr: 0 }));

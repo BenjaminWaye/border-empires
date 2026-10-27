@@ -162,8 +162,9 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
   skirtGeometry.setAttribute("normal", new BufferAttribute(skirtNormals, 3));
   skirtGeometry.setIndex(new BufferAttribute(skirtIndices, 1));
   skirtGeometry.setDrawRange(0, 0);
-  // The main grid's own skirt material (client-map-3d-heightfield-skirt.ts),
-  // so the two match exactly, depth bias under the beach fringe included.
+  // Built by the same factory as the main grid's skirt material
+  // (client-map-3d-heightfield-skirt.ts), so the two match exactly, depth
+  // bias under the beach fringe included.
   const skirtMaterial = createSkirtMaterial();
   const skirtMesh = new Mesh(skirtGeometry, skirtMaterial);
   skirtMesh.frustumCulled = false;

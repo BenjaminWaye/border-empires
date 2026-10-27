@@ -18,11 +18,12 @@ import { createShoreWaterline } from "./client-map-3d-shore-waterline.js";
 // window size (the box around the sea in view) swings either side of any
 // threshold while panning, which flipped coasts between curved and square.
 const SHORE_FOAM_MAX_WINDOW_TILES = 140;
-// Past the same width the fringe drops to its coarse sample grid: it keeps
-// its curve (so no curved/square flip), just with fewer vertices. Sharing
-// the foam's threshold means the foam never traces the fine waterline round
-// a coarse fringe, and there is one switch while panning, not two.
-const SHORE_SAND_FINE_MAX_WINDOW_TILES = SHORE_FOAM_MAX_WINDOW_TILES;
+// Past this width the fringe drops to its coarse sample grid: it keeps its
+// curve (so no curved/square flip), just with fewer vertices. Lower than the
+// foam's cut-off on purpose: the fine grid costs ~2.5x the coarse one per
+// rebuild (main thread), and at 100+ tiles across a tile is a few pixels, so
+// the foam tracing the fine waterline round the coarse fringe doesn't show.
+const SHORE_SAND_FINE_MAX_WINDOW_TILES = 100;
 
 export type ShoreSandWiring = {
   /** The heightfield's own material, so the fringe continues the beach exactly. */

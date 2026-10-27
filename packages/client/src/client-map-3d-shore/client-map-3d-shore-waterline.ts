@@ -27,12 +27,6 @@ import { foamMouthFade } from "./client-map-3d-shore.js";
 const SHORE_FIELD_THRESHOLD = 0.18;
 // d(field)/d(distance) near that waterline, to read the field as tiles.
 const SHORE_FIELD_SLOPE = 0.66;
-// On a diagonal coast the waterline runs close to the land's outer corners,
-// so an inward warp dragged it inside them and left each corner jutting
-// into the sea as a tooth. The warp may pull the shore at most this far
-// (tiles) inside where the unwarped field puts it -- not at all; it still
-// pushes headlands outward freely.
-const SHORE_WARP_MAX_INWARD = 0;
 /** Furthest (tiles) the beach ever reaches into the sea from real land. */
 // Well past half a tile on purpose: a diagonal coast's waterline runs
 // through the corner sea tiles' centres, ~0.53 from land. A 0.48 cap, meant
@@ -44,7 +38,7 @@ export const SHORE_SAND_MAX_REACH = 0.9;
 // sides (a one-tile inlet keeps ~0.37 of a tile).
 const SHORE_SAND_OPEN_HALF_WIDTH = 0.15;
 // Sand always rings land at least this deep. Kept thin: with the warp
-// held back it rarely binds, and a wider band (0.12) itself pushed the
+// outward-only it rarely binds, and a wider band (0.12) itself pushed the
 // beach out round every outer corner of a diagonal coast into teeth.
 const SHORE_SAND_MIN_BAND = 0.05;
 // On a steep stepped coast (one tile across per few down) the blurred
@@ -87,60 +81,105 @@ const bspline = (t: number): number => {
   return 0;
 };
 
-// Up to 9 land squares round a point: offsets to their closest points, and
-// whether that point lies on a side of the square (1) or on a corner (0).
+// Up to 9 land squares round a point: offsets to their closest points,
+// distances, and how squarely the point faces each one (1 = beside a side,
+// fading to 0 past its corner, see SHORE_SIDE_FADE).
 const nearDx = new Float64Array(9);
 const nearDz = new Float64Array(9);
-const nearSide = new Uint8Array(9);
+const nearD = new Float64Array(9);
+const nearSide = new Float64Array(9);
+const nearI = new Int32Array(9);
+const nearJ = new Int32Array(9);
+// How far (tiles) past a land square's corner, beyond the line of its side,
+// it stops counting as land the point faces across water. Gradual, so the
+// across-water limit never jumps; without it, land round a corner (the next
+// step of a staircase coast) read as the far bank and creased the beach.
+const SHORE_SIDE_FADE = 0.25;
+// How clear of other land (tiles) the midpoint between two banks must be
+// for them to count fully (eased in from 0).
+const SHORE_BANK_CLEARANCE = 0.3;
+
+const distanceToSquare = (x: number, z: number, i: number, j: number): number => {
+  const dx = Math.min(Math.max(x, i), i + 1) - x;
+  const dz = Math.min(Math.max(z, j), j + 1) - z;
+  return Math.sqrt(dx * dx + dz * dz);
+};
+
+const smooth01 = (t: number): number => {
+  const c = Math.min(1, Math.max(0, t));
+  return c * c * (3 - 2 * c);
+};
+
+// Set by landReach: distance to the nearest land square (Infinity if none
+// within a tile). A module slot rather than a returned object -- this runs
+// for every fringe sample on every terrain rebuild.
+let nearestLand = Infinity;
 
 /**
- * Distance to the nearest land square (`d`, Infinity if none within a tile)
- * and how far from land the sand may reach here (`cap`): SHORE_SAND_MAX_REACH,
- * or less where other land lies on the far side of the water -- then the
- * sand stops SHORE_SAND_OPEN_HALF_WIDTH short of halfway across. "Far side"
- * is weighed by direction (eased from ~100 to ~135 degrees apart) so the cap
- * changes smoothly, and only between land the point faces side-on: land
- * round a corner (a staircase notch, where the land further down the coast
- * lies the other way but only past a corner) doesn't count.
+ * How far into the sand the waterline may sit at (x, z): at most
+ * SHORE_SAND_MAX_REACH from the nearest land, and, between two banks facing
+ * each other across water, no closer to the middle than
+ * SHORE_SAND_OPEN_HALF_WIDTH (so inlets, straits and lakes keep open water).
+ * Every pair of land squares is weighed symmetrically -- by how far apart
+ * their directions are (eased in from ~100 to ~135 degrees) and how squarely
+ * the point faces each -- so the limit changes continuously. Two squares
+ * are only banks if the point halfway between their nearest points is clear
+ * of other land (SHORE_BANK_CLEARANCE): halfway across a lake is open water,
+ * while two tiles of one coast (either side of the tile beside the point,
+ * or a step apart round a corner) have land right at that midpoint and
+ * otherwise thinned or cut the beach. Squares that touch never count. Pairs
+ * fade out before either square could leave the 3x3 block this samples
+ * (anything nearer than a tile is always in it), so crossing a tile
+ * boundary never makes the limit jump.
  */
-const landReachNear = (x: number, z: number, isLandTile: (gc: number, gr: number) => boolean): { d: number; cap: number } => {
+const landReach = (x: number, z: number, isLandTile: (gc: number, gr: number) => boolean): number => {
   const cx = Math.floor(x);
   const cz = Math.floor(z);
   let count = 0;
   let best = Infinity;
-  let bestK = -1;
   for (let j = cz - 1; j <= cz + 1; j++) {
     for (let i = cx - 1; i <= cx + 1; i++) {
       if (!isLandTile(i, j)) continue;
       const dx = Math.min(Math.max(x, i), i + 1) - x;
       const dz = Math.min(Math.max(z, j), j + 1) - z;
+      const d = Math.sqrt(dx * dx + dz * dz);
       nearDx[count] = dx;
       nearDz[count] = dz;
-      nearSide[count] = (x >= i && x <= i + 1) || (z >= j && z <= j + 1) ? 1 : 0;
-      const d = Math.sqrt(dx * dx + dz * dz);
-      if (d < best) {
-        best = d;
-        bestK = count;
-      }
+      nearD[count] = d;
+      nearI[count] = i;
+      nearJ[count] = j;
+      const past = Math.min(Math.max(0, i - x, x - i - 1), Math.max(0, j - z, z - j - 1));
+      nearSide[count] = 1 - smooth01(past / SHORE_SIDE_FADE);
+      if (d < best) best = d;
       count += 1;
     }
   }
-  if (bestK < 0 || best === 0 || nearSide[bestK] === 0) return { d: best, cap: SHORE_SAND_MAX_REACH };
-  const ax = nearDx[bestK]! / best;
-  const az = nearDz[bestK]! / best;
-  let cap = SHORE_SAND_MAX_REACH;
-  for (let k = 0; k < count; k++) {
-    if (k === bestK || nearSide[k] === 0) continue;
-    const len = Math.sqrt(nearDx[k]! * nearDx[k]! + nearDz[k]! * nearDz[k]!);
-    if (len === 0) continue;
-    const cos = (ax * nearDx[k]! + az * nearDz[k]!) / len;
-    const t = Math.min(1, Math.max(0, (-0.2 - cos) / 0.5));
-    const opposite = t * t * (3 - 2 * t);
-    if (opposite === 0) continue;
-    const across = (best + len) / 2 - SHORE_SAND_OPEN_HALF_WIDTH;
-    cap = Math.min(cap, SHORE_SAND_MAX_REACH + (across - SHORE_SAND_MAX_REACH) * opposite);
+  nearestLand = best;
+  let reach = SHORE_SAND_MAX_REACH - best;
+  for (let a = 0; a < count; a++) {
+    const da = nearD[a]!;
+    if (da === 0 || nearSide[a] === 0) continue;
+    for (let b = a + 1; b < count; b++) {
+      const db = nearD[b]!;
+      if (db === 0 || nearSide[b] === 0) continue;
+      if (Math.abs(nearI[b]! - nearI[a]!) <= 1 && Math.abs(nearJ[b]! - nearJ[a]!) <= 1) continue;
+      const cos = (nearDx[a]! * nearDx[b]! + nearDz[a]! * nearDz[b]!) / (da * db);
+      let weight = smooth01((-0.2 - cos) / 0.5) * nearSide[a]! * nearSide[b]! * (1 - smooth01((Math.max(da, db) - 0.75) / 0.25));
+      if (weight === 0) continue;
+      const mx = x + (nearDx[a]! + nearDx[b]!) / 2;
+      const mz = z + (nearDz[a]! + nearDz[b]!) / 2;
+      let clear = Infinity;
+      for (let c = 0; c < count; c++) {
+        if (c === a || c === b) continue;
+        clear = Math.min(clear, distanceToSquare(mx, mz, nearI[c]!, nearJ[c]!));
+      }
+      weight *= smooth01(clear / SHORE_BANK_CLEARANCE);
+      if (weight === 0) continue;
+      const between = Math.abs(da - db) / 2 - SHORE_SAND_OPEN_HALF_WIDTH;
+      reach = Math.min(reach, reach + (between - reach) * weight);
+    }
   }
-  return { d: best, cap };
+  return reach;
 };
 
 // Which tiles are land, blurred by a quadratic B-spline over tile centres.
@@ -170,6 +209,11 @@ export const createShoreWaterline = (
   worldOffsetZ: number,
   mouths: ReadonlyArray<{ readonly x: number; readonly z: number }>
 ): ShoreWaterline => (x, z) => {
+  const reach = landReach(x, z, isLandTile);
+  const d = nearestLand;
+  // A tile or more from land: open water (eased to this below, so no step),
+  // and most of what follows is the costly part -- skip it.
+  if (d >= 1) return -1;
   const wx = x + worldOffsetX;
   const wz = z + worldOffsetZ;
   const b = SHORE_WARP_BROAD_SCALE;
@@ -178,21 +222,23 @@ export const createShoreWaterline = (
     x + (valueNoise(wx * b, wz * b) - 0.5) * 2 * SHORE_WARP_BROAD + (valueNoise(wx * f + 17, wz * f + 3) - 0.5) * 2 * SHORE_WARP_FINE;
   const pz =
     z + (valueNoise(wx * b + 31, wz * b + 7) - 0.5) * 2 * SHORE_WARP_BROAD + (valueNoise(wx * f + 5, wz * f + 29) - 0.5) * 2 * SHORE_WARP_FINE;
-  const { d, cap } = landReachNear(x, z, isLandTile);
-  // No land within a tile: open water (and keeps Infinity out of the maths
-  // below -- 0 * Infinity there came out NaN, which drew foam as solid bars).
-  if (d === Infinity) return -1;
   const curveAt = (fx: number, fz: number): number => (landField(fx, fz, isLandTile) - SHORE_FIELD_THRESHOLD) / SHORE_FIELD_SLOPE;
-  // Smooth max, so where the limit takes over it leaves no crease.
+  // The warp only ever pushes the shore outward: on a diagonal coast the
+  // waterline runs close to the land's outer corners, and an inward warp
+  // dragged it inside them, leaving each corner jutting into the sea as a
+  // tooth. Smooth max, so where the unwarped shore takes over there's no crease.
   const warped = curveAt(px, pz);
-  const held = curveAt(x, z) - SHORE_WARP_MAX_INWARD;
+  const held = curveAt(x, z);
   const curve = (warped + held + Math.hypot(warped - held, SHORE_SAND_BAND_BLEND)) / 2;
-  const reach = cap - d;
   const band = SHORE_SAND_MIN_BAND - d;
   // Smooth max with the band, then smooth min with the reach cap: the
   // smooth min sits at or below its terms, so the reach bound still holds.
   const banded = (curve + band + Math.hypot(curve - band, SHORE_SAND_BAND_BLEND)) / 2;
-  const shaped = (banded + reach - Math.hypot(banded - reach, SHORE_SAND_REACH_BLEND)) / 2;
+  const capped = (banded + reach - Math.hypot(banded - reach, SHORE_SAND_REACH_BLEND)) / 2;
+  // Eased to the same open-water -1 as "no land within a tile" (above) by the
+  // time the nearest land is a tile off, so crossing into a tile with no land
+  // round it doesn't step the foam's fade.
+  const shaped = capped + (-1 - capped) * smooth01((d - 0.75) / 0.25);
   if (mouths.length === 0) return shaped;
   // Squared: the foam's own fade still left a sand lip across the river
   // just off the mouth; this pinches the strip to nothing there.
