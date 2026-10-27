@@ -99,9 +99,10 @@ export type ShoreSandBuffers = {
   polygonVertices: number[];
 };
 
-// Vertices already emitted for the current sea tile, by quantised position:
-// pieces of fringe share their corners, and building a vertex is the
-// costly part (one per piece per corner was ~3x the vertices, and most of
+// Vertices already emitted for the current sea tile, by quantised position
+// (1/4096 tile; the first point emitted there supplies its waterline value,
+// so two points that close share it): pieces of fringe share their corners,
+// and building a vertex is the costly part (one per piece per corner was ~3x the vertices, and most of
 // a coast-heavy rebuild's time). Cleared per tile; bounded by one tile's
 // vertex count.
 const tileVertexIndex = new Map<number, number>();
@@ -154,6 +155,11 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
     return sq.corners;
   };
 
+  const distanceToSquare = (sq: LandSquare, x: number, z: number): number => {
+    const dx = x - Math.min(Math.max(x, sq.x), sq.x + 1);
+    const dz = z - Math.min(Math.max(z, sq.z), sq.z + 1);
+    return Math.sqrt(dx * dx + dz * dz);
+  };
   tileVertexIndex.clear();
   const emitVertex = (x: number, z: number, s: number): number => {
     const key = vertexKey(x, z);
@@ -211,12 +217,13 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
     if (ok) buffers.colors.push(lerp("r"), lerp("g"), lerp("b"));
     else buffers.colors.push(244 / 255, 232 / 255, 198 / 255);
     buffers.tundra.push(ok ? lerp("tundraZone") : 0);
-    // Linear in s: the fringe is cut along the s = SHORE_SEAWARD_BAND contour
-    // (clipTriangle), so this ramps evenly between two lines that both
-    // follow the waterline. Times `t` (0 at the land's edge): on a beach
-    // narrower than the band the fade must still start from nothing at the
-    // land tile, or the tile's own full-strength tint ends on its square
-    // edge against an already-faded beach.
+    // Ramps with s, and the fringe is cut along the s = SHORE_SEAWARD_BAND
+    // contour (clipTriangle), so the fade runs between two lines that both
+    // follow the waterline. Times `t` (0 at the land's edge, ~1 within the
+    // band on any beach wider than it): on a beach narrower than the band
+    // the fade must still start from nothing at the land tile, or the tile's
+    // own full-strength tint ends on its square edge against an
+    // already-faded beach.
     buffers.seaward.push((1 - Math.min(1, depth / SHORE_SEAWARD_BAND)) * t);
     buffers.uvs.push(px + worldOffsetX, pz + worldOffsetZ);
     tileVertexIndex.set(key, index);
@@ -238,21 +245,29 @@ export const appendShoreSand = (buffers: ShoreSandBuffers, inputs: ShoreSandTile
     const k = a.s / (a.s - b.s);
     return [a.x + (b.x - a.x) * k, a.z + (b.z - a.z) * k, 0];
   };
-  const distanceToSquare = (sq: LandSquare, x: number, z: number): number => {
-    const dx = x - Math.min(Math.max(x, sq.x), sq.x + 1);
-    const dz = z - Math.min(Math.max(z, sq.z), sq.z + 1);
-    return Math.sqrt(dx * dx + dz * dz);
-  };
   const nearestSquare = (x: number, z: number): LandSquare => {
     distanceToLand(x, z);
     return nearest;
   };
   const emitPolygon = (poly: ReadonlyArray<FringePoint>, sq: LandSquare): void => {
     const first = buffers.polygonVertices.length;
-    for (const [x, z, ws] of poly) buffers.polygonVertices.push(emitVertex(x, z, ws));
-    buffers.polygons.push({ first, count: poly.length, landGc: sq.x, landGr: sq.z });
+    for (const [x, z, ws] of poly) {
+      // Consecutive points that land on one vertex (a cut through a corner
+      // already on the split line) would only add zero-area triangles.
+      const v = emitVertex(x, z, ws);
+      const last = buffers.polygonVertices.length > first ? buffers.polygonVertices[buffers.polygonVertices.length - 1] : -1;
+      if (v !== last) buffers.polygonVertices.push(v);
+    }
+    if (buffers.polygonVertices.length - first > 1 && buffers.polygonVertices[buffers.polygonVertices.length - 1] === buffers.polygonVertices[first]) buffers.polygonVertices.pop();
+    const count = buffers.polygonVertices.length - first;
+    // Collapsed to a line or a point: nothing to draw, for the sand or the overlays.
+    if (count < 3) {
+      buffers.polygonVertices.length = first;
+      return;
+    }
+    buffers.polygons.push({ first, count, landGc: sq.x, landGr: sq.z });
     const v0 = buffers.polygonVertices[first]!;
-    for (let k = 1; k + 1 < poly.length; k++) buffers.indices.push(v0, buffers.polygonVertices[first + k]!, buffers.polygonVertices[first + k + 1]!);
+    for (let k = 1; k + 1 < count; k++) buffers.indices.push(v0, buffers.polygonVertices[first + k]!, buffers.polygonVertices[first + k + 1]!);
   };
   // Splits a piece of fringe along the line halfway between the land
   // squares nearest its corners, so each piece belongs to exactly one land
@@ -401,7 +416,12 @@ export const createShoreSandLayer = (scene: Scene, material: Material): ShoreSan
     mesh.frustumCulled = false;
     mesh.receiveShadow = true;
     scene.add(mesh);
-    return { positions: buffers.positions, seaward: buffers.seaward, polygons: buffers.polygons, polygonVertices: buffers.polygonVertices };
+    return {
+      positions: buffers.positions,
+      seaward: buffers.seaward,
+      polygons: buffers.polygons,
+      polygonVertices: buffers.polygonVertices
+    };
   };
   const dispose = (): void => clear();
   return { rebuild, clear, dispose };

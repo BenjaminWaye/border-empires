@@ -101,6 +101,13 @@ export const createOwnershipShoreTint = (
       for (let v = 0; v < polygon.count; v++) {
         const i = fringe.polygonVertices[polygon.first + v]!;
         const p = i * 3;
+        // The fringe's tucked positions (LAND_EDGE_TUCK), so this overlaps the
+        // tile's own tint quad by a hair. Ending exactly on the quad's edge
+        // left T-junction pinholes there -- dashes of untinted sand along the
+        // old square coastline. The overlap draws twice instead: invisible on
+        // settled (0.85 -> 0.98), a faint line on frontier (0.3 -> 0.51) at
+        // the closest zoom. Avoiding both needs a stencil buffer, which the
+        // map's renderer doesn't create.
         target.positions.push(fringe.positions[p]!, fringe.positions[p + 1]! + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD, fringe.positions[p + 2]!);
         const strength = 1 - (1 - edgeOpacity) * fringe.seaward[i]!;
         if (toWhite) target.colors.push(1 + (tint.r - 1) * strength, 1 + (tint.g - 1) * strength, 1 + (tint.b - 1) * strength, 1);

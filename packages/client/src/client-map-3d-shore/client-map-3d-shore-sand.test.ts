@@ -182,6 +182,21 @@ describe("shore sand fringe", () => {
     for (const v of vertices(a)) expect(Math.min(v.x, v.z)).toBeGreaterThanOrEqual(-LAND_EDGE_TUCK - 1e-9);
   });
 
+  it("starts the territory fade from nothing at the land edge, even on a beach narrower than the fade band", () => {
+    // Beside a river mouth the beach pinches thinner than SHORE_SEAWARD_BAND;
+    // the fade used to start part-way there, so the tile's own full-strength
+    // tint ended on its square edge against an already-faded beach.
+    const b = emptyBuffers();
+    appendShoreSand(b, inputs(0, 0, straightCoast, [{ x: 0.5, z: 0 }]));
+    let edge = 0;
+    for (let v = 0; v < b.positions.length / 3; v++) {
+      if (b.positions[v * 3 + 2] !== -LAND_EDGE_TUCK) continue;
+      edge++;
+      expect(b.seaward[v]).toBe(0);
+    }
+    expect(edge).toBeGreaterThan(0);
+  });
+
   it("gives each piece of fringe to exactly one land tile, split cleanly between neighbours", () => {
     // Sea tile (0, 0) sits in the elbow of land to the west and north: its
     // beach must split along the diagonal between them, not in a sawtooth.
