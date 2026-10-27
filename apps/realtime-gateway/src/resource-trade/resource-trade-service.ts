@@ -58,7 +58,7 @@ export function createResourceTradeService(ctx:ResourceTradeServiceDeps):Resourc
         // The sender can withdraw while the AI snapshot request is in flight.
         // A human takeover may also have accepted it; do not override that consent.
         const current=store.rows(ctx.now()).find(row=>row.id===parsed.data.id);
-        if(!current||current.status!=="pending")return true;
+        if(!current||current.status!=="pending"||!ctx.isAutoRespondingAi(to.id))return true;
         const terms=current.terms;
         if(!holdings||!evaluateResourceTradeOffer(terms,holdings).accepts){store.remove(parsed.data.id);publish([from.id,to.id]);error(`${to.name} declines these resource terms.`);}
         else{const failure=await accept(parsed.data);if(failure)error(failure);}

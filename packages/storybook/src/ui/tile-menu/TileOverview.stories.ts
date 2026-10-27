@@ -67,7 +67,9 @@ const headerFor = (tile: Tile): { title: string; subtitle: string } => {
 
 const renderExamples = (examples: readonly Example[]): HTMLElement => {
   const root = document.createElement("main");
-  root.style.cssText = "min-height:100vh;padding:28px;background:radial-gradient(circle at 50% 0,#322414,#100c07 55%,#080604);font-family:var(--sp-font-body,serif);";
+  root.tabIndex = 0;
+  root.setAttribute("aria-label", "Tile overview examples");
+  root.style.cssText = "height:100vh;overflow:auto;box-sizing:border-box;min-height:100vh;padding:28px;background:radial-gradient(circle at 50% 0,#322414,#100c07 55%,#080604);font-family:var(--sp-font-body,serif);";
   const grid = document.createElement("section");
   grid.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,340px));justify-content:center;gap:22px;align-items:start;";
   for (const example of examples) {

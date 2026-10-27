@@ -81,3 +81,13 @@ caster whose supplier is not trading. The five frontier slots follow the same
 exclusive transfer as other resource slots; the source extractor still needs
 its owner's Manifest and FOOD. The existing indexed tower list identifies
 stolen sources, with no new persistent state or unbounded cache.
+
+The allocator memoizes domestic upkeep capacity during one calculation, and
+network capacity while the complete upkeep-flow signature is unchanged.
+Capacity maps are transient and bounded by at most two participants per capped
+agreement. A regression covering 256 failed network agreements reduces capacity
+reads from 131,584 to at most 512 without changing allocation priority.
+
+`resource-trade.integration.test.ts` boots the real gateway and simulation with
+two authenticated socket clients. It proves offer acceptance, one-time payment,
+production benefit, source inventory release and a second independent trade.

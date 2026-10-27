@@ -1,3 +1,4 @@
+import { resourceTileDescriptionLines } from "./client-resource-tile-copy.js";
 import { describe, expect, it } from "vitest";
 
 import { resourceSlotProductionHtml } from "./client-tile-resource-slot-production.js";
@@ -111,4 +112,10 @@ it("reports diverted resource supply and explains the Siphon on frontier sites",
   expect(resourceSlotProductionHtml(tile)).toContain("Food +0 (siphoned)");
   tile.resource="NEURAL_RESIN";
   expect(menuOverviewForTile(tile,deps).map(row=>row.html).join(" ")).toContain("Supply diverted by an active Siphon");
+});
+
+it("names the relevant Manifest and production interval without interpreting catalog text as markup",()=>{
+  const lines=resourceTileDescriptionLines({x:1,y:1,terrain:"LAND",resource:"CONDUCTIVE_MINERALS"},[{id:"organized-supply",name:"Reserve Custody Cadre <test>"}]).join(" ");
+  expect(lines).toContain("after unlocking Reserve Custody Cadre &lt;test&gt;");
+  expect(lines).toContain("every 4 hours");
 });

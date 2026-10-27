@@ -2,7 +2,7 @@
 
 Status: implementation and validation in progress on `agent/resource-networks`
 Owner: Border Empires game design / this task
-Last reviewed: 2026-10-26
+Last reviewed: 2026-10-27
 
 ## Intended play
 
@@ -45,7 +45,7 @@ retains normal output. Supply does not run out over time, and occupying a slot
 does not consume the deposit. Spare slots remain available for new consumers.
 There is no diminishing-return tier or six-site cap.
 
-For each resource, supplied buildings = min(active developed sites, eligible
+Before exclusive trade and Siphon transfers, supplied buildings = min(active developed sites, eligible
 active beneficiaries). Extra factories cannot reuse already occupied slots.
 
 Examples:
@@ -168,8 +168,8 @@ Storybook gallery shows all raw and developed models alongside their 2D art.
 
 1. Shared catalog: types, constants, balance formulas, structure placement,
    costs, slot requirements, schemas and Manifest unlocks.
-2. Season generation: terrain-derived resin plus deterministic fixed-deposit budget, protected
-   content and shared sync/async integration.
+2. Season generation: all five deposits use deterministic habitat-based budgets
+   and separated 1–3 tile clusters, protected landing sites and shared sync/async integration.
 3. Economy: cached developed-site counts, real batch and Coin effects,
    current-rate settlement, loss/dormancy invalidation and display parity.
 4. Client: build click dispatch, optimistic construction, Manifest links,

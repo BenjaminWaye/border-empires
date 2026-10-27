@@ -71,4 +71,15 @@ describe("independent resource trades",()=>{
     expect(f.social.resourceTradeOffers.rows(1)).toEqual([]);
   });
 
+  it("leaves the offer for human review when AI control ends during the holdings lookup",async()=>{
+    const f=setup(true);
+    let release: (()=>void) | undefined;
+    const waiting=new Promise<void>(resolve=>{release=resolve;});
+    f.deps.aiHoldings=async()=>{await waiting;return {gold:10,shard:0,resources:{FOOD:2}};};
+    const pending=f.service.handle(request,"a",f.socket,false);
+    f.deps.isAutoRespondingAi=()=>false;release!();await pending;
+    expect(f.settle).not.toHaveBeenCalled();
+    expect(f.social.resourceTradeOffers.rows(1)[0]?.status).toBe("pending");
+  });
+
 });

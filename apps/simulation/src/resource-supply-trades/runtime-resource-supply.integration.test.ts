@@ -162,4 +162,17 @@ describe("resource trades in the production runtime",()=>{
     for(const resource of NETWORK_RESOURCES){expect(own("seller").effectiveNetworkSupply?.[resource]).toBe(1);expect(own("buyer").effectiveNetworkSupply?.[resource]).toBe(0);}
   });
 
+  it("keeps another House's spare inventory and supply agreements private in visible snapshots",async()=>{
+    const f=fixture();await f.pay();
+    for(const viewer of ["seller","buyer"]){
+      const state=f.runtime.exportVisibleStateForPlayer(viewer);
+      const own=state.players.find(player=>player.id===viewer);
+      const other=state.players.find(player=>player.id!==viewer);
+      expect(own).toHaveProperty("resourceTradeAgreements");
+      expect(other).not.toHaveProperty("resourceTradeHoldings");
+      expect(other).not.toHaveProperty("resourceTradeAgreements");
+      expect(other).not.toHaveProperty("effectiveNetworkSupply");
+    }
+  });
+
 });
