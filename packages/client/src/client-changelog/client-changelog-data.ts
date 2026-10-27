@@ -440,7 +440,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Coin and Shard sliders in diplomacy",
     why: "Setting a deal's terms meant typing into four bare number boxes.",
     changes: [
-      "\"You give\" and \"You ask\" now show Coin and Shards as tiles. Press one to open a slider that runs from 0 to what that side holds.",
+      "\"You give\" and \"You ask\" now show Coin and Shards as tiles. Press one to open a slider that runs from 0 to what that side holds, with a box beside it for typing an exact amount.",
       "When asking an AI for coin or Shards, the slider stops at what it can actually pay."
     ]
   }

@@ -7,7 +7,15 @@ import { emptyDiplomacyTerms, type DiplomacyCounterRef, type DiplomacyGoods, typ
 
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 import { diplomacyTradeStyles } from "./client-diplomacy-trade-style.js";
-import { bindTradeGoods, renderTradeGoods, tradeGoodsHtml, tradeGoodsLimits, type TradeGoodKey } from "./client-diplomacy-trade-goods.js";
+import {
+  bindTradeGoods,
+  maxTradeTerms,
+  renderTradeGoods,
+  tradeGoodsHtml,
+  tradeGoodsLimits,
+  withTradeAmount,
+  type TradeGoodKey
+} from "./client-diplomacy-trade-goods.js";
 import { attitudeSummary, suggestedDeal, tradeVerdict, warTally, type DiplomacyStanceReply, type TradeSelection } from "./client-diplomacy-trade-view.js";
 
 export type DiplomacyOfferCooldownView = { kind: DiplomacyOfferKind; targetPlayerId: string; until: number };
@@ -30,6 +38,8 @@ type OpenScreen = {
   reply: DiplomacyStanceReply | undefined;
   /** The goods tile whose slider is open, if any. */
   expanded: TradeGoodKey | undefined;
+  /** Opening terms and typed amounts: the sliders always reach this far (see tradeGoodsLimits). */
+  reach: DiplomacyTerms;
   overlay: HTMLElement;
   deps: DiplomacyTradeDeps;
   previousFocus: HTMLElement | undefined;
@@ -128,7 +138,7 @@ const render = (screen: OpenScreen): void => {
     const [kind, hours] = (button.dataset.tradeKind ?? "").split(":");
     button.setAttribute("aria-pressed", String(kind === selection.kind && (kind === "alliance" || Number(hours) === selection.durationHours)));
   }
-  renderTradeGoods(overlay, selection.terms, tradeGoodsLimits(own, reply, selection.terms), screen.expanded);
+  screen.expanded = renderTradeGoods(overlay, selection.terms, tradeGoodsLimits(own, reply, screen.reach), screen.expanded);
   const holdingsEl = overlay.querySelector<HTMLElement>("[data-trade-holdings]");
   if (holdingsEl) holdingsEl.textContent = `You have ${own.gold} coin and ${own.shard} Shards.`;
   const verdict = tradeVerdict({ targetName, reply, selection, own, cooldownRemainingMs: cooldownRemainingMs(screen) });
@@ -224,6 +234,7 @@ export const openDiplomacyTradeScreen = (
     selection: { kind, durationHours: input.durationHours, terms },
     reply: undefined,
     expanded: undefined,
+    reach: terms,
     overlay,
     deps,
     previousFocus: document.activeElement instanceof HTMLElement ? document.activeElement : undefined,
@@ -248,7 +259,9 @@ export const openDiplomacyTradeScreen = (
       screen.expanded = screen.expanded === key ? undefined : key;
       render(screen);
     },
-    onChange: (terms) => {
+    onAmount: (key, amount, typed) => {
+      const terms = withTradeAmount(screen.selection.terms, key, amount);
+      if (typed) screen.reach = maxTradeTerms(screen.reach, terms);
       screen.selection = { ...screen.selection, terms };
       render(screen);
     }
@@ -256,6 +269,7 @@ export const openDiplomacyTradeScreen = (
   overlay.querySelector<HTMLButtonElement>("[data-trade-suggest]")?.addEventListener("click", () => {
     const deal = suggestedDeal(screen.reply, screen.selection, deps.ownHoldings());
     if (!deal) return;
+    screen.reach = maxTradeTerms(screen.reach, deal);
     screen.selection = { ...screen.selection, terms: deal };
     render(screen);
   });

@@ -14,6 +14,7 @@ export const diplomacyTradeStyles = `
     box-shadow: 0 28px 72px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(244, 223, 166, .08);
     font: 400 15px/1.5 var(--sp-font-body, "Spectral", Georgia, serif);
     text-align: left; text-transform: none; letter-spacing: normal;
+    container-type: inline-size;
   }
   .diplomacy-trade-kicker {
     display: block; margin-bottom: 8px; color: var(--sp-brass-300, #d9ad52);
@@ -85,9 +86,16 @@ export const diplomacyTradeStyles = `
   .diplomacy-trade-good-amount { color: var(--sp-brass-100, #f4dfa6); font: 600 15px/1.2 var(--sp-font-mono, "Space Mono", monospace); }
   .diplomacy-trade-good[data-chosen="false"] .diplomacy-trade-good-amount { color: var(--sp-parchment-muted, #bda880); opacity: .7; }
   .diplomacy-trade-slider { margin-top: 10px; }
+  .diplomacy-trade-slider-row { display: flex; align-items: center; gap: 8px; }
+  .diplomacy-trade-slider input[type="number"] {
+    box-sizing: border-box; width: 72px; flex: none; min-height: 32px; padding: 4px 6px;
+    border: 1px solid var(--sp-brass-700, #8a611f); border-radius: 4px;
+    background: rgba(12, 9, 6, .55); color: var(--sp-parchment-100, #f2e8d3);
+    font: 600 13px/1.2 var(--sp-font-mono, "Space Mono", monospace);
+  }
   .diplomacy-trade-slider input[type="range"] {
     --fill: 0%;
-    display: block; box-sizing: border-box; width: 100%; height: 24px; margin: 0; padding: 0;
+    display: block; box-sizing: border-box; flex: 1; min-width: 0; width: 100%; height: 24px; margin: 0; padding: 0;
     background: transparent; appearance: none; -webkit-appearance: none; cursor: pointer;
   }
   .diplomacy-trade-slider input[type="range"]::-webkit-slider-runnable-track {
@@ -119,5 +127,7 @@ export const diplomacyTradeStyles = `
   .diplomacy-trade-popup button:focus-visible, .diplomacy-trade-popup input:focus-visible {
     outline: 2px solid var(--sp-brass-300, #d9ad52); outline-offset: 2px;
   }
-  @media (max-width: 420px) { .diplomacy-trade-popup { padding: 16px; } .diplomacy-trade-sides { grid-template-columns: 1fr; } }
+  @media (max-width: 420px) { .diplomacy-trade-popup { padding: 16px; } }
+  /* By the screen's own width: HUD v2 hosts it in a column narrower than the viewport. */
+  @container (max-width: 390px) { .diplomacy-trade-sides { grid-template-columns: 1fr; } }
 `;
