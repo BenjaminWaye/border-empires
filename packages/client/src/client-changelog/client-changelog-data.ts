@@ -485,6 +485,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Manpower arrives in batches, so per-minute labels made building output hard to judge.",
     changes: ["The manpower countdown shows +N in the remaining time, including on mobile.", "Town upgrades, manpower buildings and regeneration modifiers show their output per batch."]
   },
+  {
+    createdAt: 1793227144948, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.28.5",
+    title: "Win over AI empires with gifts",
+    why: "An AI that didn't think well enough of you for an alliance gave no hint how to change its mind, and the only way to win it over was overpaying in a deal.",
+    changes: [
+      "The deal screen has a new Gift option for AI empires: give coin or Shards and ask nothing back. It works during a truce too.",
+      "Before you send it, the screen shows what the gift does, such as \"+20 (Cautious → Pleased)\", and how much more would make them Pleased, which is enough for an alliance. Suggest deal fills in that amount.",
+      "Gifts and payments in deals count for up to +25 opinion and fade over about a day. A gift too small to move their opinion, or one past that limit, can't be sent."
+    ]
+  },
   ...AI_DOCK_CROSSING_CHANGELOG,
   ...REACH_RESTART_CHANGELOG,
   ...TOWN_NAMEPLATES_CHANGELOG,

@@ -168,7 +168,7 @@ describe("AI truce pricing", () => {
 
 describe("AI alliance pricing", () => {
   it("needs at least Pleased, and the AI never pays", () => {
-    expect(price({}).allianceRefusal).toBe("Milo doesn't think well enough of you for an alliance.");
+    expect(price({}).allianceRefusal).toBe("Milo doesn't think well enough of you for an alliance. Offer a gift to win them over.");
     // Borders apart (+5) and fear (+10): Pleased, 24h of income.
     const pleased = price({ stanceKind: "OUTMATCHED", bordersTouch: false });
     expect(pleased.opinion.attitude).toBe("PLEASED");
@@ -190,7 +190,7 @@ describe("AI alliance pricing", () => {
   it("gives the real refusal before saying it can't weigh up bloc sizes", () => {
     const atWar = memory({ lastCombatAt: NOW - HOUR, lastPlayerAttackAt: NOW - HOUR, tilesTakenFromAi: 15 });
     expect(price({ memory: atWar, aiWouldLeadAlliance: undefined }).allianceRefusal).toBe("Milo won't ally with an empire it fought within the last day.");
-    expect(price({ aiWouldLeadAlliance: undefined }).allianceRefusal).toBe("Milo doesn't think well enough of you for an alliance.");
+    expect(price({ aiWouldLeadAlliance: undefined }).allianceRefusal).toBe("Milo doesn't think well enough of you for an alliance. Offer a gift to win them over.");
     const friendly = { stanceKind: "OUTMATCHED" as const, bordersTouch: false, memory: memory({ goodwillCoin: 600 }), aiWouldLeadAlliance: undefined };
     expect(price(friendly).allianceRefusal).toBe("Milo can't weigh up an alliance right now. Try again shortly.");
   });
@@ -206,7 +206,7 @@ describe("AI alliance pricing", () => {
   // Goodwill is capped: coin alone can't buy friendship.
   it("caps goodwill from payments", () => {
     const rich = price({ memory: memory({ goodwillCoin: 10_000_000 }) });
-    expect(rich.opinion.modifiers).toContainEqual({ label: "Payments you've made us", value: 25 });
+    expect(rich.opinion.modifiers).toContainEqual({ label: "Gifts and payments you've made us", value: 25 });
   });
 });
 
@@ -247,8 +247,9 @@ describe("answerDiplomacyStanceQuery", () => {
       stance: { kind: "INDIFFERENT", reason: "Milo has no quarrel with you: your borders don't meet." },
       attitude: { level: "CAUTIOUS", score: 5, modifiers: [{ label: "Our borders don't meet", value: 5 }] },
       war: { atWar: false, aiWinning: false, aiLosing: false, tilesTakenFromAi: 0, tilesTakenByAi: 0 },
-      allianceRefusal: "Milo doesn't think well enough of you for an alliance.",
-      pricing: { required: { truce12: 0, truce24: 0, alliance: null }, shardCoinValue: 25, aiHoldings: { gold: 40, shard: 1 } }
+      allianceRefusal: "Milo doesn't think well enough of you for an alliance. Offer a gift to win them over.",
+      pricing: { required: { truce12: 0, truce24: 0, alliance: null }, shardCoinValue: 25, aiHoldings: { gold: 40, shard: 1 } },
+      gift: { coinPerPoint: 20, goodwillPoints: 0, maxPoints: 25 }
     });
   });
 

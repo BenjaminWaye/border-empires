@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRICKLE_RESOURCE_KEYS } from "../trickle-resources.js";
-import { DiplomacyCounterRefSchema, DiplomacyTermsSchema } from "../diplomacy-terms/diplomacy-terms.js";
+import { DiplomacyCounterRefSchema, DiplomacyGoodsSchema, DiplomacyTermsSchema } from "../diplomacy-terms/diplomacy-terms.js";
 
 const FrontierCommandMetadataSchema = {
   commandId: z.string().min(1).optional(),
@@ -62,6 +62,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type:z.literal("RESOURCE_TRADE_END"),agreementId:z.string().min(1).max(160) }),
   z.object({ type:z.literal("RESOURCE_TRADE_SYNC") }),
   z.object({ type: z.literal("DIPLOMACY_STANCE_REQUEST"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional() }),
+  // Trade screen: coin/Shards given to an AI for its goodwill alone (raises its opinion of you; diplomacy-gift.ts). No resource supply: a gift is paid once.
+  z.object({ type: z.literal("DIPLOMACY_GIFT"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional(), gift: DiplomacyGoodsSchema.omit({ resources: true }) }),
   z.object({ type: z.literal("TRUCE_ACCEPT"), requestId: z.string().min(1), confirmedResourceSupply: z.boolean().optional() }),
   z.object({ type: z.literal("TRUCE_REJECT"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("TRUCE_CANCEL"), requestId: z.string().min(1) }),
