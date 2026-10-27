@@ -147,6 +147,32 @@ describe("diplomacy trade screen", () => {
     ]);
   });
 
+  // Regression: the terms were four bare number boxes; they are now goods tiles that open a slider capped at what each side holds.
+  it("opens a slider from a goods tile, capped at what each side holds", () => {
+    const { overlay } = openScreen(67);
+    const coinTile = overlay.querySelector<HTMLButtonElement>("[data-trade-good='give-gold']")!;
+    const slider = overlay.querySelector<HTMLElement>("[data-trade-slider='give-gold']")!;
+    expect(slider.hidden).toBe(true);
+    expect(overlay.querySelector<HTMLButtonElement>("[data-trade-good='give-shard']")!.disabled).toBe(true);
+
+    coinTile.click();
+    expect(slider.hidden).toBe(false);
+    expect(coinTile.getAttribute("aria-expanded")).toBe("true");
+    const giveGold = overlay.querySelector<HTMLInputElement>("[data-trade-give-gold]")!;
+    expect(giveGold.type).toBe("range");
+    expect(giveGold.max).toBe("67");
+    giveGold.value = "30";
+    giveGold.dispatchEvent(new Event("input"));
+    expect(overlay.querySelector("[data-trade-amount='give-gold']")?.textContent).toBe("30");
+
+    // Opening another tile closes this one; asking an AI is capped at its own holdings.
+    receiveDiplomacyStance(aiReply);
+    overlay.querySelector<HTMLButtonElement>("[data-trade-good='ask-gold']")!.click();
+    expect(slider.hidden).toBe(true);
+    expect(overlay.querySelector<HTMLInputElement>("[data-trade-ask-gold]")!.max).toBe("30");
+    expect(overlay.querySelector<HTMLButtonElement>("[data-trade-good='ask-shard']")!.disabled).toBe(true);
+  });
+
   it("sends the offer with its terms and closes", () => {
     const { send, overlay } = openScreen();
     const giveGold = overlay.querySelector<HTMLInputElement>("[data-trade-give-gold]")!;

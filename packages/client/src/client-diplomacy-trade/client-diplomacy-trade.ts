@@ -7,6 +7,7 @@ import { emptyDiplomacyTerms, type DiplomacyCounterRef, type DiplomacyGoods, typ
 
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 import { diplomacyTradeStyles } from "./client-diplomacy-trade-style.js";
+import { bindTradeGoods, renderTradeGoods, tradeGoodsHtml, tradeGoodsLimits, type TradeGoodKey } from "./client-diplomacy-trade-goods.js";
 import { attitudeSummary, suggestedDeal, tradeVerdict, warTally, type DiplomacyStanceReply, type TradeSelection } from "./client-diplomacy-trade-view.js";
 
 export type DiplomacyOfferCooldownView = { kind: DiplomacyOfferKind; targetPlayerId: string; until: number };
@@ -27,6 +28,8 @@ type OpenScreen = {
   counters: DiplomacyCounterRef | undefined;
   selection: TradeSelection;
   reply: DiplomacyStanceReply | undefined;
+  /** The goods tile whose slider is open, if any. */
+  expanded: TradeGoodKey | undefined;
   overlay: HTMLElement;
   deps: DiplomacyTradeDeps;
   previousFocus: HTMLElement | undefined;
@@ -86,31 +89,10 @@ const cooldownRemainingMs = (screen: OpenScreen): number => {
   return entry ? Math.max(0, entry.until - Date.now()) : 0;
 };
 
-const readAmount = (input: HTMLInputElement | null): number => {
-  const value = Math.floor(Number(input?.value ?? 0));
-  return Number.isFinite(value) && value > 0 ? value : 0;
-};
-
-const readTerms = (overlay: HTMLElement): DiplomacyTerms => ({
-  give: { gold: readAmount(overlay.querySelector("[data-trade-give-gold]")), shard: readAmount(overlay.querySelector("[data-trade-give-shard]")) },
-  ask: { gold: readAmount(overlay.querySelector("[data-trade-ask-gold]")), shard: readAmount(overlay.querySelector("[data-trade-ask-shard]")) }
-});
-
 const tilesWord = (count: number): string => (count === 1 ? "tile" : "tiles");
 
 const termsEqual = (a: DiplomacyTerms, b: DiplomacyTerms): boolean =>
   a.give.gold === b.give.gold && a.give.shard === b.give.shard && a.ask.gold === b.ask.gold && a.ask.shard === b.ask.shard;
-
-const writeTerms = (overlay: HTMLElement, terms: DiplomacyTerms): void => {
-  const set = (attr: string, value: number): void => {
-    const field = overlay.querySelector<HTMLInputElement>(`[${attr}]`);
-    if (field) field.value = String(value);
-  };
-  set("data-trade-give-gold", terms.give.gold);
-  set("data-trade-give-shard", terms.give.shard);
-  set("data-trade-ask-gold", terms.ask.gold);
-  set("data-trade-ask-shard", terms.ask.shard);
-};
 
 const render = (screen: OpenScreen): void => {
   const { overlay, selection, reply, targetName } = screen;
@@ -146,6 +128,7 @@ const render = (screen: OpenScreen): void => {
     const [kind, hours] = (button.dataset.tradeKind ?? "").split(":");
     button.setAttribute("aria-pressed", String(kind === selection.kind && (kind === "alliance" || Number(hours) === selection.durationHours)));
   }
+  renderTradeGoods(overlay, selection.terms, tradeGoodsLimits(own, reply, selection.terms), screen.expanded);
   const holdingsEl = overlay.querySelector<HTMLElement>("[data-trade-holdings]");
   if (holdingsEl) holdingsEl.textContent = `You have ${own.gold} coin and ${own.shard} Shards.`;
   const verdict = tradeVerdict({ targetName, reply, selection, own, cooldownRemainingMs: cooldownRemainingMs(screen) });
@@ -216,8 +199,6 @@ export const openDiplomacyTradeScreen = (
   const truceEndsAt = deps.truceEndsAt?.(input.targetPlayerId, targetName);
   const inTruce = truceEndsAt !== undefined && truceEndsAt > Date.now();
   const kind: DiplomacyOfferKind = inTruce ? "alliance" : input.kind;
-  const amountInput = (attr: string, label: string, value: number): string =>
-    `<input type="number" inputmode="numeric" min="0" step="1" value="${value}" ${attr} aria-label="${label}">`;
   overlay.innerHTML = `<section class="diplomacy-trade-popup" role="dialog" aria-modal="true" aria-labelledby="diplomacy-trade-title">
     <span class="diplomacy-trade-kicker">Diplomacy</span>
     <h2 id="diplomacy-trade-title">${input.counters ? `Counter ${name}'s offer` : `Deal with ${name}`}</h2>
@@ -230,11 +211,7 @@ export const openDiplomacyTradeScreen = (
         : `<button type="button" data-trade-kind="truce:12">Truce 12h</button><button type="button" data-trade-kind="truce:24">Truce 24h</button>`}
       <button type="button" data-trade-kind="alliance:0">Alliance</button>
     </div>
-    <div class="diplomacy-trade-grid">
-      <span></span><span class="diplomacy-trade-head">Coin</span><span class="diplomacy-trade-head">Shards</span>
-      <span>You give</span>${amountInput("data-trade-give-gold", "Coin you give", terms.give.gold)}${amountInput("data-trade-give-shard", "Shards you give", terms.give.shard)}
-      <span>You ask</span>${amountInput("data-trade-ask-gold", "Coin you ask for", terms.ask.gold)}${amountInput("data-trade-ask-shard", "Shards you ask for", terms.ask.shard)}
-    </div>
+    ${tradeGoodsHtml()}
     <p class="diplomacy-trade-stance" data-trade-holdings></p>
     <p class="diplomacy-trade-verdict" data-trade-verdict aria-live="polite"></p>
     <button type="button" class="diplomacy-trade-suggest" data-trade-suggest hidden>Suggest deal</button>
@@ -246,6 +223,7 @@ export const openDiplomacyTradeScreen = (
     counters: input.counters,
     selection: { kind, durationHours: input.durationHours, terms },
     reply: undefined,
+    expanded: undefined,
     overlay,
     deps,
     previousFocus: document.activeElement instanceof HTMLElement ? document.activeElement : undefined,
@@ -265,17 +243,20 @@ export const openDiplomacyTradeScreen = (
       render(screen);
     });
   }
-  for (const field of Array.from(overlay.querySelectorAll<HTMLInputElement>("input"))) {
-    field.addEventListener("input", () => {
-      screen.selection = { ...screen.selection, terms: readTerms(overlay) };
+  bindTradeGoods(overlay, {
+    onToggle: (key) => {
+      screen.expanded = screen.expanded === key ? undefined : key;
       render(screen);
-    });
-  }
+    },
+    onChange: (terms) => {
+      screen.selection = { ...screen.selection, terms };
+      render(screen);
+    }
+  });
   overlay.querySelector<HTMLButtonElement>("[data-trade-suggest]")?.addEventListener("click", () => {
     const deal = suggestedDeal(screen.reply, screen.selection, deps.ownHoldings());
     if (!deal) return;
-    writeTerms(overlay, deal);
-    screen.selection = { ...screen.selection, terms: readTerms(overlay) };
+    screen.selection = { ...screen.selection, terms: deal };
     render(screen);
   });
   overlay.querySelector<HTMLButtonElement>("[data-trade-send]")?.addEventListener("click", () => sendOffer(screen));

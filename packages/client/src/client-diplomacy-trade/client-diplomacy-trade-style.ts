@@ -60,15 +60,55 @@ export const diplomacyTradeStyles = `
     color: var(--sp-brass-300, #e0a845); font: 600 14px/1.3 var(--sp-font-body, "Spectral", Georgia, serif);
   }
   .diplomacy-trade-actions [data-trade-send]:disabled, .diplomacy-trade-suggest:disabled { opacity: .55; cursor: not-allowed; }
-  .diplomacy-trade-grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 8px 12px; align-items: center; margin-bottom: 16px; }
-  .diplomacy-trade-grid .diplomacy-trade-head {
-    color: var(--sp-brass-300, #d9ad52); font: 600 11px/1.4 var(--sp-font-mono, "Space Mono", monospace);
-    letter-spacing: .06em; text-transform: uppercase;
+  .diplomacy-trade-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .diplomacy-trade-side {
+    min-width: 0; padding: 10px 12px 12px; border: 1px solid rgba(138, 97, 31, .55); border-radius: 6px;
+    background: rgba(12, 9, 6, .4);
   }
-  .diplomacy-trade-grid input {
-    box-sizing: border-box; width: 100%; min-height: 36px; padding: 6px 8px;
-    border: 1px solid var(--sp-brass-700, #8a611f); border-radius: 4px;
-    background: rgba(12, 9, 6, .55); color: var(--sp-parchment-100, #f2e8d3); font: inherit;
+  .diplomacy-trade-side h3 {
+    margin: 0 0 8px; color: var(--sp-brass-300, #d9ad52);
+    font: 600 11px/1.4 var(--sp-font-mono, "Space Mono", monospace); letter-spacing: .06em; text-transform: uppercase;
+  }
+  .diplomacy-trade-goods { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
+  .diplomacy-trade-good {
+    display: grid; justify-items: center; gap: 2px; min-height: 84px; padding: 8px 4px;
+    border: 1px solid rgba(138, 97, 31, .6); border-radius: 6px;
+    background: rgba(60, 41, 25, .35); color: var(--sp-parchment-muted, #bda880);
+    font: 600 13px/1.2 var(--sp-font-body, "Spectral", Georgia, serif); text-transform: none; letter-spacing: normal; cursor: pointer;
+  }
+  .diplomacy-trade-good:hover:not(:disabled) { border-color: var(--sp-brass-500, #b8862f); }
+  .diplomacy-trade-good[data-chosen="true"] { color: var(--sp-parchment-100, #f2e8d3); background: rgba(217, 173, 82, .14); border-color: var(--sp-brass-500, #b8862f); }
+  .diplomacy-trade-good[aria-expanded="true"] { border-color: var(--sp-brass-300, #d9ad52); box-shadow: inset 0 0 0 1px var(--sp-brass-300, #d9ad52); }
+  .diplomacy-trade-good:disabled { opacity: .4; cursor: not-allowed; }
+  .diplomacy-trade-good-icon { display: grid; place-items: center; width: 32px; height: 32px; }
+  .diplomacy-trade-good-icon img { width: 32px; height: 32px; object-fit: contain; }
+  .diplomacy-trade-good-amount { color: var(--sp-brass-100, #f4dfa6); font: 600 15px/1.2 var(--sp-font-mono, "Space Mono", monospace); }
+  .diplomacy-trade-good[data-chosen="false"] .diplomacy-trade-good-amount { color: var(--sp-parchment-muted, #bda880); opacity: .7; }
+  .diplomacy-trade-slider { margin-top: 10px; }
+  .diplomacy-trade-slider input[type="range"] {
+    --fill: 0%;
+    display: block; box-sizing: border-box; width: 100%; height: 24px; margin: 0; padding: 0;
+    background: transparent; appearance: none; -webkit-appearance: none; cursor: pointer;
+  }
+  .diplomacy-trade-slider input[type="range"]::-webkit-slider-runnable-track {
+    height: 6px; border-radius: 3px; border: 1px solid var(--sp-brass-700, #8a611f);
+    background: linear-gradient(90deg, var(--sp-brass-500, #b8862f) var(--fill), rgba(12, 9, 6, .7) var(--fill));
+  }
+  .diplomacy-trade-slider input[type="range"]::-moz-range-track {
+    height: 6px; border-radius: 3px; border: 1px solid var(--sp-brass-700, #8a611f); background: rgba(12, 9, 6, .7);
+  }
+  .diplomacy-trade-slider input[type="range"]::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--sp-brass-500, #b8862f); }
+  .diplomacy-trade-slider input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 20px; height: 20px; margin-top: -8px; border-radius: 50%;
+    border: 2px solid var(--sp-brass-100, #f4dfa6); background: var(--sp-brass-500, #b8862f); box-shadow: 0 2px 6px rgba(0, 0, 0, .5);
+  }
+  .diplomacy-trade-slider input[type="range"]::-moz-range-thumb {
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 2px solid var(--sp-brass-100, #f4dfa6); background: var(--sp-brass-500, #b8862f); box-shadow: 0 2px 6px rgba(0, 0, 0, .5);
+  }
+  .diplomacy-trade-slider-ends {
+    display: flex; justify-content: space-between; margin-top: 2px; color: var(--sp-parchment-muted, #bda880);
+    font: 400 11px/1.4 var(--sp-font-mono, "Space Mono", monospace);
   }
   .diplomacy-trade-verdict { margin: 0 0 12px; padding: 10px 12px; border-radius: 4px; background: rgba(12, 9, 6, .45); }
   .diplomacy-trade-verdict[data-tone="good"] { border-left: 3px solid #7fb069; }
@@ -79,5 +119,5 @@ export const diplomacyTradeStyles = `
   .diplomacy-trade-popup button:focus-visible, .diplomacy-trade-popup input:focus-visible {
     outline: 2px solid var(--sp-brass-300, #d9ad52); outline-offset: 2px;
   }
-  @media (max-width: 420px) { .diplomacy-trade-popup { padding: 16px; } }
+  @media (max-width: 420px) { .diplomacy-trade-popup { padding: 16px; } .diplomacy-trade-sides { grid-template-columns: 1fr; } }
 `;

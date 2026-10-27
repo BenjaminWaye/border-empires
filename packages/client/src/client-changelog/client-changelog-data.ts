@@ -433,6 +433,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Players who join later pick from the good sites no AI has taken.",
       "AI empires only fall back to their old search if every good site is taken."
     ]
+  },
+  {
+    createdAt: 1793132797501, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.27.4",
+    title: "Coin and Shard sliders in diplomacy",
+    why: "Setting a deal's terms meant typing into four bare number boxes.",
+    changes: [
+      "\"You give\" and \"You ask\" now show Coin and Shards as tiles. Press one to open a slider that runs from 0 to what that side holds.",
+      "When asking an AI for coin or Shards, the slider stops at what it can actually pay."
+    ]
   }
 ];
 
