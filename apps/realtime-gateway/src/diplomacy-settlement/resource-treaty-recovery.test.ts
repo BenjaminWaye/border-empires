@@ -1,3 +1,4 @@
+import type { SocialPendingOffer } from "../social-state/social-state-types.js";
 import { createRequire } from "node:module";
 import type { DatabaseSync as DatabaseSyncType } from "node:sqlite";
 import { describe, expect, it, vi } from "vitest";
@@ -120,4 +121,25 @@ it("retains a paid offer for compensation when the real truce recorder refuses i
   expect(await accept.acceptTruce("b", id)).toMatchObject({ ok: false, code: "TRUCE_LOCKED_OUT" });
   expect(settle).toHaveBeenLastCalledWith(expect.objectContaining({ refundOf: `diplomacy-settle:truce:${id}` }));
   expect(store.loadSnapshot().truceRequests).toHaveLength(0);
+});
+
+it("publishes the persisted settlement phase before submitting a treaty payment", async () => {
+  const store = new InMemoryGatewaySocialStore();
+  const social = buildGatewaySocialState(store, store.loadSnapshot(), players, () => 1_000);
+  social.requestTruce("a", "B", 12, { terms });
+  const id = social.snapshotForPlayer("b").incomingTruceRequests[0]!.id;
+  const published: string[] = [];
+  const onProgress = vi.fn((request: SocialPendingOffer["request"]) => {
+    expect(store.loadSnapshot().truceRequests[0]?.settlementPhase).toBe(request.settlementPhase);
+    const payloads = social.syncPlayers(["a", "b"]).payloadsByPlayerId;
+    for (const messages of payloads.values()) expect(messages).toContainEqual(expect.objectContaining({ type: "TRUCE_UPDATE" }));
+    published.push(request.settlementPhase ?? "missing");
+  });
+  const settle = vi.fn(async (): Promise<DiplomacySettlementResult> => {
+    expect(published).toEqual(["paying"]);
+    return pending;
+  });
+  const accept = createDiplomacyOfferAcceptance({ socialState: social, settlement: { settle }, onProgress, recordGatewayEvent: () => undefined });
+  expect((await accept.acceptTruce("b", id)).ok).toBe(false);
+  expect(onProgress).toHaveBeenCalledOnce();
 });

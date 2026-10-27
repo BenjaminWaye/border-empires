@@ -124,3 +124,7 @@ cache or ledger. Schema application adds `settlement_phase` to both treaty-offer
 tables. Industrial supply also renders in the desktop HUD v2 Economy path.
 Resource panels and previews use one short sentence and compact stat boxes.
 Lore reviewed; no canon change in this recovery and presentation follow-up.
+
+Paying/refunding treaty phases are pushed to both clients before command
+submission and survive local request expiry, keeping the recipient's retry
+control available while the payment outcome is uncertain.

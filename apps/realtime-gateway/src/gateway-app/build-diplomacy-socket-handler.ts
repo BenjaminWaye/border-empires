@@ -87,6 +87,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
   const acceptance = createDiplomacyOfferAcceptance({
     socialState,
     settlement,
+    onProgress: request => deps.fanoutPlayerPayloads(socialState.syncPlayers([request.fromPlayerId, request.toPlayerId]).payloadsByPlayerId),
     onDiscarded: result => deps.fanoutPlayerPayloads(result.payloadsByPlayerId),
     recordGatewayEvent: deps.recordGatewayEvent,
     // AIs remember deals: repeat truce buying costs more, payments build goodwill.

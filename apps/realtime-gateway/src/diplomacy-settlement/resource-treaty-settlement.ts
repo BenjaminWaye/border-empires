@@ -19,6 +19,7 @@ export async function settleResourceTreaty(
   const refund = async (failure: SocialActionResult): Promise<SocialActionResult> => {
     // Persist compensation before submitting, so a crash cannot retry payment.
     deps.socialState.setSettlementPhase(kind, request.id, "refunding");
+    deps.onProgress?.(request);
     const result = await deps.settlement.settle({
       proposerId: request.fromPlayerId, targetId: request.toPlayerId,
       terms: swapDiplomacyTerms(terms), commandId: `${commandId}:refund`,
@@ -35,6 +36,7 @@ export async function settleResourceTreaty(
   try {
     if (request.settlementPhase === "refunding") return await refund({ ok: false, code: "DIPLOMACY_SETTLEMENT_FAILED", message: "This treaty could not be recorded; its payment is being returned." });
     deps.socialState.setSettlementPhase(kind, request.id, "paying");
+    deps.onProgress?.(request);
     const paid = await deps.settlement.settle({
       proposerId: request.fromPlayerId, targetId: request.toPlayerId, terms,
       commandId, issuedAt: request.createdAt, refundIfLate: false

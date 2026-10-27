@@ -14,6 +14,7 @@ export type DiplomacyOfferAcceptanceDeps = {
   settlement: Pick<DiplomacySettlement, "settle">;
   recordGatewayEvent: (level: "info" | "warn" | "error", event: string, payload?: Record<string, unknown>) => void;
   /** After an agreement is recorded (and any terms paid). */
+  onProgress?: (request: SocialPendingOffer["request"]) => void;
   onDiscarded?: (result: Extract<SocialActionResult, { ok: true }>) => void;
   onAccepted?: (kind: "truce" | "alliance", request: SocialPendingOffer["request"]) => void;
   /**
