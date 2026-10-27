@@ -1,6 +1,6 @@
 # Frontier resource networks
 
-Status: implementation and validation in progress on `agent/resource-networks`
+Status: implemented and locally validated on `agent/resource-networks`; awaiting release gates
 Owner: Border Empires game design / this task
 Last reviewed: 2026-10-27
 
@@ -220,3 +220,23 @@ native broadleaf mesh remains the source for every resin grove. Storybook's
 Deposit Review also has a variant selector. Lore reviewed; no canon change.
 
 Reclamation Works use a four-legged bridge crane lifting an armour section from a clamped precursor wreck, with a roller sorting bed and adjoining recovery workshop. The 2D overlay and building icon are exported from the same production model. This is a cosmetic readability update; supply and yields are unchanged. Lore reviewed; no canon change.
+
+## Readiness review — 2026-10-27
+
+Full local CI and the production client build pass. Regression coverage includes
+exclusive slot allocation, shortage priority and bounded capacity reads, old-rate
+settlement, real batch/Coin payouts, cancellation across command sequence reuse
+and restart, offer withdrawal/AI handover races, Siphon transfers and dependent
+cache invalidation, private projections, both renderers and authored variants.
+A real two-client gateway/simulation test covers consecutive paid supply trades.
+
+Every tile resource has an overview description. Frontier deposits explain the
+required installation and Manifest, potential output and batch interval, FOOD
+support, exclusive use and Siphon diversion. Existing resource descriptions use
+renewable-slot terminology and distinguish Crystal from Shards.
+
+The standard-size budget/cluster regression is attached to the existing real
+world-generation coverage test, including protected landings and both map styles.
+The production-clone load gate remains required before production deployment.
+The new geography takes effect on new seasons; deployment preserves the current
+campaign's saved deposits and does not trigger a rollover.

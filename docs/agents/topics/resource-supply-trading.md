@@ -1,8 +1,11 @@
 # Resource supply trading
 
-Status: implementation and validation in progress. User chose all nine resources,
-independent offers also usable alongside treaties, and supply until either party
-cancels. The earlier fixed-term/pact-only draft is superseded.
+Status: implemented and locally validated on `agent/resource-networks` (2026-10-27).
+All nine resources support independent offers and treaty terms; supply continues
+until either party cancels. The earlier fixed-term/pact-only draft is superseded.
+Production deployment still requires the fresh-production-clone load gate in
+`docs/agents/deploys.md`.
+
 
 ## Entry points
 
@@ -91,3 +94,16 @@ reads from 131,584 to at most 512 without changing allocation priority.
 `resource-trade.integration.test.ts` boots the real gateway and simulation with
 two authenticated socket clients. It proves offer acceptance, one-time payment,
 production benefit, source inventory release and a second independent trade.
+
+## Validation record — 2026-10-27
+
+Full `pnpm ci:local` passed, including shared/domain/protocol suites, simulation
+regressions, performance and slow map checks, gateway tests, client tests and
+production build, plus documentation, file-size and changelog gates. Storybook
+TypeScript also passed. The client suite passed 5,875 tests; the real socket/RPC
+trade regression is part of the gateway suite. Privacy and standard-map deposit
+budget assertions were additionally run directly.
+
+Code is ready for staging validation. No deployment or live campaign reset was
+performed. A fresh production-map load gate remains a release requirement;
+local test results do not certify that deployment gate.
