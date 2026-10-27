@@ -32,6 +32,7 @@ export type RuntimeExportState = {
     manpower: number;
     manpowerCap?: number;
     manpowerRegenPerMinute?: number;
+    nextManpowerBatchAmount?: number;
     logisticsThroughputPerMinute?: number;
     manpowerBreakdown?: ManpowerBreakdown;
     manpowerCapSnapshot?: number;

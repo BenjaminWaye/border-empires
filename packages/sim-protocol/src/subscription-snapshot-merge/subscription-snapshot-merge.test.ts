@@ -215,3 +215,9 @@ it("retains anonymous relic hints through updates and clears expired survey acce
   const cleared = applyPlayerMessageToSnapshot(updated, { type: "PLAYER_UPDATE", relicMapHints: [] });
   expect(cleared.player?.relicMapHints).toEqual([]);
 });
+
+it("keeps projected manpower batches current in cached reconnect snapshots", () => {
+  const updated = applyPlayerMessageToSnapshot(snapshot(), { type: "PLAYER_UPDATE", nextManpowerBatchAmount: 1 });
+  expect(updated.player?.nextManpowerBatchAmount).toBe(1);
+  expect(applyPlayerMessageToSnapshot(updated, { type: "PLAYER_UPDATE", nextManpowerBatchAmount: 0 }).player?.nextManpowerBatchAmount).toBe(0);
+});

@@ -1,4 +1,4 @@
-import { MANPOWER_REFILL_WINDOW_MS, manpowerPerBatch } from "@border-empires/shared";
+import { MANPOWER_REFILL_WINDOW_MS } from "@border-empires/shared";
 import { formatHoursMinutes } from "../client-manpower-gauge/client-manpower-refill.js";
 
 /**
@@ -18,16 +18,17 @@ export const manpowerNextBatchHtml = (args: {
   manpower: number;
   manpowerCap: number;
   manpowerRegenPerMinute: number;
+  nextBatchAmount?: number | undefined;
   nextRefillAtMs: number | undefined;
   nowMs?: number;
 }): string => {
   const callout = (label: string, value: string, tone: string): string =>
     `<div class="manpower-next-batch manpower-next-batch-${tone}"><span class="manpower-next-batch-label">${label}</span><strong class="manpower-next-batch-value">${value}</strong></div>`;
   if (args.manpower >= args.manpowerCap) return callout("Manpower", "Full", "full");
-  if (!(args.manpowerRegenPerMinute > 0)) return callout("Regeneration", "Paused", "paused");
+  if (!(args.manpowerRegenPerMinute > 0) && !(args.nextBatchAmount && args.nextBatchAmount > 0)) return callout("Regeneration", "Paused", "paused");
   if (args.nextRefillAtMs === undefined) return "";
-  const amount = Math.round(Math.min(args.manpowerCap - args.manpower, manpowerPerBatch(args.manpowerRegenPerMinute)));
-  return callout(`+${amount} in`, formatHoursMinutes(args.nextRefillAtMs - (args.nowMs ?? Date.now())), "pending");
+  const label = args.nextBatchAmount === undefined ? "Next batch in" : `+${Math.round(Math.max(0, Math.min(args.manpowerCap - args.manpower, args.nextBatchAmount)))} in`;
+  return callout(label, formatHoursMinutes(args.nextRefillAtMs - (args.nowMs ?? Date.now())), "pending");
 };
 
 export const manpowerInfoHtml = (): string => `

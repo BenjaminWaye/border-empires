@@ -134,6 +134,7 @@ export const renderManpowerPanelHtml = (args: {
   rateToneClass: (rate: number) => string;
   /** Epoch ms of the player's next refill (client-manpower-refill.ts); undefined before the player id is known. */
   nextRefillAtMs?: number | undefined;
+  nextBatchAmount?: number | undefined;
   /** Shards held; when given, the panel offers Shard Mobilization (client-shard-mobilize.ts). */
   shards?: number | undefined;
 }): string => {
@@ -172,7 +173,7 @@ export const renderManpowerPanelHtml = (args: {
           </div>
           <div class="economy-rate ${args.rateToneClass(regen)}">${regenText}</div>
         </div>
-        ${manpowerNextBatchHtml({ manpower: args.manpower, manpowerCap: args.manpowerCap, manpowerRegenPerMinute: regen, nextRefillAtMs: args.nextRefillAtMs })}
+        ${manpowerNextBatchHtml({ manpower: args.manpower, manpowerCap: args.manpowerCap, manpowerRegenPerMinute: regen, nextBatchAmount: args.nextBatchAmount, nextRefillAtMs: args.nextRefillAtMs })}
         ${fullEtaText ? `<div class="economy-footnote manpower-full-eta">${fullEtaText}</div>` : ""}
         ${manpowerInfoHtml()}
       </section>

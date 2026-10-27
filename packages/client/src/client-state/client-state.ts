@@ -1,3 +1,4 @@
+import { createInitialManpowerState } from "./client-state-manpower-defaults.js";
 import { createInitialResourceEconomyState } from "./client-state-resource-slots.js";
 import { createInitialProgressionState } from "./client-state-progression-defaults.js";
 import { createInitialTargetingState } from "./client-state-targeting-defaults.js";
@@ -17,7 +18,7 @@ import { createInitialAetherShieldState } from "../client-aether-tower-protectio
 import { createInitialIslandNamesState } from "../client-map-name-labels/client-island-names-state.js";
 import { createInitialSocialState } from "./client-state-social-defaults.js"; import { createInitialSiegeBombardmentState } from "./client-state-siege-bombardment-defaults.js"; import { createInitialAfcDeliveryState } from "./client-state-afc-delivery-defaults.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
-import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, EXPAND_MANPOWER_COST, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, MUSTER_MAX_TILES, type BuildableStructureType, type FrontierCombatSideBreakdown } from "@border-empires/shared";
+import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MUSTER_MAX_TILES, type BuildableStructureType, type FrontierCombatSideBreakdown } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
 import type { VictoryHoldAlert } from "../client-victory-alert/client-victory-alert.js";
 import { createInitialAttackDispatchState } from "./client-state-attack-dispatch-defaults.js";
@@ -102,15 +103,7 @@ export const createInitialState = () => ({
   defensibilityAnimDir: 0 as -1 | 0 | 1,
   strategicAnim: createInitialStrategicAnim(),
   stamina: 0,
-  manpower: MANPOWER_BASE_CAP,
-  manpowerCap: MANPOWER_BASE_CAP,
-  manpowerRegenPerMinute: MANPOWER_BASE_REGEN_PER_MINUTE,
-  logisticsThroughputPerMinute: MANPOWER_BASE_REGEN_PER_MINUTE,
-  expandManpowerCost: EXPAND_MANPOWER_COST, // frontier-scaled EXPAND price; real value arrives via PLAYER_UPDATE
-  manpowerBreakdown: {
-    cap: [{ label: "Base", amount: MANPOWER_BASE_CAP }],
-    regen: [{ label: "Base", amount: MANPOWER_BASE_REGEN_PER_MINUTE }]
-  } as { cap: Array<{ label: string; amount: number; note?: string }>; regen: Array<{ label: string; amount: number; note?: string }> },
+  ...createInitialManpowerState(),
   availableTechPicks: 0,
   developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT,
   activeDevelopmentProcessCount: 0,

@@ -1,3 +1,4 @@
+import { nextManpowerBatchAmount } from "./runtime-manpower.js";
 import { districtOverlayProjection } from "./town-district/town-district-projection.js";
 import { afcEnvoyIncomeInSnapshot } from "./afc-specializations/afc-coalition.js";
 import type { PlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
@@ -284,6 +285,7 @@ function visiblePlayersProjection(
           afcEnvoyIncomePerMinute: afcEnvoyIncomeInSnapshot(economy),
           manpowerCap: input.playerManpowerCap(player),
           manpowerRegenPerMinute: input.playerManpowerRegenPerMinute(player),
+          nextManpowerBatchAmount: nextManpowerBatchAmount(player, input.playerManpowerCap(player), input.playerManpowerRegenPerMinute(player)),
           logisticsThroughputPerMinute: input.playerLogisticsThroughputPerMinute(player),
           manpowerBreakdown: input.playerManpowerBreakdown(player)
         } : {}),

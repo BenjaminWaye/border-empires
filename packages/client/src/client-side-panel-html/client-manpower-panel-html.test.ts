@@ -27,7 +27,7 @@ describe("renderManpowerPanelHtml next batch headline", () => {
   const MIN = 60_000;
 
   it("shows the next batch countdown as its own callout, not inside the explainer text", () => {
-    const html = renderManpowerPanelHtml({ ...baseArgs, manpower: 330, manpowerCap: 1365, manpowerRegenPerMinute: 1.3, nextRefillAtMs: Date.now() + 19 * MIN, musterFlags: [] });
+    const html = renderManpowerPanelHtml({ ...baseArgs, manpower: 330, manpowerCap: 1365, manpowerRegenPerMinute: 1.3, nextBatchAmount: 312, nextRefillAtMs: Date.now() + 19 * MIN, musterFlags: [] });
     expect(html).toMatch(/manpower-next-batch-label">\+312 in<\/span><strong class="manpower-next-batch-value">0h 19m<\/strong>/);
   });
 
@@ -44,7 +44,7 @@ describe("renderManpowerPanelHtml next batch headline", () => {
 
   it("formats the time until full in hours and minutes instead of raw minutes", () => {
     // 1.3/min x 240 = 312 per batch; 1035 missing needs 4 batches: 19m + 3 x 4h = 12h 19m.
-    const html = renderManpowerPanelHtml({ ...baseArgs, manpower: 330, manpowerCap: 1365, manpowerRegenPerMinute: 1.3, nextRefillAtMs: Date.now() + 19 * MIN, musterFlags: [] });
+    const html = renderManpowerPanelHtml({ ...baseArgs, manpower: 330, manpowerCap: 1365, manpowerRegenPerMinute: 1.3, nextBatchAmount: 312, nextRefillAtMs: Date.now() + 19 * MIN, musterFlags: [] });
     expect(html).toContain("Manpower full in 12h 19m.");
     expect(html).not.toContain("739m");
   });
