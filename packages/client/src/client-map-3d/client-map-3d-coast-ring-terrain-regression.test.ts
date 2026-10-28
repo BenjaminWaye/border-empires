@@ -31,7 +31,7 @@ describe("first fog ring loads its natural terrain in 3D", () => {
   it("fits both fog overlays, on the ground, to the fogged mist's edge", () => {
     // Drawing the wash on the raised mist sheet instead shifted it off its
     // tiles (parallax) and over the owner tint and placement previews.
-    expect(source).toContain("createFogOverlays(scene, MAX_VISIBLE_TILES, atmosphere.foggedMist.edgeUniforms);");
+    expect(source).toContain("createFogOverlays(scene, MAX_VISIBLE_TILES, atmosphere.foggedMist.edgeUniforms, atmosphere.foggedMist.hazeUniforms);");
     expect(fogOverlaysSource).toContain('applyFoggedEdgeClipToOverlay(fogDarkenOverlay, edgeUniforms, "alpha");');
     expect(fogOverlaysSource).toContain('applyFoggedEdgeClipToOverlay(fogOwnershipOverlay, edgeUniforms, "multiply");');
   });

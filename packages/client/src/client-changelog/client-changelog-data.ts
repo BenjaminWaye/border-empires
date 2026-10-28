@@ -35,6 +35,7 @@ import { CLIENT_CHANGELOG_ENTRIES_OCT_17_19_INLINE } from "./client-changelog-oc
 import { TOWN_PLATE_ZOOM_CHANGELOG } from "./client-changelog-town-plate-zoom.js";
 import { TERRITORY_EDGE_GLOW_CHANGELOG } from "./client-changelog-territory-edge-glow.js";
 import { LANDING_RESERVE_CHANGELOG } from "./client-changelog-landing-reserve.js";
+import { FOG_HILL_HAZE_CHANGELOG } from "./client-changelog-fog-hill-haze.js";
 import { MARCH_ACROSS_WATER_CHANGELOG } from "./client-changelog-march-across-water.js";
 import { MARCH_UNEXPLORED_CHANGELOG } from "./client-changelog-march-unexplored.js";
 import { MARCH_STOP_SHORT_CHANGELOG } from "./client-changelog-march-stop-short.js";
@@ -433,7 +434,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...FOOD_TILE_ART_CHANGELOG,
   ...MAP_LENS_CHANGELOG,
   ...TERRITORY_EDGE_GLOW_CHANGELOG,
-  ...LANDING_RESERVE_CHANGELOG
+  ...LANDING_RESERVE_CHANGELOG,
+  ...FOG_HILL_HAZE_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
