@@ -77,7 +77,7 @@ const render = ({ cameraDistance, compact }: Args): HTMLElement => {
     model.updateMatrixWorld(true);
     const bounds = new Box3().setFromObject(model, true);
     if (compact) {
-      // The Blender export already uses tile units. Re-fitting would enlarge the basins.
+      // The Blender export already uses tile units. Re-fitting would undo the uniform assembly scale.
       model.position.set(0.5 - (bounds.min.x + bounds.max.x) / 2,
         foundation.topY + 0.001 - bounds.min.y, 0.5 - (bounds.min.z + bounds.max.z) / 2);
     } else {
@@ -110,7 +110,7 @@ const render = ({ cameraDistance, compact }: Args): HTMLElement => {
     if (apronFinish) apronFinish.dispose(); else foundationMaterial.dispose();
   }, terrain.dispose, atmosphere.dispose, water.dispose, towns.dispose, districts.dispose, farms.dispose, forest.dispose]);
   const label = document.createElement("div");
-  label.textContent = compact ? "FISHING SITE · compact layout · same size basins · preview" : "FISHING SITE · previous footprint · preview";
+  label.textContent = compact ? "FISHING SITE · intact model · 20% smaller · preview" : "FISHING SITE · previous footprint · preview";
   label.style.cssText = "position:absolute;left:20px;top:18px;padding:10px 14px;background:#17201de6;color:#e3dfce;font:13px system-ui;pointer-events:none;border:1px solid #777a8066";
   container.appendChild(label);
   return container;
