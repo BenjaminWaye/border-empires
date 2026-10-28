@@ -81,7 +81,7 @@ the district buildings; refine these before adopting the proposal.
 
 The game-context story defaults to the intact Blender proposal scaled uniformly
 to 80%. The apron width is 0.736 tiles instead of 0.92 (20% narrower), with only
-0.003 extra lift, fine surface grain and subtle damp areas. The compact GLB
+0.003 extra lift and a clean, even matte gray material. The compact GLB
 is centered without applying the runtime footprint fit, which would enlarge it
 again. Basins, hoists, baskets, hut and supplies all retain their original
 relative positions and proportions. No wooden bridge is introduced.
@@ -107,3 +107,6 @@ superseded by this placement correction.
 
 The slab-joint cross and edge drainage stripe were removed after map-scale
 review: they read as graphic marks instead of surface detail. Keep the apron quiet.
+
+The compact apron uses a solid matte gray material, with no noise texture or
+damp patches, following the request for a cleaner surface.
