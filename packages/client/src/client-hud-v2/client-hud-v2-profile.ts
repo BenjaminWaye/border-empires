@@ -142,3 +142,7 @@ export const profileScreenStep = (activeProfileId: string | undefined, screenId:
   if (!activeProfileId && screenId === "profile") return "close";
   return "stay";
 };
+
+/** Whether a press on your crest should close the profile screen: it's open on your own profile, like a lit bubble. */
+export const crestClosesProfile = (activeProfileId: string | undefined, me: string | undefined, screenId: string | null): boolean =>
+  screenId === "profile" && Boolean(me) && activeProfileId === me;

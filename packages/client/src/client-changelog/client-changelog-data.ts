@@ -27,6 +27,7 @@ import { INCURSION_HATCH_HILLS_CHANGELOG } from "./client-changelog-incursion-ha
 import { AI_DOCK_CROSSING_CHANGELOG } from "./client-changelog-ai-dock-crossing.js";
 import { REACH_RESTART_CHANGELOG } from "./client-changelog-reach-restart.js";
 import { TOWN_NAMEPLATES_CHANGELOG } from "./client-changelog-town-nameplates.js";
+import { PROFILE_CREST_TOGGLE_CHANGELOG } from "./client-changelog-profile-crest-toggle.js";
 import { MARCH_ACROSS_WATER_CHANGELOG } from "./client-changelog-march-across-water.js";
 import { MARCH_UNEXPLORED_CHANGELOG } from "./client-changelog-march-unexplored.js";
 import { MARCH_STOP_SHORT_CHANGELOG } from "./client-changelog-march-stop-short.js";
@@ -486,7 +487,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...AI_DOCK_CROSSING_CHANGELOG,
   ...REACH_RESTART_CHANGELOG,
-  ...TOWN_NAMEPLATES_CHANGELOG
+  ...TOWN_NAMEPLATES_CHANGELOG,
+  ...PROFILE_CREST_TOGGLE_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
