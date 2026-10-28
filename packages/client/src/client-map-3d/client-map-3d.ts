@@ -160,7 +160,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const forest = createForest(scene, MAX_VISIBLE_TILES); const tropicalForest = createTropicalForest(scene, MAX_VISIBLE_TILES);
   const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES); const prospectClues = createProspectClueLayer(scene, MAX_VISIBLE_TILES);
   const frontierDecayPulse = createFrontierDecayPulseTracker(); const barbarianFrontierTint = createBarbarianFrontierTintTracker();
-  const fogOverlays = createFogOverlays(scene, MAX_VISIBLE_TILES, atmosphere.foggedMist.edgeUniforms); // remembered land's slate wash + last-known-owner tint
+  const fogOverlays = createFogOverlays(scene, MAX_VISIBLE_TILES, atmosphere.foggedMist.edgeUniforms, atmosphere.foggedMist.hazeUniforms); // remembered land's slate wash + last-known-owner tint
   const { fogDarkenOverlay, fogOwnershipOverlay } = fogOverlays;
   await deps.onStage?.("structures");
   const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture);
