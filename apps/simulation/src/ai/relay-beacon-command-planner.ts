@@ -121,14 +121,21 @@ const REACH_ANCHOR_SCAN_CAP = 4000;
  * Also collects `pendingOutposts` — this player's own RELAY_BEACON/siege-
  * outpost tiles still `under_construction` — in the same pass, so
  * chooseBestRelayBeaconBuild's overlap veto (see PENDING_OUTPOST_OVERLAP_DISTANCE)
- * doesn't need a second full ownedTiles scan just to find them.
+ * doesn't need a second full ownedTiles scan just to find them. Likewise
+ * `ownBeacons` — every own RELAY_BEACON tile, any status — for the spacing
+ * veto (see MIN_OWN_BEACON_SPACING).
  */
 const currentReachTileKeys = (
   playerId: string,
   ownedTiles: readonly StructurePlannerTile[]
-): { claimed: ReadonlySet<string>; pendingOutposts: Array<{ x: number; y: number }> } => {
+): {
+  claimed: ReadonlySet<string>;
+  pendingOutposts: Array<{ x: number; y: number }>;
+  ownBeacons: Array<{ x: number; y: number }>;
+} => {
   const claimed = new Set<string>();
   const pendingOutposts: Array<{ x: number; y: number }> = [];
+  const ownBeacons: Array<{ x: number; y: number }> = [];
   let scanned = 0;
   for (const tile of ownedTiles) {
     if (scanned >= REACH_ANCHOR_SCAN_CAP) break;
@@ -143,6 +150,7 @@ const currentReachTileKeys = (
       for (const key of tileKeysInReach(anchor)) claimed.add(key);
     }
     const beacon = tile.economicStructure;
+    if (beacon?.ownerId === playerId && beacon.type === "RELAY_BEACON" && beacon.status !== "removing") ownBeacons.push({ x: tile.x, y: tile.y });
     if (
       beacon?.ownerId === playerId &&
       beacon.type === "RELAY_BEACON" &&
@@ -160,7 +168,7 @@ const currentReachTileKeys = (
       if (siege.status === "under_construction") pendingOutposts.push({ x: tile.x, y: tile.y });
     }
   }
-  return { claimed, pendingOutposts };
+  return { claimed, pendingOutposts, ownBeacons };
 };
 
 // Reused across calls (planner code is synchronous) so the scan allocates nothing.
@@ -316,6 +324,21 @@ const overlapsPendingOutpost = (
   pending: readonly { x: number; y: number }[]
 ): boolean => pending.some((p) => chebyshevWithWrap(tile.x, tile.y, p.x, p.y) <= PENDING_OUTPOST_OVERLAP_DISTANCE);
 
+// Hard floor on the distance between two of this player's own beacons,
+// whatever their status. overlapsPendingOutpost above only covers beacons
+// still under construction, and a build finishes in RELAY_BEACON_BUILD_MS —
+// after that a site two tiles along the border could win again on the few
+// fogged cells poking past the first beacon's reach box. Staging season-40
+// ai-18 ringed a 151-tile island with ~25 beacons that way. Disabled beacons
+// count too (they can be re-enabled); one being demolished does not.
+// Capped at OUTPOST_REACH_RADIUS, not the full box width: a FRONTIER site
+// must sit inside existing reach to be settled, so the next beacon in a
+// chain can be at most one reach radius from the last.
+const MIN_OWN_BEACON_SPACING = OUTPOST_REACH_RADIUS;
+
+const tooCloseToOwnBeacon = (tile: StructurePlannerTile, beacons: readonly { x: number; y: number }[]): boolean =>
+  beacons.some((b) => chebyshevWithWrap(tile.x, tile.y, b.x, b.y) < MIN_OWN_BEACON_SPACING);
+
 export const chooseBestRelayBeaconBuild = (
   player: StructurePlannerPlayer,
   ownedTiles: readonly StructurePlannerTile[],
@@ -327,7 +350,7 @@ export const chooseBestRelayBeaconBuild = (
   const existingOwnedCount = plannedOwnedStructureCount(player, counts, "RELAY_BEACON");
   if (!canAffordStructure(player, playerTechSet(player), "RELAY_BEACON", existingOwnedCount)) return undefined;
 
-  const { claimed: reachTileKeys, pendingOutposts } = currentReachTileKeys(player.id, ownedTiles);
+  const { claimed: reachTileKeys, pendingOutposts, ownBeacons } = currentReachTileKeys(player.id, ownedTiles);
 
   let best: { tile: StructurePlannerTile; score: number; needsSettle: boolean; siteValue: number } | undefined;
   for (const tile of candidateTiles) {
@@ -348,6 +371,7 @@ export const chooseBestRelayBeaconBuild = (
     // nearby to finish rather than starting a second one whose reach will
     // overlap it once both are built — see overlapsPendingOutpost's doc.
     if (overlapsPendingOutpost(tile, pendingOutposts)) continue;
+    if (tooCloseToOwnBeacon(tile, ownBeacons)) continue;
     // A FRONTIER site is judged as the SETTLED tile it's about to become —
     // structureShowsOnTile keys off ownershipState, so checking it as-is
     // would reject every frontier candidate on the state we're about to change.

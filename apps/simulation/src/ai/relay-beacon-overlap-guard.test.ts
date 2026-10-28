@@ -199,9 +199,11 @@ describe("relay beacon rejects a redundant site already inside the player's own 
       y: 100,
       economicStructure: { ownerId: "ai-1", type: "RELAY_BEACON", status: "active" }
     });
-    const candidate = tile({ x: 102, y: 100, ownershipState: "SETTLED" });
-    const prize = tile({ x: 107, y: 100, ownerId: undefined, ownershipState: undefined, resource: "IRON" });
-    const tiles = [...knownVoid([{ x: 100, y: 100 }, { x: 102, y: 100 }]), activeBeacon, candidate, prize];
+    // x=105: still inside activeBeacon's reach (95-105), but one reach
+    // radius away, so it clears the own-beacon spacing floor.
+    const candidate = tile({ x: 105, y: 100, ownershipState: "SETTLED" });
+    const prize = tile({ x: 108, y: 100, ownerId: undefined, ownershipState: undefined, resource: "IRON" });
+    const tiles = [...knownVoid([{ x: 100, y: 100 }, { x: 105, y: 100 }]), activeBeacon, candidate, prize];
 
     const plan = chooseBestRelayBeaconBuild(
       { id: "ai-1", points: 0, manpower: 500, settledTileCount: 47, townCount: 3 },
@@ -210,7 +212,7 @@ describe("relay beacon rejects a redundant site already inside the player's own 
       [candidate]
     );
 
-    expect(plan?.tile.x).toBe(102);
+    expect(plan?.tile.x).toBe(105);
   });
 
   it("still allows a candidate sitting inside current reach when it reveals unexplored land", () => {
@@ -223,11 +225,13 @@ describe("relay beacon rejects a redundant site already inside the player's own 
       y: 100,
       economicStructure: { ownerId: "ai-1", type: "RELAY_BEACON", status: "active" }
     });
-    const candidate = tile({ x: 102, y: 100, ownershipState: "SETTLED" });
-    const fogKey = "107,100";
-    const filler = knownVoid([{ x: 100, y: 100 }, { x: 102, y: 100 }]).filter((t) => `${t.x},${t.y}` !== fogKey);
+    // x=105: still inside activeBeacon's reach (95-105), but one reach
+    // radius away, so it clears the own-beacon spacing floor.
+    const candidate = tile({ x: 105, y: 100, ownershipState: "SETTLED" });
+    const fogKey = "110,100";
+    const filler = knownVoid([{ x: 100, y: 100 }, { x: 105, y: 100 }]).filter((t) => `${t.x},${t.y}` !== fogKey);
     // Visible land leads into this fog; open ocean is covered separately.
-    const approach = [105, 106].map((x) => tile({ x, y: 100, ownerId: undefined, ownershipState: undefined }));
+    const approach = [108, 109].map((x) => tile({ x, y: 100, ownerId: undefined, ownershipState: undefined }));
     const tiles = [...filler, ...approach, activeBeacon, candidate];
 
     const plan = chooseBestRelayBeaconBuild(
@@ -237,8 +241,9 @@ describe("relay beacon rejects a redundant site already inside the player's own 
       [candidate]
     );
 
-    expect(plan?.tile.x).toBe(102);
-    expect(plan?.siteValue).toBe(5);
+    expect(plan?.tile.x).toBe(105);
+    // Both approach tiles sit outside activeBeacon's reach (1 each) plus one fog tile (4).
+    expect(plan?.siteValue).toBe(6);
   });
 
   it("still allows a candidate just outside an already-active beacon's own reach", () => {

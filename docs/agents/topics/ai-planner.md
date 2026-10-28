@@ -154,6 +154,17 @@ consolidation, planning cadence), not deletion.
   `relay-beacon-coastal-reach.test.ts`, including wraparound, inland fog,
   narrow straits, known prizes and bounded lookup work.
 
+- **Own relay beacons keep `MIN_OWN_BEACON_SPACING` apart.** The pending-
+  outpost overlap veto only covers beacons still under construction, and a
+  build finishes in about a minute; after that a site two tiles along the
+  border could win again on fog cells poking past the first beacon's box
+  (staging season-40 ai-18: ~25 beacons ringing a 151-tile island). The floor
+  applies to every own beacon except one being demolished, and is capped at
+  `OUTPOST_REACH_RADIUS`: a FRONTIER site must be inside reach to be settled,
+  so the next beacon in a chain can sit at most one radius from the last.
+  Tests that need overlapping reach next to a relay use a siege battery as
+  the anchor instead. Regression coverage: `relay-beacon-spacing.test.ts`.
+
 - **Out-of-reach dock crossings are a planner fallback.** EXPAND is never
   runtime reach-gated (game-domain validation ignores `isInReach`); the
   planner's reach gate in `frontier-command-planner.ts` is AI policy, because

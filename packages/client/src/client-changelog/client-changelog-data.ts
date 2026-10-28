@@ -25,6 +25,7 @@ import { RICHER_FORESTS_CHANGELOG } from "./client-changelog-richer-forests.js";
 import { SIEGE_FX_GATE_CHANGELOG } from "./client-changelog-siege-fx-gate.js";
 import { INCURSION_HATCH_HILLS_CHANGELOG } from "./client-changelog-incursion-hatch-hills.js";
 import { AI_DOCK_CROSSING_CHANGELOG } from "./client-changelog-ai-dock-crossing.js";
+import { AI_BEACON_SPACING_CHANGELOG } from "./client-changelog-ai-beacon-spacing.js";
 import { REACH_RESTART_CHANGELOG } from "./client-changelog-reach-restart.js";
 import { TOWN_NAMEPLATES_CHANGELOG } from "./client-changelog-town-nameplates.js";
 import { MUSTER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-muster-supply-lines.js";
@@ -423,7 +424,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...REACH_RESTART_CHANGELOG,
   ...TOWN_NAMEPLATES_CHANGELOG,
   ...MUSTER_SUPPLY_LINES_CHANGELOG,
-  ...CLAIM_STRIPED_GROUND_CHANGELOG
+  ...CLAIM_STRIPED_GROUND_CHANGELOG,
+  ...AI_BEACON_SPACING_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
