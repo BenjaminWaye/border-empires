@@ -103,7 +103,7 @@ describe("every resource tile explains its role", () => {
     const tile: Tile = {x:1,y:1,terrain:"LAND",resource:"NEURAL_RESIN",ownerId:"me",ownershipState:"SETTLED",
       economicStructure:{ownerId:"me",type:"RESIN_EXTRACTOR",status:"under_construction"}};
     const potential = resourceTileStatsHtml(tile);
-    expect(potential).toContain("per 4h cycle");
+    expect(potential).toContain("+12 Ancillaries/4h for ");
     tile.economicStructure!.status="active";
     expect(resourceTileStatsHtml(tile)).toBe(potential);
   });
@@ -126,7 +126,8 @@ it("reports diverted resource supply and explains the Siphon on frontier sites",
 it("names the relevant Manifest and production interval without interpreting catalog text as markup",()=>{
   const lines=resourceTileStatsHtml({x:1,y:1,terrain:"LAND",resource:"CONDUCTIVE_MINERALS"},[{id:"organized-supply",name:"Reserve Custody Cadre <test>"}]);
   expect(lines).toContain("Reserve Custody Cadre &lt;test&gt;");
-  expect(lines).toContain("per 4h batch");
+  expect(lines).toContain("+6 Ancillaries/4h for ");
+  expect(lines).toContain("each of 2 factories without conductive supply");
 });
 
 it.each(NETWORK_RESOURCES)("%s names and links its required research", resource => {
@@ -150,7 +151,7 @@ it.each(NETWORK_RESOURCES)("%s makes improvement a condition even after a fronti
   for (const ownershipState of [undefined, "FRONTIER", "SETTLED"] as const) {
     const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource, ...(ownershipState ? { ownershipState } : {}) });
     expect(html).toContain("After development");
-    expect(html).toContain(`Requires ${spec.buildingName}`);
+    expect(html).toContain(`data-structure-info="${spec.building}"`);
     expect(html).not.toContain(`Requires ${spec.buildingName} + `);
     expect(html).not.toContain('tile-stat-label">Bonus<');
     if (!spec.batchBonus) expect(html).toContain("+1.5 Coin/day");
@@ -168,5 +169,12 @@ it.each([
   expect(html).toContain(`without ${supply} supply`);
   expect(html).toContain(recipient);
   expect(html).not.toContain("unimproved");
-  expect(html).toContain(`Requires ${RESOURCE_NETWORKS[resource].buildingName}</span>`);
+  expect(html).toContain(`data-structure-info="${RESOURCE_NETWORKS[resource].building}"`);
+  expect(html).toContain(`>${RESOURCE_NETWORKS[resource].buildingName}</button>`);
+  expect(html).toContain(" for </strong>");
+});
+
+it("connects the luxury bonus to its eligible Nexus in the same value", () => {
+  const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "LUXURY_BIOTA" });
+  expect(html).toContain('+1.5 Coin/day for </strong><span class="resource-bonus-recipient">Trade Nexus without luxury supply</span>');
 });

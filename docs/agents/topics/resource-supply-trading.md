@@ -186,3 +186,18 @@ remain independent, so a Nexus may use one of each. Keep the installation
 requirement on its own line; avoid “unimproved”, which can be confused with
 building upgrades. The same rule applies to resin, conductive and salvage
 recipients. This copy change does not alter allocation.
+
+All five deposit cards connect the amount to its recipient with “for”. Conductive
+minerals state +6 Ancillaries/4h for each of two eligible factories; resin states
++12/4h for one eligible Depot. Credit resources state +1.5 Coin/day for their
+matching eligible building. Installation names use `data-structure-info` and
+open the existing building info overlay in both HUDs and mobile. HUD v2 Details
+retains only the research and structure buttons its dock handles. Lore reviewed;
+no canon change.
+
+Structure popups receive the live tech catalog and derive their Unlocked by
+links from `STRUCTURE_REGISTRY` tech requirements. The shared structure-info
+actions close the popup before requesting the selected technology; HUD v2's
+existing handoff opens its Manifest tree. The extracted actions also retain
+structure-name and close-button behavior from the oversized HUD module.
+No research is purchased by following a link. Lore reviewed; no canon change.

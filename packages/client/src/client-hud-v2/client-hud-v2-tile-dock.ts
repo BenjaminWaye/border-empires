@@ -157,6 +157,13 @@ const onBarClick = (event: MouseEvent): void => {
   const target = event.target instanceof Element ? event.target : null;
   if (!target) return;
   const { deps, state } = dock;
+  const structure = target.closest<HTMLButtonElement>("button[data-structure-info]");
+  if (structure?.dataset.structureInfo) {
+    state.structureInfoKey = structure.dataset.structureInfo;
+    state.crystalAbilityInfoKey = "";
+    deps.renderHud();
+    return;
+  }
   const tech = target.closest<HTMLButtonElement>("button[data-view-tech]");
   if (tech?.dataset.viewTech) {
     openTechDetailFromTileMenu(state, tech.dataset.viewTech, deps.isMobile());

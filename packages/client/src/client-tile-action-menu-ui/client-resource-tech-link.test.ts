@@ -57,6 +57,11 @@ describe("resource technology navigation", () => {
     renderTileActionMenu(f.state, f.view, 30, 30, f.deps);
     const link = f.menu.querySelector<HTMLButtonElement>('[data-view-tech="frontier-concessions"]');
     expect(link?.textContent).toBe("Frontier Export Charter");
+    const installation = f.menu.querySelector<HTMLButtonElement>('[data-structure-info="CULTIVATION_ESTATE"]');
+    expect(installation).not.toBeNull();
+    installation!.click();
+    expect(f.state.structureInfoKey).toBe("CULTIVATION_ESTATE");
+    f.state.structureInfoKey = "";
     link!.click();
     expect(f.state.activePanel).toBe("tech");
     expect(f.state.techUiSelectedId).toBe(tech.id);
@@ -96,6 +101,11 @@ describe("resource technology navigation", () => {
     document.querySelector<HTMLButtonElement>('[data-hud-v2-panel="details"]')!.click();
     const link = document.querySelector<HTMLButtonElement>('#hud-v2-tile [data-view-tech="frontier-concessions"]');
     expect(link).not.toBeNull();
+    const installation = document.querySelector<HTMLButtonElement>('#hud-v2-tile [data-structure-info="CULTIVATION_ESTATE"]');
+    expect(installation).not.toBeNull();
+    installation!.click();
+    expect(f.state.structureInfoKey).toBe("CULTIVATION_ESTATE");
+    f.state.structureInfoKey = "";
     link!.click();
     expect(f.state.activePanel).toBe("tech");
     expect(f.state.techUiSelectedId).toBe(tech.id);

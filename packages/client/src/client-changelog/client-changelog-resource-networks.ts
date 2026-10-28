@@ -90,7 +90,14 @@ export const RESOURCE_NETWORKS_CHANGELOG: ClientChangelogEntry[] = [{
     introducedIn: "2026.10.28.1",
     title: "Resource bonuses require development",
     why: "The resource card made a potential industry bonus look like immediate income from claiming land.",
-    changes: ["Frontier deposit bonuses say After development, name the required installation, and apply to a building not already supplied with that resource. Claiming a deposit alone gives no industry bonus."]
+    changes: ["Frontier deposit bonuses say After development and connect the bonus to a building without that resource’s supply. Required installation names open their building details. Claiming a deposit alone gives no industry bonus."]
+  },
+  {
+    createdAt: 1793222577436, // Date.now() captured once.
+    introducedIn: "2026.10.28.1",
+    title: "Structure details link to their unlocking research",
+    why: "Building details did not say which technology unlocked construction.",
+    changes: ["Structure popups show Unlocked by with technology links to the selected Manifest. Resource requirements also link to their installation details in both HUDs and mobile."]
   }
 
 ];

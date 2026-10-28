@@ -1,3 +1,4 @@
+import techTree from "../../../../game-domain/data/tech-tree.json";
 import { NETWORK_RESOURCES, RESOURCE_NETWORKS } from "@border-empires/shared";
 import { resourceLabel } from "@client/client-map-display.js";
 import type { Meta, StoryObj } from "@storybook/html-vite";
@@ -7,7 +8,7 @@ import "@client/client-steampunk-theme-style.css";
 import "@client/client-steampunk-tile-menu-style.css";
 import "@client/client-tile-ownership-help-style.css";
 import { menuOverviewForTile } from "@client/client-tile-menu-view/client-tile-menu-view.js";
-import type { Tile } from "@client/client-types.js";
+import type { TechInfo, Tile } from "@client/client-types.js";
 import { ownershipHelpSubtitleHtml } from "@client/client-tile-menu-ownership-help/client-tile-menu-ownership-help.js";
 
 // Real menuOverviewForTile output (same code the game runs) for the tile
@@ -15,6 +16,12 @@ import { ownershipHelpSubtitleHtml } from "@client/client-tile-menu-ownership-he
 // should be the first thing a player reads.
 
 const ME = "me";
+const RESOURCE_TECHS: TechInfo[] = techTree.techs
+  .filter(tech => NETWORK_RESOURCES.some(resource => RESOURCE_NETWORKS[resource].tech === tech.id))
+  .map(tech => ({
+    id: tech.id, name: tech.name, tier: tech.tier, branch: tech.branch,
+    description: tech.description, mods: {}, effects: {}, requirements: { gold: tech.cost.gold, resources: {} }
+  }));
 const town: NonNullable<Tile["town"]> = {
   name: "Rivergate", type: "MARKET", baseGoldPerMinute: 0.4, supportCurrent: 4, supportMax: 8, goldPerMinute: 0.5, cap: 0, isFed: true,
   population: 23_410, maxPopulation: 100_000, populationGrowthPerMinute: 7.47, populationTier: "TOWN", connectedTownCount: 1, connectedTownBonus: 0.1,
@@ -40,7 +47,7 @@ const EXAMPLES: Example[] = [
 ];
 
 const stubDeps = (example: Example) => ({
-  state: { me: ME },
+  state: { me: ME, techCatalog: RESOURCE_TECHS, techIds: example.tile.economicStructure?.status === "active" ? RESOURCE_TECHS.map(tech => tech.id) : [] },
   prettyToken: (v: string) => v.charAt(0) + v.slice(1).toLowerCase().replace(/_/g, " "),
   terrainLabel: (_x: number, _y: number, terrain: Tile["terrain"]) => terrain,
   displayTownGoldPerMinute: () => 0.5,
