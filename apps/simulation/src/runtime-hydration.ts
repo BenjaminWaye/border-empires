@@ -301,7 +301,9 @@ export const hydrateCommandHistory = ({
     // snapshot after a restart). The requeue-skip check reads
     // recoveredCommandHistory directly, not this cache, so this is safe.
     if (!isReplayTrackedCommandId(commandId)) continue;
-    recordedEventsByCommandId.set(commandId, [...events]);
+    // Same as the live recordEvent gate: a replayed border diff would be
+    // persisted again with a newer event id and re-applied over later diffs.
+    recordedEventsByCommandId.set(commandId, events.filter((event) => event.eventType !== "REACH_BORDER_CHANGED"));
   }
 };
 

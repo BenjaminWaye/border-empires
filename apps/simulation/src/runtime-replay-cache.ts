@@ -130,6 +130,11 @@ export class RuntimeReplayCache {
     // skip replay tracking for them — recording their events leaked unboundedly
     // and bloated the checkpoint snapshot. We still process COMBAT_CANCELLED's
     // cancelledCommandIds below, since those can reference real client commands.
+    // A border diff must never be replayed: a duplicate submit re-emits the
+    // recorded events, the service persists them again with a later event id,
+    // and startup recovery would then re-apply a stale diff over newer ones.
+    // Clients never see this sim-internal event, so there is nothing to replay.
+    if (event.eventType === "REACH_BORDER_CHANGED") return;
     if (isReplayTrackedCommandId(event.commandId)) {
       const existingEvents = this.recordedEventsByCommandId.get(event.commandId) ?? [];
       existingEvents.push(event);
