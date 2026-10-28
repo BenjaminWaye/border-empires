@@ -7,9 +7,13 @@
 // on the season state at creation. They differ after a size change has been
 // deployed but before a forced rollover (POST /admin/season/start-next) --
 // restarts reload the persisted season, so the new size is not in play yet.
+// `season.victory` is each win path's live leader, progress and 24h hold, so
+// "why hasn't anyone won?" is answerable without a game client.
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import type { AdminPlayerRow, CurrentSeasonSummary } from "@border-empires/sim-protocol";
+import type { AdminPlayerRow, CurrentSeasonSummary, SeasonVictoryObjectiveSnapshot } from "@border-empires/sim-protocol";
 import { DEFAULT_WORLD_HEIGHT, DEFAULT_WORLD_WIDTH, WATCHTOWERS_ENABLED, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+
+export type AdminWorldVictoryObjective = Pick<SeasonVictoryObjectiveSnapshot, "id" | "leaderPlayerId" | "leaderName" | "conditionMet" | "progress" | "progressLabel" | "statusLabel" | "holdRemainingSeconds">;
 
 export type AdminWorldSizeStatus = "match" | "rollover_pending" | "unknown";
 
@@ -31,6 +35,7 @@ export type AdminWorldResponse = {
     aiPlayers?: number;
     totalPlayers: number;
     townCount: number;
+    victory: AdminWorldVictoryObjective[];
   } | null;
   seasonError?: string;
   sizeStatus: AdminWorldSizeStatus;
@@ -41,6 +46,17 @@ export type RegisterAdminWorldRouteDeps = {
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
   getAdminPlayers: () => Promise<AdminPlayerRow[]>;
 };
+
+const victoryObjective = (objective: SeasonVictoryObjectiveSnapshot): AdminWorldVictoryObjective => ({
+  id: objective.id,
+  ...(objective.leaderPlayerId ? { leaderPlayerId: objective.leaderPlayerId } : {}),
+  leaderName: objective.leaderName,
+  conditionMet: objective.conditionMet,
+  ...(typeof objective.progress === "number" ? { progress: objective.progress } : {}),
+  progressLabel: objective.progressLabel,
+  statusLabel: objective.statusLabel,
+  ...(typeof objective.holdRemainingSeconds === "number" ? { holdRemainingSeconds: objective.holdRemainingSeconds } : {})
+});
 
 const errorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
@@ -80,7 +96,8 @@ export const registerAdminWorldRoute = (app: FastifyInstance, deps: RegisterAdmi
         // barbarian-1 is isAi:false by design, so this counts only AI empires.
         ...(playersResult.status === "fulfilled" ? { aiPlayers: playersResult.value.filter((player) => player.isAi).length } : {}),
         totalPlayers: summary.totalPlayers,
-        townCount: summary.townCount
+        townCount: summary.townCount,
+        victory: (summary.seasonVictory ?? []).map(victoryObjective)
       },
       sizeStatus: resolveWorldSizeStatus(summary)
     };
