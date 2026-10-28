@@ -84,6 +84,13 @@ export const RESOURCE_NETWORKS_CHANGELOG: ClientChangelogEntry[] = [{
     title: "Open required research from resource tiles",
     why: "A technology name alone did not explain or open the resource's unlock.",
     changes: ["Unresearched resource unlocks say Research required. Select the linked name to open its technology in the Manifest tree, with its research action and prerequisites visible.", "The link works in the redesigned desktop HUD and the classic and mobile layouts; owned unlocks say Researched."]
+  },
+  {
+    createdAt: 1793220634429, // Date.now() captured once.
+    introducedIn: "2026.10.28.1",
+    title: "Resource bonuses require development",
+    why: "The resource card made a potential industry bonus look like immediate income from claiming land.",
+    changes: ["Frontier deposit bonuses say After development and name both the required installation and recipient building. Claiming a deposit alone gives no industry bonus."]
   }
 
 ];

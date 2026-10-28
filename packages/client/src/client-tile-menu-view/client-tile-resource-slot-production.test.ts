@@ -86,7 +86,7 @@ describe("every resource tile explains its role", () => {
       if (NETWORK_RESOURCES.some(kind => kind === resource)) {
         const spec = RESOURCE_NETWORKS[resource as keyof typeof RESOURCE_NETWORKS];
         expect(lines).toContain(spec.description);
-        expect(lines).toContain("Bonus");
+        expect(lines).toContain("After development");
         expect(lines).not.toContain("exclusive slot");
         expect(lines).not.toContain("Renewable · tradeable");
         expect(lines).not.toContain("Develop with");
@@ -143,4 +143,15 @@ it("marks an owned technology as researched while preserving its tree link", () 
   expect(html).toContain("Researched");
   expect(html).not.toContain("Research required");
   expect(html).toContain('data-view-tech="frontier-concessions"');
+});
+
+it.each(NETWORK_RESOURCES)("%s makes improvement a condition even after a frontier claim", resource => {
+  const spec = RESOURCE_NETWORKS[resource];
+  for (const ownershipState of [undefined, "FRONTIER", "SETTLED"] as const) {
+    const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource, ownershipState });
+    expect(html).toContain("After development");
+    expect(html).toContain(`Requires ${spec.buildingName} + `);
+    expect(html).not.toContain('tile-stat-label">Bonus<');
+    if (!spec.batchBonus) expect(html).toContain("+1.5 Coin/day");
+  }
 });

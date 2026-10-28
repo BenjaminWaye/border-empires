@@ -172,3 +172,9 @@ opens its Manifest screen on that ID, unfolds the branch and scrolls to the
 selected node. Mobile and classic HUD keep their existing research detail flow.
 Local previews use `?hud=v2`; the redesigned HUD is opt-in on current develop.
 Lore reviewed; no canon change for research navigation.
+
+Deposit cards label their potential output After development and explicitly
+name the required installation plus beneficiary. A frontier claim or even a
+settled bare deposit must never be presented as immediate Coin or Ancillary
+income. This is explanatory copy; allocation and activation rules are unchanged.
+Lore reviewed; no canon change.
