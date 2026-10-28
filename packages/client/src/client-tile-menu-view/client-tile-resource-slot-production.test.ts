@@ -148,7 +148,7 @@ it("marks an owned technology as researched while preserving its tree link", () 
 it.each(NETWORK_RESOURCES)("%s makes improvement a condition even after a frontier claim", resource => {
   const spec = RESOURCE_NETWORKS[resource];
   for (const ownershipState of [undefined, "FRONTIER", "SETTLED"] as const) {
-    const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource, ownershipState });
+    const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource, ...(ownershipState ? { ownershipState } : {}) });
     expect(html).toContain("After development");
     expect(html).toContain(`Requires ${spec.buildingName} + `);
     expect(html).not.toContain('tile-stat-label">Bonus<');
