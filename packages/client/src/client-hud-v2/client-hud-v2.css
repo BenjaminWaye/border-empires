@@ -236,21 +236,19 @@ body.hud-v2 .onb-root { bottom: 266px !important; }
 .hud-v2-details .tile-overview-line { color: inherit; }
 .hud-v2-details .tile-overview-line-section { margin-top: 6px; font-family: var(--v2-display); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--v2-gold); }
 .hud-v2-details .tile-overview-line-section:first-child { margin-top: 0; }
-/* Aether list, opened from Aether ▾ above the main row. */
+/* Details ▾ opens above the main row. */
 .hud-v2-pop { display: grid; gap: 2px; max-height: 260px; overflow-y: auto; padding: 6px; background: var(--v2-ink-solid); border: 1px solid var(--v2-edge); }
-.hud-v2-pop-h { padding: 2px 6px 4px; font-family: var(--v2-display); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; color: var(--v2-aether); }
-.hud-v2-pop-row { display: flex; justify-content: space-between; gap: 12px; width: 100%; padding: 7px 8px; border: 0; background: transparent; text-align: left; }
-.hud-v2-pop-row:hover:not(:disabled) { background: #221c13; }
-.hud-v2-pop-row-off { opacity: 0.5; }
-.hud-v2-pop-label { font-size: 14px; }
-.hud-v2-pop-note { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-soft); }
-/* Build ▸ sidebar on the map: same list as the town screen; the top-right column steps aside. */
+/* Build ▸ / Aether ▸ sidebar on the map: same panel as the town screen's build list; the top-right column steps aside. */
 .hud-v2-build-side { top: 128px !important; pointer-events: auto; }
 .hud-v2-build-side[hidden] { display: none; }
 .hud-v2-build-place { padding: 10px 18px 14px; border-top: 1px solid var(--v2-line); }
 .hud-v2-build-place:empty { display: none; }
 .hud-v2-build-place .v2t-place { border: 0; padding: 0; box-shadow: none; background: none; }
 body.hud-v2-building .hud-v2-right { display: none; }
+.hud-v2-aether-title { color: var(--v2-aether); }
+.hud-v2-aether-ico { width: 30px; height: 30px; }
+.hud-v2-aether-row:disabled { cursor: default; }
+.hud-v2-aether-row:disabled:hover { background: transparent; }
 /* A side panel (Economy, Integrity) opens over the right edge; the rival portraits would sit on its header. */
 body.hud-v2:has(#hud.desktop-side-panel-open) .hud-v2-rivals { display: none; }
 .hud-v2-tile .tile-auto-settle-option { font-size: 12px; color: var(--v2-muted); }
