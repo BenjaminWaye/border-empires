@@ -1,3 +1,4 @@
+import { isNetworkResource, RESOURCE_NETWORKS } from "@border-empires/shared";
 // Steampunk resource icons, in two tiers. Small sizes (inline text, the
 // resource bar, map badges) use the simple emoji-style SVGs under
 // public/icons/simple, which stay legible at 16-30px. Large art slots use the
@@ -60,7 +61,7 @@ export const resourceIconUrl = (key: ResourceIconKey, px: ResourceIconPx): strin
   `/icons/resources/${RESOURCE_ICON_FILE[key]}-${px}.png`;
 
 export const resourceIconGlyph = (resource: string): string =>
-  isResourceIconKey(resource) ? RESOURCE_ICON_GLYPH[resource] : "•";
+  isResourceIconKey(resource) ? RESOURCE_ICON_GLYPH[resource] : isNetworkResource(resource) ? RESOURCE_NETWORKS[resource].glyph : "•";
 
 // Sized by CSS (.resource-icon-img, ~1em square) so it takes the slot the emoji
 // glyph used to occupy in running text. Unknown keys fall back to the glyph.

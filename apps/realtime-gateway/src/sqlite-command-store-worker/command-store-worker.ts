@@ -1,3 +1,4 @@
+import { CLIENT_SEQUENCE_SQL_PREDICATE as CLIENT_SEQUENCE_PREDICATE, clientSequenceIndexNeedsMigration } from "@border-empires/sim-protocol";
 /**
  * SQLite command-store worker thread.
  *
@@ -95,7 +96,6 @@ db.exec(`
 `);
 
 // Keep both SQLite schema owners aligned; the cross-store regression covers boot order.
-const CLIENT_SEQUENCE_PREDICATE = "command_type NOT IN ('SYNC_TRUCE', 'SYNC_ALLIANCE', 'SETTLE_DIPLOMACY_TERMS')";
 
 if (applySchema) {
   db.exec(`
@@ -126,7 +126,7 @@ if (applySchema) {
   db.exec("BEGIN IMMEDIATE");
   try {
     const index = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'commands_player_seq_idx'").get();
-    if (typeof index?.sql === "string" && !/\bwhere\b/i.test(index.sql)) db.exec("DROP INDEX commands_player_seq_idx");
+    if (typeof index?.sql === "string" && clientSequenceIndexNeedsMigration(index.sql)) db.exec("DROP INDEX commands_player_seq_idx");
     db.exec(`
       CREATE UNIQUE INDEX IF NOT EXISTS commands_player_seq_idx ON commands (player_id, client_seq)
         WHERE ${CLIENT_SEQUENCE_PREDICATE};

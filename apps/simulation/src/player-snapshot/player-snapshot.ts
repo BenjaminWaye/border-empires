@@ -302,6 +302,8 @@ export const buildPlayerSubscriptionSnapshot = (
               UMBRITE: strategicProductionPerMinute.UMBRITE,
               SHARD: strategicProductionPerMinute.SHARD
             },
+            ...(livePlayer.resourceTradeHoldings ? { resourceTradeHoldings: livePlayer.resourceTradeHoldings } : {}),
+            ...(livePlayer.resourceTradeAgreements ? { resourceTradeAgreements: livePlayer.resourceTradeAgreements } : {}),
             resourceSlots: liveEconomy.resourceSlots,
             dormantStructures: liveEconomy.dormantStructures,
             economyBreakdown: liveEconomy.economyBreakdown,

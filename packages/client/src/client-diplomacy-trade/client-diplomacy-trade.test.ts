@@ -237,6 +237,16 @@ describe("diplomacy trade screen", () => {
     expect(send).toHaveBeenLastCalledWith({ type: "TRUCE_REQUEST", targetPlayerName: "Milo", targetPlayerId: "ai-1", durationHours: 12 }, expect.any(String));
   });
 
+  it("keeps independent resource trades selected during an existing truce", () => {
+    openDiplomacyTradeScreen(
+      { targetName: "Elin", targetPlayerId: "ai-2", kind: "trade", durationHours: 12 },
+      { send: vi.fn().mockReturnValue(true), ownHoldings: () => ({ gold: 100, shard: 0, resources: { FOOD: 2 } }), truceEndsAt: () => Date.now() + 3_600_000 }
+    );
+    const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
+    expect(overlay.querySelector("[data-trade-kind='trade:0']")?.getAttribute("aria-pressed")).toBe("true");
+    expect(overlay.querySelector("[data-trade-kind='truce:12']")?.textContent).toBe("Extend 12h");
+  });
+
   it("sends a plain offer when no terms are set", () => {
     const { send, overlay } = openScreen();
     overlay.querySelector<HTMLButtonElement>("[data-trade-kind='alliance:0']")!.click();

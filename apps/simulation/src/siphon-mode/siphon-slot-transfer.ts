@@ -43,21 +43,26 @@ const ownerSlotsForTiles = (input: SiphonSlotSupplyInput, ownerId: string, drain
   return resourceSlotSupplyForPlayer(drained, hydroworksKeys, oreRefineryKeys, undefined, input.fishFoodSlotBonusForPlayer(ownerId));
 };
 
+/** Source tiles controlled by this caster's active Siphon towers. */
+export const siphonedResourceTilesForPlayer = (input: Pick<SiphonSlotSupplyInput, "playerId" | "tiles" | "activeObservatoryKeysForPlayer">): DomainTileState[] => {
+  const drained = new Map<string, DomainTileState>();
+  for (const observatoryKey of input.activeObservatoryKeysForPlayer(input.playerId)) {
+    for (const tileKey of input.tiles.get(observatoryKey)?.observatory?.siphon?.tileKeys ?? []) {
+      const tile = input.tiles.get(tileKey);
+      if (tile?.ownerId && tile.ownershipState === "SETTLED" && isResourceTileSiphonedAway(tile, tile.ownerId) &&
+          tile.sabotage?.ownerId === input.playerId && tile.sabotage.observatoryTileKey === observatoryKey) drained.set(tileKey, tile);
+    }
+  }
+  return [...drained.values()];
+};
+
 /** Slots the caster is currently receiving through its siphoning towers. */
 export const siphonedInSlotsForPlayer = (input: SiphonSlotSupplyInput): ResourceSlotTotals => {
   const totals = emptyResourceSlotTotals();
   const drainedByOwner = new Map<string, DomainTileState[]>();
-  for (const observatoryKey of input.activeObservatoryKeysForPlayer(input.playerId)) {
-    const siphon = input.tiles.get(observatoryKey)?.observatory?.siphon;
-    if (!siphon) continue;
-    for (const tileKey of siphon.tileKeys) {
-      const tile = input.tiles.get(tileKey);
-      if (!tile?.ownerId || tile.ownershipState !== "SETTLED" || !isResourceTileSiphonedAway(tile, tile.ownerId)) continue;
-      if (tile.sabotage?.ownerId !== input.playerId || tile.sabotage.observatoryTileKey !== observatoryKey) continue;
-      const list = drainedByOwner.get(tile.ownerId) ?? [];
-      list.push(tile);
-      drainedByOwner.set(tile.ownerId, list);
-    }
+  for (const tile of siphonedResourceTilesForPlayer(input)) {
+    const list = drainedByOwner.get(tile.ownerId!) ?? [];
+    list.push(tile); drainedByOwner.set(tile.ownerId!, list);
   }
   for (const [ownerId, drained] of drainedByOwner) {
     const slots = ownerSlotsForTiles(input, ownerId, drained);

@@ -39,3 +39,9 @@ describe("2D visible terrain prospect layering", () => {
     expect(render("owner", "IRON")).toEqual(["forest", "hills", "ownership"]);
   });
 });
+
+
+it("uses the resource plot in place of overlapping decorative forest in 2D", () => {
+  expect(render("owner", "NEURAL_RESIN")).toEqual(["hills", "ownership"]);
+  expect(render("owner", "CONDUCTIVE_MINERALS")).toEqual(["hills", "ownership"]);
+});

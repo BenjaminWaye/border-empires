@@ -10,6 +10,12 @@ export const relatedStructureTypesForTech = (tech: Pick<TechInfo, "effects">): S
   const effects = tech.effects ?? {};
   for (const [key] of Object.entries(effects)) {
     switch (key) {
+      case "unlockResinExtractor": out.add("RESIN_EXTRACTOR"); break;
+      case "unlockImplantFoundry": out.add("IMPLANT_FOUNDRY"); break;
+      case "unlockCatalystRefinery": out.add("CATALYST_REFINERY"); break;
+      case "unlockCultivationEstate": out.add("CULTIVATION_ESTATE"); break;
+      case "unlockReclamationWorks": out.add("RECLAMATION_WORKS"); break;
+
       case "unlockForts":
         out.add("FORT");
         break;

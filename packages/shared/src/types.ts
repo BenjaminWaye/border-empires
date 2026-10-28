@@ -4,7 +4,7 @@ export type { TileAfcState, TileEconomicStructureState, TileFortState, TileObser
 
 export type Terrain = "LAND" | "SEA" | "COASTAL_SEA" | "MOUNTAIN";
 export const isSeaTerrain = (terrain: Terrain): terrain is "SEA" | "COASTAL_SEA" => terrain === "SEA" || terrain === "COASTAL_SEA";
-export type ResourceType = "FARM" | "TITANIUM" | "GEMS" | "FISH" | "UMBRITE";
+export type ResourceType = import("./resource-networks/resource-networks.js").NetworkResource | "FARM" | "TITANIUM" | "GEMS" | "FISH" | "UMBRITE";
 export type TileKey = `${number},${number}`;
 export type PlayerId = string;
 export type LandBiome = "GRASS" | "SAND" | "COASTAL_SAND" | "TUNDRA" | "PLAINS" | "JUNGLE" | "MARSH" | "SNOW" | "GRASSLAND"; // PLAINS/JUNGLE/MARSH/SNOW (v8+) and GRASSLAND (v9+) are visual-only promotions -- see visualLandBiomeAt in worldgen-visual-biome.ts
@@ -35,6 +35,7 @@ import type { ConverterMode, EconomicStructure } from "./economic-structure.js";
 export type { ConverterMode, EconomicStructure };
 
 export type EconomicStructureType =
+  | import("./resource-networks/resource-networks.js").NetworkBuilding
   | "HYDROGARDEN"
   | "HYDROWORKS"
   | "UMBRITE_RIG"

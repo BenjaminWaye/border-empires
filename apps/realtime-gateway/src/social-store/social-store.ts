@@ -1,3 +1,4 @@
+import { InMemoryResourceTradeOfferStore, type ResourceTradeOfferStore } from "../resource-trade/resource-trade-store.js";
 import {
   MAX_TRUCE_BREAKS_PER_PLAYER,
   type SocialActiveTruce,
@@ -25,8 +26,11 @@ export type SocialStoreSnapshot = {
 };
 
 export type GatewaySocialStore = {
+  resourceTrades?: ResourceTradeOfferStore;
   loadSnapshot(): SocialStoreSnapshot;
   upsertPlayer(playerId: string, name: string): void;
+  commitAcceptedAlliance?(requestId: string, playerAId: string, playerBId: string, createdAt: number): void;
+  commitAcceptedTruce?(requestId: string, truce: SocialActiveTruce): void;
   saveAllianceRequest(request: SocialAllianceRequest): void;
   deleteAllianceRequest(requestId: string): void;
   saveAllianceBreak(notice: SocialAllianceBreak): void;
@@ -55,6 +59,7 @@ export const pairKey = (a: string, b: string): string => {
 };
 
 export class InMemoryGatewaySocialStore implements GatewaySocialStore {
+  readonly resourceTrades = new InMemoryResourceTradeOfferStore();
   private readonly players = new Map<string, { name: string; updatedAt: number }>();
   private readonly alliances = new Map<string, { aId: string; bId: string; createdAt: number }>();
   private readonly allianceRequests = new Map<string, SocialAllianceRequest>();
@@ -185,7 +190,7 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
       if (entry.until <= now) this.offerCooldowns.delete(key);
     }
     for (const [id, request] of this.truceRequests) {
-      if (request.expiresAt <= now) this.truceRequests.delete(id);
+      if (request.expiresAt <= now && !request.settlementPhase) this.truceRequests.delete(id);
     }
     for (const [key, truce] of this.activeTruces) {
       if (truce.endsAt <= now) this.activeTruces.delete(key);
@@ -199,6 +204,7 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
   }
 
   clearSeasonData(): void {
+    this.resourceTrades.clear();
     this.forcedTruceCooldowns.clear();
     this.alliances.clear();
     this.allianceRequests.clear();

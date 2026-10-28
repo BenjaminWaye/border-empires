@@ -9,7 +9,7 @@
 // recorded: such a late payment is paid straight back (see `abandoned`).
 import crypto from "node:crypto";
 
-import { diplomacyTermsAreEmpty, swapDiplomacyTerms, type DiplomacyTerms } from "@border-empires/shared";
+import { diplomacyTermsAreEmpty, swapDiplomacyTerms, hasResourceSupplyOffer, emptyDiplomacyTerms, type DiplomacyTerms } from "@border-empires/shared";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 
 /** Command-id prefix; the gateway's own COMMAND_REJECTED fan-out skips these (no raw ERROR to players). */
@@ -22,7 +22,7 @@ export const MAX_PENDING_DIPLOMACY_SETTLEMENTS = 500;
 export const ABANDONED_SETTLEMENT_WATCH_MS = 15 * 60_000;
 export const MAX_ABANDONED_DIPLOMACY_SETTLEMENTS = 500;
 
-export type DiplomacySettlementResult = { ok: true } | { ok: false; message: string };
+export type DiplomacySettlementResult = { ok: true; settlementId?: string } | { ok: false; message: string; pending?: true; rejected?: true };
 
 export type DiplomacySettlementInput = {
   proposerId: string;
@@ -33,6 +33,10 @@ export type DiplomacySettlementInput = {
    * true). Refunds themselves pass false, so a late refund is never reversed.
    */
   refundIfLate?: boolean;
+  /** Original settlement whose supply commitment must be released by this refund. */
+  refundOf?: string;
+  commandId?: string;
+  issuedAt?: number;
 };
 
 export type DiplomacySettlementDeps = {
@@ -45,6 +49,7 @@ export type DiplomacySettlementDeps = {
 };
 
 export type DiplomacySettlement = {
+  cancel: (playerId: string, agreementId: string) => Promise<DiplomacySettlementResult>;
   settle: (input: DiplomacySettlementInput) => Promise<DiplomacySettlementResult>;
   /** Feed every simulation event through here. */
   observe: (event: { eventType: string; commandId?: string; message?: string }) => void;
@@ -55,7 +60,7 @@ export type DiplomacySettlement = {
 type Abandoned = { proposerId: string; targetId: string; terms: DiplomacyTerms; at: number };
 
 export const createDiplomacySettlement = (deps: DiplomacySettlementDeps): DiplomacySettlement => {
-  const pending = new Map<string, { resolve: (result: DiplomacySettlementResult) => void; timer: { clear: () => void }; abandon?: Abandoned }>();
+  const pending = new Map<string, { resolve: (result: DiplomacySettlementResult) => void; timer: { clear: () => void }; hasResourceSupply: boolean; durable: boolean; abandon?: Abandoned }>();
   const abandoned = new Map<string, Abandoned>();
 
   const finish = (commandId: string, result: DiplomacySettlementResult): void => {
@@ -63,7 +68,7 @@ export const createDiplomacySettlement = (deps: DiplomacySettlementDeps): Diplom
     if (!entry) return;
     pending.delete(commandId);
     entry.timer.clear();
-    entry.resolve(result);
+    entry.resolve(result.ok && entry.hasResourceSupply ? { ok: true, settlementId: commandId } : result);
   };
 
   // Gave up without a verdict: remember the deal in case the payment still lands.
@@ -81,7 +86,7 @@ export const createDiplomacySettlement = (deps: DiplomacySettlementDeps): Diplom
   };
 
   const refundLatePayment = (commandId: string, deal: Abandoned): void => {
-    void settle({ proposerId: deal.proposerId, targetId: deal.targetId, terms: swapDiplomacyTerms(deal.terms), refundIfLate: false }).then((refund) => {
+    void settle({ proposerId: deal.proposerId, targetId: deal.targetId, terms: swapDiplomacyTerms(deal.terms), refundIfLate: false, ...((hasResourceSupplyOffer(deal.terms.give.resources) || hasResourceSupplyOffer(deal.terms.ask.resources)) ? { refundOf: commandId } : {}) }).then((refund) => {
       deps.recordGatewayEvent(refund.ok ? "warn" : "error", "gateway_diplomacy_settlement_late_refund", {
         commandId,
         proposerId: deal.proposerId,
@@ -91,21 +96,22 @@ export const createDiplomacySettlement = (deps: DiplomacySettlementDeps): Diplom
     });
   };
 
-  const settle = async ({ proposerId, targetId, terms, refundIfLate = true }: DiplomacySettlementInput): Promise<DiplomacySettlementResult> => {
-    if (diplomacyTermsAreEmpty(terms)) return { ok: true };
+  const settle = async ({ proposerId, targetId, terms, refundIfLate = true, refundOf, commandId: suppliedCommandId, issuedAt, cancelAgreementId }: DiplomacySettlementInput & { cancelAgreementId?: string }): Promise<DiplomacySettlementResult> => {
+    if (!cancelAgreementId && diplomacyTermsAreEmpty(terms)) return { ok: true };
     if (!deps.isSimulationConnected()) return { ok: false, message: "The world is unavailable right now. Try again shortly." };
     if (pending.size >= MAX_PENDING_DIPLOMACY_SETTLEMENTS) {
       deps.recordGatewayEvent("warn", "gateway_diplomacy_settlement_busy", { pending: pending.size });
       return { ok: false, message: "Too many deals are settling right now. Try again shortly." };
     }
-    const commandId = `${DIPLOMACY_SETTLEMENT_COMMAND_PREFIX}${crypto.randomUUID()}`;
+    const commandId = suppliedCommandId ?? `${DIPLOMACY_SETTLEMENT_COMMAND_PREFIX}${crypto.randomUUID()}`;
+    if (pending.has(commandId)) return {ok:false,message:"This deal is already settling. Try again shortly.",pending:true};
     // Register before submitting: the verdict can arrive before the submit ack does.
     const outcome = new Promise<DiplomacySettlementResult>((resolve) => {
       const timer = deps.setTimer(() => {
         deps.recordGatewayEvent("warn", "gateway_diplomacy_settlement_timeout", { commandId, proposerId, targetId });
-        giveUp(commandId, { ok: false, message: "The deal timed out before it could be paid. Try again." });
+        giveUp(commandId, { ok: false, message: "The deal timed out before it could be paid. Try again.", ...(suppliedCommandId ? {pending:true as const} : {}) });
       }, deps.timeoutMs ?? DIPLOMACY_SETTLEMENT_TIMEOUT_MS);
-      pending.set(commandId, { resolve, timer, ...(refundIfLate ? { abandon: { proposerId, targetId, terms, at: 0 } } : {}) });
+      pending.set(commandId, { resolve, timer, durable: Boolean(suppliedCommandId), hasResourceSupply: !refundOf && (hasResourceSupplyOffer(terms.give.resources) || hasResourceSupplyOffer(terms.ask.resources)), ...(refundIfLate ? { abandon: { proposerId, targetId, terms, at: 0 } } : {}) });
     });
     try {
       await deps.submitCommand({
@@ -113,9 +119,10 @@ export const createDiplomacySettlement = (deps: DiplomacySettlementDeps): Diplom
         sessionId: "system-runtime:social",
         playerId: targetId,
         clientSeq: 0,
-        issuedAt: deps.now(),
-        type: "SETTLE_DIPLOMACY_TERMS",
-        payloadJson: JSON.stringify({ proposerId, targetId, proposerPays: terms.give, targetPays: terms.ask })
+        issuedAt: issuedAt ?? deps.now(),
+        type: cancelAgreementId ? "CANCEL_RESOURCE_SUPPLY" : "SETTLE_DIPLOMACY_TERMS",
+        payloadJson: cancelAgreementId ? JSON.stringify({agreementId:cancelAgreementId}) : JSON.stringify({ proposerId, targetId, proposerPays: terms.give, targetPays: terms.ask,
+          ...(terms.supplyDurationHours ? { supplyDurationHours: terms.supplyDurationHours } : {}), ...(refundOf ? { refundOf } : {}) })
       });
     } catch (error) {
       deps.recordGatewayEvent("warn", "gateway_diplomacy_settlement_submit_failed", {
@@ -123,7 +130,7 @@ export const createDiplomacySettlement = (deps: DiplomacySettlementDeps): Diplom
         error: error instanceof Error ? error.message : String(error)
       });
       // A submit timeout doesn't mean the command never reached the simulation.
-      giveUp(commandId, { ok: false, message: "The world is unavailable right now. Try again shortly." });
+      giveUp(commandId, { ok: false, message: "The world is unavailable right now. Try again shortly.", ...(suppliedCommandId ? {pending:true as const} : {}) });
     }
     const result = await outcome;
     deps.recordGatewayEvent("info", "gateway_diplomacy_settlement", { commandId, proposerId, targetId, ok: result.ok });
@@ -131,6 +138,7 @@ export const createDiplomacySettlement = (deps: DiplomacySettlementDeps): Diplom
   };
 
   return {
+    cancel: (playerId, agreementId) => settle({proposerId:playerId,targetId:playerId,terms:emptyDiplomacyTerms(),refundIfLate:false,cancelAgreementId:agreementId}),
     settle,
     observe: (event) => {
       if (!event.commandId?.startsWith(DIPLOMACY_SETTLEMENT_COMMAND_PREFIX)) return;
@@ -142,7 +150,7 @@ export const createDiplomacySettlement = (deps: DiplomacySettlementDeps): Diplom
       }
       if (event.eventType === "COMMAND_RESOLVED") finish(event.commandId, { ok: true });
       if (event.eventType === "COMMAND_REJECTED") {
-        finish(event.commandId, { ok: false, message: event.message ? `The deal fell through: ${event.message}.` : "The deal fell through." });
+        finish(event.commandId, { ok: false, ...(pending.get(event.commandId)?.durable ? {rejected:true as const} : {}), message: event.message ? `The deal fell through: ${event.message}.` : "The deal fell through." });
       }
     },
     pendingCount: () => pending.size,

@@ -1,3 +1,4 @@
+import { createInitialResourceEconomyState } from "./client-state-resource-slots.js";
 import { createInitialProgressionState } from "./client-state-progression-defaults.js";
 import { createInitialTargetingState } from "./client-state-targeting-defaults.js";
 import { CLIENT_CHANGELOG_STORAGE_KEY } from "../client-changelog/client-changelog.js";
@@ -16,8 +17,8 @@ import { createInitialAetherShieldState } from "../client-aether-tower-protectio
 import { createInitialIslandNamesState } from "../client-map-name-labels/client-island-names-state.js";
 import { createInitialSocialState } from "./client-state-social-defaults.js"; import { createInitialSiegeBombardmentState } from "./client-state-siege-bombardment-defaults.js"; import { createInitialAfcDeliveryState } from "./client-state-afc-delivery-defaults.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
-import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, EXPAND_MANPOWER_COST, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, MUSTER_MAX_TILES, type BuildableStructureType, type FrontierCombatSideBreakdown, type SlotResource } from "@border-empires/shared";
-import type { ClientResourceSlots, EconomyBreakdown } from "../client-economy-model.js";
+import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, EXPAND_MANPOWER_COST, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, MUSTER_MAX_TILES, type BuildableStructureType, type FrontierCombatSideBreakdown } from "@border-empires/shared";
+import type { EconomyBreakdown } from "../client-economy-model.js";
 import type { VictoryHoldAlert } from "../client-victory-alert/client-victory-alert.js";
 import { createInitialAttackDispatchState } from "./client-state-attack-dispatch-defaults.js";
 import type { MusterRateSample } from "../client-muster-prediction/client-muster-prediction.js";
@@ -89,17 +90,7 @@ export const createInitialState = () => ({
   strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } as Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>,
   storageCap: { ...EMPIRE_STORAGE_FLOOR },
   strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } as Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>,
-  // Resource slots: global
-  // per-resource supply/demand pool, mirroring what hasFreeResourceSlots
-  // gates BUILD_STRUCTURE on server-side (§14.3) -- the real affordability
-  // signal for FOOD/TITANIUM/CRYSTAL/UMBRITE now that stockpiles are retired at
-  // build time (Step 5 item 4 Slice A).
-  resourceSlots: {
-    supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } as Record<SlotResource, number>, demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } as Record<SlotResource, number>
-  } as ClientResourceSlots,
-  // §14.2: per-structure dormancy detail, keyed by "x,y:field" — which structures are dormant right now, and which resource(s) they're short
-  // on. Feeds the greyed-out/"unpowered" indicator in the tile detail view.
-  dormantStructures: [] as Array<{ key: string; resources: SlotResource[] }>,
+  ...createInitialResourceEconomyState(),
   eventLog: [] as ClientEventLogEntry[], // §20: durable event log, most-recent-last
   eventLogFeedSeenIds: undefined as Set<string> | undefined, // ids already echoed into the Activity Feed; undefined until first sync (avoids backfilling history as new)
   economyBreakdown: undefined as EconomyBreakdown | undefined,

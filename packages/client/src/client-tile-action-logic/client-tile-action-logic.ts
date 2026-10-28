@@ -1,3 +1,4 @@
+import { resourceBuildActions } from "./client-resource-build-actions.js";
 import { forcedAncillarificationActions } from "../client-forced-ancillarification/client-forced-ancillarification.js";
 export { canPlaceAetherWallFromOrigin, validAetherWallDirectionsForTile, aetherWallDirectionTargetTiles } from "./client-aether-wall-placement.js";
 import { afcTowerSuppressionAction } from "../client-afc-upgrades/client-afc-tower-action.js";
@@ -11,7 +12,6 @@ import {
   structureBuildDurationMs,
   terrainAt,
   structureSkipsSettledRequirement,
-  TILE_SLOT_BOOST_STRUCTURES,
   HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS,
   retortResourceClassForTarget,
   retortResourceClassForTile,
@@ -1182,64 +1182,10 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     }
     const siegeCamp = siegeCampAction(state, tile, deps, hasRelayBeacon);
     if (siegeCamp) out.push(siegeCamp);
-    if (tile.resource === "FARM") {
-      out.push({
-        id: "build_hydrogarden",
-        label: "Build Hydrogarden",
-        detail: deps.buildDetailTextForAction("build_hydrogarden", tile) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailability(
-          ...chainedBuildAvailability(
-            "HYDROGARDEN",
-            !hasBlockingStructure && state.techIds.includes("agriculture") && hasFreeResourceSlots(state, "HYDROGARDEN"),
-            hasBlockingStructure
-              ? "Tile already has structure"
-              : !state.techIds.includes("agriculture")
-                ? "Requires Hyperfeed Seedstock Consignment"
-                : missingResourceSlotReason(state, "HYDROGARDEN") ?? "Unavailable",
-            `${deps.structureCostText("HYDROGARDEN")} • ${buildTimeLabel(economicBuildMsForState(state, "HYDROGARDEN"))} • +${TILE_SLOT_BOOST_STRUCTURES.HYDROGARDEN} FOOD slot${upkeepSuffixFor("HYDROGARDEN")}`
-          )
-        )
-      });
-    }
-    if (tile.resource === "UMBRITE") {
-      out.push({
-        id: "build_umbrite_rig",
-        label: "Build Umbrite Rig",
-        detail: deps.buildDetailTextForAction("build_umbrite_rig", tile) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailability(
-          ...chainedBuildAvailability(
-            "UMBRITE_RIG",
-            !hasBlockingStructure && state.techIds.includes("leatherworking") && hasFreeResourceSlots(state, "UMBRITE_RIG"),
-            hasBlockingStructure
-              ? "Tile already has structure"
-              : !state.techIds.includes("leatherworking")
-                ? "Requires Umbrite Rigging Module"
-                : missingResourceSlotReason(state, "UMBRITE_RIG") ?? "Unavailable",
-            `${deps.structureCostText("UMBRITE_RIG")} • ${buildTimeLabel(economicBuildMsForState(state, "UMBRITE_RIG"))} • +1 UMBRITE slot${upkeepSuffixFor("UMBRITE_RIG")}`
-          )
-        )
-      });
-    }
-    if (tile.resource === "TITANIUM" || tile.resource === "GEMS") {
-      const matchingNeed = tile.resource === "TITANIUM" ? "TITANIUM" : "CRYSTAL";
-      out.push({
-        id: "build_mine",
-        label: "Build Mine",
-        detail: deps.buildDetailTextForAction("build_mine", tile) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailability(
-          ...chainedBuildAvailability(
-            "MINE",
-            !hasBlockingStructure && state.techIds.includes("mining") && hasFreeResourceSlots(state, "MINE"),
-            hasBlockingStructure
-              ? "Tile already has structure"
-              : !state.techIds.includes("mining")
-                ? "Requires Prospector Crew"
-                : missingResourceSlotReason(state, "MINE") ?? "Unavailable",
-            `${deps.structureCostText("MINE")} • ${buildTimeLabel(economicBuildMsForState(state, "MINE"))} • +1 ${matchingNeed} slot${upkeepSuffixFor("MINE")}`
-          )
-        )
-      });
-    }
+    out.push(...resourceBuildActions(state, tile, hasBlockingStructure, frontierBuildDetailSuffix(tile), {
+      structureCostText: deps.structureCostText, buildDetailTextForAction: deps.buildDetailTextForAction,
+      availability: chainedBuildAvailability
+    }));
     if (townBuildSource) {
       // Manufactory moved to same-tile/uncapped placement in the tech-tree
       // redesign (per-town cap removed, specialization is the point) — no

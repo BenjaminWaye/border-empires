@@ -1,9 +1,13 @@
+import { resourceTradeOverviewHtml, resourceAgreementOverviewHtml } from "../client-diplomacy-trade/client-resource-offer-cards.js";
 import type { ActiveAllianceBreakView, ActiveTruceView, AllianceRequest, TruceRequest } from "../client-types.js";
 import { allianceNameButtonHtml, allianceRequestsHtml, alliesHtml, socialRemainingLabel, truceRequestsHtml } from "../client-panel-html/client-panel-html.js";
 
 type PlayerNameForOwner = (ownerId?: string | null) => string | undefined;
 
 export type AlliancePanelInput = {
+  ownId?: string;
+  resourceTradeAgreements?: readonly import("@border-empires/shared").ResourceSupplyAgreementStatus[];
+  resourceTradeOffers?: readonly import("@border-empires/shared").ResourceTradeOffer[];
   metPlayerIds: ReadonlySet<string>;
   allies: string[];
   activeAllianceBreaks: ActiveAllianceBreakView[];
@@ -62,7 +66,7 @@ const metPlayerRowHtml = (
     : "";
   const buttons = !name
     ? breakTruceButton
-    : `<button class="panel-btn alliance-reference-action alliance-reference-action-accept propose-alliance" type="button" data-propose-player-id="${safeId}">Propose Alliance</button>
+    : `<button class="panel-btn alliance-reference-action propose-resource-trade" type="button" data-propose-player-id="${safeId}">Trade resources</button><button class="panel-btn alliance-reference-action alliance-reference-action-accept propose-alliance" type="button" data-propose-player-id="${safeId}">Propose Alliance</button>
         ${
           truce
             ? breakTruceButton
@@ -123,10 +127,12 @@ export const alliancePanelHtml = (input: AlliancePanelInput): string => {
     .map((id) => ({ id, name: playerNameForOwner(id) ?? trucesByPlayerId.get(id)?.otherPlayerName ?? id }))
     .sort((left, right) => left.name.localeCompare(right.name, undefined, { numeric: true, sensitivity: "base" }));
 
-  const hasAnyone = knownPlayerIds.size > 0 || allies.size > 0 || withPendingRequest.size > 0;
+  const hasAnyone = knownPlayerIds.size > 0 || allies.size > 0 || withPendingRequest.size > 0 || Boolean(input.resourceTradeOffers?.length || input.resourceTradeAgreements?.length);
   if (!hasAnyone) return noPlayersMetHtml();
 
   return [
+    sectionHtml("Resource supply", resourceAgreementOverviewHtml(input.resourceTradeAgreements ?? [],input.ownId ?? "",playerNameForOwner)),
+    sectionHtml("Resource trade offers", resourceTradeOverviewHtml(input.resourceTradeOffers ?? [], input.ownId ?? "")),
     sectionHtml("Needs your response", incoming),
     sectionHtml("Allies", input.allies.length > 0 ? alliesHtml(input.allies, playerNameForOwner, input.activeAllianceBreaks, nowMs, playerColors) : ""),
     sectionHtml("Waiting on others", outgoing),

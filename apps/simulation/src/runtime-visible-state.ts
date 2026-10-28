@@ -27,6 +27,7 @@ import type { RuntimeVisibilityClassification } from "./runtime-visibility-class
 import { overlayJsonFieldsFromTile, townWireFields } from "./tile-overlay-fields/tile-overlay-fields.js";
 
 type VisibilityPlayerProjectionDeps = {
+  supplyStateForPlayer?: (id: string) => import("@border-empires/shared").ResourceSupplyPlayerState;
   players: ReadonlyMap<string, RuntimePlayer>;
   relicMapHintsForPlayer?: (id: string) => import("@border-empires/shared").RelicMapHint[];
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
@@ -274,6 +275,7 @@ function visiblePlayersProjection(
       const summary = input.summaryForPlayer(player.id);
       const economy = player.id === visiblePlayerId ? input.cachedEconomySnapshot(player) : undefined;
       return {
+        ...(player.id === visiblePlayerId ? input.supplyStateForPlayer?.(player.id) : {}),
         id: player.id,
         ...(player.name ? { name: player.name } : {}),
         points: player.points,

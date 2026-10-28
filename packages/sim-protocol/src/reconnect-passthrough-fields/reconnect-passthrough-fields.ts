@@ -102,6 +102,8 @@ export const RECONNECT_PASSTHROUGH_FIELDS = {
   // Cheap authoritative Titanium/Umbrite Weapons Factory counts (see
   // player-snapshot.ts) -- no legacy/bootstrap fallback, plain passthrough.
   weaponsFactoryCounts: presentField("weaponsFactoryCounts"),
+  resourceTradeHoldings: presentField("resourceTradeHoldings"),
+  resourceTradeAgreements: presentField("resourceTradeAgreements"),
   autoSettle: presentField("autoSettle")
 } as const satisfies Record<keyof PlayerStateSnapshot, PassthroughEntry>;
 

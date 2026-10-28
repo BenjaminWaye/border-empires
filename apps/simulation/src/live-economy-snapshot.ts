@@ -1,3 +1,5 @@
+import { developedNetworkSites } from "./resource-networks/resource-networks.js";
+import { allocateNetworkCredit, networkSupplyStatus, resourceNetworkTownCredit } from "./resource-networks/resource-network-credit.js";
 import { mutualAfcAllies, applyAfcEnvoyIncome } from "./afc-specializations/afc-coalition.js";
 import { DOCK_INCOME_PER_MIN, PASSIVE_INCOME_MULT, type DomainTileState } from "@border-empires/game-domain";
 import { buildDockLinksByDockTileKey } from "./dock-network/dock-network.js";
@@ -67,10 +69,14 @@ export const buildLivePlayerEconomySnapshot = (
   const strategicProductionByPlayer = buildStrategicProductionByPlayer(runtimeState);
   const fedTownKeysByPlayer = buildFedTownKeysByPlayer(runtimeState, dormancyByPlayer);
   const fedTownKeys = fedTownKeysByPlayer.get(playerId) ?? new Set<string>();
-  const resourceSlots = resourceSlotsForPlayer(playerId, runtimeState);
+  const resourceSlots: LivePlayerEconomySnapshot["resourceSlots"] = resourceSlotsForPlayer(playerId, runtimeState);
   // §14.2: reuses the dormancy already computed above for fedTownKeys/
   // dormantEconomicStructureKeys, so this can never disagree with them.
   const dormantStructures = dormantStructureDetailsFromDormancy(dormancyByPlayer.get(playerId) ?? emptyResourceSlotDormancy());
+  const sites = player?.effectiveNetworkSupply ?? developedNetworkSites(settledDomainTilesByPlayerId.get(playerId) ?? [], playerId, dormantEconomicStructureKeys, economyPlayer?.techIds);
+  const networkCreditByTown = allocateNetworkCredit(playerId, domainTilesByKey, fedTownKeys, dormantEconomicStructureKeys, sites);
+  const bonusSupply = networkSupplyStatus(sites, networkCreditByTown, settledDomainTilesByPlayerId.get(playerId) ?? [], dormantEconomicStructureKeys);
+  if (bonusSupply) resourceSlots.bonusSupply = bonusSupply;
   const goldSources = new Map<string, EconomyBucket>();
   const goldSinks = new Map<string, EconomyBucket>();
   const foodSources = new Map<string, EconomyBucket>();
@@ -96,6 +102,7 @@ export const buildLivePlayerEconomySnapshot = (
         umbriteSources;
       addBucket(target, tile.resource === "FARM" ? "Grain" : tile.resource === "FISH" ? "Fish" : tile.resource === "TITANIUM" ? "Titanium" : tile.resource === "GEMS" ? "Crystal" : "Umbrite", resourceRate, { count: 1, resourceKey });
     }
+    const networkCredit = resourceNetworkTownCredit(tile, networkCreditByTown);
     const town = buildTownSummary(
       tile,
       player,
@@ -105,9 +112,14 @@ export const buildLivePlayerEconomySnapshot = (
       townNetwork,
       firstThreeTownKeys,
       nearbyWarTownKeys,
-      dormantEconomicStructureKeys
+      dormantEconomicStructureKeys,
+      networkCredit.total
     );
-    if (town && town.goldPerMinute > 0) addBucket(goldSources, "Towns", town.goldPerMinute, { count: 1 });
+    if (town && town.goldPerMinute > 0) {
+      addBucket(goldSources, "Towns", town.goldPerMinute - networkCredit.total, { count: 1 });
+      addBucket(goldSources, "Precursor reclamation", networkCredit.salvage);
+      addBucket(goldSources, "Frontier export concessions", networkCredit.exports);
+    }
     if (town && (town.foodUpkeepPerMinute ?? 0) > 0) addBucket(foodSinks, "Town", town.foodUpkeepPerMinute ?? 0, { count: 1 });
     if (tile.dockId) {
       const dockGoldPerMinute = economyPlayer
@@ -186,7 +198,7 @@ type OwnedSlotTile = Pick<DomainTileState, "x" | "y" | "fort" | "observatory" | 
 const resourceSlotsForPlayer = (
   playerId: string,
   runtimeState: RuntimeState
-): { supply: ReturnType<typeof resourceSlotSupplyForPlayer>; demand: ReturnType<typeof resourceSlotDemandForPlayer>; sources: ResourceSlotSources } => {
+): { supply: ReturnType<typeof resourceSlotSupplyForPlayer>; demand: ReturnType<typeof resourceSlotDemandForPlayer>; sources?: ResourceSlotSources } => {
   const settledSlotTiles: SettledSlotTile[] = [];
   const ownedSlotTiles: OwnedSlotTile[] = [];
   for (const tile of runtimeState.tiles) {
@@ -236,7 +248,7 @@ const resourceSlotsForPlayer = (
       sink(resource, grant.kind, grant.id, count);
     }
   }
-  return { supply, demand: resourceSlotDemandForPlayer(ownedSlotTiles, playerId, waivers), sources: rows() };
+  return { supply: player?.effectiveResourceSupply ?? supply, demand: resourceSlotDemandForPlayer(ownedSlotTiles, playerId, waivers), ...(player?.effectiveResourceSources ? { sources: player.effectiveResourceSources } : player?.effectiveResourceSupply ? {} : { sources: rows() }) };
 };
 
 type EconomyResultArgs = {

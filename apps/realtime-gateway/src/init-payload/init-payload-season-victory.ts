@@ -1,3 +1,4 @@
+import { emptyResourceCounts } from "@border-empires/game-domain";
 // Login-time season-victory fallback, split out of init-payload.ts to keep that
 // file under the repo's 500-line cap. buildGatewayInitPayload uses this only
 // when no live world-status broadcast has arrived yet; it mirrors the
@@ -126,7 +127,7 @@ const objectiveSelfProgressLabel = (
   if (objectiveId === "TOWN_CONTROL") return `${metric.towns}/${townTarget} towns`;
   if (objectiveId === "ECONOMIC_HEGEMONY") return `${(metric.incomePerMinute * 1440).toFixed(1)} coin/day`;
   if (objectiveId === "RESOURCE_MONOPOLY") {
-    const owned = ownedResourceCountsByPlayerId.get(playerId) ?? { FARM: 0, TITANIUM: 0, GEMS: 0, FISH: 0, UMBRITE: 0 };
+    const owned = ownedResourceCountsByPlayerId.get(playerId) ?? emptyResourceCounts();
     let bestResource: ResourceType | undefined;
     let bestOwned = 0;
     let bestTotal = 0;

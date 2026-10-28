@@ -1,5 +1,6 @@
+export type { AllianceRequest, TruceRequest } from "./client-diplomacy-trade/client-treaty-requests.js";
 import type { ClientTileObservatory, ClientTileSiegeBattery } from "./client-tile-defense-types.js";
-import type { DiplomacyTerms, FrontierDecayKind, MusterState, ProspectSignature, Terrain, WaystationTileState } from "@border-empires/shared";
+import type { FrontierDecayKind, MusterState, ProspectSignature, Terrain, WaystationTileState } from "@border-empires/shared";
 import type { ClientTileEconomicStructure } from "./client-tile-economic-structure-type.js";
 import type { ClientTownWireSummary } from "./client-tile-town-type.js";
 import type { ClientTileFort } from "./client-tile-fort-type.js";
@@ -12,6 +13,7 @@ export type OptimisticStructureKind =
   | "ASTRAL_DOCK_PART_2"
   | "ASTRAL_DOCK_PART_3"
   | "ASTRAL_DOCK"
+  | import("@border-empires/shared").NetworkBuilding
   | "HYDROGARDEN"
   | "HYDROWORKS"
   | "UMBRITE_RIG"
@@ -130,6 +132,7 @@ export type Tile = {
       | "FORT"
       | "SIEGE_BATTERY"
       | "OBSERVATORY"
+      | import("@border-empires/shared").NetworkBuilding
       | "HYDROGARDEN"
       | "HYDROWORKS"
       | "UMBRITE_RIG"
@@ -163,6 +166,7 @@ export type Tile = {
       | "FORT"
       | "SIEGE_BATTERY"
       | "OBSERVATORY"
+      | import("@border-empires/shared").NetworkBuilding
       | "HYDROGARDEN"
       | "HYDROWORKS"
       | "UMBRITE_RIG"
@@ -237,17 +241,7 @@ export type EmpireVisualStyle = {
   structureAccent: "TITANIUM" | "UMBRITE" | "FOOD" | "CRYSTAL" | "NEUTRAL";
 };
 
-export type AllianceRequest = {
-  id: string;
-  fromPlayerId: string;
-  toPlayerId: string;
-  createdAt: number;
-  expiresAt?: number;
-  fromName?: string;
-  toName?: string;
-  /** Coin/Shards the deal moves, from the proposer's side. */
-  terms?: DiplomacyTerms;
-};
+
 
 export type ActiveAllianceBreakView = {
   otherPlayerId: string;
@@ -261,19 +255,6 @@ export type RecentAllianceBreakView = ActiveAllianceBreakView & {
   finalizedAt: number;
 };
 
-export type TruceRequest = {
-  id: string;
-  fromPlayerId: string;
-  toPlayerId: string;
-  createdAt: number;
-  expiresAt: number;
-  durationHours: 12 | 24;
-  fromName?: string;
-  toName?: string;
-  terms?: DiplomacyTerms;
-  /** Sent during a running truce: accepting extends it by durationHours. */
-  extendsTruce?: true;
-};
 
 export type ActiveTruceView = {
   origin?: "court" | "negotiated";
@@ -368,6 +349,7 @@ export type StrategicReplayEvent = {
     | "FORT"
     | "SIEGE_BATTERY"
     | "OBSERVATORY"
+    | import("@border-empires/shared").NetworkBuilding
     | "HYDROGARDEN"
     | "UMBRITE_RIG"
     | "MINE"

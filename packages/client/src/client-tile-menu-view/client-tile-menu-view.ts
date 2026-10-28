@@ -1,3 +1,5 @@
+import { resourceTileOverviewLines } from "./client-resource-tile-copy.js";
+import { isNetworkResource } from "@border-empires/shared";
 import { afcEffectMultiplier } from "../client-afc-upgrades/client-afc-effect.js";
 import { attackFloorForPlayer } from "../client-attack-commit/client-attack-floor.js";
 import { battleOverviewLines, battleMenuHeaderStatus } from "../client-battle-progress/client-tracked-battle-progress.js";
@@ -126,15 +128,17 @@ export const menuOverviewForTile = (
   const productionHtml = tileProductionHtml(tile);
   const isLand = tile.terrain !== "SEA" && tile.terrain !== "COASTAL_SEA" && tile.terrain !== "MOUNTAIN";
   if (isLand) lines.push(...tileFeatureLeadLines(tile, ownerKind, { me: deps.state.me, prettyToken: deps.prettyToken, structureInfoButtonHtml: deps.structureInfoButtonHtml, techCatalog: deps.state.techCatalog ?? [], techIds: deps.state.techIds ?? [] }));
-  tileMenuOverviewIntroLines({
+  if (!tile.resource) tileMenuOverviewIntroLines({
     terrain: tile.terrain,
     ownerKind,
     productionLabel,
     resourceLabel: resourceLabelText,
+    requiresDevelopment: isNetworkResource(tile.resource),
     isDockEndpoint: Boolean(tile.dockId),
     hasTown: Boolean(tile.town),
     ownershipState: tile.ownershipState
   }).forEach(pushLine);
+  lines.push(...resourceTileOverviewLines(tile, deps.state.techCatalog));
   if (!isLand) return lines;
   if (tile.ownershipState === "SETTLED" && tile.town?.populationTier === "SETTLEMENT") {
     pushLine("Settlements provide starter coin and manpower until they grow into towns.");

@@ -14,7 +14,7 @@ import { drawResourceOverlay2D } from "./client-resource-overlay-2d/client-resou
 import { drawLoopMinFrameGapMs } from "./client-runtime-loop-frame-gap.js";
 import { drawVisibleTerrain2D } from "./client-map-render/client-map-render-visible-terrain.js";
 import { drawSelectedDockSeaRoute2D } from "./client-dock-route-draw.js";
-import { isStructureHandledBy3D } from "./client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
+import { drawEconomicStructureOverlay2D } from "./client-resource-overlay-2d/client-economic-overlay-2d.js";
 import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor/client-fps-monitor.js";
 import { paintFpsAndZoomReadouts } from "./client-fps-monitor/client-fps-readouts.js";
 import { tickJoinExperienceForFrame } from "./client-onboarding-ui-gate/client-join-experience-frame.js";
@@ -418,56 +418,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             { throttleKey: `${wx},${wy}`, minIntervalMs: 2000 }
           );
         }
-        const markerSize = Math.max(3, Math.floor(size * 0.2));
-        const active = t.economicStructure.status === "active";
-        const hasBuiltResourceOverlay = Boolean(deps.builtResourceOverlayForTile(t));
-        const overlay = deps.structureOverlayImages[t.economicStructure.type];
-        // Structures handled by the 3D structure overlay — skip the 2D
-        // image / fallback so the canvas stays clean over them.
-        // isStructureHandledBy3D() is the authoritative check, covering
-        // both the generic instanced-mesh set and structures (like the
-        // Umbrite rig/factory and TRADE_NEXUS) rendered via a dedicated
-        // branch in client-map-3d.ts.
-        const handled3DStructure =
-          isTrue3DRendererActive() &&
-          isStructureHandledBy3D(t.economicStructure.type);
-        // A Relay Beacon is drawn by the fortification overlay pass; any other
-        // economic structure still gets drawn when a fort shares its tile.
-        if (t.economicStructure.type === "RELAY_BEACON" || handled3DStructure) {
-        } else if (overlay && overlay.complete && overlay.naturalWidth) {
-          deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
-        } else if (t.economicStructure.type === "HYDROGARDEN" && !hasBuiltResourceOverlay) {
-          deps.ctx.fillStyle = deps.structureAccentColor(
-            t.ownerId ?? "",
-            active ? "rgba(192, 229, 117, 0.95)" : "rgba(148, 176, 104, 0.72)"
-          );
-          deps.ctx.fillRect(px + 2, py + size - markerSize - 2, markerSize + 1, markerSize);
-        } else if (t.economicStructure.type === "UMBRITE_RIG" && !hasBuiltResourceOverlay) {
-          deps.ctx.fillStyle = deps.structureAccentColor(
-            t.ownerId ?? "",
-            active ? "rgba(147, 92, 201, 0.95)" : "rgba(114, 71, 156, 0.74)"
-          );
-          deps.ctx.beginPath();
-          deps.ctx.moveTo(px + size / 2, py + 3);
-          deps.ctx.lineTo(px + size - 4, py + markerSize + 4);
-          deps.ctx.lineTo(px + 4, py + markerSize + 4);
-          deps.ctx.closePath();
-          deps.ctx.fill();
-        } else if (t.economicStructure.type === "MINE" && !hasBuiltResourceOverlay) {
-          deps.ctx.fillStyle = deps.structureAccentColor(
-            t.ownerId ?? "",
-            active ? "rgba(188, 197, 214, 0.96)" : "rgba(120, 130, 148, 0.74)"
-          );
-          deps.ctx.fillRect(px + 2, py + 2, markerSize + 1, markerSize + 1);
-        } else {
-          deps.ctx.strokeStyle = deps.structureAccentColor(
-            t.ownerId ?? "",
-            active ? "rgba(255, 212, 111, 0.96)" : "rgba(191, 162, 102, 0.72)"
-          );
-          deps.ctx.lineWidth = 2;
-          deps.ctx.strokeRect(px + 2, py + 2, markerSize + 2, markerSize + 2);
-          deps.ctx.lineWidth = 1;
-        }
+        drawEconomicStructureOverlay2D(deps, t, px, py, size, true);
       } else if (verboseTileDebugEnabled() && t && vis === "visible" && tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
         debugTileLog(
           "render-missing-structure",
@@ -797,48 +748,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           drawAetherTowerSprite2D(aetherTowerSpriteDeps2D, t.observatory, t.ownerId, px, py, size);
         }
         if (t && (vis === "visible" || vis === "fogged") /* fog-tolerant, see the first pass above */ && t.economicStructure) {
-          const markerSize = Math.max(3, Math.floor(size * 0.2));
-          const active = t.economicStructure.status === "active";
-          const hasBuiltResourceOverlay = Boolean(deps.builtResourceOverlayForTile(t));
-          const overlay = deps.structureOverlayImages[t.economicStructure.type];
-          const handled3DStructure2 =
-            isTrue3DRendererActive() &&
-            isStructureHandledBy3D(t.economicStructure.type);
-          if (handled3DStructure2) {
-          } else if (overlay && overlay.complete && overlay.naturalWidth) {
-            deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
-          } else if (t.economicStructure.type === "HYDROGARDEN" && !hasBuiltResourceOverlay) {
-            deps.ctx.fillStyle = deps.structureAccentColor(
-              t.ownerId ?? "",
-              active ? "rgba(192, 229, 117, 0.95)" : "rgba(148, 176, 104, 0.72)"
-            );
-            deps.ctx.fillRect(px + 2, py + size - markerSize - 2, markerSize + 1, markerSize);
-          } else if (t.economicStructure.type === "UMBRITE_RIG" && !hasBuiltResourceOverlay) {
-            deps.ctx.fillStyle = deps.structureAccentColor(
-              t.ownerId ?? "",
-              active ? "rgba(147, 92, 201, 0.95)" : "rgba(114, 71, 156, 0.74)"
-            );
-            deps.ctx.beginPath();
-            deps.ctx.moveTo(px + size / 2, py + 3);
-            deps.ctx.lineTo(px + size - 4, py + markerSize + 4);
-            deps.ctx.lineTo(px + 4, py + markerSize + 4);
-            deps.ctx.closePath();
-            deps.ctx.fill();
-          } else if (t.economicStructure.type === "MINE" && !hasBuiltResourceOverlay) {
-            deps.ctx.fillStyle = deps.structureAccentColor(
-              t.ownerId ?? "",
-              active ? "rgba(188, 197, 214, 0.96)" : "rgba(120, 130, 148, 0.74)"
-            );
-            deps.ctx.fillRect(px + 2, py + 2, markerSize + 1, markerSize + 1);
-          } else {
-            deps.ctx.strokeStyle = deps.structureAccentColor(
-              t.ownerId ?? "",
-              active ? "rgba(255, 212, 111, 0.96)" : "rgba(191, 162, 102, 0.72)"
-            );
-            deps.ctx.lineWidth = 2;
-            deps.ctx.strokeRect(px + 2, py + 2, markerSize + 2, markerSize + 2);
-            deps.ctx.lineWidth = 1;
-          }
+          drawEconomicStructureOverlay2D(deps, t, px, py, size, false);
         }
         if (t && vis === "visible" && t.terrain === "LAND") drawConstructionCountdownOverlay(t, wk, px, py, size);
         if (t && vis === "visible") drawSiphonOverlay2D(deps.ctx, t, px, py, size, Date.now()); // drained-tile X + siphon-mode tower ring

@@ -1,3 +1,4 @@
+import { RESOURCE_NETWORKS, isNetworkResource, networkResourceForBuilding } from "@border-empires/shared";
 import { converterInfoEffects } from "./client-structure-info-catalog/converter-info.js";
 import { structureDisplayName, type StructureDisplayKey } from "@border-empires/shared";
 import { STRUCTURE_PRESENTATION } from "./client-structure-info-catalog/structure-presentation.js";
@@ -104,6 +105,11 @@ const STRUCTURE_BRANCH_BY_KEY: Partial<Record<StructureInfoKey, "War" | "Economy
   SIEGE_BATTERY: "War", SIEGE_TOWER: "War", DREAD_TOWER: "War",
   WEAPONS_WORKSHOP: "War",
   TITANIUM_WEAPONS_FACTORY: "War", UMBRITE_WEAPONS_FACTORY: "War",
+  RESIN_EXTRACTOR: "Manpower",
+  IMPLANT_FOUNDRY: "Manpower",
+  CATALYST_REFINERY: "Economy",
+  CULTIVATION_ESTATE: "Economy",
+  RECLAMATION_WORKS: "Economy",
   HYDROGARDEN: "Economy", HYDROWORKS: "Economy", MINE: "Economy",
   MANUFACTORY: "Economy", CLEARING_HOUSE: "Economy",
   UMBRITE_WORKS: "Economy", HIGH_YIELD_UMBRITE_WORKS: "Economy",
@@ -158,6 +164,8 @@ export const structureInfoForKey = (
   // this list is only for qualitative bullets that don't reduce to a
   // Modifier line (mechanic descriptions, "requires power", limits, etc).
   const effectsFor = (key: StructureInfoKey): string[] => {
+    const resource = networkResourceForBuilding(key);
+    if (resource) return [RESOURCE_NETWORKS[resource].effect, "One renewable slot supplies one eligible building. Each building uses at most one slot of each resource; spare slots remain available."];
     const converter = converterInfoEffects(key);
     if (converter) return converter;
     if (key === "FORT") return ["Prevents failed attacks from immediately flipping the fortified origin tile"];
@@ -173,11 +181,11 @@ export const structureInfoForKey = (
     if (key === "HYDROWORKS") return [];
     if (key === "UMBRITE_RIG") return [];
     if (key === "MINE") return [];
-    if (key === "MANUFACTORY") return ["Stacks additively across every active Manufactory in the town"];
+    if (key === "MANUFACTORY") return ["Developed precursor salvage improves output backing campaign credit", "Stacks additively across every active Manufactory in the town"];
     if (key === "INCUBATION_ENGINE") return [];
     if (key === "CENSUS_HALL") return [];
     if (key === "CLEARING_HOUSE") return [];
-    if (key === "TRADE_NEXUS") return ["Enables the connected-town income bonus for this road network"];
+    if (key === "TRADE_NEXUS") return ["Developed catalysts and luxury biota provide additional campaign credit", "Enables the connected-town income bonus for this road network"];
     if (key === "ORE_REFINERY") return [];
     if (key === "HARBOR_EXCHANGE") return [];
     if (key === "MINISTRY_HALL") return [];
@@ -186,7 +194,7 @@ export const structureInfoForKey = (
     if (key === "AMBARIC_TRANSFORMER") return ["Powers nearby Sky Docks, Resonance Grids, and monuments", "Can chain power through other Ambaric Transformers"];
     if (key === "RESONANCE_GRID") return ["Requires nearby Ambaric Transformer power"];
     if (key === "QUARTERMASTERS_OFFICE") return ["Retired; retained for previously saved structures"];
-    if (key === "ANCILLARY_FACTORY") return ["Boosted rate applies instead of the standalone rate when a Neural Works is in this town's connected network"];
+    if (key === "ANCILLARY_FACTORY") return ["Developed neural resin and conductive minerals add Ancillaries to each batch", "Boosted rate applies instead of the standalone rate when a Neural Works is in this town's connected network"];
     if (key === "RESERVE_LATTICE") return ["One per connected-town network"];
     if (MONUMENT_COMPONENT_KEYS.has(key)) return ["One of the monument's 3 required unique components", "Must be built in a Great City or Monumental City that has no other monument component"];
     if (key === "ASTRAL_DOCK") return ["Unique world monument", "Must wait for the current satellite to come down before relaunching", "Requires nearby Ambaric Transformer power"];
@@ -227,6 +235,7 @@ export const structureInfoButtonHtml = (
 ): string => `<button class="inline-info-link" type="button" data-structure-info="${type}">${label ?? structureInfoForKey(type, deps).title}</button>`;
 
 export const resourceColor = (resource: string | undefined): string | undefined => {
+  if (isNetworkResource(resource)) return RESOURCE_NETWORKS[resource].color;
   if (resource === "FARM") return "#e9f27b";
   if (resource === "FISH") return "#6ec9ff";
   if (resource === "UMBRITE") return "#4d2a86";
@@ -236,6 +245,7 @@ export const resourceColor = (resource: string | undefined): string | undefined 
 };
 
 export const resourceLabel = (resource: string | undefined): string => {
+  if (isNetworkResource(resource)) return RESOURCE_NETWORKS[resource].name;
   if (resource === "FARM") return "GRAIN";
   if (resource === "UMBRITE") return "UMBRITE";
   if (resource === "FISH") return "FISH";

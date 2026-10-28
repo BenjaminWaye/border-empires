@@ -227,7 +227,7 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
     name: state.playerNames.get(state.me) ?? "You",
     color: ownerColor(state.me),
     afcReady: readyAfcUpgradeCount(state),
-    diplomacyRequests: state.incomingAllianceRequests.length + state.incomingTruceRequests.length,
+    diplomacyRequests: state.incomingAllianceRequests.length + state.incomingTruceRequests.length + state.resourceTradeOffers.filter(row => row.toPlayerId === state.me).length,
     chronicleUnread: chronicleBadgeCount(state),
     active: screen.id ? NAV_ACTIVE[screen.id] : undefined
   }));

@@ -4,6 +4,11 @@ import type { StructureInfoKey } from "../client-map-display.js";
 // from structureModelBriefFor and the live game-domain modifier catalog.
 export type StructurePresentation = { readonly glyph: string; readonly placement: string };
 export const STRUCTURE_PRESENTATION: Readonly<Record<StructureInfoKey, StructurePresentation>> = {
+  RESIN_EXTRACTOR: { glyph: "⚙", placement: "Build on an owned, garrisoned neural resin site." },
+  IMPLANT_FOUNDRY: { glyph: "⚙", placement: "Build on an owned, garrisoned conductive minerals site." },
+  CATALYST_REFINERY: { glyph: "⚙", placement: "Build on an owned, garrisoned catalytic deposit site." },
+  CULTIVATION_ESTATE: { glyph: "⚙", placement: "Build on an owned, garrisoned luxury biota site." },
+  RECLAMATION_WORKS: { glyph: "⚙", placement: "Build on an owned, garrisoned precursor salvage site." },
   FORT: {
     glyph: "⛨",
     placement: "Build on a garrisoned border tile or dock you own."

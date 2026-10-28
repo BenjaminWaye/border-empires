@@ -1,3 +1,6 @@
+import { DiplomacySettlementPayloadSchema, type DiplomacySettlementPayload } from "@border-empires/sim-protocol";
+import { hasResourceSupplyOffer, type DiplomacyGoods, type ResourceSupplyAgreement } from "@border-empires/shared";
+import type { SupplyLedgerResult } from "./resource-supply-trades/resource-supply-ledger.js";
 import type { DomainPlayer } from "@border-empires/game-domain";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 
@@ -8,33 +11,24 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 
 export type RuntimeDiplomacySettlementContext = {
   players: Map<string, DomainPlayer>;
+  now?: () => number;
+  emitEconomyUpdate?: (command: CommandEnvelope, playerId: string) => void;
+  settleEconomy?: (at: number, playerIds: readonly string[]) => void;
+  resourceSupply?: {
+    readonly create: (agreement: ResourceSupplyAgreement) => SupplyLedgerResult;
+    readonly cancel?: (id:string, actorId:string) => SupplyLedgerResult;
+    readonly cancelRefunded: (id: string, proposerId: string, targetId: string) => void;
+  };
   emitEvent: (event: SimulationEvent) => void;
   emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: Record<string, unknown>) => void;
 };
 
-type Goods = { gold: number; shard: number };
-type SettlementPayload = { proposerId: string; targetId: string; proposerPays: Goods; targetPays: Goods };
-
-const MAX_AMOUNT = 1_000_000;
-
-const parseGoods = (value: unknown): Goods | undefined => {
-  if (!value || typeof value !== "object") return undefined;
-  const { gold, shard } = value as { gold?: unknown; shard?: unknown };
-  const valid = (amount: unknown): amount is number => typeof amount === "number" && Number.isInteger(amount) && amount >= 0 && amount <= MAX_AMOUNT;
-  return valid(gold) && valid(shard) ? { gold, shard } : undefined;
-};
-
-export const parseDiplomacySettlementPayload = (payloadJson: string): SettlementPayload | undefined => {
+type Goods = DiplomacyGoods;
+export const parseDiplomacySettlementPayload = (payloadJson: string): DiplomacySettlementPayload | undefined => {
   try {
-    const raw = JSON.parse(payloadJson) as Record<string, unknown>;
-    const proposerPays = parseGoods(raw.proposerPays);
-    const targetPays = parseGoods(raw.targetPays);
-    if (typeof raw.proposerId !== "string" || typeof raw.targetId !== "string" || !proposerPays || !targetPays) return undefined;
-    if (raw.proposerId === raw.targetId) return undefined;
-    return { proposerId: raw.proposerId, targetId: raw.targetId, proposerPays, targetPays };
-  } catch {
-    return undefined;
-  }
+    const parsed = DiplomacySettlementPayloadSchema.safeParse(JSON.parse(payloadJson));
+    return parsed.success ? parsed.data : undefined;
+  } catch { return undefined; }
 };
 
 const shardsOf = (player: DomainPlayer): number => player.strategicResources?.SHARD ?? 0;
@@ -63,13 +57,29 @@ export function handleDiplomacySettlementCommand(context: RuntimeDiplomacySettle
   const proposer = context.players.get(payload.proposerId);
   const target = context.players.get(payload.targetId);
   if (!proposer || !target) return reject("DIPLOMACY_SETTLEMENT_PLAYER", "a player in this deal no longer exists");
+  const at = context.now?.() ?? Date.now();
+  context.settleEconomy?.(at, [proposer.id, target.id]);
+  const supplies = hasResourceSupplyOffer(payload.proposerPays.resources) || hasResourceSupplyOffer(payload.targetPays.resources);
+  if (supplies && !context.resourceSupply) return reject("RESOURCE_TRADING_UNAVAILABLE", "Resource trading is unavailable in this world.");
+  // A failed gateway agreement must release its original supply promise, even
+  // if an already-spent currency payment requires separate recovery.
+  if (payload.refundOf && supplies) context.resourceSupply!.cancelRefunded(payload.refundOf, proposer.id, target.id);
   // Validate both sides before moving anything, so a deal never half-applies.
   const missing = missingFor(proposer, payload.proposerPays) ?? missingFor(target, payload.targetPays);
   if (missing) return reject("DIPLOMACY_SETTLEMENT_INSUFFICIENT", missing);
 
+  if (supplies && !payload.refundOf) {
+    const result = context.resourceSupply!.create({
+      id: command.commandId, proposerId: proposer.id, targetId: target.id,
+      proposerGives: payload.proposerPays.resources ?? {}, targetGives: payload.targetPays.resources ?? {},
+      startedAt: at
+    });
+    if (!result.ok) return reject("DIPLOMACY_SETTLEMENT_RESOURCE_SUPPLY", result.message);
+  }
   transfer(proposer, target, payload.proposerPays);
   transfer(target, proposer, payload.targetPays);
   for (const player of [proposer, target]) {
+    context.emitEconomyUpdate?.(command, player.id);
     context.emitPlayerMessage(
       { commandId: command.commandId, playerId: player.id },
       { type: "PLAYER_UPDATE", points: player.points, strategicResources: player.strategicResources }

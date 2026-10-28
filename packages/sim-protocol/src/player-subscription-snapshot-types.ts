@@ -15,7 +15,7 @@ export type PlayerSubscriptionDock = {
 
 export type PlayerSubscriptionSnapshot = {
   playerId: string;
-  player?: {
+  player?: Pick<import("@border-empires/shared").ResourceSupplyPlayerState, "resourceTradeHoldings" | "resourceTradeAgreements"> & {
     id: string;
     name?: string;
     gold: number;
@@ -37,6 +37,7 @@ export type PlayerSubscriptionSnapshot = {
       demand: Record<SlotResource, number>;
       // Where the supply comes from, one labelled row per source (adds up to supply).
       sources?: ResourceSlotSources;
+      bonusSupply?: import("@border-empires/shared").NetworkSupplyStatus;
     };
     // §14.2: per-structure dormancy detail — which tile+field keys
     // ("x,y:fort"/"observatory"/"siegeBattery"/"economicStructure") are

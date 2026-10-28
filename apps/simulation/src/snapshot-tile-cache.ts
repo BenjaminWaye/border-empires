@@ -19,7 +19,7 @@ export type RuntimeState = {
     townName?: string;
     townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
   } & TileOverlayJsonFields>;
-  players: Array<{
+  players: Array<import("@border-empires/shared").ResourceSupplyPlayerState & {
     id: string;
     name?: string;
     points: number;
@@ -84,7 +84,7 @@ export type UpkeepLastTick = {
 export type LivePlayerEconomySnapshot = {
   incomePerMinute: number;
   strategicProductionPerMinute: Record<StrategicResourceKey, number>;
-  resourceSlots: { supply: Record<SlotResource, number>; demand: Record<SlotResource, number>; sources?: ResourceSlotSources };
+  resourceSlots: { supply: Record<SlotResource, number>; demand: Record<SlotResource, number>; sources?: ResourceSlotSources; bonusSupply?: import("@border-empires/shared").NetworkSupplyStatus };
   dormantStructures: DormantStructureDetail[];
   upkeepPerMinute: UpkeepPerMinute;
   upkeepLastTick: UpkeepLastTick;
