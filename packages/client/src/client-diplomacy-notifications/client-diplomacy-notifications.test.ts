@@ -37,7 +37,7 @@ describe("alliance announcements", () => {
 
 const truceState = (activeTruces: Array<{ otherPlayerId: string; otherPlayerName: string; startedAt: number; endsAt: number; createdByPlayerId: string }> = []) => ({
   activeTruces,
-  truceBreaksThisSeason: [],
+  truceBreaksThisSeason: [] as Array<{ targetPlayerId: string; targetPlayerName: string; brokenAt: number }>,
   incomingTruceRequests: [],
   outgoingTruceRequests: []
 });
@@ -68,9 +68,27 @@ describe("truce announcements", () => {
     applyTruceUpdateMessage(truceState(), { announcement: "Valka broke the truce with Milo." }, victim);
     expect(victim.showCaptureAlert).toHaveBeenCalledWith("Truce broken", "Valka broke the truce with Milo.", "warn");
 
+    // The breaker's own update carries their new break record.
     const breaker = { pushFeed: vi.fn(), showCaptureAlert: vi.fn() };
-    applyTruceUpdateMessage(truceState(), { announcement: "Valka broke the truce with Milo early and is locked out of new truces for 24h." }, breaker);
-    expect(breaker.pushFeed).toHaveBeenCalledWith("Valka broke the truce with Milo early and is locked out of new truces for 24h.", "alliance", "warn");
+    const announcement = "Valka broke the truce with Milo early and is locked out of new truces for 24h.";
+    applyTruceUpdateMessage(truceState(), { announcement, truceBreaksThisSeason: [{ targetPlayerId: "p2", targetPlayerName: "Milo", brokenAt: 5_000 }] }, breaker);
+    expect(breaker.pushFeed).toHaveBeenCalledWith(announcement, "alliance", "warn");
+    expect(breaker.showCaptureAlert).not.toHaveBeenCalled();
+  });
+
+  // Regression: the victim check read the announcement text, which carries
+  // player-chosen names, so an empire called "Locked Out" silenced the alert.
+  it("still alerts the victim when the breaker's name looks like the breaker's own copy", () => {
+    const victim = { pushFeed: vi.fn(), showCaptureAlert: vi.fn() };
+    applyTruceUpdateMessage(truceState(), { announcement: "Locked Out broke the truce with Milo." }, victim);
+    expect(victim.showCaptureAlert).toHaveBeenCalledWith("Truce broken", "Locked Out broke the truce with Milo.", "warn");
+  });
+
+  it("knows the breaker even when their capped break list keeps its length", () => {
+    const old = Array.from({ length: 20 }, (_, index) => ({ targetPlayerId: `p${index}`, targetPlayerName: "X", brokenAt: index }));
+    const state = { ...truceState(), truceBreaksThisSeason: old };
+    const breaker = { pushFeed: vi.fn(), showCaptureAlert: vi.fn() };
+    applyTruceUpdateMessage(state, { announcement: "Valka broke the truce with Milo early and is locked out of new truces for 24h.", truceBreaksThisSeason: [...old.slice(1), { targetPlayerId: "p2", targetPlayerName: "Milo", brokenAt: 99 }] }, breaker);
     expect(breaker.showCaptureAlert).not.toHaveBeenCalled();
   });
 

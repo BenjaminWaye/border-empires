@@ -103,8 +103,8 @@ export type SeededAiDiplomacyResponder = {
 type OfferKind = "truce" | "alliance";
 
 // "Milo declined your truce offer. Milo fears your strength." The client
-// titles a truce popup "Truce declined" off the word "declined", so decline
-// wording must keep it and accept wording must not use it.
+// picks the Activity feed tone (warn for a decline) off the word "declined",
+// so decline wording must keep it and accept wording must not use it.
 export const aiDiplomacyAnnouncements = (
   kind: OfferKind,
   accepted: boolean,

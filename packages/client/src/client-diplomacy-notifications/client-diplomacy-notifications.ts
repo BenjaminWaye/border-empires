@@ -104,6 +104,7 @@ export const applyTruceUpdateMessage = (
 ): void => {
   applyAfcStateMessage(state, msg);
   const previousTruces = state.activeTruces;
+  const previousLatestBreakAt = latestBreakAt(state.truceBreaksThisSeason);
   state.activeTruces = (msg.activeTruces as any[]) ?? state.activeTruces;
   state.truceBreaksThisSeason = (msg.truceBreaksThisSeason as any[]) ?? state.truceBreaksThisSeason;
   state.incomingTruceRequests = (msg.incomingTruceRequests as any[]) ?? state.incomingTruceRequests;
@@ -120,9 +121,17 @@ export const applyTruceUpdateMessage = (
   const broken = normalizedAnnouncement.includes("broke the truce");
   const tone = declined || broken ? "warn" : "success";
   deps.pushFeed(announcement, "alliance", tone);
-  // The breaker's own copy says "...is locked out of new truces"; only the victim's needs to interrupt.
-  if (broken && !normalizedAnnouncement.includes("locked out")) deps.showCaptureAlert("Truce broken", announcement, "warn");
+  // Only the victim's copy interrupts. The breaker's own update adds to their
+  // truceBreaksThisSeason; the text alone can't tell them apart, since it
+  // carries player-chosen names (an empire called "Locked Out", say).
+  // (Compared by the newest break, not the count: the server caps that list.)
+  const iBrokeIt = latestBreakAt(state.truceBreaksThisSeason) > previousLatestBreakAt;
+  if (broken && !iBrokeIt) deps.showCaptureAlert("Truce broken", announcement, "warn");
 };
+
+// Tolerates a state or message without the list (an older gateway, a partial test state).
+const latestBreakAt = (breaks: ReadonlyArray<{ brokenAt?: number }> | undefined): number =>
+  (breaks ?? []).reduce((latest, record) => Math.max(latest, typeof record.brokenAt === "number" ? record.brokenAt : -Infinity), -Infinity);
 
 /** Truces in `before` that are gone from `after`. */
 export const endedTruces = (before: readonly ActiveTruceView[], after: readonly ActiveTruceView[]): ActiveTruceView[] => {

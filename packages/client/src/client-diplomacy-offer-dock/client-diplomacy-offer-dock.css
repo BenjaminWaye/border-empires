@@ -126,3 +126,33 @@
     width: auto;
   }
 }
+
+.offer-dock-row {
+  position: relative;
+}
+
+.offer-dock-hide {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  padding: 2px 5px;
+  border: none;
+  background: none;
+  color: #cdbd9c;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.offer-dock-hide:hover,
+.offer-dock-hide:focus-visible {
+  color: #f4ead6;
+}
+
+.offer-dock-confirming {
+  background: linear-gradient(180deg, #ffd27a, #e8b84c);
+  box-shadow: 0 0 0 2px rgba(255, 210, 122, 0.45);
+}
+
+.offer-dock-text {
+  padding-right: 16px;
+}
