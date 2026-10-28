@@ -91,7 +91,7 @@ describe("every resource tile explains its role", () => {
         expect(lines).not.toContain("Renewable · tradeable");
         expect(lines).not.toContain("Develop with");
         expect(lines).not.toContain("Powered site required");
-        expect(lines.match(/class="tile-stat"/g)).toHaveLength(2);
+        expect(lines.match(/class="tile-stat"/g)).toHaveLength(1);
         expect(lines).not.toMatch(/Claim and garrison this tile to start producing/);
       } else expect(lines).toContain("Base supply");
     }
@@ -123,27 +123,19 @@ it("reports diverted resource supply and explains the Siphon on frontier sites",
   expect(menuOverviewForTile(tile,deps).map(row=>row.html).join(" ")).toContain("Siphoned");
 });
 
-it("names the relevant Manifest and production interval without interpreting catalog text as markup",()=>{
-  const lines=resourceTileStatsHtml({x:1,y:1,terrain:"LAND",resource:"CONDUCTIVE_MINERALS"},[{id:"organized-supply",name:"Reserve Custody Cadre <test>"}]);
-  expect(lines).toContain("Reserve Custody Cadre &lt;test&gt;");
-  expect(lines).toContain("+6 Ancillaries/4h for ");
-  expect(lines).toContain("each of 2 factories without conductive supply");
+it("shows the conductive amount and two-factory limit", () => {
+  const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "CONDUCTIVE_MINERALS" });
+  expect(html).toContain("+6 Ancillaries/4h for ");
+  expect(html).toContain("each of 2 factories without conductive supply");
 });
 
-it.each(NETWORK_RESOURCES)("%s names and links its required research", resource => {
-  const spec = RESOURCE_NETWORKS[resource];
-  const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource }, [{ id: spec.tech, name: "Required tech <test>" }]);
-  expect(html).toContain("Research required");
-  expect(html).toContain(`data-view-tech="${spec.tech}"`);
-  expect(html).toContain("Required tech &lt;test&gt;");
-  expect(html).toContain("View in tech tree");
-});
-
-it("marks an owned technology as researched while preserving its tree link", () => {
-  const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "LUXURY_BIOTA" }, [{ id: "frontier-concessions", name: "Frontier Export Charter" }], ["frontier-concessions"]);
-  expect(html).toContain("Researched");
+it.each(NETWORK_RESOURCES)("%s links the required structure without repeating its research requirement", resource => {
+  const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource });
+  expect(html).toContain(`data-structure-info="${RESOURCE_NETWORKS[resource].building}"`);
   expect(html).not.toContain("Research required");
-  expect(html).toContain('data-view-tech="frontier-concessions"');
+  expect(html).not.toContain("Researched");
+  expect(html).not.toContain("data-view-tech");
+  expect(html).not.toContain("View in tech tree");
 });
 
 it.each(NETWORK_RESOURCES)("%s makes improvement a condition even after a frontier claim", resource => {

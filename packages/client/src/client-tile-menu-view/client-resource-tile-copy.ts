@@ -1,5 +1,5 @@
 import { MANPOWER_REFILL_WINDOW_MS, BASE_SLOTS_BY_TILE_RESOURCE, RESOURCE_NETWORKS, isNetworkResource, isSiphonModeSabotage, type ResourceType } from "@border-empires/shared";
-import type { TechInfo, Tile, TileOverviewLine } from "../client-types.js";
+import type { Tile, TileOverviewLine } from "../client-types.js";
 
 type BaseResource = Exclude<ResourceType, keyof typeof RESOURCE_NETWORKS>;
 const isBaseResource = (value: string): value is BaseResource =>
@@ -31,7 +31,7 @@ export function resourceTileDescriptionLines(tile: Tile): readonly string[] {
 }
 
 /** Public potential, never a claim that an undeveloped or foreign site is producing. */
-export function resourceTileStatsHtml(tile: Tile, techCatalog: readonly Pick<TechInfo, "id" | "name">[] = [], techIds: readonly string[] = []): string {
+export function resourceTileStatsHtml(tile: Tile): string {
   const resource = tile.resource;
   if (!resource) return "";
   const siphoned = isSiphonModeSabotage(tile.sabotage) && tile.sabotage.ownerId !== tile.ownerId;
@@ -51,17 +51,11 @@ export function resourceTileStatsHtml(tile: Tile, techCatalog: readonly Pick<Tec
     : `${target} without ${supply} supply`;
   const installation = `<button type="button" class="inline-info-link" data-structure-info="${escapeHtml(spec.building)}" aria-label="About ${escapeHtml(spec.buildingName)}">${escapeHtml(spec.buildingName)}</button>`;
   const bonusCard = `<div class="tile-stat"><span class="tile-stat-label">After development</span><span class="tile-stat-value"><strong>${escapeHtml(bonus)} for </strong><span class="resource-bonus-recipient">${escapeHtml(recipient)}</span></span><span class="tile-stat-sub">${siphoned ? "Siphoned · " : ""}Requires ${installation}</span></div>`;
-  const unlock = techCatalog.find(tech => tech.id === spec.tech)?.name ?? "View required technology";
-  const researched = techIds.includes(spec.tech);
-  const researchCard = `<div class="tile-stat"><span class="tile-stat-label">${researched ? "Researched" : "Research required"}</span><span class="tile-stat-value"><button type="button" class="inline-info-link resource-tech-link" data-view-tech="${escapeHtml(spec.tech)}" aria-label="Open ${escapeHtml(unlock)} in tech tree">${escapeHtml(unlock)}</button></span><span class="tile-stat-sub">View in tech tree →</span></div>`;
-  return `<div class="tile-stat-grid resource-stat-grid">${[
-    bonusCard,
-    researchCard
-  ].join("")}</div>`;
+  return `<div class="tile-stat-grid resource-stat-grid">${bonusCard}</div>`;
 }
 
-export function resourceTileOverviewLines(tile: Tile, techCatalog: readonly Pick<TechInfo, "id" | "name">[] = [], techIds: readonly string[] = []): TileOverviewLine[] {
+export function resourceTileOverviewLines(tile: Tile): TileOverviewLine[] {
   const descriptions = resourceTileDescriptionLines(tile);
   if (!descriptions.length) return [];
-  return [...descriptions.map(html => ({ html })), { kind: "statgrid", html: resourceTileStatsHtml(tile, techCatalog, techIds) }];
+  return [...descriptions.map(html => ({ html })), { kind: "statgrid", html: resourceTileStatsHtml(tile) }];
 }

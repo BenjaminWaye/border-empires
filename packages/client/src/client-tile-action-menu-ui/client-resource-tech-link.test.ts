@@ -6,6 +6,9 @@ import { resourceTileOverviewLines } from "../client-tile-menu-view/client-resou
 import { clearScreen, screen, type HudV2Deps } from "../client-hud-v2/client-hud-v2-context.js";
 import { initHudV2Flag } from "../client-hud-v2/client-hud-v2-flag.js";
 import { openRequestedTechDetail } from "../client-hud-v2/client-hud-v2-screens.js";
+import { structureInfoForKey } from "../client-map-display.js";
+import { renderStructureInfoOverlay } from "../client-structure-info-overlay/client-structure-info-overlay.js";
+import { bindStructureInfoActions } from "../client-structure-info-overlay/client-structure-info-actions.js";
 import { renderTileActionMenu } from "./client-tile-action-menu-ui.js";
 
 const tech: TechInfo = {
@@ -27,7 +30,7 @@ const fixture = (mobile: boolean) => {
   state.tileActionMenu.activeTab = "overview";
   const view: TileMenuView = {
     title: "Luxury biota", subtitle: "Unclaimed", tabs: ["overview"], actions: [], buildings: [], crystal: [],
-    overviewLines: resourceTileOverviewLines(tile, state.techCatalog, state.techIds)
+    overviewLines: resourceTileOverviewLines(tile)
   };
   document.body.innerHTML = '<div id="tile-action-menu"></div><div id="hud-v2-screen"></div><section id="hud-v2-tile" hidden></section><aside id="hud-v2-build" hidden></aside>';
   const menu = document.getElementById("tile-action-menu") as HTMLDivElement;
@@ -43,38 +46,55 @@ const fixture = (mobile: boolean) => {
   return { state, view, menu, deps };
 };
 
-describe("resource technology navigation", () => {
+const openStructurePopup = (f: ReturnType<typeof fixture>): HTMLDivElement => {
+  const popup = document.createElement("div");
+  const info = (type: Parameters<typeof structureInfoForKey>[0]) => structureInfoForKey(type, { formatCooldownShort: () => "1m", prettyToken: value => value });
+  popup.innerHTML = renderStructureInfoOverlay(f.state.structureInfoKey, info, undefined, f.state.techCatalog);
+  document.body.append(popup);
+  bindStructureInfoActions(popup, { state: f.state, renderHud: f.deps.renderHud, isMobile: f.deps.isMobile });
+  return popup;
+};
+
+describe("resource to structure to technology navigation", () => {
   afterEach(() => {
     clearScreen();
     screen.manifestSelectedId = "";
     screen.manifestClosedLanes.clear();
+    initHudV2Flag("?hud=legacy");
     document.body.innerHTML = "";
   });
 
-  it.each([false, true])("opens the actual required technology from the tile overview, mobile=%s", mobile => {
+  it.each([false, true])("opens required research through the linked installation, mobile=%s", mobile => {
     initHudV2Flag("?hud=legacy");
     const f = fixture(mobile);
     renderTileActionMenu(f.state, f.view, 30, 30, f.deps);
-    const link = f.menu.querySelector<HTMLButtonElement>('[data-view-tech="frontier-concessions"]');
-    expect(link?.textContent).toBe("Frontier Export Charter");
+    expect(f.menu.querySelector("[data-view-tech]")).toBeNull();
     const installation = f.menu.querySelector<HTMLButtonElement>('[data-structure-info="CULTIVATION_ESTATE"]');
     expect(installation).not.toBeNull();
     installation!.click();
     expect(f.state.structureInfoKey).toBe("CULTIVATION_ESTATE");
-    f.state.structureInfoKey = "";
-    link!.click();
+    const popup = openStructurePopup(f);
+    const techLink = popup.querySelector<HTMLButtonElement>('[data-view-tech="frontier-concessions"]');
+    expect(techLink?.textContent).toBe("Frontier Export Charter");
+    techLink!.click();
+    expect(f.state.structureInfoKey).toBe("");
     expect(f.state.activePanel).toBe("tech");
     expect(f.state.techUiSelectedId).toBe(tech.id);
     expect(f.state.techDetailOpen).toBe(true);
     if (mobile) expect(f.state.mobilePanel).toBe("tech");
-    expect(f.deps.hideTileActionMenu).toHaveBeenCalledOnce();
+    expect(f.deps.handleTileAction).not.toHaveBeenCalled();
   });
 
-  it("routes the same click to the redesigned tree, unfolds the lane and selects a researchable detail", () => {
-    initHudV2Flag("?hud=legacy");
+  it("follows the dock's structure link through its unlock into the redesigned tree", () => {
+    initHudV2Flag("?hud=v2");
     const f = fixture(false);
     renderTileActionMenu(f.state, f.view, 30, 30, f.deps);
-    f.menu.querySelector<HTMLButtonElement>('[data-view-tech="frontier-concessions"]')!.click();
+    document.querySelector<HTMLButtonElement>('[data-hud-v2-panel="details"]')!.click();
+    expect(document.querySelector("#hud-v2-tile [data-view-tech]")).toBeNull();
+    document.querySelector<HTMLButtonElement>('#hud-v2-tile [data-structure-info="CULTIVATION_ESTATE"]')!.click();
+    expect(f.state.structureInfoKey).toBe("CULTIVATION_ESTATE");
+    openStructurePopup(f).querySelector<HTMLButtonElement>('[data-view-tech="frontier-concessions"]')!.click();
+    expect(f.state.structureInfoKey).toBe("");
     screen.manifestClosedLanes.add("economy");
     const hud: HudV2Deps = {
       state: f.state, renderHud: f.deps.renderHud, requestViewRefresh: vi.fn(), wrapX: x => x, wrapY: y => y,
@@ -90,27 +110,8 @@ describe("resource technology navigation", () => {
     expect(screen.manifestSelectedId).toBe(tech.id);
     expect(screen.manifestClosedLanes.has("economy")).toBe(false);
     expect(f.state.activePanel).toBeNull();
-    expect(f.state.techDetailOpen).toBe(false);
     expect(document.querySelector('[data-v2-manifest-select="frontier-concessions"]')?.getAttribute("aria-pressed")).toBe("true");
     expect(document.querySelector('[data-v2-manifest-commission="frontier-concessions"]')).not.toBeNull();
+    expect(hud.actionFlow.chooseTech).not.toHaveBeenCalled();
   });
-  it("keeps the link clickable in the redesigned dock's Details panel", () => {
-    initHudV2Flag("?hud=v2");
-    const f = fixture(false);
-    renderTileActionMenu(f.state, f.view, 30, 30, f.deps);
-    document.querySelector<HTMLButtonElement>('[data-hud-v2-panel="details"]')!.click();
-    const link = document.querySelector<HTMLButtonElement>('#hud-v2-tile [data-view-tech="frontier-concessions"]');
-    expect(link).not.toBeNull();
-    const installation = document.querySelector<HTMLButtonElement>('#hud-v2-tile [data-structure-info="CULTIVATION_ESTATE"]');
-    expect(installation).not.toBeNull();
-    installation!.click();
-    expect(f.state.structureInfoKey).toBe("CULTIVATION_ESTATE");
-    f.state.structureInfoKey = "";
-    link!.click();
-    expect(f.state.activePanel).toBe("tech");
-    expect(f.state.techUiSelectedId).toBe(tech.id);
-    expect(f.state.techDetailOpen).toBe(true);
-    expect(f.deps.hideTileActionMenu).toHaveBeenCalledOnce();
-  });
-
 });

@@ -158,20 +158,20 @@ recipient, separate-target and imported-resin regressions cover this rule.
 
 ### Resource readability and town support space
 
-Tile panels show the resource bonus and required research; construction cost and
-upkeep remain in the build controls. All five frontier resources have SVG icons
+Tile panels show the conditional bonus and required installation; unlocking
+research is linked from the installation popup. Construction cost and upkeep
+remain in the build controls. All five frontier resources have SVG icons
 in the shared map badges used by both 2D canvas and true-3D. Plain-text Coin
 glyph replacement remains separate because resin uses the same fallback glyph.
 New map placement reserves every town's eight support neighbours (wrapped at
 world edges), and catalysts reject coastal sand. Existing saves are not moved.
 
-Resource research cards use the existing `data-view-tech` tile-menu navigation
-button. Pass owned tech IDs so the label distinguishes Research required from
-Researched. The desktop HUD v2 frame consumes requested legacy tech details,
-opens its Manifest screen on that ID, unfolds the branch and scrolls to the
-selected node. Mobile and classic HUD keep their existing research detail flow.
-Local previews use `?hud=v2`; the redesigned HUD is opt-in on current develop.
-Lore reviewed; no canon change for research navigation.
+Resource cards link to their required installation without a duplicate research
+box. The installation popup uses `data-view-tech` for its Unlocked by link.
+HUD v2 consumes requested tech details and opens its Manifest tree on that ID,
+unfolding the branch and scrolling to the selected node. Mobile and classic
+HUD keep their existing research detail flow. Local previews use `?hud=v2`;
+the redesigned HUD is opt-in on current develop. Lore reviewed; no canon change.
 
 Deposit cards label their potential output After development and explicitly
 name the required installation plus beneficiary. A frontier claim or even a

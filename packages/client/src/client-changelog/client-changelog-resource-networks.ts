@@ -97,7 +97,7 @@ export const RESOURCE_NETWORKS_CHANGELOG: ClientChangelogEntry[] = [{
     introducedIn: "2026.10.28.1",
     title: "Structure details link to their unlocking research",
     why: "Building details did not say which technology unlocked construction.",
-    changes: ["Structure popups show Unlocked by with technology links to the selected Manifest. Resource requirements also link to their installation details in both HUDs and mobile."]
+    changes: ["Structure popups show Unlocked by with technology links to the selected Manifest. Resource cards link to their required installation; its popup links to unlocking research, without repeating a separate research box on the deposit. This works in both HUDs and mobile."]
   }
 
 ];
