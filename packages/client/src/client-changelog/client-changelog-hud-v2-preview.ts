@@ -89,5 +89,14 @@ export const HUD_V2_PREVIEW_CHANGELOG: ClientChangelogEntry[] = [
     changes: [
       "Pressing Battle at in the tracker always reopens the battle view, even when the target tile is out of view."
     ]
+  },
+  {
+    createdAt: 1793222680819, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.28.3",
+    title: "HUD preview: Aether opens at the side",
+    why: "Aether opened a small list over the tile panel while Build opened at the side.",
+    changes: [
+      "Aether ▸ in the tile panel opens a list at the side, like Build ▸: each ability with its icon and cost, or why it can't be used yet."
+    ]
   }
 ];

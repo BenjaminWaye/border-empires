@@ -1,14 +1,16 @@
 // Bridges the legacy floating tile menu into the new HUD. With the flag on,
 // every render of the floating menu also renders the bottom action bar and
-// hides the floating menu itself. Build / Aether / ⋯ "expand" it: the full
-// legacy menu then shows docked on the right on the matching tab, so nothing
-// the old menu could do is lost. Screens (town, battle) hook in through a
-// listener; neutral land next to yours expands on the click, with no bar.
+// hides the floating menu itself. Build ▸ and Aether ▸ open a right-hand
+// sidebar on the map; a legacy-only tab link "expands" the full legacy menu
+// docked on the right, so nothing the old menu could do is lost. Screens
+// (town, battle) hook in through a listener; neutral land next to yours
+// expands on the click, with no bar.
 
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuTab, TileMenuView } from "../client-types.js";
 import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
 import { actionBarHtml, barBuildings, selectBarButtons, type BarPanel } from "./client-hud-v2-action-bar.js";
+import { aetherListHtml } from "./client-hud-v2-aether-list.js";
 import { buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
 import { tileFactsFor, wonderName } from "./client-hud-v2-tile-facts.js";
 import { isHudV2Active } from "./client-hud-v2-flag.js";
@@ -36,7 +38,7 @@ type DockState = {
   lastHtml: string;
   lastView: TileMenuView | undefined;
   lastKey: string;
-  /** Open list or sidebar for the current tile (⋯, Aether, Build); reset on a new tile. */
+  /** Open sidebar (Build, Aether) or Details list for the current tile; reset on a new tile. */
   panel: BarPanel | undefined;
   buildSelection: string | undefined;
   buildCategory: BuildingCategory | undefined;
@@ -67,14 +69,14 @@ export const suppressAutoExpand = (ms = 1_500): void => {
 
 const barEl = (): HTMLElement | null => document.getElementById(BAR_ID);
 
-const hideBuildSidebar = (): void => {
+const hideSidebar = (): void => {
   const side = document.getElementById(BUILD_ID);
   if (side) side.hidden = true;
   document.body.classList.remove(BUILDING_BODY_CLASS);
 };
 
 const hideBar = (): void => {
-  hideBuildSidebar();
+  hideSidebar();
   const bar = barEl();
   if (!bar) return;
   bar.hidden = true;
@@ -84,7 +86,7 @@ const hideBar = (): void => {
   }
 };
 
-/** Writes the bar (and the build sidebar while Build is open) for the current view. */
+/** Writes the bar (and the sidebar while Build or Aether is open) for the current view. */
 const paintBar = (): void => {
   const bar = barEl();
   if (!dock || !bar || !dock.lastView) return;
@@ -106,12 +108,19 @@ const paintBar = (): void => {
   bar.hidden = false;
   const side = document.getElementById(BUILD_ID);
   if (!side) return;
-  if (dock.panel !== "build") {
-    hideBuildSidebar();
+  if (dock.panel !== "build" && dock.panel !== "aether") {
+    hideSidebar();
     return;
   }
   const key = dock.state.tileActionMenu.currentTileKey;
   const [x, y] = key.split(",");
+  side.setAttribute("aria-label", dock.panel === "aether" ? "Aether" : "Build");
+  if (dock.panel === "aether") {
+    side.innerHTML = aetherListHtml({ abilities: view.crystal, focusLabel: `(${x}, ${y})` });
+    side.hidden = false;
+    document.body.classList.add(BUILDING_BODY_CLASS);
+    return;
+  }
   const primary = selectBarButtons(view).find((b) => b.kind === "action" && b.primary);
   const buildings = barBuildings(view, primary?.kind === "action" ? primary.action : undefined);
   const place = { buildings, selection: dock.buildSelection, targetKey: key, placeLabel: "Place" };
@@ -222,8 +231,8 @@ export const dockTileActionMenuForHudV2 = (state: ClientState, view: TileMenuVie
   const bar = barEl();
   if (!bar) return;
   if (!dock) {
-    // The map closes the tile menu on any mousedown outside it (client-map-input.ts); the bar and the build
-    // sidebar are part of that menu.
+    // The map closes the tile menu on any mousedown outside it (client-map-input.ts); the bar and the
+    // Build / Aether sidebar are part of that menu.
     for (const el of [bar, document.getElementById(BUILD_ID)]) {
       el?.addEventListener("click", onBarClick);
       el?.addEventListener("mousedown", (event) => event.stopPropagation());
