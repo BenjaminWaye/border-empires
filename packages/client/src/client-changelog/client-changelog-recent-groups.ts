@@ -42,6 +42,7 @@ import { CLIENT_CHANGELOG_ENTRIES_CUT_OFF_BUILDINGS_SURVIVE } from "./client-cha
 import { RIVAL_REACH_OVER_MY_TILES_CHANGELOG } from "./client-changelog-rival-reach-over-my-tiles.js";
 import { PROSPECT_CLUE_SWIRL_CHANGELOG } from "./client-changelog-prospect-clue-swirl.js";
 import { SURVEY_POPUP_AFTER_WHATS_NEW_CHANGELOG } from "./client-changelog-survey-popup-after-whats-new.js";
+import { TIMEOUT_REPORT_BUG_CHANGELOG } from "./client-changelog-timeout-report-bug.js";
 
 // Small per-feature entry files, gathered so client-changelog-data.ts stays under the 500-line cap.
 export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
@@ -87,5 +88,6 @@ export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
   ...PROSPECT_CLUE_SWIRL_CHANGELOG,
   ...SURVEY_POPUP_AFTER_WHATS_NEW_CHANGELOG,
   ...INFRASTRUCTURE_CHANGELOG,
-  ...HUD_V2_PREVIEW_CHANGELOG
+  ...HUD_V2_PREVIEW_CHANGELOG,
+  ...TIMEOUT_REPORT_BUG_CHANGELOG
 ];
