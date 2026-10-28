@@ -37,6 +37,7 @@ import {
 import { createSnapshotBuilder } from "../snapshot-builder/snapshot-builder.js";
 import { createAiCommandProducer } from "../ai/ai-command-producer.js";
 import { createWorkerAiCommandProducer } from "../ai/ai-command-producer-worker.js";
+import { createAiProducerRuntime, createVictoryStandingsLookup } from "../ai/ai-victory-standings.js";
 import { recoverCommandHistory } from "../command-recovery/command-recovery.js";
 import { createSystemCommandProducer } from "../ai/system-command-producer.js";
 import { createWorkerSystemCommandProducer } from "../ai/system-command-producer-worker.js";
@@ -1406,22 +1407,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       }
       aiCommandProducer = useAiWorker
         ? createWorkerAiCommandProducer({
-            runtime: {
-              queueDepths: () => runtime.queueDepths(),
-              onEvent: (handler) => runtime.onEvent(handler),
-              exportPlannerWorldView: (playerIds) =>
-                trackSyncMainThreadTaskWithMetrics("ai_export_planner_world_view", { playerCount: playerIds.length }, () =>
-                  runtime.exportPlannerWorldView(playerIds)
-                ),
-              exportPlannerPlayerViews: (playerIds) =>
-                trackSyncMainThreadTaskWithMetrics("ai_export_planner_player_views", { playerCount: playerIds.length }, () =>
-                  runtime.exportPlannerPlayerViews(playerIds)
-                ),
-              exportTilesForKeys: (keys) =>
-                trackSyncMainThreadTaskWithMetrics("ai_export_tiles_for_keys", undefined, () =>
-                  runtime.exportTilesForKeys(keys)
-                )
-            },
+            runtime: createAiProducerRuntime(runtime, trackSyncMainThreadTaskWithMetrics, createVictoryStandingsLookup(() => ({
+              objectives: currentSummary?.seasonVictory ?? [],
+              selfProgress: currentSummaryPlayerSelfProgress.values
+            }))),
             trackSync: (phase, details, task) => trackSyncMainThreadTaskWithMetrics(phase, details, task),
             aiPlayerIds,
             submitCommand: submitDurableCommand,

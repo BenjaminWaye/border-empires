@@ -4,6 +4,7 @@ import type { AiTacticalView } from "./ai-tactical-view.js";
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 import type { EconomicStructureType, SlotResource, Terrain } from "@border-empires/shared";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
+import type { WorldVictoryProgress } from "./victory-path-scoring.js";
 
 /**
  * Serializable world-view snapshot passed to AI and system worker threads via
@@ -128,6 +129,8 @@ export type PlannerPlayerView = {
   musterTileKeys?: string[];
   /** Allies and truce partners: their tiles are not attack or muster targets. */
   nonHostilePlayerIds?: string[];
+  /** Real 0..1 season-victory progress per path (ai-victory-standings.ts). */
+  victoryProgress?: WorldVictoryProgress;
   /**
    * Manpower currently staged inside this player's muster flags (out of the
    * pool). The AI war reserve counts it as already reserved — see
