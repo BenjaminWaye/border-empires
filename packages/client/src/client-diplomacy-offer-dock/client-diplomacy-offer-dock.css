@@ -156,3 +156,8 @@
 .offer-dock-text {
   padding-right: 16px;
 }
+
+.offer-dock-icon-img {
+  width: 20px;
+  height: 20px;
+}

@@ -48,6 +48,9 @@ describe("diplomacy offer dock", () => {
       () => undefined
     );
     expect(Object.fromEntries(entries.map((entry) => [entry.id, entry.costsYou]))).toEqual({ pay: true, paid: false });
+    // A resource supply ask commits your slots until cancelled, so it costs you too.
+    const [supply] = offerDockEntries(state([truce("supply", { terms: { give: { gold: 0, shard: 0 }, ask: { gold: 0, shard: 0, resources: { CRYSTAL: 2 } } } })]), new Map(), new Set(), 0, () => undefined);
+    expect(supply?.costsYou).toBe(true);
   });
 
   it("forgets offers that are gone, so its first-seen map stays bounded", () => {

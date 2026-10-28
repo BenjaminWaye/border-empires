@@ -44,7 +44,8 @@ describe("installed offer dock", () => {
     const { sendGameMessage, button } = mount([truce("t1", { gold: 60, shard: 0 })]);
     button("accept", "t1").click();
     expect(sendGameMessage).not.toHaveBeenCalled();
-    expect(button("accept", "t1").textContent).toContain("you pay 60 coin");
+    expect(button("accept", "t1").textContent).toBe("Confirm");
+    expect(button("accept", "t1").title).toContain("you pay 60 coin");
 
     vi.advanceTimersByTime(OFFER_DOCK_CONFIRM_MS + 1_000);
     expect(button("accept", "t1").textContent).toBe("Accept");

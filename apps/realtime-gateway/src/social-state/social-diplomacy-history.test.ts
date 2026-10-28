@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createDiplomacyHistory, DIPLOMACY_HISTORY_PER_PLAYER_CAP, DIPLOMACY_HISTORY_TTL_MS, diplomacyHistoryDiagnostics } from "./social-diplomacy-history.js";
 import { createSocialState } from "./social-state.js";
@@ -113,6 +113,29 @@ describe("social state diplomacy cards", () => {
     const endsAt = social.snapshotForPlayer(me.id).activeTruces[0]!.endsAt;
     clock.now = endsAt + 1;
     expect(social.diplomacyActivityCards(me.id, 0, clock.now)).toEqual([expect.objectContaining({ event: "TRUCE_ENDED", occurredAt: endsAt })]);
+  });
+
+  // Regression: the season reset cleared only the store, so last season's rows stayed in the new season's Chronicle.
+  it("forgets last season's rows when the season resets", () => {
+    const { social, clock } = setup();
+    expect(social.requestAlliance(me.id, "Tove").ok).toBe(true);
+    expect(social.acceptAlliance(tove.id, social.snapshotForPlayer(tove.id).incomingAllianceRequests[0]!.id).ok).toBe(true);
+    social.resetAfcCampaign();
+    expect(social.diplomacyActivityCards(me.id, 0, clock.now)).toEqual([]);
+  });
+});
+
+describe("diplomacy history replay", () => {
+  // Regression: a crash after a row was saved but before its truce was pruned
+  // replayed the expiry on the next boot, showing it twice under one card id.
+  it("keeps and saves a replayed row only once", () => {
+    const save = vi.fn();
+    const initial = [{ playerId: me.id, event: "TRUCE_ENDED" as const, occurredAt: 5_000, counterpartyPlayerId: tove.id, counterpartyName: "Tove" }];
+    const history = createDiplomacyHistory(() => 10_000, { initial, save, nameOf: (id) => (id === tove.id ? "Tove" : "Nauticus") });
+    history.recordPair(me.id, tove.id, "TRUCE_ENDED", 5_000);
+    expect(history.cardsFor(me.id, 0, 10_000)).toHaveLength(1);
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(save).toHaveBeenCalledWith(tove.id, expect.objectContaining({ counterpartyPlayerId: me.id }));
   });
 });
 

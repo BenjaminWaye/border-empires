@@ -1,4 +1,4 @@
-import { describeDiplomacyTermsForRecipient } from "@border-empires/shared";
+import { describeDiplomacyTermsForRecipient, hasResourceSupplyOffer } from "@border-empires/shared";
 
 import { serverClock } from "../client-server-clock/client-server-clock.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -28,7 +28,7 @@ export type OfferDockEntry = {
   /** Undefined when the offer has no expiry. */
   remainingMs: number | undefined;
   pending: boolean;
-  /** Accepting moves your own coin or Shards, so Accept asks for a second tap. */
+  /** Accepting moves your own coin or Shards or commits your resource supply, so Accept asks for a second tap. */
   costsYou: boolean;
 };
 
@@ -69,8 +69,9 @@ const remainingFor = (
   return Math.max(0, onServerClock === undefined ? sinceSeen : Math.min(sinceSeen, onServerClock));
 };
 
+// Coin and Shards, or an ongoing resource supply from your slots.
 const costsRecipient = (request: AllianceRequest | TruceRequest): boolean =>
-  (request.terms?.ask.gold ?? 0) > 0 || (request.terms?.ask.shard ?? 0) > 0;
+  (request.terms?.ask.gold ?? 0) > 0 || (request.terms?.ask.shard ?? 0) > 0 || hasResourceSupplyOffer(request.terms?.ask.resources);
 
 export const offerDockEntries = (
   state: OfferDockState,
@@ -112,7 +113,12 @@ export const formatOfferCountdown = (remainingMs: number): string => {
   return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, "0")}`;
 };
 
-const ICON = { truce: "🕊", alliance: "🤝" } as const;
+// The HUD's own icon art, not colour emoji: the Allies tab icon for an alliance,
+// a text white flag (U+FE0E keeps it out of emoji form) for a truce.
+const ICON = {
+  truce: "\u2690\uFE0E",
+  alliance: '<img class="offer-dock-icon-img" src="/icons/simple/alliance.svg" alt="" draggable="false">'
+} as const;
 
 const rowHtml = (entry: OfferDockEntry, confirmingId: string | undefined): string => {
   const disabled = entry.pending ? " disabled" : "";
@@ -127,7 +133,7 @@ const rowHtml = (entry: OfferDockEntry, confirmingId: string | undefined): strin
       ${entry.terms ? `<div class="offer-dock-terms">${esc(entry.terms)}</div>` : ""}
     </div>
     <div class="offer-dock-actions">
-      <button type="button" class="offer-dock-btn offer-dock-accept${confirming ? " offer-dock-confirming" : ""}" data-offer-action="accept" data-offer-kind="${entry.kind}" data-offer-id="${esc(entry.id)}"${disabled}>${confirming ? `Confirm · ${esc(entry.terms)}` : "Accept"}</button>
+      <button type="button" class="offer-dock-btn offer-dock-accept${confirming ? " offer-dock-confirming" : ""}" data-offer-action="accept" data-offer-kind="${entry.kind}" data-offer-id="${esc(entry.id)}"${confirming ? ` title="Tap again to accept: ${esc(entry.terms)}"` : ""}${disabled}>${confirming ? "Confirm" : "Accept"}</button>
       <button type="button" class="offer-dock-btn offer-dock-decline" data-offer-action="decline" data-offer-kind="${entry.kind}" data-offer-id="${esc(entry.id)}"${disabled}>Decline</button>
     </div>
     <button type="button" class="offer-dock-hide" data-offer-action="hide" data-offer-id="${esc(entry.id)}" title="Hide · answer later in Alliances" aria-label="Hide this offer; answer it later in Alliances">✕</button>

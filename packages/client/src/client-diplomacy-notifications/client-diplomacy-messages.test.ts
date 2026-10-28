@@ -58,7 +58,7 @@ describe("handleDiplomacySocketMessage", () => {
     const handlerDeps = deps();
     const request = { id: "t2", fromPlayerId: "ai-1", toPlayerId: "p1", createdAt: 0, expiresAt: 1, durationHours: 24, fromName: "Milo", extendsTruce: true };
     handleDiplomacySocketMessage(state(), { type: "TRUCE_REQUEST_INCOMING", request }, handlerDeps);
-    expect(handlerDeps.pushFeed).toHaveBeenCalledWith("Milo offered to extend your truce by 24h. Open Alliances to accept or reject.", "alliance", "warn");
+    expect(handlerDeps.pushFeed).toHaveBeenCalledWith("Milo offered to extend your truce by 24h.", "alliance", "warn");
   });
 
   it("leaves other messages alone", () => {

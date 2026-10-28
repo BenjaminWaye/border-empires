@@ -330,7 +330,7 @@ export const createSocialState = (options: {
       return ok([playerId, request.toPlayerId]);
     },
     ...allianceBreaks,
-    resetAfcCampaign: () => { resourceTradeOffers.clear(); return forcedTruces.reset(); },
+    resetAfcCampaign: () => { resourceTradeOffers.clear(); diplomacyHistory.reset(); return forcedTruces.reset(); },
     forceTruce: (playerId, targetPlayerId) => { sweepExpired(); return forcedTruces.force(playerId, targetPlayerId); },
     requestTruce(fromPlayerId, targetPlayerName, durationHours, offerOptions) {
       sweepExpired();
