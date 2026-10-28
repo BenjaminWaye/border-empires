@@ -65,7 +65,7 @@ const render = ({ cameraDistance, compact }: Args, comparison = false): HTMLElem
     forest.addInstance(x + 0.5, z + 0.5, surface(x, z), CENTER + x, CENTER + z);
   }
   forest.commit();
-  const foundation = createFishStudyFoundation(corners(0, 0), compact ? { inset: 0.132, lift: 0.003 } : {});
+  const foundation = createFishStudyFoundation(corners(0, 0), compact ? { inset: 0.132, lift: 0.003, shoreEdge: "east" } : {});
   const apronFinish = compact ? createFishStudyApronMaterial() : undefined;
   const foundationMaterial = apronFinish?.material ?? new MeshStandardMaterial({ color: "#8e9088", roughness: 0.94 });
   const apron = new Mesh(foundation.geometry, foundationMaterial);
@@ -111,7 +111,7 @@ const render = ({ cameraDistance, compact }: Args, comparison = false): HTMLElem
     if (apronFinish) apronFinish.dispose(); else foundationMaterial.dispose();
   }, terrain.dispose, atmosphere.dispose, water.dispose, towns.dispose, districts.dispose, farms.dispose, forest.dispose]);
   const label = document.createElement("div");
-  label.textContent = compact ? "NEW · intact model at 80% scale" : "OLD · previous full-size proposal";
+  label.textContent = compact ? "NEW · 80% scale · apron meets water" : "OLD · previous full-size proposal";
   label.style.cssText = "position:absolute;left:20px;top:18px;padding:10px 14px;background:#17201de6;color:#e3dfce;font:13px system-ui;pointer-events:none;border:1px solid #777a8066";
   container.appendChild(label);
   return container;

@@ -2,6 +2,22 @@ import { describe, expect, it } from "vitest";
 import { createFishStudyFoundation } from "./fish-study-foundation.js";
 
 describe("fish apron study", () => {
+  it("extends just the seaward edge to the shoreline and below the waterline", () => {
+    const { geometry } = createFishStudyFoundation([0.18, 0.02, 0.18, 0.02],
+      { inset: 0.132, lift: 0.003, shoreEdge: "east" });
+    geometry.computeBoundingBox();
+    expect(geometry.boundingBox?.min.x).toBeCloseTo(0.132);
+    expect(geometry.boundingBox?.max.x).toBe(1);
+    expect(geometry.boundingBox?.min.z).toBeCloseTo(0.132);
+    expect(geometry.boundingBox?.max.z).toBeCloseTo(0.868);
+    const points = geometry.getAttribute("position");
+    let submergedEdge = false;
+    for (let i = 0; i < points.count; i++) {
+      if (points.getX(i) === 1 && points.getY(i) <= -0.039) submergedEdge = true;
+    }
+    expect(submergedEdge).toBe(true);
+    geometry.dispose();
+  });
   it("keeps a level, upward-facing top and seats its skirt in sloping terrain", () => {
     const { geometry, topY } = createFishStudyFoundation([0.02, 0.04, 0.01, 0.03]);
     expect(topY).toBeCloseTo(0.052);
