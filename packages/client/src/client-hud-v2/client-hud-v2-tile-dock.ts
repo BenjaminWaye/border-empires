@@ -36,6 +36,8 @@ type DockState = {
   rerender: () => void;
   expandedKey: string | undefined;
   lastHtml: string;
+  /** Last sidebar HTML written; ticks repaint, and a rewrite would drop a half-done click and the list's scroll. */
+  lastSideHtml: string;
   lastView: TileMenuView | undefined;
   lastKey: string;
   /** Open sidebar (Build, Aether) or Details list for the current tile; reset on a new tile. */
@@ -73,6 +75,7 @@ const hideSidebar = (): void => {
   const side = document.getElementById(BUILD_ID);
   if (side) side.hidden = true;
   document.body.classList.remove(BUILDING_BODY_CLASS);
+  if (dock) dock.lastSideHtml = "";
 };
 
 const hideBar = (): void => {
@@ -91,6 +94,8 @@ const paintBar = (): void => {
   const bar = barEl();
   if (!dock || !bar || !dock.lastView) return;
   const view = dock.lastView;
+  // Aether ▸ disappears from the bar when the tile loses its abilities; its sidebar goes with it.
+  if (dock.panel === "aether" && view.crystal.length === 0) dock.panel = undefined;
   const tile = dock.state.tiles.get(dock.state.tileActionMenu.currentTileKey);
   const facts = tileFactsFor(tile, view, dock.state.me);
   // A wonder's tile only knows its terrain ("Sand"); name the wonder instead.
@@ -115,24 +120,26 @@ const paintBar = (): void => {
   const key = dock.state.tileActionMenu.currentTileKey;
   const [x, y] = key.split(",");
   side.setAttribute("aria-label", dock.panel === "aether" ? "Aether" : "Build");
-  if (dock.panel === "aether") {
-    side.innerHTML = aetherListHtml({ abilities: view.crystal, focusLabel: `(${x}, ${y})` });
-    side.hidden = false;
-    document.body.classList.add(BUILDING_BODY_CLASS);
-    return;
+  const sideHtml = dock.panel === "aether" ? aetherListHtml({ abilities: view.crystal, focusLabel: `(${x}, ${y})` }) : buildSideHtml(view, key, `(${x}, ${y})`);
+  if (sideHtml !== dock.lastSideHtml) {
+    side.innerHTML = sideHtml;
+    dock.lastSideHtml = sideHtml;
   }
-  const primary = selectBarButtons(view).find((b) => b.kind === "action" && b.primary);
-  const buildings = barBuildings(view, primary?.kind === "action" ? primary.action : undefined);
-  const place = { buildings, selection: dock.buildSelection, targetKey: key, placeLabel: "Place" };
-  side.innerHTML = buildListHtml({
-    ...place,
-    focusLabel: `(${x}, ${y})`,
-    focusHighlighted: true,
-    category: dock.buildCategory,
-    emptyText: "Nothing to build here"
-  }) + `<div class="hud-v2-build-place">${buildPlaceHtml(place)}</div>`;
   side.hidden = false;
   document.body.classList.add(BUILDING_BODY_CLASS);
+};
+
+const buildSideHtml = (view: TileMenuView, key: string, focusLabel: string): string => {
+  const primary = selectBarButtons(view).find((b) => b.kind === "action" && b.primary);
+  const buildings = barBuildings(view, primary?.kind === "action" ? primary.action : undefined);
+  const place = { buildings, selection: dock?.buildSelection, targetKey: key, placeLabel: "Place" };
+  return buildListHtml({
+    ...place,
+    focusLabel,
+    focusHighlighted: true,
+    category: dock?.buildCategory,
+    emptyText: "Nothing to build here"
+  }) + `<div class="hud-v2-build-place">${buildPlaceHtml(place)}</div>`;
 };
 
 /** Shows the full legacy menu docked on the right, on `tab`. */
@@ -240,7 +247,7 @@ export const dockTileActionMenuForHudV2 = (state: ClientState, view: TileMenuVie
     watchMenuVisibility(menuEl);
     // Feed/alert "Center" buttons, tips and other code also open tile menus; those must never claim land.
     document.getElementById("game")?.addEventListener("pointerup", () => { lastMapClickAt = Date.now(); }, true);
-    dock = { deps, state, rerender, expandedKey: undefined, lastHtml: "", lastView: undefined, lastKey: "", panel: undefined, buildSelection: undefined, buildCategory: undefined };
+    dock = { deps, state, rerender, expandedKey: undefined, lastHtml: "", lastSideHtml: "", lastView: undefined, lastKey: "", panel: undefined, buildSelection: undefined, buildCategory: undefined };
   }
   dock.deps = deps;
   dock.state = state;

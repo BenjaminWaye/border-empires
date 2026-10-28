@@ -29,4 +29,4 @@ const rowHtml = (a: TileActionDef): string => {
 
 export const aetherListHtml = (input: AetherListInput): string =>
   `<div class="v2t-build-head"><span class="v2t-build-title hud-v2-aether-title">Aether</span><span class="v2t-focus v2t-focus-on">${esc(input.focusLabel)}</span></div>
-    <div class="v2t-build-list" data-v2-scroll="aether-list" role="menu" aria-label="Aether abilities">${input.abilities.map(rowHtml).join("")}</div>`;
+    <div class="v2t-build-list" data-v2-scroll="aether-list" aria-label="Aether abilities">${input.abilities.map(rowHtml).join("")}</div>`;
