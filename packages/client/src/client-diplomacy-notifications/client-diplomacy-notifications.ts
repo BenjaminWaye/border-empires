@@ -29,7 +29,9 @@ const allianceDetail = (request: AllianceRequest): string =>
   `${senderName(request)} sent an alliance request${termsSuffix(request)}.`;
 
 const truceDetail = (request: TruceRequest): string =>
-  `${senderName(request)} offered a ${request.durationHours}h truce${termsSuffix(request)}.`;
+  request.extendsTruce
+    ? `${senderName(request)} offered to extend your truce by ${request.durationHours}h${termsSuffix(request)}.`
+    : `${senderName(request)} offered a ${request.durationHours}h truce${termsSuffix(request)}.`;
 
 const STORAGE_KEY = (playerId: string): string => `be:diplomacy:notified:${playerId}`;
 const MAX_STORED = 500;

@@ -51,8 +51,18 @@ describe("trophyCaseHtml", () => {
     expect(html).toContain("Career Trophy Case");
     expect(html).toContain("Town Control ×2");
     expect(html).toContain("Diplomatic Dominance ×1");
-    expect(html).toContain("🏰");
-    expect(html).toContain("🤝");
+    expect(html).toContain("/icons/simple/town-support.svg");
+    expect(html).toContain("/icons/simple/alliance.svg");
+    expect(html).not.toMatch(/\p{Extended_Pictographic}/u);
+  });
+
+  it("falls back to the trophy cup icon for an unknown objective", () => {
+    const html = trophyCaseHtml({
+      planets: [],
+      outposts: [],
+      trophyCase: [{ objectiveId: "SOMETHING_NEW", objectiveName: "Something New", count: 1 }, { objectiveId: "constructor", objectiveName: "Odd", count: 1 }]
+    });
+    expect(html.match(/\/icons\/simple\/leaderboard\.svg/g)).toHaveLength(2);
   });
 });
 

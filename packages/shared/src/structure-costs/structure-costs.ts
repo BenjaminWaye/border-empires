@@ -1,3 +1,4 @@
+import { RESOURCE_NETWORKS } from "../resource-networks/resource-networks.js";
 import type { EconomicStructureType, FortVariant, SiegeBatteryVariant } from "../types.js";
 
 export type StrategicResourceCostType = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
@@ -55,6 +56,11 @@ const RELAY_BEACON_FIRST_TIER_MANPOWER = 50;
 const RELAY_BEACON_MANPOWER = 100;
 
 const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDefinition> = {
+  RESIN_EXTRACTOR: { baseGoldCost: 0, manpowerCost: RESOURCE_NETWORKS.NEURAL_RESIN.manpowerCost },
+  IMPLANT_FOUNDRY: { baseGoldCost: 0, manpowerCost: RESOURCE_NETWORKS.CONDUCTIVE_MINERALS.manpowerCost },
+  CATALYST_REFINERY: { baseGoldCost: 0, manpowerCost: RESOURCE_NETWORKS.CATALYTIC_DEPOSIT.manpowerCost },
+  CULTIVATION_ESTATE: { baseGoldCost: 0, manpowerCost: RESOURCE_NETWORKS.LUXURY_BIOTA.manpowerCost },
+  RECLAMATION_WORKS: { baseGoldCost: 0, manpowerCost: RESOURCE_NETWORKS.PRECURSOR_SALVAGE.manpowerCost },
   FORT: {
     baseGoldCost: 0,
     manpowerCost: FORT_MANPOWER,

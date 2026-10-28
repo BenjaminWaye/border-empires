@@ -97,4 +97,22 @@ describe("social state diplomacy cards", () => {
     expect(social.diplomacyActivityCards(me.id, 0, clock.now)).toEqual([expect.objectContaining({ event: "TRUCE_ENDED", counterpartyPlayerId: "ghost", counterpartyName: "ghost" })]);
     expect(social.resolvePlayerById("ghost")).toBeUndefined();
   });
+
+  it("adds no row when a running truce is extended, and one ending when the extended truce runs out", () => {
+    const { social, clock } = setup();
+    expect(social.requestTruce(me.id, "Tove", 12).ok).toBe(true);
+    expect(social.acceptTruce(tove.id, social.snapshotForPlayer(tove.id).incomingTruceRequests[0]!.id).ok).toBe(true);
+    clock.now += 60_000;
+    expect(social.requestTruce(tove.id, "Nauticus", 12).ok).toBe(true);
+    const extension = social.snapshotForPlayer(me.id).incomingTruceRequests[0]!;
+    expect(extension).toMatchObject({ extendsTruce: true });
+    expect(social.acceptTruce(me.id, extension.id).ok).toBe(true);
+    expect(social.diplomacyActivityCards(me.id, 0, clock.now).map((card) => card.event)).toEqual(["TRUCE_STARTED"]);
+
+    // The extended truce outlasts the 24h window, so by its end only the ending is left to show.
+    const endsAt = social.snapshotForPlayer(me.id).activeTruces[0]!.endsAt;
+    clock.now = endsAt + 1;
+    expect(social.diplomacyActivityCards(me.id, 0, clock.now)).toEqual([expect.objectContaining({ event: "TRUCE_ENDED", occurredAt: endsAt })]);
+  });
 });
+

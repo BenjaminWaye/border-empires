@@ -65,7 +65,7 @@ export const aiDiplomacyPricing = (input: {
   const hoursToCoin = (hours: number, perMinute: number): number => Math.round(hours * 60 * perMinute);
   const { opinion, memory, aiName } = input;
   const { war } = opinion;
-  const aiHoldings = { gold: Math.max(0, Math.floor(input.aiHoldings.gold)), shard: Math.max(0, Math.floor(input.aiHoldings.shard)) };
+  const aiHoldings = { ...(input.aiHoldings.resources ? { resources: input.aiHoldings.resources } : {}), gold: Math.max(0, Math.floor(input.aiHoldings.gold)), shard: Math.max(0, Math.floor(input.aiHoldings.shard)) };
 
   // --- truce ---
   let truceRefusal: string | undefined;

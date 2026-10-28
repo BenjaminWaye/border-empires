@@ -14,6 +14,10 @@ type ProposeButtonDeps = CounterOfferDeps;
  */
 export const bindProposeButtons = (root: ParentNode, deps: ProposeButtonDeps): void => {
   bindCounterOfferButtons(root, deps);
+  root.querySelectorAll<HTMLButtonElement>(".propose-resource-trade").forEach(btn => { btn.onclick = () => {
+    const targetPlayerId = btn.dataset.proposePlayerId, targetName = deps.playerNameForOwner(targetPlayerId) || btn.dataset.proposePlayerName;
+    if (targetPlayerId && targetName) openDiplomacyTradeScreen({targetName,targetPlayerId,kind:"trade",durationHours:12},diplomacyTradeDepsFor(deps.state,deps.sendGameMessage));
+  }; });
   root.querySelectorAll<HTMLButtonElement>(".propose-alliance").forEach((btn) => {
     btn.onclick = () => {
       const targetPlayerId = btn.dataset.proposePlayerId;

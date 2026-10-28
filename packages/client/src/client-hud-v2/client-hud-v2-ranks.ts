@@ -78,7 +78,7 @@ const trackHtml = (o: SeasonVictoryObjectiveView, input: RanksInput): string => 
     ? `<span class="v2r-pin v2r-pin-you" style="left:${(mine * 100).toFixed(1)}%" title="You · ${esc(iLead ? o.progressLabel : o.selfProgressLabel ?? "")}">${crest(input.nameOf(input.me) || "You", input.colorOf(input.me), `v2r-you${iLead && holding ? " v2r-holding" : ""}`)}</span>`
     : "";
   const status = holding
-    ? `<span class="v2r-status v2r-status-hold">⌛ ${esc(iLead ? "You" : leaderName)} holding · ${formatHold(o.holdRemainingSeconds)} left</span>`
+    ? `<span class="v2r-status v2r-status-hold">⧗ ${esc(iLead ? "You" : leaderName)} holding · ${formatHold(o.holdRemainingSeconds)} left</span>`
     : iLead
       ? `<span class="v2r-status v2r-status-you">★ You lead</span>`
       : o.leaderName
@@ -95,7 +95,7 @@ export const ranksBannerHtml = (input: RanksInput): string => {
   const holding = input.objectives.filter((o) => o.conditionMet && o.leaderName).sort((a, b) => (a.holdRemainingSeconds ?? Infinity) - (b.holdRemainingSeconds ?? Infinity))[0];
   if (!holding) return `<span class="v2r-banner">Hold any path past the line for 24h</span>`;
   const who = holding.leaderPlayerId === input.me ? "You are" : `${esc(holding.leaderPlayerId ? input.nameOf(holding.leaderPlayerId) || holding.leaderName : holding.leaderName)} is`;
-  return `<span class="v2r-banner v2r-banner-hold">⌛ ${who} holding ${esc(holding.name)} · ${formatHold(holding.holdRemainingSeconds)} to win</span>`;
+  return `<span class="v2r-banner v2r-banner-hold">⧗ ${who} holding ${esc(holding.name)} · ${formatHold(holding.holdRemainingSeconds)} to win</span>`;
 };
 
 const standingsHtml = (input: RanksInput): string => {

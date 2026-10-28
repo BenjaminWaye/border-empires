@@ -25,13 +25,13 @@ export function imperialWardChipHtml(state: Pick<ClientState, "imperialWardCharg
   const now = Date.now();
   const activeUntil = state.imperialWardActiveUntil ?? 0;
   if (activeUntil > now) {
-    return `<span class="stat-chip imperial-ward-active" title="Imperial Ward active">🛡️ Warded ${formatRemaining(activeUntil - now)}</span>`;
+    return `<span class="stat-chip imperial-ward-active" title="Imperial Ward active">⛨ Warded ${formatRemaining(activeUntil - now)}</span>`;
   }
   const charges = state.imperialWardCharges ?? 0;
   if (charges <= 0) return "";
   return (
     `<button class="stat-chip imperial-ward-activate" type="button" data-imperial-ward-activate ` +
-    `title="Imperial Ward: 10 minutes of total invulnerability">🛡️ Imperial Ward (${charges})</button>`
+    `title="Imperial Ward: 10 minutes of total invulnerability">⛨ Imperial Ward (${charges})</button>`
   );
 }
 

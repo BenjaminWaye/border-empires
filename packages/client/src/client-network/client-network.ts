@@ -1,3 +1,4 @@
+import { applyPlayerResourceState, applyResourceTradeMessage } from "../client-diplomacy-trade/client-player-resource-state.js";
 import { applyRelicAndProgressionUpdate } from "../client-relic-overlay/relic-map-hints.js";
 import { handleIntelResult } from "./client-network-intel-result.js";
 import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
@@ -1014,6 +1015,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "JOIN_SEASON_ACK") { state.joinSeasonPending = false; if (msg.spawned) { state.needsSeasonJoin = false; state.joinSeasonOverlayOpen = false; applyJoinSeasonSpawnRecenter(state, parseJoinSeasonAckSpawnTile(msg.spawnTile), requestViewRefreshSafely); } renderHud(); return; }
     if (applyMapPushMessage(state, msg as Record<string, unknown>, renderHud)) return; // REACH_UPDATE / AETHER_SHIELDS / ISLAND_NAMES
     if (msg.type === "AFC_FLAG_DETECTIONS") { applyAfcStateMessage(state, msg); renderHud(); return; }
+    if (applyResourceTradeMessage(state, msg)) { renderHud(); return; }
     if (msg.type === "PLAYER_UPDATE") {
       applyAfcStateMessage(state, msg);
       applySettlementRepairDiagnostic(msg as Record<string, unknown>);
@@ -1028,13 +1030,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.incomePerMinute = (msg.incomePerMinute as number) ?? state.incomePerMinute;
       if (state.incomePerMinute === 0 && !state.needsSeasonJoin && !state.seasonPending) maybeShowRuinsPrompt();
       state.strategicResources = (msg.strategicResources as typeof state.strategicResources | undefined) ?? state.strategicResources;
-      if (msg.storageCap && typeof msg.storageCap === "object") {
-        state.storageCap = msg.storageCap as typeof state.storageCap;
-      }
       state.strategicProductionPerMinute =
         (msg.strategicProductionPerMinute as typeof state.strategicProductionPerMinute | undefined) ?? state.strategicProductionPerMinute;
-      state.resourceSlots = (msg.resourceSlots as typeof state.resourceSlots | undefined) ?? state.resourceSlots;
-      state.dormantStructures = (msg.dormantStructures as typeof state.dormantStructures | undefined) ?? state.dormantStructures;
+      applyPlayerResourceState(state, msg);
       if (msg.eventLog) {
         const incomingEventLog = msg.eventLog as typeof state.eventLog;
         if (!state.eventLogFeedSeenIds) {
@@ -1071,17 +1069,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       state.incomingAllianceRequests = (msg.incomingAllianceRequests as any[] | undefined) ?? state.incomingAllianceRequests;
       state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? state.outgoingAllianceRequests;
-      if (state.upkeepLastTick.foodCoverage < 0.999 && !state.foodCoverageWarned) {
-        pushFeed(
-          `Town support underfed: FOOD upkeep coverage ${(state.upkeepLastTick.foodCoverage * 100).toFixed(0)}%. Unfed towns stop producing coin.`,
-          "info",
-          "warn"
-        );
-        state.foodCoverageWarned = true;
-      } else if (state.upkeepLastTick.foodCoverage >= 0.999 && state.foodCoverageWarned) {
-        pushFeed("FOOD upkeep recovered. Town income back to normal.", "info", "success");
-        state.foodCoverageWarned = false;
-      }
+      // Unfed towns show on their map nameplate (client-town-nameplates) and as off-screen locator pins, not a feed toast.
       if (state.gold > prevGold) {
         state.goldAnimUntil = Date.now() + 350;
         state.goldAnimDir = 1;
@@ -2276,7 +2264,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         showCaptureAlertSafely(errorCode === "STRUCTURE_REMOVE_INVALID" ? "Removal failed" : "Construction failed", errorMessage, "warn");
         if (state.lastDevelopmentAttempt?.tileKey === errorTileKey) state.lastDevelopmentAttempt = undefined;
       } else if (errorCode === "TOWN_UNFED") {
-        const townUnfedDetail = `${errorMessage.replace(/[.。]\s*$/, "")}. Check the warning badge on the affected town.`;
+        const townUnfedDetail = `${errorMessage.replace(/[.。]\s*$/, "")}. Check the town's nameplate on the map.`;
         showCaptureAlertSafely("Town unfed", townUnfedDetail, "warn");
       } else if (errorCode === "OUT_OF_REACH") {
         // Terminal, not retryable: reach only grows when the player builds a

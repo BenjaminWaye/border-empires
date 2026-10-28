@@ -5,8 +5,7 @@ import { INTEGRITY_PENALTY_PCT, type ChosenTrickleResource } from "@border-empir
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "../client-crystal-ability-info/client-crystal-ability-info.js";
 import { revealEmpireStatsDossierHtml, wireEmpireIntelOverlay } from "../client-empire-intel/client-empire-intel.js";
 import { integrityChipHtml, selfPlayerChipHtml } from "./client-stat-chips.js";
-import { manpowerGaugeChipHtml, ownStagedManpower } from "../client-manpower-gauge/client-manpower-gauge.js";
-import { nextManpowerRefillForPlayer } from "../client-manpower-gauge/client-manpower-refill.js";
+import { hudManpowerGaugeHtml } from "./client-hud-manpower-gauge.js";
 import { devGearsChipHtml } from "../client-dev-gears/client-dev-gears.js";
 import { renderPlayerProfileOverlay, wirePlayerProfileOverlay } from "../client-player-profile/client-player-profile.js";
 import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, setDebugTileKey, setDebugTileLoggingEnabled } from "../client-debug/client-debug.js";
@@ -14,7 +13,7 @@ import { renderDefensibilityPanels } from "./client-hud-defensibility-panel.js";
 import { isIntegrityWarningDismissed, wireIntegrityWarningDismissButtons } from "./client-integrity-warning-storage.js";
 import { exposedSidesForTile, isOwnedSettledLandTile } from "../client-defensibility-tile.js";
 import type { initClientDom } from "../client-dom.js";
-import { renderEconomyPanelHtml } from "../client-economy-html/client-economy-html.js";
+import { hudEconomyPanelHtml } from "./client-hud-economy-panel.js";
 import { imperialWardChipHtml, bindImperialWardChip } from "../client-imperial-ward/client-imperial-ward.js";
 import type { EconomyFocusKey } from "../client-economy-model.js";
 import { renderDevelopmentPanelHtml, deriveDevelopmentPanelData } from "../client-development-panel/client-development-html.js";
@@ -241,7 +240,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.statsChipsEl.innerHTML = `
     ${mobile ? "" : selfPlayerChipHtml(connClass, state.meName, state.leaderboard)}
     <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Coin</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${mobile ? mobileGoldRateText : goldRateText}</em></strong></button>
-    ${manpowerGaugeChipHtml({ manpower: state.manpower, manpowerCap: state.manpowerCap, staged: ownStagedManpower(state.tiles.values(), state.me, Date.now()), regenPerMinute: state.manpowerRegenPerMinute, logisticsPerMinute: state.logisticsThroughputPerMinute, nextRefillAtMs: nextManpowerRefillForPlayer(state.me, Date.now()), nowMs: Date.now(), formatAmount: formatManpowerAmount })}
+    ${hudManpowerGaugeHtml(state, formatManpowerAmount)}
     ${integrityChipHtml({ pct: state.defensibilityPct, defClass, showWarning: showIntegrityWarning, mobile })}
     ${devGearsChipHtml({ busy: development.busy, limit: development.limit, mobile })}
     ${state.showWeakDefensibility ? `<button class="stat-chip stat-chip-weak-def" type="button" data-toggle-weak-def="true"><span>Integrity</span><strong>Hide Weak</strong></button>` : ""}
@@ -646,29 +645,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   });
 
   const economyPanelHtml = safeValue("renderEconomyPanelHtml", fallbackCard("Economy"), () =>
-    renderEconomyPanelHtml({
-      focus: state.economyFocus,
-      integrityPct: state.defensibilityPct,
-      gold: state.gold,
-      me: state.me,
-      incomePerMinute: state.incomePerMinute,
-      strategicResources: state.strategicResources,
-      storageCap: state.storageCap,
-      strategicProductionPerMinute: state.strategicProductionPerMinute,
-      resourceSlots: state.resourceSlots, dormantStructures: state.dormantStructures,
-      economyBreakdown: state.economyBreakdown,
-      upkeepPerMinute: state.upkeepPerMinute,
-      upkeepLastTick: state.upkeepLastTick,
-      activeRevealTargetsCount: state.activeRevealTargets.length,
-      tiles: state.tiles.values(),
-      isMobile: window.matchMedia("(max-width: 900px)").matches,
-      prettyToken,
-      resourceIconHtml,
-      rateToneClass,
-      resourceLabel,
-      economicStructureName,
-      isRevealed: (key) => hasRevealedResourceCategory(key, state.techIds, state.techCatalog)
-    })
+    hudEconomyPanelHtml(state, { prettyToken, resourceIconHtml, rateToneClass, resourceLabel, economicStructureName, hasRevealedResourceCategory })
   );
   dom.panelEconomyEl.innerHTML = dom.mobilePanelEconomyEl.innerHTML = economyPanelHtml;
   dom.panelDevelopmentEl.innerHTML = dom.mobilePanelDevelopmentEl.innerHTML = safeValue("developmentPanelHtml", fallbackCard("Development"), () =>
@@ -762,10 +739,10 @@ export const renderClientHud = (deps: HudDeps): void => {
       };
     });
   };
-  bindRequestActionButtons(".accept-request", "requestId", (id) => ({ type: "ALLIANCE_ACCEPT", requestId: id }), "Finish sign-in before responding to alliance requests.");
+  bindRequestActionButtons(".accept-request", "requestId", (id) => ({ type: "ALLIANCE_ACCEPT", requestId: id, confirmedResourceSupply: true }), "Finish sign-in before responding to alliance requests.");
   bindRequestActionButtons(".reject-request", "requestId", (id) => ({ type: "ALLIANCE_REJECT", requestId: id }), "Finish sign-in before responding to alliance requests.");
   bindRequestActionButtons(".cancel-request", "requestId", (id) => ({ type: "ALLIANCE_CANCEL", requestId: id }), "Finish sign-in before changing alliance requests.");
-  bindRequestActionButtons(".accept-truce", "truceRequestId", (id) => ({ type: "TRUCE_ACCEPT", requestId: id }), "Finish sign-in before responding to truces.");
+  bindRequestActionButtons(".accept-truce", "truceRequestId", (id) => ({ type: "TRUCE_ACCEPT", requestId: id, confirmedResourceSupply: true }), "Finish sign-in before responding to truces.");
   bindRequestActionButtons(".reject-truce", "truceRequestId", (id) => ({ type: "TRUCE_REJECT", requestId: id }), "Finish sign-in before responding to truces.");
   bindRequestActionButtons(".cancel-truce", "truceRequestId", (id) => ({ type: "TRUCE_CANCEL", requestId: id }), "Finish sign-in before changing truce requests.");
 

@@ -66,7 +66,7 @@ describe("fleetOrderListHtml", () => {
     const order: FleetOrderView = { id: "o4", targetLabel: "Aurelia", status: "TRAVELING", departsAt: 0, arrivesAt: 0, garrison: true };
     const html = fleetOrderListHtml([order]);
     expect(html).toContain("Aurelia (home)");
-    expect(html).toContain("🏠");
+    expect(html).toContain('<span class="fl-order-icon">⌂</span>');
   });
 });
 
@@ -112,20 +112,20 @@ describe("fleetCompositionSummaryHtml", () => {
 
   it("computes total cost, damage, and travel time for a mixed composition", () => {
     const html = fleetCompositionSummaryHtml({ RAIDER: 2, SCOUT: 1 });
-    expect(html).toContain("💰 185");
-    expect(html).toContain("💥 100");
+    expect(html).toContain(">185<");
+    expect(html).toContain(">100<");
   });
 
   it("flags an all-recon composition as recon only with zero damage", () => {
     const html = fleetCompositionSummaryHtml({ SCOUT: 2 });
     expect(html).toContain("Recon only");
-    expect(html).not.toContain("💥");
+    expect(html).toContain(">Recon only<");
   });
 
   it("includes a Build time stat alongside cost/damage/travel", () => {
     const html = fleetCompositionSummaryHtml({ RAIDER: 1 });
     expect(html).toContain("Build");
-    expect(html).toContain("🔧");
+    expect(html).toMatch(/Build<\/span><span class="fl-summary-value">\S/);
   });
 });
 
@@ -168,7 +168,7 @@ describe("fleetThreatListHtml", () => {
     const html = fleetThreatListHtml([threat]);
     expect(html).toContain("Aurelia");
     expect(html).toContain("arrives");
-    expect(html).toContain("⚠️");
+    expect(html).toContain('<span class="fl-threat-icon">⚠\uFE0E</span>');
   });
 
   it("escapes a target label containing HTML", () => {

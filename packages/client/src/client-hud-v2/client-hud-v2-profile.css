@@ -28,8 +28,10 @@
 .v2p-action:hover { border-color: var(--v2-gold); color: var(--v2-gold-hi); }
 .v2p-main { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
 .v2p-h, .v2p-panel h3 { margin: 0; font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--v2-gold); }
-.v2p-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
-.v2p-stat { display: grid; gap: 6px; padding: 14px 16px; background: var(--v2-ink); border: 1px solid var(--v2-edge); }
+/* One strip with dividers rather than a framed box per number. */
+.v2p-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); background: var(--v2-ink); border: 1px solid var(--v2-edge); }
+.v2p-stat { display: grid; gap: 6px; padding: 14px 16px; }
+.v2p-stat + .v2p-stat { border-left: 1px solid var(--v2-line); }
 .v2p-stat span { font-family: var(--v2-mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--v2-muted); }
 .v2p-stat b { font-family: var(--v2-mono); font-size: 26px; font-weight: 700; color: var(--v2-text); }
 .v2p-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; align-items: start; }

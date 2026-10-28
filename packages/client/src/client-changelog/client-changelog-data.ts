@@ -1,5 +1,7 @@
+import { TOWN_ECONOMY_CHANGELOG } from "./client-changelog-town-economy.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_25 } from "./client-changelog-oct-25.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_26 } from "./client-changelog-oct-26.js";
+import { RESOURCE_NETWORKS_CHANGELOG } from "./client-changelog-resource-networks.js";
 import { RELIABLE_DIPLOMACY_CHANGELOG } from "./client-changelog-reliable-diplomacy.js";
 import { AFC_SPECIALIZATIONS_CHANGELOG } from "./client-changelog-afc-specializations.js";
 import { ALLIANCES_TAB_CHANGELOG } from "./client-changelog-alliances-tab.js";
@@ -22,6 +24,10 @@ import { SIEGE_REPORTS_CHANGELOG } from "./client-changelog-siege-reports.js";
 import { RICHER_FORESTS_CHANGELOG } from "./client-changelog-richer-forests.js";
 import { SIEGE_FX_GATE_CHANGELOG } from "./client-changelog-siege-fx-gate.js";
 import { INCURSION_HATCH_HILLS_CHANGELOG } from "./client-changelog-incursion-hatch-hills.js";
+import { AI_DOCK_CROSSING_CHANGELOG } from "./client-changelog-ai-dock-crossing.js";
+import { REACH_RESTART_CHANGELOG } from "./client-changelog-reach-restart.js";
+import { TOWN_NAMEPLATES_CHANGELOG } from "./client-changelog-town-nameplates.js";
+import { DIPLOMACY_DOCK_CHANGELOG } from "./client-changelog-diplomacy-dock.js";
 import { MARCH_ACROSS_WATER_CHANGELOG } from "./client-changelog-march-across-water.js";
 import { MARCH_UNEXPLORED_CHANGELOG } from "./client-changelog-march-unexplored.js";
 import { MARCH_STOP_SHORT_CHANGELOG } from "./client-changelog-march-stop-short.js";
@@ -63,6 +69,7 @@ import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
 import { OUT_OF_REACH_NO_DECAY_CHANGELOG } from "./client-changelog-out-of-reach-no-decay.js";
 import { FRONTIER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-frontier-supply-lines.js";
 import { MANPOWER_BATCH_LABEL_CHANGELOG } from "./client-changelog-manpower-batch-label.js";
+import { AI_VICTORY_STANDINGS_CHANGELOG } from "./client-changelog-ai-victory-standings.js";
 import { RESTART_TILE_STATE_CHANGELOG } from "./client-changelog-restart-tile-state.js";
 import { RESTART_MANPOWER_CHANGELOG } from "./client-changelog-restart-manpower.js";
 import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-recent-groups.js";
@@ -94,6 +101,8 @@ export type ClientChangelogEntry = {
 };
 // Register every client release here or in feature groups; createdAt determines display order.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  ...TOWN_ECONOMY_CHANGELOG,
+  ...RESOURCE_NETWORKS_CHANGELOG,
   ...AFC_SPECIALIZATIONS_CHANGELOG,
   ...ALLIANCES_TAB_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_OCT_17,
@@ -122,6 +131,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["Selecting a dock no longer reveals hidden connections on the minimap or either map renderer", "Dock navigation only visits discovered destinations; garrisoning a dock reveals its links", "3D dock routes update as soon as linked docks are discovered, even while the same dock stays selected"]
   },
   ...MANPOWER_BATCH_LABEL_CHANGELOG,
+  ...AI_VICTORY_STANDINGS_CHANGELOG,
   ...RESTART_TILE_STATE_CHANGELOG,
   ...RESTART_MANPOWER_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING,
@@ -445,16 +455,40 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1793133667745, // Date.now() captured once for this entry.
+    createdAt: 1793125924000, // Date.now() captured once for this entry.
     introducedIn: "2026.10.27.5",
-    title: "Diplomacy no longer pops up over the map",
-    why: "Truce and alliance news took over the middle of the map in the same banner as battle results, vanished after 12 seconds even while an offer was still open, and sent you to the Alliances tab to answer it.",
+    title: "Clearer economy resources",
+    why: "Unresearched resources cluttered the bar, and slot sources showed as a vague \"Other bonuses\".",
+    changes: ["Crystal, Titanium and Umbrite stay off the resource bar and Economy panel until researched, unless you already have slots or users for them.", "Economy slot sources now list every source by name: resource sites, Mines and Refineries, upgrades, Waystations, Siphons, Foundry Heart and relics.", "Slot sources now cover your whole empire, not just the area on screen."]
+  },
+  {
+    createdAt: 1793136357667, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.27.6",
+    title: "Extend a running truce",
+    why: "A truce offer to an empire you already had a truce with was refused, so a truce could only lapse and be renegotiated.",
     changes: [
-      "Incoming truce and alliance offers wait in a small dock in the top-right corner, with the terms, a countdown and Accept / Decline buttons, until you answer or they expire. An offer that costs you coin or Shards asks you to tap Accept twice, and ✕ hides an offer to answer later in Alliances",
-      "Truces and alliances starting, ending or breaking are listed in the Chronicle (Activity) timeline and the Activity feed instead of a popup, including a truce that ran out while you were away",
-      "A rival breaking a truce with you still alerts you right away, since they can now attack you"
+      "While a truce is running, the deal screen offers Extend 12h or Extend 24h. Once accepted, the hours are added to the current truce, which can run at most 48h ahead. Extending a Court armistice makes it an ordinary truce.",
+      "AI empires price an extension like a new truce of that length, recent truces included, but never pay you for one."
     ]
-  }
+  },
+  {
+    createdAt: 1793140036460, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.27.7",
+    title: "Town surveys remember your dismissal",
+    why: "The same survey popup could return every time you reopened the game.",
+    changes: ["Got it and View survey now remember dismissed clues in this browser for your player and season. Clues remain in Activity, and new discoveries can still appear."]
+  },
+  {
+    createdAt: 1793140139293, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.27.8",
+    title: "Manpower batch amounts",
+    why: "Manpower arrives in batches, so per-minute labels made building output hard to judge.",
+    changes: ["The manpower countdown shows +N in the remaining time, including on mobile.", "Town upgrades, manpower buildings and regeneration modifiers show their output per batch."]
+  },
+  ...AI_DOCK_CROSSING_CHANGELOG,
+  ...REACH_RESTART_CHANGELOG,
+  ...TOWN_NAMEPLATES_CHANGELOG,
+  ...DIPLOMACY_DOCK_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

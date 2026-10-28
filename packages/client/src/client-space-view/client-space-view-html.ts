@@ -10,7 +10,7 @@
 // once inside Space View (see updateLauncherForScreen in client-space-view.ts)
 // -- so there is no separate "Return to Season" button in the chrome below.
 export const spaceViewLauncherHtml = (): string =>
-  `<button type="button" class="sv-launcher" data-space-view-launcher title="Open Space View" aria-label="Open Space View">🌌</button>`;
+  `<button type="button" class="sv-launcher" data-space-view-launcher title="Open Space View" aria-label="Open Space View">✦</button>`;
 
 export const spaceViewStatsHtml = (influence: number, production: number | string): string => `
   <div class="sv-stat"><span class="sv-stat-value">${influence}</span><span class="sv-stat-label">Influence</span></div>
@@ -21,7 +21,7 @@ export const spaceViewChromeHtml = (statsHtml: string): string => `
   <div class="sv-top-bar">
     <div class="sv-stats" data-space-view-stats>${statsHtml}</div>
     <div class="sv-actions">
-      <button type="button" class="sv-btn" data-space-view-strategic-map title="Flat strategic map of every system, with the Court at the centre">🗺 Strategic Map</button>
+      <button type="button" class="sv-btn" data-space-view-strategic-map title="Flat strategic map of every system, with the Court at the centre">Strategic Map</button>
       <button type="button" class="sv-btn" data-space-view-senate>Senate</button>
       <button type="button" class="sv-btn" data-space-view-court>Court</button>
       <button type="button" class="sv-btn" data-space-view-log>Log</button>

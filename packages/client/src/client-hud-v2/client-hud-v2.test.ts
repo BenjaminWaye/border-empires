@@ -40,16 +40,31 @@ describe("resource bar", () => {
 
   it("renders the used count in amber only when over", () => {
     const slots = { FOOD: 2, TITANIUM: 2, CRYSTAL: 0, UMBRITE: 0 };
-    const html = resourceBarHtml({ gold: 1200, incomePerMinute: 2, slotSupply: slots, slotDemand: { ...slots, TITANIUM: 3 }, shard: 1, integrityPct: 62 });
+    const html = resourceBarHtml({ gold: 1200, netPerMinute: 2, slotSupply: slots, slotDemand: { ...slots, TITANIUM: 3 }, shard: 1, integrityPct: 62 });
     expect(html).toContain('<b class="hud-v2-over">3</b><span class="hud-v2-chip-of">/2</span>');
     expect(html.match(/hud-v2-over/g)).toHaveLength(1);
-    expect(html).toContain("+120/h");
+    // Regression: the coin chip said /h while Economy and the tile panel say /day.
+    expect(html).toContain("+2,880/day");
+    // Review: the chip showed gross income; it is net of coin upkeep, like Economy, and a loss reads red.
+    const loss = resourceBarHtml({ gold: 0, netPerMinute: -0.5, slotSupply: slots, slotDemand: slots, shard: 0, integrityPct: undefined });
+    expect(loss).toContain('hud-v2-chip-rate hud-v2-chip-rate-loss">−720/day');
     expect(html).toContain('data-hud-v2-open="settings"');
+  });
+
+  // Regression: Crystal showed as 0/0 on the bar before it was researched.
+  it("leaves unresearched resources off the bar", () => {
+    const slots = { FOOD: 2, TITANIUM: 2, CRYSTAL: 0, UMBRITE: 0 };
+    const html = resourceBarHtml({ gold: 0, netPerMinute: 0, slotSupply: slots, slotDemand: slots, shard: 0, integrityPct: undefined, isRevealed: (r) => r !== "CRYSTAL" });
+    expect(html).not.toContain('data-hud-v2-chip="crystal"');
+    expect(html).toContain('data-hud-v2-chip="titanium"');
+    const inUse = resourceBarHtml({ gold: 0, netPerMinute: 0, slotSupply: slots, slotDemand: { ...slots, CRYSTAL: 1 }, shard: 0, integrityPct: undefined, isRevealed: () => false });
+    expect(inUse).toContain('data-hud-v2-chip="crystal"');
+    expect(inUse).toContain('data-hud-v2-chip="food"');
   });
 });
 
 describe("tracker", () => {
-  const base = { buildSlots: { busy: 0, limit: 3 }, afcReady: 0, flags: [], flagCap: 100, building: [], nowMs: 0 };
+  const base = { buildSlots: { busy: 0, limit: 3 }, afcReady: 0, flags: [], flagCap: 100, building: [], queue: [], slotsOpen: true, nowMs: 0 };
 
   it("lists free build slots, AFC upgrades and stalled flags as needs", () => {
     const needs = trackerNeeds({
@@ -64,12 +79,32 @@ describe("tracker", () => {
     expect(needs[1]).toMatchObject({ x: 4, y: 5, sub: "Needs manpower" });
   });
 
-  it("caps each group and shows the overflow count", () => {
-    const building = Array.from({ length: TRACKER_GROUP_CAP + 2 }, (_, i) => ({ tileKey: `${i},0`, x: i, y: 0, label: "Mine", remainingMs: 60_000, totalMs: 60_000 }));
-    const html = trackerHtml({ ...base, building });
-    expect(html.match(/hud-v2-tracker-timed/g)).toHaveLength(TRACKER_GROUP_CAP);
-    expect(html).toContain("+2 more");
+  it("caps the waiting list and shows the overflow count", () => {
+    const queue = Array.from({ length: TRACKER_GROUP_CAP + 2 }, (_, i) => ({ label: "Settle", x: i, y: 0 }));
+    const html = trackerHtml({ ...base, queue });
+    expect(html.match(/hud-v2-slot-waiting/g)).toHaveLength(TRACKER_GROUP_CAP);
+    expect(html).toContain("+2 waiting");
     expect(html).toContain('data-hud-v2-focus-x="0" data-hud-v2-focus-y="0"');
+  });
+
+  // Regression: the dev-slot row opened the Development side panel across the screen; the slots now unfold under the pips.
+  it("unfolds what fills each slot and what waits, under the pips", () => {
+    const building = [{ tileKey: "4,5", x: 4, y: 5, label: "Mine", remainingMs: 15_000, totalMs: 60_000 }];
+    const open = trackerHtml({ ...base, buildSlots: { busy: 1, limit: 3 }, building, queue: [{ label: "Settle", x: 7, y: 8 }] });
+    expect(open).toContain('aria-expanded="true"');
+    expect(open).not.toContain("data-hud-v2-chip");
+    expect(open.indexOf("hud-v2-slot-list")).toBeGreaterThan(open.indexOf("hud-v2-slots"));
+    expect(open).toContain('data-hud-v2-focus-x="4" data-hud-v2-focus-y="5"');
+    expect(open).toContain('style="width:75%"');
+    expect(open).toContain("Next · Settle");
+    // Builds live under Dev slots only, not again under In progress.
+    expect(open).not.toContain("In progress");
+    // Review: an unfolded list sat above Needs you and pushed it below the tracker's scroll fold.
+    const withNeeds = trackerHtml({ ...base, afcReady: 1, building });
+    expect(withNeeds.indexOf("Needs you")).toBeLessThan(withNeeds.indexOf("hud-v2-slots"));
+    const folded = trackerHtml({ ...base, buildSlots: { busy: 1, limit: 3 }, building, slotsOpen: false });
+    expect(folded).toContain('aria-expanded="false"');
+    expect(folded).not.toContain("hud-v2-slot-list");
   });
 
   it("always shows development slots, calling out free ones", () => {
@@ -194,5 +229,14 @@ describe("manpower orb", () => {
     expect(orbFill(-5, 100)).toBe(0);
     expect(orbHtml({ manpower: 40, manpowerCap: 100, nextRefillAt: 30 * 60_000, nowMs: 0 })).toContain("refill 30m");
     expect(orbHtml({ manpower: 100, manpowerCap: 100, nextRefillAt: 30 * 60_000, nowMs: 0 })).not.toContain("refill");
+  });
+
+  it("fills the jar with your empire colour, darkened, and keeps gold for anything that is not a plain colour", () => {
+    expect(orbHtml({ manpower: 40, manpowerCap: 100, nextRefillAt: undefined, nowMs: 0, color: "#3f7fd0" })).toContain('style="fill: color-mix(in srgb, #3f7fd0 75%, #000)"');
+    expect(orbHtml({ manpower: 40, manpowerCap: 100, nextRefillAt: undefined, nowMs: 0, color: 'red" onload="x' })).not.toContain("style=");
+    expect(orbHtml({ manpower: 40, manpowerCap: 100, nextRefillAt: undefined, nowMs: 0 })).not.toContain("style=");
+    // Review: near-black vanished into the glass and pale colours washed out the numbers.
+    expect(orbHtml({ manpower: 40, manpowerCap: 100, nextRefillAt: undefined, nowMs: 0, color: "#141414" })).toContain("#141414 55%, #fff");
+    expect(orbHtml({ manpower: 40, manpowerCap: 100, nextRefillAt: undefined, nowMs: 0, color: "#ffff66" })).toContain("#ffff66 55%, #000");
   });
 });

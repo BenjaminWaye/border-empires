@@ -9,7 +9,7 @@ import { resourceIconHtml } from "../client-resource-icons/client-resource-icons
 import type { DiplomacyStanceReply } from "./client-diplomacy-trade-view.js";
 
 export type TradeSide = "give" | "ask";
-export type TradeGood = keyof DiplomacyGoods;
+export type TradeGood = "gold" | "shard";
 export type TradeGoodKey = `${TradeSide}-${TradeGood}`;
 
 type TradeGoodSpec = { key: TradeGoodKey; side: TradeSide; good: TradeGood; label: string; icon: "GOLD" | "SHARD"; aria: string };

@@ -17,16 +17,18 @@ import { escapeOpensSettings } from "./client-hud-v2-escape.js";
 import { hudV2GameOnScreen } from "./client-hud-v2-ready.js";
 import { initHudV2Flag, isHudV2Active, setHudV2Driving } from "./client-hud-v2-flag.js";
 import { navHtml } from "./client-hud-v2-nav.js";
+import { fallbackOwnerColor, resolveOwnerColor } from "../client-owner-colors/client-owner-colors.js";
 import { orbHtml } from "./client-hud-v2-orb.js";
 import { overlaysHtml } from "./client-hud-v2-overlays.js";
 import { resourceBarHtml } from "./client-hud-v2-resource-bar.js";
+import { hasRevealedResourceCategory } from "../client-tech-html/client-tech-html.js";
 import { rivalsHtml, seasonClockHtml } from "./client-hud-v2-rivals.js";
 import { closeScreen, openScreen, renderScreen, screenClick, screenEscape } from "./client-hud-v2-screens.js";
 import { profileScreenStep } from "./client-hud-v2-profile.js";
 import { chronicleBadgeCount, takeOverLegacyDashboard } from "./client-hud-v2-chronicle-runtime.js";
 import { setDockListener } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, townOnMenuView } from "./client-hud-v2-town-runtime.js";
-import { captureIsBattle, trackerHtml } from "./client-hud-v2-tracker.js";
+import { captureIsBattle, handleSlotsToggle, trackerHtml } from "./client-hud-v2-tracker.js";
 import "./client-hud-v2.css";
 import "./client-hud-v2-screens.css";
 import "./client-hud-v2-town-battle.css";
@@ -101,9 +103,9 @@ const CHIP_FOCUS: Readonly<Record<string, ClientState["economyFocus"]>> = {
 };
 
 /** Chips that open a panel of their own rather than Economy on a resource. */
-const CHIP_PANEL: Readonly<Record<string, ClientState["activePanel"]>> = { integrity: "defensibility", development: "development" };
+const CHIP_PANEL: Readonly<Record<string, ClientState["activePanel"]>> = { integrity: "defensibility" };
 
-/** Resource chips open the Economy panel on that resource; Integrity and the dev-slot row open their own panels. */
+/** Resource chips open the Economy panel on that resource; Integrity opens its own panel. */
 const openResourcePanel = (deps: HudV2Deps, chip: string): void => {
   const { state } = deps;
   const panel: ClientState["activePanel"] = CHIP_PANEL[chip] ?? "economy";
@@ -114,6 +116,9 @@ const openResourcePanel = (deps: HudV2Deps, chip: string): void => {
   state.activePanel = alreadyOpen ? null : panel;
   deps.renderHud();
 };
+
+/** Whether the tracker's Dev slots section is unfolded; open until the player folds it. */
+const slotsFold = { open: true };
 
 const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   const target = event.target instanceof Element ? event.target : null;
@@ -130,6 +135,8 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
     openTarget(deps, open.dataset.hudV2Open);
     return;
   }
+  // Dev slots fold open in the tracker, next to the pips, instead of sending you to a side panel.
+  if (handleSlotsToggle(target, slotsFold, () => renderTracker(deps.state, Date.now()))) return;
   const chip = target.closest<HTMLElement>("[data-hud-v2-chip]");
   if (chip?.dataset.hudV2Chip) {
     openResourcePanel(deps, chip.dataset.hudV2Chip);
@@ -209,17 +216,18 @@ const NAV_ACTIVE: Partial<Record<HudV2ScreenId, string>> = { manifest: "manifest
 const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], nowMs: number): void => {
   writeRegion("bar", resourceBarHtml({
     gold: state.gold,
-    incomePerMinute: state.incomePerMinute,
+    netPerMinute: state.incomePerMinute - state.upkeepPerMinute.gold,
     slotSupply: state.resourceSlots.supply,
     slotDemand: state.resourceSlots.demand,
     shard: state.strategicResources.SHARD,
-    integrityPct: state.defensibilityPct
+    integrityPct: state.defensibilityPct,
+    isRevealed: (key) => hasRevealedResourceCategory(key, state.techIds, state.techCatalog)
   }));
   writeRegion("nav", navHtml({
     name: state.playerNames.get(state.me) ?? "You",
     color: ownerColor(state.me),
     afcReady: readyAfcUpgradeCount(state),
-    diplomacyRequests: state.incomingAllianceRequests.length + state.incomingTruceRequests.length,
+    diplomacyRequests: state.incomingAllianceRequests.length + state.incomingTruceRequests.length + state.resourceTradeOffers.filter(row => row.toPlayerId === state.me).length,
     chronicleUnread: chronicleBadgeCount(state),
     active: screen.id ? NAV_ACTIVE[screen.id] : undefined
   }));
@@ -234,12 +242,13 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
     nowMs
   }));
   writeRegion("overlays", overlaysHtml(state.showDiplomacyOverlay));
-  writeRegion("orb-slot", orbHtml({ manpower: state.manpower, manpowerCap: state.manpowerCap, nextRefillAt: nextManpowerRefillForPlayer(state.me, nowMs), nowMs }));
+  writeRegion("orb-slot", orbHtml({ manpower: state.manpower, manpowerCap: state.manpowerCap, nextRefillAt: nextManpowerRefillForPlayer(state.me, nowMs), nowMs, color: resolveOwnerColor(state.me, state.playerColors, fallbackOwnerColor) })); // Base colour: the Diplomacy view recolours ownerColor.
 };
 
 /** The tracker's tile scans (three passes over every known tile), reused until tiles change or it goes stale. */
 const TRACKER_SCAN_MAX_AGE_MS = 5_000;
-let trackerScan: { key: string; at: number; buildSlots: { busy: number; limit: number }; flags: ReturnType<typeof buildManpowerPanelMusterFlags>; building: ReturnType<typeof deriveDevelopmentPanelData>["activeSlots"] } | undefined;
+type DevelopmentData = ReturnType<typeof deriveDevelopmentPanelData>;
+let trackerScan: { key: string; at: number; buildSlots: { busy: number; limit: number }; flags: ReturnType<typeof buildManpowerPanelMusterFlags>; building: DevelopmentData["activeSlots"]; queue: DevelopmentData["queue"] } | undefined;
 
 const trackerScanKey = (state: ClientState): string =>
   [state.tilesRevision, state.settleProgressByTile.size, state.developmentQueue.length, state.activeDevelopmentProcessCount, state.manpower, state.manpowerCap].join("|");
@@ -254,7 +263,8 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
       at: nowMs,
       buildSlots: { busy: development.busy, limit: development.limit },
       flags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me, state.manpowerCap, state.manpower, state.musterAmountRateByTile),
-      building: development.activeSlots
+      building: development.activeSlots,
+      queue: development.queue
     };
   }
   const elapsed = nowMs - trackerScan.at;
@@ -268,6 +278,8 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
     flagCap: musterFlagCap(state.manpowerCap, 0),
     // Timers count down between scans without rescanning the tiles.
     building: trackerScan.building.map((b) => ({ ...b, remainingMs: Math.max(0, b.remainingMs - elapsed) })),
+    queue: trackerScan.queue,
+    slotsOpen: slotsFold.open,
     capture,
     nowMs
   }));

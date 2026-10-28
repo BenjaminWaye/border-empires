@@ -100,3 +100,20 @@ export const saveShutdownCheckpoint = async (manager: SnapshotCheckpointManager,
     log.error({ err: error, durationMs: Date.now() - startedAt }, "simulation shutdown checkpoint failed");
   }
 };
+
+/**
+ * Fire-and-forget checkpoint; never throws. A failure is logged as an error
+ * and a skip (memory guard, already in flight) at info with its
+ * `checkpointResult`, both under `failureMessage`, so a checkpoint that was
+ * needed but didn't happen shows up. Info, like saveShutdownCheckpoint's
+ * result line, so a logger without `warn` can't turn a skip into an
+ * unhandled rejection.
+ */
+export const checkpointSoon = (manager: SnapshotCheckpointManager, log: CheckpointLog, failureMessage: string): void => {
+  void manager.checkpointNow().then(
+    (checkpointResult) => {
+      if (checkpointResult !== "saved") log.info({ checkpointResult }, failureMessage);
+    },
+    (error: unknown) => log.error({ err: error }, failureMessage)
+  );
+};

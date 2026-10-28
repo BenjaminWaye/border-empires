@@ -2,6 +2,7 @@ import {
   aiCounterOffer,
   emptyDiplomacyTerms,
   evaluateAiOffer,
+  extensionPricing,
   swapDiplomacyTerms,
   describeDiplomacyTermsForRecipient,
   type DiplomacyTerms
@@ -110,9 +111,10 @@ export const aiDiplomacyAnnouncements = (
   accepted: boolean,
   names: { aiName: string; requesterName: string },
   reason: string,
-  durationHours?: number
+  durationHours?: number,
+  extendsTruce?: boolean
 ): { toRequester: string; toAi: string } => {
-  const offer = kind === "truce" ? `${durationHours ? `${durationHours}h ` : ""}truce` : "alliance";
+  const offer = kind === "truce" ? `${durationHours ? `${durationHours}h ` : ""}truce${extendsTruce ? " extension" : ""}` : "alliance";
   if (accepted) {
     return {
       toRequester: `${names.aiName} accepted your ${offer}. ${reason}`,
@@ -136,6 +138,7 @@ type PendingOffer = {
   toName?: string;
   durationHours?: 12 | 24;
   terms?: DiplomacyTerms;
+  extendsTruce?: true;
 };
 
 type Decision =
@@ -146,7 +149,9 @@ type Decision =
 export const createSeededAiDiplomacyResponder = (deps: SeededAiDiplomacyResponderDeps): SeededAiDiplomacyResponder => {
   const decide = (offer: PendingOffer, aiName: string, evaluation: ReturnType<typeof evaluateAiDiplomacy>): Decision => {
     if (!evaluation) return { kind: "decline", reason: UNAVAILABLE_REASON(aiName), startCooldown: false };
-    const { pricing, requesterHoldings, reason } = evaluation;
+    const { requesterHoldings, reason } = evaluation;
+    // An extension is priced like a new truce, but the AI never pays for one (extensionPricing).
+    const pricing = offer.extendsTruce ? extensionPricing(evaluation.pricing) : evaluation.pricing;
     const refusal = offer.kind === "truce" ? evaluation.truceRefusal : evaluation.allianceRefusal;
     if (refusal) return { kind: "decline", reason: refusal, startCooldown: true };
     const duration = offer.durationHours ?? 12;
@@ -196,7 +201,7 @@ export const createSeededAiDiplomacyResponder = (deps: SeededAiDiplomacyResponde
     const decision = decide(offer, aiName, evaluation);
     const names = { aiName, requesterName };
     const announce = (accepted: boolean, reason: string): Announcements => {
-      const text = aiDiplomacyAnnouncements(offer.kind, accepted, names, reason, offer.durationHours);
+      const text = aiDiplomacyAnnouncements(offer.kind, accepted, names, reason, offer.durationHours, offer.extendsTruce);
       return { [offer.fromPlayerId]: text.toRequester, [offer.toPlayerId]: text.toAi };
     };
     const decline = (reason: string, startCooldown: boolean): SocialActionResult => {
@@ -246,6 +251,7 @@ export const createSeededAiDiplomacyResponder = (deps: SeededAiDiplomacyResponde
       decision: outcome,
       stance: evaluation?.stance.kind ?? "UNAVAILABLE",
       hasTerms: Boolean(offer.terms),
+      ...(offer.extendsTruce ? { extendsTruce: true } : {}),
       ...(offer.durationHours ? { durationHours: offer.durationHours } : {})
     });
     deps.fanoutPlayerPayloads(response.payloadsByPlayerId);

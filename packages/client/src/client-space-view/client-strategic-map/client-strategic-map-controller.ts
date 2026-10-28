@@ -64,7 +64,7 @@ export const createStrategicMapController = (deps: StrategicMapControllerDeps): 
   exitButton.type = "button";
   exitButton.className = "sv-btn sv-strategic-exit";
   exitButton.dataset.spaceViewStrategicExit = "";
-  exitButton.textContent = "🌌 Galaxy View";
+  exitButton.textContent = "Galaxy View";
   exitButton.hidden = true;
   deps.screen.appendChild(exitButton);
 
