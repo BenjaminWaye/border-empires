@@ -26,17 +26,20 @@ const STATUS_ICON: Record<TownNameplateStatus, string> = {
 // Unfed is the food icon struck through, not a red rim: red next to the owner colour clashed.
 const UNFED_SLASH =
   '<svg class="town-plate-slash" viewBox="0 0 24 24"><path d="M5 19 19 5" stroke="#2a0805" stroke-width="5" stroke-linecap="round"/><path d="M5 19 19 5" stroke="#e5412c" stroke-width="2.8" stroke-linecap="round"/></svg>';
-// Plates keep one screen size at every zoom (Civ-style banners). The CSS caps
-// the name at NAME_MAX_W, so these upper-bound footprints in CSS px hold for
-// the greedy overlap cull below.
+// The CSS caps the name at NAME_MAX_W, so these upper-bound footprints in CSS
+// px (at scale 1) hold for the greedy overlap cull below.
 const NAME_MAX_W = 150, NAME_CHAR_W = 9, PLATE_H = 32;
 const plateWidth = (plate: TownNameplate): number =>
   22 + Math.min(NAME_MAX_W, plate.name.length * NAME_CHAR_W) + (plate.status ? 22 : 0) + (plate.population === undefined ? 0 : 40);
 
-interface Placed { readonly key: string; readonly plate: TownNameplate; readonly x: number; readonly y: number }
+/** Like Civ banners, plates grow as you zoom in: base size up to ~48px tiles, then up to 1.6x. */
+export const plateScaleForTile = (tileCssPx: number): number => Math.min(1.6, Math.max(1, 0.7 + tileCssPx / 160));
+
+interface Placed { readonly key: string; readonly plate: TownNameplate; readonly x: number; readonly y: number; readonly scale: number }
 
 const overlaps = (a: Placed, b: Placed): boolean =>
-  Math.abs(a.x - b.x) * 2 < plateWidth(a.plate) + plateWidth(b.plate) && Math.abs(a.y - b.y) < PLATE_H;
+  Math.abs(a.x - b.x) * 2 < plateWidth(a.plate) * a.scale + plateWidth(b.plate) * b.scale &&
+  Math.abs(a.y - b.y) * 2 < PLATE_H * (a.scale + b.scale);
 
 /** Pick which plates to draw: highest rank first (ties by tile key, so panning doesn't flip them), dropping any that would overlap one already placed. */
 export const placeNameplates = (candidates: readonly Placed[]): Placed[] => {
@@ -75,20 +78,23 @@ export function createTownNameplates(canvas: HTMLCanvasElement, state: TownNamep
       const bounds = canvas.getBoundingClientRect();
       const scaleX = bounds.width / Math.max(1, canvas.width), scaleY = bounds.height / Math.max(1, canvas.height);
       const three = isTrue3DRendererActive();
-      // Plate bottom sits just above the town: over the 3D model's roof, or the 2D tile's top edge.
-      const lift = three ? Math.max(12, size * 1.5) : size * 0.5 + 4;
       const candidates: Placed[] = [];
       for (const { wx, wy, wk, px, py, vis, t } of state.authSessionReady && !state.profileSetupRequired ? tiles : []) {
         if (vis !== "visible") continue;
         const plate = townNameplateFor(t, state.me, nowMs);
         if (!plate) continue;
         const at = three ? project(wx, wy) : { sx: px + size / 2, sy: py + size / 2 };
-        const x = at.sx * scaleX, y = (at.sy - lift) * scaleY;
+        // 3D: the tile's on-screen width comes from the camera (zoom alone doesn't say it);
+        // 2D: it's the zoom. Either way it sizes the plate and its lift.
+        const tile = (three ? Math.abs(project(wx + 1, wy).sx - at.sx) : size) * scaleX;
+        // Plate bottom sits just above the town: over the 3D model's roof, or the 2D tile's top edge.
+        const lift = three ? Math.max(10, tile * 0.5) : tile * 0.5 + 4;
+        const x = at.sx * scaleX, y = at.sy * scaleY - lift;
         if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x > bounds.width || y > bounds.height) continue;
-        candidates.push({ key: wk, plate, x, y });
+        candidates.push({ key: wk, plate, x, y, scale: plateScaleForTile(tile) });
       }
       const shown = new Set<string>();
-      for (const { key, plate, x, y } of placeNameplates(candidates)) {
+      for (const { key, plate, x, y, scale } of placeNameplates(candidates)) {
         shown.add(key);
         let entry = elements.get(key);
         if (!entry) {
@@ -109,7 +115,8 @@ export function createTownNameplates(canvas: HTMLCanvasElement, state: TownNamep
         if (entry.el.style.getPropertyValue("--town-plate-owner") !== color) entry.el.style.setProperty("--town-plate-owner", color);
         // transform, not left/top: moving plates then never dirties layout, so the
         // AFC layer's getBoundingClientRect right after doesn't force a reflow.
-        const transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -100%)`;
+        // Scale applies first, about the plate's bottom centre (CSS transform-origin), so the plate grows upward from its anchor.
+        const transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -100%) scale(${scale.toFixed(3)})`;
         if (entry.el.style.transform !== transform) entry.el.style.transform = transform;
       }
       for (const [key, entry] of elements) if (!shown.has(key)) { entry.el.remove(); elements.delete(key); }

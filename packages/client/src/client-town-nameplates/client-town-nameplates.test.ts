@@ -2,7 +2,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Tile } from "../client-types.js";
 
-vi.mock("../client-renderer-mode.js", () => ({ isTrue3DRendererActive: () => false }));
+let threeActive = false;
+vi.mock("../client-renderer-mode.js", () => ({ isTrue3DRendererActive: () => threeActive }));
 const { createTownNameplates } = await import("./client-town-nameplates.js");
 
 const townTile = (x: number, overrides: Partial<NonNullable<Tile["town"]>> = {}): Tile => ({
@@ -68,7 +69,7 @@ describe("createTownNameplates (2D path)", () => {
     plates.render([at(townTile(1), 100, 200)], { size: 8, project });
     const plate = host.querySelector<HTMLElement>(".town-plate");
     // Tile centre (104, 204) lifted by half a tile plus 4px: the plate's bottom is on the tile's top edge.
-    expect(plate?.style.transform).toBe("translate3d(104px, 196px, 0) translate(-50%, -100%)");
+    expect(plate?.style.transform).toBe("translate3d(104px, 196px, 0) translate(-50%, -100%) scale(1.000)");
     expect(plate?.style.left).toBe("");
   });
 
@@ -88,5 +89,27 @@ describe("createTownNameplates (2D path)", () => {
     const long = (x: number) => ({ ...townTile(x, { name: "Harrowgate Reach" }), ownerId: "rival" }) as Tile;
     plates.render([at(long(1), 100, 200), at(long(2), 170, 200)], { size: 40, project });
     expect(host.querySelectorAll(".town-plate")).toHaveLength(1);
+  });
+
+  it("grows the plate as the 2D tiles grow, like Civ banners", () => {
+    const { host, plates } = mount();
+    plates.render([at(townTile(1), 100, 200)], { size: 192, project });
+    expect(host.querySelector<HTMLElement>(".town-plate")?.style.transform).toMatch(/scale\(1\.600\)$/);
+  });
+});
+
+describe("createTownNameplates (true-3D path)", () => {
+  it("sits half a projected tile above the town and scales with it, not with the raw zoom", () => {
+    threeActive = true;
+    try {
+      const { host, plates } = mount();
+      // Camera projection: each world tile is 200 screen px wide, independent of the zoom value passed in.
+      const project3d = (x: number, y: number) => ({ sx: 300 + x * 200, sy: 400 + y * 120 });
+      plates.render([at(townTile(1), 0, 0)], { size: 160, project: project3d });
+      // Centre (500, 400), lifted 100px (half the 200px tile), not 240px (1.5 × zoom) onto the tile behind.
+      expect(host.querySelector<HTMLElement>(".town-plate")?.style.transform).toBe("translate3d(500px, 300px, 0) translate(-50%, -100%) scale(1.600)");
+    } finally {
+      threeActive = false;
+    }
   });
 });
