@@ -13,7 +13,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { AdminPlayerRow, CurrentSeasonSummary, SeasonVictoryObjectiveSnapshot } from "@border-empires/sim-protocol";
 import { DEFAULT_WORLD_HEIGHT, DEFAULT_WORLD_WIDTH, WATCHTOWERS_ENABLED, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 
-export type AdminWorldVictoryObjective = Pick<SeasonVictoryObjectiveSnapshot, "id" | "leaderPlayerId" | "leaderName" | "conditionMet" | "progress" | "progressLabel" | "statusLabel" | "holdRemainingSeconds">;
+export type AdminWorldVictoryObjective = Pick<SeasonVictoryObjectiveSnapshot, "id" | "leaderPlayerId" | "leaderName" | "conditionMet" | "progress" | "progressLabel" | "thresholdLabel" | "statusLabel" | "holdDurationSeconds" | "holdRemainingSeconds">;
 
 export type AdminWorldSizeStatus = "match" | "rollover_pending" | "unknown";
 
@@ -54,7 +54,9 @@ const victoryObjective = (objective: SeasonVictoryObjectiveSnapshot): AdminWorld
   conditionMet: objective.conditionMet,
   ...(typeof objective.progress === "number" ? { progress: objective.progress } : {}),
   progressLabel: objective.progressLabel,
+  thresholdLabel: objective.thresholdLabel,
   statusLabel: objective.statusLabel,
+  holdDurationSeconds: objective.holdDurationSeconds,
   ...(typeof objective.holdRemainingSeconds === "number" ? { holdRemainingSeconds: objective.holdRemainingSeconds } : {})
 });
 

@@ -76,10 +76,31 @@ describe("chooseVictoryPath", () => {
     expect(choice.path).toBe("TOWN_CONTROL");
   });
 
+  it("leaves a contending path to defend another path whose win condition is already met", () => {
+    const choice = chooseVictoryPath(prodShapedInput({
+      previousVictoryPath: "TOWN_CONTROL",
+      worldVictoryProgress: { TOWN_CONTROL: 0.75, ECONOMIC_HEGEMONY: 1 }
+    }));
+    expect(choice).toEqual({ path: "ECONOMIC_HEGEMONY", progress: 1 });
+  });
+
+  it("breaks near-zero season-start ties by the situational heuristic, not path order", () => {
+    // Heuristic strongly favours economy here (high income, economic build ready).
+    const choice = chooseVictoryPath(prodShapedInput({ economicBuildAvailable: true, worldVictoryProgress: {} }));
+    const heuristicBest = Object.entries(scoreVictoryPaths(prodShapedInput({ economicBuildAvailable: true })))
+      .sort((left, right) => right[1].score - left[1].score)[0]![0];
+    expect(choice.path).toBe(heuristicBest);
+  });
+
+  it("never lets the heuristic alone flip a held path", () => {
+    const choice = chooseVictoryPath(prodShapedInput({ previousVictoryPath: "MARITIME_SUPREMACY", worldVictoryProgress: {} }));
+    expect(choice.path).toBe("MARITIME_SUPREMACY");
+  });
+
   it("keeps the previous path inside the repivot margin", () => {
     const choice = chooseVictoryPath(prodShapedInput({
       previousVictoryPath: "TOWN_CONTROL",
-      worldVictoryProgress: { TOWN_CONTROL: 0.3, ECONOMIC_HEGEMONY: 0.32 }
+      worldVictoryProgress: { TOWN_CONTROL: 0.3, ECONOMIC_HEGEMONY: 0.305 }
     }));
     expect(choice.path).toBe("TOWN_CONTROL");
   });

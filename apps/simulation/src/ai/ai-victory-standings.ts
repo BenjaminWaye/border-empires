@@ -7,6 +7,7 @@
 // back to self-relative targets that read "already winning" for every AI
 // (victory-path-scoring.ts). This merges both sources into one per-player
 // map and attaches it to the planner views the worker producer exports.
+import { SEASON_VICTORY_ECONOMY_LEAD_MULT } from "@border-empires/game-domain";
 import type { SeasonVictoryObjectiveSnapshot } from "@border-empires/sim-protocol";
 import type { SeasonVictoryPathId } from "@border-empires/shared";
 
@@ -28,7 +29,15 @@ export const victoryProgressByPlayer = (source: VictoryStandingsSource): Map<str
   const byPlayer = new Map<string, WorldVictoryProgress>();
   for (const [playerId, paths] of source.selfProgress) {
     const progress: WorldVictoryProgress = {};
-    for (const [path, value] of paths) progress[path] = clamp01(value);
+    for (const [path, value] of paths) {
+      // A non-leader's Economic Hegemony self-progress is income / leader's
+      // income (a "how close to the front" display proxy), while the leader's
+      // objective progress is measured against beating the runner-up by the
+      // lead multiplier. Without rescaling, an AI just behind the leader reads
+      // higher than the leader itself. Dividing by the multiplier puts both on
+      // "fraction of the income needed to win from here".
+      progress[path] = clamp01(path === "ECONOMIC_HEGEMONY" ? value / SEASON_VICTORY_ECONOMY_LEAD_MULT : value);
+    }
     byPlayer.set(playerId, progress);
   }
   // computeSeasonVictory leaves the leader out of the self-progress map; its
@@ -56,10 +65,11 @@ export const createVictoryStandingsLookup = (readSource: () => VictoryStandingsS
       cachedSelfProgress = source.selfProgress;
       cached = victoryProgressByPlayer(source);
     }
-    // No objectives yet (cold start before the first summary): leave the
-    // planner on its heuristic rather than tell every AI it has 0 progress.
+    // No objectives yet (cold start before the first summary), or a player the
+    // season doesn't rank (non-competitive): leave the planner on its
+    // heuristic rather than tell it it has 0 progress everywhere.
     if (source.objectives.length === 0) return undefined;
-    return cached.get(playerId) ?? {};
+    return cached.get(playerId);
   };
 };
 

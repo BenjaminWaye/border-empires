@@ -83,6 +83,12 @@ const VICTORY_PATH_SOFT_CONTENDER_ECONOMY_RATIO = 0.8;
 // (28/56) mean "another path is 2.8%/5.6% closer to its win" and each extra
 // AI crowding a path costs 1.8%.
 const WORLD_PROGRESS_SCORE_SCALE = 1_000;
+// World mode still ranks paths by the situational heuristic (food, frontier
+// opportunities, dock crossings, attack targets) and adds a small bonus by
+// rank. Every bonus gap is below VICTORY_PATH_REPIVOT_MARGIN, so the heuristic
+// alone never flips a held path — it only breaks near-ties, e.g. at season
+// start when every path's real progress is ~0.
+const HEURISTIC_RANK_BONUS = [20, 14, 8, 4, 0] as const;
 
 export const targetRequiresDockCrossing = (
   selection:
@@ -139,14 +145,17 @@ const crowdingPenaltyFor = (
 
 const scoreVictoryPathsFromWorld = (
   world: WorldVictoryProgress,
+  heuristic: Record<AutomationVictoryPath, VictoryPathScore>,
   pathPopulationCounts: VictoryPathScoringInput<StrategicTile>["pathPopulationCounts"]
 ): Record<AutomationVictoryPath, VictoryPathScore> => {
   const crowdingPenalty = crowdingPenaltyFor(pathPopulationCounts);
+  const heuristicRank = [...VICTORY_PATHS].sort((left, right) => heuristic[right].score - heuristic[left].score);
   const entries = VICTORY_PATHS.map((path): [AutomationVictoryPath, VictoryPathScore] => {
     const progress = Math.max(0, Math.min(1, world[path] ?? 0));
     const contender = progress >= VICTORY_PATH_CONTENDER_PROGRESS_RATIO;
     const softContender = progress >= VICTORY_PATH_SOFT_CONTENDER_PROGRESS_RATIO;
-    return [path, { score: progress * WORLD_PROGRESS_SCORE_SCALE - crowdingPenalty(path, contender, softContender), contender, softContender, progress }];
+    const situationalBonus = HEURISTIC_RANK_BONUS[heuristicRank.indexOf(path)] ?? 0;
+    return [path, { score: progress * WORLD_PROGRESS_SCORE_SCALE + situationalBonus - crowdingPenalty(path, contender, softContender), contender, softContender, progress }];
   });
   return Object.fromEntries(entries) as Record<AutomationVictoryPath, VictoryPathScore>;
 };
@@ -154,7 +163,13 @@ const scoreVictoryPathsFromWorld = (
 export const scoreVictoryPaths = <TTile extends StrategicTile>(
   input: VictoryPathScoringInput<TTile>
 ): Record<AutomationVictoryPath, VictoryPathScore> => {
-  if (input.worldVictoryProgress) return scoreVictoryPathsFromWorld(input.worldVictoryProgress, input.pathPopulationCounts);
+  const heuristic = scoreVictoryPathsHeuristic(input);
+  return input.worldVictoryProgress ? scoreVictoryPathsFromWorld(input.worldVictoryProgress, heuristic, input.pathPopulationCounts) : heuristic;
+};
+
+const scoreVictoryPathsHeuristic = <TTile extends StrategicTile>(
+  input: VictoryPathScoringInput<TTile>
+): Record<AutomationVictoryPath, VictoryPathScore> => {
   const islandGrowthAvailable =
     targetRequiresDockCrossing(input.frontierAnalysis.expand) ||
     targetRequiresDockCrossing(input.frontierAnalysis.economicExpand);
@@ -286,7 +301,11 @@ export const chooseVictoryPath = <TTile extends StrategicTile>(
   if (!previous) return withProgress(best?.[0] ?? "DIPLOMATIC_DOMINANCE");
 
   const previousScore = scores[previous];
-  if (previousScore.contender) return withProgress(previous);
+  // A real contender holds its path — unless another path's win condition is
+  // already met (world progress 1) and this one's isn't: then defend the hold
+  // that is actually running. Heuristic progress runs past 1, so world only.
+  const anotherPathWon = Boolean(input.worldVictoryProgress) && best !== undefined && best[0] !== previous && best[1].progress >= 1 && previousScore.progress < 1;
+  if (previousScore.contender && !anotherPathWon) return withProgress(previous);
   if (!best) return withProgress(previous);
   if (best[0] === previous) return withProgress(previous);
   if (previousScore.softContender && best[1].score < previousScore.score + VICTORY_PATH_EMERGENCY_REPIVOT_MARGIN) {

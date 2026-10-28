@@ -40,7 +40,19 @@ describe("victoryProgressByPlayer", () => {
       selfProgress: selfProgress({ "ai-1": { TOWN_CONTROL: 0.3 }, "ai-2": { ECONOMIC_HEGEMONY: 0.25 } })
     });
     expect(progress.get("ai-1")).toEqual({ TOWN_CONTROL: 0.3, ECONOMIC_HEGEMONY: 0.4 });
-    expect(progress.get("ai-2")).toEqual({ ECONOMIC_HEGEMONY: 0.25, TOWN_CONTROL: 1 });
+    expect(progress.get("ai-2")?.TOWN_CONTROL).toBe(1);
+    expect(progress.get("ai-2")?.ECONOMIC_HEGEMONY).toBeCloseTo(0.25 / 1.33);
+  });
+
+  it("never ranks an AI just behind the economic leader above the leader", () => {
+    // Leader 64.5/min vs runner-up 60/min: leader progress 64.5 / (60 * 1.33),
+    // runner-up self-progress 60 / 64.5 (computeSeasonVictory's proxy).
+    const progress = victoryProgressByPlayer({
+      objectives: [objective({ id: "ECONOMIC_HEGEMONY", leaderPlayerId: "ai-1", progress: 64.5 / (60 * 1.33) })],
+      selfProgress: selfProgress({ "ai-2": { ECONOMIC_HEGEMONY: 60 / 64.5 } })
+    });
+    expect(progress.get("ai-2")!.ECONOMIC_HEGEMONY!).toBeLessThan(progress.get("ai-1")!.ECONOMIC_HEGEMONY!);
+    expect(progress.get("ai-2")!.ECONOMIC_HEGEMONY!).toBeLessThan(0.72);
   });
 });
 
@@ -50,9 +62,9 @@ describe("createVictoryStandingsLookup", () => {
     expect(lookup("ai-1")).toBeUndefined();
   });
 
-  it("gives an unranked player explicit zero progress once standings exist", () => {
+  it("leaves a player the season doesn't rank on the heuristic", () => {
     const lookup = createVictoryStandingsLookup(() => ({ objectives: [objective({ id: "TOWN_CONTROL", leaderPlayerId: "ai-2", progress: 0.5 })], selfProgress: new Map() }));
-    expect(lookup("ai-9")).toEqual({});
+    expect(lookup("ai-9")).toBeUndefined();
   });
 
   it("recomputes only when the source is replaced", () => {
@@ -76,13 +88,13 @@ describe("createAiProducerRuntime", () => {
     } as unknown as AiProducerRuntime;
     const lookup = createVictoryStandingsLookup(() => ({
       objectives: [objective({ id: "ECONOMIC_HEGEMONY", leaderPlayerId: "ai-1", progress: 0.8 })],
-      selfProgress: selfProgress({ "ai-2": { ECONOMIC_HEGEMONY: 0.5 } })
+      selfProgress: selfProgress({ "ai-2": { TOWN_CONTROL: 0.5 } })
     }));
     const adapted = createAiProducerRuntime(runtime, (_phase, _details, task) => task(), lookup);
     expect(adapted.exportPlannerWorldView(["ai-1"]).players[0]?.victoryProgress).toEqual({ ECONOMIC_HEGEMONY: 0.8 });
     expect(adapted.exportPlannerPlayerViews(["ai-1", "ai-2"]).map((player) => player.victoryProgress)).toEqual([
       { ECONOMIC_HEGEMONY: 0.8 },
-      { ECONOMIC_HEGEMONY: 0.5 }
+      { TOWN_CONTROL: 0.5 }
     ]);
   });
 

@@ -490,7 +490,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "AI empires chase real victories",
     why: "AI empires judged victory against their own size, so each thought it was already winning and none pushed for a win.",
     changes: [
-      "AI empires now pick the victory path they are actually closest to, using the same standings as the victory screen, and switch when another path gets closer.",
+      "AI empires now pick the victory path they are actually closest to from the season standings, switch when another path gets clearly closer, and defend a victory they are already holding.",
       "AI empires no longer waste turns trying to re-enable Relay Beacons on unsettled land."
     ]
   }
