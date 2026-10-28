@@ -15,7 +15,6 @@ import {
 } from "./client-map-overlay-images.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { townIdentityForTile } from "../client-town-identity.js";
-import { shouldShowTownUnfedWarning } from "../client-town-growth/client-town-growth.js";
 import type { RoadDirections } from "../client-road-network/client-road-network.js";
 import type { EmpireVisualStyle, Tile } from "../client-types.js";
 
@@ -540,24 +539,12 @@ export const drawTownOverlay = (
   px: number,
   py: number,
   size: number,
-  localPlayerId: string, ownerColor = "#C44937"
+  ownerColor = "#C44937"
 ): void => {
   const town = townIdentityForTile(tile);
   if (!town) return;
   if (size < 16) {
     drawTownMarker(ctx, px, py, size, true);
-    if (shouldShowTownUnfedWarning(tile, localPlayerId)) {
-      const badgeSize = Math.max(6, size * 0.24);
-      const badgeX = px + size - badgeSize - 1;
-      const badgeY = py + 1;
-      ctx.fillStyle = "rgba(201, 74, 56, 0.96)";
-      ctx.beginPath();
-      ctx.moveTo(badgeX, badgeY + badgeSize);
-      ctx.lineTo(badgeX + badgeSize * 0.5, badgeY);
-      ctx.lineTo(badgeX + badgeSize, badgeY + badgeSize);
-      ctx.closePath();
-      ctx.fill();
-    }
     return;
   }
   const accent = town.type === "MARKET" ? "rgba(255, 212, 102, 0.9)" : "rgba(162, 241, 132, 0.88)";
@@ -600,28 +587,7 @@ export const drawTownOverlay = (
   ctx.lineTo(px + size * 0.78, py + size * 0.88);
   ctx.stroke();
   ctx.lineWidth = 1;
-  if (shouldShowTownUnfedWarning(tile, localPlayerId)) {
-    const badgeSize = Math.max(8, size * 0.24);
-    const badgeX = px + size * 0.72;
-    const badgeY = py + size * 0.08;
-    ctx.fillStyle = "rgba(201, 74, 56, 0.96)";
-    ctx.beginPath();
-    ctx.moveTo(badgeX, badgeY + badgeSize);
-    ctx.lineTo(badgeX + badgeSize * 0.5, badgeY);
-    ctx.lineTo(badgeX + badgeSize, badgeY + badgeSize);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = "rgba(39, 14, 9, 0.78)";
-    ctx.lineWidth = Math.max(1.2, size * 0.035);
-    ctx.stroke();
-    ctx.fillStyle = "rgba(255, 243, 219, 0.98)";
-    ctx.font = `bold ${Math.max(8, size * 0.16)}px system-ui`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("!", badgeX + badgeSize * 0.5, badgeY + badgeSize * 0.62);
-    ctx.textAlign = "start";
-    ctx.textBaseline = "alphabetic";
-  }
+  // Unfed and other town status now ride the shared town nameplate (client-town-nameplates).
   drawTownMarker(ctx, px, py, size, false);
 };
 

@@ -1,0 +1,49 @@
+.town-plate-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+.town-plate {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  font: 600 12px/1 var(--sp-font-body, Georgia, serif);
+  color: var(--sp-parchment-100, #f2e8d3);
+  text-shadow: 0 1px 2px #000c;
+}
+.town-plate-full {
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: #1a120ccc;
+}
+.town-plate-full:not(.town-plate-own) {
+  font-weight: 500;
+  color: #e6dccbd9;
+  background: #1a120c99;
+}
+.town-plate-tier {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--sp-brass-200, #e6c27a);
+}
+.town-plate-status {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  line-height: 0;
+  text-shadow: none;
+  color: #fff7e8;
+  background: #8a6a3a;
+}
+.town-plate-dot .town-plate-status { width: 18px; height: 18px; border: 1px solid #0008; }
+.town-plate-status[data-status="unfed"] { background: #c24a38; }
+.town-plate-status[data-status="upgrade"] { background: #4f8a3c; }
+.town-plate-status[data-status="war"],
+.town-plate-status[data-status="captured"] { background: #b7792b; }

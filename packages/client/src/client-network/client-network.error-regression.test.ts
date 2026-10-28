@@ -313,7 +313,7 @@ describe("client network regression guards", () => {
 
     expect(showCaptureAlert).toHaveBeenCalledWith(
       "Town unfed",
-      "Town is unfed. Check the warning badge on the affected town.",
+      "Town is unfed. Check the town's nameplate on the map.",
       "warn",
       undefined
     );

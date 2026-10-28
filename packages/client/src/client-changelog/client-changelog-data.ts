@@ -489,6 +489,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "A restart could hand ground both you and a neighbour reach over to the neighbour, even though you claimed it first.",
     changes: ["Where your reach overlaps a rival's, whoever claimed the ground first keeps it after a server restart or deploy, as long as their reach still covers it."]
   },
+  {
+    createdAt: 1793166986713, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.28.1",
+    title: "Town nameplates",
+    why: "Town status was spread across floating badges and an underfed toast, and towns had no names on the map.",
+    changes: [
+      "Your towns show a nameplate with their name, tier and status: unfed, upgrade ready, nearby war or recently captured. Zoomed out, a town with a status keeps a small marker.",
+      "Rival towns show their name when you zoom in.",
+      "The underfed toast is gone. Unfed towns off screen still get an edge marker."
+    ]
+  },
   ...AI_DOCK_CROSSING_CHANGELOG
 ];
 

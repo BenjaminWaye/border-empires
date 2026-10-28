@@ -28,7 +28,7 @@ import { renderSelectedStructurePreview2D } from "./client-selected-structure-pr
 import type { initClientDom } from "./client-dom.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network/client-road-network.js";
 import { drawQueuedTileBadges } from "./client-queue-badges/client-queued-tile-badges.js";
-import { createAfcMapOverlays } from "./client-afc-upgrades/client-afc-map-overlays.js";
+import { createMapScreenOverlays } from "./client-map-screen-overlays/client-map-screen-overlays.js";
 import { createMapNameLabels } from "./client-map-name-labels/client-map-name-labels.js";
 import { drawCrystalTargetingLine2D } from "./client-crystal-targeting-2d-line.js";
 import { drawTileOwnershipAndBreachBorder } from "./client-tile-borders/client-tile-borders.js";
@@ -182,7 +182,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   let roadNetwork = new Map<string, RoadDirections>();
   const lastRenderedTileStateByKey = new Map<string, string>();
   let roadNetworkBuiltAt = 0;
-  const afcMapOverlays = createAfcMapOverlays(deps.canvas, state, () => {
+  const mapScreenOverlays = createMapScreenOverlays(deps.canvas, state, () => {
     state.activePanel = "domains"; state.mobilePanel = "domains"; state.domainDetailOpen = false; state.techDetailOpen = false; deps.renderHud();
   });
   const drawPersistentAlertsFrame = createPersistentAlertsFrame(state);
@@ -198,7 +198,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   });
 
   const draw = (): void => {
-    if (isSeasonLobbyFullscreenActive(state)) { afcMapOverlays.render([], { size: 1, project: () => ({ sx: 0, sy: 0 }) }); requestAnimationFrame(draw); return; }
+    if (isSeasonLobbyFullscreenActive(state)) { mapScreenOverlays.render([], { size: 1, project: () => ({ sx: 0, sy: 0 }) }); requestAnimationFrame(draw); return; }
     const nowMs = performance.now();
     recordFpsFrame(nowMs);
     const minFrameGap = drawLoopMinFrameGapMs(isTrue3DRendererActive(), deps.isMobile());
@@ -883,7 +883,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (!isTrue3DRendererActive()) districtCanvas.draw(size, halfW, halfH);
 
     for (const overlayTile of overlayTiles) renderOverlayTile(overlayTile); if (!isTrue3DRendererActive() && state.arrowGesture) drawArrowGesture2D(deps.ctx, state.arrowGesture, (wx2, wy2) => deps.worldToScreen(wx2, wy2, size, halfW, halfH), size); // F4: 2D arrow-gesture visual (F1/F2 parity)
-    afcMapOverlays.render(overlayTiles, { size, project: (x, y) => deps.worldToScreen(x, y, size, halfW, halfH) });
+    mapScreenOverlays.render(overlayTiles, { size, project: (x, y) => deps.worldToScreen(x, y, size, halfW, halfH) });
     if (!isTrue3DRendererActive()) mapNameLabels.render((x, y) => deps.worldToScreen(x, y, size, halfW, halfH), nowMs);
     const tileOverlayMs = phaseMs();
 

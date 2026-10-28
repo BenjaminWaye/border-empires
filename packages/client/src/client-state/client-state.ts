@@ -97,7 +97,6 @@ export const createInitialState = () => ({
   economyBreakdown: undefined as EconomyBreakdown | undefined,
   upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
   upkeepLastTick: createInitialUpkeepLastTick(),
-  foodCoverageWarned: false,
   goldAnimUntil: 0, goldAnimDir: 0 as -1 | 0 | 1,
   defensibilityAnimUntil: 0,
   defensibilityAnimDir: 0 as -1 | 0 | 1,
