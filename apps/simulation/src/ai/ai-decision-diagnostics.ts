@@ -80,6 +80,8 @@ export type AiDecisionDiagnostic = {
    *  measured need deficits, diagnostic-only — see AutomationPlannerDiagnostic's
    *  needVector doc comment for when this is undefined. */
   needVector: NeedVector | undefined;
+  /** Victory path the plan pursued — see AutomationPlannerDiagnostic.victoryPath. */
+  victoryPath: AutomationPlannerDiagnostic["victoryPath"];
 };
 
 const recentDiagnostics = new Map<string, AiDecisionDiagnostic[]>();
@@ -153,7 +155,8 @@ export const recordAiDecisionDiagnosticFromPlanner = (
     relayBeaconBuildCandidate: diagnostic.relayBeaconBuildCandidate,
     relayBeaconSiteValue: diagnostic.relayBeaconSiteValue,
     lastRejection: lastRejectionByPlayer.get(diagnostic.playerId),
-    needVector: diagnostic.needVector
+    needVector: diagnostic.needVector,
+    victoryPath: diagnostic.victoryPath
   });
 };
 

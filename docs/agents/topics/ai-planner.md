@@ -130,6 +130,19 @@ consolidation, planning cadence), not deletion.
 
 ## Known pitfalls
 
+- **Victory progress must come from world standings, not self-relative
+  targets.** `victory-path-scoring.ts`'s heuristic fallback compares an AI
+  with itself (towns vs settled/5, 6 tiles of a resource, 3 docks), so every
+  AI read as already winning, locked onto its path and reported
+  `needVector.VICTORY = 0` (prod season-13, 2026-10-27). The worker producer
+  now attaches real progress (`ai-victory-standings.ts`); check a decision
+  diagnostic's `victoryPath.source` is `"world"` before trusting its
+  progress. The direct (non-worker) planner still uses the heuristic.
+- **Food-relief re-enable must target SETTLED tiles.** The runtime refuses
+  to enable a structure on any other tile, and the rejection only cools the
+  class down for 10s, so a FRONTIER beacon was retried forever (15 of 20 prod
+  AIs, 2026-10-27).
+
 - **Relay ocean filtering must retain water inside existing reach.**
   `relay-beacon-command-planner.ts` excludes existing reach from new-coverage
   credit, but must still classify visible water there for

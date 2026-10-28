@@ -181,6 +181,13 @@ describe("chooseManuallyDisabledBeaconToReenable", () => {
     expect(chooseManuallyDisabledBeaconToReenable([disabledIncubationEngine], PLAYER_ID)).toBeUndefined();
   });
 
+  it("ignores a manually-disabled beacon on a non-SETTLED tile, which the runtime refuses to enable", () => {
+    const frontierBeacon = { ...tile(1, 1, { status: "inactive", inactiveReason: "manual" }), ownershipState: "FRONTIER" as const };
+    const settledBeacon = tile(9, 9, { status: "inactive", inactiveReason: "manual" });
+    expect(chooseManuallyDisabledBeaconToReenable([frontierBeacon], PLAYER_ID)).toBeUndefined();
+    expect(chooseManuallyDisabledBeaconToReenable([frontierBeacon, settledBeacon], PLAYER_ID)).toEqual({ x: 9, y: 9 });
+  });
+
   it("picks deterministically (lowest x, then y) among multiple manually-disabled beacons", () => {
     const a = tile(5, 5, { status: "inactive", inactiveReason: "manual" });
     const b = tile(1, 9, { status: "inactive", inactiveReason: "manual" });

@@ -51,6 +51,26 @@ describe("GET /admin/world", () => {
     expect(body.sizeStatus).toBe("match");
   });
 
+  it("reports each victory path's leader, progress and remaining hold", async () => {
+    const seasonVictory = [
+      {
+        id: "ECONOMIC_HEGEMONY", name: "Economic Ascendancy", description: "", leaderPlayerId: "ai-1", leaderName: "Alden",
+        progressLabel: "92880.0 coin/day vs 61200.0", thresholdLabel: "Need at least 1000 coin/day and 33% lead", holdDurationSeconds: 86_400, holdRemainingSeconds: 3_600,
+        statusLabel: "Holding pressure", conditionMet: true, progress: 1
+      },
+      { id: "TOWN_CONTROL", name: "Town Control", description: "", leaderName: "No leader", progressLabel: "", thresholdLabel: "", holdDurationSeconds: 86_400, statusLabel: "No contender", conditionMet: false }
+    ] as CurrentSeasonSummary["seasonVictory"];
+    const body = (await buildApp({ summary: async () => summary({ seasonVictory }) }).inject({ method: "GET", url: "/admin/world" })).json();
+    expect(body.season.victory).toEqual([
+      {
+        id: "ECONOMIC_HEGEMONY", leaderPlayerId: "ai-1", leaderName: "Alden", conditionMet: true, progress: 1,
+        progressLabel: "92880.0 coin/day vs 61200.0", thresholdLabel: "Need at least 1000 coin/day and 33% lead", statusLabel: "Holding pressure",
+        holdDurationSeconds: 86_400, holdRemainingSeconds: 3_600
+      },
+      { id: "TOWN_CONTROL", leaderName: "No leader", conditionMet: false, progressLabel: "", thresholdLabel: "", statusLabel: "No contender", holdDurationSeconds: 86_400 }
+    ]);
+  });
+
   it("still answers with the configured size when the season summary is unavailable", async () => {
     const body = (
       await buildApp({
