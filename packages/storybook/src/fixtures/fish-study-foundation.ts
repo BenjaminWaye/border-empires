@@ -2,13 +2,16 @@ import { BufferAttribute, BufferGeometry } from "three";
 
 /** A low, chamfered apron: level top, skirt seated in the sampled terrain.
  * Corner order is NW, NE, SW, SE. Coordinates share the tile's 0..1 frame. */
-export const createFishStudyFoundation = (corners: readonly [number, number, number, number]): {
+export const createFishStudyFoundation = (corners: readonly [number, number, number, number],
+  options: { readonly inset?: number; readonly lift?: number } = {}
+): {
   readonly geometry: BufferGeometry;
   readonly topY: number;
 } => {
-  const topY = Math.max(...corners) + 0.012;
-  const outline = [[0.04, 0.09], [0.09, 0.04], [0.91, 0.04], [0.96, 0.09],
-    [0.96, 0.91], [0.91, 0.96], [0.09, 0.96], [0.04, 0.91]] as const;
+  const topY = Math.max(...corners) + (options.lift ?? 0.012);
+  const low = options.inset ?? 0.04, high = 1 - low, chamfer = 0.05;
+  const outline = [[low, low + chamfer], [low + chamfer, low], [high - chamfer, low], [high, low + chamfer],
+    [high, high - chamfer], [high - chamfer, high], [low + chamfer, high], [low, high - chamfer]] as const;
   const positions = [0.5, topY, 0.5];
   const uv = [0.5, 0.5];
   for (const [x, z] of outline) { positions.push(x, topY, z); uv.push(x, z); }

@@ -76,3 +76,22 @@ Gameplay zoom uses the default game's approximate camera distance (38).
 This remains a 3D preview, with no runtime or 2D replacement. The wider context
 exposes the apron's plain surface and the sparse hut/service area compared with
 the district buildings; refine these before adopting the proposal.
+
+### Compact layout trial (28 October 2026)
+
+The game-context story defaults to a compact alternative. The apron width is
+0.736 tiles instead of 0.92 (20% narrower, roughly 36% less surface area), with
+only 0.003 extra lift. Both basins keep their exported dimensions: the compact
+GLB is centered without applying the runtime footprint fit, which would enlarge
+it again. Basin/hoist assemblies are moved together; the open gap remains.
+The hut sits closer, with a dark roof cap and restrained iron/brass framing.
+Loose supplies become a two-tier case stack, and the apron gets subtle slab
+joints, damp areas and an edge drain. No wooden bridge is introduced.
+
+Generate this alternative from the original saved Blender study with:
+`blender --background <original-study.blend> --python scripts/compact-blender-fish-study.py -- packages/storybook/public/studies/fishing-style-compact.glb <compact-study.blend>`.
+The `Previous footprint` story retains the earlier layout at the same camera
+distance as `Close up`; the `compact` control switches between them in place.
+An asset check verifies both original basin dimensions and the reduced bounds.
+This remains a preview only: neither the live 3D overlay nor the 2D fallback is
+replaced. Lore reviewed; no canon change.
