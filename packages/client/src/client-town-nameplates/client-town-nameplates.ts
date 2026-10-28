@@ -8,7 +8,12 @@ import "./client-town-nameplates.css";
 
 interface NameplateTile { readonly wx: number; readonly wy: number; readonly wk: string; readonly px: number; readonly py: number; readonly vis: string; readonly t?: Tile | undefined }
 interface NameplateProjection { readonly size: number; readonly project: (x: number, y: number) => { sx: number; sy: number } }
-export interface TownNameplatesState { readonly me: string; readonly authSessionReady: boolean; readonly playerColors: ReadonlyMap<string, string> }
+export interface TownNameplatesState {
+  readonly me: string;
+  readonly authSessionReady: boolean;
+  readonly profileSetupRequired: boolean;
+  readonly playerColors: ReadonlyMap<string, string>;
+}
 
 const MAX_PLATES = 160;
 // The game's own simple icons, so unfed is the same food icon as the resource bar.
@@ -21,18 +26,23 @@ const STATUS_ICON: Record<TownNameplateStatus, string> = {
 // Unfed is the food icon struck through, not a red rim: red next to the owner colour clashed.
 const UNFED_SLASH =
   '<svg class="town-plate-slash" viewBox="0 0 24 24"><path d="M5 19 19 5" stroke="#2a0805" stroke-width="5" stroke-linecap="round"/><path d="M5 19 19 5" stroke="#e5412c" stroke-width="2.8" stroke-linecap="round"/></svg>';
-// Plates keep one screen size at every zoom (Civ-style banners), so these
-// footprints in CSS px hold for the greedy overlap cull below.
-const PLATE_W = 130, PLATE_H = 30;
+// Plates keep one screen size at every zoom (Civ-style banners). The CSS caps
+// the name at NAME_MAX_W, so these upper-bound footprints in CSS px hold for
+// the greedy overlap cull below.
+const NAME_MAX_W = 150, NAME_CHAR_W = 9, PLATE_H = 32;
+const plateWidth = (plate: TownNameplate): number =>
+  22 + Math.min(NAME_MAX_W, plate.name.length * NAME_CHAR_W) + (plate.status ? 22 : 0) + (plate.population === undefined ? 0 : 40);
 
 interface Placed { readonly key: string; readonly plate: TownNameplate; readonly x: number; readonly y: number }
 
-const overlaps = (a: Placed, b: Placed): boolean => Math.abs(a.x - b.x) < PLATE_W && Math.abs(a.y - b.y) < PLATE_H;
+const overlaps = (a: Placed, b: Placed): boolean =>
+  Math.abs(a.x - b.x) * 2 < plateWidth(a.plate) + plateWidth(b.plate) && Math.abs(a.y - b.y) < PLATE_H;
 
-/** Pick which plates to draw: highest rank first, dropping any that would overlap one already placed. */
+/** Pick which plates to draw: highest rank first (ties by tile key, so panning doesn't flip them), dropping any that would overlap one already placed. */
 export const placeNameplates = (candidates: readonly Placed[]): Placed[] => {
   const placed: Placed[] = [];
-  for (const candidate of [...candidates].sort((a, b) => b.plate.rank - a.plate.rank)) {
+  const ordered = [...candidates].sort((a, b) => b.plate.rank - a.plate.rank || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+  for (const candidate of ordered) {
     if (placed.length >= MAX_PLATES) break;
     if (!placed.some((other) => overlaps(candidate, other))) placed.push(candidate);
   }
@@ -65,9 +75,10 @@ export function createTownNameplates(canvas: HTMLCanvasElement, state: TownNamep
       const bounds = canvas.getBoundingClientRect();
       const scaleX = bounds.width / Math.max(1, canvas.width), scaleY = bounds.height / Math.max(1, canvas.height);
       const three = isTrue3DRendererActive();
-      const lift = three ? Math.max(30, size * 1.5) : Math.max(18, size * 0.55);
+      // Plate bottom sits just above the town: over the 3D model's roof, or the 2D tile's top edge.
+      const lift = three ? Math.max(12, size * 1.5) : size * 0.5 + 4;
       const candidates: Placed[] = [];
-      for (const { wx, wy, wk, px, py, vis, t } of state.authSessionReady ? tiles : []) {
+      for (const { wx, wy, wk, px, py, vis, t } of state.authSessionReady && !state.profileSetupRequired ? tiles : []) {
         if (vis !== "visible") continue;
         const plate = townNameplateFor(t, state.me, nowMs);
         if (!plate) continue;
@@ -96,8 +107,10 @@ export function createTownNameplates(canvas: HTMLCanvasElement, state: TownNamep
         if (entry.el.title !== title) entry.el.title = title;
         const color = ownerColor(plate.ownerId);
         if (entry.el.style.getPropertyValue("--town-plate-owner") !== color) entry.el.style.setProperty("--town-plate-owner", color);
-        if (entry.el.style.left !== `${x}px`) entry.el.style.left = `${x}px`;
-        if (entry.el.style.top !== `${y}px`) entry.el.style.top = `${y}px`;
+        // transform, not left/top: moving plates then never dirties layout, so the
+        // AFC layer's getBoundingClientRect right after doesn't force a reflow.
+        const transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -100%)`;
+        if (entry.el.style.transform !== transform) entry.el.style.transform = transform;
       }
       for (const [key, entry] of elements) if (!shown.has(key)) { entry.el.remove(); elements.delete(key); }
     },

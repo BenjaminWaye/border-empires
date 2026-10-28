@@ -25,6 +25,8 @@ import { RICHER_FORESTS_CHANGELOG } from "./client-changelog-richer-forests.js";
 import { SIEGE_FX_GATE_CHANGELOG } from "./client-changelog-siege-fx-gate.js";
 import { INCURSION_HATCH_HILLS_CHANGELOG } from "./client-changelog-incursion-hatch-hills.js";
 import { AI_DOCK_CROSSING_CHANGELOG } from "./client-changelog-ai-dock-crossing.js";
+import { REACH_RESTART_CHANGELOG } from "./client-changelog-reach-restart.js";
+import { TOWN_NAMEPLATES_CHANGELOG } from "./client-changelog-town-nameplates.js";
 import { MARCH_ACROSS_WATER_CHANGELOG } from "./client-changelog-march-across-water.js";
 import { MARCH_UNEXPLORED_CHANGELOG } from "./client-changelog-march-unexplored.js";
 import { MARCH_STOP_SHORT_CHANGELOG } from "./client-changelog-march-stop-short.js";
@@ -482,26 +484,9 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Manpower arrives in batches, so per-minute labels made building output hard to judge.",
     changes: ["The manpower countdown shows +N in the remaining time, including on mobile.", "Town upgrades, manpower buildings and regeneration modifiers show their output per batch."]
   },
-  {
-    createdAt: 1793134440000, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.28.1",
-    title: "Reach stays put across server restarts",
-    why: "A restart could hand ground both you and a neighbour reach over to the neighbour, even though you claimed it first.",
-    changes: ["Where your reach overlaps a rival's, whoever claimed the ground first keeps it after a server restart or deploy, as long as their reach still covers it."]
-  },
-  {
-    createdAt: 1793166986713, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.28.1",
-    title: "Town nameplates",
-    why: "Town status was spread across floating badges and an underfed toast, and towns had no names on the map.",
-    changes: [
-      "Every town shows a nameplate at every zoom, edged in its owner's colour. Your towns also show population.",
-      "Your towns' plates show a status icon: unfed (food struck through), upgrade ready, nearby war or recently captured.",
-      "The gold coin town marker is gone; the nameplate marks towns now.",
-      "The underfed toast is gone. Unfed towns off screen still get an edge marker."
-    ]
-  },
-  ...AI_DOCK_CROSSING_CHANGELOG
+  ...AI_DOCK_CROSSING_CHANGELOG,
+  ...REACH_RESTART_CHANGELOG,
+  ...TOWN_NAMEPLATES_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

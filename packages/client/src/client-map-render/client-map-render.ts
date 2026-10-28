@@ -517,8 +517,8 @@ export const drawTownOverlay = (
 ): void => {
   const town = townIdentityForTile(tile);
   if (!town) return;
-  // Zoomed out, the town nameplate (client-town-nameplates) marks the town.
-  if (size < 16) return;
+  // Drawn at every zoom, like the 3D town model: the nameplate overlap cull
+  // can drop a plate, so the building is the town's guaranteed mark.
   const accent = town.type === "MARKET" ? "rgba(255, 212, 102, 0.9)" : "rgba(162, 241, 132, 0.88)";
   const biome = tile.landBiome ?? landBiomeAt(tile.x, tile.y);
   const overlaySet = biome === "GRASS" ? grassTownOverlayByTier : defaultTownOverlayByTier;

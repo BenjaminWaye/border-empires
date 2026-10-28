@@ -10,13 +10,13 @@ const townTile = (x: number, overrides: Partial<NonNullable<Tile["town"]>> = {})
   town: { name: `Town${x}`, type: "FARMING", isFed: true, goldPerMinute: 1, population: 20_000, maxPopulation: 100_000, populationGrowthPerMinute: 5, populationTier: "TOWN", ...overrides }
 }) as Tile;
 
-const mount = () => {
+const mount = (profileSetupRequired = false) => {
   const host = document.createElement("div");
   const canvas = document.createElement("canvas");
   canvas.width = 800; canvas.height = 600;
   host.append(canvas); document.body.append(host);
   canvas.getBoundingClientRect = () => ({ width: 800, height: 600, left: 0, top: 0, right: 800, bottom: 600, x: 0, y: 0, toJSON: () => ({}) });
-  return { host, plates: createTownNameplates(canvas, { me: "me", authSessionReady: true, playerColors: new Map([["me", "#e3b92b"]]) }) };
+  return { host, plates: createTownNameplates(canvas, { me: "me", authSessionReady: true, profileSetupRequired, playerColors: new Map([["me", "#e3b92b"]]) }) };
 };
 const at = (t: Tile, px: number, py: number) => ({ wx: t.x, wy: t.y, wk: `${t.x},${t.y}`, px, py, vis: "visible", t });
 const project = () => ({ sx: 0, sy: 0 });
@@ -55,5 +55,38 @@ describe("createTownNameplates (2D path)", () => {
     plates.render([at(townTile(1, { name: "<img src=x>" }), 100, 200)], { size: 40, project });
     expect(host.querySelector(".town-plate img")).toBeNull();
     expect(host.querySelector(".town-plate-name")?.textContent).toBe("<img src=x>");
+  });
+
+  it("hides plates during profile setup, like the AFC layer", () => {
+    const { host, plates } = mount(true);
+    plates.render([at(townTile(1), 100, 200)], { size: 40, project });
+    expect(host.querySelectorAll(".town-plate")).toHaveLength(0);
+  });
+
+  it("sits just above the 2D tile and moves by transform, so panning never dirties layout", () => {
+    const { host, plates } = mount();
+    plates.render([at(townTile(1), 100, 200)], { size: 8, project });
+    const plate = host.querySelector<HTMLElement>(".town-plate");
+    // Tile centre (104, 204) lifted by half a tile plus 4px: the plate's bottom is on the tile's top edge.
+    expect(plate?.style.transform).toBe("translate3d(104px, 196px, 0) translate(-50%, -100%)");
+    expect(plate?.style.left).toBe("");
+  });
+
+  it("breaks rank ties by tile key, so two overlapping equal plates don't swap while panning", () => {
+    const { host, plates } = mount();
+    const a = townTile(1), b = townTile(2);
+    plates.render([at(b, 110, 200), at(a, 100, 200)], { size: 40, project });
+    plates.render([at(a, 100, 200), at(b, 110, 200)], { size: 40, project });
+    expect(Array.from(host.querySelectorAll(".town-plate-name")).map((el) => el.textContent)).toEqual(["Town1"]);
+  });
+
+  it("lets two short plates sit closer than two long ones", () => {
+    const { host, plates } = mount();
+    const short = (x: number) => ({ ...townTile(x, { name: "Ux" }), ownerId: "rival" }) as Tile;
+    plates.render([at(short(1), 100, 200), at(short(2), 170, 200)], { size: 40, project });
+    expect(host.querySelectorAll(".town-plate")).toHaveLength(2);
+    const long = (x: number) => ({ ...townTile(x, { name: "Harrowgate Reach" }), ownerId: "rival" }) as Tile;
+    plates.render([at(long(1), 100, 200), at(long(2), 170, 200)], { size: 40, project });
+    expect(host.querySelectorAll(".town-plate")).toHaveLength(1);
   });
 });
