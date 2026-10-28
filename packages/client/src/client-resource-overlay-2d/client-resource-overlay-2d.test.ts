@@ -1,4 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { NETWORK_RESOURCES, RESOURCE_NETWORKS } from "@border-empires/shared";
+import { setTrue3DRendererActive } from "../client-renderer-mode.js";
+import { drawResourceCornerMarker } from "../client-map-render/client-map-render-resource-marker.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Tile } from "../client-types.js";
 import { drawResourceOverlay2D, type ResourceOverlayDrawDeps } from "./client-resource-overlay-2d.js";
 
@@ -10,6 +13,7 @@ const makeDeps = (over: Partial<ResourceOverlayDrawDeps> = {}) => {
   const ctx = {
     globalAlpha: 1,
     drawImage: vi.fn(),
+    fillText: vi.fn(),
     save: vi.fn(),
     restore: vi.fn(),
     beginPath: vi.fn(),
@@ -77,5 +81,21 @@ describe("drawResourceOverlay2D", () => {
     const noColour = makeDeps({ resourceOverlayForTile: () => loading, builtResourceOverlayForTile: () => undefined, resourceColor: () => undefined });
     expect(drawResourceOverlay2D(noColour.deps, tile({}), 0, 0, 40, 0)).toBe(false);
     expect(noColour.deps.drawResourceCornerMarker).not.toHaveBeenCalled();
+  });
+});
+
+describe("frontier resource icons in both renderers", () => {
+  afterEach(() => { setTrue3DRendererActive(false); vi.unstubAllGlobals(); });
+  it.each([false, true])("draws every frontier icon with true-3D active=%s", active => {
+    vi.stubGlobal("Image", undefined);
+    setTrue3DRendererActive(active);
+    for (const resource of NETWORK_RESOURCES) {
+      const { deps } = makeDeps({ builtResourceOverlayForTile: () => undefined });
+      const draw = (tile: Tile, x: number, y: number, size: number): void =>
+        drawResourceCornerMarker(deps.ctx, tile, x, y, size, () => RESOURCE_NETWORKS[resource].color);
+      drawResourceOverlay2D({ ...deps, drawResourceCornerMarker: draw }, { x: 1, y: 1, terrain: "LAND", resource }, 0, 0, 64, 0);
+      expect(deps.ctx.fillText).toHaveBeenCalledWith(RESOURCE_NETWORKS[resource].glyph, expect.any(Number), expect.any(Number));
+      expect(deps.drawCenteredOverlayWithAlpha).toHaveBeenCalledTimes(active ? 0 : 1);
+    }
   });
 });

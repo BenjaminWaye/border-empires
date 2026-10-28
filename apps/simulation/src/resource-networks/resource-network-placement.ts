@@ -12,14 +12,17 @@ export const isEmptyNetworkSite = (tile: DomainTileState): boolean =>
   tile.terrain === "LAND" && !tile.resource && !tile.town && !tile.dockId && !tile.afc &&
   !tile.naturalWonder && !tile.shardSite && !tile.watchtower && !tile.waystation && !tile.economicStructure;
 
-/** Preserve existing AFC clearings and fifty qualified future 3x3 landings. */
+/** Keep town support rings, AFC clearings and fifty future 3x3 landings free. */
 export const protectedNetworkLandingKeys = (tiles: readonly DomainTileState[], width: number, height: number): ReadonlySet<string> => {
   const protectedKeys = new Set<string>(); // At most the number of world tiles.
   const protect = (x: number, y: number, radius: number): void => {
     for (let dy = -radius; dy <= radius; dy += 1) for (let dx = -radius; dx <= radius; dx += 1)
       protectedKeys.add(networkTileKey(x + dx, y + dy, width, height));
   };
-  for (const tile of tiles) if (tile.afc) protect(tile.x, tile.y, 2);
+  for (const tile of tiles) {
+    if (tile.afc) protect(tile.x, tile.y, 2);
+    if (tile.town) protect(tile.x, tile.y, 1);
+  }
   for (const site of computeFairSpawnSites(tiles, 50, { requireStarterEconomy: true, width, height })) protect(site.x, site.y, 1);
   return protectedKeys;
 };

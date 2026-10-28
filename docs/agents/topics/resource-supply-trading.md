@@ -155,3 +155,12 @@ count, while conductive minerals target factories. Shared manpower math and
 used-slot counters receive both consumer counts, and AI development checks
 installation output slots against the matching beneficiary count. Powered
 recipient, separate-target and imported-resin regressions cover this rule.
+
+### Resource readability and town support space
+
+Tile panels show the resource bonus and required research; construction cost and
+upkeep remain in the build controls. All five frontier resources have SVG icons
+in the shared map badges used by both 2D canvas and true-3D. Plain-text Coin
+glyph replacement remains separate because resin uses the same fallback glyph.
+New map placement reserves every town's eight support neighbours (wrapped at
+world edges), and catalysts reject coastal sand. Existing saves are not moved.

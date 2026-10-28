@@ -1,4 +1,4 @@
-import { isNetworkResource, RESOURCE_NETWORKS } from "@border-empires/shared";
+import { isNetworkResource, RESOURCE_NETWORKS, type NetworkResource } from "@border-empires/shared";
 // Steampunk resource icons, in two tiers. Small sizes (inline text, the
 // resource bar, map badges) use the simple emoji-style SVGs under
 // public/icons/simple, which stay legible at 16-30px. Large art slots use the
@@ -8,7 +8,7 @@ import { isNetworkResource, RESOURCE_NETWORKS } from "@border-empires/shared";
 // the text glyph until the SVG has decoded. resourceIconGlyph stays the
 // plain-text form for contexts that can't hold markup (canvas text, titles).
 
-export type ResourceIconKey = "GOLD" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
+export type ResourceIconKey = "GOLD" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD" | NetworkResource;
 export type ResourceIconPx = 96 | 256;
 // "inline" sits in running text (~16-24 px); "large" fills art slots (~40-70 px).
 export type ResourceIconSize = "inline" | "large";
@@ -19,7 +19,12 @@ const RESOURCE_ICON_FILE: Record<ResourceIconKey, string> = {
   TITANIUM: "titanium",
   CRYSTAL: "crystal",
   UMBRITE: "umbrite",
-  SHARD: "shard"
+  SHARD: "shard",
+  NEURAL_RESIN: "neural-resin",
+  CONDUCTIVE_MINERALS: "conductive-minerals",
+  CATALYTIC_DEPOSIT: "catalytic-deposit",
+  LUXURY_BIOTA: "luxury-biota",
+  PRECURSOR_SALVAGE: "precursor-salvage"
 };
 
 const RESOURCE_ICON_LABEL: Record<ResourceIconKey, string> = {
@@ -28,7 +33,12 @@ const RESOURCE_ICON_LABEL: Record<ResourceIconKey, string> = {
   TITANIUM: "Titanium",
   CRYSTAL: "Crystal",
   UMBRITE: "Umbrite",
-  SHARD: "Shard"
+  SHARD: "Shard",
+  NEURAL_RESIN: RESOURCE_NETWORKS.NEURAL_RESIN.name,
+  CONDUCTIVE_MINERALS: RESOURCE_NETWORKS.CONDUCTIVE_MINERALS.name,
+  CATALYTIC_DEPOSIT: RESOURCE_NETWORKS.CATALYTIC_DEPOSIT.name,
+  LUXURY_BIOTA: RESOURCE_NETWORKS.LUXURY_BIOTA.name,
+  PRECURSOR_SALVAGE: RESOURCE_NETWORKS.PRECURSOR_SALVAGE.name
 };
 
 const RESOURCE_ICON_GLYPH: Record<ResourceIconKey, string> = {
@@ -37,7 +47,12 @@ const RESOURCE_ICON_GLYPH: Record<ResourceIconKey, string> = {
   TITANIUM: "⛏",
   CRYSTAL: "💎",
   UMBRITE: "🟣",
-  SHARD: "✦"
+  SHARD: "✦",
+  NEURAL_RESIN: RESOURCE_NETWORKS.NEURAL_RESIN.glyph,
+  CONDUCTIVE_MINERALS: RESOURCE_NETWORKS.CONDUCTIVE_MINERALS.glyph,
+  CATALYTIC_DEPOSIT: RESOURCE_NETWORKS.CATALYTIC_DEPOSIT.glyph,
+  LUXURY_BIOTA: RESOURCE_NETWORKS.LUXURY_BIOTA.glyph,
+  PRECURSOR_SALVAGE: RESOURCE_NETWORKS.PRECURSOR_SALVAGE.glyph
 };
 
 // Tile deposit kinds map onto the strategic resource they feed.
@@ -46,7 +61,12 @@ const DEPOSIT_ICON_KEY: Readonly<Record<string, ResourceIconKey>> = {
   FISH: "FOOD",
   TITANIUM: "TITANIUM",
   GEMS: "CRYSTAL",
-  UMBRITE: "UMBRITE"
+  UMBRITE: "UMBRITE",
+  NEURAL_RESIN: "NEURAL_RESIN",
+  CONDUCTIVE_MINERALS: "CONDUCTIVE_MINERALS",
+  CATALYTIC_DEPOSIT: "CATALYTIC_DEPOSIT",
+  LUXURY_BIOTA: "LUXURY_BIOTA",
+  PRECURSOR_SALVAGE: "PRECURSOR_SALVAGE"
 };
 
 export const isResourceIconKey = (value: string): value is ResourceIconKey =>
@@ -58,23 +78,23 @@ export const depositIconKey = (resource: string | undefined): ResourceIconKey | 
 export const resourceSimpleIconUrl = (key: ResourceIconKey): string => `/icons/simple/${RESOURCE_ICON_FILE[key]}.svg`;
 
 export const resourceIconUrl = (key: ResourceIconKey, px: ResourceIconPx): string =>
-  `/icons/resources/${RESOURCE_ICON_FILE[key]}-${px}.png`;
+  isNetworkResource(key) ? resourceSimpleIconUrl(key) : `/icons/resources/${RESOURCE_ICON_FILE[key]}-${px}.png`;
 
 export const resourceIconGlyph = (resource: string): string =>
-  isResourceIconKey(resource) ? RESOURCE_ICON_GLYPH[resource] : isNetworkResource(resource) ? RESOURCE_NETWORKS[resource].glyph : "•";
+  isResourceIconKey(resource) ? RESOURCE_ICON_GLYPH[resource] : "•";
 
 // Sized by CSS (.resource-icon-img, ~1em square) so it takes the slot the emoji
 // glyph used to occupy in running text. Unknown keys fall back to the glyph.
 export const resourceIconHtml = (resource: string, size: ResourceIconSize = "inline"): string => {
   if (!isResourceIconKey(resource)) return resourceIconGlyph(resource);
   const alt = RESOURCE_ICON_LABEL[resource];
-  if (size === "large") {
+  if (size === "large" && !isNetworkResource(resource)) {
     return `<img class="resource-icon-img" src="${resourceIconUrl(resource, 96)}" srcset="${resourceIconUrl(resource, 96)} 1x, ${resourceIconUrl(resource, 256)} 2x" alt="${alt}" draggable="false" decoding="async">`;
   }
   return `<img class="resource-icon-img" src="${resourceSimpleIconUrl(resource)}" alt="${alt}" draggable="false" decoding="async">`;
 };
 
-// At most one entry per ResourceIconKey (6), so this cache is bounded.
+// At most one entry per ResourceIconKey (11), so this cache is bounded.
 const canvasImages = new Map<ResourceIconKey, HTMLImageElement>();
 
 const canvasImageFor = (key: ResourceIconKey): HTMLImageElement | undefined => {
@@ -130,7 +150,10 @@ export const drawResourceIconOnCanvas = (
 // they stay safe in any text-only sink; these swap the glyphs for the icon images at
 // display time. The glyph set is the resource glyphs only.
 const GLYPH_ICON_KEY = new Map<string, ResourceIconKey>(
-  (Object.keys(RESOURCE_ICON_GLYPH) as ResourceIconKey[]).map((key) => [RESOURCE_ICON_GLYPH[key], key])
+  // Network glyphs overlap existing currency symbols; never reinterpret Coin as resin.
+  (Object.keys(RESOURCE_ICON_GLYPH) as ResourceIconKey[])
+    .filter(key => !isNetworkResource(key))
+    .map((key) => [RESOURCE_ICON_GLYPH[key], key])
 );
 const GLYPH_PATTERN = new RegExp([...GLYPH_ICON_KEY.keys()].join("|"), "gu");
 // Non-global twin for presence checks: .test() on a /g regex moves lastIndex,

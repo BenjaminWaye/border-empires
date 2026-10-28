@@ -12,8 +12,8 @@ const DEPOSIT_DESCRIPTIONS: Readonly<Record<BaseResource, string>> = {
   UMBRITE: "Umbrite supplies military machinery and ammunition."
 };
 const escapeHtml = (value: string): string => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
-const card = (label: string, value: string, sub: string, wide = false): string =>
-  `<div class="tile-stat${wide ? " tile-stat-span2" : ""}"><span class="tile-stat-label">${escapeHtml(label)}</span><span class="tile-stat-value">${escapeHtml(value)}</span><span class="tile-stat-sub">${escapeHtml(sub)}</span></div>`;
+const card = (label: string, value: string, sub: string): string =>
+  `<div class="tile-stat"><span class="tile-stat-label">${escapeHtml(label)}</span><span class="tile-stat-value">${escapeHtml(value)}</span>${sub ? `<span class="tile-stat-sub">${escapeHtml(sub)}</span>` : ""}</div>`;
 
 /** One sentence of public flavour; mechanics belong in the stat boxes. */
 export function resourceTileDescriptionLines(tile: Tile): readonly string[] {
@@ -36,21 +36,14 @@ export function resourceTileStatsHtml(tile: Tile, techCatalog: readonly Pick<Tec
     return `<div class="tile-stat-grid resource-stat-grid">${card("Base supply", `+${slots.baseSlots} ${label}`, "Renewable slots")}${card("Requires", "Garrison", siphoned ? "Siphoned" : "Owned tile")}</div>`;
   }
   const spec = RESOURCE_NETWORKS[resource];
-  const structure = tile.economicStructure;
-  const siteState = structure?.type !== spec.building ? "Build required"
-    : structure.status === "under_construction" ? "Under construction"
-    : structure.status !== "active" || structure.inactiveReason === "manual" ? "Inactive"
-    : "Garrison + active site";
   const target = spec.target === "ANCILLARY_DEPOT" ? "Ancillary Depot" : spec.target === "ANCILLARY_FACTORY" ? "Ancillary Factory" : spec.target === "TRADE_NEXUS" ? "Trade Nexus" : "Manufactory";
   const bonus = spec.batchBonus ? `+${spec.batchBonus * spec.slotsPerSite} Ancillaries` : `+${spec.creditPerDay} Coin`;
   const interval = spec.batchBonus ? `per ${MANPOWER_REFILL_WINDOW_MS / 3_600_000}h ${spec.target === "ANCILLARY_DEPOT" ? "cycle" : "batch"}` : "per day";
+  const recipient = spec.slotsPerSite > 1 ? `${spec.slotsPerSite} factories × +${spec.batchBonus} · ${interval}` : `${interval} · 1 ${target}`;
   const unlock = techCatalog.find(tech => tech.id === spec.tech)?.name ?? "Matching Manifest";
   return `<div class="tile-stat-grid resource-stat-grid">${[
-    card("Potential bonus", bonus, spec.slotsPerSite > 1 ? `${spec.slotsPerSite} factories × +${spec.batchBonus} · ${interval}` : `${interval} · 1 ${target}`),
-    card("Supply", `${spec.slotsPerSite} exclusive slot${spec.slotsPerSite === 1 ? "" : "s"}`, siphoned ? "Siphoned" : "Renewable · tradeable"),
-    card("Develop with", spec.buildingName, `${spec.manpowerCost} Ancillaries · ${siteState}`),
-    card("Upkeep", "1 FOOD", "Powered site required"),
-    card("Unlock", unlock, "Manifest required", true)
+    card("Bonus", bonus, `${siphoned ? "Siphoned · " : ""}${recipient}`),
+    card("Research", unlock, "")
   ].join("")}</div>`;
 }
 

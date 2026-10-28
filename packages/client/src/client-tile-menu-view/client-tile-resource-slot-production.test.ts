@@ -86,10 +86,12 @@ describe("every resource tile explains its role", () => {
       if (NETWORK_RESOURCES.some(kind => kind === resource)) {
         const spec = RESOURCE_NETWORKS[resource as keyof typeof RESOURCE_NETWORKS];
         expect(lines).toContain(spec.description);
-        expect(lines).toContain(spec.buildingName);
-        expect(lines).toContain(`${spec.manpowerCost} Ancillaries`);
-        expect(lines).toContain("Build required");
-        expect(lines).toContain("Potential bonus");
+        expect(lines).toContain("Bonus");
+        expect(lines).not.toContain("exclusive slot");
+        expect(lines).not.toContain("Renewable · tradeable");
+        expect(lines).not.toContain("Develop with");
+        expect(lines).not.toContain("Powered site required");
+        expect(lines.match(/class="tile-stat"/g)).toHaveLength(2);
         expect(lines).not.toMatch(/Claim and garrison this tile to start producing/);
       } else expect(lines).toContain("Base supply");
     }
@@ -97,12 +99,13 @@ describe("every resource tile explains its role", () => {
   it("describes a visible coastal fishing marker before the sea early return", () => {
     expect(menuOverviewForTile({x:1,y:1,terrain:"COASTAL_SEA",resource:"FISH"},deps).map(row=>row.html).join(" ")).toContain("Coastal fishing grounds");
   });
-  it("does not call an unfinished or inactive extractor a working supplier", () => {
+  it("keeps deposit bonuses separate from the installation's build status", () => {
     const tile: Tile = {x:1,y:1,terrain:"LAND",resource:"NEURAL_RESIN",ownerId:"me",ownershipState:"SETTLED",
       economicStructure:{ownerId:"me",type:"RESIN_EXTRACTOR",status:"under_construction"}};
-    expect(menuOverviewForTile(tile,deps).map(row=>row.html).join(" ")).toContain("Under construction");
+    const potential = resourceTileStatsHtml(tile);
+    expect(potential).toContain("per 4h cycle");
     tile.economicStructure!.status="active";
-    expect(menuOverviewForTile(tile,deps).map(row=>row.html).join(" ")).toContain("Powered site required");
+    expect(resourceTileStatsHtml(tile)).toBe(potential);
   });
 });
 

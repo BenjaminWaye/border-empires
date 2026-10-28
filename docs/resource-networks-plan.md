@@ -111,7 +111,7 @@ are roughly 500–650 deposits per resource, depending on coastlines and habitat
 |---|---|---|
 | Neural resin | Forested grassland groves | Other grassland |
 | Conductive minerals | Tundra and rocky grassland near hills/mountains | Other grassland |
-| Catalytic deposits | Sand and coastal sand | Exposed tundra |
+| Catalytic deposits | Inland sand | Exposed tundra |
 | Luxury biota | Tropical or wet grassland | Temperate grassland |
 | Precursor salvage | Hills and mountain foothills | Any land biome |
 
@@ -239,3 +239,8 @@ world-generation coverage test, including protected landings and both map styles
 The production-clone load gate remains required before production deployment.
 The new geography takes effect on new seasons; deployment preserves the current
 campaign's saved deposits and does not trigger a rollover.
+
+New placement reserves each town and its eight adjacent support tiles for town
+industry; frontier installations work on their own settled deposits without
+town support. Catalysts exclude coastal sand. These changes apply when a map is
+generated, preserving current campaign geography.

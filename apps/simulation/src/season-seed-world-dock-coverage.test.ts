@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { WORLD_WIDTH, WORLD_HEIGHT, NETWORK_RESOURCES, RESOURCE_NETWORKS, isSeaTerrain, wrapX, wrapY, type TileKey, type WorldStyle } from "@border-empires/shared";
+import { WORLD_WIDTH, WORLD_HEIGHT, NETWORK_RESOURCES, RESOURCE_NETWORKS, isSeaTerrain, isNetworkResource, landBiomeAt, wrapX, wrapY, type TileKey, type WorldStyle } from "@border-empires/shared";
 import { createSeasonSeedWorld } from "./season-seed-world.js";
 import { parseTestShard, valuesForTestShard } from "./season-seed-world-coverage-shard.test-support.js";
 import { computeFairSpawnSites, starterSiteQuality } from "@border-empires/game-domain";
@@ -54,6 +54,13 @@ const countUncoveredSeaAdjacentComponents = (tiles: Map<string, import("@border-
 };
 
 const assertFrontierDepositBudgets = (tiles: ReadonlyMap<string, import("@border-empires/game-domain").DomainTileState>, label: string): void => {
+  for (const tile of tiles.values()) {
+    if (tile.resource === "CATALYTIC_DEPOSIT") expect(tile.landBiome ?? landBiomeAt(tile.x, tile.y), `${label} catalyst beach`).not.toBe("COASTAL_SAND");
+    if (tile.town) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const neighbour = tiles.get(`${wrapX(tile.x + dx, WORLD_WIDTH)},${wrapY(tile.y + dy, WORLD_HEIGHT)}`);
+      expect(isNetworkResource(neighbour?.resource), `${label} town support ${tile.x},${tile.y}`).toBe(false);
+    }
+  }
   for (const resource of NETWORK_RESOURCES) {
     const remaining = new Set([...tiles].filter(([,tile]) => tile.resource === resource).map(([key]) => key));
     expect(remaining.size, `${label} ${resource}`).toBe(Math.round(RESOURCE_NETWORKS[resource].sitesPerStandardMap * WORLD_WIDTH * WORLD_HEIGHT / (640 * 320)));

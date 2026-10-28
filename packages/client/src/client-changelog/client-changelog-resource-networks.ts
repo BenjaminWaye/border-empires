@@ -70,6 +70,13 @@ export const RESOURCE_NETWORKS_CHANGELOG: ClientChangelogEntry[] = [{
     title: "Neural resin replenishes Ancillary Depots",
     why: "Depots should benefit from the resource that keeps their reserves ready.",
     changes: ["Each resin slot supplies one Ancillary Depot with +12 Ancillaries per four-hour cycle; factories use conductive supply instead."]
+  },
+  {
+    createdAt: 1793218474689, // Date.now() captured once.
+    introducedIn: "2026.10.28.1",
+    title: "Readable frontier resources and open town support rings",
+    why: "New deposits were missing map icons and could occupy useful town support tiles.",
+    changes: ["Frontier resource panels focus on bonuses and research, with distinct icons on both map renderers.", "New maps place frontier deposits outside towns' eight support tiles and keep catalysts off coastal sand. Existing campaigns keep their geography."]
   }
 
 ];
