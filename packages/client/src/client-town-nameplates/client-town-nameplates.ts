@@ -28,7 +28,7 @@ const UNFED_SLASH =
   '<svg class="town-plate-slash" viewBox="0 0 24 24"><path d="M5 19 19 5" stroke="#2a0805" stroke-width="5" stroke-linecap="round"/><path d="M5 19 19 5" stroke="#e5412c" stroke-width="2.8" stroke-linecap="round"/></svg>';
 // The CSS caps the name at NAME_MAX_W, so these upper-bound footprints in CSS
 // px (at scale 1) hold for the greedy overlap cull below.
-const NAME_MAX_W = 150, NAME_CHAR_W = 9, PLATE_H = 32;
+const NAME_MAX_W = 150, NAME_CHAR_W = 9, PLATE_H = 32, PLATE_GAP = 4;
 const plateWidth = (plate: TownNameplate): number =>
   22 + Math.min(NAME_MAX_W, plate.name.length * NAME_CHAR_W) + (plate.status ? 22 : 0) + (plate.population === undefined ? 0 : 40);
 
@@ -37,9 +37,10 @@ export const plateScaleForTile = (tileCssPx: number): number => Math.min(1.6, Ma
 
 interface Placed { readonly key: string; readonly plate: TownNameplate; readonly x: number; readonly y: number; readonly scale: number }
 
+// Plates are centred on x but grow upward from y (their bottom), so each spans [y - PLATE_H * scale, y].
 const overlaps = (a: Placed, b: Placed): boolean =>
   Math.abs(a.x - b.x) * 2 < plateWidth(a.plate) * a.scale + plateWidth(b.plate) * b.scale &&
-  Math.abs(a.y - b.y) * 2 < PLATE_H * (a.scale + b.scale);
+  a.y - PLATE_H * a.scale < b.y && b.y - PLATE_H * b.scale < a.y;
 
 /** Pick which plates to draw: highest rank first (ties by tile key, so panning doesn't flip them), dropping any that would overlap one already placed. */
 export const placeNameplates = (candidates: readonly Placed[]): Placed[] => {
@@ -85,11 +86,14 @@ export function createTownNameplates(canvas: HTMLCanvasElement, state: TownNamep
         if (!plate) continue;
         const at = three ? project(wx, wy) : { sx: px + size / 2, sy: py + size / 2 };
         // 3D: the tile's on-screen width comes from the camera (zoom alone doesn't say it);
-        // 2D: it's the zoom. Either way it sizes the plate and its lift.
+        // 2D: it's the zoom. It sizes the plate.
         const tile = (three ? Math.abs(project(wx + 1, wy).sx - at.sx) : size) * scaleX;
-        // Plate bottom sits just above the town: over the 3D model's roof, or the 2D tile's top edge.
-        const lift = three ? Math.max(10, tile * 0.5) : tile * 0.5 + 4;
-        const x = at.sx * scaleX, y = at.sy * scaleY - lift;
+        // The plate's bottom sits on the town tile's back (upper) edge, which on the 3D
+        // map is about where the town model's roof ends, never on the tile behind.
+        // Both half-tile edges are projected and the higher one taken, so this
+        // doesn't depend on which way world y runs on screen.
+        const backEdge = three ? Math.min(project(wx, wy - 0.5).sy, project(wx, wy + 0.5).sy) : py;
+        const x = at.sx * scaleX, y = backEdge * scaleY - PLATE_GAP;
         if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x > bounds.width || y > bounds.height) continue;
         candidates.push({ key: wk, plate, x, y, scale: plateScaleForTile(tile) });
       }
