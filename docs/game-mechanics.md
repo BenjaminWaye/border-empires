@@ -142,7 +142,7 @@ Five concurrent victory paths, all per-season, all with a 24-hour hold requireme
 | Path | Trigger | Hold |
 |---|---|---|
 | `TOWN_CONTROL` | Control ≥50% of towns | 24h |
-| `ECONOMIC_HEGEMONY` | Lead world income/min by ≥33% **and** produce ≥200 coin/min | 24h |
+| `ECONOMIC_HEGEMONY` | Lead the runner-up's income/min by ≥33% **and** produce ≥1000 coin/day (`SEASON_VICTORY_ECONOMY_MIN_INCOME`) | 24h |
 | `RESOURCE_MONOPOLY` | Control ≥80% of tiles of one resource type (settled tiles only, and only resources the owner has revealed via tech) | 24h |
 | `MARITIME_SUPREMACY` | Control ≥55% of world docks, with a minimum target of 3 docks | 24h |
 | `DIPLOMATIC_DOMINANCE` | Your alliance bloc controls ≥66% of claimable land, and you are its largest member | 24h |
@@ -202,7 +202,7 @@ All actions are defined in `AI_EMPIRE_ACTIONS` at `apps/simulation/src/ai/automa
 
 `apps/simulation/src/ai/automation-strategic-snapshot.ts` builds an `AutomationStrategicSnapshot` per planner tick. This is the existing "meta" layer; any new strategic AI work should consume or extend it rather than reinventing it.
 
-- **Victory path selection**: scores all 5 paths every tick. Locks into a primary path unless an alternative scores >28 points higher (or >56 in emergency). `:305-322, 108-115`
+- **Victory path selection** (`apps/simulation/src/ai/victory-path-scoring.ts`): scores all 5 paths every tick. The worker planner receives each AI's real 0..1 season-victory progress (`ai-victory-standings.ts`, from `computeSeasonVictory`) and ranks paths by it on a 0..1000 scale. The AI stays on a path while it is a contender (≥72% progress); otherwise it switches when another path is >28 points (2.8%) ahead, or >56 while it is a soft contender (≥58%). Without standings (cold start, direct planner) it falls back to self-relative heuristics that overstate progress.
 - **Strategic focus mode**: one of `BALANCED`, `ECONOMIC_RECOVERY`, `ISLAND_FOOTPRINT`, `MILITARY_PRESSURE`, `BORDER_CONTAINMENT`. Controls goal priorities and which actions are filtered out. `:439-460`
 - **Front posture**: one of `BREAK`, `CONTAIN`, `TRUCE`. Modulates frontier aggression. `:368-381`
 - **ATTACK ⇆ SETTLE gate** (`attackReady`): true only if `canAttack` (coin + manpower) AND `manpowerSufficient` (threat-scaled) AND (`pressureThreatensCore` OR (not `needsFood` AND not `needsEconomy`) OR `pressureAttackScore ≥ 180`). This is the gate the AI tunnel-vision memory refers to. `:13-23, 430-433`, `apps/simulation/src/ai/automation-command-planner.ts:294-297`

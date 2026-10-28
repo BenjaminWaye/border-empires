@@ -483,6 +483,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Reach stays put across server restarts",
     why: "A restart could hand ground both you and a neighbour reach over to the neighbour, even though you claimed it first.",
     changes: ["Where your reach overlaps a rival's, whoever claimed the ground first keeps it after a server restart or deploy, as long as their reach still covers it."]
+  },
+  {
+    createdAt: 1793173333217, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.28.1",
+    title: "AI empires chase real victories",
+    why: "AI empires judged victory against their own size, so each thought it was already winning and none pushed for a win.",
+    changes: [
+      "AI empires now pick the victory path they are actually closest to, using the same standings as the victory screen, and switch when another path gets closer.",
+      "AI empires no longer waste turns trying to re-enable Relay Beacons on unsettled land."
+    ]
   }
 ];
 
