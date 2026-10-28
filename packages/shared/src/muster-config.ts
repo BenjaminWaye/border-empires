@@ -70,7 +70,7 @@ export const musterCapLevelToFit = (manpowerCap: number, capLevel: number | unde
 // than raising a muster flag next to the fight, and a long march also makes
 // the route search expensive (it floods the map out to the flag), so a longer
 // order is advice rather than a feature: raise a flag closer instead.
-export const MUSTER_MARCH_MAX_DISTANCE_TILES = 15;
+export const MUSTER_MARCH_MAX_DISTANCE_TILES = 30;
 
 // Longest real route a MARCH may take, in tile steps through passable land
 // (a dock link or aether bridge counts as one step). The straight-line cap

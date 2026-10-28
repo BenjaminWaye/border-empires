@@ -286,9 +286,9 @@ export const installHudV2 = (deps: HudV2Deps): void => {
   layer.addEventListener("click", (event) => onLayerClick(deps, event));
   window.addEventListener("keydown", (event) => onEscape(deps, event), true);
   setDockListener({
-    onMenuView: (view, tileKey) => {
+    onMenuView: (view, tileKey, tap) => {
       battleOnMenuView(view, tileKey);
-      return townOnMenuView(deps, view, tileKey);
+      return townOnMenuView(deps, view, tileKey, tap);
     },
     onMenuHidden: () => {
       if (screen.id === "town") closeTownScreen(true);

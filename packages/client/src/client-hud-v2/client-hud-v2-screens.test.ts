@@ -138,14 +138,17 @@ describe("town screen", () => {
       town,
       focus: support,
       townView: view({ actions: [act("grow_town_to_city", { label: "Upgrade to City" }), act("muster_hold")] }),
-      focusView: view({ buildings: [act("build_hydrogarden", { label: "Hydrogarden" })] }),
+      focusView: view({ actions: [act("muster_hold")], buildings: [act("build_hydrogarden", { label: "Hydrogarden" })] }),
       townIndex: 0,
       townCount: 1,
       buildSelection: "build_hydrogarden",
       category: undefined
     });
     expect(regions.left).toContain('data-hud-v2-action="grow_town_to_city" data-target-key="5,5"');
-    expect(regions.bar).toContain('data-hud-v2-action="muster_hold" data-target-key="5,5"');
+    // Regression: Raise flag with a support tile selected raised it on the town.
+    expect(regions.bar).toContain('data-hud-v2-action="muster_hold" data-target-key="6,5"');
+    expect(regions.bar).not.toContain('data-hud-v2-action="muster_hold" data-target-key="5,5"');
+    expect(regions.bar).toContain("Raise flag on (6, 5)");
     expect(regions.place).toContain('data-target-key="6,5"');
     expect(regions.place).toContain("Build on (6, 5)");
   });

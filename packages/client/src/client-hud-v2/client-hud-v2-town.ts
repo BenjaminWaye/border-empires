@@ -103,11 +103,22 @@ const barHtml = (input: TownScreenInput): string => {
     a
       ? `<button type="button" class="v2t-act" data-hud-v2-action="${esc(a.id)}"${targetAttrs(a, keyOf(input.town))}${a.disabled ? " disabled" : ""} title="${esc(a.disabled ? a.disabledReason ?? "" : a.detail ?? "")}">${label}${a.cost ? `<small>${esc(a.cost)}</small>` : ""}</button>`
       : "";
-  // Everything else the town tile offers, as small text buttons (no hidden ⋯ menu).
+  // Everything else the town tile offers, as small text buttons (no hidden ⋯ menu). Muster actions belong
+  // to the selected tile (a support tile can carry its own flag), so they come from the focus, not the town.
+  const supportFocus = keyOf(input.focus) !== keyOf(input.town);
+  const isMuster = (a: TileActionDef): boolean => a.id.startsWith("muster_");
   const shownIds = new Set<TileActionDef["id"]>(["muster_hold", "city_overclock", ...GROW_IDS]);
-  const minor = input.townView.actions.filter((a) => !shownIds.has(a.id)).map((a) =>
-    `<button type="button" class="hud-v2-minor${a.disabled ? " hud-v2-minor-off" : ""}" data-hud-v2-action="${esc(a.id)}"${targetAttrs(a, keyOf(input.town))}${a.disabled ? " disabled" : ""} title="${esc(a.disabled ? a.disabledReason ?? a.label : a.cost ?? a.detail ?? a.label)}">${esc(a.label)}</button>`).join("");
-  return `${btn(actionFor(input.townView, "muster_hold"), "Raise flag")}${btn(actionFor(input.townView, "city_overclock"), "Overclock")}
+  const minorActions = [
+    ...input.townView.actions.filter((a) => !shownIds.has(a.id) && !isMuster(a)).map((a) => ({ a, key: keyOf(input.town) })),
+    ...input.focusView.actions.filter((a) => !shownIds.has(a.id) && isMuster(a)).map((a) => ({ a, key: keyOf(input.focus) }))
+  ];
+  const minor = minorActions.map(({ a, key }) =>
+    `<button type="button" class="hud-v2-minor${a.disabled ? " hud-v2-minor-off" : ""}" data-hud-v2-action="${esc(a.id)}"${targetAttrs(a, key)}${a.disabled ? " disabled" : ""} title="${esc(a.disabled ? a.disabledReason ?? a.label : a.cost ?? a.detail ?? a.label)}">${esc(a.label)}</button>`).join("");
+  const raise = actionFor(input.focusView, "muster_hold");
+  const raiseBtn = raise
+    ? `<button type="button" class="v2t-act" data-hud-v2-action="muster_hold" data-target-key="${esc(keyOf(input.focus))}"${raise.disabled ? " disabled" : ""} title="${esc(raise.disabled ? raise.disabledReason ?? "" : raise.detail ?? "")}">${supportFocus ? `Raise flag on (${input.focus.x}, ${input.focus.y})` : "Raise flag"}</button>`
+    : "";
+  return `${raiseBtn}${btn(actionFor(input.townView, "city_overclock"), "Overclock")}
     ${minor ? `<span class="v2t-minor">${minor}</span>` : ""}
     <button type="button" class="v2t-act v2t-act-back" data-v2-close>◁ Map · Esc</button>`;
 };
