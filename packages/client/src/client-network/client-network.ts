@@ -1069,17 +1069,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       state.incomingAllianceRequests = (msg.incomingAllianceRequests as any[] | undefined) ?? state.incomingAllianceRequests;
       state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? state.outgoingAllianceRequests;
-      if (state.upkeepLastTick.foodCoverage < 0.999 && !state.foodCoverageWarned) {
-        pushFeed(
-          `Town support underfed: FOOD upkeep coverage ${(state.upkeepLastTick.foodCoverage * 100).toFixed(0)}%. Unfed towns stop producing coin.`,
-          "info",
-          "warn"
-        );
-        state.foodCoverageWarned = true;
-      } else if (state.upkeepLastTick.foodCoverage >= 0.999 && state.foodCoverageWarned) {
-        pushFeed("FOOD upkeep recovered. Town income back to normal.", "info", "success");
-        state.foodCoverageWarned = false;
-      }
+      // Unfed towns show on their map nameplate (client-town-nameplates) and as off-screen locator pins, not a feed toast.
       if (state.gold > prevGold) {
         state.goldAnimUntil = Date.now() + 350;
         state.goldAnimDir = 1;
@@ -2274,7 +2264,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         showCaptureAlertSafely(errorCode === "STRUCTURE_REMOVE_INVALID" ? "Removal failed" : "Construction failed", errorMessage, "warn");
         if (state.lastDevelopmentAttempt?.tileKey === errorTileKey) state.lastDevelopmentAttempt = undefined;
       } else if (errorCode === "TOWN_UNFED") {
-        const townUnfedDetail = `${errorMessage.replace(/[.。]\s*$/, "")}. Check the warning badge on the affected town.`;
+        const townUnfedDetail = `${errorMessage.replace(/[.。]\s*$/, "")}. Check the town's nameplate on the map.`;
         showCaptureAlertSafely("Town unfed", townUnfedDetail, "warn");
       } else if (errorCode === "OUT_OF_REACH") {
         // Terminal, not retryable: reach only grows when the player builds a
