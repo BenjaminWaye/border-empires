@@ -1,3 +1,4 @@
+import { TOWN_ECONOMY_CHANGELOG } from "./client-changelog-town-economy.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_25 } from "./client-changelog-oct-25.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_26 } from "./client-changelog-oct-26.js";
 import { RESOURCE_NETWORKS_CHANGELOG } from "./client-changelog-resource-networks.js";
@@ -96,6 +97,7 @@ export type ClientChangelogEntry = {
 };
 // Register every client release here or in feature groups; createdAt determines display order.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  ...TOWN_ECONOMY_CHANGELOG,
   ...RESOURCE_NETWORKS_CHANGELOG,
   ...AFC_SPECIALIZATIONS_CHANGELOG,
   ...ALLIANCES_TAB_CHANGELOG,
@@ -486,20 +488,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "A restart could hand ground both you and a neighbour reach over to the neighbour, even though you claimed it first.",
     changes: ["Where your reach overlaps a rival's, whoever claimed the ground first keeps it after a server restart or deploy, as long as their reach still covers it."]
   },
-  {
-    createdAt: 1793140390237, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.27.6",
-    title: "Town manpower contributions",
-    why: "The town screen showed a dash for manpower capacity and omitted regeneration.",
-    changes: ["Towns now show their base manpower cap and regeneration per minute, including terrain and coastal modifiers. Building bonuses remain listed under In this town."]
-  },
-  {
-    createdAt: 1793140577558, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.27.6",
-    title: "Browse town economies",
-    why: "Switching towns with the arrows could leave economy numbers missing until you clicked the town tile.",
-    changes: ["The previous and next town arrows now refresh the selected town's details so its economy loads without a map click."]
-  }
+
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

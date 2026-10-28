@@ -3,7 +3,7 @@
 // target). Town info on the left, the build list on the right, Raise flag /
 // Overclock at the bottom. All actions reuse the tile menu's own definitions.
 
-import { terrainAdjustedTownManpower, townFoodSlotDemandForTier } from "@border-empires/shared";
+import { manpowerPerBatch, terrainAdjustedTownManpower, townFoodSlotDemandForTier } from "@border-empires/shared";
 import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town-tile-terrain.js";
 import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
 import { buildCategories, buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
@@ -59,7 +59,7 @@ const leftPanelHtml = (input: TownScreenInput): string => {
   const manpower = terrainAdjustedTownManpower(town.populationTier, terrainProfile, coastal);
   const stats = [
     { k: "COIN", v: known(town.goldPerMinute) ? `+${fmt(town.goldPerMinute * 1440)}/day` : "—", n: fed, tone: town.isFed === false ? " v2t-warn" : "" },
-    { k: "MANPOWER CAP", v: `+${fmt(manpower.cap)}`, n: `Base town · +${manpower.regenPerMinute.toFixed(2)}/min regen`, tone: " v2t-gold" },
+    { k: "MANPOWER CAP", v: `+${fmt(manpower.cap)}`, n: `Base town · +${fmt(manpowerPerBatch(manpower.regenPerMinute))} per batch regen`, tone: " v2t-gold" },
     { k: "FOOD UPKEEP", v: `${townFoodSlotDemandForTier(town.populationTier)} slots`, n: "", tone: "" },
     { k: "SUPPORT RING", v: known(town.supportCurrent) && known(town.supportMax) ? `${town.supportCurrent} / ${town.supportMax}` : "—", n: "", tone: "" }
   ];
