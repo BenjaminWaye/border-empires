@@ -149,9 +149,15 @@ export const stepTown = (deps: HudV2Deps, delta: number): void => {
   const towns = myTowns(deps);
   if (towns.length < 2 || !current) return;
   const at = towns.findIndex((t) => keyOf(t) === current?.townKey);
-  const next = towns[(at + delta + towns.length) % towns.length];
-  if (!next) return;
+  const listed = towns[(at + delta + towns.length) % towns.length];
+  if (!listed) return;
+  // The cached list may predate a tile-detail reply; open the current record.
+  const next = deps.state.tiles.get(keyOf(listed));
+  if (!next?.town || next.ownerId !== deps.state.me) return;
   focusCamera(deps, next.x, next.y);
+  // Match a map press: even a previously full tile can have stale economy
+  // fields, so bypass the ordinary full-detail/freshness shortcut on a step.
+  deps.actionFlow.requestTileDetailIfNeeded(next, { force: true });
   suppressAutoExpand();
   const centre = screenCentre();
   deps.actionFlow.openSingleTileActionMenu(next, centre.x, centre.y);
