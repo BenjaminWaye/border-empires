@@ -8,8 +8,8 @@ const me = { id: "player-1", name: "Nauticus" };
 
 describe("diplomacy history", () => {
   it("records one event for both sides, each seeing the other", () => {
-    const history = createDiplomacyHistory(() => 10_000);
-    history.recordPair(me, tove, "TRUCE_STARTED", 5_000, { durationHours: 12 });
+    const history = createDiplomacyHistory(() => 10_000, { nameOf: (id) => [me, tove].find((player) => player.id === id)?.name });
+    history.recordPair(me.id, tove.id, "TRUCE_STARTED", 5_000, { durationHours: 12 });
     expect(history.cardsFor(me.id, 0, 10_000)).toEqual([expect.objectContaining({ kind: "DIPLOMACY", event: "TRUCE_STARTED", counterpartyPlayerId: tove.id, counterpartyName: "Tove", durationHours: 12 })]);
     expect(history.cardsFor(tove.id, 0, 10_000)).toEqual([expect.objectContaining({ counterpartyPlayerId: me.id, counterpartyName: "Nauticus" })]);
   });
@@ -18,7 +18,7 @@ describe("diplomacy history", () => {
     const clock = { now: DIPLOMACY_HISTORY_TTL_MS * 2 };
     const history = createDiplomacyHistory(() => clock.now);
     const evictionsBefore = diplomacyHistoryDiagnostics.evictions;
-    for (let index = 0; index < DIPLOMACY_HISTORY_PER_PLAYER_CAP + 5; index += 1) history.recordPair(me, tove, "TRUCE_ENDED", clock.now - index);
+    for (let index = 0; index < DIPLOMACY_HISTORY_PER_PLAYER_CAP + 5; index += 1) history.recordPair(me.id, tove.id, "TRUCE_ENDED", clock.now - index);
     expect(history.cardsFor(me.id, 0, clock.now)).toHaveLength(DIPLOMACY_HISTORY_PER_PLAYER_CAP);
     expect(diplomacyHistoryDiagnostics.evictions - evictionsBefore).toBe(10);
 
@@ -46,7 +46,7 @@ describe("social state diplomacy cards", () => {
     const sync = social.takeStaleOfferSync();
     expect(sync?.notifyPlayerIds.sort()).toEqual([me.id, tove.id]);
     const update = sync?.payloadsByPlayerId.get(me.id)?.find((payload) => (payload as { type?: string }).type === "TRUCE_UPDATE");
-    expect(update).toEqual(expect.objectContaining({ activeTruces: [] }));
+    expect(update).toEqual(expect.objectContaining({ activeTruces: [], serverNow: expect.any(Number) }));
     expect(update).not.toHaveProperty("announcement");
 
     const cards = social.diplomacyActivityCards(me.id, 0, clock.now);
@@ -85,5 +85,16 @@ describe("social state diplomacy cards", () => {
     expect(social.acceptAlliance(tove.id, social.snapshotForPlayer(tove.id).incomingAllianceRequests[0]!.id).ok).toBe(true);
     clock.now += 10_000;
     expect(social.diplomacyActivityCards(me.id, 5_000, clock.now)).toEqual([]);
+  });
+
+  it("does not invent a player record for a truce member it does not know", () => {
+    const clock = { now: 10_000 };
+    const social = createSocialState({
+      now: () => clock.now,
+      players: [me],
+      initial: { activeTruces: [{ playerAId: me.id, playerBId: "ghost", startedAt: 0, endsAt: 5_000, createdByPlayerId: me.id }] }
+    });
+    expect(social.diplomacyActivityCards(me.id, 0, clock.now)).toEqual([expect.objectContaining({ event: "TRUCE_ENDED", counterpartyPlayerId: "ghost", counterpartyName: "ghost" })]);
+    expect(social.resolvePlayerById("ghost")).toBeUndefined();
   });
 });

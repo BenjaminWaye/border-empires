@@ -22,5 +22,6 @@ export const buildSocialStateSink = (socialStore: GatewaySocialStore): SocialSta
   saveTruceLockout: (playerId, lockoutUntil) => socialStore.saveTruceLockout(playerId, lockoutUntil),
   saveTruceBreak: (playerId, record) => socialStore.saveTruceBreak(playerId, record),
   saveOfferCooldown: (cooldown) => socialStore.saveOfferCooldown(cooldown),
+  saveDiplomacyHistory: (playerId, entry) => socialStore.saveDiplomacyHistory(playerId, entry),
   pruneExpired: (now) => socialStore.pruneExpired(now)
 });

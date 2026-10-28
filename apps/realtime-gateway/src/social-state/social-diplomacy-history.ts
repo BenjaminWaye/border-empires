@@ -6,9 +6,10 @@ import type { PersonalActivityDiplomacyCard, PersonalActivityDiplomacyEvent } fr
 // in the gateway, not the simulation, so the simulation's aggregator never
 // sees these.
 //
-// In-memory only: a gateway restart forgets up to a day of rows. Bounded per
-// player (count + the timeline's 24h window) and by the number of players,
-// which the social state already bounds.
+// Persisted through the social store (social_diplomacy_history), so a
+// gateway restart keeps the last day's rows. Bounded per player (count + the
+// timeline's 24h window), in memory and in the store alike, and by the number
+// of players, which the social state already bounds.
 export const DIPLOMACY_HISTORY_PER_PLAYER_CAP = 20;
 export const DIPLOMACY_HISTORY_TTL_MS = 24 * 60 * 60_000;
 
@@ -24,11 +25,15 @@ export type DiplomacyHistoryEntry = {
   court?: boolean;
 };
 
+/** A row as saved in the social store. */
+export type StoredDiplomacyHistoryEntry = { playerId: string } & DiplomacyHistoryEntry;
+
 export type DiplomacyHistory = {
   /** Records one event for both sides; each side sees the other as its counterparty. */
+  /** Names are looked up when recorded, so a row keeps the name the player had at the time. */
   recordPair: (
-    a: { id: string; name: string },
-    b: { id: string; name: string },
+    aId: string,
+    bId: string,
     event: PersonalActivityDiplomacyEvent,
     occurredAt: number,
     extra?: Pick<DiplomacyHistoryEntry, "durationHours" | "byPlayerId" | "court">
@@ -36,7 +41,15 @@ export type DiplomacyHistory = {
   cardsFor: (playerId: string, from: number, to: number) => PersonalActivityDiplomacyCard[];
 };
 
-export const createDiplomacyHistory = (now: () => number): DiplomacyHistory => {
+export const createDiplomacyHistory = (
+  now: () => number,
+  options: {
+    initial?: readonly StoredDiplomacyHistoryEntry[] | undefined;
+    save?: ((playerId: string, entry: DiplomacyHistoryEntry) => void) | undefined;
+    /** Read-only name lookup; an unknown player keeps their id as the name rather than gaining a record. */
+    nameOf?: ((playerId: string) => string | undefined) | undefined;
+  } = {}
+): DiplomacyHistory => {
   const byPlayerId = new Map<string, DiplomacyHistoryEntry[]>();
   let entryCount = 0;
 
@@ -60,10 +73,18 @@ export const createDiplomacyHistory = (now: () => number): DiplomacyHistory => {
     prune(playerId, entries);
   };
 
+  for (const { playerId, ...entry } of options.initial ?? []) push(playerId, entry);
+
+  const record = (playerId: string, entry: DiplomacyHistoryEntry): void => {
+    push(playerId, entry);
+    options.save?.(playerId, entry);
+  };
+
   return {
-    recordPair(a, b, event, occurredAt, extra = {}) {
-      push(a.id, { event, occurredAt, counterpartyPlayerId: b.id, counterpartyName: b.name, ...extra });
-      push(b.id, { event, occurredAt, counterpartyPlayerId: a.id, counterpartyName: a.name, ...extra });
+    recordPair(aId, bId, event, occurredAt, extra = {}) {
+      const nameOf = (playerId: string): string => options.nameOf?.(playerId) ?? playerId;
+      record(aId, { event, occurredAt, counterpartyPlayerId: bId, counterpartyName: nameOf(bId), ...extra });
+      record(bId, { event, occurredAt, counterpartyPlayerId: aId, counterpartyName: nameOf(aId), ...extra });
     },
     cardsFor(playerId, from, to) {
       const entries = byPlayerId.get(playerId);

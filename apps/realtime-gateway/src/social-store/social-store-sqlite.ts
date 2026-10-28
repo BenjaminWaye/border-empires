@@ -1,4 +1,6 @@
 import { applyForcedTruceSchema, loadForcedTruceCooldowns } from "./social-store-forced-truces.js";
+import { applyDiplomacyHistorySchema, loadDiplomacyHistory, pruneDiplomacyHistory, saveDiplomacyHistory } from "./social-store-diplomacy-history.js";
+import type { DiplomacyHistoryEntry } from "../social-state/social-diplomacy-history.js";
 // SqliteGatewaySocialStore, extracted out of social-store.ts (already over
 // the repo's 500-line file-size gate and may not grow further -- see
 // AGENTS.md's file-and-type-discipline rule). This is a clean, self-contained
@@ -131,6 +133,7 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
       }
     }
     applyForcedTruceSchema(this.db);
+    applyDiplomacyHistorySchema(this.db);
   }
 
   loadSnapshot(): SocialStoreSnapshot {
@@ -183,6 +186,7 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
 
     return {
       forcedTruceCooldowns: loadForcedTruceCooldowns(this.db, this.now()),
+      diplomacyHistory: loadDiplomacyHistory(this.db),
       players: playerRows.map((row) => ({
         id: row.player_id,
         name: row.name,
@@ -430,7 +434,12 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
       .run(cooldown.kind, cooldown.fromPlayerId, cooldown.toPlayerId, cooldown.until);
   }
 
+  saveDiplomacyHistory(playerId: string, entry: DiplomacyHistoryEntry): void {
+    saveDiplomacyHistory(this.db, playerId, entry);
+  }
+
   pruneExpired(now: number): void {
+    pruneDiplomacyHistory(this.db, now);
     this.db.prepare("DELETE FROM social_forced_truce_cooldowns WHERE cooldown_until <= ?").run(now);
     this.db.prepare(`DELETE FROM social_offer_cooldowns WHERE until <= ?`).run(now);
     this.db.prepare(`DELETE FROM social_truce_requests WHERE expires_at <= ?`).run(now);
@@ -450,5 +459,6 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
     this.db.exec(`DELETE FROM social_truce_lockouts`);
     this.db.exec(`DELETE FROM social_truce_breaks`);
     this.db.exec(`DELETE FROM social_offer_cooldowns`);
+    this.db.exec(`DELETE FROM social_diplomacy_history`);
   }
 }

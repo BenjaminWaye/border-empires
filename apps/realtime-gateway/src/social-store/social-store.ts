@@ -8,6 +8,12 @@ import {
   type SocialTruceRequest
 } from "../social-state/social-state.js";
 import type { SocialOfferCooldown } from "../social-state/social-offer-cooldowns.js";
+import {
+  DIPLOMACY_HISTORY_PER_PLAYER_CAP,
+  DIPLOMACY_HISTORY_TTL_MS,
+  type DiplomacyHistoryEntry,
+  type StoredDiplomacyHistoryEntry
+} from "../social-state/social-diplomacy-history.js";
 
 export type SocialStoreSnapshot = {
   players: Array<{ id: string; name: string; allies: string[] }>;
@@ -22,6 +28,7 @@ export type SocialStoreSnapshot = {
   truceBreaks: Array<{ playerId: string } & SocialTruceBreakRecord>;
   offerCooldowns: SocialOfferCooldown[];
   forcedTruceCooldowns: Array<{ playerId: string; cooldownUntil: number }>;
+  diplomacyHistory: StoredDiplomacyHistoryEntry[];
 };
 
 export type GatewaySocialStore = {
@@ -43,6 +50,7 @@ export type GatewaySocialStore = {
   saveTruceLockout(playerId: string, lockoutUntil: number): void;
   saveTruceBreak(playerId: string, record: SocialTruceBreakRecord): void;
   saveOfferCooldown(cooldown: SocialOfferCooldown): void;
+  saveDiplomacyHistory(playerId: string, entry: DiplomacyHistoryEntry): void;
   pruneExpired(now: number): void;
   clearSeasonData(): void;
 };
@@ -66,6 +74,8 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
   private readonly truceLockouts = new Map<string, number>();
   private readonly truceBreaks: Array<{ playerId: string } & SocialTruceBreakRecord> = [];
   private readonly offerCooldowns = new Map<string, SocialOfferCooldown>();
+  // Bounded like the SQLite table: per player on write, to the 24h window by pruneExpired.
+  private diplomacyHistory: StoredDiplomacyHistoryEntry[] = [];
 
   constructor(private readonly now: () => number = () => Date.now()) {}
 
@@ -92,7 +102,8 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
       truceLockouts: [...this.truceLockouts.entries()].map(([playerId, lockoutUntil]) => ({ playerId, lockoutUntil })),
       truceBreaks: this.truceBreaks.map((record) => ({ ...record })),
       offerCooldowns: [...this.offerCooldowns.values()].map((entry) => ({ ...entry })),
-      forcedTruceCooldowns: [...this.forcedTruceCooldowns.entries()].map(([playerId, cooldownUntil]) => ({ playerId, cooldownUntil }))
+      forcedTruceCooldowns: [...this.forcedTruceCooldowns.entries()].map(([playerId, cooldownUntil]) => ({ playerId, cooldownUntil })),
+      diplomacyHistory: this.diplomacyHistory.map((entry) => ({ ...entry }))
     };
   }
 
@@ -179,7 +190,15 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
     this.offerCooldowns.set(`${cooldown.kind}:${cooldown.fromPlayerId}:${cooldown.toPlayerId}`, { ...cooldown });
   }
 
+  saveDiplomacyHistory(playerId: string, entry: DiplomacyHistoryEntry): void {
+    this.diplomacyHistory.push({ playerId, ...entry });
+    const forPlayer = this.diplomacyHistory.filter((stored) => stored.playerId === playerId).sort((left, right) => right.occurredAt - left.occurredAt);
+    const dropped = new Set(forPlayer.slice(DIPLOMACY_HISTORY_PER_PLAYER_CAP));
+    if (dropped.size > 0) this.diplomacyHistory = this.diplomacyHistory.filter((stored) => !dropped.has(stored));
+  }
+
   pruneExpired(now: number): void {
+    this.diplomacyHistory = this.diplomacyHistory.filter((entry) => entry.occurredAt >= now - DIPLOMACY_HISTORY_TTL_MS);
     for (const [id, until] of this.forcedTruceCooldowns) if (until <= now) this.forcedTruceCooldowns.delete(id);
     for (const [key, entry] of this.offerCooldowns) {
       if (entry.until <= now) this.offerCooldowns.delete(key);
@@ -209,6 +228,7 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
     this.truceLockouts.clear();
     this.truceBreaks.length = 0;
     this.offerCooldowns.clear();
+    this.diplomacyHistory = [];
   }
 }
 

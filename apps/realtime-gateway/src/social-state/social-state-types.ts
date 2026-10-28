@@ -6,6 +6,7 @@ import type { PersonalActivityDiplomacyCard } from "@border-empires/game-domain"
 import type { DiplomacyTerms } from "@border-empires/shared";
 
 import type { SocialOfferCooldown, SocialOfferKind } from "./social-offer-cooldowns.js";
+import type { DiplomacyHistoryEntry, StoredDiplomacyHistoryEntry } from "./social-diplomacy-history.js";
 
 export type SocialAllianceRequest = {
   id: string;
@@ -242,6 +243,8 @@ export type SocialStateSink = {
   saveTruceLockout: (playerId: string, lockoutUntil: number) => void;
   saveTruceBreak: (playerId: string, record: SocialTruceBreakRecord) => void;
   saveOfferCooldown: (cooldown: SocialOfferCooldown) => void;
+  /** One player's Chronicle row (social-diplomacy-history.ts); the store keeps the last day, capped per player. */
+  saveDiplomacyHistory: (playerId: string, entry: DiplomacyHistoryEntry) => void;
   pruneExpired: (now: number) => void;
 };
 
@@ -256,4 +259,5 @@ export type SocialStateInitial = {
   truceLockouts?: Array<{ playerId: string; lockoutUntil: number }>;
   truceBreaks?: Array<{ playerId: string } & SocialTruceBreakRecord>;
   offerCooldowns?: SocialOfferCooldown[];
+  diplomacyHistory?: StoredDiplomacyHistoryEntry[];
 };
