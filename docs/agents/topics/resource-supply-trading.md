@@ -178,3 +178,11 @@ name the required installation plus beneficiary. A frontier claim or even a
 settled bare deposit must never be presented as immediate Coin or Ancillary
 income. This is explanatory copy; allocation and activation rules are unchanged.
 Lore reviewed; no canon change.
+
+Recipient wording is resource-specific: one Trade Nexus without luxury supply
+can take a Cultivation Estate's slot. Another estate needs another Nexus
+without luxury supply; unused slots earn nothing. Catalyst and luxury slots
+remain independent, so a Nexus may use one of each. Keep the installation
+requirement on its own line; avoid “unimproved”, which can be confused with
+building upgrades. The same rule applies to resin, conductive and salvage
+recipients. This copy change does not alter allocation.

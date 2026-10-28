@@ -150,8 +150,23 @@ it.each(NETWORK_RESOURCES)("%s makes improvement a condition even after a fronti
   for (const ownershipState of [undefined, "FRONTIER", "SETTLED"] as const) {
     const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource, ...(ownershipState ? { ownershipState } : {}) });
     expect(html).toContain("After development");
-    expect(html).toContain(`Requires ${spec.buildingName} + `);
+    expect(html).toContain(`Requires ${spec.buildingName}`);
+    expect(html).not.toContain(`Requires ${spec.buildingName} + `);
     expect(html).not.toContain('tile-stat-label">Bonus<');
     if (!spec.batchBonus) expect(html).toContain("+1.5 Coin/day");
   }
+});
+
+it.each([
+  ["LUXURY_BIOTA", "luxury", "Trade Nexus"],
+  ["CATALYTIC_DEPOSIT", "catalyst", "Trade Nexus"],
+  ["PRECURSOR_SALVAGE", "salvage", "Manufactory"],
+  ["NEURAL_RESIN", "resin", "Ancillary Depot"],
+  ["CONDUCTIVE_MINERALS", "conductive", "factories"]
+] as const)("%s requires recipients without that resource's supply", (resource, supply, recipient) => {
+  const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource });
+  expect(html).toContain(`without ${supply} supply`);
+  expect(html).toContain(recipient);
+  expect(html).not.toContain("unimproved");
+  expect(html).toContain(`Requires ${RESOURCE_NETWORKS[resource].buildingName}</span>`);
 });

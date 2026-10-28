@@ -90,7 +90,7 @@ export const RESOURCE_NETWORKS_CHANGELOG: ClientChangelogEntry[] = [{
     introducedIn: "2026.10.28.1",
     title: "Resource bonuses require development",
     why: "The resource card made a potential industry bonus look like immediate income from claiming land.",
-    changes: ["Frontier deposit bonuses say After development and name both the required installation and recipient building. Claiming a deposit alone gives no industry bonus."]
+    changes: ["Frontier deposit bonuses say After development, name the required installation, and apply to a building not already supplied with that resource. Claiming a deposit alone gives no industry bonus."]
   }
 
 ];

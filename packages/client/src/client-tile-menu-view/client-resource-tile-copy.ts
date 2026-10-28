@@ -11,9 +11,16 @@ const DEPOSIT_DESCRIPTIONS: Readonly<Record<BaseResource, string>> = {
   GEMS: "Mineralised aether powers advanced industry and control systems.",
   UMBRITE: "Umbrite supplies military machinery and ammunition."
 };
+const NETWORK_SUPPLY_NAMES = {
+  NEURAL_RESIN: "resin",
+  CONDUCTIVE_MINERALS: "conductive",
+  CATALYTIC_DEPOSIT: "catalyst",
+  LUXURY_BIOTA: "luxury",
+  PRECURSOR_SALVAGE: "salvage"
+} as const;
 const escapeHtml = (value: string): string => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
-const card = (label: string, value: string, sub: string): string =>
-  `<div class="tile-stat"><span class="tile-stat-label">${escapeHtml(label)}</span><span class="tile-stat-value">${escapeHtml(value)}</span>${sub ? `<span class="tile-stat-sub">${escapeHtml(sub)}</span>` : ""}</div>`;
+const card = (label: string, value: string, sub: string, requirement = ""): string =>
+  `<div class="tile-stat"><span class="tile-stat-label">${escapeHtml(label)}</span><span class="tile-stat-value">${escapeHtml(value)}</span>${[sub, requirement].filter(Boolean).map(detail => `<span class="tile-stat-sub">${escapeHtml(detail)}</span>`).join("")}</div>`;
 
 /** One sentence of public flavour; mechanics belong in the stat boxes. */
 export function resourceTileDescriptionLines(tile: Tile): readonly string[] {
@@ -39,12 +46,15 @@ export function resourceTileStatsHtml(tile: Tile, techCatalog: readonly Pick<Tec
   const target = spec.target === "ANCILLARY_DEPOT" ? "Ancillary Depot" : spec.target === "ANCILLARY_FACTORY" ? "Ancillary Factory" : spec.target === "TRADE_NEXUS" ? "Trade Nexus" : "Manufactory";
   const bonus = spec.batchBonus ? `+${spec.batchBonus * spec.slotsPerSite} Ancillaries` : `+${spec.creditPerDay} Coin/day`;
   const interval = spec.batchBonus ? `per ${MANPOWER_REFILL_WINDOW_MS / 3_600_000}h ${spec.target === "ANCILLARY_DEPOT" ? "cycle" : "batch"}` : "per day";
-  const recipient = spec.slotsPerSite > 1 ? `${spec.slotsPerSite} factories × +${spec.batchBonus} · ${interval}` : `1 ${target}${spec.batchBonus ? ` · ${interval}` : ""}`;
+  const supply = NETWORK_SUPPLY_NAMES[resource];
+  const recipient = spec.slotsPerSite > 1
+    ? `${spec.slotsPerSite} factories without ${supply} supply · +${spec.batchBonus} each ${interval}`
+    : `1 ${target} without ${supply} supply${spec.batchBonus ? ` · ${interval}` : ""}`;
   const unlock = techCatalog.find(tech => tech.id === spec.tech)?.name ?? "View required technology";
   const researched = techIds.includes(spec.tech);
   const researchCard = `<div class="tile-stat"><span class="tile-stat-label">${researched ? "Researched" : "Research required"}</span><span class="tile-stat-value"><button type="button" class="inline-info-link resource-tech-link" data-view-tech="${escapeHtml(spec.tech)}" aria-label="Open ${escapeHtml(unlock)} in tech tree">${escapeHtml(unlock)}</button></span><span class="tile-stat-sub">View in tech tree →</span></div>`;
   return `<div class="tile-stat-grid resource-stat-grid">${[
-    card("After development", bonus, `${siphoned ? "Siphoned · " : ""}Requires ${spec.buildingName} + ${recipient}`),
+    card("After development", bonus, `${siphoned ? "Siphoned · " : ""}${recipient}`, `Requires ${spec.buildingName}`),
     researchCard
   ].join("")}</div>`;
 }
