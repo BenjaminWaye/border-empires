@@ -21,12 +21,13 @@ const kindAt = (x: number, z: number): HeightfieldTerrainKind => {
   return x - CENTER >= coast + 1 ? "SEA" : x - CENTER >= coast ? "COASTAL_SEA" : "GRASS";
 };
 
-const render = ({ cameraDistance, compact }: Args): HTMLElement => {
-  const stage = createStage({ width: 1440, height: 900, cameraDistance, cameraTilt: 0.6 });
+const render = ({ cameraDistance, compact }: Args, comparison = false): HTMLElement => {
+  const stage = createStage({ width: comparison ? 720 : 1440, height: comparison ? 760 : 900, cameraDistance, cameraTilt: 0.6 });
   for (const child of [...stage.scene.children]) stage.scene.remove(child);
-  stage.camera.position.x += 0.1;
+  const focusX = comparison ? 0.5 : 0.1;
+  stage.camera.position.x += focusX;
   stage.camera.position.z += 0.5;
-  stage.camera.lookAt(0.1, 0, 0.5);
+  stage.camera.lookAt(focusX, 0, 0.5);
   stage.renderer.shadowMap.enabled = true;
   stage.renderer.shadowMap.type = PCFSoftShadowMap;
   const atmosphere = createResourcePreviewAtmosphere(stage.scene, stage.renderer);
@@ -110,14 +111,14 @@ const render = ({ cameraDistance, compact }: Args): HTMLElement => {
     if (apronFinish) apronFinish.dispose(); else foundationMaterial.dispose();
   }, terrain.dispose, atmosphere.dispose, water.dispose, towns.dispose, districts.dispose, farms.dispose, forest.dispose]);
   const label = document.createElement("div");
-  label.textContent = compact ? "FISHING SITE · intact model · 20% smaller · preview" : "FISHING SITE · previous footprint · preview";
+  label.textContent = compact ? "NEW · intact model at 80% scale" : "OLD · previous full-size proposal";
   label.style.cssText = "position:absolute;left:20px;top:18px;padding:10px 14px;background:#17201de6;color:#e3dfce;font:13px system-ui;pointer-events:none;border:1px solid #777a8066";
   container.appendChild(label);
   return container;
 };
 
 const meta: Meta<Args> = {
-  title: "Map/Resources/Fishing game context", render, parameters: { layout: "fullscreen" },
+  title: "Map/Resources/Fishing game context", render: args => render(args), parameters: { layout: "fullscreen" },
   args: { cameraDistance: 8.5, compact: true }, argTypes: { compact: { control: "boolean" }, cameraDistance: { control: { type: "range", min: 3, max: 38, step: 0.5 } } }
 };
 export default meta;
@@ -127,3 +128,18 @@ export const CloseUp: Story = { args: { cameraDistance: 4.5 } };
 export const GameplayZoom: Story = { args: { cameraDistance: 38 } };
 
 export const PreviousFootprint: Story = { args: { cameraDistance: 4.5, compact: false } };
+
+export const SizeComparison: Story = {
+  render: () => {
+    const page = document.createElement("div");
+    page.style.cssText = "background:#17201d;color:#e3dfce;font:14px system-ui;padding:16px";
+    const heading = document.createElement("p");
+    heading.textContent = "Previous full-size proposal / smaller intact proposal · identical camera, terrain and lighting · preview only";
+    heading.style.cssText = "margin:0 0 12px";
+    const panels = document.createElement("div");
+    panels.style.cssText = "display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px";
+    panels.append(render({ cameraDistance: 3.6, compact: false }, true), render({ cameraDistance: 3.6, compact: true }, true));
+    page.append(heading, panels);
+    return page;
+  }
+};
