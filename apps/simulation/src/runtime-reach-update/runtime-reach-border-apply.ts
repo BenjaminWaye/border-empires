@@ -151,8 +151,8 @@ const settleOvertaken = (
  *
  * The world-init seeding pass used to disable it, on the assumption that
  * "persisted/seeded worlds start from a consistent state" — they don't.
- * `reachBorder` is not persisted; it is rebuilt from anchor geometry on every
- * boot. With the contest off, an anchor whose disk covered a rival's SETTLED
+ * The boot pass replays every live anchor over the restored border (see
+ * runtime-reach-border-restore.ts). With the contest off, an anchor whose disk covered a rival's SETTLED
  * tile took the border slot silently, with no `overtaken` entry and therefore
  * no unsettle — leaving `reachOwnerId` = one player and `ownerId`/SETTLED =
  * another, permanently, and re-created identically on every restart. Keeping

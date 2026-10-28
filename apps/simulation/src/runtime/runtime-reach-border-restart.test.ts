@@ -85,30 +85,41 @@ describe("SimulationRuntime — reach border survives a restart", () => {
   });
 
   it("recovers changes made after the last checkpoint from REACH_BORDER_CHANGED events", async () => {
-    const live = boot(worldWith({ reachBorder: persistedBorderWhereIHoldTheOverlap() }));
+    // My town at x=16 (reach 3) keeps the beacon's own tile SETTLED while the
+    // beacon is off, so it can be switched back on.
+    const world = worldWith({ reachBorder: persistedBorderWhereIHoldTheOverlap() });
+    const town = { x: 16, y: 10, terrain: "LAND" as const, ownerId: "me", ownershipState: "SETTLED" as const, town: { type: "FARMING" as const, populationTier: "TOWN" as const } };
+    const live = boot({ ...world, tiles: [...world.tiles.filter((tile) => tile.x !== 16 || tile.y !== 10), town] });
     const checkpoint = live.exportSnapshotSections().initialState;
     const events: SimulationEvent[] = [];
     live.onEvent((event) => events.push(event));
+    const setMyBeacon = (enabled: boolean, clientSeq: number) =>
+      live.submitCommand({
+        commandId: `my-beacon-${clientSeq}`,
+        sessionId: "session-1",
+        playerId: "me",
+        clientSeq,
+        issuedAt: 1_000,
+        type: "SET_CONVERTER_STRUCTURE_ENABLED",
+        payloadJson: JSON.stringify({ x: 13, y: 10, enabled })
+      });
 
-    // My beacon goes dark: Elin's live reach takes the overlap, my own-only ground is vacated.
-    live.submitCommand({
-      commandId: "disable-my-beacon",
-      sessionId: "session-1",
-      playerId: "me",
-      clientSeq: 0,
-      issuedAt: 1_000,
-      type: "SET_CONVERTER_STRUCTURE_ENABLED",
-      payloadJson: JSON.stringify({ x: 13, y: 10, enabled: false })
-    });
+    // My beacon goes dark: Elin's live reach takes the overlap. Then it comes
+    // back: Elin still defends the overlap, so she keeps it. Only the diffs
+    // record that -- the checkpoint says the overlap is mine and my beacon
+    // covers it again, so without them recovery would hand it back to me.
+    setMyBeacon(false, 0);
     await Promise.resolve();
-    expect(events.some((event) => event.eventType === "REACH_BORDER_CHANGED")).toBe(true);
+    setMyBeacon(true, 1);
+    await Promise.resolve();
+    for (const key of OVERLAP) expect(reachOf(live, "elin").has(key)).toBe(true);
+    for (const key of OVERLAP) expect(reachOf(live, "me").has(key)).toBe(false);
 
     // "Crash" before the next checkpoint: recover from the old checkpoint + the event tail.
     const recovered = boot(applySimulationEventsToRecoveredState(checkpoint, events));
 
     expect(reachOf(recovered, "elin")).toEqual(reachOf(live, "elin"));
     expect(reachOf(recovered, "me")).toEqual(reachOf(live, "me"));
-    for (const key of OVERLAP) expect(reachOf(recovered, "elin").has(key)).toBe(true);
   });
 
   it("drops persisted reach the owner no longer covers with a live anchor", () => {

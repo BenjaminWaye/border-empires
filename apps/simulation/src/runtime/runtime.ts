@@ -2206,10 +2206,10 @@ export class SimulationRuntime {
   // activeRelayBeaconsByOwner / activeSiegeBatteriesByOwner indexes), and
   // every owned dock tile. Used both for `liveReachForOwner`'s "can this
   // owner currently defend this tile" check during a contest, and once at
-  // startup to seed `reachBorder`. `activatedAt` is unused by the current
-  // border model (grantAnchorToBorder resolves contests via live coverage,
-  // not build order) but is still populated for API completeness / possible
-  // future use.
+  // startup to reconcile `reachBorder`. Live contests resolve via coverage,
+  // not build order; `activatedAt` only orders the boot replay (earliest
+  // first), and only towns' stamps survive a restart (others fall back to
+  // `now`), so it is a tiebreak for unclaimed slots, not history.
   private gatherReachAnchors(): ReachAnchor[] {
     return gatherReachAnchorsImpl({
       players: this.state.players,

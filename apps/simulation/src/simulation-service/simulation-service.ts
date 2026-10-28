@@ -27,7 +27,7 @@ import { recordAiPlannerDecision } from "./record-ai-planner-decision.js";
 import { createSimulationCommandStore } from "../command-store-factory/command-store-factory.js";
 import { createSimulationEventStore } from "../event-store-factory/event-store-factory.js";
 import { createSimulationSnapshotStore } from "../snapshot-store-factory/snapshot-store-factory.js";
-import { createSimulationCheckpointManager, saveShutdownCheckpoint } from "./simulation-service-checkpointing.js";
+import { checkpointSoon, createSimulationCheckpointManager, saveShutdownCheckpoint } from "./simulation-service-checkpointing.js";
 import { shutdownGrpcServer } from "./simulation-service-grpc-shutdown.js";
 import {
   createHybridSnapshotStringifier,
@@ -795,11 +795,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     options
   });
   // Wire the deferred callback so CACHE shard collections trigger an immediate checkpoint.
-  onShardCollectedCallback = () => {
-    void snapshotCheckpointManager.checkpointNow().catch((error) => {
-      log.error({ err: error }, "simulation forced checkpoint after shard collect failed");
-    });
-  };
+  onShardCollectedCallback = () => checkpointSoon(snapshotCheckpointManager, log, "simulation forced checkpoint after shard collect failed");
   const runStartupReplayCompaction = createStartupReplayCompactionRunner({
     checkpointNow: snapshotCheckpointManager.checkpointNow,
     recoveredEventCount: effectiveStartupRecovery.recoveredEventCount,
@@ -1702,6 +1698,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     });
   };
   attachRuntimeEventHandlers();
+  // No saved reach border to boot from (first deploy, bootstrap): the border rebuilt at boot must be checkpointed before REACH_BORDER_CHANGED diffs can replay onto it.
+  if (!effectiveStartupRecovery.initialState.reachBorder) checkpointSoon(snapshotCheckpointManager, log, "simulation reach border baseline checkpoint failed");
   repairPlayerInfrastructure(runtime, activePlayers, shouldRepairZeroGrossIncomeSettlements ? zeroGrossIncomeRepairCandidateIds(effectiveStartupRecovery.initialState) : undefined);
   await startAutopilots();
   const replaceRuntime = async ({
@@ -1819,6 +1817,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         nextSeasonState: bootstrap.seasonState,
         nextSeededTileCount: bootstrap.initialState.tiles.length
       });
+      checkpointSoon(snapshotCheckpointManager, log, "simulation season rollover reach border baseline checkpoint failed"); // rollover snapshot carries no reach border
       currentSummary = nextSummary;
       currentSummarySignature = leaderboardSignature(nextSummary);
       currentSummaryPlayerSelfProgress = selfProgressCacheOf(nextWorldStatus);
