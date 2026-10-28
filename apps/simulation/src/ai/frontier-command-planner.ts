@@ -207,6 +207,92 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
   let candidatesEvaluated = 0;
   let neighborCandidateTotal = 0;
   let missingNeighborTileCount = 0;
+  const deferredDockCrossings: { from: PlannerTile; target: PlannerTile; targetKey: string }[] = [];
+  // Scores one neutral EXPAND candidate into the best* selections. Returns
+  // true once the per-analysis candidate cap is hit.
+  const evaluateNeutralCandidate = (from: PlannerTile, target: PlannerTile, targetKey: string, candidateStartedAt: number): boolean => {
+    neutralTargets.add(targetKey);
+    if (!canExpand) return false;
+    const cachedSettlementEvaluation = neutralEvaluationByTargetKey.get(targetKey);
+    const settlementEvaluation =
+      cachedSettlementEvaluation ??
+      (() => {
+        affordability.onEvaluateNeutralTarget?.(targetKey);
+        const nextEvaluation = evaluateSettlementCandidate(
+          playerId,
+          target as import("@border-empires/game-domain").DomainTileState,
+          domainTilesByKey,
+          new Set([targetKey])
+        );
+        neutralEvaluationByTargetKey.set(targetKey, nextEvaluation);
+        return nextEvaluation;
+      })();
+    const scoutScore = (() => {
+      const neighborStartedAt = performance.now();
+      const result = scoutExpandScore(
+        tilesByKey,
+        from,
+        target,
+        playerId,
+        currentReachableLandKeys,
+        dockLinksByDockTileKey,
+        preferFogEfficientExpansion
+      );
+      const neighborMs = performance.now() - neighborStartedAt;
+      neighborLookupsTotalMs += neighborMs;
+      emitTiming?.("analyze_neighbor_lookups", neighborMs);
+      return result;
+    })();
+    const frontierClass = classifyNeutralOpportunity(target, settlementEvaluation, scoutScore);
+    const scoreStartedAt = performance.now();
+    const score = selectionScoreForClass(frontierClass, target, settlementEvaluation, scoutScore, needsFood);
+    const scoreMs = performance.now() - scoreStartedAt;
+    scoreCalcTotalMs += scoreMs;
+    emitTiming?.("analyze_score_calc", scoreMs);
+    const candidate = { from, target, score, frontierClass };
+    if (settlementEvaluation.townSupportNeed > 0) {
+      frontierOpportunityTownSupport += 1;
+      const townSupportCandidate = {
+        ...candidate,
+        score: score + settlementEvaluation.townSupportNeed * 120
+      };
+      if (isBetterSelection(townSupportCandidate, bestTownSupportExpand)) bestTownSupportExpand = townSupportCandidate;
+    }
+    // Directional bias: bonus for stepping toward the expansion objective.
+    if (expansionObjective) {
+      const fromDist = chebyshevWrap(from.x, from.y, expansionObjective.x, expansionObjective.y);
+      const targetDist = chebyshevWrap(target.x, target.y, expansionObjective.x, expansionObjective.y);
+      const directionBonus = (fromDist - targetDist) * DIRECTION_BIAS_WEIGHT;
+      if (directionBonus > 0 && frontierClass !== "economic") {
+        // Non-economic tile that steps toward the objective — candidates for directedExpand.
+        const directedScore = directionBonus + score * 0.1;
+        const directedCandidate = { from, target, score: directedScore, frontierClass };
+        if (isBetterSelection(directedCandidate, bestDirectedExpand)) bestDirectedExpand = directedCandidate;
+      }
+    }
+    if (frontierClass === "economic") {
+      frontierOpportunityEconomic += 1;
+      if (isBetterSelection(candidate, bestEconomicExpand)) bestEconomicExpand = candidate;
+    } else if (frontierClass === "scaffold") {
+      frontierOpportunityScaffold += 1;
+      if (isBetterSelection(candidate, bestScaffoldExpand)) bestScaffoldExpand = candidate;
+    } else if (frontierClass === "scout") {
+      frontierOpportunityScout += 1;
+      if (isBetterSelection(candidate, bestScoutExpand)) bestScoutExpand = candidate;
+    } else {
+      frontierOpportunityWaste += 1;
+    }
+    // Opt-in (real AI empire planner only, see preferFogEfficientExpansion doc):
+    // a "waste" tile with no resource/dock/town AND no new frontier/fog to
+    // reveal (scoutScore <= 0) has zero expansion value — never let it win
+    // the EXPAND slot. Barbarians/system-job callers keep the historical
+    // behavior of always picking something.
+    const isValuelessWaste = preferFogEfficientExpansion && frontierClass === "waste" && scoutScore <= 0;
+    if (!isValuelessWaste && isBetterSelection(candidate, bestExpand)) bestExpand = candidate;
+    emitTiming?.("analyze_per_candidate", performance.now() - candidateStartedAt);
+    candidatesEvaluated += 1;
+    return candidatesEvaluated >= NARROW_ANALYZE_MAX_CANDIDATES;
+  };
   for (const from of ownedTileList) {
     for (const targetKey of cachedCandidateKeysForOrigin(from)) {
       const candidateStartedAt = performance.now();
@@ -274,101 +360,35 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
       // Reach gating (EXPAND-family only — ATTACK above is unaffected).
       // A tile that fails adjacency/dock-crossing above never reaches here,
       // so this only prunes candidates that were otherwise legal by today's
-      // rule but fall outside the actor's fixed-border reach. Dock crossings
-      // are exempt, exactly as the runtime exempts them
-      // (runtime-frontier-command.ts `isInReach: isDockCrossing || ...`): a
-      // linked dock is by definition outside the reach of an island it
-      // leaves. Gating it here left saturated-island AIs on WAIT forever.
-      if (!isDockCrossing && reachLookup && !reachLookup.isInReach(playerId, target.x, target.y)) {
+      // rule but fall outside the actor's fixed-border reach.
+      const outOfReach = Boolean(reachLookup && !reachLookup.isInReach(playerId, target.x, target.y));
+      if (outOfReach && !isDockCrossing) continue;
+      // EXPAND itself is never runtime reach-gated (game-domain validation);
+      // this gate is AI policy, because out-of-reach land can't be settled.
+      // Dock tiles are the exception — auto-settle exempts town/dock tiles
+      // from reach — so an out-of-reach crossing is still worth taking. It is
+      // a fallback, not a peer: taking it while
+      // in-reach land remains would hop the AI across the map early. Defer it
+      // until the scan finds no in-reach neutral target at all — the
+      // saturated-island case that otherwise sits on WAIT forever.
+      if (outOfReach) {
+        deferredDockCrossings.push({ from, target, targetKey });
         continue;
       }
-
-      neutralTargets.add(targetKey);
-      if (!canExpand) continue;
-      const cachedSettlementEvaluation = neutralEvaluationByTargetKey.get(targetKey);
-      const settlementEvaluation =
-        cachedSettlementEvaluation ??
-        (() => {
-          affordability.onEvaluateNeutralTarget?.(targetKey);
-          const nextEvaluation = evaluateSettlementCandidate(
-            playerId,
-            target as import("@border-empires/game-domain").DomainTileState,
-            domainTilesByKey,
-            new Set([targetKey])
-          );
-          neutralEvaluationByTargetKey.set(targetKey, nextEvaluation);
-          return nextEvaluation;
-        })();
-      const scoutScore = (() => {
-        const neighborStartedAt = performance.now();
-        const result = scoutExpandScore(
-          tilesByKey,
-          from,
-          target,
-          playerId,
-          currentReachableLandKeys,
-          dockLinksByDockTileKey,
-          preferFogEfficientExpansion
-        );
-        const neighborMs = performance.now() - neighborStartedAt;
-        neighborLookupsTotalMs += neighborMs;
-        emitTiming?.("analyze_neighbor_lookups", neighborMs);
-        return result;
-      })();
-      const frontierClass = classifyNeutralOpportunity(target, settlementEvaluation, scoutScore);
-      const scoreStartedAt = performance.now();
-      const score = selectionScoreForClass(frontierClass, target, settlementEvaluation, scoutScore, needsFood);
-      const scoreMs = performance.now() - scoreStartedAt;
-      scoreCalcTotalMs += scoreMs;
-      emitTiming?.("analyze_score_calc", scoreMs);
-      const candidate = { from, target, score, frontierClass };
-      if (settlementEvaluation.townSupportNeed > 0) {
-        frontierOpportunityTownSupport += 1;
-        const townSupportCandidate = {
-          ...candidate,
-          score: score + settlementEvaluation.townSupportNeed * 120
-        };
-        if (isBetterSelection(townSupportCandidate, bestTownSupportExpand)) bestTownSupportExpand = townSupportCandidate;
-      }
-      // Directional bias: bonus for stepping toward the expansion objective.
-      if (expansionObjective) {
-        const fromDist = chebyshevWrap(from.x, from.y, expansionObjective.x, expansionObjective.y);
-        const targetDist = chebyshevWrap(target.x, target.y, expansionObjective.x, expansionObjective.y);
-        const directionBonus = (fromDist - targetDist) * DIRECTION_BIAS_WEIGHT;
-        if (directionBonus > 0 && frontierClass !== "economic") {
-          // Non-economic tile that steps toward the objective — candidates for directedExpand.
-          const directedScore = directionBonus + score * 0.1;
-          const directedCandidate = { from, target, score: directedScore, frontierClass };
-          if (isBetterSelection(directedCandidate, bestDirectedExpand)) bestDirectedExpand = directedCandidate;
-        }
-      }
-      if (frontierClass === "economic") {
-        frontierOpportunityEconomic += 1;
-        if (isBetterSelection(candidate, bestEconomicExpand)) bestEconomicExpand = candidate;
-      } else if (frontierClass === "scaffold") {
-        frontierOpportunityScaffold += 1;
-        if (isBetterSelection(candidate, bestScaffoldExpand)) bestScaffoldExpand = candidate;
-      } else if (frontierClass === "scout") {
-        frontierOpportunityScout += 1;
-        if (isBetterSelection(candidate, bestScoutExpand)) bestScoutExpand = candidate;
-      } else {
-        frontierOpportunityWaste += 1;
-      }
-      // Opt-in (real AI empire planner only, see preferFogEfficientExpansion doc):
-      // a "waste" tile with no resource/dock/town AND no new frontier/fog to
-      // reveal (scoutScore <= 0) has zero expansion value — never let it win
-      // the EXPAND slot. Barbarians/system-job callers keep the historical
-      // behavior of always picking something.
-      const isValuelessWaste = preferFogEfficientExpansion && frontierClass === "waste" && scoutScore <= 0;
-      if (!isValuelessWaste && isBetterSelection(candidate, bestExpand)) bestExpand = candidate;
-      emitTiming?.("analyze_per_candidate", performance.now() - candidateStartedAt);
-      candidatesEvaluated += 1;
-      if (candidatesEvaluated >= NARROW_ANALYZE_MAX_CANDIDATES) {
+      if (evaluateNeutralCandidate(from, target, targetKey, candidateStartedAt)) {
         capped = true;
         break;
       }
     }
     if (capped) break;
+  }
+  if (!capped && neutralTargets.size === 0) {
+    for (const { from, target, targetKey } of deferredDockCrossings) {
+      if (evaluateNeutralCandidate(from, target, targetKey, performance.now())) {
+        capped = true;
+        break;
+      }
+    }
   }
 
   emitTiming?.("analyze_score_calc", scoreCalcTotalMs);

@@ -23,7 +23,7 @@ const dockLinksByDockTileKey = buildDockLinksByDockTileKey([
 
 type Tile = PlannerTile & { ownershipState?: string };
 
-/** A 15x15 island fully owned by ai-1 (dock on its edge at 10,10), ringed by sea, plus a neutral far-side dock island. */
+/** A 15x15 island (inside a 17x17 sea ring) fully owned by ai-1 (dock on its edge at 10,10), ringed by sea, plus a neutral far-side dock island. */
 const buildSaturatedIsland = (): { tilesByKey: Map<string, Tile>; owned: Tile[]; reachKeys: Set<string> } => {
   const tilesByKey = new Map<string, Tile>();
   const owned: Tile[] = [];
@@ -79,14 +79,45 @@ describe("frontier planner dock crossings vs reach", () => {
     expect(analysis.expand).toMatchObject({ target: { x: 50, y: 50 } });
   });
 
-  it("still reach-gates ordinary adjacent neutral land", () => {
+  it("still reach-gates ordinary adjacent neutral land, docks linked or not", () => {
     const { tilesByKey, owned, reachKeys } = buildSaturatedIsland();
     tilesByKey.set("25,17", { x: 25, y: 17, terrain: "LAND" });
-    const withoutDocks = analyzeOwnedFrontierTargetsFromLookup(tilesByKey, owned, "ai-1", {
+    // 11,9 borders the dock origin at 10,10, so a dock-wide exemption would admit it.
+    tilesByKey.set("11,9", { x: 11, y: 9, terrain: "LAND" });
+    for (const links of [undefined, dockLinksByDockTileKey]) {
+      const analysis = analyzeOwnedFrontierTargetsFromLookup(tilesByKey, owned, "ai-1", {
+        ...(links ? { dockLinksByDockTileKey: links } : {}),
+        reachLookup: { isInReach: (_pid, x, y) => reachKeys.has(`${x},${y}`) }
+      });
+      expect(analysis.expand?.target).not.toMatchObject({ x: 25, y: 17 });
+      expect(analysis.expand?.target).not.toMatchObject({ x: 11, y: 9 });
+    }
+  });
+
+  it("prefers in-reach neutral land over an out-of-reach dock crossing", () => {
+    const { tilesByKey, owned, reachKeys } = buildSaturatedIsland();
+    // Unclaimed in-reach land left on the home island: no dock hop yet.
+    tilesByKey.set("17,9", { x: 17, y: 9, terrain: "LAND", resource: "FARM" });
+    reachKeys.add("17,9");
+    const analysis = analyzeOwnedFrontierTargetsFromLookup(tilesByKey, owned, "ai-1", {
+      dockLinksByDockTileKey,
+      reachLookup: { isInReach: (_pid, x, y) => reachKeys.has(`${x},${y}`) },
+      preferFogEfficientExpansion: true
+    });
+    expect(analysis.frontierNeutralTargetCount).toBe(1);
+    expect(analysis.expand).toMatchObject({ target: { x: 17, y: 9 } });
+  });
+
+  it("does not target a far-side dock owned by an ally", () => {
+    const { tilesByKey, owned, reachKeys } = buildSaturatedIsland();
+    tilesByKey.set("50,50", { x: 50, y: 50, terrain: "LAND", dockId: "dock-b", ownerId: "ai-2" });
+    const analysis = analyzeOwnedFrontierTargetsFromLookup(tilesByKey, owned, "ai-1", {
+      dockLinksByDockTileKey,
+      nonHostilePlayerIds: new Set(["ai-2"]),
       reachLookup: { isInReach: (_pid, x, y) => reachKeys.has(`${x},${y}`) }
     });
-    expect(withoutDocks.frontierNeutralTargetCount).toBe(0);
-    expect(withoutDocks.expand).toBeUndefined();
+    expect(analysis.expand).toBeUndefined();
+    expect(analysis.attack).toBeUndefined();
   });
 
   it("emits the dock-crossing EXPAND instead of stalling with BLOCKED_NO_REACHABLE_BEACON_SITE", () => {
