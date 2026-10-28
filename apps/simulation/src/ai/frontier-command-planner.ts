@@ -163,6 +163,9 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
   let prefilteredOrigins = ownedTileListRaw;
   if (ownedTileListRaw.length > BORDER_PREFILTER_THRESHOLD) {
     const border = ownedTileListRaw.filter(tile => {
+      // A linked dock's targets are across water, never 8-adjacent: keep it,
+      // or an island whose only way off is a crossing loses its dock origins.
+      if (tile.dockId && dockLinksByDockTileKey?.get(tileKeyOf(tile.x, tile.y))?.length) return true;
       let found = false;
       forEachFrontierNeighbor(tile.x, tile.y, (nx, ny) => {
         if (!found) {
@@ -261,18 +264,22 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
 
       // A dock crossing only lands you on the linked dock tile itself — you
       // must capture that dock before claiming or attacking land beyond it.
-      if (
-        !isFrontierAdjacent(from.x, from.y, target.x, target.y) &&
-        !(from.dockId && dockLinksByDockTileKey?.get(tileKeyOf(from.x, from.y))?.includes(targetKey))
-      ) {
+      const isDockCrossing = Boolean(
+        from.dockId && dockLinksByDockTileKey?.get(tileKeyOf(from.x, from.y))?.includes(targetKey)
+      );
+      if (!isFrontierAdjacent(from.x, from.y, target.x, target.y) && !isDockCrossing) {
         continue;
       }
 
       // Reach gating (EXPAND-family only — ATTACK above is unaffected).
       // A tile that fails adjacency/dock-crossing above never reaches here,
       // so this only prunes candidates that were otherwise legal by today's
-      // rule but fall outside the actor's fixed-border reach.
-      if (reachLookup && !reachLookup.isInReach(playerId, target.x, target.y)) {
+      // rule but fall outside the actor's fixed-border reach. Dock crossings
+      // are exempt, exactly as the runtime exempts them
+      // (runtime-frontier-command.ts `isInReach: isDockCrossing || ...`): a
+      // linked dock is by definition outside the reach of an island it
+      // leaves. Gating it here left saturated-island AIs on WAIT forever.
+      if (!isDockCrossing && reachLookup && !reachLookup.isInReach(playerId, target.x, target.y)) {
         continue;
       }
 

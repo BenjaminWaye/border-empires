@@ -154,6 +154,17 @@ consolidation, planning cadence), not deletion.
   `relay-beacon-coastal-reach.test.ts`, including wraparound, inland fog,
   narrow straits, known prizes and bounded lookup work.
 
+- **Dock crossings are exempt from the planner's reach gate.** The runtime
+  never reach-gates a dock crossing (`runtime-frontier-command.ts`,
+  `isInReach: isDockCrossing || ...`), and a linked dock always lies outside
+  the reach of the island it leaves. `frontier-command-planner.ts` must mirror
+  that exemption and keep linked docks through its >150-origin border
+  prefilter; gating either left saturated-island AIs on WAIT with
+  `BLOCKED_NO_REACHABLE_BEACON_SITE` (season-13 prod). That label is the
+  generic "has frontier, no action" fallback in
+  `automation-action-admission.ts`, not proof a beacon was the missing move.
+  Regression coverage: `frontier-command-planner-dock-reach.test.ts`.
+
 - The AI decision-diagnostics buffer (`recordAiDecisionDiagnosticFromPlanner`)
   looks like write-only "record-then-never-read" — but it **is** read via the
   `GetAiDecisionDiagnostics` RPC (`/admin/debug/ai/decisions`). Not dead.
