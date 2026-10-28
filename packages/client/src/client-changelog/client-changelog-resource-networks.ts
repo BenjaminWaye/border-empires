@@ -77,6 +77,13 @@ export const RESOURCE_NETWORKS_CHANGELOG: ClientChangelogEntry[] = [{
     title: "Readable frontier resources and open town support rings",
     why: "New deposits were missing map icons and could occupy useful town support tiles.",
     changes: ["Frontier resource panels focus on bonuses and research, with distinct icons on both map renderers.", "New maps place frontier deposits outside towns' eight support tiles and keep catalysts off coastal sand. Existing campaigns keep their geography."]
+  },
+  {
+    createdAt: 1793220040377, // Date.now() captured once.
+    introducedIn: "2026.10.28.1",
+    title: "Open required research from resource tiles",
+    why: "A technology name alone did not explain or open the resource's unlock.",
+    changes: ["Unresearched resource unlocks say Research required. Select the linked name to open its technology in the Manifest tree, with its research action and prerequisites visible.", "The link works in the redesigned desktop HUD and the classic and mobile layouts; owned unlocks say Researched."]
   }
 
 ];

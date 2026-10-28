@@ -164,3 +164,11 @@ in the shared map badges used by both 2D canvas and true-3D. Plain-text Coin
 glyph replacement remains separate because resin uses the same fallback glyph.
 New map placement reserves every town's eight support neighbours (wrapped at
 world edges), and catalysts reject coastal sand. Existing saves are not moved.
+
+Resource research cards use the existing `data-view-tech` tile-menu navigation
+button. Pass owned tech IDs so the label distinguishes Research required from
+Researched. The desktop HUD v2 frame consumes requested legacy tech details,
+opens its Manifest screen on that ID, unfolds the branch and scrolls to the
+selected node. Mobile and classic HUD keep their existing research detail flow.
+Local previews use `?hud=v2`; the redesigned HUD is opt-in on current develop.
+Lore reviewed; no canon change for research navigation.

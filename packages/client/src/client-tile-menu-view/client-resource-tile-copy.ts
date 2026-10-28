@@ -24,7 +24,7 @@ export function resourceTileDescriptionLines(tile: Tile): readonly string[] {
 }
 
 /** Public potential, never a claim that an undeveloped or foreign site is producing. */
-export function resourceTileStatsHtml(tile: Tile, techCatalog: readonly Pick<TechInfo, "id" | "name">[] = []): string {
+export function resourceTileStatsHtml(tile: Tile, techCatalog: readonly Pick<TechInfo, "id" | "name">[] = [], techIds: readonly string[] = []): string {
   const resource = tile.resource;
   if (!resource) return "";
   const siphoned = isSiphonModeSabotage(tile.sabotage) && tile.sabotage.ownerId !== tile.ownerId;
@@ -40,15 +40,17 @@ export function resourceTileStatsHtml(tile: Tile, techCatalog: readonly Pick<Tec
   const bonus = spec.batchBonus ? `+${spec.batchBonus * spec.slotsPerSite} Ancillaries` : `+${spec.creditPerDay} Coin`;
   const interval = spec.batchBonus ? `per ${MANPOWER_REFILL_WINDOW_MS / 3_600_000}h ${spec.target === "ANCILLARY_DEPOT" ? "cycle" : "batch"}` : "per day";
   const recipient = spec.slotsPerSite > 1 ? `${spec.slotsPerSite} factories × +${spec.batchBonus} · ${interval}` : `${interval} · 1 ${target}`;
-  const unlock = techCatalog.find(tech => tech.id === spec.tech)?.name ?? "Matching Manifest";
+  const unlock = techCatalog.find(tech => tech.id === spec.tech)?.name ?? "View required technology";
+  const researched = techIds.includes(spec.tech);
+  const researchCard = `<div class="tile-stat"><span class="tile-stat-label">${researched ? "Researched" : "Research required"}</span><span class="tile-stat-value"><button type="button" class="inline-info-link resource-tech-link" data-view-tech="${escapeHtml(spec.tech)}" aria-label="Open ${escapeHtml(unlock)} in tech tree">${escapeHtml(unlock)}</button></span><span class="tile-stat-sub">View in tech tree →</span></div>`;
   return `<div class="tile-stat-grid resource-stat-grid">${[
     card("Bonus", bonus, `${siphoned ? "Siphoned · " : ""}${recipient}`),
-    card("Research", unlock, "")
+    researchCard
   ].join("")}</div>`;
 }
 
-export function resourceTileOverviewLines(tile: Tile, techCatalog: readonly Pick<TechInfo, "id" | "name">[] = []): TileOverviewLine[] {
+export function resourceTileOverviewLines(tile: Tile, techCatalog: readonly Pick<TechInfo, "id" | "name">[] = [], techIds: readonly string[] = []): TileOverviewLine[] {
   const descriptions = resourceTileDescriptionLines(tile);
   if (!descriptions.length) return [];
-  return [...descriptions.map(html => ({ html })), { kind: "statgrid", html: resourceTileStatsHtml(tile, techCatalog) }];
+  return [...descriptions.map(html => ({ html })), { kind: "statgrid", html: resourceTileStatsHtml(tile, techCatalog, techIds) }];
 }

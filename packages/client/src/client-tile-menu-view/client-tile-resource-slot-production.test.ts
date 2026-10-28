@@ -128,3 +128,19 @@ it("names the relevant Manifest and production interval without interpreting cat
   expect(lines).toContain("Reserve Custody Cadre &lt;test&gt;");
   expect(lines).toContain("per 4h batch");
 });
+
+it.each(NETWORK_RESOURCES)("%s names and links its required research", resource => {
+  const spec = RESOURCE_NETWORKS[resource];
+  const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource }, [{ id: spec.tech, name: "Required tech <test>" }]);
+  expect(html).toContain("Research required");
+  expect(html).toContain(`data-view-tech="${spec.tech}"`);
+  expect(html).toContain("Required tech &lt;test&gt;");
+  expect(html).toContain("View in tech tree");
+});
+
+it("marks an owned technology as researched while preserving its tree link", () => {
+  const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "LUXURY_BIOTA" }, [{ id: "frontier-concessions", name: "Frontier Export Charter" }], ["frontier-concessions"]);
+  expect(html).toContain("Researched");
+  expect(html).not.toContain("Research required");
+  expect(html).toContain('data-view-tech="frontier-concessions"');
+});
