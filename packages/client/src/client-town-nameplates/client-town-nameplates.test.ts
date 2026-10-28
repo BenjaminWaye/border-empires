@@ -16,20 +16,29 @@ const mount = () => {
   canvas.width = 800; canvas.height = 600;
   host.append(canvas); document.body.append(host);
   canvas.getBoundingClientRect = () => ({ width: 800, height: 600, left: 0, top: 0, right: 800, bottom: 600, x: 0, y: 0, toJSON: () => ({}) });
-  return { host, plates: createTownNameplates(canvas, { me: "me", authSessionReady: true }) };
+  return { host, plates: createTownNameplates(canvas, { me: "me", authSessionReady: true, playerColors: new Map([["me", "#e3b92b"]]) }) };
 };
 const at = (t: Tile, px: number, py: number) => ({ wx: t.x, wy: t.y, wk: `${t.x},${t.y}`, px, py, vis: "visible", t });
 const project = () => ({ sx: 0, sy: 0 });
 
 describe("createTownNameplates (2D path)", () => {
-  it("draws a named plate with the unfed status over an own town", () => {
+  it("draws a named plate with the struck-through food icon over an unfed own town", () => {
     const { host, plates } = mount();
     const unfed = townTile(1, { isFed: false, goldPerMinute: 0, populationGrowthPerMinute: 0 });
     plates.render([at(unfed, 100, 200)], { size: 40, project });
-    const plate = host.querySelector(".town-plate-full");
+    const plate = host.querySelector<HTMLElement>(".town-plate");
     expect(plate?.querySelector(".town-plate-name")?.textContent).toBe("Town1");
-    expect(plate?.querySelector('[data-status="unfed"]')).not.toBeNull();
+    expect(plate?.querySelector('[data-status="unfed"] img')?.getAttribute("src")).toBe("/icons/simple/food.svg");
+    expect(plate?.querySelector('[data-status="unfed"] .town-plate-slash')).not.toBeNull();
+    expect(plate?.querySelector(".town-plate-pop")?.textContent).toBe("20k");
+    expect(plate?.style.getPropertyValue("--town-plate-owner")).toBe("#e3b92b");
     expect(plate?.getAttribute("title")).toBe("Town1: Unfed");
+  });
+
+  it("keeps plates up when zoomed far out, like Civ banners, so calm towns stay marked", () => {
+    const { host, plates } = mount();
+    plates.render([at(townTile(1), 100, 200), at({ ...townTile(9), ownerId: "rival" } as Tile, 400, 200)], { size: 10, project });
+    expect(Array.from(host.querySelectorAll(".town-plate-name")).map((el) => el.textContent).sort()).toEqual(["Town1", "Town9"]);
   });
 
   it("keeps only the higher-ranked plate when two would overlap, and removes plates that leave view", () => {

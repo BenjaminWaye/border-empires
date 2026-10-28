@@ -30,7 +30,6 @@ import {
   drawRoadOverlay as drawRoadOverlayOnCanvas,
   drawShardFallback as drawShardFallbackOnCanvas,
   drawTerrainTile as drawTerrainTileOnCanvas,
-  drawTownMarker as drawTownMarkerOnCanvas,
   drawTownOverlay as drawTownOverlayOnCanvas,
   effectiveOverlayColor as effectiveOverlayColorFromModule,
   fortificationOverlayImageFor as fortificationOverlayImageFromModule,
@@ -318,8 +317,6 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   ): void => drawCenteredOverlayWithAlphaOnCanvas(ctx, overlay, px, py, size, scale, alpha);
   const drawResourceCornerMarker = (tile: Tile, px: number, py: number, size: number): void =>
     drawResourceCornerMarkerOnCanvas(ctx, tile, px, py, size, resourceColor);
-  const drawTownMarker = (px: number, py: number, size: number): void =>
-    drawTownMarkerOnCanvas(ctx, px, py, size, size < 16);
   const drawDockMarker = (px: number, py: number, size: number): void =>
     drawDockMarkerOnCanvas(ctx, px, py, size, size < 16);
   const drawRoadOverlay = (
@@ -479,7 +476,6 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     drawPlanetaryDefenseOverlay,
     drawIncomingAttackOverlay,
     drawTownOverlay,
-    drawTownMarker,
     drawDockMarker,
     drawCenteredOverlay,
     drawCenteredOverlayWithAlpha,

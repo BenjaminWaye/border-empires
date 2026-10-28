@@ -495,8 +495,9 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Town nameplates",
     why: "Town status was spread across floating badges and an underfed toast, and towns had no names on the map.",
     changes: [
-      "Your towns show a nameplate with their name, tier and status: unfed, upgrade ready, nearby war or recently captured. Zoomed out, a town with a status keeps a small marker.",
-      "Rival towns show their name when you zoom in.",
+      "Every town shows a nameplate at every zoom, edged in its owner's colour. Your towns also show population.",
+      "Your towns' plates show a status icon: unfed (food struck through), upgrade ready, nearby war or recently captured.",
+      "The gold coin town marker is gone; the nameplate marks towns now.",
       "The underfed toast is gone. Unfed towns off screen still get an edge marker."
     ]
   },

@@ -408,32 +408,6 @@ export {
   drawCenteredOverlayRotatedWithAlpha
 } from "./client-map-render-centered-overlay.js";
 
-export const drawTownMarker = (ctx: CanvasRenderingContext2D, px: number, py: number, size: number, fullTile = false): void => {
-  const badge = fullTile ? Math.max(8, size - 2) : Math.max(9, size * 0.22);
-  const inset = fullTile ? 1 : Math.max(2, size * 0.03);
-  const x = px + inset;
-  const y = py + inset;
-  ctx.fillStyle = "rgba(12, 16, 28, 0.78)";
-  ctx.fillRect(x - 1, y - 1, badge + 2, badge + 2);
-  ctx.fillStyle = "rgba(255, 208, 102, 0.98)";
-  ctx.fillRect(x, y, badge, badge);
-  const coinRadius = Math.max(2, badge * 0.28);
-  const coinX = x + badge / 2;
-  const coinY = y + badge / 2;
-  ctx.fillStyle = "rgba(255, 233, 153, 0.98)";
-  ctx.beginPath();
-  ctx.arc(coinX, coinY, coinRadius, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(173, 112, 18, 0.95)";
-  ctx.lineWidth = Math.max(1, badge * 0.08);
-  ctx.stroke();
-  ctx.strokeStyle = "rgba(255, 247, 221, 0.88)";
-  ctx.lineWidth = Math.max(0.8, badge * 0.04);
-  ctx.beginPath();
-  ctx.arc(coinX - coinRadius * 0.18, coinY - coinRadius * 0.16, Math.max(1, coinRadius * 0.45), 0, Math.PI * 2);
-  ctx.stroke();
-};
-
 const drawSettlementFlag = (
   ctx: CanvasRenderingContext2D,
   px: number,
@@ -543,10 +517,8 @@ export const drawTownOverlay = (
 ): void => {
   const town = townIdentityForTile(tile);
   if (!town) return;
-  if (size < 16) {
-    drawTownMarker(ctx, px, py, size, true);
-    return;
-  }
+  // Zoomed out, the town nameplate (client-town-nameplates) marks the town.
+  if (size < 16) return;
   const accent = town.type === "MARKET" ? "rgba(255, 212, 102, 0.9)" : "rgba(162, 241, 132, 0.88)";
   const biome = tile.landBiome ?? landBiomeAt(tile.x, tile.y);
   const overlaySet = biome === "GRASS" ? grassTownOverlayByTier : defaultTownOverlayByTier;
@@ -588,7 +560,6 @@ export const drawTownOverlay = (
   ctx.stroke();
   ctx.lineWidth = 1;
   // Unfed and other town status now ride the shared town nameplate (client-town-nameplates).
-  drawTownMarker(ctx, px, py, size, false);
 };
 
 // Extracted to client-map-render-planetary-defense-overlay.ts to keep this
