@@ -730,7 +730,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       reach3DPylons = []; reach3DSegments = []; otherOwnersPylons = []; otherOwnersSegments = []; borderContactState = EMPTY_BORDER_CONTACT_STATE;
     }
 
-    // Excluded from the ownership tint below -- see the function's doc comment.
+    // Excluded from the ownership tint and reach overlays below -- see the function's doc comment.
     const activeFrontierAttackClaimKeys = activeFrontierAttackClaimTargetKeys(deps.state, deps.keyFor, Date.now());
     const perTileLoopStartAt = performance.now();
     for (let dy = -halfH - 1; dy <= halfH + 1; dy += 1) {
@@ -1041,7 +1041,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         // pylon only exists every ~10-15 boundary tiles and iterating the
         // full visible-tile grid is the wrong loop shape for that.
         if (reach3DActive && reach3DCache && tile && visibility === "visible") {
-          addReachTileOverlays3D(reachOverlay3D, tile, wx, wy, { x, z, y: flatOverlayY }, reach3DCache, reachTileDeps3D);
+          addReachTileOverlays3D(reachOverlay3D, tile, wx, wy, { x, z, y: flatOverlayY }, reach3DCache, reachTileDeps3D, activeFrontierAttackClaimKeys.has(tileKey));
         }
         tileIntel3D.addTile(tile, visibility, x, z, flatOverlayY);
         if (deps.state.crystalTargeting.active && tile && visibility === "visible" && deps.state.crystalTargeting.validTargets.has(tileKey)) {
