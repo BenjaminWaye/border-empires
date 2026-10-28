@@ -486,7 +486,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   {
     createdAt: 1793173333217, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.28.1",
+    introducedIn: "2026.10.28.2",
     title: "AI empires chase real victories",
     why: "AI empires judged victory against their own size, so each thought it was already winning and none pushed for a win.",
     changes: [
