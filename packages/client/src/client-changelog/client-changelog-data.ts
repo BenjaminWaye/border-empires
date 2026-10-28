@@ -463,7 +463,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "AI empires price an extension like a new truce of that length, recent truces included, but never pay you for one."
     ]
   },
-
+  {
+    createdAt: 1793140036460, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.27.7",
+    title: "Town surveys remember your dismissal",
+    why: "The same survey popup could return every time you reopened the game.",
+    changes: ["Got it and View survey now remember dismissed clues in this browser for your player and season. Clues remain in Activity, and new discoveries can still appear."]
+  },
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
