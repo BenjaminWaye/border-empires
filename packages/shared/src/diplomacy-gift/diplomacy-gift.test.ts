@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { attitudeForScore, giftOpinionGain, giftToReach, giftView, goodwillPointsFor, MAX_GOODWILL_POINTS } from "./diplomacy-gift.js";
+import { attitudeForScore, giftCoinToCap, giftOpinionGain, giftToReach, giftView, goodwillPointsFor, MAX_GOODWILL_POINTS } from "./diplomacy-gift.js";
 
 describe("diplomacy gifts", () => {
   it("keeps the attitude thresholds", () => {
@@ -34,11 +34,21 @@ describe("diplomacy gifts", () => {
   it("finds the least coin to reach an attitude", () => {
     const view = giftView(0, 60);
     const coin = giftToReach(view, -10, 10);
-    expect(coin).toBe(195);
+    // 195 would just round to +20; a little margin keeps it there if goodwill fades first.
+    expect(coin).toBe(196);
     expect(giftOpinionGain(view, coin ?? 0)).toBe(20);
-    expect(giftOpinionGain(view, (coin ?? 0) - 1)).toBe(19);
+    // From 10 points already given: the suggestion survives a little fading before it lands.
+    const given = giftView(100, 60);
+    const more = giftToReach(given, 0, 10) ?? 0;
+    expect(more).toBe(96);
+    expect(giftOpinionGain({ ...given, goodwillPoints: 9.95 }, more)).toBe(10);
     expect(giftToReach(view, 12, 10)).toBe(0);
     // The goodwill cap stops gifts short of 30 points.
     expect(giftToReach(view, -20, 10)).toBeUndefined();
+  });
+
+  it("knows how much coin reaches the goodwill cap", () => {
+    expect(giftCoinToCap(giftView(0, 60))).toBe(250);
+    expect(giftCoinToCap(giftView(10_000, 60))).toBe(0);
   });
 });

@@ -33,6 +33,7 @@ const price = (options: {
   breaksWithOthers?: number;
   /** Pass undefined explicitly for "sizes unknown". */
   aiWouldLeadAlliance?: boolean | undefined;
+  giftCanWinOver?: boolean;
 }) => {
   const stanceKind = options.stanceKind ?? "WARY";
   const mem = options.memory ?? memory();
@@ -61,6 +62,7 @@ const price = (options: {
       aiHoldings: { gold: options.aiGold ?? 0, shard: 0 },
       requesterBrokeTruceWithAi: options.brokeTruce ?? false,
       aiWouldLeadAlliance: "aiWouldLeadAlliance" in options ? options.aiWouldLeadAlliance : true,
+      ...(options.giftCanWinOver !== undefined ? { giftCanWinOver: options.giftCanWinOver } : {}),
       now: NOW
     })
   };
@@ -168,7 +170,9 @@ describe("AI truce pricing", () => {
 
 describe("AI alliance pricing", () => {
   it("needs at least Pleased, and the AI never pays", () => {
-    expect(price({}).allianceRefusal).toBe("Milo doesn't think well enough of you for an alliance. Offer a gift to win them over.");
+    expect(price({}).allianceRefusal).toBe("Milo doesn't think well enough of you for an alliance.");
+    // Only pointed at gifts when one can still get there (the goodwill cap allows it).
+    expect(price({ giftCanWinOver: true }).allianceRefusal).toBe("Milo doesn't think well enough of you for an alliance. Offer a gift to win them over.");
     // Borders apart (+5) and fear (+10): Pleased, 24h of income.
     const pleased = price({ stanceKind: "OUTMATCHED", bordersTouch: false });
     expect(pleased.opinion.attitude).toBe("PLEASED");
@@ -190,7 +194,7 @@ describe("AI alliance pricing", () => {
   it("gives the real refusal before saying it can't weigh up bloc sizes", () => {
     const atWar = memory({ lastCombatAt: NOW - HOUR, lastPlayerAttackAt: NOW - HOUR, tilesTakenFromAi: 15 });
     expect(price({ memory: atWar, aiWouldLeadAlliance: undefined }).allianceRefusal).toBe("Milo won't ally with an empire it fought within the last day.");
-    expect(price({ aiWouldLeadAlliance: undefined }).allianceRefusal).toBe("Milo doesn't think well enough of you for an alliance. Offer a gift to win them over.");
+    expect(price({ aiWouldLeadAlliance: undefined }).allianceRefusal).toBe("Milo doesn't think well enough of you for an alliance.");
     const friendly = { stanceKind: "OUTMATCHED" as const, bordersTouch: false, memory: memory({ goodwillCoin: 600 }), aiWouldLeadAlliance: undefined };
     expect(price(friendly).allianceRefusal).toBe("Milo can't weigh up an alliance right now. Try again shortly.");
   });

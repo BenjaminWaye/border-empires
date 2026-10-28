@@ -52,6 +52,12 @@ export const giftOpinionGain = (view: AiGiftView, value: number): number => {
   return Math.round(after) - Math.round(view.goodwillPoints);
 };
 
+/** Rounds coin up, ignoring float dust (96.00000000000001 is 96). */
+const ceilCoin = (coin: number): number => Math.ceil(coin - 1e-9);
+
+/** Coin past this adds no opinion: the goodwill cap is reached. */
+export const giftCoinToCap = (view: AiGiftView): number => Math.max(0, ceilCoin((view.maxPoints - view.goodwillPoints) * view.coinPerPoint));
+
 /**
  * The least coin that lifts the opinion score from `score` to `targetScore`,
  * or undefined when the goodwill cap stops gifts from getting there.
@@ -62,8 +68,9 @@ export const giftToReach = (view: AiGiftView, score: number, targetScore: number
   if (!(view.coinPerPoint > 0)) return undefined;
   const targetPoints = Math.round(view.goodwillPoints) + needed;
   if (targetPoints > view.maxPoints) return undefined;
-  // Math.round rounds .5 up, so reaching targetPoints - 0.5 is enough.
-  const coin = Math.max(1, Math.ceil((targetPoints - 0.5 - view.goodwillPoints) * view.coinPerPoint));
+  // Math.round rounds .5 up, so targetPoints - 0.5 would just do; aim a little
+  // higher so goodwill fading (or income moving) before the gift lands can't undo it.
+  const coin = Math.max(1, ceilCoin((targetPoints - 0.4 - view.goodwillPoints) * view.coinPerPoint));
   // Guard float edges: step up until the rounded gain really arrives.
   return giftOpinionGain(view, coin) >= needed ? coin : coin + 1;
 };

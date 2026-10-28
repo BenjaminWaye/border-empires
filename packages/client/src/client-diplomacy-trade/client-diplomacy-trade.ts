@@ -73,8 +73,12 @@ type OpenScreen = {
   holdingsWatch: ReturnType<typeof setInterval> | undefined;
   /** A gift's outcome (or "sending…"), shown in place of the verdict until the player edits the deal. */
   notice: Pick<TradeVerdict, "tone" | "text"> | undefined;
-  giftPending: boolean;
+  /** The gift this screen sent and is waiting on, with the timer that gives up waiting. */
+  giftPending: { gift: DiplomacyGoods; timer: ReturnType<typeof setTimeout> } | undefined;
 };
+
+/** Longer than the gateway's 30s settlement timeout: a gift with no answer by then lost its reply (e.g. a reconnect). */
+export const GIFT_RESULT_WAIT_MS = 45_000;
 
 /** The gateway's answer to DIPLOMACY_GIFT (apps/realtime-gateway diplomacy-gift-message.ts). */
 export type DiplomacyGiftResult = { ok: boolean; targetPlayerName: string; targetPlayerId?: string; message: string };
@@ -204,20 +208,25 @@ const render = (screen: OpenScreen): void => {
     const deal = suggestedDeal(reply, selection, own);
     suggest.hidden = selection.kind === "trade" || !(reply?.found && reply.ai && (selection.kind === "gift" ? reply.gift : reply.pricing));
     suggest.disabled = !deal || termsEqual(deal, selection.terms);
-    suggest.title = deal ? "" : `No deal ${targetName} would accept for this right now.`;
+    suggest.title = deal
+      ? ""
+      : selection.kind === "gift"
+        ? `No gift you can afford would win ${targetName} over further right now.`
+        : `No deal ${targetName} would accept for this right now.`;
   }
   const sendButton = overlay.querySelector<HTMLButtonElement>("[data-trade-send]");
   if (sendButton) {
-    sendButton.disabled = !verdict.canSend || screen.giftPending;
+    sendButton.disabled = !verdict.canSend || screen.giftPending !== undefined;
     sendButton.textContent = verdict.sendLabel;
   }
 };
 
 export const closeDiplomacyTradeScreen = (): void => {
   if (!open) return;
-  const { overlay, previousFocus, holdingsWatch } = open;
+  const { overlay, previousFocus, holdingsWatch, giftPending } = open;
   open = undefined;
   if (holdingsWatch !== undefined) clearInterval(holdingsWatch);
+  if (giftPending) clearTimeout(giftPending.timer);
   document.removeEventListener("keydown", onKey);
   overlay.remove();
   if (previousFocus?.isConnected) previousFocus.focus();
@@ -239,7 +248,13 @@ const sendGift = (screen: OpenScreen): void => {
     "Finish sign-in before offering gifts."
   );
   if (!sent) return;
-  screen.giftPending = true;
+  const timer = setTimeout(() => {
+    if (open !== screen || !screen.giftPending) return;
+    screen.giftPending = undefined;
+    screen.notice = { tone: "bad", text: `No word yet on your gift to ${screen.targetName}. Check your coin before sending another.` };
+    render(screen);
+  }, GIFT_RESULT_WAIT_MS);
+  screen.giftPending = { gift: { ...screen.selection.terms.give }, timer };
   screen.notice = { tone: "neutral", text: `Offering ${screen.targetName} your gift…` };
   render(screen);
 };
@@ -326,7 +341,7 @@ export const openDiplomacyTradeScreen = (
     shownSupplySignature: "",
     holdingsWatch: undefined,
     notice: undefined,
-    giftPending: false
+    giftPending: undefined
   };
   open = screen;
   // Keep "You have", the verdict and the top-up honest as coin comes in or is spent elsewhere.
@@ -412,10 +427,15 @@ export const receiveDiplomacyGiftResult = (result: DiplomacyGiftResult): void =>
   if (!open) return;
   const sameTarget =
     open.targetPlayerId && result.targetPlayerId ? result.targetPlayerId === open.targetPlayerId : open.targetName.toLocaleLowerCase() === result.targetPlayerName.toLocaleLowerCase();
-  if (!sameTarget) return;
-  open.giftPending = false;
+  // Only the screen that sent the gift shows its outcome (the feed always does).
+  const pending = open.giftPending;
+  if (!sameTarget || !pending) return;
+  clearTimeout(pending.timer);
+  open.giftPending = undefined;
   open.notice = { tone: result.ok ? "good" : "bad", text: result.message };
-  if (result.ok) {
+  // Clear what was given, unless the player has already set up another amount.
+  const { give } = open.selection.terms;
+  if (result.ok && give.gold === pending.gift.gold && give.shard === pending.gift.shard) {
     open.selection = { ...open.selection, terms: { ...open.selection.terms, give: { gold: 0, shard: 0 } } };
   }
   render(open);

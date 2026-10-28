@@ -20,11 +20,18 @@ export type DiplomacyGiftResultPayload = {
 export type DiplomacyGiftDeps = {
   resolvePlayerByName: (playerName: string) => { id: string; name: string } | undefined;
   resolvePlayerById: (playerId: string) => { id: string; name: string } | undefined;
-  isAi: (playerId: string) => boolean;
+  /** An AI nobody is playing right now: only those keep opinions (a seeded AI with a live socket is a person). */
+  isAutoRespondingAi: (playerId: string) => boolean;
   settle: DiplomacySettlement["settle"];
   /** Remembers coin-equivalent paid to the AI as goodwill. */
   recordPayment: (aiPlayerId: string, playerId: string, coinToAi: number) => void;
   recordGatewayEvent: (level: "info" | "warn" | "error", event: string, payload?: Record<string, unknown>) => void;
+  /**
+   * Payers with a gift still settling: one at a time each, so a script can't
+   * fill the shared settlement queue that every deal's accept waits on.
+   * Bounded by connected players; each entry is removed when its gift settles.
+   */
+  giftsInFlight: Set<string>;
 };
 
 const goodsLabel = (goods: DiplomacyGoods): string =>
@@ -46,10 +53,17 @@ export const offerDiplomacyGift = async (
   });
   if (session.isGuest) return fail("Save your empire to a real account to offer gifts.");
   if (!target || target.id === payerId) return fail(`No empire named ${message.targetPlayerName}.`);
-  if (!deps.isAi(target.id)) return fail(`${target.name} keeps no opinion of you to win over. Only AI empires take gifts.`);
+  if (!deps.isAutoRespondingAi(target.id)) return fail(`${target.name} keeps no opinion of you to win over. Only AI empires take gifts.`);
   const gift = { gold: Math.max(0, Math.floor(message.gift.gold)), shard: Math.max(0, Math.floor(message.gift.shard)) };
   if (gift.gold === 0 && gift.shard === 0) return fail("Choose how much coin or how many Shards to give.");
-  const paid = await deps.settle({ proposerId: payerId, targetId: target.id, terms: { give: gift, ask: { gold: 0, shard: 0 } } });
+  if (deps.giftsInFlight.has(payerId)) return fail("Your last gift is still being delivered.");
+  deps.giftsInFlight.add(payerId);
+  let paid: Awaited<ReturnType<DiplomacyGiftDeps["settle"]>>;
+  try {
+    paid = await deps.settle({ proposerId: payerId, targetId: target.id, terms: { give: gift, ask: { gold: 0, shard: 0 } } });
+  } finally {
+    deps.giftsInFlight.delete(payerId);
+  }
   if (!paid.ok) return fail(paid.message);
   const value = netValueToAi({ give: gift, ask: { gold: 0, shard: 0 } }, SHARD_COIN_VALUE);
   deps.recordPayment(target.id, payerId, value);

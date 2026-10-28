@@ -493,7 +493,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The deal screen has a new Gift option for AI empires: give coin or Shards and ask nothing back. It works during a truce too.",
       "Before you send it, the screen shows what the gift does, such as \"+20 (Cautious → Pleased)\", and how much more would make them Pleased, which is enough for an alliance. Suggest deal fills in that amount.",
-      "Gifts and payments in deals count for up to +25 opinion and fade over about a day. A gift too small to move their opinion, or one past that limit, can't be sent."
+      "Gifts and payments in deals count for up to +25 opinion in all and lose half their effect each day. A gift too small to move their opinion, or coin past that limit, can't be sent."
     ]
   },
   ...AI_DOCK_CROSSING_CHANGELOG,

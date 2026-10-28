@@ -200,12 +200,14 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     isAutoRespondingAi:id=>isAi(id)&&!deps.hasLiveSocket(id),
     aiHoldings:async id=>{const player=(await deps.ensureSubscribed(id)).player;return player?{gold:Math.floor(player.gold),shard:Math.floor(player.strategicResources.SHARD??0),...(player.resourceTradeHoldings?{resources:player.resourceTradeHoldings}:{})}:undefined;},
     send:deps.sendJson,fanout:deps.fanoutPlayerPayloads,record:deps.recordGatewayEvent });
+  const isAutoRespondingAi = (targetId: string): boolean => deps.seededAiPlayerIds.has(targetId) && !deps.hasLiveSocket(targetId);
+  const giftsInFlight = new Set<string>();
   const answerStance = (requesterId: string, targetPlayerName: string, targetPlayerId: string | undefined) =>
     answerDiplomacyStanceQuery(
       {
         resolvePlayerByName: socialState.resolvePlayerByName,
         resolvePlayerById: socialState.resolvePlayerById,
-        isAutoRespondingAi: (targetId) => deps.seededAiPlayerIds.has(targetId) && !deps.hasLiveSocket(targetId),
+        isAutoRespondingAi,
         fetchAiSnapshot,
         requesterSnapshot,
         diplomacyContext
@@ -229,10 +231,11 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
         {
           resolvePlayerByName: socialState.resolvePlayerByName,
           resolvePlayerById: socialState.resolvePlayerById,
-          isAi,
+          isAutoRespondingAi,
           settle: settlement.settle,
           recordPayment: memory.recordPayment,
-          recordGatewayEvent: deps.recordGatewayEvent
+          recordGatewayEvent: deps.recordGatewayEvent,
+          giftsInFlight
         },
         playerId,
         message,
@@ -240,7 +243,11 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
       );
       deps.sendJson(socket, result);
       // The trade screen shows the AI's new opinion straight away.
-      if (result.ok) deps.sendJson(socket, await answerStance(playerId, result.targetPlayerName, result.targetPlayerId));
+      if (result.ok) {
+        // The gift is paid either way; a stance that can't be read now is fetched again when the screen reopens.
+        const stance = await answerStance(playerId, result.targetPlayerName, result.targetPlayerId).catch(() => undefined);
+        if (stance) deps.sendJson(socket, stance);
+      }
       return true;
     }
     if (await resourceTrades.handle(message, playerId, socket, session.isGuest === true)) return true;

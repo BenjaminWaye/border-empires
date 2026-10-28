@@ -2,7 +2,7 @@
 // (with the modifiers behind it), the war between them, what it charges, and
 // what the requester can actually pay. Shared by the offer auto-responder
 // and the trade screen's stance query so both see the same numbers.
-import { giftView, type AiDiplomacyPricing, type AiGiftView, type DiplomacyGoods } from "@border-empires/shared";
+import { ATTITUDE_MIN_SCORE, giftToReach, giftView, type AiDiplomacyPricing, type AiGiftView, type DiplomacyGoods } from "@border-empires/shared";
 
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
 import { aiWouldLeadAlliance, tileLookupFor, type AllyLookup, type LeaderboardTiles, type TileLookup } from "./ai-alliance-bloc.js";
@@ -105,6 +105,7 @@ export const evaluateAiDiplomacy = (input: {
     incomePerHour: goodwillIncomePerHour,
     now: input.now
   });
+  const gift = giftView(input.memory.goodwillCoin, goodwillIncomePerHour);
   const priced = aiDiplomacyPricing({
     aiName: input.aiName,
     stanceKind: stance.kind,
@@ -116,6 +117,7 @@ export const evaluateAiDiplomacy = (input: {
     aiHoldings: holdingsOf(input.aiSnapshot),
     requesterBrokeTruceWithAi: input.requesterBrokeTruceWithAi,
     aiWouldLeadAlliance: aiLeads(input),
+    giftCanWinOver: giftToReach(gift, opinion.score, ATTITUDE_MIN_SCORE.PLEASED) !== undefined,
     now: input.now
   });
   return {
@@ -126,6 +128,6 @@ export const evaluateAiDiplomacy = (input: {
     ...(priced.truceRefusal ? { truceRefusal: priced.truceRefusal } : {}),
     ...(priced.allianceRefusal ? { allianceRefusal: priced.allianceRefusal } : {}),
     requesterHoldings: holdingsOf(input.requesterSnapshot),
-    gift: giftView(input.memory.goodwillCoin, goodwillIncomePerHour)
+    gift
   };
 };

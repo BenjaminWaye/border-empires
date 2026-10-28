@@ -5,6 +5,7 @@
 import {
   ATTITUDE_MIN_SCORE,
   attitudeForScore,
+  giftCoinToCap,
   giftOpinionGain,
   giftToReach,
   netValueToAi,
@@ -16,7 +17,7 @@ import {
 import { ATTITUDE_LABEL, type DiplomacyStanceReply, type TradeSelection, type TradeVerdict } from "./client-diplomacy-trade-view.js";
 
 const SEND_LABEL = "Offer gift";
-const FADE_NOTE = "Gifts count for up to +25 and fade over about a day.";
+const FADE_NOTE = "Gifts count for up to +25 in all and lose half their effect each day.";
 
 /** The next attitude worth paying for: Pleased (enough for an alliance), then Friendly. */
 const nextTargetScore = (score: number): number | undefined =>
@@ -46,6 +47,16 @@ export const giftVerdict = (input: { targetName: string; reply: DiplomacyStanceR
       text: atCap
         ? `${targetName}'s opinion can't be raised further with gifts right now. ${FADE_NOTE}`
         : `Too small to change ${targetName}'s opinion: +1 costs about ${Math.ceil(gift.coinPerPoint)} coin.`,
+      canSend: false,
+      sendLabel: SEND_LABEL
+    };
+  }
+  // Coin past the goodwill cap buys nothing: say how much counts instead of taking it.
+  const useful = giftCoinToCap(gift);
+  if (value > useful) {
+    return {
+      tone: "bad",
+      text: `Only about ${useful} coin of this would count: gifts add up to +${gift.maxPoints} opinion in all. Give ${useful} coin or less.`,
       canSend: false,
       sendLabel: SEND_LABEL
     };
