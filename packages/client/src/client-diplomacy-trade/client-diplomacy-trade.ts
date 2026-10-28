@@ -36,7 +36,6 @@ import {
   tradeVerdict,
   warTally,
   type DiplomacyStanceReply,
-  type TradeKind,
   type TradeSelection,
   type TradeVerdict
 } from "./client-diplomacy-trade-view.js";

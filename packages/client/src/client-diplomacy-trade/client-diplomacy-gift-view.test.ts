@@ -64,7 +64,7 @@ describe("gift on the trade screen", () => {
 
   it("offers a gift to an AI, keeps the screen open and shows the outcome", () => {
     const send = vi.fn().mockReturnValue(true);
-    // During a truce only an alliance or a gift can be chosen.
+    // A gift works during a truce too.
     openDiplomacyTradeScreen(
       { targetName: "Elin", targetPlayerId: "ai-2", kind: "truce", durationHours: 12 },
       { send, ownHoldings: () => ({ gold: 500, shard: 0 }), truceEndsAt: () => Date.now() + 6 * 60_000 }
