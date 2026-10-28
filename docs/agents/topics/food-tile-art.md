@@ -67,3 +67,12 @@ The gray apron makes the disconnected props read as one work site. Keep it
 thin and rough, with subdued contrast against the surrounding grass; avoid
 a tall display plinth or a wooden bridge. Minor drainage/wear could further
 ground the basins if this direction is adopted in both game renderers.
+
+`Map/Resources/Fishing game context` places the proposal and apron beside a
+coast, production towns, Hydroworks, Manufactory, farmland and forests. It uses
+the production perspective camera tilt, heightfield, animated sea and atmosphere
+without studio lights. Coastal settlement and Close up support art review;
+Gameplay zoom uses the default game's approximate camera distance (38).
+This remains a 3D preview, with no runtime or 2D replacement. The wider context
+exposes the apron's plain surface and the sparse hut/service area compared with
+the district buildings; refine these before adopting the proposal.
