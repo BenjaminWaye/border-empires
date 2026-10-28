@@ -154,6 +154,23 @@ consolidation, planning cadence), not deletion.
   `relay-beacon-coastal-reach.test.ts`, including wraparound, inland fog,
   narrow straits, known prizes and bounded lookup work.
 
+- **Out-of-reach dock crossings are a planner fallback.** EXPAND is never
+  runtime reach-gated (game-domain validation ignores `isInReach`); the
+  planner's reach gate in `frontier-command-planner.ts` is AI policy, because
+  out-of-reach land can't be settled. Dock tiles are the exception —
+  auto-settle exempts town/dock tiles from reach — so the planner defers
+  out-of-reach dock crossings and scores them only when the scan finds no
+  in-reach neutral target (deferring keeps healthy AIs from hopping docks
+  early). Its >150-origin border prefilter must also keep linked docks.
+  Gating them outright left saturated-island AIs on WAIT with
+  `BLOCKED_NO_REACHABLE_BEACON_SITE`. That label is the generic "has
+  frontier, no action" fallback in `automation-action-admission.ts`, not
+  proof a beacon was the missing move. Separately, a large empire's scan can
+  be anchored on interior FRONTIER tiles with no non-owned neighbour (prod
+  ai-9, 2026-10-28: 18 origins, 144 candidates, 1,270 frontier tiles) and
+  stall for that reason instead. Regression coverage:
+  `frontier-command-planner-dock-reach.test.ts`.
+
 - The AI decision-diagnostics buffer (`recordAiDecisionDiagnosticFromPlanner`)
   looks like write-only "record-then-never-read" — but it **is** read via the
   `GetAiDecisionDiagnostics` RPC (`/admin/debug/ai/decisions`). Not dead.

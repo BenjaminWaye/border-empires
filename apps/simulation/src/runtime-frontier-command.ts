@@ -86,8 +86,8 @@ export type RuntimeFrontierCommandContext = BarbarianLaunchContext & {
   requiredMusterForTarget: (target: DomainTileState, attackerId?: string) => number;
   buildLockedCombatResolution: (lock: LockedCombatInput) => LockedCombatResolution | undefined;
   // Fixed-border reach (packages/shared/src/reach/reach.ts): true if (x, y)
-  // is inside playerId's resolved reach set. EXPAND requires this; ATTACK
-  // deliberately does not consult it.
+  // is inside playerId's resolved reach set. Passed to validation, which
+  // deliberately ignores it for both EXPAND and ATTACK (game-domain index).
   isInReach: (playerId: string, x: number, y: number) => boolean;
   // Persistent-border owner at (x, y), if any -- same lookup the Aether
   // Bridge cast handler already uses (runtime-aether-bridge-reach.ts) to
