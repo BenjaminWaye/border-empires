@@ -100,7 +100,7 @@ rearranged asset and passes against the intact scaled assembly.
 This remains a preview only: neither the live 3D overlay nor the 2D fallback is
 replaced. Lore reviewed; no canon change.
 
-The smaller assembly's apron now extends its east edge to the shore boundary
-(x=1), with the seaward skirt dropping just below the waterline. The inland and
-north/south grass margins remain. This removes the grass strip between the
-working site and the sea without moving or resizing the fish model.
+The smaller site is shifted 0.132 tiles toward the east shoreline as one
+assembly: model and its original compact apron move together, so the apron edge
+meets x=1. The apron is not stretched. The initial apron-only extension was
+superseded by this placement correction.

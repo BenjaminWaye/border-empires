@@ -65,10 +65,13 @@ const render = ({ cameraDistance, compact }: Args, comparison = false): HTMLElem
     forest.addInstance(x + 0.5, z + 0.5, surface(x, z), CENTER + x, CENTER + z);
   }
   forest.commit();
-  const foundation = createFishStudyFoundation(corners(0, 0), compact ? { inset: 0.132, lift: 0.003, shoreEdge: "east" } : {});
+  // Move the entire smaller site, keeping the model centered on its apron.
+  const siteOffsetX = compact ? 0.132 : 0;
+  const foundation = createFishStudyFoundation(corners(0, 0), compact ? { inset: 0.132, lift: 0.003 } : {});
   const apronFinish = compact ? createFishStudyApronMaterial() : undefined;
   const foundationMaterial = apronFinish?.material ?? new MeshStandardMaterial({ color: "#8e9088", roughness: 0.94 });
   const apron = new Mesh(foundation.geometry, foundationMaterial);
+  apron.position.x = siteOffsetX;
   apron.receiveShadow = true;
   stage.scene.add(apron);
   let disposed = false;
@@ -79,7 +82,7 @@ const render = ({ cameraDistance, compact }: Args, comparison = false): HTMLElem
     const bounds = new Box3().setFromObject(model, true);
     if (compact) {
       // The Blender export already uses tile units. Re-fitting would undo the uniform assembly scale.
-      model.position.set(0.5 - (bounds.min.x + bounds.max.x) / 2,
+      model.position.set(0.5 + siteOffsetX - (bounds.min.x + bounds.max.x) / 2,
         foundation.topY + 0.001 - bounds.min.y, 0.5 - (bounds.min.z + bounds.max.z) / 2);
     } else {
       model.applyMatrix4(fishingModelFitMatrix(bounds));
@@ -111,7 +114,7 @@ const render = ({ cameraDistance, compact }: Args, comparison = false): HTMLElem
     if (apronFinish) apronFinish.dispose(); else foundationMaterial.dispose();
   }, terrain.dispose, atmosphere.dispose, water.dispose, towns.dispose, districts.dispose, farms.dispose, forest.dispose]);
   const label = document.createElement("div");
-  label.textContent = compact ? "NEW · 80% scale · apron meets water" : "OLD · previous full-size proposal";
+  label.textContent = compact ? "NEW · 80% scale · whole site moved to water" : "OLD · previous full-size proposal";
   label.style.cssText = "position:absolute;left:20px;top:18px;padding:10px 14px;background:#17201de6;color:#e3dfce;font:13px system-ui;pointer-events:none;border:1px solid #777a8066";
   container.appendChild(label);
   return container;
