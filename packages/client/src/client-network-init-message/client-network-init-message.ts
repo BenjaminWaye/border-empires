@@ -186,6 +186,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.stamina = (player.stamina as number | undefined) ?? state.stamina;
   state.manpower = (player.manpower as number | undefined) ?? state.manpower;
   state.manpowerCap = (player.manpowerCap as number | undefined) ?? state.manpowerCap;
+  state.nextManpowerBatchAmount = typeof player.nextManpowerBatchAmount === "number" ? player.nextManpowerBatchAmount : undefined;
   state.manpowerRegenPerMinute = (player.manpowerRegenPerMinute as number | undefined) ?? state.manpowerRegenPerMinute;
   state.logisticsThroughputPerMinute = (player.logisticsThroughputPerMinute as number | undefined) ?? state.logisticsThroughputPerMinute;
   state.settledT = (player.Ts as number) ?? state.settledT;

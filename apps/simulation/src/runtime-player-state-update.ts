@@ -1,3 +1,4 @@
+import { nextManpowerBatchAmount } from "./runtime-manpower.js";
 import { DEVELOPMENT_PROCESS_LIMIT, empireIntegrity, expandManpowerCostForFrontierCount, normalizeAutoSettlePrefs, type ResourceSlotSources } from "@border-empires/shared";
 import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
@@ -80,6 +81,7 @@ export function emitPlayerStateUpdate(
       manpower: player.manpower,
       manpowerCap: context.playerManpowerCap(player),
       manpowerRegenPerMinute: context.playerManpowerRegenPerMinute(player),
+      nextManpowerBatchAmount: nextManpowerBatchAmount(player, context.playerManpowerCap(player), context.playerManpowerRegenPerMinute(player)),
       // EXPAND's current price, so the client's menus and pre-checks match what the sim will charge.
       expandManpowerCost: expandManpowerCostForFrontierCount(summary.frontierTileKeys.size),
       logisticsThroughputPerMinute: context.playerLogisticsThroughputPerMinute(player),

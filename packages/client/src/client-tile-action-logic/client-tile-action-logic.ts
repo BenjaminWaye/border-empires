@@ -1,3 +1,5 @@
+import { tileActionAvailability } from "./client-tile-action-availability.js";
+import { manpowerPerBatch, ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE, NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY } from "@border-empires/shared";
 import { resourceBuildActions } from "./client-resource-build-actions.js";
 import { forcedAncillarificationActions } from "../client-forced-ancillarification/client-forced-ancillarification.js";
 export { canPlaceAetherWallFromOrigin, validAetherWallDirectionsForTile, aetherWallDirectionTargetTiles } from "./client-aether-wall-placement.js";
@@ -129,14 +131,7 @@ export const hasTerrainShapingCapability = (state: ClientState): boolean => stat
 
 export { lineStepsBetween } from "./client-line-steps.js";
 
-export const tileActionAvailability = (
-  enabled: boolean,
-  reason: string,
-  cost?: string
-): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> => {
-  if (enabled) return cost ? { disabled: false, cost } : { disabled: false };
-  return cost ? { disabled: true, disabledReason: reason, cost } : { disabled: true, disabledReason: reason };
-};
+export { tileActionAvailability } from "./client-tile-action-availability.js";
 
 export const isOwnedBorderTile = (
   state: ClientState,
@@ -1375,7 +1370,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 : !state.techIds.includes("global-trade-networks")
                   ? "Requires Neural Assembly Core"
                   : (missingResourceSlotReason(state, "NEURAL_WORKS") ?? "Unavailable"),
-            `${deps.structureCostText("NEURAL_WORKS")} • ${buildTimeLabel(economicBuildMsForState(state, "NEURAL_WORKS"))} • amplifies every Ancillary Depot in this connected-town network (+300 manpower cap, +0.1 manpower/min each) • boosts outpost muster within 50 tiles • one per connected-town network${upkeepSuffixFor("NEURAL_WORKS")}`
+            `${deps.structureCostText("NEURAL_WORKS")} • ${buildTimeLabel(economicBuildMsForState(state, "NEURAL_WORKS"))} • amplifies every Ancillary Factory in this connected-town network (+${manpowerPerBatch(NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY)} manpower per batch each) • boosts outpost muster within 50 tiles • one per connected-town network${upkeepSuffixFor("NEURAL_WORKS")}`
           )
         )
       });
@@ -1453,7 +1448,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 : !state.techIds.includes("remade-concordat")
                   ? "Requires Ancillary Control Core"
                   : (missingResourceSlotReason(state, "ANCILLARY_FACTORY") ?? "Unavailable"),
-            `${deps.structureCostText("ANCILLARY_FACTORY")} • ${buildTimeLabel(economicBuildMsForState(state, "ANCILLARY_FACTORY"))} • +0.05 manpower/min empire-wide, +0.1/min if a Neural Works is in this town's connected network${upkeepSuffixFor("ANCILLARY_FACTORY")}`
+            `${deps.structureCostText("ANCILLARY_FACTORY")} • ${buildTimeLabel(economicBuildMsForState(state, "ANCILLARY_FACTORY"))} • +${manpowerPerBatch(ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE)} manpower per batch empire-wide, +${manpowerPerBatch(NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY)} per batch if a Neural Works is in this town's connected network${upkeepSuffixFor("ANCILLARY_FACTORY")}`
           )
         )
       });

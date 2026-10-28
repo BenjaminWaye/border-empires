@@ -51,6 +51,7 @@ export const RECONNECT_PASSTHROUGH_FIELDS = {
   manpower: { kind: "handledInline" },
   manpowerCap: { kind: "handledInline" },
   manpowerRegenPerMinute: { kind: "handledInline" },
+  nextManpowerBatchAmount: presentField("nextManpowerBatchAmount"),
   manpowerBreakdown: { kind: "handledInline" },
   incomePerMinute: { kind: "handledInline" },
   strategicResources: { kind: "handledInline" },

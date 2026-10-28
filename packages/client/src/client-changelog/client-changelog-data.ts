@@ -470,6 +470,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The same survey popup could return every time you reopened the game.",
     changes: ["Got it and View survey now remember dismissed clues in this browser for your player and season. Clues remain in Activity, and new discoveries can still appear."]
   },
+  {
+    createdAt: 1793140139293, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.27.8",
+    title: "Manpower batch amounts",
+    why: "Manpower arrives in batches, so per-minute labels made building output hard to judge.",
+    changes: ["The manpower countdown shows +N in the remaining time, including on mobile.", "Town upgrades, manpower buildings and regeneration modifiers show their output per batch."]
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

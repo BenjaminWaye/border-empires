@@ -1,5 +1,5 @@
 import { resourceTileOverviewLines } from "./client-resource-tile-copy.js";
-import { isNetworkResource } from "@border-empires/shared";
+import { manpowerPerBatch, isNetworkResource } from "@border-empires/shared";
 import { afcEffectMultiplier } from "../client-afc-upgrades/client-afc-effect.js";
 import { attackFloorForPlayer } from "../client-attack-commit/client-attack-floor.js";
 import { battleOverviewLines, battleMenuHeaderStatus } from "../client-battle-progress/client-tracked-battle-progress.js";
@@ -220,7 +220,7 @@ export const menuOverviewForTile = (
           growthTone: !effectiveFed ? "warn" : growthRatePending ? "neutral" : "positive",
           goldPerDayLabel: goldPerDay.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
           manpowerCapLabel: tierManpower.cap.toLocaleString(),
-          manpowerRegenLabel: `+${tierManpower.regenPerMinute.toFixed(2)}/min base regen`,
+          manpowerRegenLabel: `+${Math.round(manpowerPerBatch(tierManpower.regenPerMinute))} per batch base regen`,
           townModifiers: townStatModifiersForProfile(terrainProfile, coastal),
           ...(tile.town.populationTier !== "SETTLEMENT" ? { support: { current: supportCurrent, max: supportMax } } : {}),
           ...(foodDemand > 0 ? { food: { satisfied: tile.town.isFed ? foodDemand : 0, demand: foodDemand, fed: Boolean(tile.town.isFed) } } : {})

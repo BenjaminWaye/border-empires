@@ -22,6 +22,7 @@ export type PlayerSubscriptionSnapshot = {
     manpower: number;
     manpowerCap: number;
     manpowerRegenPerMinute?: number;
+    nextManpowerBatchAmount?: number;
     logisticsThroughputPerMinute?: number;
     manpowerBreakdown?: ManpowerBreakdown;
     incomePerMinute: number;

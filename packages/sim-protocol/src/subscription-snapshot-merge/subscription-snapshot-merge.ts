@@ -53,6 +53,7 @@ const PLAYER_MERGE_RULES = {
   name: () => undefined,
   gold: (p) => (typeof p.gold === "number" ? { gold: p.gold } : undefined),
   manpower: (p) => (typeof p.manpower === "number" ? { manpower: p.manpower } : undefined),
+  nextManpowerBatchAmount: (p) => typeof p.nextManpowerBatchAmount === "number" ? { nextManpowerBatchAmount: p.nextManpowerBatchAmount } : undefined,
   manpowerCap: (p) => (typeof p.manpowerCap === "number" ? { manpowerCap: p.manpowerCap } : undefined),
   manpowerRegenPerMinute: (p) =>
     typeof p.manpowerRegenPerMinute === "number" ? { manpowerRegenPerMinute: p.manpowerRegenPerMinute } : undefined,

@@ -2,13 +2,14 @@ import type { ClientState } from "../client-state/client-state.js";
 
 export type PlayerUpdateManpowerState = Pick<
   ClientState,
-  "manpower" | "manpowerCap" | "manpowerRegenPerMinute" | "logisticsThroughputPerMinute" | "expandManpowerCost"
+  "manpower" | "manpowerCap" | "manpowerRegenPerMinute" | "logisticsThroughputPerMinute" | "expandManpowerCost" | "nextManpowerBatchAmount"
 >;
 
 // PLAYER_UPDATE's manpower numbers (pool, cap, regen, logistics and the
 // frontier-scaled EXPAND price). A field the message omits keeps its last value.
 export const applyPlayerUpdateManpowerFields = (state: PlayerUpdateManpowerState, msg: Record<string, unknown>): void => {
   const numberOr = (value: unknown, fallback: number): number => (typeof value === "number" ? value : fallback);
+  if (typeof msg.nextManpowerBatchAmount === "number") state.nextManpowerBatchAmount = msg.nextManpowerBatchAmount;
   state.manpower = numberOr(msg.manpower, state.manpower);
   state.manpowerCap = numberOr(msg.manpowerCap, state.manpowerCap);
   state.manpowerRegenPerMinute = numberOr(msg.manpowerRegenPerMinute, state.manpowerRegenPerMinute);

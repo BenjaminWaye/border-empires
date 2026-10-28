@@ -5,8 +5,7 @@ import { INTEGRITY_PENALTY_PCT, type ChosenTrickleResource } from "@border-empir
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "../client-crystal-ability-info/client-crystal-ability-info.js";
 import { revealEmpireStatsDossierHtml, wireEmpireIntelOverlay } from "../client-empire-intel/client-empire-intel.js";
 import { integrityChipHtml, selfPlayerChipHtml } from "./client-stat-chips.js";
-import { manpowerGaugeChipHtml, ownStagedManpower } from "../client-manpower-gauge/client-manpower-gauge.js";
-import { nextManpowerRefillForPlayer } from "../client-manpower-gauge/client-manpower-refill.js";
+import { hudManpowerGaugeHtml } from "./client-hud-manpower-gauge.js";
 import { devGearsChipHtml } from "../client-dev-gears/client-dev-gears.js";
 import { renderPlayerProfileOverlay, wirePlayerProfileOverlay } from "../client-player-profile/client-player-profile.js";
 import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, setDebugTileKey, setDebugTileLoggingEnabled } from "../client-debug/client-debug.js";
@@ -241,7 +240,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.statsChipsEl.innerHTML = `
     ${mobile ? "" : selfPlayerChipHtml(connClass, state.meName, state.leaderboard)}
     <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Coin</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${mobile ? mobileGoldRateText : goldRateText}</em></strong></button>
-    ${manpowerGaugeChipHtml({ manpower: state.manpower, manpowerCap: state.manpowerCap, staged: ownStagedManpower(state.tiles.values(), state.me, Date.now()), regenPerMinute: state.manpowerRegenPerMinute, logisticsPerMinute: state.logisticsThroughputPerMinute, nextRefillAtMs: nextManpowerRefillForPlayer(state.me, Date.now()), nowMs: Date.now(), formatAmount: formatManpowerAmount })}
+    ${hudManpowerGaugeHtml(state, formatManpowerAmount)}
     ${integrityChipHtml({ pct: state.defensibilityPct, defClass, showWarning: showIntegrityWarning, mobile })}
     ${devGearsChipHtml({ busy: development.busy, limit: development.limit, mobile })}
     ${state.showWeakDefensibility ? `<button class="stat-chip stat-chip-weak-def" type="button" data-toggle-weak-def="true"><span>Integrity</span><strong>Hide Weak</strong></button>` : ""}

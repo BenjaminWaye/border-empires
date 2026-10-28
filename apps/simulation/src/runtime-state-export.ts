@@ -1,3 +1,4 @@
+import { nextManpowerBatchAmount } from "./runtime-manpower.js";
 import { afcPlayerExportFields } from "./afc-specializations/afc-player-export.js";
 import { activeAfcModuleTechIds } from "./ai/ai-build-unlocks.js";
 import type { AiTacticalView } from "./ai/ai-tactical-view.js";
@@ -95,6 +96,7 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         manpower: player.manpower,
         manpowerCap: input.playerManpowerCap(player),
         manpowerRegenPerMinute: input.playerManpowerRegenPerMinute(player),
+        nextManpowerBatchAmount: nextManpowerBatchAmount(player, input.playerManpowerCap(player), input.playerManpowerRegenPerMinute(player)),
         logisticsThroughputPerMinute: input.playerLogisticsThroughputPerMinute(player),
         manpowerBreakdown: input.playerManpowerBreakdown(player),
         ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),

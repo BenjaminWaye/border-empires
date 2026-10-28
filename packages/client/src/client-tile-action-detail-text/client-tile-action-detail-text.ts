@@ -1,3 +1,4 @@
+import { manpowerPerBatch, NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY } from "@border-empires/shared";
 // Extracted from client-tile-menu-view.ts (file-line-cap task) — the giant
 // action-id -> detail-copy if-chain has no state/dependency overlap with the
 // rest of that file's tile-menu-view building, so it lives on its own here.
@@ -112,7 +113,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_ancillary_depot") return "Manpower hub. Adds +150 manpower cap to this town, plus +300 more if a Reserve Lattice is in this town's connected network.";
   if (actionId === "build_harbor_exchange") return "Build on a garrisoned dock tile. Adds +5 coin / day per connected owned dock.";
   if (actionId === "build_lockworks_port") return "Upgrade a Harbor Exchange into a Lockworks Port with stronger dock-route income and storage.";
-  if (actionId === "build_neural_works") return "Build on a town support tile. Mustering hub: boosts outpost muster speed within 50 tiles, and adds +0.1 manpower/min empire-wide for every connected Ancillary Factory.";
+  if (actionId === "build_neural_works") return `Build on a town support tile. Mustering hub: boosts outpost muster speed within 50 tiles, and adds +${manpowerPerBatch(NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY)} manpower per batch empire-wide for every connected Ancillary Factory.`;
   if (actionId === "build_exchange_house") return "Build on a great commercial city's support tile. It scales coin and growth with the local support network.";
   if (actionId === "build_imperial_exchange_part_1") return "Build the Golden Ledger, one of the Imperial Exchange's 3 unique components, in a Great City or Monumental City.";
   if (actionId === "build_imperial_exchange_part_2") return "Build the Counting Engine, one of the Imperial Exchange's 3 unique components, in a Great City or Monumental City.";
