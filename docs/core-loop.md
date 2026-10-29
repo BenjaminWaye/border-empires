@@ -505,9 +505,11 @@ As implemented in `client-onboarding-checklist.ts`:
    ordinary expansion and plain-land garrisons do not extend reach.
 3. The starting capital is sized for about 40 expands and 8 settles before
    you wait on regen (`STARTING_CAPITAL_MANPOWER_CAP` comment). On top of
-   that, every new empire lands with a one-time +1,000 manpower reserve that
+   that, every new empire lands with a one-time +2,000 manpower reserve that
    may sit above the cap (`LANDING_MANPOWER_RESERVE`,
-   `packages/shared/src/landing-manpower-reserve.ts`). The first session is
+   `packages/shared/src/landing-manpower-reserve.ts`), plus, for a late
+   joiner (or a player respawning after elimination), the starting capital's
+   regen since the season started. The first session is
    long enough to finish the checklist without stalling.
 4. Newly generated worlds require 50 spaced starting sites with first food
    within three land steps (already in AFC reach), four slots within six,
