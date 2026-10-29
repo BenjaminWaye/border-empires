@@ -2,7 +2,7 @@
 // (with the modifiers behind it), the war between them, what it charges, and
 // what the requester can actually pay. Shared by the offer auto-responder
 // and the trade screen's stance query so both see the same numbers.
-import type { AiDiplomacyPricing, DiplomacyGoods } from "@border-empires/shared";
+import { ATTITUDE_MIN_SCORE, giftToReach, giftView, type AiDiplomacyPricing, type AiGiftView, type DiplomacyGoods } from "@border-empires/shared";
 
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
 import { aiWouldLeadAlliance, tileLookupFor, type AllyLookup, type LeaderboardTiles, type TileLookup } from "./ai-alliance-bloc.js";
@@ -20,6 +20,8 @@ export type AiDiplomacyEvaluation = {
   truceRefusal?: string;
   allianceRefusal?: string;
   requesterHoldings: DiplomacyGoods;
+  /** What a gift buys: coin per opinion point and the goodwill already paid. */
+  gift: AiGiftView;
 };
 
 /** What the gateway knows about the pair beyond the snapshots: grudges and memory. */
@@ -93,15 +95,17 @@ export const evaluateAiDiplomacy = (input: {
   const stance = computeAiDiplomacyStance(stanceInput);
   const aiIncome = aiPlayer.incomePerMinute ?? 0;
   const requesterIncome = input.requesterSnapshot?.player?.incomePerMinute ?? 0;
+  const goodwillIncomePerHour = Math.max(1, aiIncome, requesterIncome) * 60;
   const opinion = computeAiOpinion({
     stanceKind: stance.kind,
     memory: input.memory,
     requesterBrokeTruceWithAi: input.requesterBrokeTruceWithAi,
     requesterTruceBreaksWithOthers: input.requesterTruceBreaksWithOthers,
     bordersTouch: stanceInput.bordersTouch,
-    incomePerHour: Math.max(1, aiIncome, requesterIncome) * 60,
+    incomePerHour: goodwillIncomePerHour,
     now: input.now
   });
+  const gift = giftView(input.memory.goodwillCoin, goodwillIncomePerHour);
   const priced = aiDiplomacyPricing({
     aiName: input.aiName,
     stanceKind: stance.kind,
@@ -113,6 +117,7 @@ export const evaluateAiDiplomacy = (input: {
     aiHoldings: holdingsOf(input.aiSnapshot),
     requesterBrokeTruceWithAi: input.requesterBrokeTruceWithAi,
     aiWouldLeadAlliance: aiLeads(input),
+    giftCanWinOver: giftToReach(gift, opinion.score, ATTITUDE_MIN_SCORE.PLEASED) !== undefined,
     now: input.now
   });
   return {
@@ -122,6 +127,7 @@ export const evaluateAiDiplomacy = (input: {
     reason: warReason(input.aiName, opinion, stance.reason),
     ...(priced.truceRefusal ? { truceRefusal: priced.truceRefusal } : {}),
     ...(priced.allianceRefusal ? { allianceRefusal: priced.allianceRefusal } : {}),
-    requesterHoldings: holdingsOf(input.requesterSnapshot)
+    requesterHoldings: holdingsOf(input.requesterSnapshot),
+    gift
   };
 };

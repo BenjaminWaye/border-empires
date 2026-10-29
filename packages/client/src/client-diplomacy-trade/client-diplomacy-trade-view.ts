@@ -10,10 +10,13 @@ import {
   requiredForOffer,
   netValueToAi,
   type AiDiplomacyPricing,
+  type AiGiftView,
   type DiplomacyGoods,
   type DiplomacyOfferKind,
   type DiplomacyTerms
 } from "@border-empires/shared";
+
+import { giftVerdict, suggestedGift } from "./client-diplomacy-gift-view.js";
 
 export type DiplomacyStanceKind = "DISTRUSTFUL" | "SEEKING_PEACE" | "OUTMATCHED" | "WINNING" | "INDIFFERENT" | "WARY";
 
@@ -33,6 +36,8 @@ export type DiplomacyStanceReply =
       truceRefusal?: string;
       allianceRefusal?: string;
       pricing?: AiDiplomacyPricing;
+      /** Absent from a gateway older than gifts. */
+      gift?: AiGiftView;
     };
 
 export type DiplomacyAttitude = "FURIOUS" | "ANNOYED" | "CAUTIOUS" | "PLEASED" | "FRIENDLY";
@@ -66,8 +71,10 @@ export const warTally = (reply: DiplomacyStanceReply | undefined): { youTook: nu
   return { youTook: tilesTakenFromAi, theyTook: tilesTakenByAi };
 };
 
-/** extendsTruce: a truce with this empire is running, so a truce offer extends it. */
-export type TradeSelection = { kind: DiplomacyOfferKind | "trade"; durationHours: 12 | 24; terms: DiplomacyTerms; extendsTruce?: boolean };
+/** "gift": coin/Shards for goodwill alone (client-diplomacy-gift-view.ts). "trade": an independent resource supply trade.
+ * extendsTruce: a truce with this empire is running, so a truce offer extends it. */
+export type TradeKind = DiplomacyOfferKind | "trade" | "gift";
+export type TradeSelection = { kind: TradeKind; durationHours: 12 | 24; terms: DiplomacyTerms; extendsTruce?: boolean };
 
 const extendsTruce = (selection: TradeSelection): boolean => selection.kind === "truce" && selection.extendsTruce === true;
 
@@ -95,8 +102,10 @@ export const tradeVerdict = (input: {
   cooldownRemainingMs: number;
 }): TradeVerdict => {
   const { targetName, reply, selection, own } = input;
+  const kind = selection.kind;
+  if (kind === "gift") return giftVerdict(input);
   const sendLabel =
-    selection.kind === "trade" ? "Offer resource trade" : selection.kind === "alliance" ? "Propose alliance" : extendsTruce(selection) ? `Offer ${selection.durationHours}h extension` : `Offer ${selection.durationHours}h truce`;
+    kind === "trade" ? "Offer resource trade" : kind === "alliance" ? "Propose alliance" : extendsTruce(selection) ? `Offer ${selection.durationHours}h extension` : `Offer ${selection.durationHours}h truce`;
   if (input.cooldownRemainingMs > 0) {
     return { tone: "bad", text: `You recently made ${targetName} this kind of offer.`, canSend: false, sendLabel: `Can offer again in ${formatOfferCooldown(input.cooldownRemainingMs)}` };
   }
@@ -107,7 +116,7 @@ export const tradeVerdict = (input: {
   if (missingResource) return { tone: "bad", text: `You only have ${own.resources?.[missingResource] ?? 0} spare ${supplyResourceLabel(missingResource)} slots.`, canSend: false, sendLabel };
   const hasSupply = hasResourceSupplyOffer(selection.terms.give.resources) || hasResourceSupplyOffer(selection.terms.ask.resources);
   if (hasSupply && !own.resources) return {tone:"bad",text:"Reconnect before negotiating resource supply.",canSend:false,sendLabel};
-  if (selection.kind === "trade") {
+  if (kind === "trade") {
     if (!hasSupply) return {tone:"neutral",text:"Add a resource supply slot to make an independent trade offer.",canSend:false,sendLabel};
     if (reply && !reply.found) return {tone:"bad",text:`No empire named ${targetName}.`,canSend:false,sendLabel};
     if (reply?.found && reply.ai && reply.pricing) {
@@ -122,15 +131,15 @@ export const tradeVerdict = (input: {
   if (!reply.pricing) return { tone: "neutral", text: `${targetName} can't be read right now. You can still send the offer.`, canSend: true, sendLabel };
 
   const pricing = pricingFor(reply.pricing, selection);
-  const verdict = evaluateAiOffer(pricing, selection.kind, selection.durationHours, selection.terms);
+  const verdict = evaluateAiOffer(pricing, kind, selection.durationHours, selection.terms);
   if (verdict.accepts) return { tone: "good", text: `${targetName} would accept ${offerLabel(selection)} on these terms.`, canSend: true, sendLabel };
   if (verdict.reason === "refuses") {
-    const refusal = selection.kind === "alliance" ? reply.allianceRefusal : reply.truceRefusal;
+    const refusal = kind === "alliance" ? reply.allianceRefusal : reply.truceRefusal;
     return { tone: "bad", text: refusal ?? `${targetName} won't agree to ${offerLabel(selection)} at any price right now.`, canSend: true, sendLabel };
   }
   if (verdict.reason === "aiWontPay") return { tone: "bad", text: `${targetName} won't give anything to join an alliance.`, canSend: true, sendLabel };
   if (verdict.reason === "aiCannotPay") return { tone: "bad", text: `${targetName} doesn't have that much to give.`, canSend: true, sendLabel };
-  const required = requiredForOffer(pricing, selection.kind, selection.durationHours) ?? 0;
+  const required = requiredForOffer(pricing, kind, selection.durationHours) ?? 0;
   // An extension costs a content AI nothing, and it never pays for one: the shortfall is only what was asked of it.
   if (extendsTruce(selection) && required === 0) return { tone: "bad", text: `${targetName} won't pay anything to extend a truce.`, canSend: true, sendLabel };
   const spareCoin = Math.max(0, own.gold - selection.terms.give.gold);
@@ -155,11 +164,13 @@ export const tradeVerdict = (input: {
  * can't meet.
  */
 export const suggestedDeal = (reply: DiplomacyStanceReply | undefined, selection: TradeSelection, own: DiplomacyGoods): DiplomacyTerms | undefined => {
-  if (selection.kind === "trade" || !reply?.found || !reply.ai || !reply.pricing) return undefined;
+  const kind = selection.kind;
+  if (kind === "gift") return suggestedGift(reply, own);
+  if (kind === "trade" || !reply?.found || !reply.ai || !reply.pricing) return undefined;
   const pricing = pricingFor(reply.pricing, selection);
-  const required = requiredForOffer(pricing, selection.kind, selection.durationHours);
+  const required = requiredForOffer(pricing, kind, selection.durationHours);
   if (required === null) return undefined;
   if (required < 0) return { give: { gold: 0, shard: 0 }, ask: { gold: Math.min(-required, pricing.aiHoldings.gold), shard: 0 } };
-  const counter = aiCounterOffer(pricing, selection.kind, selection.durationHours, emptyDiplomacyTerms(), own);
+  const counter = aiCounterOffer(pricing, kind, selection.durationHours, emptyDiplomacyTerms(), own);
   return counter.kind === "counter" ? counter.terms : undefined;
 };
