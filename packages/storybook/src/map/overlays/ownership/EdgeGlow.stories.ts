@@ -5,11 +5,11 @@ import { createHillTerrain } from "@client/client-map-3d-hills.js";
 import { createOwnershipOverlay, DEFAULT_SETTLED_EDGE_GLOW, settledEdgeMaskForOwner } from "@client/client-map-3d-ownership-overlay.js";
 import { DEFAULT_FRONTIER_HATCH } from "@client/client-map-3d-settled-edge-glow/client-map-3d-frontier-hatch.js";
 import { createStage, wrapWithCleanup } from "../../../fixtures/three-stage.js";
+import { EDGE_GLOW_OWNER_COLORS, EDGE_GLOW_WORLD_HEIGHT, EDGE_GLOW_WORLD_WIDTH, edgeGlowWorld } from "../../../fixtures/edge-glow-world.js";
 
-// Settled-territory edge glow (client-map-3d-settled-edge-glow.ts): two
-// empires, each a settled core inside a frontier ring, meeting along a shared
-// border, with a few hills inside the settled land so the faint interior's
-// terrain relief is visible. "Flat" is today's live look for comparison.
+// Settled-territory edge glow in 3D (client-settled-edge-glow.ts) on the
+// shared two-empire world; the hills inside settled land show the faint
+// interior's terrain relief. "Flat" is the pre-glow look for comparison.
 
 type Args = {
   look: "flat" | "edge-glow" | "edge-glow-hatched-frontier";
@@ -21,44 +21,11 @@ type Args = {
   cameraTilt: number;
 };
 
-// A/B = settled, a/b = that owner's frontier, h/k = A/B settled hill.
-const MAP = [
-  "..................",
-  "...aaaa...........",
-  "..aAAAAaa.....bb..",
-  ".aAAAhAAAab.bbBBb.",
-  ".aAAAAAAABBBBBBBb.",
-  ".aAhAAAAABBBBkBBb.",
-  "..aAAAAABBBBBBBb..",
-  "..aAAAhAABBBBBBb..",
-  "...aAAAAaBBBBBb...",
-  "....aaaa..bBBb....",
-  "...........bb.....",
-  ".................."
-];
-const MAP_W = MAP[0]?.length ?? 0;
 const CENTER = 100;
-const OX = CENTER - Math.floor(MAP_W / 2);
-const OY = CENTER - Math.floor(MAP.length / 2);
 const RISE = 0.022; // OWNERSHIP_RISE_ABOVE_HEIGHTFIELD
-const COLORS: Record<string, Color> = { a: new Color("#e0a020"), b: new Color("#4a8cff") };
-
-const cellAt = (wx: number, wy: number): string => MAP[wy - OY]?.[wx - OX] ?? ".";
-const HILLS: Record<string, string> = { h: "a", k: "b" };
-const ownerOf = (cell: string): string | undefined => (cell === "." ? undefined : HILLS[cell] ?? cell.toLowerCase());
-const isHillsAt = (wx: number, wy: number): boolean => cellAt(wx, wy) in HILLS;
+const world = edgeGlowWorld(CENTER - Math.floor(EDGE_GLOW_WORLD_WIDTH / 2), CENTER - Math.floor(EDGE_GLOW_WORLD_HEIGHT / 2));
+const COLORS: Record<string, Color> = Object.fromEntries(Object.entries(EDGE_GLOW_OWNER_COLORS).map(([id, hex]) => [id, new Color(hex)]));
 const tileKindAt = (): HeightfieldTerrainKind => "GRASS";
-
-const tiles = new Map<string, { ownerId: string; ownershipState: string }>();
-for (let wy = OY; wy < OY + MAP.length; wy += 1) {
-  for (let wx = OX; wx < OX + MAP_W; wx += 1) {
-    const cell = cellAt(wx, wy);
-    const ownerId = ownerOf(cell);
-    if (!ownerId) continue;
-    tiles.set(`${wx},${wy}`, { ownerId, ownershipState: cell === cell.toLowerCase() && !(cell in HILLS) ? "FRONTIER" : "SETTLED" });
-  }
-}
-const neighbourDeps = { tiles, keyFor: (x: number, y: number) => `${x},${y}`, wrapX: (x: number) => x, wrapY: (y: number) => y };
 
 const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, cameraTilt: args.cameraTilt, background: "#1a2030" });
@@ -70,24 +37,24 @@ const render = (args: Args): HTMLElement => {
   stage.scene.add(hf.mesh, hf.skirtMesh, hf.gridlines);
   const hills = createHillTerrain(stage.scene, 64, hf.material);
   const shared = { camX: CENTER, camY: CENTER, halfW: 10, halfH: 8, worldWidth: 240, worldHeight: 240, tileKindAt };
-  hf.rebuild({ ...shared, isHillsAt });
-  hills.rebuild({ ...shared, isHillsAt });
+  hf.rebuild({ ...shared, isHillsAt: world.isHillsAt });
+  hills.rebuild({ ...shared, isHillsAt: world.isHillsAt });
 
   const glowOn = args.look !== "flat";
-  const overlay = createOwnershipOverlay(stage.scene, MAP.length * MAP_W, undefined, undefined, undefined, undefined, {
+  const overlay = createOwnershipOverlay(stage.scene, world.tiles.size, undefined, undefined, undefined, undefined, {
     ...(glowOn ? { settledEdgeGlow: { ...DEFAULT_SETTLED_EDGE_GLOW, interiorOpacity: args.interiorOpacity, rimOpacity: args.rimOpacity, widthTiles: args.widthTiles, lineTiles: args.lineTiles } } : {}),
     ...(args.look === "edge-glow-hatched-frontier" ? { frontierHatch: DEFAULT_FRONTIER_HATCH } : {})
   });
-  for (const [key, tile] of tiles) {
-    const [wx, wy] = key.split(",").map(Number) as [number, number];
+  for (const tile of world.tiles.values()) {
+    const { x: wx, y: wy } = tile;
     const isFrontier = tile.ownershipState === "FRONTIER";
-    const mask = isFrontier ? 0 : settledEdgeMaskForOwner(wx, wy, tile.ownerId, neighbourDeps);
+    const mask = isFrontier ? 0 : settledEdgeMaskForOwner(wx, wy, tile.ownerId, world.neighbourDeps);
     // The heightfield puts tile wx at scene x in [wx - camX, wx - camX + 1].
     const x0 = wx - CENTER, x1 = x0 + 1, z0 = wy - CENTER, z1 = z0 + 1;
     const y00 = hf.cornerYAt(wx, wy) + RISE, y10 = hf.cornerYAt(wx + 1, wy) + RISE;
     const y01 = hf.cornerYAt(wx, wy + 1) + RISE, y11 = hf.cornerYAt(wx + 1, wy + 1) + RISE;
     const color = COLORS[tile.ownerId] as Color;
-    if (isHillsAt(wx, wy)) {
+    if (world.isHillsAt(wx, wy)) {
       overlay.addHillTile(x0, x1, z0, z1, y00, y10, y01, y11, color, isFrontier, { north: false, south: false, east: false, west: false }, wx, wy, undefined, mask);
     } else {
       overlay.addTile(x0, y00, z0, x1, y10, z0, x0, y01, z1, x1, y11, z1, color, isFrontier, mask);

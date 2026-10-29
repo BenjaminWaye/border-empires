@@ -8,7 +8,8 @@ import {
   NormalBlending
 } from "three";
 import { attachFrontierHatch, type FrontierHatch } from "./client-map-3d-settled-edge-glow/client-map-3d-frontier-hatch.js";
-import { attachSettledEdgeGlow, createEdgeGlowBuffers, type EdgeGlowBuffers, type SettledEdgeGlow } from "./client-map-3d-settled-edge-glow/client-map-3d-settled-edge-glow.js";
+import { attachSettledEdgeGlow, createEdgeGlowBuffers, type EdgeGlowBuffers } from "./client-map-3d-settled-edge-glow/client-map-3d-settled-edge-glow.js";
+import type { SettledEdgeGlow } from "./client-settled-edge-glow/client-settled-edge-glow.js";
 
 // One ownership-overlay bucket (settled/frontier x flat/hill): its
 // pre-allocated geometry buffers, material and blend handling. Split out of

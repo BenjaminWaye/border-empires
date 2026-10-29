@@ -4,9 +4,10 @@ import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "./client-map-3d-heightfield/c
 import { RENDER_ORDER, type OverlayRenderOrders } from "./client-map-3d-render-order.js";
 import { colorComponentFor, createMesh, type BlendMode } from "./client-map-3d-ownership-overlay-mesh.js";
 import type { FrontierHatch } from "./client-map-3d-settled-edge-glow/client-map-3d-frontier-hatch.js";
-import { commitEdgeGlowBuffers, writeEdgeGlowVertex, type SettledEdgeGlow } from "./client-map-3d-settled-edge-glow/client-map-3d-settled-edge-glow.js";
+import { commitEdgeGlowBuffers, writeEdgeGlowVertex } from "./client-map-3d-settled-edge-glow/client-map-3d-settled-edge-glow.js";
+import type { SettledEdgeGlow } from "./client-settled-edge-glow/client-settled-edge-glow.js";
 
-export { DEFAULT_SETTLED_EDGE_GLOW, settledEdgeMaskForOwner } from "./client-map-3d-settled-edge-glow/client-map-3d-settled-edge-glow.js";
+export { DEFAULT_SETTLED_EDGE_GLOW, settledEdgeMaskForOwner } from "./client-settled-edge-glow/client-settled-edge-glow.js";
 
 // Per-pixel bucket styles; both default off (flat tint).
 export type OwnershipOverlayStyles = {
@@ -44,8 +45,11 @@ const HILL_DRAPE_CLEARANCE = 0.012;
 // extra hill tiles rather than crashing).
 const DEFAULT_MAX_HILL_TILES = 2000;
 
-// Settled stays at 0.85 (project owner rule: only frontier opacity is fair
-// game). Restored from 0.6 (2026-09-14): at 0.6, 40% of the dark olive terrain
+// Flat settled opacity, used by buckets without a settled edge glow (the fog
+// overlays pass their own). The live overlay uses the glow instead
+// (client-settled-edge-glow.ts), whose rim keeps this 0.85 at every settled
+// boundary and fades to a fainter interior (owner decision 2026-10-29).
+// Restored from 0.6 (2026-09-14): at 0.6, 40% of the dark olive terrain
 // bled into every empire colour -- measured amber #e0a020 rendering as
 // #a6861e, and a pink/grass border sitting at 1.07 luminance contrast -- which
 // is what made two-empire clashes read as muddy. Terrain relief shows through

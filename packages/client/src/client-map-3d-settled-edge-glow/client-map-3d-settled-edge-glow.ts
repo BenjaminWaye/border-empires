@@ -1,61 +1,10 @@
 import { BufferAttribute, type BufferGeometry, type MeshBasicMaterial } from "three";
+import { clampSettledEdgeGlowWidth, type SettledEdgeGlow } from "../client-settled-edge-glow/client-settled-edge-glow.js";
 
-// Settled-territory edge glow for the 3D ownership overlay: a settled tile's
-// tint is strongest (rimOpacity) where it meets anything that isn't the same
-// owner's settled land, fades smoothly to interiorOpacity over widthTiles,
-// and a thin darker owner-colour line traces the boundary itself. The fade is
-// computed per pixel from each tile's 8-neighbour mask, so it runs straight
-// across tile seams instead of stepping per tile (a per-tile step would read
-// as a tile state rather than lighting).
-//
-// widthTiles is capped at 1: the mask only knows a tile's immediate
-// neighbours, and any boundary closer than one tile to a pixel is
-// necessarily one of them, so distances below 1 are exact and the fade lands
-// on interiorOpacity exactly where an unflagged interior tile begins.
-
-export type SettledEdgeGlow = {
-  readonly rimOpacity: number;
-  readonly interiorOpacity: number;
-  readonly widthTiles: number;
-  // Boundary line half-width, in tiles. 0 disables the line.
-  readonly lineTiles: number;
-  // Line colour = owner colour * lineDarken.
-  readonly lineDarken: number;
-};
-
-export const DEFAULT_SETTLED_EDGE_GLOW: SettledEdgeGlow = {
-  rimOpacity: 0.85,
-  interiorOpacity: 0.35,
-  widthTiles: 1,
-  lineTiles: 0.035,
-  lineDarken: 0.55
-};
-
-// Bit per neighbour that is NOT the same owner's settled land. Tile-local
-// axes: u runs west->east (wx), v runs north->south (wy), matching the
-// overlay's corner00 = (wx, wy) quad layout.
-export const EDGE_N = 1;
-export const EDGE_E = 2;
-export const EDGE_S = 4;
-export const EDGE_W = 8;
-export const EDGE_NE = 16;
-export const EDGE_SE = 32;
-export const EDGE_SW = 64;
-export const EDGE_NW = 128;
-
-const NEIGHBOURS: ReadonlyArray<readonly [number, number, number]> = [
-  [0, -1, EDGE_N], [1, 0, EDGE_E], [0, 1, EDGE_S], [-1, 0, EDGE_W],
-  [1, -1, EDGE_NE], [1, 1, EDGE_SE], [-1, 1, EDGE_SW], [-1, -1, EDGE_NW]
-];
-
-// isSameSettled receives unwrapped neighbour coords; the caller wraps them.
-export const settledEdgeMaskAt = (wx: number, wy: number, isSameSettled: (nx: number, ny: number) => boolean): number => {
-  let mask = 0;
-  for (const [dx, dy, bit] of NEIGHBOURS) {
-    if (!isSameSettled(wx + dx, wy + dy)) mask |= bit;
-  }
-  return mask;
-};
+// 3D half of the settled-territory edge glow (see
+// client-settled-edge-glow.ts for the look and the mask): per-vertex
+// tile-local UV + neighbour-mask attributes and the fragment-shader patch.
+// The GLSL below mirrors settledEdgeDistance/settledEdgeAlpha there.
 
 export type EdgeGlowBuffers = {
   readonly uv: Float32Array;
@@ -92,7 +41,7 @@ const glsl = (value: number): string => value.toFixed(4);
 // Replaces the material's flat opacity with the edge-distance ramp. Only
 // meaningful for NormalBlending (multiply ignores alpha).
 export const attachSettledEdgeGlow = (material: MeshBasicMaterial, glow: SettledEdgeGlow): void => {
-  const width = Math.min(1, Math.max(0.05, glow.widthTiles));
+  const width = clampSettledEdgeGlowWidth(glow.widthTiles);
   material.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader
       .replace("#include <common>", `#include <common>
@@ -131,19 +80,3 @@ float edgeBit( float m, float b ) { return mod( floor( m / b ), 2.0 ); }`)
   };
   material.customProgramCacheKey = () => `settled-edge-glow:${glow.rimOpacity}:${glow.interiorOpacity}:${width}:${glow.lineTiles}:${glow.lineDarken}`;
 };
-
-export type SettledEdgeNeighbourDeps = {
-  readonly tiles: ReadonlyMap<string, { readonly ownerId?: string | null | undefined; readonly ownershipState?: string | undefined }>;
-  readonly keyFor: (x: number, y: number) => string;
-  readonly wrapX: (x: number) => number;
-  readonly wrapY: (y: number) => number;
-};
-
-// The glow follows the boundary of ownerId's SETTLED land, so a settled tile
-// bordering its own owner's frontier still gets the rim (frontier reads as
-// outside the settled outline).
-export const settledEdgeMaskForOwner = (wx: number, wy: number, ownerId: string, deps: SettledEdgeNeighbourDeps): number =>
-  settledEdgeMaskAt(wx, wy, (nx, ny) => {
-    const neighbour = deps.tiles.get(deps.keyFor(deps.wrapX(nx), deps.wrapY(ny)));
-    return neighbour?.ownerId === ownerId && neighbour.ownershipState === "SETTLED";
-  });
