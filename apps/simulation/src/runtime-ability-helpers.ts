@@ -1,4 +1,4 @@
-import { isAetherTowerSuppressed } from "@border-empires/shared";
+import { aetherTowerShotsRemaining, isAetherTowerSuppressed } from "@border-empires/shared";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
   WORLD_HEIGHT,
@@ -242,6 +242,8 @@ export function pickReadyOwnedObservatoryForTarget(input: {
   targetY: number;
   now: number;
   range: number;
+  // Shots each of the player's towers holds (aether-tower-shots.ts).
+  maxShots: number;
   // §5.4: an Observatory demands a CRYSTAL slot (STRUCTURE_SLOT_REQUIREMENTS)
   // and can go dormant like any other structure — a dormant one shouldn't be
   // pickable to cast an ability, same as isStructurePowered's Ambaric Transformer
@@ -257,8 +259,7 @@ export function pickReadyOwnedObservatoryForTarget(input: {
     if (!obs || obs.ownerId !== input.playerId || obs.status !== "active") continue;
     const distance = wrappedChebyshev(tile.x, tile.y, input.targetX, input.targetY);
     if (distance > observatoryRangeForTile(tile, input.range)) continue;
-    const cooldownUntil = obs.cooldownUntil ?? 0;
-    if (cooldownUntil > input.now) continue;
+    if (aetherTowerShotsRemaining(obs, input.maxShots, input.now) <= 0) continue;
     if (isAetherTowerSuppressed(obs, input.now)) continue;
     if (isObservatoryInSiphonMode(obs)) continue; // locked into Siphon until it ends
     if (input.isStructureDormant(input.playerId, tileKey, "observatory")) continue;
@@ -275,22 +276,24 @@ export function pickReadyOwnedObservatoryAny(
   territoryTileKeys: ReadonlySet<string>,
   playerId: string,
   now: number,
+  maxShots: number,
   isStructureDormant: (playerId: string, tileKey: string, field: "observatory") => boolean
 ): string | undefined {
+  // Spend from the fullest tower, so the others keep their shots (and shields).
   let bestKey: string | undefined;
-  let bestCooldownUntil = Number.POSITIVE_INFINITY;
+  let bestShotsRemaining = 0;
   for (const tileKey of territoryTileKeys) {
     const tile = tiles.get(tileKey);
     if (!tile || tile.ownerId !== playerId) continue;
     const obs = tile.observatory;
     if (!obs || obs.ownerId !== playerId || obs.status !== "active") continue;
-    const cooldownUntil = obs.cooldownUntil ?? 0;
-    if (cooldownUntil > now) continue;
+    const shotsRemaining = aetherTowerShotsRemaining(obs, maxShots, now);
+    if (shotsRemaining <= 0) continue;
     if (isAetherTowerSuppressed(obs, now)) continue;
     if (isObservatoryInSiphonMode(obs)) continue; // locked into Siphon until it ends
     if (isStructureDormant(playerId, tileKey, "observatory")) continue;
-    if (cooldownUntil < bestCooldownUntil) {
-      bestCooldownUntil = cooldownUntil;
+    if (shotsRemaining > bestShotsRemaining) {
+      bestShotsRemaining = shotsRemaining;
       bestKey = tileKey;
     }
   }

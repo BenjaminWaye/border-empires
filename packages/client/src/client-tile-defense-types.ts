@@ -5,7 +5,7 @@ export type ClientTileObservatory = {
   ownerId: string;
   status: "under_construction" | "active" | "inactive" | "removing";
   completesAt?: number; startedAt?: number; pausedAt?: number;
-  suppressedUntil?: number; cooldownUntil?: number; siphon?: ObservatorySiphonMode;
+  suppressedUntil?: number; cooldownUntil?: number; shotsUsedAt?: number[]; siphon?: ObservatorySiphonMode;
 };
 export type ClientTileSiegeBattery = {
   ownerId: string;

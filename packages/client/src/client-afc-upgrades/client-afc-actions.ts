@@ -16,7 +16,7 @@ export function renderAfcActions(state: AfcActionState): string {
   if (state.domainIds.includes("afc-oracle-4")) {
     const target = state.selected && state.tiles?.get(`${state.selected.x},${state.selected.y}`);
     const hostileTower = target && !target.fogged && target.ownerId !== state.me && target.observatory?.status === "active";
-    parts.push(`<section><h3>Counterphase emitter</h3><p>Suppress a hostile tower for 5 minutes. Uses a ready tower in range and its normal Purge cooldown.</p>${hostileTower ? `<button class="panel-btn" type="button" data-afc-suppress="${target.x},${target.y}">Suppress tower at ${target.x}, ${target.y}</button>` : "<p>Select a visible hostile Aether Tower on the map.</p>"}</section>`);
+    parts.push(`<section><h3>Counterphase emitter</h3><p>Suppress a hostile tower for 5 minutes. Uses one shot of a tower in range.</p>${hostileTower ? `<button class="panel-btn" type="button" data-afc-suppress="${target.x},${target.y}">Suppress tower at ${target.x}, ${target.y}</button>` : "<p>Select a visible hostile Aether Tower on the map.</p>"}</section>`);
   }
   if (state.domainIds.includes("afc-oracle-5")) {
     const flags = [...(state.afcDetectedFlags ?? [])].sort((a, b) => Number(b.x === state.selected?.x && b.y === state.selected?.y) - Number(a.x === state.selected?.x && a.y === state.selected?.y));

@@ -1,9 +1,10 @@
-// Observatory (Aether Tower) cooldown stamp — extracted out of runtime.ts
-// (over the repo's per-file line cap) so the Siphon siphon-mode lifecycle
-// (siphon-mode/siphon-mode-lifecycle.ts) can reuse the exact same write when
-// a siphon ends, instead of duplicating it.
+// Observatory (Aether Tower) shot spend — extracted out of runtime.ts (over
+// the repo's per-file line cap). Every ability cast from a tower goes through
+// here; the shot rules themselves live in @border-empires/shared
+// aether-tower-shots.ts.
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
+import { spendAetherTowerShot } from "@border-empires/shared";
 import type { SimulationTileWireDelta } from "../runtime-types.js";
 
 export type ObservatoryTileWriteDeps = {
@@ -14,14 +15,14 @@ export type ObservatoryTileWriteDeps = {
 };
 
 /**
- * Stamp cooldownUntil = now + durationMs onto the observatory at `tileKey`.
- * Updates the canonical tile state and emits a tile delta so clients see the new
- * cooldown via `tile.observatory.cooldownUntil`.
+ * Spend one shot of the observatory at `tileKey` (it holds `maxShots`).
+ * Updates the canonical tile state and emits a tile delta so clients see the
+ * new `tile.observatory.shotsUsedAt` / `cooldownUntil`.
  */
-export function stampObservatoryCooldown(
+export function spendObservatoryShot(
   deps: ObservatoryTileWriteDeps,
   tileKey: string,
-  durationMs: number,
+  maxShots: number,
   now: number,
   commandId: string,
   playerId: string
@@ -30,7 +31,7 @@ export function stampObservatoryCooldown(
   if (!tile?.observatory) return;
   const updatedTile: DomainTileState = {
     ...tile,
-    observatory: { ...tile.observatory, cooldownUntil: now + durationMs }
+    observatory: { ...tile.observatory, ...spendAetherTowerShot(tile.observatory, maxShots, now) }
   };
   deps.replaceTileState(tileKey, updatedTile, commandId);
   deps.emitEvent({

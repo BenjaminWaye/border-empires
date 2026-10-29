@@ -162,7 +162,7 @@ export const beginCrystalTargeting = (
       return;
     }
     if (cooldown > 0) {
-      deps.pushFeed(`Aether Bridge cooling down for ${deps.formatCooldownShort(cooldown)}.`, "combat", "warn");
+      deps.pushFeed(`No Aether Tower shot left for Aether Bridge; next in ${deps.formatCooldownShort(cooldown)}.`, "combat", "warn");
       return;
     }
   }
@@ -173,7 +173,7 @@ export const beginCrystalTargeting = (
       return;
     }
     if (cooldown > 0) {
-      deps.pushFeed(`Siphon cooling down for ${deps.formatCooldownShort(cooldown)}.`, "combat", "warn");
+      deps.pushFeed(`No Aether Tower shot left for Siphon; next in ${deps.formatCooldownShort(cooldown)}.`, "combat", "warn");
       return;
     }
   }
