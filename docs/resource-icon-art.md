@@ -9,9 +9,10 @@ Use large flat regions, a dark outline and one defining feature per resource.
 The palette limits dominant paint colours; antialiased edges and export
 resampling do not need to be palette-indexed pixels.
 
-Resource/dock badges use charcoal circular discs and thin coloured rims at
-close zoom, coloured dots when zoomed out. Both 2D canvas and true-3D share
-the implementation. Close-zoom artwork retains at least 20px of drawing space;
+Resource/dock corner badges use charcoal circular discs and thin coloured rims
+at close zoom, coloured dots when zoomed out. Below 16px tiles, docks retain
+the existing square full-tile marker so the anchor stays visible. Both 2D
+canvas and true-3D share the implementation. Close-zoom artwork retains at least 20px of drawing space;
 the cutout may overlap the rim without being clipped.
 
 Runtime assets: `packages/client/public/icons/resources/<name>-96.png` and

@@ -111,7 +111,7 @@ export const RESOURCE_NETWORKS_CHANGELOG: ClientChangelogEntry[] = [{
     introducedIn: "2026.10.29.2",
     title: "Simpler resource icons and circular badges",
     why: "Fine artwork detail was lost at map size.",
-    changes: ["Five frontier icons use broad shapes and a limited colour palette. Resource and dock corner badges use circular frames and coloured dots in both map renderers."]
+    changes: ["Five frontier icons use broad shapes and a limited colour palette. Resource and dock corner badges use circles in both map renderers; docks keep full-tile markers at the smallest zoom."]
   },
   {
     createdAt: 1793299679458, // Date.now() captured once.
