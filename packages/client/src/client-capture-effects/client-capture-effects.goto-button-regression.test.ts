@@ -25,7 +25,7 @@ describe("renderCaptureProgress capture-goto-btn", () => {
     const captureCancelBtn = makeElement();
     const captureDismissBtn = makeElement();
     const captureCloseBtn = makeElement();
-    const captureDownloadDebugBtn = makeElement();
+    const captureReportBugBtn = makeElement();
     const captureBarEl = makeElement();
     const captureTitleEl = makeElement();
     const captureTimeEl = makeElement();
@@ -42,7 +42,7 @@ describe("renderCaptureProgress capture-goto-btn", () => {
       captureCancelBtn,
       captureDismissBtn,
       captureCloseBtn,
-      captureDownloadDebugBtn,
+      captureReportBugBtn,
       captureBarEl,
       captureTitleEl,
       captureTimeEl,

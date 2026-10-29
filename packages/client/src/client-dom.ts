@@ -23,7 +23,7 @@ export const initClientDom = () => {
   const captureCancelBtn = requireElement<HTMLButtonElement>("#capture-cancel");
   const captureDismissBtn = requireElement<HTMLButtonElement>("#capture-dismiss");
   const captureCloseBtn = requireElement<HTMLButtonElement>("#capture-close");
-  const captureDownloadDebugBtn = requireElement<HTMLButtonElement>("#capture-download-debug");
+  const captureReportBugBtn = requireElement<HTMLButtonElement>("#capture-report-bug");
   const captureCardEl = requireElement<HTMLDivElement>("#capture-card");
   const captureWrapEl = requireElement<HTMLDivElement>("#capture-wrap");
   const captureBarEl = requireElement<HTMLDivElement>("#capture-bar");
@@ -176,7 +176,7 @@ export const initClientDom = () => {
     captureCancelBtn,
     captureDismissBtn,
     captureCloseBtn,
-    captureDownloadDebugBtn,
+    captureReportBugBtn,
     captureCardEl,
     captureTargetEl,
     captureGotoBtn,

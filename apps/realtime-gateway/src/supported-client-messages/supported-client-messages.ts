@@ -80,6 +80,7 @@ export const supportedClientMessageTypes = [
   "TRUCE_BREAK",
   "FORCE_TRUCE",
   "DIPLOMACY_STANCE_REQUEST",
+  "DIPLOMACY_GIFT",
   "DEV_QUEUE_ENQUEUE",
   "DEV_QUEUE_CANCEL",
   "DEV_QUEUE_MOVE_TO_FRONT",
