@@ -11,6 +11,7 @@ import type { Tile, TileActionDef, TileMenuTab, TileMenuView } from "../client-t
 import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
 import { openTechDetailFromTileMenu } from "../client-tile-action-support/client-tech-locked-tile-action.js";
 import { actionBarHtml, barBuildings, selectBarButtons, type BarPanel } from "./client-hud-v2-action-bar.js";
+import { ownerStanceTagHtml } from "./client-hud-v2-stance-tag.js";
 import { aetherListHtml } from "./client-hud-v2-aether-list.js";
 import { buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
 import { tileFactsFor, wonderName } from "./client-hud-v2-tile-facts.js";
@@ -101,7 +102,9 @@ const paintBar = (): void => {
   const facts = tileFactsFor(tile, view, dock.state.me);
   // A wonder's tile only knows its terrain ("Sand"); name the wonder instead.
   const wonder = wonderName(tile);
-  const html = actionBarHtml(wonder && tile ? { ...view, title: `${wonder} (${tile.x}, ${tile.y})` } : view, dock.panel, facts);
+  // Only foreign land carries a stance; sea and your own tiles have none.
+  const stanceTag = tile?.terrain === "LAND" ? ownerStanceTagHtml(tile.ownerId, dock.state, Date.now()) : "";
+  const html = actionBarHtml(wonder && tile ? { ...view, title: `${wonder} (${tile.x}, ${tile.y})` } : view, dock.panel, facts, stanceTag);
   if (html !== dock.lastHtml) {
     // The ownership explainer ("Your frontier") is a <details>: keep it open across repaints of the same tile.
     const key = dock.state.tileActionMenu.currentTileKey;

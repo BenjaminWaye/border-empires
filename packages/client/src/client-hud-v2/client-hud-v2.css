@@ -169,21 +169,34 @@ body.hud-v2 #mini-map { width: 200px; height: 200px; }
 /* The new-empire checklist launcher measures the legacy info block (hidden here), so pin it above the minimap. */
 body.hud-v2 .onb-root { bottom: 266px !important; }
 
-/* Map view toggles: an icon tab hanging off the minimap's top-right edge (the map is 200px tall above a
-   ~44px label, from bottom 16px); the legend sits beside the minimap below it while on. */
-.hud-v2-overlays { position: fixed; left: 217px; bottom: 226px; z-index: 37; }
-.hud-v2-overlay-btn {
-  display: grid; place-items: center; width: 34px; height: 34px; padding: 0; background: var(--v2-ink);
-  border: 1px solid var(--v2-edge-strong); border-left-color: transparent; color: var(--v2-soft); cursor: pointer;
+/* Map lens (client-hud-v2-overlays.ts): a round button notched into the minimap's top edge, inside #mini-map-wrap
+   so it moves with the minimap; the lens list opens above it. */
+body:not(.hud-v2) .hud-v2-overlays { display: none; }
+#mini-map-wrap > .hud-v2-overlays { position: absolute; left: 50%; top: -18px; transform: translateX(-50%); z-index: 2; }
+.hud-v2-lens-btn {
+  display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border-radius: 50%;
+  background: var(--v2-chip); border: 2px solid var(--v2-edge-strong); box-shadow: 0 0 0 3px var(--v2-ink-solid); cursor: pointer;
 }
-.hud-v2-overlay-btn .tab-icon { width: 20px; height: 20px; opacity: 0.8; }
-.hud-v2-overlay-btn:hover { border-color: var(--v2-gold); border-left-color: transparent; }
-.hud-v2-overlay-btn:hover .tab-icon { opacity: 1; }
-.hud-v2-overlay-on { background: #2a2216; border-color: var(--v2-gold); border-left-color: transparent; }
-.hud-v2-overlay-on .tab-icon { opacity: 1; }
-.hud-v2-overlay-legend { pointer-events: auto; position: absolute; top: 42px; left: 6px; display: grid; gap: 4px; white-space: nowrap; padding: 8px 10px; background: var(--v2-ink); border: 1px solid var(--v2-edge); font-size: 12px; }
-.hud-v2-overlay-legend span { display: flex; align-items: center; gap: 6px; }
-.hud-v2-overlay-legend i { width: 12px; height: 12px; border: 1px solid rgba(0, 0, 0, 0.5); }
+.hud-v2-lens-btn:hover, .hud-v2-lens-btn[aria-expanded="true"] { border-color: var(--v2-gold); }
+.hud-v2-lens-on { background: #2a2216; border-color: var(--v2-gold-hi); }
+.hud-v2-lens-icon { width: 20px; height: 20px; pointer-events: none; }
+.hud-v2-lens-menu {
+  position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); display: grid; gap: 2px;
+  min-width: 150px; padding: 6px; background: var(--v2-ink); border: 1px solid var(--v2-edge-strong);
+}
+.hud-v2-lens-item {
+  display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 4px 10px; border: 0; border-left: 2px solid transparent;
+  background: transparent; color: var(--v2-soft); font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+}
+.hud-v2-lens-item:hover { color: var(--v2-text); background: var(--v2-well); }
+.hud-v2-lens-item-on { color: var(--v2-gold-hi); background: #2a2216; border-left-color: var(--v2-gold); }
+.hud-v2-lens-item .hud-v2-lens-icon { width: 18px; height: 18px; }
+
+/* Your standing with the tile's owner, before their name (client-hud-v2-stance-tag.ts). */
+.hud-v2-stance-tag { display: inline-block; margin-right: 6px; padding: 0 5px; border: 1px solid; font-size: 11px; line-height: 16px; vertical-align: 1px; }
+.hud-v2-stance-ally { color: var(--v2-green-hi); border-color: var(--v2-green); }
+.hud-v2-stance-truce { color: var(--v2-amber); border-color: var(--v2-amber); }
+.hud-v2-stance-hostile { color: var(--v2-red-hi); border-color: var(--v2-red); }
 
 /* ---- Bottom-centre: tile panel + action bar ---- */
 .hud-v2-tile {
