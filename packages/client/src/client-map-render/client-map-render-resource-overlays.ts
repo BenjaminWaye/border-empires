@@ -69,7 +69,7 @@ export const shardOverlayForTile = (tile: Tile): HTMLImageElement | undefined =>
 };
 
 export const resourceOverlayScaleForTile = (tile: Tile): number => {
-  if (tile.resource === "FISH") return tile.economicStructure?.type === "HYDROGARDEN" ? 1.3 : 1.04;
+  if (tile.resource === "FISH") return tile.economicStructure ? 1.3 : 1.04;
   if (tile.resource === "TITANIUM") return 1.2;
   return 1.08;
 };
