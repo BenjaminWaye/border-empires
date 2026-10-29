@@ -12,6 +12,7 @@ import { createLandmassNamePrompt } from "../client-map-name-labels/client-landm
 import { installHudV2 } from "../client-hud-v2/client-hud-v2.js";
 import type { HudV2ActionFlow } from "../client-hud-v2/client-hud-v2-context.js";
 import { isMobile } from "../client-panel-nav/client-panel-nav.js";
+import { installDiplomacyOfferDock } from "../client-diplomacy-offer-dock/client-diplomacy-offer-dock.js";
 import { installMarchInteraction } from "../client-march-interaction/client-march-interaction.js";
 
 type PostBootstrapDeps = {
@@ -26,6 +27,7 @@ export const installPostBootstrapHooks = ({ state, renderHud, sendGameMessage, a
   installDiscoveryTipCenterBinding({ state, wrapX, wrapY, requestViewRefresh, renderHud });
   installDebugSeasonEndOverlay(state, renderHud);
   installHudV2({ state, renderHud, requestViewRefresh, wrapX, wrapY, isMobile, sendGameMessage, actionFlow, ownerColor }); // ?hud=v2 redesigned desktop HUD
+  installDiplomacyOfferDock({ state, sendGameMessage }); // incoming truce/alliance offers, answered in place
   // March To banner + pointer arrow, and dragging a march's destination (read by client-map-input.ts).
   installMarchInteraction({ state, renderHud, sendGameMessage: (payload) => sendGameMessage(payload, "Finish sign-in before changing a march.") });
   installAutoSettleSettingsBinding((payload) => sendGameMessage(payload, "Finish sign-in before changing auto-garrison."));
