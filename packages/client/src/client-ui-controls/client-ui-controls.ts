@@ -1,6 +1,6 @@
 import type { createClientActionFlow } from "../client-action-flow.js";
 import { locateHomeAfc } from "../client-afc-locate/client-afc-locate.js";
-import { setReportOpen } from "../client-bug-report/client-bug-report.js";
+import { openBugReportFromCaptureAlert } from "../client-capture-effects/client-capture-report-bug.js";
 import type { initClientDom } from "../client-dom.js";
 import { closeActivePanel } from "../client-panel-nav/client-panel-nav.js";
 import { dismissOngoingCapture } from "../client-selected-actions/client-selected-actions.js";
@@ -133,12 +133,7 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     captureTimeEl.classList.remove("capture-loss");
     renderCaptureProgress();
   };
-  // Only shown on timeout alerts; opens the in-game bug report modal, which
-  // attaches recent client/server logs automatically.
-  captureReportBugBtn.onclick = () => {
-    setReportOpen("bug", true);
-    renderHud();
-  };
+  captureReportBugBtn.onclick = () => openBugReportFromCaptureAlert(state, { renderCaptureProgress, renderHud });
   shardAlertCloseBtn.onclick = () => {
     hideShardAlert();
     renderShardAlert();
