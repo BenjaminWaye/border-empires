@@ -329,6 +329,9 @@ const grantReplacementAfcIfMissing = (ctx: RuntimeRespawnContext, playerId: stri
   return true;
 };
 
+// Not a landing: this also repairs players who still hold land (failed settlement
+// relocation, zero-income repair at startup and after captures), so it never
+// grants the landing reserve -- only a true elimination does (respawnIfEliminated).
 export const respawnPlayerOnUnownedLand = (ctx: RuntimeRespawnContext, playerId: string, commandId: string): boolean => {
   const actor = ctx.players.get(playerId);
   if (!actor) return false;
@@ -348,7 +351,6 @@ export const respawnPlayerOnUnownedLand = (ctx: RuntimeRespawnContext, playerId:
     afc: { ownerId: playerId, status: "active", activatedAt: ctx.now(), landedAt: ctx.now() }
   };
   actor.manpower = Math.max(actor.manpower, STARTING_CAPITAL_MANPOWER_CAP);
-  ctx.grantLandingReserve?.(actor);
   actor.points = Math.max(actor.points, ctx.respawnMinimumGold);
   const respawnCommandId = `${commandId}:respawn:${playerId}`;
   const flattenedTiles = prepareAfcLandingFootprint(ctx, spawn.x, spawn.y, respawnCommandId);

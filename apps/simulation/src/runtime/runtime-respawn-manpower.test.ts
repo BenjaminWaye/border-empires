@@ -71,14 +71,17 @@ describe("respawn manpower", () => {
     expect(player.manpower).toBe(STARTING_CAPITAL_MANPOWER_CAP + 50);
   });
 
-  it("grants the landing reserve to a respawned player through the context", () => {
-    const { ctx, player } = buildContext(12);
-    ctx.grantLandingReserve = (target) => { target.manpower += 2_000; };
-    respawnIfEliminated(ctx, "player-1", "eliminated-3");
-    expect(player.manpower).toBe(STARTING_CAPITAL_MANPOWER_CAP + 2_000);
-    const rescue = buildContext(0);
-    rescue.ctx.grantLandingReserve = (target) => { target.manpower += 2_000; };
-    respawnPlayerOnUnownedLand(rescue.ctx, "player-1", "rescue-2");
-    expect(rescue.player.manpower).toBe(STARTING_CAPITAL_MANPOWER_CAP + 2_000);
+  it("grants the landing reserve only on a true elimination, never on the territory-holding repair respawn", () => {
+    const eliminated = buildContext(12);
+    eliminated.ctx.grantLandingReserve = (target) => { target.manpower += 2_000; };
+    respawnIfEliminated(eliminated.ctx, "player-1", "eliminated-3");
+    expect(eliminated.player.manpower).toBe(STARTING_CAPITAL_MANPOWER_CAP + 2_000);
+    // respawnPlayerOnUnownedLand also runs for players who still hold land (zero-income repair at
+    // startup and after captures), so granting there would pay out on routine repair.
+    const repair = buildContext(0);
+    let grants = 0;
+    repair.ctx.grantLandingReserve = () => { grants += 1; };
+    expect(respawnPlayerOnUnownedLand(repair.ctx, "player-1", "repair-1")).toBe(true);
+    expect(grants).toBe(0);
   });
 });

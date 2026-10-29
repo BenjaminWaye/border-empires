@@ -37,7 +37,9 @@ defines what these systems mean in the fiction; follow the
   joiner lands with 720 + 2,000 + 2,880. It is uncapped. Nothing is added while
   the season is pending or ended, or when the runtime has no season clock
   (`SimulationRuntimeOptions.seasonStartedAt`, wired by `seasonStartedAtClock`).
-  A respawn after elimination lands anew and gets the same grant, base plus
+  A respawn after a true elimination (the player lost their last tile;
+  `respawnIfEliminated` only, never the territory-holding settlement repair in
+  `respawnPlayerOnUnownedLand`) lands anew and gets the same grant, base plus
   catch-up, on top of its restored starting manpower
   (`grantRespawnLandingReserve`, via `RuntimeRespawnContext.grantLandingReserve`),
   so a player wiped out late in the season can still stage a comeback. There is
