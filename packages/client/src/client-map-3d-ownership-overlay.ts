@@ -6,6 +6,8 @@ import { colorComponentFor, createMesh, type BlendMode } from "./client-map-3d-o
 import type { FrontierHatch } from "./client-map-3d-settled-edge-glow/client-map-3d-frontier-hatch.js";
 import { commitEdgeGlowBuffers, writeEdgeGlowVertex } from "./client-map-3d-settled-edge-glow/client-map-3d-settled-edge-glow.js";
 import type { SettledEdgeGlow } from "./client-settled-edge-glow/client-settled-edge-glow.js";
+import { createOwnershipShoreTint, shoreTintKey, type ShoreTileTint } from "./client-map-3d-ownership-shore.js";
+import type { ShoreFringe } from "./client-map-3d-shore/client-map-3d-shore-sand.js";
 
 export { DEFAULT_SETTLED_EDGE_GLOW, settledEdgeMaskForOwner } from "./client-settled-edge-glow/client-settled-edge-glow.js";
 
@@ -14,8 +16,6 @@ export type OwnershipOverlayStyles = {
   readonly settledEdgeGlow?: SettledEdgeGlow;
   readonly frontierHatch?: FrontierHatch;
 };
-import { createOwnershipShoreTint, shoreTintKey, type ShoreTileTint } from "./client-map-3d-ownership-shore.js";
-import type { ShoreFringe } from "./client-map-3d-shore/client-map-3d-shore-sand.js";
 
 const VERTS_PER_TILE = 4;
 const INDICES_PER_TILE = 6;
