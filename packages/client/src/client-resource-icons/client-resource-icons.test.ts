@@ -1,3 +1,4 @@
+import { NETWORK_RESOURCES } from "@border-empires/shared";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -12,7 +13,7 @@ import {
   type ResourceIconPx
 } from "./client-resource-icons.js";
 
-const KEYS: ResourceIconKey[] = ["GOLD", "FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"];
+const KEYS: ResourceIconKey[] = ["GOLD", "FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD", ...NETWORK_RESOURCES];
 const SIZES: ResourceIconPx[] = [96, 256];
 
 const fakeCtx = () => {
@@ -53,7 +54,7 @@ describe("resourceIconHtml", () => {
 
 describe("resourceIconGlyph", () => {
   it("keeps the plain-text glyphs for canvas and title contexts", () => {
-    expect(KEYS.map(resourceIconGlyph)).toEqual(["◉", "🍞", "⛏", "💎", "🟣", "✦"]);
+    expect(KEYS.slice(0, 6).map(resourceIconGlyph)).toEqual(["◉", "🍞", "⛏", "💎", "🟣", "✦"]);
     expect(resourceIconGlyph("FARM")).toBe("•");
   });
 });
@@ -94,4 +95,18 @@ describe("drawResourceIconOnCanvas", () => {
     expect(ctx.fillText).not.toHaveBeenCalled();
     expect(ctx.drawImage).toHaveBeenCalledWith(expect.objectContaining({ src: "/icons/simple/umbrite.svg" }), 40, 30, 20, 20);
   });
+});
+
+it.each(NETWORK_RESOURCES)("%s has a recognisable deposit icon", resource => {
+  expect(depositIconKey(resource)).toBe(resource);
+  const url = resourceSimpleIconUrl(resource);
+  expect(existsSync(fileURLToPath(new URL(`../../public${url}`, import.meta.url)))).toBe(true);
+  expect(resourceIconHtml(resource)).toContain(`<img class="resource-icon-img" src="${url}"`);
+  expect(url).toBe(`/icons/resources/${resource.toLowerCase().replaceAll("_", "-")}-96.png`);
+  expect(resourceIconHtml(resource, "large")).toContain(`src="${url}"`);
+  expect(resourceIconHtml(resource, "large")).toContain(`${resourceIconUrl(resource, 256)} 2x`);
+  expect(resourceIconUrl(resource, 256)).toMatch(/-256\.png$/);
+  const { ctx, asCanvas } = fakeCtx();
+  drawResourceIconOnCanvas(asCanvas, resource, 10, 10, 20);
+  expect(ctx.fillText).toHaveBeenCalledWith(resourceIconGlyph(resource), 10, expect.any(Number));
 });

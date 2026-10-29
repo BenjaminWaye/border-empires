@@ -3,7 +3,7 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 export const MARCH_STEERING_CHANGELOG: ClientChangelogEntry[] = [
   {
     createdAt: 1793225946704, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.28.5",
+    introducedIn: "2026.10.29.2",
     title: "Marches head for their target and are easier to steer",
     why: "A march sent around mountains spread over every tile near its path instead of heading for the target, and never attacked the town or structure it was sent to take. Changing a march also meant zooming into the town every time.",
     changes: [

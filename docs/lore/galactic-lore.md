@@ -452,6 +452,9 @@ capacity and custody for the resulting reserve. The Reserve Custody Cadre author
 Depots and Implant Foundries, supplying the custody and implant expertise
 needed to maintain an Ancillary reserve.
 
+Frontier deposits sit beyond a town’s immediate support ring, giving a House
+reason to develop and defend the surrounding countryside.
+
 A working site provides continuing contracted output divided into exclusive
 commitments to recipient industries. Implant Foundries can divide their output
 between separately equipped factory production lines. Opening more factories
@@ -461,8 +464,8 @@ An idle or lost recipient releases the commitment for another eligible
 building; the physical deposit remains. A Siphon can divert a working site’s output to the caster, without duplicating its supply. Its crews and extraction systems must still be authorised and provisioned at the source; draining an undeveloped deposit creates no industry.
 
 Catalyst Refineries develop rare catalyst-bearing deposits for offworld
-chemical and fabrication industries. These deposits favour sandy ground
-and exposed tundra. Cultivation Estates grow native luxury
+chemical and fabrication industries. These deposits favour inland sandy ground
+and exposed tundra, rather than beaches. Cultivation Estates grow native luxury
 biota for fragrances, pigments and intoxicants sought in the Core. These
 plants favour warm, wet grasslands, with temperate varieties also cultivated. Trade Nexuses
 secure commercial arrangements against these concessions, increasing the

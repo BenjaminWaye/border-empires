@@ -85,15 +85,16 @@ describe("tile details", () => {
   const view = (overviewLines: TileMenuView["overviewLines"]): TileMenuView =>
     ({ title: "Dock (3, 4)", subtitle: "", tabs: [], overviewLines, actions: [], buildings: [], crystal: [] }) as TileMenuView;
 
-  it("opens the full overview inside the panel, without the legacy info buttons", () => {
-    const v = view([{ html: "Upkeep", kind: "section" }, { html: 'Fort: <button data-structure-info="FORT">Fort</button> 1 FOOD slot' }]);
+  it("opens the full overview with wired structure links and strips unwired legacy actions", () => {
+    const v = view([{ html: "Upkeep", kind: "section" }, { html: 'Fort: <button data-structure-info="FORT">Fort</button> 1 FOOD slot' }, { html: '<button data-unused-action="old">Old action</button>' }]);
     expect(hasDetails(v)).toBe(true);
     expect(actionBarHtml(v)).toContain('data-hud-v2-panel="details"');
     expect(actionBarHtml(v)).not.toContain("hud-v2-details");
     const open = actionBarHtml(v, "details");
     expect(open).toContain("hud-v2-details");
-    expect(open).not.toContain("<button data-structure-info");
-    expect(open).toContain("Fort: Fort 1 FOOD slot");
+    expect(open).toContain('Fort: <button data-structure-info="FORT">Fort</button> 1 FOOD slot');
+    expect(open).not.toContain("data-unused-action");
+    expect(open).toContain("Old action");
   });
 
   it("offers no Details while the overview is still loading", () => {

@@ -1,3 +1,4 @@
+import { FOOD_TILE_ART_CHANGELOG } from "./client-changelog-food-tile-art.js";
 import { TOWN_ECONOMY_CHANGELOG } from "./client-changelog-town-economy.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_25 } from "./client-changelog-oct-25.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_26 } from "./client-changelog-oct-26.js";
@@ -27,9 +28,14 @@ import { INCURSION_HATCH_HILLS_CHANGELOG } from "./client-changelog-incursion-ha
 import { AI_DOCK_CROSSING_CHANGELOG } from "./client-changelog-ai-dock-crossing.js";
 import { REACH_RESTART_CHANGELOG } from "./client-changelog-reach-restart.js";
 import { TOWN_NAMEPLATES_CHANGELOG } from "./client-changelog-town-nameplates.js";
+import { MAP_LENS_CHANGELOG } from "./client-changelog-map-lens.js";
 import { MUSTER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-muster-supply-lines.js";
 import { MARCH_STEERING_CHANGELOG } from "./client-changelog-march-steering.js";
-import { CLIENT_CHANGELOG_ENTRIES_OCT_27_LATE } from "./client-changelog-oct-27-late.js";
+import { CLAIM_STRIPED_GROUND_CHANGELOG } from "./client-changelog-claim-striped-ground.js";
+import { CLIENT_CHANGELOG_ENTRIES_OCT_17_19_INLINE } from "./client-changelog-oct-17-19-inline.js";
+import { TOWN_PLATE_ZOOM_CHANGELOG } from "./client-changelog-town-plate-zoom.js";
+import { TERRITORY_EDGE_GLOW_CHANGELOG } from "./client-changelog-territory-edge-glow.js";
+import { LANDING_RESERVE_CHANGELOG } from "./client-changelog-landing-reserve.js";
 import { MARCH_ACROSS_WATER_CHANGELOG } from "./client-changelog-march-across-water.js";
 import { MARCH_UNEXPLORED_CHANGELOG } from "./client-changelog-march-unexplored.js";
 import { MARCH_STOP_SHORT_CHANGELOG } from "./client-changelog-march-stop-short.js";
@@ -212,75 +218,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...OVERLAY_PERSISTENCE_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_OCT_13_16,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_105,
-  {
-    createdAt: 1792269690926, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.17.2",
-    title: "Manufactories turn town industry into Coin credit",
-    why: "The stackable economic building represents manufactured output backing offworld purchasing credit.",
-    changes: ["Mintworks are now Manufactories, preserving their costs, income, stacking and Clearing House bonuses", "The Industrial Tooling Module fabricates and refurbishes equipment for local Manufactories; new construction requires the module installed on an active AFC", "New factory artwork appears in both the 3D and 2D maps; existing buildings and queued builds carry over"]
-  },
-  {
-    createdAt: 1792274781110, // Date.now() captured once for this release.
-    introducedIn: "2026.10.18.1",
-    title: "Automatic reconnection keeps trying through server updates",
-    why: "Long outages exhausted the retry budget and forced page reloads; a reopened connection could also get stuck before restoring your empire.",
-    changes: [
-      "Long interruptions keep retrying in place without automatically refreshing the page",
-      "A reconnect that makes no progress for a minute automatically starts a fresh connection",
-      "Login queue updates and ongoing map downloads extend that timeout so active recovery can finish",
-      "Recovery pauses after sign-out; signing back in reopens a closed connection"
-    ]
-  },
-  {
-    createdAt: 1792307935274, // Date.now() frozen for this release.
-    introducedIn: "2026.10.18.1",
-    title: "AFC upgrades are easier to find and compare",
-    why: "Upgrade choices were easy to miss, and opening a separate detail screen made comparing them awkward on phones.",
-    changes: [
-      "AFC Upgrades replaces Sharding in navigation, with installed upgrades and their tiers above the current choices, inline details on phones and comparison cards beside details on desktop",
-      "A clickable upgrade-ready badge appears above your active AFCs in both map renderers; the navigation count stays visible when the AFC is offscreen",
-      "Owned AFC overviews link directly to upgrades, and availability follows your current resources and prerequisites; existing upgrade costs and rewards stay the same"
-    ]
-  },
-  {
-    createdAt: 1792399197096, // Date.now() frozen for the changelog gate.
-    introducedIn: "2026.10.19.1",
-    title: "Choose exactly which tiles to garrison",
-    why: "Garrison Connected queued a whole region immediately, making it hard to control where manpower went.",
-    changes: [
-      "Garrison Many lets you tap frontier tiles to select or deselect them, with highlights in both map renderers",
-      "The bottom bar shows the selected count and total cost, with Confirm and Cancel; keep tapping tiles to adjust the selection",
-      "Confirmation checks ownership, reach and resources; unavailable selected tiles turn orange so you can deselect them before spending",
-      "Dragging and pinching still move the map; taps select tiles once",
-    "Alert markers still center on their targets, and deselected tiles lose their outline in both map renderers"
-    ]
-  },
-  {
-    createdAt: 1792418764643, // Date.now() frozen for this entry, as required by the changelog gate.
-    introducedIn: "2026.10.19.2",
-    title: "Diplomacy offers say what's offered, and you can counter them",
-    why: "Pending offers in the Alliances tab only showed a name, an internal player ID and a duration, so it wasn't clear whether a card was an alliance or a truce, and the only answers were yes or no.",
-    changes: [
-      "Pending offers now read \"Offers an alliance\" or \"Offers a 12h truce\" under the player's name (\"You offered…\" for your own)",
-      "New Counter button on offers you receive: it opens the trade screen with their offer filled in, so you can change the duration or ask for coin (\"only if you pay 24 coin\") and send it back",
-      "Sending a counter replaces their offer with yours, without the 30-minute wait a plain Reject puts on them offering again",
-      "Internal player IDs are no longer shown on alliance, truce and ally cards"
-    ]
-  },
-  {
-    createdAt: 1792430700163, // Date.now() frozen for this entry, as required by the changelog gate.
-    introducedIn: "2026.10.19.3",
-    title: "No more ground poking through the fog beside mountains",
-    why: "In the 3D map, an unexplored mountain at the edge of the fog could push a straight-edged wedge of bare ground up through the storm, cutting a notch in its glowing edge.",
-    changes: ["Ground at the fog's edge now stays under the storm, so the fog and its glowing edge stay unbroken next to mountains"]
-  },
-  {
-    createdAt: 1792444750777, // Date.now() frozen for this entry, as required by the changelog gate.
-    introducedIn: "2026.10.19.5",
-    title: "Tidier combat reports on muster flags",
-    why: "The flag's combat report list still used the old blue colours inside the brass tile popup, and its long tab label squeezed onto two lines.",
-    changes: ["The Recent combat tab is now just \"Combat\", with its unread count as a small bubble on the tab's corner, so all the tile popup tabs fit on one row", "Combat reports use the same brass-and-parchment look as the rest of the popup"]
-  },
+  ...CLIENT_CHANGELOG_ENTRIES_OCT_17_19_INLINE,
   ...RELIABLE_DIPLOMACY_CHANGELOG,
   ...GAMEPLAY_SETTINGS_CLEANUP_CHANGELOG,
   ...AFC_UPGRADES_ICON_CHANGELOG,
@@ -446,11 +384,68 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "AI empires only fall back to their old search if every good site is taken."
     ]
   },
-  ...CLIENT_CHANGELOG_ENTRIES_OCT_27_LATE,
+  {
+    createdAt: 1793132797501, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.27.4",
+    title: "Coin and Shard sliders in diplomacy",
+    why: "Setting a deal's terms meant typing into four bare number boxes.",
+    changes: [
+      "\"You give\" and \"You ask\" now show Coin and Shards as tiles. Press one to open a slider that runs from 0 to what that side holds, with a box beside it for typing an exact amount.",
+      "When asking an AI for coin or Shards, the slider stops at what it can actually pay."
+    ]
+  },
+  {
+    createdAt: 1793125924000, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.27.5",
+    title: "Clearer economy resources",
+    why: "Unresearched resources cluttered the bar, and slot sources showed as a vague \"Other bonuses\".",
+    changes: ["Crystal, Titanium and Umbrite stay off the resource bar and Economy panel until researched, unless you already have slots or users for them.", "Economy slot sources now list every source by name: resource sites, Mines and Refineries, upgrades, Waystations, Siphons, Foundry Heart and relics.", "Slot sources now cover your whole empire, not just the area on screen."]
+  },
+  {
+    createdAt: 1793136357667, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.27.6",
+    title: "Extend a running truce",
+    why: "A truce offer to an empire you already had a truce with was refused, so a truce could only lapse and be renegotiated.",
+    changes: [
+      "While a truce is running, the deal screen offers Extend 12h or Extend 24h. Once accepted, the hours are added to the current truce, which can run at most 48h ahead. Extending a Court armistice makes it an ordinary truce.",
+      "AI empires price an extension like a new truce of that length, recent truces included, but never pay you for one."
+    ]
+  },
+  {
+    createdAt: 1793140036460, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.27.7",
+    title: "Town surveys remember your dismissal",
+    why: "The same survey popup could return every time you reopened the game.",
+    changes: ["Got it and View survey now remember dismissed clues in this browser for your player and season. Clues remain in Activity, and new discoveries can still appear."]
+  },
+  {
+    createdAt: 1793140139293, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.27.8",
+    title: "Manpower batch amounts",
+    why: "Manpower arrives in batches, so per-minute labels made building output hard to judge.",
+    changes: ["The manpower countdown shows +N in the remaining time, including on mobile.", "Town upgrades, manpower buildings and regeneration modifiers show their output per batch."]
+  },
+  {
+    createdAt: 1793227144948, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.28.5",
+    title: "Win over AI empires with gifts",
+    why: "An AI that didn't think well enough of you for an alliance gave no hint how to change its mind, and the only way to win it over was overpaying in a deal.",
+    changes: [
+      "The deal screen has a new Gift option for AI empires: give coin or Shards and ask nothing back. It works during a truce too.",
+      "Before you send it, the screen shows what the gift does, such as \"+20 (Cautious → Pleased)\", and how much more would make them Pleased, which is enough for an alliance. Suggest deal fills in that amount.",
+      "Gifts and payments in deals count for up to +25 opinion in all and lose half their effect each day. A gift too small to move their opinion, or coin past that limit, can't be sent."
+    ]
+  },
   ...AI_DOCK_CROSSING_CHANGELOG,
   ...REACH_RESTART_CHANGELOG,
   ...TOWN_NAMEPLATES_CHANGELOG,
   ...MUSTER_SUPPLY_LINES_CHANGELOG,
+  ...CLAIM_STRIPED_GROUND_CHANGELOG,
+  ...TOWN_PLATE_ZOOM_CHANGELOG,
+  ...FOOD_TILE_ART_CHANGELOG,
+  ...MAP_LENS_CHANGELOG,
+  ...TERRITORY_EDGE_GLOW_CHANGELOG,
+  ...LANDING_RESERVE_CHANGELOG,
   ...MARCH_STEERING_CHANGELOG
 ];
 

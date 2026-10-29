@@ -1,11 +1,15 @@
 // An AI's attitude toward one player (Civ IV-style: Furious .. Friendly) as
 // a sum of named modifiers, plus whether the two are at war and who is
 // winning it (Civ V-style war score). Pure; inputs come from the AI's memory
-// (ai-diplomacy-memory.ts), the social store and the strength stance.
+// (ai-diplomacy-memory.ts), the social store and the strength stance. The
+// goodwill and attitude arithmetic is shared with the trade screen's gift
+// preview (@border-empires/shared diplomacy-gift.ts).
+import { attitudeForScore, goodwillPointsFor, type AiAttitudeLevel } from "@border-empires/shared";
+
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
 import type { AiDiplomacyStanceKind } from "./ai-diplomacy-stance.js";
 
-export type AiAttitude = "FURIOUS" | "ANNOYED" | "CAUTIOUS" | "PLEASED" | "FRIENDLY";
+export type AiAttitude = AiAttitudeLevel;
 export type AiOpinionModifier = { label: string; value: number };
 
 export type AiWarState = {
@@ -28,12 +32,6 @@ export type AiOpinion = {
 
 /** Fighting within this window means the two are still at war. */
 export const AT_WAR_WINDOW_MS = 6 * 60 * 60_000;
-/** Goodwill points per hour of income paid to the AI, and the cap: payments can't buy friendship outright. */
-export const GOODWILL_POINTS_PER_INCOME_HOUR = 6;
-export const MAX_GOODWILL_POINTS = 25;
-
-export const attitudeForScore = (score: number): AiAttitude =>
-  score <= -40 ? "FURIOUS" : score <= -15 ? "ANNOYED" : score < 10 ? "CAUTIOUS" : score < 25 ? "PLEASED" : "FRIENDLY";
 
 export const ATTITUDE_RANK: Record<AiAttitude, number> = { FURIOUS: 0, ANNOYED: 1, CAUTIOUS: 2, PLEASED: 3, FRIENDLY: 4 };
 
@@ -61,8 +59,7 @@ export const computeAiOpinion = (input: {
   else if (memory.lastPlayerAttackAt !== undefined && input.now - memory.lastPlayerAttackAt < 24 * 60 * 60_000) add("You attacked us", -10);
   add(input.bordersTouch ? "Our borders are contested" : "Our borders don't meet", input.bordersTouch ? -10 : 5);
   if (input.stanceKind === "OUTMATCHED") add("Fears your strength", 10);
-  const goodwillHours = input.incomePerHour > 0 ? memory.goodwillCoin / input.incomePerHour : 0;
-  add("Payments you've made us", Math.min(MAX_GOODWILL_POINTS, goodwillHours * GOODWILL_POINTS_PER_INCOME_HOUR));
+  add("Gifts and payments you've made us", goodwillPointsFor(memory.goodwillCoin, input.incomePerHour));
 
   const score = modifiers.reduce((sum, modifier) => sum + modifier.value, 0);
   const atWar = memory.lastCombatAt !== undefined && input.now - memory.lastCombatAt < AT_WAR_WINDOW_MS;

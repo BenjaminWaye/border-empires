@@ -14,7 +14,7 @@ export const networkBiomePriority = (resource: NetworkResource, context: Network
   const { biome, forest, hills, tropical, nearMountains } = context;
   const grass = biome === "GRASS" || biome === "GRASSLAND" || biome === "PLAINS" || biome === "JUNGLE" || biome === "MARSH";
   const cold = biome === "TUNDRA" || biome === "SNOW";
-  const sand = biome === "SAND" || biome === "COASTAL_SAND";
+  const sand = biome === "SAND";
   switch (resource) {
     case "NEURAL_RESIN": return grass ? forest ? 0 : 1 : undefined;
     case "CONDUCTIVE_MINERALS": return grass || cold ? hills || nearMountains || cold ? 0 : 1 : undefined;

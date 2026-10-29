@@ -31,8 +31,8 @@ export const drawCornerBadge = (
     drawSmallMark?.(x, y, badge);
     return;
   }
-  const badge = Math.max(16, size * 0.3);
-  const rim = Math.max(1.4, badge * 0.09);
+  const badge = Math.max(22, size * 0.3);
+  const rim = Math.max(1, badge * 0.04);
   ctx.fillStyle = "rgba(14, 12, 10, 0.88)";
   ctx.fillRect(x, y, badge, badge);
   ctx.strokeStyle = color;

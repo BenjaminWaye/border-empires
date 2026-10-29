@@ -2,7 +2,9 @@ import { resourceOfferCardsHtml } from "./client-resource-offer-cards.js";
 import { activeResourceDealsHtml } from "./client-active-resource-deals.js";
 import { resourceTermsHtml, readResourceTerms, writeResourceTerms, resourceTermsEqual } from "./client-diplomacy-resource-terms.js";
 // The diplomacy trade screen: pick truce or alliance, set what you give and
-// ask for (coin, Shards), see live whether an AI would accept, then send.
+// ask for (coin, Shards), see live whether an AI would accept, then send. Or
+// give an AI a gift to raise its opinion of you (the screen stays open and
+// shows the new opinion).
 // Opened from "Offer Truce" on an enemy tile and from the Alliances panel.
 // Self-contained like client-occupation-survey.ts: mounts on document.body,
 // removes itself on close, keeps only the one open screen's state.
@@ -28,7 +30,15 @@ import {
   withTradeAmount,
   type TradeGoodKey
 } from "./client-diplomacy-trade-goods.js";
-import { attitudeSummary, suggestedDeal, tradeVerdict, warTally, type DiplomacyStanceReply, type TradeSelection } from "./client-diplomacy-trade-view.js";
+import {
+  attitudeSummary,
+  suggestedDeal,
+  tradeVerdict,
+  warTally,
+  type DiplomacyStanceReply,
+  type TradeSelection,
+  type TradeVerdict
+} from "./client-diplomacy-trade-view.js";
 
 export type DiplomacyOfferCooldownView = { kind: DiplomacyOfferKind; targetPlayerId: string; until: number };
 
@@ -60,7 +70,17 @@ type OpenScreen = {
   shownHoldings: DiplomacyGoods;
   shownSupplySignature: string;
   holdingsWatch: ReturnType<typeof setInterval> | undefined;
+  /** A gift's outcome (or "sending…"), shown in place of the verdict until the player edits the deal. */
+  notice: Pick<TradeVerdict, "tone" | "text"> | undefined;
+  /** The gift this screen sent and is waiting on, with the timer that gives up waiting. */
+  giftPending: { gift: DiplomacyGoods; timer: ReturnType<typeof setTimeout> } | undefined;
 };
+
+/** Longer than the gateway's 30s settlement timeout: a gift with no answer by then lost its reply (e.g. a reconnect). */
+export const GIFT_RESULT_WAIT_MS = 45_000;
+
+/** The gateway's answer to DIPLOMACY_GIFT (apps/realtime-gateway diplomacy-gift-message.ts). */
+export type DiplomacyGiftResult = { ok: boolean; targetPlayerName: string; targetPlayerId?: string; message: string };
 
 /** How often an open screen checks the player's coin/Shards (income, spending elsewhere). */
 export const TRADE_HOLDINGS_CHECK_MS = 1_000;
@@ -159,38 +179,53 @@ const render = (screen: OpenScreen): void => {
   }
   for (const button of Array.from(overlay.querySelectorAll<HTMLButtonElement>("[data-trade-kind]"))) {
     const [kind, hours] = (button.dataset.tradeKind ?? "").split(":");
-    button.setAttribute("aria-pressed", String(kind === selection.kind && ((kind === "alliance" || kind === "trade") || Number(hours) === selection.durationHours)));
+    button.setAttribute("aria-pressed", String(kind === selection.kind && (kind !== "truce" || Number(hours) === selection.durationHours)));
   }
   writeResourceTerms(overlay, selection.terms);
+  // Only AIs keep an opinion of you, so only they take gifts.
+  const giftKind = overlay.querySelector<HTMLButtonElement>("[data-trade-kind='gift:0']");
+  if (giftKind) giftKind.hidden = !(reply?.found && reply.ai);
+  // A gift asks for nothing back and is paid once: no "You ask" side, no resource supply.
+  const isGift = selection.kind === "gift";
+  const askSide = overlay.querySelector<HTMLElement>("[data-trade-side='ask']");
+  if (askSide) askSide.hidden = isGift;
+  const supplyTerms = overlay.querySelector<HTMLElement>(".diplomacy-resource-terms:not([data-resource-agreements])");
+  if (supplyTerms) supplyTerms.hidden = isGift;
   screen.expanded = renderTradeGoods(overlay, selection.terms, tradeGoodsLimits(own, reply, screen.reach), screen.expanded);
   const holdingsEl = overlay.querySelector<HTMLElement>("[data-trade-holdings]");
   if (holdingsEl) holdingsEl.textContent = `You have ${own.gold} coin and ${own.shard} Shards.`;
   const verdict = tradeVerdict({ targetName, reply, selection, own, cooldownRemainingMs: cooldownRemainingMs(screen) });
+  const shown = screen.notice ?? verdict;
   const verdictEl = overlay.querySelector<HTMLElement>("[data-trade-verdict]");
   if (verdictEl) {
-    verdictEl.dataset.tone = verdict.tone;
-    verdictEl.textContent = verdict.text;
+    verdictEl.dataset.tone = shown.tone;
+    verdictEl.textContent = shown.text;
   }
   // Only an AI's prices can be read, so only an AI gets a suggestion.
   const suggest = overlay.querySelector<HTMLButtonElement>("[data-trade-suggest]");
   if (suggest) {
     const deal = suggestedDeal(reply, selection, own);
-    suggest.hidden = selection.kind === "trade" || !(reply?.found && reply.ai && reply.pricing);
+    suggest.hidden = selection.kind === "trade" || !(reply?.found && reply.ai && (selection.kind === "gift" ? reply.gift : reply.pricing));
     suggest.disabled = !deal || termsEqual(deal, selection.terms);
-    suggest.title = deal ? "" : `No deal ${targetName} would accept for this right now.`;
+    suggest.title = deal
+      ? ""
+      : selection.kind === "gift"
+        ? `No gift you can afford would win ${targetName} over further right now.`
+        : `No deal ${targetName} would accept for this right now.`;
   }
   const sendButton = overlay.querySelector<HTMLButtonElement>("[data-trade-send]");
   if (sendButton) {
-    sendButton.disabled = !verdict.canSend;
+    sendButton.disabled = !verdict.canSend || screen.giftPending !== undefined;
     sendButton.textContent = verdict.sendLabel;
   }
 };
 
 export const closeDiplomacyTradeScreen = (): void => {
   if (!open) return;
-  const { overlay, previousFocus, holdingsWatch } = open;
+  const { overlay, previousFocus, holdingsWatch, giftPending } = open;
   open = undefined;
   if (holdingsWatch !== undefined) clearInterval(holdingsWatch);
+  if (giftPending) clearTimeout(giftPending.timer);
   document.removeEventListener("keydown", onKey);
   overlay.remove();
   if (previousFocus?.isConnected) previousFocus.focus();
@@ -200,7 +235,34 @@ const onKey = (event: KeyboardEvent): void => {
   if (event.key === "Escape") closeDiplomacyTradeScreen();
 };
 
+const sendGift = (screen: OpenScreen): void => {
+  const sent = screen.deps.send(
+    {
+      type: "DIPLOMACY_GIFT",
+      targetPlayerName: screen.targetName,
+      ...(screen.targetPlayerId ? { targetPlayerId: screen.targetPlayerId } : {}),
+      // Coin and Shards only: resource supply is a standing deal, not a gift.
+      gift: { gold: screen.selection.terms.give.gold, shard: screen.selection.terms.give.shard }
+    },
+    "Finish sign-in before offering gifts."
+  );
+  if (!sent) return;
+  const timer = setTimeout(() => {
+    if (open !== screen || !screen.giftPending) return;
+    screen.giftPending = undefined;
+    screen.notice = { tone: "bad", text: `No word yet on your gift to ${screen.targetName}. Check your coin before sending another.` };
+    render(screen);
+  }, GIFT_RESULT_WAIT_MS);
+  screen.giftPending = { gift: { ...screen.selection.terms.give }, timer };
+  screen.notice = { tone: "neutral", text: `Offering ${screen.targetName} your gift…` };
+  render(screen);
+};
+
 const sendOffer = (screen: OpenScreen): void => {
+  if (screen.selection.kind === "gift") {
+    sendGift(screen);
+    return;
+  }
   const terms = screen.selection.terms;
   const termsField = {
     ...(screen.targetPlayerId ? { targetPlayerId: screen.targetPlayerId } : {}),
@@ -230,7 +292,7 @@ export const openDiplomacyTradeScreen = (
   overlay.className = "diplomacy-trade-overlay";
   const name = escapeHtml(targetName);
   const terms = input.terms ?? emptyDiplomacyTerms();
-  // A truce is already running: a truce offer extends it, up to the cap on how far ahead a truce may run.
+  // A truce is already running: a truce offer extends it, up to the cap on how far ahead a truce may run. A gift works either way.
   const now = Date.now();
   const truceEndsAt = deps.truceEndsAt?.(input.targetPlayerId, targetName);
   const inTruce = truceEndsAt !== undefined && truceEndsAt > now;
@@ -254,6 +316,7 @@ export const openDiplomacyTradeScreen = (
       ${deps.ownHoldings().resources ? '<button type="button" data-trade-kind="trade:0">Resource trade</button>' : ""}
       ${truceButton(12)}${truceButton(24)}
       <button type="button" data-trade-kind="alliance:0">Alliance</button>
+      <button type="button" data-trade-kind="gift:0" hidden>Gift</button>
     </div>
     ${tradeGoodsHtml()}
     ${resourceTermsHtml(terms, deps.ownHoldings().resources)}
@@ -275,7 +338,9 @@ export const openDiplomacyTradeScreen = (
     previousFocus: document.activeElement instanceof HTMLElement ? document.activeElement : undefined,
     shownHoldings: deps.ownHoldings(),
     shownSupplySignature: "",
-    holdingsWatch: undefined
+    holdingsWatch: undefined,
+    notice: undefined,
+    giftPending: undefined
   };
   open = screen;
   // Keep "You have", the verdict and the top-up honest as coin comes in or is spent elsewhere.
@@ -287,7 +352,8 @@ export const openDiplomacyTradeScreen = (
   for (const button of Array.from(overlay.querySelectorAll<HTMLButtonElement>("[data-trade-kind]"))) {
     button.addEventListener("click", () => {
       const [kind, hours] = (button.dataset.tradeKind ?? "").split(":");
-      screen.selection = { ...screen.selection, kind: kind === "trade" ? "trade" : kind === "alliance" ? "alliance" : "truce", durationHours: hours === "24" ? 24 : 12 };
+      screen.selection = { ...screen.selection, kind: kind === "trade" || kind === "alliance" || kind === "gift" ? kind : "truce", durationHours: hours === "24" ? 24 : 12 };
+      if (!screen.giftPending) screen.notice = undefined;
       render(screen);
     });
   }
@@ -300,6 +366,7 @@ export const openDiplomacyTradeScreen = (
       const terms = withTradeAmount(screen.selection.terms, key, amount);
       if (typed) screen.reach = maxTradeTerms(screen.reach, terms);
       screen.selection = { ...screen.selection, terms };
+      if (!screen.giftPending) screen.notice = undefined;
       render(screen);
     }
   });
@@ -318,6 +385,7 @@ export const openDiplomacyTradeScreen = (
     if (!deal) return;
     screen.reach = maxTradeTerms(screen.reach, deal);
     screen.selection = { ...screen.selection, terms: deal };
+    if (!screen.giftPending) screen.notice = undefined;
     render(screen);
   });
   overlay.querySelector<HTMLButtonElement>("[data-trade-send]")?.addEventListener("click", () => sendOffer(screen));
@@ -350,6 +418,25 @@ export const receiveDiplomacyStance = (reply: DiplomacyStanceReply): void => {
     open.targetPlayerId && reply.found ? reply.targetPlayerId === open.targetPlayerId : open.targetName.toLocaleLowerCase() === reply.targetPlayerName.toLocaleLowerCase();
   if (!sameTarget) return;
   open.reply = reply;
+  render(open);
+};
+
+/** Shows a gift's outcome on the open screen, if it's still for that target; the gateway follows a paid gift with a fresh DIPLOMACY_STANCE. */
+export const receiveDiplomacyGiftResult = (result: DiplomacyGiftResult): void => {
+  if (!open) return;
+  const sameTarget =
+    open.targetPlayerId && result.targetPlayerId ? result.targetPlayerId === open.targetPlayerId : open.targetName.toLocaleLowerCase() === result.targetPlayerName.toLocaleLowerCase();
+  // Only the screen that sent the gift shows its outcome (the feed always does).
+  const pending = open.giftPending;
+  if (!sameTarget || !pending) return;
+  clearTimeout(pending.timer);
+  open.giftPending = undefined;
+  open.notice = { tone: result.ok ? "good" : "bad", text: result.message };
+  // Clear what was given, unless the player has already set up another amount.
+  const { give } = open.selection.terms;
+  if (result.ok && give.gold === pending.gift.gold && give.shard === pending.gift.shard) {
+    open.selection = { ...open.selection, terms: { ...open.selection.terms, give: { gold: 0, shard: 0 } } };
+  }
   render(open);
 };
 

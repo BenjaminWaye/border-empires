@@ -111,10 +111,14 @@ describe("3d hills rendering regression guard", () => {
     // near the dome peak once depth testing was re-enabled — matching
     // the subdivision exactly is what makes this safe.
     const overlaySource = clientSource("../client-map-3d-ownership-overlay.ts");
+    // The bucket material lives in its own module (extracted from the overlay).
+    const materialSource = clientSource("../client-map-3d-ownership-overlay-mesh.ts");
+    expect(materialSource).toContain("new MeshBasicMaterial(");
+    expect(materialSource).not.toContain("depthTest: false,");
     expect(overlaySource).not.toContain("depthTest: false,");
     expect(overlaySource).toContain("const HILL_SUBDIV = 10;");
     // depthWrite: false stays — verify it doesn't regress.
-    expect(overlaySource).toContain("depthWrite: false,");
+    expect(materialSource).toContain("depthWrite: false,");
   });
 
   it("surfaceY does not double-count HEIGHTFIELD_HILLS_ELEVATION_BONUS on hill tiles", () => {
