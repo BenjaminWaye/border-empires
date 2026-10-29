@@ -17,15 +17,23 @@ export interface TownNameplatesState {
 
 const MAX_PLATES = 160;
 // The game's own simple icons, so unfed is the same food icon as the resource bar.
+// Nearby war and recent capture both pause growth, and the plate says that
+// (a growth line struck through) rather than the cause; the town's details give the reason.
 const STATUS_ICON: Record<TownNameplateStatus, string> = {
   unfed: resourceSimpleIconUrl("FOOD"),
   upgrade: "/icons/simple/town-upgrade.svg",
-  war: "/icons/simple/military.svg",
-  captured: "/icons/simple/town-captured.svg"
+  war: "/icons/simple/town-growth.svg",
+  captured: "/icons/simple/town-growth.svg"
 };
-// Unfed is the food icon struck through, not a red rim: red next to the owner colour clashed.
-const UNFED_SLASH =
-  '<svg class="town-plate-slash" viewBox="0 0 24 24"><path d="M5 19 19 5" stroke="#2a0805" stroke-width="5" stroke-linecap="round"/><path d="M5 19 19 5" stroke="#e5412c" stroke-width="2.8" stroke-linecap="round"/></svg>';
+// A red strike, not a red rim: red next to the owner colour clashed. The growth
+// line rises bottom-left to top-right, so its strike runs the other way to cross it.
+const strike = (path: string): string =>
+  `<svg class="town-plate-slash" viewBox="0 0 24 24"><path d="${path}" stroke="#2a0805" stroke-width="5" stroke-linecap="round"/><path d="${path}" stroke="#e5412c" stroke-width="2.8" stroke-linecap="round"/></svg>`;
+const STATUS_STRIKE: Partial<Record<TownNameplateStatus, string>> = {
+  unfed: strike("M5 19 19 5"),
+  war: strike("M5 5 19 19"),
+  captured: strike("M5 5 19 19")
+};
 // The CSS caps the name at NAME_MAX_W, so these upper-bound footprints in CSS
 // px (at scale 1) hold for the greedy overlap cull below.
 const NAME_MAX_W = 150, NAME_CHAR_W = 9, PLATE_H = 32, PLATE_GAP = 4;
@@ -55,7 +63,7 @@ export const placeNameplates = (candidates: readonly Placed[]): Placed[] => {
 
 const plateHtml = (plate: TownNameplate): string => {
   const badge = plate.status
-    ? `<span class="town-plate-badge" data-status="${plate.status}"><img src="${STATUS_ICON[plate.status]}" alt="" draggable="false">${plate.status === "unfed" ? UNFED_SLASH : ""}</span>`
+    ? `<span class="town-plate-badge" data-status="${plate.status}"><img src="${STATUS_ICON[plate.status]}" alt="" draggable="false">${STATUS_STRIKE[plate.status] ?? ""}</span>`
     : "";
   const population = plate.population === undefined ? "" : `<span class="town-plate-pop">${formatPlatePopulation(plate.population)}</span>`;
   return `${badge}<span class="town-plate-body"><span class="town-plate-name"></span>${population}</span>`;
