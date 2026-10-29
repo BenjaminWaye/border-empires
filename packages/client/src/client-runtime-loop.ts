@@ -250,7 +250,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const tileIntel2D = { state, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, terrainAt }; // weak-defensibility, client-map-2d-tile-intel.ts
     const reachTileDeps2D = { me: state.me, tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, ownerColor: deps.effectiveOverlayColor }; // hoisted: drawReachTileTreatments2D runs per visible tile per frame
     const aetherTowerSpriteDeps2D = { ctx: deps.ctx, sprite: deps.structureOverlayImages.OBSERVATORY, structureAccentColor: deps.structureAccentColor };
-    const tileFeatureDeps2D = { relicMapHints: state.relicMapHints, ctx: deps.ctx, structureAccentColor: deps.structureAccentColor, effectiveOverlayColor: deps.effectiveOverlayColor, afcJoinDrop: state.afcJoinDrop, afcModuleDeliveryLandedAt: state.afcModuleDeliveryLandedAt }; // hoisted: drawTileFeatureOverlays2D runs per visible tile per frame
+    const tileFeatureDeps2D = { relicMapHints: state.relicMapHints, ctx: deps.ctx, structureAccentColor: deps.structureAccentColor, effectiveOverlayColor: deps.effectiveOverlayColor, afcJoinDrop: state.afcJoinDrop, afcModuleDeliveryLandedAt: state.afcModuleDeliveryLandedAt, remembered: { drawTownOverlay: deps.drawTownOverlay, fortificationOverlayImageFor: deps.fortificationOverlayImageFor, fortificationDeps: { tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY }, aetherTowerSprite: aetherTowerSpriteDeps2D } }; // hoisted: drawTileFeatureOverlays2D runs per visible tile per frame
     const crystalTargetingActive = state.crystalTargeting.active;
     const crystalTone = crystalTargetingActive ? deps.crystalTargetingTone(state.crystalTargeting.ability) : "amber";
     const debugWindow = typeof window !== "undefined" ? (window as Window & { __be3dCanvasOverlayDebug?: unknown }) : undefined;
@@ -312,7 +312,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     };
     const renderOverlayTile = ({ wx, wy, wk, px, py, vis, t, settlementProgress }: VisibleRenderTile): void => {
       const isDockEndpoint = dockEndpointKeys.has(wk);
-      const dockVisible = (!t && effectiveFogDisabled(state)) || vis === "visible";
+      const dockVisible = (!t && effectiveFogDisabled(state)) || vis === "visible" || vis === "fogged"; // a remembered dock stays on the map
       // Corner anchor badge for every visible dock tile — drawn even in 3D mode so the icon-only summary remains visible when zoomed out (parallels drawResourceCornerMarker for resource tiles).
       if (dockVisible && isDockEndpoint) {
         deps.drawDockMarker(px, py, size);
@@ -644,7 +644,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         if (roadNetworkBuiltAt >= 0) continue;
 
         const isDockEndpoint = dockEndpointKeys.has(wk);
-        const dockVisible = (!t && effectiveFogDisabled(state)) || vis === "visible";
+        const dockVisible = (!t && effectiveFogDisabled(state)) || vis === "visible" || vis === "fogged"; // a remembered dock stays on the map
         if (dockVisible && isDockEndpoint) {
           deps.drawDockMarker(px, py, size);
         }

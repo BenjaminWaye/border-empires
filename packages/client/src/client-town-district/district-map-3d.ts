@@ -69,22 +69,25 @@ export const createDistrictMap3D = (scene: Scene, maxTiles: number, deps: Distri
   return {
     addTile: (tile: Tile, site: DistrictSite, rebuildAt: number): { economic: boolean; observatory: boolean } => {
       const economic = (isDistrictBuilding(tile.economicStructure?.type) || isDistrictProject(tile.economicStructure?.type));
-      const visible = deps.visibilityAt(tile.x, tile.y, tile) === "visible";
-      if (!visible || tile.terrain !== "LAND") return { economic: false, observatory: false };
+      const visibility = deps.visibilityAt(tile.x, tile.y, tile);
+      if (visibility === "unexplored" || tile.terrain !== "LAND") return { economic: false, observatory: false };
+      // Fogged: drawn as last seen, standing still, with no build in progress
+      // and no part in the live district network links.
+      const remembered = visibility === "fogged";
       const record = tile.economicStructure;
-      if (record?.disabledUntil && record.disabledUntil > Date.now()) nextDisabledExpiry = Math.min(nextDisabledExpiry, record.disabledUntil);
+      if (!remembered && record?.disabledUntil && record.disabledUntil > Date.now()) nextDisabledExpiry = Math.min(nextDisabledExpiry, record.disabledUntil);
       const hasTown = tileHasTownIdentity(tile);
       const y = hasTown ? site.surfaceY : seatAt(tile);
-      if (sites.size < maxTiles) { sites.set(`${tile.x},${tile.y}`, { tile, seat: y }); candidates.push(tile); }
+      if (!remembered && sites.size < maxTiles) { sites.set(`${tile.x},${tile.y}`, { tile, seat: y }); candidates.push(tile); }
       const combined = Boolean(tile.fort || hasTown || tile.observatory);
-      if (combined && !hasTown && economic && !tile.observatory) models.add({ x: site.x, y, z: site.z, foundation: true, operational: true });
+      if (combined && !hasTown && economic && !tile.observatory) models.add({ x: site.x, y, z: site.z, foundation: true, operational: !remembered });
       const add = (kind: Parameters<typeof models.add>[0]["kind"], offset: number): void => {
         if (!kind) return;
-        const construction = constructionSiteForRebuild(deps.state, tile, "economicStructure", rebuildAt);
+        const construction = remembered ? undefined : constructionSiteForRebuild(deps.state, tile, "economicStructure", rebuildAt);
         models.add({
           kind, x: site.x + (combined ? offset : 0), y, z: site.z + (combined ? 0.18 : 0),
           foundation: !combined || Boolean(tile.observatory), scale: combined ? 0.5 : 1,
-          operational: record?.status === "active" && !dormant.has(`${tile.x},${tile.y}:economicStructure`) && districtOperational(tile),
+          operational: !remembered && record?.status === "active" && !dormant.has(`${tile.x},${tile.y}:economicStructure`) && districtOperational(tile),
           ...(construction ? { site: construction } : {})
         });
       };

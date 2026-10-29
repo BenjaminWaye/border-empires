@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { InstancedMesh, BoxGeometry, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshStandardMaterial, Scene, ShaderLib, type Material } from "three";
+import { InstancedMesh, BoxGeometry, DataTexture, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshStandardMaterial, Scene, ShaderLib, type Material } from "three";
 import { createTreeMaterial } from "../client-map-3d-trees/client-map-3d-tree-material.js";
 import { markUnexploredStormClip } from "../client-map-3d-unexplored-storm/client-map-3d-unexplored-storm-clip.js";
 import { FOGGED_MIST_Y, createFoggedMistLayer } from "./client-map-3d-fogged-mist.js";
-import { FOGGED_MIST_HAZE_FRAGMENT_BLEND, applyFoggedMistHaze, applyFoggedMistHazeToScene } from "./client-map-3d-fogged-mist-haze.js";
+import { FOGGED_MIST_HAZE_FRAGMENT_BLEND, applyFoggedMistHaze, applyFoggedMistHazeToScene, takesFoggedMistHaze } from "./client-map-3d-fogged-mist-haze.js";
 import { FOGGED_MIST_FRAGMENT_SHADER, FOGGED_MIST_SHADE_GLSL } from "./client-map-3d-fogged-mist-shader.js";
 
 const isHazed = (material: Material): boolean => material.customProgramCacheKey().includes("foggedMistHaze");
@@ -29,6 +29,20 @@ describe("fogged mist haze on features rising out of the mist (3D)", () => {
     expect(mist.hazeUniforms.uFogMistTime).toBe(mist.material.uniforms.uTime);
     mist.rebuild({ camX: 10, camY: 10, halfW: 2, halfH: 2 }, () => "unexplored");
     expect(mist.hazeUniforms.uFogMistOn.value).toBe(0); // sheet hidden: no haze either
+  });
+
+  it("hazes buildings remembered under fog: every material on the building environment map", () => {
+    // Regression: remembered buildings would otherwise stand crisp on top of the mist, as trees once did.
+    const scene = new Scene();
+    const envMap = new DataTexture();
+    const building = new MeshStandardMaterial({ envMap });
+    const unrelated = new MeshStandardMaterial();
+    scene.add(new Mesh(new BoxGeometry(), [building, unrelated]));
+    const mist = createFoggedMistLayer(scene, () => 0, envMap);
+    mist.rebuild({ camX: 10, camY: 10, halfW: 2, halfH: 2 }, () => "fogged");
+    expect(isHazed(building)).toBe(true);
+    expect(isHazed(unrelated)).toBe(false);
+    expect(takesFoggedMistHaze(building, undefined)).toBe(false);
   });
 
   it("patches each material once across rebuilds", () => {

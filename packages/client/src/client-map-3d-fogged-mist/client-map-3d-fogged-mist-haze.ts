@@ -1,4 +1,4 @@
-import type { IUniform, Material, Object3D, WebGLProgramParametersWithUniforms, WebGLRenderer } from "three";
+import type { IUniform, Material, MeshStandardMaterial, Object3D, Texture, WebGLProgramParametersWithUniforms, WebGLRenderer } from "three";
 import { unexploredStormClipKindOf } from "../client-map-3d-unexplored-storm/client-map-3d-unexplored-storm-clip.js";
 import { FOGGED_MIST_SHADE_GLSL } from "./client-map-3d-fogged-mist-shader.js";
 
@@ -11,6 +11,8 @@ import { FOGGED_MIST_SHADE_GLSL } from "./client-map-3d-fogged-mist-shader.js";
 // sheet itself draws at that spot (foggedMistShade), mixed in after lighting
 // and scene fog just as the sheet's normal blend would. Below the sheet the sheet already
 // covers them, so nothing is hazed twice. Tiles in sight are never touched.
+// Buildings remembered on fogged tiles (client-map-3d-remembered-buildings.ts)
+// get it too: every material wired to the shared building environment map.
 
 export type FoggedMistHazeUniforms = {
   readonly uFogMistMask: IUniform;
@@ -90,17 +92,21 @@ export const applyFoggedMistHaze = (material: Material, uniforms: FoggedMistHaze
   material.needsUpdate = true;
 };
 
+/** Natural terrain (storm-clip flagged) and building materials (wired to the building environment map). */
+export const takesFoggedMistHaze = (material: Material, buildingEnvMap: Texture | undefined): boolean =>
+  Boolean(unexploredStormClipKindOf(material)) || (buildingEnvMap !== undefined && (material as MeshStandardMaterial).envMap === buildingEnvMap);
+
 /**
- * Patches every storm-clip-flagged material in the scene not patched yet.
+ * Patches every hazed material (takesFoggedMistHaze) in the scene not patched yet.
  * Cheap to call on each terrain rebuild: layers create their materials once,
  * so after the first pass this is just a scene walk.
  */
-export const applyFoggedMistHazeToScene = (root: Object3D, uniforms: FoggedMistHazeUniforms, patched: WeakSet<Material>): void => {
+export const applyFoggedMistHazeToScene = (root: Object3D, uniforms: FoggedMistHazeUniforms, patched: WeakSet<Material>, buildingEnvMap?: Texture): void => {
   root.traverse((object) => {
     const material = (object as Object3D & { material?: Material | Material[] }).material;
     if (!material) return;
     for (const entry of Array.isArray(material) ? material : [material]) {
-      if (!unexploredStormClipKindOf(entry) || patched.has(entry)) continue;
+      if (patched.has(entry) || !takesFoggedMistHaze(entry, buildingEnvMap)) continue;
       patched.add(entry);
       applyFoggedMistHaze(entry, uniforms);
     }

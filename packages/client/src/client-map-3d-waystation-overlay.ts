@@ -37,7 +37,9 @@ export type WaystationOverlay = {
     surfaceY: number,
     worldX: number,
     worldZ: number,
-    waystation: { activated: boolean }
+    waystation: { activated: boolean },
+    // Remembered under fog: steady lens and a still vane, like an activated one.
+    frozen?: boolean
   ) => void;
   readonly commit: () => void;
   readonly update: (nowMs: number) => void;
@@ -328,7 +330,8 @@ export const createWaystationOverlay = (
     surfaceY: number,
     worldX: number,
     worldZ: number,
-    waystation: { activated: boolean }
+    waystation: { activated: boolean },
+    frozen = false
   ): void => {
     // Every static-piece buffer is preallocated for `C` waystations; more
     // than that would index past the InstancedMesh's typed arrays in
@@ -337,8 +340,9 @@ export const createWaystationOverlay = (
     if (instances.length >= C) return;
     const hash = ((worldX * 73_193) ^ (worldZ * 51_487)) >>> 0;
     const phase = ((hash % 1000) / 1000) * Math.PI * 2;
-    instances.push({ x: centerX, y: surfaceY, z: centerZ, phase, activated: waystation.activated });
-    addWaystation(centerX, surfaceY, centerZ, phase, waystation.activated);
+    const steady = waystation.activated || frozen;
+    instances.push({ x: centerX, y: surfaceY, z: centerZ, phase, activated: steady });
+    addWaystation(centerX, surfaceY, centerZ, phase, steady);
   };
 
   const commit = (): void => {

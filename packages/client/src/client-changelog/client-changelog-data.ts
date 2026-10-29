@@ -1,4 +1,5 @@
 import { FOOD_TILE_ART_CHANGELOG } from "./client-changelog-food-tile-art.js";
+import { REMEMBERED_BUILDINGS_CHANGELOG } from "./client-changelog-remembered-buildings.js";
 import { TOWN_ECONOMY_CHANGELOG } from "./client-changelog-town-economy.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_25 } from "./client-changelog-oct-25.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_26 } from "./client-changelog-oct-26.js";
@@ -433,7 +434,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...FOOD_TILE_ART_CHANGELOG,
   ...MAP_LENS_CHANGELOG,
   ...TERRITORY_EDGE_GLOW_CHANGELOG,
-  ...LANDING_RESERVE_CHANGELOG
+  ...LANDING_RESERVE_CHANGELOG,
+  ...REMEMBERED_BUILDINGS_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

@@ -31,7 +31,7 @@ import { createFrontierClaimPlatePool, disposeFrontierClaimPlatePool } from "../
 
 import { applyPerspectiveCamera, createPerspectiveCamera } from "../client-map-3d-perspective-camera/client-map-3d-perspective-camera.js";
 import { createAtmosphere } from "../client-map-3d-atmosphere.js";
-import { addFoggedOverlayTile, type FoggedOverlayTile } from "../client-map-3d-fogged-mist/client-map-3d-fogged-tile-overlay.js";
+import { addFoggedOverlayTile, foggedOverlayTileAt } from "../client-map-3d-fogged-mist/client-map-3d-fogged-tile-overlay.js"; import { addRememberedBuildingsForTile } from "./client-map-3d-remembered-buildings.js";
 import { createFogOverlays } from "../client-map-3d-fogged-mist/client-map-3d-fog-overlays.js";
 import { createPointerPick, toroidDelta } from "../client-map-3d-pointer-pick.js";
 import { createHeightfield, type HeightfieldTerrainKind } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
@@ -391,6 +391,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const district = createDistrictMap3D(scene, MAX_VISIBLE_TILES, { state: deps.state, origin: sceneOrigin,
     visibilityAt: deps.tileVisibilityStateAt, cornerYAt: (x, y) => heightfield.cornerYAt(x, y), isHillsAt: isHillsTile,
     hillCutAt: (x, y) => latestHillCutAt(x, y), rise: OVERLAY_RISE_ABOVE_HEIGHTFIELD, qualityTier }, atmosphere.buildingEnvironmentTexture);
+  const buildingInstanceOverlays = { structureOverlay, umbriteExtractionRigOverlay, umbriteWeaponsFactoryOverlay, tradeNexusOverlay, ambaricTransformerOverlay, contactShadowOverlay, observatoryCooldownBadgeOverlay, district };
+  const rememberedBuildingLayers = { townOverlay, dockOverlay, watchtowerOverlay, waystationOverlay, buildings: buildingInstanceOverlays, fortifications: fortificationInstanceOverlays }; // fogged tiles: last-seen buildings, standing still
   const nameDecal = createNameDecalForMap({ scene, state: deps.state, isExploredAt: (x, y) => revealWholeMapInTrue3DMode || deps.tileVisibilityStateAt(x, y, deps.state.tiles.get(deps.keyFor(x, y))) !== "unexplored", heightfield, isHillsAt: isHillsTile, hillCutAt: () => latestHillCutAt, rise: OVERLAY_RISE_ABOVE_HEIGHTFIELD, wrapX: deps.wrapX, wrapY: deps.wrapY, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT }); // map names inked on the ground
   const placeLineMarkers = (
     pool: Array<{ marker: LineSegments }>,
@@ -686,6 +688,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       dockEndpointKeys.add(deps.keyFor(pair.ax, pair.ay));
       dockEndpointKeys.add(deps.keyFor(pair.bx, pair.by));
     }
+    const foggedTileDeps = { cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), rise: OWNERSHIP_RISE_ABOVE_HEIGHTFIELD, isHillsAt: isHillsTile, hillNeighborsAt: (x: number, y: number) => hillNeighborFlagsAt(x, y, isHillsTile, deps.wrapX, deps.wrapY), hillCutAt };
+    const rememberedBuildingContext = { state: deps.state, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, terrainAt: terrainForWorldTile, elevationAt: (x: number, y: number) => heightfield.elevationAt(x, y), dockEndpointKeys, rebuildStartAt };
     const selectedCoord = deps.state.selected;
     let selectedOwnershipDebug: Record<string, unknown> | undefined;
 
@@ -751,9 +755,9 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         // Skip tiles never explored unless ?reveal=1 is set. Fogged tiles
         // fall through -- the heightfield already drew their frozen terrain
         // (isExploredForHeightfield above), and the fog branch below adds a
-        // darkened + last-known-owner tint before its own `continue`, so
-        // fogged tiles never reach the live overlay code (roads,
-        // structures, units, FX) further down this loop.
+        // darkened + last-known-owner tint and the last-seen buildings (standing
+        // still) before its own `continue`, so fogged tiles never reach the live
+        // overlay code (roads, live structures, units, FX) further down this loop.
         const relicHint = deps.state.relicMapHints.get(tileKey); if (relicHint && !(tile?.naturalWonder && relicRemainingUses(tile.naturalWonder) === 0)) relicHintOverlay.addHint(relicHint, dx + TILE_CENTER_OFFSET, dy + TILE_CENTER_OFFSET);
         if (visibility === "unexplored" && !revealWholeMapInTrue3DMode) continue;
         const terrain = terrainForWorldTile(wx, wy);
@@ -790,8 +794,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           // fog -- land under fogDarkenOverlay's slate wash, water
           // tinted toward the fogged tone, natural features (trees, mountain
           // massifs) kept -- plus a dim tint of their last-witnessed owner.
-          // No roads, structures, units or FX: we no longer have live data
-          // for any of that. Mirrors the 2D renderer (client-map-render-2d-tile-ground).
+          // Buildings show as last seen but standing still (client-map-3d-remembered-buildings.ts);
+          // no roads, units or FX: we no longer have live data for any of that. Mirrors the 2D renderer.
           // Sea tiles are holes in the heightfield, so they draw the water
           // quad instead of the overlay. The drifting mist over all of it is
           // the atmosphere's foggedMist layer. The fog's first ring
@@ -802,18 +806,12 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
             waterSurface.addTile(x, z, isShallowSeaTile(wx, wy, terrainForWorldTile, deps.wrapX, deps.wrapY), wx, wy, printAsFogged);
             continue;
           }
-          const fogTile: FoggedOverlayTile = {
-            x0: x - 0.5, x1: x + 0.5, z0: z - 0.5, z1: z + 0.5,
-            corner00Y: heightfield.cornerYAt(wx, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD,
-            corner10Y: heightfield.cornerYAt(wxNext, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD,
-            corner01Y: heightfield.cornerYAt(wx, wyNext) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD,
-            corner11Y: heightfield.cornerYAt(wxNext, wyNext) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD,
-            isHill: isHillsTile(wx, wy), hillNeighbors: hillNeighborFlagsAt(wx, wy, isHillsTile, deps.wrapX, deps.wrapY), wx, wy, roadDirs: hillCutAt(wx, wy)
-          };
+          const fogTile = foggedOverlayTileAt(foggedTileDeps, x, z, wx, wy, wxNext, wyNext);
           if (printAsFogged) addFoggedOverlayTile(fogDarkenOverlay, fogTile, fogWash);
           // FRONTIER excluded: ephemeral claim, so tinting stale fog data as "still his" is misleading -- stacked on the fog darkening it just read as a dark disconnected box
           if (terrain === "LAND" && ownerId && ownershipState !== "FRONTIER") addFoggedOverlayTile(fogOwnershipOverlay, fogTile, tmpOwnerColor.set(normalizeColorForThree(deps.effectiveOverlayColor(ownerId))));
           if (terrain === "LAND") tileIntel3D.addTile(tile, visibility, x, z, flatOverlayY); // Diplomacy tint covers remembered land too, as in 2D
+          if (tile && terrain === "LAND" && deps.tileVisibilityStateAt(wx, wy, tile) === "fogged") addRememberedBuildingsForTile(tile, { x, z, surfaceY, wx, wy, tileKey }, rememberedBuildingLayers, rememberedBuildingContext);
           // Natural terrain is not live data, so it stays -- fogged like its ground.
           const featureTint = printAsFogged ? fogFeatureTint : undefined;
           if (terrain === "MOUNTAIN") mountainMassifs.addInstance(x, z, surfaceY, wx, wy, featureTint);
@@ -920,10 +918,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         if (incomingAttack && incomingAttack.resolvesAt > Date.now() && terrain === "LAND") {
           attackOverlay.addInstance(x, z, flatOverlayY, incomingAttack.resolvesAt);
         }
-        if (tile && terrain === "LAND") addBuildingInstancesForTile(tile, { x, z, surfaceY, wx, wy }, {
-          structureOverlay, umbriteExtractionRigOverlay, umbriteWeaponsFactoryOverlay,
-          tradeNexusOverlay, ambaricTransformerOverlay, contactShadowOverlay, observatoryCooldownBadgeOverlay, district
-        }, deps.state, rebuildStartAt, tileResource);
+        if (tile && terrain === "LAND") addBuildingInstancesForTile(tile, { x, z, surfaceY, wx, wy }, buildingInstanceOverlays, deps.state, rebuildStartAt, tileResource);
         // ?structuredemo=1: drop each structure kind on a fake row two
         // tiles north of the camera. Only fires when the URL flag is
         // set, so it's harmless in production. The MINE entry passes a
