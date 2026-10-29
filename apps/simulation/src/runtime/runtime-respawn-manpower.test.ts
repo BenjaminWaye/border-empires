@@ -70,4 +70,15 @@ describe("respawn manpower", () => {
     respawnIfEliminated(ctx, "player-1", "eliminated-2");
     expect(player.manpower).toBe(STARTING_CAPITAL_MANPOWER_CAP + 50);
   });
+
+  it("grants the landing reserve to a respawned player through the context", () => {
+    const { ctx, player } = buildContext(12);
+    ctx.grantLandingReserve = (target) => { target.manpower += 2_000; };
+    respawnIfEliminated(ctx, "player-1", "eliminated-3");
+    expect(player.manpower).toBe(STARTING_CAPITAL_MANPOWER_CAP + 2_000);
+    const rescue = buildContext(0);
+    rescue.ctx.grantLandingReserve = (target) => { target.manpower += 2_000; };
+    respawnPlayerOnUnownedLand(rescue.ctx, "player-1", "rescue-2");
+    expect(rescue.player.manpower).toBe(STARTING_CAPITAL_MANPOWER_CAP + 2_000);
+  });
 });

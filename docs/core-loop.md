@@ -508,7 +508,8 @@ As implemented in `client-onboarding-checklist.ts`:
    that, every new empire lands with a one-time +2,000 manpower reserve that
    may sit above the cap (`LANDING_MANPOWER_RESERVE`,
    `packages/shared/src/landing-manpower-reserve.ts`), plus, for a late
-   joiner, the starting capital's regen since the season started. The first session is
+   joiner (or a player respawning after elimination), the starting capital's
+   regen since the season started. The first session is
    long enough to finish the checklist without stalling.
 4. Newly generated worlds require 50 spaced starting sites with first food
    within three land steps (already in AFC reach), four slots within six,

@@ -19,6 +19,7 @@ import { planDirectFrontierCommand } from "../ai/direct-frontier-planner.js";
 import { buildAiTacticalView, type AiTacticalView } from "../ai/ai-tactical-view.js";
 import { resolvePendingSettlement as resolvePendingSettlementImpl, type SettlementResolutionInput } from "./runtime-settlement-resolution.js";
 import { startSettlementProcess as startSettlementProcessImpl, type SettlementStartInput } from "./runtime-settlement-start.js";
+import { PendingSpawnBonuses } from "./runtime-pending-spawn-bonuses.js";
 import { handleCancelSettleCommand as handleCancelSettleCommandImpl, type RuntimeCancelSettleContext } from "./runtime-cancel-settle.js";
 import { createIslandNamesTicker } from "../island-names/island-names-ticker.js";
 import { EventEmitter } from "node:events";
@@ -64,7 +65,6 @@ import {
   empireIntegrity,
   integrityGrowthMult,
   DEVELOPMENT_PROCESS_LIMIT,
-  GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE, GALACTIC_WONDER_VISION_RADIUS_BONUS,
   isAutoSettleAllowed, settleIgnoresReach,
   WORLD_HEIGHT,
   WORLD_WIDTH,
@@ -246,6 +246,7 @@ import {
   playerManpowerBreakdown as playerManpowerBreakdownImpl,
   playerManpowerCap as playerManpowerCapImpl,
   playerManpowerRegenPerMinute as playerManpowerRegenPerMinuteImpl,
+  grantRespawnLandingReserve as grantRespawnLandingReserveImpl,
   refreshManpowerOnlyForPlayer as refreshManpowerOnlyForPlayerImpl,
   storageCapForPlayer as storageCapForPlayerImpl,
   type RuntimeEconomyCacheContext,
@@ -607,7 +608,7 @@ export class SimulationRuntime {
   private readonly ownedStructureCountByPlayerByType = new Map<string, Map<BuildableStructureType, number>>();
   private readonly barbarianTileProgress = new Map<string, number>();
   private readonly abilityCooldowns = new Map<string, Map<string, number>>();
-  private pendingImperialWard: { playerId: string; charges: number } | undefined; /** v0 Wonder-style starting bonus (§5, §12) for the last season's Planet winner — mirrors pendingImperialWard's lifecycle. */ private pendingGalacticWonderBonus: { playerId: string } | undefined;
+  private readonly pendingSpawnBonuses: PendingSpawnBonuses;
   /** Perf-only auto-fill scan cache — see AUTO_FILL_SCAN_COOLDOWN_MS in runtime-auto-fill.ts. */ private readonly autoFillOriginCooldownUntil = new Map<string, number>();
   private readonly lastIncomeTickAtMsByPlayer = new Map<string, number>();
   private readonly lastActiveAtMsByPlayer = new Map<string, number>();
@@ -774,7 +775,7 @@ export class SimulationRuntime {
     this.trackSyncMainThreadTask = options.trackSyncMainThreadTask;
     this.onCaptureRevealBuilt = options.onCaptureRevealBuilt;
     this.onShardCollected = options.onShardCollected;
-    this.pendingImperialWard = options.pendingImperialWard; this.pendingGalacticWonderBonus = options.pendingGalacticWonderBonus;
+    this.pendingSpawnBonuses = new PendingSpawnBonuses({ imperialWard: options.pendingImperialWard, galacticWonder: options.pendingGalacticWonderBonus });
     const initDocks = createDocksFromInitialState(options.initialState, options.seedDocks ?? seedWorld?.docks ?? [], options.dockRouteBackfillReader);
     const initDockLinksByDockTileKey = buildDockLinksByDockTileKey(initDocks);
     this.state = new RuntimeState({
@@ -1256,6 +1257,7 @@ export class SimulationRuntime {
       runtimeLogInfo: (payload, message) => runtimeLogInfo(payload, message),
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
       respawnMinimumGold: RESPAWN_MINIMUM_GOLD,
+      grantLandingReserve: (player) => grantRespawnLandingReserveImpl(this.manpowerEconomyContext(), player),
       incrementAuthRecoveryRespawn: () => this.onAuthRecoveryRespawn?.(),
       incrementAuthRecoveryRespawnGuarded: () => this.onAuthRecoveryRespawnGuarded?.(),
       // reachBorder is reassigned on every anchor activation, so it is read lazily per lookup.
@@ -1441,11 +1443,7 @@ export class SimulationRuntime {
   hasPlayer(playerId: string): boolean { return this.state.players.has(playerId); } humanPlayerCount(): number { return humanPlayerCountOf(this.state.players); } ensurePlayerHasAfc(playerId: string): boolean { return ensurePlayerHasAfcImpl(this.respawnContext(), playerId); } // join-capacity gate; ensurePlayerHasAfc: migration grant for pre-AFC empires
   ensurePlayerHasSpawnTerritory(playerId: string, rallyAnchor?: { x: number; y: number }, onRallySpawnPlaced?: (outcome: RallySpawnOutcome) => void): boolean {
     const spawned = ensurePlayerHasSpawnTerritoryImpl(this.respawnContext(), playerId, rallyAnchor, onRallySpawnPlaced); if (spawned) wonderEffects.refreshPlayerWonders(playerId, this.settledTilesForPlayer(playerId), this.wonderCacheByPlayer, this.state.players);
-    if (spawned && this.pendingImperialWard?.playerId === playerId) {
-      const player = this.state.players.get(playerId);
-      if (player) player.imperialWardCharges = this.pendingImperialWard.charges;
-      this.pendingImperialWard = undefined;
-    } if (spawned && this.pendingGalacticWonderBonus?.playerId === playerId) { const player = this.state.players.get(playerId); if (player) { player.galacticWonderManpowerRegenBonusPerMinute = GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE; player.galacticWonderVisionRadiusBonus = GALACTIC_WONDER_VISION_RADIUS_BONUS; } this.pendingGalacticWonderBonus = undefined; }
+    if (spawned) this.pendingSpawnBonuses.applyTo(playerId, this.state.players.get(playerId));
     return spawned;
   }
 

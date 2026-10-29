@@ -9,6 +9,7 @@ export const LANDING_RESERVE_CHANGELOG: ClientChangelogEntry[] = [
     changes: [
       "Every new empire now lands with +2,000 bonus manpower, up from +1,000.",
       "Joining after the season has started adds the manpower your capital would have produced since the start (about 576 per day), so joining on day 5 adds about 2,880 more.",
+      "If you are eliminated and respawn, you land with the same bonus, so a late comeback is possible.",
       "Like before, this bonus can go above your manpower cap. Regeneration pauses until you spend back under the cap."
     ]
   }

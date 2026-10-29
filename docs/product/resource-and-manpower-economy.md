@@ -37,7 +37,11 @@ defines what these systems mean in the fiction; follow the
   joiner lands with 720 + 2,000 + 2,880. It is uncapped. Nothing is added while
   the season is pending or ended, or when the runtime has no season clock
   (`SimulationRuntimeOptions.seasonStartedAt`, wired by `seasonStartedAtClock`).
-  A respawn after elimination does not grant it again. Like a Waystation grant it may sit above
+  A respawn after elimination lands anew and gets the same grant, base plus
+  catch-up, on top of its restored starting manpower
+  (`grantRespawnLandingReserve`, via `RuntimeRespawnContext.grantLandingReserve`),
+  so a player wiped out late in the season can still stage a comeback. There is
+  no ceiling on the catch-up. Like a Waystation grant it may sit above
   the cap (tracked as `waystationManpowerOverflow`), and regen pauses until it
   is spent back under the cap.
 - **Shard Mobilization** (`SHARD_MOBILIZE`, `SHARD_MOBILIZE_SHARD_COST` = **1

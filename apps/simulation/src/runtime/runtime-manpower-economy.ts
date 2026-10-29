@@ -135,6 +135,18 @@ const grantLandingManpowerReserve = (ctx: RuntimeManpowerEconomyContext, player:
 };
 
 /**
+ * A respawn after elimination is a fresh landing: the same one-time reserve
+ * (base + late-join catch-up) a brand-new empire gets, on top of the manpower
+ * the respawn already topped up to the starting amount. Unlike the first
+ * landing it is not gated on landingReserveGranted -- every respawn lands anew.
+ */
+export function grantRespawnLandingReserve(ctx: RuntimeManpowerEconomyContext, player: RuntimePlayer): void {
+  if (player.id.startsWith("barbarian-")) return;
+  grantOverflowManpower(player, landingManpowerReserve(ctx.now(), ctx.seasonStartedAt?.()), playerManpowerCap(ctx, player));
+  player.landingReserveGranted = true;
+}
+
+/**
  * Manpower-only variant of {@link applyManpowerRegenForPlayer} that skips the
  * economy-accrual side effect. The accrual is O(territory tiles) per call
  * (it sorts the player's territory tile keys for upkeep collection); doing
