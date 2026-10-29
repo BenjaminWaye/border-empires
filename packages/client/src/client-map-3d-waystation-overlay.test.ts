@@ -20,8 +20,8 @@ describe("3D waystation overlay — lens glow per capture state", () => {
     // waystation on the map — otherwise a captured waystation's lens keeps
     // shining as long as any other waystation anywhere is still dormant.
     const lensMeshes = overlay.group.children.filter(
-      (c): c is InstancedMesh => c instanceof InstancedMesh && c.geometry instanceof IcosahedronGeometry
-    );
+      (c): c is InstancedMesh => c instanceof InstancedMesh && c.geometry instanceof IcosahedronGeometry && c.count > 0
+    ); // in use; the remembered-under-fog lens slot stays empty here
     expect(lensMeshes).toHaveLength(2);
 
     const dormantMesh = lensMeshes.find((m) => (m.material as MeshStandardMaterial).emissiveIntensity >= 1);

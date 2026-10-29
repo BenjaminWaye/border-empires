@@ -38,7 +38,7 @@ export type WaystationOverlay = {
     worldX: number,
     worldZ: number,
     waystation: { activated: boolean },
-    // Remembered under fog: steady lens and a still vane, like an activated one.
+    // Remembered under fog: a still vane and a steady lens (still bright if it was dormant).
     frozen?: boolean
   ) => void;
   readonly commit: () => void;
@@ -70,7 +70,8 @@ type WaystationInstance = {
   readonly y: number;
   readonly z: number;
   readonly phase: number;
-  activated: boolean;
+  // Activated or remembered under fog: the vane holds still.
+  stillVane: boolean;
 };
 
 export const createWaystationOverlay = (
@@ -113,8 +114,12 @@ export const createWaystationOverlay = (
     emissive: "#39c4dd",
     emissiveIntensity: 0.3
   });
+  // A dormant lens remembered under fog: as bright as a dormant one, but steady
+  // (fixed at the middle of the dormant pulse), so it still reads "unclaimed".
+  const lensMaterialRemembered = lensMaterial.clone();
+  lensMaterialRemembered.emissiveIntensity = 1.175;
   const fabricMaterial = new MeshStandardMaterial({ color: "#6b5a3f", roughness: 0.85, metalness: 0.05, flatShading: true });
-  for (const mat of [ironMaterial, brassMaterial, brassBrightMaterial, mechMaterial, glassMaterial, lensMaterial, lensMaterialActive, fabricMaterial]) {
+  for (const mat of [ironMaterial, brassMaterial, brassBrightMaterial, mechMaterial, glassMaterial, lensMaterial, lensMaterialActive, lensMaterialRemembered, fabricMaterial]) {
     applyBuildingEnvMap(mat, buildingEnvironmentTexture);
   }
 
@@ -166,6 +171,7 @@ export const createWaystationOverlay = (
   make("lensCageStrut", lensCageStrutGeo, brassBrightMaterial, C * 4);
   make("lensDormant", lensGeo, lensMaterial, C);
   make("lensActive", lensGeo, lensMaterialActive, C);
+  make("lensRemembered", lensGeo, lensMaterialRemembered, C);
   make("lensGear", lensGearGeo, mechMaterial, C);
   make("roof", roofGeo, ironMaterial, C);
   make("shelterBody", shelterBodyGeo, ironMaterial, C);
@@ -245,7 +251,7 @@ export const createWaystationOverlay = (
   };
 
   // ─── Waystation placement ───────────────────────────────────────────
-  const addWaystation = (wx: number, sy: number, wz: number, phase: number, activated: boolean): void => {
+  const addWaystation = (wx: number, sy: number, wz: number, phase: number, lens: "lensActive" | "lensDormant" | "lensRemembered"): void => {
     // Riveted square anchor plate with four corner rivets.
     addPiece("anchorBase", wx, sy, wz, 0, 0.02, 0);
     for (const ax of [-0.12, 0.12]) {
@@ -271,7 +277,7 @@ export const createWaystationOverlay = (
       const a = (i / 4) * Math.PI * 2;
       addPiece("lensCageStrut", wx, sy, wz, Math.cos(a) * 0.078, 0.975, Math.sin(a) * 0.078, 1, 1, 0.09);
     }
-    addPiece(activated ? "lensActive" : "lensDormant", wx, sy, wz, 0, 0.975, 0);
+    addPiece(lens, wx, sy, wz, 0, 0.975, 0);
     addPiece("lensGear", wx, sy, wz, 0, 0.885, 0);
 
     // Slanted dark-iron shelter with a door/window seam and roof vent,
@@ -340,9 +346,8 @@ export const createWaystationOverlay = (
     if (instances.length >= C) return;
     const hash = ((worldX * 73_193) ^ (worldZ * 51_487)) >>> 0;
     const phase = ((hash % 1000) / 1000) * Math.PI * 2;
-    const steady = waystation.activated || frozen;
-    instances.push({ x: centerX, y: surfaceY, z: centerZ, phase, activated: steady });
-    addWaystation(centerX, surfaceY, centerZ, phase, steady);
+    instances.push({ x: centerX, y: surfaceY, z: centerZ, phase, stillVane: waystation.activated || frozen });
+    addWaystation(centerX, surfaceY, centerZ, phase, waystation.activated ? "lensActive" : frozen ? "lensRemembered" : "lensDormant");
   };
 
   const commit = (): void => {
@@ -372,7 +377,7 @@ export const createWaystationOverlay = (
     if (vaneSlot && vaneSlot.count > 0) {
       for (let i = 0; i < count; i += 1) {
         const inst = instances[i]!;
-        const angle = inst.activated ? inst.phase : nowMs * VANE_SPEED + inst.phase;
+        const angle = inst.stillVane ? inst.phase : nowMs * VANE_SPEED + inst.phase;
         position.set(inst.x - 0.42, inst.y + VANE_Y, inst.z - 0.12);
         scaleVec.set(1, 1, 1);
         tmpEuler.set(0, angle, 0, "XYZ");
@@ -394,7 +399,7 @@ export const createWaystationOverlay = (
       doorSeamGeo, windowSeamGeo, ventGeo, crateBodyGeo, crateStrapGeo, barrelGeo,
       ropeCoilGeo, groundStakeGeo, vaneSpindleGeo, vaneArmGeo
     ].forEach((g) => g.dispose());
-    [ironMaterial, brassMaterial, brassBrightMaterial, mechMaterial, glassMaterial, lensMaterial, lensMaterialActive, fabricMaterial].forEach(
+    [ironMaterial, brassMaterial, brassBrightMaterial, mechMaterial, glassMaterial, lensMaterial, lensMaterialActive, lensMaterialRemembered, fabricMaterial].forEach(
       (m) => m.dispose()
     );
   };

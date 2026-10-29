@@ -31,7 +31,8 @@ import { createFrontierClaimPlatePool, disposeFrontierClaimPlatePool } from "../
 
 import { applyPerspectiveCamera, createPerspectiveCamera } from "../client-map-3d-perspective-camera/client-map-3d-perspective-camera.js";
 import { createAtmosphere } from "../client-map-3d-atmosphere.js";
-import { addFoggedOverlayTile, foggedOverlayTileAt } from "../client-map-3d-fogged-mist/client-map-3d-fogged-tile-overlay.js"; import { addRememberedBuildingsForTile } from "./client-map-3d-remembered-buildings.js";
+import { addFoggedOverlayTile, foggedOverlayTileAt } from "../client-map-3d-fogged-mist/client-map-3d-fogged-tile-overlay.js";
+import { addRememberedBuildingsForTile } from "./client-map-3d-remembered-buildings.js";
 import { createFogOverlays } from "../client-map-3d-fogged-mist/client-map-3d-fog-overlays.js";
 import { createPointerPick, toroidDelta } from "../client-map-3d-pointer-pick.js";
 import { createHeightfield, type HeightfieldTerrainKind } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";

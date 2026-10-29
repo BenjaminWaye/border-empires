@@ -23,12 +23,18 @@ const recordingContext = (): { ctx: CanvasRenderingContext2D; calls: string[] } 
   return { ctx, calls };
 };
 
-const deps = (drawTownOverlay = vi.fn()): RememberedStructures2DDeps => ({
+const noInstallations: RememberedStructures2DDeps["resourceInstallations"] = {
+  builtResourceOverlayForTile: () => undefined, drawCenteredOverlayWithAlpha: () => undefined,
+  resourceOverlayScaleForTile: () => 1, economicStructureOverlayAlpha: () => 1
+};
+
+const deps = (drawTownOverlay = vi.fn(), resourceInstallations = noInstallations): RememberedStructures2DDeps => ({
   drawTownOverlay,
   fortificationOverlayImageFor: () => undefined,
   fortificationDeps: { tiles: new Map(), keyFor: (x, y) => `${x},${y}`, wrapX: (x) => x, wrapY: (y) => y },
   aetherTowerSprite: { ctx: recordingContext().ctx, sprite: undefined, structureAccentColor: (_id, fallback) => fallback },
-  afcJoinDrop: createAfcJoinDropState()
+  afcJoinDrop: createAfcJoinDropState(),
+  resourceInstallations
 });
 
 describe("remembered buildings on fogged 2D tiles", () => {
@@ -49,8 +55,10 @@ describe("remembered buildings on fogged 2D tiles", () => {
       afc: { ownerId: "p2", status: "active", modules: ["trade"] }
     };
     const now = vi.spyOn(performance, "now");
+    const wallClock = vi.spyOn(Date, "now");
     const draw = (ms: number): string[] => {
       now.mockReturnValue(ms);
+      wallClock.mockReturnValue(ms);
       const { ctx, calls } = recordingContext();
       drawRememberedStructures2D(ctx, deps(), tile, 0, 0, 32);
       return calls;
@@ -59,6 +67,28 @@ describe("remembered buildings on fogged 2D tiles", () => {
       const first = draw(1000);
       expect(first.length).toBeGreaterThan(0);
       expect(draw(9000)).toEqual(first);
-    } finally { now.mockRestore(); }
+    } finally { now.mockRestore(); wallClock.mockRestore(); }
+  });
+
+  it("draws no reveal ring on a remembered watchtower, even inside its frozen reveal window", () => {
+    // Regression: the 2D watchtower timed its reveal ring off Date.now(), so a tower fogged mid-reveal kept pulsing.
+    const draw = (tile: Tile): string[] => {
+      const { ctx, calls } = recordingContext();
+      drawRememberedStructures2D(ctx, deps(), tile, 0, 0, 32);
+      return calls;
+    };
+    const quiet = draw({ x: 3, y: 4, terrain: "LAND", watchtower: { activated: true } });
+    expect(draw({ x: 3, y: 4, terrain: "LAND", watchtower: { activated: true, revealUntil: Number.MAX_SAFE_INTEGER } })).toEqual(quiet);
+  });
+
+  it("draws a remembered resource installation (the live resource pass only runs in sight)", () => {
+    // Regression: a mine/hydrogarden/rig on its resource vanished under fog in 2D while 3D kept it.
+    const { ctx } = recordingContext();
+    const image = { complete: true, naturalWidth: 64 } as HTMLImageElement;
+    const drawCenteredOverlayWithAlpha = vi.fn();
+    const installations = { ...noInstallations, builtResourceOverlayForTile: () => image, drawCenteredOverlayWithAlpha, economicStructureOverlayAlpha: () => 0.9 };
+    const tile: Tile = { x: 1, y: 1, terrain: "LAND", resource: "IRON", economicStructure: { type: "MINE", status: "active", ownerId: "p2" } as NonNullable<Tile["economicStructure"]> };
+    drawRememberedStructures2D(ctx, deps(vi.fn(), installations), tile, 0, 0, 32);
+    expect(drawCenteredOverlayWithAlpha).toHaveBeenCalledWith(image, 0, 0, 32, 1, 0.9);
   });
 });

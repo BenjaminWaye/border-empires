@@ -1,4 +1,4 @@
-import type { IUniform, Material, MeshStandardMaterial, Object3D, Texture, WebGLProgramParametersWithUniforms, WebGLRenderer } from "three";
+import type { IUniform, Material, Object3D, Texture, WebGLProgramParametersWithUniforms, WebGLRenderer } from "three";
 import { unexploredStormClipKindOf } from "../client-map-3d-unexplored-storm/client-map-3d-unexplored-storm-clip.js";
 import { FOGGED_MIST_SHADE_GLSL } from "./client-map-3d-fogged-mist-shader.js";
 
@@ -94,7 +94,7 @@ export const applyFoggedMistHaze = (material: Material, uniforms: FoggedMistHaze
 
 /** Natural terrain (storm-clip flagged) and building materials (wired to the building environment map). */
 export const takesFoggedMistHaze = (material: Material, buildingEnvMap: Texture | undefined): boolean =>
-  Boolean(unexploredStormClipKindOf(material)) || (buildingEnvMap !== undefined && (material as MeshStandardMaterial).envMap === buildingEnvMap);
+  Boolean(unexploredStormClipKindOf(material)) || (buildingEnvMap !== undefined && "envMap" in material && material.envMap === buildingEnvMap);
 
 /**
  * Patches every hazed material (takesFoggedMistHaze) in the scene not patched yet.
