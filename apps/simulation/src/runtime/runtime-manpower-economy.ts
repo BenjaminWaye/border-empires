@@ -1,6 +1,6 @@
 import { NETWORK_RESOURCES, RESOURCE_NETWORKS } from "@border-empires/shared";
 import { economyRelevantTileFieldsChanged } from "../runtime-economy-cache-invalidation.js";
-import { LANDING_MANPOWER_RESERVE, MANPOWER_EPSILON } from "@border-empires/shared";
+import { landingManpowerReserve, MANPOWER_EPSILON } from "@border-empires/shared";
 import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { RuntimePlayer } from "../runtime-types.js";
@@ -21,6 +21,8 @@ export interface RuntimeManpowerEconomyContext {
   cachedManpowerStructureBonusForPlayer: (player: RuntimePlayer) => ManpowerStructureBonus;
   wonderCacheByPlayer: Map<string, Set<string>>;
   getAbilityCooldownUntil: (playerId: string, abilityKey: string) => number;
+  /** Active season's start time (undefined when not active or unknown) -- sizes the late-join landing reserve. */
+  seasonStartedAt?: () => number | undefined;
   settlePassiveIncome?: (player: RuntimePlayer, nowMs: number) => void;
   applyEconomyAccrual: (player: RuntimePlayer, nowMs: number) => void;
 }
@@ -119,14 +121,16 @@ export function applyManpowerRegenForPlayer(
 // A player's first manpower settle is the start of their empire: a new human
 // just joined, or an AI empire at season start (persisted players already
 // carry manpowerUpdatedAt, so nobody existing gets it). Every new empire lands
-// with the one-time LANDING_MANPOWER_RESERVE, allowed above the cap like a
-// Waystation grant. landingReserveGranted is persisted and also set on records
-// rebuilt from existing territory (runtime-gross-income-repair.ts), so it can
-// never be granted twice. Barbarians are not empires (their cap is
-// effectively unlimited -- see playerManpowerCap).
-const grantLandingManpowerReserve = (player: RuntimePlayer, cap: number): void => {
+// with the one-time landing reserve, allowed above the cap like a Waystation
+// grant; an empire landing after the season started also gets the regen its
+// starting capital would have earned since then (landingManpowerReserve).
+// landingReserveGranted is persisted and also set on records rebuilt from
+// existing territory (runtime-gross-income-repair.ts), so it can never be
+// granted twice. Barbarians are not empires (their cap is effectively
+// unlimited -- see playerManpowerCap).
+const grantLandingManpowerReserve = (ctx: RuntimeManpowerEconomyContext, player: RuntimePlayer, cap: number, nowMs: number): void => {
   if (player.id.startsWith("barbarian-") || player.landingReserveGranted) return;
-  grantOverflowManpower(player, LANDING_MANPOWER_RESERVE, cap);
+  grantOverflowManpower(player, landingManpowerReserve(nowMs, ctx.seasonStartedAt?.()), cap);
   player.landingReserveGranted = true;
 };
 
@@ -149,7 +153,7 @@ export function refreshManpowerOnlyForPlayer(
   if (!Number.isFinite(player.manpower)) {
     player.manpower = cap;
     delete player.manpowerBanked;
-    grantLandingManpowerReserve(player, cap);
+    grantLandingManpowerReserve(ctx, player, cap, nowMs);
     player.manpowerUpdatedAt = nowMs;
     player.manpowerCapSnapshot = cap;
     return;
@@ -160,7 +164,7 @@ export function refreshManpowerOnlyForPlayer(
   }
   if (!Number.isFinite(player.manpowerUpdatedAt)) {
     player.manpower = Math.max(0, Math.min(manpowerCeiling(player, cap), player.manpower));
-    grantLandingManpowerReserve(player, cap);
+    grantLandingManpowerReserve(ctx, player, cap, nowMs);
     settleWaystationManpowerOverflow(player, cap);
     player.manpowerUpdatedAt = nowMs;
     player.manpowerCapSnapshot = cap;

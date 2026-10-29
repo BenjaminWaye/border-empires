@@ -19,6 +19,7 @@ import { planDirectFrontierCommand } from "../ai/direct-frontier-planner.js";
 import { buildAiTacticalView, type AiTacticalView } from "../ai/ai-tactical-view.js";
 import { resolvePendingSettlement as resolvePendingSettlementImpl, type SettlementResolutionInput } from "./runtime-settlement-resolution.js";
 import { startSettlementProcess as startSettlementProcessImpl, type SettlementStartInput } from "./runtime-settlement-start.js";
+import { handleCancelSettleCommand as handleCancelSettleCommandImpl, type RuntimeCancelSettleContext } from "./runtime-cancel-settle.js";
 import { createIslandNamesTicker } from "../island-names/island-names-ticker.js";
 import { EventEmitter } from "node:events";
 import type { CommandEnvelope, ManpowerBreakdown, SimulationEvent } from "@border-empires/sim-protocol";
@@ -719,9 +720,11 @@ export class SimulationRuntime {
   private readonly playerCandidateIndex = new PlayerCandidateIndex();
 
   private readonly afcUpgradeRuleset: "afc-v1" | undefined;
+  private readonly seasonStartedAt: (() => number | undefined) | undefined; // late-join landing reserve, see landingManpowerReserve
 
   constructor(options: SimulationRuntimeOptions = {}) {
     this.afcUpgradeRuleset = options.initialState?.season?.afcUpgradeRuleset;
+    this.seasonStartedAt = options.seasonStartedAt;
     const seedWorld = options.initialPlayers && options.seedTiles ? undefined : createSeedWorld(options.seedProfile);
     this.now = options.now ?? (() => Date.now());
     this.persistence = options.persistence ?? new InMemorySimulationPersistence();
@@ -1548,6 +1551,7 @@ export class SimulationRuntime {
       cachedManpowerStructureBonusForPlayer: (player) => this.cachedManpowerStructureBonusForPlayer(player),
       wonderCacheByPlayer: this.wonderCacheByPlayer,
       getAbilityCooldownUntil: (playerId, abilityKey) => this.getAbilityCooldownUntil(playerId, abilityKey),
+      seasonStartedAt: () => this.seasonStartedAt?.(),
       settlePassiveIncome: (player, nowMs) => applyPassiveIncomeForPlayerImpl(this.passiveIncomeContext(), player, nowMs, PASSIVE_INCOME_INACTIVITY_CAP_MS, false),
       applyEconomyAccrual: (player, nowMs) => this.applyEconomyAccrual(player, nowMs)
     };
@@ -2752,21 +2756,17 @@ export class SimulationRuntime {
     });
   }
 
-  private handleCancelSettleCommand(command: CommandEnvelope): void {
-    const actor = this.state.players.get(command.playerId);
-    const payload = parseSettlePayload(command.payloadJson);
-    if (!actor || !payload) { this.rejectCommand(command, "BAD_COMMAND", "invalid command payload"); return; }
-    const targetKey = simulationTileKey(payload.x, payload.y);
-    const pendingSettlement = this.pendingSettlementsByTile.get(targetKey);
-    if (!pendingSettlement || pendingSettlement.ownerId !== command.playerId) {
-      this.rejectCommand(command, "SETTLE_CANCEL_INVALID", "no garrisoning in progress on tile");
-      return;
-    }
-    this.removePendingSettlement(targetKey);
-    refundSettleCost(actor, pendingSettlement.goldCost, this.playerManpowerCap(actor));
-    this.emitPlayerStateUpdate(command);
-    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
-    tryDrainDevQueueImpl(this.devQueueCommandContext(), command.playerId); // slot freed -- see tryDrainDevQueueImpl doc comment
+  private cancelSettleContext(): RuntimeCancelSettleContext {
+    return {
+      players: this.state.players,
+      pendingSettlementsByTile: this.pendingSettlementsByTile,
+      removePendingSettlement: (tileKey) => this.removePendingSettlement(tileKey),
+      playerManpowerCap: (player) => this.playerManpowerCap(player),
+      rejectCommand: (command, code, message) => this.rejectCommand(command, code, message),
+      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+      emitEvent: (event) => this.emitEvent(event),
+      drainDevQueue: (playerId) => tryDrainDevQueueImpl(this.devQueueCommandContext(), playerId)
+    };
   }
 
   // Dev/waypoint queue command handling + drain logic lives in
@@ -3367,7 +3367,7 @@ export class SimulationRuntime {
       handleCancelFortBuildCommand: (command) => handleCancelFortBuildCommandImpl(this.structureCommandContext(), command),
       handleCancelStructureBuildCommand: (command) => handleCancelStructureBuildCommandImpl(this.structureCommandContext(), command),
       handleRushBuyCommand: (command) => handleRushBuyCommandImpl(this.rushBuyCommandContext(), command),
-      handleCancelSettleCommand: (command) => this.handleCancelSettleCommand(command),
+      handleCancelSettleCommand: (command) => handleCancelSettleCommandImpl(this.cancelSettleContext(), command),
       handleRemoveStructureCommand: (command) => handleRemoveStructureCommandImpl(this.structureCommandContext(), command),
       handleCancelSiegeBatteryBuildCommand: (command) => handleCancelSiegeBatteryBuildCommandImpl(this.structureCommandContext(), command),
       handleCheckStrandedRegionCommand: (command) => handleCheckStrandedRegionCommandImpl(this.strandedFrontier, command),

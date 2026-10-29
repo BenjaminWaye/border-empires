@@ -28,9 +28,16 @@ defines what these systems mean in the fiction; follow the
 - Manpower is capped and regenerates. The always-present starting capital adds
   **720 cap** and **0.4/minute**; it is additive with towns.
 - Every new empire (a human on join, an AI empire at season start; not
-  barbarians) lands with a one-time **+1,000** manpower reserve
+  barbarians) lands with a one-time **+2,000** manpower reserve
   (`LANDING_MANPOWER_RESERVE`), granted at the player's first manpower settle
-  in `refreshManpowerOnlyForPlayer`. Like a Waystation grant it may sit above
+  in `refreshManpowerOnlyForPlayer`. An empire that lands after the season
+  started also gets a late-join catch-up: what the starting capital alone
+  (0.4/minute, **576/day**) would have regenerated since the active season's
+  `startedAt` (`landingManpowerReserve` / `lateJoinManpowerCatchUp`), so a day-5
+  joiner lands with 720 + 2,000 + 2,880. It is uncapped. Nothing is added while
+  the season is pending or ended, or when the runtime has no season clock
+  (`SimulationRuntimeOptions.seasonStartedAt`, wired by `seasonStartedAtClock`).
+  A respawn after elimination does not grant it again. Like a Waystation grant it may sit above
   the cap (tracked as `waystationManpowerOverflow`), and regen pauses until it
   is spent back under the cap.
 - **Shard Mobilization** (`SHARD_MOBILIZE`, `SHARD_MOBILIZE_SHARD_COST` = **1
