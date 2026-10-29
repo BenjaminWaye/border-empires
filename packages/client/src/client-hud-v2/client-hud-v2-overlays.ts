@@ -15,7 +15,7 @@ const LENSES: ReadonlyArray<{ id: MapLens; label: string }> = [
 
 export const OVERLAYS_HOST_ID = "hud-v2-overlays";
 
-/** Whether the lens list is unfolded; it closes on a pick, a second click, Esc or a click elsewhere. */
+/** Whether the lens list is unfolded; it closes on a pick, a second click, Esc, a click elsewhere or leaving the HUD. */
 export const lensMenu = { open: false };
 
 const lensIcon = (src: string): string => `<img class="hud-v2-lens-icon" src="${src}" alt="" aria-hidden="true" draggable="false">`;
@@ -25,10 +25,11 @@ export const activeLens = (diplomacyOn: boolean): MapLens => (diplomacyOn ? "dip
 export const overlaysHtml = (diplomacyOn: boolean, menuOpen: boolean): string => {
   const active = activeLens(diplomacyOn);
   const label = active === "terrain" ? "Map lens" : `Map lens: ${LENSES.find((l) => l.id === active)?.label}`;
-  const button = `<button type="button" class="hud-v2-lens-btn${active !== "terrain" ? " hud-v2-lens-on" : ""}" data-hud-v2-lens-toggle aria-haspopup="true" aria-expanded="${menuOpen}" aria-label="${label}" title="${label}">${lensIcon(active === "terrain" ? "/icons/simple/lens.svg" : `/icons/simple/lens-${active}.svg`)}</button>`;
+  const button = `<button type="button" class="hud-v2-lens-btn${active !== "terrain" ? " hud-v2-lens-on" : ""}" data-hud-v2-lens-toggle aria-haspopup="menu" aria-expanded="${menuOpen}" aria-label="${label}" title="${label}">${lensIcon(active === "terrain" ? "/icons/simple/lens.svg" : `/icons/simple/lens-${active}.svg`)}</button>`;
   if (!menuOpen) return button;
-  const items = LENSES.map((l) => `<button type="button" class="hud-v2-lens-item${l.id === active ? " hud-v2-lens-item-on" : ""}" data-hud-v2-lens="${l.id}" aria-pressed="${l.id === active}">${lensIcon(`/icons/simple/lens-${l.id}.svg`)}${l.label}</button>`).join("");
-  return `<div class="hud-v2-lens-menu" role="group" aria-label="Map lens">${items}</div>${button}`;
+  // One lens is always on, so the items are radio menu items; the list follows the button in tab order.
+  const items = LENSES.map((l) => `<button type="button" role="menuitemradio" class="hud-v2-lens-item${l.id === active ? " hud-v2-lens-item-on" : ""}" data-hud-v2-lens="${l.id}" aria-checked="${l.id === active}">${lensIcon(`/icons/simple/lens-${l.id}.svg`)}${l.label}</button>`).join("");
+  return `${button}<div class="hud-v2-lens-menu" role="menu" aria-label="Map lens">${items}</div>`;
 };
 
 /** Applies a click inside the lens host; true when it was a lens control. */
@@ -61,6 +62,8 @@ export const installLens = (deps: HudV2Deps, rerender: () => void): void => {
     if (!handled) return;
     if (viewChanged) deps.requestViewRefresh();
     rerender();
+    // The rerender replaced the focused button: keep keyboard focus on the lens (the checked item while open).
+    host.querySelector<HTMLElement>(lensMenu.open ? '[aria-checked="true"]' : "[data-hud-v2-lens-toggle]")?.focus();
   });
   document.addEventListener("pointerdown", (event) => {
     if (!lensMenu.open || (event.target instanceof Node && host.contains(event.target))) return;
@@ -70,7 +73,9 @@ export const installLens = (deps: HudV2Deps, rerender: () => void): void => {
   window.addEventListener("keydown", (event) => {
     if (event.key !== "Escape" || !lensMenu.open) return;
     lensMenu.open = false;
-    event.stopPropagation();
+    // onEscape listens on the same window, so only stopImmediatePropagation keeps it from also opening Settings.
+    event.stopImmediatePropagation();
     rerender();
+    host.querySelector<HTMLElement>("[data-hud-v2-lens-toggle]")?.focus();
   }, true);
 };

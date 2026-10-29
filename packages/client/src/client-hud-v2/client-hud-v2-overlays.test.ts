@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from "vitest";
-import { lensClick, lensMenu, overlaysHtml } from "./client-hud-v2-overlays.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { HudV2Deps } from "./client-hud-v2-context.js";
+import { installLens, lensClick, lensMenu, overlaysHtml, OVERLAYS_HOST_ID } from "./client-hud-v2-overlays.js";
 import { ownerStanceTagHtml } from "./client-hud-v2-stance-tag.js";
 
 const host = (html: string): HTMLElement => {
@@ -10,6 +11,10 @@ const host = (html: string): HTMLElement => {
 };
 
 describe("map lens button", () => {
+  beforeEach(() => {
+    lensMenu.open = false;
+  });
+
   it("is one notched button with no legend, and lists the lenses only while open", () => {
     const closed = host(overlaysHtml(false, false));
     expect(closed.querySelectorAll("button")).toHaveLength(1);
@@ -19,7 +24,9 @@ describe("map lens button", () => {
     expect(closed.innerHTML).not.toContain("legend");
     const open = host(overlaysHtml(false, true));
     expect(Array.from(open.querySelectorAll<HTMLElement>("[data-hud-v2-lens]")).map((b) => b.dataset.hudV2Lens)).toEqual(["terrain", "diplomacy"]);
-    expect(open.querySelector('[data-hud-v2-lens="terrain"]')?.getAttribute("aria-pressed")).toBe("true");
+    expect(open.querySelector('[data-hud-v2-lens="terrain"]')?.getAttribute("aria-checked")).toBe("true");
+    // The list follows its button in tab order.
+    expect(open.firstElementChild?.hasAttribute("data-hud-v2-lens-toggle")).toBe(true);
   });
 
   it("shows the active lens on the button", () => {
@@ -31,7 +38,6 @@ describe("map lens button", () => {
 
   it("opens the list, then a pick sets the view and folds the list", () => {
     const state = { showDiplomacyOverlay: false };
-    lensMenu.open = false;
     const toggle = host(overlaysHtml(false, false)).querySelector("[data-hud-v2-lens-toggle]")!;
     expect(lensClick(state, toggle)).toEqual({ handled: true, viewChanged: false });
     expect(lensMenu.open).toBe(true);
@@ -43,6 +49,29 @@ describe("map lens button", () => {
     const same = host(overlaysHtml(true, true)).querySelector('[data-hud-v2-lens="diplomacy"]')!;
     expect(lensClick(state, same)).toEqual({ handled: true, viewChanged: false });
     expect(lensMenu.open).toBe(false);
+  });
+});
+
+describe("installed lens", () => {
+  // Regression: the lens's Esc used stopPropagation, so the HUD's Esc on the same window still ran and opened Settings.
+  it("folds the open list on Esc without letting the HUD's own Esc handler run", () => {
+    document.body.innerHTML = `<div id="mini-map-wrap"></div><div id="${OVERLAYS_HOST_ID}" class="hud-v2-overlays"></div>`;
+    const deps = { state: { showDiplomacyOverlay: false }, requestViewRefresh: vi.fn() } as unknown as HudV2Deps;
+    const rerender = vi.fn(() => {
+      document.getElementById(OVERLAYS_HOST_ID)!.innerHTML = overlaysHtml(false, lensMenu.open);
+    });
+    installLens(deps, rerender);
+    const hudEscape = vi.fn();
+    window.addEventListener("keydown", hudEscape, true);
+    expect(document.getElementById(OVERLAYS_HOST_ID)?.parentElement?.id).toBe("mini-map-wrap");
+    lensMenu.open = true;
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(lensMenu.open).toBe(false);
+    expect(hudEscape).not.toHaveBeenCalled();
+    // With the list folded, Esc is the HUD's again.
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(hudEscape).toHaveBeenCalledTimes(1);
+    window.removeEventListener("keydown", hudEscape, true);
   });
 });
 

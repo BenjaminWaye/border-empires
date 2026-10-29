@@ -318,7 +318,7 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     document.body.classList.toggle("hud-v2-waiting", flagOn && !onScreen);
     // The lens button lives in this HUD; without it (phone width) the Diplomacy tint goes too.
     if (!flagOn && deps.state.showDiplomacyOverlay) deps.state.showDiplomacyOverlay = false;
-    if (!flagOn) lensMenu.open = false;
+    if (!onScreen) lensMenu.open = false;
     // Leaving the new HUD (phone width) must not strand a screen: a hosted profile, or a Chronicle that popups wait on.
     if (!flagOn && screen.id) closeScreen(deps, { toMap: true });
     deps.state.activityDashboard.chronicleOpen = onScreen && screen.id === "chronicle";

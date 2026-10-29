@@ -6,6 +6,7 @@
 // (town, battle) hook in through a listener; neutral land next to yours
 // expands on the click, with no bar.
 
+import { isSeaTerrain } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuTab, TileMenuView } from "../client-types.js";
 import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
@@ -102,8 +103,8 @@ const paintBar = (): void => {
   const facts = tileFactsFor(tile, view, dock.state.me);
   // A wonder's tile only knows its terrain ("Sand"); name the wonder instead.
   const wonder = wonderName(tile);
-  // Only foreign land carries a stance; sea and your own tiles have none.
-  const stanceTag = tile?.terrain === "LAND" ? ownerStanceTagHtml(tile.ownerId, dock.state, Date.now()) : "";
+  // Tagged wherever the panel names a foreign owner (any non-sea tile); your own tiles have no stance.
+  const stanceTag = tile && !isSeaTerrain(tile.terrain) ? ownerStanceTagHtml(tile.ownerId, dock.state, Date.now()) : "";
   const html = actionBarHtml(wonder && tile ? { ...view, title: `${wonder} (${tile.x}, ${tile.y})` } : view, dock.panel, facts, stanceTag);
   if (html !== dock.lastHtml) {
     // The ownership explainer ("Your frontier") is a <details>: keep it open across repaints of the same tile.

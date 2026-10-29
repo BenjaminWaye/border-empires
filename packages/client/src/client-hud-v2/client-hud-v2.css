@@ -172,9 +172,14 @@ body.hud-v2 .onb-root { bottom: 266px !important; }
 /* Map lens (client-hud-v2-overlays.ts): a round button notched into the minimap's top edge, inside #mini-map-wrap
    so it moves with the minimap. The list opens beside the minimap, level with its top edge: above it sits the
    new-empire checklist, which stacks over the whole #hud layer. */
-body:not(.hud-v2) .hud-v2-overlays { display: none; }
+body:not(.hud-v2) .hud-v2-overlays, body.hud-v2-waiting .hud-v2-overlays { display: none; }
 /* The host spans the minimap's width, so the notch centres on it and the list can anchor to its right edge. */
 #mini-map-wrap > .hud-v2-overlays { position: absolute; left: 0; right: 0; top: -18px; height: 0; z-index: 2; }
+/* Outside #hud-v2, so it takes the HUD's body font and focus ring itself. */
+.hud-v2-overlays { font-family: var(--v2-body); }
+.hud-v2-overlays :focus-visible { outline: 2px solid var(--v2-gold-hi); outline-offset: 2px; }
+/* The open list reaches past the minimap; lift the minimap over the tile panel (z-index 39) meanwhile. */
+body.hud-v2 #mini-map-wrap:has(.hud-v2-lens-menu) { z-index: 40; }
 .hud-v2-lens-btn {
   position: absolute; left: 50%; top: 0; transform: translateX(-50%); display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border-radius: 50%;
   background: var(--v2-chip); border: 2px solid var(--v2-edge-strong); box-shadow: 0 0 0 3px var(--v2-ink-solid); cursor: pointer;
