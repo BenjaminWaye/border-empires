@@ -32,7 +32,8 @@ it("renders the approved small assembly in bounded layers, moves its apron with 
     expect(position.x).toBeCloseTo(0.632);
     expect(position.z).toBeCloseTo(0.5);
     if (mesh.name === "fishing-clean-apron") {
-      const placed = new Box3().setFromBufferAttribute(mesh.geometry.getAttribute("position")).applyMatrix4(matrix);
+      mesh.geometry.computeBoundingBox();
+      const placed = mesh.geometry.boundingBox!.clone().applyMatrix4(matrix);
       expect(placed.max.x).toBeCloseTo(1);
       const material = mesh.material as MeshStandardMaterial;
       expect(material.map).toBeNull();
