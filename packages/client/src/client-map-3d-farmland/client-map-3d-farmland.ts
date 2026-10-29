@@ -1,3 +1,4 @@
+import { farmlandYawAt } from "../client-food-tile-placement.js";
 // Farm plot drawn on every FARM resource tile in the 3D renderer. Replaces
 // the earlier procedural shell-stack barley field.
 //
@@ -54,14 +55,7 @@ export type FarmlandOverlay = {
 
 type Placement = { readonly x: number; readonly y: number; readonly z: number; readonly yaw: number };
 
-// One of 0, 90, 180, 270 degrees, stable per world tile.
-export const farmlandYawAt = (worldX: number, worldZ: number): number => {
-  let h = (worldX * 374761393) ^ (worldZ * 668265263);
-  h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
-  h = (h ^ (h >>> 16)) >>> 0;
-  return ((h % 4) * Math.PI) / 2;
-};
-
+export { farmlandYawAt } from "../client-food-tile-placement.js";
 type LoadedFarmland = { readonly geometry: BufferGeometry };
 
 let cached: Promise<LoadedFarmland> | undefined;

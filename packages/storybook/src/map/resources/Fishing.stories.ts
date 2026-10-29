@@ -8,8 +8,7 @@ import { createStage, wrapWithCleanup } from "../../fixtures/three-stage.js";
 // The fish-basin model placed on the real game terrain: the production heightfield,
 // hill domes and atmosphere (sun, fog, environment map), with fishing tiles
 // laid out the way FISH resource tiles appear in play — a few adjacent
-// sites facing each shore of a lake, plus one inland. The model
-// has no ground plate, so the terrain shows underneath.
+// sites facing each shore of a lake, plus one inland. The smaller site has a clean gray apron and moves toward adjacent water.
 const CENTER = 100;
 
 type Args = {
@@ -31,7 +30,7 @@ const tileKindAt = (wx: number, wy: number): HeightfieldTerrainKind => (isWater(
 
 const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, cameraTilt: args.cameraTilt, background: "#1a2030" });
-  const atmosphere = createResourcePreviewAtmosphere(stage.scene);
+  const atmosphere = createResourcePreviewAtmosphere(stage.scene, stage.renderer);
   const hf = createHeightfield();
   stage.scene.add(hf.mesh, hf.skirtMesh, hf.gridlines);
   hf.setGridlinesVisible(args.showGridlines);
@@ -48,7 +47,7 @@ const render = (args: Args): HTMLElement => {
     atmosphere.dispose, hf.dispose, hills.dispose
   ];
 
-  const overlay = createFishingOverlay(stage.scene, FISH_TILES.length, atmosphere.buildingEnvironmentTexture);
+  const overlay = createFishingOverlay(stage.scene, FISH_TILES.length, atmosphere.buildingEnvironmentTexture, hf.cornerYAt);
   for (const [dx, dy] of FISH_TILES) overlay.addInstance(dx + 0.5, dy + 0.5, surfaceYAt(dx + CENTER, dy + CENTER), dx + CENTER, dy + CENTER, fishingWaterDirection(isWater, dx + CENTER, dy + CENTER));
   overlay.commit();
   cleanups.push(overlay.dispose);
@@ -76,7 +75,7 @@ export const BasinDetail: Story = {
     const stage = createStage({ cameraDistance: 1.7, cameraTilt: 0.85, background: "#202c29" });
     stage.camera.position.set(1.1, 1.15, 1.4);
     stage.camera.lookAt(0, 0.12, 0);
-    const atmosphere = createResourcePreviewAtmosphere(stage.scene);
+    const atmosphere = createResourcePreviewAtmosphere(stage.scene, stage.renderer);
     const overlay = createFishingOverlay(stage.scene, 1, atmosphere.buildingEnvironmentTexture);
     overlay.addInstance(0, 0, 0, 100, 100, { dx: 1, dy: 0 });
     overlay.commit();

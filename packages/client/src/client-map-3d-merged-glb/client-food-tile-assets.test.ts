@@ -3,7 +3,7 @@ import { Box3, Mesh, Raycaster, Vector3 } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { describe, expect, it } from "vitest";
 import { FARMLAND_MODEL_URL } from "../client-map-3d-farmland/client-map-3d-farmland.js";
-import { FISHING_MODEL_URL } from "../client-map-3d-fishing/client-map-3d-fishing.js";
+const FISHING_MODEL_URL = "/models/fishing-detailed.glb";
 
 const load = (url: string) => {
   const bytes = readFileSync(new URL(`../../public${url}`, import.meta.url));

@@ -7,10 +7,9 @@ import { createForest } from "@client/client-map-3d-forest.js";
 import { createFarmlandOverlay } from "@client/client-map-3d-farmland/client-map-3d-farmland.js";
 import { createTownOverlay } from "@client/client-map-3d-town-overlay.js";
 import { createDistrictOverlay } from "@client/client-town-district/district-overlay.js";
-import { fishingModelFitMatrix } from "@client/client-map-3d-fishing/client-map-3d-fishing.js";
+import { createFishingOverlay, fishingModelFitMatrix } from "@client/client-map-3d-fishing/client-map-3d-fishing.js";
 import { applyBuildingEnvMap } from "@client/client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 import { createResourcePreviewAtmosphere } from "../../fixtures/resource-preview-atmosphere.js";
-import { createFishStudyApronMaterial } from "../../fixtures/fish-study-apron-material.js";
 import { createFishStudyFoundation } from "../../fixtures/fish-study-foundation.js";
 import { createStage, wrapWithCleanup } from "../../fixtures/three-stage.js";
 
@@ -65,43 +64,43 @@ const render = ({ cameraDistance, compact }: Args, comparison = false): HTMLElem
     forest.addInstance(x + 0.5, z + 0.5, surface(x, z), CENTER + x, CENTER + z);
   }
   forest.commit();
-  // Move the entire smaller site, keeping the model centered on its apron.
-  const siteOffsetX = compact ? 0.132 : 0;
-  const foundation = createFishStudyFoundation(corners(0, 0), compact ? { inset: 0.132, lift: 0.003 } : {});
-  const apronFinish = compact ? createFishStudyApronMaterial() : undefined;
-  const foundationMaterial = apronFinish?.material ?? new MeshStandardMaterial({ color: "#8e9088", roughness: 0.94 });
-  const apron = new Mesh(foundation.geometry, foundationMaterial);
-  apron.position.x = siteOffsetX;
-  apron.receiveShadow = true;
-  stage.scene.add(apron);
-  let disposed = false;
-  let releaseModel = (): void => {};
-  new GLTFLoader().load(compact ? "/studies/fishing-style-compact.glb" : "/studies/fishing-style-proposal.glb", gltf => {
-    const model = gltf.scene;
-    model.updateMatrixWorld(true);
-    const bounds = new Box3().setFromObject(model, true);
-    if (compact) {
-      // The Blender export already uses tile units. Re-fitting would undo the uniform assembly scale.
-      model.position.set(0.5 + siteOffsetX - (bounds.min.x + bounds.max.x) / 2,
-        foundation.topY + 0.001 - bounds.min.y, 0.5 - (bounds.min.z + bounds.max.z) / 2);
-    } else {
+  let releaseSite = (): void => {};
+  if (compact) {
+    const fish = createFishingOverlay(stage.scene, 1, atmosphere.buildingEnvironmentTexture,
+      (x, z) => terrain.cornerYAt(x, z));
+    fish.addInstance(0.5, 0.5, surface(0, 0), CENTER, CENTER, { dx: 1, dy: 0 });
+    fish.commit();
+    releaseSite = fish.dispose;
+  } else {
+    const foundation = createFishStudyFoundation(corners(0, 0));
+    const foundationMaterial = new MeshStandardMaterial({ color: "#8e9088", roughness: 0.94 });
+    const apron = new Mesh(foundation.geometry, foundationMaterial);
+    apron.receiveShadow = true;
+    stage.scene.add(apron);
+    let disposed = false;
+    let releaseModel = (): void => {};
+    new GLTFLoader().load("/studies/fishing-style-proposal.glb", gltf => {
+      const model = gltf.scene;
+      model.updateMatrixWorld(true);
+      const bounds = new Box3().setFromObject(model, true);
       model.applyMatrix4(fishingModelFitMatrix(bounds));
       model.position.set(0.5, foundation.topY + 0.001, 0.5);
-    }
-    model.traverse(node => {
-      if (!(node instanceof Mesh)) return;
-      node.castShadow = node.receiveShadow = true;
-      for (const material of Array.isArray(node.material) ? node.material : [node.material]) {
-        if (material instanceof MeshStandardMaterial) applyBuildingEnvMap(material, atmosphere.buildingEnvironmentTexture);
-      }
+      model.traverse(node => {
+        if (!(node instanceof Mesh)) return;
+        node.castShadow = node.receiveShadow = true;
+        for (const material of Array.isArray(node.material) ? node.material : [node.material]) {
+          if (material instanceof MeshStandardMaterial) applyBuildingEnvMap(material, atmosphere.buildingEnvironmentTexture);
+        }
+      });
+      releaseModel = () => model.traverse(node => {
+        if (!(node instanceof Mesh)) return;
+        node.geometry.dispose();
+        for (const material of Array.isArray(node.material) ? node.material : [node.material]) material.dispose();
+      });
+      if (disposed) releaseModel(); else stage.scene.add(model);
     });
-    releaseModel = () => model.traverse(node => {
-      if (!(node instanceof Mesh)) return;
-      node.geometry.dispose();
-      for (const material of Array.isArray(node.material) ? node.material : [node.material]) material.dispose();
-    });
-    if (disposed) releaseModel(); else stage.scene.add(model);
-  });
+    releaseSite = () => { disposed = true; releaseModel(); foundation.geometry.dispose(); foundationMaterial.dispose(); };
+  }
   let raf = 0;
   const tick = (): void => {
     water.tick(performance.now());
@@ -110,8 +109,7 @@ const render = ({ cameraDistance, compact }: Args, comparison = false): HTMLElem
   };
   tick();
   const container = wrapWithCleanup(stage, [() => {
-    disposed = true; cancelAnimationFrame(raf); releaseModel(); foundation.geometry.dispose();
-    if (apronFinish) apronFinish.dispose(); else foundationMaterial.dispose();
+    cancelAnimationFrame(raf); releaseSite();
   }, terrain.dispose, atmosphere.dispose, water.dispose, towns.dispose, districts.dispose, farms.dispose, forest.dispose]);
   const label = document.createElement("div");
   label.textContent = compact ? "NEW · 80% scale · whole site moved to water" : "OLD · previous full-size proposal";

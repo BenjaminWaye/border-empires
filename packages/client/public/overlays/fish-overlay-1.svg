@@ -1,24 +1,23 @@
 <svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
 <defs>
-<linearGradient id="basin1wall"><stop stop-color="#657b7a"/><stop offset=".45" stop-color="#b3bdb0"/><stop offset="1" stop-color="#526866"/></linearGradient>
-<linearGradient id="basin1water" x2="0" y2="1"><stop stop-color="#263f48"/><stop offset="1" stop-color="#45686e"/></linearGradient>
-<linearGradient id="basin1steel"><stop stop-color="#d6c48a"/><stop offset="1" stop-color="#8a7846"/></linearGradient>
+<linearGradient id="basin1wall"><stop stop-color="#3a3e46"/><stop offset=".45" stop-color="#5d6066"/><stop offset="1" stop-color="#25282e"/></linearGradient>
+<linearGradient id="basin1water" x2="0" y2="1"><stop stop-color="#4f8fae"/><stop offset="1" stop-color="#45686e"/></linearGradient>
+<linearGradient id="basin1steel"><stop stop-color="#c9a05a"/><stop offset="1" stop-color="#8b6c3d"/></linearGradient>
 </defs>
 <ellipse cx="65" cy="100" rx="52" ry="15" fill="#132c2d" opacity=".25"/>
-<path d="M12 71L49 50L91 74V88L54 110L12 86Z" fill="#465758" stroke="#8a9b8f"/>
-<path d="M12 71L49 50L91 74L54 96Z" fill="#7a897c"/>
-<path d="M19 72L54 92L83 75M25 69L60 89M32 65L67 85M39 61L74 81" stroke="#526461" stroke-width="1.2"/>
+<path d="M8 74L54 48L122 87V90L79 116L8 77Z" fill="#5d6066"/>
+<path d="M8 74L54 48L122 87L79 113Z" fill="#858880"/>
 <path d="M18 57V35L38 25L54 34V57L37 68Z" fill="url(#basin1wall)" stroke="#334e52"/>
 <path d="M16 35L36 22L56 33L38 46Z" fill="#8e9c90" stroke="#c1c9b3"/>
 <path d="M23 43L33 49V60L23 55Z" fill="#29454d"/>
 <path d="M42 48L51 43V49L42 54Z" fill="#36585d" stroke="#abb69d"/>
 <path d="M64 53V64C64 79 112 79 112 64V53Z" fill="url(#basin1wall)" stroke="#4d6263"/>
-<ellipse cx="88" cy="53" rx="24" ry="12" fill="#bdc8b9" stroke="#566e70" stroke-width="1.2"/>
+<ellipse cx="88" cy="53" rx="24" ry="12" fill="#c9a05a" stroke="#566e70" stroke-width="1.2"/>
 <ellipse cx="88" cy="53" rx="20" ry="8.5" fill="url(#basin1water)" stroke="#394e53" stroke-width="1.5"/>
 <path d="M78 56Q88 61 99 55" stroke="#83acab" stroke-width="1.1" opacity=".7"/>
 <path d="M86 66V78M93 66V78M86 71H93M86 75H93" stroke="#d3d5ba" stroke-width="1.5"/>
 <path d="M64 84V95C64 110 112 110 112 95V84Z" fill="url(#basin1wall)" stroke="#4d6263"/>
-<ellipse cx="88" cy="84" rx="24" ry="12" fill="#bdc8b9" stroke="#566e70" stroke-width="1.2"/>
+<ellipse cx="88" cy="84" rx="24" ry="12" fill="#c9a05a" stroke="#566e70" stroke-width="1.2"/>
 <ellipse cx="88" cy="84" rx="20" ry="8.5" fill="url(#basin1water)" stroke="#394e53" stroke-width="1.5"/>
 <path d="M78 87Q88 92 99 86" stroke="#83acab" stroke-width="1.1" opacity=".7"/>
 <path d="M86 97V109M93 97V109M86 102H93M86 106H93" stroke="#d3d5ba" stroke-width="1.5"/>

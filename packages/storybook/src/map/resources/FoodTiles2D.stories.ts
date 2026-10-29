@@ -1,3 +1,4 @@
+import { overlaySrc } from "@client/client-map-render/client-map-overlay-images.js";
 import type { Meta, StoryObj } from "@storybook/html-vite";
 
 const meta: Meta = {
@@ -9,8 +10,8 @@ const meta: Meta = {
       <p>Farm and fishing scenes at detail and gameplay scales.</p>
       ${["farm", "fish"].map((kind) => `<div style="display:flex;gap:24px;margin:32px 0;align-items:center">
         ${[1, 2, 3].map((variant) => `<div style="background:#536448;border:1px solid #7b8767;padding:8px">
-          <img width="160" height="160" alt="${kind} variant ${variant}" src="/overlays/${kind}-overlay-${variant}.svg"></div>`).join("")}
-        <div style="display:flex;background:#536448;padding:8px">${[1, 2, 3].map((variant) => `<img width="48" height="48" alt="${kind} at map scale" src="/overlays/${kind}-overlay-${variant}.svg">`).join("")}</div>
+          <img width="160" height="160" alt="${kind} variant ${variant}" src="${overlaySrc(`${kind}-overlay-${variant}.svg`)}"></div>`).join("")}
+        <div style="display:flex;background:#536448;padding:8px">${[1, 2, 3].map((variant) => `<img width="48" height="48" alt="${kind} at map scale" src="${overlaySrc(`${kind}-overlay-${variant}.svg`)}">`).join("")}</div>
       </div>`).join("")}`;
     return page;
   }

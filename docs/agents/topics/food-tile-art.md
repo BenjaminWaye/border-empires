@@ -2,22 +2,19 @@
 
 Status: task reference
 
-The 3D food overlays use `farmland-detailed.glb` and `fishing-detailed.glb`.
+The shipped 3D food overlays use `farmland-detailed.glb` and `fishing-site.glb`.
 The original `farmland.glb` and `fishing2.glb` remain untouched source exports.
-Rebuild both detailed assets with `node scripts/bake-food-tile-models.mjs`.
-The script adds the small props in `scripts/food-tile-detail.mjs`, adjusts the
-palette, bakes deterministic hemisphere ambient occlusion into vertex colours,
-and generates box-projected UVs. Baking takes a few minutes; it never runs in
-the client. Each result remains one instanced mesh and one draw call per family.
+The farm retains one instanced mesh, baked ambient occlusion and surface grain.
+Rebuild it (and the intermediate `fishing-detailed.glb` art reference) with
+`node scripts/bake-food-tile-models.mjs`. Baking runs offline only.
+Preserve crop-bed height: battle marines use `FARMLAND_STAND_LIFT`.
 
-The merged GLB loader must retain baked colour and UV attributes. The food
-material uses one small mipmapped procedural grain texture for bump and roughness;
-disposing the material releases that texture. No new animation or frame-loop work
-is needed. Preserve crop-bed height: battle marines use `FARMLAND_STAND_LIFT`.
-Fishing sites retain the original holding basins and loading hoists. Do not add
-wooden bridges, drying racks or boats between them.
-The source export has double-sided surfaces; retain `DoubleSide` so the open
-basins and hoist components remain visible. Fishing props face adjacent water through the existing `fishingYawFor` function.
+The approved fish site uses the intact Blender proposal uniformly scaled to 80%,
+with its original holding basins and loading hoists. It has three material
+layers and a fourth instanced layer for the plain gray apron. See the approved
+runtime integration below for placement, material and lifecycle details.
+Retain `DoubleSide` for the original open/reflected surfaces. Do not introduce
+wooden bridges, drying racks or boats between the tanks.
 
 The 2D fallback loads three SVG variants per resource from `public/overlays/`.
 Both renderers must be maintained when changing these food tiles. Review the
@@ -30,9 +27,9 @@ Focused checks: client Vitest directories `client-map-3d-merged-glb`,
 Lore reviewed; no canon change. This is a visual update to existing production
 sites, with no change to resource output, buildings or capabilities.
 
-## Blender style study (27 October 2026)
+## Blender style study (27 October 2026, authoring history)
 
-The Blender study is a proposal, not a runtime asset replacement. Export the
+The initial Blender study was a proposal; its approved smaller derivative is now integrated below. Export the
 actual Hydroworks and Manufactory reference geometry with
 `node scripts/export-food-style-reference.mjs <output-directory>`, then run
 `blender --background --factory-startup --python scripts/blender-fish-basin-study.py -- <repo-directory> <output-directory>`.
@@ -110,3 +107,28 @@ review: they read as graphic marks instead of surface detail. Keep the apron qui
 
 The compact apron uses a solid matte gray material, with no noise texture or
 damp patches, following the request for a cleaner surface.
+
+## Approved runtime integration
+
+The smaller intact assembly is now the shipped fish model at
+`packages/client/public/models/fishing-site.glb`. The game-context story uses
+`createFishingOverlay` directly for its smaller variant, so the reviewed scene
+exercises the production renderer. Body, metal and water are merged into three
+shared geometries with distinct material responses; all sites share those
+geometries. A fourth instanced layer supplies the clean, uniform gray apron.
+Its skirt is buried below the lowest sampled terrain corner; the top remains
+level at the existing site surface plus 0.003. This avoids terrain gaps without
+allocating geometry per tile. Materials and instance buffers are disposed per
+overlay; the three shared model geometries remain a fixed page-lifetime cache.
+
+Both model and apron shift 0.132 tiles toward edge-adjacent water. Diagonal-only
+placements use 0.01 to keep the rotated chamfered apron inside its tile. Inland
+sites retain their stable rotation and stay centered. The original component
+layout is preserved; there are no racks, bridges, cross-shaped joints, edge
+stripes, noise maps or damp patches on the fish apron.
+
+The 2D fallback uses the smaller sprite scale, clean gray foundation, cool
+stone/iron/brass/blue palette and the same shoreline offset. Its isometric
+sprite orientation remains fixed, as with the other 2D resource artwork.
+Farms retain the earlier baked shading and surface grain. The Blender and
+full-size study assets remain authoring references; they are not game URLs.
