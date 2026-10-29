@@ -74,7 +74,7 @@ export type AfcModuleSocketAttachment = {
 
 export type FabricationComplexOverlay = {
   readonly clear: () => void;
-  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number) => number;
+  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, frozen?: boolean) => number;
   readonly commit: () => void;
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
@@ -371,7 +371,8 @@ export const createFabricationComplexOverlay = (scene: Scene, maxTiles: number, 
   const dotMesh = slots.get("dot")?.mesh;
   const animatedMeshes: readonly InstancedMesh[] = [coreMesh, dotMesh].filter((mesh): mesh is InstancedMesh => mesh !== undefined);
 
-  type AfcRecord = { readonly x: number; readonly y: number; readonly z: number; readonly phase: number };
+  // frozen: remembered under fog, so the core holds still and the dots stop orbiting.
+  type AfcRecord = { readonly x: number; readonly y: number; readonly z: number; readonly phase: number; readonly frozen: boolean };
   const records: AfcRecord[] = [];
 
   // ─── Public API ─────────────────────────────────────────────────────
@@ -380,11 +381,11 @@ export const createFabricationComplexOverlay = (scene: Scene, maxTiles: number, 
     records.length = 0;
   };
 
-  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number): number => {
+  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, frozen = false): number => {
     if (records.length >= C) return -1;
     const hash = ((worldTileX * 92_821) ^ (worldTileY * 68_917)) >>> 0;
     const phase = ((hash % 1000) / 1000) * Math.PI * 2;
-    records.push({ x: sceneX, y: surfaceY, z: sceneZ, phase });
+    records.push({ x: sceneX, y: surfaceY, z: sceneZ, phase, frozen });
     addAfc(sceneX, surfaceY, sceneZ);
     return records.length - 1;
   };
@@ -405,7 +406,8 @@ export const createFabricationComplexOverlay = (scene: Scene, maxTiles: number, 
     if (count === 0) return;
     for (let i = 0; i < count; i += 1) {
       const rec = records[i]!;
-      const breathe = 1 + 0.14 * Math.sin(nowMs * CORE_SPEED + rec.phase);
+      const clock = rec.frozen ? 0 : nowMs;
+      const breathe = 1 + 0.14 * Math.sin(clock * CORE_SPEED + rec.phase);
       if (coreMesh) {
         position.set(rec.x, rec.y + 0.46, rec.z);
         scale.set(breathe, breathe, breathe);
@@ -414,7 +416,7 @@ export const createFabricationComplexOverlay = (scene: Scene, maxTiles: number, 
       }
       if (dotMesh) {
         for (let j = 0; j < DOTS; j += 1) {
-          const a = nowMs * DOT_SPEED + rec.phase + j * Math.PI;
+          const a = clock * DOT_SPEED + rec.phase + j * Math.PI;
           position.set(rec.x + Math.cos(a) * DOT_R[j]!, rec.y + DOT_YS[j]!, rec.z + Math.sin(a) * DOT_R[j]!);
           scale.set(1, 1, 1);
           matrix.compose(position, identityQuat, scale);

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Tile } from "../client-types.js";
+import { createAfcJoinDropState } from "../client-afc-join-drop/client-afc-join-drop-state.js";
 import { REMEMBERED_STRUCTURE_ALPHA_2D, drawRememberedStructures2D, type RememberedStructures2DDeps } from "./client-remembered-structures-2d.js";
 
 // Records every canvas call with the alpha it ran at, so two draws can be compared.
@@ -26,7 +27,8 @@ const deps = (drawTownOverlay = vi.fn()): RememberedStructures2DDeps => ({
   drawTownOverlay,
   fortificationOverlayImageFor: () => undefined,
   fortificationDeps: { tiles: new Map(), keyFor: (x, y) => `${x},${y}`, wrapX: (x) => x, wrapY: (y) => y },
-  aetherTowerSprite: { ctx: recordingContext().ctx, sprite: undefined, structureAccentColor: (_id, fallback) => fallback }
+  aetherTowerSprite: { ctx: recordingContext().ctx, sprite: undefined, structureAccentColor: (_id, fallback) => fallback },
+  afcJoinDrop: createAfcJoinDropState()
 });
 
 describe("remembered buildings on fogged 2D tiles", () => {
@@ -34,15 +36,18 @@ describe("remembered buildings on fogged 2D tiles", () => {
     const { ctx } = recordingContext();
     let alphaAtDraw = 0;
     const drawTown = vi.fn(() => { alphaAtDraw = ctx.globalAlpha; });
-    const tile: Tile = { x: 1, y: 1, terrain: "LAND", town: { type: "MARKET", populationTier: "TOWN" } as Tile["town"] };
+    const tile: Tile = { x: 1, y: 1, terrain: "LAND", town: { type: "MARKET", populationTier: "TOWN" } as NonNullable<Tile["town"]> };
     drawRememberedStructures2D(ctx, deps(drawTown), tile, 0, 0, 32);
     expect(drawTown).toHaveBeenCalledWith(tile, 0, 0, 32);
     expect(alphaAtDraw).toBeCloseTo(REMEMBERED_STRUCTURE_ALPHA_2D);
     expect(ctx.globalAlpha).toBe(1);
   });
 
-  it("draws watchtowers and waystations standing still, whatever the time", () => {
-    const tile: Tile = { x: 3, y: 4, terrain: "LAND", watchtower: { activated: false }, waystation: { activated: false } as Tile["waystation"] };
+  it("draws watchtowers, waystations and AFCs standing still, whatever the time", () => {
+    const tile: Tile = {
+      x: 3, y: 4, terrain: "LAND", watchtower: { activated: false }, waystation: { activated: false } as NonNullable<Tile["waystation"]>,
+      afc: { ownerId: "p2", status: "active", modules: ["trade"] }
+    };
     const now = vi.spyOn(performance, "now");
     const draw = (ms: number): string[] => {
       now.mockReturnValue(ms);

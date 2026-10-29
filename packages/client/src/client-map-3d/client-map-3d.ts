@@ -392,7 +392,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     visibilityAt: deps.tileVisibilityStateAt, cornerYAt: (x, y) => heightfield.cornerYAt(x, y), isHillsAt: isHillsTile,
     hillCutAt: (x, y) => latestHillCutAt(x, y), rise: OVERLAY_RISE_ABOVE_HEIGHTFIELD, qualityTier }, atmosphere.buildingEnvironmentTexture);
   const buildingInstanceOverlays = { structureOverlay, umbriteExtractionRigOverlay, umbriteWeaponsFactoryOverlay, tradeNexusOverlay, ambaricTransformerOverlay, contactShadowOverlay, observatoryCooldownBadgeOverlay, district };
-  const rememberedBuildingLayers = { townOverlay, dockOverlay, watchtowerOverlay, waystationOverlay, buildings: buildingInstanceOverlays, fortifications: fortificationInstanceOverlays }; // fogged tiles: last-seen buildings, standing still
+  const rememberedBuildingLayers = { townOverlay, dockOverlay, watchtowerOverlay, waystationOverlay, afcOverlay: afcOverlayGroup, buildings: buildingInstanceOverlays, fortifications: fortificationInstanceOverlays }; // fogged tiles: last-seen buildings, standing still
   const nameDecal = createNameDecalForMap({ scene, state: deps.state, isExploredAt: (x, y) => revealWholeMapInTrue3DMode || deps.tileVisibilityStateAt(x, y, deps.state.tiles.get(deps.keyFor(x, y))) !== "unexplored", heightfield, isHillsAt: isHillsTile, hillCutAt: () => latestHillCutAt, rise: OVERLAY_RISE_ABOVE_HEIGHTFIELD, wrapX: deps.wrapX, wrapY: deps.wrapY, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT }); // map names inked on the ground
   const placeLineMarkers = (
     pool: Array<{ marker: LineSegments }>,
@@ -811,7 +811,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           // FRONTIER excluded: ephemeral claim, so tinting stale fog data as "still his" is misleading -- stacked on the fog darkening it just read as a dark disconnected box
           if (terrain === "LAND" && ownerId && ownershipState !== "FRONTIER") addFoggedOverlayTile(fogOwnershipOverlay, fogTile, tmpOwnerColor.set(normalizeColorForThree(deps.effectiveOverlayColor(ownerId))));
           if (terrain === "LAND") tileIntel3D.addTile(tile, visibility, x, z, flatOverlayY); // Diplomacy tint covers remembered land too, as in 2D
-          if (tile && terrain === "LAND" && deps.tileVisibilityStateAt(wx, wy, tile) === "fogged") addRememberedBuildingsForTile(tile, { x, z, surfaceY, wx, wy, tileKey }, rememberedBuildingLayers, rememberedBuildingContext);
+          if (tile && terrain === "LAND" && deps.tileVisibilityStateAt(wx, wy, tile) === "fogged") addRememberedBuildingsForTile(tile, { x, z, surfaceY, flatOverlayY, wx, wy, tileKey }, rememberedBuildingLayers, rememberedBuildingContext);
           // Natural terrain is not live data, so it stays -- fogged like its ground.
           const featureTint = printAsFogged ? fogFeatureTint : undefined;
           if (terrain === "MOUNTAIN") mountainMassifs.addInstance(x, z, surfaceY, wx, wy, featureTint);

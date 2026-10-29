@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Tile } from "../client-types.js";
 import { addRememberedBuildingsForTile, type RememberedBuildingContext } from "./client-map-3d-remembered-buildings.js";
+import { createAfcJoinDropState } from "../client-afc-join-drop/client-afc-join-drop-state.js";
 
 // Regression: buildings on fogged tiles used to vanish in 3D (the fog branch of
 // the terrain rebuild drew only the ground). They now stay as last seen, but
@@ -12,6 +13,7 @@ const layers = () => {
     dockOverlay: { addInstance: vi.fn() },
     watchtowerOverlay: { addInstance: vi.fn() },
     waystationOverlay: { addInstance: vi.fn() },
+    afcOverlay: { addAfc: vi.fn() },
     buildings: {
       contactShadowOverlay,
       structureOverlay: { addInstance: vi.fn() },
@@ -30,22 +32,22 @@ const layers = () => {
   };
 };
 
-const context = (tiles: Map<string, Tile>, dockEndpointKeys = new Set<string>()): RememberedBuildingContext => ({
-  state: { tiles, tilesRevision: 1, me: "me", siegeAimOverrides: new Map() },
+const context = (tiles: Map<string, Tile>, dockEndpointKeys = new Set<string>(), afcJoinDrop = createAfcJoinDropState()): RememberedBuildingContext => ({
+  state: { tiles, tilesRevision: 1, me: "me", siegeAimOverrides: new Map(), afcJoinDrop },
   keyFor: (x, y) => `${x},${y}`, wrapX: (x) => x, wrapY: (y) => y,
   terrainAt: (x) => (x > 5 ? "SEA" : "LAND"), elevationAt: () => 0.1, dockEndpointKeys, rebuildStartAt: 0
 });
 
-const site = { x: 1, z: 2, surfaceY: 0.3, wx: 5, wy: 5, tileKey: "5,5" };
+const site = { x: 1, z: 2, surfaceY: 0.3, flatOverlayY: 0.2, wx: 5, wy: 5, tileKey: "5,5" };
 
 describe("remembered buildings on fogged 3D tiles", () => {
   it("draws the town, watchtower, waystation and dock standing still", () => {
     const target = layers();
     const tile: Tile = {
       x: 5, y: 5, terrain: "LAND", dockId: "d1",
-      town: { type: "MARKET", populationTier: "CITY" } as Tile["town"],
+      town: { type: "MARKET", populationTier: "CITY" } as NonNullable<Tile["town"]>,
       watchtower: { activated: false, revealUntil: Number.MAX_SAFE_INTEGER },
-      waystation: { activated: false } as Tile["waystation"]
+      waystation: { activated: false } as NonNullable<Tile["waystation"]>
     };
     addRememberedBuildingsForTile(tile, site, target, context(new Map([["5,5", tile]])));
     expect(target.townOverlay.addInstance).toHaveBeenCalledWith(1, 2, 0.3, "CITY", 5, 5, true);
@@ -58,8 +60,8 @@ describe("remembered buildings on fogged 3D tiles", () => {
     const target = layers();
     const tile: Tile = {
       x: 5, y: 5, terrain: "LAND", ownerId: "me",
-      economicStructure: { type: "MANUFACTORY", status: "under_construction", ownerId: "me", completesAt: Number.MAX_SAFE_INTEGER } as Tile["economicStructure"],
-      observatory: { status: "active", ownerId: "me", cooldownUntil: Number.MAX_SAFE_INTEGER } as Tile["observatory"]
+      economicStructure: { type: "MANUFACTORY", status: "under_construction", ownerId: "me", completesAt: Number.MAX_SAFE_INTEGER } as NonNullable<Tile["economicStructure"]>,
+      observatory: { status: "active", ownerId: "me", cooldownUntil: Number.MAX_SAFE_INTEGER } as NonNullable<Tile["observatory"]>
     };
     addRememberedBuildingsForTile(tile, site, target, context(new Map([["5,5", tile]])));
     expect(target.buildings.structureOverlay.addInstance).toHaveBeenCalledWith(1, 2, 0.3, "MANUFACTORY", undefined, undefined, true);
@@ -69,14 +71,26 @@ describe("remembered buildings on fogged 3D tiles", () => {
 
   it("freezes siege towers and relay beacons", () => {
     const tower = layers();
-    const towerTile: Tile = { x: 5, y: 5, terrain: "LAND", siegeBattery: { status: "active", ownerId: "p2", variant: "SIEGE_TOWER" } as Tile["siegeBattery"] };
+    const towerTile: Tile = { x: 5, y: 5, terrain: "LAND", siegeBattery: { status: "active", ownerId: "p2", variant: "SIEGE_TOWER" } as NonNullable<Tile["siegeBattery"]> };
     addRememberedBuildingsForTile(towerTile, site, tower, context(new Map([["5,5", towerTile]])));
     expect(tower.fortifications.siegeTowerOverlay.addInstance).toHaveBeenCalledWith(1, 2, 0.3, 5, 5, "SIEGE_TOWER", true);
 
     const beacon = layers();
-    const beaconTile: Tile = { x: 5, y: 5, terrain: "LAND", economicStructure: { type: "RELAY_BEACON", status: "active", ownerId: "p2" } as Tile["economicStructure"] };
+    const beaconTile: Tile = { x: 5, y: 5, terrain: "LAND", economicStructure: { type: "RELAY_BEACON", status: "active", ownerId: "p2" } as NonNullable<Tile["economicStructure"]> };
     addRememberedBuildingsForTile(beaconTile, site, beacon, context(new Map([["5,5", beaconTile]])));
     expect(beacon.fortifications.relayBeaconOverlay.addInstance).toHaveBeenCalledWith(1, 2, 0.3, 5, 5, true, undefined);
+  });
+
+  it("draws the AFC and its docked modules standing still, unless it is still landing", () => {
+    const target = layers();
+    const tile: Tile = { x: 5, y: 5, terrain: "LAND", afc: { ownerId: "p2", status: "active", modules: ["trade", "radar"] } };
+    addRememberedBuildingsForTile(tile, site, target, context(new Map([["5,5", tile]])));
+    expect(target.afcOverlay.addAfc).toHaveBeenCalledWith(1, 2, 0.2, 5, 5, ["trade", "radar"], true);
+
+    const landing = layers();
+    const drop = { ...createAfcJoinDropState(), phase: "waiting" as const, x: 5, y: 5 };
+    addRememberedBuildingsForTile(tile, site, landing, context(new Map([["5,5", tile]]), new Set(), drop));
+    expect(landing.afcOverlay.addAfc).not.toHaveBeenCalled();
   });
 
   it("draws nothing on water", () => {
