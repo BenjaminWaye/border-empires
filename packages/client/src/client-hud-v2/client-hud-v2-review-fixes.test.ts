@@ -67,9 +67,9 @@ describe("review fixes: Ranks, overlay and flag", () => {
     expect(selfShare(econ({ selfProgress: 0.9 }), "me")).toBeUndefined();
   });
 
-  it("treats every barbarian id as barbarian", () => {
+  it("treats every barbarian id as hostile", () => {
     const stanceOf = diplomacyStanceLookup({ me: "me", allies: [], activeTruces: [] });
-    expect([stanceOf("barbarian"), stanceOf("barbarian-1")]).toEqual(["barbarian", "barbarian"]);
+    expect([stanceOf("barbarian"), stanceOf("barbarian-1")]).toEqual(["hostile", "hostile"]);
   });
 
   it("honours ?hud=v2 when storage is unavailable", () => {

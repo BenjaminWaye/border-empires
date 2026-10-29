@@ -137,12 +137,13 @@ const factsHtml = (facts: readonly TileFact[]): string =>
     ? `<div class="hud-v2-tile-facts">${facts.map((f) => `<span class="hud-v2-fact${f.tone ? ` hud-v2-fact-${f.tone}` : ""}"><span class="hud-v2-fact-label">${esc(f.label)}</span>${esc(f.value)}</span>`).join("")}</div>`
     : "";
 
-export const actionBarHtml = (fullView: TileMenuView, panel?: BarPanel, facts: readonly TileFact[] = []): string => {
+/** ownerTagHtml: trusted markup shown before the owner's name (the stance tag). */
+export const actionBarHtml = (fullView: TileMenuView, panel?: BarPanel, facts: readonly TileFact[] = [], ownerTagHtml = ""): string => {
   // Details never repeats the fact strip; with nothing else to say it has no button.
   const view = { ...fullView, overviewLines: detailLinesBeyondFacts(fullView.overviewLines, facts) };
   const buttons = selectBarButtons(view);
   const status = view.statusText ? `<span class="hud-v2-tile-status hud-v2-tile-status-${view.statusTone ?? "neutral"}">${esc(view.statusText)}</span>` : "";
-  const head = `<div class="hud-v2-tile-head"><span class="hud-v2-tile-text"><span class="hud-v2-tile-title">${esc(view.title)}</span><span class="hud-v2-tile-sub">${view.subtitleHtml ?? esc(view.subtitle)}</span></span>${status}<button type="button" class="hud-v2-tile-close" data-hud-v2-close aria-label="Close">✕</button></div>`;
+  const head = `<div class="hud-v2-tile-head"><span class="hud-v2-tile-text"><span class="hud-v2-tile-title">${esc(view.title)}</span><span class="hud-v2-tile-sub">${ownerTagHtml}${view.subtitleHtml ?? esc(view.subtitle)}</span></span>${status}<button type="button" class="hud-v2-tile-close" data-hud-v2-close aria-label="Close">✕</button></div>`;
   const row = buttons.map((b) => (b.kind === "action"
     ? actionButtonHtml(b)
     : `<button type="button" class="hud-v2-act hud-v2-act-${b.panel}${b.panel === panel ? " hud-v2-act-open" : ""}" data-hud-v2-panel="${b.panel}" aria-expanded="${b.panel === panel}">${esc(b.label)}</button>`)).join("");

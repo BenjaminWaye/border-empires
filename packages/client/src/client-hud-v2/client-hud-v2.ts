@@ -19,7 +19,7 @@ import { initHudV2Flag, isHudV2Active, setHudV2Driving } from "./client-hud-v2-f
 import { navHtml } from "./client-hud-v2-nav.js";
 import { fallbackOwnerColor, resolveOwnerColor } from "../client-owner-colors/client-owner-colors.js";
 import { orbHtml } from "./client-hud-v2-orb.js";
-import { overlaysHtml } from "./client-hud-v2-overlays.js";
+import { installLens, lensMenu, overlaysHtml } from "./client-hud-v2-overlays.js";
 import { resourceBarHtml } from "./client-hud-v2-resource-bar.js";
 import { hasRevealedResourceCategory } from "../client-tech-html/client-tech-html.js";
 import { rivalsHtml, seasonClockHtml } from "./client-hud-v2-rivals.js";
@@ -142,11 +142,6 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
     openResourcePanel(deps, chip.dataset.hudV2Chip);
     return;
   }
-  if (target.closest("[data-hud-v2-overlay='diplomacy']")) {
-    deps.state.showDiplomacyOverlay = !deps.state.showDiplomacyOverlay;
-    deps.requestViewRefresh();
-    return;
-  }
   const dip = target.closest<HTMLElement>("[data-hud-v2-diplomacy]");
   if (dip?.dataset.hudV2Diplomacy) {
     openScreen(deps, "diplomacy", { diplomacyTarget: dip.dataset.hudV2Diplomacy });
@@ -241,9 +236,11 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
     colorOf: ownerColor,
     nowMs
   }));
-  writeRegion("overlays", overlaysHtml(state.showDiplomacyOverlay));
+  renderLens(state);
   writeRegion("orb-slot", orbHtml({ manpower: state.manpower, manpowerCap: state.manpowerCap, nextRefillAt: nextManpowerRefillForPlayer(state.me, nowMs), nowMs, color: resolveOwnerColor(state.me, state.playerColors, fallbackOwnerColor) })); // Base colour: the Diplomacy view recolours ownerColor.
 };
+
+const renderLens = (state: ClientState): void => writeRegion("overlays", overlaysHtml(state.showDiplomacyOverlay, lensMenu.open));
 
 /** The tracker's tile scans (three passes over every known tile), reused until tiles change or it goes stale. */
 const TRACKER_SCAN_MAX_AGE_MS = 5_000;
@@ -296,6 +293,8 @@ export const installHudV2 = (deps: HudV2Deps): void => {
   layer.innerHTML = shellHtml;
   (document.getElementById("hud") ?? document.body).appendChild(layer);
   layer.addEventListener("click", (event) => onLayerClick(deps, event));
+  // Before onEscape, so Esc folds an open lens list first.
+  installLens(deps, () => renderLens(deps.state));
   window.addEventListener("keydown", (event) => onEscape(deps, event), true);
   setDockListener({
     onMenuView: (view, tileKey) => {
@@ -317,8 +316,9 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     setHudV2Driving(flagOn);
     document.body.classList.toggle("hud-v2", flagOn);
     document.body.classList.toggle("hud-v2-waiting", flagOn && !onScreen);
-    // The overlay's toggle and legend live in this HUD; without it (phone width) the tint goes too.
+    // The lens button lives in this HUD; without it (phone width) the Diplomacy tint goes too.
     if (!flagOn && deps.state.showDiplomacyOverlay) deps.state.showDiplomacyOverlay = false;
+    if (!onScreen) lensMenu.open = false;
     // Leaving the new HUD (phone width) must not strand a screen: a hosted profile, or a Chronicle that popups wait on.
     if (!flagOn && screen.id) closeScreen(deps, { toMap: true });
     deps.state.activityDashboard.chronicleOpen = onScreen && screen.id === "chronicle";
