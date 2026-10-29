@@ -627,7 +627,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     latestHillCutAt = hillCutAt;
     const ownershipTileDeps: OwnershipTilePlacementDeps = {
       overlay: ownershipOverlay, cornerYAt: (x, y) => heightfield.cornerYAt(x, y), isHillsTile, hillCutAt, frontierDecayPulse, barbarianFrontierTint,
-      neighbours: { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY }
+      neighbours: { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, isLandAt: (x, y) => deps.terrainAt(x, y) === "LAND" }
     };
     const roadNetworkMs = performance.now() - roadNetworkStartAt;
     const heightfieldStartAt = performance.now();

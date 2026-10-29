@@ -31,7 +31,7 @@ const render = (ownerId?: string, resource?: Tile["resource"]): string[] => {
     drawForestOverlay: () => { calls.push("forest"); },
     drawHillsOverlay: () => { calls.push("hills"); },
     keyFor: (x, y) => `${x},${y}`, wrapX: (x) => x, wrapY: (y) => y
-  }, { techIds: [], techCatalog: [], tiles: surroundedBy(ownerId) }, {
+  }, { techIds: [], techCatalog: [], tiles: surroundedBy(ownerId), tilesRevision: 0 }, {
     x: 5, y: 9, terrain: "LAND", ownershipState: "SETTLED", ...(ownerId ? { ownerId } : {}),
     prospectSignature: "FERROUS_DUST", ...(resource ? { resource } : {})
   }, 5, 9, 0, 0, 48);

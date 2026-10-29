@@ -13,9 +13,11 @@ type GlowContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 // Texels per tile edge. The fade spans a whole tile and drawImage filters
 // bilinearly, so this stays smooth at any zoom.
 const GLOW_TILE_RES = 32;
-// At most 256 masks x a handful of visible owners; cleared wholesale if a
-// palette churns past this so the cache can't grow without bound.
-const MAX_TINTED_TILES = 512;
+// Least-recently-used eviction past this many (owner colour, mask) tiles.
+// 256 masks are possible per owner but a real border uses a few dozen, so
+// this covers many on-screen empires; past it only the coldest tiles are
+// rebaked, never the whole set at once.
+const MAX_TINTED_TILES = 2048;
 
 const createGlowCanvas = (): GlowCanvas => {
   if (typeof OffscreenCanvas !== "undefined") return new OffscreenCanvas(GLOW_TILE_RES, GLOW_TILE_RES);
@@ -64,8 +66,16 @@ export const createSettledEdgeGlow2D = (glow: SettledEdgeGlow): SettledEdgeGlow2
   const tintedFor = (ownerColor: string, mask: number): GlowCanvas => {
     const key = `${ownerColor}|${mask}`;
     const cached = tinted.get(key);
-    if (cached) return cached;
-    if (tinted.size >= MAX_TINTED_TILES) tinted.clear();
+    if (cached) {
+      // Map keeps insertion order: re-inserting marks this entry most recent.
+      tinted.delete(key);
+      tinted.set(key, cached);
+      return cached;
+    }
+    if (tinted.size >= MAX_TINTED_TILES) {
+      const oldest = tinted.keys().next().value;
+      if (oldest !== undefined) tinted.delete(oldest);
+    }
     const canvas = createGlowCanvas();
     const ctx = contextOf(canvas);
     ctx.fillStyle = ownerColor;

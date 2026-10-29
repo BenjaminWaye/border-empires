@@ -42,7 +42,7 @@ varying vec2 vEdgeUv;`)
   float aa = fwidth( t );
   float stripe = smoothstep( 0.25 - aa * 0.75, 0.25 + aa * 0.75, tri );
   float striped = mix( ${glsl(hatch.gapOpacity)}, ${glsl(hatch.stripeOpacity)}, stripe );
-  diffuseColor.a = mix( striped, ${glsl((hatch.gapOpacity + hatch.stripeOpacity) / 2)}, smoothstep( 0.2, 0.5, aa ) );
+  diffuseColor.a = ( diffuseColor.a / opacity ) * mix( striped, ${glsl((hatch.gapOpacity + hatch.stripeOpacity) / 2)}, smoothstep( 0.2, 0.5, aa ) );
 }`);
   };
   material.customProgramCacheKey = () => `frontier-hatch:${hatch.stripeOpacity}:${hatch.gapOpacity}:${pairs}`;

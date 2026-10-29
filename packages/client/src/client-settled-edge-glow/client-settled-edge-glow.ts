@@ -74,6 +74,11 @@ export type SettledEdgeNeighbourDeps = {
   readonly keyFor: (x: number, y: number) => string;
   readonly wrapX: (x: number) => number;
   readonly wrapY: (y: number) => number;
+  // When given, non-land neighbours (sea, mountain) count as inside the
+  // territory: no rim or line along a coast. 3D passes it because its shore
+  // fringe already fades the tint out to the waterline; 2D omits it so its
+  // coast rim matches the exposed-side stroke it draws there.
+  readonly isLandAt?: (x: number, y: number) => boolean;
 };
 
 // The glow follows the boundary of ownerId's SETTLED land, so a settled tile
@@ -81,7 +86,10 @@ export type SettledEdgeNeighbourDeps = {
 // outside the settled outline).
 export const settledEdgeMaskForOwner = (wx: number, wy: number, ownerId: string, deps: SettledEdgeNeighbourDeps): number =>
   settledEdgeMaskAt(wx, wy, (nx, ny) => {
-    const neighbour = deps.tiles.get(deps.keyFor(deps.wrapX(nx), deps.wrapY(ny)));
+    const x = deps.wrapX(nx);
+    const y = deps.wrapY(ny);
+    if (deps.isLandAt && !deps.isLandAt(x, y)) return true;
+    const neighbour = deps.tiles.get(deps.keyFor(x, y));
     return neighbour?.ownerId === ownerId && neighbour.ownershipState === "SETTLED";
   });
 

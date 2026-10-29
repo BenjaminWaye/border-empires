@@ -39,7 +39,10 @@ export const commitEdgeGlowBuffers = (geometry: BufferGeometry, vertCount: numbe
 const glsl = (value: number): string => value.toFixed(4);
 
 // Replaces the material's flat opacity with the edge-distance ramp. Only
-// meaningful for NormalBlending (multiply ignores alpha).
+// meaningful for NormalBlending (multiply ignores alpha). Any per-vertex alpha
+// survives as a multiplier: the shore fringe (client-map-3d-ownership-shore.ts)
+// shares this material with no edge attributes (so mask 0 -> interior
+// opacity) and carries its waterline fade in its RGBA colour.
 export const attachSettledEdgeGlow = (material: MeshBasicMaterial, glow: SettledEdgeGlow): void => {
   const width = clampSettledEdgeGlowWidth(glow.widthTiles);
   material.onBeforeCompile = (shader) => {
@@ -72,10 +75,13 @@ float edgeBit( float m, float b ) { return mod( floor( m / b ), 2.0 ); }`)
   if ( edgeBit( m, 128.0 ) > 0.5 ) d = min( d, length( uv ) );
   float fade = smoothstep( 0.0, ${glsl(width)}, d );
   float alpha = mix( ${glsl(glow.rimOpacity)}, ${glsl(glow.interiorOpacity)}, fade );
-  float aa = fwidth( d );
+  // Floored so a constant d (interiors, the shore fringe) never hits
+  // smoothstep with equal edges, which GLSL leaves undefined.
+  float aa = max( fwidth( d ), 1e-4 );
   float line = ${glow.lineTiles > 0 ? `1.0 - smoothstep( ${glsl(glow.lineTiles)} - aa, ${glsl(glow.lineTiles)} + aa, d )` : "0.0"};
   diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * ${glsl(glow.lineDarken)}, line );
-  diffuseColor.a = mix( alpha, 1.0, line );
+  // diffuseColor.a is opacity * vertex alpha here; keep the vertex factor.
+  diffuseColor.a = ( diffuseColor.a / opacity ) * mix( alpha, 1.0, line );
 }`);
   };
   material.customProgramCacheKey = () => `settled-edge-glow:${glow.rimOpacity}:${glow.interiorOpacity}:${width}:${glow.lineTiles}:${glow.lineDarken}`;

@@ -62,3 +62,13 @@ describe("settledEdgeDistance / settledEdgeAlpha", () => {
     expect(settledEdgeDistance(0.3, 0.4, EDGE_NW)).toBeCloseTo(0.5);
   });
 });
+
+describe("settledEdgeMaskForOwner with isLandAt", () => {
+  it("treats non-land neighbours as inside, so coasts get no rim", () => {
+    const tiles: Record<string, T> = settledBlock("a");
+    delete tiles["2,1"];
+    const withWater = { ...deps(tiles), isLandAt: (x: number, y: number) => !(x === 2 && y === 1) };
+    expect(settledEdgeMaskForOwner(1, 1, "a", withWater)).toBe(0);
+    expect(settledEdgeMaskForOwner(1, 1, "a", deps(tiles))).toBe(EDGE_E);
+  });
+});
