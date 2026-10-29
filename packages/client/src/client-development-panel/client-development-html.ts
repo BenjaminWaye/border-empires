@@ -31,6 +31,8 @@ type StructureEntry = {
   y: number;
   kind: string;
   completesAt: number | undefined;
+  // Stamped by the server when the build began; with completesAt it gives the build's full length.
+  startedAt: number | undefined;
   // Set while an attack on the tile has paused this build; remaining time is frozen at this instant.
   pausedAt?: number;
 };
@@ -57,19 +59,19 @@ const activeStructureEntries = (tiles: Map<string, Tile>, me: string): Structure
     if (tile.ownerId !== me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED") continue;
     const fort = tile.fort;
     if (fort && (fort.status === "under_construction" || fort.status === "removing")) {
-      entries.push({ tileKey: `${tile.x},${tile.y}`, x: tile.x, y: tile.y, kind: structureDisplayName(fort.variant ?? "FORT"), completesAt: fort.completesAt, ...(fort.pausedAt !== undefined ? { pausedAt: fort.pausedAt } : {}) });
+      entries.push({ tileKey: `${tile.x},${tile.y}`, x: tile.x, y: tile.y, kind: structureDisplayName(fort.variant ?? "FORT"), completesAt: fort.completesAt, startedAt: fort.startedAt, ...(fort.pausedAt !== undefined ? { pausedAt: fort.pausedAt } : {}) });
     }
     const obs = tile.observatory;
     if (obs && (obs.status === "under_construction" || obs.status === "removing")) {
-      entries.push({ tileKey: `${tile.x},${tile.y}`, x: tile.x, y: tile.y, kind: structureDisplayName("OBSERVATORY"), completesAt: obs.completesAt, ...(obs.pausedAt !== undefined ? { pausedAt: obs.pausedAt } : {}) });
+      entries.push({ tileKey: `${tile.x},${tile.y}`, x: tile.x, y: tile.y, kind: structureDisplayName("OBSERVATORY"), completesAt: obs.completesAt, startedAt: obs.startedAt, ...(obs.pausedAt !== undefined ? { pausedAt: obs.pausedAt } : {}) });
     }
     const siege = tile.siegeBattery;
     if (siege && (siege.status === "under_construction" || siege.status === "removing")) {
-      entries.push({ tileKey: `${tile.x},${tile.y}`, x: tile.x, y: tile.y, kind: structureDisplayName(siege.variant ?? "SIEGE_BATTERY"), completesAt: siege.completesAt, ...(siege.pausedAt !== undefined ? { pausedAt: siege.pausedAt } : {}) });
+      entries.push({ tileKey: `${tile.x},${tile.y}`, x: tile.x, y: tile.y, kind: structureDisplayName(siege.variant ?? "SIEGE_BATTERY"), completesAt: siege.completesAt, startedAt: siege.startedAt, ...(siege.pausedAt !== undefined ? { pausedAt: siege.pausedAt } : {}) });
     }
     const econ = tile.economicStructure;
     if (econ && (econ.status === "under_construction" || econ.status === "removing")) {
-      entries.push({ tileKey: `${tile.x},${tile.y}`, x: tile.x, y: tile.y, kind: structureDisplayName(econ.type), completesAt: econ.completesAt, ...(econ.pausedAt !== undefined ? { pausedAt: econ.pausedAt } : {}) });
+      entries.push({ tileKey: `${tile.x},${tile.y}`, x: tile.x, y: tile.y, kind: structureDisplayName(econ.type), completesAt: econ.completesAt, startedAt: econ.startedAt, ...(econ.pausedAt !== undefined ? { pausedAt: econ.pausedAt } : {}) });
     }
   }
   return entries;
@@ -101,7 +103,10 @@ export const deriveDevelopmentPanelData = (
 
   for (const entry of activeStructureEntries(tiles, me)) {
     const remainingMs = entry.completesAt ? Math.max(0, entry.completesAt - (entry.pausedAt ?? now)) : 0;
-    const totalMs = remainingMs > 0 ? remainingMs : 60_000;
+    // The full build length, not the time left now: this is re-derived on every rescan, and a
+    // remaining-based total would snap the progress bar back to empty each time.
+    const fullMs = entry.completesAt !== undefined && entry.startedAt !== undefined ? entry.completesAt - entry.startedAt : 0;
+    const totalMs = fullMs > 0 ? Math.max(fullMs, remainingMs) : remainingMs > 0 ? remainingMs : 60_000;
     activeSlots.push({
       tileKey: entry.tileKey,
       x: entry.x,

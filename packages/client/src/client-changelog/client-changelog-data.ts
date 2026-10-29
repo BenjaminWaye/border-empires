@@ -34,6 +34,7 @@ import { DIPLOMACY_DOCK_CHANGELOG } from "./client-changelog-diplomacy-dock.js";
 import { MAP_LENS_CHANGELOG } from "./client-changelog-map-lens.js";
 import { MUSTER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-muster-supply-lines.js";
 import { MARCH_STEERING_CHANGELOG } from "./client-changelog-march-steering.js";
+import { DEV_SLOT_PROGRESS_CHANGELOG } from "./client-changelog-dev-slot-progress.js";
 import { CLAIM_STRIPED_GROUND_CHANGELOG } from "./client-changelog-claim-striped-ground.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_17_19_INLINE } from "./client-changelog-oct-17-19-inline.js";
 import { TOWN_PLATE_ZOOM_CHANGELOG } from "./client-changelog-town-plate-zoom.js";
@@ -382,7 +383,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...LANDING_RESERVE_CHANGELOG,
   ...FOG_HILL_HAZE_CHANGELOG,
   ...DIPLOMACY_DOCK_CHANGELOG,
-  ...MARCH_STEERING_CHANGELOG
+  ...MARCH_STEERING_CHANGELOG,
+  ...DEV_SLOT_PROGRESS_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

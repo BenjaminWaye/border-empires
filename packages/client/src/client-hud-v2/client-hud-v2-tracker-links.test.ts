@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
 import { rivalsHtml } from "./client-hud-v2-rivals.js";
-import { buildSlotsHtml, handleSlotsToggle } from "./client-hud-v2-tracker.js";
+import { buildSlotsHtml, handleSlotsToggle, slotListHtml } from "./client-hud-v2-tracker.js";
 
 describe("tracker and rival links", () => {
   // Regression: the dev-slot row was plain text, then opened a side panel across the screen; it now folds the slot list.
@@ -24,6 +24,13 @@ describe("tracker and rival links", () => {
     expect(repaints).toBe(1);
     expect(handleSlotsToggle(document.createElement("span"), fold, () => repaints++)).toBe(false);
     expect(repaints).toBe(1);
+  });
+
+  // Regression: queued rows read "Garrison at (97, 132) (97, 132)" because the label already names the tile.
+  it("names a queued tile's coordinates once", () => {
+    const html = slotListHtml({ building: [], queue: [{ label: "Garrison at (97, 132)", x: 97, y: 132 }, { label: "Fort", x: 3, y: 4 }] });
+    expect(html.match(/\(97, 132\)/g)).toHaveLength(1);
+    expect(html).toContain("(3, 4)");
   });
 
   // Regression: an unexplained hourglass badge repeated the stance line; the stance is spelled out on hover instead.
