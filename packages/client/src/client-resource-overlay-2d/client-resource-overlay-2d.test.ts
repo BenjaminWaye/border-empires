@@ -1,3 +1,4 @@
+import * as shared from "@border-empires/shared";
 import { NETWORK_RESOURCES, RESOURCE_NETWORKS } from "@border-empires/shared";
 import { setTrue3DRendererActive } from "../client-renderer-mode.js";
 import { drawResourceCornerMarker } from "../client-map-render/client-map-render-resource-marker.js";
@@ -98,4 +99,15 @@ describe("frontier resource icons in both renderers", () => {
       expect(deps.drawCenteredOverlayWithAlpha).toHaveBeenCalledTimes(active ? 0 : 1);
     }
   });
+});
+
+it("moves the smaller fish sprite toward water while keeping built structures in place", () => {
+  const terrain = vi.spyOn(shared, "terrainAt").mockImplementation(x => x === 2 ? "COASTAL_SEA" : "LAND");
+  const { deps } = makeDeps({ builtResourceOverlayForTile: () => undefined, resourceOverlayScaleForTile: () => 1.04 });
+  drawResourceOverlay2D(deps, tile({ resource: "FISH" }), 10, 20, 100, 0);
+  expect(deps.drawCenteredOverlayWithAlpha).toHaveBeenCalledWith(image, expect.closeTo(23.2, 8), 20, 100, 1.04, 1);
+  const built = makeDeps();
+  drawResourceOverlay2D(built.deps, tile({ resource: "FISH" }), 10, 20, 100, 0);
+  expect(built.deps.drawCenteredOverlayWithAlpha).toHaveBeenCalledWith(image, 10, 20, 100, 1.08, 0.8);
+  terrain.mockRestore();
 });

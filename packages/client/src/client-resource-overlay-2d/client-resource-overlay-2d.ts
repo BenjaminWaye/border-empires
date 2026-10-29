@@ -1,3 +1,5 @@
+import { terrainAt } from "@border-empires/shared";
+import { fishingSiteOffset, fishingWaterDirection } from "../client-food-tile-placement.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { drawConstructionStructure2D } from "../client-construction-2d/client-construction-2d.js";
 import { constructionSiteForTile } from "../client-construction-phase/client-construction-phase.js";
@@ -8,6 +10,8 @@ import type { Tile } from "../client-types.js";
 // construction or removal are drawn through the construction renderer
 // (docs/construction-animation-plan.md) instead of a flat translucent sprite.
 export type ResourceOverlayDrawDeps = {
+  readonly wrapX?: (x: number) => number;
+  readonly wrapY?: (y: number) => number;
   readonly ctx: CanvasRenderingContext2D;
   readonly builtResourceOverlayForTile: (tile: Tile) => HTMLImageElement | undefined;
   readonly resourceOverlayForTile: (tile: Tile) => HTMLImageElement | undefined;
@@ -38,7 +42,15 @@ export const drawResourceOverlay2D = (deps: ResourceOverlayDrawDeps, tile: Tile,
       const epochMs = Date.now();
       const site = builtOverlay ? constructionSiteForTile(tile, epochMs, "economicStructure") : undefined;
       if (site) drawConstructionStructure2D(deps.ctx, overlay, px, py, size, scale, site, epochMs);
-      else deps.drawCenteredOverlayWithAlpha(overlay, px, py, size, scale, builtOverlay ? deps.economicStructureOverlayAlpha(tile) : 1);
+      else {
+        const water = !builtOverlay && tile.resource === "FISH" ? fishingWaterDirection((x, y) => {
+          const terrain = terrainAt(deps.wrapX?.(x) ?? x, deps.wrapY?.(y) ?? y);
+          return terrain === "SEA" || terrain === "COASTAL_SEA";
+        }, tile.x, tile.y) : undefined;
+        const offset = size * fishingSiteOffset(water);
+        deps.drawCenteredOverlayWithAlpha(overlay, px + (water?.dx ?? 0) * offset,
+          py + (water?.dy ?? 0) * offset, size, scale, builtOverlay ? deps.economicStructureOverlayAlpha(tile) : 1);
+      }
     }
     deps.drawResourceCornerMarker(tile, px, py, size);
     return true;
