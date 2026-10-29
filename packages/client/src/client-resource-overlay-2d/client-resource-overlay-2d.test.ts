@@ -18,6 +18,9 @@ const makeDeps = (over: Partial<ResourceOverlayDrawDeps> = {}) => {
     save: vi.fn(),
     restore: vi.fn(),
     beginPath: vi.fn(),
+    arc: vi.fn(),
+    fill: vi.fn(),
+    stroke: vi.fn(),
     rect: vi.fn(),
     clip,
     setLineDash: vi.fn(),
@@ -96,6 +99,7 @@ describe("frontier resource icons in both renderers", () => {
         drawResourceCornerMarker(deps.ctx, tile, x, y, size, () => RESOURCE_NETWORKS[resource].color);
       drawResourceOverlay2D({ ...deps, drawResourceCornerMarker: draw }, { x: 1, y: 1, terrain: "LAND", resource }, 0, 0, 64, 0);
       expect(deps.ctx.fillText).toHaveBeenCalledWith(RESOURCE_NETWORKS[resource].glyph, expect.any(Number), expect.any(Number));
+      expect(deps.ctx.arc).toHaveBeenCalledWith(expect.any(Number), expect.any(Number), expect.any(Number), 0, Math.PI * 2);
       expect(deps.drawCenteredOverlayWithAlpha).toHaveBeenCalledTimes(active ? 0 : 1);
     }
   });

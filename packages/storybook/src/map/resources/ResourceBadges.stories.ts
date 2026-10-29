@@ -13,7 +13,7 @@ const colorFor = (resource: string | undefined): string => {
 function gallery(entries: readonly (typeof resources)[number][] = resources): HTMLElement {
   const root = document.createElement("main");
   root.style.cssText = "background:#171d22;color:#e8dfca;padding:24px;font:13px/1.5 system-ui;min-height:100vh;box-sizing:border-box";
-  root.innerHTML = '<h2 style="margin:0 0 4px">Resource badges · actual map sizes</h2><p style="margin:0 0 20px;color:#b2ada0">Shared by 2D canvas and true-3D. Below 48px tiles the map uses a colour marker.</p>';
+  root.innerHTML = '<h2 style="margin:0 0 4px">Resource badges · actual map sizes</h2><p style="margin:0 0 20px;color:#b2ada0">Shared by 2D canvas and true-3D. Five-colour artwork · circular badges · coloured dots below 48px tiles.</p>';
   const grid = document.createElement("div");
   grid.style.cssText = "display:grid;grid-template-columns:170px 130px repeat(4,115px);align-items:center;gap:12px 16px";
   for (const title of ["Resource", "16 / 24 / 40px icons", ...sizes.map(size => `${size}px tile`)]) {
