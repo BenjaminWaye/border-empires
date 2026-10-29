@@ -44,6 +44,19 @@ describe("small resource deposits", () => {
     }
     expect(tiles.get("1,1")!.resource).toBe("FARM");
   });
+  it("preserves all eight support tiles around towns, including across world edges", () => {
+    const tiles = map();
+    for (let y = 0; y < height; y += 6) for (let x = 0; x < width; x += 6)
+      tiles.get(`${x},${y}`)!.town = { name: "Town", type: "MARKET", populationTier: "TOWN" };
+    const result = seedResourceNetworks(tiles, 42, width, height, biome);
+    for (const resource of NETWORK_RESOURCES) expect(result.placed[resource]).toBe(63);
+    for (const town of [...tiles.values()].filter(tile => tile.town)) {
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const key = `${(town.x + dx + width) % width},${(town.y + dy + height) % height}`;
+        expect(tiles.get(key)?.resource, `Town ring ${key}`).toBeUndefined();
+      }
+    }
+  });
   it("is deterministic, idempotent, and preserves occupied tiles", () => {
     const a = map(), b = map();
     for (const tiles of [a, b]) {

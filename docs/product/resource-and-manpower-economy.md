@@ -228,6 +228,8 @@ investment without requiring continent-wide collection.
 New standard 640×320 maps target 1,000 tiles of each of the five resources,
 in separated deposits of 1–3 tiles. Habitat preferences and secondary biomes
 are documented in [the resource-network plan](../resource-networks-plan.md).
+New frontier deposits avoid towns and all eight adjacent support tiles; their
+installations do not require town support. Catalysts exclude coastal sand.
 The decorative lone-tree pattern is removed; resin appears as distinct groves.
 Saved campaigns preserve their existing geography on recovery.
 

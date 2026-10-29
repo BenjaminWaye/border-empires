@@ -120,11 +120,12 @@ const minorRowHtml = (view: TileMenuView, buttons: readonly BarButton[]): string
   return minor.length > 0 ? `<div class="hud-v2-minor-row">${minor.join("")}</div>` : "";
 };
 
-// Overview lines are trusted HTML the menu builds itself (the legacy panel renders them the same way). Their
-// structure-info buttons are wired to the legacy panel only, so they become plain text here.
+// Overview lines are trusted HTML the menu builds itself (the legacy panel renders them the same way).
+// Research and structure links are handled by the dock; other legacy-only buttons become plain text here.
 const detailLineHtml = (line: TileMenuView["overviewLines"][number]): string => {
   const kind = line.kind ? ` hud-v2-detail-${line.kind}` : "";
-  const html = line.html.replace(/<button\b[^>]*>([\s\S]*?)<\/button>/g, "$1");
+  const html = line.html.replace(/<button\b([^>]*)>([\s\S]*?)<\/button>/g,
+    (button: string, attributes: string, label: string) => /\bdata-(?:view-tech|structure-info)=/.test(attributes) ? button : label);
   return `<div class="hud-v2-detail-line tile-overview-line${line.kind ? ` tile-overview-line-${line.kind}` : ""}${line.nested ? " tile-overview-line-nested" : ""}${kind}">${html}</div>`;
 };
 

@@ -9,6 +9,7 @@
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuTab, TileMenuView } from "../client-types.js";
 import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
+import { openTechDetailFromTileMenu } from "../client-tile-action-support/client-tech-locked-tile-action.js";
 import { actionBarHtml, barBuildings, selectBarButtons, type BarPanel } from "./client-hud-v2-action-bar.js";
 import { aetherListHtml } from "./client-hud-v2-aether-list.js";
 import { buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
@@ -156,6 +157,20 @@ const onBarClick = (event: MouseEvent): void => {
   const target = event.target instanceof Element ? event.target : null;
   if (!target) return;
   const { deps, state } = dock;
+  const structure = target.closest<HTMLButtonElement>("button[data-structure-info]");
+  if (structure?.dataset.structureInfo) {
+    state.structureInfoKey = structure.dataset.structureInfo;
+    state.crystalAbilityInfoKey = "";
+    deps.renderHud();
+    return;
+  }
+  const tech = target.closest<HTMLButtonElement>("button[data-view-tech]");
+  if (tech?.dataset.viewTech) {
+    openTechDetailFromTileMenu(state, tech.dataset.viewTech, deps.isMobile());
+    deps.hideTileActionMenu();
+    deps.renderHud();
+    return;
+  }
   const action = target.closest<HTMLButtonElement>("[data-hud-v2-action]");
   if (action && !action.disabled) {
     const id = action.dataset.hudV2Action as TileActionDef["id"];

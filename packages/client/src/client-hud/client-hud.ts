@@ -43,7 +43,7 @@ import { syncManifestPanelTabs } from "../client-manifest-tabs/client-manifest-t
 import { sovereignSiegeEngineStrikeRecordToFeedEntry, SOVEREIGN_SIEGE_ENGINE_STRIKE_HISTORY_WINDOW_MS } from "../client-sovereign-siege-engine-strike-history/client-sovereign-siege-engine-strike-history.js";
 import type { ClientState, storageSet } from "../client-state/client-state.js";
 import { refreshLiveTechRequirements } from "../client-tech-live-requirements/client-tech-live-requirements.js";
-import type { StructureInfoKey } from "../client-map-display.js";
+import { bindStructureInfoActions } from "../client-structure-info-overlay/client-structure-info-actions.js";
 import type { DevelopmentSlotSummary } from "../client-queue-logic/client-queue-logic.js";
 import type { DomainInfo, PlayerRespawnNotice, TechInfo, Tile, TileMenuView } from "../client-types.js";
 import { navTabIconHtml, setTabButtonHtml } from "../client-nav-icons/client-nav-icons.js";
@@ -495,23 +495,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       renderClientHud(deps);
     };
   });
-  const structureInfoButtons = dom.hud.querySelectorAll("[data-structure-info]") as NodeListOf<HTMLButtonElement>;
-  structureInfoButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      const type = btn.dataset.structureInfo as StructureInfoKey | undefined;
-      if (!type) return;
-      state.structureInfoKey = type;
-      state.crystalAbilityInfoKey = "";
-      renderClientHud(deps);
-    };
-  });
-  const structureInfoCloseButtons = dom.hud.querySelectorAll("[data-structure-info-close]") as NodeListOf<HTMLElement>;
-  structureInfoCloseButtons.forEach((btn: HTMLElement) => {
-    btn.onclick = () => {
-      state.structureInfoKey = "";
-      renderClientHud(deps);
-    };
-  });
+  bindStructureInfoActions(dom.hud, { state, isMobile, renderHud: () => renderClientHud(deps) });
   const crystalAbilityInfoButtons = dom.hud.querySelectorAll("[data-crystal-ability-info]") as NodeListOf<HTMLButtonElement>;
   crystalAbilityInfoButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
