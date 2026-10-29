@@ -122,7 +122,7 @@ const REACH_ANCHOR_SCAN_CAP = 4000;
  * outpost tiles still `under_construction` — in the same pass, so
  * chooseBestRelayBeaconBuild's overlap veto (see PENDING_OUTPOST_OVERLAP_DISTANCE)
  * doesn't need a second full ownedTiles scan just to find them. Likewise
- * `ownBeacons` — every own RELAY_BEACON tile, any status — for the spacing
+ * `ownBeacons` — own RELAY_BEACON tiles that count for spacing — for the spacing
  * veto (see MIN_OWN_BEACON_SPACING).
  */
 const currentReachTileKeys = (
@@ -150,7 +150,7 @@ const currentReachTileKeys = (
       for (const key of tileKeysInReach(anchor)) claimed.add(key);
     }
     const beacon = tile.economicStructure;
-    if (beacon?.ownerId === playerId && beacon.type === "RELAY_BEACON" && beacon.status !== "removing") ownBeacons.push({ x: tile.x, y: tile.y });
+    if (beacon?.ownerId === playerId && beacon.type === "RELAY_BEACON" && countsForBeaconSpacing(beacon)) ownBeacons.push({ x: tile.x, y: tile.y });
     if (
       beacon?.ownerId === playerId &&
       beacon.type === "RELAY_BEACON" &&
@@ -347,17 +347,23 @@ const overlapsPendingOutpost = (
   pending: readonly { x: number; y: number }[]
 ): boolean => pending.some((p) => chebyshevWithWrap(tile.x, tile.y, p.x, p.y) <= PENDING_OUTPOST_OVERLAP_DISTANCE);
 
-// Hard floor on the distance between two of this player's own beacons,
-// whatever their status. overlapsPendingOutpost above only covers beacons
+// Minimum distance between two of this player's own beacons.
+// overlapsPendingOutpost above only covers beacons
 // still under construction, and a build finishes in RELAY_BEACON_BUILD_MS —
 // after that a site two tiles along the border could win again on the few
 // fogged cells poking past the first beacon's reach box. Staging season-40
-// ai-18 ringed a 151-tile island with ~25 beacons that way. Disabled beacons
-// count too (they can be re-enabled); one being demolished does not.
-// Capped at OUTPOST_REACH_RADIUS, not the full box width: a FRONTIER site
+// ai-18 ringed a 151-tile island with ~25 beacons that way. A beacon the
+// AI switched off for FOOD relief (inactiveReason "manual") counts too, since
+// chooseManuallyDisabledBeaconToReenable turns it back on; one being
+// demolished, or disabled for any other reason, does not, so it can't block
+// its area forever.
+// Set to OUTPOST_REACH_RADIUS, not the full box width: a FRONTIER site
 // must sit inside existing reach to be settled, so the next beacon in a
 // chain can be at most one reach radius from the last.
 const MIN_OWN_BEACON_SPACING = OUTPOST_REACH_RADIUS;
+
+const countsForBeaconSpacing = (beacon: { status?: string | undefined; inactiveReason?: string | undefined }): boolean =>
+  beacon.status === "inactive" ? beacon.inactiveReason === "manual" : beacon.status !== "removing";
 
 const tooCloseToOwnBeacon = (tile: StructurePlannerTile, beacons: readonly { x: number; y: number }[]): boolean =>
   beacons.some((b) => chebyshevWithWrap(tile.x, tile.y, b.x, b.y) < MIN_OWN_BEACON_SPACING);

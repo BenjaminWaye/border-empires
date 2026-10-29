@@ -17,7 +17,7 @@ const EXISTING = { x: 100, y: 100 };
 // A settled strip owned by ai-1 with an active beacon at its middle. Only
 // the strip is known; everything around it is fog, so any site whose box
 // pokes past the existing beacon's reach scores fresh "unexplored" credit.
-const buildStrip = (beaconStatus: "active" | "inactive" = "active") => {
+const buildStrip = (beaconStatus: "active" | "inactive" | "removing" = "active", inactiveReason?: string) => {
   const tiles = new Map<string, StructurePlannerTile>();
   for (let y = 98; y <= 102; y += 1) {
     for (let x = 90; x <= 115; x += 1) {
@@ -28,7 +28,7 @@ const buildStrip = (beaconStatus: "active" | "inactive" = "active") => {
         terrain: "LAND",
         ownerId: player.id,
         ownershipState: "SETTLED",
-        ...(isBeacon ? { economicStructure: { ownerId: player.id, type: "RELAY_BEACON" as const, status: beaconStatus } } : {})
+        ...(isBeacon ? { economicStructure: { ownerId: player.id, type: "RELAY_BEACON" as const, status: beaconStatus, ...(inactiveReason ? { inactiveReason } : {}) } } : {})
       });
     }
   }
@@ -50,10 +50,22 @@ describe("relay beacon spacing", () => {
     expect(plan?.tile).toMatchObject({ x: EXISTING.x + OUTPOST_REACH_RADIUS, y: 100 });
   });
 
-  it("keeps the spacing around a disabled beacon, which can be re-enabled", () => {
-    const { tiles, owned } = buildStrip("inactive");
+  it("keeps the spacing around a beacon switched off for FOOD relief, which can be re-enabled", () => {
+    const { tiles, owned } = buildStrip("inactive", "manual");
     const plan = chooseBestRelayBeaconBuild(player, owned, tiles, [siteAt(tiles, EXISTING.x + 2)]);
     expect(plan).toBeUndefined();
+  });
+
+  it("ignores a beacon disabled for another reason, which the AI never re-enables", () => {
+    const { tiles, owned } = buildStrip("inactive", "upkeep");
+    const plan = chooseBestRelayBeaconBuild(player, owned, tiles, [siteAt(tiles, EXISTING.x + 2)]);
+    expect(plan?.tile).toMatchObject({ x: EXISTING.x + 2, y: 100 });
+  });
+
+  it("ignores a beacon being demolished", () => {
+    const { tiles, owned } = buildStrip("removing");
+    const plan = chooseBestRelayBeaconBuild(player, owned, tiles, [siteAt(tiles, EXISTING.x + 2)]);
+    expect(plan?.tile).toMatchObject({ x: EXISTING.x + 2, y: 100 });
   });
 
   it("picks the spaced-out site when both are candidates", () => {

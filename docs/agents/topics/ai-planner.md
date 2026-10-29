@@ -183,7 +183,9 @@ consolidation, planning cadence), not deletion.
   build finishes in about a minute; after that a site two tiles along the
   border could win again on fog cells poking past the first beacon's box
   (staging season-40 ai-18: ~25 beacons ringing a 151-tile island). The floor
-  applies to every own beacon except one being demolished, and is capped at
+  counts every own beacon except one being demolished or one disabled for any
+  reason other than FOOD relief (`inactiveReason: "manual"`, which the AI
+  re-enables), and is set to
   `OUTPOST_REACH_RADIUS`: a FRONTIER site must be inside reach to be settled,
   so the next beacon in a chain can sit at most one radius from the last.
   Tests that need overlapping reach next to a relay use a siege battery as
