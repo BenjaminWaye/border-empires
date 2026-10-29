@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ResourceType } from "@border-empires/shared";
+import { NETWORK_RESOURCES, RESOURCE_NETWORKS, type ResourceType } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { shouldRenderRawResource } from "./network-resource-3d.js";
 
@@ -21,5 +21,17 @@ describe("shouldRenderRawResource for deposit improvements", () => {
   it("keeps the deposit under an unrelated structure", () => {
     expect(shouldRenderRawResource("TITANIUM", tileWith("TITANIUM", "UMBRITE_RIG"))).toBe(true);
     expect(shouldRenderRawResource("UMBRITE", tileWith("UMBRITE", "MINE"))).toBe(true);
+  });
+
+  it("draws every deposit on an unstreamed tile", () => {
+    expect(shouldRenderRawResource("TITANIUM", undefined)).toBe(true);
+    expect(shouldRenderRawResource("GEMS", undefined)).toBe(true);
+  });
+
+  it("still hides a network deposit under its own building", () => {
+    for (const resource of NETWORK_RESOURCES) {
+      expect(shouldRenderRawResource(resource, tileWith(resource, RESOURCE_NETWORKS[resource].building))).toBe(false);
+      expect(shouldRenderRawResource(resource, tileWith(resource, "MINE"))).toBe(true);
+    }
   });
 });
