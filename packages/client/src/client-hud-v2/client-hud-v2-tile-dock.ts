@@ -27,8 +27,11 @@ export type TileDockDeps = {
 };
 
 export type DockListener = {
-  /** Return true when a screen took over this tile (the bar then stays hidden). */
-  onMenuView: (view: TileMenuView, tileKey: string) => boolean;
+  /**
+   * Return true when a screen took over this tile (the bar then stays hidden). `tap` is true only for the
+   * first render after a tap on the map (not a drag), so a screen can tell a repeat tap from a re-render.
+   */
+  onMenuView: (view: TileMenuView, tileKey: string, tap: boolean) => boolean;
   onMenuHidden: () => void;
   onBarAction: (actionId: TileActionDef["id"], view: TileMenuView, tileKey: string) => void;
 };
@@ -55,6 +58,11 @@ let suppressAutoExpandUntil = 0;
 /** Last pointer-up on the map canvas: only a menu opened by a real map click may claim land. */
 let lastMapClickAt = 0;
 const MAP_CLICK_WINDOW_MS = 800;
+/** Last tap (pointer-up without a pan) on the map, and the last one a menu render already used. */
+let lastMapTapAt = 0;
+let consumedMapTapAt = 0;
+let mapPointerDown: { x: number; y: number } | undefined;
+const TAP_SLOP_PX = 8;
 
 const BAR_ID = "hud-v2-tile";
 const BUILD_ID = "hud-v2-build";
@@ -265,7 +273,14 @@ export const dockTileActionMenuForHudV2 = (state: ClientState, view: TileMenuVie
     }
     watchMenuVisibility(menuEl);
     // Feed/alert "Center" buttons, tips and other code also open tile menus; those must never claim land.
-    document.getElementById("game")?.addEventListener("pointerup", () => { lastMapClickAt = Date.now(); }, true);
+    const game = document.getElementById("game");
+    game?.addEventListener("pointerdown", (event) => { mapPointerDown = { x: event.clientX, y: event.clientY }; }, true);
+    game?.addEventListener("pointerup", (event) => {
+      lastMapClickAt = Date.now();
+      const down = mapPointerDown;
+      mapPointerDown = undefined;
+      if (down && Math.abs(event.clientX - down.x) <= TAP_SLOP_PX && Math.abs(event.clientY - down.y) <= TAP_SLOP_PX) lastMapTapAt = lastMapClickAt;
+    }, true);
     dock = { deps, state, rerender, expandedKey: undefined, lastHtml: "", lastSideHtml: "", lastView: undefined, lastKey: "", panel: undefined, buildSelection: undefined, buildCategory: undefined };
   }
   dock.deps = deps;
@@ -289,7 +304,9 @@ export const dockTileActionMenuForHudV2 = (state: ClientState, view: TileMenuVie
     deps.handleTileAction("settle_land");
     return;
   }
-  if (key && listener?.onMenuView(view, key)) {
+  const tap = lastMapTapAt !== consumedMapTapAt && Date.now() - lastMapTapAt < MAP_CLICK_WINDOW_MS;
+  if (tap) consumedMapTapAt = lastMapTapAt;
+  if (key && listener?.onMenuView(view, key, tap)) {
     hideBar();
     return;
   }

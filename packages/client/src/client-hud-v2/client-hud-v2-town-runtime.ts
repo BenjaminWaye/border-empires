@@ -93,12 +93,35 @@ export const installMapGuard = (): void => {
   });
 };
 
+/** The flagged tile the last tap selected (as a flag, not the town), so tapping it again opens the town screen. */
+let flagTapKey: string | undefined;
+
+/**
+ * A town or support tile carrying your muster flag: the first tap selects the flag (the plain tile bar with
+ * its full-size muster actions, no close-up), a second tap on it opens the town screen. Re-renders while the
+ * town screen is already open (stepping towns, town actions run from a support tile) keep it open.
+ */
+export const flagTapOpensTown = (input: { flagged: boolean; tap: boolean; tileKey: string; townScreenOpen: boolean; lastFlagTapKey: string | undefined }): { openTown: boolean; flagTapKey: string | undefined } => {
+  const { flagged, tap, tileKey, townScreenOpen, lastFlagTapKey } = input;
+  if (!flagged) return { openTown: true, flagTapKey: tap ? undefined : lastFlagTapKey };
+  if (tap) return lastFlagTapKey === tileKey ? { openTown: true, flagTapKey: undefined } : { openTown: false, flagTapKey: tileKey };
+  return { openTown: townScreenOpen, flagTapKey: lastFlagTapKey };
+};
+
 /** Dock listener: returns true when the town screen takes this tile. */
-export const townOnMenuView = (deps: HudV2Deps, view: TileMenuView, tileKey: string): boolean => {
+export const townOnMenuView = (deps: HudV2Deps, view: TileMenuView, tileKey: string, tap = false): boolean => {
   if (screen.id !== null && screen.id !== "town") return false;
-  const town = townForTile(deps, deps.state.tiles.get(tileKey));
+  const tile = deps.state.tiles.get(tileKey);
+  const town = townForTile(deps, tile);
   if (!town) {
+    if (tap) flagTapKey = undefined;
     // Selecting a tile outside the town: zoom back out but stay where the player is looking.
+    if (screen.id === "town") closeTownScreen(true);
+    return false;
+  }
+  const decision = flagTapOpensTown({ flagged: Boolean(tile?.muster), tap, tileKey, townScreenOpen: screen.id === "town", lastFlagTapKey: flagTapKey });
+  flagTapKey = decision.flagTapKey;
+  if (!decision.openTown) {
     if (screen.id === "town") closeTownScreen(true);
     return false;
   }
