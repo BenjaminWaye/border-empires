@@ -1,1 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="96" height="96"><g stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round"><path d="m4 3 9 1 7 6-3 11-12-2L2 11Z" fill="#657f92" stroke="#2a414f"/><path d="m4 3 6 6 10 1M10 9 5 19" fill="none" stroke="#c3d2d8" stroke-width="2"/><path d="m11 12 6 1-2 5-5-1Z" fill="#263d4b" stroke="#d3ba7a"/><circle cx="7" cy="10" r="1.5" fill="#e6bc69"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="96" height="96">
+<defs><linearGradient id="plate" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#c2d1d9"/><stop offset=".5" stop-color="#8195a6"/><stop offset="1" stop-color="#3e586d"/></linearGradient></defs>
+<g stroke="#293e50" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round">
+<path d="m3 5 9-3 7 4 3 9-5 7-12-2-3-8 3-2Z" fill="url(#plate)"/>
+<path d="m3 5 8 4 8-3m-8 3-6 11m6-11 11 6" fill="none" stroke="#d2dce3"/>
+<path d="m12 10 6 1 2 5-4 4-6-2-1-5Z" fill="#253d4a" stroke="#d2b275" stroke-width="1.5"/>
+<circle cx="14.5" cy="14.5" r="2.3" fill="#83d8d6" stroke="#1b515c"/>
+<path d="m5 8 3 1m-3 6 2 3" stroke="#f1d79d" stroke-width="2"/>
+</g>
+</svg>

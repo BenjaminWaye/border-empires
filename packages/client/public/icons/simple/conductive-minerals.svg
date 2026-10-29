@@ -1,1 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="96" height="96"><g stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round"><path d="m2 17 4-11 7-4 8 7 1 10-11 3Z" fill="#34535b" stroke="#163238"/><path d="m6 6 5 7-2 9m12-13-10 4 11 6" fill="none" stroke="#62d7cd" stroke-width="2.5"/><path d="m12 4 3 3" stroke="#b2fff0" stroke-width="2"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="96" height="96">
+<defs><linearGradient id="ore" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#94b4b7"/><stop offset=".5" stop-color="#54767a"/><stop offset="1" stop-color="#29464d"/></linearGradient></defs>
+<g stroke="#203b42" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round">
+<path d="m3 8 7-5 7 1 5 9-3 8-11 1-6-5Z" fill="url(#ore)"/>
+<path d="m3 8 8 3 6-7M11 11l-3 11m3-11 11 2" fill="none" stroke="#afc6c7" stroke-opacity=".65"/>
+<path d="m7 6 4 7-3 6m3-6 7-4m-7 4 7 5" fill="none" stroke="#1c5656" stroke-width="3.8"/>
+<path d="m7 6 4 7-3 6m3-6 7-4m-7 4 7 5" fill="none" stroke="#8df6db" stroke-width="2.1"/>
+<path d="m5 9 3-3" stroke="#e5fcf6" stroke-width="1.5"/>
+</g>
+</svg>

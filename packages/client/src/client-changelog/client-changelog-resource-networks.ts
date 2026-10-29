@@ -98,6 +98,13 @@ export const RESOURCE_NETWORKS_CHANGELOG: ClientChangelogEntry[] = [{
     title: "Structure details link to their unlocking research",
     why: "Building details did not say which technology unlocked construction.",
     changes: ["Structure popups show Unlocked by with technology links to the selected Manifest. Resource cards link to their required installation; its popup links to unlocking research, without repeating a separate research box on the deposit. This works in both HUDs and mobile."]
+  },
+  {
+    createdAt: 1793264598633, // Date.now() captured once.
+    introducedIn: "2026.10.29.1",
+    title: "Clearer frontier resource icons",
+    why: "Small deposit icons needed stronger silhouettes and clearer material cues.",
+    changes: ["Resin, conductive ore, catalysts, luxury biota and precursor salvage have shaded icons with larger defining details, shared by both map renderers."]
   }
 
 ];

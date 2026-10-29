@@ -201,3 +201,9 @@ actions close the popup before requesting the selected technology; HUD v2's
 existing handoff opens its Manifest tree. The extracted actions also retain
 structure-name and close-button behavior from the oversized HUD module.
 No research is purchased by following a link. Lore reviewed; no canon change.
+
+Resource icon review: `Map/Resources/Resource Badges → Map Sizes` compares the
+existing base icons and five frontier SVGs at 16/24/40px and real 22/48/64/96px
+tile badge sizes, using `drawResourceCornerMarker`. The shared badge remains a
+colour marker below 48px tiles. SVG artwork uses bold silhouettes and limited
+shading consistent with the base icons. Lore reviewed; no canon change.
