@@ -1,3 +1,4 @@
+import { NETWORK_RESOURCES, RESOURCE_NETWORKS } from "@border-empires/shared";
 import { economyRelevantTileFieldsChanged } from "../runtime-economy-cache-invalidation.js";
 import { LANDING_MANPOWER_RESERVE, MANPOWER_EPSILON } from "@border-empires/shared";
 import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
@@ -20,6 +21,7 @@ export interface RuntimeManpowerEconomyContext {
   cachedManpowerStructureBonusForPlayer: (player: RuntimePlayer) => ManpowerStructureBonus;
   wonderCacheByPlayer: Map<string, Set<string>>;
   getAbilityCooldownUntil: (playerId: string, abilityKey: string) => number;
+  settlePassiveIncome?: (player: RuntimePlayer, nowMs: number) => void;
   applyEconomyAccrual: (player: RuntimePlayer, nowMs: number) => void;
 }
 
@@ -36,7 +38,7 @@ function baseManpowerRegenPerMinute(ctx: RuntimeManpowerEconomyContext, player: 
   // The Iron Levy (tech-tree redesign): a 2-hour empire-wide manpower
   // regen freeze after triggering the muster ability.
   if (ctx.getAbilityCooldownUntil(player.id, TITANIUM_LEVY_REGEN_FREEZE_KEY) > ctx.now()) return 0;
-  const { neuralWorksNetworkAncillaryFactoryCount, ancillaryFactoryCount, censusDirectorateManpowerBuildingCount } =
+  const { neuralWorksNetworkAncillaryFactoryCount, ancillaryFactoryCount, censusDirectorateManpowerBuildingCount, resourceNetworkRegenPerMinute = 0 } =
     ctx.cachedManpowerStructureBonusForPlayer(player);
   return playerManpowerRegenPerMinuteFromSummary(
     ctx.summaryForPlayer(player.id),
@@ -44,7 +46,7 @@ function baseManpowerRegenPerMinute(ctx: RuntimeManpowerEconomyContext, player: 
     ancillaryFactoryCount,
     censusDirectorateManpowerBuildingCount,
     player.galacticWonderManpowerRegenBonusPerMinute ?? 0
-  );
+  ) + resourceNetworkRegenPerMinute;
 }
 
 function envoyManpowerBenefits(ctx: RuntimeManpowerEconomyContext, player: RuntimePlayer): AfcEnvoyBenefits {
@@ -88,6 +90,8 @@ export function playerManpowerBreakdown(ctx: RuntimeManpowerEconomyContext, play
     player.galacticWonderManpowerRegenBonusPerMinute ?? 0,
     ancillaryFactoryCapacityBonusByTown
   );
+  const resourceBonus = ctx.cachedManpowerStructureBonusForPlayer(player).resourceNetworkRegenPerMinute ?? 0;
+  if (resourceBonus > 0) breakdown.regen.push({ label: "Ancillary resource network", amount: resourceBonus });
   const envoy = envoyManpowerBenefits(ctx, player);
   if (envoy?.manpowerCap) breakdown.cap.push({ label: "Envoy Accreditation", amount: envoy.manpowerCap });
   if (envoy?.manpowerRegenPerMinute) breakdown.regen.push({ label: "Envoy Accreditation", amount: ctx.getAbilityCooldownUntil(player.id, TITANIUM_LEVY_REGEN_FREEZE_KEY) > ctx.now() ? 0 : envoy.manpowerRegenPerMinute });
@@ -189,5 +193,14 @@ export function settleEnvoyDependents(ctx: RuntimeManpowerEconomyContext, ownerI
 
 export function settleEnvoyDependentsBeforeTileChange(ctx: RuntimeManpowerEconomyContext, previous: DomainTileState | undefined, next: DomainTileState): void {
   if (previous && !economyRelevantTileFieldsChanged(previous, next)) return;
-  settleEnvoyDependents(ctx, [previous?.ownerId, next.ownerId], ctx.now());
+  const now = ctx.now();
+  const owners = new Set([previous?.ownerId, next.ownerId]);
+  for (const id of owners) {
+    const owner = id ? ctx.players?.get(id) : undefined;
+    if (owner && NETWORK_RESOURCES.some(resource => owner.techIds.has(RESOURCE_NETWORKS[resource].tech))) {
+      ctx.settlePassiveIncome?.(owner, now);
+      applyManpowerRegenForPlayer(ctx, owner, now);
+    }
+  }
+  settleEnvoyDependents(ctx, owners, now);
 }

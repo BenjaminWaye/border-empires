@@ -1,7 +1,7 @@
 // Bottom-centre tile panel + action bar for the new HUD. It is built from the
 // same TileMenuView the floating tile menu uses, so every action keeps its
 // existing handler. Size carries the hierarchy and nothing is hidden: one main
-// action, up to two others, Build ▸ (a build sidebar), Aether ▾ (a list) and
+// action, up to two others, Build ▸ and Aether ▸ (right-hand sidebars) and
 // Details ▾ (the full tile overview), then every remaining action as a row of
 // smaller text buttons underneath. A fact strip above says what the tile is.
 
@@ -77,7 +77,7 @@ export const selectBarButtons = (view: BarView): BarButton[] => {
     secondary += 1;
   }
   if (barBuildings(view, primary).length > 0) buttons.push({ kind: "panel", panel: "build", label: "Build ▸" });
-  if (view.crystal.length > 0) buttons.push({ kind: "panel", panel: "aether", label: "Aether ▾" });
+  if (view.crystal.length > 0) buttons.push({ kind: "panel", panel: "aether", label: "Aether ▸" });
   if (hasDetails(view)) buttons.push({ kind: "panel", panel: "details", label: "Details ▾" });
   return buttons;
 };
@@ -108,18 +108,6 @@ const actionButtonHtml = (b: Extract<BarButton, { kind: "action" }>): string => 
   const title = a.disabled ? a.disabledReason ?? a.label : a.detail ?? a.label;
   return `<button type="button" class="${cls}" data-hud-v2-action="${esc(a.id)}"${targets(a)}${a.disabled ? " disabled" : ""} title="${esc(title)}"><span class="hud-v2-act-label">${esc(a.label)}</span>${a.cost ? `<span class="hud-v2-act-cost">${esc(a.cost)}</span>` : ""}</button>`;
 };
-
-/** One row of the ⋯ / Aether lists: label, then cost or why it's unavailable. */
-const listRowHtml = (a: TileActionDef): string => {
-  const note = a.disabled ? a.disabledReason ?? "" : a.cost ?? a.detail ?? "";
-  const option = a.autoSettleOption ? autoSettleOptionHtml(a.autoSettleOption) : "";
-  return `<div class="hud-v2-pop-item"><button type="button" class="hud-v2-pop-row${a.disabled ? " hud-v2-pop-row-off" : ""}" data-hud-v2-action="${esc(a.id)}"${targets(a)}${a.disabled ? " disabled" : ""}>
-      <span class="hud-v2-pop-label">${esc(a.label)}</span>${note ? `<span class="hud-v2-pop-note">${esc(note)}</span>` : ""}
-    </button>${option}</div>`;
-};
-
-const aetherListHtml = (view: TileMenuView): string =>
-  `<div class="hud-v2-pop" role="menu" aria-label="Aether abilities"><div class="hud-v2-pop-h">Aether</div>${view.crystal.map(listRowHtml).join("")}</div>`;
 
 /** The minor row: small text buttons for everything else, plus a link to legacy-only views (progress, modules, reports). */
 const minorRowHtml = (view: TileMenuView, buttons: readonly BarButton[]): string => {
@@ -161,5 +149,5 @@ export const actionBarHtml = (fullView: TileMenuView, panel?: BarPanel, facts: r
   const autoSettle = primary?.action.autoSettleOption;
   // A Garrison checkbox belongs with whichever Garrison button is showing (main or minor row).
   const garrisonOption = autoSettle ?? moreActions(view, buttons).find((a) => a.autoSettleOption)?.autoSettleOption;
-  return `${head}${factsHtml(facts)}${panel === "aether" ? aetherListHtml(view) : ""}${panel === "details" ? detailsHtml(view) : ""}${row ? `<div class="hud-v2-act-row">${row}</div>` : ""}${minorRowHtml(view, buttons)}${garrisonOption ? autoSettleOptionHtml(garrisonOption) : ""}`;
+  return `${head}${factsHtml(facts)}${panel === "details" ? detailsHtml(view) : ""}${row ? `<div class="hud-v2-act-row">${row}</div>` : ""}${minorRowHtml(view, buttons)}${garrisonOption ? autoSettleOptionHtml(garrisonOption) : ""}`;
 };

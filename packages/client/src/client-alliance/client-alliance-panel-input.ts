@@ -5,6 +5,9 @@ import { refreshMetPlayerIds, type MetPlayersState } from "./client-met-players.
 export type AlliancePanelState = MetPlayersState &
   Pick<
     ClientState,
+    | "me"
+    | "resourceTradeOffers"
+    | "resourceTradeAgreements"
     | "allies"
     | "activeAllianceBreaks"
     | "activeTruces"
@@ -22,6 +25,9 @@ export const alliancePanelInputFromState = (
   playerNameForOwner: AlliancePanelInput["playerNameForOwner"],
   nowMs: number
 ): AlliancePanelInput => ({
+  ownId: state.me,
+  resourceTradeOffers: state.resourceTradeOffers,
+  resourceTradeAgreements: state.resourceTradeAgreements,
   metPlayerIds: refreshMetPlayerIds(state),
   allies: state.allies,
   activeAllianceBreaks: state.activeAllianceBreaks,

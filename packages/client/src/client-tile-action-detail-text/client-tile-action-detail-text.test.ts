@@ -40,3 +40,9 @@ describe("buildDetailTextForAction — build_hydrogarden (Hydrogarden)", () => {
     expect(buildDetailTextForAction("build_hydrogarden", { ...baseTile, resource: "FISH" })).toBe("Hydrogardens do not boost fish output.");
   });
 });
+
+describe("manpower building detail", () => {
+  it("shows Neural Works output per batch", () => {
+    expect(buildDetailTextForAction("build_neural_works", baseTile)).toContain("+24 manpower per batch");
+  });
+});

@@ -1,10 +1,12 @@
+import { slotSupplyAmountLabel } from "./client-economy-slot-sources.js";
+import { networkSupplyHtml } from "../client-resource-networks/network-supply-html.js";
 // The new HUD's Economy panel: one row per resource (Coin, Food, Titanium,
 // Crystal, Umbrite), each with what you have, where it comes from and what
 // uses it. Integrity has its own panel and Shard is not a slot resource, so
 // neither is here. The numbers come from the same helpers as the classic
 // panel (client-economy-html.ts), which hands them in to avoid an import cycle.
 
-import type { SlotResource } from "@border-empires/shared";
+import type { NetworkSupplyStatus, SlotResource } from "@border-empires/shared";
 import type { EconomyBucket, EconomyFocusKey } from "../client-economy-model.js";
 import type { EconomyPanelArgs } from "./client-economy-html.js";
 
@@ -15,6 +17,7 @@ const MAX_ITEMS = 4;
 
 export type EconomyRowsInput = {
   focus: EconomyFocusKey;
+  bonusSupply?: NetworkSupplyStatus;
   gold: number;
   /** Coin per minute after upkeep, with where it is earned and spent. */
   coin: { netPerMinute: number; sources: EconomyBucket[]; sinks: EconomyBucket[] };
@@ -64,9 +67,6 @@ const slotRowHtml = (input: EconomyRowsInput, resource: SlotResource): string =>
   const focus = input.focus === resource ? " v2e-focus" : "";
   const head = (amount: string, status: string, tone: string): string =>
     `<div class="v2e-head">${input.resourceIconHtml(resource)}<span class="v2e-name">${NAMES[resource]}</span><b class="v2e-amount">${amount}</b><span class="v2e-status ${tone}">${status}</span></div>`;
-  if (!input.isRevealed(resource)) {
-    return `<section class="v2e-row v2e-locked${focus}" data-v2e-row="${resource}">${head("—", "Not discovered", "v2e-muted")}</section>`;
-  }
   const { supply, demand, sources, occupants } = input.slots[resource];
   const status = slotStatus(supply, demand);
   const fed = resource === "FOOD" && input.foodCoverage < 1
@@ -74,14 +74,20 @@ const slotRowHtml = (input: EconomyRowsInput, resource: SlotResource): string =>
     : "";
   return `<section class="v2e-row${demand > supply ? " v2e-short" : ""}${focus}" data-v2e-row="${resource}">
     ${head(`${demand} / ${supply}`, status.text, status.tone)}
-    ${listHtml("From", sources.map((b) => item(named(b), `+${b.amountPerMinute}`)), "No tiles yet")}
+    ${listHtml("From", sources.map((b) => item(named(b), slotSupplyAmountLabel(b.amountPerMinute))), "No tiles yet")}
     ${listHtml("Used by", occupants.map((b) => item(`${named(b)}${b.dormantCount ? ` · ${b.dormantCount} dormant` : ""}`, String(b.amountPerMinute), Boolean(b.dormantCount))), "Nothing yet")}
     ${fed}
   </section>`;
 };
 
+// A resource the player has not researched yet gets no row, same as the top bar,
+// unless it already has slots or users (e.g. an upgrade grant or a captured
+// structure) — hiding those would hide a real shortage.
+const showsSlotRow = (input: EconomyRowsInput, r: SlotResource): boolean =>
+  input.isRevealed(r) || input.slots[r].supply > 0 || input.slots[r].demand > 0;
+
 export const renderEconomyRowsHtml = (input: EconomyRowsInput): string =>
-  `<div class="v2e">${ROWS.map((r) => (r === "GOLD" ? coinRowHtml(input) : slotRowHtml(input, r))).join("")}</div>`;
+  `<div class="v2e">${ROWS.map((r) => (r === "GOLD" ? coinRowHtml(input) : showsSlotRow(input, r) ? slotRowHtml(input, r) : "")).join("")}${networkSupplyHtml(input.bonusSupply)}</div>`;
 
 /** The classic panel's own calculations, handed in by client-economy-html.ts. */
 export type EconomyRowsHelpers = {
@@ -103,6 +109,7 @@ export const economyRowsFromPanelArgs = (args: EconomyPanelArgs, helpers: Econom
   }])) as EconomyRowsInput["slots"];
   return renderEconomyRowsHtml({
     focus: args.focus,
+    ...(args.resourceSlots.bonusSupply ? { bonusSupply: args.resourceSlots.bonusSupply } : {}),
     gold: args.gold,
     coin: { netPerMinute: args.incomePerMinute - args.upkeepPerMinute.gold, sources: coin.sources, sinks: coin.sinks },
     slots,

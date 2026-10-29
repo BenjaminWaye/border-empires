@@ -4,7 +4,7 @@ import { SETTLEMENT_BASE_GOLD_PER_MIN, STARTING_CAPITAL_MANPOWER_CAP, STARTING_C
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
 import { createPlayersFromRecoveredState } from "../runtime-hydration.js";
-import { buildAiOpponent, buildPlayer, collectEvents, testRuntimePlayer, afcModuleFixtureTile } from "./runtime.test-helpers.js";
+import { buildAiOpponent, buildPlayer, collectEvents, testRuntimePlayer, afcModuleFixtureTile, DUPLICATE_ATTACK_REPLAY_EVENTS } from "./runtime.test-helpers.js";
 
 type SimulationRuntimeEventShape = SimulationEvent;
 
@@ -1504,18 +1504,7 @@ describe("simulation runtime", () => {
       runtime.submitCommand(command);
 
       // player-2 is AI, so #732 skips its PLAYER_UPDATE on lock resolution (no WS subscriber).
-      expect(seen).toEqual([
-        "COMMAND_ACCEPTED:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
-        "COMBAT_RESOLVED:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
-        "TILE_DELTA_BATCH:cmd-1",
-        "COMMAND_ACCEPTED:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
-        "COMBAT_RESOLVED:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
-        "TILE_DELTA_BATCH:cmd-1",
-      ]);
+      expect(seen).toEqual(DUPLICATE_ATTACK_REPLAY_EVENTS);
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();
@@ -3469,18 +3458,7 @@ describe("simulation runtime", () => {
       });
 
       // player-2 is AI (#732 skips its PLAYER_UPDATE); the duplicate seq replays cmd-1's recorded events.
-      expect(seen).toEqual([
-        "COMMAND_ACCEPTED:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
-        "COMBAT_RESOLVED:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
-        "TILE_DELTA_BATCH:cmd-1",
-        "COMMAND_ACCEPTED:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
-        "COMBAT_RESOLVED:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
-        "TILE_DELTA_BATCH:cmd-1",
-      ]);
+      expect(seen).toEqual(DUPLICATE_ATTACK_REPLAY_EVENTS);
       randomSpy.mockRestore();
     } finally {
       vi.useRealTimers();

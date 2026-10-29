@@ -71,7 +71,7 @@ export const renderStructureInfoOverlay = (
           ${components
             .map((c) => {
               const complete = ownedComponentTypes?.has(c.type) ?? false;
-              return `<li class="${complete ? "structure-info-component-complete" : "structure-info-component-pending"}">⚙️ ${c.name} — ${complete ? "Complete" : "Not built"}</li>`;
+              return `<li class="${complete ? "structure-info-component-complete" : "structure-info-component-pending"}">⚙\uFE0E ${c.name} — ${complete ? "Complete" : "Not built"}</li>`;
             })
             .join("")}
         </ul>

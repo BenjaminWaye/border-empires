@@ -1,3 +1,5 @@
+import type { TreatySettlementPhase } from "./social-offer-settlement-state.js";
+import type { ResourceTradeOfferStore } from "../resource-trade/resource-trade-store.js";
 // Type definitions and pure lookup helpers for social-state.ts, split out to
 // keep that file under the repo's 500-line cap. No state lives here — these
 // are just the shapes createSocialState operates on plus small pure helpers
@@ -15,6 +17,7 @@ export type SocialAllianceRequest = {
   toName?: string;
   /** Coin/Shards the deal moves, from the proposer's side; settled in the simulation on accept. */
   terms?: DiplomacyTerms;
+  settlementPhase?: TreatySettlementPhase;
 };
 
 export type SocialTruceRequest = {
@@ -27,6 +30,9 @@ export type SocialTruceRequest = {
   fromName?: string;
   toName?: string;
   terms?: DiplomacyTerms;
+  /** Sent while a truce was already running: accepting adds durationHours to its end. */
+  extendsTruce?: true;
+  settlementPhase?: TreatySettlementPhase;
 };
 
 export type SocialActiveTruce = {
@@ -61,6 +67,7 @@ export type SocialTruceBreakRecord = {
 };
 
 export type SocialSnapshot = {
+  resourceTradeOffers?: readonly import("@border-empires/shared").ResourceTradeOffer[];
   forcedTruceCooldownUntil?: number;
   allies: string[];
   activeAllianceBreaks: Array<{
@@ -177,6 +184,7 @@ export type SocialPendingOffer =
   | { kind: "alliance"; request: SocialAllianceRequest };
 
 export type SocialState = {
+  resourceTradeOffers: ResourceTradeOfferStore;
   resetAfcCampaign: () => void;
   forceTruce: (playerId: string, targetPlayerId: string) => SocialActionResult;
   registerPlayer: (playerId: string, name: string) => void;
@@ -204,6 +212,9 @@ export type SocialState = {
     requestId: string
   ) => { ok: true; offer: SocialPendingOffer } | { ok: false; code: string; message: string };
   endSettlement: (requestId: string) => void;
+  setSettlementPhase: (kind: "truce" | "alliance", requestId: string, phase: TreatySettlementPhase) => void;
+  discardSettlement: (kind: "truce" | "alliance", requestId: string) => SocialActionResult;
+  isTreatySupplySettling: (agreementId: string, actorId: string) => boolean;
   resolvePlayerByName: (playerName: string) => { id: string; name: string } | undefined;
   resolvePlayerById: (playerId: string) => { id: string; name: string } | undefined;
   playerNameOf: (playerId: string) => string;
@@ -223,6 +234,8 @@ export type SocialState = {
 
 export type SocialStateSink = {
   upsertPlayer: (playerId: string, name: string) => void;
+  commitAcceptedAlliance?: (requestId: string, playerAId: string, playerBId: string, createdAt: number) => void;
+  commitAcceptedTruce?: (requestId: string, truce: SocialActiveTruce) => void;
   saveAllianceRequest: (request: SocialAllianceRequest) => void;
   deleteAllianceRequest: (requestId: string) => void;
   saveTruceRequest: (request: SocialTruceRequest) => void;

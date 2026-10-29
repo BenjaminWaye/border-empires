@@ -1,5 +1,7 @@
+import { TOWN_ECONOMY_CHANGELOG } from "./client-changelog-town-economy.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_25 } from "./client-changelog-oct-25.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_26 } from "./client-changelog-oct-26.js";
+import { RESOURCE_NETWORKS_CHANGELOG } from "./client-changelog-resource-networks.js";
 import { RELIABLE_DIPLOMACY_CHANGELOG } from "./client-changelog-reliable-diplomacy.js";
 import { AFC_SPECIALIZATIONS_CHANGELOG } from "./client-changelog-afc-specializations.js";
 import { ALLIANCES_TAB_CHANGELOG } from "./client-changelog-alliances-tab.js";
@@ -22,6 +24,12 @@ import { SIEGE_REPORTS_CHANGELOG } from "./client-changelog-siege-reports.js";
 import { RICHER_FORESTS_CHANGELOG } from "./client-changelog-richer-forests.js";
 import { SIEGE_FX_GATE_CHANGELOG } from "./client-changelog-siege-fx-gate.js";
 import { INCURSION_HATCH_HILLS_CHANGELOG } from "./client-changelog-incursion-hatch-hills.js";
+import { AI_DOCK_CROSSING_CHANGELOG } from "./client-changelog-ai-dock-crossing.js";
+import { REACH_RESTART_CHANGELOG } from "./client-changelog-reach-restart.js";
+import { TOWN_NAMEPLATES_CHANGELOG } from "./client-changelog-town-nameplates.js";
+import { MUSTER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-muster-supply-lines.js";
+import { MARCH_STEERING_CHANGELOG } from "./client-changelog-march-steering.js";
+import { CLIENT_CHANGELOG_ENTRIES_OCT_27_LATE } from "./client-changelog-oct-27-late.js";
 import { MARCH_ACROSS_WATER_CHANGELOG } from "./client-changelog-march-across-water.js";
 import { MARCH_UNEXPLORED_CHANGELOG } from "./client-changelog-march-unexplored.js";
 import { MARCH_STOP_SHORT_CHANGELOG } from "./client-changelog-march-stop-short.js";
@@ -63,6 +71,7 @@ import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
 import { OUT_OF_REACH_NO_DECAY_CHANGELOG } from "./client-changelog-out-of-reach-no-decay.js";
 import { FRONTIER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-frontier-supply-lines.js";
 import { MANPOWER_BATCH_LABEL_CHANGELOG } from "./client-changelog-manpower-batch-label.js";
+import { AI_VICTORY_STANDINGS_CHANGELOG } from "./client-changelog-ai-victory-standings.js";
 import { RESTART_TILE_STATE_CHANGELOG } from "./client-changelog-restart-tile-state.js";
 import { RESTART_MANPOWER_CHANGELOG } from "./client-changelog-restart-manpower.js";
 import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-recent-groups.js";
@@ -94,6 +103,8 @@ export type ClientChangelogEntry = {
 };
 // Register every client release here or in feature groups; createdAt determines display order.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  ...TOWN_ECONOMY_CHANGELOG,
+  ...RESOURCE_NETWORKS_CHANGELOG,
   ...AFC_SPECIALIZATIONS_CHANGELOG,
   ...ALLIANCES_TAB_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_OCT_17,
@@ -122,6 +133,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["Selecting a dock no longer reveals hidden connections on the minimap or either map renderer", "Dock navigation only visits discovered destinations; garrisoning a dock reveals its links", "3D dock routes update as soon as linked docks are discovered, even while the same dock stays selected"]
   },
   ...MANPOWER_BATCH_LABEL_CHANGELOG,
+  ...AI_VICTORY_STANDINGS_CHANGELOG,
   ...RESTART_TILE_STATE_CHANGELOG,
   ...RESTART_MANPOWER_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING,
@@ -434,21 +446,12 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "AI empires only fall back to their old search if every good site is taken."
     ]
   },
-  {
-    createdAt: 1793225946704, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.28.1",
-    title: "Marches head for their target and are easier to steer",
-    why: "A march sent around mountains spread over every tile near its path instead of heading for the target, and never attacked the town or structure it was sent to take. Changing a march also meant zooming into the town every time.",
-    changes: [
-      "Marches follow one narrow path to their target, even on long routes around mountains or water.",
-      "Marches can now go up to 30 tiles away.",
-      "A march on an enemy town or structure first takes two tiles next to it, then attacks it, saving up manpower if it needs to.",
-      "While picking a march target, a banner tells you to tap the destination, shows the distance and has a Cancel button. An arrow follows your pointer.",
-      "Drag a march's target on the map to move it, or use Change Target on the flag.",
-      "Tapping a town or support tile with your flag on it selects the flag. Tap again to open the town screen.",
-      "Raise flag on the town screen now raises it on the support tile you selected, not on the town."
-    ]
-  }
+  ...CLIENT_CHANGELOG_ENTRIES_OCT_27_LATE,
+  ...AI_DOCK_CROSSING_CHANGELOG,
+  ...REACH_RESTART_CHANGELOG,
+  ...TOWN_NAMEPLATES_CHANGELOG,
+  ...MUSTER_SUPPLY_LINES_CHANGELOG,
+  ...MARCH_STEERING_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

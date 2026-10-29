@@ -15,6 +15,7 @@ export type ManpowerGaugeInput = {
   /** Manpower already pulled into the player's muster flags (out of the pool). */
   staged: number;
   regenPerMinute: number;
+  nextBatchAmount?: number | undefined;
   /** Muster logistics throughput per minute; shown in the tooltip only. */
   logisticsPerMinute: number;
   nextRefillAtMs: number | undefined;
@@ -40,12 +41,14 @@ const refillText = (input: ManpowerGaugeInput): RefillText => {
     return { long: `${over} over cap`, short: over, quiet: false };
   }
   if (manpower + 0.001 >= manpowerCap) return { long: "Full", short: "Full", quiet: true };
-  if (input.regenPerMinute <= 0) return { long: "Paused", short: "Paused", quiet: true };
+  if (input.regenPerMinute <= 0 && !(input.nextBatchAmount && input.nextBatchAmount > 0)) return { long: "Paused", short: "Paused", quiet: true };
   if (input.nextRefillAtMs === undefined) return { long: "", short: "", quiet: true };
   const remaining = input.nextRefillAtMs - input.nowMs;
   if (remaining <= 0) return { long: "Installing…", short: "now", quiet: false };
   const eta = formatRefillCountdown(remaining);
-  return { long: `Next batch in ${eta}`, short: eta, quiet: false };
+  if (input.nextBatchAmount === undefined) return { long: `Next batch in ${eta}`, short: eta, quiet: false };
+  const amount = input.formatAmount(Math.max(0, Math.min(manpowerCap - manpower, input.nextBatchAmount)));
+  return { long: `+${amount} in ${eta}`, short: `+${amount} in ${eta}`, quiet: false };
 };
 
 export const manpowerGaugeChipHtml = (input: ManpowerGaugeInput): string => {

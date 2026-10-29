@@ -85,7 +85,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     shardOverlayForTile,
     drawShardFallback,
     drawTownOverlay,
-    drawTownMarker,
     drawDockMarker,
     structureAccentColor,
     structureOverlayImages,
@@ -506,14 +505,10 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     resourceColor,
     shardOverlayForTile,
     drawShardFallback,
-    // In 3D mode, draw only the town corner badge (gold coin) — the
-    // building itself is rendered by the 3D town overlay. In 2D mode,
-    // draw the full SVG building + corner badge as before.
+    // In 3D mode the 3D town overlay draws the building and the shared
+    // town nameplate marks it; in 2D mode draw the full SVG building.
     drawTownOverlay: (tile, px, py, size) => {
-      if (threeRendererHost.current()) {
-        if (tile.town) drawTownMarker(px, py, size);
-        return;
-      }
+      if (threeRendererHost.current()) return;
       drawTownOverlay(tile, px, py, size);
     },
     drawDockMarker,

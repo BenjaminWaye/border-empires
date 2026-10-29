@@ -15,7 +15,7 @@ type SocialAllianceActionResult =
 export type AllianceSocketMessageDeps = {
   requestAlliance: (fromPlayerId: string, targetPlayerName: string, options?: { terms?: DiplomacyTerms }) => SocialAllianceActionResult;
   /** Async when the offer carries terms the simulation must pay out first. */
-  acceptAlliance: (playerId: string, requestId: string) => SocialAllianceActionResult | Promise<SocialAllianceActionResult>;
+  acceptAlliance: (playerId: string, requestId: string, announcements?: Partial<Record<string, string>>, confirmedResourceSupply?: boolean) => SocialAllianceActionResult | Promise<SocialAllianceActionResult>;
   rejectAlliance: (playerId: string, requestId: string) => SocialAllianceActionResult;
   cancelAlliance: (playerId: string, requestId: string) => SocialAllianceActionResult;
   breakAlliance: (playerId: string, targetPlayerId: string) => SocialAllianceActionResult;
@@ -71,7 +71,7 @@ export const handleAllianceSocketMessage = async (
     return true;
   }
   if (message.type === "ALLIANCE_ACCEPT") {
-    const result = await deps.acceptAlliance(playerId, message.requestId);
+    const result = await deps.acceptAlliance(playerId, message.requestId, undefined, message.confirmedResourceSupply === true);
     if (!result.ok) { sendError(deps, socket, result); return true; }
     deps.onDiplomacyInteraction?.(playerId, result.notifyPlayerIds.find((id) => id !== playerId));
     const allyPlayerId = result.notifyPlayerIds.find((id) => id !== playerId);

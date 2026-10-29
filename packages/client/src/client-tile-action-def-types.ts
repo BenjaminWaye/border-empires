@@ -3,6 +3,7 @@
 
 export type TileActionDef = {
   id:
+    | import("@border-empires/shared").NetworkBuildAction
     | "settle_land"
     | "settle_many"
     | "launch_attack"

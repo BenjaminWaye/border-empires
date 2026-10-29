@@ -19,7 +19,7 @@ for (const backend of ["memory", "sqlite"] as const) {
         const store = db ? new SqliteSimulationCommandStore(db) : new InMemorySimulationCommandStore();
         if (store instanceof SqliteSimulationCommandStore) await store.applySchema();
         const commands = [command("truce", "SYNC_TRUCE"), command("break", "SYNC_TRUCE"),
-          command("ally", "SYNC_ALLIANCE"), command("terms", "SETTLE_DIPLOMACY_TERMS")];
+          command("ally", "SYNC_ALLIANCE"), command("terms", "SETTLE_DIPLOMACY_TERMS"), command("cancel-a", "CANCEL_RESOURCE_SUPPLY"), command("cancel-b", "CANCEL_RESOURCE_SUPPLY")];
         for (const cmd of commands) {
           await store.persistQueuedCommand(cmd, 100);
           await store.markResolved(cmd.commandId, 110);
@@ -57,5 +57,20 @@ it("migrates a populated old unique index and preserves rows and client deduplic
     const client = { ...command("client", "EXPAND"), clientSeq: 1 };
     await store.persistQueuedCommand(client, 120);
     await expect(store.persistQueuedCommand({ ...client, commandId: "duplicate" }, 130)).rejects.toThrow("UNIQUE");
+  } finally { db.close(); }
+});
+
+it("upgrades the previously partial social index to exclude resource cancellation", async () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    const store = new SqliteSimulationCommandStore(db);
+    await store.applySchema();
+    db.exec("DROP INDEX commands_player_seq_idx; CREATE UNIQUE INDEX commands_player_seq_idx ON commands(player_id, client_seq) WHERE command_type NOT IN ('SYNC_TRUCE', 'SYNC_ALLIANCE', 'SETTLE_DIPLOMACY_TERMS')");
+    await store.persistQueuedCommand(command("client-zero", "EXPAND"), 100);
+    await store.applySchema();
+    await store.persistQueuedCommand(command("cancel-a", "CANCEL_RESOURCE_SUPPLY"), 110);
+    await store.persistQueuedCommand(command("cancel-b", "CANCEL_RESOURCE_SUPPLY"), 120);
+    expect((await store.loadAllCommands()).map(row => row.commandId)).toEqual(["client-zero", "cancel-a", "cancel-b"]);
+    expect(await store.findByPlayerSeq("ai-1", 0)).toMatchObject({commandId:"client-zero"});
   } finally { db.close(); }
 });

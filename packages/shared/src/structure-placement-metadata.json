@@ -311,5 +311,35 @@
     "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"
+  },
+  "RESIN_EXTRACTOR": {
+    "showOn": ["resource"],
+    "placementMode": "same_tile",
+    "sortGroup": "resource",
+    "resourceTypes": ["NEURAL_RESIN"]
+  },
+  "IMPLANT_FOUNDRY": {
+    "showOn": ["resource"],
+    "placementMode": "same_tile",
+    "sortGroup": "resource",
+    "resourceTypes": ["CONDUCTIVE_MINERALS"]
+  },
+  "CATALYST_REFINERY": {
+    "showOn": ["resource"],
+    "placementMode": "same_tile",
+    "sortGroup": "resource",
+    "resourceTypes": ["CATALYTIC_DEPOSIT"]
+  },
+  "CULTIVATION_ESTATE": {
+    "showOn": ["resource"],
+    "placementMode": "same_tile",
+    "sortGroup": "resource",
+    "resourceTypes": ["LUXURY_BIOTA"]
+  },
+  "RECLAMATION_WORKS": {
+    "showOn": ["resource"],
+    "placementMode": "same_tile",
+    "sortGroup": "resource",
+    "resourceTypes": ["PRECURSOR_SALVAGE"]
   }
 }

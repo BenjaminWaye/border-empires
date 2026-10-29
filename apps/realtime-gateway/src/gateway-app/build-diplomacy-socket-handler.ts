@@ -1,3 +1,4 @@
+import { createResourceTradeService } from "../resource-trade/resource-trade-service.js";
 import { handleAfcCourtMessage } from "../afc-specializations/afc-force-truce-message.js";
 import { createProactiveAiDiplomacy } from "../proactive-ai-diplomacy/proactive-ai-diplomacy.js";
 // Wires the ALLIANCE_* / TRUCE_* socket handlers, the trade screen's stance
@@ -86,6 +87,8 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
   const acceptance = createDiplomacyOfferAcceptance({
     socialState,
     settlement,
+    onProgress: request => deps.fanoutPlayerPayloads(socialState.syncPlayers([request.fromPlayerId, request.toPlayerId]).payloadsByPlayerId),
+    onDiscarded: result => deps.fanoutPlayerPayloads(result.payloadsByPlayerId),
     recordGatewayEvent: deps.recordGatewayEvent,
     // AIs remember deals: repeat truce buying costs more, payments build goodwill.
     onAccepted: (kind, request) => {
@@ -110,7 +113,8 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
           playerId: request.toPlayerId,
           kind,
           durationHours: "durationHours" in request ? request.durationHours : 12,
-          termsFromAi: request.terms
+          termsFromAi: request.terms,
+          extendsTruce: "extendsTruce" in request && request.extendsTruce === true
         }
       );
     },
@@ -191,6 +195,11 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     fanout: deps.fanoutPlayerPayloads, recordEvent: deps.recordGatewayEvent,
     nameForPlayerId: async id => socialState.playerNameOf(id), diplomacyContext });
 
+  const resourceTrades = createResourceTradeService({ social:socialState,settlement,now:()=>Date.now(),
+    isAutoRespondingAi:id=>isAi(id)&&!deps.hasLiveSocket(id),
+    aiHoldings:async id=>{const player=(await deps.ensureSubscribed(id)).player;return player?{gold:Math.floor(player.gold),shard:Math.floor(player.strategicResources.SHARD??0),...(player.resourceTradeHoldings?{resources:player.resourceTradeHoldings}:{})}:undefined;},
+    send:deps.sendJson,fanout:deps.fanoutPlayerPayloads,record:deps.recordGatewayEvent });
+
   const handleMessage: DiplomacySocketHandler["handleMessage"] = async (message, session, socket) => {
     const playerId = session.playerId;
     if (!playerId) return false;
@@ -212,6 +221,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
       deps.sendJson(socket, payload);
       return true;
     }
+    if (await resourceTrades.handle(message, playerId, socket, session.isGuest === true)) return true;
     const guestSession = { isGuest: session.isGuest === true };
     // Guests can't send offers, so a counter from one must not reject anything.
     if (!guestSession.isGuest) rejectCounteredOffer({ rejectTruce: socialState.rejectTruce, rejectAlliance: socialState.rejectAlliance, fanoutPlayerPayloads: deps.fanoutPlayerPayloads }, message, playerId);

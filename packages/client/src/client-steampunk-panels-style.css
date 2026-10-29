@@ -56,6 +56,18 @@
   background: rgba(60, 41, 25, 0.35) !important;
 }
 
+/* Label and value side by side; the emoji that used to sit between them gave the only gap. */
+.fl-summary-stat {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.fl-hull-stats {
+  display: flex;
+  gap: 10px;
+}
+
 .fl-select,
 .fl-hull-count,
 .fl-step-btn {

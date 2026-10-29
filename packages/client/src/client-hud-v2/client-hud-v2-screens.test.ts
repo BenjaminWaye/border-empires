@@ -133,6 +133,29 @@ describe("town screen", () => {
   };
   const support: Tile = { x: 6, y: 5, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" };
 
+  it.each([
+    { tier: "TOWN" as const, profile: "GRASS" as const, coastal: false, cap: "300", regen: "100" },
+    { tier: "CITY" as const, profile: "DESERT" as const, coastal: false, cap: "270", regen: "90" },
+    { tier: "TOWN" as const, profile: "TUNDRA" as const, coastal: true, cap: "198", regen: "66" }
+  ])("shows base manpower cap and regeneration for $tier/$profile (coastal=$coastal) without optional manpower fields", ({ tier, profile, coastal, cap, regen }) => {
+    const tile: Tile = { ...town, town: { ...town.town!, populationTier: tier, terrainProfile: profile, coastal } };
+    const { left } = townScreenRegions({ town: tile, focus: support, townView: view({}), focusView: view({}), townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined });
+    expect(tile.town?.manpowerCap).toBeUndefined();
+    expect(left).toContain(`MANPOWER CAP</span><span class="v2t-stat-v v2t-gold">+${cap}</span>`);
+    expect(left).toContain(`Base town · +${regen} per batch regen`);
+  });
+
+  it("keeps building bonuses separate from the town's base manpower contribution", () => {
+    const tile: Tile = { ...town, town: { ...town.town!, terrainProfile: "GRASS", coastal: false, manpowerCap: 3150,
+      townModifierTotals: [{ heading: "1 Ancillary Depot", modifiers: [{ statLabel: "Manpower cap", valueText: "+150", tone: "positive" }] }] } };
+    const { left } = townScreenRegions({ town: tile, focus: tile, townView: view({}), focusView: view({}), townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined });
+    expect(left).toContain('MANPOWER CAP</span><span class="v2t-stat-v v2t-gold">+300</span>');
+    expect(left).toContain("Base town · +100 per batch regen");
+    expect(left).toContain("1 Ancillary Depot");
+    expect(left).toContain("Manpower cap +150");
+    expect(left).not.toContain("3,150");
+  });
+
   it("runs town actions on the town and builds on the selected support tile", () => {
     const regions = townScreenRegions({
       town,

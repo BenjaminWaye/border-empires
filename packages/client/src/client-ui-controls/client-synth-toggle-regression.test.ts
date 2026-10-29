@@ -25,7 +25,8 @@ describe("converter toggle regression guard", () => {
     const overlayImages = clientSource("../client-map-render/client-map-overlay-images.ts");
     const loop = clientSource("../client-runtime-loop.ts");
     expect(overlayImages).toContain('AETHER_CONDENSER: loadOverlayImage("aether-condenser-overlay.svg")');
-    expect(loop).toContain("const overlay = deps.structureOverlayImages[t.economicStructure.type];");
+    expect(loop).toContain("drawEconomicStructureOverlay2D(deps, t, px, py, size,");
+    expect(clientSource("../client-resource-overlay-2d/client-economic-overlay-2d.ts")).toContain("const overlay = deps.structureOverlayImages[structure.type];");
   });
 
   it("keeps live-map overlays in sync with dedicated structure art", () => {
@@ -65,6 +66,7 @@ describe("converter toggle regression guard", () => {
     for (const [structureType, asset] of dedicatedStructureOverlays) {
       expect(overlayImages).toContain(`${structureType}: loadOverlayImage("${asset}")`);
     }
-    expect(loop).toContain("const overlay = deps.structureOverlayImages[t.economicStructure.type];");
+    expect(loop).toContain("drawEconomicStructureOverlay2D(deps, t, px, py, size,");
+    expect(clientSource("../client-resource-overlay-2d/client-economic-overlay-2d.ts")).toContain("const overlay = deps.structureOverlayImages[structure.type];");
   });
 });

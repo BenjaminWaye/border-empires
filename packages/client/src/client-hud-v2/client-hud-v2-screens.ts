@@ -139,6 +139,8 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
     bodyMode = "list";
     writeHtml("v2s-body", diplomacyListHtml({
       me: state.me,
+      resourceOffers: state.resourceTradeOffers,
+      resourceAgreements: state.resourceTradeAgreements,
       metPlayerIds: state.metPlayerIds,
       allies: state.allies,
       activeTruces: state.activeTruces,
@@ -185,23 +187,23 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
 };
 
 /** The alert title for a sent offer; undefined for anything else the deal view sends (e.g. its stance lookup on open). */
-export const offerSentTitle = (payload: unknown): string | undefined => {
+export const offerSentTitle = (payload: unknown, extendsTruce = false): string | undefined => {
   if (typeof payload !== "object" || payload === null || !("type" in payload)) return undefined;
+  if (payload.type === "RESOURCE_TRADE_REQUEST") return "Resource trade offered";
   if (payload.type === "ALLIANCE_REQUEST") return "Alliance offered";
   if (payload.type !== "TRUCE_REQUEST") return undefined;
   const hours = "durationHours" in payload ? payload.durationHours : undefined;
-  return `Truce offered${typeof hours === "number" ? ` · ${hours}h` : ""}`;
+  return `${extendsTruce ? "Truce extension" : "Truce"} offered${typeof hours === "number" ? ` · ${hours}h` : ""}`;
 };
 
 /** Opens the existing trade view and moves it into the deal's middle column; closing it returns to the list. */
 const hostTradeView = (deps: HudV2Deps, targetId: string, input?: Parameters<typeof openDiplomacyTradeScreen>[0]): void => {
   const { state } = deps;
-  const ally = state.allies.includes(targetId);
-  const offer = input ?? { targetName: nameOf(deps, targetId), targetPlayerId: targetId, kind: ally ? "alliance" as const : "truce" as const, durationHours: 24 as const };
+  const offer = input ?? { targetName: nameOf(deps, targetId), targetPlayerId: targetId, kind: state.resourceTradeHoldings ? "trade" as const : "truce" as const, durationHours: 24 as const };
   // The deal view closes on send; say the offer went out (the reply replaces this alert, above the screen).
   const send = (payload: unknown, notSignedInMessage: string): boolean => {
     const sent = deps.sendGameMessage(payload, notSignedInMessage);
-    const title = sent ? offerSentTitle(payload) : undefined;
+    const title = sent ? offerSentTitle(payload, state.activeTruces.some((t) => t.otherPlayerId === targetId && t.endsAt > Date.now())) : undefined;
     if (title) showCaptureAlert(state, title, `Waiting for ${offer.targetName}`, "success");
     return sent;
   };
@@ -281,7 +283,7 @@ export const renderScreen = (deps: HudV2Deps): void => {
 
 const respondToRequest = (deps: HudV2Deps, kind: "alliance" | "truce", verb: "ACCEPT" | "REJECT", requestId: string): void => {
   const type = `${kind === "alliance" ? "ALLIANCE" : "TRUCE"}_${verb}`;
-  deps.sendGameMessage({ type, requestId }, kind === "alliance" ? "Finish sign-in before responding to alliance requests." : "Finish sign-in before responding to truces.");
+  deps.sendGameMessage({ type, requestId, ...(verb === "ACCEPT" ? {confirmedResourceSupply:true} : {}) }, kind === "alliance" ? "Finish sign-in before responding to alliance requests." : "Finish sign-in before responding to truces.");
 };
 
 /** Clicks inside an open screen; true when handled. */

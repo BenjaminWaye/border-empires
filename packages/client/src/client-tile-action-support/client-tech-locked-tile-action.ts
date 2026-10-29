@@ -1,3 +1,4 @@
+import { NETWORK_RESOURCES, networkBuildAction } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { TileActionDef } from "../client-types.js";
 
@@ -30,6 +31,7 @@ export const hideTechLockedTileAction = (
 // hide the Umbrite Rig with no explanation at all. (An unresearched rig can't
 // show up: the same tech reveals Umbrite on the map.)
 const SHOWN_WHEN_TECH_LOCKED: ReadonlySet<TileActionDef["id"]> = new Set<TileActionDef["id"]>([
+  ...NETWORK_RESOURCES.map(networkBuildAction),
   "build_hydrogarden",
   "build_umbrite_rig",
   "build_mine"

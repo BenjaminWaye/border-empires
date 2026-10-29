@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { lastManpowerRefillAtMs, MANPOWER_REFILL_WINDOW_MS } from "@border-empires/shared";
-import { accrueManpower } from "./runtime-manpower.js";
+import { accrueManpower, nextManpowerBatchAmount } from "./runtime-manpower.js";
 import type { RuntimePlayer } from "./runtime-types.js";
 
 const MINUTE = 60_000;
@@ -63,5 +63,28 @@ describe("accrueManpower (banked periodic refill)", () => {
     const result = accrueManpower(player({ manpowerUpdatedAt: BOUNDARY - 10 * MANPOWER_REFILL_WINDOW_MS }), CAP, 1, BOUNDARY + MINUTE);
     expect(result.manpower).toBe(CAP);
     expect(result.banked).toBe(0);
+  });
+});
+
+describe("next manpower batch projection", () => {
+  it("only pays the minute accrued after spending from a full pool", () => {
+    const p = player({ manpower: CAP, manpowerUpdatedAt: BOUNDARY });
+    settle(p, 1, NEXT - MINUTE);
+    p.manpower -= 100;
+    expect(nextManpowerBatchAmount(p, CAP, 1)).toBe(1);
+    expect(accrueManpower(p, CAP, 1, NEXT).manpower - p.manpower).toBe(1);
+  });
+
+  it("preserves the historical bank when regeneration changes halfway through", () => {
+    const p = player({ manpowerUpdatedAt: BOUNDARY });
+    settle(p, 1, BOUNDARY + 120 * MINUTE);
+    expect(nextManpowerBatchAmount(p, CAP, 2)).toBe(360);
+    expect(accrueManpower(p, CAP, 2, NEXT).manpower).toBe(360);
+  });
+
+  it("includes banked manpower even while new regeneration is paused", () => {
+    const p = player({ manpowerUpdatedAt: BOUNDARY });
+    settle(p, 1, BOUNDARY + 30 * MINUTE);
+    expect(nextManpowerBatchAmount(p, CAP, 0)).toBe(30);
   });
 });

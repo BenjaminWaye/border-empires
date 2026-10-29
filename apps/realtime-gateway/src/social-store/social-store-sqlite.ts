@@ -1,3 +1,4 @@
+import { SqliteResourceTradeOfferStore } from "../resource-trade/resource-trade-store.js";
 import { applyForcedTruceSchema, loadForcedTruceCooldowns } from "./social-store-forced-truces.js";
 // SqliteGatewaySocialStore, extracted out of social-store.ts (already over
 // the repo's 500-line file-size gate and may not grow further -- see
@@ -36,7 +37,8 @@ import {
 } from "./social-store-row-mappers.js";
 
 export class SqliteGatewaySocialStore implements GatewaySocialStore {
-  constructor(private readonly db: DatabaseSync, private readonly now: () => number = () => Date.now()) {}
+  readonly resourceTrades: SqliteResourceTradeOfferStore;
+  constructor(private readonly db: DatabaseSync, private readonly now: () => number = () => Date.now()) { this.resourceTrades = new SqliteResourceTradeOfferStore(db); }
 
   applySchema(): void {
     this.db.exec(`
@@ -130,6 +132,16 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
         // Column already exists from a previous applySchema() call.
       }
     }
+    // Truce extensions (an offer made during a running truce) came later still.
+    try {
+      this.db.exec(`ALTER TABLE social_truce_requests ADD COLUMN extends_truce INTEGER;`);
+    } catch {
+      // Column already exists from a previous applySchema() call.
+    }
+    for (const table of ["social_alliance_requests", "social_truce_requests"]) {
+      const columns = this.db.prepare(`PRAGMA table_info(${table})`).all();
+      if (!columns.some(column => column.name === "settlement_phase")) this.db.exec(`ALTER TABLE ${table} ADD COLUMN settlement_phase TEXT`);
+    }
     applyForcedTruceSchema(this.db);
   }
 
@@ -140,7 +152,7 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
       .all() as AllianceRow[];
     const allianceRequestRows = this.db
       .prepare(
-        `SELECT id, from_player_id, to_player_id, created_at, from_name, to_name, terms_json FROM social_alliance_requests`
+        `SELECT id, from_player_id, to_player_id, created_at, from_name, to_name, terms_json, settlement_phase FROM social_alliance_requests`
       )
       .all() as AllianceRequestRow[];
     const allianceBreakRows = this.db
@@ -155,7 +167,7 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
       .all() as CompletedAllianceBreakRow[];
     const truceRequestRows = this.db
       .prepare(
-        `SELECT id, from_player_id, to_player_id, created_at, expires_at, duration_hours, from_name, to_name, terms_json FROM social_truce_requests`
+        `SELECT id, from_player_id, to_player_id, created_at, expires_at, duration_hours, from_name, to_name, terms_json, settlement_phase, extends_truce FROM social_truce_requests`
       )
       .all() as TruceRequestRow[];
     const activeTruceRows = this.db
@@ -220,18 +232,37 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
       .run(playerId, name, this.now());
   }
 
+  private atomic(action: () => void): void {
+    this.db.exec("BEGIN IMMEDIATE");
+    try { action(); this.db.exec("COMMIT"); }
+    catch (error) { this.db.exec("ROLLBACK"); throw error; }
+  }
+
+  commitAcceptedAlliance(requestId: string, a: string, b: string, at: number): void {
+    this.atomic(() => {
+      this.addAlliance(a, b, at);
+      this.removeCompletedAllianceBreak(a, b);
+      this.deleteAllianceRequest(requestId);
+    });
+  }
+
+  commitAcceptedTruce(requestId: string, truce: SocialActiveTruce): void {
+    this.atomic(() => { this.saveActiveTruce(truce); this.deleteTruceRequest(requestId); });
+  }
+
   saveAllianceRequest(request: SocialAllianceRequest): void {
     this.db
       .prepare(
-        `INSERT INTO social_alliance_requests (id, from_player_id, to_player_id, created_at, from_name, to_name, terms_json)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO social_alliance_requests (id, from_player_id, to_player_id, created_at, from_name, to_name, terms_json, settlement_phase)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            from_player_id = excluded.from_player_id,
            to_player_id = excluded.to_player_id,
            created_at = excluded.created_at,
            from_name = excluded.from_name,
            to_name = excluded.to_name,
-           terms_json = excluded.terms_json`
+           terms_json = excluded.terms_json,
+           settlement_phase = excluded.settlement_phase`
       )
       .run(
         request.id,
@@ -240,7 +271,8 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
         request.createdAt,
         request.fromName ?? null,
         request.toName ?? null,
-        request.terms ? JSON.stringify(request.terms) : null
+        request.terms ? JSON.stringify(request.terms) : null,
+        request.settlementPhase ?? null
       );
   }
 
@@ -309,8 +341,8 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
   saveTruceRequest(request: SocialTruceRequest): void {
     this.db
       .prepare(
-        `INSERT INTO social_truce_requests (id, from_player_id, to_player_id, created_at, expires_at, duration_hours, from_name, to_name, terms_json)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO social_truce_requests (id, from_player_id, to_player_id, created_at, expires_at, duration_hours, from_name, to_name, terms_json, settlement_phase, extends_truce)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            from_player_id = excluded.from_player_id,
            to_player_id = excluded.to_player_id,
@@ -319,7 +351,9 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
            duration_hours = excluded.duration_hours,
            from_name = excluded.from_name,
            to_name = excluded.to_name,
-           terms_json = excluded.terms_json`
+           terms_json = excluded.terms_json,
+           settlement_phase = excluded.settlement_phase,
+           extends_truce = excluded.extends_truce`
       )
       .run(
         request.id,
@@ -330,7 +364,9 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
         request.durationHours,
         request.fromName ?? null,
         request.toName ?? null,
-        request.terms ? JSON.stringify(request.terms) : null
+        request.terms ? JSON.stringify(request.terms) : null,
+        request.settlementPhase ?? null,
+        request.extendsTruce ? 1 : null
       );
   }
 
@@ -433,13 +469,14 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
   pruneExpired(now: number): void {
     this.db.prepare("DELETE FROM social_forced_truce_cooldowns WHERE cooldown_until <= ?").run(now);
     this.db.prepare(`DELETE FROM social_offer_cooldowns WHERE until <= ?`).run(now);
-    this.db.prepare(`DELETE FROM social_truce_requests WHERE expires_at <= ?`).run(now);
+    this.db.prepare(`DELETE FROM social_truce_requests WHERE expires_at <= ? AND settlement_phase IS NULL`).run(now);
     this.db.prepare(`DELETE FROM social_active_truces WHERE ends_at <= ?`).run(now);
     this.db.prepare(`DELETE FROM social_completed_alliance_breaks WHERE notification_expires_at <= ?`).run(now);
     this.db.prepare(`DELETE FROM social_truce_lockouts WHERE lockout_until <= ?`).run(now);
   }
 
   clearSeasonData(): void {
+    this.resourceTrades.clear();
     this.db.exec("DELETE FROM social_forced_truce_cooldowns");
     this.db.exec(`DELETE FROM social_alliances`);
     this.db.exec(`DELETE FROM social_alliance_requests`);

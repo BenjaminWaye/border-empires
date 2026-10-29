@@ -1,3 +1,4 @@
+import { describeDiplomacyTermsForRecipient } from "@border-empires/shared";
 // Diplomacy for the new HUD. Step 1 lists every empire you've met as crests,
 // with requests waiting on you pinned at the top. Step 2 is the deal: you on
 // the left, the terms in the middle (the existing trade view, re-hosted) and
@@ -6,6 +7,8 @@
 import type { ActiveTruceView, AllianceRequest, LeaderboardOverallEntry, TruceRequest } from "../client-types.js";
 
 export type DiplomacyListInput = {
+  resourceOffers?: readonly import("@border-empires/shared").ResourceTradeOffer[];
+  resourceAgreements?: readonly import("@border-empires/shared").ResourceSupplyAgreementStatus[];
   me: string;
   metPlayerIds: ReadonlySet<string>;
   allies: readonly string[];
@@ -41,6 +44,8 @@ const STANCE_ORDER: Record<EmpireStance["kind"], number> = { truce: 0, ally: 1, 
 export const diplomacyEmpires = (input: DiplomacyListInput): Array<{ id: string; name: string; stance: EmpireStance; tiles: number | undefined }> => {
   const tilesOf = new Map(input.leaderboard.map((e) => [e.id, e.tiles]));
   const ids = new Set([...input.metPlayerIds, ...input.allies, ...input.activeTruces.map((t) => t.otherPlayerId)]);
+  for (const row of input.resourceOffers ?? []) { ids.add(row.fromPlayerId); ids.add(row.toPlayerId); }
+  for (const row of input.resourceAgreements ?? []) { ids.add(row.proposerId); ids.add(row.targetId); }
   ids.delete(input.me);
   return [...ids]
     .map((id) => ({ id, name: input.nameOf(id) || "Empire", stance: empireStance(id, input), tiles: tilesOf.get(id) }))
@@ -52,17 +57,12 @@ const crest = (name: string, color: string | undefined, size = ""): string =>
 
 const termsText = (terms: AllianceRequest["terms"]): string => {
   if (!terms) return "";
-  const parts: string[] = [];
-  if (terms.give.gold > 0) parts.push(`gives ${terms.give.gold} Coin`);
-  if (terms.give.shard > 0) parts.push(`gives ${terms.give.shard} Shard`);
-  if (terms.ask.gold > 0) parts.push(`asks ${terms.ask.gold} Coin`);
-  if (terms.ask.shard > 0) parts.push(`asks ${terms.ask.shard} Shard`);
-  return parts.join(" · ");
+  return describeDiplomacyTermsForRecipient(terms,"Other House");
 };
 
 const requestRow = (kind: "alliance" | "truce", r: AllianceRequest | TruceRequest, input: DiplomacyListInput): string => {
   const name = input.nameOf(r.fromPlayerId) || r.fromName || "Empire";
-  const what = kind === "alliance" ? "Alliance" : `Truce ${(r as TruceRequest).durationHours}h`;
+  const what = kind === "alliance" ? "Alliance" : `${(r as TruceRequest).extendsTruce ? "Extend truce" : "Truce"} ${(r as TruceRequest).durationHours}h`;
   const terms = termsText(r.terms);
   return `<div class="v2d-req">${crest(name, input.colorOf(r.fromPlayerId))}
     <span class="v2d-req-text"><b>${esc(name)}</b><span>${what}${terms ? ` · ${esc(terms)}` : ""}</span></span>
@@ -74,6 +74,10 @@ const requestRow = (kind: "alliance" | "truce", r: AllianceRequest | TruceReques
 
 export const diplomacyListHtml = (input: DiplomacyListInput): string => {
   const requests = [
+    ...(input.resourceOffers ?? []).map(row => {
+      const incoming=row.toPlayerId===input.me,id=incoming?row.fromPlayerId:row.toPlayerId,name=incoming?row.fromPlayerName:row.toPlayerName;
+      return `<div class="v2d-req"><span class="v2d-req-text"><b>${esc(name)}</b><span>Resource trade · ${row.status==="settling"?"settling payment":incoming?"offer received":"offer sent"}</span></span><button type="button" class="v2s-btn v2s-btn-primary v2s-btn-sm" data-v2-dip-open="${esc(id)}">Review trade</button></div>`;
+    }),
     ...input.incomingTruce.map((r) => requestRow("truce", r, input)),
     ...input.incomingAlliance.map((r) => requestRow("alliance", r, input))
   ];

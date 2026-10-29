@@ -15,6 +15,9 @@ const deltaEvent = (commandId: string): SimulationEvent => ({
 });
 
 describe("isReplayTrackedCommandId", () => {
+  it("does not accumulate resource agreement lifecycle events in command replay state", () => {
+    expect(isReplayTrackedCommandId("resource-supply:expired:deal-1")).toBe(false);
+  });
   it("tracks client/durable commands (UUIDs and social-prefixed)", () => {
     expect(isReplayTrackedCommandId("00278e11-369b-4760-8f54-f1887b3467c0")).toBe(true);
     expect(isReplayTrackedCommandId("social:ally:p1:p2:00278e11-369b-4760-8f54-f1887b3467c0")).toBe(true);
@@ -27,6 +30,7 @@ describe("isReplayTrackedCommandId", () => {
       "territory-auto:": "territory-auto:frontier-decay:ai-1:batch:123:4",
       "population-growth-tick:": "population-growth-tick:player-1:123",
       "accrual:": "accrual:upkeep:player-1:123",
+      "resource-supply:": "resource-supply:expired:deal-1",
       "fort-attrition:": "fort-attrition:player-1:123",
       "income-tick:": "income-tick:player-1:123",
       "muster-spend:": "muster-spend:player-1:123",
@@ -88,5 +92,14 @@ describe("RuntimeReplayCache.recordEvent gating", () => {
     // oldest evicted, newest retained
     expect(cache.recordedEventsByCommandId.has("client-uuid-0-aaaaaaaa-bbbb-cccc")).toBe(false);
     expect(cache.recordedEventsByCommandId.has("client-uuid-9-aaaaaaaa-bbbb-cccc")).toBe(true);
+  });
+
+  it("never records a REACH_BORDER_CHANGED diff, so a duplicate submit can't persist a stale one again", () => {
+    const cache = new RuntimeReplayCache(100, 100);
+    const commandId = "00278e11-369b-4760-8f54-f1887b3467c0";
+    cache.recordEvent(deltaEvent(commandId));
+    cache.recordEvent({ eventType: "REACH_BORDER_CHANGED", commandId, playerId: "player-1", changes: [{ tileKey: "1,1", ownerId: null }] });
+
+    expect(cache.recordedEventsByCommandId.get(commandId)?.map((event) => event.eventType)).toEqual(["TILE_DELTA_BATCH"]);
   });
 });

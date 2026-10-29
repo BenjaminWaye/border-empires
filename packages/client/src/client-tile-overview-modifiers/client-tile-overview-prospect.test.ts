@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { setWorldSeed } from "@border-empires/shared";
 import type { TechInfo, Tile } from "../client-types.js";
-import { isForestTile, isLightGrassScatterTile } from "../client-constants.js";
+import { isForestTile } from "../client-constants.js";
 import { tileFeatureLeadLines } from "./client-tile-overview-modifiers.js";
 
 const deps = { me: "me", prettyToken: (v: string) => v, structureInfoButtonHtml: (type: string) => type, techCatalog: [] };
@@ -28,7 +28,7 @@ describe("tileFeatureLeadLines prospect clue", () => {
   });
 
   it("stays quiet on a clue tile that shows nothing on the map", () => {
-    const open = findTile((x, y) => !isForestTile(x, y) && !isLightGrassScatterTile(x, y));
+    const open = findTile((x, y) => !isForestTile(x, y));
     const html = tileFeatureLeadLines(tile({ ...open, prospectSignature: "BLACKWOOD_CANOPY", resource: "FARM" }), "unclaimed", deps).map((line) => line.html);
     expect(html).not.toContain(BLACKWOOD_LINE);
   });

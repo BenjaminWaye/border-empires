@@ -972,7 +972,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
             : {
                 cancelLabel: "Cancel garrison",
                 cancelActionId: "cancel_settle" as const,
-                rushBuyLabel: `⏩ 💰${rushBuyPriceGold(remainingMs, totalMs, SETTLE_MANPOWER_COST)}`,
+                rushBuyLabel: `Rush ◉${rushBuyPriceGold(remainingMs, totalMs, SETTLE_MANPOWER_COST)}`,
                 rushBuyActionId: "rush_buy" as const
               })
         };

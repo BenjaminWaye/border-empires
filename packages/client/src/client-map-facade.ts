@@ -30,7 +30,6 @@ import {
   drawRoadOverlay as drawRoadOverlayOnCanvas,
   drawShardFallback as drawShardFallbackOnCanvas,
   drawTerrainTile as drawTerrainTileOnCanvas,
-  drawTownMarker as drawTownMarkerOnCanvas,
   drawTownOverlay as drawTownOverlayOnCanvas,
   effectiveOverlayColor as effectiveOverlayColorFromModule,
   fortificationOverlayImageFor as fortificationOverlayImageFromModule,
@@ -305,7 +304,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     if (tile?.muster?.ownerId === state.me && resolvesAt > nowMs) drawMusterSiegeBadge(ctx, px, py, size, effectiveColor(tile.muster.ownerId), nowMs);
   };
   const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void =>
-    drawTownOverlayOnCanvas(ctx, tile, px, py, size, state.me, tile.ownerId ? effectiveColor(tile.ownerId) : undefined);
+    drawTownOverlayOnCanvas(ctx, tile, px, py, size, tile.ownerId ? effectiveColor(tile.ownerId) : undefined);
   const drawCenteredOverlay = (overlay: HTMLImageElement | undefined, px: number, py: number, size: number, scale = 1.08): void =>
     drawCenteredOverlayOnCanvas(ctx, overlay, px, py, size, scale);
   const drawCenteredOverlayWithAlpha = (
@@ -318,8 +317,6 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   ): void => drawCenteredOverlayWithAlphaOnCanvas(ctx, overlay, px, py, size, scale, alpha);
   const drawResourceCornerMarker = (tile: Tile, px: number, py: number, size: number): void =>
     drawResourceCornerMarkerOnCanvas(ctx, tile, px, py, size, resourceColor);
-  const drawTownMarker = (px: number, py: number, size: number): void =>
-    drawTownMarkerOnCanvas(ctx, px, py, size, size < 16);
   const drawDockMarker = (px: number, py: number, size: number): void =>
     drawDockMarkerOnCanvas(ctx, px, py, size, size < 16);
   const drawRoadOverlay = (
@@ -479,7 +476,6 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     drawPlanetaryDefenseOverlay,
     drawIncomingAttackOverlay,
     drawTownOverlay,
-    drawTownMarker,
     drawDockMarker,
     drawCenteredOverlay,
     drawCenteredOverlayWithAlpha,

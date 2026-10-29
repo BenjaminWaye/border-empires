@@ -28,6 +28,7 @@ export const renderHudManpowerPanel = (deps: HudManpowerPanelDeps): void => {
       manpower: state.manpower,
       manpowerCap: state.manpowerCap,
       manpowerRegenPerMinute: state.manpowerRegenPerMinute,
+      nextBatchAmount: state.nextManpowerBatchAmount,
       manpowerBreakdown: state.manpowerBreakdown,
       musterFlags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me, state.manpowerCap, state.manpower, state.musterAmountRateByTile),
       formatManpowerAmount: deps.formatManpowerAmount,

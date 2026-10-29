@@ -149,7 +149,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   // chrome (which used to duplicate this).
   const updateLauncherForScreen = (inSpaceView: boolean): void => {
     if (!launcher) return;
-    launcher.textContent = inSpaceView ? "🌍" : "🌌";
+    launcher.textContent = inSpaceView ? "⌂" : "✦";
     const label = inSpaceView ? "Return to Season" : "Open Space View";
     launcher.title = label;
     launcher.setAttribute("aria-label", label);
@@ -244,7 +244,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     let systemFocused = false;
     const relabelMapButton = (): void => {
       const button = screen?.querySelector<HTMLButtonElement>("[data-space-view-strategic-map]");
-      if (button) button.textContent = strategicMap?.isVisible() || systemFocused ? "🌌 Galaxy View" : "🗺 Strategic Map";
+      if (button) button.textContent = strategicMap?.isVisible() || systemFocused ? "Galaxy View" : "Strategic Map";
     };
     strategicMap = createStrategicMapController({
       screen,

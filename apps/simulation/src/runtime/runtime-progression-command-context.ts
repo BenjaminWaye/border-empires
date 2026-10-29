@@ -18,6 +18,8 @@ import type { VisibilityCoverageTracker, VisibilityTransitionCallbacks } from ".
  * `progressionCommandContext()` in runtime.ts.
  */
 export interface ProgressionCommandContextDeps {
+  readonly beforeResourceSupplyChange?: (id: string) => void;
+  readonly afterResourceSupplyChange?: (id: string) => void;
   readonly settleEconomyBeforeUpgrade?: (player: RuntimePlayer) => void;
   readonly isTileLocked?: (key: string) => boolean;
   readonly reconcileAfcReach?: (playerId: string, commandId: string) => void;
@@ -69,6 +71,8 @@ export interface ProgressionCommandContextDeps {
 
 export function buildProgressionCommandContext(deps: ProgressionCommandContextDeps): RuntimeProgressionCommandContext {
   return {
+    ...(deps.beforeResourceSupplyChange ? { beforeResourceSupplyChange: deps.beforeResourceSupplyChange } : {}),
+    ...(deps.afterResourceSupplyChange ? { afterResourceSupplyChange: deps.afterResourceSupplyChange } : {}),
     ...(deps.settleEconomyBeforeUpgrade ? { settleEconomyBeforeUpgrade: deps.settleEconomyBeforeUpgrade } : {}),
     now: deps.now,
     ...(deps.isTileLocked ? { isTileLocked: deps.isTileLocked } : {}),

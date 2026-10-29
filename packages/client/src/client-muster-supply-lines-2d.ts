@@ -13,9 +13,11 @@ type WorldToScreen = (x: number, y: number, size: number, halfW: number, halfH: 
 
 let advanceSrcCache2D: AdvanceMusterFallbackCache;
 
-// 2D-canvas equivalent of client-map-3d-capture-overlays.ts's marching-company
-// overlay: flag → attack front, one per active muster flag/auto-fire fight.
-// Covers three sources, matching the 3D renderer's coverage:
+// 2D-canvas flag → attack front line, one per active muster flag/auto-fire
+// fight. 2D-only: the 3D map shows the same attacks with its marching company
+// (client-map-3d-muster-transit-sync.ts) and target X instead, which the 2D
+// map has no equivalent of, so this line is its only outgoing-attack cue.
+// Covers three sources:
 //   - a manually-armed muster transit (activeMusterSupplyLines)
 //   - a server-fired ADVANCE-mode ATTACK not covered by any tracked flag
 //     (state.capture fallback, only for attacks on owned tiles)

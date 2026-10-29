@@ -11,6 +11,7 @@ import { battleLiveHtml, battlePreviewHtml, battleResultHtml, parseWinPct, type 
 import { BATTLE_ZOOM, closeUpOn, endCloseUp } from "./client-hud-v2-camera.js";
 import { clearScreen, focusCamera, screen, setScreen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
 import { isHudV2Active } from "./client-hud-v2-flag.js";
+import { captureIsBattle } from "./client-hud-v2-tracker.js";
 
 type BattleMode = "preview" | "pending" | "live" | "settling" | "result";
 
@@ -211,24 +212,39 @@ export const closeBattle = (keepPosition = false): void => {
   if (screen.id === "battle") clearScreen();
 };
 
+/**
+ * The fight the tracker's "Battle at" row points at: any capture the tracker calls a battle (the server does not
+ * always send actionType, but a combat snapshot means a fight), on a tile that is not already yours. The tile may
+ * not be loaded; the view then names the defender generically.
+ */
+export const liveBattleTarget = (
+  state: Pick<ClientState, "capture" | "tiles" | "me">
+): { x: number; y: number; tile: Tile | undefined } | undefined => {
+  const c = state.capture;
+  if (!c || !captureIsBattle(c)) return undefined;
+  const tile = state.tiles.get(`${c.target.x},${c.target.y}`);
+  if (tile?.ownerId === state.me) return undefined;
+  return { x: c.target.x, y: c.target.y, tile };
+};
+
 /** Re-open the live view from the tracker's battle row. */
 export const reopenLiveBattle = (deps: HudV2Deps): boolean => {
+  const target = liveBattleTarget(deps.state);
   const c = deps.state.capture;
-  if (!c || c.actionType !== "ATTACK" || screen.id) return false;
-  const tile = deps.state.tiles.get(`${c.target.x},${c.target.y}`);
-  if (!tile?.ownerId || tile.ownerId === deps.state.me) return false;
+  if (!target || !c || screen.id) return false;
+  const { x, y, tile } = target;
   battle = {
     mode: "live",
     alertBefore: deps.state.captureAlert,
-    tileKey: `${tile.x},${tile.y}`,
-    coords: { x: tile.x, y: tile.y },
-    title: stripCoords(deps.actionFlow.tileMenuViewForTile(tile).title),
-    defenderId: tile.ownerId,
+    tileKey: `${x},${y}`,
+    coords: { x, y },
+    title: tile ? stripCoords(deps.actionFlow.tileMenuViewForTile(tile).title) : "Battle",
+    defenderId: tile?.ownerId ?? "",
     breakdown: undefined,
     since: Date.now(),
     winPct: c.combatSnapshot ? Math.round(c.combatSnapshot.winChance * 100) : undefined
   };
-  closeUpOn(deps, tile.x, tile.y, BATTLE_ZOOM);
+  closeUpOn(deps, x, y, BATTLE_ZOOM);
   setScreen("battle", BATTLE_SKELETON);
   renderBattle(deps);
   return true;

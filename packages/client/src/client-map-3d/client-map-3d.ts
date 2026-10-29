@@ -16,9 +16,9 @@ import {
   LineSegments,
   Scene
 } from "three";
-import { MAX_SUPPORT_RING_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, riverCornerWidthsForCurrentSeed, visualLandBiomeAt, worldgenVersion, type ResourceType, type SlotResource } from "@border-empires/shared";
+import { MAX_SUPPORT_RING_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, riverCornerWidthsForCurrentSeed, visualLandBiomeAt, worldgenVersion, type SlotResource } from "@border-empires/shared";
 import type { Tile, TileVisibilityState } from "../client-types.js";
-import { isHillsTile, isLightGrassScatterTile, isTropicalForestLatitude, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance, shouldDrawLightGrassScatterInstance } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile, musterBadgeLookup } from "../client-map-3d-muster-fill.js";
+import { isHillsTile, isTropicalForestLatitude, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile, musterBadgeLookup } from "../client-map-3d-muster-fill.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js"; import { markRendererFirstRenderStarted, markRendererFirstRenderCompleted } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 import { padTerrainWindow, requiredTerrainWindow, tileChangeIsWindowRelevant, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import { EMPTY_MAP_3D_REBUILD_TRIGGERS, captureMap3DRebuildTriggers, map3DRebuildTriggersChanged } from "../client-map-3d-rebuild-triggers/client-map-3d-rebuild-triggers.js";
@@ -60,12 +60,11 @@ import { compileSceneShaders, createFirstFrameSignal, renderSkippingEmptyInstanc
 import { createResourceBadgeOverlay, type ResourceBadgeOverlay } from "../client-map-3d-unfed-badge-overlay/client-map-3d-unfed-badge-overlay.js";
 import { resourceIconGlyph } from "../client-resource-icons/client-resource-icons.js";
 import { createObservatoryCooldownBadgeOverlay } from "../client-map-3d-observatory-cooldown-badge-overlay/client-map-3d-observatory-cooldown-badge-overlay.js";
-import { createUpgradeReadyBadgeOverlay } from "../client-map-3d-upgrade-ready-badge-overlay/client-map-3d-upgrade-ready-badge-overlay.js";
 import { createNameDecalForMap } from "../client-map-3d-name-decal/client-map-3d-name-decal.js";
 import { createMusterOverlay } from "../client-map-3d-muster-overlay.js"; import { createWinChancePaintOverlay } from "../client-map-3d-win-chance-paint-overlay.js"; import { createArrowOverlay, syncArrowOverlayFrame } from "../client-map-3d-arrow-overlay.js"; import { createShieldAreaOverlay } from "../client-map-3d-shield-area-overlay.js"; import { collectKnownShieldFlags, isShieldCoverageShownOn, tileShieldCoverage } from "../client-known-shield-flags.js";
 import { createPopupMarineOverlayFx } from "../client-map-3d-popup-marine/popup-marine-overlay-fx.js";
-import { syncCaptureOverlays, syncBattleOverlayFx } from "../client-map-3d-capture-overlays.js"; import { syncMusterTransitOverlay } from "../client-map-3d-muster-transit-sync.js"; import { syncFrontierClaimPlates, activeFrontierAttackClaimTargetKeys } from "../client-map-3d-frontier-claim-plates.js"; import { createSiegeTowerOverlay } from "../client-map-3d-siege-tower-overlay.js"; import { siegeTowerRotationMode } from "../client-siege-tower-rotation-mode.js"; import { siegeTowerBattleTargetFor } from "../client-battle-overlay/client-siege-battle-targets.js";
-import { createSupplyLineOverlay } from "../client-map-3d-supply-line-overlay.js"; import { createMusterTransitOverlay } from "../client-map-3d-muster-transit-overlay.js";
+import { syncBattleOverlayFx } from "../client-map-3d-capture-overlays.js"; import { syncMusterTransitOverlay } from "../client-map-3d-muster-transit-sync.js"; import { syncFrontierClaimPlates, activeFrontierAttackClaimTargetKeys } from "../client-map-3d-frontier-claim-plates.js"; import { createSiegeTowerOverlay } from "../client-map-3d-siege-tower-overlay.js"; import { siegeTowerRotationMode } from "../client-siege-tower-rotation-mode.js"; import { siegeTowerBattleTargetFor } from "../client-battle-overlay/client-siege-battle-targets.js";
+import { createMusterTransitOverlay } from "../client-map-3d-muster-transit-overlay.js";
 import { createAetherBridgePylonSync } from "../client-map-3d-aether-bridge-pylon-sync.js";
 import { createFrontierSupplyOverlay } from "../client-map-3d-frontier-supply-overlay.js";
 import { frontierSupplyModelForState } from "../client-frontier-supply/client-frontier-supply-state.js";
@@ -73,7 +72,7 @@ import { createAetherBridgePylonOverlay } from "../client-map-3d-aether-bridge-p
 import { createSurveySweepPingOverlay } from "../client-map-3d-survey-sweep-ping-overlay.js"; import { createOnboardingChecklistHighlightOverlay } from "../client-map-3d-onboarding-checklist-highlight.js";
 import { createAnchoredFxLayers } from "../client-map-3d-anchored-fx/client-map-3d-anchored-fx-layers.js"; import { isAfcHiddenForJoinDrop, isForestTileWithAfcLandingHold, terrainWithAfcLandingHold } from "../client-afc-join-drop/client-afc-join-drop-state.js"; import { createCameraShakeFx } from "../client-map-3d-camera-shake-fx/client-map-3d-camera-shake-fx.js";
 import { createFxCastOverlaySyncs } from "./client-map-3d-fx-cast-overlays.js";
-import { shouldShowTownSmoke, shouldShowTownUnfedWarning, shouldShowTownUpgradeReadyBadge } from "../client-town-growth/client-town-growth.js";
+import { shouldShowTownSmoke } from "../client-town-growth/client-town-growth.js";
 import { dockRotationAt } from "../client-map-3d-dock-rotation/client-map-3d-dock-rotation.js";
 import { createDockOverlay } from "../client-map-3d-dock-overlay.js"; import { createDockRouteOverlay } from "../client-map-3d-dock-route-overlay.js"; import { createDockRouteSync } from "../client-map-3d-dock-route-sync.js";
 import { createPlanetaryDefenseOverlay } from "../client-map-3d-planetary-defense-overlay.js"; import { planetaryDefenseEngagedTileKeys } from "../client-map-3d-planetary-defense-engagement.js";
@@ -91,7 +90,7 @@ import {
   LARGE_CONTACT_SHADOW_RADIUS_TILES,
   SMALL_CONTACT_SHADOW_RADIUS_TILES
 } from "../client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
-import { resourceFor3DPopulation } from "../client-map-3d-population/client-map-3d-population.js";
+import { resolvedMapResource3D, shouldRenderRawResource } from "../client-resource-networks/network-resource-3d.js";
 import { createRoadElevationAt } from "../client-map-3d-road-overlay/client-map-3d-road-elevation.js";
 import { createRoadOverlay } from "../client-map-3d-road-overlay/client-map-3d-road-overlay.js";
 import { createReachOverlay3D } from "../client-map-3d-aether-survey-line/client-map-3d-aether-survey-line.js";
@@ -197,11 +196,10 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   };
   const shardRainBadgeOverlay = createShardRainBadgeOverlay(scene); const allBadgeOverlays = [...Object.values(resourceBadgeOverlays), shardRainBadgeOverlay]; // shares the clear/commit/tick/dispose loops below — see client-map-3d-shard-rain-badge-overlay.ts
   const observatoryCooldownBadgeOverlay = createObservatoryCooldownBadgeOverlay(scene, MAX_VISIBLE_TILES);
-  const upgradeReadyBadgeOverlay = createUpgradeReadyBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const musterOverlay = createMusterOverlay(scene, atmosphere.buildingEnvironmentTexture, () => musterBadgeLookup(deps.state, deps.keyFor)); const winChancePaintOverlay = createWinChancePaintOverlay(scene); const arrowOverlay = createArrowOverlay(scene); const shieldAreaOverlay = createShieldAreaOverlay(scene); // F1: right-click-drag arrow gesture visual; F3: known-shield coverage-area overlay (client-known-shield-flags.ts)
   const aetherProtectionOverlay = createAetherProtectionOverlay3D(scene, MAX_VISIBLE_TILES); // Aether Tower protection field wash (client-aether-tower-protection.ts)
   const battleOverlayFx = createPopupMarineOverlayFx(scene, atmosphere.buildingEnvironmentTexture);
-  const supplyLineOverlay = createSupplyLineOverlay(scene); const musterTransitOverlay = createMusterTransitOverlay(scene, atmosphere.buildingEnvironmentTexture);
+  const musterTransitOverlay = createMusterTransitOverlay(scene, atmosphere.buildingEnvironmentTexture);
   const frontierSupplyOverlay = createFrontierSupplyOverlay(scene);
   const aetherBridgePylonOverlay = createAetherBridgePylonOverlay(scene, MAX_BRIDGE_PYLONS); const aetherWallPylonOverlay = createAetherWallPylonOverlay(scene, MAX_WALL_PYLONS); const aetherWallArcOverlay = createAetherWallArcOverlay(scene, MAX_WALL_ARCS);
   // One-shot effects live under a world-anchored root so they stay on their tile while the camera pans (client-map-3d-anchored-fx-layers.ts).
@@ -659,10 +657,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     }
     for (const overlay of allBadgeOverlays) overlay.clear();
     observatoryCooldownBadgeOverlay.clear();
-    upgradeReadyBadgeOverlay.clear();
     musterOverlay.clear(); winChancePaintOverlay.clear(); if (deps.state.winChancePaint && performance.now() > deps.state.winChancePaint.expiresAt && !deps.state.pendingArrowGestureConfirm) deps.state.winChancePaint = undefined; shieldAreaOverlay.clear(); const knownShieldFlags = collectKnownShieldFlags(deps.state.tiles.values()); // F3: recomputed once per frame; cheap (bounded by live muster-flag count, not tile count)
     aetherProtectionOverlay.begin(deps.state, deps.keyFor);
-    supplyLineOverlay.clear();
     dockOverlay.clear();
     waterSurface.clear();
     barbarianOverlay.clear();
@@ -760,7 +756,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         const terrain = terrainForWorldTile(wx, wy);
         const x = dx + TILE_CENTER_OFFSET;
         const z = dy + TILE_CENTER_OFFSET;
-        const forestTile = isForestTileWithAfcLandingHold(deps.state.afcJoinDrop, wx, wy); const tropicalForestTile = forestTile && isTropicalForestLatitude(wy); const lightGrassScatterTile = !forestTile && isLightGrassScatterTile(wx, wy);
+        const forestTile = isForestTileWithAfcLandingHold(deps.state.afcJoinDrop, wx, wy); const tropicalForestTile = forestTile && isTropicalForestLatitude(wy);
         const ownerId = tile?.ownerId;
         const ownershipState = tile?.ownershipState;
         const isOwnedLand = terrain === "LAND" && Boolean(ownerId) && visibility === "visible";
@@ -819,7 +815,6 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           const featureTint = printAsFogged ? fogFeatureTint : undefined;
           if (terrain === "MOUNTAIN") mountainMassifs.addInstance(x, z, surfaceY, wx, wy, featureTint);
           else if (shouldDrawForestInstance(forestTile, tile)) (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy, featureTint);
-          else if (shouldDrawLightGrassScatterInstance(lightGrassScatterTile, tile)) forest.addSparseLeafInstance(x, z, surfaceY, wx, wy, featureTint);
           continue;
         }
         if (terrain === "LAND") {
@@ -852,7 +847,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         if (shouldDrawForestInstance(forestTile, tile)) {
           (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy);
           contactShadowOverlay.addShadow(x, z, surfaceY, SMALL_CONTACT_SHADOW_RADIUS_TILES);
-        } else if (shouldDrawLightGrassScatterInstance(lightGrassScatterTile, tile)) forest.addSparseLeafInstance(x, z, surfaceY, wx, wy);
+        }
         const realTier = townIdentityForTile(tile)?.populationTier;
         const demoTier = isTownDemoTile(wx, wy, window.camX, window.camY);
         const renderedTier: TownTier | undefined = realTier ?? demoTier;
@@ -891,21 +886,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
             // Shock expired or town cleared: drop the entry so the map can't grow unbounded.
             lastSeenCaptureShockByTile.delete(tileKey);
           }
-          // Mirror the "Town is unfed" line in the tile-menu — see
-          // shouldShowTownUnfedWarning in client-town-growth.ts. A dormant
-          // non-town structure on this tile takes priority if both apply.
-          if (tile && shouldShowTownUnfedWarning(tile, deps.state.me) && !dormantStructureResourceByTileKey.has(tileKey)) {
-            resourceBadgeOverlays.FOOD.addInstance(x, z, surfaceY);
-          }
-          // Mirror of the "Upgrade Town to City"-style action in the tile-menu —
-          // see shouldShowTownUpgradeReadyBadge in client-town-growth.ts. Green
-          // up-arrow badge over a town whose population has hit the threshold for
-          // its next tier. Kept independent of the unfed badge above: a town
-          // ready to grow is very rarely also stalled, and if both apply the two
-          // badges bob in the same band without conflicting.
-          if (tile && shouldShowTownUpgradeReadyBadge(tile, deps.state.me)) {
-            upgradeReadyBadgeOverlay.addInstance(x, z, surfaceY);
-          }
+          // Unfed / upgrade-ready / war status rides the town nameplate
+          // (client-town-nameplates), shared with the 2D map.
         }
         // §21.1: floating badge for a dormant non-town structure — independent of the town block above (most structures aren't on a town tile).
         if (tile && terrain === "LAND") {
@@ -924,22 +906,12 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         // resource overlay (for the icon) AND by the structure overlay
         // (so a MINE on a GEMS tile loads its cart with blue crystals
         // instead of grey iron ore, keeping the resource readable).
-        let tileResource: ResourceType | undefined;
-        if (terrain === "LAND") {
-          // Use the same resource source as the 2D path (`resourceFor3DPopulation`).
-          // When ?reveal=1, this synthesises a resource on land tiles that
-          // don't yet have a real `state.tiles` entry — mirroring the
-          // `syntheticOverlayTileAt` path in client-runtime-loop.ts.
-          const biome = landBiomeAt(wx, wy);
-          const resolvedResource = resourceFor3DPopulation(wx, wy, terrain, tile, revealWholeMapInTrue3DMode, biome, forestTile);
-          if (resolvedResource) {
-            const validResources: ReadonlyArray<ResourceType> = ["FARM", "TITANIUM", "GEMS", "FISH", "UMBRITE"];
-            if ((validResources as ReadonlyArray<string>).includes(resolvedResource)) {
-              tileResource = resolvedResource as ResourceType;
-              if (tileResource === "FARM") { if (!structureReplacesFarmlandPlot(tile?.economicStructure?.type)) farmlandOverlay.addInstance(x, z, surfaceY, wx, wy); } else if (tileResource === "FISH") { fishingOverlay.addInstance(x, z, surfaceY, wx, wy, fishingWaterDirection((nx, ny) => { const nt = terrainForWorldTile(deps.wrapX(nx), deps.wrapY(ny)); return nt === "SEA" || nt === "COASTAL_SEA"; }, wx, wy)); } else if (tileResource === "TITANIUM") { titaniumDepositOverlay.addInstance(x, z, surfaceY, wx, wy); } else if (tileResource === "UMBRITE") { umbriteDepositOverlay.addInstance(x, z, surfaceY, wx, wy); } else { resourceOverlay.addInstance(x, z, surfaceY, tileResource, wx, wy); }
-              contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
-            }
-          }
+        const tileResource = terrain === "LAND"
+          ? resolvedMapResource3D(wx, wy, terrain, tile, revealWholeMapInTrue3DMode, landBiomeAt(wx, wy), forestTile)
+          : undefined;
+        if (tileResource) {
+          if (tileResource === "FARM") { if (!structureReplacesFarmlandPlot(tile?.economicStructure?.type)) farmlandOverlay.addInstance(x, z, surfaceY, wx, wy); } else if (tileResource === "FISH") { fishingOverlay.addInstance(x, z, surfaceY, wx, wy, fishingWaterDirection((nx, ny) => { const nt = terrainForWorldTile(deps.wrapX(nx), deps.wrapY(ny)); return nt === "SEA" || nt === "COASTAL_SEA"; }, wx, wy)); } else if (tileResource === "TITANIUM") { titaniumDepositOverlay.addInstance(x, z, surfaceY, wx, wy); } else if (tileResource === "UMBRITE") { umbriteDepositOverlay.addInstance(x, z, surfaceY, wx, wy); } else if (shouldRenderRawResource(tileResource, tile)) { resourceOverlay.addInstance(x, z, surfaceY, tileResource, wx, wy); }
+          contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
         }
         const incomingAttack = deps.state.incomingAttacksByTile.get(deps.keyFor(wx, wy));
         if (incomingAttack && incomingAttack.resolvesAt > Date.now() && terrain === "LAND") {
@@ -1102,18 +1074,9 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     reachOverlay3D.commitTileOverlays();
     for (const overlay of allBadgeOverlays) overlay.commit();
     observatoryCooldownBadgeOverlay.commit();
-    upgradeReadyBadgeOverlay.commit();
     musterOverlay.commit(); winChancePaintOverlay.commit(); shieldAreaOverlay.commit();
     nameDecal.sync({ camX: window.camX, camY: window.camY, halfW, halfH, nowMs: performance.now(), terrainRevision: deps.state.tilesRevision });
     aetherProtectionOverlay.commit();
-    syncCaptureOverlays(
-      deps.state,
-      deps.keyFor,
-      deps.effectiveOverlayColor,
-      heightfield,
-      supplyLineOverlay
-    );
-    supplyLineOverlay.commit();
     dockOverlay.commit();
     waterSurface.commit();
     barbarianOverlay.commit();
@@ -1340,10 +1303,9 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     waterSurface.tick(nowMs);
     for (const overlay of allBadgeOverlays) overlay.tick(nowMs);
     observatoryCooldownBadgeOverlay.tick(nowMs);
-    upgradeReadyBadgeOverlay.tick(nowMs);
     musterOverlay.tick(nowMs); fortOverlay.tick(nowMs); barbarianOverlay.tick(nowMs, planetaryDefenseEngagedTileKeys(deps.state, deps.keyFor, nowMs, Date.now()));
     syncBattleOverlayFx(deps.state, deps.keyFor, heightfield, deps.effectiveOverlayColor, battleOverlayFx, nowMs, sceneOrigin.camX, sceneOrigin.camY, beamedSiegeBattles, farmlandOverlay.standLiftAt);
-    syncMusterTransitOverlay(deps.state, deps.effectiveOverlayColor, heightfield, musterTransitOverlay, sceneOrigin.camX, sceneOrigin.camY, deps.keyFor); supplyLineOverlay.tick(nowMs); dockRouteOverlay.tick(nowMs);
+    syncMusterTransitOverlay(deps.state, deps.effectiveOverlayColor, heightfield, musterTransitOverlay, sceneOrigin.camX, sceneOrigin.camY, deps.keyFor); dockRouteOverlay.tick(nowMs);
     renderSkippingEmptyInstances(renderer, scene, camera);
     rafId = requestAnimationFrame(renderLoop);
     firstFrame.markRendered();
@@ -1405,11 +1367,10 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     reachOverlay3D.dispose();
     for (const overlay of allBadgeOverlays) overlay.dispose();
     observatoryCooldownBadgeOverlay.dispose();
-    upgradeReadyBadgeOverlay.dispose();
     musterOverlay.dispose(); winChancePaintOverlay.dispose(); arrowOverlay.dispose(); shieldAreaOverlay.dispose(); nameDecal.dispose();
     aetherProtectionOverlay.dispose();
     battleOverlayFx.dispose();
-    supplyLineOverlay.dispose(); musterTransitOverlay.dispose();
+    musterTransitOverlay.dispose();
     aetherBridgePylonOverlay.dispose(); aetherWallPylonOverlay.dispose(); aetherWallArcOverlay.dispose();
     aetherLanceFx.dispose();
     surveySweepFx.dispose();
