@@ -1,11 +1,11 @@
 import { isNetworkResource, RESOURCE_NETWORKS, type NetworkResource } from "@border-empires/shared";
 // Steampunk resource icons, in two tiers. Small sizes (inline text, the
 // resource bar, map badges) use the simple emoji-style SVGs under
-// public/icons/simple, which stay legible at 16-30px. Large art slots use the
+// public/icons/simple; frontier resources use painted PNG cutouts at all sizes. Large art slots use the
 // detailed painted PNGs under public/icons/resources (96/256 px).
 // HTML callers use resourceIconHtml; canvas callers (the 2D tile corner marker,
 // 3D badge textures, minimap) use drawResourceIconOnCanvas, which falls back to
-// the text glyph until the SVG has decoded. resourceIconGlyph stays the
+// the text glyph until the artwork has decoded. resourceIconGlyph stays the
 // plain-text form for contexts that can't hold markup (canvas text, titles).
 
 export type ResourceIconKey = "GOLD" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD" | NetworkResource;
@@ -75,10 +75,12 @@ export const isResourceIconKey = (value: string): value is ResourceIconKey =>
 export const depositIconKey = (resource: string | undefined): ResourceIconKey | undefined =>
   resource && Object.prototype.hasOwnProperty.call(DEPOSIT_ICON_KEY, resource) ? DEPOSIT_ICON_KEY[resource] : undefined;
 
-export const resourceSimpleIconUrl = (key: ResourceIconKey): string => `/icons/simple/${RESOURCE_ICON_FILE[key]}.svg`;
+/** Small UI/map artwork: base SVGs and painted frontier cutouts. */
+export const resourceSimpleIconUrl = (key: ResourceIconKey): string =>
+  isNetworkResource(key) ? resourceIconUrl(key, 96) : `/icons/simple/${RESOURCE_ICON_FILE[key]}.svg`;
 
 export const resourceIconUrl = (key: ResourceIconKey, px: ResourceIconPx): string =>
-  isNetworkResource(key) ? resourceSimpleIconUrl(key) : `/icons/resources/${RESOURCE_ICON_FILE[key]}-${px}.png`;
+  `/icons/resources/${RESOURCE_ICON_FILE[key]}-${px}.png`;
 
 export const resourceIconGlyph = (resource: string): string =>
   isResourceIconKey(resource) ? RESOURCE_ICON_GLYPH[resource] : "•";
@@ -88,7 +90,7 @@ export const resourceIconGlyph = (resource: string): string =>
 export const resourceIconHtml = (resource: string, size: ResourceIconSize = "inline"): string => {
   if (!isResourceIconKey(resource)) return resourceIconGlyph(resource);
   const alt = RESOURCE_ICON_LABEL[resource];
-  if (size === "large" && !isNetworkResource(resource)) {
+  if (size === "large") {
     return `<img class="resource-icon-img" src="${resourceIconUrl(resource, 96)}" srcset="${resourceIconUrl(resource, 96)} 1x, ${resourceIconUrl(resource, 256)} 2x" alt="${alt}" draggable="false" decoding="async">`;
   }
   return `<img class="resource-icon-img" src="${resourceSimpleIconUrl(resource)}" alt="${alt}" draggable="false" decoding="async">`;
@@ -123,7 +125,7 @@ export const whenResourceIconReady = (key: ResourceIconKey, onReady: () => void)
   image.addEventListener("load", () => onReady(), { once: true });
 };
 
-// Draws the icon centred on (cx, cy) in a size×size box. Before the SVG has
+// Draws the icon centred on (cx, cy) in a size×size box. Before the artwork has
 // decoded it draws the text glyph instead, so the first frame is never empty.
 export const drawResourceIconOnCanvas = (
   ctx: CanvasRenderingContext2D,

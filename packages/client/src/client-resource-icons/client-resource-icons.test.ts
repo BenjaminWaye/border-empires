@@ -13,7 +13,7 @@ import {
   type ResourceIconPx
 } from "./client-resource-icons.js";
 
-const KEYS: ResourceIconKey[] = ["GOLD", "FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"];
+const KEYS: ResourceIconKey[] = ["GOLD", "FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD", ...NETWORK_RESOURCES];
 const SIZES: ResourceIconPx[] = [96, 256];
 
 const fakeCtx = () => {
@@ -54,7 +54,7 @@ describe("resourceIconHtml", () => {
 
 describe("resourceIconGlyph", () => {
   it("keeps the plain-text glyphs for canvas and title contexts", () => {
-    expect(KEYS.map(resourceIconGlyph)).toEqual(["◉", "🍞", "⛏", "💎", "🟣", "✦"]);
+    expect(KEYS.slice(0, 6).map(resourceIconGlyph)).toEqual(["◉", "🍞", "⛏", "💎", "🟣", "✦"]);
     expect(resourceIconGlyph("FARM")).toBe("•");
   });
 });
@@ -102,7 +102,10 @@ it.each(NETWORK_RESOURCES)("%s has a recognisable deposit icon", resource => {
   const url = resourceSimpleIconUrl(resource);
   expect(existsSync(fileURLToPath(new URL(`../../public${url}`, import.meta.url)))).toBe(true);
   expect(resourceIconHtml(resource)).toContain(`<img class="resource-icon-img" src="${url}"`);
-  expect(resourceIconHtml(resource, "large")).toContain(url);
+  expect(url).toBe(`/icons/resources/${resource.toLowerCase().replaceAll("_", "-")}-96.png`);
+  expect(resourceIconHtml(resource, "large")).toContain(`src="${url}"`);
+  expect(resourceIconHtml(resource, "large")).toContain(`${resourceIconUrl(resource, 256)} 2x`);
+  expect(resourceIconUrl(resource, 256)).toMatch(/-256\.png$/);
   const { ctx, asCanvas } = fakeCtx();
   drawResourceIconOnCanvas(asCanvas, resource, 10, 10, 20);
   expect(ctx.fillText).toHaveBeenCalledWith(resourceIconGlyph(resource), 10, expect.any(Number));

@@ -103,8 +103,8 @@ export const RESOURCE_NETWORKS_CHANGELOG: ClientChangelogEntry[] = [{
     createdAt: 1793264598633, // Date.now() captured once.
     introducedIn: "2026.10.29.1",
     title: "Clearer frontier resource icons",
-    why: "Small deposit icons needed stronger silhouettes and clearer material cues.",
-    changes: ["Resin, conductive ore, catalysts, luxury biota and precursor salvage have shaded icons with larger defining details, shared by both map renderers."]
+    why: "Small deposit icons needed recognizable objects and enough room to read their materials.",
+    changes: ["Five painted resource icons replace the flat symbols. Zoomed-in map badges give the artwork more room with a thinner coloured rim, in both 2D and true-3D."]
   }
 
 ];

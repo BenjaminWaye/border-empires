@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { NETWORK_RESOURCES, RESOURCE_NETWORKS } from "@border-empires/shared";
 import { drawResourceCornerMarker } from "@client/client-map-render/client-map-render-resource-marker.js";
-import { resourceSimpleIconUrl, type ResourceIconKey } from "@client/client-resource-icons/client-resource-icons.js";
+import { resourceSimpleIconUrl, whenResourceIconReady, type ResourceIconKey } from "@client/client-resource-icons/client-resource-icons.js";
 
 const resources = ["FARM", "TITANIUM", "GEMS", ...NETWORK_RESOURCES] as const;
 const sizes = [22, 48, 64, 96];
@@ -10,7 +10,7 @@ const colorFor = (resource: string | undefined): string => {
   return resource === "FARM" ? "#a4c55c" : resource === "TITANIUM" ? "#bac7d1" : "#55d5e9";
 };
 
-function gallery(): HTMLElement {
+function gallery(entries: readonly (typeof resources)[number][] = resources): HTMLElement {
   const root = document.createElement("main");
   root.style.cssText = "background:#171d22;color:#e8dfca;padding:24px;font:13px/1.5 system-ui;min-height:100vh;box-sizing:border-box";
   root.innerHTML = '<h2 style="margin:0 0 4px">Resource badges · actual map sizes</h2><p style="margin:0 0 20px;color:#b2ada0">Shared by 2D canvas and true-3D. Below 48px tiles the map uses a colour marker.</p>';
@@ -21,7 +21,7 @@ function gallery(): HTMLElement {
     label.textContent = title;
     grid.append(label);
   }
-  for (const resource of resources) {
+  for (const resource of entries) {
     const name = document.createElement("span");
     name.textContent = resource.replaceAll("_", " ").toLowerCase();
     grid.append(name);
@@ -55,10 +55,8 @@ function gallery(): HTMLElement {
         drawResourceCornerMarker(ctx, { x: 0, y: 0, terrain: "LAND", resource }, 4, 4, size, colorFor);
       };
       paint();
-      // Redraw after SVG decoding, as the production map's render loop does.
-      const image = new Image();
-      image.onload = paint;
-      image.src = resourceSimpleIconUrl(key);
+      // Repaint when the exact production cache entry decodes.
+      whenResourceIconReady(key, paint);
       grid.append(canvas);
     }
   }
@@ -66,6 +64,8 @@ function gallery(): HTMLElement {
   return root;
 }
 
-const meta: Meta = { title: "Map/Resources/Resource Badges", render: gallery };
+const meta: Meta = { title: "Map/Resources/Resource Badges", render: () => gallery() };
 export default meta;
 export const MapSizes: StoryObj = {};
+
+export const PaintedResources: StoryObj = { render: () => gallery(NETWORK_RESOURCES) };
