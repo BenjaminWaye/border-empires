@@ -27,7 +27,7 @@ import { closeScreen, openRequestedTechDetail, openScreen, renderScreen, screenC
 import { profileScreenStep } from "./client-hud-v2-profile.js";
 import { chronicleBadgeCount, takeOverLegacyDashboard } from "./client-hud-v2-chronicle-runtime.js";
 import { setDockListener } from "./client-hud-v2-tile-dock.js";
-import { closeTownScreen, townOnMenuView } from "./client-hud-v2-town-runtime.js";
+import { closeTownScreen, townOnMenuHidden, townOnMenuView } from "./client-hud-v2-town-runtime.js";
 import { captureIsBattle, handleSlotsToggle, trackerHtml } from "./client-hud-v2-tracker.js";
 import "./client-hud-v2.css";
 import "./client-hud-v2-screens.css";
@@ -301,9 +301,7 @@ export const installHudV2 = (deps: HudV2Deps): void => {
       battleOnMenuView(view, tileKey);
       return townOnMenuView(deps, view, tileKey, tap);
     },
-    onMenuHidden: () => {
-      if (screen.id === "town") closeTownScreen(true);
-    },
+    onMenuHidden: () => townOnMenuHidden(),
     onBarAction: battleOnBarAction
   });
   installBattleWatch(deps);

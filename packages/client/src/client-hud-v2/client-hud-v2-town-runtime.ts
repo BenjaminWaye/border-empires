@@ -95,6 +95,27 @@ export const installMapGuard = (): void => {
 
 /** The flagged tile the last tap selected (as a flag, not the town), so tapping it again opens the town screen. */
 let flagTapKey: string | undefined;
+/** When the tile bar was last closed, or undefined while it has stayed open since. */
+let barHiddenAt: number | undefined;
+
+/**
+ * How long before a tap the bar may have been hidden and still count as the same open bar: tapping the selected
+ * tile again hides the menu on mousedown and reopens it on the click that follows.
+ */
+export const FLAG_TAP_REOPEN_GRACE_MS = 700;
+
+/**
+ * The first tap on a flagged tile only counts while its bar stayed open: once the player closed it (✕, Esc, a
+ * tap elsewhere), the next tap on that tile selects the flag again instead of opening the town screen.
+ */
+export const flagTapStillPending = (hiddenAt: number | undefined, nowMs: number): boolean =>
+  hiddenAt === undefined || nowMs - hiddenAt <= FLAG_TAP_REOPEN_GRACE_MS;
+
+/** Dock listener: the tile bar was hidden. */
+export const townOnMenuHidden = (nowMs = Date.now()): void => {
+  barHiddenAt = nowMs;
+  if (screen.id === "town") closeTownScreen(true);
+};
 
 /**
  * A town or support tile carrying your muster flag: the first tap selects the flag (the plain tile bar with
@@ -109,8 +130,10 @@ export const flagTapOpensTown = (input: { flagged: boolean; tap: boolean; tileKe
 };
 
 /** Dock listener: returns true when the town screen takes this tile. */
-export const townOnMenuView = (deps: HudV2Deps, view: TileMenuView, tileKey: string, tap = false): boolean => {
+export const townOnMenuView = (deps: HudV2Deps, view: TileMenuView, tileKey: string, tap = false, nowMs = Date.now()): boolean => {
   if (screen.id !== null && screen.id !== "town") return false;
+  if (!flagTapStillPending(barHiddenAt, nowMs)) flagTapKey = undefined;
+  barHiddenAt = undefined;
   const tile = deps.state.tiles.get(tileKey);
   const town = townForTile(deps, tile);
   if (!town) {

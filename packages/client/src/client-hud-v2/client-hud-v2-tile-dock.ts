@@ -71,8 +71,30 @@ const BUILDING_BODY_CLASS = "hud-v2-building";
 const DOCKED = "hud-v2-docked";
 const EXPANDED = "hud-v2-expanded";
 
+let tapTrackingInstalled = false;
+
+/**
+ * Watches pointer-ups on the map so a menu render can tell a tap from a re-render. Installed with the dock
+ * listener at start-up: installing it with the dock itself (on the first menu render) missed the very tap
+ * that opened that first menu.
+ */
+const trackMapTaps = (): void => {
+  if (tapTrackingInstalled) return;
+  const game = document.getElementById("game");
+  if (!game) return;
+  tapTrackingInstalled = true;
+  game.addEventListener("pointerdown", (event) => { mapPointerDown = { x: event.clientX, y: event.clientY }; }, true);
+  game.addEventListener("pointerup", (event) => {
+    lastMapClickAt = Date.now();
+    const down = mapPointerDown;
+    mapPointerDown = undefined;
+    if (down && Math.abs(event.clientX - down.x) <= TAP_SLOP_PX && Math.abs(event.clientY - down.y) <= TAP_SLOP_PX) lastMapTapAt = lastMapClickAt;
+  }, true);
+};
+
 export const setDockListener = (next: DockListener): void => {
   listener = next;
+  trackMapTaps();
 };
 
 /** Programmatic opens (Chronicle Show, town stepping) must not trigger the click-to-expand shortcut. */
@@ -273,14 +295,7 @@ export const dockTileActionMenuForHudV2 = (state: ClientState, view: TileMenuVie
     }
     watchMenuVisibility(menuEl);
     // Feed/alert "Center" buttons, tips and other code also open tile menus; those must never claim land.
-    const game = document.getElementById("game");
-    game?.addEventListener("pointerdown", (event) => { mapPointerDown = { x: event.clientX, y: event.clientY }; }, true);
-    game?.addEventListener("pointerup", (event) => {
-      lastMapClickAt = Date.now();
-      const down = mapPointerDown;
-      mapPointerDown = undefined;
-      if (down && Math.abs(event.clientX - down.x) <= TAP_SLOP_PX && Math.abs(event.clientY - down.y) <= TAP_SLOP_PX) lastMapTapAt = lastMapClickAt;
-    }, true);
+    trackMapTaps();
     dock = { deps, state, rerender, expandedKey: undefined, lastHtml: "", lastSideHtml: "", lastView: undefined, lastKey: "", panel: undefined, buildSelection: undefined, buildCategory: undefined };
   }
   dock.deps = deps;
