@@ -3,7 +3,7 @@
 // button that flies the camera there; rivals filter one timeline.
 
 import type { PersonalActivityCard, PersonalActivityTimeline } from "@border-empires/game-domain";
-import { activityCardCoordinatesLabel, activityCardText, activityCardTimeLabel } from "../client-activity-dashboard/client-activity-dashboard-format.js";
+import { activityCardCoordinates, activityCardCoordinatesLabel, activityCardText, activityCardTimeLabel } from "../client-activity-dashboard/client-activity-dashboard-format.js";
 import { activityCardTone, ACTIVITY_TONE_GLYPH } from "../client-activity-dashboard/client-activity-dashboard-tone.js";
 
 export type ChronicleInput = {
@@ -37,6 +37,8 @@ export const cardCounterparties = (card: PersonalActivityCard, me: string): stri
     case "DOCK_CAPTURED":
     case "DOCK_LOST":
       return card.counterpartyPlayerId ? [card.counterpartyPlayerId] : [];
+    case "DIPLOMACY":
+      return [card.counterpartyPlayerId];
     default:
       return [];
   }
@@ -73,9 +75,10 @@ const rowHtml = (card: PersonalActivityCard, input: ChronicleInput): string => {
   const where = activityCardCoordinatesLabel(card);
   const text = activityCardText(card, input.me, input.nameOf, input.techName);
   const selected = card.id === input.selectedId ? " v2c-row-sel" : "";
-  const show = card.kind === "TRUNCATION_NOTE"
-    ? ""
-    : `<button type="button" class="v2c-show" data-v2-chronicle-show="${esc(card.id)}" data-x="${card.x}" data-y="${card.y}">Show</button>`;
+  const coords = activityCardCoordinates(card);
+  const show = coords
+    ? `<button type="button" class="v2c-show" data-v2-chronicle-show="${esc(card.id)}" data-x="${coords.x}" data-y="${coords.y}">Show</button>`
+    : "";
   return `<div class="v2c-row v2c-tone-${TONE_CLASS[tone]}${selected}">
     <span class="v2c-time">${activityCardTimeLabel(card)}</span>
     <span class="v2c-glyph" aria-hidden="true">${ACTIVITY_TONE_GLYPH[tone]}</span>

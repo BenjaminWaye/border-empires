@@ -30,6 +30,7 @@ import { INCURSION_HATCH_HILLS_CHANGELOG } from "./client-changelog-incursion-ha
 import { AI_DOCK_CROSSING_CHANGELOG } from "./client-changelog-ai-dock-crossing.js";
 import { REACH_RESTART_CHANGELOG } from "./client-changelog-reach-restart.js";
 import { TOWN_NAMEPLATES_CHANGELOG } from "./client-changelog-town-nameplates.js";
+import { DIPLOMACY_DOCK_CHANGELOG } from "./client-changelog-diplomacy-dock.js";
 import { MAP_LENS_CHANGELOG } from "./client-changelog-map-lens.js";
 import { MUSTER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-muster-supply-lines.js";
 import { CLAIM_STRIPED_GROUND_CHANGELOG } from "./client-changelog-claim-striped-ground.js";
@@ -378,7 +379,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...MAP_LENS_CHANGELOG,
   ...TERRITORY_EDGE_GLOW_CHANGELOG,
   ...LANDING_RESERVE_CHANGELOG,
-  ...FOG_HILL_HAZE_CHANGELOG
+  ...FOG_HILL_HAZE_CHANGELOG,
+  ...DIPLOMACY_DOCK_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
