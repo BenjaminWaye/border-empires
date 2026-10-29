@@ -197,6 +197,11 @@ models, canonical names and shared gameplay descriptions; superseded studies
 are labelled Legacy. Mine, harbor, relay, aether and Umbrite platform art is covered
 in the [infrastructure model reference](docs/infrastructure-models.md).
 
+Farm and fishing resource art uses authored GLB assets with matching 2D SVG
+fallbacks. Fishing sites use a smaller shore-facing assembly on a clean gray
+apron. Authoring commands, material layers and Storybook comparisons are in
+[the food tile art reference](docs/agents/topics/food-tile-art.md).
+
 ### Format
 
 | | |

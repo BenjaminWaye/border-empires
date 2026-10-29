@@ -124,6 +124,14 @@
 .resource-stat-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
+
+.resource-stat-grid > .tile-stat:only-child {
+  grid-column: 1 / -1;
+}
+
+.resource-bonus-recipient {
+  font-weight: 400;
+}
 .resource-stat-grid .tile-stat-value {
   font-size: 13px;
   line-height: 1.3;

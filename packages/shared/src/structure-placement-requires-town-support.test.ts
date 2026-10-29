@@ -23,6 +23,7 @@ describe("structureRequiresTownOrSupportTile", () => {
   });
 
   it("is false for resource-tile structures", () => {
-    expect(structureRequiresTownOrSupportTile("MINE")).toBe(false);
+    for (const type of ["MINE", "RESIN_EXTRACTOR", "IMPLANT_FOUNDRY", "CATALYST_REFINERY", "CULTIVATION_ESTATE", "RECLAMATION_WORKS"] as const)
+      expect(structureRequiresTownOrSupportTile(type)).toBe(false);
   });
 });

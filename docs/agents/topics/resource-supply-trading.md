@@ -155,3 +155,57 @@ count, while conductive minerals target factories. Shared manpower math and
 used-slot counters receive both consumer counts, and AI development checks
 installation output slots against the matching beneficiary count. Powered
 recipient, separate-target and imported-resin regressions cover this rule.
+
+### Resource readability and town support space
+
+Tile panels show the conditional bonus and required installation; unlocking
+research is linked from the installation popup. Construction cost and upkeep
+remain in the build controls. All five frontier resources have SVG icons
+in the shared map badges used by both 2D canvas and true-3D. Plain-text Coin
+glyph replacement remains separate because resin uses the same fallback glyph.
+New map placement reserves every town's eight support neighbours (wrapped at
+world edges), and catalysts reject coastal sand. Existing saves are not moved.
+
+Resource cards link to their required installation without a duplicate research
+box. The installation popup uses `data-view-tech` for its Unlocked by link.
+HUD v2 consumes requested tech details and opens its Manifest tree on that ID,
+unfolding the branch and scrolling to the selected node. Mobile and classic
+HUD keep their existing research detail flow. Local previews use `?hud=v2`;
+the redesigned HUD is opt-in on current develop. Lore reviewed; no canon change.
+
+Deposit cards label their potential output After development and explicitly
+name the required installation plus beneficiary. A frontier claim or even a
+settled bare deposit must never be presented as immediate Coin or Ancillary
+income. This is explanatory copy; allocation and activation rules are unchanged.
+Lore reviewed; no canon change.
+
+Recipient wording is resource-specific: one Trade Nexus without luxury supply
+can take a Cultivation Estate's slot. Another estate needs another Nexus
+without luxury supply; unused slots earn nothing. Catalyst and luxury slots
+remain independent, so a Nexus may use one of each. Keep the installation
+requirement on its own line; avoid “unimproved”, which can be confused with
+building upgrades. The same rule applies to resin, conductive and salvage
+recipients. This copy change does not alter allocation.
+
+All five deposit cards connect the amount to its recipient with “for”. Conductive
+minerals state +6 Ancillaries/4h for each of two eligible factories; resin states
++12/4h for one eligible Depot. Credit resources state +1.5 Coin/day for their
+matching eligible building. Installation names use `data-structure-info` and
+open the existing building info overlay in both HUDs and mobile. HUD v2 Details
+retains only the research and structure buttons its dock handles. Lore reviewed;
+no canon change.
+
+Structure popups receive the live tech catalog and derive their Unlocked by
+links from `STRUCTURE_REGISTRY` tech requirements. The shared structure-info
+actions close the popup before requesting the selected technology; HUD v2's
+existing handoff opens its Manifest tree. The extracted actions also retain
+structure-name and close-button behavior from the oversized HUD module.
+No research is purchased by following a link. Lore reviewed; no canon change.
+
+Resource icon review: `Map/Resources/Resource Badges → Map Sizes` compares the
+existing base icons and five frontier painted cutouts at 16/24/40px and real 22/48/64/96px
+tile badge sizes, using `drawResourceCornerMarker`. The shared badge remains a
+colour marker below 48px tiles. Zoomed-in plates reserve at least 20px for their artwork. Frontier resources
+use 96px transparent PNGs for map/inline icons and 96/256px exports for large
+slots. `Painted Resources` isolates the new set. Art direction and generation
+prompts: [resource icon art](../../resource-icon-art.md). Lore reviewed; no canon change.

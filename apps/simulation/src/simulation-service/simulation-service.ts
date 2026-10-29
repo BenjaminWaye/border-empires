@@ -16,7 +16,7 @@ import {
   type SeasonArchiveRow,
   type SimulationSeasonState
 } from "@border-empires/sim-protocol";
-import { CURRENT_WORLDGEN_VERSION, INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed } from "@border-empires/shared";
+import { INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed } from "@border-empires/shared";
 
 import { type ProtoSimulationEvent, type TileDeltaBatchTile, toProtoEvent, isWireInternalEvent, toFullSnapshotProtoTile } from "./proto-serialization.js";
 import { toCommandEnvelope, type ProtoCommandEnvelope } from "./proto-command-envelope.js";
@@ -81,11 +81,12 @@ import { GALAXY_ARCHIVE_LIMIT } from "../season-summary-store.js";
 import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from "../season-summary/season-summary.js";
 import { createGlobalStatusBroadcastPayload } from "../global-status-broadcast-scheduler/global-status-broadcast-payload.js";
 import { createScoreHistorySampler } from "../score-history-sampler/score-history-sampler.js";
-import { createInitialSeasonState, updateSeasonVictoryTrackers, readScheduledSeasonStartAtEnv, applyPendingSeasonActivation } from "../season-lifecycle.js";
+import { updateSeasonVictoryTrackers, applyPendingSeasonActivation } from "../season-lifecycle.js";
+import { buildBootstrapSeason, seasonStartedAtClock } from "./season-bootstrap.js";
 import { createAiAndSystemShouldRun } from "./ai-and-system-should-run.js";
 import { captureSeasonWinnerAtCrowning } from "../season-crowning/season-crowning.js";
 import { preparePlayerHandler, joinSeasonHandler } from "./prepare-and-join-player.js";
-import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
+import { generateSeasonWorld } from "../season-worldgen/season-worldgen.js";
 import { createWorldgenBaselineCache, resolveDockRouteBackfillReader } from "../worldgen-baseline-cache/worldgen-baseline-cache.js";
 import { createActivePlayerIdentityMap, createRecoveredActivePlayerIdentityMap } from "../active-player-identity-map.js";
 import { formatNoFrontierDiagnostic } from "./no-frontier-diagnostic-format.js";
@@ -181,50 +182,6 @@ const proto = loadPackageDefinition(packageDefinition) as unknown as ProtoPackag
 
 const formatGrpcBindAddress = (host: string, port: number): string =>
   host.includes(":") && !host.startsWith("[") ? `[${host}]:${port}` : `${host}:${port}`;
-
-const randomSeasonWorldSeed = (): number => crypto.randomInt(1, 1_000_000_000);
-
-const buildBootstrapSeason = async ({
-  seasonSequence,
-  rulesetId,
-  mapStyle,
-  aiPlayerCount,
-  now,
-  onYield, defenseCampaignTargetSeasonId
-}: {
-  seasonSequence: number;
-  rulesetId: SimulationRulesetId;
-  mapStyle: SimulationMapStyle;
-  aiPlayerCount?: number;
-  now: number;
-  onYield?: () => Promise<void>; defenseCampaignTargetSeasonId?: string;
-}): Promise<{
-  seasonState: SimulationSeasonState;
-  initialState: Awaited<ReturnType<typeof generateSeasonWorld>>["initialState"];
-  initialPlayers: Awaited<ReturnType<typeof generateSeasonWorld>>["initialPlayers"];
-}> => {
-  const requestedWorldSeed = randomSeasonWorldSeed();
-  const generatedWorld = await generateSeasonWorld(rulesetId, requestedWorldSeed, {
-    mapStyle,
-    ...(typeof aiPlayerCount === "number" ? { aiPlayerCount } : {}),
-    ...(onYield ? { onYield } : {})
-  });
-  const scheduledStartAt = readScheduledSeasonStartAtEnv(); const seasonState = createInitialSeasonState({
-    seasonSequence,
-    rulesetId,
-    worldSeed: generatedWorld.worldSeed,
-    mapStyle: generatedWorld.mapStyle, worldgenVersion: CURRENT_WORLDGEN_VERSION,
-    startedAt: now, ...(typeof scheduledStartAt === "number" ? { scheduledStartAt } : {}), ...(defenseCampaignTargetSeasonId ? { defenseCampaignTargetSeasonId } : {})
-  });
-  return {
-    seasonState,
-    initialState: {
-      ...generatedWorld.initialState,
-      season: seasonState
-    },
-    initialPlayers: generatedWorld.initialPlayers
-  };
-};
 
 const normalizeAutopilotEnabled = (value: boolean | string | number | undefined): boolean =>
   value === true || value === 1 || value === "1" || value === "true";
@@ -658,6 +615,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     backgroundBatchSize: runtimeBackgroundBatchSize,
     initialState: effectiveStartupRecovery.initialState,
     initialCommandHistory: effectiveStartupRecovery.initialCommandHistory,
+    seasonStartedAt: seasonStartedAtClock(() => currentSeasonState, currentSeasonState.seasonId),
     ...(dockRouteBackfillReader ? { dockRouteBackfillReader } : {}),
     mergeSeedTilesWithInitialState: !isDbBackedStartup, isPlayerSubscribed: (playerId) => subscriptionRegistry.isSubscribed(playerId), // TDZ-safe: closure runs later
     // Drain on setImmediate (next loop tick), not queueMicrotask. Microtasks
@@ -1767,6 +1725,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         initialCommandHistory: recoverCommandHistory([], []),
         mergeSeedTilesWithInitialState: false,
         initialPlayers: bootstrap.initialPlayers,
+        seasonStartedAt: seasonStartedAtClock(() => currentSeasonState, bootstrap.seasonState.seasonId),
         onVisibilityAudit: handleVisibilityAudit,
         trackSyncMainThreadTask: trackSyncMainThreadTaskWithMetrics,
         onCaptureRevealBuilt: captureRevealBuildSample, isPlayerSubscribed: (playerId) => subscriptionRegistry.isSubscribed(playerId),

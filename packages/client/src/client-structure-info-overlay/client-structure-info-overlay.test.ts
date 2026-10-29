@@ -1,3 +1,4 @@
+import { NETWORK_RESOURCES, RESOURCE_NETWORKS } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 import { renderStructureInfoOverlay } from "./client-structure-info-overlay.js";
 import { structureInfoForKey } from "../client-map-display.js";
@@ -42,5 +43,30 @@ describe("Relay Beacon build-time label", () => {
     expect(info(0).buildTimeLabel).toBe("0ms");
     expect(info(4).buildTimeLabel).toBe("0ms");
     expect(info(5).buildTimeLabel).toBe("100000ms");
+  });
+});
+
+describe("structure technology unlocks", () => {
+  const catalog = [
+    { id: "neural-resin-processing", name: "Neural Resin Processing Warrant" },
+    { id: "organized-supply", name: "Reserve Custody Cadre" },
+    { id: "frontier-concessions", name: "Frontier Export Charter" },
+    { id: "trade", name: "Industrial Tooling Module" }
+  ];
+  const info = (type: Parameters<typeof structureInfoForKey>[0]) => structureInfoForKey(type, { formatCooldownShort: () => "1m", prettyToken: value => value });
+  it.each(NETWORK_RESOURCES)("%s installation names and links its unlocking technology", resource => {
+    const spec = RESOURCE_NETWORKS[resource];
+    const html = renderStructureInfoOverlay(spec.building, info, undefined, catalog);
+    expect(html).toContain("Unlocked by");
+    expect(html).toContain(`data-view-tech="${spec.tech}"`);
+    expect(html).toContain(catalog.find(tech => tech.id === spec.tech)!.name);
+  });
+  it("escapes catalog names in the unlock link", () => {
+    const html = renderStructureInfoOverlay("CULTIVATION_ESTATE", info, undefined, [{ id: "frontier-concessions", name: "Charter <test>" }]);
+    expect(html).toContain("Charter &lt;test&gt;");
+    expect(html).not.toContain("Charter <test>");
+  });
+  it("does not invent a technology requirement for a Relay Beacon", () => {
+    expect(renderStructureInfoOverlay("RELAY_BEACON", info, undefined, catalog)).not.toContain("Unlocked by");
   });
 });
