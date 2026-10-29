@@ -33,6 +33,18 @@ describe("drawCornerBadge", () => {
     expect(colour.rect[0] + colour.rect[2]).toBeLessThanOrEqual(12);
   });
 
+  it.each([48, 64, 96])("keeps at least 20px of readable artwork inside a %spx tile", size => {
+    const { ctx } = recordingCtx();
+    const drawIcon = vi.fn();
+    drawCornerBadge(ctx, 0, 0, size, "#c9c9c9", drawIcon);
+    const [cx, cy, iconSize] = drawIcon.mock.calls[0] as [number, number, number];
+    expect(iconSize).toBeGreaterThanOrEqual(20);
+    expect(cx - iconSize / 2).toBeGreaterThanOrEqual(0);
+    expect(cy - iconSize / 2).toBeGreaterThanOrEqual(0);
+    expect(cx + iconSize / 2).toBeLessThanOrEqual(size);
+    expect(cy + iconSize / 2).toBeLessThanOrEqual(size);
+  });
+
   it("switches to the icon on a dark plate with a coloured rim once tiles are big enough", () => {
     const { fills, strokes, ctx } = recordingCtx();
     const drawIcon = vi.fn();
