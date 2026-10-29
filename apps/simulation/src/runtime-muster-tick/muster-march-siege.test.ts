@@ -6,6 +6,7 @@ vi.hoisted(() => {
 
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
+import { MUSTER_TRANSIT_MAX_TILES, MUSTER_TRANSIT_MS_PER_TILE } from "@border-empires/shared";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { acceptedMusterMarchCommands, makePlayer } from "./muster-march-test-support.js";
 
@@ -75,6 +76,19 @@ describe("muster MARCH route", () => {
     expect(firedAt(seen)).toEqual(["18,0"]);
   });
 
+  // Regression: raising the march range to 30 tiles also raised the transit
+  // cap (it reused MUSTER_MARCH_MAX_DISTANCE_TILES), doubling how long a far
+  // front locked both tiles.
+  it("charges no more than MUSTER_TRANSIT_MAX_TILES of travel time for a far front", () => {
+    const tiles = [flag(26, 0)];
+    for (let x = 1; x <= 24; x += 1) tiles.push(owned(x, 0));
+    tiles.push({ x: 25, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }, neutral(26, 0));
+    const { runtime, seen } = buildRuntime(tiles);
+    runtime.tickMuster(1_000);
+    const accepted = acceptedMusterMarchCommands(seen)[0];
+    expect(accepted?.transitEndsAt).toBe(1_000 + MUSTER_TRANSIT_MAX_TILES * MUSTER_TRANSIT_MS_PER_TILE);
+  });
+
   it("waits for its fight on the path instead of spreading off it", () => {
     const { runtime, seen } = buildRuntime([
       flag(4, 0),
@@ -137,5 +151,23 @@ describe("muster MARCH on an enemy town or structure", () => {
     runtime.tickMuster(1_000);
     expect(firedAt(seen)).toEqual([]);
     expect(flagMuster(runtime)?.insufficientManpower).toBe(true);
+  });
+
+  // Regression (review): a target needing more manpower than the flag can
+  // ever hold left the march waiting silently forever.
+  it("reports a target above the flag's cap so the player can expand it", () => {
+    // No town on the flag here: its reach would demote the fort tile to
+    // FRONTIER (cheap) at start-up. Nothing launches, so no supply is needed.
+    const { runtime, seen } = buildRuntime([
+      owned(0, 0, { muster: { ownerId: "player-1", amount: 1, mode: "MARCH", targetX: 3, targetY: 0, updatedAt: 1_000 } }),
+      owned(1, 0),
+      owned(2, 0),
+      owned(2, 1),
+      { x: 3, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", fort: { ownerId: "player-2", status: "active", variant: "FORT" } },
+      neutral(3, 1)
+    ]);
+    runtime.tickMuster(1_000);
+    expect(firedAt(seen)).toEqual([]);
+    expect(flagMuster(runtime)?.unfundableTarget).toMatchObject({ x: 3, y: 0 });
   });
 });

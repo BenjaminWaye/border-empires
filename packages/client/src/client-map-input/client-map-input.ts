@@ -229,7 +229,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     const pressedTile = state.tiles.get(deps.keyFor(deps.wrapX(raw.gx), deps.wrapY(raw.gy)));
     if (pressedTile) deps.requestAttackPreviewForTarget(pressedTile);
     // Pressing a march's destination drags it instead of panning the map.
-    if (!boxSelectionMode && marchTargetDrag.begin(deps.wrapX(raw.gx), deps.wrapY(raw.gy))) mousePanStart = undefined;
+    if (!boxSelectionMode && marchTargetDrag.begin(deps.wrapX(raw.gx), deps.wrapY(raw.gy), ev.clientX, ev.clientY)) mousePanStart = undefined;
     if (boxSelectionMode) {
       state.boxSelectStart = raw;
       state.boxSelectCurrent = raw;
@@ -246,7 +246,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     if (!dragActive) return;
     if (marchTargetDrag.active()) {
       const at = deps.worldTileRawFromPointer(ev.offsetX, ev.offsetY);
-      marchTargetDrag.move(deps.wrapX(at.gx), deps.wrapY(at.gy));
+      marchTargetDrag.move(deps.wrapX(at.gx), deps.wrapY(at.gy), ev.clientX, ev.clientY);
       return;
     }
     if (!boxSelectionMode && mousePanStart) {
@@ -342,7 +342,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
         const { wx, wy } = worldTileFromPointer(t.clientX - rect.left, t.clientY - rect.top);
         const touchedTile = state.tiles.get(deps.keyFor(wx, wy));
         if (touchedTile) deps.requestAttackPreviewForTarget(touchedTile);
-        if (marchTargetDrag.begin(wx, wy)) touchPanStart = undefined;
+        if (marchTargetDrag.begin(wx, wy, t.clientX, t.clientY)) touchPanStart = undefined;
         pinchStart = undefined;
       } else if (ev.touches.length === 2) {
         const a = ev.touches[0];
@@ -367,7 +367,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
       if (ev.touches.length === 1 && t0 && marchTargetDrag.active()) {
         const rect = deps.canvas.getBoundingClientRect();
         const { wx, wy } = worldTileFromPointer(t0.clientX - rect.left, t0.clientY - rect.top);
-        marchTargetDrag.move(wx, wy);
+        marchTargetDrag.move(wx, wy, t0.clientX, t0.clientY);
         return;
       }
       if (ev.touches.length === 1 && touchPanStart) {

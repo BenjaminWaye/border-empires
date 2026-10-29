@@ -109,19 +109,24 @@ const barHtml = (input: TownScreenInput): string => {
       ? `<button type="button" class="v2t-act" data-hud-v2-action="${esc(a.id)}"${targetAttrs(a, keyOf(input.town))}${a.disabled ? " disabled" : ""} title="${esc(a.disabled ? a.disabledReason ?? "" : a.detail ?? "")}">${label}${a.cost ? `<small>${esc(a.cost)}</small>` : ""}</button>`
       : "";
   // Everything else the town tile offers, as small text buttons (no hidden ⋯ menu). Muster actions belong
-  // to the selected tile (a support tile can carry its own flag), so they come from the focus, not the town.
+  // to the tile they act on: the selected support tile's come from the focus, and the town's own flag keeps
+  // its controls (marked "(town)") while a support tile is selected.
   const supportFocus = keyOf(input.focus) !== keyOf(input.town);
   const isMuster = (a: TileActionDef): boolean => a.id.startsWith("muster_");
   const shownIds = new Set<TileActionDef["id"]>(["muster_hold", "city_overclock", ...GROW_IDS]);
   const minorActions = [
-    ...input.townView.actions.filter((a) => !shownIds.has(a.id) && !isMuster(a)).map((a) => ({ a, key: keyOf(input.town) })),
-    ...input.focusView.actions.filter((a) => !shownIds.has(a.id) && isMuster(a)).map((a) => ({ a, key: keyOf(input.focus) }))
+    ...input.townView.actions.filter((a) => !shownIds.has(a.id)).map((a) => ({ a: supportFocus && isMuster(a) ? { ...a, label: `${a.label} (town)` } : a, key: keyOf(input.town) })),
+    ...(supportFocus ? input.focusView.actions.filter((a) => !shownIds.has(a.id) && isMuster(a)).map((a) => ({ a, key: keyOf(input.focus) })) : [])
   ];
   const minor = minorActions.map(({ a, key }) =>
     `<button type="button" class="hud-v2-minor${a.disabled ? " hud-v2-minor-off" : ""}" data-hud-v2-action="${esc(a.id)}"${targetAttrs(a, key)}${a.disabled ? " disabled" : ""} title="${esc(a.disabled ? a.disabledReason ?? a.label : a.cost ?? a.detail ?? a.label)}">${esc(a.label)}</button>`).join("");
-  const raise = actionFor(input.focusView, "muster_hold");
+  // Raise flag on the selected tile; when it can't take one, on the town as before.
+  const focusRaise = actionFor(input.focusView, "muster_hold");
+  const raise = focusRaise ?? actionFor(input.townView, "muster_hold");
+  const raiseOn = focusRaise ? input.focus : input.town;
+  const raiseLabel = !supportFocus ? "Raise flag" : focusRaise ? `Raise flag on (${input.focus.x}, ${input.focus.y})` : "Raise flag on town";
   const raiseBtn = raise
-    ? `<button type="button" class="v2t-act" data-hud-v2-action="muster_hold" data-target-key="${esc(keyOf(input.focus))}"${raise.disabled ? " disabled" : ""} title="${esc(raise.disabled ? raise.disabledReason ?? "" : raise.detail ?? "")}">${supportFocus ? `Raise flag on (${input.focus.x}, ${input.focus.y})` : "Raise flag"}</button>`
+    ? `<button type="button" class="v2t-act" data-hud-v2-action="muster_hold" data-target-key="${esc(keyOf(raiseOn))}"${raise.disabled ? " disabled" : ""} title="${esc(raise.disabled ? raise.disabledReason ?? "" : raise.detail ?? "")}">${raiseLabel}</button>`
     : "";
   return `${raiseBtn}${btn(actionFor(input.townView, "city_overclock"), "Overclock")}
     ${minor ? `<span class="v2t-minor">${minor}</span>` : ""}

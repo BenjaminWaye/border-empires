@@ -14,7 +14,8 @@ const makeState = () => ({
   hover: undefined as { x: number; y: number } | undefined,
   musterMarchTargeting: { active: false, originX: 0, originY: 0 },
   arrowGesture: undefined as { origin: { x: number; y: number }; target: { x: number; y: number } } | undefined,
-  pendingArrowGestureConfirm: undefined
+  pendingArrowGestureConfirm: undefined,
+  incomingAttacksByTile: new Map<string, { attackerName: string; resolvesAt: number }>()
 });
 
 afterEach(() => {
@@ -54,8 +55,8 @@ describe("dragging a march's destination", () => {
     const state = makeState();
     const sendGameMessage = vi.fn(() => true);
     installMarchInteraction({ state, sendGameMessage, renderHud: vi.fn() });
-    expect(marchTargetDrag.begin(14, 10)).toBe(true);
-    marchTargetDrag.move(16, 12);
+    expect(marchTargetDrag.begin(14, 10, 0, 0)).toBe(true);
+    marchTargetDrag.move(16, 12, 40, 40);
     expect(state.arrowGesture?.target).toEqual({ x: 16, y: 12 });
     expect(marchTargetDrag.end()).toBe("moved");
     expect(sendGameMessage).toHaveBeenCalledWith({ type: "SET_MUSTER", x: 10, y: 10, mode: "MARCH", targetX: 16, targetY: 12 });
@@ -66,8 +67,8 @@ describe("dragging a march's destination", () => {
     const state = makeState();
     const sendGameMessage = vi.fn(() => true);
     installMarchInteraction({ state, sendGameMessage, renderHud: vi.fn() });
-    expect(marchTargetDrag.begin(3, 3)).toBe(false);
-    expect(marchTargetDrag.begin(14, 10)).toBe(true);
+    expect(marchTargetDrag.begin(3, 3, 0, 0)).toBe(false);
+    expect(marchTargetDrag.begin(14, 10, 0, 0)).toBe(true);
     expect(marchTargetDrag.end()).toBe("tap");
     expect(sendGameMessage).not.toHaveBeenCalled();
   });
@@ -76,10 +77,42 @@ describe("dragging a march's destination", () => {
     const state = makeState();
     const sendGameMessage = vi.fn(() => true);
     installMarchInteraction({ state, sendGameMessage, renderHud: vi.fn() });
-    marchTargetDrag.begin(14, 10);
-    marchTargetDrag.move(60, 10);
+    marchTargetDrag.begin(14, 10, 0, 0);
+    marchTargetDrag.move(60, 10, 400, 0);
     expect(marchTargetDrag.end(0)).toBe("moved");
     expect(sendGameMessage).not.toHaveBeenCalled();
     expect(marchHintText(state, 1)).toContain("Too far");
+  });
+
+  // Regression (review): a slightly shaky tap on a march target, zoomed out,
+  // landed on the next tile and silently moved the march.
+  it("ignores pointer jitter below the drag threshold", () => {
+    const state = makeState();
+    const sendGameMessage = vi.fn(() => true);
+    installMarchInteraction({ state, sendGameMessage, renderHud: vi.fn() });
+    marchTargetDrag.begin(14, 10, 100, 100);
+    marchTargetDrag.move(15, 10, 104, 102);
+    expect(marchTargetDrag.end()).toBe("tap");
+    expect(sendGameMessage).not.toHaveBeenCalled();
+  });
+
+  // Regression (review): dragging re-targeted a besieged flag (Change Target is
+  // locked then) and claimed success even when nothing was sent.
+  it("refuses while the flag is under siege, and says so when the message can't be sent", () => {
+    const state = makeState();
+    state.incomingAttacksByTile.set("10,10", { attackerName: "Rival", resolvesAt: Date.now() + 60_000 });
+    const sendGameMessage = vi.fn(() => false);
+    installMarchInteraction({ state, sendGameMessage, renderHud: vi.fn() });
+    marchTargetDrag.begin(14, 10, 0, 0);
+    marchTargetDrag.move(16, 12, 40, 40);
+    expect(marchTargetDrag.end()).toBe("moved");
+    expect(sendGameMessage).not.toHaveBeenCalled();
+    expect(marchHintText(state, Date.now())).toContain("Under siege by Rival");
+    state.incomingAttacksByTile.clear();
+    marchTargetDrag.begin(14, 10, 0, 0);
+    marchTargetDrag.move(16, 12, 40, 40);
+    marchTargetDrag.end();
+    expect(sendGameMessage).toHaveBeenCalledTimes(1);
+    expect(marchHintText(state, Date.now())).toContain("Not connected");
   });
 });

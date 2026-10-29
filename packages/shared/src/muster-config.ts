@@ -81,6 +81,13 @@ export const MUSTER_MARCH_MAX_DISTANCE_TILES = 30;
 // the target fits within it.
 export const MUSTER_MARCH_MAX_ROUTE_STEPS = 2 * MUSTER_MARCH_MAX_DISTANCE_TILES;
 
+// Longest distance (in tiles) a muster-funded automated ATTACK/EXPAND is
+// charged travel time for (MUSTER_TRANSIT_MS_PER_TILE each). Deliberately not
+// tied to MUSTER_MARCH_MAX_DISTANCE_TILES: raising the march range must not
+// lengthen how long a far-flung front locks both tiles (see
+// runtime-frontier-command.ts).
+export const MUSTER_TRANSIT_MAX_TILES = 15;
+
 /** Toroidal Chebyshev distance in tiles between two points on the wrapping world. */
 export const musterMarchDistanceTiles = (ax: number, ay: number, bx: number, by: number): number => {
   const dx = Math.abs(ax - bx);

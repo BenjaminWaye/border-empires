@@ -176,6 +176,25 @@ describe("town screen", () => {
     expect(regions.place).toContain("Build on (6, 5)");
   });
 
+  // Regression (review): with a support tile selected, the town tile's own
+  // flag controls vanished from the town screen.
+  it("keeps the town's own flag controls, and falls back to raising on the town", () => {
+    const regions = townScreenRegions({
+      town,
+      focus: support,
+      townView: view({ actions: [act("muster_hold"), act("muster_march_cancel", { label: "Cancel March" })] }),
+      focusView: view({}),
+      townIndex: 0,
+      townCount: 1,
+      buildSelection: undefined,
+      category: undefined
+    });
+    expect(regions.bar).toContain('data-hud-v2-action="muster_march_cancel" data-target-key="5,5"');
+    expect(regions.bar).toContain("Cancel March (town)");
+    expect(regions.bar).toContain('data-hud-v2-action="muster_hold" data-target-key="5,5"');
+    expect(regions.bar).toContain("Raise flag on town");
+  });
+
   // Regression: a town still being garrisoned showed "undefined / undefined" support and NaN coin.
   it("shows dashes, not NaN or undefined, before the town's economy arrives", () => {
     const partial = { ...town, ownershipState: "FRONTIER", town: { ...town.town, goldPerMinute: undefined, supportCurrent: undefined, supportMax: undefined, isFed: undefined } } as unknown as Tile;

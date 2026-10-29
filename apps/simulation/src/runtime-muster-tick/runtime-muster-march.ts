@@ -1,13 +1,12 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { chebyshevDistanceToroidal, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
+import { coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { MusterTickInput } from "./runtime-muster-tick.js";
-import { buildTerrainDistanceField, deviationFromMarchLine } from "./muster-march-pathfinding.js";
-import { cachedMarchDistanceField } from "./muster-march-distance-cache.js";
+import { deviationFromMarchLine } from "./muster-march-pathfinding.js";
+import { planMarchRoute } from "./muster-march-route-plan.js";
 import { endMarch, isStraighterRoute, type MarchRouteScore } from "./muster-march-route.js";
-import { isInMarchPathBand, traceMarchPath } from "./muster-march-path-band.js";
-import { ADVANCE_EMPTY_COOLDOWN_MS, ADVANCE_FAR_COOLDOWN_MS, ADVANCE_THROTTLE_DIST, locksSourcedFromMusterTile, syncMusterStatus } from "./muster-auto-fire-shared.js";
-import { MUSTER_MARCH_MAX_ROUTE_STEPS, MUSTER_MAX_CONCURRENT_ACTIONS, WORLD_HEIGHT, WORLD_WIDTH, flagCommitForTarget } from "@border-empires/shared";
+import { ADVANCE_EMPTY_COOLDOWN_MS, ADVANCE_FAR_COOLDOWN_MS, ADVANCE_MAX_RANGE_TILES, ADVANCE_THROTTLE_DIST, locksSourcedFromMusterTile, syncMusterStatus } from "./muster-auto-fire-shared.js";
+import { MUSTER_MARCH_MAX_ROUTE_STEPS, MUSTER_MAX_CONCURRENT_ACTIONS, WORLD_HEIGHT, WORLD_WIDTH, flagCommitForTarget, musterFlagCap } from "@border-empires/shared";
 import { isAlliedOrTruced } from "../runtime-player-factory.js";
 import { countSiegeAttackVectors, isMarchSiegeTarget, MARCH_ROUTE_CORRIDOR_SLACK, MARCH_SIEGE_ATTACK_VECTORS, touchesSiegeTarget } from "./muster-march-siege.js";
 
@@ -75,6 +74,11 @@ export type MarchFireOptions = {
   // Only expand across neutral land, never attack on the way. ADVANCE uses it
   // so closing on a barbarian can't pick a fight with another player.
   expandOnly?: boolean;
+};
+
+const musterFlagCapFor = (input: MusterTickInput, playerId: string, musterTile: DomainTileState): number => {
+  const player = input.players.get(playerId);
+  return musterFlagCap(player ? input.playerManpowerCap(player) : Number.MAX_SAFE_INTEGER, musterTile.muster?.capLevel);
 };
 
 export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileState, playerId: string, options: MarchFireOptions = {}): boolean => {
@@ -146,15 +150,10 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
   const getTile = (x: number, y: number): DomainTileState | undefined =>
     input.tiles.get(simulationTileKey(x, y));
 
-  // Real tile-step distances to the target, flooded outward from the target
-  // itself (see buildTerrainDistanceField) instead of guessed from
-  // coordinates. Capped at the longest route a march may take (the same cap
-  // the client offers March Attack origins within), so it covers every
-  // candidate that matters without flooding the whole map when the target is
-  // far away or unreachable: the flood stops at the flag, and a candidate is
-  // only taken if it is closer to the target than the flag already is.
-  // Same dock/bridge edges the owned-territory BFS below walks, so a target
-  // across water is measured through the crossing rather than across the sea.
+  // The route, planned from terrain alone and cached briefly (see
+  // muster-march-route-plan.ts): real tile-step distances to the target
+  // through the same dock/bridge edges the owned-territory walk below takes,
+  // and the one straightest path the march follows.
   const bridgeLinksByKey = input.aetherBridgeNeighborKeysForPlayer(playerId);
   const crossingKeysFor = (key: string): readonly string[] | undefined => {
     const dockKeys = input.dockLinksByDockTileKey.get(key);
@@ -162,34 +161,15 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
     if (!dockKeys) return bridgeKeys;
     return bridgeKeys ? [...dockKeys, ...bridgeKeys] : dockKeys;
   };
-  const fieldKey = `${originKey}>${targetX},${targetY}|${playerId}|${bridgeLinksByKey.size}|${input.dockLinksByDockTileKey.size}`;
-  const terrainDistanceField = cachedMarchDistanceField(input.tiles, fieldKey, input.nowMs, () => buildTerrainDistanceField(
-    targetX,
-    targetY,
-    getTile,
-    // Sized to the real route, not the straight line: a target a few tiles
-    // across a strait can be MUSTER_MARCH_MAX_ROUTE_STEPS away through the
-    // nearest dock, and a flood that stops short of the flag strands the
-    // march on the beach. A march with a route of d steps floods about
-    // (2d+1)^2 tiles a tick, as it always has; only a flag with no route at
-    // all floods the full cap (~4k tiles, up from ~3k).
-    MUSTER_MARCH_MAX_ROUTE_STEPS + 2,
-    originKey,
-    crossingKeysFor
-  ));
-  // The flood stops once it reaches the flag (see buildTerrainDistanceField),
-  // which is cheap and loses nothing: a candidate no closer to the target than
-  // the flag is rejected below anyway. So when the flag was reached, a tile
-  // missing from the field is at least as far as the flag -- treat it as
-  // exactly that, never as "unknown". Only when the flood never reached the
-  // flag (cut off by water with no dock/bridge crossing, past the search cap,
-  // or tiles simply undefined on the map -- as most coordinates are in unit
-  // tests) do tiles fall back to the straight-line estimate rather than being
-  // treated as infinitely far.
-  const flagReachedByFlood = terrainDistanceField.has(originKey);
-  const distanceToTarget = (x: number, y: number): number =>
-    terrainDistanceField.get(simulationTileKey(x, y)) ??
-    (flagReachedByFlood ? Number.POSITIVE_INFINITY : chebyshevDistanceToroidal(x, y, targetX, targetY));
+  const { distanceToTarget, flagReachedByFlood, pathBand, walkBand } = planMarchRoute({
+    tiles: input.tiles,
+    playerId,
+    flag: musterTile,
+    target: { x: targetX, y: targetY },
+    nowMs: input.nowMs,
+    crossingKeysFor,
+    crossingSignature: `${[...bridgeLinksByKey.keys()].sort().join(";")}|${input.dockLinksByDockTileKey.size}`
+  });
 
   // A march must never move away from its target: any candidate at least as
   // far from the target as the flag itself already is gets rejected below,
@@ -199,9 +179,6 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
   // The route corridor (see MARCH_ROUTE_CORRIDOR_SLACK): the walk and every
   // candidate stay within a few steps of the straightest route to the target.
   const corridorLimit = distFlagToTarget + MARCH_ROUTE_CORRIDOR_SLACK;
-  // The one path the march follows, and the narrow band around it candidates
-  // are ranked into first (see traceMarchPath).
-  const marchPath = traceMarchPath(musterTile, { x: targetX, y: targetY }, distanceToTarget, crossingKeysFor, MUSTER_MARCH_MAX_ROUTE_STEPS + 2);
 
   // Actual BFS hop distance from the flag to each owned tile visited so far,
   // rather than straight-line Chebyshev distance — dock links let a tile be
@@ -209,11 +186,12 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
   // estimate has to follow the traversal, not the map coordinates.
   const hopsFromFlag = new Map<string, number>([[originKey, 0]]);
 
-  // See the module doc comment for the four-level ranking this encodes.
+  // See the module doc comment for the ranking this encodes; offPath (the
+  // traced path's band, see muster-march-route.ts) ranks above all of it.
   const scoreCandidate = (fromKey: string, candidate: DomainTileState): MarchRouteScore => {
     const remainingToTarget = distanceToTarget(candidate.x, candidate.y);
     return {
-      offPath: !isInMarchPathBand(marchPath, candidate.x, candidate.y),
+      offPath: !pathBand.has(simulationTileKey(candidate.x, candidate.y)),
       routeLength: hopsFromFlag.get(fromKey)! + 1 + remainingToTarget,
       hitsSettled: !!candidate.ownerId && candidate.ownershipState === "SETTLED",
       remainingToTarget,
@@ -233,7 +211,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
   // A ring tile (touching the siege target) to widen the foothold, and the
   // attack on the target itself, found during the walk below.
   let bestRing: { from: DomainTileState; to: DomainTileState; attack: boolean; score: MarchRouteScore } | undefined;
-  let siegeAttack: { from: DomainTileState; affordable: boolean; locked: boolean } | undefined;
+  let siegeAttack: { from: DomainTileState; required: number; affordable: boolean; locked: boolean } | undefined;
   const visited = new Set<string>([originKey]);
   const queue: DomainTileState[] = [musterTile];
   let head = 0;
@@ -287,13 +265,15 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
         // ADVANCE uses, rather than the whole empire, so a march can no
         // longer hijack itself toward something on the far side of the map.
         //
-        // MARCH bounds it by the route instead: up to MUSTER_MARCH_MAX_ROUTE_STEPS
-        // hops (a march around mountains can need far more than ADVANCE's 10,
-        // and stalling there is what made a stuck march spread sideways), but
-        // only through tiles inside the route corridor, so the walk covers a
-        // narrow band along the route rather than a disc around the flag.
+        // Past that radius MARCH keeps walking, but only along the traced path
+        // (walkBand, a strip MARCH_WALK_BAND_RADIUS either side) and up to
+        // MUSTER_MARCH_MAX_ROUTE_STEPS hops: a march around mountains needs far
+        // more than 10, and stalling there is what made a stuck march spread
+        // sideways. Inside the route corridor either way, so the walk costs the
+        // old disc plus a narrow strip, not the whole flag-to-target diamond.
         const nextHops = hopsFromFlag.get(currentKey)! + 1;
-        if (!visited.has(nKey) && nextHops < MUSTER_MARCH_MAX_ROUTE_STEPS && nextHops + distanceToTarget(x, y) <= corridorLimit) {
+        const inReach = nextHops < ADVANCE_MAX_RANGE_TILES || (nextHops < MUSTER_MARCH_MAX_ROUTE_STEPS && walkBand.has(nKey));
+        if (!visited.has(nKey) && inReach && nextHops + distanceToTarget(x, y) <= corridorLimit) {
           visited.add(nKey);
           hopsFromFlag.set(nKey, nextHops);
           queue.push(neighbor);
@@ -310,9 +290,9 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
       ) {
         // The siege target itself: remember the first front that can hit it,
         // preferring one we can afford and that isn't tied up in a fight.
-        const affordable = availableMuster >= input.requiredMusterForTarget(neighbor, playerId);
+        const required = input.requiredMusterForTarget(neighbor, playerId);
         const locked = !!input.locksByTile.targetLockAt(currentKey) || !!input.locksByTile.targetLockAt(nKey);
-        if (!siegeAttack || (siegeAttack.locked && !locked)) siegeAttack = { from: current, affordable, locked };
+        if (!siegeAttack || (siegeAttack.locked && !locked)) siegeAttack = { from: current, required, affordable: availableMuster >= required, locked };
       } else if (
         neighbor.ownerId &&
         !options.expandOnly &&
@@ -378,7 +358,10 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
         inFlight: inFlightLocks.length > 0,
         inFlightCount: inFlightLocks.length,
         nextActionAt,
-        insufficientManpower: !siegeAttack.affordable
+        insufficientManpower: !siegeAttack.affordable,
+        // More than the flag can ever hold: say so (the client offers Expand
+        // Capacity) rather than wait silently forever.
+        unfundableTarget: !siegeAttack.affordable && siegeAttack.required > musterFlagCapFor(input, playerId, musterTile) ? { x: siegeTarget.x, y: siegeTarget.y, required: siegeAttack.required } : undefined
       });
       return false;
     }
@@ -394,8 +377,11 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
 
   // Off the path band only once nothing is in flight: while the flag's own
   // fights on the path are still resolving, wait for them rather than spread.
-  if (inFlightLocks.length > 0 && best?.score.offPath) best = undefined;
-  if (inFlightLocks.length > 0 && bestExpand?.score.offPath) bestExpand = undefined;
+  // MARCH only: an ADVANCE flag approaching a hostile (options.target) counts
+  // its unrelated fights as in flight too, and must keep approaching.
+  const holdForPath = !options.target && inFlightLocks.length > 0;
+  if (holdForPath && best?.score.offPath) best = undefined;
+  if (holdForPath && bestExpand?.score.offPath) bestExpand = undefined;
 
   if (!best && !bestExpand) {
     // Stop short: the target is a mountain or sea tile, or land the terrain

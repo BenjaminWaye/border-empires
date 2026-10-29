@@ -12,8 +12,9 @@
 import { MUSTER_MARCH_MAX_DISTANCE_TILES, musterMarchDistanceTiles, musterMarchTooFarAdvice } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import { findMarchOriginsForTarget } from "../client-muster-march-targeting.js";
+import { musterSiegeReason, ownTileSiegeAt } from "../client-muster-siege/client-muster-siege.js";
 
-type MarchState = Pick<ClientState, "tiles" | "me" | "hover" | "musterMarchTargeting" | "arrowGesture" | "pendingArrowGestureConfirm">;
+type MarchState = Pick<ClientState, "tiles" | "me" | "hover" | "musterMarchTargeting" | "arrowGesture" | "pendingArrowGestureConfirm" | "incomingAttacksByTile">;
 type Point = { x: number; y: number };
 
 export type MarchInteractionDeps = {
@@ -24,12 +25,15 @@ export type MarchInteractionDeps = {
 
 export const MARCH_HINT_ID = "march-targeting-hint";
 const NOTICE_MS = 4_000;
+/** Screen pixels the pointer must travel before a press on a march target becomes a drag (a shaky tap never moves a march). */
+export const MARCH_DRAG_SLOP_PX = 12;
 
 let deps: MarchInteractionDeps | undefined;
-let drag: { origin: Point; from: Point; current: Point } | undefined;
+let drag: { origin: Point; from: Point; current: Point; pressAt: Point; dragging: boolean } | undefined;
 /** True while the arrow on screen is this module's preview (so it can clear it again). */
 let previewShown = false;
 let notice: { text: string; until: number } | undefined;
+let hintVisible = false;
 
 const same = (a: Point, b: Point): boolean => a.x === b.x && a.y === b.y;
 
@@ -97,9 +101,12 @@ export const syncMarchInteraction = (nowMs: number): void => {
     if (!state.pendingArrowGestureConfirm) state.arrowGesture = undefined;
     previewShown = false;
   }
+  const text = marchHintText(state, nowMs);
+  // Nothing to show and already hidden: no DOM work this frame.
+  if (!text && !hintVisible) return;
   const el = hintEl();
   if (!el) return;
-  const text = marchHintText(state, nowMs);
+  hintVisible = Boolean(text);
   const textEl = el.querySelector<HTMLElement>("[data-march-hint-text]");
   if (textEl && textEl.textContent !== (text ?? "")) textEl.textContent = text ?? "";
   const cancel = el.querySelector<HTMLElement>("[data-march-hint-cancel]");
@@ -111,20 +118,21 @@ export const syncMarchInteraction = (nowMs: number): void => {
  * Press on a tile one of your flags is marching to: start dragging that march's destination. Returns true when
  * the press started a drag (the map then must not pan or box-select).
  */
-const beginDrag = (x: number, y: number): boolean => {
+const beginDrag = (x: number, y: number, clientX: number, clientY: number): boolean => {
   if (!deps) return false;
   const { state } = deps;
   if (state.musterMarchTargeting.active || state.pendingArrowGestureConfirm) return false;
   const origin = findMarchOriginsForTarget(state, x, y)[0];
   if (!origin) return false;
-  drag = { origin: { x: origin.originX, y: origin.originY }, from: { x, y }, current: { x, y } };
+  drag = { origin: { x: origin.originX, y: origin.originY }, from: { x, y }, current: { x, y }, pressAt: { x: clientX, y: clientY }, dragging: false };
   state.arrowGesture = { origin: drag.origin, target: { x, y } };
   return true;
 };
 
-const moveDrag = (x: number, y: number): boolean => {
+const moveDrag = (x: number, y: number, clientX: number, clientY: number): boolean => {
   if (!drag || !deps) return false;
-  if (drag.current.x !== x || drag.current.y !== y) {
+  if (!drag.dragging) drag.dragging = Math.hypot(clientX - drag.pressAt.x, clientY - drag.pressAt.y) > MARCH_DRAG_SLOP_PX;
+  if (drag.dragging && (drag.current.x !== x || drag.current.y !== y)) {
     drag.current = { x, y };
     deps.state.arrowGesture = { origin: drag.origin, target: { x, y } };
   }
@@ -142,13 +150,20 @@ const endDrag = (nowMs = Date.now()): "moved" | "tap" | "none" => {
     notice = { text: "Drag the march target onto another tile to move it.", until: nowMs + NOTICE_MS };
     return "moved";
   }
+  const siege = ownTileSiegeAt(deps.state, done.origin.x, done.origin.y, nowMs);
+  if (siege) {
+    notice = { text: `${musterSiegeReason(siege, nowMs)}. The march keeps its old target.`, until: nowMs + NOTICE_MS };
+    return "moved";
+  }
   const tooFar = musterMarchTooFarAdvice(musterMarchDistanceTiles(done.origin.x, done.origin.y, done.current.x, done.current.y));
   if (tooFar) {
     notice = { text: `Too far: marches reach up to ${MUSTER_MARCH_MAX_DISTANCE_TILES} tiles. The march keeps its old target.`, until: nowMs + NOTICE_MS };
     return "moved";
   }
-  deps.sendGameMessage({ type: "SET_MUSTER", x: done.origin.x, y: done.origin.y, mode: "MARCH", targetX: done.current.x, targetY: done.current.y });
-  notice = { text: `Marching to (${done.current.x}, ${done.current.y}).`, until: nowMs + 2_000 };
+  const sent = deps.sendGameMessage({ type: "SET_MUSTER", x: done.origin.x, y: done.origin.y, mode: "MARCH", targetX: done.current.x, targetY: done.current.y });
+  notice = sent
+    ? { text: `Marching to (${done.current.x}, ${done.current.y}).`, until: nowMs + 2_000 }
+    : { text: "Not connected: the march keeps its old target.", until: nowMs + NOTICE_MS };
   deps.renderHud();
   return "moved";
 };
@@ -179,4 +194,5 @@ export const resetMarchInteractionForTest = (): void => {
   drag = undefined;
   previewShown = false;
   notice = undefined;
+  hintVisible = false;
 };
