@@ -170,18 +170,20 @@ body.hud-v2 #mini-map { width: 200px; height: 200px; }
 body.hud-v2 .onb-root { bottom: 266px !important; }
 
 /* Map lens (client-hud-v2-overlays.ts): a round button notched into the minimap's top edge, inside #mini-map-wrap
-   so it moves with the minimap; the lens list opens above it. */
+   so it moves with the minimap. The list opens beside the minimap, level with its top edge: above it sits the
+   new-empire checklist, which stacks over the whole #hud layer. */
 body:not(.hud-v2) .hud-v2-overlays { display: none; }
-#mini-map-wrap > .hud-v2-overlays { position: absolute; left: 50%; top: -18px; transform: translateX(-50%); z-index: 2; }
+/* The host spans the minimap's width, so the notch centres on it and the list can anchor to its right edge. */
+#mini-map-wrap > .hud-v2-overlays { position: absolute; left: 0; right: 0; top: -18px; height: 0; z-index: 2; }
 .hud-v2-lens-btn {
-  display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border-radius: 50%;
+  position: absolute; left: 50%; top: 0; transform: translateX(-50%); display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border-radius: 50%;
   background: var(--v2-chip); border: 2px solid var(--v2-edge-strong); box-shadow: 0 0 0 3px var(--v2-ink-solid); cursor: pointer;
 }
 .hud-v2-lens-btn:hover, .hud-v2-lens-btn[aria-expanded="true"] { border-color: var(--v2-gold); }
 .hud-v2-lens-on { background: #2a2216; border-color: var(--v2-gold-hi); }
 .hud-v2-lens-icon { width: 20px; height: 20px; pointer-events: none; }
 .hud-v2-lens-menu {
-  position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); display: grid; gap: 2px;
+  position: absolute; left: calc(100% + 8px); top: 18px; display: grid; gap: 2px;
   min-width: 150px; padding: 6px; background: var(--v2-ink); border: 1px solid var(--v2-edge-strong);
 }
 .hud-v2-lens-item {
