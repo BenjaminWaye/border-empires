@@ -34,7 +34,7 @@ export type RuntimeMapCommandContext = Pick<RuntimeDiplomacySettlementContext, "
   emitEvent: (event: SimulationEvent) => void;
   ownedLandWithinRange: (playerId: string, x: number, y: number, range: number) => boolean;
   pickReadyOwnedObservatoryForTarget: (playerId: string, targetX: number, targetY: number, now: number) => string | undefined;
-  stampObservatoryCooldown: (tileKey: string, durationMs: number, now: number, commandId: string, playerId: string) => void;
+  spendObservatoryShot: (tileKey: string, now: number, commandId: string, playerId: string) => void;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   // Re-checks a victim's frontier connectivity after SKY_DOCK_BOMBARD stripped some of their tiles.
   applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { bfsCap?: number }) => void;

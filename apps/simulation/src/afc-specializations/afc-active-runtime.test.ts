@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { AETHER_LANCE_COOLDOWN_MS } from "@border-empires/game-domain";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { buildPlayer, collectEvents, afcModuleFixtureTile } from "../runtime/runtime.test-helpers.js";
@@ -34,7 +33,7 @@ describe("AFC active abilities in the real runtime", () => {
       expect(runtime.exportState().players.find(p => p.id === "p")?.points).toBe(1);
     }
   });
-  it("suppresses a hostile tower through its own shield and uses the configured caster cooldown", async () => {
+  it("suppresses a hostile tower through its own shield and spends one of the caster's shots", async () => {
     const actor = buildPlayer("p", { afcUpgradeRuleset: "afc-v1", domainIds: new Set(["afc-oracle-4", "afc-oracle-2"]), techIds: new Set(["crystal-lattices"]), waystationResourceSlotBonus: { CRYSTAL: 10 } });
     const enemy = buildPlayer("e", { waystationResourceSlotBonus: { CRYSTAL: 10 } });
     const runtime = new SimulationRuntime({ now: () => 1000, scheduleAfter: () => {}, seedTiles: new Map(), initialPlayers: new Map([["p", actor], ["e", enemy]]), initialState: { tiles: [afcModuleFixtureTile("p"), afcModuleFixtureTile("e"), tower(10, "p"), tower(15, "e")], activeLocks: [] } });
@@ -44,9 +43,11 @@ describe("AFC active abilities in the real runtime", () => {
     expect(seen.filter(event => event.eventType === "COMMAND_REJECTED")).toEqual([]);
     const state = runtime.exportState();
     expect(JSON.parse(state.tiles.find(t => t.x === 15)!.observatoryJson!).suppressedUntil).toBe(301_000);
-    expect(JSON.parse(state.tiles.find(t => t.x === 10)!.observatoryJson!).cooldownUntil).toBe(1000 + AETHER_LANCE_COOLDOWN_MS * 0.5);
+    // Resonance Governor (afc-oracle-2) doubles the caster's shots to 6, so one spent leaves it ready.
+    expect(JSON.parse(state.tiles.find(t => t.x === 10)!.observatoryJson!)).toMatchObject({ shotsUsedAt: [1000] });
+    expect(JSON.parse(state.tiles.find(t => t.x === 10)!.observatoryJson!).cooldownUntil).toBeUndefined();
     const recovered = applySimulationEventsToRecoveredState(before, seen.filter(event => event.eventType !== "PLAYER_MESSAGE"));
     expect(recovered.tiles.find(tile => tile.x === 15)?.observatory?.suppressedUntil).toBe(301_000);
-    expect(recovered.tiles.find(tile => tile.x === 10)?.observatory?.cooldownUntil).toBe(1000 + AETHER_LANCE_COOLDOWN_MS * 0.5);
+    expect(recovered.tiles.find(tile => tile.x === 10)?.observatory?.shotsUsedAt).toEqual([1000]);
   });
 });

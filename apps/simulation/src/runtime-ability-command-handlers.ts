@@ -1,15 +1,11 @@
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
-  AETHER_BRIDGE_COOLDOWN_MS,
   AETHER_BRIDGE_DURATION_MS,
-  AETHER_WALL_COOLDOWN_MS,
   AETHER_WALL_DURATION_MS, playerHasAbilityTech,
-  REVEAL_EMPIRE_STATS_COOLDOWN_MS,
-  SURVEY_SWEEP_COOLDOWN_MS,
   SURVEY_SWEEP_HALF_EXTENT
 } from "@border-empires/game-domain";
-import { isAetherTowerSuppressed, isObservatoryInSiphonMode, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { aetherTowerMaxShots, aetherTowerShotsRemaining, isAetherTowerSuppressed, isObservatoryInSiphonMode, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { parseAetherWallPayload, parseRevealPayload, parseTilePayload } from "./runtime-command-parsers.js";
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
@@ -23,11 +19,10 @@ import type {
 import type { AetherWallSegment } from "./runtime-ability-helpers.js";
 import type { SiphonModeLifecycle } from "./siphon-mode/siphon-mode-lifecycle.js";
 
-// Hidden Hand / Oracle State's observatoryCooldownMult scales every
-// observatory-gated ability's cooldown (Reveal Empire Stats, Survey Sweep,
-// Aether Lance, Aether Bridge, Aether Wall) uniformly.
-export const observatoryCooldownMsForActor = (actor: DomainPlayer, baseCooldownMs: number): number =>
-  Math.round(baseCooldownMs * multiplicativeEffectForPlayer(actor, "observatoryCooldownMult"));
+// Shots each of the actor's Aether Towers holds per 24h (aether-tower-shots.ts);
+// Oracle's Resonance Governor (observatoryShotsMult) doubles it.
+export const observatoryMaxShotsForActor = (actor: Pick<DomainPlayer, "techIds" | "domainIds">): number =>
+  aetherTowerMaxShots(multiplicativeEffectForPlayer(actor, "observatoryShotsMult"));
 
 type SurveySweepPingKind = "resource" | "town";
 
@@ -54,9 +49,8 @@ export type RuntimeAbilityCommandContext = {
     targetY: number,
     now: number
   ) => string | undefined;
-  stampObservatoryCooldown: (
+  spendObservatoryShot: (
     tileKey: string,
-    durationMs: number,
     now: number,
     commandId: string,
     playerId: string
@@ -201,9 +195,8 @@ export function handleRevealEmpireStatsCommand(context: RuntimeAbilityCommandCon
     rejectCommand(context, command, "REVEAL_EMPIRE_STATS_INVALID", "no ready aether tower available");
     return;
   }
-  context.stampObservatoryCooldown(
+  context.spendObservatoryShot(
     revealObservatoryKey,
-    observatoryCooldownMsForActor(actor, REVEAL_EMPIRE_STATS_COOLDOWN_MS),
     revealNow,
     command.commandId,
     command.playerId
@@ -249,8 +242,8 @@ export function handleSurveySweepCommand(context: RuntimeAbilityCommandContext, 
     rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "aether tower is in siphon mode");
     return;
   }
-  if ((observatory.cooldownUntil ?? 0) > now) {
-    rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "aether tower is cooling down");
+  if (aetherTowerShotsRemaining(observatory, observatoryMaxShotsForActor(actor), now) <= 0) {
+    rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "aether tower has no shots left");
     return;
   }
   if (context.isStructureDormant(actor.id, observatoryKey, "observatory")) {
@@ -258,7 +251,7 @@ export function handleSurveySweepCommand(context: RuntimeAbilityCommandContext, 
     return;
   }
   const pings = buildSurveySweepPings(context, actor.id, observatoryTile.x, observatoryTile.y);
-  context.stampObservatoryCooldown(observatoryKey, observatoryCooldownMsForActor(actor, SURVEY_SWEEP_COOLDOWN_MS), now, command.commandId, command.playerId);
+  context.spendObservatoryShot(observatoryKey, now, command.commandId, command.playerId);
   console.log(
     `[survey-sweep-debug] server emitting SURVEY_SWEEP_RESULT commandId=${command.commandId} playerId=${command.playerId} pingCount=${pings.length}`
   );
@@ -308,9 +301,8 @@ export function handleCastAetherBridgeCommand(context: RuntimeAbilityCommandCont
     rejectCommand(context, command, "AETHER_BRIDGE_INVALID", "no ready aether tower in range");
     return;
   }
-  context.stampObservatoryCooldown(
+  context.spendObservatoryShot(
     bridgeObservatoryKey,
-    observatoryCooldownMsForActor(actor, AETHER_BRIDGE_COOLDOWN_MS),
     bridgeNow,
     command.commandId,
     command.playerId
@@ -381,9 +373,8 @@ export function handleCastAetherWallCommand(context: RuntimeAbilityCommandContex
       return;
     }
   }
-  context.stampObservatoryCooldown(
+  context.spendObservatoryShot(
     wallObservatoryKey,
-    observatoryCooldownMsForActor(actor, AETHER_WALL_COOLDOWN_MS),
     wallNow,
     command.commandId,
     command.playerId

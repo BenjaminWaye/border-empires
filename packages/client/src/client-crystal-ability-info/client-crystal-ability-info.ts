@@ -1,3 +1,4 @@
+import { AETHER_TOWER_BASE_SHOTS } from "@border-empires/shared";
 import { abilityIconHtml } from "../client-ability-icons/client-ability-icons.js";
 import type { TechInfo } from "../client-types.js";
 
@@ -24,24 +25,19 @@ export type CrystalAbilityInfoView = {
   target: string;
   costBits: string[];
   cooldownLabel?: string;
+  towerShotLabel?: string;
   durationLabel?: string;
   upkeepLabel?: string;
 };
 
-const AETHER_BRIDGE_COOLDOWN_MS = 30 * 60_000;
+// Abilities cast from an Aether Tower have no cooldown of their own: each
+// spends one of the tower's shots (aether-tower-shots.ts).
+const TOWER_SHOT_LABEL = `1 Aether Tower shot (${AETHER_TOWER_BASE_SHOTS} per tower per 24h)`;
 const AETHER_BRIDGE_DURATION_MS = 8 * 60_000;
-const AETHER_WALL_COOLDOWN_MS = 8 * 60_000;
 const AETHER_WALL_DURATION_MS = 20 * 60_000;
-const REVEAL_EMPIRE_STATS_COOLDOWN_MS = 5 * 60_000;
-const SIPHON_COOLDOWN_MS = 10 * 60_000;
-const RETORT_RECAST_COOLDOWN_MS = 20 * 60_000;
-const SURVEY_SWEEP_COOLDOWN_MS = 12 * 60_000;
-const AETHER_LANCE_COOLDOWN_MS = 10 * 60_000;
-const AETHER_EMP_COOLDOWN_MS = 45 * 60_000;
 const AETHER_EMP_DURATION_MS = 15 * 60_000;
 const CITY_OVERCLOCK_COOLDOWN_MS = 45 * 60_000;
 const CITY_OVERCLOCK_DURATION_MS = 15 * 60_000;
-const TERRAIN_SHAPING_COOLDOWN_MS = 20 * 60_000;
 const STORMFRONT_COOLDOWN_MS = 45 * 60_000;
 const STORMFRONT_DURATION_MS = 15 * 60_000;
 const AEGIS_LOCK_COOLDOWN_MS = 60 * 60_000;
@@ -113,7 +109,7 @@ export const crystalAbilityInfoForKey = (
       detail: "Pulses one of your active Aether Towers to mark hidden resource sites and towns without revealing tile details.",
       target: "Owned active Aether Tower. Pings towns and resource sites outside current vision in a centered 50x50 survey area.",
       costBits: [],
-      cooldownLabel: deps.formatCooldownShort(SURVEY_SWEEP_COOLDOWN_MS)
+      towerShotLabel: TOWER_SHOT_LABEL
     };
   }
   if (key === "aether_lance") {
@@ -122,7 +118,7 @@ export const crystalAbilityInfoForKey = (
       detail: "Purge enemy control from a tile, turning it neutral.",
       target: "Enemy garrisoned or frontier tile within Aether Tower range.",
       costBits: [],
-      cooldownLabel: deps.formatCooldownShort(AETHER_LANCE_COOLDOWN_MS)
+      towerShotLabel: TOWER_SHOT_LABEL
     };
   }
   if (key === "aether_bridge") {
@@ -131,7 +127,7 @@ export const crystalAbilityInfoForKey = (
       detail: "Opens a temporary assault route from one of your garrisoned coastal tiles to a coastal land target across up to 4 sea tiles.",
       target: "Target coastal land reachable from one of your garrisoned coastal tiles.",
       costBits: [],
-      cooldownLabel: deps.formatCooldownShort(AETHER_BRIDGE_COOLDOWN_MS),
+      towerShotLabel: TOWER_SHOT_LABEL,
       durationLabel: deps.formatCooldownShort(AETHER_BRIDGE_DURATION_MS)
     };
   }
@@ -141,7 +137,7 @@ export const crystalAbilityInfoForKey = (
       detail: "Rewrites one exposed resource vein into a different industrial class, turning food, umbrite, titanium, or crystal ground into whatever your empire needs next.",
       target: "Any land resource tile within Aether Tower range that has no town, dock, fort, Aether Tower, siege line, or economic structure on it.",
       costBits: [],
-      cooldownLabel: deps.formatCooldownShort(RETORT_RECAST_COOLDOWN_MS)
+      towerShotLabel: TOWER_SHOT_LABEL
     };
   }
   if (key === "reveal_empire_stats") {
@@ -150,7 +146,7 @@ export const crystalAbilityInfoForKey = (
       detail: "Extracts a one-time intelligence snapshot of a hostile empire's economy, stockpiles, manpower, and territory totals.",
       target: "Select a hostile tile, then cast to inspect that empire.",
       costBits: [],
-      cooldownLabel: deps.formatCooldownShort(REVEAL_EMPIRE_STATS_COOLDOWN_MS)
+      towerShotLabel: TOWER_SHOT_LABEL
     };
   }
   if (key === "aether_wall") {
@@ -159,7 +155,7 @@ export const crystalAbilityInfoForKey = (
       detail: "Projects a temporary crystal wall along up to 3 border edges. Nothing can cross those edges in either direction until it expires.",
       target: "Select one of your garrisoned border tiles, then cast. If more than one facing is valid, choose the glowing arrow direction.",
       costBits: [],
-      cooldownLabel: deps.formatCooldownShort(AETHER_WALL_COOLDOWN_MS),
+      towerShotLabel: TOWER_SHOT_LABEL,
       durationLabel: deps.formatCooldownShort(AETHER_WALL_DURATION_MS)
     };
   }
@@ -167,10 +163,10 @@ export const crystalAbilityInfoForKey = (
     return {
       title: "Siphon",
       detail:
-        "Locks one of your Aether Towers into siphon mode on an enemy town or resource tile and its enemy town/resource neighbours. Siphoned resource tiles' slots count for you instead of their owner (their structures may go dormant, yours may wake up); siphoned towns produce nothing. Lasts until you cancel it from the tower, an Aether Tower of the owner's covering the tiles is back online (switched on, off cooldown and powered), your tower is lost or switched off, or a tile changes hands. The tower can't cast anything else meanwhile.",
-      target: "Enemy town or resource tile in range of one of your ready Aether Towers, not currently shielded by its owner's own Aether Tower (a tower on cooldown or unpowered isn't shielding).",
+        "Locks one of your Aether Towers into siphon mode on an enemy town or resource tile and its enemy town/resource neighbours. Siphoned resource tiles' slots count for you instead of their owner (their structures may go dormant, yours may wake up); siphoned towns produce nothing. Lasts until you cancel it from the tower, an Aether Tower of the owner's covering the tiles is back online (switched on, with a shot left and powered), your tower is lost or switched off, or a tile changes hands. The tower can't cast anything else meanwhile.",
+      target: "Enemy town or resource tile in range of one of your ready Aether Towers, not currently shielded by its owner's own Aether Tower (a tower out of shots or unpowered isn't shielding).",
       costBits: [],
-      cooldownLabel: `${deps.formatCooldownShort(SIPHON_COOLDOWN_MS)} after it ends`,
+      towerShotLabel: `${TOWER_SHOT_LABEL}, spent when the siphon starts`,
       durationLabel: "Until cancelled"
     };
   }
@@ -180,7 +176,7 @@ export const crystalAbilityInfoForKey = (
       detail: "Blasts an enemy tile with a crystal surge, knocking out every Ambaric Transformer that empire holds nearby -- and everything those Transformers power (Sky Docks, Resonance Grids, monuments) with them.",
       target: "Enemy owned tile within Aether Tower range, near one or more Ambaric Transformers.",
       costBits: [],
-      cooldownLabel: deps.formatCooldownShort(AETHER_EMP_COOLDOWN_MS),
+      towerShotLabel: TOWER_SHOT_LABEL,
       durationLabel: deps.formatCooldownShort(AETHER_EMP_DURATION_MS)
     };
   }
@@ -230,7 +226,7 @@ export const crystalAbilityInfoForKey = (
       detail: "Raises impassable mountain terrain to block routes and reshape the frontline.",
       target: "Land tile within 2 tiles of your territory. Cannot target towns, docks, or structured tiles.",
       costBits: [],
-      cooldownLabel: deps.formatCooldownShort(TERRAIN_SHAPING_COOLDOWN_MS)
+      towerShotLabel: TOWER_SHOT_LABEL
     };
   }
   return {
@@ -238,7 +234,7 @@ export const crystalAbilityInfoForKey = (
     detail: "Clears a mountain to reopen a pass near your territory.",
     target: "Mountain tile within 2 tiles of your territory.",
     costBits: [],
-    cooldownLabel: deps.formatCooldownShort(TERRAIN_SHAPING_COOLDOWN_MS)
+    towerShotLabel: TOWER_SHOT_LABEL
   };
 };
 
@@ -252,6 +248,7 @@ export const renderCrystalAbilityInfoOverlay = (
   const metaCards = [
     ...info.costBits.map((bit) => ({ label: "Cost", value: bit })),
     { label: "Target", value: info.target },
+    ...(info.towerShotLabel ? [{ label: "Uses", value: info.towerShotLabel }] : []),
     ...(info.cooldownLabel ? [{ label: "Cooldown", value: info.cooldownLabel }] : []),
     ...(info.durationLabel ? [{ label: "Duration", value: info.durationLabel }] : []),
     ...(info.upkeepLabel ? [{ label: "Upkeep", value: info.upkeepLabel }] : [])

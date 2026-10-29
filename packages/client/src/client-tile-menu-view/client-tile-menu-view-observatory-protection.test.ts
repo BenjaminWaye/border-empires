@@ -33,11 +33,11 @@ const deps = {
   structureInfoButtonHtml: (type: string, label?: string) => `<button data-structure-info="${type}">${label ?? type}</button>`
 };
 
-describe("menuOverviewForTile — Aether Tower cooldown vs. protection status", () => {
-  it("says an on-cooldown Aether Tower is not currently protecting nearby tiles", () => {
+describe("menuOverviewForTile — Aether Tower shots vs. protection status", () => {
+  it("says an Aether Tower out of shots is not currently protecting nearby tiles", () => {
     const lines = menuOverviewForTile(ownObservatoryTile(Date.now() + 90_000), deps);
     expect(
-      lines.some((line) => line.html.includes("on cooldown") && line.html.includes("not protecting its owner's nearby tiles"))
+      lines.some((line) => line.html.includes("out of shots") && line.html.includes("not protecting its owner's nearby tiles"))
     ).toBe(true);
     expect(lines.some((line) => line.html === "Aether Tower is active here and protects its owner\'s nearby tiles from hostile Aether abilities.")).toBe(false);
   });

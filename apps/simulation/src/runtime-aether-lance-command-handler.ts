@@ -1,12 +1,12 @@
 // AETHER_LANCE: purges a hostile settled/frontier tile within observatory range.
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { AETHER_LANCE_COOLDOWN_MS, playerHasAbilityTech } from "@border-empires/game-domain";
+import { playerHasAbilityTech } from "@border-empires/game-domain";
 import { parseTilePayload } from "./runtime-command-parsers.js";
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { attackAlertDisplayName } from "./runtime-frontier-command.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
-import { observatoryCooldownMsForActor, type RuntimeAbilityCommandContext } from "./runtime-ability-command-handlers.js";
+import type { RuntimeAbilityCommandContext } from "./runtime-ability-command-handlers.js";
 
 export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, command: CommandEnvelope): void {
   const reject = (code: string, message: string): void =>
@@ -49,9 +49,8 @@ export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, 
     reject("AETHER_LANCE_INVALID", "no ready aether tower in range");
     return;
   }
-  context.stampObservatoryCooldown(
+  context.spendObservatoryShot(
     lanceObservatoryKey,
-    observatoryCooldownMsForActor(actor, AETHER_LANCE_COOLDOWN_MS),
     lanceNow,
     command.commandId,
     command.playerId

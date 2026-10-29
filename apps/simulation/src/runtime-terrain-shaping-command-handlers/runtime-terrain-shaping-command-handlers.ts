@@ -5,7 +5,6 @@
 // full world state here, so a tower the caster can't see still blocks it.
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { TERRAIN_SHAPING_COOLDOWN_MS } from "@border-empires/game-domain";
 import { isTileShieldedByEnemyObservatory } from "../runtime-ability-helpers.js";
 import { parseTilePayload } from "../runtime-command-parsers.js";
 import type { RuntimeMapCommandContext } from "../runtime-map-command-handlers.js";
@@ -63,7 +62,7 @@ export function handleCreateMountainCommand(context: RuntimeMapCommandContext, c
     rejectCommand(context, command, "CREATE_MOUNTAIN_INVALID", "no ready aether tower in range");
     return;
   }
-  context.stampObservatoryCooldown(observatoryKey, TERRAIN_SHAPING_COOLDOWN_MS, now, command.commandId, command.playerId);
+  context.spendObservatoryShot(observatoryKey, now, command.commandId, command.playerId);
   const hadMuster = Boolean(target.muster);
   const updatedTile: DomainTileState = {
     ...target,
@@ -116,7 +115,7 @@ export function handleRemoveMountainCommand(context: RuntimeMapCommandContext, c
     rejectCommand(context, command, "REMOVE_MOUNTAIN_INVALID", "no ready aether tower in range");
     return;
   }
-  context.stampObservatoryCooldown(observatoryKey, TERRAIN_SHAPING_COOLDOWN_MS, now, command.commandId, command.playerId);
+  context.spendObservatoryShot(observatoryKey, now, command.commandId, command.playerId);
   const updatedTile: DomainTileState = { ...target, terrain: "LAND" };
   context.replaceTileState(targetKey, updatedTile);
   context.bumpTerrainEpoch();

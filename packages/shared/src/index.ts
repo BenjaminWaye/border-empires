@@ -31,6 +31,7 @@ export * from "./structure-costs/structure-costs.js";
 export * from "./structure-slots/structure-slots.js";
 export * from "./resource-slot-sources/resource-slot-sources.js";
 export * from "./siphon-mode/siphon-mode.js";
+export * from "./aether-tower-shots/aether-tower-shots.js";
 export * from "./rush-buy/rush-buy.js";
 export * from "./structure-placement.js";
 export * from "./trickle-resources.js";

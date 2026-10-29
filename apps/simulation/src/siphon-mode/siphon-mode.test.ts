@@ -121,10 +121,11 @@ describe("Siphon siphon mode", () => {
     expect(rejection(seen, second)).toMatchObject({ code: "SIPHON_INVALID" });
   });
 
-  it("CANCEL_SIPHON ends it, gives the slots back to both players, and starts the tower's cooldown", async () => {
+  it("CANCEL_SIPHON ends it, gives the slots back to both players, and keeps the shot spent at the start", async () => {
     const runtime = buildRuntime();
     const seen = collectEvents(runtime);
     await submit(runtime, "SIPHON_TILE", { x: 10, y: 1 });
+    expect(tileAt(runtime, TOWER)?.observatory?.shotsUsedAt).toEqual([10_000]);
     const stranger = await submit(runtime, "CANCEL_SIPHON", { x: 0, y: 1 }, VICTIM);
     expect(rejection(seen, stranger)).toMatchObject({ code: "CANCEL_SIPHON_INVALID" });
     expectSiphonActive(runtime);
@@ -134,7 +135,9 @@ describe("Siphon siphon mode", () => {
     expectSiphonEnded(runtime);
     expect(titaniumSupply(runtime, CASTER)).toBe(0);
     expect(fortDormant(runtime, CASTER, CASTER_FORT)).toBe(true);
-    expect(tileAt(runtime, TOWER)?.observatory?.cooldownUntil).toBeGreaterThan(10_000);
+    // No extra cooldown on release: the tower still has 2 of its 3 shots.
+    expect(tileAt(runtime, TOWER)?.observatory).toMatchObject({ shotsUsedAt: [10_000] });
+    expect(tileAt(runtime, TOWER)?.observatory?.cooldownUntil).toBeUndefined();
 
     const again = await submit(runtime, "CANCEL_SIPHON", { x: 0, y: 1 });
     expect(rejection(seen, again)).toMatchObject({ code: "CANCEL_SIPHON_INVALID" });

@@ -1,8 +1,9 @@
-import { OBSERVATORY_RANGE } from "@border-empires/shared";
+import { aetherTowerMaxShots, OBSERVATORY_RANGE } from "@border-empires/shared";
 
+import { afcEffectMultiplier } from "../client-afc-upgrades/client-afc-effect.js";
 import type { DomainInfo, TechInfo } from "../client-types.js";
 
-type ObservatoryProgressionState = {
+export type ObservatoryProgressionState = {
   techIds: string[];
   techCatalog: TechInfo[];
   domainIds: string[];
@@ -40,3 +41,7 @@ const ownObservatoryRangeBonus = (state: ObservatoryProgressionState): number =>
  */
 export const ownObservatoryRange = (state: ObservatoryProgressionState): number =>
   OBSERVATORY_RANGE + ownObservatoryRangeBonus(state);
+
+/** Shots each of the local player's Aether Towers holds per 24h (×2 with Resonance Governor). */
+export const ownObservatoryMaxShots = (state: { readonly domainIds?: readonly string[] | undefined }): number =>
+  aetherTowerMaxShots(afcEffectMultiplier(state.domainIds, "observatoryShotsMult"));

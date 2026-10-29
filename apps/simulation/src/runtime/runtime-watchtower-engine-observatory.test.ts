@@ -4,7 +4,7 @@ import { buildAiOpponent, buildPlayer } from "./runtime.test-helpers.js";
 
 // The Watchtower Engine wonder tile acts as its controller's Observatory:
 // eligible to cast crystal abilities (pickReadyOwnedObservatoryForTarget),
-// gated by the same per-tile cooldown, but exempt from the CRYSTAL slot
+// gated by the same per-tile shots, but exempt from the CRYSTAL slot
 // demand a real Observatory registers — "no upkeep" is the wonder's whole
 // point (see syncWatchtowerObservatory, runtime-natural-wonders.ts).
 describe("Watchtower Engine acts as an Observatory", () => {
@@ -48,15 +48,17 @@ describe("Watchtower Engine acts as an Observatory", () => {
     expect(events).toContainEqual(expect.objectContaining({ eventType: "COMMAND_RESOLVED", commandId: "lance-1" }));
   });
 
-  it("rejects a second cast while the wonder's observatory is on cooldown", async () => {
+  it("rejects a cast once the wonder's observatory has spent its 3 shots", async () => {
     let clock = 1_000;
+    // Two of the wonder's three shots were already spent earlier today.
+    const spentTwice = tiles().map((tile) => tile.naturalWonder ? { ...tile, observatory: { ownerId: "player-1", status: "active", shotsUsedAt: [500, 600] } } : tile);
     const runtime = new SimulationRuntime({
       now: () => clock,
       initialPlayers: new Map([
         ["player-1", buildPlayer("player-1", { manpower: 10_000, points: 20_000, techIds: new Set(["crystal-lattices"]) })],
         ["player-2", buildAiOpponent()]
       ]),
-      initialState: { tiles: tiles() as never, activeLocks: [] }
+      initialState: { tiles: spentTwice as never, activeLocks: [] }
     });
     const events: Array<Record<string, unknown>> = [];
     runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
@@ -87,6 +89,7 @@ describe("Watchtower Engine acts as an Observatory", () => {
       code: "AETHER_LANCE_INVALID",
       message: "no ready aether tower in range"
     }));
+    expect(events).toContainEqual(expect.objectContaining({ eventType: "COMMAND_RESOLVED", commandId: "lance-1" }));
   });
 
   it("reaches a target beyond a base (untechd) Observatory's range", async () => {

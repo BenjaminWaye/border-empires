@@ -7,7 +7,8 @@
 // (aether-shield-broadcast.ts).
 //
 // A tower shields only while it is active, its owner holds the tower tile,
-// it is off its own cast cooldown, and it is not resource-slot dormant. It
+// it has a shot left (cooldownUntil, aether-tower-shots.ts), and it is not
+// resource-slot dormant. It
 // covers only tiles its owner holds, within the fixed
 // OBSERVATORY_PROTECTION_RADIUS (tech range bonuses widen casting, not the
 // shield).
@@ -18,7 +19,7 @@ import { simulationTileKey } from "../seed-state/seed-state.js";
 
 export type ObservatoryDormancyCheck = (playerId: string, tileKey: string, field: "observatory") => boolean;
 
-/** Active, its owner holds the tower tile, and off its own cast cooldown. */
+/** Active, its owner holds the tower tile, and not out of shots. */
 const isObservatoryReady = (tile: DomainTileState | undefined, now: number): boolean => {
   const observatory = tile?.observatory;
   if (!tile || !observatory || observatory.status !== "active" || isAetherTowerSuppressed(observatory, now)) return false;

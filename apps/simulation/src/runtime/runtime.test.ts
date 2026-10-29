@@ -7261,7 +7261,7 @@ describe("aether purge", () => {
     });
   };
 
-  it("purges hostile settled control without destroying structures and stamps the casting observatory cooldown", async () => {
+  it("purges hostile settled control without destroying structures and spends a shot of the casting observatory", async () => {
     const runtime = buildAetherLanceRuntime();
     runtime.submitCommand({
       commandId: "aether-lance-1",
@@ -7277,13 +7277,13 @@ describe("aether purge", () => {
     const target = state.tiles.find((tile) => tile.x === 5 && tile.y === 0);
     const observatoryTile = state.tiles.find((tile) => tile.x === 0 && tile.y === 0);
     const observatory = observatoryTile?.observatoryJson
-      ? JSON.parse(observatoryTile.observatoryJson) as { cooldownUntil?: number }
+      ? JSON.parse(observatoryTile.observatoryJson) as { cooldownUntil?: number; shotsUsedAt?: number[] }
       : undefined;
     const actor = state.players.find((player) => player.id === "player-1");
     expect(target?.ownerId).toBeUndefined();
     expect(target?.ownershipState).toBeUndefined();
     expect(target?.economicStructureJson).toContain("\"INCUBATION_ENGINE\"");
-    expect(observatory?.cooldownUntil).toBe(601_000);
+    expect(observatory?.shotsUsedAt).toEqual([1_000]);
     expect(actor?.points).toBe(5_000); // §17: no longer costs gold
     expect(actor?.strategicResources?.CRYSTAL).toBe(500); // §17: no longer costs CRYSTAL
   });

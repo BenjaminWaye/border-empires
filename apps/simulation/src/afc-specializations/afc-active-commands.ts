@@ -1,11 +1,9 @@
 import { handleForcedAncillarification } from "../forced-ancillarification/forced-ancillarification-command.js";
 import { afcPlayerStatePayload } from "./afc-player-state.js";
 import type { DomainPlayer } from "@border-empires/game-domain";
-import { AETHER_LANCE_COOLDOWN_MS } from "@border-empires/game-domain";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { isObservatoryInSiphonMode } from "@border-empires/shared";
 import type { RuntimeAbilityCommandContext } from "../runtime-ability-command-handlers.js";
-import { observatoryCooldownMsForActor } from "../runtime-ability-command-handlers.js";
 import { additiveEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
 import { parseTilePayload } from "../runtime-command-parsers.js";
 import { isAlliedOrTruced } from "../runtime-player-factory.js";
@@ -60,7 +58,7 @@ export function handleAfcActiveCommand(context: AfcActiveCommandContext, command
   if (!latest.observatory) return reject("the target tower is no longer available");
   const suppressed = { ...latest, observatory: { ...latest.observatory, suppressedUntil: Math.max(latest.observatory.suppressedUntil ?? 0, now + duration) } };
   abilities.replaceTileState(key, suppressed, command.commandId);
-  abilities.stampObservatoryCooldown(caster, observatoryCooldownMsForActor(actor, AETHER_LANCE_COOLDOWN_MS), now, command.commandId, actor.id);
+  abilities.spendObservatoryShot(caster, now, command.commandId, actor.id);
   abilities.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: actor.id, tileDeltas: [abilities.tileDeltaFromState(suppressed)] });
   abilities.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }

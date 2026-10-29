@@ -113,17 +113,16 @@ are separate capabilities; a flag signal does not reveal an entire hidden army.
 | Tier / ID | New name (previous name) | Mechanical promise | Explanation |
 | --- | --- | --- | --- |
 | I `afc-oracle-1` | **Starter Resonance Cell** (Watcher's Eye) | First qualifying Aether Tower requires no CRYSTAL slot, with a stable single waiver. | A dedicated starter power cell supplies that installation's normal slot requirement. |
-| II `afc-oracle-2` | **Resonance Governor** (Resonance Tuning) | Tower ability cooldown multiplier ×0.5 through existing cooldown policy. | Automated phase balancing shortens recovery between operations. |
+| II `afc-oracle-2` | **Resonance Governor** (Resonance Tuning) | Each Aether Tower holds ×2 shots (6 per 24h instead of 3) via `observatoryShotsMult`. | Automated phase balancing lets the tower sustain more operations between recharges. |
 | III `afc-oracle-3` | **Long-Range Resonator** (Crystal Network) | Tower casting range +15 tiles. | A tuned resonator maintains a usable control signal over longer distances. |
-| IV `afc-oracle-4` | **Counterphase Emitter** (replacement for Piercing Sight) | Suppress one hostile tower's shielding and casting for five minutes; consume the caster's ordinary shared cooldown, with normal modifiers. | The tower transmits interference matched to the hostile resonator, disrupting its ability to maintain a shield or cast. |
+| IV `afc-oracle-4` | **Counterphase Emitter** (replacement for Piercing Sight) | Suppress one hostile tower's shielding and casting for five minutes; spends one of the casting tower's shots, like any tower ability. | The tower transmits interference matched to the hostile resonator, disrupting its ability to maintain a shield or cast. |
 | V `afc-oracle-5` | **Command-Signal Intercept** (Ambush Doctrine) | Continuously detect exact hostile flag locations and owners inside active tower detection range, through fog; allow normal Purge targeting. Hide MP and orders. | Signal processors locate formation command traffic without decoding its full contents. |
 
-No fixed ten-minute suppression cooldown is introduced. Choose the existing tower
-ability policy/base during implementation, and use its standard calculator; do
-not silently bypass Resonance Governor. Suppression bypasses the target tower's
-own shield for that cast, while Aegis Dome protection remains effective. The
-target's normal cooldown continues and does not reset; suppression is not a
-free instant recharge. Siphon/dormancy interactions need lifecycle tests.
+No separate suppression cooldown is introduced: suppression spends one of the
+casting tower's shots like any tower ability, so Resonance Governor's ×2 shots
+apply. Suppression bypasses the target tower's own shield for that cast, while
+Aegis Dome protection remains effective. The target's spent shots are unchanged;
+suppression is not a free instant recharge. Siphon/dormancy interactions need lifecycle tests.
 
 Proposed detection radius is the effective tower casting range, including tier III.
 Show detection reach separately from ordinary vision. Detected coordinates grant

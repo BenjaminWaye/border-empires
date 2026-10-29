@@ -1,6 +1,6 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { playerHasAbilityTech, RETORT_RECAST_COOLDOWN_MS } from "@border-empires/game-domain";
+import { playerHasAbilityTech } from "@border-empires/game-domain";
 import { retortResourceClassForTarget, retortResourceClassForTile } from "@border-empires/shared";
 import { rejectCommand, type RuntimeMapCommandContext } from "./runtime-map-command-handlers.js";
 import { parseRetortRecastPayload } from "./runtime-command-parsers.js";
@@ -46,7 +46,7 @@ export function handleRetortRecastCommand(context: RuntimeMapCommandContext, com
     rejectCommand(context, command, "RETORT_RECAST_INVALID", "no ready aether tower in range");
     return;
   }
-  context.stampObservatoryCooldown(observatoryKey, RETORT_RECAST_COOLDOWN_MS, now, command.commandId, command.playerId);
+  context.spendObservatoryShot(observatoryKey, now, command.commandId, command.playerId);
   const updatedTile: DomainTileState = { ...target, resource: payload.targetResource };
   context.replaceTileState(targetKey, updatedTile, command.commandId);
   context.emitEvent({

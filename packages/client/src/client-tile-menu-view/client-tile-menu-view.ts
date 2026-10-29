@@ -12,6 +12,7 @@ import {
 } from "@border-empires/shared";
 import { dormantStructureLineHtml, type DormancyField } from "./client-tile-menu-dormancy-line.js";
 import { observatoryOverviewLines } from "./client-tile-menu-observatory-lines.js";
+import { ownObservatoryMaxShots } from "../client-observatory-rules/client-observatory-rules.js";
 import { manufactoryGoldProductionMultiplier } from "@border-empires/game-domain";
 import { dockDisplayGoldPerMinute } from "../yield-derivation/yield-derivation.js";
 import { resourceSlotProductionHtml } from "./client-tile-resource-slot-production.js";
@@ -309,7 +310,7 @@ export const menuOverviewForTile = (
   } else if (supportedTowns.length > 1) {
     pushLine("This support tile touches multiple towns.");
   }
-  for (const line of observatoryOverviewLines(tile, { me: deps.state.me, nowMs: Date.now(), hostileObservatoryProtectingTile: deps.hostileObservatoryProtectingTile, dormantResourcesForTile: deps.dormantResourcesForTile, observatoryCrystalSlotCountForTile: deps.observatoryCrystalSlotCountForTile })) pushLine(line);
+  for (const line of observatoryOverviewLines(tile, { me: deps.state.me, nowMs: Date.now(), ownMaxShots: ownObservatoryMaxShots(deps.state), hostileObservatoryProtectingTile: deps.hostileObservatoryProtectingTile, dormantResourcesForTile: deps.dormantResourcesForTile, observatoryCrystalSlotCountForTile: deps.observatoryCrystalSlotCountForTile })) pushLine(line);
   const captureRecoveryRemainingMs = captureRecoveryRemainingMsForTile(tile);
   const structureRecentlyCaptured = captureRecoveryRemainingMs !== undefined;
   if (isFortDefending(tile.fort) && tile.ownerId && structureRecentlyCaptured) {

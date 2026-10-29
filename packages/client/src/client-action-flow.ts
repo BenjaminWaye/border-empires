@@ -17,8 +17,8 @@ import { resolveMyReachCached } from "./client-reach-authoritative/client-reach-
 import { playerDisplayNameForOwnerFromState } from "./client-owner-name/client-owner-name.js";
 import { captureAttackProgressView, incomingAttackProgressView } from "./client-battle-progress/client-battle-progress.js";
 import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region/client-connected-region.js";
-import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown/client-observatory-cooldown.js";
-import { ownObservatoryRange } from "./client-observatory-rules/client-observatory-rules.js";
+import { ownTowerReadyInMs } from "./client-observatory-cooldown/client-observatory-cooldown.js";
+import { formatCooldownShort } from "./client-app-runtime-utils.js";
 import {
   activeTruceWithPlayerFromState,
   explainActionFailureFromServer
@@ -769,17 +769,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const abilityCooldownRemainingMs = (abilityId: keyof ClientState["abilityCooldowns"]): number => {
     const selectedTile = state.selected ? state.tiles.get(keyFor(state.selected.x, state.selected.y)) : undefined;
     if (selectedTile && (abilityId === "siphon" || abilityId === "create_mountain" || abilityId === "remove_mountain")) {
-      return readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, selectedTile, Date.now(), ownObservatoryRange(state));
+      return ownTowerReadyInMs(state, selectedTile, Date.now());
     }
     return Math.max(0, (state.abilityCooldowns[abilityId] ?? 0) - Date.now());
-  };
-
-  const formatCooldownShort = (ms: number): string => {
-    const totalSeconds = Math.ceil(ms / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    if (minutes > 0) return `${minutes}m ${seconds}s`;
-    return `${seconds}s`;
   };
 
   const formatCountdownClock = (ms: number): string => {

@@ -3,7 +3,7 @@ import type { Tile } from "../client-types.js";
 import { AETHER_SHIELD_LEGEND_LINE, observatoryOverviewLines } from "./client-tile-menu-observatory-lines.js";
 
 const NOW = 1_000_000;
-const deps = (protector?: { x: number; y: number }) => ({ me: "me", nowMs: NOW, hostileObservatoryProtectingTile: () => protector });
+const deps = (protector?: { x: number; y: number }) => ({ me: "me", nowMs: NOW, ownMaxShots: 3, hostileObservatoryProtectingTile: () => protector });
 const towerTile = (ownerId: string, observatory: Partial<NonNullable<Tile["observatory"]>> = {}): Tile =>
   ({ x: 3, y: 3, terrain: "LAND", ownerId, observatory: { ownerId, status: "active", ...observatory } }) as Tile;
 
@@ -25,8 +25,9 @@ describe("observatoryOverviewLines", () => {
     expect(observatoryOverviewLines({ x: 5, y: 6, terrain: "LAND", ownerId: "me" } as Tile, deps({ x: 1, y: 1 }))).toEqual([]);
   });
 
-  it("keeps the tower status and recharge lines", () => {
-    const lines = observatoryOverviewLines(towerTile("me", { cooldownUntil: NOW + 65_000 }), deps());
-    expect(lines).toContain("Crystal casting recharging — ready in 01:05.");
+  it("says an empty tower isn't shielding and when its next shot comes back", () => {
+    const lines = observatoryOverviewLines(towerTile("me", { shotsUsedAt: [NOW - 3_600_000, NOW - 1, NOW], cooldownUntil: NOW + 82_800_000 }), deps());
+    expect(lines.some((line) => line.includes("out of shots") && line.includes("not protecting"))).toBe(true);
+    expect(lines.some((line) => line.startsWith("Shots: 0 of 3 left · next back in 23h."))).toBe(true);
   });
 });

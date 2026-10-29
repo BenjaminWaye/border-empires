@@ -10,7 +10,7 @@
 // isStructurePowered, which now also checks disabledUntil.
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { AETHER_EMP_COOLDOWN_MS, AETHER_EMP_DURATION_MS, AETHER_EMP_RADIUS, playerHasAbilityTech } from "@border-empires/game-domain";
+import { AETHER_EMP_DURATION_MS, AETHER_EMP_RADIUS, playerHasAbilityTech } from "@border-empires/game-domain";
 import { parseTilePayload } from "./runtime-command-parsers.js";
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { wrappedChebyshev } from "./runtime-ability-helpers.js";
@@ -46,7 +46,7 @@ export function handleAetherEmpCommand(context: RuntimeAbilityCommandContext, co
     reject("AETHER_EMP_INVALID", "no ready aether tower in range");
     return;
   }
-  context.stampObservatoryCooldown(observatoryKey, AETHER_EMP_COOLDOWN_MS, now, command.commandId, command.playerId);
+  context.spendObservatoryShot(observatoryKey, now, command.commandId, command.playerId);
 
   const disabledUntil = now + AETHER_EMP_DURATION_MS;
   const struck: DomainTileState[] = [];

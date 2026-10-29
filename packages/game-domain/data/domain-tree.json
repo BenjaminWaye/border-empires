@@ -233,11 +233,11 @@
       "id": "hidden-hand",
       "tier": 4,
       "name": "Hidden Hand",
-      "description": "State intelligence cuts every aether tower ability's cooldown in half.",
+      "description": "State intelligence doubles every aether tower's shots: 6 per 24 hours instead of 3.",
       "requiresTechId": "beacon-towers",
       "cost": { "gold": 800, "shard": 3 },
       "effects": {
-        "observatoryCooldownMult": 0.5
+        "observatoryShotsMult": 2
       }
     },
     {
@@ -299,12 +299,12 @@
       "id": "oracle-state",
       "tier": 5,
       "name": "Oracle State",
-      "description": "Information superiority becomes empire superiority: aether towers reach further, recharge faster, and towns see deep into the frontier.",
+      "description": "Information superiority becomes empire superiority: aether towers reach further, hold half again as many shots, and towns see deep into the frontier.",
       "requiresTechId": "beacon-towers",
       "cost": { "gold": 1800, "shard": 5 },
       "effects": {
         "observatoryRangeBonus": 15,
-        "observatoryCooldownMult": 0.7,
+        "observatoryShotsMult": 1.5,
         "townVisionRadiusBonus": 2
       }
     }

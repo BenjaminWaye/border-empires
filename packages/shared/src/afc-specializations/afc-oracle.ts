@@ -19,12 +19,12 @@ export const AFC_ORACLE = [
     "tier": 2,
     "branch": "oracle",
     "name": "Resonance Governor",
-    "description": "Aether Tower abilities recover in half the usual time. The AFC’s resonance governor balances the tower between operations.",
-    "mechanicalSummary": "−50% Aether Tower ability cooldowns.",
+    "description": "Each Aether Tower holds twice as many shots: 6 per 24 hours instead of 3. The AFC’s resonance governor balances the tower between operations.",
+    "mechanicalSummary": "×2 Aether Tower shots (6 per 24h).",
     "category": "ongoing",
     "requiresTechId": "",
     "effects": {
-      "observatoryCooldownMult": 0.5
+      "observatoryShotsMult": 2
     }
   },
   {
@@ -45,8 +45,8 @@ export const AFC_ORACLE = [
     "tier": 4,
     "branch": "oracle",
     "name": "Counterphase Emitter",
-    "description": "Cast from your tower to stop a hostile tower’s abilities, shields and flag detection for 5 minutes. This uses your tower’s normal Purge cooldown, including modifiers. Aegis Domes still block the cast.",
-    "mechanicalSummary": "Disable an enemy Aether Tower for 5 min | Uses Purge cooldown.",
+    "description": "Cast from your tower to stop a hostile tower’s abilities, shields and flag detection for 5 minutes. This spends one of your tower’s shots, like any other tower ability. Aegis Domes still block the cast.",
+    "mechanicalSummary": "Disable an enemy Aether Tower for 5 min | Uses 1 tower shot.",
     "category": "active",
     "requiresTechId": "",
     "effects": {
