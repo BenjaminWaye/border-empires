@@ -1,14 +1,14 @@
 import { isNetworkResource, RESOURCE_NETWORKS, type NetworkResource } from "@border-empires/shared";
 // Steampunk resource icons, in two tiers. Small sizes (inline text, the
 // resource bar, map badges) use the simple emoji-style SVGs under
-// public/icons/simple; frontier resources use painted PNG cutouts at all sizes. Large art slots use the
+// public/icons/simple; limited-palette resources use PNG cutouts at all sizes. Large art slots use the
 // detailed painted PNGs under public/icons/resources (96/256 px).
 // HTML callers use resourceIconHtml; canvas callers (the 2D tile corner marker,
 // 3D badge textures, minimap) use drawResourceIconOnCanvas, which falls back to
 // the text glyph until the artwork has decoded. resourceIconGlyph stays the
 // plain-text form for contexts that can't hold markup (canvas text, titles).
 
-export type ResourceIconKey = "GOLD" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD" | NetworkResource;
+export type ResourceIconKey = "GOLD" | "FOOD" | "FISH" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD" | NetworkResource;
 export type ResourceIconPx = 96 | 256;
 // "inline" sits in running text (~16-24 px); "large" fills art slots (~40-70 px).
 export type ResourceIconSize = "inline" | "large";
@@ -16,6 +16,7 @@ export type ResourceIconSize = "inline" | "large";
 const RESOURCE_ICON_FILE: Record<ResourceIconKey, string> = {
   GOLD: "gold",
   FOOD: "food",
+  FISH: "fish",
   TITANIUM: "titanium",
   CRYSTAL: "crystal",
   UMBRITE: "umbrite",
@@ -30,6 +31,7 @@ const RESOURCE_ICON_FILE: Record<ResourceIconKey, string> = {
 const RESOURCE_ICON_LABEL: Record<ResourceIconKey, string> = {
   GOLD: "Coin",
   FOOD: "Food",
+  FISH: "Fish · Food source",
   TITANIUM: "Titanium",
   CRYSTAL: "Crystal",
   UMBRITE: "Umbrite",
@@ -44,6 +46,7 @@ const RESOURCE_ICON_LABEL: Record<ResourceIconKey, string> = {
 const RESOURCE_ICON_GLYPH: Record<ResourceIconKey, string> = {
   GOLD: "◉",
   FOOD: "🍞",
+  FISH: "🐟",
   TITANIUM: "⛏",
   CRYSTAL: "💎",
   UMBRITE: "🟣",
@@ -55,10 +58,10 @@ const RESOURCE_ICON_GLYPH: Record<ResourceIconKey, string> = {
   PRECURSOR_SALVAGE: RESOURCE_NETWORKS.PRECURSOR_SALVAGE.glyph
 };
 
-// Tile deposit kinds map onto the strategic resource they feed.
+// Tile artwork may distinguish sources; both grain and fish still supply FOOD.
 const DEPOSIT_ICON_KEY: Readonly<Record<string, ResourceIconKey>> = {
   FARM: "FOOD",
-  FISH: "FOOD",
+  FISH: "FISH",
   TITANIUM: "TITANIUM",
   GEMS: "CRYSTAL",
   UMBRITE: "UMBRITE",
@@ -75,9 +78,12 @@ export const isResourceIconKey = (value: string): value is ResourceIconKey =>
 export const depositIconKey = (resource: string | undefined): ResourceIconKey | undefined =>
   resource && Object.prototype.hasOwnProperty.call(DEPOSIT_ICON_KEY, resource) ? DEPOSIT_ICON_KEY[resource] : undefined;
 
-/** Small UI/map artwork: base SVGs and painted frontier cutouts. */
+const usesPaintedArt = (key: ResourceIconKey): boolean =>
+  isNetworkResource(key) || key === "GOLD" || key === "FOOD" || key === "FISH" || key === "TITANIUM" || key === "UMBRITE";
+
+/** Small UI/map artwork: painted cutouts or the remaining native SVGs. */
 export const resourceSimpleIconUrl = (key: ResourceIconKey): string =>
-  isNetworkResource(key) ? resourceIconUrl(key, 96) : `/icons/simple/${RESOURCE_ICON_FILE[key]}.svg`;
+  usesPaintedArt(key) ? resourceIconUrl(key, 96) : `/icons/simple/${RESOURCE_ICON_FILE[key]}.svg`;
 
 export const resourceIconUrl = (key: ResourceIconKey, px: ResourceIconPx): string =>
   `/icons/resources/${RESOURCE_ICON_FILE[key]}-${px}.png`;
@@ -96,7 +102,7 @@ export const resourceIconHtml = (resource: string, size: ResourceIconSize = "inl
   return `<img class="resource-icon-img" src="${resourceSimpleIconUrl(resource)}" alt="${alt}" draggable="false" decoding="async">`;
 };
 
-// At most one entry per ResourceIconKey (11), so this cache is bounded.
+// At most one entry per ResourceIconKey (12), so this cache is bounded.
 const canvasImages = new Map<ResourceIconKey, HTMLImageElement>();
 
 const canvasImageFor = (key: ResourceIconKey): HTMLImageElement | undefined => {

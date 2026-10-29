@@ -209,3 +209,9 @@ coloured circular marker below 48px tiles. Zoomed-in circular discs reserve at l
 use 96px transparent PNGs for map/inline icons and 96/256px exports for large
 slots. `Painted Resources` isolates the new set. Art direction and generation
 prompts: [resource icon art](../../resource-icon-art.md). Lore reviewed; no canon change.
+
+Core icon review: `Core Resources` shows Coin, FOOD/grain, map-only fish,
+titanium and Umbrite alongside actual-size source badges. `FISH` is an artwork
+key only; both farm and fish deposits retain the FOOD strategic-resource key.
+The shortage/HUD/upkeep/diplomacy food icon remains FOOD. Small and large
+core art use the shared PNG URL resolver. Lore reviewed; no canon change.

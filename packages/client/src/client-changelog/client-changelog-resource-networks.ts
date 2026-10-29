@@ -112,6 +112,13 @@ export const RESOURCE_NETWORKS_CHANGELOG: ClientChangelogEntry[] = [{
     title: "Simpler resource icons and circular badges",
     why: "Fine artwork detail was lost at map size.",
     changes: ["Five frontier icons use broad shapes and a limited colour palette. Resource and dock corner badges use circular frames and coloured dots in both map renderers."]
+  },
+  {
+    createdAt: 1793299679458, // Date.now() captured once.
+    introducedIn: "2026.10.29.2",
+    title: "Matching core resource icons",
+    why: "Core resources should share the clearer limited-palette art style.",
+    changes: ["Coin, Food, titanium and Umbrite have refreshed icons. Fishing tiles show fish and farms show grain; both still supply the same FOOD resource in the HUD and diplomacy."]
   }
 
 ];
