@@ -5,6 +5,7 @@ import { showEffortConfirmSheet, type EffortConfirmSheetHandle } from "./client-
 import type { ArrowGesturePoint } from "./client-arrow-gesture-confirm-payload.js";
 import type { ClientState } from "./client-state/client-state.js";
 import { describeMarchWinChance, triggerWinChancePaintOnMarchArm } from "./client-win-chance-paint-trigger.js";
+import { createMarchWinChancePreviewPoller, marchPreviewBaseWinChance } from "./client-march-win-chance-preview/client-march-win-chance-preview.js";
 
 // F-revision (docs/replenishment-update-plan.md, "the hold-drag gesture is
 // replaced by click-to-target"): the confirm sheet shown after a March-To
@@ -18,7 +19,9 @@ import { describeMarchWinChance, triggerWinChancePaintOnMarchArm } from "./clien
 // and again on every slider/preset change, passing the currently chosen
 // commitManpower so the win-chance labels along the arrow are slider-live
 // (the old hold-drag version computed them once at the target's base cost
-// and never updated them against the chosen commitment).
+// and never updated them against the chosen commitment). Both score the
+// target against the server's march ATTACK_PREVIEW once it arrives
+// (client-march-win-chance-preview.ts), re-read on the sheet's refresh tick.
 
 export type ArrowGestureConfirmSheetDeps = {
   sendGameMessage: (payload: unknown) => boolean;
@@ -48,7 +51,7 @@ export const hideArrowGestureConfirmSheet = (): void => {
  * "Go" and cancel/dismiss -- there is at most one pending confirm at a time.
  */
 export const showArrowGestureConfirmSheet = (
-  state: Pick<ClientState, "tiles" | "manpowerCap" | "pendingArrowGestureConfirm" | "arrowGesture" | "me" | "winChancePaint"> & Partial<Pick<ClientState, "domainIds">>,
+  state: Pick<ClientState, "tiles" | "manpowerCap" | "pendingArrowGestureConfirm" | "arrowGesture" | "me" | "winChancePaint" | "attackPreviewCacheByKey"> & Partial<Pick<ClientState, "domainIds">>,
   origin: ArrowGesturePoint,
   target: ArrowGesturePoint,
   keyFor: (x: number, y: number) => string,
@@ -59,6 +62,13 @@ export const showArrowGestureConfirmSheet = (
   // the caller already stored THIS gesture -- only clear state we own.
   const pending = state.pendingArrowGestureConfirm;
   const gesture = state.arrowGesture;
+  const preview = createMarchWinChancePreviewPoller(origin, target, deps.sendGameMessage);
+  const serverWinChance = (): number | undefined => marchPreviewBaseWinChance(state, origin, target, keyFor);
+  const paint = (commitManpower: number): void =>
+    triggerWinChancePaintOnMarchArm(state, origin.x, origin.y, target.x, target.y, "visible", keyFor, performance.now(), {
+      committedManpower: commitManpower,
+      baseMusterCost: floor
+    }, serverWinChance());
   let handle: EffortConfirmSheetHandle | undefined;
   const clearPending = (): void => {
     if (activeHandle === handle) activeHandle = undefined;
@@ -71,12 +81,14 @@ export const showArrowGestureConfirmSheet = (
     floor,
     cap: Math.max(floor, state.manpowerCap),
     mode: "slider",
-    describe: (commitManpower) => describeMarchWinChance(state, target, keyFor, { committedManpower: commitManpower, baseMusterCost: floor }),
-    onChange: (commitManpower) =>
-      triggerWinChancePaintOnMarchArm(state, origin.x, origin.y, target.x, target.y, "visible", keyFor, performance.now(), {
-        committedManpower: commitManpower,
-        baseMusterCost: floor
-      }),
+    describe: (commitManpower) => {
+      // Runs on open and every refresh tick: keep the server odds fresh and
+      // repaint the arrow labels once they land, not only on slider moves.
+      preview.poll();
+      paint(commitManpower);
+      return describeMarchWinChance(state, target, keyFor, { committedManpower: commitManpower, baseMusterCost: floor }, serverWinChance());
+    },
+    onChange: paint,
     onConfirm: (commitManpower) => {
       deps.sendGameMessage(buildArrowGestureSetMusterPayload(origin, target, commitManpower));
       clearPending();

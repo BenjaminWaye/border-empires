@@ -89,7 +89,7 @@ export const attackPreviewResult = async (
   playerId: string,
   tiles: PreviewTile[] | undefined,
   docks: PlayerSubscriptionDock[] | undefined,
-  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined },
+  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined; march?: boolean | undefined },
   attackerTechIds?: readonly string[],
   attackerDomainIds?: readonly string[],
   getPlayerTechDomainIds?: (playerId: string) => Promise<{ techIds: readonly string[]; domainIds: readonly string[] } | undefined>,
@@ -115,7 +115,8 @@ export const attackPreviewResult = async (
   if (!target.ownerId || target.ownerId === playerId) {
     return { ...responseBase, valid: false, reason: "target not hostile" };
   }
-  if (!isFrontierAdjacent(from.x, from.y, to.x, to.y) && !previewDockLink(from.x, from.y, to.x, to.y, docks)) {
+  // A March To preview scores a target the flag will march to, not one it borders.
+  if (!message.march && !isFrontierAdjacent(from.x, from.y, to.x, to.y) && !previewDockLink(from.x, from.y, to.x, to.y, docks)) {
     return { ...responseBase, valid: false, reason: "target not adjacent" };
   }
   const attackerOutpostMult = scanOutpostMult(playerId, to.x, to.y, (x: number, y: number) => tileMap.get(previewTileKey(x, y)));
@@ -310,7 +311,7 @@ export const buildAttackPreviewResponse = (
   } | undefined,
   snapshotForPlayer: SnapshotLookup,
   getPlayerCombatSummaryRaw: PlayerCombatSummaryLookup,
-  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined }
+  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined; march?: boolean | undefined }
 ): Promise<Record<string, unknown>> => {
   const getPlayerCombatSummary = memoizePlayerCombatSummaryLookup(id => getPlayerCombatSummaryRaw(id, { x: message.toX, y: message.toY }));
   return attackPreviewResult(
