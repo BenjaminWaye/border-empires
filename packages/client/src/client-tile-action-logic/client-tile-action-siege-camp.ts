@@ -15,7 +15,8 @@ import { siegeBuildMsForState } from "../client-build-speed/client-build-speed.j
 import { buildTimeLabel } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef } from "../client-types.js";
-import { nextSiegeVariantForTile } from "./client-tile-action-fort-siege-variants.js";
+import { SIEGE_VARIANT_LABELS } from "@border-empires/shared";
+import { bestSiegeVariantForTech, nextSiegeVariantForTile } from "./client-tile-action-fort-siege-variants.js";
 import {
   chainedBuildAvailabilityFromModule,
   hasFreeResourceSlots,
@@ -39,6 +40,12 @@ export const siegeCampAction = (
   const hasTech = tile.siegeBattery ? true : state.techIds.includes("leatherworking");
   const canUseTile = Boolean(tile.siegeBattery) || !tile.economicStructure || hasRelayBeacon;
   const hasFreeSlots = hasFreeResourceSlots(state, siegeVariant.variant, tile.siegeBattery?.variant);
+  // A fresh build that stepped down a tier (e.g. Siege Battery because a
+  // Siege Tower's UMBRITE slots don't fit) says why in its cost line.
+  const bestVariant = bestSiegeVariantForTech(state);
+  const steppedDownNote = !tile.siegeBattery && siegeVariant.variant !== bestVariant
+    ? ` • ${SIEGE_VARIANT_LABELS[bestVariant]}: ${missingResourceSlotReason(state, bestVariant) ?? "unavailable"}`
+    : "";
   // tile.reachOwnerId mirrors the server's per-tile reachBorderOwnerAt
   // exactly (always-emitted, like ownerId) -- undefined means no one's
   // reach covers this tile at all, the only case the siege ladder rejects.
@@ -64,7 +71,7 @@ export const siegeCampAction = (
           : !canUseTile
             ? "Tile already has structure"
             : missingResourceSlotReason(state, siegeVariant.variant, tile.siegeBattery?.variant) ?? "Unavailable",
-        `${siegeVariant.summary} • ${buildTimeLabel(siegeBuildMsForState(state, siegeVariant.variant))} • atk x${siegeVariant.attackMult.toFixed(2)}${siegeVariant.upkeepSuffix}`,
+        `${siegeVariant.summary} • ${buildTimeLabel(siegeBuildMsForState(state, siegeVariant.variant))} • atk x${siegeVariant.attackMult.toFixed(2)}${siegeVariant.upkeepSuffix}${steppedDownNote}`,
         siegeVariant.gold
       ))
     )

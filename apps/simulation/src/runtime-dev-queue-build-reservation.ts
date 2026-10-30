@@ -13,6 +13,7 @@ import {
   bestSiegeTierForTech,
   fortTierForBuild,
   nextSiegeTierForUpgrade,
+  siegeTierForFreshBuild,
   structureBuildManpowerCostScaled,
   structureSlotRequirements,
   RELAY_BEACON_FREE_FOOD_SLOT_COUNT,
@@ -20,6 +21,7 @@ import {
   QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT,
   SETTLE_MANPOWER_COST,
   type BuildableStructureType,
+  type StructureSpec,
   type SlotResource,
   type SlotStructureType
 } from "@border-empires/shared";
@@ -27,6 +29,9 @@ import { currentTileFieldSlotRequirements, totalsFromSlotRequirements, emptyReso
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { structureLabel, type RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
 import { creditManpower } from "./runtime-manpower-ceiling.js";
+import type { DomainTileState } from "@border-empires/game-domain";
+
+type StructureTileField = StructureSpec["tileField"];
 
 export type DevQueueSlotRequirement = { resource: SlotResource; count: number };
 
@@ -105,7 +110,10 @@ function estimateDevQueueBuildReservation(
     manpowerCost = fortTier.manpower;
     slotStructureType = fortTier.variant;
   } else if (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON") {
-    const siegeTier = target.siegeBattery ? (nextSiegeTierForUpgrade(target.siegeBattery.variant, hasTech) ?? bestSiegeTierForTech(hasTech)) : bestSiegeTierForTech(hasTech);
+    // Mirrors the build handler: a fresh build steps down to the best tier whose UMBRITE slots fit.
+    const siegeTier = target.siegeBattery
+      ? (nextSiegeTierForUpgrade(target.siegeBattery.variant, hasTech) ?? bestSiegeTierForTech(hasTech))
+      : siegeTierForFreshBuild(hasTech, (variant) => !firstSlotShortfall(context, playerId, target, spec.tileField, extraSlotDemand, structureSlotRequirements(variant)));
     manpowerCost = siegeTier.manpower;
     slotStructureType = siegeTier.variant;
   } else {
@@ -121,25 +129,40 @@ function estimateDevQueueBuildReservation(
   const skipSlotGate = SYNTHESIZER_STRUCTURE_TYPES.includes(structureType as BuildableStructureType) ||
     (structureType === "RELAY_BEACON" && context.ownedStructureCountForPlayer(playerId, "RELAY_BEACON") < RELAY_BEACON_FREE_FOOD_SLOT_COUNT);
   const slotRequirements = skipSlotGate ? [] : structureSlotRequirements(slotStructureType);
-  if (slotRequirements.length > 0) {
-    const supply = context.resourceSlotSupplyForPlayer(playerId);
-    const demand = context.resourceSlotDemandForPlayer(playerId);
-    const alreadyOnThisTile = totalsFromSlotRequirements(currentTileFieldSlotRequirements(target, spec.tileField, playerId));
-    for (const req of slotRequirements) {
-      const reserved = extraSlotDemand[req.resource] ?? 0;
-      const freeExcludingThisTile = supply[req.resource] - demand[req.resource] + alreadyOnThisTile[req.resource] - reserved;
-      if (freeExcludingThisTile < req.count) {
-        // See the matching comment in runtime-structure-command-handlers.ts:
-        // name the actual count required for a 2+-slot requirement instead
-        // of always saying "no free X slot" regardless of how many are missing.
-        const message = req.count === 1
-          ? `no free ${req.resource} slot for ${structureLabel(structureType)}`
-          : `${structureLabel(structureType)} needs ${req.count} free ${req.resource} slots, only ${Math.max(0, freeExcludingThisTile)} free`;
-        return { ok: false, code: "INSUFFICIENT_SLOT", message };
-      }
-    }
+  const shortfall = firstSlotShortfall(context, playerId, target, spec.tileField, extraSlotDemand, slotRequirements);
+  if (shortfall) {
+    const { req, free } = shortfall;
+    // See the matching comment in runtime-structure-slot-gate.ts:
+    // name the actual count required for a 2+-slot requirement instead
+    // of always saying "no free X slot" regardless of how many are missing.
+    const message = req.count === 1
+      ? `no free ${req.resource} slot for ${structureLabel(structureType)}`
+      : `${structureLabel(structureType)} needs ${req.count} free ${req.resource} slots, only ${Math.max(0, free)} free`;
+    return { ok: false, code: "INSUFFICIENT_SLOT", message };
   }
   return { ok: true, manpowerCost, slotRequirements };
+}
+
+// First requirement that doesn't fit the player's free slots (net of this
+// tile's own current occupant and of other queued entries' reservations).
+function firstSlotShortfall(
+  context: RuntimeStructureCommandContext,
+  playerId: string,
+  target: DomainTileState,
+  tileField: StructureTileField,
+  extraSlotDemand: ResourceSlotTotals,
+  requirements: readonly DevQueueSlotRequirement[]
+): { req: DevQueueSlotRequirement; free: number } | undefined {
+  if (requirements.length === 0) return undefined;
+  const supply = context.resourceSlotSupplyForPlayer(playerId);
+  const demand = context.resourceSlotDemandForPlayer(playerId);
+  const alreadyOnThisTile = totalsFromSlotRequirements(currentTileFieldSlotRequirements(target, tileField, playerId));
+  for (const req of requirements) {
+    const reserved = extraSlotDemand[req.resource] ?? 0;
+    const free = supply[req.resource] - demand[req.resource] + alreadyOnThisTile[req.resource] - reserved;
+    if (free < req.count) return { req, free };
+  }
+  return undefined;
 }
 
 // SETTLE reserves only manpower (no resource slot -- the slot it will
