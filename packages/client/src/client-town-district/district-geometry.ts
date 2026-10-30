@@ -1,3 +1,4 @@
+import { buildInfrastructure, isInfrastructureModel } from "../client-infrastructure/infrastructure-models.js";
 import type { BufferGeometry } from "three";
 import {
   createRoutedTownBuilder, createTownMeshBuilder, createTownRandom
@@ -18,6 +19,10 @@ export type DistrictGeometry = {
 };
 
 export const buildDistrictModel = (t: TownBuilders, kind: DistrictVisualKind, foundation = true): void => {
+  if (isInfrastructureModel(kind)) {
+    if (foundation && kind !== "INFRASTRUCTURE_SLAB") buildSupportFoundation(t);
+    buildInfrastructure(t, kind); return;
+  }
   if (foundation) buildSupportFoundation(t);
   if (isDistrictProject(kind)) { buildMonument(t, kind); return; }
   if (buildIndustry(t, kind) || buildProjectPart(t, kind) || buildUtility(t, kind)) return;
@@ -27,6 +32,14 @@ export const buildDistrictModel = (t: TownBuilders, kind: DistrictVisualKind, fo
 // The caller owns this geometry. Live overlays cache only the finite catalogue
 // and instance it; gallery/icon generation uses exactly the same model source.
 export const createDistrictGeometry = (kind: DistrictVisualKind | undefined, foundation = true): DistrictGeometry => {
+  return createDistrictGeometryFromModel(t => {
+    if (kind) buildDistrictModel(t, kind, foundation);
+    else if (foundation) buildSupportFoundation(t);
+  });
+};
+
+/** Shared production primitive kit for districts and frontier installations. */
+export const createDistrictGeometryFromModel = (draw: (builders: TownBuilders) => void): DistrictGeometry => {
   const matte = createTownMeshBuilder({ occlusion: true, weathering: 0.1 });
   const metal = createTownMeshBuilder({ occlusion: true });
   const glass = createTownMeshBuilder({ occlusion: true, sheen: 0.35 });
@@ -35,8 +48,7 @@ export const createDistrictGeometry = (kind: DistrictVisualKind | undefined, fou
     glow: createTownMeshBuilder(), halo: createTownMeshBuilder(), steam: createTownMeshBuilder(),
     plinth: createTownMeshBuilder(), random: createTownRandom(73)
   };
-  if (kind) buildDistrictModel(t, kind, foundation);
-  else if (foundation) buildSupportFoundation(t);
+  draw(t);
   const builders = { body: matte, metal, glass, glow: t.glow, halo: t.halo, steam: t.steam, plinth: t.plinth };
   const layers: Partial<Record<DistrictLayer, BufferGeometry>> = {};
   let height = 0;

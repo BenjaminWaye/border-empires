@@ -1,15 +1,23 @@
+import { RESOURCE_NETWORKS, networkResourceForBuilding, type NetworkBuilding } from "@border-empires/shared";
 import { TITANIUM_LEVY_MANPOWER_CONVERSION_RATIO, TITANIUM_LEVY_REGEN_FREEZE_MS, AEGIS_LOCK_DURATION_MS, IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS, SOVEREIGN_SIEGE_ENGINE_STRIKE_COOLDOWN_MS } from "@border-empires/game-domain";
 import { FORT_TIER_LADDER } from "@border-empires/shared";
 import { DISTRICT_MODEL_BRIEFS, type DistrictModelBrief } from "../client-town-district/district-model-briefs.js";
 import { isDistrictBuilding, type DistrictBuildingKind } from "../client-town-district/district-catalog.js";
 import type { StructureInfoKey } from "../client-map-display.js";
 
+const NETWORK_LANDMARKS = {
+  NEURAL_RESIN: "Tapped native trees, brass trunk collars and pipes, a collection vessel and pump.",
+  CONDUCTIVE_MINERALS: "Precision assembly hall with an open press gantry, glowing work cells and ore hopper.",
+  CATALYTIC_DEPOSIT: "Tall banded distillation columns with transfer pipes, access ladder and control hut.",
+  LUXURY_BIOTA: "Twin brass-framed conservatory bays, flowering rows and a packing lodge.",
+  PRECURSOR_SALVAGE: "Broken machine ribs beneath a travelling crane, sorting beds and salvage workshop."
+} as const;
 const brief = (role: string, landmark: string): DistrictModelBrief => ({ role, landmark });
 // The remaining live-map models outside the district kit. Names are never
 // duplicated here; the shared structure-name table supplies all visible labels.
-const OTHER: Readonly<Record<Exclude<StructureInfoKey, DistrictBuildingKind>, DistrictModelBrief>> = {
-  RELAY_BEACON: brief("A cheap offensive staging point that extends vision without a Siege Battery's attack bonus.", "Original tall field relay with a heliograph head and braced lattice supports."),
-  OBSERVATORY: brief("Aether Tower: local vision, protection of owned nearby territory and access to Crystal abilities.", "Original tall aether tower, floating rings, luminous core and ground glyph."),
+const OTHER: Readonly<Record<Exclude<StructureInfoKey, DistrictBuildingKind | NetworkBuilding>, DistrictModelBrief>> = {
+  RELAY_BEACON: brief("Receives the House AI's orbital command stream through gravitational signals and maintains a local control field for settlement systems. Extends settlement reach and frontier vision; supplied frontier can advance beyond reach.", "Nested octagonal sensing frames around a suspended precision instrument, above a tapered pedestal with three local field projectors."),
+  OBSERVATORY: brief("Aether Tower: local vision, protection of owned nearby territory and access to Crystal abilities.", "Swept stone-and-metal containment piers, enclosed energy column, moving field rings and a transmission crown."),
   PALISADE: brief(`Light perimeter fortification providing ${FORT_TIER_LADDER.PALISADE.defenseMult}x defense.`, "Timber perimeter walls and corner posts, with terrain visible inside."),
   FORT: brief(`Stone perimeter fortification providing ${FORT_TIER_LADDER.FORT.defenseMult}x defense. An active fort prevents immediate counter-capture of its origin after a failed attack.`, "Four stone walls and corner towers; adjacent owned forts share openings."),
   TITANIUM_BASTION: brief(`Titanium-armoured Fort upgrade providing ${FORT_TIER_LADDER.TITANIUM_BASTION.defenseMult}x defense.`, "Pale metal wall sections and reinforced corner towers."),
@@ -18,9 +26,9 @@ const OTHER: Readonly<Record<Exclude<StructureInfoKey, DistrictBuildingKind>, Di
   SIEGE_TOWER: brief("Upgraded Siege Battery for stronger attacks from its tile.", "Tall braced siege engine carrying a large aiming lens and lance assembly."),
   DREAD_TOWER: brief("Final siege-ladder upgrade for assaults against heavily fortified targets.", "Braced reactor pylon, a large violet core and four precessing brass rings."),
   HYDROGARDEN: brief("Hydroponic cultivation installation that adds FOOD slots on grain-resource tiles; it does not improve fish tiles.", "Glass growing dome, visible crops and hydroponic service equipment."),
-  MINE: brief("Excavation installation that adds a slot of the tile's Titanium or Crystal resource.", "Excavation pit and resource-handling cart; its load matches the actual mineral."),
-  UMBRITE_RIG: brief("Umbrite extraction installation that adds an Umbrite slot on its resource tile.", "Dark purple extraction machinery and deep drilling components."),
-  HARBOR_EXCHANGE: brief("Quayside freight and trade installation that adds Coin income for connected owned docks.", "Harbor warehouse, cargo handling and waterside exchange frontage."),
+  MINE: brief("Excavation installation that adds a slot of the tile's Titanium or Crystal resource.", "Mechanised extraction gantry, recessed drilling mouth, separation plant and material tray matching the actual mineral."),
+  UMBRITE_RIG: brief("Umbrite extraction installation that adds an Umbrite slot on its resource tile.", "Original Umbrite drilling machinery and containment equipment, seated on a matching marble platform."),
+  HARBOR_EXCHANGE: brief("Quayside freight and trade installation that adds Coin income for connected owned docks.", "Quayside customs hall, bonded freight, watch drum, loading gantry and mooring bollards."),
   IMPERIAL_EXCHANGE: brief(`Unique completed Great Project that can levy a chosen rival's Coin every ${IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS / 3_600_000} hours; requires Ambaric power.`, "Financial rotunda with a ribbed gold roof, ledger-vault wings, counting court and sovereign seal."),
   SOVEREIGN_SIEGE_ENGINE: brief(`Unique completed Great Project that fires Worldbreaker strikes every ${SOVEREIGN_SIEGE_ENGINE_STRIKE_COOLDOWN_MS / 60_000} minutes, destroying a target structure and reducing its town's population; requires Ambaric power.`, "Massive elevated cannon with an open accelerator bore, armoured containment collars, monumental trunnions, recoil pistons and an armoured coaxial breech containing the Fracture Core."),
   AEGIS_DOME: brief(`Unique completed Great Project that protects a core area and can trigger a ${AEGIS_LOCK_DURATION_MS / 60_000}-minute Aegis Lock; requires Ambaric power.`, "Transparent shield dome with meridional lattice ribs, six grounding anchors and a raised crown."),
@@ -29,5 +37,8 @@ const OTHER: Readonly<Record<Exclude<StructureInfoKey, DistrictBuildingKind>, Di
   TITANIUM_LEVY: brief(`Activate to spend ${TITANIUM_LEVY_MANPOWER_CONVERSION_RATIO * 100}% of stored manpower on an immediate army at this monument, then freeze empire-wide manpower regeneration for ${TITANIUM_LEVY_REGEN_FREEZE_MS / 3_600_000} hours; requires Ambaric power.`, "Armoured assembly hall opening onto a deployment court through a muster gate, with a Titanium Standard, three klaxons and a levy-writ terminal.")
 };
 
-export const structureModelBriefFor = (kind: StructureInfoKey): DistrictModelBrief =>
-  isDistrictBuilding(kind) ? DISTRICT_MODEL_BRIEFS[kind] : OTHER[kind];
+export const structureModelBriefFor = (kind: StructureInfoKey): DistrictModelBrief => {
+  const resource = networkResourceForBuilding(kind);
+  if (resource) return brief(RESOURCE_NETWORKS[resource].description + " " + RESOURCE_NETWORKS[resource].effect, NETWORK_LANDMARKS[resource]);
+  return isDistrictBuilding(kind) ? DISTRICT_MODEL_BRIEFS[kind] : OTHER[kind as keyof typeof OTHER];
+};

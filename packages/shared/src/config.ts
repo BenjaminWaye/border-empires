@@ -494,3 +494,5 @@ export const AUTO_FILL_MAX_REGION_SIZE = 500;
 // wall the pocket, it is capped at this smaller size — you can only snap up a
 // small basin off the back of terrain, not a whole coastline.
 export const AUTO_FILL_NATURAL_BARRIER_MAX_REGION_SIZE = 50;
+
+export { RESOURCE_NETWORKS } from "./resource-networks/resource-networks.js";

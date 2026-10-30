@@ -277,6 +277,7 @@ export const buildPlayerSubscriptionSnapshot = (
             manpower: livePlayer.manpower,
             manpowerCap: livePlayer.manpowerCap ?? Math.max(livePlayer.manpowerCapSnapshot ?? 0, MANPOWER_BASE_CAP),
             manpowerRegenPerMinute: livePlayer.manpowerRegenPerMinute ?? MANPOWER_BASE_REGEN_PER_MINUTE,
+            ...(livePlayer.nextManpowerBatchAmount !== undefined ? { nextManpowerBatchAmount: livePlayer.nextManpowerBatchAmount } : {}),
             logisticsThroughputPerMinute: livePlayer.logisticsThroughputPerMinute ?? livePlayer.manpowerRegenPerMinute ?? MANPOWER_BASE_REGEN_PER_MINUTE,
             manpowerBreakdown: livePlayer.manpowerBreakdown ?? {
               cap: [{ label: "Base minimum", amount: MANPOWER_BASE_CAP }],
@@ -302,6 +303,8 @@ export const buildPlayerSubscriptionSnapshot = (
               UMBRITE: strategicProductionPerMinute.UMBRITE,
               SHARD: strategicProductionPerMinute.SHARD
             },
+            ...(livePlayer.resourceTradeHoldings ? { resourceTradeHoldings: livePlayer.resourceTradeHoldings } : {}),
+            ...(livePlayer.resourceTradeAgreements ? { resourceTradeAgreements: livePlayer.resourceTradeAgreements } : {}),
             resourceSlots: liveEconomy.resourceSlots,
             dormantStructures: liveEconomy.dormantStructures,
             economyBreakdown: liveEconomy.economyBreakdown,

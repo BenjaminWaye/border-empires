@@ -64,6 +64,7 @@ describe("dev-queue reservation survives a snapshot round-trip", () => {
       playerYieldCollectionEpochByPlayer: new Map(),
       docks: [],
       recordedEventsByCommandId: new Map(),
+      reachBorder: () => new Map(),
       incomePerMinuteForPlayer: () => 0,
       summaryForPlayer: () => summary
     } as unknown as SnapshotExportInput;

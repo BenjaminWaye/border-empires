@@ -302,13 +302,25 @@ behave the way section 5 describes at full strength, with no rival fleet or
 vote to blame — until the lead shrinks, by loss or by the field catching
 up, and the Court's protection quietly returns.
 
-## 10. Relay Beacons: flags of anchored ground
+## 10. Relay Beacons: orbital links and anchored ground
 
 Where a Duke's towns are the heart of a claim, the **Relay Beacon** is its
 flag. It is the cheapest and quickest form of the Court's anchor technology:
 a tall, unarmed tower raised on frontier ground to declare, in a way the
 Bleed and every rival can read from miles away, that this stretch of land is
 now anchored to a Duke.
+
+A House AI coordinates its planetary ancillaries and fabrication systems from
+space. Relay Beacons receive its orbital command stream through deliberately
+modulated gravitational waves. Precision sensing frames isolate a suspended
+instrument from local disturbances, while ground projectors maintain a local
+control field for ancillary, fabrication and anchoring systems. The useful
+coverage of that local field is called **reach**; it is not the distance the
+orbital gravitational signal can travel. Compact gravitational transmitters,
+receivers and this control field are established capabilities of the setting.
+The gravitational link carries signals at light speed, not instantaneously.
+A beacon is an unarmed communications and anchoring installation, not an AI
+housed in a tower.
 
 A beacon does not fight. Its work is to mark and to watch:
 
@@ -317,7 +329,7 @@ A beacon does not fight. Its work is to mark and to watch:
   claim is the Duke's to settle and build on. Land outside it is still open
   frontier, and section 5 applies to it in full: it resists quietly until a
   border reaches it, then either yields or reclaims what was pushed into it.
-- **It watches.** A beacon's height and its rotating heliograph give a Duke
+- **It watches.** A beacon's elevated receiver and local sensor links give a Duke
   a long view of the frontier around it, so infestations, Wardens and rival
   banners are seen before they arrive.
 
@@ -367,14 +379,14 @@ Palisade is what defends it.
 
 ### What a beacon looks like
 
-A slender lattice tower of dark iron, with four legs that converge on a
-small enclosed deck. Geared brass periscopes sweep the horizon from the
-deck, and above it a spindle turns a rotating array of brass heliograph
-mirrors that flash light to anyone within sight. Amber signal lamps and a
-small aether-gas tank with brass feed pipes mark it as a working piece of
-anchor machinery rather than a fortress. It has no walls, no crenellations
-and no weapon mounts, so it stands tall, open and unarmoured, and reads at
-a glance against the squat, armed Siege Battery.
+A dark, tapered pedestal rises from a pale stone platform into three nested,
+faceted sensing frames surrounding a small suspended instrument. These are
+precision gravity sensors, not a reflective radio dish. Fine suspension members,
+small calibration blocks and brass edge inlays make the assembly read as an
+instrument; slow calibration movement and restrained status lighting replace
+bright reactor effects. Three outward-facing field projectors maintain the
+local settlement control coverage. The receiver has no weapon mounts and must
+remain visually distinct from the Aether Tower's luminous field machinery.
 
 ### Charting the land
 
@@ -446,6 +458,66 @@ Several Manufactories represent a larger industrial base around a town.
 They do not mint the offworld credit itself. The historical building name
 Mintworks has been replaced by Manufactory; exact income, stacking and
 Clearing House effects are maintained in the economy reference.
+
+### Frontier concessions and ancillary supply
+
+A House may develop neural resin groves and conductive mineral seams into
+suppliers for its Ancillary reserves and factories. Resin-bearing broadleaf groves favour
+forested grassland, with amber seams beneath their bark; ordinary trees are
+not automatically resin deposits. Conductive seams favour rocky grassland
+and tundra. Resin Extractors refine native compounds that stabilise neural
+controls during reserve preparation, letting supplied Ancillary Depots ready
+more remade Ancillaries for service. Implant Foundries turn conductive ore into
+implants, command circuitry and replacement components for factory lines.
+Towns provide the bodies. These industries improve reserve readiness and
+remaking throughput, not the supply of people. Depots still determine storage
+capacity and custody for the resulting reserve. The Reserve Custody Cadre authorises both
+Depots and Implant Foundries, supplying the custody and implant expertise
+needed to maintain an Ancillary reserve.
+
+Frontier deposits sit beyond a town’s immediate support ring, giving a House
+reason to develop and defend the surrounding countryside.
+
+A working site provides continuing contracted output divided into exclusive
+commitments to recipient industries. Implant Foundries can divide their output
+between separately equipped factory production lines. Opening more factories
+does not duplicate a commitment: each line needs its own reserved supply. Supply
+slots represent this exclusive commitment, not ore units spent down to zero.
+An idle or lost recipient releases the commitment for another eligible
+building; the physical deposit remains. A Siphon can divert a working site’s output to the caster, without duplicating its supply. Its crews and extraction systems must still be authorised and provisioned at the source; draining an undeveloped deposit creates no industry.
+
+Catalyst Refineries develop rare catalyst-bearing deposits for offworld
+chemical and fabrication industries. These deposits favour inland sandy ground
+and exposed tundra, rather than beaches. Cultivation Estates grow native luxury
+biota for fragrances, pigments and intoxicants sought in the Core. These
+plants favour warm, wet grasslands, with temperate varieties also cultivated. Trade Nexuses
+secure commercial arrangements against these concessions, increasing the
+campaign credit the House factor can advance against future output.
+
+Precursor salvage fields contain recoverable pre-Court industrial machinery.
+Reclamation Works supply tools and components that improve Manufactory output;
+the resulting goods provide additional backing for campaign credit. These
+fields occur across the planet, often exposed in hills and mountain
+foothills. The Industrial Tooling Module authorises both Manufactories and
+Reclamation Works. Salvage fields are industrial remains, distinct from aether Shards and the great
+Monuments. No claim that a field is itself an active Concordance construct is
+implied by the term precursor.
+
+Specialised warrants and charters commission the crews, processing standards
+and commercial rights needed to exploit these sites. A discovered deposit is
+an opportunity before it is a working supply industry. Losing a concession
+weakens the industries and credit arrangements it supports across the House's
+holdings. Numerical yields and network limits belong in the economy reference.
+
+Houses may pledge spare resource output to one another as continuing supply
+rights negotiated through diplomacy. The supplier retains the land and its
+installations; the recipient gains the exclusive use of the promised output for
+as long as both Houses maintain the arrangement. Either House may end the
+supply agreement; the land remains with its owner. Such contracts can support another House's infrastructure or
+industry without transferring towns, bodies or knowledge. They are distinct from
+a one-time Coin payment or transfer of aether Shards. An interrupted concession
+cannot deliver its promise until its output is restored. The cancellation, suspension
+and settlement rules belong in the gameplay references.
 
 ### Manpower and materials
 

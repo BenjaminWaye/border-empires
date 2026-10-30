@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { WORLD_WIDTH, WORLD_HEIGHT, isSeaTerrain, wrapX, wrapY, type TileKey, type WorldStyle } from "@border-empires/shared";
+import { WORLD_WIDTH, WORLD_HEIGHT, NETWORK_RESOURCES, RESOURCE_NETWORKS, isSeaTerrain, isNetworkResource, landBiomeAt, wrapX, wrapY, type TileKey, type WorldStyle } from "@border-empires/shared";
 import { createSeasonSeedWorld } from "./season-seed-world.js";
 import { parseTestShard, valuesForTestShard } from "./season-seed-world-coverage-shard.test-support.js";
 import { computeFairSpawnSites, starterSiteQuality } from "@border-empires/game-domain";
@@ -53,6 +53,32 @@ const countUncoveredSeaAdjacentComponents = (tiles: Map<string, import("@border-
   return uncovered;
 };
 
+const assertFrontierDepositBudgets = (tiles: ReadonlyMap<string, import("@border-empires/game-domain").DomainTileState>, label: string): void => {
+  for (const tile of tiles.values()) {
+    if (tile.resource === "CATALYTIC_DEPOSIT") expect(tile.landBiome ?? landBiomeAt(tile.x, tile.y), `${label} catalyst beach`).not.toBe("COASTAL_SAND");
+    if (tile.town) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const neighbour = tiles.get(`${wrapX(tile.x + dx, WORLD_WIDTH)},${wrapY(tile.y + dy, WORLD_HEIGHT)}`);
+      expect(isNetworkResource(neighbour?.resource), `${label} town support ${tile.x},${tile.y}`).toBe(false);
+    }
+  }
+  for (const resource of NETWORK_RESOURCES) {
+    const remaining = new Set([...tiles].filter(([,tile]) => tile.resource === resource).map(([key]) => key));
+    expect(remaining.size, `${label} ${resource}`).toBe(Math.round(RESOURCE_NETWORKS[resource].sitesPerStandardMap * WORLD_WIDTH * WORLD_HEIGHT / (640 * 320)));
+    while (remaining.size) {
+      const first = remaining.values().next().value!;
+      const queue = [first]; remaining.delete(first);
+      for (let index = 0; index < queue.length; index++) {
+        const [x,y] = queue[index]!.split(",").map(Number);
+        for (let dy=-1;dy<=1;dy++) for (let dx=-1;dx<=1;dx++) {
+          const key = `${wrapX(x!+dx,WORLD_WIDTH)},${wrapY(y!+dy,WORLD_HEIGHT)}`;
+          if (remaining.delete(key)) queue.push(key);
+        }
+      }
+      expect(queue.length, `${label} ${resource} deposit at ${first}`).toBeLessThanOrEqual(3);
+    }
+  }
+};
+
 describe("real-pipeline dock coverage", () => {
   it("gives every sea-adjacent land component a dock across many seeds, both styles", () => {
     const shard = parseTestShard(process.env.WORLDGEN_COVERAGE_SHARD);
@@ -65,6 +91,7 @@ describe("real-pipeline dock coverage", () => {
     for (const style of ["continents", "islands"] as WorldStyle[]) {
       for (const seed of seeds) {
         const world = createSeasonSeedWorld(seed, noopPlayer, { humanPlayerCount: 1, aiPlayerCount: 4, style });
+        assertFrontierDepositBudgets(world.tiles, `style=${style} seed=${seed}`);
         const uncovered = countUncoveredSeaAdjacentComponents(world.tiles);
         // Exercise the complete pipeline, including AI placement and wonders,
         // rather than accepting fifty legal but amenity-free grass tiles.

@@ -22,6 +22,8 @@ type TownPopulationTier = NonNullable<DomainTileState["town"]>["populationTier"]
 type UpgradeTownTier = Exclude<TownPopulationTier, "SETTLEMENT">;
 
 export type RuntimeProgressionCommandContext = {
+  beforeResourceSupplyChange?: (id: string) => void;
+  afterResourceSupplyChange?: (id: string) => void;
   settleEconomyBeforeUpgrade?: (player: DomainPlayer) => void;
   now?: () => number;
   isTileLocked?: (key: string) => boolean;
@@ -153,6 +155,7 @@ export function handleUpgradeTownTierCommand(context: RuntimeProgressionCommandC
     rejectCommand(context, command, "INSUFFICIENT_SLOT", "no free FOOD slot to support the larger town");
     return;
   }
+  context.beforeResourceSupplyChange?.(actor.id);
   actor.points -= goldCost;
   const updatedTile = { ...tile, town: { ...town, populationTier: nextTier } };
   context.setTileState(tileKey, updatedTile);
@@ -179,6 +182,7 @@ export function handleUpgradeTownTierCommand(context: RuntimeProgressionCommandC
   }
   context.invalidateTileStringifyCache(tileKey);
   context.summaryForPlayer(actor.id).ownedTownTierByTile.set(tileKey, nextTier);
+  context.afterResourceSupplyChange?.(actor.id);
   context.invalidateEconomySnapshot(actor.id);
   context.invalidateTileYieldContext(actor.id);
   // §5.4: the extra permanent FOOD slot demand this upgrade just added
@@ -220,6 +224,7 @@ export function handleCollectShardCommand(context: RuntimeProgressionCommandCont
     return;
   }
   context.addStrategicResource(actor, "SHARD", amount);
+  context.afterResourceSupplyChange?.(actor.id);
   context.invalidateEconomySnapshot(actor.id);
   if (target.shardSite.kind === "FALL") {
     if (context.decrementShardRainSiteCount() === 0) {
@@ -269,6 +274,7 @@ export function handleChooseTechCommand(context: RuntimeProgressionCommandContex
     rejectCommand(context, command, "TECH_INVALID", "missing tech id");
     return;
   }
+  context.beforeResourceSupplyChange?.(actor.id);
   const outcome = chooseTechForPlayer(actor, techId, context.tiles.values());
   if (!outcome.ok) {
     rejectCommand(context, command, "TECH_INVALID", outcome.reason);
@@ -282,6 +288,7 @@ export function handleChooseTechCommand(context: RuntimeProgressionCommandContex
   // connectedTownStepBonusAdd, etc.) — without invalidating it here the
   // cache keeps serving pre-purchase multipliers until something else
   // happens to invalidate it (e.g. a later tile mutation).
+  context.afterResourceSupplyChange?.(actor.id);
   context.invalidateEconomySnapshot(actor.id);
   context.invalidateTileYieldContext(actor.id);
   context.resyncVisionRadius(actor.id);
@@ -324,6 +331,7 @@ export function handleChooseDomainCommand(context: RuntimeProgressionCommandCont
     return;
   }
   context.settleEconomyBeforeUpgrade?.(actor);
+  context.beforeResourceSupplyChange?.(actor.id);
   const outcome = chooseDomainForPlayer(
     actor,
     domainId,
@@ -345,6 +353,7 @@ export function handleChooseDomainCommand(context: RuntimeProgressionCommandCont
   // invalidating it here, gold production and the town-overview modifiers
   // panel keep showing pre-purchase values until an unrelated tile mutation
   // happens to invalidate the cache.
+  context.afterResourceSupplyChange?.(actor.id);
   context.invalidateEconomySnapshot(actor.id);
   context.invalidateTileYieldContext(actor.id);
   context.resyncVisionRadius(actor.id);

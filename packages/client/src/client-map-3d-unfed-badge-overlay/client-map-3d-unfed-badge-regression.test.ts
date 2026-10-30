@@ -52,10 +52,9 @@ describe("3d resource-dormancy badge regression guard", () => {
     const source = clientSource("../client-map-3d/client-map-3d.ts");
     // §21.1: generalized from a single food-only overlay to one overlay per
     // resource icon (FOOD/TITANIUM/CRYSTAL/UMBRITE), driven off the shared
-    // dormantStructures wire field as well as the unfed-town predicate.
+    // dormantStructures wire field. Unfed towns moved to the town nameplate.
     expect(source).toContain("createResourceBadgeOverlay");
     expect(source).toContain("resourceBadgeOverlays");
-    expect(source).toContain("resourceBadgeOverlays.FOOD.addInstance");
     expect(source).toContain("resourceBadgeOverlays[dormantStructureResource].addInstance");
     // The shard-rain badge (client-map-3d-shard-rain-badge-overlay.ts) shares
     // these same clear/commit/tick/dispose loops via allBadgeOverlays rather
@@ -66,13 +65,14 @@ describe("3d resource-dormancy badge regression guard", () => {
     expect(source).toMatch(/for \(const overlay of allBadgeOverlays\) overlay\.dispose\(\);/);
   });
 
-  it("paints the food badge through the shared shouldShowTownUnfedWarning predicate", () => {
+  it("leaves unfed towns to the shared nameplate instead of a second 3D-only badge", () => {
     const source = clientSource("../client-map-3d/client-map-3d.ts");
-    // Parity with the tile-menu "Town is unfed" line: badge predicate must
-    // come from shouldShowTownUnfedWarning so neutral, foreign, unsettled,
-    // and SETTLEMENT-tier towns don't light up the map.
-    expect(source).toContain('shouldShowTownUnfedWarning(tile, deps.state.me)');
-    expect(source).toContain("resourceBadgeOverlays.FOOD.addInstance(x, z, surfaceY)");
+    // The town nameplate (client-town-nameplates) carries unfed status for
+    // both renderers; a FOOD badge here would double up over the same town.
+    expect(source).not.toContain("shouldShowTownUnfedWarning");
+    expect(source).not.toContain("resourceBadgeOverlays.FOOD.addInstance(x, z, surfaceY)");
+    const plateModel = clientSource("../client-town-nameplates/client-town-nameplate-model.ts");
+    expect(plateModel).toContain("shouldShowTownUnfedWarning(tile, me)");
   });
 
   it("paints a dormant structure's own resource icon, keyed off the dormantStructures wire field", () => {

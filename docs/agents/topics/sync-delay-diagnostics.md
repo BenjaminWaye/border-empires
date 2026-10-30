@@ -7,7 +7,15 @@ repeated reconnects. The rewrite gateway and simulation are the runtime.
 
 ## Collect and interpret
 
-Download the debug log while the incident is recent. Schema v2 includes:
+Sync-delay/timeout alerts in the capture popup offer a **Report bug** button
+that submits an in-game bug report (`/api/bug-reports`). That report carries
+only `metadata`, `clientContext`, the latest 100 `clientEvents`,
+`performanceMetrics` and the player's `serverBundle` -- not the full schema v2
+bundle below. There is no longer a player-facing download of the full bundle;
+it is built by `buildClientDebugBundle`
+(`packages/client/src/client-debug-bundle/client-debug-bundle.ts`), which today
+only feeds respawn reports. Ask the reporter to submit promptly while the
+incident is recent. Schema v2 includes:
 
 - `capturedAt` for the client snapshot and `generatedAt` after server collection.
 - `clientBuildSha`, plus `serverBundle.body.serverBuildSha` and

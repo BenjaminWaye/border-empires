@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { InstancedMesh, Matrix4, Scene, Vector3 } from "three";
+import { InstancedMesh, Matrix4, MeshStandardMaterial, Scene, Vector3 } from "three";
 import { createProspectClueProps } from "./client-map-3d-prospect-clue-props.js";
+import { createOwnershipOverlay } from "../client-map-3d-ownership-overlay.js";
+import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { createProspectClueLayer } from "./client-map-3d-prospect-clue-layer.js";
 import { prospectCluePropCount, prospectCluePropsAllowed } from "../client-prospect-clue/client-prospect-clue.js";
 import type { TechInfo, Tile } from "../client-types.js";
@@ -49,6 +51,27 @@ describe("createProspectClueProps", () => {
       position.setFromMatrixPosition(matrix);
       expect(position.y).toBeCloseTo(position.x + 0.01, 5);
     }
+    props.dispose();
+  });
+
+  it("draws low ground clues after every ownership bucket, while preserving terrain occlusion", () => {
+    const scene = new Scene();
+    const props = createProspectClueProps(scene, 4);
+    const ownership = createOwnershipOverlay(scene, 4);
+    for (const mesh of meshesOf(scene).slice(1)) {
+      // renderOrder alone cannot move an opaque mesh past transparent ownership.
+      expect(mesh.material).toBeInstanceOf(MeshStandardMaterial);
+      const material = mesh.material as MeshStandardMaterial;
+      expect(material.transparent).toBe(true);
+      expect(material.opacity).toBe(1);
+      expect(material.depthTest).toBe(true);
+      expect(material.depthWrite).toBe(true);
+      for (const tint of [ownership.settledMesh, ownership.frontierMesh, ownership.settledHillMesh, ownership.frontierHillMesh]) {
+        expect(mesh.renderOrder).toBeGreaterThan(tint.renderOrder);
+      }
+      expect(mesh.renderOrder).toBeLessThan(RENDER_ORDER.fogDarkenSettled);
+    }
+    ownership.dispose();
     props.dispose();
   });
 

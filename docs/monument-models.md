@@ -44,8 +44,10 @@ an opaque shadow. Smooth metallic shading is restricted to the six monuments;
 approved support-building materials retain their existing settings. Rear service
 hatches, framed sail panels, joint collars and connected footings are included.
 
-The previously excluded Fort, Relay Beacon, Aether Tower, Umbrite Rig, Dread Tower
-and Siege Battery retain their existing artwork and renderer paths.
+The monument phase left Fort, Relay Beacon, Aether Tower, Umbrite Rig, Dread
+Tower and Siege Battery unchanged. The later [infrastructure phase](infrastructure-models.md)
+updates the two utility towers and adds a rig platform; fortifications and siege
+structures remain unchanged.
 
 The Census revision removes the detached archive blocks and screen kiosk. Its
 low crescent gallery forms a continuous civic building around the index tower.

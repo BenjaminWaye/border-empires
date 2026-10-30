@@ -190,6 +190,14 @@ export const showCaptureAlert = (
   };
 };
 
+// Server-result/acceptance timeouts are the only alerts that offer the
+// "Report bug" button (see renderCaptureProgress) -- other warnings/errors are
+// expected gameplay outcomes, not something to report.
+export const showCaptureTimeoutAlert = (state: Pick<ClientState, "captureAlert">, title: string, detail: string): void => {
+  showCaptureAlert(state, title, detail, "warn");
+  if (state.captureAlert) state.captureAlert.timeout = true;
+};
+
 export const notifyInsufficientGoldForFrontierAction = (
   state: Pick<ClientState, "gold" | "captureAlert"> & FeedMutableState,
   action: "claim" | "attack"

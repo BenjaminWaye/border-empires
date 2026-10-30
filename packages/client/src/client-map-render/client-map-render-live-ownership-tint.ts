@@ -5,11 +5,17 @@
 import type { Tile } from "../client-types.js";
 import { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render-terrain-relief.js";
 import { drawRiverEdges } from "./client-map-render-river-edges.js";
+import { createSettledEdgeGlow2D } from "./client-map-render-settled-edge-glow-2d.js";
+import { DEFAULT_SETTLED_EDGE_GLOW } from "../client-settled-edge-glow/client-settled-edge-glow.js";
 
 const SETTLED_ALPHA = 0.92;
 const FRONTIER_ALPHA = 0.2;
 const BREACH_SHOCK_MAX_ALPHA = 0.62;
 const FRONTIER_DECAY_BLINK_WINDOW_MS = 60_000;
+
+// 2D keeps its own stronger rim (SETTLED_ALPHA) and shares the rest of the
+// 3D look's fade.
+const settledEdgeGlow2D = createSettledEdgeGlow2D({ ...DEFAULT_SETTLED_EDGE_GLOW, rimOpacity: SETTLED_ALPHA });
 
 /** Owner tint opacity for a visible owned land tile at `nowMs`. */
 export const liveOwnershipTintAlpha = (tile: Pick<Tile, "ownershipState" | "breachShockUntil" | "frontierDecayAt">, nowMs: number): number => {
@@ -27,7 +33,11 @@ export const liveOwnershipTintAlpha = (tile: Pick<Tile, "ownershipState" | "brea
   return alpha;
 };
 
-/** Fills a visible owned land tile with its owner's tint, then redraws its river water on top. */
+/**
+ * Fills a visible owned land tile with its owner's tint, then redraws its
+ * river water on top. With a settledEdgeMask (settledEdgeMaskForOwner), a
+ * settled tile gets the edge fade instead of the flat SETTLED_ALPHA fill.
+ */
 export const drawLiveOwnershipTint2D = (
   ctx: CanvasRenderingContext2D,
   tile: Pick<Tile, "ownershipState" | "breachShockUntil" | "frontierDecayAt">,
@@ -37,13 +47,19 @@ export const drawLiveOwnershipTint2D = (
   px: number,
   py: number,
   size: number,
-  nowMs: number = Date.now()
+  nowMs: number = Date.now(),
+  settledEdgeMask?: number
 ): void => {
-  ctx.fillStyle = ownerColor;
-  ctx.globalAlpha = liveOwnershipTintAlpha(tile, nowMs);
-  if (tile.ownershipState === "SETTLED") ctx.fillRect(px, py, size, size);
-  else ctx.fillRect(px, py, size - 1, size - 1);
-  ctx.globalAlpha = 1;
+  const alpha = liveOwnershipTintAlpha(tile, nowMs);
+  if (tile.ownershipState === "SETTLED" && settledEdgeMask !== undefined) {
+    settledEdgeGlow2D.draw(ctx, ownerColor, settledEdgeMask, px, py, size, alpha / SETTLED_ALPHA);
+  } else {
+    ctx.fillStyle = ownerColor;
+    ctx.globalAlpha = alpha;
+    if (tile.ownershipState === "SETTLED") ctx.fillRect(px, py, size, size);
+    else ctx.fillRect(px, py, size - 1, size - 1);
+    ctx.globalAlpha = 1;
+  }
   // Same top-face height the terrain draw used (client-map-render.ts drawTerrainTile).
   const topHeight = useTerrainReliefRenderer ? Math.max(2, size - terrainReliefPx(wx, wy, "LAND", size)) : size;
   drawRiverEdges(ctx, wx, wy, px, py, size, topHeight, "bank-and-water");

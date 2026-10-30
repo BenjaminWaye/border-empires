@@ -1,3 +1,4 @@
+import { createSocialState } from "../social-state/social-state.js";
 // Builds the SocialStateSink adapter over a GatewaySocialStore, extracted
 // out of gateway-app.ts (already well over the repo's 500-line file-size gate
 // and may not grow further -- see AGENTS.md's file-and-type-discipline rule).
@@ -5,6 +6,8 @@ import type { GatewaySocialStore } from "../social-store/social-store.js";
 import type { SocialStateSink } from "../social-state/social-state.js";
 
 export const buildSocialStateSink = (socialStore: GatewaySocialStore): SocialStateSink => ({
+  ...(socialStore.commitAcceptedAlliance ? { commitAcceptedAlliance: socialStore.commitAcceptedAlliance.bind(socialStore) } : {}),
+  ...(socialStore.commitAcceptedTruce ? { commitAcceptedTruce: socialStore.commitAcceptedTruce.bind(socialStore) } : {}),
   upsertPlayer: (playerId, name) => socialStore.upsertPlayer(playerId, name),
   saveAllianceRequest: (request) => socialStore.saveAllianceRequest(request),
   deleteAllianceRequest: (requestId) => socialStore.deleteAllianceRequest(requestId),
@@ -22,5 +25,12 @@ export const buildSocialStateSink = (socialStore: GatewaySocialStore): SocialSta
   saveTruceLockout: (playerId, lockoutUntil) => socialStore.saveTruceLockout(playerId, lockoutUntil),
   saveTruceBreak: (playerId, record) => socialStore.saveTruceBreak(playerId, record),
   saveOfferCooldown: (cooldown) => socialStore.saveOfferCooldown(cooldown),
+  saveDiplomacyHistory: (playerId, entry) => socialStore.saveDiplomacyHistory(playerId, entry),
   pruneExpired: (now) => socialStore.pruneExpired(now)
+});
+
+export const buildGatewaySocialState = (store: GatewaySocialStore, initial: import("../social-store/social-store.js").SocialStoreSnapshot,
+  players: Array<{id:string;name:string}>, now?:()=>number): ReturnType<typeof createSocialState> => createSocialState({
+  players, initial, sink: buildSocialStateSink(store), ...(now ? {now} : {}),
+  ...(store.resourceTrades ? {resourceTradeOffers:store.resourceTrades} : {})
 });

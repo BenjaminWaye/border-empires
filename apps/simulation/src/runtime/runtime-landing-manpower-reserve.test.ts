@@ -9,9 +9,10 @@ import type { RuntimePlayer } from "../runtime-types.js";
 const NOW = 40 * MANPOWER_REFILL_WINDOW_MS + 5_000_000;
 const MINUTE = 60_000;
 
-const runtimeWith = (now: () => number, players: RuntimePlayer[]): SimulationRuntime =>
+const runtimeWith = (now: () => number, players: RuntimePlayer[], seasonStartedAt?: () => number | undefined): SimulationRuntime =>
   new SimulationRuntime({
     now,
+    ...(seasonStartedAt ? { seasonStartedAt } : {}),
     initialPlayers: new Map(players.map((player) => [player.id, player])),
     seedTiles: new Map(),
     initialState: { tiles: [], activeLocks: [] }
@@ -33,6 +34,23 @@ describe("landing manpower reserve", () => {
     expect(manpowerOf(runtime, "ai-1")).toBe(720 + LANDING_MANPOWER_RESERVE);
     expect(manpowerOf(runtime, "human-1")).toBeGreaterThan(STARTING_CAPITAL_MANPOWER_CAP);
     // Later settles don't grant it again.
+    expect(manpowerOf(runtime, "human-1")).toBe(720 + LANDING_MANPOWER_RESERVE);
+  });
+
+  it("adds what a one-town empire would have regenerated since the season start for a late joiner, human and AI", () => {
+    const fiveDaysMinutes = 5 * 24 * 60;
+    const runtime = runtimeWith(() => NOW, [
+      buildPlayer("human-1", { manpower: 720, manpowerCapSnapshot: STARTING_CAPITAL_MANPOWER_CAP }),
+      buildPlayer("ai-1", { isAi: true, manpower: 720, manpowerCapSnapshot: STARTING_CAPITAL_MANPOWER_CAP })
+    ], () => NOW - fiveDaysMinutes * MINUTE);
+    const catchUp = Math.floor(fiveDaysMinutes * STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE);
+    expect(catchUp).toBe(2_880);
+    expect(manpowerOf(runtime, "human-1")).toBe(720 + LANDING_MANPOWER_RESERVE + catchUp);
+    expect(manpowerOf(runtime, "ai-1")).toBe(720 + LANDING_MANPOWER_RESERVE + catchUp);
+  });
+
+  it("adds no late-join catch-up while the season isn't active", () => {
+    const runtime = runtimeWith(() => NOW, [buildPlayer("human-1", { manpower: 720, manpowerCapSnapshot: STARTING_CAPITAL_MANPOWER_CAP })], () => undefined);
     expect(manpowerOf(runtime, "human-1")).toBe(720 + LANDING_MANPOWER_RESERVE);
   });
 

@@ -20,6 +20,7 @@ const fakeOverlay = (): OwnershipOverlay & { calls: Array<{ index: number; color
     },
     setFrontierHillTileColor: () => undefined,
     commit: () => undefined,
+    extendOntoShore: () => undefined,
     dispose: () => undefined
   };
 };

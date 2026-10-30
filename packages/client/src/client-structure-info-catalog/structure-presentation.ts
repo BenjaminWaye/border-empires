@@ -4,16 +4,21 @@ import type { StructureInfoKey } from "../client-map-display.js";
 // from structureModelBriefFor and the live game-domain modifier catalog.
 export type StructurePresentation = { readonly glyph: string; readonly placement: string };
 export const STRUCTURE_PRESENTATION: Readonly<Record<StructureInfoKey, StructurePresentation>> = {
+  RESIN_EXTRACTOR: { glyph: "⚙", placement: "Build on an owned, garrisoned neural resin site." },
+  IMPLANT_FOUNDRY: { glyph: "⚙", placement: "Build on an owned, garrisoned conductive minerals site." },
+  CATALYST_REFINERY: { glyph: "⚙", placement: "Build on an owned, garrisoned catalytic deposit site." },
+  CULTIVATION_ESTATE: { glyph: "⚙", placement: "Build on an owned, garrisoned luxury biota site." },
+  RECLAMATION_WORKS: { glyph: "⚙", placement: "Build on an owned, garrisoned precursor salvage site." },
   FORT: {
-    glyph: "🛡",
+    glyph: "⛨",
     placement: "Build on a garrisoned border tile or dock you own."
   },
   TITANIUM_BASTION: {
-    glyph: "🛡",
+    glyph: "⛨",
     placement: "Upgrade an existing Fort on its current tile."
   },
   THUNDER_BASTION: {
-    glyph: "🛡",
+    glyph: "⛨",
     placement: "Upgrade an existing Titanium Bastion on its current tile."
   },
   OBSERVATORY: {
@@ -21,15 +26,15 @@ export const STRUCTURE_PRESENTATION: Readonly<Record<StructureInfoKey, Structure
     placement: "Build on empty garrisoned land only. Not on towns, docks, or resource tiles."
   },
   PALISADE: {
-    glyph: "🪵",
+    glyph: "⫼",
     placement: "Build on a garrisoned tile you own. Like a Fort, it can share its tile with a Relay Beacon or Harbor Exchange."
   },
   HYDROGARDEN: {
-    glyph: "🌾",
+    glyph: "▥",
     placement: "Build on a garrisoned farm resource tile you own."
   },
   UMBRITE_RIG: {
-    glyph: "🦊",
+    glyph: "◆",
     placement: "Build on a garrisoned umbrite resource tile you own."
   },
   MINE: {
@@ -61,23 +66,23 @@ export const STRUCTURE_PRESENTATION: Readonly<Record<StructureInfoKey, Structure
     placement: "Upgrade an existing Siege Tower on its current tile."
   },
   ORE_REFINERY: {
-    glyph: "🏭",
+    glyph: "⚙\uFE0E",
     placement: "Build on an open garrisoned support tile for a town you own."
   },
   HARBOR_EXCHANGE: {
-    glyph: "⚓",
+    glyph: "⚓\uFE0E",
     placement: "Build on a garrisoned dock tile you own."
   },
   ASTRAL_DOCK_PART_1: {
-    glyph: "🚀",
+    glyph: "Ⅰ",
     placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component."
   },
   ASTRAL_DOCK_PART_2: {
-    glyph: "🛰",
+    glyph: "Ⅱ",
     placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component."
   },
   ASTRAL_DOCK_PART_3: {
-    glyph: "⛵",
+    glyph: "Ⅲ",
     placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component."
   },
   ASTRAL_DOCK: {
@@ -85,31 +90,31 @@ export const STRUCTURE_PRESENTATION: Readonly<Record<StructureInfoKey, Structure
     placement: "Place on any garrisoned tile you own after finishing 3 Astral Dock Parts. Consumes all 3 parts on completion."
   },
   NEURAL_WORKS: {
-    glyph: "🚉",
+    glyph: "⊞",
     placement: "Build on an open garrisoned support tile for a town you own."
   },
   HYDROWORKS: {
-    glyph: "💧",
+    glyph: "≈",
     placement: "Build on any garrisoned land tile. Does not need a resource tile."
   },
   MINISTRY_HALL: {
-    glyph: "🏛",
+    glyph: "⌘",
     placement: "Build on an open garrisoned support tile for a town you own."
   },
   ANCILLARY_DEPOT: {
-    glyph: "🪖",
+    glyph: "⛨",
     placement: "Build on an open garrisoned support tile for a town you own."
   },
   WEAPONS_WORKSHOP: {
-    glyph: "🗡",
+    glyph: "†",
     placement: "Build on an open garrisoned support tile for a town you own. No per-town limit."
   },
   TITANIUM_WEAPONS_FACTORY: {
-    glyph: "🛡",
+    glyph: "⛨",
     placement: "Build on an open garrisoned support tile for a town you own. No per-town limit."
   },
   UMBRITE_WEAPONS_FACTORY: {
-    glyph: "🗡",
+    glyph: "†",
     placement: "Build on an open garrisoned support tile for a town you own. No per-town limit."
   },
   SKY_DOCK: {
@@ -117,35 +122,35 @@ export const STRUCTURE_PRESENTATION: Readonly<Record<StructureInfoKey, Structure
     placement: "Build on garrisoned land you own."
   },
   AMBARIC_TRANSFORMER: {
-    glyph: "⚡",
+    glyph: "ϟ",
     placement: "Build on garrisoned land you own."
   },
   RESONANCE_GRID: {
-    glyph: "📡",
+    glyph: "◌",
     placement: "Build on garrisoned land you own."
   },
   IMPERIAL_EXCHANGE_PART_1: {
-    glyph: "📖",
+    glyph: "Ⅰ",
     placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component."
   },
   IMPERIAL_EXCHANGE_PART_2: {
-    glyph: "🧮",
+    glyph: "Ⅱ",
     placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component."
   },
   IMPERIAL_EXCHANGE_PART_3: {
-    glyph: "🔏",
+    glyph: "Ⅲ",
     placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component."
   },
   SOVEREIGN_SIEGE_ENGINE_PART_1: {
-    glyph: "🎯",
+    glyph: "Ⅰ",
     placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component."
   },
   SOVEREIGN_SIEGE_ENGINE_PART_2: {
-    glyph: "💥",
+    glyph: "Ⅱ",
     placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component."
   },
   SOVEREIGN_SIEGE_ENGINE_PART_3: {
-    glyph: "🔭",
+    glyph: "Ⅲ",
     placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component."
   },
   IMPERIAL_EXCHANGE: {
@@ -157,15 +162,15 @@ export const STRUCTURE_PRESENTATION: Readonly<Record<StructureInfoKey, Structure
     placement: "Place on any garrisoned tile you own after finishing 3 Sovereign Siege Engine Parts. Consumes all 3 parts on completion."
   },
   AEGIS_DOME_PART_1: {
-    glyph: "🛡",
+    glyph: "Ⅰ",
     placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component."
   },
   AEGIS_DOME_PART_2: {
-    glyph: "⚓",
+    glyph: "Ⅱ",
     placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component."
   },
   AEGIS_DOME_PART_3: {
-    glyph: "👑",
+    glyph: "Ⅲ",
     placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component."
   },
   AEGIS_DOME: {
@@ -173,27 +178,27 @@ export const STRUCTURE_PRESENTATION: Readonly<Record<StructureInfoKey, Structure
     placement: "Place on any garrisoned tile you own after finishing 3 Aegis Dome Parts. Consumes all 3 parts on completion."
   },
   QUARTERMASTERS_OFFICE: {
-    glyph: "🎖",
+    glyph: "✪",
     placement: "Build on garrisoned land you own."
   },
   ANCILLARY_FACTORY: {
-    glyph: "📦",
+    glyph: "▣",
     placement: "Build on an open garrisoned support tile for a town you own."
   },
   RESERVE_LATTICE: {
-    glyph: "🏗",
+    glyph: "▦",
     placement: "Build on an open garrisoned support tile for a town you own."
   },
   CENSUS_DIRECTORATE_PART_1: {
-    glyph: "📋",
+    glyph: "Ⅰ",
     placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component."
   },
   CENSUS_DIRECTORATE_PART_2: {
-    glyph: "🗄",
+    glyph: "Ⅱ",
     placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component."
   },
   CENSUS_DIRECTORATE_PART_3: {
-    glyph: "📜",
+    glyph: "Ⅲ",
     placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component."
   },
   CENSUS_DIRECTORATE: {
@@ -201,15 +206,15 @@ export const STRUCTURE_PRESENTATION: Readonly<Record<StructureInfoKey, Structure
     placement: "Place on any garrisoned tile you own after finishing 3 Census Directorate Parts. Consumes all 3 parts on completion."
   },
   TITANIUM_LEVY_PART_1: {
-    glyph: "📢",
+    glyph: "Ⅰ",
     placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component."
   },
   TITANIUM_LEVY_PART_2: {
-    glyph: "🚩",
+    glyph: "Ⅱ",
     placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component."
   },
   TITANIUM_LEVY_PART_3: {
-    glyph: "📃",
+    glyph: "Ⅲ",
     placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component."
   },
   TITANIUM_LEVY: {
@@ -221,11 +226,11 @@ export const STRUCTURE_PRESENTATION: Readonly<Record<StructureInfoKey, Structure
     placement: "Build on a garrisoned border tile you own."
   },
   UMBRITE_WORKS: {
-    glyph: "📦",
+    glyph: "▤",
     placement: "Build on an open garrisoned support tile for a town you own."
   },
   HIGH_YIELD_UMBRITE_WORKS: {
-    glyph: "🧵",
+    glyph: "▤",
     placement: "Upgrade an existing Umbrite Works on its current support tile."
   },
   TITANIUM_WORKS: {
@@ -237,11 +242,11 @@ export const STRUCTURE_PRESENTATION: Readonly<Record<StructureInfoKey, Structure
     placement: "Upgrade an existing Titanium Works on its current support tile."
   },
   AETHER_CONDENSER: {
-    glyph: "💎",
+    glyph: "◇",
     placement: "Build on an open garrisoned support tile for a town you own."
   },
   HIGH_YIELD_AETHER_CONDENSER: {
-    glyph: "💠",
+    glyph: "◇",
     placement: "Upgrade an existing Aether Condenser on its current support tile."
   },
   INCUBATION_ENGINE: {

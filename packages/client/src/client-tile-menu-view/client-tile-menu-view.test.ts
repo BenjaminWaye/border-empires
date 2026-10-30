@@ -915,7 +915,7 @@ describe("menuOverviewForTile", () => {
     );
 
     expect(progress?.rushBuyActionId).toBe("rush_buy");
-    expect(progress?.rushBuyLabel).toMatch(/^⏩ 💰\d+$/);
+    expect(progress?.rushBuyLabel).toMatch(/^Rush ◉\d+$/);
   });
 
   it("omits a rush-buy label for removal progress (only in-progress builds can be rushed)", () => {

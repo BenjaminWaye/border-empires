@@ -1,3 +1,4 @@
+import { nextManpowerBatchAmount } from "./runtime-manpower.js";
 import { districtOverlayProjection } from "./town-district/town-district-projection.js";
 import { afcEnvoyIncomeInSnapshot } from "./afc-specializations/afc-coalition.js";
 import type { PlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
@@ -27,6 +28,7 @@ import type { RuntimeVisibilityClassification } from "./runtime-visibility-class
 import { overlayJsonFieldsFromTile, townWireFields } from "./tile-overlay-fields/tile-overlay-fields.js";
 
 type VisibilityPlayerProjectionDeps = {
+  supplyStateForPlayer?: (id: string) => import("@border-empires/shared").ResourceSupplyPlayerState;
   players: ReadonlyMap<string, RuntimePlayer>;
   relicMapHintsForPlayer?: (id: string) => import("@border-empires/shared").RelicMapHint[];
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
@@ -274,6 +276,7 @@ function visiblePlayersProjection(
       const summary = input.summaryForPlayer(player.id);
       const economy = player.id === visiblePlayerId ? input.cachedEconomySnapshot(player) : undefined;
       return {
+        ...(player.id === visiblePlayerId ? input.supplyStateForPlayer?.(player.id) : {}),
         id: player.id,
         ...(player.name ? { name: player.name } : {}),
         points: player.points,
@@ -282,6 +285,7 @@ function visiblePlayersProjection(
           afcEnvoyIncomePerMinute: afcEnvoyIncomeInSnapshot(economy),
           manpowerCap: input.playerManpowerCap(player),
           manpowerRegenPerMinute: input.playerManpowerRegenPerMinute(player),
+          nextManpowerBatchAmount: nextManpowerBatchAmount(player, input.playerManpowerCap(player), input.playerManpowerRegenPerMinute(player)),
           logisticsThroughputPerMinute: input.playerLogisticsThroughputPerMinute(player),
           manpowerBreakdown: input.playerManpowerBreakdown(player)
         } : {}),

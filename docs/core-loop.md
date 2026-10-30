@@ -244,7 +244,7 @@ growing your economy *means* taking the land around you.
 | **Research** | Buy a tech (instant). Cost rises with the number already owned | 10 gold, then +30/+40/+50 per tech | `techGoldCostForResearchedCount` |
 | **Choose domain** | Pick one doctrine per tier (5 tiers) | 40 → 1,800 gold, plus shards from tier 2 | `domain-tree.json` |
 | **Muster / Attack** | Stage manpower on up to 2 flags (+ domain bonuses), then capture adjacent enemy tiles | Depends on the target: 10 MP (barbarian) to 960 MP (Thunder Bastion). See §7. 15s combat lock | `requiredMusterForTarget`, `ATTACK_MANPOWER_LOSS_RANGE`, `COMBAT_LOCK_MS` |
-| **Build military** | Forts (defense), Siege Battery/Tower/Dread Tower (attack), Observatory (vision, protection from abilities) | Fort ladder 150–960 MP plus TITANIUM slots. Siege ladder 60 MP plus UMBRITE/TITANIUM slots | `FORT_TIER_LADDER`, `SIEGE_TIER_LADDER` |
+| **Build military** | Forts (defense), Siege Battery/Tower/Dread Tower (attack), Observatory (vision, protection from abilities) | Fort ladder 150–960 MP plus TITANIUM slots. Siege ladder 60–240 MP plus UMBRITE slots only (1/2/3); a fresh build steps down to the best tier whose UMBRITE slots fit | `FORT_TIER_LADDER`, `SIEGE_TIER_LADDER` |
 | **Build monument** | One of six globally unique monuments (Imperial Exchange, Sovereign Siege Engine, Aegis Dome, Astral Dock, Census Directorate, Titanium Levy). Built in 4 stages. Each is locked by a tech, and the first empire to build one locks everyone else out | 3 × (1,000 MP + 1 shard), then 1,600 MP + 2 shards: 4,600 MP and 5 shards in total | `MONUMENTAL_STRUCTURE_TYPES`, `structure-costs.ts` |
 | **Build Sky Dock** | Ability structure, not a monument. Needs a powered Aether Tower and grants Bombard (range 30, 20 min cooldown, 15% base miss chance, +25% against forts) | 150 MP, doubling per Sky Dock owned | `SKY_DOCK` in `structure-costs.ts`, `SKY_DOCK_BOMBARD_*` |
 | **Rush-buy** | Finish an in-progress settle or build with gold | 0.5 gold × MP × fraction of time left | `rush-buy.ts` |
@@ -330,7 +330,15 @@ away.
   be online, and shards pay for domains and monuments.
 - Truces (12h or 24h) and victory holds (24h) are sized in days too.
 
-### 4.4 Season loop (30 days, `SEASON_LENGTH_DAYS`): "pick a path and hold it"
+### 4.4 Season loop (no fixed length): "pick a path and hold it"
+
+A season has no maximum length. It ends when one empire (for Diplomatic
+Dominance, an alliance, crowning its largest member) holds a victory path
+continuously for 24 hours (`SEASON_VICTORY_HOLD_MS`); the hold restarts if the
+leader changes or the condition lapses. The only other way a season ends is an
+admin forced rollover (`POST /admin/season/start-next?force=true`), which
+archives the season with no winner. `SEASON_LENGTH_DAYS = 30` is still
+declared in `packages/shared/src/config.ts`, but nothing reads it.
 
 The phases the AI planner models (`docs/game-mechanics.md` §7), which match
 the player arc:
@@ -497,9 +505,11 @@ As implemented in `client-onboarding-checklist.ts`:
    ordinary expansion and plain-land garrisons do not extend reach.
 3. The starting capital is sized for about 40 expands and 8 settles before
    you wait on regen (`STARTING_CAPITAL_MANPOWER_CAP` comment). On top of
-   that, every new empire lands with a one-time +1,000 manpower reserve that
+   that, every new empire lands with a one-time +2,000 manpower reserve that
    may sit above the cap (`LANDING_MANPOWER_RESERVE`,
-   `packages/shared/src/landing-manpower-reserve.ts`). The first session is
+   `packages/shared/src/landing-manpower-reserve.ts`), plus, for a late
+   joiner (or a player respawning after elimination), the starting capital's
+   regen since the season started. The first session is
    long enough to finish the checklist without stalling.
 4. Newly generated worlds require 50 spaced starting sites with first food
    within three land steps (already in AFC reach), four slots within six,
@@ -533,7 +543,7 @@ town-engine loop at small scale.
 | Passive income inactivity cap (a human idle this long stops earning; converter gold upkeep is then netted against income instead of drained from the treasury) | 24h | `PASSIVE_INCOME_INACTIVITY_CAP_MS`, `runtime-upkeep-accrual.ts` |
 | Shard rain | 08:00 and 21:00 UTC, 3–6 sites, 30-min TTL | `runtime-shard-rain-rules.ts` |
 | Victory hold | 24h | `SEASON_VICTORY_HOLD_MS` |
-| Season | 30 days | `SEASON_LENGTH_DAYS` |
+| Season | No fixed length; ends on a 24h victory hold or an admin forced rollover | `season-lifecycle.ts`, `startNextSeason` |
 
 ## 10. Return triggers and what happens while you're away
 

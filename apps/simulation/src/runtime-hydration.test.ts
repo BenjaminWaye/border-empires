@@ -9,7 +9,7 @@ import {
   resetForestClearings,
   setWorldSeed
 } from "@border-empires/shared";
-import { createDocksFromInitialState, createPlayersFromRecoveredState, createTilesFromInitialState } from "./runtime-hydration.js";
+import { createDocksFromInitialState, createPlayersFromRecoveredState, createTilesFromInitialState, hydrateCommandHistory } from "./runtime-hydration.js";
 import type { RecoveredSimulationState } from "./event-recovery/event-recovery.js";
 import type { SeaRouteTerrainReader } from "./dock-network/dock-sea-routes.js";
 
@@ -292,5 +292,29 @@ describe("createTilesFromInitialState AFC forest clearings", () => {
     clearForestAroundAfcTile(forest.x, forest.y);
     createTilesFromInitialState({ tiles: [{ x: forest.x, y: forest.y, terrain: "LAND" }], activeLocks: [] }, new Map(), false);
     expect(isForestTileAt(forest.x, forest.y)).toBe(true);
+  });
+});
+
+describe("hydrateCommandHistory", () => {
+  it("never loads a recovered border diff into the replay cache, so a resend after a restart can't persist it again", () => {
+    // Regression: the live replay cache skipped REACH_BORDER_CHANGED, but the
+    // restart path copied every recovered event in. A client resending its
+    // town SETTLE after a restart then replayed (and re-persisted) the old
+    // diff with a newer event id, so the next recovery handed the tile back.
+    const commandId = "00278e11-369b-4760-8f54-f1887b3467c0";
+    const recordedEventsByCommandId = new Map();
+    hydrateCommandHistory({
+      commandIdsByPlayerSeq: new Map(),
+      recordedEventsByCommandId,
+      recoveredCommandHistory: {
+        commands: [],
+        eventsByCommandId: new Map([[commandId, [
+          { eventType: "COMMAND_ACCEPTED", commandId, playerId: "me", actionType: "SETTLE", originX: 1, originY: 1, targetX: 1, targetY: 1, resolvesAt: 0 },
+          { eventType: "REACH_BORDER_CHANGED", commandId, playerId: "me", changes: [{ tileKey: "1,1", ownerId: "me" }] }
+        ]]])
+      } as never
+    });
+
+    expect(recordedEventsByCommandId.get(commandId)?.map((event: { eventType: string }) => event.eventType)).toEqual(["COMMAND_ACCEPTED"]);
   });
 });

@@ -28,9 +28,22 @@ defines what these systems mean in the fiction; follow the
 - Manpower is capped and regenerates. The always-present starting capital adds
   **720 cap** and **0.4/minute**; it is additive with towns.
 - Every new empire (a human on join, an AI empire at season start; not
-  barbarians) lands with a one-time **+1,000** manpower reserve
+  barbarians) lands with a one-time **+2,000** manpower reserve
   (`LANDING_MANPOWER_RESERVE`), granted at the player's first manpower settle
-  in `refreshManpowerOnlyForPlayer`. Like a Waystation grant it may sit above
+  in `refreshManpowerOnlyForPlayer`. An empire that lands after the season
+  started also gets a late-join catch-up: what the starting capital alone
+  (0.4/minute, **576/day**) would have regenerated since the active season's
+  `startedAt` (`landingManpowerReserve` / `lateJoinManpowerCatchUp`), so a day-5
+  joiner lands with 720 + 2,000 + 2,880. It is uncapped. Nothing is added while
+  the season is pending or ended, or when the runtime has no season clock
+  (`SimulationRuntimeOptions.seasonStartedAt`, wired by `seasonStartedAtClock`).
+  A respawn after a true elimination (the player lost their last tile;
+  `respawnIfEliminated` only, never the territory-holding settlement repair in
+  `respawnPlayerOnUnownedLand`) lands anew and gets the same grant, base plus
+  catch-up, on top of its restored starting manpower
+  (`grantRespawnLandingReserve`, via `RuntimeRespawnContext.grantLandingReserve`),
+  so a player wiped out late in the season can still stage a comeback. There is
+  no ceiling on the catch-up. Like a Waystation grant it may sit above
   the cap (tracked as `waystationManpowerOverflow`), and regen pauses until it
   is spent back under the cap.
 - **Shard Mobilization** (`SHARD_MOBILIZE`, `SHARD_MOBILIZE_SHARD_COST` = **1
@@ -188,3 +201,86 @@ slot until removal completes.
    if the player-visible rule changes.
 4. Confirm clients receive new economy/slot state through the relevant protocol
    path; a server-only update is not sufficient for a player-visible rule.
+
+## Frontier resource networks
+
+New seasons contain five economic deposits in addition to the slot resources.
+They are visible when explored, but require a specialised Manifest and an
+owned, settled matching extraction installation before supplying benefits.
+Every new extraction installation occupies 1 FOOD slot and costs manpower:
+Resin Extractor 40, Implant Foundry 50, Catalyst Refinery 50, Cultivation
+Estate 33, Reclamation Works 60. Base construction seconds equal manpower.
+
+Each active developed site supplies one renewable bonus slot, except an Implant
+Foundry which supplies two conductive slots for two separate factories. One slot can
+supply one eligible building; each building uses at most one slot of each
+applicable resource. A supplied Ancillary Depot gains 12 Ancillaries per four-hour cycle from resin;
+a supplied Ancillary Factory gains 6 per batch from conductive minerals. Conductive slots equal
+twice the number of active supplied Implant Foundries. The actual empire bonus is 12×min(resin slots, active depots) + 6×min(mineral slots, active
+factories), banked over the 240-minute refill interval. Extra factories cannot
+reuse a slot. Unsupported factories retain normal output; there is no resource
+stockpile, permanent depletion, diminishing tier or six-site cap. Storage cap
+is unchanged and towns remain the source of bodies.
+
+One catalyst or luxury-biota slot adds 1.5 Coin/day at one eligible Trade
+Nexus; one salvage slot adds 1.5 Coin/day at one eligible Manufactory. A Nexus
+may use one of each export slot. Existing fed-town and non-Settlement-tier
+industry gates apply, as do applicable town-output modifiers. Slots allocate
+once in stable town-key order, avoiding duplicated credit across towns.
+Unused slots earn nothing until a beneficiary becomes available. Coin
+breakdowns attribute the actual allocated credit to Frontier export concessions
+and Precursor reclamation; town displays use the same allocation as income.
+
+A site needs its owning House's required Manifest even after capture. Dormant,
+inactive, unfinished, neutral and ungarrisoned installations contribute
+nothing. Site and beneficiary losses invalidate the existing economy caches;
+network owners settle accrued income and manpower at the old rate before a
+relevant tile mutation. These exclusive supply slots reward concentrated
+investment without requiring continent-wide collection.
+
+New standard 640×320 maps target 1,000 tiles of each of the five resources,
+in separated deposits of 1–3 tiles. Habitat preferences and secondary biomes
+are documented in [the resource-network plan](../resource-networks-plan.md).
+New frontier deposits avoid towns and all eight adjacent support tiles; their
+installations do not require town support. Catalysts exclude coastal sand.
+The decorative lone-tree pattern is removed; resin appears as distinct groves.
+Saved campaigns preserve their existing geography on recovery.
+
+Implant Foundry shares Reserve Custody Cadre (`organized-supply`) with the
+Ancillary Depot. Reclamation Works shares Industrial Tooling Module (`trade`)
+with the Manufactory. Resin Extractor and export installations retain their
+separate warrant/charter. There are no additional implant or salvage warrants.
+
+Sources: `packages/shared/src/resource-networks/`,
+`apps/simulation/src/resource-networks/`, `resource-networks-worldgen.ts`.
+
+## Diplomatic resource supply
+
+All four upkeep resources and all five frontier resources can be negotiated in
+independent Resource trade offers or alongside a truce/alliance. These are
+exclusive renewable slots, not a new inventory of mined stockpiles. Shards remain
+a one-time transfer. Only surplus beyond current domestic use and existing export
+commitments may be newly promised. Received slots cannot back another export,
+although imported FOOD may operate a domestic extraction site. Accepted exports
+take priority over later domestic building demand.
+
+Supply continues until either participating House ends the agreement. Both
+resource deliveries pause when either supplier loses required output and resume
+when output recovers. Ending supply releases both directions immediately after
+old-rate income/manpower settlement. One-time Coin and Shard payments are not
+refunded for a later shortage or cancellation. Supply contracts survive the
+accompanying treaty ending. Active agreements persist through recovery; new
+agreements have no expiry. Historical saved agreements may still contain an expiry
+and retain deadline settlement during recovery.
+
+Independent offers can be accepted, declined or withdrawn without creating a
+truce or alliance. Unaccepted offers expire after 24 hours. A payment already
+being resolved cannot be withdrawn: either party finishes/retries the same accepted
+payment identity before deciding whether to end its resulting supply agreement.
+
+Starting AI negotiation values per slot are FOOD 4 Coin, Titanium 4, Crystal 6,
+Umbrite 4, resin 4, conductive minerals 2, and each credit resource 1.5. These are
+one-day-equivalent negotiation weights for an open-ended promise, not recurring
+charges, guaranteed market prices or playtest-proven balance. Human offers can
+use other prices. Limits: 16 active supply agreements per House, 256 per world;
+16 pending offers per House, 256 globally; 10,000 slots per resource per offer.

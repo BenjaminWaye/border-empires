@@ -1,3 +1,5 @@
+import { resourceTileOverviewLines } from "./client-resource-tile-copy.js";
+import { manpowerPerBatch, isNetworkResource } from "@border-empires/shared";
 import { afcEffectMultiplier } from "../client-afc-upgrades/client-afc-effect.js";
 import { attackFloorForPlayer } from "../client-attack-commit/client-attack-floor.js";
 import { battleOverviewLines, battleMenuHeaderStatus } from "../client-battle-progress/client-tracked-battle-progress.js";
@@ -127,15 +129,17 @@ export const menuOverviewForTile = (
   const productionHtml = tileProductionHtml(tile);
   const isLand = tile.terrain !== "SEA" && tile.terrain !== "COASTAL_SEA" && tile.terrain !== "MOUNTAIN";
   if (isLand) lines.push(...tileFeatureLeadLines(tile, ownerKind, { me: deps.state.me, prettyToken: deps.prettyToken, structureInfoButtonHtml: deps.structureInfoButtonHtml, techCatalog: deps.state.techCatalog ?? [], techIds: deps.state.techIds ?? [] }));
-  tileMenuOverviewIntroLines({
+  if (!tile.resource) tileMenuOverviewIntroLines({
     terrain: tile.terrain,
     ownerKind,
     productionLabel,
     resourceLabel: resourceLabelText,
+    requiresDevelopment: isNetworkResource(tile.resource),
     isDockEndpoint: Boolean(tile.dockId),
     hasTown: Boolean(tile.town),
     ownershipState: tile.ownershipState
   }).forEach(pushLine);
+  lines.push(...resourceTileOverviewLines(tile));
   if (!isLand) return lines;
   const { dockPairs, tiles } = deps.state;
   const landingLine = dockPairs && tiles ? landingGroundMenuLine({ dockPairs, tiles, me: deps.state.me }, tile.x, tile.y) : undefined;
@@ -220,7 +224,7 @@ export const menuOverviewForTile = (
           growthTone: !effectiveFed ? "warn" : growthRatePending ? "neutral" : "positive",
           goldPerDayLabel: goldPerDay.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
           manpowerCapLabel: tierManpower.cap.toLocaleString(),
-          manpowerRegenLabel: `+${tierManpower.regenPerMinute.toFixed(2)}/min base regen`,
+          manpowerRegenLabel: `+${Math.round(manpowerPerBatch(tierManpower.regenPerMinute))} per batch base regen`,
           townModifiers: townStatModifiersForProfile(terrainProfile, coastal),
           ...(tile.town.populationTier !== "SETTLEMENT" ? { support: { current: supportCurrent, max: supportMax } } : {}),
           ...(foodDemand > 0 ? { food: { satisfied: tile.town.isFed ? foodDemand : 0, demand: foodDemand, fed: Boolean(tile.town.isFed) } } : {})

@@ -22,12 +22,19 @@ describe("SqliteGatewaySocialStore offer terms", () => {
   it("round-trips terms on truce and alliance offers, and re-applying the schema is harmless", () => {
     const { store } = freshStore();
     store.saveTruceRequest({ id: "t1", fromPlayerId: "p1", toPlayerId: "p2", createdAt: 1, expiresAt: 99_999, durationHours: 12, terms });
+    store.saveTruceRequest({ id: "t2", fromPlayerId: "p3", toPlayerId: "p2", createdAt: 1, expiresAt: 99_999, durationHours: 24, extendsTruce: true });
     store.saveAllianceRequest({ id: "a1", fromPlayerId: "p1", toPlayerId: "p2", createdAt: 1, terms });
     store.saveAllianceRequest({ id: "a2", fromPlayerId: "p2", toPlayerId: "p3", createdAt: 1 });
     store.applySchema();
 
     const snapshot = store.loadSnapshot();
-    expect(snapshot.truceRequests).toEqual([expect.objectContaining({ id: "t1", terms })]);
+    expect(snapshot.truceRequests).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "t1", terms }),
+        expect.objectContaining({ id: "t2", durationHours: 24, extendsTruce: true })
+      ])
+    );
+    expect(snapshot.truceRequests.find((request) => request.id === "t1")).not.toHaveProperty("extendsTruce");
     expect(snapshot.allianceRequests).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: "a1", terms }), expect.not.objectContaining({ terms: expect.anything() })])
     );

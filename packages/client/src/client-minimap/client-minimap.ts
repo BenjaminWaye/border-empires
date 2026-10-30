@@ -106,7 +106,9 @@ export const drawMiniMap = (options: {
   miniMapContentCtx: CanvasRenderingContext2D;
   miniMapBase: HTMLCanvasElement;
   miniMapBaseReady: boolean;
-  miniMapLast: { camX: number; camY: number; zoom: number; replayIndex: number; tileCount: number; tilesRevision: number };
+  /** colorKey: owner colours in force (the Diplomacy view swaps them); a change repaints the content layer. */
+  miniMapLast: { camX: number; camY: number; zoom: number; replayIndex: number; tileCount: number; tilesRevision: number; colorKey?: string };
+  colorKey?: string;
   // Mutable cache the caller persists across calls; this function reads and writes it directly.
   contentCache: MiniMapContentCache;
   parseKey: (key: string) => { x: number; y: number };
@@ -127,6 +129,7 @@ export const drawMiniMap = (options: {
   const contentDirty =
     options.state.tiles.size !== options.miniMapLast.tileCount ||
     options.state.tilesRevision !== options.miniMapLast.tilesRevision ||
+    options.colorKey !== options.miniMapLast.colorKey ||
     (options.state.replayActive && options.state.replayIndex !== options.miniMapLast.replayIndex);
   if (!cameraMoved && !contentDirty && options.contentCache.computedAt !== 0) return false;
 

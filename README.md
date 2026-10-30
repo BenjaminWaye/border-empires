@@ -33,6 +33,7 @@ Each player controls a civilization that starts from a single land tile, expands
 - **Forced Ancillarification** at an active Ancillary Factory converts residents from its supporting town for 100 immediate manpower, once per town every four hours, while retaining at least 10,000 residents.
 - **Coin** funds Manifest commissions, the actions that carry a coin cost, and *rush-buys* of in-progress builds or garrisons. Its fictional meaning is defined in the [world bible](docs/lore/galactic-lore.md#11-houses-and-the-planetary-economy); current income, costs and town-support rules are in the [economy reference](docs/product/resource-and-manpower-economy.md).
 - **Strategic resources** — Food, Titanium, Crystal, Umbrite — are permanent slot allocations, not stockpiles: a structure or town either has a free slot backed by an owned resource tile (or a synthesizer) or it goes **dormant** (loses its effect, but isn't destroyed) until a slot frees up. A floating badge and detail-panel line flag dormant tiles and which resource they're missing.
+- **Developed deposits** — Neural resin and conductive minerals improve Ancillary Factory batches; catalysts and luxury biota back Trade Nexus credit; precursor salvage improves Manufactory output. Each developed extraction site supplies one eligible building through an exclusive slot. New standard maps target 1,000 tiles per resource in deposits of 1–3 tiles. Resin uses distinct groves; the decorative lone-tree pattern is removed. See the [resource-network plan](docs/resource-networks-plan.md) for balance and map placement.
 - **Shard** remains flow-collected (including from scheduled shard-rain events) and funds monument construction.
 - **Crystal-costing player abilities** (Reveal Empire, Survey Sweep, Aether Purge/Bridge/Wall, Siphon, Aegis Lock, Astral Dock Launch, Sovereign Siege Engine Strike, Sky Dock Bombard, Create/Remove Mountain) are free of any Crystal cost — gated on cooldown only; a few still carry a coin cost.
 - **Synthesizers** (Umbrite/Titanium Works/Crystal) are the one exception that keeps a coin upkeep and a hard 1-slot cap with no upgrade path — the deliberate trade-off that keeps "tall" play (few tiles, deep development) viable against "wide" (raw tile count).
@@ -75,7 +76,7 @@ Each player controls a civilization that starts from a single land tile, expands
 - **Docks**: paired sea-crossing gateways with cooldown and defensive value. Maritime Supremacy victory path scores from dock control.
 - **Clusters**: regional resource concentrations that grant threshold-based bonuses.
 - **Alliances**: mutual relationships that block friendly-fire and affect diplomatic victory scoring.
-- **Truces**: non-aggression pacts (12h or 24h). Breaking a truce early locks the breaker out of requesting or accepting any new truce for 24h; the other party is unaffected. A rejected or cancelled truce/alliance offer can't be re-sent to the same player for 30 minutes. AI empires answer offers based on their stance toward you and explain why. Offers can carry coin and Shards through the trade screen, which previews an AI's answer; AIs counter-offer within what you can pay. They can also propose a 12h truce when threatened or an alliance against a shared enemy.
+- **Truces**: non-aggression pacts (12h or 24h). Breaking a truce early locks the breaker out of requesting or accepting any new truce for 24h; the other party is unaffected. A rejected or cancelled truce/alliance offer can't be re-sent to the same player for 30 minutes. AI empires answer offers based on their stance toward you and explain why. Independent resource trades and treaty offers can carry Coin, Shards, and spare resource supply until either House cancels through the trade screen, which previews an AI's answer; AIs counter-offer within what you can pay. They can also propose a 12h truce when threatened or an alliance against a shared enemy.
 - **AI aether**: AI empires build Aether Towers and use Purge, EMP, Siphon, bridges, walls and terrain shaping against useful visible targets. Worker-mode AIs consume survey clues as expansion objectives. Builds check installed AFC modules and resource-slot capacity.
 - **Concordance relics**: newly seeded worlds select seven surviving installation families. Garrison their shared ziggurats to operate the machinery; finite reserves persist through recapture, and depleted ruins remain marked in both renderers. See [relic rules and compatibility](docs/relics.md).
 - **Shard rain**: scheduled world events scattering high-value shard sites with a 30-minute TTL, feeding monument construction.
@@ -102,7 +103,7 @@ Five concurrent paths, all requiring a 24-hour hold:
 
 - Real-time Canvas map with pan/zoom, fog of war, and chunk streaming.
 - HUD panels for missions, tech, alliances, leaderboard, identity settings, and an Activity dashboard. The dashboard combines a persistent 24-hour personal timeline, a player-safe World Pulse, and release updates.
-- Town resource surveys open a popup that stays until dismissed. Activity → Yours also keeps unresolved surveys available beyond the 24-hour timeline, with View survey actions to locate the clues.
+- Town resource surveys open a popup that stays until dismissed. Dismissals are remembered across reloads in the same browser for each player and season; new survey reports can still appear. Activity → Yours also keeps unresolved surveys available beyond the 24-hour timeline, with View survey actions to locate the clues.
 - Each muster flag has a Recent combat tab with unread counts, red manpower losses, and green plunder gains. Automatic flag battles keep up to 40 reports per flag in the current browser and season instead of opening result popups.
 - Mobile-first: touch pan/pinch-zoom and drawer navigation wired to live game state.
 - Established sessions reconnect in place through server updates without an automatic page refresh. A reconnect restarts after a minute without login or initial-session download progress; active queue and download updates extend that deadline.
@@ -193,7 +194,13 @@ model entrypoints and icon regeneration. The six completed Great Projects use
 for their component identities, renderer routing and artwork generation. Storybook’s **Map / Structures / All
 Structures** reviews all current buildable structures using their production 3D
 models, canonical names and shared gameplay descriptions; superseded studies
-are labelled Legacy.
+are labelled Legacy. Mine, harbor, relay, aether and Umbrite platform art is covered
+in the [infrastructure model reference](docs/infrastructure-models.md).
+
+Farm and fishing resource art uses authored GLB assets with matching 2D SVG
+fallbacks. Fishing sites use a smaller shore-facing assembly on a clean gray
+apron. Authoring commands, material layers and Storybook comparisons are in
+[the food tile art reference](docs/agents/topics/food-tile-art.md).
 
 ### Format
 
@@ -244,6 +251,15 @@ artwork. Keep new assets consistent with their surrounding structure family.
 - If a texture is genuinely needed: a **single 256×256 power-of-two atlas** shared
   across the whole model, base colour only. No normal/roughness/metalness/AO maps.
 - No smooth-shading passes or subdivision — faceted geometry is the intended style.
+
+The AFC is a bespoke multi-tile industrial landmark. Its procedural reactor
+and articulated legs use beveled surfaces, shared metal finishes and a small
+64×64 roughness/bump texture; the additional machining detail is merged into
+four instanced material batches. Start at
+`packages/client/src/client-map-3d-fabrication-complex.ts` and its
+`client-map-3d-afc-*` helpers. Its eight module attachment points are shared by
+all docked module models, while `client-map-2d-afc-overlay.ts` supplies the
+simpler Canvas fallback.
 
 ---
 

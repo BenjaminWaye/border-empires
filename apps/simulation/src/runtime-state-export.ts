@@ -1,3 +1,4 @@
+import { nextManpowerBatchAmount } from "./runtime-manpower.js";
 import { afcPlayerExportFields } from "./afc-specializations/afc-player-export.js";
 import { activeAfcModuleTechIds } from "./ai/ai-build-unlocks.js";
 import type { AiTacticalView } from "./ai/ai-tactical-view.js";
@@ -27,7 +28,7 @@ export type { RuntimeAiPlayerMetricsRow } from "./runtime-ai-player-metrics-row.
 export { buildRuntimePlayerDebugSnapshot } from "./runtime-player-debug-snapshot.js";
 export type { RuntimePlayerDebugSnapshot } from "./runtime-player-debug-snapshot.js";
 
-type RuntimeExportInput = Omit<SnapshotExportInput, "recordedEventsByCommandId"> & {
+type RuntimeExportInput = { supplyStateForPlayer?: (id: string) => import("@border-empires/shared").ResourceSupplyPlayerState } & Omit<SnapshotExportInput, "recordedEventsByCommandId"> & {
   terrainEpoch: number;
   tileDeltaStringifyCache: TileDeltaStringifyCache;
   applyManpowerRegen: (player: DomainPlayer) => void;
@@ -88,12 +89,14 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
       input.applyManpowerRegen(player);
       const summary = input.summaryForPlayer(player.id);
       return {
+        ...input.supplyStateForPlayer?.(player.id),
         id: player.id,
         ...(player.name ? { name: player.name } : {}),
         points: player.points,
         manpower: player.manpower,
         manpowerCap: input.playerManpowerCap(player),
         manpowerRegenPerMinute: input.playerManpowerRegenPerMinute(player),
+        nextManpowerBatchAmount: nextManpowerBatchAmount(player, input.playerManpowerCap(player), input.playerManpowerRegenPerMinute(player)),
         logisticsThroughputPerMinute: input.playerLogisticsThroughputPerMinute(player),
         manpowerBreakdown: input.playerManpowerBreakdown(player),
         ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),

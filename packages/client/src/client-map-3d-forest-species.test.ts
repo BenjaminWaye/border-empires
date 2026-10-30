@@ -31,8 +31,8 @@ describe("createForest leaf/deciduous species", () => {
   });
 });
 
-// Regression for addSparseLeafInstance (the decorative light-grass "scatter"
-// sapling -- see isLightGrassScatterTile in client-constants.ts): it must
+// Regression for addSparseLeafInstance (the small reference broadleaf
+// sapling used by the forest asset checks): it must
 // add exactly one leaf tree per call, sharing the pool addInstance uses,
 // without touching pine/spruce at all.
 describe("createForest addSparseLeafInstance", () => {

@@ -313,7 +313,7 @@ describe("client network regression guards", () => {
 
     expect(showCaptureAlert).toHaveBeenCalledWith(
       "Town unfed",
-      "Town is unfed. Check the warning badge on the affected town.",
+      "Town is unfed. Check the town's nameplate on the map.",
       "warn",
       undefined
     );
@@ -406,7 +406,7 @@ describe("client network regression guards", () => {
     expect(deps.pushFeed).not.toHaveBeenCalled();
   });
 
-  it("shows truce result announcements as popups", () => {
+  it("feeds truce results and only pops up when a rival breaks a truce with you", () => {
     const state = createState();
     const ws = new FakeWebSocket();
     const showCaptureAlert = vi.fn();
@@ -423,7 +423,6 @@ describe("client network regression guards", () => {
     });
 
     expect(deps.pushFeed).toHaveBeenCalledWith("AI 2 declined your truce offer.", "alliance", "warn");
-    expect(showCaptureAlert).toHaveBeenCalledWith("Truce declined", "AI 2 declined your truce offer.", "warn", undefined);
 
     ws.emit("message", {
       data: JSON.stringify({
@@ -436,12 +435,7 @@ describe("client network regression guards", () => {
     });
 
     expect(deps.pushFeed).toHaveBeenCalledWith("AI 1 and player-1 agreed to a 12h truce.", "alliance", "success");
-    expect(showCaptureAlert).toHaveBeenCalledWith(
-      "Truce accepted",
-      "AI 1 and player-1 agreed to a 12h truce.",
-      "success",
-      undefined
-    );
+    expect(showCaptureAlert).not.toHaveBeenCalled();
 
     ws.emit("message", {
       data: JSON.stringify({

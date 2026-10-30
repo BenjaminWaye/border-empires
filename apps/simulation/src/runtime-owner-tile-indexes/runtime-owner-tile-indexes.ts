@@ -1,3 +1,4 @@
+import type { ManpowerStructureBonusContext } from "../runtime-manpower-structure-bonus.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 
 import {
@@ -27,6 +28,26 @@ const addToOwnerIndex = (index: Map<string, Set<string>>, ownerId: string, tileK
  * snapshotted.
  */
 export class RuntimeOwnerTileIndexes {
+  /** Cohesive view consumed by the manpower bonus calculator. */
+  manpowerIndexes(): Pick<ManpowerStructureBonusContext,
+    "ancillaryDepotTilesByOwner" |
+    "neuralWorksTilesByOwner" |
+    "reserveLatticeTilesByOwner" |
+    "ancillaryFactoryTilesByOwner" |
+    "quartermastersOfficeTilesByOwner" |
+    "incubationEngineTilesByOwner" |
+    "censusHallTilesByOwner"> {
+    return {
+      ancillaryDepotTilesByOwner: this.ancillaryDepotTilesByOwner,
+      neuralWorksTilesByOwner: this.neuralWorksTilesByOwner,
+      reserveLatticeTilesByOwner: this.reserveLatticeTilesByOwner,
+      ancillaryFactoryTilesByOwner: this.ancillaryFactoryTilesByOwner,
+      quartermastersOfficeTilesByOwner: this.quartermastersOfficeTilesByOwner,
+      incubationEngineTilesByOwner: this.incubationEngineTilesByOwner,
+      censusHallTilesByOwner: this.censusHallTilesByOwner,
+    };
+  }
+
   // Non-barbarian FRONTIER tiles per owner.
   readonly frontierTilesByOwner = new Map<string, Set<string>>();
   // Part 2: index of fort/town anchors that grant frontier support per owner.

@@ -44,7 +44,7 @@ import {
 // derive their playerId-keyed variants from this context's player-keyed
 // ones at the call site instead of the context carrying both.
 export type RuntimeExportContext = Parameters<typeof buildRuntimeExportState>[0] &
-  Pick<Parameters<typeof buildRuntimeSnapshotSections>[0], "recordedEventsByCommandId"> &
+  Pick<Parameters<typeof buildRuntimeSnapshotSections>[0], "recordedEventsByCommandId" | "reachBorder"> &
   Pick<Parameters<typeof buildRuntimeSnapshotSectionsAsync>[0], "prebuiltTiles"> &
   Omit<Parameters<typeof buildRuntimePlannerWorldView>[0], "playerIds" | "playerManpowerCap" | "playerManpowerRegenPerMinute"> &
   Parameters<typeof buildRuntimePlayerDebugSnapshot>[0] & {

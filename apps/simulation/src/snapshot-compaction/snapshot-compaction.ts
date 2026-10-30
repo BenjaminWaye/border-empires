@@ -95,6 +95,7 @@ export type V1SnapshotPayload = {
   players?: RecoveredSimulationState["players"];
   pendingSettlements?: RecoveredSimulationState["pendingSettlements"];
   playerYieldCollectionEpochByPlayer?: RecoveredSimulationState["playerYieldCollectionEpochByPlayer"];
+  reachBorder?: RecoveredSimulationState["reachBorder"];
   commandEvents: StoredSnapshotCommandEvents[];
 };
 
@@ -289,6 +290,7 @@ export const compactSnapshotForStorage = async (
     ...(initialState.playerYieldCollectionEpochByPlayer
       ? { playerYieldCollectionEpochByPlayer: initialState.playerYieldCollectionEpochByPlayer }
       : {}),
+    ...(initialState.reachBorder ? { reachBorder: initialState.reachBorder } : {}),
     commandEvents
   };
 };
@@ -338,7 +340,8 @@ export const expandSnapshotFromStorage = (
       ...(v1.season ? { season: v1.season } : {}),
       ...(v1.players ? { players: v1.players } : {}),
       ...(v1.pendingSettlements ? { pendingSettlements: v1.pendingSettlements } : {}),
-      ...(v1.playerYieldCollectionEpochByPlayer ? { playerYieldCollectionEpochByPlayer: v1.playerYieldCollectionEpochByPlayer } : {})
+      ...(v1.playerYieldCollectionEpochByPlayer ? { playerYieldCollectionEpochByPlayer: v1.playerYieldCollectionEpochByPlayer } : {}),
+      ...(v1.reachBorder ? { reachBorder: v1.reachBorder } : {})
     },
     commandEvents: v1.commandEvents
   };

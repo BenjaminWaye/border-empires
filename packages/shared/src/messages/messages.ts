@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRICKLE_RESOURCE_KEYS } from "../trickle-resources.js";
-import { DiplomacyCounterRefSchema, DiplomacyTermsSchema } from "../diplomacy-terms/diplomacy-terms.js";
+import { DiplomacyCounterRefSchema, DiplomacyGoodsSchema, DiplomacyTermsSchema } from "../diplomacy-terms/diplomacy-terms.js";
 
 const FrontierCommandMetadataSchema = {
   commandId: z.string().min(1).optional(),
@@ -50,14 +50,21 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("CHOOSE_TECH"), techId: z.string().min(1) }),
   // targetPlayerId (optional): address the target by id, so a name shared by two empires can't misdirect the offer.
   z.object({ type: z.literal("ALLIANCE_REQUEST"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional(), terms: DiplomacyTermsSchema.optional(), counters: DiplomacyCounterRefSchema.optional() }),
-  z.object({ type: z.literal("ALLIANCE_ACCEPT"), requestId: z.string().min(1) }),
+  z.object({ type: z.literal("ALLIANCE_ACCEPT"), requestId: z.string().min(1), confirmedResourceSupply: z.boolean().optional() }),
   z.object({ type: z.literal("ALLIANCE_REJECT"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("ALLIANCE_CANCEL"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("ALLIANCE_BREAK"), targetPlayerId: z.string().min(1) }),
   z.object({ type: z.literal("TRUCE_REQUEST"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional(), durationHours: z.union([z.literal(12), z.literal(24)]), terms: DiplomacyTermsSchema.optional(), counters: DiplomacyCounterRefSchema.optional() }),
   // Trade screen: asks how an AI target feels about you, and its prices. Read-only.
+  z.object({ type:z.literal("RESOURCE_TRADE_REQUEST"),targetPlayerName:z.string().min(1),targetPlayerId:z.string().min(1).optional(),terms:DiplomacyTermsSchema }),
+  z.object({ type:z.literal("RESOURCE_TRADE_ACCEPT"),offerId:z.string().min(1).max(128) }),
+  z.object({ type:z.literal("RESOURCE_TRADE_REJECT"),offerId:z.string().min(1).max(128) }),
+  z.object({ type:z.literal("RESOURCE_TRADE_END"),agreementId:z.string().min(1).max(160) }),
+  z.object({ type:z.literal("RESOURCE_TRADE_SYNC") }),
   z.object({ type: z.literal("DIPLOMACY_STANCE_REQUEST"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional() }),
-  z.object({ type: z.literal("TRUCE_ACCEPT"), requestId: z.string().min(1) }),
+  // Trade screen: coin/Shards given to an AI for its goodwill alone (raises its opinion of you; diplomacy-gift.ts). No resource supply: a gift is paid once.
+  z.object({ type: z.literal("DIPLOMACY_GIFT"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional(), gift: DiplomacyGoodsSchema.omit({ resources: true }) }),
+  z.object({ type: z.literal("TRUCE_ACCEPT"), requestId: z.string().min(1), confirmedResourceSupply: z.boolean().optional() }),
   z.object({ type: z.literal("TRUCE_REJECT"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("TRUCE_CANCEL"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("TRUCE_BREAK"), targetPlayerId: z.string().min(1) }),
@@ -112,6 +119,11 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     x: z.number().int(),
     y: z.number().int(),
     structureType: z.enum([
+      "RESIN_EXTRACTOR",
+      "IMPLANT_FOUNDRY",
+      "CATALYST_REFINERY",
+      "CULTIVATION_ESTATE",
+      "RECLAMATION_WORKS",
       "HYDROGARDEN",
       "HYDROWORKS",
       "UMBRITE_RIG",

@@ -1,3 +1,4 @@
+import { mergeResourceTradeHoldings, mergeResourceTradeAgreements } from "../resource-supply-trade-projection.js";
 // Merges a live PLAYER_MESSAGE/TECH_UPDATE/DOMAIN_UPDATE/GLOBAL_STATUS_UPDATE
 // event onto a cached PlayerSubscriptionSnapshot, in place of a full re-export
 // -- shared by two independent consumers:
@@ -52,6 +53,7 @@ const PLAYER_MERGE_RULES = {
   name: () => undefined,
   gold: (p) => (typeof p.gold === "number" ? { gold: p.gold } : undefined),
   manpower: (p) => (typeof p.manpower === "number" ? { manpower: p.manpower } : undefined),
+  nextManpowerBatchAmount: (p) => typeof p.nextManpowerBatchAmount === "number" ? { nextManpowerBatchAmount: p.nextManpowerBatchAmount } : undefined,
   manpowerCap: (p) => (typeof p.manpowerCap === "number" ? { manpowerCap: p.manpowerCap } : undefined),
   manpowerRegenPerMinute: (p) =>
     typeof p.manpowerRegenPerMinute === "number" ? { manpowerRegenPerMinute: p.manpowerRegenPerMinute } : undefined,
@@ -120,6 +122,8 @@ const PLAYER_MERGE_RULES = {
   relicMapHints: p => "relicMapHints" in p ? { relicMapHints: parseRelicMapHints(p.relicMapHints) } : undefined,
   galacticWonderManpowerRegenBonusPerMinute: () => undefined,
   galacticWonderVisionRadiusBonus: () => undefined,
+  resourceTradeHoldings: mergeResourceTradeHoldings,
+  resourceTradeAgreements: mergeResourceTradeAgreements,
   weaponsFactoryCounts: () => undefined
 } as const satisfies Record<keyof PlayerStateSnapshot, PlayerMergeRule>;
 

@@ -59,7 +59,7 @@ describe("WorkerBackedGatewayCommandStore", () => {
       store = new WorkerBackedGatewayCommandStore({ sqlitePath, applySchema: true });
       await store.waitUntilReady();
       await simulationStore.applySchema();
-      for (const [i, type] of (["SYNC_TRUCE", "SYNC_ALLIANCE", "SETTLE_DIPLOMACY_TERMS"] as const).entries()) {
+      for (const [i, type] of (["SYNC_TRUCE", "SYNC_ALLIANCE", "SETTLE_DIPLOMACY_TERMS", "CANCEL_RESOURCE_SUPPLY"] as const).entries()) {
         await simulationStore.persistQueuedCommand({ ...makeCommand(), type, commandId: `social-${i}`, clientSeq: 0 }, 1000 + i);
       }
       await store.close();

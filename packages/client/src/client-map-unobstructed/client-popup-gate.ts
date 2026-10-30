@@ -8,7 +8,7 @@ import { isMapUnobstructed, type MapUnobstructedState } from "./client-map-unobs
 // the personal-activity response -- paints it on top of What's New. Each
 // popup holds itself until nothing else is open or about to open.
 
-export type PopupGateState = MapUnobstructedState & Pick<ClientState, "changelog"> & { activityDashboard: { open: boolean; loading: boolean } };
+export type PopupGateState = MapUnobstructedState & Pick<ClientState, "changelog"> & { activityDashboard: { open: boolean; chronicleOpen?: boolean; loading: boolean } };
 
 /** Upper bound on waiting for the personal-activity response, so a dropped request can't suppress a popup forever. */
 export const POPUP_PENDING_DASHBOARD_GRACE_MS = 10_000;

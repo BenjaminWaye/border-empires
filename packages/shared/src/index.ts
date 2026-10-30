@@ -3,6 +3,9 @@ export * from "./retort-recast.js";
 export * from "./town-terrain-profile.js";
 export * from "./muster-state.js";
 export * from "./diplomacy-terms/diplomacy-terms.js";
+export * from "./truce-extension/truce-extension.js";
+export * from "./diplomacy-gift/diplomacy-gift.js";
+export * from "./diplomacy-betrayal/diplomacy-betrayal.js";
 export * from "./muster-config.js";
 export * from "./manpower-refill.js";
 export * from "./landing-manpower-reserve.js";
@@ -29,6 +32,7 @@ export * from "./exposure/exposure.js";
 export * from "./dock-landing/dock-landing.js";
 export * from "./structure-costs/structure-costs.js";
 export * from "./structure-slots/structure-slots.js";
+export * from "./resource-slot-sources/resource-slot-sources.js";
 export * from "./siphon-mode/siphon-mode.js";
 export * from "./rush-buy/rush-buy.js";
 export * from "./structure-placement.js";
@@ -78,3 +82,13 @@ export * from "./relics/relic-state.js";
 export * from "./relics/relic-resource-reward.js";
 
 export * from "./relics/relic-map-hints.js";
+
+export * from "./resource-networks/resource-networks.js";
+
+export * from "./resource-networks/resource-network-biomes.js";
+
+export * from "./resource-supply-trades/resource-supply-trades.js";
+
+export type { ResourceSupplyPlayerState, ResourceSupplyAgreementStatus } from "./resource-supply-trades/resource-supply-player-state.js";
+export * from "./resource-supply-trades/resource-trade-offers.js";
+export { resourceSupplyCoinValue } from "./resource-supply-trades/resource-supply-valuation.js";

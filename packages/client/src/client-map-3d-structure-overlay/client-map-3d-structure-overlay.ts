@@ -1,3 +1,6 @@
+import { createDistrictOverlay } from "../client-town-district/district-overlay.js";
+import { NETWORK_RESOURCES, RESOURCE_NETWORKS, networkResourceForBuilding, type NetworkBuilding } from "@border-empires/shared";
+import { createNetworkOverlay } from "../client-resource-networks/network-models.js";
 import type { Scene, Texture } from "three";
 import { createStructurePieceBuilder } from "../client-map-3d-structure-builder.js";
 import {
@@ -75,6 +78,7 @@ import { createLazyConstructionPresentation } from "../client-map-3d-constructio
 // whenever the tile carries an observatory record.
 
 export type StructureKind =
+  | NetworkBuilding
   | EconomicStructureKind
   | LateGameStructureKind
   | CivicStructureKind
@@ -89,6 +93,7 @@ export type StructureKind =
 export type { StructureResourceHint } from "../client-map-3d-structure-economic.js";
 
 export const STRUCTURE_KINDS_HANDLED_BY_3D: ReadonlySet<StructureKind> = new Set<StructureKind>([
+  ...NETWORK_RESOURCES.map(resource => RESOURCE_NETWORKS[resource].building),
   ...ECONOMIC_STRUCTURE_KINDS,
   ...LATE_GAME_STRUCTURE_KINDS,
   ...CIVIC_STRUCTURE_KINDS,
@@ -167,6 +172,7 @@ export const createStructureOverlay = (
   // scene.environment.
   buildingEnvironmentTexture?: Texture
 ): StructureOverlay => {
+  const remodeled = createDistrictOverlay(scene, maxTiles, buildingEnvironmentTexture);
   const { builder, clear: clearBuilder, commit: commitBuilder, dispose: disposeBuilder } =
     createStructurePieceBuilder(scene, maxTiles, buildingEnvironmentTexture);
 
@@ -174,6 +180,7 @@ export const createStructureOverlay = (
   // blue crystal) are available to industrial (ORE_REFINERY/ADV_TITANIUM_WORKS
   // reuse the forge palette; the aether condensers reuse the blue
   // crystal material).
+  const network = createNetworkOverlay(scene, maxTiles, true, buildingEnvironmentTexture);
   const economic = registerEconomicStructures(builder);
   const lateGame = registerLateGameStructures(builder);
   const civic = registerCivicStructures(builder);
@@ -250,6 +257,17 @@ export const createStructureOverlay = (
     resource: StructureResourceHint = undefined,
     site: ConstructionSite | undefined = undefined
   ): void => {
+    if (kind === "MINE" || kind === "HARBOR_EXCHANGE") {
+      remodeled.add({ kind: kind === "MINE" && resource === "GEMS" ? "CRYSTAL_MINE" : kind,
+        x: sceneX, y: surfaceY, z: sceneZ, foundation: true, operational: !site, ...(site ? { site } : {}) });
+      return;
+    }
+    const networkResource = networkResourceForBuilding(kind);
+    if (networkResource) {
+      network.add({ x: sceneX, y: surfaceY, z: sceneZ, kind: networkResource, operational: !site, foundation: true, ...(site ? { site } : {}) });
+      contactShadows.addShadow(sceneX, sceneZ, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
+      return;
+    }
     const layout = layouts[kind];
     if (!layout) return;
     if (site) {
@@ -275,6 +293,8 @@ export const createStructureOverlay = (
   // owner (client-map-3d.ts), once, after every caller has had a turn — not
   // here, since this module doesn't own it.
   const clear = (): void => {
+    remodeled.clear();
+    network.clear();
     economic.clear();
     clearBuilder();
     presentation.clear();
@@ -283,16 +303,22 @@ export const createStructureOverlay = (
   return {
     clear,
     addInstance,
-    constructionBoundaryPassed: presentation.boundaryPassed,
+    constructionBoundaryPassed: () => presentation.boundaryPassed() || remodeled.boundaryPassed() || network.boundaryPassed(),
     commit: (): void => {
+      remodeled.commit();
+      network.commit();
       commitBuilder();
       presentation.commit();
     },
     update: (nowMs: number): void => {
+      remodeled.update(nowMs);
+      network.update(nowMs);
       economic.update(nowMs);
       presentation.update(nowMs);
     },
     dispose: (): void => {
+      remodeled.dispose();
+      network.dispose();
       presentation.dispose();
       disposeBuilder();
     }

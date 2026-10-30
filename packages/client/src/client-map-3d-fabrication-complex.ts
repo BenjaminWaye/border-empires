@@ -44,6 +44,10 @@ import {
   Texture,
   Vector3
 } from "three";
+import { createAfcMetalSurface } from "./client-map-3d-afc-surface.js";
+import { afcTurnedCasing } from "./client-map-3d-afc-machining.js";
+import { AFC_ARM_JOINTS } from "./client-map-3d-afc-legs.js";
+import { createAfcFinishGeometry } from "./client-map-3d-afc-finish.js";
 import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 
 export const AFC_SOCKET_COUNT = 8;
@@ -92,11 +96,17 @@ export const createFabricationComplexOverlay = (scene: Scene, maxTiles: number, 
   const DOT_YS = [0.36, 0.585] as const;
 
   // ─── Materials (shared by piece type) ───────────────────────────────
-  const ironMaterial = new MeshStandardMaterial({ color: "#22242a", roughness: 0.5, metalness: 0.55, flatShading: true });
-  const steelMaterial = new MeshStandardMaterial({ color: "#17181d", roughness: 0.62, metalness: 0.5, flatShading: true });
-  const brassMaterial = new MeshStandardMaterial({ color: "#8b6c3d", roughness: 0.42, metalness: 0.85, flatShading: true });
-  const brassDarkMaterial = new MeshStandardMaterial({ color: "#6f5733", roughness: 0.5, metalness: 0.8, flatShading: true });
+  const ironMaterial = new MeshStandardMaterial({ color: "#424b55", roughness: 0.38, metalness: 0.72 });
+  const steelMaterial = new MeshStandardMaterial({ color: "#252e36", roughness: 0.46, metalness: 0.65 });
+  const brassMaterial = new MeshStandardMaterial({ color: "#a68a59", roughness: 0.36, metalness: 0.8 });
+  const brassDarkMaterial = new MeshStandardMaterial({ color: "#806445", roughness: 0.43, metalness: 0.75 });
   const pipeMaterial = new MeshStandardMaterial({ color: "#1d1f25", roughness: 0.68, metalness: 0.35, flatShading: true });
+  const metalSurface = createAfcMetalSurface();
+  for (const material of [ironMaterial, steelMaterial, brassMaterial, brassDarkMaterial]) {
+    material.roughnessMap = metalSurface;
+    material.bumpMap = metalSurface;
+    material.bumpScale = 0.0012;
+  }
   // The fabrication chamber tube: faintly cyan-tinted glass through which the
   // aether core glows. DoubleSide renders the far tube wall when viewed
   // through the near one; depthWrite off lets the core read through it.
@@ -105,11 +115,11 @@ export const createFabricationComplexOverlay = (scene: Scene, maxTiles: number, 
     roughness: 0.25,
     metalness: 0.1,
     transparent: true,
-    opacity: 0.38,
+    opacity: 0.22,
     side: DoubleSide,
     depthWrite: false,
     emissive: "#1b7282",
-    emissiveIntensity: 0.2
+    emissiveIntensity: 0.12
   });
   const coreMaterial = new MeshStandardMaterial({
     color: "#05222a",
@@ -117,7 +127,7 @@ export const createFabricationComplexOverlay = (scene: Scene, maxTiles: number, 
     metalness: 0.15,
     flatShading: true,
     emissive: "#41f6ff",
-    emissiveIntensity: 2.3
+    emissiveIntensity: 1.25
   });
   const dotMaterial = new MeshStandardMaterial({
     color: "#041c24",
@@ -125,27 +135,27 @@ export const createFabricationComplexOverlay = (scene: Scene, maxTiles: number, 
     metalness: 0.1,
     flatShading: true,
     emissive: "#41f6ff",
-    emissiveIntensity: 1.7
+    emissiveIntensity: 1.1
   });
 
   // ─── Geometries (shared) ────────────────────────────────────────────
-  const baseDiscGeo = new CylinderGeometry(0.52, 0.56, 0.07, 14);
-  const bodyLowGeo = new CylinderGeometry(0.36, 0.4, 0.13, 12);
-  const chamberGlassGeo = new CylinderGeometry(0.3, 0.3, 0.46, 14, 1, true);
-  const tierLowGeo = new CylinderGeometry(0.3, 0.34, 0.13, 12);
-  const tierMidGeo = new CylinderGeometry(0.26, 0.3, 0.11, 12);
-  const tierHighGeo = new CylinderGeometry(0.2, 0.24, 0.11, 12);
-  const topCapGeo = new ConeGeometry(0.16, 0.14, 10);
+  const baseDiscGeo = afcTurnedCasing(0.52, 0.56, 0.07);
+  const bodyLowGeo = afcTurnedCasing(0.36, 0.4, 0.13);
+  const chamberGlassGeo = new CylinderGeometry(0.3, 0.3, 0.46, 48, 1, true);
+  const tierLowGeo = afcTurnedCasing(0.3, 0.34, 0.13);
+  const tierMidGeo = afcTurnedCasing(0.26, 0.3, 0.11);
+  const tierHighGeo = afcTurnedCasing(0.2, 0.24, 0.11);
+  const topCapGeo = new ConeGeometry(0.16, 0.14, 32);
   const coreGeo = new IcosahedronGeometry(0.13, 0);
   const dotGeo = new OctahedronGeometry(0.022, 0);
-  const socketPadGeo = new CylinderGeometry(0.19, 0.21, 0.04, 12);
-  const socketRingGeo = new CylinderGeometry(0.16, 0.16, 0.13, 12, 1, true);
-  const socketCollarGeo = new TorusGeometry(0.16, 0.02, 6, 14);
+  const socketPadGeo = new CylinderGeometry(0.19, 0.21, 0.04, 24);
+  const socketRingGeo = new CylinderGeometry(0.16, 0.16, 0.13, 32, 1, true);
+  const socketCollarGeo = new TorusGeometry(0.16, 0.02, 8, 32);
   const cableGeo = new CylinderGeometry(0.045, 0.045, 1, 7);
   const shoulderGeo = new TorusGeometry(0.075, 0.026, 6, 12);
-  const upperArmGeo = new CylinderGeometry(0.042, 0.05, 1, 8);
+  const upperArmGeo = new CylinderGeometry(0.042, 0.05, 1, 8).scale(0.62, 1, 0.62);
   const elbowGeo = new TorusGeometry(0.065, 0.022, 6, 12);
-  const forearmGeo = new CylinderGeometry(0.034, 0.042, 1, 8);
+  const forearmGeo = new CylinderGeometry(0.034, 0.042, 1, 8).scale(0.65, 1, 0.65);
   const clawGeo = new CylinderGeometry(0.028, 0.034, 1, 7);
 
   // ─── InstancedMesh registry ────────────────────────────────────────
@@ -185,6 +195,16 @@ export const createFabricationComplexOverlay = (scene: Scene, maxTiles: number, 
   make("elbow", elbowGeo, brassDarkMaterial, 4);
   make("forearm", forearmGeo, ironMaterial, 4);
   make("claw", clawGeo, steelMaterial, 4);
+
+  const finish = createAfcFinishGeometry();
+  const armourFinishMaterial = ironMaterial.clone();
+  armourFinishMaterial.color.set("#ffffff");
+  armourFinishMaterial.vertexColors = true;
+  const signalMaterial = new MeshStandardMaterial({ color: "#123744", roughness: 0.35, metalness: 0.3, emissive: "#19badd", emissiveIntensity: 0.65 });
+  make("finishArmour", finish.armour, armourFinishMaterial, 1);
+  make("finishTrim", finish.trim, brassMaterial, 1);
+  make("finishInset", finish.inset, pipeMaterial, 1);
+  make("finishLight", finish.light, signalMaterial, 1);
 
   // ─── Helpers ────────────────────────────────────────────────────────
   const matrix = new Matrix4();
@@ -247,7 +267,7 @@ export const createFabricationComplexOverlay = (scene: Scene, maxTiles: number, 
 
   const addPieceAlong = (key: string, wx: number, sy: number, wz: number, ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, len: number): void => {
     const e = eulerFromDir(dx, dy, dz);
-    addPiece(key, wx, sy, wz, ox, oy, oz, 1, len, 1, e.ry, e.rx, e.rz);
+    addPiece(key, wx, sy, wz, ox, oy, oz, 1, 1, len, e.ry, e.rx, e.rz);
   };
 
   const addTorusAlong = (key: string, wx: number, sy: number, wz: number, ox: number, oy: number, oz: number, dx: number, dy: number, dz: number): void => {
@@ -310,27 +330,30 @@ export const createFabricationComplexOverlay = (scene: Scene, maxTiles: number, 
   // Manipulator_Arm: a spider arm splaying out from the upper machinery,
   // angled downward toward the module area and ending in the gap between two
   // bays. Two chunky segments (upper arm, forearm) with obvious circular
-  // brass knuckles (shoulder, elbow) and a heavy drooping claw.
+  // brass knuckles (shoulder, elbow) and a grounded stabilizer claw.
   const addManipulatorArm = (wx: number, sy: number, wz: number, ang: number): void => {
     const dx = Math.cos(ang);
     const dz = Math.sin(ang);
     const px = -dz;
     const pz = dx;
-    const shoulderR = 0.33;
-    const elbowR = 0.64;
-    const wristR = 1.14;
-    const shoulderY = 0.78;
-    const elbowY = 0.56;
-    const wristY = 0.4;
+    const shoulderR = AFC_ARM_JOINTS.shoulder.radius;
+    const elbowR = AFC_ARM_JOINTS.elbow.radius;
+    const wristR = AFC_ARM_JOINTS.wrist.radius;
+    const shoulderY = AFC_ARM_JOINTS.shoulder.height;
+    const elbowY = AFC_ARM_JOINTS.elbow.height;
+    const wristY = AFC_ARM_JOINTS.wrist.height;
     addTorusAlong("shoulder", wx, sy, wz, dx * shoulderR, shoulderY, dz * shoulderR, px, 0, pz);
-    addPieceAlong("upperArm", wx, sy, wz, dx * shoulderR, shoulderY, dz * shoulderR, dx * (elbowR - shoulderR), elbowY - shoulderY, dz * (elbowR - shoulderR), Math.hypot(elbowR - shoulderR, shoulderY - elbowY));
+    addPieceAlong("upperArm", wx, sy, wz, dx * (shoulderR + elbowR) / 2, (shoulderY + elbowY) / 2, dz * (shoulderR + elbowR) / 2, dx * (elbowR - shoulderR), elbowY - shoulderY, dz * (elbowR - shoulderR), Math.hypot(elbowR - shoulderR, shoulderY - elbowY));
     addTorusAlong("elbow", wx, sy, wz, dx * elbowR, elbowY, dz * elbowR, px, 0, pz);
-    addPieceAlong("forearm", wx, sy, wz, dx * elbowR, elbowY, dz * elbowR, dx * (wristR - elbowR), wristY - elbowY, dz * (wristR - elbowR), Math.hypot(wristR - elbowR, elbowY - wristY));
-    addPieceAlong("claw", wx, sy, wz, dx * wristR, wristY, dz * wristR, dx * 0.14, 0.26 - wristY, dz * 0.14, Math.hypot(0.14, wristY - 0.26));
+    addPieceAlong("forearm", wx, sy, wz, dx * (elbowR + wristR) / 2, (elbowY + wristY) / 2, dz * (elbowR + wristR) / 2, dx * (wristR - elbowR), wristY - elbowY, dz * (wristR - elbowR), Math.hypot(wristR - elbowR, elbowY - wristY));
+    addPieceAlong("claw", wx, sy, wz, dx * (wristR + 0.07), (wristY + 0.055) / 2, dz * (wristR + 0.07), dx * 0.14, 0.055 - wristY, dz * 0.14, Math.hypot(0.14, wristY - 0.055));
   };
 
   const addAfc = (wx: number, sy: number, wz: number): void => {
     addCentralPrinter(wx, sy, wz);
+    for (const key of ["finishArmour", "finishTrim", "finishInset", "finishLight"]) {
+      addPiece(key, wx, sy, wz, 0, 0, 0);
+    }
     for (let k = 0; k < AFC_SOCKET_COUNT; k += 1) {
       const ang = (k * Math.PI) / 4;
       addModuleSocket(wx, sy, wz, ang);
@@ -426,9 +449,13 @@ export const createFabricationComplexOverlay = (scene: Scene, maxTiles: number, 
   };
 
   const dispose = (): void => {
-    for (const slot of slots.values()) scene.remove(slot.mesh);
+    for (const slot of slots.values()) {
+      scene.remove(slot.mesh);
+      slot.mesh.dispose();
+    }
     for (const g of ownedGeos) g.dispose();
     for (const m of ownedMaterials) m.dispose();
+    metalSurface.dispose();
   };
 
   return { clear, addInstance, commit, update, dispose, moduleSocketAttachments };

@@ -4,6 +4,7 @@ import {
 import type { StructureInfoKey } from "./client-map-display.js";
 
 export type StructureBaseKey =
+  | import("@border-empires/shared").NetworkBuilding
   | "FORT"
   | "OBSERVATORY"
   | "SIEGE_BATTERY"

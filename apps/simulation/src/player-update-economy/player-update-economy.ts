@@ -1,3 +1,6 @@
+import { allocateNetworkCredit, networkSupplyStatus, resourceNetworkTownCredit } from "../resource-networks/resource-network-credit.js";
+import { developedNetworkSites } from "../resource-networks/resource-networks.js";
+import type { NetworkCreditAllocation } from "../resource-networks/resource-network-credit.js";
 import type { DomainPlayer, DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 
 import {
@@ -53,6 +56,8 @@ type UpkeepLastTick = {
 };
 
 export type PlayerUpdateEconomySnapshot = {
+  resourceTradeProjection?: import("../resource-supply-trades/resource-supply-projection-cache.js").ResourceSupplyProjectionCache;
+  networkSupply?: import("@border-empires/shared").NetworkSupplyStatus | undefined;
   incomePerMinute: number;
   strategicProductionPerMinute: Record<StrategicResourceKey, number>;
   upkeepPerMinute: UpkeepPerMinute;
@@ -168,7 +173,8 @@ export const townGoldPerMinuteForPlayer = (
   // town's support ring — see supportedConverterGoldPerMinuteForTown.
   // Excluded for SETTLEMENT-tier towns via the early return below, same gate
   // MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN already uses.
-  converterGoldPerMinute: number = 0
+  converterGoldPerMinute: number = 0,
+  networkCreditByTown: NetworkCreditAllocation = new Map()
 ): number => {
   const incomeMultiplier = player.mods?.income ?? 1;
   const tileKey = `${tile.x},${tile.y}`;
@@ -208,7 +214,7 @@ export const townGoldPerMinuteForPlayer = (
     firstThreeTownMult *
     incomeMultiplier *
     PASSIVE_INCOME_MULT
-  ) + MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN * manufactoryCount + converterGoldPerMinute;
+  ) + MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN * manufactoryCount + converterGoldPerMinute + resourceNetworkTownCredit(tile, networkCreditByTown).total;
 };
 
 export { refreshTownEconomyFields } from "./player-update-economy-refresh.js";
@@ -233,7 +239,8 @@ export const buildPlayerUpdateEconomySnapshot = (
   // Capture resets modeLockedUntil as its shock timer (capture-structures.ts,
   // no separate captureShockUntil field) — EXCHANGE payout is suppressed
   // while mode is locked, from a build, flip, or capture reset alike.
-  now: number = Date.now()
+  now: number = Date.now(),
+  suppliedSites?: import("@border-empires/shared").NetworkSiteCounts
 ): PlayerUpdateEconomySnapshot => {
   const incomeMultiplier = player.mods?.income ?? 1;
   let countedAfcBaseline = false;
@@ -255,6 +262,8 @@ export const buildPlayerUpdateEconomySnapshot = (
   const strategicProductionPerMinute = buildStrategicProductionForSettledTiles(summary, settledTiles, hydroworksKeys);
 
   const fedTownKeys = buildFedTownKeys(player.id, summary, tiles, foodDormantTownKeys);
+  const sites = suppliedSites ?? developedNetworkSites(settledTiles, player.id, dormantEconomicStructureKeys, player.techIds);
+  const networkCreditByTown = allocateNetworkCredit(player.id, tiles, fedTownKeys, dormantEconomicStructureKeys, sites);
   const goldSources = new Map<string, EconomyBucket>();
   const goldSinks = new Map<string, EconomyBucket>();
   const foodSources = new Map<string, EconomyBucket>();
@@ -339,13 +348,18 @@ export const buildPlayerUpdateEconomySnapshot = (
         firstThreeTownKeys,
         connectedClearingHouseKeys,
         dormantEconomicStructureKeys,
-        converterTownBonusByTileKey.get(tileKey) ?? 0
+        converterTownBonusByTileKey.get(tileKey) ?? 0,
+        networkCreditByTown
       );
       // townGoldOutputMult excludes SETTLEMENT-tier towns, same exclusion
       // townGoldCapMult used before it — a fresh settlement's flat base rate
       // isn't meant to be boosted by administrative/treasury domains.
       const goldPerMinute = isSettlement ? rawGoldPerMinute : rawGoldPerMinute * townGoldOutputMult;
-      if (goldPerMinute > 0) addBucket(goldSources, "Towns", goldPerMinute, { count: 1 });
+      const networkCredit = resourceNetworkTownCredit(tile, networkCreditByTown);
+      const networkMultiplier = isSettlement ? 1 : townGoldOutputMult;
+      if (goldPerMinute > 0) addBucket(goldSources, "Towns", goldPerMinute - networkCredit.total * networkMultiplier, { count: 1 });
+      addBucket(goldSources, "Precursor reclamation", networkCredit.salvage * networkMultiplier);
+      addBucket(goldSources, "Frontier export concessions", networkCredit.exports * networkMultiplier);
       addBucket(foodSinks, "Town", townFoodUpkeepPerMinute(town.populationTier), { count: 1 });
     }
     // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md):
@@ -410,6 +424,7 @@ export const buildPlayerUpdateEconomySnapshot = (
 
   return {
     incomePerMinute,
+    networkSupply: networkSupplyStatus(sites, networkCreditByTown, settledTiles, dormantEconomicStructureKeys),
     strategicProductionPerMinute: {
       FOOD: Number((strategicProductionPerMinute.FOOD * integrityEconMult).toFixed(6)),
       TITANIUM: Number((strategicProductionPerMinute.TITANIUM * integrityEconMult).toFixed(6)),

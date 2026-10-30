@@ -1,3 +1,4 @@
+import { applyResourceTradeState } from "../client-diplomacy-trade/client-resource-trade-state.js";
 import { applyRelicAndProgressionUpdate } from "../client-relic-overlay/relic-map-hints.js";
 import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
 import { isChosenTrickleResource } from "@border-empires/shared";
@@ -171,6 +172,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     (player.strategicResources as typeof state.strategicResources | undefined) ?? state.strategicResources;
   state.strategicProductionPerMinute =
     (player.strategicProductionPerMinute as typeof state.strategicProductionPerMinute | undefined) ?? state.strategicProductionPerMinute;
+  applyResourceTradeState(state, player, true);
   state.resourceSlots = (player.resourceSlots as typeof state.resourceSlots | undefined) ?? state.resourceSlots;
   state.dormantStructures = (player.dormantStructures as typeof state.dormantStructures | undefined) ?? state.dormantStructures;
   state.eventLog = (player.eventLog as typeof state.eventLog | undefined) ?? state.eventLog;
@@ -184,6 +186,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.stamina = (player.stamina as number | undefined) ?? state.stamina;
   state.manpower = (player.manpower as number | undefined) ?? state.manpower;
   state.manpowerCap = (player.manpowerCap as number | undefined) ?? state.manpowerCap;
+  state.nextManpowerBatchAmount = typeof player.nextManpowerBatchAmount === "number" ? player.nextManpowerBatchAmount : undefined;
   state.manpowerRegenPerMinute = (player.manpowerRegenPerMinute as number | undefined) ?? state.manpowerRegenPerMinute;
   state.logisticsThroughputPerMinute = (player.logisticsThroughputPerMinute as number | undefined) ?? state.logisticsThroughputPerMinute;
   state.settledT = (player.Ts as number) ?? state.settledT;

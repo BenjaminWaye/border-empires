@@ -1,0 +1,73 @@
+/* Town nameplates: a HUD v2 panel in miniature (flat ink, square corners,
+   1px edge), the owner colour as a line along the bottom, and the status in a
+   small nav-bubble on the left. Values mirror client-hud-v2.css tokens. */
+.town-plate-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+/* Positioned by an inline transform from the top-left corner (see client-town-nameplates.ts). */
+.town-plate {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 50% 100%;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+.town-plate-body {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 24px;
+  box-sizing: border-box;
+  padding: 0 10px 1px;
+  background: rgba(15, 13, 10, 0.94);
+  border: 1px solid #8a6f35;
+  box-shadow: inset 0 -2px 0 var(--town-plate-owner, #8a6f35), 0 4px 8px rgba(0, 0, 0, 0.55);
+}
+.town-plate-name {
+  font: 700 12px/1 var(--sp-font-display, "Cinzel", Georgia, serif);
+  letter-spacing: 0.06em;
+  color: #ece2cc;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.town-plate-pop {
+  font: 400 10.5px/1 var(--sp-font-mono, "Space Mono", monospace);
+  color: #a8997c;
+}
+.town-plate:not(.town-plate-own) .town-plate-body {
+  height: 21px;
+  border-color: #5a4828;
+}
+.town-plate:not(.town-plate-own) .town-plate-name {
+  font-size: 10.5px;
+  color: #a8997c;
+}
+.town-plate-has-status .town-plate-body { padding-left: 12px; }
+.town-plate-badge {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  margin-right: -6px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 1px solid #8a6f35;
+  background: #16130e;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.55);
+}
+.town-plate-badge img,
+.town-plate-slash {
+  grid-area: 1 / 1;
+  width: 17px;
+  height: 17px;
+}

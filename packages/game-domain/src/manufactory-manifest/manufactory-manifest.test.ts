@@ -16,3 +16,12 @@ describe("Manufactory Manifest compatibility", () => {
     expect(techTree.techs.find((tech) => tech.id === "urban-mintworks")?.name).toBe("Imperial Exchange Dossier");
   });
 });
+
+
+it("bundles resource processing with the existing Depot and Manufactory commissions", () => {
+  expect(techTree.techs.find(tech => tech.id === "organized-supply")?.effects)
+    .toMatchObject({ unlockAncillaryDepot: true, unlockImplantFoundry: true });
+  expect(techTree.techs.find(tech => tech.id === "trade")?.effects)
+    .toMatchObject({ unlockManufactory: true, unlockReclamationWorks: true });
+  expect(techTree.techs.some(tech => ["implant-metallurgy", "salvage-reclamation"].includes(tech.id))).toBe(false);
+});

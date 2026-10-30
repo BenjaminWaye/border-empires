@@ -45,10 +45,15 @@ export const renderStructureIdentityReview = (kinds: readonly StructureInfoKey[]
   const details = document.createElement("div");
   details.style.cssText = "padding:16px 20px 24px;background:#18232b;color:#cbd6d8;font:15px/1.6 system-ui";
   let index = 0;
+  const resource = document.createElement("select");
+  resource.setAttribute("aria-label", "Mine resource");
+  resource.innerHTML = '<option value="TITANIUM">Titanium</option><option value="GEMS">Crystal</option>';
+  resource.style.cssText = select.style.cssText;
   const rebuild = (): void => {
     const kind = kinds[index]; if (!kind) return;
     select.value = kind;
-    model?.dispose(); model = createStructureReviewModel(stage.scene, kind, environment.texture);
+    model?.dispose(); model = createStructureReviewModel(stage.scene, kind, environment.texture, true, resource.value === "GEMS" ? "GEMS" : "TITANIUM");
+    resource.hidden = kind !== "MINE";
     const center = model.bounds.getCenter(new Vector3()), size = model.bounds.getSize(new Vector3());
     const radius = Math.max(size.x, size.y, size.z, 0.5);
     controls.target.copy(center); stage.camera.position.copy(center).add(new Vector3(1.2, 1, 1.6).multiplyScalar(radius * 2));
@@ -70,7 +75,8 @@ export const renderStructureIdentityReview = (kinds: readonly StructureInfoKey[]
     element.onclick = () => { index = (index + step + kinds.length) % kinds.length; rebuild(); }; return element;
   };
   select.onchange = () => { index = kinds.findIndex(kind => kind === select.value); rebuild(); };
-  bar.append(button("Previous", -1), select, button("Next", 1), count);
+  resource.onchange = rebuild;
+  bar.append(button("Previous", -1), select, button("Next", 1), resource, count);
   rebuild();
   let raf = 0;
   const tick = (): void => { controls.update(); model?.update(performance.now()); raf = requestAnimationFrame(tick); }; tick();

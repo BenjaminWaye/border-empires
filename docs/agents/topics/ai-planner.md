@@ -130,6 +130,19 @@ consolidation, planning cadence), not deletion.
 
 ## Known pitfalls
 
+- **Victory progress must come from world standings, not self-relative
+  targets.** `victory-path-scoring.ts`'s heuristic fallback compares an AI
+  with itself (towns vs settled/5, 6 tiles of a resource, 3 docks), so every
+  AI read as already winning, locked onto its path and reported
+  `needVector.VICTORY = 0` (prod season-13, 2026-10-27). The worker producer
+  now attaches real progress (`ai-victory-standings.ts`); check a decision
+  diagnostic's `victoryPath.source` is `"world"` before trusting its
+  progress. The direct (non-worker) planner still uses the heuristic.
+- **Food-relief re-enable must target SETTLED tiles.** The runtime refuses
+  to enable a structure on any other tile, and the rejection only cools the
+  class down for 10s, so a FRONTIER beacon was retried forever (15 of 20 prod
+  AIs, 2026-10-27).
+
 - **Relay ocean filtering must retain water inside existing reach.**
   `relay-beacon-command-planner.ts` excludes existing reach from new-coverage
   credit, but must still classify visible water there for
@@ -140,6 +153,23 @@ consolidation, planning cadence), not deletion.
   and that previously deadlocked exploration. Regression coverage lives in
   `relay-beacon-coastal-reach.test.ts`, including wraparound, inland fog,
   narrow straits, known prizes and bounded lookup work.
+
+- **Out-of-reach dock crossings are a planner fallback.** EXPAND is never
+  runtime reach-gated (game-domain validation ignores `isInReach`); the
+  planner's reach gate in `frontier-command-planner.ts` is AI policy, because
+  out-of-reach land can't be settled. Dock tiles are the exception —
+  auto-settle exempts town/dock tiles from reach — so the planner defers
+  out-of-reach dock crossings and scores them only when the scan finds no
+  in-reach neutral target (deferring keeps healthy AIs from hopping docks
+  early). Its >150-origin border prefilter must also keep linked docks.
+  Gating them outright left saturated-island AIs on WAIT with
+  `BLOCKED_NO_REACHABLE_BEACON_SITE`. That label is the generic "has
+  frontier, no action" fallback in `automation-action-admission.ts`, not
+  proof a beacon was the missing move. Separately, a large empire's scan can
+  be anchored on interior FRONTIER tiles with no non-owned neighbour (prod
+  ai-9, 2026-10-28: 18 origins, 144 candidates, 1,270 frontier tiles) and
+  stall for that reason instead. Regression coverage:
+  `frontier-command-planner-dock-reach.test.ts`.
 
 - The AI decision-diagnostics buffer (`recordAiDecisionDiagnosticFromPlanner`)
   looks like write-only "record-then-never-read" — but it **is** read via the

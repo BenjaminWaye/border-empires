@@ -4,6 +4,7 @@ import { isPlanetaryDefenseOwnerId } from "../client-planetary-defense-style.js"
 import type { ClientState } from "../client-state/client-state.js";
 import { combatCardText, combatGroupCardText, siegeCardText } from "./client-activity-dashboard-combat-text.js";
 import { featureListLabel, featuresPart } from "./client-activity-dashboard-features.js";
+import { diplomacyCardText } from "./client-activity-dashboard-diplomacy-text.js";
 import { nameOf, roundedAmount, type PlayerNameLookup } from "./client-activity-dashboard-names.js";
 
 export type { PlayerNameLookup };
@@ -135,6 +136,7 @@ export const activityCardText = (card: PersonalActivityCard, playerId: string, p
   if (card.kind === "TOWN_CAPTURED" || card.kind === "TOWN_LOST") return townCardText(card, playerNames);
   if (card.kind === "DOCK_CAPTURED" || card.kind === "DOCK_LOST") return dockCardText(card, playerNames);
   if (card.kind === "BUILDING_COMPLETED") return buildingCardText(card);
+  if (card.kind === "DIPLOMACY") return diplomacyCardText(card, playerId, playerNames);
   if (card.kind === "TRUNCATION_NOTE") return `${card.hiddenCount} smaller event${card.hiddenCount === 1 ? "" : "s"} not shown`;
   // A card kind from a newer server than this client: say something true
   // rather than misreading it as a truncation note.
@@ -143,9 +145,9 @@ export const activityCardText = (card: PersonalActivityCard, playerId: string, p
 
 export const activityCardTimeLabel = (card: PersonalActivityCard): string => timeLabel(card.occurredAt);
 
-/** Every concrete activity card carries a map location; the truncation note never does. */
+/** Map events carry a location; the truncation note and diplomacy rows (between empires, not on a tile) never do. */
 export const activityCardCoordinates = (card: PersonalActivityCard): { x: number; y: number } | undefined =>
-  card.kind === "TRUNCATION_NOTE" ? undefined : { x: card.x, y: card.y };
+  card.kind === "TRUNCATION_NOTE" || card.kind === "DIPLOMACY" ? undefined : { x: card.x, y: card.y };
 
 /** The "(x, y)" tile label shown on a timeline row, matching the feed's coordinate format. */
 export const activityCardCoordinatesLabel = (card: PersonalActivityCard): string | undefined => {

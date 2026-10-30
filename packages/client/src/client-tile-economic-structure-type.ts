@@ -4,6 +4,7 @@ export type ClientTileEconomicStructure = {
   ownerId: string;
   supportAnchor?: { x: number; y: number } | null;
   type:
+    | import("@border-empires/shared").NetworkBuilding
     | "HYDROGARDEN"
     | "HYDROWORKS"
     | "UMBRITE_RIG"

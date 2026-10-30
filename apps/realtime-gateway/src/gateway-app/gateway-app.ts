@@ -75,9 +75,8 @@ import { createRevealMapChunkCache, type RevealMapPayloadSet } from "../reveal-m
 import { buildInitMessage, INIT_RECOVERY_TIMEOUT_MS } from "../reconnect-recovery/reconnect-recovery.js"; import { handleJoinSeasonMessage } from "./handle-join-season-message.js"; import { handleSetTileColorMessage } from "./handle-set-tile-color-message.js"; import { handleSetHintStateMessage, hintStateInitFields } from "./handle-set-hint-state-message.js"; import { handleSetProfileMessage } from "./handle-set-profile-message.js"; import { handleSetEmailNotificationPrefsMessage, emailNotificationPrefsInitFields } from "./handle-set-email-notification-prefs-message.js"; import { handleRequestPersonalActivityMessage, handleAcknowledgeActivitySeenMessage } from "./handle-activity-timeline-messages.js"; import { handleRequestWorldPulseMessage } from "./handle-world-pulse-message.js"; import { createWorldPulseActivitySource } from "../activity-api/world-pulse-activity-source.js";
 import { createSimulationClient, type SimulationClientEvent } from "../sim-client/sim-client.js";
 import { selectSocketsForEvent, selectSocketsForTileDeltaBatchByPlayer } from "../socket-routing/socket-routing.js";
-import { createSocialState, type SocialStateSink } from "../social-state/social-state.js";
 import { createGatewaySocialStore } from "../social-store-factory.js";
-import { buildSocialStateSink } from "./build-social-state-sink.js";
+import { buildGatewaySocialState } from "./build-social-state-sink.js";
 import { applyTileDeltasToSnapshot } from "../subscription-snapshot-sync/subscription-snapshot-sync.js";
 import { mergeTileDetailIntoSnapshot } from "../tile-detail-merge/tile-detail-merge.js";
 import { supportedClientMessageTypes } from "../supported-client-messages/supported-client-messages.js";
@@ -755,13 +754,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const persistedSocialSnapshot = socialStore.loadSnapshot();
   if (options.now) socialStore.pruneExpired(options.now());
   else socialStore.pruneExpired(Date.now());
-  const socialStateSink: SocialStateSink = buildSocialStateSink(socialStore);
-  const socialState = createSocialState({
-    ...(options.now ? { now: options.now } : {}),
-    players: initialSocialPlayers,
-    initial: persistedSocialSnapshot,
-    sink: socialStateSink
-  });
+  const socialState = buildGatewaySocialState(socialStore, persistedSocialSnapshot, initialSocialPlayers, options.now);
   const fallbackTileDeltasByCommandId = new Map<
     string,
     Array<{ x: number; y: number; ownerId?: string; ownershipState?: string }>
@@ -1323,7 +1316,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             actionType: event.actionType,
             origin: { x: event.originX, y: event.originY },
             target: { x: event.targetX, y: event.targetY },
-            resolvesAt: event.resolvesAt, ...(event.transitEndsAt !== undefined ? { transitEndsAt: event.transitEndsAt, musterOrigin: { x: event.musterOriginX, y: event.musterOriginY } } : {}) // ADVANCE/MARCH travel-time delay -- EXPAND's only broadcast (no COMBAT_START), so must carry it here or the marching overlay never renders for it
+            resolvesAt: event.resolvesAt, serverNow: Date.now(), ...(event.transitEndsAt !== undefined ? { transitEndsAt: event.transitEndsAt, musterOrigin: { x: event.musterOriginX, y: event.musterOriginY } } : {}) // ADVANCE/MARCH travel-time delay -- EXPAND's only broadcast (no COMBAT_START), so must carry it here or the marching overlay never renders for it
           });
           if (event.actionType !== "EXPAND") {
             queueOrSendSessionPayload(socket, {
@@ -1331,7 +1324,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               commandId: event.commandId,
               origin: { x: event.originX, y: event.originY },
               target: { x: event.targetX, y: event.targetY },
-              resolvesAt: event.resolvesAt,
+              resolvesAt: event.resolvesAt, serverNow: Date.now(),
               ...(event.combatResult ? { result: event.combatResult } : {}), ...(event.transitEndsAt !== undefined ? { transitEndsAt: event.transitEndsAt, musterOrigin: { x: event.musterOriginX, y: event.musterOriginY } } : {}) // ADVANCE/MARCH travel-time delay
             });
           }
@@ -2337,7 +2330,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           if (message.type === "SET_HINT_STATE") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleSetHintStateMessage({ playerId: session.playerId, dismissedHints: message.dismissedHints, hintsMuted: message.hintsMuted, onboardingChecklistCompleted: message.onboardingChecklistCompleted, musterUnlockedSeasonId: message.musterUnlockedSeasonId, dashboardQuietedSeasonId: message.dashboardQuietedSeasonId, profileStore, invalidateProfileCache, sendJson: (payload) => sendJson(socket, payload) }); return; }
 
           if (message.type === "SET_PROFILE") { await handleSetProfileMessage({ playerId: session.playerId, displayName: message.displayName, color: message.color, canToggleFog: session.canToggleFog, buildTakenColorSet, incrementColorCollisionRejectedTotal: () => gatewayMetrics.incrementColorCollisionRejectedTotal(), buildTakenNameSet, incrementDisplayNameCollisionRejectedTotal: () => gatewayMetrics.incrementDisplayNameCollisionRejectedTotal(), runExclusive: runProfileExclusive, profileStore, invalidateProfileCache, profileOverrides, getCurrentSeasonId: async () => { try { return (await simulationClient.getCurrentSeasonSummary()).seasonId; } catch { return undefined; } }, renamePlayer: socialState.renamePlayer, sendJson: (payload) => sendJson(socket, payload), allSockets: () => playerSubscriptions.allSockets(), socketsForPlayer: (playerId) => playerSubscriptions.socketsForPlayer(playerId), queueOrSendSessionPayload: (targetSocket, targetPayload) => queueOrSendSessionPayload(targetSocket as import("ws").WebSocket, targetPayload), preSerializeBroadcast }); return; }
-          if (message.type === "SET_EMAIL_NOTIFICATION_PREFS") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleSetEmailNotificationPrefsMessage({ playerId: session.playerId, prefs: message.prefs, profileStore, invalidateProfileCache, sendJson: (payload) => sendJson(socket, payload) }); return; } if (message.type === "REQUEST_PERSONAL_ACTIVITY") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleRequestPersonalActivityMessage({ playerId: session.playerId, now: () => Date.now(), getPersonalActivityTimeline: (playerId, from, to) => simulationClient.getPersonalActivityTimeline(playerId, from, to), recordPayloadBytes: (bytes) => gatewayMetrics.observeActivityTimelinePayloadBytes(bytes), recordCardCount: (count) => gatewayMetrics.observeActivityTimelineCardCount(count), recordTruncated: () => gatewayMetrics.incrementActivityTimelineTruncatedTotal(), sendJson: (payload) => sendJson(socket, payload) }); return; } if (message.type === "REQUEST_WORLD_PULSE") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleRequestWorldPulseMessage({ playerId: session.playerId, getActivity: getWorldPulseActivity, profileStore, invalidateProfileCache, recordPayloadBytes: (bytes) => gatewayMetrics.observeWorldPulsePayloadBytes(bytes), sendJson: (payload) => sendJson(socket, payload) }); return; } if (message.type === "ACKNOWLEDGE_ACTIVITY_SEEN") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleAcknowledgeActivitySeenMessage({ playerId: session.playerId, seenAt: message.seenAt, seasonId: message.seasonId, now: () => Date.now(), getCurrentSeasonId: async () => { try { return (await simulationClient.getCurrentSeasonSummary()).seasonId; } catch { return undefined; } }, profileStore, invalidateProfileCache, sendJson: (payload) => sendJson(socket, payload) }); return; }
+          if (message.type === "SET_EMAIL_NOTIFICATION_PREFS") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleSetEmailNotificationPrefsMessage({ playerId: session.playerId, prefs: message.prefs, profileStore, invalidateProfileCache, sendJson: (payload) => sendJson(socket, payload) }); return; } if (message.type === "REQUEST_PERSONAL_ACTIVITY") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleRequestPersonalActivityMessage({ playerId: session.playerId, now: () => Date.now(), getPersonalActivityTimeline: (playerId, from, to) => simulationClient.getPersonalActivityTimeline(playerId, from, to), getDiplomacyCards: (playerId, from, to) => socialState.diplomacyActivityCards(playerId, from, to), recordPayloadBytes: (bytes) => gatewayMetrics.observeActivityTimelinePayloadBytes(bytes), recordCardCount: (count) => gatewayMetrics.observeActivityTimelineCardCount(count), recordTruncated: () => gatewayMetrics.incrementActivityTimelineTruncatedTotal(), sendJson: (payload) => sendJson(socket, payload) }); return; } if (message.type === "REQUEST_WORLD_PULSE") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleRequestWorldPulseMessage({ playerId: session.playerId, getActivity: getWorldPulseActivity, profileStore, invalidateProfileCache, recordPayloadBytes: (bytes) => gatewayMetrics.observeWorldPulsePayloadBytes(bytes), sendJson: (payload) => sendJson(socket, payload) }); return; } if (message.type === "ACKNOWLEDGE_ACTIVITY_SEEN") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleAcknowledgeActivitySeenMessage({ playerId: session.playerId, seenAt: message.seenAt, seasonId: message.seasonId, now: () => Date.now(), getCurrentSeasonId: async () => { try { return (await simulationClient.getCurrentSeasonSummary()).seasonId; } catch { return undefined; } }, profileStore, invalidateProfileCache, sendJson: (payload) => sendJson(socket, payload) }); return; }
 
           if (await diplomacySocket.handleMessage(message, session, socket)) return;
 

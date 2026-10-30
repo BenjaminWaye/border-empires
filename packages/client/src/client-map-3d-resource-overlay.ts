@@ -1,3 +1,6 @@
+import { networkVariantForTile } from "./client-resource-networks/network-variants.js";
+import { isNetworkResource, type NetworkResource } from "@border-empires/shared";
+import { createNetworkOverlay } from "./client-resource-networks/network-models.js";
 import {
   BoxGeometry,
   ConeGeometry,
@@ -25,7 +28,7 @@ import { createResourceOverlayAssets } from "./client-map-3d-resource-overlay-as
 // client-map-3d-fishing/client-map-3d-fishing.ts, client-map-3d-titanium-deposit.ts,
 // client-map-3d-umbrite-deposit.ts) and are never routed here — only GEMS
 // remains generic.
-export type ResourceKind = "GEMS";
+export type ResourceKind = "GEMS" | NetworkResource;
 export type ResourceVariant = 0 | 1 | 2;
 
 const variantHash = (worldX: number, worldZ: number, salt: number): ResourceVariant => {
@@ -48,6 +51,7 @@ export type ResourceOverlay = {
 };
 
 export const createResourceOverlay = (scene: Scene, maxTiles: number, buildingEnvironmentTexture?: Texture): ResourceOverlay => {
+  const network = createNetworkOverlay(scene, maxTiles, false, buildingEnvironmentTexture);
   // Materials + geometries live in their own factory (client-map-3d-resource-overlay-assets.ts)
   // to keep this file under the 500-line cap.
   const {
@@ -234,6 +238,7 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number, buildingEn
 
   // ─── Public API ─────────────────────────────────────────────────────
   const clear = (): void => {
+    network.clear();
     for (const slot of slots.values()) slot.count = 0;
   };
 
@@ -249,10 +254,12 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number, buildingEn
     // doesn't reshuffle a tile's layout. Scene coords are used only for
     // placement.
     const v = variantHash(worldTileX, worldTileY, resource.length * 31);
+    if (isNetworkResource(resource)) network.add({ x: sceneX, y: surfaceY, z: sceneZ, kind: resource, variant: networkVariantForTile(worldTileX, worldTileY), operational: true, foundation: false });
     if (resource === "GEMS") addGems(sceneX, surfaceY, sceneZ, v);
   };
 
   const commit = (): void => {
+    network.commit();
     for (const slot of slots.values()) {
       slot.mesh.count = slot.count;
       slot.mesh.instanceMatrix.clearUpdateRanges();
@@ -262,6 +269,7 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number, buildingEn
   };
 
   const dispose = (): void => {
+    network.dispose();
     for (const slot of slots.values()) scene.remove(slot.mesh);
     [
       veggieGeo, logGeo, hutBaseGeo, hutRoofGeo, sawBladeGeo,

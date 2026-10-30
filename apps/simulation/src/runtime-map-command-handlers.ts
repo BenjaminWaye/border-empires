@@ -1,3 +1,4 @@
+import type { RuntimeDiplomacySettlementContext } from "./runtime-diplomacy-settlement-command.js";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
@@ -26,7 +27,7 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { EconomicStructureType } from "@border-empires/shared";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
 
-export type RuntimeMapCommandContext = {
+export type RuntimeMapCommandContext = Pick<RuntimeDiplomacySettlementContext, "resourceSupply" | "settleEconomy" | "emitEconomyUpdate"> & {
   players: Map<string, DomainPlayer>;
   tiles: Map<string, DomainTileState>;
   now: () => number;

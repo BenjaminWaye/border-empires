@@ -9,6 +9,8 @@ interface ForcedTruceDependencies {
   initial?: readonly { playerId: string; cooldownUntil: number }[];
   sink?: SocialStateSink | undefined;
   ok: (playerIds: string[], announcements?: Partial<Record<string, string>>) => SocialActionResult;
+  /** A mandate took effect (the Chronicle records it, social-diplomacy-history.ts). */
+  onForced?: (actorId: string, targetId: string, truce: SocialActiveTruce) => void;
 }
 export function createForcedTruces(deps: ForcedTruceDependencies): {
   force: (playerId: string, targetPlayerId: string) => SocialActionResult;
@@ -46,6 +48,7 @@ export function createForcedTruces(deps: ForcedTruceDependencies): {
       cooldowns.set(playerId, cooldownUntil);
       forcedTruceDiagnostics.cooldownEntries = cooldowns.size;
       const text = `${actor.name} invoked a Court mandate: a binding 12h armistice with ${target.name}.`;
+      deps.onForced?.(playerId, targetPlayerId, truce);
       return deps.ok([playerId, targetPlayerId], { [playerId]: text, [targetPlayerId]: text });
     }
   };

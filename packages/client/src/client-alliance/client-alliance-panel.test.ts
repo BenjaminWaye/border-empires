@@ -154,7 +154,7 @@ describe("alliancePanelHtml", () => {
 
 describe("bindProposeButtons", () => {
   afterEach(() => closeDiplomacyTradeScreen());
-  const state = { gold: 500, strategicResources: { SHARD: 2 }, incomingTruceRequests: [], incomingAllianceRequests: [] };
+  const state = { gold: 500, strategicResources: { SHARD: 2 }, incomingTruceRequests: [], incomingAllianceRequests: [], activeTruces: [] };
   const tradeTitle = (): string | null | undefined => document.querySelector(".diplomacy-trade-overlay h2")?.textContent;
   const pressedKind = (): string | undefined =>
     document.querySelector<HTMLButtonElement>(".diplomacy-trade-overlay [data-trade-kind][aria-pressed='true']")?.dataset.tradeKind;
@@ -189,6 +189,10 @@ describe("bindProposeButtons", () => {
     });
     bindProposeButtons(trucedRoot, { playerNameForOwner: (id) => (id ? names[id] : undefined), sendGameMessage, state });
     trucedRoot.querySelector<HTMLButtonElement>(".break-truce")!.click();
+    // Break Truce first shows what breaking costs; nothing is sent until confirmed.
+    expect(sendGameMessage).not.toHaveBeenCalledWith({ type: "TRUCE_BREAK", targetPlayerId: "p-2" }, expect.any(String));
+    expect(document.querySelector(".break-pact-consequences")?.textContent).toContain("−10 opinion for 7 days");
+    document.querySelector<HTMLButtonElement>("[data-pact-go]")!.click();
     expect(sendGameMessage).toHaveBeenCalledWith({ type: "TRUCE_BREAK", targetPlayerId: "p-2" }, expect.any(String));
   });
 });
