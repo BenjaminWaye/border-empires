@@ -28,7 +28,7 @@ import { profileScreenStep } from "./client-hud-v2-profile.js";
 import { chronicleBadgeCount, takeOverLegacyDashboard } from "./client-hud-v2-chronicle-runtime.js";
 import { setDockListener } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, townOnMenuView } from "./client-hud-v2-town-runtime.js";
-import { captureIsBattle, handleSlotsToggle, trackerHtml } from "./client-hud-v2-tracker.js";
+import { captureIsBattle, handleSlotsToggle, tickSlots, trackerHtml } from "./client-hud-v2-tracker.js";
 import "./client-hud-v2.css";
 import "./client-hud-v2-screens.css";
 import "./client-hud-v2-town-battle.css";
@@ -274,7 +274,7 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
     flags: trackerScan.flags,
     flagCap: musterFlagCap(state.manpowerCap, 0),
     // Timers count down between scans without rescanning the tiles.
-    building: trackerScan.building.map((b) => ({ ...b, remainingMs: Math.max(0, b.remainingMs - elapsed) })),
+    building: tickSlots(trackerScan.building, elapsed),
     queue: trackerScan.queue,
     slotsOpen: slotsFold.open,
     capture,

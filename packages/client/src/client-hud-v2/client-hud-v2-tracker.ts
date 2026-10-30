@@ -74,14 +74,18 @@ export const handleSlotsToggle = (target: Element, fold: { open: boolean }, repa
   return true;
 };
 
-/** What fills each slot (with its progress) and what waits for one, right under the pips. */
+/** Counts each slot's timer down by the time since the last tile scan; a paused build's timer stays frozen. */
+export const tickSlots = (building: DevelopmentSlotOccupant[], elapsedMs: number): DevelopmentSlotOccupant[] =>
+  building.map((b) => (b.paused ? b : { ...b, remainingMs: Math.max(0, b.remainingMs - elapsedMs) }));
+
+/** What fills each slot (with its progress) and what waits for one, right under the pips. Queue labels mostly carry their own "at (x, y)", so the coordinates are added only when they don't. */
 export const slotListHtml = (input: Pick<TrackerInput, "building" | "queue">): string => {
   const busy = input.building.map((b) => {
     const pct = b.totalMs > 0 ? Math.min(100, Math.max(0, Math.round((1 - b.remainingMs / b.totalMs) * 100))) : 0;
     return `<button type="button" class="hud-v2-tracker-row hud-v2-slot-row"${focusAttrs(b.x, b.y)}><span class="hud-v2-tracker-title">${esc(b.label)} <span class="hud-v2-tracker-at">(${b.x}, ${b.y})</span><span class="hud-v2-tracker-time">${formatRemaining(b.remainingMs)}</span></span><span class="hud-v2-tracker-bar"><span style="width:${pct}%"></span></span></button>`;
   });
   const waiting = input.queue.slice(0, TRACKER_GROUP_CAP).map((q, i) =>
-    `<button type="button" class="hud-v2-tracker-row hud-v2-slot-row hud-v2-slot-waiting"${focusAttrs(q.x, q.y)}><span class="hud-v2-tracker-title">${i === 0 ? "Next" : `#${i + 1}`} · ${esc(q.label)} <span class="hud-v2-tracker-at">(${q.x}, ${q.y})</span></span></button>`);
+    `<button type="button" class="hud-v2-tracker-row hud-v2-slot-row hud-v2-slot-waiting"${focusAttrs(q.x, q.y)}><span class="hud-v2-tracker-title">${i === 0 ? "Next" : `#${i + 1}`} · ${esc(q.label)}${q.label.includes(`(${q.x}, ${q.y})`) ? "" : ` <span class="hud-v2-tracker-at">(${q.x}, ${q.y})</span>`}</span></button>`);
   const more = input.queue.length - TRACKER_GROUP_CAP;
   return `<div class="hud-v2-slot-list">${busy.join("")}${waiting.join("")}${more > 0 ? `<div class="hud-v2-tracker-more">+${more} waiting</div>` : ""}</div>`;
 };
