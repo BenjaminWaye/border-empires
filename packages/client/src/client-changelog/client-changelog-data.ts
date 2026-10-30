@@ -63,6 +63,7 @@ import { CAPTURED_MUSTER_CLEAR_CHANGELOG } from "./client-changelog-captured-mus
 import { ADVANCE_EFFORT_CHANGELOG } from "./client-changelog-advance-effort.js";
 import { FASTER_ATTACKS_FRONTIER_COST_CHANGELOG } from "./client-changelog-faster-attacks-frontier-cost.js";
 import { AFC_MODULE_MODELS_CHANGELOG } from "./client-changelog-afc-module-models.js";
+import { PROFILE_CREST_TOGGLE_CHANGELOG } from "./client-changelog-profile-crest-toggle.js";
 import { MARCH_ATTACK_DEEP_CHANGELOG } from "./client-changelog-march-attack-deep.js";
 import { WAR_INDUSTRY_SQUADS_CHANGELOG } from "./client-changelog-war-industry-squads.js";
 import { MARCH_ATTACK_ROUTES_CHANGELOG } from "./client-changelog-march-attack-routes.js";
@@ -281,6 +282,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...ADVANCE_EFFORT_CHANGELOG,
   ...FASTER_ATTACKS_FRONTIER_COST_CHANGELOG,
   ...AFC_MODULE_MODELS_CHANGELOG,
+  ...PROFILE_CREST_TOGGLE_CHANGELOG,
   ...MARCH_ATTACK_DEEP_CHANGELOG,
   ...MARCH_ATTACK_ROUTES_CHANGELOG,
   ...MARCH_TO_UNEXPLORED_CHANGELOG,
