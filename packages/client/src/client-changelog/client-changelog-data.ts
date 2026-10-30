@@ -35,6 +35,7 @@ import { MAP_LENS_CHANGELOG } from "./client-changelog-map-lens.js";
 import { MUSTER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-muster-supply-lines.js";
 import { MARCH_STEERING_CHANGELOG } from "./client-changelog-march-steering.js";
 import { DEV_SLOT_PROGRESS_CHANGELOG } from "./client-changelog-dev-slot-progress.js";
+import { TRUCE_LIFETIME_CAP_CHANGELOG } from "./client-changelog-truce-lifetime-cap.js";
 import { BREAK_PACT_ATTACK_CHANGELOG } from "./client-changelog-break-pact-attack.js";
 import { FLAG_TAP_CHANGELOG } from "./client-changelog-flag-tap.js";
 import { CLAIM_STRIPED_GROUND_CHANGELOG } from "./client-changelog-claim-striped-ground.js";
@@ -387,6 +388,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...DIPLOMACY_DOCK_CHANGELOG,
   ...MARCH_STEERING_CHANGELOG,
   ...DEV_SLOT_PROGRESS_CHANGELOG,
+  ...TRUCE_LIFETIME_CAP_CHANGELOG,
   ...BREAK_PACT_ATTACK_CHANGELOG,
   ...FLAG_TAP_CHANGELOG
 ];

@@ -240,7 +240,7 @@ describe("diplomacy trade screen", () => {
   it("keeps independent resource trades selected during an existing truce", () => {
     openDiplomacyTradeScreen(
       { targetName: "Elin", targetPlayerId: "ai-2", kind: "trade", durationHours: 12 },
-      { send: vi.fn().mockReturnValue(true), ownHoldings: () => ({ gold: 100, shard: 0, resources: { FOOD: 2 } }), truceEndsAt: () => Date.now() + 3_600_000 }
+      { send: vi.fn().mockReturnValue(true), ownHoldings: () => ({ gold: 100, shard: 0, resources: { FOOD: 2 } }), runningTruce: () => ({ startedAt: Date.now(), endsAt: Date.now() + 3_600_000 }) }
     );
     const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
     expect(overlay.querySelector("[data-trade-kind='trade:0']")?.getAttribute("aria-pressed")).toBe("true");
