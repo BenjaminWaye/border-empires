@@ -6,6 +6,7 @@ import { persistentAlertLocatorAt } from "../client-persistent-alerts/client-per
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { marchTargetDrag } from "../client-march-interaction/client-march-interaction.js";
+import { cancelMarchOriginPicking } from "../client-march-origin-picking/client-march-origin-picking.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -194,6 +195,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
       deps.hideTileActionMenu();
       deps.clearCrystalTargeting();
       deps.cancelBuildingPlacement();
+      if (state.marchOriginPicking.active) cancelMarchOriginPicking(state);
       return;
     }
 

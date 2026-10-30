@@ -221,3 +221,34 @@ describe("a March Attack row opens the March To commit sheet", () => {
     expect(state.pendingArrowGestureConfirm).toEqual({ origin: { x: 17, y: 10 }, target: { x: 20, y: 10 }, newFlag: true });
   });
 });
+
+describe("an unexplored tile's March To button", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("closes the menu and starts picking where to march from, with the pressed tile as the destination", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.tiles.set("17,10", { x: 17, y: 10, terrain: "LAND", ownerId: "me" } as never);
+    const hideTileActionMenu = vi.fn();
+
+    const handled = handleWaypointAction({
+      state,
+      selected: { x: 20, y: 10 },
+      actionId: "march_to_pick_origin",
+      keyFor,
+      pushFeed: noop,
+      renderHud: noop,
+      hideTileActionMenu,
+      showCaptureAlert: noop,
+      processActionQueue: () => false,
+      sendGameMessage: () => true
+    });
+
+    expect(handled).toBe(true);
+    expect(hideTileActionMenu).toHaveBeenCalled();
+    expect(state.marchOriginPicking).toEqual({ active: true, targetX: 20, targetY: 10 });
+    expect(document.getElementById("march-origin-hint")?.textContent).toContain("Tap a tile of your land to raise a new muster flag there");
+  });
+});
