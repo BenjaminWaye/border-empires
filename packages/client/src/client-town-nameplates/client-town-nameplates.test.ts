@@ -98,6 +98,17 @@ describe("createTownNameplates (2D path)", () => {
   });
 });
 
+describe("paused growth", () => {
+  it("shows a nearby-war town as growth struck through, not crossed swords", () => {
+    const { host, plates } = mount();
+    plates.render([at(townTile(1, { nearbyWarPausedUntil: Date.now() + 60_000 }), 100, 200)], { size: 40, project });
+    const badge = host.querySelector('[data-status="war"]');
+    expect(badge?.querySelector("img")?.getAttribute("src")).toBe("/icons/simple/town-growth.svg");
+    expect(badge?.querySelector(".town-plate-slash")).not.toBeNull();
+    expect(host.querySelector(".town-plate")?.getAttribute("title")).toBe("Town1: Growth paused: nearby war");
+  });
+});
+
 describe("createTownNameplates (true-3D path)", () => {
   it("sits on the town tile's projected back edge and scales with the tile, not with the raw zoom", () => {
     threeActive = true;
