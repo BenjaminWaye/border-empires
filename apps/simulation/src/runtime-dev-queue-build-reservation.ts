@@ -82,10 +82,14 @@ export function devQueueBuildReservationContext(context: RuntimeStructureCommand
 // Estimated from the clicked tile's *current* state, not necessarily the
 // exact eventual build target (an ECONOMIC structure may still auto-place
 // onto a support tile at drain time -- its manpower cost doesn't depend on
-// which support tile, so this stays exact for that case; FORT/OUTPOST tier
+// which support tile, so this stays exact for that case; FORT tier
 // resolution only depends on the clicked tile + tech, so it's exact there
-// too). If conditions shift before the entry drains (tech researched, tile
-// lost, tier maxed out), the real build handler re-validates and re-charges
+// too). A fresh siege build is the exception: siegeTierForFreshBuild steps
+// down to the best tier whose UMBRITE slots fit, so the tier reserved here
+// (net of other queued entries) can differ from the tier the build handler
+// picks at drain time from the then-current free slots. If conditions shift
+// before the entry drains (tech researched, tile lost, tier maxed out, slots
+// freed or taken), the real build handler re-validates and re-charges
 // from scratch after the reservation is refunded -- so a stale estimate
 // here only affects the soft queue-time hold, never actual correctness.
 function estimateDevQueueBuildReservation(
