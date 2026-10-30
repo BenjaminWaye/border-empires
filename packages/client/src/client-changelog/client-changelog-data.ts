@@ -394,7 +394,14 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...TRUCE_LIFETIME_CAP_CHANGELOG,
   ...BREAK_PACT_ATTACK_CHANGELOG,
   ...FLAG_TAP_CHANGELOG,
-  ...SIEGE_UMBRITE_ONLY_CHANGELOG
+  ...SIEGE_UMBRITE_ONLY_CHANGELOG,
+  {
+    createdAt: 1793350568452,
+    introducedIn: "2026.10.30",
+    title: "Resource icons stay visible when zoomed out",
+    why: "Resource circles switched to plain colours before you could get a useful overview of nearby deposits.",
+    changes: ["Resource markers keep their icons at every zoom level in both the 2D and 3D maps, with smoothly scaling circles and coloured rims"]
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

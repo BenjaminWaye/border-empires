@@ -91,14 +91,14 @@ describe("drawResourceOverlay2D", () => {
 
 describe("resource icons and food sources in both renderers", () => {
   afterEach(() => { setTrue3DRendererActive(false); vi.unstubAllGlobals(); });
-  it.each([false, true])("draws every frontier icon with true-3D active=%s", active => {
+  it.each([false, true].flatMap(active => [10, 14, 22, 36, 47, 48, 64, 96, 192].map(size => ({ active, size }))))("draws every frontier icon at $size px with true-3D active=$active", ({ active, size }) => {
     vi.stubGlobal("Image", undefined);
     setTrue3DRendererActive(active);
-    for (const resource of ["FARM", "FISH", "TITANIUM", "UMBRITE", ...NETWORK_RESOURCES] as const) {
+    for (const resource of ["FARM", "FISH", "TITANIUM", "GEMS", "UMBRITE", ...NETWORK_RESOURCES] as const) {
       const { deps } = makeDeps({ builtResourceOverlayForTile: () => undefined });
       const draw = (tile: Tile, x: number, y: number, size: number): void =>
         drawResourceCornerMarker(deps.ctx, tile, x, y, size, () => "#e9f27b");
-      drawResourceOverlay2D({ ...deps, drawResourceCornerMarker: draw }, { x: 1, y: 1, terrain: "LAND", resource }, 0, 0, 64, 0);
+      drawResourceOverlay2D({ ...deps, drawResourceCornerMarker: draw }, { x: 1, y: 1, terrain: "LAND", resource }, 0, 0, size, 0);
       expect(deps.ctx.fillText).toHaveBeenCalledWith(resourceIconGlyph(depositIconKey(resource)!), expect.any(Number), expect.any(Number));
       expect(deps.ctx.arc).toHaveBeenCalledWith(expect.any(Number), expect.any(Number), expect.any(Number), 0, Math.PI * 2);
       expect(deps.drawCenteredOverlayWithAlpha).toHaveBeenCalledTimes(active ? 0 : 1);

@@ -56,6 +56,27 @@ describe("drawCornerBadge", () => {
     expect(raw.strokeRect).not.toHaveBeenCalled();
   });
 
+  it.each([10, 14, 22, 36, 47, 48, 64, 96, 192])("keeps resource icons inside a %spx tile at every zoom", size => {
+    const { ctx, circles, fills, strokes } = recordingCtx();
+    const drawIcon = vi.fn();
+    drawCornerBadge(ctx, 0, 0, size, "#c9c9c9", drawIcon, undefined, true);
+    expect(drawIcon).toHaveBeenCalledTimes(1);
+    const [cx, cy, iconSize] = drawIcon.mock.calls[0] as [number, number, number];
+    expect(iconSize).toBeGreaterThanOrEqual(6);
+    expect(fills).toEqual(["rgba(14, 12, 10, 0.88)"]);
+    expect(strokes).toEqual(["#c9c9c9"]);
+    for (const circle of circles) {
+      expect(circle.x - circle.radius).toBeGreaterThanOrEqual(0);
+      expect(circle.y - circle.radius).toBeGreaterThanOrEqual(0);
+      expect(circle.x + circle.radius).toBeLessThanOrEqual(size);
+      expect(circle.y + circle.radius).toBeLessThanOrEqual(size);
+    }
+    expect(cx - iconSize / 2).toBeGreaterThanOrEqual(0);
+    expect(cy - iconSize / 2).toBeGreaterThanOrEqual(0);
+    expect(cx + iconSize / 2).toBeLessThanOrEqual(size);
+    expect(cy + iconSize / 2).toBeLessThanOrEqual(size);
+  });
+
   it("draws a dark disc with a coloured circular rim at close zoom", () => {
     const { fills, strokes, circles, ctx } = recordingCtx();
     const drawIcon = vi.fn();
