@@ -1,5 +1,6 @@
 import * as shared from "@border-empires/shared";
-import { NETWORK_RESOURCES, RESOURCE_NETWORKS } from "@border-empires/shared";
+import { NETWORK_RESOURCES } from "@border-empires/shared";
+import { depositIconKey, resourceIconGlyph } from "../client-resource-icons/client-resource-icons.js";
 import { setTrue3DRendererActive } from "../client-renderer-mode.js";
 import { drawResourceCornerMarker } from "../client-map-render/client-map-render-resource-marker.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -18,6 +19,9 @@ const makeDeps = (over: Partial<ResourceOverlayDrawDeps> = {}) => {
     save: vi.fn(),
     restore: vi.fn(),
     beginPath: vi.fn(),
+    arc: vi.fn(),
+    fill: vi.fn(),
+    stroke: vi.fn(),
     rect: vi.fn(),
     clip,
     setLineDash: vi.fn(),
@@ -85,17 +89,18 @@ describe("drawResourceOverlay2D", () => {
   });
 });
 
-describe("frontier resource icons in both renderers", () => {
+describe("resource icons and food sources in both renderers", () => {
   afterEach(() => { setTrue3DRendererActive(false); vi.unstubAllGlobals(); });
   it.each([false, true])("draws every frontier icon with true-3D active=%s", active => {
     vi.stubGlobal("Image", undefined);
     setTrue3DRendererActive(active);
-    for (const resource of NETWORK_RESOURCES) {
+    for (const resource of ["FARM", "FISH", "TITANIUM", "UMBRITE", ...NETWORK_RESOURCES] as const) {
       const { deps } = makeDeps({ builtResourceOverlayForTile: () => undefined });
       const draw = (tile: Tile, x: number, y: number, size: number): void =>
-        drawResourceCornerMarker(deps.ctx, tile, x, y, size, () => RESOURCE_NETWORKS[resource].color);
+        drawResourceCornerMarker(deps.ctx, tile, x, y, size, () => "#e9f27b");
       drawResourceOverlay2D({ ...deps, drawResourceCornerMarker: draw }, { x: 1, y: 1, terrain: "LAND", resource }, 0, 0, 64, 0);
-      expect(deps.ctx.fillText).toHaveBeenCalledWith(RESOURCE_NETWORKS[resource].glyph, expect.any(Number), expect.any(Number));
+      expect(deps.ctx.fillText).toHaveBeenCalledWith(resourceIconGlyph(depositIconKey(resource)!), expect.any(Number), expect.any(Number));
+      expect(deps.ctx.arc).toHaveBeenCalledWith(expect.any(Number), expect.any(Number), expect.any(Number), 0, Math.PI * 2);
       expect(deps.drawCenteredOverlayWithAlpha).toHaveBeenCalledTimes(active ? 0 : 1);
     }
   });
