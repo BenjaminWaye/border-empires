@@ -22,7 +22,8 @@ const PRIMARY_ORDER: ReadonlyArray<TileActionDef["id"]> = [
   "launch_attack",
   "march_attack_flag",
   "collect_shard",
-  "expand_here"
+  "expand_here",
+  "march_to_pick_origin"
 ];
 
 const RELAY_BEACON_IDS: ReadonlyArray<TileActionDef["id"]> = ["build_relay_beacon", "build_relay_beacon_frontier"];

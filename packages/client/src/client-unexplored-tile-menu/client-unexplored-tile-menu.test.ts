@@ -108,23 +108,22 @@ describe("openUnexploredTileActionMenu", () => {
     };
     afterEach(() => vi.unstubAllGlobals());
 
-    it("offers only March To -- not Expand To -- since the player wants to explore that way, not claim that exact tile", () => {
+    it("offers one March To button -- not Expand To or a row per origin -- since the player wants to explore that way, not claim that exact tile", () => {
       // Same reachable setup the Expand To case above uses, plus a muster flag.
       const state = stateWith([flag(5, 5), own(6, 5), { x: 5, y: 6, terrain: "LAND" }]);
       state.musterFlagLimit = 3;
       const view = openAt(state, 5, 9);
-      expect(view.actions.map((action) => action.id)).toEqual(["march_attack_flag", "march_attack_new_flag"]);
-      expect(view.actions.map((action) => action.label)).toEqual(["March To from Flag (5, 5)", "March To from New Flag"]);
-      expect(view.actions.some((action) => action.label === "Expand To")).toBe(false);
-      expect(view.actions[0]?.originKey).toBe("5,5");
+      expect(view.actions.map((action) => [action.id, action.label, action.disabled])).toEqual([["march_to_pick_origin", "March To", false]]);
+      expect(view.actions[0]?.detail).toMatch(/nearby muster flags/);
       expect(view.tabs[0]).toBe("actions");
     });
 
-    it("once mustering is unlocked, offers March To from a new flag even with no flag raised yet", () => {
+    it("once mustering is unlocked, offers March To even with no flag raised yet", () => {
       unlock();
       const state = Object.assign(stateWith([own(5, 5)]), unlocked);
       const view = openAt(state, 5, 9);
-      expect(view.actions.map((action) => [action.id, action.label])).toEqual([["march_attack_new_flag", "March To from New Flag"]]);
+      expect(view.actions.map((action) => [action.id, action.disabled])).toEqual([["march_to_pick_origin", false]]);
+      expect(view.actions[0]?.detail).toMatch(/raise a muster flag/);
     });
 
     it("explains a disabled March To instead of falling back to Expand To when mustering is unlocked but nothing can march there", () => {
@@ -132,7 +131,7 @@ describe("openUnexploredTileActionMenu", () => {
       const state = Object.assign(stateWith([own(5, 5)]), unlocked);
       const view = openAt(state, 200, 200);
       expect(view.actions).toHaveLength(1);
-      expect(view.actions[0]).toMatchObject({ label: "March To", disabled: true });
+      expect(view.actions[0]).toMatchObject({ id: "march_to_pick_origin", label: "March To", disabled: true });
       expect(view.actions[0]?.disabledReason).toMatch(/within march range/);
     });
 

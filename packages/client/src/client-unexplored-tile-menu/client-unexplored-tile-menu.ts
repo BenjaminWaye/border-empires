@@ -1,10 +1,6 @@
 import { injectWaypointActions } from "../client-waypoint-menu-actions/client-waypoint-menu-actions.js";
 import { expandToAction } from "../client-tile-action-logic/client-tile-action-neutral.js";
-import {
-  buildMarchToActions,
-  MARCH_ATTACK_NEW_FLAG_ACTION_ID,
-  MUSTER_LOCKED_REASON
-} from "../client-march-attack-actions/client-march-attack-actions.js";
+import { buildMarchToAction } from "../client-march-attack-actions/client-march-attack-actions.js";
 import { appendMarchCancelAction } from "../client-muster-march-targeting.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
@@ -24,9 +20,11 @@ export type UnexploredTileMenuDeps = {
 // The client has no confirmed data about an unexplored tile, so the menu
 // must show only its coordinates and its "unexplored" status — no terrain,
 // biome, or ownership. Pressing unexplored ground means "explore that way",
-// not "claim exactly that tile", so the offered action is March To
-// (buildMarchToActions): a muster flag scouts toward it, and the server
-// stops short at the closest point if it turns out to be impassable. (An
+// not "claim exactly that tile", so the offered action is a single March To
+// (buildMarchToAction): pressing it asks where to march from -- a nearby
+// muster flag, or a tile of the player's land to raise a new one on
+// (client-march-origin-picking/) -- and the flag scouts toward it, stopping
+// short at the closest point if it turns out to be impassable. (An
 // unexplored tile touching the player's land never reaches this menu -- the
 // click claims it directly, client-action-flow.ts.)
 //
@@ -38,15 +36,10 @@ export type UnexploredTileMenuDeps = {
 // expandToAction itself declines in that case, so the two never both offer
 // an action at once.
 const unexploredClaimActions = (state: ClientState, placeholder: Tile, deps: UnexploredTileMenuDeps): TileActionDef[] => {
-  const march = buildMarchToActions(placeholder, state);
-  if (march.rows.length > 0) return march.rows;
-  if (march.unavailableReason === MUSTER_LOCKED_REASON) {
-    const expand = expandToAction(state, placeholder, { keyFor: deps.keyFor, pickOriginForTarget: deps.pickOriginForTarget });
-    return expand ? [expand] : [];
-  }
-  // Mustering is unlocked but no flag or tile can march here: say why
-  // instead of silently showing no action.
-  return [{ id: MARCH_ATTACK_NEW_FLAG_ACTION_ID, label: "March To", disabled: true, disabledReason: march.unavailableReason ?? "Unavailable" }];
+  const march = buildMarchToAction(placeholder, state);
+  if (!march.locked) return [march.action];
+  const expand = expandToAction(state, placeholder, { keyFor: deps.keyFor, pickOriginForTarget: deps.pickOriginForTarget });
+  return expand ? [expand] : [];
 };
 
 export const openUnexploredTileActionMenu = (

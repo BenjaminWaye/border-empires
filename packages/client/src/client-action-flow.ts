@@ -26,7 +26,7 @@ import {
 import { createPlayerActionShortcuts } from "./client-player-action-shortcuts/client-player-action-shortcuts.js";
 import { ensureClientCommandEnvelope } from "./client-command-envelope/client-command-envelope.js";
 import { clearMusterTransitForTarget } from "./client-muster-transit/client-muster-transit.js";
-import { handleMusterMarchTargetClick } from "./client-muster-march-targeting.js"; import { handleArrowGestureConfirm } from "./client-arrow-gesture-confirm.js";
+import { handleMarchPickClick } from "./client-march-origin-picking/client-march-origin-picking.js";
 import { dispatchMusterTileAction } from "./client-muster-tile-actions.js";
 import { recordClientDebugEvent } from "./client-debug/client-debug.js";
 import { blockUnsupportedRewriteMessage } from "./client-send-message-guard/client-send-message-guard.js";
@@ -1474,7 +1474,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       renderHud();
       return;
     }
-    if (state.musterMarchTargeting.active) { const result = handleMusterMarchTargetClick(state, wx, wy, vis, { pushFeed }); if (result.type === "armed") handleArrowGestureConfirm(state, { x: result.originX, y: result.originY }, { x: result.targetX, y: result.targetY }, { pushFeed, sendGameMessage, renderHud, keyFor }); renderHud(); return; }
+    if (handleMarchPickClick(state, wx, wy, vis, { pushFeed, sendGameMessage, renderHud, keyFor })) return;
     if (state.buildingPlacement.active) { state.buildingPlacement.x = wx; state.buildingPlacement.y = wy; state.selected = { x: wx, y: wy }; renderHud(); return; }
     // True when (x,y) falls inside the local player's fixed-border reach --
     // see client-reach-overlay.ts's MOCK-DATA SEAM comment for why this is a

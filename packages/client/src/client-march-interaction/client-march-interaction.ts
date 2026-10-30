@@ -14,7 +14,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import { findMarchOriginsForTarget } from "../client-muster-march-targeting.js";
 import { musterSiegeReason, ownTileSiegeAt } from "../client-muster-siege/client-muster-siege.js";
 
-type MarchState = Pick<ClientState, "tiles" | "me" | "hover" | "musterMarchTargeting" | "arrowGesture" | "pendingArrowGestureConfirm" | "incomingAttacksByTile">;
+type MarchState = Pick<ClientState, "tiles" | "me" | "hover" | "musterMarchTargeting" | "marchOriginPicking" | "arrowGesture" | "pendingArrowGestureConfirm" | "incomingAttacksByTile">;
 type Point = { x: number; y: number };
 
 export type MarchInteractionDeps = {
@@ -121,7 +121,7 @@ export const syncMarchInteraction = (nowMs: number): void => {
 const beginDrag = (x: number, y: number, clientX: number, clientY: number): boolean => {
   if (!deps) return false;
   const { state } = deps;
-  if (state.musterMarchTargeting.active || state.pendingArrowGestureConfirm) return false;
+  if (state.musterMarchTargeting.active || state.marchOriginPicking.active || state.pendingArrowGestureConfirm) return false;
   const origin = findMarchOriginsForTarget(state, x, y)[0];
   if (!origin) return false;
   drag = { origin: { x: origin.originX, y: origin.originY }, from: { x, y }, current: { x, y }, pressAt: { x: clientX, y: clientY }, dragging: false };
