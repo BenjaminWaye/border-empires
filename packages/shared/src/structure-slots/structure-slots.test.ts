@@ -36,16 +36,10 @@ describe("structureSlotRequirements", () => {
     expect(structureSlotRequirements("THUNDER_BASTION")).toEqual([{ resource: "TITANIUM", count: 4 }]);
   });
 
-  it("matches §12's Siege tier ladder exactly", () => {
+  it("matches §12's Siege tier ladder exactly -- UMBRITE only, no TITANIUM", () => {
     expect(structureSlotRequirements("SIEGE_BATTERY")).toEqual([{ resource: "UMBRITE", count: 1 }]);
-    expect(structureSlotRequirements("SIEGE_TOWER")).toEqual([
-      { resource: "UMBRITE", count: 2 },
-      { resource: "TITANIUM", count: 1 }
-    ]);
-    expect(structureSlotRequirements("DREAD_TOWER")).toEqual([
-      { resource: "UMBRITE", count: 3 },
-      { resource: "TITANIUM", count: 2 }
-    ]);
+    expect(structureSlotRequirements("SIEGE_TOWER")).toEqual([{ resource: "UMBRITE", count: 2 }]);
+    expect(structureSlotRequirements("DREAD_TOWER")).toEqual([{ resource: "UMBRITE", count: 3 }]);
   });
 
   it("gives every Tier 3 'crystal fix' structure both a FOOD and a CRYSTAL slot", () => {
