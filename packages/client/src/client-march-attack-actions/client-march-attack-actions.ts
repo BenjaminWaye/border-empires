@@ -76,23 +76,26 @@ const flagModeText = (tile: Tile | undefined): string => {
   return muster?.mode === "ADVANCE" ? "stops advancing" : "leaves Hold";
 };
 
+/** Why marchRowsForTarget offered nothing because mustering is still locked. */
+export const MUSTER_LOCKED_REASON = "Muster flags unlock once you meet an enemy";
+
+type MarchRows = { rows: TileActionDef[]; unavailableReason?: string };
+
 /**
- * The March Attack rows for a hostile `tile`, or why there are none: [] with
- * no reason for a tile a march never attacks (own, or a truced empire -- the
- * flag would just sit at the border with its manpower locked), else the
- * reason no flag or tile can march on it. Each row carries its origin as
- * originKey so a click dispatches the origin it names.
+ * Rows for every way to march on `target`, or why there are none. `text.verb`
+ * names the order ("March Attack" on a hostile tile, "March To" on
+ * unexplored ground); both dispatch through the same action ids. Each row
+ * carries its origin as originKey so a click dispatches the origin it names.
  */
-export const buildMarchAttackActions = (
-  tile: Tile,
+const marchRowsForTarget = (
+  target: { x: number; y: number },
   state: MarchAttackState,
-  nowMs = Date.now()
-): { rows: TileActionDef[]; unavailableReason?: string } => {
-  if (!tile.ownerId || tile.ownerId === state.me) return { rows: [] };
-  if (state.activeTruces.some((truce) => truce.otherPlayerId === tile.ownerId && truce.endsAt > nowMs)) return { rows: [] };
-  const options = marchAttackOptions(state, tile, nowMs);
+  text: { verb: string; flagArrival: string; newFlagArrival: string },
+  nowMs: number
+): MarchRows => {
+  const options = marchAttackOptions(state, target, nowMs);
   if (options.flags.length === 0 && !isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId)) {
-    return { rows: [], unavailableReason: "Muster flags unlock once you meet an enemy" };
+    return { rows: [], unavailableReason: MUSTER_LOCKED_REASON };
   }
   if (options.flags.length === 0 && !options.newFlag) {
     const flagCount = [...state.tiles.values()].filter((t) => t.ownerId === state.me && t.muster?.ownerId === state.me).length;
@@ -106,8 +109,8 @@ export const buildMarchAttackActions = (
   }
   const rows: TileActionDef[] = options.flags.map((flag, index) => ({
     id: MARCH_ATTACK_FLAG_ACTION_IDS[index]!,
-    label: `March Attack from Flag (${flag.x}, ${flag.y})`,
-    detail: `${flag.distance}-tile route · the flag ${flagModeText(state.tiles.get(originKey(flag)))} and fights its way here.`,
+    label: `${text.verb} from Flag (${flag.x}, ${flag.y})`,
+    detail: `${flag.distance}-tile route · the flag ${flagModeText(state.tiles.get(originKey(flag)))} and ${text.flagArrival}.`,
     originKey: originKey(flag),
     disabled: false
   }));
@@ -115,14 +118,37 @@ export const buildMarchAttackActions = (
     const { x, y, distance } = options.newFlag;
     rows.push({
       id: MARCH_ATTACK_NEW_FLAG_ACTION_ID,
-      label: "March Attack from New Flag",
-      detail: `Raises a muster flag at (${x}, ${y}), a ${distance}-tile route away, which musters troops then marches here.`,
+      label: `${text.verb} from New Flag`,
+      detail: `Raises a muster flag at (${x}, ${y}), a ${distance}-tile route away, which musters troops then ${text.newFlagArrival}.`,
       originKey: originKey(options.newFlag),
       disabled: false
     });
   }
   return { rows };
 };
+
+/**
+ * The March Attack rows for a hostile `tile`, or why there are none: [] with
+ * no reason for a tile a march never attacks (own, or a truced empire -- the
+ * flag would just sit at the border with its manpower locked), else the
+ * reason no flag or tile can march on it.
+ */
+export const buildMarchAttackActions = (tile: Tile, state: MarchAttackState, nowMs = Date.now()): MarchRows => {
+  if (!tile.ownerId || tile.ownerId === state.me) return { rows: [] };
+  if (state.activeTruces.some((truce) => truce.otherPlayerId === tile.ownerId && truce.endsAt > nowMs)) return { rows: [] };
+  return marchRowsForTarget(tile, state, { verb: "March Attack", flagArrival: "fights its way here", newFlagArrival: "marches here" }, nowMs);
+};
+
+/**
+ * The March To rows for an unexplored tile: the player wants to scout in
+ * that direction rather than claim that exact tile, so a flag marches toward
+ * it (expanding across neutral land on the way) instead of an Expand To
+ * claim chain. The server routes against the real map and stops short at the
+ * closest point if the tile turns out to be a mountain, sea or unreachable,
+ * falling back to HOLD (maybeMarchFire).
+ */
+export const buildMarchToActions = (target: { x: number; y: number }, state: MarchAttackState, nowMs = Date.now()): MarchRows =>
+  marchRowsForTarget(target, state, { verb: "March To", flagArrival: "scouts its way there", newFlagArrival: "marches there" }, nowMs);
 
 // The disabled reason buildTileActions puts on Launch Attack when the target
 // has no bordering origin tile or dock (client-tile-action-logic.ts). Keyed on

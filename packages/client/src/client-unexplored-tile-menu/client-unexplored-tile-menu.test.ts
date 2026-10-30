@@ -1,8 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createInitialState } from "../client-state/client-state.js";
+import { markMusterUnlocked } from "../client-muster-unlock/client-muster-unlock-storage.js";
 import { openUnexploredTileActionMenu } from "./client-unexplored-tile-menu.js";
-import type { TileMenuView } from "../client-types.js";
+import type { Tile, TileMenuView } from "../client-types.js";
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
 
@@ -30,7 +31,7 @@ describe("openUnexploredTileActionMenu", () => {
     expect(view.subtitle).toBe("(12, 34)");
   });
 
-  it("offers Expand To for a reachable unexplored target and makes actions the default tab — the client never guesses it might be a mountain or sea to refuse it", () => {
+  it("offers Expand To (until mustering unlocks) for a reachable unexplored target and makes actions the default tab — the client never guesses it might be a mountain or sea to refuse it", () => {
     const state = createInitialState();
     state.me = "me";
     // A settled town (TOWN_REACH_RADIUS = 3) so the (5,7) target below
@@ -81,5 +82,64 @@ describe("openUnexploredTileActionMenu", () => {
     expect(view.tabs).toEqual(["overview"]);
     expect(state.tileActionMenu.activeTab).toBe("overview");
     expect(view.overviewLines[0]?.html).toMatch(/not been explored yet/i);
+  });
+
+  describe("March To", () => {
+    const own = (x: number, y: number, overrides: Partial<Tile> = {}): Tile => ({ x, y, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", ...overrides });
+    const flag = (x: number, y: number, overrides: Partial<NonNullable<Tile["muster"]>> = {}): Tile =>
+      own(x, y, { muster: { ownerId: "me", amount: 0, mode: "HOLD", updatedAt: 0, ...overrides } });
+    const unlocked = { authEmail: "a@example.com", bridgeDebugSeasonId: "season-1" };
+    const stateWith = (tiles: Tile[]) => {
+      const state = createInitialState();
+      state.me = "me";
+      state.musterFlagLimit = 2;
+      for (const tile of tiles) state.tiles.set(keyFor(tile.x, tile.y), tile);
+      return state;
+    };
+    const openAt = (state: ReturnType<typeof createInitialState>, x: number, y: number): TileMenuView => {
+      const deps = baseDeps();
+      openUnexploredTileActionMenu(state, x, y, 0, 0, deps);
+      return (deps.renderTileActionMenu.mock.calls[0] as [TileMenuView, number, number])[0];
+    };
+    const unlock = (): void => {
+      const storage = new Map<string, string>();
+      vi.stubGlobal("window", { localStorage: { getItem: (k: string) => storage.get(k) ?? null, setItem: (k: string, v: string) => storage.set(k, v), removeItem: (k: string) => storage.delete(k) } });
+      markMusterUnlocked(unlocked.authEmail, unlocked.bridgeDebugSeasonId);
+    };
+    afterEach(() => vi.unstubAllGlobals());
+
+    it("offers only March To -- not Expand To -- since the player wants to explore that way, not claim that exact tile", () => {
+      // Same reachable setup the Expand To case above uses, plus a muster flag.
+      const state = stateWith([flag(5, 5), own(6, 5), { x: 5, y: 6, terrain: "LAND" }]);
+      state.musterFlagLimit = 3;
+      const view = openAt(state, 5, 9);
+      expect(view.actions.map((action) => action.id)).toEqual(["march_attack_flag", "march_attack_new_flag"]);
+      expect(view.actions.map((action) => action.label)).toEqual(["March To from Flag (5, 5)", "March To from New Flag"]);
+      expect(view.actions.some((action) => action.label === "Expand To")).toBe(false);
+      expect(view.actions[0]?.originKey).toBe("5,5");
+      expect(view.tabs[0]).toBe("actions");
+    });
+
+    it("once mustering is unlocked, offers March To from a new flag even with no flag raised yet", () => {
+      unlock();
+      const state = Object.assign(stateWith([own(5, 5)]), unlocked);
+      const view = openAt(state, 5, 9);
+      expect(view.actions.map((action) => [action.id, action.label])).toEqual([["march_attack_new_flag", "March To from New Flag"]]);
+    });
+
+    it("explains a disabled March To instead of falling back to Expand To when mustering is unlocked but nothing can march there", () => {
+      unlock();
+      const state = Object.assign(stateWith([own(5, 5)]), unlocked);
+      const view = openAt(state, 200, 200);
+      expect(view.actions).toHaveLength(1);
+      expect(view.actions[0]).toMatchObject({ label: "March To", disabled: true });
+      expect(view.actions[0]?.disabledReason).toMatch(/within march range/);
+    });
+
+    it("offers Cancel March on an unexplored tile a flag is already marching to", () => {
+      const state = stateWith([flag(5, 5, { mode: "MARCH", targetX: 5, targetY: 9 })]);
+      const view = openAt(state, 5, 9);
+      expect(view.actions.map((action) => action.id)).toContain("muster_march_cancel");
+    });
   });
 });

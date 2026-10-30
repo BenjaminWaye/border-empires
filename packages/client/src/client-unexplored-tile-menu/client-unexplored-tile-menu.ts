@@ -1,7 +1,13 @@
 import { injectWaypointActions } from "../client-waypoint-menu-actions/client-waypoint-menu-actions.js";
 import { expandToAction } from "../client-tile-action-logic/client-tile-action-neutral.js";
+import {
+  buildMarchToActions,
+  MARCH_ATTACK_NEW_FLAG_ACTION_ID,
+  MUSTER_LOCKED_REASON
+} from "../client-march-attack-actions/client-march-attack-actions.js";
+import { appendMarchCancelAction } from "../client-muster-march-targeting.js";
 import type { ClientState } from "../client-state/client-state.js";
-import type { Tile, TileMenuView } from "../client-types.js";
+import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 
 export type UnexploredTileMenuDeps = {
   keyFor: (x: number, y: number) => string;
@@ -17,14 +23,32 @@ export type UnexploredTileMenuDeps = {
 
 // The client has no confirmed data about an unexplored tile, so the menu
 // must show only its coordinates and its "unexplored" status — no terrain,
-// biome, or ownership. The only offered action is claiming it, via the same
-// expandToAction helper foggedTileActions/neutralTileActions use
-// (client-tile-action-neutral.ts) -- adjacent-EXPAND or a waypoint chain,
-// chosen automatically, same as any other neutral LAND target. Falls
-// through to injectWaypointActions afterward (only) for the case where this
-// exact tile is already the target of a queued/active waypoint --
-// expandToAction itself declines in that case (see its own doc comment), so
-// there's no risk of the two ever both offering an action at once.
+// biome, or ownership. Pressing unexplored ground means "explore that way",
+// not "claim exactly that tile", so the offered action is March To
+// (buildMarchToActions): a muster flag scouts toward it, and the server
+// stops short at the closest point if it turns out to be impassable. (An
+// unexplored tile touching the player's land never reaches this menu -- the
+// click claims it directly, client-action-flow.ts.)
+//
+// Until mustering unlocks (first enemy met, isMusterUnlocked) no flag can
+// march, so the menu falls back to the Expand To claim chain
+// (expandToAction, client-tile-action-neutral.ts) rather than leave a new
+// player no way to head into the unknown. injectWaypointActions afterward
+// adds Cancel Waypoint when this exact tile is already a waypoint target --
+// expandToAction itself declines in that case, so the two never both offer
+// an action at once.
+const unexploredClaimActions = (state: ClientState, placeholder: Tile, deps: UnexploredTileMenuDeps): TileActionDef[] => {
+  const march = buildMarchToActions(placeholder, state);
+  if (march.rows.length > 0) return march.rows;
+  if (march.unavailableReason === MUSTER_LOCKED_REASON) {
+    const expand = expandToAction(state, placeholder, { keyFor: deps.keyFor, pickOriginForTarget: deps.pickOriginForTarget });
+    return expand ? [expand] : [];
+  }
+  // Mustering is unlocked but no flag or tile can march here: say why
+  // instead of silently showing no action.
+  return [{ id: MARCH_ATTACK_NEW_FLAG_ACTION_ID, label: "March To", disabled: true, disabledReason: march.unavailableReason ?? "Unavailable" }];
+};
+
 export const openUnexploredTileActionMenu = (
   state: ClientState,
   wx: number,
@@ -42,15 +66,15 @@ export const openUnexploredTileActionMenu = (
   // toward it — at which point topUpFromWaypoint cancels the waypoint on its
   // own, having gotten as close as possible.
   const placeholder: Tile = { x: wx, y: wy, terrain: "LAND", fogged: false };
-  const expand = expandToAction(state, placeholder, { keyFor: deps.keyFor, pickOriginForTarget: deps.pickOriginForTarget });
+  const actions = appendMarchCancelAction(unexploredClaimActions(state, placeholder, deps), state, placeholder);
   const view: TileMenuView = {
     title: "Unexplored",
     subtitle: `(${wx}, ${wy})`,
     statusText: "Unexplored — terrain unknown",
     statusTone: "neutral",
-    tabs: expand ? ["actions", "overview"] : ["overview"],
+    tabs: actions.length > 0 ? ["actions", "overview"] : ["overview"],
     overviewLines: [{ html: "This tile has not been explored yet." }],
-    actions: expand ? [expand] : [],
+    actions,
     buildings: [],
     crystal: []
   };
