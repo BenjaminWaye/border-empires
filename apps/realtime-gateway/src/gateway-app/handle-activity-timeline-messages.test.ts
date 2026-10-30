@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { handleRequestPersonalActivityMessage, handleAcknowledgeActivitySeenMessage } from "./handle-activity-timeline-messages.js";
+import { handleRequestPersonalActivityMessage, handleAcknowledgeActivitySeenMessage, mergeDiplomacyCards } from "./handle-activity-timeline-messages.js";
 import type { PersonalActivityTimeline } from "@border-empires/game-domain";
 
 const emptyTimeline = (from: number, to: number): PersonalActivityTimeline => ({
@@ -13,6 +13,21 @@ const emptyTimeline = (from: number, to: number): PersonalActivityTimeline => ({
   manpowerSpentAttacking: 0,
   cards: [],
   truncated: false
+});
+
+describe("mergeDiplomacyCards", () => {
+  it("keeps the merged list newest first, which the client's unread badge reads from cards[0]", () => {
+    const territory = { kind: "TERRITORY_FLIP_GROUP" as const, id: "t", occurredAt: 2_000, direction: "GAINED" as const, counterpartyPlayerId: undefined, tileCount: 1, x: 1, y: 1 };
+    const ended = { kind: "DIPLOMACY" as const, id: "d", occurredAt: 3_000, event: "TRUCE_ENDED" as const, counterpartyPlayerId: "p2", counterpartyName: "Tove" };
+    const older = { ...ended, id: "d0", occurredAt: 1_000 };
+    const merged = mergeDiplomacyCards({ ...emptyTimeline(0, 4_000), cards: [territory] }, [ended, older]);
+    expect(merged.cards.map((card) => card.id)).toEqual(["d", "t", "d0"]);
+  });
+
+  it("returns the simulation's timeline untouched when there is no diplomacy", () => {
+    const timeline = emptyTimeline(0, 1);
+    expect(mergeDiplomacyCards(timeline, [])).toBe(timeline);
+  });
 });
 
 describe("handleRequestPersonalActivityMessage", () => {

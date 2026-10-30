@@ -4,9 +4,11 @@ import type { ResourceTradeOfferStore } from "../resource-trade/resource-trade-s
 // keep that file under the repo's 500-line cap. No state lives here — these
 // are just the shapes createSocialState operates on plus small pure helpers
 // shared by its request/truce lookups.
+import type { PersonalActivityDiplomacyCard } from "@border-empires/game-domain";
 import type { DiplomacyTerms } from "@border-empires/shared";
 
 import type { SocialOfferCooldown, SocialOfferKind } from "./social-offer-cooldowns.js";
+import type { DiplomacyHistoryEntry, StoredDiplomacyHistoryEntry } from "./social-diplomacy-history.js";
 
 export type SocialAllianceRequest = {
   id: string;
@@ -223,6 +225,8 @@ export type SocialState = {
   rejectTruce: (playerId: string, requestId: string, options?: SocialRejectOptions) => SocialActionResult;
   cancelTruce: (playerId: string, requestId: string) => SocialActionResult;
   breakTruce: (playerId: string, targetPlayerId: string) => SocialActionResult;
+  /** Recent truce/alliance changes for the Chronicle timeline (social-diplomacy-history.ts). */
+  diplomacyActivityCards: (playerId: string, from: number, to: number) => PersonalActivityDiplomacyCard[];
   activeTrucePairs: () => Array<[string, string]>; // non-expired pairs; sweeps first, used to sync natural expirations
   /**
    * Fresh update payloads for every player whose truce offer was dropped
@@ -252,6 +256,8 @@ export type SocialStateSink = {
   saveTruceLockout: (playerId: string, lockoutUntil: number) => void;
   saveTruceBreak: (playerId: string, record: SocialTruceBreakRecord) => void;
   saveOfferCooldown: (cooldown: SocialOfferCooldown) => void;
+  /** One player's Chronicle row (social-diplomacy-history.ts); the store keeps the last day, capped per player. */
+  saveDiplomacyHistory: (playerId: string, entry: DiplomacyHistoryEntry) => void;
   pruneExpired: (now: number) => void;
 };
 
@@ -266,4 +272,5 @@ export type SocialStateInitial = {
   truceLockouts?: Array<{ playerId: string; lockoutUntil: number }>;
   truceBreaks?: Array<{ playerId: string } & SocialTruceBreakRecord>;
   offerCooldowns?: SocialOfferCooldown[];
+  diplomacyHistory?: StoredDiplomacyHistoryEntry[];
 };

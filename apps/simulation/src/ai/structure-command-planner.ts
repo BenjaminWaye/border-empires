@@ -3,7 +3,7 @@ import { hasInstalledAiBuildModule } from "./ai-build-unlocks.js";
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 import {
   bestFortTierForTech,
-  bestSiegeTierForTech,
+  siegeTierForFreshBuild,
   RELAY_BEACON_FREE_FOOD_SLOT_COUNT,
   SYNTHESIZER_STRUCTURE_TYPES,
   structureBuildGoldCost,
@@ -13,6 +13,7 @@ import {
   structureSlotRequirements,
   TECH_REQUIREMENTS_BY_STRUCTURE,
   type EconomicStructureType,
+  type SiegeBatteryVariant,
   type SlotResource,
   type Terrain
 } from "@border-empires/shared";
@@ -424,13 +425,14 @@ export const chooseBestSiegeBatteryBuild = (
   if (!playerTechSet(player).has("leatherworking") || !hasInstalledAiBuildModule(player.installedModuleTechIds, "leatherworking")) return undefined;
   // Match the actual built tier. Retired UMBRITE/TITANIUM stockpiles do
   // not gate construction; their capacity is occupied for the tower's life.
-  const siegeTier = bestSiegeTierForTech((id) => playerTechSet(player).has(id));
-  if (player.slotSupplyByResource && player.slotDemandByResource) {
-    for (const requirement of structureSlotRequirements(siegeTier.variant)) {
-      const free = (player.slotSupplyByResource[requirement.resource] ?? 0) - (player.slotDemandByResource[requirement.resource] ?? 0);
-      if (free < requirement.count) return undefined;
-    }
-  }
+  // A fresh build steps down to the best tier whose UMBRITE slots fit (siegeTierForFreshBuild), same as the build handler.
+  const slotsFit = (variant: SiegeBatteryVariant): boolean => {
+    const { slotSupplyByResource: supply, slotDemandByResource: demand } = player;
+    if (!supply || !demand) return true;
+    return structureSlotRequirements(variant).every((requirement) => (supply[requirement.resource] ?? 0) - (demand[requirement.resource] ?? 0) >= requirement.count);
+  };
+  const siegeTier = siegeTierForFreshBuild((id) => playerTechSet(player).has(id), slotsFit);
+  if (!slotsFit(siegeTier.variant)) return undefined;
   if (!canAffordGold(player, siegeTier.gold)) return undefined;
   if (!canAffordManpower(player, siegeTier.manpower)) return undefined;
 

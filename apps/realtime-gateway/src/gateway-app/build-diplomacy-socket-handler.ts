@@ -14,6 +14,7 @@ import type { LeaderboardTiles } from "../ai-diplomacy-stance/ai-alliance-bloc.j
 import { createAiAllianceReview } from "../ai-diplomacy-stance/ai-alliance-review.js";
 import { recheckAiOffer } from "../ai-diplomacy-stance/ai-offer-recheck.js";
 import type { AiDiplomacyContext } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
+import { aiDiplomacyGrudges } from "../ai-diplomacy-stance/ai-diplomacy-grudges.js";
 import { answerDiplomacyStanceQuery } from "../ai-diplomacy-stance/diplomacy-stance-query.js";
 import { createSeasonLeaderboardCache } from "../ai-diplomacy-stance/season-leaderboard-cache.js";
 import { createAllianceBreakFinalizer } from "../alliance-break-finalizer/alliance-break-finalizer.js";
@@ -21,6 +22,7 @@ import { handleAllianceSocketMessage, type AllianceSocketMessageDeps } from "../
 import { rejectCounteredOffer } from "../diplomacy-counter-offer/diplomacy-counter-offer.js";
 import { createDiplomacyOfferAcceptance } from "../diplomacy-settlement/diplomacy-offer-acceptance.js";
 import { createDiplomacySettlement, type DiplomacySettlement } from "../diplomacy-settlement/diplomacy-settlement.js";
+import { offerDiplomacyGift } from "../diplomacy-gift/diplomacy-gift-message.js";
 import { lockedForGuests } from "../guest-diplomacy-lock/guest-diplomacy-lock.js";
 import { createSeededAiDiplomacyResponder, memoizeWithTtl } from "../seeded-ai-diplomacy-responder/seeded-ai-diplomacy-responder.js";
 import type { SocialState } from "../social-state/social-state.js";
@@ -131,13 +133,12 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
   // check's sizes come from the season leaderboard (cached, bounded wait).
   const seasonLeaderboard = createSeasonLeaderboardCache({ fetch: deps.fetchSeasonLeaderboard, now: () => Date.now() });
   const diplomacyContext = async (requesterId: string, aiPlayerId: string): Promise<AiDiplomacyContext> => {
-    const breaks = socialState.snapshotForPlayer(requesterId).truceBreaksThisSeason;
     const leaderboard = await seasonLeaderboard();
+    const now = Date.now();
     return {
-      requesterBrokeTruceWithAi: breaks.some((record) => record.targetPlayerId === aiPlayerId),
-      requesterTruceBreaksWithOthers: breaks.filter((record) => record.targetPlayerId !== aiPlayerId).length,
+      ...aiDiplomacyGrudges(socialState.snapshotForPlayer(requesterId), requesterId, aiPlayerId, now),
       memory: memory.view(aiPlayerId, requesterId),
-      now: Date.now(),
+      now,
       alliesOf,
       ...(leaderboard ? { seasonLeaderboard: leaderboard } : {})
     };
@@ -199,26 +200,54 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     isAutoRespondingAi:id=>isAi(id)&&!deps.hasLiveSocket(id),
     aiHoldings:async id=>{const player=(await deps.ensureSubscribed(id)).player;return player?{gold:Math.floor(player.gold),shard:Math.floor(player.strategicResources.SHARD??0),...(player.resourceTradeHoldings?{resources:player.resourceTradeHoldings}:{})}:undefined;},
     send:deps.sendJson,fanout:deps.fanoutPlayerPayloads,record:deps.recordGatewayEvent });
+  const isAutoRespondingAi = (targetId: string): boolean => deps.seededAiPlayerIds.has(targetId) && !deps.hasLiveSocket(targetId);
+  const giftsInFlight = new Set<string>();
+  const answerStance = (requesterId: string, targetPlayerName: string, targetPlayerId: string | undefined) =>
+    answerDiplomacyStanceQuery(
+      {
+        resolvePlayerByName: socialState.resolvePlayerByName,
+        resolvePlayerById: socialState.resolvePlayerById,
+        isAutoRespondingAi,
+        fetchAiSnapshot,
+        requesterSnapshot,
+        diplomacyContext
+      },
+      requesterId,
+      targetPlayerName,
+      targetPlayerId
+    );
 
   const handleMessage: DiplomacySocketHandler["handleMessage"] = async (message, session, socket) => {
     const playerId = session.playerId;
     if (!playerId) return false;
     if (await handleAfcCourtMessage(deps, message, session, socket)) return true;
     if (message.type === "DIPLOMACY_STANCE_REQUEST") {
-      const payload = await answerDiplomacyStanceQuery(
+      deps.sendJson(socket, await answerStance(playerId, message.targetPlayerName, message.targetPlayerId));
+      return true;
+    }
+    if (message.type === "DIPLOMACY_GIFT") {
+      if (session.isGuest === true) deps.gatewayMetrics.incrementGuestDiplomacyBlockedTotal();
+      const result = await offerDiplomacyGift(
         {
           resolvePlayerByName: socialState.resolvePlayerByName,
           resolvePlayerById: socialState.resolvePlayerById,
-          isAutoRespondingAi: (targetId) => deps.seededAiPlayerIds.has(targetId) && !deps.hasLiveSocket(targetId),
-          fetchAiSnapshot,
-          requesterSnapshot,
-          diplomacyContext
+          isAutoRespondingAi,
+          settle: settlement.settle,
+          recordPayment: memory.recordPayment,
+          recordGatewayEvent: deps.recordGatewayEvent,
+          giftsInFlight
         },
         playerId,
-        message.targetPlayerName,
-        message.targetPlayerId
+        message,
+        { isGuest: session.isGuest === true }
       );
-      deps.sendJson(socket, payload);
+      deps.sendJson(socket, result);
+      // The trade screen shows the AI's new opinion straight away.
+      if (result.ok) {
+        // The gift is paid either way; a stance that can't be read now is fetched again when the screen reopens.
+        const stance = await answerStance(playerId, result.targetPlayerName, result.targetPlayerId).catch(() => undefined);
+        if (stance) deps.sendJson(socket, stance);
+      }
       return true;
     }
     if (await resourceTrades.handle(message, playerId, socket, session.isGuest === true)) return true;

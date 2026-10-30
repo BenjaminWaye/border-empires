@@ -439,7 +439,7 @@ const townClick = (deps: HudV2Deps, target: Element): boolean => {
 /** Esc while a screen is open; true when it handled the key. Foreign dialogs (effort sheet, trade view) handle their own. */
 export const screenEscape = (deps: HudV2Deps): boolean => {
   if (!screen.id) return false;
-  if (document.querySelector(".effort-confirm-overlay")) return true;
+  if (document.querySelector(".effort-confirm-overlay, .break-pact-overlay")) return true;
   if (screen.id === "diplomacy" && screen.diplomacyTargetId) {
     if (!document.querySelector(".diplomacy-trade-overlay")) {
       screen.diplomacyTargetId = undefined;

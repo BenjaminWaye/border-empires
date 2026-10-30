@@ -16,7 +16,7 @@ const dockIconImage = (): HTMLImageElement | undefined => {
   return dockIcon.complete && dockIcon.naturalWidth > 0 ? dockIcon : undefined;
 };
 
-// Stylised line anchor for the small blue square: a ring, a stem, a crossbar
+// Stylised line anchor for the small blue marker: a ring, a stem, a crossbar
 // and a curved base.
 const drawLineAnchor = (ctx: CanvasRenderingContext2D, x: number, y: number, badge: number): void => {
   const cx = x + badge / 2;
@@ -39,8 +39,8 @@ const drawLineAnchor = (ctx: CanvasRenderingContext2D, x: number, y: number, bad
   ctx.stroke();
 };
 
-// Dock badge: a blue square with a line anchor when zoomed out, the brass anchor
-// icon on a dark plate when zoomed in (see client-map-render-corner-badge.ts).
+// Dock badge: a blue dot with a line anchor when zoomed out, the brass anchor
+// icon on a dark disc when zoomed in (see client-map-render-corner-badge.ts).
 // fullTile fills the whole tile with the small square (used for tiny tiles).
 export const drawDockMarker = (ctx: CanvasRenderingContext2D, px: number, py: number, size: number, fullTile = false): void => {
   if (fullTile) {

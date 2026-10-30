@@ -29,7 +29,7 @@ describe("createTownNameplates (2D path)", () => {
     plates.render([at(unfed, 100, 200)], { size: 40, project });
     const plate = host.querySelector<HTMLElement>(".town-plate");
     expect(plate?.querySelector(".town-plate-name")?.textContent).toBe("Town1");
-    expect(plate?.querySelector('[data-status="unfed"] img')?.getAttribute("src")).toBe("/icons/simple/food.svg");
+    expect(plate?.querySelector('[data-status="unfed"] img')?.getAttribute("src")).toBe("/icons/resources/food-96.png");
     expect(plate?.querySelector('[data-status="unfed"] .town-plate-slash')).not.toBeNull();
     expect(plate?.querySelector(".town-plate-pop")?.textContent).toBe("20k");
     expect(plate?.style.getPropertyValue("--town-plate-owner")).toBe("#e3b92b");
@@ -95,6 +95,17 @@ describe("createTownNameplates (2D path)", () => {
     const { host, plates } = mount();
     plates.render([at(townTile(1), 100, 200)], { size: 192, project });
     expect(host.querySelector<HTMLElement>(".town-plate")?.style.transform).toMatch(/scale\(1\.600\)$/);
+  });
+});
+
+describe("paused growth", () => {
+  it("shows a nearby-war town as growth struck through, not crossed swords", () => {
+    const { host, plates } = mount();
+    plates.render([at(townTile(1, { nearbyWarPausedUntil: Date.now() + 60_000 }), 100, 200)], { size: 40, project });
+    const badge = host.querySelector('[data-status="war"]');
+    expect(badge?.querySelector("img")?.getAttribute("src")).toBe("/icons/simple/town-growth.svg");
+    expect(badge?.querySelector(".town-plate-slash")).not.toBeNull();
+    expect(host.querySelector(".town-plate")?.getAttribute("title")).toBe("Town1: Growth paused: nearby war");
   });
 });
 
