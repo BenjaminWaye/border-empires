@@ -41,6 +41,21 @@ describe("buildSupplyRoutes", () => {
     expect(route!.points.map((p) => p.x)).toEqual([1, 0, -1, -2]);
   });
 
+  it("hangs a beach landing on its home dock across the sea lane, drawn along the sea route", () => {
+    // Home dock (10,10) settled; a one-tile landing at (30,10) across the sea.
+    const tiles = [{ ...settled(10, 10), dockId: "dock-a" }, settled(9, 10), frontier(30, 10)];
+    const via = [{ x: 11, y: 10 }, { x: 12, y: 11 }, { x: 13, y: 11 }];
+    const supply = computeFrontierSupplyModel({
+      tiles, me: ME, reach: new Set(["10,10", "9,10"]), ...WORLD,
+      seaLanes: [{ dockKey: "10,10", landingKey: "30,10", via }]
+    });
+    // Settled, but the landing hangs on the dock alone: losing it strands the landing.
+    expect(supply.cuts).toEqual([{ x: 10, y: 10 }]);
+    expect(supply.links).toEqual([{ from: { x: 10, y: 10 }, to: { x: 30, y: 10 }, tip: true, via }]);
+    const [route] = buildSupplyRoutes(supply, { ...WORLD, smoothing: 0 });
+    expect(route!.points.map((p) => [p.x, p.y])).toEqual([[10, 10], [11, 10], [12, 11], [13, 11], [30, 10]]);
+  });
+
   it("returns nothing when nothing is beyond reach", () => {
     expect(buildSupplyRoutes(model([settled(10, 10), frontier(11, 10)], ["10,10", "11,10"]), WORLD)).toEqual([]);
   });

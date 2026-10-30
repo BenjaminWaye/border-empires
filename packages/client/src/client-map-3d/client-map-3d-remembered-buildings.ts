@@ -14,7 +14,7 @@ import type { WaystationOverlay } from "../client-map-3d-waystation-overlay.js";
 import type { AfcOverlayGroup } from "../client-map-3d-afc-module-family.js";
 import { isAfcHiddenForJoinDrop, type AfcJoinDropState } from "../client-afc-join-drop/client-afc-join-drop-state.js";
 import { townIdentityForTile } from "../client-town-identity.js";
-import { dockRotationAt } from "../client-map-3d-dock-rotation/client-map-3d-dock-rotation.js";
+import { harbourFacingAt, rotationForFacing } from "../client-harbour-slipways/client-harbour-slipways.js";
 import { DEFAULT_CONTACT_SHADOW_RADIUS_TILES, LARGE_CONTACT_SHADOW_RADIUS_TILES } from "../client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
 import { addBuildingInstancesForTile, type BuildingOverlays, type BuildingState } from "./client-map-3d-building-instances.js";
 import {
@@ -65,7 +65,7 @@ export const addRememberedBuildingsForTile = (
   const shadows = layers.buildings.contactShadowOverlay;
   if (tile.dockId || context.dockEndpointKeys.has(site.tileKey)) {
     const dockSurfaceY = Math.max(context.elevationAt(wx, wy), -0.04) + 0.02;
-    layers.dockOverlay.addInstance(x, z, dockSurfaceY, dockRotationAt(wx, wy, context.terrainAt, context.wrapX, context.wrapY), wx, wy);
+    layers.dockOverlay.addInstance(x, z, dockSurfaceY, rotationForFacing(harbourFacingAt(context.terrainAt, wx, wy)), wx, wy);
     shadows.addShadow(x, z, dockSurfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
   }
   const townTier = townIdentityForTile(tile)?.populationTier;

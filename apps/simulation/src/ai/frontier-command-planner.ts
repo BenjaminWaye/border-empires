@@ -7,6 +7,7 @@ import { forEachFrontierNeighbor } from "../frontier-topology.js";
 import { isFrontierAdjacent } from "../frontier-adjacency/frontier-adjacency.js";
 import {
   candidateKeysForOrigin,
+  dockCrossingTargetKeysForOrigin,
   chebyshevWrap,
   classifyNeutralOpportunity,
   coastlineDiscoveryValue,
@@ -47,6 +48,8 @@ type FrontierAffordability = {
   canExpand?: boolean;
   needsFood?: boolean;
   dockLinksByDockTileKey?: ReadonlyMap<string, readonly string[]>;
+  /** Dock crossings may also target coastal land beside the linked dock (beach landings). Barbarians only, for now. */
+  dockBeachLandings?: boolean;
   onEvaluateNeutralTarget?: (targetKey: string) => void;
   /**
    * When provided, EXPAND-family candidates (plain/economic/directed/
@@ -135,16 +138,20 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
   const preferFogEfficientExpansion = affordability.preferFogEfficientExpansion ?? false;
   const nowMs = affordability.nowMs ?? Date.now();
   const iterStartedAt = performance.now();
+  const beachLandingsFrom = affordability.dockBeachLandings ? tilesByKey : undefined;
   const originCandidateKeyCache = new Map<string, string[]>();
   const cachedCandidateKeysForOrigin = (from: PlannerTile): string[] => {
     const k = tileKeyOf(from.x, from.y);
     let cached = originCandidateKeyCache.get(k);
     if (!cached) {
-      cached = candidateKeysForOrigin(from, dockLinksByDockTileKey);
+      cached = candidateKeysForOrigin(from, dockLinksByDockTileKey, beachLandingsFrom);
       originCandidateKeyCache.set(k, cached);
     }
     return cached;
   };
+  const isDockCrossingFrom = (from: PlannerTile, targetKey: string): boolean =>
+    Boolean(from.dockId && dockLinksByDockTileKey) &&
+    dockCrossingTargetKeysForOrigin(from, dockLinksByDockTileKey!, beachLandingsFrom).includes(targetKey);
   let neighborLookupsTotalMs = 0;
   let scoreCalcTotalMs = 0;
   const scoreByTargetKey = new Map<string, number>();
@@ -348,11 +355,9 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
         continue;
       }
 
-      // A dock crossing only lands you on the linked dock tile itself — you
-      // must capture that dock before claiming or attacking land beyond it.
-      const isDockCrossing = Boolean(
-        from.dockId && dockLinksByDockTileKey?.get(tileKeyOf(from.x, from.y))?.includes(targetKey)
-      );
+      // A dock crossing lands on the linked dock tile itself or, with
+      // dockBeachLandings, on the coastal landing ground beside it.
+      const isDockCrossing = isDockCrossingFrom(from, targetKey);
       if (!isFrontierAdjacent(from.x, from.y, target.x, target.y) && !isDockCrossing) {
         continue;
       }
@@ -362,7 +367,9 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
       // so this only prunes candidates that were otherwise legal by today's
       // rule but fall outside the actor's fixed-border reach.
       const outOfReach = Boolean(reachLookup && !reachLookup.isInReach(playerId, target.x, target.y));
-      if (outOfReach && !isDockCrossing) continue;
+      // Only a crossing onto the dock tile itself skips reach: beach landing
+      // ground is ordinary land, so it can't be settled out of reach.
+      if (outOfReach && !(isDockCrossing && target.dockId)) continue;
       // EXPAND itself is never runtime reach-gated (game-domain validation);
       // this gate is AI policy, because out-of-reach land can't be settled.
       // Dock tiles are the exception — auto-settle exempts town/dock tiles

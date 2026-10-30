@@ -11,6 +11,7 @@ const harness = (tiles: Map<string, DomainTileState>) => {
     tiles,
     now: () => 1_000,
     activeAetherBridgesForPlayer: () => [],
+    seaLaneNeighborKeysByTileKey: new Map(),
     replaceTileState: (tileKey, tile) => {
       tiles.set(tileKey, tile);
     },

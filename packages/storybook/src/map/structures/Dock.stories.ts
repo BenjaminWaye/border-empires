@@ -26,7 +26,7 @@ const meta: Meta<Args> = {
     docs: {
       description: {
         component:
-          "Dock: the empire's ocean transport hub. A heavy timber-and-iron pier runs out from a compact industrial shore building toward the water. The centrepiece is a large brass cargo crane — a tall tapered mast with a jib over the pier, a counterweight jib over the shore, and a chain visibly suspending a cargo crate above the loading deck. The shore end holds a dockhouse (amber windows, chimney), a steam boiler and winch with brass drum and gear, and a pipe run with a pressure valve. Crates and barrels wait on the deck, mooring posts with chains tie off a small steampunk cargo barge (iron hull, wood deck, cabin, funnel), and small amber lamps dot the pier. No guns or fortifications. The model is built facing +z (south); rotate to face the adjacent water tile."
+          "Harbour quay (the dock tile; see Harbour for the full harbour with its landing slipways). A stone quay with an iron-capped edge and a timber pier on piles, a toll and harbourmaster's house with lit windows and a slate roof, a coal-fired steam derrick hoisting a crate, freight on the quay, a harbour lamp on the pier head and a paddle-steamer ferry moored alongside. Steam and iron, no aether and no guns (world bible §4, §10). Modelled facing +z (south); rotate to face the adjacent water tile."
       }
     }
   },

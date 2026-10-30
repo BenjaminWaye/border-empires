@@ -310,8 +310,6 @@ export const AFC_LANDING_GUARANTEED_REACH_RADIUS = 1;
 // version of the same grant for ground that was already held.
 export const FRONTIER_AUTO_HEAL_MS = 30 * 60 * 1000;
 
-export const DOCK_DEFENSE_MULT = 1.5;
-export const DOCK_CROSSING_COOLDOWN_MS = 30_000;
 export const DOCK_PAIRS_MIN = 15;
 export const DOCK_PAIRS_MAX = 45;
 

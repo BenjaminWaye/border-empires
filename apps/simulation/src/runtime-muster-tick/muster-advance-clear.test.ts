@@ -335,7 +335,7 @@ describe("nearestHostileWithinSteps follows dock and bridge links", () => {
         land(80, 10, { dockId: "dock-b" }),
         land(81, 10, { ownerId: "barbarian-1", ownershipState: "FRONTIER" })
       ]),
-      dockLinksByDockTileKey: new Map(dockLinks),
+      dockCrossingTargetsByDockTileKey: new Map(dockLinks),
       aetherBridgeNeighborKeysForPlayer: () => new Map(bridgeLinks),
       isTileVisibleToPlayer: () => true
     }) as unknown as MusterTickInput;
@@ -370,7 +370,7 @@ describe("only an accepted command counts as engaging", () => {
       tiles,
       locksByTile: new CombatLockIndex(),
       advanceCooldowns: cooldowns,
-      dockLinksByDockTileKey: new Map(),
+      dockCrossingTargetsByDockTileKey: new Map(),
       aetherBridgeNeighborKeysForPlayer: () => new Map(),
       isTileVisibleToPlayer: () => true,
       requiredMusterForTarget: () => 10,

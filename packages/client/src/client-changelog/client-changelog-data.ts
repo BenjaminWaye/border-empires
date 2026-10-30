@@ -285,6 +285,24 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AI_BEACON_SPACING_CHANGELOG,
   ...LOST_STRUCTURES_CHANGELOG,
   ...CAPTURED_MUSTER_CLEAR_CHANGELOG,
+  {
+    createdAt: 1793371350853, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.30",
+    title: "Land on the beaches beside a linked dock",
+    why: "A sea crossing could only land on the far dock itself, so a harbour was defended by watching one tile.",
+    changes: [
+      "A crossing from your dock can now land on any coastal tile right next to the dock it links to, not just the dock",
+      "Your coast is marked in orange wherever an enemy-held dock can land troops on it, so you can see which beaches to watch",
+      "Select a dock to see its landing ground highlighted at both ends of its sea routes; the tile panel also names the docks whose crossings can land on a tile",
+      "Every tile a crossing can land on (the dock and the beaches beside it) is marked with a glowing waterline and chevrons pointing ashore",
+      "A beach landing is supplied through the dock you sailed from: lose that dock and the landing is cut off at once",
+      "Supply lines draw the sea leg back to your home dock, with a ring on the dock the landing depends on",
+      "Muster flags on Advance or March use beach landings too",
+      "Barbarians holding a dock can land on those beaches as well",
+      "Docks are redrawn as harbours: a stone quay with a toll house, a steam derrick and a moored paddle steamer, and a landing slipway with a beached landing barge on each beach beside it, so you can see where crossings come ashore without selecting anything",
+      "Docks on east and west coasts now face the sea instead of inland"
+    ]
+  },
   ...ADVANCE_EFFORT_CHANGELOG,
   ...FASTER_ATTACKS_FRONTIER_COST_CHANGELOG,
   ...AFC_MODULE_MODELS_CHANGELOG,

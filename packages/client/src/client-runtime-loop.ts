@@ -56,7 +56,8 @@ import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent,
 import { clampedTileHalfExtents, resolveTileBudget } from "./client-map-3d-tile-budget/client-map-3d-tile-budget.js";
 import { drawTileGround2D } from "./client-map-render-2d-tile-ground/client-map-render-2d-tile-ground.js";
 import { drawShardRainFx2D } from "./client-shard-rain-fx-2d/client-shard-rain-fx-2d.js";
-import { drawFrontierSupplyForState2D } from "./client-frontier-supply/client-frontier-supply-2d.js";
+import { drawLandingGroundAndSupply2D } from "./client-dock-landing-ground/client-dock-landing-ground-2d.js";
+import { dockEndpointKeySet } from "./client-harbour-slipways/client-harbour-slipways.js";
 import { drawAetherTowerSprite2D } from "./client-aether-tower-sprite-2d/client-aether-tower-sprite-2d.js";
 import { drawSiphonOverlay2D } from "./client-siphon-overlay-2d/client-siphon-overlay-2d.js"; import { drawArrowGesture2D, drawShieldAreaTile2D, drawWinChanceLabel2D, winChancePaintColorForTile2D } from "./client-map-render-2d-combat-overlays.js"; import { collectKnownShieldFlags, tileShieldCoverage } from "./client-known-shield-flags.js";
 
@@ -239,11 +240,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
     const size = state.zoom;
     const { halfW, halfH } = clampedTileHalfExtents(Math.floor(deps.canvas.width / size / 2), Math.floor(deps.canvas.height / size / 2), resolveTileBudget(MIN_ZOOM));
-    const dockEndpointKeys = new Set<string>();
-    for (const pair of state.dockPairs) {
-      dockEndpointKeys.add(deps.keyFor(pair.ax, pair.ay));
-      dockEndpointKeys.add(deps.keyFor(pair.bx, pair.by));
-    }
+    const dockEndpointKeys = dockEndpointKeySet(state.dockPairs, deps.keyFor);
     // Reach overlay: resolveMyReachCached recomputes only when tiles or the
     // server reach actually changed (same cache the 3D renderer uses).
     const myReach = isTrue3DRendererActive() ? state.myReach : resolveMyReachCached(state);
@@ -960,15 +957,16 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
     }
 
-    // Frontier supply lines (2D; the 3D path draws client-map-3d-frontier-supply-overlay.ts): pale pulsing lines from settled land out to fragile land beyond reach, a ring on the tile it hangs on.
+    // Landing ground of a selected dock, then frontier supply lines (2D; the 3D path draws client-map-3d-dock-landing-overlay.ts and client-map-3d-frontier-supply-overlay.ts): pale pulsing lines from settled land out to fragile land beyond reach, a ring on the tile it hangs on.
     if (!isTrue3DRendererActive()) {
-      drawFrontierSupplyForState2D(deps.ctx, state, {
+      drawLandingGroundAndSupply2D(deps.ctx, state, {
         tileCenter: (x, y) => deps.worldToScreen(x, y, size, halfW, halfH),
         size,
         viewportWidth: deps.canvas.width,
         viewportHeight: deps.canvas.height,
         ownerColor: deps.effectiveOverlayColor(state.me),
-        nowMs
+        nowMs,
+        tileVisible: (x, y) => effectiveFogDisabled(state) || deps.tileVisibilityStateAt(x, y, state.tiles.get(deps.keyFor(x, y))) === "visible"
       });
     }
 

@@ -156,7 +156,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
   // and the one straightest path the march follows.
   const bridgeLinksByKey = input.aetherBridgeNeighborKeysForPlayer(playerId);
   const crossingKeysFor = (key: string): readonly string[] | undefined => {
-    const dockKeys = input.dockLinksByDockTileKey.get(key);
+    const dockKeys = input.dockCrossingTargetsByDockTileKey.get(key);
     const bridgeKeys = bridgeLinksByKey.get(key);
     if (!dockKeys) return bridgeKeys;
     return bridgeKeys ? [...dockKeys, ...bridgeKeys] : dockKeys;
@@ -168,7 +168,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
     target: { x: targetX, y: targetY },
     nowMs: input.nowMs,
     crossingKeysFor,
-    crossingSignature: `${[...bridgeLinksByKey.keys()].sort().join(";")}|${input.dockLinksByDockTileKey.size}`
+    crossingSignature: `${[...bridgeLinksByKey.keys()].sort().join(";")}|${input.dockCrossingTargetsByDockTileKey.size}`
   });
 
   // A march must never move away from its target: any candidate at least as
@@ -230,7 +230,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
     const current = queue[head++]!;
     const currentKey = simulationTileKey(current.x, current.y);
 
-    const dockLinkedKeys = input.dockLinksByDockTileKey.get(currentKey) ?? [];
+    const dockLinkedKeys = input.dockCrossingTargetsByDockTileKey.get(currentKey) ?? [];
     const bridgeLinkedKeys = bridgeLinksByKey.get(currentKey) ?? [];
     const neighborCoords = [
       ...coordsInChebyshevRadius(current.x, current.y, 1),
