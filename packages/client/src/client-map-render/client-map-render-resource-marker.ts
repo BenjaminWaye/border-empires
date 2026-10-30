@@ -2,8 +2,8 @@ import { depositIconKey, drawResourceIconOnCanvas } from "../client-resource-ico
 import type { Tile } from "../client-types.js";
 import { drawCornerBadge } from "./client-map-render-corner-badge.js";
 
-// Resource tile badge: a solid resource-coloured square when zoomed out, the
-// resource icon on a dark plate when zoomed in (see client-map-render-corner-badge.ts).
+// Resource tile badge: a solid resource-coloured dot when zoomed out, the
+// resource icon on a dark disc when zoomed in (see client-map-render-corner-badge.ts).
 export const drawResourceCornerMarker = (
   ctx: CanvasRenderingContext2D,
   tile: Tile,

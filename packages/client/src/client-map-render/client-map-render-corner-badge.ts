@@ -2,12 +2,17 @@
 // the 2D map and over the 3D view. Two tiers, because the icon only reads once
 // the tile is big enough:
 // - Below CORNER_BADGE_ICON_MIN_TILE_PX (the default 22px zoom and everything
-//   zoomed out, down to 10px tiles): a solid square in the badge colour. The
+//   zoomed out, down to 10px tiles): a solid dot in the badge colour. The
 //   colour is the cue that tells food, titanium, crystal, umbrite and docks
 //   apart from far out.
-// - From CORNER_BADGE_ICON_MIN_TILE_PX up: a dark plate with the colour as its
+// - From CORNER_BADGE_ICON_MIN_TILE_PX up: a dark disc with the colour as its
 //   rim and the icon inside.
 export const CORNER_BADGE_ICON_MIN_TILE_PX = 48;
+
+const circlePath = (ctx: CanvasRenderingContext2D, cx: number, cy: number, radius: number): void => {
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+};
 
 const cornerInset = (size: number): number => Math.max(2, size * 0.03);
 
@@ -25,19 +30,23 @@ export const drawCornerBadge = (
   if (size < CORNER_BADGE_ICON_MIN_TILE_PX) {
     const badge = Math.max(9, size * 0.22);
     ctx.fillStyle = "rgba(12, 16, 28, 0.78)";
-    ctx.fillRect(x - 1, y - 1, badge + 2, badge + 2);
+    circlePath(ctx, x + badge / 2, y + badge / 2, badge / 2 + 1);
+    ctx.fill();
     ctx.fillStyle = color;
-    ctx.fillRect(x, y, badge, badge);
+    circlePath(ctx, x + badge / 2, y + badge / 2, badge / 2);
+    ctx.fill();
     drawSmallMark?.(x, y, badge);
     return;
   }
   const badge = Math.max(22, size * 0.3);
   const rim = Math.max(1, badge * 0.04);
   ctx.fillStyle = "rgba(14, 12, 10, 0.88)";
-  ctx.fillRect(x, y, badge, badge);
+  circlePath(ctx, x + badge / 2, y + badge / 2, badge / 2);
+  ctx.fill();
   ctx.strokeStyle = color;
   ctx.lineWidth = rim;
-  ctx.strokeRect(x + rim / 2, y + rim / 2, badge - rim, badge - rim);
+  circlePath(ctx, x + badge / 2, y + badge / 2, (badge - rim) / 2);
+  ctx.stroke();
   // fillStyle colours any text-glyph fallback the icon drawer uses before its image decodes.
   ctx.fillStyle = color;
   drawIcon(x + badge / 2, y + badge / 2, badge - rim * 2);

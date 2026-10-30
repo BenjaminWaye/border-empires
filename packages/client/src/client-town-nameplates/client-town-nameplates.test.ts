@@ -29,7 +29,7 @@ describe("createTownNameplates (2D path)", () => {
     plates.render([at(unfed, 100, 200)], { size: 40, project });
     const plate = host.querySelector<HTMLElement>(".town-plate");
     expect(plate?.querySelector(".town-plate-name")?.textContent).toBe("Town1");
-    expect(plate?.querySelector('[data-status="unfed"] img')?.getAttribute("src")).toBe("/icons/simple/food.svg");
+    expect(plate?.querySelector('[data-status="unfed"] img')?.getAttribute("src")).toBe("/icons/resources/food-96.png");
     expect(plate?.querySelector('[data-status="unfed"] .town-plate-slash')).not.toBeNull();
     expect(plate?.querySelector(".town-plate-pop")?.textContent).toBe("20k");
     expect(plate?.style.getPropertyValue("--town-plate-owner")).toBe("#e3b92b");
