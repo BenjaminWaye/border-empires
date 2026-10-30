@@ -1,7 +1,6 @@
 import { injectWaypointActions } from "../client-waypoint-menu-actions/client-waypoint-menu-actions.js";
 import { expandToAction } from "../client-tile-action-logic/client-tile-action-neutral.js";
 import { buildMarchToAction } from "../client-march-attack-actions/client-march-attack-actions.js";
-import { appendMarchCancelAction } from "../client-muster-march-targeting.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 
@@ -59,7 +58,11 @@ export const openUnexploredTileActionMenu = (
   // toward it — at which point topUpFromWaypoint cancels the waypoint on its
   // own, having gotten as close as possible.
   const placeholder: Tile = { x: wx, y: wy, terrain: "LAND", fogged: false };
-  const actions = appendMarchCancelAction(unexploredClaimActions(state, placeholder, deps), state, placeholder);
+  // No Cancel March here even when a flag is marching to this tile: the
+  // muster handlers need a Tile from state.tiles, which an unexplored tile
+  // never has, so the button would silently do nothing. Cancel it from the
+  // flag's own tile instead.
+  const actions = unexploredClaimActions(state, placeholder, deps);
   const view: TileMenuView = {
     title: "Unexplored",
     subtitle: `(${wx}, ${wy})`,

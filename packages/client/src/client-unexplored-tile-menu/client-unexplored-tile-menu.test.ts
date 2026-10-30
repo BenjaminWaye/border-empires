@@ -135,10 +135,12 @@ describe("openUnexploredTileActionMenu", () => {
       expect(view.actions[0]?.disabledReason).toMatch(/within march range/);
     });
 
-    it("offers Cancel March on an unexplored tile a flag is already marching to", () => {
+    // Regression: a Cancel March row here was dead -- its handler needs the
+    // tile in state.tiles, which an unexplored tile never is.
+    it("doesn't offer a Cancel March it can't carry out on an unexplored tile a flag is marching to", () => {
       const state = stateWith([flag(5, 5, { mode: "MARCH", targetX: 5, targetY: 9 })]);
       const view = openAt(state, 5, 9);
-      expect(view.actions.map((action) => action.id)).toContain("muster_march_cancel");
+      expect(view.actions.map((action) => action.id)).not.toContain("muster_march_cancel");
     });
   });
 });

@@ -50,7 +50,9 @@ export const checkMarchOrigin = (state: ClientState, origin: Point, target: Poin
     },
     doneAtSteps: () => (routed ? 0 : undefined)
   });
-  if (!routed) return { ok: false, reason: `No route over land from (${origin.x}, ${origin.y}) to there. Pick a tile on the same side of the water.` };
+  if (!routed) {
+    return { ok: false, reason: `No route from (${origin.x}, ${origin.y}) within march range: water or a long detour is in the way. Pick a closer tile.` };
+  }
   return { ok: true, newFlag };
 };
 

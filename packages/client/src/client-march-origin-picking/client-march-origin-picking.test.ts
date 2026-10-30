@@ -121,3 +121,26 @@ describe("checkMarchOrigin", () => {
     expect(checkMarchOrigin(stateWith([flag(17, 10)]), { x: 17, y: 10 }, target)).toEqual({ ok: true, newFlag: false });
   });
 });
+
+// handleMarchPickClick also took over a flag's own "March To…" target tap
+// from client-action-flow.ts, so pin that branch too.
+describe("handleMarchPickClick with a flag's March To… armed", () => {
+  it("opens the commit sheet for a tapped destination, cancels on the flag's own tile, and ignores taps when nothing is armed", () => {
+    const state = stateWith([flag(14, 10)]);
+    const deps = makeDeps();
+    expect(handleMarchPickClick(state, 30, 30, "visible", deps)).toBe(false);
+
+    state.musterMarchTargeting = { active: true, originX: 14, originY: 10 };
+    expect(handleMarchPickClick(state, 20, 10, "unexplored", deps)).toBe(true);
+    expect(handleArrowGestureConfirm).toHaveBeenCalledWith(state, { x: 14, y: 10 }, { x: 20, y: 10 }, deps);
+    expect(deps.pushFeed).toHaveBeenCalledWith("(20, 10) is unexplored: the flag will march into the unknown.", "combat", "info");
+    expect(state.musterMarchTargeting.active).toBe(false);
+
+    vi.mocked(handleArrowGestureConfirm).mockClear();
+    state.musterMarchTargeting = { active: true, originX: 14, originY: 10 };
+    expect(handleMarchPickClick(state, 14, 10, "visible", deps)).toBe(true);
+    expect(handleArrowGestureConfirm).not.toHaveBeenCalled();
+    expect(deps.pushFeed).toHaveBeenLastCalledWith("March target cancelled.", "combat", "info");
+    expect(deps.renderHud).toHaveBeenCalledTimes(2);
+  });
+});
