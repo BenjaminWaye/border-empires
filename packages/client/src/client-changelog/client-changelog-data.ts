@@ -312,6 +312,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...WAR_INDUSTRY_SQUADS_CHANGELOG,
   ...FORT_WALL_OPENINGS_CHANGELOG,
+  {
+    createdAt: 1793219423974, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.28.3",
+    title: "AI empires push reach across their own borderlands",
+    why: "AI empires holding a wide band of unsettled land outside their reach stopped growing, and they never built beacons toward plain unclaimed land.",
+    changes: ["AI empires now build relay beacons that carry reach across their own unsettled borderlands, and toward wide stretches of plain unclaimed land."]
+  },
   ...HILL_GARRISON_FILL_CHANGELOG,
   {
     createdAt: 1792873662311, // Frozen Date.now() timestamp for the changelog gate.
