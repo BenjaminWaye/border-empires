@@ -168,7 +168,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
     target: { x: targetX, y: targetY },
     nowMs: input.nowMs,
     crossingKeysFor,
-    crossingSignature: `${[...bridgeLinksByKey.keys()].sort().join(";")}|${input.dockLinksByDockTileKey.size}`
+    crossingSignature: `${[...bridgeLinksByKey.keys()].sort().join(";")}|${input.dockCrossingTargetsByDockTileKey.size}`
   });
 
   // A march must never move away from its target: any candidate at least as
