@@ -7,6 +7,7 @@ import { supportPlotAnchorTown } from "../client-town-support-plot-lookup.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import { closeUpOn, endCloseUp, TOWN_ZOOM } from "./client-hud-v2-camera.js";
 import { clearScreen, focusCamera, screen, SCREEN_HOST_ID, screenCentre, setScreen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
+import { createFlagTapTracker } from "./client-hud-v2-flag-tap.js";
 import { suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
 import { TOWN_SCREEN_SKELETON, townScreenRegions } from "./client-hud-v2-town.js";
 
@@ -93,12 +94,27 @@ export const installMapGuard = (): void => {
   });
 };
 
+/** First tap on a flagged town tile selects the flag; a second opens the town screen (see client-hud-v2-flag-tap.ts). */
+const flagTaps = createFlagTapTracker();
+
+/** Dock listener: the tile bar was hidden, by a press on the map (`byMapPress`) or any other close. */
+export const townOnMenuHidden = (byMapPress: number | undefined): void => {
+  flagTaps.onHidden(byMapPress);
+  if (screen.id === "town") closeTownScreen(true);
+};
+
 /** Dock listener: returns true when the town screen takes this tile. */
-export const townOnMenuView = (deps: HudV2Deps, view: TileMenuView, tileKey: string): boolean => {
+export const townOnMenuView = (deps: HudV2Deps, view: TileMenuView, tileKey: string, tapPress: number | undefined = undefined): boolean => {
+  const tile = deps.state.tiles.get(tileKey);
+  const town = townForTile(deps, tile);
+  const openTown = flagTaps.onView({ tileKey, flagged: Boolean(tile?.muster), inTown: Boolean(town), tapPress, townScreenOpen: screen.id === "town" });
   if (screen.id !== null && screen.id !== "town") return false;
-  const town = townForTile(deps, deps.state.tiles.get(tileKey));
   if (!town) {
     // Selecting a tile outside the town: zoom back out but stay where the player is looking.
+    if (screen.id === "town") closeTownScreen(true);
+    return false;
+  }
+  if (!openTown) {
     if (screen.id === "town") closeTownScreen(true);
     return false;
   }

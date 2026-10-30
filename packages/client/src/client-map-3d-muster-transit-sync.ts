@@ -34,8 +34,7 @@ const advanceTransitSeenAt = new Map<string, number>();
 // Drives the marching-company overlay from state.musterTransitByTile/
 // deferredAttackByTile (client-muster-transit.ts) — this client's own
 // muster-funded attacks still in their local pre-send march (see
-// armMusterTransit in client-queue-logic.ts). Runs every frame (not just on
-// terrain rebuild, unlike syncCaptureOverlays' supply lines above) since the
+// armMusterTransit in client-queue-logic.ts). Runs every frame since the
 // company's position needs to advance continuously. Only ever covers the
 // local player's own outgoing marches — armMusterTransit is purely local
 // bookkeeping before the ATTACK is even sent, so there's nothing to show an

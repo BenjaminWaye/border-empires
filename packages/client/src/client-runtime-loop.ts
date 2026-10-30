@@ -35,7 +35,7 @@ import { drawTileOwnershipAndBreachBorder } from "./client-tile-borders/client-t
 import { resolveMyReachCached } from "./client-reach-authoritative/client-reach-authoritative.js";
 import { drawReachBoundaryLine } from "./client-reach-overlay/client-reach-overlay.js";
 import { drawReachTileTreatments2D } from "./client-reach-incursion/client-reach-incursion-2d.js";
-import { createPersistentAlertsFrame } from "./client-persistent-alerts/client-persistent-alerts-frame.js"; import { drawOnboardingChecklistHighlights } from "./client-onboarding-checklist/client-onboarding-checklist-highlight.js";
+import { createPersistentAlertsFrame } from "./client-persistent-alerts/client-persistent-alerts-frame.js"; import { showCaptureTimeoutAlert } from "./client-alerts/client-alerts.js"; import { drawOnboardingChecklistHighlights } from "./client-onboarding-checklist/client-onboarding-checklist-highlight.js";
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { drawTileFeatureOverlays2D } from "./client-map-2d-tile-feature-overlays.js";
 import { drawTownSupportPlot2D } from "./client-map-2d-town-support-tile-overlay.js";
@@ -166,7 +166,6 @@ type StartClientRuntimeLoopDeps = {
   clearOptimisticTileState: (tileKey: string, revert?: boolean) => void;
   dropQueuedTargetKeyIfAbsent: (targetKey: string) => void;
   pushFeed: (msg: string, type?: FeedType, severity?: FeedSeverity) => void;
-  showCaptureAlert: (title: string, detail: string, tone?: "success" | "error" | "warn", manpowerLoss?: number) => void;
   processActionQueue: () => boolean;
   shouldPreserveOptimisticExpandByKey: (tileKey: string) => boolean;
   requestViewRefresh: (radius?: number, force?: boolean) => void;
@@ -1134,10 +1133,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         state.actionQueue = state.actionQueue.filter((entry) => deps.keyFor(entry.x, entry.y) !== currentKey);
         state.queuedTargetKeys.delete(currentKey);
         if (currentKey) deps.dropQueuedTargetKeyIfAbsent(currentKey);
-        deps.showCaptureAlert(
+        showCaptureTimeoutAlert(
+          state,
           "Expansion sync delayed",
-          "No server acceptance arrived within 2 seconds. Refreshing nearby tiles while waiting for frontier sync. Use Download debug log below if this keeps happening.",
-          "warn"
+          "No server acceptance arrived within 2 seconds. Refreshing nearby tiles while waiting for frontier sync. Use Report bug below if this keeps happening."
         );
         deps.pushFeed("No server acceptance arrived within 2s; waiting for frontier sync instead of retrying the same tile.", "combat", "warn");
         deps.requestViewRefresh(1, true);
@@ -1149,10 +1148,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       } else if (current) {
         state.capture = preservedCapture;
         if (currentKey) state.frontierLateAckUntilByTarget.set(currentKey, Date.now() + 12_000);
-        deps.showCaptureAlert(
+        showCaptureTimeoutAlert(
+          state,
           "Attack sync delayed",
-          "No server acceptance arrived within 2 seconds. Keeping the current attack active while waiting for the server result.",
-          "warn"
+          "No server acceptance arrived within 2 seconds. Keeping the current attack active while waiting for the server result."
         );
         deps.requestViewRefresh(1, true);
         deps.pushFeed("No server acceptance within 2s; holding the current attack and waiting for the authoritative result.", "combat", "warn");
@@ -1178,7 +1177,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         // otherwise sit forever, permanently blocking a re-queue with
         // "Build already queued".
         if (currentKey) { state.autoSettleTargets.delete(currentKey); state.autoBuildTargets.delete(currentKey); }
-        deps.showCaptureAlert("Attack sync delayed", "No server acceptance arrived within 2 seconds. Refreshing nearby tiles to resync.", "warn");
+        showCaptureTimeoutAlert(state, "Attack sync delayed", "No server acceptance arrived within 2 seconds. Refreshing nearby tiles to resync.");
         deps.requestViewRefresh(1, true);
         deps.pushFeed("No server acceptance within 2s; skipping queued action.", "combat", "warn");
         if (currentKey) deps.dropQueuedTargetKeyIfAbsent(currentKey);
@@ -1233,7 +1232,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         // reconciled by a later frontier sync, so drop any queued
         // settle+build for this tile rather than leaving it orphaned.
         if (timedOutCurrentKey) { state.autoSettleTargets.delete(timedOutCurrentKey); state.autoBuildTargets.delete(timedOutCurrentKey); }
-        deps.showCaptureAlert("Combat result delayed", "Refreshing nearby tiles because the server result did not arrive in time.", "warn");
+        showCaptureTimeoutAlert(state, "Combat result delayed", "Refreshing nearby tiles because the server result did not arrive in time.");
         deps.requestViewRefresh(1, true);
       }
       deps.reconcileActionQueue();

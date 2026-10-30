@@ -40,8 +40,8 @@ describe("upkeepDescriptorFor", () => {
     expect(upkeepDescriptorFor("RELAY_BEACON", RELAY_BEACON_FREE_FOOD_SLOT_COUNT)).toEqual(["1 FOOD slot"]);
   });
 
-  it("Siege Tower joins its two resource requirements", () => {
-    expect(upkeepDescriptorFor("SIEGE_TOWER")).toEqual(["2 UMBRITE slots", "1 TITANIUM slot"]);
+  it("Siege Tower needs only UMBRITE slots, no TITANIUM", () => {
+    expect(upkeepDescriptorFor("SIEGE_TOWER")).toEqual(["2 UMBRITE slots"]);
   });
 });
 

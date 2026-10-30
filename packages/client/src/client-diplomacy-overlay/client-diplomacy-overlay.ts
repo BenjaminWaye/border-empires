@@ -1,32 +1,27 @@
 // Diplomacy map view: recolours every other empire's land by your standing with
-// them (ally, truce, no agreement) and barbarian land grey. It works by swapping
+// them (ally, truce, hostile); barbarians count as hostile. It works by swapping
 // the owner colour itself (diplomacyOwnerColor, wired in client-map-facade.ts),
 // so the 2D map, the 3D map and the minimap all repaint their own territory
-// fill and borders rather than drawing a second layer on top. Toggled from the minimap.
+// fill and borders rather than drawing a second layer on top. Picked from the minimap's lens button.
 
 import type { ClientState } from "../client-state/client-state.js";
 
-export type DiplomacyOverlayStance = "ally" | "truce" | "none" | "barbarian";
-
-export const DIPLOMACY_OVERLAY_STANCES: readonly DiplomacyOverlayStance[] = ["ally", "truce", "none", "barbarian"];
+export type DiplomacyOverlayStance = "ally" | "truce" | "hostile";
 
 export const DIPLOMACY_OVERLAY_COLORS: Readonly<Record<DiplomacyOverlayStance, string>> = {
   ally: "#6fbf73",
   truce: "#e0a845",
-  none: "#d06a5a",
-  barbarian: "#8a8170"
+  hostile: "#d06a5a"
 };
 
 export const DIPLOMACY_OVERLAY_LABELS: Readonly<Record<DiplomacyOverlayStance, string>> = {
   ally: "Ally",
   truce: "Truce",
-  none: "No agreement",
-  barbarian: "Barbarian"
+  hostile: "Hostile"
 };
 
 /** Your own land in the Diplomacy view: a fixed blue outside the stance palette, so your own colour can never be mistaken for a stance. */
 export const DIPLOMACY_SELF_COLOR = "#5b8fd6";
-export const DIPLOMACY_SELF_LABEL = "You";
 
 type StanceState = Pick<ClientState, "me" | "allies" | "activeTruces">;
 
@@ -38,11 +33,11 @@ export const diplomacyStanceLookup = (state: StanceState): DiplomacyStanceLookup
   const truces = new Set(state.activeTruces.map((t) => t.otherPlayerId));
   return (ownerId) => {
     if (!ownerId || ownerId === state.me) return undefined;
-    // Shared code knows both "barbarian" and "barbarian-1"; the rest of the client matches the prefix.
-    if (ownerId.startsWith("barbarian")) return "barbarian";
+    // Barbarians make no pacts. Shared code knows both "barbarian" and "barbarian-1"; the rest of the client matches the prefix.
+    if (ownerId.startsWith("barbarian")) return "hostile";
     if (allies.has(ownerId)) return "ally";
     if (truces.has(ownerId)) return "truce";
-    return "none";
+    return "hostile";
   };
 };
 

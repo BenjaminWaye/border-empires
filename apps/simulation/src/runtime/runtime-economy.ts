@@ -26,7 +26,7 @@ export const AI_DERIVED_CACHE_COALESCE_MS = 5_000;
 export {
   type RuntimeManpowerEconomyContext, playerManpowerCap, playerManpowerRegenPerMinute,
   playerLogisticsThroughputPerMinute, playerManpowerBreakdown, effectiveManpowerAtForPlayer,
-  applyManpowerRegenForPlayer, refreshManpowerOnlyForPlayer
+  applyManpowerRegenForPlayer, refreshManpowerOnlyForPlayer, grantRespawnLandingReserve
 } from "./runtime-manpower-economy.js";
 
 export interface RuntimeEconomyCacheContext {

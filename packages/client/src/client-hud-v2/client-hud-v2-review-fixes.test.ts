@@ -35,6 +35,13 @@ describe("Esc opens Settings only when nothing else wants it", () => {
     dialog.getClientRects = () => [{ x: 0, y: 0, width: 10, height: 10 }] as unknown as DOMRectList;
     expect(escapeOpensSettings(createInitialState(), document)).toBe(false);
   });
+
+  it("leaves Esc to an open break-truce / break-alliance confirmation", () => {
+    document.body.innerHTML = `<div class="break-pact-overlay"><div role="alertdialog">Break truce?</div></div>`;
+    const overlay = document.querySelector<HTMLElement>(".break-pact-overlay")!;
+    overlay.getClientRects = () => [{ x: 0, y: 0, width: 10, height: 10 }] as unknown as DOMRectList;
+    expect(escapeOpensSettings(createInitialState(), document)).toBe(false);
+  });
 });
 
 describe("battle outcome", () => {
@@ -67,9 +74,9 @@ describe("review fixes: Ranks, overlay and flag", () => {
     expect(selfShare(econ({ selfProgress: 0.9 }), "me")).toBeUndefined();
   });
 
-  it("treats every barbarian id as barbarian", () => {
+  it("treats every barbarian id as hostile", () => {
     const stanceOf = diplomacyStanceLookup({ me: "me", allies: [], activeTruces: [] });
-    expect([stanceOf("barbarian"), stanceOf("barbarian-1")]).toEqual(["barbarian", "barbarian"]);
+    expect([stanceOf("barbarian"), stanceOf("barbarian-1")]).toEqual(["hostile", "hostile"]);
   });
 
   it("honours ?hud=v2 when storage is unavailable", () => {

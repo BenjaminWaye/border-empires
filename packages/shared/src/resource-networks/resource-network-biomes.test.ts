@@ -23,6 +23,9 @@ describe("frontier habitats and progression", () => {
     expect(networkBiomePriority("LUXURY_BIOTA", context({ biome: "SAND" }))).toBeUndefined();
     expect(networkBiomePriority("PRECURSOR_SALVAGE", context({ nearMountains: true }))).toBe(0);
   });
+  it("keeps catalysts off beach sand", () => {
+    expect(networkBiomePriority("CATALYTIC_DEPOSIT", context({ biome: "COASTAL_SAND" }))).toBeUndefined();
+  });
   it("shares Implant Foundry's unlock with the Depot and reclamation's unlock with the Manufactory", () => {
     expect(RESOURCE_NETWORKS.CONDUCTIVE_MINERALS.tech).toBe(TECH_REQUIREMENTS_BY_STRUCTURE.ANCILLARY_DEPOT);
     expect(TECH_REQUIREMENTS_BY_STRUCTURE.IMPLANT_FOUNDRY).toBe(TECH_REQUIREMENTS_BY_STRUCTURE.ANCILLARY_DEPOT);

@@ -31,8 +31,10 @@ const price = (options: {
   aiGold?: number;
   brokeTruce?: boolean;
   breaksWithOthers?: number;
+  brokeAlliance?: boolean;
   /** Pass undefined explicitly for "sizes unknown". */
   aiWouldLeadAlliance?: boolean | undefined;
+  giftCanWinOver?: boolean;
 }) => {
   const stanceKind = options.stanceKind ?? "WARY";
   const mem = options.memory ?? memory();
@@ -44,6 +46,7 @@ const price = (options: {
     memory: mem,
     requesterBrokeTruceWithAi: options.brokeTruce ?? false,
     requesterTruceBreaksWithOthers: options.breaksWithOthers ?? 0,
+    requesterBrokeAllianceWithAi: options.brokeAlliance ?? false,
     bordersTouch,
     incomePerHour: Math.max(1, aiIncome, requesterIncome) * 60,
     now: NOW
@@ -61,6 +64,7 @@ const price = (options: {
       aiHoldings: { gold: options.aiGold ?? 0, shard: 0 },
       requesterBrokeTruceWithAi: options.brokeTruce ?? false,
       aiWouldLeadAlliance: "aiWouldLeadAlliance" in options ? options.aiWouldLeadAlliance : true,
+      ...(options.giftCanWinOver !== undefined ? { giftCanWinOver: options.giftCanWinOver } : {}),
       now: NOW
     })
   };
@@ -169,6 +173,8 @@ describe("AI truce pricing", () => {
 describe("AI alliance pricing", () => {
   it("needs at least Pleased, and the AI never pays", () => {
     expect(price({}).allianceRefusal).toBe("Milo doesn't think well enough of you for an alliance.");
+    // Only pointed at gifts when one can still get there (the goodwill cap allows it).
+    expect(price({ giftCanWinOver: true }).allianceRefusal).toBe("Milo doesn't think well enough of you for an alliance. Offer a gift to win them over.");
     // Borders apart (+5) and fear (+10): Pleased, 24h of income.
     const pleased = price({ stanceKind: "OUTMATCHED", bordersTouch: false });
     expect(pleased.opinion.attitude).toBe("PLEASED");
@@ -206,7 +212,7 @@ describe("AI alliance pricing", () => {
   // Goodwill is capped: coin alone can't buy friendship.
   it("caps goodwill from payments", () => {
     const rich = price({ memory: memory({ goodwillCoin: 10_000_000 }) });
-    expect(rich.opinion.modifiers).toContainEqual({ label: "Payments you've made us", value: 25 });
+    expect(rich.opinion.modifiers).toContainEqual({ label: "Gifts and payments you've made us", value: 25 });
   });
 });
 
@@ -214,11 +220,16 @@ describe("AI attitude modifiers", () => {
   it("lists what drives the attitude", () => {
     const { opinion } = price({ breaksWithOthers: 2, memory: memory({ tilesTakenFromAi: 5 }) });
     expect(opinion.modifiers).toEqual([
-      { label: "You have broken truces with others", value: -20 },
+      { label: "You recently broke truces with others", value: -20 },
       { label: "You took 5 of our tiles", value: -20 },
       { label: "Our borders are contested", value: -10 }
     ]);
     expect(opinion.attitude).toBe("FURIOUS");
+  });
+
+  it("holds a broken alliance against the breaker", () => {
+    const { opinion } = price({ brokeAlliance: true, bordersTouch: false });
+    expect(opinion.modifiers).toContainEqual({ label: "You broke our alliance", value: -10 });
   });
 });
 
@@ -234,7 +245,7 @@ describe("answerDiplomacyStanceQuery", () => {
     isAutoRespondingAi: (id: string) => id === "ai-1",
     fetchAiSnapshot: async () => aiSnapshot,
     requesterSnapshot: async () => undefined,
-    diplomacyContext: () => ({ requesterBrokeTruceWithAi: false, requesterTruceBreaksWithOthers: 0, memory: memory(), now: NOW, alliesOf: () => [] })
+    diplomacyContext: () => ({ requesterBrokeTruceWithAi: false, requesterTruceBreaksWithOthers: 0, requesterBrokeAllianceWithAi: false, memory: memory(), now: NOW, alliesOf: () => [] })
   };
 
   it("returns an AI's stance, attitude with modifiers, and prices", async () => {
@@ -247,8 +258,9 @@ describe("answerDiplomacyStanceQuery", () => {
       stance: { kind: "INDIFFERENT", reason: "Milo has no quarrel with you: your borders don't meet." },
       attitude: { level: "CAUTIOUS", score: 5, modifiers: [{ label: "Our borders don't meet", value: 5 }] },
       war: { atWar: false, aiWinning: false, aiLosing: false, tilesTakenFromAi: 0, tilesTakenByAi: 0 },
-      allianceRefusal: "Milo doesn't think well enough of you for an alliance.",
-      pricing: { required: { truce12: 0, truce24: 0, alliance: null }, shardCoinValue: 25, aiHoldings: { gold: 40, shard: 1 } }
+      allianceRefusal: "Milo doesn't think well enough of you for an alliance. Offer a gift to win them over.",
+      pricing: { required: { truce12: 0, truce24: 0, alliance: null }, shardCoinValue: 25, aiHoldings: { gold: 40, shard: 1 } },
+      gift: { coinPerPoint: 20, goodwillPoints: 0, maxPoints: 25 }
     });
   });
 

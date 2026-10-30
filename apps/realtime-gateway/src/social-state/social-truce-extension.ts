@@ -2,7 +2,7 @@
 // empires already at truce extends that truce (shared truce-extension.ts holds
 // the cap and the AI's extension pricing). Kept out of social-state.ts so the
 // request/accept paths there stay one call each.
-import { extendedTruceEndsAt, TRUCE_EXTENSION_MAX_AHEAD_MS, truceExtensionFits } from "@border-empires/shared";
+import { extendedTruceEndsAt, TRUCE_MAX_LIFETIME_MS, truceExtensionFits } from "@border-empires/shared";
 
 import type { SocialActiveTruce, SocialTruceRequest } from "./social-state-types.js";
 
@@ -12,8 +12,8 @@ export const truceExtensionRequestError = (
   durationHours: 12 | 24,
   now: number
 ): { ok: false; code: string; message: string } | undefined =>
-  running && !truceExtensionFits(running.endsAt, durationHours, now)
-    ? { ok: false, code: "TRUCE_EXTENSION_CAP", message: `a truce can run at most ${TRUCE_EXTENSION_MAX_AHEAD_MS / 3_600_000}h ahead` }
+  running && !truceExtensionFits(running.startedAt, running.endsAt, durationHours, now)
+    ? { ok: false, code: "TRUCE_EXTENSION_CAP", message: `a truce can last at most ${TRUCE_MAX_LIFETIME_MS / 3_600_000}h in total, extensions included` }
     : undefined;
 
 /**
@@ -33,5 +33,5 @@ export const STALE_TRUCE_OFFER = { ok: false as const, code: "TRUCE_REQUEST_INVA
  */
 export const extendTruce = (running: SocialActiveTruce, durationHours: 12 | 24, now: number): SocialActiveTruce => {
   const { origin: _origin, ...negotiated } = running;
-  return { ...negotiated, endsAt: extendedTruceEndsAt(running.endsAt, durationHours, now) };
+  return { ...negotiated, endsAt: extendedTruceEndsAt(running.startedAt, running.endsAt, durationHours, now) };
 };

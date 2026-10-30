@@ -116,8 +116,9 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
 
   // Siege ladder
   SIEGE_BATTERY: [{ resource: "UMBRITE", count: 1 }],
-  SIEGE_TOWER: [{ resource: "UMBRITE", count: 2 }, { resource: "TITANIUM", count: 1 }],
-  DREAD_TOWER: [{ resource: "UMBRITE", count: 3 }, { resource: "TITANIUM", count: 2 }],
+  // Umbrite-only: the siege ladder never needs TITANIUM (that's the Fort ladder's resource).
+  SIEGE_TOWER: [{ resource: "UMBRITE", count: 2 }],
+  DREAD_TOWER: [{ resource: "UMBRITE", count: 3 }],
 
   // Monument parts + assemblies (SHARD build cost stays as a flow/stockpile
   // cost, §5.5 — only the CRYSTAL requirement below is slot-based)
