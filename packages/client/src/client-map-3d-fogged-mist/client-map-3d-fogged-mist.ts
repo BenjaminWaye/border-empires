@@ -1,4 +1,4 @@
-import { Color, DataTexture, LinearFilter, Mesh, type Material, PlaneGeometry, RGBAFormat, ShaderMaterial, UnsignedByteType, Vector2, type Scene } from "three";
+import { Color, DataTexture, LinearFilter, Mesh, type Material, PlaneGeometry, RGBAFormat, ShaderMaterial, UnsignedByteType, Vector2, type Scene, type Texture } from "three";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 import type { TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
@@ -92,7 +92,9 @@ const createMaskTexture = (width: number, height: number, data: Uint8Array): Dat
   return texture;
 };
 
-export const createFoggedMistLayer = (scene: Scene, nowMs: () => number = () => performance.now()): FoggedMistLayer => {
+// `buildingEnvMap`: the shared building environment map; materials wired to it
+// are hazed too, so buildings remembered under fog sit inside the mist.
+export const createFoggedMistLayer = (scene: Scene, nowMs: () => number = () => performance.now(), buildingEnvMap?: Texture): FoggedMistLayer => {
   const geometry = new PlaneGeometry(MIST_PLANE_SIZE, MIST_PLANE_SIZE);
   geometry.rotateX(-Math.PI / 2);
   // Until the first rebuild everything reads as in sight: no mist, no overlay cut.
@@ -164,7 +166,7 @@ export const createFoggedMistLayer = (scene: Scene, nowMs: () => number = () => 
     (material.uniforms.uMaskSize!.value as Vector2).set(next.width, next.height);
     mesh.visible = next.anyFogged;
     hazeUniforms.uFogMistOn.value = next.anyFogged ? 1 : 0;
-    applyFoggedMistHazeToScene(scene, hazeUniforms, hazePatched);
+    applyFoggedMistHazeToScene(scene, hazeUniforms, hazePatched, buildingEnvMap);
   };
 
   return {

@@ -55,7 +55,10 @@ describe("live 3D district adapter", () => {
     expect(fixture.map.diagnostics.links.edges).toBe(0);
     expect(fixture.map.diagnostics.models.instances).toBe(1);
     fixture.hide(); fixture.rebuild();
-    expect(fixture.map.diagnostics.models.instances).toBe(0);
+    // Fogged: remembered where it stood, but standing still and out of the live links.
+    expect(fixture.map.diagnostics.models.instances).toBe(1);
+    expect(fixture.map.diagnostics.links.edges).toBe(0);
+    expect(mesh!.geometry.getAttribute("districtState")!.getX(0)).toBe(0);
     fixture.map.dispose(); expect(fixture.scene.children).toHaveLength(0);
   });
   it("leaves a shared Aether Tower to its original renderer and compacts only the support building", () => {

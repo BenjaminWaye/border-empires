@@ -271,7 +271,7 @@ export const createAtmosphere = (
   // Keeps the light rigidly offset from its target along sunOffset's
   // direction so the frustum recenters without changing the sun's angle.
   const unexploredStorm = createUnexploredStormLayer(scene);
-  const foggedMist = createFoggedMistLayer(scene);
+  const foggedMist = createFoggedMistLayer(scene, undefined, buildingEnvironmentTexture); // also hazes buildings remembered under fog
   const updateShadowTarget = (sceneX: number, sceneZ: number): void => {
     unexploredStorm.recenter(sceneX, sceneZ);
     foggedMist.recenter(sceneX, sceneZ);

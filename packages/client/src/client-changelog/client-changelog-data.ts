@@ -46,23 +46,27 @@ import { TOWN_PLATE_GROWTH_PAUSED_CHANGELOG } from "./client-changelog-town-plat
 import { TERRITORY_EDGE_GLOW_CHANGELOG } from "./client-changelog-territory-edge-glow.js";
 import { LANDING_RESERVE_CHANGELOG } from "./client-changelog-landing-reserve.js";
 import { FOG_HILL_HAZE_CHANGELOG } from "./client-changelog-fog-hill-haze.js";
+import { STORM_EDGE_BANDING_CHANGELOG } from "./client-changelog-storm-edge-banding.js";
 import { MARCH_ACROSS_WATER_CHANGELOG } from "./client-changelog-march-across-water.js";
 import { MARCH_UNEXPLORED_CHANGELOG } from "./client-changelog-march-unexplored.js";
 import { MARCH_STOP_SHORT_CHANGELOG } from "./client-changelog-march-stop-short.js";
 import { RECONNECT_NO_AUTH_CHANGELOG } from "./client-changelog-reconnect-no-auth.js";
 import { PLANETARY_DEFENSE_MUSTER_FLAG_CHANGELOG } from "./client-changelog-planetary-defense-muster-flag.js";
 import { YOURS_TILE_COORDS_CHANGELOG } from "./client-changelog-yours-tile-coords.js";
+import { REMEMBERED_BUILDINGS_CHANGELOG } from "./client-changelog-remembered-buildings.js";
 import { MAP_NAMES_CHANGELOG } from "./client-changelog-map-names.js";
 import { REACH_OWNER_NAME_CHANGELOG } from "./client-changelog-reach-owner-name.js";
 import { MUSTER_COMMIT_BADGE_CHANGELOG } from "./client-changelog-muster-commit-badge.js";
 import { ACTIVITY_RESTART_WINDOW_CHANGELOG } from "./client-changelog-activity-restart-window.js";
 import { FOGGED_MIST_FEATURES_CHANGELOG } from "./client-changelog-fogged-mist-features.js";
 import { EXPIRED_TRUCE_OFFERS_CHANGELOG } from "./client-changelog-expired-truce-offers.js";
+import { AI_BEACON_SPACING_CHANGELOG } from "./client-changelog-ai-beacon-spacing.js";
 import { LOST_STRUCTURES_CHANGELOG } from "./client-changelog-lost-structures.js";
 import { CAPTURED_MUSTER_CLEAR_CHANGELOG } from "./client-changelog-captured-muster-clear.js";
 import { ADVANCE_EFFORT_CHANGELOG } from "./client-changelog-advance-effort.js";
 import { FASTER_ATTACKS_FRONTIER_COST_CHANGELOG } from "./client-changelog-faster-attacks-frontier-cost.js";
 import { AFC_MODULE_MODELS_CHANGELOG } from "./client-changelog-afc-module-models.js";
+import { PROFILE_CREST_TOGGLE_CHANGELOG } from "./client-changelog-profile-crest-toggle.js";
 import { MARCH_ATTACK_DEEP_CHANGELOG } from "./client-changelog-march-attack-deep.js";
 import { WAR_INDUSTRY_SQUADS_CHANGELOG } from "./client-changelog-war-industry-squads.js";
 import { MARCH_ATTACK_ROUTES_CHANGELOG } from "./client-changelog-march-attack-routes.js";
@@ -264,18 +268,21 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RICHER_FORESTS_CHANGELOG,
   ...SIEGE_FX_GATE_CHANGELOG,
   ...INCURSION_HATCH_HILLS_CHANGELOG,
+  ...STORM_EDGE_BANDING_CHANGELOG,
   ...MARCH_ACROSS_WATER_CHANGELOG,
   ...MARCH_UNEXPLORED_CHANGELOG,
   ...MARCH_STOP_SHORT_CHANGELOG,
   ...RECONNECT_NO_AUTH_CHANGELOG,
   ...PLANETARY_DEFENSE_MUSTER_FLAG_CHANGELOG,
   ...YOURS_TILE_COORDS_CHANGELOG,
+  ...REMEMBERED_BUILDINGS_CHANGELOG,
   ...MAP_NAMES_CHANGELOG,
   ...REACH_OWNER_NAME_CHANGELOG,
   ...MUSTER_COMMIT_BADGE_CHANGELOG,
   ...ACTIVITY_RESTART_WINDOW_CHANGELOG,
   ...FOGGED_MIST_FEATURES_CHANGELOG,
   ...EXPIRED_TRUCE_OFFERS_CHANGELOG,
+  ...AI_BEACON_SPACING_CHANGELOG,
   ...LOST_STRUCTURES_CHANGELOG,
   ...CAPTURED_MUSTER_CLEAR_CHANGELOG,
   {
@@ -299,6 +306,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...ADVANCE_EFFORT_CHANGELOG,
   ...FASTER_ATTACKS_FRONTIER_COST_CHANGELOG,
   ...AFC_MODULE_MODELS_CHANGELOG,
+  ...PROFILE_CREST_TOGGLE_CHANGELOG,
   ...MARCH_ATTACK_DEEP_CHANGELOG,
   ...MARCH_ATTACK_ROUTES_CHANGELOG,
   ...MARCH_TO_UNEXPLORED_CHANGELOG,
@@ -322,6 +330,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...WAR_INDUSTRY_SQUADS_CHANGELOG,
   ...FORT_WALL_OPENINGS_CHANGELOG,
+  {
+    createdAt: 1793219423974, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.28.3",
+    title: "AI empires push reach across their own borderlands",
+    why: "AI empires holding a wide band of unsettled land outside their reach stopped growing, and they never built beacons toward plain unclaimed land.",
+    changes: ["AI empires now build relay beacons that carry reach across their own unsettled borderlands, and toward wide stretches of plain unclaimed land."]
+  },
   ...HILL_GARRISON_FILL_CHANGELOG,
   {
     createdAt: 1792873662311, // Frozen Date.now() timestamp for the changelog gate.

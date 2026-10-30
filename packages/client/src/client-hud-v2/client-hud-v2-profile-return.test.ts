@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
 import { screen, SCREEN_HOST_ID, type HudV2Deps } from "./client-hud-v2-context.js";
+import { crestClosesProfile } from "./client-hud-v2-profile.js";
 import { closeScreen, openScreen, screenClick } from "./client-hud-v2-screens.js";
 
 const depsFor = (state: ReturnType<typeof createInitialState>): HudV2Deps =>
@@ -51,5 +52,29 @@ describe("profile return", () => {
     openScreen(deps, "profile");
     closeScreen(deps, { toMap: true });
     expect(screen.id).toBeNull();
+  });
+
+  // Regression: a second press on your crest left your profile open instead of closing it.
+  it("closes your profile on a second press of your crest, like a lit bubble", () => {
+    document.body.innerHTML = `<div id="${SCREEN_HOST_ID}"></div>`;
+    const state = createInitialState();
+    state.me = "p1";
+    const deps = depsFor(state);
+    expect(crestClosesProfile(state.activePlayerProfileId, state.me, screen.id)).toBe(false);
+    state.activePlayerProfileId = "p1";
+    openScreen(deps, "profile");
+    expect(crestClosesProfile(state.activePlayerProfileId, state.me, screen.id)).toBe(true);
+    closeScreen(deps);
+    expect(screen.id).toBeNull();
+    expect(state.activePlayerProfileId).toBeUndefined();
+  });
+
+  it("switches to your profile instead of closing when the crest is pressed on someone else's", () => {
+    document.body.innerHTML = `<div id="${SCREEN_HOST_ID}"></div>`;
+    const state = createInitialState();
+    state.me = "p1";
+    state.activePlayerProfileId = "p2";
+    openScreen(depsFor(state), "profile");
+    expect(crestClosesProfile(state.activePlayerProfileId, state.me, screen.id)).toBe(false);
   });
 });

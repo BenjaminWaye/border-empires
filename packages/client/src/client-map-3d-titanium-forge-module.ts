@@ -62,7 +62,7 @@ export const TITANIUM_FORGE_MODULE_HEIGHT = 0.246 * TITANIUM_FORGE_SCALE;
 
 export type TitaniumForgeModuleOverlay = {
   readonly clear: () => void;
-  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, worldTileX: number, worldTileY: number) => number;
+  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, worldTileX: number, worldTileY: number, frozen?: boolean) => number;
   readonly commit: () => void;
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
@@ -375,6 +375,8 @@ export const createTitaniumForgeModuleOverlay = (scene: Scene, maxInstances: num
     readonly z: number;
     readonly yaw: number;
     readonly phase: number;
+    // Remembered under fog: drawn in its rest pose.
+    readonly frozen: boolean;
   };
   const records: TfmRecord[] = [];
 
@@ -384,12 +386,12 @@ export const createTitaniumForgeModuleOverlay = (scene: Scene, maxInstances: num
     records.length = 0;
   };
 
-  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, worldTileX: number, worldTileY: number): number => {
+  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, worldTileX: number, worldTileY: number, frozen = false): number => {
     if (records.length >= C) return -1;
     const hash = ((worldTileX * 92_821) ^ (worldTileY * 68_917)) >>> 0;
     const phase = ((hash % 1000) / 1000) * Math.PI * 2;
     makeYawAboutAnchor(yawMatrix, yaw, sceneX, sceneZ);
-    records.push({ x: sceneX, y: surfaceY, z: sceneZ, yaw, phase });
+    records.push({ x: sceneX, y: surfaceY, z: sceneZ, yaw, phase, frozen });
     addModule(sceneX, surfaceY, sceneZ);
     yawMatrix.identity();
     return records.length - 1;
@@ -412,7 +414,7 @@ export const createTitaniumForgeModuleOverlay = (scene: Scene, maxInstances: num
     for (let i = 0; i < count; i += 1) {
       const rec = records[i]!;
       makeYawAboutAnchor(yawMatrix, rec.yaw, rec.x, rec.z);
-      const breathe = 1 + FORGE_AMPLITUDE * Math.sin(nowMs * FORGE_SPEED + rec.phase);
+      const breathe = 1 + FORGE_AMPLITUDE * Math.sin((rec.frozen ? 0 : nowMs) * FORGE_SPEED + rec.phase);
       position.set(rec.x + hotOffset.x * TITANIUM_FORGE_SCALE, rec.y + hotOffset.y * TITANIUM_FORGE_SCALE, rec.z + hotOffset.z * TITANIUM_FORGE_SCALE);
       scale.set(breathe * TITANIUM_FORGE_SCALE, breathe * TITANIUM_FORGE_SCALE, breathe * TITANIUM_FORGE_SCALE);
       pieceMatrix.compose(position, forgeQuat, scale);

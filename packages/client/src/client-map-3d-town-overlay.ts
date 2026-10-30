@@ -11,12 +11,18 @@
 // lamplight flickers, beacons blink and steam rises entirely in the shaders
 // (town-animation-shaders.ts).
 //
+// A town remembered under fog (seen before, out of sight now) is drawn as
+// last seen but standing still: a second, smaller set of meshes per tier with
+// plain materials (no spin, flicker or steam -- the baked geometry is the rest
+// pose) and its lights turned down.
+//
 // Each town is turned a quarter-turn picked from its world tile, so
 // neighbouring towns of the same tier don't read as stamped copies.
 import {
   AdditiveBlending,
   FrontSide,
   InstancedMesh,
+  type Material,
   Matrix4,
   MeshBasicMaterial,
   MeshDepthMaterial,
@@ -52,100 +58,140 @@ type TierSlot = {
   readonly body: InstancedMesh;
   /** Metal, glass, glow, halo, steam and marble plinth meshes drawing with the body's instance matrices. */
   readonly followers: readonly InstancedMesh[];
+  readonly capacity: number;
   count: number;
 };
 
 export type TownOverlay = {
   readonly clear: () => void;
-  /** (tileX, tileY) are the world tile coords, used only to pick the town's rotation. */
-  readonly addInstance: (centerX: number, centerZ: number, surfaceY: number, tier: TownTier, tileX?: number, tileY?: number) => void;
+  /** (tileX, tileY) are the world tile coords, used only to pick the town's rotation.
+   * `still`: remembered under fog -- drawn without animation, lights dimmed. */
+  readonly addInstance: (centerX: number, centerZ: number, surfaceY: number, tier: TownTier, tileX?: number, tileY?: number, still?: boolean) => void;
   readonly commit: () => void;
   readonly dispose: () => void;
 };
 
-export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Texture): TownOverlay => {
-  const bodyMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0.02, flatShading: true });
-  applyBuildingEnvMap(bodyMaterial, envMap);
+/** How bright a remembered town's windows, lamps and light pools stay. */
+export const REMEMBERED_TOWN_GLOW = 0.4;
+/** Remembered towns are a small share of the tiles in view, so their meshes hold fewer instances. */
+const REMEMBERED_TOWN_CAPACITY_SHARE = 1 / 8;
+const HALO_OPACITY = 0.32;
+
+type TownMaterials = {
+  readonly body: MeshStandardMaterial;
+  readonly metal: MeshStandardMaterial;
+  readonly glass: MeshStandardMaterial;
+  readonly glow: MeshBasicMaterial;
+  readonly halo: MeshBasicMaterial;
+  /** Absent for remembered towns: no steam rises from them. */
+  readonly steam: MeshStandardMaterial | undefined;
+  readonly plinth: MeshStandardMaterial;
+  readonly depth: MeshDepthMaterial;
+  readonly all: readonly Material[];
+};
+
+const createTownMaterials = (envMap: Texture | undefined, animated: boolean): TownMaterials => {
+  const body = new MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0.02, flatShading: true });
+  applyBuildingEnvMap(body, envMap);
   // Matches the AFC's iron/brass finish (client-map-3d-fabrication-complex.ts).
-  const metalMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.7, flatShading: true });
-  applyBuildingEnvMap(metalMaterial, envMap);
+  const metal = new MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.7, flatShading: true });
+  applyBuildingEnvMap(metal, envMap);
   // Curtain walls: near-mirror glass, so the downtown towers carry the sky.
-  const glassMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.2, metalness: 0.85, flatShading: true });
-  applyBuildingEnvMap(glassMaterial, envMap);
+  const glass = new MeshStandardMaterial({ vertexColors: true, roughness: 0.2, metalness: 0.85, flatShading: true });
+  applyBuildingEnvMap(glass, envMap);
   // Unlit and outside tone mapping so windows and aether stay luminous under the warm sun.
-  const glowMaterial = new MeshBasicMaterial({ toneMapped: false, vertexColors: true });
+  const glow = new MeshBasicMaterial({ toneMapped: false, vertexColors: true });
   // Pools of lamplight added onto the paving under them: black
   // rims add nothing, so each fades out softly, and the low opacity keeps
   // sunlit paving from blowing out. Fog would add its own colour.
   // Pulled towards the camera, since the pools sit closer over the paving
   // than the depth buffer resolves when zoomed right out.
-  const haloMaterial = new MeshBasicMaterial({
-    toneMapped: false, vertexColors: true, transparent: true, opacity: 0.32, blending: AdditiveBlending, depthWrite: false, fog: false,
+  const halo = new MeshBasicMaterial({
+    toneMapped: false, vertexColors: true, transparent: true, opacity: HALO_OPACITY, blending: AdditiveBlending, depthWrite: false, fog: false,
     polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4
   });
-  const steamMaterial = new MeshStandardMaterial({
+  const steam = animated ? new MeshStandardMaterial({
     vertexColors: true, roughness: 1, metalness: 0, flatShading: true, transparent: true, opacity: 0.6, depthWrite: false
-  });
+  }) : undefined;
   // The base plate (its street top, kerb, wall and course): the muster
   // banner plinth's polished marble (client-map-3d-muster-overlay.ts), so the
   // town stands on the same premium board-game base instead of a grey tray.
   // Without the muster's clearcoat: this covers every town's whole
   // footprint, so it skips that second specular lobe per fragment.
-  const plinthMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.22, metalness: 0, flatShading: true });
-  applyMarbleFinish(plinthMaterial, TOWN_PLINTH_LEDGES);
-  applyBuildingEnvMap(plinthMaterial, envMap);
+  const plinth = new MeshStandardMaterial({ vertexColors: true, roughness: 0.22, metalness: 0, flatShading: true });
+  applyMarbleFinish(plinth, TOWN_PLINTH_LEDGES);
+  applyBuildingEnvMap(plinth, envMap);
   // Shadow pass: spins like the visible meshes, so a circling airship's shadow follows it.
-  const depthMaterial = new MeshDepthMaterial({ depthPacking: RGBADepthPacking });
+  const depth = new MeshDepthMaterial({ depthPacking: RGBADepthPacking });
   // The tier geometry drops the undersides of static parts, which three's
   // shadow pass would otherwise draw (it renders a FrontSide material's back
   // faces), so these cast from their front faces instead.
-  for (const material of [bodyMaterial, metalMaterial, glassMaterial, plinthMaterial]) material.shadowSide = FrontSide;
-  applyTownSpin(bodyMaterial);
-  applyTownSpin(metalMaterial);
-  applyTownSpin(glassMaterial);
-  applyTownSpin(glowMaterial, true);
-  applyTownSpin(haloMaterial, true);
-  applyTownSpin(depthMaterial);
-  applyTownSteam(steamMaterial);
+  for (const material of [body, metal, glass, plinth]) material.shadowSide = FrontSide;
+  if (animated) {
+    applyTownSpin(body);
+    applyTownSpin(metal);
+    applyTownSpin(glass);
+    applyTownSpin(glow, true);
+    applyTownSpin(halo, true);
+    applyTownSpin(depth);
+    if (steam) applyTownSteam(steam);
+  } else {
+    // Every spinning part already sits in its rest pose in the baked geometry.
+    glow.color.setScalar(REMEMBERED_TOWN_GLOW);
+    halo.opacity = HALO_OPACITY * REMEMBERED_TOWN_GLOW;
+  }
+  const all = [body, metal, glass, glow, halo, plinth, depth, ...(steam ? [steam] : [])];
+  return { body, metal, glass, glow, halo, steam, plinth, depth, all };
+};
 
-  const capacity = Math.max(1, maxTiles);
+const createTierSlots = (scene: Scene, materials: TownMaterials, capacity: number, namePrefix: string, animated: boolean): Map<TownTier, TierSlot> => {
   const slots = new Map<TownTier, TierSlot>();
   for (const tier of TOWN_TIERS) {
     const geometry = getTownTierGeometry(tier);
-    const body = new InstancedMesh(geometry.body, bodyMaterial, capacity);
-    body.name = `town-${tier}`;
+    const body = new InstancedMesh(geometry.body, materials.body, capacity);
+    body.name = `${namePrefix}-${tier}`;
     body.frustumCulled = false;
     body.castShadow = true;
     body.receiveShadow = true;
     body.count = 0;
-    body.customDepthMaterial = depthMaterial;
+    body.customDepthMaterial = materials.depth;
     // The one per-frame cost of the animation: the shaders' shared clock.
-    body.onBeforeRender = tickTownTime;
+    if (animated) body.onBeforeRender = tickTownTime;
     scene.add(body);
     const followers: InstancedMesh[] = [];
     for (const [suffix, part, material, shadowed] of [
-      ["metal", geometry.metal, metalMaterial, true],
-      ["glass", geometry.glass, glassMaterial, true],
-      ["glow", geometry.glow, glowMaterial, false],
-      ["halo", geometry.halo, haloMaterial, false],
-      ["steam", geometry.steam, steamMaterial, false],
-      ["plinth", geometry.plinth, plinthMaterial, true]
+      ["metal", geometry.metal, materials.metal, true],
+      ["glass", geometry.glass, materials.glass, true],
+      ["glow", geometry.glow, materials.glow, false],
+      ["halo", geometry.halo, materials.halo, false],
+      ["steam", geometry.steam, materials.steam, false],
+      ["plinth", geometry.plinth, materials.plinth, true]
     ] as const) {
-      if (!part) continue;
+      if (!part || !material) continue;
       const mesh = new InstancedMesh(part, material, capacity);
-      mesh.name = `town-${tier}-${suffix}`;
+      mesh.name = `${namePrefix}-${tier}-${suffix}`;
       // Same transforms as the body: share its buffer so it is uploaded once.
       mesh.instanceMatrix = body.instanceMatrix;
       mesh.frustumCulled = false;
       mesh.castShadow = shadowed;
       mesh.receiveShadow = shadowed;
-      if (shadowed) mesh.customDepthMaterial = depthMaterial;
+      if (shadowed) mesh.customDepthMaterial = materials.depth;
       mesh.count = 0;
       scene.add(mesh);
       followers.push(mesh);
     }
-    slots.set(tier, { body, followers, count: 0 });
+    slots.set(tier, { body, followers, capacity, count: 0 });
   }
+  return slots;
+};
+
+export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Texture): TownOverlay => {
+  const liveMaterials = createTownMaterials(envMap, true);
+  const stillMaterials = createTownMaterials(envMap, false);
+  const capacity = Math.max(1, maxTiles);
+  const slots = createTierSlots(scene, liveMaterials, capacity, "town", true);
+  const stillSlots = createTierSlots(scene, stillMaterials, Math.max(1, Math.ceil(maxTiles * REMEMBERED_TOWN_CAPACITY_SHARE)), "town-still", false);
+  const allSlots = [...slots.values(), ...stillSlots.values()];
 
   const matrix = new Matrix4();
   const position = new Vector3();
@@ -153,9 +199,9 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
   const unitScale = new Vector3(1, 1, 1);
   const yAxis = new Vector3(0, 1, 0);
 
-  const addInstance: TownOverlay["addInstance"] = (centerX, centerZ, surfaceY, tier, tileX = 0, tileY = 0) => {
-    const slot = slots.get(tier);
-    if (!slot || slot.count >= capacity) return;
+  const addInstance: TownOverlay["addInstance"] = (centerX, centerZ, surfaceY, tier, tileX = 0, tileY = 0, still = false) => {
+    const slot = (still ? stillSlots : slots).get(tier);
+    if (!slot || slot.count >= slot.capacity) return;
     quaternion.setFromAxisAngle(yAxis, townQuarterTurnForTile(tileX, tileY) * (Math.PI / 2));
     position.set(centerX, surfaceY + TOWN_BASE_LIFT, centerZ);
     slot.body.setMatrixAt(slot.count, matrix.compose(position, quaternion, unitScale));
@@ -163,11 +209,11 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
   };
 
   const clear = (): void => {
-    for (const slot of slots.values()) slot.count = 0;
+    for (const slot of allSlots) slot.count = 0;
   };
 
   const commit = (): void => {
-    for (const slot of slots.values()) {
+    for (const slot of allSlots) {
       slot.body.count = slot.count;
       // A tier with no town on screen costs no draw calls at all.
       slot.body.visible = slot.count > 0;
@@ -184,20 +230,14 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
   };
 
   const dispose = (): void => {
-    for (const slot of slots.values()) {
+    for (const slot of allSlots) {
       scene.remove(slot.body);
       slot.body.dispose();
       for (const follower of slot.followers) scene.remove(follower);
     }
     slots.clear();
-    bodyMaterial.dispose();
-    metalMaterial.dispose();
-    glassMaterial.dispose();
-    haloMaterial.dispose();
-    plinthMaterial.dispose();
-    steamMaterial.dispose();
-    depthMaterial.dispose();
-    glowMaterial.dispose();
+    stillSlots.clear();
+    for (const material of [...liveMaterials.all, ...stillMaterials.all]) material.dispose();
   };
 
   return { clear, addInstance, commit, dispose };

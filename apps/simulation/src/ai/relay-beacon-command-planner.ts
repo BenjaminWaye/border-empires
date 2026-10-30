@@ -121,14 +121,21 @@ const REACH_ANCHOR_SCAN_CAP = 4000;
  * Also collects `pendingOutposts` — this player's own RELAY_BEACON/siege-
  * outpost tiles still `under_construction` — in the same pass, so
  * chooseBestRelayBeaconBuild's overlap veto (see PENDING_OUTPOST_OVERLAP_DISTANCE)
- * doesn't need a second full ownedTiles scan just to find them.
+ * doesn't need a second full ownedTiles scan just to find them. Likewise
+ * `ownBeacons` — every own RELAY_BEACON tile, any status — for the spacing
+ * veto (see MIN_OWN_BEACON_SPACING).
  */
 const currentReachTileKeys = (
   playerId: string,
   ownedTiles: readonly StructurePlannerTile[]
-): { claimed: ReadonlySet<string>; pendingOutposts: Array<{ x: number; y: number }> } => {
+): {
+  claimed: ReadonlySet<string>;
+  pendingOutposts: Array<{ x: number; y: number }>;
+  ownBeacons: Array<{ x: number; y: number }>;
+} => {
   const claimed = new Set<string>();
   const pendingOutposts: Array<{ x: number; y: number }> = [];
+  const ownBeacons: Array<{ x: number; y: number }> = [];
   let scanned = 0;
   for (const tile of ownedTiles) {
     if (scanned >= REACH_ANCHOR_SCAN_CAP) break;
@@ -143,6 +150,7 @@ const currentReachTileKeys = (
       for (const key of tileKeysInReach(anchor)) claimed.add(key);
     }
     const beacon = tile.economicStructure;
+    if (beacon?.ownerId === playerId && beacon.type === "RELAY_BEACON" && beacon.status !== "removing") ownBeacons.push({ x: tile.x, y: tile.y });
     if (
       beacon?.ownerId === playerId &&
       beacon.type === "RELAY_BEACON" &&
@@ -160,7 +168,7 @@ const currentReachTileKeys = (
       if (siege.status === "under_construction") pendingOutposts.push({ x: tile.x, y: tile.y });
     }
   }
-  return { claimed, pendingOutposts };
+  return { claimed, pendingOutposts, ownBeacons };
 };
 
 // Reused across calls (planner code is synchronous) so the scan allocates nothing.
@@ -172,7 +180,7 @@ const estimateNewReachCoverage = (
   tile: StructurePlannerTile,
   tilesByKey: TileLookup,
   reachTileKeys: ReadonlySet<string>
-): { score: number; hasValuable: boolean; hasUnexploredLand: boolean } => {
+): { score: number; hasValuable: boolean; hasUnexploredLand: boolean; plainTiles: number; bridgeTiles: number } => {
   // Pass 1: one tilesByKey read per cell (same as before), recording each
   // cell's state. Cells already inside this player's real, currently-held
   // reach (a town, dock, or existing beacon/outpost's anchor radius — see
@@ -217,6 +225,8 @@ const estimateNewReachCoverage = (
   if (waterCells > 0 && fogCells > 0) markOceanShadowedFog(boxState);
 
   let covered = 0;
+  let plainTiles = 0;
+  let bridgeTiles = 0;
   let unexplored = 0;
   let hasUnexploredLand = false;
   let hasValuable = false;
@@ -238,14 +248,20 @@ const estimateNewReachCoverage = (
       // "new coverage" was phantom value: the beacon can never actually
       // claim it that way, only get within attack range of it, which
       // doesn't require a beacon at all once the border already touches it.
-      if (neighbor.ownerId) continue;
+      if (neighbor.ownerId) {
+        // This player's own FRONTIER outside reach: not new ground, but the
+        // only way to carry reach across it (see BRIDGE_SITE_VALUE).
+        if (neighbor.ownerId === playerId && neighbor.ownershipState === "FRONTIER") bridgeTiles += 1;
+        continue;
+      }
       const isValuable = Boolean(neighbor.town || neighbor.resource || neighbor.dockId || neighbor.naturalWonder);
       if (isValuable) hasValuable = true;
+      if (!isValuable) plainTiles += 1;
       covered += isValuable ? VALUABLE_TARGET_COVERAGE_WEIGHT : 1;
     }
   }
   covered += Math.min(unexplored, UNEXPLORED_TILE_SAMPLE_CAP) * UNEXPLORED_TILE_COVERAGE_WEIGHT;
-  return { score: covered, hasValuable, hasUnexploredLand };
+  return { score: covered, hasValuable, hasUnexploredLand, plainTiles, bridgeTiles };
 };
 
 /**
@@ -294,6 +310,21 @@ export type RelayBeaconBuildPlan = {
 // when both reach the same prize.
 const FRONTIER_BEACON_SITE_PENALTY = 40;
 
+// One full edge of a beacon's scan box. Up to this many newly covered tiles
+// is the "sliver at the far edge of the radius" the nested-site veto below
+// exists to reject; more is a real band of new ground.
+const COVERAGE_SLIVER_TILES = OUTPOST_REACH_RADIUS * 2 + 1;
+
+// siteValue of a bridge beacon: one whose box reaches no unowned land, only
+// this player's own FRONTIER outside reach. A frontier band deeper than
+// OUTPOST_REACH_RADIUS otherwise leaves no legal site (SETTLED, or FRONTIER
+// inside reach) covering anything unowned, so the AI sat on WAIT forever
+// with free land past the band (season-13 prod ai-9/ai-5/ai-19). Bridging
+// pulls the band into reach so the next beacon/EXPAND can start from it.
+// Only proposed when no site reaches unowned land, and kept just above
+// scoreBuildBeacon's site-value floor so any real target outranks it.
+const BRIDGE_SITE_VALUE = 2;
+
 // Two OUTPOST_REACH_RADIUS boxes (Chebyshev squares of half-width
 // OUTPOST_REACH_RADIUS) touch or overlap once their centers are within twice
 // that radius of each other.
@@ -316,6 +347,21 @@ const overlapsPendingOutpost = (
   pending: readonly { x: number; y: number }[]
 ): boolean => pending.some((p) => chebyshevWithWrap(tile.x, tile.y, p.x, p.y) <= PENDING_OUTPOST_OVERLAP_DISTANCE);
 
+// Hard floor on the distance between two of this player's own beacons,
+// whatever their status. overlapsPendingOutpost above only covers beacons
+// still under construction, and a build finishes in RELAY_BEACON_BUILD_MS —
+// after that a site two tiles along the border could win again on the few
+// fogged cells poking past the first beacon's reach box. Staging season-40
+// ai-18 ringed a 151-tile island with ~25 beacons that way. Disabled beacons
+// count too (they can be re-enabled); one being demolished does not.
+// Capped at OUTPOST_REACH_RADIUS, not the full box width: a FRONTIER site
+// must sit inside existing reach to be settled, so the next beacon in a
+// chain can be at most one reach radius from the last.
+const MIN_OWN_BEACON_SPACING = OUTPOST_REACH_RADIUS;
+
+const tooCloseToOwnBeacon = (tile: StructurePlannerTile, beacons: readonly { x: number; y: number }[]): boolean =>
+  beacons.some((b) => chebyshevWithWrap(tile.x, tile.y, b.x, b.y) < MIN_OWN_BEACON_SPACING);
+
 export const chooseBestRelayBeaconBuild = (
   player: StructurePlannerPlayer,
   ownedTiles: readonly StructurePlannerTile[],
@@ -327,9 +373,10 @@ export const chooseBestRelayBeaconBuild = (
   const existingOwnedCount = plannedOwnedStructureCount(player, counts, "RELAY_BEACON");
   if (!canAffordStructure(player, playerTechSet(player), "RELAY_BEACON", existingOwnedCount)) return undefined;
 
-  const { claimed: reachTileKeys, pendingOutposts } = currentReachTileKeys(player.id, ownedTiles);
+  const { claimed: reachTileKeys, pendingOutposts, ownBeacons } = currentReachTileKeys(player.id, ownedTiles);
 
   let best: { tile: StructurePlannerTile; score: number; needsSettle: boolean; siteValue: number } | undefined;
+  let bestBridge: { tile: StructurePlannerTile; score: number; needsSettle: boolean } | undefined;
   for (const tile of candidateTiles) {
     if (tile.ownerId !== player.id || tile.terrain !== "LAND") continue;
     if (player.blockedActionKeys?.has(`BUILD_ECONOMIC_STRUCTURE:${tile.x},${tile.y}:RELAY_BEACON`)) continue;
@@ -348,11 +395,18 @@ export const chooseBestRelayBeaconBuild = (
     // nearby to finish rather than starting a second one whose reach will
     // overlap it once both are built — see overlapsPendingOutpost's doc.
     if (overlapsPendingOutpost(tile, pendingOutposts)) continue;
+    if (tooCloseToOwnBeacon(tile, ownBeacons)) continue;
     // A FRONTIER site is judged as the SETTLED tile it's about to become —
     // structureShowsOnTile keys off ownershipState, so checking it as-is
     // would reject every frontier candidate on the state we're about to change.
     if (!structureVisibleOnTile("RELAY_BEACON", player.id, needsSettle ? { ...tile, ownershipState: "SETTLED" } : tile, tilesByKey)) continue;
     const newCoverage = estimateNewReachCoverage(player.id, tile, tilesByKey, reachTileKeys);
+    // Placement tie-breakers shared by real and bridge sites.
+    const siteBonus = (tile.dockId ? 30 : 0) - (needsSettle ? FRONTIER_BEACON_SITE_PENALTY : 0); // dock: cross-island reach floor per plan's DOCK_REACH_RADIUS note
+    if (newCoverage.bridgeTiles > COVERAGE_SLIVER_TILES) {
+      const bridgeScore = newCoverage.bridgeTiles * 10 + siteBonus;
+      if (!bestBridge || bridgeScore > bestBridge.score) bestBridge = { tile, score: bridgeScore, needsSettle };
+    }
     // A candidate whose OWN tile already sits inside this player's current
     // reach (from a town, dock, or another active/under-construction beacon
     // or siege battery) is normal and expected — that's simply ground the
@@ -366,7 +420,17 @@ export const chooseBestRelayBeaconBuild = (
     // value. Genuinely unexplored LAND is different: once the visible frontier
     // is saturated, revealing the next band of fog may be the only way to find
     // a new front.
-    if (reachTileKeys.has(tileKeyOf(tile.x, tile.y)) && !newCoverage.hasValuable && !newCoverage.hasUnexploredLand) continue;
+    // A wide band of plain land is not a sliver, though: requiring a prize or
+    // fog there meant a fully explored map with no resources left in range
+    // could never be expanded into by beacon at all.
+    if (
+      reachTileKeys.has(tileKeyOf(tile.x, tile.y)) &&
+      !newCoverage.hasValuable &&
+      !newCoverage.hasUnexploredLand &&
+      newCoverage.plainTiles <= COVERAGE_SLIVER_TILES
+    ) {
+      continue;
+    }
     // Requiring a known valuable tile here created a dead end: EXPAND stops
     // once nothing adjacent+in-reach is worth claiming — but a beacon site
     // could only ever be proposed if a resource/town/dock/wonder was ALREADY
@@ -387,10 +451,9 @@ export const chooseBestRelayBeaconBuild = (
     // scoreBuildBeacon's graduated consideration cares about how much value
     // this beacon actually unlocks, not placement preference between two
     // similar sites.
-    let score = newCoverage.score * 10;
-    if (tile.dockId) score += 30; // cross-island reach floor per plan's DOCK_REACH_RADIUS note
-    if (needsSettle) score -= FRONTIER_BEACON_SITE_PENALTY;
+    const score = newCoverage.score * 10 + siteBonus;
     if (!best || score > best.score) best = { tile, score, needsSettle, siteValue: newCoverage.score };
   }
-  return best ? { tile: best.tile, needsSettle: best.needsSettle, siteValue: best.siteValue } : undefined;
+  if (best) return { tile: best.tile, needsSettle: best.needsSettle, siteValue: best.siteValue };
+  return bestBridge ? { tile: bestBridge.tile, needsSettle: bestBridge.needsSettle, siteValue: BRIDGE_SITE_VALUE } : undefined;
 };

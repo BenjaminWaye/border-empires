@@ -90,7 +90,7 @@ export const CATALYST_FABRICATOR_MODULE_HEIGHT = (CAT_CANISTER.y + CAT_CANISTER.
 
 export type CatalystFabricatorModuleOverlay = {
   readonly clear: () => void;
-  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, worldTileX: number, worldTileY: number) => number;
+  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, worldTileX: number, worldTileY: number, frozen?: boolean) => number;
   readonly commit: () => void;
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
@@ -311,6 +311,8 @@ export const createCatalystFabricatorModuleOverlay = (scene: Scene, maxInstances
     readonly y: number;
     readonly z: number;
     readonly yaw: number;
+    // Remembered under fog: drawn in its rest pose.
+    readonly frozen: boolean;
   };
   const records: CatRecord[] = [];
 
@@ -320,11 +322,11 @@ export const createCatalystFabricatorModuleOverlay = (scene: Scene, maxInstances
     records.length = 0;
   };
 
-  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, _worldTileX: number, _worldTileY: number): number => {
+  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, _worldTileX: number, _worldTileY: number, frozen = false): number => {
     if (records.length >= C) return -1;
     yawQuat.setFromEuler(tmpEuler.set(0, -yaw, 0, "XYZ"));
     yawMatrix.makeRotationFromQuaternion(yawQuat);
-    records.push({ x: sceneX, y: surfaceY, z: sceneZ, yaw });
+    records.push({ x: sceneX, y: surfaceY, z: sceneZ, yaw, frozen });
     addModule(sceneX, surfaceY, sceneZ, CAT_DRUM_START_AZIMUTH);
     yawMatrix.identity();
     return records.length - 1;
@@ -350,7 +352,7 @@ export const createCatalystFabricatorModuleOverlay = (scene: Scene, maxInstances
     for (const r of records) {
       yawQuat.setFromEuler(tmpEuler.set(0, -r.yaw, 0, "XYZ"));
       yawMatrix.makeRotationFromQuaternion(yawQuat);
-      emitWindows(r.x, r.y, r.z, az);
+      emitWindows(r.x, r.y, r.z, r.frozen ? CAT_DRUM_START_AZIMUTH : az);
       yawMatrix.identity();
     }
     commit();

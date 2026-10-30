@@ -77,6 +77,10 @@ export type StructurePieceBuilder = {
   readonly setGate: (cutY: number | undefined) => void;
   // Fully visible moving parts also stay in their rest pose until construction ends.
   readonly isConstructionGated: () => boolean;
+  // While set, structures laid out are remembered under fog: every piece is
+  // placed, but families record no moving parts, so all of it holds its rest pose.
+  readonly setStill: (still: boolean) => void;
+  readonly isStill: () => boolean;
   // Dry-runs `run` without placing anything and returns the highest point
   // (offset above the surface) any piece would reach. Callers must undo any
   // family-local side effects of the layout they ran (e.g. animation records).
@@ -137,6 +141,7 @@ export const createStructurePieceBuilder = (
   };
 
   let gateY: number | undefined;
+  let still = false;
   let lastCut = false;
   // Pieces at least this tall (world units) grow with the build; thinner ones appear whole.
   const MIN_GROWING_PIECE_HEIGHT = 0.1;
@@ -268,7 +273,8 @@ export const createStructurePieceBuilder = (
   };
 
   return {
-    builder: { maxTiles, makeSlot, addPiece, setMatrixAt, uploadSlot, getMesh, setGate, measure, lastPieceWasCut: () => lastCut, isConstructionGated: () => gateY !== undefined },
+    builder: { maxTiles, makeSlot, addPiece, setMatrixAt, uploadSlot, getMesh, setGate, measure, lastPieceWasCut: () => lastCut, isConstructionGated: () => gateY !== undefined,
+      setStill: (next: boolean) => { still = next; }, isStill: () => still },
     clear,
     commit,
     dispose

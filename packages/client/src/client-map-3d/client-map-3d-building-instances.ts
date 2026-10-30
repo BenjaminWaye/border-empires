@@ -9,7 +9,7 @@ import type { TradeNexusOverlay } from "../client-map-3d-trade-nexus-overlay.js"
 import type { AmbaricTransformerOverlay } from "../client-map-3d-ambaric-transformer-overlay.js";
 import type { ObservatoryCooldownBadgeOverlay } from "../client-map-3d-observatory-cooldown-badge-overlay/client-map-3d-observatory-cooldown-badge-overlay.js";
 
-type BuildingOverlays = {
+export type BuildingOverlays = {
   district?: Pick<DistrictMap3D, "addTile">;
   contactShadowOverlay: Pick<ContactShadowOverlay, "addShadow">;
   structureOverlay: Pick<StructureOverlay, "addInstance">;
@@ -20,7 +20,7 @@ type BuildingOverlays = {
   observatoryCooldownBadgeOverlay: Pick<ObservatoryCooldownBadgeOverlay, "addInstance" | "addSiphonModeInstance">;
 };
 
-type BuildingState = { tiles: Map<string, Tile>; tilesRevision: number; me: string | undefined };
+export type BuildingState = { tiles: Map<string, Tile>; tilesRevision: number; me: string | undefined };
 type BuildingSite = { x: number; z: number; surfaceY: number; wx: number; wy: number };
 
 export const buildingAnimationFrozen = (status: string | undefined): boolean =>
@@ -31,13 +31,17 @@ export const buildingAnimationFrozen = (status: string | undefined): boolean =>
 export const aetherTowerDisabled = (status: string | undefined): boolean => status === "inactive";
 
 // Both shared and dedicated building overlays receive the construction state.
+// `remembered`: the tile is fogged, so it is drawn as last seen -- nothing
+// moves, no build in progress (we no longer know how far it got), no
+// owner-only cooldown badge.
 export const addBuildingInstancesForTile = (
   tile: Tile,
   site: BuildingSite,
   overlays: BuildingOverlays,
   state: BuildingState,
   rebuildStartAt: number,
-  tileResource: string | undefined
+  tileResource: string | undefined,
+  remembered = false
 ): void => {
   if (tile.terrain !== "LAND") return;
   const { x, z, surfaceY, wx, wy } = site;
@@ -45,7 +49,7 @@ export const addBuildingInstancesForTile = (
   const handled = overlays.district?.addTile(tile, site, rebuildStartAt);
   const structure = tile.economicStructure;
   if (structure && !handled?.economic) {
-    const frozen = buildingAnimationFrozen(structure.status);
+    const frozen = remembered || buildingAnimationFrozen(structure.status);
     if (structure.type === "UMBRITE_RIG") {
       overlays.umbriteExtractionRigOverlay.addInstance(x, z, surfaceY, wx, wy);
       shadow();
@@ -56,15 +60,17 @@ export const addBuildingInstancesForTile = (
       overlays.tradeNexusOverlay.addInstance(x, z, surfaceY, wx, wy, frozen);
       shadow();
     } else if (STRUCTURE_KINDS_HANDLED_BY_3D.has(structure.type as StructureKind)) {
-      overlays.structureOverlay.addInstance(x, z, surfaceY, structure.type as StructureKind, mineResourceHintFor(structure.type, tileResource), constructionSiteForRebuild(state, tile, "economicStructure", rebuildStartAt));
+      const site = remembered ? undefined : constructionSiteForRebuild(state, tile, "economicStructure", rebuildStartAt);
+      overlays.structureOverlay.addInstance(x, z, surfaceY, structure.type as StructureKind, mineResourceHintFor(structure.type, tileResource), site, remembered);
     }
   }
   if (tile.observatory) {
     if (!handled?.observatory && tile.naturalWonder?.type !== "WATCHTOWER_ENGINE") {
       const { status } = tile.observatory;
-      overlays.ambaricTransformerOverlay.addInstance(x, z, surfaceY, wx, wy, buildingAnimationFrozen(status), aetherTowerDisabled(status));
+      overlays.ambaricTransformerOverlay.addInstance(x, z, surfaceY, wx, wy, remembered || buildingAnimationFrozen(status), aetherTowerDisabled(status));
       shadow();
     }
+    if (remembered) return;
     const cooldownActive = tile.ownerId === state.me && tile.observatory.status === "active" && (tile.observatory.cooldownUntil ?? 0) > Date.now();
     if (cooldownActive) overlays.observatoryCooldownBadgeOverlay.addInstance(x, z, surfaceY);
     else if (tile.observatory.siphon) overlays.observatoryCooldownBadgeOverlay.addSiphonModeInstance(x, z, surfaceY);

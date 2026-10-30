@@ -154,6 +154,17 @@ consolidation, planning cadence), not deletion.
   `relay-beacon-coastal-reach.test.ts`, including wraparound, inland fog,
   narrow straits, known prizes and bounded lookup work.
 
+- **Own relay beacons keep `MIN_OWN_BEACON_SPACING` apart.** The pending-
+  outpost overlap veto only covers beacons still under construction, and a
+  build finishes in about a minute; after that a site two tiles along the
+  border could win again on fog cells poking past the first beacon's box
+  (staging season-40 ai-18: ~25 beacons ringing a 151-tile island). The floor
+  applies to every own beacon except one being demolished, and is capped at
+  `OUTPOST_REACH_RADIUS`: a FRONTIER site must be inside reach to be settled,
+  so the next beacon in a chain can sit at most one radius from the last.
+  Tests that need overlapping reach next to a relay use a siege battery as
+  the anchor instead. Regression coverage: `relay-beacon-spacing.test.ts`.
+
 - **Out-of-reach dock crossings are a planner fallback.** EXPAND is never
   runtime reach-gated (game-domain validation ignores `isInReach`); the
   planner's reach gate in `frontier-command-planner.ts` is AI policy, because
@@ -165,11 +176,22 @@ consolidation, planning cadence), not deletion.
   Gating them outright left saturated-island AIs on WAIT with
   `BLOCKED_NO_REACHABLE_BEACON_SITE`. That label is the generic "has
   frontier, no action" fallback in `automation-action-admission.ts`, not
-  proof a beacon was the missing move. Separately, a large empire's scan can
-  be anchored on interior FRONTIER tiles with no non-owned neighbour (prod
-  ai-9, 2026-10-28: 18 origins, 144 candidates, 1,270 frontier tiles) and
-  stall for that reason instead. Regression coverage:
+  proof a beacon was the missing move. Regression coverage:
   `frontier-command-planner-dock-reach.test.ts`.
+
+- **Beacons must be able to bridge the AI's own out-of-reach frontier.** EXPAND
+  is never runtime reach-gated, so an AI can hold a wide FRONTIER band outside
+  its reach (prod 2026-10-28: ai-9 680 reach / 1,396 owned, ai-5 1,282 / 2,902).
+  `estimateNewReachCoverage` only credits unowned land, and legal beacon sites
+  are SETTLED or in-reach FRONTIER, so a band deeper than
+  `OUTPOST_REACH_RADIUS` left no site and the AI sat on WAIT with
+  `BLOCKED_NO_REACHABLE_BEACON_SITE`. `chooseBestRelayBeaconBuild` now falls
+  back to a bridge site (most own out-of-reach FRONTIER in its box,
+  `BRIDGE_SITE_VALUE`) when no site reaches unowned land. Its in-reach "nested
+  site" veto also lets through a band of plain land wider than one box edge
+  (`COVERAGE_SLIVER_TILES`); before, an in-reach site needed a prize or fog,
+  so an explored map with no resources in range could never be beaconed into.
+  Regression coverage: `relay-beacon-frontier-bridge.test.ts`.
 
 - The AI decision-diagnostics buffer (`recordAiDecisionDiagnosticFromPlanner`)
   looks like write-only "record-then-never-read" — but it **is** read via the

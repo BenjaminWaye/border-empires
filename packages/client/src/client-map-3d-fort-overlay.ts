@@ -69,7 +69,9 @@ export type FortOverlay = {
      *  known rival tile. See siegeBatteryFacingRadiansForTile. */
     facingRad?: number,
     /** Fort tiers only: set while the fort is being built, upgraded or removed. */
-    construction?: FortConstruction
+    construction?: FortConstruction,
+    /** Remembered under fog: the siege machine's head holds still. */
+    frozen?: boolean
   ) => void;
   /** True once a phase boundary passed that changes what a construction site laid out in the last rebuild shows. */
   readonly constructionBoundaryPassed: () => boolean;
@@ -214,7 +216,8 @@ export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnviro
     wx?: number,
     wy?: number,
     facingRad?: number,
-    construction?: FortConstruction
+    construction?: FortConstruction,
+    frozen = false
   ): void => {
     const skipDirs = OPEN_DIRECTIONS[opening];
     const heightFraction = construction && !construction.keepStanding ? construction.site.visibleBands / CONSTRUCTION_PHASES : 1;
@@ -229,7 +232,7 @@ export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnviro
     } else if (kind === "PALISADE") {
       addFortPieces(wood, woodCounters, worldX, worldZ, surfaceY, skipDirs, heightFraction);
     } else if (kind === "SIEGE_BATTERY") {
-      siegeMachine.addInstance(worldX, worldZ, surfaceY, wx ?? 0, wy ?? 0, facingRad ?? 0);
+      siegeMachine.addInstance(worldX, worldZ, surfaceY, wx ?? 0, wy ?? 0, facingRad ?? 0, frozen);
     }
   };
 
