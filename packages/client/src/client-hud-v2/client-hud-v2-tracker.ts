@@ -74,6 +74,10 @@ export const handleSlotsToggle = (target: Element, fold: { open: boolean }, repa
   return true;
 };
 
+/** Counts each slot's timer down by the time since the last tile scan; a paused build's timer stays frozen. */
+export const tickSlots = (building: DevelopmentSlotOccupant[], elapsedMs: number): DevelopmentSlotOccupant[] =>
+  building.map((b) => (b.paused ? b : { ...b, remainingMs: Math.max(0, b.remainingMs - elapsedMs) }));
+
 /** What fills each slot (with its progress) and what waits for one, right under the pips. Queue labels mostly carry their own "at (x, y)", so the coordinates are added only when they don't. */
 export const slotListHtml = (input: Pick<TrackerInput, "building" | "queue">): string => {
   const busy = input.building.map((b) => {

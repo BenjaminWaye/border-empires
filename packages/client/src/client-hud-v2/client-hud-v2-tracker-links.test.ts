@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
 import { rivalsHtml } from "./client-hud-v2-rivals.js";
-import { buildSlotsHtml, handleSlotsToggle, slotListHtml } from "./client-hud-v2-tracker.js";
+import { buildSlotsHtml, handleSlotsToggle, slotListHtml, tickSlots } from "./client-hud-v2-tracker.js";
 
 describe("tracker and rival links", () => {
   // Regression: the dev-slot row was plain text, then opened a side panel across the screen; it now folds the slot list.
@@ -31,6 +31,14 @@ describe("tracker and rival links", () => {
     const html = slotListHtml({ building: [], queue: [{ label: "Garrison at (97, 132)", x: 97, y: 132 }, { label: "Fort", x: 3, y: 4 }] });
     expect(html.match(/\(97, 132\)/g)).toHaveLength(1);
     expect(html).toContain("(3, 4)");
+  });
+
+  // Review: a build paused by an attack kept counting down between scans, then jumped back on the next one.
+  it("keeps a paused build's timer frozen between scans", () => {
+    const slot = { tileKey: "1,1", x: 1, y: 1, label: "Fort", remainingMs: 10_000, totalMs: 20_000 };
+    const [running, paused] = tickSlots([slot, { ...slot, paused: true }], 3_000);
+    expect(running!.remainingMs).toBe(7_000);
+    expect(paused!.remainingMs).toBe(10_000);
   });
 
   // Regression: an unexplained hourglass badge repeated the stance line; the stance is spelled out on hover instead.

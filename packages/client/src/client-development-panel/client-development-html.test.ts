@@ -64,6 +64,21 @@ describe("deriveDevelopmentPanelData", () => {
     expect(progressAt(75_000)).toBeCloseTo(0.75);
   });
 
+  it("measures a fort removal and an attack-paused build against their full length", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(40_000);
+    const tiles = new Map<string, Tile>();
+    const base = { terrain: "LAND" as const, ownerId: "me", ownershipState: "SETTLED" as const };
+    tiles.set(keyFor(1, 1), { x: 1, y: 1, ...base, fort: { ownerId: "me", status: "removing", startedAt: 20_000, completesAt: 60_000 } });
+    tiles.set(keyFor(2, 2), { x: 2, y: 2, ...base, observatory: { ownerId: "me", status: "under_construction", startedAt: 0, completesAt: 100_000, pausedAt: 10_000 } });
+
+    const [fort, observatory] = deriveDevelopmentPanelData(tiles, "me", new Map(), [], 2, 3).activeSlots;
+
+    expect(fort).toMatchObject({ remainingMs: 20_000, totalMs: 40_000 });
+    expect(fort!.paused).toBeUndefined();
+    expect(observatory).toMatchObject({ remainingMs: 90_000, totalMs: 100_000, paused: true });
+  });
+
   it("labels in-progress builds by their player-facing name, not the backend id", () => {
     const tiles = new Map<string, Tile>();
     const base = { terrain: "LAND" as const, ownerId: "me", ownershipState: "SETTLED" as const };

@@ -16,6 +16,8 @@ export type DevelopmentSlotOccupant = {
   label: string;
   remainingMs: number;
   totalMs: number;
+  /** Held by an attack on the tile: the timer is frozen, so it must not count down between rescans. */
+  paused?: boolean;
 };
 
 export type DevelopmentPanelArgs = {
@@ -113,7 +115,8 @@ export const deriveDevelopmentPanelData = (
       y: entry.y,
       label: entry.pausedAt !== undefined ? `${entry.kind} (paused: ongoing attack)` : entry.kind,
       remainingMs,
-      totalMs
+      totalMs,
+      ...(entry.pausedAt !== undefined ? { paused: true } : {})
     });
   }
 
