@@ -11,7 +11,7 @@ import { resourceTermsHtml, readResourceTerms, writeResourceTerms, resourceTerms
 import {
   emptyDiplomacyTerms,
   diplomacyTermsAreEmpty,
-  TRUCE_EXTENSION_MAX_AHEAD_MS,
+  TRUCE_MAX_LIFETIME_MS,
   truceExtensionFits,
   type DiplomacyCounterRef,
   type DiplomacyGoods,
@@ -46,8 +46,8 @@ export type DiplomacyTradeDeps = {
   /** Sends a client message; false when not signed in yet. */
   send: (payload: unknown, notSignedInMessage: string) => boolean;
   ownHoldings: () => DiplomacyGoods;
-  /** When your current truce with this empire ends, if you have one: a truce offer then extends it. */
-  truceEndsAt?: (targetPlayerId: string | undefined, targetName: string) => number | undefined;
+  /** When your current truce with this empire began and ends, if you have one: a truce offer then extends it. */
+  runningTruce?: (targetPlayerId: string | undefined, targetName: string) => { startedAt: number; endsAt: number } | undefined;
   activeSupply?: () => { ownId: string; agreements: readonly import("@border-empires/shared").ResourceSupplyAgreementStatus[]; offers?: readonly import("@border-empires/shared").ResourceTradeOffer[] };
 };
 
@@ -91,12 +91,12 @@ export const TRADE_HOLDINGS_CHECK_MS = 1_000;
  * them sends an offer without terms and the AI's verdict.
  */
 export const diplomacyTradeDepsFor = (
-  state: { resourceTradeOffers?: readonly import("@border-empires/shared").ResourceTradeOffer[]; me?: string; resourceTradeAgreements?: readonly import("@border-empires/shared").ResourceSupplyAgreementStatus[]; gold: number; strategicResources: { SHARD?: number }; resourceTradeHoldings?: import("@border-empires/shared").ResourceSupplyOffer | undefined; activeTruces?: ReadonlyArray<{ otherPlayerId: string; otherPlayerName: string; endsAt: number }> },
+  state: { resourceTradeOffers?: readonly import("@border-empires/shared").ResourceTradeOffer[]; me?: string; resourceTradeAgreements?: readonly import("@border-empires/shared").ResourceSupplyAgreementStatus[]; gold: number; strategicResources: { SHARD?: number }; resourceTradeHoldings?: import("@border-empires/shared").ResourceSupplyOffer | undefined; activeTruces?: ReadonlyArray<{ otherPlayerId: string; otherPlayerName: string; startedAt: number; endsAt: number }> },
   send: DiplomacyTradeDeps["send"]
 ): DiplomacyTradeDeps => ({
   send,
-  truceEndsAt: (targetPlayerId, targetName) =>
-    state.activeTruces?.find((t) => (targetPlayerId ? t.otherPlayerId === targetPlayerId : t.otherPlayerName.toLocaleLowerCase() === targetName.toLocaleLowerCase()))?.endsAt,
+  runningTruce: (targetPlayerId, targetName) =>
+    state.activeTruces?.find((t) => (targetPlayerId ? t.otherPlayerId === targetPlayerId : t.otherPlayerName.toLocaleLowerCase() === targetName.toLocaleLowerCase())),
   activeSupply: () => ({ ownId: state.me ?? "", agreements: state.resourceTradeAgreements ?? [], offers: state.resourceTradeOffers ?? [] }),
   ownHoldings: () => ({
     ...(state.resourceTradeHoldings ? { resources: state.resourceTradeHoldings } : {}),
@@ -292,14 +292,14 @@ export const openDiplomacyTradeScreen = (
   overlay.className = "diplomacy-trade-overlay";
   const name = escapeHtml(targetName);
   const terms = input.terms ?? emptyDiplomacyTerms();
-  // A truce is already running: a truce offer extends it, up to the cap on how far ahead a truce may run. A gift works either way.
+  // A truce is already running: a truce offer extends it, up to the cap on a truce's total length. A gift works either way.
   const now = Date.now();
-  const truceEndsAt = deps.truceEndsAt?.(input.targetPlayerId, targetName);
-  const inTruce = truceEndsAt !== undefined && truceEndsAt > now;
-  const fits = (hours: 12 | 24): boolean => !inTruce || truceExtensionFits(truceEndsAt, hours, now);
+  const running = deps.runningTruce?.(input.targetPlayerId, targetName);
+  const inTruce = running !== undefined && running.endsAt > now;
+  const fits = (hours: 12 | 24): boolean => !inTruce || truceExtensionFits(running.startedAt, running.endsAt, hours, now);
   const durationHours: 12 | 24 = fits(input.durationHours) ? input.durationHours : 12;
   const kind: TradeSelection["kind"] = input.kind === "truce" && !fits(durationHours) ? "alliance" : input.kind;
-  const capTitle = `A truce can run at most ${TRUCE_EXTENSION_MAX_AHEAD_MS / 3_600_000}h ahead.`;
+  const capTitle = `A truce can last at most ${TRUCE_MAX_LIFETIME_MS / 3_600_000}h in total, extensions included.`;
   const truceButton = (hours: 12 | 24): string =>
     inTruce
       ? `<button type="button" data-trade-kind="truce:${hours}"${fits(hours) ? "" : ` disabled title="${capTitle}"`}>Extend ${hours}h</button>`
@@ -310,7 +310,7 @@ export const openDiplomacyTradeScreen = (
     <p class="diplomacy-trade-stance" data-trade-stance></p>
     <ul class="diplomacy-trade-modifiers" data-trade-modifiers hidden></ul>
     <div class="diplomacy-trade-war" data-trade-war hidden></div>
-    ${inTruce ? `<p class="diplomacy-trade-stance" data-trade-current>Truce · ${socialRemainingLabel(truceEndsAt, now)} left</p>` : ""}
+    ${inTruce ? `<p class="diplomacy-trade-stance" data-trade-current>Truce · ${socialRemainingLabel(running.endsAt, now)} left</p>` : ""}
     <div class="diplomacy-resource-terms" data-resource-agreements></div>
     <div class="diplomacy-trade-kinds" role="group" aria-label="Offer type">
       ${deps.ownHoldings().resources ? '<button type="button" data-trade-kind="trade:0">Resource trade</button>' : ""}

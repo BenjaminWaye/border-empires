@@ -67,7 +67,7 @@ describe("gift on the trade screen", () => {
     // A gift works during a truce too.
     openDiplomacyTradeScreen(
       { targetName: "Elin", targetPlayerId: "ai-2", kind: "truce", durationHours: 12 },
-      { send, ownHoldings: () => ({ gold: 500, shard: 0 }), truceEndsAt: () => Date.now() + 6 * 60_000 }
+      { send, ownHoldings: () => ({ gold: 500, shard: 0 }), runningTruce: () => ({ startedAt: Date.now(), endsAt: Date.now() + 6 * 60_000 }) }
     );
     const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
     const giftButton = overlay.querySelector<HTMLButtonElement>("[data-trade-kind='gift:0']")!;

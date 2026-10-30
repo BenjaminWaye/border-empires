@@ -46,7 +46,7 @@ describe("extending a running truce", () => {
     expect(social.snapshotForPlayer("player-1").activeTruces).toHaveLength(1);
   });
 
-  it("refuses an extension that would run the truce more than 48h ahead", () => {
+  it("refuses an extension that would run the truce more than 48h in total", () => {
     const { social, clock, truceEndsAt, agree } = setup();
     agree(24);
     agree(24);
@@ -54,10 +54,21 @@ describe("extending a running truce", () => {
     expect(social.requestTruce("player-1", "Valka", 12)).toEqual({
       ok: false,
       code: "TRUCE_EXTENSION_CAP",
-      message: "a truce can run at most 48h ahead"
+      message: "a truce can last at most 48h in total, extensions included"
     });
-    clock.now += 12 * HOUR;
-    expect(social.requestTruce("player-1", "Valka", 12).ok).toBe(true);
+  });
+
+  // Regression: the cap was 48h ahead of now, so re-extending as time passed kept a truce running for weeks.
+  it("does not let repeated extensions keep a truce going past 48h from when it began", () => {
+    const { social, clock, truceEndsAt, agree } = setup();
+    const startedAt = clock.now;
+    agree(24);
+    clock.now += 20 * HOUR;
+    agree(24);
+    expect(truceEndsAt()).toBe(startedAt + 48 * HOUR);
+    clock.now += 20 * HOUR;
+    expect(social.requestTruce("player-1", "Valka", 12)).toMatchObject({ ok: false, code: "TRUCE_EXTENSION_CAP" });
+    expect(social.requestTruce("player-2", "Nauticus", 24)).toMatchObject({ ok: false, code: "TRUCE_EXTENSION_CAP" });
   });
 
   it("keeps one pending offer per pair and the re-offer cooldown after a rejected extension", () => {

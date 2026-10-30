@@ -11,12 +11,12 @@ const HOUR = 3_600_000;
 const pricing: AiDiplomacyPricing = { required: { truce12: -50, truce24: -50, alliance: null }, shardCoinValue: 25, aiHoldings: { gold: 500, shard: 0 } };
 const aiReply: DiplomacyStanceReply = { found: true, targetPlayerName: "Elin", targetPlayerId: "ai-2", ai: true, pricing };
 
-const openInTruce = (hoursLeft: number, durationHours: 12 | 24 = 24) => {
+const openInTruce = (hoursLeft: number, durationHours: 12 | 24 = 24, hoursSinceStart = 0) => {
   const send = vi.fn().mockReturnValue(true);
-  const endsAt = Date.now() + hoursLeft * HOUR;
+  const truce = { startedAt: Date.now() - hoursSinceStart * HOUR, endsAt: Date.now() + hoursLeft * HOUR };
   openDiplomacyTradeScreen(
     { targetName: "Elin", targetPlayerId: "ai-2", kind: "truce", durationHours },
-    { send, ownHoldings: () => ({ gold: 100, shard: 0 }), truceEndsAt: (id) => (id === "ai-2" ? endsAt : undefined) }
+    { send, ownHoldings: () => ({ gold: 100, shard: 0 }), runningTruce: (id) => (id === "ai-2" ? truce : undefined) }
   );
   return { send, overlay: document.querySelector<HTMLElement>(".diplomacy-trade-overlay")! };
 };
@@ -29,7 +29,7 @@ describe("extending a truce from the trade screen", () => {
     const { send, overlay } = openInTruce(22);
     expect(overlay.querySelector("[data-trade-current]")?.textContent).toBe("Truce · 22h left");
     expect(overlay.querySelector("[data-trade-kind='truce:12']")?.textContent).toBe("Extend 12h");
-    // 22h left + 24h = 46h, within the 48h cap.
+    // A truce begun now with 22h left + 24h = 46h in total, within the 48h cap.
     expect(overlay.querySelector<HTMLButtonElement>("[data-trade-kind='truce:24']")!.disabled).toBe(false);
     receiveDiplomacyStance(aiReply);
     expect(overlay.querySelector("[data-trade-verdict]")?.textContent).toBe("Elin would accept a 24h truce extension on these terms.");
@@ -45,9 +45,16 @@ describe("extending a truce from the trade screen", () => {
     expect(overlay.querySelector("[data-trade-kind='truce:12']")?.getAttribute("aria-pressed")).toBe("true");
   });
 
+  // Regression: the cap was 48h ahead of now, so a truce could be extended again every day for weeks.
+  it("disables both extensions once the truce has run 48h since it began, however little is left", () => {
+    const { overlay } = openInTruce(10, 24, 38);
+    expect(overlay.querySelector<HTMLButtonElement>("[data-trade-kind='truce:12']")!.disabled).toBe(true);
+    expect(overlay.querySelector<HTMLButtonElement>("[data-trade-kind='truce:24']")!.disabled).toBe(true);
+  });
+
   it("keeps the plain truce buttons with no truce running", () => {
     const send = vi.fn().mockReturnValue(true);
-    openDiplomacyTradeScreen({ targetName: "Elin", targetPlayerId: "ai-2", kind: "truce", durationHours: 12 }, { send, ownHoldings: () => ({ gold: 0, shard: 0 }), truceEndsAt: () => undefined });
+    openDiplomacyTradeScreen({ targetName: "Elin", targetPlayerId: "ai-2", kind: "truce", durationHours: 12 }, { send, ownHoldings: () => ({ gold: 0, shard: 0 }), runningTruce: () => undefined });
     const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
     expect(overlay.querySelector("[data-trade-current]")).toBeNull();
     expect(overlay.querySelector("[data-trade-kind='truce:12']")?.textContent).toBe("Truce 12h");
