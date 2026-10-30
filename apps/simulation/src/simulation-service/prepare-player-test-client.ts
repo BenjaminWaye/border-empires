@@ -35,7 +35,7 @@ export type RawSimulationClient = {
         ok: boolean;
         player_id?: string;
         world_status_json?: string;
-        tiles?: Array<{ x: number; y: number; terrain?: string; owner_id?: string; ownership_state?: string }>;
+        tiles?: Array<{ x: number; y: number; terrain?: string; owner_id?: string; ownership_state?: string; reach_owner_id?: string }>;
       }
     ) => void
   ) => void;
@@ -47,7 +47,7 @@ export type RawSimulationClient = {
         ok: boolean;
         player_id?: string;
         world_status_json?: string;
-        tiles?: Array<{ x: number; y: number; terrain?: string; owner_id?: string; ownership_state?: string }>;
+        tiles?: Array<{ x: number; y: number; terrain?: string; owner_id?: string; ownership_state?: string; reach_owner_id?: string }>;
       }
     ) => void
   ) => void;
@@ -149,7 +149,7 @@ export const subscribePlayer = async (
   client: RawSimulationClient,
   playerId: string,
   subscriptionJson = "{}"
-): Promise<{ playerId: string; tiles: Array<{ x: number; y: number; terrain?: string; ownerId?: string; ownershipState?: string }>; worldStatus?: { leaderboard: { overall: unknown[] } } }> => {
+): Promise<{ playerId: string; tiles: Array<{ x: number; y: number; terrain?: string; ownerId?: string; ownershipState?: string; reachOwnerId?: string }>; worldStatus?: { leaderboard: { overall: unknown[] } } }> => {
   const rpc = client.SubscribePlayer ?? client.subscribePlayer;
   if (!rpc) throw new Error("SubscribePlayer RPC unavailable in integration test");
   return await new Promise((resolve, reject) => {
@@ -165,7 +165,8 @@ export const subscribePlayer = async (
           y: tile.y,
           ...(tile.terrain ? { terrain: tile.terrain } : {}),
           ...(tile.owner_id ? { ownerId: tile.owner_id } : {}),
-          ...(tile.ownership_state ? { ownershipState: tile.ownership_state } : {})
+          ...(tile.ownership_state ? { ownershipState: tile.ownership_state } : {}),
+          ...(tile.reach_owner_id ? { reachOwnerId: tile.reach_owner_id } : {})
         })),
         ...(response.world_status_json ? { worldStatus: JSON.parse(response.world_status_json) as { leaderboard: { overall: unknown[] } } } : {})
       });
