@@ -13,6 +13,7 @@ import type { ActiveTruceView, FeedSeverity, FeedType, Tile, TileActionDef } fro
 
 const ATTACK_ROW_IDS: ReadonlyArray<TileActionDef["id"]> = ["launch_attack", "attack_connected_region"];
 export const COURT_ARMISTICE_ATTACK_REASON = "Court armistice: no attacks until it ends";
+export const ALLY_NOT_BORDERING_REASON = "Ally doesn't border your territory or a linked dock";
 const HOUR_MS = 60 * 60_000;
 
 const hoursLeft = (endsAt: number, nowMs: number): string => `${Math.max(1, Math.ceil((endsAt - nowMs) / HOUR_MS))}h`;
@@ -23,12 +24,14 @@ const pendingAllianceBreak = (state: Pick<ClientState, "activeAllianceBreaks">, 
 /**
  * Rewrites a truced empire's attack rows (in place): enabled, saying the truce
  * must be broken first, or disabled under a Court armistice. Leaves rows
- * alone when there is no truce or spawn protection already blocks them.
+ * alone when there is no truce, or when they are already disabled (spawn
+ * protection, no bordering origin): breaking the truce would not make those
+ * attackable, so offering a break there would cost the player for nothing.
  */
-export const gateAttackRowsOnTruce = (rows: TileActionDef[], truce: ActiveTruceView | undefined, targetShielded: boolean): void => {
-  if (!truce || targetShielded) return;
+export const gateAttackRowsOnTruce = (rows: TileActionDef[], truce: ActiveTruceView | undefined): void => {
+  if (!truce) return;
   for (const [index, row] of rows.entries()) {
-    if (!ATTACK_ROW_IDS.includes(row.id)) continue;
+    if (!ATTACK_ROW_IDS.includes(row.id) || row.disabled) continue;
     const { loading: _loading, cost: _cost, ...rest } = row;
     rows[index] =
       truce.origin === "court"
@@ -43,9 +46,21 @@ export const breakTruceAction = (truce: ActiveTruceView): TileActionDef => ({
   ...tileActionAvailability(truce.origin !== "court", "Court armistices cannot be broken", "Locks you out of new truces for 24h")
 });
 
-/** Launch Attack on an ally's tile: offers to break the alliance, or says when a pending break ends. */
-export const allyLaunchAttackAction = (state: Pick<ClientState, "activeAllianceBreaks">, ownerId: string, nowMs = Date.now()): TileActionDef => {
+/**
+ * Launch Attack on an ally's tile: offers to break the alliance, or says when
+ * a pending break ends. Disabled when the tile doesn't border the player's
+ * territory or a linked dock, since breaking would not make it attackable.
+ * (Deliberately not "No bordering origin tile…", which would make
+ * injectMarchAttackActions offer March Attack rows on an ally.)
+ */
+export const allyLaunchAttackAction = (
+  state: Pick<ClientState, "activeAllianceBreaks">,
+  ownerId: string,
+  reachable: boolean,
+  nowMs = Date.now()
+): TileActionDef => {
   const pending = pendingAllianceBreak(state, ownerId, nowMs);
+  if (!reachable) return { id: "launch_attack", label: "Launch Attack", ...tileActionAvailability(false, ALLY_NOT_BORDERING_REASON) };
   return pending
     ? { id: "launch_attack", label: "Launch Attack", detail: "Alliance is breaking", ...tileActionAvailability(false, `Alliance ends in ${hoursLeft(pending.endsAt, nowMs)}; attack after that`) }
     : { id: "launch_attack", label: "Launch Attack", detail: "Allied: attacking means breaking the alliance (24h notice)", ...tileActionAvailability(true, "") };
@@ -93,16 +108,15 @@ export const dispatchPactGatedAction = (
       subtitle: `${name} is your ally, and allies can't attack each other.`,
       consequences: breakAllianceConsequences(name),
       confirmLabel: "Break Alliance",
-      onConfirm: () => {
-        deps.breakAlliance(ownerId);
-        deps.pushFeed(`Your alliance with ${name} will be broken in 24 hours. You can attack them after that.`, "alliance", "warn");
-      }
+      // The gateway's announcement says when the break completes (social-state-alliance-breaks.ts).
+      onConfirm: () => deps.breakAlliance(ownerId)
     });
     return true;
   }
   const truce = deps.activeTruceWithPlayer(ownerId);
   if (!truce) {
-    if (!isAttack) deps.breakTruce(ownerId); // Let the gateway say why there is nothing to break.
+    // Never break without the confirmation; the menu may be stale (truce just ended).
+    if (!isAttack) deps.pushFeed(`No active truce with ${deps.playerNameForOwner(ownerId)}.`, "alliance", "info");
     return !isAttack;
   }
   deps.hideTileActionMenu();

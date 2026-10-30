@@ -1484,7 +1484,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     if (tile.town?.populationTier !== "SETTLEMENT" && tile.afc?.ownerId !== tile.ownerId) out.push({ id: "abandon_territory", label: "Abandon Territory", detail: deps.buildDetailTextForAction("abandon_territory", tile) });
     return out;
   }
-  if (deps.isTileOwnedByAlly(tile)) return [...(tile.ownerId ? [diplomacyActionForOwner(state, tile.ownerId, deps), allyLaunchAttackAction(state, tile.ownerId)] : []), ...crystalCoreActions(), createMountainAction()];
+  if (deps.isTileOwnedByAlly(tile)) return [...(tile.ownerId ? [diplomacyActionForOwner(state, tile.ownerId, deps), allyLaunchAttackAction(state, tile.ownerId, Boolean(deps.pickOriginForTarget(tile.x, tile.y, false)))] : []), ...crystalCoreActions(), createMountainAction()];
   if (tile.ownerId === "barbarian") {
     const previewDetail = deps.attackPreviewDetailForTarget(tile);
     const previewPending = deps.attackPreviewPendingForTarget(tile);
@@ -1549,7 +1549,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       // Barbarians cannot be truced with — no truce actions for barbarian-owned tiles.
     } else {
       out.push(diplomacyActionForOwner(state, tile.ownerId, deps));
-      gateAttackRowsOnTruce(out, activeTruce, targetShielded);
+      gateAttackRowsOnTruce(out, activeTruce);
       if (activeTruce) out.push(breakTruceAction(activeTruce));
     }
     const revealActive = state.activeRevealTargets.includes(tile.ownerId);

@@ -32,15 +32,13 @@ export const bindProposeButtons = (root: ParentNode, deps: ProposeButtonDeps): v
       const targetPlayerId = btn.dataset.breakTrucePlayerId;
       if (!targetPlayerId) return;
       const name = deps.playerNameForOwner(targetPlayerId) || "this empire";
-      const send = (): void => void deps.sendGameMessage({ type: "TRUCE_BREAK", targetPlayerId }, "Finish sign-in before breaking truces.");
-      const shown = showBreakPactSheet({
+      showBreakPactSheet({
         title: `Break truce with ${name}?`,
         subtitle: `Breaking the truce with ${name} has consequences.`,
         consequences: breakTruceConsequences(name),
         confirmLabel: "Break Truce",
-        onConfirm: send
+        onConfirm: () => void deps.sendGameMessage({ type: "TRUCE_BREAK", targetPlayerId }, "Finish sign-in before breaking truces.")
       });
-      if (!shown) send();
     };
   });
   root.querySelectorAll<HTMLButtonElement>(".propose-truce").forEach((btn) => {

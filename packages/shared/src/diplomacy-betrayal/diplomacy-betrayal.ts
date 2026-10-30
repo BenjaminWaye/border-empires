@@ -3,8 +3,8 @@
 // alliance" confirmation states the same numbers the gateway applies.
 
 /** How long a broken pact counts against the breaker with other AI rulers. */
-export const BROKEN_PACT_OPINION_WINDOW_MS = 7 * 24 * 60 * 60_000;
 export const BROKEN_PACT_OPINION_WINDOW_DAYS = 7;
+export const BROKEN_PACT_OPINION_WINDOW_MS = BROKEN_PACT_OPINION_WINDOW_DAYS * 24 * 60 * 60_000;
 
 /** The betrayed AI's season-long grudge for a broken truce. */
 export const BROKEN_TRUCE_GRUDGE_OPINION_PENALTY = 60;

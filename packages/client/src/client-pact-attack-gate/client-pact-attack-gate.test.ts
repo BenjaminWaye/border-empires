@@ -58,6 +58,14 @@ describe("dispatchPactGatedAction", () => {
     expect(deps.breakTruce).not.toHaveBeenCalled();
   });
 
+  it("never breaks a truce without the confirmation, even when the menu is stale", () => {
+    const { deps, state, sheets } = setup();
+    expect(dispatchPactGatedAction("break_truce", tile, state, deps, NOW)).toBe(true);
+    expect(sheets).toEqual([]);
+    expect(deps.breakTruce).not.toHaveBeenCalled();
+    expect(deps.pushFeed).toHaveBeenCalledWith("No active truce with Rival.", "alliance", "info");
+  });
+
   it("blocks attacks under a Court armistice without offering a break", () => {
     const { deps, state, sheets } = setup({ truce: { ...truce, origin: "court" } });
     expect(dispatchPactGatedAction("attack_connected_region", tile, state, deps, NOW)).toBe(true);
@@ -72,7 +80,8 @@ describe("dispatchPactGatedAction", () => {
     expect(sheets[0]!.consequences[0]).toBe("Your alliance with Rival will be broken in 24 hours. Until then you are still allies.");
     sheets[0]!.onConfirm();
     expect(deps.breakAlliance).toHaveBeenCalledWith("rival");
-    expect(deps.pushFeed).toHaveBeenCalledWith("Your alliance with Rival will be broken in 24 hours. You can attack them after that.", "alliance", "warn");
+    // The gateway announces the break once it has started; nothing optimistic here.
+    expect(deps.pushFeed).not.toHaveBeenCalled();
   });
 
   it("says when an alliance already breaking ends instead of asking again", () => {

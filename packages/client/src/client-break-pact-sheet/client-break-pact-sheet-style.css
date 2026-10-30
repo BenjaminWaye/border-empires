@@ -31,3 +31,15 @@
 .break-pact-consequences li + li {
   margin-top: 6px;
 }
+
+@media (max-width: 480px) {
+  .break-pact-overlay {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    max-width: none;
+  }
+  .break-pact-card {
+    width: 100%;
+  }
+}
