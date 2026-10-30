@@ -73,13 +73,14 @@ describe("buildMusterActions", () => {
     expect(actions.map((a) => a.id)).toEqual(["muster_hold", "muster_march", "muster_expand_cap", "muster_clear"]);
   });
 
-  it("offers Cancel March instead of the mode toggle for a MARCH flag", () => {
+  it("offers Change Target and Cancel March instead of the mode toggle for a MARCH flag", () => {
     stubWindowStorage();
     const actions = buildMusterActions(
       ownTile({ muster: { ownerId: "me", amount: 40, mode: "MARCH", targetX: 5, targetY: 5, updatedAt: 0 } }),
       { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), incomingAttacksByTile: new Map(), pendingMusterAttacks: [], tiles: new Map(), bridgeDebugSeasonId: "season-1" }
     );
-    expect(actions.map((a) => a.id)).toEqual(["muster_march_cancel", "muster_expand_cap", "muster_clear"]);
+    expect(actions.map((a) => a.id)).toEqual(["muster_march", "muster_march_cancel", "muster_expand_cap", "muster_clear"]);
+    expect(actions[0]?.label).toBe("Change Target…");
   });
 
   it("Expand Capacity is always enabled — it's free for now, no manpower or resource cost", () => {

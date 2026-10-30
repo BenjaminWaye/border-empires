@@ -25,6 +25,8 @@ export type ServerClock = {
   offsetMs: () => number;
   /** Converts a server-clock timestamp to the local clock. */
   toLocal: (serverTime: number) => number;
+  /** Whether any server timestamp has been seen yet; before that offsetMs is a guess of 0. */
+  synced: () => boolean;
 };
 
 export const createServerClock = (): ServerClock => {
@@ -38,7 +40,8 @@ export const createServerClock = (): ServerClock => {
       best = Math.max(...samples);
     },
     offsetMs: () => best,
-    toLocal: (serverTime) => serverTime - best
+    toLocal: (serverTime) => serverTime - best,
+    synced: () => samples.length > 0
   };
 };
 

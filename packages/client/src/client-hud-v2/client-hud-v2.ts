@@ -19,16 +19,16 @@ import { initHudV2Flag, isHudV2Active, setHudV2Driving } from "./client-hud-v2-f
 import { navHtml } from "./client-hud-v2-nav.js";
 import { fallbackOwnerColor, resolveOwnerColor } from "../client-owner-colors/client-owner-colors.js";
 import { orbHtml } from "./client-hud-v2-orb.js";
-import { overlaysHtml } from "./client-hud-v2-overlays.js";
+import { installLens, lensMenu, overlaysHtml } from "./client-hud-v2-overlays.js";
 import { resourceBarHtml } from "./client-hud-v2-resource-bar.js";
 import { hasRevealedResourceCategory } from "../client-tech-html/client-tech-html.js";
 import { rivalsHtml, seasonClockHtml } from "./client-hud-v2-rivals.js";
-import { closeScreen, openScreen, renderScreen, screenClick, screenEscape } from "./client-hud-v2-screens.js";
+import { closeScreen, openRequestedTechDetail, openScreen, renderScreen, screenClick, screenEscape } from "./client-hud-v2-screens.js";
 import { profileScreenStep } from "./client-hud-v2-profile.js";
 import { chronicleBadgeCount, takeOverLegacyDashboard } from "./client-hud-v2-chronicle-runtime.js";
 import { setDockListener } from "./client-hud-v2-tile-dock.js";
-import { closeTownScreen, townOnMenuView } from "./client-hud-v2-town-runtime.js";
-import { captureIsBattle, handleSlotsToggle, trackerHtml } from "./client-hud-v2-tracker.js";
+import { closeTownScreen, townOnMenuHidden, townOnMenuView } from "./client-hud-v2-town-runtime.js";
+import { captureIsBattle, handleSlotsToggle, tickSlots, trackerHtml } from "./client-hud-v2-tracker.js";
 import "./client-hud-v2.css";
 import "./client-hud-v2-screens.css";
 import "./client-hud-v2-town-battle.css";
@@ -142,11 +142,6 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
     openResourcePanel(deps, chip.dataset.hudV2Chip);
     return;
   }
-  if (target.closest("[data-hud-v2-overlay='diplomacy']")) {
-    deps.state.showDiplomacyOverlay = !deps.state.showDiplomacyOverlay;
-    deps.requestViewRefresh();
-    return;
-  }
   const dip = target.closest<HTMLElement>("[data-hud-v2-diplomacy]");
   if (dip?.dataset.hudV2Diplomacy) {
     openScreen(deps, "diplomacy", { diplomacyTarget: dip.dataset.hudV2Diplomacy });
@@ -177,7 +172,7 @@ const onEscape = (deps: HudV2Deps, event: KeyboardEvent): void => {
   if (event.key !== "Escape" || !isHudV2Active(deps.isMobile)) return;
   const el = event.target instanceof HTMLElement ? event.target : null;
   if (el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName))) return;
-  if (document.querySelector(".effort-confirm-overlay, .diplomacy-trade-overlay") && screen.id !== "diplomacy") return;
+  if (document.querySelector(".break-pact-overlay") || (document.querySelector(".effort-confirm-overlay, .diplomacy-trade-overlay") && screen.id !== "diplomacy")) return;
   const { state } = deps;
   // Whatever this handler closes, the keypress stops here: the map's own Esc would also cancel
   // the attack in flight, crystal targeting and placement (client-map-input.ts).
@@ -241,9 +236,11 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
     colorOf: ownerColor,
     nowMs
   }));
-  writeRegion("overlays", overlaysHtml(state.showDiplomacyOverlay));
+  renderLens(state);
   writeRegion("orb-slot", orbHtml({ manpower: state.manpower, manpowerCap: state.manpowerCap, nextRefillAt: nextManpowerRefillForPlayer(state.me, nowMs), nowMs, color: resolveOwnerColor(state.me, state.playerColors, fallbackOwnerColor) })); // Base colour: the Diplomacy view recolours ownerColor.
 };
+
+const renderLens = (state: ClientState): void => writeRegion("overlays", overlaysHtml(state.showDiplomacyOverlay, lensMenu.open));
 
 /** The tracker's tile scans (three passes over every known tile), reused until tiles change or it goes stale. */
 const TRACKER_SCAN_MAX_AGE_MS = 5_000;
@@ -277,7 +274,7 @@ const renderTracker = (state: ClientState, nowMs: number): void => {
     flags: trackerScan.flags,
     flagCap: musterFlagCap(state.manpowerCap, 0),
     // Timers count down between scans without rescanning the tiles.
-    building: trackerScan.building.map((b) => ({ ...b, remainingMs: Math.max(0, b.remainingMs - elapsed) })),
+    building: tickSlots(trackerScan.building, elapsed),
     queue: trackerScan.queue,
     slotsOpen: slotsFold.open,
     capture,
@@ -296,15 +293,15 @@ export const installHudV2 = (deps: HudV2Deps): void => {
   layer.innerHTML = shellHtml;
   (document.getElementById("hud") ?? document.body).appendChild(layer);
   layer.addEventListener("click", (event) => onLayerClick(deps, event));
+  // Before onEscape, so Esc folds an open lens list first.
+  installLens(deps, () => renderLens(deps.state));
   window.addEventListener("keydown", (event) => onEscape(deps, event), true);
   setDockListener({
-    onMenuView: (view, tileKey) => {
+    onMenuView: (view, tileKey, tapPress) => {
       battleOnMenuView(view, tileKey);
-      return townOnMenuView(deps, view, tileKey);
+      return townOnMenuView(deps, view, tileKey, tapPress);
     },
-    onMenuHidden: () => {
-      if (screen.id === "town") closeTownScreen(true);
-    },
+    onMenuHidden: (byMapPress) => townOnMenuHidden(byMapPress),
     onBarAction: battleOnBarAction
   });
   installBattleWatch(deps);
@@ -317,12 +314,14 @@ export const installHudV2 = (deps: HudV2Deps): void => {
     setHudV2Driving(flagOn);
     document.body.classList.toggle("hud-v2", flagOn);
     document.body.classList.toggle("hud-v2-waiting", flagOn && !onScreen);
-    // The overlay's toggle and legend live in this HUD; without it (phone width) the tint goes too.
+    // The lens button lives in this HUD; without it (phone width) the Diplomacy tint goes too.
     if (!flagOn && deps.state.showDiplomacyOverlay) deps.state.showDiplomacyOverlay = false;
+    if (!onScreen) lensMenu.open = false;
     // Leaving the new HUD (phone width) must not strand a screen: a hosted profile, or a Chronicle that popups wait on.
     if (!flagOn && screen.id) closeScreen(deps, { toMap: true });
     deps.state.activityDashboard.chronicleOpen = onScreen && screen.id === "chronicle";
     if (!onScreen || !deps.state.me) return;
+    openRequestedTechDetail(deps);
     const nowMs = Date.now();
     renderFast(deps.state, deps.ownerColor, nowMs);
     if (tick % TRACKER_EVERY_TICKS === 0) renderTracker(deps.state, nowMs);

@@ -1,5 +1,8 @@
 import { SqliteResourceTradeOfferStore } from "../resource-trade/resource-trade-store.js";
 import { applyForcedTruceSchema, loadForcedTruceCooldowns } from "./social-store-forced-truces.js";
+import { applyDiplomacyHistorySchema, loadDiplomacyHistory, saveDiplomacyHistory } from "./social-store-diplomacy-history.js";
+import { clearSeasonSocialTables, pruneExpiredSocialRows } from "./social-store-sqlite-maintenance.js";
+import type { DiplomacyHistoryEntry } from "../social-state/social-diplomacy-history.js";
 // SqliteGatewaySocialStore, extracted out of social-store.ts (already over
 // the repo's 500-line file-size gate and may not grow further -- see
 // AGENTS.md's file-and-type-discipline rule). This is a clean, self-contained
@@ -143,6 +146,7 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
       if (!columns.some(column => column.name === "settlement_phase")) this.db.exec(`ALTER TABLE ${table} ADD COLUMN settlement_phase TEXT`);
     }
     applyForcedTruceSchema(this.db);
+    applyDiplomacyHistorySchema(this.db);
   }
 
   loadSnapshot(): SocialStoreSnapshot {
@@ -195,6 +199,7 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
 
     return {
       forcedTruceCooldowns: loadForcedTruceCooldowns(this.db, this.now()),
+      diplomacyHistory: loadDiplomacyHistory(this.db),
       players: playerRows.map((row) => ({
         id: row.player_id,
         name: row.name,
@@ -466,26 +471,16 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
       .run(cooldown.kind, cooldown.fromPlayerId, cooldown.toPlayerId, cooldown.until);
   }
 
+  saveDiplomacyHistory(playerId: string, entry: DiplomacyHistoryEntry): void {
+    saveDiplomacyHistory(this.db, playerId, entry);
+  }
+
   pruneExpired(now: number): void {
-    this.db.prepare("DELETE FROM social_forced_truce_cooldowns WHERE cooldown_until <= ?").run(now);
-    this.db.prepare(`DELETE FROM social_offer_cooldowns WHERE until <= ?`).run(now);
-    this.db.prepare(`DELETE FROM social_truce_requests WHERE expires_at <= ? AND settlement_phase IS NULL`).run(now);
-    this.db.prepare(`DELETE FROM social_active_truces WHERE ends_at <= ?`).run(now);
-    this.db.prepare(`DELETE FROM social_completed_alliance_breaks WHERE notification_expires_at <= ?`).run(now);
-    this.db.prepare(`DELETE FROM social_truce_lockouts WHERE lockout_until <= ?`).run(now);
+    pruneExpiredSocialRows(this.db, now);
   }
 
   clearSeasonData(): void {
     this.resourceTrades.clear();
-    this.db.exec("DELETE FROM social_forced_truce_cooldowns");
-    this.db.exec(`DELETE FROM social_alliances`);
-    this.db.exec(`DELETE FROM social_alliance_requests`);
-    this.db.exec(`DELETE FROM social_alliance_breaks`);
-    this.db.exec(`DELETE FROM social_completed_alliance_breaks`);
-    this.db.exec(`DELETE FROM social_truce_requests`);
-    this.db.exec(`DELETE FROM social_active_truces`);
-    this.db.exec(`DELETE FROM social_truce_lockouts`);
-    this.db.exec(`DELETE FROM social_truce_breaks`);
-    this.db.exec(`DELETE FROM social_offer_cooldowns`);
+    clearSeasonSocialTables(this.db);
   }
 }

@@ -1,5 +1,6 @@
 import type { createClientActionFlow } from "../client-action-flow.js";
 import { locateHomeAfc } from "../client-afc-locate/client-afc-locate.js";
+import { openBugReportFromCaptureAlert } from "../client-capture-effects/client-capture-report-bug.js";
 import type { initClientDom } from "../client-dom.js";
 import { closeActivePanel } from "../client-panel-nav/client-panel-nav.js";
 import { dismissOngoingCapture } from "../client-selected-actions/client-selected-actions.js";
@@ -23,7 +24,7 @@ type UiControlsDeps = {
   captureCancelBtn: ClientDom["captureCancelBtn"];
   captureDismissBtn: ClientDom["captureDismissBtn"];
   captureCloseBtn: ClientDom["captureCloseBtn"];
-  captureDownloadDebugBtn: ClientDom["captureDownloadDebugBtn"];
+  captureReportBugBtn: ClientDom["captureReportBugBtn"];
   captureTimeEl: ClientDom["captureTimeEl"];
   placementCancelBtn: ClientDom["placementCancelBtn"];
   placementConfirmBtn: ClientDom["placementConfirmBtn"];
@@ -47,7 +48,6 @@ type UiControlsDeps = {
   acknowledgeVictoryHoldAlert: () => void;
   renderVictoryHoldAlert: () => void;
   renderCaptureProgress: () => void;
-  downloadDebugBundle: () => void | Promise<void>;
   setActivePanel: (panel: ClientState["activePanel"]) => void;
   syncAuthPanelState: () => void;
 };
@@ -65,7 +65,7 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     captureCancelBtn,
     captureDismissBtn,
     captureCloseBtn,
-    captureDownloadDebugBtn,
+    captureReportBugBtn,
     captureTimeEl,
     placementCancelBtn,
     placementConfirmBtn,
@@ -89,7 +89,6 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     acknowledgeVictoryHoldAlert,
     renderVictoryHoldAlert,
     renderCaptureProgress,
-    downloadDebugBundle,
     setActivePanel,
     syncAuthPanelState
   } = deps;
@@ -134,9 +133,7 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     captureTimeEl.classList.remove("capture-loss");
     renderCaptureProgress();
   };
-  captureDownloadDebugBtn.onclick = () => {
-    void downloadDebugBundle();
-  };
+  captureReportBugBtn.onclick = () => openBugReportFromCaptureAlert(state, { renderCaptureProgress, renderHud });
   shardAlertCloseBtn.onclick = () => {
     hideShardAlert();
     renderShardAlert();

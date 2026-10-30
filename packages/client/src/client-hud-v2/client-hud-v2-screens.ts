@@ -94,6 +94,22 @@ export const closeScreen = (deps: HudV2Deps, options: { toMap?: boolean } = {}):
 
 const ownedTechs = (deps: HudV2Deps): Set<string> => new Set(deps.state.techIds);
 
+/** Shared tile links request a tech detail; desktop HUD v2 owns its destination. */
+export const openRequestedTechDetail = (deps: HudV2Deps): void => {
+  const { state } = deps;
+  if (state.activePanel !== "tech" || !state.techDetailOpen || !state.techUiSelectedId) return;
+  screen.manifestSelectedId = state.techUiSelectedId;
+  const tech = state.techCatalog.find(entry => entry.id === state.techUiSelectedId);
+  if (tech?.branch) screen.manifestClosedLanes.delete(tech.branch);
+  state.techDetailOpen = false;
+  openScreen(deps, "manifest");
+  const nodes = document.getElementById("v2m-scroll")?.querySelectorAll<HTMLElement>("[data-v2-manifest-select]");
+  nodes?.forEach(node => {
+    if (node.dataset.v2ManifestSelect === screen.manifestSelectedId)
+      node.scrollIntoView?.({ block: "nearest", inline: "center" });
+  });
+};
+
 /** The tree is rebuilt only when what it shows changes, not on every HUD tick. */
 let manifestKey = "";
 
@@ -423,7 +439,7 @@ const townClick = (deps: HudV2Deps, target: Element): boolean => {
 /** Esc while a screen is open; true when it handled the key. Foreign dialogs (effort sheet, trade view) handle their own. */
 export const screenEscape = (deps: HudV2Deps): boolean => {
   if (!screen.id) return false;
-  if (document.querySelector(".effort-confirm-overlay")) return true;
+  if (document.querySelector(".effort-confirm-overlay, .break-pact-overlay")) return true;
   if (screen.id === "diplomacy" && screen.diplomacyTargetId) {
     if (!document.querySelector(".diplomacy-trade-overlay")) {
       screen.diplomacyTargetId = undefined;

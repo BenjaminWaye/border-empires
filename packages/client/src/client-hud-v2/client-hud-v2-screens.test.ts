@@ -161,16 +161,38 @@ describe("town screen", () => {
       town,
       focus: support,
       townView: view({ actions: [act("grow_town_to_city", { label: "Upgrade to City" }), act("muster_hold")] }),
-      focusView: view({ buildings: [act("build_hydrogarden", { label: "Hydrogarden" })] }),
+      focusView: view({ actions: [act("muster_hold")], buildings: [act("build_hydrogarden", { label: "Hydrogarden" })] }),
       townIndex: 0,
       townCount: 1,
       buildSelection: "build_hydrogarden",
       category: undefined
     });
     expect(regions.left).toContain('data-hud-v2-action="grow_town_to_city" data-target-key="5,5"');
-    expect(regions.bar).toContain('data-hud-v2-action="muster_hold" data-target-key="5,5"');
+    // Regression: Raise flag with a support tile selected raised it on the town.
+    expect(regions.bar).toContain('data-hud-v2-action="muster_hold" data-target-key="6,5"');
+    expect(regions.bar).not.toContain('data-hud-v2-action="muster_hold" data-target-key="5,5"');
+    expect(regions.bar).toContain("Raise flag on (6, 5)");
     expect(regions.place).toContain('data-target-key="6,5"');
     expect(regions.place).toContain("Build on (6, 5)");
+  });
+
+  // Regression (review): with a support tile selected, the town tile's own
+  // flag controls vanished from the town screen.
+  it("keeps the town's own flag controls, and falls back to raising on the town", () => {
+    const regions = townScreenRegions({
+      town,
+      focus: support,
+      townView: view({ actions: [act("muster_hold"), act("muster_march_cancel", { label: "Cancel March" })] }),
+      focusView: view({}),
+      townIndex: 0,
+      townCount: 1,
+      buildSelection: undefined,
+      category: undefined
+    });
+    expect(regions.bar).toContain('data-hud-v2-action="muster_march_cancel" data-target-key="5,5"');
+    expect(regions.bar).toContain("Cancel March (town)");
+    expect(regions.bar).toContain('data-hud-v2-action="muster_hold" data-target-key="5,5"');
+    expect(regions.bar).toContain("Raise flag on town");
   });
 
   // Regression: a town still being garrisoned showed "undefined / undefined" support and NaN coin.

@@ -4,6 +4,9 @@
 // this is a cohesive, self-contained piece of rendering with no dependency
 // on the tech-detail card/modal logic it used to sit beside.
 import type { StructureModifier } from "@border-empires/game-domain";
+import { STRUCTURE_REGISTRY } from "@border-empires/shared";
+import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
+import type { TechInfo } from "../client-types.js";
 import { MONUMENT_COMPONENTS_BY_BASE, type StructureInfoKey } from "../client-map-display.js";
 import { structureInfoRemovalMs } from "../client-structure-time-labels/client-structure-time-labels.js";
 import { buildTimeLabel } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
@@ -23,11 +26,21 @@ export const renderStructureInfoOverlay = (
     upkeepBits?: string[];
     branch?: "War" | "Economy" | "Manpower" | "Aether";
   },
-  ownedComponentTypes?: ReadonlySet<string>
+  ownedComponentTypes?: ReadonlySet<string>,
+  techCatalog: readonly Pick<TechInfo, "id" | "name">[] = []
 ): string => {
   const type = structureInfoKey as StructureInfoKey | "";
   if (!type) return "";
   const info = structureInfoForKey(type);
+  const unlocks = (STRUCTURE_REGISTRY[type]?.techIds ?? []).flatMap(id => {
+    const tech = techCatalog.find(entry => entry.id === id);
+    return tech ? [tech] : [];
+  });
+  const unlockHtml = unlocks.length
+    ? `<div class="structure-info-meta-card"><span>Unlocked by</span><strong>${unlocks.map(tech =>
+      `<button type="button" class="inline-info-link" data-view-tech="${escapeHtml(tech.id)}" aria-label="Open ${escapeHtml(tech.name)} in tech tree">${escapeHtml(tech.name)}</button>`
+    ).join(" · ")}</strong></div>`
+    : "";
   const costHtml = info.costBits.length
     ? `<div class="structure-info-meta-card"><span>Cost</span><strong>${info.costBits.join(" · ")}</strong></div>`
     : "";
@@ -95,6 +108,7 @@ export const renderStructureInfoOverlay = (
         ${modifiersHtml}
         ${effectsHtml}
         <div class="structure-info-meta">
+          ${unlockHtml}
           ${costHtml}
           ${upkeepHtml}
           <div class="structure-info-meta-card"><span>Build time</span><strong>${info.buildTimeLabel}</strong></div>

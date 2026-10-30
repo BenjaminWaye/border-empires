@@ -1,6 +1,7 @@
 import { fortRemovalDurationMs, siegeBatteryRemovalDurationMs, structureBuildDurationMs, structureRemovalDurationMs } from "@border-empires/shared";
 import { writeOptimisticStructureBuild, writeOptimisticStructureCancel } from "./client-optimistic-structure-writes.js";
 import { buildMsWithSpeedForState } from "../client-build-speed/client-build-speed.js";
+import { hasFreeResourceSlots } from "../client-tile-action-logic/client-resource-slot-gate.js";
 import { shouldPreserveOptimisticExpand } from "../client-frontier-overlay/client-frontier-overlay.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { OptimisticStructureKind, Tile, TileVisibilityState } from "../client-types.js";
@@ -174,7 +175,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     const completesAt = startedAt + adjustBuildMs(kind, structureBuildDurationMs(kind, ownedBeacons));
     applyOptimisticTileState(x, y, (tile) => {
       tile.optimisticPending = "structure_build";
-      writeOptimisticStructureBuild(tile, kind, state.me, (id) => state.techIds.includes(id), completesAt, startedAt, adjustBuildMs);
+      writeOptimisticStructureBuild(tile, kind, state.me, (id) => state.techIds.includes(id), completesAt, startedAt, adjustBuildMs, (variant) => hasFreeResourceSlots(state, variant));
     });
   };
 

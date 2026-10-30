@@ -13,10 +13,6 @@ import { createMarineMaterial } from "./client-map-3d-popup-marine/popup-marine-
 // owned-territory path from a mustering flag to the enemy tile it's
 // attacking, for the travel-time window between an ADVANCE/MARCH/manual
 // muster attack firing and the (existing, unrelated) combat lock starting.
-// Sits alongside the supply-line overlay (client-map-3d-supply-line-overlay
-// .ts, the static/pulsing route line) rather than replacing it — the line
-// marks the route, this renders the troops actually moving along it.
-//
 // The company walks the real hop path (the same tile-by-tile chain the
 // server's ADVANCE/MARCH BFS or the client's dock-fair pathfinder produced —
 // see runtime-muster-tick.ts/ADVANCE_MAX_RANGE_TILES for why hops, not raw

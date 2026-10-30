@@ -189,8 +189,8 @@ describe("tech detail structure mapping", () => {
     // cost box — a slot is a permanent ongoing occupation, not a build cost.
     expect(structureInfoForKey("TITANIUM_BASTION", deps).upkeepBits).toEqual(["2 TITANIUM slots"]);
     expect(structureInfoForKey("THUNDER_BASTION", deps).upkeepBits).toEqual(["4 TITANIUM slots"]);
-    expect(structureInfoForKey("SIEGE_TOWER", deps).upkeepBits).toEqual(["2 UMBRITE slots", "1 TITANIUM slot"]);
-    expect(structureInfoForKey("DREAD_TOWER", deps).upkeepBits).toEqual(["3 UMBRITE slots", "2 TITANIUM slots"]);
+    expect(structureInfoForKey("SIEGE_TOWER", deps).upkeepBits).toEqual(["2 UMBRITE slots"]);
+    expect(structureInfoForKey("DREAD_TOWER", deps).upkeepBits).toEqual(["3 UMBRITE slots"]);
   });
 
   it("provides structure art for dedicated economic overlays", () => {

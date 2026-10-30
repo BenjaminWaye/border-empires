@@ -122,9 +122,66 @@ describe("tile action diplomacy", () => {
     state.me = "me";
     state.allies = ["ai-1"];
 
-    const actions = menuActionsForSingleTile(state, rivalTile, { ...baseDeps, isTileOwnedByAlly: () => true } as never);
+    const actions = menuActionsForSingleTile(state, rivalTile, {
+      ...baseDeps,
+      isTileOwnedByAlly: () => true,
+      pickOriginForTarget: () => ({ x: 4, y: 4, terrain: "LAND", ownerId: "me" })
+    } as never);
 
     expect(actions[0]).toMatchObject({ id: "diplomacy", detail: "Allied" });
+    expect(actions[1]).toMatchObject({ id: "launch_attack", disabled: false, detail: "Allied: attacking means breaking the alliance (24h notice)" });
+  });
+
+  it("disables Launch Attack on an ally's tile while the alliance break notice runs", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.allies = ["ai-1"];
+    state.activeAllianceBreaks = [{ otherPlayerId: "ai-1", otherPlayerName: "AI 1", startedAt: 1, endsAt: Date.now() + 5 * 60 * 60_000, createdByPlayerId: "me" }];
+
+    const actions = menuActionsForSingleTile(state, rivalTile, {
+      ...baseDeps,
+      isTileOwnedByAlly: () => true,
+      pickOriginForTarget: () => ({ x: 4, y: 4, terrain: "LAND", ownerId: "me" })
+    } as never);
+
+    expect(actions.find((action) => action.id === "launch_attack")).toMatchObject({ disabled: true, disabledReason: "Alliance ends in 5h; attack after that" });
+  });
+
+  it("does not offer to break an alliance with an ally that doesn't border you", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.allies = ["ai-1"];
+
+    const actions = menuActionsForSingleTile(state, rivalTile, { ...baseDeps, isTileOwnedByAlly: () => true } as never);
+
+    expect(actions.find((action) => action.id === "launch_attack")).toMatchObject({
+      disabled: true,
+      disabledReason: "Ally doesn't border your territory or a linked dock"
+    });
+  });
+
+  it("turns Launch Attack on a truced empire into a break-the-truce prompt, or blocks it under a Court armistice", () => {
+    const state = createInitialState();
+    state.me = "me";
+    const truce = { otherPlayerId: "ai-1", otherPlayerName: "AI 1", startedAt: 1, endsAt: Date.now() + 60_000, createdByPlayerId: "me" };
+    const withTruce = (origin?: "court") => ({
+      ...baseDeps,
+      pickOriginForTarget: () => ({ x: 4, y: 4, terrain: "LAND", ownerId: "me" }),
+      activeTruceWithPlayer: (playerId?: string | null) => (playerId === "ai-1" ? { ...truce, ...(origin ? { origin } : {}) } : undefined)
+    });
+
+    expect(menuActionsForSingleTile(state, rivalTile, withTruce() as never).find((action) => action.id === "launch_attack")).toMatchObject({
+      disabled: false,
+      detail: "Truce with AI 1: attacking means breaking it first"
+    });
+    expect(menuActionsForSingleTile(state, rivalTile, withTruce("court") as never).find((action) => action.id === "launch_attack")).toMatchObject({
+      disabled: true,
+      disabledReason: "Court armistice: no attacks until it ends"
+    });
+    // A truced tile you can't reach keeps its "no bordering origin" block: breaking would buy nothing.
+    expect(
+      menuActionsForSingleTile(state, rivalTile, { ...withTruce(), pickOriginForTarget: () => undefined } as never).find((action) => action.id === "launch_attack")
+    ).toMatchObject({ disabled: true, disabledReason: "No bordering origin tile or linked dock" });
   });
 
   it("never offers diplomacy on a barbarian-owned tile, including the settled barbarian-1 id", () => {

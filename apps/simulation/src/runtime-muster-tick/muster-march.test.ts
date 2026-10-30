@@ -6,7 +6,7 @@ vi.hoisted(() => {
 
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "../runtime/runtime.js";
-import { ADVANCE_MAX_RANGE_TILES } from "./muster-auto-fire-shared.js";
+import { MUSTER_MARCH_MAX_ROUTE_STEPS } from "@border-empires/shared";
 import { acceptedAttackTargets, acceptedMusterMarchCommands, makePlayer } from "./muster-march-test-support.js";
 
 describe("muster MARCH auto-fire", () => {
@@ -332,12 +332,13 @@ describe("muster MARCH auto-fire", () => {
   // raised flag, ranking every enemy tile and every bordering neutral tile it
   // found. On a large empire under live load that saturated the sim's CPU and
   // surfaced to players as "sim unavailable". A muster flag is a local order,
-  // so the walk is now bounded by ADVANCE_MAX_RANGE_TILES.
+  // so the walk is bounded: by the route corridor and MUSTER_MARCH_MAX_ROUTE_STEPS
+  // (see muster-march-siege.test.ts for the corridor itself).
   //
   // Before the fix this test fails: the BFS runs the full corridor and fires on
   // the far enemy tile.
-  it("does not walk past ADVANCE_MAX_RANGE_TILES to reach a distant enemy", () => {
-    const chainLength = ADVANCE_MAX_RANGE_TILES + 5;
+  it("does not walk past MUSTER_MARCH_MAX_ROUTE_STEPS to reach a distant enemy", () => {
+    const chainLength = MUSTER_MARCH_MAX_ROUTE_STEPS + 5;
     const tiles = [
       {
         x: 0,

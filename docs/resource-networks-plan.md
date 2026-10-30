@@ -111,7 +111,7 @@ are roughly 500–650 deposits per resource, depending on coastlines and habitat
 |---|---|---|
 | Neural resin | Forested grassland groves | Other grassland |
 | Conductive minerals | Tundra and rocky grassland near hills/mountains | Other grassland |
-| Catalytic deposits | Sand and coastal sand | Exposed tundra |
+| Catalytic deposits | Inland sand | Exposed tundra |
 | Luxury biota | Tropical or wet grassland | Temperate grassland |
 | Precursor salvage | Hills and mountain foothills | Any land biome |
 
@@ -239,3 +239,26 @@ world-generation coverage test, including protected landings and both map styles
 The production-clone load gate remains required before production deployment.
 The new geography takes effect on new seasons; deployment preserves the current
 campaign's saved deposits and does not trigger a rollover.
+
+New placement reserves each town and its eight adjacent support tiles for town
+industry; frontier installations work on their own settled deposits without
+town support. Catalysts exclude coastal sand. These changes apply when a map is
+generated, preserving current campaign geography.
+
+## Proposal: multi-contract export capacity
+
+Status: proposal for playtesting; current allocation remains one slot per Nexus
+for each of catalyst and luxury supply.
+
+At 180 eligible towns, one Nexus per town caps useful output at 180 of the
+1,000 luxury sites and 180 of the 1,000 catalyst sites. Trading redistributes
+that demand rather than increasing planet-wide capacity.
+
+Suggested starting point: retain one Nexus per town, but allow six luxury
+contracts and six catalyst contracts at each active supported Nexus. Each
+contract consumes one developed site's output and adds 1.5 Coin/day before
+modifiers. With 180 Nexuses this gives 1,080 available contracts per resource.
+A fully supplied Nexus would add 9 Coin/day from each resource, 18 total, so
+income pacing needs playtesting before adopting this proposal. The two
+resources retain independent capacity, and spare contracts do not produce
+income. No balance change is implemented by this proposal.

@@ -227,6 +227,11 @@ export type SimulationRuntimeOptions = {
   // playerId spawns territory in the new season, mirroring
   // pendingImperialWard's lifecycle — see ensurePlayerHasSpawnTerritory.
   pendingGalacticWonderBonus?: { playerId: string };
+  // Start time of the season this runtime belongs to, or undefined while it
+  // isn't active (pending/ended) -- drives the late-join landing reserve
+  // (landingManpowerReserve in @border-empires/shared). A getter because a
+  // pending season's start moves when it activates. Omitted: no late-join bonus.
+  seasonStartedAt?: () => number | undefined;
   commandTrace?: (sample: Record<string, unknown>) => void;
   onOwnershipChange?: (sample: OwnershipChangeSample) => void;
   // True while playerId has a live, connected client (a real SubscribePlayer

@@ -190,6 +190,8 @@ export const buildInitMessage = (
       activeAllianceBreaks: socialSnapshot?.activeAllianceBreaks ?? [],
       recentAllianceBreaks: socialSnapshot?.recentAllianceBreaks ?? [],
       truceRequests: socialSnapshot?.incomingTruceRequests ?? [],
+      // Lets the client count down an offer's expiresAt on the server's clock (client-server-clock.ts).
+      serverNow: Date.now(),
       outgoingTruceRequests: socialSnapshot?.outgoingTruceRequests ?? [],
       activeTruces: socialSnapshot?.activeTruces ?? [],
       truceBreaksThisSeason: socialSnapshot?.truceBreaksThisSeason ?? [],

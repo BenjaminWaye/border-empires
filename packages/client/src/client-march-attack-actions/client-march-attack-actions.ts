@@ -76,6 +76,19 @@ const flagModeText = (tile: Tile | undefined): string => {
   return muster?.mode === "ADVANCE" ? "stops advancing" : "leaves Hold";
 };
 
+/** Why no march was offered because mustering is still locked. */
+export const MUSTER_LOCKED_REASON = "Muster flags unlock once you meet an enemy";
+
+/** Why `options` holds no way to march, or undefined when there is one. */
+const marchUnavailableReason = (options: MarchAttackOptions, state: MarchAttackState): string | undefined => {
+  if (options.flags.length === 0 && !isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId)) return MUSTER_LOCKED_REASON;
+  if (options.flags.length > 0 || options.newFlag) return undefined;
+  const flagCount = [...state.tiles.values()].filter((t) => t.ownerId === state.me && t.muster?.ownerId === state.me).length;
+  return flagCount >= state.musterFlagLimit
+    ? `Muster flags full (${flagCount}/${state.musterFlagLimit}) and none can march here`
+    : `No muster flag or owned tile within march range (${MUSTER_MARCH_MAX_DISTANCE_TILES} tiles)`;
+};
+
 /**
  * The March Attack rows for a hostile `tile`, or why there are none: [] with
  * no reason for a tile a march never attacks (own, or a truced empire -- the
@@ -91,19 +104,8 @@ export const buildMarchAttackActions = (
   if (!tile.ownerId || tile.ownerId === state.me) return { rows: [] };
   if (state.activeTruces.some((truce) => truce.otherPlayerId === tile.ownerId && truce.endsAt > nowMs)) return { rows: [] };
   const options = marchAttackOptions(state, tile, nowMs);
-  if (options.flags.length === 0 && !isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId)) {
-    return { rows: [], unavailableReason: "Muster flags unlock once you meet an enemy" };
-  }
-  if (options.flags.length === 0 && !options.newFlag) {
-    const flagCount = [...state.tiles.values()].filter((t) => t.ownerId === state.me && t.muster?.ownerId === state.me).length;
-    return {
-      rows: [],
-      unavailableReason:
-        flagCount >= state.musterFlagLimit
-          ? `Muster flags full (${flagCount}/${state.musterFlagLimit}) and none can march here`
-          : `No muster flag or owned tile within march range (${MUSTER_MARCH_MAX_DISTANCE_TILES} tiles)`
-    };
-  }
+  const unavailableReason = marchUnavailableReason(options, state);
+  if (unavailableReason) return { rows: [], unavailableReason };
   const rows: TileActionDef[] = options.flags.map((flag, index) => ({
     id: MARCH_ATTACK_FLAG_ACTION_IDS[index]!,
     label: `March Attack from Flag (${flag.x}, ${flag.y})`,
@@ -122,6 +124,39 @@ export const buildMarchAttackActions = (
     });
   }
   return { rows };
+};
+
+export const MARCH_TO_PICK_ORIGIN_ACTION_ID = "march_to_pick_origin";
+
+/**
+ * The single March To button on an unexplored tile: the player wants to
+ * scout that way rather than claim that exact tile. Pressing it starts
+ * picking where to march from (client-march-origin-picking/), so the button
+ * itself names no origin -- it is only disabled, with the reason, when no
+ * flag or owned tile could march there at all. `locked` is set while
+ * mustering is still locked, so the caller can offer something else.
+ */
+export const buildMarchToAction = (
+  target: { x: number; y: number },
+  state: MarchAttackState,
+  nowMs = Date.now()
+): { action: TileActionDef; locked: boolean } => {
+  const options = marchAttackOptions(state, target, nowMs);
+  const reason = marchUnavailableReason(options, state);
+  const detail =
+    options.flags.length > 0
+      ? "Pick one of your nearby muster flags, or a tile of your land to raise a new flag on, to march from."
+      : "Pick a tile of your land to raise a muster flag on; it marches here, claiming land on the way.";
+  return {
+    action: {
+      id: MARCH_TO_PICK_ORIGIN_ACTION_ID,
+      label: "March To",
+      detail,
+      disabled: Boolean(reason),
+      ...(reason ? { disabledReason: reason } : {})
+    },
+    locked: reason === MUSTER_LOCKED_REASON
+  };
 };
 
 // The disabled reason buildTileActions puts on Launch Attack when the target

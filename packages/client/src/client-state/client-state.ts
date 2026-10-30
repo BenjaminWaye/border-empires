@@ -97,7 +97,6 @@ export const createInitialState = () => ({
   economyBreakdown: undefined as EconomyBreakdown | undefined,
   upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
   upkeepLastTick: createInitialUpkeepLastTick(),
-  foodCoverageWarned: false,
   goldAnimUntil: 0, goldAnimDir: 0 as -1 | 0 | 1,
   defensibilityAnimUntil: 0,
   defensibilityAnimDir: 0 as -1 | 0 | 1,
@@ -254,7 +253,7 @@ export const createInitialState = () => ({
   settleProgressByTile: new Map<string, TileTimedProgress>(),
   latestSettleTargetKey: "",
   optimisticTileSnapshots: new Map<string, Tile | undefined>(),
-  captureAlert: undefined as { title: string; detail: string; until: number; tone: "success" | "error" | "warn"; manpowerLoss?: number; focusX?: number; focusY?: number; actionLabel?: string } | undefined,
+  captureAlert: undefined as { title: string; detail: string; until: number; tone: "success" | "error" | "warn"; manpowerLoss?: number; focusX?: number; focusY?: number; actionLabel?: string; timeout?: boolean } | undefined,
   settlementRepairDiagnosticKey: "" as string,
   pendingShardCollect: undefined as { tileKey: string; shardSite: NonNullable<Tile["shardSite"]> } | undefined,
   leaderboard: {
