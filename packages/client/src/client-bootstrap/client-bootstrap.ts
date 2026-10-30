@@ -272,7 +272,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     finalizePredictedCombat: (result) => actionFlow.applyCombatOutcomeMessage(result, { predicted: true })
   });
 
-  const { downloadDebugBundle, downloadRespawnReportForNotice } = createBootstrapDownloadHelpers({ state, wsUrl });
+  const { downloadRespawnReportForNotice } = createBootstrapDownloadHelpers({ state, wsUrl });
   const renderShardAlert = (): void =>
     renderShardAlertFromModule(state, {
       shardAlertOverlayEl: dom.shardAlertOverlayEl,
@@ -388,7 +388,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     captureCancelBtn,
     captureDismissBtn: dom.captureDismissBtn,
     captureCloseBtn,
-    captureDownloadDebugBtn: dom.captureDownloadDebugBtn,
+    captureReportBugBtn: dom.captureReportBugBtn,
     captureTimeEl,
     placementCancelBtn: dom.placementCancelBtn,
     placementConfirmBtn: dom.placementConfirmBtn,
@@ -408,7 +408,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     hideShardAlert: deps.hideShardAlert,
     renderShardAlert, acknowledgeVictoryHoldAlert, renderVictoryHoldAlert,
     renderCaptureProgress,
-    downloadDebugBundle,
     setActivePanel,
     syncAuthPanelState
   });
@@ -545,7 +544,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     clearOptimisticTileState,
     dropQueuedTargetKeyIfAbsent: actionFlow.dropQueuedTargetKeyIfAbsent,
     pushFeed,
-    showCaptureAlert,
     processActionQueue: actionFlow.processActionQueue,
     shouldPreserveOptimisticExpandByKey,
     requestViewRefresh,

@@ -201,3 +201,17 @@ actions close the popup before requesting the selected technology; HUD v2's
 existing handoff opens its Manifest tree. The extracted actions also retain
 structure-name and close-button behavior from the oversized HUD module.
 No research is purchased by following a link. Lore reviewed; no canon change.
+
+Resource icon review: `Map/Resources/Resource Badges → Map Sizes` compares the
+existing base icons and five frontier limited-palette cutouts at 16/24/40px and real 22/48/64/96px
+tile badge sizes, using `drawResourceCornerMarker`. The shared badge remains a
+coloured circular marker below 48px tiles. Zoomed-in circular discs reserve at least 20px for their artwork. Frontier resources
+use 96px transparent PNGs for map/inline icons and 96/256px exports for large
+slots. `Painted Resources` isolates the new set. Art direction and generation
+prompts: [resource icon art](../../resource-icon-art.md). Lore reviewed; no canon change.
+
+Core icon review: `Core Resources` shows Coin, FOOD/grain, map-only fish,
+titanium and Umbrite alongside actual-size source badges. `FISH` is an artwork
+key only; both farm and fish deposits retain the FOOD strategic-resource key.
+The shortage/HUD/upkeep/diplomacy food icon remains FOOD. Small and large
+core art use the shared PNG URL resolver. Lore reviewed; no canon change.

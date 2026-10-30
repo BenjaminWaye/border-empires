@@ -18,7 +18,7 @@ describe("login and frontier retry regression guard", () => {
     const source = clientSource("../client-runtime-loop.ts");
     expect(source).toContain('No server acceptance arrived within 2s; waiting for frontier sync instead of retrying the same tile.');
     expect(source).toContain(
-      'showCaptureAlert(\n          "Expansion sync delayed",\n          "No server acceptance arrived within 2 seconds. Refreshing nearby tiles while waiting for frontier sync. Use Download debug log below if this keeps happening.",\n          "warn"\n        );'
+      'showCaptureTimeoutAlert(\n          state,\n          "Expansion sync delayed",\n          "No server acceptance arrived within 2 seconds. Refreshing nearby tiles while waiting for frontier sync. Use Report bug below if this keeps happening."\n        );'
     );
     expect(source).toContain("const waitForFrontierSync =");
     expect(source).toContain("!state.actionAcceptedAck && !state.combatStartAck && !currentTile?.ownerId");
@@ -87,8 +87,8 @@ describe("login and frontier retry regression guard", () => {
   it("forces a nearby refresh and warning alert when combat start or result goes missing for attacks", () => {
     const source = clientSource("../client-runtime-loop.ts");
     expect(source).toContain('"No server acceptance arrived within 2 seconds. Keeping the current attack active while waiting for the server result."');
-    expect(source).toContain('showCaptureAlert("Attack sync delayed", "No server acceptance arrived within 2 seconds. Refreshing nearby tiles to resync.", "warn");');
-    expect(source).toContain('showCaptureAlert("Combat result delayed", "Refreshing nearby tiles because the server result did not arrive in time.", "warn");');
+    expect(source).toContain('showCaptureTimeoutAlert(state, "Attack sync delayed", "No server acceptance arrived within 2 seconds. Refreshing nearby tiles to resync.");');
+    expect(source).toContain('showCaptureTimeoutAlert(state, "Combat result delayed", "Refreshing nearby tiles because the server result did not arrive in time.");');
   });
 
   it("times out waiting for server acceptance after 2 seconds instead of waiting for combat start", () => {

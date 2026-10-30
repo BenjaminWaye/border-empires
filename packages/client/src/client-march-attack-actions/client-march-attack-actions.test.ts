@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { MUSTER_MARCH_MAX_DISTANCE_TILES } from "@border-empires/shared";
 
 vi.mock("../client-arrow-gesture-confirm.js", () => ({ handleArrowGestureConfirm: vi.fn() }));
 
@@ -22,10 +23,12 @@ const stateWith = (tiles: Tile[], overrides: Partial<ClientState> = {}): ClientS
 };
 
 const target = enemy(20, 10);
+/** An x past march range from `target` (x = 20). */
+const beyondRangeX = (extra: number): number => 20 + MUSTER_MARCH_MAX_DISTANCE_TILES + extra;
 
 describe("marchAttackOptions", () => {
   it("lists in-range flags nearest first and the owned tile nearest the target for a new flag", () => {
-    const state = stateWith([flag(10, 10), flag(14, 10), own(17, 10), own(16, 10), flag(40, 10), target]);
+    const state = stateWith([flag(10, 10), flag(14, 10), own(17, 10), own(16, 10), flag(beyondRangeX(10), 10), target]);
     const options = marchAttackOptions(state, target);
     expect(options.flags).toEqual([
       { x: 14, y: 10, distance: 6 },
@@ -38,7 +41,7 @@ describe("marchAttackOptions", () => {
   });
 
   it("leaves out flags and tiles beyond march range or under siege", () => {
-    const state = stateWith([flag(2, 10), own(18, 10), own(19, 11), target]);
+    const state = stateWith([flag(beyondRangeX(3), 10), own(18, 10), own(19, 11), target]);
     state.incomingAttacksByTile.set("19,11", { attackerName: "Rival", resolvesAt: Date.now() + 60_000 } as never);
     const options = marchAttackOptions(state, target);
     expect(options.flags).toEqual([]);
@@ -47,34 +50,34 @@ describe("marchAttackOptions", () => {
 });
 
 describe("marchAttackOptions across water", () => {
-  // A strait (x=18..19, known SEA) splits the owned tile (17,20), 3 tiles
+  // A strait (x=18..19, known SEA, y=0..120) splits the owned tile (17,60), 3 tiles
   // from the target in a straight line, from the target's shore; the owned
-  // tile (20,25) is 5 tiles away on the target's own shore. The strait runs
+  // tile (20,65) is 5 tiles away on the target's own shore. The strait runs
   // far enough that walking around it is past the route cap.
   const strait = (): Tile[] => {
     const sea: Tile[] = [];
-    for (let y = 0; y <= 45; y += 1) for (const x of [18, 19]) sea.push({ x, y, terrain: "SEA" });
+    for (let y = 0; y <= 120; y += 1) for (const x of [18, 19]) sea.push({ x, y, terrain: "SEA" });
     return sea;
   };
-  const shoreTarget = enemy(20, 20);
+  const shoreTarget = enemy(20, 60);
 
   it("raises the new flag on the connected shore, not the nearer tile across open water", () => {
-    const state = stateWith([...strait(), own(17, 20), own(20, 25), shoreTarget], { musterFlagLimit: 3 });
-    expect(marchAttackOptions(state, shoreTarget).newFlag).toEqual({ x: 20, y: 25, distance: 5 });
+    const state = stateWith([...strait(), own(17, 60), own(20, 65), shoreTarget], { musterFlagLimit: 3 });
+    expect(marchAttackOptions(state, shoreTarget).newFlag).toEqual({ x: 20, y: 65, distance: 5 });
   });
 
   it("leaves out a flag across open water with no crossing", () => {
-    const state = stateWith([...strait(), flag(17, 20), shoreTarget]);
+    const state = stateWith([...strait(), flag(17, 60), shoreTarget]);
     expect(marchAttackOptions(state, shoreTarget).flags).toEqual([]);
   });
 
   it("routes through a dock link or the player's own live aether bridge", () => {
-    const docked = stateWith([...strait(), flag(17, 20), shoreTarget], { dockPairs: [{ ax: 17, ay: 21, bx: 20, by: 21 }] });
-    expect(marchAttackOptions(docked, shoreTarget).flags).toEqual([{ x: 17, y: 20, distance: 3 }]);
-    const bridge = { bridgeId: "b", ownerId: "me", from: { x: 17, y: 21 }, to: { x: 20, y: 21 }, startedAt: 0, endsAt: Date.now() + 60_000 };
-    const bridged = stateWith([...strait(), flag(17, 20), shoreTarget], { activeAetherBridges: [bridge] });
-    expect(marchAttackOptions(bridged, shoreTarget).flags).toEqual([{ x: 17, y: 20, distance: 3 }]);
-    const rivalBridge = stateWith([...strait(), flag(17, 20), shoreTarget], { activeAetherBridges: [{ ...bridge, ownerId: "rival" }] });
+    const docked = stateWith([...strait(), flag(17, 60), shoreTarget], { dockPairs: [{ ax: 17, ay: 61, bx: 20, by: 61 }] });
+    expect(marchAttackOptions(docked, shoreTarget).flags).toEqual([{ x: 17, y: 60, distance: 3 }]);
+    const bridge = { bridgeId: "b", ownerId: "me", from: { x: 17, y: 61 }, to: { x: 20, y: 61 }, startedAt: 0, endsAt: Date.now() + 60_000 };
+    const bridged = stateWith([...strait(), flag(17, 60), shoreTarget], { activeAetherBridges: [bridge] });
+    expect(marchAttackOptions(bridged, shoreTarget).flags).toEqual([{ x: 17, y: 60, distance: 3 }]);
+    const rivalBridge = stateWith([...strait(), flag(17, 60), shoreTarget], { activeAetherBridges: [{ ...bridge, ownerId: "rival" }] });
     expect(marchAttackOptions(rivalBridge, shoreTarget).flags).toEqual([]);
   });
 });
@@ -133,8 +136,8 @@ describe("injectMarchAttackActions", () => {
       expect(view.actions.map((action) => action.id)).toEqual(["launch_attack", "reveal_empire"]);
       return view.actions[0]?.disabledReason;
     };
-    expect(reasonFor(stateWith([own(2, 1), target], unlocked))).toBe("No muster flag or owned tile within march range (15 tiles)");
-    expect(reasonFor(stateWith([flag(1, 1), flag(2, 1), target], unlocked))).toBe("Muster flags full (2/2) and none can march here");
+    expect(reasonFor(stateWith([own(beyondRangeX(5), 1), target], unlocked))).toBe("No muster flag or owned tile within march range (30 tiles)");
+    expect(reasonFor(stateWith([flag(beyondRangeX(5), 1), flag(beyondRangeX(6), 1), target], unlocked))).toBe("Muster flags full (2/2) and none can march here");
     vi.unstubAllGlobals();
   });
 

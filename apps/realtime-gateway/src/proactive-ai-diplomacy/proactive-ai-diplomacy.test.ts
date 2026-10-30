@@ -19,7 +19,7 @@ function setup(manpower = 900) {
   const memory = createAiDiplomacyMemory({ now: () => Date.now(), isAi: () => true });
   memory.recordPayment("ai-1", "human", 6000);
   const diplomacyContext = (requesterId: string, aiId: string) => ({ requesterBrokeTruceWithAi: false,
-    requesterTruceBreaksWithOthers: 0, memory: memory.view(aiId, requesterId), now: Date.now(),
+    requesterTruceBreaksWithOthers: 0, requesterBrokeAllianceWithAi: false, memory: memory.view(aiId, requesterId), now: Date.now(),
     alliesOf: (id: string) => social.snapshotForPlayer(id).allies });
   for (const snapshot of Object.values(snapshots)) {
     snapshot.worldStatus = { leaderboard: { overall: [{ id: "ai-1", tiles: 2 }, { id: "human", tiles: 1 }] } };

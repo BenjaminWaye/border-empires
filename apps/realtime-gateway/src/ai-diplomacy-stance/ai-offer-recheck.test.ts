@@ -11,7 +11,7 @@ const HUMAN_ID = "human-1";
 
 const context = (memory: Partial<AiDiplomacyContext["memory"]> = {}): AiDiplomacyContext => ({
   requesterBrokeTruceWithAi: false,
-  requesterTruceBreaksWithOthers: 0,
+  requesterTruceBreaksWithOthers: 0, requesterBrokeAllianceWithAi: false,
   memory: {
     tilesTakenFromAi: 0,
     tilesTakenByAi: 0,

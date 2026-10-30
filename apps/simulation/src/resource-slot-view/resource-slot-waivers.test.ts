@@ -61,13 +61,13 @@ describe("§23.2 slot waivers — resourceSlotDemandForPlayer", () => {
     expect(waived.TITANIUM).toBe(1);
   });
 
-  it("Siege Battery waiver only zeroes the UMBRITE row, not a Siege Tower's separate TITANIUM row", () => {
+  it("Siege Battery waiver zeroes a Siege Tower's UMBRITE row, and a Siege Tower takes no TITANIUM", () => {
     const tiles = [
       tile({ x: 0, y: 0, siegeBattery: { ownerId: "p1", status: "active", variant: "SIEGE_TOWER", activatedAt: 100 } })
     ];
     const waived = resourceSlotDemandForPlayer(tiles, "p1", { ...emptySlotWaivers(), outpostUmbriteSlotWaiverCount: 3 });
     expect(waived.UMBRITE).toBe(0);
-    expect(waived.TITANIUM).toBe(1);
+    expect(waived.TITANIUM).toBe(0);
   });
 
   it("firstTownsFoodSlotWaiverCount reduces only the first N towns (deterministic tile-key order), by 1 each", () => {

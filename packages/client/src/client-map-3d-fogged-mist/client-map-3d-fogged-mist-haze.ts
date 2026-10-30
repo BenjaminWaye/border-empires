@@ -64,12 +64,27 @@ ${FOGGED_MIST_SHADE_GLSL}`;
 // never covers them), so the edge maths only runs on remembered and
 // unexplored land. Gated per fragment, so the edge's fwidth is only
 // unreliable on quads straddling a gate, where it is clamped anyway.
-export const FOGGED_MIST_HAZE_FRAGMENT_BLEND = `
+const hazeBlend = (blend: string): string => `
 if (uFogMistOn > 0.5 && vFogMistScene.y > uFogMistPlaneY && texture2D(uFogMistMask, (floor(vFogMistScene.xz) + 0.5 - uFogMistMaskMin) / uFogMistMaskSize).r > 0.002) {
   vec4 fogMist = foggedMistShade(uFogMistMask, uFogMistMaskMin, uFogMistMaskSize, vFogMistScene.xz, vFogMistScene.xz + uFogMistOrigin, uFogMistTime, uFogMistHaze, uFogMistLight, uFogMistMinOpacity, uFogMistMaxOpacity);
-  gl_FragColor.rgb = mix(gl_FragColor.rgb, linearToOutputTexel(vec4(fogMist.rgb, 1.0)).rgb, fogMist.a);
+  ${blend}
 }
 `;
+
+export const FOGGED_MIST_HAZE_FRAGMENT_BLEND = hazeBlend("gl_FragColor.rgb = mix(gl_FragColor.rgb, linearToOutputTexel(vec4(fogMist.rgb, 1.0)).rgb, fogMist.a);");
+
+// A multiply-blend overlay (the fog's last-known-owner tint) can't be mixed
+// toward the mist's colour, since its output scales what lies under it; it
+// eases to white (no effect) as the mist thickens instead.
+export const FOGGED_MIST_HAZE_FRAGMENT_MULTIPLY = hazeBlend("gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(1.0), fogMist.a);");
+
+/**
+ * How a patched material's fragments take the mist: "normal" mixes in its
+ * colour (opaque features, and normal-blend overlays, whose alpha is kept so
+ * the haze lands exactly as the sheet's would over them), "multiply" fades a
+ * multiply-blend overlay out under it.
+ */
+export type FoggedMistHazeMode = "normal" | "multiply";
 
 const injectAfter = (source: string, include: string, code: string): string => {
   if (!source.includes(include)) throw new Error(`fogged mist haze: shader has no ${include}`);
@@ -77,7 +92,7 @@ const injectAfter = (source: string, include: string, code: string): string => {
 };
 
 /** Patches one material (keeping any onBeforeCompile it already has). */
-export const applyFoggedMistHaze = (material: Material, uniforms: FoggedMistHazeUniforms): void => {
+export const applyFoggedMistHaze = (material: Material, uniforms: FoggedMistHazeUniforms, mode: FoggedMistHazeMode = "normal"): void => {
   const previousOnBeforeCompile = material.onBeforeCompile;
   const previousCacheKey = material.customProgramCacheKey;
   material.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms, renderer: WebGLRenderer): void => {
@@ -86,9 +101,9 @@ export const applyFoggedMistHaze = (material: Material, uniforms: FoggedMistHaze
     shader.vertexShader = injectAfter(shader.vertexShader, "#include <common>", VERTEX_DECL);
     shader.vertexShader = injectAfter(shader.vertexShader, "#include <project_vertex>", VERTEX_POSITION);
     shader.fragmentShader = injectAfter(shader.fragmentShader, "#include <common>", FRAGMENT_DECL);
-    shader.fragmentShader = injectAfter(shader.fragmentShader, "#include <fog_fragment>", FOGGED_MIST_HAZE_FRAGMENT_BLEND);
+    shader.fragmentShader = injectAfter(shader.fragmentShader, "#include <fog_fragment>", mode === "multiply" ? FOGGED_MIST_HAZE_FRAGMENT_MULTIPLY : FOGGED_MIST_HAZE_FRAGMENT_BLEND);
   };
-  material.customProgramCacheKey = (): string => `${previousCacheKey.call(material)}|foggedMistHaze`;
+  material.customProgramCacheKey = (): string => `${previousCacheKey.call(material)}|foggedMistHaze:${mode}`;
   material.needsUpdate = true;
 };
 

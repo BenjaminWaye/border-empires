@@ -3,7 +3,7 @@
 // its stance and prices, so the client can preview "would they accept?" as
 // the player edits the terms; for a human target there is nothing to
 // predict. Read-only: no offer is created.
-import type { AiDiplomacyPricing } from "@border-empires/shared";
+import type { AiDiplomacyPricing, AiGiftView } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 import { evaluateAiDiplomacy, type AiDiplomacyContextSource } from "./ai-diplomacy-evaluation.js";
@@ -28,6 +28,8 @@ export type DiplomacyStancePayload =
       truceRefusal?: string;
       allianceRefusal?: string;
       pricing?: AiDiplomacyPricing;
+      /** For the gift preview: coin per opinion point and the goodwill already paid. */
+      gift?: AiGiftView;
     };
 
 export type DiplomacyStanceQueryDeps = {
@@ -77,6 +79,7 @@ export const answerDiplomacyStanceQuery = async (
     },
     ...(evaluation.truceRefusal ? { truceRefusal: evaluation.truceRefusal } : {}),
     ...(evaluation.allianceRefusal ? { allianceRefusal: evaluation.allianceRefusal } : {}),
-    pricing: evaluation.pricing
+    pricing: evaluation.pricing,
+    gift: evaluation.gift
   };
 };
