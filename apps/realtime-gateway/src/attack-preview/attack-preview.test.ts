@@ -60,6 +60,21 @@ describe("attackPreviewResult", () => {
     expect(expired.winChance).toBe(1);
   });
 
+  it("scores a non-adjacent target only for a March To preview", async () => {
+    const tiles = [
+      { x: 0, y: 0, ownerId: "player-1", ownershipState: "SETTLED" },
+      { x: 4, y: 0, ownerId: "player-2", ownershipState: "SETTLED" }
+    ];
+    const message = { fromX: 0, fromY: 0, toX: 4, toY: 0 };
+
+    const direct = await attackPreviewResult("player-1", tiles, undefined, message, [], []);
+    const march = await attackPreviewResult("player-1", tiles, undefined, { ...message, march: true }, [], []);
+
+    expect(direct).toMatchObject({ valid: false, reason: "target not adjacent" });
+    expect(march.valid).toBe(true);
+    expect(march.winChance as number).toBeGreaterThan(0);
+  });
+
   it("applies the target's active fort defense bonus", async () => {
     const fortJson = JSON.stringify({ ownerId: "player-2", status: "active", variant: "FORT" });
     const tilesWithFort = [

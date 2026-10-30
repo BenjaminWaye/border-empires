@@ -45,7 +45,10 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     fromY: z.number().int(),
     toX: z.number().int(),
     toY: z.number().int(),
-    requestId: z.string().min(1).optional()
+    requestId: z.string().min(1).optional(),
+    // March To preview: the target needn't border the origin (a muster flag
+    // marches there), so the gateway skips its adjacency check.
+    march: z.boolean().optional()
   }),
   z.object({ type: z.literal("CHOOSE_TECH"), techId: z.string().min(1) }),
   // targetPlayerId (optional): address the target by id, so a name shared by two empires can't misdirect the offer.
