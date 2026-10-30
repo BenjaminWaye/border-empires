@@ -27,7 +27,7 @@ import { closeScreen, openRequestedTechDetail, openScreen, renderScreen, screenC
 import { profileScreenStep } from "./client-hud-v2-profile.js";
 import { chronicleBadgeCount, takeOverLegacyDashboard } from "./client-hud-v2-chronicle-runtime.js";
 import { setDockListener } from "./client-hud-v2-tile-dock.js";
-import { closeTownScreen, townOnMenuView } from "./client-hud-v2-town-runtime.js";
+import { closeTownScreen, townOnMenuHidden, townOnMenuView } from "./client-hud-v2-town-runtime.js";
 import { captureIsBattle, handleSlotsToggle, tickSlots, trackerHtml } from "./client-hud-v2-tracker.js";
 import "./client-hud-v2.css";
 import "./client-hud-v2-screens.css";
@@ -297,13 +297,11 @@ export const installHudV2 = (deps: HudV2Deps): void => {
   installLens(deps, () => renderLens(deps.state));
   window.addEventListener("keydown", (event) => onEscape(deps, event), true);
   setDockListener({
-    onMenuView: (view, tileKey, tap) => {
+    onMenuView: (view, tileKey, tapPress) => {
       battleOnMenuView(view, tileKey);
-      return townOnMenuView(deps, view, tileKey, tap);
+      return townOnMenuView(deps, view, tileKey, tapPress);
     },
-    onMenuHidden: () => {
-      if (screen.id === "town") closeTownScreen(true);
-    },
+    onMenuHidden: (byMapPress) => townOnMenuHidden(byMapPress),
     onBarAction: battleOnBarAction
   });
   installBattleWatch(deps);
