@@ -172,7 +172,7 @@ const onEscape = (deps: HudV2Deps, event: KeyboardEvent): void => {
   if (event.key !== "Escape" || !isHudV2Active(deps.isMobile)) return;
   const el = event.target instanceof HTMLElement ? event.target : null;
   if (el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName))) return;
-  if (document.querySelector(".effort-confirm-overlay, .diplomacy-trade-overlay") && screen.id !== "diplomacy") return;
+  if (document.querySelector(".break-pact-overlay") || (document.querySelector(".effort-confirm-overlay, .diplomacy-trade-overlay") && screen.id !== "diplomacy")) return;
   const { state } = deps;
   // Whatever this handler closes, the keypress stops here: the map's own Esc would also cancel
   // the attack in flight, crystal targeting and placement (client-map-input.ts).
