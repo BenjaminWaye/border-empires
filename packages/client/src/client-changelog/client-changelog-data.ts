@@ -46,6 +46,7 @@ import { TOWN_PLATE_GROWTH_PAUSED_CHANGELOG } from "./client-changelog-town-plat
 import { TERRITORY_EDGE_GLOW_CHANGELOG } from "./client-changelog-territory-edge-glow.js";
 import { LANDING_RESERVE_CHANGELOG } from "./client-changelog-landing-reserve.js";
 import { FOG_HILL_HAZE_CHANGELOG } from "./client-changelog-fog-hill-haze.js";
+import { STORM_EDGE_BANDING_CHANGELOG } from "./client-changelog-storm-edge-banding.js";
 import { MARCH_ACROSS_WATER_CHANGELOG } from "./client-changelog-march-across-water.js";
 import { MARCH_UNEXPLORED_CHANGELOG } from "./client-changelog-march-unexplored.js";
 import { MARCH_STOP_SHORT_CHANGELOG } from "./client-changelog-march-stop-short.js";
@@ -265,6 +266,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RICHER_FORESTS_CHANGELOG,
   ...SIEGE_FX_GATE_CHANGELOG,
   ...INCURSION_HATCH_HILLS_CHANGELOG,
+  ...STORM_EDGE_BANDING_CHANGELOG,
   ...MARCH_ACROSS_WATER_CHANGELOG,
   ...MARCH_UNEXPLORED_CHANGELOG,
   ...MARCH_STOP_SHORT_CHANGELOG,

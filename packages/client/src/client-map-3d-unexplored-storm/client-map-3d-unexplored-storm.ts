@@ -48,6 +48,11 @@ export const UNEXPLORED_STORM_Y = 0.27;
 // Well past the farthest ground point the fixed-tilt camera can see at max
 // zoom-out, but inside PERSPECTIVE_FAR (4000).
 const STORM_PLANE_SIZE = 3600;
+// Cells per side (~28 tiles each). As two huge triangles, the sheet's
+// interpolated position lost precision on mobile GPUs and jumped between
+// bands of screen rows, breaking the brass edge into offset segments; small
+// triangles keep it exact. Still only ~33k triangles of trivial vertex work.
+export const STORM_PLANE_SEGMENTS = 128;
 // Wraps the animation clock so float precision never degrades the drift.
 const STORM_TIME_WRAP_SECONDS = 3600;
 
@@ -75,7 +80,7 @@ const createMaskTexture = (width: number, height: number, data: Uint8Array): Dat
 };
 
 export const createUnexploredStormLayer = (scene: Scene, nowMs: () => number = () => performance.now()): UnexploredStormLayer => {
-  const geometry = new PlaneGeometry(STORM_PLANE_SIZE, STORM_PLANE_SIZE);
+  const geometry = new PlaneGeometry(STORM_PLANE_SIZE, STORM_PLANE_SIZE, STORM_PLANE_SEGMENTS, STORM_PLANE_SEGMENTS);
   geometry.rotateX(-Math.PI / 2);
   let mask = createMaskTexture(1, 1, new Uint8Array([255, 255, 0, 255]));
   // Rolls the clouds back off newly explored tiles, per tile
