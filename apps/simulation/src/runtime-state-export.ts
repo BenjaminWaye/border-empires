@@ -19,6 +19,7 @@ import { selectExpansionObjective, sampleEnemyYieldKeysAcrossPlayers, type Expan
 import { shouldYieldAt } from "./event-loop-yield.js";
 import { musterStagedManpowerForPlayer } from "./runtime-muster-staged-manpower.js";
 import type { SnapshotExportInput } from "./runtime-snapshot-sections.js";
+import { reachBorderOwnerAt } from "./runtime-aether-bridge-reach.js";
 
 import type { RuntimeExportState } from "./runtime-export-state-types.js";
 export type { RuntimeExportState } from "./runtime-export-state-types.js";
@@ -28,6 +29,11 @@ export type { RuntimeAiPlayerMetricsRow } from "./runtime-ai-player-metrics-row.
 export { buildRuntimePlayerDebugSnapshot } from "./runtime-player-debug-snapshot.js";
 export type { RuntimePlayerDebugSnapshot } from "./runtime-player-debug-snapshot.js";
 
+// reachBorder comes from SnapshotExportInput (Runtime.reachBorder). It is read
+// once per export so every tile agrees on the same border, and it feeds
+// reachOwnerId below: reveal-map / season-end / spectator snapshots are built
+// from this full-world export, and clients need reachOwnerId for rival reach
+// borders and incursion hatching.
 type RuntimeExportInput = { supplyStateForPlayer?: (id: string) => import("@border-empires/shared").ResourceSupplyPlayerState } & Omit<SnapshotExportInput, "recordedEventsByCommandId"> & {
   terrainEpoch: number;
   tileDeltaStringifyCache: TileDeltaStringifyCache;
@@ -42,7 +48,8 @@ type RuntimeExportInput = { supplyStateForPlayer?: (id: string) => import("@bord
 
 const toRuntimeExportTile = (
   tile: DomainTileState,
-  tileDeltaStringifyCache: TileDeltaStringifyCache
+  tileDeltaStringifyCache: TileDeltaStringifyCache,
+  reachBorder: ReadonlyMap<string, string>
 ): RuntimeExportState["tiles"][number] => {
   const tileKey = simulationTileKey(tile.x, tile.y);
   const cached = tileDeltaStringifyCache.getOrComputeAll(tileKey, tile);
@@ -55,6 +62,8 @@ const toRuntimeExportTile = (
   if (tile.dockId) entry.dockId = tile.dockId;
   if (tile.ownerId) entry.ownerId = tile.ownerId;
   if (tile.ownershipState) entry.ownershipState = tile.ownershipState;
+  const reachOwnerId = reachBorderOwnerAt(reachBorder, tile.x, tile.y);
+  if (reachOwnerId) entry.reachOwnerId = reachOwnerId;
   if (typeof tile.frontierDecayAt === "number") entry.frontierDecayAt = tile.frontierDecayAt;
   if (tile.frontierDecayKind) entry.frontierDecayKind = tile.frontierDecayKind;
   if (typeof tile.captureHoldUntil === "number") entry.captureHoldUntil = tile.captureHoldUntil;
@@ -133,12 +142,13 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
     .sort((left, right) => left.id.localeCompare(right.id));
 
 export function buildRuntimeExportState(input: RuntimeExportInput): RuntimeExportState {
+  const reachBorder = input.reachBorder();
   return {
     tiles: (() => {
       const result = new Array(input.tiles.size) as RuntimeExportState["tiles"];
       let i = 0;
       for (const tile of input.tiles.values()) {
-        result[i] = toRuntimeExportTile(tile, input.tileDeltaStringifyCache);
+        result[i] = toRuntimeExportTile(tile, input.tileDeltaStringifyCache, reachBorder);
         i += 1;
       }
       result.sort((left, right) => left.x - right.x || left.y - right.y);
@@ -169,10 +179,11 @@ export async function buildRuntimeExportStateAsync(
   yieldToEventLoop: () => Promise<void>
 ): Promise<RuntimeExportState> {
   const tiles = new Array(input.tiles.size) as RuntimeExportState["tiles"];
+  const reachBorder = input.reachBorder();
   let i = 0;
   for (const tile of input.tiles.values()) {
     if (shouldYieldAt(i, 2_000)) await yieldToEventLoop();
-    tiles[i] = toRuntimeExportTile(tile, input.tileDeltaStringifyCache);
+    tiles[i] = toRuntimeExportTile(tile, input.tileDeltaStringifyCache, reachBorder);
     i += 1;
   }
   await yieldToEventLoop();
