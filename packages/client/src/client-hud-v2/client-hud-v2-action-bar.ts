@@ -62,7 +62,11 @@ const primaryAction = (view: BarView): TileActionDef | undefined => {
   }
   return view.actions.find((a) => isGarrison(a) && a.recommended && !a.disabled)
     ?? relayBeacon(view)
-    ?? view.actions.find((a) => a.id === "settle_land" && !a.disabled && !isGarrison(a));
+    ?? view.actions.find((a) => a.id === "settle_land" && !a.disabled && !isGarrison(a))
+    // Nothing doable: keep the tile's main action on the bar, greyed with its reason, rather than burying
+    // it in the minor row or the Build list where players couldn't find it.
+    ?? view.actions.find((a) => isGarrison(a) && a.recommended)
+    ?? [...view.actions, ...view.buildings].find((a) => RELAY_BEACON_IDS.includes(a.id));
 };
 
 export const selectBarButtons = (view: BarView): BarButton[] => {
@@ -107,7 +111,9 @@ const actionButtonHtml = (b: Extract<BarButton, { kind: "action" }>): string => 
   const a = b.action;
   const cls = `hud-v2-act${b.primary ? " hud-v2-act-primary" : ""}${a.disabled ? " hud-v2-act-disabled" : ""}`;
   const title = a.disabled ? a.disabledReason ?? a.label : a.detail ?? a.label;
-  return `<button type="button" class="${cls}" data-hud-v2-action="${esc(a.id)}"${targets(a)}${a.disabled ? " disabled" : ""} title="${esc(title)}"><span class="hud-v2-act-label">${esc(a.label)}</span>${a.cost ? `<span class="hud-v2-act-cost">${esc(a.cost)}</span>` : ""}</button>`;
+  // Touch has no tooltips, so a disabled button says why where its cost would be.
+  const note = a.disabled ? a.disabledReason ?? a.cost : a.cost;
+  return `<button type="button" class="${cls}" data-hud-v2-action="${esc(a.id)}"${targets(a)}${a.disabled ? " disabled" : ""} title="${esc(title)}"><span class="hud-v2-act-label">${esc(a.label)}</span>${note ? `<span class="hud-v2-act-cost">${esc(note)}</span>` : ""}</button>`;
 };
 
 /** The minor row: small text buttons for everything else, plus a link to legacy-only views (progress, modules, reports). */

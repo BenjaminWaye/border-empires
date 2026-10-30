@@ -201,6 +201,26 @@ describe("action bar", () => {
     expect(buttons.some((b) => b.kind === "panel" && b.panel === "build")).toBe(true);
   });
 
+  // Regression: a Relay Beacon you couldn't build yet (no slot, short manpower) left the main row and only
+  // sat in the Build list, so frontier land looked like it had no beacon at all.
+  it("keeps a blocked Relay Beacon as the main action, greyed with its reason", () => {
+    const v = view({
+      actions: [act("settle_land", { label: "Garrison" }), act("muster_hold", { label: "Raise flag" })],
+      buildings: [act("build_relay_beacon", { label: "Build Relay Beacon", disabled: true, disabledReason: "Need 50 manpower", cost: "50 m.p." })],
+      tabs: ["actions", "buildings"]
+    });
+    const buttons = selectBarButtons(v);
+    expect(buttons[0]).toMatchObject({ primary: true, action: { id: "build_relay_beacon" } });
+    const html = actionBarHtml(v);
+    expect(html).toContain('<span class="hud-v2-act-cost">Need 50 manpower</span>');
+    expect(html).toContain('data-hud-v2-action="build_relay_beacon" disabled');
+  });
+
+  it("keeps a blocked Garrison on a resource as the main action", () => {
+    const buttons = selectBarButtons(view({ actions: [act("settle_land", { label: "Garrison", recommended: true, disabled: true, disabledReason: "Need 30 coin" })] }));
+    expect(buttons[0]).toMatchObject({ primary: true, action: { id: "settle_land" } });
+  });
+
   it("makes Expand To (settle_land on neutral land) the main action", () => {
     const buttons = selectBarButtons(view({ actions: [act("settle_land", { label: "Expand To" })] }));
     expect(buttons[0]).toMatchObject({ primary: true, action: { label: "Expand To" } });
