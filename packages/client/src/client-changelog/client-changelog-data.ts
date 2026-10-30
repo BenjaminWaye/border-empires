@@ -53,6 +53,7 @@ import { MARCH_STOP_SHORT_CHANGELOG } from "./client-changelog-march-stop-short.
 import { RECONNECT_NO_AUTH_CHANGELOG } from "./client-changelog-reconnect-no-auth.js";
 import { PLANETARY_DEFENSE_MUSTER_FLAG_CHANGELOG } from "./client-changelog-planetary-defense-muster-flag.js";
 import { YOURS_TILE_COORDS_CHANGELOG } from "./client-changelog-yours-tile-coords.js";
+import { REMEMBERED_BUILDINGS_CHANGELOG } from "./client-changelog-remembered-buildings.js";
 import { MAP_NAMES_CHANGELOG } from "./client-changelog-map-names.js";
 import { REACH_OWNER_NAME_CHANGELOG } from "./client-changelog-reach-owner-name.js";
 import { MUSTER_COMMIT_BADGE_CHANGELOG } from "./client-changelog-muster-commit-badge.js";
@@ -273,6 +274,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECONNECT_NO_AUTH_CHANGELOG,
   ...PLANETARY_DEFENSE_MUSTER_FLAG_CHANGELOG,
   ...YOURS_TILE_COORDS_CHANGELOG,
+  ...REMEMBERED_BUILDINGS_CHANGELOG,
   ...MAP_NAMES_CHANGELOG,
   ...REACH_OWNER_NAME_CHANGELOG,
   ...MUSTER_COMMIT_BADGE_CHANGELOG,

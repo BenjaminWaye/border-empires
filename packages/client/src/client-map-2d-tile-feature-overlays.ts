@@ -12,6 +12,7 @@ import { drawNaturalWonderOverlay2D, naturalWonderOverlayForTile } from "./clien
 import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js";
 import { drawWaystation2D } from "./client-map-2d-waystation-overlay.js";
 import { isTrue3DRendererActive } from "./client-renderer-mode.js";
+import { drawRememberedStructures2D, type RememberedStructures2DDeps } from "./client-remembered-structures-2d/client-remembered-structures-2d.js";
 import type { Tile } from "./client-types.js";
 
 export type TileFeatureOverlayDeps2D = {
@@ -22,9 +23,11 @@ export type TileFeatureOverlayDeps2D = {
   afcJoinDrop: AfcJoinDropState;
   /** AFC module delivery landing times by tile key. */
   afcModuleDeliveryLandedAt: ReadonlyMap<string, number>;
+  /** Buildings on fogged tiles, drawn as last seen and standing still. */
+  remembered: RememberedStructures2DDeps;
 };
 
-/** Draws a visible tile's 2D feature overlays; a no-op in the 3D renderer, which has its own. */
+/** Draws a tile's 2D feature overlays (a fogged tile's remembered buildings too); a no-op in the 3D renderer, which has its own. */
 export const drawTileFeatureOverlays2D = (
   deps: TileFeatureOverlayDeps2D,
   t: Tile | undefined,
@@ -41,6 +44,7 @@ export const drawTileFeatureOverlays2D = (
     drawNaturalWonderOverlay2D(deps.ctx, undefined, t.ownerId ?? "", px, py, size, deps.structureAccentColor, t.naturalWonder, false);
     deps.ctx.restore();
   }
+  if (t && vis === "fogged" && !isTrue3DRendererActive()) drawRememberedStructures2D(deps.ctx, deps.remembered, t, px, py, size);
   if (!t || vis !== "visible" || isTrue3DRendererActive()) return;
   if (t.terrain === "LAND" && t.watchtower) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs);
   if (t.terrain === "LAND" && t.waystation) drawWaystation2D(deps.ctx, t, px, py, size, nowMs);

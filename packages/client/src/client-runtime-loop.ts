@@ -11,6 +11,7 @@ import type { FortificationOpening, FortificationOverlayKind } from "./client-fo
 import { drawTileIntelOverlays2D } from "./client-map-2d-tile-intel/client-map-2d-tile-intel.js";
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import { drawResourceOverlay2D } from "./client-resource-overlay-2d/client-resource-overlay-2d.js";
+import { drawDockEndpoint2D } from "./client-dock-endpoint-2d/client-dock-endpoint-2d.js";
 import { drawLoopMinFrameGapMs } from "./client-runtime-loop-frame-gap.js";
 import { drawVisibleTerrain2D } from "./client-map-render/client-map-render-visible-terrain.js";
 import { drawSelectedDockSeaRoute2D } from "./client-dock-route-draw.js";
@@ -249,7 +250,16 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const tileIntel2D = { state, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, terrainAt }; // weak-defensibility, client-map-2d-tile-intel.ts
     const reachTileDeps2D = { me: state.me, tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, ownerColor: deps.effectiveOverlayColor }; // hoisted: drawReachTileTreatments2D runs per visible tile per frame
     const aetherTowerSpriteDeps2D = { ctx: deps.ctx, sprite: deps.structureOverlayImages.OBSERVATORY, structureAccentColor: deps.structureAccentColor };
-    const tileFeatureDeps2D = { relicMapHints: state.relicMapHints, ctx: deps.ctx, structureAccentColor: deps.structureAccentColor, effectiveOverlayColor: deps.effectiveOverlayColor, afcJoinDrop: state.afcJoinDrop, afcModuleDeliveryLandedAt: state.afcModuleDeliveryLandedAt }; // hoisted: drawTileFeatureOverlays2D runs per visible tile per frame
+    // Buildings on fogged tiles, drawn as last seen and standing still (client-remembered-structures-2d).
+    const rememberedStructureDeps2D = {
+      drawTownOverlay: deps.drawTownOverlay,
+      fortificationOverlayImageFor: deps.fortificationOverlayImageFor,
+      fortificationDeps: { tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY },
+      aetherTowerSprite: aetherTowerSpriteDeps2D,
+      afcJoinDrop: state.afcJoinDrop,
+      resourceInstallations: deps
+    };
+    const tileFeatureDeps2D = { relicMapHints: state.relicMapHints, ctx: deps.ctx, structureAccentColor: deps.structureAccentColor, effectiveOverlayColor: deps.effectiveOverlayColor, afcJoinDrop: state.afcJoinDrop, afcModuleDeliveryLandedAt: state.afcModuleDeliveryLandedAt, remembered: rememberedStructureDeps2D }; // hoisted: drawTileFeatureOverlays2D runs per visible tile per frame
     const crystalTargetingActive = state.crystalTargeting.active;
     const crystalTone = crystalTargetingActive ? deps.crystalTargetingTone(state.crystalTargeting.ability) : "amber";
     const debugWindow = typeof window !== "undefined" ? (window as Window & { __be3dCanvasOverlayDebug?: unknown }) : undefined;
@@ -310,32 +320,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       deps.drawAetherWallSegment(deps.ctx, fromX, fromY, toX, toY, options);
     };
     const renderOverlayTile = ({ wx, wy, wk, px, py, vis, t, settlementProgress }: VisibleRenderTile): void => {
-      const isDockEndpoint = dockEndpointKeys.has(wk);
-      const dockVisible = (!t && effectiveFogDisabled(state)) || vis === "visible";
-      // Corner anchor badge for every visible dock tile — drawn even in 3D mode so the icon-only summary remains visible when zoomed out (parallels drawResourceCornerMarker for resource tiles).
-      if (dockVisible && isDockEndpoint) {
-        deps.drawDockMarker(px, py, size);
-      }
-      // The 3D dock overlay supersedes the SVG dock icon (and its fallback placeholder) when the true-3D renderer is mounted.
-      if (dockVisible && isDockEndpoint && !isTrue3DRendererActive()) {
-        const dockOverlay = deps.dockOverlayVariants[deps.overlayVariantIndexAt(wx, wy, deps.dockOverlayVariants.length)];
-        if (dockOverlay?.complete && dockOverlay.naturalWidth) deps.drawCenteredOverlay(dockOverlay, px, py, size, 1.14);
-        else {
-          deps.ctx.fillStyle = "rgba(12, 22, 38, 0.42)";
-          deps.ctx.fillRect(px + 1, py + 1, size - 3, size - 3);
-          deps.ctx.strokeStyle = "rgba(115, 225, 255, 0.98)";
-          deps.ctx.lineWidth = 2;
-          deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
-          deps.ctx.strokeStyle = "rgba(214, 247, 255, 0.95)";
-          deps.ctx.beginPath();
-          deps.ctx.moveTo(px + size / 2, py + 3);
-          deps.ctx.lineTo(px + size / 2, py + size - 3);
-          deps.ctx.moveTo(px + 3, py + size / 2);
-          deps.ctx.lineTo(px + size - 3, py + size / 2);
-          deps.ctx.stroke();
-          deps.ctx.lineWidth = 1;
-        }
-      }
+      // A remembered (fogged) dock stays on the map.
+      if (dockEndpointKeys.has(wk) && ((!t && effectiveFogDisabled(state)) || vis === "visible" || vis === "fogged")) drawDockEndpoint2D(deps, wx, wy, px, py, size);
 
       const overlayTile = t ?? syntheticOverlayTileAt(wx, wy, t);
       const overlayVisible = vis === "visible" || Boolean(overlayTile && isTrue3DRendererActive() && revealWholeMapInTrue3DMode);
@@ -642,31 +628,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
         if (roadNetworkBuiltAt >= 0) continue;
 
-        const isDockEndpoint = dockEndpointKeys.has(wk);
-        const dockVisible = (!t && effectiveFogDisabled(state)) || vis === "visible";
-        if (dockVisible && isDockEndpoint) {
-          deps.drawDockMarker(px, py, size);
-        }
-        // 3D dock overlay supersedes the SVG icon (and its fallback) in true-3D mode.
-        if (dockVisible && isDockEndpoint && !isTrue3DRendererActive()) {
-          const dockOverlay = deps.dockOverlayVariants[deps.overlayVariantIndexAt(wx, wy, deps.dockOverlayVariants.length)];
-          if (dockOverlay?.complete && dockOverlay.naturalWidth) deps.drawCenteredOverlay(dockOverlay, px, py, size, 1.14);
-          else {
-            deps.ctx.fillStyle = "rgba(12, 22, 38, 0.42)";
-            deps.ctx.fillRect(px + 1, py + 1, size - 3, size - 3);
-            deps.ctx.strokeStyle = "rgba(115, 225, 255, 0.98)";
-            deps.ctx.lineWidth = 2;
-            deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
-            deps.ctx.strokeStyle = "rgba(214, 247, 255, 0.95)";
-            deps.ctx.beginPath();
-            deps.ctx.moveTo(px + size / 2, py + 3);
-            deps.ctx.lineTo(px + size / 2, py + size - 3);
-            deps.ctx.moveTo(px + 3, py + size / 2);
-            deps.ctx.lineTo(px + size - 3, py + size / 2);
-            deps.ctx.stroke();
-            deps.ctx.lineWidth = 1;
-          }
-        }
+        if (dockEndpointKeys.has(wk) && ((!t && effectiveFogDisabled(state)) || vis === "visible" || vis === "fogged")) drawDockEndpoint2D(deps, wx, wy, px, py, size);
 
         const overlayTile = t ?? syntheticOverlayTileAt(wx, wy, t);
         const overlayVisible = vis === "visible" || Boolean(overlayTile && isTrue3DRendererActive() && revealWholeMapInTrue3DMode);
