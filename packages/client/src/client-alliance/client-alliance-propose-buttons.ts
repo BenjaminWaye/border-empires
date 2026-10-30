@@ -1,4 +1,5 @@
 import { diplomacyTradeDepsFor, openDiplomacyTradeScreen } from "../client-diplomacy-trade/client-diplomacy-trade.js";
+import { breakTruceConsequences, showBreakPactSheet } from "../client-break-pact-sheet/client-break-pact-sheet.js";
 import { bindCounterOfferButtons, type CounterOfferDeps } from "./client-alliance-counter-offer.js";
 
 /** state: the player's coin and Shards (the trade screen's "what can I offer") and the offers they can counter. */
@@ -30,7 +31,14 @@ export const bindProposeButtons = (root: ParentNode, deps: ProposeButtonDeps): v
     btn.onclick = () => {
       const targetPlayerId = btn.dataset.breakTrucePlayerId;
       if (!targetPlayerId) return;
-      deps.sendGameMessage({ type: "TRUCE_BREAK", targetPlayerId }, "Finish sign-in before breaking truces.");
+      const name = deps.playerNameForOwner(targetPlayerId) || "this empire";
+      showBreakPactSheet({
+        title: `Break truce with ${name}?`,
+        subtitle: `Breaking the truce with ${name} has consequences.`,
+        consequences: breakTruceConsequences(name),
+        confirmLabel: "Break Truce",
+        onConfirm: () => void deps.sendGameMessage({ type: "TRUCE_BREAK", targetPlayerId }, "Finish sign-in before breaking truces.")
+      });
     };
   });
   root.querySelectorAll<HTMLButtonElement>(".propose-truce").forEach((btn) => {

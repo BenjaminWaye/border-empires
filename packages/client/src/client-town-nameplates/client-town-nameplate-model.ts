@@ -20,8 +20,8 @@ const TIER_RANK = { SETTLEMENT: 0, TOWN: 1, CITY: 2, GREAT_CITY: 3, METROPOLIS: 
 export const STATUS_LABEL: Record<TownNameplateStatus, string> = {
   unfed: "Unfed",
   upgrade: "Upgrade ready",
-  war: "Nearby war",
-  captured: "Recently captured"
+  war: "Growth paused: nearby war",
+  captured: "Growth paused: recently captured"
 };
 
 // Same gates as the tile menu (shouldShowTownUnfedWarning /

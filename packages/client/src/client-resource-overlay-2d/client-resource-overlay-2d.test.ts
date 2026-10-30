@@ -1,4 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import * as shared from "@border-empires/shared";
+import { NETWORK_RESOURCES } from "@border-empires/shared";
+import { depositIconKey, resourceIconGlyph } from "../client-resource-icons/client-resource-icons.js";
+import { setTrue3DRendererActive } from "../client-renderer-mode.js";
+import { drawResourceCornerMarker } from "../client-map-render/client-map-render-resource-marker.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Tile } from "../client-types.js";
 import { drawResourceOverlay2D, type ResourceOverlayDrawDeps } from "./client-resource-overlay-2d.js";
 
@@ -10,9 +15,13 @@ const makeDeps = (over: Partial<ResourceOverlayDrawDeps> = {}) => {
   const ctx = {
     globalAlpha: 1,
     drawImage: vi.fn(),
+    fillText: vi.fn(),
     save: vi.fn(),
     restore: vi.fn(),
     beginPath: vi.fn(),
+    arc: vi.fn(),
+    fill: vi.fn(),
+    stroke: vi.fn(),
     rect: vi.fn(),
     clip,
     setLineDash: vi.fn(),
@@ -78,4 +87,32 @@ describe("drawResourceOverlay2D", () => {
     expect(drawResourceOverlay2D(noColour.deps, tile({}), 0, 0, 40, 0)).toBe(false);
     expect(noColour.deps.drawResourceCornerMarker).not.toHaveBeenCalled();
   });
+});
+
+describe("resource icons and food sources in both renderers", () => {
+  afterEach(() => { setTrue3DRendererActive(false); vi.unstubAllGlobals(); });
+  it.each([false, true].flatMap(active => [10, 14, 22, 36, 47, 48, 64, 96, 192].map(size => ({ active, size }))))("draws every frontier icon at $size px with true-3D active=$active", ({ active, size }) => {
+    vi.stubGlobal("Image", undefined);
+    setTrue3DRendererActive(active);
+    for (const resource of ["FARM", "FISH", "TITANIUM", "GEMS", "UMBRITE", ...NETWORK_RESOURCES] as const) {
+      const { deps } = makeDeps({ builtResourceOverlayForTile: () => undefined });
+      const draw = (tile: Tile, x: number, y: number, size: number): void =>
+        drawResourceCornerMarker(deps.ctx, tile, x, y, size, () => "#e9f27b");
+      drawResourceOverlay2D({ ...deps, drawResourceCornerMarker: draw }, { x: 1, y: 1, terrain: "LAND", resource }, 0, 0, size, 0);
+      expect(deps.ctx.fillText).toHaveBeenCalledWith(resourceIconGlyph(depositIconKey(resource)!), expect.any(Number), expect.any(Number));
+      expect(deps.ctx.arc).toHaveBeenCalledWith(expect.any(Number), expect.any(Number), expect.any(Number), 0, Math.PI * 2);
+      expect(deps.drawCenteredOverlayWithAlpha).toHaveBeenCalledTimes(active ? 0 : 1);
+    }
+  });
+});
+
+it("moves the smaller fish sprite toward water while keeping built structures in place", () => {
+  const terrain = vi.spyOn(shared, "terrainAt").mockImplementation(x => x === 2 ? "COASTAL_SEA" : "LAND");
+  const { deps } = makeDeps({ builtResourceOverlayForTile: () => undefined, resourceOverlayScaleForTile: () => 1.04 });
+  drawResourceOverlay2D(deps, tile({ resource: "FISH" }), 10, 20, 100, 0);
+  expect(deps.drawCenteredOverlayWithAlpha).toHaveBeenCalledWith(image, expect.closeTo(23.2, 8), 20, 100, 1.04, 1);
+  const built = makeDeps();
+  drawResourceOverlay2D(built.deps, tile({ resource: "FISH" }), 10, 20, 100, 0);
+  expect(built.deps.drawCenteredOverlayWithAlpha).toHaveBeenCalledWith(image, 10, 20, 100, 1.08, 0.8);
+  terrain.mockRestore();
 });

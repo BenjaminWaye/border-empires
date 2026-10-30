@@ -28,9 +28,22 @@ defines what these systems mean in the fiction; follow the
 - Manpower is capped and regenerates. The always-present starting capital adds
   **720 cap** and **0.4/minute**; it is additive with towns.
 - Every new empire (a human on join, an AI empire at season start; not
-  barbarians) lands with a one-time **+1,000** manpower reserve
+  barbarians) lands with a one-time **+2,000** manpower reserve
   (`LANDING_MANPOWER_RESERVE`), granted at the player's first manpower settle
-  in `refreshManpowerOnlyForPlayer`. Like a Waystation grant it may sit above
+  in `refreshManpowerOnlyForPlayer`. An empire that lands after the season
+  started also gets a late-join catch-up: what the starting capital alone
+  (0.4/minute, **576/day**) would have regenerated since the active season's
+  `startedAt` (`landingManpowerReserve` / `lateJoinManpowerCatchUp`), so a day-5
+  joiner lands with 720 + 2,000 + 2,880. It is uncapped. Nothing is added while
+  the season is pending or ended, or when the runtime has no season clock
+  (`SimulationRuntimeOptions.seasonStartedAt`, wired by `seasonStartedAtClock`).
+  A respawn after a true elimination (the player lost their last tile;
+  `respawnIfEliminated` only, never the territory-holding settlement repair in
+  `respawnPlayerOnUnownedLand`) lands anew and gets the same grant, base plus
+  catch-up, on top of its restored starting manpower
+  (`grantRespawnLandingReserve`, via `RuntimeRespawnContext.grantLandingReserve`),
+  so a player wiped out late in the season can still stage a comeback. There is
+  no ceiling on the catch-up. Like a Waystation grant it may sit above
   the cap (tracked as `waystationManpowerOverflow`), and regen pauses until it
   is spent back under the cap.
 - **Shard Mobilization** (`SHARD_MOBILIZE`, `SHARD_MOBILIZE_SHARD_COST` = **1
@@ -228,6 +241,8 @@ investment without requiring continent-wide collection.
 New standard 640×320 maps target 1,000 tiles of each of the five resources,
 in separated deposits of 1–3 tiles. Habitat preferences and secondary biomes
 are documented in [the resource-network plan](../resource-networks-plan.md).
+New frontier deposits avoid towns and all eight adjacent support tiles; their
+installations do not require town support. Catalysts exclude coastal sand.
 The decorative lone-tree pattern is removed; resin appears as distinct groves.
 Saved campaigns preserve their existing geography on recovery.
 

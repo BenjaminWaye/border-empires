@@ -138,7 +138,7 @@ export const menuOverviewForTile = (
     hasTown: Boolean(tile.town),
     ownershipState: tile.ownershipState
   }).forEach(pushLine);
-  lines.push(...resourceTileOverviewLines(tile, deps.state.techCatalog));
+  lines.push(...resourceTileOverviewLines(tile));
   if (!isLand) return lines;
   if (tile.ownershipState === "SETTLED" && tile.town?.populationTier === "SETTLEMENT") {
     pushLine("Settlements provide starter coin and manpower until they grow into towns.");

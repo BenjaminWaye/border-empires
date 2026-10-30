@@ -2,8 +2,9 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Tile } from "../client-types.js";
 
-vi.mock("../client-renderer-mode.js", () => ({ isTrue3DRendererActive: () => false }));
-const { createTownNameplates } = await import("./client-town-nameplates.js");
+let threeActive = false;
+vi.mock("../client-renderer-mode.js", () => ({ isTrue3DRendererActive: () => threeActive }));
+const { createTownNameplates, placeNameplates } = await import("./client-town-nameplates.js");
 
 const townTile = (x: number, overrides: Partial<NonNullable<Tile["town"]>> = {}): Tile => ({
   x, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED",
@@ -28,7 +29,7 @@ describe("createTownNameplates (2D path)", () => {
     plates.render([at(unfed, 100, 200)], { size: 40, project });
     const plate = host.querySelector<HTMLElement>(".town-plate");
     expect(plate?.querySelector(".town-plate-name")?.textContent).toBe("Town1");
-    expect(plate?.querySelector('[data-status="unfed"] img')?.getAttribute("src")).toBe("/icons/simple/food.svg");
+    expect(plate?.querySelector('[data-status="unfed"] img')?.getAttribute("src")).toBe("/icons/resources/food-96.png");
     expect(plate?.querySelector('[data-status="unfed"] .town-plate-slash')).not.toBeNull();
     expect(plate?.querySelector(".town-plate-pop")?.textContent).toBe("20k");
     expect(plate?.style.getPropertyValue("--town-plate-owner")).toBe("#e3b92b");
@@ -67,8 +68,8 @@ describe("createTownNameplates (2D path)", () => {
     const { host, plates } = mount();
     plates.render([at(townTile(1), 100, 200)], { size: 8, project });
     const plate = host.querySelector<HTMLElement>(".town-plate");
-    // Tile centre (104, 204) lifted by half a tile plus 4px: the plate's bottom is on the tile's top edge.
-    expect(plate?.style.transform).toBe("translate3d(104px, 196px, 0) translate(-50%, -100%)");
+    // Tile centre x 104; the plate's bottom is 4px above the tile's top edge (y 200).
+    expect(plate?.style.transform).toBe("translate3d(104px, 196px, 0) translate(-50%, -100%) scale(1.000)");
     expect(plate?.style.left).toBe("");
   });
 
@@ -88,5 +89,63 @@ describe("createTownNameplates (2D path)", () => {
     const long = (x: number) => ({ ...townTile(x, { name: "Harrowgate Reach" }), ownerId: "rival" }) as Tile;
     plates.render([at(long(1), 100, 200), at(long(2), 170, 200)], { size: 40, project });
     expect(host.querySelectorAll(".town-plate")).toHaveLength(1);
+  });
+
+  it("grows the plate as the 2D tiles grow, like Civ banners", () => {
+    const { host, plates } = mount();
+    plates.render([at(townTile(1), 100, 200)], { size: 192, project });
+    expect(host.querySelector<HTMLElement>(".town-plate")?.style.transform).toMatch(/scale\(1\.600\)$/);
+  });
+});
+
+describe("paused growth", () => {
+  it("shows a nearby-war town as growth struck through, not crossed swords", () => {
+    const { host, plates } = mount();
+    plates.render([at(townTile(1, { nearbyWarPausedUntil: Date.now() + 60_000 }), 100, 200)], { size: 40, project });
+    const badge = host.querySelector('[data-status="war"]');
+    expect(badge?.querySelector("img")?.getAttribute("src")).toBe("/icons/simple/town-growth.svg");
+    expect(badge?.querySelector(".town-plate-slash")).not.toBeNull();
+    expect(host.querySelector(".town-plate")?.getAttribute("title")).toBe("Town1: Growth paused: nearby war");
+  });
+});
+
+describe("createTownNameplates (true-3D path)", () => {
+  it("sits on the town tile's projected back edge and scales with the tile, not with the raw zoom", () => {
+    threeActive = true;
+    try {
+      const { host, plates } = mount();
+      // Camera projection: each world tile is 200 screen px wide, independent of the zoom value passed in.
+      const project3d = (x: number, y: number) => ({ sx: 300 + x * 200, sy: 400 + y * 120 });
+      plates.render([at(townTile(1), 0, 0)], { size: 160, project: project3d });
+      // Tile centre (500, 400), 120px deep: back edge at y 340, plate bottom 4px above it.
+      // The old lift (1.5 × zoom = 240px) put it at y 160, deep in the tile behind.
+      expect(host.querySelector<HTMLElement>(".town-plate")?.style.transform).toBe("translate3d(500px, 336px, 0) translate(-50%, -100%) scale(1.600)");
+    } finally {
+      threeActive = false;
+    }
+  });
+
+  it("finds the back edge whichever way world y runs on screen", () => {
+    threeActive = true;
+    try {
+      const { host, plates } = mount();
+      const flipped = (x: number, y: number) => ({ sx: 300 + x * 200, sy: 400 - y * 120 });
+      plates.render([at(townTile(1), 0, 0)], { size: 160, project: flipped });
+      expect(host.querySelector<HTMLElement>(".town-plate")?.style.transform).toContain("translate3d(500px, 336px, 0)");
+    } finally {
+      threeActive = false;
+    }
+  });
+});
+
+describe("placeNameplates", () => {
+  const plate = (rank: number) => ({ name: "Ux", ownerId: "me", own: true, rank });
+  it("treats plates as growing upward from their bottom when their scales differ", () => {
+    // A big near plate (1.6x) and a small far one (1x) stacked: the big one spans 51.2px up from its bottom.
+    const near = { key: "a", plate: plate(2), x: 100, y: 300, scale: 1.6 };
+    const above = { key: "b", plate: plate(1), x: 100, y: 255, scale: 1 };
+    expect(placeNameplates([near, above]).map((p) => p.key)).toEqual(["a"]);
+    const clear = { key: "c", plate: plate(1), x: 100, y: 245, scale: 1 };
+    expect(placeNameplates([near, clear]).map((p) => p.key)).toEqual(["a", "c"]);
   });
 });

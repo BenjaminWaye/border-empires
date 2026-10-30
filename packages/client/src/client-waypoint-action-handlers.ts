@@ -10,7 +10,8 @@ import {
 } from "./client-waypoint-planner/client-waypoint-persistence.js";
 import { showVisibleActionWarning } from "./client-visible-action-warning.js";
 import { announceDiscoveryTipForState } from "./client-onboarding-ui-gate/client-onboarding-ui-overlays.js";
-import { dispatchMarchAttackAction } from "./client-march-attack-actions/client-march-attack-actions.js";
+import { dispatchMarchAttackAction, MARCH_TO_PICK_ORIGIN_ACTION_ID } from "./client-march-attack-actions/client-march-attack-actions.js";
+import { startMarchOriginPicking } from "./client-march-origin-picking/client-march-origin-picking.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { WaypointPlan } from "./client-waypoint-planner/client-waypoint-planner.js";
 
@@ -123,6 +124,14 @@ export const handleWaypointAction = (deps: WaypointHandlerDeps): boolean => {
   // (injectMarchAttackActions), so they dispatch from here too.
   if (selected && sendGameMessage && dispatchMarchAttackAction(actionId, selected, deps.originKey, state, { pushFeed, sendGameMessage, renderHud, keyFor })) {
     hideTileActionMenu();
+    renderHud();
+    return true;
+  }
+
+  // An unexplored tile's March To: close the menu and pick where to march from.
+  if (actionId === MARCH_TO_PICK_ORIGIN_ACTION_ID && selected && sendGameMessage) {
+    hideTileActionMenu();
+    startMarchOriginPicking(state, selected, { pushFeed, sendGameMessage, renderHud, keyFor });
     renderHud();
     return true;
   }

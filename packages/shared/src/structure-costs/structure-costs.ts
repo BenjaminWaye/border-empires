@@ -304,8 +304,8 @@ export type SiegeTierInfo = {
 
 export const SIEGE_TIER_LADDER: Record<SiegeBatteryVariant, SiegeTierInfo> = {
   SIEGE_BATTERY: { variant: "SIEGE_BATTERY", gold: 0, umbrite: 45,  titanium: 0,   manpower: SIEGE_BATTERY_MANPOWER, attackMult: 1.6 },
-  SIEGE_TOWER:   { variant: "SIEGE_TOWER",   gold: 0, umbrite: 90,  titanium: 60,  manpower: SIEGE_TOWER_MANPOWER,   attackMult: 1.8 },
-  DREAD_TOWER:   { variant: "DREAD_TOWER",   gold: 0, umbrite: 140, titanium: 120, manpower: DREAD_TOWER_MANPOWER,   attackMult: 2.0 },
+  SIEGE_TOWER:   { variant: "SIEGE_TOWER",   gold: 0, umbrite: 90,  titanium: 0,   manpower: SIEGE_TOWER_MANPOWER,   attackMult: 1.8 },
+  DREAD_TOWER:   { variant: "DREAD_TOWER",   gold: 0, umbrite: 140, titanium: 0,   manpower: DREAD_TOWER_MANPOWER,   attackMult: 2.0 },
 };
 
 export const SIEGE_VARIANT_LABELS: Record<SiegeBatteryVariant, string> = {
@@ -318,6 +318,23 @@ export const bestSiegeTierForTech = (has: (id: string) => boolean): SiegeTierInf
   if (has("standing-army")) return SIEGE_TIER_LADDER.DREAD_TOWER;
   if (has("siegecraft")) return SIEGE_TIER_LADDER.SIEGE_TOWER;
   return SIEGE_TIER_LADDER.SIEGE_BATTERY;
+};
+
+// A fresh (non-upgrade) siege build: the best tier the tech allows whose
+// cost `canAfford` accepts, stepping down the ladder (Dread Tower -> Siege
+// Tower -> Siege Battery) so a player short on UMBRITE slots for the top
+// tier still gets a cheaper siege structure instead of a rejection. Falls
+// back to the best tech tier when nothing is affordable, so the caller's
+// own gate reports the shortfall against the tier the player expects.
+const SIEGE_LADDER_DESCENDING: readonly SiegeBatteryVariant[] = ["DREAD_TOWER", "SIEGE_TOWER", "SIEGE_BATTERY"];
+
+export const siegeTierForFreshBuild = (
+  has: (id: string) => boolean,
+  canAfford: (variant: SiegeBatteryVariant) => boolean,
+): SiegeTierInfo => {
+  const best = bestSiegeTierForTech(has);
+  const affordable = SIEGE_LADDER_DESCENDING.slice(SIEGE_LADDER_DESCENDING.indexOf(best.variant)).find(canAfford);
+  return affordable ? SIEGE_TIER_LADDER[affordable] : best;
 };
 
 export const nextSiegeTierForUpgrade = (

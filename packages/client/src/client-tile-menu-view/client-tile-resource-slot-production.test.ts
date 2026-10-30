@@ -86,10 +86,12 @@ describe("every resource tile explains its role", () => {
       if (NETWORK_RESOURCES.some(kind => kind === resource)) {
         const spec = RESOURCE_NETWORKS[resource as keyof typeof RESOURCE_NETWORKS];
         expect(lines).toContain(spec.description);
-        expect(lines).toContain(spec.buildingName);
-        expect(lines).toContain(`${spec.manpowerCost} Ancillaries`);
-        expect(lines).toContain("Build required");
-        expect(lines).toContain("Potential bonus");
+        expect(lines).toContain("After development");
+        expect(lines).not.toContain("exclusive slot");
+        expect(lines).not.toContain("Renewable · tradeable");
+        expect(lines).not.toContain("Develop with");
+        expect(lines).not.toContain("Powered site required");
+        expect(lines.match(/class="tile-stat"/g)).toHaveLength(1);
         expect(lines).not.toMatch(/Claim and garrison this tile to start producing/);
       } else expect(lines).toContain("Base supply");
     }
@@ -97,12 +99,13 @@ describe("every resource tile explains its role", () => {
   it("describes a visible coastal fishing marker before the sea early return", () => {
     expect(menuOverviewForTile({x:1,y:1,terrain:"COASTAL_SEA",resource:"FISH"},deps).map(row=>row.html).join(" ")).toContain("Coastal fishing grounds");
   });
-  it("does not call an unfinished or inactive extractor a working supplier", () => {
+  it("keeps deposit bonuses separate from the installation's build status", () => {
     const tile: Tile = {x:1,y:1,terrain:"LAND",resource:"NEURAL_RESIN",ownerId:"me",ownershipState:"SETTLED",
       economicStructure:{ownerId:"me",type:"RESIN_EXTRACTOR",status:"under_construction"}};
-    expect(menuOverviewForTile(tile,deps).map(row=>row.html).join(" ")).toContain("Under construction");
+    const potential = resourceTileStatsHtml(tile);
+    expect(potential).toContain("+12 Ancillaries/4h for ");
     tile.economicStructure!.status="active";
-    expect(menuOverviewForTile(tile,deps).map(row=>row.html).join(" ")).toContain("Powered site required");
+    expect(resourceTileStatsHtml(tile)).toBe(potential);
   });
 });
 
@@ -120,8 +123,50 @@ it("reports diverted resource supply and explains the Siphon on frontier sites",
   expect(menuOverviewForTile(tile,deps).map(row=>row.html).join(" ")).toContain("Siphoned");
 });
 
-it("names the relevant Manifest and production interval without interpreting catalog text as markup",()=>{
-  const lines=resourceTileStatsHtml({x:1,y:1,terrain:"LAND",resource:"CONDUCTIVE_MINERALS"},[{id:"organized-supply",name:"Reserve Custody Cadre <test>"}]);
-  expect(lines).toContain("Reserve Custody Cadre &lt;test&gt;");
-  expect(lines).toContain("per 4h batch");
+it("shows the conductive amount and two-factory limit", () => {
+  const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "CONDUCTIVE_MINERALS" });
+  expect(html).toContain("+6 Ancillaries/4h for ");
+  expect(html).toContain("each of 2 factories without conductive supply");
+});
+
+it.each(NETWORK_RESOURCES)("%s links the required structure without repeating its research requirement", resource => {
+  const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource });
+  expect(html).toContain(`data-structure-info="${RESOURCE_NETWORKS[resource].building}"`);
+  expect(html).not.toContain("Research required");
+  expect(html).not.toContain("Researched");
+  expect(html).not.toContain("data-view-tech");
+  expect(html).not.toContain("View in tech tree");
+});
+
+it.each(NETWORK_RESOURCES)("%s makes improvement a condition even after a frontier claim", resource => {
+  const spec = RESOURCE_NETWORKS[resource];
+  for (const ownershipState of [undefined, "FRONTIER", "SETTLED"] as const) {
+    const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource, ...(ownershipState ? { ownershipState } : {}) });
+    expect(html).toContain("After development");
+    expect(html).toContain(`data-structure-info="${spec.building}"`);
+    expect(html).not.toContain(`Requires ${spec.buildingName} + `);
+    expect(html).not.toContain('tile-stat-label">Bonus<');
+    if (!spec.batchBonus) expect(html).toContain("+1.5 Coin/day");
+  }
+});
+
+it.each([
+  ["LUXURY_BIOTA", "luxury", "Trade Nexus"],
+  ["CATALYTIC_DEPOSIT", "catalyst", "Trade Nexus"],
+  ["PRECURSOR_SALVAGE", "salvage", "Manufactory"],
+  ["NEURAL_RESIN", "resin", "Ancillary Depot"],
+  ["CONDUCTIVE_MINERALS", "conductive", "factories"]
+] as const)("%s requires recipients without that resource's supply", (resource, supply, recipient) => {
+  const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource });
+  expect(html).toContain(`without ${supply} supply`);
+  expect(html).toContain(recipient);
+  expect(html).not.toContain("unimproved");
+  expect(html).toContain(`data-structure-info="${RESOURCE_NETWORKS[resource].building}"`);
+  expect(html).toContain(`>${RESOURCE_NETWORKS[resource].buildingName}</button>`);
+  expect(html).toContain(" for </strong>");
+});
+
+it("connects the luxury bonus to its eligible Nexus in the same value", () => {
+  const html = resourceTileStatsHtml({ x: 1, y: 1, terrain: "LAND", resource: "LUXURY_BIOTA" });
+  expect(html).toContain('+1.5 Coin/day for </strong><span class="resource-bonus-recipient">Trade Nexus without luxury supply</span>');
 });

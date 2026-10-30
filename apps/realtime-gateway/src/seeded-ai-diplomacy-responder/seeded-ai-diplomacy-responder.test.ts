@@ -9,7 +9,7 @@ import type { AiDiplomacyContext } from "../ai-diplomacy-stance/ai-diplomacy-eva
 const NOW = 10_000_000;
 const quietContext = (overrides: Partial<AiDiplomacyContext["memory"]> = {}, context: Partial<AiDiplomacyContext> = {}): AiDiplomacyContext => ({
   requesterBrokeTruceWithAi: false,
-  requesterTruceBreaksWithOthers: 0,
+  requesterTruceBreaksWithOthers: 0, requesterBrokeAllianceWithAi: false,
   memory: {
     tilesTakenFromAi: 0,
     tilesTakenByAi: 0,

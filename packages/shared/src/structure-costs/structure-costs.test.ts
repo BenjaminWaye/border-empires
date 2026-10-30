@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { attackManpowerLossRangeForFort, FORT_TIER_LADDER, bestFortTierForTech, nextFortTierForUpgrade, relayBeaconBuildDurationMs, relayBeaconManpowerCost, requiredMusterForFort, RELAY_BEACON_FIRST_TIER_COUNT, SIEGE_TIER_LADDER, bestSiegeTierForTech, nextSiegeTierForUpgrade, economicStructureBuildDurationMs, structureBuildGoldCost, structureBuildManpowerCost, structureBuildManpowerCostScaled, structureCostDefinition } from "./structure-costs.js";
+import { attackManpowerLossRangeForFort, FORT_TIER_LADDER, bestFortTierForTech, nextFortTierForUpgrade, relayBeaconBuildDurationMs, relayBeaconManpowerCost, requiredMusterForFort, RELAY_BEACON_FIRST_TIER_COUNT, SIEGE_TIER_LADDER, bestSiegeTierForTech, nextSiegeTierForUpgrade, siegeTierForFreshBuild, economicStructureBuildDurationMs, structureBuildGoldCost, structureBuildManpowerCost, structureBuildManpowerCostScaled, structureCostDefinition } from "./structure-costs.js";
 
 // Build gold costs are zeroed across the board (manpower is the sole build
 // cost now; gold only gates a few structures
@@ -210,20 +210,20 @@ describe("SIEGE_TIER_LADDER", () => {
     expect(tier.attackMult).toBe(1.6);
   });
 
-  test("SIEGE_TOWER costs 0 gold, 90 umbrite, 60 titanium, 120 manpower, 1.8x attack", () => {
+  test("SIEGE_TOWER costs 0 gold, 90 umbrite, no titanium, 120 manpower, 1.8x attack", () => {
     const tier = SIEGE_TIER_LADDER.SIEGE_TOWER;
     expect(tier.gold).toBe(0);
     expect(tier.umbrite).toBe(90);
-    expect(tier.titanium).toBe(60);
+    expect(tier.titanium).toBe(0);
     expect(tier.manpower).toBe(120);
     expect(tier.attackMult).toBe(1.8);
   });
 
-  test("DREAD_TOWER costs 0 gold, 140 umbrite, 120 titanium, 240 manpower, 2.0x attack", () => {
+  test("DREAD_TOWER costs 0 gold, 140 umbrite, no titanium, 240 manpower, 2.0x attack", () => {
     const tier = SIEGE_TIER_LADDER.DREAD_TOWER;
     expect(tier.gold).toBe(0);
     expect(tier.umbrite).toBe(140);
-    expect(tier.titanium).toBe(120);
+    expect(tier.titanium).toBe(0);
     expect(tier.manpower).toBe(240);
     expect(tier.attackMult).toBe(2.0);
   });
@@ -245,6 +245,28 @@ describe("SIEGE_TIER_LADDER", () => {
   test("bestSiegeTierForTech returns DREAD_TOWER when standing-army is researched", () => {
     const hasTech = (id: string) => id === "standing-army" || id === "siegecraft";
     expect(bestSiegeTierForTech(hasTech).variant).toBe("DREAD_TOWER");
+  });
+});
+
+describe("siegeTierForFreshBuild", () => {
+  const siegecraft = (id: string) => id === "siegecraft";
+  const allTech = (id: string) => id === "siegecraft" || id === "standing-army";
+
+  test("builds the best tech tier when it's affordable", () => {
+    expect(siegeTierForFreshBuild(siegecraft, () => true).variant).toBe("SIEGE_TOWER");
+  });
+
+  test("steps down to a Siege Battery when a Siege Tower can't be afforded", () => {
+    expect(siegeTierForFreshBuild(siegecraft, (variant) => variant === "SIEGE_BATTERY").variant).toBe("SIEGE_BATTERY");
+  });
+
+  test("steps down one tier at a time from a Dread Tower", () => {
+    expect(siegeTierForFreshBuild(allTech, (variant) => variant !== "DREAD_TOWER").variant).toBe("SIEGE_TOWER");
+  });
+
+  test("never climbs above the tech tier, and falls back to it when nothing is affordable", () => {
+    expect(siegeTierForFreshBuild(() => false, () => true).variant).toBe("SIEGE_BATTERY");
+    expect(siegeTierForFreshBuild(siegecraft, () => false).variant).toBe("SIEGE_TOWER");
   });
 });
 

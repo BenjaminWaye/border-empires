@@ -70,6 +70,55 @@ export const RESOURCE_NETWORKS_CHANGELOG: ClientChangelogEntry[] = [{
     title: "Neural resin replenishes Ancillary Depots",
     why: "Depots should benefit from the resource that keeps their reserves ready.",
     changes: ["Each resin slot supplies one Ancillary Depot with +12 Ancillaries per four-hour cycle; factories use conductive supply instead."]
+  },
+  {
+    createdAt: 1793218474689, // Date.now() captured once.
+    introducedIn: "2026.10.28.1",
+    title: "Readable frontier resources and open town support rings",
+    why: "New deposits were missing map icons and could occupy useful town support tiles.",
+    changes: ["Frontier resource panels show development bonuses and required installations, with distinct icons on both map renderers.", "New maps place frontier deposits outside towns' eight support tiles and keep catalysts off coastal sand. Existing campaigns keep their geography."]
+  },
+  {
+    createdAt: 1793220040377, // Date.now() captured once.
+    introducedIn: "2026.10.28.1",
+    title: "Follow resource requirements to their unlocking research",
+    why: "A technology name alone did not explain or open the resource's unlock.",
+    changes: ["Select a resource’s required installation to open its details, then follow Unlocked by to select its technology in the Manifest tree.", "This navigation works in the redesigned desktop HUD and the classic and mobile layouts."]
+  },
+  {
+    createdAt: 1793220634429, // Date.now() captured once.
+    introducedIn: "2026.10.28.1",
+    title: "Resource bonuses require development",
+    why: "The resource card made a potential industry bonus look like immediate income from claiming land.",
+    changes: ["Frontier deposit bonuses say After development and connect the bonus to a building without that resource’s supply. Required installation names open their building details. Claiming a deposit alone gives no industry bonus."]
+  },
+  {
+    createdAt: 1793222577436, // Date.now() captured once.
+    introducedIn: "2026.10.28.1",
+    title: "Structure details link to their unlocking research",
+    why: "Building details did not say which technology unlocked construction.",
+    changes: ["Structure popups show Unlocked by with technology links to the selected Manifest. Resource cards link to their required installation; its popup links to unlocking research, without repeating a separate research box on the deposit. This works in both HUDs and mobile."]
+  },
+  {
+    createdAt: 1793264598633, // Date.now() captured once.
+    introducedIn: "2026.10.29.1",
+    title: "Clearer frontier resource icons",
+    why: "Small deposit icons needed recognizable objects and enough room to read their materials.",
+    changes: ["Five painted resource icons replace the flat symbols. Zoomed-in map badges give the artwork more room with a thinner coloured rim, in both 2D and true-3D."]
+  },
+  {
+    createdAt: 1793299050519, // Date.now() captured once.
+    introducedIn: "2026.10.29.2",
+    title: "Simpler resource icons and circular badges",
+    why: "Fine artwork detail was lost at map size.",
+    changes: ["Five frontier icons use broad shapes and a limited colour palette. Resource and dock corner badges use circles in both map renderers; docks keep full-tile markers at the smallest zoom."]
+  },
+  {
+    createdAt: 1793299679458, // Date.now() captured once.
+    introducedIn: "2026.10.29.2",
+    title: "Matching core resource icons",
+    why: "Core resources should share the clearer limited-palette art style.",
+    changes: ["Coin, Food, titanium and Umbrite have refreshed icons. Fishing tiles show fish and farms show grain; both still supply the same FOOD resource in the HUD and diplomacy."]
   }
 
 ];
