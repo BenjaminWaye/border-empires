@@ -171,6 +171,7 @@ import { createMusterWatchGuard } from "./client-muster-watch/client-muster-watc
 import { retortTargetResourceForAction } from "./client-retort-target-resource.js";
 import { attackWireMessage } from "./client-attack-commit/client-attack-commit.js";
 import { launchAttacksWithEffort, type AttackLaunchDeps } from "./client-launch-attack-effort/client-launch-attack-effort.js";
+import { dispatchPactGatedAction } from "./client-pact-attack-gate/client-pact-attack-gate.js";
 
 type ActionFlowDeps = Record<string, any> & {
   state: ClientState;
@@ -1257,6 +1258,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       hideTileActionMenu();
       return;
     }
+    if ((!fromBulk || actionId === "break_truce") && dispatchPactGatedAction(actionId, selected, state, { isTileOwnedByAlly, activeTruceWithPlayer, playerNameForOwner: (ownerId) => playerDisplayNameForOwnerFromState(state, ownerId) ?? "your ally", breakTruce, breakAlliance, pushFeed, hideTileActionMenu })) return;
     if (actionId === "launch_attack") {
       launchAttacksWithEffort(state, { targetKeys: targets, scope: fromBulk ? "bulk" : "single", selected }, attackLaunchDeps());
       return;
@@ -1323,9 +1325,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "diplomacy" && selected.ownerId && selected.ownerId !== state.me && !selected.ownerId.startsWith("barbarian")) {
       openDiplomacyForPlayer(state, selected.ownerId, isMobile());
       renderHud();
-    }
-    if (actionId === "break_truce" && selected.ownerId && selected.ownerId !== state.me && !selected.ownerId.startsWith("barbarian")) {
-      breakTruce(selected.ownerId);
     }
     if (actionId === "reveal_empire" && selected.ownerId && selected.ownerId !== state.me && selected.ownerId !== "barbarian") {
       if (sendGameMessage({ type: "REVEAL_EMPIRE", targetPlayerId: selected.ownerId })) {

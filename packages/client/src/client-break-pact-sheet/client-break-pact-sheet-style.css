@@ -1,0 +1,33 @@
+/*
+ * The break truce / break alliance confirmation (client-break-pact-sheet.ts).
+ * The card, title, subtitle and buttons reuse the effort sheet's classes
+ * (client-effort-confirm-sheet-style.css); this file only places the overlay
+ * and styles the consequence list.
+ */
+
+.break-pact-overlay {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 9999;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  max-width: calc(100vw - 32px);
+}
+
+.break-pact-card {
+  width: 340px;
+}
+
+.break-pact-consequences {
+  margin: 0 0 14px;
+  padding-left: 18px;
+  color: var(--sp-parchment-100);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.break-pact-consequences li + li {
+  margin-top: 6px;
+}

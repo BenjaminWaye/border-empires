@@ -31,6 +31,7 @@ const price = (options: {
   aiGold?: number;
   brokeTruce?: boolean;
   breaksWithOthers?: number;
+  brokeAlliance?: boolean;
   /** Pass undefined explicitly for "sizes unknown". */
   aiWouldLeadAlliance?: boolean | undefined;
   giftCanWinOver?: boolean;
@@ -45,6 +46,7 @@ const price = (options: {
     memory: mem,
     requesterBrokeTruceWithAi: options.brokeTruce ?? false,
     requesterTruceBreaksWithOthers: options.breaksWithOthers ?? 0,
+    requesterBrokeAllianceWithAi: options.brokeAlliance ?? false,
     bordersTouch,
     incomePerHour: Math.max(1, aiIncome, requesterIncome) * 60,
     now: NOW
@@ -218,11 +220,16 @@ describe("AI attitude modifiers", () => {
   it("lists what drives the attitude", () => {
     const { opinion } = price({ breaksWithOthers: 2, memory: memory({ tilesTakenFromAi: 5 }) });
     expect(opinion.modifiers).toEqual([
-      { label: "You have broken truces with others", value: -20 },
+      { label: "You recently broke truces with others", value: -20 },
       { label: "You took 5 of our tiles", value: -20 },
       { label: "Our borders are contested", value: -10 }
     ]);
     expect(opinion.attitude).toBe("FURIOUS");
+  });
+
+  it("holds a broken alliance against the breaker", () => {
+    const { opinion } = price({ brokeAlliance: true, bordersTouch: false });
+    expect(opinion.modifiers).toContainEqual({ label: "You broke our alliance", value: -10 });
   });
 });
 
@@ -238,7 +245,7 @@ describe("answerDiplomacyStanceQuery", () => {
     isAutoRespondingAi: (id: string) => id === "ai-1",
     fetchAiSnapshot: async () => aiSnapshot,
     requesterSnapshot: async () => undefined,
-    diplomacyContext: () => ({ requesterBrokeTruceWithAi: false, requesterTruceBreaksWithOthers: 0, memory: memory(), now: NOW, alliesOf: () => [] })
+    diplomacyContext: () => ({ requesterBrokeTruceWithAi: false, requesterTruceBreaksWithOthers: 0, requesterBrokeAllianceWithAi: false, memory: memory(), now: NOW, alliesOf: () => [] })
   };
 
   it("returns an AI's stance, attitude with modifiers, and prices", async () => {

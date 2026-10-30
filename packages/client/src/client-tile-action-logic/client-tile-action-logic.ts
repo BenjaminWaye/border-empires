@@ -23,6 +23,7 @@ import {
 import { manufactoryGoldProductionMultiplier, playerHasAbilityTech } from "@border-empires/game-domain";
 import { townGrowthActionForUpgrade } from "./client-tile-action-town-growth.js";
 import { diplomacyActionForOwner } from "../client-tile-action-diplomacy/client-tile-action-diplomacy.js";
+import { allyLaunchAttackAction, breakTruceAction, gateAttackRowsOnTruce } from "../client-pact-attack-gate/client-pact-attack-gate.js";
 import { structureToggleMenuEntries } from "../client-observatory-toggle/client-observatory-toggle.js";
 import { SKY_DOCK_BOMBARD_RADIUS, OBSERVATORY_VISION_BONUS } from "../client-constants.js";
 import { connectedEnemyRegionKeys } from "../client-connected-region/client-connected-region.js";
@@ -1483,7 +1484,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     if (tile.town?.populationTier !== "SETTLEMENT" && tile.afc?.ownerId !== tile.ownerId) out.push({ id: "abandon_territory", label: "Abandon Territory", detail: deps.buildDetailTextForAction("abandon_territory", tile) });
     return out;
   }
-  if (deps.isTileOwnedByAlly(tile)) return [...(tile.ownerId ? [diplomacyActionForOwner(state, tile.ownerId, deps)] : []), ...crystalCoreActions(), createMountainAction()];
+  if (deps.isTileOwnedByAlly(tile)) return [...(tile.ownerId ? [diplomacyActionForOwner(state, tile.ownerId, deps), allyLaunchAttackAction(state, tile.ownerId)] : []), ...crystalCoreActions(), createMountainAction()];
   if (tile.ownerId === "barbarian") {
     const previewDetail = deps.attackPreviewDetailForTarget(tile);
     const previewPending = deps.attackPreviewPendingForTarget(tile);
@@ -1548,13 +1549,8 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       // Barbarians cannot be truced with — no truce actions for barbarian-owned tiles.
     } else {
       out.push(diplomacyActionForOwner(state, tile.ownerId, deps));
-      if (activeTruce) {
-        out.push({
-          id: "break_truce",
-          label: "Break Truce",
-          ...tileActionAvailability(activeTruce.origin !== "court", "Court armistices cannot be broken", "Locks you out of new truces for 24h")
-        });
-      }
+      gateAttackRowsOnTruce(out, activeTruce, targetShielded);
+      if (activeTruce) out.push(breakTruceAction(activeTruce));
     }
     const revealActive = state.activeRevealTargets.includes(tile.ownerId);
     const hasCapability = hasRevealCapability(state);

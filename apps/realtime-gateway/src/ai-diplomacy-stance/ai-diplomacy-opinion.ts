@@ -4,7 +4,15 @@
 // (ai-diplomacy-memory.ts), the social store and the strength stance. The
 // goodwill and attitude arithmetic is shared with the trade screen's gift
 // preview (@border-empires/shared diplomacy-gift.ts).
-import { attitudeForScore, goodwillPointsFor, type AiAttitudeLevel } from "@border-empires/shared";
+import {
+  attitudeForScore,
+  BROKEN_ALLIANCE_OPINION_PENALTY,
+  BROKEN_TRUCE_GRUDGE_OPINION_PENALTY,
+  BROKEN_TRUCE_REPUTATION_OPINION_PENALTY,
+  BROKEN_TRUCE_REPUTATION_OPINION_PENALTY_CAP,
+  goodwillPointsFor,
+  type AiAttitudeLevel
+} from "@border-empires/shared";
 
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
 import type { AiDiplomacyStanceKind } from "./ai-diplomacy-stance.js";
@@ -39,7 +47,10 @@ export const computeAiOpinion = (input: {
   stanceKind: AiDiplomacyStanceKind;
   memory: DiplomacyMemoryView;
   requesterBrokeTruceWithAi: boolean;
+  /** Truces broken with anyone else in the last 7 days (BROKEN_PACT_OPINION_WINDOW_MS). */
   requesterTruceBreaksWithOthers: number;
+  /** The requester started breaking an alliance with this AI in the last 7 days. */
+  requesterBrokeAllianceWithAi: boolean;
   bordersTouch: boolean;
   /** Coin per hour that "one hour of income" means for goodwill. */
   incomePerHour: number;
@@ -52,8 +63,14 @@ export const computeAiOpinion = (input: {
     if (rounded !== 0) modifiers.push({ label, value: rounded });
   };
 
-  if (input.requesterBrokeTruceWithAi) add("You broke a truce with us", -60);
-  if (input.requesterTruceBreaksWithOthers > 0) add("You have broken truces with others", -Math.min(30, 10 * input.requesterTruceBreaksWithOthers));
+  if (input.requesterBrokeTruceWithAi) add("You broke a truce with us", -BROKEN_TRUCE_GRUDGE_OPINION_PENALTY);
+  if (input.requesterTruceBreaksWithOthers > 0) {
+    add(
+      "You recently broke truces with others",
+      -Math.min(BROKEN_TRUCE_REPUTATION_OPINION_PENALTY_CAP, BROKEN_TRUCE_REPUTATION_OPINION_PENALTY * input.requesterTruceBreaksWithOthers)
+    );
+  }
+  if (input.requesterBrokeAllianceWithAi) add("You broke our alliance", -BROKEN_ALLIANCE_OPINION_PENALTY);
   const tilesTaken = Math.round(memory.tilesTakenFromAi);
   if (tilesTaken > 0) add(`You took ${tilesTaken} of our ${tilesTaken === 1 ? "tile" : "tiles"}`, -Math.min(40, 4 * memory.tilesTakenFromAi));
   else if (memory.lastPlayerAttackAt !== undefined && input.now - memory.lastPlayerAttackAt < 24 * 60 * 60_000) add("You attacked us", -10);
