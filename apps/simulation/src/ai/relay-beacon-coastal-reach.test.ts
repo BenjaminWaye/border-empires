@@ -8,12 +8,16 @@ const tile = (x: number, y: number, extra: Partial<StructurePlannerTile> = {}): 
   x, y, terrain: "LAND", ownerId: player.id, ownershipState: "SETTLED", ...extra
 });
 
-// An existing relay covers the first water cells. The proposed coastal relay
+// Existing reach covers the first water cells. The proposed coastal relay
 // must still use those cells to recognize ocean behind its existing reach.
 const coast = (x: number, y: number, inlandFog = false, prize = false) => {
   const candidate = tile(x, y);
+  // The existing reach comes from a siege battery (same OUTPOST reach radius)
+  // rather than a second relay: relays may not sit within
+  // MIN_OWN_BEACON_SPACING of each other, and this fixture needs reach that
+  // overlaps the candidate's first water cells.
   const existing = tile(wrapX(x - 2, WORLD_WIDTH), wrapY(y + (inlandFog ? 2 : 0), WORLD_HEIGHT), {
-    economicStructure: { ownerId: player.id, type: "RELAY_BEACON", status: "active" }
+    siegeBattery: { ownerId: player.id, status: "active" }
   });
   const tiles = new Map<string, StructurePlannerTile>();
   for (let dy = -OUTPOST_REACH_RADIUS; dy <= OUTPOST_REACH_RADIUS; dy += 1) {
