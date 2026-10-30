@@ -7,9 +7,13 @@ import type { AiDiplomacyPricing } from "../diplomacy-terms/diplomacy-terms.js";
 
 export const TRUCE_MAX_LIFETIME_MS = 48 * 60 * 60_000;
 
-/** The truce's new end after adding `durationHours`, capped at TRUCE_MAX_LIFETIME_MS after `startedAt`. */
+/**
+ * The truce's new end after adding `durationHours`, capped at TRUCE_MAX_LIFETIME_MS
+ * after `startedAt`. Never earlier than the current end: a truce rolled past the
+ * cap under the old rule (48h ahead of now) keeps its end instead of being cut short.
+ */
 export const extendedTruceEndsAt = (startedAt: number, endsAt: number, durationHours: 12 | 24, now: number): number =>
-  Math.min(Math.max(endsAt, now) + durationHours * 60 * 60_000, startedAt + TRUCE_MAX_LIFETIME_MS);
+  Math.max(endsAt, Math.min(Math.max(endsAt, now) + durationHours * 60 * 60_000, startedAt + TRUCE_MAX_LIFETIME_MS));
 
 /** True when adding `durationHours` keeps the truce within TRUCE_MAX_LIFETIME_MS of when it began. */
 export const truceExtensionFits = (startedAt: number, endsAt: number, durationHours: 12 | 24, now: number): boolean =>

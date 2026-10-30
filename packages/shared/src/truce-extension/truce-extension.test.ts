@@ -14,9 +14,15 @@ describe("truce extension", () => {
 
   // Regression: the cap was 48h ahead of *now*, so re-extending every day kept a truce running for weeks.
   it("measures the cap from the truce's start, not from now", () => {
+    expect(extendedTruceEndsAt(0, 40 * HOUR, 24, 30 * HOUR)).toBe(TRUCE_MAX_LIFETIME_MS);
     expect(truceExtensionFits(0, 36 * HOUR, 12, 30 * HOUR)).toBe(true);
     expect(truceExtensionFits(0, 40 * HOUR, 12, 30 * HOUR)).toBe(false);
     expect(truceExtensionFits(0, 47 * HOUR, 12, 46 * HOUR)).toBe(false);
+  });
+
+  // Regression (review): a truce already rolled past the cap must not have its end pulled earlier by an extension.
+  it("never moves the end earlier than it already is", () => {
+    expect(extendedTruceEndsAt(0, 90 * HOUR, 12, 60 * HOUR)).toBe(90 * HOUR);
   });
 
   it("never has the AI pay for an extension, but keeps its asking price and refusals", () => {

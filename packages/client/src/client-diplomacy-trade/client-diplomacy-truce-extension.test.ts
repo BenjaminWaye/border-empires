@@ -46,7 +46,7 @@ describe("extending a truce from the trade screen", () => {
   });
 
   // Regression: the cap was 48h ahead of now, so a truce could be extended again every day for weeks.
-  it("disables both extensions once the truce has run 48h since it began, however little is left", () => {
+  it("disables both extensions once the truce's scheduled end reaches 48h after it began, however little is left", () => {
     const { overlay } = openInTruce(10, 24, 38);
     expect(overlay.querySelector<HTMLButtonElement>("[data-trade-kind='truce:12']")!.disabled).toBe(true);
     expect(overlay.querySelector<HTMLButtonElement>("[data-trade-kind='truce:24']")!.disabled).toBe(true);
