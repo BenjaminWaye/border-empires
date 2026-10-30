@@ -6,6 +6,7 @@ import { ATTITUDE_MIN_SCORE, giftToReach, giftView, type AiDiplomacyPricing, typ
 
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
 import { aiWouldLeadAlliance, tileLookupFor, type AllyLookup, type LeaderboardTiles, type TileLookup } from "./ai-alliance-bloc.js";
+import type { AiDiplomacyGrudges } from "./ai-diplomacy-grudges.js";
 import { computeAiOpinion, type AiOpinion } from "./ai-diplomacy-opinion.js";
 import { aiDiplomacyPricing } from "./ai-diplomacy-pricing.js";
 import { computeAiDiplomacyStance, type AiDiplomacyStance } from "./ai-diplomacy-stance.js";
@@ -25,9 +26,7 @@ export type AiDiplomacyEvaluation = {
 };
 
 /** What the gateway knows about the pair beyond the snapshots: grudges and memory. */
-export type AiDiplomacyContext = {
-  requesterBrokeTruceWithAi: boolean;
-  requesterTruceBreaksWithOthers: number;
+export type AiDiplomacyContext = AiDiplomacyGrudges & {
   memory: DiplomacyMemoryView;
   now: number;
   /** Current alliances, for the Diplomatic Dominance "who leads the bloc" check. */
@@ -101,6 +100,7 @@ export const evaluateAiDiplomacy = (input: {
     memory: input.memory,
     requesterBrokeTruceWithAi: input.requesterBrokeTruceWithAi,
     requesterTruceBreaksWithOthers: input.requesterTruceBreaksWithOthers,
+    requesterBrokeAllianceWithAi: input.requesterBrokeAllianceWithAi,
     bordersTouch: stanceInput.bordersTouch,
     incomePerHour: goodwillIncomePerHour,
     now: input.now

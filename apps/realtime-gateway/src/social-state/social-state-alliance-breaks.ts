@@ -66,7 +66,7 @@ export const createSocialAllianceBreaks = (
       allianceBreaksByPair.set(pairKey(actor.id, target.id), notice);
       sink?.saveAllianceBreak(notice);
       const announcements = announcementByPlayerId ?? {
-        [actor.id]: `Alliance break notice sent to ${target.name}. The alliance remains active for 24h.`,
+        [actor.id]: `Your alliance with ${target.name} will be broken in 24 hours. You can attack them after that.`,
         [target.id]: `${actor.name} started a 24h notice to break your alliance.`
       };
       const payloads = deps.updatePayloadsFor([actor.id, target.id], undefined, announcements);

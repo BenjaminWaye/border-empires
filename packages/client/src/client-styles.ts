@@ -46,6 +46,7 @@ import "./client-manpower-panel-info-style.css";
 import "./client-activity-dashboard-style.css";
 import "./client-muster-commit-tab-style.css";
 import "./client-effort-confirm-sheet/client-effort-confirm-sheet-style.css";
+import "./client-break-pact-sheet/client-break-pact-sheet-style.css";
 import "./client-auth-busy-progress-style.css";
 import "./client-auth-busy-viewport-style.css";
 import "./client-photo-mode-style.css";

@@ -14,6 +14,7 @@ import type { LeaderboardTiles } from "../ai-diplomacy-stance/ai-alliance-bloc.j
 import { createAiAllianceReview } from "../ai-diplomacy-stance/ai-alliance-review.js";
 import { recheckAiOffer } from "../ai-diplomacy-stance/ai-offer-recheck.js";
 import type { AiDiplomacyContext } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
+import { aiDiplomacyGrudges } from "../ai-diplomacy-stance/ai-diplomacy-grudges.js";
 import { answerDiplomacyStanceQuery } from "../ai-diplomacy-stance/diplomacy-stance-query.js";
 import { createSeasonLeaderboardCache } from "../ai-diplomacy-stance/season-leaderboard-cache.js";
 import { createAllianceBreakFinalizer } from "../alliance-break-finalizer/alliance-break-finalizer.js";
@@ -132,13 +133,12 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
   // check's sizes come from the season leaderboard (cached, bounded wait).
   const seasonLeaderboard = createSeasonLeaderboardCache({ fetch: deps.fetchSeasonLeaderboard, now: () => Date.now() });
   const diplomacyContext = async (requesterId: string, aiPlayerId: string): Promise<AiDiplomacyContext> => {
-    const breaks = socialState.snapshotForPlayer(requesterId).truceBreaksThisSeason;
     const leaderboard = await seasonLeaderboard();
+    const now = Date.now();
     return {
-      requesterBrokeTruceWithAi: breaks.some((record) => record.targetPlayerId === aiPlayerId),
-      requesterTruceBreaksWithOthers: breaks.filter((record) => record.targetPlayerId !== aiPlayerId).length,
+      ...aiDiplomacyGrudges(socialState.snapshotForPlayer(requesterId), requesterId, aiPlayerId, now),
       memory: memory.view(aiPlayerId, requesterId),
-      now: Date.now(),
+      now,
       alliesOf,
       ...(leaderboard ? { seasonLeaderboard: leaderboard } : {})
     };
