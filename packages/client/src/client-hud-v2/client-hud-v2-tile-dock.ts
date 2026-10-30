@@ -28,11 +28,13 @@ export type TileDockDeps = {
 
 export type DockListener = {
   /**
-   * Return true when a screen took over this tile (the bar then stays hidden). `tap` is true only for the
-   * first render after a tap on the map (not a drag), so a screen can tell a repeat tap from a re-render.
+   * Return true when a screen took over this tile (the bar then stays hidden). `tapPress` is set only for the
+   * first render after a tap on the map (not a drag): the number of the map press that tap ended, so a screen
+   * can tell a repeat tap from a re-render.
    */
-  onMenuView: (view: TileMenuView, tileKey: string, tap: boolean) => boolean;
-  onMenuHidden: () => void;
+  onMenuView: (view: TileMenuView, tileKey: string, tapPress: number | undefined) => boolean;
+  /** The menu was hidden; `byMapPress` is the map press that hid it, undefined for any other close (✕, Esc, HUD). */
+  onMenuHidden: (byMapPress: number | undefined) => void;
   onBarAction: (actionId: TileActionDef["id"], view: TileMenuView, tileKey: string) => void;
 };
 
@@ -61,7 +63,10 @@ const MAP_CLICK_WINDOW_MS = 800;
 /** Last tap (pointer-up without a pan) on the map, and the last one a menu render already used. */
 let lastMapTapAt = 0;
 let consumedMapTapAt = 0;
-let mapPointerDown: { x: number; y: number } | undefined;
+/** Counts presses on the map; the press in progress (if any), and the one the last tap ended. */
+let mapPressSeq = 0;
+let mapPointerDown: { x: number; y: number; press: number } | undefined;
+let lastTapPress = 0;
 const TAP_SLOP_PX = 8;
 
 const BAR_ID = "hud-v2-tile";
@@ -71,7 +76,8 @@ const BUILDING_BODY_CLASS = "hud-v2-building";
 const DOCKED = "hud-v2-docked";
 const EXPANDED = "hud-v2-expanded";
 
-let tapTrackingInstalled = false;
+let trackedGame: HTMLElement | undefined;
+let pressReleaseWatched = false;
 
 /**
  * Watches pointer-ups on the map so a menu render can tell a tap from a re-render. Installed with the dock
@@ -79,17 +85,28 @@ let tapTrackingInstalled = false;
  * that opened that first menu.
  */
 const trackMapTaps = (): void => {
-  if (tapTrackingInstalled) return;
   const game = document.getElementById("game");
-  if (!game) return;
-  tapTrackingInstalled = true;
-  game.addEventListener("pointerdown", (event) => { mapPointerDown = { x: event.clientX, y: event.clientY }; }, true);
+  if (!game || game === trackedGame) return;
+  trackedGame = game;
+  game.addEventListener("pointerdown", (event) => {
+    mapPressSeq += 1;
+    mapPointerDown = { x: event.clientX, y: event.clientY, press: mapPressSeq };
+  }, true);
   game.addEventListener("pointerup", (event) => {
     lastMapClickAt = Date.now();
     const down = mapPointerDown;
     mapPointerDown = undefined;
-    if (down && Math.abs(event.clientX - down.x) <= TAP_SLOP_PX && Math.abs(event.clientY - down.y) <= TAP_SLOP_PX) lastMapTapAt = lastMapClickAt;
+    if (down && Math.abs(event.clientX - down.x) <= TAP_SLOP_PX && Math.abs(event.clientY - down.y) <= TAP_SLOP_PX) {
+      lastMapTapAt = lastMapClickAt;
+      lastTapPress = down.press;
+    }
   }, true);
+  if (pressReleaseWatched) return;
+  pressReleaseWatched = true;
+  // A press released off the map ends without a map pointer-up; it must not look like a press still in progress.
+  const release = (): void => { mapPointerDown = undefined; };
+  window.addEventListener("pointerup", release);
+  window.addEventListener("pointercancel", release);
 };
 
 export const setDockListener = (next: DockListener): void => {
@@ -260,7 +277,7 @@ const watchMenuVisibility = (menuEl: HTMLElement): void => {
       dock.expandedKey = undefined;
       dock.lastKey = "";
     }
-    listener?.onMenuHidden();
+    listener?.onMenuHidden(mapPointerDown?.press);
   }).observe(menuEl, { attributes: true, attributeFilter: ["style"] });
 };
 
@@ -321,7 +338,7 @@ export const dockTileActionMenuForHudV2 = (state: ClientState, view: TileMenuVie
   }
   const tap = lastMapTapAt !== consumedMapTapAt && Date.now() - lastMapTapAt < MAP_CLICK_WINDOW_MS;
   if (tap) consumedMapTapAt = lastMapTapAt;
-  if (key && listener?.onMenuView(view, key, tap)) {
+  if (key && listener?.onMenuView(view, key, tap ? lastTapPress : undefined)) {
     hideBar();
     return;
   }

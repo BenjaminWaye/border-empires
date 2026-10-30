@@ -297,11 +297,11 @@ export const installHudV2 = (deps: HudV2Deps): void => {
   installLens(deps, () => renderLens(deps.state));
   window.addEventListener("keydown", (event) => onEscape(deps, event), true);
   setDockListener({
-    onMenuView: (view, tileKey, tap) => {
+    onMenuView: (view, tileKey, tapPress) => {
       battleOnMenuView(view, tileKey);
-      return townOnMenuView(deps, view, tileKey, tap);
+      return townOnMenuView(deps, view, tileKey, tapPress);
     },
-    onMenuHidden: () => townOnMenuHidden(),
+    onMenuHidden: (byMapPress) => townOnMenuHidden(byMapPress),
     onBarAction: battleOnBarAction
   });
   installBattleWatch(deps);
