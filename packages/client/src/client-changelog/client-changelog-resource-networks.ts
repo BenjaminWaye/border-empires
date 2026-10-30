@@ -105,6 +105,20 @@ export const RESOURCE_NETWORKS_CHANGELOG: ClientChangelogEntry[] = [{
     title: "Clearer frontier resource icons",
     why: "Small deposit icons needed recognizable objects and enough room to read their materials.",
     changes: ["Five painted resource icons replace the flat symbols. Zoomed-in map badges give the artwork more room with a thinner coloured rim, in both 2D and true-3D."]
+  },
+  {
+    createdAt: 1793299050519, // Date.now() captured once.
+    introducedIn: "2026.10.29.2",
+    title: "Simpler resource icons and circular badges",
+    why: "Fine artwork detail was lost at map size.",
+    changes: ["Five frontier icons use broad shapes and a limited colour palette. Resource and dock corner badges use circles in both map renderers; docks keep full-tile markers at the smallest zoom."]
+  },
+  {
+    createdAt: 1793299679458, // Date.now() captured once.
+    introducedIn: "2026.10.29.2",
+    title: "Matching core resource icons",
+    why: "Core resources should share the clearer limited-palette art style.",
+    changes: ["Coin, Food, titanium and Umbrite have refreshed icons. Fishing tiles show fish and farms show grain; both still supply the same FOOD resource in the HUD and diplomacy."]
   }
 
 ];

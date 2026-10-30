@@ -1,3 +1,4 @@
+import { strategicResourceKeyForTile } from "../client-map-display.js";
 import { NETWORK_RESOURCES } from "@border-empires/shared";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -13,7 +14,7 @@ import {
   type ResourceIconPx
 } from "./client-resource-icons.js";
 
-const KEYS: ResourceIconKey[] = ["GOLD", "FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD", ...NETWORK_RESOURCES];
+const KEYS: ResourceIconKey[] = ["GOLD", "FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD", "FISH", ...NETWORK_RESOURCES];
 const SIZES: ResourceIconPx[] = [96, 256];
 
 const fakeCtx = () => {
@@ -62,7 +63,7 @@ describe("resourceIconGlyph", () => {
 describe("depositIconKey", () => {
   it("maps tile deposit kinds onto the resource they feed", () => {
     expect(depositIconKey("FARM")).toBe("FOOD");
-    expect(depositIconKey("FISH")).toBe("FOOD");
+    expect(depositIconKey("FISH")).toBe("FISH");
     expect(depositIconKey("GEMS")).toBe("CRYSTAL");
     expect(depositIconKey("TITANIUM")).toBe("TITANIUM");
     expect(depositIconKey("UMBRITE")).toBe("UMBRITE");
@@ -93,7 +94,7 @@ describe("drawResourceIconOnCanvas", () => {
     const { ctx, asCanvas } = fakeCtx();
     drawResourceIconOnCanvas(asCanvas, "UMBRITE", 50, 40, 20);
     expect(ctx.fillText).not.toHaveBeenCalled();
-    expect(ctx.drawImage).toHaveBeenCalledWith(expect.objectContaining({ src: "/icons/simple/umbrite.svg" }), 40, 30, 20, 20);
+    expect(ctx.drawImage).toHaveBeenCalledWith(expect.objectContaining({ src: "/icons/resources/umbrite-96.png" }), 40, 30, 20, 20);
   });
 });
 
@@ -109,4 +110,20 @@ it.each(NETWORK_RESOURCES)("%s has a recognisable deposit icon", resource => {
   const { ctx, asCanvas } = fakeCtx();
   drawResourceIconOnCanvas(asCanvas, resource, 10, 10, 20);
   expect(ctx.fillText).toHaveBeenCalledWith(resourceIconGlyph(resource), 10, expect.any(Number));
+});
+
+it.each(["GOLD", "FOOD", "FISH", "TITANIUM", "UMBRITE"] as const)("%s uses limited-palette art at small and large sizes", key => {
+  const file = key.toLowerCase();
+  expect(resourceSimpleIconUrl(key)).toBe(`/icons/resources/${file}-96.png`);
+  expect(resourceIconHtml(key)).toContain(`/icons/resources/${file}-96.png`);
+  expect(resourceIconHtml(key, "large")).toContain(`/icons/resources/${file}-256.png 2x`);
+});
+
+it("distinguishes food sources without introducing separate food supplies", () => {
+  expect(depositIconKey("FARM")).toBe("FOOD");
+  expect(depositIconKey("FISH")).toBe("FISH");
+  expect(strategicResourceKeyForTile({ x: 1, y: 1, terrain: "LAND", resource: "FARM" })).toBe("FOOD");
+  expect(strategicResourceKeyForTile({ x: 2, y: 1, terrain: "SEA", resource: "FISH" })).toBe("FOOD");
+  expect(resourceIconHtml("FOOD")).toContain('alt="Food"');
+  expect(resourceIconHtml("FOOD")).not.toContain("fish-");
 });
