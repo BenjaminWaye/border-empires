@@ -91,6 +91,11 @@ describe("structureSlotRequirements", () => {
     expect(structureSlotRequirements("SKY_DOCK")).toEqual([{ resource: "CRYSTAL", count: 3 }]);
   });
 
+  it("charges the deposit improvements (Mine, Umbrite Rig) no FOOD slot", () => {
+    expect(structureSlotRequirements("MINE")).toEqual([]);
+    expect(structureSlotRequirements("UMBRITE_RIG")).toEqual([]);
+  });
+
   it("returns an empty array for a structure with no entry, rather than throwing", () => {
     expect(structureSlotRequirements("HYDROGARDEN")).toEqual([]);
   });

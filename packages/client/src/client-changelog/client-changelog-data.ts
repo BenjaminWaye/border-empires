@@ -438,6 +438,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Resource icons stay visible when zoomed out",
     why: "Resource circles switched to plain colours before you could get a useful overview of nearby deposits.",
     changes: ["Resource markers keep their icons at every zoom level in both the 2D and 3D maps, with smoothly scaling circles and coloured rims"]
+  },
+  {
+    createdAt: 1793430457698, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.31",
+    title: "Mines and Umbrite Rigs have no upkeep",
+    why: "Mines and Umbrite Rigs used up a Food slot, so improving a Titanium, Crystal or Umbrite deposit cost Food.",
+    changes: ["Mines and Umbrite Rigs no longer use a Food slot. They can't be shut down by a Food shortage, and existing ones free their Food slot."]
   }
 ];
 

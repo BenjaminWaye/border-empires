@@ -50,8 +50,13 @@ describe("upkeepSuffixFor", () => {
     expect(upkeepSuffixFor("HYDROWORKS")).toBe("");
   });
 
+  it("shows no upkeep for the deposit improvements (Mine, Umbrite Rig)", () => {
+    expect(upkeepSuffixFor("MINE")).toBe("");
+    expect(upkeepSuffixFor("UMBRITE_RIG")).toBe("");
+  });
+
   it("formats a single bit as a labeled Upkeep segment", () => {
-    expect(upkeepSuffixFor("MINE")).toBe(" • Upkeep: 1 FOOD slot");
+    expect(upkeepSuffixFor("CENSUS_HALL")).toBe(" • Upkeep: 1 FOOD slot");
   });
 
   it("joins multiple bits with a middle dot", () => {

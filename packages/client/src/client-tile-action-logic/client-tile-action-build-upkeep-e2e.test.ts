@@ -74,14 +74,15 @@ describe("build-menu Upkeep segment — end-to-end verification cases", () => {
     expect(build?.cost).not.toContain("Upkeep");
   });
 
-  it("Mine shows its real FOOD-slot upkeep", () => {
+  it("Mine shows no upkeep (it only adds a slot of its deposit)", () => {
     const state = richState();
     const tile: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource: "TITANIUM" } as Tile;
     state.tiles.set(keyFor(3, 3), tile);
 
     const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
     const build = findAction(actions, "build_mine");
-    expect(build?.cost).toContain("Upkeep: 1 FOOD slot");
+    expect(build?.cost).toBeDefined();
+    expect(build?.cost).not.toContain("Upkeep");
   });
 
   it("Titanium Works shows both its TITANIUM slot and its real gold/day drain", () => {

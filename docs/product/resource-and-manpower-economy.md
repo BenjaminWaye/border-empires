@@ -150,7 +150,8 @@ demand is across its consumers. Gold and Shard do not use this system.
 | UMBRITE | 1 UMBRITE slot |
 
 - Hydrogarden adds 2 FOOD slots to its FARM tile. Mine and Umbrite Rig each add
-  1 matching-resource slot. Hydroworks adds 2 FOOD slots to Hydrogardens in
+  1 matching-resource slot and, like Hydrogarden and Hydroworks, have no slot
+  requirement (no upkeep). Hydroworks adds 2 FOOD slots to Hydrogardens in
   range; Ore Refinery adds 2 TITANIUM slots to Mines in range.
 - Agrarian Works adds 1 FOOD slot per owned, settled FISH tile.
 - A structure occupies its requirements from build start until removal
