@@ -6,6 +6,7 @@ import type {
   SeasonWinnerSnapshot
 } from "@border-empires/sim-protocol";
 import { specializationForVictoryPath } from "@border-empires/sim-protocol";
+import { aiNameFromStored, isSeasonalAiPlayerId } from "@border-empires/shared";
 
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js";
@@ -163,15 +164,29 @@ export type GalaxyHeldTerritory = {
   seasonId: string;
   tier: "PLANET" | "OUTPOST";
   specialization: GalaxySpecialization;
+  // Set when an AI empire won this Sector (§29.1): the name it played under.
+  aiName?: string;
 };
+
+// AI Dukes (§29.1). A season won by a seasonal AI empire ("ai-<n>", see
+// packages/shared seasonal-ai-names) is held by an AI Duke, one per Sector,
+// keyed so it can never collide with a real account's authUid.
+export const AI_DUKE_PREFIX = "ai:";
+export const aiDukeUidForSeason = (seasonId: string): string => `${AI_DUKE_PREFIX}${seasonId}`;
+export const isAiDukeUid = (authUid: string): boolean => authUid.startsWith(AI_DUKE_PREFIX);
+export const isAiWinner = (winner: SeasonWinnerSnapshot): boolean => isSeasonalAiPlayerId(winner.playerId);
 
 // Builds, for every authUid with at least one held Planet or Outpost, the
 // full list of that empire's currently-held territories with specialization
 // — the input the Cycle tick needs to compute trickle/upkeep (§13). Stipends
 // are deliberately excluded: they're a one-time payout with no territory
 // (§3), so they never carry Stability or ongoing trickle/upkeep.
+//
+// `includeAiDukes` (the Duke layer and the Cycle tick only) also returns
+// AI-won Sectors under their AI Duke. Every other reader keeps treating them
+// as unclaimed frontier.
 export const resolveGalaxyHoldingsByOwner = async (
-  deps: ResolveGalaxyHoldingsDeps & { authBindingStore: GatewayAuthBindingStore }
+  deps: ResolveGalaxyHoldingsDeps & { authBindingStore: GatewayAuthBindingStore; includeAiDukes?: boolean }
 ): Promise<Map<string, GalaxyHeldTerritory[]>> => {
   const { won, tiered } = await resolveEndedSeasons(deps);
   const byOwner = new Map<string, GalaxyHeldTerritory[]>();
@@ -184,8 +199,12 @@ export const resolveGalaxyHoldingsByOwner = async (
 
   for (const season of won) {
     const uid = await resolveCurrentOwnerAuthUid(season, deps.authBindingStore, deps.galaxyDefenseCampaignStore);
-    if (!uid) continue;
-    add(uid, { seasonId: season.seasonId, tier: "PLANET", specialization: specializationForVictoryPath(season.winner.objectiveId) });
+    const specialization = specializationForVictoryPath(season.winner.objectiveId);
+    if (uid) {
+      add(uid, { seasonId: season.seasonId, tier: "PLANET", specialization });
+    } else if (deps.includeAiDukes && isAiWinner(season.winner)) {
+      add(aiDukeUidForSeason(season.seasonId), { seasonId: season.seasonId, tier: "PLANET", specialization, aiName: aiNameFromStored(season.winner.playerId, season.winner.playerName) ?? season.winner.playerName });
+    }
   }
 
   for (const season of tiered) {

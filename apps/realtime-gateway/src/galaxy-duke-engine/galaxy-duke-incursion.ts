@@ -62,7 +62,8 @@ export const landIncursions = (state: DukeState, sectors: ReadonlyMap<string, Se
       next = replaceSystem(next, cleared);
       continue;
     }
-    if (isCourtProtected(state.courtOffer, now)) {
+    // The Blind Eye (§21.6) suspends the Court's protection.
+    if (isCourtProtected(state.courtOffer, now) && !state.favor?.revoked) {
       const pushed = pushDigest(replaceSystem(next, cleared), now, "COURT", `Court fleets turned the Wardens back from ${sector.label}. Nothing was touched.`);
       next = pushed.state;
       counters.push("duke_incursion_suppressed_by_court", ...pushed.counters);

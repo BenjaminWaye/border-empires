@@ -14,7 +14,8 @@ export const domainWeights = async (ctx: DukeContext, world: DukeWorld, contribu
     const sectors = await heldSectors(ctx, world, uid);
     let totalStability = 0;
     for (const s of sectors.values()) totalStability += s.stability;
-    weights.set(uid, computeDomainWeight({ holdings, totalStability, committedInfluence: contributions[uid] ?? 0 }));
+    const renown = (await ctx.deps.dukeStore.get(uid))?.renown ?? 0;
+    weights.set(uid, computeDomainWeight({ holdings, totalStability, committedInfluence: contributions[uid] ?? 0, renown }));
   }
   return weights;
 };
@@ -29,7 +30,8 @@ export const courtNow = async (
     strength: computeCourtStrength({
       totalSectors: ctx.totalSectors,
       capturedSectors: courtCapturedThisEra(era, world.capturedSectors),
-      committedInfluence: court.totalInfluence
+      committedInfluence: court.totalInfluence,
+      writsAccepted: court.writsAccepted
     }),
     contributions: court.contributions,
     era
@@ -64,7 +66,8 @@ export const checkConvergence = async (ctx: DukeContext): Promise<boolean> =>
         authUid === entry.emperorAuthUid
           ? `The Court has fallen. You take the throne as Emperor of era ${era.era}. Era ${era.era + 1} begins with the Court at full strength.`
           : `The Court has fallen. ${entry.emperorLabel} takes the throne for era ${era.era}. Era ${era.era + 1} begins with the Court at full strength.`;
-      const pushed = pushDigest(state, at, "COURT", text);
+      // Renown, like the Court's wagers, belongs to the era that just ended.
+      const pushed = pushDigest({ ...state, renown: 0, grievance: null }, at, "COURT", text);
       ctx.countAll(pushed.counters);
       await ctx.deps.dukeStore.put(pushed.state);
     }

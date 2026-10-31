@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Border Empires battle screen</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&amp;family=Spectral:wght@400;600&amp;family=Space+Mono:wght@400;700&amp;display=swap">
+<style>
+body{margin:0;background:#0b0a08}
+a{color:#d9b25c}a:hover{color:#f0cf82}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; position: relative; overflow: hidden; background: #0f2830; font-family: 'Spectral', Georgia, serif; color: #ece2cc">
+
+  <div style="position: absolute; inset: 0; display: grid; grid-template-columns: repeat(20, 72px); grid-auto-rows: 72px" aria-hidden="true">
+    <sc-for list="{{tiles}}" as="t" hint-placeholder-count="20">
+      <div style="background: {{t.bg}}; box-shadow: {{t.sh}}"></div>
+    </sc-for>
+  </div>
+  <div style="position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 46%, rgba(8,7,5,0.05) 18%, rgba(8,7,5,0.78) 62%)" aria-hidden="true"></div>
+
+  <div style="position: absolute; left: 648px; top: 288px; width: 72px; height: 72px; outline: 3px solid #3fb0a6; outline-offset: -3px" aria-hidden="true"></div>
+  <div style="position: absolute; left: 720px; top: 288px; width: 72px; height: 72px; outline: 3px solid #f0cf82; outline-offset: -3px; box-shadow: 0 0 0 8px rgba(217,178,92,0.22)" aria-hidden="true"></div>
+  <svg style="position: absolute; left: 676px; top: 306px" width="88" height="36" viewBox="0 0 88 36" aria-hidden="true"><path d="M4 18h70M62 6l14 12-14 12" fill="none" stroke="#f0cf82" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  <div style="position: absolute; left: 690px; top: 376px; width: 60px; padding: 5px 0; text-align: center; background: rgba(12,10,8,0.88); border: 1px solid #3a3125; font-family: 'Space Mono', monospace; font-size: 12px; color: #ece2cc">15s</div>
+
+  <div style="position: absolute; left: 50%; top: 22px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 40px; background: rgba(15,13,10,0.94); border: 1px solid #8a6f35; box-shadow: 0 8px 24px rgba(0,0,0,0.5)">
+    <span style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.18em; color: #a8997c">ASSAULT</span>
+    <span style="font-family: 'Cinzel', serif; font-size: 24px; font-weight: 700; letter-spacing: 0.08em; color: #d9b25c">Ashford's garrisoned plains</span>
+    <span style="font-size: 14px; color: #bda880">(34, 16)</span>
+  </div>
+
+  <sc-for list="{{sides}}" as="s" hint-placeholder-count="2">
+    <section aria-label="{{s.aria}}" style="position: absolute; left: {{s.left}}; top: 150px; width: 360px; background: rgba(15,13,10,0.95); border: 1px solid #5a4828; border-top: 3px solid {{s.c}}; box-shadow: 0 10px 28px rgba(0,0,0,0.55); display: flex; flex-direction: column">
+      <div style="display: flex; align-items: center; gap: 14px; padding: 16px 18px; border-bottom: 1px solid #3a3125">
+        <span aria-hidden="true" style="width: 48px; height: 48px; flex: none; border-radius: 10px; background: {{s.crest}}; border: 2px solid #ece2cc; display: grid; place-items: center; font-family: 'Cinzel', serif; font-size: 24px; font-weight: 700; color: #f6ecd4; text-shadow: 0 1px 2px rgba(0,0,0,0.6)">{{s.init}}</span>
+        <div style="flex: 1">
+          <div style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.16em; color: {{s.c}}">{{s.role}}</div>
+          <div style="font-family: 'Cinzel', serif; font-size: 20px; font-weight: 700; letter-spacing: 0.06em">{{s.name}}</div>
+          <div style="font-size: 13px; color: #a8997c">{{s.sub}}</div>
+        </div>
+      </div>
+      <div style="display: flex; justify-content: space-between; padding: 12px 18px 4px; font-size: 14px"><span style="color: #bda880">Base strength</span><span style="font-family: 'Space Mono', monospace">{{s.base}}</span></div>
+      <div style="padding: 10px 18px 4px; font-family: 'Cinzel', serif; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; color: #d9b25c">Infrastructure</div>
+      <sc-for list="{{s.infra}}" as="m" hint-placeholder-count="2">
+        <div style="display: flex; justify-content: space-between; padding: 4px 18px; font-size: 14px"><span>{{m.n}}</span><span style="font-family: 'Space Mono', monospace; color: {{m.c}}">{{m.v}}</span></div>
+      </sc-for>
+      <div style="padding: 10px 18px 4px; font-family: 'Cinzel', serif; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; color: #d9b25c">This battle</div>
+      <sc-for list="{{s.battle}}" as="m" hint-placeholder-count="2">
+        <div style="display: flex; justify-content: space-between; padding: 4px 18px; font-size: 14px"><span>{{m.n}}</span><span style="font-family: 'Space Mono', monospace; color: {{m.c}}">{{m.v}}</span></div>
+      </sc-for>
+      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 12px; padding: 14px 18px; border-top: 1px solid #3a3125; background: #16130e">
+        <span style="font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; letter-spacing: 0.1em">Effective</span>
+        <span style="font-family: 'Space Mono', monospace; font-size: 26px; font-weight: 700; color: {{s.c}}">{{s.eff}}</span>
+      </div>
+    </section>
+  </sc-for>
+
+  <div style="position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); width: 620px; background: rgba(15,13,10,0.96); border: 1px solid #8a6f35; box-shadow: 0 12px 30px rgba(0,0,0,0.6); display: flex; flex-direction: column">
+    <div style="display: flex; align-items: center; gap: 22px; padding: 18px 22px 12px">
+      <div style="position: relative; width: 116px; height: 116px; flex: none; border-radius: 50%; background: conic-gradient(#d9b25c {{pct}}%, #3a3125 0)" role="img" aria-label="{{pct}} percent win chance">
+        <span style="position: absolute; inset: 10px; border-radius: 50%; background: #120f0b; display: flex; align-items: baseline; justify-content: center; padding-top: 30px; box-sizing: border-box; color: #f0cf82; font-family: 'Space Mono', monospace; font-weight: 700"><span style="font-size: 32px; line-height: 1">{{pct}}</span><span style="font-size: 16px; line-height: 1">%</span></span>
+      </div>
+      <div style="flex: 1; display: flex; flex-direction: column; gap: 8px">
+        <span style="font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700; letter-spacing: 0.08em">Win chance</span>
+                <div role="radiogroup" aria-label="Effort" style="display: flex; gap: 6px">
+          <sc-for list="{{efforts}}" as="e" hint-placeholder-count="3">
+            <button type="button" role="radio" aria-checked="{{e.on}}" onClick="{{e.pick}}" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; background: {{e.bg}}; border: 1px solid {{e.bd}}; color: {{e.fg}}; cursor: pointer">
+              <span style="font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; letter-spacing: 0.06em">{{e.name}}</span>
+              <span style="font-family: 'Space Mono', monospace; font-size: 11px">{{e.mp}} MP · {{e.p}}%</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 4px; padding: 0 22px 14px; font-size: 14px">
+      <span>Cost <b style="font-family: 'Space Mono', monospace; color: #f0cf82">{{mp}} MP</b></span>
+    </div>
+    <div style="display: flex; gap: 8px; padding: 12px 22px 18px; border-top: 1px solid #3a3125">
+      <button type="button" style="flex: 1; height: 50px; background: #d9b25c; border: 0; color: #120f0b; font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700; letter-spacing: 0.1em; cursor: pointer">Confirm attack</button>
+      <button type="button" style="width: 150px; height: 50px; background: #16130e; border: 1px solid #8a6f35; color: #ece2cc; font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; cursor: pointer">Back · Esc</button>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { effort: 0 }; }
+  renderVals() {
+    const W = 20, H = 13;
+    const hash = (x, y) => { let n = (x * 374761393 + y * 668265263) | 0; n = Math.imul(n ^ (n >>> 13), 1274126177); return ((n ^ (n >>> 16)) >>> 0) / 4294967295; };
+    const hex = (r, g, b) => '#' + [r, g, b].map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+    const tiles = [];
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const j = (hash(x * 5, y * 9) - 0.5) * 12;
+      const sea = x + y * 0.6 < 4 || (x > 16 && y > 9);
+      let c = sea ? [18, 44, 54] : [66 + j, 78 + j, 46 + j * 0.6];
+      const mine = !sea && x <= 9 && y >= 2 && y <= 10;
+      const theirs = !sea && x >= 10 && y >= 1 && y <= 9;
+      if (mine) c = c.map((v, n) => v * 0.62 + [47, 150, 141][n] * 0.38);
+      if (theirs) c = c.map((v, n) => v * 0.62 + [122, 63, 160][n] * 0.38);
+      let sh = 'none';
+      if (x === 9 && mine) sh = 'inset -3px 0 0 #6fd0c6';
+      if (x === 10 && theirs) sh = 'inset 3px 0 0 #b98ae0';
+      tiles.push({ bg: hex(...c), sh: sh });
+    }
+    const levels = [
+      { name: 'Normal', mult: 1, mp: 120 },
+      { name: 'Extra', mult: 1.5, mp: 180 },
+      { name: 'Double', mult: 2, mp: 240 }
+    ];
+    const baseP = 0.62, odds = baseP / (1 - baseP);
+    const pOf = (m) => Math.round(100 * (odds * m) / (1 + odds * m));
+    const cur = levels[this.state.effort];
+    const pct = pOf(cur.mult);
+    return {
+      tiles: tiles,
+      pct: pct,
+      mp: cur.mp,
+      dash: (314.16 * (1 - pct / 100)).toFixed(1),
+      efforts: levels.map((l, i) => {
+        const on = i === this.state.effort;
+        return { name: l.name, mp: l.mp, p: pOf(l.mult), on: on ? 'true' : 'false', bg: on ? '#2a2216' : '#16130e', bd: on ? '#d9b25c' : '#3a3125', fg: on ? '#f0cf82' : '#bda880', pick: () => this.setState({ effort: i }) };
+      }),
+      sides: [
+        { aria: 'Your side, attacking', left: '28px', c: '#3fb0a6', crest: '#2f8f86', init: 'V', role: 'YOU · ATTACKING', name: 'House Varn', sub: 'Flag (33, 16)', base: '100',
+          infra: [{ n: 'Titanium Weapons Factory', v: '+10%', c: '#6fbf73' }],
+          battle: [{ n: 'Battlefield Momentum ×2', v: '+10%', c: '#6fbf73' }],
+          eff: '121' },
+        { aria: 'Their side, defending', left: '1052px', c: '#a066c8', crest: '#7a3fa0', init: 'A', role: 'ASHFORD · DEFENDING', name: 'House Ashford', sub: 'Garrisoned', base: '100',
+          infra: [{ n: 'Garrisoned land', v: '+20%', c: '#e8907f' }, { n: 'Palisade in range', v: '+10%', c: '#e8907f' }],
+          battle: [{ n: 'Breach shock', v: '−15%', c: '#6fbf73' }],
+          eff: '111' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

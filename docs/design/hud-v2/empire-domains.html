@@ -1,0 +1,154 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found]){display:none!important}</style></head><body>
+<title>Empire Domains</title>
+<style>
+:root{
+  --bg:#f7f5f0; --card:#ffffff; --text:#1f1b16; --muted:#6b6258;
+  --border:#e4ddd0; --accent:#8a5a2b; --tier1:#7c9c7a; --tier2:#6f93a8;
+  --tier3:#a67c52; --tier4:#9a6b9e; --tier5:#c0623f; --code:#f1ece1;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#171310; --card:#1f1a15; --text:#ece5da; --muted:#a89c8c;
+    --border:#3a322a; --accent:#d29a5c; --tier1:#8fbf8a; --tier2:#84b3cc;
+    --tier3:#cf9c65; --tier4:#c093c6; --tier5:#e28362; --code:#2a241d;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#171310; --card:#1f1a15; --text:#ece5da; --muted:#a89c8c;
+  --border:#3a322a; --accent:#d29a5c; --tier1:#8fbf8a; --tier2:#84b3cc;
+  --tier3:#cf9c65; --tier4:#c093c6; --tier5:#e28362; --code:#2a241d;
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:24px 20px 48px;}
+h1{font-size:1.4rem;margin:0 0 4px;}
+.sub{color:var(--muted);font-size:0.85rem;margin:0 0 20px;}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+.controls input{flex:1;min-width:180px;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:0.9rem;}
+.tier-btn{padding:6px 12px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:0.8rem;cursor:pointer;}
+.tier-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--card);}
+table{border-collapse:collapse;width:100%;min-width:760px;font-size:0.85rem;}
+thead th{position:sticky;top:0;background:var(--card);text-align:left;padding:10px 12px;border-bottom:1px solid var(--border);color:var(--muted);font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:.03em;}
+tbody td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top;}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr:hover{background:var(--code);}
+.name{font-weight:600;}
+.desc{color:var(--muted);font-size:0.8rem;margin-top:2px;}
+.tier-pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:0.72rem;font-weight:700;color:#fff;}
+.cost{white-space:nowrap;font-variant-numeric:tabular-nums;}
+.effect-row{margin:2px 0;}
+code{background:var(--code);padding:1px 5px;border-radius:5px;font-size:0.78rem;}
+.count{color:var(--muted);font-size:0.8rem;margin-top:10px;}
+</style>
+
+<h1>Empire Domains</h1>
+<p class="sub">All researchable domains and their effects — data from <code>packages/game-domain/data/domain-tree.json</code> (v4).</p>
+
+<div class="controls">
+  <input id="search" type="text" placeholder="Search name, description, or effect key...">
+  <button class="tier-btn active" data-tier="all">All tiers</button>
+  <button class="tier-btn" data-tier="1">Tier 1</button>
+  <button class="tier-btn" data-tier="2">Tier 2</button>
+  <button class="tier-btn" data-tier="3">Tier 3</button>
+  <button class="tier-btn" data-tier="4">Tier 4</button>
+  <button class="tier-btn" data-tier="5">Tier 5</button>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      <th>Tier</th>
+      <th>Domain</th>
+      <th>Requires Tech</th>
+      <th>Cost</th>
+      <th>Effects</th>
+    </tr>
+  </thead>
+  <tbody id="rows"></tbody>
+</table>
+</div>
+<div class="count" id="count"></div>
+
+<script>
+const DATA = [
+  {"id":"frontier-doctrine","tier":1,"name":"Frontier Doctrine","description":"Settlers move out at breakneck pace, and the realm can coordinate one extra expansion at a time.","requiresTechId":"organized-supply","cost":{"gold":40},"effects":{"settlementSpeedMult":1.5,"developmentProcessCapacityAdd":1}},
+  {"id":"titanium-bastions","tier":1,"name":"Dwarf Kingdom","description":"Forts pop up overnight and cost a pittance to keep.","requiresTechId":"masonry","cost":{"gold":40},"effects":{"fortBuildSpeedMult":1.5,"fortTitaniumSlotWaiverCount":3}},
+  {"id":"supply-raiding","tier":1,"name":"Dewildernisation","description":"A concerted imperial campaign to push back the wilds. Raiders strike harder against barbarian holdings, dealing significantly more damage in frontier combat.","requiresTechId":"leatherworking","cost":{"gold":40},"effects":{"attackVsBarbariansMult":1.5}},
+  {"id":"mercantile-charter","tier":1,"name":"Mercantile Charter","description":"Your first three cities become the commercial heart of the realm.","requiresTechId":"trade","cost":{"gold":40},"effects":{"firstThreeTownsPopulationGrowthMult":1.25,"firstThreeTownsGoldOutputMult":1.5}},
+  {"id":"clockwork-stipend","tier":1,"name":"Clockwork Stipend","description":"Imperial machinery allocates dedicated logistics slots for one chosen resource (titanium, umbrite, or crystal), regardless of the map.","requiresTechId":"agriculture","cost":{"gold":40},"effects":{"chosenResourceSlotGrant":1}},
+  {"id":"cogwork-foundries","tier":2,"name":"Cogwork Foundries","description":"Steam-driven assembly lines and clockwork cranes turn every blueprint into a running production line. Town support buildings build 25% faster.","requiresTechId":"logistics","cost":{"gold":200,"shard":1},"effects":{"economicStructureBuildSpeedMult":1.25}},
+  {"id":"stone-curtain","tier":2,"name":"Garrison Doctrine","description":"Every fort you control is dug in, reinforced, and permanently manned. Forts you control fight with 50% extra defense.","requiresTechId":"fortified-walls","cost":{"gold":200,"shard":1},"effects":{"fortDefenseMult":1.5}},
+  {"id":"titanium-vanguard","tier":2,"name":"Steam Vanguard","description":"Boiler-fed assault columns commit before the enemy can dig in. Attacks resolve 5s faster, and one more muster flag can be held at once.","requiresTechId":"fortified-walls","cost":{"gold":200,"shard":1},"effects":{"musterMaxTilesAdd":1,"attackResolveSpeedReduceMs":5000}},
+  {"id":"mintworks-league","tier":2,"name":"Scholastic Exchanges","description":"Trade routes carry knowledge as well as goods.","requiresTechId":"ledger-keeping","cost":{"gold":200,"shard":1},"effects":{"connectedTownStepBonusAdd":0.20}},
+  {"id":"crystal-network","tier":2,"name":"Crystal Network","description":"Observatories project safe control deep into exposed territory.","requiresTechId":"crystal-lattices","cost":{"gold":200,"shard":1},"effects":{"observatoryRangeBonus":10}},
+  {"id":"provincial-governors","tier":3,"name":"Provincial Governors","description":"Governors uncap the treasury: town and dock gold reserves both grow 25% larger.","requiresTechId":"coinage","cost":{"gold":400,"shard":2},"effects":{"townGoldCapMult":1.25,"dockGoldCapMult":1.25}},
+  {"id":"war-foundries","tier":3,"name":"War Foundries","description":"Armories mass-produce siege gear: attacks against forts hit harder, and your muster lines hold two more flags.","requiresTechId":"organized-supply","cost":{"gold":400,"shard":2},"mods":{"attack":1.08},"effects":{"attackVsFortsMult":1.15,"musterMaxTilesAdd":2}},
+  {"id":"supply-state","tier":3,"name":"Supply State","description":"A wide empire keeps moving because its logistics do.","requiresTechId":"organized-supply","cost":{"gold":400,"shard":2},"effects":{"settlementSpeedMult":1.15,"developmentProcessCapacityAdd":1,"outpostUmbriteSlotWaiverCount":3}},
+  {"id":"merchant-houses","tier":3,"name":"Merchant Houses","description":"Every dock you link into the trade network pays more the bigger the network gets, and your first three cities keep more of the profit.","requiresTechId":"coinage","cost":{"gold":400,"shard":2},"effects":{"dockConnectionBonusPerLink":0.5,"firstThreeTownsGoldOutputMult":1.15}},
+  {"id":"field-stores","tier":3,"name":"Provincial Nurseries","description":"The first three cities grow harder and taller than the rest of the realm — and two of them are fed for free.","requiresTechId":"pottery","cost":{"gold":400,"shard":2},"effects":{"firstThreeTownsPopulationGrowthMult":1.25,"firstTownsFoodSlotWaiverCount":2}},
+  {"id":"imperial-roads-domain","tier":4,"name":"Imperial Roads","description":"Administration and movement fuse into one expansion machine, and every connected town pays its neighbors better.","requiresTechId":"civil-service","cost":{"gold":800,"shard":3},"effects":{"developmentProcessCapacityAdd":1,"settlementSpeedMult":1.2,"connectedTownStepBonusAdd":0.15}},
+  {"id":"fortress-realm","tier":4,"name":"Signal Bastions","description":"Every fort becomes a garrisoned watchtower: forts and towns alike see much further across the frontier.","requiresTechId":"steelworking","cost":{"gold":800,"shard":3},"effects":{"outpostVisionRadiusBonus":2,"townVisionRadiusBonus":1,"fortTitaniumSlotWaiverCount":5}},
+  {"id":"siege-state","tier":4,"name":"Siege State","description":"Outposts become breaching engines: attacks against forts hit far harder, and muster lines hold two more flags.","requiresTechId":"siegecraft","cost":{"gold":800,"shard":3},"effects":{"attackVsFortsMult":1.2,"musterMaxTilesAdd":2}},
+  {"id":"treasury-state","tier":4,"name":"Treasury State","description":"Your first three settled towns and their support buildings require no food, and the treasury holds more gold.","requiresTechId":"coinage","cost":{"gold":800,"shard":3},"effects":{"firstTownsFoodSlotWaiverCount":3,"townGoldCapMult":1.2}},
+  {"id":"hidden-hand","tier":4,"name":"Hidden Hand","description":"State intelligence cuts every observatory ability's cooldown in half.","requiresTechId":"cryptography","cost":{"gold":800,"shard":3},"effects":{"observatoryCooldownMult":0.5}},
+  {"id":"imperial-expansion","tier":5,"name":"Imperial Expansion","description":"A sprawling empire expands on every front at once and still holds a dangerous frontier with an extra flag to spare.","requiresTechId":"civil-service","cost":{"gold":1800,"shard":5},"effects":{"developmentProcessCapacityAdd":1,"settlementSpeedMult":1.25,"musterMaxTilesAdd":2}},
+  {"id":"titanium-dominion","tier":5,"name":"Titanium Dominion","description":"Military force becomes your primary language: attack and defense are stronger everywhere, and your own forts hold the line even harder.","requiresTechId":"steelworking","cost":{"gold":1800,"shard":5},"mods":{"attack":1.18,"defense":1.18},"effects":{"attackVsFortsMult":1.15,"fortDefenseMult":1.15}},
+  {"id":"enduring-realm","tier":5,"name":"Enduring Realm","description":"A compact empire survives through elite core cities and towns that never go hungry.","requiresTechId":"civil-service","cost":{"gold":1800,"shard":5},"effects":{"firstThreeTownsGoldOutputMult":1.25,"townGoldCapMult":1.15,"allTownsFoodSlotWaiverPerTown":1}},
+  {"id":"golden-hegemony","tier":5,"name":"Golden Hegemony","description":"A rich, tightly connected network of cities and ports bankrolls the empire.","requiresTechId":"urban-mintworks","cost":{"gold":1800,"shard":5},"effects":{"dockGoldOutputMult":1.2,"connectedTownStepBonusAdd":0.25,"townGoldCapMult":1.15}},
+  {"id":"oracle-state","tier":5,"name":"Oracle State","description":"Information superiority becomes empire superiority: observatories reach further, recharge faster, and towns see deep into the frontier.","requiresTechId":"beacon-towers","cost":{"gold":1800,"shard":5},"effects":{"observatoryRangeBonus":15,"observatoryCooldownMult":0.7,"townVisionRadiusBonus":2}}
+];
+
+const tierColor = {1:'var(--tier1)',2:'var(--tier2)',3:'var(--tier3)',4:'var(--tier4)',5:'var(--tier5)'};
+
+function fmtCost(cost){
+  return Object.entries(cost).map(([k,v]) => `${v} ${k}`).join(', ');
+}
+function fmtEffects(d){
+  const lines = Object.entries(d.effects || {}).map(([k,v]) => `<div class="effect-row"><code>${k}</code>: ${v}</div>`);
+  if (d.mods){
+    Object.entries(d.mods).forEach(([k,v]) => lines.push(`<div class="effect-row"><code>mods.${k}</code>: ${v}</div>`));
+  }
+  return lines.join('');
+}
+
+function render(){
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const activeBtn = document.querySelector('.tier-btn.active');
+  const tier = activeBtn ? activeBtn.dataset.tier : 'all';
+  const rows = document.getElementById('rows');
+  rows.innerHTML = '';
+  let shown = 0;
+  DATA.filter(d => tier === 'all' || String(d.tier) === tier)
+    .filter(d => {
+      if (!q) return true;
+      const haystack = [d.name, d.description, d.requiresTechId, JSON.stringify(d.effects)].join(' ').toLowerCase();
+      return haystack.includes(q);
+    })
+    .sort((a,b) => a.tier - b.tier || a.name.localeCompare(b.name))
+    .forEach(d => {
+      shown++;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><span class="tier-pill" style="background:${tierColor[d.tier]}">T${d.tier}</span></td>
+        <td><div class="name">${d.name}</div><div class="desc">${d.description}</div></td>
+        <td><code>${d.requiresTechId}</code></td>
+        <td class="cost">${fmtCost(d.cost)}</td>
+        <td>${fmtEffects(d)}</td>
+      `;
+      rows.appendChild(tr);
+    });
+  document.getElementById('count').textContent = `${shown} of ${DATA.length} domains`;
+}
+
+document.getElementById('search').addEventListener('input', render);
+document.querySelectorAll('.tier-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tier-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    render();
+  });
+});
+render();
+</script>
+
+</body></html>
