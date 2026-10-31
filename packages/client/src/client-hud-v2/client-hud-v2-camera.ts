@@ -16,6 +16,8 @@ type Saved = { zoom: number; camX: number; camY: number; camSubX: number; camSub
 
 let saved: Saved | undefined;
 let frame: number | undefined;
+/** Where the running glide is heading, so a close-up started mid-glide remembers the level it was going back to. */
+let glideTarget: number | undefined;
 
 const ease = (t: number): number => 1 - (1 - t) ** 3;
 
@@ -23,6 +25,8 @@ export const clampZoom = (zoom: number): number => Math.max(MIN_ZOOM, Math.min(M
 
 const glideZoom = (deps: CameraDeps, to: number): void => {
   if (frame !== undefined) cancelAnimationFrame(frame);
+  frame = undefined;
+  glideTarget = undefined;
   const from = deps.state.zoom;
   const target = clampZoom(to);
   if (from === target || typeof requestAnimationFrame === "undefined") {
@@ -39,15 +43,17 @@ const glideZoom = (deps: CameraDeps, to: number): void => {
       return;
     }
     frame = undefined;
+    glideTarget = undefined;
     deps.requestViewRefresh();
   };
+  glideTarget = target;
   frame = requestAnimationFrame(step);
 };
 
 /** Centres on (x, y) and zooms in, remembering the view to return to (only the first call of a visit). */
 export const closeUpOn = (deps: CameraDeps, x: number, y: number, zoom: number): void => {
   const { state } = deps;
-  saved ??= { zoom: state.zoom, camX: state.camX, camY: state.camY, camSubX: state.camSubX, camSubY: state.camSubY };
+  saved ??= { zoom: glideTarget ?? state.zoom, camX: state.camX, camY: state.camY, camSubX: state.camSubX, camSubY: state.camSubY };
   state.camX = deps.wrapX(x);
   state.camY = deps.wrapY(y);
   state.camSubX = 0;

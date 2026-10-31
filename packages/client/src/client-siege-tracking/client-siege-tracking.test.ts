@@ -368,6 +368,12 @@ describe("locked combat odds", () => {
     });
   });
 
+  it("keeps the launch-time strength breakdown when the server locks the odds", () => {
+    const breakdown = { winChance: 0.5 } as NonNullable<Parameters<typeof combatSnapshotFromLockedResult>[1]>["breakdown"];
+    const existing = { winChance: 0.5, attackerEffective: 1, defenderEffective: 1, defenderOwnerId: "enemy-1", ...(breakdown ? { breakdown } : {}) };
+    expect(combatSnapshotFromLockedResult(locked, existing)).toMatchObject({ winChance: 0.33, breakdown });
+  });
+
   it("keeps the existing snapshot when there is no usable locked result", () => {
     const existing = { winChance: 0.5, attackerEffective: 1, defenderEffective: 1, defenderOwnerId: "enemy-1" };
     expect(combatSnapshotFromLockedResult(undefined, existing)).toBe(existing);

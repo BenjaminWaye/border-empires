@@ -6,7 +6,7 @@
 // the sheet only opens for garrisoned targets.
 
 import type { ClientState } from "../client-state/client-state.js";
-import type { Tile, TileActionDef, TileCombatBreakdown, TileMenuView } from "../client-types.js";
+import type { CaptureCombatSnapshot, Tile, TileActionDef, TileCombatBreakdown, TileMenuView } from "../client-types.js";
 import { battleLiveHtml, battlePreviewHtml, battleResultHtml, parseWinPct, type BattleEffort, type BattleSide } from "./client-hud-v2-battle.js";
 import { BATTLE_ZOOM, closeUpOn, endCloseUp } from "./client-hud-v2-camera.js";
 import { clearScreen, focusCamera, screen, setScreen, writeHtml, type HudV2Deps } from "./client-hud-v2-context.js";
@@ -46,6 +46,20 @@ export const battleOutcomeFromAlert = (
   if (!alert || alert === before || alert.until <= nowMs) return undefined;
   const a: CaptureAlert = alert;
   return { won: a.tone === "success", headline: a.title, detail: a.detail, manpowerLoss: a.manpowerLoss };
+};
+
+const flatSide = (effective: number): TileCombatBreakdown["attacker"] =>
+  ({ base: effective, infrastructure: [], infrastructureMult: 1, effectiveBase: effective, battle: [], battleMult: 1, effective });
+
+/**
+ * Each side's strength for a fight already under way: the full breakdown captured at launch, else just the two
+ * effective totals (an attack sent without a fresh preview). Undefined when neither is known.
+ */
+export const liveBattleBreakdown = (snapshot: CaptureCombatSnapshot | undefined): TileCombatBreakdown | undefined => {
+  if (!snapshot) return undefined;
+  if (snapshot.breakdown) return snapshot.breakdown;
+  if (!(snapshot.attackerEffective > 0) || !(snapshot.defenderEffective > 0)) return undefined;
+  return { winChance: snapshot.winChance, attacker: flatSide(snapshot.attackerEffective), defender: flatSide(snapshot.defenderEffective) };
 };
 
 const ATTACK_CONTEXT_TTL_MS = 4_000;
@@ -197,6 +211,7 @@ export const renderBattle = (deps: HudV2Deps): void => {
   }
   if (b.mode === "live" || b.mode === "settling") {
     const c = deps.state.capture;
+    b.breakdown ??= liveBattleBreakdown(c?.combatSnapshot);
     const total = c ? Math.max(1, Math.round((c.resolvesAt - c.startAt) / 1000)) : 1;
     const left = c ? Math.max(0, Math.ceil((c.resolvesAt - now) / 1000)) : 0;
     writeHtml("v2b-stage", battleLiveHtml({ ...base, winPct: b.winPct, secondsLeft: left, totalSeconds: total }));
@@ -227,11 +242,13 @@ export const liveBattleTarget = (
   return { x: c.target.x, y: c.target.y, tile };
 };
 
-/** Re-open the live view from the tracker's battle row. */
+/** Re-open the live view from the tracker's battle row; the caller closes any other screen first. */
 export const reopenLiveBattle = (deps: HudV2Deps): boolean => {
   const target = liveBattleTarget(deps.state);
   const c = deps.state.capture;
-  if (!target || !c || screen.id) return false;
+  if (!target || !c) return false;
+  if (screen.id === "battle") return true;
+  if (screen.id) return false;
   const { x, y, tile } = target;
   battle = {
     mode: "live",
@@ -239,8 +256,8 @@ export const reopenLiveBattle = (deps: HudV2Deps): boolean => {
     tileKey: `${x},${y}`,
     coords: { x, y },
     title: tile ? stripCoords(deps.actionFlow.tileMenuViewForTile(tile).title) : "Battle",
-    defenderId: tile?.ownerId ?? "",
-    breakdown: undefined,
+    defenderId: tile?.ownerId ?? c.combatSnapshot?.defenderOwnerId ?? "",
+    breakdown: liveBattleBreakdown(c.combatSnapshot),
     since: Date.now(),
     winPct: c.combatSnapshot ? Math.round(c.combatSnapshot.winChance * 100) : undefined
   };

@@ -280,6 +280,7 @@ export const combatSnapshotFromLockedResult = (
     winChance: locked.winChance,
     attackerEffective: typeof locked.atkEff === "number" ? locked.atkEff : existing?.attackerEffective ?? 0,
     defenderEffective: typeof locked.defEff === "number" ? locked.defEff : existing?.defenderEffective ?? 0,
-    defenderOwnerId: locked.defenderOwnerId
+    defenderOwnerId: locked.defenderOwnerId,
+    ...(existing?.breakdown ? { breakdown: existing.breakdown } : {})
   };
 };

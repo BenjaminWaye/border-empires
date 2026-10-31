@@ -61,7 +61,9 @@ export type TileMenuProgressView = {
 // progress card's battle bar. There's no live, evolving battle state
 // server-side (combat resolves as a single roll after COMBAT_LOCK_MS) --
 // this is a static odds snapshot, not a tick-by-tick strength readout.
-export type CaptureCombatSnapshot = { winChance: number; attackerEffective: number; defenderEffective: number; defenderOwnerId: string };
+// `breakdown` keeps each side's full strength tiers so the battle screen can
+// show them when reopened mid-fight (the cached preview expires in seconds).
+export type CaptureCombatSnapshot = { winChance: number; attackerEffective: number; defenderEffective: number; defenderOwnerId: string; breakdown?: TileCombatBreakdown };
 
 export type TileOverviewLine = {
   html: string;

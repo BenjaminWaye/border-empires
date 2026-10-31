@@ -1,5 +1,5 @@
 import type { PersonalActivityCard } from "@border-empires/game-domain";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { SeasonVictoryObjectiveView, TechInfo, Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import { parseWinPct } from "./client-hud-v2-battle.js";
 import { closeUpOn, endCloseUp, TOWN_ZOOM } from "./client-hud-v2-camera.js";
@@ -260,5 +260,28 @@ describe("detail-screen close-up camera", () => {
     expect(deps.state.zoom).toBe(150);
     endCloseUp(deps, true);
     expect(deps.state).toMatchObject({ zoom: 150, camX: 30, camY: 40 });
+  });
+
+  // Regression: opening the battle from the town screen remembered the town's close-up zoom (the glide back out had
+  // only just started), so leaving the battle stayed zoomed in.
+  it("a close-up started while gliding back out returns to the original zoom", () => {
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => frames.push(cb));
+    vi.stubGlobal("cancelAnimationFrame", () => frames.splice(0));
+    const flush = () => { while (frames.length) frames.shift()!(performance.now() + 10_000); };
+    try {
+      const deps = camDeps();
+      closeUpOn(deps, 30, 40, TOWN_ZOOM);
+      flush();
+      endCloseUp(deps);
+      closeUpOn(deps, 31, 41, TOWN_ZOOM + 12);
+      flush();
+      expect(deps.state.zoom).toBe(TOWN_ZOOM + 12);
+      endCloseUp(deps);
+      flush();
+      expect(deps.state).toMatchObject({ zoom: 22, camX: 1, camY: 2 });
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
