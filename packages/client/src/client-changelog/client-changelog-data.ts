@@ -475,6 +475,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Offers wait for the map to load",
     why: "Incoming truce and alliance offers could pop up on top of the loading screen.",
     changes: ["The diplomacy offer dock stays hidden until the map has finished loading"]
+  },
+  {
+    createdAt: 1793485484559,
+    introducedIn: "2026.10.31",
+    title: "Auto-settle skips out-of-reach land after a reveal",
+    why: "With the map revealed, auto-settle could keep retrying frontier tiles outside your reach that can never be settled.",
+    changes: ["Auto-settle only queues frontier tiles inside your reach, with or without the map revealed"]
   }
 ];
 

@@ -188,12 +188,12 @@ export const buildPlayerSubscriptionSnapshot = (
           // except reach anchors and captured buildings (settleIgnoresReach in
           // shared reach-settle-exemption.ts). Skip the rest, or the client
           // would retry a doomed SETTLE forever. Towns/docks stay eligible:
-          // settling one is exactly what gives it reach. reachOwnerId is only
-          // sourced by the per-player visible-state export; the
-          // full-visibility export (season ended / spectator) doesn't carry
-          // it, and nobody settles there anyway.
+          // settling one is exactly what gives it reach. Both the per-player
+          // visible export and the full-world export (reveal-map / spectator /
+          // season end) carry reachOwnerId, so the guard applies under full
+          // visibility too — a revealed live player still settles.
           const isReachAnchor = Boolean(tile.townJson || tile.dockId);
-          if (!isReachAnchor && options?.fullVisibility !== true && tile.reachOwnerId !== playerId) return undefined;
+          if (!isReachAnchor && tile.reachOwnerId !== playerId) return undefined;
           let hasTownSupport = false;
           forEachFrontierNeighbor(tile.x, tile.y, (nx, ny) => {
             if (!hasTownSupport) {
