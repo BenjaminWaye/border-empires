@@ -76,7 +76,7 @@ export const knownTerrainAt =
 // browsing the Buildings tab will look for it.
 const isReadyHydrogarden = (action: TileActionDef): boolean => action.id === "build_hydrogarden" && !action.disabled;
 
-const isFrontierRelayBeacon = (action: TileActionDef): boolean =>
+export const isFrontierRelayBeacon = (action: TileActionDef): boolean =>
   action.id === "build_relay_beacon" && Boolean(action.detail?.includes("garrisons this tile first"));
 
 // Hydrogarden is a build_* action, so it's normally Buildings-tab-only. But

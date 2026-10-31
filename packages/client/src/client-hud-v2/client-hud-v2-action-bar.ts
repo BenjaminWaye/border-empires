@@ -6,6 +6,7 @@
 // smaller text buttons underneath. A fact strip above says what the tile is.
 
 import { autoSettleOptionHtml } from "../client-auto-settle-prompt/client-auto-settle-tile-option.js";
+import { isFrontierRelayBeacon } from "../client-tile-action-support/client-tile-action-support.js";
 import type { TileActionDef, TileMenuView } from "../client-types.js";
 import { plainText, type TileFact } from "./client-hud-v2-tile-facts.js";
 import { detailLinesBeyondFacts } from "./client-hud-v2-tile-details.js";
@@ -46,7 +47,7 @@ const LEGACY_ONLY_TABS: ReadonlyArray<TileMenuView["tabs"][number]> = ["modules"
  * settle_land is both "Expand To" on neutral land (client-tile-action-neutral.ts) and "Garrison" on your
  * frontier (client-tile-action-settle-visibility.ts); only the label tells them apart in the view.
  */
-const isGarrison = (a: TileActionDef): boolean => a.id === "settle_land" && a.label.startsWith("Garrison");
+export const isGarrison = (a: TileActionDef): boolean => a.id === "settle_land" && a.label.startsWith("Garrison");
 
 const relayBeacon = (view: BarView): TileActionDef | undefined =>
   [...view.actions, ...view.buildings].find((a) => RELAY_BEACON_IDS.includes(a.id) && !a.disabled);
@@ -62,7 +63,23 @@ const primaryAction = (view: BarView): TileActionDef | undefined => {
   }
   return view.actions.find((a) => isGarrison(a) && a.recommended && !a.disabled)
     ?? relayBeacon(view)
-    ?? view.actions.find((a) => a.id === "settle_land" && !a.disabled && !isGarrison(a));
+    ?? view.actions.find((a) => a.id === "settle_land" && !a.disabled && !isGarrison(a))
+    ?? blockedPrimaryAction(view);
+};
+
+/** Expanding onto a tile: neutral land's beacon, or a beacon that garrisons your frontier tile first. */
+const isExpandingBeacon = (a: TileActionDef): boolean => a.id === "build_relay_beacon_frontier" || isFrontierRelayBeacon(a);
+
+/**
+ * With no Garrison or Expand To the player can do, the tile's main action stays on the bar greyed with its
+ * reason, instead of moving to the minor row or the Build list where players couldn't find it. Interior
+ * settled tiles also offer a beacon; a blocked one there is not their main action, so it isn't kept.
+ */
+const blockedPrimaryAction = (view: BarView): TileActionDef | undefined => {
+  if (view.actions.some((a) => a.id === "settle_land" && !a.disabled)) return undefined;
+  return view.actions.find((a) => isGarrison(a) && a.recommended)
+    ?? view.actions.find((a) => (a.id === "settle_land" && !isGarrison(a)) || a.id === "expand_here")
+    ?? [...view.actions, ...view.buildings].find(isExpandingBeacon);
 };
 
 export const selectBarButtons = (view: BarView): BarButton[] => {
@@ -107,7 +124,9 @@ const actionButtonHtml = (b: Extract<BarButton, { kind: "action" }>): string => 
   const a = b.action;
   const cls = `hud-v2-act${b.primary ? " hud-v2-act-primary" : ""}${a.disabled ? " hud-v2-act-disabled" : ""}`;
   const title = a.disabled ? a.disabledReason ?? a.label : a.detail ?? a.label;
-  return `<button type="button" class="${cls}" data-hud-v2-action="${esc(a.id)}"${targets(a)}${a.disabled ? " disabled" : ""} title="${esc(title)}"><span class="hud-v2-act-label">${esc(a.label)}</span>${a.cost ? `<span class="hud-v2-act-cost">${esc(a.cost)}</span>` : ""}</button>`;
+  // Touch has no tooltips, so a disabled button says why where its cost would be.
+  const note = a.disabled ? a.disabledReason ?? a.cost : a.cost;
+  return `<button type="button" class="${cls}" data-hud-v2-action="${esc(a.id)}"${targets(a)}${a.disabled ? " disabled" : ""} title="${esc(title)}"><span class="hud-v2-act-label">${esc(a.label)}</span>${note ? `<span class="hud-v2-act-cost">${esc(note)}</span>` : ""}</button>`;
 };
 
 /** The minor row: small text buttons for everything else, plus a link to legacy-only views (progress, modules, reports). */
