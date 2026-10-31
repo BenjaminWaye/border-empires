@@ -43,7 +43,8 @@ export type ResourceSupplyCapacity = (playerId: string, phase: "upkeep" | "netwo
   upkeepFlows: ReadonlyMap<string, ResourceSupplyFlow>) => ResourceSupplyOffer;
 
 /** Physical domestic supply backs exports. Received slots never become export capacity.
- * Upkeep transfers resolve first, so imported FOOD can power a resource supplier.
+ * Upkeep transfers resolve first, so imported FOOD can wake FOOD-dormant industry
+ * before network capacity is computed.
  * A shortage suspends both directions of a deal. Drop one failed deal per pass,
  * then recompute, giving older commitments stable priority without phantom slots.
  * All transient maps/sets are bounded by the capped agreement participant count.

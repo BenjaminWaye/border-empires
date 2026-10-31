@@ -14,7 +14,8 @@ export interface NetworkSiphonContext {
   tileSettledAtByKey: ReadonlyMap<string, number>;
 }
 
-/** The supplier must still power and authorise its extractor. Siphon transfers
+/** The supplier must still authorise its extractor. Extractors have no slot
+ * upkeep, so the dormancy filter below currently excludes nothing. Siphon transfers
  * its supply slots, never duplicates them or turns an undeveloped deposit into supply. */
 export function networkSupplyWithSiphon(ctx: NetworkSiphonContext, playerId: string): NetworkSiteCounts {
   const domestic = (id: string, selected?: ReadonlySet<string>): NetworkSiteCounts => {

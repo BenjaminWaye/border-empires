@@ -172,6 +172,29 @@ export const chooseManuallyDisabledBeaconToReenable = <TTile extends AutomationP
 };
 
 /**
+ * A structure this player disabled for FOOD relief whose type no longer has
+ * any slot requirement (the frontier resource-network installations lost
+ * their FOOD slot), so it costs nothing to run. Without this, one switched
+ * off before that change would stay dead forever. Same SETTLED-only rule and
+ * deterministic order as the beacon chooser above.
+ */
+export const chooseManuallyDisabledFreeStructureToReenable = <TTile extends AutomationPlannerTile>(
+  ownedTiles: readonly TTile[],
+  playerId: string
+): FoodSlotReenableTarget | undefined => {
+  let best: TTile | undefined;
+  for (const tile of ownedTiles) {
+    const structure = tile.economicStructure;
+    if (!structure?.type || structure.ownerId !== playerId) continue;
+    if (structure.status !== "inactive" || structure.inactiveReason !== "manual") continue;
+    if (structureSlotRequirements(structure.type as SlotStructureType).length > 0) continue;
+    if (tile.ownershipState !== "SETTLED") continue;
+    if (!best || tile.x < best.x || (tile.x === best.x && tile.y < best.y)) best = tile;
+  }
+  return best ? { x: best.x, y: best.y } : undefined;
+};
+
+/**
  * Number of this player's active reach anchors (TOWN, DOCK, active
  * RELAY_BEACON, active SIEGE_BATTERY) covering each tile key. Used to tell
  * whether a given beacon is the *sole* anchor reaching a tile (count === 1,
@@ -339,14 +362,18 @@ export const foodSlotReliefFromPlannerInput = <TTile extends AutomationPlannerTi
   foodSlotSupply: number | undefined,
   foodSlotDemand: number | undefined,
   forceRelief = false,
-  ownedRelayBeaconCount: number | undefined = undefined
+  ownedRelayBeaconCount: number | undefined = undefined,
+  ownedNetworkInstallationCount: number | undefined = undefined
 ): { reliefTarget: FoodSlotReliefPlan | undefined; exhausted: boolean; reenableTarget: FoodSlotReenableTarget | undefined } => {
   const demand = foodSlotDemand ?? 0;
   const supply = foodSlotSupply ?? 0;
   const exhausted = forceRelief || (demand > 0 && supply <= demand);
   if (!exhausted) {
     const reenableTarget =
-      (ownedRelayBeaconCount ?? 0) > 0 ? chooseManuallyDisabledBeaconToReenable(ownedTiles, playerId) : undefined;
+      // Count-gated like the beacon scan: walking every owned tile each tick is
+      // only worth it when there is a frontier installation to find.
+      ((ownedNetworkInstallationCount ?? 0) > 0 ? chooseManuallyDisabledFreeStructureToReenable(ownedTiles, playerId) : undefined) ??
+      ((ownedRelayBeaconCount ?? 0) > 0 ? chooseManuallyDisabledBeaconToReenable(ownedTiles, playerId) : undefined);
     return { reliefTarget: undefined, exhausted, reenableTarget };
   }
   const reliefTarget =
