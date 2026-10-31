@@ -6,6 +6,7 @@
 import { manpowerPerBatch, terrainAdjustedTownManpower, townFoodSlotDemandForTier } from "@border-empires/shared";
 import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town-tile-terrain.js";
 import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
+import { isGarrison } from "./client-hud-v2-action-bar.js";
 import { buildCategories, buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
 import { townGrowth } from "./client-hud-v2-tile-facts.js";
 import { displayTownPopulationTierLabel, townNextPopulationMilestone } from "../client-town-growth/client-town-growth.js";
@@ -115,10 +116,10 @@ const barHtml = (input: TownScreenInput): string => {
   const isMuster = (a: TileActionDef): boolean => a.id.startsWith("muster_");
   // An ungarrisoned town's Garrison leads the bar as the gold main button; a text link was easy to miss.
   // Touch has no tooltips, so a disabled one says why on the button itself.
-  const garrison = input.townView.actions.find((a) => a.id === "settle_land" && a.label.startsWith("Garrison"));
+  const garrison = input.townView.actions.find(isGarrison);
   const garrisonNote = garrison?.disabled ? garrison.disabledReason : garrison?.cost;
   const garrisonBtn = garrison
-    ? `<button type="button" class="v2t-act v2t-act-primary" data-hud-v2-action="settle_land"${targetAttrs(garrison, keyOf(input.town))}${garrison.disabled ? " disabled" : ""} title="${esc(garrison.disabled ? garrison.disabledReason ?? "" : garrison.detail ?? "")}">${esc(garrison.label)}${garrisonNote ? `<small>${esc(garrisonNote)}</small>` : ""}</button>`
+    ? `<button type="button" class="v2t-act v2t-act-primary" data-hud-v2-action="settle_land"${targetAttrs(garrison, keyOf(input.town))}${garrison.disabled ? " disabled" : ""} title="${esc(garrison.disabled ? garrison.disabledReason ?? garrison.label : garrison.detail ?? garrison.label)}">${esc(garrison.label)}${garrisonNote ? `<small>${esc(garrisonNote)}</small>` : ""}</button>`
     : "";
   const shownIds = new Set<TileActionDef["id"]>(["muster_hold", "city_overclock", ...GROW_IDS, ...(garrison ? ["settle_land" as const] : [])]);
   const minorActions = [

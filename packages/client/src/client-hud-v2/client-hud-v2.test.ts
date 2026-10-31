@@ -203,17 +203,39 @@ describe("action bar", () => {
 
   // Regression: a Relay Beacon you couldn't build yet (no slot, short manpower) left the main row and only
   // sat in the Build list, so frontier land looked like it had no beacon at all.
-  it("keeps a blocked Relay Beacon as the main action, greyed with its reason", () => {
+  const frontierBeacon = (over: Partial<TileActionDef> = {}): TileActionDef =>
+    act("build_relay_beacon", { label: "Build Relay Beacon", detail: "Builds a beacon • garrisons this tile first", disabled: true, disabledReason: "Need 50 manpower", cost: "50 m.p.", ...over });
+
+  it("keeps a blocked Relay Beacon on your frontier as the main action, greyed with its reason", () => {
     const v = view({
-      actions: [act("settle_land", { label: "Garrison" }), act("muster_hold", { label: "Raise flag" })],
-      buildings: [act("build_relay_beacon", { label: "Build Relay Beacon", disabled: true, disabledReason: "Need 50 manpower", cost: "50 m.p." })],
+      actions: [act("settle_land", { label: "Garrison", disabled: true, disabledReason: "Need 10 manpower" }), act("muster_hold", { label: "Raise flag" })],
+      buildings: [frontierBeacon()],
       tabs: ["actions", "buildings"]
     });
-    const buttons = selectBarButtons(v);
-    expect(buttons[0]).toMatchObject({ primary: true, action: { id: "build_relay_beacon" } });
+    expect(selectBarButtons(v)[0]).toMatchObject({ primary: true, action: { id: "build_relay_beacon" } });
     const html = actionBarHtml(v);
     expect(html).toContain('<span class="hud-v2-act-cost">Need 50 manpower</span>');
-    expect(html).toContain('data-hud-v2-action="build_relay_beacon" disabled');
+    expect(html).toContain('class="hud-v2-act hud-v2-act-primary hud-v2-act-disabled" data-hud-v2-action="build_relay_beacon" disabled');
+  });
+
+  it("keeps a blocked neutral-land beacon only when Expand To isn't there to lead", () => {
+    const beacon = act("build_relay_beacon_frontier", { label: "Build Relay Beacon", disabled: true, disabledReason: "Need 80 manpower" });
+    expect(selectBarButtons(view({ actions: [beacon] }))[0]).toMatchObject({ primary: true, action: { id: "build_relay_beacon_frontier" } });
+    const expand = act("settle_land", { label: "Expand To", disabled: true, disabledReason: "Need 10 coin" });
+    expect(selectBarButtons(view({ actions: [expand, beacon] }))[0]).toMatchObject({ primary: true, action: { label: "Expand To" } });
+  });
+
+  // Review: an interior settled tile also offers a beacon; a blocked one there must not become a dead main button.
+  it("does not lead an interior tile with a blocked Relay Beacon", () => {
+    const interior = act("build_relay_beacon", { label: "Build Relay Beacon", disabled: true, disabledReason: "Need a free FOOD slot" });
+    const buttons = selectBarButtons(view({ actions: [act("muster_hold", { label: "Raise flag" })], buildings: [interior], tabs: ["actions", "buildings"] }));
+    expect(buttons.some((b) => b.kind === "action" && b.primary)).toBe(false);
+  });
+
+  // Review: a Garrison you can do beats a blocked beacon you can't.
+  it("leaves a doable Garrison in charge over a blocked beacon", () => {
+    const buttons = selectBarButtons(view({ actions: [act("settle_land", { label: "Garrison" })], buildings: [frontierBeacon()], tabs: ["actions", "buildings"] }));
+    expect(buttons.some((b) => b.kind === "action" && b.primary)).toBe(false);
   });
 
   it("keeps a blocked Garrison on a resource as the main action", () => {
