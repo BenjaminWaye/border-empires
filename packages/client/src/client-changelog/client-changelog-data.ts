@@ -460,7 +460,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     introducedIn: "2026.10.31",
     title: "Ongoing battles open their battle screen",
     why: "Pressing a battle in progress sometimes only centred the map, and the side cards never showed either army's strength.",
-    changes: ["Battle at in the tracker always zooms in on the fight, even with another screen open", "Both sides show their strength while the battle runs", "Leaving the battle returns to your earlier zoom"]
+    changes: ["Pressing a battle in the tracker zooms in on it and opens the battle screen, closing any other screen first", "Both sides show their strength and the locked odds while the battle runs", "Leaving the battle returns to your earlier zoom"]
   }
 ];
 

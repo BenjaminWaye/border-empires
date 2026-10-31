@@ -265,10 +265,17 @@ describe("detail-screen close-up camera", () => {
   // Regression: opening the battle from the town screen remembered the town's close-up zoom (the glide back out had
   // only just started), so leaving the battle stayed zoomed in.
   it("a close-up started while gliding back out returns to the original zoom", () => {
-    const frames: FrameRequestCallback[] = [];
-    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => frames.push(cb));
-    vi.stubGlobal("cancelAnimationFrame", () => frames.splice(0));
-    const flush = () => { while (frames.length) frames.shift()!(performance.now() + 10_000); };
+    const frames = new Map<number, FrameRequestCallback>();
+    let nextId = 0;
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => { frames.set(++nextId, cb); return nextId; });
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => frames.delete(id));
+    const flush = () => {
+      for (let i = 0; i < 100 && frames.size > 0; i += 1) {
+        const [id, cb] = frames.entries().next().value!;
+        frames.delete(id);
+        cb(performance.now() + 10_000);
+      }
+    };
     try {
       const deps = camDeps();
       closeUpOn(deps, 30, 40, TOWN_ZOOM);
