@@ -438,6 +438,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Resource icons stay visible when zoomed out",
     why: "Resource circles switched to plain colours before you could get a useful overview of nearby deposits.",
     changes: ["Resource markers keep their icons at every zoom level in both the 2D and 3D maps, with smoothly scaling circles and coloured rims"]
+  },
+  {
+    createdAt: 1793441660132, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.31",
+    title: "Frontier resource buildings have no upkeep",
+    why: "Resin Extractors, Implant Foundries, Catalyst Refineries, Cultivation Estates and Reclamation Works each used up a Food slot.",
+    changes: ["These five buildings no longer use a Food slot, and a Food shortage can't shut them down. Ones you've already built free their Food slot."]
   }
 ];
 

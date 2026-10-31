@@ -25,11 +25,11 @@ rules; this document records implementation scope, rollout and visual decisions.
 
 | Deposit | Installation | Build manpower / seconds | Ongoing occupancy | Benefit per installation |
 |---|---|---:|---|---|
-| Neural resin | Resin Extractor | 40 / 40 | 1 FOOD slot | +12 Ancillaries at one depot per 4-hour cycle |
-| Conductive minerals | Implant Foundry | 50 / 50 | 1 FOOD slot | +6 each at up to two factories per batch (+12 total) |
-| Catalytic deposit | Catalyst Refinery | 50 / 50 | 1 FOOD slot | +1.5 Coin/day at one active supported Trade Nexus |
-| Luxury biota | Cultivation Estate | 33 / 33 | 1 FOOD slot | +1.5 Coin/day at one active supported Trade Nexus |
-| Precursor salvage | Reclamation Works | 60 / 60 | 1 FOOD slot | +1.5 Coin/day at one active supported Manufactory |
+| Neural resin | Resin Extractor | 40 / 40 | None | +12 Ancillaries at one depot per 4-hour cycle |
+| Conductive minerals | Implant Foundry | 50 / 50 | None | +6 each at up to two factories per batch (+12 total) |
+| Catalytic deposit | Catalyst Refinery | 50 / 50 | None | +1.5 Coin/day at one active supported Trade Nexus |
+| Luxury biota | Cultivation Estate | 33 / 33 | None | +1.5 Coin/day at one active supported Trade Nexus |
+| Precursor salvage | Reclamation Works | 60 / 60 | None | +1.5 Coin/day at one active supported Manufactory |
 
 Build times above are base times; existing build-speed effects apply. Build
 Coin costs are zero, matching the existing physical-construction economy.
@@ -230,8 +230,7 @@ cache invalidation, private projections, both renderers and authored variants.
 A real two-client gateway/simulation test covers consecutive paid supply trades.
 
 Every tile resource has an overview description. Frontier deposits explain the
-required installation and Manifest, potential output and batch interval, FOOD
-support, exclusive use and Siphon diversion. Existing resource descriptions use
+required installation and Manifest, potential output and batch interval, exclusive use and Siphon diversion. Existing resource descriptions use
 renewable-slot terminology and distinguish Crystal from Shards.
 
 The standard-size budget/cluster regression is attached to the existing real

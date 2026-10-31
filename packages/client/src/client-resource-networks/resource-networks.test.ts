@@ -14,7 +14,7 @@ import type { Tile } from "../client-types.js";
 for (const resource of NETWORK_RESOURCES) describe(resource, () => {
   const spec=RESOURCE_NETWORKS[resource];
   const tile: Tile={x:10,y:10,terrain:"LAND",ownerId:"p",ownershipState:"SETTLED",resource};
-  it("offers a locked Manifest link, then dispatches the correct build with FOOD upkeep", () => {
+  it("offers a locked Manifest link, then dispatches the correct build with no upkeep", () => {
     const state=createInitialState();state.me="p";
     state.resourceSlots={supply:{FOOD:5,TITANIUM:0,CRYSTAL:0,UMBRITE:0},demand:{FOOD:0,TITANIUM:0,CRYSTAL:0,UMBRITE:0}};
     const deps={structureCostText:()=>"120 manpower",buildDetailTextForAction:()=>"Develop this deposit",availability:(_type:string,ok:boolean,reason:string,cost:string):[boolean,string,string]=>[ok,reason,cost]};
@@ -24,7 +24,7 @@ for (const resource of NETWORK_RESOURCES) describe(resource, () => {
     state.techIds=[spec.tech];
     const ready=resourceBuildActions(state,tile,false,"",deps)[0]!;
     expect(ready.disabled).toBe(false);
-    expect(ready.cost).toContain("Upkeep:");expect(ready.cost).toContain("FOOD");
+    expect(ready.cost).not.toContain("Upkeep");
     expect(structureTypeForTileAction(ready.id)).toBe(spec.building);
     expect(ready.id).toBe(networkBuildAction(resource));
     expect(resourceBuildActions(state,tile,true,"",deps)[0]?.disabled).toBe(true);
