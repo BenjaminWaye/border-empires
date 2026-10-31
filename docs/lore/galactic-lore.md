@@ -28,33 +28,56 @@ The aether that had run through it didn't vanish — it leaked out into open
 space, ownerless.
 
 That leaked aether is **the Bleed**. It has no mind and no intent. It is
-simply aether still doing what aether has always done — spreading,
-propagating, trying to network with whatever it touches — except now with
-nothing sane directing it. It is lethal to unshielded matter and life not
-out of malice, but because it behaves like infrastructure nobody is
-driving anymore: closer to a wildfire spreading at the edge of cleared
-land than to a fog or a beast.
+not alive; it is still *running*. Aether was the Concordance's medium for
+building and linking — Terrain Shaping, constructs, the coordination of a
+whole polity — and the Bleed is that medium with nothing directing it. Every
+behaviour that makes it look alive is one of aether's old functions running
+without an operator:
 
-Most of known space is still the Bleed. The handful of Concordance
-remnants that survived its birth were the ones that found a way to hold
-ground against it.
+- **It connects.** It spreads into and joins with whatever it touches,
+  because linking things together was its purpose.
+- **It builds.** Where it gathers, it raises a body out of the surrounding
+  rock — Terrain Shaping with no blueprint, so what it builds is misshapen.
+- **It seeks the Engine.** Aether still tries to flow back to its source.
+  The source is gone, so to the Bleed any strong aether signal reads as a
+  piece of the Engine, and it moves toward the strongest one it can sense.
+  This is purpose without a mind.
+
+It is lethal to unshielded matter and life not out of malice: to be linked
+into the Bleed is to be absorbed and made into more of its own substance.
+What limits it is aether, not matter. It already has all the rock it could
+ever want, so the bodies it absorbs do not make it larger; only aether
+does. It grows by feeding on aether-work, never by winning fights.
+
+The Bleed's body only stays awake while aether keeps flowing through it.
+Broken apart and torn from the parts that connect it, each piece grows
+weaker, and a piece too small to keep its flow going falls dormant and
+settles into the rock it was built from as **Crystal** (§3). The Bleed is
+never destroyed, only put back to sleep.
+
+The Bleed once filled most of known space. Today it is very nearly gone —
+not because anyone mastered it, but because the Concordance's **Wardens**
+(§4) scoured it from open space and from the surfaces of worlds. What
+survives does so only where the Wardens could not sense it.
 
 ## 2. The Court
 
-The greatest of those remnants is **the Court** — the civilization that
-mastered anchor technology well enough to push the Bleed back and hold
-ground against it. It did not do this alone or peacefully. In the
-Concordance's shattered pieces, the Court fought a running war on two
-fronts at once: the Bleed itself, and the Concordance's own **Wardens**,
-turned hostile after the Engine's fall and just as eager to tear
-down anything the survivors tried to rebuild. Holding any ground at all
+The greatest of the Concordance's surviving remnants is **the Court**. Its
+real war was not against the Bleed, which the Wardens were already scouring
+away, but against the **Wardens** themselves (§4): the Concordance's own
+cleanup corps, turned on everything that used aether after the Engine's fall
+and just as eager to tear down anything the survivors tried to rebuild. The
+Court survived it by learning to run a civilization the Wardens could not
+easily sense — command and coordination carried on gravitational links
+rather than aether (§10), with aether-work kept to what it could defend.
+Holding any ground at all
 took a strong aristocracy able to mobilize and command the masses on
 short notice, again and again, for as long as the war lasted. That
 necessity is what made the Court **feudal** from its founding — not a
 custom that hardened later, but the shape survival itself took.
 
 Centuries on, with a stable, governed heartland — the **Core** — secured
-and both the Bleed and the Wardens driven back beyond it, the Court sits
+and the Wardens driven back beyond it, the Court sits
 at a true peak: no rival, no want its economy cannot answer, no frontier
 of knowledge left uncharted. But the feudal order that won that war never
 stood down once it was over. Nobility still holds rank and land under a
@@ -69,14 +92,15 @@ Peace left the Court with a new problem: an aristocracy that had grown
 comfortable and short-tempered with nothing left to conquer, and a mass
 of common people who had once been mobilized for a real war and now had
 no outlet at all. The Court found both answers in the same place — the
-**frontier**: the vast unclaimed space beyond the Core, still shaped by
-the Bleed and still, here and there, haunted by surviving Wardens.
+**frontier**: the vast unclaimed space beyond the Core: worlds the Wardens scoured
+clean long ago, slowly resettled since, and still haunted by the
+Wardens that remain.
 Sending its nobility to fight over it gave the aristocracy something to
 strive for again. Broadcasting that fight back across the Core gave the
 masses something to watch.
 
 Periodically, the Court opens a **Sector** — a world at the edge of its
-Bleed-held frontier — as a sanctioned war game for its nobles to fight
+Warden-haunted frontier — as a sanctioned war game for its nobles to fight
 over. Doctrine calls this the **Writ of Sectors**: to hold nothing is to owe
 everything, and unclaimed ground is a debt the galaxy owes itself. Every
 noble who answers the Proclamation believes some version of this. The
@@ -93,7 +117,10 @@ it is a real title and a real holding, carried forward.
 ## 3. Aether, made physical: Crystal and Shard
 
 Aether does not only exist as the raw, hostile Bleed. It also exists in
-two settled, usable forms, found across every frontier world:
+two settled, usable forms, found across every frontier world. The three are
+states of the same substance: the Bleed is aether with no container,
+active and uncontrolled; a Shard is aether still sealed inside a piece of
+the Engine itself; Crystal is aether gone dormant in rock.
 
 **Crystal** is aether that has gone dormant. Loose in the open, aether is
 volatile; trapped for centuries in stable rock, it crystallizes, the way
@@ -101,8 +128,10 @@ carbon compresses into diamond. A Crystal deposit is safe to mine
 precisely because it is aether that has gone quiet — and refining it is
 what puts that aether back into active use, powering everything a Duke
 builds. **Mining and refining Crystal is what "activating" a world's
-aether means** — and it is the act that eventually draws the Bleed's
-attention back.
+aether means** — and it is the act that eventually draws the Wardens'
+attention (§5). Crystal is also what the Bleed becomes when it is broken
+apart (§1): the same dormant aether, settled into the rock it had built
+itself from.
 
 **Shard** is rarer and more dangerous: not settled aether at all, but
 actual drifting fragments of the shattered Sovereign Siege Engine, still loose in
@@ -138,27 +167,48 @@ because aether ran through everything the Concordance had ever built. An
 order to destroy one kind of aether construct generalized, in time, into
 an order to destroy all of them.
 
-The Wardens turned on their makers. What followed was, in effect, a
-second war — fought to shut down a cleanup corps that could no longer
-tell friend from target. Most Wardens were destroyed in it. The few that
-remain are found only at the frontier, far from the Core's defenses —
+Against the Bleed itself, the Wardens largely succeeded: they scoured it
+from open space and from the surface of world after world. But the Wardens
+turned on their makers. What followed was, in effect, a second war — the
+Court's real war (§2) — fought to shut down a cleanup corps that could no
+longer tell friend from target. Most Wardens were destroyed in it. The few
+that remain are found only at the frontier, far from the Core's defenses —
 old, malfunctioning, and still carrying out a purpose nobody living gave
 them.
 
-**Bleed-infestations** are the thing the Wardens were built to fight, and
-they are still out there, quietly present on most unclaimed frontier
-worlds before any Duke arrives. An infestation is raw aether that has
-coalesced — an intangible mass that builds itself a body from the
-surrounding terrain and actively consumes any aether it can reach.
+A Warden senses active aether. It cannot tell the Bleed from a House's
+machinery or from the Concordance's own old works, because to that sense
+they are the same substance doing the same thing. That is why it destroyed
+its makers' infrastructure, and why it will come for a Duke's.
 
-This is also why frontier towns run on nothing but old, ordinary
-machinery — plain combustion engines, mechanical carts, none of the
-aether-work the Court takes for granted. It is not that the aether isn't
-there. It's that every town at the frontier has learned, over generations
-and usually at terrible cost, exactly what wakes an infestation or draws
-a Warden's eye. Aether-work is a known danger, not a lost art — the
+The frontier worlds the Court now opens are worlds the Wardens scoured
+clean long ago. People resettled them slowly in the centuries since, on
+ground the Wardens had already emptied. This is why frontier towns run on
+nothing but old, ordinary machinery — plain combustion engines, mechanical
+carts, none of the aether-work the Court takes for granted. It is not that
+the aether isn't there. It's that every town at the frontier has learned,
+over generations and usually at terrible cost, exactly what draws a
+Warden's eye. Aether-work is a known danger, not a lost art — the
 townspeople could build it if they had the pieces, and choose, instead,
 not to.
+
+### What remains of the Bleed
+
+**Bleed-infestations** — raw aether coalesced into a mass that builds
+itself a body from the surrounding terrain and consumes any aether it can
+reach — are the thing the Wardens were built to fight. They survive today
+almost nowhere but inside dormant relic installations (below). A switched-off
+installation is the one place a Warden cannot sense the Bleed: nothing in it
+is active, so there is nothing to detect. Over the centuries the Bleed seeped
+into those installations' sleeping aether channels, gathered there and went
+quiet. A relic's channels are, to the Bleed, a ready-made body.
+
+An infestation is at its strongest when it is concentrated. Spreading out
+thins it, and a fragment torn away from the mass grows weaker still and
+eventually falls dormant as Crystal (§1). It grows only by consuming
+aether-work — a refinery, an aether tower, a relic's reserves, a Shard.
+Shards, being sealed pieces of the Engine itself, are what it is drawn to
+above everything else.
 
 ### Surviving relic installations
 
@@ -173,8 +223,18 @@ These machines are aether-powered. Active aether-work attracts the Wardens,
 so frontier communities have left the installations dormant. A House can
 establish a garrison and put a surviving installation back into service; it
 is accepting the established danger of aether-work, not discovering that the
-old machinery is harmless. This does not imply a new Warden-spawn rule,
-repair charge or reactivation-risk mechanic; those are gameplay decisions.
+old machinery is harmless.
+
+Reactivation carries a second danger: the Bleed may be sleeping inside. A
+working installation threatens it in three ways at once. Drawing on the
+relic's reserves burns the aether it lives on, so it is **starved out**.
+The running installation is wired into the House's own aether network,
+giving it a path out and a signal to follow, so it is **pulled out** toward
+the House's strongest aether-work. And a running installation is loud enough
+for Wardens to sense, so staying put means being found. A Bleed breach is
+therefore a consequence of the House's own use of the relic, not a random
+visitation. Its rules and numbers are a gameplay proposal, not shipped
+behaviour (§14).
 
 Relic remnants can include finite reserves as well as working machinery.
 An **Ancillary Vault** holds ancillary bodies already prepared to connect to
@@ -206,16 +266,16 @@ force-field coverage are numerical rules in the [relic reference](../relics.md).
 
 ## 5. Why arriving is dangerous
 
-An infestation left undisturbed for years is dormant compared to what it
-becomes once something nearby actually starts using aether. The moment a
-Duke starts mining and refining a world's Crystal, that dormant
-infestation is handed the richest concentrated food source it has ever
-encountered — and it wakes, and hunts. Any surviving Wardens nearby,
-still keyed to react to active aether constructs, converge on the same
-disturbance for the same reason.
+A scoured world is quiet until something on it starts using aether. The
+moment a Duke starts mining and refining a world's Crystal, raising aether
+towers or bringing a relic back into service, the surviving Wardens —
+still keyed to react to active aether constructs — notice the disturbance
+and converge on it. A Duke who reactivates a relic may also wake what has
+been sleeping inside it (§4), and that infestation hunts the same aether
+economy the Wardens are drawn to.
 
 Nothing here is watching for who you are. It is watching for what you are
-doing — an infestation and a Warden alike are drawn to the disturbance a
+doing — a Warden and an infestation alike are drawn to the disturbance a
 working aether economy creates, the way lightning finds the tallest
 conductor, not because either was designed to judge you, but because you
 are, factually, generating something they react to.
@@ -223,7 +283,9 @@ are, factually, generating something they react to.
 The same principle holds at the scale of a Duke's whole domain: a fully
 developed world — industry running, Wonders raised, aether in constant
 circulation — is a far larger and more permanent disturbance than a small,
-quiet holding, and draws far more of both threats as a direct consequence.
+quiet holding, and draws far more Wardens as a direct consequence. What
+draws them is aether-work, not population: a large town running on
+combustion engines is no louder to a Warden than a small one.
 The more successful a Duke becomes, the more the frontier itself pushes
 back — automatically, proportionate to real strength, with nothing to
 fake and nothing to hide from.
@@ -306,9 +368,10 @@ up, and the Court's protection quietly returns.
 
 Where a Duke's towns are the heart of a claim, the **Relay Beacon** is its
 flag. It is the cheapest and quickest form of the Court's anchor technology:
-a tall, unarmed tower raised on frontier ground to declare, in a way the
-Bleed and every rival can read from miles away, that this stretch of land is
-now anchored to a Duke.
+a tall, unarmed gravitational relay station raised on frontier ground to
+declare, in a way every rival can read from miles away, that this stretch of
+land is now anchored to a Duke. Its anchoring is a claim and a control field,
+not a barrier: it does not hold back the Bleed or turn away Wardens.
 
 A House AI coordinates its planetary ancillaries and fabrication systems from
 space. Relay Beacons receive its orbital command stream through deliberately
@@ -655,7 +718,8 @@ not infer new gameplay rules from them while implementing unrelated work.
 | Rank before a first victory | §2 says winning grants the rank of Duke, while later passages call campaign participants Dukes. Define first-time contenders' rank and returning Dukes' participation. |
 | Permanent holdings and map resets | §2 grants permanent rights to a won world; §8 preserves titles but allows the map to reset. Define what persists across a seasonal campaign and an age ending with the Court's fall. |
 | Writs and the revolt | §7 says accepting a Writ restores the Court's grip; §8 says a Writ does not weaken the revolt. Clarify the relationship before assigning metagame effects. |
-| Relic reactivation costs and risks | Installation families, common surface access structures and the low-power locator transponder are established in §4. Repair costs, activation encounters and random breakdowns remain future design ideas; they are not established mechanics. Current quantities and effects belong in the [relic reference](../relics.md). |
+| Relic reactivation costs and risks | Installation families, common surface access structures, the low-power locator transponder and the Bleed sleeping inside dormant installations are established in §4: reactivation can release it. Breach and Warden-arrival rules are an active gameplay proposal ([Wardens and relic Bleed](../wardens-and-relic-bleed-plan.md)), not shipped behaviour. Repair costs and random breakdowns remain future design ideas. Current quantities and effects belong in the [relic reference](../relics.md). |
+| Supporting memoir and the scoured frontier | [The Sable Recollections](duke-memoir.md) §III describes an infestation rising from the ground near a newly mined Crystal seam, and §VII says "The Bleed does not hate you". Both predate the decision that the Bleed survives almost only inside relics (§1, §4). Revise the memoir — the §VII passage may better describe the Wardens — or keep it as the Duke's own mistaken account; the memoir cannot override §4. |
 
 ### Consolidation sources
 

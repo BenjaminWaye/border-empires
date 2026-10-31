@@ -44,6 +44,7 @@ remain authoritative for runtime behavior.
 | [Frontier infrastructure models](infrastructure-models.md) | Mine, harbor, relay and aether architecture, the Umbrite platform, renderer contracts and 2D regeneration |
 | Adding a structure | [`adding-a-structure-playbook.md`](adding-a-structure-playbook.md) |
 | Relic redesign: execution stages, finite reserves and depleted map state | [`relics-execution-plan.md`](relics-execution-plan.md) |
+| Wardens and relic Bleed: breach, thinning outbreaks and Warden landings (proposed) | [`wardens-and-relic-bleed-plan.md`](wardens-and-relic-bleed-plan.md) |
 | Accepted relic ziggurat: visual references and implementation history | [`relic-overlay-preview.md`](relic-overlay-preview.md) |
 
 ## Document lifecycle
