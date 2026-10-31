@@ -6,6 +6,7 @@
 import { manpowerPerBatch, terrainAdjustedTownManpower, townFoodSlotDemandForTier } from "@border-empires/shared";
 import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town-tile-terrain.js";
 import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
+import { isGarrison } from "./client-hud-v2-action-bar.js";
 import { buildCategories, buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
 import { townGrowth } from "./client-hud-v2-tile-facts.js";
 import { displayTownPopulationTierLabel, townNextPopulationMilestone } from "../client-town-growth/client-town-growth.js";
@@ -113,7 +114,14 @@ const barHtml = (input: TownScreenInput): string => {
   // its controls (marked "(town)") while a support tile is selected.
   const supportFocus = keyOf(input.focus) !== keyOf(input.town);
   const isMuster = (a: TileActionDef): boolean => a.id.startsWith("muster_");
-  const shownIds = new Set<TileActionDef["id"]>(["muster_hold", "city_overclock", ...GROW_IDS]);
+  // An ungarrisoned town's Garrison leads the bar as the gold main button; a text link was easy to miss.
+  // Touch has no tooltips, so a disabled one says why on the button itself.
+  const garrison = input.townView.actions.find(isGarrison);
+  const garrisonNote = garrison?.disabled ? garrison.disabledReason : garrison?.cost;
+  const garrisonBtn = garrison
+    ? `<button type="button" class="v2t-act v2t-act-primary" data-hud-v2-action="settle_land"${targetAttrs(garrison, keyOf(input.town))}${garrison.disabled ? " disabled" : ""} title="${esc(garrison.disabled ? garrison.disabledReason ?? garrison.label : garrison.detail ?? garrison.label)}">${esc(garrison.label)}${garrisonNote ? `<small>${esc(garrisonNote)}</small>` : ""}</button>`
+    : "";
+  const shownIds = new Set<TileActionDef["id"]>(["muster_hold", "city_overclock", ...GROW_IDS, ...(garrison ? ["settle_land" as const] : [])]);
   const minorActions = [
     ...input.townView.actions.filter((a) => !shownIds.has(a.id)).map((a) => ({ a: supportFocus && isMuster(a) ? { ...a, label: `${a.label} (town)` } : a, key: keyOf(input.town) })),
     ...(supportFocus ? input.focusView.actions.filter((a) => !shownIds.has(a.id) && isMuster(a)).map((a) => ({ a, key: keyOf(input.focus) })) : [])
@@ -128,7 +136,7 @@ const barHtml = (input: TownScreenInput): string => {
   const raiseBtn = raise
     ? `<button type="button" class="v2t-act" data-hud-v2-action="muster_hold" data-target-key="${esc(keyOf(raiseOn))}"${raise.disabled ? " disabled" : ""} title="${esc(raise.disabled ? raise.disabledReason ?? "" : raise.detail ?? "")}">${raiseLabel}</button>`
     : "";
-  return `${raiseBtn}${btn(actionFor(input.townView, "city_overclock"), "Overclock")}
+  return `${garrisonBtn}${raiseBtn}${btn(actionFor(input.townView, "city_overclock"), "Overclock")}
     ${minor ? `<span class="v2t-minor">${minor}</span>` : ""}
     <button type="button" class="v2t-act v2t-act-back" data-v2-close>◁ Map · Esc</button>`;
 };
