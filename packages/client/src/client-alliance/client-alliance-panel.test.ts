@@ -171,7 +171,8 @@ describe("bindProposeButtons", () => {
     expect(tradeTitle()).toBe("Deal with SteamLord");
     expect(pressedKind()).toBe("alliance:0");
     expect(sendGameMessage).toHaveBeenLastCalledWith({ type: "DIPLOMACY_STANCE_REQUEST", targetPlayerName: "SteamLord", targetPlayerId: "p-1" }, expect.any(String));
-    expect(document.querySelector("[data-trade-holdings]")?.textContent).toBe("You have 500 coin and 2 Shards.");
+    expect(document.querySelector("[data-trade-have='give-gold']")?.textContent).toBe("You have 500");
+    expect(document.querySelector("[data-trade-have='give-shard']")?.textContent).toBe("You have 2");
 
     root.querySelectorAll<HTMLButtonElement>(".propose-truce")[1]!.click();
     expect(pressedKind()).toBe("truce:24");

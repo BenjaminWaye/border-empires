@@ -243,7 +243,8 @@ describe("diplomacy trade screen", () => {
       { send: vi.fn().mockReturnValue(true), ownHoldings: () => ({ gold: 100, shard: 0, resources: { FOOD: 2 } }), runningTruce: () => ({ startedAt: Date.now(), endsAt: Date.now() + 3_600_000 }) }
     );
     const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
-    expect(overlay.querySelector("[data-trade-kind='trade:0']")?.getAttribute("aria-pressed")).toBe("true");
+    // No treaty is picked: the deal is a resource trade until a truce or alliance is added.
+    expect(overlay.querySelector("[data-trade-kind][aria-pressed='true']")).toBeNull();
     expect(overlay.querySelector("[data-trade-kind='truce:12']")?.textContent).toBe("Extend 12h");
   });
 
@@ -272,12 +273,12 @@ describe("diplomacy trade screen", () => {
       openDiplomacyTradeScreen({ targetName: "Milo", kind: "truce", durationHours: 12 }, { send: vi.fn().mockReturnValue(true), ownHoldings });
       const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
       receiveDiplomacyStance(aiReply);
-      expect(overlay.querySelector("[data-trade-holdings]")?.textContent).toBe("You have 10 coin and 0 Shards.");
+      expect(overlay.querySelector("[data-trade-have='give-gold']")?.textContent).toBe("You have 10");
       expect(overlay.querySelector<HTMLButtonElement>("[data-trade-suggest]")!.disabled).toBe(true);
 
       holdings.gold = 400;
       vi.advanceTimersByTime(TRADE_HOLDINGS_CHECK_MS);
-      expect(overlay.querySelector("[data-trade-holdings]")?.textContent).toBe("You have 400 coin and 0 Shards.");
+      expect(overlay.querySelector("[data-trade-have='give-gold']")?.textContent).toBe("You have 400");
       expect(overlay.querySelector<HTMLButtonElement>("[data-trade-suggest]")!.disabled).toBe(false);
 
       closeDiplomacyTradeScreen();

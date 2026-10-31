@@ -217,18 +217,10 @@ body.hud-v2-screen-afc #side-panel {
 .v2d-emp-tiles { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
 .v2d-deal-nav { display: flex; align-items: baseline; gap: 14px; margin-bottom: 12px; }
 .v2d-deal-with { font-family: var(--v2-display); font-size: 18px; font-weight: 700; letter-spacing: 0.06em; }
-.v2d-deal { flex: 1; min-height: 0; display: grid; grid-template-columns: 300px minmax(0, 1fr) 300px; gap: 16px; }
-.v2d-side, .v2d-terms { min-height: 0; overflow: auto; padding: 16px 18px; background: rgba(15, 13, 10, 0.95); border: 1px solid var(--v2-edge); }
-.v2d-side-you { border-top: 3px solid #3fb0a6; }
-.v2d-side-them { border-top: 3px solid var(--v2-red); }
-.v2d-side-head { display: flex; align-items: center; gap: 12px; padding-bottom: 12px; margin-bottom: 8px; border-bottom: 1px solid var(--v2-line); }
-.v2d-side-head > span { display: grid; }
-.v2d-side-role { font-family: var(--v2-mono); font-size: 11px; letter-spacing: 0.14em; color: var(--v2-soft); }
-.v2d-side-name { font-family: var(--v2-display); font-size: 19px; font-weight: 700; letter-spacing: 0.06em; }
-.v2d-side-row { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; font-size: 14px; }
-.v2d-side-row span { color: var(--v2-soft); }
-.v2d-side-row b { font-family: var(--v2-mono); font-weight: 400; text-align: right; }
-/* The existing trade view, re-hosted in the middle column. */
+.v2d-deal-facts { font-family: var(--v2-mono); font-size: 12px; color: var(--v2-soft); }
+.v2d-deal { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
+.v2d-terms { min-height: 0; overflow: auto; padding: 16px 18px; background: rgba(15, 13, 10, 0.95); border: 1px solid var(--v2-edge); }
+/* The trade view (its own yours / deal / theirs columns), re-hosted full width. */
 .v2d-terms .diplomacy-trade-overlay { position: static; inset: auto; display: block; padding: 0; background: none; backdrop-filter: none; }
 .v2d-terms .diplomacy-trade-popup { width: 100%; max-height: none; padding: 0; border: 0; background: none; box-shadow: none; }
 

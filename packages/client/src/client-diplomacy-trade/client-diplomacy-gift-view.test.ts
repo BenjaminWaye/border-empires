@@ -70,13 +70,17 @@ describe("gift on the trade screen", () => {
       { send, ownHoldings: () => ({ gold: 500, shard: 0 }), runningTruce: () => ({ startedAt: Date.now(), endsAt: Date.now() + 6 * 60_000 }) }
     );
     const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
-    const giftButton = overlay.querySelector<HTMLButtonElement>("[data-trade-kind='gift:0']")!;
-    expect(giftButton.hidden).toBe(true);
     receiveDiplomacyStance(elin);
-    expect(giftButton.hidden).toBe(false);
-    giftButton.click();
-    expect(overlay.querySelector<HTMLElement>("[data-trade-side='ask']")!.hidden).toBe(true);
-    overlay.querySelector<HTMLButtonElement>("[data-trade-suggest]")!.click();
+    // Taking the truce out of the deal leaves nothing but what you give: a gift.
+    overlay.querySelector<HTMLButtonElement>("[data-deal-remove='treaty']")!.click();
+    expect(overlay.querySelector("[data-trade-kind][aria-pressed='true']")).toBeNull();
+    expect(overlay.querySelector("[data-trade-deal]")?.textContent).toContain("Nothing in the deal yet.");
+    const suggest = overlay.querySelector<HTMLButtonElement>("[data-trade-suggest]")!;
+    expect(suggest.textContent).toBe("Suggest gift");
+    suggest.click();
+    expect(overlay.querySelector("[data-deal-side='give']")?.textContent).toContain("196 Coin");
+    // A gift asks for nothing back.
+    expect(overlay.querySelector("[data-deal-side='ask']")).toBeNull();
     expect(overlay.querySelector<HTMLInputElement>("[data-trade-give-gold]")!.value).toBe("196");
     const sendButton = overlay.querySelector<HTMLButtonElement>("[data-trade-send]")!;
     expect(sendButton.textContent).toBe("Offer gift");
@@ -98,7 +102,7 @@ describe("gift on the trade screen", () => {
       openDiplomacyTradeScreen({ targetName: "Elin", targetPlayerId: "ai-2", kind: "alliance", durationHours: 12 }, { send, ownHoldings: () => ({ gold: 500, shard: 0 }) });
       const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
       receiveDiplomacyStance(elin);
-      overlay.querySelector<HTMLButtonElement>("[data-trade-kind='gift:0']")!.click();
+      overlay.querySelector<HTMLButtonElement>("[data-deal-remove='treaty']")!.click();
       overlay.querySelector<HTMLButtonElement>("[data-trade-suggest]")!.click();
       const sendButton = overlay.querySelector<HTMLButtonElement>("[data-trade-send]")!;
       sendButton.click();
@@ -114,9 +118,15 @@ describe("gift on the trade screen", () => {
     }
   });
 
-  it("hides the gift for human players", () => {
-    openDiplomacyTradeScreen({ targetName: "Ada", kind: "truce", durationHours: 12 }, { send: vi.fn().mockReturnValue(true), ownHoldings: () => ({ gold: 500, shard: 0 }) });
+  it("does not send gifts to human players", () => {
+    openDiplomacyTradeScreen({ targetName: "Ada", kind: "gift", durationHours: 12 }, { send: vi.fn().mockReturnValue(true), ownHoldings: () => ({ gold: 500, shard: 0 }) });
     receiveDiplomacyStance({ found: true, targetPlayerName: "Ada", targetPlayerId: "p2", ai: false });
-    expect(document.querySelector<HTMLButtonElement>("[data-trade-kind='gift:0']")!.hidden).toBe(true);
+    const exact = document.querySelector<HTMLInputElement>("[data-trade-exact='give-gold']")!;
+    exact.value = "50";
+    exact.dispatchEvent(new Event("input"));
+    // Humans take no gifts: giving coin alone is not a deal until a treaty or supply is added.
+    expect(document.querySelector("[data-trade-verdict]")?.textContent).toContain("Coin and Shards change hands with a truce");
+    expect(document.querySelector<HTMLButtonElement>("[data-trade-send]")!.disabled).toBe(true);
+    expect(document.querySelector<HTMLButtonElement>("[data-trade-suggest]")!.hidden).toBe(true);
   });
 });
