@@ -43,7 +43,7 @@ describe("chooseFoodConsumingStructureToDisable", () => {
   it("falls back to any active FOOD-consuming structure when none is dormant", () => {
     // supply === demand (exactly full) never marks anything dormant, so
     // requiring dormancy used to leave the AI with no fallback target here.
-    const structure = tile(4, 5, { type: "CENSUS_HALL" });
+    const structure = tile(4, 5, { type: "MINE" });
     expect(chooseFoodConsumingStructureToDisable([structure], PLAYER_ID, new Set())).toEqual({ x: 4, y: 5, kind: "disable" });
     expect(chooseFoodConsumingStructureToDisable([structure], PLAYER_ID, undefined)).toEqual({ x: 4, y: 5, kind: "disable" });
   });

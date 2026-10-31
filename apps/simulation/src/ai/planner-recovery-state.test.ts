@@ -45,13 +45,13 @@ describe("planner recovery state", () => {
     const withAfc = mergePlannerTileDelta(initial, {
       x: 0, y: 0, afcJson: JSON.stringify({ ownerId: "ai-1", status: "active" }),
       townJson: JSON.stringify({ populationTier: "TOWN", population: 900 }),
-      economicStructureJson: JSON.stringify({ ownerId: "ai-1", type: "CENSUS_HALL", status: "inactive", inactiveReason: "manual" })
+      economicStructureJson: JSON.stringify({ ownerId: "ai-1", type: "MINE", status: "inactive", inactiveReason: "manual" })
     });
     expect(withAfc).toMatchObject({
       afc: { ownerId: "ai-1" }, town: { population: 900 }, economicStructure: { inactiveReason: "manual" }
     });
     const cleared = mergePlannerTileDelta(withAfc, {
-      x: 0, y: 0, afcJson: "", economicStructureJson: JSON.stringify({ ownerId: "ai-1", type: "CENSUS_HALL", status: "active" })
+      x: 0, y: 0, afcJson: "", economicStructureJson: JSON.stringify({ ownerId: "ai-1", type: "MINE", status: "active" })
     });
     expect(cleared).not.toHaveProperty("afc");
     expect(cleared?.economicStructure).not.toHaveProperty("inactiveReason");
@@ -92,7 +92,7 @@ describe("planner recovery state", () => {
     };
     const consumer: DomainTileState = {
       x: 3, y: 0, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED",
-      economicStructure: { ownerId: "ai-1", type: "CENSUS_HALL", status: "active" }
+      economicStructure: { ownerId: "ai-1", type: "MINE", status: "active" }
     };
     const tiles = [beacon, consumer];
     expect(foodSlotReliefFromPlannerInput(tiles, "ai-1", undefined,
