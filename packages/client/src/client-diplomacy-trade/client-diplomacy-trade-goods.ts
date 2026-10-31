@@ -4,7 +4,7 @@
 // a slider under it from 0 to what that side holds, with an exact-amount box
 // beside it for amounts the slider can't reach. Only one slider is open at a
 // time; each row always shows the amount in the deal.
-import { TRADABLE_SUPPLY_RESOURCES, supplyResourceLabel, type DiplomacyGoods, type DiplomacyTerms, type ResourceSupplyOffer, type TradableSupplyResource } from "@border-empires/shared";
+import { MAX_RESOURCE_TRADE_SLOTS, TRADABLE_SUPPLY_RESOURCES, supplyResourceLabel, type DiplomacyGoods, type DiplomacyTerms, type ResourceSupplyOffer, type TradableSupplyResource } from "@border-empires/shared";
 
 import { resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
 import type { DiplomacyStanceReply } from "./client-diplomacy-trade-view.js";
@@ -88,10 +88,17 @@ export const tradeGoodsLimits = (own: DiplomacyGoods, reply: DiplomacyStanceRepl
   return limits;
 };
 
-/** `terms` with one good's amount replaced; a supply slot set to 0 leaves the deal. */
+/** A data attribute's value as a goods key, or undefined when it names no good. */
+export const asTradeGoodKey = (value: string | undefined): TradeGoodKey | undefined => TRADE_GOODS.find((spec) => spec.key === value)?.key;
+
+/**
+ * `terms` with one good's amount replaced; a supply slot set to 0 leaves the
+ * deal, and supply is capped at what the server accepts per resource.
+ */
 export const withTradeAmount = (terms: DiplomacyTerms, key: TradeGoodKey, amount: number): DiplomacyTerms => {
   const { side, good } = specFor(key);
   if (good === "gold" || good === "shard") return { ...terms, [side]: { ...terms[side], [good]: amount } };
+  amount = Math.min(MAX_RESOURCE_TRADE_SLOTS, amount);
   const resources: ResourceSupplyOffer = { ...terms[side].resources };
   if (amount > 0) resources[good] = amount;
   else delete resources[good];

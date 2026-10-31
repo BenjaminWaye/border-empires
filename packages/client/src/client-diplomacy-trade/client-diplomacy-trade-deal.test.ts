@@ -20,12 +20,14 @@ const openScreen = (holdings = { gold: 100, shard: 3, resources: { FOOD: 2 } }, 
 };
 
 describe("dealKind", () => {
-  it("follows the treaty, else resource supply or asks make a trade and plain giving is a gift", () => {
+  it("follows the treaty, else resource supply or asks make a trade and plain giving to an AI is a gift", () => {
     const terms = { give: { gold: 5, shard: 0 }, ask: empty };
-    expect(dealKind("alliance", terms)).toBe("alliance");
-    expect(dealKind(undefined, terms)).toBe("gift");
-    expect(dealKind(undefined, { give: { ...empty, resources: { FOOD: 1 } }, ask: empty })).toBe("trade");
-    expect(dealKind(undefined, { give: empty, ask: { gold: 5, shard: 0 } })).toBe("trade");
+    expect(dealKind("alliance", terms, true)).toBe("alliance");
+    expect(dealKind(undefined, terms, true)).toBe("gift");
+    // Humans take no gifts.
+    expect(dealKind(undefined, terms, false)).toBe("trade");
+    expect(dealKind(undefined, { give: { ...empty, resources: { FOOD: 1 } }, ask: empty }, true)).toBe("trade");
+    expect(dealKind(undefined, { give: empty, ask: { gold: 5, shard: 0 } }, true)).toBe("trade");
   });
 });
 
@@ -72,12 +74,15 @@ describe("diplomacy deal table", () => {
     expect(overlay.querySelector<HTMLElement>("[data-trade-slider='ask-CRYSTAL']")!.hidden).toBe(false);
   });
 
-  it("toggles treaties: picking one replaces the other, pressing it again takes it out", () => {
+  it("picks one treaty at a time; only the deal's ✕ takes it out", () => {
     const { overlay, send, typeAmount } = openScreen();
     overlay.querySelector<HTMLButtonElement>("[data-trade-kind='alliance:0']")!.click();
     expect(overlay.querySelector("[data-deal-treaty]")?.textContent).toContain("Alliance");
     expect(overlay.querySelector("[data-trade-kind='truce:12']")?.getAttribute("aria-pressed")).toBe("false");
+    // Regression (review): a second tap deselected the treaty, so a double-tap turned a paid truce into a gift.
     overlay.querySelector<HTMLButtonElement>("[data-trade-kind='alliance:0']")!.click();
+    expect(overlay.querySelector("[data-deal-treaty]")?.textContent).toContain("Alliance");
+    overlay.querySelector<HTMLButtonElement>("[data-deal-remove='treaty']")!.click();
     expect(overlay.querySelector("[data-deal-treaty]")).toBeNull();
     expect(overlay.querySelector("[data-trade-verdict]")?.textContent).toBe("Pick a truce or alliance on the left, or add goods from either side.");
     expect(overlay.querySelector<HTMLButtonElement>("[data-trade-send]")!.disabled).toBe(true);
@@ -92,6 +97,37 @@ describe("diplomacy deal table", () => {
       { type: "RESOURCE_TRADE_REQUEST", targetPlayerName: "Milo", targetPlayerId: "p-2", terms: { give: { gold: 0, shard: 0, resources: { FOOD: 1 } }, ask: { gold: 10, shard: 0 } } },
       expect.any(String)
     );
+  });
+
+  // Regression (review): the old supply table capped slots at the server's limit; the slider path did not.
+  it("caps supply slots at what the server accepts", () => {
+    const { overlay, typeAmount } = openScreen();
+    typeAmount("ask-FOOD", "20000");
+    expect(overlay.querySelector("[data-trade-amount='ask-FOOD']")?.textContent).toBe("10000");
+  });
+
+  // Regression (review): removing the treaty from a counter-offer sent a standalone trade or gift instead.
+  it("keeps the treaty in a counter-offer", () => {
+    openDiplomacyTradeScreen(
+      { targetName: "Milo", targetPlayerId: "p-2", kind: "truce", durationHours: 12, counters: { kind: "truce", requestId: "req-1" } },
+      { send: vi.fn().mockReturnValue(true), ownHoldings: () => ({ gold: 100, shard: 0 }) }
+    );
+    const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
+    expect(overlay.querySelector("[data-deal-treaty='truce']")).not.toBeNull();
+    expect(overlay.querySelector("[data-deal-remove='treaty']")).toBeNull();
+    overlay.querySelector<HTMLButtonElement>("[data-trade-kind='truce:12']")!.click();
+    expect(overlay.querySelector("[data-deal-treaty='truce']")).not.toBeNull();
+  });
+
+  // Regression (review): giving a human coin with no treaty showed gift wording although humans take no gifts.
+  it("asks for a treaty or supply when giving a human coin alone", () => {
+    const { overlay, typeAmount } = openScreen();
+    receiveDiplomacyStance({ found: true, targetPlayerName: "Milo", targetPlayerId: "p-2", ai: false });
+    overlay.querySelector<HTMLButtonElement>("[data-deal-remove='treaty']")!.click();
+    typeAmount("give-gold", "50");
+    expect(overlay.querySelector("[data-deal-side='give'] h4")?.textContent).toBe("You give");
+    expect(overlay.querySelector("[data-trade-verdict]")?.textContent).toContain("Coin and Shards change hands with a truce");
+    expect(overlay.querySelector<HTMLButtonElement>("[data-trade-send]")!.disabled).toBe(true);
   });
 
   it("lists only the resources an AI has spare once its holdings are known", () => {

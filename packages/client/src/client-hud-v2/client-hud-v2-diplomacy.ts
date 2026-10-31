@@ -92,8 +92,9 @@ export const diplomacyListHtml = (input: DiplomacyListInput): string => {
   return `${reqHtml}<section class="v2d-grid-wrap"><h2 class="v2s-h2">Empires you've met · ${empires.length}</h2><div class="v2d-grid">${grid}</div></section>`;
 };
 
-export const dealSkeletonHtml = (targetName: string): string =>
-  `<div class="v2d-deal-nav"><button type="button" class="v2s-link" data-v2-dip-back>◁ All empires</button><span class="v2d-deal-with">${esc(targetName)}</span></div>
+/** `facts`: the relation and tile counts the trade view itself doesn't show ("Ally · 1,204 tiles · you 980"). */
+export const dealSkeletonHtml = (targetName: string, facts = ""): string =>
+  `<div class="v2d-deal-nav"><button type="button" class="v2s-link" data-v2-dip-back>◁ All empires</button><span class="v2d-deal-with">${esc(targetName)}</span>${facts ? `<span class="v2d-deal-facts">${esc(facts)}</span>` : ""}</div>
    <div class="v2d-deal">
      <section class="v2d-terms" id="v2s-dip-host" aria-label="Deal"></section>
    </div>`;

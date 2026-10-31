@@ -22,7 +22,7 @@ import {
   type HudV2Deps,
   type HudV2ScreenId
 } from "./client-hud-v2-context.js";
-import { dealSkeletonHtml, diplomacyListHtml } from "./client-hud-v2-diplomacy.js";
+import { dealSkeletonHtml, diplomacyListHtml, empireStance } from "./client-hud-v2-diplomacy.js";
 import { MANIFEST_LEGEND_HTML, manifestDetailHtml, manifestHeadRightHtml, manifestTreeHtml } from "./client-hud-v2-manifest.js";
 import { profileHtml, type ProfileRelation } from "./client-hud-v2-profile.js";
 import { ranksBannerHtml, ranksBodyHtml } from "./client-hud-v2-ranks.js";
@@ -170,10 +170,22 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
     return;
   }
   if (bodyMode !== `deal:${target}`) {
-    writeHtml("v2s-body", dealSkeletonHtml(nameOf(deps, target) || "Empire"));
+    writeHtml("v2s-body", dealSkeletonHtml(nameOf(deps, target) || "Empire", dealFacts(deps, target)));
     bodyMode = `deal:${target}`;
     hostTradeView(deps, target);
   }
+};
+
+/** The relation and both tile counts, for the deal's top line (the trade view shows goods, not standing). */
+const dealFacts = (deps: HudV2Deps, target: string): string => {
+  const { state } = deps;
+  const tilesOf = (id: string): number | undefined =>
+    (state.leaderboard.overall.find((e) => e.id === id) ?? (id === state.me ? state.leaderboard.selfOverall : undefined))?.tiles;
+  const stance = empireStance(target, { allies: state.allies, activeTruces: state.activeTruces, nowMs: Date.now() });
+  const theirs = tilesOf(target), mine = tilesOf(state.me);
+  return [stance.kind === "met" ? "" : stance.label, theirs === undefined ? "" : `${theirs.toLocaleString("en-US")} tiles`, mine === undefined ? "" : `you ${mine.toLocaleString("en-US")}`]
+    .filter(Boolean)
+    .join(" · ");
 };
 
 /** The alert title for a sent offer; undefined for anything else the deal view sends (e.g. its stance lookup on open). */
@@ -343,7 +355,7 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
     });
     if (!input) return true;
     screen.diplomacyTargetId = input.targetPlayerId;
-    writeHtml("v2s-body", dealSkeletonHtml(input.targetName));
+    writeHtml("v2s-body", dealSkeletonHtml(input.targetName, input.targetPlayerId ? dealFacts(deps, input.targetPlayerId) : ""));
     bodyMode = `deal:${input.targetPlayerId}`;
     hostTradeView(deps, input.targetPlayerId, input);
     renderScreen(deps);

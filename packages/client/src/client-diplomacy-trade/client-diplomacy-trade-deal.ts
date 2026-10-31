@@ -21,19 +21,20 @@ const hasSupply = (terms: DiplomacyTerms): boolean => hasResourceSupplyOffer(ter
 
 /**
  * The offer this deal sends. With no treaty: resource supply (or anything
- * asked for) makes it a resource trade; giving only coin/Shards is a gift.
+ * asked for) makes it a resource trade; giving an AI only coin/Shards is a
+ * gift. Humans take no gifts, so that is a (not yet sendable) trade for them.
  */
-export const dealKind = (treaty: DealTreaty, terms: DiplomacyTerms): TradeKind =>
-  treaty ?? (hasSupply(terms) || asksAnything(terms) ? "trade" : "gift");
+export const dealKind = (treaty: DealTreaty, terms: DiplomacyTerms, targetIsAi: boolean): TradeKind =>
+  treaty ?? (hasSupply(terms) || asksAnything(terms) || !targetIsAi ? "trade" : "gift");
 
 /** Treaty-less trade/gift verdicts that the shared verdict words for a different screen. */
-export const dealVerdictOverride = (treaty: DealTreaty, terms: DiplomacyTerms, sendLabel: string): TradeVerdict | undefined => {
+export const dealVerdictOverride = (treaty: DealTreaty, kind: TradeKind, terms: DiplomacyTerms, sendLabel: string): TradeVerdict | undefined => {
   if (treaty) return undefined;
   if (diplomacyTermsAreEmpty(terms)) {
     return { tone: "neutral", text: "Pick a truce or alliance on the left, or add goods from either side.", canSend: false, sendLabel: "Send offer" };
   }
-  if (!hasSupply(terms) && asksAnything(terms)) {
-    return { tone: "neutral", text: "Coin and Shards change hands with a truce, an alliance or a resource supply. Add one to ask for them.", canSend: false, sendLabel };
+  if (!hasSupply(terms) && kind !== "gift") {
+    return { tone: "neutral", text: "Coin and Shards change hands with a truce, an alliance or a resource supply. Add one to the deal.", canSend: false, sendLabel };
   }
   return undefined;
 };
@@ -60,12 +61,13 @@ const sideItemsHtml = (terms: DiplomacyTerms, side: TradeSide): string =>
     .join("");
 
 /** The "In this deal" list: the treaty, then each side's goods. */
-export const dealSummaryHtml = (input: { selection: TradeSelection; treaty: DealTreaty; targetName: string }): string => {
+/** `locked`: a counter-offer keeps its treaty (it may switch truce/alliance, not drop it). */
+export const dealSummaryHtml = (input: { selection: TradeSelection; treaty: DealTreaty; targetName: string; locked?: boolean }): string => {
   const { selection, treaty, targetName } = input;
   const { terms } = selection;
   const treatyHtml = treaty
     ? `<div class="diplomacy-deal-treaty" data-deal-treaty="${treaty}"><span>${escapeHtml(treatyLabel(selection))}</span>
-        <button type="button" class="diplomacy-deal-remove" data-deal-remove="treaty" aria-label="Remove the ${treaty} from the deal">✕</button></div>`
+        ${input.locked ? "" : `<button type="button" class="diplomacy-deal-remove" data-deal-remove="treaty" aria-label="Remove the ${treaty} from the deal">✕</button>`}</div>`
     : "";
   if (!treaty && diplomacyTermsAreEmpty(terms)) {
     return `<p class="diplomacy-deal-empty">Nothing in the deal yet.</p>`;

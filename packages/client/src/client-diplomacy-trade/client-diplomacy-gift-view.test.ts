@@ -102,8 +102,7 @@ describe("gift on the trade screen", () => {
       openDiplomacyTradeScreen({ targetName: "Elin", targetPlayerId: "ai-2", kind: "alliance", durationHours: 12 }, { send, ownHoldings: () => ({ gold: 500, shard: 0 }) });
       const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
       receiveDiplomacyStance(elin);
-      // Pressing the alliance in the deal takes it out again.
-      overlay.querySelector<HTMLButtonElement>("[data-trade-kind='alliance:0']")!.click();
+      overlay.querySelector<HTMLButtonElement>("[data-deal-remove='treaty']")!.click();
       overlay.querySelector<HTMLButtonElement>("[data-trade-suggest]")!.click();
       const sendButton = overlay.querySelector<HTMLButtonElement>("[data-trade-send]")!;
       sendButton.click();
@@ -125,7 +124,8 @@ describe("gift on the trade screen", () => {
     const exact = document.querySelector<HTMLInputElement>("[data-trade-exact='give-gold']")!;
     exact.value = "50";
     exact.dispatchEvent(new Event("input"));
-    expect(document.querySelector("[data-trade-verdict]")?.textContent).toBe("Only AI empires take gifts.");
+    // Humans take no gifts: giving coin alone is not a deal until a treaty or supply is added.
+    expect(document.querySelector("[data-trade-verdict]")?.textContent).toContain("Coin and Shards change hands with a truce");
     expect(document.querySelector<HTMLButtonElement>("[data-trade-send]")!.disabled).toBe(true);
     expect(document.querySelector<HTMLButtonElement>("[data-trade-suggest]")!.hidden).toBe(true);
   });
