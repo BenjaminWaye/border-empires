@@ -76,8 +76,10 @@ export const ERROR_MESSAGES: Record<string, string> = {
   GRIEVANCE_ALREADY_OPEN: "You already have a grievance open. Press it or let it run out first.",
   NOT_A_RIVAL: "That system isn't held by a rival Duke.",
   NO_PENDING_WRIT: "There is no Writ waiting for you.",
-  NO_ROOM: "Every one of your systems already holds 3 Fighters.",
-  TOO_MANY_LENT: "You already have 3 Fighters serving the Court."
+  NO_ROOM: "Every one of your systems already has 3 Fighters, counting those away on raids or lent to the Court.",
+  TOO_MANY_LENT: "You already have a Fighter serving the Court.",
+  COURT_AT_FULL_STRENGTH: "The Court is already at full strength and has nothing to gain from a Writ.",
+  NOT_NEEDED_BY_COURT: "The Court only takes Fighters from a Duke whose lead it is watching."
 };
 
 export const errorMessage = (failure: { code: string; availableAt?: number }, now: number, moveLockedUntil?: number | null): string => {

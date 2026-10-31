@@ -34,6 +34,8 @@ export type DukeActionError =
         | "INSUFFICIENT_INFLUENCE"
         | "NO_PENDING_OFFER"
         | "NOTHING_TO_CANCEL"
+        | "COURT_AT_FULL_STRENGTH"
+        | "NOT_NEEDED_BY_COURT"
         | PlanBuildErrorCode
         | OrderErrorCode
         | DeclareErrorCode

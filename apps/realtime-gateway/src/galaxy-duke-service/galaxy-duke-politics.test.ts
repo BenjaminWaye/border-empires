@@ -16,6 +16,11 @@ const surveyed = (seasonId: string) => (s: DukeState): DukeState => ({
 });
 
 describe("AI Dukes (§29.1)", () => {
+  it("AI-held Sectors do not ease the Warden pressure on players", async () => {
+    const h = await harness([{ seasonId: "season-a", player: "a" }, { seasonId: "season-c", player: "ai-1" }]);
+    expect((await h.service.status("uid-a"))?.economy.incursionsPerCyclePerSystem).toBe(3);
+  });
+
   const withAi = () => harness([{ seasonId: "season-a", player: "a" }, { seasonId: "season-c", player: "ai-1" }]);
 
   it("an AI-won Sector is held by an AI Duke named for its House, and does not count against the Court", async () => {
@@ -144,6 +149,37 @@ describe("Writs (§21.3)", () => {
     expect(await h.service.answerWrit("uid-a", true)).toMatchObject({ ok: false, code: "NO_PENDING_WRIT" });
   });
 
+  it("a Writ cannot revive a fallen Court, or be banked while the Court is at full strength", async () => {
+    const h = await harness();
+    await h.service.status("uid-a");
+    await h.service.status("uid-b");
+    await h.patch("uid-a", offer("STRIKE"));
+    await giveInfluence(h, "uid-a", 5000);
+    expect((await h.service.moveAgainstCourt("uid-a", 1400)).ok).toBe(true);
+    expect(await h.service.answerWrit("uid-a", true)).toMatchObject({ ok: false, code: "COURT_HAS_FALLEN" });
+    expect((await h.service.status("uid-a"))?.court.fallen).toBe(true);
+
+    // A new era starts at full strength: a Writ there would only be banked.
+    await h.service.tick();
+    await h.patch("uid-a", offer("FIGHTER"));
+    expect(await h.service.answerWrit("uid-a", true)).toMatchObject({ ok: false, code: "COURT_AT_FULL_STRENGTH" });
+    expect((await h.stores.dukeStore.getCourt()).writsAccepted).toBe(0);
+  });
+
+  it("a Writ strike earns no grievance Renown: it is the Court's Fighter", async () => {
+    const h = await harness();
+    await h.service.status("uid-a");
+    await h.service.status("uid-b");
+    await giveInfluence(h, "uid-a", 10);
+    expect((await h.service.declareGrievance("uid-a", "season-b")).ok).toBe(true);
+    await h.patch("uid-a", offer("STRIKE"));
+    expect((await h.service.answerWrit("uid-a", true)).ok).toBe(true);
+    h.advance(FIGHTER_TRAVEL_MS);
+    const status = await h.service.status("uid-a");
+    expect(await h.stability("uid-b", "season-b")).toBe(80);
+    expect(status?.politics).toMatchObject({ renown: 0, grievance: { hits: 0 } });
+  });
+
   it("the Court offers Writs on its own over time once there are rivals", async () => {
     const h = await harness();
     await h.run(10 * CYCLE_MS);
@@ -169,6 +205,13 @@ describe("the Blind Eye (§21.6)", () => {
     const rival = await h.service.status("uid-b");
     expect(rival?.politics.rivals[0]).toMatchObject({ revoked: true, grievanceCost: 0 });
     expect((await h.service.declareGrievance("uid-b", "season-a")).ok).toBe(true);
+  });
+
+  it("only a Duke the Court is watching may lend, so lending is no Influence tap", async () => {
+    const h = await harness();
+    await h.service.status("uid-a");
+    await h.patch("uid-a", withSystem("season-a", { fighters: [{ hull: 100 }] }));
+    expect(await h.service.lendFleet("uid-a", "season-a")).toMatchObject({ ok: false, code: "NOT_NEEDED_BY_COURT" });
   });
 
   it("lending a Fighter to the Court restores its Favor, pays a stipend, and the Fighter comes home", async () => {

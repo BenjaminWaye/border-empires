@@ -31,4 +31,5 @@ export const BLIND_EYE_RENOWN_MULTIPLIER = 2;
 // Lend Fleet to the Court (§21.6).
 export const LEND_DURATION_MS = CYCLE_MS;
 export const LEND_INFLUENCE_STIPEND = 4;
-export const MAX_LENT_FIGHTERS = 3;
+// One at a time: holding Favor costs a Fighter for as long as the lead lasts.
+export const MAX_LENT_FIGHTERS = 1;

@@ -96,7 +96,7 @@ export const buildDukeStatus = async (ctx: DukeContext, authUid: string): Promis
     meters: { domainWeight: mine?.weight ?? 0, rank: mine?.rank ?? 0, dukeCount: ranks.length },
     economy: {
       developmentUpkeepPerCycle: developmentUpkeepPerCycle(state),
-      incursionsPerCyclePerSystem: Math.round(incursionRatePerCycle(Math.max(1, world.planetCount)) * 100) / 100,
+      incursionsPerCyclePerSystem: Math.round(incursionRatePerCycle(Math.max(1, world.capturedSectors)) * 100) / 100,
       wardenPoolPerCycle: WARDEN_POOL_PER_CYCLE
     },
     digest: [...state.digest].reverse().slice(0, 40),

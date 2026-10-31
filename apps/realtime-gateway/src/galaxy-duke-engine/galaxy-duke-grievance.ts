@@ -87,9 +87,10 @@ export const returnLentFighters = (state: DukeState, now: number): { state: Duke
   const counters: DukeCounter[] = [];
   for (const l of due) {
     const home = findSystem(next, l.fromSeasonId);
-    if (!home || home.fighters.length >= MAX_FIGHTERS_PER_SYSTEM) continue;
-    next = replaceSystem(next, { ...home, fighters: [...home.fighters, { hull: l.hull }] });
-    const pushed = pushDigest(next, now, "COURT", "A Fighter you lent the Court has come home.");
+    const room = home !== undefined && home.fighters.length < MAX_FIGHTERS_PER_SYSTEM;
+    if (home && room) next = replaceSystem(next, { ...home, fighters: [...home.fighters, { hull: l.hull }] });
+    const text = room ? "A Fighter you lent the Court has come home." : "A Fighter you lent the Court had no berth to return to and stayed with the Court.";
+    const pushed = pushDigest(next, now, "COURT", text);
     next = pushed.state;
     counters.push(...pushed.counters);
   }

@@ -45,8 +45,15 @@ export const createGalaxyDukeService = (deps: GalaxyDukeDeps): GalaxyDukeService
     lendFleet: (authUid, fromSeasonId) => lendFleetAction(ctx, authUid, fromSeasonId),
     tick: async () => {
       await runDukeTick(ctx);
-      await runAiDukes(ctx);
-      await runCourtPass(ctx);
+      // Neither pass may stop the era from ending (§27): a fault in one is
+      // reported and the tick moves on to Convergence.
+      for (const pass of [runAiDukes, runCourtPass]) {
+        try {
+          await pass(ctx);
+        } catch (error) {
+          deps.onError?.(error);
+        }
+      }
       await checkConvergence(ctx);
     }
   };

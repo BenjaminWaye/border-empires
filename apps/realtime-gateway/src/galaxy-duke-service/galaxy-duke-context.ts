@@ -40,11 +40,10 @@ export type DukeWorld = {
   tierOfSeason: Map<string, "PLANET" | "OUTPOST">;
   // Everyone holding at least one Planet: the Dukes (§3), AI Dukes included.
   dukeUids: string[];
-  // Planets held by player Dukes: what Court Strength counts. AI-held Sectors
-  // never counted against the Court and still do not (§29.1).
+  // Planets held by player Dukes: what Court Strength counts, and what the
+  // Warden pool is split across. AI-held Sectors never counted for either and
+  // still do not (§29.1): AI Dukes take the same per-Planet Warden rate.
   capturedSectors: number;
-  // Every held Planet, AI Dukes' too: what the Warden pool is split across.
-  planetCount: number;
 };
 
 export type DukeContext = {
@@ -99,7 +98,7 @@ export const createDukeContext = (deps: GalaxyDukeDeps): DukeContext => {
     const tierOfSeason = new Map<string, "PLANET" | "OUTPOST">();
     const dukeUids: string[] = [];
     let capturedSectors = 0;
-    let planetCount = 0;
+    aiLabels.clear();
     for (const [authUid, territories] of raw) {
       const held = territories.map((t): HeldSector => ({ seasonId: t.seasonId, tier: t.tier, specialization: t.specialization }));
       holdingsByOwner.set(authUid, held);
@@ -108,13 +107,12 @@ export const createDukeContext = (deps: GalaxyDukeDeps): DukeContext => {
         tierOfSeason.set(t.seasonId, t.tier);
         if (t.aiName) aiLabels.set(t.seasonId, `House ${t.aiName}`);
         if (t.tier !== "PLANET") continue;
-        planetCount += 1;
         if (!isAiDukeUid(authUid)) capturedSectors += 1;
       }
       if (held.some((h) => h.tier === "PLANET")) dukeUids.push(authUid);
     }
     dukeUids.sort();
-    return { holdingsByOwner, ownerOfSeason, tierOfSeason, dukeUids, capturedSectors, planetCount };
+    return { holdingsByOwner, ownerOfSeason, tierOfSeason, dukeUids, capturedSectors };
   };
 
   // AI-held Sectors have no christened name; they go by their House (§29.1).

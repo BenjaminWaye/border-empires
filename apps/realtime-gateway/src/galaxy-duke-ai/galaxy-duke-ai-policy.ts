@@ -2,7 +2,7 @@
 // deterministic, so the runner only has to carry the choices out through the
 // same actions a player uses (no AI-only rules, no AI-only shortcuts).
 import { HULL_MAX, MAX_FIGHTERS_PER_SYSTEM } from "../galaxy-duke-engine/galaxy-duke-config.js";
-import type { BuildSpec } from "../galaxy-duke-engine/galaxy-duke-production.js";
+import { fightersOwned, type BuildSpec } from "../galaxy-duke-engine/galaxy-duke-production.js";
 import { systemBodyKinds } from "../galaxy-duke-engine/galaxy-duke-systems.js";
 import type { DukeState } from "../galaxy-duke-engine/galaxy-duke-types.js";
 import { GRIEVANCE_COST_INFLUENCE } from "../galaxy-duke-engine/galaxy-duke-politics-config.js";
@@ -49,7 +49,7 @@ const DEVELOPMENT_ORDER = ["GAS_GIANT", "ASTEROID_BELT", "ICE_MOON"] as const;
 
 const nextBuild = (input: AiTurnInput, system: DukeState["systems"][number], unsurveyed: boolean): BuildSpec | null => {
   const stability = input.stabilityBySeason.get(system.seasonId) ?? 100;
-  const owned = system.fighters.length;
+  const owned = fightersOwned(input.state, system);
   if (owned === 0) return { kind: "FIGHTER" };
   if (system.fighters.some((f) => f.hull < 60)) return { kind: "REFIT" };
   if (stability <= 40) return { kind: "FORTIFY", points: Math.min(40, HULL_MAX - stability) };

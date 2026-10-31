@@ -66,7 +66,7 @@ export type PlanBuildResult = { ok: true; build: Omit<DukeBuild, "progress"> } |
 
 // Fighters away on a raid or lent to the Court still count toward the cap; a
 // Court Fighter on a Writ strike is the Court's, not this system's.
-const fightersOwned = (state: DukeState, system: SystemState): number =>
+export const fightersOwned = (state: DukeState, system: SystemState): number =>
   system.fighters.length +
   state.flights.filter((f) => f.kind === "RAID" && !f.courtWrit && f.fromSeasonId === system.seasonId).length +
   (state.lent ?? []).filter((l) => l.fromSeasonId === system.seasonId).length;

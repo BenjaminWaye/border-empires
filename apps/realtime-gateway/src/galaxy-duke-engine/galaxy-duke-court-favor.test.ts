@@ -52,6 +52,15 @@ describe("Writs", () => {
 });
 
 describe("Fighter cap", () => {
+  it("a Writ Fighter cannot take the berth of a Fighter lent to the Court", () => {
+    const base = duke();
+    const full = replaceSystem(base, { ...base.systems[0]!, fighters: [{ hull: 100 }, { hull: 100 }, { hull: 100 }] });
+    const lent = lendFighter(full, "s1", 0);
+    if (!lent.ok) throw new Error("expected to lend");
+    const offered = { ...lent.state, writ: { lastOfferCycle: 0, offer: { kind: "FIGHTER" as const, offeredAt: 0, expiresAt: 10 } } };
+    expect(answerWrit(offered, true, 1)).toMatchObject({ ok: false, code: "NO_ROOM" });
+  });
+
   it("counts Fighters lent to the Court, but not a Court Fighter on a Writ strike", () => {
     const base = duke();
     const full = replaceSystem(base, { ...base.systems[0]!, fighters: [{ hull: 100 }, { hull: 100 }, { hull: 100 }] });

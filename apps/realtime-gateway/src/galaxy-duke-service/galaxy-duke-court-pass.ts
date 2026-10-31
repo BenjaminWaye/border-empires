@@ -2,10 +2,10 @@
 // it turns a blind eye to a runaway leader (and drains their weakest Sector
 // each Cycle while it does), and it quietly offers Writs. Needs every Duke's
 // Domain Weight, so it runs after the per-Duke tick, under the one Duke lock.
-import { rankDomainWeights } from "../galaxy-court/galaxy-court.js";
+import { rankDomainWeights, type CourtStrength, type DomainRank } from "../galaxy-court/galaxy-court.js";
 import { favorOf, isRunaway, maybeOfferWrit, updateFavor, writChancePercent, type WritRival } from "../galaxy-duke-engine/galaxy-duke-court-favor.js";
 import { pushDigest } from "../galaxy-duke-engine/galaxy-duke-digest.js";
-import { BLIND_EYE_DRAIN_PER_CYCLE } from "../galaxy-duke-engine/galaxy-duke-politics-config.js";
+import { BLIND_EYE_DRAIN_PER_CYCLE, WRIT_COURT_STRENGTH_GAIN } from "../galaxy-duke-engine/galaxy-duke-politics-config.js";
 import { planetsOf } from "../galaxy-duke-engine/galaxy-duke-systems.js";
 import type { DukeState } from "../galaxy-duke-engine/galaxy-duke-types.js";
 import { currentGlobalCycleIndex } from "../galaxy-senate-tick/galaxy-senate-tick.js";
@@ -30,6 +30,43 @@ const drainWeakest = async (ctx: DukeContext, world: DukeWorld, state: DukeState
   return next;
 };
 
+type PassInput = {
+  world: DukeWorld;
+  strength: CourtStrength;
+  ranks: ReadonlyArray<DomainRank>;
+  at: number;
+  cycleIndex: number;
+};
+
+// Court Favor, the Blind Eye's drain and a possible Writ, for one Duke.
+const courtPassFor = async (ctx: DukeContext, input: PassInput, r: DomainRank): Promise<void> => {
+  const { world, strength, ranks, at, cycleIndex } = input;
+  const stored = await ctx.deps.dukeStore.get(r.authUid);
+  if (!stored) return;
+  const runaway = r.rank === 1 && isRunaway(r.weight, ranks[1]?.weight ?? null);
+  const favored = updateFavor(stored, runaway, at);
+  ctx.countAll(favored.counters);
+  let state = await drainWeakest(ctx, world, favored.state, cycleIndex);
+
+  // A Writ needs someone to betray (the highest-ranked other Duke) and room for
+  // the Court to regain the Strength it gives back.
+  if (ranks.length >= 2 && strength.current + WRIT_COURT_STRENGTH_GAIN <= strength.start) {
+    const rivalRank = ranks.find((x) => x.authUid !== r.authUid);
+    const rivalSeason = rivalRank ? firstPlanet(world, rivalRank.authUid) : undefined;
+    const rival: WritRival | null = rivalRank && rivalSeason ? { authUid: rivalRank.authUid, seasonId: rivalSeason } : null;
+    const chancePercent = writChancePercent(strength.current, strength.start, r.rank <= Math.ceil(ranks.length / 2));
+    const rolled = maybeOfferWrit(state, { cycleIndex, chancePercent, rival, now: at });
+    state = rolled.state;
+    if (rolled.offered) {
+      ctx.countAll(["duke_writ_offered"]);
+      const pushed = pushDigest(state, at, "COURT", "A Court envoy has come to you in private with a Writ of Advancement. Nobody else will know whether you take it.");
+      ctx.countAll(pushed.counters);
+      state = pushed.state;
+    }
+  }
+  await ctx.deps.dukeStore.put(state);
+};
+
 export const runCourtPass = (ctx: DukeContext): Promise<void> =>
   ctx.withLock(async () => {
     const world = await ctx.loadWorld();
@@ -38,31 +75,13 @@ export const runCourtPass = (ctx: DukeContext): Promise<void> =>
     if (strength.fallen) return;
     const ranks = rankDomainWeights(await domainWeights(ctx, world, contributions));
     const at = ctx.now();
-    const cycleIndex = currentGlobalCycleIndex(at);
-    const topHalf = Math.ceil(ranks.length / 2);
+    const input: PassInput = { world, strength, ranks, at, cycleIndex: currentGlobalCycleIndex(at) };
+    // One Duke's bad row must not stop the others (or the era's end).
     for (const r of ranks) {
-      const stored = await ctx.deps.dukeStore.get(r.authUid);
-      if (!stored) continue;
-      const runaway = r.rank === 1 && isRunaway(r.weight, ranks[1]?.weight ?? null);
-      const favored = updateFavor(stored, runaway, at);
-      ctx.countAll(favored.counters);
-      let state = await drainWeakest(ctx, world, favored.state, cycleIndex);
-
-      // A Writ needs someone to betray: the highest-ranked other Duke.
-      if (ranks.length >= 2) {
-        const rivalRank = ranks.find((x) => x.authUid !== r.authUid);
-        const rivalSeason = rivalRank ? firstPlanet(world, rivalRank.authUid) : undefined;
-        const rival: WritRival | null = rivalRank && rivalSeason ? { authUid: rivalRank.authUid, seasonId: rivalSeason } : null;
-        const chancePercent = writChancePercent(strength.current, strength.start, r.rank <= topHalf);
-        const rolled = maybeOfferWrit(state, { cycleIndex, chancePercent, rival, now: at });
-        state = rolled.state;
-        if (rolled.offered) {
-          ctx.countAll(["duke_writ_offered"]);
-          const pushed = pushDigest(state, at, "COURT", "A Court envoy has come to you in private with a Writ of Advancement. Nobody else will know whether you take it.");
-          ctx.countAll(pushed.counters);
-          state = pushed.state;
-        }
+      try {
+        await courtPassFor(ctx, input, r);
+      } catch (error) {
+        ctx.deps.onError?.(error);
       }
-      await ctx.deps.dukeStore.put(state);
     }
   });

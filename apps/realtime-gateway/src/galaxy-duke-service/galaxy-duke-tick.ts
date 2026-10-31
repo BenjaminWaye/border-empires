@@ -93,7 +93,8 @@ const resolveRaid = async (ctx: DukeContext, world: DukeWorld, state: DukeState,
     stabilityAfter: Math.max(0, stability.stability + step.targetStabilityDelta),
     resolvedAt: at
   });
-  return step.targetStabilityDelta < 0 ? creditRaidThrough(ctx, step.attacker, owner, step.defender, label, at) : step.attacker;
+  // A Writ strike is the Court's Fighter, never dressed as a grievance (lore §8).
+  return step.targetStabilityDelta < 0 && !flight.courtWrit ? creditRaidThrough(ctx, step.attacker, owner, step.defender, label, at) : step.attacker;
 };
 
 // Advances one Duke to `now`. Returns undefined when the account holds no Planet.
@@ -136,7 +137,7 @@ export const advanceOneDuke = async (ctx: DukeContext, world: DukeWorld, authUid
     acc.counters.push(...politics.counters);
 
     // Wardens: accrue credit, announce, and land what is due.
-    const accrued = accrueIncursions(state, world.planetCount, labels, at);
+    const accrued = accrueIncursions(state, world.capturedSectors, labels, at);
     state = accrued.state;
     acc.counters.push(...accrued.counters);
     const landed = landIncursions(state, await heldSectors(ctx, world, authUid), at);

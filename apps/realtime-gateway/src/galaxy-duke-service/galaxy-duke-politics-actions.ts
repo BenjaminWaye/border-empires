@@ -3,7 +3,8 @@
 import { answerWrit, pendingWrit, resetFavorClock } from "../galaxy-duke-engine/galaxy-duke-court-favor.js";
 import { pushDigest } from "../galaxy-duke-engine/galaxy-duke-digest.js";
 import { declareGrievance, lendFighter } from "../galaxy-duke-engine/galaxy-duke-grievance.js";
-import { GRIEVANCE_COST_INFLUENCE, LEND_INFLUENCE_STIPEND } from "../galaxy-duke-engine/galaxy-duke-politics-config.js";
+import { GRIEVANCE_COST_INFLUENCE, LEND_INFLUENCE_STIPEND, WRIT_COURT_STRENGTH_GAIN } from "../galaxy-duke-engine/galaxy-duke-politics-config.js";
+import { courtNow } from "./galaxy-duke-court.js";
 import { planetsOf } from "../galaxy-duke-engine/galaxy-duke-systems.js";
 import type { DukeContext, DukeWorld } from "./galaxy-duke-context.js";
 import { saveDuke, withDuke, type DukeActionResult } from "./galaxy-duke-actions.js";
@@ -51,11 +52,18 @@ export const declareGrievanceAction = (ctx: DukeContext, authUid: string, target
     return saveDuke(ctx, declared.state);
   });
 
-// Taking a Writ gives the Court back 3 Strength; refusing leaves no trace.
+// Taking a Writ gives the Court back 3 Strength; refusing leaves no trace. A
+// fallen Court cannot be revived, and a Writ can only be taken while the Court
+// has 3 Strength of room to regain, so none is ever banked against later loss.
 export const answerWritAction = (ctx: DukeContext, authUid: string, accept: boolean): Promise<DukeActionResult> =>
-  withDuke(ctx, authUid, async (state) => {
+  withDuke(ctx, authUid, async (state, world) => {
     const at = ctx.now();
     const offer = pendingWrit(state, at);
+    if (accept && offer) {
+      const { strength } = await courtNow(ctx, world);
+      if (strength.fallen) return { ok: false, code: "COURT_HAS_FALLEN" };
+      if (strength.current + WRIT_COURT_STRENGTH_GAIN > strength.start) return { ok: false, code: "COURT_AT_FULL_STRENGTH" };
+    }
     const answered = answerWrit(state, accept, at);
     if (!answered.ok) return answered;
     if (!answered.accepted || !offer) return saveDuke(ctx, pushDigest(answered.state, at, "COURT", "You sent the Court's envoy away.").state);
@@ -73,6 +81,9 @@ export const answerWritAction = (ctx: DukeContext, authUid: string, accept: bool
 export const lendFleetAction = (ctx: DukeContext, authUid: string, fromSeasonId: string): Promise<DukeActionResult> =>
   withDuke(ctx, authUid, async (state) => {
     const at = ctx.now();
+    // Only a Duke the Court is watching (in the lead, or already out of Favor)
+    // may lend: otherwise lending is a free Influence tap.
+    if (state.favor?.leadSince == null && !state.favor?.revoked) return { ok: false, code: "NOT_NEEDED_BY_COURT" };
     const lent = lendFighter(state, fromSeasonId, at);
     if (!lent.ok) return lent;
     await addInfluence(ctx, authUid, LEND_INFLUENCE_STIPEND);

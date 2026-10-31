@@ -10,6 +10,7 @@ import {
   WRIT_TOP_HALF_BONUS_PERCENT,
   WRIT_WEAKNESS_CHANCE_PERCENT
 } from "./galaxy-duke-politics-config.js";
+import { fightersOwned } from "./galaxy-duke-production.js";
 import { replaceSystem } from "./galaxy-duke-systems.js";
 import type { CourtFavor, DukeCounter, DukeState, WritOffer } from "./galaxy-duke-types.js";
 
@@ -98,8 +99,9 @@ export const answerWrit = (state: DukeState, accept: boolean, now: number): Writ
   const cleared: DukeState = { ...state, writ: { offer: null, lastOfferCycle: state.writ?.lastOfferCycle ?? -1 } };
   if (!accept) return { ok: true, state: cleared, accepted: false };
   if (offer.kind === "FIGHTER") {
-    const target = [...cleared.systems].sort((a, b) => a.fighters.length - b.fighters.length)[0];
-    if (!target || target.fighters.length >= MAX_FIGHTERS_PER_SYSTEM) return { ok: false, code: "NO_ROOM" };
+    // Fighters away on raids or lent to the Court keep their berth (planBuild's rule).
+    const target = [...cleared.systems].sort((a, b) => fightersOwned(cleared, a) - fightersOwned(cleared, b))[0];
+    if (!target || fightersOwned(cleared, target) >= MAX_FIGHTERS_PER_SYSTEM) return { ok: false, code: "NO_ROOM" };
     return { ok: true, state: replaceSystem(cleared, { ...target, fighters: [...target.fighters, { hull: HULL_MAX }] }), accepted: true };
   }
   const home = cleared.systems[0];

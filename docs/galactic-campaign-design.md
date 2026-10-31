@@ -2748,10 +2748,11 @@ another game's names, text or presentation.
 - AI Dukes are in the Duke world (`includeAiDukes` in `galaxy-holdings.ts`)
   and the Cycle tick (they earn and pay Influence). Every other reader still
   treats AI-won Sectors as unclaimed.
-- **AI-held Sectors do not count against Court Strength** (`capturedSectors`
-  skips them). Before this change they were unclaimed and did not count, so
-  deploying cannot suddenly end an era. They do share the Warden pool
-  (`planetCount`), which lowers every Planet's incursion rate a little.
+- **AI-held Sectors do not count against Court Strength or split the Warden
+  pool** (`capturedSectors` skips them). Before this change they were
+  unclaimed and counted for neither, so deploying changes neither the Court
+  nor players' Warden pressure. AI Dukes take the same per-Planet Warden rate
+  as players.
 - Each Duke tick, `runAiDukes` (`galaxy-duke-ai/`) plans a turn with a pure
   policy and carries it out only through the player actions. The policy:
   Fighter first, refit below 60% hull, fortify at 40 Stability or below,
@@ -2782,14 +2783,18 @@ another game's names, text or presentation.
   3 days and is a free Fighter, or a STRIKE: a Court Fighter raids the
   top-ranked rival's first Planet as an ordinary raid and then leaves (it never
   joins the fleet or counts against the cap). Taking one adds 3 to Court
-  Strength (`galaxy_court_writs`), capped at the start value. Answering is
-  free and private.
+  Strength (`galaxy_court_writs`). A Writ is neither offered nor accepted once
+  the Court has fallen, or unless the Court has 3 Strength of room to regain,
+  so none is banked against later losses. A Writ strike never earns grievance
+  Renown. Answering is free and private.
 - **The Blind Eye** (§21.6): the top Duke loses Court Favor after one full
   Cycle at ≥1.5× second place. While it is revoked: −4 Stability on the
   weakest Sector once per Cycle; the Court offer's protection stops covering
   them; grievances against them are free and pay double. Favor returns when
   the lead narrows, or when they **Lend a Fighter to the Court** (away
-  7 days, +4 Influence, resets the clock; at most 3 lent).
+  7 days, +4 Influence, resets the clock). Only a Duke the Court is watching
+  (in the lead, or out of Favor) may lend, one Fighter at a time, so holding
+  Favor costs a Fighter for as long as the lead lasts.
 
 ### 29.4 Raids on the map
 
