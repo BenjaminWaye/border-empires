@@ -337,7 +337,7 @@ export const captureCombatSnapshotForAttack = (
   if (!to.ownerId) return undefined;
   const breakdown = attackPreviewBreakdownForTarget(state, to, deps);
   if (!breakdown) return undefined;
-  return { winChance: breakdown.winChance, attackerEffective: breakdown.attacker.effective, defenderEffective: breakdown.defender.effective, defenderOwnerId: to.ownerId };
+  return { winChance: breakdown.winChance, attackerEffective: breakdown.attacker.effective, defenderEffective: breakdown.defender.effective, defenderOwnerId: to.ownerId, breakdown };
 };
 
 export const attackPreviewPendingForTarget = (

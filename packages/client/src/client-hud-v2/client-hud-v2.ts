@@ -11,7 +11,7 @@ import { deriveDevelopmentPanelData } from "../client-development-panel/client-d
 import { busyDevelopmentProcessCount } from "../client-development-queue/client-development-queue.js";
 import { nextManpowerRefillForPlayer } from "../client-manpower-gauge/client-manpower-refill.js";
 import { buildManpowerPanelMusterFlags } from "../client-muster-flags-panel/client-muster-flags-panel.js";
-import { battleOnBarAction, battleOnMenuView, installBattleWatch, reopenLiveBattle } from "./client-hud-v2-battle-runtime.js";
+import { battleOnBarAction, battleOnMenuView, battleRowPlan, installBattleWatch, liveBattleTarget, reopenLiveBattle, shownBattleTileKey } from "./client-hud-v2-battle-runtime.js";
 import { focusCamera, screen, SCREEN_HOST_ID, type HudV2Deps, type HudV2ScreenId } from "./client-hud-v2-context.js";
 import { escapeOpensSettings } from "./client-hud-v2-escape.js";
 import { hudV2GameOnScreen } from "./client-hud-v2-ready.js";
@@ -83,8 +83,10 @@ const openTarget = (deps: HudV2Deps, open: string): void => {
     return;
   }
   if (open === "battle") {
-    // Attacks reopen the live battle; an expansion in progress just centres the map on it.
+    // Attacks reopen the live battle (over whatever screen is up); an expansion in progress just centres the map on it.
     const c = deps.state.capture;
+    const live = liveBattleTarget(deps.state);
+    if (live && battleRowPlan(screen.id, shownBattleTileKey(), `${live.x},${live.y}`) === "close") closeScreen(deps, { toMap: true });
     if (!reopenLiveBattle(deps) && c) {
       focusCamera(deps, c.target.x, c.target.y);
       deps.renderHud();

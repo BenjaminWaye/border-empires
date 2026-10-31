@@ -451,6 +451,23 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Frontier resource buildings have no upkeep",
     why: "Resin Extractors, Implant Foundries, Catalyst Refineries, Cultivation Estates and Reclamation Works each used up a Food slot.",
     changes: ["These five buildings no longer use a Food slot, and a Food shortage can't shut them down. Ones you've already built free their Food slot."]
+  },
+  {
+    createdAt: 1793392462199,
+    introducedIn: "2026.10.30",
+    title: "Reveal map keeps reach borders",
+    why: "Revealing the map showed every empire's territory but dropped their reach borders, so the hatching that marks ground contested by rival reach disappeared too.",
+    changes: [
+      "Revealing the map now shows every empire's reach borders, including unowned ground held inside them",
+      "Contested tiles stay hatched after a reveal in both the 2D and 3D maps"
+    ]
+  },
+  {
+    createdAt: 1793470954153,
+    introducedIn: "2026.10.31",
+    title: "Ongoing battles open their battle screen",
+    why: "Pressing a battle in progress sometimes only centred the map, and the side cards never showed either army's strength.",
+    changes: ["Pressing a battle in the tracker zooms in on it and opens the battle screen, closing any other screen first", "Both sides show their strength and the locked odds while the battle runs", "Leaving the battle returns to your earlier zoom"]
   }
 ];
 
