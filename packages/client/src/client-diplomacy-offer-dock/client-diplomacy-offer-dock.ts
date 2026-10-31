@@ -163,6 +163,8 @@ export const offerDockMessage = (action: string | undefined, kind: string | unde
 export const installDiplomacyOfferDock = (deps: {
   state: OfferDockState;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
+  /** True while the map-loading overlay is up; the dock (z-index above it) stays hidden meanwhile. */
+  isMapLoading?: () => boolean;
 }): void => {
   if (typeof document === "undefined") return;
   const dockEl = document.createElement("div");
@@ -187,7 +189,7 @@ export const installDiplomacyOfferDock = (deps: {
     for (const id of hiddenIds) if (!liveIds.has(id)) hiddenIds.delete(id);
     if (confirming && (!liveIds.has(confirming.id) || nowMs > confirming.until)) confirming = undefined;
     const entries = offerDockEntries(deps.state, firstSeenAtById, new Set(pendingSince.keys()), nowMs).filter((entry) => !hiddenIds.has(entry.id));
-    const key = deps.state.me ? `${confirming?.id ?? ""}#${entries.map((entry) => `${entry.id}:${entry.pending ? 1 : 0}`).join("|")}` : "";
+    const key = deps.state.me && !deps.isMapLoading?.() ? `${confirming?.id ?? ""}#${entries.map((entry) => `${entry.id}:${entry.pending ? 1 : 0}`).join("|")}` : "";
     if (key !== renderedKey) {
       renderedKey = key;
       dockEl.innerHTML = entries.length > 0 && key ? offerDockHtml(entries, confirming?.id) : "";
