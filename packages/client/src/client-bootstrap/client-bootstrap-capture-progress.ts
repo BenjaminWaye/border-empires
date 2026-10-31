@@ -3,10 +3,7 @@
 // doesn't have to grow to plumb the capture-alert popup's new
 // "Go to tile" button (captureGotoBtn) through to the render module.
 import { renderCaptureProgress as renderCaptureProgressFromModule } from "../client-capture-effects/client-capture-effects.js";
-import { isMapLoadingOverlayActive } from "../client-map-loading-view/client-map-loading-view.js";
 import type { ClientState } from "../client-state/client-state.js";
-
-const CAPTURE_ALERT_VISIBLE_MS = 12_000;
 
 export const createRenderCaptureProgress = (
   state: ClientState,
@@ -18,14 +15,7 @@ export const createRenderCaptureProgress = (
     pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
     finalizePredictedCombat: (result: Record<string, unknown>) => void;
   }
-): (() => void) => (): void => {
-  // Alerts (e.g. incoming truce offers) must not paint over the map-loading
-  // overlay: hold them back and restart their visible window once it clears.
-  if (state.captureAlert && isMapLoadingOverlayActive(state)) {
-    state.captureAlert.until = Date.now() + CAPTURE_ALERT_VISIBLE_MS;
-    dom.captureCardEl.style.display = "none";
-    return;
-  }
+): (() => void) => (): void =>
   renderCaptureProgressFromModule(state, {
     ...deps,
     captureCardEl: dom.captureCardEl,
@@ -40,4 +30,3 @@ export const createRenderCaptureProgress = (
     captureTargetEl: dom.captureTargetEl,
     captureGotoBtn: dom.captureGotoBtn
   });
-};
