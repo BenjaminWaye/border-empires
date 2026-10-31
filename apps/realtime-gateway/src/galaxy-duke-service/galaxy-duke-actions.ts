@@ -7,6 +7,8 @@ import { answerCourtOffer, isMoveAgainstCourtLocked } from "../galaxy-court-offe
 import { MIN_MOVE_AGAINST_COURT_WAGER, MOVE_AGAINST_COURT_DIVISOR } from "../galaxy-duke-engine/galaxy-duke-config.js";
 import { pushDigest } from "../galaxy-duke-engine/galaxy-duke-digest.js";
 import { launchProbe, launchRaid, type OrderErrorCode } from "../galaxy-duke-engine/galaxy-duke-orders.js";
+import type { WritErrorCode } from "../galaxy-duke-engine/galaxy-duke-court-favor.js";
+import type { DeclareErrorCode, LendErrorCode } from "../galaxy-duke-engine/galaxy-duke-grievance.js";
 import {
   cancelBuild,
   planBuild,
@@ -33,7 +35,10 @@ export type DukeActionError =
         | "NO_PENDING_OFFER"
         | "NOTHING_TO_CANCEL"
         | PlanBuildErrorCode
-        | OrderErrorCode;
+        | OrderErrorCode
+        | DeclareErrorCode
+        | WritErrorCode
+        | LendErrorCode;
     }
   | { ok: false; code: "PETITION_ALREADY_MADE_THIS_CYCLE"; availableAt: number };
 export type DukeActionResult = { ok: true; state: DukeState } | DukeActionError;
@@ -41,7 +46,7 @@ export type DukeActionResult = { ok: true; state: DukeState } | DukeActionError;
 export type OrderSpec = { kind: "PROBE" | "RAID"; targetSeasonId: string };
 
 // Loads the freshly-advanced Duke and runs `fn` on it under the Duke's lock.
-const withDuke = async (
+export const withDuke = async (
   ctx: DukeContext,
   authUid: string,
   fn: (state: DukeState, world: DukeWorld) => Promise<DukeActionResult>
@@ -54,7 +59,7 @@ const withDuke = async (
   });
 };
 
-const save = async (ctx: DukeContext, state: DukeState): Promise<DukeActionResult> => {
+export const saveDuke = async (ctx: DukeContext, state: DukeState): Promise<DukeActionResult> => {
   await ctx.deps.dukeStore.put(state);
   return { ok: true, state };
 };
@@ -74,14 +79,14 @@ export const buildAction = (ctx: DukeContext, authUid: string, seasonId: string,
     const days = daysToComplete(plan.build.cost - (system.slot?.progress ?? 0), systemDailyRate(system));
     const eta = Number.isFinite(days) ? `about ${days} day${days === 1 ? "" : "s"}` : "no end in sight";
     const label = await ctx.labelFor(seasonId);
-    return save(ctx, pushDigest(started, ctx.now(), "ECONOMY", `Started ${plan.build.label} at ${label}: ${eta}.`).state);
+    return saveDuke(ctx, pushDigest(started, ctx.now(), "ECONOMY", `Started ${plan.build.label} at ${label}: ${eta}.`).state);
   });
 
 // Abandoning a build loses its progress.
 export const cancelBuildAction = (ctx: DukeContext, authUid: string, seasonId: string): Promise<DukeActionResult> =>
   withDuke(ctx, authUid, async (state) => {
     if (!findSystem(state, seasonId)?.slot) return { ok: false, code: "NOTHING_TO_CANCEL" };
-    return save(ctx, pushDigest(cancelBuild(state, seasonId), ctx.now(), "ECONOMY", "Build cancelled. Its progress was lost.").state);
+    return saveDuke(ctx, pushDigest(cancelBuild(state, seasonId), ctx.now(), "ECONOMY", "Build cancelled. Its progress was lost.").state);
   });
 
 export const orderAction = (ctx: DukeContext, authUid: string, fromSeasonId: string, spec: OrderSpec): Promise<DukeActionResult> =>
@@ -92,7 +97,7 @@ export const orderAction = (ctx: DukeContext, authUid: string, fromSeasonId: str
       spec.kind === "PROBE"
         ? launchProbe(state, fromSeasonId, spec.targetSeasonId, owned, ctx.now())
         : launchRaid(state, fromSeasonId, spec.targetSeasonId, owned, ctx.now());
-    return launched.ok ? save(ctx, launched.state) : launched;
+    return launched.ok ? saveDuke(ctx, launched.state) : launched;
   });
 
 export const answerCourtOfferAction = (ctx: DukeContext, authUid: string, accept: boolean): Promise<DukeActionResult> =>
@@ -102,7 +107,7 @@ export const answerCourtOfferAction = (ctx: DukeContext, authUid: string, accept
     const text = accept
       ? "You accepted the Court's protection. Wardens will leave you alone for 30 days, and you cannot Move Against the Court for 90."
       : "You declined the Court's offer. It will not be made again.";
-    return save(ctx, pushDigest({ ...state, courtOffer: answerCourtOffer(state.courtOffer, accept, at) }, at, "COURT", text).state);
+    return saveDuke(ctx, pushDigest({ ...state, courtOffer: answerCourtOffer(state.courtOffer, accept, at) }, at, "COURT", text).state);
   });
 
 // Move Against the Court (§21.2). MVP simplification: a direct wager that takes
@@ -130,5 +135,5 @@ export const moveAgainstCourtAction = (ctx: DukeContext, authUid: string, influe
     const { strength: now } = await courtNow(ctx, world);
     const gain = Math.round((wager / MOVE_AGAINST_COURT_DIVISOR) * 10) / 10;
     const text = `You committed ${wager} Influence against the Court. Court Strength ${strength.current} to ${now.current} (-${strength.current - now.current}). Your Domain Weight +${gain}.${now.fallen ? " The Court has fallen." : ""}`;
-    return save(ctx, pushDigest({ ...state, petitionGate: gated.state }, at, "POLITICS", text).state);
+    return saveDuke(ctx, pushDigest({ ...state, petitionGate: gated.state }, at, "POLITICS", text).state);
   });

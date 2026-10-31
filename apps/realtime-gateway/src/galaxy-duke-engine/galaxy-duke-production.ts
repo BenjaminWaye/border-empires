@@ -64,9 +64,12 @@ export type PlanBuildErrorCode =
   | "BODY_ALREADY_DEVELOPED";
 export type PlanBuildResult = { ok: true; build: Omit<DukeBuild, "progress"> } | { ok: false; code: PlanBuildErrorCode };
 
-// Fighters currently away on a raid still count toward the cap.
+// Fighters away on a raid or lent to the Court still count toward the cap; a
+// Court Fighter on a Writ strike is the Court's, not this system's.
 const fightersOwned = (state: DukeState, system: SystemState): number =>
-  system.fighters.length + state.flights.filter((f) => f.kind === "RAID" && f.fromSeasonId === system.seasonId).length;
+  system.fighters.length +
+  state.flights.filter((f) => f.kind === "RAID" && !f.courtWrit && f.fromSeasonId === system.seasonId).length +
+  (state.lent ?? []).filter((l) => l.fromSeasonId === system.seasonId).length;
 
 export const planBuild = (state: DukeState, seasonId: string, spec: BuildSpec, stability: number): PlanBuildResult => {
   const system = findSystem(state, seasonId);

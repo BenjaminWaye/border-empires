@@ -14,7 +14,8 @@ import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-
 import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js";
 import { validatePlanetName } from "../galaxy-name-policy/galaxy-name-policy.js";
 import { bearerHeader } from "../bearer-header/bearer-header.js";
-import { resolveEndedSeasons, resolveCurrentOwnerAuthUid, winnerAuthUid } from "../galaxy-holdings/galaxy-holdings.js";
+import { isAiWinner, resolveEndedSeasons, resolveCurrentOwnerAuthUid, winnerAuthUid, type WonSeason } from "../galaxy-holdings/galaxy-holdings.js";
+import { aiNameFromStored } from "@border-empires/shared";
 import type { SectorCampaign } from "../galaxy-sector-numbering/galaxy-sector-numbering.js";
 
 export type RegisterGalaxyRoutesDeps = {
@@ -69,6 +70,8 @@ type GalaxyPublicPlanetView = {
   crownedAt: number;
   claimed: boolean;
   planetName: string | null;
+  // Set while an AI House holds this Sector as an AI Duke (§29.1).
+  aiHouse?: string;
   stats?: SeasonWinnerStats;
 };
 
@@ -269,6 +272,14 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
     return { ok: true, planet: record };
   });
 
+  // An AI-won Sector nobody has taken from it in a Defense Campaign is held by
+  // its AI House (§29.1), so the map can show it as a rival, not frontier.
+  const aiHouseOf = async (season: WonSeason): Promise<{ aiHouse?: string }> => {
+    if (!isAiWinner(season.winner)) return {};
+    const owner = deps.authBindingStore ? await resolveCurrentOwnerAuthUid(season, deps.authBindingStore, deps.galaxyDefenseCampaignStore) : undefined;
+    return owner ? {} : { aiHouse: aiNameFromStored(season.winner.playerId, season.winner.playerName) ?? season.winner.playerName };
+  };
+
   app.get("/hq/galaxy", async (_request, reply) => {
     if (!deps.galaxyPlanetStore) {
       reply.code(503);
@@ -290,6 +301,7 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
         crownedAt: season.winner.crownedAt,
         claimed: Boolean(record),
         planetName: record?.planetName ?? null,
+        ...(await aiHouseOf(season)),
         ...(season.winner.stats ? { stats: season.winner.stats } : {})
       });
     }

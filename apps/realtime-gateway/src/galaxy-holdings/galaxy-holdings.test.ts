@@ -27,6 +27,19 @@ const endedSummary = (overrides: Partial<CurrentSeasonSummary>): CurrentSeasonSu
   }) as CurrentSeasonSummary;
 
 describe("resolveGalaxyHoldingsByOwner", () => {
+  it("gives an AI-won Sector to an AI Duke only when asked, named by the AI's listed name (§29.1)", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore(() => 1_000);
+    const archives: SeasonArchiveRow[] = [
+      archive({ seasonId: "season-1", winner: { playerId: "ai-2", playerName: "ai-2", objectiveId: "TOWN_CONTROL", objectiveName: "Town Control", crownedAt: 1 } }),
+      // An unbound human winner is still unclaimed frontier, AI Dukes or not.
+      archive({ seasonId: "season-2", seasonSequence: 2, winner: { playerId: "player-9", playerName: "Nine", objectiveId: "TOWN_CONTROL", objectiveName: "Town Control", crownedAt: 1 } })
+    ];
+    const deps = { listSeasonArchives: async () => archives, authBindingStore };
+    expect((await resolveGalaxyHoldingsByOwner(deps)).size).toBe(0);
+    const withAi = await resolveGalaxyHoldingsByOwner({ ...deps, includeAiDukes: true });
+    expect([...withAi.entries()]).toEqual([["ai:season-1", [{ seasonId: "season-1", tier: "PLANET", specialization: "INDUSTRIAL", aiName: "Sigrid" }]]]);
+  });
+
   it("groups an owner's won Planet and awarded Outposts together", async () => {
     const authBindingStore = new InMemoryGatewayAuthBindingStore(() => 1_000);
     await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1" });

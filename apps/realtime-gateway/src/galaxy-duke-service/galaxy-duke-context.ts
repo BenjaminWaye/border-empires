@@ -14,7 +14,7 @@ import type { DukeCounter, DukeState } from "../galaxy-duke-engine/galaxy-duke-t
 import type { GalaxyDukeStore } from "../galaxy-duke-store/galaxy-duke-store.js";
 import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
 import type { GalaxyExplorationStore } from "../galaxy-exploration-store/galaxy-exploration-store.js";
-import { resolveGalaxyHoldingsByOwner } from "../galaxy-holdings/galaxy-holdings.js";
+import { isAiDukeUid, resolveGalaxyHoldingsByOwner } from "../galaxy-holdings/galaxy-holdings.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
 
 export type GalaxyDukeDeps = {
@@ -38,9 +38,13 @@ export type DukeWorld = {
   holdingsByOwner: Map<string, HeldSector[]>;
   ownerOfSeason: Map<string, string>;
   tierOfSeason: Map<string, "PLANET" | "OUTPOST">;
-  // Everyone holding at least one Planet: the Dukes (§3).
+  // Everyone holding at least one Planet: the Dukes (§3), AI Dukes included.
   dukeUids: string[];
+  // Planets held by player Dukes: what Court Strength counts. AI-held Sectors
+  // never counted against the Court and still do not (§29.1).
   capturedSectors: number;
+  // Every held Planet, AI Dukes' too: what the Warden pool is split across.
+  planetCount: number;
 };
 
 export type DukeContext = {
@@ -87,33 +91,42 @@ export const createDukeContext = (deps: GalaxyDukeDeps): DukeContext => {
       listSeasonArchives: deps.listSeasonArchives,
       ...(deps.getCurrentSeasonSummary ? { getCurrentSeasonSummary: deps.getCurrentSeasonSummary } : {}),
       authBindingStore: deps.authBindingStore,
-      ...(deps.galaxyDefenseCampaignStore ? { galaxyDefenseCampaignStore: deps.galaxyDefenseCampaignStore } : {})
+      ...(deps.galaxyDefenseCampaignStore ? { galaxyDefenseCampaignStore: deps.galaxyDefenseCampaignStore } : {}),
+      includeAiDukes: true
     });
     const holdingsByOwner = new Map<string, HeldSector[]>();
     const ownerOfSeason = new Map<string, string>();
     const tierOfSeason = new Map<string, "PLANET" | "OUTPOST">();
     const dukeUids: string[] = [];
     let capturedSectors = 0;
+    let planetCount = 0;
     for (const [authUid, territories] of raw) {
       const held = territories.map((t): HeldSector => ({ seasonId: t.seasonId, tier: t.tier, specialization: t.specialization }));
       holdingsByOwner.set(authUid, held);
-      for (const h of held) {
-        ownerOfSeason.set(h.seasonId, authUid);
-        tierOfSeason.set(h.seasonId, h.tier);
-        if (h.tier === "PLANET") capturedSectors += 1;
+      for (const t of territories) {
+        ownerOfSeason.set(t.seasonId, authUid);
+        tierOfSeason.set(t.seasonId, t.tier);
+        if (t.aiName) aiLabels.set(t.seasonId, `House ${t.aiName}`);
+        if (t.tier !== "PLANET") continue;
+        planetCount += 1;
+        if (!isAiDukeUid(authUid)) capturedSectors += 1;
       }
       if (held.some((h) => h.tier === "PLANET")) dukeUids.push(authUid);
     }
     dukeUids.sort();
-    return { holdingsByOwner, ownerOfSeason, tierOfSeason, dukeUids, capturedSectors };
+    return { holdingsByOwner, ownerOfSeason, tierOfSeason, dukeUids, capturedSectors, planetCount };
   };
+
+  // AI-held Sectors have no christened name; they go by their House (§29.1).
+  // Bounded by the number of won seasons, and rebuilt with every world read.
+  const aiLabels = new Map<string, string>();
 
   const countAll = (counters: ReadonlyArray<DukeCounter>): void => {
     for (const c of counters) deps.onCounter?.(c);
   };
 
   const labelFor = async (seasonId: string): Promise<string> =>
-    (await deps.galaxyPlanetStore?.getBySeasonId(seasonId))?.planetName ?? "an unnamed world";
+    (await deps.galaxyPlanetStore?.getBySeasonId(seasonId))?.planetName ?? aiLabels.get(seasonId) ?? "an unnamed world";
 
   const applyEffects = async (authUid: string, effects: ReadonlyArray<DukeEffect>, world: DukeWorld): Promise<string[]> => {
     const contested: string[] = [];

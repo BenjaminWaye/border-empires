@@ -135,9 +135,13 @@ export const resolveRaidArrival = (attacker: DukeState, defender: DukeState | nu
 
   let nextAttacker = dropFlight(attacker, flight);
   const home = findSystem(nextAttacker, flight.fromSeasonId);
-  if (home && !outcome.attackerLost) nextAttacker = replaceSystem(nextAttacker, { ...home, fighters: [...home.fighters, { hull: outcome.attackerHullAfter }] });
+  if (home && !outcome.attackerLost && !flight.courtWrit) nextAttacker = replaceSystem(nextAttacker, { ...home, fighters: [...home.fighters, { hull: outcome.attackerHullAfter }] });
   const after = Math.max(0, target.stability - outcome.stabilityLoss);
-  const hull = outcome.attackerLost ? "your Fighter was destroyed" : `your Fighter hull ${flight.fighterHull}% to ${outcome.attackerHullAfter}%`;
+  const hull = flight.courtWrit
+    ? "the Court's Fighter has gone back to the Court"
+    : outcome.attackerLost
+      ? "your Fighter was destroyed"
+      : `your Fighter hull ${flight.fighterHull}% to ${outcome.attackerHullAfter}%`;
   const result = outcome.through ? `Stability ${target.stability} to ${after}` : "the defending Fighter held";
   const a = pushDigest(nextAttacker, now, "COMBAT", `Raid on ${target.label}: ${result}, ${hull}.`);
   nextAttacker = a.state;
