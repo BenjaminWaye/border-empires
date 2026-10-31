@@ -68,7 +68,7 @@ no additional persisted state or per-factory order.
 Factories only receive the bonus while active and not FOOD-dormant. Credit
 beneficiaries retain their normal supported-town and fed-town requirements;
 Settlement-tier towns do not receive town-industry credit. Extraction sites
-must be owned, garrisoned, correctly developed, active, not dormant and backed
+must be owned, garrisoned, correctly developed, active and backed
 by the owning House's required Manifest. Capture does not bypass that gate.
 Loss, abandonment, construction completion, removal and slot shortfalls must
 invalidate existing caches. Accrued income and manpower are settled at the
@@ -198,7 +198,7 @@ A normal factory produces 12 Ancillaries per four-hour batch; conductive supply
 adds 6 at each of two factories. Resin adds 12 per cycle at one supplied depot.
 At base rates, a 40-Ancillary extractor repays its cost in 13h 20m of supplied
 operation. A 50-Ancillary foundry takes 16h 40m with two factories or 33h 20m
-with one. These figures exclude technology, construction, FOOD and opportunity
+with one. These figures exclude technology, construction and opportunity
 costs. Benefits remain bounded by developed sites, eligible depots/factories and
 upkeep; the larger deposit budgets still require multiplayer playtesting.
 

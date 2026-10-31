@@ -484,7 +484,7 @@ between separately equipped factory production lines. Opening more factories
 does not duplicate a commitment: each line needs its own reserved supply. Supply
 slots represent this exclusive commitment, not ore units spent down to zero.
 An idle or lost recipient releases the commitment for another eligible
-building; the physical deposit remains. A Siphon can divert a working site’s output to the caster, without duplicating its supply. Its crews and extraction systems must still be authorised and provisioned at the source; draining an undeveloped deposit creates no industry.
+building; the physical deposit remains. A Siphon can divert a working site’s output to the caster, without duplicating its supply. Its crews and extraction systems must still be authorised at the source; draining an undeveloped deposit creates no industry.
 
 Catalyst Refineries develop rare catalyst-bearing deposits for offworld
 chemical and fabrication industries. These deposits favour inland sandy ground

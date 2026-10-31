@@ -24,6 +24,7 @@ import {
 } from "./structure-command-planner.js";
 import { chooseBestRelayBeaconBuild } from "./relay-beacon-command-planner.js";
 import { foodSlotReliefFromPlannerInput } from "./food-slot-relief.js";
+import { ownedNetworkInstallationCount } from "./planner-owned-structure-counts.js";
 import { economyWeak, foodCoverageLow } from "./ai-economic-heuristics.js";
 import { buildAutomationStrategicSnapshot } from "./automation-strategic-snapshot.js";
 import type { AutomationPlannerDecisionContext } from "./automation-command-planner-helpers.js";
@@ -460,7 +461,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     input.slotSupplyByResource?.FOOD,
     input.slotDemandByResource?.FOOD,
     foodSlotBlocked,
-    input.ownedStructureCounts?.RELAY_BEACON
+    input.ownedStructureCounts?.RELAY_BEACON,
+    ownedNetworkInstallationCount(input.ownedStructureCounts)
   );
   recordPhaseTiming("summarize_frontier", summarizeStartedAt);
   const result = runUtilityPolicy({

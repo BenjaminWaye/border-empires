@@ -61,7 +61,8 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   // IMPLANT_FOUNDRY, CATALYST_REFINERY, CULTIVATION_ESTATE,
   // RECLAMATION_WORKS) deliberately have NO slot requirement (zero upkeep,
   // user decision): developing a frontier deposit costs only its build
-  // manpower.
+  // manpower. Unlike Hydrogarden/Hydroworks this isn't about circularity:
+  // the site is already its own payoff, so it carries no running cost.
 
   INCUBATION_ENGINE: [{ resource: "FOOD", count: 1 }],
   OBSERVATORY: [{ resource: "CRYSTAL", count: 1 }],

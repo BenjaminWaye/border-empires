@@ -4,6 +4,7 @@ import {
   chooseFoodConsumingStructureToDisable,
   chooseLowValueBeaconToDisable,
   chooseManuallyDisabledBeaconToReenable,
+  chooseManuallyDisabledFreeStructureToReenable,
   chooseTownToAbandon,
   foodSlotReliefFromPlannerInput
 } from "./food-slot-relief.js";
@@ -193,6 +194,25 @@ describe("chooseManuallyDisabledBeaconToReenable", () => {
     const b = tile(1, 9, { status: "inactive", inactiveReason: "manual" });
     const c = tile(1, 2, { status: "inactive", inactiveReason: "manual" });
     expect(chooseManuallyDisabledBeaconToReenable([a, b, c], PLAYER_ID)).toEqual({ x: 1, y: 2 });
+  });
+});
+
+describe("chooseManuallyDisabledFreeStructureToReenable", () => {
+  it("re-enables a manually-disabled frontier extractor, which now has no FOOD upkeep", () => {
+    const extractor = tile(4, 4, { type: "RESIN_EXTRACTOR", status: "inactive", inactiveReason: "manual" });
+    expect(chooseManuallyDisabledFreeStructureToReenable([extractor], PLAYER_ID)).toEqual({ x: 4, y: 4 });
+  });
+
+  it("ignores a manually-disabled structure that still has a slot requirement", () => {
+    const hall = tile(4, 4, { type: "CENSUS_HALL", status: "inactive", inactiveReason: "manual" });
+    expect(chooseManuallyDisabledFreeStructureToReenable([hall], PLAYER_ID)).toBeUndefined();
+  });
+
+  it("is offered through foodSlotReliefFromPlannerInput without any beacon", () => {
+    const extractor = tile(4, 4, { type: "IMPLANT_FOUNDRY", status: "inactive", inactiveReason: "manual" });
+    expect(foodSlotReliefFromPlannerInput([extractor], PLAYER_ID, undefined, undefined, 10, 2, false, 0, 1).reenableTarget).toEqual({ x: 4, y: 4 });
+    // Without an owned installation count the scan is skipped entirely.
+    expect(foodSlotReliefFromPlannerInput([extractor], PLAYER_ID, undefined, undefined, 10, 2).reenableTarget).toBeUndefined();
   });
 });
 
