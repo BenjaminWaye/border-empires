@@ -52,12 +52,12 @@ describe("worker recovery after a tile delta with unchanged collection version",
   it("does not keep disabling the same structure after its manual-disable delta", () => {
     const consumer = (x: number): PlannerTileView => ({
       x, y: 0, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED",
-      economicStructure: { ownerId: "ai-1", type: "MINE", status: "active" }
+      economicStructure: { ownerId: "ai-1", type: "CENSUS_HALL", status: "active" }
     });
     const { core, plan } = setup([consumer(0), consumer(2)], true);
     expect(plan(true)).toMatchObject({ command: { type: "SET_CONVERTER_STRUCTURE_ENABLED", payloadJson: JSON.stringify({ x: 0, y: 0, enabled: false }) } });
     core.handleMessage({ type: "tile_deltas", tileDeltas: [
-      { x: 0, y: 0, economicStructureJson: JSON.stringify({ ownerId: "ai-1", type: "MINE", status: "inactive", inactiveReason: "manual" }) }
+      { x: 0, y: 0, economicStructureJson: JSON.stringify({ ownerId: "ai-1", type: "CENSUS_HALL", status: "inactive", inactiveReason: "manual" }) }
     ] });
     expect(plan(true)).toMatchObject({ command: { type: "SET_CONVERTER_STRUCTURE_ENABLED", payloadJson: JSON.stringify({ x: 2, y: 0, enabled: false }) } });
   });
