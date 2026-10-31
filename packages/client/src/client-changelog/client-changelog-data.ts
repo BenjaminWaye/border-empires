@@ -444,6 +444,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Resource icons stay visible when zoomed out",
     why: "Resource circles switched to plain colours before you could get a useful overview of nearby deposits.",
     changes: ["Resource markers keep their icons at every zoom level in both the 2D and 3D maps, with smoothly scaling circles and coloured rims"]
+  },
+  {
+    createdAt: 1793392462199,
+    introducedIn: "2026.10.30",
+    title: "Reveal map keeps reach borders",
+    why: "Revealing the map showed every empire's territory but dropped their reach borders, so the hatching that marks ground contested by rival reach disappeared too.",
+    changes: [
+      "Revealing the map now shows every empire's reach borders, including unowned ground held inside them",
+      "Contested tiles stay hatched after a reveal in both the 2D and 3D maps"
+    ]
   }
 ];
 
