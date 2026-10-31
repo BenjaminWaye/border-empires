@@ -147,6 +147,10 @@ export const createNameDecal = (deps: NameDecalDeps): NameDecal => {
     if (canvas.width !== width || canvas.height !== height) {
       canvas.width = width;
       canvas.height = height;
+      // three.js allocates a texture's GPU storage once, at its first size, and
+      // later uploads only write into it: without this, a resized canvas lands
+      // scaled into a corner of the old storage and the names slide off their land.
+      texture.dispose();
     }
     if (!ctx) return false;
     ctx.clearRect(0, 0, width, height);

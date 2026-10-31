@@ -465,6 +465,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1793483178441,
+    introducedIn: "2026.10.31",
+    title: "Island and realm names stay on their land",
+    why: "On the 3D map, names could slide off their island and drift as the camera moved.",
+    changes: ["Island and player names stay put on the land they label while you pan and zoom"]
+  },
+  {
     createdAt: 1793470954153,
     introducedIn: "2026.10.31",
     title: "Ongoing battles open their battle screen",
