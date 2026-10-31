@@ -130,15 +130,22 @@ export const resourceSlotSupplyForPlayer = (
   // Told about every slot added, labelled by source, for the Economy panel's breakdown.
   onSource?: ResourceSlotSourceSink
 ): ResourceSlotTotals => {
-  // §5.4: deliberately NOT dormancy-aware, because no slot-boosting
-  // structure has a slot requirement that could make it dormant:
+  // §5.4: deliberately NOT dormancy-aware, for two different reasons per
+  // structure family:
   //  - Synthesizers are explicitly excluded from demand entirely (see
   //    SYNTHESIZER_TYPE_SET below) and Hydrogarden/Hydroworks have NO slot
   //    requirement at all (by design — both boost FOOD supply itself, so
   //    charging them FOOD would be circular: their own dormancy would zero
-  //    out the very supply they exist to add).
-  //  - Mine/Umbrite Rig have no slot requirement either (user decision),
-  //    so they always grant their TITANIUM/CRYSTAL/UMBRITE boost.
+  //    out the very supply they exist to add). None of these three can ever
+  //    be dormant, so this is correct as-is.
+  //  - Mine/Camp DO consume a FOOD slot (a different resource than what
+  //    they boost — TITANIUM/UMBRITE — so no circularity) and so, in principle,
+  //    a FOOD-dormant Mine/Umbrite Rig shouldn't still grant its TITANIUM/UMBRITE boost.
+  //    Not implemented: doing so needs FOOD dormancy resolved BEFORE this
+  //    function's supply output (a two-pass computation), a real
+  //    architecture change touching every caller of
+  //    resourceSlotSupplyForPlayer, not a local fix. Known gap, flagged for
+  //    a future pass, not attempted here.
   const totals = emptyResourceSlotTotals();
   for (const tile of settledTiles) {
     const isActiveStructure = tile.economicStructure?.status === "active" && tile.economicStructure?.inactiveReason !== "manual";

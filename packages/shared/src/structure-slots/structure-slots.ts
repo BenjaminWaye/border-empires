@@ -55,9 +55,8 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   // Hydroworks-radius +2 via HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS below), so
   // charging them their own boosted resource would be circular — dormancy
   // could silently zero out the very supply they exist to add.
-  // MINE/UMBRITE_RIG (the Titanium/Crystal/Umbrite deposit improvements) are
-  // likewise slot-free (user decision): they only add a slot of the resource
-  // they sit on, so they cost nothing to keep running.
+  UMBRITE_RIG: [{ resource: "FOOD", count: 1 }],
+  MINE: [{ resource: "FOOD", count: 1 }],
   RESIN_EXTRACTOR: [{ resource: "FOOD", count: 1 }],
   IMPLANT_FOUNDRY: [{ resource: "FOOD", count: 1 }],
   CATALYST_REFINERY: [{ resource: "FOOD", count: 1 }],

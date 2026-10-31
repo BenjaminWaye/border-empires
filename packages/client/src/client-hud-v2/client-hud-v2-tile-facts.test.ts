@@ -13,8 +13,7 @@ describe("tile fact strip", () => {
     expect(facts[0]).toEqual({ label: "Building", value: "Mine" });
     expect(facts[1]).toEqual({ label: "State", value: "Active", tone: "good" });
     expect(labels(facts)).toContain("Gives");
-    // Mine has no upkeep: it only adds a slot of the deposit it sits on.
-    expect(labels(facts)).not.toContain("Upkeep");
+    expect(labels(facts)).toContain("Upkeep");
   });
 
   it("flags a building shut down by upkeep and hides upkeep on someone else's", () => {

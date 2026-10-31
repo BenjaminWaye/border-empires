@@ -153,7 +153,7 @@ describe("tileUpkeepContribution", () => {
     expect(contrib.food).toBe(0);
   });
 
-  it("charges no UMBRITE_RIG gold upkeep", () => {
+  it("charges no UMBRITE_RIG gold upkeep (§12.1: FOOD slot occupation is the upkeep)", () => {
     const player = makePlayer();
     const tile = settledTile(0, 0, {
       economicStructure: { ownerId: PLAYER_ID, status: "active", type: "UMBRITE_RIG" }

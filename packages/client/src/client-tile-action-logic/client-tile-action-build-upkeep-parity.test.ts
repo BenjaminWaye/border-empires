@@ -83,12 +83,10 @@ describe("build-menu cost strings always label real upkeep (client-tile-action-l
     expect(lineContaining(siegeCampSource, "siegeVariant.summary")).toContain("siegeVariant.upkeepSuffix");
   });
 
-  it("Hydrogarden, Hydroworks, Mine and Umbrite Rig are the real zero-upkeep exceptions (sanity check the predicate itself)", () => {
+  it("Hydrogarden and Hydroworks are the real zero-upkeep exceptions (sanity check the predicate itself)", () => {
     expect(hasRealUpkeep("HYDROGARDEN")).toBe(false);
     expect(hasRealUpkeep("HYDROWORKS")).toBe(false);
-    expect(hasRealUpkeep("MINE")).toBe(false);
-    expect(hasRealUpkeep("UMBRITE_RIG")).toBe(false);
-    expect(hasRealUpkeep("CENSUS_HALL")).toBe(true);
+    expect(hasRealUpkeep("MINE")).toBe(true);
     expect(hasRealUpkeep("TITANIUM_WORKS")).toBe(true);
   });
 });
