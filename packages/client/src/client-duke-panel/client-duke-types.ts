@@ -70,7 +70,10 @@ export type DukeAttentionKind =
   | "SLOT_EMPTY"
   | "FIGHTER_DAMAGED"
   | "COURT_OFFER"
-  | "PETITION_READY";
+  | "PETITION_READY"
+  | "GRIEVANCE_AGAINST_YOU"
+  | "FAVOR_REVOKED"
+  | "WRIT_PENDING";
 
 export type DukeAttentionItem = {
   kind: DukeAttentionKind;
@@ -79,6 +82,21 @@ export type DukeAttentionItem = {
   label: string;
   at: number | null;
 };
+
+// Politics (design doc §29): grievances, Writs, Court Favor and lent Fighters.
+export type DukeRivalView = { seasonId: string; label: string; weight: number; revoked: boolean; grievanceCost: number; isAi: boolean };
+export type DukePoliticsView = {
+  renown: number;
+  grievance: { targetSeasonId: string | null; targetLabel: string; expiresAt: number; hits: number } | null;
+  grievancesAgainstMe: { fromLabel: string; expiresAt: number }[];
+  writ: { kind: "FIGHTER" | "STRIKE"; expiresAt: number; targetLabel: string | null } | null;
+  favor: { revoked: boolean; runawaySince: number | null };
+  lent: { fromSeasonId: string; returnsAt: number }[];
+  rivals: DukeRivalView[];
+};
+
+// A raid in the air, from any Duke: raids are public so they can be watched coming.
+export type DukePublicRaid = { fromSeasonId: string; seasonId: string; launchedAt: number; arrivesAt: number };
 
 export type DukeStatus = {
   now: number;
@@ -106,6 +124,9 @@ export type DukeStatus = {
   meters: { domainWeight: number; rank: number; dukeCount: number };
   economy: { developmentUpkeepPerCycle: number; incursionsPerCyclePerSystem: number; wardenPoolPerCycle: number };
   digest: DukeDigestEntry[];
+  // Optional: a gateway older than §29 sends neither.
+  politics?: DukePoliticsView;
+  raids?: DukePublicRaid[];
 };
 
 export type DukeActionFailure = { ok: false; code: string; availableAt?: number };

@@ -114,6 +114,40 @@ export const registerGalaxyDukeRoutes = (app: FastifyInstance, deps: RegisterGal
     return respond(reply, await service!.answerCourtOffer(authUid, body.accept));
   });
 
+  // Politics (§29): a public grievance, a private Writ, a Fighter lent to the Court.
+  app.post("/hq/galaxy/duke/grievance", async (request, reply) => {
+    const authUid = await authed(request, reply);
+    if (!authUid) return { ok: false, error: "unavailable or unauthorized" };
+    const body = bodyOf(request);
+    if (typeof body.targetSeasonId !== "string" || !body.targetSeasonId) {
+      reply.code(400);
+      return { ok: false, code: "INVALID" };
+    }
+    return respond(reply, await service!.declareGrievance(authUid, body.targetSeasonId));
+  });
+
+  app.post("/hq/galaxy/duke/writ", async (request, reply) => {
+    const authUid = await authed(request, reply);
+    if (!authUid) return { ok: false, error: "unavailable or unauthorized" };
+    const body = bodyOf(request);
+    if (typeof body.accept !== "boolean") {
+      reply.code(400);
+      return { ok: false, code: "INVALID" };
+    }
+    return respond(reply, await service!.answerWrit(authUid, body.accept));
+  });
+
+  app.post("/hq/galaxy/duke/systems/:seasonId/lend", async (request, reply) => {
+    const authUid = await authed(request, reply);
+    if (!authUid) return { ok: false, error: "unavailable or unauthorized" };
+    const seasonId = seasonIdParam(request);
+    if (!seasonId) {
+      reply.code(400);
+      return { ok: false, code: "INVALID" };
+    }
+    return respond(reply, await service!.lendFleet(authUid, seasonId));
+  });
+
   app.post("/hq/galaxy/duke/court/move", async (request, reply) => {
     const authUid = await authed(request, reply);
     if (!authUid) return { ok: false, error: "unavailable or unauthorized" };

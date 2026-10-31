@@ -17,7 +17,13 @@ export type PublicGalaxyPlanet = {
   // Present on Outposts (GalaxyOutpostView.holderName). Planets don't carry a
   // holder on the public listing yet, so their patches never merge (§22.1).
   holderName?: string;
+  // Set while an AI House holds the Sector as an AI Duke (§29.1).
+  aiHouse?: string;
 };
+
+// What a held system is called: its christened name, else its AI House.
+export const publicPlanetLabel = (planet: PublicGalaxyPlanet): string =>
+  planet.planetName ?? (planet.aiHouse ? `House ${planet.aiHouse}` : planet.seasonId);
 
 // The visual/gameplay state a planet renders as in the 3D scene.
 // "unknown" is the design doc's fog-of-war Unknown tier (§17.2) -- a
@@ -143,7 +149,7 @@ export const classifyPlanetState = (
   if (mySeasonIds.has(planet.seasonId)) return "owned";
   if (isContested(planet.seasonId)) return "contested";
   if (!isCharted(planet.seasonId)) return "unknown";
-  if (planet.tier === "PLANET" && planet.claimed === false) return "frontier";
+  if (planet.tier === "PLANET" && planet.claimed === false && !planet.aiHouse) return "frontier";
   return "other";
 };
 
@@ -161,9 +167,15 @@ export const toSpacePlanetViewModels = (
     return {
       seasonId: planet.seasonId,
       tier: planet.tier,
-      label: state === "unknown" ? "Unknown System" : (planet.planetName ?? planet.seasonId),
+      label: state === "unknown" ? "Unknown System" : publicPlanetLabel(planet),
       state,
-      ...(state === "owned" ? { ownerKey: "me" } : state !== "unknown" && planet.holderName ? { ownerKey: `duke:${planet.holderName}` } : {}),
+      ...(state === "owned"
+        ? { ownerKey: "me" }
+        : state !== "unknown" && planet.aiHouse
+          ? { ownerKey: `house:${planet.aiHouse}` }
+          : state !== "unknown" && planet.holderName
+            ? { ownerKey: `duke:${planet.holderName}` }
+            : {}),
       ...(isUnderThreat?.(planet.seasonId) ? { underThreat: true } : {})
     };
   });
