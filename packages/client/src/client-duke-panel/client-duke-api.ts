@@ -18,6 +18,9 @@ export type DukeApi = {
   order: (fromSeasonId: string, body: { kind: "PROBE" | "RAID"; targetSeasonId: string }) => Promise<DukeActionOutcome>;
   answerOffer: (accept: boolean) => Promise<DukeActionOutcome>;
   moveAgainstCourt: (influence: number) => Promise<DukeActionOutcome>;
+  declareGrievance: (targetSeasonId: string) => Promise<DukeActionOutcome>;
+  answerWrit: (accept: boolean) => Promise<DukeActionOutcome>;
+  lendFleet: (fromSeasonId: string) => Promise<DukeActionOutcome>;
 };
 
 type ErrorBody = { ok?: boolean; code?: string; availableAt?: number };
@@ -66,6 +69,9 @@ export const createDukeApi = (deps: DukeApiDeps): DukeApi => {
     cancelBuild: (seasonId) => post(systemPath(seasonId, "build/cancel")),
     order: (fromSeasonId, body) => post(systemPath(fromSeasonId, "order"), body),
     answerOffer: (accept) => post("/hq/galaxy/duke/court-offer", { accept }),
-    moveAgainstCourt: (influence) => post("/hq/galaxy/duke/court/move", { influence })
+    moveAgainstCourt: (influence) => post("/hq/galaxy/duke/court/move", { influence }),
+    declareGrievance: (targetSeasonId) => post("/hq/galaxy/duke/grievance", { targetSeasonId }),
+    answerWrit: (accept) => post("/hq/galaxy/duke/writ", { accept }),
+    lendFleet: (fromSeasonId) => post(systemPath(fromSeasonId, "lend"))
   };
 };

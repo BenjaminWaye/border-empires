@@ -16,9 +16,10 @@ import { systemInfoFor } from "./client-space-view-system-info.js";
 import { spaceViewChromeHtml, spaceViewLauncherHtml, spaceViewStatsHtml, spaceViewStyle } from "./client-space-view-html.js";
 import { spaceViewIntroHtml, spaceViewIntroStyle, SPACE_VIEW_INTRO_TIP_ID } from "./client-space-view-intro.js";
 import { mountSpaceViewWelcomeLetter, spaceViewWelcomeStyle } from "./client-space-view-welcome-letter.js";
-import { ownsSpaceViewEligiblePlanet, toSpacePlanetViewModels, type PublicGalaxyPlanet, type SpacePlanetViewModel } from "./client-space-view-state.js";
+import { ownsSpaceViewEligiblePlanet, publicPlanetLabel, toSpacePlanetViewModels, type PublicGalaxyPlanet, type SpacePlanetViewModel } from "./client-space-view-state.js";
 import { isDiscoveryTipSeen, markDiscoveryTipSeen } from "../client-discovery-tips/client-discovery-tips-storage.js";
 import { createSpaceScene, type SpaceScene } from "./client-space-map-3d/client-space-map-3d.js";
+import { createFleetOverlayFeed } from "./client-space-view-raid-feed.js";
 import { mountPanelDismissal } from "./client-space-view-panels.js";
 import { createStrategicMapController, type StrategicMapController } from "./client-strategic-map/client-strategic-map-controller.js";
 import { mountSenatePanel } from "../client-senate-panel/client-senate-panel.js";
@@ -65,6 +66,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   let launcher: HTMLButtonElement | undefined;
   let screen: HTMLDivElement | undefined;
   let scene: SpaceScene | undefined;
+  const fleetFeed = createFleetOverlayFeed((orders) => scene?.setFleetOrders(orders));
   let strategicMap: StrategicMapController | undefined;
   let styleEl: HTMLStyleElement | undefined;
 
@@ -107,7 +109,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
       if (!response.ok) return;
       const body = (await response.json().catch(() => undefined)) as { orders?: RawFleetOrderForOverlay[] } | undefined;
       const traveling = (body?.orders ?? []).filter((o) => o.status === "TRAVELING");
-      scene.setFleetOrders(traveling);
+      fleetFeed.setLegacy(traveling);
     } catch {
       // Network hiccup: the overlay just keeps showing its last-known state.
     }
@@ -276,6 +278,9 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
       openPanel: () => openDukePanel(),
       onStatus: (status) => {
         strategicMap?.setOrbiting(new Set(status?.orbiting.map((o) => o.seasonId) ?? []));
+        // Every raid in the air, on both maps (§29.4).
+        strategicMap?.setRaids(status?.raids ?? []);
+        fleetFeed.setRaids(status?.raids ?? []);
         showDukeStats(status);
         // A red dot on the Court button when the Court offer or a Petition is waiting.
         const courtButton = screen?.querySelector<HTMLButtonElement>("[data-space-view-court]");
@@ -409,7 +414,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     modelsBySeasonId = new Map(models.map((m) => [m.seasonId, m]));
     senateTargetOptions = planets
       .filter((p) => !mySeasonIds.has(p.seasonId))
-      .map((p) => ({ seasonId: p.seasonId, label: p.planetName ?? p.seasonId }));
+      .map((p) => ({ seasonId: p.seasonId, label: publicPlanetLabel(p) }));
   };
 
   // Re-renders regardless of ensureMounted's once-only guard, so a later
