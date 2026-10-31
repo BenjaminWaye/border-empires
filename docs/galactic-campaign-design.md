@@ -2497,9 +2497,10 @@ alone reaches exactly zero; Wonders and Senate votes only speed it up.
    point, Production banked like a wallet) contradict §21.8/§23 (daily rate,
    one build slot). Development yields above are still the §13 per-Cycle
    figures.
-2. **A lone Industrial/Extraction Duke is in permanent deficit** (+1 earned,
-   −3 upkeep = −2 Influence per Cycle): −8 Stability per Cycle, no passive
-   recovery, on top of Warden hits. Only Capital/Trade Dukes are net positive.
+2. ~~**A lone Industrial/Extraction Duke is in permanent deficit.**~~
+   **Fixed by §26:** Industrial/Extraction earn 2 Influence a Cycle and the
+   first Planet's upkeep is 2, so a lone Planet breaks even
+   (`galaxy-cycle-tick.ts`). The table in §25.1 still shows the older numbers.
 3. **Defending can cost more than not defending.** A Raider holds a Warden
    relic at 40 damage each way (§6 stats, §23 formula), so each incursion
    costs about 32 Production to Refit (40% of 80). Taking the flat 20 instead
@@ -2512,8 +2513,9 @@ alone reaches exactly zero; Wonders and Senate votes only speed it up.
 5. **Some Wonders don't fit.** Grand Exchange ("reduced Senate proposal
    costs") has nothing to reduce under wagers; Dyson Array and Deep Sensor
    Array affect "your next season", not the galactic layer.
-6. **A raid gains the attacker nothing directly.** Five hits contest a Sector,
-   which reopens as a Defense Campaign anyone can win.
+6. ~~**A raid gains the attacker nothing directly.**~~ **Addressed by §29.2:**
+   a raid pressed under a declared grievance earns Renown (Domain Weight) and a
+   little Influence.
 7. **Per-Duke vs per-system action gate is undecided** (§24.5).
 
 ---
@@ -2724,3 +2726,87 @@ In priority order. Item 2 needs the owner's accounts.
 
 Open items carried from §26.9: the fleet-route cleanup, and whether Move
 Against the Court should return to a quorum vote once a galaxy has enough Dukes.
+
+
+## 29. Politics: AI Dukes, grievances, Writs, the Blind Eye
+
+*Shipped server-side with a minimal Court-tab UI; the full Space View redesign
+is a separate, design-first piece of work. Numbers live in
+`galaxy-duke-engine/galaxy-duke-politics-config.ts` and are first-pass.*
+
+Comparable games each fixed one of the layer's holes. Solium Infernum's
+declared vendettas gave §29.2 (raids pay the attacker only when the claim is
+public). Neptune's Pride's visible fleet ETAs gave §29.4. Battlestar Galactica's
+traitor mechanic is still the model for Writs (§21.3). Nothing here copies
+another game's names, text or presentation.
+
+### 29.1 AI Dukes
+
+- A season won by a seasonal AI empire (player id `ai-<n>`) is held by an AI
+  Duke with id `ai:<seasonId>`: one Duke per Sector, named **House <AI name>**.
+  Old archives qualify too, because the id pattern is all that is needed.
+- AI Dukes are in the Duke world (`includeAiDukes` in `galaxy-holdings.ts`)
+  and the Cycle tick (they earn and pay Influence). Every other reader still
+  treats AI-won Sectors as unclaimed.
+- **AI-held Sectors do not count against Court Strength** (`capturedSectors`
+  skips them). Before this change they were unclaimed and did not count, so
+  deploying cannot suddenly end an era. They do share the Warden pool
+  (`planetCount`), which lowers every Planet's incursion rate a little.
+- Each Duke tick, `runAiDukes` (`galaxy-duke-ai/`) plans a turn with a pure
+  policy and carries it out only through the player actions. The policy:
+  Fighter first, refit below 60% hull, fortify at 40 Stability or below,
+  develop bodies (gas giant, then asteroid belt, then ice moon; further
+  developments only with Influence to spare), probe unsurveyed rivals,
+  declare against the strongest surveyed Duke ahead of it (or one the Court
+  has turned from), raid that target while keeping one Fighter at home and
+  never into a defender above 60% hull, lend a Fighter when the Court looks
+  away, and wager spare Influence above a reserve of 6. It accepts the Court's
+  offer only when alone, and takes Writs unless it leads.
+- AI Dukes rank for Domain Weight and can take the throne.
+
+### 29.2 Grievances and Renown
+
+| Rule | Value |
+|---|---|
+| Declare against a rival Duke (one open at a time, public: the target is told) | 5 Influence (free against a Duke under the Blind Eye) |
+| Duration | 14 days |
+| Each raid through on that rival | +3 Renown (×2 under the Blind Eye), and up to 3 of their Influence |
+| Grievance closes with no hit | −2 Renown |
+| Renown | Adds 1:1 to Domain Weight; cleared at the end of an era |
+
+### 29.3 Writs and the Blind Eye
+
+- **Writs** (§21.3): rolled once per Cycle per Duke, only with at least two
+  Dukes. Chance = 10% + 30% × (1 − Court Strength ÷ start) + 10% for the top
+  half of Domain Weight. Deterministic per Duke and Cycle. An offer lasts
+  3 days and is a free Fighter, or a STRIKE: a Court Fighter raids the
+  top-ranked rival's first Planet as an ordinary raid and then leaves (it never
+  joins the fleet or counts against the cap). Taking one adds 3 to Court
+  Strength (`galaxy_court_writs`), capped at the start value. Answering is
+  free and private.
+- **The Blind Eye** (§21.6): the top Duke loses Court Favor after one full
+  Cycle at ≥1.5× second place. While it is revoked: −4 Stability on the
+  weakest Sector once per Cycle; the Court offer's protection stops covering
+  them; grievances against them are free and pay double. Favor returns when
+  the lead narrows, or when they **Lend a Fighter to the Court** (away
+  7 days, +4 Influence, resets the clock; at most 3 lent).
+
+### 29.4 Raids on the map
+
+Every raid in the air is public (`raids` on `GET /hq/galaxy/duke` and
+`GET /hq/galaxy/court`). The 2D strategic map draws a dashed red course with
+the raider at its current position. The 3D galaxy flies a Fighter model along
+the same course through the existing fleet overlay. Probes stay private.
+
+### 29.5 Routes
+
+`POST /hq/galaxy/duke/grievance {targetSeasonId}`,
+`POST /hq/galaxy/duke/writ {accept}`,
+`POST /hq/galaxy/duke/systems/:seasonId/lend`.
+
+### 29.6 Open
+
+- Tune AI aggression once staging has several Dukes; today the AI raids only
+  under a grievance.
+- The Space View redesign (design-first) should give grievances, Writs and the
+  Blind Eye their own place instead of a card on the Court tab.
