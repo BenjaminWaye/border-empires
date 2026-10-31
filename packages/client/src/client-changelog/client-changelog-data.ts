@@ -31,6 +31,7 @@ import { AI_DOCK_CROSSING_CHANGELOG } from "./client-changelog-ai-dock-crossing.
 import { REACH_RESTART_CHANGELOG } from "./client-changelog-reach-restart.js";
 import { TOWN_NAMEPLATES_CHANGELOG } from "./client-changelog-town-nameplates.js";
 import { DIPLOMACY_DOCK_CHANGELOG } from "./client-changelog-diplomacy-dock.js";
+import { DIPLOMACY_DEAL_TABLE_CHANGELOG } from "./client-changelog-diplomacy-deal-table.js";
 import { MAP_LENS_CHANGELOG } from "./client-changelog-map-lens.js";
 import { MUSTER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-muster-supply-lines.js";
 import { MARCH_STEERING_CHANGELOG } from "./client-changelog-march-steering.js";
@@ -427,6 +428,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...LANDING_RESERVE_CHANGELOG,
   ...FOG_HILL_HAZE_CHANGELOG,
   ...DIPLOMACY_DOCK_CHANGELOG,
+  ...DIPLOMACY_DEAL_TABLE_CHANGELOG,
   ...MARCH_STEERING_CHANGELOG,
   ...DEV_SLOT_PROGRESS_CHANGELOG,
   ...TRUCE_LIFETIME_CAP_CHANGELOG,

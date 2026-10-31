@@ -14,10 +14,10 @@ describe("resource supply negotiation",()=>{
     });
     receiveDiplomacyStance({found:true,targetPlayerName:"Milo",targetPlayerId:"other",ai:false});
     const overlay=document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
-    expect(overlay.querySelector('[data-trade-kind="trade:0"]')?.getAttribute("aria-pressed")).toBe("true");
+    expect(overlay.querySelector('[data-trade-kind][aria-pressed="true"]')).toBeNull();
     const edit=(selector:string,value:string)=>{ const field=overlay.querySelector<HTMLInputElement|HTMLSelectElement>(selector)!; field.value=value; field.dispatchEvent(new Event("input")); };
     edit('[data-trade-exact="give-gold"]', "7");
-    edit('[data-supply-give="NEURAL_RESIN"]',"2"); edit('[data-supply-ask="FOOD"]',"3");
+    edit('[data-trade-exact="give-NEURAL_RESIN"]',"2"); edit('[data-trade-exact="ask-FOOD"]',"3");
     edit('[data-trade-exact="ask-shard"]', "1");
     overlay.querySelector<HTMLButtonElement>("[data-trade-send]")!.click();
     const payload=send.mock.calls.at(-1)![0];
@@ -27,14 +27,14 @@ describe("resource supply negotiation",()=>{
   it("prevents giving used slots and preserves resource terms when countering",()=>{
     const send=vi.fn((_payload: unknown, _message: string)=>true),terms={give:{...empty,resources:{PRECURSOR_SALVAGE:2}},ask:empty,supplyDurationHours:24 as const};
     openDiplomacyTradeScreen({targetName:"Milo",kind:"alliance",durationHours:12,terms}, {send,ownHoldings:()=>({...empty,resources:{PRECURSOR_SALVAGE:1}})});
-    expect(document.querySelector<HTMLInputElement>('[data-supply-give="PRECURSOR_SALVAGE"]')?.value).toBe("2");
-    expect(document.querySelector(".diplomacy-resource-terms table")?.parentElement?.textContent).toContain("Until either House cancels");
+    expect(document.querySelector<HTMLInputElement>('[data-trade-exact="give-PRECURSOR_SALVAGE"]')?.value).toBe("2");
+    expect(document.querySelector('[data-trade-deal]')?.textContent).toContain("Supply runs until either House cancels");
     expect(document.querySelector<HTMLButtonElement>('[data-trade-send]')?.disabled).toBe(true);
     expect(document.querySelector('[data-trade-verdict]')?.textContent).toContain("1 spare Precursor salvage");
   });
   it("keeps an older server's unsupported supply controls disabled",()=>{
     openDiplomacyTradeScreen({targetName:"Milo",kind:"truce",durationHours:12},diplomacyTradeDepsFor({gold:5,strategicResources:{}},()=>true));
-    expect(document.querySelector('[data-supply-give]')).toBeNull();
+    expect(document.querySelector('[data-trade-row="give-FOOD"]')).toBeNull();
     const state=createInitialResourceTradeState();
     applyResourceTradeState(state,{resourceTradeHoldings:{NEURAL_RESIN:1}});
     expect(state.resourceTradeHoldings).toEqual({NEURAL_RESIN:1});

@@ -1,25 +1,41 @@
-// The "You give" / "You ask" goods on the diplomacy trade screen, laid out like
-// a 4X deal table: each side lists its tradeable goods as item tiles (Coin,
-// Shards), and pressing one opens a slider from 0 to what that side holds,
-// with an exact-amount box beside it for amounts the slider can't reach.
-// Only one slider is open at a time; the tiles always show the chosen amount.
-import type { DiplomacyGoods, DiplomacyTerms } from "@border-empires/shared";
+// The two side columns of the diplomacy trade screen: "Yours" on the left and
+// "Theirs" on the right, each listing what that side can put into the deal
+// (Coin, Shards and spare resource supply slots) as rows. Pressing a row opens
+// a slider under it from 0 to what that side holds, with an exact-amount box
+// beside it for amounts the slider can't reach. Only one slider is open at a
+// time; each row always shows the amount in the deal.
+import { TRADABLE_SUPPLY_RESOURCES, supplyResourceLabel, type DiplomacyGoods, type DiplomacyTerms, type ResourceSupplyOffer, type TradableSupplyResource } from "@border-empires/shared";
 
 import { resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
 import type { DiplomacyStanceReply } from "./client-diplomacy-trade-view.js";
 
 export type TradeSide = "give" | "ask";
-export type TradeGood = "gold" | "shard";
+export type TradeGood = "gold" | "shard" | TradableSupplyResource;
 export type TradeGoodKey = `${TradeSide}-${TradeGood}`;
 
-type TradeGoodSpec = { key: TradeGoodKey; side: TradeSide; good: TradeGood; label: string; icon: "GOLD" | "SHARD"; aria: string };
+export type TradeGoodSpec = { key: TradeGoodKey; side: TradeSide; good: TradeGood; label: string; icon: string; aria: string; supply: boolean };
 
-const GOODS: readonly TradeGoodSpec[] = [
-  { key: "give-gold", side: "give", good: "gold", label: "Coin", icon: "GOLD", aria: "Coin you give" },
-  { key: "give-shard", side: "give", good: "shard", label: "Shards", icon: "SHARD", aria: "Shards you give" },
-  { key: "ask-gold", side: "ask", good: "gold", label: "Coin", icon: "GOLD", aria: "Coin you ask for" },
-  { key: "ask-shard", side: "ask", good: "shard", label: "Shards", icon: "SHARD", aria: "Shards you ask for" }
-];
+/** The shared label spells Food in capitals for the resource bar; rows read better in plain case. */
+const supplyLabel = (resource: TradableSupplyResource): string => (resource === "FOOD" ? "Food" : supplyResourceLabel(resource));
+
+const sideSpecs = (side: TradeSide): TradeGoodSpec[] => {
+  const whose = side === "give" ? "you give" : "you ask for";
+  return [
+    { key: `${side}-gold`, side, good: "gold", label: "Coin", icon: "GOLD", aria: `Coin ${whose}`, supply: false },
+    { key: `${side}-shard`, side, good: "shard", label: "Shards", icon: "SHARD", aria: `Shards ${whose}`, supply: false },
+    ...TRADABLE_SUPPLY_RESOURCES.map((resource): TradeGoodSpec => ({
+      key: `${side}-${resource}`,
+      side,
+      good: resource,
+      label: supplyLabel(resource),
+      icon: resource,
+      aria: `${supplyLabel(resource)} supply slots ${whose}`,
+      supply: true
+    }))
+  ];
+};
+
+export const TRADE_GOODS: readonly TradeGoodSpec[] = [...sideSpecs("give"), ...sideSpecs("ask")];
 
 /**
  * What the other side's holdings can't tell us (a human, or an AI not read
@@ -27,8 +43,26 @@ const GOODS: readonly TradeGoodSpec[] = [
  * hold yourself if that is more.
  */
 export const UNKNOWN_HOLDINGS_ASK_MAX: DiplomacyGoods = { gold: 100, shard: 10 };
+/** The same for a resource supply slot whose spare count on their side is unknown. */
+export const UNKNOWN_SUPPLY_ASK_MAX = 10;
 
 export type TradeGoodsLimits = Record<TradeGoodKey, number>;
+
+/** The amount of one good in `terms`. */
+export const tradeAmount = (terms: DiplomacyTerms, spec: TradeGoodSpec): number => {
+  const side = terms[spec.side];
+  return spec.good === "gold" ? side.gold : spec.good === "shard" ? side.shard : (side.resources?.[spec.good] ?? 0);
+};
+
+const specFor = (key: TradeGoodKey): TradeGoodSpec => TRADE_GOODS.find((spec) => spec.key === key) ?? TRADE_GOODS[0]!;
+
+/** What that side holds of a good, if known. */
+const heldAmount = (holdings: DiplomacyGoods, spec: TradeGoodSpec): number =>
+  spec.good === "gold" ? holdings.gold : spec.good === "shard" ? holdings.shard : (holdings.resources?.[spec.good] ?? 0);
+
+/** The AI's holdings when its reply carries them; undefined for a human or an unread AI. */
+export const theirHoldings = (reply: DiplomacyStanceReply | undefined): DiplomacyGoods | undefined =>
+  reply?.found && reply.ai && reply.pricing ? reply.pricing.aiHoldings : undefined;
 
 /**
  * Each slider's top end: your own holdings for what you give, the AI's
@@ -38,103 +72,65 @@ export type TradeGoodsLimits = Record<TradeGoodKey, number>;
  * its own top end -- it would shrink the scale under the pointer.
  */
 export const tradeGoodsLimits = (own: DiplomacyGoods, reply: DiplomacyStanceReply | undefined, reach: DiplomacyTerms): TradeGoodsLimits => {
-  const theirs =
-    reply?.found && reply.ai && reply.pricing
-      ? reply.pricing.aiHoldings
-      : { gold: Math.max(UNKNOWN_HOLDINGS_ASK_MAX.gold, own.gold), shard: Math.max(UNKNOWN_HOLDINGS_ASK_MAX.shard, own.shard) };
-  const limit = (holdings: number, reached: number): number => Math.max(0, Math.floor(holdings), reached);
-  return {
-    "give-gold": limit(own.gold, reach.give.gold),
-    "give-shard": limit(own.shard, reach.give.shard),
-    "ask-gold": limit(theirs.gold, reach.ask.gold),
-    "ask-shard": limit(theirs.shard, reach.ask.shard)
-  };
+  const theirs = theirHoldings(reply);
+  const limits = {} as TradeGoodsLimits;
+  for (const spec of TRADE_GOODS) {
+    const held =
+      spec.side === "give"
+        ? heldAmount(own, spec)
+        : theirs && (!spec.supply || theirs.resources)
+          ? heldAmount(theirs, spec)
+          : spec.supply
+            ? Math.max(UNKNOWN_SUPPLY_ASK_MAX, heldAmount(own, spec))
+            : Math.max(spec.good === "gold" ? UNKNOWN_HOLDINGS_ASK_MAX.gold : UNKNOWN_HOLDINGS_ASK_MAX.shard, heldAmount(own, spec));
+    limits[spec.key] = Math.max(0, Math.floor(held), tradeAmount(reach, spec));
+  }
+  return limits;
 };
 
-const specFor = (key: TradeGoodKey): TradeGoodSpec => GOODS.find((spec) => spec.key === key) ?? GOODS[0]!;
-
-/** `terms` with one good's amount replaced. */
+/** `terms` with one good's amount replaced; a supply slot set to 0 leaves the deal. */
 export const withTradeAmount = (terms: DiplomacyTerms, key: TradeGoodKey, amount: number): DiplomacyTerms => {
   const { side, good } = specFor(key);
-  return { ...terms, [side]: { ...terms[side], [good]: amount } };
+  if (good === "gold" || good === "shard") return { ...terms, [side]: { ...terms[side], [good]: amount } };
+  const resources: ResourceSupplyOffer = { ...terms[side].resources };
+  if (amount > 0) resources[good] = amount;
+  else delete resources[good];
+  const { resources: _dropped, ...rest } = terms[side];
+  return { ...terms, [side]: Object.keys(resources).length > 0 ? { ...rest, resources } : rest };
 };
 
 /** The larger of each amount, for growing a screen's slider reach. */
-export const maxTradeTerms = (a: DiplomacyTerms, b: DiplomacyTerms): DiplomacyTerms => ({
-  give: { gold: Math.max(a.give.gold, b.give.gold), shard: Math.max(a.give.shard, b.give.shard) },
-  ask: { gold: Math.max(a.ask.gold, b.ask.gold), shard: Math.max(a.ask.shard, b.ask.shard) }
-});
+export const maxTradeTerms = (a: DiplomacyTerms, b: DiplomacyTerms): DiplomacyTerms =>
+  TRADE_GOODS.reduce((terms, spec) => withTradeAmount(terms, spec.key, Math.max(tradeAmount(a, spec), tradeAmount(b, spec))), {
+    give: { gold: 0, shard: 0 },
+    ask: { gold: 0, shard: 0 }
+  } as DiplomacyTerms);
 
-const sideHtml = (side: TradeSide, heading: string): string => {
-  const goods = GOODS.filter((spec) => spec.side === side);
-  const tiles = goods
-    .map(
-      (spec) => `<button type="button" class="diplomacy-trade-good" data-trade-good="${spec.key}" aria-expanded="false" aria-controls="diplomacy-trade-slider-${spec.key}">
-        <span class="diplomacy-trade-good-icon" aria-hidden="true">${resourceIconHtml(spec.icon, "large")}</span>
-        <span class="diplomacy-trade-good-label">${spec.label}</span>
-        <span class="diplomacy-trade-good-amount" data-trade-amount="${spec.key}">0</span>
-      </button>`
-    )
-    .join("");
-  const sliders = goods
-    .map(
-      (spec) => `<div class="diplomacy-trade-slider" id="diplomacy-trade-slider-${spec.key}" data-trade-slider="${spec.key}" hidden>
-        <div class="diplomacy-trade-slider-row">
-          <input type="range" min="0" step="1" data-trade-${spec.key} aria-label="${spec.aria}">
-          <input type="number" inputmode="numeric" min="0" step="1" data-trade-exact="${spec.key}" aria-label="${spec.aria}, exact amount">
-        </div>
-        <span class="diplomacy-trade-slider-ends"><span>0</span><span data-trade-max="${spec.key}">0</span></span>
-      </div>`
-    )
-    .join("");
-  return `<section class="diplomacy-trade-side" data-trade-side="${side}">
-    <h3>${heading}</h3>
-    <div class="diplomacy-trade-goods">${tiles}</div>
-    ${sliders}
-  </section>`;
-};
+export const tradeTermsEqual = (a: DiplomacyTerms, b: DiplomacyTerms): boolean => TRADE_GOODS.every((spec) => tradeAmount(a, spec) === tradeAmount(b, spec));
 
-export const tradeGoodsHtml = (): string =>
-  `<div class="diplomacy-trade-sides">${sideHtml("give", "You give")}${sideHtml("ask", "You ask")}</div>`;
+const goodRowHtml = (spec: TradeGoodSpec): string => `<div class="diplomacy-trade-good-row" data-trade-row="${spec.key}">
+    <button type="button" class="diplomacy-trade-good" data-trade-good="${spec.key}" aria-expanded="false" aria-controls="diplomacy-trade-slider-${spec.key}">
+      <span class="diplomacy-trade-good-icon" aria-hidden="true">${resourceIconHtml(spec.icon, "large")}</span>
+      <span class="diplomacy-trade-good-name"><span class="diplomacy-trade-good-label">${spec.label}</span>
+        <span class="diplomacy-trade-good-have" data-trade-have="${spec.key}"></span></span>
+      <span class="diplomacy-trade-good-amount" data-trade-amount="${spec.key}">0</span>
+    </button>
+    <div class="diplomacy-trade-slider" id="diplomacy-trade-slider-${spec.key}" data-trade-slider="${spec.key}" hidden>
+      <div class="diplomacy-trade-slider-row">
+        <input type="range" min="0" step="1" data-trade-${spec.key} aria-label="${spec.aria}">
+        <input type="number" inputmode="numeric" min="0" step="1" data-trade-exact="${spec.key}" aria-label="${spec.aria}, exact amount">
+      </div>
+      <span class="diplomacy-trade-slider-ends"><span>0</span><span data-trade-max="${spec.key}">0</span></span>
+    </div>
+  </div>`;
 
-const amountOf = (terms: DiplomacyTerms, spec: TradeGoodSpec): number => terms[spec.side][spec.good];
-
-/**
- * Syncs tiles and sliders to the chosen terms; `expanded` is the one open
- * slider, if any. Returns the slider still open: a tile with nothing to trade
- * closes its own.
- */
-export const renderTradeGoods = (overlay: HTMLElement, terms: DiplomacyTerms, limits: TradeGoodsLimits, expanded: TradeGoodKey | undefined): TradeGoodKey | undefined => {
-  const open = expanded && limits[expanded] > 0 ? expanded : undefined;
-  for (const spec of GOODS) {
-    const amount = amountOf(terms, spec);
-    const max = limits[spec.key];
-    const tile = overlay.querySelector<HTMLButtonElement>(`[data-trade-good="${spec.key}"]`);
-    if (tile) {
-      tile.setAttribute("aria-expanded", String(open === spec.key));
-      tile.setAttribute("aria-label", `${spec.aria}: ${amount}`);
-      tile.dataset.chosen = String(amount > 0);
-      tile.disabled = max === 0;
-      tile.title = max === 0 ? (spec.side === "give" ? `You have no ${spec.label.toLocaleLowerCase()} to give.` : `They have no ${spec.label.toLocaleLowerCase()} to give.`) : "";
-    }
-    const amountEl = overlay.querySelector<HTMLElement>(`[data-trade-amount="${spec.key}"]`);
-    if (amountEl) amountEl.textContent = String(amount);
-    const slider = overlay.querySelector<HTMLElement>(`[data-trade-slider="${spec.key}"]`);
-    if (slider) slider.hidden = open !== spec.key;
-    const maxEl = overlay.querySelector<HTMLElement>(`[data-trade-max="${spec.key}"]`);
-    if (maxEl) maxEl.textContent = String(max);
-    const input = overlay.querySelector<HTMLInputElement>(`[data-trade-${spec.key}]`);
-    if (input) {
-      // The top end first: a range input clamps a value above its max.
-      input.max = String(max);
-      if (input.value !== String(amount)) input.value = String(amount);
-      input.style.setProperty("--fill", `${max > 0 ? (amount / max) * 100 : 0}%`);
-    }
-    // Left alone while being typed in, so "0" never replaces a cleared box mid-edit.
-    const exact = overlay.querySelector<HTMLInputElement>(`[data-trade-exact="${spec.key}"]`);
-    if (exact && exact !== document.activeElement) exact.value = String(amount);
-  }
-  return open;
+/** One side's goods: coin and Shards, then the resource supply slots (shown once the server sends spare counts). */
+export const tradeGoodsHtml = (side: TradeSide, withSupply: boolean): string => {
+  const specs = TRADE_GOODS.filter((spec) => spec.side === side);
+  const supply = withSupply
+    ? `<h4 class="diplomacy-trade-subhead" data-trade-supply-head="${side}">Resource supply slots</h4>${specs.filter((s) => s.supply).map(goodRowHtml).join("")}`
+    : "";
+  return `<div class="diplomacy-trade-goods" data-trade-goods="${side}">${specs.filter((s) => !s.supply).map(goodRowHtml).join("")}${supply}</div>`;
 };
 
 const readAmount = (input: HTMLInputElement | null): number => {
@@ -142,8 +138,67 @@ const readAmount = (input: HTMLInputElement | null): number => {
   return Number.isFinite(value) && value > 0 ? value : 0;
 };
 
+export type TradeGoodsView = {
+  terms: DiplomacyTerms;
+  limits: TradeGoodsLimits;
+  expanded: TradeGoodKey | undefined;
+  /** "have 40" / "40 spare" on your side; theirs only when known. */
+  haveText: (spec: TradeGoodSpec) => string;
+  /** A supply row whose side has none spare (and none in the deal) is hidden rather than greyed out. */
+  hideEmptySupply: Record<TradeSide, boolean>;
+};
+
 /**
- * Pressing a tile toggles its slider (and focuses it when it opens); moving a
+ * Syncs rows and sliders to the chosen terms; `expanded` is the one open
+ * slider, if any. Returns the slider still open: a row with nothing to trade
+ * closes its own.
+ */
+export const renderTradeGoods = (overlay: HTMLElement, view: TradeGoodsView): TradeGoodKey | undefined => {
+  const { terms, limits, expanded } = view;
+  const open = expanded && limits[expanded] > 0 ? expanded : undefined;
+  for (const spec of TRADE_GOODS) {
+    const amount = tradeAmount(terms, spec);
+    const max = limits[spec.key];
+    const row = overlay.querySelector<HTMLElement>(`[data-trade-row="${spec.key}"]`);
+    if (!row) continue;
+    row.hidden = spec.supply && view.hideEmptySupply[spec.side] && max === 0 && amount === 0;
+    const tile = row.querySelector<HTMLButtonElement>("[data-trade-good]");
+    if (tile) {
+      tile.setAttribute("aria-expanded", String(open === spec.key));
+      tile.setAttribute("aria-label", `${spec.aria}: ${amount}`);
+      tile.dataset.chosen = String(amount > 0);
+      tile.disabled = max === 0;
+      tile.title = max === 0 ? (spec.side === "give" ? `You have no ${spec.label.toLocaleLowerCase()} to give.` : `They have no ${spec.label.toLocaleLowerCase()} to give.`) : "";
+    }
+    const haveEl = row.querySelector<HTMLElement>("[data-trade-have]");
+    if (haveEl) haveEl.textContent = view.haveText(spec);
+    const amountEl = row.querySelector<HTMLElement>("[data-trade-amount]");
+    if (amountEl) amountEl.textContent = String(amount);
+    const slider = row.querySelector<HTMLElement>("[data-trade-slider]");
+    if (slider) slider.hidden = open !== spec.key;
+    const maxEl = row.querySelector<HTMLElement>("[data-trade-max]");
+    if (maxEl) maxEl.textContent = String(max);
+    const input = row.querySelector<HTMLInputElement>(`[data-trade-${spec.key}]`);
+    if (input) {
+      // The top end first: a range input clamps a value above its max.
+      input.max = String(max);
+      if (input.value !== String(amount)) input.value = String(amount);
+      input.style.setProperty("--fill", `${max > 0 ? (amount / max) * 100 : 0}%`);
+    }
+    // Left alone while being typed in, so "0" never replaces a cleared box mid-edit.
+    const exact = row.querySelector<HTMLInputElement>("[data-trade-exact]");
+    if (exact && exact !== document.activeElement) exact.value = String(amount);
+  }
+  for (const side of ["give", "ask"] as const) {
+    const head = overlay.querySelector<HTMLElement>(`[data-trade-supply-head="${side}"]`);
+    const rows = Array.from(overlay.querySelectorAll<HTMLElement>(`[data-trade-goods="${side}"] [data-trade-row]`));
+    if (head) head.hidden = !rows.some((row) => !row.hidden && TRADE_GOODS.find((s) => s.key === row.dataset.tradeRow)?.supply);
+  }
+  return open;
+};
+
+/**
+ * Pressing a row toggles its slider (and focuses it when it opens); moving a
  * slider or typing an exact amount reports the new amount. `typed` is true
  * for the exact box, whose amount may go past the slider's top end.
  */
@@ -151,7 +206,7 @@ export const bindTradeGoods = (
   overlay: HTMLElement,
   handlers: { onToggle: (key: TradeGoodKey) => void; onAmount: (key: TradeGoodKey, amount: number, typed: boolean) => void }
 ): void => {
-  for (const spec of GOODS) {
+  for (const spec of TRADE_GOODS) {
     const slider = overlay.querySelector<HTMLInputElement>(`[data-trade-${spec.key}]`);
     const exact = overlay.querySelector<HTMLInputElement>(`[data-trade-exact="${spec.key}"]`);
     overlay.querySelector<HTMLButtonElement>(`[data-trade-good="${spec.key}"]`)?.addEventListener("click", () => {

@@ -22,12 +22,12 @@ import {
   type HudV2Deps,
   type HudV2ScreenId
 } from "./client-hud-v2-context.js";
-import { dealSideHtml, dealSkeletonHtml, diplomacyListHtml, empireStance } from "./client-hud-v2-diplomacy.js";
+import { dealSkeletonHtml, diplomacyListHtml } from "./client-hud-v2-diplomacy.js";
 import { MANIFEST_LEGEND_HTML, manifestDetailHtml, manifestHeadRightHtml, manifestTreeHtml } from "./client-hud-v2-manifest.js";
 import { profileHtml, type ProfileRelation } from "./client-hud-v2-profile.js";
 import { ranksBannerHtml, ranksBodyHtml } from "./client-hud-v2-ranks.js";
 import { expandDockedMenu, suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
-import { closeTownScreen, myTowns, renderTownScreen, runTileActionOn, stepTown } from "./client-hud-v2-town-runtime.js";
+import { closeTownScreen, renderTownScreen, runTileActionOn, stepTown } from "./client-hud-v2-town-runtime.js";
 
 const TITLES: Partial<Record<HudV2ScreenId, string>> = { manifest: "Manifest", afc: "AFC Upgrades", diplomacy: "Diplomacy", ranks: "The Duke's Seat" };
 
@@ -172,34 +172,8 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
   if (bodyMode !== `deal:${target}`) {
     writeHtml("v2s-body", dealSkeletonHtml(nameOf(deps, target) || "Empire"));
     bodyMode = `deal:${target}`;
-    forgetWritten("v2s-dip-you", "v2s-dip-them");
     hostTradeView(deps, target);
   }
-  const tilesOf = (id: string): string => {
-    const entry = state.leaderboard.overall.find((e) => e.id === id) ?? (id === state.me ? state.leaderboard.selfOverall : undefined);
-    return entry ? entry.tiles.toLocaleString("en-US") : "—";
-  };
-  const stance = empireStance(target, { allies: state.allies, activeTruces: state.activeTruces, nowMs: Date.now() });
-  writeHtml("v2s-dip-you", dealSideHtml({
-    id: state.me,
-    name: nameOf(deps, state.me) || "You",
-    color: deps.ownerColor(state.me),
-    role: "YOU",
-    rows: [
-      { label: "Tiles", value: tilesOf(state.me) },
-      { label: "Towns", value: String(myTowns(deps).length) },
-      { label: "Coin", value: Math.floor(state.gold).toLocaleString("en-US") },
-      { label: "Shards", value: String(Math.floor(state.strategicResources.SHARD)) },
-      { label: "Allies", value: state.allies.map((id) => nameOf(deps, id)).filter(Boolean).join(", ") || "—" }
-    ]
-  }));
-  writeHtml("v2s-dip-them", dealSideHtml({
-    id: target,
-    name: nameOf(deps, target) || "Empire",
-    color: deps.ownerColor(target),
-    role: stance.label.toUpperCase(),
-    rows: [{ label: "Tiles", value: tilesOf(target) }]
-  }));
 };
 
 /** The alert title for a sent offer; undefined for anything else the deal view sends (e.g. its stance lookup on open). */
@@ -371,7 +345,6 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
     screen.diplomacyTargetId = input.targetPlayerId;
     writeHtml("v2s-body", dealSkeletonHtml(input.targetName));
     bodyMode = `deal:${input.targetPlayerId}`;
-    forgetWritten("v2s-dip-you", "v2s-dip-them");
     hostTradeView(deps, input.targetPlayerId, input);
     renderScreen(deps);
     return true;
