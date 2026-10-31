@@ -91,6 +91,12 @@ describe("structureSlotRequirements", () => {
     expect(structureSlotRequirements("SKY_DOCK")).toEqual([{ resource: "CRYSTAL", count: 3 }]);
   });
 
+  it("charges the frontier resource-network installations no slot upkeep", () => {
+    for (const type of ["RESIN_EXTRACTOR", "IMPLANT_FOUNDRY", "CATALYST_REFINERY", "CULTIVATION_ESTATE", "RECLAMATION_WORKS"] as const) {
+      expect(structureSlotRequirements(type)).toEqual([]);
+    }
+  });
+
   it("returns an empty array for a structure with no entry, rather than throwing", () => {
     expect(structureSlotRequirements("HYDROGARDEN")).toEqual([]);
   });

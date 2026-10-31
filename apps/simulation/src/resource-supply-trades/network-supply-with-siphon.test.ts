@@ -17,8 +17,9 @@ for (const resource of NETWORK_RESOURCES) describe(`${resource} Siphon supply`, 
       siphonedTiles:(id:string)=>id==="caster"&&site.sabotage?[site]:[],tileSettledAtByKey:new Map<string,number>()};
     expect(networkSupplyWithSiphon(ctx,"victim")[resource]).toBe(0);
     expect(networkSupplyWithSiphon(ctx,"caster")[resource]).toBe(spec.slotsPerSite);
+    // Extractors have no FOOD upkeep, so a FOOD shortage never cuts their supply.
     powered=false;
-    expect(networkSupplyWithSiphon(ctx,"caster")[resource]).toBe(0);
+    expect(networkSupplyWithSiphon(ctx,"caster")[resource]).toBe(spec.slotsPerSite);
     powered=true;site.economicStructure!.status="under_construction";
     expect(networkSupplyWithSiphon(ctx,"caster")[resource]).toBe(0);
     site.economicStructure!.status="active";victim.techIds.clear();
