@@ -169,7 +169,8 @@ body.hud-v2-screen-afc #side-panel {
 .v2r-track { position: relative; height: 44px; }
 .v2r-rail { position: absolute; left: 0; right: 0; top: 50%; height: 6px; transform: translateY(-50%); background: #2a241b; border: 1px solid var(--v2-line); }
 .v2r-line { position: absolute; right: 0; top: 0; bottom: 0; width: 3px; background: var(--v2-gold); }
-.v2r-pin { position: absolute; top: 50%; transform: translate(-50%, -50%); }
+.v2r-pin { position: absolute; top: 50%; transform: translate(-50%, calc(-50% + var(--v2r-lane, 0px))); }
+.v2r-tick { position: absolute; top: 50%; width: 3px; height: 14px; transform: translate(-50%, -50%); border-radius: 1px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6); }
 .v2r-crest {
   display: grid; place-items: center; width: 30px; height: 30px; border-radius: 7px; border: 2px solid var(--v2-text);
   font-family: var(--v2-display); font-size: 14px; font-weight: 700; color: #f6ecd4; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
@@ -181,6 +182,7 @@ body.hud-v2-screen-afc #side-panel {
 .v2r-status { font-size: 13px; color: var(--v2-soft); }
 .v2r-status-hold { color: var(--v2-red-hi); }
 .v2r-status-you { color: var(--v2-gold-hi); }
+.v2r-side-you { color: var(--v2-gold-hi); }
 .v2r-aside { display: grid; gap: 16px; align-content: start; }
 .v2r-card { display: grid; gap: 6px; padding: 14px 16px; background: rgba(15, 13, 10, 0.94); border: 1px solid var(--v2-edge); }
 .v2r-closest-name { font-family: var(--v2-display); font-size: 17px; font-weight: 700; color: var(--v2-gold-hi); }
