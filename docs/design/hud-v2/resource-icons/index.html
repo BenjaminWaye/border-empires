@@ -1,0 +1,241 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<meta charset="utf-8">
+<title>Resource Icon Trials</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Spectral+SC:wght@600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one comparison grid (resources × sources) over a switchable game ground, then in-context strips, then raw sheets. */
+:root{
+  --bg:#f3ead6; --surface:#fbf6ea; --fg:#2a1d0c; --muted:#6b5a3e; --line:#d8c7a0;
+  --brass:#8c6535; --brass-hi:#c9a24b; --patina:#2f7d55;
+  --ground-hud:#0a1424; --ground-hud-2:#112845; --ground-parch:#ecdcb4; --ground-fg-hud:#e8eef8; --ground-fg-parch:#2a1d0c;
+  --f-display:"Spectral SC",Georgia,serif; --f-body:"Rajdhani","Segoe UI",system-ui,sans-serif; --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#070d18; --surface:#0d1829; --fg:#e8e1cf; --muted:#9a8f78; --line:#24324a;
+  --brass:#c9a24b; --brass-hi:#f0d79a; --patina:#5fae7d; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#070d18; --surface:#0d1829; --fg:#e8e1cf; --muted:#9a8f78; --line:#24324a;
+  --brass:#c9a24b; --brass-hi:#f0d79a; --patina:#5fae7d; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.45}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:16px;padding-block:28px 64px;display:flex;flex-direction:column;gap:36px}
+header{display:flex;flex-direction:column;gap:8px;max-width:70ch}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--brass)}
+h1{font-family:var(--f-display);font-size:clamp(28px,4vw,40px);line-height:1.1;margin:0;text-wrap:balance}
+h2{font-family:var(--f-display);font-size:22px;margin:0;text-wrap:balance}
+p{margin:0;color:var(--muted)}
+section{display:flex;flex-direction:column;gap:14px}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{font:600 14px var(--f-body);background:var(--surface);color:var(--fg);border:0;padding:6px 14px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--brass);color:var(--bg)}
+.seg button:focus-visible{outline:2px solid var(--brass-hi);outline-offset:-2px}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+.ground{--gfg:var(--ground-fg-hud);background:radial-gradient(circle at 18% 14%,var(--ground-hud-2) 0%,var(--ground-hud) 70%);color:var(--gfg)}
+.ground.parch{--gfg:var(--ground-fg-parch);background:var(--ground-parch)}
+table{border-collapse:collapse;width:100%;min-width:860px}
+table.final{min-width:640px}
+table.final td{padding:16px 10px}
+.fname{font:500 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;opacity:.7;margin-top:8px}
+th,td{padding:12px 14px;text-align:center;vertical-align:middle}
+thead th{font:500 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;opacity:.75;border-bottom:1px solid color-mix(in srgb,var(--gfg) 18%,transparent)}
+tbody th{text-align:left;font:700 15px var(--f-body);letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+tbody tr+tr td,tbody tr+tr th{border-top:1px solid color-mix(in srgb,var(--gfg) 10%,transparent)}
+th.col-hand{color:var(--brass-hi)}
+.ground.parch th.col-hand{color:#8c6535}
+.cell{display:flex;align-items:flex-end;justify-content:center;gap:10px}
+.cell .ic{display:inline-flex;align-items:center;justify-content:center;line-height:1}
+.cell img,.cell svg{display:block}
+.emoji{font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
+.legend{font:400 12px var(--f-mono);color:var(--muted)}
+.strip{display:flex;flex-direction:column;gap:0}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;padding:12px 16px;font:600 15px var(--f-body);font-variant-numeric:tabular-nums}
+.bar+.bar{border-top:1px solid color-mix(in srgb,var(--gfg) 12%,transparent)}
+.bar .lab{font:500 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;opacity:.6;width:150px}
+.bar .it{display:inline-flex;align-items:center;gap:5px}
+.bar .it img,.bar .it svg{width:16px;height:16px}
+.sheets{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+figure{margin:0;display:flex;flex-direction:column;gap:6px;min-width:0}
+figure img{border-radius:6px;border:1px solid var(--line);width:100%}
+figcaption{font:400 13px var(--f-mono);color:var(--muted)}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.note h3{margin:0;font:700 16px var(--f-body);letter-spacing:.03em;text-transform:uppercase;color:var(--brass)}
+.note ul{margin:0;padding-left:18px;color:var(--muted)}
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Border Empires · icon style trial</span>
+    <h1>Resource Icon Trials</h1>
+    <p>The six resource icons in five versions: today's emoji, a hand-drawn SVG set built in the style of the existing structure overlays, and three AI image models given the same prompt. Each cell shows 48, 24 and 16 px. 16 px is the size used inline in tile menus and upkeep lines.</p>
+  </header>
+
+  <section>
+    <div class="controls">
+      <h2 style="margin-right:auto">Chosen set</h2>
+    </div>
+    <p>Gold, Food, Titanium and Umbrite come from Nano Banana 2. Crystal is Nano Banana Pro's aether orb in its brass gimbal. Shard is Nano Banana Pro's crystal cluster, recoloured white so it doesn't clash with the cyan crystal. These are the final cutouts (transparent PNGs, 256 px masters plus 96, 72 and 48 px exports), shown on both backgrounds.</p>
+    <div class="scroll"><div class="ground" id="final-hud"><table class="final"><tbody id="final-row-hud"></tbody></table></div></div>
+    <div class="scroll"><div class="ground parch" id="final-parch"><table class="final"><tbody id="final-row-parch"></tbody></table></div></div>
+    <div class="scroll"><div class="ground strip" id="final-ctx"></div></div>
+  </section>
+
+  <section>
+    <div class="controls">
+      <h2 style="margin-right:auto">Side by side</h2>
+      <div class="seg" role="group" aria-label="Background">
+        <button type="button" id="g-hud" aria-pressed="true">Game HUD</button>
+        <button type="button" id="g-parch" aria-pressed="false">Parchment panel</button>
+      </div>
+    </div>
+    <div class="scroll"><div class="ground" id="grid-ground"><table>
+      <thead><tr><th></th><th>Emoji (today)</th><th class="col-hand">Hand SVG</th><th>Nano Banana Pro</th><th>GPT Image 2</th><th>Nano Banana 2</th></tr></thead>
+      <tbody id="grid"></tbody>
+    </table></div></div>
+    <p class="legend">The AI icons are cut out of each sheet automatically in your browser, so their edges and glow are rougher than a hand-cleaned export would be.</p>
+  </section>
+
+  <section>
+    <h2>In context: resource bar and upkeep line</h2>
+    <div class="scroll"><div class="ground strip" id="ctx-ground"></div></div>
+  </section>
+
+  <section>
+    <h2>What each approach costs</h2>
+    <div class="notes">
+      <div class="note"><h3>Hand SVG</h3><ul>
+        <li>About 1–2 KB per icon; sharp at any size, and colours can be changed in code.</li>
+        <li>Matches the flat brass look of the 122 existing overlay SVGs.</li>
+        <li>Less texture and depth than the AI art.</li>
+      </ul></div>
+      <div class="note"><h3>AI raster</h3><ul>
+        <li>Richer material: worn brass, patina, glass glow.</li>
+        <li>Needs a cleanup pass per icon (cutout, glow trim, 2× and 3× PNG exports), and fine detail turns to mush at 16 px.</li>
+        <li>Keeping the style consistent across ~90 icons means generating them in themed sheets, not one by one.</li>
+      </ul></div>
+      <div class="note"><h3>A hybrid option</h3><ul>
+        <li>Hand SVG for the 16–24 px glyphs (inline text, tabs, map badges).</li>
+        <li>AI art for the large emblems (structure info, tech cards), where its detail shows.</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Raw AI sheets</h2>
+    <p>Same prompt for all three: 6 resources in one row, futuristic steampunk, brass, copper, verdigris and aether glow. 24 Meshy credits, plus 6 for the shard redraw.</p>
+    <div class="sheets">
+      <figure><img src="ai/nano-banana-pro.png" alt="Nano Banana Pro sheet"><figcaption>Nano Banana Pro · 9 credits</figcaption></figure>
+      <figure><img src="ai/gpt-image-2.png" alt="GPT Image 2 sheet"><figcaption>GPT Image 2 · 9 credits</figcaption></figure>
+      <figure><img src="ai/nano-banana-2.png" alt="Nano Banana 2 sheet"><figcaption>Nano Banana 2 · 6 credits</figcaption></figure>
+      <figure><img src="ai/nano-banana-2-shardfix.png" alt="Nano Banana 2 sheet with meteorite shard"><figcaption>Nano Banana 2, shard redrawn (image-to-image) · 6 credits</figcaption></figure>
+    </div>
+  </section>
+</div>
+
+<script>
+const SVGS = {"gold": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\" width=\"64\" height=\"64\"><defs></defs><polygon points=\"32.00,7.00 35.79,3.25 39.51,3.99 41.57,8.90 44.50,10.35 49.65,8.99 52.51,11.49 51.83,16.78 53.65,19.50 58.79,20.90 60.01,24.49 56.79,28.74 57.00,32.00 60.75,35.79 60.01,39.51 55.10,41.57 53.65,44.50 55.01,49.65 52.51,52.51 47.22,51.83 44.50,53.65 43.10,58.79 39.51,60.01 35.26,56.79 32.00,57.00 28.21,60.75 24.49,60.01 22.43,55.10 19.50,53.65 14.35,55.01 11.49,52.51 12.17,47.22 10.35,44.50 5.21,43.10 3.99,39.51 7.21,35.26 7.00,32.00 3.25,28.21 3.99,24.49 8.90,22.43 10.35,19.50 8.99,14.35 11.49,11.49 16.78,12.17 19.50,10.35 20.90,5.21 24.49,3.99 28.74,7.21\" fill=\"#B88B3E\" stroke=\"#1E1A16\" stroke-width=\"2.5\" stroke-linejoin=\"round\"/><circle cx=\"32\" cy=\"32\" r=\"19\" fill=\"#D7A53E\" stroke=\"#1E1A16\" stroke-width=\"2.2\"/><circle cx=\"32\" cy=\"32\" r=\"14\" fill=\"none\" stroke=\"#8E6236\" stroke-width=\"1.6\"/><path d=\"M32 22 L40 32 L32 42 L24 32 Z\" fill=\"#F1D26B\" stroke=\"#1E1A16\" stroke-width=\"1.8\" stroke-linejoin=\"round\"/><path d=\"M32 22 L32 42 M24 32 L40 32\" stroke=\"#B88B3E\" stroke-width=\"1\"/><path d=\"M19 26 A15 15 0 0 1 28 17\" stroke=\"#F8E7A3\" stroke-width=\"2.4\" fill=\"none\" stroke-linecap=\"round\"/></svg>", "food": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\" width=\"64\" height=\"64\"><defs></defs><path d=\"M26 34 L16 7\" stroke=\"#1E1A16\" stroke-width=\"3.6\" stroke-linecap=\"round\"/><path d=\"M26 34 L16 7\" stroke=\"#B8862E\" stroke-width=\"1.6\" stroke-linecap=\"round\"/><ellipse cx=\"19.1\" cy=\"22.8\" rx=\"2.3\" ry=\"4\" transform=\"rotate(-48.3 19.1 22.8)\" fill=\"#EED36A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><ellipse cx=\"23.9\" cy=\"20.9\" rx=\"2.3\" ry=\"4\" transform=\"rotate(7.7 23.9 20.9)\" fill=\"#EED36A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><ellipse cx=\"17.6\" cy=\"18.7\" rx=\"2.3\" ry=\"4\" transform=\"rotate(-48.3 17.6 18.7)\" fill=\"#EED36A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><ellipse cx=\"22.4\" cy=\"16.9\" rx=\"2.3\" ry=\"4\" transform=\"rotate(7.7 22.4 16.9)\" fill=\"#EED36A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><ellipse cx=\"16.1\" cy=\"14.7\" rx=\"2.3\" ry=\"4\" transform=\"rotate(-48.3 16.1 14.7)\" fill=\"#EED36A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><ellipse cx=\"20.9\" cy=\"12.8\" rx=\"2.3\" ry=\"4\" transform=\"rotate(7.7 20.9 12.8)\" fill=\"#EED36A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><ellipse cx=\"14.6\" cy=\"10.6\" rx=\"2.3\" ry=\"4\" transform=\"rotate(-48.3 14.6 10.6)\" fill=\"#EED36A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><ellipse cx=\"19.4\" cy=\"8.8\" rx=\"2.3\" ry=\"4\" transform=\"rotate(7.7 19.4 8.8)\" fill=\"#EED36A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><ellipse cx=\"15.5\" cy=\"5.6\" rx=\"2.3\" ry=\"4.2\" transform=\"rotate(-20.3 15.5 5.6)\" fill=\"#F5E08A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><path d=\"M38 34 L48 7\" stroke=\"#1E1A16\" stroke-width=\"3.6\" stroke-linecap=\"round\"/><path d=\"M38 34 L48 7\" stroke=\"#B8862E\" stroke-width=\"1.6\" stroke-linecap=\"round\"/><ellipse cx=\"40.1\" cy=\"20.9\" rx=\"2.3\" ry=\"4\" transform=\"rotate(-7.7 40.1 20.9)\" fill=\"#EED36A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><ellipse cx=\"44.9\" cy=\"22.8\" rx=\"2.3\" ry=\"4\" transform=\"rotate(48.3 44.9 22.8)\" fill=\"#EED36A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><ellipse cx=\"41.6\" cy=\"16.9\" rx=\"2.3\" ry=\"4\" transform=\"rotate(-7.7 41.6 16.9)\" fill=\"#EED36A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><ellipse cx=\"46.4\" cy=\"18.7\" rx=\"2.3\" ry=\"4\" transform=\"rotate(48.3 46.4 18.7)\" fill=\"#EED36A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><ellipse cx=\"43.1\" cy=\"12.8\" rx=\"2.3\" ry=\"4\" transform=\"rotate(-7.7 43.1 12.8)\" fill=\"#EED36A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><ellipse cx=\"47.9\" cy=\"14.7\" rx=\"2.3\" ry=\"4\" transform=\"rotate(48.3 47.9 14.7)\" fill=\"#EED36A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><ellipse cx=\"44.6\" cy=\"8.8\" rx=\"2.3\" ry=\"4\" transform=\"rotate(-7.7 44.6 8.8)\" fill=\"#EED36A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><ellipse cx=\"49.4\" cy=\"10.6\" rx=\"2.3\" ry=\"4\" transform=\"rotate(48.3 49.4 10.6)\" fill=\"#EED36A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><ellipse cx=\"48.5\" cy=\"5.6\" rx=\"2.3\" ry=\"4.2\" transform=\"rotate(20.3 48.5 5.6)\" fill=\"#F5E08A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><path d=\"M32 34 L32 5\" stroke=\"#1E1A16\" stroke-width=\"3.6\" stroke-linecap=\"round\"/><path d=\"M32 34 L32 5\" stroke=\"#B8862E\" stroke-width=\"1.6\" stroke-linecap=\"round\"/><ellipse cx=\"29.4\" cy=\"20.9\" rx=\"2.3\" ry=\"4\" transform=\"rotate(-28.0 29.4 20.9)\" fill=\"#EED36A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><ellipse cx=\"34.6\" cy=\"20.9\" rx=\"2.3\" ry=\"4\" transform=\"rotate(28.0 34.6 20.9)\" fill=\"#EED36A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><ellipse cx=\"29.4\" cy=\"16.6\" rx=\"2.3\" ry=\"4\" transform=\"rotate(-28.0 29.4 16.6)\" fill=\"#EED36A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><ellipse cx=\"34.6\" cy=\"16.6\" rx=\"2.3\" ry=\"4\" transform=\"rotate(28.0 34.6 16.6)\" fill=\"#EED36A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><ellipse cx=\"29.4\" cy=\"12.2\" rx=\"2.3\" ry=\"4\" transform=\"rotate(-28.0 29.4 12.2)\" fill=\"#EED36A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><ellipse cx=\"34.6\" cy=\"12.2\" rx=\"2.3\" ry=\"4\" transform=\"rotate(28.0 34.6 12.2)\" fill=\"#EED36A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><ellipse cx=\"29.4\" cy=\"7.9\" rx=\"2.3\" ry=\"4\" transform=\"rotate(-28.0 29.4 7.9)\" fill=\"#EED36A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><ellipse cx=\"34.6\" cy=\"7.9\" rx=\"2.3\" ry=\"4\" transform=\"rotate(28.0 34.6 7.9)\" fill=\"#EED36A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><ellipse cx=\"32.0\" cy=\"3.5\" rx=\"2.3\" ry=\"4.2\" transform=\"rotate(0.0 32.0 3.5)\" fill=\"#F5E08A\" stroke=\"#1E1A16\" stroke-width=\"1.1\"/><path d=\"M15 34 H49 V54 Q49 58 45 58 H19 Q15 58 15 54 Z\" fill=\"#B88B3E\" stroke=\"#1E1A16\" stroke-width=\"2.5\" stroke-linejoin=\"round\"/><rect x=\"13\" y=\"31\" width=\"38\" height=\"7\" rx=\"2\" fill=\"#D7A53E\" stroke=\"#1E1A16\" stroke-width=\"2.2\"/><rect x=\"15\" y=\"46\" width=\"34\" height=\"4\" fill=\"#4F9A8A\" stroke=\"#1E1A16\" stroke-width=\"1.4\"/><path d=\"M20 40 V56\" stroke=\"#F1D26B\" stroke-width=\"2\" stroke-linecap=\"round\" opacity=\"0.8\"/><circle cx=\"18\" cy=\"34.5\" r=\"1.6\" fill=\"#F1D26B\" stroke=\"#1E1A16\" stroke-width=\"0.8\"/><circle cx=\"32\" cy=\"34.5\" r=\"1.6\" fill=\"#F1D26B\" stroke=\"#1E1A16\" stroke-width=\"0.8\"/><circle cx=\"46\" cy=\"34.5\" r=\"1.6\" fill=\"#F1D26B\" stroke=\"#1E1A16\" stroke-width=\"0.8\"/><circle cx=\"20\" cy=\"48\" r=\"1.3\" fill=\"#F1D26B\" stroke=\"#1E1A16\" stroke-width=\"0.8\"/><circle cx=\"44\" cy=\"48\" r=\"1.3\" fill=\"#F1D26B\" stroke=\"#1E1A16\" stroke-width=\"0.8\"/></svg>", "titanium": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\" width=\"64\" height=\"64\"><defs></defs><path d=\"M4 28 L20 14 H60 L44 28 Z\" fill=\"#DDE3E8\" stroke=\"#1E1A16\" stroke-width=\"2.5\" stroke-linejoin=\"round\"/><path d=\"M4 28 H44 V52 H4 Z\" fill=\"#A8B0BA\" stroke=\"#1E1A16\" stroke-width=\"2.5\" stroke-linejoin=\"round\"/><path d=\"M44 28 L60 14 V38 L44 52 Z\" fill=\"#6F7A86\" stroke=\"#1E1A16\" stroke-width=\"2.5\" stroke-linejoin=\"round\"/><path d=\"M4 40 H44 L60 26\" stroke=\"#6FE3FF\" stroke-width=\"2.4\" fill=\"none\"/><path d=\"M12 23 L22 18 H48\" stroke=\"#FFFFFF\" stroke-width=\"1.8\" fill=\"none\" opacity=\"0.85\" stroke-linecap=\"round\"/><circle cx=\"10\" cy=\"34\" r=\"1.9\" fill=\"#D7DDE3\" stroke=\"#1E1A16\" stroke-width=\"0.8\"/><circle cx=\"38\" cy=\"34\" r=\"1.9\" fill=\"#D7DDE3\" stroke=\"#1E1A16\" stroke-width=\"0.8\"/><circle cx=\"10\" cy=\"46\" r=\"1.9\" fill=\"#D7DDE3\" stroke=\"#1E1A16\" stroke-width=\"0.8\"/><circle cx=\"38\" cy=\"46\" r=\"1.9\" fill=\"#D7DDE3\" stroke=\"#1E1A16\" stroke-width=\"0.8\"/></svg>", "crystal": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\" width=\"64\" height=\"64\"><defs><radialGradient id=\"cg\" cx=\"50%\" cy=\"50%\" r=\"50%\"><stop offset=\"0\" stop-color=\"#6FE3FF\" stop-opacity=\"0.55\"/><stop offset=\"1\" stop-color=\"#6FE3FF\" stop-opacity=\"0\"/></radialGradient></defs><circle cx=\"32\" cy=\"30\" r=\"28\" fill=\"url(#cg)\"/><path d=\"M32 4 L44 18 L40 50 L32 60 L24 50 L20 18 Z\" fill=\"#8A5CF0\" stroke=\"#1E1A16\" stroke-width=\"2.5\" stroke-linejoin=\"round\"/><path d=\"M32 4 L44 18 L32 24 Z\" fill=\"#B9F1FF\"/><path d=\"M32 4 L20 18 L32 24 Z\" fill=\"#6FE3FF\"/><path d=\"M20 18 L32 24 L32 60 L24 50 Z\" fill=\"#5B8CF5\"/><path d=\"M44 18 L32 24 L32 60 L40 50 Z\" fill=\"#7A4FD6\"/><path d=\"M32 4 L44 18 L40 50 L32 60 L24 50 L20 18 Z\" fill=\"none\" stroke=\"#1E1A16\" stroke-width=\"2.5\" stroke-linejoin=\"round\"/><rect x=\"15\" y=\"31\" width=\"34\" height=\"8\" rx=\"2\" fill=\"#B88B3E\" stroke=\"#1E1A16\" stroke-width=\"2.2\"/><path d=\"M17 33.5 H47\" stroke=\"#F1D26B\" stroke-width=\"1.4\"/><circle cx=\"19\" cy=\"35\" r=\"1.6\" fill=\"#F1D26B\" stroke=\"#1E1A16\" stroke-width=\"0.8\"/><circle cx=\"45\" cy=\"35\" r=\"1.6\" fill=\"#F1D26B\" stroke=\"#1E1A16\" stroke-width=\"0.8\"/><path d=\"M27 10 L23 18\" stroke=\"#FFFFFF\" stroke-width=\"1.8\" stroke-linecap=\"round\"/></svg>", "umbrite": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\" width=\"64\" height=\"64\"><defs><radialGradient id=\"ug\" cx=\"50%\" cy=\"55%\" r=\"50%\"><stop offset=\"0\" stop-color=\"#C79BFF\"/><stop offset=\"0.6\" stop-color=\"#6A3BC0\"/><stop offset=\"1\" stop-color=\"#3A1E6E\"/></radialGradient></defs><rect x=\"18\" y=\"12\" width=\"28\" height=\"40\" rx=\"8\" fill=\"#2A2440\" fill-opacity=\"0.55\" stroke=\"#1E1A16\" stroke-width=\"2.5\"/><path d=\"M24 44 L22 36 L27 28 L35 26 L42 32 L41 42 L34 47 Z\" fill=\"url(#ug)\" stroke=\"#1E1A16\" stroke-width=\"2\" stroke-linejoin=\"round\"/><path d=\"M27 28 L31 36 L35 26 M31 36 L41 42 M31 36 L24 44\" stroke=\"#2A1550\" stroke-width=\"1.2\" fill=\"none\"/><path d=\"M23 18 V40\" stroke=\"#FFFFFF\" stroke-width=\"2\" stroke-linecap=\"round\" opacity=\"0.55\"/><rect x=\"15\" y=\"6\" width=\"34\" height=\"8\" rx=\"2\" fill=\"#B88B3E\" stroke=\"#1E1A16\" stroke-width=\"2.2\"/><rect x=\"15\" y=\"50\" width=\"34\" height=\"8\" rx=\"2\" fill=\"#B88B3E\" stroke=\"#1E1A16\" stroke-width=\"2.2\"/><path d=\"M17 8.5 H47 M17 52.5 H47\" stroke=\"#F1D26B\" stroke-width=\"1.3\"/><circle cx=\"20\" cy=\"10\" r=\"1.6\" fill=\"#F1D26B\" stroke=\"#1E1A16\" stroke-width=\"0.8\"/><circle cx=\"44\" cy=\"10\" r=\"1.6\" fill=\"#F1D26B\" stroke=\"#1E1A16\" stroke-width=\"0.8\"/><circle cx=\"20\" cy=\"54\" r=\"1.6\" fill=\"#F1D26B\" stroke=\"#1E1A16\" stroke-width=\"0.8\"/><circle cx=\"44\" cy=\"54\" r=\"1.6\" fill=\"#F1D26B\" stroke=\"#1E1A16\" stroke-width=\"0.8\"/></svg>", "shard": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\" width=\"64\" height=\"64\"><defs></defs><path d=\"M50 3 L40 27 L47 29 L24 54 L30 33 L21 31 Z\" fill=\"#CFFAFF\" stroke=\"#1E1A16\" stroke-width=\"2.6\" stroke-linejoin=\"round\"/><path d=\"M50 3 L40 27 L30 33 L21 31 Z\" fill=\"#6FE3FF\"/><path d=\"M40 27 L47 29 L24 54 L30 33 Z\" fill=\"#A6EEFF\"/><path d=\"M50 3 L40 27 L47 29 L24 54 L30 33 L21 31 Z\" fill=\"none\" stroke=\"#1E1A16\" stroke-width=\"2.6\" stroke-linejoin=\"round\"/><path d=\"M14 50 L26 56 L22 62 L10 56 Z\" fill=\"#B88B3E\" stroke=\"#1E1A16\" stroke-width=\"2.2\" stroke-linejoin=\"round\"/><circle cx=\"18\" cy=\"56\" r=\"1.6\" fill=\"#F1D26B\" stroke=\"#1E1A16\" stroke-width=\"0.8\"/><path d=\"M11 16 L13 21 M9 20 L15 17\" stroke=\"#6FE3FF\" stroke-width=\"2\" stroke-linecap=\"round\"/><path d=\"M54 38 L56 43 M52 42 L58 39\" stroke=\"#6FE3FF\" stroke-width=\"2\" stroke-linecap=\"round\"/></svg>"};
+const KEYS = ["gold","food","titanium","crystal","umbrite","shard"];
+const NAMES = {gold:"Gold",food:"Food",titanium:"Titanium",crystal:"Crystal",umbrite:"Umbrite",shard:"Shard"};
+const EMOJI = {gold:"◉",food:"🍞",titanium:"⛏",crystal:"💎",umbrite:"🟣",shard:"✦"};
+const SHEETS = ["nano-banana-pro","gpt-image-2","nano-banana-2"];
+const SIZES = [48,24,16];
+const crops = {}; // sheet -> [dataURL ×6]
+
+const svgUrl = k => "data:image/svg+xml;utf8," + encodeURIComponent(SVGS[k]);
+const imgTag = (src,px,alt) => `<img src="${src}" width="${px}" height="${px}" alt="${alt}">`;
+function cellFor(src, k, isEmoji){
+  return `<div class="cell">` + SIZES.map(px => `<span class="ic">${
+    isEmoji ? `<span class="emoji" style="font-size:${px*0.92}px">${EMOJI[k]}</span>`
+    : src ? imgTag(src,px,NAMES[k]) : `<span style="width:${px}px;height:${px}px;opacity:.3">…</span>`
+  }</span>`).join("") + `</div>`;
+}
+function renderGrid(){
+  document.getElementById("grid").innerHTML = KEYS.map((k,i) => `<tr><th scope="row">${NAMES[k]}</th>
+    <td>${cellFor(null,k,true)}</td><td>${cellFor(svgUrl(k),k)}</td>
+    ${SHEETS.map(s => `<td>${cellFor(crops[s]?.[i],k)}</td>`).join("")}</tr>`).join("");
+  const amounts = ["1,240","312","88","14","6","3"];
+  const row = (label, iconFor) => `<div class="bar"><span class="lab">${label}</span>${KEYS.map((k,i)=>`<span class="it">${iconFor(k,i)}${amounts[i]}</span>`).join("")}</div>`;
+  const upkeep = (label, iconFor) => `<div class="bar"><span class="lab">${label} · upkeep</span><span class="it">${iconFor("food",1)} 4.3/day</span><span class="it">${iconFor("titanium",2)} 1.0/day</span><span class="it">${iconFor("crystal",3)} 0.5/day</span><span class="it">${iconFor("gold",0)} 12.0/day</span></div>`;
+  const emojiIc = k => `<span class="emoji">${EMOJI[k]}</span>`;
+  const handIc = k => imgTag(svgUrl(k),16,"");
+  const aiIc = s => (k,i) => crops[s]?.[i] ? imgTag(crops[s][i],16,"") : "";
+  document.getElementById("ctx-ground").innerHTML =
+    row("Emoji",emojiIc) + upkeep("Emoji",emojiIc) + row("Hand SVG",handIc) + upkeep("Hand SVG",handIc) +
+    SHEETS.map(s => row(s.replace(/-/g," "),aiIc(s))).join("");
+}
+
+// Cut 6 icons out of a sheet: find column runs that differ from the background, then key the background out.
+function cutSheet(img){
+  const w = img.naturalWidth, h = img.naturalHeight;
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const ctx = c.getContext("2d"); ctx.drawImage(img,0,0);
+  const d = ctx.getImageData(0,0,w,h).data;
+  const sample = (x,y) => { const o=(y*w+x)*4; return [d[o],d[o+1],d[o+2]]; };
+  const corners = [sample(4,4),sample(w-5,4),sample(4,h-5),sample(w-5,h-5)];
+  const bgAt = (x,y) => { // bilinear blend of corner colours to absorb vignettes
+    const u=x/w, v=y/h;
+    return [0,1,2].map(ch => (corners[0][ch]*(1-u)+corners[1][ch]*u)*(1-v) + (corners[2][ch]*(1-u)+corners[3][ch]*u)*v);
+  };
+  const dist = (x,y) => { const o=(y*w+x)*4, b=bgAt(x,y); return Math.hypot(d[o]-b[0],d[o+1]-b[1],d[o+2]-b[2]); };
+  const T = 34;
+  const colActive = new Array(w).fill(false), colCount = new Array(w).fill(0);
+  for (let x=0;x<w;x++){ let n=0; for (let y=0;y<h;y+=2) if (dist(x,y)>T) n++; colCount[x]=n; colActive[x]=n>3; }
+  let runs=[], start=-1;
+  for (let x=0;x<=w;x++){ const a = x<w && colActive[x];
+    if (a && start<0) start=x; if (!a && start>=0){ runs.push([start,x-1]); start=-1; } }
+  // drop specks, then merge the narrowest gaps until exactly 6 icons remain
+  runs = runs.filter(r => r[1]-r[0] >= 6);
+  while (runs.length > 6){
+    let gi=0, best=Infinity;
+    for (let i=0;i<runs.length-1;i++){ const g=runs[i+1][0]-runs[i][1]; if (g<best){best=g;gi=i;} }
+    runs.splice(gi,2,[runs[gi][0],runs[gi+1][1]]);
+  }
+  // touching icons: split the widest run at its thinnest column until there are 6
+  while (runs.length < 6 && runs.length){
+    let wi=0; runs.forEach((r,i)=>{ if (r[1]-r[0] > runs[wi][1]-runs[wi][0]) wi=i; });
+    const [a,b]=runs[wi]; let cut=-1, min=Infinity;
+    for (let x=a+Math.round((b-a)*0.3); x<=a+Math.round((b-a)*0.7); x++) if (colCount[x]<min){ min=colCount[x]; cut=x; }
+    runs.splice(wi,1,[a,cut-1],[cut+1,b]);
+  }
+  const top6 = runs;
+  return top6.map(([x0,x1]) => {
+    let y0=h, y1=0;
+    for (let y=0;y<h;y++) for (let x=x0;x<=x1;x+=2) if (dist(x,y)>T){ if(y<y0)y0=y; if(y>y1)y1=y; }
+    const pad=6, cw=x1-x0+1, ch=y1-y0+1, side=Math.max(cw,ch)+pad*2;
+    const out=document.createElement("canvas"); out.width=side; out.height=side;
+    const octx=out.getContext("2d"); const id=octx.createImageData(side,side);
+    const ox=Math.round((side-cw)/2), oy=Math.round((side-ch)/2);
+    for (let y=0;y<ch;y++) for (let x=0;x<cw;x++){
+      const sx=x0+x, sy=y0+y, so=(sy*w+sx)*4, to=((oy+y)*side+(ox+x))*4;
+      const dd=dist(sx,sy); const a = dd<T*0.55 ? 0 : dd>T*1.4 ? 255 : Math.round(255*(dd-T*0.55)/(T*0.85));
+      id.data[to]=d[so]; id.data[to+1]=d[so+1]; id.data[to+2]=d[so+2]; id.data[to+3]=a;
+    }
+    octx.putImageData(id,0,0);
+    return out.toDataURL("image/png");
+  });
+}
+function renderFinal(){
+  const sizes=[[48,96],[24,72],[16,48]];
+  const cell = k => `<td><div class="cell">${sizes.map(([px,src])=>`<span class="ic"><img src="final/${k}-${src}.png" width="${px}" height="${px}" alt="${px===48?NAMES[k]:""}"></span>`).join("")}</div><div class="fname">${NAMES[k]}</div></td>`;
+  const row = `<tr>${KEYS.map(cell).join("")}</tr>`;
+  document.getElementById("final-row-hud").innerHTML = row;
+  document.getElementById("final-row-parch").innerHTML = row;
+  const amounts = ["1,240","312","88","14","6","3"];
+  const ic = k => `<img src="final/${k}-48.png" width="16" height="16" alt="">`;
+  document.getElementById("final-ctx").innerHTML =
+    `<div class="bar"><span class="lab">Resource bar</span>${KEYS.map((k,i)=>`<span class="it">${ic(k)}${amounts[i]}</span>`).join("")}</div>`+
+    `<div class="bar"><span class="lab">Upkeep line</span><span class="it">${ic("food")} 4.3/day</span><span class="it">${ic("titanium")} 1.0/day</span><span class="it">${ic("crystal")} 0.5/day</span><span class="it">${ic("gold")} 12.0/day</span></div>`+
+    `<div class="bar"><span class="lab">Plunder alert</span><span class="it">${ic("gold")} 340</span><span class="it">${ic("shard")} 2 Shard</span><span class="it">${ic("umbrite")} 18 Umbrite</span></div>`;
+}
+renderFinal();
+renderGrid();
+SHEETS.forEach(s => { const img = new Image(); img.onload = () => { try { crops[s] = cutSheet(img); } catch(e) {} renderGrid(); }; img.src = `ai/${s}.png`; });
+
+const ground = [document.getElementById("grid-ground"), document.getElementById("ctx-ground")];
+const bH = document.getElementById("g-hud"), bP = document.getElementById("g-parch");
+function setGround(parch){ ground.forEach(g=>g.classList.toggle("parch",parch)); bH.setAttribute("aria-pressed",String(!parch)); bP.setAttribute("aria-pressed",String(parch)); }
+bH.addEventListener("click",()=>setGround(false)); bP.addEventListener("click",()=>setGround(true));
+</script>
+
+</body></html>

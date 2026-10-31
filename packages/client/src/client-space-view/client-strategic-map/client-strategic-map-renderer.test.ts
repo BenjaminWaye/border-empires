@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { SpacePlanetViewModel } from "../client-space-view-state.js";
 import { buildStrategicMapModel } from "./client-strategic-map-controller.js";
-import { drawStrategicMap } from "./client-strategic-map-renderer.js";
+import { drawStrategicMap, raidProgress } from "./client-strategic-map-renderer.js";
 
 // A recording stand-in for CanvasRenderingContext2D: every property write is
 // ignored, every method call is recorded.
@@ -67,5 +67,27 @@ describe("drawStrategicMap", () => {
     const { ctx } = recordingContext();
     const model = buildStrategicMapModel(Array.from({ length: 300 }, (_, i) => planet(`s-${i}`)));
     expect(() => drawStrategicMap(ctx, model, 1200, 800, 1000)).not.toThrow();
+  });
+});
+
+describe("raids on the strategic map (§29.4)", () => {
+  const raid = { fromSeasonId: "a", seasonId: "b", launchedAt: 1_000, arrivesAt: 3_000 };
+
+  it("places the raider by how far along its course it is", () => {
+    expect(raidProgress(raid, 0)).toBe(0);
+    expect(raidProgress(raid, 2_000)).toBe(0.5);
+    expect(raidProgress(raid, 9_000)).toBe(1);
+  });
+
+  it("draws a course and the raider only for raids between systems on the map", () => {
+    const count = (raids: (typeof raid)[]): number => {
+      const { ctx, calls } = recordingContext();
+      const model = { ...buildStrategicMapModel([planet("a"), planet("b")]), raids };
+      drawStrategicMap(ctx, model, 400, 400, 2_000);
+      return calls.filter((c) => c === "lineTo").length;
+    };
+    const none = count([]);
+    expect(count([raid])).toBe(none + 1);
+    expect(count([{ ...raid, seasonId: "elsewhere" }])).toBe(none);
   });
 });

@@ -13,6 +13,7 @@ import { buildAttention, type AttentionItem } from "./galaxy-duke-attention.js";
 import { buildSystemView, type SystemView } from "./galaxy-duke-system-view.js";
 import { courtNow, domainWeights } from "./galaxy-duke-court.js";
 import { advanceOneDuke, heldSectors } from "./galaxy-duke-tick.js";
+import { buildPoliticsView, listPublicRaids, type DukePoliticsView, type PublicRaidView } from "./galaxy-duke-politics-view.js";
 
 export type DukeStatusView = {
   now: number;
@@ -35,6 +36,9 @@ export type DukeStatusView = {
   meters: { domainWeight: number; rank: number; dukeCount: number };
   economy: { developmentUpkeepPerCycle: number; incursionsPerCyclePerSystem: number; wardenPoolPerCycle: number };
   digest: DigestEntry[];
+  politics: DukePoliticsView;
+  // Every raid in the air, so the map can draw them (§29.4).
+  raids: PublicRaidView[];
 };
 
 export const buildDukeStatus = async (ctx: DukeContext, authUid: string): Promise<DukeStatusView | undefined> => {
@@ -43,8 +47,11 @@ export const buildDukeStatus = async (ctx: DukeContext, authUid: string): Promis
   if (!state) return undefined;
   const now = ctx.now();
   const { strength, contributions, era } = await courtNow(ctx, world);
-  const ranks = rankDomainWeights(await domainWeights(ctx, world, contributions));
+  const weights = await domainWeights(ctx, world, contributions);
+  const ranks = rankDomainWeights(weights);
   const hall = await ctx.deps.dukeStore.getHallOfFame();
+  const everyone = await ctx.deps.dukeStore.getAll();
+  const politics = await buildPoliticsView(ctx, world, state, weights, everyone);
   const mine = ranks.find((r) => r.authUid === authUid);
   const balance = await ctx.deps.galaxyEconomyStore.getBalance(authUid);
   const influence = balance?.influence ?? 0;
@@ -64,7 +71,14 @@ export const buildDukeStatus = async (ctx: DukeContext, authUid: string): Promis
     now,
     influence,
     systems,
-    attention: buildAttention({ systems, courtOfferPending: offer.status === "PENDING", petitionReady: petitionAvailable && canMove && influence >= MIN_MOVE_AGAINST_COURT_WAGER }),
+    attention: buildAttention({
+      systems,
+      courtOfferPending: offer.status === "PENDING",
+      petitionReady: petitionAvailable && canMove && influence >= MIN_MOVE_AGAINST_COURT_WAGER,
+      writPending: politics.writ !== null,
+      favorRevoked: politics.favor.revoked,
+      grievancesAgainstMe: politics.grievancesAgainstMe.length
+    }),
     flights: state.flights.map((f) => ({ kind: f.kind, fromSeasonId: f.fromSeasonId, seasonId: f.seasonId, arrivesAt: f.arrivesAt })),
     orbiting: state.orbiting.map((o) => ({ seasonId: o.seasonId, label: labels.get(o.seasonId) ?? "an unnamed world" })),
     intel: state.intel,
@@ -85,16 +99,19 @@ export const buildDukeStatus = async (ctx: DukeContext, authUid: string): Promis
       incursionsPerCyclePerSystem: Math.round(incursionRatePerCycle(Math.max(1, world.capturedSectors)) * 100) / 100,
       wardenPoolPerCycle: WARDEN_POOL_PER_CYCLE
     },
-    digest: [...state.digest].reverse().slice(0, 40)
+    digest: [...state.digest].reverse().slice(0, 40),
+    politics,
+    raids: listPublicRaids(everyone, now)
   };
 };
 
-export type CourtPublicView = CourtStrength & { dukeCount: number; leaderWeight: number | null; cycleDays: number; era: number };
+export type CourtPublicView = CourtStrength & { dukeCount: number; leaderWeight: number | null; cycleDays: number; era: number; raids: PublicRaidView[] };
 
 // Public: the shared meter everyone sees, and the top Domain Weight (no names).
 export const buildCourtPublicStatus = async (ctx: DukeContext): Promise<CourtPublicView> => {
   const world = await ctx.loadWorld();
   const { strength, contributions, era } = await courtNow(ctx, world);
   const ranks = rankDomainWeights(await domainWeights(ctx, world, contributions));
-  return { ...strength, dukeCount: ranks.length, leaderWeight: ranks[0]?.weight ?? null, cycleDays: CYCLE_DAYS, era: era.era };
+  const raids = listPublicRaids(await ctx.deps.dukeStore.getAll(), ctx.now());
+  return { ...strength, dukeCount: ranks.length, leaderWeight: ranks[0]?.weight ?? null, cycleDays: CYCLE_DAYS, era: era.era, raids };
 };

@@ -19,6 +19,17 @@ export type StrategicMapModel = {
   patches: ReadonlyArray<TerritoryPatch>;
   // Systems one of the player's Probes is orbiting (§26.7), marked on the map.
   orbiting: ReadonlySet<string>;
+  // Every raid in the air (§29.4), drawn as a course with the raider on it.
+  raids?: ReadonlyArray<MapRaid>;
+};
+
+export type MapRaid = { fromSeasonId: string; seasonId: string; launchedAt: number; arrivesAt: number };
+
+// How far along its course a raid is, 0 at launch and 1 on arrival.
+export const raidProgress = (raid: MapRaid, nowMs: number): number => {
+  const span = raid.arrivesAt - raid.launchedAt;
+  if (span <= 0) return 1;
+  return Math.min(1, Math.max(0, (nowMs - raid.launchedAt) / span));
 };
 
 type PaintStyle = { fill: string; halo: string; glow: string; dot: string };
@@ -157,6 +168,8 @@ export const drawStrategicMap = (
   }
   ctx.setLineDash([]);
 
+  drawRaids(ctx, model, nowMs, toScreen);
+
   // Labels: only notable systems (§22.2).
   ctx.font = "600 12px system-ui, sans-serif";
   ctx.textAlign = "left";
@@ -169,5 +182,37 @@ export const drawStrategicMap = (
     ctx.fillRect(p.x + 10, p.y - 18, w + 8, 16);
     ctx.fillStyle = "#f0e0c8";
     ctx.fillText(text, p.x + 14, p.y - 6);
+  }
+};
+
+// Raids (§29.4): a dashed red course from the raider's system to its target,
+// with the raider drawn where it is now, so a raid can be watched coming.
+const drawRaids = (
+  ctx: CanvasRenderingContext2D,
+  model: StrategicMapModel,
+  nowMs: number,
+  toScreen: (p: { x: number; y: number }) => { x: number; y: number }
+): void => {
+  if (!model.raids || model.raids.length === 0) return;
+  const pointOf = new Map(model.nodes.map((n) => [n.model.seasonId, n.point]));
+  ctx.lineWidth = 1.5;
+  for (const raid of model.raids) {
+    const from = pointOf.get(raid.fromSeasonId);
+    const to = pointOf.get(raid.seasonId);
+    if (!from || !to) continue;
+    const a = toScreen(from);
+    const b = toScreen(to);
+    ctx.strokeStyle = "rgba(255,90,70,0.7)";
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const t = raidProgress(raid, nowMs);
+    ctx.fillStyle = "#ff6b58";
+    ctx.beginPath();
+    ctx.arc(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, 4, 0, Math.PI * 2);
+    ctx.fill();
   }
 };

@@ -36,6 +36,9 @@ export type DukeController = {
   dispose: () => void;
 };
 
+// Attention items that are answered on the Court tab, not on a planet.
+const COURT_ATTENTION: ReadonlySet<string> = new Set(["COURT_OFFER", "PETITION_READY", "GRIEVANCE_AGAINST_YOU", "FAVOR_REVOKED", "WRIT_PENDING"]);
+
 export const mountDukeController = (screen: HTMLElement, panel: HTMLElement, deps: DukeControllerDeps): DukeController => {
   const now = deps.now ?? (() => Date.now());
   const api = deps.api ?? createDukeApi({ wsUrl: deps.wsUrl, getIdToken: deps.getIdToken });
@@ -116,6 +119,9 @@ export const mountDukeController = (screen: HTMLElement, panel: HTMLElement, dep
       return render(true);
     }
     if (d.dukeOfferAnswer) return void api.answerOffer(d.dukeOfferAnswer === "accept").then(report);
+    if (d.dukeWritAnswer) return void api.answerWrit(d.dukeWritAnswer === "accept").then(report);
+    if (d.dukeLend) return void api.lendFleet(d.dukeLend).then(report);
+    if (button.hasAttribute("data-duke-declare")) return void api.declareGrievance(value("[data-duke-grievance-target]")).then(report);
     if (d.dukeBuild === "FIGHTER" || d.dukeBuild === "PROBE" || d.dukeBuild === "REFIT") return void api.build(seasonId(), { kind: d.dukeBuild }).then(report);
     if (d.dukeDevelop !== undefined) return void api.build(seasonId(), { kind: "DEVELOP", bodyIndex: Number(d.dukeDevelop) }).then(report);
     if (button.hasAttribute("data-duke-fortify")) return void api.build(seasonId(), { kind: "FORTIFY", points: Number(value("[data-duke-fortify-points]")) }).then(report);
@@ -161,7 +167,7 @@ export const mountDukeController = (screen: HTMLElement, panel: HTMLElement, dep
     const attention = (event.target as HTMLElement).closest<HTMLElement>("[data-duke-attention]");
     if (!attention) return;
     const kind = attention.dataset.dukeAttention;
-    if (kind === "COURT_OFFER" || kind === "PETITION_READY") return showTab("COURT");
+    if (kind && COURT_ATTENTION.has(kind)) return showTab("COURT");
     if (attention.dataset.seasonId) return showSystem(attention.dataset.seasonId);
     showTab("SYSTEM");
   });

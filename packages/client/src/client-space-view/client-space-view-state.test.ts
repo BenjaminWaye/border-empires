@@ -5,6 +5,7 @@ import {
   fleetOriginPosition,
   galaxyLayoutPosition,
   ownsSpaceViewEligiblePlanet,
+  publicPlanetLabel,
   toSpacePlanetViewModels
 } from "./client-space-view-state.js";
 
@@ -77,6 +78,13 @@ describe("decorativeOrbitBodyCount", () => {
 
 describe("classifyPlanetState", () => {
   const mine = new Set(["mine-1"]);
+
+  it("shows an AI House's unnamed Sector as rival-held, labelled by its House (§29.1)", () => {
+    const planet = { seasonId: "s-ai", tier: "PLANET" as const, claimed: false, planetName: null, aiHouse: "Alden" };
+    expect(classifyPlanetState(planet, mine, () => false)).toBe("other");
+    expect(publicPlanetLabel(planet)).toBe("House Alden");
+    expect(toSpacePlanetViewModels([planet], mine)[0]).toMatchObject({ label: "House Alden", ownerKey: "house:Alden" });
+  });
 
   it("classifies owned planets first, even if also reported contested", () => {
     const state = classifyPlanetState({ seasonId: "mine-1", tier: "PLANET" }, mine, () => true);

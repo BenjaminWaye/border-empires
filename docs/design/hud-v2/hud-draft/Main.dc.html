@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Border Empires map screen</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&amp;family=Spectral:wght@400;600&amp;family=Space+Mono:wght@400;700&amp;display=swap">
+<style>
+body{margin:0;background:#0b0a08}
+a{color:#d9b25c}a:hover{color:#f0cf82}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; position: relative; overflow: hidden; background: #0f2830; font-family: 'Spectral', Georgia, serif; color: #ece2cc">
+
+  <div style="position: absolute; inset: 0; display: grid; grid-template-columns: repeat(60, 24px); grid-auto-rows: 24px" aria-hidden="true">
+    <sc-for list="{{tiles}}" as="t" hint-placeholder-count="60">
+      <div style="background: {{t.bg}}; box-shadow: {{t.sh}}"></div>
+    </sc-for>
+  </div>
+  <div style="position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 55%, rgba(5,4,3,0.55) 100%); pointer-events: none" aria-hidden="true"></div>
+
+  <sc-for list="{{towns}}" as="tw" hint-placeholder-count="5">
+    <div style="position: absolute; left: {{tw.x}}px; top: {{tw.y}}px; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; gap: 2px; pointer-events: none">
+      <div style="display: flex; align-items: center; gap: 6px; padding: 2px 8px; background: rgba(12,10,8,0.82); border: 1px solid {{tw.c}}; font-family: 'Cinzel', serif; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: #ece2cc; white-space: nowrap">
+        <span style="width: 8px; height: 8px; background: {{tw.c}}; transform: rotate(45deg)"></span>{{tw.name}}<span style="font-family: 'Space Mono', monospace; font-weight: 400; color: #bda880">{{tw.tier}}</span>
+      </div>
+      <svg width="18" height="16" viewBox="0 0 18 16" aria-hidden="true"><path d="M2 15V7l4-3 3 3 3-3 4 3v8z" fill="#1d1913" stroke="{{tw.c}}" stroke-width="1.5"/></svg>
+    </div>
+  </sc-for>
+
+  <div style="position: absolute; left: {{sel.px}}px; top: {{sel.py}}px; width: 24px; height: 24px; outline: 2px solid #f0cf82; outline-offset: 1px; box-shadow: 0 0 0 6px rgba(217,178,92,0.25)" aria-hidden="true"></div>
+
+  <div style="position: absolute; left: 20px; right: 20px; top: 12px; height: 46px; display: flex; align-items: center; justify-content: center; gap: 6px; background: rgba(15,13,10,0.92); border: 1px solid #5a4828; border-bottom-color: #8a6f35; box-shadow: 0 6px 18px rgba(0,0,0,0.45)">
+    <button type="button" style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; background: #1d1913; border: 1px solid #3a3125; color: #ece2cc; font-family: 'Space Mono', monospace; font-size: 13px; cursor: pointer">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="#d9b25c" stroke-width="1.6"/><path d="M8 5v6M6 6.5h3a1 1 0 010 2H7a1 1 0 000 2h3" fill="none" stroke="#d9b25c" stroke-width="1.2"/></svg>
+      <span style="color: #a8997c; font-size: 11px">Coin</span>1,240<span style="color: #6fbf73; font-size: 11px">+38/h</span>
+    </button>
+    <button type="button" style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; background: #1d1913; border: 1px solid #3a3125; color: #ece2cc; font-family: 'Space Mono', monospace; font-size: 13px; cursor: pointer">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 14V5M8 5c-2 0-3-1.5-3-3 2 0 3 1.5 3 3zm0 0c2 0 3-1.5 3-3-2 0-3 1.5-3 3zM8 9c-2 0-3-1.5-3-3 2 0 3 1.5 3 3zm0 0c2 0 3-1.5 3-3-2 0-3 1.5-3 3z" fill="none" stroke="#c9b26a" stroke-width="1.2"/></svg>
+      <span style="color: #a8997c; font-size: 11px">Food</span>4<span style="color: #a8997c">/6</span>
+    </button>
+    <button type="button" style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; background: #1d1913; border: 1px solid #3a3125; color: #ece2cc; font-family: 'Space Mono', monospace; font-size: 13px; cursor: pointer">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 12l3-8h4l3 8z" fill="none" stroke="#9fb0b8" stroke-width="1.4"/></svg>
+      <span style="color: #a8997c; font-size: 11px">Titanium</span><b style="color: #e0a845">3</b><span style="color: #a8997c">/2</span>
+    </button>
+    <button type="button" style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; background: #1d1913; border: 1px solid #3a3125; color: #ece2cc; font-family: 'Space Mono', monospace; font-size: 13px; cursor: pointer">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2l4 5-4 7-4-7z" fill="none" stroke="#8fd3e0" stroke-width="1.4"/></svg>
+      <span style="color: #a8997c; font-size: 11px">Crystal</span>1<span style="color: #a8997c">/3</span>
+    </button>
+    <button type="button" style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; background: #1d1913; border: 1px solid #3a3125; color: #ece2cc; font-family: 'Space Mono', monospace; font-size: 13px; cursor: pointer">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5" fill="none" stroke="#b58ad6" stroke-width="1.4"/><circle cx="8" cy="8" r="2" fill="#b58ad6"/></svg>
+      <span style="color: #a8997c; font-size: 11px">Umbrite</span>0<span style="color: #a8997c">/1</span>
+    </button>
+    <span style="width: 1px; height: 24px; background: #3a3125; margin: 0 6px"></span>
+    <button type="button" style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; background: #1d1913; border: 1px solid #3a3125; color: #ece2cc; font-family: 'Space Mono', monospace; font-size: 13px; cursor: pointer">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 2l6 3-2 9-6-4z" fill="none" stroke="#e8a3c4" stroke-width="1.4"/></svg>
+      <span style="color: #a8997c; font-size: 11px">Shard</span>7
+    </button>
+    <button type="button" style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; background: #1d1913; border: 1px solid #3a3125; color: #ece2cc; font-family: 'Space Mono', monospace; font-size: 13px; cursor: pointer">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5l5.5 2v4c0 3.5-2.5 6-5.5 7-3-1-5.5-3.5-5.5-7v-4z" fill="none" stroke="#d9b25c" stroke-width="1.4"/></svg>
+      <span style="color: #a8997c; font-size: 11px">Integrity</span>82%
+    </button>
+  </div>
+
+  <div style="position: absolute; left: 20px; top: 70px; display: flex; align-items: flex-start; gap: 14px">
+    <button type="button" aria-label="Your House: profile and settings" style="width: 70px; height: 70px; border-radius: 50%; background: radial-gradient(circle at 50% 35%, #2f9a90, #1a5752); border: 2px solid #d9b25c; box-shadow: 0 0 0 4px rgba(15,13,10,0.9), 0 0 0 5px #5a4828; display: grid; place-items: center; cursor: pointer">
+      <span aria-hidden="true" style="font-family: 'Cinzel', serif; font-size: 30px; font-weight: 700; color: #f6ecd4; text-shadow: 0 1px 3px #000">V</span>
+    </button>
+    <div style="display: flex; gap: 12px; padding-top: 10px">
+      <sc-for list="{{nav}}" as="n" hint-placeholder-count="5">
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+          <button type="button" aria-label="{{n.label}}" style="position: relative; width: 46px; height: 46px; border-radius: 50%; background: #16130e; border: 1px solid #8a6f35; display: grid; place-items: center; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,0.5)">
+            <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><path d="{{n.d}}" fill="none" stroke="#d9b25c" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <sc-if value="{{n.badge}}" hint-placeholder-val="{{false}}"><span style="position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; border-radius: 9px; background: #d06a5a; color: #fff; font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700; display: grid; place-items: center; border: 2px solid #0f0d0a">{{n.badge}}</span></sc-if>
+          </button>
+          <span style="font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 0.08em; color: #bda880; text-shadow: 0 1px 2px #000">{{n.label}}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="position: absolute; right: 20px; top: 70px; width: 300px; display: flex; flex-direction: column; gap: 8px">
+    <div style="background: rgba(15,13,10,0.9); border: 1px solid #5a4828; padding: 10px 14px; display: flex; flex-direction: column; gap: 4px">
+      <div style="display: flex; justify-content: space-between; align-items: baseline">
+        <span style="font-family: 'Cinzel', serif; font-size: 15px; font-weight: 700; letter-spacing: 0.08em; color: #d9b25c">Season Day 9</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; font-size: 13px">
+        <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1h8M3 13h8M4 1c0 4 6 4 6 6s-6 2-6 6M10 1c0 4-6 4-6 6s6 2 6 6" fill="none" stroke="#d06a5a" stroke-width="1.3"/></svg>
+        <span><span style="color: #e8907f">Ashford</span> holding Town Control · <span style="font-family: 'Space Mono', monospace">14h</span></span>
+      </div>
+    </div>
+    <div style="display: flex; justify-content: flex-end; align-items: flex-start; gap: 8px">
+      <sc-for list="{{rivals}}" as="r" hint-placeholder-count="4">
+        <button type="button" aria-label="{{r.label}}" style="width: 54px; display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: 0; padding: 0; cursor: pointer">
+          <span style="position: relative; width: 40px; height: 40px; border-radius: 8px; background: {{r.c}}; border: 2px {{r.frame}} #ece2cc; display: grid; place-items: center; font-family: 'Cinzel', serif; font-size: 19px; font-weight: 700; color: #f6ecd4; text-shadow: 0 1px 2px rgba(0,0,0,0.6); box-shadow: 0 3px 8px rgba(0,0,0,0.5)">{{r.init}}
+            <span style="position: absolute; right: -8px; bottom: -8px; width: 20px; height: 20px; border-radius: 50%; background: #0f0d0a; border: 2px solid {{r.sc}}; display: grid; place-items: center"><svg width="12" height="12" viewBox="0 0 18 18" aria-hidden="true"><path d="{{r.icon}}" fill="none" stroke="{{r.sc}}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          </span>
+          <span style="font-family: 'Space Mono', monospace; font-size: 10px; color: #ece2cc; text-shadow: 0 1px 2px #000">{{r.name}}</span>
+          <span style="font-family: 'Space Mono', monospace; font-size: 9px; color: {{r.sc}}; text-shadow: 0 1px 2px #000">{{r.st}}</span>
+        </button>
+      </sc-for>
+      <button type="button" aria-label="All empires you've met" style="width: 40px; height: 40px; border-radius: 8px; background: rgba(15,13,10,0.9); border: 1px solid #8a6f35; color: #d9b25c; font-family: 'Space Mono', monospace; font-size: 12px; cursor: pointer">+46</button>
+    </div>
+  </div>
+
+  <div style="position: absolute; left: 20px; top: 172px; width: 300px; background: rgba(15,13,10,0.9); border: 1px solid #5a4828; display: flex; flex-direction: column; line-height: 1.3">
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid #3a3125">
+      <span style="font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; letter-spacing: 0.1em; color: #e8907f">Needs you · 3</span>
+      <button type="button" style="font-family: 'Space Mono', monospace; font-size: 11px; color: #0f0d0a; background: #d9b25c; border: 0; padding: 4px 10px; cursor: pointer">Next ▸</button>
+    </div>
+    <sc-for list="{{needs}}" as="it" hint-placeholder-count="3">
+      <button type="button" style="display: flex; align-items: center; gap: 10px; padding: 6px 14px; background: none; border: 0; border-bottom: 1px solid #241f17; color: #ece2cc; font-family: 'Spectral', serif; font-size: 14px; text-align: left; cursor: pointer">
+        <span style="width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid {{it.c}}; color: {{it.c}}; font-family: 'Space Mono', monospace; font-size: 11px; flex: none">{{it.g}}</span>
+        <span style="flex: 1">{{it.t}}<br><span style="font-size: 12px; color: #a8997c">{{it.s}}</span></span>
+      </button>
+    </sc-for>
+    <div style="padding: 10px 14px 4px; font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; color: #d9b25c">Flags · 2</div>
+    <sc-for list="{{flags}}" as="f" hint-placeholder-count="2">
+      <button type="button" style="display: flex; flex-direction: column; gap: 4px; padding: 5px 14px; background: none; border: 0; color: #ece2cc; font-family: 'Spectral', serif; font-size: 14px; text-align: left; cursor: pointer">
+        <span style="display: flex; justify-content: space-between; width: 100%"><span>⚑ {{f.name}} · <span style="color: #d9b25c">{{f.mode}}</span></span><span style="font-family: 'Space Mono', monospace; font-size: 11px; color: #a8997c">{{f.amt}}</span></span>
+        <span style="display: block; width: 100%; height: 4px; background: #2a241b"><span style="display: block; height: 4px; width: {{f.pct}}; background: #8a6f35"></span></span>
+        <span style="font-size: 12px; color: #a8997c">{{f.s}}</span>
+      </button>
+    </sc-for>
+    <div style="padding: 10px 14px 4px; font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; color: #d9b25c">In progress</div>
+    <sc-for list="{{prog}}" as="p" hint-placeholder-count="2">
+      <div style="display: flex; justify-content: space-between; padding: 5px 14px; font-size: 14px"><span>{{p.t}}</span><span style="font-family: 'Space Mono', monospace; font-size: 12px; color: #bda880">{{p.r}}</span></div>
+    </sc-for>
+    <div style="height: 8px"></div>
+  </div>
+
+  <div style="position: absolute; left: 20px; bottom: 20px; width: 260px; display: flex; flex-direction: column; gap: 6px">
+    <div style="display: flex; gap: 4px">
+      <button type="button" style="flex: 1; height: 28px; background: #2a2216; border: 1px solid #d9b25c; color: #d9b25c; font-family: 'Space Mono', monospace; font-size: 10px; cursor: pointer">Borders</button>
+      <button type="button" style="flex: 1; height: 28px; background: #16130e; border: 1px solid #3a3125; color: #bda880; font-family: 'Space Mono', monospace; font-size: 10px; cursor: pointer">Resources</button>
+      <button type="button" style="flex: 1; height: 28px; background: #16130e; border: 1px solid #3a3125; color: #bda880; font-family: 'Space Mono', monospace; font-size: 10px; cursor: pointer">Diplomacy</button>
+    </div>
+    <div style="height: 172px; background: #0d1f25; border: 2px solid #8a6f35; box-shadow: 0 0 0 3px rgba(15,13,10,0.9), 0 8px 20px rgba(0,0,0,0.5); position: relative; overflow: hidden">
+      <div style="position: absolute; left: 0; top: 0; display: grid; grid-template-columns: repeat(60, 4.3px); grid-auto-rows: 4.5px" aria-hidden="true">
+        <sc-for list="{{mini}}" as="m" hint-placeholder-count="60"><div style="background: {{m}}"></div></sc-for>
+      </div>
+      <div style="position: absolute; left: 78px; top: 40px; width: 90px; height: 60px; border: 1px solid #ece2cc" aria-hidden="true"></div>
+    </div>
+  </div>
+
+  <div style="position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); width: 560px; display: flex; flex-direction: column; background: rgba(15,13,10,0.94); border: 1px solid #8a6f35; box-shadow: 0 10px 28px rgba(0,0,0,0.55)">
+    <div style="display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid #3a3125">
+      <span aria-hidden="true" style="width: 32px; height: 32px; flex: none; border-radius: 6px; background: #7a3fa0; border: 2px solid #ece2cc; display: grid; place-items: center; font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700; color: #f6ecd4; text-shadow: 0 1px 2px rgba(0,0,0,0.6); box-shadow: 0 3px 8px rgba(0,0,0,0.45)">A</span>
+      <div style="flex: 1">
+        <div style="font-family: 'Cinzel', serif; font-size: 15px; font-weight: 700; letter-spacing: 0.06em">Garrisoned land · Ashford</div>
+        <div style="font-size: 13px; color: #a8997c">({{sel.x}}, {{sel.y}}) · Plains · Grain</div>
+      </div>
+      <span style="font-family: 'Space Mono', monospace; font-size: 11px; padding: 3px 8px; border: 1px solid #d06a5a; color: #e8907f">At war</span>
+    </div>
+    <div style="display: flex; align-items: stretch; gap: 8px; padding: 10px 14px">
+      <button type="button" style="flex: 1.6; display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 48px; padding: 0 16px; background: #d9b25c; border: 0; color: #120f0b; font-family: 'Cinzel', serif; font-size: 15px; font-weight: 700; letter-spacing: 0.08em; cursor: pointer">
+        <span>Attack</span><span style="font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700">62% · 120 MP</span><span style="font-family: 'Space Mono', monospace; font-size: 10px; padding: 1px 5px; border: 1px solid #120f0b">A</span>
+      </button>
+      <button type="button" style="flex: 1; height: 48px; background: #16130e; border: 1px solid #8a6f35; color: #ece2cc; font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; cursor: pointer">Diplomacy</button>
+      <button type="button" aria-label="More actions" style="width: 52px; height: 48px; background: #16130e; border: 1px solid #8a6f35; color: #d9b25c; font-size: 18px; cursor: pointer">⋯</button>
+    </div>
+  </div>
+
+  <button type="button" aria-label="Manpower 412 of 720, refill in 2 hours 14 minutes" style="position: absolute; right: 20px; bottom: 20px; width: 196px; height: 196px; border-radius: 50%; padding: 0; border: 0; background: none; cursor: pointer">
+    <svg width="196" height="196" viewBox="0 0 196 196" aria-hidden="true">
+      <defs><clipPath id="orbclip"><circle cx="98" cy="98" r="80"/></clipPath></defs>
+      <circle cx="98" cy="98" r="94" fill="#0f0d0a" stroke="#5a4828" stroke-width="2"/>
+      <circle cx="98" cy="98" r="86" fill="none" stroke="#8a6f35" stroke-width="2"/>
+      <circle cx="98" cy="98" r="86" fill="none" stroke="#d9b25c" stroke-width="5" stroke-dasharray="540.4" stroke-dashoffset="225" transform="rotate(-90 98 98)" stroke-linecap="round"/>
+      <circle cx="98" cy="98" r="80" fill="#14110d"/>
+      <g clip-path="url(#orbclip)">
+        <path d="M10 104 C 50 94, 70 112, 98 104 S 150 94, 190 104 V 190 H 10 Z" fill="#a07a34"/>
+        <path d="M10 110 C 50 102, 72 118, 98 110 S 150 100, 190 110 V 190 H 10 Z" fill="#c99a45" opacity="0.85"/>
+      </g>
+      <circle cx="98" cy="98" r="80" fill="none" stroke="#d9b25c" stroke-width="1.5"/>
+      <ellipse cx="74" cy="62" rx="26" ry="12" fill="#ffffff" opacity="0.06"/>
+    </svg>
+    <span style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: #ece2cc">
+      <span style="font-family: 'Cinzel', serif; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; color: #d9b25c">Manpower</span>
+      <span style="font-family: 'Space Mono', monospace; font-size: 26px; font-weight: 700; text-shadow: 0 1px 3px #000">412</span>
+      <span style="font-family: 'Space Mono', monospace; font-size: 12px; color: #ece2cc; text-shadow: 0 1px 3px #000">/ 720</span>
+      <span style="font-family: 'Space Mono', monospace; font-size: 11px; color: #f3e6c4; text-shadow: 0 1px 3px #000; margin-top: 4px">+96 in 2h 14m</span>
+    </span>
+  </button>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const W = 60, H = 38;
+    const hash = (x, y) => { let n = (x * 374761393 + y * 668265263) | 0; n = Math.imul(n ^ (n >>> 13), 1274126177); return ((n ^ (n >>> 16)) >>> 0) / 4294967295; };
+    const smooth = (x, y, s) => { const x0 = Math.floor(x / s), y0 = Math.floor(y / s), fx = x / s - x0, fy = y / s - y0; const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy); const a = hash(x0, y0), b = hash(x0 + 1, y0), c = hash(x0, y0 + 1), d = hash(x0 + 1, y0 + 1); return a * (1 - u) * (1 - v) + b * u * (1 - v) + c * (1 - u) * v + d * u * v; };
+    const elev = (x, y) => 0.62 * smooth(x + 3, y + 7, 10) + 0.38 * smooth(x + 40, y + 11, 4) + 0.18 - 0.35 * Math.hypot((x - 30) / 34, (y - 19) / 22);
+    const seeds = [
+      { id: 'me', x: 27, y: 21, r: 9.5, c: [47, 150, 141] },
+      { id: 'ash', x: 40, y: 12, r: 8.5, c: [122, 63, 160] },
+      { id: 'ilse', x: 15, y: 11, r: 7.5, c: [70, 120, 190] }
+    ];
+    const terr = [], own = [];
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const e = elev(x, y);
+      const kind = e < 0.36 ? 'sea' : e < 0.40 ? 'coast' : e > 0.70 ? 'mtn' : 'land';
+      terr.push(kind);
+      let best = null, bd = 1e9;
+      if (kind === 'land') for (const s of seeds) { const d = Math.hypot(x - s.x, y - s.y) / s.r; if (d < 1 && d < bd) { bd = d; best = s; } }
+      own.push(best ? { s: best, settled: bd < 0.62 } : null);
+    }
+    const hex = (r, g, b) => '#' + [r, g, b].map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+    const base = (k, x, y) => { const j = (hash(x * 7, y * 3) - 0.5) * 10; if (k === 'sea') return [16 + j * 0.3, 40 + j * 0.4, 50 + j * 0.5]; if (k === 'coast') return [26, 62, 70]; if (k === 'mtn') return [92 + j, 86 + j, 74 + j]; return [64 + j, 76 + j, 44 + j * 0.6]; };
+    const tiles = [], mini = [];
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x, k = terr[i], o = own[i];
+      let c = base(k, x, y), sh = 'none';
+      if (o) {
+        const m = o.settled ? 0.42 : 0.24;
+        c = c.map((v, n) => v * (1 - m) + o.s.c[n] * m);
+        const same = (xx, yy) => { if (xx < 0 || yy < 0 || xx >= W || yy >= H) return false; const q = own[yy * W + xx]; return q && q.s === o.s; };
+        const col = hex(...o.s.c.map((v) => v * 1.25 + 30));
+        const parts = [];
+        if (!same(x, y - 1)) parts.push('inset 0 2px 0 ' + col);
+        if (!same(x, y + 1)) parts.push('inset 0 -2px 0 ' + col);
+        if (!same(x - 1, y)) parts.push('inset 2px 0 0 ' + col);
+        if (!same(x + 1, y)) parts.push('inset -2px 0 0 ' + col);
+        if (parts.length) sh = parts.join(', ');
+      }
+      tiles.push({ bg: hex(...c), sh: sh });
+      if (y % 1 === 0) mini.push(hex(...c.map((v) => v * 1.1)));
+    }
+    let sel = null, best = 1e9;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const o = own[y * W + x];
+      if (!o || o.s.id !== 'ash') continue;
+      for (let yy = 0; yy < H; yy++) for (let xx = 0; xx < W; xx++) {
+        const q = own[yy * W + xx];
+        if (!q || q.s.id !== 'me') continue;
+        const d = Math.abs(xx - x) + Math.abs(yy - y);
+        if (d < best) { best = d; sel = { x: x, y: y }; }
+      }
+    }
+    sel = sel || { x: 36, y: 14 };
+    sel.px = sel.x * 24; sel.py = sel.y * 24;
+    return {
+      sel: sel,
+      tiles: tiles,
+      mini: mini,
+      towns: [
+        { name: 'Halveth', tier: 'City', x: 27 * 24 + 12, y: 21 * 24, c: '#3fb0a6' },
+        { name: 'Corrin', tier: 'Town', x: 22 * 24 + 12, y: 25 * 24, c: '#3fb0a6' },
+        { name: 'Ashford', tier: 'City', x: 40 * 24 + 12, y: 12 * 24, c: '#a066c8' },
+        { name: 'Mere', tier: 'Town', x: 15 * 24 + 12, y: 11 * 24, c: '#5d8fc9' }
+      ],
+      nav: [
+        { label: 'Manifest', d: 'M4 4h10l4 4v10H4zM14 4v4h4M7 11h8M7 14h6', badge: '' },
+        { label: 'AFC', d: 'M11 2l8 4.5v9L11 20l-8-4.5v-9zM11 7v6M8 10h6', badge: '1' },
+        { label: 'Diplomacy', d: 'M11 3v16M5 7h12M5 7l-3 6h6zM17 7l-3 6h6zM8 19h6', badge: '' },
+        { label: 'Ranks', d: 'M4 16l2-9 5 4 5-4 2 9zM4 19h14', badge: '' },
+        { label: 'Chronicle', d: 'M5 3h10a2 2 0 012 2v14H7a2 2 0 01-2-2zM5 17a2 2 0 012-2h10M8 7h6M8 10h6', badge: '' }
+      ],
+      rivals: [
+        { label: 'Ashford, at war', init: 'A', name: 'Ashford', c: '#7a3fa0', frame: 'solid', st: 'WAR', sc: '#e8907f', icon: 'M4 4l10 10M14 4L4 14' },
+        { label: 'Draymoor, truce for 9 hours', init: 'D', name: 'Draymoor', c: '#9a5f2e', frame: 'dashed', st: 'TRUCE 9h', sc: '#e0a845', icon: 'M5 3h8M5 15h8M6 3c0 4 6 4 6 6s-6 2-6 6M12 3c0 4-6 4-6 6s6 2 6 6' },
+        { label: 'Ilse, borders you', init: 'I', name: 'Ilse', c: '#46689e', frame: 'double', st: 'BORDER', sc: '#bda880', icon: 'M3 9h12' },
+        { label: 'Corwen, ally', init: 'C', name: 'Corwen', c: '#5b7a2e', frame: 'solid', st: 'ALLY', sc: '#6fbf73', icon: 'M4 9l3.5 3.5L14 6' }
+      ],
+      needs: [
+        { g: '+', c: '#d9b25c', t: 'Free build slot', s: 'Halveth' },
+        { g: '⬢', c: '#d9b25c', t: 'AFC upgrade II ready', s: '' },
+        { g: '!', c: '#e0a845', t: 'Flag (30, 8) stalled', s: 'Needs manpower' }
+      ],
+      flags: [
+        { name: '(30, 8)', mode: 'Advance', amt: '90 / 150', pct: '60%', s: 'Needs manpower' },
+        { name: '(33, 16)', mode: 'March → Ashford', amt: '120 / 150', pct: '80%', s: 'Fighting at (34, 16)' }
+      ],
+      prog: [
+        { t: 'Hydrogarden · Corrin', r: '31m' },
+        { t: 'Battle at (34, 16)', r: '9s' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
