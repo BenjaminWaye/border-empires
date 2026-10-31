@@ -468,6 +468,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Ongoing battles open their battle screen",
     why: "Pressing a battle in progress sometimes only centred the map, and the side cards never showed either army's strength.",
     changes: ["Pressing a battle in the tracker zooms in on it and opens the battle screen, closing any other screen first", "Both sides show their strength and the locked odds while the battle runs", "Leaving the battle returns to your earlier zoom"]
+  },
+  {
+    createdAt: 1793479521000,
+    introducedIn: "2026.10.31",
+    title: "Truce offers wait for the map to load",
+    why: "Incoming truce offers could pop up on top of the loading screen.",
+    changes: ["Alerts such as truce offers now stay hidden until the map has finished loading"]
   }
 ];
 
