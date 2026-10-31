@@ -280,6 +280,8 @@ export const combatSnapshotFromLockedResult = (
     winChance: locked.winChance,
     attackerEffective: typeof locked.atkEff === "number" ? locked.atkEff : existing?.attackerEffective ?? 0,
     defenderEffective: typeof locked.defEff === "number" ? locked.defEff : existing?.defenderEffective ?? 0,
-    defenderOwnerId: locked.defenderOwnerId
+    defenderOwnerId: locked.defenderOwnerId,
+    // The launch-time modifiers only describe this fight while the defender is the one the preview saw.
+    ...(existing?.breakdown && existing.defenderOwnerId === locked.defenderOwnerId ? { breakdown: existing.breakdown } : {})
   };
 };

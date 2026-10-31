@@ -67,7 +67,7 @@ const rowsHtml = (entries: FrontierCombatSideBreakdown["infrastructure"], goodWh
 
 const sideHtml = (side: BattleSide, breakdown: FrontierCombatSideBreakdown | undefined, mine: boolean): string => {
   const body = breakdown
-    ? `<div class="v2b-row"><span>Base strength</span><span>${Math.round(breakdown.base)}</span></div>
+    ? `${breakdown.infrastructure.length + breakdown.battle.length > 0 ? `<div class="v2b-row"><span>Base strength</span><span>${Math.round(breakdown.base)}</span></div>` : ""}
        ${breakdown.infrastructure.length > 0 ? `<div class="v2b-h">Infrastructure</div>${rowsHtml(breakdown.infrastructure, mine)}` : ""}
        ${breakdown.battle.length > 0 ? `<div class="v2b-h">This battle</div>${rowsHtml(breakdown.battle, mine)}` : ""}
        <div class="v2b-eff"><span>Effective</span><b>${Math.round(breakdown.effective)}</b></div>`

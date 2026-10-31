@@ -454,6 +454,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Revealing the map now shows every empire's reach borders, including unowned ground held inside them",
       "Contested tiles stay hatched after a reveal in both the 2D and 3D maps"
     ]
+  },
+  {
+    createdAt: 1793470954153,
+    introducedIn: "2026.10.31",
+    title: "Ongoing battles open their battle screen",
+    why: "Pressing a battle in progress sometimes only centred the map, and the side cards never showed either army's strength.",
+    changes: ["Pressing a battle in the tracker zooms in on it and opens the battle screen, closing any other screen first", "Both sides show their strength and the locked odds while the battle runs", "Leaving the battle returns to your earlier zoom"]
   }
 ];
 
