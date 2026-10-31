@@ -203,6 +203,19 @@ describe("town screen", () => {
     expect(left).toContain("—");
   });
 
+  // Regression: an ungarrisoned town's Garrison was a faint text link beside Raise flag, easy to miss.
+  it("leads an ungarrisoned town's bar with Garrison as the main button, saying why when it can't", () => {
+    const ungarrisoned: Tile = { ...town, ownershipState: "FRONTIER" };
+    const regions = (garrison: TileActionDef) => townScreenRegions({ town: ungarrisoned, focus: ungarrisoned, townView: view({ actions: [garrison, act("muster_hold")] }), focusView: view({}), townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined });
+    const ready = regions(act("settle_land", { label: "Garrison", cost: "30 coin, 10 manpower" })).bar;
+    expect(ready.startsWith('<button type="button" class="v2t-act v2t-act-primary" data-hud-v2-action="settle_land" data-target-key="5,5"')).toBe(true);
+    expect(ready).toContain("<small>30 coin, 10 manpower</small>");
+    expect(ready).not.toContain('class="hud-v2-minor" data-hud-v2-action="settle_land"');
+    const blocked = regions(act("settle_land", { label: "Garrison", disabled: true, disabledReason: "Need 10 manpower" })).bar;
+    expect(blocked).toContain('data-hud-v2-action="settle_land" data-target-key="5,5" disabled');
+    expect(blocked).toContain("<small>Need 10 manpower</small>");
+  });
+
   it("only lists categories that have something to build", () => {
     expect(townBuildCategories([act("build_hydrogarden"), act("build_fortification")]).every((c) => c.count > 0)).toBe(true);
   });

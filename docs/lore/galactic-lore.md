@@ -90,6 +90,16 @@ involved is lying to the other about it.
 personal, permanent rights to that world.** It is not a season's prize —
 it is a real title and a real holding, carried forward.
 
+Not every House that enters the war games has a sworn heir at its head.
+Some are fielded by lesser branches, regencies or cadet lines that fight
+under the House's name alone. When one of these wins, its world is held in
+the House's name — **House Alden**, **House Sigrid** — and the House acts as
+a Duke in every respect: it builds, scouts, raids, petitions and may even
+inherit the throne. But the Court counts such a world as held *in ward*:
+granted to a House with no sworn heir to answer for it, and so still within
+the Court's reach. Its capture does not loosen the Court's grip the way a
+sworn Duke's does.
+
 ## 3. Aether, made physical: Crystal and Shard
 
 Aether does not only exist as the raw, hostile Bleed. It also exists in
@@ -268,6 +278,10 @@ Court's grip, and every Duke knows the others have been offered the same.
 That is the coalition's real weakness: not that any one Duke would betray
 it, but that none can be certain the others have not.
 
+A Writ that names a rival arrives as a Court ship flying under the Duke's
+colours. It strikes, and then it is gone back to the Court. The rival sees
+only a raid from that Duke's system.
+
 ## 8. Succession: who inherits the throne
 
 When the coalition at last topples the Court, the throne is not awarded to
@@ -286,6 +300,21 @@ Whoever inherits still makes the choice §6 describes: crown themselves, or
 dissolve the Court. The title of Duke, once won, is written into the
 Court's records permanently; the map is not.
 
+### Grievances and Renown
+
+Between Dukes, open aggression has a form. A Duke may lodge a
+**grievance** against a rival with the Court's heralds: a public, dated
+claim that the rival has wronged them, and notice that they mean to press
+it. While a grievance stands, every blow the Duke lands on that rival is
+read across the Core as justice done, not banditry. It earns the Duke
+**Renown**, the regard of the watching masses and of the nobility, which
+the succession law (§8) reckons as part of a Duke's standing. Some tribute
+is carried off with it. A grievance lodged and never pressed is the
+opposite: the Core remembers the Duke who threatened and then did nothing.
+
+Raids made without a grievance are not forbidden. They simply earn no
+Renown, which is why a Writ's strike (§7) is never dressed as one.
+
 ## 9. The Blind Eye
 
 Section 5 says the frontier pushes back in proportion to a Duke's success.
@@ -301,6 +330,12 @@ in waiting. Nothing is announced. The Duke's frontier simply begins to
 behave the way section 5 describes at full strength, with no rival fleet or
 vote to blame — until the lead shrinks, by loss or by the field catching
 up, and the Court's protection quietly returns.
+
+The Court's heralds also stop hearing that Duke's defence. A grievance
+against them costs nothing to lodge, and the Core cheers twice as loudly
+for every blow landed on them. The one courtesy the Court still accepts
+from such a Duke is service: ships lent to the Court's own patrols for a
+season of duty, which buys back its Favor for a time.
 
 ## 10. Relay Beacons: orbital links and anchored ground
 
@@ -655,6 +690,7 @@ not infer new gameplay rules from them while implementing unrelated work.
 | Rank before a first victory | §2 says winning grants the rank of Duke, while later passages call campaign participants Dukes. Define first-time contenders' rank and returning Dukes' participation. |
 | Permanent holdings and map resets | §2 grants permanent rights to a won world; §8 preserves titles but allows the map to reset. Define what persists across a seasonal campaign and an age ending with the Court's fall. |
 | Writs and the revolt | §7 says accepting a Writ restores the Court's grip; §8 says a Writ does not weaken the revolt. Clarify the relationship before assigning metagame effects. |
+| Houses held in ward | §2 says a world won by a House with no sworn heir is held in ward and does not loosen the Court's grip. Decide whether such a House can ever swear an heir and become a full Duke, and what happens to the ward if a sworn Duke takes the world. |
 | Relic reactivation costs and risks | Installation families, common surface access structures and the low-power locator transponder are established in §4. Repair costs, activation encounters and random breakdowns remain future design ideas; they are not established mechanics. Current quantities and effects belong in the [relic reference](../relics.md). |
 
 ### Consolidation sources

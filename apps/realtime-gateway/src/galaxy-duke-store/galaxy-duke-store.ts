@@ -9,6 +9,8 @@ export type GalaxyCourtRecord = {
   // Influence each Duke has committed to Move Against the Court (§21.2).
   contributions: Record<string, number>;
   totalInfluence: number;
+  // Writs accepted this era (§21.3): each one gives the Court back a little.
+  writsAccepted: number;
 };
 
 export type GalaxyDukeStore = {
@@ -18,6 +20,7 @@ export type GalaxyDukeStore = {
   getCourt: () => Promise<GalaxyCourtRecord>;
   // Adds to a Duke's committed Influence and returns the new record.
   addCourtContribution: (authUid: string, influence: number) => Promise<GalaxyCourtRecord>;
+  addWritAccepted: () => Promise<GalaxyCourtRecord>;
   // Convergence (§27). `now` seeds era 1 the first time it is read.
   getEra: (now: number) => Promise<EraState>;
   // Records the ended era, clears the Court's wagers and starts `next`, together.
@@ -26,7 +29,7 @@ export type GalaxyDukeStore = {
   getHallOfFame: () => Promise<HallEntry[]>;
 };
 
-export const emptyCourtRecord = (): GalaxyCourtRecord => ({ contributions: {}, totalInfluence: 0 });
+export const emptyCourtRecord = (): GalaxyCourtRecord => ({ contributions: {}, totalInfluence: 0, writsAccepted: 0 });
 
 export class InMemoryGalaxyDukeStore implements GalaxyDukeStore {
   private readonly states = new Map<string, DukeState>();
@@ -53,7 +56,12 @@ export class InMemoryGalaxyDukeStore implements GalaxyDukeStore {
 
   async addCourtContribution(authUid: string, influence: number): Promise<GalaxyCourtRecord> {
     const contributions = { ...this.court.contributions, [authUid]: (this.court.contributions[authUid] ?? 0) + influence };
-    this.court = { contributions, totalInfluence: this.court.totalInfluence + influence };
+    this.court = { ...this.court, contributions, totalInfluence: this.court.totalInfluence + influence };
+    return structuredClone(this.court);
+  }
+
+  async addWritAccepted(): Promise<GalaxyCourtRecord> {
+    this.court = { ...this.court, writsAccepted: this.court.writsAccepted + 1 };
     return structuredClone(this.court);
   }
 

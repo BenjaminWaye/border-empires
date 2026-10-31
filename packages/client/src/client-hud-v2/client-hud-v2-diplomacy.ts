@@ -1,8 +1,8 @@
 import { describeDiplomacyTermsForRecipient } from "@border-empires/shared";
 // Diplomacy for the new HUD. Step 1 lists every empire you've met as crests,
-// with requests waiting on you pinned at the top. Step 2 is the deal: you on
-// the left, the terms in the middle (the existing trade view, re-hosted) and
-// them on the right. Picking an empire hides the list.
+// with requests waiting on you pinned at the top. Step 2 is the deal: the
+// trade view re-hosted full width (your goods and treaties on the left, the
+// deal in the middle, theirs on the right). Picking an empire hides the list.
 
 import type { ActiveTruceView, AllianceRequest, LeaderboardOverallEntry, TruceRequest } from "../client-types.js";
 
@@ -92,22 +92,9 @@ export const diplomacyListHtml = (input: DiplomacyListInput): string => {
   return `${reqHtml}<section class="v2d-grid-wrap"><h2 class="v2s-h2">Empires you've met · ${empires.length}</h2><div class="v2d-grid">${grid}</div></section>`;
 };
 
-export type DealSideInput = {
-  id: string;
-  name: string;
-  color: string | undefined;
-  role: string;
-  rows: Array<{ label: string; value: string }>;
-};
-
-export const dealSideHtml = (side: DealSideInput): string =>
-  `<div class="v2d-side-head">${crest(side.name, side.color, " v2d-crest-lg")}<span><span class="v2d-side-role">${esc(side.role)}</span><span class="v2d-side-name">${esc(side.name)}</span></span></div>
-   ${side.rows.map((r) => `<div class="v2d-side-row"><span>${esc(r.label)}</span><b>${esc(r.value)}</b></div>`).join("")}`;
-
-export const dealSkeletonHtml = (targetName: string): string =>
-  `<div class="v2d-deal-nav"><button type="button" class="v2s-link" data-v2-dip-back>◁ All empires</button><span class="v2d-deal-with">${esc(targetName)}</span></div>
+/** `facts`: the relation and tile counts the trade view itself doesn't show ("Ally · 1,204 tiles · you 980"). */
+export const dealSkeletonHtml = (targetName: string, facts = ""): string =>
+  `<div class="v2d-deal-nav"><button type="button" class="v2s-link" data-v2-dip-back>◁ All empires</button><span class="v2d-deal-with">${esc(targetName)}</span>${facts ? `<span class="v2d-deal-facts">${esc(facts)}</span>` : ""}</div>
    <div class="v2d-deal">
-     <section class="v2d-side v2d-side-you" id="v2s-dip-you"></section>
-     <section class="v2d-terms" id="v2s-dip-host" aria-label="Terms"></section>
-     <section class="v2d-side v2d-side-them" id="v2s-dip-them"></section>
+     <section class="v2d-terms" id="v2s-dip-host" aria-label="Deal"></section>
    </div>`;

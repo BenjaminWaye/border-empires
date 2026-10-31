@@ -4,7 +4,7 @@
 // hides it again. The map is flat, so it doubles as the 2D accessibility path
 // for devices that can't run the 3D scene.
 import type { SpacePlanetViewModel } from "../client-space-view-state.js";
-import { drawStrategicMap, type StrategicMapModel } from "./client-strategic-map-renderer.js";
+import { drawStrategicMap, type MapRaid, type StrategicMapModel } from "./client-strategic-map-renderer.js";
 import {
   buildStarlanes,
   buildStrategicNodes,
@@ -33,6 +33,8 @@ export type StrategicMapController = {
   setPlanets: (models: ReadonlyArray<SpacePlanetViewModel>) => void;
   // Marks systems the player's Probes are orbiting (§26.7).
   setOrbiting: (seasonIds: ReadonlySet<string>) => void;
+  // Every raid in the air, drawn on the map (§29.4).
+  setRaids: (raids: ReadonlyArray<MapRaid>) => void;
   show: () => void;
   hide: () => void;
   // Recentres and zooms on the Court landmark at the middle of the map.
@@ -69,6 +71,7 @@ export const createStrategicMapController = (deps: StrategicMapControllerDeps): 
   deps.screen.appendChild(exitButton);
 
   let orbiting: ReadonlySet<string> = new Set();
+  let raids: ReadonlyArray<MapRaid> = [];
   let model: StrategicMapModel = buildStrategicMapModel([]);
   let frame = 0;
   let visible = false;
@@ -186,7 +189,11 @@ export const createStrategicMapController = (deps: StrategicMapControllerDeps): 
 
   return {
     setPlanets: (models) => {
-      model = buildStrategicMapModel(models, orbiting);
+      model = { ...buildStrategicMapModel(models, orbiting), raids };
+    },
+    setRaids: (next) => {
+      raids = next;
+      model = { ...model, raids };
     },
     setOrbiting: (seasonIds) => {
       orbiting = seasonIds;
