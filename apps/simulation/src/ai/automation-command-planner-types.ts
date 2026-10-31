@@ -15,6 +15,7 @@ import type { DecisionClass } from "./utility/decisions.js";
 import type { FrontierOriginExplanation } from "./planner-candidate-index.js";
 import type { NeedVector } from "./build/build-need-vector.js";
 import type { AutomationStrategicSnapshot, AutomationVictoryPath } from "./automation-strategic-snapshot.js";
+import type { WorldVictoryProgress } from "./victory-path-scoring.js";
 import type { WarPostureLatchEntry } from "./ai-war-posture-latch.js";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
 import type { DecisionCooldownMap } from "./ai-rejection-cooldown.js";
@@ -134,6 +135,8 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
    *  — see ai-war-posture-latch.ts for the hysteresis it backs. */
   previousWarPostureLatch?: WarPostureLatchEntry | undefined;
   pathPopulationCounts?: Partial<Record<AutomationVictoryPath, number>> | undefined;
+  /** Real season-victory standings (PlannerPlayerView.victoryProgress); absent = heuristic path scoring. */
+  worldVictoryProgress?: WorldVictoryProgress | undefined;
   onStrategicSnapshot?: (snapshot: AutomationStrategicSnapshot) => void;
   preplanProgressState?: AutomationPreplanProgressState | undefined;
   // Tile keys this player has been pounding without breakthrough — the
@@ -185,7 +188,7 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
    * specifically on FOOD (Runtime.foodDormantEconomicStructureKeysForPlayer)
    * — feeds food-slot-relief.ts's chooseFoodConsumingStructureToDisable, the
    * FREE_FOOD_SLOT decision class's fallback disable target when FOOD slots
-   * are fully exhausted, no HYDROGARDEN/HYDROWORKS/INCUBATION_ENGINE build can grow
+   * are fully exhausted, no HYDROGARDEN/HYDROWORKS build can grow
    * supply, and no RELAY_BEACON exists to disable instead. Preferred when
    * present, but no longer required — see that function's doc comment.
    */
@@ -322,6 +325,8 @@ export type AutomationPlannerDiagnostic = {
    *  ai-runtime call sites don't supply them yet either (deferred — see the
    *  plan's Phase 1 entry), so this is undefined on every current caller. */
   needVector?: NeedVector;
+  /** The path this plan pursued and its progress; source "world" = real season standings. */
+  victoryPath?: { path: AutomationVictoryPath; progress: number; source: "world" | "heuristic" };
 };
 
 export type AutomationPlannerPhase =

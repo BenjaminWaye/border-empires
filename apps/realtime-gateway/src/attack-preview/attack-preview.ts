@@ -1,12 +1,11 @@
 import { afcMomentumStacks, requiredMusterForFort } from "@border-empires/shared";
-import type { AfcCombatFacts } from "@border-empires/sim-protocol";
+import type { AfcCombatFacts, RelicCombatFacts } from "@border-empires/sim-protocol";
 import {
   buildFrontierCombatPreview,
   defendingFortVariant,
   isFortDefending,
   scanOutpostMult,
-  NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT,
-  noWarIndustryLabel,
+  warIndustryEdge,
   TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
   TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
   UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
@@ -90,12 +89,13 @@ export const attackPreviewResult = async (
   playerId: string,
   tiles: PreviewTile[] | undefined,
   docks: PlayerSubscriptionDock[] | undefined,
-  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined },
+  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined; march?: boolean | undefined },
   attackerTechIds?: readonly string[],
   attackerDomainIds?: readonly string[],
   getPlayerTechDomainIds?: (playerId: string) => Promise<{ techIds: readonly string[]; domainIds: readonly string[] } | undefined>,
   getPlayerFactoryCounts?: (playerId: string) => Promise<{ titanium: number; umbrite: number } | undefined>,
-  getAfcCombatFacts?: (playerId: string) => Promise<AfcCombatFacts | undefined>
+  getAfcCombatFacts?: (playerId: string) => Promise<AfcCombatFacts | undefined>,
+  getRelicCombatFacts?: (playerId: string) => Promise<RelicCombatFacts | undefined>
 ): Promise<Record<string, unknown>> => {
   const from = { x: message.fromX, y: message.fromY };
   const to = { x: message.toX, y: message.toY };
@@ -115,7 +115,8 @@ export const attackPreviewResult = async (
   if (!target.ownerId || target.ownerId === playerId) {
     return { ...responseBase, valid: false, reason: "target not hostile" };
   }
-  if (!isFrontierAdjacent(from.x, from.y, to.x, to.y) && !previewDockLink(from.x, from.y, to.x, to.y, docks)) {
+  // A March To preview scores a target the flag will march to, not one it borders.
+  if (!message.march && !isFrontierAdjacent(from.x, from.y, to.x, to.y) && !previewDockLink(from.x, from.y, to.x, to.y, docks)) {
     return { ...responseBase, valid: false, reason: "target not adjacent" };
   }
   const attackerOutpostMult = scanOutpostMult(playerId, to.x, to.y, (x: number, y: number) => tileMap.get(previewTileKey(x, y)));
@@ -155,11 +156,14 @@ export const attackPreviewResult = async (
       ?? weaponsFactoryCountsForPlayer(target.ownerId, tileMap.values())
     : { titanium: 0, umbrite: 0 };
   const [attackerFacts, defenderFacts] = await Promise.all([getAfcCombatFacts?.(playerId), getAfcCombatFacts?.(target.ownerId)]);
+  const [attackerRelics, defenderRelics] = await Promise.all([getRelicCombatFacts?.(playerId), getRelicCombatFacts?.(target.ownerId)]);
   const attackerEquivalent = attackerFacts?.factoryEquivalents ?? attackerFactoryCounts;
   const defenderEquivalent = defenderFacts?.factoryEquivalents ?? defenderFactoryCounts;
   const defenseContribution = defenderPlayerData?.domainIds.includes("afc-bastion-2") ? 2 : 1;
-  const defenderHasWarIndustry = defenderFactoryCounts.titanium > 0 && defenderFactoryCounts.umbrite > 0;
-  const attackerHasWarIndustry = attackerFactoryCounts.titanium > 0 && attackerFactoryCounts.umbrite > 0;
+  const attackerPresence = { titanium: attackerFactoryCounts.titanium > 0, umbrite: attackerFactoryCounts.umbrite > 0 };
+  const defenderPresence = { titanium: defenderFactoryCounts.titanium > 0, umbrite: defenderFactoryCounts.umbrite > 0 };
+  const attackEdge = warIndustryEdge("Target", attackerPresence, defenderPresence);
+  const defenseEdge = warIndustryEdge("Attacker", defenderPresence, attackerPresence);
   const factoryModifiers = {
     weaponsWorkshopAttackMult: 1 + ownedWeaponsWorkshopCount(playerId) * WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING,
     weaponsWorkshopDefenseMult: 1 + (target.ownerId ? ownedWeaponsWorkshopCount(target.ownerId) : 0) * WEAPONS_WORKSHOP_DEFENSE_MULT_PER_BUILDING,
@@ -167,10 +171,10 @@ export const attackPreviewResult = async (
     titaniumWeaponsFactoryDefenseMult: 1 + defenderEquivalent.titanium * TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING * defenseContribution,
     umbriteWeaponsFactoryAttackMult: 1 + attackerEquivalent.umbrite * UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
     umbriteWeaponsFactoryDefenseMult: 1 + defenderEquivalent.umbrite * UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING * defenseContribution,
-    noWarIndustryVulnerabilityMult: defenderHasWarIndustry ? 1 : NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT,
-    noWarIndustryVulnerabilityLabel: noWarIndustryLabel("Target", defenderFactoryCounts.titanium > 0, defenderFactoryCounts.umbrite > 0),
-    noWarIndustryDefenseVulnerabilityMult: attackerHasWarIndustry ? 1 : NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT,
-    noWarIndustryDefenseVulnerabilityLabel: noWarIndustryLabel("Attacker", attackerFactoryCounts.titanium > 0, attackerFactoryCounts.umbrite > 0)
+    noWarIndustryVulnerabilityMult: attackEdge.mult,
+    noWarIndustryVulnerabilityLabel: attackEdge.label,
+    noWarIndustryDefenseVulnerabilityMult: defenseEdge.mult,
+    noWarIndustryDefenseVulnerabilityLabel: defenseEdge.label
   };
   const targetHasActiveFort = Boolean(target.fort && isFortDefending(target.fort) && target.fort.ownerId === target.ownerId);
   const flag = parseStructureJson<{ momentum?: { stacks: number; decayAt: number } }>(origin.musterJson);
@@ -184,6 +188,9 @@ export const attackPreviewResult = async (
     { ...target, fortVariant: targetHasActiveFort ? defendingFortVariant(target.fort) : undefined },
     {
       attackerOutpostMult,
+      relicAttackMult: attackerRelics?.attackMultiplier,
+      relicDefenseMult: defenderRelics?.defenseMultiplier,
+      dockAttackMult: origin.dockId ? attackerRelics?.dockAttackMultiplier : undefined,
       defenderOwnerId: target.ownerId,
       ...factoryModifiers,
       // Always pass nowMs, same as the sim's resolveAttackCombat: the
@@ -220,6 +227,7 @@ type SnapshotLookup = (playerId: string) => {
 
 export type PlayerCombatSummaryLookup = (playerId: string, target?: { x: number; y: number }) => Promise<{
   afcCombatFacts?: AfcCombatFacts;
+  relicCombatFacts?: RelicCombatFacts;
   techIds: readonly string[];
   domainIds: readonly string[];
   weaponsFactoryCounts: { titanium: number; umbrite: number };
@@ -303,7 +311,7 @@ export const buildAttackPreviewResponse = (
   } | undefined,
   snapshotForPlayer: SnapshotLookup,
   getPlayerCombatSummaryRaw: PlayerCombatSummaryLookup,
-  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined }
+  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined; march?: boolean | undefined }
 ): Promise<Record<string, unknown>> => {
   const getPlayerCombatSummary = memoizePlayerCombatSummaryLookup(id => getPlayerCombatSummaryRaw(id, { x: message.toX, y: message.toY }));
   return attackPreviewResult(
@@ -315,6 +323,7 @@ export const buildAttackPreviewResponse = (
     previewSnapshot?.player?.domainIds,
     makeGetPlayerTechDomainIds(snapshotForPlayer, getPlayerCombatSummary),
     makeGetPlayerFactoryCounts(snapshotForPlayer, getPlayerCombatSummary),
-    async id => (await safeGetPlayerCombatSummary(getPlayerCombatSummary, id))?.afcCombatFacts
+    async id => (await safeGetPlayerCombatSummary(getPlayerCombatSummary, id))?.afcCombatFacts,
+    async id => (await safeGetPlayerCombatSummary(getPlayerCombatSummary, id))?.relicCombatFacts
   );
 };

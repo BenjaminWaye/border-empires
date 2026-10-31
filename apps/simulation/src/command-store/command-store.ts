@@ -1,4 +1,4 @@
-import type { CommandEnvelope } from "@border-empires/sim-protocol";
+import { usesPlayerCommandSequence, type CommandEnvelope } from "@border-empires/sim-protocol";
 
 export type StoredSimulationCommandStatus = "QUEUED" | "ACCEPTED" | "REJECTED" | "RESOLVED";
 
@@ -54,7 +54,7 @@ export class InMemorySimulationCommandStore implements SimulationCommandStore {
   async persistQueuedCommand(command: CommandEnvelope, queuedAt: number): Promise<void> {
     // Gateway diplomacy updates deliberately reuse sequence zero. Their durable
     // identity is commandId, matching runtime.submitCommand and the SQLite index.
-    const usesClientSequence = command.type !== "SYNC_TRUCE" && command.type !== "SYNC_ALLIANCE" && command.type !== "SETTLE_DIPLOMACY_TERMS";
+    const usesClientSequence = usesPlayerCommandSequence(command.type);
     const playerSeqKey = `${command.playerId}:${command.clientSeq}`;
     if (this.commands.has(command.commandId) || (usesClientSequence && this.commandIdsByPlayerSeq.has(playerSeqKey))) return;
 

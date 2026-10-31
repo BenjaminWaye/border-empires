@@ -11,6 +11,8 @@ export const createInitialProgressionState = () => ({
   chosenTrickleResource: undefined as ChosenTrickleResource | undefined,
   // Emperor-endorsement bonus (galaxy meta-layer Phase 1).
   autoSettle: { status: "unloaded" } as import("../client-auto-settle-prompt/client-auto-settle-prefs.js").ClientAutoSettleState, imperialWardCharges: undefined as number | undefined, imperialWardActiveUntil: undefined as number | undefined,
+  relicMapHintsRevision: 0,
+  relicMapHints: new Map<string, import("@border-empires/shared").RelicMapHint>(),
   wonderLastFreeRushBuyAt: undefined as number | undefined, // Quickforge: ms of last discounted rush-buy (0/undefined = unused) -- rush-buy price preview only, server is price-authoritative
   techChoices: [] as string[],
   techCatalog: [] as TechInfo[],

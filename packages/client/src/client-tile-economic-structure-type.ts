@@ -2,7 +2,9 @@
 // pausedAt: construction is on hold while the tile is under attack; remaining time is frozen at that instant.
 export type ClientTileEconomicStructure = {
   ownerId: string;
+  supportAnchor?: { x: number; y: number } | null;
   type:
+    | import("@border-empires/shared").NetworkBuilding
     | "HYDROGARDEN"
     | "HYDROWORKS"
     | "UMBRITE_RIG"

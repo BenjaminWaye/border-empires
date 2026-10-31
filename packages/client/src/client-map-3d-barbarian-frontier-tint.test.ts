@@ -17,6 +17,7 @@ const makeOverlayStub = (): OwnershipOverlay & { setColorCalls: Array<{ index: n
     setFrontierTileColor: (index: number, color: Color) => setColorCalls.push({ index, color: color.clone() }),
     setFrontierHillTileColor: (index: number, color: Color) => setColorCalls.push({ index, color: color.clone() }),
     commit: vi.fn(),
+    extendOntoShore: vi.fn(),
     dispose: vi.fn(),
     setColorCalls
   };

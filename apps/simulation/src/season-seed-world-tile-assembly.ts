@@ -41,7 +41,8 @@ export const buildSeasonSeedTile = (
   const shardSite = deps.shardSitesByTile.get(tk);
   const watchtower = deps.watchtowersByTile.get(tk);
   const waystation = deps.waystationsByTile.get(tk);
-  const naturalWonder = deps.naturalWondersByTile.get(tk);
+  const site = deps.naturalWondersByTile.get(tk);
+  const naturalWonder = site ? relicStateFromSite(site) : undefined;
   return {
     x,
     y,
@@ -55,8 +56,12 @@ export const buildSeasonSeedTile = (
     ...(shardSite ? { shardSite: { kind: shardSite.kind, amount: shardSite.amount, ...(shardSite.expiresAt ? { expiresAt: shardSite.expiresAt } : {}) } } : {}),
     ...(watchtower ? { watchtower: { activated: watchtower.activated, ...(watchtower.activatedByPlayerId ? { activatedByPlayerId: watchtower.activatedByPlayerId } : {}) } } : {}),
     ...(waystation ? { waystation: { activated: waystation.activated, ...(waystation.activatedByPlayerId ? { activatedByPlayerId: waystation.activatedByPlayerId } : {}) } } : {}),
-    ...(naturalWonder ? { naturalWonder: { type: naturalWonder.type } } : {}),
+    ...(naturalWonder ? { naturalWonder: { ...naturalWonder } } : {}),
     ...(ownerId ? { ownerId, ownershipState: "SETTLED" as const } : {}),
     ...(town ? { town: deps.townStateFromDefinition(town) } : {})
   };
 };
+
+function relicStateFromSite({ tileKey, ...state }: NaturalWonderSiteState): Omit<NaturalWonderSiteState, "tileKey"> {
+  return state;
+}

@@ -283,6 +283,20 @@ describe("popup-marine-timeline: resolved-battle pose phases", () => {
     expect(pose.fallT).toBe(1);
   });
 
+  // The fall is the rig's ~1s Dead clip at full size: it must still be mid-
+  // fall 450ms after the death moment (even when that runs past the
+  // firefight into rout), not snapped flat and shrunk into a bundle.
+  it("plays a dying marine's fall out at full size, across the end of the firefight", () => {
+    const b = battle({ attackerWon: false });
+    for (const i of dyingIndicesFor((s, j) => deathKitFor(b.hashSeed, s, j), 0, false)) {
+      const deathAt = b.clashAt + deathKitFor(b.hashSeed, 0, i).at * CLASH_MS;
+      const pose = computeBattlePose(b, 0, i, deathAt + 450, -0.4, 0, AXES.perpX, AXES.perpZ, AXES.fwdX, AXES.fwdZ);
+      expect(pose.fallT).toBeGreaterThan(0.3);
+      expect(pose.fallT).toBeLessThan(0.7);
+      expect(pose.scale).toBe(1);
+    }
+  });
+
   it("pushes a surviving winner forward during rout", () => {
     const b = battle({ attackerWon: true });
     const survivor = Array.from({ length: MARINES_PER_SIDE }, (_, i) => i).find(

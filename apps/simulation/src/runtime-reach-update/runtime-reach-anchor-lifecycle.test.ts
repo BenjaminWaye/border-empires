@@ -20,6 +20,7 @@ describe("applyReachAnchorDeactivationEffects", () => {
     const frontierTile = { x: 10, y: 10, ownerId: "p1", ownershipState: "FRONTIER" } as DomainTileState;
     const tiles = new Map<string, DomainTileState>([[tileKey, frontierTile]]);
     const syncReachVision = vi.fn();
+    const emitBorderChanges = vi.fn();
 
     const deps: ReachAnchorLifecycleDeps = {
       reachBorder: new Map<string, string>([[tileKey, "p1"]]),
@@ -31,7 +32,8 @@ describe("applyReachAnchorDeactivationEffects", () => {
         autoClaimFrontier: () => [],
         contestedDirtyState: createReachChangedTilesDirtyState()
       }),
-      syncReachVision
+      syncReachVision,
+      emitBorderChanges
     };
 
     const nextBorder = applyReachAnchorDeactivationEffects(deps, anchor, "test-deactivation");
@@ -40,5 +42,7 @@ describe("applyReachAnchorDeactivationEffects", () => {
     expect(tiles.get(tileKey)).toBe(frontierTile);
     expect(tiles.get(tileKey)?.frontierDecayKind).toBeUndefined();
     expect(syncReachVision).toHaveBeenCalledTimes(1);
+    // The vacate is persisted as an exact diff for crash recovery.
+    expect(emitBorderChanges).toHaveBeenCalledWith([{ tileKey, ownerId: null }], "p1", "test-deactivation");
   });
 });

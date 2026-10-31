@@ -54,6 +54,17 @@ describe("aggregatePersonalActivity", () => {
     expect(timeline.cards).toHaveLength(2);
   });
 
+  it("summarises distinct tiles even when the timeline lists every flip", () => {
+    const flips: TerritoryFlip[] = [
+      flip({ tileId: "a", x: 5, y: 5, fromOwner: "player-2", toOwner: "player-1", at: 1_000 }),
+      flip({ tileId: "a", x: 5, y: 5, fromOwner: "player-1", toOwner: "player-2", at: 2_000 }),
+      flip({ tileId: "a", x: 5, y: 5, fromOwner: "player-2", toOwner: "player-1", at: 3_000 })
+    ];
+    const timeline = aggregatePersonalActivity("player-1", { from: 0, to: 10_000 }, flips, []);
+    expect(timeline.summary.tilesClaimed).toBe(1);
+    expect(timeline.summary.tilesLost).toBe(1);
+  });
+
   it("keeps repeated loss/capture of the same tile as separate chronological cards, never overwritten", () => {
     const flips: TerritoryFlip[] = [
       flip({ tileId: "a", x: 5, y: 5, fromOwner: "player-1", toOwner: "player-2", at: 1_000 }),

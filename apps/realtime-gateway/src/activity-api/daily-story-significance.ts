@@ -28,9 +28,9 @@
 // only ever compared within one day's events (never displayed, never
 // compared across days), so there is no meaningful "max" to clamp to.
 export const SIGNIFICANCE_SCALE = {
-  /** BIGGEST_DEFEAT (tilesLost), FASTEST_EXPANSION (net24h). Observed range 5-130. */
+  /** BIGGEST_DEFEAT (tilesLost), FASTEST_EXPANSION (net24h), OPEN_WAR (tilesContested24h). Observed range 5-130. */
   tileCount: 150,
-  /** OPEN_WAR (tileFlips24h), FIERCEST_FIGHTING (flips24h). Observed range 5-95. */
+  /** FIERCEST_FIGHTING (flips24h). Observed range 5-95. */
   flipCount: 100,
   /** BLOODIEST_BATTLE -- a single attack's manpowerLoss. Observed range 8-61. */
   singleBattleManpower: 300,

@@ -35,3 +35,9 @@
   font-size: 13px;
   font-weight: 700;
 }
+
+.trophy-icon {
+  width: 1.15em;
+  height: 1.15em;
+  vertical-align: -0.22em;
+}

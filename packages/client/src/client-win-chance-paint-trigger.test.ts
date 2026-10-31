@@ -82,6 +82,18 @@ describe("triggerWinChancePaintOnMarchArm", () => {
     ]);
   });
 
+  // Regression: a garrisoned march target was labeled 31% on the map while
+  // the tile menu (server ATTACK_PREVIEW, with both sides' tech/factory/war-
+  // industry modifiers) showed 71% -- the label used the modifier-less estimate.
+  it("scores the target from the server's preview odds when one is passed, and only the target", () => {
+    const settled = { ownerId: "enemy-1", terrain: "LAND", ownershipState: "SETTLED" } as Tile;
+    const state = stateWith(new Map([[keyFor(1, 0), settled], [keyFor(2, 0), settled]]));
+    triggerWinChancePaintOnMarchArm(state, 0, 0, 2, 0, "visible", keyFor, 1000, { committedManpower: 60, baseMusterCost: 60 }, 0.71);
+    const byX = new Map(state.winChancePaint?.entries.map((e) => [e.x, e.winChance]));
+    expect(byX.get(2)).toBeCloseTo(0.71, 6);
+    expect(byX.get(1)).toBeLessThan(0.5); // on-the-way tile keeps the client estimate
+  });
+
   it("sets an expiry in the future", () => {
     const tiles = new Map<string, Tile>([[keyFor(1, 0), enemyTile]]);
     const state = stateWith(tiles);
@@ -109,6 +121,11 @@ describe("describeMarchWinChance", () => {
     const at = (committedManpower: number) =>
       percentIn(describeMarchWinChance(state, { x: 2, y: 0 }, keyFor, { committedManpower, baseMusterCost: 60 }));
     expect(at(120)).toBeGreaterThan(at(60));
+  });
+
+  it("uses the server's preview odds as the base when passed", () => {
+    const state = stateWith([["2,0", settledEnemy(2, 0)]]);
+    expect(percentIn(describeMarchWinChance(state, { x: 2, y: 0 }, keyFor, { committedManpower: 60, baseMusterCost: 60 }, 0.71))).toBe(71);
   });
 
   it("says extra manpower does nothing against plain frontier ground", () => {

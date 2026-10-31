@@ -1,17 +1,11 @@
+import { dockLandingFor, landingBattleSource } from "./client-dock-landing/client-dock-landing.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { Heightfield } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { type BattleOverlayFx, type BattleOverlayRenderEntry, type BattleOverlaySkirmishEntry } from "./client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import { pruneExpiredActiveBattles, squadGearFields } from "./client-battle-overlay/client-battle-overlay.js";
 import { battleIsSiegeBoosted } from "./client-battle-overlay/client-siege-battle-targets.js";
 import { pruneExpiredIncomingAttacks, pruneExpiredOutgoingMusterAttacks } from "./client-siege-tracking/client-siege-tracking.js";
-import {
-  activeMusterSupplyLines,
-  outgoingMusterAttackTransitLines,
-  resolveAdvanceMusterFallbackSource,
-  type AdvanceMusterFallbackCache
-} from "./client-muster-transit/client-muster-transit.js";
 import { toroidDelta } from "./client-map-3d-pointer-pick.js";
-import type { SupplyLineOverlay } from "./client-map-3d-supply-line-overlay.js";
 import type { ClientState } from "./client-state/client-state.js";
 import { squadColorForOwner } from "./client-planetary-defense-style.js";
 import { frontierAttackIsUndefended } from "./client-capture-hold/client-capture-hold.js";
@@ -26,73 +20,9 @@ export const TILE_CENTER_OFFSET = 0.5;
 // a stand-in until real tile data arrives and supplies the true owner.
 const UNKNOWN_ENEMY_OWNER_ID = "unknown-enemy";
 
-let advanceSrcCache: AdvanceMusterFallbackCache;
-
-export function syncCaptureOverlays(
-  state: ClientState,
-  keyFor: (x: number, y: number) => string,
-  effectiveOverlayColor: (ownerId: string) => string,
-  heightfield: Heightfield,
-  supplyLineOverlay: SupplyLineOverlay,
-): void {
-  const lines = activeMusterSupplyLines(state, keyFor);
-  const coveredTargetKeys = new Set(lines.map((line) => line.targetKey));
-
-  // ADVANCE-mode auto-fire attacks never go through the client's muster
-  // dispatch/transit maps (the server fires them autonomously), so fall
-  // back to locating the nearest ADVANCE flag for the single tracked
-  // `state.capture` countdown if it isn't already covered above.
-  const capture = state.capture;
-  const captureTargetKey = capture ? keyFor(capture.target.x, capture.target.y) : "";
-  if (capture && !coveredTargetKeys.has(captureTargetKey) && state.tiles.get(captureTargetKey)?.ownerId) {
-    const fallback = resolveAdvanceMusterFallbackSource(state, captureTargetKey, capture.target, advanceSrcCache);
-    advanceSrcCache = fallback.cache;
-    if (fallback.result) {
-      lines.push({
-        musterX: fallback.result.x,
-        musterY: fallback.result.y,
-        targetX: capture.target.x,
-        targetY: capture.target.y,
-        targetKey: captureTargetKey,
-        phase: "locked"
-      });
-      coveredTargetKeys.add(captureTargetKey);
-    }
-  }
-
-  // ADVANCE/MARCH auto-fire's own mechanical travel-time delay
-  // (state.outgoingMusterAttacksByTile) — the same source the 2D renderer
-  // (client-muster-supply-lines-2d.ts) and this file's own marching-company
-  // mesh (syncMusterTransitOverlay below) already draw from. Without this,
-  // the supply line for an auto-fired flag never appeared in 3D at all: it
-  // isn't in musterTransitByTile (this client never armed it), and the
-  // state.capture fallback above never covers it either (state.capture is
-  // deliberately never set for these server-fired fights — see
-  // handleMusterAdvanceCombatStart in client-siege-tracking.ts).
-  lines.push(...outgoingMusterAttackTransitLines(state, Date.now(), coveredTargetKeys));
-
-  if (lines.length === 0) return;
-
-  const ownerColor = effectiveOverlayColor(state.me ?? "");
-  for (const line of lines) {
-    const srcDx = toroidDelta(state.camX, line.musterX, WORLD_WIDTH);
-    const srcDy = toroidDelta(state.camY, line.musterY, WORLD_HEIGHT);
-    const tgtDx = toroidDelta(state.camX, line.targetX, WORLD_WIDTH);
-    const tgtDy = toroidDelta(state.camY, line.targetY, WORLD_HEIGHT);
-    const srcSurfaceY = Math.max(heightfield.elevationAt(line.musterX, line.musterY), heightfield.cornerYAt(line.musterX, line.musterY));
-    const tgtSurfaceY = Math.max(heightfield.elevationAt(line.targetX, line.targetY), heightfield.cornerYAt(line.targetX, line.targetY));
-    supplyLineOverlay.addLine(
-      srcDx + TILE_CENTER_OFFSET, srcDy + TILE_CENTER_OFFSET, srcSurfaceY,
-      tgtDx + TILE_CENTER_OFFSET, tgtDy + TILE_CENTER_OFFSET, tgtSurfaceY,
-      line.phase,
-      ownerColor
-    );
-  }
-}
-
 // Drives the battle overlay FX from state.activeBattles — the server-
 // resolved combat broadcast (see client-battle-overlay.ts), not the local
-// `capture` HUD slot above, so any number of concurrent battles anywhere the
+// `capture` HUD slot, so any number of concurrent battles anywhere the
 // player has vision (their own, an enemy's, or a third party's) render
 // independently of this client's own in-flight action. Also renders an
 // indefinite skirmish loop for tiles still counting down in
@@ -107,11 +37,9 @@ export function syncBattleOverlayFx(
   battleOverlayFx: BattleOverlayFx,
   nowMs: number,
   // Scene-space anchor for toroidDelta placement — client-map-3d.ts's sceneOrigin
-  // (the last committed terrain rebuild's window), NOT the live camera. Unlike
-  // syncCaptureOverlays above (only ever called synchronously during a rebuild,
-  // when state.camX/camY == the rebuild's own window), this runs every render
-  // frame, so it needs the anchor threaded in explicitly or its dots/lines drift
-  // off the ground during a pan inside the rebuild pad.
+  // (the last committed terrain rebuild's window), NOT the live camera. This
+  // runs every render frame, so it needs the anchor threaded in explicitly or
+  // its dots/lines drift off the ground during a pan inside the rebuild pad.
   originX: number,
   originY: number,
   // The battle tiles real siege towers are beaming this frame (see
@@ -127,6 +55,23 @@ export function syncBattleOverlayFx(
 ): void {
   const standY = (x: number, y: number): number =>
     Math.max(heightfield.elevationAt(x, y), heightfield.cornerYAt(x, y)) + standLiftAt(x, y);
+  const { entries, skirmishes, garrisons } = collectBattleRenderEntries(state, keyFor, playerColorFor, standY, originX, originY, nowMs);
+  if (entries.length === 0 && skirmishes.length === 0 && garrisons.length === 0) { battleOverlayFx.clear(); return; }
+  battleOverlayFx.tick(nowMs, entries, skirmishes, siegeTowerTargets, garrisons);
+}
+
+/** Shared battle selection and clocks for the 3D map and 2D accessibility map. */
+export function collectBattleRenderEntries(
+  state: ClientState,
+  keyFor: (x: number, y: number) => string,
+  playerColorFor: (ownerId: string) => string,
+  standY: (x: number, y: number) => number,
+  originX: number,
+  originY: number,
+  nowMs: number
+): { entries: BattleOverlayRenderEntry[]; skirmishes: BattleOverlaySkirmishEntry[]; garrisons: ReturnType<typeof buildCaptureHoldGarrisons> } {
+  state.dockLandings?.syncRoutes(state.dockPairs);
+  state.dockLandings?.prune(nowMs);
   pruneExpiredActiveBattles(state, nowMs);
   // `nowMs` is performance.now() (page uptime) — the clock every battle/FX
   // timestamp is stamped in. Siege countdowns (`resolvesAt`) are server epoch
@@ -143,7 +88,10 @@ export function syncBattleOverlayFx(
     const srcDy = toroidDelta(originY, battle.originY, WORLD_HEIGHT);
     const tgtDx = toroidDelta(originX, battle.targetX, WORLD_WIDTH);
     const tgtDy = toroidDelta(originY, battle.targetY, WORLD_HEIGHT);
+    const candidate = dockLandingFor(state, battle.originX, battle.originY, battle.targetX, battle.targetY, state.skirmishSeenAt.get(keyFor(battle.targetX, battle.targetY)) ?? battle.startAt);
+    const landing = candidate && (state.dockLandings?.remember(keyFor(battle.targetX, battle.targetY), keyFor(battle.originX, battle.originY), candidate, nowMs, true) ?? candidate);
     entries.push({
+      ...(landing ? { landing } : {}),
       srcWorldX: srcDx + TILE_CENTER_OFFSET,
       srcWorldZ: srcDy + TILE_CENTER_OFFSET,
       tgtWorldX: tgtDx + TILE_CENTER_OFFSET,
@@ -176,7 +124,8 @@ export function syncBattleOverlayFx(
     target: { x: number; y: number },
     attackerOwnerId: string,
     defenderOwnerId: string,
-    holdApproachUntilElapsed?: number
+    holdApproachUntilElapsed?: number,
+    unopposed = false
   ): void => {
     if (skirmishKeys.has(key)) return;
     skirmishKeys.add(key);
@@ -193,7 +142,10 @@ export function syncBattleOverlayFx(
     const srcDy = toroidDelta(originY, srcY, WORLD_HEIGHT);
     const tgtDx = toroidDelta(originX, target.x, WORLD_WIDTH);
     const tgtDy = toroidDelta(originY, target.y, WORLD_HEIGHT);
+    const candidate = dockLandingFor(state, srcX, srcY, target.x, target.y, startAt);
+    const landing = candidate && (state.dockLandings?.remember(key, keyFor(srcX, srcY), candidate, nowMs, false) ?? candidate);
     skirmishes.push({
+      ...(landing ? { landing } : {}),
       srcWorldX: srcDx + TILE_CENTER_OFFSET,
       srcWorldZ: srcDy + TILE_CENTER_OFFSET,
       tgtWorldX: tgtDx + TILE_CENTER_OFFSET,
@@ -204,10 +156,10 @@ export function syncBattleOverlayFx(
       defenderColor: squadColorForOwner(defenderOwnerId, playerColorFor),
       startAt,
       hashSeed: target.x * 92821 + target.y,
-      siegeBoosted: battleIsSiegeBoosted(state, keyFor, attackerOwnerId, target.x, target.y),
+      siegeBoosted: !unopposed && battleIsSiegeBoosted(state, keyFor, attackerOwnerId, target.x, target.y),
       ...defenderGarrisonField(state, keyFor, key, defenderOwnerId, nowEpochMs),
       ...squadGearFields(state, attackerOwnerId, defenderOwnerId),
-      ...(holdApproachUntilElapsed !== undefined ? { holdApproachUntilElapsed } : {})
+      ...(unopposed ? { unopposed: true, holdApproachUntilElapsed: Infinity } : holdApproachUntilElapsed !== undefined ? { holdApproachUntilElapsed } : {})
     });
   };
 
@@ -221,10 +173,12 @@ export function syncBattleOverlayFx(
       if (!target) continue;
       // Undefended FRONTIER ground has no combat to show — see
       // runtime-lock-resolution.ts's hasDefendingForce, which no longer
-      // emits a combatJson/battle broadcast for these attacks at all. The
-      // claim-plate overlay (syncFrontierClaimPlates) carries the "this is
+      // emits a combatJson/battle broadcast for these attacks at all. Dock
+      // crossings still unload infantry, but never invent defenders or shots.
+      // The claim-plate overlay (syncFrontierClaimPlates) carries the "this is
       // becoming mine" visual instead.
-      if (frontierAttackIsUndefended(target, incoming.winChance, nowEpochMs)) continue;
+      const unopposed = frontierAttackIsUndefended(target, incoming.winChance, nowEpochMs);
+      if (unopposed && !dockLandingFor(state, incoming.fromX, incoming.fromY, target.x, target.y, nowMs)) continue;
       // Hold the approach plateau open until the real (mechanical) transit
       // delay ends, instead of the default ~3.4s march animation, so the
       // defender sees "company still approaching" for the actual travel
@@ -235,7 +189,7 @@ export function syncBattleOverlayFx(
         incoming.transitEndsAt !== undefined && incoming.transitEndsAt > nowEpochMs
           ? nowMs - startAt + (incoming.transitEndsAt - nowEpochMs)
           : undefined;
-      pushSkirmish(key, incoming.fromX, incoming.fromY, target, incoming.attackerId, state.me, holdApproachUntilElapsed);
+      pushSkirmish(key, incoming.fromX, incoming.fromY, target, incoming.attackerId, state.me, holdApproachUntilElapsed, unopposed);
     }
 
     // Attacking: the server addresses ATTACK_ALERT to the defender only (see
@@ -265,10 +219,11 @@ export function syncBattleOverlayFx(
       // through to the skirmish approach below, same as before, since the
       // server alone knows whether it's actually undefended.
       const knownTarget = state.tiles.get(key);
-      if (!state.activeBattles.has(key) && !frontierAttackIsUndefended(knownTarget, capture.combatSnapshot?.winChance, nowEpochMs)) {
+      const unopposed = frontierAttackIsUndefended(knownTarget, capture.combatSnapshot?.winChance, nowEpochMs);
+      if (!state.activeBattles.has(key) && (!unopposed || dockLandingFor(state, capture.origin.x, capture.origin.y, capture.target.x, capture.target.y, nowMs))) {
         const knownOwnerId = knownTarget?.ownerId;
         const defenderOwnerId = knownOwnerId && knownOwnerId !== state.me ? knownOwnerId : UNKNOWN_ENEMY_OWNER_ID;
-        pushSkirmish(key, capture.origin.x, capture.origin.y, capture.target, state.me, defenderOwnerId);
+        pushSkirmish(key, capture.origin.x, capture.origin.y, capture.target, state.me, defenderOwnerId, undefined, unopposed);
       }
     }
 
@@ -292,10 +247,11 @@ export function syncBattleOverlayFx(
       if (outgoing.transitEndsAt !== undefined && outgoing.transitEndsAt > nowEpochMs) continue;
       // Same FRONTIER exclusion as the manual-attack branch above.
       const knownTarget = state.tiles.get(key);
-      if (frontierAttackIsUndefended(knownTarget, outgoing.winChance, nowEpochMs)) continue;
+      const unopposed = frontierAttackIsUndefended(knownTarget, outgoing.winChance, nowEpochMs);
+      if (unopposed && !dockLandingFor(state, outgoing.originX, outgoing.originY, outgoing.targetX, outgoing.targetY, nowMs)) continue;
       const knownOwnerId = knownTarget?.ownerId;
       const defenderOwnerId = knownOwnerId && knownOwnerId !== state.me ? knownOwnerId : UNKNOWN_ENEMY_OWNER_ID;
-      pushSkirmish(key, outgoing.originX, outgoing.originY, { x: outgoing.targetX, y: outgoing.targetY }, state.me, defenderOwnerId);
+      pushSkirmish(key, outgoing.originX, outgoing.originY, { x: outgoing.targetX, y: outgoing.targetY }, state.me, defenderOwnerId, undefined, unopposed);
     }
   }
 
@@ -322,8 +278,11 @@ export function syncBattleOverlayFx(
   }
 
   const garrisons = buildCaptureHoldGarrisons(state, keyFor, new Set([...state.activeBattles.keys(), ...skirmishKeys]), playerColorFor, standY, originX, originY, nowMs, nowEpochMs);
-  if (entries.length === 0 && skirmishes.length === 0 && garrisons.length === 0) { battleOverlayFx.clear(); return; }
-  battleOverlayFx.tick(nowMs, entries, skirmishes, siegeTowerTargets, garrisons);
+  for (const entry of [...entries, ...skirmishes]) {
+    const source = landingBattleSource(entry.landing, entry.tgtWorldX, entry.tgtWorldZ, entry.srcWorldX, entry.srcWorldZ);
+    entry.srcWorldX = source.x; entry.srcWorldZ = source.z;
+  }
+  return { entries, skirmishes, garrisons };
 }
 
 

@@ -50,11 +50,19 @@ describe.each([
 
   it("accumulates Move-Against-the-Court contributions per Duke and in total", async () => {
     const store = await make();
-    expect(await store.getCourt()).toEqual({ contributions: {}, totalInfluence: 0 });
+    expect(await store.getCourt()).toEqual({ contributions: {}, totalInfluence: 0, writsAccepted: 0 });
     await store.addCourtContribution("a", 10);
     await store.addCourtContribution("b", 5);
     const record = await store.addCourtContribution("a", 20);
-    expect(record).toEqual({ contributions: { a: 30, b: 5 }, totalInfluence: 35 });
+    expect(record).toEqual({ contributions: { a: 30, b: 5 }, totalInfluence: 35, writsAccepted: 0 });
+    expect(await store.getCourt()).toEqual(record);
+  });
+
+  it("counts accepted Writs (§21.3) alongside the wagers", async () => {
+    const store = await make();
+    await store.addWritAccepted();
+    const record = await store.addWritAccepted();
+    expect(record.writsAccepted).toBe(2);
     expect(await store.getCourt()).toEqual(record);
   });
 
@@ -63,9 +71,11 @@ describe.each([
     expect(await store.getEra(100)).toEqual({ era: 1, startedAt: 100, baselineCaptured: 0 });
     expect(await store.getEra(999)).toEqual({ era: 1, startedAt: 100, baselineCaptured: 0 });
     await store.addCourtContribution("a", 40);
+    await store.addWritAccepted();
+    expect((await store.getCourt()).writsAccepted).toBe(1);
     const entry = { era: 1, endedAt: 500, emperorAuthUid: "a", emperorLabel: "Aurelia", domainWeight: 12, standings: [{ authUid: "a", label: "Aurelia", weight: 12 }] };
     await store.endEra(entry, { era: 2, startedAt: 500, baselineCaptured: 7 });
-    expect(await store.getCourt()).toEqual({ contributions: {}, totalInfluence: 0 });
+    expect(await store.getCourt()).toEqual({ contributions: {}, totalInfluence: 0, writsAccepted: 0 });
     expect(await store.getEra(0)).toEqual({ era: 2, startedAt: 500, baselineCaptured: 7 });
     expect(await store.getHallOfFame()).toEqual([entry]);
   });

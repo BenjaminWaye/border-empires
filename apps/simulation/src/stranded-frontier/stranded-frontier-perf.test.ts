@@ -15,6 +15,7 @@ const buildContext = (tiles: Map<string, DomainTileState>): RuntimeEncirclementA
   tiles,
   now: () => 1_000,
   activeAetherBridgesForPlayer: () => [],
+  seaLaneNeighborKeysByTileKey: new Map(),
   replaceTileState: (key, tile) => { tiles.set(key, tile); },
   tileDeltaFromState: (tile) => ({ x: tile.x, y: tile.y }),
   emitEvent: () => undefined,

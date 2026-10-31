@@ -107,11 +107,18 @@ export const siegeHeadline = (card: SiegeCard, playerNames: PlayerNameLookup): s
   return `${defense} fell${capturer} after a ${durationLabel(card.occurredAt - card.startedAt)} siege${featuresNote(card.capturedFeatures, "your", "with", card.defenseVariant)}`;
 };
 
-/** "Held off 7 assaults from Kael and Vess · cost them 412 manpower". */
+/**
+ * Holding: "Repelled 7 assaults from Kael and Vess · cost them 412 manpower".
+ * Fallen: "Held off 7 assaults before it fell · Kael and Vess spent 412
+ * manpower attacking it" -- "attacking", not "taking": the tile can fall to
+ * a capture none of the besiegers' own assaults made.
+ */
 export const siegeDetail = (card: SiegeCard, playerNames: PlayerNameLookup): string => {
   const attackers = listNames(card.attackerIds.map((id) => nameOf(id, playerNames)));
   const seized = card.originsSeized > 0 ? ` · seized ${card.originsSeized} of their tiles${featuresNote(card.seizedOriginFeatures, "their", "incl.")}` : "";
-  return `${card.outcome === "FELL" ? "Held off" : "Repelled"} ${plural(card.assaultsRepelled, "assault")} from ${attackers}${seized} · cost them ${roundedAmount(card.manpowerSpentAgainst)} manpower`;
+  const manpower = roundedAmount(card.manpowerSpentAgainst);
+  if (card.outcome === "FELL") return `Held off ${plural(card.assaultsRepelled, "assault")} before it fell${seized} · ${attackers} spent ${manpower} manpower attacking it`;
+  return `Repelled ${plural(card.assaultsRepelled, "assault")} from ${attackers}${seized} · cost them ${manpower} manpower`;
 };
 
 export const siegeCardText = (card: SiegeCard, playerNames: PlayerNameLookup): string => `${siegeHeadline(card, playerNames)} · ${siegeDetail(card, playerNames)}`;

@@ -29,6 +29,9 @@ export const SEASONAL_AI_NAMES = [
 
 const AI_ID_PATTERN = /^ai-(\d+)$/;
 
+/** True for a seasonal AI empire's player id ("ai-<n>"). Human ids never take this form. */
+export const isSeasonalAiPlayerId = (id: string): boolean => AI_ID_PATTERN.test(id);
+
 /** The listed name for "ai-<n>", or undefined for other ids and AIs past the end of the list. */
 export const seasonalAiNameForId = (id: string): string | undefined => {
   const match = AI_ID_PATTERN.exec(id);

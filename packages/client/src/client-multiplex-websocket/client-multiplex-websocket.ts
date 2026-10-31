@@ -5,6 +5,8 @@ import { beginLoginTimeline, markLoginTimeline } from "../client-init-transfer/c
 import { yieldToPaint } from "../client-init-transfer/client-init-transfer-yield.js";
 import type { InitTransferProgress, RealtimeSocket } from "../client-socket-types.js";
 
+import { initSyncDiagnostics, recordSyncWireEvent } from "../client-sync-diagnostics/client-sync-diagnostics.js";
+
 type Channel = "control" | "bulk";
 
 const bulkOnlyMessageTypes = new Set([
@@ -33,6 +35,7 @@ const isSendableCloseCode = (code: number | undefined): code is number =>
   code === 1000 || (typeof code === "number" && code >= 3000 && code <= 4999);
 
 export const createMultiplexWebSocket = (baseUrl: string): RealtimeSocket => {
+  initSyncDiagnostics();
   const eventTarget = new EventTarget();
   let readyState: number = WebSocket.CONNECTING;
   let syntheticOpenDispatched = false;
@@ -52,7 +55,9 @@ export const createMultiplexWebSocket = (baseUrl: string): RealtimeSocket => {
   let pendingInitPayload: string | null = null;
 
   const dispatchMessage = (data: string): void => {
+    const startedAt = performance.now();
     eventTarget.dispatchEvent(new MessageEvent<string>("message", { data }));
+    recordSyncWireEvent("wire-applied", data, { generation, handlerMs: performance.now() - startedAt });
   };
 
   const dispatchInitProgress = (progress: InitTransferProgress): void => {
@@ -147,6 +152,7 @@ export const createMultiplexWebSocket = (baseUrl: string): RealtimeSocket => {
     socket.addEventListener("message", (event) => {
       if (socketGeneration !== generation) return;
       const data = String(event.data);
+      recordSyncWireEvent("wire-received", data, { generation, channel: isBulk ? "bulk" : "control", bufferedAmount: socket.bufferedAmount });
       if (isInitChunkFrame(data)) {
         handleInitChunk(data, socketGeneration);
         return;
@@ -186,11 +192,15 @@ export const createMultiplexWebSocket = (baseUrl: string): RealtimeSocket => {
     const socket = channel === "control" ? controlSocket : bulkSocket;
     if (socket.readyState === WebSocket.OPEN) {
       socket.send(payload);
+      recordSyncWireEvent("wire-sent", payload, { channel, generation, bufferedAmount: socket.bufferedAmount });
       return;
     }
     if (allowControlFallback && channel === "bulk" && controlSocket.readyState === WebSocket.OPEN) {
       controlSocket.send(payload);
+      recordSyncWireEvent("wire-sent", payload, { channel: "control", generation, bufferedAmount: controlSocket.bufferedAmount });
+      return;
     }
+    recordSyncWireEvent("wire-send-skipped", payload, { channel, generation, bufferedAmount: socket.bufferedAmount });
   };
 
   const proxy: RealtimeSocket = {

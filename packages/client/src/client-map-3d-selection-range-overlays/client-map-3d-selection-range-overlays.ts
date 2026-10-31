@@ -7,7 +7,7 @@ import {
   MeshBasicMaterial,
   Scene
 } from "three";
-import { OBSERVATORY_RANGE_MAX, WORLD_HEIGHT, WORLD_WIDTH, reachRadiusForKind, type ReachAnchorKind } from "@border-empires/shared";
+import { RELIC_RULES, relicCastRadius, OBSERVATORY_RANGE_MAX, WORLD_HEIGHT, WORLD_WIDTH, reachRadiusForKind, type ReachAnchorKind } from "@border-empires/shared";
 import { SKY_DOCK_BOMBARD_RADIUS } from "../client-constants.js";
 import { HYDROWORKS_RADIUS } from "../client-structure-effects/client-structure-effects.js";
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
@@ -21,14 +21,15 @@ import {
   writeObservatoryRangeFillGeometry,
   type ObservatoryRangeBorderGeometryInputs
 } from "../client-map-3d-observatory-range/client-map-3d-observatory-range.js";
+import { createDockLandingGroundOverlay } from "../client-map-3d-dock-landing-overlay/client-map-3d-dock-landing-overlay.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
 
 // Extracted out of client-map-3d.ts (500-line file cap, AGENTS.md): every
 // square range/reach ring drawn around the currently-selected tile
 // (observatory sweep, hydroworks, sky dock, and this module's own
-// reach-disk highlight) is the same cohesive "selection range overlay"
-// concern, distinct from the terrain/heightfield/marker rigging around it.
+// reach-disk highlight, plus a selected dock's landing ground) is the same
+// cohesive "selection range overlay" concern, distinct from the terrain/heightfield/marker rigging around it.
 //
 // REACH_RADIUS_MAX_CANDIDATES: mirrors client-reach-overlay-structure-highlight's
 // reachAnchorKindForTile -- this is the true-3D counterpart of that 2D-only
@@ -77,7 +78,7 @@ const makeRingMeshes = (maxRadius: number, materials: { border: LineBasicMateria
 
 export const createSelectionRangeOverlays = (scene: Scene): SelectionRangeOverlays => {
   const observatoryMaterials = makeRingMaterials("#6ab4ff", 0.55, 0.10);
-  const observatoryRing = makeRingMeshes(OBSERVATORY_RANGE_MAX, observatoryMaterials);
+  const observatoryRing = makeRingMeshes(Math.max(OBSERVATORY_RANGE_MAX, RELIC_RULES.castRadius), observatoryMaterials);
   const hydroworksMaterials = makeRingMaterials("#4caf74", 0.55, 0.10);
   const hydroworksRing = makeRingMeshes(HYDROWORKS_RADIUS, hydroworksMaterials);
   const skyDockMaterials = makeRingMaterials("#ff4444", 0.55, 0.10);
@@ -104,6 +105,7 @@ export const createSelectionRangeOverlays = (scene: Scene): SelectionRangeOverla
     observatoryRing.fill,
     observatoryRing.border
   );
+  const landingGround = createDockLandingGroundOverlay(scene);
 
   const writeRingGeometry = (
     ring: { border: LineSegments; fill: Mesh },
@@ -144,7 +146,7 @@ export const createSelectionRangeOverlays = (scene: Scene): SelectionRangeOverla
     if (deps.tileVisibilityStateAt(selectedTile.x, selectedTile.y, selectedTile) !== "visible") return;
     if (selectedTile.ownerId !== deps.state.me) return;
     if (selectedTile.observatory.status !== "active") return;
-    writeRingGeometry(observatoryRing, deps, selectedTile, ownObservatoryRange(deps.state));
+    writeRingGeometry(observatoryRing, deps, selectedTile, relicCastRadius(selectedTile.naturalWonder, ownObservatoryRange(deps.state)));
   };
 
   const syncHydroworksRing = (deps: SelectionRangeOverlaysDeps): void => {
@@ -190,9 +192,11 @@ export const createSelectionRangeOverlays = (scene: Scene): SelectionRangeOverla
     syncHydroworksRing(deps);
     syncSkyDockRing(deps);
     syncReachRing(deps);
+    landingGround.sync(deps);
   };
 
   const dispose = (): void => {
+    landingGround.dispose();
     for (const ring of [observatoryRing, hydroworksRing, skyDockRing, reachRing]) {
       ring.border.geometry.dispose();
       ring.fill.geometry.dispose();

@@ -37,14 +37,16 @@ export const drawFortificationOverlay2D = (
   py: number,
   size: number,
   facingDeps: FortificationOverlayDeps,
-  epochMs: number = Date.now()
+  epochMs: number = Date.now(),
+  // Remembered under fog: drawn as last seen, with no build in progress.
+  remembered = false
 ): void => {
   if (!overlay || !overlay.complete || !overlay.naturalWidth) return;
   // A Relay Beacon or a fort being built or removed is drawn in phases with a parts stack
   // and crew (docs/construction-animation-plan.md); siege camps keep the flat translucent
   // look until their own follow-up.
   const field = constructionFieldFor(kind);
-  const site = field ? constructionSiteForTile(tile, epochMs, field) : undefined;
+  const site = field && !remembered ? constructionSiteForTile(tile, epochMs, field) : undefined;
   const layout = field === "fort" ? FORT_CONSTRUCTION_LAYOUT : DEFAULT_CONSTRUCTION_LAYOUT;
   // A fort *upgrade* keeps the previous tier standing and defending, so it stays fully
   // drawn below; only the ambient crates and crew are added on top.
@@ -77,12 +79,13 @@ export const drawTileFortificationOverlays2D = (
   size: number,
   deps: FortificationOverlayDeps,
   overlayImageFor: (kind: FortificationOverlayKind, opening: FortificationOpening) => HTMLImageElement | undefined,
-  epochMs: number = Date.now()
+  epochMs: number = Date.now(),
+  remembered = false
 ): void => {
   const kind = fortificationOverlayKindForTile(tile);
   if (!kind) return;
-  drawFortificationOverlay2D(ctx, tile, kind, overlayImageFor(kind, fortificationOpeningForTile(tile, deps)), px, py, size, deps, epochMs);
+  drawFortificationOverlay2D(ctx, tile, kind, overlayImageFor(kind, fortificationOpeningForTile(tile, deps)), px, py, size, deps, epochMs, remembered);
   if (stackedRelayBeaconForTile(tile)) {
-    drawFortificationOverlay2D(ctx, tile, "RELAY_BEACON", overlayImageFor("RELAY_BEACON", "CLOSED"), px, py, size, deps, epochMs);
+    drawFortificationOverlay2D(ctx, tile, "RELAY_BEACON", overlayImageFor("RELAY_BEACON", "CLOSED"), px, py, size, deps, epochMs, remembered);
   }
 };

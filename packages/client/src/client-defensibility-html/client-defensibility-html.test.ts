@@ -67,6 +67,7 @@ describe("renderDefensibilityPanelHtml", () => {
     expect(html).toContain('<span>A perfect blob your size would have</span><strong>18</strong>');
     expect(html).toContain('<span>You score 100% if you stay at or below</span><strong>22.5</strong>');
     expect(html).toContain('<span>You actually have</span><strong class="is-negative">30</strong>');
-    expect(html).toContain('<span>Tiles you own</span><strong>4</strong>');
+    expect(html).toContain('<span>Garrisoned tiles</span><strong>20</strong>');
+    expect(html).toContain("Only garrisoned tiles count.");
   });
 });

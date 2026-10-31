@@ -8,7 +8,7 @@ import { BUILD_MENU_ART_CROP } from "./client-build-menu-art-crop.js";
 import { buildActionArtUrl, buildActionIconHtml, buildingCategoryIconHtml, structureArtIconHtml } from "./client-build-menu-icons.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const publicFile = (url: string): string => resolve(here, "../../public", url.slice(1));
+const publicFile = (url: string): string => resolve(here, "../../public", url.slice(1).split("?")[0]!);
 
 // Every build/upgrade action id declared on TileActionDef.
 const buildActionIds = (): TileActionDef["id"][] => {
@@ -40,24 +40,31 @@ describe("build menu building art", () => {
     expect(urls.filter((url) => !BUILD_MENU_ART_CROP[url])).toEqual([]);
   });
 
+  it("ships the art and measured crop for every mapped build action, including district icons", () => {
+    for (const id of buildActionIds()) {
+      const url = buildActionArtUrl(id);
+      if (!url) continue;
+      expect(existsSync(publicFile(url)), `${id}: ${url}`).toBe(true);
+      expect(BUILD_MENU_ART_CROP[url], `${id}: crop`).toBeDefined();
+    }
+  });
+
   it("scales the crop box to fill the slot and centres it", () => {
-    // Manufactory art box [0.06, 0.07, 0.89, 0.90]: scale 1/0.90 = 111.11%,
-    // left -0.06/0.90 + (1-0.89/0.90)/2 = -6.11%, top -0.07/0.90 = -7.78%.
-    const html = buildActionIconHtml("build_manufactory") ?? "";
-    expect(html).toContain('style="width:111.11%;height:111.11%;left:-6.11%;top:-7.78%"');
+    // The unchanged Fort crop is a fixed input for the thumbnail math.
+    const html = buildActionIconHtml("build_fortification") ?? "";
+    expect(html).toContain('style="width:103.2%;height:103.2%;left:-1.65%;top:-3.2%"');
   });
 
   it("shows the building's own map art for buildings that have it", () => {
-    expect(buildActionArtUrl("build_manufactory")).toBe("/overlays/manufactory-overlay.svg");
+    expect(buildActionArtUrl("build_manufactory")).toContain("/overlays/town-district/manufactory.svg?");
     expect(buildActionArtUrl("build_fortification")).toBe("/overlays/fort-ring-overlay-closed.svg");
-    expect(buildActionArtUrl("upgrade_titanium_works")).toBe("/overlays/high-yield-titanium-works-overlay.svg");
+    expect(buildActionArtUrl("upgrade_titanium_works")).toContain("/overlays/town-district/high-yield-titanium-works.svg?");
   });
 
   it("matches the 2D map's art for Hydrogarden and Hydroworks after the Farmstead rename", () => {
-    // Hydrogarden (the renamed Farmstead) draws the hydroponic dome on the map;
-    // Hydroworks (the renamed Waterworks) keeps the old hydrogarden overlay.
+    // Resource Hydrogardens retain their dome; utility Hydroworks use the district kit.
     expect(buildActionIconHtml("build_hydrogarden")).toContain('src="/overlays/farm-hydroponic-overlay-1.svg"');
-    expect(buildActionIconHtml("build_hydroworks")).toContain('src="/overlays/farm-hydrogarden-overlay-1.svg"');
+    expect(buildActionIconHtml("build_hydroworks")).toContain('src="/overlays/town-district/hydroworks.svg?');
   });
 
   it("gives structure-type callers the same cropped thumbnail", () => {
@@ -71,22 +78,16 @@ describe("build menu building art", () => {
     expect(buildActionIconHtml("launch_attack")).toBeUndefined();
   });
 
-  it("keeps the list of buildings still waiting for art explicit", () => {
+  it("keeps unmapped legacy or unsupported build actions explicit", () => {
     const missing = buildActionIds().filter((id) => !buildActionArtUrl(id)).sort();
     expect(missing).toMatchInlineSnapshot(`
       [
-        "build_aegis_dome_part_1",
-        "build_aegis_dome_part_2",
-        "build_aegis_dome_part_3",
         "build_afc",
         "build_bank",
         "build_exchange_house",
         "build_fuel_plant",
         "build_lockworks_port",
         "build_quartermasters_office",
-        "build_titanium_levy_part_1",
-        "build_titanium_levy_part_2",
-        "build_titanium_levy_part_3",
         "build_weapons_workshop",
       ]
     `);

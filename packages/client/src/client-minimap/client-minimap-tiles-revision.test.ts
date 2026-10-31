@@ -29,6 +29,8 @@ describe("drawMiniMap content-layer recompute throttle", () => {
     zoom?: number;
     tilesRevision?: number;
     lastTilesRevision?: number;
+    colorKey?: string;
+    lastColorKey?: string;
   }): boolean => {
     const w = 8;
     const h = 8;
@@ -68,8 +70,10 @@ describe("drawMiniMap content-layer recompute throttle", () => {
         zoom: 1,
         replayIndex: 0,
         tileCount: overrides.tileCount,
-        tilesRevision: overrides.lastTilesRevision ?? 0
+        tilesRevision: overrides.lastTilesRevision ?? 0,
+        colorKey: overrides.lastColorKey ?? ""
       },
+      colorKey: overrides.colorKey ?? "",
       contentCache: overrides.contentCache,
       parseKey: (key) => {
         const parts = key.split(",").map(Number);
@@ -121,6 +125,17 @@ describe("drawMiniMap content-layer recompute throttle", () => {
     const changed = baseCall({ tileCount: 0, nowMs: 10_141, tilesRevision: 5, lastTilesRevision: 4, contentCache });
     expect(changed).toBe(true);
     expect(contentCache.computedAt).toBe(10_141);
+  });
+
+  // Regression: turning the Diplomacy view on or off swaps owner colours without changing any tile,
+  // so the minimap kept its old colours until an unrelated tile changed.
+  it("recomputes the content layer when the owner colours change (Diplomacy view toggled)", () => {
+    const contentCache: MiniMapContentCache = { computedAt: 10_000, box: { x0: 0, y0: 0, w: 450, h: 450 } };
+    const changed = baseCall({ tileCount: 0, nowMs: 10_141, colorKey: "on:|", lastColorKey: "", contentCache });
+    expect(changed).toBe(true);
+    expect(contentCache.computedAt).toBe(10_141);
+    const quiet: MiniMapContentCache = { computedAt: 10_000, box: { x0: 0, y0: 0, w: 450, h: 450 } };
+    expect(baseCall({ tileCount: 0, nowMs: 10_141, colorKey: "on:|", lastColorKey: "on:|", contentCache: quiet })).toBe(false);
   });
 
   it("does not recompute for a tilesRevision-only change before the 140ms floor", () => {

@@ -16,7 +16,7 @@ import {
   type SeasonArchiveRow,
   type SimulationSeasonState
 } from "@border-empires/sim-protocol";
-import { CURRENT_WORLDGEN_VERSION, INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed } from "@border-empires/shared";
+import { INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed } from "@border-empires/shared";
 
 import { type ProtoSimulationEvent, type TileDeltaBatchTile, toProtoEvent, isWireInternalEvent, toFullSnapshotProtoTile } from "./proto-serialization.js";
 import { toCommandEnvelope, type ProtoCommandEnvelope } from "./proto-command-envelope.js";
@@ -27,7 +27,7 @@ import { recordAiPlannerDecision } from "./record-ai-planner-decision.js";
 import { createSimulationCommandStore } from "../command-store-factory/command-store-factory.js";
 import { createSimulationEventStore } from "../event-store-factory/event-store-factory.js";
 import { createSimulationSnapshotStore } from "../snapshot-store-factory/snapshot-store-factory.js";
-import { createSimulationCheckpointManager, saveShutdownCheckpoint } from "./simulation-service-checkpointing.js";
+import { checkpointSoon, createSimulationCheckpointManager, saveShutdownCheckpoint } from "./simulation-service-checkpointing.js";
 import { shutdownGrpcServer } from "./simulation-service-grpc-shutdown.js";
 import {
   createHybridSnapshotStringifier,
@@ -37,6 +37,7 @@ import {
 import { createSnapshotBuilder } from "../snapshot-builder/snapshot-builder.js";
 import { createAiCommandProducer } from "../ai/ai-command-producer.js";
 import { createWorkerAiCommandProducer } from "../ai/ai-command-producer-worker.js";
+import { createAiProducerRuntime, createVictoryStandingsLookup } from "../ai/ai-victory-standings.js";
 import { recoverCommandHistory } from "../command-recovery/command-recovery.js";
 import { createSystemCommandProducer } from "../ai/system-command-producer.js";
 import { createWorkerSystemCommandProducer } from "../ai/system-command-producer-worker.js";
@@ -66,7 +67,7 @@ import { parsePendingImperialWard } from "../runtime-imperial-ward-command-handl
 import { buildFilteredTileDeltasForSubscriber } from "../tile-delta-fanout-filter.js";
 import { loadSimulationStartupRecovery } from "../startup-recovery/startup-recovery.js";
 import { createStartupReplayCompactionRunner } from "../startup-replay-compaction.js";
-import { buildWorldStatusSnapshot } from "../world-status-snapshot/world-status-snapshot.js";
+import { buildWorldStatusSnapshot, emptySelfProgressCache, selfProgressCacheOf, type SelfProgressCache } from "../world-status-snapshot/world-status-snapshot.js";
 import { createGlobalStatusBroadcastScheduler } from "../global-status-broadcast-scheduler/global-status-broadcast-scheduler.js";
 import { parseSubscribeOptions, shouldServeCachedSubscribeSnapshot } from "../parse-subscribe-options/parse-subscribe-options.js";
 import { laneForCommand } from "../command-lane/command-lane.js";
@@ -80,11 +81,12 @@ import { GALAXY_ARCHIVE_LIMIT } from "../season-summary-store.js";
 import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from "../season-summary/season-summary.js";
 import { createGlobalStatusBroadcastPayload } from "../global-status-broadcast-scheduler/global-status-broadcast-payload.js";
 import { createScoreHistorySampler } from "../score-history-sampler/score-history-sampler.js";
-import { createInitialSeasonState, updateSeasonVictoryTrackers, readScheduledSeasonStartAtEnv, applyPendingSeasonActivation } from "../season-lifecycle.js";
+import { updateSeasonVictoryTrackers, applyPendingSeasonActivation } from "../season-lifecycle.js";
+import { buildBootstrapSeason, seasonStartedAtClock } from "./season-bootstrap.js";
 import { createAiAndSystemShouldRun } from "./ai-and-system-should-run.js";
 import { captureSeasonWinnerAtCrowning } from "../season-crowning/season-crowning.js";
 import { preparePlayerHandler, joinSeasonHandler } from "./prepare-and-join-player.js";
-import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
+import { generateSeasonWorld } from "../season-worldgen/season-worldgen.js";
 import { createWorldgenBaselineCache, resolveDockRouteBackfillReader } from "../worldgen-baseline-cache/worldgen-baseline-cache.js";
 import { createActivePlayerIdentityMap, createRecoveredActivePlayerIdentityMap } from "../active-player-identity-map.js";
 import { formatNoFrontierDiagnostic } from "./no-frontier-diagnostic-format.js";
@@ -180,50 +182,6 @@ const proto = loadPackageDefinition(packageDefinition) as unknown as ProtoPackag
 
 const formatGrpcBindAddress = (host: string, port: number): string =>
   host.includes(":") && !host.startsWith("[") ? `[${host}]:${port}` : `${host}:${port}`;
-
-const randomSeasonWorldSeed = (): number => crypto.randomInt(1, 1_000_000_000);
-
-const buildBootstrapSeason = async ({
-  seasonSequence,
-  rulesetId,
-  mapStyle,
-  aiPlayerCount,
-  now,
-  onYield, defenseCampaignTargetSeasonId
-}: {
-  seasonSequence: number;
-  rulesetId: SimulationRulesetId;
-  mapStyle: SimulationMapStyle;
-  aiPlayerCount?: number;
-  now: number;
-  onYield?: () => Promise<void>; defenseCampaignTargetSeasonId?: string;
-}): Promise<{
-  seasonState: SimulationSeasonState;
-  initialState: Awaited<ReturnType<typeof generateSeasonWorld>>["initialState"];
-  initialPlayers: Awaited<ReturnType<typeof generateSeasonWorld>>["initialPlayers"];
-}> => {
-  const requestedWorldSeed = randomSeasonWorldSeed();
-  const generatedWorld = await generateSeasonWorld(rulesetId, requestedWorldSeed, {
-    mapStyle,
-    ...(typeof aiPlayerCount === "number" ? { aiPlayerCount } : {}),
-    ...(onYield ? { onYield } : {})
-  });
-  const scheduledStartAt = readScheduledSeasonStartAtEnv(); const seasonState = createInitialSeasonState({
-    seasonSequence,
-    rulesetId,
-    worldSeed: generatedWorld.worldSeed,
-    mapStyle: generatedWorld.mapStyle, worldgenVersion: CURRENT_WORLDGEN_VERSION,
-    startedAt: now, ...(typeof scheduledStartAt === "number" ? { scheduledStartAt } : {}), ...(defenseCampaignTargetSeasonId ? { defenseCampaignTargetSeasonId } : {})
-  });
-  return {
-    seasonState,
-    initialState: {
-      ...generatedWorld.initialState,
-      season: seasonState
-    },
-    initialPlayers: generatedWorld.initialPlayers
-  };
-};
 
 const normalizeAutopilotEnabled = (value: boolean | string | number | undefined): boolean =>
   value === true || value === 1 || value === "1" || value === "true";
@@ -657,6 +615,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     backgroundBatchSize: runtimeBackgroundBatchSize,
     initialState: effectiveStartupRecovery.initialState,
     initialCommandHistory: effectiveStartupRecovery.initialCommandHistory,
+    seasonStartedAt: seasonStartedAtClock(() => currentSeasonState, currentSeasonState.seasonId),
     ...(dockRouteBackfillReader ? { dockRouteBackfillReader } : {}),
     mergeSeedTilesWithInitialState: !isDbBackedStartup, isPlayerSubscribed: (playerId) => subscriptionRegistry.isSubscribed(playerId), // TDZ-safe: closure runs later
     // Drain on setImmediate (next loop tick), not queueMicrotask. Microtasks
@@ -795,11 +754,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     options
   });
   // Wire the deferred callback so CACHE shard collections trigger an immediate checkpoint.
-  onShardCollectedCallback = () => {
-    void snapshotCheckpointManager.checkpointNow().catch((error) => {
-      log.error({ err: error }, "simulation forced checkpoint after shard collect failed");
-    });
-  };
+  onShardCollectedCallback = () => checkpointSoon(snapshotCheckpointManager, log, "simulation forced checkpoint after shard collect failed");
   const runStartupReplayCompaction = createStartupReplayCompactionRunner({
     checkpointNow: snapshotCheckpointManager.checkpointNow,
     recoveredEventCount: effectiveStartupRecovery.recoveredEventCount,
@@ -985,7 +940,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let currentSummarySignature = currentSummary ? leaderboardSignature(currentSummary) : "";
   // Bounded by competitive player count (same lifecycle as currentSummary.overall);
   // replaced wholesale on every recompute below, never persisted, never appended to.
-  let currentSummaryPlayerSelfProgress: ReturnType<typeof buildWorldStatusSnapshot>["allPlayerSelfProgressLabels"] = new Map();
+  let currentSummaryPlayerSelfProgress: SelfProgressCache = emptySelfProgressCache();
   let lastCurrentSummaryPersistedAt = currentSummary?.updatedAt ?? 0;
   let seasonVictoryTimer: ReturnType<typeof setTimeout> | undefined;
   let seasonRolloverInFlight = false;
@@ -1181,7 +1136,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms(),
       ...(options.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : {})
     });
-    currentSummaryPlayerSelfProgress = worldStatus.allPlayerSelfProgressLabels;
+    currentSummaryPlayerSelfProgress = selfProgressCacheOf(worldStatus);
     const baseSummary = buildCurrentSeasonSummary({
       seasonState: currentSeasonState,
       runtimeState,
@@ -1410,22 +1365,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       }
       aiCommandProducer = useAiWorker
         ? createWorkerAiCommandProducer({
-            runtime: {
-              queueDepths: () => runtime.queueDepths(),
-              onEvent: (handler) => runtime.onEvent(handler),
-              exportPlannerWorldView: (playerIds) =>
-                trackSyncMainThreadTaskWithMetrics("ai_export_planner_world_view", { playerCount: playerIds.length }, () =>
-                  runtime.exportPlannerWorldView(playerIds)
-                ),
-              exportPlannerPlayerViews: (playerIds) =>
-                trackSyncMainThreadTaskWithMetrics("ai_export_planner_player_views", { playerCount: playerIds.length }, () =>
-                  runtime.exportPlannerPlayerViews(playerIds)
-                ),
-              exportTilesForKeys: (keys) =>
-                trackSyncMainThreadTaskWithMetrics("ai_export_tiles_for_keys", undefined, () =>
-                  runtime.exportTilesForKeys(keys)
-                )
-            },
+            runtime: createAiProducerRuntime(runtime, trackSyncMainThreadTaskWithMetrics, createVictoryStandingsLookup(() => ({
+              objectives: currentSummary?.seasonVictory ?? [],
+              selfProgress: currentSummaryPlayerSelfProgress.values
+            }))),
             trackSync: (phase, details, task) => trackSyncMainThreadTaskWithMetrics(phase, details, task),
             aiPlayerIds,
             submitCommand: submitDurableCommand,
@@ -1702,6 +1645,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     });
   };
   attachRuntimeEventHandlers();
+  // No saved reach border to boot from (first deploy, bootstrap): the border rebuilt at boot must be checkpointed before REACH_BORDER_CHANGED diffs can replay onto it.
+  if (!effectiveStartupRecovery.initialState.reachBorder) checkpointSoon(snapshotCheckpointManager, log, "simulation reach border baseline checkpoint failed");
   repairPlayerInfrastructure(runtime, activePlayers, shouldRepairZeroGrossIncomeSettlements ? zeroGrossIncomeRepairCandidateIds(effectiveStartupRecovery.initialState) : undefined);
   await startAutopilots();
   const replaceRuntime = async ({
@@ -1780,6 +1725,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         initialCommandHistory: recoverCommandHistory([], []),
         mergeSeedTilesWithInitialState: false,
         initialPlayers: bootstrap.initialPlayers,
+        seasonStartedAt: seasonStartedAtClock(() => currentSeasonState, bootstrap.seasonState.seasonId),
         onVisibilityAudit: handleVisibilityAudit,
         trackSyncMainThreadTask: trackSyncMainThreadTaskWithMetrics,
         onCaptureRevealBuilt: captureRevealBuildSample, isPlayerSubscribed: (playerId) => subscriptionRegistry.isSubscribed(playerId),
@@ -1819,9 +1765,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         nextSeasonState: bootstrap.seasonState,
         nextSeededTileCount: bootstrap.initialState.tiles.length
       });
+      checkpointSoon(snapshotCheckpointManager, log, "simulation season rollover reach border baseline checkpoint failed"); // rollover snapshot carries no reach border
       currentSummary = nextSummary;
       currentSummarySignature = leaderboardSignature(nextSummary);
-      currentSummaryPlayerSelfProgress = nextWorldStatus.allPlayerSelfProgressLabels;
+      currentSummaryPlayerSelfProgress = selfProgressCacheOf(nextWorldStatus);
       lastCurrentSummaryPersistedAt = nextSummary.updatedAt;
       // Old timer's closure captured the previous season's state, so clear it —
       // but re-arm the 5-min fallback for the new season, otherwise no code

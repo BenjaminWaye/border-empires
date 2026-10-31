@@ -4,7 +4,7 @@ import { SETTLEMENT_BASE_GOLD_PER_MIN, STARTING_CAPITAL_MANPOWER_CAP, STARTING_C
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
 import { createPlayersFromRecoveredState } from "../runtime-hydration.js";
-import { buildAiOpponent, buildPlayer, collectEvents, testRuntimePlayer, afcModuleFixtureTile } from "./runtime.test-helpers.js";
+import { buildAiOpponent, buildPlayer, collectEvents, testRuntimePlayer, afcModuleFixtureTile, DUPLICATE_ATTACK_REPLAY_EVENTS } from "./runtime.test-helpers.js";
 
 type SimulationRuntimeEventShape = SimulationEvent;
 
@@ -1504,18 +1504,7 @@ describe("simulation runtime", () => {
       runtime.submitCommand(command);
 
       // player-2 is AI, so #732 skips its PLAYER_UPDATE on lock resolution (no WS subscriber).
-      expect(seen).toEqual([
-        "COMMAND_ACCEPTED:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
-        "COMBAT_RESOLVED:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
-        "TILE_DELTA_BATCH:cmd-1",
-        "COMMAND_ACCEPTED:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
-        "COMBAT_RESOLVED:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
-        "TILE_DELTA_BATCH:cmd-1",
-      ]);
+      expect(seen).toEqual(DUPLICATE_ATTACK_REPLAY_EVENTS);
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();
@@ -3469,18 +3458,7 @@ describe("simulation runtime", () => {
       });
 
       // player-2 is AI (#732 skips its PLAYER_UPDATE); the duplicate seq replays cmd-1's recorded events.
-      expect(seen).toEqual([
-        "COMMAND_ACCEPTED:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
-        "COMBAT_RESOLVED:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
-        "TILE_DELTA_BATCH:cmd-1",
-        "COMMAND_ACCEPTED:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
-        "COMBAT_RESOLVED:cmd-1",
-        "PLAYER_MESSAGE:cmd-1",
-        "TILE_DELTA_BATCH:cmd-1",
-      ]);
+      expect(seen).toEqual(DUPLICATE_ATTACK_REPLAY_EVENTS);
       randomSpy.mockRestore();
     } finally {
       vi.useRealTimers();
@@ -6231,79 +6209,6 @@ describe("simulation runtime", () => {
     // Defender: SETTLED + town (1.2x), with both local factories sharing a
     // 1.15x Arsenal multiplier: Titanium (1.0345x) * Umbrite (1.01725x).
     expect(accepted?.combatResult?.defEff).toBeCloseTo(10 * 1.3 * 1.2 * 1.0345 * 1.01725, 6);
-  });
-
-  it("doubles attacker effectiveness when the defender has no war industry, and clears once both factory types exist", async () => {
-    const factoryTile = (x: number, y: number, ownerId: string, type: "TITANIUM_WEAPONS_FACTORY" | "UMBRITE_WEAPONS_FACTORY") => ({
-      x,
-      y,
-      terrain: "LAND" as const,
-      ownerId,
-      ownershipState: "SETTLED" as const,
-      economicStructure: { ownerId, type, status: "active" as const }
-    });
-    const buildRuntime = (defenderFactories: Array<"TITANIUM_WEAPONS_FACTORY" | "UMBRITE_WEAPONS_FACTORY">): SimulationRuntime =>
-      new SimulationRuntime({
-        now: () => 1_000,
-        initialPlayers: new Map([
-          ["player-1", buildPlayer("player-1", { manpower: 5_000 })],
-          ["player-2", buildPlayer("player-2", { manpower: 5_000 })]
-        ]),
-        seedTiles: new Map(),
-        initialState: {
-          tiles: [
-            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
-            {
-              x: 10,
-              y: 10,
-              terrain: "LAND",
-              ownerId: "player-1",
-              ownershipState: "FRONTIER",
-              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
-            },
-            {
-              x: 10,
-              y: 11,
-              terrain: "LAND",
-              ownerId: "player-2",
-              ownershipState: "SETTLED",
-              town: { name: "Target", type: "FARMING", populationTier: "SETTLEMENT" }
-            },
-            ...defenderFactories.map((type, i) => factoryTile(9 - i, 11, "player-2", type))
-          ],
-          activeLocks: []
-        }
-      });
-
-    const captureAtkEff = async (runtime: SimulationRuntime): Promise<number | undefined> => {
-      const seen = collectEvents(runtime);
-      runtime.submitCommand({
-        commandId: "atk-unarmed-1",
-        sessionId: "session-1",
-        playerId: "player-1",
-        clientSeq: 1,
-        issuedAt: 1_000,
-        type: "ATTACK",
-        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
-      });
-      await Promise.resolve();
-      const accepted = seen.find(
-        (event): event is Extract<SimulationEvent, { eventType: "COMMAND_ACCEPTED" }> =>
-          event.eventType === "COMMAND_ACCEPTED"
-      );
-      return accepted?.combatResult?.atkEff;
-    };
-
-    const neitherFactory = await captureAtkEff(buildRuntime([]));
-    const titaniumOnly = await captureAtkEff(buildRuntime(["TITANIUM_WEAPONS_FACTORY"]));
-    const both = await captureAtkEff(buildRuntime(["TITANIUM_WEAPONS_FACTORY", "UMBRITE_WEAPONS_FACTORY"]));
-
-    // Missing both -> flat 2x, same as missing just one (confirmed design:
-    // does not stack to 4x).
-    expect(neitherFactory).toBeCloseTo(20, 6);
-    expect(titaniumOnly).toBeCloseTo(20, 6);
-    // Both present -> no vulnerability penalty.
-    expect(both).toBeCloseTo(10, 6);
   });
 
   describe("barbarian walk vs multiply", () => {

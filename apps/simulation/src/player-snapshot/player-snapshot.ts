@@ -255,7 +255,7 @@ export const buildPlayerSubscriptionSnapshot = (
   const enrichedTiles =
     options?.fullVisibility === true && options?.sharedFullVisibilityTiles
       ? options.sharedFullVisibilityTiles
-      : enrichSnapshotTilesForPlayer(playerId, runtimeState, tiles, liveEconomy);
+      : enrichSnapshotTilesForPlayer(playerId, runtimeState, tiles, liveEconomy, options?.fullVisibility === true);
   const docks: PlayerSubscriptionDock[] = (runtimeState.docks ?? []).map((dock) => ({
     dockId: dock.dockId,
     tileKey: dock.tileKey,
@@ -277,6 +277,7 @@ export const buildPlayerSubscriptionSnapshot = (
             manpower: livePlayer.manpower,
             manpowerCap: livePlayer.manpowerCap ?? Math.max(livePlayer.manpowerCapSnapshot ?? 0, MANPOWER_BASE_CAP),
             manpowerRegenPerMinute: livePlayer.manpowerRegenPerMinute ?? MANPOWER_BASE_REGEN_PER_MINUTE,
+            ...(livePlayer.nextManpowerBatchAmount !== undefined ? { nextManpowerBatchAmount: livePlayer.nextManpowerBatchAmount } : {}),
             logisticsThroughputPerMinute: livePlayer.logisticsThroughputPerMinute ?? livePlayer.manpowerRegenPerMinute ?? MANPOWER_BASE_REGEN_PER_MINUTE,
             manpowerBreakdown: livePlayer.manpowerBreakdown ?? {
               cap: [{ label: "Base minimum", amount: MANPOWER_BASE_CAP }],
@@ -286,6 +287,7 @@ export const buildPlayerSubscriptionSnapshot = (
             imperialWardCharges: livePlayer.imperialWardCharges ?? 0,
             autoSettle: normalizeAutoSettlePrefs(livePlayer.autoSettle),
             wonderLastFreeRushBuyAt: livePlayer.wonderLastFreeRushBuyAt ?? 0,
+            relicMapHints: livePlayer.relicMapHints ?? [],
             eventLog: livePlayer.eventLog ?? [],
             strategicResources: {
               FOOD: livePlayer.strategicResources.FOOD ?? 0,
@@ -301,13 +303,15 @@ export const buildPlayerSubscriptionSnapshot = (
               UMBRITE: strategicProductionPerMinute.UMBRITE,
               SHARD: strategicProductionPerMinute.SHARD
             },
+            ...(livePlayer.resourceTradeHoldings ? { resourceTradeHoldings: livePlayer.resourceTradeHoldings } : {}),
+            ...(livePlayer.resourceTradeAgreements ? { resourceTradeAgreements: livePlayer.resourceTradeAgreements } : {}),
             resourceSlots: liveEconomy.resourceSlots,
             dormantStructures: liveEconomy.dormantStructures,
             economyBreakdown: liveEconomy.economyBreakdown,
             upkeepPerMinute: liveEconomy.upkeepPerMinute,
             upkeepLastTick: liveEconomy.upkeepLastTick,
             developmentProcessLimit:
-              DEVELOPMENT_PROCESS_LIMIT +
+              DEVELOPMENT_PROCESS_LIMIT + (livePlayer?.relicDevelopmentBonus ?? 0) +
               (liveProgressionPlayer
                 ? additiveEffectForPlayer(liveProgressionPlayer, "developmentProcessCapacityAdd")
                 : 0),

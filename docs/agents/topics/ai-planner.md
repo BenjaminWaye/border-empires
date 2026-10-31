@@ -130,6 +130,19 @@ consolidation, planning cadence), not deletion.
 
 ## Known pitfalls
 
+- **Victory progress must come from world standings, not self-relative
+  targets.** `victory-path-scoring.ts`'s heuristic fallback compares an AI
+  with itself (towns vs settled/5, 6 tiles of a resource, 3 docks), so every
+  AI read as already winning, locked onto its path and reported
+  `needVector.VICTORY = 0` (prod season-13, 2026-10-27). The worker producer
+  now attaches real progress (`ai-victory-standings.ts`); check a decision
+  diagnostic's `victoryPath.source` is `"world"` before trusting its
+  progress. The direct (non-worker) planner still uses the heuristic.
+- **Food-relief re-enable must target SETTLED tiles.** The runtime refuses
+  to enable a structure on any other tile, and the rejection only cools the
+  class down for 10s, so a FRONTIER beacon was retried forever (15 of 20 prod
+  AIs, 2026-10-27).
+
 - **Relay ocean filtering must retain water inside existing reach.**
   `relay-beacon-command-planner.ts` excludes existing reach from new-coverage
   credit, but must still classify visible water there for
@@ -140,6 +153,45 @@ consolidation, planning cadence), not deletion.
   and that previously deadlocked exploration. Regression coverage lives in
   `relay-beacon-coastal-reach.test.ts`, including wraparound, inland fog,
   narrow straits, known prizes and bounded lookup work.
+
+- **Own relay beacons keep `MIN_OWN_BEACON_SPACING` apart.** The pending-
+  outpost overlap veto only covers beacons still under construction, and a
+  build finishes in about a minute; after that a site two tiles along the
+  border could win again on fog cells poking past the first beacon's box
+  (staging season-40 ai-18: ~25 beacons ringing a 151-tile island). The floor
+  applies to every own beacon except one being demolished, and is capped at
+  `OUTPOST_REACH_RADIUS`: a FRONTIER site must be inside reach to be settled,
+  so the next beacon in a chain can sit at most one radius from the last.
+  Tests that need overlapping reach next to a relay use a siege battery as
+  the anchor instead. Regression coverage: `relay-beacon-spacing.test.ts`.
+
+- **Out-of-reach dock crossings are a planner fallback.** EXPAND is never
+  runtime reach-gated (game-domain validation ignores `isInReach`); the
+  planner's reach gate in `frontier-command-planner.ts` is AI policy, because
+  out-of-reach land can't be settled. Dock tiles are the exception —
+  auto-settle exempts town/dock tiles from reach — so the planner defers
+  out-of-reach dock crossings and scores them only when the scan finds no
+  in-reach neutral target (deferring keeps healthy AIs from hopping docks
+  early). Its >150-origin border prefilter must also keep linked docks.
+  Gating them outright left saturated-island AIs on WAIT with
+  `BLOCKED_NO_REACHABLE_BEACON_SITE`. That label is the generic "has
+  frontier, no action" fallback in `automation-action-admission.ts`, not
+  proof a beacon was the missing move. Regression coverage:
+  `frontier-command-planner-dock-reach.test.ts`.
+
+- **Beacons must be able to bridge the AI's own out-of-reach frontier.** EXPAND
+  is never runtime reach-gated, so an AI can hold a wide FRONTIER band outside
+  its reach (prod 2026-10-28: ai-9 680 reach / 1,396 owned, ai-5 1,282 / 2,902).
+  `estimateNewReachCoverage` only credits unowned land, and legal beacon sites
+  are SETTLED or in-reach FRONTIER, so a band deeper than
+  `OUTPOST_REACH_RADIUS` left no site and the AI sat on WAIT with
+  `BLOCKED_NO_REACHABLE_BEACON_SITE`. `chooseBestRelayBeaconBuild` now falls
+  back to a bridge site (most own out-of-reach FRONTIER in its box,
+  `BRIDGE_SITE_VALUE`) when no site reaches unowned land. Its in-reach "nested
+  site" veto also lets through a band of plain land wider than one box edge
+  (`COVERAGE_SLIVER_TILES`); before, an in-reach site needed a prize or fog,
+  so an explored map with no resources in range could never be beaconed into.
+  Regression coverage: `relay-beacon-frontier-bridge.test.ts`.
 
 - The AI decision-diagnostics buffer (`recordAiDecisionDiagnosticFromPlanner`)
   looks like write-only "record-then-never-read" — but it **is** read via the

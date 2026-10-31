@@ -1,9 +1,9 @@
-import { TERRITORY_FLIP_WINDOW_MS, type TerritoryFlip } from "../territory-flip-log/territory-flip-log.js";
+import { latestFlipPerTile, TERRITORY_FLIP_WINDOW_MS, uniqueTileCount, type TerritoryFlip } from "../territory-flip-log/territory-flip-log.js";
 import type { CombatManpowerLoss } from "../combat-manpower-log/combat-manpower-log.js";
 import { PERSONAL_ACTIVITY_TIMELINE_CARD_CAP, type PersonalActivityCard, type PersonalActivityTimeline } from "@border-empires/game-domain";
 import { groupTerritoryFlipsForPlayer } from "./personal-activity-territory-grouping.js";
 import { combatCardsWithGroups } from "./personal-activity-combat-groups.js";
-import { matchCombatToFlips } from "./personal-activity-flip-matching.js";
+import { matchCombatToFlips, type KnownCapture } from "./personal-activity-flip-matching.js";
 import { rivalsForPlayer } from "./personal-activity-rivals.js";
 import { siegeCardsForDefender } from "./personal-activity-siege-cards.js";
 import { capPersonalActivityCards } from "./personal-activity-cap.js";
@@ -31,21 +31,42 @@ export const aggregatePersonalActivity = (
   const loggedCombat = combat.filter((loss) => inWindow(loss.at) && (loss.attackerId === playerId || loss.defenderId === playerId));
   const relevantImpacts = personalImpacts.filter((event) => inWindow(event.occurredAt));
 
-  const matches = matchCombatToFlips(loggedCombat, relevantFlips, to);
+  // One capture of a coastal town writes both TOWN_LOST and DOCK_LOST: keep
+  // one known capture per tile and moment, or it could confirm two wins.
+  const knownCaptureByKey = new Map<string, KnownCapture>();
+  for (const event of relevantImpacts) {
+    if (event.kind !== "TOWN_LOST" && event.kind !== "DOCK_LOST") continue;
+    const key = `${event.x},${event.y}:${event.occurredAt}:${event.playerId}`;
+    if (!knownCaptureByKey.has(key)) {
+      knownCaptureByKey.set(key, { x: event.x, y: event.y, at: event.occurredAt, defenderId: event.playerId, ...(event.counterpartyPlayerId ? { attackerId: event.counterpartyPlayerId } : {}) });
+    }
+  }
+  const knownCaptures = [...knownCaptureByKey.values()];
+  const matches = matchCombatToFlips(loggedCombat, relevantFlips, to, knownCaptures);
   const relevantCombat = matches.combat;
-  const territoryCards = groupTerritoryFlipsForPlayer(playerId, relevantFlips.filter((flip) => !matches.consumedFlips.has(flip)));
-  const sieges = siegeCardsForDefender(playerId, relevantCombat, matches.originSeized, matches.tileFeatures);
+  const unclaimedFlips = relevantFlips.filter((flip) => !matches.consumedFlips.has(flip));
+  // Tiles the player lost to someone that no winning assault explains: never
+  // claimed, or claimed only as the launch tile of the player's own failed
+  // counter-attack. Either way a siege on that tile ended there.
+  const unexplainedLosses = relevantFlips.filter((flip) => flip.fromOwner === playerId && flip.toOwner !== undefined && flip.toOwner !== playerId &&
+    (!matches.consumedFlips.has(flip) || matches.seizedFlips.has(flip)));
+  const sieges = siegeCardsForDefender(playerId, relevantCombat, matches.originSeized, matches.tileFeatures, unexplainedLosses);
+  const territoryCards = groupTerritoryFlipsForPlayer(playerId, unclaimedFlips.filter((flip) => !sieges.consumedFlips.has(flip)));
   const combatCards = combatCardsWithGroups(playerId, relevantCombat.filter((loss) => !sieges.consumed.has(loss)), matches.originSeized, matches.tileFeatures);
   const impactCards = personalImpactCardsForPlayer(playerId, relevantImpacts);
-  const allCards: PersonalActivityCard[] = [...territoryCards, ...combatCards, ...sieges.cards, ...impactCards.waystations, ...impactCards.towns, ...impactCards.buildings];
+  const allCards: PersonalActivityCard[] = [...territoryCards, ...combatCards, ...sieges.cards, ...impactCards.waystations, ...impactCards.towns, ...impactCards.docks, ...impactCards.buildings];
   const cards = capPersonalActivityCards(allCards, PERSONAL_ACTIVITY_TIMELINE_CARD_CAP);
 
   const claimedFlips = relevantFlips.filter((flip) => flip.toOwner === playerId && flip.fromOwner !== playerId);
   const lostFlips = relevantFlips.filter((flip) => flip.fromOwner === playerId && flip.toOwner !== playerId);
-  // Every flip, like the tile counts: what fell is named up top even when its
-  // card was folded into a combat card or dropped by the card cap.
-  const featuresLost = viewerFeatureCounts(lostFlips.flatMap((flip) => flip.features ?? []), false);
-  const featuresCaptured = viewerFeatureCounts(claimedFlips.filter((flip) => flip.fromOwner !== undefined).flatMap((flip) => flip.features ?? []), true);
+  // Every tile, like the tile counts: what fell is named up top even when its
+  // card was folded into a combat card or dropped by the card cap. A tile lost
+  // or taken more than once names its features once, from its latest flip.
+  // Docks are not flip features (they have their own notes), so they come
+  // from those.
+  const dockFeatures = (kind: "DOCK_LOST" | "DOCK_CAPTURED") => impactCards.docks.filter((card) => card.kind === kind).map(() => ({ kind: "DOCK" as const }));
+  const featuresLost = viewerFeatureCounts([...latestFlipPerTile(lostFlips).flatMap((flip) => flip.features ?? []), ...dockFeatures("DOCK_LOST")], false);
+  const featuresCaptured = viewerFeatureCounts([...latestFlipPerTile(claimedFlips.filter((flip) => flip.fromOwner !== undefined)).flatMap((flip) => flip.features ?? []), ...dockFeatures("DOCK_CAPTURED")], true);
   const manpowerSpentAttacking = relevantCombat
     .filter((loss) => loss.attackerId === playerId)
     .reduce((sum, loss) => sum + loss.manpowerLoss, 0);
@@ -61,8 +82,8 @@ export const aggregatePersonalActivity = (
     from,
     to,
     summary: {
-      tilesClaimed: claimedFlips.length,
-      tilesLost: lostFlips.length,
+      tilesClaimed: uniqueTileCount(claimedFlips),
+      tilesLost: uniqueTileCount(lostFlips),
       waystationsActivated: impactCards.waystations.length,
       townsCaptured: impactCards.towns.filter((card) => card.kind === "TOWN_CAPTURED").length,
       townsLost: impactCards.towns.filter((card) => card.kind === "TOWN_LOST").length,

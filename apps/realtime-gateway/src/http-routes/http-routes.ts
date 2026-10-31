@@ -1,3 +1,4 @@
+import type { CommandDiagnosticSnapshot } from "../player-sync-diagnostics/command-diagnostic-journal.js";
 import type { FastifyInstance } from "fastify";
 import type { AdminPlayerRow, CurrentSeasonSummary, GetRecentCommandsResponse, SeasonArchiveRow, SeasonLifecycleStatus, SeasonParticipationRow } from "@border-empires/sim-protocol";
 
@@ -14,6 +15,7 @@ import { registerSocialRoutes, type PublicSocialView } from "../social-routes/so
 import { registerSovereignSiegeEngineStrikeRoutes } from "../sovereign-siege-engine-strike-routes/sovereign-siege-engine-strike-routes.js";
 import { registerActivityApiRoute, type RegisterActivityApiRouteDeps } from "../activity-api/activity-api-route.js";
 import type { PlayerInsightsRouteDeps } from "../player-insights/player-insights-routes.js";
+import { registerPlayerSyncDiagnostics } from "../player-sync-diagnostics/player-sync-diagnostics.js";
 import { addCorsHeaders } from "./cors-headers.js";
 import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js"; import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js"; import type { GalaxyFleetStore } from "../galaxy-fleet-store/galaxy-fleet-store.js"; import type { GalaxyBattleLogStore } from "../galaxy-battle-log-store/galaxy-battle-log-store.js"; import type { GalaxyExplorationStore } from "../galaxy-exploration-store/galaxy-exploration-store.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js"; import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js"; import type { GalaxySenateStore } from "../galaxy-senate-store/galaxy-senate-store.js";
@@ -64,6 +66,7 @@ export type RegisterGatewayHttpRoutesDeps = {
     seededTileCount: number;
   };
   supportedMessageTypes: string[];
+  playerSyncDiagnosticSnapshot?: (playerId: string) => CommandDiagnosticSnapshot;
   recentEvents: () => GatewayDebugEvent[];
   attackDebug: () => GatewayAttackDebug;
   attackTraces: () => GatewayAttackTrace[];
@@ -108,6 +111,7 @@ export type RegisterGatewayHttpRoutesDeps = {
 
 export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGatewayHttpRoutesDeps): void => {
   addCorsHeaders(app);
+  registerPlayerSyncDiagnostics(app, deps);
   const playOrigin = deps.playOrigin ?? process.env.PLAY_ORIGIN ?? "https://play.borderempires.com";
 
   const { adminAuthorized, adminRequestAuthorized } = createAdminAuthorizer({

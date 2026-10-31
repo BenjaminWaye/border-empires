@@ -1,3 +1,4 @@
+import { DockLandingMemory } from "../client-dock-landing/client-dock-landing-memory.js";
 import type { ActiveBattleOverlay } from "../client-battle-overlay/client-battle-overlay.js";
 import type { SquadGear } from "../client-map-3d-popup-marine/popup-marine-gear.js";
 
@@ -8,6 +9,7 @@ import type { SquadGear } from "../client-map-3d-popup-marine/popup-marine-gear.
 // in-flight action for the HUD) so any number of battles — including ones
 // this player isn't a party to — can animate concurrently.
 export const createInitialBattleOverlayState = () => ({
+  dockLandings: new DockLandingMemory(),
   activeBattles: new Map<string, ActiveBattleOverlay>(),
   // Keyed by target tile key: when this client first rendered a pre-
   // resolution skirmish there (performance.now()-scale), NOT the siege's

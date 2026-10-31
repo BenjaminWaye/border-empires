@@ -11,7 +11,7 @@ import {
   TOWN_MANPOWER_BY_TIER,
   manpowerRegenWeightForSettlementIndex
 } from "@border-empires/game-domain";
-import { lastManpowerRefillAtMs, terrainAdjustedTownManpower } from "@border-empires/shared";
+import { MANPOWER_REFILL_WINDOW_MS, lastManpowerRefillAtMs, terrainAdjustedTownManpower } from "@border-empires/shared";
 
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { manpowerCeiling } from "./runtime-manpower-ceiling.js";
@@ -246,3 +246,10 @@ export const effectiveManpowerAt = (
   regenPerMinute: number,
   nowMs: number
 ): number => accrueManpower(player, cap, regenPerMinute, nowMs).manpower;
+
+/** Next payout at the current rate, retaining the bank earned at historical rates. */
+export const nextManpowerBatchAmount = (player: RuntimePlayer, cap: number, rate: number): number => {
+  const settledAt = player.manpowerUpdatedAt ?? Date.now();
+  const boundary = lastManpowerRefillAtMs(player.id, settledAt) + MANPOWER_REFILL_WINDOW_MS;
+  return Math.max(0, effectiveManpowerAt(player, cap, rate, boundary) - player.manpower);
+};

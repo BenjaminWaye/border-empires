@@ -93,8 +93,12 @@ and focuses the clue through the shared camera state in both map renderers.
 **Siege reports** fold repeated assaults on one of the player's tiles into a
 single `SIEGE` card (`personal-activity-siege-cards.ts`): consecutive logged
 attacks on that tile, with no lull over 3h, up to and including the capture
-(`FELL`) or still `HOLDING`. Two or more assaults make a siege; a lone attack
-stays a `COMBAT` card. The siege's assaults are removed from the per-attack
+(`FELL`) or still `HOLDING`. A siege also ends `FELL` when the tile is lost
+after a repelled assault (before the next assault, within the 3h gap) by a
+capture no winning assault explains -- a Breakthrough, a barbarian take, the
+seized launch tile of the defender's own failed counter-attack -- with
+`capturedBy` the flip's new owner; that flip then leaves the territory rows.
+Two or more assaults make a siege; a lone attack stays a `COMBAT` card. The siege's assaults are removed from the per-attack
 `COMBAT` cards. Each siege carries the number of assaults repelled, the
 attackers, the total manpower they spent, and the fortification defending the
 tile (`CombatManpowerLoss.defenseVariant`, recorded when the attack is rolled,

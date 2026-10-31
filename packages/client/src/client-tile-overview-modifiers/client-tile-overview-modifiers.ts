@@ -1,3 +1,4 @@
+import { isRedesignedRelic, relicOperationalState, relicReserveLabel, RELIC_DEFINITIONS } from "@border-empires/shared";
 import { HILLS_VISION_BONUS, WAYSTATION_POP_BURST, isHillsTileAt, NATURAL_WONDER_LABELS, converterModeOf, defendingFortVariant, FORT_VARIANT_LABELS, isFortDefending, type EconomicStructureType } from "@border-empires/shared";
 import { prospectClueOverviewLine, retiredProspectClues } from "../client-prospect-clue/client-prospect-clue.js";
 import { structureModifiersFor, type ModifierStructureType, type StructureModifier } from "@border-empires/game-domain";
@@ -16,6 +17,13 @@ type TileOwnerKind = "unclaimed" | "mine-frontier" | "mine-settled" | "ally" | "
 // Conscription Engine latch, not a general activation flag).
 export const naturalWonderOverviewLine = (tile: Tile, ownerKind: TileOwnerKind): string | undefined => {
   if (!tile.naturalWonder) return undefined;
+  if (isRedesignedRelic(tile.naturalWonder)) {
+    const definition = RELIC_DEFINITIONS[tile.naturalWonder.type];
+    const status = relicOperationalState(tile.naturalWonder, Boolean(tile.ownerId && tile.ownershipState === "SETTLED"));
+    const reserve = relicReserveLabel(tile.naturalWonder);
+    const bonus = tile.naturalWonder.resourceBonus;
+    return `Relic: ${definition.name} — ${status}. ${status === "depleted" ? "The reserve is exhausted; capture does not replenish it." : definition.benefit}${bonus ? ` Allocation: +${bonus.amount} ${bonus.resource} capacity.` : ""}${reserve ? ` ${reserve}.` : ""}`;
+  }
   const { name, boon } = NATURAL_WONDER_LABELS[tile.naturalWonder.type];
   if (ownerKind === "mine-settled") return `Natural wonder: ${name} — active. Boon: ${boon}.`;
   if (ownerKind === "mine-frontier") return `Natural wonder: ${name}. Garrison this tile to activate: ${boon}.`;
@@ -339,6 +347,7 @@ export const tileFeatureLeadLines = (
   }));
   const wonderLine = naturalWonderOverviewLine(tile, ownerKind);
   if (wonderLine) lines.push({ html: wonderLine });
+  if (tile.naturalWonder && isRedesignedRelic(tile.naturalWonder)) lines.push({ html: `<button type="button" data-relic-state="${encodeURIComponent(JSON.stringify(tile.naturalWonder))}" data-relic-garrisoned="${Boolean(tile.ownerId && tile.ownershipState === "SETTLED")}">View relic installation</button>` });
   if (tile.shardSite) {
     const n = tile.shardSite.amount;
     const shards = `${n} shard${n === 1 ? "" : "s"}`;

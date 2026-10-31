@@ -1,3 +1,4 @@
+import { handleCancelResourceSupplyCommand } from "../resource-supply-trades/cancel-resource-supply-command.js";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import {
   handleAegisLockCommand as handleAegisLockCommandImpl,
@@ -36,5 +37,6 @@ export const buildMapCommandDispatchHandlers = (mapCommandContext: () => Runtime
   handleSetAutoSettlePrefsCommand: (command: CommandEnvelope) => handleSetAutoSettlePrefsCommandImpl(mapCommandContext(), command),
   handleNameIslandCommand: (command: CommandEnvelope) => handleNameIslandCommandImpl(mapCommandContext(), command),
   handleSyncTruceCommand: (command: CommandEnvelope) => handleSyncTruceCommandImpl(mapCommandContext(), command),
+  handleCancelResourceSupplyCommand: (command: CommandEnvelope) => handleCancelResourceSupplyCommand(mapCommandContext(), command),
   handleDiplomacySettlementCommand: (command: CommandEnvelope) => handleDiplomacySettlementCommandImpl(mapCommandContext(), command)
 });

@@ -57,6 +57,12 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   // could silently zero out the very supply they exist to add.
   UMBRITE_RIG: [{ resource: "FOOD", count: 1 }],
   MINE: [{ resource: "FOOD", count: 1 }],
+  RESIN_EXTRACTOR: [{ resource: "FOOD", count: 1 }],
+  IMPLANT_FOUNDRY: [{ resource: "FOOD", count: 1 }],
+  CATALYST_REFINERY: [{ resource: "FOOD", count: 1 }],
+  CULTIVATION_ESTATE: [{ resource: "FOOD", count: 1 }],
+  RECLAMATION_WORKS: [{ resource: "FOOD", count: 1 }],
+
   INCUBATION_ENGINE: [{ resource: "FOOD", count: 1 }],
   OBSERVATORY: [{ resource: "CRYSTAL", count: 1 }],
   CENSUS_HALL: [{ resource: "FOOD", count: 1 }],
@@ -110,8 +116,9 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
 
   // Siege ladder
   SIEGE_BATTERY: [{ resource: "UMBRITE", count: 1 }],
-  SIEGE_TOWER: [{ resource: "UMBRITE", count: 2 }, { resource: "TITANIUM", count: 1 }],
-  DREAD_TOWER: [{ resource: "UMBRITE", count: 3 }, { resource: "TITANIUM", count: 2 }],
+  // Umbrite-only: the siege ladder never needs TITANIUM (that's the Fort ladder's resource).
+  SIEGE_TOWER: [{ resource: "UMBRITE", count: 2 }],
+  DREAD_TOWER: [{ resource: "UMBRITE", count: 3 }],
 
   // Monument parts + assemblies (SHARD build cost stays as a flow/stockpile
   // cost, §5.5 — only the CRYSTAL requirement below is slot-based)

@@ -3,7 +3,6 @@ import { setWorldSeed } from "@border-empires/shared";
 
 let drawForestOverlay: typeof import("./client-map-render.js").drawForestOverlay;
 let isForestTile: typeof import("../client-constants.js").isForestTile;
-let isLightGrassScatterTile: typeof import("../client-constants.js").isLightGrassScatterTile;
 
 // The exact same hash/salt/mod as both client-map-3d-forest.ts's
 // tileHash(worldX, worldZ, 11, 3) and client-map-render-forest-overlay.ts's
@@ -93,7 +92,7 @@ beforeAll(async () => {
   }
   Object.assign(globalThis, { Image: MockImage });
   ({ drawForestOverlay } = await import("./client-map-render.js"));
-  ({ isForestTile, isLightGrassScatterTile } = await import("../client-constants.js"));
+  ({ isForestTile } = await import("../client-constants.js"));
 });
 
 describe("2D forest overlay leaf/deciduous species selection", () => {
@@ -125,21 +124,21 @@ describe("2D forest overlay leaf/deciduous species selection", () => {
   });
 });
 
-describe("2D forest overlay light-grass scatter sapling", () => {
-  it("draws a leaf-shaped (arc-based) tree for a scatter tile, at a smaller scale than a real forest tile", () => {
+describe("2D forest overlay plain land", () => {
+  it("never adds decorative single trees on open land", () => {
     setWorldSeed(2024);
     let scatterTile: { x: number; y: number } | undefined;
     for (let x = 0; x < 200 && !scatterTile; x += 1) {
       for (let y = 20; y < 220 && !scatterTile; y += 1) {
-        if (isLightGrassScatterTile(x, y)) scatterTile = { x, y };
+        if (!isForestTile(x, y)) scatterTile = { x, y };
       }
     }
     expect(scatterTile).toBeDefined();
 
     const mock = createMockContext();
     drawForestOverlay(mock.ctx, scatterTile!.x, scatterTile!.y, 0, 0, 48);
-    expect(mock.fillRectCalls).toBe(1); // exactly one sapling trunk, not a full forest layout
-    expect(mock.arcCalls).toBeGreaterThan(0); // leaf shape, not the conifer triangle
+    expect(mock.fillRectCalls).toBe(0);
+    expect(mock.arcCalls).toBe(0);
   });
 });
 

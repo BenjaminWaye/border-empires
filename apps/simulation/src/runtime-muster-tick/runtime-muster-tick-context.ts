@@ -11,7 +11,7 @@ import { isTileVisibleToPlayer } from "./muster-visibility.js";
 export type MusterTickContextDeps = {
   // Shared world state: players, tiles, combat locks, the dock network and
   // the visibility coverage cache are all read from here.
-  state: Pick<RuntimeState, "players" | "tiles" | "locksByTile" | "dockLinksByDockTileKey" | "dockNetworkComponentByTileKey" | "visibilityCoverage">;
+  state: Pick<RuntimeState, "players" | "tiles" | "locksByTile" | "dockLinksByDockTileKey" | "dockLanding" | "dockNetworkComponentByTileKey" | "visibilityCoverage">;
   activeSiegeBatteriesByOwner: ReadonlyMap<string, Set<string>>;
   activeRelayBeaconsByOwner: ReadonlyMap<string, Set<string>>;
   neuralWorksTilesByOwner: ReadonlyMap<string, Set<string>>;
@@ -57,7 +57,7 @@ export const buildMusterTickContext = (deps: MusterTickContextDeps): MusterTickC
   handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => deps.handleFrontierCommand(command, actionType),
   locksByTile: deps.state.locksByTile,
   advanceCooldowns: deps.advanceCooldowns,
-  dockLinksByDockTileKey: deps.state.dockLinksByDockTileKey,
+  dockCrossingTargetsByDockTileKey: deps.state.dockLanding.landingTileKeysByOriginDockKey,
   aetherBridgeNeighborKeysForPlayer: (playerId: string) =>
     activeAetherBridgeNeighborKeysForPlayer({ activeAetherBridgesForPlayer: deps.activeAetherBridgesForPlayer }, playerId),
   isStructureDormant: (playerId: string, tileKey: string, field: "siegeBattery" | "economicStructure") =>

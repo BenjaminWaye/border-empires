@@ -1,3 +1,4 @@
+import { ResourceSupplyAgreementSchema, MAX_RESOURCE_SUPPLY_AGREEMENTS, type ResourceSupplyAgreement } from "@border-empires/shared";
 import { applyRecoveredDiplomacy } from "./event-recovery-diplomacy.js";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationSeasonState } from "@border-empires/sim-protocol";
@@ -12,6 +13,7 @@ import { applyProgressionUpdateToRecoveredPlayer } from "./event-recovery-progre
 import { cloneRecoveredPlayerState, type RecoveredPlayerState } from "./event-recovery-player-state.js";
 import type { DockRouteDefinition } from "../dock-network/dock-network.js";
 import type { PendingSettlementRecord } from "../player-runtime-summary.js";
+import { applyReachBorderChanges, decodeReachBorder, encodeReachBorder, type ReachBorderSnapshot } from "../reach-border-snapshot/reach-border-snapshot.js";
 
 type RecoveredTileState = {
   x: number;
@@ -59,8 +61,11 @@ export type RecoveredSimulationState = {
   activeLocks: RecoveredLock[];
   season?: SimulationSeasonState;
   players?: RecoveredPlayerState[];
+  resourceSupplyAgreements?: readonly ResourceSupplyAgreement[];
   pendingSettlements?: PendingSettlementRecord[];
   playerYieldCollectionEpochByPlayer?: Array<{ playerId: string; collectedAt: number }>;
+  /** Persisted reach border (reach-border-snapshot.ts). Absent on snapshots written before it was saved. */
+  reachBorder?: ReachBorderSnapshot;
 };
 
 type RecoveredSimulationAccumulator = {
@@ -69,8 +74,16 @@ type RecoveredSimulationAccumulator = {
   activeLocks: Map<string, RecoveredLock>;
   season?: SimulationSeasonState;
   players: NonNullable<RecoveredSimulationState["players"]>;
+  resourceSupplyAgreements: ResourceSupplyAgreement[];
   pendingSettlements: NonNullable<RecoveredSimulationState["pendingSettlements"]>;
   playerYieldCollectionEpochByPlayer: Map<string, number>;
+  /**
+   * Undefined when the base state carries no border (a pre-persistence
+   * snapshot): REACH_BORDER_CHANGED diffs can't be applied to an unknown
+   * base, so they're dropped and the runtime falls back to rebuilding the
+   * border from tile ownership + anchors.
+   */
+  reachBorder?: Map<string, string>;
 };
 
 type TileDelta = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"][number];
@@ -111,10 +124,12 @@ export const createRecoveredSimulationAccumulator = (
     activeLocks,
     ...(baseState.season ? { season: { ...baseState.season, ...(baseState.season.winner ? { winner: { ...baseState.season.winner } } : {}), victoryTrackers: baseState.season.victoryTrackers.map((tracker: SimulationSeasonState["victoryTrackers"][number]) => ({ ...tracker })) } } : {}),
     players: baseState.players ? baseState.players.map(cloneRecoveredPlayerState) : [],
+    resourceSupplyAgreements: [...(baseState.resourceSupplyAgreements ?? [])],
     pendingSettlements: baseState.pendingSettlements ? [...baseState.pendingSettlements] : [],
     playerYieldCollectionEpochByPlayer: new Map(
       (baseState.playerYieldCollectionEpochByPlayer ?? []).map((entry) => [entry.playerId, entry.collectedAt])
     ),
+    ...(baseState.reachBorder ? { reachBorder: decodeReachBorder(baseState.reachBorder) } : {})
   };
 };
 
@@ -223,6 +238,15 @@ export const applySimulationEventsToRecoveredAccumulator = (
   events: SimulationEvent[]
 ): void => {
   for (const event of events) {
+    if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "RESOURCE_SUPPLY_CHANGED") {
+      const payload = JSON.parse(event.payloadJson) as { action?: string; agreement?: ResourceSupplyAgreement };
+      const row = ResourceSupplyAgreementSchema.parse(payload.agreement);
+      accumulator.resourceSupplyAgreements = accumulator.resourceSupplyAgreements.filter(entry => entry.id !== row.id);
+      if (payload.action === "created") {
+        if (accumulator.resourceSupplyAgreements.length >= MAX_RESOURCE_SUPPLY_AGREEMENTS) throw new RangeError("Resource agreement recovery capacity exceeded");
+        accumulator.resourceSupplyAgreements.push(row);
+      }
+    }
     if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "SOCIAL_STATE_SYNCED") {
       applyRecoveredDiplomacy(accumulator.players, event.playerId, event.payloadJson);
       continue;
@@ -239,6 +263,11 @@ export const applySimulationEventsToRecoveredAccumulator = (
           removeRecoveredPendingSettlement(accumulator, tileKey);
         }
       }
+      continue;
+    }
+
+    if (event.eventType === "REACH_BORDER_CHANGED") {
+      if (accumulator.reachBorder) applyReachBorderChanges(accumulator.reachBorder, event.changes);
       continue;
     }
 
@@ -368,10 +397,12 @@ export const finalizeRecoveredSimulationAccumulator = (
   activeLocks: [...accumulator.activeLocks.values()].sort((left, right) => left.commandId.localeCompare(right.commandId)),
   ...("season" in accumulator && accumulator.season ? { season: accumulator.season } : {}),
   players: [...accumulator.players],
+  resourceSupplyAgreements: [...accumulator.resourceSupplyAgreements],
   pendingSettlements: [...accumulator.pendingSettlements],
   playerYieldCollectionEpochByPlayer: [...accumulator.playerYieldCollectionEpochByPlayer.entries()]
     .map(([playerId, collectedAt]) => ({ playerId, collectedAt }))
     .sort((left, right) => left.playerId.localeCompare(right.playerId)),
+  ...(accumulator.reachBorder ? { reachBorder: encodeReachBorder(accumulator.reachBorder) } : {})
 });
 
 export const recoverSimulationStateFromEvents = (
@@ -387,8 +418,11 @@ export const recoverSimulationStateFromEvents = (
       docks: seedWorld.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })),
       activeLocks: [],
       players: [],
+      resourceSupplyAgreements: [],
       pendingSettlements: [],
       playerYieldCollectionEpochByPlayer: [],
+      // A fresh seed world has no border yet; every change since is in `events`.
+      reachBorder: []
     },
     events
   );

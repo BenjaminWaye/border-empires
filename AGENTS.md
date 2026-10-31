@@ -34,7 +34,7 @@ These rules apply to every task. Task-conditional details are in `docs/agents/`;
 
 ## Changelog gate (client-visible changes)
 
-- Any user-visible gameplay, client, shared-rules, or server behavior change must add a new entry to `packages/client/src/client-changelog/client-changelog-data.ts` (`CLIENT_CHANGELOG_ENTRIES`) in the same branch, with `createdAt: Date.now()`.
+- Any user-visible gameplay, client, shared-rules, or server behavior change must add a new entry to `packages/client/src/client-changelog/client-changelog-data.ts` (`CLIENT_CHANGELOG_ENTRIES`) in the same branch, with `createdAt` set to a frozen Unix-ms value captured once from `Date.now()`.
 - Entries are unordered and timestamp-sorted at render time — append your entry anywhere (the end is easiest) instead of inserting at the top, and there's no shared `version` field to bump. This is deliberate: it avoids merge conflicts between agents landing changelog entries in parallel.
 - Do not ship, merge, or deploy a user-visible update if the changelog check fails.
 
@@ -43,7 +43,7 @@ These rules apply to every task. Task-conditional details are in `docs/agents/`;
 - `.github/workflows/ci.yml` runs lint, `check:file-lines`, build, and test on every PR and on pushes to `develop`/`main` — check its status rather than assuming CI is empty. `.github/workflows/deploy-staging.yml` and `deploy-prod.yml` deploy automatically on green pushes to `develop`/`main` respectively (see `docs/agents/deploys.md`). `.github/workflows/nightly-load-harness.yml` is separate and only triggers on `schedule`/`workflow_dispatch`. Run `pnpm ci:local` before opening a PR rather than waiting on CI to find problems.
 - For every bug fix, add or update a regression test that fails before the fix and passes after.
 - Failing regression tests are merge blockers, even if the feature seems unrelated.
-- Full regression + debugging-instrumentation patterns: `docs/agents/testing-and-debugging.md`.
+- Full regression + debugging-instrumentation patterns: `docs/agents/testing-and-debugging.md`. Sync-delay exports: `docs/agents/topics/sync-delay-diagnostics.md`.
 - AI planner / snapshot / selector rules (heavy selectors banned in snapshot builders, etc.): `docs/agents/ai-guardrails.md`.
 - State/cache/persistence discipline (bound every growable map, snapshots carry state not logs, gauge growable structures): `docs/agents/state-and-persistence-discipline.md`. Read before adding any cache/map or anything written into a snapshot.
 - Codex token budget and context-loading rules: `docs/agents/codex-token-budget.md`.
@@ -53,7 +53,7 @@ These rules apply to every task. Task-conditional details are in `docs/agents/`;
 - Keep `AGENTS.md` limited to always-on operating rules and pointers. Do not expand it into architecture or gameplay docs.
 - **Every gameplay update requires a lore consistency check.** Before changing gameplay or player-facing fiction, read [`docs/lore/README.md`](docs/lore/README.md) and the affected sections of the canonical world bible at [`docs/lore/galactic-lore.md`](docs/lore/galactic-lore.md). Update the world bible in the same branch whenever the change affects the meaning of resources, structures, capabilities, territory, progression or campaigns; do not leave accepted lore only in a chat, PR or implementation plan.
 - Follow the lore index's maintenance policy: keep numerical balance and shipped behavior in the gameplay references, label proposed fiction explicitly, and record unresolved canon questions in the world bible. If a gameplay update has no fictional impact, state "Lore reviewed; no canon change" in its PR or final summary.
-- Use `docs/README.md` as the documentation map and lifecycle policy. Read the matching operational or topic runbook before broad repo discovery: deploys → `docs/agents/deploys.md`; tests/debugging → `docs/agents/testing-and-debugging.md`; AI → `docs/agents/topics/ai-planner.md`; local gameplay checks → `docs/agents/topics/agent-gameplay-testing.md`; gameplay rules → `docs/game-mechanics.md`; structures → `docs/adding-a-structure-playbook.md`.
+- Use `docs/README.md` as the documentation map and lifecycle policy. Read the matching operational or topic runbook before broad repo discovery: deploys → `docs/agents/deploys.md`; tests/debugging → `docs/agents/testing-and-debugging.md`; AI → `docs/agents/topics/ai-planner.md`; local gameplay checks → `docs/agents/topics/agent-gameplay-testing.md`; gameplay rules → `docs/game-mechanics.md`; structures → `docs/adding-a-structure-playbook.md`; completed Great Project artwork → `docs/monument-models.md`.
 - When workflow rules, repo entrypoints, or package layout change, update `AGENTS.md`, `README.md`, and affected docs in the same branch.
 - Use per-topic runbooks/task notes for recurring work so agents do not rediscover the same files and commands every session: `docs/agents/topic-runbooks.md`.
 - Before opening a PR, read through `README.md` and check whether your diff makes any part of it stale (setup steps, scripts, package layout, stack description, etc.). Update it in the same branch if so.

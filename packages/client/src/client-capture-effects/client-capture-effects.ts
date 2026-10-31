@@ -29,7 +29,7 @@ export const renderCaptureProgress = (
     captureCancelBtn: HTMLElement;
     captureDismissBtn: HTMLElement;
     captureCloseBtn: HTMLElement;
-    captureDownloadDebugBtn: HTMLElement;
+    captureReportBugBtn: HTMLElement;
     captureBarEl: HTMLElement;
     captureTitleEl: HTMLElement;
     captureTimeEl: HTMLElement;
@@ -42,7 +42,7 @@ export const renderCaptureProgress = (
     captureGotoBtn: HTMLButtonElement;
   }
 ): void => {
-  const RESULT_WAIT_DEBUG_THRESHOLD_MS = 4000;
+  const RESULT_WAIT_REPORT_BUG_THRESHOLD_MS = 4000;
   if (state.captureAlert && state.captureAlert.until > Date.now()) {
     deps.captureCardEl.dataset.state = state.captureAlert.tone;
     deps.captureCardEl.style.display = "grid";
@@ -50,7 +50,7 @@ export const renderCaptureProgress = (
     deps.captureCancelBtn.style.display = "none";
     deps.captureDismissBtn.style.display = "none";
     deps.captureCloseBtn.style.display = "inline-flex";
-    deps.captureDownloadDebugBtn.style.display = state.captureAlert.tone === "success" ? "none" : "inline-flex";
+    deps.captureReportBugBtn.style.display = state.captureAlert.timeout ? "inline-flex" : "none";
     deps.captureBarEl.style.width = "100%";
     deps.captureTitleEl.textContent = state.captureAlert.title;
     deps.captureTimeEl.textContent = state.captureAlert.manpowerLoss ? `-${state.captureAlert.manpowerLoss} MP` : "";
@@ -84,7 +84,7 @@ export const renderCaptureProgress = (
     deps.captureCancelBtn.style.display = "none";
     deps.captureDismissBtn.style.display = "none";
     deps.captureCloseBtn.style.display = "none";
-    deps.captureDownloadDebugBtn.style.display = "none";
+    deps.captureReportBugBtn.style.display = "none";
     deps.captureBarEl.style.width = "0%";
     deps.captureTitleEl.textContent = "";
     deps.captureTimeEl.textContent = "";
@@ -101,7 +101,7 @@ export const renderCaptureProgress = (
     const remaining = Math.max(0, Math.ceil((state.capture.resolvesAt - Date.now()) / 100) / 10);
     const awaitingResult = Date.now() > state.capture.resolvesAt;
     const resolveWaitMs = Math.max(0, Date.now() - state.capture.resolvesAt);
-    const showDebugDownload = awaitingResult && resolveWaitMs >= RESULT_WAIT_DEBUG_THRESHOLD_MS;
+    const showReportBug = awaitingResult && resolveWaitMs >= RESULT_WAIT_REPORT_BUG_THRESHOLD_MS;
     // Don't reveal the result banner until the local battle overlay FX
     // (walking-arrow/skirmish + clash/rout) has actually finished playing at
     // this target tile — resolvesAt is the server's own combat-lock clock and
@@ -172,7 +172,7 @@ export const renderCaptureProgress = (
       deps.captureCancelBtn.style.display = "none";
       deps.captureDismissBtn.style.display = "none";
       deps.captureCloseBtn.style.display = "none";
-      deps.captureDownloadDebugBtn.style.display = "none";
+      deps.captureReportBugBtn.style.display = "none";
       deps.captureBarEl.style.width = "0%";
       deps.captureTitleEl.textContent = "";
       deps.captureTimeEl.textContent = "";
@@ -184,7 +184,7 @@ export const renderCaptureProgress = (
     deps.captureCancelBtn.style.display = "inline-flex";
     deps.captureDismissBtn.style.display = "inline-flex";
     deps.captureCloseBtn.style.display = "none";
-    deps.captureDownloadDebugBtn.style.display = showDebugDownload ? "inline-flex" : "none";
+    deps.captureReportBugBtn.style.display = showReportBug ? "inline-flex" : "none";
     deps.captureBarEl.style.width = awaitingResult ? "100%" : `${Math.floor(pct * 100)}%`;
     deps.captureTitleEl.textContent = awaitingResult
       ? "Resolving action..."
@@ -205,7 +205,7 @@ export const renderCaptureProgress = (
     deps.captureCancelBtn.style.display = "none";
     deps.captureDismissBtn.style.display = "none";
     deps.captureCloseBtn.style.display = "none";
-    deps.captureDownloadDebugBtn.style.display = "none";
+    deps.captureReportBugBtn.style.display = "none";
     deps.captureBarEl.style.width = "0%";
     deps.captureTitleEl.textContent = "";
     deps.captureTimeEl.textContent = "";

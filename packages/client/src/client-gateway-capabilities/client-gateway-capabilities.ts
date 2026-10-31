@@ -1,6 +1,7 @@
 import type { ClientState } from "../client-state/client-state.js";
 
 const REWRITE_MESSAGE_LABELS: Record<string, string> = {
+  RESOURCE_TRADE_REQUEST: "Resource trade offers", RESOURCE_TRADE_ACCEPT: "Resource trade acceptance", RESOURCE_TRADE_REJECT: "Resource offer dismissal", RESOURCE_TRADE_END: "End resource supply", RESOURCE_TRADE_SYNC: "Resource trade state",
   ALLIANCE_ACCEPT: "Alliance acceptance",
   ALLIANCE_BREAK: "Alliance changes",
   ALLIANCE_REQUEST: "Alliance requests",

@@ -47,7 +47,9 @@ export const startGalaxyCycleScheduler = (deps: GalaxyCycleSchedulerDeps): { sto
       const holdingsByOwner = await resolveGalaxyHoldingsByOwner({
         listSeasonArchives: deps.listSeasonArchives,
         ...(deps.getCurrentSeasonSummary ? { getCurrentSeasonSummary: deps.getCurrentSeasonSummary } : {}),
-        authBindingStore: deps.authBindingStore
+        authBindingStore: deps.authBindingStore,
+        // AI Dukes earn and pay Influence like anyone else (§29.1).
+        includeAiDukes: true
       });
       const existingBalances = await deps.galaxyEconomyStore.getAllBalances();
       const balanceByAuthUid = new Map(existingBalances.map((b) => [b.authUid, b]));

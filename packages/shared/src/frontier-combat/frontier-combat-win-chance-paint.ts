@@ -40,6 +40,11 @@ export type WinChanceAttackerContext = {
   // shape findShieldForDefender uses server-side. Absent/0 means no known
   // shield, i.e. today's F0/F1/F2 behavior unchanged.
   knownShieldAmount?: number;
+  // The server's ATTACK_PREVIEW winChance for this target, when the caller
+  // has one: it carries both sides' tech/factory/war-industry modifiers the
+  // client can't resolve itself, so it replaces buildFrontierCombatPreview's
+  // estimate as the base the commit/shield scaling applies to.
+  baseWinChance?: number;
 };
 
 // Workstream F3: the client-knowable subset of a defender's muster flag --
@@ -95,7 +100,7 @@ export const winChanceForTile = (
   target: FrontierCombatPreviewTile,
   attacker: WinChanceAttackerContext = {}
 ): WinChanceResult => {
-  const preview = buildFrontierCombatPreview(target, attacker.modifiers);
+  const baseWinChance = attacker.baseWinChance ?? buildFrontierCombatPreview(target, attacker.modifiers).winChance;
   const base = attacker.baseMusterCost ?? 1;
   const committed = attacker.committedManpower ?? base;
   const oddsMult = commitOddsMultiplier(committed, base);
@@ -103,7 +108,7 @@ export const winChanceForTile = (
   // resolveAttackCombat's own math (frontier-combat.ts's shieldDefenseMultiplier
   // doc comment) -- never multiplied in.
   const shieldMult = shieldDefenseMultiplier(attacker.knownShieldAmount ?? 0, base);
-  const winChance = Math.max(0, Math.min(1, applyOddsScale(preview.winChance, oddsMult / shieldMult)));
+  const winChance = Math.max(0, Math.min(1, applyOddsScale(baseWinChance, oddsMult / shieldMult)));
   return { winChance, color: winChanceColor(winChance) };
 };
 

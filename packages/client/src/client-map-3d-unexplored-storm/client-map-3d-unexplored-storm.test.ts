@@ -16,6 +16,28 @@ describe("unexplored storm layer (3D)", () => {
     expect(UNEXPLORED_STORM_Y).toBeLessThan(0.5);
   });
 
+  it("is built from small triangles, so mobile GPUs interpolate its position without banding", () => {
+    // As one two-triangle quad the brass edge broke into offset segments
+    // along screen rows on phones (interpolation precision over ~3600 tiles).
+    const storm = createUnexploredStormLayer(new Scene(), () => 0);
+    const geometry = storm.mesh.geometry;
+    geometry.computeBoundingBox();
+    const box = geometry.boundingBox!;
+    expect(box.max.x - box.min.x).toBeGreaterThanOrEqual(3600);
+    const position = geometry.getAttribute("position");
+    const index = geometry.getIndex()!;
+    let longestEdge = 0;
+    for (let t = 0; t < index.count; t += 3) {
+      for (let e = 0; e < 3; e += 1) {
+        const a = index.getX(t + e);
+        const b = index.getX(t + ((e + 1) % 3));
+        longestEdge = Math.max(longestEdge, Math.hypot(position.getX(a) - position.getX(b), position.getZ(a) - position.getZ(b)));
+      }
+    }
+    expect(longestEdge).toBeLessThanOrEqual(64);
+    storm.dispose();
+  });
+
   it("masks out explored tiles over the window plus a one-tile ring", () => {
     const scene = new Scene();
     const storm = createUnexploredStormLayer(scene, () => 5000);

@@ -69,6 +69,7 @@ message PlayerCombatSummaryResponse {
   int32 titanium_weapons_factory_count = 5;
   int32 umbrite_weapons_factory_count = 6;
   string afc_combat_facts_json = 7;
+  string relic_combat_facts_json = 8;
 }
 
 message ActivityDashboardRequest {}

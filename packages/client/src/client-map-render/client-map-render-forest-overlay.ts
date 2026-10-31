@@ -4,7 +4,7 @@
 // fallback renderer's forest overlay -- see client-map-3d-forest.ts for the
 // true-3D renderer's equivalent species split (pine/spruce/leaf); both must
 // stay in sync per AGENTS.md's renderer-parity rule.
-import { isForestTile, isLightGrassScatterTile, isTropicalForestLatitude } from "../client-constants.js";
+import { isForestTile, isTropicalForestLatitude } from "../client-constants.js";
 import { drawBlackwoodSwirl, type ProspectClueDraw } from "../client-prospect-signature-overlay.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render.js";
@@ -31,22 +31,15 @@ export const drawForestOverlay = (
 ): void => {
   if (isTrue3DRendererActive() || size < 12) return;
   const isForest = forestAt(wx, wy);
-  // Purely cosmetic sparse leaf sapling on light grass -- see
-  // isLightGrassScatterTile's own doc comment (client-constants.ts) and
-  // client-map-3d-forest.ts's addSparseLeafInstance (the true-3D equivalent).
-  const isScatter = !isForest && isLightGrassScatterTile(wx, wy);
-  if (!isForest && !isScatter) return;
+  if (!isForest) return; // Single trees now draw through the resin resource overlay.
   const canopyYOffset = useTerrainReliefRenderer ? Math.floor(terrainReliefPx(wx, wy, "LAND", size) * 0.45) : 0;
   const pulse = 0.78 + 0.22 * (0.5 + 0.5 * Math.sin(Date.now() / 900 + wx * 0.17 + wy * 0.11));
   // Tropical-latitude forest tiles always render as palm, overriding the
   // ordinary pine/spruce/leaf species roll (worldgen-latitude.ts).
   const tropical = isForest && isTropicalForestLatitude(wy);
-  const isLeaf = !tropical && (isScatter || isLeafSpeciesAt(wx, wy));
-  const scatterScale = 0.62;
-  const treeCount = isScatter ? 1 : size >= 44 ? 4 : size >= 24 ? 3 : 2;
-  const anchors: Array<[number, number]> = isScatter
-    ? [[0.5, 0.55]]
-    : treeCount === 4
+  const isLeaf = !tropical && isLeafSpeciesAt(wx, wy);
+  const treeCount = size >= 44 ? 4 : size >= 24 ? 3 : 2;
+  const anchors: Array<[number, number]> = treeCount === 4
       ? [[0.22, 0.6], [0.42, 0.44], [0.62, 0.58], [0.8, 0.42]]
       : treeCount === 3
         ? [[0.24, 0.62], [0.5, 0.42], [0.76, 0.58]]
@@ -62,8 +55,7 @@ export const drawForestOverlay = (
       drawPalmTreeAnchor(ctx, tx, ty, size, i, pulse);
       continue;
     }
-    const sizeMult = isScatter ? scatterScale : 1;
-    drawConiferOrLeafAnchor(ctx, tx, ty, size, i, pulse, isLeaf, sizeMult);
+    drawConiferOrLeafAnchor(ctx, tx, ty, size, i, pulse, isLeaf, 1);
   }
   ctx.restore();
   // Blackwood canopy (an Umbrite clue): a purple swirl rises out of the forest

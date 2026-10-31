@@ -16,8 +16,9 @@ export const rivalDetail = (rival: PersonalActivityRival): string => {
 /** Who's winning the exchange of ground, or undefined when no ground changed hands. */
 export const rivalVerdict = (rival: PersonalActivityRival): "ahead" | "behind" | "even" | undefined => {
   if (rival.tilesTaken === 0 && rival.tilesLost === 0) return undefined;
-  if (rival.tilesTaken === rival.tilesLost) return "even";
-  return rival.tilesTaken > rival.tilesLost ? "ahead" : "behind";
+  const net = rival.netTiles ?? rival.tilesTaken - rival.tilesLost;
+  if (net === 0) return "even";
+  return net > 0 ? "ahead" : "behind";
 };
 
 const VERDICT_LABEL = { ahead: "You're ahead", behind: "They're ahead", even: "Even" } as const;

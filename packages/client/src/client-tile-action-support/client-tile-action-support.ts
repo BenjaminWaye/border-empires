@@ -1,4 +1,6 @@
-import { requiredTechIdsForAbility } from "@border-empires/game-domain";
+import { structureTypeForTileAction, requiredTechForTileAction } from "./client-build-action-dispatch.js";
+export { structureTypeForTileAction, requiredTechForTileAction } from "./client-build-action-dispatch.js";
+import { relicCastRadius } from "@border-empires/shared";
 import { isAetherTowerSuppressed, WORLD_HEIGHT, WORLD_WIDTH, isTownSupportPlacementStructure, structureShowsOnTile, structureSortRank, type BuildableStructureType, type SlotResource } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import { hostileAetherProtectionAt, type ProtectingAetherTower } from "../client-aether-tower-protection/client-aether-tower-protection.js";
@@ -72,7 +74,9 @@ export const knownTerrainAt =
 // build_relay_beacon_frontier's parity on a neutral tile), and Buildings
 // too, since it's still a real building and that's where a player used to
 // browsing the Buildings tab will look for it.
-const isFrontierRelayBeacon = (action: TileActionDef): boolean =>
+const isReadyHydrogarden = (action: TileActionDef): boolean => action.id === "build_hydrogarden" && !action.disabled;
+
+export const isFrontierRelayBeacon = (action: TileActionDef): boolean =>
   action.id === "build_relay_beacon" && Boolean(action.detail?.includes("garrisons this tile first"));
 
 // Hydrogarden is a build_* action, so it's normally Buildings-tab-only. But
@@ -86,120 +90,7 @@ const isFrontierRelayBeacon = (action: TileActionDef): boolean =>
 // it drops back to Buildings-only so Actions doesn't fill up with a dead
 // button. Both tabs still get it, same as the frontier relay beacon above,
 // since a player used to browsing Buildings will look for it there too.
-const isReadyHydrogarden = (action: TileActionDef): boolean => action.id === "build_hydrogarden" && !action.disabled;
 
-export const structureTypeForTileAction = (actionId: TileActionDef["id"]): BuildableStructureType | undefined => {
-  switch (actionId) {
-    case "build_fortification":
-      return "FORT";
-    case "build_observatory":
-      return "OBSERVATORY";
-    case "build_siege_camp":
-      return "SIEGE_BATTERY";
-    case "build_hydrogarden":
-      return "HYDROGARDEN";
-    case "build_hydroworks":
-      return "HYDROWORKS";
-    case "build_umbrite_rig":
-      return "UMBRITE_RIG";
-    case "build_mine":
-      return "MINE";
-    case "build_manufactory":
-      return "MANUFACTORY";
-    case "build_incubation_engine":
-      return "INCUBATION_ENGINE";
-    case "build_census_hall":
-      return "CENSUS_HALL";
-    case "build_clearing_house":
-      return "CLEARING_HOUSE";
-    case "build_sky_dock":
-      return "SKY_DOCK";
-    case "build_ambaric_transformer":
-      return "AMBARIC_TRANSFORMER";
-    case "build_palisade":
-      return "PALISADE";
-    case "build_relay_beacon":
-      return "RELAY_BEACON";
-    case "build_umbrite_works":
-      return "UMBRITE_WORKS";
-    case "build_titanium_works":
-      return "TITANIUM_WORKS";
-    case "build_aether_condenser":
-      return "AETHER_CONDENSER";
-    case "build_trade_nexus":
-      return "TRADE_NEXUS";
-    case "build_ore_refinery":
-      return "ORE_REFINERY";
-    case "build_ancillary_depot":
-      return "ANCILLARY_DEPOT";
-    case "build_harbor_exchange":
-      return "HARBOR_EXCHANGE";
-    case "build_neural_works":
-      return "NEURAL_WORKS";
-    case "build_imperial_exchange_part_1":
-      return "IMPERIAL_EXCHANGE_PART_1";
-    case "build_imperial_exchange_part_2":
-      return "IMPERIAL_EXCHANGE_PART_2";
-    case "build_imperial_exchange_part_3":
-      return "IMPERIAL_EXCHANGE_PART_3";
-    case "build_sovereign_siege_engine_part_1":
-      return "SOVEREIGN_SIEGE_ENGINE_PART_1";
-    case "build_sovereign_siege_engine_part_2":
-      return "SOVEREIGN_SIEGE_ENGINE_PART_2";
-    case "build_sovereign_siege_engine_part_3":
-      return "SOVEREIGN_SIEGE_ENGINE_PART_3";
-    case "build_aegis_dome_part_1":
-      return "AEGIS_DOME_PART_1";
-    case "build_aegis_dome_part_2":
-      return "AEGIS_DOME_PART_2";
-    case "build_aegis_dome_part_3":
-      return "AEGIS_DOME_PART_3";
-    case "build_astral_dock_part_1":
-      return "ASTRAL_DOCK_PART_1";
-    case "build_astral_dock_part_2":
-      return "ASTRAL_DOCK_PART_2";
-    case "build_astral_dock_part_3":
-      return "ASTRAL_DOCK_PART_3";
-    case "build_census_directorate_part_1":
-      return "CENSUS_DIRECTORATE_PART_1";
-    case "build_census_directorate_part_2":
-      return "CENSUS_DIRECTORATE_PART_2";
-    case "build_census_directorate_part_3":
-      return "CENSUS_DIRECTORATE_PART_3";
-    case "build_titanium_levy_part_1":
-      return "TITANIUM_LEVY_PART_1";
-    case "build_titanium_levy_part_2":
-      return "TITANIUM_LEVY_PART_2";
-    case "build_titanium_levy_part_3":
-      return "TITANIUM_LEVY_PART_3";
-    case "build_imperial_exchange":
-      return "IMPERIAL_EXCHANGE";
-    case "build_sovereign_siege_engine":
-      return "SOVEREIGN_SIEGE_ENGINE";
-    case "build_aegis_dome":
-      return "AEGIS_DOME";
-    case "build_astral_dock":
-      return "ASTRAL_DOCK";
-    case "build_census_directorate":
-      return "CENSUS_DIRECTORATE";
-    case "build_titanium_levy":
-      return "TITANIUM_LEVY";
-    case "build_ministry_hall":
-      return "MINISTRY_HALL";
-    case "build_resonance_grid":
-      return "RESONANCE_GRID";
-    case "build_titanium_weapons_factory":
-      return "TITANIUM_WEAPONS_FACTORY";
-    case "build_umbrite_weapons_factory":
-      return "UMBRITE_WEAPONS_FACTORY";
-    case "build_reserve_lattice":
-      return "RESERVE_LATTICE";
-    case "build_ancillary_factory":
-      return "ANCILLARY_FACTORY";
-    default:
-      return undefined;
-  }
-};
 
 // Defensive net for the exact bug fixed in #1253 (build_titanium_weapons_factory
 // / build_umbrite_weapons_factory) and its build_quartermasters_office /
@@ -222,114 +113,6 @@ export const shouldOptimisticallyBuildOnSelectedTile = (actionId: TileActionDef[
   return !(tile.town && isTownSupportPlacementStructure(structureType));
 };
 
-export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string | undefined => {
-  switch (actionId) {
-    case "build_ore_refinery":
-      return "industrial-extraction";
-    case "build_fortification":
-    case "build_titanium_weapons_factory":
-      return "masonry";
-    case "build_observatory":
-      return "crystal-lattices";
-    case "build_sky_dock":
-      return "aeronautics";
-    case "build_ambaric_transformer":
-      return "plastics";
-    case "build_resonance_grid":
-      return "radar";
-    case "build_ministry_hall":
-      return "civil-service";
-    case "build_ancillary_depot":
-      return "organized-supply";
-    case "build_siege_camp":
-    case "build_umbrite_rig":
-    case "build_umbrite_weapons_factory":
-      return "leatherworking";
-    case "build_hydrogarden":
-      return "agriculture";
-    case "build_hydroworks":
-      return "irrigation";
-    case "build_mine":
-      return "mining";
-    case "build_manufactory":
-      return "trade";
-    case "build_incubation_engine":
-      return "pottery";
-    case "build_clearing_house":
-      return "coinage";
-    case "build_trade_nexus":
-      return "ledger-keeping";
-    case "build_umbrite_works":
-      return "workshops";
-    case "build_titanium_works":
-      return "alchemy";
-    case "build_aether_condenser":
-      return "crystal-lattices";
-    case "build_harbor_exchange":
-      return "harborcraft";
-    case "build_lockworks_port":
-      return "port-infrastructure";
-    case "build_neural_works":
-      return "global-trade-networks";
-    case "build_imperial_exchange_part_1":
-    case "build_imperial_exchange_part_2":
-    case "build_imperial_exchange_part_3":
-    case "build_imperial_exchange":
-      return "urban-mintworks";
-    case "build_sovereign_siege_engine_part_1":
-    case "build_sovereign_siege_engine_part_2":
-    case "build_sovereign_siege_engine_part_3":
-    case "build_sovereign_siege_engine":
-      return "world-engine";
-    case "build_aegis_dome_part_1":
-    case "build_aegis_dome_part_2":
-    case "build_aegis_dome_part_3":
-    case "build_aegis_dome":
-    case "aegis_lock":
-      return "aegis-dome";
-    case "build_astral_dock_part_1":
-    case "build_astral_dock_part_2":
-    case "build_astral_dock_part_3":
-    case "build_astral_dock":
-    case "astral_dock_launch":
-      return "astral-dock";
-    case "build_census_directorate_part_1":
-    case "build_census_directorate_part_2":
-    case "build_census_directorate_part_3":
-    case "build_census_directorate":
-      return "demographic-registry";
-    case "build_titanium_levy_part_1":
-    case "build_titanium_levy_part_2":
-    case "build_titanium_levy_part_3":
-    case "build_titanium_levy":
-      return "grand-levy-doctrine";
-    case "reveal_empire":
-      return requiredTechIdsForAbility("reveal_empire")[0];
-    case "reveal_empire_stats":
-      return requiredTechIdsForAbility("reveal_empire_stats")[0];
-    case "siphon_tile":
-      return requiredTechIdsForAbility("siphon")[0];
-    case "survey_sweep":
-      return requiredTechIdsForAbility("survey_sweep")[0];
-    case "aether_lance":
-      return requiredTechIdsForAbility("aether_lance")[0];
-    case "aether_emp":
-      return "cryptography";
-    case "aether_wall":
-      return requiredTechIdsForAbility("aether_wall")[0];
-    case "aether_bridge":
-      return requiredTechIdsForAbility("aether_bridge")[0];
-    case "create_mountain":
-    case "remove_mountain":
-      return requiredTechIdsForAbility("create_mountain")[0];
-    case "build_reserve_lattice":
-      return "conveyor-networks";
-    case "build_ancillary_factory":
-      return "remade-concordat";
-    default:
-      return undefined;
-  }
-};
 
 export const hideTechLockedTileAction = (
   action: TileActionDef,
@@ -382,7 +165,7 @@ export const buildShowsOnTile = (
 ): boolean =>
   structureShowsOnTile(structureType, {
     ownershipState: buildSurfaceOwnershipState(tile),
-    resource: tile.resource as "FARM" | "TITANIUM" | "GEMS" | "FISH" | "UMBRITE" | undefined,
+    resource: tile.resource as import("@border-empires/shared").ResourceType | undefined,
     dockId: tile.dockId,
     townPopulationTier: tile.town?.populationTier,
     supportedTownCount,
@@ -492,7 +275,7 @@ export const ownedActiveObservatoryWithinRange = (
     if (candidate.fogged || candidate.ownerId !== state.me || candidate.terrain !== "LAND") continue;
     if (candidate.observatory?.ownerId !== state.me || candidate.observatory.status !== "active") continue;
     if (isAetherTowerSuppressed(candidate.observatory, Date.now())) continue;
-    if (chebyshevDistanceClient(candidate.x, candidate.y, tile.x, tile.y) <= range) return true;
+    if (chebyshevDistanceClient(candidate.x, candidate.y, tile.x, tile.y) <= relicCastRadius(candidate.naturalWonder, range)) return true;
   }
   return false;
 };

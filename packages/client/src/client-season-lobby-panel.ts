@@ -39,7 +39,7 @@ export const renderSeasonLobbyPanelHtml = (
     ? `<ul class="season-lobby-roster">${seasonLobbyRoster.map((entry) => rosterRowHtml(entry, dukePlayers)).join("")}</ul>`
     : `<p class="season-lobby-roster-empty">You're the first one here.</p>`;
   const confirmedHtml = joined
-    ? `<div class="season-lobby-confirmed">🟢 You're in. Your empire will be placed when the world begins.</div>`
+    ? `<div class="season-lobby-confirmed">You're in. Your empire will be placed when the world begins.</div>`
     : "";
   const countHtml = showRoster
     ? `

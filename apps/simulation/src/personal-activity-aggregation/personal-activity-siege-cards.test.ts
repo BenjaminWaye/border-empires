@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import type { CombatManpowerLoss } from "../combat-manpower-log/combat-manpower-log.js";
+import type { TerritoryFlip } from "../territory-flip-log/territory-flip-log.js";
 import { aggregatePersonalActivity } from "./personal-activity-aggregation.js";
 import { SIEGE_MAX_GAP_MS, siegeCardsForDefender } from "./personal-activity-siege-cards.js";
+import { testFlip } from "./personal-activity-test-fixtures.js";
 
 const assault = (overrides: Partial<CombatManpowerLoss> = {}): CombatManpowerLoss => ({
   attackerId: "kael",
@@ -116,5 +118,71 @@ describe("aggregatePersonalActivity sieges", () => {
       assault({ x: 1, y: 1, at: 5_000 })
     ]);
     expect(timeline.cards.map((card) => card.kind)).toEqual(["COMBAT", "SIEGE"]);
+  });
+});
+
+// Regression: a Palisade that was taken without one of the siege's own logged
+// assaults winning (a Breakthrough bonus capture, a barbarian take, or a win
+// whose record is missing) still read "Your Palisade is holding".
+describe("siegeCardsForDefender closes on a tile loss no assault made", () => {
+  const lostTo = (toOwner: string, at: number): TerritoryFlip =>
+    testFlip({ x: 4, y: 7, tileId: "4,7", fromOwner: "me", toOwner, at, features: [{ kind: "STRUCTURE", structureType: "PALISADE" }] });
+
+  it("marks the siege fallen to whoever took the tile", () => {
+    const fall = lostTo("kara", 3_000);
+    const { cards, consumedFlips } = siegeCardsForDefender("me", [
+      assault({ attackerId: "kara", at: 1_000, manpowerLoss: 150 }),
+      assault({ attackerId: "kara", at: 2_000, manpowerLoss: 150 })
+    ], new Set(), undefined, [fall]);
+    expect(cards[0]).toMatchObject({ outcome: "FELL", capturedBy: "kara", assaultsRepelled: 2, manpowerSpentAgainst: 300, occurredAt: 3_000 });
+    expect(consumedFlips.has(fall)).toBe(true);
+  });
+
+  it("stays holding when the tile was lost after the next assault or past the siege gap", () => {
+    const repelled = [assault({ at: 1_000 }), assault({ at: 2_000 })];
+    expect(siegeCardsForDefender("me", repelled, new Set(), undefined, [lostTo("kara", 2_000 + SIEGE_MAX_GAP_MS + 1)]).cards[0]?.outcome).toBe("HOLDING");
+    const withLaterAssault = [...repelled, assault({ at: 2_000 + SIEGE_MAX_GAP_MS + 10 })];
+    expect(siegeCardsForDefender("me", withLaterAssault, new Set(), undefined, [lostTo("kara", 2_000 + SIEGE_MAX_GAP_MS + 20)]).cards[0]?.outcome).toBe("HOLDING");
+  });
+
+  it("ends the siege at a loss between assaults, even if the tile was retaken before the next one", () => {
+    const fall = lostTo("kara", 2_500);
+    const { cards } = siegeCardsForDefender("me", [
+      assault({ attackerId: "kara", at: 1_000 }),
+      assault({ attackerId: "kara", at: 2_000 }),
+      assault({ attackerId: "kara", at: 3_000 })
+    ], new Set(), undefined, [fall]);
+    expect(cards).toHaveLength(1);
+    expect(cards[0]).toMatchObject({ outcome: "FELL", capturedBy: "kara", assaultsRepelled: 2, occurredAt: 2_500 });
+  });
+
+  it("does not close on a loss to no one, and leaves a lone attack's loss on its own row", () => {
+    const toNeutral = testFlip({ x: 4, y: 7, tileId: "4,7", fromOwner: "me", toOwner: undefined, at: 3_000 });
+    expect(siegeCardsForDefender("me", [assault({ at: 1_000 }), assault({ at: 2_000 })], new Set(), undefined, [toNeutral]).cards[0]?.outcome).toBe("HOLDING");
+    const loss = lostTo("kara", 2_000);
+    const lone = siegeCardsForDefender("me", [assault({ at: 1_000 })], new Set(), undefined, [loss]);
+    expect(lone.cards).toHaveLength(0);
+    expect(lone.consumedFlips.has(loss)).toBe(false);
+  });
+
+  it("ends the siege when the tile is lost as the launch tile of my own failed counter-attack", () => {
+    const seized = testFlip({ x: 4, y: 7, tileId: "4,7", fromOwner: "me", toOwner: "kara", at: 3_500 });
+    const timeline = aggregatePersonalActivity("me", { from: 0, to: 60 * 60_000 }, [seized], [
+      assault({ attackerId: "kara", at: 1_000 }),
+      assault({ attackerId: "kara", at: 2_000 }),
+      assault({ attackerId: "me", defenderId: "kara", x: 5, y: 7, originX: 4, originY: 7, at: 3_000 })
+    ]);
+    expect(timeline.cards.find((card) => card.kind === "SIEGE")).toMatchObject({ outcome: "FELL", capturedBy: "kara" });
+    expect(timeline.cards.find((card) => card.kind === "COMBAT")).toMatchObject({ attackerId: "me", originSeized: true });
+  });
+
+  it("shows the fall once: no separate tile-lost row, but the headline still counts the tile", () => {
+    const timeline = aggregatePersonalActivity("me", { from: 0, to: 60 * 60_000 }, [lostTo("kara", 3_000)], [
+      assault({ attackerId: "kara", at: 1_000 }),
+      assault({ attackerId: "kara", at: 2_000 })
+    ]);
+    expect(timeline.cards.map((card) => card.kind)).toEqual(["SIEGE"]);
+    expect(timeline.cards[0]).toMatchObject({ outcome: "FELL", capturedBy: "kara", capturedFeatures: [{ kind: "STRUCTURE", structureType: "PALISADE", count: 1 }] });
+    expect(timeline.summary.tilesLost).toBe(1);
   });
 });

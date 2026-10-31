@@ -292,7 +292,8 @@ export const buildTownSummary = (
   // §5.4: dormant economicStructure tile keys ("x,y") for this player — a
   // dormant Manufactory/Bank/Trade Nexus/Clearing House/Incubation Engine stops granting
   // its bonus.
-  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
+  dormantEconomicStructureKeys: ReadonlySet<string> = new Set(),
+  networkCreditPerMinute = 0
 ): Tile["town"] | undefined => {
   const partial = parseTown(tile);
   const townType = partial?.type ?? tile.townType;
@@ -366,7 +367,7 @@ export const buildTownSummary = (
               firstThreeTownMult *
               incomeMultiplier *
               PASSIVE_INCOME_MULT
-            ) + MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN * manufactoryCount + converterSupport.total;
+            ) + MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN * manufactoryCount + converterSupport.total + networkCreditPerMinute;
   const populationView = resolvedTownPopulation(townPartial, tile.x, tile.y, populationTier);
   if (!populationView && !hasCompleteAuthoritativeTown) return undefined;
   const population = populationView?.population ?? townPartial.population!;
@@ -436,7 +437,7 @@ export const buildTownSummary = (
     baseGoldPerMinute: Number(baseGoldPerMinute.toFixed(4)),
     supportCurrent: support.supportCurrent,
     supportMax: support.supportMax,
-    goldPerMinute: Number(goldPerMinute.toFixed(4)),
+    goldPerMinute: Number(goldPerMinute.toFixed(6)),
     isFed,
     population,
     maxPopulation,

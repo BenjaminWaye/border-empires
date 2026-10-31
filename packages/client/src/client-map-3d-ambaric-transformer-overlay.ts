@@ -1,3 +1,4 @@
+import { createDistrictOverlay } from "./client-town-district/district-overlay.js";
 // 3D Aether Tower overlay — the empire's aether transmission spires. Each
 // instance is a tall brass-and-iron tower with a glowing cyan core, floating
 // brass rings and upward-streaming motes. Towers placed near each other light
@@ -134,6 +135,8 @@ export const createAmbaricTransformerOverlay = (
   // theatrically implausible and the palette keeps matrices small.
   const CAPACITY = Math.min(64, Math.max(1, Math.floor(maxTiles)));
 
+  const architecture = createDistrictOverlay(scene, CAPACITY, buildingEnvironmentTexture);
+
   // ─── Materials ──────────────────────────────────────────────────────
   const materials: Material[] = [];
   const metal = (color: string, roughness: number, metalness: number): MeshStandardMaterial => {
@@ -159,12 +162,12 @@ export const createAmbaricTransformerOverlay = (
   const brassBright = metal(AMBARIC_TRANSFORMER_COLORS.brassBright, 0.35, 0.92);
   const brassDark = metal(AMBARIC_TRANSFORMER_COLORS.brassDark, 0.5, 0.8);
   const copper = metal(AMBARIC_TRANSFORMER_COLORS.copper, 0.45, 0.8);
-  const coreMat = emissiveMetal(AMBARIC_TRANSFORMER_COLORS.ironDark, AMBARIC_TRANSFORMER_COLORS.aetherCore, 1.0);
+  const coreMat = emissiveMetal(AMBARIC_TRANSFORMER_COLORS.ironDark, AMBARIC_TRANSFORMER_COLORS.aetherCore, 0.55);
   const beamMat = emissiveMetal("#0b2430", AMBARIC_TRANSFORMER_COLORS.aetherMid, 0.9);
   const glyphMat = emissiveMetal(AMBARIC_TRANSFORMER_COLORS.ironDark, AMBARIC_TRANSFORMER_COLORS.aetherDeep, 0.7);
   const glowBright = glow(AMBARIC_TRANSFORMER_COLORS.aetherBright, 0.95);
-  const glowCore = glow(AMBARIC_TRANSFORMER_COLORS.aetherCore, 0.6);
-  const glowSoft = glow(AMBARIC_TRANSFORMER_COLORS.aetherCore, 0.4);
+  const glowCore = glow(AMBARIC_TRANSFORMER_COLORS.aetherCore, 0.32);
+  const glowSoft = glow(AMBARIC_TRANSFORMER_COLORS.aetherCore, 0.12);
   const glowFaint = glow(AMBARIC_TRANSFORMER_COLORS.aetherMid, 0.3);
 
   // ─── Geometries ─────────────────────────────────────────────────────
@@ -189,7 +192,7 @@ export const createAmbaricTransformerOverlay = (
   const cogGeo = cylinder(0.08, 0.08, 0.02, 16);
   const cogToothGeo = geo(new BoxGeometry(0.014, 0.05, 0.01));
   const coreHaloGeo = sphere(0.19, 12, 8);
-  const coreGeo = sphere(0.17, 12, 8);
+  const coreGeo = cylinder(0.13, 0.13, 0.36, 24);
   const coreInnerGeo = sphere(0.105, 10, 7);
   const nexusHaloGeo = sphere(0.225, 12, 8);
   const emitterGeo = cylinder(0.035, 0.045, 1, 4);
@@ -244,7 +247,9 @@ export const createAmbaricTransformerOverlay = (
   // ─── InstancedMesh registry ─────────────────────────────────────────
   type RawSlot = { mesh: InstancedMesh; count: number };
   const slots = new Map<string, RawSlot>();
+  const superseded = new Set(["plinth", "plinthTrim", "rivet", "shaftShoulder", "shaft", "band", "conduit", "strut", "spire", "spireBand", "spireTip", "cog", "cogTooth"]);
   for (const spec of CAPS) {
+    if (superseded.has(spec.key)) continue;
     const { key, mult } = spec;
     const mesh = new InstancedMesh(geoOf[key]!, matOf[key]!, CAPACITY * mult);
     mesh.frustumCulled = false;
@@ -253,6 +258,7 @@ export const createAmbaricTransformerOverlay = (
     slots.set(key, { mesh, count: 0 });
   }
   for (const key of DIMMABLE_PIECE_KEYS) {
+    if (superseded.has(key)) continue;
     const material = dimmedMaterialFor(matOf[key]!);
     materials.push(material);
     const mult = CAPS.find((spec) => spec.key === key)!.mult;
@@ -330,6 +336,7 @@ export const createAmbaricTransformerOverlay = (
 
   // ─── Public API ─────────────────────────────────────────────────────
   const clear = (): void => {
+    architecture.clear();
     resetSlots();
     instances.length = 0;
     towerAnims.length = 0;
@@ -341,10 +348,12 @@ export const createAmbaricTransformerOverlay = (
     if (instances.length >= CAPACITY) return;
     const hash = ((worldTileX * 92_821) ^ (worldTileY * 68_917)) >>> 0;
     const phase = ((hash % 1000) / 1000) * Math.PI * 2;
+    architecture.add({ kind: "AETHER_HOUSING", x: sceneX, y: surfaceY, z: sceneZ, foundation: true, operational: !frozen && !dimmed });
     instances.push({ x: sceneX, y: surfaceY, z: sceneZ, phase, frozen: frozen || dimmed, dimmed });
   };
 
   const commit = (): void => {
+    architecture.commit();
     resetSlots();
     towerAnims.length = 0;
     linkAnims.length = 0;
@@ -446,6 +455,7 @@ export const createAmbaricTransformerOverlay = (
   };
 
   const update = (nowMs: number): void => {
+    architecture.update(nowMs);
     if (towerAnims.length === 0) return;
     for (const t of towerAnims) rewriteTowerAnimated(rewriteCtx, t, nowMs);
     for (const l of linkAnims) rewriteLinkAnimated(rewriteCtx, l.link, l.anim, nowMs);
@@ -454,6 +464,7 @@ export const createAmbaricTransformerOverlay = (
   };
 
   const dispose = (): void => {
+    architecture.dispose();
     for (const slot of slots.values()) scene.remove(slot.mesh);
     for (const g of geometries) g.dispose();
     for (const m of materials) m.dispose();

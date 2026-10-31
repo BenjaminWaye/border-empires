@@ -435,6 +435,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     ...(input.previousVictoryPath ? { previousVictoryPath: input.previousVictoryPath } : {}),
     ...(input.previousWarPostureLatch ? { previousWarPostureLatch: input.previousWarPostureLatch } : {}),
     ...(input.pathPopulationCounts ? { pathPopulationCounts: input.pathPopulationCounts } : {}),
+    ...(input.worldVictoryProgress ? { worldVictoryProgress: input.worldVictoryProgress } : {}),
     ...(typeof input.activeMusterCount === "number" ? { activeMusterCount: input.activeMusterCount } : {}),
     ...(input.musterTileKeys ? { musterTileKeys: input.musterTileKeys } : {})
   });
@@ -449,6 +450,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     victoryPathProgress: strategic.primaryVictoryPathProgress
   });
   if (needVector) diagnosticBase.needVector = needVector;
+  diagnosticBase.victoryPath = { path: strategic.primaryVictoryPath, progress: strategic.primaryVictoryPathProgress, source: input.worldVictoryProgress ? "world" : "heuristic" };
   const foodSlotBlocked = !input.slotSupplyByResource && [...(input.blockedActionKeys?.values() ?? [])].some((code) => code === "INSUFFICIENT_SLOT");
   const foodSlotRelief = foodSlotReliefFromPlannerInput(
     input.ownedTiles,

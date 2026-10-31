@@ -23,6 +23,7 @@ const SimulationCommandTypeSchema = z.union([
   z.literal("SYNC_TRUCE"),
   // Gateway-issued: moves the coin/Shards a truce or alliance deal promised (runtime-diplomacy-settlement-command.ts).
   z.literal("SETTLE_DIPLOMACY_TERMS"),
+  z.literal("CANCEL_RESOURCE_SUPPLY"),
   z.literal("WATCH_MUSTER"),
   z.literal("UNWATCH_MUSTER"),
   // Gateway-forwarded, never persisted: releases stranded frontier tiles in the chunk a player is viewing.
@@ -213,3 +214,9 @@ export * from "./reconnect-passthrough-fields/reconnect-passthrough-fields.js";
 export * from "./tile-overlay-fields/tile-overlay-fields.js";
 
 export * from "./afc-combat-facts.js";
+
+export * from "./relic-combat-facts.js";
+
+export * from "./diplomacy-settlement-payload.js";
+
+export * from "./command-sequence.js";
