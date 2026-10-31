@@ -3,6 +3,7 @@ import type { SimulationRuntime } from "./runtime/runtime.js";
 export type ProtoPlayerCombatSummaryRequest = { player_id: string; has_target?: boolean; target_x?: number; target_y?: number };
 export type ProtoPlayerCombatSummaryResponse = {
   afc_combat_facts_json?: string;
+  relic_combat_facts_json?: string;
   ok: boolean;
   found: boolean;
   tech_ids?: string[];
@@ -37,6 +38,7 @@ export const handleGetPlayerCombatSummary = (
     ok: true,
     found: true,
     afc_combat_facts_json: JSON.stringify(summary.afcCombatFacts),
+    relic_combat_facts_json: JSON.stringify(summary.relicCombatFacts),
     tech_ids: summary.techIds,
     domain_ids: summary.domainIds,
     titanium_weapons_factory_count: summary.weaponsFactoryCounts.titanium,

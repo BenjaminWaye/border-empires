@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CylinderGeometry, IcosahedronGeometry, InstancedMesh, OctahedronGeometry, Scene, TorusGeometry } from "three";
+import { CylinderGeometry, IcosahedronGeometry, InstancedMesh, Matrix4, MeshStandardMaterial, OctahedronGeometry, Scene, TorusGeometry, Vector3 } from "three";
 import {
   AFC_BAY_INNER_RADIUS,
   AFC_MODULE_DOCK_HEIGHT,
@@ -51,6 +51,66 @@ describe("fabrication complex overlay", () => {
     expect(socketRing!.count).toBe(2 * AFC_SOCKET_COUNT);
 
     overlay.dispose();
+  });
+
+  it("connects the upper arms to their shoulder and elbow joints", () => {
+    const scene = new Scene();
+    const overlay = createFabricationComplexOverlay(scene, 1);
+    overlay.addInstance(10, 25, 2, 3, 7);
+    overlay.commit();
+    const arm = instancedMeshes(scene).find((mesh) => mesh.geometry instanceof CylinderGeometry && mesh.geometry.parameters.radiusTop === 0.042)!;
+    const matrix = new Matrix4();
+    for (let i = 0; i < 4; i++) {
+      arm.getMatrixAt(i, matrix);
+      const shoulder = new Vector3(0, -0.5, 0).applyMatrix4(matrix);
+      const elbow = new Vector3(0, 0.5, 0).applyMatrix4(matrix);
+      const angle = Math.PI / 8 + i * Math.PI / 2;
+      expect(shoulder.x).toBeCloseTo(10 + Math.cos(angle) * 0.33, 5);
+      expect(shoulder.y).toBeCloseTo(2.78, 5);
+      expect(shoulder.z).toBeCloseTo(25 + Math.sin(angle) * 0.33, 5);
+      expect(elbow.x).toBeCloseTo(10 + Math.cos(angle) * 0.64, 5);
+      expect(elbow.y).toBeCloseTo(2.88, 5);
+      expect(elbow.z).toBeCloseTo(25 + Math.sin(angle) * 0.64, 5);
+    }
+    overlay.dispose();
+  });
+
+  it("grounds all four stabilizer claws at the terrain-relative foot height", () => {
+    const scene = new Scene();
+    const overlay = createFabricationComplexOverlay(scene, 1);
+    overlay.addInstance(10, 25, 2, 3, 7);
+    overlay.commit();
+    const claw = instancedMeshes(scene).find((mesh) => mesh.geometry instanceof CylinderGeometry && mesh.geometry.parameters.radiusTop === 0.028)!;
+    const matrix = new Matrix4();
+    for (let i = 0; i < 4; i++) {
+      claw.getMatrixAt(i, matrix);
+      const wrist = new Vector3(0, -0.5, 0).applyMatrix4(matrix);
+      const foot = new Vector3(0, 0.5, 0).applyMatrix4(matrix);
+      const angle = Math.PI / 8 + i * Math.PI / 2;
+      expect(wrist.y).toBeCloseTo(2.18, 5);
+      expect(foot.x).toBeCloseTo(10 + Math.cos(angle) * 1.28, 5);
+      expect(foot.y).toBeCloseTo(2.055, 5);
+      expect(foot.z).toBeCloseTo(25 + Math.sin(angle) * 1.28, 5);
+    }
+    overlay.dispose();
+  });
+
+  it("releases the shared metal surface and removes every mesh on disposal", () => {
+    const scene = new Scene();
+    const overlay = createFabricationComplexOverlay(scene, 1);
+    const meshes = instancedMeshes(scene);
+    let disposedMeshes = 0;
+    for (const mesh of meshes) mesh.addEventListener("dispose", () => { disposedMeshes += 1; });
+    const metal = meshes.map((mesh) => mesh.material).find(
+      (material): material is MeshStandardMaterial => material instanceof MeshStandardMaterial && material.bumpMap !== null
+    );
+    expect(metal?.bumpMap).toBeDefined();
+    let disposed = false;
+    metal!.bumpMap!.addEventListener("dispose", () => { disposed = true; });
+    overlay.dispose();
+    expect(disposed).toBe(true);
+    expect(disposedMeshes).toBe(meshes.length);
+    expect(instancedMeshes(scene)).toHaveLength(0);
   });
 
   it("clears instance counts without removing meshes from the scene", () => {

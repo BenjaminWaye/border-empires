@@ -85,7 +85,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     shardOverlayForTile,
     drawShardFallback,
     drawTownOverlay,
-    drawTownMarker,
     drawDockMarker,
     structureAccentColor,
     structureOverlayImages,
@@ -273,7 +272,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     finalizePredictedCombat: (result) => actionFlow.applyCombatOutcomeMessage(result, { predicted: true })
   });
 
-  const { downloadDebugBundle, downloadRespawnReportForNotice } = createBootstrapDownloadHelpers({ state, wsUrl });
+  const { downloadRespawnReportForNotice } = createBootstrapDownloadHelpers({ state, wsUrl });
   const renderShardAlert = (): void =>
     renderShardAlertFromModule(state, {
       shardAlertOverlayEl: dom.shardAlertOverlayEl,
@@ -389,7 +388,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     captureCancelBtn,
     captureDismissBtn: dom.captureDismissBtn,
     captureCloseBtn,
-    captureDownloadDebugBtn: dom.captureDownloadDebugBtn,
+    captureReportBugBtn: dom.captureReportBugBtn,
     captureTimeEl,
     placementCancelBtn: dom.placementCancelBtn,
     placementConfirmBtn: dom.placementConfirmBtn,
@@ -409,7 +408,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     hideShardAlert: deps.hideShardAlert,
     renderShardAlert, acknowledgeVictoryHoldAlert, renderVictoryHoldAlert,
     renderCaptureProgress,
-    downloadDebugBundle,
     setActivePanel,
     syncAuthPanelState
   });
@@ -506,14 +504,10 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     resourceColor,
     shardOverlayForTile,
     drawShardFallback,
-    // In 3D mode, draw only the town corner badge (gold coin) — the
-    // building itself is rendered by the 3D town overlay. In 2D mode,
-    // draw the full SVG building + corner badge as before.
+    // In 3D mode the 3D town overlay draws the building and the shared
+    // town nameplate marks it; in 2D mode draw the full SVG building.
     drawTownOverlay: (tile, px, py, size) => {
-      if (threeRendererHost.current()) {
-        if (tile.town) drawTownMarker(px, py, size);
-        return;
-      }
+      if (threeRendererHost.current()) return;
       drawTownOverlay(tile, px, py, size);
     },
     drawDockMarker,
@@ -550,7 +544,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     clearOptimisticTileState,
     dropQueuedTargetKeyIfAbsent: actionFlow.dropQueuedTargetKeyIfAbsent,
     pushFeed,
-    showCaptureAlert,
     processActionQueue: actionFlow.processActionQueue,
     shouldPreserveOptimisticExpandByKey,
     requestViewRefresh,
@@ -592,5 +585,5 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
 
   // Debug: force the season-end overlay visible from the browser console.
   // Usage: __debugSeasonEndOverlay()
-  installPostBootstrapHooks({ state, renderHud, sendGameMessage: actionFlow.sendGameMessage, wrapX, wrapY, requestViewRefresh });
+  installPostBootstrapHooks({ state, renderHud, sendGameMessage: actionFlow.sendGameMessage, actionFlow, wrapX, wrapY, requestViewRefresh, ownerColor: effectiveOverlayColor });
 };

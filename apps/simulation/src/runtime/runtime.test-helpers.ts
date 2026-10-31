@@ -45,3 +45,24 @@ export const collectEvents = (runtime: SimulationRuntime): SimulationEvent[] => 
 };
 
 export { afcModuleFixtureTile } from "../afc-test-fixture/afc-test-fixture.js";
+
+/**
+ * What a listener sees when cmd-1's capturing ATTACK is submitted and then
+ * resubmitted (same command id, or same player seq): the original run, then
+ * the replay of its recorded events. The capture respawns player-2, whose new
+ * reach is persisted as a REACH_BORDER_CHANGED diff; the replay deliberately
+ * omits it, since border diffs are never replay-cached.
+ */
+export const DUPLICATE_ATTACK_REPLAY_EVENTS: readonly string[] = [
+  "COMMAND_ACCEPTED:cmd-1",
+  "PLAYER_MESSAGE:cmd-1",
+  "COMBAT_RESOLVED:cmd-1",
+  "PLAYER_MESSAGE:cmd-1",
+  "REACH_BORDER_CHANGED:cmd-1:respawn:player-2",
+  "TILE_DELTA_BATCH:cmd-1",
+  "COMMAND_ACCEPTED:cmd-1",
+  "PLAYER_MESSAGE:cmd-1",
+  "COMBAT_RESOLVED:cmd-1",
+  "PLAYER_MESSAGE:cmd-1",
+  "TILE_DELTA_BATCH:cmd-1"
+];

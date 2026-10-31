@@ -1,24 +1,26 @@
+import { syntheticOverlayTileFor3DPopulation } from "./client-map-3d-population/client-map-3d-synthetic-overlay-tile.js";
+import { tileHasTownIdentity } from "./client-town-identity.js";
 import { drawMapSelection2D } from "./client-garrison-many/client-map-selection-2d.js";
-import { MIN_ZOOM, isForestTile } from "./client-constants.js"; import { startTileMenuDecayTicker } from "./client-tile-menu-decay-ticker/client-tile-menu-decay-ticker.js"; import { startMusterStatusTicker } from "./client-muster-status-ticker/client-muster-status-ticker.js"; import { startMusterMenuRepaintTicker } from "./client-muster-menu-repaint-ticker/client-muster-menu-repaint-ticker.js";
+import { MIN_ZOOM } from "./client-constants.js"; import { startTileMenuDecayTicker } from "./client-tile-menu-decay-ticker/client-tile-menu-decay-ticker.js"; import { startMusterStatusTicker } from "./client-muster-status-ticker/client-muster-status-ticker.js"; import { startMusterMenuRepaintTicker } from "./client-muster-menu-repaint-ticker/client-muster-menu-repaint-ticker.js";
 import { startLoadingTimerTicker } from "./client-loading-timer-ticker/client-loading-timer-ticker.js";
 import { startTruceRequestExpiryTicker } from "./client-truce-request-expiry/client-truce-request-expiry.js";
 import { updateMusicForGameState } from "./client-audio/client-audio.js";
 import { computeWarMusicSignals } from "./client-war-music-signal/client-war-music-signal.js";
 import { drawableIncomingAttack } from "./client-siege-tracking/client-siege-tracking.js";
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
-import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "./client-defensibility-tile.js";
+import { drawTileIntelOverlays2D } from "./client-map-2d-tile-intel/client-map-2d-tile-intel.js";
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import { drawResourceOverlay2D } from "./client-resource-overlay-2d/client-resource-overlay-2d.js";
+import { drawDockEndpoint2D } from "./client-dock-endpoint-2d/client-dock-endpoint-2d.js";
 import { drawLoopMinFrameGapMs } from "./client-runtime-loop-frame-gap.js";
-import { drawLiveOwnershipTint2D } from "./client-map-render/client-map-render-live-ownership-tint.js";
+import { drawVisibleTerrain2D } from "./client-map-render/client-map-render-visible-terrain.js";
 import { drawSelectedDockSeaRoute2D } from "./client-dock-route-draw.js";
-import { isStructureHandledBy3D } from "./client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
+import { drawEconomicStructureOverlay2D } from "./client-resource-overlay-2d/client-economic-overlay-2d.js";
 import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor/client-fps-monitor.js";
 import { paintFpsAndZoomReadouts } from "./client-fps-monitor/client-fps-readouts.js";
 import { tickJoinExperienceForFrame } from "./client-onboarding-ui-gate/client-join-experience-frame.js";
 import { recordDrawFrame, recordFramePhaseSample } from "./client-performance-metrics/client-performance-metrics.js";
 import { RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, shouldShowRendererPrompt } from "./client-renderer-prompt/client-renderer-prompt.js";
-import { resourceFor3DPopulation } from "./client-map-3d-population/client-map-3d-population.js";
 import { effectiveFogDisabled } from "./client-map-reveal/client-map-reveal.js";
 import { drawTileFortificationOverlays2D } from "./client-fortification-overlays/client-fortification-overlay-2d-draw.js";
 import { renderBuildingPlacementPreview2D } from "./client-placement-preview-2d/client-placement-preview-2d.js";
@@ -27,18 +29,18 @@ import { renderSelectedStructurePreview2D } from "./client-selected-structure-pr
 import type { initClientDom } from "./client-dom.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network/client-road-network.js";
 import { drawQueuedTileBadges } from "./client-queue-badges/client-queued-tile-badges.js";
-import { createAfcMapOverlays } from "./client-afc-upgrades/client-afc-map-overlays.js";
+import { createMapScreenOverlays } from "./client-map-screen-overlays/client-map-screen-overlays.js";
 import { createMapNameLabels } from "./client-map-name-labels/client-map-name-labels.js";
 import { drawCrystalTargetingLine2D } from "./client-crystal-targeting-2d-line.js";
 import { drawTileOwnershipAndBreachBorder } from "./client-tile-borders/client-tile-borders.js";
 import { resolveMyReachCached } from "./client-reach-authoritative/client-reach-authoritative.js";
 import { drawReachBoundaryLine } from "./client-reach-overlay/client-reach-overlay.js";
 import { drawReachTileTreatments2D } from "./client-reach-incursion/client-reach-incursion-2d.js";
-import { createPersistentAlertsFrame } from "./client-persistent-alerts/client-persistent-alerts-frame.js"; import { drawOnboardingChecklistHighlights } from "./client-onboarding-checklist/client-onboarding-checklist-highlight.js";
+import { createPersistentAlertsFrame } from "./client-persistent-alerts/client-persistent-alerts-frame.js"; import { showCaptureTimeoutAlert } from "./client-alerts/client-alerts.js"; import { drawOnboardingChecklistHighlights } from "./client-onboarding-checklist/client-onboarding-checklist-highlight.js";
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { drawTileFeatureOverlays2D } from "./client-map-2d-tile-feature-overlays.js";
 import { drawTownSupportPlot2D } from "./client-map-2d-town-support-tile-overlay.js";
-import { townSupportPlotMapFor2D } from "./client-town-support-plot-lookup.js";
+import { createDistrictCanvas } from "./client-town-district/district-canvas.js";
 import { fireDueMusterTransits } from "./client-muster-transit/client-muster-transit.js";
 import { drawMusterOverlays2D } from "./client-muster-supply-lines-2d.js";
 import { createConstructionCountdownOverlay2D } from "./client-construction-countdown/client-construction-countdown-overlay-2d.js";
@@ -48,13 +50,14 @@ import type { ClientState } from "./client-state/client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileMenuView, TileVisibilityState, TileTimedProgress } from "./client-types.js";
 import { createVisibleTileDetailRequester } from "./client-visible-tile-detail/client-visible-tile-detail.js";
 import { sweepExpiredFrontierRecovery } from "./client-frontier-recovery/client-frontier-recovery.js";
-import { WORLD_HEIGHT, WORLD_WIDTH, buildAetherWallSegments, landBiomeAt, terrainAt } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, buildAetherWallSegments, terrainAt } from "@border-empires/shared";
 import { devQueueBadgeIndex } from "./client-dev-queue-badge-index/client-dev-queue-badge-index.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
 import { clampedTileHalfExtents, resolveTileBudget } from "./client-map-3d-tile-budget/client-map-3d-tile-budget.js";
 import { drawTileGround2D } from "./client-map-render-2d-tile-ground/client-map-render-2d-tile-ground.js";
 import { drawShardRainFx2D } from "./client-shard-rain-fx-2d/client-shard-rain-fx-2d.js";
-import { drawFrontierSupplyForState2D } from "./client-frontier-supply/client-frontier-supply-2d.js";
+import { drawLandingGroundAndSupply2D } from "./client-dock-landing-ground/client-dock-landing-ground-2d.js";
+import { dockEndpointKeySet } from "./client-harbour-slipways/client-harbour-slipways.js";
 import { drawAetherTowerSprite2D } from "./client-aether-tower-sprite-2d/client-aether-tower-sprite-2d.js";
 import { drawSiphonOverlay2D } from "./client-siphon-overlay-2d/client-siphon-overlay-2d.js"; import { drawArrowGesture2D, drawShieldAreaTile2D, drawWinChanceLabel2D, winChancePaintColorForTile2D } from "./client-map-render-2d-combat-overlays.js"; import { collectKnownShieldFlags, tileShieldCoverage } from "./client-known-shield-flags.js";
 
@@ -165,7 +168,6 @@ type StartClientRuntimeLoopDeps = {
   clearOptimisticTileState: (tileKey: string, revert?: boolean) => void;
   dropQueuedTargetKeyIfAbsent: (targetKey: string) => void;
   pushFeed: (msg: string, type?: FeedType, severity?: FeedSeverity) => void;
-  showCaptureAlert: (title: string, detail: string, tone?: "success" | "error" | "warn", manpowerLoss?: number) => void;
   processActionQueue: () => boolean;
   shouldPreserveOptimisticExpandByKey: (tileKey: string) => boolean;
   requestViewRefresh: (radius?: number, force?: boolean) => void;
@@ -181,10 +183,11 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   let roadNetwork = new Map<string, RoadDirections>();
   const lastRenderedTileStateByKey = new Map<string, string>();
   let roadNetworkBuiltAt = 0;
-  const afcMapOverlays = createAfcMapOverlays(deps.canvas, state, () => {
+  const mapScreenOverlays = createMapScreenOverlays(deps.canvas, state, () => {
     state.activePanel = "domains"; state.mobilePanel = "domains"; state.domainDetailOpen = false; state.techDetailOpen = false; deps.renderHud();
   });
   const drawPersistentAlertsFrame = createPersistentAlertsFrame(state);
+  const districtCanvas = createDistrictCanvas({ state, ctx: deps.ctx, visibilityAt: deps.tileVisibilityStateAt, terrainAt, worldToScreen: deps.worldToScreen });
   // Player names (zoomed out) / island names (zoomed in), 2D map only: true-3D paints them onto the ground instead (client-map-3d-name-decal).
   const mapNameLabels = createMapNameLabels({ state, ctx: deps.ctx, isExploredAt: (x, y) => deps.tileVisibilityStateAt(x, y, state.tiles.get(deps.keyFor(x, y))) !== "unexplored", wrapX: deps.wrapX, wrapY: deps.wrapY });
   const drawConstructionCountdownOverlay = createConstructionCountdownOverlay2D(deps);
@@ -196,7 +199,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   });
 
   const draw = (): void => {
-    if (isSeasonLobbyFullscreenActive(state)) { afcMapOverlays.render([], { size: 1, project: () => ({ sx: 0, sy: 0 }) }); requestAnimationFrame(draw); return; }
+    if (isSeasonLobbyFullscreenActive(state)) { mapScreenOverlays.render([], { size: 1, project: () => ({ sx: 0, sy: 0 }) }); requestAnimationFrame(draw); return; }
     const nowMs = performance.now();
     recordFpsFrame(nowMs);
     const minFrameGap = drawLoopMinFrameGapMs(isTrue3DRendererActive(), deps.isMobile());
@@ -237,17 +240,23 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
     const size = state.zoom;
     const { halfW, halfH } = clampedTileHalfExtents(Math.floor(deps.canvas.width / size / 2), Math.floor(deps.canvas.height / size / 2), resolveTileBudget(MIN_ZOOM));
-    const dockEndpointKeys = new Set<string>();
-    for (const pair of state.dockPairs) {
-      dockEndpointKeys.add(deps.keyFor(pair.ax, pair.ay));
-      dockEndpointKeys.add(deps.keyFor(pair.bx, pair.by));
-    }
+    const dockEndpointKeys = dockEndpointKeySet(state.dockPairs, deps.keyFor);
     // Reach overlay: resolveMyReachCached recomputes only when tiles or the
     // server reach actually changed (same cache the 3D renderer uses).
     const myReach = isTrue3DRendererActive() ? state.myReach : resolveMyReachCached(state);
+    const tileIntel2D = { state, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, terrainAt }; // weak-defensibility, client-map-2d-tile-intel.ts
     const reachTileDeps2D = { me: state.me, tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, ownerColor: deps.effectiveOverlayColor }; // hoisted: drawReachTileTreatments2D runs per visible tile per frame
     const aetherTowerSpriteDeps2D = { ctx: deps.ctx, sprite: deps.structureOverlayImages.OBSERVATORY, structureAccentColor: deps.structureAccentColor };
-    const tileFeatureDeps2D = { ctx: deps.ctx, structureAccentColor: deps.structureAccentColor, effectiveOverlayColor: deps.effectiveOverlayColor, afcJoinDrop: state.afcJoinDrop, afcModuleDeliveryLandedAt: state.afcModuleDeliveryLandedAt }; // hoisted: drawTileFeatureOverlays2D runs per visible tile per frame
+    // Buildings on fogged tiles, drawn as last seen and standing still (client-remembered-structures-2d).
+    const rememberedStructureDeps2D = {
+      drawTownOverlay: deps.drawTownOverlay,
+      fortificationOverlayImageFor: deps.fortificationOverlayImageFor,
+      fortificationDeps: { tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY },
+      aetherTowerSprite: aetherTowerSpriteDeps2D,
+      afcJoinDrop: state.afcJoinDrop,
+      resourceInstallations: deps
+    };
+    const tileFeatureDeps2D = { relicMapHints: state.relicMapHints, ctx: deps.ctx, structureAccentColor: deps.structureAccentColor, effectiveOverlayColor: deps.effectiveOverlayColor, afcJoinDrop: state.afcJoinDrop, afcModuleDeliveryLandedAt: state.afcModuleDeliveryLandedAt, remembered: rememberedStructureDeps2D }; // hoisted: drawTileFeatureOverlays2D runs per visible tile per frame
     const crystalTargetingActive = state.crystalTargeting.active;
     const crystalTone = crystalTargetingActive ? deps.crystalTargetingTone(state.crystalTargeting.ability) : "amber";
     const debugWindow = typeof window !== "undefined" ? (window as Window & { __be3dCanvasOverlayDebug?: unknown }) : undefined;
@@ -264,12 +273,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       queueIndex.set(deps.keyFor(q.x, q.y), i + 1);
     }
     // 2D support-plot ring; shared eligibility logic in client-town-support-plot-lookup.ts
-    const townSupportPlots = isTrue3DRendererActive()
-      ? new Map<string, boolean>()
-      : townSupportPlotMapFor2D(
-          state.selected ? state.tiles.get(deps.keyFor(state.selected.x, state.selected.y)) : undefined,
-          { tiles: state.tiles, wrapX: deps.wrapX, wrapY: deps.wrapY, keyFor: deps.keyFor, terrainAt, me: state.me }
-        );
+    const townSupportPlots = districtCanvas.plots(isTrue3DRendererActive());
     if (size >= 14 && (roadNetworkBuiltAt === 0 || nowMs - roadNetworkBuiltAt > 450)) {
       roadNetwork = buildRoadNetwork({
         tiles: state.tiles,
@@ -281,22 +285,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
     const overlayTiles: VisibleRenderTile[] = []; if (!isTrue3DRendererActive() && state.winChancePaint && performance.now() > state.winChancePaint.expiresAt && !state.pendingArrowGestureConfirm) state.winChancePaint = undefined; const knownShieldFlags2D = !isTrue3DRendererActive() ? collectKnownShieldFlags(state.tiles.values()) : []; // F4: 2D counterparts of F0's expiry sweep + F3's per-frame known-flag scan (client-map-3d.ts)
     const aetherProtection2D = !isTrue3DRendererActive() && isAetherProtectionFieldShown(state, deps.keyFor) ? aetherProtectionField(state, Date.now()) : undefined; // Aether Tower protection field, 2D parity of client-map-3d-aether-protection-overlay.ts
-    const syntheticOverlayTileAt = (wx: number, wy: number, tile: Tile | undefined): Tile | undefined => {
-      if (tile) return undefined;
-      if (!isTrue3DRendererActive() || !revealWholeMapInTrue3DMode) return undefined;
-      const terrain = terrainAt(wx, wy);
-      if (terrain !== "LAND") return undefined;
-      const biome = landBiomeAt(wx, wy);
-      const forestTile = isForestTile(wx, wy);
-      const resource = resourceFor3DPopulation(wx, wy, terrain, undefined, true, biome, forestTile);
-      if (!resource) return undefined;
-      return {
-        x: wx,
-        y: wy,
-        terrain,
-        resource
-      };
-    };
+    const syntheticOverlayTileAt = (wx: number, wy: number, tile: Tile | undefined): Tile | undefined => syntheticOverlayTileFor3DPopulation(wx, wy, tile, isTrue3DRendererActive() && revealWholeMapInTrue3DMode);
     const drawAetherWallEdge = (
       baseX: number,
       baseY: number,
@@ -328,32 +317,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       deps.drawAetherWallSegment(deps.ctx, fromX, fromY, toX, toY, options);
     };
     const renderOverlayTile = ({ wx, wy, wk, px, py, vis, t, settlementProgress }: VisibleRenderTile): void => {
-      const isDockEndpoint = dockEndpointKeys.has(wk);
-      const dockVisible = (!t && effectiveFogDisabled(state)) || vis === "visible";
-      // Corner anchor badge for every visible dock tile — drawn even in 3D mode so the icon-only summary remains visible when zoomed out (parallels drawResourceCornerMarker for resource tiles).
-      if (dockVisible && isDockEndpoint) {
-        deps.drawDockMarker(px, py, size);
-      }
-      // The 3D dock overlay supersedes the SVG dock icon (and its fallback placeholder) when the true-3D renderer is mounted.
-      if (dockVisible && isDockEndpoint && !isTrue3DRendererActive()) {
-        const dockOverlay = deps.dockOverlayVariants[deps.overlayVariantIndexAt(wx, wy, deps.dockOverlayVariants.length)];
-        if (dockOverlay?.complete && dockOverlay.naturalWidth) deps.drawCenteredOverlay(dockOverlay, px, py, size, 1.14);
-        else {
-          deps.ctx.fillStyle = "rgba(12, 22, 38, 0.42)";
-          deps.ctx.fillRect(px + 1, py + 1, size - 3, size - 3);
-          deps.ctx.strokeStyle = "rgba(115, 225, 255, 0.98)";
-          deps.ctx.lineWidth = 2;
-          deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
-          deps.ctx.strokeStyle = "rgba(214, 247, 255, 0.95)";
-          deps.ctx.beginPath();
-          deps.ctx.moveTo(px + size / 2, py + 3);
-          deps.ctx.lineTo(px + size / 2, py + size - 3);
-          deps.ctx.moveTo(px + 3, py + size / 2);
-          deps.ctx.lineTo(px + size - 3, py + size / 2);
-          deps.ctx.stroke();
-          deps.ctx.lineWidth = 1;
-        }
-      }
+      // A remembered (fogged) dock stays on the map.
+      if (dockEndpointKeys.has(wk) && ((!t && effectiveFogDisabled(state)) || vis === "visible" || vis === "fogged")) drawDockEndpoint2D(deps, wx, wy, px, py, size);
 
       const overlayTile = t ?? syntheticOverlayTileAt(wx, wy, t);
       const overlayVisible = vis === "visible" || Boolean(overlayTile && isTrue3DRendererActive() && revealWholeMapInTrue3DMode);
@@ -404,7 +369,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
       }
 
-      if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
+      if (overlayTile && overlayVisible && tileHasTownIdentity(overlayTile) && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
 
       drawTileFeatureOverlays2D(tileFeatureDeps2D, t, wk, vis, px, py, size, nowMs);
       if (vis === "visible" && !isTrue3DRendererActive() && townSupportPlots.has(wk)) drawTownSupportPlot2D(deps.ctx, px, py, size, townSupportPlots.get(wk)!); if (!isTrue3DRendererActive() && vis === "visible") { const shieldCoverage2D = tileShieldCoverage(wx, wy, knownShieldFlags2D); if (shieldCoverage2D) drawShieldAreaTile2D(deps.ctx, deps.effectiveOverlayColor(shieldCoverage2D.ownerId), px, py, size); const winChanceLabel2D = winChancePaintColorForTile2D(state.winChancePaint, wx, wy); if (winChanceLabel2D) drawWinChanceLabel2D(deps.ctx, winChanceLabel2D, px, py, size); } // F4: 2D win-chance paint (F0) + shield-area (F3) parity
@@ -435,56 +400,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             { throttleKey: `${wx},${wy}`, minIntervalMs: 2000 }
           );
         }
-        const markerSize = Math.max(3, Math.floor(size * 0.2));
-        const active = t.economicStructure.status === "active";
-        const hasBuiltResourceOverlay = Boolean(deps.builtResourceOverlayForTile(t));
-        const overlay = deps.structureOverlayImages[t.economicStructure.type];
-        // Structures handled by the 3D structure overlay — skip the 2D
-        // image / fallback so the canvas stays clean over them.
-        // isStructureHandledBy3D() is the authoritative check, covering
-        // both the generic instanced-mesh set and structures (like the
-        // Umbrite rig/factory and TRADE_NEXUS) rendered via a dedicated
-        // branch in client-map-3d.ts.
-        const handled3DStructure =
-          isTrue3DRendererActive() &&
-          isStructureHandledBy3D(t.economicStructure.type);
-        // A Relay Beacon is drawn by the fortification overlay pass; any other
-        // economic structure still gets drawn when a fort shares its tile.
-        if (t.economicStructure.type === "RELAY_BEACON" || handled3DStructure) {
-        } else if (overlay && overlay.complete && overlay.naturalWidth) {
-          deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
-        } else if (t.economicStructure.type === "HYDROGARDEN" && !hasBuiltResourceOverlay) {
-          deps.ctx.fillStyle = deps.structureAccentColor(
-            t.ownerId ?? "",
-            active ? "rgba(192, 229, 117, 0.95)" : "rgba(148, 176, 104, 0.72)"
-          );
-          deps.ctx.fillRect(px + 2, py + size - markerSize - 2, markerSize + 1, markerSize);
-        } else if (t.economicStructure.type === "UMBRITE_RIG" && !hasBuiltResourceOverlay) {
-          deps.ctx.fillStyle = deps.structureAccentColor(
-            t.ownerId ?? "",
-            active ? "rgba(147, 92, 201, 0.95)" : "rgba(114, 71, 156, 0.74)"
-          );
-          deps.ctx.beginPath();
-          deps.ctx.moveTo(px + size / 2, py + 3);
-          deps.ctx.lineTo(px + size - 4, py + markerSize + 4);
-          deps.ctx.lineTo(px + 4, py + markerSize + 4);
-          deps.ctx.closePath();
-          deps.ctx.fill();
-        } else if (t.economicStructure.type === "MINE" && !hasBuiltResourceOverlay) {
-          deps.ctx.fillStyle = deps.structureAccentColor(
-            t.ownerId ?? "",
-            active ? "rgba(188, 197, 214, 0.96)" : "rgba(120, 130, 148, 0.74)"
-          );
-          deps.ctx.fillRect(px + 2, py + 2, markerSize + 1, markerSize + 1);
-        } else {
-          deps.ctx.strokeStyle = deps.structureAccentColor(
-            t.ownerId ?? "",
-            active ? "rgba(255, 212, 111, 0.96)" : "rgba(191, 162, 102, 0.72)"
-          );
-          deps.ctx.lineWidth = 2;
-          deps.ctx.strokeRect(px + 2, py + 2, markerSize + 2, markerSize + 2);
-          deps.ctx.lineWidth = 1;
-        }
+        drawEconomicStructureOverlay2D(deps, t, px, py, size, true);
       } else if (verboseTileDebugEnabled() && t && vis === "visible" && tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
         debugTileLog(
           "render-missing-structure",
@@ -588,49 +504,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           });
         }
       }
-      if (state.showWeakDefensibility && vis === "visible" && isOwnedSettledLandTile(t, state.me)) {
-        const exposedSides = exposedSidesForTile(t, {
-          tiles: state.tiles,
-          me: state.me,
-          keyFor: deps.keyFor,
-          wrapX: deps.wrapX,
-          wrapY: deps.wrapY,
-          terrainAt
-        });
-        const severity = weakDefensibilitySeverity(exposedSides.length);
-        if (severity) {
-          const critical = severity === "critical";
-          deps.ctx.fillStyle = critical ? "rgba(255, 84, 84, 0.18)" : "rgba(255, 173, 92, 0.12)";
-          deps.ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
-          deps.ctx.strokeStyle = critical ? "rgba(255, 84, 84, 0.92)" : "rgba(255, 173, 92, 0.88)";
-          deps.ctx.lineWidth = critical ? 4 : 3;
-          deps.ctx.beginPath();
-          if (exposedSides.includes("north")) {
-            deps.ctx.moveTo(px + 1, py + 2);
-            deps.ctx.lineTo(px + size - 1, py + 2);
-          }
-          if (exposedSides.includes("east")) {
-            deps.ctx.moveTo(px + size - 2, py + 1);
-            deps.ctx.lineTo(px + size - 2, py + size - 1);
-          }
-          if (exposedSides.includes("south")) {
-            deps.ctx.moveTo(px + 1, py + size - 2);
-            deps.ctx.lineTo(px + size - 1, py + size - 2);
-          }
-          if (exposedSides.includes("west")) {
-            deps.ctx.moveTo(px + 2, py + 1);
-            deps.ctx.lineTo(px + 2, py + size - 1);
-          }
-          deps.ctx.stroke();
-          if (size >= 12) {
-            deps.ctx.fillStyle = critical ? "rgba(255, 84, 84, 0.96)" : "rgba(255, 196, 92, 0.96)";
-            deps.ctx.beginPath();
-            deps.ctx.arc(px + size * 0.5, py + size * 0.5, critical ? 2.3 : 1.8, 0, Math.PI * 2);
-            deps.ctx.fill();
-          }
-          deps.ctx.lineWidth = 1;
-        }
-      }
+      drawTileIntelOverlays2D(deps.ctx, t, vis, px, py, size, tileIntel2D);
 
       drawMapSelection2D(state, deps, wx, wy, t, px, py, size, myReach);
       const incomingAttack = drawableIncomingAttack(state, wk, Date.now());
@@ -702,10 +576,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           drawTileGround2D(deps.ctx, { wx, wy, px, py, size, tile: t, vis, terrainWhenMissing, terrainAt, drawTerrainTile: deps.drawTerrainTile, drawTerrainDetail, neighbourVisibility, nowMs: tileStartAt });
         }
 
-        if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") { deps.drawForestOverlay(wx, wy, px, py, size); deps.drawHillsOverlay(wx, wy, px, py, size); }
-
-        if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND" && t.ownerId) {
-          drawLiveOwnershipTint2D(deps.ctx, t, deps.effectiveOverlayColor(t.ownerId), wx, wy, px, py, size);
+        if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") {
+          drawVisibleTerrain2D(deps, state, t, wx, wy, px, py, size);
         }
 
         // Fogged tiles show the last-witnessed owner at a fixed dim tint —
@@ -753,31 +625,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
         if (roadNetworkBuiltAt >= 0) continue;
 
-        const isDockEndpoint = dockEndpointKeys.has(wk);
-        const dockVisible = (!t && effectiveFogDisabled(state)) || vis === "visible";
-        if (dockVisible && isDockEndpoint) {
-          deps.drawDockMarker(px, py, size);
-        }
-        // 3D dock overlay supersedes the SVG icon (and its fallback) in true-3D mode.
-        if (dockVisible && isDockEndpoint && !isTrue3DRendererActive()) {
-          const dockOverlay = deps.dockOverlayVariants[deps.overlayVariantIndexAt(wx, wy, deps.dockOverlayVariants.length)];
-          if (dockOverlay?.complete && dockOverlay.naturalWidth) deps.drawCenteredOverlay(dockOverlay, px, py, size, 1.14);
-          else {
-            deps.ctx.fillStyle = "rgba(12, 22, 38, 0.42)";
-            deps.ctx.fillRect(px + 1, py + 1, size - 3, size - 3);
-            deps.ctx.strokeStyle = "rgba(115, 225, 255, 0.98)";
-            deps.ctx.lineWidth = 2;
-            deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
-            deps.ctx.strokeStyle = "rgba(214, 247, 255, 0.95)";
-            deps.ctx.beginPath();
-            deps.ctx.moveTo(px + size / 2, py + 3);
-            deps.ctx.lineTo(px + size / 2, py + size - 3);
-            deps.ctx.moveTo(px + 3, py + size / 2);
-            deps.ctx.lineTo(px + size - 3, py + size / 2);
-            deps.ctx.stroke();
-            deps.ctx.lineWidth = 1;
-          }
-        }
+        if (dockEndpointKeys.has(wk) && ((!t && effectiveFogDisabled(state)) || vis === "visible" || vis === "fogged")) drawDockEndpoint2D(deps, wx, wy, px, py, size);
 
         const overlayTile = t ?? syntheticOverlayTileAt(wx, wy, t);
         const overlayVisible = vis === "visible" || Boolean(overlayTile && isTrue3DRendererActive() && revealWholeMapInTrue3DMode);
@@ -833,7 +681,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           }
         }
 
-        if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
+        if (overlayTile && overlayVisible && tileHasTownIdentity(overlayTile) && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
 
         drawTileFeatureOverlays2D(tileFeatureDeps2D, t, wk, vis, px, py, size, nowMs);
 
@@ -858,48 +706,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           drawAetherTowerSprite2D(aetherTowerSpriteDeps2D, t.observatory, t.ownerId, px, py, size);
         }
         if (t && (vis === "visible" || vis === "fogged") /* fog-tolerant, see the first pass above */ && t.economicStructure) {
-          const markerSize = Math.max(3, Math.floor(size * 0.2));
-          const active = t.economicStructure.status === "active";
-          const hasBuiltResourceOverlay = Boolean(deps.builtResourceOverlayForTile(t));
-          const overlay = deps.structureOverlayImages[t.economicStructure.type];
-          const handled3DStructure2 =
-            isTrue3DRendererActive() &&
-            isStructureHandledBy3D(t.economicStructure.type);
-          if (handled3DStructure2) {
-          } else if (overlay && overlay.complete && overlay.naturalWidth) {
-            deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
-          } else if (t.economicStructure.type === "HYDROGARDEN" && !hasBuiltResourceOverlay) {
-            deps.ctx.fillStyle = deps.structureAccentColor(
-              t.ownerId ?? "",
-              active ? "rgba(192, 229, 117, 0.95)" : "rgba(148, 176, 104, 0.72)"
-            );
-            deps.ctx.fillRect(px + 2, py + size - markerSize - 2, markerSize + 1, markerSize);
-          } else if (t.economicStructure.type === "UMBRITE_RIG" && !hasBuiltResourceOverlay) {
-            deps.ctx.fillStyle = deps.structureAccentColor(
-              t.ownerId ?? "",
-              active ? "rgba(147, 92, 201, 0.95)" : "rgba(114, 71, 156, 0.74)"
-            );
-            deps.ctx.beginPath();
-            deps.ctx.moveTo(px + size / 2, py + 3);
-            deps.ctx.lineTo(px + size - 4, py + markerSize + 4);
-            deps.ctx.lineTo(px + 4, py + markerSize + 4);
-            deps.ctx.closePath();
-            deps.ctx.fill();
-          } else if (t.economicStructure.type === "MINE" && !hasBuiltResourceOverlay) {
-            deps.ctx.fillStyle = deps.structureAccentColor(
-              t.ownerId ?? "",
-              active ? "rgba(188, 197, 214, 0.96)" : "rgba(120, 130, 148, 0.74)"
-            );
-            deps.ctx.fillRect(px + 2, py + 2, markerSize + 1, markerSize + 1);
-          } else {
-            deps.ctx.strokeStyle = deps.structureAccentColor(
-              t.ownerId ?? "",
-              active ? "rgba(255, 212, 111, 0.96)" : "rgba(191, 162, 102, 0.72)"
-            );
-            deps.ctx.lineWidth = 2;
-            deps.ctx.strokeRect(px + 2, py + 2, markerSize + 2, markerSize + 2);
-            deps.ctx.lineWidth = 1;
-          }
+          drawEconomicStructureOverlay2D(deps, t, px, py, size, false);
         }
         if (t && vis === "visible" && t.terrain === "LAND") drawConstructionCountdownOverlay(t, wk, px, py, size);
         if (t && vis === "visible") drawSiphonOverlay2D(deps.ctx, t, px, py, size, Date.now()); // drained-tile X + siphon-mode tower ring
@@ -961,49 +768,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             });
           }
         }
-        if (state.showWeakDefensibility && vis === "visible" && isOwnedSettledLandTile(t, state.me)) {
-          const exposedSides = exposedSidesForTile(t, {
-            tiles: state.tiles,
-            me: state.me,
-            keyFor: deps.keyFor,
-            wrapX: deps.wrapX,
-            wrapY: deps.wrapY,
-            terrainAt
-          });
-          const severity = weakDefensibilitySeverity(exposedSides.length);
-          if (severity) {
-            const critical = severity === "critical";
-            deps.ctx.fillStyle = critical ? "rgba(255, 84, 84, 0.18)" : "rgba(255, 173, 92, 0.12)";
-            deps.ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
-            deps.ctx.strokeStyle = critical ? "rgba(255, 84, 84, 0.92)" : "rgba(255, 173, 92, 0.88)";
-            deps.ctx.lineWidth = critical ? 4 : 3;
-            deps.ctx.beginPath();
-            if (exposedSides.includes("north")) {
-              deps.ctx.moveTo(px + 1, py + 2);
-              deps.ctx.lineTo(px + size - 1, py + 2);
-            }
-            if (exposedSides.includes("east")) {
-              deps.ctx.moveTo(px + size - 2, py + 1);
-              deps.ctx.lineTo(px + size - 2, py + size - 1);
-            }
-            if (exposedSides.includes("south")) {
-              deps.ctx.moveTo(px + 1, py + size - 2);
-              deps.ctx.lineTo(px + size - 1, py + size - 2);
-            }
-            if (exposedSides.includes("west")) {
-              deps.ctx.moveTo(px + 2, py + 1);
-              deps.ctx.lineTo(px + 2, py + size - 1);
-            }
-            deps.ctx.stroke();
-            if (size >= 12) {
-              deps.ctx.fillStyle = critical ? "rgba(255, 84, 84, 0.96)" : "rgba(255, 196, 92, 0.96)";
-              deps.ctx.beginPath();
-              deps.ctx.arc(px + size * 0.5, py + size * 0.5, critical ? 2.3 : 1.8, 0, Math.PI * 2);
-              deps.ctx.fill();
-            }
-            deps.ctx.lineWidth = 1;
-          }
-        }
+        drawTileIntelOverlays2D(deps.ctx, t, vis, px, py, size, tileIntel2D);
 
         drawMapSelection2D(state, deps, wx, wy, t, px, py, size, myReach);
         const incomingAttack = drawableIncomingAttack(state, wk, Date.now());
@@ -1073,9 +838,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
     }
     const roadOverlayMs = phaseMs();
+    if (!isTrue3DRendererActive()) districtCanvas.draw(size, halfW, halfH);
 
     for (const overlayTile of overlayTiles) renderOverlayTile(overlayTile); if (!isTrue3DRendererActive() && state.arrowGesture) drawArrowGesture2D(deps.ctx, state.arrowGesture, (wx2, wy2) => deps.worldToScreen(wx2, wy2, size, halfW, halfH), size); // F4: 2D arrow-gesture visual (F1/F2 parity)
-    afcMapOverlays.render(overlayTiles, { size, project: (x, y) => deps.worldToScreen(x, y, size, halfW, halfH) });
+    mapScreenOverlays.render(overlayTiles, { size, project: (x, y) => deps.worldToScreen(x, y, size, halfW, halfH) });
     if (!isTrue3DRendererActive()) mapNameLabels.render((x, y) => deps.worldToScreen(x, y, size, halfW, halfH), nowMs);
     const tileOverlayMs = phaseMs();
 
@@ -1191,15 +957,16 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
     }
 
-    // Frontier supply lines (2D; the 3D path draws client-map-3d-frontier-supply-overlay.ts): pale pulsing lines from settled land out to fragile land beyond reach, a ring on the tile it hangs on.
+    // Landing ground of a selected dock, then frontier supply lines (2D; the 3D path draws client-map-3d-dock-landing-overlay.ts and client-map-3d-frontier-supply-overlay.ts): pale pulsing lines from settled land out to fragile land beyond reach, a ring on the tile it hangs on.
     if (!isTrue3DRendererActive()) {
-      drawFrontierSupplyForState2D(deps.ctx, state, {
+      drawLandingGroundAndSupply2D(deps.ctx, state, {
         tileCenter: (x, y) => deps.worldToScreen(x, y, size, halfW, halfH),
         size,
         viewportWidth: deps.canvas.width,
         viewportHeight: deps.canvas.height,
         ownerColor: deps.effectiveOverlayColor(state.me),
-        nowMs
+        nowMs,
+        tileVisible: (x, y) => effectiveFogDisabled(state) || deps.tileVisibilityStateAt(x, y, state.tiles.get(deps.keyFor(x, y))) === "visible"
       });
     }
 
@@ -1326,10 +1093,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         state.actionQueue = state.actionQueue.filter((entry) => deps.keyFor(entry.x, entry.y) !== currentKey);
         state.queuedTargetKeys.delete(currentKey);
         if (currentKey) deps.dropQueuedTargetKeyIfAbsent(currentKey);
-        deps.showCaptureAlert(
+        showCaptureTimeoutAlert(
+          state,
           "Expansion sync delayed",
-          "No server acceptance arrived within 2 seconds. Refreshing nearby tiles while waiting for frontier sync. Use Download debug log below if this keeps happening.",
-          "warn"
+          "No server acceptance arrived within 2 seconds. Refreshing nearby tiles while waiting for frontier sync. Use Report bug below if this keeps happening."
         );
         deps.pushFeed("No server acceptance arrived within 2s; waiting for frontier sync instead of retrying the same tile.", "combat", "warn");
         deps.requestViewRefresh(1, true);
@@ -1341,10 +1108,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       } else if (current) {
         state.capture = preservedCapture;
         if (currentKey) state.frontierLateAckUntilByTarget.set(currentKey, Date.now() + 12_000);
-        deps.showCaptureAlert(
+        showCaptureTimeoutAlert(
+          state,
           "Attack sync delayed",
-          "No server acceptance arrived within 2 seconds. Keeping the current attack active while waiting for the server result.",
-          "warn"
+          "No server acceptance arrived within 2 seconds. Keeping the current attack active while waiting for the server result."
         );
         deps.requestViewRefresh(1, true);
         deps.pushFeed("No server acceptance within 2s; holding the current attack and waiting for the authoritative result.", "combat", "warn");
@@ -1370,7 +1137,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         // otherwise sit forever, permanently blocking a re-queue with
         // "Build already queued".
         if (currentKey) { state.autoSettleTargets.delete(currentKey); state.autoBuildTargets.delete(currentKey); }
-        deps.showCaptureAlert("Attack sync delayed", "No server acceptance arrived within 2 seconds. Refreshing nearby tiles to resync.", "warn");
+        showCaptureTimeoutAlert(state, "Attack sync delayed", "No server acceptance arrived within 2 seconds. Refreshing nearby tiles to resync.");
         deps.requestViewRefresh(1, true);
         deps.pushFeed("No server acceptance within 2s; skipping queued action.", "combat", "warn");
         if (currentKey) deps.dropQueuedTargetKeyIfAbsent(currentKey);
@@ -1425,7 +1192,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         // reconciled by a later frontier sync, so drop any queued
         // settle+build for this tile rather than leaving it orphaned.
         if (timedOutCurrentKey) { state.autoSettleTargets.delete(timedOutCurrentKey); state.autoBuildTargets.delete(timedOutCurrentKey); }
-        deps.showCaptureAlert("Combat result delayed", "Refreshing nearby tiles because the server result did not arrive in time.", "warn");
+        showCaptureTimeoutAlert(state, "Combat result delayed", "Refreshing nearby tiles because the server result did not arrive in time.");
         deps.requestViewRefresh(1, true);
       }
       deps.reconcileActionQueue();

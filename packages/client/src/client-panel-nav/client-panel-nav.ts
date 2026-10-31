@@ -169,6 +169,7 @@ export const renderMobilePanels = (
   deps.sidePanelEl.classList.toggle("tech-panel-open", state.activePanel === "tech"); // scopes the Manifest detail no-scroll rule
   deps.sidePanelEl.classList.toggle("domain-panel-active", state.activePanel === "domains" && state.domainDetailOpen && !isMobile());
   deps.sidePanelEl.classList.toggle("afc-upgrades-panel", state.activePanel === "domains" && !isMobile());
+  deps.sidePanelEl.classList.toggle("settings-panel-active", state.activePanel === "settings"); // the new HUD centres Settings from its first frame
   deps.mobileSheetEl.classList.toggle("tech-panel-active", state.mobilePanel === "tech" && state.techTreeExpanded);
   deps.mobileSheetEl.classList.toggle("tech-panel-open", state.mobilePanel === "tech"); // shows the Manifest view toggle in the sheet head
 

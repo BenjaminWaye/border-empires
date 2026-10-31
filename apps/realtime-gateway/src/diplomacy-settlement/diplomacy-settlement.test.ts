@@ -149,6 +149,19 @@ describe("createDiplomacyOfferAcceptance", () => {
     return { social, requestId };
   };
 
+  it("requires a resource-aware client to confirm supply terms before accepting", async () => {
+    const social = createSocialState({ now: () => 1_000, players });
+    social.requestTruce("p1", "Milo", 12, { terms: { give: { gold: 0, shard: 0 }, ask: { gold: 0, shard: 0, resources: { FOOD: 1 } } } });
+    const requestId = social.snapshotForPlayer("p2").incomingTruceRequests[0]!.id;
+    const settle = vi.fn().mockResolvedValue({ ok: true, settlementId: "supply-deal" });
+    const acceptance = createDiplomacyOfferAcceptance({ socialState: social, settlement: { settle }, recordGatewayEvent: () => undefined });
+    expect(await acceptance.acceptTruce("p2", requestId, undefined, false)).toMatchObject({ ok: false, code: "RESOURCE_TERMS_CONFIRMATION_REQUIRED" });
+    expect(settle).not.toHaveBeenCalled();
+    expect(social.snapshotForPlayer("p2").incomingTruceRequests).toHaveLength(1);
+    expect(await acceptance.acceptTruce("p2", requestId, undefined, true)).toMatchObject({ ok: true });
+    expect(settle).toHaveBeenCalledOnce();
+  });
+
   it("pays first, then records the truce", async () => {
     const { social, requestId } = offerWithTerms();
     const settle = vi.fn().mockResolvedValue({ ok: true });

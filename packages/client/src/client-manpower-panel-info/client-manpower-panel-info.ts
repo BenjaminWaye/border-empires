@@ -13,20 +13,22 @@ export const setManpowerInfoOpen = (open: boolean): void => {
   manpowerInfoOpen = open;
 };
 
-/** Big "Next batch in 0h 19m" callout; degrades to "Manpower full" / "Regen paused". Empty before the player id is known. */
+/** Big "+N in 0h 19m" callout; degrades to "Manpower full" / "Regen paused". Empty before the player id is known. */
 export const manpowerNextBatchHtml = (args: {
   manpower: number;
   manpowerCap: number;
   manpowerRegenPerMinute: number;
+  nextBatchAmount?: number | undefined;
   nextRefillAtMs: number | undefined;
   nowMs?: number;
 }): string => {
   const callout = (label: string, value: string, tone: string): string =>
     `<div class="manpower-next-batch manpower-next-batch-${tone}"><span class="manpower-next-batch-label">${label}</span><strong class="manpower-next-batch-value">${value}</strong></div>`;
   if (args.manpower >= args.manpowerCap) return callout("Manpower", "Full", "full");
-  if (!(args.manpowerRegenPerMinute > 0)) return callout("Regeneration", "Paused", "paused");
+  if (!(args.manpowerRegenPerMinute > 0) && !(args.nextBatchAmount && args.nextBatchAmount > 0)) return callout("Regeneration", "Paused", "paused");
   if (args.nextRefillAtMs === undefined) return "";
-  return callout("Next batch in", formatHoursMinutes(args.nextRefillAtMs - (args.nowMs ?? Date.now())), "pending");
+  const label = args.nextBatchAmount === undefined ? "Next batch in" : `+${Math.round(Math.max(0, Math.min(args.manpowerCap - args.manpower, args.nextBatchAmount)))} in`;
+  return callout(label, formatHoursMinutes(args.nextRefillAtMs - (args.nowMs ?? Date.now())), "pending");
 };
 
 export const manpowerInfoHtml = (): string => `

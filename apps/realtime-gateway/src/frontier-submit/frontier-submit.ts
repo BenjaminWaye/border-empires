@@ -36,6 +36,7 @@ export type GatewaySocketSession = {
 };
 
 type SubmitFrontierCommandDeps = {
+  recordGatewayEvent?: (level: "info" | "warn" | "error", event: string, payload: Record<string, unknown>) => void;
   createCommandId?: () => string;
   now?: () => number;
   commandStore: GatewayCommandStore;
@@ -88,10 +89,20 @@ export const submitDurableCommand = async <TType extends ClientCommandEnvelope["
     payloadJson: JSON.stringify(envelope.payload)
   };
 
+  const receivedAt = now();
+  const trace = (stage: string): void => {
+    if (message.type !== "ATTACK" && message.type !== "EXPAND") return;
+    deps.recordGatewayEvent?.("info", "gateway_frontier_stage", {
+      commandId: envelope.commandId, clientSeq, playerId: session.playerId,
+      actionType: message.type, stage, elapsedMs: now() - receivedAt
+    });
+  };
+  trace("received");
   let storedQueued;
   try {
     storedQueued = await deps.commandStore.persistQueuedCommand(durableCommand, now());
   } catch (err) {
+    trace("persist-failed");
     deps.onError?.("persist", err);
     deps.sendJson({
       type: "ERROR",
@@ -102,6 +113,7 @@ export const submitDurableCommand = async <TType extends ClientCommandEnvelope["
     return;
   }
 
+  trace("persisted");
   deps.sendJson({
     ...queuedMessage,
     commandId: storedQueued.commandId,
@@ -113,9 +125,12 @@ export const submitDurableCommand = async <TType extends ClientCommandEnvelope["
   }
 
   try {
+    trace("simulation-submit-start");
     deps.onCommandSubmitted?.(durableCommand);
     await deps.submitCommand(durableCommand);
+    trace("simulation-submit-complete");
   } catch (error) {
+    trace("simulation-submit-failed");
     const simulationEnded = error instanceof Error && error.message.toLowerCase().includes("season ended");
     const rejectionCode = simulationEnded ? "SEASON_ENDED" : "SIMULATION_UNAVAILABLE";
     const rejectionMessage = simulationEnded

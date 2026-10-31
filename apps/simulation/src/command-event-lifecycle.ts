@@ -35,6 +35,7 @@ export const SERVER_GENERATED_COMMAND_ID_PREFIXES = [
   "territory-auto:",
   "population-growth-tick:",
   "accrual:",
+  "resource-supply:",
   "fort-attrition:",
   "muster-spend:",
   "ops-seed-barbs:",

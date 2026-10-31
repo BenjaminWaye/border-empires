@@ -1,3 +1,4 @@
+import { snapshotClientDebugEvents } from "../client-debug/client-debug.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildDisconnectHistoryBundle, recordSocketDisconnect, snapshotDisconnectHistory, summarizeDisconnectHistory } from "./client-connection-diagnostics.js";
 
@@ -23,6 +24,13 @@ describe("client connection diagnostics", () => {
     expect(entries[0]?.code).toBe(1000);
     expect(entries[1]?.code).toBe(1006);
     expect(entries[1]?.wasClean).toBe(false);
+  });
+
+  it("includes close codes and reasons in the main debug event stream", () => {
+    recordSocketDisconnect("close", { code: 1012, reason: "service-restart", wasClean: true, connectionUptimeMs: 1234, debugPayload: { currentActionKey: "close-test" } });
+    expect(snapshotClientDebugEvents().find((event) => event.event === "ws-close" && event.payload.currentActionKey === "close-test")?.payload).toMatchObject({
+      code: 1012, reason: "service-restart", wasClean: true, connectionUptimeMs: 1234
+    });
   });
 
   it("summarizes abnormal-close count and the shortest connection uptime (flapping signal)", () => {

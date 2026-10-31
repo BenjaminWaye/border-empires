@@ -258,7 +258,7 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
         ownedComponentTypes.add(owned.type);
       }
     }
-    return renderStructureInfoOverlayFromModule(state.structureInfoKey, deps.structureInfoForKey, ownedComponentTypes);
+    return renderStructureInfoOverlayFromModule(state.structureInfoKey, deps.structureInfoForKey, ownedComponentTypes, state.techCatalog);
   };
 
   const renderTechDetailModal = (): string => renderManifestDetail("overlay");

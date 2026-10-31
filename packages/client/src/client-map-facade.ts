@@ -1,5 +1,5 @@
 import { WORLD_WIDTH, clearForestAroundAfcTiles, clearForestOnTownAndDockTiles, grassShadeAt, grassToneAt, isForestClearedAt, visualLandBiomeAt, worldgenVersion } from "@border-empires/shared";
-import { drawProspectSignatureOverlay, prospectClueDrawFor } from "./client-prospect-signature-overlay.js";
+import { prospectClueDrawFor } from "./client-prospect-signature-overlay.js";
 import { createRetiredProspectCluesLookup } from "./client-prospect-clue/client-prospect-clue.js";
 import { createMiniMapBaseBuilder } from "./client-minimap/client-minimap-base-builder.js";
 import {
@@ -30,7 +30,6 @@ import {
   drawRoadOverlay as drawRoadOverlayOnCanvas,
   drawShardFallback as drawShardFallbackOnCanvas,
   drawTerrainTile as drawTerrainTileOnCanvas,
-  drawTownMarker as drawTownMarkerOnCanvas,
   drawTownOverlay as drawTownOverlayOnCanvas,
   effectiveOverlayColor as effectiveOverlayColorFromModule,
   fortificationOverlayImageFor as fortificationOverlayImageFromModule,
@@ -41,6 +40,7 @@ import { drawHillsOverlay as drawHillsOverlayOnCanvas } from "./client-map-rende
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
 import type { RoadDirections } from "./client-road-network/client-road-network.js";
 import type { ClientState } from "./client-state/client-state.js";
+import { diplomacyOverlayKey, diplomacyOwnerColor } from "./client-diplomacy-overlay/client-diplomacy-overlay.js";
 import { incomingFrontierClaimAt } from "./client-incoming-frontier-claim/client-incoming-frontier-claim.js";
 import { drawMusterSiegeBadge } from "./client-map-render/client-map-render-muster-siege-badge.js";
 import type { DockPair, EmpireVisualStyle, StrategicReplayEvent, Tile, TileVisibilityState } from "./client-types.js";
@@ -84,6 +84,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   let miniMapLastReplayIndex = Number.NaN;
   let miniMapLastTileCount = -1;
   let miniMapLastTilesRevision = Number.NaN;
+  let miniMapLastColorKey = "";
   // Offscreen cache for the minimap's camera-independent content (owner tints, fog, docks,
   // town/shard/watchtower markers) — the expensive part. Recomputed only on tile/replay churn
   // (throttled), never on a camera/zoom-only change, so panning/zooming stays cheap.
@@ -143,8 +144,10 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     return playerNameForOwnerFromState(state, ownerId);
   };
 
+  // The Diplomacy view recolours other empires' land by stance in every renderer by swapping the colour here.
+  const diplomacyColor = diplomacyOwnerColor(state);
   const effectiveOverlayColor = (ownerId: string): string =>
-    effectiveOverlayColorFromModule(ownerId, { ownerColor: effectiveColor, visualStyleForOwner });
+    diplomacyColor(ownerId) ?? effectiveOverlayColorFromModule(ownerId, { ownerColor: effectiveColor, visualStyleForOwner });
   const borderColorForOwner = (ownerId: string, stateName?: Tile["ownershipState"]): string =>
     borderColorForOwnerFromModule(ownerId, stateName, visualStyleForOwner);
   const shouldDrawOwnershipBorder = (tile: Tile): boolean => shouldDrawOwnershipBorderFromModule(tile, visualStyleForOwner);
@@ -285,10 +288,8 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   };
   const drawForestOverlay = (wx: number, wy: number, px: number, py: number, size: number): void =>
     drawForestOverlayOnCanvas(ctx, wx, wy, px, py, size, visibleProspectClueAt(wx, wy), (x, y) => isForestTileWithAfcLandingHold(state.afcJoinDrop, x, y));
-  // Ground-level clue props (ferrous flecks, refractive glints) go on top of the hill mounds, which would otherwise paint over them.
   const drawHillsOverlay = (wx: number, wy: number, px: number, py: number, size: number): void => {
     drawHillsOverlayOnCanvas(ctx, wx, wy, px, py, size);
-    drawProspectSignatureOverlay(ctx, visibleProspectClueAt(wx, wy), wx, wy, px, py, size);
   };
   const drawPlanetaryDefenseOverlay = (px: number, py: number, size: number, wx: number, wy: number): void =>
     drawPlanetaryDefenseOverlayOnCanvas(ctx, px, py, size, wx, wy, performance.now());
@@ -303,7 +304,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     if (tile?.muster?.ownerId === state.me && resolvesAt > nowMs) drawMusterSiegeBadge(ctx, px, py, size, effectiveColor(tile.muster.ownerId), nowMs);
   };
   const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void =>
-    drawTownOverlayOnCanvas(ctx, tile, px, py, size, state.me, tile.ownerId ? effectiveColor(tile.ownerId) : undefined);
+    drawTownOverlayOnCanvas(ctx, tile, px, py, size, tile.ownerId ? effectiveColor(tile.ownerId) : undefined);
   const drawCenteredOverlay = (overlay: HTMLImageElement | undefined, px: number, py: number, size: number, scale = 1.08): void =>
     drawCenteredOverlayOnCanvas(ctx, overlay, px, py, size, scale);
   const drawCenteredOverlayWithAlpha = (
@@ -316,8 +317,6 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   ): void => drawCenteredOverlayWithAlphaOnCanvas(ctx, overlay, px, py, size, scale, alpha);
   const drawResourceCornerMarker = (tile: Tile, px: number, py: number, size: number): void =>
     drawResourceCornerMarkerOnCanvas(ctx, tile, px, py, size, resourceColor);
-  const drawTownMarker = (px: number, py: number, size: number): void =>
-    drawTownMarkerOnCanvas(ctx, px, py, size, size < 16);
   const drawDockMarker = (px: number, py: number, size: number): void =>
     drawDockMarkerOnCanvas(ctx, px, py, size, size < 16);
   const drawRoadOverlay = (
@@ -429,8 +428,10 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
         zoom: miniMapLastDrawZoom,
         replayIndex: miniMapLastReplayIndex,
         tileCount: miniMapLastTileCount,
-        tilesRevision: miniMapLastTilesRevision
+        tilesRevision: miniMapLastTilesRevision,
+        colorKey: miniMapLastColorKey
       },
+      colorKey: diplomacyOverlayKey(state),
       contentCache: miniMapContentCache,
       parseKey,
       keyFor,
@@ -453,6 +454,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
       miniMapLastReplayIndex = state.replayActive ? state.replayIndex : Number.NaN;
       miniMapLastTileCount = state.tiles.size;
       miniMapLastTilesRevision = state.tilesRevision;
+      miniMapLastColorKey = diplomacyOverlayKey(state);
     }
   };
 
@@ -474,7 +476,6 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     drawPlanetaryDefenseOverlay,
     drawIncomingAttackOverlay,
     drawTownOverlay,
-    drawTownMarker,
     drawDockMarker,
     drawCenteredOverlay,
     drawCenteredOverlayWithAlpha,

@@ -2,6 +2,7 @@ import { WORLD_WIDTH, WORLD_HEIGHT, supportRingRadiusForTier } from "@border-emp
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import type { LocationTheme } from "../client-audio/client-audio.js";
+import { frontierAttackIsUndefended } from "../client-capture-hold/client-capture-hold.js";
 
 /**
  * A support tile is a plain owned tile within one of the player's own
@@ -33,7 +34,11 @@ type BattleState = Pick<ClientState, "me" | "activeBattles" | "capture" | "incom
  * own that has arrived ("Attack incoming" while still marching doesn't
  * count), or a resolved battle whose combat animation is still playing
  * (attacker, defender or bystander).
- * Frontier expansions are claims, not battles, so they don't count.
+ * Frontier expansions are claims, not battles, so they don't count — and nor
+ * does an attack on undefended FRONTIER ground, judged by the same check the
+ * battle overlays use (frontierAttackIsUndefended: the attack's locked odds
+ * when known, else whether a capture hold is standing on the tile): there's
+ * no garrison to fight, so it gets no battle sound.
  */
 export const isTileInOngoingBattle = (state: BattleState, tile: Tile, nowMs: number = Date.now()): boolean => {
   if (tile.fogged) return false;
@@ -41,12 +46,15 @@ export const isTileInOngoingBattle = (state: BattleState, tile: Tile, nowMs: num
   const battle = state.activeBattles.get(key);
   if (battle && battle.endAt > nowMs) return true;
   const capture = state.capture;
-  if (capture && capture.actionType === "ATTACK" && capture.target.x === tile.x && capture.target.y === tile.y && capture.resolvesAt > nowMs) return true;
+  const captureTargetsTile = capture?.actionType === "ATTACK" && capture.target.x === tile.x && capture.target.y === tile.y;
+  if (capture && captureTargetsTile && capture.resolvesAt > nowMs && !frontierAttackIsUndefended(tile, capture.combatSnapshot?.winChance, nowMs)) return true;
   const outgoing = state.outgoingMusterAttacksByTile.get(key);
-  if (outgoing && !outgoing.isExpand && outgoing.resolvesAt > nowMs) return true;
+  if (outgoing && !outgoing.isExpand && outgoing.resolvesAt > nowMs && !frontierAttackIsUndefended(tile, outgoing.winChance, nowMs)) return true;
   if (tile.ownerId !== state.me) return false;
   const incoming = state.incomingAttacksByTile.get(key);
-  return Boolean(incoming && incoming.resolvesAt > nowMs && (incoming.transitEndsAt ?? 0) <= nowMs);
+  return Boolean(
+    incoming && incoming.resolvesAt > nowMs && (incoming.transitEndsAt ?? 0) <= nowMs && !frontierAttackIsUndefended(tile, incoming.winChance, nowMs)
+  );
 };
 
 /** An ongoing battle outranks the tile's own location theme — a town under siege plays the battle cue, not the town one. */

@@ -84,13 +84,22 @@ describe("structure command planner", () => {
     ]);
     const basePlayer = { id: "ai-1", points: 1_000, manpower: 1_000, techIds: ["leatherworking", "siegecraft"] };
 
-    // The upgraded tier needs UMBRITE and TITANIUM capacity.
+    // No UMBRITE capacity at all: not even a Siege Battery fits.
+    expect(chooseBestSiegeBatteryBuild(
+      { ...basePlayer, slotSupplyByResource: { UMBRITE: 0, TITANIUM: 0 }, slotDemandByResource: {} },
+      [candidate],
+      tilesByKey,
+      [candidate]
+    )).toBeUndefined();
+
+    // 1 UMBRITE slot is short of a Siege Tower's 2, but a fresh build steps
+    // down to a Siege Battery (siegeTierForFreshBuild), so it's still proposed.
     expect(chooseBestSiegeBatteryBuild(
       { ...basePlayer, slotSupplyByResource: { UMBRITE: 1, TITANIUM: 0 }, slotDemandByResource: {} },
       [candidate],
       tilesByKey,
       [candidate]
-    )).toBeUndefined();
+    )).toBe(candidate);
 
     // With enough slots, zero retired stockpile balances are legal.
     expect(chooseBestSiegeBatteryBuild(

@@ -3,10 +3,14 @@ import { describeDiplomacyTermsForRecipient } from "@border-empires/shared";
 
 import { storageGet, storageSet } from "../client-state/client-state.js";
 import type { ClientState } from "../client-state/client-state.js";
-import type { ActiveAllianceBreakView, AllianceRequest, RecentAllianceBreakView, TruceRequest } from "../client-types.js";
+import type { ActiveAllianceBreakView, ActiveTruceView, AllianceRequest, RecentAllianceBreakView, TruceRequest } from "../client-types.js";
 
 type DiplomacyNotificationState = Pick<ClientState, "me" | "notifiedIncomingDiplomacyRequestIds" | "notifiedDiplomacyIdsLoadedFor">;
 
+// Diplomacy no longer takes over the map with the capture popup: offers wait
+// in the offer dock (client-diplomacy-offer-dock) and everything that already
+// happened goes to the Activity feed and the Chronicle timeline. The one
+// exception is a rival breaking a truce with you: you can be attacked now.
 type DiplomacyNotificationDeps = {
   pushFeed: (message: string, type: "alliance", severity: "info" | "success" | "warn" | "error") => void;
   showCaptureAlert: (title: string, detail: string, tone: "info" | "success" | "error" | "warn") => void;
@@ -22,10 +26,12 @@ const termsSuffix = (request: AllianceRequest | TruceRequest): string => {
 };
 
 const allianceDetail = (request: AllianceRequest): string =>
-  `${senderName(request)} sent an alliance request${termsSuffix(request)}. Open Alliances to accept or reject.`;
+  `${senderName(request)} sent an alliance request${termsSuffix(request)}.`;
 
 const truceDetail = (request: TruceRequest): string =>
-  `${senderName(request)} offered a ${request.durationHours}h truce${termsSuffix(request)}. Open Alliances to accept or reject.`;
+  request.extendsTruce
+    ? `${senderName(request)} offered to extend your truce by ${request.durationHours}h${termsSuffix(request)}.`
+    : `${senderName(request)} offered a ${request.durationHours}h truce${termsSuffix(request)}.`;
 
 const STORAGE_KEY = (playerId: string): string => `be:diplomacy:notified:${playerId}`;
 const MAX_STORED = 500;
@@ -73,9 +79,7 @@ export const notifyIncomingAllianceRequest = (
   deps: DiplomacyNotificationDeps
 ): void => {
   if (!request?.id || !markUnseenRequest(state, "alliance", request.id)) return;
-  const detail = allianceDetail(request);
-  deps.pushFeed(detail, "alliance", "warn");
-  deps.showCaptureAlert("Alliance request received", detail, "warn");
+  deps.pushFeed(allianceDetail(request), "alliance", "warn");
 };
 
 export const notifyIncomingTruceRequest = (
@@ -84,9 +88,7 @@ export const notifyIncomingTruceRequest = (
   deps: DiplomacyNotificationDeps
 ): void => {
   if (!request?.id || !markUnseenRequest(state, "truce", request.id)) return;
-  const detail = truceDetail(request);
-  deps.pushFeed(detail, "alliance", "warn");
-  deps.showCaptureAlert("Truce offer received", detail, "warn");
+  deps.pushFeed(truceDetail(request), "alliance", "warn");
 };
 
 type TruceUpdateNotificationState = Pick<
@@ -103,18 +105,40 @@ export const applyTruceUpdateMessage = (
   deps: DiplomacyNotificationDeps
 ): void => {
   applyAfcStateMessage(state, msg);
+  const previousTruces = state.activeTruces;
+  const previousLatestBreakAt = latestBreakAt(state.truceBreaksThisSeason);
   state.activeTruces = (msg.activeTruces as any[]) ?? state.activeTruces;
   state.truceBreaksThisSeason = (msg.truceBreaksThisSeason as any[]) ?? state.truceBreaksThisSeason;
   state.incomingTruceRequests = (msg.incomingTruceRequests as any[]) ?? state.incomingTruceRequests;
   state.outgoingTruceRequests = (msg.outgoingTruceRequests as any[]) ?? state.outgoingTruceRequests;
   const announcement = msg.announcement as string | undefined;
-  if (!announcement) return;
+  if (!announcement) {
+    // The gateway's maintenance sweep drops an expired truce without an
+    // announcement; a break or a new truce always carries one.
+    if (msg.activeTruces) for (const ended of endedTruces(previousTruces, state.activeTruces)) deps.pushFeed(`Your truce with ${ended.otherPlayerName} has ended.`, "alliance", "info");
+    return;
+  }
   const normalizedAnnouncement = announcement.toLocaleLowerCase();
   const declined = normalizedAnnouncement.includes("declined");
   const broken = normalizedAnnouncement.includes("broke the truce");
   const tone = declined || broken ? "warn" : "success";
   deps.pushFeed(announcement, "alliance", tone);
-  deps.showCaptureAlert(declined ? "Truce declined" : broken ? "Truce broken" : "Truce accepted", announcement, tone);
+  // Only the victim's copy interrupts. The breaker's own update adds to their
+  // truceBreaksThisSeason; the text alone can't tell them apart, since it
+  // carries player-chosen names (an empire called "Locked Out", say).
+  // (Compared by the newest break, not the count: the server caps that list.)
+  const iBrokeIt = latestBreakAt(state.truceBreaksThisSeason) > previousLatestBreakAt;
+  if (broken && !iBrokeIt) deps.showCaptureAlert("Truce broken", announcement, "warn");
+};
+
+// Tolerates a state or message without the list (an older gateway, a partial test state).
+const latestBreakAt = (breaks: ReadonlyArray<{ brokenAt?: number }> | undefined): number =>
+  (breaks ?? []).reduce((latest, record) => Math.max(latest, typeof record.brokenAt === "number" ? record.brokenAt : -Infinity), -Infinity);
+
+/** Truces in `before` that are gone from `after`. */
+export const endedTruces = (before: readonly ActiveTruceView[], after: readonly ActiveTruceView[]): ActiveTruceView[] => {
+  const remaining = new Set(after.map((truce) => truce.otherPlayerId));
+  return before.filter((truce) => !remaining.has(truce.otherPlayerId));
 };
 
 type AllianceUpdateNotificationState = Pick<
@@ -148,9 +172,8 @@ export const applyAllianceUpdateMessage = (
   state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? state.outgoingAllianceRequests;
   const announcement = msg.announcement as string | undefined;
   if (!announcement) return;
-  const { title, tone } = allianceAnnouncementTitle(announcement);
+  const { tone } = allianceAnnouncementTitle(announcement);
   deps.pushFeed(announcement, "alliance", tone === "success" ? "success" : tone);
-  deps.showCaptureAlert(title, announcement, tone);
 };
 
 export const notifyIncomingDiplomacyRequestsOnInit = (
@@ -161,31 +184,8 @@ export const notifyIncomingDiplomacyRequestsOnInit = (
 ): void => {
   const unseenAllianceRequests = allianceRequests.filter((request) => request.id && markUnseenRequest(state, "alliance", request.id));
   const unseenTruceRequests = truceRequests.filter((request) => request.id && markUnseenRequest(state, "truce", request.id));
-  const total = unseenAllianceRequests.length + unseenTruceRequests.length;
-  if (total === 0) return;
-
   for (const request of unseenAllianceRequests) deps.pushFeed(allianceDetail(request), "alliance", "warn");
   for (const request of unseenTruceRequests) deps.pushFeed(truceDetail(request), "alliance", "warn");
-
-  if (total === 1) {
-    const allianceRequest = unseenAllianceRequests[0];
-    const truceRequest = unseenTruceRequests[0];
-    if (allianceRequest) {
-      deps.showCaptureAlert("Alliance request received", allianceDetail(allianceRequest), "warn");
-      return;
-    }
-    if (truceRequest) deps.showCaptureAlert("Truce offer received", truceDetail(truceRequest), "warn");
-    return;
-  }
-
-  const allianceText =
-    unseenAllianceRequests.length === 1 ? "1 alliance request" : `${unseenAllianceRequests.length} alliance requests`;
-  const truceText = unseenTruceRequests.length === 1 ? "1 truce offer" : `${unseenTruceRequests.length} truce offers`;
-  const detail =
-    unseenAllianceRequests.length > 0 && unseenTruceRequests.length > 0
-      ? `You have ${allianceText} and ${truceText}. Open Alliances to respond.`
-      : `You have ${unseenAllianceRequests.length > 0 ? allianceText : truceText}. Open Alliances to respond.`;
-  deps.showCaptureAlert("Diplomacy requests waiting", detail, "warn");
 };
 
 export const notifyActiveAllianceBreaksOnInit = (
@@ -199,11 +199,6 @@ export const notifyActiveAllianceBreaksOnInit = (
   if (unseenBreaks.length === 0) return;
 
   for (const notice of unseenBreaks) deps.pushFeed(allianceBreakDetail(state, notice), "alliance", "info");
-  const detail =
-    unseenBreaks.length === 1
-      ? allianceBreakDetail(state, unseenBreaks[0]!)
-      : `${unseenBreaks.length} alliances have active 24h break notices. Open Alliances to review them.`;
-  deps.showCaptureAlert(unseenBreaks.length === 1 ? "Alliance break notice" : "Alliance break notices", detail, "info");
 };
 
 export const notifyRecentAllianceBreaksOnInit = (
@@ -217,9 +212,4 @@ export const notifyRecentAllianceBreaksOnInit = (
   if (unseenBreaks.length === 0) return;
 
   for (const notice of unseenBreaks) deps.pushFeed(completedAllianceBreakDetail(notice), "alliance", "warn");
-  const detail =
-    unseenBreaks.length === 1
-      ? completedAllianceBreakDetail(unseenBreaks[0]!)
-      : `${unseenBreaks.length} alliances fully broke while you were away. Open Alliances to review your allies.`;
-  deps.showCaptureAlert(unseenBreaks.length === 1 ? "Alliance broken" : "Alliances broken", detail, "warn");
 };

@@ -1,3 +1,5 @@
+import type { ResourceSlotSources, SlotResource } from "@border-empires/shared";
+
 export type EconomyFocusKey = "ALL" | "GOLD" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
 
 export type EconomyResourceKey = Exclude<EconomyFocusKey, "ALL"> | "SHARD";
@@ -28,3 +30,10 @@ export const emptyEconomyBreakdown = (): EconomyBreakdown => ({
   UMBRITE: emptyResourceBreakdown(),
   SHARD: emptyResourceBreakdown()
 });
+
+/** Slot supply/demand per resource, plus the sim's labelled rows behind the supply (absent until the first update). */
+export type ClientResourceSlots = {
+  supply: Record<SlotResource, number>;
+  demand: Record<SlotResource, number>;
+  sources?: ResourceSlotSources;
+};

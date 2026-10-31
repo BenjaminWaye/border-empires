@@ -81,7 +81,7 @@ export const HIVE_MIND_MODULE_HEIGHT = HMM_TOWER_TOP * HIVE_MIND_SCALE;
 
 export type HiveMindModuleOverlay = {
   readonly clear: () => void;
-  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, worldTileX: number, worldTileY: number) => number;
+  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, worldTileX: number, worldTileY: number, frozen?: boolean) => number;
   readonly commit: () => void;
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
@@ -286,6 +286,8 @@ export const createHiveMindModuleOverlay = (scene: Scene, maxInstances: number, 
     readonly y: number;
     readonly z: number;
     readonly yaw: number;
+    // Remembered under fog: drawn in its rest pose.
+    readonly frozen: boolean;
   };
   const records: HmmRecord[] = [];
 
@@ -295,11 +297,11 @@ export const createHiveMindModuleOverlay = (scene: Scene, maxInstances: number, 
     records.length = 0;
   };
 
-  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, _worldTileX: number, _worldTileY: number): number => {
+  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, _worldTileX: number, _worldTileY: number, frozen = false): number => {
     if (records.length >= C) return -1;
     yawQuat.setFromEuler(tmpEuler.set(0, -yaw, 0, "XYZ"));
     yawMatrix.makeRotationFromQuaternion(yawQuat);
-    records.push({ x: sceneX, y: surfaceY, z: sceneZ, yaw });
+    records.push({ x: sceneX, y: surfaceY, z: sceneZ, yaw, frozen });
     addModule(sceneX, surfaceY, sceneZ, HMM_SENSOR_RING_START_ROLL);
     yawMatrix.identity();
     return records.length - 1;
@@ -326,7 +328,7 @@ export const createHiveMindModuleOverlay = (scene: Scene, maxInstances: number, 
     for (const r of records) {
       yawQuat.setFromEuler(tmpEuler.set(0, -r.yaw, 0, "XYZ"));
       yawMatrix.makeRotationFromQuaternion(yawQuat);
-      addSensorRing(r.x, r.y, r.z, rollAz);
+      addSensorRing(r.x, r.y, r.z, r.frozen ? HMM_SENSOR_RING_START_ROLL : rollAz);
       yawMatrix.identity();
     }
     commit();

@@ -1,3 +1,4 @@
+import { emptyResourceCounts } from "@border-empires/game-domain";
 import { type ResourceType, type SeasonVictoryPathId } from "@border-empires/shared";
 import {
   SEASON_VICTORY_ECONOMY_MIN_INCOME,
@@ -30,7 +31,7 @@ export const objectiveSelfProgressLabel = (
   if (objectiveId === "TOWN_CONTROL") return `${metric.towns}/${townTarget} towns`;
   if (objectiveId === "ECONOMIC_HEGEMONY") return `${(metric.incomePerMinute * 1440).toFixed(1)} coin/day`;
   if (objectiveId === "RESOURCE_MONOPOLY") {
-    const owned = ownedResourceCountsByPlayerId.get(playerId) ?? { FARM: 0, TITANIUM: 0, GEMS: 0, FISH: 0, UMBRITE: 0 };
+    const owned = ownedResourceCountsByPlayerId.get(playerId) ?? emptyResourceCounts();
     let bestResource: ResourceType | undefined;
     let bestOwned = 0;
     let bestTotal = 0;
@@ -84,7 +85,7 @@ export const objectiveSelfProgress = (
     return denominator > 0 ? clamp01(metric.incomePerMinute / denominator) : 0;
   }
   if (objectiveId === "RESOURCE_MONOPOLY") {
-    const owned = ownedResourceCountsByPlayerId.get(playerId) ?? { FARM: 0, TITANIUM: 0, GEMS: 0, FISH: 0, UMBRITE: 0 };
+    const owned = ownedResourceCountsByPlayerId.get(playerId) ?? emptyResourceCounts();
     let bestShare = 0;
     for (const resource of VICTORY_RESOURCE_TYPES) {
       const total = totalResourceCounts[resource] ?? 0;

@@ -49,8 +49,7 @@ const setup = (): PickerHarness => {
     renderHud: () => {},
     requestAttackPreviewForTarget: () => {},
     keyFor: (x, y) => `${x},${y}`,
-    isTileOwnedByAlly: () => false,
-    pickOriginForTarget: () => undefined
+    isTileOwnedByAlly: () => false
   };
   const render = (view = menuView()): void => renderTileActionMenu(state, view, 10, 10, deps);
   render();

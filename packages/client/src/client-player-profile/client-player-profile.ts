@@ -220,7 +220,9 @@ export const wirePlayerProfileOverlay = (
     el.onclick = () => {
       const playerId = el.dataset.playerNameId;
       if (!playerId) return;
-      state.activePlayerProfileId = playerId;
+      // Your own player chip toggles your profile; other names always open theirs.
+      const toggle = el.classList.contains("stat-chip-player") && state.activePlayerProfileId === playerId;
+      state.activePlayerProfileId = toggle ? undefined : playerId;
       rerender();
     };
   });

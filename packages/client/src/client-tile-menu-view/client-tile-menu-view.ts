@@ -1,3 +1,5 @@
+import { resourceTileOverviewLines } from "./client-resource-tile-copy.js";
+import { manpowerPerBatch, isNetworkResource } from "@border-empires/shared";
 import { afcEffectMultiplier } from "../client-afc-upgrades/client-afc-effect.js";
 import { attackFloorForPlayer } from "../client-attack-commit/client-attack-floor.js";
 import { battleOverviewLines, battleMenuHeaderStatus } from "../client-battle-progress/client-tracked-battle-progress.js";
@@ -20,6 +22,7 @@ import { ownershipHelpSubtitleHtml, type OwnershipHelpKind } from "../client-til
 import { tileFeatureLeadLines, tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
 import { foreignTileOwnershipLabel, tileMenuOverviewIntroLines, tileMenuSubtitleText } from "../client-tile-menu-copy/client-tile-menu-copy.js";
+import { landingGroundMenuLine, type DockLandingState } from "../client-dock-landing-ground/client-dock-landing-ground.js";
 import { captureRecoveryRemainingMsForTile, tileMenuHeaderStatusForTile, type TileMenuHeaderStatus } from "../client-tile-menu-status/client-tile-menu-status.js";
 import { ownTileHeaderStatus } from "../client-tile-menu-status/client-tile-menu-reach-owners.js";
 import type { ReachAuthoritativeState } from "../client-reach-authoritative/client-reach-authoritative.js";
@@ -54,7 +57,7 @@ export { constructionProgressForTile } from "../client-tile-menu-construction-pr
 export const menuOverviewForTile = (
   tile: Tile,
   deps: {
-    state: { me: string; domainIds?: readonly string[]; upkeepLastTick?: { foodCoverage?: number }; techCatalog?: readonly TechInfo[]; techIds?: readonly string[] };
+    state: { me: string; domainIds?: readonly string[]; upkeepLastTick?: { foodCoverage?: number }; techCatalog?: readonly TechInfo[]; techIds?: readonly string[] } & Partial<DockLandingState>;
     prettyToken: (value: string) => string;
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     displayTownGoldPerMinute: (tile: Tile) => number;
@@ -126,16 +129,21 @@ export const menuOverviewForTile = (
   const productionHtml = tileProductionHtml(tile);
   const isLand = tile.terrain !== "SEA" && tile.terrain !== "COASTAL_SEA" && tile.terrain !== "MOUNTAIN";
   if (isLand) lines.push(...tileFeatureLeadLines(tile, ownerKind, { me: deps.state.me, prettyToken: deps.prettyToken, structureInfoButtonHtml: deps.structureInfoButtonHtml, techCatalog: deps.state.techCatalog ?? [], techIds: deps.state.techIds ?? [] }));
-  tileMenuOverviewIntroLines({
+  if (!tile.resource) tileMenuOverviewIntroLines({
     terrain: tile.terrain,
     ownerKind,
     productionLabel,
     resourceLabel: resourceLabelText,
+    requiresDevelopment: isNetworkResource(tile.resource),
     isDockEndpoint: Boolean(tile.dockId),
     hasTown: Boolean(tile.town),
     ownershipState: tile.ownershipState
   }).forEach(pushLine);
+  lines.push(...resourceTileOverviewLines(tile));
   if (!isLand) return lines;
+  const { dockPairs, tiles } = deps.state;
+  const landingLine = dockPairs && tiles ? landingGroundMenuLine({ dockPairs, tiles, me: deps.state.me }, tile.x, tile.y) : undefined;
+  if (landingLine) pushLine(landingLine);
   if (tile.ownershipState === "SETTLED" && tile.town?.populationTier === "SETTLEMENT") {
     pushLine("Settlements provide starter coin and manpower until they grow into towns.");
   }
@@ -216,7 +224,7 @@ export const menuOverviewForTile = (
           growthTone: !effectiveFed ? "warn" : growthRatePending ? "neutral" : "positive",
           goldPerDayLabel: goldPerDay.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
           manpowerCapLabel: tierManpower.cap.toLocaleString(),
-          manpowerRegenLabel: `+${tierManpower.regenPerMinute.toFixed(2)}/min base regen`,
+          manpowerRegenLabel: `+${Math.round(manpowerPerBatch(tierManpower.regenPerMinute))} per batch base regen`,
           townModifiers: townStatModifiersForProfile(terrainProfile, coastal),
           ...(tile.town.populationTier !== "SETTLEMENT" ? { support: { current: supportCurrent, max: supportMax } } : {}),
           ...(foodDemand > 0 ? { food: { satisfied: tile.town.isFed ? foodDemand : 0, demand: foodDemand, fed: Boolean(tile.town.isFed) } } : {})

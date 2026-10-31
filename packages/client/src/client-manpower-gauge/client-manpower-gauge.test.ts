@@ -9,6 +9,7 @@ const input = (overrides: Partial<ManpowerGaugeInput> = {}): ManpowerGaugeInput 
   manpowerCap: 720,
   staged: 0,
   regenPerMinute: 0.4,
+  nextBatchAmount: 96,
   logisticsPerMinute: 0,
   nextRefillAtMs: NOW + 80 * 60_000,
   nowMs: NOW,
@@ -21,15 +22,22 @@ describe("manpowerGaugeChipHtml", () => {
     const html = manpowerGaugeChipHtml(input());
     expect(html).toContain('data-panel="manpower"');
     expect(html).toContain("412<small>/720</small>");
-    expect(html).toContain("Next batch in 1h 20m");
+    expect(html).toContain("+96 in 1h 20m");
     expect(html).toContain('style="width:57.22%"');
     expect(html).toContain('aria-valuenow="412"');
   });
 
   it("renders long and short countdown and label so CSS can pick by width", () => {
     const html = manpowerGaugeChipHtml(input());
-    expect(html).toContain('<i class="mp-gauge-refill-long">Next batch in 1h 20m</i><i class="mp-gauge-refill-short">1h 20m</i>');
+    expect(html).toContain('<i class="mp-gauge-refill-long">+96 in 1h 20m</i><i class="mp-gauge-refill-short">+96 in 1h 20m</i>');
     expect(html).toContain('<b class="mp-gauge-label-long">Manpower</b><b class="mp-gauge-label-short">MP</b>');
+  });
+
+  it("shows the batch amount on compact and wide chips, capped by pool space", () => {
+    const html = manpowerGaugeChipHtml(input({ regenPerMinute: 1.25, nextBatchAmount: 300, manpower: 0, nextRefillAtMs: NOW + 213 * 60_000 }));
+    expect(html).toContain('mp-gauge-refill-long">+300 in 3h 33m<');
+    expect(html).toContain('mp-gauge-refill-short">+300 in 3h 33m<');
+    expect(manpowerGaugeChipHtml(input({ manpower: 710 }))).toContain("+10 in 1h 20m");
   });
 
   it("turns ember below an ordinary attack and verdigris at the cap", () => {
@@ -57,7 +65,7 @@ describe("manpowerGaugeChipHtml", () => {
 
   it("reads Installing… once the batch is due and Paused when regen is frozen", () => {
     expect(manpowerGaugeChipHtml(input({ nextRefillAtMs: NOW - 1_000 }))).toContain('<i class="mp-gauge-refill-long">Installing…</i><i class="mp-gauge-refill-short">now</i>');
-    expect(manpowerGaugeChipHtml(input({ regenPerMinute: 0 }))).toContain(">Paused<");
+    expect(manpowerGaugeChipHtml(input({ regenPerMinute: 0, nextBatchAmount: 0 }))).toContain(">Paused<");
   });
 
   it("mentions logistics throughput in the tooltip only when there is some", () => {
@@ -106,5 +114,20 @@ describe("ownStagedManpower", () => {
     tiles.push({ muster: { ownerId: "me", amount: 25 } });
     expect(ownStagedManpower(tiles, "me", NOW + 500)).toBe(150);
     expect(ownStagedManpower(tiles, "me", NOW + 1_500)).toBe(175);
+  });
+});
+
+describe("projected manpower batch", () => {
+  it("shows the server projection instead of a full window of the new rate", () => {
+    expect(manpowerGaugeChipHtml(input({ regenPerMinute: 2, nextBatchAmount: 360 }))).toContain("+308 in 1h 20m");
+    expect(manpowerGaugeChipHtml(input({ regenPerMinute: 1, nextBatchAmount: 1 }))).toContain("+1 in 1h 20m");
+  });
+
+  it("shows banked manpower during a regeneration freeze", () => {
+    expect(manpowerGaugeChipHtml(input({ regenPerMinute: 0, nextBatchAmount: 30 }))).toContain("+30 in 1h 20m");
+  });
+
+  it("avoids guessing a batch amount before the server supplies one", () => {
+    expect(manpowerGaugeChipHtml(input({ nextBatchAmount: undefined }))).toContain("Next batch in 1h 20m");
   });
 });

@@ -361,7 +361,7 @@ const scoreBuildBeacon = (inp: DecisionInputs): number => {
 
 // Last-resort action: reversibly disable a low-value or already-FOOD-dormant
 // (already producing zero effect) structure to free its slot, when the
-// direct fix (BUILD_ECONOMY growing FOOD via HYDROGARDEN/HYDROWORKS/INCUBATION_ENGINE)
+// direct fix (BUILD_ECONOMY growing FOOD via HYDROGARDEN/HYDROWORKS)
 // isn't available. Vetoed by hasEconomicBuild so the direct fix is always
 // preferred over disabling something when both are legal. Vetoed by
 // pressureThreatensCore — don't disable infrastructure while defending,

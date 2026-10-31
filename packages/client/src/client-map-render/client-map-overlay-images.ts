@@ -1,4 +1,10 @@
-import type { FortificationOpening, FortificationOverlayKind } from "../client-fortification-overlays/client-fortification-overlays.js";
+import { districtOverlayImages } from "../client-town-district/district-art.js";
+import {
+  fortificationOpeningSides,
+  recordForEachFortificationOpening,
+  type FortificationOpening,
+  type FortificationOverlayKind
+} from "../client-fortification-overlays/client-fortification-overlays.js";
 
 // Overlay sprite loading for the 2D canvas renderer. Lives in its own
 // module so structureOverlayImages can grow without pushing
@@ -6,7 +12,7 @@ import type { FortificationOpening, FortificationOverlayKind } from "../client-f
 // in packages/client/public/overlays/, cache-busted by
 // overlayAssetVersion — bump it whenever overlay art changes.
 
-const overlayAssetVersion = "20261017-manufactory";
+const overlayAssetVersion = "20261029-food-tiles";
 export const overlaySrc = (filename: string): string => `/overlays/${filename}?v=${overlayAssetVersion}`;
 const loadOverlayImage = (filename: string): HTMLImageElement => {
   const image = new Image();
@@ -21,24 +27,29 @@ const createDirectionalOverlaySet = (
 ): Record<FortificationOpening, HTMLImageElement> => {
   if (variant === "static") {
     const image = loadOverlayImage(`${prefix}.svg`);
-    return { CLOSED: image, NORTH: image, EAST: image, SOUTH: image, WEST: image };
+    return recordForEachFortificationOpening(() => image);
   }
-  const suffixFor = (direction: Exclude<FortificationOpening, "CLOSED">): string =>
-    variant === "direction" ? direction.toLowerCase() : `open-${direction.toLowerCase()}`;
-  return {
-    CLOSED: loadOverlayImage(`${prefix}-closed.svg`),
-    NORTH: loadOverlayImage(`${prefix}-${suffixFor("NORTH")}.svg`),
-    EAST: loadOverlayImage(`${prefix}-${suffixFor("EAST")}.svg`),
-    SOUTH: loadOverlayImage(`${prefix}-${suffixFor("SOUTH")}.svg`),
-    WEST: loadOverlayImage(`${prefix}-${suffixFor("WEST")}.svg`)
+  // One sprite per combination of open sides, e.g. NORTH_EAST -> `${prefix}-open-north-east.svg`
+  // (written by scripts/generate-fortification-ring-overlays.mjs).
+  const suffixFor = (opening: FortificationOpening): string => {
+    const sides = fortificationOpeningSides(opening).map((side) => side.toLowerCase()).join("-");
+    return variant === "direction" ? sides : `open-${sides}`;
   };
+  return recordForEachFortificationOpening((opening) =>
+    loadOverlayImage(opening === "CLOSED" ? `${prefix}-closed.svg` : `${prefix}-${suffixFor(opening)}.svg`)
+  );
 };
 
 export const aetherBridgeAnchorImage = loadOverlayImage("aether-pylon-overlay.svg");
 export const aetherWallPylonImage = loadOverlayImage("aether-wall-pylon-overlay.svg");
 
 export const dockOverlayVariants = createOverlayVariantSet(["dock-overlay-1.svg", "dock-overlay-2.svg", "dock-overlay-3.svg"]);
-export const structureOverlayImages = {
+const legacyStructureOverlayImages = {
+  RESIN_EXTRACTOR: loadOverlayImage("resin-extractor-overlay.svg"),
+  IMPLANT_FOUNDRY: loadOverlayImage("implant-foundry-overlay.svg"),
+  CATALYST_REFINERY: loadOverlayImage("catalyst-refinery-overlay.svg"),
+  CULTIVATION_ESTATE: loadOverlayImage("cultivation-estate-overlay.svg"),
+  RECLAMATION_WORKS: loadOverlayImage("reclamation-works-overlay.svg"),
   OBSERVATORY: loadOverlayImage("observatory-overlay.svg"),
   MANUFACTORY: loadOverlayImage("manufactory-overlay.svg"),
   INCUBATION_ENGINE: loadOverlayImage("incubation-engine-overlay.svg"),
@@ -108,3 +119,4 @@ export const fortificationOverlayImages: Record<FortificationOverlayKind, Record
   PALISADE: createDirectionalOverlaySet("palisade-ring-overlay"),
   RELAY_BEACON: createDirectionalOverlaySet("relay-beacon-overlay", "static")
 };
+export const structureOverlayImages = { ...legacyStructureOverlayImages, ...districtOverlayImages(loadOverlayImage) };

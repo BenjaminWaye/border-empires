@@ -66,7 +66,8 @@ describe("umbrite extraction rig overlay", () => {
       const ranges = mesh.instanceMatrix.updateRanges;
       expect(ranges).toHaveLength(1);
       expect(ranges[0]).toEqual({ start: 0, count: mesh.count * 16 });
-      expect(ranges[0]!.count).toBeLessThan(mesh.instanceMatrix.array.length);
+      expect(ranges[0]!.count).toBeLessThanOrEqual(mesh.instanceMatrix.array.length);
+      if (!mesh.geometry.hasAttribute("districtState")) expect(ranges[0]!.count).toBeLessThan(mesh.instanceMatrix.array.length);
     }
 
     overlay.dispose();

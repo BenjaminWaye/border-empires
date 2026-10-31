@@ -1,3 +1,4 @@
+import { activeRelicTiles, fieldGeneratorForTarget } from "./runtime-relics.js";
 import { coalitionAttackMult } from "./afc-specializations/afc-coalition.js";
 import { flagMomentumAttackMult, pickBreakthroughTarget } from "./afc-specializations/afc-battle-effects.js";
 import type { CommandEnvelope, LockedFrontierCombatResult, SimulationEvent } from "@border-empires/sim-protocol";
@@ -32,10 +33,8 @@ import type { CombatManpowerLoss } from "./combat-manpower-log/combat-manpower-l
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import {
   battleWarGearFor,
-  noWarIndustryVulnerabilityLabelForAttacker,
-  noWarIndustryVulnerabilityLabelForDefender,
-  noWarIndustryVulnerabilityMultForAttacker,
-  noWarIndustryVulnerabilityMultForDefender,
+  noWarIndustryEdgeForAttacker,
+  noWarIndustryEdgeForDefender,
   titaniumWeaponsFactoryAttackMultForPlayer,
   titaniumWeaponsFactoryDefenseMultForPlayer,
   umbriteWeaponsFactoryAttackMultForPlayer,
@@ -251,7 +250,11 @@ const resolveAttackCombat = (
   const outpostMult = attackerOutpostMult(ctx, lock.playerId, lock.targetX, lock.targetY);
   const attacker = ctx.players.get(lock.playerId); const dockAttackMult = wonderEffects.dockAttackMultiplierForOrigin(attacker, ctx.tiles.get(lock.originKey), lock.playerId);
   const targetHasActiveFort = targetHasActiveFortFor(ctx, previousTarget, defenderOwnerId, lock.targetKey);
+  const attackEdge = noWarIndustryEdgeForAttacker(ctx, lock.playerId, defenderOwnerId);
+  const defenseEdge = noWarIndustryEdgeForDefender(ctx, lock.playerId, defenderOwnerId);
   const combatModifiers = {
+    relicAttackMult: activeRelicTiles(ctx, lock.playerId, "WARPRESS").length ? 1.5 : 1,
+    relicDefenseMult: previousTarget && defenderOwnerId && fieldGeneratorForTarget(ctx, defenderOwnerId, previousTarget) ? 1.5 : 1,
     attackerOutpostMult: outpostMult,
     dockAttackMult,
     attackVsSettledMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsSettledMult") : 1,
@@ -271,10 +274,10 @@ const resolveAttackCombat = (
     titaniumWeaponsFactoryDefenseMult: titaniumWeaponsFactoryDefenseMultForPlayer(ctx, defenderOwnerId),
     umbriteWeaponsFactoryAttackMult: umbriteWeaponsFactoryAttackMultForPlayer(ctx, lock.playerId),
     umbriteWeaponsFactoryDefenseMult: umbriteWeaponsFactoryDefenseMultForPlayer(ctx, defenderOwnerId),
-    noWarIndustryVulnerabilityMult: noWarIndustryVulnerabilityMultForDefender(ctx, defenderOwnerId),
-    noWarIndustryVulnerabilityLabel: defenderOwnerId ? noWarIndustryVulnerabilityLabelForDefender(ctx, defenderOwnerId) : undefined,
-    noWarIndustryDefenseVulnerabilityMult: noWarIndustryVulnerabilityMultForAttacker(ctx, lock.playerId),
-    noWarIndustryDefenseVulnerabilityLabel: noWarIndustryVulnerabilityLabelForAttacker(ctx, lock.playerId),
+    noWarIndustryVulnerabilityMult: attackEdge.mult,
+    noWarIndustryVulnerabilityLabel: attackEdge.label,
+    noWarIndustryDefenseVulnerabilityMult: defenseEdge.mult,
+    noWarIndustryDefenseVulnerabilityLabel: defenseEdge.label,
     // General tech/domain "attack"/"defense" stat mods (e.g. Titanium Dominion's
     // +18% attack/defense) — persistent infrastructure, same tier as weapons
     // factories, previously computed but never actually applied to combat.

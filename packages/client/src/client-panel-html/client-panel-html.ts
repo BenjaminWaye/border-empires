@@ -38,8 +38,8 @@ export const feedAgeLabel = (atMs: number, nowMs: number): string => {
 const feedIcon = (type: FeedType): string => {
   if (type === "combat") return "⚔";
   if (type === "mission") return "✓";
-  if (type === "alliance") return "🤝";
-  if (type === "tech") return "⚡";
+  if (type === "alliance") return "⚖\uFE0E";
+  if (type === "tech") return "ϟ";
   if (type === "error") return "!";
   return "i";
 };
@@ -257,6 +257,7 @@ export const alliesHtml = (
       </div>`
           : `<button class="panel-btn alliance-reference-action alliance-reference-action-break break-alliance" type="button" data-alliance-break-player-id="${id}">Break Alliance</button>`
       }
+      <button type="button" class="panel-btn propose-resource-trade" data-propose-player-id="${escapeHtml(id)}">Trade resources</button>
     </article>`;
     })
     .join("");
@@ -286,7 +287,7 @@ export const truceRequestsHtml = (
       <div class="alliance-reference-top">
         <div class="alliance-reference-copy">
           ${allianceNameButtonHtml(playerId, playerName, playerColors)}
-          ${socialOfferLineHtml(kind, `a ${request.durationHours}h truce`)}
+          ${socialOfferLineHtml(kind, `a ${request.durationHours}h truce${request.extendsTruce ? " extension" : ""}`)}
         </div>
         <div class="alliance-reference-right">
           <div class="alliance-reference-duration">${socialClockIcon()}<span>${request.durationHours}h</span></div>

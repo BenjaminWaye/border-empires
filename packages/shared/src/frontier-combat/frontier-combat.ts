@@ -1,6 +1,6 @@
 import type { FortVariant } from "../types.js";
 import { combatWinChance } from "../math/math.js";
-import { BREAKTHROUGH_DEBUFF_MULT } from "../config.js";
+import { BREAKTHROUGH_DEBUFF_MULT, NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT } from "../config.js";
 import { attackManpowerLossRangeForFort } from "../structure-costs/structure-costs.js";
 import { CAPTURE_HOLD_DEFENSE_MULT, isCaptureHoldActive } from "../capture-hold/capture-hold.js";
 
@@ -54,6 +54,8 @@ export type FrontierCombatPreview = {
 // defender-side multipliers come from the defender's. The caller is expected
 // to resolve both and pass them in here together.
 export type FrontierCombatModifiers = {
+  relicAttackMult?: number | undefined;
+  relicDefenseMult?: number | undefined;
   attackerOutpostMult?: number;
   // Applied when the attack originates from a dock-crossing (origin tile is an owned dock).
   dockAttackMult?: number | undefined;
@@ -82,10 +84,9 @@ export type FrontierCombatModifiers = {
   umbriteWeaponsFactoryAttackMult?: number | undefined;
   umbriteWeaponsFactoryDefenseMult?: number | undefined;
   // "Unarmed" vulnerability: doubles the attacker's effective attack when the
-  // defender owns zero Titanium or zero Umbrite Weapons Factories anywhere in their
-  // empire (NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT in config.ts) — an
-  // attack-side-only field (the attacker's own war-industry investment,
-  // or lack of it, never affects their own defense).
+  // attacker owns a Weapons Factory type the defender owns none of anywhere
+  // in their empire (NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT in config.ts;
+  // see warIndustryEdge below) — an attack-side-only field.
   noWarIndustryVulnerabilityMult?: number | undefined;
   // Names exactly which factory type(s) the defender is missing (e.g.
   // "Target missing Umbrite Weapons Factory"), so the breakdown tells the
@@ -93,11 +94,8 @@ export type FrontierCombatModifiers = {
   // Falls back to a generic label if the caller doesn't supply one.
   noWarIndustryVulnerabilityLabel?: string | undefined;
   // Mirror of noWarIndustryVulnerabilityMult above, but from the defender's
-  // side: doubles the defender's effective defense when the ATTACKER owns
-  // zero Titanium or zero Umbrite Weapons Factories anywhere in their empire
-  // (same NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT constant, applied to the
-  // other side) — a defense-side-only field (the defender's own war-industry
-  // investment, or lack of it, never affects their own attack).
+  // side: doubles the defender's effective defense when the defender owns a
+  // Weapons Factory type the ATTACKER owns none of — a defense-side-only field.
   noWarIndustryDefenseVulnerabilityMult?: number | undefined;
   // Mirror of noWarIndustryVulnerabilityLabel above, naming which factory
   // type(s) the attacker is missing.
@@ -125,6 +123,28 @@ export const noWarIndustryLabel = (
   if (!hasTitanium) return `${subject} missing Titanium Weapons Factory`;
   if (!hasUmbrite) return `${subject} missing Umbrite Weapons Factory`;
   return `${subject} has no war industry`;
+};
+
+// Which Weapons Factory types a player owns at least one of, empire-wide.
+export type WarIndustryPresence = { titanium: boolean; umbrite: boolean };
+
+// The "missing war industry" edge `holder` has over `other`: the flat
+// NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT applies only for a factory type
+// the holder owns and the other side lacks — lacking a type you don't own
+// yourself earns nothing (two players with no factories get no bonus either
+// way). The label names only those edge types. `subject` names the side
+// that is missing them ("Target" when the attacker holds the edge,
+// "Attacker" when the defender does). Shared by the sim's combat resolver
+// and the gateway's attack preview so the two can never disagree.
+export const warIndustryEdge = (
+  subject: "Target" | "Attacker",
+  holder: WarIndustryPresence,
+  other: WarIndustryPresence
+): { mult: number; label: string | undefined } => {
+  const titaniumEdge = holder.titanium && !other.titanium;
+  const umbriteEdge = holder.umbrite && !other.umbrite;
+  if (!titaniumEdge && !umbriteEdge) return { mult: 1, label: undefined };
+  return { mult: NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT, label: noWarIndustryLabel(subject, !titaniumEdge, !umbriteEdge) };
 };
 
 export const FRONTIER_COMBAT_MODULE = Symbol("frontier-combat");
@@ -180,6 +200,7 @@ const attackerBattle = (target: FrontierCombatPreviewTile, modifiers: FrontierCo
   mult *= foldMult(entries, "Siege/outpost proximity", modifiers.attackerOutpostMult);
   mult *= foldMult(entries, modifiers.noWarIndustryVulnerabilityLabel ?? "Target has no war industry", modifiers.noWarIndustryVulnerabilityMult);
   mult *= foldMult(entries, "Dock crossing", modifiers.dockAttackMult);
+  mult *= foldMult(entries, "Combat suits", modifiers.relicAttackMult);
   if (target.ownershipState === "SETTLED") mult *= foldMult(entries, "Tech vs garrisoned tiles", modifiers.attackVsSettledMult);
   if (target.fortVariant) mult *= foldMult(entries, "Tech vs forts", modifiers.attackVsFortsMult);
   if (modifiers.defenderOwnerId?.startsWith("barbarian")) mult *= foldMult(entries, "Tech vs Planetary Defense", modifiers.attackVsBarbariansMult);
@@ -200,6 +221,7 @@ const defenderBattle = (target: FrontierCombatPreviewTile, modifiers: FrontierCo
   if (holdingGround) {
     mult *= foldMult(entries, "Holding captured ground", CAPTURE_HOLD_DEFENSE_MULT);
   } else {
+    mult *= foldMult(entries, "Ancient force field", modifiers.relicDefenseMult);
     mult *= foldMult(entries, "Garrisoned tile", target.ownershipState === "SETTLED" ? 1.3 : undefined);
     mult *= foldMult(entries, "Town", target.townType ? 1.2 : undefined);
     if (target.fortVariant) {

@@ -1,3 +1,4 @@
+import { relicCastRadius } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
 import { structureAreaPreviewForTile } from "../client-structure-effects/client-structure-effects.js";
@@ -30,7 +31,7 @@ export const renderSelectedStructurePreview2D = (
       selectedWorld.observatory.status === "active"
     ) {
       const center = deps.worldToScreen(selectedWorld.x, selectedWorld.y, size, halfW, halfH);
-      const effectiveRange = ownObservatoryRange(state);
+      const effectiveRange = relicCastRadius(selectedWorld.naturalWonder, ownObservatoryRange(state));
       const rangeRadius = effectiveRange + 0.5;
       const squareSize = rangeRadius * 2 * size;
       deps.ctx.save();

@@ -88,7 +88,8 @@ const buildDrainCommand = (
 
 /**
  * The player's Expand To & Attack effort choice (docs/replenishment-update-
- * plan.md D6) applies only to the plan's final ATTACK on the waypoint's own
+ * plan.md D6; that menu row is gone, but waypoints queued before still carry
+ * it) applies only to the plan's final ATTACK on the waypoint's own
  * target, and only while that target is SETTLED or holding captured ground,
  * and non-barbarian -- the only cases the commit actually improves odds for
  * (runtime-combat-support.ts isCommitEligible); anywhere else it would just

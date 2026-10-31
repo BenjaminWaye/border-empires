@@ -1,9 +1,11 @@
 # Relics — Natural Wonders Remade as Concordance Anchors
 
-Status: active proposal
+Status: historical proposal — superseded by the accepted ziggurat and gameplay redesign
 Owner: Benjamin Waye (design sign-off on canon, variant mapping and terrain rules)
 Last verified: 2026-10-22
 Replaces: the fiction and 3D/2D look in [`natural-wonders-design.md`](natural-wonders-design.md) §2 (effects and spawn rules stay canonical there until this ships)
+
+Current direction: [execution plan](relics-execution-plan.md) and [visual/design decisions](relic-overlay-preview.md). The blade silhouettes, unchanged-effects assumption and mandatory shatter terrain below are historical proposals, not implementation requirements.
 
 ## Problem
 
@@ -156,8 +158,8 @@ path and the true-3D path together:
 | Shatter-zone ground material | Ground contour already spans 3×3 (`client-map-3d-wonder-ground-contour.ts`); extend to radius 3 | Tinted ground pass for the zone |
 | Blade ridges | Existing mountain rendering (they are ordinary `MOUNTAIN` tiles) | Existing mountain rendering |
 
-Storybook gets one story per variant under `packages/storybook/src/wonders/`,
-replacing the nine per-wonder stories.
+Storybook gets one story per variant in the natural wonders gallery,
+`packages/storybook/src/map/natural-wonders/NaturalWonders.stories.ts`.
 
 ## Out of scope
 

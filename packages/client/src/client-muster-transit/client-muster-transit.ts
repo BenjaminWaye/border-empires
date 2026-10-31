@@ -1,3 +1,4 @@
+import { attackSyncLog } from "../client-debug/client-debug.js";
 import { MUSTER_TRANSIT_MS_PER_TILE } from "../client-constants.js";
 import type { ClientState } from "../client-state/client-state.js";
 
@@ -80,6 +81,7 @@ export const armMusterTransit = (
 ): void => {
   const now = Date.now();
   const transitMs = args.transitTiles * MUSTER_TRANSIT_MS_PER_TILE;
+  attackSyncLog("muster-transit-armed", { commandId: args.commandId, clientSeq: args.clientSeq, transitMs, transitEndsAt: now + transitMs, target: { x: args.toX, y: args.toY } });
   const flagKey = keyFor(args.musterX, args.musterY);
   state.musterTransitByTile.set(flagKey, {
     musterX: args.musterX,
@@ -162,6 +164,7 @@ export const fireDueMusterTransits = (
     state.actionStartedAt = now;
     state.actionTargetKey = deps.keyFor(deferred.toX, deferred.toY);
     state.actionCurrent = { x: deferred.toX, y: deferred.toY, retries: 0, actionType: "ATTACK", commandId: deferred.commandId, clientSeq: deferred.clientSeq };
+    attackSyncLog("muster-transit-ready", { commandId: deferred.commandId, clientSeq: deferred.clientSeq, transitEndsAt: transit.transitEndsAt, timerLateByMs: now - transit.transitEndsAt });
     deps.sendDeferredAttack(deferred.fromX, deferred.fromY, deferred.toX, deferred.toY, deferred.commandId, deferred.clientSeq);
     deps.requestViewRefresh();
     break;
@@ -202,7 +205,7 @@ export type MusterSupplyLine = {
   targetX: number;
   targetY: number;
   // Keyed by the real attack target regardless of where the line is drawn,
-  // so syncCaptureOverlays' "is this target already covered by a supply
+  // so drawMusterSupplyLines2D's "is this target already covered by a supply
   // line" check still matches against the tile actually being attacked.
   targetKey: string;
   phase: "transit" | "locked";
@@ -234,9 +237,9 @@ type OutgoingMusterAttackMaps = Pick<ClientState, "outgoingMusterAttacksByTile">
 // musterTransitByTile (only ever populated for this client's own manually-
 // armed attacks) and state.capture (deliberately never set for these
 // server-fired fights -- see handleMusterAdvanceCombatStart -- so it can't
-// be relied on as a supply-line source either). Shared by both renderers so
-// the "still marching to the front" supply line covers auto-fire the same
-// way the 3D marching-company mesh (syncMusterTransitOverlay) already does.
+// be relied on as a supply-line source either). Lets the 2D map's
+// "still marching to the front" supply line cover auto-fire the same way the
+// 3D marching-company mesh (syncMusterTransitOverlay) does.
 export const outgoingMusterAttackTransitLines = (
   state: OutgoingMusterAttackMaps,
   nowEpochMs: number,
@@ -264,8 +267,8 @@ export type AdvanceMusterFallbackCache = { targetKey: string; result: { x: numbe
 // ADVANCE-mode attacks are fired autonomously by the server and never go
 // through armMusterTransit, so they aren't covered by musterTransitByTile.
 // Overlay code falls back to scanning for the nearest owned ADVANCE flag
-// for the single tracked `state.capture` target. Shared (with a
-// caller-owned cache slot) between the 2D and 3D overlay renderers.
+// for the single tracked `state.capture` target. Takes a
+// caller-owned cache slot (the 2D supply-line overlay's).
 export const resolveAdvanceMusterFallbackSource = (
   state: Pick<ClientState, "tiles" | "me">,
   targetKey: string,

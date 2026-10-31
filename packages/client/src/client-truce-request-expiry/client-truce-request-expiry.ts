@@ -24,6 +24,7 @@ export const createTruceRequestExpiry = (): ((state: TruceRequestState, nowMs: n
   // Bounded: pruned to the offers still in state on every call.
   const firstSeenAtById = new Map<string, number>();
   const isLive = (request: TruceRequest, nowMs: number): boolean => {
+    if (request.settlementPhase === "paying" || request.settlementPhase === "refunding") return true;
     const lifetimeMs = request.expiresAt - request.createdAt;
     // A malformed offer stays; the server rejects it and resyncs if it is dead.
     if (!Number.isFinite(lifetimeMs)) return true;

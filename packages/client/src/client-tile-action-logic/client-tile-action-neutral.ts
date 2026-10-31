@@ -106,9 +106,9 @@ export const expandToAction = (
 // (client-action-flow.ts): a live REQUEST_TILE_DETAIL is never sent for one
 // of these tiles by design, so this menu has to work from terrain alone.
 // A known owner (fogged, last-witnessed as someone else's) also returns no
-// actions here -- that's an attack target, offered separately via
-// injectWaypointActions's "Expand To & Attack" (client-waypoint-menu-actions.ts),
-// not this claim action.
+// actions here -- that's an attack target, offered separately as March Attack
+// rows (injectMarchAttackActions, client-march-attack-actions.ts), not this
+// claim action.
 export const foggedTileActions = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] => {
   if (tile.terrain !== "LAND" || tile.ownerId) return [];
   const action = expandToAction(state, tile, deps);

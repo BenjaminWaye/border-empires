@@ -1,6 +1,6 @@
 // Food-slot relief: when a player is fully out of FOOD slots (demand ≥
 // supply, nothing left over) and has no way to grow FOOD supply directly
-// (no HYDROGARDEN/HYDROWORKS/INCUBATION_ENGINE build available — chooseBestEconomicBuild
+// (no HYDROGARDEN/HYDROWORKS build available — chooseBestEconomicBuild
 // found nothing), the AI was previously just stuck: every FOOD-consuming
 // build stays illegal forever, RELAY_BEACON included (it costs its own FOOD
 // slot once the built-in waiver is used up), so an AI that reaches this
@@ -149,6 +149,11 @@ export const chooseLowValueBeaconToDisable = <TTile extends AutomationPlannerTil
  * FOOD was tight stays dead forever even after the shortage passes — see
  * the file header's Sigrid incident. Deterministic (lowest x, then y) when
  * more than one qualifies.
+ *
+ * Only SETTLED tiles qualify: handleSetConverterStructureEnabledCommand
+ * rejects enabling on any other tile ("structure requires a garrisoned owned
+ * tile"). Picking a FRONTIER beacon here re-proposed the same doomed command
+ * every rejection cooldown, forever — 15 of 20 prod AIs were stuck on it.
  */
 export const chooseManuallyDisabledBeaconToReenable = <TTile extends AutomationPlannerTile>(
   ownedTiles: readonly TTile[],
@@ -160,6 +165,7 @@ export const chooseManuallyDisabledBeaconToReenable = <TTile extends AutomationP
     if (!structure || structure.ownerId !== playerId) continue;
     if (structure.type !== "RELAY_BEACON") continue;
     if (structure.status !== "inactive" || structure.inactiveReason !== "manual") continue;
+    if (tile.ownershipState !== "SETTLED") continue;
     if (!best || tile.x < best.x || (tile.x === best.x && tile.y < best.y)) best = tile;
   }
   return best ? { x: best.x, y: best.y } : undefined;

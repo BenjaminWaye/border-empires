@@ -8,6 +8,7 @@ import { playLocationTheme } from "../client-audio/client-audio.js";
 import { tileMenuRenderSignature } from "../client-tile-menu-render-signature/client-tile-menu-render-signature.js";
 import { rememberTileMenuScrollTop, restoreTileMenuScrollTop } from "../client-tile-menu-scroll/client-tile-menu-scroll.js";
 import { injectWaypointActions } from "../client-waypoint-menu-actions/client-waypoint-menu-actions.js";
+import { injectMarchAttackActions } from "../client-march-attack-actions/client-march-attack-actions.js";
 import { injectTileMenuExtras } from "../client-tile-menu-injections/client-tile-menu-injections.js";
 import { wireDockNavigatorButtons } from "../client-dock-navigator/client-dock-navigator.js";
 import { resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
@@ -19,6 +20,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuTab, TileMenuView } from "../client-types.js";
 import { afcModulePickerStateForTitle, bindAfcModulePicker, fitAfcModulePicker } from "../client-afc-module-tab/client-afc-module-tab.js";
 import { openTechDetailFromTileMenu } from "../client-tile-action-support/client-tech-locked-tile-action.js";
+import { dockTileActionMenuForHudV2 } from "../client-hud-v2/client-hud-v2-tile-dock.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -45,12 +47,6 @@ type TileActionMenuUiDeps = {
   requestAttackPreviewForTarget: (tile: Tile) => void;
   keyFor: (x: number, y: number) => string;
   isTileOwnedByAlly: (tile: Tile) => boolean;
-  pickOriginForTarget: (
-    tx: number,
-    ty: number,
-    allowAdjacentToDock?: boolean,
-    allowOptimisticExpandOrigin?: boolean
-  ) => Tile | undefined;
 };
 
 export const renderTileActionMenu = (
@@ -67,7 +63,7 @@ export const renderTileActionMenu = (
   if (state.tileActionMenu.mode === "single" && state.tileActionMenu.currentTileKey) {
     const menuTile = state.tiles.get(state.tileActionMenu.currentTileKey);
     if (menuTile) {
-      injectTileMenuExtras(view, menuTile, state, { keyFor: deps.keyFor, pickOriginForTarget: deps.pickOriginForTarget });
+      injectTileMenuExtras(view, menuTile, state);
     }
   }
   const previousScrollBody = deps.tileActionMenuEl.querySelector<HTMLElement>("[data-tile-menu-scroll]");
@@ -98,6 +94,10 @@ export const renderTileActionMenu = (
   state.tileActionMenu.visible = true;
   state.tileActionMenu.x = clientX;
   state.tileActionMenu.y = clientY;
+  dockTileActionMenuForHudV2(state, view, deps, () => {
+    const tile = state.tileActionMenu.currentTileKey ? state.tiles.get(state.tileActionMenu.currentTileKey) : undefined;
+    if (tile) renderTileActionMenu(state, deps.tileMenuViewForTile(tile), state.tileActionMenu.x, state.tileActionMenu.y, deps);
+  });
   if (!shouldReuseRenderedMenu) {
     const closeBtn = deps.tileActionMenuEl.querySelector<HTMLButtonElement>("#tile-action-close");
     if (closeBtn) closeBtn.onclick = () => deps.hideTileActionMenu();
@@ -425,10 +425,9 @@ export const openSingleTileActionMenu = (
     state.tileActionMenu.renderSignature = "";
   }
   const view = deps.tileMenuViewForTile(tile);
-  injectWaypointActions(view, tile, state, {
-    keyFor: deps.keyFor,
-    pickOriginForTarget: deps.pickOriginForTarget
-  });
+  // Before the active tab is picked, so rows that force "actions" first count.
+  injectWaypointActions(view, tile, state);
+  injectMarchAttackActions(view, tile, state);
   if (!options.preserveTab) {
     state.tileActionMenu.activeTab = (options.openTab && view.tabs.includes(options.openTab)) ? options.openTab : (view.tabs[0] ?? "overview");
   }

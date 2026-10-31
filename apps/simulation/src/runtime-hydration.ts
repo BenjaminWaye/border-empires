@@ -1,4 +1,4 @@
-import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
+import { usesPlayerCommandSequence, type CommandEnvelope, type SimulationEvent } from "@border-empires/sim-protocol";
 import { WORLD_HEIGHT, WORLD_WIDTH, clearForestAroundAfcTiles, clearForestOnTownAndDockTiles, isChosenTrickleResource, landBiomeAt, normalizeAutoSettlePrefs, resetForestClearings } from "@border-empires/shared";
 import { backfillProspectClues } from "./prospect-clue-backfill/prospect-clue-backfill.js";
 import { MANPOWER_BASE_CAP, POPULATION_MAX, type DomainTileState } from "@border-empires/game-domain";
@@ -292,7 +292,7 @@ export const hydrateCommandHistory = ({
   if (!recoveredCommandHistory) return;
 
   for (const command of recoveredCommandHistory.commands) {
-    if (command.type === "SYNC_ALLIANCE" || command.type === "SYNC_TRUCE" || command.type === "SETTLE_DIPLOMACY_TERMS") continue;
+    if (!usesPlayerCommandSequence(command.type)) continue;
     commandIdsByPlayerSeq.set(`${command.playerId}:${command.clientSeq}`, command.commandId);
   }
   for (const [commandId, events] of recoveredCommandHistory.eventsByCommandId.entries()) {
@@ -301,7 +301,9 @@ export const hydrateCommandHistory = ({
     // snapshot after a restart). The requeue-skip check reads
     // recoveredCommandHistory directly, not this cache, so this is safe.
     if (!isReplayTrackedCommandId(commandId)) continue;
-    recordedEventsByCommandId.set(commandId, [...events]);
+    // Same as the live recordEvent gate: a replayed border diff would be
+    // persisted again with a newer event id and re-applied over later diffs.
+    recordedEventsByCommandId.set(commandId, events.filter((event) => event.eventType !== "REACH_BORDER_CHANGED"));
   }
 };
 

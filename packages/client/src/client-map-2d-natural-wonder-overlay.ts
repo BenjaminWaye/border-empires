@@ -1,3 +1,5 @@
+import { isRedesignedRelic, type NaturalWonderState } from "@border-empires/shared";
+import { drawRelicOverlay2D } from "./client-relic-overlay/relic-overlay-2d.js";
 import { naturalWonderOverlayImages } from "./client-map-render/client-map-overlay-images.js";
 import { drawCenteredOverlayWithAlpha } from "./client-map-render/client-map-render.js";
 import type { Tile } from "./client-types.js";
@@ -24,8 +26,15 @@ export const drawNaturalWonderOverlay2D = (
   px: number,
   py: number,
   size: number,
-  structureAccentColor: (ownerId: string, fallback: string) => string
+  structureAccentColor: (ownerId: string, fallback: string) => string,
+  state?: NaturalWonderState,
+  garrisoned = false
 ): void => {
+  if (state && isRedesignedRelic(state)) {
+    drawRelicOverlay2D(ctx, px, py, size, state, Boolean(ownerId && garrisoned),
+      ownerId ? structureAccentColor(ownerId, "#8096b2") : undefined);
+    return;
+  }
   if (overlay && overlay.complete && overlay.naturalWidth) {
     drawCenteredOverlayWithAlpha(ctx, overlay, px, py, size, 1.02, 0.96);
     return;

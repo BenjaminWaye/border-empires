@@ -95,8 +95,8 @@ describe("structure piece builder construction gate", () => {
   });
 
   it("keeps the growing piece's base fixed at every cut", () => {
-    const { builder, scene } = setupWithScene();
-    const mesh = scene.children.find((c): c is InstancedMesh => c instanceof InstancedMesh)!;
+    const { builder } = setupWithScene();
+    const mesh = builder.getMesh("box")!;
     const m = new Matrix4();
     for (const [i, cut] of [0.15, 0.3, 0.45].entries()) {
       builder.setGate(cut);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InstancedMesh, MeshStandardMaterial, Scene } from "three";
+import { BoxGeometry, InstancedMesh, Matrix4, MeshStandardMaterial, Scene, Vector3 } from "three";
 import { createFortOverlay } from "./client-map-3d-fort-overlay.js";
 
 const instancedMeshesIn = (scene: Scene): InstancedMesh[] =>
@@ -19,6 +19,40 @@ describe("createFortOverlay variant wiring", () => {
     overlay.commit();
     const pieces = instancedMeshesIn(scene).reduce((total, mesh) => total + mesh.count, 0);
     expect(pieces).toBe(8 + 7);
+    overlay.dispose();
+  });
+
+  it("drops every open wall but keeps the corner towers", () => {
+    const scene = new Scene();
+    const overlay = createFortOverlay(scene, 4);
+    overlay.addInstance(0, 0, 0, "FORT", "EAST_WEST");
+    overlay.addInstance(2, 0, 0, "PALISADE", "NORTH_EAST_SOUTH_WEST");
+    overlay.commit();
+    const pieces = instancedMeshesIn(scene).reduce((total, mesh) => total + mesh.count, 0);
+    expect(pieces).toBe((2 + 4) + (0 + 4));
+    overlay.dispose();
+  });
+
+  it("drops the walls on the open sides, not just the right number of walls", () => {
+    const scene = new Scene();
+    const overlay = createFortOverlay(scene, 4);
+    overlay.addInstance(0, 0, 0, "FORT", "EAST_WEST");
+    overlay.commit();
+    const wallPositions = instancedMeshesIn(scene)
+      .filter((mesh) => mesh.geometry instanceof BoxGeometry && Math.max(mesh.geometry.parameters.width, mesh.geometry.parameters.depth) > 0.5)
+      .flatMap((mesh) =>
+        Array.from({ length: mesh.count }, (_, i) => {
+          const matrix = new Matrix4();
+          mesh.getMatrixAt(i, matrix);
+          return new Vector3().setFromMatrixPosition(matrix);
+        })
+      );
+    // East and west are open, so only the north and south walls remain.
+    expect(wallPositions).toHaveLength(2);
+    for (const position of wallPositions) {
+      expect(Math.abs(position.x)).toBeLessThan(0.01);
+      expect(Math.abs(position.z)).toBeGreaterThan(0.3);
+    }
     overlay.dispose();
   });
 

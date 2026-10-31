@@ -265,7 +265,7 @@ describe("social state", () => {
     );
   });
 
-  it("rejects a truce request between players who already have an active truce, but allows truces with others", () => {
+  it("turns a truce request between truced players into an extension offer, and allows truces with others", () => {
     const social = createSocialState({
       now: () => 1_000,
       players: [
@@ -279,11 +279,8 @@ describe("social state", () => {
     const requestId = social.snapshotForPlayer("player-2").incomingTruceRequests[0]?.id;
     expect(social.acceptTruce("player-2", requestId!).ok).toBe(true);
 
-    expect(social.requestTruce("player-1", "Valka", 12)).toEqual({
-      ok: false,
-      code: "TRUCE_EXISTS",
-      message: "you already have an active truce with that player"
-    });
+    expect(social.requestTruce("player-1", "Valka", 12).ok).toBe(true);
+    expect(social.snapshotForPlayer("player-2").incomingTruceRequests[0]).toMatchObject({ extendsTruce: true, durationHours: 12 });
 
     // player-1 is still free to truce with a different player.
     expect(social.requestTruce("player-1", "Beejac", 12).ok).toBe(true);

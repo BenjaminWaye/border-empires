@@ -1,15 +1,10 @@
 # Natural Wonders — Design Proposal (Updated for Manpower Rewrite)
 
-Status: canonical reference
+Status: historical rules retained for unversioned worlds
 
-> **Status: current design reference.** Effects are adjusted for the post-rewrite economy.
->
-> **Relic proposal:** [`relics-design.md`](relics-design.md) proposes
-> recasting these as relics with three shared looks and a shatter-zone terrain
-> ring, keeping every effect below unchanged.
->
-> **How to read it:** §1 motivates. §2 specifies each wonder with updated
-> mechanics. §3 defines shared placement rules. §4 lists open questions.
+New worlds use [Concordance relic installations](relics.md). The rules below
+remain relevant to older campaigns; the blade-anchor proposal in
+[relics-design.md](relics-design.md) has been superseded.
 
 ---
 

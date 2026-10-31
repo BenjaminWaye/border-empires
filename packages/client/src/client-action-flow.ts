@@ -26,7 +26,7 @@ import {
 import { createPlayerActionShortcuts } from "./client-player-action-shortcuts/client-player-action-shortcuts.js";
 import { ensureClientCommandEnvelope } from "./client-command-envelope/client-command-envelope.js";
 import { clearMusterTransitForTarget } from "./client-muster-transit/client-muster-transit.js";
-import { handleMusterMarchTargetClick } from "./client-muster-march-targeting.js"; import { handleArrowGestureConfirm } from "./client-arrow-gesture-confirm.js";
+import { handleMarchPickClick } from "./client-march-origin-picking/client-march-origin-picking.js";
 import { dispatchMusterTileAction } from "./client-muster-tile-actions.js";
 import { recordClientDebugEvent } from "./client-debug/client-debug.js";
 import { blockUnsupportedRewriteMessage } from "./client-send-message-guard/client-send-message-guard.js";
@@ -171,6 +171,7 @@ import { createMusterWatchGuard } from "./client-muster-watch/client-muster-watc
 import { retortTargetResourceForAction } from "./client-retort-target-resource.js";
 import { attackWireMessage } from "./client-attack-commit/client-attack-commit.js";
 import { launchAttacksWithEffort, type AttackLaunchDeps } from "./client-launch-attack-effort/client-launch-attack-effort.js";
+import { dispatchPactGatedAction } from "./client-pact-attack-gate/client-pact-attack-gate.js";
 
 type ActionFlowDeps = Record<string, any> & {
   state: ClientState;
@@ -972,7 +973,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
             : {
                 cancelLabel: "Cancel garrison",
                 cancelActionId: "cancel_settle" as const,
-                rushBuyLabel: `⏩ 💰${rushBuyPriceGold(remainingMs, totalMs, SETTLE_MANPOWER_COST)}`,
+                rushBuyLabel: `Rush ◉${rushBuyPriceGold(remainingMs, totalMs, SETTLE_MANPOWER_COST)}`,
                 rushBuyActionId: "rush_buy" as const
               })
         };
@@ -1136,8 +1137,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     renderHud,
     requestAttackPreviewForTarget,
     keyFor,
-    isTileOwnedByAlly,
-    pickOriginForTarget
+    isTileOwnedByAlly
   });
 
   const renderTileActionMenu = (view: TileMenuView, clientX: number, clientY: number): void =>
@@ -1258,6 +1258,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       hideTileActionMenu();
       return;
     }
+    if ((!fromBulk || actionId === "break_truce") && dispatchPactGatedAction(actionId, selected, state, { isTileOwnedByAlly, activeTruceWithPlayer, playerNameForOwner: (ownerId) => playerDisplayNameForOwnerFromState(state, ownerId) ?? "your ally", breakTruce, breakAlliance, pushFeed, hideTileActionMenu })) return;
     if (actionId === "launch_attack") {
       launchAttacksWithEffort(state, { targetKeys: targets, scope: fromBulk ? "bulk" : "single", selected }, attackLaunchDeps());
       return;
@@ -1324,9 +1325,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "diplomacy" && selected.ownerId && selected.ownerId !== state.me && !selected.ownerId.startsWith("barbarian")) {
       openDiplomacyForPlayer(state, selected.ownerId, isMobile());
       renderHud();
-    }
-    if (actionId === "break_truce" && selected.ownerId && selected.ownerId !== state.me && !selected.ownerId.startsWith("barbarian")) {
-      breakTruce(selected.ownerId);
     }
     if (actionId === "reveal_empire" && selected.ownerId && selected.ownerId !== state.me && selected.ownerId !== "barbarian") {
       if (sendGameMessage({ type: "REVEAL_EMPIRE", targetPlayerId: selected.ownerId })) {
@@ -1476,7 +1474,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       renderHud();
       return;
     }
-    if (state.musterMarchTargeting.active) { const result = handleMusterMarchTargetClick(state, wx, wy, vis, { pushFeed }); if (result.type === "armed") handleArrowGestureConfirm(state, { x: result.originX, y: result.originY }, { x: result.targetX, y: result.targetY }, { pushFeed, sendGameMessage, renderHud, keyFor }); renderHud(); return; }
+    if (handleMarchPickClick(state, wx, wy, vis, { pushFeed, sendGameMessage, renderHud, keyFor })) return;
     if (state.buildingPlacement.active) { state.buildingPlacement.x = wx; state.buildingPlacement.y = wy; state.selected = { x: wx, y: wy }; renderHud(); return; }
     // True when (x,y) falls inside the local player's fixed-border reach --
     // see client-reach-overlay.ts's MOCK-DATA SEAM comment for why this is a

@@ -7,7 +7,7 @@ import { featureSurvivesCapture, flipFeatures, tileFeaturesForActivity } from ".
 const tile = (overrides: Partial<DomainTileState> = {}): DomainTileState => ({ x: 211, y: 186, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", ...overrides });
 
 describe("tileFeaturesForActivity", () => {
-  it("lists the standing fortification, buildings, dock and wonder, but not a town or an unfinished build", () => {
+  it("lists the standing fortification, buildings and wonder, but not a town, a dock or an unfinished build", () => {
     expect(tileFeaturesForActivity(tile({
       fort: { ownerId: "me", status: "active", variant: "PALISADE" },
       economicStructure: { ownerId: "me", type: "MINE", status: "under_construction" },
@@ -16,7 +16,6 @@ describe("tileFeaturesForActivity", () => {
       town: { type: "MARKET", populationTier: "TOWN" }
     }))).toEqual([
       { kind: "STRUCTURE", structureType: "PALISADE" },
-      { kind: "DOCK" },
       { kind: "NATURAL_WONDER", wonderType: "FOUNDRY_HEART" }
     ]);
     // A fort mid-upgrade still stands as its old tier.
@@ -44,4 +43,8 @@ describe("tileFeaturesForActivity", () => {
       expect(tileFeaturesForActivity(before).filter(featureSurvivesCapture)).toEqual(tileFeaturesForActivity(after));
     }
   });
+});
+
+it("keeps the relic version in captured feature records so old and new names remain distinguishable", () => {
+  expect(tileFeaturesForActivity(tile({ naturalWonder: { type: "WARPRESS", relicVersion: 1 } }))).toEqual([{ kind: "NATURAL_WONDER", wonderType: "WARPRESS", relicVersion: 1 }]);
 });

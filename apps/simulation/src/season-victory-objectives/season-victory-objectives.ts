@@ -22,6 +22,7 @@ import {
 } from "@border-empires/game-domain";
 import type { LeaderboardOverallEntry, SeasonVictoryObjectiveSnapshot } from "@border-empires/sim-protocol";
 import { objectiveSelfProgress, objectiveSelfProgressLabel } from "./season-victory-self-progress.js";
+import { MAX_SEASON_VICTORY_CONTENDERS, withContenders } from "./season-victory-contenders.js";
 import { revealResourceCategoryForTech } from "../tech-domain-bridge/tech-domain-bridge.js";
 
 type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
@@ -162,6 +163,15 @@ export const buildEconomicHegemonyObjective = (
     progress
   };
   if (leaderPlayerId) objective.leaderPlayerId = leaderPlayerId;
+  // Runners-up carry their income as a share of the leader's; the client scales that onto the leader's
+  // position, so dividing by the minimum-income floor here as well would count it twice.
+  const contenders = leaderPlayerId && leaderValue > 0
+    ? ranked
+      .slice(1, 1 + MAX_SEASON_VICTORY_CONTENDERS)
+      .filter((entry) => entry.incomePerMinute > 0)
+      .map((entry) => ({ playerId: entry.id, name: entry.name, progress: clamp01(entry.incomePerMinute / leaderValue) }))
+    : [];
+  if (contenders.length > 0) objective.contenders = contenders;
   return objective;
 };
 
@@ -182,7 +192,8 @@ export const seasonVictoryForBroadcast = (
   cachedSelfProgressLabels: Map<SeasonVictoryPathId, string> | undefined,
   liveEconomicHegemony: SeasonVictoryObjectiveSnapshot,
   playerId: string,
-  playerIncomePerMinute: number | undefined
+  playerIncomePerMinute: number | undefined,
+  cachedSelfProgressValues?: Map<SeasonVictoryPathId, number>
 ): SeasonVictoryObjectiveSnapshot[] => {
   const objectives = cachedObjectives.map((objective) =>
     objective.id === "ECONOMIC_HEGEMONY" ? liveEconomicHegemony : objective
@@ -191,7 +202,7 @@ export const seasonVictoryForBroadcast = (
     liveEconomicHegemony.leaderPlayerId !== playerId && typeof playerIncomePerMinute === "number"
       ? new Map(cachedSelfProgressLabels).set("ECONOMIC_HEGEMONY", economicHegemonySelfProgressLabel(playerIncomePerMinute))
       : cachedSelfProgressLabels;
-  return mergeSelfProgress(objectives, selfProgressLabels);
+  return mergeSelfProgress(objectives, selfProgressLabels, cachedSelfProgressValues);
 };
 
 type SeasonVictoryContext = {
@@ -421,16 +432,23 @@ export const computeSeasonVictory = (
     if (progresses.size > 0) selfProgressByPlayerId.set(pid, progresses);
   }
 
-  return { objectives, selfProgressLabelsByPlayerId, selfProgressByPlayerId };
+  const nameOf = (playerId: string): string => ctx.metricsByPlayerId.get(playerId)?.name ?? playerId;
+  return { objectives: withContenders(objectives, selfProgressByPlayerId, nameOf), selfProgressLabelsByPlayerId, selfProgressByPlayerId };
 };
 
+// `values` is the numeric 0..1 companion (computeSeasonVictory's selfProgressByPlayerId);
+// it rides as `selfProgress` so the client's Ranks race can place the player's crest.
 export const mergeSelfProgress = (
   objectives: SeasonVictoryObjectiveSnapshot[],
-  labels: Map<SeasonVictoryPathId, string> | undefined
+  labels: Map<SeasonVictoryPathId, string> | undefined,
+  values?: Map<SeasonVictoryPathId, number>
 ): SeasonVictoryObjectiveSnapshot[] =>
-  labels
+  labels || values
     ? objectives.map((o) => {
-        const selfProgressLabel = labels.get(o.id);
-        return selfProgressLabel ? { ...o, selfProgressLabel } : o;
+        const selfProgressLabel = labels?.get(o.id);
+        const value = values?.get(o.id);
+        const selfProgress = typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : undefined;
+        if (!selfProgressLabel && selfProgress === undefined) return o;
+        return { ...o, ...(selfProgressLabel ? { selfProgressLabel } : {}), ...(selfProgress !== undefined ? { selfProgress } : {}) };
       })
     : objectives;

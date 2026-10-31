@@ -19,8 +19,8 @@ import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { CHUNK_SIZE, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import {
-  activeAetherBridgeNeighborKeysForPlayer,
   clearCutOffFrontierTiles,
+  supplyLinkNeighborKeysForPlayer,
   type RuntimeEncirclementApplicationContext
 } from "../runtime-encirclement-application.js";
 import { findStrandedFrontier } from "./stranded-frontier-finder.js";
@@ -57,15 +57,15 @@ export function createStrandedFrontierCleanup(
     maxVisited: number,
     commandId: string
   ): number => {
-    let bridgeNeighbors: Map<string, string[]> | undefined;
+    let supplyNeighbors: ((tileKey: string) => readonly string[]) | undefined;
     const result = findStrandedFrontier({
       seedKeys,
       ownerId,
       getTile: (key) => context.tiles.get(key),
       // Built lazily: the fast path never needs it.
       extraNeighborKeys: (key) => {
-        bridgeNeighbors ??= activeAetherBridgeNeighborKeysForPlayer(context, ownerId);
-        return bridgeNeighbors.get(key) ?? [];
+        supplyNeighbors ??= supplyLinkNeighborKeysForPlayer(context, ownerId);
+        return supplyNeighbors(key);
       },
       maxVisited
     });

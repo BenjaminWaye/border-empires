@@ -15,7 +15,6 @@ import {
 } from "./client-map-overlay-images.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { townIdentityForTile } from "../client-town-identity.js";
-import { shouldShowTownUnfedWarning } from "../client-town-growth/client-town-growth.js";
 import type { RoadDirections } from "../client-road-network/client-road-network.js";
 import type { EmpireVisualStyle, Tile } from "../client-types.js";
 
@@ -409,32 +408,6 @@ export {
   drawCenteredOverlayRotatedWithAlpha
 } from "./client-map-render-centered-overlay.js";
 
-export const drawTownMarker = (ctx: CanvasRenderingContext2D, px: number, py: number, size: number, fullTile = false): void => {
-  const badge = fullTile ? Math.max(8, size - 2) : Math.max(9, size * 0.22);
-  const inset = fullTile ? 1 : Math.max(2, size * 0.03);
-  const x = px + inset;
-  const y = py + inset;
-  ctx.fillStyle = "rgba(12, 16, 28, 0.78)";
-  ctx.fillRect(x - 1, y - 1, badge + 2, badge + 2);
-  ctx.fillStyle = "rgba(255, 208, 102, 0.98)";
-  ctx.fillRect(x, y, badge, badge);
-  const coinRadius = Math.max(2, badge * 0.28);
-  const coinX = x + badge / 2;
-  const coinY = y + badge / 2;
-  ctx.fillStyle = "rgba(255, 233, 153, 0.98)";
-  ctx.beginPath();
-  ctx.arc(coinX, coinY, coinRadius, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(173, 112, 18, 0.95)";
-  ctx.lineWidth = Math.max(1, badge * 0.08);
-  ctx.stroke();
-  ctx.strokeStyle = "rgba(255, 247, 221, 0.88)";
-  ctx.lineWidth = Math.max(0.8, badge * 0.04);
-  ctx.beginPath();
-  ctx.arc(coinX - coinRadius * 0.18, coinY - coinRadius * 0.16, Math.max(1, coinRadius * 0.45), 0, Math.PI * 2);
-  ctx.stroke();
-};
-
 const drawSettlementFlag = (
   ctx: CanvasRenderingContext2D,
   px: number,
@@ -540,26 +513,12 @@ export const drawTownOverlay = (
   px: number,
   py: number,
   size: number,
-  localPlayerId: string, ownerColor = "#C44937"
+  ownerColor = "#C44937"
 ): void => {
   const town = townIdentityForTile(tile);
   if (!town) return;
-  if (size < 16) {
-    drawTownMarker(ctx, px, py, size, true);
-    if (shouldShowTownUnfedWarning(tile, localPlayerId)) {
-      const badgeSize = Math.max(6, size * 0.24);
-      const badgeX = px + size - badgeSize - 1;
-      const badgeY = py + 1;
-      ctx.fillStyle = "rgba(201, 74, 56, 0.96)";
-      ctx.beginPath();
-      ctx.moveTo(badgeX, badgeY + badgeSize);
-      ctx.lineTo(badgeX + badgeSize * 0.5, badgeY);
-      ctx.lineTo(badgeX + badgeSize, badgeY + badgeSize);
-      ctx.closePath();
-      ctx.fill();
-    }
-    return;
-  }
+  // Drawn at every zoom, like the 3D town model: the nameplate overlap cull
+  // can drop a plate, so the building is the town's guaranteed mark.
   const accent = town.type === "MARKET" ? "rgba(255, 212, 102, 0.9)" : "rgba(162, 241, 132, 0.88)";
   const biome = tile.landBiome ?? landBiomeAt(tile.x, tile.y);
   const overlaySet = biome === "GRASS" ? grassTownOverlayByTier : defaultTownOverlayByTier;
@@ -600,29 +559,7 @@ export const drawTownOverlay = (
   ctx.lineTo(px + size * 0.78, py + size * 0.88);
   ctx.stroke();
   ctx.lineWidth = 1;
-  if (shouldShowTownUnfedWarning(tile, localPlayerId)) {
-    const badgeSize = Math.max(8, size * 0.24);
-    const badgeX = px + size * 0.72;
-    const badgeY = py + size * 0.08;
-    ctx.fillStyle = "rgba(201, 74, 56, 0.96)";
-    ctx.beginPath();
-    ctx.moveTo(badgeX, badgeY + badgeSize);
-    ctx.lineTo(badgeX + badgeSize * 0.5, badgeY);
-    ctx.lineTo(badgeX + badgeSize, badgeY + badgeSize);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = "rgba(39, 14, 9, 0.78)";
-    ctx.lineWidth = Math.max(1.2, size * 0.035);
-    ctx.stroke();
-    ctx.fillStyle = "rgba(255, 243, 219, 0.98)";
-    ctx.font = `bold ${Math.max(8, size * 0.16)}px system-ui`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("!", badgeX + badgeSize * 0.5, badgeY + badgeSize * 0.62);
-    ctx.textAlign = "start";
-    ctx.textBaseline = "alphabetic";
-  }
-  drawTownMarker(ctx, px, py, size, false);
+  // Unfed and other town status now ride the shared town nameplate (client-town-nameplates).
 };
 
 // Extracted to client-map-render-planetary-defense-overlay.ts to keep this

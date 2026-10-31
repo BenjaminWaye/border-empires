@@ -29,6 +29,8 @@ export const createInitialSocialState = () => ({
   // collapsed to a line each. See client-alliance-row-toggle.ts.
   expandedSocialPlayerId: undefined as string | undefined,
   activePlayerProfileId: undefined as string | undefined,
+  // Minimap's Diplomacy overlay: tints other empires' land by stance. See client-diplomacy-overlay.ts.
+  showDiplomacyOverlay: false,
   // "loading" while a GET /hq/galaxy/by-player/:playerId fetch is in flight;
   // absent key means not yet fetched for that player this session.
   galaxyHoldingsByPlayerId: new Map<string, GalaxyHoldingsView | "loading">(),

@@ -1,21 +1,6 @@
-// 3D Aether Tower — body module. One instance of the empire's Aether
-// transmission spire: a dark-iron hexagonal plinth anchoring a narrow tapering
-// brass shaft, strung with copper bands, vertical conduits and hipped support
-// struts. Around the glowing cyan aether core float several brass energy rings
-// with travelling light beads, flanked by geometric prism emitters; a spinal
-// aether conduit feeds a tall spire finial while free-floating motes spiral
-// upward past the core — a machine built to reach into and manipulate the
-// Aether, not an observatory.
-//
-// This module writes *pieces* for one tower into a caller-supplied slot
-// writer; it never owns geometry or materials. The overlay builds those slots
-// and drives writeTowerPieces per instance, then rewriteTowerAnimated every
-// frame to spin the rings, wind the cogs and carry the motes upward.
-//
-// Animated slots use a fixed stride per tower (recorded as the base index of
-// the first piece of that key for the instance) so update() can overwrite
-// exactly the used prefix of each InstancedMesh without re-uploading the whole
-// buffer.
+// Aether Tower field machinery and animation. Static architecture lives in
+// client-infrastructure; these native piece slots retain containment rings,
+// motes, emitters and network synchronization.
 
 import { Euler, Matrix4, Quaternion, Vector3 } from "three";
 
@@ -123,49 +108,9 @@ export const writeTowerPieces = (ctx: TowerBodyContext, t: TowerPlacement): void
   const { addPiece, addPieceAlong } = ctx;
   const nex = t.nexus;
 
-  // Hexagonal dark-iron plinth with rivets, a brass trim ring and the ground
-  // glyph that grows as the tower joins the network.
-  addPiece("plinth", 0, TOWER.plinthHeight / 2, 0);
-  addPiece("plinthTrim", 0, TOWER.plinthHeight + 0.008, 0, 1, 1, 1, 0, PI_2, 0);
-  // The ground glyph and nexus assembly scale to zero on a solo tower; skip
-  // them entirely so their instances, buffers and per-frame rewrites are
-  // avoided until the tower actually joins the network.
-  if (nex > 0.001) {
-    addPiece("groundGlyph", 0, 0.02, 0, nex, nex, 1, 0, PI_2, 0);
-  }
-  for (let i = 0; i < TOWER.rivetCount; i += 1) {
-    const a = makeTowerStep(i, TOWER.rivetCount);
-    addPiece("rivet", Math.cos(a) * (TOWER.plinthTrimRadius - 0.05), TOWER.plinthHeight + 0.006, Math.sin(a) * (TOWER.plinthTrimRadius - 0.05));
-  }
-
-  // Tapering brass shaft with copper bands and a wide iron shoulder.
-  addPiece("shaftShoulder", 0, 0.09, 0);
-  addPiece("shaft", 0, (TOWER.shaftBaseY + TOWER.shaftTopY) / 2, 0, 1, 1, TOWER.shaftTopY - TOWER.shaftBaseY);
-  addPiece("band", 0, 0.34, 0, 1, 1, 1, 0, PI_2, 0);
-  addPiece("band", 0, 0.8, 0, 1, 1, 1, 0, PI_2, 0);
-
-  // Vertical conduits hugging the shaft.
-  const shaftLen = TOWER.shaftTopY - TOWER.shaftBaseY;
-  const cd = TOWER.conduitRadius;
-  for (const [ox, oz] of [[cd, cd], [-cd, -cd], [cd, -cd], [-cd, cd]] as const) {
-    addPiece("conduit", ox, (TOWER.shaftBaseY + TOWER.shaftTopY) / 2, oz, 1, 1, shaftLen);
-  }
-
-  // Hipped iron struts bracing the shoulder up into the core region.
-  for (let i = 0; i < 4; i += 1) {
-    const a = makeTowerStep(i, 4) + Math.PI / 4;
-    addPieceAlong("strut", Math.cos(a) * 0.15, 0, Math.sin(a) * 0.15, Math.cos(a) * 0.03, 0.33, Math.sin(a) * 0.03, 0.34);
-  }
-
-  // Two standing brass cogs wound by the aether stream (disc + teeth each).
-  for (let g = 0; g < TOWER.cogCount; g += 1) {
-    const gx = g === 0 ? TOWER.gearX : -TOWER.gearX;
-    addPiece("cog", gx, TOWER.gearY, 0, 1, 1, 1, 0, 0, 0);
-    for (let i = 0; i < TOWER.gearTeeth; i += 1) {
-      const a = makeTowerStep(i, TOWER.gearTeeth);
-      addPiece("cogTooth", gx + Math.cos(a) * (TOWER.gearRadius + 0.008), TOWER.gearY, Math.sin(a) * (TOWER.gearRadius + 0.008), 1, 1, 1, a);
-    }
-  }
+  // Architecture and platform are rendered by AETHER_HOUSING. The native
+  // field machinery below retains its network and animation indices.
+  if (nex > 0.001) addPiece("groundGlyph", 0, 0.02, 0, nex, nex, 1, 0, PI_2, 0);
 
   // Glowing aether core: outer halo, sculpted core and bright core shaft.
   addPiece("coreHalo", 0, TOWER.coreY, 0, 1, 1, 1.62);
@@ -216,11 +161,6 @@ export const writeTowerPieces = (ctx: TowerBodyContext, t: TowerPlacement): void
     }
     addPiece("nexusGlow", 0, TOWER.coreY + 0.12, 0, nex, nex, 1, 0, PI_2, 0);
   }
-
-  // Spire: copper-banded brass needle with a glowing finial cap.
-  addPiece("spire", 0, (TOWER.spireBaseY + TOWER.spireTopY) / 2, 0, 1, 1, TOWER.spireTopY - TOWER.spireBaseY);
-  addPiece("spireBand", 0, TOWER.spireBandY, 0, 1, 1, 1, 0, PI_2, 0);
-  addPiece("spireTip", 0, TOWER.spireTipY, 0);
 
   // Free-floating motes spiralling upward along the tower.
   for (let m = 0; m < TOWER.moteCount; m += 1) {
@@ -312,22 +252,6 @@ export const rewriteTowerAnimated = (ctx: RewriteCtx, t: TowerAnimEntry, nowMs: 
         const ba = (b / TOWER.beadsPerRing) * Math.PI * 2 + spin;
         set("nexusRingNode", r * TOWER.beadsPerRing + b, ringBeadMatrix(radius, ba, t.x, TOWER.coreY, t.z, nex));
       }
-    }
-  }
-
-  // Standing cogs: the disc spins and the teeth ride the rim.
-  for (let g = 0; g < TOWER.cogCount; g += 1) {
-    const gx = g === 0 ? TOWER.gearX : -TOWER.gearX;
-    const spin = nowMs * 0.0014 + t.phase + g * 1.1;
-    set("cog", g, composePieceMatrix(t.x + gx, TOWER.gearY, t.z, 0, spin, 0));
-    for (let i = 0; i < TOWER.gearTeeth; i += 1) {
-      const a = makeTowerStep(i, TOWER.gearTeeth) + spin;
-      set("cogTooth", g * TOWER.gearTeeth + i, composePieceMatrix(
-        t.x + gx + Math.cos(a) * (TOWER.gearRadius + 0.008),
-        TOWER.gearY,
-        t.z + Math.sin(a) * (TOWER.gearRadius + 0.008),
-        0, a, 0
-      ));
     }
   }
 

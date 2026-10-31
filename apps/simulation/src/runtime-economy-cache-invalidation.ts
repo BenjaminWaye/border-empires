@@ -19,6 +19,11 @@ import {
   type TownConnectivityState
 } from "./economy-network/town-connectivity-incremental.js";
 
+/** Reserve consumption affects battles/rushes, not resource supply or settlement income. */
+const wonderEconomyChanged = (a: DomainTileState["naturalWonder"], b: DomainTileState["naturalWonder"]): boolean =>
+  a?.type !== b?.type || a?.relicVersion !== b?.relicVersion ||
+  a?.resourceBonus?.resource !== b?.resourceBonus?.resource || a?.resourceBonus?.amount !== b?.resourceBonus?.amount;
+
 /**
  * Keeps the per-player economy snapshot, tile-yield context, town network,
  * defensibility metrics, and upkeep accrual caches in sync with a tile
@@ -61,7 +66,7 @@ export const economyRelevantTileFieldsChanged = (previous: DomainTileState, next
   previous.siegeBattery !== next.siegeBattery ||
   previous.economicStructure !== next.economicStructure ||
   previous.sabotage !== next.sabotage ||
-  previous.naturalWonder !== next.naturalWonder;
+  wonderEconomyChanged(previous.naturalWonder, next.naturalWonder);
 
 export const refreshEconomyCachesForTileChange = (input: {
   tileKey: string;

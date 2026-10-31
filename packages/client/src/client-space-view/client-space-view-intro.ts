@@ -11,32 +11,32 @@ type IntroSection = { icon: string; title: string; body: string };
 
 const INTRO_SECTIONS: IntroSection[] = [
   {
-    icon: "🌌",
+    icon: "✦",
     title: "What this is",
     body: "Winning a Sector campaign earns your empire a permanent Planet or Outpost here, in the galaxy above the seasons. This layer persists forever -- nothing here resets when a season ends."
   },
   {
-    icon: "⚙️",
+    icon: "⚙\uFE0E",
     title: "Your economy",
     body: "Every held world trickles Influence and Production once per Cycle (one real week). Production builds Fleets and arms your Garrisons. Influence funds the Senate and your empire's upkeep -- let it run dry and your weakest world's Stability starts to crumble."
   },
   {
-    icon: "🏛️",
+    icon: "⚖\uFE0E",
     title: "The Senate",
     body: "Raise EMBARGO or CONTEST against a rival, or vote on proposals already in motion. Your vote's weight comes from your total Dominion across every world you hold."
   },
   {
-    icon: "🚀",
+    icon: "➤",
     title: "Fleets",
     body: "Assemble Scouts, Raiders, Battleline, Dreadnoughts, and Tankers. Send them to raid a rival's Stability, garrison one at home for defense, or scout ahead to reveal what a target is hiding. Building a fleet takes real time -- bigger fleets take longer."
   },
   {
-    icon: "🛡️",
+    icon: "⛨",
     title: "Defense",
     body: "Invest Production into a territory's Garrison to blunt incoming raids. A pulsing red ring means a raid is already inbound -- you won't know who's coming or what they're bringing until it lands."
   },
   {
-    icon: "🧭",
+    icon: "✛",
     title: "Finding your way",
     body: "Click any system to fly there and orbit/zoom freely around it. Click it again to descend into its Sector. Click empty space, or the Galaxy View button, to pull back out to the stars."
   }
@@ -48,7 +48,7 @@ const escapeHtml = (input: string): string =>
 export const spaceViewIntroHtml = (): string => `
   <div class="sv-intro-backdrop" data-space-view-intro>
     <div class="sv-intro-card" role="dialog" aria-modal="true" aria-labelledby="sv-intro-title">
-      <h2 class="sv-intro-heading" id="sv-intro-title">📜 Voyager's Briefing: The Galactic Frontier</h2>
+      <h2 class="sv-intro-heading" id="sv-intro-title">Voyager's Briefing: The Galactic Frontier</h2>
       <div class="sv-intro-sections">
         ${INTRO_SECTIONS.map(
           (s) => `

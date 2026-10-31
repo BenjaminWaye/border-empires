@@ -86,7 +86,8 @@ export type ProtoSimulationEvent = {
 // as empty-code COMMAND_REJECTED. Filter them at the wire boundary so the
 // gateway never sees them in the first place.
 export const WIRE_INTERNAL_EVENT_TYPES: ReadonlySet<SimulationEvent["eventType"]> = new Set([
-  "SETTLEMENT_STARTED"
+  "SETTLEMENT_STARTED",
+  "REACH_BORDER_CHANGED"
 ]);
 
 export const isWireInternalEvent = (event: SimulationEvent): boolean =>

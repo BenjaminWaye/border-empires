@@ -2,7 +2,34 @@ import { defendingFortVariant, isFortDefending, OUTPOST_AURA_RADIUS } from "@bor
 import type { Tile } from "../client-types.js";
 
 export type FortificationOverlayKind = "FORT" | "TITANIUM_BASTION" | "THUNDER_BASTION" | "SIEGE_BATTERY" | "PALISADE" | "RELAY_BEACON";
-export type FortificationOpening = "CLOSED" | "NORTH" | "EAST" | "SOUTH" | "WEST";
+export type FortificationSide = "NORTH" | "EAST" | "SOUTH" | "WEST";
+const FORTIFICATION_SIDES: ReadonlyArray<FortificationSide> = ["NORTH", "EAST", "SOUTH", "WEST"];
+
+// Every combination of open sides, named by its open sides in N/E/S/W order
+// joined with "_" ("NORTH_EAST", "EAST_WEST", ...). A fort opens every wall
+// that touches another fort of the same owner, so a block of forts reads as
+// one continuous fortification.
+export const FORTIFICATION_OPENINGS = [
+  "CLOSED", "NORTH", "EAST", "NORTH_EAST", "SOUTH", "NORTH_SOUTH", "EAST_SOUTH", "NORTH_EAST_SOUTH",
+  "WEST", "NORTH_WEST", "EAST_WEST", "NORTH_EAST_WEST", "SOUTH_WEST", "NORTH_SOUTH_WEST", "EAST_SOUTH_WEST", "NORTH_EAST_SOUTH_WEST"
+] as const;
+export type FortificationOpening = (typeof FORTIFICATION_OPENINGS)[number];
+
+export const fortificationOpeningSides = (opening: FortificationOpening): FortificationSide[] =>
+  opening === "CLOSED" ? [] : FORTIFICATION_SIDES.filter((side) => opening.split("_").includes(side));
+
+export const recordForEachFortificationOpening = <T>(valueFor: (opening: FortificationOpening) => T): Record<FortificationOpening, T> => {
+  const record: Partial<Record<FortificationOpening, T>> = {};
+  for (const opening of FORTIFICATION_OPENINGS) record[opening] = valueFor(opening);
+  return record as Record<FortificationOpening, T>;
+};
+
+export const fortificationOpeningFromSides = (sides: Iterable<FortificationSide>): FortificationOpening => {
+  const open = new Set(sides);
+  // FORTIFICATION_OPENINGS is indexed by the N=1/E=2/S=4/W=8 bitmask of open sides.
+  const mask = FORTIFICATION_SIDES.reduce((acc, side, bit) => (open.has(side) ? acc | (1 << bit) : acc), 0);
+  return FORTIFICATION_OPENINGS[mask] ?? "CLOSED";
+};
 
 export type FortificationOverlayDeps = {
   tiles: Map<string, Tile>;
@@ -11,7 +38,7 @@ export type FortificationOverlayDeps = {
   wrapY: (y: number) => number;
 };
 
-const CARDINAL_STEPS: Array<{ dx: number; dy: number; opening: Exclude<FortificationOpening, "CLOSED"> }> = [
+const CARDINAL_STEPS: Array<{ dx: number; dy: number; opening: FortificationSide }> = [
   { dx: 0, dy: -1, opening: "NORTH" },
   { dx: 1, dy: 0, opening: "EAST" },
   { dx: 0, dy: 1, opening: "SOUTH" },
@@ -66,6 +93,11 @@ export const fortificationOpeningForTile = (
   if (!kind || kind === "RELAY_BEACON" || kind === "SIEGE_BATTERY") return "CLOSED";
   const ownerId = fortificationOwnerIdForTile(tile);
   if (!ownerId) return "CLOSED";
+  // Walls only join between standing forts: a fresh site (or one being torn
+  // down) would otherwise gut a finished neighbour's walls while it is still
+  // a bare plot. A fort mid-upgrade still stands, see isFortDefending.
+  if (!isFortDefending(tile.fort)) return "CLOSED";
+  const open: FortificationSide[] = [];
   for (const step of CARDINAL_STEPS) {
     const neighbor = deps.tiles.get(deps.keyFor(deps.wrapX(tile.x + step.dx), deps.wrapY(tile.y + step.dy)));
     if (!isFortificationOverlayTile(neighbor)) continue;
@@ -73,9 +105,10 @@ export const fortificationOpeningForTile = (
       continue;
     }
     if (fortificationOwnerIdForTile(neighbor) !== ownerId) continue;
-    return step.opening;
+    if (!isFortDefending(neighbor?.fort)) continue;
+    open.push(step.opening);
   }
-  return "CLOSED";
+  return fortificationOpeningFromSides(open);
 };
 
 // Search radius (in tiles) for the Siege Battery's aim heuristic below.

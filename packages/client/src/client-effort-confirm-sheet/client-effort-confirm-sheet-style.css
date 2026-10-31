@@ -1,6 +1,6 @@
 /*
  * The "commit manpower" effort sheet (client-effort-confirm-sheet.ts) shown by
- * March To, Launch Attack and Expand To & Attack. Reuses the steampunk
+ * March To, March Attack and Launch Attack. Reuses the steampunk
  * --sp-* tokens (client-steampunk-theme-style.css) and the tile menu's
  * semantic mapping: brass for chrome and the selected preset, ember for the
  * attack confirm, parchment for text, mono for the numeric readout.

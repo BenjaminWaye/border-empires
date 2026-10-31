@@ -99,3 +99,8 @@ describe("reconnectPassthroughFields", () => {
     expect(result.gold).toBeUndefined();
   });
 });
+
+it("carries a projected batch amount, including zero, through reconnect", () => {
+  expect(reconnectPassthroughFields(basePlayer({ nextManpowerBatchAmount: 1 })).nextManpowerBatchAmount).toBe(1);
+  expect(reconnectPassthroughFields(basePlayer({ nextManpowerBatchAmount: 0 })).nextManpowerBatchAmount).toBe(0);
+});

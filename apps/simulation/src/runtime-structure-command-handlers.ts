@@ -1,7 +1,7 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
   STRUCTURE_REGISTRY,
-  bestSiegeTierForTech,
+  siegeTierForFreshBuild,
   defendingFortVariant,
   fortTierForBuild,
   nextSiegeTierForUpgrade,
@@ -16,6 +16,7 @@ import {
   QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT,
   type BuildableStructureType,
   type EconomicStructureType,
+  type SiegeTierInfo,
   type SlotStructureType
 } from "@border-empires/shared";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
@@ -33,7 +34,7 @@ import { handleBuildAfcCommand } from "./runtime-build-afc-command-handler.js";
 import { handleRedeployAfcModuleCommand } from "./runtime-redeploy-afc-module-command-handler.js";
 import type { PersonalImpactBuildingCompleted } from "./personal-impact-log/personal-impact-log.js";
 import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
-import { hasFreeResourceSlots } from "./runtime-structure-slot-gate.js";
+import { hasFreeResourceSlots, missingResourceSlotMessage } from "./runtime-structure-slot-gate.js";
 import { scheduleStructureCompletion } from "./attack-development-hold/attack-development-hold.js";
 
 export { structureLabel } from "./runtime-structure-command-handlers-reject.js";
@@ -346,13 +347,17 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   let manpowerCost: number;
   let strategicCost = spec.cost.strategic as StrategicCost | undefined;
   let slotStructureType: SlotStructureType = structureType;
+  let siegeTier: SiegeTierInfo | undefined;
   if (fortTier) {
     goldCost = Math.max(0, Math.round(fortTier.gold * multiplicativeEffectForPlayer(actor, "fortBuildGoldCostMult")));
     manpowerCost = fortTier.manpower;
     strategicCost = { TITANIUM: fortTier.titanium };
     slotStructureType = fortTier.variant;
   } else if (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON") {
-    const siegeTier = target.siegeBattery ? nextSiegeTierForUpgrade(target.siegeBattery.variant, hasTech)! : bestSiegeTierForTech(hasTech);
+    // A fresh build steps down to the best tier the player's UMBRITE slots can cover (Siege Battery if a Tower won't fit).
+    siegeTier = target.siegeBattery
+      ? nextSiegeTierForUpgrade(target.siegeBattery.variant, hasTech)!
+      : siegeTierForFreshBuild(hasTech, (variant) => missingResourceSlotMessage(context, command.playerId, structureType, variant, target, spec.tileField) === undefined);
     goldCost = siegeTier.gold;
     manpowerCost = siegeTier.manpower;
     strategicCost = { UMBRITE: siegeTier.umbrite, ...(siegeTier.titanium > 0 ? { TITANIUM: siegeTier.titanium } : {}) };
@@ -421,7 +426,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   if (fortTier) {
     resolvedVariant = fortTier.variant;
   } else if (isSiegeFamily) {
-    resolvedVariant = target.siegeBattery ? nextSiegeTierForUpgrade(target.siegeBattery.variant, hasTech)?.variant : bestSiegeTierForTech(hasTech).variant;
+    resolvedVariant = siegeTier?.variant;
   }
 
   // A fort upgrade leaves the current fort standing (and defending) until the

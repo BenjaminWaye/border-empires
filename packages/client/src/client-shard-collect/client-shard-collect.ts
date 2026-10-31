@@ -5,13 +5,37 @@ type ShardCollectInfo = {
   amount: number;
 };
 
+type ShardOverlayContent = {
+  label: string;
+  headline: string;
+  detail: string;
+};
+
 export const showShardCollectOverlay = (info: ShardCollectInfo): void => {
+  const kindLabel = info.kind === "FALL" ? "Shard Rain" : "Shard Cache";
+  const detail = info.kind === "FALL"
+    ? "Collected from a recent shard rain deposit."
+    : "Recovered from an ancient shard cache.";
+  showShardOverlay({ label: kindLabel, headline: `+${info.amount} Shard${info.amount === 1 ? "" : "s"}`, detail });
+};
+
+/** The Court's reply to a Shard Mobilization donation (SHARD_MOBILIZED), in the same card as a collect. */
+export const showShardDonationOverlay = (delivered: number): void => {
+  const amount = Math.max(0, Math.floor(delivered)).toLocaleString();
+  showShardOverlay({
+    label: "Imperial Delivery",
+    headline: `+${amount} manpower`,
+    detail: `The Court looks favourably on your donation. A delivery of ${amount} ancillaries has arrived.`
+  });
+};
+
+const showShardOverlay = (content: ShardOverlayContent): void => {
   const existing = document.getElementById("shard-collect-overlay");
   if (existing) existing.remove();
 
   const overlay = document.createElement("div");
   overlay.id = "shard-collect-overlay";
-  overlay.innerHTML = overlayHtml(info);
+  overlay.innerHTML = overlayHtml(content);
 
   injectStyles();
   document.body.appendChild(overlay);
@@ -28,19 +52,15 @@ export const showShardCollectOverlay = (info: ShardCollectInfo): void => {
   setTimeout(dismiss, 4000);
 };
 
-const overlayHtml = (info: ShardCollectInfo): string => {
-  const kindLabel = info.kind === "FALL" ? "Shard Rain" : "Shard Cache";
-  const detail = info.kind === "FALL"
-    ? "Collected from a recent shard rain deposit."
-    : "Recovered from an ancient shard cache.";
+const overlayHtml = (content: ShardOverlayContent): string => {
   return `
     <div id="shard-collect-backdrop"></div>
     <div id="shard-collect-modal">
       <div id="shard-collect-art">${artSvg}</div>
       <div id="shard-collect-info">
-        <div id="shard-collect-kind">${kindLabel}</div>
-        <div id="shard-collect-amount">+${info.amount} Shard${info.amount === 1 ? "" : "s"}</div>
-        <div id="shard-collect-detail">${detail}</div>
+        <div id="shard-collect-kind">${content.label}</div>
+        <div id="shard-collect-amount">${content.headline}</div>
+        <div id="shard-collect-detail">${content.detail}</div>
       </div>
       <button id="shard-collect-close" class="shard-collect-close-btn" type="button" aria-label="Close">✕</button>
     </div>`;
@@ -63,7 +83,7 @@ const styles = `
   position: absolute; inset: 0; background: rgba(1, 6, 12, 0.72); backdrop-filter: blur(4px);
 }
 #shard-collect-modal {
-  position: relative; display: grid; grid-template-columns: auto 1fr; gap: 20px;
+  position: relative; box-sizing: border-box; display: grid; grid-template-columns: auto 1fr; gap: 20px;
   width: min(470px, calc(100vw - 32px)); padding: 24px 24px 24px 28px; border-radius: 20px;
   border: 1px solid rgba(146, 245, 255, 0.3);
   background: radial-gradient(circle at 12% 0%, rgba(50,210,233,0.18), transparent 30%),

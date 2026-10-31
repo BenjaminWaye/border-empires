@@ -4,6 +4,7 @@ import { visibleShardSiteForTile } from "../client-shard-rain-pings/client-shard
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js";
 import { showShardCollectOverlay } from "../client-shard-collect/client-shard-collect.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { announceDiscoveryTipForState, type DiscoveryTipUiState } from "../client-onboarding-ui-gate/client-onboarding-ui-overlays.js";
 
 const notifySelectedActionBlocked = (deps: SelectedActionDepsBase, title: string, detail: string): void => {
   showVisibleActionWarning(deps, title, detail, "error");
@@ -185,7 +186,7 @@ export const dismissOngoingCapture = (state: Pick<ClientState, "capture" | "dism
 };
 
 export const collectSelectedShard = (
-  state: Pick<ClientState, "selected" | "tiles" | "shardRainPingsByTile" | "pendingShardCollect">,
+  state: Pick<ClientState, "selected" | "tiles" | "shardRainPingsByTile" | "pendingShardCollect"> & DiscoveryTipUiState,
   deps: {
     keyFor: (x: number, y: number) => string;
     renderHud: () => void;
@@ -208,4 +209,5 @@ export const collectSelectedShard = (
     return;
   }
   showShardCollectOverlay({ kind: shardSite.kind, amount: shardSite.amount });
+  announceDiscoveryTipForState(state, "FIRST_SHARD", deps.renderHud, { x: selected.x, y: selected.y });
 };
