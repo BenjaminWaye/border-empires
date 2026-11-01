@@ -5,6 +5,7 @@ import { displayNameForOwnershipChange } from "./runtime/runtime-ownership-chang
 import { applyStructureCancelRefund, economicOrObservatoryCancelRefund } from "./runtime-structure-lifecycle-command-handlers.js";
 import { structureLabel, type RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
 import { creditManpower } from "./runtime-manpower-ceiling.js";
+import { structureManpowerCostForPlayer } from "./structure-manpower-cost/structure-manpower-cost.js";
 
 // §16: the moment a monument assembly completes, the type is claimed for the
 // rest of the season (handleBuildStructureCommand's monumentClaimOwnerId
@@ -25,7 +26,10 @@ export function announceMonumentClaim(
   const partTypes = monumentPartTypesForBaseType(baseType);
   // All 3 of a monument's component types cost the same manpower to build,
   // so any one of them is representative for the flat per-loser refund.
-  const refundAmount = structureBuildManpowerCost(partTypes[0] as BuildableStructureType);
+  // Each loser gets back what a part charged them, after their own AFC
+  // discount, so a discounted player can't come out ahead on a lost race.
+  const partType = partTypes[0] as BuildableStructureType;
+  const baseRefund = structureBuildManpowerCost(partType);
   const loserIds = new Set(otherPlayersMonumentPartOwners(context.tiles, partTypes, winnerId));
 
   for (const player of context.players.values()) {
@@ -34,6 +38,7 @@ export function announceMonumentClaim(
       continue;
     }
     if (loserIds.has(player.id)) {
+      const refundAmount = structureManpowerCostForPlayer(player, partType, baseRefund);
       // Refund always applies, AI included — this is a real economic
       // correction, not just a display notice.
       creditManpower(player, refundAmount, context.playerManpowerCap(player));
