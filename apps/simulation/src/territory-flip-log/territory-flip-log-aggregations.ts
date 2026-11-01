@@ -59,10 +59,28 @@ export const alliancePairKeySet = (alliances: ReadonlyArray<{ playerA: string; p
   new Set(alliances.map(({ playerA, playerB }) => orderedPairKey(playerA, playerB)));
 
 // Distinct tiles gained / lost per player: retaking the same tile twice in
-// the window is still one tile gained. Net is gains minus losses counted per
-// flip, which per tile telescopes to the real change (+1 / 0 / -1) -- a tile
-// traded away, back and away again is one tile gained, one lost, net -1.
-export const computeTerritoryMomentum = (flipLog: readonly TerritoryFlip[]): TerritoryMomentum[] => {
+// the window is still one tile gained.
+//
+// Net is computed per tile from its owner at the start of the window (the
+// first logged flip's `fromOwner`) versus its owner at the end (the last
+// logged flip's `toOwner`): +1 to the end owner, -1 to the start owner, 0 if
+// they match. That bounds every player's |net| by distinct tiles gained +
+// lost. A per-flip +1/-1 counter does NOT: it only telescopes when every
+// ownership change is logged, and several paths aren't -- most visibly a
+// barbarian walk, which logs each step onto a tile (neutral -> barbarian)
+// but never the release of the tile it stepped off (runtime-barbarian-walk.ts),
+// so one tile walked over 100 times counted as +100 net (2026-11-01: 475
+// distinct tiles reported as +47,356 net).
+//
+// `excludeBarbarianId` drops the barbarian system player's own row, matching
+// the other public aggregations (computeWars, computeFrontlineHotspots):
+// roaming NPC land isn't empire expansion, and it would otherwise headline
+// "Fastest Expansion" in the daily story. Players' gains/losses against the
+// barbarian still count on their side.
+export const computeTerritoryMomentum = (
+  flipLog: readonly TerritoryFlip[],
+  excludeBarbarianId?: string
+): TerritoryMomentum[] => {
   type Momentum = { gained: Set<string>; lost: Set<string>; net: number };
   const byPlayer = new Map<string, Momentum>();
   const touch = (playerId: string): Momentum => {
@@ -73,19 +91,25 @@ export const computeTerritoryMomentum = (flipLog: readonly TerritoryFlip[]): Ter
     }
     return entry;
   };
-  for (const flip of flipLog) {
-    if (flip.toOwner && flip.toOwner !== flip.fromOwner) {
-      const entry = touch(flip.toOwner);
-      entry.gained.add(flip.tileId);
-      entry.net += 1;
-    }
-    if (flip.fromOwner && flip.fromOwner !== flip.toOwner) {
-      const entry = touch(flip.fromOwner);
-      entry.lost.add(flip.tileId);
-      entry.net -= 1;
-    }
+  // The log is append-ordered by `at`, but a restored log or hand-built
+  // fixture may not be; ties keep log order.
+  const ordered = [...flipLog].sort((left, right) => left.at - right.at);
+  const tileSpan = new Map<string, { startOwner: string | undefined; endOwner: string | undefined }>();
+  for (const flip of ordered) {
+    if (flip.toOwner === flip.fromOwner) continue;
+    if (flip.toOwner) touch(flip.toOwner).gained.add(flip.tileId);
+    if (flip.fromOwner) touch(flip.fromOwner).lost.add(flip.tileId);
+    const span = tileSpan.get(flip.tileId);
+    if (span) span.endOwner = flip.toOwner;
+    else tileSpan.set(flip.tileId, { startOwner: flip.fromOwner, endOwner: flip.toOwner });
+  }
+  for (const { startOwner, endOwner } of tileSpan.values()) {
+    if (startOwner === endOwner) continue;
+    if (endOwner) touch(endOwner).net += 1;
+    if (startOwner) touch(startOwner).net -= 1;
   }
   return [...byPlayer.entries()]
+    .filter(([playerId]) => playerId !== excludeBarbarianId)
     .map(([playerId, { gained, lost, net }]) => ({
       playerId,
       tilesGained24h: gained.size,

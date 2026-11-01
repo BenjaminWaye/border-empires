@@ -82,6 +82,55 @@ describe("computeTerritoryMomentum", () => {
     expect(byPlayer.p1).toEqual({ playerId: "p1", tilesGained24h: 1, tilesLost24h: 1, net24h: -1 });
     expect(byPlayer.p2).toEqual({ playerId: "p2", tilesGained24h: 1, tilesLost24h: 1, net24h: 1 });
   });
+
+  // Regression (2026-11-01 feed: 475 tiles gained, 0 lost, net +47,356): a
+  // barbarian walk logs every step onto a tile but never the release of the
+  // tile it left, so the same tile repeatedly flips *to* one owner with no
+  // logged loss in between. Net must stay per-tile, not per-flip.
+  it("does not inflate net when a tile repeatedly flips to the same owner with no logged loss", () => {
+    const flips = [1, 2, 3, 4, 5].flatMap((step) => [
+      flip({ tileId: "t-1", fromOwner: undefined, toOwner: "walker", at: step * 10 }),
+      flip({ tileId: "t-2", fromOwner: undefined, toOwner: "walker", at: step * 10 + 5 })
+    ]);
+    const [walker] = computeTerritoryMomentum(flips);
+    expect(walker).toEqual({ playerId: "walker", tilesGained24h: 2, tilesLost24h: 0, net24h: 2 });
+  });
+
+  it("keeps every player's |net| within distinct tiles gained + lost", () => {
+    const flips = [
+      flip({ tileId: "t-1", fromOwner: "p1", toOwner: "p2", at: 1 }),
+      flip({ tileId: "t-1", fromOwner: undefined, toOwner: "p2", at: 2 }),
+      flip({ tileId: "t-1", fromOwner: undefined, toOwner: "p2", at: 3 }),
+      flip({ tileId: "t-2", fromOwner: "p2", toOwner: "p1", at: 4 }),
+      flip({ tileId: "t-2", fromOwner: "p2", toOwner: "p1", at: 5 })
+    ];
+    for (const entry of computeTerritoryMomentum(flips)) {
+      expect(Math.abs(entry.net24h)).toBeLessThanOrEqual(entry.tilesGained24h + entry.tilesLost24h);
+    }
+    const byPlayer = Object.fromEntries(computeTerritoryMomentum(flips).map((m) => [m.playerId, m]));
+    expect(byPlayer.p1?.net24h).toBe(0);
+    expect(byPlayer.p2?.net24h).toBe(0);
+  });
+
+  it("orders flips by time before taking each tile's start and end owner", () => {
+    const flips = [
+      flip({ tileId: "t-1", fromOwner: "p2", toOwner: "p1", at: 20 }),
+      flip({ tileId: "t-1", fromOwner: "p1", toOwner: "p2", at: 10 })
+    ];
+    const byPlayer = Object.fromEntries(computeTerritoryMomentum(flips).map((m) => [m.playerId, m]));
+    expect(byPlayer.p1?.net24h).toBe(0);
+    expect(byPlayer.p2?.net24h).toBe(0);
+  });
+
+  it("drops the barbarian system player's row when excludeBarbarianId is given, keeping its rivals' side", () => {
+    const flips = [
+      flip({ tileId: "t-1", fromOwner: undefined, toOwner: "barbarian-1", at: 1 }),
+      flip({ tileId: "t-2", fromOwner: "barbarian-1", toOwner: "p1", at: 2 })
+    ];
+    const momentum = computeTerritoryMomentum(flips, "barbarian-1");
+    expect(momentum.map((m) => m.playerId)).toEqual(["p1"]);
+    expect(momentum[0]).toEqual({ playerId: "p1", tilesGained24h: 1, tilesLost24h: 0, net24h: 1 });
+  });
 });
 
 describe("computeBiggestSwing24h", () => {

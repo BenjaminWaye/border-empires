@@ -49,7 +49,7 @@ export const buildActivityDashboardSnapshot = (input: {
     generatedAt: input.now,
     fortification: computeFortificationRanking(fortificationTiles),
     wars: computeWars(input.flipLogEntries, alliedPairKeysFromPlayers(input.players), BARBARIAN_PLAYER_ID),
-    territoryMomentum: computeTerritoryMomentum(input.flipLogEntries),
+    territoryMomentum: computeTerritoryMomentum(input.flipLogEntries, BARBARIAN_PLAYER_ID),
     biggestSwing24h: computeBiggestSwing24h(input.flipLogEntries),
     frontlineHotspots: computeFrontlineHotspots(input.flipLogEntries, input.combatManpowerLogEntries, BARBARIAN_PLAYER_ID),
     manpowerLost24h: computeManpowerLostTotal24h(input.combatManpowerLogEntries),
