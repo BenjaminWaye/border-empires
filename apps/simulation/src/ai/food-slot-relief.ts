@@ -381,7 +381,10 @@ export const foodSlotReliefFromPlannerInput = <TTile extends AutomationPlannerTi
     // which is `exhausted`, so the next tick disables it again (live staging:
     // ai-10/ai-19 toggled the same beacon every ~5s for hours). Only re-enable
     // when FOOD stays above demand afterwards.
-    const beaconHasHeadroom = supply - demand > RELAY_BEACON_FOOD_SLOT_COST;
+    // With RELAY_BEACON_FREE_FOOD_SLOT_COUNT or fewer beacons owned, every one
+    // is waived (the waiver goes to the earliest-activated), so it costs none.
+    const reenableCost = (ownedRelayBeaconCount ?? Infinity) > RELAY_BEACON_FREE_FOOD_SLOT_COUNT ? RELAY_BEACON_FOOD_SLOT_COST : 0;
+    const beaconHasHeadroom = supply - demand > reenableCost;
     const reenableTarget =
       // Count-gated like the beacon scan: walking every owned tile each tick is
       // only worth it when there is a frontier installation to find.

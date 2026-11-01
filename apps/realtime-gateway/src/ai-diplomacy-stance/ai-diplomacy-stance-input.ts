@@ -13,7 +13,7 @@ export type AiDiplomacySnapshot = {
   playerId: string;
   tiles: readonly SnapshotTile[];
   player?: Pick<SnapshotPlayer, "manpower" | "manpowerCap"> & Partial<Pick<SnapshotPlayer,
-    "manpowerRegenPerMinute" | "resourceTradeHoldings" | "domainIds" | "gold" | "incomePerMinute" | "name" | "strategicResources" | "strategicProductionPerMinute" | "upkeepPerMinute" | "resourceSlots">>;
+    "manpowerRegenPerMinute" | "nextManpowerBatchAmount" | "resourceTradeHoldings" | "domainIds" | "gold" | "incomePerMinute" | "name" | "strategicResources" | "strategicProductionPerMinute" | "upkeepPerMinute" | "resourceSlots">>;
   worldStatus?: { leaderboard: {
     overall?: readonly { id: string; tiles: number }[];
     selfOverall?: { id: string; tiles: number; score?: number } | undefined;
@@ -64,8 +64,8 @@ export const bordersTouchInTiles = (tiles: readonly SnapshotTile[], aiPlayerId: 
  * True when the AI's territory touches (8-neighbour, as the frontier planner
  * steps) land it could still take without fighting another empire: neutral
  * LAND inside its own reach border, or barbarian ground. False means every
- * way out runs through a rival. undefined when no tile carries terrain, so
- * the snapshot can't vouch either way.
+ * way out runs through a rival. undefined when no tile carries terrain, or
+ * a neutral neighbour has none, so the snapshot can't vouch either way.
  */
 export const hasOtherExpansionInTiles = (tiles: readonly SnapshotTile[], aiPlayerId: string): boolean | undefined => {
   const byKey = new Map<string, SnapshotTile>();
@@ -75,6 +75,7 @@ export const hasOtherExpansionInTiles = (tiles: readonly SnapshotTile[], aiPlaye
     if (tile.terrain) sawTerrain = true;
   }
   if (!sawTerrain) return undefined;
+  let sawUnknownNeutral = false;
   for (const tile of tiles) {
     if (tile.ownerId !== aiPlayerId) continue;
     for (let dx = -1; dx <= 1; dx += 1) {
@@ -83,11 +84,16 @@ export const hasOtherExpansionInTiles = (tiles: readonly SnapshotTile[], aiPlaye
         const neighbor = byKey.get(tileKey(wrapX(tile.x + dx, WORLD_WIDTH), wrapY(tile.y + dy, WORLD_HEIGHT)));
         if (!neighbor) continue;
         if (neighbor.ownerId?.startsWith("barbarian-")) return true;
-        if (!neighbor.ownerId && neighbor.terrain === "LAND" && neighbor.reachOwnerId === aiPlayerId) return true;
+        if (neighbor.ownerId) continue;
+        // A neutral neighbour with no terrain (e.g. a tile first inserted by
+        // a delta) can't be judged, so the answer becomes "unknown", never
+        // a false "boxed in".
+        if (!neighbor.terrain) sawUnknownNeutral = true;
+        else if (neighbor.terrain === "LAND" && neighbor.reachOwnerId === aiPlayerId) return true;
       }
     }
   }
-  return false;
+  return sawUnknownNeutral ? undefined : false;
 };
 
 /**
@@ -113,18 +119,21 @@ export const buildAiDiplomacyStanceInput = (input: {
   const manpowerCap = aiPlayer.manpowerCap > 0 ? aiPlayer.manpowerCap : MANPOWER_BASE_CAP;
   const hasOtherExpansion = hasOtherExpansionInTiles(tiles, input.aiPlayerId);
   const requesterPlayer = input.requesterSnapshot?.player;
+  // Prefer the simulation's own figure: it stops accruing while at cap and
+  // settles the bank at the current rate. Without it, assume a full window of
+  // regen, capped by room under the cap (an overestimate after time at cap).
+  const nextRefillManpower = aiPlayer.nextManpowerBatchAmount ??
+    (aiPlayer.manpowerRegenPerMinute !== undefined
+      ? Math.max(0, Math.min(manpowerCap - aiPlayer.manpower, manpowerPerBatch(aiPlayer.manpowerRegenPerMinute)))
+      : undefined);
   return {
     aiName: input.aiName,
     ai: {
       manpower: aiPlayer.manpower,
       manpowerCap,
       musterManpower: musterManpowerFromTiles(tiles, input.aiPlayerId),
-      // The payout is a full window of regen (the bank accrues all window), capped by room under the cap.
-      ...(input.now !== undefined && aiPlayer.manpowerRegenPerMinute !== undefined
-        ? {
-            nextRefillInMs: nextManpowerRefillAtMs(input.aiPlayerId, input.now) - input.now,
-            nextRefillManpower: Math.max(0, Math.min(manpowerCap - aiPlayer.manpower, manpowerPerBatch(aiPlayer.manpowerRegenPerMinute)))
-          }
+      ...(input.now !== undefined && nextRefillManpower !== undefined
+        ? { nextRefillInMs: nextManpowerRefillAtMs(input.aiPlayerId, input.now) - input.now, nextRefillManpower }
         : {}),
       ...(hasOtherExpansion !== undefined ? { hasOtherExpansion } : {}),
       score: input.aiSnapshot.worldStatus?.leaderboard.selfOverall?.score,

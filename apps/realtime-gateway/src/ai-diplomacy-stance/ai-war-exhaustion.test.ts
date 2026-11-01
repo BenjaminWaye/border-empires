@@ -99,6 +99,10 @@ describe("hasOtherExpansionInTiles", () => {
     expect(hasOtherExpansionInTiles([tile(5, 5, { ownerId: "ai-1" }), tile(5, 6, { ownerId: "barbarian-1" })], "ai-1")).toBe(true);
   });
 
+  it("is unknown, not boxed in, when a neutral neighbour carries no terrain", () => {
+    expect(hasOtherExpansionInTiles([tile(5, 5, { ownerId: "ai-1" }), { x: 6, y: 5 }, tile(4, 5, { ownerId: "player-2" })], "ai-1")).toBeUndefined();
+  });
+
   it("is unknown when the snapshot carries no terrain", () => {
     expect(hasOtherExpansionInTiles([{ x: 5, y: 5, ownerId: "ai-1" }], "ai-1")).toBeUndefined();
   });
@@ -125,5 +129,16 @@ describe("buildAiDiplomacyStanceInput refill and rival fields", () => {
     expect(input?.ai.nextRefillInMs).toBe(nextManpowerRefillAtMs("ai-1", now) - now);
     expect(input?.ai.nextRefillManpower).toBe(Math.min(950, manpowerPerBatch(2)));
     expect(input?.requester.fightingStrength).toBe(100);
+  });
+
+  // Review finding: after hours at cap the real payout is far below a full window.
+  it("uses the simulation's own next payout over the full-window estimate", () => {
+    const aiSnapshot = snapshot("ai-1", 50);
+    aiSnapshot.player = { ...aiSnapshot.player, nextManpowerBatchAmount: 40 } as typeof aiSnapshot.player;
+    const input = buildAiDiplomacyStanceInput({
+      aiPlayerId: "ai-1", aiName: "Milo", aiSnapshot, requesterId: "player-2", requesterSnapshot: undefined,
+      requesterBrokeTruceWithAi: false, now
+    });
+    expect(input?.ai.nextRefillManpower).toBe(40);
   });
 });

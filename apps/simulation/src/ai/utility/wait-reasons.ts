@@ -14,7 +14,7 @@
  */
 
 import type { AutomationNoopReason } from "../automation-command-planner-types.js";
-import type { DecisionClass, DecisionInputs } from "./decisions.js";
+import { RELAY_BEACON_SITE_VALUE_FLOOR, type DecisionClass, type DecisionInputs } from "./decisions.js";
 
 export type WaitContext = {
   /** False when the next RELAY_BEACON's manpower (or other) cost can't be paid. */
@@ -24,9 +24,6 @@ export type WaitContext = {
 };
 
 export type VetoReasons = Partial<Record<Exclude<DecisionClass, "WAIT">, string>>;
-
-// Same floor scoreBuildBeacon's linear(relayBeaconSiteValue, ...) uses.
-const RELAY_BEACON_SITE_VALUE_FLOOR = 1;
 
 const atPeace = (inp: DecisionInputs, ctx: WaitContext): boolean =>
   inp.frontierEnemyCount === 0 && ctx.frontierNonHostileTargetCount > 0;
@@ -40,9 +37,10 @@ const expandVeto = (inp: DecisionInputs): string | undefined => {
 };
 
 const attackVeto = (inp: DecisionInputs, ctx: WaitContext): string | undefined => {
-  if (!inp.hasAnyAttackCandidate) return atPeace(inp, ctx) ? "neighbors_at_peace" : "no_target";
+  // Same order as scoreAttack's vetoes.
   if (!inp.canAttack) return "cannot_attack";
   if (!inp.attackReady) return "not_ready";
+  if (!inp.hasAnyAttackCandidate) return atPeace(inp, ctx) ? "neighbors_at_peace" : "no_target";
   if (inp.musterReady && inp.hasWeakEnemyBorder) return "muster_handles_it";
   if (!(inp.frontPosture === "BREAK" || inp.frontPosture === "WAR" || inp.hasBarbTarget)) return `posture_${inp.frontPosture.toLowerCase()}`;
   return undefined;

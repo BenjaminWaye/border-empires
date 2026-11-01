@@ -374,4 +374,9 @@ describe("foodSlotReliefFromPlannerInput beacon re-enable headroom", () => {
   it("re-enables once FOOD stays above demand after the beacon comes back on", () => {
     expect(foodSlotReliefFromPlannerInput([disabled], PLAYER_ID, undefined, undefined, 68, 66, false, 6).reenableTarget).toEqual({ x: 10, y: 10 });
   });
+
+  // Five or fewer beacons are all FOOD-waived, so re-enabling one takes no slot.
+  it("re-enables a waived beacon with a single slot of headroom", () => {
+    expect(foodSlotReliefFromPlannerInput([disabled], PLAYER_ID, undefined, undefined, 67, 66, false, 5).reenableTarget).toEqual({ x: 10, y: 10 });
+  });
 });

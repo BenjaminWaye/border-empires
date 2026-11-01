@@ -84,13 +84,17 @@ describe("vetoReasonsFor", () => {
     const reasons = vetoReasonsFor(stuck, { ...broke, frontierNonHostileTargetCount: 3 }, [...NON_WAIT]);
     expect(reasons).toMatchObject({
       EXPAND: "reach_capped",
-      ATTACK: "neighbors_at_peace",
+      ATTACK: "not_ready",
       MUSTER: "not_ready",
       BUILD_ECONOMY: "no_site_or_unaffordable",
       BUILD_BEACON: "unaffordable",
       FREE_FOOD_SLOT: "food_not_exhausted",
       CHOOSE_TECH: "handled_by_preplan"
     });
+  });
+
+  it("says neighbors_at_peace for ATTACK when ready but every neighbour is a truce partner or ally", () => {
+    expect(vetoReasonsFor({ ...stuck, attackReady: true }, { ...broke, frontierNonHostileTargetCount: 3 }, ["ATTACK"]).ATTACK).toBe("neighbors_at_peace");
   });
 
   // Drift guard against decisions.ts: a class whose gates all pass must not
