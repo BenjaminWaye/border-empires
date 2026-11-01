@@ -97,6 +97,7 @@ import { OUT_OF_REACH_NO_DECAY_CHANGELOG } from "./client-changelog-out-of-reach
 import { FRONTIER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-frontier-supply-lines.js";
 import { MANPOWER_BATCH_LABEL_CHANGELOG } from "./client-changelog-manpower-batch-label.js";
 import { AI_VICTORY_STANDINGS_CHANGELOG } from "./client-changelog-ai-victory-standings.js";
+import { VICTORY_RACE_LABELS_CHANGELOG } from "./client-changelog-victory-race-labels.js";
 import { RESTART_TILE_STATE_CHANGELOG } from "./client-changelog-restart-tile-state.js";
 import { RESTART_MANPOWER_CHANGELOG } from "./client-changelog-restart-manpower.js";
 import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-recent-groups.js";
@@ -159,6 +160,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...MANPOWER_BATCH_LABEL_CHANGELOG,
   ...AI_VICTORY_STANDINGS_CHANGELOG,
+  ...VICTORY_RACE_LABELS_CHANGELOG,
   ...RESTART_TILE_STATE_CHANGELOG,
   ...RESTART_MANPOWER_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING,
