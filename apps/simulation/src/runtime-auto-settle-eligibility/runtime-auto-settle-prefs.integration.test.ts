@@ -136,6 +136,63 @@ describe("auto-settle prefs gate", () => {
   });
 });
 
+// 25 FRONTIER farms ahead of one FRONTIER town, all inside the TOWN_REACH_RADIUS (3) disk of a TOWN-tier anchor at 40,40.
+const buildFarmFieldRuntime = (autoSettle: AutoSettlePrefs) => {
+  const farms = Array.from({ length: 25 }, (_, i) => ({
+    x: 37 + (i % 7),
+    y: [37, 38, 39, 41][Math.floor(i / 7)]!,
+    terrain: "LAND" as const,
+    ownerId: "player-1",
+    ownershipState: "FRONTIER" as const,
+    resource: "FARM" as const
+  }));
+  const runtime = new SimulationRuntime({
+    now: () => 1_000,
+    initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 10_000, manpower: 10_000, manpowerUpdatedAt: 1_000, autoSettle })]]),
+    seedTiles: new Map(),
+    initialState: {
+      tiles: [
+        { x: 40, y: 40, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "TOWN" } },
+        ...farms,
+        { x: 43, y: 43, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", town: { name: "Neighbor", type: "MARKET", populationTier: "SETTLEMENT" } }
+      ],
+      activeLocks: []
+    }
+  });
+  return { runtime, seen: collectEvents(runtime) };
+};
+
+describe("auto-settle queue with a category switched off", () => {
+  it("lots of farms with food off do not crowd a town out of the queue (regression)", async () => {
+    const { runtime, seen } = buildFarmFieldRuntime({ answered: true, towns: true, food: false, strategic: false, luxury: false });
+    await runtime.tickTerritoryAutomation(1_000);
+    expect(settlementStartedTileKeys(seen)).toEqual(["43,43"]);
+  });
+
+  it("switching food off while every slot is busy frees the queue for the town (regression)", async () => {
+    const { runtime } = buildFarmFieldRuntime({ answered: true, towns: true, food: true, strategic: false, luxury: false });
+    await runtime.tickTerritoryAutomation(1_000); // 3 farms take every slot; 20 more fill the queue, the town is dropped
+    const queued = () => runtime["autoSettlementQueueForPlayer"]("player-1").map(({ x, y }) => `${x},${y}`);
+    expect(queued()).not.toContain("43,43");
+    setPrefs(runtime, { towns: true, food: false, strategic: false, luxury: false });
+    await Promise.resolve();
+    expect(queued()).toEqual([]); // stale farms dropped even though no slot is free
+    await runtime.tickTerritoryAutomation(31_000);
+    expect(queued()).toEqual(["43,43"]);
+  });
+
+  it("switching food on afterwards starts garrisoning the farms captured while it was off", async () => {
+    const { runtime, seen } = buildFarmFieldRuntime({ answered: true, towns: false, food: false, strategic: false, luxury: false });
+    await runtime.tickTerritoryAutomation(1_000);
+    expect(settlementStartedTileKeys(seen)).toEqual([]);
+    setPrefs(runtime, { towns: false, food: true, strategic: false, luxury: false });
+    await Promise.resolve();
+    const started = settlementStartedTileKeys(seen);
+    expect(started.length).toBeGreaterThan(0);
+    expect(started.every((key) => key !== "43,43")).toBe(true);
+  });
+});
+
 describe("join / spawn does not spend manpower on a new human", () => {
   const spawnWorld = (initialPlayers?: Map<string, ReturnType<typeof buildPlayer>>) => {
     const runtime = new SimulationRuntime({
