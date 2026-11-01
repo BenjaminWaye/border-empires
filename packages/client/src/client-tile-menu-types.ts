@@ -102,6 +102,8 @@ export type TileMenuView = {
   buildings: TileActionDef[];
   crystal: TileActionDef[];
   progress?: TileMenuProgressView;
+  /** Construction running on the tile, then its queued build: `progress` shows only one, so a Fort building with a support building queued behind it needs both. */
+  work?: TileMenuProgressView[];
   combatBreakdown?: TileCombatBreakdown | undefined;
   commit?: MusterCommitView | undefined;
 };

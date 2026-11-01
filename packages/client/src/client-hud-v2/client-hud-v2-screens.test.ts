@@ -172,8 +172,8 @@ describe("town screen", () => {
     expect(regions.bar).toContain('data-hud-v2-action="muster_hold" data-target-key="6,5"');
     expect(regions.bar).not.toContain('data-hud-v2-action="muster_hold" data-target-key="5,5"');
     expect(regions.bar).toContain("Raise flag on (6, 5)");
-    expect(regions.place).toContain('data-target-key="6,5"');
-    expect(regions.place).toContain("Build on (6, 5)");
+    expect(regions.build).toContain('data-hud-v2-action="build_hydrogarden" data-target-key="6,5"');
+    expect(regions.build).toContain("Build on (6, 5)");
   });
 
   // Regression (review): with a support tile selected, the town tile's own

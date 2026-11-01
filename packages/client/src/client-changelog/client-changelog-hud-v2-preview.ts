@@ -98,5 +98,15 @@ export const HUD_V2_PREVIEW_CHANGELOG: ClientChangelogEntry[] = [
     changes: [
       "Aether ▸ in the tile panel opens a list at the side, like Build ▸: each ability with its icon and cost, or why it can't be used yet."
     ]
+  },
+  {
+    createdAt: 1793565462792, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.01.2",
+    title: "HUD preview: builds in progress on the town screen",
+    why: "A tile with a queued or running build opened the town screen on an empty build list, with no way to see the build or move it up the queue.",
+    changes: [
+      "When the selected tile has a build queued or under construction, the town screen's build panel is titled In progress and shows it: Jump to front and Cancel for a queued build, time left, Rush and Cancel while it builds. Anything the tile can still take is listed below.",
+      "The Build on button for the building you pick sits at the bottom of the build panel."
+    ]
   }
 ];

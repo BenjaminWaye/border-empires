@@ -10,6 +10,7 @@ import { clearScreen, focusCamera, screen, SCREEN_HOST_ID, screenCentre, setScre
 import { createFlagTapTracker } from "./client-hud-v2-flag-tap.js";
 import { suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
 import { TOWN_SCREEN_SKELETON, townScreenRegions } from "./client-hud-v2-town.js";
+import { markTownWorkSent, runTownWorkAction, townQueuePosition, townWorkLocked } from "./client-hud-v2-town-work.js";
 
 type TownContext = { townKey: string; focusKey: string; focusView: TileMenuView };
 
@@ -62,12 +63,27 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
     townIndex: Math.max(0, towns.findIndex((t) => keyOf(t) === current?.townKey)),
     townCount: towns.length,
     buildSelection: screen.townBuildSelection,
-    category: screen.townCategory
+    category: screen.townCategory,
+    focusQueuePosition: townQueuePosition(deps.state.developmentQueue, current.focusKey),
+    focusWorkLocked: townWorkLocked(current.focusKey, current.focusView.work ?? [])
   });
   writeHtml("v2t-left", regions.left);
   writeHtml("v2t-build", regions.build);
-  writeHtml("v2t-place", regions.place);
   writeHtml("v2t-bar", regions.bar);
+};
+
+/**
+ * Runs a work card's button on the selected tile, then re-reads its view: a queue change (jump, cancel) lands
+ * before any tile update. Rush and cancel-construction lock the cards until the server's update (markTownWorkSent).
+ */
+export const runTownWork = (deps: HudV2Deps, action: string, tileKey: string): void => {
+  const work = current?.focusKey === tileKey ? current.focusView.work ?? [] : [];
+  if (townWorkLocked(tileKey, work)) return;
+  const ran = runTownWorkAction(deps, action, tileKey);
+  if (ran && (action === "rush_buy" || action === "cancel_structure_build")) markTownWorkSent(tileKey, work);
+  const focus = current ? deps.state.tiles.get(current.focusKey) : undefined;
+  if (current && focus) current.focusView = deps.actionFlow.tileMenuViewForTile(focus);
+  renderTownScreen(deps);
 };
 
 let mapGuardInstalled = false;

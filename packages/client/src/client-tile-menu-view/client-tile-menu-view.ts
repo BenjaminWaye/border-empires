@@ -486,6 +486,7 @@ export const tileMenuViewForTile = (
     buildings: visibleBuildings,
     crystal: actionTabs.crystal,
     ...(progress ? { progress } : {}),
+    ...(construction || queuedBuild ? { work: [construction, queuedBuild].filter((w): w is TileMenuProgressView => Boolean(w)) } : {}),
     ...(combatBreakdown ? { combatBreakdown } : {}), ...(deps.musterCommit ? { commit: deps.musterCommit } : {})
   };
 };
