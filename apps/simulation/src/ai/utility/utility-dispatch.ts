@@ -27,6 +27,7 @@ import type { chooseBestRelayBeaconBuild } from "../relay-beacon-command-planner
 import type { FoodSlotReenableTarget, FoodSlotReliefPlan } from "../food-slot-relief.js";
 import type { DecisionClass, DecisionInputs } from "./decisions.js";
 import { evaluateUtilityPolicy } from "./utility-policy.js";
+import { primaryWaitReason, vetoReasonsFor, type WaitContext } from "./wait-reasons.js";
 import type { DecisionCooldownMap } from "../ai-rejection-cooldown.js";
 
 // ── State type ───────────────────────────────────────────────────────────────
@@ -44,6 +45,8 @@ export type UtilityDispatchState<TTile extends AutomationPlannerTile> = {
   siegeBatteryBuild: ReturnType<typeof chooseBestSiegeBatteryBuild> | undefined;
   /** Best RELAY_BEACON placement candidate (fixed-borders-via-reach plan). */
   relayBeaconBuild: ReturnType<typeof chooseBestRelayBeaconBuild> | undefined;
+  /** False when the next beacon's cost can't be paid (defaults true) — feeds WAIT's reason. */
+  relayBeaconAffordable?: boolean;
   /** FOOD-slot relief target: a structure to reversibly disable (SET_CONVERTER_STRUCTURE_ENABLED, never demolish) — a low-value beacon, or a FOOD-consuming structure as fallback — or, once neither exists (or disabling a beacon can't help — see food-slot-relief.ts), a beacon or town to abandon (UNCAPTURE_TILE). See food-slot-relief.ts. */
   foodSlotReliefTarget: FoodSlotReliefPlan | undefined;
   /** FOOD slots are fully exhausted (supply <= 0 relative to demand). */
@@ -336,16 +339,24 @@ export const runUtilityPolicy = <TTile extends AutomationPlannerTile>(
     },
     ...(policy.vetoedClasses.length > 0 ? { utilityVetoedClasses: policy.vetoedClasses } : {})
   };
+  const waitContext: WaitContext = {
+    relayBeaconAffordable: state.relayBeaconAffordable ?? true,
+    frontierNonHostileTargetCount: state.context.frontierAnalysis.frontierNonHostileTargetCount ?? 0
+  };
 
   for (const [cls] of sorted) {
     const result = executeClass(cls, state);
     if (result) {
-      // When WAIT wins and the dev slot is full, the limiting factor is the
-      // development process cap — preserve the legacy diagnostic expected by tests.
-      const noCommandReason =
-        cls === "WAIT" && !state.devSlotAvailable && result.diagnostic.noCommandReason === "wait_and_recover"
-          ? "development_process_limit"
-          : result.diagnostic.noCommandReason;
+      // When WAIT wins, name the blocker (wait-reasons.ts) instead of the
+      // generic wait_and_recover; a full dev slot still reads as
+      // development_process_limit, as the legacy tests expect.
+      const waitReason = cls === "WAIT" && result.diagnostic.noCommandReason === "wait_and_recover"
+        ? primaryWaitReason(inputs, waitContext)
+        : undefined;
+      const noCommandReason = waitReason ?? result.diagnostic.noCommandReason;
+      const vetoReasons = cls === "WAIT" && policy.vetoedClasses.length > 0
+        ? { utilityVetoReasons: vetoReasonsFor(inputs, waitContext, policy.vetoedClasses) }
+        : {};
 
       return {
         ...result,
@@ -354,7 +365,8 @@ export const runUtilityPolicy = <TTile extends AutomationPlannerTile>(
           ...(noCommandReason !== undefined ? { noCommandReason } : {}),
           utilityWinner: cls,
           utilityWinnerScore: policy.scores[cls],
-          ...utilityBase
+          ...utilityBase,
+          ...vetoReasons
         }
       };
     }

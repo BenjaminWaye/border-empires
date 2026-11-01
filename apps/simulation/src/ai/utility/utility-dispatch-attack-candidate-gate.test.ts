@@ -99,7 +99,7 @@ describe("ATTACK count-vs-candidate divergence diagnostics", () => {
 
   it("vetoes ATTACK (falls through to WAIT) when the count/candidate gates diverge, and the diagnostic explains why", () => {
     const result = runUtilityPolicy(buildDivergedBarbarianState());
-    expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
+    expect(result.diagnostic.noCommandReason).toBe("WAIT_NO_BEACON_SITE");
     expect(result.diagnostic.utilityGates?.hasBarbTarget).toBe(true);
     expect(result.diagnostic.utilityGates?.hasAnyAttackCandidate).toBe(false);
     expect(result.diagnostic.utilityGates?.hasBarbarianAttackSelection).toBe(false);
@@ -145,7 +145,7 @@ describe("ATTACK rejection-cooldown diagnostics", () => {
     expect(result.diagnostic.utilityGates?.attackReady).toBe(true);
     expect(result.diagnostic.utilityGates?.attackOnCooldown).toBe(true);
     expect(result.diagnostic.utilityScores?.ATTACK).toBe(0);
-    expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
+    expect(result.diagnostic.noCommandReason).toBe("WAIT_NO_BEACON_SITE");
   });
 
   it("reports attackOnCooldown false once the cooldown clears, with everything else unchanged", () => {
