@@ -1,4 +1,4 @@
-import { Scene, type Mesh } from "three";
+import { Scene, type Mesh, type MeshBasicMaterial } from "three";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MapNameLabelSource } from "../client-map-name-labels/client-map-name-labels.js";
 import { createNameDecal } from "./client-map-3d-name-decal.js";
@@ -49,6 +49,25 @@ describe("createNameDecal", () => {
     expect(disposed).toHaveBeenCalledTimes(1);
     decal.dispose();
     expect(scene.children).toHaveLength(0);
+  });
+
+  it("reallocates the GPU texture when the canvas changes size, so names stay on their land", () => {
+    const scene = new Scene();
+    const decal = make(scene);
+    decal.sync({ camX: 100, camY: 50, halfW: 20, halfH: 12, nowMs: 0, terrainRevision: 1 });
+    const texture = (decalMesh(scene).material as MeshBasicMaterial).map!;
+    const disposed = vi.fn();
+    texture.addEventListener("dispose", disposed);
+    // Panning off the canvas redraws it somewhere else at the same size: the texture's storage is reused.
+    decal.sync({ camX: 140, camY: 50, halfW: 20, halfH: 12, nowMs: 10, terrainRevision: 1 });
+    expect(disposed).not.toHaveBeenCalled();
+    // Zooming out widens the window: a bigger canvas needs fresh storage...
+    decal.sync({ camX: 140, camY: 50, halfW: 60, halfH: 36, nowMs: 20, terrainRevision: 1 });
+    expect(disposed).toHaveBeenCalledTimes(1);
+    // ...and zooming back in shrinks it, which needs fresh storage too.
+    decal.sync({ camX: 140, camY: 50, halfW: 20, halfH: 12, nowMs: 30, terrainRevision: 1 });
+    expect(disposed).toHaveBeenCalledTimes(2);
+    decal.dispose();
   });
 
   it("keeps the canvas within its size cap and inside half the world, even for a huge window", () => {
