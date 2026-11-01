@@ -16,7 +16,7 @@ describe("automation action admission", () => {
       reachLookup: { isInReach: () => false }, clientSeq: 1, issuedAt: 1000, sessionPrefix: "ai-runtime"
     });
     expect(result.command).toBeUndefined();
-    expect(result.diagnostic.noCommandReason).toBe("BLOCKED_NO_REACHABLE_BEACON_SITE");
+    expect(result.diagnostic.noCommandReason).toBe("WAIT_NO_BEACON_SITE");
   });
 
   it("turns INSUFFICIENT_SLOT into one reversible FOOD-slot recovery command", () => {

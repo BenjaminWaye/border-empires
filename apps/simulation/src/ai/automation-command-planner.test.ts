@@ -77,7 +77,7 @@ describe("automation command planner", () => {
 
     expect(result.command).toBeUndefined();
     expect(result.diagnostic.frontierEnemyTargetCount).toBe(1);
-    expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
+    expect(result.diagnostic.noCommandReason).toBe("WAIT_BEACON_UNAFFORDABLE");
     // A target was found even though manpower gates the actual attack -
     // "found" tracks scan results, not whether a command was issued.
     expect(result.diagnostic.scanFoundActionableCandidate).toBe(true);
@@ -133,7 +133,7 @@ describe("automation command planner", () => {
     });
 
     expect(result.command).toBeUndefined();
-    expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
+    expect(result.diagnostic.noCommandReason).toBe("WAIT_NO_BEACON_SITE");
   });
 
   it("reports wait_and_recover instead of no_settlement_target when nothing actionable exists", () => {
@@ -429,7 +429,7 @@ describe("automation command planner", () => {
     });
 
     expect(result.command).toBeUndefined();
-    expect(result.diagnostic.noCommandReason).toBe("BLOCKED_NO_REACHABLE_BEACON_SITE");
+    expect(result.diagnostic.noCommandReason).toBe("WAIT_BEACON_UNAFFORDABLE");
   });
 
   it("does not force a mediocre fallback settlement when no frontier actions exist", () => {
@@ -467,7 +467,7 @@ describe("automation command planner", () => {
     });
 
     expect(result.command).toBeUndefined();
-    expect(result.diagnostic.noCommandReason).toBe("BLOCKED_NO_REACHABLE_BEACON_SITE");
+    expect(result.diagnostic.noCommandReason).toBe("WAIT_BEACON_UNAFFORDABLE");
   });
 
   it("does not expand onto mediocre/scout land while first tech is unaffordable — WAIT instead", () => {
@@ -515,7 +515,7 @@ describe("automation command planner", () => {
     });
 
     expect(result.command).toBeUndefined();
-    expect(result.diagnostic.noCommandReason).toBe("BLOCKED_NO_REACHABLE_BEACON_SITE");
+    expect(result.diagnostic.noCommandReason).toBe("WAIT_BEACON_UNAFFORDABLE");
   });
 
   it("falls back to WAIT (not scout expansion) when no attack strength and no valuable land exists", () => {

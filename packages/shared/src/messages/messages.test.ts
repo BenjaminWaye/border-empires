@@ -15,13 +15,21 @@ describe("ClientMessageSchema", () => {
   });
 
   it("accepts SET_AUTO_SETTLE_PREFS and rejects a non-boolean category", () => {
-    expect(ClientMessageSchema.parse({ type: "SET_AUTO_SETTLE_PREFS", towns: true, food: false, resources: false })).toEqual({
+    expect(ClientMessageSchema.parse({ type: "SET_AUTO_SETTLE_PREFS", towns: true, food: false, strategic: false, luxury: false })).toEqual({
       type: "SET_AUTO_SETTLE_PREFS",
       towns: true,
       food: false,
-      resources: false
+      strategic: false,
+      luxury: false
     });
-    expect(ClientMessageSchema.safeParse({ type: "SET_AUTO_SETTLE_PREFS", towns: "yes", food: false, resources: false }).success).toBe(false);
+    // A tab opened before the strategic/luxury split still sends one resources switch.
+    expect(ClientMessageSchema.parse({ type: "SET_AUTO_SETTLE_PREFS", towns: true, food: false, resources: true })).toEqual({
+      type: "SET_AUTO_SETTLE_PREFS",
+      towns: true,
+      food: false,
+      resources: true
+    });
+    expect(ClientMessageSchema.safeParse({ type: "SET_AUTO_SETTLE_PREFS", towns: "yes", food: false, strategic: false, luxury: false }).success).toBe(false);
   });
 
   it("accepts NAME_ISLAND and rejects a non-integer tile", () => {

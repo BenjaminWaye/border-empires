@@ -7,17 +7,16 @@
 // cap), which read the AI's *free* pool only. Muster flags drain that pool
 // into the flag (runtime-muster-tick.ts), so an AI massing an attack looked
 // exhausted and accepted almost every truce. Mustered manpower now counts as
-// the AI's own fighting strength.
+// the AI's own fighting strength. Whether a spent army actually seeks peace
+// with this rival is decided in ai-war-exhaustion.ts.
+
+import { warExhaustion, type RivalStrength, type WarExhaustionInput } from "./ai-war-exhaustion.js";
 
 export type AiDiplomacyStanceKind = "DISTRUSTFUL" | "SEEKING_PEACE" | "OUTMATCHED" | "WINNING" | "INDIFFERENT" | "WARY";
 
 export type AiDiplomacyStanceInput = {
   aiName: string;
-  ai: {
-    manpower: number;
-    manpowerCap: number;
-    /** Manpower sitting in the AI's muster flags -- still the AI's to fight with. */
-    musterManpower: number;
+  ai: WarExhaustionInput & {
     /** Leaderboard score; undefined when the snapshot carried no self entry. */
     score: number | undefined;
     foodSlotDeficit?: number;
@@ -25,7 +24,7 @@ export type AiDiplomacyStanceInput = {
     /** Production minus upkeep, per minute. */
     foodNetPerMinute: number;
   };
-  requester: {
+  requester: RivalStrength & {
     score: number | undefined;
     manpowerCap: number | undefined;
   };
@@ -43,8 +42,6 @@ export type AiDiplomacyStance = {
   acceptsAlliance: boolean;
 };
 
-/** Fighting strength (free + mustered manpower) at or below this share of cap reads as exhausted. */
-export const EXHAUSTED_MANPOWER_RATIO = 0.2;
 /** Food lasting less than this many minutes at the current deficit reads as a food crisis. */
 export const FOOD_CRISIS_MINUTES = 10;
 /** One side counts as clearly stronger once its strength is this multiple of the other's. */
@@ -69,8 +66,7 @@ export const computeAiDiplomacyStance = (input: AiDiplomacyStanceInput): AiDiplo
   const requesterStrength = bothScored ? input.requester.score : strengthOf(undefined, input.requester.manpowerCap);
   const requesterRatio = aiStrength && requesterStrength ? requesterStrength / aiStrength : 1;
 
-  const fightingStrength = input.ai.manpower + input.ai.musterManpower;
-  const exhausted = input.ai.manpowerCap > 0 && fightingStrength / input.ai.manpowerCap <= EXHAUSTED_MANPOWER_RATIO;
+  const exhausted = warExhaustion(input.ai, input.requester, input.bordersTouch) === "EXHAUSTED";
   const starving = input.ai.foodSlotDeficit !== undefined ? input.ai.foodSlotDeficit > 0 :
     input.ai.foodStock <= 0
       ? input.ai.foodNetPerMinute < 0

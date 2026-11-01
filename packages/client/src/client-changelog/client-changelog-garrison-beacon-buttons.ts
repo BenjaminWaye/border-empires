@@ -10,5 +10,12 @@ export const GARRISON_BEACON_BUTTONS_CHANGELOG: ClientChangelogEntry[] = [
       "An ungarrisoned town's screen leads with a gold Garrison button.",
       "On frontier and neutral land, a Relay Beacon you can't build yet stays the main button, greyed, with the reason on it. So does Garrison on a resource or dock."
     ]
+  },
+  {
+    createdAt: 1793524025939, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.01.1",
+    title: "Town Garrison button no longer squashed",
+    why: "With several town actions listed, the gold Garrison button shrank to a sliver showing only \"GA\".",
+    changes: ["The town bar keeps Garrison, Raise flag and Map on one row, with the smaller actions underneath."]
   }
 ];

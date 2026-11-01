@@ -22,7 +22,7 @@ import {
   chooseBestFortBuild,
   chooseBestSiegeBatteryBuild
 } from "./structure-command-planner.js";
-import { chooseBestRelayBeaconBuild } from "./relay-beacon-command-planner.js";
+import { chooseBestRelayBeaconBuild, relayBeaconAffordable } from "./relay-beacon-command-planner.js";
 import { foodSlotReliefFromPlannerInput } from "./food-slot-relief.js";
 import { ownedNetworkInstallationCount } from "./planner-owned-structure-counts.js";
 import { economyWeak, foodCoverageLow } from "./ai-economic-heuristics.js";
@@ -252,6 +252,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   let fortBuild: ReturnType<typeof chooseBestFortBuild> | undefined;
   let siegeBatteryBuild: ReturnType<typeof chooseBestSiegeBatteryBuild> | undefined;
   let relayBeaconBuild: ReturnType<typeof chooseBestRelayBeaconBuild> | undefined;
+  let beaconAffordable = true;
   if (input.sessionPrefix === "ai-runtime" && effectiveDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT) {
     const structurePlayer = {
       id: input.playerId,
@@ -307,6 +308,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
         tile.ownershipState === "SETTLED" &&
         (!focusFront || focusFront.has(`${tile.x},${tile.y}`))
     );
+    beaconAffordable = relayBeaconAffordable(structurePlayer, input.ownedTiles);
     relayBeaconBuild = chooseBestRelayBeaconBuild(
       structurePlayer,
       input.ownedTiles,
@@ -331,6 +333,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     frontierEnemyTargetCount: frontierAnalysis.frontierEnemyTargetCount,
     frontierEnemyPlayerTargetCount: frontierAnalysis.frontierEnemyPlayerTargetCount,
     frontierBarbarianTargetCount: frontierAnalysis.frontierBarbarianTargetCount,
+    frontierNonHostileTargetCount: frontierAnalysis.frontierNonHostileTargetCount ?? 0,
     frontierNeutralTargetCount: frontierAnalysis.frontierNeutralTargetCount,
     frontierOpportunityEconomic: frontierAnalysis.frontierOpportunityEconomic,
     frontierOpportunityTownSupport: frontierAnalysis.frontierOpportunityTownSupport,
@@ -477,6 +480,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     fortBuild,
     siegeBatteryBuild,
     relayBeaconBuild,
+    relayBeaconAffordable: beaconAffordable,
     foodSlotReliefTarget: foodSlotRelief.reliefTarget,
     foodSlotsExhausted: foodSlotRelief.exhausted,
     foodSlotReenableTarget: foodSlotRelief.reenableTarget,

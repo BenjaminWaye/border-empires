@@ -254,12 +254,39 @@ describe("drainEligibleFrontierQueue", () => {
 });
 
 describe("reconcileEligibleFrontierQueueForOwner", () => {
-  it("is a no-op when the queue already has entries", () => {
+  it("is a no-op when the queue is already at its cap", () => {
     const map: EligibleFrontierByOwner = new Map();
-    insertEligibleFrontierTile(map, "p1", "1,1");
+    for (let i = 0; i < AUTO_SETTLE_ELIGIBLE_FRONTIER_CAP_PER_PLAYER; i += 1) insertEligibleFrontierTile(map, "p1", `${i},9`);
     const inserted = reconcileEligibleFrontierQueueForOwner(map, "p1", ["2,2"], alwaysEligibleDeps());
     expect(inserted).toBe(0);
     expect(isFrontierTileQueued(map, "p1", "2,2")).toBe(false);
+  });
+
+  it("tops up a queue that still has room", () => {
+    const map: EligibleFrontierByOwner = new Map();
+    insertEligibleFrontierTile(map, "p1", "1,1");
+    expect(reconcileEligibleFrontierQueueForOwner(map, "p1", ["2,2"], alwaysEligibleDeps())).toBe(1);
+    expect(isFrontierTileQueued(map, "p1", "2,2")).toBe(true);
+  });
+
+  it("resumes where the last scan stopped, so a tile past the first scanBudget tiles is found (regression)", () => {
+    const map: EligibleFrontierByOwner = new Map();
+    const frontierKeys = Array.from({ length: 100 }, (_, i) => `${i},0`);
+    const deps: EvaluateTileEligibilityDeps = { ...alwaysEligibleDeps(), isBlocked: (tileKey) => tileKey !== "80,0" };
+    const cursors = new Map<string, number>();
+    expect(reconcileEligibleFrontierQueueForOwner(map, "p1", frontierKeys, deps, 50, cursors)).toBe(0);
+    expect(reconcileEligibleFrontierQueueForOwner(map, "p1", frontierKeys, deps, 50, cursors)).toBe(1);
+    expect(isFrontierTileQueued(map, "p1", "80,0")).toBe(true);
+    // A third pass wraps back to the start instead of running off the end.
+    expect(reconcileEligibleFrontierQueueForOwner(map, "p1", frontierKeys, deps, 50, cursors)).toBe(0);
+    expect(cursors.get("p1")).toBe(50);
+  });
+
+  it("never queues a tile in a category the player has switched off", () => {
+    const map: EligibleFrontierByOwner = new Map();
+    const deps: EvaluateTileEligibilityDeps = { ...alwaysEligibleDeps(), isAutoSettleAllowed: () => false };
+    expect(reconcileEligibleFrontierQueueForOwner(map, "p1", ["1,1"], deps)).toBe(0);
+    expect(isFrontierTileQueued(map, "p1", "1,1")).toBe(false);
   });
 
   it("scans and inserts newly-eligible frontier tiles when the queue is empty (missed-hook safety net)", () => {

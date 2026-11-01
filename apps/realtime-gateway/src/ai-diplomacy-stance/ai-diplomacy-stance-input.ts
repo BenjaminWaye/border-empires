@@ -1,4 +1,4 @@
-import { MANPOWER_BASE_CAP, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { MANPOWER_BASE_CAP, WORLD_HEIGHT, WORLD_WIDTH, manpowerPerBatch, nextManpowerRefillAtMs, wrapX, wrapY } from "@border-empires/shared";
 // Reads AiDiplomacyStanceInput off subscription snapshots. Kept apart from
 // the pure decision in ai-diplomacy-stance.ts so the rules can be tested
 // without building snapshots.
@@ -7,18 +7,18 @@ import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import type { AiDiplomacyStanceInput } from "./ai-diplomacy-stance.js";
 
 type SnapshotPlayer = NonNullable<PlayerSubscriptionSnapshot["player"]>;
+type SnapshotTile = Pick<PlayerSubscriptionSnapshot["tiles"][number], "x" | "y" | "ownerId" | "musterJson"> &
+  Partial<Pick<PlayerSubscriptionSnapshot["tiles"][number], "terrain" | "reachOwnerId">>;
 export type AiDiplomacySnapshot = {
   playerId: string;
-  tiles: readonly Pick<PlayerSubscriptionSnapshot["tiles"][number], "x" | "y" | "ownerId" | "musterJson">[];
+  tiles: readonly SnapshotTile[];
   player?: Pick<SnapshotPlayer, "manpower" | "manpowerCap"> & Partial<Pick<SnapshotPlayer,
-    "resourceTradeHoldings" | "domainIds" | "gold" | "incomePerMinute" | "name" | "strategicResources" | "strategicProductionPerMinute" | "upkeepPerMinute" | "resourceSlots">>;
+    "manpowerRegenPerMinute" | "nextManpowerBatchAmount" | "resourceTradeHoldings" | "domainIds" | "gold" | "incomePerMinute" | "name" | "strategicResources" | "strategicProductionPerMinute" | "upkeepPerMinute" | "resourceSlots">>;
   worldStatus?: { leaderboard: {
     overall?: readonly { id: string; tiles: number }[];
     selfOverall?: { id: string; tiles: number; score?: number } | undefined;
   } } | undefined;
 };
-
-type SnapshotTile = Pick<PlayerSubscriptionSnapshot["tiles"][number], "x" | "y" | "ownerId" | "musterJson">;
 
 const tileKey = (x: number, y: number): string => `${x},${y}`;
 
@@ -61,6 +61,42 @@ export const bordersTouchInTiles = (tiles: readonly SnapshotTile[], aiPlayerId: 
 };
 
 /**
+ * True when the AI's territory touches (8-neighbour, as the frontier planner
+ * steps) land it could still take without fighting another empire: neutral
+ * LAND inside its own reach border, or barbarian ground. False means every
+ * way out runs through a rival. undefined when no tile carries terrain, or
+ * a neutral neighbour has none, so the snapshot can't vouch either way.
+ */
+export const hasOtherExpansionInTiles = (tiles: readonly SnapshotTile[], aiPlayerId: string): boolean | undefined => {
+  const byKey = new Map<string, SnapshotTile>();
+  let sawTerrain = false;
+  for (const tile of tiles) {
+    byKey.set(tileKey(tile.x, tile.y), tile);
+    if (tile.terrain) sawTerrain = true;
+  }
+  if (!sawTerrain) return undefined;
+  let sawUnknownNeutral = false;
+  for (const tile of tiles) {
+    if (tile.ownerId !== aiPlayerId) continue;
+    for (let dx = -1; dx <= 1; dx += 1) {
+      for (let dy = -1; dy <= 1; dy += 1) {
+        if (dx === 0 && dy === 0) continue;
+        const neighbor = byKey.get(tileKey(wrapX(tile.x + dx, WORLD_WIDTH), wrapY(tile.y + dy, WORLD_HEIGHT)));
+        if (!neighbor) continue;
+        if (neighbor.ownerId?.startsWith("barbarian-")) return true;
+        if (neighbor.ownerId) continue;
+        // A neutral neighbour with no terrain (e.g. a tile first inserted by
+        // a delta) can't be judged, so the answer becomes "unknown", never
+        // a false "boxed in".
+        if (!neighbor.terrain) sawUnknownNeutral = true;
+        else if (neighbor.terrain === "LAND" && neighbor.reachOwnerId === aiPlayerId) return true;
+      }
+    }
+  }
+  return sawUnknownNeutral ? undefined : false;
+};
+
+/**
  * undefined when the AI snapshot carries no player block: with no manpower
  * reading at all there is nothing to judge, and the caller declines rather
  * than inventing numbers.
@@ -72,18 +108,34 @@ export const buildAiDiplomacyStanceInput = (input: {
   requesterId: string;
   requesterSnapshot: AiDiplomacySnapshot | undefined;
   requesterBrokeTruceWithAi: boolean;
+  /** Wall-clock for the refill schedule; omitted = refill timing unknown. */
+  now?: number;
 }): AiDiplomacyStanceInput | undefined => {
   const aiPlayer = input.aiSnapshot?.player;
   if (!input.aiSnapshot || !aiPlayer) return undefined;
   const tiles = input.aiSnapshot.tiles;
   const foodProduction = aiPlayer.strategicProductionPerMinute?.FOOD ?? 0;
   const foodUpkeep = aiPlayer.upkeepPerMinute?.food ?? 0;
+  const manpowerCap = aiPlayer.manpowerCap > 0 ? aiPlayer.manpowerCap : MANPOWER_BASE_CAP;
+  const hasOtherExpansion = hasOtherExpansionInTiles(tiles, input.aiPlayerId);
+  const requesterPlayer = input.requesterSnapshot?.player;
+  // Prefer the simulation's own figure: it stops accruing while at cap and
+  // settles the bank at the current rate. Without it, assume a full window of
+  // regen, capped by room under the cap (an overestimate after time at cap).
+  const nextRefillManpower = aiPlayer.nextManpowerBatchAmount ??
+    (aiPlayer.manpowerRegenPerMinute !== undefined
+      ? Math.max(0, Math.min(manpowerCap - aiPlayer.manpower, manpowerPerBatch(aiPlayer.manpowerRegenPerMinute)))
+      : undefined);
   return {
     aiName: input.aiName,
     ai: {
       manpower: aiPlayer.manpower,
-      manpowerCap: aiPlayer.manpowerCap > 0 ? aiPlayer.manpowerCap : MANPOWER_BASE_CAP,
+      manpowerCap,
       musterManpower: musterManpowerFromTiles(tiles, input.aiPlayerId),
+      ...(input.now !== undefined && nextRefillManpower !== undefined
+        ? { nextRefillInMs: nextManpowerRefillAtMs(input.aiPlayerId, input.now) - input.now, nextRefillManpower }
+        : {}),
+      ...(hasOtherExpansion !== undefined ? { hasOtherExpansion } : {}),
       score: input.aiSnapshot.worldStatus?.leaderboard.selfOverall?.score,
       ...(aiPlayer.resourceSlots ? { foodSlotDeficit: aiPlayer.resourceSlots.demand.FOOD - aiPlayer.resourceSlots.supply.FOOD } : {}),
       foodStock: aiPlayer.strategicResources?.FOOD ?? 0,
@@ -91,7 +143,10 @@ export const buildAiDiplomacyStanceInput = (input: {
     },
     requester: {
       score: input.requesterSnapshot?.worldStatus?.leaderboard.selfOverall?.score,
-      manpowerCap: input.requesterSnapshot?.player?.manpowerCap
+      manpowerCap: requesterPlayer?.manpowerCap,
+      ...(requesterPlayer && input.requesterSnapshot
+        ? { fightingStrength: requesterPlayer.manpower + musterManpowerFromTiles(input.requesterSnapshot.tiles, input.requesterId) }
+        : {})
     },
     bordersTouch: bordersTouchInTiles(tiles, input.aiPlayerId, input.requesterId),
     requesterBrokeTruceWithAi: input.requesterBrokeTruceWithAi

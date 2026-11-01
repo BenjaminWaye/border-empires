@@ -3,6 +3,7 @@ import { TOWN_ECONOMY_CHANGELOG } from "./client-changelog-town-economy.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_25 } from "./client-changelog-oct-25.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_26 } from "./client-changelog-oct-26.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_27 } from "./client-changelog-oct-27.js";
+import { CLIENT_CHANGELOG_ENTRIES_OCT_30_31 } from "./client-changelog-oct-30-31.js";
 import { RAW_DEPOSIT_UNDER_IMPROVEMENT_CHANGELOG } from "./client-changelog-raw-deposit-under-improvement.js";
 import { RESOURCE_NETWORKS_CHANGELOG } from "./client-changelog-resource-networks.js";
 import { RELIABLE_DIPLOMACY_CHANGELOG } from "./client-changelog-reliable-diplomacy.js";
@@ -13,6 +14,7 @@ import { CLIENT_CHANGELOG_ENTRIES_OCT_17 } from "./client-changelog-oct-17.js";
 import { AETHER_ABILITY_ICONS_CHANGELOG } from "./client-changelog-aether-ability-icons.js";
 import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-art-october.js";
 import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
+import { AUTO_GARRISON_SPLIT_RESOURCES_CHANGELOG } from "./client-changelog-auto-garrison-split-resources.js";
 import { AFC_UPGRADES_ICON_CHANGELOG } from "./client-changelog-afc-upgrades-icon.js";
 import { GAMEPLAY_SETTINGS_CLEANUP_CHANGELOG } from "./client-changelog-gameplay-settings-cleanup.js";
 import { MUSTER_BANNER_CHANGELOG } from "./client-changelog-muster-banner.js";
@@ -42,6 +44,7 @@ import { FLAG_TAP_CHANGELOG } from "./client-changelog-flag-tap.js";
 import { SIEGE_UMBRITE_ONLY_CHANGELOG } from "./client-changelog-siege-umbrite.js";
 import { MARCH_WIN_CHANCE_CHANGELOG } from "./client-changelog-march-win-chance.js";
 import { SPACE_POLITICS_CHANGELOG } from "./client-changelog-space-politics.js";
+import { AI_RIVALS_CHANGELOG } from "./client-changelog-ai-rivals.js";
 import { CLAIM_STRIPED_GROUND_CHANGELOG } from "./client-changelog-claim-striped-ground.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_17_19_INLINE } from "./client-changelog-oct-17-19-inline.js";
 import { TOWN_PLATE_ZOOM_CHANGELOG } from "./client-changelog-town-plate-zoom.js";
@@ -71,6 +74,7 @@ import { FASTER_ATTACKS_FRONTIER_COST_CHANGELOG } from "./client-changelog-faste
 import { AFC_MODULE_MODELS_CHANGELOG } from "./client-changelog-afc-module-models.js";
 import { PROFILE_CREST_TOGGLE_CHANGELOG } from "./client-changelog-profile-crest-toggle.js";
 import { GARRISON_BEACON_BUTTONS_CHANGELOG } from "./client-changelog-garrison-beacon-buttons.js";
+import { AUTO_GARRISON_QUEUE_CLOG_CHANGELOG } from "./client-changelog-auto-garrison-queue-clog.js";
 import { MARCH_ATTACK_DEEP_CHANGELOG } from "./client-changelog-march-attack-deep.js";
 import { WAR_INDUSTRY_SQUADS_CHANGELOG } from "./client-changelog-war-industry-squads.js";
 import { MARCH_ATTACK_ROUTES_CHANGELOG } from "./client-changelog-march-attack-routes.js";
@@ -97,6 +101,7 @@ import { OUT_OF_REACH_NO_DECAY_CHANGELOG } from "./client-changelog-out-of-reach
 import { FRONTIER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-frontier-supply-lines.js";
 import { MANPOWER_BATCH_LABEL_CHANGELOG } from "./client-changelog-manpower-batch-label.js";
 import { AI_VICTORY_STANDINGS_CHANGELOG } from "./client-changelog-ai-victory-standings.js";
+import { VICTORY_RACE_LABELS_CHANGELOG } from "./client-changelog-victory-race-labels.js";
 import { RESTART_TILE_STATE_CHANGELOG } from "./client-changelog-restart-tile-state.js";
 import { RESTART_MANPOWER_CHANGELOG } from "./client-changelog-restart-manpower.js";
 import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-recent-groups.js";
@@ -144,6 +149,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["All Waystation technology rewards now use the current tech catalog name in the tile overview, including previously activated sites"]
   },
   ...AUTO_GARRISON_REQUEUE_CHANGELOG,
+  ...AUTO_GARRISON_SPLIT_RESOURCES_CHANGELOG,
   {
     createdAt: 1791969340091, // Date.now() captured once for this release.
     introducedIn: "2026.10.14.4",
@@ -160,6 +166,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...MANPOWER_BATCH_LABEL_CHANGELOG,
   ...AI_VICTORY_STANDINGS_CHANGELOG,
+  ...VICTORY_RACE_LABELS_CHANGELOG,
   ...RESTART_TILE_STATE_CHANGELOG,
   ...RESTART_MANPOWER_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING,
@@ -314,6 +321,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AFC_MODULE_MODELS_CHANGELOG,
   ...PROFILE_CREST_TOGGLE_CHANGELOG,
   ...GARRISON_BEACON_BUTTONS_CHANGELOG,
+  ...AUTO_GARRISON_QUEUE_CLOG_CHANGELOG,
   ...MARCH_ATTACK_DEEP_CHANGELOG,
   ...MARCH_ATTACK_ROUTES_CHANGELOG,
   ...MARCH_TO_UNEXPLORED_CHANGELOG,
@@ -440,44 +448,15 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...SIEGE_UMBRITE_ONLY_CHANGELOG,
   ...MARCH_WIN_CHANCE_CHANGELOG,
   ...SPACE_POLITICS_CHANGELOG,
+  ...CLIENT_CHANGELOG_ENTRIES_OCT_30_31,
   {
-    createdAt: 1793350568452,
-    introducedIn: "2026.10.30",
-    title: "Resource icons stay visible when zoomed out",
-    why: "Resource circles switched to plain colours before you could get a useful overview of nearby deposits.",
-    changes: ["Resource markers keep their icons at every zoom level in both the 2D and 3D maps, with smoothly scaling circles and coloured rims"]
-  },
-  {
-    createdAt: 1793441660132, // Date.now() captured once for this entry.
+    createdAt: 1793483288830,
     introducedIn: "2026.10.31",
-    title: "Frontier resource buildings have no upkeep",
-    why: "Resin Extractors, Implant Foundries, Catalyst Refineries, Cultivation Estates and Reclamation Works each used up a Food slot.",
-    changes: ["These five buildings no longer use a Food slot, and a Food shortage can't shut them down. Ones you've already built free their Food slot."]
+    title: "Smoother 3D map",
+    why: "The 3D map spent part of every frame updating thousands of hidden objects, which could make the tab freeze or report as unresponsive.",
+    changes: ["Each frame now only updates objects that are on show"]
   },
-  {
-    createdAt: 1793392462199,
-    introducedIn: "2026.10.30",
-    title: "Reveal map keeps reach borders",
-    why: "Revealing the map showed every empire's territory but dropped their reach borders, so the hatching that marks ground contested by rival reach disappeared too.",
-    changes: [
-      "Revealing the map now shows every empire's reach borders, including unowned ground held inside them",
-      "Contested tiles stay hatched after a reveal in both the 2D and 3D maps"
-    ]
-  },
-  {
-    createdAt: 1793470954153,
-    introducedIn: "2026.10.31",
-    title: "Ongoing battles open their battle screen",
-    why: "Pressing a battle in progress sometimes only centred the map, and the side cards never showed either army's strength.",
-    changes: ["Pressing a battle in the tracker zooms in on it and opens the battle screen, closing any other screen first", "Both sides show their strength and the locked odds while the battle runs", "Leaving the battle returns to your earlier zoom"]
-  },
-  {
-    createdAt: 1793482286154,
-    introducedIn: "2026.10.31",
-    title: "Offers wait for the map to load",
-    why: "Incoming truce and alliance offers could pop up on top of the loading screen.",
-    changes: ["The diplomacy offer dock stays hidden until the map has finished loading"]
-  }
+  ...AI_RIVALS_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

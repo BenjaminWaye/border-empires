@@ -360,3 +360,23 @@ describe("chooseTownToAbandon", () => {
     expect(chooseTownToAbandon([capital, ownTown, enemyTown, frontierTown], PLAYER_ID)).toEqual({ x: 4, y: 4, kind: "abandon_town" });
   });
 });
+
+describe("foodSlotReliefFromPlannerInput beacon re-enable headroom", () => {
+  const disabled = tile(10, 10, { status: "inactive", inactiveReason: "manual" });
+
+  // Staging regression: ai-10 sat at FOOD 67/67, disabled a beacon (66/67
+  // demand/supply), saw one slot of headroom — the beacon's own — re-enabled
+  // it, landed back on exhausted and disabled it again, every ~5s.
+  it("does not re-enable a beacon when the only headroom is the slot it would retake", () => {
+    expect(foodSlotReliefFromPlannerInput([disabled], PLAYER_ID, undefined, undefined, 67, 66, false, 6).reenableTarget).toBeUndefined();
+  });
+
+  it("re-enables once FOOD stays above demand after the beacon comes back on", () => {
+    expect(foodSlotReliefFromPlannerInput([disabled], PLAYER_ID, undefined, undefined, 68, 66, false, 6).reenableTarget).toEqual({ x: 10, y: 10 });
+  });
+
+  // Five or fewer beacons are all FOOD-waived, so re-enabling one takes no slot.
+  it("re-enables a waived beacon with a single slot of headroom", () => {
+    expect(foodSlotReliefFromPlannerInput([disabled], PLAYER_ID, undefined, undefined, 67, 66, false, 5).reenableTarget).toEqual({ x: 10, y: 10 });
+  });
+});
