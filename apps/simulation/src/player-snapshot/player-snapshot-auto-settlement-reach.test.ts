@@ -11,43 +11,52 @@ import { buildPlayerSubscriptionSnapshot } from "./player-snapshot.js";
 // out of reach is deliberately NOT covered by this queue -- that case
 // auto-settles synchronously at capture-resolution time; see
 // canAutoSettleCapturedAnchor in runtime-out-of-reach-auto-settle.ts.
+const buildSnapshot = (options?: { fullVisibility: boolean }) => {
+  const livePlayer = {
+    id: "player-1",
+    name: "Nauticus",
+    points: 64,
+    manpower: 120,
+    techIds: [],
+    domainIds: [],
+    strategicResources: {},
+    allies: [],
+    vision: 1,
+    visionRadiusBonus: 0,
+    territoryTileKeys: ["10,10", "11,10", "12,10", "10,11"]
+  };
+  return buildPlayerSubscriptionSnapshot("player-1", {
+    tiles: [
+      { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", townType: "FARMING", townName: "Nauticus" },
+      // In-reach resource tile — eligible for auto-settle.
+      { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "FARM", reachOwnerId: "player-1" },
+      // Claimed outside reach (server SETTLE rejects with OUT_OF_REACH) — must not be queued.
+      {
+        x: 12,
+        y: 10,
+        terrain: "LAND",
+        ownerId: "player-1",
+        ownershipState: "FRONTIER",
+        resource: "TITANIUM"
+      },
+      // Next to the town but inside a rival's reach border, not ours -- also unsettleable.
+      { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "FARM", reachOwnerId: "player-2" }
+    ],
+    players: [livePlayer],
+    pendingSettlements: [],
+    activeLocks: []
+  }, options);
+};
+
 describe("buildPlayerSubscriptionSnapshot auto-settlement queue", () => {
   it("excludes out-of-reach frontier tiles from the auto-settlement queue", () => {
-    const livePlayer = {
-      id: "player-1",
-      name: "Nauticus",
-      points: 64,
-      manpower: 120,
-      techIds: [],
-      domainIds: [],
-      strategicResources: {},
-      allies: [],
-      vision: 1,
-      visionRadiusBonus: 0,
-      territoryTileKeys: ["10,10", "11,10", "12,10", "10,11"]
-    };
-    const snapshot = buildPlayerSubscriptionSnapshot("player-1", {
-      tiles: [
-        { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", townType: "FARMING", townName: "Nauticus" },
-        // In-reach resource tile — eligible for auto-settle.
-        { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "FARM", reachOwnerId: "player-1" },
-        // Claimed outside reach (server SETTLE rejects with OUT_OF_REACH) — must not be queued.
-        {
-          x: 12,
-          y: 10,
-          terrain: "LAND",
-          ownerId: "player-1",
-          ownershipState: "FRONTIER",
-          resource: "TITANIUM"
-        },
-        // Next to the town but inside a rival's reach border, not ours -- also unsettleable.
-        { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "FARM", reachOwnerId: "player-2" }
-      ],
-      players: [livePlayer],
-      pendingSettlements: [],
-      activeLocks: []
-    });
+    expect(buildSnapshot().player?.autoSettlementQueue).toEqual([{ x: 11, y: 10 }]);
+  });
 
-    expect(snapshot.player?.autoSettlementQueue).toEqual([{ x: 11, y: 10 }]);
+  // Reveal-map gives a live player full visibility. The full-world export now
+  // carries reachOwnerId (PR #2558), so the reach guard must still apply —
+  // otherwise the revealed player's client retries doomed SETTLEs forever.
+  it("still excludes out-of-reach frontier tiles under full visibility", () => {
+    expect(buildSnapshot({ fullVisibility: true }).player?.autoSettlementQueue).toEqual([{ x: 11, y: 10 }]);
   });
 });
