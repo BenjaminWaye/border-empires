@@ -173,8 +173,11 @@ export const syncTownSupportRingForTileChange = (input: {
  * `scanBudget` frontier tiles per call, only while the queue has room, and
  * resumes where the previous call stopped (`cursorByOwner`) so successive
  * ticks walk the whole frontier instead of re-checking the same first
- * `scanBudget` tiles forever. Intended to be called once per player per
- * territory-automation tick (~30s).
+ * `scanBudget` tiles forever. The budget bounds tile evaluations; reaching
+ * the cursor still walks up to one frontier's worth of Set keys (no tile
+ * reads), which is cheap next to an evaluation. The cursor is a position, so
+ * frontier churn shifts it a little: a lap is approximate, never lossy.
+ * Intended to be called once per player per territory-automation tick (~30s).
  */
 export const RECONCILE_SCAN_BUDGET = 50;
 

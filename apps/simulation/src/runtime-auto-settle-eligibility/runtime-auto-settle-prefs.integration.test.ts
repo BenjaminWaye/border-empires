@@ -164,16 +164,28 @@ const buildFarmFieldRuntime = (autoSettle: AutoSettlePrefs) => {
 
 describe("auto-settle queue with a category switched off", () => {
   it("lots of farms with food off do not crowd a town out of the queue (regression)", async () => {
-    const { runtime, seen } = buildFarmFieldRuntime({ answered: true, towns: true, food: false, resources: false });
+    const { runtime, seen } = buildFarmFieldRuntime({ answered: true, towns: true, food: false, strategic: false, luxury: false });
     await runtime.tickTerritoryAutomation(1_000);
     expect(settlementStartedTileKeys(seen)).toEqual(["43,43"]);
   });
 
+  it("switching food off while every slot is busy frees the queue for the town (regression)", async () => {
+    const { runtime } = buildFarmFieldRuntime({ answered: true, towns: true, food: true, strategic: false, luxury: false });
+    await runtime.tickTerritoryAutomation(1_000); // 3 farms take every slot; 20 more fill the queue, the town is dropped
+    const queued = () => runtime["autoSettlementQueueForPlayer"]("player-1").map(({ x, y }) => `${x},${y}`);
+    expect(queued()).not.toContain("43,43");
+    setPrefs(runtime, { towns: true, food: false, strategic: false, luxury: false });
+    await Promise.resolve();
+    expect(queued()).toEqual([]); // stale farms dropped even though no slot is free
+    await runtime.tickTerritoryAutomation(31_000);
+    expect(queued()).toEqual(["43,43"]);
+  });
+
   it("switching food on afterwards starts garrisoning the farms captured while it was off", async () => {
-    const { runtime, seen } = buildFarmFieldRuntime({ answered: true, towns: false, food: false, resources: false });
+    const { runtime, seen } = buildFarmFieldRuntime({ answered: true, towns: false, food: false, strategic: false, luxury: false });
     await runtime.tickTerritoryAutomation(1_000);
     expect(settlementStartedTileKeys(seen)).toEqual([]);
-    setPrefs(runtime, { towns: false, food: true, resources: false });
+    setPrefs(runtime, { towns: false, food: true, strategic: false, luxury: false });
     await Promise.resolve();
     const started = settlementStartedTileKeys(seen);
     expect(started.length).toBeGreaterThan(0);

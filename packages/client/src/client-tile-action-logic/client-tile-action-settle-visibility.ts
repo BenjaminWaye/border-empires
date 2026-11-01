@@ -33,6 +33,7 @@ export const settleActionsForFrontierTile = (
   deps: TileActionLogicDeps,
   queuedSettlement: boolean
 ): TileActionDef[] => {
+  if (tile.ownershipState !== "FRONTIER" || queuedSettlement) return [];
   // Towns, docks, resource tiles and a grown town's support tiles always get the button: settling them has a real
   // payoff (and carries the "auto-settle these" checkbox, which new players need most), and are listed first and
   // highlighted as recommended. Other plain tiles stay hidden until the economy exists.
@@ -41,7 +42,6 @@ export const settleActionsForFrontierTile = (
   );
   const established = hasEstablishedTownAndFoodTile(state);
   if (!hasPayoff && !established) return [];
-  if (tile.ownershipState !== "FRONTIER" || queuedSettlement) return [];
   // Fixed-border reach: SETTLE is still reach-gated server-side even though EXPAND
   // itself is not -- see runtime-structure-command-handlers.ts. On a FRONTIER tile
   // outside reach, show these actions disabled with the reason instead of hiding them.
