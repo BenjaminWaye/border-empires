@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { BARBARIAN_PLAYER_ID } from "../ai/system-job-barbarian-planner.js";
 import { createRuntimeActivityLogs } from "./runtime-activity-logs.js";
 
 // Regression: barbarian walks logged every step onto neutral land (but never
@@ -9,10 +10,10 @@ describe("createRuntimeActivityLogs territory flips", () => {
   it("drops barbarian roaming over neutral land but keeps flips involving players", () => {
     const logs = createRuntimeActivityLogs(() => 1_000);
     const base = { x: 1, y: 1, at: 1_000 };
-    logs.recordTileFlip({ ...base, tileId: "t-1", fromOwner: undefined, toOwner: "barbarian-1" });
-    logs.recordTileFlip({ ...base, tileId: "t-2", fromOwner: "barbarian-1", toOwner: undefined });
-    logs.recordTileFlip({ ...base, tileId: "t-3", fromOwner: "p1", toOwner: "barbarian-1" });
-    logs.recordTileFlip({ ...base, tileId: "t-4", fromOwner: "barbarian-1", toOwner: "p1" });
+    logs.recordTileFlip({ ...base, tileId: "t-1", fromOwner: undefined, toOwner: BARBARIAN_PLAYER_ID });
+    logs.recordTileFlip({ ...base, tileId: "t-2", fromOwner: BARBARIAN_PLAYER_ID, toOwner: undefined });
+    logs.recordTileFlip({ ...base, tileId: "t-3", fromOwner: "p1", toOwner: BARBARIAN_PLAYER_ID });
+    logs.recordTileFlip({ ...base, tileId: "t-4", fromOwner: BARBARIAN_PLAYER_ID, toOwner: "p1" });
     logs.recordTileFlip({ ...base, tileId: "t-5", fromOwner: undefined, toOwner: "p1" });
     expect(logs.territoryGauge().entryCount).toBe(3);
   });

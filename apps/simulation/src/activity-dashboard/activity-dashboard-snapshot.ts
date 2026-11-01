@@ -49,8 +49,11 @@ export const buildActivityDashboardSnapshot = (input: {
     generatedAt: input.now,
     fortification: computeFortificationRanking(fortificationTiles),
     wars: computeWars(input.flipLogEntries, alliedPairKeysFromPlayers(input.players), BARBARIAN_PLAYER_ID),
-    territoryMomentum: computeTerritoryMomentum(input.flipLogEntries, BARBARIAN_PLAYER_ID),
-    biggestSwing24h: computeBiggestSwing24h(input.flipLogEntries),
+    territoryMomentum: computeTerritoryMomentum(input.flipLogEntries, {
+      excludeBarbarianId: BARBARIAN_PLAYER_ID,
+      currentOwnerOf: (tileId) => input.tiles.get(tileId)?.ownerId
+    }),
+    biggestSwing24h: computeBiggestSwing24h(input.flipLogEntries, BARBARIAN_PLAYER_ID),
     frontlineHotspots: computeFrontlineHotspots(input.flipLogEntries, input.combatManpowerLogEntries, BARBARIAN_PLAYER_ID),
     manpowerLost24h: computeManpowerLostTotal24h(input.combatManpowerLogEntries),
     biggestBattle24h: computeBiggestBattle24h(input.combatManpowerLogEntries, BARBARIAN_PLAYER_ID),
