@@ -44,7 +44,13 @@ export const AUTOMATION_NOOP_REASONS = [
   "BLOCKED_NO_REACHABLE_BEACON_SITE",
   "BLOCKED_NO_FOOD_SLOT_RELIEF",
   "BLOCKED_NO_FRONTIER_OR_ENEMY_TARGET",
-  "BLOCKED_ACTION_RETRY"
+  "BLOCKED_ACTION_RETRY",
+  // WAIT won and growth is blocked on the relay beacon (wait-reasons.ts):
+  "WAIT_BEACON_UNAFFORDABLE",
+  "WAIT_NO_BEACON_SITE",
+  "WAIT_BOXED_IN_AT_PEACE",
+  "WAIT_BEACON_ENEMY_AT_GATE",
+  "WAIT_BEACON_LOW_VALUE"
 ] as const;
 
 export const AUTOMATION_PREPLAN_REASONS = [
@@ -201,6 +207,8 @@ export type AutomationPlannerDiagnostic = {
   frontierEnemyTargetCount: number;
   frontierEnemyPlayerTargetCount?: number;
   frontierBarbarianTargetCount?: number;
+  /** Bordering tiles owned by allies/truce partners (not targets). */
+  frontierNonHostileTargetCount?: number;
   frontierNeutralTargetCount: number;
   frontierOpportunityEconomic?: number;
   frontierOpportunityTownSupport?: number;
@@ -277,6 +285,8 @@ export type AutomationPlannerDiagnostic = {
   utilityRunnerUp?: DecisionClass;
   utilityRunnerUpScore?: number;
   utilityVetoedClasses?: readonly DecisionClass[];
+  /** First failing gate per vetoed class — see utility/wait-reasons.ts. */
+  utilityVetoReasons?: Partial<Record<DecisionClass, string>>;
   /** Full per-class utility scores. Populated on every main-planner result so
    *  the AI decision diagnostics endpoint can show why every class scored 0. */
   utilityScores?: Record<string, number>;

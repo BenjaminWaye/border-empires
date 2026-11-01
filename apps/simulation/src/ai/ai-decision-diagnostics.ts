@@ -23,6 +23,8 @@ export type AiDecisionDiagnostic = {
   canAttack: boolean;
   scores: Record<string, number>;
   vetoedClasses: readonly string[];
+  /** First failing gate per vetoed class when WAIT won — see utility/wait-reasons.ts. */
+  vetoReasons?: Record<string, string>;
   frontierState: {
     neutralCount: number;
     economicCount: number;
@@ -30,6 +32,8 @@ export type AiDecisionDiagnostic = {
     scoutCount: number;
     enemyCount: number;
     barbarianCount: number;
+    /** Bordering tiles owned by allies/truce partners — skipped as targets. */
+    nonHostileCount: number;
   };
   /**
    * Neighbor candidate tiles the frontier scan visited vs how many were
@@ -129,13 +133,15 @@ export const recordAiDecisionDiagnosticFromPlanner = (
     canAttack: diagnostic.canAttack,
     scores: diagnostic.utilityScores,
     vetoedClasses: diagnostic.utilityVetoedClasses ?? [],
+    ...(diagnostic.utilityVetoReasons ? { vetoReasons: diagnostic.utilityVetoReasons } : {}),
     frontierState: {
       neutralCount: diagnostic.frontierNeutralTargetCount,
       economicCount: diagnostic.frontierOpportunityEconomic ?? 0,
       townSupportCount: diagnostic.frontierOpportunityTownSupport ?? 0,
       scoutCount: diagnostic.frontierOpportunityScout ?? 0,
       enemyCount: diagnostic.frontierEnemyTargetCount,
-      barbarianCount: diagnostic.frontierBarbarianTargetCount ?? 0
+      barbarianCount: diagnostic.frontierBarbarianTargetCount ?? 0,
+      nonHostileCount: diagnostic.frontierNonHostileTargetCount ?? 0
     },
     neighborCandidateTotal: diagnostic.neighborCandidateTotal ?? 0,
     missingNeighborTileCount: diagnostic.missingNeighborTileCount ?? 0,

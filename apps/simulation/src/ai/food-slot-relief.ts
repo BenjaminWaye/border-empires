@@ -51,7 +51,13 @@ import {
 
 import type { AutomationPlannerTile } from "./automation-command-planner-types.js";
 
-export type FoodSlotReliefPlan = { x: number; y: number; kind: "disable" | "abandon_town" };
+// FOOD slots a re-enabled RELAY_BEACON takes back (past the free waiver,
+// which is the only case the disable tier ever touches).
+const RELAY_BEACON_FOOD_SLOT_COST = structureSlotRequirements("RELAY_BEACON")
+  .filter((req) => req.resource === "FOOD")
+  .reduce((total, req) => total + req.count, 0);
+
+export type FoodSlotReliefPlan ={ x: number; y: number; kind: "disable" | "abandon_town" };
 
 /** A manually-disabled RELAY_BEACON this player owns, worth flipping back on. */
 export type FoodSlotReenableTarget = { x: number; y: number };
@@ -369,11 +375,21 @@ export const foodSlotReliefFromPlannerInput = <TTile extends AutomationPlannerTi
   const supply = foodSlotSupply ?? 0;
   const exhausted = forceRelief || (demand > 0 && supply <= demand);
   if (!exhausted) {
+    // A manually-disabled beacon is already left out of `demand`, so the
+    // headroom seen here includes the very slot that beacon would take back.
+    // Re-enabling at headroom == its own cost lands on supply === demand,
+    // which is `exhausted`, so the next tick disables it again (live staging:
+    // ai-10/ai-19 toggled the same beacon every ~5s for hours). Only re-enable
+    // when FOOD stays above demand afterwards.
+    // With RELAY_BEACON_FREE_FOOD_SLOT_COUNT or fewer beacons owned, every one
+    // is waived (the waiver goes to the earliest-activated), so it costs none.
+    const reenableCost = (ownedRelayBeaconCount ?? Infinity) > RELAY_BEACON_FREE_FOOD_SLOT_COUNT ? RELAY_BEACON_FOOD_SLOT_COST : 0;
+    const beaconHasHeadroom = supply - demand > reenableCost;
     const reenableTarget =
       // Count-gated like the beacon scan: walking every owned tile each tick is
       // only worth it when there is a frontier installation to find.
       ((ownedNetworkInstallationCount ?? 0) > 0 ? chooseManuallyDisabledFreeStructureToReenable(ownedTiles, playerId) : undefined) ??
-      ((ownedRelayBeaconCount ?? 0) > 0 ? chooseManuallyDisabledBeaconToReenable(ownedTiles, playerId) : undefined);
+      ((ownedRelayBeaconCount ?? 0) > 0 && beaconHasHeadroom ? chooseManuallyDisabledBeaconToReenable(ownedTiles, playerId) : undefined);
     return { reliefTarget: undefined, exhausted, reenableTarget };
   }
   const reliefTarget =

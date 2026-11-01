@@ -130,6 +130,24 @@ consolidation, planning cadence), not deletion.
 
 ## Known pitfalls
 
+- **The planner's gold income is an estimate; keep it on the rescaled rates.**
+  `PlayerRuntimeSummary.goldIncomePerMinute` (`player-runtime-summary.ts`)
+  feeds the AI planner view and `/admin/players`; the authoritative figure is
+  `buildPlayerUpdateEconomySnapshot`. The estimate kept the pre-
+  `GOLD_RESCALE_DIVISOR` (288) per-tier rates, so staging AIs saw ~28 gold/min
+  while earning ~0.1/min and their GOLD need read 0 (2026-11-01). It now uses
+  the same base constants; `player-runtime-summary.test.ts` pins them together.
+  Check gold over time (sample `/admin/players`) before trusting
+  `incomePerMinute`.
+- **Re-enabling a FOOD-relief beacon needs headroom beyond its own slot.** A
+  manually-disabled beacon is excluded from FOOD demand, so the headroom after
+  disabling it is exactly the slot it takes back. Re-enabling there lands on
+  `supply === demand` (exhausted) and loops; staging ai-10/ai-19 toggled
+  `SET_CONVERTER_STRUCTURE_ENABLED` every ~5s for hours (`food-slot-relief.ts`).
+- **Read WAIT through its reason, not `vetoedClasses`.** See
+  `docs/AI_DEBUGGING.md` "Why WAIT won"; when changing a veto in
+  `utility/decisions.ts`, change its mirror in `utility/wait-reasons.ts`.
+
 - **Victory progress must come from world standings, not self-relative
   targets.** `victory-path-scoring.ts`'s heuristic fallback compares an AI
   with itself (towns vs settled/5, 6 tiles of a resource, 3 docks), so every
