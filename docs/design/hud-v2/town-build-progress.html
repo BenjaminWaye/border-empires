@@ -104,7 +104,7 @@
   const hydroQueued = { name: "Hydrogarden", state: "Queued · #3", acts: [{ label: "Jump to front" }, { label: "Cancel", danger: true }] };
   const hydroRunning = { name: "Hydrogarden", state: "1h 12m", running: true, pct: 58, acts: [{ label: "Rush · 340 Coin" }, { label: "Cancel", danger: true }] };
   const fortQueued = { name: "Fort", state: "Queued · #4", acts: [{ label: "Jump to front" }, { label: "Cancel", danger: true }] };
-  const row = (r, on) => `<button type="button" class="v2t-build${on ? " v2t-build-on" : ""}${r.off ? " v2t-build-off" : ""}">
+  const row = (r, on) => `<button type="button" data-pick="${r.name}" class="v2t-build${on ? " v2t-build-on" : ""}${r.off ? " v2t-build-off" : ""}">
       <span class="v2t-build-ico"></span>
       <span class="v2t-build-text"><span class="v2t-build-name">${r.name}</span><span class="v2t-build-detail">${r.detail}</span><span class="v2t-build-cost${r.off ? " v2t-warn" : ""}">${r.cost}</span></span>
     </button>`;
@@ -116,13 +116,17 @@
   const fortRow = { name: "Fort", detail: "Defense on this tile", cost: "120 MP · 1h" };
 
   const STATES = {
-    none: { jobs: [], tabs: [["Town Support", 3], ["Defense", 1]], rows: supportRows, pick: "Hydrogarden" },
-    queued: { jobs: [hydroQueued], tabs: [["Defense", 1]], rows: [fortRow], pick: "Fort" },
-    running: { jobs: [hydroRunning], tabs: [["Defense", 1]], rows: [fortRow], pick: "Fort" },
-    both: { jobs: [hydroQueued, fortQueued], tabs: [], rows: [], pick: "" }
+    none: { jobs: [], tabs: [["Town Support", 3], ["Defense", 1]], rows: supportRows },
+    queued: { jobs: [hydroQueued], tabs: [["Defense", 1]], rows: [fortRow] },
+    running: { jobs: [hydroRunning], tabs: [["Defense", 1]], rows: [fortRow] },
+    both: { jobs: [hydroQueued, fortQueued], tabs: [], rows: [] }
   };
+  // Like the game: nothing is picked until you tap a row, and the place box only shows for a pick.
+  let current = "queued", pick = "";
   const render = (id) => {
-    const s = STATES[id];
+    if (id !== current) pick = "";
+    current = id;
+    const s = { ...STATES[id], pick };
     document.querySelectorAll(".states button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.state === id)));
     const tabs = s.tabs.map(([n, c], i) => `<button type="button" role="tab" class="v2t-tab${i === 0 ? " v2t-tab-on" : ""}">${n} · ${c}</button>`).join("");
     document.getElementById("v2t-build").innerHTML =
@@ -135,6 +139,12 @@
       : "";
   };
   document.querySelectorAll(".states button").forEach((b) => b.addEventListener("click", () => render(b.dataset.state)));
+  document.getElementById("v2t-build").addEventListener("click", (e) => {
+    const r = e.target.closest("[data-pick]");
+    if (!r) return;
+    pick = r.dataset.pick;
+    render(current);
+  });
   render("queued");
 </script>
 </body>
