@@ -11,6 +11,7 @@ export type NavTabIconKey =
   | "domains"
   | "alliance"
   | "leaderboard"
+  | "towns"
   | "feed"
   | "activity"
   | "settings";

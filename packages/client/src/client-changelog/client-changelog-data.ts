@@ -456,7 +456,19 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The 3D map spent part of every frame updating thousands of hidden objects, which could make the tab freeze or report as unresponsive.",
     changes: ["Each frame now only updates objects that are on show"]
   },
-  ...AI_RIVALS_CHANGELOG
+  ...AI_RIVALS_CHANGELOG,
+  {
+    createdAt: 1793544875839, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.01",
+    title: "Towns panel",
+    why: "There was no way to compare towns without opening each one.",
+    changes: [
+      "A new Towns button lists your towns with gold per day, population and growth",
+      "Sort by any column, highest or lowest first",
+      "Press a town to jump to it on the map",
+      "The All view's Food slot list no longer comes out empty"
+    ]
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

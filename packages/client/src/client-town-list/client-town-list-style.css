@@ -1,0 +1,83 @@
+.town-list-card {
+  display: grid;
+  gap: 10px;
+}
+
+.town-list-head,
+.town-list-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr));
+  align-items: center;
+  gap: 8px;
+}
+
+.town-list-head {
+  padding: 0 10px;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  color: rgba(170, 198, 231, 0.66);
+}
+
+.town-list-sort {
+  justify-self: end;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.town-list-sort.is-active {
+  color: rgba(240, 246, 255, 0.95);
+}
+
+.town-list-body {
+  display: grid;
+  gap: 4px;
+}
+
+.town-list-row {
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(226, 236, 248, 0.86);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.town-list-row:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.town-list-row strong {
+  justify-self: end;
+  display: grid;
+  justify-items: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.town-list-name {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.town-list-row small {
+  color: rgba(192, 208, 229, 0.66);
+  font-size: 11px;
+  font-weight: normal;
+}
+
+.town-list-row.is-unfed .town-list-name small {
+  color: #f0a35e;
+}
