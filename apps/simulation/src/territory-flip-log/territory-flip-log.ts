@@ -93,8 +93,28 @@ export const latestFlipPerTile = (flips: readonly TerritoryFlip[]): TerritoryFli
   return [...byTile.values()];
 };
 
-export const createTerritoryFlipLog = (options: { now?: () => number } = {}): TerritoryFlipLog => {
+/**
+ * A barbarian stepping onto or off neutral land (`undefined <-> barbarianId`).
+ * The barbarian walk only ever logged the step onto a tile -- never the
+ * release of the tile it left (runtime-barbarian-walk.ts) -- so these entries
+ * were half a picture, and at ~47k/day they crowded the 50k entry cap and
+ * evicted real player history. No public aggregation wants them (wars,
+ * hotspots, momentum and combat all exclude the barbarian), and no personal
+ * timeline involves them, so the log drops them on record and restore.
+ * Flips between the barbarian and a real player are kept.
+ */
+export const isBarbarianRoamingFlip = (flip: Pick<TerritoryFlip, "fromOwner" | "toOwner">, barbarianId: string): boolean =>
+  (flip.fromOwner === undefined && flip.toOwner === barbarianId) || (flip.fromOwner === barbarianId && flip.toOwner === undefined);
+
+export type TerritoryFlipLogOptions = {
+  now?: () => number;
+  /** Flips matching this are never stored (checked on record and restore). */
+  ignore?: (flip: TerritoryFlip) => boolean;
+};
+
+export const createTerritoryFlipLog = (options: TerritoryFlipLogOptions = {}): TerritoryFlipLog => {
   const now = options.now ?? (() => Date.now());
+  const ignore = options.ignore ?? (() => false);
   let flips: TerritoryFlip[] = [];
   let capHits = 0;
 
@@ -105,6 +125,7 @@ export const createTerritoryFlipLog = (options: { now?: () => number } = {}): Te
   };
 
   const record = (flip: TerritoryFlip): void => {
+    if (ignore(flip)) return;
     prune(now());
     flips.push(flip);
     if (flips.length > TERRITORY_FLIP_LOG_MAX_ENTRIES) {
@@ -119,7 +140,7 @@ export const createTerritoryFlipLog = (options: { now?: () => number } = {}): Te
   const restore = (entries: readonly TerritoryFlip[], at: number): void => {
     const cutoff = at - TERRITORY_FLIP_WINDOW_MS;
     flips = entries
-      .filter((flip) => flip.at >= cutoff)
+      .filter((flip) => flip.at >= cutoff && !ignore(flip))
       .sort((left, right) => left.at - right.at)
       .slice(-TERRITORY_FLIP_LOG_MAX_ENTRIES);
   };

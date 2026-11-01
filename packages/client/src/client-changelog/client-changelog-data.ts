@@ -459,7 +459,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Roaming barbarians were counted as gaining a tile every time they stepped onto it, so the daily story could claim tens of thousands of tiles gained.",
     changes: [
       "Net territory change now compares who held each tile at the start and end of the day",
-      "Barbarians no longer appear in territory momentum or the Fastest Expansion headline"
+      "Barbarians no longer appear in territory momentum or the Fastest Expansion headline",
+      "Barbarians wandering over empty land no longer push real battles out of the 24-hour activity history"
     ]
   }
 ];
