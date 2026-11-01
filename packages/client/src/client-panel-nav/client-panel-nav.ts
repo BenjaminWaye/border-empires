@@ -12,6 +12,7 @@ export const panelTitle = (panel: NonNullable<ClientState["activePanel"]>): stri
   if (panel === "economy") return "Economy";
   if (panel === "manpower") return "Manpower";
   if (panel === "development") return "Development";
+  if (panel === "towns") return "Towns";
   if (panel === "defensibility") return "Empire Integrity";
   if (panel === "leaderboard") return "Leaderboard";
   if (panel === "feed") return "Alerts";
@@ -27,6 +28,7 @@ export const panelToMobile = (panel: NonNullable<ClientState["activePanel"]>): C
   if (panel === "economy") return "economy";
   if (panel === "manpower") return "manpower";
   if (panel === "development") return "development";
+  if (panel === "towns") return "towns";
   if (panel === "leaderboard") return "leaderboard";
   if (panel === "settings") return "settings";
   return "feed";
@@ -49,6 +51,7 @@ export const mobileNavLabelHtml = (
       : navTabIconHtml("tech");
   }
   if (panel === "domains") return navTabIconHtml("domains");
+  if (panel === "towns") return navTabIconHtml("towns");
   if (panel === "social") {
     const pendingAllyCount = opts?.pendingAllyCount ?? 0;
     return pendingAllyCount > 0
@@ -145,6 +148,7 @@ export const renderMobilePanels = (
     mobilePanelEconomyEl: HTMLElement;
     mobilePanelManpowerEl: HTMLElement;
     mobilePanelDevelopmentEl: HTMLElement;
+    mobilePanelTownsEl: HTMLElement;
     mobilePanelLeaderboardEl: HTMLElement;
     mobilePanelFeedEl: HTMLElement;
     mobilePanelSettingsEl: HTMLElement;
@@ -196,6 +200,7 @@ export const renderMobilePanels = (
     [deps.mobilePanelEconomyEl, "economy"],
     [deps.mobilePanelManpowerEl, "manpower"],
     [deps.mobilePanelDevelopmentEl, "development"],
+    [deps.mobilePanelTownsEl, "towns"],
     [deps.mobilePanelLeaderboardEl, "leaderboard"],
     [deps.mobilePanelFeedEl, "feed"],
     [deps.mobilePanelSettingsEl, "settings"]
@@ -211,6 +216,7 @@ export const renderMobilePanels = (
   else if (state.mobilePanel === "economy") deps.mobileSheetTitleEl.textContent = "Economy";
   else if (state.mobilePanel === "manpower") deps.mobileSheetTitleEl.textContent = "Manpower";
   else if (state.mobilePanel === "development") deps.mobileSheetTitleEl.textContent = "Development";
+  else if (state.mobilePanel === "towns") deps.mobileSheetTitleEl.textContent = "Towns";
   else if (state.mobilePanel === "leaderboard") deps.mobileSheetTitleEl.textContent = "Leaderboard";
   else if (state.mobilePanel === "feed") deps.mobileSheetTitleEl.textContent = "Alerts";
   else if (state.mobilePanel === "settings") deps.mobileSheetTitleEl.textContent = "Settings";

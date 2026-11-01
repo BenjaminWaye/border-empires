@@ -91,6 +91,7 @@ export const initClientDom = () => {
     panelDefensibilityEl = requireElement<HTMLDivElement>("#panel-defensibility"), panelEconomyEl = requireElement<HTMLDivElement>("#panel-economy"), panelManpowerEl = requireElement<HTMLDivElement>("#panel-manpower"),
     panelDevelopmentEl = requireElement<HTMLDivElement>("#panel-development"), panelLeaderboardEl = requireElement<HTMLDivElement>("#panel-leaderboard"), panelFeedEl = requireElement<HTMLDivElement>("#panel-feed");
   const panelDomainsEl = requireElement<HTMLDivElement>("#panel-domains");
+  const panelTownsEl = requireElement<HTMLDivElement>("#panel-towns"), mobilePanelTownsEl = requireElement<HTMLDivElement>("#mobile-panel-towns");
   const panelDomainsContentEl = requireElement<HTMLDivElement>("#panel-domains-content"), panelSettingsEl = requireElement<HTMLDivElement>("#panel-settings");
   const feedEl = requireElement<HTMLDivElement>("#feed");
   const techPickEl = requireElement<HTMLSelectElement>("#tech-pick");
@@ -223,6 +224,7 @@ export const initClientDom = () => {
     mobilePanelCoreEl,
     mobilePanelEconomyEl,
     mobilePanelDevelopmentEl,
+    mobilePanelTownsEl,
     mobilePanelLeaderboardEl,
     mobilePanelManpowerEl,
     mobilePanelMissionsEl,
@@ -246,6 +248,7 @@ export const initClientDom = () => {
     panelEconomyEl,
     panelManpowerEl,
     panelDevelopmentEl,
+    panelTownsEl,
     panelFeedEl,
     panelLeaderboardEl,
     panelDomainsContentEl,
