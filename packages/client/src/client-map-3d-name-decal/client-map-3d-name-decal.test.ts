@@ -58,12 +58,15 @@ describe("createNameDecal", () => {
     const texture = (decalMesh(scene).material as MeshBasicMaterial).map!;
     const disposed = vi.fn();
     texture.addEventListener("dispose", disposed);
-    // Panning inside the canvas keeps its size: the texture's storage is reused.
-    decal.sync({ camX: 101, camY: 50, halfW: 20, halfH: 12, nowMs: 10, terrainRevision: 1 });
+    // Panning off the canvas redraws it somewhere else at the same size: the texture's storage is reused.
+    decal.sync({ camX: 140, camY: 50, halfW: 20, halfH: 12, nowMs: 10, terrainRevision: 1 });
     expect(disposed).not.toHaveBeenCalled();
-    // Zooming out widens the window: a bigger canvas needs fresh storage.
-    decal.sync({ camX: 101, camY: 50, halfW: 60, halfH: 36, nowMs: 20, terrainRevision: 1 });
+    // Zooming out widens the window: a bigger canvas needs fresh storage...
+    decal.sync({ camX: 140, camY: 50, halfW: 60, halfH: 36, nowMs: 20, terrainRevision: 1 });
     expect(disposed).toHaveBeenCalledTimes(1);
+    // ...and zooming back in shrinks it, which needs fresh storage too.
+    decal.sync({ camX: 140, camY: 50, halfW: 20, halfH: 12, nowMs: 30, terrainRevision: 1 });
+    expect(disposed).toHaveBeenCalledTimes(2);
     decal.dispose();
   });
 
