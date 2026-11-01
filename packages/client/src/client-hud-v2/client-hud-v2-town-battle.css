@@ -59,7 +59,7 @@
 .v2t-place-slot { position: fixed; right: 212px; bottom: 16px; width: 224px; }
 .v2t-place { display: grid; gap: 8px; padding: 14px; border-color: var(--v2-edge-strong); }
 .v2t-place-name { font-family: var(--v2-display); font-size: 14px; font-weight: 700; letter-spacing: 0.06em; color: var(--v2-gold-hi); }
-#v2t-bar.v2t-bar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); width: min(560px, calc(100vw - 880px)); min-width: 380px; display: flex; gap: 8px; padding: 10px; border-color: var(--v2-edge-strong); }
+#v2t-bar.v2t-bar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); width: min(560px, calc(100vw - 880px)); min-width: 380px; display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; border-color: var(--v2-edge-strong); }
 .v2t-act {
   flex: 1; display: grid; justify-items: center; align-content: center; gap: 2px; height: 46px; padding: 0 12px; background: var(--v2-well); border: 1px solid var(--v2-edge-strong);
   font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.06em;
@@ -71,7 +71,8 @@
 .v2t-act-primary { flex: 1.6; min-width: 0; height: auto; min-height: 46px; padding: 6px 12px; background: var(--v2-gold); border-color: var(--v2-gold); color: #120f0b; }
 .v2t-act-primary small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(18, 15, 11, 0.72); }
 .v2t-act-primary:hover:not(:disabled) { background: var(--v2-gold-hi); border-color: var(--v2-gold-hi); }
-.v2t-minor { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 0 6px; }
+/* The text links take their own row under the buttons: sharing one row in a ~490px bar squeezed Garrison to "GA". */
+.v2t-minor { order: 1; flex: 1 0 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 0 6px; }
 .v2t-act-back { flex: none; padding: 0 14px; border-color: var(--v2-line); color: var(--v2-soft); font-size: 12px; }
 
 /* ---- Battle: you left, defender right, outcome bottom centre ---- */
