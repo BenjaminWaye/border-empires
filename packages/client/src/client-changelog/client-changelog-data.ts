@@ -484,6 +484,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Auto-settle skips out-of-reach land after a reveal",
     why: "With the map revealed, auto-settle could keep retrying frontier tiles outside your reach that can never be settled.",
     changes: ["Auto-settle only queues frontier tiles inside your reach, with or without the map revealed"]
+  },
+  {
+    createdAt: 1793482950000, // Date.now() captured once for this entry.
+    introducedIn: "2026.10.31",
+    title: "Survey Sweep findings stay in the activity log",
+    why: "Survey Sweep pings fade from the map after a few seconds, leaving no way to revisit what the sweep found.",
+    changes: ["The activity log now lists the coordinates of every resource site and town a Survey Sweep finds, with a button to jump to the first one"]
   }
 ];
 
