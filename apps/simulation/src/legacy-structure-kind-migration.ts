@@ -38,6 +38,11 @@ const LEGACY_STRUCTURE_KIND_RENAMES: Readonly<Record<string, string>> = {
   SEED_INCUBATION_ENGINE: "INCUBATION_ENGINE"
 };
 
+// Kinds deleted outright with nothing to downgrade to. Quartermaster's Office
+// was retired from the build menu in #1345 and later removed entirely; any
+// surviving instance is dropped from its tile on boot.
+const REMOVED_STRUCTURE_KINDS: ReadonlySet<string> = new Set(["QUARTERMASTERS_OFFICE"]);
+
 export const migrateLegacyStructureKinds = (tiles: RecoveredSimulationState["tiles"]): number => {
   let migrated = 0;
   for (const tile of tiles) {
@@ -45,6 +50,9 @@ export const migrateLegacyStructureKinds = (tiles: RecoveredSimulationState["til
     const renamed = currentKind === undefined ? undefined : LEGACY_STRUCTURE_KIND_RENAMES[currentKind];
     if (renamed && tile.economicStructure) {
       tile.economicStructure = { ...tile.economicStructure, type: renamed as typeof tile.economicStructure.type };
+      migrated += 1;
+    } else if (currentKind !== undefined && REMOVED_STRUCTURE_KINDS.has(currentKind)) {
+      delete tile.economicStructure;
       migrated += 1;
     }
   }

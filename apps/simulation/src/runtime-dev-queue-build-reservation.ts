@@ -18,7 +18,6 @@ import {
   structureSlotRequirements,
   RELAY_BEACON_FREE_FOOD_SLOT_COUNT,
   SYNTHESIZER_STRUCTURE_TYPES,
-  QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT,
   SETTLE_MANPOWER_COST,
   type BuildableStructureType,
   type StructureSpec,
@@ -123,10 +122,6 @@ function estimateDevQueueBuildReservation(
     slotStructureType = siegeTier.variant;
   } else {
     manpowerCost = structureBuildManpowerCostScaled(structureType as BuildableStructureType, context.ownedStructureCountForPlayer(playerId, structureType as BuildableStructureType));
-  }
-  const isWarBranchStructure = spec.kind === "FORT" || spec.kind === "OUTPOST";
-  if (isWarBranchStructure && context.hasNearbyQuartermastersOffice(playerId, x, y)) {
-    manpowerCost = Math.round(manpowerCost * QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT);
   }
   manpowerCost = structureManpowerCostForPlayer(actor, slotStructureType, manpowerCost);
   if (actor.manpower < manpowerCost) {

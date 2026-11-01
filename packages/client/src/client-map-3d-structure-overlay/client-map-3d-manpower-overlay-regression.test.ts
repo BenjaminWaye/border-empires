@@ -12,7 +12,6 @@ import { createStructureOverlay, STRUCTURE_KINDS_HANDLED_BY_3D } from "./client-
 // client-map-3d-structure-civic/economic/late-game.ts under the same
 // real backend type).
 const MANPOWER_KINDS = [
-  "QUARTERMASTERS_OFFICE",
   "ANCILLARY_FACTORY",
   "RESERVE_LATTICE",
   "CENSUS_DIRECTORATE",

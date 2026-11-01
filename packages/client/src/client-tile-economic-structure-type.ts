@@ -30,7 +30,6 @@ export type ClientTileEconomicStructure = {
     | "NEURAL_WORKS"
     | "MINISTRY_HALL"
     | "RESONANCE_GRID"
-    | "QUARTERMASTERS_OFFICE"
     | "ANCILLARY_FACTORY"
     | "RESERVE_LATTICE"
     | "ASTRAL_DOCK_PART_1"

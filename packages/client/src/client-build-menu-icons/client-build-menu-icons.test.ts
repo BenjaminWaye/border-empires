@@ -87,7 +87,6 @@ describe("build menu building art", () => {
         "build_exchange_house",
         "build_fuel_plant",
         "build_lockworks_port",
-        "build_quartermasters_office",
         "build_weapons_workshop",
       ]
     `);

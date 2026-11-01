@@ -12,7 +12,6 @@ import type { StructurePieceBuilder } from "./client-map-3d-structure-builder.js
 import { createAncillaryDepotLayout } from "./client-map-3d-structure-ancillary-depot/client-map-3d-structure-ancillary-depot.js";
 
 export type ManpowerStructureKind =
-  | "QUARTERMASTERS_OFFICE"
   | "ANCILLARY_FACTORY"
   | "RESERVE_LATTICE"
   | "CENSUS_DIRECTORATE"
@@ -22,7 +21,7 @@ export type ManpowerStructureKind =
   | "AMBARIC_TRANSFORMER";
 
 export const MANPOWER_STRUCTURE_KINDS: ReadonlySet<ManpowerStructureKind> = new Set([
-  "QUARTERMASTERS_OFFICE", "ANCILLARY_FACTORY", "RESERVE_LATTICE", "CENSUS_DIRECTORATE",
+  "ANCILLARY_FACTORY", "RESERVE_LATTICE", "CENSUS_DIRECTORATE",
   "TITANIUM_LEVY", "ANCILLARY_DEPOT", "INCUBATION_ENGINE", "AMBARIC_TRANSFORMER"
 ]);
 
@@ -62,15 +61,6 @@ export const registerManpowerStructures = (
   const mpVentCapGeo = new ConeGeometry(0.014, 0.022, 6);
   const mpFigureBodyGeo = new BoxGeometry(0.014, 0.030, 0.014);
   const mpFigureHeadGeo = new ConeGeometry(0.009, 0.013, 6);
-  const qmBaseGeo = new BoxGeometry(0.40, 0.03, 0.26);
-  const qmBodyGeo = new BoxGeometry(0.38, 0.12, 0.24);
-  const qmRoofGeo = new ConeGeometry(0.22, 0.06, 4);
-  const qmChimneyGeo = new BoxGeometry(0.05, 0.07, 0.05);
-  const qmCounterGeo = new BoxGeometry(0.14, 0.02, 0.06);
-  const qmCrateGeo = new BoxGeometry(0.034, 0.034, 0.034);
-  const qmCrateLidGeo = new BoxGeometry(0.04, 0.008, 0.04);
-  const qmLampGeo = new BoxGeometry(0.018, 0.018, 0.018);
-  const qmRailStubGeo = new BoxGeometry(0.03, 0.012, 0.10);
   const awColumnGeo = new BoxGeometry(0.022, 0.13, 0.022);
   const awFloorGeo = new BoxGeometry(0.42, 0.02, 0.32);
   const awRoofGeo = new BoxGeometry(0.46, 0.035, 0.36);
@@ -136,15 +126,6 @@ export const registerManpowerStructures = (
   builder.makeSlot("mpVentCap", mpVentCapGeo, mpSteamMaterial, C * 4);
   builder.makeSlot("mpFigureBody", mpFigureBodyGeo, mpSteelLightMaterial, C * 4);
   builder.makeSlot("mpFigureHead", mpFigureHeadGeo, mpSteamMaterial, C * 4);
-  builder.makeSlot("qmBase", qmBaseGeo, mpStoneDarkMaterial, C);
-  builder.makeSlot("qmBody", qmBodyGeo, mpStoneMaterial, C);
-  builder.makeSlot("qmRoof", qmRoofGeo, mpIronMaterial, C);
-  builder.makeSlot("qmChimney", qmChimneyGeo, mpStoneDarkMaterial, C * 2);
-  builder.makeSlot("qmCounter", qmCounterGeo, mpBrassMaterial, C);
-  builder.makeSlot("qmCrate", qmCrateGeo, mpIronMaterial, C * 2);
-  builder.makeSlot("qmCrateLid", qmCrateLidGeo, mpBrassDarkMaterial, C * 2);
-  builder.makeSlot("qmLamp", qmLampGeo, mpAmberGlowMaterial, C);
-  builder.makeSlot("qmRailStub", qmRailStubGeo, mpSteelMaterial, C);
   builder.makeSlot("awColumn", awColumnGeo, mpSteelMaterial, C * 4);
   builder.makeSlot("awFloor", awFloorGeo, mpIronMaterial, C);
   builder.makeSlot("awRoof", awRoofGeo, mpIronMaterial, C);
@@ -206,28 +187,6 @@ export const registerManpowerStructures = (
   builder.makeSlot("atEmber", atEmberGeo, mpAmberGlowMaterial, C * 3);
 
   // ─── Layouts ────────────────────────────────────────────────────────
-  const addQuartermastersOffice: ManpowerStructureLayout = (sx, sy, sz) => {
-    // Low wide ledger-hall: supply-coordination post. Stone block body,
-    // shallow hipped roof, two gable chimneys, a brass supply-board
-    // counter beside the door stacked with supply crates, and a thin
-    // supply pipe dropping from the roofline into a rail-siding stub —
-    // the "-within-20-tiles provisioning" flavour. One small amber lamp
-    // over the counter only.
-    builder.addPiece("qmBase", sx, sy, sz, 0, 0.015, 0);
-    builder.addPiece("qmBody", sx, sy, sz, 0, 0.09, 0);
-    builder.addPiece("qmRoof", sx, sy, sz, 0, 0.175, 0, 1, 1, 1, Math.PI * 0.25);
-    builder.addPiece("qmChimney", sx, sy, sz, -0.14, 0.22, -0.05);
-    builder.addPiece("qmChimney", sx, sy, sz, 0.14, 0.22, -0.05);
-    builder.addPiece("qmCounter", sx, sy, sz, -0.15, 0.05, 0.13, 1, 1, 1, 0, -0.35, 0);
-    builder.addPiece("qmCrate", sx, sy, sz, -0.15, 0.075, 0.13);
-    builder.addPiece("qmCrateLid", sx, sy, sz, -0.15, 0.095, 0.13);
-    builder.addPiece("qmCrate", sx, sy, sz, -0.19, 0.05, 0.11);
-    builder.addPiece("qmCrateLid", sx, sy, sz, -0.19, 0.07, 0.11);
-    builder.addPiece("qmLamp", sx, sy, sz, -0.15, 0.12, 0.15);
-    builder.addPiece("mpPipe", sx, sy, sz, 0.18, 0.18, 0.12);
-    builder.addPiece("qmRailStub", sx, sy, sz, 0.20, 0.006, 0.12);
-  };
-
   const addReserveLattice: ManpowerStructureLayout = (sx, sy, sz) => {
     // Industrial shed with an open front like a factory line: wide steel
     // roof on riveted columns, an overhead gantry running front-to-back
@@ -399,7 +358,6 @@ export const registerManpowerStructures = (
 
   return {
     layouts: {
-      QUARTERMASTERS_OFFICE: addQuartermastersOffice,
       // ANCILLARY_DEPOT ("Ancillary Depot") gets its own dedicated drum + body-pod
       // storehouse art; ANCILLARY_FACTORY ("Ancillary Factory") keeps the
       // hopper-tower manufactory. No art is swapped between the two anymore.

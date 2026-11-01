@@ -193,13 +193,6 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   RESONANCE_GRID: econSpec("RESONANCE_GRID"),
 
   // Manpower branch — new buildings
-  // QUARTERMASTERS_OFFICE retired (weak payoff: only discounted Fort/Siege
-  // Outpost manpower cost, a one-time build-cost saving that couldn't
-  // compete with the escalating per-tech gold tax); intentionally left out
-  // of this registry so it can never be newly built again, while
-  // types.ts/structure-slots.ts/config.ts/runtime-structure-command-handlers.ts
-  // keep supporting any copies a player already owns from before the
-  // retirement (no data migration for a live game).
   ANCILLARY_FACTORY: econSpec("ANCILLARY_FACTORY"),
   RESERVE_LATTICE: econSpec("RESERVE_LATTICE"),
 

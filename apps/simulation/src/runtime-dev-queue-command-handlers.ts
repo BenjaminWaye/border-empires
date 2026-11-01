@@ -159,7 +159,7 @@ export const handleDevQueueMoveToFrontCommand = (context: RuntimeDevQueueCommand
  * Any reservedManpower this entry holds is refunded first, immediately
  * before dispatch -- the dispatched BUILD_STRUCTURE command then re-derives
  * and re-charges the exact, current cost itself (fort/siege tier, tech,
- * Quartermaster's Office discount, tile eligibility, ...), so the queue-time
+ * AFC manpower discount, tile eligibility, ...), so the queue-time
  * estimate never needs to be exactly right, only a fair soft hold.
  */
 export const tryDrainDevQueue = (context: RuntimeDevQueueCommandContext, playerId: string): void => {

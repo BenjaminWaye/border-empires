@@ -13,7 +13,6 @@ import {
   structureBuildManpowerCostScaled,
   structureCostDefinition,
   structureShowsOnTile,
-  QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT,
   type BuildableStructureType,
   type EconomicStructureType,
   type SiegeTierInfo,
@@ -84,11 +83,6 @@ export type RuntimeStructureCommandContext = {
   // Same shape, retargeted at Reserve Lattice (tech-tree redesign): "only one
   // Reserve Lattice may be built per connected-town network."
   reserveLatticeAlreadyInNetwork: (playerId: string, townKey: string) => boolean;
-  // Quartermaster's Office (tech-tree redesign): true when the player has an
-  // active Quartermaster's Office within QUARTERMASTERS_OFFICE_RADIUS tiles
-  // of (x, y) -- reduces manpower cost for War-branch structures built
-  // there.
-  hasNearbyQuartermastersOffice: (playerId: string, x: number, y: number) => boolean;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   bumpTerrainEpoch: () => void;
@@ -370,14 +364,6 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     // first RELAY_BEACON_FIRST_TIER_COUNT owned cost a discounted flat rate
     // (structure-costs.ts).
     manpowerCost = structureBuildManpowerCostScaled(structureType, context.ownedStructureCountForPlayer(command.playerId, structureType));
-  }
-  // Quartermaster's Office (tech-tree redesign): reduces manpower cost for
-  // War-branch structures (Fort ladder, Siege ladder) built within its
-  // radius. Checked after the base cost is resolved above so it applies to
-  // fort/siege tier upgrades too, not just the first tier.
-  const isWarBranchStructure = spec.kind === "FORT" || spec.kind === "OUTPOST";
-  if (isWarBranchStructure && context.hasNearbyQuartermastersOffice(command.playerId, target.x, target.y)) {
-    manpowerCost = Math.round(manpowerCost * QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT);
   }
   manpowerCost = structureManpowerCostForPlayer(actor, slotStructureType, manpowerCost);
   if (actor.points < goldCost) {

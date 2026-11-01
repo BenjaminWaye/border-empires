@@ -66,7 +66,6 @@ export type TileActionDef = {
     | "build_titanium_levy"
     | "build_ministry_hall"
     | "build_resonance_grid"
-    | "build_quartermasters_office"
     | "build_ancillary_factory"
     | "build_reserve_lattice"
     | "build_weapons_workshop"

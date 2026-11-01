@@ -110,6 +110,7 @@ import { CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME } from "./client-changelog-gar
 import { CLIENT_CHANGELOG_ENTRIES_AFC_LANDING } from "./client-changelog-afc-landing.js";
 import { CLIENT_CHANGELOG_ENTRIES_SEPT_24_26 } from "./client-changelog-data-sept-24-26.js";
 import { CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS } from "./client-changelog-fast-builds.js";
+import { FLAT_BUILD_TIME_CHANGELOG } from "./client-changelog-flat-build-time.js";
 import { CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS } from "./client-changelog-build-speed-menus.js";
 import { CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON } from "./client-changelog-hint-center-button.js";
 import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-fit.js";
@@ -189,6 +190,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,
   ...CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS,
   ...CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS,
+  ...FLAT_BUILD_TIME_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS,
   ...CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON,
   ...MOBILE_LOADING_FIT_CHANGELOG,
@@ -475,20 +477,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Offers wait for the map to load",
     why: "Incoming truce and alliance offers could pop up on top of the loading screen.",
     changes: ["The diplomacy offer dock stays hidden until the map has finished loading"]
-  },
-  {
-    createdAt: 1793516167643,
-    introducedIn: "2026.11.01",
-    title: "Every building finishes in 1 minute",
-    why: "Manpower is what limits how much you build. Build times that grew with cost just made you wait.",
-    changes: [
-      "Every building, Fort and Siege tier now builds in 1 minute and is removed in 30 seconds",
-      "Fortification Patterns (Bastion I): Forts cost 50% less manpower instead of building twice as fast",
-      "Relay Fabrication Line (Dominion I): Relay Beacons cost 67% less manpower instead of building 3 times as fast",
-      "Universal Fabrication Line (Dominion V): all buildings cost 50% less manpower instead of building twice as fast",
-      "Cancelling a build refunds the discounted manpower you actually paid",
-      "Buildings already under construction keep their current finish time"
-    ]
   }
 ];
 

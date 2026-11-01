@@ -1107,10 +1107,6 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           )
         });
       }
-      // QUARTERMASTERS_OFFICE is retired (weak payoff vs. its escalating
-      // tech-gold cost) — no build clause for it, so it stops appearing in
-      // any build menu. Legacy copies a player already owns keep
-      // functioning; see structure-registry-economic.ts.
       // WEAPONS_WORKSHOP is retired (replaced by the two structures below) —
       // no build clause for it, so it stops appearing in any build menu.
       // Legacy copies a player already owns keep functioning; see

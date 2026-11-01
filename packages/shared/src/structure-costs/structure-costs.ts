@@ -131,7 +131,6 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   NEURAL_WORKS: { baseGoldCost: 0, manpowerCost: 300 },
   MINISTRY_HALL: { baseGoldCost: 0, manpowerCost: 150 },
   RESONANCE_GRID: { baseGoldCost: 0, manpowerCost: 300 },
-  QUARTERMASTERS_OFFICE: { baseGoldCost: 0, manpowerCost: 150 },
   ANCILLARY_FACTORY: { baseGoldCost: 0, manpowerCost: 150 },
   RESERVE_LATTICE: { baseGoldCost: 0, manpowerCost: 300 },
   // Retired (see structure-registry-economic.ts) — not in ECONOMIC_SPECS so

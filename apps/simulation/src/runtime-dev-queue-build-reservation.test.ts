@@ -22,7 +22,6 @@ function makeContext(player: DomainPlayer, tile: DomainTileState, supply: Partia
     tiles,
     playerManpowerCap: () => 10_000,
     ownedStructureCountForPlayer: () => 0,
-    hasNearbyQuartermastersOffice: () => false,
     resourceSlotSupplyForPlayer: () => ({ ...zero, ...supply }),
     resourceSlotDemandForPlayer: () => ({ ...zero })
   } as unknown as RuntimeStructureCommandContext;

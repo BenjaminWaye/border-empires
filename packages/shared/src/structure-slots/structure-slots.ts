@@ -106,7 +106,6 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   UMBRITE_WEAPONS_FACTORY: [{ resource: "UMBRITE", count: 1 }],
 
   // Manpower branch — new buildings
-  QUARTERMASTERS_OFFICE: [{ resource: "FOOD", count: 1 }],
   ANCILLARY_FACTORY: [{ resource: "FOOD", count: 1 }],
   RESERVE_LATTICE: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
 
