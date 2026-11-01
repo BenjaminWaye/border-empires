@@ -298,3 +298,16 @@ body.hud-v2 #activity-dashboard-overlay { display: none !important; }
 .v2u-changes { margin: 0; padding: 2px 14px 12px 35px; background: #221c13; border-left: 3px solid var(--v2-gold); list-style: none; display: grid; gap: 6px; }
 .v2u-changes li { position: relative; font-size: 13px; line-height: 1.4; color: var(--v2-soft); }
 .v2u-changes li::before { content: ""; position: absolute; left: -12px; top: 0.55em; width: 4px; height: 4px; background: var(--v2-gold); }
+
+/* Towns: your towns in one sortable table (client-hud-v2-towns.ts). */
+.v2l-table { flex: 1; min-height: 0; overflow: auto; align-self: center; width: min(820px, 100%); display: grid; align-content: start; gap: 4px; padding: 14px 20px; background: rgba(15, 13, 10, 0.94); border: 1px solid var(--v2-edge); }
+.v2l-head, .v2l-row { display: grid; grid-template-columns: minmax(0, 1.8fr) repeat(3, minmax(0, 1fr)); gap: 16px; align-items: center; }
+.v2l-head { padding: 0 10px 8px; border-bottom: 1px solid var(--v2-line); font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
+.v2l-sort { justify-self: end; padding: 2px 0; border: 0; background: none; color: inherit; font: inherit; white-space: nowrap; }
+.v2l-sort:hover, .v2l-sort-on { color: var(--v2-gold-hi); }
+.v2l-row { padding: 8px 10px; border: 0; background: none; text-align: left; color: var(--v2-text); }
+.v2l-row:hover { background: #221c13; }
+.v2l-name { display: grid; gap: 2px; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 14px; }
+.v2l-row small { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
+.v2l-unfed .v2l-name small { color: var(--v2-amber); }
+.v2l-num { justify-self: end; display: grid; justify-items: end; font-family: var(--v2-mono); font-size: 13px; }

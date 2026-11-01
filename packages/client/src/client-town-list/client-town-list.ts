@@ -40,6 +40,11 @@ export const nextTownListSort = (sort: TownListSort, key: TownListSortKey): Town
 // summaries), so anything absent reads as 0 rather than NaN.
 const finiteOrZero = (value: number | undefined): number => (typeof value === "number" && Number.isFinite(value) ? value : 0);
 
+/** Shared by both HUDs' town lists, so the order carries over between them. */
+export const toggleTownListSort = (key: TownListSortKey): void => {
+  currentSort = nextTownListSort(currentSort, key);
+};
+
 export const deriveTownListRows = (tiles: Iterable<Tile>, me: string): TownListRow[] => {
   const rows: TownListRow[] = [];
   for (const tile of tiles) {
@@ -115,7 +120,7 @@ export const bindTownListControls = (
     btn.onclick = () => {
       const key = btn.dataset.townListSort as TownListSortKey | undefined;
       if (!key) return;
-      currentSort = nextTownListSort(currentSort, key);
+      toggleTownListSort(key);
       callbacks.rerender();
     };
   });
