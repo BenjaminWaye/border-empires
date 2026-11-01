@@ -71,7 +71,7 @@ export const PLAYER_INSIGHTS_HTML = String.raw`<!doctype html>
 </header>
 <main>
   <div class="cards">
-    <section><h2>Sign-up funnel</h2><p class="note">Anonymous visitors to the play client, deduped per browser. Landing-page visitors who never click Play are not visible.</p><div id="acquisition"></div></section>
+    <section><h2>Sign-up funnel</h2><p class="note">Anonymous visitors to the play client, deduped per browser. Landing-page visitors who never click Play are not visible.</p><div id="acquisition"></div><h3>By source</h3><p class="note">Tagged outreach links (utm_source / utm_campaign) or referrer host. Make links with <code>node scripts/outreach/outreach-link.mjs</code>.</p><table><thead><tr><th>source</th><th>campaign</th><th class="num">visitors</th><th class="num">sign-ups</th><th class="num">conv.</th></tr></thead><tbody id="sources"></tbody></table></section>
     <section><h2>New players</h2><p class="note">Accounts created in the window. Times are medians from first sign-in.</p><div id="cohort"></div></section>
     <section><h2>Sessions</h2><p class="note">A session is sign-in to last tab closed; reconnects within 2 minutes continue it.</p><div id="sessions"></div></section>
   </div>
@@ -169,6 +169,7 @@ const render = (data) => {
     { label: "Clicked a sign-in method", n: a.methodClicked, sub: breakdown(a.methods) },
     { label: "Created an account", n: a.signUps }
   ]);
+  document.getElementById("sources").replaceChildren(...(a.sources || []).map((r) => el("tr", {}, [el("td", { text: r.source }), el("td", { text: r.campaign || "–" }), el("td", { class: "num", text: String(r.visitors) }), el("td", { class: "num", text: String(r.signUps) }), el("td", { class: "num", text: pct(r.signUps, r.visitors) })])));
   const c = insights.cohort;
   steps(document.getElementById("cohort"), [
     { label: "New accounts", n: c.newAccounts },

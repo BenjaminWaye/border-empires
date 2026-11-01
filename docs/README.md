@@ -38,6 +38,7 @@ remain authoritative for runtime behavior.
 | Storybook cleanup: what was removed, the new layout and guardrails | [`storybook-cleanup-plan.md`](storybook-cleanup-plan.md) |
 | Frontier resource networks: balance, map budget, structures and renderer scope | [`resource-networks-plan.md`](resource-networks-plan.md) |
 | Diplomatic resource supply: contracts, settlement and reconnect paths | [`agents/topics/resource-supply-trading.md`](agents/topics/resource-supply-trading.md) |
+| Zero-budget outreach (Reddit/community posts), tracked links and weekly results | [`marketing/outreach-strategy.md`](marketing/outreach-strategy.md) |
 | Current manpower and resource-slot rules | [`product/resource-and-manpower-economy.md`](product/resource-and-manpower-economy.md) |
 | Starter-site contract and new-player guidance | [`product/new-player-opening.md`](product/new-player-opening.md) |
 | Completed Great Project models and matching 2D artwork | [`monument-models.md`](monument-models.md) |

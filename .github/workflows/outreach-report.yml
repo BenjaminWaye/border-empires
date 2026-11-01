@@ -1,0 +1,35 @@
+name: Outreach report
+
+# Weekly "which posts brought players" summary (utm_source/utm_campaign
+# breakdown from /admin/players/insights.json) posted to Slack. Weekly cadence
+# tolerates GitHub's cron drift, unlike the daily digest. See
+# docs/marketing/outreach-strategy.md.
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Window in days"
+        default: "7"
+
+jobs:
+  report:
+    name: Post outreach report to Slack
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      INSIGHTS_ORIGIN: "https://api.borderempires.com"
+      ADMIN_API_TOKEN: ${{ secrets.ADMIN_API_TOKEN }}
+      SLACK_WEBHOOK_URL: ${{ secrets.LOAD_HARNESS_SLACK_WEBHOOK }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Post report
+        if: env.ADMIN_API_TOKEN != '' && env.SLACK_WEBHOOK_URL != ''
+        run: node scripts/outreach/outreach-report.mjs --days "${{ inputs.days || '7' }}" --slack
+      - name: Skip (secrets missing)
+        if: env.ADMIN_API_TOKEN == '' || env.SLACK_WEBHOOK_URL == ''
+        run: echo "ADMIN_API_TOKEN or LOAD_HARNESS_SLACK_WEBHOOK secret is not set — skipping."

@@ -2,6 +2,7 @@
 // player-funnel rows for a window and returns the daily-check numbers:
 // the anonymous pre-login funnel, the new-account cohort funnel, session
 // length distribution, and one row per player for the drill-down table.
+import { buildAcquisitionSources, type AcquisitionSourceRow } from "./acquisition-sources.js";
 import type { AcquisitionStepRow, PlayerFunnelRow, PlayerSessionRow } from "../player-funnel-store/player-funnel-store.js";
 
 export const SESSION_BUCKETS_MINUTES = [10, 30, 60] as const;
@@ -35,6 +36,8 @@ export type PlayerInsights = {
     methodClicked: number;
     signUps: number;
     methods: Record<string, number>;
+    // Per utm_source/utm_campaign (or referrer) rows; see acquisition-sources.ts.
+    sources: AcquisitionSourceRow[];
   };
   cohort: {
     newAccounts: number;
@@ -144,7 +147,8 @@ export const buildPlayerInsights = (input: BuildPlayerInsightsInput): PlayerInsi
       formShown: stepVisitors("auth_form_shown").length,
       methodClicked: stepVisitors("auth_method_clicked").length,
       signUps: stepVisitors("sign_up").length,
-      methods
+      methods,
+      sources: buildAcquisitionSources(input.acquisition, since)
     },
     cohort: {
       newAccounts: cohort.length,

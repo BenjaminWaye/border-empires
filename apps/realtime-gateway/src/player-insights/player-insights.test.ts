@@ -53,7 +53,13 @@ describe("buildPlayerInsights", () => {
         { visitorId: "v1", step: "sign_up", at, detail: {} }
       ]
     });
-    expect(insights.acquisition).toEqual({ visitors: 2, fromLanding: 1, formShown: 2, methodClicked: 1, signUps: 1, methods: { "google.com": 1 } });
+    expect(insights.acquisition).toEqual({
+      visitors: 2, fromLanding: 1, formShown: 2, methodClicked: 1, signUps: 1, methods: { "google.com": 1 },
+      sources: [
+        { source: "borderempires.com", campaign: undefined, visitors: 1, formShown: 1, methodClicked: 1, signUps: 1 },
+        { source: "google.com", campaign: undefined, visitors: 1, formShown: 1, methodClicked: 0, signUps: 0 }
+      ]
+    });
   });
 
   it("reports session length distribution and per-player session stats", () => {
