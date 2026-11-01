@@ -31,6 +31,7 @@ import { activeOrInactive, rejectCommand, structureLabel } from "./runtime-struc
 import { resolveTownSupportTarget } from "./runtime-structure-town-support-target.js";
 import { announceMonumentConstructionStarted } from "./runtime-monument-claim.js";
 import { handleBuildAfcCommand } from "./runtime-build-afc-command-handler.js";
+import { structureManpowerCostForPlayer } from "./structure-manpower-cost/structure-manpower-cost.js";
 import { handleRedeployAfcModuleCommand } from "./runtime-redeploy-afc-module-command-handler.js";
 import type { PersonalImpactBuildingCompleted } from "./personal-impact-log/personal-impact-log.js";
 import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
@@ -378,6 +379,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   if (isWarBranchStructure && context.hasNearbyQuartermastersOffice(command.playerId, target.x, target.y)) {
     manpowerCost = Math.round(manpowerCost * QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT);
   }
+  manpowerCost = structureManpowerCostForPlayer(actor, slotStructureType, manpowerCost);
   if (actor.points < goldCost) {
     rejectCommand(context, command, "INSUFFICIENT_GOLD", `insufficient coin for ${structureLabel(structureType)}`);
     return;
@@ -399,14 +401,8 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   actor.points -= goldCost;
   actor.manpower = Math.max(0, actor.manpower - manpowerCost);
 
-  // docs/replenishment-update-plan.md D9: build time follows manpower cost
-  // (100 MP = 100 seconds) instead of spec's old flat per-type buildMs -- reuses
-  // manpowerCost, already resolved above for the exact tier/count this build
-  // actually charges, so a Fort-family upgrade or a scaling structure's Nth
-  // copy gets a duration that matches what it paid, not a flat per-type
-  // number. RELAY_BEACON keeps today's "no speed-mult lever" behavior (its
-  // spec.kind is "OUTPOST" but it's excluded from the OUTPOST branch below,
-  // same exclusion the cost-resolution branch above already used) -- and its
+  // Every structure that costs manpower builds in a flat STRUCTURE_BUILD_MS
+  // (structure-costs.ts); a 0-manpower one is instant. RELAY_BEACON's
   // first-tier beacons build instantly (D12) while still paying manpower, so
   // its duration comes from relayBeaconBuildDurationMs, not the cost.
   const structureDurationMs = structureType === "RELAY_BEACON"

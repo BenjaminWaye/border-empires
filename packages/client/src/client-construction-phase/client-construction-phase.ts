@@ -1,9 +1,8 @@
 import {
   FORT_TIER_LADDER,
-  MANPOWER_COST_MS_PER_POINT,
-  MANPOWER_COST_REMOVAL_MS_PER_POINT,
   RELAY_BEACON_FIRST_TIER_COUNT,
   SIEGE_TIER_LADDER,
+  STRUCTURE_REMOVAL_MS,
   economicStructureBuildDurationMs,
   siegeBatteryBuildDurationMs,
   structureBuildDurationMs,
@@ -14,7 +13,7 @@ import {
 import type { Tile } from "../client-types.js";
 
 // docs/construction-animation-plan.md. Structures took 1h to many hours to
-// build when this was designed (now 1s per manpower point -- minutes), so
+// build when this was designed (now a flat minute), so
 // construction is shown as discrete phases (pieces appear bottom-up,
 // one height band per phase) with a parts-crate stack that is consumed within
 // each phase, rather than a smooth rise that would look frozen at that scale.
@@ -128,11 +127,11 @@ const inFlight = (status: string | undefined): status is "under_construction" | 
 // `only` restricts the lookup to one structure slot: a tile can carry several
 // (e.g. a fort being built beside an active economic structure), and a renderer
 // drawing one structure must not pick up another's in-flight record.
-// A removal runs at MANPOWER_COST_REMOVAL_MS_PER_POINT instead of the build rate.
+// A removal runs for STRUCTURE_REMOVAL_MS instead of the build time.
 const recordForTile = (tile: Tile, only: ConstructionSite["field"] | undefined): ConstructionRecord | undefined => {
   const record = buildRecordForTile(tile, only);
   if (record?.status !== "removing") return record;
-  return { ...record, estimatedDurationMs: Math.round((record.estimatedDurationMs * MANPOWER_COST_REMOVAL_MS_PER_POINT) / MANPOWER_COST_MS_PER_POINT) };
+  return { ...record, estimatedDurationMs: record.estimatedDurationMs > 0 ? STRUCTURE_REMOVAL_MS : 0 };
 };
 
 const buildRecordForTile = (tile: Tile, only: ConstructionSite["field"] | undefined): ConstructionRecord | undefined => {

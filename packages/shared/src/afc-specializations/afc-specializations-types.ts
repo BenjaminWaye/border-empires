@@ -23,7 +23,7 @@ export interface AfcSpecializationEffects {
   readonly forcedTruceDurationMs?: number;
   readonly fortAttackManpowerCostMult?: number;
   readonly fortAttackerCommitmentMult?: number;
-  readonly fortBuildSpeedMult?: number;
+  readonly fortBuildManpowerCostMult?: number;
   readonly fortTitaniumSlotWaiverCount?: number;
   readonly fortWardRechargeMs?: number;
   readonly fortifiedTownDefenseMult?: number;
@@ -33,10 +33,10 @@ export interface AfcSpecializationEffects {
   readonly observatoryCrystalSlotWaiverCount?: number;
   readonly observatoryRangeBonus?: number;
   readonly orbitalRecruitmentMpPerCoin?: number;
-  readonly relayBeaconBuildSpeedMult?: number;
+  readonly relayBeaconBuildManpowerCostMult?: number;
   readonly scarcityConsignment?: number;
   readonly settlementSpeedMult?: number;
-  readonly structureBuildSpeedMult?: number;
+  readonly structureBuildManpowerCostMult?: number;
   readonly towerSuppressionDurationMs?: number;
   readonly townReachRadiusBonus?: number;
 }

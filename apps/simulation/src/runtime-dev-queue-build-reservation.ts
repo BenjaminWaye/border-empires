@@ -29,6 +29,7 @@ import { currentTileFieldSlotRequirements, totalsFromSlotRequirements, emptyReso
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { structureLabel, type RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
 import { creditManpower } from "./runtime-manpower-ceiling.js";
+import { structureManpowerCostForPlayer } from "./structure-manpower-cost/structure-manpower-cost.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 
 type StructureTileField = StructureSpec["tileField"];
@@ -127,6 +128,7 @@ function estimateDevQueueBuildReservation(
   if (isWarBranchStructure && context.hasNearbyQuartermastersOffice(playerId, x, y)) {
     manpowerCost = Math.round(manpowerCost * QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT);
   }
+  manpowerCost = structureManpowerCostForPlayer(actor, slotStructureType, manpowerCost);
   if (actor.manpower < manpowerCost) {
     return { ok: false, code: "INSUFFICIENT_MANPOWER", message: `need ${manpowerCost.toFixed(0)} manpower for ${structureLabel(structureType)}` };
   }

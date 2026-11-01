@@ -384,25 +384,17 @@ export const relayBeaconManpowerCost = (existingOwnedCount: number): number =>
 export const structureBuildManpowerCostScaled = (type: BuildableStructureType, existingCount: number): number =>
   type === "RELAY_BEACON" ? relayBeaconManpowerCost(existingCount) : STRUCTURE_COST_DEFINITIONS[type].manpowerCost ?? 0;
 
-// docs/replenishment-update-plan.md D9: "build time = manpower cost x 1s /
-// build-speed multiplier" -- 100 MP = 100 seconds (was 36s/MP until
-// 2026-10-10; cut so a 15-30 minute session can actually spend a full
-// manpower refill -- manpower, not build time, is the limit). Structures only (settle,
-// expand, attacks and muster keep their own, unrelated timers -- this
-// function family never covered those). Replaces the old flat per-type
-// FORT_BUILD_MS/OBSERVATORY_BUILD_MS/SIEGE_BATTERY_BUILD_MS/
-// ECONOMIC_STRUCTURE_BUILD_MS/PALISADE_BUILD_MS/RELAY_BEACON_BUILD_MS
-// constants (config.js) these two functions used to read.
-export const MANPOWER_COST_MS_PER_POINT = 1_000;
+// Every structure that costs manpower builds in a flat STRUCTURE_BUILD_MS
+// (2026-11-01; was manpower cost x 1s, and 36s/MP before 2026-10-10) and is
+// torn down in STRUCTURE_REMOVAL_MS. Manpower, not build time, is the limit:
+// a refill takes hours, a build one minute. A 0-manpower structure stays
+// instant. Build-speed effects still shorten these (buildDurationWithSpeedMult).
+// Structures only (settle, expand, attacks and muster keep their own timers).
+export const STRUCTURE_BUILD_MS = 60_000;
+export const STRUCTURE_REMOVAL_MS = 30_000;
 
 export const structureBuildDurationMsForManpowerCost = (manpowerCost: number): number =>
-  Math.max(0, Math.round(manpowerCost * MANPOWER_COST_MS_PER_POINT));
-
-// Removal takes half as long as building: 0.5s per manpower point of the
-// structure actually being torn down (its own fort/siege tier, the full
-// non-discounted Relay Beacon price). Replaced the flat per-type removal
-// timers (FORT_BUILD_MS etc.) on 2026-10-10.
-export const MANPOWER_COST_REMOVAL_MS_PER_POINT = 500;
+  manpowerCost > 0 ? STRUCTURE_BUILD_MS : 0;
 
 // Build time of a specific fort/siege tier (an upgrade charges that tier's own
 // manpower, so it builds for that tier's time, not the base Fort's).
@@ -413,7 +405,7 @@ export const siegeBatteryBuildDurationMs = (variant: SiegeBatteryVariant = "SIEG
   structureBuildDurationMsForManpowerCost(SIEGE_TIER_LADDER[variant].manpower);
 
 export const structureRemovalDurationMsForManpowerCost = (manpowerCost: number): number =>
-  Math.max(0, Math.round(manpowerCost * MANPOWER_COST_REMOVAL_MS_PER_POINT));
+  manpowerCost > 0 ? STRUCTURE_REMOVAL_MS : 0;
 
 export const fortRemovalDurationMs = (variant: FortVariant = "FORT"): number =>
   structureRemovalDurationMsForManpowerCost(FORT_TIER_LADDER[variant].manpower);

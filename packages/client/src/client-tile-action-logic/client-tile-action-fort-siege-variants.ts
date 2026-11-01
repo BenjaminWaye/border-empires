@@ -12,6 +12,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { upkeepSuffixFor } from "../client-structure-upkeep-text/client-structure-upkeep-text.js";
 import { hasFreeResourceSlots } from "./client-resource-slot-gate.js";
+import { structureManpowerCostForState } from "../client-structure-manpower-cost/client-structure-manpower-cost.js";
 
 // Extracted from client-tile-action-logic.ts (over the 500-line file-size
 // limit) to keep that file from growing further.
@@ -23,14 +24,14 @@ import { hasFreeResourceSlots } from "./client-resource-slot-gate.js";
 // not folded unlabeled into `summary`.
 export type FortVariantAction = { label: string; variant: FortTierInfo["variant"]; gold: number; defenseMult: number; summary: string; upkeepSuffix: string };
 
-const fortActionFromTier = (tier: FortTierInfo): FortVariantAction => ({
+const fortActionFromTier = (state: ClientState, tier: FortTierInfo): FortVariantAction => ({
   label: FORT_VARIANT_LABELS[tier.variant],
   variant: tier.variant,
   gold: tier.gold,
   defenseMult: tier.defenseMult,
   summary: [
     ...(tier.gold > 0 ? [`${tier.gold} coin`] : []),
-    `${tier.manpower} manpower`
+    `${structureManpowerCostForState(state, tier.variant, tier.manpower)} manpower`
   ].join(" + "),
   upkeepSuffix: upkeepSuffixFor(tier.variant)
 });
@@ -42,19 +43,19 @@ export const nextFortVariantForTile = (
   tile: Tile,
 ): FortVariantAction | undefined => {
   const result = fortTierForBuild("FORT", tile.fort?.variant, (id) => state.techIds.includes(id));
-  return result ? fortActionFromTier(result) : undefined;
+  return result ? fortActionFromTier(state, result) : undefined;
 };
 
 export type SiegeVariantAction = { label: string; variant: SiegeTierInfo["variant"]; gold: number; attackMult: number; summary: string; upkeepSuffix: string };
 
-const siegeActionFromTier = (tier: SiegeTierInfo): SiegeVariantAction => ({
+const siegeActionFromTier = (state: ClientState, tier: SiegeTierInfo): SiegeVariantAction => ({
   label: SIEGE_VARIANT_LABELS[tier.variant],
   variant: tier.variant,
   gold: tier.gold,
   attackMult: tier.attackMult,
   summary: [
     ...(tier.gold > 0 ? [`${tier.gold} coin`] : []),
-    `${tier.manpower} manpower`
+    `${structureManpowerCostForState(state, tier.variant, tier.manpower)} manpower`
   ].join(" + "),
   upkeepSuffix: upkeepSuffixFor(tier.variant)
 });
@@ -63,7 +64,7 @@ const siegeActionFromTier = (tier: SiegeTierInfo): SiegeVariantAction => ({
 // the best tier the tech allows whose UMBRITE slots fit, so a player who
 // can't cover a Siege Tower is offered a Siege Battery instead.
 const siegeBuildVariantForState = (state: ClientState): SiegeVariantAction =>
-  siegeActionFromTier(siegeTierForFreshBuild((id) => state.techIds.includes(id), (variant) => hasFreeResourceSlots(state, variant)));
+  siegeActionFromTier(state, siegeTierForFreshBuild((id) => state.techIds.includes(id), (variant) => hasFreeResourceSlots(state, variant)));
 
 // The tier the tech alone would build on a fresh tile -- differs from
 // nextSiegeVariantForTile's pick only when that pick stepped down for slots.
@@ -76,7 +77,7 @@ export const nextSiegeVariantForTile = (
 ): SiegeVariantAction | undefined => {
   if (tile.siegeBattery) {
     const result = nextSiegeTierForUpgrade(tile.siegeBattery.variant, (id) => state.techIds.includes(id));
-    return result ? siegeActionFromTier(result) : undefined;
+    return result ? siegeActionFromTier(state, result) : undefined;
   }
   return siegeBuildVariantForState(state);
 };

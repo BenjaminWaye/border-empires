@@ -6,12 +6,12 @@ export const AFC_BASTION = [
     "tier": 1,
     "branch": "bastion",
     "name": "Fortification Patterns",
-    "description": "Build Forts in half the usual time. Three eligible Forts have their Titanium-slot upkeep waived; prefabricated plans and starter stores support the works.",
-    "mechanicalSummary": "+100% Fort build speed | First 3 Forts need no TITANIUM slot.",
+    "description": "Forts cost half the usual manpower. Three eligible Forts have their Titanium-slot upkeep waived; prefabricated plans and starter stores support the works.",
+    "mechanicalSummary": "-50% Fort manpower cost | First 3 Forts need no TITANIUM slot.",
     "category": "ongoing",
     "requiresTechId": "",
     "effects": {
-      "fortBuildSpeedMult": 2,
+      "fortBuildManpowerCostMult": 0.5,
       "fortTitaniumSlotWaiverCount": 3
     }
   },

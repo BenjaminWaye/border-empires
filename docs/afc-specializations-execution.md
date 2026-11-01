@@ -55,8 +55,8 @@ and optional product-review wording in the earlier proposal.
 | Path | I | II | III | IV | V |
 | --- | --- | --- | --- | --- | --- |
 | Vanguard | ×2 vs planetary defense | +1 flag, −10s assault | flag-local +5% ×3, frontier refresh | ×0.5 fort MP baseline | one adjacent enemy capture, no recursion |
-| Bastion | ×2 fort speed, three Titanium waivers | ×2 factory defense contribution | +25% fortified-town defense | ×2 attacking MP baseline | first successful breach blocked, 24h recharge |
-| Dominion | ×3 beacon speed | dock reach 2 | town reach 4 | ×2 garrison speed | ×2 all build speed, beacon ×6 |
+| Bastion | ×0.5 fort MP cost, three Titanium waivers | ×2 factory defense contribution | +25% fortified-town defense | ×2 attacking MP baseline | first successful breach blocked, 24h recharge |
+| Dominion | ×1/3 beacon MP cost | dock reach 2 | town reach 4 | ×2 garrison speed | ×0.5 all build MP cost, beacon ×1/6 |
 | Exchequer | ×1.5 core Coin, −2 town FOOD | least-owned legal resource boosters | ×2 Clearing House uplift | 1 Coin→5 MP, ×1.5 transfer | ×2 core Coin, core population consignment |
 | Oracle | first tower CRYSTAL waiver | ×0.5 tower cooldown | +15 casting range | suppress hostile tower | exact masked flag locations/Purge |
 | Chancery | 10% allied domestic income/MP cap/regen | doubled allied dock income | shared-war +15% attack | force 12h truce, 48h recharge | ×2 contribution, largest actual member wins |

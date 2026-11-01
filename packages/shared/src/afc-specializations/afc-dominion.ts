@@ -6,12 +6,12 @@ export const AFC_DOMINION = [
     "tier": 1,
     "branch": "dominion",
     "name": "Relay Fabrication Line",
-    "description": "Relay Beacons take one-third of the usual time to build. The AFC supplies prefabricated relay assemblies to its field crews.",
-    "mechanicalSummary": "+200% Relay Beacon build speed.",
+    "description": "Relay Beacons cost one-third of the usual manpower. The AFC supplies prefabricated relay assemblies to its field crews.",
+    "mechanicalSummary": "-67% Relay Beacon manpower cost.",
     "category": "ongoing",
     "requiresTechId": "",
     "effects": {
-      "relayBeaconBuildSpeedMult": 3
+      "relayBeaconBuildManpowerCostMult": 1 / 3
     }
   },
   {
@@ -58,12 +58,12 @@ export const AFC_DOMINION = [
     "tier": 5,
     "branch": "dominion",
     "name": "Universal Fabrication Line",
-    "description": "Buildings take half the usual time to finish. With Relay Fabrication Line, the combined Relay Beacon speed bonus is +500%. Shared assembly and dispatch systems accelerate construction.",
-    "mechanicalSummary": "+100% build speed for all buildings.",
+    "description": "Buildings cost half the usual manpower. With Relay Fabrication Line, Relay Beacons cost one-sixth of the usual manpower. Shared assembly and dispatch systems stretch every work crew further.",
+    "mechanicalSummary": "-50% manpower cost for all buildings.",
     "category": "ongoing",
     "requiresTechId": "",
     "effects": {
-      "structureBuildSpeedMult": 2
+      "structureBuildManpowerCostMult": 0.5
     }
   }
 ] as const satisfies readonly AfcSpecialization[];
