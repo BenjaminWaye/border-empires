@@ -9,7 +9,8 @@ import type { ClientAutoSettleState } from "./client-auto-settle-prefs.js";
 const ROWS: Record<AutoSettleCategory, { label: string; hint: string }> = {
   towns: { label: "Towns & docks", hint: "Also garrisons the plain tiles around a grown town." },
   food: { label: "Food (farms, fish)", hint: "Keeps your towns fed." },
-  resources: { label: "Other resources", hint: "Titanium, gems, umbrite." }
+  strategic: { label: "Strategic resources", hint: "Titanium, umbrite, crystal." },
+  luxury: { label: "Luxury resources", hint: "Every other resource." }
 };
 
 export const autoSettleSettingsFieldHtml = (autoSettle: ClientAutoSettleState): string => {
@@ -46,7 +47,7 @@ export const installAutoSettleSettingsBinding = (send: (payload: unknown) => boo
     const target = event.target as HTMLInputElement | null;
     if (!target || !target.matches?.("[data-settings-auto-settle]")) return;
     const boxes = document.querySelectorAll<HTMLInputElement>("[data-settings-auto-settle]");
-    const prefs = { towns: false, food: false, resources: false };
+    const prefs = { towns: false, food: false, strategic: false, luxury: false };
     boxes.forEach((box) => {
       const category = box.dataset.settingsAutoSettle as AutoSettleCategory | undefined;
       if (category && category in prefs) prefs[category] = box.checked;

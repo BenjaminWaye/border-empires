@@ -2578,7 +2578,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           } else if (message.type === "UPGRADE_TOWN_TIER" || message.type === "COLLECT_SHARD" || message.type === "NAME_ISLAND") {
             await dispatchDurableCommand(message.type, { x: message.x, y: message.y, ...(message.type === "NAME_ISLAND" ? { name: message.name } : {}) }, true);
           } else if (message.type === "SET_AUTO_SETTLE_PREFS") {
-            await dispatchDurableCommand("SET_AUTO_SETTLE_PREFS", { towns: message.towns, food: message.food, resources: message.resources });
+            await dispatchDurableCommand("SET_AUTO_SETTLE_PREFS", { towns: message.towns, food: message.food, strategic: message.strategic, luxury: message.luxury });
           } else if (isDevQueueWaypointMessageType(message.type)) {
             await dispatchDurableCommand(message.type, devQueueWaypointCommandPayload(message));
           } else if (message.type === "ATTACK" || message.type === "EXPAND") {

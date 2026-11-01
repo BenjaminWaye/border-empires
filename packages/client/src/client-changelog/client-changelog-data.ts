@@ -13,6 +13,7 @@ import { CLIENT_CHANGELOG_ENTRIES_OCT_17 } from "./client-changelog-oct-17.js";
 import { AETHER_ABILITY_ICONS_CHANGELOG } from "./client-changelog-aether-ability-icons.js";
 import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-art-october.js";
 import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
+import { AUTO_GARRISON_SPLIT_RESOURCES_CHANGELOG } from "./client-changelog-auto-garrison-split-resources.js";
 import { AFC_UPGRADES_ICON_CHANGELOG } from "./client-changelog-afc-upgrades-icon.js";
 import { GAMEPLAY_SETTINGS_CLEANUP_CHANGELOG } from "./client-changelog-gameplay-settings-cleanup.js";
 import { MUSTER_BANNER_CHANGELOG } from "./client-changelog-muster-banner.js";
@@ -144,6 +145,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["All Waystation technology rewards now use the current tech catalog name in the tile overview, including previously activated sites"]
   },
   ...AUTO_GARRISON_REQUEUE_CHANGELOG,
+  ...AUTO_GARRISON_SPLIT_RESOURCES_CHANGELOG,
   {
     createdAt: 1791969340091, // Date.now() captured once for this release.
     introducedIn: "2026.10.14.4",

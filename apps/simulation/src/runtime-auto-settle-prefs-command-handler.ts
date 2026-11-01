@@ -1,5 +1,5 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
-import { isAutoSettlePrefsValue } from "@border-empires/shared";
+import { parseAutoSettleCategoryPrefs } from "@border-empires/shared";
 import { rejectCommand, type RuntimeMapCommandContext } from "./runtime-map-command-handlers.js";
 
 // SET_AUTO_SETTLE_PREFS: the join prompt / settings toggles. Replaces the
@@ -19,11 +19,12 @@ export function handleSetAutoSettlePrefsCommand(context: RuntimeMapCommandContex
   } catch {
     parsed = undefined;
   }
-  if (!isAutoSettlePrefsValue(parsed)) {
+  const categories = parseAutoSettleCategoryPrefs(parsed);
+  if (!categories) {
     rejectCommand(context, command, "BAD_COMMAND", "invalid auto-garrison preferences");
     return;
   }
-  actor.autoSettle = { answered: true, towns: parsed.towns, food: parsed.food, resources: parsed.resources };
+  actor.autoSettle = { answered: true, ...categories };
   context.emitPlayerMessage(command, { type: "PLAYER_UPDATE", autoSettle: actor.autoSettle });
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
   context.drainAutoSettleForOwner?.(actor.id);
