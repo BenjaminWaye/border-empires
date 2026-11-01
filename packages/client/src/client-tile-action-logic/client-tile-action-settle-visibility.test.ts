@@ -132,7 +132,7 @@ describe("Settle Land / Settle Connected visibility gate", () => {
     state.me = "me";
     state.gold = 10_000;
     state.manpower = 10_000;
-    state.autoSettle = loadedAutoSettleState({ answered: false, towns: false, food: false, resources: false });
+    state.autoSettle = loadedAutoSettleState({ answered: false, towns: false, food: false, strategic: false, luxury: false });
     const farm = { x: 1, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", resource: "FARM" } as Tile;
     state.tiles.set(keyFor(1, 0), farm);
 

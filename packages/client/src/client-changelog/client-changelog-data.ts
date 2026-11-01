@@ -3,6 +3,7 @@ import { TOWN_ECONOMY_CHANGELOG } from "./client-changelog-town-economy.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_25 } from "./client-changelog-oct-25.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_26 } from "./client-changelog-oct-26.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_27 } from "./client-changelog-oct-27.js";
+import { CLIENT_CHANGELOG_ENTRIES_OCT_30_31 } from "./client-changelog-oct-30-31.js";
 import { RAW_DEPOSIT_UNDER_IMPROVEMENT_CHANGELOG } from "./client-changelog-raw-deposit-under-improvement.js";
 import { RESOURCE_NETWORKS_CHANGELOG } from "./client-changelog-resource-networks.js";
 import { RELIABLE_DIPLOMACY_CHANGELOG } from "./client-changelog-reliable-diplomacy.js";
@@ -13,6 +14,7 @@ import { CLIENT_CHANGELOG_ENTRIES_OCT_17 } from "./client-changelog-oct-17.js";
 import { AETHER_ABILITY_ICONS_CHANGELOG } from "./client-changelog-aether-ability-icons.js";
 import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-art-october.js";
 import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
+import { AUTO_GARRISON_SPLIT_RESOURCES_CHANGELOG } from "./client-changelog-auto-garrison-split-resources.js";
 import { AFC_UPGRADES_ICON_CHANGELOG } from "./client-changelog-afc-upgrades-icon.js";
 import { GAMEPLAY_SETTINGS_CLEANUP_CHANGELOG } from "./client-changelog-gameplay-settings-cleanup.js";
 import { MUSTER_BANNER_CHANGELOG } from "./client-changelog-muster-banner.js";
@@ -144,6 +146,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["All Waystation technology rewards now use the current tech catalog name in the tile overview, including previously activated sites"]
   },
   ...AUTO_GARRISON_REQUEUE_CHANGELOG,
+  ...AUTO_GARRISON_SPLIT_RESOURCES_CHANGELOG,
   {
     createdAt: 1791969340091, // Date.now() captured once for this release.
     introducedIn: "2026.10.14.4",
@@ -440,65 +443,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...SIEGE_UMBRITE_ONLY_CHANGELOG,
   ...MARCH_WIN_CHANCE_CHANGELOG,
   ...SPACE_POLITICS_CHANGELOG,
-  {
-    createdAt: 1793350568452,
-    introducedIn: "2026.10.30",
-    title: "Resource icons stay visible when zoomed out",
-    why: "Resource circles switched to plain colours before you could get a useful overview of nearby deposits.",
-    changes: ["Resource markers keep their icons at every zoom level in both the 2D and 3D maps, with smoothly scaling circles and coloured rims"]
-  },
-  {
-    createdAt: 1793441660132, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.31",
-    title: "Frontier resource buildings have no upkeep",
-    why: "Resin Extractors, Implant Foundries, Catalyst Refineries, Cultivation Estates and Reclamation Works each used up a Food slot.",
-    changes: ["These five buildings no longer use a Food slot, and a Food shortage can't shut them down. Ones you've already built free their Food slot."]
-  },
-  {
-    createdAt: 1793392462199,
-    introducedIn: "2026.10.30",
-    title: "Reveal map keeps reach borders",
-    why: "Revealing the map showed every empire's territory but dropped their reach borders, so the hatching that marks ground contested by rival reach disappeared too.",
-    changes: [
-      "Revealing the map now shows every empire's reach borders, including unowned ground held inside them",
-      "Contested tiles stay hatched after a reveal in both the 2D and 3D maps"
-    ]
-  },
-  {
-    createdAt: 1793483178441,
-    introducedIn: "2026.10.31",
-    title: "Island and realm names stay on their land",
-    why: "On the 3D map, names could slide off their island and drift as the camera moved.",
-    changes: ["Island and player names stay put on the land they label while you pan and zoom"]
-  },
-  {
-    createdAt: 1793470954153,
-    introducedIn: "2026.10.31",
-    title: "Ongoing battles open their battle screen",
-    why: "Pressing a battle in progress sometimes only centred the map, and the side cards never showed either army's strength.",
-    changes: ["Pressing a battle in the tracker zooms in on it and opens the battle screen, closing any other screen first", "Both sides show their strength and the locked odds while the battle runs", "Leaving the battle returns to your earlier zoom"]
-  },
-  {
-    createdAt: 1793482286154,
-    introducedIn: "2026.10.31",
-    title: "Offers wait for the map to load",
-    why: "Incoming truce and alliance offers could pop up on top of the loading screen.",
-    changes: ["The diplomacy offer dock stays hidden until the map has finished loading"]
-  },
-  {
-    createdAt: 1793485484559,
-    introducedIn: "2026.10.31",
-    title: "Auto-settle skips out-of-reach land after a reveal",
-    why: "With the map revealed, auto-settle could keep retrying frontier tiles outside your reach that can never be settled.",
-    changes: ["Auto-settle only queues frontier tiles inside your reach, with or without the map revealed"]
-  },
-  {
-    createdAt: 1793482950000, // Date.now() captured once for this entry.
-    introducedIn: "2026.10.31",
-    title: "Survey Sweep findings stay in the activity log",
-    why: "Survey Sweep pings fade from the map after a few seconds, leaving no way to revisit what the sweep found.",
-    changes: ["The activity log now lists the coordinates of every resource site and town a Survey Sweep finds, with a button to jump to the first one"]
-  }
+  ...CLIENT_CHANGELOG_ENTRIES_OCT_30_31
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

@@ -643,7 +643,9 @@ deliberately no decay for simply being offline.
 Auto-settle spends manpower without a click, so it is a per-player setting
 (`DomainPlayer.autoSettle`, `packages/shared/src/auto-settle-prefs/`), one switch
 per category: **towns** (towns, docks and the town support ring), **food**
-(farm, fish) and **resources** (every other revealed resource).
+(farm, fish), **strategic** (titanium, umbrite, crystal/gems) and **luxury** (every
+other revealed resource). Values stored before the strategic/luxury split carry
+one `resources` switch; `parseAutoSettleCategoryPrefs` applies it to both.
 
 - **New humans** start with every category off. Spawn still claims the tiles
   in reach for free, but nothing settles until they choose. The prompt

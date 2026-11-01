@@ -43,38 +43,38 @@ describe("auto-settle checkbox", () => {
   it("is hidden until prefs load, then reflects the tile's category", () => {
     const state = createInitialState();
     expect(autoSettleOptionForTile(state, tile({ resource: "FARM" }))).toBeUndefined();
-    state.autoSettle = loadedAutoSettleState({ answered: true, towns: false, food: true, resources: false });
+    state.autoSettle = loadedAutoSettleState({ answered: true, towns: false, food: true, strategic: false, luxury: false });
     expect(autoSettleOptionForTile(state, tile({ resource: "FARM" }))).toMatchObject({ category: "food", checked: true });
-    expect(autoSettleOptionForTile(state, tile({ resource: "GEMS" }))).toMatchObject({ category: "resources", checked: false });
+    expect(autoSettleOptionForTile(state, tile({ resource: "GEMS" }))).toMatchObject({ category: "strategic", checked: false });
     expect(autoSettleOptionForTile(state, tile({ dockId: "d" }))).toMatchObject({ category: "towns", checked: false });
   });
 
   it("is not offered on a natural wonder (it would fall into the towns setting)", () => {
     const state = createInitialState();
-    state.autoSettle = loadedAutoSettleState({ answered: true, towns: true, food: true, resources: true });
+    state.autoSettle = loadedAutoSettleState({ answered: true, towns: true, food: true, strategic: true, luxury: true });
     expect(autoSettleOptionForTile(state, tile({ naturalWonder: { type: "QUICKFORGE" } }))).toBeUndefined();
   });
 
-  it("toggling sends all three prefs with only that category changed", () => {
+  it("toggling sends all four prefs with only that category changed", () => {
     const state = createInitialState();
-    state.autoSettle = loadedAutoSettleState({ answered: false, towns: false, food: true, resources: false });
+    state.autoSettle = loadedAutoSettleState({ answered: false, towns: false, food: true, strategic: false, luxury: false });
     const send = vi.fn(() => true);
     installAutoSettleTileOptionBinding(state, send);
     document.body.innerHTML = autoSettleOptionHtml(autoSettleOptionForTile(state, tile({ dockId: "d" }))!);
     const box = document.querySelector<HTMLInputElement>("[data-tile-auto-settle]")!;
     box.click();
-    expect(send).toHaveBeenCalledWith({ type: "SET_AUTO_SETTLE_PREFS", towns: true, food: true, resources: false });
-    expect(state.autoSettle).toEqual(loadedAutoSettleState({ answered: true, towns: true, food: true, resources: false }));
+    expect(send).toHaveBeenCalledWith({ type: "SET_AUTO_SETTLE_PREFS", towns: true, food: true, strategic: false, luxury: false });
+    expect(state.autoSettle).toEqual(loadedAutoSettleState({ answered: true, towns: true, food: true, strategic: false, luxury: false }));
   });
 
   it("un-ticks itself when the message could not be sent", () => {
     const state = createInitialState();
-    state.autoSettle = loadedAutoSettleState({ answered: true, towns: false, food: false, resources: false });
+    state.autoSettle = loadedAutoSettleState({ answered: true, towns: false, food: false, strategic: false, luxury: false });
     installAutoSettleTileOptionBinding(state, () => false);
     document.body.innerHTML = autoSettleOptionHtml(autoSettleOptionForTile(state, tile({ resource: "FARM" }))!);
     const box = document.querySelector<HTMLInputElement>("[data-tile-auto-settle]")!;
     box.click();
     expect(box.checked).toBe(false);
-    expect(state.autoSettle).toEqual(loadedAutoSettleState({ answered: true, towns: false, food: false, resources: false }));
+    expect(state.autoSettle).toEqual(loadedAutoSettleState({ answered: true, towns: false, food: false, strategic: false, luxury: false }));
   });
 });
