@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Town build progress</title>
 <!-- Draft: the HUD v2 town screen as shipped, with a support tile selected that has a build on it.
-     Uses the live HUD v2 stylesheets; only the .v2t-work block below is new. Open from the repo checkout. -->
+     Uses the live HUD v2 stylesheets; new: the .v2t-work cards, the In progress title, and the
+     place button docked to the panel (.v2t-place-dock) instead of the separate box under it. Open from the repo checkout. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&amp;family=Spectral:wght@400;600&amp;family=Space+Mono:wght@400;700&amp;display=swap">
 <link rel="stylesheet" href="../../../packages/client/src/client-hud-v2/client-hud-v2.css">
 <link rel="stylesheet" href="../../../packages/client/src/client-hud-v2/client-hud-v2-screens.css">
@@ -37,6 +38,9 @@
   .v2t-job-bar > span { display: block; height: 4px; background: #3fb0a6; }
   .v2t-job-acts { display: flex; gap: 6px; }
   .v2t-job-acts .v2s-btn { flex: 1; }
+  .v2t-work + .v2t-h { padding-top: 12px; }
+  /* The picked building's place button, docked to the bottom of the panel instead of the separate box under it. */
+  .v2t-place-dock { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; border-top: 1px solid var(--v2-edge-strong); background: #1a1610; }
 </style>
 </head>
 <body class="hud-v2 hud-v2-screen-open hud-v2-screen-town">
@@ -75,7 +79,6 @@
     </section>
 
     <section class="v2t-right" id="v2t-build" aria-label="Build"></section>
-    <div class="v2t-place-slot" id="v2t-place"></div>
 
     <div class="v2t-bar" id="v2t-bar">
       <button type="button" class="v2t-act">Raise flag on (7, 4)</button>
@@ -129,14 +132,15 @@
     const s = { ...STATES[id], pick };
     document.querySelectorAll(".states button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.state === id)));
     const tabs = s.tabs.map(([n, c], i) => `<button type="button" role="tab" class="v2t-tab${i === 0 ? " v2t-tab-on" : ""}">${n} · ${c}</button>`).join("");
+    // With work on the tile the panel is titled In progress; what's left to build gets its own small heading.
+    const busy = s.jobs.length > 0;
     document.getElementById("v2t-build").innerHTML =
-      `<div class="v2t-build-head"><span class="v2t-build-title">Build</span><span class="v2t-focus v2t-focus-on">(7, 4)</span></div>
-      ${s.jobs.length ? `<div class="v2t-work">${s.jobs.map(job).join("")}</div>` : ""}
+      `<div class="v2t-build-head"><span class="v2t-build-title">${busy ? "In progress" : "Build"}</span><span class="v2t-focus v2t-focus-on">(7, 4)</span></div>
+      ${busy ? `<div class="v2t-work">${s.jobs.map(job).join("")}</div>` : ""}
+      ${busy && s.rows.length ? `<div class="v2t-h">Build</div>` : ""}
       ${tabs ? `<div class="v2t-tabs" role="tablist">${tabs}</div>` : ""}
-      <div class="v2t-build-list">${s.rows.map((r) => row(r, r.name === s.pick)).join("")}${s.rows.length ? "" : `<div class="v2s-empty">Nothing else fits on this tile</div>`}</div>`;
-    document.getElementById("v2t-place").innerHTML = s.pick
-      ? `<div class="v2t-place"><span class="v2t-place-name">${s.pick}</span><button type="button" class="v2s-btn v2s-btn-primary">Build on (7, 4)</button></div>`
-      : "";
+      <div class="v2t-build-list">${s.rows.map((r) => row(r, r.name === s.pick)).join("")}${s.rows.length ? "" : `<div class="v2s-empty">Nothing else fits on this tile</div>`}</div>
+      ${s.pick ? `<div class="v2t-place-dock"><span class="v2t-place-name">${s.pick}</span><button type="button" class="v2s-btn v2s-btn-primary">Build on (7, 4)</button></div>` : ""}`;
   };
   document.querySelectorAll(".states button").forEach((b) => b.addEventListener("click", () => render(b.dataset.state)));
   document.getElementById("v2t-build").addEventListener("click", (e) => {
