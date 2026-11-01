@@ -4,7 +4,7 @@
 // AGENTS.md's file-growth rule. Mirrors the same "deps bag -> composed
 // context" pattern as runtime-progression-command-context.ts.
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { isAutoSettleAllowedForTile } from "@border-empires/shared";
+import { DEFAULT_AUTO_SETTLE_PREFS, isAutoSettleAllowedForTile, type AutoSettlePrefs } from "@border-empires/shared";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import { isAutoSettlementResourceTechRevealed } from "../territory-automation/territory-automation.js";
 import { tileResourceMatchesRevealCategory } from "../tech-domain-bridge/tech-domain-bridge.js";
@@ -16,8 +16,10 @@ import {
   orderedEligibleFrontierTiles,
   reconcileEligibleFrontierQueueForOwner,
   removeEligibleFrontierTile,
+  seedEligibleFrontierQueueForOwner,
   syncTownSupportRingForTileChange,
   type EligibleFrontierByOwner,
+  type ReconcileCursorByOwner,
   type EvaluateTileEligibilityDeps,
   type GrownTownSupportRingByOwner,
   type SettleAttemptContext
@@ -55,6 +57,13 @@ export interface AutoSettleEligibilityRuntime {
   sweepFrontierResourceTechUnlock(playerId: string, revealedCategory: string): void;
   /** Slot-freed drain -- call after a settlement/build completes. */
   drainForOwner(ownerId: string): number;
+  /**
+   * Prefs-changed hook (SET_AUTO_SETTLE_PREFS): drops queued tiles in a category just switched off,
+   * and, when a category was switched on (`rescanFrontier`), rescans the player's whole frontier to
+   * fill the queue up to its cap. Then drains. Tiles captured while a category was off were never
+   * queued, so without the rescan they'd wait on the bounded per-tick reconcile.
+   */
+  refillForOwner(ownerId: string, rescanFrontier: boolean): number;
   /** Bounded reconciliation safety net -- call once per player per territory-automation tick. */
   reconcileForOwner(ownerId: string): number;
   /** Reach-activation hook: evaluate specific FRONTIER keys after the runtime installs the new reach border. */
@@ -68,8 +77,47 @@ export interface AutoSettleEligibilityRuntime {
   orderedQueueForPlayer(playerId: string): Array<{ x: number; y: number }>;
 }
 
+// SimulationRuntime rebuilds this context on every call, so the reconcile resume
+// index can't live in the closure. It hangs off the runtime-owned queue map instead
+// (one cursor per player, freed with the runtime), keeping runtime.ts from growing.
+const reconcileCursorsByQueue = new WeakMap<EligibleFrontierByOwner, ReconcileCursorByOwner>();
+const reconcileCursorFor = (queue: EligibleFrontierByOwner): ReconcileCursorByOwner => {
+  let cursors = reconcileCursorsByQueue.get(queue);
+  if (!cursors) {
+    cursors = new Map();
+    reconcileCursorsByQueue.set(queue, cursors);
+  }
+  return cursors;
+};
+
 export const buildAutoSettleEligibilityRuntime = (deps: AutoSettleEligibilityRuntimeDeps): AutoSettleEligibilityRuntime => {
   const isBlocked = (tileKey: string): boolean => deps.locksByTile.has(tileKey) || deps.pendingSettlementsByTile.has(tileKey);
+  const reconcileCursorByOwner = reconcileCursorFor(deps.eligibleFrontierByOwner);
+  // A player handed in via initialPlayers may carry no prefs; treat that like any other player
+  // with no stored value (everything on), as normalizeAutoSettlePrefs does on hydration.
+  const prefsOf = (player: DomainPlayer): AutoSettlePrefs => player.autoSettle ?? DEFAULT_AUTO_SETTLE_PREFS;
+
+  // Drops queued tiles that can never settle from where they stand (lost, garrisoned, encircled,
+  // category switched off) so they stop holding one of the capped queue slots. Runs before any
+  // slot/affordability check: the queue only fills up while slots are busy, which is exactly when
+  // a later loop would never reach them. Reconcile re-adds a tile if it becomes eligible again.
+  // Out-of-reach and blocked tiles keep their slot: both usually clear on their own.
+  const purgeStaleQueueEntries = (ownerId: string): void => {
+    const queued = deps.eligibleFrontierByOwner.get(ownerId);
+    const player = deps.players.get(ownerId);
+    if (!queued || !player) return;
+    for (const tileKey of [...queued]) {
+      const target = deps.tiles.get(tileKey);
+      const stale =
+        !target ||
+        target.ownerId !== ownerId ||
+        target.ownershipState !== "FRONTIER" ||
+        target.frontierDecayKind === "ENCIRCLEMENT" ||
+        target.terrain !== "LAND" ||
+        !isAutoSettleAllowedForTile(prefsOf(player), target);
+      if (stale) queued.delete(tileKey);
+    }
+  };
 
   const depsForPlayer = (playerId: string): EvaluateTileEligibilityDeps => {
     const player = deps.players.get(playerId);
@@ -79,7 +127,8 @@ export const buildAutoSettleEligibilityRuntime = (deps: AutoSettleEligibilityRun
       isInReach: (tile) => deps.isPlayerTileInReach(playerId, tile.x, tile.y),
       hasTownSupport: (tile) => hasGrownTownSupportRing(deps.grownTownSupportRingByOwner, playerId, simulationTileKey(tile.x, tile.y)),
       isRevealedToPlayer: (tile) =>
-        deps.isVisible(playerId, simulationTileKey(tile.x, tile.y)) && isAutoSettlementResourceTechRevealed(tile, player)
+        deps.isVisible(playerId, simulationTileKey(tile.x, tile.y)) && isAutoSettlementResourceTechRevealed(tile, player),
+      isAutoSettleAllowed: (tile) => player !== undefined && isAutoSettleAllowedForTile(prefsOf(player), tile)
     };
   };
 
@@ -94,7 +143,7 @@ export const buildAutoSettleEligibilityRuntime = (deps: AutoSettleEligibilityRun
     hasAvailableDevelopmentSlot: (playerId) => deps.hasAvailableDevelopmentSlot(playerId),
     isAutoSettleAllowed: (playerId, tile) => {
       const player = deps.players.get(playerId);
-      return player !== undefined && isAutoSettleAllowedForTile(player.autoSettle, tile);
+      return player !== undefined && isAutoSettleAllowedForTile(prefsOf(player), tile);
     },
     startSettlementProcess: (input) => deps.startSettlementProcess(input),
     nextCommandId: (playerId, tileKey) => deps.nextTerritoryAutomationCommandId("auto-settle", playerId, tileKey, deps.now()),
@@ -149,6 +198,12 @@ export const buildAutoSettleEligibilityRuntime = (deps: AutoSettleEligibilityRun
     maintainForTileChange,
     sweepFrontierResourceTechUnlock,
     drainForOwner: (ownerId) => drainEligibleFrontierQueue(deps.eligibleFrontierByOwner, ownerId, settleAttemptContext()),
+    refillForOwner: (ownerId, rescanFrontier) => {
+      purgeStaleQueueEntries(ownerId);
+      const frontierKeys = rescanFrontier ? deps.frontierTilesByOwner.get(ownerId) : undefined;
+      if (frontierKeys) seedEligibleFrontierQueueForOwner(deps.eligibleFrontierByOwner, ownerId, frontierKeys, depsForPlayer(ownerId));
+      return drainEligibleFrontierQueue(deps.eligibleFrontierByOwner, ownerId, settleAttemptContext());
+    },
     evaluateFrontierKeysForOwner: (ownerId, tileKeys) => {
       const evalDeps = depsForPlayer(ownerId);
       const settleCtx = settleAttemptContext();
@@ -157,14 +212,15 @@ export const buildAutoSettleEligibilityRuntime = (deps: AutoSettleEligibilityRun
     reconcileForOwner: (ownerId) => {
       const frontierKeys = deps.frontierTilesByOwner.get(ownerId);
       if (!frontierKeys) return 0;
-      return reconcileEligibleFrontierQueueForOwner(deps.eligibleFrontierByOwner, ownerId, frontierKeys, depsForPlayer(ownerId));
+      return reconcileEligibleFrontierQueueForOwner(deps.eligibleFrontierByOwner, ownerId, frontierKeys, depsForPlayer(ownerId), undefined, reconcileCursorByOwner);
     },
     runTickForOwner: (ownerId, nowMs) => {
       const actor = deps.players.get(ownerId);
       if (!actor) return 0;
+      purgeStaleQueueEntries(ownerId);
       // Bounded reconciliation safety net -- see reconcileEligibleFrontierQueueForOwner's doc comment.
       const frontierKeys = deps.frontierTilesByOwner.get(ownerId);
-      if (frontierKeys) reconcileEligibleFrontierQueueForOwner(deps.eligibleFrontierByOwner, ownerId, frontierKeys, depsForPlayer(ownerId));
+      if (frontierKeys) reconcileEligibleFrontierQueueForOwner(deps.eligibleFrontierByOwner, ownerId, frontierKeys, depsForPlayer(ownerId), undefined, reconcileCursorByOwner);
       let settledCount = 0;
       for (const { x, y } of orderedEligibleFrontierTiles(deps.eligibleFrontierByOwner, ownerId)) {
         if (settleRejectionForActor(actor)) break;
@@ -174,7 +230,7 @@ export const buildAutoSettleEligibilityRuntime = (deps: AutoSettleEligibilityRun
         if (!target || target.ownerId !== ownerId || target.ownershipState !== "FRONTIER") continue;
         if (target.frontierDecayKind === "ENCIRCLEMENT" || target.terrain !== "LAND") continue;
         if (isBlocked(targetKey)) continue;
-        if (!isAutoSettleAllowedForTile(actor.autoSettle, target)) continue;
+        if (!isAutoSettleAllowedForTile(prefsOf(actor), target)) continue;
         // Same OUT_OF_REACH gate (and town/dock exemption) as handleSettleCommand -- this path bypasses that handler.
         if (!(target.town || target.dockId) && !deps.isPlayerTileInReach(ownerId, target.x, target.y)) continue;
         const commandId = deps.nextTerritoryAutomationCommandId("auto-settle", ownerId, targetKey, nowMs);

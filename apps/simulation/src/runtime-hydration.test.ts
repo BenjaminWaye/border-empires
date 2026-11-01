@@ -169,7 +169,7 @@ describe("createPlayersFromRecoveredState", () => {
   });
 
   it("round-trips the per-category auto-settle prefs, and fills legacy snapshots with DEFAULT prefs once at the boundary", () => {
-    const answered = { answered: false, towns: false, food: false, resources: false };
+    const answered = { answered: false, towns: false, food: false, strategic: false, luxury: false };
     const state: RecoveredSimulationState = { ...minimalState([]), players: [{ id: "p1", autoSettle: answered }, { id: "legacy" }] };
     const result = createPlayersFromRecoveredState(state);
     expect(result?.get("p1")?.autoSettle).toEqual(answered);

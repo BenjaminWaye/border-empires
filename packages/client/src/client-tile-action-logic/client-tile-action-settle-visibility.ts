@@ -10,6 +10,7 @@ import { autoSettleOptionForTile, settleOutcomeText } from "../client-auto-settl
 import { canAffordCost, isForestTile } from "../client-constants.js";
 import { settleDurationMsForState } from "../client-queue-logic/client-queue-logic.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
+import { assignedTownForSupportTile } from "../client-support-structures/client-support-structures.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef } from "../client-types.js";
 import { tileActionAvailability, type TileActionLogicDeps } from "./client-tile-action-logic.js";
@@ -32,12 +33,15 @@ export const settleActionsForFrontierTile = (
   deps: TileActionLogicDeps,
   queuedSettlement: boolean
 ): TileActionDef[] => {
-  // Towns, docks and resource tiles always get the button: settling them has a real payoff (and carries the
-  // "auto-settle these" checkbox, which new players need most), and are listed first and highlighted as recommended. Plain tiles stay hidden until the economy exists.
-  const hasPayoff = Boolean(tile.town || tile.dockId || tile.resource || tile.naturalWonder);
+  if (tile.ownershipState !== "FRONTIER" || queuedSettlement) return [];
+  // Towns, docks, resource tiles and a grown town's support tiles always get the button: settling them has a real
+  // payoff (and carries the "auto-settle these" checkbox, which new players need most), and are listed first and
+  // highlighted as recommended. Other plain tiles stay hidden until the economy exists.
+  const hasPayoff = Boolean(
+    tile.town || tile.dockId || tile.resource || tile.naturalWonder || assignedTownForSupportTile(state.tiles, tile, state.me)
+  );
   const established = hasEstablishedTownAndFoodTile(state);
   if (!hasPayoff && !established) return [];
-  if (tile.ownershipState !== "FRONTIER" || queuedSettlement) return [];
   // Fixed-border reach: SETTLE is still reach-gated server-side even though EXPAND
   // itself is not -- see runtime-structure-command-handlers.ts. On a FRONTIER tile
   // outside reach, show these actions disabled with the reason instead of hiding them.

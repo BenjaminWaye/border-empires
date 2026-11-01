@@ -115,7 +115,7 @@ describe("applyPlayerMessageToSnapshot", () => {
   });
 
   it("merges autoSettle prefs from a PLAYER_UPDATE and ignores a malformed value", () => {
-    const prefs = { answered: true, towns: true, food: false, resources: false };
+    const prefs = { answered: true, towns: true, food: false, strategic: false, luxury: false };
     const updated = applyPlayerMessageToSnapshot(snapshot(), { type: "PLAYER_UPDATE", autoSettle: prefs });
     expect(updated.player?.autoSettle).toEqual(prefs);
     const untouched = applyPlayerMessageToSnapshot(updated, { type: "PLAYER_UPDATE", autoSettle: { towns: "yes" } });

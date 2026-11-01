@@ -14,7 +14,8 @@ const RESOURCE_LABELS: Record<string, string> = { TITANIUM: "titanium", UMBRITE:
 const OPTION_LABELS: Record<AutoSettleCategory, string> = {
   towns: "Garrison towns, docks and the tiles around them automatically from now on",
   food: "Garrison farms and fish automatically from now on",
-  resources: "Garrison resource tiles automatically from now on"
+  strategic: "Garrison titanium, umbrite and crystal automatically from now on",
+  luxury: "Garrison luxury resources automatically from now on"
 };
 
 const plural = (n: number, noun: string): string => `${n} ${noun}${n === 1 ? "" : "s"}`;
@@ -65,8 +66,8 @@ export const installAutoSettleTileOptionBinding = (state: ClientState, send: (pa
     const box = event.target as HTMLInputElement | null;
     const category = box?.matches?.("[data-tile-auto-settle]") ? (box.dataset.tileAutoSettle as AutoSettleCategory) : undefined;
     if (!box || !category || state.autoSettle.status !== "loaded") return;
-    const { towns, food, resources } = state.autoSettle.prefs;
-    const prefs = { towns, food, resources, [category]: box.checked };
+    const { towns, food, strategic, luxury } = state.autoSettle.prefs;
+    const prefs = { towns, food, strategic, luxury, [category]: box.checked };
     if (!send({ type: "SET_AUTO_SETTLE_PREFS", ...prefs })) {
       box.checked = !box.checked; // not signed in yet: nothing was sent, so don't pretend it took
       return;

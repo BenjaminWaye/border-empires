@@ -56,8 +56,9 @@ export type RuntimeMapCommandContext = Pick<RuntimeDiplomacySettlementContext, "
     player: DomainPlayer,
     input: { type: "IMPERIAL_EXCHANGE_LEVY_HIT" | "IMPERIAL_EXCHANGE_LEVY_CAST"; text: string; occurredAt: number; x?: number; y?: number }
   ) => void;
-  // Starts settles for tiles the player just opted into (SET_AUTO_SETTLE_PREFS); optional so fixtures stay valid.
-  drainAutoSettleForOwner?: (playerId: string) => void;
+  // SET_AUTO_SETTLE_PREFS follow-up: drops queued tiles in categories switched off and, when one was
+  // switched on, rescans the frontier and starts those settles. Optional so fixtures stay valid.
+  onAutoSettlePrefsChanged?: (playerId: string, switchedOn: boolean) => void;
 };
 
 // CREATE_MOUNTAIN / REMOVE_MOUNTAIN live in their own module (500-line cap);
