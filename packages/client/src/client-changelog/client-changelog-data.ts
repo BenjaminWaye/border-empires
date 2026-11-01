@@ -126,6 +126,7 @@ import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hi
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog-town-growth-loading.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY } from "./client-changelog-town-growth-war-integrity.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_105 } from "./client-changelog-data-earlier-105.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_106 } from "./client-changelog-data-earlier-106.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -142,29 +143,9 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_OCT_17,
   ENEMY_MUSTER_WARNING_CHANGELOG,
   FRONTIER_REACH_WARNING_CHANGELOG,
-  {
-    createdAt: 1791969768256, // Frozen Date.now() timestamp for the changelog gate.
-    introducedIn: "2026.10.14.2",
-    title: "Waystation rewards show current technology names",
-    why: "The tile overview showed old technology names such as Leatherworking instead of their current Manifest names.",
-    changes: ["All Waystation technology rewards now use the current tech catalog name in the tile overview, including previously activated sites"]
-  },
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_106,
   ...AUTO_GARRISON_REQUEUE_CHANGELOG,
   ...AUTO_GARRISON_SPLIT_RESOURCES_CHANGELOG,
-  {
-    createdAt: 1791969340091, // Date.now() captured once for this release.
-    introducedIn: "2026.10.14.4",
-    title: "Manifest details stay where you scroll",
-    why: "Live game updates kept rebuilding Manifest details and jumping the menu back to the top.",
-    changes: ["Mobile and desktop Manifest details keep their scroll position while coin and unlock status update"]
-  },
-  {
-    createdAt: 1791970194502,
-    introducedIn: "2026.10.14.2",
-    title: "Hidden dock connections stay hidden",
-    why: "Selecting an enemy dock lit up undiscovered linked docks on the minimap and offered navigation into fog.",
-    changes: ["Selecting a dock no longer reveals hidden connections on the minimap or either map renderer", "Dock navigation only visits discovered destinations; garrisoning a dock reveals its links", "3D dock routes update as soon as linked docks are discovered, even while the same dock stays selected"]
-  },
   ...MANPOWER_BATCH_LABEL_CHANGELOG,
   ...AI_VICTORY_STANDINGS_CHANGELOG,
   ...VICTORY_RACE_LABELS_CHANGELOG,
@@ -469,6 +450,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Sort by any column, highest or lowest first",
       "Press a town to jump to it on the map",
       "The All view's Food slot list no longer comes out empty"
+    ]
+  },
+  {
+    createdAt: 1793524472421, // Date.now() captured when this entry was written.
+    introducedIn: "2026.11.01",
+    title: "Accurate net territory in the daily story",
+    why: "Roaming barbarians were counted as gaining a tile every time they stepped onto it, so the daily story could claim tens of thousands of tiles gained.",
+    changes: [
+      "Net territory change now compares who held each tile at the start and end of the day",
+      "Barbarians no longer appear in territory momentum or the Fastest Expansion and Biggest Defeat headlines",
+      "Land you lost through decay no longer counts toward your net gains",
+      "Barbarians wandering over empty land no longer push real captures out of the 24-hour activity history"
     ]
   }
 ];

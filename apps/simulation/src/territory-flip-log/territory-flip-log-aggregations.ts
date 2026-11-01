@@ -59,10 +59,32 @@ export const alliancePairKeySet = (alliances: ReadonlyArray<{ playerA: string; p
   new Set(alliances.map(({ playerA, playerB }) => orderedPairKey(playerA, playerB)));
 
 // Distinct tiles gained / lost per player: retaking the same tile twice in
-// the window is still one tile gained. Net is gains minus losses counted per
-// flip, which per tile telescopes to the real change (+1 / 0 / -1) -- a tile
-// traded away, back and away again is one tile gained, one lost, net -1.
-export const computeTerritoryMomentum = (flipLog: readonly TerritoryFlip[]): TerritoryMomentum[] => {
+// the window is still one tile gained.
+//
+// Net is computed per tile from its owner at the start of the window (the
+// first logged flip's `fromOwner`) versus its owner at the end: +1 to the end
+// owner, -1 to the start owner, 0 if they match. That bounds every player's
+// |net| by distinct tiles gained + lost. A per-flip +1/-1 counter does NOT:
+// it only telescopes when every ownership change is logged, and several
+// paths aren't (barbarian walk releases -- 2026-11-01: 475 distinct tiles
+// reported as +47,356 net -- frontier decay, AFC landing clears, reach
+// vacates). The end owner is the last logged flip's `toOwner`, credited only
+// if `currentOwnerOf` (live tile state) says they still hold the tile, so
+// land lost through an unlogged path afterwards isn't counted as a gain.
+//
+// Assumes `flipLog` is in `at` order, which the log guarantees: record() only
+// ever appends the current time, and restore() sorts.
+export type TerritoryMomentumOptions = {
+  /** Drops this player's own row (the barbarian system player, matching computeWars/computeFrontlineHotspots). */
+  excludeBarbarianId?: string;
+  /** Live owner of a tile by tileId; when omitted the last logged owner is trusted. */
+  currentOwnerOf?: (tileId: string) => string | undefined;
+};
+
+export const computeTerritoryMomentum = (
+  flipLog: readonly TerritoryFlip[],
+  options: TerritoryMomentumOptions = {}
+): TerritoryMomentum[] => {
   type Momentum = { gained: Set<string>; lost: Set<string>; net: number };
   const byPlayer = new Map<string, Momentum>();
   const touch = (playerId: string): Momentum => {
@@ -73,19 +95,23 @@ export const computeTerritoryMomentum = (flipLog: readonly TerritoryFlip[]): Ter
     }
     return entry;
   };
+  const tileSpan = new Map<string, { startOwner: string | undefined; endOwner: string | undefined }>();
   for (const flip of flipLog) {
-    if (flip.toOwner && flip.toOwner !== flip.fromOwner) {
-      const entry = touch(flip.toOwner);
-      entry.gained.add(flip.tileId);
-      entry.net += 1;
-    }
-    if (flip.fromOwner && flip.fromOwner !== flip.toOwner) {
-      const entry = touch(flip.fromOwner);
-      entry.lost.add(flip.tileId);
-      entry.net -= 1;
-    }
+    if (flip.toOwner === flip.fromOwner) continue;
+    if (flip.toOwner) touch(flip.toOwner).gained.add(flip.tileId);
+    if (flip.fromOwner) touch(flip.fromOwner).lost.add(flip.tileId);
+    const span = tileSpan.get(flip.tileId);
+    if (span) span.endOwner = flip.toOwner;
+    else tileSpan.set(flip.tileId, { startOwner: flip.fromOwner, endOwner: flip.toOwner });
+  }
+  for (const [tileId, { startOwner, endOwner: lastLoggedOwner }] of tileSpan) {
+    const endOwner = options.currentOwnerOf && options.currentOwnerOf(tileId) !== lastLoggedOwner ? undefined : lastLoggedOwner;
+    if (startOwner === endOwner) continue;
+    if (endOwner) touch(endOwner).net += 1;
+    if (startOwner) touch(startOwner).net -= 1;
   }
   return [...byPlayer.entries()]
+    .filter(([playerId]) => playerId !== options.excludeBarbarianId)
     .map(([playerId, { gained, lost, net }]) => ({
       playerId,
       tilesGained24h: gained.size,
@@ -95,9 +121,11 @@ export const computeTerritoryMomentum = (flipLog: readonly TerritoryFlip[]): Ter
     .sort((a, b) => b.net24h - a.net24h);
 };
 
-export const computeBiggestSwing24h = (flipLog: readonly TerritoryFlip[]): BiggestSwing24h => {
+// `excludeBarbarianId` keeps the barbarian system player from being reported
+// as suffering the day's biggest defeat (the daily story's "Biggest Defeat").
+export const computeBiggestSwing24h = (flipLog: readonly TerritoryFlip[], excludeBarbarianId?: string): BiggestSwing24h => {
   if (flipLog.length === 0) return null;
-  const momentum = computeTerritoryMomentum(flipLog);
+  const momentum = computeTerritoryMomentum(flipLog, excludeBarbarianId === undefined ? {} : { excludeBarbarianId });
   const worst = momentum.reduce<TerritoryMomentum | undefined>((acc, entry) => {
     if (entry.tilesLost24h === 0) return acc;
     if (!acc || entry.tilesLost24h > acc.tilesLost24h) return entry;
