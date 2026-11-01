@@ -300,7 +300,7 @@ body.hud-v2 #activity-dashboard-overlay { display: none !important; }
 .v2u-changes li::before { content: ""; position: absolute; left: -12px; top: 0.55em; width: 4px; height: 4px; background: var(--v2-gold); }
 
 /* Towns: your towns in one sortable table (client-hud-v2-towns.ts). */
-.v2l-table { flex: 1; min-height: 0; overflow: auto; align-self: center; width: min(820px, 100%); display: grid; align-content: start; gap: 4px; padding: 14px 20px; background: rgba(15, 13, 10, 0.94); border: 1px solid var(--v2-edge); }
+.v2l-table { max-height: 100%; min-height: 0; overflow: auto; align-self: center; width: min(820px, 100%); display: grid; align-content: start; gap: 4px; padding: 14px 20px; background: rgba(15, 13, 10, 0.94); border: 1px solid var(--v2-edge); }
 .v2l-head, .v2l-row { display: grid; grid-template-columns: minmax(0, 1.8fr) repeat(3, minmax(0, 1fr)); gap: 16px; align-items: center; }
 .v2l-head { padding: 0 10px 8px; border-bottom: 1px solid var(--v2-line); font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
 .v2l-sort { justify-self: end; padding: 2px 0; border: 0; background: none; color: inherit; font: inherit; white-space: nowrap; }
