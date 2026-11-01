@@ -31,15 +31,40 @@ it.
   the changelog has a player-facing *why* for every change. These are the raw
   material for devlog posts.
 
-## Channels, in priority order
+## Channels: post where other games aren't
 
-| Channel | What to post | Cadence |
+Game subreddits (r/IndieDev, r/playmygame, r/WebGames, r/indiegames) get
+hundreds of game posts a week, and most sink without being seen. The
+r/singularity-style posts that work skip the queue: they go where nobody
+posts games, as native content for that sub. The game is only the source.
+
+**Tier 1: niche communities (most effort, best odds).** No play link in
+the body. Reply with it when asked.
+
+| Community | Native post | Raw material |
 |---|---|---|
-| r/WebGames, r/playmygame, r/browsergames | Direct "play in browser, no sign-up" link post, first comment from the dev | Once per season launch per sub |
-| r/IndieDev, r/gamedev (devlog/screenshot threads), r/IndieGaming | Devlog: one lesson + one GIF, link only where the rules allow | Weekly, rotating subs |
-| r/4Xgaming, r/strategygames, r/incremental_games-adjacent subs | Design-discussion post ("combat is only border ownership — would you play it?"), with a disclosure | Every 2–3 weeks |
-| Own Discord + indie showcase servers | Weekly update + war stories | Weekly |
-| Short clips (YouTube Shorts / TikTok) | A 15 s GIF of a muster push or a monument race, cut from playtests | When there's a good clip |
+| r/singularity, r/accelerate, r/artificial | Capability data point: e.g. on 2026-11-01, 19 of the top 20 empires were AI. The in-game AI is a deterministic planner, not an LLM; say so | `niche-communities.md` (live numbers) |
+| r/ClaudeAI (Built-with-Claude megathread), r/ClaudeCode, r/vibecoding, r/AI_Agents | How agents ship a live game: merged PRs/week, the AGENTS.md guardrails, honest failures | `reddit-ai-builders.md` (git stats) |
+| r/dataisbeautiful | [OC] chart of a day of border wars or AI-vs-human power | `wars.csv`, `power.csv` |
+| r/GameTheory, r/diplomacy | Truce/betrayal design question with real outcomes | live truce/war counts |
+| r/proceduralgeneration, r/threejs, r/webgl | One technique write-up (toroidal islands, rivers, 3D renderer + 2D fallback), game as live demo | worldgen/renderer docs |
+| r/worldbuilding, r/imaginarymaps | World-bible excerpt or season-end border map | [world bible](../lore/galactic-lore.md) |
+| r/sweden / local subs + local press | "Local solo dev runs a live strategy game" human story | — |
+
+Note that r/ClaudeAI already gets so many "I built a game" posts that it has a
+megathread for them. Treat it as Tier 2 unless the post is about the process.
+
+**Tier 2: game subs (low effort, crowded).** Post once per season launch:
+r/WebGames, r/playmygame, r/browsergames, r/incremental_games (Feedback
+Friday), r/4Xgaming / r/strategygames (discussion posts with a disclosure),
+r/IndieDev / r/gamedev devlog threads.
+
+**Avoid:** r/opensource (reported to bar AI-built projects), and any sub
+whose rules ban AI-generated content. Several game subs are hostile to
+AI-built games: disclose openly rather than get caught.
+
+Rules were not verified against live sidebars (Reddit blocks the
+environment this was written from). Read each sidebar before the first post.
 
 ## Rules that keep the account alive
 
@@ -65,7 +90,7 @@ post:
 | Step | Command |
 |---|---|
 | Make a tracked link for one post | `node scripts/outreach/outreach-link.mjs --source reddit --campaign "r-webgames-season-13"` |
-| Draft this week's posts from shipped changes + live war stories | `node scripts/outreach/outreach-drafts.mjs --days 7` → `.outreach-drafts/` (gitignored) |
+| Draft this week's posts (game subs, AI-builder subs, niche communities) + chart CSVs from shipped changes, git stats and live data | `node scripts/outreach/outreach-drafts.mjs --days 7` → `.outreach-drafts/` (gitignored) |
 | See which posts brought visitors and sign-ups | `/admin/players/insights` → *By source*, or `ADMIN_API_TOKEN=… node scripts/outreach/outreach-report.mjs --days 7` |
 | Weekly results in Slack | `.github/workflows/outreach-report.yml` (Mondays, plus manual runs; needs the `ADMIN_API_TOKEN` repo secret) |
 
@@ -78,6 +103,9 @@ up as `direct`. Always use a tagged link.
 
 Known gaps:
 
+- The activity feed's territory momentum has shown impossible numbers
+  (47,356 net tiles from 475 gained). The drafts script drops those rows and the
+  "expansion" headlines built from them until the feed is fixed.
 - Links to the `borderempires.com` landing page lose their tag when the
   visitor clicks Play. Link to `play.borderempires.com` directly.
 - Guest players who never save their empire are counted as visitors, not

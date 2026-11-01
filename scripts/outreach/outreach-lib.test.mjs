@@ -4,7 +4,7 @@ import { join, dirname } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { buildOutreachLink, formatSourceReport, parseChangelogEntries, slugify } from "./outreach-lib.mjs";
+import { buildOutreachLink, countMergedPrs, formatSourceReport, parseChangelogEntries, slugify } from "./outreach-lib.mjs";
 
 test("slugify makes short readable utm values", () => {
   assert.equal(slugify("r/WebGames — Season 12 Launch!"), "rwebgames-season-12-launch");
@@ -55,4 +55,8 @@ test("parseChangelogEntries still finds the real changelog entries (format drift
   let total = 0;
   for (const f of files) total += parseChangelogEntries(await readFile(join(dir, f), "utf8")).length;
   assert.ok(total >= 20, `expected at least 20 parsed changelog entries, got ${total}`);
+});
+
+test("countMergedPrs counts only PR merge subjects", () => {
+  assert.equal(countMergedPrs("Merge pull request #12 from a/b\nFix thing\nMerge pull request #13 from a/c\nMerge branch 'develop'"), 2);
 });

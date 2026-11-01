@@ -59,3 +59,6 @@ const unescape = (s) => s.replace(/\\(["\\])/g, "$1");
 
 export const parseChangelogEntries = (source) =>
   [...String(source).matchAll(ENTRY_RE)].map((m) => ({ createdAt: Number(m[1]), title: unescape(m[2]), why: unescape(m[3]) }));
+
+// Counts merged GitHub PRs in `git log --merges --format=%s` output.
+export const countMergedPrs = (logText) => String(logText).split("\n").filter((line) => /^Merge pull request #\d+/.test(line)).length;

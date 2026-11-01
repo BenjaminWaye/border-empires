@@ -13,12 +13,14 @@
 //
 // Usage:
 //   node scripts/outreach/outreach-drafts.mjs [--days 7] [--out <dir>] [--no-activity]
+import { execFileSync } from "node:child_process";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 
-import { buildOutreachLink, parseChangelogEntries } from "./outreach-lib.mjs";
+import { buildOutreachLink, countMergedPrs, parseChangelogEntries } from "./outreach-lib.mjs";
+import { buildNicheDraft, plausibleMomentum, powerCsv, warsCsv } from "./outreach-niche.mjs";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const { values } = parseArgs({
@@ -47,15 +49,34 @@ for (const file of files) {
 entries.sort((a, b) => b.createdAt - a.createdAt);
 
 let story = [];
+let activity;
 if (!values["no-activity"]) {
   try {
     const res = await fetch(process.env.ACTIVITY_API_URL ?? "https://api.borderempires.com/api/activity", { signal: AbortSignal.timeout(15_000) });
-    if (res.ok) story = (await res.json()).dailyStory ?? [];
+    if (res.ok) {
+      activity = await res.json();
+      // Drop expansion headlines while the momentum feed reports impossible
+      // net-tile numbers (see plausibleMomentum); everything else is fine.
+      const momentumBroken = (activity.territoryMomentum ?? []).some((row) => !plausibleMomentum(row));
+      story = (activity.dailyStory ?? []).filter((e) => !(momentumBroken && /expan/i.test(e.headline)));
+    }
     else console.error(`activity API returned ${res.status}; drafts will skip the war-story section`);
   } catch (error) {
     console.error(`activity API unreachable (${error instanceof Error ? error.message : error}); skipping war stories`);
   }
 }
+
+// Real numbers for the AI-audience draft; those subs reward concrete
+// specifics and punish vague hype. Best-effort: a missing git just drops them.
+const git = (args) => {
+  try {
+    return execFileSync("git", args, { cwd: repoRoot, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  } catch {
+    return "";
+  }
+};
+const mergedPrs = countMergedPrs(git(["log", `--since=${days} days ago`, "--merges", "--format=%s"]));
+const sourceFiles = git(["ls-files", "*.ts", "*.tsx"]).split("\n").filter((f) => f && !/\.test\.tsx?$/.test(f)).length;
 
 const link = (source, campaign, medium = "post") => buildOutreachLink({ source, medium, campaign: `${campaign}-${stamp}` });
 const bullets = (list, n) => list.slice(0, n).map((e) => `- **${e.title}** — ${e.why}`).join("\n") || "- _(nothing shipped in this window — write about a design decision instead)_";
@@ -104,6 +125,28 @@ Body: Explain the core idea (tile exposure = defense, forts multiply the cost to
 
 Link in a reply only when someone asks: ${link("reddit", "r-4xgaming-discussion", "comment")}
 `,
+  "reddit-ai-builders.md": `# AI-builder subs: r/ClaudeAI (Built-with-Claude megathread), r/ClaudeCode, r/vibecoding, r/ChatGPTCoding (self-promo thread), r/AI_Agents, r/accelerate, r/singularity
+
+The audience here cares how it was built, not the game. Lead with the process
+and real numbers; the game is the proof. Be upfront that agents wrote most of
+the code: these subs check, and so will the game subs you cross-post to.
+
+Title ideas:
+- "Coding agents shipped ${mergedPrs} merged PRs in ${days} days to a live multiplayer strategy game. What works and what breaks"
+- "I run a persistent browser MMO mostly built by AI agents. Here's the guardrail file that keeps them from wrecking it"
+
+Body (rewrite in your own voice):
+- What it is: a live browser strategy game (two map renderers, realtime gateway + simulation, ${sourceFiles} TypeScript source files).
+- How agents work on it: one task → one branch → CI gate (lint, file-length limit, tests) → PR. The rules file (AGENTS.md) and what each rule fixed.
+- What still needs a human: <be specific: balance calls, lore, art direction, prod incidents>.
+- Failures: <one honest story of an agent regression and the guardrail it produced>.
+- This week, from player reports:
+${bullets(entries, 3)}
+
+r/singularity / r/accelerate only: frame it as a capability data point ("what one person + agents can run in 2026"), not an ad. No link in the post; reply with it if asked.
+
+Link (comment, where allowed): ${link("reddit", "r-claudeai-showcase", "comment")}
+`,
   "discord.md": `# Discord announcement (own server) / indie showcase channels
 
 **This week in Border Empires**
@@ -112,6 +155,12 @@ ${headlines ? `\n**From the front lines**\n${headlines}\n` : ""}
 Bring a friend into the season: ${link("discord", "weekly-update", "announcement")}
 `
 };
+
+if (activity) {
+  drafts["niche-communities.md"] = buildNicheDraft(activity, link("reddit", "niche-reply", "comment"));
+  drafts["wars.csv"] = warsCsv(activity);
+  drafts["power.csv"] = powerCsv(activity);
+}
 
 await mkdir(values.out, { recursive: true });
 for (const [name, body] of Object.entries(drafts)) await writeFile(join(values.out, `${stamp}-${name}`), body);
