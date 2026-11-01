@@ -3,6 +3,7 @@
 // season-end overlay, the tile-menu auto-settle checkbox, the flag-gated v2 HUD, and the one-time
 // landmass naming prompt. Lives here (not
 // inline in client-bootstrap.ts) to keep that oversized file from growing.
+import { isMapLoadingOverlayActive } from "../client-map-loading-view/client-map-loading-view.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { installAutoSettleSettingsBinding } from "../client-auto-settle-prompt/client-auto-settle-settings-ui.js";
 import { installAutoSettleTileOptionBinding } from "../client-auto-settle-prompt/client-auto-settle-tile-option.js";
@@ -27,7 +28,7 @@ export const installPostBootstrapHooks = ({ state, renderHud, sendGameMessage, a
   installDiscoveryTipCenterBinding({ state, wrapX, wrapY, requestViewRefresh, renderHud });
   installDebugSeasonEndOverlay(state, renderHud);
   installHudV2({ state, renderHud, requestViewRefresh, wrapX, wrapY, isMobile, sendGameMessage, actionFlow, ownerColor }); // ?hud=v2 redesigned desktop HUD
-  installDiplomacyOfferDock({ state, sendGameMessage }); // incoming truce/alliance offers, answered in place
+  installDiplomacyOfferDock({ state, sendGameMessage, isMapLoading: () => isMapLoadingOverlayActive(state) }); // incoming truce/alliance offers, answered in place
   // March To banner + pointer arrow, and dragging a march's destination (read by client-map-input.ts).
   installMarchInteraction({ state, renderHud, sendGameMessage: (payload) => sendGameMessage(payload, "Finish sign-in before changing a march.") });
   installAutoSettleSettingsBinding((payload) => sendGameMessage(payload, "Finish sign-in before changing auto-garrison."));
