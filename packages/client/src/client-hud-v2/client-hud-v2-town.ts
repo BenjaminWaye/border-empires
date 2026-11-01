@@ -115,13 +115,14 @@ const barHtml = (input: TownScreenInput): string => {
   const supportFocus = keyOf(input.focus) !== keyOf(input.town);
   const isMuster = (a: TileActionDef): boolean => a.id.startsWith("muster_");
   // An ungarrisoned town's Garrison leads the bar as the gold main button; a text link was easy to miss.
-  // Otherwise an ungarrisoned support tile you selected gets it, on that tile: the town screen is the only
-  // place a support tile's actions show in HUD v2. Touch has no tooltips, so a disabled one says why on the button.
+  // With a support tile selected (the screen only opens on one once its town is garrisoned), that tile's
+  // Garrison takes the slot instead. Touch has no tooltips, so a disabled one says why on the button.
   const townGarrison = input.townView.actions.find(isGarrison);
   const focusGarrison = supportFocus && !townGarrison ? input.focusView.actions.find(isGarrison) : undefined;
   const garrison = townGarrison ?? focusGarrison;
   const garrisonKey = focusGarrison ? keyOf(input.focus) : keyOf(input.town);
-  const garrisonLabel = focusGarrison ? `${focusGarrison.label} (${input.focus.x}, ${input.focus.y})` : garrison?.label ?? "";
+  // Plain "Garrison": the selected tile is already highlighted, and a longer label crushes on narrow phones.
+  const garrisonLabel = garrison?.label ?? "";
   const garrisonNote = garrison?.disabled ? garrison.disabledReason : garrison?.cost;
   const garrisonBtn = garrison
     ? `<button type="button" class="v2t-act v2t-act-primary" data-hud-v2-action="settle_land"${targetAttrs(garrison, garrisonKey)}${garrison.disabled ? " disabled" : ""} title="${esc(garrison.disabled ? garrison.disabledReason ?? garrisonLabel : garrison.detail ?? garrisonLabel)}">${esc(garrisonLabel)}${garrisonNote ? `<small>${esc(garrisonNote)}</small>` : ""}</button>`
