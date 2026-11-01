@@ -445,7 +445,14 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...SIEGE_UMBRITE_ONLY_CHANGELOG,
   ...MARCH_WIN_CHANCE_CHANGELOG,
   ...SPACE_POLITICS_CHANGELOG,
-  ...CLIENT_CHANGELOG_ENTRIES_OCT_30_31
+  ...CLIENT_CHANGELOG_ENTRIES_OCT_30_31,
+  {
+    createdAt: 1793483288830,
+    introducedIn: "2026.10.31",
+    title: "Smoother 3D map",
+    why: "The 3D map spent part of every frame updating thousands of hidden objects, which could make the tab freeze or report as unresponsive.",
+    changes: ["Each frame now only updates objects that are on show"]
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
