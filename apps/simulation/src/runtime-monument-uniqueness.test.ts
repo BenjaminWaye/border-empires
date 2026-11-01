@@ -223,6 +223,23 @@ describe("§16 monument global uniqueness", () => {
     expect(eventLogAppends).toContainEqual(expect.objectContaining({ playerId: "bystander", type: "MONUMENT_CLAIMED" }));
   });
 
+  it("refunds a discounted loser only the manpower their part actually charged", () => {
+    const winner = makePlayer("winner", { manpower: 0 });
+    // Universal Fabrication Line halves every build's manpower, so the part cost 500, not 1,000.
+    const loser = makePlayer("loser", { manpower: 200, domainIds: new Set(["afc-dominion-5"]) });
+    const { context } = createContext(
+      [winner, loser],
+      [
+        { x: 1, y: 1, terrain: "LAND", ownerId: "winner", ownershipState: "SETTLED", economicStructure: { ownerId: "winner", type: "IMPERIAL_EXCHANGE", status: "under_construction", completesAt: 1_000 } },
+        { x: 2, y: 2, terrain: "LAND", ownerId: "loser", ownershipState: "SETTLED", economicStructure: { ownerId: "loser", type: "IMPERIAL_EXCHANGE_PART_1", status: "active" } }
+      ]
+    );
+
+    completeStructureBuild(context, simulationTileKey(1, 1), "winner", "IMPERIAL_EXCHANGE", "cmd-complete");
+
+    expect(loser.manpower).toBe(700);
+  });
+
   it("does not activate a second assembly when two players' builds are both under_construction at once (completion-time race)", () => {
     // The reject gate in handleBuildStructureCommand only sees an already-
     // ACTIVE assembly, so two players can each have their own assembly

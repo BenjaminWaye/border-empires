@@ -132,6 +132,8 @@ Manpower keeps regenerating continuously, as today (`applyManpowerRegen`).
 **The rule** (OGame-style: time is derived from cost, with no separate table):
 
 > build time = manpower cost × 1 s ÷ build-speed multiplier  (100 MP = 100 seconds; was × 36 s until 2026-10-10)
+>
+> **Superseded 2026-11-01:** every structure that costs manpower now builds in a flat 60 s and is removed in a flat 30 s (`STRUCTURE_BUILD_MS` / `STRUCTURE_REMOVAL_MS`). The AFC build-speed upgrades became manpower discounts. See `docs/game-mechanics.md` §5.
 
 - Growth comes from cost scaling that already exists (e.g. +10–15% per copy of
   a type, and Sky Dock doubling), so times grow the same way automatically.

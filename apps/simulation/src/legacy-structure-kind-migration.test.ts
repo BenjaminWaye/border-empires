@@ -13,6 +13,21 @@ const tile = (overrides: Partial<Tile> = {}): Tile => ({
 });
 
 describe("migrateLegacyStructureKinds", () => {
+  it("drops removed QUARTERMASTERS_OFFICE structures from their tiles", () => {
+    const tiles = [
+      tile({
+        ownerId: "player-1",
+        economicStructure: { ownerId: "player-1", type: "QUARTERMASTERS_OFFICE" as never, status: "active" }
+      })
+    ];
+
+    const migrated = migrateLegacyStructureKinds(tiles);
+
+    expect(migrated).toBe(1);
+    expect(tiles[0]!.economicStructure).toBeUndefined();
+    expect(tiles[0]!.ownerId).toBe("player-1");
+  });
+
   it("rewrites tile.economicStructure.type LIGHT_OUTPOST to RELAY_BEACON", () => {
     const tiles = [
       tile({

@@ -140,7 +140,7 @@ export const handleRushBuyCommandImpl = (context: RuntimeRushBuyCommandContext, 
   }
   const refund =
     tileField === "fort" ? fortCancelRefund(actor, target.fort?.variant) :
-    tileField === "siegeBattery" ? siegeBatteryCancelRefund(target.siegeBattery?.variant) :
+    tileField === "siegeBattery" ? siegeBatteryCancelRefund(actor, target.siegeBattery?.variant) :
     economicOrObservatoryCancelRefund(context.structureCommandContext(), command.playerId, structureType as BuildableStructureType);
   const spec = STRUCTURE_REGISTRY[structureType];
   if (!spec) {

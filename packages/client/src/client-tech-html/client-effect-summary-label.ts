@@ -110,6 +110,9 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "fortDefenseMult" && typeof value === "number") return `Fort defense ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "fortBuildGoldCostMult" && typeof value === "number") return `Fort cost ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "fortBuildSpeedMult" && typeof value === "number") return `Fort build speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "fortBuildManpowerCostMult" && typeof value === "number") return `Fort manpower cost ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "relayBeaconBuildManpowerCostMult" && typeof value === "number") return `Relay Beacon manpower cost ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "structureBuildManpowerCostMult" && typeof value === "number") return `Building manpower cost ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "fortTitaniumSlotWaiverCount" && typeof value === "number") return `First ${value} Forts need no TITANIUM slot`;
   if (key === "settledDefenseNearFortMult" && typeof value === "number")
     return `Garrisoned defense near forts ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;

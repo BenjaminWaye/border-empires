@@ -943,17 +943,17 @@ describe("menuOverviewForTile", () => {
           ownerId: "me",
           type: "RELAY_BEACON",
           status: "removing",
-          completesAt: Date.now() + 45_000
+          completesAt: Date.now() + 27_000
         }
       },
-      () => "0:45", { hasQuickforge: false, wonderLastFreeRushBuyAt: 0, nowMs: Date.now() }, "me"
+      () => "0:27", { hasQuickforge: false, wonderLastFreeRushBuyAt: 0, nowMs: Date.now() }, "me"
     );
 
     expect(progress?.title).toBe("Removing Relay Beacon");
-    expect(progress?.remainingLabel).toBe("0:45");
+    expect(progress?.remainingLabel).toBe("0:27");
     expect(progress?.cancelLabel).toBe("Cancel removal");
     expect(progress?.note).toContain("Income, upkeep, and structure effects are paused");
-    expect(progress?.progress).toBeCloseTo(0.1, 2); // no startedAt: beacon removal window, 0.5s x 100 MP = 50s
+    expect(progress?.progress).toBeCloseTo(0.1, 2); // no startedAt: flat 30s removal window
   });
 
   it("shows fort removal progress with disabled-defense copy", () => {

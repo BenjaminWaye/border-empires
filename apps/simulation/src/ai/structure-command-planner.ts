@@ -24,6 +24,7 @@ import {
   openTownSupportNeighborTiles,
   townSupportStructureShowsOnTile
 } from "../town-support-lookup.js";
+import { structureManpowerCostForPlayer } from "../structure-manpower-cost/structure-manpower-cost.js";
 import { economyWeak } from "./ai-economic-heuristics.js";
 import { ECONOMIC_STRUCTURE_CATALOG, economicCatalogScore } from "./build/economic-structure-catalog.js";
 import type { NeedVector } from "./build/build-need-vector.js";
@@ -36,6 +37,7 @@ export type StructurePlannerPlayer = {
   points: number;
   manpower?: number;
   techIds?: readonly string[];
+  domainIds?: readonly string[];
   strategicResources?: Partial<Record<StrategicResourceKey, number>>;
   settledTileCount?: number;
   townCount?: number;
@@ -174,15 +176,15 @@ const canAffordGold = (player: StructurePlannerPlayer, goldCost: number): boolea
 // "authoritative gate" fix already applied to EXPAND/ATTACK — see
 // hasAnyExpandCandidate / hasAnyAttackCandidate in ai/utility/decisions.ts.
 //
-// Deliberately compares against the UNDISCOUNTED cost: the runtime applies
-// Quartermaster's Office's 0.67x war-structure discount by proximity, which
-// isn't resolvable from planner state. Over-charging here can only skip a build
-// that was affordable (safe), whereas under-charging would reintroduce exactly
-// the reject loop this gate exists to close. Moot for AI players today in any
-// case — nothing in the planner can propose a QUARTERMASTERS_OFFICE, so no AI
-// ever owns one (see docs/ai-structure-building-rewrite-plan.md §1.1).
-const canAffordManpower = (player: StructurePlannerPlayer, manpowerCost: number): boolean =>
-  (player.manpower ?? 0) >= manpowerCost;
+// Compares against the same AFC-discounted cost the runtime charges
+// (structureManpowerCostForPlayer), so an AI with Bastion/Dominion upgrades
+// doesn't sit idle waiting for manpower it doesn't need.
+const canAffordManpower = (player: StructurePlannerPlayer, structureType: string, baseManpowerCost: number): boolean =>
+  (player.manpower ?? 0) >= structureManpowerCostForPlayer(
+    { techIds: new Set(player.techIds ?? []), domainIds: new Set(player.domainIds ?? []) },
+    structureType,
+    baseManpowerCost
+  );
 
 export const canAffordStructure = (
   player: StructurePlannerPlayer,
@@ -201,7 +203,7 @@ export const canAffordStructure = (
   // Same existingOwnedCount the runtime scales by (it passes
   // ownedStructureCountForPlayer into structureBuildManpowerCostScaled), so
   // Relay Beacon's first-N-free rule stays in lockstep here.
-  if (!canAffordManpower(player, structureBuildManpowerCostScaled(structureType, existingOwnedCount))) return false;
+  if (!canAffordManpower(player, structureType, structureBuildManpowerCostScaled(structureType, existingOwnedCount))) return false;
   // Match hasFreeResourceSlots: synthesizers and the first five relay
   // beacons remain buildable during a deficit. No per-candidate tile scan.
   if (player.slotSupplyByResource && player.slotDemandByResource &&
@@ -387,7 +389,7 @@ export const chooseBestFortBuild = (
   // Tier-aware for the same reason the titanium/gold checks above are: the
   // runtime charges the resolved tier's manpower (fortTier.manpower), not a
   // flat base-FORT figure.
-  if (!canAffordManpower(player, fortTier.manpower)) return undefined;
+  if (!canAffordManpower(player, fortTier.variant, fortTier.manpower)) return undefined;
 
   let best: { tile: StructurePlannerTile; score: number } | undefined;
   for (const tile of candidateTiles) {
@@ -434,7 +436,7 @@ export const chooseBestSiegeBatteryBuild = (
   const siegeTier = siegeTierForFreshBuild((id) => playerTechSet(player).has(id), slotsFit);
   if (!slotsFit(siegeTier.variant)) return undefined;
   if (!canAffordGold(player, siegeTier.gold)) return undefined;
-  if (!canAffordManpower(player, siegeTier.manpower)) return undefined;
+  if (!canAffordManpower(player, siegeTier.variant, siegeTier.manpower)) return undefined;
 
   let best: { tile: StructurePlannerTile; score: number } | undefined;
   for (const tile of candidateTiles) {

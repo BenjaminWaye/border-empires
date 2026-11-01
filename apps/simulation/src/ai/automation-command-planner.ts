@@ -260,6 +260,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       // War reserve applies to structure builds too — not raw input.manpower — except for the pool floor the muster tick leaves for builds (see spendableBuildManpowerForPlanner).
       manpower: spendableBuildManpowerForPlanner(input),
       ...(input.techIds ? { techIds: input.techIds } : {}),
+      ...(input.domainIds ? { domainIds: input.domainIds } : {}),
       ...(input.strategicResources ? { strategicResources: input.strategicResources } : {}),
       ...(input.installedModuleTechIds ? { installedModuleTechIds: input.installedModuleTechIds } : {}),
       ...(input.blockedActionKeys ? { blockedActionKeys: input.blockedActionKeys } : {}),

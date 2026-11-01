@@ -51,5 +51,4 @@ export const DISTRICT_MODEL_BRIEFS: Readonly<Record<DistrictBuildingKind, Distri
   TITANIUM_LEVY_PART_2: brief("Titanium Standard: battle standard for the finished monument's muster.", "Broad armoured standard on a braced ceremonial pole."),
   TITANIUM_LEVY_PART_3: brief("Levy Writ: conscription authority for the monument's one-time army.", "Authorization tablet and stamping actuator."),
   WEAPONS_WORKSHOP: brief("Retired compatibility type; replaced by the Titanium and Umbrite Weapons Factories.", "Older compact workshop retained for previously saved structures."),
-  QUARTERMASTERS_OFFICE: brief("Retired compatibility type; previously reduced nearby war-structure manpower build costs.", "Older logistics office retained for previously saved structures.")
 };

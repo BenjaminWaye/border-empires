@@ -87,8 +87,9 @@ before making its visual brief:
 
 1. `packages/shared/src/structure-registry-index.ts` and
    `structure-registry-economic.ts` establish whether it is buildable.
-   Quartermaster's Office and Weapons Workshop are retired save-compatible
-   types, not current construction options.
+   Weapons Workshop is a retired save-compatible type, not a current
+   construction option. Quartermaster's Office was removed entirely; any
+   saved copy is dropped on boot (`legacy-structure-kind-migration.ts`).
 2. `packages/shared/src/config.ts`, simulation build-completion/population
    modules and the `game-domain/structure-modifier-catalog/` establish effects.
    Incubation Engine grants +10,000 population once and +10% ongoing growth;

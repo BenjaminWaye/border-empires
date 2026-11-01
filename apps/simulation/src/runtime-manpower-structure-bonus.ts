@@ -32,7 +32,6 @@ export type ManpowerStructureBonusContext = {
   neuralWorksTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   reserveLatticeTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   ancillaryFactoryTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
-  quartermastersOfficeTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   incubationEngineTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   censusHallTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   townNetworkCacheByPlayer: ReadonlyMap<string, Map<string, ConnectedTownNetworkEntry>>;
@@ -169,7 +168,6 @@ export const cachedManpowerStructureBonusForPlayer = (
       ancillaryFactoryCount +
       (neuralWorksKeys?.size ?? 0) +
       (reserveLatticeKeys?.size ?? 0) +
-      (ctx.quartermastersOfficeTilesByOwner.get(player.id)?.size ?? 0) +
       (ctx.incubationEngineTilesByOwner.get(player.id)?.size ?? 0) +
       (ctx.censusHallTilesByOwner.get(player.id)?.size ?? 0);
   }

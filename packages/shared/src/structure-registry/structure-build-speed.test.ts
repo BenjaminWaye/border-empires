@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { buildDurationWithSpeedMult, structureBuildSpeedEffectKey } from "../structure-registry-index.js";
+import { buildDurationWithSpeedMult, discountedStructureManpowerCost, structureBuildSpeedEffectKey, structureManpowerCostEffectKey } from "../structure-registry-index.js";
 
 describe("structureBuildSpeedEffectKey", () => {
   test("maps each structure family to the effect the simulation applies", () => {
@@ -22,5 +22,22 @@ describe("buildDurationWithSpeedMult", () => {
   test("divides the base time by the multiplier", () => {
     expect(buildDurationWithSpeedMult(150_000, 1.5)).toBe(100_000);
     expect(buildDurationWithSpeedMult(150_000, 1)).toBe(150_000);
+  });
+});
+
+describe("structureManpowerCostEffectKey", () => {
+  test("maps every Fort tier and the Relay Beacon to their AFC discount, others to none", () => {
+    expect(structureManpowerCostEffectKey("FORT")).toBe("fortBuildManpowerCostMult");
+    expect(structureManpowerCostEffectKey("THUNDER_BASTION")).toBe("fortBuildManpowerCostMult");
+    expect(structureManpowerCostEffectKey("PALISADE")).toBe("fortBuildManpowerCostMult");
+    expect(structureManpowerCostEffectKey("RELAY_BEACON")).toBe("relayBeaconBuildManpowerCostMult");
+    expect(structureManpowerCostEffectKey("SIEGE_BATTERY")).toBeUndefined();
+    expect(structureManpowerCostEffectKey("MANUFACTORY")).toBeUndefined();
+  });
+
+  test("rounds a discounted cost and never goes negative", () => {
+    expect(discountedStructureManpowerCost(100, 0.5)).toBe(50);
+    expect(discountedStructureManpowerCost(100, 1 / 6)).toBe(17);
+    expect(discountedStructureManpowerCost(0, 0.5)).toBe(0);
   });
 });

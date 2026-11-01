@@ -258,7 +258,6 @@ import {
   rebuildTownNetworkUninstrumented as rebuildTownNetworkUninstrumentedImpl,
   neuralWorksAlreadyInNetworkForPlayer as neuralWorksAlreadyInNetworkForPlayerImpl,
   reserveLatticeAlreadyInNetworkForPlayer as reserveLatticeAlreadyInNetworkForPlayerImpl,
-  hasNearbyQuartermastersOfficeForPlayer as hasNearbyQuartermastersOfficeForPlayerImpl,
   censusHallConnectedIncubationEngineBonusCountForPlayer as censusHallConnectedIncubationEngineBonusCountForPlayerImpl,
   tileYieldEconomyContextForPlayer as tileYieldEconomyContextForPlayerImpl,
   enrichTileWithTownContext as enrichTileWithTownContextImpl,
@@ -2417,7 +2416,6 @@ export class SimulationRuntime {
       townNetworkCacheByPlayer: this.economyCaches.townNetworkCacheByPlayer,
       townConnectivityStateByPlayer: this.economyCaches.townConnectivityStateByPlayer,
       tileYieldContextCacheByPlayer: this.economyCaches.tileYieldContextCacheByPlayer,
-      quartermastersOfficeTilesByOwner: this.ownerIndexes.quartermastersOfficeTilesByOwner,
       ...(this.trackSyncMainThreadTask !== undefined ? { trackSyncMainThreadTask: this.trackSyncMainThreadTask } : {}),
       players: this.state.players,
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
@@ -2491,16 +2489,6 @@ export class SimulationRuntime {
   // exactly, retargeted.
   private reserveLatticeAlreadyInNetworkForPlayer(playerId: string, townKey: string): boolean {
     return reserveLatticeAlreadyInNetworkForPlayerImpl(this.townNetworkContext(), playerId, townKey);
-  }
-
-  // Quartermaster's Office (tech-tree redesign): true when the player owns
-  // an active Quartermaster's Office within QUARTERMASTERS_OFFICE_RADIUS
-  // (Chebyshev) tiles of (x, y). A plain radius scan over the player's own
-  // (rare, late-game) Quartermaster's Offices, same cost tradeoff as
-  // monumentClaimOwnerId's full scan -- this only runs on a War-branch
-  // structure build/upgrade command, not every tick.
-  private hasNearbyQuartermastersOfficeForPlayer(playerId: string, x: number, y: number): boolean {
-    return hasNearbyQuartermastersOfficeForPlayerImpl(this.townNetworkContext(), playerId, x, y);
   }
 
   // Census Hall (tech-tree redesign): connected-network Incubation Engine
@@ -3195,7 +3183,6 @@ export class SimulationRuntime {
       assignedTownKeyForSupportTile: (playerId, x, y) => this.assignedTownKeyForSupportTile(playerId, x, y),
       neuralWorksAlreadyInNetwork: (playerId, townKey) => this.neuralWorksAlreadyInNetworkForPlayer(playerId, townKey),
       reserveLatticeAlreadyInNetwork: (playerId, townKey) => this.reserveLatticeAlreadyInNetworkForPlayer(playerId, townKey),
-      hasNearbyQuartermastersOffice: (playerId, x, y) => this.hasNearbyQuartermastersOfficeForPlayer(playerId, x, y),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       bumpTerrainEpoch: () => { this.terrainEpoch = nextTerrainEpoch++; },

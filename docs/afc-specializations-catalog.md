@@ -41,7 +41,7 @@ visible in attack previews; they do not depend on an undiscoverable flag mode.
 
 | Tier / ID | New name (previous name) | Mechanical promise | Explanation |
 | --- | --- | --- | --- |
-| I `afc-bastion-1` | **Fortification Patterns** (Garrison Basics) | ×2 fort build speed; waive Titanium slot demand for three qualifying forts using the existing waiver semantics. | Standardized prefabricated plans and dedicated starter stores make the first defensive works inexpensive to sustain and quick to assemble. |
+| I `afc-bastion-1` | **Fortification Patterns** (Garrison Basics) | ×0.5 fort manpower cost; waive Titanium slot demand for three qualifying forts using the existing waiver semantics. | Standardized prefabricated plans and dedicated starter stores make the first defensive works inexpensive to sustain and light on work crews. |
 | II `afc-bastion-2` | **Armour Production Mandate** (Ironclad Bastions) | Double the defense bonus contributed by Titanium and Umbrite Weapons Factories, including the existing applicable factory-equivalent calculation. | The headquarters optimizes military production for protective equipment and defensive formations. |
 | III `afc-bastion-3` | **Citadel Reserves** (replacement for Fortified Resolve) | **Working default:** +25% defense on owned garrisoned towns with active forts. No adjacent halo, factory prerequisite exemption, or HOLD action requirement. | Fortified towns maintain trained local reserves and protected supply stores that reinforce their garrisons. |
 | IV `afc-bastion-4` | **Defensive Depth** (Punishing Ramparts) | Attacks against active owned forts require ×2 MP commitment. Apply it to the odds baseline too; do not separately charge doubled casualties. | Layered obstacles and compartmentalized approaches require a larger assault force to mount a viable attack. |
@@ -59,11 +59,11 @@ and assembly protocols turn new ground into an operating territorial network.
 
 | Tier / ID | New name (previous name) | Mechanical promise | Explanation |
 | --- | --- | --- | --- |
-| I `afc-dominion-1` | **Relay Fabrication Line** (Beacon Foundries) | Relay Beacon construction ×3 speed. | The AFC mass-produces standardized relay assemblies for rapid field installation. |
+| I `afc-dominion-1` | **Relay Fabrication Line** (Beacon Foundries) | Relay Beacon manpower cost ×1/3. | The AFC mass-produces standardized relay assemblies that small field crews can install. |
 | II `afc-dominion-2` | **Harbor Survey Array** (Harbor Reach) | Dock reach radius 1 → 2. | Hydrographic and coastal survey crews extend the terrain a dock's administration can reliably support. |
 | III `afc-dominion-3` | **Provincial Survey Array** (Provincial Reach) | Town reach radius 3 → 4. | Town offices gain survey, dispatch, and communication systems for a wider surrounding jurisdiction. |
 | IV `afc-dominion-4` | **Settlement Assembly Line** (Rapid Settlement) | Settlement ×2 speed. | Prepared settlement packages and coordinated crews shorten the work of establishing a garrison. |
-| V `afc-dominion-5` | **Universal Fabrication Line** (Universal Construction) | All building construction ×2 speed, including Relay Beacons; with tier I beacons build ×6 faster. | The expedition adopts a common assembly and dispatch system across its construction operations. |
+| V `afc-dominion-5` | **Universal Fabrication Line** (Universal Construction) | All building manpower cost ×0.5, including Relay Beacons; with tier I beacons cost ×1/6. | The expedition adopts a common assembly and dispatch system across its construction operations. |
 
 Use build duration, not build cost, for speed effects. Respect active structures,
 dormancy, terrain, and resource slots. Apply reach upgrades to existing anchors

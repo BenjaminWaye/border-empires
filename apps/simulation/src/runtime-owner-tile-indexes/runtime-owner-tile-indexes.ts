@@ -34,7 +34,6 @@ export class RuntimeOwnerTileIndexes {
     "neuralWorksTilesByOwner" |
     "reserveLatticeTilesByOwner" |
     "ancillaryFactoryTilesByOwner" |
-    "quartermastersOfficeTilesByOwner" |
     "incubationEngineTilesByOwner" |
     "censusHallTilesByOwner"> {
     return {
@@ -42,7 +41,6 @@ export class RuntimeOwnerTileIndexes {
       neuralWorksTilesByOwner: this.neuralWorksTilesByOwner,
       reserveLatticeTilesByOwner: this.reserveLatticeTilesByOwner,
       ancillaryFactoryTilesByOwner: this.ancillaryFactoryTilesByOwner,
-      quartermastersOfficeTilesByOwner: this.quartermastersOfficeTilesByOwner,
       incubationEngineTilesByOwner: this.incubationEngineTilesByOwner,
       censusHallTilesByOwner: this.censusHallTilesByOwner,
     };
@@ -81,7 +79,6 @@ export class RuntimeOwnerTileIndexes {
   // in runtime-tile-index-maintenance.ts).
   readonly reserveLatticeTilesByOwner = new Map<string, Set<string>>();
   readonly ancillaryFactoryTilesByOwner = new Map<string, Set<string>>();
-  readonly quartermastersOfficeTilesByOwner = new Map<string, Set<string>>();
   readonly incubationEngineTilesByOwner = new Map<string, Set<string>>();
   readonly censusHallTilesByOwner = new Map<string, Set<string>>();
   // Boot seeding only: which index each active manpower building lands in.
@@ -90,7 +87,6 @@ export class RuntimeOwnerTileIndexes {
     ["ANCILLARY_DEPOT", this.ancillaryDepotTilesByOwner],
     ["RESERVE_LATTICE", this.reserveLatticeTilesByOwner],
     ["ANCILLARY_FACTORY", this.ancillaryFactoryTilesByOwner],
-    ["QUARTERMASTERS_OFFICE", this.quartermastersOfficeTilesByOwner],
     ["INCUBATION_ENGINE", this.incubationEngineTilesByOwner],
     ["CENSUS_HALL", this.censusHallTilesByOwner]
   ]);
@@ -111,7 +107,6 @@ export class RuntimeOwnerTileIndexes {
       ancillaryDepotTilesByOwner: this.ancillaryDepotTilesByOwner,
       reserveLatticeTilesByOwner: this.reserveLatticeTilesByOwner,
       ancillaryFactoryTilesByOwner: this.ancillaryFactoryTilesByOwner,
-      quartermastersOfficeTilesByOwner: this.quartermastersOfficeTilesByOwner,
       incubationEngineTilesByOwner: this.incubationEngineTilesByOwner,
       censusHallTilesByOwner: this.censusHallTilesByOwner
     });

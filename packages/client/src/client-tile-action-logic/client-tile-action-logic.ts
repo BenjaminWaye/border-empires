@@ -10,7 +10,6 @@ import {
   type BuildableStructureType,
   SETTLE_COST, SETTLE_MANPOWER_COST,
   PALISADE_DEFENSE_MULT,
-  structureBuildManpowerCost,
   structureBuildDurationMs,
   terrainAt,
   structureSkipsSettledRequirement,
@@ -602,12 +601,12 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         ...tileActionAvailability(
           state.techIds.includes("advanced-synthetication") &&
             state.gold >= deps.structureGoldCost("HIGH_YIELD_UMBRITE_WORKS") &&
-            state.manpower >= structureBuildManpowerCost("HIGH_YIELD_UMBRITE_WORKS"),
+            state.manpower >= buildManpowerCostForState(state, "HIGH_YIELD_UMBRITE_WORKS"),
           !state.techIds.includes("advanced-synthetication")
             ? "Requires Advanced Synthetication"
             : state.gold < deps.structureGoldCost("HIGH_YIELD_UMBRITE_WORKS")
               ? `Need ${deps.structureGoldCost("HIGH_YIELD_UMBRITE_WORKS")} coin`
-              : `Need ${structureBuildManpowerCost("HIGH_YIELD_UMBRITE_WORKS")} manpower`,
+              : `Need ${buildManpowerCostForState(state, "HIGH_YIELD_UMBRITE_WORKS")} manpower`,
           `${deps.structureCostText("HIGH_YIELD_UMBRITE_WORKS")} • ${buildTimeLabel(economicBuildMsForState(state, "HIGH_YIELD_UMBRITE_WORKS"))}${upkeepSuffixFor("HIGH_YIELD_UMBRITE_WORKS")}`
         )
       });
@@ -620,12 +619,12 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         ...tileActionAvailability(
           state.techIds.includes("advanced-synthetication") &&
             state.gold >= deps.structureGoldCost("HIGH_YIELD_TITANIUM_WORKS") &&
-            state.manpower >= structureBuildManpowerCost("HIGH_YIELD_TITANIUM_WORKS"),
+            state.manpower >= buildManpowerCostForState(state, "HIGH_YIELD_TITANIUM_WORKS"),
           !state.techIds.includes("advanced-synthetication")
             ? "Requires Advanced Synthetication"
             : state.gold < deps.structureGoldCost("HIGH_YIELD_TITANIUM_WORKS")
               ? `Need ${deps.structureGoldCost("HIGH_YIELD_TITANIUM_WORKS")} coin`
-              : `Need ${structureBuildManpowerCost("HIGH_YIELD_TITANIUM_WORKS")} manpower`,
+              : `Need ${buildManpowerCostForState(state, "HIGH_YIELD_TITANIUM_WORKS")} manpower`,
           `${deps.structureCostText("HIGH_YIELD_TITANIUM_WORKS")} • ${buildTimeLabel(economicBuildMsForState(state, "HIGH_YIELD_TITANIUM_WORKS"))}${upkeepSuffixFor("HIGH_YIELD_TITANIUM_WORKS")}`
         )
       });
@@ -638,12 +637,12 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         ...tileActionAvailability(
           state.techIds.includes("advanced-synthetication") &&
             state.gold >= deps.structureGoldCost("HIGH_YIELD_AETHER_CONDENSER") &&
-            state.manpower >= structureBuildManpowerCost("HIGH_YIELD_AETHER_CONDENSER"),
+            state.manpower >= buildManpowerCostForState(state, "HIGH_YIELD_AETHER_CONDENSER"),
           !state.techIds.includes("advanced-synthetication")
             ? "Requires Advanced Synthetication"
             : state.gold < deps.structureGoldCost("HIGH_YIELD_AETHER_CONDENSER")
               ? `Need ${deps.structureGoldCost("HIGH_YIELD_AETHER_CONDENSER")} coin`
-              : `Need ${structureBuildManpowerCost("HIGH_YIELD_AETHER_CONDENSER")} manpower`,
+              : `Need ${buildManpowerCostForState(state, "HIGH_YIELD_AETHER_CONDENSER")} manpower`,
           `${deps.structureCostText("HIGH_YIELD_AETHER_CONDENSER")} • ${buildTimeLabel(economicBuildMsForState(state, "HIGH_YIELD_AETHER_CONDENSER"))}${upkeepSuffixFor("HIGH_YIELD_AETHER_CONDENSER")}`
         )
       });
@@ -1049,7 +1048,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       }
       if (buildShowsOnTile("ORE_REFINERY", tile, supportedTowns.length, supportedDocks.length)) {
         const oreRefineryAvail = canBuildPlacementStructure("ORE_REFINERY", tile, state.me, state.gold, state.techIds, state.resourceSlots);
-        const oreRefineryHasManpower = state.manpower >= structureBuildManpowerCost("ORE_REFINERY");
+        const oreRefineryHasManpower = state.manpower >= buildManpowerCostForState(state, "ORE_REFINERY");
         out.push({
           id: "build_ore_refinery",
           label: "Build Ore Refinery",
@@ -1061,7 +1060,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
               !oreRefineryAvail.available
                 ? oreRefineryAvail.reason
                 : !oreRefineryHasManpower
-                  ? `Need ${structureBuildManpowerCost("ORE_REFINERY")} manpower`
+                  ? `Need ${buildManpowerCostForState(state, "ORE_REFINERY")} manpower`
                   : missingResourceSlotReason(state, "ORE_REFINERY") ?? "Unavailable",
               `${deps.structureCostText("ORE_REFINERY")} • ${buildTimeLabel(economicBuildMsForState(state, "ORE_REFINERY"))} • doubles active Mine slot output within 5 tiles${upkeepSuffixFor("ORE_REFINERY")}`
             )
@@ -1070,7 +1069,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       }
       if (buildShowsOnTile("HYDROWORKS", tile, supportedTowns.length, supportedDocks.length)) {
         const hydroworksAvail = canBuildPlacementStructure("HYDROWORKS", tile, state.me, state.gold, state.techIds, state.resourceSlots);
-        const hydroworksHasManpower = state.manpower >= structureBuildManpowerCost("HYDROWORKS");
+        const hydroworksHasManpower = state.manpower >= buildManpowerCostForState(state, "HYDROWORKS");
         out.push({
           id: "build_hydroworks",
           label: "Build Hydroworks",
@@ -1082,7 +1081,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
               !hydroworksAvail.available
                 ? hydroworksAvail.reason
                 : !hydroworksHasManpower
-                  ? `Need ${structureBuildManpowerCost("HYDROWORKS")} manpower`
+                  ? `Need ${buildManpowerCostForState(state, "HYDROWORKS")} manpower`
                   : missingResourceSlotReason(state, "HYDROWORKS") ?? "Unavailable",
               `${deps.structureCostText("HYDROWORKS")} • ${buildTimeLabel(economicBuildMsForState(state, "HYDROWORKS"))} • every Hydrogarden within 10 tiles gains +${HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS} FOOD slots${upkeepSuffixFor("HYDROWORKS")}`
             )
@@ -1108,10 +1107,6 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           )
         });
       }
-      // QUARTERMASTERS_OFFICE is retired (weak payoff vs. its escalating
-      // tech-gold cost) — no build clause for it, so it stops appearing in
-      // any build menu. Legacy copies a player already owns keep
-      // functioning; see structure-registry-economic.ts.
       // WEAPONS_WORKSHOP is retired (replaced by the two structures below) —
       // no build clause for it, so it stops appearing in any build menu.
       // Legacy copies a player already owns keep functioning; see
