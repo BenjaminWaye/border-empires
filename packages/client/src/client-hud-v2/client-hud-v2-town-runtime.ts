@@ -62,12 +62,19 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
     townIndex: Math.max(0, towns.findIndex((t) => keyOf(t) === current?.townKey)),
     townCount: towns.length,
     buildSelection: screen.townBuildSelection,
-    category: screen.townCategory
+    category: screen.townCategory,
+    focusQueuePosition: deps.state.developmentQueue.findIndex((entry) => entry.tileKey === current?.focusKey) + 1
   });
   writeHtml("v2t-left", regions.left);
   writeHtml("v2t-build", regions.build);
-  writeHtml("v2t-place", regions.place);
   writeHtml("v2t-bar", regions.bar);
+};
+
+/** Re-reads the selected tile's view before rendering: a work card's action (jump, cancel) changes it before any tile update arrives. */
+export const refreshTownScreen = (deps: HudV2Deps): void => {
+  const focus = current ? deps.state.tiles.get(current.focusKey) : undefined;
+  if (current && focus) current.focusView = deps.actionFlow.tileMenuViewForTile(focus);
+  renderTownScreen(deps);
 };
 
 let mapGuardInstalled = false;

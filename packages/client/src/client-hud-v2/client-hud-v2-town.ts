@@ -1,13 +1,16 @@
 // Town screen for the new HUD. Opens when you select one of your towns, or a
 // tile in its support ring (that tile stays highlighted and becomes the build
-// target). Town info on the left, the build list on the right, Raise flag /
-// Overclock at the bottom. All actions reuse the tile menu's own definitions.
+// target). Town info on the left, the build list on the right (titled In
+// progress, with a card per build, while the selected tile has work on it; the
+// picked building's Build on button docks at its foot), Raise flag / Overclock
+// at the bottom. All actions reuse the tile menu's own definitions.
 
 import { manpowerPerBatch, terrainAdjustedTownManpower, townFoodSlotDemandForTier } from "@border-empires/shared";
 import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town-tile-terrain.js";
 import type { BuildingCategory } from "../client-tile-menu-building-category/client-tile-menu-building-category.js";
 import { isGarrison } from "./client-hud-v2-action-bar.js";
 import { buildCategories, buildListHtml, buildPlaceHtml } from "./client-hud-v2-build-list.js";
+import { townWorkHtml } from "./client-hud-v2-town-work.js";
 import { townGrowth } from "./client-hud-v2-tile-facts.js";
 import { displayTownPopulationTierLabel, townNextPopulationMilestone } from "../client-town-growth/client-town-growth.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
@@ -21,6 +24,8 @@ export type TownScreenInput = {
   townCount: number;
   buildSelection: string | undefined;
   category: BuildingCategory | undefined;
+  /** The selected tile's queued build's 1-based place in your build queue; 0 or absent when it has none. */
+  focusQueuePosition?: number;
 };
 
 const esc = (text: string): string =>
@@ -82,7 +87,9 @@ const leftPanelHtml = (input: TownScreenInput): string => {
 
 const buildPanelHtml = (input: TownScreenInput): string => {
   const supportFocus = keyOf(input.focus) !== keyOf(input.town);
-  return buildListHtml({
+  const placeLabel = supportFocus ? `Build on (${input.focus.x}, ${input.focus.y})` : "Place";
+  const work = input.focusView.work ?? [];
+  const list = buildListHtml({
     buildings: input.focusView.buildings,
     focusLabel: supportFocus ? `(${input.focus.x}, ${input.focus.y})` : input.townView.title,
     focusHighlighted: supportFocus,
@@ -90,18 +97,11 @@ const buildPanelHtml = (input: TownScreenInput): string => {
     category: input.category,
     emptyText: `Nothing to build ${supportFocus ? "on this tile" : "here"}`,
     targetKey: keyOf(input.focus),
-    placeLabel: supportFocus ? `Build on (${input.focus.x}, ${input.focus.y})` : "Place"
+    placeLabel,
+    ...(work.length > 0 ? { title: "In progress", leadHtml: townWorkHtml(work, keyOf(input.focus), input.focusQueuePosition ?? 0) } : {})
   });
-};
-
-const placeHtml = (input: TownScreenInput): string => {
-  const supportFocus = keyOf(input.focus) !== keyOf(input.town);
-  return buildPlaceHtml({
-    buildings: input.focusView.buildings,
-    selection: input.buildSelection,
-    targetKey: keyOf(input.focus),
-    placeLabel: supportFocus ? `Build on (${input.focus.x}, ${input.focus.y})` : "Place"
-  });
+  const place = buildPlaceHtml({ buildings: input.focusView.buildings, selection: input.buildSelection, targetKey: keyOf(input.focus), placeLabel, docked: true });
+  return `${list}${place}`;
 };
 
 const barHtml = (input: TownScreenInput): string => {
@@ -147,14 +147,12 @@ const barHtml = (input: TownScreenInput): string => {
     <button type="button" class="v2t-act v2t-act-back" data-v2-close>◁ Map · Esc</button>`;
 };
 
-export const townScreenRegions = (input: TownScreenInput): { left: string; build: string; place: string; bar: string } => ({
+export const townScreenRegions = (input: TownScreenInput): { left: string; build: string; bar: string } => ({
   left: leftPanelHtml(input),
   build: buildPanelHtml(input),
-  place: placeHtml(input),
   bar: barHtml(input)
 });
 
 export const TOWN_SCREEN_SKELETON = `<section class="v2t-left" id="v2t-left" aria-label="Town"></section>
   <section class="v2t-right" id="v2t-build" aria-label="Build"></section>
-  <div class="v2t-place-slot" id="v2t-place"></div>
   <div class="v2t-bar" id="v2t-bar"></div>`;

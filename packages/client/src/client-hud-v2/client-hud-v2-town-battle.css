@@ -56,9 +56,23 @@
 .v2t-build-name { font-family: var(--v2-display); font-size: 14px; font-weight: 700; letter-spacing: 0.04em; }
 .v2t-build-detail { font-size: 13px; color: var(--v2-soft); }
 .v2t-build-cost { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-soft); }
-.v2t-place-slot { position: fixed; right: 212px; bottom: 16px; width: 224px; }
 .v2t-place { display: grid; gap: 8px; padding: 14px; border-color: var(--v2-edge-strong); }
 .v2t-place-name { font-family: var(--v2-display); font-size: 14px; font-weight: 700; letter-spacing: 0.06em; color: var(--v2-gold-hi); }
+/* The town screen docks it at the foot of the build panel, sticky under the scrolling list. */
+.v2t-place-docked { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; background: #1a1610; border: 0; border-top: 1px solid var(--v2-edge-strong); box-shadow: none; }
+/* Work on the selected tile: a card per build between the panel title and the build list. */
+.v2t-work { display: grid; gap: 8px; padding: 0 18px 12px; border-bottom: 1px solid var(--v2-line); }
+.v2t-work + .v2t-h { padding-top: 12px; }
+.v2t-job { display: grid; gap: 6px; padding: 10px 12px; background: var(--v2-well); border: 1px solid var(--v2-line); border-left: 3px solid var(--v2-edge-strong); }
+.v2t-job-run { border-left-color: #3fb0a6; }
+.v2t-job-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.v2t-job-name { font-family: var(--v2-display); font-size: 14px; font-weight: 700; letter-spacing: 0.04em; }
+.v2t-job-state { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-soft); }
+.v2t-job-run .v2t-job-state { color: var(--v2-green); }
+.v2t-job-bar { height: 4px; background: #2a241b; }
+.v2t-job-bar > span { display: block; height: 4px; background: #3fb0a6; }
+.v2t-job-acts { display: flex; gap: 6px; }
+.v2t-job-acts .v2s-btn { flex: 1; }
 #v2t-bar.v2t-bar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); width: min(560px, calc(100vw - 880px)); min-width: 380px; display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; border-color: var(--v2-edge-strong); }
 .v2t-act {
   flex: 1; display: grid; justify-items: center; align-content: center; gap: 2px; height: 46px; padding: 0 12px; background: var(--v2-well); border: 1px solid var(--v2-edge-strong);
