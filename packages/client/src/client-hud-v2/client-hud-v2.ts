@@ -69,6 +69,7 @@ const SCREEN_TARGETS: Readonly<Record<string, HudV2ScreenId>> = {
   afc: "afc",
   diplomacy: "diplomacy",
   ranks: "ranks",
+  towns: "towns",
   chronicle: "chronicle"
 };
 
@@ -213,7 +214,7 @@ const onEscape = (deps: HudV2Deps, event: KeyboardEvent): void => {
   if (escapeOpensSettings(state, document)) openTarget(deps, "settings");
 };
 
-const NAV_ACTIVE: Partial<Record<HudV2ScreenId, string>> = { manifest: "manifest", afc: "afc", diplomacy: "diplomacy", ranks: "ranks", chronicle: "chronicle" };
+const NAV_ACTIVE: Partial<Record<HudV2ScreenId, string>> = { manifest: "manifest", afc: "afc", diplomacy: "diplomacy", ranks: "ranks", towns: "towns", chronicle: "chronicle" };
 
 const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], nowMs: number): void => {
   writeRegion("bar", resourceBarHtml({

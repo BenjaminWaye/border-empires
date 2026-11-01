@@ -470,6 +470,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Press a town to jump to it on the map",
       "The All view's Food slot list no longer comes out empty"
     ]
+  },
+  {
+    createdAt: 1793565464215, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.01",
+    title: "Towns in the new HUD",
+    why: "The new HUD had no way to reach the town list.",
+    changes: ["A Towns button next to Manifest lists your towns, sortable by gold, population or growth", "Press a town to open its town screen"]
   }
 ];
 

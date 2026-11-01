@@ -22,6 +22,7 @@ const esc = (text: string): string =>
 export const navHtml = (input: NavInput): string => {
   const bubbles: Bubble[] = [
     { open: "manifest", icon: "tech", label: "Manifest" },
+    { open: "towns", icon: "towns", label: "Towns" },
     { open: "afc", icon: "domains", label: "AFC", badge: input.afcReady },
     { open: "diplomacy", icon: "alliance", label: "Diplomacy", badge: input.diplomacyRequests },
     { open: "ranks", icon: "leaderboard", label: "Ranks" },

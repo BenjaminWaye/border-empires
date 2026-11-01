@@ -166,9 +166,13 @@ export const stepTown = (deps: HudV2Deps, delta: number): void => {
   if (towns.length < 2 || !current) return;
   const at = towns.findIndex((t) => keyOf(t) === current?.townKey);
   const listed = towns[(at + delta + towns.length) % towns.length];
-  if (!listed) return;
+  if (listed) openTownAt(deps, listed.x, listed.y);
+};
+
+/** Moves the camera to your town at (x, y) and opens its town screen, the way a press on it would. */
+export const openTownAt = (deps: HudV2Deps, x: number, y: number): void => {
   // The cached list may predate a tile-detail reply; open the current record.
-  const next = deps.state.tiles.get(keyOf(listed));
+  const next = deps.state.tiles.get(keyOf({ x, y }));
   if (!next?.town || next.ownerId !== deps.state.me) return;
   focusCamera(deps, next.x, next.y);
   // Match a map press: even a previously full tile can have stale economy
