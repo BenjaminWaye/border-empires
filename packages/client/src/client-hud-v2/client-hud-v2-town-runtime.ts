@@ -10,6 +10,7 @@ import { clearScreen, focusCamera, screen, SCREEN_HOST_ID, screenCentre, setScre
 import { createFlagTapTracker } from "./client-hud-v2-flag-tap.js";
 import { suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
 import { TOWN_SCREEN_SKELETON, townScreenRegions } from "./client-hud-v2-town.js";
+import { markTownWorkSent, runTownWorkAction, townQueuePosition, townWorkLocked } from "./client-hud-v2-town-work.js";
 
 type TownContext = { townKey: string; focusKey: string; focusView: TileMenuView };
 
@@ -63,15 +64,23 @@ export const renderTownScreen = (deps: HudV2Deps): void => {
     townCount: towns.length,
     buildSelection: screen.townBuildSelection,
     category: screen.townCategory,
-    focusQueuePosition: deps.state.developmentQueue.findIndex((entry) => entry.tileKey === current?.focusKey) + 1
+    focusQueuePosition: townQueuePosition(deps.state.developmentQueue, current.focusKey),
+    focusWorkLocked: townWorkLocked(current.focusKey, current.focusView.work ?? [])
   });
   writeHtml("v2t-left", regions.left);
   writeHtml("v2t-build", regions.build);
   writeHtml("v2t-bar", regions.bar);
 };
 
-/** Re-reads the selected tile's view before rendering: a work card's action (jump, cancel) changes it before any tile update arrives. */
-export const refreshTownScreen = (deps: HudV2Deps): void => {
+/**
+ * Runs a work card's button on the selected tile, then re-reads its view: a queue change (jump, cancel) lands
+ * before any tile update. Rush and cancel-construction lock the cards until the server's update (markTownWorkSent).
+ */
+export const runTownWork = (deps: HudV2Deps, action: string, tileKey: string): void => {
+  const work = current?.focusKey === tileKey ? current.focusView.work ?? [] : [];
+  if (townWorkLocked(tileKey, work)) return;
+  const ran = runTownWorkAction(deps, action, tileKey);
+  if (ran && (action === "rush_buy" || action === "cancel_structure_build")) markTownWorkSent(tileKey, work);
   const focus = current ? deps.state.tiles.get(current.focusKey) : undefined;
   if (current && focus) current.focusView = deps.actionFlow.tileMenuViewForTile(focus);
   renderTownScreen(deps);

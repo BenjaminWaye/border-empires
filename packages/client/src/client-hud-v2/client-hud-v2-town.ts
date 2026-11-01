@@ -24,8 +24,10 @@ export type TownScreenInput = {
   townCount: number;
   buildSelection: string | undefined;
   category: BuildingCategory | undefined;
-  /** The selected tile's queued build's 1-based place in your build queue; 0 or absent when it has none. */
+  /** The selected tile's queued build's 1-based place in its queue tier; 0 or absent when it has none. */
   focusQueuePosition?: number;
+  /** The work cards' buttons are locked while a rush or cancel waits on the server. */
+  focusWorkLocked?: boolean;
 };
 
 const esc = (text: string): string =>
@@ -98,7 +100,7 @@ const buildPanelHtml = (input: TownScreenInput): string => {
     emptyText: `Nothing to build ${supportFocus ? "on this tile" : "here"}`,
     targetKey: keyOf(input.focus),
     placeLabel,
-    ...(work.length > 0 ? { title: "In progress", leadHtml: townWorkHtml(work, keyOf(input.focus), input.focusQueuePosition ?? 0) } : {})
+    ...(work.length > 0 ? { title: "In progress", leadHtml: townWorkHtml(work, keyOf(input.focus), input.focusQueuePosition ?? 0, input.focusWorkLocked ?? false) } : {})
   });
   const place = buildPlaceHtml({ buildings: input.focusView.buildings, selection: input.buildSelection, targetKey: keyOf(input.focus), placeLabel, docked: true });
   return `${list}${place}`;

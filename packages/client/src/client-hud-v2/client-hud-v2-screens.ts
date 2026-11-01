@@ -27,8 +27,7 @@ import { MANIFEST_LEGEND_HTML, manifestDetailHtml, manifestHeadRightHtml, manife
 import { profileHtml, type ProfileRelation } from "./client-hud-v2-profile.js";
 import { ranksBannerHtml, ranksBodyHtml } from "./client-hud-v2-ranks.js";
 import { expandDockedMenu, suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
-import { closeTownScreen, refreshTownScreen, renderTownScreen, runTileActionOn, stepTown } from "./client-hud-v2-town-runtime.js";
-import { runTownWorkAction } from "./client-hud-v2-town-work.js";
+import { closeTownScreen, renderTownScreen, runTileActionOn, runTownWork, stepTown } from "./client-hud-v2-town-runtime.js";
 
 const TITLES: Partial<Record<HudV2ScreenId, string>> = { manifest: "Manifest", afc: "AFC Upgrades", diplomacy: "Diplomacy", ranks: "The Duke's Seat" };
 
@@ -410,10 +409,9 @@ const townClick = (deps: HudV2Deps, target: Element): boolean => {
     renderTownScreen(deps);
     return true;
   }
-  const work = target.closest<HTMLElement>("[data-v2-work-action]");
-  if (work?.dataset.v2WorkAction && work.dataset.targetKey) {
-    runTownWorkAction(deps, work.dataset.v2WorkAction, work.dataset.targetKey);
-    refreshTownScreen(deps);
+  const work = target.closest<HTMLButtonElement>("[data-v2-work-action]");
+  if (work) {
+    if (!work.disabled && work.dataset.v2WorkAction && work.dataset.targetKey) runTownWork(deps, work.dataset.v2WorkAction, work.dataset.targetKey);
     return true;
   }
   const action = target.closest<HTMLButtonElement>("[data-hud-v2-action]");

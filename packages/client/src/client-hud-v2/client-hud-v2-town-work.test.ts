@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuProgressView, TileMenuView } from "../client-types.js";
 import { townScreenRegions } from "./client-hud-v2-town.js";
-import { runTownWorkAction, townWorkHtml, workName } from "./client-hud-v2-town-work.js";
+import { DEV_QUEUE_SERVER_CAP } from "@border-empires/shared";
+import { markTownWorkSent, runTownWorkAction, townQueuePosition, townWorkHtml, townWorkLocked, workName } from "./client-hud-v2-town-work.js";
 
 const queued: TileMenuProgressView = {
   title: "Hydrogarden queued", detail: "", remainingLabel: "Queued", progress: 0, note: "",
@@ -70,6 +71,32 @@ describe("town screen work cards", () => {
     expect(build).toContain('class="v2t-place v2t-place-docked"');
     expect(build).toContain("Build on (6, 5)");
     expect(regions(view({ buildings: [act("build_hydrogarden")] })).build).not.toContain("v2t-place");
+  });
+});
+
+describe("town work review fixes", () => {
+  // Regression (review): the server rushes or cancels the Fort first, so a
+  // second click before the tile updated hit a different, unseen build.
+  it("locks the cards after a rush or cancel until the tile's work changes", () => {
+    markTownWorkSent("6,5", [building], 1_000);
+    expect(townWorkLocked("6,5", [building], 2_000)).toBe(true);
+    expect(townWorkHtml([building], "6,5", 0, true)).toContain('data-v2-work-action="rush_buy" data-target-key="6,5" aria-label="Rush Fortification: Rush · 340 Coin" disabled');
+    expect(townWorkLocked("6,5", [], 2_000)).toBe(false);
+    expect(townWorkLocked("6,5", [building], 12_000)).toBe(false);
+    expect(townWorkLocked("7,5", [building], 2_000)).toBe(false);
+  });
+
+  // Regression (review): the place counted both tiers, so a planned entry read #26 where the Progress tab read #6.
+  it("numbers the queued build within its own tier", () => {
+    const queue = Array.from({ length: DEV_QUEUE_SERVER_CAP + 6 }, (_, i) => ({ tileKey: `${i},0` }));
+    expect(townQueuePosition(queue, "2,0")).toBe(3);
+    expect(townQueuePosition(queue, `${DEV_QUEUE_SERVER_CAP + 5},0`)).toBe(6);
+    expect(townQueuePosition(queue, "9,9")).toBe(0);
+  });
+
+  it("says Cancel removal on a removal card", () => {
+    const removing: TileMenuProgressView = { title: "Removing Fort", detail: "", remainingLabel: "4m", progress: 0.2, note: "", cancelLabel: "Cancel removal" };
+    expect(townWorkHtml([removing], "6,5", 0)).toContain('aria-label="Cancel removal Removing Fort">Cancel removal</button>');
   });
 });
 
