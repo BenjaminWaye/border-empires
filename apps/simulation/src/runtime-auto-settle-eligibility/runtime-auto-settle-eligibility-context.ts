@@ -4,7 +4,7 @@
 // AGENTS.md's file-growth rule. Mirrors the same "deps bag -> composed
 // context" pattern as runtime-progression-command-context.ts.
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { isAutoSettleAllowedForTile } from "@border-empires/shared";
+import { DEFAULT_AUTO_SETTLE_PREFS, isAutoSettleAllowedForTile } from "@border-empires/shared";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import { isAutoSettlementResourceTechRevealed } from "../territory-automation/territory-automation.js";
 import { tileResourceMatchesRevealCategory } from "../tech-domain-bridge/tech-domain-bridge.js";
@@ -103,7 +103,9 @@ export const buildAutoSettleEligibilityRuntime = (deps: AutoSettleEligibilityRun
       hasTownSupport: (tile) => hasGrownTownSupportRing(deps.grownTownSupportRingByOwner, playerId, simulationTileKey(tile.x, tile.y)),
       isRevealedToPlayer: (tile) =>
         deps.isVisible(playerId, simulationTileKey(tile.x, tile.y)) && isAutoSettlementResourceTechRevealed(tile, player),
-      isAutoSettleAllowed: (tile) => player !== undefined && isAutoSettleAllowedForTile(player.autoSettle, tile)
+      // Runs during boot seeding too, where a player handed in via initialPlayers may carry no
+      // prefs; treat that like any other player with no stored value (everything on).
+      isAutoSettleAllowed: (tile) => player !== undefined && isAutoSettleAllowedForTile(player.autoSettle ?? DEFAULT_AUTO_SETTLE_PREFS, tile)
     };
   };
 
