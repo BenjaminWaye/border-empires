@@ -75,6 +75,7 @@ import { AFC_MODULE_MODELS_CHANGELOG } from "./client-changelog-afc-module-model
 import { PROFILE_CREST_TOGGLE_CHANGELOG } from "./client-changelog-profile-crest-toggle.js";
 import { GARRISON_BEACON_BUTTONS_CHANGELOG } from "./client-changelog-garrison-beacon-buttons.js";
 import { AUTO_GARRISON_QUEUE_CLOG_CHANGELOG } from "./client-changelog-auto-garrison-queue-clog.js";
+import { TOWN_SCREEN_SUPPORT_GARRISON_CHANGELOG } from "./client-changelog-town-screen-support-garrison.js";
 import { MARCH_ATTACK_DEEP_CHANGELOG } from "./client-changelog-march-attack-deep.js";
 import { WAR_INDUSTRY_SQUADS_CHANGELOG } from "./client-changelog-war-industry-squads.js";
 import { MARCH_ATTACK_ROUTES_CHANGELOG } from "./client-changelog-march-attack-routes.js";
@@ -322,6 +323,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...PROFILE_CREST_TOGGLE_CHANGELOG,
   ...GARRISON_BEACON_BUTTONS_CHANGELOG,
   ...AUTO_GARRISON_QUEUE_CLOG_CHANGELOG,
+  ...TOWN_SCREEN_SUPPORT_GARRISON_CHANGELOG,
   ...MARCH_ATTACK_DEEP_CHANGELOG,
   ...MARCH_ATTACK_ROUTES_CHANGELOG,
   ...MARCH_TO_UNEXPLORED_CHANGELOG,

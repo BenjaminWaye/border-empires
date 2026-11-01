@@ -203,6 +203,27 @@ describe("town screen", () => {
     expect(left).toContain("—");
   });
 
+  // Regression: selecting an ungarrisoned support tile opened the town screen, which only offered the town's
+  // own Garrison, so the support tile could not be garrisoned from HUD v2 at all.
+  it("offers Garrison on a selected ungarrisoned support tile once the town is garrisoned", () => {
+    const frontierSupport: Tile = { ...support, ownershipState: "FRONTIER" };
+    const regions = (townActions: TileActionDef[]) => townScreenRegions({
+      town,
+      focus: frontierSupport,
+      townView: view({ actions: townActions }),
+      focusView: view({ actions: [act("settle_land", { label: "Garrison", cost: "30 coin, 10 manpower" })] }),
+      townIndex: 0,
+      townCount: 1,
+      buildSelection: undefined,
+      category: undefined
+    }).bar;
+    const bar = regions([act("muster_hold")]);
+    expect(bar.startsWith('<button type="button" class="v2t-act v2t-act-primary" data-hud-v2-action="settle_land" data-target-key="6,5"')).toBe(true);
+    expect(bar).toContain(">Garrison (6, 5)<small>30 coin, 10 manpower</small>");
+    // An ungarrisoned town keeps the main button: the support ring only counts once the town is garrisoned.
+    expect(regions([act("settle_land", { label: "Garrison" })])).toContain('data-hud-v2-action="settle_land" data-target-key="5,5"');
+  });
+
   // Regression: an ungarrisoned town's Garrison was a faint text link beside Raise flag, easy to miss.
   it("leads an ungarrisoned town's bar with Garrison as the main button, saying why when it can't", () => {
     const ungarrisoned: Tile = { ...town, ownershipState: "FRONTIER" };
