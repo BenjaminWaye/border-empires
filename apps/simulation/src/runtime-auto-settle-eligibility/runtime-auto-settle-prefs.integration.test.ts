@@ -106,6 +106,27 @@ describe("auto-settle prefs gate", () => {
     expect(runtime.exportState().players.find((p) => p.id === "player-1")?.autoSettle?.answered).toBe(true);
   });
 
+  it("applies a legacy single resources switch to both strategic and luxury", async () => {
+    const { runtime, seen } = buildRuntime({ ...NEW_PLAYER_AUTO_SETTLE_PREFS });
+    setPrefs(runtime, { towns: false, food: true, resources: true });
+    await Promise.resolve();
+    expect(seen).toContainEqual(expect.objectContaining({ eventType: "COMMAND_RESOLVED", commandId: "prefs-1" }));
+    expect(runtime.exportState().players.find((p) => p.id === "player-1")?.autoSettle).toEqual({
+      answered: true,
+      towns: false,
+      food: true,
+      strategic: true,
+      luxury: true
+    });
+  });
+
+  it("rejects a payload with neither the split nor the legacy resources switch", async () => {
+    const { runtime, seen } = buildRuntime({ ...NEW_PLAYER_AUTO_SETTLE_PREFS });
+    setPrefs(runtime, { towns: false, food: true, strategic: true });
+    await Promise.resolve();
+    expect(seen).toContainEqual(expect.objectContaining({ eventType: "COMMAND_REJECTED", commandId: "prefs-1", code: "BAD_COMMAND" }));
+  });
+
   it("rejects a malformed payload and leaves the stored prefs untouched", async () => {
     const { runtime, seen } = buildRuntime({ ...NEW_PLAYER_AUTO_SETTLE_PREFS });
     setPrefs(runtime, { towns: "yes" });

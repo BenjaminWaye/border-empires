@@ -22,6 +22,13 @@ describe("ClientMessageSchema", () => {
       strategic: false,
       luxury: false
     });
+    // A tab opened before the strategic/luxury split still sends one resources switch.
+    expect(ClientMessageSchema.parse({ type: "SET_AUTO_SETTLE_PREFS", towns: true, food: false, resources: true })).toEqual({
+      type: "SET_AUTO_SETTLE_PREFS",
+      towns: true,
+      food: false,
+      resources: true
+    });
     expect(ClientMessageSchema.safeParse({ type: "SET_AUTO_SETTLE_PREFS", towns: "yes", food: false, strategic: false, luxury: false }).success).toBe(false);
   });
 

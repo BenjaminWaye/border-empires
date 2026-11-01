@@ -403,12 +403,15 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   }),
   // Per-category auto-settle opt-in (shared auto-settle-prefs.ts). Answering
   // (including "Not now" with everything false) marks the join prompt answered.
+  // Tabs opened before the strategic/luxury split send one `resources` switch
+  // instead; the sim's parseAutoSettleCategoryPrefs requires one of the shapes.
   z.object({
     type: z.literal("SET_AUTO_SETTLE_PREFS"),
     towns: z.boolean(),
     food: z.boolean(),
-    strategic: z.boolean(),
-    luxury: z.boolean()
+    strategic: z.boolean().optional(),
+    luxury: z.boolean().optional(),
+    resources: z.boolean().optional()
   }),
   // Rename the island under (x, y); only its full garrison holder may
   // (shared island-names.ts). The sim re-validates the name and the hold.

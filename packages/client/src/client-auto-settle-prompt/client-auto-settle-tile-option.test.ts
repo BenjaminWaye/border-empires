@@ -55,7 +55,7 @@ describe("auto-settle checkbox", () => {
     expect(autoSettleOptionForTile(state, tile({ naturalWonder: { type: "QUICKFORGE" } }))).toBeUndefined();
   });
 
-  it("toggling sends all three prefs with only that category changed", () => {
+  it("toggling sends all four prefs with only that category changed", () => {
     const state = createInitialState();
     state.autoSettle = loadedAutoSettleState({ answered: false, towns: false, food: true, strategic: false, luxury: false });
     const send = vi.fn(() => true);
