@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Town build progress</title>
+<!-- Draft: the HUD v2 town screen as shipped, with a support tile selected that has a build on it.
+     Uses the live HUD v2 stylesheets; only the .v2t-work block below is new. Open from the repo checkout. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&amp;family=Spectral:wght@400;600&amp;family=Space+Mono:wght@400;700&amp;display=swap">
+<link rel="stylesheet" href="../../../packages/client/src/client-hud-v2/client-hud-v2.css">
+<link rel="stylesheet" href="../../../packages/client/src/client-hud-v2/client-hud-v2-screens.css">
+<link rel="stylesheet" href="../../../packages/client/src/client-hud-v2/client-hud-v2-town-battle.css">
+<style>
+  body { margin: 0; min-height: 100vh; background: #0b0a08; }
+  /* Stand-in map behind the screen. */
+  .map { position: fixed; inset: 0; display: grid; grid-template-columns: repeat(auto-fill, 72px); grid-auto-rows: 72px; background: #0f2830; }
+  .map span { background: #3f4a2e; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.25); }
+  .map span.own { background: #3c6458; }
+  .map span.ring { background: #46705f; box-shadow: inset 0 0 0 2px rgba(240,207,130,0.6); }
+  .map span.town { background: #2f5a50; box-shadow: inset 0 0 0 2px rgba(240,207,130,0.75); }
+  .map span.focus { background: #5a8a74; box-shadow: inset 0 0 0 4px #f0cf82, inset 0 0 18px rgba(240,207,130,0.55); }
+  .shade { position: fixed; inset: 0; background: linear-gradient(90deg, rgba(8,7,5,0.82) 0, rgba(8,7,5,0.15) 30%, rgba(8,7,5,0.15) 66%, rgba(8,7,5,0.85) 100%); }
+  /* Draft-only state switch. */
+  .states { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); z-index: 90; display: flex; gap: 4px; padding: 6px; background: #0f0d0a; border: 1px dashed #8a6f35; font-family: "Space Mono", monospace; font-size: 11px; color: #a8997c; align-items: center; }
+  .states button { height: 28px; padding: 0 10px; background: #16130e; border: 1px solid #3a3125; color: #bda880; font: inherit; cursor: pointer; }
+  .states button[aria-pressed="true"] { border-color: #d9b25c; color: #f0cf82; background: #2a2216; }
+
+  /* ---- New: what's on the selected tile, between the Build head and the tabs ---- */
+  .v2t-work { display: grid; gap: 8px; padding: 0 18px 12px; border-bottom: 1px solid var(--v2-line); }
+  .v2t-job { display: grid; gap: 6px; padding: 10px 12px; background: var(--v2-well); border: 1px solid var(--v2-line); border-left: 3px solid var(--v2-edge-strong); }
+  .v2t-job-run { border-left-color: #3fb0a6; }
+  .v2t-job-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .v2t-job-name { font-family: var(--v2-display); font-size: 14px; font-weight: 700; letter-spacing: 0.04em; }
+  .v2t-job-state { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-soft); }
+  .v2t-job-run .v2t-job-state { color: var(--v2-green); }
+  .v2t-job-bar { height: 4px; background: #2a241b; }
+  .v2t-job-bar > span { display: block; height: 4px; background: #3fb0a6; }
+  .v2t-job-acts { display: flex; gap: 6px; }
+  .v2t-job-acts .v2s-btn { flex: 1; }
+</style>
+</head>
+<body class="hud-v2 hud-v2-screen-open hud-v2-screen-town">
+<div class="map" id="map" aria-hidden="true"></div>
+<div class="shade" aria-hidden="true"></div>
+
+<div class="states" role="group" aria-label="Draft state">
+  Draft:
+  <button type="button" data-state="none">Nothing on tile</button>
+  <button type="button" data-state="queued" aria-pressed="true">Hydrogarden queued</button>
+  <button type="button" data-state="running">Hydrogarden building</button>
+  <button type="button" data-state="both">+ Fort queued</button>
+</div>
+
+<div id="hud-v2" style="display: block">
+  <div id="hud-v2-screen" class="hud-v2-screen">
+    <section class="v2t-left" id="v2t-left" aria-label="Town">
+      <div class="v2t-name-row">
+        <button type="button" class="v2t-step" aria-label="Previous town">◁</button>
+        <span class="v2t-name"><span class="v2t-title">Halveth</span><span class="v2t-sub">City · Farming town</span></span>
+        <button type="button" class="v2t-step" aria-label="Next town">▷</button>
+      </div>
+      <div class="v2t-growth"><div class="v2t-growth-row"><span>Growth to Great City</span><span>6,410 / 10,000</span></div><div class="v2t-bar"><span style="width:64%"></span></div><div class="v2t-growth-row v2t-growth-rate"><span>~9h to Great City</span><span>+410/h</span></div></div>
+      <div class="v2t-stats">
+        <div class="v2t-stat"><span class="v2t-stat-k">COIN</span><span class="v2t-stat-v">+1,320/day</span><span class="v2t-stat-n">Fed</span></div>
+        <div class="v2t-stat"><span class="v2t-stat-k">MANPOWER CAP</span><span class="v2t-stat-v v2t-gold">+450</span><span class="v2t-stat-n">Base town · +30 per batch regen</span></div>
+        <div class="v2t-stat"><span class="v2t-stat-k">FOOD UPKEEP</span><span class="v2t-stat-v">2 slots</span></div>
+        <div class="v2t-stat"><span class="v2t-stat-k">SUPPORT RING</span><span class="v2t-stat-v">5 / 8</span></div>
+      </div>
+      <div class="v2t-h">In this town</div>
+      <div class="v2t-built-list">
+        <div class="v2t-built"><span class="v2t-built-ico" aria-hidden="true"></span><span><span class="v2t-built-name">Hydrogarden ×2</span><span class="v2t-built-mods"><span class="v2t-mod-positive">Food slots +2</span></span></span></div>
+        <div class="v2t-built"><span class="v2t-built-ico" aria-hidden="true"></span><span><span class="v2t-built-name">Manufactory</span><span class="v2t-built-mods"><span class="v2t-mod-positive">Coin +20%</span></span></span></div>
+      </div>
+      <div class="v2t-grow-wrap"><button type="button" class="v2s-btn v2s-btn-primary v2t-grow">Upgrade to Great City</button><span class="v2t-grow-cost">620 Coin · 1 Food slot</span></div>
+    </section>
+
+    <section class="v2t-right" id="v2t-build" aria-label="Build"></section>
+    <div class="v2t-place-slot" id="v2t-place"></div>
+
+    <div class="v2t-bar" id="v2t-bar">
+      <button type="button" class="v2t-act">Raise flag on (7, 4)</button>
+      <button type="button" class="v2t-act">Overclock<small>200 Coin</small></button>
+      <button type="button" class="v2t-act v2t-act-back">◁ Map · Esc</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const map = document.getElementById("map");
+  const cols = Math.ceil(window.innerWidth / 72), rows = Math.ceil(window.innerHeight / 72);
+  const tx = Math.floor(cols / 2), ty = Math.floor(rows / 2), fx = tx - 1, fy = ty - 1;
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+    const d = Math.max(Math.abs(x - tx), Math.abs(y - ty));
+    const cell = document.createElement("span");
+    cell.className = x === fx && y === fy ? "focus" : x === tx && y === ty ? "town" : d === 1 ? "ring" : Math.hypot(x - tx, y - ty) < 5 ? "own" : "";
+    map.appendChild(cell);
+  }
+
+  const job = (j) => `<div class="v2t-job${j.running ? " v2t-job-run" : ""}">
+      <div class="v2t-job-row"><span class="v2t-job-name">${j.name}</span><span class="v2t-job-state">${j.state}</span></div>
+      ${j.running ? `<div class="v2t-job-bar"><span style="width:${j.pct}%"></span></div>` : ""}
+      <div class="v2t-job-acts">${j.acts.map((a) => `<button type="button" class="v2s-btn v2s-btn-sm${a.danger ? " v2s-btn-ghost" : ""}">${a.label}</button>`).join("")}</div>
+    </div>`;
+  const hydroQueued = { name: "Hydrogarden", state: "Queued · #3", acts: [{ label: "Jump to front" }, { label: "Cancel", danger: true }] };
+  const hydroRunning = { name: "Hydrogarden", state: "1h 12m", running: true, pct: 58, acts: [{ label: "Rush · 340 Coin" }, { label: "Cancel", danger: true }] };
+  const fortQueued = { name: "Fort", state: "Queued · #4", acts: [{ label: "Jump to front" }, { label: "Cancel", danger: true }] };
+  const row = (r, on) => `<button type="button" class="v2t-build${on ? " v2t-build-on" : ""}${r.off ? " v2t-build-off" : ""}">
+      <span class="v2t-build-ico"></span>
+      <span class="v2t-build-text"><span class="v2t-build-name">${r.name}</span><span class="v2t-build-detail">${r.detail}</span><span class="v2t-build-cost${r.off ? " v2t-warn" : ""}">${r.cost}</span></span>
+    </button>`;
+  const supportRows = [
+    { name: "Hydrogarden", detail: "+Food slots on grain", cost: "80 MP · 48m" },
+    { name: "Manufactory", detail: "+Coin", cost: "150 MP · 1h 30m" },
+    { name: "Trade Nexus", detail: "Road connections", cost: "150 MP · 1h 30m" }
+  ];
+  const fortRow = { name: "Fort", detail: "Defense on this tile", cost: "120 MP · 1h" };
+
+  const STATES = {
+    none: { jobs: [], tabs: [["Town Support", 3], ["Defense", 1]], rows: supportRows, pick: "Hydrogarden" },
+    queued: { jobs: [hydroQueued], tabs: [["Defense", 1]], rows: [fortRow], pick: "Fort" },
+    running: { jobs: [hydroRunning], tabs: [["Defense", 1]], rows: [fortRow], pick: "Fort" },
+    both: { jobs: [hydroQueued, fortQueued], tabs: [], rows: [], pick: "" }
+  };
+  const render = (id) => {
+    const s = STATES[id];
+    document.querySelectorAll(".states button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.state === id)));
+    const tabs = s.tabs.map(([n, c], i) => `<button type="button" role="tab" class="v2t-tab${i === 0 ? " v2t-tab-on" : ""}">${n} · ${c}</button>`).join("");
+    document.getElementById("v2t-build").innerHTML =
+      `<div class="v2t-build-head"><span class="v2t-build-title">Build</span><span class="v2t-focus v2t-focus-on">(7, 4)</span></div>
+      ${s.jobs.length ? `<div class="v2t-work">${s.jobs.map(job).join("")}</div>` : ""}
+      ${tabs ? `<div class="v2t-tabs" role="tablist">${tabs}</div>` : ""}
+      <div class="v2t-build-list">${s.rows.map((r) => row(r, r.name === s.pick)).join("")}${s.rows.length ? "" : `<div class="v2s-empty">Nothing else fits on this tile</div>`}</div>`;
+    document.getElementById("v2t-place").innerHTML = s.pick
+      ? `<div class="v2t-place"><span class="v2t-place-name">${s.pick}</span><button type="button" class="v2s-btn v2s-btn-primary">Build on (7, 4)</button></div>`
+      : "";
+  };
+  document.querySelectorAll(".states button").forEach((b) => b.addEventListener("click", () => render(b.dataset.state)));
+  render("queued");
+</script>
+</body>
+</html>

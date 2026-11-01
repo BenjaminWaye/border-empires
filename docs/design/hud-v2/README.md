@@ -12,6 +12,7 @@ a way the code should follow.
 | `hud-draft/` | The HUD design canvas: seven artboards (map, battle, battle in progress, town, manifest tree, action bar states, Chronicle) | https://claude.ai/artifact/QsqM1qs8kK8WRhtNpgW9dB |
 | `ui-teardown.html` | Teardown of the legacy desktop UI that motivated the redesign | https://claude.ai/artifact/KhmmkMupU1R5dWrjcEW7UB |
 | `resource-icons/` | Resource icon trials: the rejected AI-painted sheets (`ai/`) and the chosen simple icons (`final/`, 48/72/96 px) | https://claude.ai/artifact/3cQuQoMzaJrZGZNmTsmZE6 |
+| `town-build-progress.html` | Draft: the shipped town screen with a support tile selected that has a queued or running build (Jump to front, Rush, Cancel above the build list). Links the live HUD v2 stylesheets; open it from the checkout | — |
 | `empire-domains.html` | Table of every Empire Domain and its effects, from `packages/game-domain/data/domain-tree.json` | https://claude.ai/artifact/DDSRuMnBwHSik4YzfBwQGc |
 
 The live originals are private to their owner's claude.ai account; ask them to
