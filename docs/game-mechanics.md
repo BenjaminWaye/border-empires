@@ -128,21 +128,38 @@ explanation. AFC upgrades configure this campaign's command systems, local
 infrastructure and House contracts; Manifest research commissions the underlying
 technology. Recruits and scarcity equipment arrive as orbital consignments.
 
-Momentum belongs to the launching flag; garrison victories add stacks, frontier
-captures refresh decay, and moving/disbanding clears them. Breakthrough captures
-at most one legal adjacent enemy tile through normal capture consequences.
-Fort wards absorb one otherwise successful breach, spend the full attack
-commitment, and recharge in 24h even across demolition or transfer. Suppression
-lasts 5 minutes and spends one of the casting tower's shots. Signal
-interception reveals exact hostile flag coordinates/owner through fog, never
-hidden manpower, orders, resources or full tile records.
+Picks mix branches freely, so no upgrade requires another pick; links between picks
+only add a bonus and the picker lists them (`afc-synergies.ts`). Momentum belongs to
+the launching flag (+10% per garrison victory, five stacks); frontier captures refresh
+decay and moving/disbanding clears it. Breakthrough captures one legal adjacent enemy
+tile, two from a flag at full Momentum, through normal capture consequences. Fort
+wards absorb one otherwise successful breach, spend the full attack commitment, and
+recharge in 24h even across demolition or transfer. Citadel Reserves lets towns grow
+through nearby war. Fortification Patterns waives the Fort tech and makes a House's
+first three Forts free (`afcCampaign.freeFortsUsed`). Pacification Routines pays a
+25 Coin bounty per Planetary Defense tile taken. Expansion Doctrine prices EXPAND on
+half the frontier count and halves garrison manpower (`settleManpowerCost` on
+PLAYER_UPDATE). Relay Fabrication Line makes Relays instant with ten FOOD-free;
+Universal Fabrication Line makes every non-monument build instant. Colonial Charter
+delivers one free active Incubation Engine per garrisoned town (15s sweep).
+Metropolitan Concession lowers its holder's Economic Hegemony lead to 20%.
+
+Suppression lasts 5 minutes and spends one of the casting tower's shots. Resonance
+Hijack (Oracle V) targets a hostile tower with no shot left or suppressed: one shot
+starts a 10-minute takeover that suppresses the target, reveals the casting tower to
+its owner (in-game alert, `AETHER_HIJACK_ALERT` email, `AFC_HIJACKS` list) and
+transfers the tower and its tile if the caster is still owned, active, powered and
+unsuppressed when it ends; the 1s Aether Tower tick resolves it from
+`observatory.hijack`. Once per House per 24h; Aegis Domes block it.
 
 Court mandates impose binding 12h truces with a 48h caster recharge; existing
-battles finish. Coalition attack eligibility uses hostile player captures within
-24h. Chancery diplomatic weighting counts each member once, while the largest
-member by actual territory remains the sole candidate for victory (ties have no
-leader). Ordinary mutual-alliance checks govern alliance income and Trade Pact
-links. Paid recruitment converts 1 Coin into 5 manpower, retaining paid overflow.
+battles finish. Envoy Accreditation adds 10% of the House's own Coin per active
+truce or mutual alliance (max +50%); Allied Levies adds 15% manpower cap and
+regeneration per mutual ally (max three); Diplomatic Corps gives +15 AI opinion and
+halves AI truce prices. Chancery diplomatic weighting counts each member once, while
+the largest member by actual territory remains the sole candidate for victory (ties
+have no leader). Paid recruitment converts 1 Coin into 5 manpower, retaining paid
+overflow.
 
 ## 7. Victory conditions
 

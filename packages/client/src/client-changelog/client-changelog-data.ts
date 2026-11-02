@@ -54,6 +54,7 @@ import { LANDING_RESERVE_CHANGELOG } from "./client-changelog-landing-reserve.js
 import { FOG_HILL_HAZE_CHANGELOG } from "./client-changelog-fog-hill-haze.js";
 import { STORM_EDGE_BANDING_CHANGELOG } from "./client-changelog-storm-edge-banding.js";
 import { AETHER_TOWER_SHOTS_CHANGELOG } from "./client-changelog-aether-tower-shots.js";
+import { AFC_V3_CHANGELOG } from "./client-changelog-afc-v3.js";
 import { MARCH_ACROSS_WATER_CHANGELOG } from "./client-changelog-march-across-water.js";
 import { MARCH_UNEXPLORED_CHANGELOG } from "./client-changelog-march-unexplored.js";
 import { MARCH_STOP_SHORT_CHANGELOG } from "./client-changelog-march-stop-short.js";
@@ -472,7 +473,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The new HUD had no way to reach the town list.",
     changes: ["A Towns button next to Manifest lists your towns, sortable by gold, population or growth", "Press a town to open its town screen"]
   },
-  ...AETHER_TOWER_SHOTS_CHANGELOG
+  ...AETHER_TOWER_SHOTS_CHANGELOG,
+  ...AFC_V3_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
