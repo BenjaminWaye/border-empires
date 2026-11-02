@@ -232,6 +232,11 @@ message TileDelta {
   // as 0 -- under the gateway's defaults:true decode a plain uint64 reads 0
   // when omitted, which would clear a live hold on every unrelated delta.
   optional uint64 capture_hold_until = 34;
+  // Battle scars on the ground (shared war-scars.ts): how many battles have
+  // marked this tile (0 = none) and when they fade. optional for the same
+  // reason as capture_hold_until.
+  optional uint32 war_scar_level = 35;
+  optional uint64 war_scar_until = 36;
 }
 
 message DockRouteWaypoint {

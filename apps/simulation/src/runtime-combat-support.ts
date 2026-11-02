@@ -233,6 +233,9 @@ const targetHasActiveFortFor = (
   Boolean(
     previousTarget?.fort &&
       isFortDefending(previousTarget.fort) &&
+      // A just-captured fort is rubble while the capturing troops hold the
+      // tile (capture-hold.ts): no fort-tier floor, no fort terms either side.
+      !isCaptureHoldActive(previousTarget, ctx.now()) &&
       previousTarget.fort.ownerId === defenderOwnerId &&
       defenderOwnerId &&
       !ctx.isStructureDormant(defenderOwnerId, targetKey, "fort")

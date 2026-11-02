@@ -5,7 +5,8 @@ import { awardFlagMomentum, fortWardIsReady, consumeFortWard } from "./afc-speci
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { CombatBroadcastPayload, SimulationEvent } from "@border-empires/sim-protocol";
 import {
-  FRONTIER_CLAIM_COST
+  FRONTIER_CLAIM_COST,
+  warScarFieldsAfterBattle
 } from "@border-empires/shared";
 import { afcCapturePlunderGold, withAfcCapturePlunder } from "./afc-capture-plunder/afc-capture-plunder.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
@@ -265,6 +266,10 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     // TILE_DELTA_BATCH would otherwise fire for it — emit a combat-only
     // delta so the defender/bystanders still see the battle overlay FX.
     if (hasDefendingForce && previousTarget) {
+      // A repelled attack still deepens battle scars already on the ground (shared war-scars.ts).
+      const heldTile = context.tiles.get(lock.targetKey) ?? previousTarget;
+      const scars = warScarFieldsAfterBattle(heldTile, { capturedGarrison: false, battle: true }, context.now());
+      if (scars.warScarUntil !== heldTile.warScarUntil) context.replaceTileState(lock.targetKey, { ...heldTile, ...scars }, lock.commandId);
       // tileDeltaFromState, not a hand-built {x,y,combatJson} stub: an absent
       // ownerId/ownershipState reads as an explicit CLEAR downstream (see
       // tile-delta-stringify-cache.ts), which flashed a defended tile neutral

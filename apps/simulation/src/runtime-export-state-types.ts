@@ -20,6 +20,8 @@ export type RuntimeExportState = {
     frontierDecayAt?: number;
     frontierDecayKind?: FrontierDecayKind;
     captureHoldUntil?: number;
+    warScarLevel?: number;
+    warScarUntil?: number;
     townJson?: string;
     townType?: "MARKET" | "FARMING";
     townName?: string;

@@ -1,6 +1,6 @@
 // End-of-bootstrap hooks that need the fully-assembled state + action flow but
 // own no long-lived wiring of their own: the console debug helper for the
-// season-end overlay, the tile-menu auto-settle checkbox, the flag-gated v2 HUD, and the one-time
+// season-end overlay, the tile-menu auto-settle checkbox, the v2 desktop HUD (default on), and the one-time
 // landmass naming prompt. Lives here (not
 // inline in client-bootstrap.ts) to keep that oversized file from growing.
 import { isMapLoadingOverlayActive } from "../client-map-loading-view/client-map-loading-view.js";
@@ -27,7 +27,7 @@ type PostBootstrapDeps = {
 export const installPostBootstrapHooks = ({ state, renderHud, sendGameMessage, actionFlow, wrapX, wrapY, requestViewRefresh, ownerColor }: PostBootstrapDeps): void => {
   installDiscoveryTipCenterBinding({ state, wrapX, wrapY, requestViewRefresh, renderHud });
   installDebugSeasonEndOverlay(state, renderHud);
-  installHudV2({ state, renderHud, requestViewRefresh, wrapX, wrapY, isMobile, sendGameMessage, actionFlow, ownerColor }); // ?hud=v2 redesigned desktop HUD
+  installHudV2({ state, renderHud, requestViewRefresh, wrapX, wrapY, isMobile, sendGameMessage, actionFlow, ownerColor }); // redesigned desktop HUD (?hud=legacy opts out)
   installDiplomacyOfferDock({ state, sendGameMessage, isMapLoading: () => isMapLoadingOverlayActive(state) }); // incoming truce/alliance offers, answered in place
   // March To banner + pointer arrow, and dragging a march's destination (read by client-map-input.ts).
   installMarchInteraction({ state, renderHud, sendGameMessage: (payload) => sendGameMessage(payload, "Finish sign-in before changing a march.") });

@@ -2,7 +2,7 @@
 // sent straight away or held in the dev queue until a slot -- or, for a
 // garrison, manpower -- frees up. Extracted from client-queue-logic.ts
 // (oversized), which re-exports everything here.
-import { SETTLE_COST, SETTLE_MANPOWER_COST } from "@border-empires/shared";
+import { SETTLE_COST, SETTLE_MANPOWER_COST, captureHoldSettleFloorMs } from "@border-empires/shared";
 import { canAffordCost, settleDurationMsForTile } from "../client-constants.js";
 import { debugTileLog, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import {
@@ -60,10 +60,15 @@ export const settlementSpeedMultiplierForState = (
   return multiplier;
 };
 
+/** How long garrisoning `tile` takes for this player -- never ending before the tile's capture hold does (as the server floors it). */
 export const settleDurationMsForState = (
   state: Pick<ClientState, "techIds" | "techCatalog" | "domainIds" | "domainCatalog">,
-  tile: { x: number; y: number }
-): number => Math.max(1, Math.round(settleDurationMsForTile(tile.x, tile.y) / settlementSpeedMultiplierForState(state)));
+  tile: { x: number; y: number; ownershipState?: string | undefined; captureHoldUntil?: number | undefined },
+  nowEpochMs: number = Date.now()
+): number => Math.max(
+  Math.max(1, Math.round(settleDurationMsForTile(tile.x, tile.y) / settlementSpeedMultiplierForState(state))),
+  captureHoldSettleFloorMs(tile, nowEpochMs)
+);
 
 const queuedSettlementShouldWait = (state: ClientState, tileKey: string): boolean => {
   if (!tileKey) return false;
@@ -155,7 +160,8 @@ export const requestSettlement = (
   }
   if (deps.opts?.fromQueue) state.queuedDevelopmentDispatchPending = true;
   const startAt = Date.now();
-  const progress = { startAt, resolvesAt: startAt + settleDurationMsForState(state, { x, y }), target: { x, y }, awaitingServerConfirm: false };
+  // settleDurationMsForState applies the server's floor: a captured tile garrisons no earlier than its hold ends.
+  const progress = { startAt, resolvesAt: startAt + settleDurationMsForState(state, tile, startAt), target: { x, y }, awaitingServerConfirm: false };
   state.gold = Math.max(0, state.gold - SETTLE_COST);
   if (!manpowerReserved) state.manpower = Math.max(0, state.manpower - SETTLE_MANPOWER_COST);
   state.settleProgressByTile.set(tileKey, progress);

@@ -33,6 +33,8 @@ export type TileLastEmittedRefs = {
   frontierDecayKind: unknown;
   breachShockUntil: unknown;
   captureHoldUntil: unknown;
+  warScarLevel: unknown;
+  warScarUntil: unknown;
   townRef: unknown;
   fortRef: unknown;
   observatoryRef: unknown;
@@ -268,6 +270,8 @@ export class TileDeltaStringifyCache {
     if (tile.resource !== last.resource) { (delta as Record<string, unknown>).resource = tile.resource; hasFieldChanges = true; }
     if (tile.breachShockUntil !== last.breachShockUntil) { (delta as Record<string, unknown>).breachShockUntil = tile.breachShockUntil; hasFieldChanges = true; }
     if (tile.captureHoldUntil !== last.captureHoldUntil) { (delta as Record<string, unknown>).captureHoldUntil = tile.captureHoldUntil; hasFieldChanges = true; }
+    if (tile.warScarLevel !== last.warScarLevel) { (delta as Record<string, unknown>).warScarLevel = tile.warScarLevel; hasFieldChanges = true; }
+    if (tile.warScarUntil !== last.warScarUntil) { (delta as Record<string, unknown>).warScarUntil = tile.warScarUntil; hasFieldChanges = true; }
 
     if (tile.town !== last.townRef) { (delta as Record<string, unknown>).townJson = fullDelta.townJson; hasFieldChanges = true; }
     if (tile.fort !== last.fortRef) { (delta as Record<string, unknown>).fortJson = fullDelta.fortJson; hasFieldChanges = true; }
@@ -345,6 +349,8 @@ export class TileDeltaStringifyCache {
       frontierDecayKind: tile.frontierDecayKind,
       breachShockUntil: tile.breachShockUntil,
       captureHoldUntil: tile.captureHoldUntil,
+      warScarLevel: tile.warScarLevel,
+      warScarUntil: tile.warScarUntil,
       townRef: tile.town,
       fortRef: tile.fort,
       observatoryRef: tile.observatory,

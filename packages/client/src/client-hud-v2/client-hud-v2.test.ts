@@ -22,13 +22,20 @@ const truce = (otherPlayerId: string, endsAt: number): ActiveTruceView => ({ oth
 const act = (id: TileActionDef["id"], extra: Partial<TileActionDef> = {}): TileActionDef => ({ id, label: id, ...extra });
 
 describe("hud v2 flag", () => {
-  it("is off by default, turned on by ?hud=v2 and off again by ?hud=legacy", () => {
+  it("is on by default, opted out by ?hud=legacy and back on with ?hud=v2", () => {
     const storage = memoryStorage();
+    expect(readHudV2Flag("", storage)).toBe(true);
+    expect(readHudV2Flag("?hud=legacy", storage)).toBe(false);
     expect(readHudV2Flag("", storage)).toBe(false);
     expect(readHudV2Flag("?hud=v2", storage)).toBe(true);
     expect(storage.getItem(HUD_V2_STORAGE_KEY)).toBe("1");
     expect(readHudV2Flag("", storage)).toBe(true);
-    expect(readHudV2Flag("?hud=legacy", storage)).toBe(false);
+  });
+
+  it("keeps early ?hud=v2 testers on the new HUD", () => {
+    const storage = memoryStorage();
+    storage.setItem(HUD_V2_STORAGE_KEY, "1");
+    expect(readHudV2Flag("", storage)).toBe(true);
   });
 });
 

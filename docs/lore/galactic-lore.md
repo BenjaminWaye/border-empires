@@ -374,6 +374,24 @@ and no aether-work beyond holding its anchor. That is why a Duke can plant
 one almost anywhere without waking what section 5 describes, and why the
 Court asks so little of a Duke who raises them.
 
+A beacon cannot be taken intact. Its sensing frames are tuned to the House
+that raised it, so troops who storm a beacon's ground topple the tower
+rather than inherit it, and its wreckage lies where it fell while they hold
+the ground. Fighting leaves the same marks elsewhere: a stormed fort still
+stands, but its walls are breached and it shelters no one until the new
+holders have garrisoned it, and a captured resource site burns until the
+capturing troops have secured it, yielding nothing to its new House before
+then. Houses fight their war games with beam weapons, and ground where a
+garrison has been overrun keeps the marks of them for about a day: furrows
+where beams swept across it, cut and fused to dark glass, glassed pits where
+a beam was held on its target, and charred earth around them. For the first
+hours the cuts still glow and the ground smokes. Ground fought over again and
+again stays scarred longest and worst, so the contested heart of a front
+reads plainly from the air. Woodland burns: a fought-over forest is left as
+blackened trunks, trees sliced through by the beams, and burnt stumps. A harbour taken in battle burns until its captors have
+secured it, and earns nothing in the meantime. The exact timings
+belong in the [gameplay reference](../game-mechanics.md).
+
 Two flags cannot own the same ground. Where a rival's anchor reaches land
 that a Duke's own anchors no longer cover, the rival's claim stands and the
 Duke's hold there thins from settled ground back to open frontier.
