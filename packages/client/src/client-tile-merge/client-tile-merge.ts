@@ -1,6 +1,7 @@
 import { notifyRelicCapture } from "../client-relic-dialog/relic-capture-dialog.js";
 import { clearForestAroundAfcTile, clearForestOnTownOrDockTile, type FrontierDecayKind, type ProspectSignature } from "@border-empires/shared";
 import { keyForTile } from "../client-app-runtime-utils.js";
+import { noteRazedStructuresOnCapture } from "../client-capture-aftermath/client-capture-aftermath.js";
 import { noteCaptureHoldDeadline } from "../client-capture-hold/client-capture-hold.js";
 import type { Tile } from "../client-types.js";
 
@@ -183,6 +184,7 @@ export const applyCommonTileFields = (
   }
 
   notifyRelicCapture(existing, merged, ctx.me);
+  noteRazedStructuresOnCapture(existing, merged, keyForTile(merged.x, merged.y));
   return merged;
 };
 

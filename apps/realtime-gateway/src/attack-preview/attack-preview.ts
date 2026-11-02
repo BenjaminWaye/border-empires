@@ -1,4 +1,4 @@
-import { afcMomentumStacks, requiredMusterForFort } from "@border-empires/shared";
+import { afcMomentumStacks, isCaptureHoldActive, requiredMusterForFort } from "@border-empires/shared";
 import type { AfcCombatFacts, RelicCombatFacts } from "@border-empires/sim-protocol";
 import {
   buildFrontierCombatPreview,
@@ -176,7 +176,8 @@ export const attackPreviewResult = async (
     noWarIndustryDefenseVulnerabilityMult: defenseEdge.mult,
     noWarIndustryDefenseVulnerabilityLabel: defenseEdge.label
   };
-  const targetHasActiveFort = Boolean(target.fort && isFortDefending(target.fort) && target.fort.ownerId === target.ownerId);
+  // Mirrors the sim's targetHasActiveFortFor: a held (just-captured) fort grants nothing.
+  const targetHasActiveFort = Boolean(target.fort && isFortDefending(target.fort) && target.fort.ownerId === target.ownerId && !isCaptureHoldActive(target, Date.now()));
   const flag = parseStructureJson<{ momentum?: { stacks: number; decayAt: number } }>(origin.musterJson);
   const momentum = attackerDomainIds?.includes("afc-vanguard-3") ? 1 + afcMomentumStacks(flag?.momentum, Date.now()) * 0.05 : 1;
   const coalition = attackerFacts?.coalitionTargetIds.includes(target.ownerId) ? 1.15 : 1;

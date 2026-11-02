@@ -24,6 +24,7 @@ import { tileFeatureLeadLines, tileOverviewModifiersForTile } from "../client-ti
 import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
 import { foreignTileOwnershipLabel, tileMenuOverviewIntroLines, tileMenuSubtitleText } from "../client-tile-menu-copy/client-tile-menu-copy.js";
 import { landingGroundMenuLine, type DockLandingState } from "../client-dock-landing-ground/client-dock-landing-ground.js";
+import { captureAftermathMenuLines } from "../client-capture-aftermath/client-capture-aftermath.js";
 import { captureRecoveryRemainingMsForTile, tileMenuHeaderStatusForTile, type TileMenuHeaderStatus } from "../client-tile-menu-status/client-tile-menu-status.js";
 import { ownTileHeaderStatus } from "../client-tile-menu-status/client-tile-menu-reach-owners.js";
 import type { ReachAuthoritativeState } from "../client-reach-authoritative/client-reach-authoritative.js";
@@ -320,6 +321,7 @@ export const menuOverviewForTile = (
   if (isFortDefending(tile.fort) && tile.ownerId && structureRecentlyCaptured) {
     pushLine("Recently captured. Fort defense is offline until the capture shock timer ends.");
   }
+  for (const line of captureAftermathMenuLines(tile, `${tile.x},${tile.y}`)) pushLine(line);
   if (isFortDefending(tile.fort) && tile.ownerId && !structureRecentlyCaptured) {
     // Same helper the client's own attack gate uses (findClosestMuster in
     // client-muster-attack-gate.ts), so the number shown here always matches

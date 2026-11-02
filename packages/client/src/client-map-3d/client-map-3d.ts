@@ -76,6 +76,7 @@ import { createSurveySweepPingOverlay } from "../client-map-3d-survey-sweep-ping
 import { createAnchoredFxLayers } from "../client-map-3d-anchored-fx/client-map-3d-anchored-fx-layers.js"; import { isAfcHiddenForJoinDrop, isForestTileWithAfcLandingHold, terrainWithAfcLandingHold } from "../client-afc-join-drop/client-afc-join-drop-state.js"; import { createCameraShakeFx } from "../client-map-3d-camera-shake-fx/client-map-3d-camera-shake-fx.js";
 import { createFxCastOverlaySyncs } from "./client-map-3d-fx-cast-overlays.js";
 import { shouldShowTownSmoke } from "../client-town-growth/client-town-growth.js";
+import { createCaptureAftermathFx3D } from "../client-map-3d-capture-aftermath-fx.js";
 import { addHarbourPieceAt, buildHarbourFrame, type HarbourPieceDeps } from "../client-map-3d-harbour/client-map-3d-harbour-placement.js";
 import { createDockOverlay } from "../client-map-3d-dock-overlay.js"; import { createDockRouteOverlay } from "../client-map-3d-dock-route-overlay.js"; import { createDockRouteSync } from "../client-map-3d-dock-route-sync.js";
 import { createPlanetaryDefenseOverlay } from "../client-map-3d-planetary-defense-overlay.js"; import { planetaryDefenseEngagedTileKeys } from "../client-map-3d-planetary-defense-engagement.js";
@@ -155,9 +156,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     }
   });
   const villageEffects = createVillageEffects(scene);
+  const captureAftermathFx = createCaptureAftermathFx3D(scene, villageEffects);
   const townSupportTiles = createTownSupportTileOverlay(scene, (2 * MAX_SUPPORT_RING_RADIUS + 1) ** 2 - 1); // sized for a wide-ring (GREAT_CITY/METROPOLIS) anchor, not the base 8 -- a fixed 8 cap used to silently drop tiles past the 8th
-  // Per-tile last-seen captureShockUntil. Used to detect newly-shocked towns (capture event) so the floating "-pop" indicator fires once per capture.
-  const lastSeenCaptureShockByTile = new Map<string, number>();
   // Per-tile last-seen ownerId, used only to auto-detect and log ownership changes as they render (debug-tile logging) without a manually pinned coordinate.
   const lastRenderedOwnerIdByTile = new Map<string, string | undefined>();
   const forest = createForest(scene, MAX_VISIBLE_TILES); const tropicalForest = createTropicalForest(scene, MAX_VISIBLE_TILES);
@@ -640,6 +640,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
 
     mountainMassifs.clear();
     villageEffects.clear();
+    captureAftermathFx.clear();
     forest.clear(); tropicalForest.clear();
     ownershipOverlay.clear(); prospectClues.clear(); frontierDecayPulse.reset(); barbarianFrontierTint.reset(Date.now());
     fogDarkenOverlay.clear();
@@ -853,28 +854,9 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
             // off for now; re-enable by adding villageEffects.addCapitalBanner if wanted.
             villageEffects.addOwnedVillage(x, z, surfaceY, tileSeed);
           }
-          // Capture-shock smoke + floating "-N pop" indicator are independent of the
-          // owned-village smoke gate: a recently captured FRONTIER tile is intentionally
-          // alarmed even though it doesn't qualify for the pale growth-smoke above.
-          const captureShockUntil = tile?.town?.captureShockUntil;
-          if (typeof captureShockUntil === "number" && captureShockUntil > Date.now()) {
-            villageEffects.addCapturedTownSmoke(x, z, surfaceY, tileSeed);
-            const previousShock = lastSeenCaptureShockByTile.get(tileKey) ?? 0;
-            if (captureShockUntil > previousShock) {
-              const popBefore = tile?.town?.populationBeforeCapture;
-              const popAfter = tile?.town?.population;
-              if (typeof popBefore === "number" && typeof popAfter === "number" && popBefore > popAfter) {
-                const popLoss = Math.max(1, Math.round(popBefore - popAfter));
-                // x/z here are measured from this rebuild's window origin, which sceneOrigin only adopts after the rebuild.
-                const at = anchoredFx.root.toLocal(x, z, window);
-                floatingText.spawn(at.x, at.z, surfaceY, `-${popLoss} pop`);
-              }
-              lastSeenCaptureShockByTile.set(tileKey, captureShockUntil);
-            }
-          } else if (lastSeenCaptureShockByTile.has(tileKey)) {
-            // Shock expired or town cleared: drop the entry so the map can't grow unbounded.
-            lastSeenCaptureShockByTile.delete(tileKey);
-          }
+          // Capture-shock smoke + "-N pop" ignore the owned-village gate: a just-captured FRONTIER town is alarmed too.
+          // x/z here are measured from this rebuild's window origin, which sceneOrigin only adopts after the rebuild.
+          captureAftermathFx.addTownCaptureShock(tile, tileKey, x, z, surfaceY, tileSeed, (text) => { const at = anchoredFx.root.toLocal(x, z, window); floatingText.spawn(at.x, at.z, surfaceY, text); });
           // Unfed / upgrade-ready / war status rides the town nameplate
           // (client-town-nameplates), shared with the 2D map.
         }
@@ -883,6 +865,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           const dormantStructureResource = dormantStructureResourceByTileKey.get(tileKey);
           if (dormantStructureResource) resourceBadgeOverlays[dormantStructureResource].addInstance(x, z, surfaceY);
         }
+        // Rubble of a razed/wrecked structure and smoke over a captured resource, until the hold ends (both renderers).
+        if (tile && terrain === "LAND" && visibility === "visible") captureAftermathFx.addTile(tile, tileKey, x, z, surfaceY, wx * 17 + wy * 31);
         if (tile && ownerId === "barbarian-1" && terrain === "LAND") {
           barbarianOverlay.addInstance(tileKey, x, z, surfaceY, wx, wy);
           contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
@@ -1005,6 +989,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     crystalTargetingOverlay.commit();
     mountainMassifs.commit();
     villageEffects.commit();
+    captureAftermathFx.commit();
     forest.commit(); tropicalForest.commit();
     ownershipOverlay.commit(); prospectClues.commit();
     fogDarkenOverlay.commit();
@@ -1159,7 +1144,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       !terrainWindowCovers(lastRebuild.builtWindow, requiredWindow, WORLD_WIDTH, WORLD_HEIGHT) ||
       tileChangeIsWindowRelevant(lastRebuild.builtWindow, deps.state.tilesRevisionChangedKeys, deps.state.tilesRevisionOverflowed, WORLD_WIDTH, WORLD_HEIGHT) ||
       map3DRebuildTriggersChanged(lastRebuild.triggers, triggersNow) ||
-      district.boundaryPassed() || structureOverlay.constructionBoundaryPassed() || relayBeaconOverlay.constructionBoundaryPassed() || fortOverlay.constructionBoundaryPassed();
+      district.boundaryPassed() || structureOverlay.constructionBoundaryPassed() || relayBeaconOverlay.constructionBoundaryPassed() || fortOverlay.constructionBoundaryPassed() || captureAftermathFx.boundaryPassed();
     if (rebuildNeeded && (lastRebuild.at === 0 || nowMs - lastRebuild.at >= REBUILD_MIN_INTERVAL_MS)) {
       const isFirstRebuild = lastRebuild.at === 0; if (isFirstRebuild) markRendererFirstRenderStarted();
       const builtWindow = padTerrainWindow(requiredWindow, MAX_VISIBLE_TILES);
@@ -1340,6 +1325,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     tileIntel3D.dispose();
     forest.dispose(); tropicalForest.dispose();
     villageEffects.dispose();
+    captureAftermathFx.dispose();
     floatingText.dispose(); anchoredFx.root.dispose();
     townSupportTiles.dispose();
     waterSurface.dispose();

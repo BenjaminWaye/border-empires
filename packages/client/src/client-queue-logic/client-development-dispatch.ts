@@ -2,7 +2,7 @@
 // sent straight away or held in the dev queue until a slot -- or, for a
 // garrison, manpower -- frees up. Extracted from client-queue-logic.ts
 // (oversized), which re-exports everything here.
-import { SETTLE_COST, SETTLE_MANPOWER_COST } from "@border-empires/shared";
+import { SETTLE_COST, SETTLE_MANPOWER_COST, captureHoldSettleFloorMs } from "@border-empires/shared";
 import { canAffordCost, settleDurationMsForTile } from "../client-constants.js";
 import { debugTileLog, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import {
@@ -155,7 +155,8 @@ export const requestSettlement = (
   }
   if (deps.opts?.fromQueue) state.queuedDevelopmentDispatchPending = true;
   const startAt = Date.now();
-  const progress = { startAt, resolvesAt: startAt + settleDurationMsForState(state, { x, y }), target: { x, y }, awaitingServerConfirm: false };
+  // Same floor as the server: a captured tile garrisons no earlier than its hold ends.
+  const progress = { startAt, resolvesAt: startAt + Math.max(settleDurationMsForState(state, { x, y }), captureHoldSettleFloorMs(tile, startAt)), target: { x, y }, awaitingServerConfirm: false };
   state.gold = Math.max(0, state.gold - SETTLE_COST);
   if (!manpowerReserved) state.manpower = Math.max(0, state.manpower - SETTLE_MANPOWER_COST);
   state.settleProgressByTile.set(tileKey, progress);
