@@ -29,10 +29,10 @@ export const townsBodyHtml = (rows: readonly TownListRow[], sort: TownListSort):
     return `<button type="button" class="v2l-sort${active ? " v2l-sort-on" : ""}" data-v2-towns-sort="${key}" aria-pressed="${active}">${label}${arrow}</button>`;
   }).join("");
   const body = rows.map((row) => `<button type="button" class="v2l-row${row.isFed ? "" : " v2l-unfed"}" data-v2-towns-open="${row.x},${row.y}">
-      <span class="v2l-name">${esc(row.name)}<small>${esc(row.tierLabel)}${row.isFed ? "" : " · Unfed"}</small></span>
+      <span class="v2l-name"><span class="v2l-label">${esc(row.name)}</span><small>${esc(row.tierLabel)}${row.isFed ? "" : " · Unfed"}</small></span>
       <span class="v2l-num">${(row.goldPerMinute * 1440).toFixed(1)}</span>
       <span class="v2l-num">${count(row.population)}<small>/ ${count(row.maxPopulation)}</small></span>
       <span class="v2l-num">${growth(row.growthPerMinute)}</span>
     </button>`).join("");
-  return `<section class="v2l-table"><div class="v2l-head"><span>Town</span>${head}</div>${body}</section>`;
+  return `<section class="v2l-table" data-v2-scroll="towns"><div class="v2l-head"><span>Town</span>${head}</div>${body}</section>`;
 };

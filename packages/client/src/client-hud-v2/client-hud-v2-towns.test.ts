@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
 
 import type { TownListRow } from "../client-town-list/client-town-list.js";
@@ -20,7 +21,9 @@ describe("HUD v2 towns screen", () => {
   it("has a Towns bubble in the nav", () => {
     const html = navHtml({ name: "Me", color: "#fff", afcReady: 0, diplomacyRequests: 0, chronicleUnread: 0, active: "towns" });
     expect(html).toContain('data-hud-v2-open="towns"');
-    expect(html).toMatch(/hud-v2-bubble-active" data-hud-v2-open="towns"/);
+    const host = document.createElement("div");
+    host.innerHTML = html;
+    expect(host.querySelector('[data-hud-v2-open="towns"]')?.classList.contains("hud-v2-bubble-active")).toBe(true);
   });
 
   it("lists rows in the given order with gold per day and open targets", () => {

@@ -27,9 +27,8 @@ import { MANIFEST_LEGEND_HTML, manifestDetailHtml, manifestHeadRightHtml, manife
 import { profileHtml, type ProfileRelation } from "./client-hud-v2-profile.js";
 import { ranksBannerHtml, ranksBodyHtml } from "./client-hud-v2-ranks.js";
 import { expandDockedMenu, suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
-import { closeTownScreen, myTowns, openTownAt, renderTownScreen, runTileActionOn, runTownWork, stepTown } from "./client-hud-v2-town-runtime.js";
-import { townsBannerHtml, townsBodyHtml } from "./client-hud-v2-towns.js";
-import { deriveTownListRows, sortTownListRows, toggleTownListSort, townListSort, type TownListSortKey } from "../client-town-list/client-town-list.js";
+import { closeTownScreen, renderTownScreen, runTileActionOn, runTownWork, stepTown } from "./client-hud-v2-town-runtime.js";
+import { renderTownsScreen, townsClick } from "./client-hud-v2-towns-runtime.js";
 
 const TITLES: Partial<Record<HudV2ScreenId, string>> = { manifest: "Manifest", afc: "AFC Upgrades", diplomacy: "Diplomacy", ranks: "The Duke's Seat", towns: "Towns" };
 
@@ -147,14 +146,6 @@ const renderRanks = (deps: HudV2Deps): void => {
   writeHtml("v2s-head-right", ranksBannerHtml(input));
   bodyMode = "ranks";
   writeHtml("v2s-body", ranksBodyHtml(input));
-};
-
-const renderTowns = (deps: HudV2Deps): void => {
-  // myTowns caches the tile scan briefly, so the HUD timer doesn't rescan every tick.
-  const rows = sortTownListRows(deriveTownListRows(myTowns(deps), deps.state.me), townListSort());
-  writeHtml("v2s-head-right", townsBannerHtml(rows));
-  bodyMode = "towns";
-  writeHtml("v2s-body", townsBodyHtml(rows, townListSort()));
 };
 
 const renderDiplomacy = (deps: HudV2Deps): void => {
@@ -280,7 +271,9 @@ export const renderScreen = (deps: HudV2Deps): void => {
   switch (screen.id) {
     case "manifest": return renderManifest(deps);
     case "ranks": return renderRanks(deps);
-    case "towns": return renderTowns(deps);
+    case "towns":
+      bodyMode = "towns";
+      return renderTownsScreen(deps);
     case "diplomacy": return renderDiplomacy(deps);
     case "chronicle": return renderChronicle(deps);
     case "town": return renderTownScreen(deps);
@@ -372,19 +365,7 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
     renderScreen(deps);
     return true;
   }
-  const townSort = target.closest<HTMLElement>("[data-v2-towns-sort]");
-  if (townSort) {
-    toggleTownListSort(townSort.dataset.v2TownsSort as TownListSortKey);
-    renderScreen(deps);
-    return true;
-  }
-  const townRow = target.closest<HTMLElement>("[data-v2-towns-open]");
-  if (townRow) {
-    const [x, y] = (townRow.dataset.v2TownsOpen ?? "").split(",").map(Number);
-    closeScreen(deps, { toMap: true });
-    if (x !== undefined && y !== undefined && Number.isFinite(x) && Number.isFinite(y)) openTownAt(deps, x, y);
-    return true;
-  }
+  if (screen.id === "towns" && townsClick(deps, target, () => closeScreen(deps, { toMap: true }))) return true;
   if (chronicleTabClick(deps, target)) return true;
   const filter = target.closest<HTMLElement>("[data-v2-chronicle-filter]");
   if (filter) {

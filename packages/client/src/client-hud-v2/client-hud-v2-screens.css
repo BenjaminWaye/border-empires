@@ -307,7 +307,8 @@ body.hud-v2 #activity-dashboard-overlay { display: none !important; }
 .v2l-sort:hover, .v2l-sort-on { color: var(--v2-gold-hi); }
 .v2l-row { padding: 8px 10px; border: 0; background: none; text-align: left; color: var(--v2-text); }
 .v2l-row:hover { background: #221c13; }
-.v2l-name { display: grid; gap: 2px; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 14px; }
+.v2l-name { display: grid; gap: 2px; min-width: 0; font-size: 14px; }
+.v2l-label { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .v2l-row small { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-muted); }
 .v2l-unfed .v2l-name small { color: var(--v2-amber); }
 .v2l-num { justify-self: end; display: grid; justify-items: end; font-family: var(--v2-mono); font-size: 13px; }

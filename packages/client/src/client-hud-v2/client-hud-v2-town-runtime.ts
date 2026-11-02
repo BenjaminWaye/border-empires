@@ -48,6 +48,11 @@ export const myTowns = (deps: Pick<HudV2Deps, "state">, nowMs = Date.now()): Til
   return out;
 };
 
+/** Drops the cached town list, so the next myTowns call rescans. */
+export const forgetMyTowns = (): void => {
+  townListCache = undefined;
+};
+
 export const renderTownScreen = (deps: HudV2Deps): void => {
   if (screen.id !== "town" || !current) return;
   const town = deps.state.tiles.get(current.townKey);
@@ -112,6 +117,8 @@ export const installMapGuard = (): void => {
 
 /** First tap on a flagged town tile selects the flag; a second opens the town screen (see client-hud-v2-flag-tap.ts). */
 const flagTaps = createFlagTapTracker();
+/** The town openTownAt is opening: its next menu view opens the town screen without the flag's second tap. */
+let pickedTownKey: string | undefined;
 
 /** Dock listener: the tile bar was hidden, by a press on the map (`byMapPress`) or any other close. */
 export const townOnMenuHidden = (byMapPress: number | undefined): void => {
@@ -123,7 +130,10 @@ export const townOnMenuHidden = (byMapPress: number | undefined): void => {
 export const townOnMenuView = (deps: HudV2Deps, view: TileMenuView, tileKey: string, tapPress: number | undefined = undefined): boolean => {
   const tile = deps.state.tiles.get(tileKey);
   const town = townForTile(deps, tile);
-  const openTown = flagTaps.onView({ tileKey, flagged: Boolean(tile?.muster), inTown: Boolean(town), tapPress, townScreenOpen: screen.id === "town" });
+  // A town picked from the Towns list or the steppers always opens, even with a muster flag on it.
+  const picked = pickedTownKey === tileKey;
+  pickedTownKey = undefined;
+  const openTown = flagTaps.onView({ tileKey, flagged: Boolean(tile?.muster), inTown: Boolean(town), tapPress, townScreenOpen: screen.id === "town" }) || picked;
   if (screen.id !== null && screen.id !== "town") return false;
   if (!town) {
     // Selecting a tile outside the town: zoom back out but stay where the player is looking.
@@ -190,6 +200,7 @@ export const openTownAt = (deps: HudV2Deps, x: number, y: number): void => {
   // The cached list may predate a tile-detail reply; open the current record.
   const next = deps.state.tiles.get(keyOf({ x, y }));
   if (!next?.town || next.ownerId !== deps.state.me) return;
+  pickedTownKey = keyOf(next);
   focusCamera(deps, next.x, next.y);
   // Match a map press: even a previously full tile can have stale economy
   // fields, so bypass the ordinary full-detail/freshness shortcut on a step.
