@@ -16,6 +16,7 @@ import {
 } from "./runtime-dev-queue.js";
 import { reservedSlotDemandForQueue, type RuntimeDevQueueReservationContext } from "./runtime-dev-queue-build-reservation.js";
 import type { PlayerRuntimeSummary, ServerDevQueueEntry } from "./player-runtime-summary.js";
+import { reserveAwaitingSettleManpower } from "./runtime-dev-queue-settle-manpower-wait.js";
 
 export type RuntimeDevQueueCommandContext = RuntimeDevQueueReservationContext & {
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
@@ -65,7 +66,7 @@ function isReservableBuildEntry(kind: ServerDevQueueEntry["kind"], structureType
   return kind === "BUILD" && !!structureType && structureType !== "REMOVE_STRUCTURE";
 }
 
-function refundEntryReservation(context: RuntimeDevQueueCommandContext, playerId: string, entry: ServerDevQueueEntry | undefined): void {
+function refundEntryReservation(context: Pick<RuntimeDevQueueCommandContext, "refundManpowerReservation">, playerId: string, entry: ServerDevQueueEntry | undefined): void {
   if (entry?.reservedManpower) context.refundManpowerReservation(playerId, entry.reservedManpower);
 }
 
@@ -80,6 +81,7 @@ export const handleDevQueueEnqueueCommand = (context: RuntimeDevQueueCommandCont
 
   let reservedManpower: number | undefined;
   let reservedSlotRequirements: ServerDevQueueEntry["reservedSlotRequirements"];
+  let awaitingManpower = false;
   if (isReservableBuildEntry(payload.kind, payload.structureType)) {
     const extraSlotDemand = reservedSlotDemandForQueue(summary.devQueue);
     const reservation = context.estimateBuildReservation(command.playerId, payload.structureType, payload.x, payload.y, extraSlotDemand);
@@ -89,9 +91,13 @@ export const handleDevQueueEnqueueCommand = (context: RuntimeDevQueueCommandCont
     reservedSlotRequirements = reservation.slotRequirements;
   } else if (payload.kind === "SETTLE") {
     const reservation = context.estimateSettleReservation(command.playerId);
-    if (!reservation.ok) { context.rejectCommand(command, reservation.code, reservation.message); return; }
-    context.applyManpowerReservation(command.playerId, reservation.manpowerCost);
-    reservedManpower = reservation.manpowerCost;
+    if (reservation.ok) {
+      context.applyManpowerReservation(command.playerId, reservation.manpowerCost);
+      reservedManpower = reservation.manpowerCost;
+    } else if (reservation.code === "INSUFFICIENT_MANPOWER") {
+      // Queued anyway: it waits for a refill batch (runtime-dev-queue-settle-manpower-wait.ts).
+      awaitingManpower = true;
+    } else { context.rejectCommand(command, reservation.code, reservation.message); return; }
   }
 
   // From here the manpower is already debited but not yet owed by anything in
@@ -103,7 +109,7 @@ export const handleDevQueueEnqueueCommand = (context: RuntimeDevQueueCommandCont
   try {
     const { queue, accepted } = devQueueEnqueue(
       summary.devQueue,
-      { ...payload, ...(reservedManpower ? { reservedManpower } : {}), ...(reservedSlotRequirements ? { reservedSlotRequirements } : {}) },
+      { ...payload, ...(reservedManpower ? { reservedManpower } : {}), ...(reservedSlotRequirements ? { reservedSlotRequirements } : {}), ...(awaitingManpower ? { awaitingManpower: true as const } : {}) },
       context.now()
     );
     if (!accepted) {
@@ -175,14 +181,25 @@ export const tryDrainDevQueue = (context: RuntimeDevQueueCommandContext, playerI
   //
   // Entries on a tile under attack stay queued: dispatching one would be rejected
   // ("tile is under attack") and the rejected entry is gone for good.
-  const isDrainable = (candidate: ServerDevQueueEntry): boolean => !context.isTileUnderAttack?.(candidate.tileKey);
+  //
+  // A garrison holding no manpower drains only once the pool can cover it;
+  // dispatching it short would be rejected and lose the entry, so it waits
+  // for a refill batch instead (runtime-dev-queue-settle-manpower-wait.ts).
+  const isDrainable = (candidate: ServerDevQueueEntry): boolean =>
+    !context.isTileUnderAttack?.(candidate.tileKey) &&
+    (candidate.kind !== "SETTLE" || !!candidate.reservedManpower || context.estimateSettleReservation(playerId).ok);
   const drainIndex = context.isPlayerOnline(playerId)
     ? summary.devQueue.findIndex((candidate) => candidate.origin === "server" && isDrainable(candidate))
     : summary.devQueue.findIndex(isDrainable);
   if (drainIndex < 0) return;
   const entry = summary.devQueue[drainIndex]!;
   summary.devQueue = [...summary.devQueue.slice(0, drainIndex), ...summary.devQueue.slice(drainIndex + 1)];
-  refundEntryReservation(context, playerId, entry);
+  // A garrison's hold goes back unclamped: handleSettleCommand charges it
+  // straight away with no manpower settle in between (see
+  // releaseManpowerReservationForCharge). BUILD_STRUCTURE re-settles first,
+  // so builds keep the clamped refund.
+  if (entry.kind === "SETTLE" && entry.reservedManpower) context.releaseManpowerReservationForCharge(playerId, entry.reservedManpower);
+  else refundEntryReservation(context, playerId, entry);
   const nowMs = context.now();
   const isRemoval = entry.kind === "BUILD" && entry.structureType === "REMOVE_STRUCTURE";
   // "BUILD_STRUCTURE" is the internal normalized build type (see
@@ -209,4 +226,38 @@ export const tryDrainDevQueue = (context: RuntimeDevQueueCommandContext, playerI
   } else {
     context.dispatchBuild(cmd);
   }
+};
+
+/**
+ * Passive-income tick hook: reserve whatever waiting garrisons the pool can
+ * now cover, tell the client, then try a drain. Callers settle the player's
+ * manpower first.
+ */
+export const tickAwaitingSettleEntries = (context: RuntimeDevQueueCommandContext, playerId: string): void => {
+  if (reserveAwaitingSettleManpower(context, playerId) > 0) {
+    context.emitPlayerStateUpdate({ commandId: `dev-queue-manpower:${playerId}:${context.now()}`, playerId });
+  }
+  tryDrainDevQueue(context, playerId);
+};
+
+/**
+ * A queued garrison the client sends itself (online players dispatch their
+ * own client-origin entries) is still holding its reservation here: the
+ * client's DEV_QUEUE_CANCEL rides the non-interactive lane and can land after
+ * the SETTLE. Hand that manpower back (unclamped -- the SETTLE charges it
+ * straight after) and drop the entry, so the garrison pays exactly once from
+ * its own hold instead of being refused short on it. A still-waiting entry is dropped too,
+ * so the passive-income tick can't reserve for a garrison already sent.
+ * Continuation SETTLEs (neither flag) are left for clearCompletedSettleEntry.
+ */
+export const releaseQueuedSettleReservation = (
+  context: Pick<RuntimeDevQueueCommandContext, "summaryForPlayer" | "releaseManpowerReservationForCharge">,
+  playerId: string,
+  tileKey: string
+): void => {
+  const summary = context.summaryForPlayer(playerId);
+  const entry = devQueueEntryForTileKey(summary.devQueue, tileKey);
+  if (entry?.kind !== "SETTLE" || (!entry.reservedManpower && !entry.awaitingManpower)) return;
+  if (entry.reservedManpower) context.releaseManpowerReservationForCharge(playerId, entry.reservedManpower);
+  summary.devQueue = devQueueCancel(summary.devQueue, tileKey);
 };

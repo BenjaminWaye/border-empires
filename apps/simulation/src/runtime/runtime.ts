@@ -64,7 +64,6 @@ import {
   EMPIRE_INTEGRITY_ENABLED,
   empireIntegrity,
   integrityGrowthMult,
-  DEVELOPMENT_PROCESS_LIMIT,
   isAutoSettleAllowed, settleIgnoresReach,
   WORLD_HEIGHT,
   WORLD_WIDTH,
@@ -125,10 +124,8 @@ import {
 } from "../runtime-manpower-structure-bonus.js";
 import { createSeedWorld, simulationTileKey } from "../seed-state/seed-state.js";
 import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
-import {
-  additiveEffectForPlayer,
-  effectiveVisionRadiusForPlayer
-} from "../tech-domain-bridge/tech-domain-bridge.js";
+import { effectiveVisionRadiusForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
+import { developmentProcessLimitForPlayer } from "../development-process-limit.js";
 import {
   type TileDeltaVisibilityFilterOptions, type VisibilityAuditSample
 } from "../tile-delta-visibility-filter.js";
@@ -190,6 +187,8 @@ import {
   handleDevQueueEnqueueCommand as handleDevQueueEnqueueCommandImpl,
   handleDevQueueMoveToFrontCommand as handleDevQueueMoveToFrontCommandImpl,
   tryDrainDevQueue as tryDrainDevQueueImpl,
+  tickAwaitingSettleEntries as tickAwaitingSettleEntriesImpl,
+  releaseQueuedSettleReservation as releaseQueuedSettleReservationImpl,
   type RuntimeDevQueueCommandContext
 } from "../runtime-dev-queue-command-handlers.js"; import { devQueueBuildReservationContext } from "../runtime-dev-queue-build-reservation.js";
 import {
@@ -475,7 +474,7 @@ import { buildRushBuyCommandContext } from "./runtime-rush-buy-command-context.j
 import {
   seedLiveBarbarians as seedLiveBarbariansImpl,
   type SeedLiveBarbariansResult
-} from "../runtime-live-barbarians.js"; import { humanPlayerCountOf, isAlliedOrTruced } from "../runtime-player-factory.js";
+} from "../runtime-live-barbarians.js"; import { humanPlayerCountOf, isHostileTileOwner } from "../runtime-player-factory.js";
 import {
   ensurePlayerHasSpawnTerritory as ensurePlayerHasSpawnTerritoryImpl, ensurePlayerHasAfc as ensurePlayerHasAfcImpl,
   consumeRespawnNotice as consumeRespawnNoticeImpl, preparePlayerRespawnNotice as preparePlayerRespawnNoticeImpl,
@@ -1055,6 +1054,7 @@ export class SimulationRuntime {
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount),
       emitPlayerStateUpdate: (input) => this.emitPlayerStateUpdate(input),
+      tickAwaitingSettleEntries: (player, nowMs) => { this.refreshManpowerOnly(player, nowMs); tickAwaitingSettleEntriesImpl(this.devQueueCommandContext(), player.id); },
       ...(this.trackSyncMainThreadTask !== undefined ? { trackSyncMainThreadTask: this.trackSyncMainThreadTask } : {})
     };
   }
@@ -2632,14 +2632,7 @@ export class SimulationRuntime {
   }
 
   private hasAvailableDevelopmentSlot(playerId: string): boolean {
-    return (
-      this.activeDevelopmentProcessCountForPlayer(playerId) <
-      DEVELOPMENT_PROCESS_LIMIT + (this.state.players.get(playerId)?.relicDevelopmentBonus ?? 0) +
-        additiveEffectForPlayer(
-          this.state.players.get(playerId) ?? { techIds: new Set<string>(), domainIds: new Set<string>() },
-          "developmentProcessCapacityAdd"
-        )
-    );
+    return this.activeDevelopmentProcessCountForPlayer(playerId) < developmentProcessLimitForPlayer(this.state.players.get(playerId));
   }
 
   private rejectIfNoDevelopmentSlot(command: CommandEnvelope, code: string, message: string): boolean {
@@ -2738,6 +2731,7 @@ export class SimulationRuntime {
     }
     if (handleDuplicatePendingSettlement({ emitEvent: (e) => this.emitEvent(e), rejectCommand: (c, code, msg) => this.rejectCommand(c, code, msg) }, this.pendingSettlementsByTile.get(targetKey), command)) return; // see runtime-settle-duplicate.ts
     if (this.rejectIfNoDevelopmentSlot(command, "SETTLE_INVALID", "development slots are busy")) return;
+    releaseQueuedSettleReservationImpl(this.devQueueCommandContext(), command.playerId, targetKey); // runtime-dev-queue-command-handlers.ts
     const settleRejection = settleRejectionForActor(actor); if (settleRejection) { this.rejectCommand(command, settleRejection.code, settleRejection.message); return; }
 
     this.startSettlementProcess({
@@ -2781,10 +2775,7 @@ export class SimulationRuntime {
 
   // See runtime-claim-continuation-command-handlers.ts (context builder lives there; oversized file).
   private claimContinuationCommandContext() { return claimContinuationContextFromDevQueueContext(this.devQueueCommandContext(), this.state.tiles); }
-  private isHostileTileOwner(playerId: string, targetOwnerId: string | undefined): boolean {
-    if (!targetOwnerId || targetOwnerId === playerId) return false;
-    const actor = this.state.players.get(playerId); return !actor || !isAlliedOrTruced(actor, targetOwnerId); }
-  private waypointQueueCommandContext(): RuntimeWaypointQueueCommandContext { return { summaryForPlayer: (playerId) => this.summaryForPlayer(playerId), now: () => this.now(), emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command), rejectCommand: (command, code, message) => this.rejectCommand(command, code, message), tileAt: (x, y) => this.state.tiles.get(simulationTileKey(x, y)), isHostileOwner: (playerId, targetOwnerId) => this.isHostileTileOwner(playerId, targetOwnerId), nextDrainCommandId: (playerId, x, y) => this.nextTerritoryAutomationCommandId("waypoint-queue-drain", playerId, simulationTileKey(x, y), this.now()), dispatchFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType), isPlayerOnline: (playerId) => !this.waypointDrainScheduler.isDrainEligible(playerId), hasActiveLockForPlayer: (playerId) => activeFrontierLocksForPlayerImpl(this.state.locksByTile, playerId).length > 0 }; }
+  private waypointQueueCommandContext(): RuntimeWaypointQueueCommandContext { return { summaryForPlayer: (playerId) => this.summaryForPlayer(playerId), now: () => this.now(), emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command), rejectCommand: (command, code, message) => this.rejectCommand(command, code, message), tileAt: (x, y) => this.state.tiles.get(simulationTileKey(x, y)), isHostileOwner: (playerId, targetOwnerId) => isHostileTileOwner(this.state.players, playerId, targetOwnerId), nextDrainCommandId: (playerId, x, y) => this.nextTerritoryAutomationCommandId("waypoint-queue-drain", playerId, simulationTileKey(x, y), this.now()), dispatchFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType), isPlayerOnline: (playerId) => !this.waypointDrainScheduler.isDrainEligible(playerId), hasActiveLockForPlayer: (playerId) => activeFrontierLocksForPlayerImpl(this.state.locksByTile, playerId).length > 0 }; }
   /** Tick hook (docs/waypoint-client-planning-plan.md §4): drains one leg per drain-eligible player with a non-empty waypoint queue. */ tickWaypointDrain(): void { tickWaypointDrainImpl({ scheduler: this.waypointDrainScheduler, playerIdsWithWaypointQueue: () => [...this.playerSummaries].filter(([, s]) => s.waypointQueue.length > 0).map(([id]) => id), drainForPlayer: (playerId) => this.tryDrainWaypointQueue(playerId) }); }
   private tryDrainWaypointQueue(playerId: string): void { tryDrainWaypointQueueImpl(this.waypointQueueCommandContext(), playerId); }
 

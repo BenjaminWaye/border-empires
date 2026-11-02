@@ -50,6 +50,13 @@ export type RuntimeDevQueueReservationContext = {
   estimateSettleReservation: (playerId: string) => DevQueueBuildReservation;
   applyManpowerReservation: (playerId: string, amount: number) => void;
   refundManpowerReservation: (playerId: string, amount: number) => void;
+  /**
+   * Hands a reservation back with no cap clamp, for a held garrison about to
+   * be charged by its own SETTLE straight after (drain, or a client-sent
+   * SETTLE). Regen keeps refilling the pool while the hold sits outside it,
+   * so a clamped refund near the cap would charge that garrison twice.
+   */
+  releaseManpowerReservationForCharge: (playerId: string, amount: number) => void;
 };
 
 /** Sums the slot requirements already reserved by other queued BUILD entries, so a new enqueue's slot check nets them out too (queue-time-only demand -- never double-counted once an entry drains, since it leaves the array). */
@@ -75,6 +82,10 @@ export function devQueueBuildReservationContext(context: RuntimeStructureCommand
     refundManpowerReservation: (playerId, amount) => {
       const player = context.players.get(playerId);
       if (player) creditManpower(player, amount, context.playerManpowerCap(player));
+    },
+    releaseManpowerReservationForCharge: (playerId, amount) => {
+      const player = context.players.get(playerId);
+      if (player) player.manpower = Math.max(0, player.manpower) + amount;
     }
   };
 }

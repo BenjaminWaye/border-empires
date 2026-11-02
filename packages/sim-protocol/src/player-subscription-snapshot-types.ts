@@ -61,7 +61,18 @@ export type PlayerSubscriptionSnapshot = {
     // disconnected, capped at DEV_QUEUE_SERVER_CAP each. Not restart-durable
     // (in-memory only, see PlayerRuntimeSummary) -- only survives the running
     // process's lifetime, not a process restart.
-    devQueue?: Array<{ tileKey: string; x: number; y: number; kind: "SETTLE" | "BUILD"; structureType?: string; queuedAt: number }>;
+    // manpowerReserved: the server holds this entry's manpower; awaitingManpower:
+    // a garrison waiting for a refill batch (runtime-dev-queue-settle-manpower-wait.ts).
+    devQueue?: Array<{
+      tileKey: string;
+      x: number;
+      y: number;
+      kind: "SETTLE" | "BUILD";
+      structureType?: string;
+      queuedAt: number;
+      manpowerReserved?: true;
+      awaitingManpower?: true;
+    }>;
     // Matches WaypointQueueWireEntry (apps/simulation/src/player-runtime-summary.ts)
     // and ServerWaypointQueueWireEntry (packages/client's client-waypoint-
     // persistence.ts) -- steps/cursor/planId/plannedAt/stalled carry the

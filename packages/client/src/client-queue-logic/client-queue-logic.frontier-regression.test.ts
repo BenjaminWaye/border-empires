@@ -43,33 +43,45 @@ describe("frontier queue regressions", () => {
     expect(pushFeed).toHaveBeenCalledWith(`Need ${SETTLE_COST} coin to garrison this tile.`, "combat", "warn");
   });
 
-  it("shows a visible settlement warning when a frontier tile's manpower cannot be afforded, even with plenty of gold", () => {
-    // Regression for the client manpower-gate fix: SETTLE now costs
-    // manpower too, and the client must check it
-    // before dispatching, not just gold — otherwise it shows the action as
-    // available when the server would reject it with INSUFFICIENT_MANPOWER.
+  it("never sends a SETTLE the pool can't cover: it queues the garrison to wait for manpower instead", () => {
+    // Regression for the client manpower-gate fix: SETTLE costs manpower, and
+    // the client must not dispatch one the server would reject with
+    // INSUFFICIENT_MANPOWER. Since queued garrisons wait for the next
+    // manpower batch, a short tap queues the garrison rather than refusing it.
     const state = createInitialState();
     state.me = "me";
     state.gold = 999;
     state.manpower = SETTLE_MANPOWER_COST - 1;
     state.tiles.set("7,8", makeTile({ x: 7, y: 8, ownerId: "me", ownershipState: "FRONTIER" }));
-    const pushFeed = vi.fn();
-    const showCaptureAlert = vi.fn();
+    const sendGameMessage = vi.fn(() => true);
+    const queueDevelopmentAction = vi.fn(() => true);
+    const settle = (opts?: { allowQueueWhenBusy: false; fromQueue: true }) => {
+      const showCaptureAlert = vi.fn();
+      const started = requestSettlement(state, 7, 8, {
+        keyFor: (x, y) => `${x},${y}`,
+        pushFeed: vi.fn(),
+        showCaptureAlert,
+        renderHud: vi.fn(),
+        queueDevelopmentAction,
+        developmentSlotSummary: () => ({ busy: 0, limit: 1, available: 1 }),
+        developmentSlotReason,
+        sendGameMessage,
+        syncOptimisticSettlementTile: vi.fn(),
+        ...(opts ? { opts } : {})
+      });
+      return { started, showCaptureAlert };
+    };
 
-    const started = requestSettlement(state, 7, 8, {
-      keyFor: (x, y) => `${x},${y}`,
-      pushFeed,
-      showCaptureAlert,
-      renderHud: vi.fn(),
-      queueDevelopmentAction: vi.fn(() => true),
-      developmentSlotSummary: () => ({ busy: 0, limit: 1, available: 1 }),
-      developmentSlotReason,
-      sendGameMessage: vi.fn(() => true),
-      syncOptimisticSettlementTile: vi.fn()
-    });
+    const tapped = settle();
+    expect(tapped.started).toBe(true);
+    expect(queueDevelopmentAction).toHaveBeenCalledWith(expect.objectContaining({ kind: "SETTLE", tileKey: "7,8" }));
+    expect(sendGameMessage).not.toHaveBeenCalled();
 
-    expect(started).toBe(false);
-    expect(showCaptureAlert).toHaveBeenCalledWith("Garrison blocked", `Need ${SETTLE_MANPOWER_COST} manpower to garrison this tile.`, "warn");
+    // Where queueing isn't allowed, the visible warning still applies.
+    const fromQueue = settle({ allowQueueWhenBusy: false, fromQueue: true });
+    expect(fromQueue.started).toBe(false);
+    expect(fromQueue.showCaptureAlert).toHaveBeenCalledWith("Garrison blocked", `Need ${SETTLE_MANPOWER_COST} manpower to garrison this tile.`, "warn");
+    expect(sendGameMessage).not.toHaveBeenCalled();
   });
 
   it("deducts both gold and manpower optimistically when a settlement is dispatched", () => {

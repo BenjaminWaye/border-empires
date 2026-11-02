@@ -56,6 +56,7 @@ import {
   primarySettlementProgress as primarySettlementProgressFromModule,
   processActionQueue as processActionQueueFromModule,
   processDevelopmentQueue as processDevelopmentQueueFromModule,
+  queuedSettleAwaitsManpower,
   processPendingMusterAttacks as processPendingMusterAttacksFromModule,
   queueDevelopmentAction as queueDevelopmentActionFromModule,
   queuedDevelopmentActionExists,
@@ -141,8 +142,7 @@ import {
 import { quickforgeRushBuyContextForState } from "./client-tile-menu-view/client-tile-menu-quickforge-rush-buy.js"; import { buildMusterCommitView } from "./client-muster-commit-tab/client-muster-commit-tab.js";
 import { constructionRemainingMsForTile } from "./client-construction-remaining-ms/client-construction-remaining-ms.js";
 import {
-  queuedBuildProgressForTile as queuedBuildProgressForTileFromModule,
-  queuedSettlementProgressForTile as queuedSettlementProgressForTileFromModule,
+  createQueuedDevelopmentProgressBuilders,
   queuedWaypointProgressForTile as queuedWaypointProgressForTileFromModule,
   queuedExpandProgressForTile as queuedExpandProgressForTileFromModule,
   queuedAutoSettleNextForTile as queuedAutoSettleNextForTileFromModule
@@ -415,7 +415,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const requestSettlement = (
     x: number,
     y: number,
-    opts?: { allowQueueWhenBusy?: boolean; fromQueue?: boolean; suppressWarnings?: boolean; forceQueue?: boolean }
+    opts?: { allowQueueWhenBusy?: boolean; fromQueue?: boolean; suppressWarnings?: boolean; forceQueue?: boolean; manpowerReserved?: boolean }
   ): boolean =>
     requestSettlementFromModule(state, x, y, {
       keyFor,
@@ -844,22 +844,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefined =>
     constructionProgressForTileFromModule(tile, formatCountdownClock, quickforgeRushBuyContextForState(state), state.me);
 
-  const queuedSettlementProgressForTile = (tile: Tile): TileMenuProgressView | undefined =>
-    queuedSettlementProgressForTileFromModule(tile, {
-      keyFor,
-      queuedDevelopmentEntryForTile,
-      queuedSettlementIndexForTile,
-      queuedEntryIndexForTile,
-      devQueueStateForTile
-    });
-
-  const queuedBuildProgressForTile = (tile: Tile): TileMenuProgressView | undefined =>
-    queuedBuildProgressForTileFromModule(tile, {
-      keyFor,
-      queuedDevelopmentEntryForTile,
-      queuedEntryIndexForTile,
-      devQueueStateForTile
-    });
+  const { queuedSettlementProgressForTile, queuedBuildProgressForTile } = createQueuedDevelopmentProgressBuilders({
+    keyFor, queuedDevelopmentEntryForTile, queuedSettlementIndexForTile, queuedEntryIndexForTile, devQueueStateForTile,
+    settleAwaitsManpower: (tileKey) => queuedSettleAwaitsManpower(state, tileKey)
+  });
 
   const queuedWaypointProgressForTile = (tile: Tile): TileMenuProgressView | undefined =>
     queuedWaypointProgressForTileFromModule(tile, {
