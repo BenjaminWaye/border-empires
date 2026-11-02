@@ -1,3 +1,4 @@
+import { afcSynergiesFor } from "@border-empires/shared";
 import { rememberAfcFormInputs } from "./client-afc-form-inputs.js";
 import { renderAfcActions, bindAfcActions, handleAfcActionClick, type AfcActionState, type AfcActionDependencies } from "./client-afc-actions.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -30,6 +31,17 @@ function canInstall(state: UpgradeState, upgrade: DomainInfo): boolean {
     state.domainChoices.includes(upgrade.id);
 }
 
+/** "Works with" lines: whether the linked pick is installed, lost to another choice, or still open. */
+function synergyLines(state: UpgradeState, upgrade: DomainInfo): string {
+  return afcSynergiesFor(upgrade.id).map(link => {
+    const partner = state.domainCatalog.find(candidate => candidate.id === link.withId);
+    if (!partner) return "";
+    const other = state.domainCatalog.find(candidate => candidate.tier === partner.tier && candidate.id !== partner.id && state.domainIds.includes(candidate.id));
+    const status = state.domainIds.includes(partner.id) ? "✓ you have it" : other ? `you picked ${other.name} instead` : "not chosen yet";
+    return `<p class="afc-upgrade-synergy">🔗 Works with ${escape(partner.name)} (Tier ${roman(partner.tier)}): ${escape(link.text)} <span>${escape(status)}</span></p>`;
+  }).join("");
+}
+
 function detail(state: UpgradeState, upgrade: DomainInfo, id: string): string {
   const owned = state.domainIds.includes(upgrade.id);
   const pending = state.pendingDomainUnlockId === upgrade.id;
@@ -47,7 +59,7 @@ function detail(state: UpgradeState, upgrade: DomainInfo, id: string): string {
   return `<section class="afc-upgrade-detail" id="${escape(id)}">
     <h3>${escape(upgrade.name)}</h3>
     <p class="afc-upgrade-benefit">${escape(formatDomainBenefitSummary(upgrade))}</p>
-    <p>${escape(upgrade.description)}</p>${resourceChoice}
+    <p>${escape(upgrade.description)}</p>${resourceChoice}${synergyLines(state, upgrade)}
     ${state.afcInstallationPreviews?.[upgrade.id] ? `<p class="afc-upgrade-preview">${escape(state.afcInstallationPreviews[upgrade.id] ?? "")} Holdings are checked again when installed.</p>` : ""}
     <p class="afc-upgrade-price">${escape(formatDomainCost(upgrade))}</p>
     ${reason ? `<p class="afc-upgrade-reason">${escape(reason)}</p>` : ""}

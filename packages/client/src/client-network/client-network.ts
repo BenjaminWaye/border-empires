@@ -1,7 +1,7 @@
 import { applyPlayerResourceState, applyResourceTradeMessage } from "../client-diplomacy-trade/client-player-resource-state.js";
 import { applyRelicAndProgressionUpdate } from "../client-relic-overlay/relic-map-hints.js";
 import { handleIntelResult } from "./client-network-intel-result.js";
-import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
+import { aetherHijackAlertFeedEntry, applyAfcHijackMessage, applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
 import { applyMapPushMessage } from "./client-map-push-messages.js";
 import { notifyCombatResult } from "./client-combat-result-notifications.js";
 import { musterReportFlagKey, trackMusterReportStart } from "../client-muster-combat-reports/client-muster-combat-reports.js";
@@ -1014,7 +1014,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
     if (msg.type === "JOIN_SEASON_ACK") { state.joinSeasonPending = false; if (msg.spawned) { state.needsSeasonJoin = false; state.joinSeasonOverlayOpen = false; applyJoinSeasonSpawnRecenter(state, parseJoinSeasonAckSpawnTile(msg.spawnTile), requestViewRefreshSafely); } renderHud(); return; }
     if (applyMapPushMessage(state, msg as Record<string, unknown>, renderHud)) return; // REACH_UPDATE / AETHER_SHIELDS / ISLAND_NAMES
-    if (msg.type === "AFC_FLAG_DETECTIONS") { applyAfcStateMessage(state, msg); renderHud(); return; }
+    if (applyAfcHijackMessage(state, msg as Record<string, unknown>)) { renderHud(); return; } // AFC_HIJACKS / AFC_HIJACK_OUTCOME / AFC_BREAKTHROUGH
     if (applyResourceTradeMessage(state, msg)) { renderHud(); return; }
     if (msg.type === "PLAYER_UPDATE") {
       applyAfcStateMessage(state, msg);
@@ -1476,7 +1476,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       renderHud();
       return;
     }
-    if (msg.type === "RAID_RESULT" || msg.type === "AETHER_PURGE_ALERT") { appendFeedEntry(msg.type === "RAID_RESULT" ? raidResultFeedEntry(msg, { playerNameForOwner }) : aetherPurgeAlertFeedEntry(msg)); renderHud(); return; }
+    if (msg.type === "RAID_RESULT" || msg.type === "AETHER_PURGE_ALERT" || msg.type === "AETHER_HIJACK_ALERT") { appendFeedEntry(msg.type === "RAID_RESULT" ? raidResultFeedEntry(msg, { playerNameForOwner }) : msg.type === "AETHER_HIJACK_ALERT" ? aetherHijackAlertFeedEntry(msg) : aetherPurgeAlertFeedEntry(msg)); renderHud(); return; }
     if (msg.type === "SOVEREIGN_SIEGE_ENGINE_STRIKE_ANNOUNCEMENT") {
       applySovereignSiegeEngineStrikeAnnouncement(msg as Record<string, unknown>, { state, appendFeedEntry, requestViewRefresh });
       renderHud();

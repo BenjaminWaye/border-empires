@@ -2,7 +2,7 @@ import type { ClientState } from "../client-state/client-state.js";
 
 export type PlayerUpdateManpowerState = Pick<
   ClientState,
-  "manpower" | "manpowerCap" | "manpowerRegenPerMinute" | "logisticsThroughputPerMinute" | "expandManpowerCost" | "nextManpowerBatchAmount"
+  "manpower" | "manpowerCap" | "manpowerRegenPerMinute" | "logisticsThroughputPerMinute" | "expandManpowerCost" | "settleManpowerCost" | "nextManpowerBatchAmount"
 >;
 
 // PLAYER_UPDATE's manpower numbers (pool, cap, regen, logistics and the
@@ -15,4 +15,5 @@ export const applyPlayerUpdateManpowerFields = (state: PlayerUpdateManpowerState
   state.manpowerRegenPerMinute = numberOr(msg.manpowerRegenPerMinute, state.manpowerRegenPerMinute);
   state.logisticsThroughputPerMinute = numberOr(msg.logisticsThroughputPerMinute, state.logisticsThroughputPerMinute);
   state.expandManpowerCost = numberOr(msg.expandManpowerCost, state.expandManpowerCost);
+  state.settleManpowerCost = numberOr(msg.settleManpowerCost, state.settleManpowerCost);
 };

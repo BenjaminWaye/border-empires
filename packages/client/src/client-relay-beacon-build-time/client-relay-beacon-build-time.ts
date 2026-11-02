@@ -1,6 +1,7 @@
 // Relay Beacon build time for the build menu. The first RELAY_BEACON_FIRST_TIER_COUNT
 // beacons a player owns are placed instantly; the rest take the flat STRUCTURE_BUILD_MS.
 import {
+  afcInstantBuildFor,
   relayBeaconBuildDurationMs,
   relayBeaconManpowerCost,
   structureBuildDurationMs,
@@ -13,7 +14,8 @@ import { buildMsWithSpeedForState } from "../client-build-speed/client-build-spe
 import { ownedRelayBeaconCount } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
 import { structureManpowerCostForState } from "../client-structure-manpower-cost/client-structure-manpower-cost.js";
 
-export const relayBeaconBuildDurationMsForState = (state: ClientState): number => relayBeaconBuildDurationMs(ownedRelayBeaconCount(state));
+export const relayBeaconBuildDurationMsForState = (state: ClientState): number =>
+  afcInstantBuildFor(state.domainIds, "RELAY_BEACON", false) ? 0 : relayBeaconBuildDurationMs(ownedRelayBeaconCount(state));
 
 export const relayBeaconManpowerCostForState = (state: ClientState): number =>
   structureManpowerCostForState(state, "RELAY_BEACON", relayBeaconManpowerCost(ownedRelayBeaconCount(state)));

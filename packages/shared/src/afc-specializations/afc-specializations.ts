@@ -37,6 +37,7 @@ export * from "./afc-momentum.js";
 export * from "./afc-tower-state.js";
 
 export * from "./afc-structure-waiver.js";
+export * from "./afc-synergies.js";
 /** Battlefield Momentum's attack bonus per stack, read from the catalogue so previews never drift. */
 export const AFC_MOMENTUM_ATTACK_PER_STACK: number = AFC_SPECIALIZATIONS.find(upgrade => upgrade.id === "afc-vanguard-3")?.effects.flagMomentumAttackPerStack ?? 0;
 /** Expansion Doctrine (AFC Dominion IV): EXPAND is priced as if the House held `mult` × its frontier tiles. */
@@ -69,3 +70,10 @@ export const economicHegemonyLeadMultFor = (domainIds: Iterable<string> | undefi
   const afcLead = afcMultiplicativeEffect(domainIds, "economicHegemonyLeadMult");
   return afcLead === 1 ? defaultLeadMult : Math.min(defaultLeadMult, afcLead);
 };
+/** Relay Fabrication Line makes Relays instant; Universal Fabrication Line makes every non-monument build instant. */
+export const afcInstantBuildFor = (domainIds: Iterable<string> | undefined, structureType: string, isMonument: boolean): boolean =>
+  (structureType === "RELAY_BEACON" && afcAdditiveEffect(domainIds, "relayBeaconInstantBuild") > 0) ||
+  (!isMonument && afcAdditiveEffect(domainIds, "instantStructureBuild") > 0);
+/** Relays that need no FOOD slot: the built-in allowance plus Relay Fabrication Line's bonus. */
+export const relayBeaconFreeFoodSlotCountFor = (domainIds: Iterable<string> | undefined, baseCount: number): number =>
+  baseCount + afcAdditiveEffect(domainIds, "relayBeaconFreeFoodSlotBonus");

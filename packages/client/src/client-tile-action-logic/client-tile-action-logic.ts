@@ -1,5 +1,5 @@
 import { tileActionAvailability } from "./client-tile-action-availability.js";
-import { manpowerPerBatch, ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE, NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY } from "@border-empires/shared";
+import { RELAY_BEACON_FREE_FOOD_SLOT_COUNT, relayBeaconFreeFoodSlotCountFor, manpowerPerBatch, ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE, NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY } from "@border-empires/shared";
 import { resourceBuildActions } from "./client-resource-build-actions.js";
 import { forcedAncillarificationActions } from "../client-forced-ancillarification/client-forced-ancillarification.js";
 export { canPlaceAetherWallFromOrigin, validAetherWallDirectionsForTile, aetherWallDirectionTargetTiles } from "./client-aether-wall-placement.js";
@@ -8,7 +8,7 @@ import { afcEffectMultiplier } from "../client-afc-upgrades/client-afc-effect.js
 import {
   nextTownGrowthUpgrade,
   type BuildableStructureType,
-  SETTLE_COST, SETTLE_MANPOWER_COST,
+  SETTLE_COST,
   PALISADE_DEFENSE_MULT,
   structureBuildDurationMs,
   terrainAt,
@@ -51,7 +51,7 @@ import { upkeepSuffixFor } from "../client-structure-upkeep-text/client-structur
 import { ownTowerReadyInMs, ownTowerShotReadyInMs } from "../client-observatory-cooldown/client-observatory-cooldown.js";
 import { buildMusterActions } from "../client-muster-tile-actions.js";
 import { appendMarchCancelAction } from "../client-muster-march-targeting.js";
-import { nextFortVariantForTile } from "./client-tile-action-fort-siege-variants.js";
+import { hasFortTech, nextFortVariantForTile } from "./client-tile-action-fort-siege-variants.js";
 import { siegeCampAction } from "./client-tile-action-siege-camp.js";
 import { canBuildPlacementStructure } from "../client-structure-effects/client-structure-effects.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason, ownedRelayBeaconCount } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
@@ -165,7 +165,7 @@ export const chainedBuildAvailabilityFromModule = (
   // even on a FRONTIER tile.
   if (tile.ownershipState === "FRONTIER" && !structureSkipsSettledRequirement(structureType)) {
     const totalGold = SETTLE_COST + goldCost;
-    const totalManpower = SETTLE_MANPOWER_COST + manpowerCost;
+    const totalManpower = state.settleManpowerCost + manpowerCost;
     return [
       eligibleIgnoringAffordability && state.gold >= totalGold && state.manpower >= totalManpower,
       !eligibleIgnoringAffordability
@@ -685,7 +685,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       // upgrade below, but if a fresh Fort can't actually be built right now
       // (no free TITANIUM slot) keep Palisade visible as the fallback rather
       // than hiding both options.
-      (!state.techIds.includes("masonry") || !hasFreeResourceSlots(state, "FORT"))
+      (!hasFortTech(state) || !hasFreeResourceSlots(state, "FORT"))
     ) {
       out.push({
         id: "build_palisade" as TileActionDef["id"],
@@ -709,7 +709,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     ) {
       const fortVariant = nextFortVariantForTile(state, tile);
       if (fortVariant) {
-        const hasTech = tile.fort && !hasPalisade ? true : state.techIds.includes("masonry"); // a Palisade upgrade still needs masonry
+        const hasTech = tile.fort && !hasPalisade ? true : hasFortTech(state); // a Palisade upgrade still needs masonry (or Fortification Patterns)
         const canUseTile = Boolean(tile.fort) || !tile.economicStructure || hasRelayBeacon || tile.economicStructure?.type === "HARBOR_EXCHANGE";
         const hasFreeSlots = hasFreeResourceSlots(state, fortVariant.variant, tile.fort?.variant, tile);
         out.push({
@@ -1165,7 +1165,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
             "RELAY_BEACON",
             hasFreeResourceSlotsForRelayBeacon(state),
             missingRelayBeaconSlotReason(state) ?? "Unavailable",
-            `${deps.structureCostText("RELAY_BEACON")} • ${relayBeaconBuildTimeLabel(state)}${upkeepSuffixFor("RELAY_BEACON", ownedRelayBeaconCount(state))}`
+            `${deps.structureCostText("RELAY_BEACON")} • ${relayBeaconBuildTimeLabel(state)}${upkeepSuffixFor("RELAY_BEACON", ownedRelayBeaconCount(state), relayBeaconFreeFoodSlotCountFor(state.domainIds, RELAY_BEACON_FREE_FOOD_SLOT_COUNT))}`
           ))
         )
       });

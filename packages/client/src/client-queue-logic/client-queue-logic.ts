@@ -1,4 +1,4 @@
-import { SETTLE_COST, SETTLE_MANPOWER_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { SETTLE_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 import { canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "../client-constants.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import {
@@ -319,7 +319,7 @@ export const requestSettlement = (
     deps.renderHud();
     return false;
   }
-  if (state.manpower < SETTLE_MANPOWER_COST) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Garrison blocked", `Need ${SETTLE_MANPOWER_COST} manpower to garrison this tile.`); deps.renderHud(); return false; }
+  if (state.manpower < state.settleManpowerCost) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Garrison blocked", `Need ${state.settleManpowerCost} manpower to garrison this tile.`); deps.renderHud(); return false; }
   if (!canAffordCost(state.gold, SETTLE_COST)) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Garrison blocked", `Need ${SETTLE_COST} coin to garrison this tile.`); deps.renderHud(); return false; }
   if (queuedSettlementShouldWait(state, tileKey)) {
     if (deps.opts?.allowQueueWhenBusy !== false && !deps.opts?.fromQueue) {
@@ -355,7 +355,7 @@ export const requestSettlement = (
   if (deps.opts?.fromQueue) state.queuedDevelopmentDispatchPending = true;
   const startAt = Date.now();
   const progress = { startAt, resolvesAt: startAt + settleDurationMsForState(state, { x, y }), target: { x, y }, awaitingServerConfirm: false };
-  state.gold = Math.max(0, state.gold - SETTLE_COST); state.manpower = Math.max(0, state.manpower - SETTLE_MANPOWER_COST);
+  state.gold = Math.max(0, state.gold - SETTLE_COST); state.manpower = Math.max(0, state.manpower - state.settleManpowerCost);
   state.settleProgressByTile.set(tileKey, progress);
   state.latestSettleTargetKey = tileKey;
   deps.syncOptimisticSettlementTile(x, y, false);
