@@ -1,4 +1,7 @@
-import { AFC_MOMENTUM_ATTACK_PER_STACK, afcMomentumStacks } from "@border-empires/shared";
+import { AFC_MOMENTUM_ATTACK_PER_STACK, aetherTowerShotsRemaining, afcMomentumStacks } from "@border-empires/shared";
+import { ownObservatoryMaxShots } from "../client-observatory-rules/client-observatory-rules.js";
+import { createAfcFxLayer, type AfcFxTower } from "./client-afc-fx-layer.js";
+import { towerOpenToHijack } from "./client-afc-tower-action.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { createAfcUpgradeReadyBadges, readyAfcUpgradeCount, shouldShowAfcUpgradeReadyBadge, type AfcReadyBadgePosition } from "../client-afc-upgrade-ready/client-afc-upgrade-ready.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -17,7 +20,12 @@ export function createAfcMapOverlays(canvas: HTMLCanvasElement, state: ClientSta
   layer.setAttribute("aria-label", "AFC tactical signals");
   canvas.parentElement?.append(layer);
   const elements = new Map<string, HTMLElement>();
+  const fx = createAfcFxLayer(canvas, state);
   return { render(tiles, { size, project }) {
+    const now = Date.now();
+    const towers: AfcFxTower[] = [];
+    const canHijack = state.domainIds.includes("afc-oracle-5");
+    const maxShots = ownObservatoryMaxShots(state);
     const ready = readyAfcUpgradeCount(state);
     const positions: AfcReadyBadgePosition[] = [];
     const shown = new Set<string>();
@@ -26,10 +34,14 @@ export function createAfcMapOverlays(canvas: HTMLCanvasElement, state: ClientSta
     const scaleX = bounds.width / Math.max(1, canvas.width), scaleY = bounds.height / Math.max(1, canvas.height);
     for (const { wx, wy, wk, vis, t, px, py } of state.authSessionReady && !state.profileSetupRequired ? tiles : []) {
       const stacks = vis === "visible" && t?.muster?.ownerId === state.me ? afcMomentumStacks(t.muster.momentum, Date.now()) : 0;
-      const suppressed = vis === "visible" && (t?.observatory?.suppressedUntil ?? 0) > Date.now();
+      const tower = vis === "visible" && t?.observatory?.status === "active" ? t.observatory : undefined;
+      const suppressed = (tower?.suppressedUntil ?? 0) > now;
+      if (tower) towers.push({ wx, wy, suppressed });
+      const hijackable = canHijack && tower && t?.ownerId && t.ownerId !== state.me && towerOpenToHijack(tower, now);
+      const lastShot = tower && t?.ownerId === state.me && !suppressed && aetherTowerShotsRemaining(tower, maxShots, now) === 1;
       const wardUnpowered = t?.ownerId === state.me && dormant.has(`${wk}:fort`);
       const ward = vis === "visible" && t?.fort?.wardEnabled ? wardUnpowered ? "Ward unpowered" : (t.fort.wardRechargesAt ?? 0) > Date.now() ? `Ward ${Math.ceil(((t.fort.wardRechargesAt ?? 0) - Date.now()) / 3_600_000)}h` : t.ownerId === state.me ? "Ward ready" : "Ward charged" : "";
-      const label = suppressed ? "Tower suppressed" : stacks ? `Momentum +${Math.round(stacks * AFC_MOMENTUM_ATTACK_PER_STACK * 100)}%` : ward;
+      const label = suppressed ? "Tower suppressed" : hijackable ? "Hijackable" : lastShot ? "Last shot: firing it opens this tower to hijack" : stacks ? `Momentum +${Math.round(stacks * AFC_MOMENTUM_ATTACK_PER_STACK * 100)}%` : ward;
       const showUpgrade = vis === "visible" && shouldShowAfcUpgradeReadyBadge(t, state.me, ready, state.afcJoinDrop);
       if (!label && !showUpgrade) continue;
       const at = isTrue3DRendererActive() ? project(wx, wy) : { sx: px + size / 2, sy: py + size / 2 };
@@ -49,10 +61,13 @@ export function createAfcMapOverlays(canvas: HTMLCanvasElement, state: ClientSta
         layer.append(element); elements.set(wk, element);
       }
       element.textContent = label;
+      element.classList.toggle("is-hijackable", Boolean(hijackable));
+      element.classList.toggle("is-last-shot", Boolean(lastShot));
       element.setAttribute("aria-label", label);
       element.style.left = `${x}px`; element.style.top = `${y}px`;
     }
     for (const [key, element] of elements) if (!shown.has(key)) { element.remove(); elements.delete(key); }
+    fx.render({ size, project }, towers, now);
     badges.render(positions, ready);
   } };
 }

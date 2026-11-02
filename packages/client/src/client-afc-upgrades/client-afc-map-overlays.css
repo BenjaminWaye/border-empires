@@ -2,3 +2,23 @@
 .afc-map-signal { position: absolute; transform: translate(-50%, 8px); pointer-events: auto; min-height: 36px; max-width: 160px; padding: 5px 9px; border: 1px solid var(--sp-brass-300, #bc9a59); border-radius: 4px; color: var(--sp-parchment-100, #eee4ce); background: var(--sp-iron-900, #171c21); font-size: 11px; cursor: pointer; }
 .afc-map-signal:focus-visible { outline: 2px solid var(--sp-brass-100); outline-offset: 2px; }
 @media (pointer: coarse) { .afc-map-signal { min-height: 44px; } }
+.afc-map-signal.is-hijackable { border-color: #c77dff; color: #f3e6ff; animation: afc-hijackable-pulse 1.4s ease-in-out infinite; }
+.afc-map-signal.is-last-shot { border-color: #e0a73d; max-width: 200px; }
+@keyframes afc-hijackable-pulse { 50% { box-shadow: 0 0 0 4px rgba(199, 125, 255, 0.35); } }
+.afc-fx-layer { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; z-index: 4; }
+.afc-fx-hijack-beam { stroke: #ff5d73; stroke-width: 3; stroke-dasharray: 10 6; animation: afc-beam-flow 0.8s linear infinite; filter: drop-shadow(0 0 4px #ff5d73); }
+.afc-fx-hijack-beam.is-mine, .afc-fx-hijack-progress.is-mine { stroke: #c77dff; filter: drop-shadow(0 0 4px #c77dff); }
+.afc-fx-hijack-track { fill: none; stroke: rgba(255, 255, 255, 0.25); stroke-width: 4; }
+.afc-fx-hijack-progress { fill: none; stroke: #ff5d73; stroke-width: 4; stroke-linecap: round; }
+.afc-fx-hijack-snap { stroke: #ff3b3b; stroke-width: 3; }
+.afc-fx-shockwave { fill: none; stroke: #f3e6ff; stroke-width: 3; }
+.afc-fx-shockwave.is-breach { stroke: #ffb347; }
+.afc-fx-flash { fill: #ffffff; }
+.afc-fx-breach { stroke: #ffb347; stroke-width: 4; stroke-linecap: round; filter: drop-shadow(0 0 4px #ff7b00); }
+.afc-fx-static { fill: none; stroke: #7fdcff; stroke-width: 2; stroke-dasharray: 3 5; animation: afc-static-crackle 0.25s steps(2) infinite; }
+.afc-fx-label { fill: #f6efdf; font: 600 12px system-ui, sans-serif; text-anchor: middle; paint-order: stroke; stroke: #171c21; stroke-width: 3px; }
+.afc-fx-label.is-alert { fill: #ff8f9c; }
+.afc-fx-label.is-breach { fill: #ffcf87; }
+@keyframes afc-beam-flow { to { stroke-dashoffset: -16; } }
+@keyframes afc-static-crackle { 50% { stroke-dashoffset: 4; opacity: 0.6; } }
+@media (prefers-reduced-motion: reduce) { .afc-fx-hijack-beam, .afc-fx-static, .afc-map-signal.is-hijackable { animation: none; } }
