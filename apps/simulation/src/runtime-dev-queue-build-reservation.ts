@@ -8,6 +8,7 @@
 // does the final, authoritative charge. See runtime-dev-queue-command-
 // handlers.ts for where these hooks are called.
 import { relayBeaconFreeFoodSlotCountForPlayer } from "./tech-domain-bridge/slot-waivers.js";
+import { settleManpowerCostFor } from "./runtime-settlement-rules.js";
 import {
   STRUCTURE_REGISTRY,
   bestFortTierForTech,
@@ -18,7 +19,6 @@ import {
   structureBuildManpowerCostScaled,
   structureSlotRequirements,
   SYNTHESIZER_STRUCTURE_TYPES,
-  SETTLE_MANPOWER_COST,
   type BuildableStructureType,
   type StructureSpec,
   type SlotResource,
@@ -180,8 +180,9 @@ function estimateDevQueueSettleReservation(context: RuntimeStructureCommandConte
   if (!actor) {
     return { ok: false, code: "UNKNOWN_STRUCTURE", message: "unknown player" };
   }
-  if (actor.manpower < SETTLE_MANPOWER_COST) {
-    return { ok: false, code: "INSUFFICIENT_MANPOWER", message: `need ${SETTLE_MANPOWER_COST} manpower to garrison` };
+  const manpowerCost = settleManpowerCostFor(actor);
+  if (actor.manpower < manpowerCost) {
+    return { ok: false, code: "INSUFFICIENT_MANPOWER", message: `need ${manpowerCost} manpower to garrison` };
   }
-  return { ok: true, manpowerCost: SETTLE_MANPOWER_COST, slotRequirements: [] };
+  return { ok: true, manpowerCost, slotRequirements: [] };
 }

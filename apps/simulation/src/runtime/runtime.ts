@@ -13,6 +13,7 @@ import { withAfcFortFacts, refreshAfcFortFacts } from "../afc-specializations/af
 import { restoreSameOwnerSummaryOrder } from "../runtime-same-owner-summary-order.js";
 import { handleAfcActiveCommand } from "../afc-specializations/afc-active-commands.js";
 import { sendAfcHijacks, tickResonanceHijacks, type AfcHijackDeps } from "../afc-specializations/afc-hijack.js";
+import { createColonialCharterSweep } from "../afc-specializations/afc-colonial-charter.js";
 import { expandTileDeltasWithLinkedDocks } from "../runtime-linked-dock-deltas.js";
 import { planDirectFrontierCommand } from "../ai/direct-frontier-planner.js";
 import { buildAiTacticalView, type AiTacticalView } from "../ai/ai-tactical-view.js";
@@ -1133,8 +1134,12 @@ export class SimulationRuntime {
   tickAetherShields(nowMs: number = this.now()): void {
     this.aetherShieldTicker.tick(nowMs);
     this.activeHijackCount = tickResonanceHijacks(this.hijackDeps(), nowMs); // walks the active-tower index only
+    this.tickAfcGrants(nowMs); // Colonial Charter, throttled to 15s inside
   }
   private activeHijackCount = 0;
+  /** Colonial Charter deliveries (AFC Dominion II); throttled inside, charter holders' towns only. */
+  private readonly tickAfcGrants = createColonialCharterSweep(() => ({ tiles: this.state.tiles, players: this.state.players, ownedTownKeys: (id) => this.summaryForPlayer(id).ownedTownTierByTile.keys(),
+    replaceTileState: (key, tile, commandId) => this.replaceTileState(key, tile, commandId), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command) }));
   private hijackDeps(): AfcHijackDeps {
     return { tiles: this.state.tiles, players: this.state.players, activeObservatoriesByOwner: () => this.ownerIndexes.activeObservatoriesByOwner, isStructureDormant: (id, key, field) => this.isStructureDormant(id, key, field), replaceTileState: (key, tile, commandId) => this.replaceTileState(key, tile, commandId),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), applyEncirclement: (keys, id, commandId, options) => this.applyEncirclement(keys, id, commandId, options), emitEvent: (event) => this.emitEvent(event), emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload) };

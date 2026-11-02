@@ -10,6 +10,7 @@ import {
   MUSTER_TRANSIT_MAX_TILES,
   MUSTER_TRANSIT_MS_PER_TILE,
   anonymizedEmpireNameForId,
+  afcExpandPricingFrontierCount,
   expandManpowerCostForFrontierCount,
   frontierClaimDurationMsAt,
   isOpaquePlayerId
@@ -23,7 +24,7 @@ import { lockSourceFromSessionId } from "./runtime-types.js";
 import type { LockRecord, LockedCombatResolution, RuntimePlayer } from "./runtime-types.js";
 import type { DockCrossingOrigin } from "./runtime/runtime-crossing.js";
 import type { LockedCombatInput } from "./runtime-combat-support.js";
-import { additiveEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { additiveEffectForPlayer, multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
 import { launchBarbarianAttack, type BarbarianLaunchContext } from "./runtime-barbarian-walk.js";
 
@@ -182,7 +183,7 @@ export const handleFrontierCommandImpl = (
   const expandClaimDurationMs = actionType === "EXPAND" ? frontierClaimDurationMsForCoords(to.x, to.y) : undefined;
   // Barbarians keep the flat base price so their walk/multiply pacing is unchanged.
   const expandManpowerCost = actionType === "EXPAND" && actor.id !== "barbarian-1"
-    ? expandManpowerCostForFrontierCount(ctx.frontierTileCountForPlayer(actor.id))
+    ? expandManpowerCostForFrontierCount(afcExpandPricingFrontierCount(ctx.frontierTileCountForPlayer(actor.id), multiplicativeEffectForPlayer(actor, "expandFrontierCountMult")))
     : undefined;
   const requiredMuster = actionType === "ATTACK"
     ? ctx.requiredMusterForTarget(to, actor.id)

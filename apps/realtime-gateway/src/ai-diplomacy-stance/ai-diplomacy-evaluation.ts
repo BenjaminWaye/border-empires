@@ -1,3 +1,4 @@
+import { afcAdditiveEffect, afcMultiplicativeEffect } from "@border-empires/shared";
 // One AI's full read on one requester: its strength stance, its attitude
 // (with the modifiers behind it), the war between them, what it charges, and
 // what the requester can actually pay. Shared by the offer auto-responder
@@ -103,6 +104,7 @@ export const evaluateAiDiplomacy = (input: {
     requesterBrokeAllianceWithAi: input.requesterBrokeAllianceWithAi,
     bordersTouch: stanceInput.bordersTouch,
     incomePerHour: goodwillIncomePerHour,
+    diplomaticCorpsBonus: afcAdditiveEffect(input.requesterSnapshot?.player?.domainIds, "aiOpinionBonus"),
     now: input.now
   });
   const gift = giftView(input.memory.goodwillCoin, goodwillIncomePerHour);
@@ -118,6 +120,7 @@ export const evaluateAiDiplomacy = (input: {
     requesterBrokeTruceWithAi: input.requesterBrokeTruceWithAi,
     aiWouldLeadAlliance: aiLeads(input),
     giftCanWinOver: giftToReach(gift, opinion.score, ATTITUDE_MIN_SCORE.PLEASED) !== undefined,
+    requesterTruceCostMult: afcMultiplicativeEffect(input.requesterSnapshot?.player?.domainIds, "truceCostMult"),
     now: input.now
   });
   return {

@@ -1,4 +1,4 @@
-import { AFC_SPECIALIZATIONS, AFC_SPECIALIZATION_RULESET, type AfcSpecializationRuleset } from "./afc-specializations-catalog.js";
+import { AFC_SPECIALIZATIONS, AFC_SPECIALIZATION_RULESET, type AfcSpecializationEffects, type AfcSpecializationRuleset } from "./afc-specializations-catalog.js";
 export * from "./afc-specializations-catalog.js";
 
 export interface AfcProgressionState {
@@ -39,3 +39,33 @@ export * from "./afc-tower-state.js";
 export * from "./afc-structure-waiver.js";
 /** Battlefield Momentum's attack bonus per stack, read from the catalogue so previews never drift. */
 export const AFC_MOMENTUM_ATTACK_PER_STACK: number = AFC_SPECIALIZATIONS.find(upgrade => upgrade.id === "afc-vanguard-3")?.effects.flagMomentumAttackPerStack ?? 0;
+/** Expansion Doctrine (AFC Dominion IV): EXPAND is priced as if the House held `mult` × its frontier tiles. */
+export const afcExpandPricingFrontierCount = (frontierTileCount: number, mult: number): number =>
+  Math.floor(Math.max(0, frontierTileCount) * Math.min(1, Math.max(0, mult)));
+/** Sum of one AFC effect across the installed picks (services that only see domain ids, e.g. the gateway). */
+export const afcAdditiveEffect = (domainIds: Iterable<string> | undefined, key: keyof AfcSpecializationEffects): number => {
+  const installed = new Set(domainIds ?? []);
+  let total = 0;
+  for (const upgrade of AFC_SPECIALIZATIONS) {
+    const effects: AfcSpecializationEffects = upgrade.effects;
+    const value = effects[key];
+    if (installed.has(upgrade.id) && typeof value === "number") total += value;
+  }
+  return total;
+};
+/** Product of one AFC multiplier effect across the installed picks (1 when none applies). */
+export const afcMultiplicativeEffect = (domainIds: Iterable<string> | undefined, key: keyof AfcSpecializationEffects): number => {
+  const installed = new Set(domainIds ?? []);
+  let product = 1;
+  for (const upgrade of AFC_SPECIALIZATIONS) {
+    const effects: AfcSpecializationEffects = upgrade.effects;
+    const value = effects[key];
+    if (installed.has(upgrade.id) && typeof value === "number" && value > 0) product *= value;
+  }
+  return product;
+};
+/** Economic Hegemony's required lead over the runner-up: Metropolitan Concession (AFC Exchequer V) lowers it for its holder. */
+export const economicHegemonyLeadMultFor = (domainIds: Iterable<string> | undefined, defaultLeadMult: number): number => {
+  const afcLead = afcMultiplicativeEffect(domainIds, "economicHegemonyLeadMult");
+  return afcLead === 1 ? defaultLeadMult : Math.min(defaultLeadMult, afcLead);
+};
