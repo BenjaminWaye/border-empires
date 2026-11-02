@@ -9,7 +9,7 @@
 //     early, runtime-settlement-start.ts), so it shows rubble around its base.
 //   - A captured resource smokes, and pays no resource slots until then.
 // The rubble and smoke clear when the hold ends.
-import { CAPTURE_HOLD_MS, WAR_SCAR_MAX_LEVEL, isCaptureHoldActive, isFortDefending, liveWarScarLevel } from "@border-empires/shared";
+import { WAR_SCAR_MAX_LEVEL, isCaptureHoldActive, isFortDefending, liveWarScarLevel } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
 /** What lies wrecked on the tile: a razed Relay Beacon or siege engine (by variant), or a breached fort. */
@@ -52,16 +52,18 @@ const razedKindsDropped = (existing: Tile, merged: Tile): RazedKind[] => {
 
 /**
  * Called by the tile merge with the tile before and after an update: when a
- * standing Relay Beacon or Siege Battery disappears because the tile changed
- * hands, remember its wreck for the new owner's hold window (or a hold's
- * length, for a capture that starts none, e.g. by barbarians).
+ * standing Relay Beacon or Siege Battery the client was watching disappears
+ * because the tile was just captured (it changed hands into a live capture
+ * hold), remember its wreck until the hold ends. A tile last seen under fog,
+ * or one resynced after a reconnect, may have changed hands long ago: that
+ * leaves no wreck, so neither does a capture with no hold (e.g. by barbarians).
  */
 export const noteRazedStructuresOnCapture = (existing: Tile | undefined, merged: Tile, tileKey: string, nowEpochMs: number = Date.now()): void => {
-  if (!existing?.ownerId || !merged.ownerId || existing.ownerId === merged.ownerId) return;
+  if (!existing?.ownerId || existing.fogged || !merged.ownerId || existing.ownerId === merged.ownerId) return;
+  if (!isCaptureHoldActive(merged, nowEpochMs)) return;
   const kinds = razedKindsDropped(existing, merged);
   if (kinds.length === 0) return;
-  const until = isCaptureHoldActive(merged, nowEpochMs) ? merged.captureHoldUntil! : nowEpochMs + CAPTURE_HOLD_MS;
-  razedByKey.set(tileKey, { kinds, until });
+  razedByKey.set(tileKey, { kinds, until: merged.captureHoldUntil! });
   if (razedByKey.size > RAZED_INDEX_SWEEP_AT) sweepExpired(nowEpochMs);
 };
 

@@ -2,10 +2,10 @@ import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain"
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { WAR_SCAR_DURATION_MS } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
-import { resolveLock, type RuntimeLockResolutionContext } from "./runtime-lock-resolution.js";
-import type { LockRecord, SimulationTileWireDelta } from "./runtime-types.js";
-import { simulationTileKey } from "./seed-state/seed-state.js";
-import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
+import { resolveLock, type RuntimeLockResolutionContext } from "../runtime-lock-resolution.js";
+import type { LockRecord, SimulationTileWireDelta } from "../runtime-types.js";
+import { simulationTileKey } from "../seed-state/seed-state.js";
+import { CombatLockIndex } from "../combat-lock-index/combat-lock-index.js";
 
 // Battle scars (shared war-scars.ts) through the real resolveLock pipeline,
 // with the same bare-Maps fixture as runtime-lock-resolution.frontier-instant-capture.test.ts.

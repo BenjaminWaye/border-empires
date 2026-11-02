@@ -11,7 +11,7 @@ export const CAPTURE_AFTERMATH_CHANGELOG: ClientChangelogEntry[] = [
       "A captured fort stands breached while the tile is held, one wall smashed through and a tower toppled, and gives no defense. It defends again once the tile is garrisoned",
       "A captured resource tile burns while the tile is held, and its resource slots only count once the hold ends and the tile is garrisoned",
       "A captured dock is set ablaze: its harbour house, freight, pier and moored ferry burn while the tile is held, and it pays no gold until the hold ends and the tile is garrisoned",
-      "Garrisoning a captured tile can't finish before the hold ends, even with faster garrison upgrades",
+      "Garrisoning a captured tile can't finish before the hold ends, even with faster garrison upgrades or by rushing it with coin",
       "Both the 2D and 3D maps show the wreckage, and the tile menu explains it"
     ]
   },

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { drawForestWar2D, drawWarScars2D } from "./client-map-2d-war-scars.js";
-import type { Tile } from "./client-types.js";
+import type { Tile } from "../client-types.js";
 
 // Records every canvas call by name; property writes are accepted silently.
 const recordingCtx = () => {

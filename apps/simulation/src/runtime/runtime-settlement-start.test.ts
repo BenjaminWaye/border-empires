@@ -42,7 +42,8 @@ describe("startSettlementProcess capture-hold floor", () => {
     expect(run({ ...plainLand, captureHoldUntil: 500 }).resolvesAt).toBe(1_000 + SETTLE_MS);
   });
 
-  it("floors at the full hold for a fresh capture", () => {
-    expect(run({ ...plainLand, captureHoldUntil: 1_000 + CAPTURE_HOLD_MS }).resolvesAt).toBeGreaterThanOrEqual(1_000 + CAPTURE_HOLD_MS);
+  it("waits out a hold longer than the garrison", () => {
+    // The full hold (60s) outlasts this player's 60s garrison by nothing: it ends exactly at the hold's end.
+    expect(run({ ...plainLand, captureHoldUntil: 1_000 + CAPTURE_HOLD_MS + 5_000 }).resolvesAt).toBe(1_000 + CAPTURE_HOLD_MS + 5_000);
   });
 });

@@ -9,7 +9,7 @@ import type { AfcJoinDropState } from "./client-afc-join-drop/client-afc-join-dr
 import { drawAfcTile2D } from "./client-afc-join-drop/client-map-2d-afc-join-drop.js";
 import { drawCaptureAftermath2D } from "./client-map-2d-capture-aftermath.js";
 import { drawCaptureHoldGarrison2D } from "./client-map-2d-capture-hold-overlay.js";
-import { drawWarScars2D } from "./client-map-2d-war-scars.js";
+import { drawWarScars2D } from "./client-capture-aftermath/client-map-2d-war-scars.js";
 import { drawNaturalWonderOverlay2D, naturalWonderOverlayForTile } from "./client-map-2d-natural-wonder-overlay.js";
 import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js";
 import { drawWaystation2D } from "./client-map-2d-waystation-overlay.js";

@@ -4,7 +4,7 @@
 import type { Tile } from "./client-types.js";
 import { constructionSiteForRebuild } from "./client-construction-afc-offset/client-construction-afc-offset.js";
 import { isFortWreckedByCapture } from "./client-capture-aftermath/client-capture-aftermath.js";
-import type { CaptureAftermathFx3D } from "./client-map-3d-capture-aftermath-fx.js";
+import type { CaptureAftermathFx3D } from "./client-capture-aftermath/client-map-3d-capture-aftermath-fx.js";
 import type { FortOverlay } from "./client-map-3d-fort-overlay.js";
 import type { RelayBeaconOverlay } from "./client-map-3d-relay-beacon-overlay.js";
 import type { SiegeTowerOverlay } from "./client-map-3d-siege-tower-overlay.js";

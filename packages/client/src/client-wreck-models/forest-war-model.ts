@@ -108,14 +108,15 @@ const tree = (t: WreckBuilders, species: ForestSpecies, fate: TreeFate, x: numbe
 };
 
 /** The forest-war model for one forest layout, species and fate pattern at scar `level`; `fresh` smoulders. */
-export const buildForestWar = (t: WreckBuilders, level: number, layoutIndex: number, species: ForestSpecies, variant: number, fresh = false): void => {
+export const buildForestWar = (t: WreckBuilders, level: number, layoutIndex: number, species: ForestSpecies, variant: number, fresh = false, riverMask = 0): void => {
   const random = wreckRandom(601 + variant * 17 + layoutIndex * 5);
   const layout = LAYOUTS[layoutIndex] ?? LAYOUTS[0]!;
   const trunks = layout.map((p) => ({ x: p.ox, z: p.oz }));
   let smoke = fresh ? 2 : 0;
   layout.forEach((p, slot) => {
     const fate = treeFate(variant, level, slot);
-    if (fate === "standing") return;
+    // No tree grew there (the forest keeps its trees off river banks), so none burnt either.
+    if (fate === "standing" || (riverMask & (1 << slot)) !== 0) return;
     const standing = tree(t, species, fate, p.ox, p.oz, p.scale, random, fresh);
     if (smoke > 0 && standing) {
       smoke -= 1;

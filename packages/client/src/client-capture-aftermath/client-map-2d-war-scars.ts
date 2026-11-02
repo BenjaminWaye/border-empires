@@ -5,10 +5,10 @@
 // forest the trees burn: charred where they stood, sliced through with the top
 // down beside the stump, or burnt to stumps. Each level adds to the last;
 // fresh scars (the first hours after the latest battle) glow molten and smoke.
-import { WAR_SCAR_MAX_LEVEL, isForestTileAt, isTropicalForestLatitudeAt, isWarScarFresh, liveWarScarLevel } from "@border-empires/shared";
-import type { Tile } from "./client-types.js";
-import { forestLayoutAt, treeFate, type TreeFate } from "./client-forest-war/forest-war.js";
-import { forestAnchorsForSize } from "./client-forest-war/forest-anchors-2d.js";
+import { WAR_SCAR_MAX_LEVEL, isForestTileAt, isNetworkResource, isTropicalForestLatitudeAt, isWarScarFresh, liveWarScarLevel } from "@border-empires/shared";
+import type { Tile } from "../client-types.js";
+import { forestLayoutAt, treeFate, type TreeFate } from "../client-forest-war/forest-war.js";
+import { forestAnchorsForSize } from "../client-forest-war/forest-anchors-2d.js";
 
 type Ctx = CanvasRenderingContext2D;
 
@@ -135,6 +135,7 @@ export const drawWarScars2D = (ctx: Ctx, tile: Tile, px: number, py: number, siz
     pit(ctx, x, y, size * (0.035 + hash(seed, i + 80) * 0.02), fresh, nowEpochMs, i);
     if (fresh && i < 2) smoke(ctx, seed + i, x, y, size, nowEpochMs);
   }
-  if (size >= 12 && isForestTileAt(tile.x, tile.y)) drawForestWar2D(ctx, tile, px, py, size, level, nowEpochMs);
+  // Only where trees stand, as the 3D forest gate (client-map-3d-forest-structure-gate.ts) decides.
+  if (size >= 12 && isForestTileAt(tile.x, tile.y) && !tile.economicStructure && !isNetworkResource(tile.resource)) drawForestWar2D(ctx, tile, px, py, size, level, nowEpochMs);
   ctx.restore();
 };

@@ -17,13 +17,15 @@
 // clears on time on a still camera.
 import type { Scene, Texture } from "three";
 import { isWarScarFresh, liveWarScarLevel, warScarFreshUntil } from "@border-empires/shared";
-import { captureAftermathForTile } from "./client-capture-aftermath/client-capture-aftermath.js";
-import { forestLayoutAt } from "./client-forest-war/forest-war.js";
-import { harbourFacingAt, rotationForFacing } from "./client-harbour-slipways/client-harbour-slipways.js";
-import { QUAY_DECK_Y } from "./client-wreck-models/dock-fire-model.js";
-import type { VillageEffects } from "./client-map-3d-village-fx.js";
-import { createWreckOverlay3D } from "./client-map-3d-wreck-overlay.js";
-import type { Tile } from "./client-types.js";
+import { captureAftermathForTile } from "./client-capture-aftermath.js";
+import { forestLayoutAt } from "../client-forest-war/forest-war.js";
+import { LAYOUTS } from "../client-map-3d-forest.js";
+import { riverBankTreeFilter } from "../client-map-3d-rivers/client-map-3d-river-bank-trees.js";
+import { harbourFacingAt, rotationForFacing } from "../client-harbour-slipways/client-harbour-slipways.js";
+import { QUAY_DECK_Y } from "../client-wreck-models/dock-fire-model.js";
+import type { VillageEffects } from "../client-map-3d-village-fx.js";
+import { createWreckOverlay3D } from "../client-map-3d-wreck-overlay.js";
+import type { Tile } from "../client-types.js";
 
 // Ground details sit just clear of the terrain so slopes don't swallow them.
 const GROUND_LIFT = 0.008;
@@ -39,6 +41,13 @@ export type CaptureAftermathFx3D = {
   readonly boundaryPassed: () => boolean;
   readonly commit: () => void;
   readonly dispose: () => void;
+};
+
+/** Layout slots the living forest leaves empty on a river bank (client-map-3d-forest.ts), as bits. */
+const riverMaskFor = (worldX: number, worldZ: number, layoutIndex: number): number => {
+  const onBank = riverBankTreeFilter(worldX, worldZ);
+  if (!onBank) return 0;
+  return (LAYOUTS[layoutIndex] ?? []).reduce((mask, tree, slot) => (onBank(tree.ox, tree.oz) ? mask | (1 << slot) : mask), 0);
 };
 
 export const createCaptureAftermathFx3D = (
@@ -59,14 +68,18 @@ export const createCaptureAftermathFx3D = (
 
   const addTile = (tile: Tile, tileKey: string, x: number, z: number, surfaceY: number, worldX: number, worldZ: number, forest?: "TEMPERATE" | "TROPICAL"): void => {
     const y = surfaceY + GROUND_LIFT;
-    const seed = worldX * 17 + worldZ * 31;
+    // A proper spatial hash: nearby tiles and mirrored coordinates get unrelated variants and turns.
+    const seed = ((worldX * 73856093) ^ (worldZ * 19349663)) >>> 0;
     const now = Date.now();
     const scarLevel = liveWarScarLevel(tile, now);
     if (scarLevel > 0) {
       // Fresh scars smoke and glow for a while; rebuild once they go cold.
       const fresh = isWarScarFresh(tile, now);
       // In a forest the beams burn the trees themselves, laid out exactly as the forest draws them.
-      if (forest) wrecks.add({ kind: "FOREST_WAR", level: scarLevel, fresh, ...forestLayoutAt(worldX, worldZ, forest === "TROPICAL") }, x, y, z, seed, 0);
+      if (forest) {
+        const layout = forestLayoutAt(worldX, worldZ, forest === "TROPICAL");
+        wrecks.add({ kind: "FOREST_WAR", level: scarLevel, fresh, riverMask: riverMaskFor(worldX, worldZ, layout.layout), ...layout }, x, y, z, seed, 0);
+      }
       else wrecks.add({ kind: "BATTLE_SCARS", level: scarLevel, fresh }, x, y, z, seed);
       nextBoundary = Math.min(nextBoundary, fresh ? warScarFreshUntil(tile)! : tile.warScarUntil!);
     }

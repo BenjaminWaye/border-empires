@@ -34,6 +34,14 @@ describe("capture aftermath", () => {
     expect(captureAftermathForTile(after, KEY, NOW)?.rubble).toEqual(["SIEGE_BATTERY"]);
   });
 
+  it("invents no wreck for a change of hands it didn't see happen (fogged, or no live capture hold)", () => {
+    noteRazedStructuresOnCapture({ ...beaconTile, fogged: true } as Tile, captured(), KEY, NOW);
+    expect(captureAftermathForTile(captured(), KEY, NOW)).toBeUndefined();
+    const longAgo = { ...base, ownerId: "p2", ownershipState: "SETTLED" } as Tile;
+    noteRazedStructuresOnCapture(beaconTile, longAgo, "6,6", NOW);
+    expect(captureAftermathForTile(longAgo, "6,6", NOW)).toBeUndefined();
+  });
+
   it("ignores a structure removed without the tile changing hands, or still under construction", () => {
     const { economicStructure: _razed, ...sameOwner } = beaconTile;
     noteRazedStructuresOnCapture(beaconTile, sameOwner, KEY, NOW);

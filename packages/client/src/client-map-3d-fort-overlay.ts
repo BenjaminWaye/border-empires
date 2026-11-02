@@ -20,7 +20,7 @@ import { createSiegeMachineOverlay } from "./client-map-3d-siege-machine-overlay
 import { CONSTRUCTION_PHASES, type ConstructionSite } from "./client-construction-phase/client-construction-phase.js";
 import { createLazyConstructionPresentation } from "./client-map-3d-construction/client-map-3d-construction-presentation.js";
 import { FORT_CONSTRUCTION_LAYOUT } from "./client-map-3d-construction/client-map-3d-construction-layout.js";
-import { fortBreachLayout, type BreachBlock, type BreachDimensions, type FortBreachLayout } from "./client-map-3d-fort-breach.js";
+import { fortBreachLayout, type BreachBlock, type BreachDimensions, type FortBreachLayout } from "./client-map-3d-fort-breach/client-map-3d-fort-breach.js";
 
 // Fort 3D overlay: stone, wood, and the two metal fort-ladder variants
 // (TITANIUM_BASTION, THUNDER_BASTION) each get a 4-wall + 4-corner-tower
@@ -291,6 +291,8 @@ export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnviro
     meshes.wallW.count = counters.wallW;
     meshes.towers.count = counters.towers;
     meshes.blocks.count = counters.blocks;
+    meshes.blocks.instanceMatrix.clearUpdateRanges();
+    meshes.blocks.instanceMatrix.addUpdateRange(0, counters.blocks * 16);
     meshes.blocks.instanceMatrix.needsUpdate = true;
     meshes.wallN.instanceMatrix.clearUpdateRanges();
     meshes.wallN.instanceMatrix.addUpdateRange(0, meshes.wallN.count * 16);

@@ -58,7 +58,8 @@ export function applyWinningTileCapture(context: RuntimeLockResolutionContext, l
       // Battle scars (shared war-scars.ts) stay on the ground through a
       // change of owner; taking a garrison in battle adds to them.
       ...warScarFieldsAfterBattle(previousTarget, {
-        capturedGarrison: previousTarget?.ownershipState === "SETTLED" && Boolean(previousOwnerId) && previousOwnerId !== lock.playerId && previousOwnerId !== "barbarian-1",
+        // Only a garrison taken in an actual fight (not a Breakthrough capitulation, which has none).
+        capturedGarrison: Boolean(combatBroadcastJson) && previousTarget?.ownershipState === "SETTLED" && Boolean(previousOwnerId) && previousOwnerId !== lock.playerId && previousOwnerId !== "barbarian-1",
         battle: Boolean(combatBroadcastJson)
       }, context.now())
     };

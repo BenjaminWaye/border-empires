@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { InstancedMesh, Scene } from "three";
 import { CAPTURE_HOLD_MS } from "@border-empires/shared";
-import { noteRazedStructuresOnCapture, resetCaptureAftermathIndex } from "./client-capture-aftermath/client-capture-aftermath.js";
+import { noteRazedStructuresOnCapture, resetCaptureAftermathIndex } from "./client-capture-aftermath.js";
 import { createCaptureAftermathFx3D } from "./client-map-3d-capture-aftermath-fx.js";
-import type { Tile } from "./client-types.js";
+import type { Tile } from "../client-types.js";
 
 afterEach(() => { vi.useRealTimers(); resetCaptureAftermathIndex(); });
 

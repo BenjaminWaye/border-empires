@@ -130,7 +130,7 @@ export const createWreckOverlay3D = (scene: Scene, envMap?: Texture): WreckOverl
 
   const add = (model: WreckModel, x: number, surfaceY: number, z: number, seed: number, yaw?: number, size = 1): void => {
     if (total >= MAX_WRECKS) return;
-    const hash = Math.abs(Math.floor(seed * 2654435761)) >>> 0;
+    const hash = Math.imul(Math.floor(seed) | 0, 2654435761) >>> 0;
     const variant = hash % wreckModelVariants(model);
     const key = wreckModelKey(model, variant);
     if (!models.has(key)) models.set(key, { model, variant });
@@ -145,7 +145,7 @@ export const createWreckOverlay3D = (scene: Scene, envMap?: Texture): WreckOverl
     pending.clear();
     total = 0;
     marks.count = 0;
-    for (const slot of slots.values()) for (const mesh of slot.meshes) mesh.count = 0;
+    for (const slot of slots.values()) for (const mesh of slot.meshes) { mesh.count = 0; mesh.visible = false; }
   };
 
   const commit = (): void => {
@@ -169,10 +169,17 @@ export const createWreckOverlay3D = (scene: Scene, envMap?: Texture): WreckOverl
       });
       for (const mesh of slot.meshes) {
         mesh.count = placements.length;
+        // Slots of models not on screen stay hidden, so they cost nothing per frame.
+        mesh.visible = true;
+        mesh.instanceMatrix.clearUpdateRanges();
+        mesh.instanceMatrix.addUpdateRange(0, placements.length * 16);
         mesh.instanceMatrix.needsUpdate = true;
       }
     }
     marks.count = markCount;
+    marks.visible = markCount > 0;
+    marks.instanceMatrix.clearUpdateRanges();
+    marks.instanceMatrix.addUpdateRange(0, markCount * 16);
     marks.instanceMatrix.needsUpdate = true;
   };
 

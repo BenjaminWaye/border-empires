@@ -53,6 +53,12 @@ describe("wreck models", () => {
     }
   });
 
+  it("burn no tree where the forest grew none (river banks)", () => {
+    const full = vertexCount({ kind: "FOREST_WAR", level: WAR_SCAR_MAX_LEVEL, layout: 0, species: "pine", variant: 0 });
+    const banked = vertexCount({ kind: "FOREST_WAR", level: WAR_SCAR_MAX_LEVEL, layout: 0, species: "pine", variant: 0, riverMask: 0b111 });
+    expect(banked).toBeLessThan(full);
+  });
+
   it("vary between variants", () => {
     const model = { kind: "BATTLE_SCARS", level: 3 } as const;
     expect(wreckModelVariants(model)).toBeGreaterThan(1);
