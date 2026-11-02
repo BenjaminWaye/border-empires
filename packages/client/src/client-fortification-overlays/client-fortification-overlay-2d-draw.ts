@@ -1,4 +1,6 @@
 import type { Tile } from "../client-types.js";
+import { isFortWreckedByCapture } from "../client-capture-aftermath/client-capture-aftermath.js";
+import { drawFortBreach2D } from "../client-map-2d-capture-aftermath.js";
 import {
   drawCenteredOverlayRotatedWithAlpha,
   drawCenteredOverlayWithAlpha
@@ -85,6 +87,8 @@ export const drawTileFortificationOverlays2D = (
   const kind = fortificationOverlayKindForTile(tile);
   if (!kind) return;
   drawFortificationOverlay2D(ctx, tile, kind, overlayImageFor(kind, fortificationOpeningForTile(tile, deps)), px, py, size, deps, epochMs, remembered);
+  // A fort captured with its tile stands breached while the capturing troops hold it.
+  if (!remembered && isFortWreckedByCapture(tile, epochMs)) drawFortBreach2D(ctx, tile, px, py, size, epochMs);
   if (stackedRelayBeaconForTile(tile)) {
     drawFortificationOverlay2D(ctx, tile, "RELAY_BEACON", overlayImageFor("RELAY_BEACON", "CLOSED"), px, py, size, deps, epochMs, remembered);
   }

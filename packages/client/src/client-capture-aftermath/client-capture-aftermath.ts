@@ -12,7 +12,8 @@
 import { CAPTURE_HOLD_MS, WAR_SCAR_MAX_LEVEL, isCaptureHoldActive, isFortDefending, liveWarScarLevel } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
-export type CaptureRubbleKind = "FORT" | "RELAY_BEACON" | "SIEGE_BATTERY";
+/** What lies wrecked on the tile: a razed Relay Beacon or siege engine (by variant), or a breached fort. */
+export type CaptureRubbleKind = "FORT" | "RELAY_BEACON" | "SIEGE_BATTERY" | "SIEGE_TOWER" | "DREAD_TOWER";
 type RazedKind = Exclude<CaptureRubbleKind, "FORT">;
 
 export type CaptureAftermath = {
@@ -43,7 +44,7 @@ const razedKindsDropped = (existing: Tile, merged: Tile): RazedKind[] => {
   const beacon = existing.economicStructure;
   if (beacon?.type === "RELAY_BEACON" && beacon.status !== "under_construction" && merged.economicStructure?.type !== "RELAY_BEACON") kinds.push("RELAY_BEACON");
   const battery = existing.siegeBattery;
-  if (battery && battery.status !== "under_construction" && !merged.siegeBattery) kinds.push("SIEGE_BATTERY");
+  if (battery && battery.status !== "under_construction" && !merged.siegeBattery) kinds.push(battery.variant === "SIEGE_TOWER" || battery.variant === "DREAD_TOWER" ? battery.variant : "SIEGE_BATTERY");
   return kinds;
 };
 
@@ -82,7 +83,7 @@ export const captureAftermathForTile = (tile: AftermathTile | undefined, tileKey
   return rubble.length > 0 || smoke ? { rubble, smoke, until } : undefined;
 };
 
-const RUBBLE_MENU_LABELS: Record<RazedKind, string> = { RELAY_BEACON: "Relay Beacon", SIEGE_BATTERY: "Siege Battery" };
+const RUBBLE_MENU_LABELS: Record<RazedKind, string> = { RELAY_BEACON: "Relay Beacon", SIEGE_BATTERY: "Siege Battery", SIEGE_TOWER: "Siege Tower", DREAD_TOWER: "Dread Tower" };
 
 /** Tile-menu line for battle scars (shared war-scars.ts), or undefined when the ground has none. */
 export const warScarMenuLine = (tile: Pick<Tile, "warScarLevel" | "warScarUntil">, nowEpochMs: number = Date.now()): string | undefined => {

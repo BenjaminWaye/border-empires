@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BoxGeometry, InstancedMesh, Matrix4, MeshStandardMaterial, Scene, Vector3 } from "three";
+import type { ConstructionSite } from "./client-construction-phase/client-construction-phase.js";
 import { createFortOverlay } from "./client-map-3d-fort-overlay.js";
 
 const instancedMeshesIn = (scene: Scene): InstancedMesh[] =>
@@ -118,6 +119,32 @@ describe("createFortOverlay siege battery machine", () => {
     overlay.tick(1000);
     expect(new Float32Array(headMesh!.instanceMatrix.array)).not.toEqual(beforeHead);
     expect(new Float32Array(hullMesh!.instanceMatrix.array)).toEqual(beforeHull);
+    overlay.dispose();
+  });
+});
+describe("createFortOverlay breached fort", () => {
+  it("draws a breached fort from its own pieces: two wall stubs, a snapped tower and its fallen top, spilled stone", () => {
+    const scene = new Scene();
+    const overlay = createFortOverlay(scene, 4);
+    const layout = overlay.addInstance(0, 0, 0, "FORT", "CLOSED", 0, 0, undefined, undefined, false, 9);
+    overlay.commit();
+    expect(layout?.direction).toBeDefined();
+    const stone = instancedMeshesIn(scene).filter((mesh) => (mesh.material as MeshStandardMaterial).color.getHexString() === "aea99c" && mesh.count > 0);
+    const walls = stone.filter((mesh) => mesh.geometry instanceof BoxGeometry && mesh.geometry.parameters.width !== 1 && Math.max(mesh.geometry.parameters.width, mesh.geometry.parameters.depth) > 0.5);
+    // Three whole walls plus the smashed one's two stubs.
+    expect(walls.reduce((total, mesh) => total + mesh.count, 0)).toBe(5);
+    const towers = instancedMeshesIn(scene).find((mesh) => mesh.geometry instanceof BoxGeometry && mesh.geometry.parameters.height > 0.5 && mesh.count > 0);
+    expect(towers?.count).toBe(5);
+    const blocks = stone.find((mesh) => mesh.geometry instanceof BoxGeometry && mesh.geometry.parameters.width === 1);
+    expect(blocks?.count).toBe(layout!.blocks.length);
+    overlay.dispose();
+  });
+
+  it("leaves a fort under construction unbreached", () => {
+    const scene = new Scene();
+    const overlay = createFortOverlay(scene, 4);
+    const site = { visibleBands: 2 } as unknown as ConstructionSite;
+    expect(overlay.addInstance(0, 0, 0, "FORT", "CLOSED", 0, 0, undefined, { site, keepStanding: false }, false, 9)).toBeUndefined();
     overlay.dispose();
   });
 });

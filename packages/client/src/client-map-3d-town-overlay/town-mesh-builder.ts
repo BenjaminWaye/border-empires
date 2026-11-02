@@ -222,8 +222,8 @@ export type TownMeshBuilder = {
   readonly ring: (x: number, y: number, z: number, radius: number, color: TownColor, tubeRatio?: number) => void;
   /** Smooth-ish ellipsoid centred on (x, y, z), long axis along x (turned ry). */
   readonly ellipsoid: (x: number, y: number, z: number, rx: number, ry3: number, rz: number, color: TownColor, ry?: number) => void;
-  /** Round pipe from (x0, y0, z0) to (x1, y1, z1). */
-  readonly pipe: (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, radius: number, color: TownColor) => void;
+  /** Round pipe from (x0, y0, z0) to (x1, y1, z1); `segments` (default 6) rounds out a thick one. */
+  readonly pipe: (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, radius: number, color: TownColor, segments?: number) => void;
   /** Flat pool of light on the ground at (x, y, z), fading out to `radius` (halo mesh). */
   readonly pool: (x: number, y: number, z: number, radius: number, color: TownColor) => void;
   /** Draws everything inside `draw` with the given animation attributes. */
@@ -371,11 +371,11 @@ export const createTownMeshBuilder = (options: TownMeshBuilderOptions = {}): Tow
     disc: (x, y, z, radius, thickness, color, ry = 0) => push(UNIT_DISC, color, x, y, z, radius, radius, thickness, ry),
     ring: (x, y, z, radius, color, tubeRatio = 0.14) => push(unitRing(tubeRatio), color, x, y, z, radius, radius, radius, 0),
     ellipsoid: (x, y, z, rx, ry3, rz, color, ry = 0) => push(UNIT_SMOOTH_BLOB, color, x, y, z, rx, ry3, rz, ry),
-    pipe: (x0, y0, z0, x1, y1, z1, radius, color) => {
+    pipe: (x0, y0, z0, x1, y1, z1, radius, color, segments = 6) => {
       direction.set(x1 - x0, y1 - y0, z1 - z0);
       const length = direction.length();
       if (length <= 0) return;
-      const part = nonIndexed(unitCylinder(radius, radius, 6)).clone();
+      const part = nonIndexed(unitCylinder(radius, radius, segments)).clone();
       quaternion.setFromUnitVectors(yAxis, direction.normalize());
       position.set(x0, y0, z0);
       scale.set(1, length, 1);
@@ -423,7 +423,7 @@ export const createRoutedTownBuilder = (matte: TownMeshBuilder, metal: TownMeshB
     disc: (x, y, z, radius, thickness, color, ry) => to(color).disc(x, y, z, radius, thickness, color, ry),
     ring: (x, y, z, radius, color, tubeRatio) => to(color).ring(x, y, z, radius, color, tubeRatio),
     ellipsoid: (x, y, z, rx, ry3, rz, color, ry) => to(color).ellipsoid(x, y, z, rx, ry3, rz, color, ry),
-    pipe: (x0, y0, z0, x1, y1, z1, radius, color) => to(color).pipe(x0, y0, z0, x1, y1, z1, radius, color),
+    pipe: (x0, y0, z0, x1, y1, z1, radius, color, segments) => to(color).pipe(x0, y0, z0, x1, y1, z1, radius, color, segments),
     pool: (x, y, z, radius, color) => to(color).pool(x, y, z, radius, color),
     withAnim: (anim, draw) =>
       matte.withAnim(anim, () => metal.withAnim(anim, () => (glass === metal ? draw() : glass.withAnim(anim, draw)))),

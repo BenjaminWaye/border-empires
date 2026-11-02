@@ -156,7 +156,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     }
   });
   const villageEffects = createVillageEffects(scene);
-  const captureAftermathFx = createCaptureAftermathFx3D(scene, villageEffects);
+  const captureAftermathFx = createCaptureAftermathFx3D(scene, villageEffects, atmosphere.buildingEnvironmentTexture);
   const townSupportTiles = createTownSupportTileOverlay(scene, (2 * MAX_SUPPORT_RING_RADIUS + 1) ** 2 - 1); // sized for a wide-ring (GREAT_CITY/METROPOLIS) anchor, not the base 8 -- a fixed 8 cap used to silently drop tiles past the 8th
   // Per-tile last-seen ownerId, used only to auto-detect and log ownership changes as they render (debug-tile logging) without a manually pinned coordinate.
   const lastRenderedOwnerIdByTile = new Map<string, string | undefined>();
@@ -225,7 +225,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   // watchtowers, resources, deposits) rather than one per overlay module —
   // see the comment in client-map-3d-contact-shadow.ts.
   const contactShadowOverlay = createContactShadowOverlay(scene, MAX_VISIBLE_TILES);
-  const fortificationInstanceOverlays = { fortOverlay, relayBeaconOverlay, siegeTowerOverlay, contactShadowOverlay };
+  const fortificationInstanceOverlays = { fortOverlay, relayBeaconOverlay, siegeTowerOverlay, contactShadowOverlay, captureAftermathFx };
   const structureOverlay = createStructureOverlay(scene, MAX_VISIBLE_TILES, contactShadowOverlay, atmosphere.buildingEnvironmentTexture);
   const ambaricTransformerOverlay = createDeferredBuildingOverlay(() => createAmbaricTransformerOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture));
   const tileIntel3D = createTileIntelOverlays3D(scene, MAX_VISIBLE_TILES, { keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, terrainAt: deps.terrainAt }); // weak defensibility + Diplomacy tint
