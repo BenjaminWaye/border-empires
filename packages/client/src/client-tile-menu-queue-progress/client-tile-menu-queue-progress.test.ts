@@ -83,3 +83,18 @@ describe("queuedBuildProgressForTile: queue state", () => {
     expect(queued?.queueState).toBe("queued");
   });
 });
+
+describe("queuedSettlementProgressForTile: waiting for manpower", () => {
+  it("says the garrison needs manpower while it waits for the next batch", () => {
+    const progress = queuedSettlementProgressForTile(tile, {
+      keyFor: (x, y) => `${x},${y}`,
+      queuedDevelopmentEntryForTile: () => ({ kind: "SETTLE", tileKey: "2,2" }),
+      queuedSettlementIndexForTile: () => 0,
+      queuedEntryIndexForTile: () => 0,
+      settleAwaitsManpower: (tileKey) => tileKey === "2,2"
+    });
+    expect(progress?.title).toBe("Garrison queued");
+    expect(progress?.remainingLabel).toBe("Needs manpower");
+    expect(progress?.detail).toBe("Starts after the next manpower batch.");
+  });
+});

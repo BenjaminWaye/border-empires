@@ -2,6 +2,7 @@ import { applyResourceTradeState } from "../client-diplomacy-trade/client-resour
 import { applyRelicAndProgressionUpdate } from "../client-relic-overlay/relic-map-hints.js";
 import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
 import { isChosenTrickleResource } from "@border-empires/shared";
+import { devQueueManpowerReservedTileKeys } from "../client-player-update-manpower/client-player-update-manpower.js";
 import { initDefensibilityPct } from "../client-init-defensibility/client-init-defensibility.js";
 import { occupationSurveyController } from "../client-occupation-survey.js";
 import { applyGatewayRecoveryNextClientSeq } from "../client-frontier-command/client-frontier-command.js";
@@ -187,6 +188,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.manpower = (player.manpower as number | undefined) ?? state.manpower;
   state.manpowerCap = (player.manpowerCap as number | undefined) ?? state.manpowerCap;
   state.nextManpowerBatchAmount = typeof player.nextManpowerBatchAmount === "number" ? player.nextManpowerBatchAmount : undefined;
+  state.devQueueManpowerReservedTileKeys = devQueueManpowerReservedTileKeys(player.devQueue) ?? new Set<string>(); // devQueue is omitted when empty
   state.manpowerRegenPerMinute = (player.manpowerRegenPerMinute as number | undefined) ?? state.manpowerRegenPerMinute;
   state.logisticsThroughputPerMinute = (player.logisticsThroughputPerMinute as number | undefined) ?? state.logisticsThroughputPerMinute;
   state.settledT = (player.Ts as number) ?? state.settledT;

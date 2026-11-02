@@ -283,12 +283,15 @@ describe("handleDevQueueEnqueueCommand -- SETTLE manpower reservation", () => {
     expect(summary.devQueue).toEqual([expect.objectContaining({ tileKey: "1,1", kind: "SETTLE", reservedManpower: SETTLE_TEST_MANPOWER_COST })]);
   });
 
-  it("rejects a queued SETTLE the player can't afford, without touching manpower", () => {
+  // Queued garrisons wait for the next manpower batch instead of failing:
+  // see runtime-dev-queue-settle-manpower-wait.test.ts for the reserve-on-refill half.
+  it("queues a SETTLE the player can't afford yet as awaiting manpower, without touching manpower", () => {
     const { context, summary, getManpower, rejections } = makeContext({ manpower: 100 });
     handleDevQueueEnqueueCommand(context, enqueueSettleCommand(1, 1));
     expect(getManpower()).toBe(100);
-    expect(summary.devQueue).toEqual([]);
-    expect(rejections).toEqual([{ code: "INSUFFICIENT_MANPOWER", message: `need ${SETTLE_TEST_MANPOWER_COST} manpower to settle` }]);
+    expect(rejections).toEqual([]);
+    expect(summary.devQueue).toEqual([expect.objectContaining({ tileKey: "1,1", kind: "SETTLE", awaitingManpower: true })]);
+    expect(summary.devQueue[0]?.reservedManpower).toBeUndefined();
   });
 
   it("refunds the SETTLE reservation on cancel", () => {

@@ -3,6 +3,7 @@ import { computeEmpireStorageCap } from "./runtime-empire-storage.js";
 import type { PlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { RuntimePlayer, StrategicResourceKey } from "./runtime-types.js";
+import { hasUnreservedSettleEntry } from "./runtime-dev-queue-settle-manpower-wait.js";
 
 type TrackSync = <T>(phase: string, details: Record<string, string> | undefined, task: () => T) => T;
 
@@ -15,6 +16,8 @@ export type RuntimePassiveIncomeContext = {
   addStrategicResource: (player: RuntimePlayer, resource: StrategicResourceKey, amount: number) => void;
   emitPlayerStateUpdate: (input: Pick<CommandEnvelope, "commandId" | "playerId">) => void;
   trackSyncMainThreadTask?: TrackSync;
+  /** Settles manpower and moves queued garrisons that were waiting on it (runtime-dev-queue-settle-manpower-wait.ts). Only called when the queue holds an unreserved garrison. */
+  tickUnreservedSettleEntries?: (player: RuntimePlayer, nowMs: number) => void;
 };
 
 const STRATEGIC_INCOME_KEYS = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const;
@@ -51,6 +54,12 @@ export const applyPassiveIncomeForPlayer = (
   inactivityCapMs: number,
   emitUpdate = true
 ): void => {
+  // Before the inactivity gate: manpower keeps refilling for an AFK player, so
+  // their waiting garrisons should still go out. Skipped on the silent
+  // pre-change settles (emitUpdate=false), which must not dispatch anything.
+  if (emitUpdate && ctx.tickUnreservedSettleEntries && hasUnreservedSettleEntry(ctx.summaryForPlayer(player.id))) {
+    ctx.tickUnreservedSettleEntries(player, nowMs);
+  }
   if (isPassiveIncomePaused(player, ctx.lastActiveAtMsByPlayer.get(player.id), nowMs, inactivityCapMs)) return;
 
   const lastTickAt = ctx.lastIncomeTickAtMsByPlayer.get(player.id);

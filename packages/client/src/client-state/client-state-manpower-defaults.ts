@@ -10,6 +10,8 @@ export type ManpowerState = {
   expandManpowerCost: number;
   manpowerBreakdown: { cap: ManpowerModifier[]; regen: ManpowerModifier[] };
   nextManpowerBatchAmount: number | undefined;
+  /** Dev-queue tiles whose manpower the server already holds (PLAYER_UPDATE devQueue `manpowerReserved`). */
+  devQueueManpowerReservedTileKeys: Set<string>;
 };
 
 export const createInitialManpowerState = (): ManpowerState => ({
@@ -22,5 +24,6 @@ export const createInitialManpowerState = (): ManpowerState => ({
     cap: [{ label: "Base", amount: MANPOWER_BASE_CAP }],
     regen: [{ label: "Base", amount: MANPOWER_BASE_REGEN_PER_MINUTE }]
   },
-  nextManpowerBatchAmount: undefined
+  nextManpowerBatchAmount: undefined,
+  devQueueManpowerReservedTileKeys: new Set<string>()
 });

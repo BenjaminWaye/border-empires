@@ -75,6 +75,16 @@ const queuedSettlementShouldWait = (state: ClientState, tileKey: string): boolea
 };
 
 
+/**
+ * A queued garrison the local pool can't pay for and the server holds no
+ * manpower for: it waits in the queue for the next refill batch rather than
+ * being sent and refused.
+ */
+export const queuedSettleAwaitsManpower = (
+  state: Pick<ClientState, "manpower" | "devQueueManpowerReservedTileKeys">,
+  tileKey: string
+): boolean => !state.devQueueManpowerReservedTileKeys.has(tileKey) && state.manpower < SETTLE_MANPOWER_COST;
+
 export const requestSettlement = (
   state: ClientState,
   x: number,
@@ -87,7 +97,9 @@ export const requestSettlement = (
     developmentSlotReason: (summary: DevelopmentSlotSummary) => string;
     sendGameMessage: (payload: unknown) => boolean;
     syncOptimisticSettlementTile: (x: number, y: number, awaitingServerConfirm: boolean) => void;
-    opts?: { allowQueueWhenBusy?: boolean; fromQueue?: boolean; suppressWarnings?: boolean; forceQueue?: boolean };
+    // manpowerReserved: a queued entry whose manpower the server already holds -- the server
+    // hands that back before charging the SETTLE, so the local pool is neither checked nor debited.
+    opts?: { allowQueueWhenBusy?: boolean; fromQueue?: boolean; suppressWarnings?: boolean; forceQueue?: boolean; manpowerReserved?: boolean };
   }
 ): boolean => {
   const tileKey = deps.keyFor(x, y);
@@ -97,8 +109,20 @@ export const requestSettlement = (
     deps.renderHud();
     return false;
   }
-  if (state.manpower < SETTLE_MANPOWER_COST) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Garrison blocked", `Need ${SETTLE_MANPOWER_COST} manpower to garrison this tile.`); deps.renderHud(); return false; }
+  const canQueue = deps.opts?.allowQueueWhenBusy !== false && !deps.opts?.fromQueue;
+  const manpowerReserved = deps.opts?.manpowerReserved === true;
+  const manpowerShort = !manpowerReserved && state.manpower < SETTLE_MANPOWER_COST;
+  if (manpowerShort && !canQueue) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Garrison blocked", `Need ${SETTLE_MANPOWER_COST} manpower to garrison this tile.`); deps.renderHud(); return false; }
   if (!canAffordCost(state.gold, SETTLE_COST)) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Garrison blocked", `Need ${SETTLE_COST} coin to garrison this tile.`); deps.renderHud(); return false; }
+  // Short on manpower: queue it to wait for the next refill batch instead of
+  // refusing. The server holds it unreserved until a batch covers it
+  // (runtime-dev-queue-settle-manpower-wait.ts), and processDevelopmentQueue
+  // skips it until then.
+  if (manpowerShort) {
+    const queued = deps.queueDevelopmentAction({ kind: "SETTLE", x, y, tileKey, label: `Garrison at (${x}, ${y})` });
+    if (queued && !deps.opts?.suppressWarnings) deps.pushFeed("Garrison queued: waiting for manpower.", "combat", "info");
+    return queued;
+  }
   if (queuedSettlementShouldWait(state, tileKey)) {
     if (deps.opts?.allowQueueWhenBusy !== false && !deps.opts?.fromQueue) {
       return deps.queueDevelopmentAction({ kind: "SETTLE", x, y, tileKey, label: `Garrison at (${x}, ${y})` });
@@ -108,7 +132,6 @@ export const requestSettlement = (
     return false;
   }
   const slots = deps.developmentSlotSummary();
-  const canQueue = deps.opts?.allowQueueWhenBusy !== false && !deps.opts?.fromQueue;
   // FIFO: if anything is already waiting, this new click goes to the end of the line
   // rather than racing into a slot that opened mid-dispatch. Bulk dispatchers
   // (e.g. settle-connected) pass forceQueue so every tile enters the queue and the
@@ -133,7 +156,8 @@ export const requestSettlement = (
   if (deps.opts?.fromQueue) state.queuedDevelopmentDispatchPending = true;
   const startAt = Date.now();
   const progress = { startAt, resolvesAt: startAt + settleDurationMsForState(state, { x, y }), target: { x, y }, awaitingServerConfirm: false };
-  state.gold = Math.max(0, state.gold - SETTLE_COST); state.manpower = Math.max(0, state.manpower - SETTLE_MANPOWER_COST);
+  state.gold = Math.max(0, state.gold - SETTLE_COST);
+  if (!manpowerReserved) state.manpower = Math.max(0, state.manpower - SETTLE_MANPOWER_COST);
   state.settleProgressByTile.set(tileKey, progress);
   state.latestSettleTargetKey = tileKey;
   deps.syncOptimisticSettlementTile(x, y, false);
@@ -221,7 +245,7 @@ export const processDevelopmentQueue = (
     ws: RealtimeSocket;
     authSessionReady: boolean;
     developmentSlotSummary: () => DevelopmentSlotSummary;
-    requestSettlement: (x: number, y: number, opts: { allowQueueWhenBusy: false; fromQueue: true; suppressWarnings: true }) => boolean;
+    requestSettlement: (x: number, y: number, opts: { allowQueueWhenBusy: false; fromQueue: true; suppressWarnings: true; manpowerReserved: boolean }) => boolean;
     sendDevelopmentBuild: (
       payload: QueuedBuildPayload,
       optimistic: () => void,
@@ -260,7 +284,11 @@ export const processDevelopmentQueue = (
   }
   let started = false;
   while (state.developmentQueue.length > 0 && deps.developmentSlotSummary().available > 0) {
-    const next = state.developmentQueue[0];
+    // A garrison waiting for manpower keeps its place; the first entry behind
+    // it that can go (a build, or a garrison the server already holds manpower
+    // for) goes instead.
+    const index = state.developmentQueue.findIndex((entry) => entry.kind !== "SETTLE" || !queuedSettleAwaitsManpower(state, entry.tileKey));
+    const next = index >= 0 ? state.developmentQueue[index] : undefined;
     if (!next) return started;
     if (next.kind === "SETTLE" && (state.autoSettlementQueueVisibleUntilByTile.get(next.tileKey) ?? 0) > Date.now()) return false;
     if (next.kind === "SETTLE" && queuedSettlementShouldWait(state, next.tileKey)) return false;
@@ -277,7 +305,12 @@ export const processDevelopmentQueue = (
     }
     const ok =
       next.kind === "SETTLE"
-        ? deps.requestSettlement(next.x, next.y, { allowQueueWhenBusy: false, fromQueue: true, suppressWarnings: true })
+        ? deps.requestSettlement(next.x, next.y, {
+            allowQueueWhenBusy: false,
+            fromQueue: true,
+            suppressWarnings: true,
+            manpowerReserved: state.devQueueManpowerReservedTileKeys.has(next.tileKey)
+          })
         : deps.sendDevelopmentBuild(next.payload, () => {
             if (next.payload.type === "REMOVE_STRUCTURE") deps.applyOptimisticStructureRemoval(next.x, next.y);
             else deps.applyOptimisticStructureBuild(next.x, next.y, next.optimisticKind);
@@ -290,19 +323,14 @@ export const processDevelopmentQueue = (
             fromQueue: true,
             suppressWarnings: true
           });
-    if (ok) {
-      if (next.kind === "SETTLE") state.autoSettlementQueueVisibleUntilByTile.delete(next.tileKey);
-      state.developmentQueue.shift();
-      persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
-      // Dispatched directly -- pull back out of the server-durable mirror (a no-op if never mirrored).
-      deps.sendGameMessage?.(devQueueCancelWirePayload(next.tileKey));
-      started = true;
-    } else {
-      if (next.kind === "SETTLE") state.autoSettlementQueueVisibleUntilByTile.delete(next.tileKey);
-      state.developmentQueue.shift();
-      persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
-      deps.sendGameMessage?.(devQueueCancelWirePayload(next.tileKey));
-    }
+    if (next.kind === "SETTLE") state.autoSettlementQueueVisibleUntilByTile.delete(next.tileKey);
+    state.devQueueManpowerReservedTileKeys.delete(next.tileKey);
+    state.developmentQueue.splice(index, 1);
+    persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
+    // Pull it out of the server-durable mirror (a no-op if never mirrored, or
+    // if the SETTLE handler already released its reservation and dropped it).
+    deps.sendGameMessage?.(devQueueCancelWirePayload(next.tileKey));
+    if (ok) started = true;
     break;
   }
   if (started || state.developmentQueue.length === 0) deps.renderHud();

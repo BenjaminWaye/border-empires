@@ -2,8 +2,29 @@ import type { ClientState } from "../client-state/client-state.js";
 
 export type PlayerUpdateManpowerState = Pick<
   ClientState,
-  "manpower" | "manpowerCap" | "manpowerRegenPerMinute" | "logisticsThroughputPerMinute" | "expandManpowerCost" | "nextManpowerBatchAmount"
+  | "manpower"
+  | "manpowerCap"
+  | "manpowerRegenPerMinute"
+  | "logisticsThroughputPerMinute"
+  | "expandManpowerCost"
+  | "nextManpowerBatchAmount"
+  | "devQueueManpowerReservedTileKeys"
 >;
+
+/**
+ * Tiles whose queued entry already holds its manpower on the server. A
+ * queued garrison holding none waits in the client queue until the server
+ * reserves it from the next refill batch. Undefined when the message has no
+ * devQueue (keep the last known set).
+ */
+export const devQueueManpowerReservedTileKeys = (devQueue: unknown): Set<string> | undefined => {
+  if (!Array.isArray(devQueue)) return undefined;
+  const keys = new Set<string>();
+  for (const entry of devQueue as Array<{ tileKey?: unknown; manpowerReserved?: unknown }>) {
+    if (entry?.manpowerReserved === true && typeof entry.tileKey === "string") keys.add(entry.tileKey);
+  }
+  return keys;
+};
 
 // PLAYER_UPDATE's manpower numbers (pool, cap, regen, logistics and the
 // frontier-scaled EXPAND price). A field the message omits keeps its last value.
@@ -15,4 +36,5 @@ export const applyPlayerUpdateManpowerFields = (state: PlayerUpdateManpowerState
   state.manpowerRegenPerMinute = numberOr(msg.manpowerRegenPerMinute, state.manpowerRegenPerMinute);
   state.logisticsThroughputPerMinute = numberOr(msg.logisticsThroughputPerMinute, state.logisticsThroughputPerMinute);
   state.expandManpowerCost = numberOr(msg.expandManpowerCost, state.expandManpowerCost);
+  state.devQueueManpowerReservedTileKeys = devQueueManpowerReservedTileKeys(msg.devQueue) ?? state.devQueueManpowerReservedTileKeys;
 };

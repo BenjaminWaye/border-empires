@@ -17,6 +17,8 @@ export type DevQueueEntryLookupDeps = {
   queuedEntryIndexForTile: (tileKey: string) => number;
   /** "queued" (server-confirmed) or "planned" (client-local wishlist) -- defaults to "queued" for back-compat. */
   devQueueStateForTile?: (tileKey: string) => "planned" | "queued";
+  /** True while a queued garrison waits for the next manpower batch (queuedSettleAwaitsManpower). */
+  settleAwaitsManpower?: (tileKey: string) => boolean;
 };
 
 const remainingLabelFor = (queueState: "planned" | "queued", index: number): string => {
@@ -34,12 +36,15 @@ export const queuedSettlementProgressForTile = (
   const isFirstInQueue = deps.queuedEntryIndexForTile(entry.tileKey) <= 0;
   const queueState = deps.devQueueStateForTile?.(entry.tileKey) ?? "queued";
   const isPlanned = queueState === "planned";
+  const awaitsManpower = deps.settleAwaitsManpower?.(entry.tileKey) ?? false;
   return {
     title: isPlanned ? "Garrison planned" : "Garrison queued",
-    detail: isPlanned
+    detail: awaitsManpower
+      ? "Starts after the next manpower batch."
+      : isPlanned
       ? "Waiting locally for coin/manpower and a free server queue slot before this is submitted."
       : "This frontier tile is confirmed by the server and will garrison automatically -- even if you log off.",
-    remainingLabel: remainingLabelFor(queueState, index),
+    remainingLabel: awaitsManpower ? "Needs manpower" : remainingLabelFor(queueState, index),
     progress: 0,
     note: isPlanned
       ? "Planned actions live only on this device -- they are not durable and can be lost if you close the game before a server slot frees up. Jumping the queue will bump whichever tile is currently last in line back to Planned."
@@ -50,6 +55,17 @@ export const queuedSettlementProgressForTile = (
     ...(isFirstInQueue ? {} : { secondaryLabel: "Jump to front of queue", secondaryActionId: "move_queued_entry_to_front" as const })
   };
 };
+
+/** Binds both dev-queue progress-card builders to one set of lookups. */
+export const createQueuedDevelopmentProgressBuilders = (
+  deps: DevQueueEntryLookupDeps
+): {
+  queuedSettlementProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
+  queuedBuildProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
+} => ({
+  queuedSettlementProgressForTile: (tile) => queuedSettlementProgressForTile(tile, deps),
+  queuedBuildProgressForTile: (tile) => queuedBuildProgressForTile(tile, deps)
+});
 
 export const queuedBuildProgressForTile = (
   tile: Tile,

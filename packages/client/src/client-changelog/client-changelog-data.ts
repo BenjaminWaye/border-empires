@@ -472,6 +472,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The new HUD had no way to reach the town list.",
     changes: ["A Towns button next to Manifest lists your towns, sortable by gold, population or growth", "Press a town to open its town screen"]
   },
+  {
+    createdAt: 1793605577111, // Date.now() captured when this entry was written.
+    introducedIn: "2026.11.02",
+    title: "Queued garrisons wait for manpower",
+    why: "A queued garrison that came up while your manpower pool was short was dropped from the queue instead of waiting.",
+    changes: [
+      "Garrisoning without enough manpower now queues the garrison instead of refusing it",
+      "A queued garrison waits for the next manpower batch, reserves its manpower, then starts on its own, even while you're offline",
+      "Its queue card shows \"Needs manpower\" while it waits",
+      "Builds queued behind a waiting garrison no longer wait with it"
+    ]
+  },
   ...AETHER_TOWER_SHOTS_CHANGELOG
 ];
 

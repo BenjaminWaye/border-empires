@@ -337,8 +337,8 @@ export const buildPlayerSubscriptionSnapshot = (
             // stream (emitPlayerStateUpdate) keeps it current after that.
             // reservedManpower/reservedSlotRequirements are deliberately
             // stripped here: they are server-side refund bookkeeping (see
-            // runtime-dev-queue-build-reservation.ts), not something the
-            // client renders, so the wire shape stays lean.
+            // runtime-dev-queue-build-reservation.ts). Only whether an entry
+            // holds manpower (or is still waiting for it) goes down.
             ...(livePlayer.devQueue?.length
               ? {
                   devQueue: livePlayer.devQueue.map((entry) => ({
@@ -347,7 +347,10 @@ export const buildPlayerSubscriptionSnapshot = (
                     y: entry.y,
                     kind: entry.kind,
                     ...(entry.structureType ? { structureType: entry.structureType } : {}),
-                    queuedAt: entry.queuedAt
+                    queuedAt: entry.queuedAt,
+                    // Same reservation flags PLAYER_UPDATE carries (runtime-player-state-update.ts).
+                    ...(entry.reservedManpower ? { manpowerReserved: true } : {}),
+                    ...(entry.awaitingManpower ? { awaitingManpower: true } : {})
                   }))
                 }
               : {}),

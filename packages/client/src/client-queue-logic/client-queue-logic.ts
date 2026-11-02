@@ -101,6 +101,7 @@ export { queuedDevelopmentActionExists, queueDevelopmentAction } from "../client
 export {
   gatewayBuildWirePayload,
   processDevelopmentQueue,
+  queuedSettleAwaitsManpower,
   requestSettlement,
   sendDevelopmentBuild,
   settleDurationMsForState,
