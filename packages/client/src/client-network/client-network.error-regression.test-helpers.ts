@@ -46,6 +46,7 @@ export const createState = () =>
     actionStartedAt: 123,
     actionCurrent: { x: 60, y: 302 },
     frontierSyncWaitUntilByTarget: new Map<string, number>(),
+    devQueueManpowerReservedTileKeys: new Set<string>(),
     frontierLateAckUntilByTarget: new Map<string, number>(),
     autoSettleTargets: new Set<string>(["60,302"]), autoBuildTargets: new Map<string, string>([["60,302", "HYDROGARDEN"]]),
     attackPreviewPendingKey: "60,302->61,302",
