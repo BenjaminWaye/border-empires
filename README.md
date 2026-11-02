@@ -322,8 +322,8 @@ When shipping a user-facing client update, add a new entry to `packages/client/s
 
 Production (`play.borderempires.com`) and staging (`staging.borderempires.com`) both run the **combined rewrite stack**: `apps/realtime-gateway` + `apps/simulation` in one process, built by `Dockerfile.combined`.
 
-- Production backend: Hetzner Cloud server behind `api.borderempires.com` (`deploy/`); Fly app `border-empires-combined` is stopped (rollback only)
-- Staging backend: Hetzner Cloud server behind `api-staging.borderempires.com`; Fly app `border-empires-combined-staging` is stopped (rollback only)
+- Production backend: Hetzner Cloud server behind `api.borderempires.com` (`deploy/`)
+- Staging backend: Hetzner Cloud server behind `api-staging.borderempires.com`
 - Client: static Vite builds served by Caddy on the same Hetzner servers, including `https://api.borderempires.com/` and `https://api-staging.borderempires.com/`; Vercel is no longer required
 - Hetzner backend details: `deploy/`, plan in `docs/hetzner-migration-plan.md`, operations in `docs/agents/deploys.md`
 
@@ -335,7 +335,7 @@ pnpm deploy:client:hetzner staging
 # or: pnpm deploy:client:hetzner production
 ```
 
-Full deploy procedures, first-time client provisioning and DNS cutover are documented in `docs/agents/deploys.md`. The old `deploy:*:all` scripts target Fly/Vercel and must not be used for Hetzner releases.
+Full deploy procedures, first-time client provisioning and DNS cutover are documented in `docs/agents/deploys.md`. Non-secret container env lives in `deploy/env/*.env` (edit directly).
 
 ### Environment Variables (key runtime knobs)
 
@@ -379,14 +379,6 @@ pnpm probe:login-experience --player ai-1 --cpu-throttle 4 --out .local-data/log
 ```
 
 Prints every change of the login overlay (step, text, progress bar) and the client's own login timeline (download, INIT handler, each 3D map-build stage, map ready), and fails on `--max-freeze-ms` / `--max-init-to-ready-ms`. Headless Chromium renders WebGL in software (SwiftShader), so GPU-bound steps (shader linking, buffer uploads, the first frame) are much slower than on a real phone; JS-side timings are representative once CPU-throttled.
-
-**Env drift check** (staging Fly secrets vs. checked-in toml):
-
-```bash
-pnpm ops:staging:drift-check
-```
-
-Exits non-zero on any drift, including stale secret overrides.
 
 ## Contributing
 

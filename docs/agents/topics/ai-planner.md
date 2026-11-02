@@ -30,11 +30,11 @@ See `staging-login-cpu-contention.md` for the login-vs-CPU story.
 ## Profiling per-plan cost
 
 `sim_ai_planner_phase_ms{phase=...}` (p50/p95/p99) breaks a plan into phases.
-Scrape it from inside the container:
+Scrape it through an SSH tunnel to the server's loopback metrics port:
 
 ```bash
-flyctl ssh console -a border-empires-combined-staging -C "node -e \"fetch('http://127.0.0.1:50052/metrics').then(r=>r.text()).then(t=>require('fs').writeFileSync('/tmp/m.txt',t))\""
-flyctl ssh console -a border-empires-combined-staging -C "sh -c 'grep sim_ai_planner_phase_ms /tmp/m.txt'"
+ssh -L 50052:127.0.0.1:50052 deploy@178.105.133.33   # staging; leave open
+curl -s http://127.0.0.1:50052/metrics | grep sim_ai_planner_phase_ms
 ```
 
 Load-bearing phases (do NOT cut — each produces real commands):

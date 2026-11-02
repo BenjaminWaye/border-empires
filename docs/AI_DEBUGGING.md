@@ -7,7 +7,7 @@ Status: canonical runbook
 Use these endpoints to inspect AI player state, commands, and metrics during development and production debugging.
 
 Start at `GET /admin?token=<ADMIN_API_TOKEN>` on the gateway: it links every
-admin page and endpoint (forwarding the token), shows curl/flyctl snippets for
+admin page and endpoint (forwarding the token), shows curl/ssh snippets for
 ops actions and simulation loopback endpoints, and is kept complete by a test
 against the registered routes. New `/admin/*` routes must be added to
 `apps/realtime-gateway/src/admin-pages/admin-page-catalog.ts`.
@@ -29,7 +29,7 @@ request — no `ADMIN_API_TOKEN` involved at all.
 
 ```bash
 curl -H "X-Admin-Github-Token: $GITHUB_TOKEN" \
-  https://border-empires-combined-staging.fly.dev/admin/debug/ai
+  https://api-staging.borderempires.com/admin/debug/ai
 ```
 
 This is the recommended path for the common case in this project: most
@@ -53,25 +53,24 @@ the read-only `/admin/world`. The rollover procedure is in
 
 ### Option B — the static `ADMIN_API_TOKEN` (needed for destructive endpoints, or as a fallback)
 
-Source of truth is a Fly secret on each app
-(`border-empires-combined-staging` / `border-empires-combined`), set via
-`flyctl secrets set ADMIN_API_TOKEN=... -a <app>`. Since most sessions here
-have no persistent `flyctl` login to fetch it live, the practical way to make
+Source of truth is `/etc/border-empires/secrets.env` on each Hetzner server
+(staging `178.105.133.33`, production `188.245.240.42`). Since most sessions
+here have no root SSH access to fetch it live, the practical way to make
 it available to a sandboxed dev/agent session is for whichever platform
 provisions the sandbox to inject it as an environment variable at container
 boot (e.g. Claude Code on the web: set it once in the environment's
 configuration — every session spawned against that environment picks it up
-automatically). A human with `flyctl` already authenticated locally can also
-read it directly: `flyctl ssh console -a <app> -C "printenv ADMIN_API_TOKEN"`.
+automatically). A human with root SSH access can also read it directly:
+`ssh root@<host> "grep '^ADMIN_API_TOKEN=' /etc/border-empires/secrets.env"`.
 
-Rotation: update the Fly secret, then update the value stored in each
+Rotation: update the server secret (and restart the app), then update the value stored in each
 platform's environment config — there is no automatic propagation between
 the two, so treat it as a manual (if infrequent) two-step rotation.
 
 Use it as a Bearer token:
 ```bash
 curl -H "Authorization: Bearer $ADMIN_API_TOKEN" \
-  https://border-empires-combined-staging.fly.dev/admin/debug/ai
+  https://api-staging.borderempires.com/admin/debug/ai
 ```
 
 ---

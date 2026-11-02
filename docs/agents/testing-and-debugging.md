@@ -13,7 +13,7 @@ Status: canonical runbook
   2. Boot the candidate rewrite stack against that clone.
   3. Run `pnpm ops:prod-shape:gate` to authenticate, perform a frontier expansion, run a short frontier soak, and scrape gateway/simulation metrics.
   4. Compare against a baseline JSON captured from the previous production SHA on the same cloned snapshot when the change is performance-sensitive.
-  5. Set `PROD_SHAPE_GATE_RESULT_JSON` to the passing candidate result before `pnpm deploy:prod:all`; the deploy script refuses stale, failed, or wrong-SHA gate output.
+  5. Check the candidate result with `pnpm ops:prod-shape:verify`; it refuses stale, failed, or wrong-SHA gate output. `deploy-prod.yml` runs this gate on every `main` deploy.
 
 Example:
 
