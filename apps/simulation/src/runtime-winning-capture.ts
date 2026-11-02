@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { CAPTURE_HOLD_MS } from "@border-empires/shared";
+import { CAPTURE_HOLD_MS, warScarFieldsAfterBattle } from "@border-empires/shared";
 import { capturedStructureFields } from "./capture-structures/capture-structures.js";
 import { capturedTownAftermath } from "./runtime-capture-aftermath.js";
 import { capturedTileWillAutoSettle } from "./runtime-out-of-reach-auto-settle/runtime-out-of-reach-auto-settle.js";
@@ -54,7 +54,14 @@ export function applyWinningTileCapture(context: RuntimeLockResolutionContext, l
       // defends for a while instead of being a free 100% retake.
       ...(lock.actionType === "ATTACK" && lock.playerId !== "barbarian-1" && previousOwnerId && previousOwnerId !== lock.playerId && previousOwnerId !== "barbarian-1"
         ? { captureHoldUntil: context.now() + CAPTURE_HOLD_MS }
-        : {})
+        : {}),
+      // Battle scars (shared war-scars.ts) stay on the ground through a
+      // change of owner; taking a garrison in battle adds to them.
+      ...warScarFieldsAfterBattle(previousTarget, {
+        // Only a garrison taken in an actual fight (not a Breakthrough capitulation, which has none).
+        capturedGarrison: Boolean(combatBroadcastJson) && previousTarget?.ownershipState === "SETTLED" && Boolean(previousOwnerId) && previousOwnerId !== lock.playerId && previousOwnerId !== "barbarian-1",
+        battle: Boolean(combatBroadcastJson)
+      }, context.now())
     };
     // Capturing a tile destroys any muster flag staged on it — the accumulated
     // manpower is lost, not refunded to the previous owner's pool. resolvedTarget

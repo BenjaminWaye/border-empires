@@ -7,6 +7,7 @@
 import { isForestTile, isTropicalForestLatitude } from "../client-constants.js";
 import { drawBlackwoodSwirl, type ProspectClueDraw } from "../client-prospect-signature-overlay.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
+import { forestAnchorsForSize } from "../client-forest-war/forest-anchors-2d.js";
 import { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render.js";
 
 // Same hash/salt/mod as client-map-3d-forest.ts's tileHash(worldX, worldZ,
@@ -27,7 +28,10 @@ export const drawForestOverlay = (
   prospectClue?: ProspectClueDraw,
   // Overridable so the caller can keep footprint forest drawn until an AFC
   // join drop lands (isForestTileWithAfcLandingHold).
-  forestAt: (x: number, y: number) => boolean = isForestTile
+  forestAt: (x: number, y: number) => boolean = isForestTile,
+  // War in a forest (client-forest-war/forest-war.ts): which trees still
+  // stand; the destroyed ones are drawn burnt by client-map-2d-war-scars.ts.
+  keepAnchor?: (anchorIndex: number) => boolean
 ): void => {
   if (isTrue3DRendererActive() || size < 12) return;
   const isForest = forestAt(wx, wy);
@@ -38,16 +42,11 @@ export const drawForestOverlay = (
   // ordinary pine/spruce/leaf species roll (worldgen-latitude.ts).
   const tropical = isForest && isTropicalForestLatitude(wy);
   const isLeaf = !tropical && isLeafSpeciesAt(wx, wy);
-  const treeCount = size >= 44 ? 4 : size >= 24 ? 3 : 2;
-  const anchors: Array<[number, number]> = treeCount === 4
-      ? [[0.22, 0.6], [0.42, 0.44], [0.62, 0.58], [0.8, 0.42]]
-      : treeCount === 3
-        ? [[0.24, 0.62], [0.5, 0.42], [0.76, 0.58]]
-        : [[0.34, 0.6], [0.68, 0.5]];
+  const anchors = forestAnchorsForSize(size);
   ctx.save();
   for (let i = 0; i < anchors.length; i += 1) {
     const anchor = anchors[i];
-    if (!anchor) continue;
+    if (!anchor || (keepAnchor && !keepAnchor(i))) continue;
     const [ax, ay] = anchor;
     const tx = px + size * ax;
     const ty = py + size * ay - canopyYOffset;

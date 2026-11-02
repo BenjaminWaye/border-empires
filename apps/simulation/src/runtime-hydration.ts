@@ -171,6 +171,8 @@ const createTilesFromInitialStateUncleared = (
       ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
       ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
       ...(typeof tile.captureHoldUntil === "number" ? { captureHoldUntil: tile.captureHoldUntil } : {}),
+      ...(typeof tile.warScarLevel === "number" ? { warScarLevel: tile.warScarLevel } : {}),
+      ...(typeof tile.warScarUntil === "number" ? { warScarUntil: tile.warScarUntil } : {}),
       ...(hydratedTown ? { town: hydratedTown } : {}),
       ...(tile.fort ? { fort: tile.fort } : {}),
       ...(tile.observatory ? { observatory: tile.observatory } : {}),

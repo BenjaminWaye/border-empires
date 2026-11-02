@@ -182,6 +182,8 @@ export type DomainTileState = {
   // Post-capture hold window end (shared capture-hold.ts): a freshly captured
   // FRONTIER tile defends until then instead of being a free retake.
   captureHoldUntil?: number | undefined;
+  warScarLevel?: number | undefined;
+  warScarUntil?: number | undefined;
   town?:
     | (Pick<NonNullable<Tile["town"]>, "type" | "populationTier"> &
         Partial<

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildFrontierCombatPreview } from "../frontier-combat/frontier-combat.js";
-import { CAPTURE_HOLD_DEFENSE_MULT, advanceFlagCommitForTarget, isCaptureHoldActive, flagCommitForTarget, isCommitOddsEligibleTarget, isUndefendedFrontierTile } from "./capture-hold.js";
+import { CAPTURE_HOLD_DEFENSE_MULT, advanceFlagCommitForTarget, captureHoldSettleFloorMs, isCaptureHoldActive, flagCommitForTarget, isCommitOddsEligibleTarget, isUndefendedFrontierTile } from "./capture-hold.js";
 
 const NOW = 1_000_000;
 
@@ -95,5 +95,14 @@ describe("capture hold", () => {
     );
     expect(expired.defMult).toBe(0);
     expect(expired.winChance).toBe(1);
+  });
+});
+
+describe("captureHoldSettleFloorMs", () => {
+  it("is the time left in a running hold, else 0", () => {
+    expect(captureHoldSettleFloorMs({ ownershipState: "FRONTIER", captureHoldUntil: 5_000 }, 1_000)).toBe(4_000);
+    expect(captureHoldSettleFloorMs({ ownershipState: "FRONTIER", captureHoldUntil: 1_000 }, 1_000)).toBe(0);
+    expect(captureHoldSettleFloorMs({ ownershipState: "FRONTIER" }, 1_000)).toBe(0);
+    expect(captureHoldSettleFloorMs(undefined, 1_000)).toBe(0);
   });
 });

@@ -48,6 +48,8 @@ export type ProtoSimulationEvent = {
     town_population_tier?: string | undefined;
     breach_shock_until?: number | undefined;
     capture_hold_until?: number | undefined;
+    war_scar_level?: number | undefined;
+    war_scar_until?: number | undefined;
     visibility_state?: string | undefined;
     ownership_clear_only?: boolean;
     combat_json?: string | undefined;
@@ -70,6 +72,8 @@ export type ProtoSimulationEvent = {
     townPopulationTier?: string | undefined;
     breachShockUntil?: number | null | undefined;
     captureHoldUntil?: number | null | undefined;
+    warScarLevel?: number | null | undefined;
+    warScarUntil?: number | null | undefined;
     yieldRate?: { goldPerMinute?: number } | undefined;
     visibilityState?: string | undefined;
     ownershipClearOnly?: boolean | undefined;
@@ -154,6 +158,8 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...overlaySnakeClearFields(tile),
           ...("breachShockUntil" in tile ? { breach_shock_until: tile.breachShockUntil ?? 0 } : {}),
           ...("captureHoldUntil" in tile ? { capture_hold_until: tile.captureHoldUntil ?? 0 } : {}),
+          ...("warScarLevel" in tile ? { war_scar_level: tile.warScarLevel ?? 0 } : {}),
+          ...("warScarUntil" in tile ? { war_scar_until: tile.warScarUntil ?? 0 } : {}),
           ...("visibilityState" in tile && tile.visibilityState ? { visibility_state: tile.visibilityState } : {}),
           ...(tile.ownershipClearOnly ? { ownership_clear_only: true } : {}),
           ...("yieldRate" in tile && tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
@@ -182,6 +188,8 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...overlayCamelClearFields(tile),
           ...("breachShockUntil" in tile ? { breachShockUntil: tile.breachShockUntil ?? null } : {}),
           ...("captureHoldUntil" in tile ? { captureHoldUntil: tile.captureHoldUntil ?? null } : {}),
+          ...("warScarLevel" in tile ? { warScarLevel: tile.warScarLevel ?? null } : {}),
+          ...("warScarUntil" in tile ? { warScarUntil: tile.warScarUntil ?? null } : {}),
           ...("visibilityState" in tile && tile.visibilityState ? { visibilityState: tile.visibilityState } : {}),
           ...(tile.ownershipClearOnly ? { ownershipClearOnly: true } : {}),
           ...("yieldRate" in tile ? { yieldRate: tile.yieldRate } : {}),
@@ -206,6 +214,8 @@ export const toFullSnapshotProtoTile = (tile: {
   townJson?: string | undefined; townType?: string | undefined; townName?: string | undefined; townPopulationTier?: string | undefined;
   breachShockUntil?: number | undefined;
   captureHoldUntil?: number | undefined;
+  warScarLevel?: number | undefined;
+  warScarUntil?: number | undefined;
   yieldRate?: unknown;
 } & TileOverlayJsonFields) => ({
   x: tile.x,
@@ -226,5 +236,7 @@ export const toFullSnapshotProtoTile = (tile: {
   ...overlaySnakeTruthyFields(tile),
   ...(typeof tile.breachShockUntil === "number" ? { breach_shock_until: tile.breachShockUntil } : {}),
   ...(typeof tile.captureHoldUntil === "number" ? { capture_hold_until: tile.captureHoldUntil } : {}),
+  ...(typeof tile.warScarLevel === "number" ? { war_scar_level: tile.warScarLevel } : {}),
+  ...(typeof tile.warScarUntil === "number" ? { war_scar_until: tile.warScarUntil } : {}),
   ...(tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {})
 });

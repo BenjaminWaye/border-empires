@@ -72,7 +72,7 @@ Each player controls a civilization that starts from a single land tile, expands
 
 [AFC Specializations](docs/afc-specializations-catalog.md) offer thirty upgrades across six play styles. In new campaigns, each commissioned Manifest tier unlocks one free permanent choice at that tier. Install at an active owned AFC; installed effects survive its loss. AFC Upgrades shows installed choices above current options, active commands, and ready badges above owned AFCs in both renderers. Existing campaigns retain their paid domain rules. [Implementation and verification](docs/afc-specializations-execution.md) records the delivery scope.
 
-- **Forts**: build-timed defensive structures; destroyed on capture.
+- **Forts**: build-timed defensive structures; captured with their tile, but give no defense until the capture hold ends and the tile is garrisoned. Relay Beacons and Siege Batteries are destroyed on capture.
 - **Docks**: paired sea-crossing gateways with cooldown and defensive value. Maritime Supremacy victory path scores from dock control.
 - **Clusters**: regional resource concentrations that grant threshold-based bonuses.
 - **Alliances**: mutual relationships that block friendly-fire and affect diplomatic victory scoring.
