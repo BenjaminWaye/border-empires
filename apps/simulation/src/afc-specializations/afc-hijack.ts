@@ -62,11 +62,13 @@ export function activeAfcHijacks(deps: Pick<AfcHijackDeps, "tiles" | "activeObse
 }
 
 /** Push each involved House its current hijacks (a full replacement list, replayed to new tabs), plus a one-shot outcome. */
-export function sendAfcHijacks(deps: Pick<AfcHijackDeps, "tiles" | "activeObservatoriesByOwner" | "emitPlayerMessage" | "players">, playerIds: Iterable<string>, now: number, outcome?: AfcHijackOutcome): void {
+export function sendAfcHijacks(deps: Pick<AfcHijackDeps, "tiles" | "activeObservatoriesByOwner" | "emitPlayerMessage" | "players">, playerIds: Iterable<string>, now: number, outcome?: AfcHijackOutcome, skipWhenNone = false): void {
   const all = activeAfcHijacks(deps, now);
   for (const playerId of new Set(playerIds)) {
     if (!playerId || deps.players.get(playerId)?.isAi) continue;
     const payload: AfcHijackPayload = { type: "AFC_HIJACKS", hijacks: all.filter(view => view.attackerId === playerId || view.victimId === playerId) };
+    // A fresh client starts with no hijacks, so a subscribe-time push is only needed when one involves this House.
+    if (skipWhenNone && !payload.hijacks.length && !outcome) continue;
     deps.emitPlayerMessage({ commandId: `afc-hijacks:${playerId}:${now}`, playerId }, { ...payload });
     if (outcome) deps.emitPlayerMessage({ commandId: `afc-hijack-outcome:${playerId}:${now}`, playerId }, { type: "AFC_HIJACK_OUTCOME", ...outcome });
   }

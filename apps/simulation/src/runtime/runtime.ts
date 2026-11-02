@@ -1148,7 +1148,7 @@ export class SimulationRuntime {
   /** Live-subscribe push of the player's AETHER_SHIELDS list (simulation-service/live-subscribe-reach-push.ts). */
   resendAetherShieldsForPlayer(playerId: string): void {
     this.aetherShieldTicker.sendTo(playerId, this.now());
-    sendAfcHijacks(this.hijackDeps(), [playerId], this.now());
+    sendAfcHijacks(this.hijackDeps(), [playerId], this.now(), undefined, true);
   }
 
   /** Throttled inside; see island-names/island-names-ticker.ts. */
