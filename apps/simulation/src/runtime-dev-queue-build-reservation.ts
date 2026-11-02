@@ -18,7 +18,6 @@ import {
   structureSlotRequirements,
   RELAY_BEACON_FREE_FOOD_SLOT_COUNT,
   SYNTHESIZER_STRUCTURE_TYPES,
-  QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT,
   SETTLE_MANPOWER_COST,
   type BuildableStructureType,
   type StructureSpec,
@@ -29,6 +28,7 @@ import { currentTileFieldSlotRequirements, totalsFromSlotRequirements, emptyReso
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { structureLabel, type RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
 import { creditManpower } from "./runtime-manpower-ceiling.js";
+import { structureManpowerCostForPlayer } from "./structure-manpower-cost/structure-manpower-cost.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 
 type StructureTileField = StructureSpec["tileField"];
@@ -50,6 +50,13 @@ export type RuntimeDevQueueReservationContext = {
   estimateSettleReservation: (playerId: string) => DevQueueBuildReservation;
   applyManpowerReservation: (playerId: string, amount: number) => void;
   refundManpowerReservation: (playerId: string, amount: number) => void;
+  /**
+   * Hands a reservation back with no cap clamp, for a held garrison about to
+   * be charged by its own SETTLE straight after (drain, or a client-sent
+   * SETTLE). Regen keeps refilling the pool while the hold sits outside it,
+   * so a clamped refund near the cap would charge that garrison twice.
+   */
+  releaseManpowerReservationForCharge: (playerId: string, amount: number) => void;
 };
 
 /** Sums the slot requirements already reserved by other queued BUILD entries, so a new enqueue's slot check nets them out too (queue-time-only demand -- never double-counted once an entry drains, since it leaves the array). */
@@ -75,6 +82,10 @@ export function devQueueBuildReservationContext(context: RuntimeStructureCommand
     refundManpowerReservation: (playerId, amount) => {
       const player = context.players.get(playerId);
       if (player) creditManpower(player, amount, context.playerManpowerCap(player));
+    },
+    releaseManpowerReservationForCharge: (playerId, amount) => {
+      const player = context.players.get(playerId);
+      if (player) player.manpower = Math.max(0, player.manpower) + amount;
     }
   };
 }
@@ -123,10 +134,7 @@ function estimateDevQueueBuildReservation(
   } else {
     manpowerCost = structureBuildManpowerCostScaled(structureType as BuildableStructureType, context.ownedStructureCountForPlayer(playerId, structureType as BuildableStructureType));
   }
-  const isWarBranchStructure = spec.kind === "FORT" || spec.kind === "OUTPOST";
-  if (isWarBranchStructure && context.hasNearbyQuartermastersOffice(playerId, x, y)) {
-    manpowerCost = Math.round(manpowerCost * QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT);
-  }
+  manpowerCost = structureManpowerCostForPlayer(actor, slotStructureType, manpowerCost);
   if (actor.manpower < manpowerCost) {
     return { ok: false, code: "INSUFFICIENT_MANPOWER", message: `need ${manpowerCost.toFixed(0)} manpower for ${structureLabel(structureType)}` };
   }

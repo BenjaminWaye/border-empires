@@ -6,7 +6,7 @@
 // without writing any tile, so nothing event-driven ever sees it.
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
-import { collectShieldingTowers, type ObservatoryDormancyCheck } from "./aether-shield.js";
+import { collectShieldingTowers, type ObservatoryDormancyCheck, type ObservatoryShotCapacity } from "./aether-shield.js";
 import { AetherShieldBroadcaster, type AetherShieldsPayload } from "./aether-shield-broadcast.js";
 
 // Under the 1s ticker period on purpose: the caller's Date.now() lands a
@@ -23,6 +23,7 @@ export type AetherShieldTickDeps = {
   readonly forEachVisibleKey: (viewerId: string, visit: (tileKey: string) => void) => void;
   readonly hasFullVision: (viewerId: string) => boolean;
   readonly isStructureDormant: ObservatoryDormancyCheck;
+  readonly maxShotsFor: ObservatoryShotCapacity;
   readonly sweepShieldReturns: (towerKeys: Iterable<string>, commandId: string) => number;
   readonly emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: AetherShieldsPayload) => void;
 };
@@ -44,7 +45,7 @@ export const createAetherShieldTicker = (deps: AetherShieldTickDeps): AetherShie
     viewerIds: function* () {
       for (const [playerId, player] of deps.players()) if (!player.isAi && deps.isPlayerSubscribed(playerId)) yield playerId;
     },
-    shieldingTowers: () => collectShieldingTowers(deps.activeObservatoriesByOwner(), deps.tiles(), clockMs, deps.isStructureDormant),
+    shieldingTowers: () => collectShieldingTowers(deps.activeObservatoriesByOwner(), deps.tiles(), clockMs, deps.isStructureDormant, deps.maxShotsFor),
     forEachVisibleKey: deps.forEachVisibleKey,
     hasFullVision: deps.hasFullVision,
     emitPlayerMessage: deps.emitPlayerMessage

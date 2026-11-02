@@ -25,11 +25,11 @@ rules; this document records implementation scope, rollout and visual decisions.
 
 | Deposit | Installation | Build manpower / seconds | Ongoing occupancy | Benefit per installation |
 |---|---|---:|---|---|
-| Neural resin | Resin Extractor | 40 / 40 | 1 FOOD slot | +12 Ancillaries at one depot per 4-hour cycle |
-| Conductive minerals | Implant Foundry | 50 / 50 | 1 FOOD slot | +6 each at up to two factories per batch (+12 total) |
-| Catalytic deposit | Catalyst Refinery | 50 / 50 | 1 FOOD slot | +1.5 Coin/day at one active supported Trade Nexus |
-| Luxury biota | Cultivation Estate | 33 / 33 | 1 FOOD slot | +1.5 Coin/day at one active supported Trade Nexus |
-| Precursor salvage | Reclamation Works | 60 / 60 | 1 FOOD slot | +1.5 Coin/day at one active supported Manufactory |
+| Neural resin | Resin Extractor | 40 / 40 | None | +12 Ancillaries at one depot per 4-hour cycle |
+| Conductive minerals | Implant Foundry | 50 / 50 | None | +6 each at up to two factories per batch (+12 total) |
+| Catalytic deposit | Catalyst Refinery | 50 / 50 | None | +1.5 Coin/day at one active supported Trade Nexus |
+| Luxury biota | Cultivation Estate | 33 / 33 | None | +1.5 Coin/day at one active supported Trade Nexus |
+| Precursor salvage | Reclamation Works | 60 / 60 | None | +1.5 Coin/day at one active supported Manufactory |
 
 Build times above are base times; existing build-speed effects apply. Build
 Coin costs are zero, matching the existing physical-construction economy.
@@ -68,7 +68,7 @@ no additional persisted state or per-factory order.
 Factories only receive the bonus while active and not FOOD-dormant. Credit
 beneficiaries retain their normal supported-town and fed-town requirements;
 Settlement-tier towns do not receive town-industry credit. Extraction sites
-must be owned, garrisoned, correctly developed, active, not dormant and backed
+must be owned, garrisoned, correctly developed, active and backed
 by the owning House's required Manifest. Capture does not bypass that gate.
 Loss, abandonment, construction completion, removal and slot shortfalls must
 invalidate existing caches. Accrued income and manpower are settled at the
@@ -198,7 +198,7 @@ A normal factory produces 12 Ancillaries per four-hour batch; conductive supply
 adds 6 at each of two factories. Resin adds 12 per cycle at one supplied depot.
 At base rates, a 40-Ancillary extractor repays its cost in 13h 20m of supplied
 operation. A 50-Ancillary foundry takes 16h 40m with two factories or 33h 20m
-with one. These figures exclude technology, construction, FOOD and opportunity
+with one. These figures exclude technology, construction and opportunity
 costs. Benefits remain bounded by developed sites, eligible depots/factories and
 upkeep; the larger deposit budgets still require multiplayer playtesting.
 
@@ -230,8 +230,7 @@ cache invalidation, private projections, both renderers and authored variants.
 A real two-client gateway/simulation test covers consecutive paid supply trades.
 
 Every tile resource has an overview description. Frontier deposits explain the
-required installation and Manifest, potential output and batch interval, FOOD
-support, exclusive use and Siphon diversion. Existing resource descriptions use
+required installation and Manifest, potential output and batch interval, exclusive use and Siphon diversion. Existing resource descriptions use
 renewable-slot terminology and distinguish Crystal from Shards.
 
 The standard-size budget/cluster regression is attached to the existing real

@@ -188,12 +188,12 @@ export const buildPlayerSubscriptionSnapshot = (
           // except reach anchors and captured buildings (settleIgnoresReach in
           // shared reach-settle-exemption.ts). Skip the rest, or the client
           // would retry a doomed SETTLE forever. Towns/docks stay eligible:
-          // settling one is exactly what gives it reach. reachOwnerId is only
-          // sourced by the per-player visible-state export; the
-          // full-visibility export (season ended / spectator) doesn't carry
-          // it, and nobody settles there anyway.
+          // settling one is exactly what gives it reach. Both the per-player
+          // visible export and the full-world export (reveal-map / spectator /
+          // season end) carry reachOwnerId, so the guard applies under full
+          // visibility too — a revealed live player still settles.
           const isReachAnchor = Boolean(tile.townJson || tile.dockId);
-          if (!isReachAnchor && options?.fullVisibility !== true && tile.reachOwnerId !== playerId) return undefined;
+          if (!isReachAnchor && tile.reachOwnerId !== playerId) return undefined;
           let hasTownSupport = false;
           forEachFrontierNeighbor(tile.x, tile.y, (nx, ny) => {
             if (!hasTownSupport) {
@@ -337,8 +337,8 @@ export const buildPlayerSubscriptionSnapshot = (
             // stream (emitPlayerStateUpdate) keeps it current after that.
             // reservedManpower/reservedSlotRequirements are deliberately
             // stripped here: they are server-side refund bookkeeping (see
-            // runtime-dev-queue-build-reservation.ts), not something the
-            // client renders, so the wire shape stays lean.
+            // runtime-dev-queue-build-reservation.ts). Only whether an entry
+            // holds manpower (or is still waiting for it) goes down.
             ...(livePlayer.devQueue?.length
               ? {
                   devQueue: livePlayer.devQueue.map((entry) => ({
@@ -347,7 +347,10 @@ export const buildPlayerSubscriptionSnapshot = (
                     y: entry.y,
                     kind: entry.kind,
                     ...(entry.structureType ? { structureType: entry.structureType } : {}),
-                    queuedAt: entry.queuedAt
+                    queuedAt: entry.queuedAt,
+                    // Same reservation flags PLAYER_UPDATE carries (runtime-player-state-update.ts).
+                    ...(entry.reservedManpower ? { manpowerReserved: true } : {}),
+                    ...(entry.awaitingManpower ? { awaitingManpower: true } : {})
                   }))
                 }
               : {}),

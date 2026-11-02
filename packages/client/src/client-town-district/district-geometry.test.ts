@@ -11,7 +11,7 @@ describe("complete district model coverage", () => {
     for (const kind of Object.keys(metadata)) {
       if (structureRequiresTownOrSupportTile(kind as StructurePlacementType)) expect(isDistrictBuilding(kind), kind).toBe(true);
     }
-    expect(DISTRICT_BUILDING_KINDS).toHaveLength(43);
+    expect(DISTRICT_BUILDING_KINDS).toHaveLength(42);
     // General utilities do not require a town, but still need a deliberate
     // visual classification. New support-compatible metadata cannot silently
     // bypass either the remodeled kit or an explicitly preserved model.

@@ -3,6 +3,7 @@ import { TOWN_ECONOMY_CHANGELOG } from "./client-changelog-town-economy.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_25 } from "./client-changelog-oct-25.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_26 } from "./client-changelog-oct-26.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_27 } from "./client-changelog-oct-27.js";
+import { CLIENT_CHANGELOG_ENTRIES_OCT_30_31 } from "./client-changelog-oct-30-31.js";
 import { RAW_DEPOSIT_UNDER_IMPROVEMENT_CHANGELOG } from "./client-changelog-raw-deposit-under-improvement.js";
 import { RESOURCE_NETWORKS_CHANGELOG } from "./client-changelog-resource-networks.js";
 import { RELIABLE_DIPLOMACY_CHANGELOG } from "./client-changelog-reliable-diplomacy.js";
@@ -13,6 +14,7 @@ import { CLIENT_CHANGELOG_ENTRIES_OCT_17 } from "./client-changelog-oct-17.js";
 import { AETHER_ABILITY_ICONS_CHANGELOG } from "./client-changelog-aether-ability-icons.js";
 import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-art-october.js";
 import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
+import { AUTO_GARRISON_SPLIT_RESOURCES_CHANGELOG } from "./client-changelog-auto-garrison-split-resources.js";
 import { AFC_UPGRADES_ICON_CHANGELOG } from "./client-changelog-afc-upgrades-icon.js";
 import { GAMEPLAY_SETTINGS_CLEANUP_CHANGELOG } from "./client-changelog-gameplay-settings-cleanup.js";
 import { MUSTER_BANNER_CHANGELOG } from "./client-changelog-muster-banner.js";
@@ -42,6 +44,7 @@ import { FLAG_TAP_CHANGELOG } from "./client-changelog-flag-tap.js";
 import { SIEGE_UMBRITE_ONLY_CHANGELOG } from "./client-changelog-siege-umbrite.js";
 import { MARCH_WIN_CHANCE_CHANGELOG } from "./client-changelog-march-win-chance.js";
 import { SPACE_POLITICS_CHANGELOG } from "./client-changelog-space-politics.js";
+import { AI_RIVALS_CHANGELOG } from "./client-changelog-ai-rivals.js";
 import { CLAIM_STRIPED_GROUND_CHANGELOG } from "./client-changelog-claim-striped-ground.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_17_19_INLINE } from "./client-changelog-oct-17-19-inline.js";
 import { TOWN_PLATE_ZOOM_CHANGELOG } from "./client-changelog-town-plate-zoom.js";
@@ -50,6 +53,8 @@ import { TERRITORY_EDGE_GLOW_CHANGELOG } from "./client-changelog-territory-edge
 import { LANDING_RESERVE_CHANGELOG } from "./client-changelog-landing-reserve.js";
 import { FOG_HILL_HAZE_CHANGELOG } from "./client-changelog-fog-hill-haze.js";
 import { STORM_EDGE_BANDING_CHANGELOG } from "./client-changelog-storm-edge-banding.js";
+import { AETHER_TOWER_SHOTS_CHANGELOG } from "./client-changelog-aether-tower-shots.js";
+import { LEGAL_PAGES_CHANGELOG } from "./client-changelog-legal-pages.js";
 import { MARCH_ACROSS_WATER_CHANGELOG } from "./client-changelog-march-across-water.js";
 import { MARCH_UNEXPLORED_CHANGELOG } from "./client-changelog-march-unexplored.js";
 import { MARCH_STOP_SHORT_CHANGELOG } from "./client-changelog-march-stop-short.js";
@@ -71,6 +76,8 @@ import { FASTER_ATTACKS_FRONTIER_COST_CHANGELOG } from "./client-changelog-faste
 import { AFC_MODULE_MODELS_CHANGELOG } from "./client-changelog-afc-module-models.js";
 import { PROFILE_CREST_TOGGLE_CHANGELOG } from "./client-changelog-profile-crest-toggle.js";
 import { GARRISON_BEACON_BUTTONS_CHANGELOG } from "./client-changelog-garrison-beacon-buttons.js";
+import { AUTO_GARRISON_QUEUE_CLOG_CHANGELOG } from "./client-changelog-auto-garrison-queue-clog.js";
+import { TOWN_SCREEN_SUPPORT_GARRISON_CHANGELOG } from "./client-changelog-town-screen-support-garrison.js";
 import { MARCH_ATTACK_DEEP_CHANGELOG } from "./client-changelog-march-attack-deep.js";
 import { WAR_INDUSTRY_SQUADS_CHANGELOG } from "./client-changelog-war-industry-squads.js";
 import { MARCH_ATTACK_ROUTES_CHANGELOG } from "./client-changelog-march-attack-routes.js";
@@ -97,6 +104,7 @@ import { OUT_OF_REACH_NO_DECAY_CHANGELOG } from "./client-changelog-out-of-reach
 import { FRONTIER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-frontier-supply-lines.js";
 import { MANPOWER_BATCH_LABEL_CHANGELOG } from "./client-changelog-manpower-batch-label.js";
 import { AI_VICTORY_STANDINGS_CHANGELOG } from "./client-changelog-ai-victory-standings.js";
+import { VICTORY_RACE_LABELS_CHANGELOG } from "./client-changelog-victory-race-labels.js";
 import { RESTART_TILE_STATE_CHANGELOG } from "./client-changelog-restart-tile-state.js";
 import { RESTART_MANPOWER_CHANGELOG } from "./client-changelog-restart-manpower.js";
 import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-recent-groups.js";
@@ -110,6 +118,7 @@ import { CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME } from "./client-changelog-gar
 import { CLIENT_CHANGELOG_ENTRIES_AFC_LANDING } from "./client-changelog-afc-landing.js";
 import { CLIENT_CHANGELOG_ENTRIES_SEPT_24_26 } from "./client-changelog-data-sept-24-26.js";
 import { CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS } from "./client-changelog-fast-builds.js";
+import { FLAT_BUILD_TIME_CHANGELOG } from "./client-changelog-flat-build-time.js";
 import { CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS } from "./client-changelog-build-speed-menus.js";
 import { CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON } from "./client-changelog-hint-center-button.js";
 import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-fit.js";
@@ -119,6 +128,7 @@ import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hi
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog-town-growth-loading.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY } from "./client-changelog-town-growth-war-integrity.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_105 } from "./client-changelog-data-earlier-105.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_106 } from "./client-changelog-data-earlier-106.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -135,30 +145,12 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_OCT_17,
   ENEMY_MUSTER_WARNING_CHANGELOG,
   FRONTIER_REACH_WARNING_CHANGELOG,
-  {
-    createdAt: 1791969768256, // Frozen Date.now() timestamp for the changelog gate.
-    introducedIn: "2026.10.14.2",
-    title: "Waystation rewards show current technology names",
-    why: "The tile overview showed old technology names such as Leatherworking instead of their current Manifest names.",
-    changes: ["All Waystation technology rewards now use the current tech catalog name in the tile overview, including previously activated sites"]
-  },
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_106,
   ...AUTO_GARRISON_REQUEUE_CHANGELOG,
-  {
-    createdAt: 1791969340091, // Date.now() captured once for this release.
-    introducedIn: "2026.10.14.4",
-    title: "Manifest details stay where you scroll",
-    why: "Live game updates kept rebuilding Manifest details and jumping the menu back to the top.",
-    changes: ["Mobile and desktop Manifest details keep their scroll position while coin and unlock status update"]
-  },
-  {
-    createdAt: 1791970194502,
-    introducedIn: "2026.10.14.2",
-    title: "Hidden dock connections stay hidden",
-    why: "Selecting an enemy dock lit up undiscovered linked docks on the minimap and offered navigation into fog.",
-    changes: ["Selecting a dock no longer reveals hidden connections on the minimap or either map renderer", "Dock navigation only visits discovered destinations; garrisoning a dock reveals its links", "3D dock routes update as soon as linked docks are discovered, even while the same dock stays selected"]
-  },
+  ...AUTO_GARRISON_SPLIT_RESOURCES_CHANGELOG,
   ...MANPOWER_BATCH_LABEL_CHANGELOG,
   ...AI_VICTORY_STANDINGS_CHANGELOG,
+  ...VICTORY_RACE_LABELS_CHANGELOG,
   ...RESTART_TILE_STATE_CHANGELOG,
   ...RESTART_MANPOWER_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING,
@@ -189,6 +181,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,
   ...CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS,
   ...CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS,
+  ...FLAT_BUILD_TIME_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS,
   ...CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON,
   ...MOBILE_LOADING_FIT_CHANGELOG,
@@ -312,6 +305,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AFC_MODULE_MODELS_CHANGELOG,
   ...PROFILE_CREST_TOGGLE_CHANGELOG,
   ...GARRISON_BEACON_BUTTONS_CHANGELOG,
+  ...AUTO_GARRISON_QUEUE_CLOG_CHANGELOG,
+  ...TOWN_SCREEN_SUPPORT_GARRISON_CHANGELOG,
   ...MARCH_ATTACK_DEEP_CHANGELOG,
   ...MARCH_ATTACK_ROUTES_CHANGELOG,
   ...MARCH_TO_UNEXPLORED_CHANGELOG,
@@ -438,13 +433,60 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...SIEGE_UMBRITE_ONLY_CHANGELOG,
   ...MARCH_WIN_CHANCE_CHANGELOG,
   ...SPACE_POLITICS_CHANGELOG,
+  ...CLIENT_CHANGELOG_ENTRIES_OCT_30_31,
   {
-    createdAt: 1793350568452,
-    introducedIn: "2026.10.30",
-    title: "Resource icons stay visible when zoomed out",
-    why: "Resource circles switched to plain colours before you could get a useful overview of nearby deposits.",
-    changes: ["Resource markers keep their icons at every zoom level in both the 2D and 3D maps, with smoothly scaling circles and coloured rims"]
-  }
+    createdAt: 1793483288830,
+    introducedIn: "2026.10.31",
+    title: "Smoother 3D map",
+    why: "The 3D map spent part of every frame updating thousands of hidden objects, which could make the tab freeze or report as unresponsive.",
+    changes: ["Each frame now only updates objects that are on show"]
+  },
+  ...AI_RIVALS_CHANGELOG,
+  {
+    createdAt: 1793544875839, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.01",
+    title: "Towns panel",
+    why: "There was no way to compare towns without opening each one.",
+    changes: [
+      "A new Towns button lists your towns with gold per day, population and growth",
+      "Sort by any column, highest or lowest first",
+      "Press a town to jump to it on the map",
+      "The All view's Food slot list no longer comes out empty"
+    ]
+  },
+  {
+    createdAt: 1793524472421, // Date.now() captured when this entry was written.
+    introducedIn: "2026.11.01",
+    title: "Accurate net territory in the daily story",
+    why: "Roaming barbarians were counted as gaining a tile every time they stepped onto it, so the daily story could claim tens of thousands of tiles gained.",
+    changes: [
+      "Net territory change now compares who held each tile at the start and end of the day",
+      "Barbarians no longer appear in territory momentum or the Fastest Expansion and Biggest Defeat headlines",
+      "Land you lost through decay no longer counts toward your net gains",
+      "Barbarians wandering over empty land no longer push real captures out of the 24-hour activity history"
+    ]
+  },
+  {
+    createdAt: 1793565464215, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.01",
+    title: "Towns in the new HUD",
+    why: "The new HUD had no way to reach the town list.",
+    changes: ["A Towns button next to Manifest lists your towns, sortable by gold, population or growth", "Press a town to open its town screen"]
+  },
+  {
+    createdAt: 1793605577111, // Date.now() captured when this entry was written.
+    introducedIn: "2026.11.02",
+    title: "Queued garrisons wait for manpower",
+    why: "A queued garrison that came up while your manpower pool was short was dropped from the queue instead of waiting.",
+    changes: [
+      "Garrisoning without enough manpower now queues the garrison instead of refusing it",
+      "A queued garrison waits for the next manpower batch, reserves its manpower, then starts on its own, even while you're offline",
+      "Its queue card shows \"Needs manpower\" while it waits",
+      "Builds queued behind a waiting garrison no longer wait with it"
+    ]
+  },
+  ...AETHER_TOWER_SHOTS_CHANGELOG,
+  ...LEGAL_PAGES_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

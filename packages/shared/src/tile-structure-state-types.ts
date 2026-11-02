@@ -58,7 +58,10 @@ export type TileObservatoryState = {
   pausedAt?: number;
   activatedAt?: number;
   suppressedUntil?: number | undefined;
+  // Earliest time the tower can fire again; absent while it has a shot (aether-tower-shots.ts).
   cooldownUntil?: number;
+  // Fire times still inside the 24h refill window (aether-tower-shots.ts).
+  shotsUsedAt?: number[];
   siphon?: { targetX: number; targetY: number; tileKeys: string[]; startedAt: number };
 };
 

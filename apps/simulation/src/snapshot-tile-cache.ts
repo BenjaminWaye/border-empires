@@ -14,6 +14,8 @@ export type RuntimeState = {
     dockId?: string;
     ownerId?: string;
     ownershipState?: string;
+    /** Persistent-border reach owner (Runtime.reachBorder) — preserved through enrichment so full-visibility snapshots keep reach borders/hatching. */
+    reachOwnerId?: string;
     townJson?: string;
     townType?: "MARKET" | "FARMING";
     townName?: string;

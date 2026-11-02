@@ -40,8 +40,9 @@ Production deployment still requires the fresh-production-clone load gate in
 
 Physical domestic output backs exports, not imports. Only spare output can be
 newly committed. Existing commitments take precedence over later domestic demand.
-Upkeep transfers resolve first: imported FOOD may power a domestic extractor.
-Network transfers then resolve using that adjusted FOOD dormancy. Both directions
+Upkeep transfers resolve first (imported FOOD can wake FOOD-dormant domestic
+industry); network transfers resolve after. Extractors have no slot upkeep, so
+FOOD never gates network supply. Both directions
 pause on shortage. Recompute after removing one failing agreement per pass to
 retain oldest-first priority. At most agreement-count+1 passes, capped at 256.
 

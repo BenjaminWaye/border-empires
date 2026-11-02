@@ -50,7 +50,6 @@ describe("converter toggle regression guard", () => {
       ["ASTRAL_DOCK", "astral-dock-overlay.svg"],
       ["IMPERIAL_EXCHANGE", "imperial-exchange-overlay.svg"],
       ["SOVEREIGN_SIEGE_ENGINE", "sovereign-siege-engine-overlay.svg"],
-      ["QUARTERMASTERS_OFFICE", "quartermasters-office-overlay.svg"],
       ["ANCILLARY_FACTORY", "ancillary-factory-overlay.svg"],
       ["RESERVE_LATTICE", "reserve-lattice-overlay.svg"],
       ["CENSUS_DIRECTORATE", "census-directorate-overlay.svg"],

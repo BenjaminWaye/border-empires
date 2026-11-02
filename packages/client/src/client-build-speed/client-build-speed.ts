@@ -1,5 +1,5 @@
-// Build menus show what a build will actually take: the base time (1s per
-// manpower point) shortened by the player's tech/domain build-speed effects,
+// Build menus show what a build will actually take: the base time (a flat
+// 60s for any manpower-costing build) shortened by the player's tech/domain build-speed effects,
 // using the same structure -> effect rule and formula the simulation uses to
 // stamp completesAt (structureBuildSpeedEffectKey / buildDurationWithSpeedMult
 // in shared, multiplicativeEffectForPlayer in apps/simulation).

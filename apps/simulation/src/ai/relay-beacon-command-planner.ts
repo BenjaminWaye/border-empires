@@ -362,6 +362,13 @@ const MIN_OWN_BEACON_SPACING = OUTPOST_REACH_RADIUS;
 const tooCloseToOwnBeacon = (tile: StructurePlannerTile, beacons: readonly { x: number; y: number }[]): boolean =>
   beacons.some((b) => chebyshevWithWrap(tile.x, tile.y, b.x, b.y) < MIN_OWN_BEACON_SPACING);
 
+/** Same affordability gate chooseBestRelayBeaconBuild applies first; exported so WAIT can name it. */
+export const relayBeaconAffordable = (player: StructurePlannerPlayer, ownedTiles: readonly StructurePlannerTile[]): boolean => {
+  const counts = player.ownedStructureCounts ? EMPTY_OWNED_STRUCTURE_COUNTS : tallyOwnedStructures(player.id, ownedTiles);
+  const existingOwnedCount = plannedOwnedStructureCount(player, counts, "RELAY_BEACON");
+  return canAffordStructure(player, playerTechSet(player), "RELAY_BEACON", existingOwnedCount);
+};
+
 export const chooseBestRelayBeaconBuild = (
   player: StructurePlannerPlayer,
   ownedTiles: readonly StructurePlannerTile[],
@@ -369,9 +376,7 @@ export const chooseBestRelayBeaconBuild = (
   candidateTiles: readonly StructurePlannerTile[] = ownedTiles,
   reachLookup?: ReachLookup
 ): RelayBeaconBuildPlan | undefined => {
-  const counts = player.ownedStructureCounts ? EMPTY_OWNED_STRUCTURE_COUNTS : tallyOwnedStructures(player.id, ownedTiles);
-  const existingOwnedCount = plannedOwnedStructureCount(player, counts, "RELAY_BEACON");
-  if (!canAffordStructure(player, playerTechSet(player), "RELAY_BEACON", existingOwnedCount)) return undefined;
+  if (!relayBeaconAffordable(player, ownedTiles)) return undefined;
 
   const { claimed: reachTileKeys, pendingOutposts, ownBeacons } = currentReachTileKeys(player.id, ownedTiles);
 

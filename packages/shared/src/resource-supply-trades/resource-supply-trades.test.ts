@@ -4,7 +4,7 @@ const deal = (changes: Partial<ResourceSupplyAgreement> = {}): ResourceSupplyAgr
   id: "deal", proposerId: "a", targetId: "b", proposerGives: { FOOD: 3 }, targetGives: { NEURAL_RESIN: 1 }, startedAt: 1, expiresAt: 100, ...changes
 });
 describe("renewable resource supply contracts", () => {
-  it("lets imported FOOD power an exported network resource without creating resource stockpiles", () => {
+  it("resolves upkeep transfers before network capacity without creating resource stockpiles", () => {
     const allocation = allocateResourceSupplyAgreements([deal()], 50, (id, phase, flows) =>
       phase === "upkeep" ? id === "a" ? { FOOD: 3 } : {} : id === "b" && flows.get("b")!.incoming.FOOD >= 3 ? { NEURAL_RESIN: 1 } : {});
     expect(allocation.fulfilled.has("deal")).toBe(true);

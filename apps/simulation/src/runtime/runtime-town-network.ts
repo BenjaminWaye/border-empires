@@ -15,7 +15,6 @@ import { developedNetworkSites } from "../resource-networks/resource-networks.js
 // refreshEconomyCachesForTileChange / runtime-progression-command-context.ts
 // which read/mutate them directly, so ownership must not move here.
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { QUARTERMASTERS_OFFICE_RADIUS } from "@border-empires/game-domain";
 import {
   buildConnectedTownNetworkForPlayer,
   enrichTownWithConnectedNetwork,
@@ -41,7 +40,6 @@ export interface RuntimeTownNetworkContext {
   townNetworkCacheByPlayer: Map<string, Map<string, ConnectedTownNetworkEntry>>;
   townConnectivityStateByPlayer: Map<string, TownConnectivityState>;
   tileYieldContextCacheByPlayer: Map<string, RuntimeTileYieldEconomyContext>;
-  quartermastersOfficeTilesByOwner: Map<string, Set<string>>;
   trackSyncMainThreadTask?: MainThreadTaskTracker["trackSync"];
   players: Map<string, RuntimePlayer>;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
@@ -133,23 +131,6 @@ export function reserveLatticeAlreadyInNetworkForPlayer(ctx: RuntimeTownNetworkC
   const settledTiles = ctx.settledTilesForPlayer(playerId);
   const townNetwork = cachedTownNetworkForPlayer(ctx, player, settledTiles, 0);
   return reserveLatticeAlreadyInNetwork(playerId, townKey, ctx.tiles, townNetwork);
-}
-
-// Quartermaster's Office (tech-tree redesign): true when the player owns
-// an active Quartermaster's Office within QUARTERMASTERS_OFFICE_RADIUS
-// (Chebyshev) tiles of (x, y). A plain radius scan over the player's own
-// (rare, late-game) Quartermaster's Offices, same cost tradeoff as
-// monumentClaimOwnerId's full scan -- this only runs on a War-branch
-// structure build/upgrade command, not every tick.
-export function hasNearbyQuartermastersOfficeForPlayer(ctx: RuntimeTownNetworkContext, playerId: string, x: number, y: number): boolean {
-  const keys = ctx.quartermastersOfficeTilesByOwner.get(playerId);
-  if (!keys || keys.size === 0) return false;
-  for (const key of keys) {
-    const tile = ctx.tiles.get(key);
-    if (!tile || tile.economicStructure?.status !== "active") continue;
-    if (Math.max(Math.abs(tile.x - x), Math.abs(tile.y - y)) <= QUARTERMASTERS_OFFICE_RADIUS) return true;
-  }
-  return false;
 }
 
 // Census Hall (tech-tree redesign): connected-network Incubation Engine

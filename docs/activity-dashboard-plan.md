@@ -305,6 +305,15 @@ This exclusion applies only to World Pulse. Barbarian attacks, captures,
 raids, and waystation consequences remain in the affected player's Yours
 timeline.
 
+Implementation notes (2026-11-01): `territoryMomentum` drops the barbarian row
+sim-side (`computeTerritoryMomentum(..., BARBARIAN_PLAYER_ID)`), and its
+`net24h` is per tile (owner at window start vs end), so it can never exceed
+distinct tiles gained + lost. The territory flip log also no longer stores
+barbarian roaming over neutral land (`isBarbarianRoamingFlip`): the walk only
+logged the step onto a tile, never the release behind it, and those entries
+(~47k/day) were crowding real player flips out of the 50k entry cap.
+Barbarian <-> player flips are still recorded, so Yours is unaffected.
+
 World Pulse contains no Center action unless the location is already legal
 and visible to that player. The safe default is text-only; this dashboard must
 not become a fog-of-war leak.

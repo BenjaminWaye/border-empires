@@ -32,7 +32,6 @@ const STRUCTURE_INFO_ART: Readonly<Record<string, string>> = {
   RESONANCE_GRID: "/overlays/resonance-grid-overlay.svg",
   AMBARIC_TRANSFORMER: "/overlays/ambaric-tower-overlay.svg",
   NEURAL_WORKS: "/overlays/neural-works-overlay.svg",
-  QUARTERMASTERS_OFFICE: "/overlays/quartermasters-office-overlay.svg",
   ANCILLARY_FACTORY: "/overlays/ancillary-factory-overlay.svg",
   RESERVE_LATTICE: "/overlays/reserve-lattice-overlay.svg",
   // Each of the 18 monument components gets its own distinct overlay,

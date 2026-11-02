@@ -6,7 +6,7 @@ import { settingsGameplayPageHtml } from "./client-hud-settings-panel.js";
 const gameplayState = {
   authSessionReady: true,
   authEmail: "ada@example.com",
-  autoSettle: loadedAutoSettleState({ ...DEFAULT_AUTO_SETTLE_PREFS, towns: true, food: false, resources: false }),
+  autoSettle: loadedAutoSettleState({ ...DEFAULT_AUTO_SETTLE_PREFS, towns: true, food: false, strategic: false, luxury: false }),
   photoModeActive: false
 };
 

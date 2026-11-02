@@ -49,7 +49,6 @@ export const STRUCTURE_DISPLAY_NAMES: Readonly<Record<StructureDisplayKey, strin
   HARBOR_EXCHANGE: "Harbor Exchange",
   MINISTRY_HALL: "Ministry Hall",
   RESONANCE_GRID: "Resonance Grid",
-  QUARTERMASTERS_OFFICE: "Quartermaster's Office",
   ANCILLARY_FACTORY: "Ancillary Factory",
   RESERVE_LATTICE: "Reserve Lattice",
   ASTRAL_DOCK_PART_1: "Launch Cradle",

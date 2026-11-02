@@ -66,7 +66,7 @@ describe("reconnectPassthroughFields", () => {
   });
 
   it("carries autoSettle through so a reconnecting new player is still asked (answered:false)", () => {
-    const prefs = { answered: false, towns: false, food: false, resources: false };
+    const prefs = { answered: false, towns: false, food: false, strategic: false, luxury: false };
     expect(reconnectPassthroughFields(basePlayer({ autoSettle: prefs })).autoSettle).toEqual(prefs);
   });
 

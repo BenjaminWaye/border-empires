@@ -46,18 +46,6 @@ export const buildCivic = (t: TownBuilders, kind: string): boolean => {
       t.body.box(0, 0.283, -0.15, 0.12, 0.05, 0.06, "stoneLight");
       t.glow.box(0, 0.298, -0.115, 0.075, 0.008, 0.004, "aether");
       return true;
-    case "QUARTERMASTERS_OFFICE":
-      // Long logistics shed with a projecting watch cabin and supply racks.
-      housing(t, -0.035, -0.07, 0.38, 0.1, 0.21);
-      housing(t, 0.15, -0.1, 0.12, 0.24, 0.13);
-      t.body.gable(0.15, 0.293, -0.1, 0.15, 0.05, 0.16, "graphite");
-      loadingDoor(t, -0.09, 0.042, 0.13, 0.09);
-      for (const x of [-0.17, -0.04, 0.09]) {
-        crate(t, x, 0.18);
-        t.body.box(x, 0.063, 0.18, 0.08, 0.008, 0.085, "iron");
-        t.body.box(x, 0.015, 0.21, 0.009, 0.12, 0.009, "brassDark");
-      }
-      return true;
     case "TRADE_NEXUS":
       // Open cargo-transfer portal, paired warehouses and suspended freight.
       for (const x of [-0.17, 0.17]) {

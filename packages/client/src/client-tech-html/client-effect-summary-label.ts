@@ -110,6 +110,9 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "fortDefenseMult" && typeof value === "number") return `Fort defense ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "fortBuildGoldCostMult" && typeof value === "number") return `Fort cost ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "fortBuildSpeedMult" && typeof value === "number") return `Fort build speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "fortBuildManpowerCostMult" && typeof value === "number") return `Fort manpower cost ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "relayBeaconBuildManpowerCostMult" && typeof value === "number") return `Relay Beacon manpower cost ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "structureBuildManpowerCostMult" && typeof value === "number") return `Building manpower cost ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "fortTitaniumSlotWaiverCount" && typeof value === "number") return `First ${value} Forts need no TITANIUM slot`;
   if (key === "settledDefenseNearFortMult" && typeof value === "number")
     return `Garrisoned defense near forts ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
@@ -134,8 +137,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "economicStructureBuildSpeedMult" && typeof value === "number") return `Economic build speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "populationCapFirst3TownsMult" && typeof value === "number") return `First 3 towns pop cap ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "observatoryVisionBonus" && typeof value === "number") return `Aether Tower vision +${value}`;
-  if (key === "observatoryCooldownMult" && typeof value === "number")
-    return `Aether Tower ability cooldowns ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "observatoryShotsMult" && typeof value === "number") return `Aether Tower shots ×${value}`;
   if (key === "attackResolveSpeedReduceMs" && typeof value === "number") return `Attacks resolve ${Math.round(value / 1000)}s faster`;
   return null;
 };

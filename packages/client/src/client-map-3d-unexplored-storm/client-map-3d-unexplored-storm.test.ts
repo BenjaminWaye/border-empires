@@ -3,6 +3,7 @@ import { DataTexture, Scene, Vector2 } from "three";
 import { HEIGHTFIELD_GRASS_ELEVATION, HEIGHTFIELD_TUNDRA_ELEVATION } from "../client-map-3d-heightfield-terrain.js";
 import { createAtmosphere } from "../client-map-3d-atmosphere.js";
 import { UNEXPLORED_REVEAL_MS, UNEXPLORED_STORM_Y, createUnexploredStormLayer } from "./client-map-3d-unexplored-storm.js";
+import { GROUND_SHEET_SEGMENTS } from "./client-map-3d-ground-sheet.js";
 import { STORM_FIELD_GLSL } from "./client-map-3d-unexplored-storm-field-glsl.js";
 import { STORM_FRAGMENT_SHADER } from "./client-map-3d-unexplored-storm-shader.js";
 
@@ -16,25 +17,9 @@ describe("unexplored storm layer (3D)", () => {
     expect(UNEXPLORED_STORM_Y).toBeLessThan(0.5);
   });
 
-  it("is built from small triangles, so mobile GPUs interpolate its position without banding", () => {
-    // As one two-triangle quad the brass edge broke into offset segments
-    // along screen rows on phones (interpolation precision over ~3600 tiles).
+  it("is drawn on the subdivided fog sheet, so mobile GPUs interpolate its position without banding", () => {
     const storm = createUnexploredStormLayer(new Scene(), () => 0);
-    const geometry = storm.mesh.geometry;
-    geometry.computeBoundingBox();
-    const box = geometry.boundingBox!;
-    expect(box.max.x - box.min.x).toBeGreaterThanOrEqual(3600);
-    const position = geometry.getAttribute("position");
-    const index = geometry.getIndex()!;
-    let longestEdge = 0;
-    for (let t = 0; t < index.count; t += 3) {
-      for (let e = 0; e < 3; e += 1) {
-        const a = index.getX(t + e);
-        const b = index.getX(t + ((e + 1) % 3));
-        longestEdge = Math.max(longestEdge, Math.hypot(position.getX(a) - position.getX(b), position.getZ(a) - position.getZ(b)));
-      }
-    }
-    expect(longestEdge).toBeLessThanOrEqual(64);
+    expect(storm.mesh.geometry.getAttribute("position").count).toBe((GROUND_SHEET_SEGMENTS + 1) ** 2);
     storm.dispose();
   });
 

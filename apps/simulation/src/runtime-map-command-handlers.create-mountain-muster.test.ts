@@ -29,7 +29,7 @@ function createContext(player: DomainPlayer, tile: DomainTileState) {
     emitEvent: (event) => { events.push(event); },
     ownedLandWithinRange: () => true,
     pickReadyOwnedObservatoryForTarget: () => OBSERVATORY_KEY,
-    stampObservatoryCooldown: () => {},
+    spendObservatoryShot: () => {},
     spendStrategicResource: () => true,
     replaceTileState: (tileKey, next) => { tiles.set(tileKey, next); },
     applyEncirclement: () => {},

@@ -98,9 +98,12 @@ describe("proactive AI diplomacy", () => {
   });
   it("runs AI-to-AI acceptance through the responder and syncs before accepted fanout", async () => {
     const { deps, social, snapshots } = setup(10);
-    // Both players are seeded AIs here. The recipient is exhausted, so the
-    // at war and exhausted, and the recipient already paid this war.
-    snapshots.human!.player!.manpower = 10;
+    // Both players are seeded AIs here. The spent offerer asks a strong
+    // rival for peace; the recipient accepts because the offerer outscores
+    // it (OUTMATCHED), and it already paid this war. Two equally spent AIs
+    // no longer truce at all (ai-war-exhaustion.ts RIVAL_ALSO_SPENT).
+    snapshots["ai-1"]!.worldStatus!.leaderboard.selfOverall = { id: "ai-1", tiles: 2, score: 200 };
+    snapshots.human!.worldStatus!.leaderboard.selfOverall = { id: "human", tiles: 1, score: 100 };
     const seeded = new Set(["ai-1", "human"]);
     const order: string[] = [];
     const syncTruce = vi.fn(async () => { order.push("simulation"); return true; });

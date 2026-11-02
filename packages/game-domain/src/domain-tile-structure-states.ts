@@ -28,7 +28,10 @@ export type DomainObservatoryState = {
   pausedAt?: number | undefined; // attack-development-hold.ts: set while the tile is under attack
   activatedAt?: number | undefined;
   suppressedUntil?: number | undefined;
+  // Earliest time the tower can fire again; absent while it has a shot (aether-tower-shots.ts).
   cooldownUntil?: number | undefined;
+  // Fire times still inside the 24h refill window (aether-tower-shots.ts).
+  shotsUsedAt?: number[] | undefined;
   previousStatus?: "active" | "inactive" | undefined;
   // Siphon mode (docs/game-mechanics.md "Siphon"): set while this tower is draining a Siphon target.
   siphon?: import("@border-empires/shared").ObservatorySiphonMode | undefined;

@@ -81,7 +81,6 @@ const legacyStructureOverlayImages = {
   ASTRAL_DOCK_PART_3: loadOverlayImage("aether-sail-overlay.svg"),
   IMPERIAL_EXCHANGE: loadOverlayImage("imperial-exchange-overlay.svg"),
   SOVEREIGN_SIEGE_ENGINE: loadOverlayImage("sovereign-siege-engine-overlay.svg"),
-  QUARTERMASTERS_OFFICE: loadOverlayImage("quartermasters-office-overlay.svg"),
   ANCILLARY_FACTORY: loadOverlayImage("ancillary-factory-overlay.svg"),
   RESERVE_LATTICE: loadOverlayImage("reserve-lattice-overlay.svg"),
   CENSUS_DIRECTORATE: loadOverlayImage("census-directorate-overlay.svg"),

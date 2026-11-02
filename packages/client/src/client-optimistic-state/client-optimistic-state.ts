@@ -181,8 +181,8 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
 
   const applyOptimisticStructureRemoval = (x: number, y: number): void => {
     if (!enabled) return;
-    // Mirrors the server's removal window (0.5s per manpower point of the
-    // structure being torn down) so the progress bar doesn't jump on confirm.
+    // Mirrors the server's removal window (STRUCTURE_REMOVAL_MS for anything
+    // that cost manpower) so the progress bar doesn't jump on confirm.
     const startedAt = Date.now();
     applyOptimisticTileState(x, y, (tile) => {
       tile.optimisticPending = "structure_remove";

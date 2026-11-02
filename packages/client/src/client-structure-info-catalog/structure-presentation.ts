@@ -177,10 +177,6 @@ export const STRUCTURE_PRESENTATION: Readonly<Record<StructureInfoKey, Structure
     glyph: "⬡",
     placement: "Place on any garrisoned tile you own after finishing 3 Aegis Dome Parts. Consumes all 3 parts on completion."
   },
-  QUARTERMASTERS_OFFICE: {
-    glyph: "✪",
-    placement: "Build on garrisoned land you own."
-  },
   ANCILLARY_FACTORY: {
     glyph: "▣",
     placement: "Build on an open garrisoned support tile for a town you own."

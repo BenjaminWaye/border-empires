@@ -15,7 +15,7 @@ export type RuntimeExportState = {
     dockId?: string;
     ownerId?: string;
     ownershipState?: string;
-    /** Persistent-border reach owner (Runtime.reachBorder), independent of ownerId — see SimulationTileWireDelta.reachOwnerId. Populated only by the per-player visible-state export (runtime-visible-state.ts); the full-world export below does not currently source it. */
+    /** Persistent-border reach owner (Runtime.reachBorder), independent of ownerId — see SimulationTileWireDelta.reachOwnerId. Sourced by both the per-player visible-state export (runtime-visible-state.ts) and the full-world export (runtime-state-export.ts) so reveal-map/spectator snapshots keep reach borders and rival-reach hatching. */
     reachOwnerId?: string;
     frontierDecayAt?: number;
     frontierDecayKind?: FrontierDecayKind;

@@ -93,8 +93,8 @@ export const isFrontierRelayBeacon = (action: TileActionDef): boolean =>
 
 
 // Defensive net for the exact bug fixed in #1253 (build_titanium_weapons_factory
-// / build_umbrite_weapons_factory) and its build_quartermasters_office /
-// build_reserve_lattice / build_ancillary_factory siblings found alongside it:
+// / build_umbrite_weapons_factory) and its build_reserve_lattice /
+// build_ancillary_factory siblings found alongside it:
 // structureTypeForTileAction's switch silently falling through to `undefined`
 // for a genuine build_* action id makes that build button a no-op — no
 // optimistic update, no message sent to the server, no visible error.

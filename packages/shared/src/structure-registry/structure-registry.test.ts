@@ -28,8 +28,7 @@ test("STRUCTURE_REGISTRY covers exactly 65 structure types", () => {
   // structure-registry-economic.ts), plus TITANIUM_WEAPONS_FACTORY and
   // UMBRITE_WEAPONS_FACTORY (its replacements): 49 - 1 + 2 = 50, plus 12 for
   // each of the 6 monuments' single Part becoming 3 uniquely-named
-  // components = 62, minus QUARTERMASTERS_OFFICE (retired, same reason as
-  // WEAPONS_WORKSHOP above) = 61, minus SEED_INCUBATION_ENGINE (removed from the
+  // components = 62, minus QUARTERMASTERS_OFFICE (removed) = 61, minus SEED_INCUBATION_ENGINE (removed from the
   // game, Manifest/Coin rework) = 60.
   expect(STRUCTURE_REGISTRY_SIZE).toBe(65);
 });
@@ -372,11 +371,10 @@ describe("upkeep parity", () => {
     "ANCILLARY_FACTORY", "RESERVE_LATTICE",
     "CENSUS_DIRECTORATE_PART_1", "CENSUS_DIRECTORATE_PART_2", "CENSUS_DIRECTORATE_PART_3", "CENSUS_DIRECTORATE",
     "TITANIUM_LEVY_PART_1", "TITANIUM_LEVY_PART_2", "TITANIUM_LEVY_PART_3", "TITANIUM_LEVY",
-    // WEAPONS_WORKSHOP and QUARTERMASTERS_OFFICE are retired (no longer in
-    // STRUCTURE_REGISTRY, so these entries are inert) — kept here rather
-    // than removed since it's harmless and documents each type's prior
-    // no-upkeep status.
-    "WEAPONS_WORKSHOP", "QUARTERMASTERS_OFFICE",
+    // WEAPONS_WORKSHOP is retired (no longer in STRUCTURE_REGISTRY, so this
+    // entry is inert) — kept here rather than removed since it's harmless
+    // and documents the type's prior no-upkeep status.
+    "WEAPONS_WORKSHOP",
     "TITANIUM_WEAPONS_FACTORY", "UMBRITE_WEAPONS_FACTORY",
   ]);
 

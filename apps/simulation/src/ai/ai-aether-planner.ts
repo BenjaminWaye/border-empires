@@ -8,6 +8,7 @@ import { actionAdmissionKey } from "./ai-rejection-cooldown.js";
 import { at, distance, keyOf, knownShielded, valuable } from "./ai-aether-spatial.js";
 import { chooseAetherRoute } from "./ai-aether-routes.js";
 import { spendableBuildManpowerForPlanner } from "./automation-command-planner-war-reserve.js";
+import { structureManpowerCostForPlayer } from "../structure-manpower-cost/structure-manpower-cost.js";
 
 export type AiAetherAction = { type: CommandEnvelope["type"]; payload: Record<string, string | number | boolean>; value: number };
 
@@ -79,7 +80,7 @@ export function chooseAiAetherCommand<T extends AutomationPlannerTile>(input: Au
     if (target && !hostile(target)) actions.push({ type: "CANCEL_SIPHON", payload: { x: tower.x, y: tower.y }, value: 250 });
   }
   if ((ownedTowerCount ?? towers.length) < 3 && (ownedTowerCount ?? towers.length) === towers.length && !towers.some(tower => enemies.some(enemy => distance(tower, enemy) <= view.castRange)) && enemies.length > 0 && !input.decisionCooldowns?.BUILD_AETHER_TOWER && (input.slotSupplyByResource?.FOOD ?? 0) >= (input.slotDemandByResource?.FOOD ?? 0) && can("aether_lance") && hasInstalledAiBuildModule(input.installedModuleTechIds, "crystal-lattices") && input.activeDevelopmentProcessCount + (input.reservedDevelopmentSlots ?? 0) < DEVELOPMENT_PROCESS_LIMIT &&
-    (input.slotSupplyByResource?.CRYSTAL ?? 0) - (input.slotDemandByResource?.CRYSTAL ?? 0) >= observatoryCrystalSlotCostForOwnedCount(ownedTowerCount ?? towers.length) && spendableBuildManpowerForPlanner(input) >= structureBuildManpowerCostScaled("OBSERVATORY", 0)) {
+    (input.slotSupplyByResource?.CRYSTAL ?? 0) - (input.slotDemandByResource?.CRYSTAL ?? 0) >= observatoryCrystalSlotCostForOwnedCount(ownedTowerCount ?? towers.length) && spendableBuildManpowerForPlanner(input) >= structureManpowerCostForPlayer({ techIds: new Set(input.techIds ?? []), domainIds: new Set(input.domainIds ?? []) }, "OBSERVATORY", structureBuildManpowerCostScaled("OBSERVATORY", 0))) {
     // The bounded spatial focus is the placement scope; never scan every
     // owned tile per enemy or per candidate.
     for (const tile of visible) {

@@ -120,7 +120,7 @@ const STRUCTURE_BRANCH_BY_KEY: Partial<Record<StructureInfoKey, "War" | "Economy
   UMBRITE_RIG: "War",
   INCUBATION_ENGINE: "Manpower", CENSUS_HALL: "Manpower",
   ANCILLARY_DEPOT: "Manpower", NEURAL_WORKS: "Manpower",
-  QUARTERMASTERS_OFFICE: "Manpower", ANCILLARY_FACTORY: "Manpower",
+  ANCILLARY_FACTORY: "Manpower",
   RESERVE_LATTICE: "Manpower",
   CENSUS_DIRECTORATE_PART_1: "Manpower", CENSUS_DIRECTORATE_PART_2: "Manpower", CENSUS_DIRECTORATE_PART_3: "Manpower", CENSUS_DIRECTORATE: "Manpower",
   TITANIUM_LEVY_PART_1: "Manpower", TITANIUM_LEVY_PART_2: "Manpower", TITANIUM_LEVY_PART_3: "Manpower", TITANIUM_LEVY: "Manpower",
@@ -193,7 +193,6 @@ export const structureInfoForKey = (
     if (key === "SKY_DOCK") return ["Strips ownership from a 3×3 area (structures survive)", "Free • 20m cooldown", "Blocked by Resonance Grids", "Requires nearby Ambaric Transformer power"];
     if (key === "AMBARIC_TRANSFORMER") return ["Powers nearby Sky Docks, Resonance Grids, and monuments", "Can chain power through other Ambaric Transformers"];
     if (key === "RESONANCE_GRID") return ["Requires nearby Ambaric Transformer power"];
-    if (key === "QUARTERMASTERS_OFFICE") return ["Retired; retained for previously saved structures"];
     if (key === "ANCILLARY_FACTORY") return ["Developed neural resin and conductive minerals add Ancillaries to each batch", "Boosted rate applies instead of the standalone rate when a Neural Works is in this town's connected network"];
     if (key === "RESERVE_LATTICE") return ["One per connected-town network"];
     if (MONUMENT_COMPONENT_KEYS.has(key)) return ["One of the monument's 3 required unique components", "Must be built in a Great City or Monumental City that has no other monument component"];

@@ -348,6 +348,8 @@ export const queueDevelopmentAction = (
     state.skippedAutoSettlementTileKeys = clearSkippedAutoSettlementTileKeyForPlayer(state.me, entry.tileKey);
   }
   const position = state.developmentQueue.length;
+  // A fresh entry holds nothing until the server says so -- drop any flag left over from an earlier entry on this tile.
+  state.devQueueManpowerReservedTileKeys.delete(entry.tileKey);
   state.developmentQueue.push(entry);
   persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
   if (position < DEV_QUEUE_SERVER_CAP) deps.sendGameMessage?.(devQueueEnqueueWirePayload(entry));
@@ -440,6 +442,8 @@ export type ServerDevQueueWireEntry = {
   kind: "SETTLE" | "BUILD";
   structureType?: string;
   queuedAt: number;
+  manpowerReserved?: true;
+  awaitingManpower?: true;
 };
 
 /** Best-effort reconstruction of a queue entry from the server's durable

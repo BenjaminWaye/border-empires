@@ -8,6 +8,6 @@ const prices: readonly (readonly [NetworkResource, number])[] = [
 it.each(prices)("%s is priced at about one third and below an Ancillary Factory", (resource, price) => {
   const { building } = RESOURCE_NETWORKS[resource];
   expect(structureBuildManpowerCost(building)).toBe(price);
-  expect(economicStructureBuildDurationMs(building)).toBe(price * 1_000);
+  expect(economicStructureBuildDurationMs(building)).toBe(60_000);
   for (const count of [0, 1, 5]) expect(structureBuildManpowerCostScaled(building, count)).toBeLessThan(structureBuildManpowerCostScaled("ANCILLARY_FACTORY", count));
 });

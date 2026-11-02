@@ -1,32 +1,35 @@
-import type { Camera, InstancedMesh, Object3D, Scene, WebGLRenderer } from "three";
+import type { Camera, Object3D, Scene, WebGLRenderer } from "three";
+import { updateVisibleMatrixWorld } from "./client-map-3d-visible-matrix-world.js";
 
 // Startup-cost helpers for the 3D renderer, driven by the login probe's
 // measurements (scripts/login-experience-probe.mjs): the first frame used to
 // be the single longest main-thread block of the whole login.
 
 /**
- * Runs `work` with every visible InstancedMesh that has zero instances
+ * Renders one frame with every visible InstancedMesh that has zero instances
  * temporarily hidden. Most overlays preallocate a full tile-budget of
  * instances and set frustumCulled = false, so without this three.js uploads
  * (and compiles shaders for) every empty overlay's whole buffer on the first
  * frame. An overlay's buffers are uploaded when it first gets an instance.
+ *
+ * World matrices are updated here for visible subtrees only (see
+ * client-map-3d-visible-matrix-world.ts), and the renderer's own whole-scene
+ * update is switched off for the call, so the large hidden pools are not
+ * walked every frame.
  */
-export const withEmptyInstancedMeshesHidden = <T>(scene: Scene, work: () => T): T => {
+export const renderSkippingEmptyInstances = (renderer: Pick<WebGLRenderer, "render">, scene: Scene, camera: Camera): void => {
   const hidden: Object3D[] = [];
-  scene.traverseVisible((object) => {
-    const mesh = object as InstancedMesh;
-    if (mesh.isInstancedMesh && mesh.count === 0) hidden.push(object);
-  });
+  updateVisibleMatrixWorld(scene, false, hidden);
   for (const object of hidden) object.visible = false;
+  const sceneAutoUpdate = scene.matrixWorldAutoUpdate;
+  scene.matrixWorldAutoUpdate = false;
   try {
-    return work();
+    renderer.render(scene, camera);
   } finally {
+    scene.matrixWorldAutoUpdate = sceneAutoUpdate;
     for (const object of hidden) object.visible = true;
   }
 };
-
-export const renderSkippingEmptyInstances = (renderer: WebGLRenderer, scene: Scene, camera: Camera): void =>
-  withEmptyInstancedMeshesHidden(scene, () => renderer.render(scene, camera));
 
 /**
  * Compiles the scene's shader programs before the first frame, so the first

@@ -3,6 +3,7 @@
 // placed by their numeric progress. Standings below keep the plain ranking.
 
 import type { LeaderboardOverallEntry, SeasonVictoryObjectiveView } from "../client-types.js";
+import { assignLanes, LANE_STEP_PX } from "./client-hud-v2-ranks-lanes.js";
 
 export type RanksInput = {
   me: string;
@@ -58,25 +59,47 @@ export const closestPath = (objectives: readonly SeasonVictoryObjectiveView[], m
 const crest = (name: string, color: string | undefined, extra: string): string =>
   `<span class="v2r-crest ${extra}" style="background:${esc(color ?? "#5a4828")}">${esc((name.trim()[0] ?? "?").toUpperCase())}</span>`;
 
+type TrackPin = { share: number; priority: number; title: string; color: string | undefined; classes: string; crest: string };
+
+const pinsHtml = (pins: readonly TrackPin[]): { html: string; lanes: number } => {
+  const lanes = assignLanes(pins);
+  const deepest = Math.max(0, ...lanes.map(Math.abs));
+  const html = pins.map((pin, i) => {
+    const lane = lanes[i] ?? 0;
+    const left = `left:${(pin.share * 100).toFixed(1)}%`;
+    // The crest on the rail (the frontmost of a cluster) draws over laned ones.
+    const z = `z-index:${10 - Math.abs(lane)}`;
+    const shift = lane === 0 ? "" : `;--v2r-lane:${lane * LANE_STEP_PX}px`;
+    const tick = lane === 0 ? "" : `<span class="v2r-tick" style="${left};background:${esc(pin.color ?? "#5a4828")}" aria-hidden="true"></span>`;
+    return `${tick}<span class="${pin.classes}" style="${left};${z}${shift}" title="${pin.title}">${pin.crest}</span>`;
+  }).join("");
+  return { html, lanes: deepest };
+};
+
 const trackHtml = (o: SeasonVictoryObjectiveView, input: RanksInput): string => {
   const lead = leaderShare(o);
   const mine = selfShare(o, input.me);
   const iLead = o.leaderPlayerId === input.me;
   const leaderName = o.leaderPlayerId ? input.nameOf(o.leaderPlayerId) || o.leaderName : o.leaderName;
   const holding = o.conditionMet && o.leaderName;
-  const leaderPin = lead !== undefined && o.leaderPlayerId && !iLead
-    ? `<span class="v2r-pin" style="left:${(lead * 100).toFixed(1)}%" title="${esc(leaderName)} · ${esc(o.progressLabel)}">${crest(leaderName, input.colorOf(o.leaderPlayerId), holding ? "v2r-holding" : "")}</span>`
-    : "";
+  const pins: TrackPin[] = [];
+  if (lead !== undefined && o.leaderPlayerId && !iLead) {
+    const color = input.colorOf(o.leaderPlayerId);
+    pins.push({ share: lead, priority: 3, color, classes: "v2r-pin", title: `${esc(leaderName)} · ${esc(o.progressLabel)}`, crest: crest(leaderName, color, holding ? "v2r-holding" : "") });
+  }
   // Runners-up (2nd and 3rd); the viewer is drawn by their own pin instead.
-  const contenderPins = (o.contenders ?? []).filter((c) => c.playerId !== input.me).map((c) => {
+  for (const c of (o.contenders ?? []).filter((entry) => entry.playerId !== input.me)) {
     const share = nonLeaderShare(o, c.progress);
-    if (share === undefined) return "";
+    if (share === undefined) continue;
     const name = input.nameOf(c.playerId) || c.name;
-    return `<span class="v2r-pin v2r-pin-rival" style="left:${(share * 100).toFixed(1)}%" title="${esc(name)}">${crest(name, input.colorOf(c.playerId), "v2r-rival")}</span>`;
-  }).join("");
-  const youPin = mine !== undefined
-    ? `<span class="v2r-pin v2r-pin-you" style="left:${(mine * 100).toFixed(1)}%" title="You · ${esc(iLead ? o.progressLabel : o.selfProgressLabel ?? "")}">${crest(input.nameOf(input.me) || "You", input.colorOf(input.me), `v2r-you${iLead && holding ? " v2r-holding" : ""}`)}</span>`
-    : "";
+    const color = input.colorOf(c.playerId);
+    pins.push({ share, priority: 1, color, classes: "v2r-pin v2r-pin-rival", title: esc(name), crest: crest(name, color, "v2r-rival") });
+  }
+  if (mine !== undefined) {
+    const color = input.colorOf(input.me);
+    pins.push({ share: mine, priority: 2, color, classes: "v2r-pin v2r-pin-you", title: `You · ${esc(iLead ? o.progressLabel : o.selfProgressLabel ?? "")}`, crest: crest(input.nameOf(input.me) || "You", color, `v2r-you${iLead && holding ? " v2r-holding" : ""}`) });
+  }
+  const laid = pinsHtml(pins);
   const status = holding
     ? `<span class="v2r-status v2r-status-hold">⧗ ${esc(iLead ? "You" : leaderName)} holding · ${formatHold(o.holdRemainingSeconds)} left</span>`
     : iLead
@@ -84,10 +107,14 @@ const trackHtml = (o: SeasonVictoryObjectiveView, input: RanksInput): string => 
       : o.leaderName
         ? `<span class="v2r-status">${esc(leaderName)} leads</span>`
         : `<span class="v2r-status">No contender</span>`;
+  // The leader's figure sits under their name; yours gets its own line when you trail.
+  const leaderLine = o.leaderName ? `<span class="v2r-path-line">${esc(o.progressLabel)}</span>` : "";
+  const youLine = !iLead && o.selfProgressLabel ? `<span class="v2r-path-line v2r-side-you">You · ${esc(o.selfProgressLabel)}</span>` : "";
+  const trackStyle = laid.lanes > 0 ? ` style="height:${44 + laid.lanes * 2 * LANE_STEP_PX}px"` : "";
   return `<div class="v2r-row">
     <div class="v2r-path"><span class="v2r-path-name">${esc(o.name)}</span><span class="v2r-path-line">${esc(o.thresholdLabel)}</span></div>
-    <div class="v2r-track" role="img" aria-label="${esc(o.name)}: ${esc(o.progressLabel)}"><span class="v2r-rail"></span><span class="v2r-line" aria-hidden="true"></span>${contenderPins}${leaderPin}${youPin}</div>
-    <div class="v2r-side">${status}<span class="v2r-path-line">${esc(iLead ? o.progressLabel : o.selfProgressLabel ?? o.progressLabel)}</span></div>
+    <div class="v2r-track"${trackStyle} role="img" aria-label="${esc(o.name)}: ${esc(o.progressLabel)}"><span class="v2r-rail"></span><span class="v2r-line" aria-hidden="true"></span>${laid.html}</div>
+    <div class="v2r-side">${status}${leaderLine}${youLine}</div>
   </div>`;
 };
 

@@ -54,3 +54,4 @@ import "./client-auth-guest-style.css";
 import "./client-auth-sso-style.css";
 import "./client-guest-save-style.css";
 import "./client-auto-settle-prompt/client-auto-settle-tile-option-style.css";
+import "./client-town-list/client-town-list-style.css";

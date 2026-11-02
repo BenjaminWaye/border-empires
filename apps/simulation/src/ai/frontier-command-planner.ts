@@ -99,6 +99,8 @@ export type FrontierAnalysis = {
   scaffoldExpand?: FrontierSelection;
   scoutExpand?: FrontierSelection;
   frontierEnemyTargetCount: number;
+  /** Bordering tiles owned by allies/truce partners -- skipped as targets, counted so WAIT can say "at peace". */
+  frontierNonHostileTargetCount?: number;
   frontierEnemyPlayerTargetCount: number;
   frontierBarbarianTargetCount: number;
   frontierNeutralTargetCount: number;
@@ -156,6 +158,7 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
   let scoreCalcTotalMs = 0;
   const scoreByTargetKey = new Map<string, number>();
   const enemyTargets = new Set<string>();
+  const nonHostileTargets = new Set<string>();
   const enemyPlayerTargets = new Set<string>();
   const barbarianTargets = new Set<string>();
   const neutralTargets = new Set<string>();
@@ -307,7 +310,10 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
       neighborCandidateTotal += 1;
       if (!target) missingNeighborTileCount += 1;
       if (!target || target.terrain !== "LAND" || target.ownerId === playerId) continue;
-      if (target.ownerId && affordability.nonHostilePlayerIds?.has(target.ownerId)) continue;
+      if (target.ownerId && affordability.nonHostilePlayerIds?.has(target.ownerId)) {
+        nonHostileTargets.add(targetKey);
+        continue;
+      }
       if (target.ownerId) {
         enemyTargets.add(targetKey);
         if (target.ownerId === "barbarian-1" || target.ownershipState === "BARBARIAN") {
@@ -411,6 +417,7 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
     ...(bestScaffoldExpand ? { scaffoldExpand: bestScaffoldExpand } : {}),
     ...(bestScoutExpand ? { scoutExpand: bestScoutExpand } : {}),
     frontierEnemyTargetCount: enemyTargets.size,
+    frontierNonHostileTargetCount: nonHostileTargets.size,
     frontierEnemyPlayerTargetCount: enemyPlayerTargets.size,
     frontierBarbarianTargetCount: barbarianTargets.size,
     frontierNeutralTargetCount: neutralTargets.size,

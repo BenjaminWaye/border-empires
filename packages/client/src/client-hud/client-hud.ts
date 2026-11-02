@@ -13,7 +13,8 @@ import { renderDefensibilityPanels } from "./client-hud-defensibility-panel.js";
 import { isIntegrityWarningDismissed, wireIntegrityWarningDismissButtons } from "./client-integrity-warning-storage.js";
 import { exposedSidesForTile, isOwnedSettledLandTile } from "../client-defensibility-tile.js";
 import type { initClientDom } from "../client-dom.js";
-import { hudEconomyPanelHtml } from "./client-hud-economy-panel.js";
+import { bindHudEconomyPanelControls, hudEconomyPanelHtml } from "./client-hud-economy-panel.js";
+import { renderHudTownsPanel } from "./client-hud-towns-panel.js";
 import { imperialWardChipHtml, bindImperialWardChip } from "../client-imperial-ward/client-imperial-ward.js";
 import type { EconomyFocusKey } from "../client-economy-model.js";
 import { renderDevelopmentPanelHtml, deriveDevelopmentPanelData } from "../client-development-panel/client-development-html.js";
@@ -761,14 +762,10 @@ export const renderClientHud = (deps: HudDeps): void => {
   });
   renderProfileEditOverlay({ state, dom, sendGameMessage, pushFeed, firebaseAuth, renderHud: () => renderClientHud(deps) });
   bindAudioSettingsControls(dom.hud, () => renderClientHud(deps)); bindHintsSettingsControls(dom.hud, state.authEmail); bindRendererSettingsControls(dom.hud); bindEmailNotificationsSettingsControls(dom.hud); bindPhotoModeSettingsControls(dom.hud, state, () => renderClientHud(deps)); bindAdminSettingsControls(dom.hud, { state, sendGameMessage, requestViewRefresh, rerender: () => renderClientHud(deps), openPanel: setActivePanel });
-  const economyFocusButtons = dom.hud.querySelectorAll("[data-economy-focus]") as NodeListOf<HTMLButtonElement>;
-  economyFocusButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      const focus = btn.dataset.economyFocus as EconomyFocusKey | undefined;
-      if (!focus) return;
-      state.economyFocus = focus;
-      renderClientHud(deps);
-    };
+  bindHudEconomyPanelControls(dom.hud, state, () => renderClientHud(deps));
+  renderHudTownsPanel(state, {
+    root: dom.hud, panelEl: dom.panelTownsEl, mobilePanelEl: dom.mobilePanelTownsEl, rerender: () => renderClientHud(deps),
+    requestViewRefresh, wrapX, wrapY, isMobile, safeHtml: safeValue, fallbackHtml: fallbackCard("Towns")
   });
   const defensibilityButtons = dom.hud.querySelectorAll("[data-defensibility-open]") as NodeListOf<HTMLButtonElement>; // top-bar chip + Economy panel card (wired after the panel HTML is in)
   defensibilityButtons.forEach((btn: HTMLButtonElement) => {

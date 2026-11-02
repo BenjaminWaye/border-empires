@@ -207,7 +207,8 @@ slot until removal completes.
 New seasons contain five economic deposits in addition to the slot resources.
 They are visible when explored, but require a specialised Manifest and an
 owned, settled matching extraction installation before supplying benefits.
-Every new extraction installation occupies 1 FOOD slot and costs manpower:
+Extraction installations have no upkeep (no slot requirement) and cost only
+manpower to build:
 Resin Extractor 40, Implant Foundry 50, Catalyst Refinery 50, Cultivation
 Estate 33, Reclamation Works 60. Base construction seconds equal manpower.
 
@@ -260,8 +261,7 @@ All four upkeep resources and all five frontier resources can be negotiated in
 independent Resource trade offers or alongside a truce/alliance. These are
 exclusive renewable slots, not a new inventory of mined stockpiles. Shards remain
 a one-time transfer. Only surplus beyond current domestic use and existing export
-commitments may be newly promised. Received slots cannot back another export,
-although imported FOOD may operate a domestic extraction site. Accepted exports
+commitments may be newly promised. Received slots cannot back another export. Accepted exports
 take priority over later domestic building demand.
 
 Supply continues until either participating House ends the agreement. Both

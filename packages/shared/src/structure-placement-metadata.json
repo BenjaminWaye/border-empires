@@ -162,11 +162,6 @@
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
-  "QUARTERMASTERS_OFFICE": {
-    "showOn": ["settled", "resource", "town", "support", "dock"],
-    "placementMode": "same_tile",
-    "sortGroup": "general"
-  },
   "ANCILLARY_FACTORY": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",

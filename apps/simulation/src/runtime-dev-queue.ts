@@ -15,6 +15,7 @@ export type DevQueueEnqueuePayload = {
   structureType?: string;
   reservedManpower?: number;
   reservedSlotRequirements?: ServerDevQueueEntry["reservedSlotRequirements"];
+  awaitingManpower?: true;
   origin?: ServerDevQueueEntry["origin"];
 };
 export type DevQueueTileKeyPayload = { tileKey: string };
@@ -71,6 +72,7 @@ export const devQueueEnqueue = (
     ...(entry.structureType ? { structureType: entry.structureType } : {}),
     ...(entry.reservedManpower ? { reservedManpower: entry.reservedManpower } : {}),
     ...(entry.reservedSlotRequirements ? { reservedSlotRequirements: entry.reservedSlotRequirements } : {}),
+    ...(entry.awaitingManpower ? { awaitingManpower: true as const } : {}),
     ...(entry.origin ? { origin: entry.origin } : {})
   };
   return { queue: [...queue, next], accepted: true };

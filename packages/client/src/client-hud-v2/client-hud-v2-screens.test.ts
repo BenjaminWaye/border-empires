@@ -1,5 +1,5 @@
 import type { PersonalActivityCard } from "@border-empires/game-domain";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { SeasonVictoryObjectiveView, TechInfo, Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import { parseWinPct } from "./client-hud-v2-battle.js";
 import { closeUpOn, endCloseUp, TOWN_ZOOM } from "./client-hud-v2-camera.js";
@@ -172,8 +172,8 @@ describe("town screen", () => {
     expect(regions.bar).toContain('data-hud-v2-action="muster_hold" data-target-key="6,5"');
     expect(regions.bar).not.toContain('data-hud-v2-action="muster_hold" data-target-key="5,5"');
     expect(regions.bar).toContain("Raise flag on (6, 5)");
-    expect(regions.place).toContain('data-target-key="6,5"');
-    expect(regions.place).toContain("Build on (6, 5)");
+    expect(regions.build).toContain('data-hud-v2-action="build_hydrogarden" data-target-key="6,5"');
+    expect(regions.build).toContain("Build on (6, 5)");
   });
 
   // Regression (review): with a support tile selected, the town tile's own
@@ -201,6 +201,29 @@ describe("town screen", () => {
     const { left } = townScreenRegions({ town: partial, focus: partial, townView: view({}), focusView: view({}), townIndex: 0, townCount: 1, buildSelection: undefined, category: undefined });
     expect(left).not.toMatch(/NaN|undefined/);
     expect(left).toContain("—");
+  });
+
+  // Regression: selecting an ungarrisoned support tile opened the town screen, which only offered the town's
+  // own Garrison, so the support tile could not be garrisoned from HUD v2 at all.
+  it("offers Garrison on a selected ungarrisoned support tile once the town is garrisoned", () => {
+    const frontierSupport: Tile = { ...support, ownershipState: "FRONTIER" };
+    const regions = (focus: Tile, garrison: TileActionDef) => townScreenRegions({
+      town,
+      focus,
+      townView: view({ actions: [act("muster_hold")] }),
+      focusView: view({ actions: [garrison] }),
+      townIndex: 0,
+      townCount: 1,
+      buildSelection: undefined,
+      category: undefined
+    }).bar;
+    const bar = regions(frontierSupport, act("settle_land", { label: "Garrison", cost: "30 coin, 10 manpower" }));
+    expect(bar.startsWith('<button type="button" class="v2t-act v2t-act-primary" data-hud-v2-action="settle_land" data-target-key="6,5"')).toBe(true);
+    expect(bar).toContain(">Garrison<small>30 coin, 10 manpower</small>");
+    const blocked = regions(frontierSupport, act("settle_land", { label: "Garrison", disabled: true, disabledReason: "Need 10 manpower" }));
+    expect(blocked).toContain('data-target-key="6,5" disabled title="Need 10 manpower">Garrison<small>Need 10 manpower</small>');
+    // With the town itself selected, a stale focus view never puts a Garrison on the bar.
+    expect(regions(town, act("settle_land", { label: "Garrison" }))).not.toContain('data-hud-v2-action="settle_land"');
   });
 
   // Regression: an ungarrisoned town's Garrison was a faint text link beside Raise flag, easy to miss.
@@ -260,5 +283,35 @@ describe("detail-screen close-up camera", () => {
     expect(deps.state.zoom).toBe(150);
     endCloseUp(deps, true);
     expect(deps.state).toMatchObject({ zoom: 150, camX: 30, camY: 40 });
+  });
+
+  // Regression: opening the battle from the town screen remembered the town's close-up zoom (the glide back out had
+  // only just started), so leaving the battle stayed zoomed in.
+  it("a close-up started while gliding back out returns to the original zoom", () => {
+    const frames = new Map<number, FrameRequestCallback>();
+    let nextId = 0;
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => { frames.set(++nextId, cb); return nextId; });
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => frames.delete(id));
+    const flush = () => {
+      for (let i = 0; i < 100 && frames.size > 0; i += 1) {
+        const [id, cb] = frames.entries().next().value!;
+        frames.delete(id);
+        cb(performance.now() + 10_000);
+      }
+    };
+    try {
+      const deps = camDeps();
+      closeUpOn(deps, 30, 40, TOWN_ZOOM);
+      flush();
+      endCloseUp(deps);
+      closeUpOn(deps, 31, 41, TOWN_ZOOM + 12);
+      flush();
+      expect(deps.state.zoom).toBe(TOWN_ZOOM + 12);
+      endCloseUp(deps);
+      flush();
+      expect(deps.state).toMatchObject({ zoom: 22, camX: 1, camY: 2 });
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

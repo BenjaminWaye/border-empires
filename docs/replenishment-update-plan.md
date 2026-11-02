@@ -132,6 +132,8 @@ Manpower keeps regenerating continuously, as today (`applyManpowerRegen`).
 **The rule** (OGame-style: time is derived from cost, with no separate table):
 
 > build time = manpower cost × 1 s ÷ build-speed multiplier  (100 MP = 100 seconds; was × 36 s until 2026-10-10)
+>
+> **Superseded 2026-11-01:** every structure that costs manpower now builds in a flat 60 s and is removed in a flat 30 s (`STRUCTURE_BUILD_MS` / `STRUCTURE_REMOVAL_MS`). The AFC build-speed upgrades became manpower discounts. See `docs/game-mechanics.md` §5.
 
 - Growth comes from cost scaling that already exists (e.g. +10–15% per copy of
   a type, and Sky Dock doubling), so times grow the same way automatically.
@@ -739,3 +741,9 @@ second. The starting values below are for tuning:
 Also review the **shared Observatory cooldown** (`stampObservatoryCooldown`,
 used by abilities cast from an Observatory) and domains that scale cooldowns
 (`observatoryCooldownMult`). They should scale charges instead.
+
+> **Update 2026-11-02:** the Observatory part shipped in a different form:
+> each Aether Tower holds 3 shots per rolling 24h instead of per-ability
+> cooldowns, and `observatoryShotsMult` replaced `observatoryCooldownMult`
+> (see "Aether Tower shots" in `docs/game-mechanics.md`). There is no
+> spacing cooldown between shots. The rest of this appendix stays dropped.

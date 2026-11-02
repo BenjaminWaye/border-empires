@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { createTerritoryFlipLog, TERRITORY_FLIP_LOG_MAX_ENTRIES, TERRITORY_FLIP_WINDOW_MS } from "./territory-flip-log.js";
+import {
+  createTerritoryFlipLog,
+  isBarbarianRoamingFlip,
+  TERRITORY_FLIP_LOG_MAX_ENTRIES,
+  TERRITORY_FLIP_WINDOW_MS
+} from "./territory-flip-log.js";
 
 const flip = (at: number, overrides: Partial<{ tileId: string; x: number; y: number; fromOwner: string; toOwner: string }> = {}) => ({
   tileId: overrides.tileId ?? "t-1",
@@ -66,5 +71,27 @@ describe("createTerritoryFlipLog", () => {
     expect(gauge.oldestAt).toBe(100);
     expect(gauge.newestAt).toBe(200);
     expect(gauge.capHits).toBe(0);
+  });
+});
+
+describe("isBarbarianRoamingFlip", () => {
+  it("matches only barbarian <-> neutral transitions", () => {
+    expect(isBarbarianRoamingFlip({ fromOwner: undefined, toOwner: "barbarian-1" }, "barbarian-1")).toBe(true);
+    expect(isBarbarianRoamingFlip({ fromOwner: "barbarian-1", toOwner: undefined }, "barbarian-1")).toBe(true);
+    expect(isBarbarianRoamingFlip({ fromOwner: "p1", toOwner: "barbarian-1" }, "barbarian-1")).toBe(false);
+    expect(isBarbarianRoamingFlip({ fromOwner: "barbarian-1", toOwner: "p1" }, "barbarian-1")).toBe(false);
+    expect(isBarbarianRoamingFlip({ fromOwner: undefined, toOwner: "p1" }, "barbarian-1")).toBe(false);
+  });
+});
+
+describe("createTerritoryFlipLog ignore option", () => {
+  it("never stores ignored flips, on record or restore", () => {
+    const now = 1_000;
+    const log = createTerritoryFlipLog({ now: () => now, ignore: (entry) => entry.toOwner === "skip" });
+    log.record(flip(now, { toOwner: "skip" }));
+    log.record(flip(now, { toOwner: "p1" }));
+    expect(log.entries().map((entry) => entry.toOwner)).toEqual(["p1"]);
+    log.restore([flip(now, { toOwner: "skip" }), flip(now, { toOwner: "p2" })], now);
+    expect(log.entries().map((entry) => entry.toOwner)).toEqual(["p2"]);
   });
 });

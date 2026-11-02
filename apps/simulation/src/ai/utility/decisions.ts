@@ -331,7 +331,7 @@ const scoreBuildEconomy = (inp: DecisionInputs): number => {
 // successive candidate's siteValue tends to fall, so this term — and BUILD_BEACON's
 // score with it — decays on its own as reach approaches saturation, instead
 // of needing an artificial "every N beacons" rule.
-const RELAY_BEACON_SITE_VALUE_FLOOR = 1;
+export const RELAY_BEACON_SITE_VALUE_FLOOR = 1;
 const RELAY_BEACON_SITE_VALUE_CEILING = 24;
 
 // Confirmed cadence design (docs/ai-structure-building-rewrite-plan.md §16,
