@@ -28,8 +28,9 @@ import { profileHtml, type ProfileRelation } from "./client-hud-v2-profile.js";
 import { ranksBannerHtml, ranksBodyHtml } from "./client-hud-v2-ranks.js";
 import { expandDockedMenu, suppressAutoExpand } from "./client-hud-v2-tile-dock.js";
 import { closeTownScreen, renderTownScreen, runTileActionOn, runTownWork, stepTown } from "./client-hud-v2-town-runtime.js";
+import { renderTownsScreen, townsClick } from "./client-hud-v2-towns-runtime.js";
 
-const TITLES: Partial<Record<HudV2ScreenId, string>> = { manifest: "Manifest", afc: "AFC Upgrades", diplomacy: "Diplomacy", ranks: "The Duke's Seat" };
+const TITLES: Partial<Record<HudV2ScreenId, string>> = { manifest: "Manifest", afc: "AFC Upgrades", diplomacy: "Diplomacy", ranks: "The Duke's Seat", towns: "Towns" };
 
 /** Which body is in the frame now, so the diplomacy deal (hosting foreign DOM) is never rewritten under itself. */
 let bodyMode = "";
@@ -270,6 +271,9 @@ export const renderScreen = (deps: HudV2Deps): void => {
   switch (screen.id) {
     case "manifest": return renderManifest(deps);
     case "ranks": return renderRanks(deps);
+    case "towns":
+      bodyMode = "towns";
+      return renderTownsScreen(deps);
     case "diplomacy": return renderDiplomacy(deps);
     case "chronicle": return renderChronicle(deps);
     case "town": return renderTownScreen(deps);
@@ -361,6 +365,7 @@ export const screenClick = (deps: HudV2Deps, target: Element): boolean => {
     renderScreen(deps);
     return true;
   }
+  if (screen.id === "towns" && townsClick(deps, target, () => closeScreen(deps, { toMap: true }))) return true;
   if (chronicleTabClick(deps, target)) return true;
   const filter = target.closest<HTMLElement>("[data-v2-chronicle-filter]");
   if (filter) {
