@@ -1,10 +1,10 @@
 import type { DatabaseSync } from "node:sqlite";
 import { upgradeLegacyStructureNames } from "@border-empires/shared";
 
-import type { EmailNotificationPrefs, GatewayPlayerProfileStore, HintStatePatch, StoredPlayerProfile } from "./player-profile-store/player-profile-store.js";
+import type { EmailNotificationPrefs, GatewayPlayerProfileStore, GuideStatus, HintStatePatch, StoredPlayerProfile } from "./player-profile-store/player-profile-store.js";
 import { withGatewaySqliteRetry } from "./sqlite-busy-retry.js";
 
-const PROFILE_COLUMNS = "player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, country_flag, dismissed_hints, hints_muted, onboarding_checklist_completed, muster_unlocked_season_id, dashboard_quieted_season_id, email_notification_prefs, last_activity_seen_at, last_activity_seen_season_id, last_world_pulse_rank, last_world_pulse_rank_season_id, updated_at";
+const PROFILE_COLUMNS = "player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, country_flag, dismissed_hints, hints_muted, onboarding_checklist_completed, muster_unlocked_season_id, dashboard_quieted_season_id, guide_status, guide_steps, email_notification_prefs, last_activity_seen_at, last_activity_seen_season_id, last_world_pulse_rank, last_world_pulse_rank_season_id, updated_at";
 
 type Row = {
   player_id: string;
@@ -19,6 +19,8 @@ type Row = {
   onboarding_checklist_completed: number | null;
   muster_unlocked_season_id: string | null;
   dashboard_quieted_season_id: string | null;
+  guide_status: string | null;
+  guide_steps: string | null;
   email_notification_prefs: string | null;
   last_activity_seen_at: number | null;
   last_activity_seen_season_id: string | null;
@@ -52,8 +54,13 @@ const parseDismissedHints = (raw: string | null): string[] | undefined => {
   }
 };
 
+const parseGuideStatus = (raw: string | null): GuideStatus | undefined =>
+  raw === "active" || raw === "done" || raw === "dismissed" ? raw : undefined;
+
 const toProfile = (row: Row): StoredPlayerProfile => {
   const dismissedHints = parseDismissedHints(row.dismissed_hints);
+  const guideStatus = parseGuideStatus(row.guide_status);
+  const guideSteps = parseDismissedHints(row.guide_steps);
   const emailNotificationPrefs = parseEmailNotificationPrefs(row.email_notification_prefs);
   return {
     playerId: row.player_id,
@@ -68,6 +75,8 @@ const toProfile = (row: Row): StoredPlayerProfile => {
     ...(row.onboarding_checklist_completed !== null ? { onboardingChecklistCompleted: row.onboarding_checklist_completed === 1 } : {}),
     ...(row.muster_unlocked_season_id ? { musterUnlockedSeasonId: row.muster_unlocked_season_id } : {}),
     ...(row.dashboard_quieted_season_id ? { dashboardQuietedSeasonId: row.dashboard_quieted_season_id } : {}),
+    ...(guideStatus ? { guideStatus } : {}),
+    ...(guideSteps ? { guideSteps } : {}),
     ...(emailNotificationPrefs ? { emailNotificationPrefs } : {}),
     ...(row.last_activity_seen_at !== null ? { lastActivitySeenAt: row.last_activity_seen_at } : {}),
     ...(row.last_activity_seen_season_id ? { lastActivitySeenSeasonId: row.last_activity_seen_season_id } : {}),
@@ -130,6 +139,13 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
       this.db.exec(`ALTER TABLE player_profiles ADD COLUMN dashboard_quieted_season_id TEXT;`);
     } catch {
       // Column already exists from a previous applySchema() call.
+    }
+    for (const column of ["guide_status TEXT", "guide_steps TEXT"]) {
+      try {
+        this.db.exec(`ALTER TABLE player_profiles ADD COLUMN ${column};`);
+      } catch {
+        // Column already exists from a previous applySchema() call.
+      }
     }
     try {
       this.db.exec(`ALTER TABLE player_profiles ADD COLUMN email_notification_prefs TEXT;`);
@@ -239,20 +255,24 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
     const checklistInt = typeof patch.onboardingChecklistCompleted === "boolean" ? (patch.onboardingChecklistCompleted ? 1 : 0) : null;
     const musterUnlockedSeasonId = patch.musterUnlockedSeasonId ?? null;
     const dashboardQuietedSeasonId = patch.dashboardQuietedSeasonId ?? null;
+    const guideStatus = patch.guideStatus ?? null;
+    const guideStepsJson = patch.guideSteps ? JSON.stringify(patch.guideSteps) : null;
     const row = await withGatewaySqliteRetry(() => this.db
       .prepare(
-        `INSERT INTO player_profiles (player_id, dismissed_hints, hints_muted, onboarding_checklist_completed, muster_unlocked_season_id, dashboard_quieted_season_id, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO player_profiles (player_id, dismissed_hints, hints_muted, onboarding_checklist_completed, muster_unlocked_season_id, dashboard_quieted_season_id, guide_status, guide_steps, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(player_id) DO UPDATE SET
            dismissed_hints = COALESCE(excluded.dismissed_hints, player_profiles.dismissed_hints),
            hints_muted = COALESCE(excluded.hints_muted, player_profiles.hints_muted),
            onboarding_checklist_completed = COALESCE(excluded.onboarding_checklist_completed, player_profiles.onboarding_checklist_completed),
            muster_unlocked_season_id = COALESCE(excluded.muster_unlocked_season_id, player_profiles.muster_unlocked_season_id),
            dashboard_quieted_season_id = COALESCE(excluded.dashboard_quieted_season_id, player_profiles.dashboard_quieted_season_id),
+           guide_status = COALESCE(excluded.guide_status, player_profiles.guide_status),
+           guide_steps = COALESCE(excluded.guide_steps, player_profiles.guide_steps),
            updated_at = excluded.updated_at
          RETURNING ${PROFILE_COLUMNS}`
       )
-      .get(playerId, dismissedHintsJson, hintsMutedInt, checklistInt, musterUnlockedSeasonId, dashboardQuietedSeasonId, now) as Row);
+      .get(playerId, dismissedHintsJson, hintsMutedInt, checklistInt, musterUnlockedSeasonId, dashboardQuietedSeasonId, guideStatus, guideStepsJson, now) as Row);
     return toProfile(row);
   }
 

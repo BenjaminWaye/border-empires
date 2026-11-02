@@ -1,3 +1,4 @@
+import { hydrateTutorialGuideFromInit } from "../client-tutorial-guide/tutorial-guide-storage.js";
 import { applyResourceTradeState } from "../client-diplomacy-trade/client-resource-trade-state.js";
 import { applyRelicAndProgressionUpdate } from "../client-relic-overlay/relic-map-hints.js";
 import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
@@ -161,6 +162,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   );
   applyEmailNotificationPrefsFromServer(player.emailNotificationPrefs as Record<string, unknown> | undefined);
   state.profileSetupRequired = Boolean(player.profileNeedsSetup);
+  hydrateTutorialGuideFromInit(player, state.authEmail);
   state.mapRevealEligible = Boolean(player.canToggleFog);
   syncDesiredFogDisabled();
   setAuthStatus(`Signed in as ${state.authUserLabel || (player.name as string)}.`);
