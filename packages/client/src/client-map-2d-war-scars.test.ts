@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { drawWarScars2D } from "./client-map-2d-war-scars.js";
+import { drawForestWar2D, drawWarScars2D } from "./client-map-2d-war-scars.js";
 import type { Tile } from "./client-types.js";
 
 // Records every canvas call by name; property writes are accepted silently.
@@ -30,5 +30,17 @@ describe("drawWarScars2D", () => {
     const faded = recordingCtx();
     drawWarScars2D(faded.ctx, tile(5, NOW), 0, 0, 40, NOW);
     expect(faded.calls).toEqual([]);
+  });
+});
+
+describe("drawForestWar2D", () => {
+  it("draws burnt trees where the forest lost them, more of them the deeper the scars", () => {
+    const calls = (level: number) => {
+      const rec = recordingCtx();
+      drawForestWar2D(rec.ctx, { x: 4, y: 9, terrain: "LAND" } as Tile, 0, 0, 48, level, NOW);
+      return rec.calls.length;
+    };
+    expect(calls(5)).toBeGreaterThan(0);
+    expect(calls(5)).toBeGreaterThanOrEqual(calls(1));
   });
 });

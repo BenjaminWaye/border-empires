@@ -10,6 +10,7 @@ export const CAPTURE_AFTERMATH_CHANGELOG: ClientChangelogEntry[] = [
       "A Relay Beacon or siege engine destroyed in a capture lies wrecked where it stood while the capturing troops hold the tile: a beacon's column snapped and down across its plate with its glass shattered, a siege engine overturned with its cannon or lens thrown clear, embers glowing and smoke rising",
       "A captured fort stands breached while the tile is held, one wall smashed through and a tower toppled, and gives no defense. It defends again once the tile is garrisoned",
       "A captured resource tile burns while the tile is held, and its resource slots only count once the hold ends and the tile is garrisoned",
+      "A captured dock is set ablaze: its harbour house, freight, pier and moored ferry burn while the tile is held, and it pays no gold until the hold ends and the tile is garrisoned",
       "Garrisoning a captured tile can't finish before the hold ends, even with faster garrison upgrades",
       "Both the 2D and 3D maps show the wreckage, and the tile menu explains it"
     ]
@@ -23,6 +24,7 @@ export const CAPTURE_AFTERMATH_CHANGELOG: ClientChangelogEntry[] = [
       "Capturing a garrisoned tile in battle leaves the ground scarred for 24 hours: blast craters ringed with thrown-up earth, broken pikes and arrows, dropped shields and helmets, burnt timbers",
       "Each further battle on that ground, won or lost, adds more scars and restarts the 24 hours, up to 5 levels; the worst ground is cratered edge to edge with barricades, embers and smoke",
       "Scars stay with the ground whoever owns it, and show on both the 2D and 3D maps",
+      "In a forest the trees take the damage: more of them are charred to snags, snapped, torn up by the roots or burnt to stumps with every battle, and the debris lies between the trunks",
       "The tile menu shows how scarred the ground is and how long until it fades"
     ]
   }

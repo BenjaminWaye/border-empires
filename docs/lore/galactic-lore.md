@@ -384,7 +384,10 @@ capturing troops have secured it, yielding nothing to its new House before
 then. Ground where a garrison has been overrun keeps the marks of the fight
 for about a day: scorched craters, broken stakes and spent wreckage. Ground
 fought over again and again stays torn up longest and worst, so the
-contested heart of a front reads plainly from the air. The exact timings
+contested heart of a front reads plainly from the air. Woodland suffers it
+worst of all: a fought-over forest is left as charred snags, snapped trunks
+and burnt stumps. A harbour taken in battle burns until its captors have
+secured it, and earns nothing in the meantime. The exact timings
 belong in the [gameplay reference](../game-mechanics.md).
 
 Two flags cannot own the same ground. Where a rival's anchor reaches land

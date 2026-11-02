@@ -79,25 +79,33 @@ export const fortBreachLayout = (dims: BreachDimensions, seed: number, openSides
   const stubs = direction ? [stub(-half, gapFrom, 0.72 + random() * 0.12), stub(gapTo, half, 0.42 + random() * 0.14)] : [];
   const blocks: BreachBlock[] = [];
   const gapCentre = (gapFrom + gapTo) / 2;
+  const wallYaw = Math.atan2(-axes.az, axes.ax);
+  /** A block resting on the ground: its lowest edge touching, slightly bedded in. */
+  const settled = (x: number, z: number, sx: number, sy: number, sz: number, yaw: number, tilt: number): BreachBlock =>
+    ({ x, y: (sy / 2) * Math.abs(Math.cos(tilt)) + (sz / 2) * Math.abs(Math.sin(tilt)) - sy * 0.12, z, sx, sy, sz, yaw, tilt });
   if (direction) {
-    // Jagged blocks left on top of each stub's broken end.
+    // Loose courses left on each stub's broken end, still lying along the wall.
     for (const [end, stub] of [[gapFrom, stubs[0]!], [gapTo, stubs[1]!]] as const) {
-      for (let i = 0; i < 2; i += 1) {
-        const size = dims.wallThickness * (0.6 + random() * 0.5);
-        const inward = end === gapFrom ? -1 : 1;
-        const [x, z] = point(end - inward * (0.03 + i * 0.05), (random() - 0.5) * 0.02);
-        blocks.push({ x, y: dims.wallHeight * stub.heightFraction + size * 0.3, z, sx: size, sy: size * 0.7, sz: size, yaw: random() * Math.PI, tilt: (random() - 0.5) * 0.8 });
-      }
+      const inward = end === gapFrom ? -1 : 1;
+      const sy = dims.wallThickness * (0.45 + random() * 0.2);
+      const [x, z] = point(end - inward * 0.05, (random() - 0.5) * 0.015);
+      blocks.push({ x, y: dims.wallHeight * stub.heightFraction + sy * 0.4, z, sx: dims.wallThickness * 1.1, sy, sz: dims.wallThickness * 0.9, yaw: wallYaw + (random() - 0.5) * 0.3, tilt: (random() - 0.5) * 0.25 });
     }
-    // Stone spilled through the gap, mostly inward, heaped near the wall.
-    for (let i = 0; i < 16; i += 1) {
-      const out = random() < 0.72 ? -(0.04 + random() * 0.3) : 0.03 + random() * 0.14;
-      const spread = (gapTo - gapFrom) * (0.5 + Math.abs(out) * 1.4);
+    // Big slabs leaning against the broken ends where they slid off.
+    for (const end of [gapFrom, gapTo]) {
+      const inward = end === gapFrom ? 1 : -1;
+      const [x, z] = point(end + inward * 0.05, -(dims.wallThickness * 0.9));
+      blocks.push(settled(x, z, dims.wallThickness * 1.6, dims.wallThickness * 0.7, dims.wallHeight * 0.45, wallYaw + (random() - 0.5) * 0.4, 0.55 + random() * 0.3));
+    }
+    // Stone spilled through the gap: a fan thrown mostly inward where the attackers broke through,
+    // the largest blocks at the foot of the gap and smaller ones flung further.
+    for (let i = 0; i < 18; i += 1) {
+      const reach = random() ** 1.5;
+      const out = random() < 0.75 ? -(0.04 + reach * 0.32) : 0.03 + reach * 0.13;
+      const spread = (gapTo - gapFrom) * (0.45 + Math.abs(out) * 1.6);
       const [x, z] = point(gapCentre + (random() - 0.5) * spread, out);
-      const sx = 0.05 + random() * 0.08;
-      const sy = 0.035 + random() * 0.045;
-      const heap = Math.abs(out) < 0.12 ? random() * 0.05 : 0;
-      blocks.push({ x, y: sy * 0.45 + heap, z, sx, sy, sz: 0.05 + random() * 0.06, yaw: random() * Math.PI, tilt: (random() - 0.5) * 0.7 });
+      const scale = 1 - reach * 0.5;
+      blocks.push(settled(x, z, (0.06 + random() * 0.07) * scale, (0.035 + random() * 0.035) * scale, (0.05 + random() * 0.05) * scale, random() * Math.PI, (random() - 0.5) * 0.45));
     }
   }
   // The tower at the gap's far end, snapped and fallen inward.
@@ -115,12 +123,11 @@ export const fortBreachLayout = (dims: BreachDimensions, seed: number, openSides
     yaw: Math.atan2(inX, inZ) + (random() - 0.5) * 0.4,
     tilt: Math.PI / 2
   };
-  for (let i = 0; i < 5; i += 1) {
-    const size = dims.towerSide * (0.25 + random() * 0.25);
-    blocks.push({
-      x: towerX + inX * random() * 0.12 + (random() - 0.5) * 0.1, y: size * 0.4, z: towerZ + inZ * random() * 0.12 + (random() - 0.5) * 0.1,
-      sx: size, sy: size * 0.7, sz: size, yaw: random() * Math.PI, tilt: (random() - 0.5) * 0.6
-    });
+  // The tower's broken stone, around its foot and along where its top came down.
+  for (let i = 0; i < 6; i += 1) {
+    const along = random() ** 1.4 * 0.16;
+    const size = dims.towerSide * (0.22 + random() * 0.22) * (1 - along * 2);
+    blocks.push(settled(towerX + inX * along + (random() - 0.5) * 0.08, towerZ + inZ * along + (random() - 0.5) * 0.08, size, size * 0.6, size * 0.9, random() * Math.PI, (random() - 0.5) * 0.4));
   }
   return { direction, facing, stubs, snappedCorner: cornerIndex(towerX, towerZ), stumpFraction, fallenTop, blocks };
 };

@@ -3,7 +3,7 @@
 // palette the standing buildings use, so a wreck is made of the same iron,
 // brass, stone and glass as the structure it was: scorched ground, embers that
 // breathe like lamplight, sputtering aether, dark smoke on the steam layer.
-import { loopRate } from "../client-map-3d-town-overlay/town-animation-shaders.js";
+import { loopRate, loopSpeed } from "../client-map-3d-town-overlay/town-animation-shaders.js";
 import type { TownColor } from "../client-map-3d-town-overlay/town-mesh-builder.js";
 import { inStep, polar, type TownBuilders } from "../client-map-3d-town-overlay/town-parts.js";
 
@@ -102,12 +102,23 @@ export const octagonFrame = (t: TownBuilders, centre: Vec3, radius: number, tilt
   for (let k = 0; k < 8; k += 1) if (k !== gapAt) pipeBetween(t, point(k), point(k + 1), tube, color);
 };
 
-/** Small shards of a broken piece scattered round (x, z). */
-export const shards = (t: TownBuilders, x: number, z: number, spread: number, count: number, size: number, color: TownColor, random: () => number): void => {
+/**
+ * Fragments of a broken piece, settled the way debris falls: most of them
+ * close to where it broke (thrown toward `towardDegrees`, if given), the big
+ * pieces nearest and the small ones flung furthest, each lying flat-ish on
+ * the ground and resting on it rather than floating or sunk through it.
+ */
+export const shards = (t: TownBuilders, x: number, z: number, spread: number, count: number, size: number, color: TownColor, random: () => number, towardDegrees?: number): void => {
   for (let i = 0; i < count; i += 1) {
-    const [dx, dz] = polar(spread * Math.sqrt(random()), random() * 360);
-    const s = size * (0.5 + random());
-    t.body.tiltedBox(x + dx, s * 0.25, z + dz, s, s * 0.35, s * (0.5 + random() * 0.6), color, random() * Math.PI, (random() - 0.5) * 0.9);
+    const reach = spread * random() ** 1.7;
+    const degrees = towardDegrees === undefined ? random() * 360 : towardDegrees + (random() - 0.5) * 110;
+    const [dx, dz] = polar(reach, degrees);
+    const w = size * (0.5 + random() * 0.9) * (1 - 0.55 * (reach / spread));
+    const h = w * (0.22 + random() * 0.22);
+    const tilt = (random() - 0.5) * 0.4;
+    // Lowest corner on the ground, a little bedded in.
+    const rest = (h / 2) * Math.abs(Math.cos(tilt)) + (w / 2) * Math.abs(Math.sin(tilt)) - h * 0.2;
+    t.body.tiltedBox(x + dx, rest, z + dz, w, h, w * (0.5 + random() * 0.6), color, random() * Math.PI, tilt);
   }
 };
 
@@ -125,4 +136,28 @@ export const burntTree = (t: TownBuilders, x: number, z: number, height: number,
     const end = at3(height * 0.25, random() * 360, height * (0.75 + random() * 0.2));
     pipeBetween(t, [x, height * (0.4 + i * 0.1), z], [x + end[0], end[1], z + end[2]], 0.003, "ironDark");
   }
+};
+
+/**
+ * A burning fire standing on (x, y, z): three or four tongues of flame, each
+ * yellow at the root, orange above and red at the tip, wavering on their own
+ * (each turns slowly about an off-centre axis) and flickering like lamplight,
+ * with a warm glow thrown on whatever it stands on.
+ */
+export const flame = (t: TownBuilders, x: number, y: number, z: number, size: number, random: () => number): void => {
+  const tongues = 3 + Math.floor(random() * 2);
+  for (let i = 0; i < tongues; i += 1) {
+    const [dx, dz] = polar(size * (i === 0 ? 0.05 : 0.35 + random() * 0.25), random() * 360);
+    const h = size * (i === 0 ? 2.1 : 1.1 + random() * 0.7);
+    const r = size * (i === 0 ? 0.55 : 0.32 + random() * 0.12);
+    const cx = x + dx, cz = z + dz;
+    const anim = { a: [cx + r * 0.25, y, cz, loopSpeed((random() < 0.5 ? -1 : 1) * (1.8 + random() * 1.6))], b: [0, 1, 0, random()] } as const;
+    // Hottest at the root, cooling to red at the tip: three stacked bands, not nested shells.
+    t.glow.withAnim(anim, () => {
+      t.glow.cylinder(cx, y, cz, r * 0.82, r, h * 0.38, "lamp", 6);
+      t.glow.cylinder(cx, y + h * 0.38, cz, r * 0.45, r * 0.82, h * 0.34, "lampWarm", 6);
+      t.glow.cone(cx, y + h * 0.72, cz, r * 0.45, h * 0.28, "beacon", 6);
+    });
+  }
+  inStep(t, random(), () => t.halo.pool(x, y + 0.003, z, size * 3.2, "lampWarm"));
 };

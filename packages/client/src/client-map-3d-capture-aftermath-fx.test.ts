@@ -21,9 +21,9 @@ describe("createCaptureAftermathFx3D", () => {
     noteRazedStructuresOnCapture({ ...beacon, ownerId: "p1", economicStructure: { ownerId: "p1", type: "RELAY_BEACON", status: "active" } } as Tile, beacon, "1,1");
 
     fx.clear();
-    fx.addTile(beacon, "1,1", 0, 0, 0, 7);
-    fx.addTile({ x: 2, y: 1, ...held, resource: "IRON" } as Tile, "2,1", 1, 0, 0, 9);
-    fx.addTile({ x: 3, y: 1, terrain: "LAND", ownerId: "p2", ownershipState: "SETTLED", warScarLevel: 3, warScarUntil: Date.now() + 5 * CAPTURE_HOLD_MS } as Tile, "3,1", 2, 0, 0, 11);
+    fx.addTile(beacon, "1,1", 0, 0, 0, 1, 1);
+    fx.addTile({ x: 2, y: 1, ...held, resource: "IRON" } as Tile, "2,1", 1, 0, 0, 2, 1);
+    fx.addTile({ x: 3, y: 1, terrain: "LAND", ownerId: "p2", ownershipState: "SETTLED", warScarLevel: 3, warScarUntil: Date.now() + 5 * CAPTURE_HOLD_MS } as Tile, "3,1", 2, 0, 0, 3, 1);
     fx.commit();
 
     const names = wreckMeshes(scene).map((mesh) => mesh.name);
@@ -42,6 +42,31 @@ describe("createCaptureAftermathFx3D", () => {
     expect(wreckMeshes(scene)).toEqual([]);
     fx.dispose();
     expect(scene.children.filter((child) => child.name.startsWith("wreck-"))).toEqual([]);
+  });
+
+  it("burns a fought-over forest's own trees instead of laying open-ground scars", () => {
+    const scene = new Scene();
+    const fx = createCaptureAftermathFx3D(scene, { addCapturedTownSmoke: () => {} });
+    fx.clear();
+    fx.addTile({ x: 5, y: 5, terrain: "LAND", warScarLevel: 4, warScarUntil: Date.now() + 60_000 } as Tile, "5,5", 0, 0, 0, 5, 5, "TEMPERATE");
+    fx.commit();
+    const names = wreckMeshes(scene).map((mesh) => mesh.name);
+    expect(names.some((name) => name.startsWith("wreck-FOREST_WAR-4-"))).toBe(true);
+    expect(names.some((name) => name.startsWith("wreck-BATTLE_SCARS-"))).toBe(false);
+    fx.dispose();
+  });
+
+  it("sets a captured dock ablaze on its quay, turned toward the water", () => {
+    const scene = new Scene();
+    // Water to the east of (10, 10): the quay faces +x.
+    const fx = createCaptureAftermathFx3D(scene, { addCapturedTownSmoke: () => {} }, undefined, (x) => (x === 11 ? "SEA" : "LAND"));
+    fx.clear();
+    fx.addTile({ x: 10, y: 10, terrain: "LAND", ownerId: "p2", ownershipState: "FRONTIER", captureHoldUntil: Date.now() + CAPTURE_HOLD_MS, dockId: "d1" } as Tile, "10,10", 0, 0, 0, 10, 10);
+    fx.commit();
+    const fire = wreckMeshes(scene).filter((mesh) => mesh.name.startsWith("wreck-DOCK_FIRE-"));
+    expect(fire.some((mesh) => mesh.name.endsWith("-glow"))).toBe(true);
+    expect(fire.some((mesh) => mesh.name.endsWith("-steam"))).toBe(true);
+    fx.dispose();
   });
 
   it("lays scorched ground under a breached fort, turned toward the smashed wall", () => {

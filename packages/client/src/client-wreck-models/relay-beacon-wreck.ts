@@ -66,7 +66,7 @@ export const buildRelayBeaconWreck = (t: WreckBuilders, variant: number): void =
   const secondTo: Vec3 = at3(0.36, FALL_DEGREES + 128, 0.095);
   pipeBetween(t, secondFrom, secondTo, 0.108, "ironDark");
   collar(t, secondFrom, secondTo, 0.2, 0.022, 0.125, "brassDark");
-  shards(t, leanTo[0], leanTo[2], 0.1, 6, 0.04, "ironDark", random);
+  shards(t, leanTo[0], leanTo[2], 0.12, 7, 0.04, "ironDark", random, FALL_DEGREES);
   // Receiver cap rolled off on its side, its brass seat beside it.
   const cap: Vec3 = at3(0.44, -42, 0.13);
   pipeBetween(t, cap, [cap[0] + 0.1, 0.13, cap[2] + 0.06], 0.13, "iron");

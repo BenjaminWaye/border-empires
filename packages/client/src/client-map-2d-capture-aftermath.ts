@@ -9,7 +9,8 @@
 //     Siege / Dread Tower: legs down, gimbal rings fallen, the lens shattered;
 //   - breached fort (drawFortBreach2D, over the fort sprite): a wall section collapsed
 //     with its stone spilled through the gap and a corner tower toppled;
-//   - captured resource: scorched ground, embers, rising smoke.
+//   - captured dock: its harbour ablaze, flames, embers and smoke;
+//   - captured resource: scorched ground, flames, embers, rising smoke.
 import { captureAftermathForTile, type CaptureRubbleKind } from "./client-capture-aftermath/client-capture-aftermath.js";
 import type { Tile } from "./client-types.js";
 
@@ -224,10 +225,42 @@ export const drawFortBreach2D = (ctx: Ctx, tile: Tile, px: number, py: number, s
   ctx.restore();
 };
 
+/** A tongue of flame standing on (x, y), wavering and flickering. */
+const flame = (ctx: Ctx, x: number, y: number, size: number, now: number, i: number): void => {
+  const flicker = 0.75 + 0.25 * Math.sin(now / 110 + i * 1.9);
+  const sway = Math.sin(now / 260 + i * 2.7) * size * 0.25;
+  const h = size * (1.6 + 0.5 * Math.sin(now / 150 + i)) * flicker;
+  const glow = ctx.createRadialGradient(x, y, 0, x, y, size * 2.4);
+  glow.addColorStop(0, `rgba(255,120,40,${0.35 * flicker})`);
+  glow.addColorStop(1, "rgba(255,90,30,0)");
+  ctx.fillStyle = glow;
+  ctx.beginPath(); ctx.arc(x, y, size * 2.4, 0, Math.PI * 2); ctx.fill();
+  for (const [scale, color] of [[1, `rgba(230,70,30,${0.9 * flicker})`], [0.66, `rgba(255,160,50,${0.95 * flicker})`], [0.35, "rgba(255,235,140,0.95)"]] as const) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x - size * 0.6 * scale, y);
+    ctx.quadraticCurveTo(x - size * 0.7 * scale, y - h * 0.5 * scale, x + sway * scale, y - h * scale);
+    ctx.quadraticCurveTo(x + size * 0.7 * scale, y - h * 0.5 * scale, x + size * 0.6 * scale, y);
+    ctx.closePath(); ctx.fill();
+  }
+};
+
+/** A captured dock ablaze: its buildings, freight, pier and ferry burning. */
+const dockFire = (ctx: Ctx, seed: number, px: number, py: number, s: number, now: number): void => {
+  scorch(ctx, px + s * 0.5, py + s * 0.55, s * 0.32, 0.6);
+  const spots: ReadonlyArray<readonly [number, number, number]> = [[0.3, 0.38, 0.07], [0.42, 0.34, 0.05], [0.55, 0.55, 0.06], [0.7, 0.66, 0.05], [0.36, 0.72, 0.055]];
+  spots.forEach(([fx, fy, size], i) => flame(ctx, px + s * fx, py + s * fy, s * size, now, i + seed));
+  embers(ctx, seed, px, py, s, 5, now);
+  smoke(ctx, seed, px + s * 0.32, py + s * 0.3, s, now, 7, 1.25);
+  smoke(ctx, seed + 3, px + s * 0.38, py + s * 0.66, s, now, 5, 0.9);
+};
+
 const resourceFire = (ctx: Ctx, seed: number, px: number, py: number, s: number, now: number): void => {
   scorch(ctx, px + s * 0.58, py + s * 0.6, s * 0.22, 0.6);
   scorch(ctx, px + s * 0.38, py + s * 0.48, s * 0.16, 0.5);
   embers(ctx, seed, px, py, s, 6, now);
+  flame(ctx, px + s * 0.58, py + s * 0.6, s * 0.045, now, seed);
+  flame(ctx, px + s * 0.38, py + s * 0.48, s * 0.035, now, seed + 1);
   smoke(ctx, seed, px + s * 0.55, py + s * 0.55, s, now, 6, 1.1);
   smoke(ctx, seed + 7, px + s * 0.38, py + s * 0.5, s, now, 4, 0.8);
 };
@@ -243,6 +276,7 @@ export const drawCaptureAftermath2D = (ctx: Ctx, tile: Tile, tileKey: string, px
     // A breached fort is painted over its own sprite by drawFortBreach2D.
     else if (kind !== "FORT") siegeWreck(ctx, kind, seed, px, py, size, nowEpochMs);
   }
-  if (aftermath.smoke) resourceFire(ctx, seed, px, py, size, nowEpochMs);
+  if (aftermath.burningDock) dockFire(ctx, seed, px, py, size, nowEpochMs);
+  else if (aftermath.smoke) resourceFire(ctx, seed, px, py, size, nowEpochMs);
   ctx.restore();
 };

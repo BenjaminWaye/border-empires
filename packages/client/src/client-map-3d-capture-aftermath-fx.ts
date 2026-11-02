@@ -18,6 +18,9 @@
 import type { Scene, Texture } from "three";
 import { liveWarScarLevel } from "@border-empires/shared";
 import { captureAftermathForTile } from "./client-capture-aftermath/client-capture-aftermath.js";
+import { forestLayoutAt } from "./client-forest-war/forest-war.js";
+import { harbourFacingAt, rotationForFacing } from "./client-harbour-slipways/client-harbour-slipways.js";
+import { QUAY_DECK_Y } from "./client-wreck-models/dock-fire-model.js";
 import type { VillageEffects } from "./client-map-3d-village-fx.js";
 import { createWreckOverlay3D } from "./client-map-3d-wreck-overlay.js";
 import type { Tile } from "./client-types.js";
@@ -27,8 +30,8 @@ const GROUND_LIFT = 0.008;
 
 export type CaptureAftermathFx3D = {
   readonly clear: () => void;
-  /** Wrecks, resource fires and battle scars for one visible land tile. */
-  readonly addTile: (tile: Tile, tileKey: string, x: number, z: number, surfaceY: number, seed: number) => void;
+  /** Wrecks, resource fires and battle scars for one visible land tile; `forest` when trees stand on it. */
+  readonly addTile: (tile: Tile, tileKey: string, x: number, z: number, surfaceY: number, worldX: number, worldZ: number, forest?: "TEMPERATE" | "TROPICAL") => void;
   /** Scorched, smoking ground under a breached fort; `facing` turns local +x toward the smashed wall. */
   readonly addFortBreachGround: (x: number, z: number, surfaceY: number, facing: number, seed: number) => void;
   /** Captured-town smoke plus a one-off "-N pop" when a new capture shock is first seen. */
@@ -41,7 +44,9 @@ export type CaptureAftermathFx3D = {
 export const createCaptureAftermathFx3D = (
   scene: Scene,
   villageEffects: Pick<VillageEffects, "addCapturedTownSmoke">,
-  envMap?: Texture
+  envMap?: Texture,
+  /** World terrain, to turn a burning dock's fire with its quay toward the water. */
+  terrainAt: (x: number, y: number) => Tile["terrain"] = () => "LAND"
 ): CaptureAftermathFx3D => {
   const wrecks = createWreckOverlay3D(scene, envMap);
   const lastSeenCaptureShockByTile = new Map<string, number>();
@@ -52,17 +57,22 @@ export const createCaptureAftermathFx3D = (
     nextBoundary = Number.POSITIVE_INFINITY;
   };
 
-  const addTile = (tile: Tile, tileKey: string, x: number, z: number, surfaceY: number, seed: number): void => {
+  const addTile = (tile: Tile, tileKey: string, x: number, z: number, surfaceY: number, worldX: number, worldZ: number, forest?: "TEMPERATE" | "TROPICAL"): void => {
     const y = surfaceY + GROUND_LIFT;
+    const seed = worldX * 17 + worldZ * 31;
     const scarLevel = liveWarScarLevel(tile, Date.now());
     if (scarLevel > 0) {
-      wrecks.add({ kind: "BATTLE_SCARS", level: scarLevel }, x, y, z, seed);
+      // In a forest the trees themselves take the damage, laid out exactly as the forest draws them.
+      if (forest) wrecks.add({ kind: "FOREST_WAR", level: scarLevel, ...forestLayoutAt(worldX, worldZ, forest === "TROPICAL") }, x, y, z, seed, 0);
+      else wrecks.add({ kind: "BATTLE_SCARS", level: scarLevel }, x, y, z, seed);
       nextBoundary = Math.min(nextBoundary, tile.warScarUntil!);
     }
     const aftermath = captureAftermathForTile(tile, tileKey);
     if (!aftermath) return;
     nextBoundary = Math.min(nextBoundary, aftermath.until);
     if (aftermath.smoke) wrecks.add({ kind: "RESOURCE_FIRE" }, x, y, z, seed + 1);
+    // On the quay, which stands on the land and is turned toward the water (client-map-3d-harbour-placement.ts).
+    if (aftermath.burningDock) wrecks.add({ kind: "DOCK_FIRE" }, x, surfaceY + 0.02 + QUAY_DECK_Y, z, seed + 4, rotationForFacing(harbourFacingAt(terrainAt, worldX, worldZ)));
     for (const kind of aftermath.rubble) {
       // A breached fort is drawn by the fort overlay itself (addFortBreachGround below).
       if (kind === "RELAY_BEACON") wrecks.add({ kind: "RELAY_BEACON" }, x, y, z, seed + 2);

@@ -19,7 +19,7 @@ import {
 } from "three";
 import { MAX_SUPPORT_RING_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, riverCornerWidthsForCurrentSeed, visualLandBiomeAt, worldgenVersion, type SlotResource } from "@border-empires/shared";
 import type { Tile, TileVisibilityState } from "../client-types.js";
-import { isHillsTile, isTropicalForestLatitude, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile, musterBadgeLookup } from "../client-map-3d-muster-fill.js";
+import { isHillsTile, isTropicalForestLatitude, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance, standingTreeFilter } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile, musterBadgeLookup } from "../client-map-3d-muster-fill.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js"; import { markRendererFirstRenderStarted, markRendererFirstRenderCompleted } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 import { padTerrainWindow, requiredTerrainWindow, tileChangeIsWindowRelevant, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import { EMPTY_MAP_3D_REBUILD_TRIGGERS, captureMap3DRebuildTriggers, map3DRebuildTriggersChanged } from "../client-map-3d-rebuild-triggers/client-map-3d-rebuild-triggers.js";
@@ -156,7 +156,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     }
   });
   const villageEffects = createVillageEffects(scene);
-  const captureAftermathFx = createCaptureAftermathFx3D(scene, villageEffects, atmosphere.buildingEnvironmentTexture);
+  const captureAftermathFx = createCaptureAftermathFx3D(scene, villageEffects, atmosphere.buildingEnvironmentTexture, (wx, wy) => terrainForWorldTile(wx, wy));
   const townSupportTiles = createTownSupportTileOverlay(scene, (2 * MAX_SUPPORT_RING_RADIUS + 1) ** 2 - 1); // sized for a wide-ring (GREAT_CITY/METROPOLIS) anchor, not the base 8 -- a fixed 8 cap used to silently drop tiles past the 8th
   // Per-tile last-seen ownerId, used only to auto-detect and log ownership changes as they render (debug-tile logging) without a manually pinned coordinate.
   const lastRenderedOwnerIdByTile = new Map<string, string | undefined>();
@@ -835,7 +835,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           continue;
         }
         if (shouldDrawForestInstance(forestTile, tile)) {
-          (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy);
+          (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy, undefined, standingTreeFilter(tile, wx, wy));
           contactShadowOverlay.addShadow(x, z, surfaceY, SMALL_CONTACT_SHADOW_RADIUS_TILES);
         }
         const realTier = townIdentityForTile(tile)?.populationTier;
@@ -866,7 +866,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           if (dormantStructureResource) resourceBadgeOverlays[dormantStructureResource].addInstance(x, z, surfaceY);
         }
         // Rubble of a razed/wrecked structure and smoke over a captured resource, until the hold ends (both renderers).
-        if (tile && terrain === "LAND" && visibility === "visible") captureAftermathFx.addTile(tile, tileKey, x, z, surfaceY, wx * 17 + wy * 31);
+        if (tile && terrain === "LAND" && visibility === "visible") captureAftermathFx.addTile(tile, tileKey, x, z, surfaceY, wx, wy, shouldDrawForestInstance(forestTile, tile) ? (tropicalForestTile ? "TROPICAL" : "TEMPERATE") : undefined);
         if (tile && ownerId === "barbarian-1" && terrain === "LAND") {
           barbarianOverlay.addInstance(tileKey, x, z, surfaceY, wx, wy);
           contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);

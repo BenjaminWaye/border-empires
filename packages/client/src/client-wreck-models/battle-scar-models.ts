@@ -12,7 +12,29 @@ export const BATTLE_SCAR_VARIANTS = 3;
 const SPAN = 0.42;
 
 type Spot = { x: number; z: number };
-const spot = (random: () => number, span = SPAN): Spot => ({ x: (random() * 2 - 1) * span, z: (random() * 2 - 1) * span });
+
+/**
+ * Where things fell: not scattered evenly but along the line the fighting
+ * ran across the tile, thickest at the line and thinning to either side,
+ * clear of anything standing (`avoid`, e.g. tree trunks).
+ */
+const createSpotPicker = (random: () => number, avoid: readonly Spot[]) => {
+  const angle = random() * Math.PI;
+  const offset = (random() - 0.5) * 0.16;
+  const ax = Math.cos(angle), az = Math.sin(angle);
+  return (lateral = 0.13, span = SPAN): Spot => {
+    let best: Spot = { x: 0, z: 0 };
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      const along = (random() * 2 - 1) * span;
+      const across = offset + (random() + random() + random() - 1.5) * lateral * 1.4;
+      const x = Math.max(-span, Math.min(span, ax * along - az * across));
+      const z = Math.max(-span, Math.min(span, az * along + ax * across));
+      best = { x, z };
+      if (avoid.every((a) => Math.hypot(a.x - x, a.z - z) > 0.075)) break;
+    }
+    return best;
+  };
+};
 
 const crater = (t: WreckBuilders, x: number, z: number, radius: number, random: () => number): void => {
   // Blast-burnt ground with a black pit at the heart.
@@ -33,12 +55,21 @@ const crater = (t: WreckBuilders, x: number, z: number, radius: number, random: 
   }
 };
 
-const pike = (t: WreckBuilders, s: Spot, random: () => number): void => {
-  const lean = at3(0.03 + random() * 0.06, random() * 360, 0);
+/** A broken file of pikes: two or three together, fallen or leaning the same way. */
+const pikeGroup = (t: WreckBuilders, s: Spot, count: number, random: () => number): void => {
+  const lean = random() * 360;
+  for (let i = 0; i < count; i += 1) {
+    const [dx, , dz] = at3(0.02 + i * 0.025, lean + 90 + (random() - 0.5) * 40, 0);
+    pike(t, { x: s.x + dx, z: s.z + dz }, lean + (random() - 0.5) * 30, random);
+  }
+};
+
+const pike = (t: WreckBuilders, s: Spot, leanDegrees: number, random: () => number): void => {
+  const lean = at3(0.03 + random() * 0.06, leanDegrees, 0);
   if (random() < 0.45) {
     // Snapped: a stub in the ground, the head end lying beside it.
     pipeBetween(t, [s.x, -0.01, s.z], [s.x + lean[0] * 0.4, 0.05, s.z + lean[2] * 0.4], 0.0045, "trunk");
-    const lying = at3(0.09, random() * 360, 0);
+    const lying = at3(0.09, leanDegrees + (random() - 0.5) * 50, 0);
     pipeBetween(t, [s.x + 0.02, 0.004, s.z + 0.01], [s.x + 0.02 + lying[0], 0.004, s.z + 0.01 + lying[2]], 0.0045, "trunk");
     t.body.gem(s.x + 0.02 + lying[0], 0.006, s.z + 0.01 + lying[2], 0.006, 0.012, "iron");
     return;
@@ -110,37 +141,40 @@ const stakeBarricade = (t: WreckBuilders, s: Spot, random: () => number): void =
 };
 
 /** Level 1..WAR_SCAR_MAX_LEVEL battle scars, variant 0..BATTLE_SCAR_VARIANTS-1. */
-export const buildBattleScars = (t: WreckBuilders, level: number, variant: number): void => {
+export const buildBattleScars = (t: WreckBuilders, level: number, variant: number, avoid: readonly Spot[] = []): void => {
   const depth = Math.max(1, Math.min(WAR_SCAR_MAX_LEVEL, Math.floor(level)));
   const random = wreckRandom(307 + variant * 31);
+  const spot = createSpotPicker(random, avoid);
   const craters = depth === 1 ? 1 : depth + Math.floor(depth / 3);
   for (let i = 0; i < craters; i += 1) {
-    const s = spot(random, SPAN - 0.06);
+    // Shells landed round the line, wider than where the men fell.
+    const s = spot(0.2, SPAN - 0.06);
     crater(t, s.x, s.z, 0.05 + random() * 0.035 + (i === 0 ? depth * 0.012 : 0), random);
   }
-  for (let i = 0; i < depth * 2 + 1; i += 1) pike(t, spot(random), random);
-  for (let i = 0; i < depth; i += 1) arrows(t, spot(random), 3 + depth, random);
-  for (let i = 0; i < Math.ceil(depth * 0.8); i += 1) shield(t, spot(random), random);
-  for (let i = 0; i < Math.floor(depth / 2) + 1; i += 1) helmet(t, spot(random), random);
-  if (depth >= 2) burntTimbers(t, spot(random, SPAN - 0.08), random, depth >= 3);
-  if (depth >= 3) brokenWheel(t, spot(random, SPAN - 0.08), random);
+  for (let i = 0; i < depth + 1; i += 1) pikeGroup(t, spot(), 2 + Math.floor(random() * 2), random);
+  for (let i = 0; i < depth; i += 1) arrows(t, spot(0.18), 3 + depth, random);
+  // Shields and helmets lie where their bearers fell, near the pikes.
+  for (let i = 0; i < Math.ceil(depth * 0.8); i += 1) shield(t, spot(0.1), random);
+  for (let i = 0; i < Math.floor(depth / 2) + 1; i += 1) helmet(t, spot(0.1), random);
+  if (depth >= 2) burntTimbers(t, spot(0.16, SPAN - 0.08), random, depth >= 3);
+  if (depth >= 3) brokenWheel(t, spot(0.2, SPAN - 0.08), random);
   if (depth >= 4) {
-    stakeBarricade(t, spot(random, SPAN - 0.1), random);
-    burntTimbers(t, spot(random, SPAN - 0.08), random, true);
-    const s = spot(random, SPAN - 0.1);
+    stakeBarricade(t, spot(0.05, SPAN - 0.1), random);
+    burntTimbers(t, spot(0.16, SPAN - 0.08), random, true);
+    const s = spot(0.1, SPAN - 0.1);
     smokeColumn(t, s.x, 0.03, s.z, 4, 0.45, random, 0.03);
   }
   if (depth >= WAR_SCAR_MAX_LEVEL) {
     // The worst of it: ground churned black from edge to edge, fires still going.
     for (let i = 0; i < 4; i += 1) {
-      const s = spot(random, SPAN - 0.12);
+      const s = spot(0.3, SPAN - 0.12);
       scorch(t, s.x, s.z, 0.18, random);
     }
-    stakeBarricade(t, spot(random, SPAN - 0.1), random);
-    const s = spot(random, SPAN - 0.1);
+    stakeBarricade(t, spot(0.05, SPAN - 0.1), random);
+    const s = spot(0.12, SPAN - 0.1);
     smokeColumn(t, s.x, 0.03, s.z, 5, 0.65, random, 0.04);
     for (let i = 0; i < 4; i += 1) {
-      const e = spot(random);
+      const e = spot(0.2);
       ember(t, e.x, 0.01, e.z, 0.007, random, i < 2);
     }
   }

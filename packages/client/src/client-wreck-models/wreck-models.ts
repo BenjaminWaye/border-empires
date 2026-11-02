@@ -4,6 +4,9 @@ import { createDistrictGeometryFromModel, type DistrictGeometry } from "../clien
 import type { GroundMark, WreckBuilders } from "./wreck-kit.js";
 import { BATTLE_SCAR_VARIANTS, buildBattleScars } from "./battle-scar-models.js";
 import { buildFortBreachGround, buildResourceFire } from "./fort-breach-model.js";
+import { buildForestWar } from "./forest-war-model.js";
+import { buildDockFire } from "./dock-fire-model.js";
+import type { ForestSpecies } from "../client-forest-war/forest-war.js";
 import { buildRelayBeaconWreck } from "./relay-beacon-wreck.js";
 import { buildSiegeWreck, type SiegeWreckVariant } from "./siege-wreck.js";
 
@@ -12,15 +15,21 @@ export type WreckModel =
   | { readonly kind: "SIEGE"; readonly variant: SiegeWreckVariant }
   | { readonly kind: "FORT_BREACH" }
   | { readonly kind: "RESOURCE_FIRE" }
-  | { readonly kind: "BATTLE_SCARS"; readonly level: number };
+  /** A captured dock burning on its quay (dock-fire-model.ts); placed in the quay's frame. */
+  | { readonly kind: "DOCK_FIRE" }
+  | { readonly kind: "BATTLE_SCARS"; readonly level: number }
+  /** Battle scars on a forest tile: its own layout's destroyed trees, burnt (see forest-war.ts). */
+  | { readonly kind: "FOREST_WAR"; readonly level: number; readonly layout: number; readonly species: ForestSpecies; readonly variant: number };
 
 /** Variants per model kind; a tile picks one from its seed. */
-export const wreckModelVariants = (model: WreckModel): number => (model.kind === "BATTLE_SCARS" ? BATTLE_SCAR_VARIANTS : 2);
+export const wreckModelVariants = (model: WreckModel): number =>
+  model.kind === "BATTLE_SCARS" ? BATTLE_SCAR_VARIANTS : model.kind === "FOREST_WAR" ? 1 : 2;
 
 export const wreckModelKey = (model: WreckModel, variant: number): string => {
   switch (model.kind) {
     case "SIEGE": return `SIEGE-${model.variant}-${variant}`;
     case "BATTLE_SCARS": return `BATTLE_SCARS-${model.level}-${variant}`;
+    case "FOREST_WAR": return `FOREST_WAR-${model.level}-${model.layout}-${model.species}-${model.variant}`;
     default: return `${model.kind}-${variant}`;
   }
 };
@@ -31,7 +40,9 @@ export const buildWreckModel = (t: WreckBuilders, model: WreckModel, variant: nu
     case "SIEGE": return buildSiegeWreck(t, model.variant, variant);
     case "FORT_BREACH": return buildFortBreachGround(t, variant);
     case "RESOURCE_FIRE": return buildResourceFire(t, variant);
+    case "DOCK_FIRE": return buildDockFire(t, variant);
     case "BATTLE_SCARS": return buildBattleScars(t, model.level, variant);
+    case "FOREST_WAR": return buildForestWar(t, model.level, model.layout, model.species, model.variant);
   }
 };
 

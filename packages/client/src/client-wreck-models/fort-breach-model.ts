@@ -3,7 +3,7 @@
 // tower): scorched earth at the breach and inside the walls, the attackers'
 // broken ladders and spent arrows, embers in the rubble and smoke rising from
 // the gap. Local frame: the breached wall is the one at +x.
-import { ember, pipeBetween, scorch, smokeColumn, wreckRandom, type WreckBuilders } from "./wreck-kit.js";
+import { ember, flame, pipeBetween, scorch, smokeColumn, wreckRandom, type WreckBuilders } from "./wreck-kit.js";
 
 export const buildFortBreachGround = (t: WreckBuilders, variant: number): void => {
   const random = wreckRandom(401 + variant);
@@ -33,6 +33,8 @@ export const buildResourceFire = (t: WreckBuilders, variant: number): void => {
   scorch(t, 0.1, 0.12, 0.2, random);
   scorch(t, -0.15, -0.05, 0.14, random);
   for (let i = 0; i < 6; i += 1) ember(t, (random() - 0.5) * 0.5, 0.012, (random() - 0.5) * 0.5, 0.008 + random() * 0.006, random, i < 3);
+  flame(t, 0.1, 0, 0.12, 0.05, random);
+  flame(t, -0.15, 0, -0.05, 0.04, random);
   smokeColumn(t, 0.1, 0.05, 0.12, 6, 1.0, random, 0.055);
   smokeColumn(t, -0.15, 0.04, -0.05, 5, 0.75, random, 0.045);
 };

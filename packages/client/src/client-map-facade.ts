@@ -1,3 +1,4 @@
+import { standingTreeFilter } from "./client-forest-war/forest-war.js";
 import { WORLD_WIDTH, clearForestAroundAfcTiles, clearForestOnTownAndDockTiles, grassShadeAt, grassToneAt, isForestClearedAt, visualLandBiomeAt, worldgenVersion } from "@border-empires/shared";
 import { prospectClueDrawFor } from "./client-prospect-signature-overlay.js";
 import { createRetiredProspectCluesLookup } from "./client-prospect-clue/client-prospect-clue.js";
@@ -287,7 +288,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     return prospectClueDrawFor(tile, tileVisibilityStateAt(wx, wy, tile) === "visible", retiredClues(state.techIds, state.techCatalog));
   };
   const drawForestOverlay = (wx: number, wy: number, px: number, py: number, size: number): void =>
-    drawForestOverlayOnCanvas(ctx, wx, wy, px, py, size, visibleProspectClueAt(wx, wy), (x, y) => isForestTileWithAfcLandingHold(state.afcJoinDrop, x, y));
+    drawForestOverlayOnCanvas(ctx, wx, wy, px, py, size, visibleProspectClueAt(wx, wy), (x, y) => isForestTileWithAfcLandingHold(state.afcJoinDrop, x, y), standingTreeFilter(state.tiles.get(keyFor(wx, wy)), wx, wy));
   const drawHillsOverlay = (wx: number, wy: number, px: number, py: number, size: number): void => {
     drawHillsOverlayOnCanvas(ctx, wx, wy, px, py, size);
   };

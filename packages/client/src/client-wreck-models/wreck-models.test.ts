@@ -36,6 +36,15 @@ describe("wreck models", () => {
     expect(layersOf({ kind: "BATTLE_SCARS", level: WAR_SCAR_MAX_LEVEL })).toEqual(expect.arrayContaining(["glow", "steam"]));
   });
 
+  it("burn a forest's destroyed trees, more of them with every battle", () => {
+    for (const species of ["pine", "spruce", "leaf", "palm"] as const) {
+      const light = vertexCount({ kind: "FOREST_WAR", level: 1, layout: 0, species, variant: 0 });
+      const heavy = vertexCount({ kind: "FOREST_WAR", level: WAR_SCAR_MAX_LEVEL, layout: 0, species, variant: 0 });
+      expect(heavy).toBeGreaterThan(light);
+    }
+    expect(layersOf({ kind: "FOREST_WAR", level: WAR_SCAR_MAX_LEVEL, layout: 1, species: "pine", variant: 2 })).toEqual(expect.arrayContaining(["glow", "steam"]));
+  });
+
   it("vary between variants", () => {
     const model = { kind: "BATTLE_SCARS", level: 3 } as const;
     expect(wreckModelVariants(model)).toBeGreaterThan(1);

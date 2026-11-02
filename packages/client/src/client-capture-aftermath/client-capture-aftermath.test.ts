@@ -22,7 +22,7 @@ describe("capture aftermath", () => {
   it("leaves a razed Relay Beacon's rubble on the ground until the hold ends", () => {
     const after = captured();
     noteRazedStructuresOnCapture(beaconTile, after, KEY, NOW);
-    expect(captureAftermathForTile(after, KEY, NOW)).toEqual({ rubble: ["RELAY_BEACON"], smoke: false, until: NOW + CAPTURE_HOLD_MS });
+    expect(captureAftermathForTile(after, KEY, NOW)).toEqual({ rubble: ["RELAY_BEACON"], smoke: false, burningDock: false, until: NOW + CAPTURE_HOLD_MS });
     expect(captureAftermathMenuLines(after, KEY, NOW)).toEqual(["Relay Beacon destroyed in the capture."]);
     expect(captureAftermathForTile(after, KEY, NOW + CAPTURE_HOLD_MS)).toBeUndefined();
   });
@@ -53,10 +53,19 @@ describe("capture aftermath", () => {
 
   it("smokes over a captured resource until the hold ends", () => {
     const resourceTile = captured({ resource: "IRON" });
-    expect(captureAftermathForTile(resourceTile, KEY, NOW)).toEqual({ rubble: [], smoke: true, until: NOW + CAPTURE_HOLD_MS });
+    expect(captureAftermathForTile(resourceTile, KEY, NOW)).toEqual({ rubble: [], smoke: true, burningDock: false, until: NOW + CAPTURE_HOLD_MS });
     expect(captureAftermathMenuLines(resourceTile, KEY, NOW)[0]).toMatch(/resource slots only count once/);
     expect(captureAftermathForTile(resourceTile, KEY, NOW + CAPTURE_HOLD_MS)).toBeUndefined();
     expect(captureAftermathForTile({ ...base, ownerId: "p2", ownershipState: "FRONTIER", resource: "IRON" } as Tile, KEY, NOW)).toBeUndefined();
+  });
+});
+
+describe("burning dock", () => {
+  it("sets a captured dock ablaze until the hold ends, and explains why it pays no gold", () => {
+    const dock = captured({ dockId: "dock-1" });
+    expect(captureAftermathForTile(dock, KEY, NOW)).toEqual({ rubble: [], smoke: false, burningDock: true, until: NOW + CAPTURE_HOLD_MS });
+    expect(captureAftermathMenuLines(dock, KEY, NOW)).toEqual(["Dock set ablaze in the capture. It pays no gold until the capturing troops finish holding it and it is garrisoned."]);
+    expect(captureAftermathForTile(dock, KEY, NOW + CAPTURE_HOLD_MS)).toBeUndefined();
   });
 });
 

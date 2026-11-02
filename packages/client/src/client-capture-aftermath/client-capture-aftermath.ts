@@ -21,11 +21,13 @@ export type CaptureAftermath = {
   rubble: CaptureRubbleKind[];
   /** A captured resource still burning. */
   smoke: boolean;
+  /** A captured dock set ablaze on its quay. */
+  burningDock: boolean;
   /** Epoch ms the aftermath clears. */
   until: number;
 };
 
-type AftermathTile = Pick<Tile, "ownershipState" | "captureHoldUntil" | "fort" | "resource">;
+type AftermathTile = Pick<Tile, "ownershipState" | "captureHoldUntil" | "fort" | "resource" | "dockId">;
 
 // The server sends no record of a razed structure: the capture delta simply
 // drops it. The tile merge notices that drop (noteRazedStructuresOnCapture)
@@ -79,8 +81,9 @@ export const captureAftermathForTile = (tile: AftermathTile | undefined, tileKey
   const held = isCaptureHoldActive(tile, nowEpochMs);
   if (held && isFortWreckedByCapture(tile, nowEpochMs)) rubble.push("FORT");
   const smoke = held && Boolean(tile?.resource);
+  const burningDock = held && Boolean(tile?.dockId);
   if (held) until = Math.max(until, tile!.captureHoldUntil!);
-  return rubble.length > 0 || smoke ? { rubble, smoke, until } : undefined;
+  return rubble.length > 0 || smoke || burningDock ? { rubble, smoke, burningDock, until } : undefined;
 };
 
 const RUBBLE_MENU_LABELS: Record<RazedKind, string> = { RELAY_BEACON: "Relay Beacon", SIEGE_BATTERY: "Siege Battery", SIEGE_TOWER: "Siege Tower", DREAD_TOWER: "Dread Tower" };
@@ -103,6 +106,7 @@ export const captureAftermathMenuLines = (tile: Tile, tileKey: string, nowEpochM
     if (kind === "FORT") lines.push("Fort wrecked in the capture. It gives no defense until the capturing troops finish holding this tile and it is garrisoned.");
     else lines.push(`${RUBBLE_MENU_LABELS[kind]} destroyed in the capture.`);
   }
+  if (aftermath.burningDock) lines.push("Dock set ablaze in the capture. It pays no gold until the capturing troops finish holding it and it is garrisoned.");
   if (aftermath.smoke) lines.push("Resource captured. Its resource slots only count once the capturing troops finish holding this tile and it is garrisoned.");
   return lines;
 };
