@@ -1,8 +1,10 @@
-// Feature flag for the redesigned desktop HUD (client-hud-v2.ts). Off by
-// default; `?hud=v2` turns it on for this browser and `?hud=legacy` turns it
-// back off. Phones keep the legacy HUD until the mobile pass.
+// Feature flag for the redesigned desktop HUD (client-hud-v2.ts). On by
+// default; `?hud=legacy` opts this browser back into the old HUD and `?hud=v2`
+// clears that opt-out. Phones keep the legacy HUD until the mobile pass.
 
 export const HUD_V2_STORAGE_KEY = "be.hudV2";
+/** Stored when the player opts out with `?hud=legacy`; anything else means the new HUD. */
+const HUD_V2_OPT_OUT = "0";
 
 type FlagStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
@@ -17,22 +19,21 @@ const safeStorage = (): FlagStorage | undefined => {
 /** Applies a `?hud=` override from the URL, then reports whether the flag is on. */
 export const readHudV2Flag = (search: string, storage: FlagStorage | undefined = safeStorage()): boolean => {
   const param = new URLSearchParams(search).get("hud");
-  if (!storage) return param === "v2";
+  if (!storage) return param !== "legacy";
   try {
     if (param === "v2") storage.setItem(HUD_V2_STORAGE_KEY, "1");
-    if (param === "legacy") storage.removeItem(HUD_V2_STORAGE_KEY);
-    return storage.getItem(HUD_V2_STORAGE_KEY) === "1";
+    if (param === "legacy") storage.setItem(HUD_V2_STORAGE_KEY, HUD_V2_OPT_OUT);
+    return storage.getItem(HUD_V2_STORAGE_KEY) !== HUD_V2_OPT_OUT;
   } catch {
-    return param === "v2";
+    return param !== "legacy";
   }
 };
 
 export const setHudV2Flag = (enabled: boolean, storage: FlagStorage | undefined = safeStorage()): void => {
   try {
-    if (enabled) storage?.setItem(HUD_V2_STORAGE_KEY, "1");
-    else storage?.removeItem(HUD_V2_STORAGE_KEY);
+    storage?.setItem(HUD_V2_STORAGE_KEY, enabled ? "1" : HUD_V2_OPT_OUT);
   } catch {
-    // Private mode or blocked storage: the flag simply stays off.
+    // Private mode or blocked storage: the flag falls back to its default (on).
   }
 };
 

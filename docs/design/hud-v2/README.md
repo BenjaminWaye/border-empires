@@ -40,8 +40,9 @@ share a link if you need the editable version.
 
 ## Where the code is
 
-- Flag: `?hud=v2` turns it on, `?hud=legacy` turns it off. Desktop only
-  (wider than 900px).
+- Flag: on by default (desktop only, wider than 900px). `?hud=legacy` opts
+  the browser back into the old HUD (stored as `be.hudV2=0`); `?hud=v2`
+  clears that opt-out.
 - Modules: `packages/client/src/client-hud-v2/`. `client-hud-v2.ts` is the
   controller (250 ms frame, writes only regions that changed),
   `client-hud-v2-context.ts` holds shared deps and screen state, and
