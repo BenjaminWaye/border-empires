@@ -26,7 +26,9 @@ export function afcSpecializationProgress(state: AfcProgressionState, techs: Ite
 }
 
 export const AFC_SPECIALIZATION_BALANCE = {
-  momentumMaxStacks: 3, momentumIdleMs: 5 * 60_000, warDurationMs: 24 * 60 * 60_000,
+  momentumMaxStacks: 5, momentumIdleMs: 5 * 60_000,
+  truceIncomeShareMax: 0.5, alliedLevyMaxAllies: 3,
+  hijackTakeoverMs: 10 * 60_000, hijackCooldownMs: 24 * 60 * 60_000,
   scarcityResourceOrder: ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"],
   forcedTruceDurationMs: 12 * 60 * 60_000, forcedTruceCooldownMs: 48 * 60 * 60_000
 } as const;
@@ -35,3 +37,5 @@ export * from "./afc-momentum.js";
 export * from "./afc-tower-state.js";
 
 export * from "./afc-structure-waiver.js";
+/** Battlefield Momentum's attack bonus per stack, read from the catalogue so previews never drift. */
+export const AFC_MOMENTUM_ATTACK_PER_STACK: number = AFC_SPECIALIZATIONS.find(upgrade => upgrade.id === "afc-vanguard-3")?.effects.flagMomentumAttackPerStack ?? 0;

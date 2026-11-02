@@ -61,6 +61,7 @@ export type EmailNotificationCategory =
   | "truceOffer"
   | "attackAlert"
   | "aetherPurgeAlert"
+  | "aetherHijackAlert"
   | "seasonStart"
   | "manpowerFull";
 

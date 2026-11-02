@@ -1,4 +1,4 @@
-import { afcMomentumStacks, requiredMusterForFort } from "@border-empires/shared";
+import { AFC_MOMENTUM_ATTACK_PER_STACK, afcMomentumStacks, requiredMusterForFort } from "@border-empires/shared";
 import type { AfcCombatFacts, RelicCombatFacts } from "@border-empires/sim-protocol";
 import {
   buildFrontierCombatPreview,
@@ -159,7 +159,7 @@ export const attackPreviewResult = async (
   const [attackerRelics, defenderRelics] = await Promise.all([getRelicCombatFacts?.(playerId), getRelicCombatFacts?.(target.ownerId)]);
   const attackerEquivalent = attackerFacts?.factoryEquivalents ?? attackerFactoryCounts;
   const defenderEquivalent = defenderFacts?.factoryEquivalents ?? defenderFactoryCounts;
-  const defenseContribution = defenderPlayerData?.domainIds.includes("afc-bastion-2") ? 2 : 1;
+  const defenseContribution = defenderPlayerData?.domainIds.includes("afc-bastion-3") ? 2 : 1;
   const attackerPresence = { titanium: attackerFactoryCounts.titanium > 0, umbrite: attackerFactoryCounts.umbrite > 0 };
   const defenderPresence = { titanium: defenderFactoryCounts.titanium > 0, umbrite: defenderFactoryCounts.umbrite > 0 };
   const attackEdge = warIndustryEdge("Target", attackerPresence, defenderPresence);
@@ -178,9 +178,8 @@ export const attackPreviewResult = async (
   };
   const targetHasActiveFort = Boolean(target.fort && isFortDefending(target.fort) && target.fort.ownerId === target.ownerId);
   const flag = parseStructureJson<{ momentum?: { stacks: number; decayAt: number } }>(origin.musterJson);
-  const momentum = attackerDomainIds?.includes("afc-vanguard-3") ? 1 + afcMomentumStacks(flag?.momentum, Date.now()) * 0.05 : 1;
-  const coalition = attackerFacts?.coalitionTargetIds.includes(target.ownerId) ? 1.15 : 1;
-  const citadel = targetHasActiveFort && target.townType && defenderPlayerData?.domainIds.includes("afc-bastion-3") ? 1.25 : 1;
+  const momentum = attackerDomainIds?.includes("afc-vanguard-3") ? 1 + afcMomentumStacks(flag?.momentum, Date.now()) * AFC_MOMENTUM_ATTACK_PER_STACK : 1;
+  const citadel = targetHasActiveFort && target.townType && defenderPlayerData?.domainIds.includes("afc-bastion-1") ? 1.25 : 1;
   const wardReady = defenderFacts?.targetFortWardReady ?? Boolean(targetHasActiveFort && target.fort?.wardEnabled && (target.fort.wardRechargesAt ?? 0) <= Date.now());
   const fort = targetHasActiveFort ? defendingFortVariant(target.fort) : undefined;
   const requiredMuster = Math.max(1, Math.ceil(requiredMusterForFort(fort) * (fort ? (target.fort?.attackCommitmentMult ?? 1) * (attackerDomainIds?.includes("afc-vanguard-4") ? 0.5 : 1) : 1)));
@@ -197,7 +196,7 @@ export const attackPreviewResult = async (
       // capture-hold window is time-based, and breach shock is already gated
       // at its source (the sim only stamps breachShockUntil when enabled).
       ...(techModifiers ?? {}),
-      attackerStatMult: (techModifiers?.attackerStatMult ?? 1) * momentum * coalition,
+      attackerStatMult: (techModifiers?.attackerStatMult ?? 1) * momentum,
       defenderStatMult: (techModifiers?.defenderStatMult ?? 1) * citadel, nowMs: Date.now(),
     }
   );

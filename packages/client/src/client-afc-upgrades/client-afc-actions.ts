@@ -19,8 +19,13 @@ export function renderAfcActions(state: AfcActionState): string {
     parts.push(`<section><h3>Counterphase emitter</h3><p>Suppress a hostile tower for 5 minutes. Uses one shot of a tower in range.</p>${hostileTower ? `<button class="panel-btn" type="button" data-afc-suppress="${target.x},${target.y}">Suppress tower at ${target.x}, ${target.y}</button>` : "<p>Select a visible hostile Aether Tower on the map.</p>"}</section>`);
   }
   if (state.domainIds.includes("afc-oracle-5")) {
-    const flags = [...(state.afcDetectedFlags ?? [])].sort((a, b) => Number(b.x === state.selected?.x && b.y === state.selected?.y) - Number(a.x === state.selected?.x && a.y === state.selected?.y));
-    parts.push(`<section><h3>Detected muster flags · ${flags.length}</h3><p>Exact locations only. Purge requires its Manifest, a ready tower in range, and normal shield checks.</p>${flags.length ? `<ul class="afc-detected-flags">${flags.slice(0, 32).map(flag => `<li>${escape(state.playerNames?.get(flag.ownerId) ?? flag.ownerId)} · ${flag.x}, ${flag.y}<button class="panel-btn" type="button" data-afc-purge="${flag.x},${flag.y}">Purge flag</button></li>`).join("")}</ul>` : "<p>No hostile flags detected in active tower range.</p>"}${flags.length > 32 ? "<p>Additional detections are marked on the map.</p>" : ""}</section>`);
+    const target = state.selected && state.tiles?.get(`${state.selected.x},${state.selected.y}`);
+    const now = Date.now();
+    const tower = target && !target.fogged && target.ownerId !== state.me ? target.observatory : undefined;
+    const open = tower?.status === "active" && ((tower.suppressedUntil ?? 0) > now || (tower.cooldownUntil ?? 0) > now);
+    const ready = Math.max(0, (state.hijackReadyAt ?? 0) - now);
+    const hint = !tower ? "Select a visible hostile Aether Tower on the map." : !open ? "This tower still has a shot left. Wait until it fires its last shot, or suppress it with Counterphase." : ready ? `Ready again in ${Math.ceil(ready / 3_600_000)}h.` : "";
+    parts.push(`<section><h3>Resonance hijack</h3><p>Seize a hostile tower that has no shot left or is suppressed. Uses one shot of a tower in range and takes 10 minutes; your casting tower is revealed while it runs. Once per 24h.</p>${hint ? `<p>${hint}</p>` : `<button class="panel-btn" type="button" data-afc-hijack="${target!.x},${target!.y}">Hijack tower at ${target!.x}, ${target!.y}</button>`}</section>`);
   }
   return parts.length ? `<div class="afc-upgrade-actions">${parts.join("")}</div>` : "";
 }
@@ -35,10 +40,10 @@ export function bindAfcActions(root: HTMLElement, deps: AfcActionDependencies): 
   };
 }
 export function handleAfcActionClick(target: HTMLElement, deps: AfcActionDependencies): boolean {
-  const button = target.closest<HTMLButtonElement>("[data-afc-suppress], [data-afc-purge]");
+  const button = target.closest<HTMLButtonElement>("[data-afc-suppress], [data-afc-hijack]");
   if (!button || button.disabled) return false;
-  const [x, y] = (button.dataset.afcSuppress ?? button.dataset.afcPurge ?? "").split(",").map(Number);
+  const [x, y] = (button.dataset.afcSuppress ?? button.dataset.afcHijack ?? "").split(",").map(Number);
   if (!Number.isInteger(x) || !Number.isInteger(y)) return false;
-  deps.send({ type: button.dataset.afcSuppress ? "SUPPRESS_AETHER_TOWER" : "AETHER_LANCE", x, y }, "Could not use the tower ability.");
+  deps.send({ type: button.dataset.afcSuppress ? "SUPPRESS_AETHER_TOWER" : "HIJACK_AETHER_TOWER", x, y }, "Could not use the tower ability.");
   return true;
 }

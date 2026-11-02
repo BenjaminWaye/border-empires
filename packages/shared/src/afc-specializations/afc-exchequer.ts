@@ -60,13 +60,14 @@ export const AFC_EXCHEQUER = [
     "tier": 5,
     "branch": "exchequer",
     "name": "Metropolitan Concession",
-    "description": "The same three core towns gain 100% more Coin, combining with Founding Concession for +200% total. On installation, those below Metropolis gain 50% of their current population, up to their caps. Court export privileges and a resettlement consignment supply the benefit.",
-    "mechanicalSummary": "Core towns: +100% Coin | One-time +50% population below Metropolis.",
+    "description": "The same three core towns gain 100% more Coin, combining with Founding Concession for +200% total. On installation, those below Metropolis gain 50% of their current population, up to their caps. Economic Hegemony needs a 20% income lead over the runner-up instead of 33%. Court export privileges and a resettlement consignment supply the benefit.",
+    "mechanicalSummary": "Core towns: +100% Coin | +50% population once | Hegemony at a 20% lead.",
     "category": "installation",
     "requiresTechId": "",
     "effects": {
       "firstThreeTownsGoldOutputMult": 2,
-      "corePopulationConsignmentMult": 1.5
+      "corePopulationConsignmentMult": 1.5,
+      "economicHegemonyLeadMult": 1.2
     }
   }
 ] as const satisfies readonly AfcSpecialization[];

@@ -1,4 +1,3 @@
-import { recordAfcHostileCapture } from "./afc-specializations/afc-coalition.js";
 import { applyWinningTileCapture } from "./runtime-winning-capture.js";
 import { applyBreakthroughCapture } from "./afc-specializations/afc-breakthrough-capture.js";
 import { awardFlagMomentum, fortWardIsReady, consumeFortWard } from "./afc-specializations/afc-battle-effects.js";
@@ -7,7 +6,8 @@ import type { CombatBroadcastPayload, SimulationEvent } from "@border-empires/si
 import {
   FRONTIER_CLAIM_COST
 } from "@border-empires/shared";
-import { afcCapturePlunderGold, withAfcCapturePlunder } from "./afc-capture-plunder/afc-capture-plunder.js";
+import { afcCapturePlunderGold, afcPlanetaryDefenseBounty, withAfcCapturePlunder } from "./afc-capture-plunder/afc-capture-plunder.js";
+import { additiveEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { resolveLostOrigin } from "./runtime-lock-resolution-lost-origin.js";
 import { applyCombatEncirclement } from "./runtime-lock-resolution-encirclement.js";
@@ -168,9 +168,8 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
   const originLost =
     Boolean(combatResult?.changes.some((change) => change.x === lock.originX && change.y === lock.originY)) &&
     (originOwnerId === lock.playerId || (lock.barbarianLaunch !== undefined && originOwnerId === undefined));
-  const hostileCaptureWarUntil = attackerWon || originLost ? recordAfcHostileCapture(context.players, lock.playerId, previousOwnerId, context.now()) : undefined;
-  if (combatResult && hostileCaptureWarUntil) combatResult.hostileCaptureWarUntil = hostileCaptureWarUntil;
-  const reportedResult = withAfcCapturePlunder(combatResult, afcPlunder);
+  const bounty = attacker ? afcPlanetaryDefenseBounty({ attackerWon, actionType: lock.actionType, previousOwnerId, bountyPerTile: additiveEffectForPlayer(attacker, "barbarianCaptureCoinBonus") }) : 0;
+  const reportedResult = withAfcCapturePlunder(combatResult, afcPlunder + bounty);
   // Two opposing forces actually clashed (not an uncontested EXPAND onto
   // neutral land, and not an ATTACK on undefended FRONTIER ground, which
   // defenderBattle in frontier-combat.ts already zeroes the defense
@@ -249,6 +248,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     });
   }
   if (afcPlunder > 0 && attacker && defender) context.applySettledCapturePlunder({ attacker, defender, gold: afcPlunder, defenderGoldLoss: afcPlunder });
+  if (bounty > 0 && attacker) attacker.points += bounty; // Court bounty: minted, not taken from the barbarians
   if (attackerWon && attacker && defender && previousTarget?.resource && !combatResolution?.targetRecentlyPillaged && previousOwnerId && previousOwnerId !== lock.playerId) {
     applyResourceTileSteal(context, attacker, defender, previousTarget.resource, previousTarget.economicStructure?.type);
   }

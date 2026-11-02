@@ -83,7 +83,7 @@ export type LockRecord = {
 
 export type LockedCombatResolution = {
   momentumSource?: { key: string; setAt: number };
-  breakthroughTarget?: { key: string; ownerId: string };
+  breakthroughTargets?: Array<{ key: string; ownerId: string }>;
   result: LockedFrontierCombatResult;
   defenderGoldLoss: number;
   targetRecentlyPillaged: boolean;

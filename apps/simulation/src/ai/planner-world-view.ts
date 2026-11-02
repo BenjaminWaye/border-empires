@@ -61,7 +61,6 @@ export type PlannerPlayerView = {
   techIds?: string[];
   domainIds?: string[];
   afcUpgradeRuleset?: "afc-v1";
-  afcDetectedFlags?: readonly { x: number; y: number; ownerId: string }[];
   strategicResources?: Partial<Record<DomainStrategicResourceKey, number>>;
   settledTileCount?: number;
   townCount?: number;

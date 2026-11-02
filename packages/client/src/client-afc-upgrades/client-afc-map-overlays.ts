@@ -1,4 +1,4 @@
-import { afcMomentumStacks } from "@border-empires/shared";
+import { AFC_MOMENTUM_ATTACK_PER_STACK, afcMomentumStacks } from "@border-empires/shared";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { createAfcUpgradeReadyBadges, readyAfcUpgradeCount, shouldShowAfcUpgradeReadyBadge, type AfcReadyBadgePosition } from "../client-afc-upgrade-ready/client-afc-upgrade-ready.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -20,18 +20,16 @@ export function createAfcMapOverlays(canvas: HTMLCanvasElement, state: ClientSta
   return { render(tiles, { size, project }) {
     const ready = readyAfcUpgradeCount(state);
     const positions: AfcReadyBadgePosition[] = [];
-    const detections = new Map(state.afcDetectedFlags.map(flag => [`${flag.x},${flag.y}`, flag]));
     const shown = new Set<string>();
     const dormant = new Set(state.dormantStructures.map(item => item.key));
     const bounds = canvas.getBoundingClientRect();
     const scaleX = bounds.width / Math.max(1, canvas.width), scaleY = bounds.height / Math.max(1, canvas.height);
     for (const { wx, wy, wk, vis, t, px, py } of state.authSessionReady && !state.profileSetupRequired ? tiles : []) {
-      const flag = detections.get(wk);
       const stacks = vis === "visible" && t?.muster?.ownerId === state.me ? afcMomentumStacks(t.muster.momentum, Date.now()) : 0;
       const suppressed = vis === "visible" && (t?.observatory?.suppressedUntil ?? 0) > Date.now();
       const wardUnpowered = t?.ownerId === state.me && dormant.has(`${wk}:fort`);
       const ward = vis === "visible" && t?.fort?.wardEnabled ? wardUnpowered ? "Ward unpowered" : (t.fort.wardRechargesAt ?? 0) > Date.now() ? `Ward ${Math.ceil(((t.fort.wardRechargesAt ?? 0) - Date.now()) / 3_600_000)}h` : t.ownerId === state.me ? "Ward ready" : "Ward charged" : "";
-      const label = flag ? `⚑ ${wx}, ${wy}` : suppressed ? "Tower suppressed" : stacks ? `Momentum +${stacks * 5}%` : ward;
+      const label = suppressed ? "Tower suppressed" : stacks ? `Momentum +${Math.round(stacks * AFC_MOMENTUM_ATTACK_PER_STACK * 100)}%` : ward;
       const showUpgrade = vis === "visible" && shouldShowAfcUpgradeReadyBadge(t, state.me, ready, state.afcJoinDrop);
       if (!label && !showUpgrade) continue;
       const at = isTrue3DRendererActive() ? project(wx, wy) : { sx: px + size / 2, sy: py + size / 2 };
@@ -51,7 +49,7 @@ export function createAfcMapOverlays(canvas: HTMLCanvasElement, state: ClientSta
         layer.append(element); elements.set(wk, element);
       }
       element.textContent = label;
-      element.setAttribute("aria-label", flag ? `Detected enemy muster flag at ${wx}, ${wy}. Open tower actions.` : label);
+      element.setAttribute("aria-label", label);
       element.style.left = `${x}px`; element.style.top = `${y}px`;
     }
     for (const [key, element] of elements) if (!shown.has(key)) { element.remove(); elements.delete(key); }

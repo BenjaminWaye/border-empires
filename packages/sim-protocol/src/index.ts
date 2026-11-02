@@ -70,7 +70,6 @@ export type FrontierCombatResultChange = {
 
 export type LockedFrontierCombatResult = {
   wardRechargesAt?: number;
-  hostileCaptureWarUntil?: number;
   attackType: FrontierCombatActionType;
   attackerWon: boolean;
   winnerId?: string;

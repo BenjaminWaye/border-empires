@@ -59,8 +59,11 @@ export function chooseAiAetherCommand<T extends AutomationPlannerTile>(input: Au
         actions.push({ type: "AETHER_LANCE", payload: { x: target.x, y: target.y }, value: 100 + (valuable(target) ? 30 : 0) + Math.min(60, (target.muster?.amount ?? 0) / 10) });
       }
     }
-    if (input.domainIds?.includes("afc-oracle-5") && can("aether_lance")) for (const flag of input.afcDetectedFlags ?? []) {
-      if (!input.nonHostilePlayerIds?.has(flag.ownerId) && flag.ownerId !== input.playerId && inRange(flag) && !knownShielded(flag, shields, input.issuedAt)) actions.push({ type: "AETHER_LANCE", payload: { x: flag.x, y: flag.y }, value: 190 });
+    // Resonance Hijack: only an emptied (no shot left) or Counterphase-suppressed hostile tower qualifies.
+    if (input.domainIds?.includes("afc-oracle-5")) for (const target of enemies) {
+      const tower = target.observatory;
+      if (!tower || tower.status !== "active" || !inRange(target) || knownShielded(target, shields.filter(tile => tile.economicStructure?.type === "AEGIS_DOME"), input.issuedAt)) continue;
+      if (isAetherTowerSuppressed(tower, input.issuedAt) || (tower.cooldownUntil ?? 0) > input.issuedAt) actions.push({ type: "HIJACK_AETHER_TOWER", payload: { x: target.x, y: target.y }, value: 260 });
     }
     const route = chooseAetherRoute(input, visibleMap, ready);
     if (route) actions.push(route);

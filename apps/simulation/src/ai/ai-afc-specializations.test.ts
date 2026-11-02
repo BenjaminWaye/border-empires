@@ -26,13 +26,13 @@ describe("AFC behavior in the real AI worker path", () => {
   it("waits for an active AFC instead of repeatedly sending an invalid installation", () => {
     expect(plan(player(), [{ ...own, afc: { ownerId: "ai-1", status: "under_construction" } }])?.type).not.toBe("CHOOSE_DOMAIN");
   });
-  it("can Purge a masked flag signal without a hidden tile in its world view", () => {
+  it("hijacks a visible hostile tower that has spent all its shots", () => {
     const p = player(); p.techIds = [...techEntryById.keys()]; p.domainIds = ["afc-oracle-5"];
-    p.afcDetectedFlags = [{ x: 2, y: 0, ownerId: "enemy" }];
-    p.tacticalView = { visibleTileKeys: ["0,0"], dormantObservatoryKeys: [], castRange: 20, omittedOriginCount: 0 };
+    p.tacticalView = { visibleTileKeys: ["0,0", "2,0"], dormantObservatoryKeys: [], castRange: 20, omittedOriginCount: 0 };
     p.ownedStructureCounts = { OBSERVATORY: 1 };
-    const command = plan(p, [{ ...own, observatory: { ownerId: "ai-1", status: "active", cooldownUntil: 0 } }], true);
-    expect(command).toMatchObject({ type: "AETHER_LANCE", payloadJson: JSON.stringify({ x: 2, y: 0 }) });
+    const enemyTower: PlannerTileView = { x: 2, y: 0, terrain: "LAND", ownerId: "enemy", ownershipState: "SETTLED", observatory: { ownerId: "enemy", status: "active", cooldownUntil: 5000 } };
+    const command = plan(p, [{ ...own, observatory: { ownerId: "ai-1", status: "active", cooldownUntil: 0 } }, enemyTower], true);
+    expect(command).toMatchObject({ type: "HIJACK_AETHER_TOWER", payloadJson: JSON.stringify({ x: 2, y: 0 }) });
   });
   it("uses paid recruitment when progress is complete, reserves are low and Coin is available", () => {
     const result = chooseAutomationPreplanCommand({ playerId: "ai-1", afcUpgradeRuleset: "afc-v1", points: 100, manpower: 0, techIds: [...techEntryById.keys()], domainIds: ["afc-exchequer-1", "afc-exchequer-2", "afc-exchequer-3", "afc-exchequer-4", "afc-exchequer-5"], ownedTiles: [own], hasActiveLock: false, clientSeq: 1, issuedAt: 1000, sessionPrefix: "ai-runtime" });
