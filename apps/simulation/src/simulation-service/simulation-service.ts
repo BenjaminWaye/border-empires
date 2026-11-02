@@ -55,7 +55,9 @@ import { createSimulationPersistenceQueue } from "../simulation-persistence-queu
 import { SqliteWriterChannel, WriterBackedCommandStore, WriterBackedEventStore } from "../sqlite-writer-channel/sqlite-writer-channel.js";
 import { applyTileDeltasToSnapshot } from "../subscription-snapshot-cache/subscription-snapshot-cache.js";
 import { applyNonTileEventToCache, createPlayerSnapshotCache } from "../player-snapshot-cache/player-snapshot-cache.js";
-import { SimulationRuntime, type VisibilityAuditSample } from "../runtime/runtime.js";
+import { SimulationRuntime } from "../runtime/runtime.js";
+import type { TileVisibilityDebugQuery, TileVisibilityDebugReport } from "../runtime/runtime-tile-visibility-debug.js";
+import { createVisibilityAuditHandler } from "./visibility-audit-log.js";
 import { handleGetAdminPlayers, type ProtoAdminPlayersRequest, type ProtoAdminPlayersResponse } from "../admin-players-snapshot/admin-players-snapshot.js";
 import { handleGetRecentCommands, type ProtoGetRecentCommandsRequest, type ProtoGetRecentCommandsResponse } from "../recent-commands-snapshot/recent-commands-snapshot.js";
 import { handleGetPlayerCombatSummary, type ProtoPlayerCombatSummaryRequest, type ProtoPlayerCombatSummaryResponse } from "../player-combat-summary-snapshot.js";
@@ -269,35 +271,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       ...payload
     });
   };
-  const visibilityAuditAttributedEnabled = process.env.SIMULATION_VISIBILITY_AUDIT === "1";
-  const visibilityAuditDedupMs = Math.max(1000, Number(process.env.SIMULATION_VISIBILITY_AUDIT_DEDUP_MS ?? 30_000));
-  const visibilityAuditDedup = new Map<string, number>();
-  const visibilityAuditDedupMaxEntries = 10_000;
-  const handleVisibilityAudit = (sample: VisibilityAuditSample): void => {
-    const isUnattributed = sample.reasons.length === 0;
-    if (!isUnattributed && !visibilityAuditAttributedEnabled) return;
-    const dedupKey = `${sample.playerId}:${sample.tileKey}`;
-    const at = Date.now();
-    const last = visibilityAuditDedup.get(dedupKey);
-    if (last !== undefined && at - last < visibilityAuditDedupMs) return;
-    visibilityAuditDedup.set(dedupKey, at);
-    if (visibilityAuditDedup.size > visibilityAuditDedupMaxEntries) {
-      const cutoff = at - visibilityAuditDedupMs * 5;
-      for (const [key, ts] of visibilityAuditDedup) {
-        if (ts < cutoff) visibilityAuditDedup.delete(key);
-      }
-    }
-    emitLog(isUnattributed ? "warn" : "info", "simulation visibility audit", {
-      event: isUnattributed ? "sim_visibility_unattributed" : "sim_visibility_attributed",
-      playerId: sample.playerId,
-      tileKey: sample.tileKey,
-      x: sample.x,
-      y: sample.y,
-      ownerId: sample.ownerId,
-      reasons: sample.reasons,
-      redacted: sample.redacted
-    });
-  };
+  const handleVisibilityAudit = createVisibilityAuditHandler(emitLog);
   const hasSqlitePath =
     typeof options.sqlitePath === "string" && options.sqlitePath.length > 0;
   const isDbBackedStartup = hasSqlitePath || options.requireDurableStartupState === true;
@@ -2619,6 +2593,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     },
     playerDebugSnapshot() {
       return runtime.exportPlayerDebugSnapshot();
+    },
+    /** Read-only "why is this tile visible?" report for /debug/tile-visibility. */
+    tileVisibilityDebug(query: TileVisibilityDebugQuery): TileVisibilityDebugReport {
+      return runtime.tileVisibilityDebug(query);
     },
     /** Snapshot of the recent lag-diagnostic ring buffer for death forensics. */
     lagDiagSnapshot(): readonly LagDiagEntry[] {

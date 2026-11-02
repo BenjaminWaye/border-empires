@@ -17,6 +17,7 @@ import v8 from "node:v8";
 import { createListenerWatchdog } from "./listener-watchdog/listener-watchdog.js";
 import { captureCpuProfile, parseCpuProfileDurationMs } from "./debug-cpu-profile/debug-cpu-profile.js";
 import { createSimulationService } from "./simulation-service/simulation-service.js";
+import { parseTileVisibilityDebugQuery } from "./runtime/runtime-tile-visibility-debug.js";
 import { parseSimulationRuntimeEnv, type SimulationRuntimeEnv } from "./runtime-env/runtime-env.js";
 import type { ActiveMainThreadTask } from "./main-thread-task-tracker/main-thread-task-tracker.js";
 
@@ -191,6 +192,19 @@ export const bootstrapSimulationProcess = async (
       const players = service.playerDebugSnapshot();
       response.setHeader("Content-Type", "application/json; charset=utf-8");
       response.end(`${JSON.stringify({ players: aiOnly ? players.filter((p) => p.isAi) : players })}\n`);
+      return;
+    }
+    if (request.url && request.url.startsWith("/debug/tile-visibility")) {
+      // Why can ?playerId= see the tiles around ?x=&y= (?radius=, max 8)?
+      // Lists every vision source per tile -- see runtime-tile-visibility-debug.ts.
+      const query = parseTileVisibilityDebugQuery(new URL(request.url, "http://127.0.0.1").searchParams);
+      response.setHeader("Content-Type", "application/json; charset=utf-8");
+      if (!query) {
+        response.statusCode = 400;
+        response.end(`${JSON.stringify({ ok: false, error: "expected ?playerId=<id>&x=<int>&y=<int>[&radius=<0-8>]" })}\n`);
+        return;
+      }
+      response.end(`${JSON.stringify({ ok: true, ...service.tileVisibilityDebug(query) })}\n`);
       return;
     }
     if (request.url && request.url.startsWith("/debug/ai-diagnostics")) {

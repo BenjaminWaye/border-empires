@@ -40,6 +40,7 @@ import type { PersistedActivityLogs } from "../activity-dashboard/activity-log-p
 import { addStrategicResource as addStrategicResourceImpl, spendStrategicResource as spendStrategicResourceImpl, strategicResourceAmount as strategicResourceAmountImpl } from "../runtime-strategic-resource-ledger.js";
 import { filterDistrictDeltasForRuntime, type DistrictDeltaInput } from "../town-district/town-district-projection.js";
 import { RuntimeState } from "./runtime-state.js";
+import { buildTileVisibilityDebugReport, type TileVisibilityDebugQuery, type TileVisibilityDebugReport } from "./runtime-tile-visibility-debug.js";
 import { reachBorderOwnerAt as reachBorderOwnerAtImpl, grantAetherBridgeReach as grantAetherBridgeReachImpl, tickAetherBridgeReachExpiry as tickAetherBridgeReachExpiryImpl } from "../runtime-aether-bridge-reach.js";
 import { createReachUpdateState, markReachForResend, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
 import { restoreReachBorder } from "../runtime-reach-update/runtime-reach-border-restore.js";
@@ -303,7 +304,7 @@ import {
   exportVisibleStateForPlayerAsyncForRuntime,
   exportVisibleStateForPlayerForRuntime,
   settledTilesForPlayerForRuntime,
-  type RuntimeClassifyVisibilityContext,
+  createClassifyVisibilityContext,
   type RuntimeVisibleStateContext
 } from "./runtime-visibility.js";
 import {
@@ -2059,23 +2060,9 @@ export class SimulationRuntime {
     return leaderboardPlayersForRuntime(this.exportContext());
   }
 
-  // Shared context builder for the visibility-surface free functions in runtime-visibility.ts; visibilityCoverage stays
-  // owned by SimulationRuntime and is threaded in by reference (see runtime-visibility.ts's header for why).
-  private classifyVisibilityContext(): RuntimeClassifyVisibilityContext {
-    return {
-      players: this.state.players,
-      tiles: this.state.tiles,
-      locksByTile: this.state.locksByTile,
-      docks: this.state.docks,
-      dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
-      applyManpowerRegen: (player) => this.applyManpowerRegen(player),
-      visibilityCoverage: this.state.visibilityCoverage,
-      ...(this.trackSyncMainThreadTask !== undefined ? { trackSyncMainThreadTask: this.trackSyncMainThreadTask } : {})
-    };
-  }
-
   private classifyVisibilityForPlayer(playerId: string): RuntimeVisibilityClassification {
-    return classifyVisibilityForPlayerForRuntime(this.classifyVisibilityContext(), playerId);
+    const context = createClassifyVisibilityContext(this.state, (player) => this.applyManpowerRegen(player), this.trackSyncMainThreadTask);
+    return classifyVisibilityForPlayerForRuntime(context, playerId);
   }
 
   /** Sizes of growable barbarian state, for gauges (docs/agents/state-and-persistence-discipline.md). */
@@ -2092,6 +2079,17 @@ export class SimulationRuntime {
       territoryTileKeys: (id) => this.summaryForPlayer(id).territoryTileKeys,
       isVisibleTo: (viewerId, tileKey) => this.state.visibilityCoverage.isVisible(viewerId, tileKey)
     });
+  }
+
+  /** Admin "why can this player see these tiles?" report -- see runtime-tile-visibility-debug.ts. */
+  tileVisibilityDebug(query: TileVisibilityDebugQuery): TileVisibilityDebugReport {
+    return buildTileVisibilityDebugReport({
+      allies: (id) => { const player = this.state.players.get(id); return player ? [...player.allies] : undefined; },
+      classify: (id) => this.classifyVisibilityForPlayer(id),
+      hasFullVision: (id) => this.getAbilityCooldownUntil(id, ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY) > this.now(),
+      tileAt: (tileKey) => this.state.tiles.get(tileKey),
+      reachOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y)
+    }, query);
   }
 
   exportVisibleStateForPlayer(playerId: string): ReturnType<SimulationRuntime["exportState"]> {
