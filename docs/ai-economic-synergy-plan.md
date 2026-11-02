@@ -229,10 +229,14 @@ Colocated in `apps/simulation/src/ai/`:
   structure means).
 - No map overlays or highlights, so renderer parity does not apply.
 
-## Open questions
+## Decisions
 
-- Should the stronger economy be gated by AI difficulty/personality, or apply
-  to every AI?
+- **Applies to every AI** (owner decision, 2026-11-02). No difficulty or
+  personality gate: synergy scoring is the single economic build path for
+  all AI players. Barbarian/system players are unaffected — they use the
+  separate frontier-only planner and never build economic structures.
+
+## Open questions
 - Ordering with [`stacking-adjacency-plan.md`](stacking-adjacency-plan.md): if
   adjacency ships first, Phase 1's placement must pick a tile touching an
   existing same-family building.
