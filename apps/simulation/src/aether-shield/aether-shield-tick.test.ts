@@ -76,6 +76,7 @@ describe("createAetherShieldTicker throttle", () => {
       forEachVisibleKey: () => {},
       hasFullVision: () => false,
       isStructureDormant: () => false,
+      maxShotsFor: () => 3,
       sweepShieldReturns: () => {
         sweeps += 1;
         return 0;

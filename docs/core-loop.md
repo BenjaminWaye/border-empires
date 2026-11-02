@@ -165,7 +165,7 @@ runs without them:
 
 ```mermaid
 flowchart LR
-    H[Tech / Domains<br/>core loop] -.->|unlocks| AB[Aether abilities<br/>cooldown only, 5 min to 24h]
+    H[Tech / Domains<br/>core loop] -.->|unlocks| AB[Aether abilities<br/>3 shots per tower per 24h]
     AB -.->|Bridge, Wall, Purge, Siphon| I[Attack enemy tile<br/>core loop]
     AB -.->|Reveal Empire, Survey Sweep| SC[Scouting]
     DP[Diplomacy<br/>alliances, truces] -.->|who you can attack| I
@@ -250,7 +250,7 @@ growing your economy *means* taking the land around you.
 | **Rush-buy** | Finish an in-progress settle or build with gold | 0.5 gold × MP × fraction of time left | `rush-buy.ts` |
 | **Queue / Waypoint** | Plan settles, builds and routes that run while you're away | — | `dev-queue.ts`, `waypoint-planner.ts` |
 | **Diplomacy** | Alliances, and truces of 12h or 24h | Breaking a truce locks you out of truces for 24h | `social-state.ts` |
-| **Abilities** | Reveal Empire, Survey Sweep, Aether Purge/Bridge/Wall, Siphon, terrain shaping, monument strikes. Each is unlocked by a tech. See §7.1 | Cooldown only, 5 min to 24h (a few also cost gold) | `ABILITY_DEFS` in `server-game-constants.ts` |
+| **Abilities** | Reveal Empire, Survey Sweep, Aether Purge/Bridge/Wall, Siphon, terrain shaping, monument strikes. Each is unlocked by a tech. See §7.1 | Tower-cast abilities spend one of the tower's 3 shots per 24h (`aether-tower-shots.ts`); monument abilities keep cooldowns, 10 min to 24h (a few also cost gold) | `ABILITY_DEFS` in `server-game-constants.ts` |
 
 ## 4. Nested loops
 
@@ -482,7 +482,7 @@ loop at a named point.
 | **Town gold** | **Core** | Towns are what the core loop builds toward, and they are the main gold source. Growing a tier raises MP *and* gold | Towns → Gold |
 | **Dock gold** | **Core (part of the economy)** | Docks are reach anchors, gold sources, and a victory path (Maritime Supremacy) at once. Island-heavy maps make them important | Reach → Docks → Gold, sea crossings |
 | **Military buildings** | **Core, in the conflict loop** | War is the second source of land. Forts and siege set how much taking land costs, and they compete with economic buildings for MP and slots | Structures → Attack/defense |
-| **Aether abilities** | **Supporting (tactical layer)** | Each is unlocked by a tech and limited only by its cooldown (5 min to 24h). They change *how* you fight or scout (Aether Bridge crosses water, Aether Wall blocks, Reveal Empire, terrain shaping; Siphon, which needs an Observatory within 30 tiles, zeroes the output of enemy town and resource tiles in a 3×3 area for 60 min) but spend nothing from the core economy. Nothing in the core loop stops without them | Tech → abilities → Attack/scouting |
+| **Aether abilities** | **Supporting (tactical layer)** | Each is unlocked by a tech and limited only by the casting Aether Tower's shots (3 per tower per 24h, 6 with Resonance Governor). They change *how* you fight or scout (Aether Bridge crosses water, Aether Wall blocks, Reveal Empire, terrain shaping; Siphon, which needs an Observatory within 30 tiles, zeroes the output of enemy town and resource tiles in a 3×3 area for 60 min) but spend nothing from the core economy. Nothing in the core loop stops without them | Tech → abilities → Attack/scouting |
 | **Shards** | **Core (late-game currency)** | The gate on domains from tier 2 and on monuments. They only come from shard rain (08:00 and 21:00 UTC, 30-min TTL), the initial scatter and caches, so they give players a scheduled, contested reason to be online | Shards → Domains, Monuments |
 | **Waystations** | **Core (reward for expanding)** | About one per 400 tiles, world-generated. Expanding onto one activates it once, granting one random permanent reward: permanent vision around the nearest town, a +5,000 population burst to the nearest town you own (coin instead if you own none), a free tier-1 tech (coin if none are left), +1 resource slot, coin, or a manpower grant (`runtime-waystation-activation.ts`). They are a direct reason to push reach toward a particular spot | Reach → Waystations → Slots / Towns / Tech |
 | **Monuments** | **Core as a late-game sink, supporting through their abilities** | Six globally unique buildings that cost 4,600 MP and 5 shards, which makes them the biggest manpower and shard sink in the game. Unlike economic or military buildings, they give *abilities*: Imperial Exchange Levy (takes 100% of a target's gold, 24h cooldown), Sovereign Siege Engine Strike (1,000 gold, 30% population loss, 10 min), Aegis Dome's Aegis Lock (blocks attacks for 15 min, 60 min cooldown), Astral Dock Launch (1,000 gold, 24h satellite). Census Directorate and Titanium Levy feed manpower instead | Manpower + Shards → Monuments → abilities |

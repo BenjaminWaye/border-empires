@@ -741,3 +741,9 @@ second. The starting values below are for tuning:
 Also review the **shared Observatory cooldown** (`stampObservatoryCooldown`,
 used by abilities cast from an Observatory) and domains that scale cooldowns
 (`observatoryCooldownMult`). They should scale charges instead.
+
+> **Update 2026-11-02:** the Observatory part shipped in a different form:
+> each Aether Tower holds 3 shots per rolling 24h instead of per-ability
+> cooldowns, and `observatoryShotsMult` replaced `observatoryCooldownMult`
+> (see "Aether Tower shots" in `docs/game-mechanics.md`). There is no
+> spacing cooldown between shots. The rest of this appendix stays dropped.

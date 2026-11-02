@@ -319,12 +319,10 @@ import {
   ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY,
   isTileBombardBlockedByRadar as isTileBombardBlockedByRadarImpl,
   isTileShieldedByAegisLock as isTileShieldedByAegisLockImpl,
-  isTileShieldedByEnemyAegisDome as isTileShieldedByEnemyAegisDomeImpl, isTileShieldedByEnemyObservatory as isTileShieldedByEnemyObservatoryImpl,
+  isTileShieldedByEnemyAegisDome as isTileShieldedByEnemyAegisDomeImpl,
   isTileWardedByImperialWard as isTileWardedByImperialWardImpl,
   observatoryCastRadiusFor as observatoryCastRadiusForImpl,
   ownedLandWithinRange as ownedLandWithinRangeImpl,
-  pickReadyOwnedObservatoryAny as pickReadyOwnedObservatoryAnyImpl,
-  pickReadyOwnedObservatoryForTarget as pickReadyOwnedObservatoryForTargetImpl,
   revealCapacityForPlayer as revealCapacityForPlayerImpl,
   revealTargetsForPlayer as revealTargetsForPlayerImpl,
   setAbilityCooldownUntil as setAbilityCooldownUntilImpl,
@@ -342,8 +340,9 @@ import {
   type RuntimeAbilityCommandContext
 } from "../runtime-ability-command-handlers.js";
 import { buildAbilityCommandContext } from "./runtime-ability-command-context.js";
-import { handleCancelSiphonCommand as handleCancelSiphonCommandImpl, handlePurgeSiphonCommand as handlePurgeSiphonCommandImpl, handleSiphonTileCommand as handleSiphonTileCommandImpl } from "../runtime-siphon-command-handlers.js"; import { SiphonModeLifecycle } from "../siphon-mode/siphon-mode-lifecycle.js"; import { stampObservatoryCooldown as stampObservatoryCooldownImpl } from "../observatory-cooldown-stamp/observatory-cooldown-stamp.js";
-import { isObservatoryShielding, isTileShieldedByOwnersIndexedTowers } from "../aether-shield/aether-shield.js";
+import { handleCancelSiphonCommand as handleCancelSiphonCommandImpl, handlePurgeSiphonCommand as handlePurgeSiphonCommandImpl, handleSiphonTileCommand as handleSiphonTileCommandImpl } from "../runtime-siphon-command-handlers.js"; import { SiphonModeLifecycle } from "../siphon-mode/siphon-mode-lifecycle.js";
+import { createRuntimeObservatoryShots } from "../observatory-shots/runtime-observatory-shots.js";
+import { isTileShieldedByOwnersIndexedTowers } from "../aether-shield/aether-shield.js";
 import { createAetherShieldTicker, type AetherShieldTicker } from "../aether-shield/aether-shield-tick.js";
 import { handleSyncAllianceCommand as handleSyncAllianceCommandImpl } from "../runtime-alliance-sync-command.js";
 import { type RuntimeMapCommandContext } from "../runtime-map-command-handlers.js";
@@ -515,6 +514,18 @@ export class SimulationRuntime {
   private readonly activityLogs = createRuntimeActivityLogs(() => this.now());
   // Human-player TEN_TILES / FIRST_CONTACT reports for the gateway's player funnel (onboarding-milestones.ts).
   private readonly onboardingMilestones = createOnboardingMilestoneTracker({ now: () => this.now(), players: () => this.state.players, tiles: () => this.state.tiles, territoryTileKeys: (playerId) => this.summaryForPlayer(playerId).territoryTileKeys, emitEvent: (event) => this.emitEvent(event) });
+  private readonly observatoryShots = createRuntimeObservatoryShots({
+    tiles: () => this.state.tiles,
+    players: () => this.state.players,
+    territoryTileKeys: (playerId) => this.summaryForPlayer(playerId).territoryTileKeys,
+    castRadiusFor: (playerId) => this.observatoryCastRadiusFor(playerId),
+    activeTowerKeysForOwner: (ownerId) => this.ownerIndexes.activeObservatoriesByOwner.get(ownerId) ?? [],
+    isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
+    now: () => this.now(),
+    replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+    tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+    emitEvent: (event) => this.emitEvent(event)
+  });
   private readonly playerSummaries = new Map<string, PlayerRuntimeSummary>();
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
   private readonly visionFootprintTable = createVisionFootprintTableForRuntime(WORLD_WIDTH, WORLD_HEIGHT, () => this.state.tiles, () => this.terrainEpoch); // see vision-footprint-table.ts
@@ -803,9 +814,9 @@ export class SimulationRuntime {
     });
     if (this.afcUpgradeRuleset) for (const player of this.state.players.values()) player.afcUpgradeRuleset = this.afcUpgradeRuleset;
     this.siphonModeLifecycle = new SiphonModeLifecycle({ tiles: this.state.tiles, now: () => this.now(), replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
-      isObservatoryShielding: (tile) => this.isObservatoryShieldingNow(tile),
+      isObservatoryShielding: (tile) => this.observatoryShots.isShielding(tile),
       isTileShieldedByOwner: (ownerId, x, y) =>
-        isTileShieldedByOwnersIndexedTowers(this.state.tiles, this.ownerIndexes.activeObservatoriesByOwner.get(ownerId) ?? [], (tower) => this.isObservatoryShieldingNow(tower), ownerId, x, y)
+        isTileShieldedByOwnersIndexedTowers(this.state.tiles, this.ownerIndexes.activeObservatoriesByOwner.get(ownerId) ?? [], (tower) => this.observatoryShots.isShielding(tower), ownerId, x, y)
     });
     this.aetherShieldTicker = createAetherShieldTicker({
       tiles: () => this.state.tiles,
@@ -815,6 +826,7 @@ export class SimulationRuntime {
       forEachVisibleKey: (viewerId, visit) => this.state.visibilityCoverage.forEachVisibleKey(viewerId, visit),
       hasFullVision: (playerId) => this.getAbilityCooldownUntil(playerId, ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY) > this.now(),
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
+      maxShotsFor: (ownerId) => this.observatoryShots.maxShotsFor(ownerId),
       sweepShieldReturns: (towerKeys, commandId) => this.siphonModeLifecycle.sweepShieldReturns(towerKeys, commandId),
       emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload)
     });
@@ -1124,11 +1136,6 @@ export class SimulationRuntime {
 
   tickWatchtowerReveals(nowMs: number = this.now()): void {
     tickWatchtowerRevealsImpl(this.watchtowerRevealContext(), nowMs);
-  }
-
-  /** isObservatoryShielding (aether-shield/aether-shield.ts) on this runtime's clock and dormancy. */
-  private isObservatoryShieldingNow(tile: DomainTileState): boolean {
-    return isObservatoryShielding(tile, this.now(), (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field));
   }
 
   /** Throttled inside; see aether-shield/aether-shield-tick.ts. */
@@ -2821,14 +2828,13 @@ export class SimulationRuntime {
       emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload),
       revealTargetsForPlayer: (playerId) => this.revealTargetsForPlayer(playerId),
       revealCapacityForPlayer: (player) => this.revealCapacityForPlayer(player),
-      pickReadyOwnedObservatoryAny: (playerId, now) => this.pickReadyOwnedObservatoryAny(playerId, now),
-      pickReadyOwnedObservatoryForTarget: (playerId, targetX, targetY, now) => this.pickReadyOwnedObservatoryForTarget(playerId, targetX, targetY, now),
-      stampObservatoryCooldown: (tileKey, durationMs, now, commandId, playerId) =>
-        this.stampObservatoryCooldown(tileKey, durationMs, now, commandId, playerId),
+      pickReadyOwnedObservatoryAny: (playerId, now) => this.observatoryShots.pickAny(playerId, now),
+      pickReadyOwnedObservatoryForTarget: (playerId, targetX, targetY, now) => this.observatoryShots.pickForTarget(playerId, targetX, targetY, now),
+      spendObservatoryShot: (tileKey, now, commandId, playerId) => this.observatoryShots.spend(tileKey, now, commandId, playerId),
       buildRevealEmpireStats: (target) => this.buildRevealEmpireStats(target),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       filterTileDeltasForPlayer: (tileDeltas, playerId) => this.filterTileDeltasForPlayer(tileDeltas, playerId),
-      isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) => this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY), isTileShieldedByEnemyObservatory: (actorId, targetX, targetY) => isTileShieldedByEnemyObservatoryImpl(this.state.tiles, (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field), actorId, targetX, targetY, this.now(), (ownerId) => this.ownerIndexes.activeObservatoriesByOwner.get(ownerId) ?? []),
+      isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) => this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY), isTileShieldedByEnemyObservatory: (actorId, targetX, targetY) => this.observatoryShots.isTileShieldedByEnemy(actorId, targetX, targetY),
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       applyEncirclement: (changedKeys, playerId, commandId, options) => this.applyEncirclement(changedKeys, playerId, commandId, options),
@@ -2855,9 +2861,8 @@ export class SimulationRuntime {
       now: this.now,
       emitEvent: (event) => this.emitEvent(event),
       ownedLandWithinRange: (playerId, x, y, range) => this.ownedLandWithinRange(playerId, x, y, range),
-      pickReadyOwnedObservatoryForTarget: (playerId, targetX, targetY, now) => this.pickReadyOwnedObservatoryForTarget(playerId, targetX, targetY, now),
-      stampObservatoryCooldown: (tileKey, durationMs, now, commandId, playerId) =>
-        this.stampObservatoryCooldown(tileKey, durationMs, now, commandId, playerId),
+      pickReadyOwnedObservatoryForTarget: (playerId, targetX, targetY, now) => this.observatoryShots.pickForTarget(playerId, targetX, targetY, now),
+      spendObservatoryShot: (tileKey, now, commandId, playerId) => this.observatoryShots.spend(tileKey, now, commandId, playerId),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       applyEncirclement: (changedKeys, playerId, commandId, options) => this.applyEncirclement(changedKeys, playerId, commandId, options),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
@@ -2979,53 +2984,6 @@ export class SimulationRuntime {
    * agree on which observatories can reach a target.
    */
   private observatoryCastRadiusFor(playerId: string): number { return observatoryCastRadiusForImpl(this.state.players.get(playerId)); }
-
-  /**
-   * Crystal-ability cooldowns are stored per-observatory. To cast, the player must
-   * own an active observatory within the player's effective cast radius of the
-   * target tile whose cooldownUntil has elapsed. The chosen observatory's tile key
-   * is returned so the caller can stamp the cooldown on it; overlapping observatories
-   * therefore let the player chain casts.
-   *
-   * Tie-break: among off-cooldown candidates, prefer the closest observatory to the
-   * target (wrapped Chebyshev). This avoids burning a long-range observatory's slot
-   * when a nearer one is available, and yields stable UX (same target picks the same
-   * observatory). Ties on distance fall back to Map iteration order (deterministic).
-   */
-  private pickReadyOwnedObservatoryForTarget(
-    playerId: string, targetX: number, targetY: number, now: number, range = this.observatoryCastRadiusFor(playerId)
-  ): string | undefined {
-    const territoryTileKeys = this.summaryForPlayer(playerId).territoryTileKeys;
-    return pickReadyOwnedObservatoryForTargetImpl({
-      tiles: this.state.tiles,
-      territoryTileKeys,
-      playerId,
-      targetX,
-      targetY,
-      now,
-      range,
-      isStructureDormant: (dormantPlayerId, tileKey, field) => this.isStructureDormant(dormantPlayerId, tileKey, field)
-    });
-  }
-
-  /**
-   * Variant for abilities with no spatial target (e.g. reveal_empire_stats targets a
-   * player). Returns any owned, active, off-cooldown observatory, soonest-ready first.
-   */
-  private pickReadyOwnedObservatoryAny(playerId: string, now: number): string | undefined {
-    return pickReadyOwnedObservatoryAnyImpl(
-      this.state.tiles,
-      this.summaryForPlayer(playerId).territoryTileKeys,
-      playerId,
-      now,
-      (dormantPlayerId, tileKey, field) => this.isStructureDormant(dormantPlayerId, tileKey, field)
-    );
-  }
-
-  // Moved to observatory-cooldown-stamp.ts so the Siphon lifecycle shares the exact same write.
-  private stampObservatoryCooldown(tileKey: string, durationMs: number, now: number, commandId: string, playerId: string): void {
-    stampObservatoryCooldownImpl({ tiles: this.state.tiles, replaceTileState: (key, tile, id) => this.replaceTileState(key, tile, id), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), emitEvent: (event) => this.emitEvent(event) }, tileKey, durationMs, now, commandId, playerId);
-  }
 
   private isCoastalLand(x: number, y: number): boolean { return isCoastalLandImpl(this.state.tiles, x, y); }
 

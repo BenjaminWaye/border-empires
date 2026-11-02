@@ -1,8 +1,9 @@
-import { OBSERVATORY_RANGE } from "@border-empires/shared";
+import { aetherTowerMaxShots, OBSERVATORY_RANGE } from "@border-empires/shared";
 
+import { afcEffectMultiplier } from "../client-afc-upgrades/client-afc-effect.js";
 import type { DomainInfo, TechInfo } from "../client-types.js";
 
-type ObservatoryProgressionState = {
+export type ObservatoryProgressionState = {
   techIds: string[];
   techCatalog: TechInfo[];
   domainIds: string[];
@@ -40,3 +41,21 @@ const ownObservatoryRangeBonus = (state: ObservatoryProgressionState): number =>
  */
 export const ownObservatoryRange = (state: ObservatoryProgressionState): number =>
   OBSERVATORY_RANGE + ownObservatoryRangeBonus(state);
+
+/**
+ * Shots each of the local player's Aether Towers holds per 24h: base 3 times
+ * every owned domain's observatoryShotsMult -- AFC upgrades (Resonance
+ * Governor ×2) and legacy domain-tree entries (Hidden Hand ×2, Oracle State
+ * ×1.5) alike, matching the simulation's multiplicativeEffectForPlayer.
+ */
+export const ownObservatoryMaxShots = (state: {
+  readonly domainIds?: readonly string[] | undefined;
+  readonly domainCatalog?: readonly Pick<DomainInfo, "id" | "effects">[] | undefined;
+}): number => {
+  let multiplier = 1;
+  for (const domainId of state.domainIds ?? []) {
+    const legacy = state.domainCatalog?.find((entry) => entry.id === domainId)?.effects?.observatoryShotsMult;
+    multiplier *= typeof legacy === "number" && legacy > 0 ? legacy : afcEffectMultiplier([domainId], "observatoryShotsMult");
+  }
+  return aetherTowerMaxShots(multiplier);
+};

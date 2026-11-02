@@ -29,7 +29,7 @@ export interface AfcSpecializationEffects {
   readonly fortifiedTownDefenseMult?: number;
   readonly logisticsThroughputMult?: number;
   readonly musterMaxTilesAdd?: number;
-  readonly observatoryCooldownMult?: number;
+  readonly observatoryShotsMult?: number;
   readonly observatoryCrystalSlotWaiverCount?: number;
   readonly observatoryRangeBonus?: number;
   readonly orbitalRecruitmentMpPerCoin?: number;
