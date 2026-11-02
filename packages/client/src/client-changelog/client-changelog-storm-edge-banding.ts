@@ -6,6 +6,6 @@ export const STORM_EDGE_BANDING_CHANGELOG: ClientChangelogEntry[] = [
     introducedIn: "2026.10.29.2",
     title: "Unbroken brass edge on the unexplored border",
     why: "On some phones the brass line around unexplored territory broke into offset segments in the 3D map.",
-    changes: ["The brass edge and storm clouds at the unexplored border now draw as one continuous line on mobile GPUs."]
+    changes: ["The 3D map draws the unexplored border's brass edge, and the storm and mist along it, with more precision on mobile GPUs, so the edge no longer jumps sideways between rows of the screen."]
   }
 ];
