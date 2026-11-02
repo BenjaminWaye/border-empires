@@ -9,8 +9,9 @@
 //
 // `cooldownUntil` is kept on the tower as "the earliest time it can fire
 // again" (absent while it has a shot left), written whenever a shot is
-// spent, so the shield rule, the AI and the map badges keep reading a
-// single field.
+// spent. It is a hint for readers that can't know the owner's capacity
+// (the AI, other players' clients); the simulation's own readiness checks
+// use aetherTowerHasShot with the owner's current capacity.
 
 export const AETHER_TOWER_BASE_SHOTS = 3;
 export const AETHER_TOWER_SHOT_REFILL_MS = 24 * 60 * 60_000;
@@ -29,6 +30,14 @@ export const liveAetherTowerShots = (tower: AetherTowerShotView, now: number): n
 
 export const aetherTowerShotsRemaining = (tower: AetherTowerShotView, maxShots: number, now: number): number =>
   Math.max(0, maxShots - liveAetherTowerShots(tower, now).length);
+
+/**
+ * Whether the tower can fire at `now` for an owner holding `maxShots`.
+ * A tower with no shot history yet (built, or last fired, before shots
+ * existed) falls back to its old cooldownUntil.
+ */
+export const aetherTowerHasShot = (tower: AetherTowerShotView & { readonly cooldownUntil?: number | undefined }, maxShots: number, now: number): boolean =>
+  tower.shotsUsedAt === undefined ? (tower.cooldownUntil ?? 0) <= now : aetherTowerShotsRemaining(tower, maxShots, now) > 0;
 
 /** When the tower next has a shot: `now` if it has one already. */
 export const aetherTowerNextShotAt = (tower: AetherTowerShotView, maxShots: number, now: number): number => {

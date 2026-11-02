@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AETHER_TOWER_SHOT_HISTORY_CAP,
   AETHER_TOWER_SHOT_REFILL_MS,
+  aetherTowerHasShot,
   aetherTowerMaxShots,
   aetherTowerNextRefillAt,
   aetherTowerNextShotAt,
@@ -50,5 +51,13 @@ describe("aether tower shots", () => {
     let tower: { shotsUsedAt?: number[] } = {};
     for (let at = 1; at <= AETHER_TOWER_SHOT_HISTORY_CAP + 5; at += 1) tower = spendAetherTowerShot(tower, 100, at);
     expect(tower.shotsUsedAt).toHaveLength(AETHER_TOWER_SHOT_HISTORY_CAP);
+  });
+
+  it("has a shot while any are left, and falls back to the old cooldown before its first shot", () => {
+    expect(aetherTowerHasShot({ shotsUsedAt: [1, 2] }, 3, 10)).toBe(true);
+    expect(aetherTowerHasShot({ shotsUsedAt: [1, 2, 3] }, 3, 10)).toBe(false);
+    expect(aetherTowerHasShot({ shotsUsedAt: [1, 2, 3] }, 6, 10)).toBe(true);
+    expect(aetherTowerHasShot({ cooldownUntil: 20 }, 3, 10)).toBe(false);
+    expect(aetherTowerHasShot({ cooldownUntil: 20 }, 3, 20)).toBe(true);
   });
 });

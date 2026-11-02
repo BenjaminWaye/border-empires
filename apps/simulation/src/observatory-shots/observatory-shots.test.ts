@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { AETHER_TOWER_SHOT_REFILL_MS } from "@border-empires/shared";
+import type { DomainTileState } from "@border-empires/game-domain";
 import { SimulationRuntime } from "../runtime/runtime.js";
+import { pickReadyOwnedObservatoryAny, pickReadyOwnedObservatoryForTarget } from "../runtime-ability-helpers.js";
 
 // Every ability cast from an Aether Tower spends one of its shots: 3 per tower
 // per rolling 24h, 6 with Oracle's Resonance Governor (aether-tower-shots.ts).
@@ -77,5 +79,27 @@ describe("Aether Tower shots", () => {
     }
     clock.now = 7_000;
     expect(await sweep(runtime, events, clock.now)).toBe("aether tower has no shots left");
+  });
+});
+
+describe("picking the tower a cast fires from", () => {
+  const tower = (x: number, shotsUsedAt: number[]): DomainTileState =>
+    ({ x, y: 0, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED", observatory: { ownerId: "p", status: "active", shotsUsedAt } }) as DomainTileState;
+  // Tower at x=5 is nearest the target but down to its last shot; x=10 is full.
+  const tiles = new Map([["5,0", tower(5, [1, 2])], ["10,0", tower(10, [])], ["15,0", tower(15, [1, 2, 3])]]);
+  const pick = { tiles, territoryTileKeys: new Set(tiles.keys()), playerId: "p", targetX: 0, targetY: 0, now: 10, range: 20, maxShots: 3, isStructureDormant: () => false };
+
+  it("fires a targeted ability from the in-range tower with most shots left, so the nearer one keeps its shield", () => {
+    expect(pickReadyOwnedObservatoryForTarget(pick)).toBe("10,0");
+  });
+
+  it("falls back to the nearest when shots are tied, and skips empty towers", () => {
+    const tied = new Map([["5,0", tower(5, [1])], ["10,0", tower(10, [1])], ["15,0", tower(15, [1, 2, 3])]]);
+    expect(pickReadyOwnedObservatoryForTarget({ ...pick, tiles: tied, territoryTileKeys: new Set(tied.keys()) })).toBe("5,0");
+    expect(pickReadyOwnedObservatoryForTarget({ ...pick, territoryTileKeys: new Set(["15,0"]) })).toBeUndefined();
+  });
+
+  it("fires an untargeted ability from the fullest tower", () => {
+    expect(pickReadyOwnedObservatoryAny(tiles, new Set(tiles.keys()), "p", 10, 3, () => false)).toBe("10,0");
   });
 });

@@ -34,7 +34,7 @@ import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town
 import { ownTownEconomyFieldsPartial, ownTownGrowthRatePending, tileProductionRequirementLabel, tileTownPartialLoadingRowHtml } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
 import { tileOwnerLabelHtml } from "../client-founding-engineer/client-founding-engineer.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
-import type { TechInfo, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuView, TileOverviewLine } from "../client-types.js";
+import type { DomainInfo, TechInfo, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuView, TileOverviewLine } from "../client-types.js";
 import { tileMenuTitleForTile } from "./client-tile-menu-title.js";
 import { tileMenuTabs } from "./client-tile-menu-tabs.js";
 import { afcModuleTabForTile } from "../client-afc-module-tab/client-afc-module-tab.js";
@@ -58,7 +58,7 @@ export { constructionProgressForTile } from "../client-tile-menu-construction-pr
 export const menuOverviewForTile = (
   tile: Tile,
   deps: {
-    state: { me: string; domainIds?: readonly string[]; upkeepLastTick?: { foodCoverage?: number }; techCatalog?: readonly TechInfo[]; techIds?: readonly string[] } & Partial<DockLandingState>;
+    state: { me: string; domainIds?: readonly string[]; domainCatalog?: readonly DomainInfo[]; upkeepLastTick?: { foodCoverage?: number }; techCatalog?: readonly TechInfo[]; techIds?: readonly string[] } & Partial<DockLandingState>;
     prettyToken: (value: string) => string;
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     displayTownGoldPerMinute: (tile: Tile) => number;

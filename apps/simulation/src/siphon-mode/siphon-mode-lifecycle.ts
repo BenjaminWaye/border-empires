@@ -29,7 +29,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import { isSiphonModeSabotage } from "@border-empires/shared";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { someProtectionSquareKey } from "../aether-shield/aether-shield.js";
-import type { ObservatoryTileWriteDeps } from "../observatory-cooldown-stamp/observatory-cooldown-stamp.js";
+import type { ObservatoryTileWriteDeps } from "../observatory-shots/observatory-shot-spend.js";
 
 export type SiphonEndReason = "cancelled" | "caster_observatory_lost" | "drained_tile_lost" | "victim_observatory";
 

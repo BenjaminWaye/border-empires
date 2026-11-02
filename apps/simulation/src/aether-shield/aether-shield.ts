@@ -7,33 +7,36 @@
 // (aether-shield-broadcast.ts).
 //
 // A tower shields only while it is active, its owner holds the tower tile,
-// it has a shot left (cooldownUntil, aether-tower-shots.ts), and it is not
-// resource-slot dormant. It
+// it has a shot left for its owner's capacity (aether-tower-shots.ts), and
+// it is not resource-slot dormant. It
 // covers only tiles its owner holds, within the fixed
 // OBSERVATORY_PROTECTION_RADIUS (tech range bonuses widen casting, not the
 // shield).
 import type { DomainTileState } from "@border-empires/game-domain";
 import { OBSERVATORY_PROTECTION_RADIUS } from "@border-empires/game-domain";
-import { isAetherTowerSuppressed, WORLD_HEIGHT, WORLD_WIDTH, chebyshevWithWrap, wrapX, wrapY } from "@border-empires/shared";
+import { aetherTowerHasShot, isAetherTowerSuppressed, WORLD_HEIGHT, WORLD_WIDTH, chebyshevWithWrap, wrapX, wrapY } from "@border-empires/shared";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 
 export type ObservatoryDormancyCheck = (playerId: string, tileKey: string, field: "observatory") => boolean;
+/** Shots each of `ownerId`'s towers holds (observatoryMaxShotsForActor), read live so a capacity change applies at once. */
+export type ObservatoryShotCapacity = (ownerId: string) => number;
 
-/** Active, its owner holds the tower tile, and not out of shots. */
-const isObservatoryReady = (tile: DomainTileState | undefined, now: number): boolean => {
+/** Active, its owner holds the tower tile, and it has a shot left for that owner. */
+const isObservatoryReady = (tile: DomainTileState | undefined, now: number, maxShotsFor: ObservatoryShotCapacity): boolean => {
   const observatory = tile?.observatory;
   if (!tile || !observatory || observatory.status !== "active" || isAetherTowerSuppressed(observatory, now)) return false;
   if (!tile.ownerId || observatory.ownerId !== tile.ownerId) return false;
-  return (observatory.cooldownUntil ?? 0) <= now;
+  return aetherTowerHasShot(observatory, maxShotsFor(observatory.ownerId), now);
 };
 
 /** True when the tower on `tile` is shielding its owner's land at `now`: ready and not dormant. */
 export const isObservatoryShielding = (
   tile: DomainTileState | undefined,
   now: number,
-  isStructureDormant: ObservatoryDormancyCheck
+  isStructureDormant: ObservatoryDormancyCheck,
+  maxShotsFor: ObservatoryShotCapacity
 ): boolean => {
-  if (!tile?.observatory || !isObservatoryReady(tile, now)) return false;
+  if (!tile?.observatory || !isObservatoryReady(tile, now, maxShotsFor)) return false;
   return !isStructureDormant(tile.observatory.ownerId, simulationTileKey(tile.x, tile.y), "observatory");
 };
 
@@ -100,13 +103,14 @@ export const collectShieldingTowers = (
   activeObservatoriesByOwner: ReadonlyMap<string, ReadonlySet<string>>,
   tiles: ReadonlyMap<string, DomainTileState>,
   now: number,
-  isStructureDormant: ObservatoryDormancyCheck
+  isStructureDormant: ObservatoryDormancyCheck,
+  maxShotsFor: ObservatoryShotCapacity
 ): ShieldingTower[] => {
   const towers: ShieldingTower[] = [];
   for (const [ownerId, tileKeys] of activeObservatoriesByOwner) {
     for (const tileKey of tileKeys) {
       const tile = tiles.get(tileKey);
-      if (tile?.ownerId === ownerId && isObservatoryShielding(tile, now, isStructureDormant)) towers.push({ x: tile.x, y: tile.y, ownerId });
+      if (tile?.ownerId === ownerId && isObservatoryShielding(tile, now, isStructureDormant, maxShotsFor)) towers.push({ x: tile.x, y: tile.y, ownerId });
     }
   }
   return towers;

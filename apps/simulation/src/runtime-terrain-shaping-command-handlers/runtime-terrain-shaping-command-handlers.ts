@@ -6,6 +6,7 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { isTileShieldedByEnemyObservatory } from "../runtime-ability-helpers.js";
+import { observatoryMaxShotsForOwner } from "../runtime-ability-command-handlers.js";
 import { parseTilePayload } from "../runtime-command-parsers.js";
 import type { RuntimeMapCommandContext } from "../runtime-map-command-handlers.js";
 import { isAlliedOrTruced } from "../runtime-player-factory.js";
@@ -19,7 +20,7 @@ function rejectCommand(context: RuntimeMapCommandContext, command: CommandEnvelo
 // tiles only; unowned land and the actor's own land are never shielded.
 function isTargetShieldedByHostileAmbaricTransformer(context: RuntimeMapCommandContext, actor: DomainPlayer, target: DomainTileState): boolean {
   if (!target.ownerId || isAlliedOrTruced(actor, target.ownerId)) return false;
-  return isTileShieldedByEnemyObservatory(context.tiles, context.isStructureDormant, actor.id, target.x, target.y, context.now());
+  return isTileShieldedByEnemyObservatory(context.tiles, context.isStructureDormant, (ownerId) => observatoryMaxShotsForOwner(context.players, ownerId), actor.id, target.x, target.y, context.now());
 }
 
 export function handleCreateMountainCommand(context: RuntimeMapCommandContext, command: CommandEnvelope): void {

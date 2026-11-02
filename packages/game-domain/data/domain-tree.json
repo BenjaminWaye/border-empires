@@ -299,7 +299,7 @@
       "id": "oracle-state",
       "tier": 5,
       "name": "Oracle State",
-      "description": "Information superiority becomes empire superiority: aether towers reach further, hold half again as many shots, and towns see deep into the frontier.",
+      "description": "Information superiority becomes empire superiority: aether towers reach further, hold 5 shots per 24 hours instead of 3, and towns see deep into the frontier.",
       "requiresTechId": "beacon-towers",
       "cost": { "gold": 1800, "shard": 5 },
       "effects": {

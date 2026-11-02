@@ -51,5 +51,5 @@ export const ownTowerReadyInMs = (
 ): number => readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, target, nowMs, ownObservatoryRange(state), ownObservatoryMaxShots(state));
 
 /** Ms until the local player's own tower on `tower` has a shot again (0 when it has one). */
-export const ownTowerShotReadyInMs = (state: { readonly domainIds?: readonly string[] | undefined }, tower: Tile, nowMs: number): number =>
+export const ownTowerShotReadyInMs = (state: Parameters<typeof ownObservatoryMaxShots>[0], tower: Tile, nowMs: number): number =>
   tower.observatory ? Math.max(0, aetherTowerNextShotAt(tower.observatory, ownObservatoryMaxShots(state), nowMs) - nowMs) : 0;

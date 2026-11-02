@@ -6,6 +6,7 @@ import {
   ownTowerShotReadyInMs,
   readyOwnedObservatoryCooldownRemainingMs
 } from "./client-observatory-cooldown.js";
+import { ownObservatoryMaxShots } from "../client-observatory-rules/client-observatory-rules.js";
 import type { Tile } from "../client-types.js";
 
 const baseTile = (x: number, y: number): Tile => ({ x, y, terrain: "LAND" });
@@ -68,5 +69,14 @@ describe("client observatory cooldown helpers", () => {
     expect(ownTowerShotReadyInMs(state([]), tower, 1_000)).toBe(100 + AETHER_TOWER_SHOT_REFILL_MS - 1_000);
     expect(ownTowerReadyInMs(state(["afc-oracle-2"]), baseTile(30, 30), 1_000)).toBe(0);
     expect(ownTowerShotReadyInMs(state([]), tower, 100 + AETHER_TOWER_SHOT_REFILL_MS)).toBe(0);
+  });
+
+  it("counts legacy domain-tree shot multipliers the way the server does", () => {
+    const tower = { ...baseTile(31, 31), ownerId: "me", observatory: { ownerId: "me", status: "active", shotsUsedAt: [100, 200, 300] } } as Tile;
+    const legacy = (domainIds: string[]) => ({ domainIds, domainCatalog: [{ id: "hidden-hand", effects: { observatoryShotsMult: 2 } }, { id: "oracle-state", effects: { observatoryShotsMult: 1.5 } }] });
+    expect(ownObservatoryMaxShots(legacy(["hidden-hand"]))).toBe(6);
+    expect(ownObservatoryMaxShots(legacy(["hidden-hand", "oracle-state"]))).toBe(9);
+    expect(ownObservatoryMaxShots(legacy(["afc-oracle-2"]))).toBe(6);
+    expect(ownTowerShotReadyInMs(legacy(["hidden-hand"]), tower, 1_000)).toBe(0);
   });
 });

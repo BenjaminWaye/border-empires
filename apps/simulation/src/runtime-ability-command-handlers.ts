@@ -5,7 +5,7 @@ import {
   AETHER_WALL_DURATION_MS, playerHasAbilityTech,
   SURVEY_SWEEP_HALF_EXTENT
 } from "@border-empires/game-domain";
-import { aetherTowerMaxShots, aetherTowerShotsRemaining, isAetherTowerSuppressed, isObservatoryInSiphonMode, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { AETHER_TOWER_BASE_SHOTS, aetherTowerMaxShots, aetherTowerShotsRemaining, isAetherTowerSuppressed, isObservatoryInSiphonMode, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { parseAetherWallPayload, parseRevealPayload, parseTilePayload } from "./runtime-command-parsers.js";
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
@@ -23,6 +23,12 @@ import type { SiphonModeLifecycle } from "./siphon-mode/siphon-mode-lifecycle.js
 // Oracle's Resonance Governor (observatoryShotsMult) doubles it.
 export const observatoryMaxShotsForActor = (actor: Pick<DomainPlayer, "techIds" | "domainIds">): number =>
   aetherTowerMaxShots(multiplicativeEffectForPlayer(actor, "observatoryShotsMult"));
+
+/** observatoryMaxShotsForActor by owner id; an owner missing from `players` gets the base capacity. */
+export const observatoryMaxShotsForOwner = (players: ReadonlyMap<string, Pick<DomainPlayer, "techIds" | "domainIds">>, ownerId: string): number => {
+  const owner = players.get(ownerId);
+  return owner ? observatoryMaxShotsForActor(owner) : AETHER_TOWER_BASE_SHOTS;
+};
 
 type SurveySweepPingKind = "resource" | "town";
 
