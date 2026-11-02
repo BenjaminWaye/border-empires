@@ -113,7 +113,7 @@ export const HUD_V2_PREVIEW_CHANGELOG: ClientChangelogEntry[] = [
     createdAt: 1793651969491, // Date.now() captured once for this entry.
     introducedIn: "2026.11.02",
     title: "The new HUD is now the default on desktop",
-    why: "The redesigned HUD has been through several rounds of testing and replaces the old one for everyone on desktop.",
+    why: "The redesigned HUD has been through several rounds of testing and is now the standard HUD on desktop.",
     changes: [
       "Desktop players get the new HUD without adding ?hud=v2 to the game URL. Phones keep the current HUD for now.",
       "To go back to the old HUD, add ?hud=legacy to the game URL; ?hud=v2 switches the new one back on."

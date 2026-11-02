@@ -1,6 +1,6 @@
 // Feature flag for the redesigned desktop HUD (client-hud-v2.ts). On by
 // default; `?hud=legacy` opts this browser back into the old HUD and `?hud=v2`
-// clears that opt-out. Phones keep the legacy HUD until the mobile pass.
+// switches it back on. Phones keep the legacy HUD until the mobile pass.
 
 export const HUD_V2_STORAGE_KEY = "be.hudV2";
 /** Stored when the player opts out with `?hud=legacy`; anything else means the new HUD. */

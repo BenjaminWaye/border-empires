@@ -42,7 +42,7 @@ share a link if you need the editable version.
 
 - Flag: on by default (desktop only, wider than 900px). `?hud=legacy` opts
   the browser back into the old HUD (stored as `be.hudV2=0`); `?hud=v2`
-  clears that opt-out.
+  switches it back on (stores `be.hudV2=1`).
 - Modules: `packages/client/src/client-hud-v2/`. `client-hud-v2.ts` is the
   controller (250 ms frame, writes only regions that changed),
   `client-hud-v2-context.ts` holds shared deps and screen state, and
@@ -58,8 +58,8 @@ share a link if you need the editable version.
 ## Shipped so far
 
 PRs #2498 (screens), #2503 and #2504 (two rounds of staging feedback), all
-merged to `develop` and on staging at
-`https://staging.borderempires.com/?hud=v2`.
+merged to `develop`. Since #2587 it is the default desktop HUD; the classic
+HUD stays reachable with `?hud=legacy`.
 
 Known gaps at export time: no mobile layout; a profile opened from Ranks closes
 to the map; a tile with both a fort and an economic structure only describes
