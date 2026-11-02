@@ -20,8 +20,10 @@ export type PlayerUpdateManpowerState = Pick<
 export const devQueueManpowerReservedTileKeys = (devQueue: unknown): Set<string> | undefined => {
   if (!Array.isArray(devQueue)) return undefined;
   const keys = new Set<string>();
-  for (const entry of devQueue as Array<{ tileKey?: unknown; manpowerReserved?: unknown }>) {
-    if (entry?.manpowerReserved === true && typeof entry.tileKey === "string") keys.add(entry.tileKey);
+  for (const entry of devQueue) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const { tileKey, manpowerReserved } = entry as Partial<Record<"tileKey" | "manpowerReserved", unknown>>;
+    if (manpowerReserved === true && typeof tileKey === "string") keys.add(tileKey);
   }
   return keys;
 };

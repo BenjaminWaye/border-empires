@@ -39,10 +39,11 @@ export const queuedSettlementProgressForTile = (
   const awaitsManpower = deps.settleAwaitsManpower?.(entry.tileKey) ?? false;
   return {
     title: isPlanned ? "Garrison planned" : "Garrison queued",
-    detail: awaitsManpower
-      ? "Starts after the next manpower batch."
-      : isPlanned
+    // A planned entry keeps its "local only" warning; its copy already covers waiting for manpower.
+    detail: isPlanned
       ? "Waiting locally for coin/manpower and a free server queue slot before this is submitted."
+      : awaitsManpower
+      ? "Starts after the next manpower batch."
       : "This frontier tile is confirmed by the server and will garrison automatically -- even if you log off.",
     remainingLabel: awaitsManpower ? "Needs manpower" : remainingLabelFor(queueState, index),
     progress: 0,

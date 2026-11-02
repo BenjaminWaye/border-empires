@@ -75,7 +75,8 @@ function makeContext(overrides: { manpower: number; hasSlot?: boolean }) {
       return { ok: true, manpowerCost: SETTLE_TEST_MANPOWER_COST, slotRequirements: [] };
     },
     applyManpowerReservation: (_playerId, amount) => { manpower = Math.max(0, manpower - amount); },
-    refundManpowerReservation: (_playerId, amount) => { manpower = Math.min(manpowerCap, manpower + amount); }
+    refundManpowerReservation: (_playerId, amount) => { manpower = Math.min(manpowerCap, manpower + amount); },
+    releaseManpowerReservationForCharge: (_playerId, amount) => { manpower += amount; }
   };
 
   return { context, summary, events, rejections, dispatchedBuilds, playerStateUpdates, getManpower: () => manpower, setHasSlot: (v: boolean) => { hasSlot = v; } };

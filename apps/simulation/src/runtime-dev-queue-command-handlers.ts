@@ -194,7 +194,12 @@ export const tryDrainDevQueue = (context: RuntimeDevQueueCommandContext, playerI
   if (drainIndex < 0) return;
   const entry = summary.devQueue[drainIndex]!;
   summary.devQueue = [...summary.devQueue.slice(0, drainIndex), ...summary.devQueue.slice(drainIndex + 1)];
-  refundEntryReservation(context, playerId, entry);
+  // A garrison's hold goes back unclamped: handleSettleCommand charges it
+  // straight away with no manpower settle in between (see
+  // releaseManpowerReservationForCharge). BUILD_STRUCTURE re-settles first,
+  // so builds keep the clamped refund.
+  if (entry.kind === "SETTLE" && entry.reservedManpower) context.releaseManpowerReservationForCharge(playerId, entry.reservedManpower);
+  else refundEntryReservation(context, playerId, entry);
   const nowMs = context.now();
   const isRemoval = entry.kind === "BUILD" && entry.structureType === "REMOVE_STRUCTURE";
   // "BUILD_STRUCTURE" is the internal normalized build type (see
@@ -225,12 +230,10 @@ export const tryDrainDevQueue = (context: RuntimeDevQueueCommandContext, playerI
 
 /**
  * Passive-income tick hook: reserve whatever waiting garrisons the pool can
- * now cover, tell the client, then try a drain. The drain also covers
- * unreserved continuation SETTLEs an offline player's queue was skipping
- * while it couldn't afford them (tryDrainDevQueue's affordability gate).
- * Callers settle the player's manpower first.
+ * now cover, tell the client, then try a drain. Callers settle the player's
+ * manpower first.
  */
-export const tickUnreservedSettleEntries = (context: RuntimeDevQueueCommandContext, playerId: string): void => {
+export const tickAwaitingSettleEntries = (context: RuntimeDevQueueCommandContext, playerId: string): void => {
   if (reserveAwaitingSettleManpower(context, playerId) > 0) {
     context.emitPlayerStateUpdate({ commandId: `dev-queue-manpower:${playerId}:${context.now()}`, playerId });
   }
@@ -241,20 +244,20 @@ export const tickUnreservedSettleEntries = (context: RuntimeDevQueueCommandConte
  * A queued garrison the client sends itself (online players dispatch their
  * own client-origin entries) is still holding its reservation here: the
  * client's DEV_QUEUE_CANCEL rides the non-interactive lane and can land after
- * the SETTLE. Hand that manpower back and drop the entry before the SETTLE
- * is charged, so it pays from the full pool instead of being refused short
- * on manpower its own queue entry held. A still-waiting entry is dropped too,
+ * the SETTLE. Hand that manpower back (unclamped -- the SETTLE charges it
+ * straight after) and drop the entry, so the garrison pays exactly once from
+ * its own hold instead of being refused short on it. A still-waiting entry is dropped too,
  * so the passive-income tick can't reserve for a garrison already sent.
  * Continuation SETTLEs (neither flag) are left for clearCompletedSettleEntry.
  */
 export const releaseQueuedSettleReservation = (
-  context: Pick<RuntimeDevQueueCommandContext, "summaryForPlayer" | "refundManpowerReservation">,
+  context: Pick<RuntimeDevQueueCommandContext, "summaryForPlayer" | "releaseManpowerReservationForCharge">,
   playerId: string,
   tileKey: string
 ): void => {
   const summary = context.summaryForPlayer(playerId);
   const entry = devQueueEntryForTileKey(summary.devQueue, tileKey);
   if (entry?.kind !== "SETTLE" || (!entry.reservedManpower && !entry.awaitingManpower)) return;
-  refundEntryReservation(context, playerId, entry);
+  if (entry.reservedManpower) context.releaseManpowerReservationForCharge(playerId, entry.reservedManpower);
   summary.devQueue = devQueueCancel(summary.devQueue, tileKey);
 };

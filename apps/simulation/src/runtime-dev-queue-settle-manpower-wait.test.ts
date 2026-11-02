@@ -4,13 +4,14 @@ import { createEmptyPlayerRuntimeSummary, type ServerDevQueueEntry } from "./pla
 import type { DevQueueBuildReservation } from "./runtime-dev-queue-build-reservation.js";
 import {
   releaseQueuedSettleReservation,
-  tickUnreservedSettleEntries,
+  tickAwaitingSettleEntries,
   tryDrainDevQueue,
   type RuntimeDevQueueCommandContext
 } from "./runtime-dev-queue-command-handlers.js";
 import { reserveAwaitingSettleManpower } from "./runtime-dev-queue-settle-manpower-wait.js";
 
 const SETTLE_COST = 10;
+const MANPOWER_CAP = 1_000;
 
 const makeContext = (startManpower: number, opts: { online?: boolean; hasSlot?: boolean } = {}) => {
   const summary = createEmptyPlayerRuntimeSummary();
@@ -35,7 +36,9 @@ const makeContext = (startManpower: number, opts: { online?: boolean; hasSlot?: 
         ? { ok: false, code: "INSUFFICIENT_MANPOWER", message: "need 10 manpower to garrison" }
         : { ok: true, manpowerCost: SETTLE_COST, slotRequirements: [] },
     applyManpowerReservation: (_playerId, amount) => { manpower -= amount; },
-    refundManpowerReservation: (_playerId, amount) => { manpower += amount; }
+    // Clamped like the real creditManpower, so a test can tell the two refunds apart.
+    refundManpowerReservation: (_playerId, amount) => { manpower = Math.min(MANPOWER_CAP, manpower + amount); },
+    releaseManpowerReservationForCharge: (_playerId, amount) => { manpower += amount; }
   };
   return {
     context,
@@ -88,12 +91,12 @@ describe("queued garrisons waiting for manpower", () => {
     const { context, summary, dispatchedSettles, playerStateUpdates, getManpower, setManpower } = makeContext(0);
     summary.devQueue = [settleEntry("1,1", { awaitingManpower: true })];
 
-    tickUnreservedSettleEntries(context, "p1");
+    tickAwaitingSettleEntries(context, "p1");
     expect(playerStateUpdates).toEqual([]);
     expect(dispatchedSettles).toHaveLength(0);
 
     setManpower(40); // a refill batch landed
-    tickUnreservedSettleEntries(context, "p1");
+    tickAwaitingSettleEntries(context, "p1");
     expect(playerStateUpdates).toHaveLength(1);
     expect(dispatchedSettles).toHaveLength(1);
     // Reserved, then refunded just before dispatch so the SETTLE handler charges it fresh.
@@ -104,7 +107,7 @@ describe("queued garrisons waiting for manpower", () => {
   it("tick: reserves but leaves dispatch to an online client", () => {
     const { context, summary, dispatchedSettles, getManpower } = makeContext(40, { online: true });
     summary.devQueue = [settleEntry("1,1", { awaitingManpower: true })];
-    tickUnreservedSettleEntries(context, "p1");
+    tickAwaitingSettleEntries(context, "p1");
     expect(dispatchedSettles).toHaveLength(0);
     expect(getManpower()).toBe(30);
     expect(summary.devQueue[0]?.reservedManpower).toBe(SETTLE_COST);
@@ -137,5 +140,25 @@ describe("releaseQueuedSettleReservation", () => {
     summary.devQueue = [settleEntry("1,1"), settleEntry("2,2", { reservedManpower: SETTLE_COST })];
     releaseQueuedSettleReservation(context, "p1", "1,1");
     expect(summary.devQueue.map((entry) => entry.tileKey)).toEqual(["1,1", "2,2"]);
+  });
+});
+
+describe("held garrison manpower near the cap", () => {
+  // Regen keeps refilling the pool while a garrison's hold sits outside it.
+  // A cap-clamped refund right before the SETTLE charge would make that one
+  // garrison cost twice.
+  it("releases a garrison's hold unclamped for the drain, so the SETTLE charge nets out", () => {
+    const { context, summary, dispatchedSettles, getManpower } = makeContext(MANPOWER_CAP);
+    summary.devQueue = [settleEntry("1,1", { reservedManpower: SETTLE_COST })];
+    tryDrainDevQueue(context, "p1");
+    expect(dispatchedSettles).toHaveLength(1);
+    expect(getManpower()).toBe(MANPOWER_CAP + SETTLE_COST);
+  });
+
+  it("releases unclamped for a client-sent SETTLE too", () => {
+    const { context, summary, getManpower } = makeContext(MANPOWER_CAP);
+    summary.devQueue = [settleEntry("1,1", { reservedManpower: SETTLE_COST })];
+    releaseQueuedSettleReservation(context, "p1", "1,1");
+    expect(getManpower()).toBe(MANPOWER_CAP + SETTLE_COST);
   });
 });

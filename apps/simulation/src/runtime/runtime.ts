@@ -187,7 +187,7 @@ import {
   handleDevQueueEnqueueCommand as handleDevQueueEnqueueCommandImpl,
   handleDevQueueMoveToFrontCommand as handleDevQueueMoveToFrontCommandImpl,
   tryDrainDevQueue as tryDrainDevQueueImpl,
-  tickUnreservedSettleEntries as tickUnreservedSettleEntriesImpl,
+  tickAwaitingSettleEntries as tickAwaitingSettleEntriesImpl,
   releaseQueuedSettleReservation as releaseQueuedSettleReservationImpl,
   type RuntimeDevQueueCommandContext
 } from "../runtime-dev-queue-command-handlers.js"; import { devQueueBuildReservationContext } from "../runtime-dev-queue-build-reservation.js";
@@ -1054,7 +1054,7 @@ export class SimulationRuntime {
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount),
       emitPlayerStateUpdate: (input) => this.emitPlayerStateUpdate(input),
-      tickUnreservedSettleEntries: (player, nowMs) => { this.applyManpowerRegen(player, nowMs); tickUnreservedSettleEntriesImpl(this.devQueueCommandContext(), player.id); },
+      tickAwaitingSettleEntries: (player, nowMs) => { this.refreshManpowerOnly(player, nowMs); tickAwaitingSettleEntriesImpl(this.devQueueCommandContext(), player.id); },
       ...(this.trackSyncMainThreadTask !== undefined ? { trackSyncMainThreadTask: this.trackSyncMainThreadTask } : {})
     };
   }

@@ -11,12 +11,13 @@
 import type { PlayerRuntimeSummary, ServerDevQueueEntry } from "./player-runtime-summary.js";
 import type { RuntimeDevQueueCommandContext } from "./runtime-dev-queue-command-handlers.js";
 
-/** True for a garrison entry still holding no manpower. Covers both waiting entries and server-minted continuation SETTLEs, which never reserve. */
-export const isUnreservedSettleEntry = (entry: Pick<ServerDevQueueEntry, "kind" | "reservedManpower">): boolean =>
-  entry.kind === "SETTLE" && !entry.reservedManpower;
-
-export const hasUnreservedSettleEntry = (summary: Pick<PlayerRuntimeSummary, "devQueue">): boolean =>
-  summary.devQueue.some(isUnreservedSettleEntry);
+/**
+ * True when the queue holds a garrison waiting for manpower. Continuation
+ * SETTLEs (unreserved, no flag) don't count: an online player's sits in the
+ * queue for the whole settle timer, and the tick has nothing to do for it.
+ */
+export const hasAwaitingSettleEntry = (summary: Pick<PlayerRuntimeSummary, "devQueue">): boolean =>
+  summary.devQueue.some((entry) => entry.awaitingManpower === true);
 
 /**
  * Reserves manpower for `awaitingManpower` entries in queue order, stopping

@@ -80,6 +80,22 @@ describe("queued garrisons wait for manpower instead of failing", () => {
   });
 });
 
+describe("server-reserved flags on re-queued tiles", () => {
+  // A cancelled reserved garrison's tile could keep its stale flag until the
+  // next PLAYER_UPDATE; re-queued short, it was then sent as reserved, skipped
+  // the local check, got refused and was spliced out of the queue.
+  it("drops a leftover reserved flag when a fresh entry is queued on the tile", () => {
+    const state = makeState(0);
+    state.devQueueManpowerReservedTileKeys = new Set(["1,1"]);
+    queueDevelopmentAction(state, { kind: "SETTLE", x: 1, y: 1, tileKey: "1,1", label: "Garrison at (1, 1)" }, { pushFeed: vi.fn(), renderHud: vi.fn() });
+    expect(queuedSettleAwaitsManpower(state, "1,1")).toBe(true);
+    const requestSettlementSpy = vi.fn(() => true);
+    processDevelopmentQueue(state, processDeps(requestSettlementSpy));
+    expect(requestSettlementSpy).not.toHaveBeenCalled();
+    expect(state.developmentQueue).toHaveLength(1);
+  });
+});
+
 describe("requestSettlement while short on manpower", () => {
   const settleDeps = (state: ReturnType<typeof makeState>, opts?: Parameters<typeof requestSettlement>[3]["opts"]) => {
     const sendGameMessage = vi.fn(() => true);
