@@ -1,4 +1,5 @@
-// Battle scars: signs of war left on the ground (craters, scorch, wreckage)
+// Battle scars: signs of war left on the ground (beam-cut furrows fused to
+// glass, glassed impact pits, charred earth, burnt trees)
 // once a garrisoned tile has been taken in battle. They last
 // WAR_SCAR_DURATION_MS after the latest battle there and deepen with every
 // further battle on the tile, won or lost, up to WAR_SCAR_MAX_LEVEL.
@@ -39,3 +40,14 @@ export const warScarFieldsAfterBattle = (
   if (deepens) return { warScarLevel: Math.min(WAR_SCAR_MAX_LEVEL, live + 1), warScarUntil: nowMs + WAR_SCAR_DURATION_MS };
   return live > 0 ? { warScarLevel: live, warScarUntil: tile!.warScarUntil! } : {};
 };
+
+/** For this long after the latest battle the scars are fresh: still smoking, beam cuts still glowing. */
+export const WAR_SCAR_FRESH_MS = 2 * 60 * 60 * 1000;
+
+/** When the tile's scars stop smoking (epoch ms), or undefined when they have none. */
+export const warScarFreshUntil = (tile: WarScarTile | undefined): number | undefined =>
+  typeof tile?.warScarUntil === "number" ? tile.warScarUntil - WAR_SCAR_DURATION_MS + WAR_SCAR_FRESH_MS : undefined;
+
+/** Whether the tile's scars are still fresh (smoking) at `nowMs`. */
+export const isWarScarFresh = (tile: WarScarTile | undefined, nowMs: number): boolean =>
+  liveWarScarLevel(tile, nowMs) > 0 && (warScarFreshUntil(tile) ?? 0) > nowMs;

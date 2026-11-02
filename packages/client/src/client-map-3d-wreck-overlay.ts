@@ -161,7 +161,8 @@ export const createWreckOverlay3D = (scene: Scene, envMap?: Texture): WreckOverl
           offset.set(mark.x, 0, mark.z).applyQuaternion(rotation).multiplyScalar(p.scale);
           // Each mark turned its own way so overlapping ones never line up.
           spin.setFromAxisAngle(Y_AXIS, p.yaw + m * 2.39996);
-          matrix.compose(position.set(p.x + offset.x, p.y + MARK_LIFT + m * 0.0002, p.z + offset.z), spin, scale.setScalar(mark.radius * p.scale));
+          // A small, bounded stagger so overlapping marks don't z-fight but stay under the ground details.
+          matrix.compose(position.set(p.x + offset.x, p.y + MARK_LIFT + (m % 8) * 0.0002, p.z + offset.z), spin, scale.setScalar(mark.radius * p.scale));
           marks.setMatrixAt(markCount, matrix);
           markCount += 1;
         });

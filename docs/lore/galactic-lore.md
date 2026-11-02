@@ -381,12 +381,14 @@ the ground. Fighting leaves the same marks elsewhere: a stormed fort still
 stands, but its walls are breached and it shelters no one until the new
 holders have garrisoned it, and a captured resource site burns until the
 capturing troops have secured it, yielding nothing to its new House before
-then. Ground where a garrison has been overrun keeps the marks of the fight
-for about a day: scorched craters, broken stakes and spent wreckage. Ground
-fought over again and again stays torn up longest and worst, so the
-contested heart of a front reads plainly from the air. Woodland suffers it
-worst of all: a fought-over forest is left as charred snags, snapped trunks
-and burnt stumps. A harbour taken in battle burns until its captors have
+then. Houses fight their war games with beam weapons, and ground where a
+garrison has been overrun keeps the marks of them for about a day: furrows
+where beams swept across it, cut and fused to dark glass, glassed pits where
+a beam was held on its target, and charred earth around them. For the first
+hours the cuts still glow and the ground smokes. Ground fought over again and
+again stays scarred longest and worst, so the contested heart of a front
+reads plainly from the air. Woodland burns: a fought-over forest is left as
+blackened trunks, trees sliced through by the beams, and burnt stumps. A harbour taken in battle burns until its captors have
 secured it, and earns nothing in the meantime. The exact timings
 belong in the [gameplay reference](../game-mechanics.md).
 

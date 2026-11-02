@@ -32,8 +32,17 @@ describe("wreck models", () => {
   it("grow with every level of battle scars", () => {
     const sizes = Array.from({ length: WAR_SCAR_MAX_LEVEL }, (_, i) => vertexCount({ kind: "BATTLE_SCARS", level: i + 1 }));
     for (let i = 1; i < sizes.length; i += 1) expect(sizes[i]).toBeGreaterThan(sizes[i - 1]!);
-    expect(layersOf({ kind: "BATTLE_SCARS", level: 1 })).not.toContain("steam");
-    expect(layersOf({ kind: "BATTLE_SCARS", level: WAR_SCAR_MAX_LEVEL })).toEqual(expect.arrayContaining(["glow", "steam"]));
+    // Beam damage only: fused glass and charred ground, nothing of thrown earth or wreckage.
+    expect(layersOf({ kind: "BATTLE_SCARS", level: WAR_SCAR_MAX_LEVEL })).toEqual(["body", "glass", "metal"]);
+  });
+
+  it("glow molten and smoke only while fresh", () => {
+    for (const level of [1, WAR_SCAR_MAX_LEVEL]) {
+      expect(layersOf({ kind: "BATTLE_SCARS", level, fresh: true })).toEqual(expect.arrayContaining(["glow", "halo", "steam"]));
+      expect(layersOf({ kind: "BATTLE_SCARS", level })).not.toContain("steam");
+      expect(layersOf({ kind: "FOREST_WAR", level, layout: 0, species: "pine", variant: 0, fresh: true })).toEqual(expect.arrayContaining(["glow", "steam"]));
+      expect(layersOf({ kind: "FOREST_WAR", level, layout: 0, species: "pine", variant: 0 })).not.toContain("steam");
+    }
   });
 
   it("burn a forest's destroyed trees, more of them with every battle", () => {
@@ -42,7 +51,6 @@ describe("wreck models", () => {
       const heavy = vertexCount({ kind: "FOREST_WAR", level: WAR_SCAR_MAX_LEVEL, layout: 0, species, variant: 0 });
       expect(heavy).toBeGreaterThan(light);
     }
-    expect(layersOf({ kind: "FOREST_WAR", level: WAR_SCAR_MAX_LEVEL, layout: 1, species: "pine", variant: 2 })).toEqual(expect.arrayContaining(["glow", "steam"]));
   });
 
   it("vary between variants", () => {

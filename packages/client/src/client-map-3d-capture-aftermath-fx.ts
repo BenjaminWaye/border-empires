@@ -16,7 +16,7 @@
 // more rebuild when the earliest aftermath or scar on screen ends, so it
 // clears on time on a still camera.
 import type { Scene, Texture } from "three";
-import { liveWarScarLevel } from "@border-empires/shared";
+import { isWarScarFresh, liveWarScarLevel, warScarFreshUntil } from "@border-empires/shared";
 import { captureAftermathForTile } from "./client-capture-aftermath/client-capture-aftermath.js";
 import { forestLayoutAt } from "./client-forest-war/forest-war.js";
 import { harbourFacingAt, rotationForFacing } from "./client-harbour-slipways/client-harbour-slipways.js";
@@ -60,12 +60,15 @@ export const createCaptureAftermathFx3D = (
   const addTile = (tile: Tile, tileKey: string, x: number, z: number, surfaceY: number, worldX: number, worldZ: number, forest?: "TEMPERATE" | "TROPICAL"): void => {
     const y = surfaceY + GROUND_LIFT;
     const seed = worldX * 17 + worldZ * 31;
-    const scarLevel = liveWarScarLevel(tile, Date.now());
+    const now = Date.now();
+    const scarLevel = liveWarScarLevel(tile, now);
     if (scarLevel > 0) {
-      // In a forest the trees themselves take the damage, laid out exactly as the forest draws them.
-      if (forest) wrecks.add({ kind: "FOREST_WAR", level: scarLevel, ...forestLayoutAt(worldX, worldZ, forest === "TROPICAL") }, x, y, z, seed, 0);
-      else wrecks.add({ kind: "BATTLE_SCARS", level: scarLevel }, x, y, z, seed);
-      nextBoundary = Math.min(nextBoundary, tile.warScarUntil!);
+      // Fresh scars smoke and glow for a while; rebuild once they go cold.
+      const fresh = isWarScarFresh(tile, now);
+      // In a forest the beams burn the trees themselves, laid out exactly as the forest draws them.
+      if (forest) wrecks.add({ kind: "FOREST_WAR", level: scarLevel, fresh, ...forestLayoutAt(worldX, worldZ, forest === "TROPICAL") }, x, y, z, seed, 0);
+      else wrecks.add({ kind: "BATTLE_SCARS", level: scarLevel, fresh }, x, y, z, seed);
+      nextBoundary = Math.min(nextBoundary, fresh ? warScarFreshUntil(tile)! : tile.warScarUntil!);
     }
     const aftermath = captureAftermathForTile(tile, tileKey);
     if (!aftermath) return;

@@ -17,9 +17,10 @@ export type WreckModel =
   | { readonly kind: "RESOURCE_FIRE" }
   /** A captured dock burning on its quay (dock-fire-model.ts); placed in the quay's frame. */
   | { readonly kind: "DOCK_FIRE" }
-  | { readonly kind: "BATTLE_SCARS"; readonly level: number }
-  /** Battle scars on a forest tile: its own layout's destroyed trees, burnt (see forest-war.ts). */
-  | { readonly kind: "FOREST_WAR"; readonly level: number; readonly layout: number; readonly species: ForestSpecies; readonly variant: number };
+  /** Beam damage on open ground; `fresh` scars still glow and smoke. */
+  | { readonly kind: "BATTLE_SCARS"; readonly level: number; readonly fresh?: boolean }
+  /** Battle scars on a forest tile: its own layout's trees, burnt (see forest-war.ts). */
+  | { readonly kind: "FOREST_WAR"; readonly level: number; readonly layout: number; readonly species: ForestSpecies; readonly variant: number; readonly fresh?: boolean };
 
 /** Variants per model kind; a tile picks one from its seed. */
 export const wreckModelVariants = (model: WreckModel): number =>
@@ -28,8 +29,8 @@ export const wreckModelVariants = (model: WreckModel): number =>
 export const wreckModelKey = (model: WreckModel, variant: number): string => {
   switch (model.kind) {
     case "SIEGE": return `SIEGE-${model.variant}-${variant}`;
-    case "BATTLE_SCARS": return `BATTLE_SCARS-${model.level}-${variant}`;
-    case "FOREST_WAR": return `FOREST_WAR-${model.level}-${model.layout}-${model.species}-${model.variant}`;
+    case "BATTLE_SCARS": return `BATTLE_SCARS-${model.level}-${variant}${model.fresh ? "-fresh" : ""}`;
+    case "FOREST_WAR": return `FOREST_WAR-${model.level}-${model.layout}-${model.species}-${model.variant}${model.fresh ? "-fresh" : ""}`;
     default: return `${model.kind}-${variant}`;
   }
 };
@@ -41,8 +42,8 @@ export const buildWreckModel = (t: WreckBuilders, model: WreckModel, variant: nu
     case "FORT_BREACH": return buildFortBreachGround(t, variant);
     case "RESOURCE_FIRE": return buildResourceFire(t, variant);
     case "DOCK_FIRE": return buildDockFire(t, variant);
-    case "BATTLE_SCARS": return buildBattleScars(t, model.level, variant);
-    case "FOREST_WAR": return buildForestWar(t, model.level, model.layout, model.species, model.variant);
+    case "BATTLE_SCARS": return buildBattleScars(t, model.level, variant, model.fresh);
+    case "FOREST_WAR": return buildForestWar(t, model.level, model.layout, model.species, model.variant, model.fresh);
   }
 };
 

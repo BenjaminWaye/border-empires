@@ -21,10 +21,11 @@ export const CAPTURE_AFTERMATH_CHANGELOG: ClientChangelogEntry[] = [
     title: "Battle scars",
     why: "Fought-over ground looked no different from peaceful land.",
     changes: [
-      "Capturing a garrisoned tile in battle leaves the ground scarred for 24 hours: blast craters ringed with thrown-up earth, broken pikes and arrows, dropped shields and helmets, burnt timbers",
-      "Each further battle on that ground, won or lost, adds more scars and restarts the 24 hours, up to 5 levels; the worst ground is cratered edge to edge with barricades, embers and smoke",
+      "Capturing a garrisoned tile in battle leaves the ground scarred for 24 hours by beam weapons: furrows cut and fused to dark glass, glassed pits, charred earth",
+      "Each further battle on that ground, won or lost, adds more cuts and pits and restarts the 24 hours, up to 5 levels; the worst ground is fused and charred from edge to edge",
+      "For the first two hours after a battle the cuts still glow molten and the ground smokes; then it goes cold and dark",
       "Scars stay with the ground whoever owns it, and show on both the 2D and 3D maps",
-      "In a forest the trees take the damage: more of them are charred to snags, snapped, torn up by the roots or burnt to stumps with every battle, and the debris lies between the trunks",
+      "In a forest the beams burn the trees: more of them burn with every battle (the whole stand at the worst), left standing black, sliced through with the top down beside the stump, or burnt to stumps, each kind of forest burning its own way: conifers to bare spars, broadleaves to forked limbs, palms to black poles",
       "The tile menu shows how scarred the ground is and how long until it fades"
     ]
   }
