@@ -381,7 +381,11 @@ the ground. Fighting leaves the same marks elsewhere: a stormed fort still
 stands, but its walls are breached and it shelters no one until the new
 holders have garrisoned it, and a captured resource site burns until the
 capturing troops have secured it, yielding nothing to its new House before
-then. The exact timings belong in the [gameplay reference](../game-mechanics.md).
+then. Ground where a garrison has been overrun keeps the marks of the fight
+for about a day: scorched craters, broken stakes and spent wreckage. Ground
+fought over again and again stays torn up longest and worst, so the
+contested heart of a front reads plainly from the air. The exact timings
+belong in the [gameplay reference](../game-mechanics.md).
 
 Two flags cannot own the same ground. Where a rival's anchor reaches land
 that a Duke's own anchors no longer cover, the rival's claim stands and the

@@ -37,3 +37,21 @@ describe("createCaptureAftermathFx3D", () => {
     expect(scene.children).not.toContain(mesh);
   });
 });
+
+describe("createCaptureAftermathFx3D battle scars", () => {
+  it("draws scars on a scarred tile and asks for a rebuild when they fade", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(2_000_000);
+    const scene = new Scene();
+    const fx = createCaptureAftermathFx3D(scene, { addCapturedTownSmoke: () => {} });
+    fx.clear();
+    fx.addTile({ x: 1, y: 1, terrain: "LAND", ownerId: "p1", ownershipState: "SETTLED", warScarLevel: 2, warScarUntil: Date.now() + 1_000 } as Tile, "1,1", 0, 0, 0, 7);
+    fx.commit();
+    const drawn = scene.children.filter((child): child is InstancedMesh => child instanceof InstancedMesh).reduce((sum, mesh) => sum + mesh.count, 0);
+    expect(drawn).toBeGreaterThan(0);
+    expect(fx.boundaryPassed()).toBe(false);
+    vi.setSystemTime(2_001_000);
+    expect(fx.boundaryPassed()).toBe(true);
+    fx.dispose();
+  });
+});

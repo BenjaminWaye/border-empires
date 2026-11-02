@@ -318,6 +318,8 @@ export type SimulationTileWireDelta = {
   frontierDecayKind?: FrontierDecayKind | undefined;
   breachShockUntil?: number | undefined;
   captureHoldUntil?: number | undefined;
+  warScarLevel?: number | undefined;
+  warScarUntil?: number | undefined;
   townJson?: string;
   townType?: "MARKET" | "FARMING";
   townName?: string;

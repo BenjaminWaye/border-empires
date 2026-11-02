@@ -248,6 +248,8 @@ export interface Tile {
   breachShockUntil?: number;
   // Post-capture hold window end (capture-hold.ts) -- FRONTIER only.
   captureHoldUntil?: number;
+  warScarLevel?: number;
+  warScarUntil?: number;
   frontierDecayAt?: number;
   frontierDecayKind?: FrontierDecayKind;
   continentId?: number;

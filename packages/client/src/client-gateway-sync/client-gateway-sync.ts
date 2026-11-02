@@ -52,6 +52,8 @@ type NormalizedGatewayTileUpdate = {
   frontierDecayAt?: Tile["frontierDecayAt"] | undefined;
   frontierDecayKind?: Tile["frontierDecayKind"] | undefined;
   captureHoldUntil?: Tile["captureHoldUntil"] | undefined;
+  warScarLevel?: Tile["warScarLevel"] | undefined;
+  warScarUntil?: Tile["warScarUntil"] | undefined;
   yieldRate?: Tile["yieldRate"] | undefined;
   upkeepEntries?: Tile["upkeepEntries"] | undefined;
   history?: Tile["history"] | undefined;
@@ -99,6 +101,8 @@ export type GatewayTileUpdate = {
   frontierDecayAt?: number | null;
   frontierDecayKind?: Tile["frontierDecayKind"] | null;
   captureHoldUntil?: number | null;
+  warScarLevel?: number | null;
+  warScarUntil?: number | null;
   townJson?: string;
   townType?: "MARKET" | "FARMING";
   townName?: string;
@@ -175,6 +179,8 @@ export const normalizeGatewayTileUpdate = (
   if ("captureHoldUntil" in update) {
     normalized.captureHoldUntil = typeof update.captureHoldUntil === "number" && update.captureHoldUntil > 0 ? update.captureHoldUntil : undefined;
   }
+  if ("warScarLevel" in update) normalized.warScarLevel = typeof update.warScarLevel === "number" && update.warScarLevel > 0 ? update.warScarLevel : undefined;
+  if ("warScarUntil" in update) normalized.warScarUntil = typeof update.warScarUntil === "number" && update.warScarUntil > 0 ? update.warScarUntil : undefined;
   if ("yieldRate" in update) normalized.yieldRate = update.yieldRate;
   if ("upkeepEntries" in update) normalized.upkeepEntries = update.upkeepEntries;
   if ("history" in update) normalized.history = update.history;

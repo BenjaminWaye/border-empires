@@ -6,7 +6,8 @@ import {
   captureAftermathMenuLines,
   isFortWreckedByCapture,
   noteRazedStructuresOnCapture,
-  resetCaptureAftermathIndex
+  resetCaptureAftermathIndex,
+  warScarMenuLine
 } from "./client-capture-aftermath.js";
 
 const NOW = 1_000_000;
@@ -56,5 +57,14 @@ describe("capture aftermath", () => {
     expect(captureAftermathMenuLines(resourceTile, KEY, NOW)[0]).toMatch(/resource slots only count once/);
     expect(captureAftermathForTile(resourceTile, KEY, NOW + CAPTURE_HOLD_MS)).toBeUndefined();
     expect(captureAftermathForTile({ ...base, ownerId: "p2", ownershipState: "FRONTIER", resource: "IRON" } as Tile, KEY, NOW)).toBeUndefined();
+  });
+});
+
+describe("battle scar menu line", () => {
+  it("states the depth and the hours left, and is gone once the scars fade", () => {
+    const scarred = { ...base, warScarLevel: 3, warScarUntil: NOW + 5 * 3_600_000 } as Tile;
+    expect(warScarMenuLine(scarred, NOW)).toBe("Battle-scarred ground (3/5). Each battle here deepens the scars; they fade in 5h without more fighting.");
+    expect(captureAftermathMenuLines(scarred, KEY, NOW)).toHaveLength(1);
+    expect(warScarMenuLine(scarred, NOW + 5 * 3_600_000)).toBeUndefined();
   });
 });

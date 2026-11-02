@@ -9,7 +9,7 @@
 //     early, runtime-settlement-start.ts), so it shows rubble around its base.
 //   - A captured resource smokes, and pays no resource slots until then.
 // The rubble and smoke clear when the hold ends.
-import { CAPTURE_HOLD_MS, isCaptureHoldActive, isFortDefending } from "@border-empires/shared";
+import { CAPTURE_HOLD_MS, WAR_SCAR_MAX_LEVEL, isCaptureHoldActive, isFortDefending, liveWarScarLevel } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
 export type CaptureRubbleKind = "FORT" | "RELAY_BEACON" | "SIEGE_BATTERY";
@@ -84,11 +84,20 @@ export const captureAftermathForTile = (tile: AftermathTile | undefined, tileKey
 
 const RUBBLE_MENU_LABELS: Record<RazedKind, string> = { RELAY_BEACON: "Relay Beacon", SIEGE_BATTERY: "Siege Battery" };
 
-/** Tile-menu lines explaining the aftermath. */
+/** Tile-menu line for battle scars (shared war-scars.ts), or undefined when the ground has none. */
+export const warScarMenuLine = (tile: Pick<Tile, "warScarLevel" | "warScarUntil">, nowEpochMs: number = Date.now()): string | undefined => {
+  const level = liveWarScarLevel(tile, nowEpochMs);
+  if (level <= 0) return undefined;
+  const hours = Math.max(1, Math.ceil((tile.warScarUntil! - nowEpochMs) / 3_600_000));
+  return `Battle-scarred ground (${level}/${WAR_SCAR_MAX_LEVEL}). Each battle here deepens the scars; they fade in ${hours}h without more fighting.`;
+};
+
+/** Tile-menu lines explaining the aftermath, battle scars included. */
 export const captureAftermathMenuLines = (tile: Tile, tileKey: string, nowEpochMs: number = Date.now()): string[] => {
+  const scarLine = warScarMenuLine(tile, nowEpochMs);
+  const lines: string[] = scarLine ? [scarLine] : [];
   const aftermath = captureAftermathForTile(tile, tileKey, nowEpochMs);
-  if (!aftermath) return [];
-  const lines: string[] = [];
+  if (!aftermath) return lines;
   for (const kind of aftermath.rubble) {
     if (kind === "FORT") lines.push("Fort wrecked in the capture. It gives no defense until the capturing troops finish holding this tile and it is garrisoned.");
     else lines.push(`${RUBBLE_MENU_LABELS[kind]} destroyed in the capture.`);

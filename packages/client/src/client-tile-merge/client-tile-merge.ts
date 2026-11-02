@@ -49,6 +49,8 @@ export type CommonTileFieldsUpdate = {
   frontierDecayAt?: number | null | undefined;
   frontierDecayKind?: Tile["frontierDecayKind"] | null | undefined;
   captureHoldUntil?: number | null | undefined;
+  warScarLevel?: number | null | undefined;
+  warScarUntil?: number | null | undefined;
   shardSite?: Tile["shardSite"];
   naturalWonder?: Tile["naturalWonder"];
   watchtower?: Tile["watchtower"];
@@ -103,6 +105,14 @@ export const applyCommonTileFields = (
     if (typeof normalizedUpdate.captureHoldUntil === "number") merged.captureHoldUntil = normalizedUpdate.captureHoldUntil;
     else delete merged.captureHoldUntil;
     noteCaptureHoldDeadline(keyForTile(merged.x, merged.y), merged.captureHoldUntil);
+  }
+  if ("warScarLevel" in normalizedUpdate) {
+    if (typeof normalizedUpdate.warScarLevel === "number") merged.warScarLevel = normalizedUpdate.warScarLevel;
+    else delete merged.warScarLevel;
+  }
+  if ("warScarUntil" in normalizedUpdate) {
+    if (typeof normalizedUpdate.warScarUntil === "number") merged.warScarUntil = normalizedUpdate.warScarUntil;
+    else delete merged.warScarUntil;
   }
   if ("ownerId" in normalizedUpdate && !normalizedUpdate.ownerId) delete merged.ownershipState;
 

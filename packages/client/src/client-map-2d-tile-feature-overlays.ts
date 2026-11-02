@@ -9,6 +9,7 @@ import type { AfcJoinDropState } from "./client-afc-join-drop/client-afc-join-dr
 import { drawAfcTile2D } from "./client-afc-join-drop/client-map-2d-afc-join-drop.js";
 import { drawCaptureAftermath2D } from "./client-map-2d-capture-aftermath.js";
 import { drawCaptureHoldGarrison2D } from "./client-map-2d-capture-hold-overlay.js";
+import { drawWarScars2D } from "./client-map-2d-war-scars.js";
 import { drawNaturalWonderOverlay2D, naturalWonderOverlayForTile } from "./client-map-2d-natural-wonder-overlay.js";
 import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js";
 import { drawWaystation2D } from "./client-map-2d-waystation-overlay.js";
@@ -47,6 +48,8 @@ export const drawTileFeatureOverlays2D = (
   }
   if (t && vis === "fogged" && !isTrue3DRendererActive()) drawRememberedStructures2D(deps.ctx, deps.remembered, t, px, py, size);
   if (!t || vis !== "visible" || isTrue3DRendererActive()) return;
+  // Battle scars (shared war-scars.ts) lie under everything else on the tile.
+  if (t.terrain === "LAND" && t.warScarUntil !== undefined) drawWarScars2D(deps.ctx, t, px, py, size, Date.now());
   if (t.terrain === "LAND" && t.watchtower) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs);
   if (t.terrain === "LAND" && t.waystation) drawWaystation2D(deps.ctx, t, px, py, size, nowMs);
   if (t.terrain === "LAND" && t.afc) drawAfcTile2D(deps.ctx, t, px, py, size, nowMs, deps.afcModuleDeliveryLandedAt.get(tileKey), deps.afcJoinDrop);

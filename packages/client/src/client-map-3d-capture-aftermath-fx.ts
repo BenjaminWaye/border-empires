@@ -1,7 +1,8 @@
 // True-3D capture aftermath (see client-capture-aftermath.ts): rubble chunks
 // for a razed Relay Beacon / Siege Battery or a wrecked captured fort, and
 // burning smoke over a captured resource. The 2D counterpart is
-// client-map-2d-capture-aftermath.ts. Also owns the captured-town smoke and
+// client-map-2d-capture-aftermath.ts. Also draws battle scars (24h, see
+// client-map-3d-war-scars.ts), and owns the captured-town smoke and
 // "-N pop" text, extracted from client-map-3d.ts so it stays under its line
 // budget.
 //
@@ -9,7 +10,9 @@
 // reuses). boundaryPassed() asks for one more rebuild when the earliest
 // aftermath on screen ends, so the wreckage clears on time on a still camera.
 import { BoxGeometry, Color, DynamicDrawUsage, InstancedMesh, Matrix4, MeshStandardMaterial, Quaternion, Scene, Vector3 } from "three";
+import { liveWarScarLevel } from "@border-empires/shared";
 import { captureAftermathForTile, type CaptureRubbleKind } from "./client-capture-aftermath/client-capture-aftermath.js";
+import { createWarScarLayer3D } from "./client-map-3d-war-scars.js";
 import type { VillageEffects } from "./client-map-3d-village-fx.js";
 import type { Tile } from "./client-types.js";
 
@@ -35,7 +38,7 @@ const RING: Record<CaptureRubbleKind, { inner: number; outer: number }> = {
 
 export type CaptureAftermathFx3D = {
   readonly clear: () => void;
-  /** Rubble and resource smoke for one visible land tile. */
+  /** Rubble, resource smoke and battle scars for one visible land tile. */
   readonly addTile: (tile: Tile, tileKey: string, x: number, z: number, surfaceY: number, seed: number) => void;
   /** Captured-town smoke plus a one-off "-N pop" when a new capture shock is first seen. */
   readonly addTownCaptureShock: (tile: Tile | undefined, tileKey: string, x: number, z: number, surfaceY: number, seed: number, spawnText: (text: string) => void) => void;
@@ -62,6 +65,7 @@ export const createCaptureAftermathFx3D = (scene: Scene, villageEffects: Pick<Vi
   mesh.frustumCulled = false;
   scene.add(mesh);
   const lastSeenCaptureShockByTile = new Map<string, number>();
+  const warScars = createWarScarLayer3D(scene);
   const matrix = new Matrix4();
   const position = new Vector3();
   const rotation = new Quaternion();
@@ -95,9 +99,15 @@ export const createCaptureAftermathFx3D = (scene: Scene, villageEffects: Pick<Vi
     pieces = 0;
     rubbleTiles = 0;
     nextBoundary = Number.POSITIVE_INFINITY;
+    warScars.clear();
   };
 
   const addTile = (tile: Tile, tileKey: string, x: number, z: number, surfaceY: number, seed: number): void => {
+    const scarLevel = liveWarScarLevel(tile, Date.now());
+    if (scarLevel > 0) {
+      warScars.addTile(scarLevel, x, z, surfaceY, seed);
+      nextBoundary = Math.min(nextBoundary, tile.warScarUntil!);
+    }
     const aftermath = captureAftermathForTile(tile, tileKey);
     if (!aftermath) return;
     nextBoundary = Math.min(nextBoundary, aftermath.until);
@@ -130,6 +140,7 @@ export const createCaptureAftermathFx3D = (scene: Scene, villageEffects: Pick<Vi
     mesh.count = pieces;
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    warScars.commit();
   };
 
   const dispose = (): void => {
@@ -137,6 +148,7 @@ export const createCaptureAftermathFx3D = (scene: Scene, villageEffects: Pick<Vi
     geometry.dispose();
     material.dispose();
     mesh.dispose();
+    warScars.dispose();
   };
 
   return { clear, addTile, addTownCaptureShock, boundaryPassed: () => Date.now() >= nextBoundary, commit, dispose };
