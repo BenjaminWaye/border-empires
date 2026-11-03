@@ -16,12 +16,16 @@ describe("scanGuideTiles", () => {
     expect(scanGuideTiles(garden, ME, undefined).ownsBuiltStructure).toBe(true);
   });
 
-  it("targets the player's own empty garrisoned resource tiles for building, nearest home first", () => {
+  it("targets the player's own garrisoned towns for the Manufactory, nearest home first", () => {
+    const town = { town: { type: "MARKET", populationTier: "TOWN" } as never };
     const tiles = map([
-      { x: 9, y: 0, ownerId: ME, ownershipState: "SETTLED", resource: "FARM" },
-      { x: 1, y: 0, ownerId: ME, ownershipState: "SETTLED", resource: "FISH" },
-      { x: 2, y: 0, ownerId: ME, ownershipState: "FRONTIER", resource: "FARM" },
-      { x: 3, y: 0, resource: "FARM" }
+      { x: 9, y: 0, ownerId: ME, ownershipState: "SETTLED", ...town },
+      { x: 1, y: 0, ownerId: ME, ownershipState: "SETTLED", ...town },
+      { x: 2, y: 0, ownerId: ME, ownershipState: "FRONTIER", ...town },
+      { x: 3, y: 0, ...town },
+      { x: 4, y: 0, ownerId: ME, ownershipState: "SETTLED", resource: "FARM" },
+      // The spawn SETTLEMENT can't support economic structures, so it is never a Manufactory target.
+      { x: 0, y: 0, ownerId: ME, ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "SETTLEMENT" } as never }
     ]);
     expect(scanGuideTiles(tiles, ME, { x: 0, y: 0 }).buildTargetTiles).toEqual([
       { x: 1, y: 0 },
@@ -53,5 +57,73 @@ describe("buildGuideInput", () => {
     state.tiles.set(tileKey(2, 0), { x: 2, y: 0, terrain: "LAND", town: { type: "MARKET", populationTier: "TOWN" } } as Tile);
     state.chunkFullCount += 1;
     expect(buildGuideInput(state).checklist.townFound).toBe(true);
+  });
+});
+
+describe("scanGuideFootholdTargets", () => {
+  it("splits own frontier towns and food (Garrison) from neutral ones in vision (Expand To), ignoring fogged, enemy, garrisoned and spawn-settlement tiles", async () => {
+    const { scanGuideFootholdTargets } = await import("./tutorial-guide-foothold-targets.js");
+    const town = (populationTier: string) => ({ town: { type: "MARKET", populationTier } as never });
+    const tiles = map([
+      { x: 0, y: 0, ownerId: ME, ownershipState: "SETTLED", ...town("SETTLEMENT") },
+      { x: 2, y: 0, ownerId: ME, ownershipState: "FRONTIER", ...town("TOWN") },
+      { x: 9, y: 0, ...town("TOWN") },
+      { x: 12, y: 0, fogged: true, ...town("TOWN") },
+      { x: 14, y: 0, ownerId: "rival", ownershipState: "SETTLED", ...town("TOWN") },
+      { x: 16, y: 0, ownerId: ME, ownershipState: "SETTLED", ...town("CITY") },
+      { x: 1, y: 1, ownerId: ME, ownershipState: "FRONTIER", resource: "FISH" },
+      { x: 3, y: 3, resource: "FARM" },
+      { x: 4, y: 4, resource: "FARM", fogged: true },
+      { x: 5, y: 5, ownerId: ME, ownershipState: "SETTLED", resource: "FARM" },
+      { x: 6, y: 6, resource: "TITANIUM" },
+      { x: 7, y: 7, ownerId: ME, ownershipState: "FRONTIER", resource: "FARM", optimisticPending: "expand" }
+    ]);
+    expect(scanGuideFootholdTargets(tiles.values(), ME, () => 0)).toEqual({
+      town: { pending: [], garrison: [{ x: 2, y: 0 }], expand: [{ x: 9, y: 0 }] },
+      food: { pending: [{ x: 7, y: 7 }], garrison: [{ x: 1, y: 1 }], expand: [{ x: 3, y: 3 }] }
+    });
+  });
+});
+
+describe("rival House contact and diplomacy", () => {
+  it("counts another House's land, not Planetary Defense, and marks diplomacy used once a truce is offered", async () => {
+    const { createInitialState } = await import("../client-state/client-state.js");
+    const { buildGuideInput, resetGuideInputCacheForTests } = await import("./tutorial-guide-input.js");
+    resetGuideInputCacheForTests();
+    const state = createInitialState();
+    state.me = ME;
+    state.tiles.set(tileKey(5, 5), { x: 5, y: 5, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" } as Tile);
+    state.tilesRevision += 1;
+    expect(buildGuideInput(state).rivalHouseMet).toBe(false);
+    state.tiles.set(tileKey(6, 5), { x: 6, y: 5, terrain: "LAND", ownerId: "rival", ownershipState: "SETTLED" } as Tile);
+    state.tilesRevision += 1;
+    expect(buildGuideInput(state).rivalHouseMet).toBe(true);
+    expect(buildGuideInput(state).diplomacyUsed).toBe(false);
+    state.outgoingTruceRequests.push({} as never);
+    expect(buildGuideInput(state).diplomacyUsed).toBe(true);
+  });
+});
+
+describe("Manufactory availability", () => {
+  it("needs the Industrial Tooling Module installed on an active AFC, not just commissioned", () => {
+    const afc = (status: string, modules: string[]) => ({ afc: { ownerId: ME, status, modules } as never });
+    const scan = (tiles: Parameters<typeof map>[0]) => scanGuideTiles(map(tiles), ME, undefined).manufactoryInstalled;
+    expect(scan([{ x: 0, y: 0, ownerId: ME, ownershipState: "SETTLED", ...afc("active", []) }])).toBe(false);
+    expect(scan([{ x: 0, y: 0, ownerId: ME, ownershipState: "SETTLED", ...afc("inactive", ["trade"]) }])).toBe(false);
+    expect(scan([{ x: 0, y: 0, ownerId: ME, ownershipState: "SETTLED", ...afc("active", ["trade"]) }])).toBe(true);
+  });
+});
+
+describe("rival House contact on chunk loads", () => {
+  it("notices a rival revealed by a chunk load, which doesn't bump tilesRevision", async () => {
+    const { createInitialState } = await import("../client-state/client-state.js");
+    const { buildGuideInput, resetGuideInputCacheForTests } = await import("./tutorial-guide-input.js");
+    resetGuideInputCacheForTests();
+    const state = createInitialState();
+    state.me = ME;
+    expect(buildGuideInput(state).rivalHouseMet).toBe(false);
+    state.tiles.set(tileKey(6, 5), { x: 6, y: 5, terrain: "LAND", ownerId: "rival", ownershipState: "SETTLED" } as Tile);
+    state.chunkFullCount += 1;
+    expect(buildGuideInput(state).rivalHouseMet).toBe(true);
   });
 });

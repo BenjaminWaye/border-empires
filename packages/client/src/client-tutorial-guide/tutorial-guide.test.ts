@@ -7,7 +7,8 @@ import { resetOnboardingChecklistOverlayForTests } from "../client-onboarding-ch
 import { refreshOnboardingChecklistHighlight, tickOnboardingUiGateForFrame } from "../client-onboarding-ui-gate/client-onboarding-ui-overlays.js";
 import { noteGuideMapPanned, resetGuideInputSignalsForTests } from "./tutorial-guide-input-signals.js";
 import { resetGuideInputCacheForTests } from "./tutorial-guide-input.js";
-import { readGuideProgress, resetGuideStorageMemoryForTests, setGuideStatus } from "./tutorial-guide-storage.js";
+import { markGuideStepsCompleted, readGuideProgress, resetGuideStorageMemoryForTests, setGuideStatus } from "./tutorial-guide-storage.js";
+import { GUIDE_STEPS } from "./tutorial-guide-steps.js";
 import { resetTutorialGuideForTests } from "./tutorial-guide.js";
 
 const ME = "p1";
@@ -103,6 +104,36 @@ describe("tutorial guide in the onboarding corner", () => {
     expect(card()?.querySelector('[data-guide-action="show-me"]')).not.toBeNull();
   });
 
+  it("tells the player to Garrison a town their reach already claimed, ringing that town", () => {
+    setGuideStatus("active", EMAIL);
+    const state = newPlayerState();
+    setTiles(state, [{ x: 2, y: 0, ownerId: ME, ownershipState: "FRONTIER", town: { type: "MARKET", populationTier: "TOWN" } as never }]);
+    refreshOnboardingChecklistHighlight(state);
+    click("skip");
+    click("skip");
+    click("skip");
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(cardTitle()).toBe("Tap the marked town and Garrison it");
+    expect(state.onboardingHighlightTiles).toEqual([{ x: 2, y: 0 }]);
+  });
+
+  it("shows the grain and fish icons to look for on the food steps", () => {
+    setGuideStatus("active", EMAIL);
+    const state = newPlayerState();
+    setTiles(state, [{ x: 2, y: 0, ownerId: ME, ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } as never }]);
+    noteGuideMapPanned();
+    refreshOnboardingChecklistHighlight(state);
+    click("skip"); // zoom
+    click("skip"); // select
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(cardTitle()).toMatch(/^Find food: grain or fish/);
+    const icons = Array.from(card()?.querySelectorAll(".tg-lookfor img") ?? []);
+    expect(icons).toHaveLength(2);
+    // The visible "Grain" / "Fish" label names each icon, so the image is decorative to screen readers.
+    expect(icons.every((img) => img.closest('[aria-hidden="true"]'))).toBe(true);
+    expect(card()?.querySelector(".tg-lookfor")?.textContent).toContain("Grain");
+  });
+
   it("hides while a dialog covers the map, then comes back", () => {
     setGuideStatus("active", EMAIL);
     const state = newPlayerState();
@@ -165,7 +196,7 @@ describe("tutorial guide in the onboarding corner", () => {
     expect(card()?.classList.contains("onb-root")).toBe(true); // picks up HUD v2's corner placement and screen hiding
     document.body.classList.add("hud-v2-screen-manifest");
     tickOnboardingUiGateForFrame(state, vi.fn());
-    expect(cardTitle()).toBe("Commission your first Manifest");
+    expect(cardTitle()).toBe("Commission the Industrial Tooling Module");
     document.body.className = "";
   });
 
@@ -194,6 +225,22 @@ describe("tutorial guide in the onboarding corner", () => {
     state.authEmail = "second@example.com";
     tickOnboardingUiGateForFrame(state, vi.fn());
     expect(cardTitle()).toBe("Drag the map to look around");
+  });
+
+  it("Finish ends the guide even while Contest and Diplomacy are still waiting for a first contact", () => {
+    setGuideStatus("active", EMAIL);
+    const waitingOnly = GUIDE_STEPS.filter((s) => !["contest-muster", "diplomacy-truce", "turn-finish"].includes(s.id)).map((s) => s.id);
+    markGuideStepsCompleted(waitingOnly, EMAIL);
+    const state = newPlayerState();
+    refreshOnboardingChecklistHighlight(state);
+    expect(card()?.querySelector('[data-guide-action="finish"]')).not.toBeNull();
+    click("finish");
+    expect(readGuideProgress(EMAIL).status).toBe("done");
+    expect(card()).toBeNull();
+    state.tiles.set("9,9", { x: 9, y: 9, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" } as Tile);
+    state.tilesRevision += 1;
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(card()).toBeNull(); // contact after Finish doesn't bring the guide back
   });
 
   it("Hide guide turns it off for good and removes the card", () => {

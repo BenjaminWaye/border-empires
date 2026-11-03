@@ -9,7 +9,8 @@
 // step's map target), "Skip" and, on the final step, "Finish". A "Hide guide"
 // link turns the guide off (Settings can restart it).
 
-import type { GuideView } from "./tutorial-guide-steps.js";
+import type { GuideLookForIcon, GuideView } from "./tutorial-guide-steps.js";
+import { resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
 import { bottomOffsetClearingCenterButton } from "../client-onboarding-checklist/client-onboarding-corner-position.js";
 
 const ROOT_ID = "tutorial-guide-root";
@@ -23,6 +24,14 @@ export type GuideCardHandlers = {
 };
 
 type StepView = Extract<GuideView, { kind: "step" }>;
+
+const LOOK_FOR_LABEL: Record<GuideLookForIcon, string> = { FOOD: "Grain", FISH: "Fish" };
+
+/** "Look for [grain] Grain [fish] Fish": the same resource art the map and menus use, so the player knows what to spot. */
+const lookForHtml = (icons: ReadonlyArray<GuideLookForIcon> | undefined): string =>
+  icons && icons.length > 0
+    ? `<div class="tg-lookfor">Look for ${icons.map((icon) => `<span class="tg-lookfor-item"><span aria-hidden="true">${resourceIconHtml(icon)}</span>${LOOK_FOR_LABEL[icon]}</span>`).join("")}</div>`
+    : "";
 
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] ?? char);
@@ -48,7 +57,8 @@ export const guideCardHtml = (view: StepView, expanded: boolean): string => {
         <button type="button" class="tg-collapse" data-guide-action="toggle" aria-label="Minimise guide">&#8211;</button>
       </div>
       <div class="tg-title${view.waiting ? " tg-title-waiting" : ""}">${escapeHtml(view.title)}</div>
-      ${view.waiting ? "" : `<div class="tg-why">${escapeHtml(view.step.why)}</div>`}
+      ${view.waiting ? "" : `<div class="tg-why">${escapeHtml(view.why)}</div>`}
+      ${lookForHtml(view.lookFor)}
       <div class="tg-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${view.totalCount}" aria-valuenow="${view.completedCount}"><span style="width:${progressPct}%"></span></div>
       <div class="tg-actions">${actions}<button type="button" class="tg-hide" data-guide-action="hide">Hide guide</button></div>
     </section>
@@ -108,6 +118,9 @@ const styles = `
 .tg-title { font-size: 13.5px; font-weight: 800; line-height: 1.3; }
 .tg-title-waiting { font-weight: 600; color: #d6ac6a; }
 .tg-why { margin-top: 3px; font-size: 12px; line-height: 1.35; color: rgba(240,224,200,0.75); }
+.tg-lookfor { margin-top: 6px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; color: rgba(240,224,200,0.75); }
+.tg-lookfor-item { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; color: #fbf3e6; }
+.tg-lookfor .resource-icon-img { width: 22px; height: 22px; object-fit: contain; }
 .tg-progress { margin-top: 8px; height: 4px; border-radius: 999px; background: rgba(126,224,138,0.15); overflow: hidden; }
 .tg-progress span { display: block; height: 100%; background: #7ee08a; }
 .tg-actions { margin-top: 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
