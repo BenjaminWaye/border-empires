@@ -25,7 +25,6 @@ export const releasedBarbarianTile = (tile: DomainTileState): DomainTileState =>
   ...(tile.prospectSignature ? { prospectSignature: tile.prospectSignature } : {}),
   ...(tile.dockId ? { dockId: tile.dockId } : {}),
   ...(tile.town ? { town: tile.town } : {}),
-  ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
   ...(tile.naturalWonder ? { naturalWonder: tile.naturalWonder } : {}),
   ...(tile.watchtower ? { watchtower: tile.watchtower } : {}),
   ...(tile.economicStructure ? { economicStructure: tile.economicStructure } : {})

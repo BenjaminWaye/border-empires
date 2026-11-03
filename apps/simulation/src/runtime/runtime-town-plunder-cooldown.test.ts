@@ -14,7 +14,7 @@ const makePlayer = (id: string, points: number) => ({
   techRootId: "rewrite-local",
   allies: new Set<string>(),
   autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
-  strategicResources: { FOOD: 100, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 }
+  strategicResources: { FOOD: 100, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }
 });
 
 describe("town capture plunder cooldown", () => {

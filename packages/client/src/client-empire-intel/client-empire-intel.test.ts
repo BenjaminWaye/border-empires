@@ -19,8 +19,7 @@ const stats: RevealEmpireStatsView = {
     FOOD: 10,
     TITANIUM: 20,
     CRYSTAL: 30,
-    UMBRITE: 40,
-    SHARD: 1
+    UMBRITE: 40
   }
 };
 

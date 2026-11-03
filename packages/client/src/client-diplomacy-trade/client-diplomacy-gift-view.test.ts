@@ -15,12 +15,12 @@ const elin: DiplomacyStanceReply = {
   ai: true,
   stance: { kind: "SEEKING_PEACE", reason: "Elin is looking for peace: their armies are spent." },
   attitude: { level: "CAUTIOUS", score: -10, modifiers: [{ label: "Our borders are contested", value: -10 }] },
-  allianceRefusal: "Elin doesn't think well enough of you for an alliance. Offer a gift to win them over.",
-  pricing: { required: { truce12: 0, truce24: 0, alliance: null }, shardCoinValue: 25, aiHoldings: { gold: 50, shard: 0 } },
+  // Gifts can still win Elin over, so an alliance is priced as tribute: 196 coin to Pleased plus 24h of income.
+  pricing: { required: { truce12: 0, truce24: 0, alliance: 196 + 1440 }, aiHoldings: { gold: 50 } },
   gift: giftView(0, 60) // 10 coin per opinion point
 };
-const giving = (gold: number, shard = 0): TradeSelection => ({ kind: "gift", durationHours: 12, terms: { give: { gold, shard }, ask: { gold: 0, shard: 0 } } });
-const verdict = (selection: TradeSelection, own = { gold: 500, shard: 0 }, reply: DiplomacyStanceReply | undefined = elin) =>
+const giving = (gold: number): TradeSelection => ({ kind: "gift", durationHours: 12, terms: { give: { gold }, ask: { gold: 0 } } });
+const verdict = (selection: TradeSelection, own = { gold: 500 }, reply: DiplomacyStanceReply | undefined = elin) =>
   giftVerdict({ targetName: "Elin", reply, selection, own });
 
 describe("giftVerdict", () => {
@@ -34,7 +34,6 @@ describe("giftVerdict", () => {
       })
     );
     expect(verdict(giving(195)).text).toBe("Elin's opinion of you: +20 (Cautious → Pleased). Pleased is enough for an alliance. Gifts count for up to +25 in all and lose half their effect each day.");
-    expect(verdict(giving(0, 8), { gold: 0, shard: 8 }).text).toContain("+20 (Cautious → Pleased)");
   });
 
   it("won't send a gift that changes nothing", () => {
@@ -47,15 +46,15 @@ describe("giftVerdict", () => {
       expect.objectContaining({ canSend: false, text: "Only about 250 coin of this would count: gifts add up to +25 opinion in all. Give 250 coin or less." })
     );
     expect(verdict(giving(250)).canSend).toBe(true);
-    expect(verdict(giving(600))).toEqual(expect.objectContaining({ canSend: false, text: "You only have 500 coin and 0 Shards." }));
+    expect(verdict(giving(600))).toEqual(expect.objectContaining({ canSend: false, text: "You only have 500 coin." }));
     expect(verdict(giving(50), undefined, { found: true, targetPlayerName: "Ada", targetPlayerId: "p2", ai: false })).toEqual(
       expect.objectContaining({ canSend: false, text: "Only AI empires take gifts." })
     );
   });
 
   it("suggests the least coin that makes the AI Pleased, when affordable", () => {
-    expect(suggestedGift(elin, { gold: 500, shard: 0 })).toEqual({ give: { gold: 196, shard: 0 }, ask: { gold: 0, shard: 0 } });
-    expect(suggestedGift(elin, { gold: 100, shard: 0 })).toBeUndefined();
+    expect(suggestedGift(elin, { gold: 500 })).toEqual({ give: { gold: 196 }, ask: { gold: 0 } });
+    expect(suggestedGift(elin, { gold: 100 })).toBeUndefined();
   });
 });
 
@@ -67,7 +66,7 @@ describe("gift on the trade screen", () => {
     // A gift works during a truce too.
     openDiplomacyTradeScreen(
       { targetName: "Elin", targetPlayerId: "ai-2", kind: "truce", durationHours: 12 },
-      { send, ownHoldings: () => ({ gold: 500, shard: 0 }), runningTruce: () => ({ startedAt: Date.now(), endsAt: Date.now() + 6 * 60_000 }) }
+      { send, ownHoldings: () => ({ gold: 500 }), runningTruce: () => ({ startedAt: Date.now(), endsAt: Date.now() + 6 * 60_000 }) }
     );
     const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
     receiveDiplomacyStance(elin);
@@ -85,7 +84,7 @@ describe("gift on the trade screen", () => {
     const sendButton = overlay.querySelector<HTMLButtonElement>("[data-trade-send]")!;
     expect(sendButton.textContent).toBe("Offer gift");
     sendButton.click();
-    expect(send).toHaveBeenLastCalledWith({ type: "DIPLOMACY_GIFT", targetPlayerName: "Elin", targetPlayerId: "ai-2", gift: { gold: 196, shard: 0 } }, expect.any(String));
+    expect(send).toHaveBeenLastCalledWith({ type: "DIPLOMACY_GIFT", targetPlayerName: "Elin", targetPlayerId: "ai-2", gift: { gold: 196 } }, expect.any(String));
     expect(document.querySelector(".diplomacy-trade-overlay")).not.toBeNull();
     expect(sendButton.disabled).toBe(true);
 
@@ -99,7 +98,7 @@ describe("gift on the trade screen", () => {
     vi.useFakeTimers();
     try {
       const send = vi.fn().mockReturnValue(true);
-      openDiplomacyTradeScreen({ targetName: "Elin", targetPlayerId: "ai-2", kind: "alliance", durationHours: 12 }, { send, ownHoldings: () => ({ gold: 500, shard: 0 }) });
+      openDiplomacyTradeScreen({ targetName: "Elin", targetPlayerId: "ai-2", kind: "alliance", durationHours: 12 }, { send, ownHoldings: () => ({ gold: 500 }) });
       const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
       receiveDiplomacyStance(elin);
       overlay.querySelector<HTMLButtonElement>("[data-deal-remove='treaty']")!.click();
@@ -119,13 +118,13 @@ describe("gift on the trade screen", () => {
   });
 
   it("does not send gifts to human players", () => {
-    openDiplomacyTradeScreen({ targetName: "Ada", kind: "gift", durationHours: 12 }, { send: vi.fn().mockReturnValue(true), ownHoldings: () => ({ gold: 500, shard: 0 }) });
+    openDiplomacyTradeScreen({ targetName: "Ada", kind: "gift", durationHours: 12 }, { send: vi.fn().mockReturnValue(true), ownHoldings: () => ({ gold: 500 }) });
     receiveDiplomacyStance({ found: true, targetPlayerName: "Ada", targetPlayerId: "p2", ai: false });
     const exact = document.querySelector<HTMLInputElement>("[data-trade-exact='give-gold']")!;
     exact.value = "50";
     exact.dispatchEvent(new Event("input"));
     // Humans take no gifts: giving coin alone is not a deal until a treaty or supply is added.
-    expect(document.querySelector("[data-trade-verdict]")?.textContent).toContain("Coin and Shards change hands with a truce");
+    expect(document.querySelector("[data-trade-verdict]")?.textContent).toContain("Coin changes hands with a truce");
     expect(document.querySelector<HTMLButtonElement>("[data-trade-send]")!.disabled).toBe(true);
     expect(document.querySelector<HTMLButtonElement>("[data-trade-suggest]")!.hidden).toBe(true);
   });

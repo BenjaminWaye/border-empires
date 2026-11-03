@@ -108,7 +108,7 @@ export function economicOrObservatoryCancelRefund(
   // (registry cost.strategic wins, falling back to the cost-definitions resourceCost) so
   // this can't drift from what was actually charged if the two tables ever disagree.
   // stripRetiredStockpileCost then drops FOOD/TITANIUM/CRYSTAL/UMBRITE (retired,
-  // never actually spent) while preserving SHARD (monument assembly, still spent).
+  // never actually spent).
   const registryStrategic = STRUCTURE_REGISTRY[structureType]?.cost.strategic as StrategicRefund | undefined;
   const costDef = structureCostDefinition(structureType);
   const strategic: StrategicRefund =

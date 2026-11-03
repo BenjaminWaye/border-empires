@@ -26,7 +26,7 @@ function fixture(allResources = false, buyerFarms = 12) {
   const runtime = new SimulationRuntime({ now:()=>now,seedTiles:new Map(),initialState:{ tiles,activeLocks:[] },
     initialPlayers:new Map(["seller","buyer"].map(id=>[id,buildPlayer(id,{ points:100,manpower:0,manpowerUpdatedAt:start,
       manpowerCapSnapshot:10000,landingReserveGranted:true,techIds:new Set(allResources ? NETWORK_RESOURCES.map(resource=>RESOURCE_NETWORKS[resource].tech) : ["neural-resin-processing"]) })])) });
-  const pay = (id = "trade", resources: ResourceSupplyOffer = {NEURAL_RESIN:1}) => runtime.submitCommand({ commandId:id,playerId:"seller",type:"SETTLE_DIPLOMACY_TERMS",sessionId:"gateway",clientSeq:id === "trade" ? 1 : 2,issuedAt:now,payloadJson:JSON.stringify({ proposerId:"seller",targetId:"buyer",proposerPays:{gold:0,shard:0,resources},targetPays:{gold:3,shard:0},supplyDurationHours:12 }) });
+  const pay = (id = "trade", resources: ResourceSupplyOffer = {NEURAL_RESIN:1}) => runtime.submitCommand({ commandId:id,playerId:"seller",type:"SETTLE_DIPLOMACY_TERMS",sessionId:"gateway",clientSeq:id === "trade" ? 1 : 2,issuedAt:now,payloadJson:JSON.stringify({ proposerId:"seller",targetId:"buyer",proposerPays:{gold:0,resources},targetPays:{gold:3},supplyDurationHours:12 }) });
   return { runtime,pay,setNow:(at:number)=>{now=at;}, player:(id:string)=>runtime.exportState().players.find(p=>p.id===id)! };
 }
 describe("resource trades in the production runtime",()=>{

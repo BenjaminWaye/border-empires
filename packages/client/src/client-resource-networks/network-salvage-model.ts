@@ -47,7 +47,7 @@ export const buildSalvageField = (t: TownBuilders): void => {
     t.body.pipe(0.16, 0.045 + offset, 0.03, 0.1, 0.015, 0.19, 0.005, "brassDark");
     t.body.pipe(0.1, 0.015, 0.19, 0.16, 0.012, 0.26, 0.005, "iron");
   }
-  // One tiny surviving status strip, deliberately quieter than a Shard site.
+  // One tiny surviving status strip, deliberately quiet.
   t.body.box(0.222, 0.065, 0.198, 0.05, 0.015, 0.006, "window");
   t.glow.box(0.212, 0.068, 0.202, 0.012, 0.006, 0.003, "aether");
   for (const [x, z, ry] of [[-0.29, 0.19, 0.7], [0.15, -0.22, -0.4], [-0.19, 0.28, -0.2]] as const) {

@@ -10,11 +10,14 @@
 // but only once per war and never more than a quarter of its coin. Losing
 // also overrides fury: an AI that hates you still wants a war it is losing
 // over -- unless you broke a truce with it, which it never deals past.
-// Alliances need an AI that is at least Pleased (gifts raise its opinion), hasn't fought the player for
+// Alliances need an AI that is at least Pleased, hasn't fought the player for
 // a day, and would be the largest member of the resulting bloc (Diplomatic
 // Dominance victory goes to the bloc's largest member); the AI never pays to
-// join one.
-import { SHARD_COIN_VALUE, type AiDiplomacyPricing, type DiplomacyGoods } from "@border-empires/shared";
+// join one. An AI below Pleased that payments could still win over (the
+// goodwill cap allows it) asks tribute instead of refusing: the coin that
+// lifts it to Pleased -- deal payments count as goodwill once accepted --
+// plus its Pleased alliance price.
+import { type AiDiplomacyPricing, type DiplomacyGoods } from "@border-empires/shared";
 
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
 import { ATTITUDE_RANK, type AiAttitude, type AiOpinion } from "./ai-diplomacy-opinion.js";
@@ -57,8 +60,11 @@ export const aiDiplomacyPricing = (input: {
   requesterBrokeTruceWithAi: boolean;
   /** Diplomatic Dominance goes to a bloc's largest member: the AI only joins blocs it would lead. undefined: sizes unknown right now. */
   aiWouldLeadAlliance: boolean | undefined;
-  /** A gift could still lift the AI to Pleased (the goodwill cap allows it): the attitude refusal then says so. */
-  giftCanWinOver?: boolean;
+  /**
+   * Coin of goodwill that would lift the AI to Pleased (shared giftToReach), or
+   * undefined when the goodwill cap stops payments from getting there.
+   */
+  giftToPleased?: number;
   /** Diplomatic Corps (AFC Chancery II): multiplier on what the requester pays for a truce. */
   requesterTruceCostMult?: number;
   now: number;
@@ -69,7 +75,7 @@ export const aiDiplomacyPricing = (input: {
   const hoursToCoin = (hours: number, perMinute: number): number => Math.round(hours * 60 * perMinute);
   const { opinion, memory, aiName } = input;
   const { war } = opinion;
-  const aiHoldings = { ...(input.aiHoldings.resources ? { resources: input.aiHoldings.resources } : {}), gold: Math.max(0, Math.floor(input.aiHoldings.gold)), shard: Math.max(0, Math.floor(input.aiHoldings.shard)) };
+  const aiHoldings = { ...(input.aiHoldings.resources ? { resources: input.aiHoldings.resources } : {}), gold: Math.max(0, Math.floor(input.aiHoldings.gold)) };
 
   // --- truce ---
   let truceRefusal: string | undefined;
@@ -108,18 +114,20 @@ export const aiDiplomacyPricing = (input: {
   // --- alliance ---
   let allianceRefusal: string | undefined;
   const foughtRecently = memory.lastCombatAt !== undefined && input.now - memory.lastCombatAt < ALLIANCE_NO_FIGHTING_MS;
+  // Below Pleased, tribute that wins the AI over stands in for the attitude it lacks.
+  const belowPleased = ATTITUDE_RANK[opinion.attitude] < ATTITUDE_RANK.PLEASED;
+  const tribute = belowPleased && input.giftToPleased !== undefined ? Math.max(0, Math.ceil(input.giftToPleased)) : undefined;
   // Refusals that don't depend on bloc sizes come first, so the player hears the real reason.
   if (input.requesterBrokeTruceWithAi) allianceRefusal = `${aiName} will never ally with someone who broke a truce with them.`;
   else if (foughtRecently) allianceRefusal = `${aiName} won't ally with an empire it fought within the last day.`;
-  else if (ATTITUDE_RANK[opinion.attitude] < ATTITUDE_RANK.PLEASED) {
-    allianceRefusal = `${aiName} doesn't think well enough of you for an alliance.${input.giftCanWinOver ? " Offer a gift to win them over." : ""}`;
-  } else if (input.aiWouldLeadAlliance === undefined) allianceRefusal = `${aiName} can't weigh up an alliance right now. Try again shortly.`;
+  else if (belowPleased && tribute === undefined) allianceRefusal = `${aiName} doesn't think well enough of you for an alliance.`;
+  else if (input.aiWouldLeadAlliance === undefined) allianceRefusal = `${aiName} can't weigh up an alliance right now. Try again shortly.`;
   else if (!input.aiWouldLeadAlliance) allianceRefusal = `${aiName} won't join an alliance it wouldn't lead: your alliance is too large.`;
-  const allianceHours = allianceRefusal ? undefined : ALLIANCE_HOURS[opinion.attitude];
-  const alliance = allianceHours === undefined ? null : hoursToCoin(allianceHours, priceIncome);
+  const allianceHours = allianceRefusal ? undefined : tribute !== undefined ? ALLIANCE_HOURS.PLEASED : ALLIANCE_HOURS[opinion.attitude];
+  const alliance = allianceHours === undefined ? null : hoursToCoin(allianceHours, priceIncome) + (tribute ?? 0);
 
   return {
-    pricing: { required: { truce12, truce24, alliance }, shardCoinValue: SHARD_COIN_VALUE, aiHoldings },
+    pricing: { required: { truce12, truce24, alliance }, aiHoldings },
     ...(truceRefusal ? { truceRefusal } : {}),
     ...(allianceRefusal ? { allianceRefusal } : {})
   };

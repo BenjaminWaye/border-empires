@@ -161,7 +161,7 @@ it("freezes the final suit and field bonuses in an accepted runtime battle", asy
 
 it("waits for a resource reveal and supplies only the persisted allocation to eligible holders", () => {
   const player = buildPlayer("p");
-  const empty = () => ({ FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 });
+  const empty = () => ({ FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 });
   const waiting = activateRelic(relicTile("FOUNDRY_HEART"), player, 1000, 0, { supply: empty(), demand: empty() });
   expect(waiting.naturalWonder?.resourceBonus).toBeUndefined();
   player.techIds.add("leatherworking");
@@ -169,7 +169,7 @@ it("waits for a resource reveal and supplies only the persisted allocation to el
   expect(allocated.naturalWonder?.resourceBonus).toEqual({ resource: "UMBRITE", amount: 1 });
   expect(allocated.naturalWonder?.activatedAt).toBe(1000);
   const totals = empty(); addRelicResourceSupply(indexedContext([allocated]), player, totals);
-  expect(totals).toEqual({ FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 1, SHARD: 0 });
+  expect(totals).toEqual({ FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 1 });
   const hidden = empty(); addRelicResourceSupply(indexedContext([allocated]), buildPlayer("p"), hidden); expect(hidden.UMBRITE).toBe(0);
 });
 

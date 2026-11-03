@@ -52,11 +52,9 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "AEGIS_LOCK":
     case "ASTRAL_DOCK_LAUNCH":
     case "ACTIVATE_IMPERIAL_WARD":
-    case "SHARD_MOBILIZE":
     case "SOVEREIGN_SIEGE_ENGINE_STRIKE":
     case "TITANIUM_LEVY_MUSTER":
       return "human_interactive";
-    case "COLLECT_SHARD":
     case "CHOOSE_TECH":
     case "CHOOSE_DOMAIN":
     case "SET_AUTO_SETTLE_PREFS":

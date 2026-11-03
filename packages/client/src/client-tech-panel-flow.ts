@@ -276,13 +276,9 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
 
   const renderDomainProgressCard = (): string =>
     renderDomainProgressCardFromModule({
-      tiles: state.tiles.values(),
-      shardStock: state.strategicResources.SHARD ?? 0,
       domainCatalog: state.domainCatalog,
       domainChoices: state.domainChoices,
-      domainIds: state.domainIds,
-      shardAlert: state.shardRainStatus,
-      nowMs: Date.now()
+      domainIds: state.domainIds
     });
 
   const renderTechDetailOverlay = (): string => {

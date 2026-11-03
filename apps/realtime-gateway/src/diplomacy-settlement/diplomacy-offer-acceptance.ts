@@ -1,7 +1,7 @@
 import { settleResourceTreaty } from "./resource-treaty-settlement.js";
 // Accepting an offer: lock it, let the proposer re-check it if it is an AI
 // (its standing counter-offer may be stale), have the simulation move any
-// coin/Shards, then record the agreement.
+// coin, then record the agreement.
 import { diplomacyTermsAreEmpty, swapDiplomacyTerms, hasResourceSupplyOffer } from "@border-empires/shared";
 
 import type { SocialActionResult, SocialPendingOffer, SocialState } from "../social-state/social-state-types.js";

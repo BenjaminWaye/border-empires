@@ -56,10 +56,8 @@ describe("3d resource-dormancy badge regression guard", () => {
     expect(source).toContain("createResourceBadgeOverlay");
     expect(source).toContain("resourceBadgeOverlays");
     expect(source).toContain("resourceBadgeOverlays[dormantStructureResource].addInstance");
-    // The shard-rain badge (client-map-3d-shard-rain-badge-overlay.ts) shares
-    // these same clear/commit/tick/dispose loops via allBadgeOverlays rather
-    // than getting 4 more call sites of its own — see that file's comments.
-    expect(source).toContain("allBadgeOverlays = [...Object.values(resourceBadgeOverlays), shardRainBadgeOverlay]");
+    // Every resource badge overlay shares one clear/commit/tick/dispose loop.
+    expect(source).toContain("allBadgeOverlays = Object.values(resourceBadgeOverlays)");
     expect(source).toMatch(/for \(const overlay of allBadgeOverlays\) overlay\.clear\(\);/);
     expect(source).toMatch(/for \(const overlay of allBadgeOverlays\) overlay\.commit\(\);/);
     expect(source).toMatch(/for \(const overlay of allBadgeOverlays\) overlay\.dispose\(\);/);

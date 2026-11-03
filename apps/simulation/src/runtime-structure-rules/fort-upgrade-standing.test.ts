@@ -14,7 +14,7 @@ const makeRuntime = (fort: SeedFort | undefined, techIds: string[], extra: Recor
       techIds: new Set<string>(techIds), domainIds: new Set<string>(),
       mods: { attack: 1, defense: 1, income: 1, vision: 1 },
       techRootId: "rewrite-local", allies: new Set<string>(),
-      strategicResources: { FOOD: 0, TITANIUM: 500, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+      strategicResources: { FOOD: 0, TITANIUM: 500, CRYSTAL: 0, UMBRITE: 0 },
     }]]),
     initialState: {
       tiles: [afcModuleFixtureTile("player-1"), 

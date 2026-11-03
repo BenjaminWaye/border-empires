@@ -34,7 +34,7 @@ const price = (options: {
   brokeAlliance?: boolean;
   /** Pass undefined explicitly for "sizes unknown". */
   aiWouldLeadAlliance?: boolean | undefined;
-  giftCanWinOver?: boolean;
+  giftToPleased?: number;
 }) => {
   const stanceKind = options.stanceKind ?? "WARY";
   const mem = options.memory ?? memory();
@@ -61,10 +61,10 @@ const price = (options: {
       bordersTouch,
       aiIncomePerMinute: aiIncome,
       requesterIncomePerMinute: requesterIncome,
-      aiHoldings: { gold: options.aiGold ?? 0, shard: 0 },
+      aiHoldings: { gold: options.aiGold ?? 0 },
       requesterBrokeTruceWithAi: options.brokeTruce ?? false,
       aiWouldLeadAlliance: "aiWouldLeadAlliance" in options ? options.aiWouldLeadAlliance : true,
-      ...(options.giftCanWinOver !== undefined ? { giftCanWinOver: options.giftCanWinOver } : {}),
+      ...(options.giftToPleased !== undefined ? { giftToPleased: options.giftToPleased } : {}),
       now: NOW
     })
   };
@@ -171,10 +171,20 @@ describe("AI truce pricing", () => {
 });
 
 describe("AI alliance pricing", () => {
+  // The trade screen's Suggest deal had nothing to offer a Cautious AI: it refused alliances outright.
+  it("asks tribute below Pleased when payments can still win the AI over", () => {
+    const cautious = price({ giftToPleased: 92 });
+    expect(cautious.opinion.attitude).toBe("CAUTIOUS");
+    expect(cautious).not.toHaveProperty("allianceRefusal");
+    // The coin that lifts it to Pleased, plus its Pleased price (24h of income).
+    expect(cautious.pricing.required.alliance).toBe(92 + 24 * 60);
+    // Other refusals still hold.
+    expect(price({ giftToPleased: 92, memory: memory({ lastCombatAt: NOW - HOUR }) }).pricing.required.alliance).toBeNull();
+    expect(price({ giftToPleased: 92, aiWouldLeadAlliance: false }).allianceRefusal).toBe("Milo won't join an alliance it wouldn't lead: your alliance is too large.");
+  });
+
   it("needs at least Pleased, and the AI never pays", () => {
     expect(price({}).allianceRefusal).toBe("Milo doesn't think well enough of you for an alliance.");
-    // Only pointed at gifts when one can still get there (the goodwill cap allows it).
-    expect(price({ giftCanWinOver: true }).allianceRefusal).toBe("Milo doesn't think well enough of you for an alliance. Offer a gift to win them over.");
     // Borders apart (+5) and fear (+10): Pleased, 24h of income.
     const pleased = price({ stanceKind: "OUTMATCHED", bordersTouch: false });
     expect(pleased.opinion.attitude).toBe("PLEASED");
@@ -237,7 +247,7 @@ describe("answerDiplomacyStanceQuery", () => {
   const aiSnapshot = {
     playerId: "ai-1",
     tiles: [],
-    player: { manpower: 800, manpowerCap: 1000, gold: 40, incomePerMinute: 2, strategicResources: { SHARD: 1 } },
+    player: { manpower: 800, manpowerCap: 1000, gold: 40, incomePerMinute: 2, strategicResources: {} },
     worldStatus: { leaderboard: { overall: [{ id: "ai-1", tiles: 100 }] } }
   } as unknown as PlayerSubscriptionSnapshot;
   const deps = {
@@ -258,8 +268,7 @@ describe("answerDiplomacyStanceQuery", () => {
       stance: { kind: "INDIFFERENT", reason: "Milo has no quarrel with you: your borders don't meet." },
       attitude: { level: "CAUTIOUS", score: 5, modifiers: [{ label: "Our borders don't meet", value: 5 }] },
       war: { atWar: false, aiWinning: false, aiLosing: false, tilesTakenFromAi: 0, tilesTakenByAi: 0 },
-      allianceRefusal: "Milo doesn't think well enough of you for an alliance. Offer a gift to win them over.",
-      pricing: { required: { truce12: 0, truce24: 0, alliance: null }, shardCoinValue: 25, aiHoldings: { gold: 40, shard: 1 } },
+      pricing: { required: { truce12: 0, truce24: 0, alliance: 92 + 24 * 60 * 2 }, aiHoldings: { gold: 40 } },
       gift: { coinPerPoint: 20, goodwillPoints: 0, maxPoints: 25 }
     });
   });

@@ -1,7 +1,7 @@
 // Per-write tile bookkeeping applied by Runtime.replaceTileState, split out
 // of runtime.ts (over the 500-line cap) so each rule is unit-testable.
 import type { DomainTileState } from "@border-empires/game-domain";
-import { isCaptureHoldActive } from "@border-empires/shared";
+import { isCaptureHoldActive, liveWarScarLevel } from "@border-empires/shared";
 
 /**
  * Drops a capture hold (shared capture-hold.ts) that no longer applies, so
@@ -20,6 +20,14 @@ export const withoutStaleCaptureHold = (
   const inheritedByNewOwner = previous?.ownerId !== next.ownerId && previous?.captureHoldUntil === next.captureHoldUntil;
   if (isCaptureHoldActive(next, nowMs) && !inheritedByNewOwner) return next;
   const { captureHoldUntil: _dropped, ...rest } = next;
+  return rest;
+};
+
+/** Drops battle scars (shared war-scars.ts) once they have faded, so the fields never linger. */
+export const withoutFadedWarScars = (next: DomainTileState, nowMs: number): DomainTileState => {
+  if (next.warScarLevel === undefined && next.warScarUntil === undefined) return next;
+  if (liveWarScarLevel(next, nowMs) > 0) return next;
+  const { warScarLevel: _level, warScarUntil: _until, ...rest } = next;
   return rest;
 };
 

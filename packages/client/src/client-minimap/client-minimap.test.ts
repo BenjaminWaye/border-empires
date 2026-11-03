@@ -68,8 +68,6 @@ describe("drawMiniMap fog rendering", () => {
         fogDisabled: false,
         tiles: new Map(),
         dockPairs: [],
-        shardRainPingsByTile: new Map(),
-        shardRainStatus: undefined,
         tilesRevision: 0
       },
       canvas,
@@ -137,8 +135,6 @@ const drawMiniMapWithTiles = (
       fogDisabled: false,
       tiles,
       dockPairs: docks?.pairs ?? [],
-      shardRainPingsByTile: new Map(),
-      shardRainStatus: undefined,
       tilesRevision: 0
     },
     canvas,
@@ -233,97 +229,6 @@ describe("miniMapEdgeArrowPoint", () => {
 
   it("returns the canvas center for a target exactly at the center", () => {
     expect(miniMapEdgeArrowPoint(50, 50, 100, 100)).toEqual({ x: 50, y: 50, angle: 0 });
-  });
-});
-
-describe("drawMiniMap shard rain ping rendering", () => {
-  const drawWithPing = (args: {
-    ping: { x: number; y: number; createdAt: number; activateAt: number };
-    fogDisabled: boolean;
-    tiles?: Map<string, Tile>;
-  }): ReturnType<typeof makeFakeCtx> => {
-    const w = 100;
-    const h = 100;
-    const contentCtx = makeFakeCtx();
-    const canvas = { width: 200, height: 200 } as HTMLCanvasElement;
-    const miniMapEl = { width: w, height: h } as HTMLCanvasElement;
-    const miniMapContentEl = { width: w, height: h } as HTMLCanvasElement;
-    const miniMapBase = { width: w, height: h } as HTMLCanvasElement;
-
-    drawMiniMap({
-      nowMs: 0,
-      state: {
-        camX: 5,
-        camY: 5,
-        zoom: 1,
-        replayActive: false,
-        replayIndex: 0,
-        replayOwnershipByTile: new Map(),
-        fogDisabled: args.fogDisabled,
-        tiles: args.tiles ?? new Map(),
-        dockPairs: [],
-        shardRainPingsByTile: new Map([[`${args.ping.x},${args.ping.y}`, args.ping]]),
-        shardRainStatus: { key: "rain", phase: "started", startsAt: -1, expiresAt: 60_000, siteCount: 1 },
-        tilesRevision: 0
-      },
-      canvas,
-      miniMapEl,
-      miniMapCtx: makeFakeCtx(),
-      miniMapContentEl,
-      miniMapContentCtx: contentCtx,
-      miniMapBase,
-      miniMapBaseReady: true,
-      miniMapLast: { camX: -1, camY: -1, zoom: -1, replayIndex: -1, tileCount: -1, tilesRevision: -1 },
-      contentCache: { computedAt: 0 },
-      parseKey: (key) => {
-        const parts = key.split(",").map(Number);
-        return { x: parts[0] ?? 0, y: parts[1] ?? 0 };
-      },
-      keyFor: (x, y) => `${x},${y}`,
-      tileVisibilityStateAt: () => "visible",
-      effectiveOverlayColor: () => "#ffffff",
-      isDockRouteVisibleForPlayer: () => false,
-      replayCurrentEvent: () => undefined
-    });
-    return contentCtx;
-  };
-
-  it("draws a pulsing ring for an active ping inside the (fog-disabled, full-world) view box", () => {
-    // Fog disabled -> the view box is the full 450x450 world, so any world tile is in-box.
-    const contentCtx = drawWithPing({ ping: { x: 225, y: 225, createdAt: 0, activateAt: 0 }, fogDisabled: true });
-    expect(contentCtx.arcCalls.length).toBeGreaterThan(0);
-    expect(contentCtx.translateCalls).toHaveLength(0);
-  });
-
-  it("draws nothing for a ping that has not activated yet", () => {
-    const contentCtx = drawWithPing({ ping: { x: 225, y: 225, createdAt: 0, activateAt: 60_000 }, fogDisabled: true });
-    expect(contentCtx.arcCalls).toHaveLength(0);
-    expect(contentCtx.translateCalls).toHaveLength(0);
-  });
-
-  it("draws an edge arrow instead of a ring for an active ping far outside the explored-territory view box", () => {
-    // A single explored tile near the origin shrinks the view box to roughly (0,0)-(50,50);
-    // a ping at (400,400) falls well outside it.
-    const tiles = new Map<string, Tile>([["5,5", { x: 5, y: 5, terrain: "LAND" }]]);
-    const contentCtx = drawWithPing({ ping: { x: 400, y: 400, createdAt: 0, activateAt: 0 }, fogDisabled: false, tiles });
-    expect(contentCtx.arcCalls).toHaveLength(0);
-    expect(contentCtx.translateCalls).toHaveLength(1);
-    // Clamped near the bottom-right corner of the 100x100 canvas, not off in space at the raw ping position.
-    expect(contentCtx.translateCalls[0]!.x).toBeLessThanOrEqual(100);
-    expect(contentCtx.translateCalls[0]!.y).toBeLessThanOrEqual(100);
-  });
-
-  it("points the arrow the short way around the toroidal world instead of the long raw-coordinate way", () => {
-    // Explored territory sits near the world's east edge (x=440 of 450); the view box ends up
-    // roughly x:[400,450). A ping at x=10 is only ~20 tiles away going east across the world
-    // seam, but ~390 tiles away in raw (non-wrapping) coordinates.
-    const tiles = new Map<string, Tile>([["440,5", { x: 440, y: 5, terrain: "LAND" }]]);
-    const contentCtx = drawWithPing({ ping: { x: 10, y: 5, createdAt: 0, activateAt: 0 }, fogDisabled: false, tiles });
-    expect(contentCtx.translateCalls).toHaveLength(1);
-    // The short way is east: the arrow should clamp to the canvas's right edge (x close to
-    // 100), not the left edge (x close to 0) that the raw, non-wrapping pixel position would
-    // clamp to.
-    expect(contentCtx.translateCalls[0]!.x).toBeGreaterThan(50);
   });
 });
 

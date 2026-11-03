@@ -50,8 +50,7 @@ export const tileLookupFromSnapshot = (snapshot: AiDiplomacySnapshot | undefined
 
 const holdingsOf = (snapshot: AiDiplomacySnapshot | undefined): DiplomacyGoods => ({
   ...(snapshot?.player?.resourceTradeHoldings ? { resources: snapshot.player.resourceTradeHoldings } : {}),
-  gold: Math.max(0, Math.floor(snapshot?.player?.gold ?? 0)),
-  shard: Math.max(0, Math.floor(snapshot?.player?.strategicResources?.SHARD ?? 0))
+  gold: Math.max(0, Math.floor(snapshot?.player?.gold ?? 0))
 });
 
 const warReason = (aiName: string, opinion: AiOpinion, fallback: string): string => {
@@ -80,6 +79,8 @@ const aiLeads = (input: {
     (input.seasonLeaderboard ? tileLookupFor(input.seasonLeaderboard, input.aiPlayerId) : undefined);
   return tilesOf ? aiWouldLeadAlliance(input.aiPlayerId, input.requesterId, input.alliesOf, tilesOf) : undefined;
 };
+
+const giftToPleasedField = (coin: number | undefined): { giftToPleased?: number } => (coin === undefined ? {} : { giftToPleased: coin });
 
 /** undefined when the AI snapshot is missing: nothing to judge, so callers decline rather than guess. */
 export const evaluateAiDiplomacy = (input: {
@@ -119,7 +120,7 @@ export const evaluateAiDiplomacy = (input: {
     aiHoldings: holdingsOf(input.aiSnapshot),
     requesterBrokeTruceWithAi: input.requesterBrokeTruceWithAi,
     aiWouldLeadAlliance: aiLeads(input),
-    giftCanWinOver: giftToReach(gift, opinion.score, ATTITUDE_MIN_SCORE.PLEASED) !== undefined,
+    ...giftToPleasedField(giftToReach(gift, opinion.score, ATTITUDE_MIN_SCORE.PLEASED)),
     requesterTruceCostMult: afcMultiplicativeEffect(input.requesterSnapshot?.player?.domainIds, "truceCostMult"),
     now: input.now
   });

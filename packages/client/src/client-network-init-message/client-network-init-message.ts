@@ -1,7 +1,9 @@
+import { hydrateTutorialGuideFromInit } from "../client-tutorial-guide/tutorial-guide-storage.js";
 import { applyResourceTradeState } from "../client-diplomacy-trade/client-resource-trade-state.js";
 import { applyRelicAndProgressionUpdate } from "../client-relic-overlay/relic-map-hints.js";
 import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
 import { isChosenTrickleResource } from "@border-empires/shared";
+import { devQueueManpowerReservedTileKeys } from "../client-player-update-manpower/client-player-update-manpower.js";
 import { initDefensibilityPct } from "../client-init-defensibility/client-init-defensibility.js";
 import { occupationSurveyController } from "../client-occupation-survey.js";
 import { applyGatewayRecoveryNextClientSeq } from "../client-frontier-command/client-frontier-command.js";
@@ -67,7 +69,6 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     clearRenderCaches,
     buildMiniMapBase,
     showCaptureAlert,
-    applyShardRainNotice,
     logTileSync,
     logIncomingTechPayload,
     showCaptureAlertSafely,
@@ -160,6 +161,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   );
   applyEmailNotificationPrefsFromServer(player.emailNotificationPrefs as Record<string, unknown> | undefined);
   state.profileSetupRequired = Boolean(player.profileNeedsSetup);
+  hydrateTutorialGuideFromInit({ ...player, profileNeedsSetup: player.profileNeedsSetup === true || state.authIsGuest }, state.authEmail);
   state.mapRevealEligible = Boolean(player.canToggleFog);
   syncDesiredFogDisabled();
   setAuthStatus(`Signed in as ${state.authUserLabel || (player.name as string)}.`);
@@ -187,6 +189,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.manpower = (player.manpower as number | undefined) ?? state.manpower;
   state.manpowerCap = (player.manpowerCap as number | undefined) ?? state.manpowerCap;
   state.nextManpowerBatchAmount = typeof player.nextManpowerBatchAmount === "number" ? player.nextManpowerBatchAmount : undefined;
+  state.devQueueManpowerReservedTileKeys = devQueueManpowerReservedTileKeys(player.devQueue) ?? new Set<string>(); // devQueue is omitted when empty
   state.manpowerRegenPerMinute = (player.manpowerRegenPerMinute as number | undefined) ?? state.manpowerRegenPerMinute;
   state.logisticsThroughputPerMinute = (player.logisticsThroughputPerMinute as number | undefined) ?? state.logisticsThroughputPerMinute;
   state.settledT = (player.Ts as number) ?? state.settledT;
@@ -413,10 +416,6 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     buildMiniMapBase();
   }
   const mapMeta = (msg.mapMeta as { dockCount?: number; dockPairCount?: number; clusterCount?: number; townCount?: number; dockPairs?: any[] } | undefined) ?? {};
-  const shardRainNotice =
-    (msg.shardRainNotice as
-      | { phase?: "upcoming" | "started"; startsAt?: number; expiresAt?: number; siteCount?: number; sites?: { x: number; y: number }[] }
-      | undefined) ?? undefined;
   const offlineActivity =
     (msg.offlineActivity as
       | Array<{ title?: string; detail?: string; type?: string; severity?: string; at?: number; tileKey?: string; actionLabel?: string }>
@@ -475,7 +474,6 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     pushFeed,
     showCaptureAlert: showCaptureAlertSafely
   });
-  applyShardRainNotice(shardRainNotice);
   applySettlementRepairDiagnostic(msg as Record<string, unknown>);
   syncAuthOverlay();
   renderHud();

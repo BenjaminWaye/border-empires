@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import { toFullSnapshotProtoTile, toProtoEvent } from "./proto-serialization.js";
+import { streamsWithoutSubscriber, toFullSnapshotProtoTile, toProtoEvent } from "./proto-serialization.js";
 
 describe("toProtoEvent — ownershipClearOnly marker", () => {
   it("emits ownership_clear_only in BOTH the snake_case proto array and the camelCase array when set", () => {
@@ -185,5 +185,23 @@ describe("prospectSignature over the wire", () => {
 
   it("toFullSnapshotProtoTile forwards prospectSignature", () => {
     expect(toFullSnapshotProtoTile({ x: 3, y: 4, terrain: "LAND", prospectSignature: "FERROUS_DUST" })).toMatchObject({ prospect_signature: "FERROUS_DUST" });
+  });
+});
+
+describe("streamsWithoutSubscriber", () => {
+  // Regression: a gift to an AI files its payment under the AI, which has no
+  // subscriber, so the verdict was dropped and the gift timed out after 30s.
+  it("streams deal/gift payment verdicts filed under an unsubscribed player", () => {
+    const resolved = { eventType: "COMMAND_RESOLVED", commandId: "diplomacy-settle:abc", playerId: "ai-1" } as SimulationEvent;
+    const rejected = { eventType: "COMMAND_REJECTED", commandId: "diplomacy-settle:truce:x", playerId: "ai-1", code: "C", message: "m" } as SimulationEvent;
+    expect(streamsWithoutSubscriber(resolved)).toBe(true);
+    expect(streamsWithoutSubscriber(rejected)).toBe(true);
+  });
+
+  it("keeps other events subscriber-only", () => {
+    const resolved = { eventType: "COMMAND_RESOLVED", commandId: "cmd-1", playerId: "ai-1" } as SimulationEvent;
+    const message = { eventType: "PLAYER_MESSAGE", commandId: "diplomacy-settle:abc", playerId: "ai-1", messageType: "PLAYER_UPDATE", payloadJson: "{}" } as SimulationEvent;
+    expect(streamsWithoutSubscriber(resolved)).toBe(false);
+    expect(streamsWithoutSubscriber(message)).toBe(false);
   });
 });

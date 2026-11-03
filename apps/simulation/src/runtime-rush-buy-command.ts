@@ -2,6 +2,7 @@ import type { RelicMutationContext } from "./runtime-relics.js";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
 import {
+  isCaptureHoldActive,
   EXPAND_MANPOWER_COST,
   rushBuyPriceGold,
   SETTLE_MANPOWER_COST,
@@ -86,6 +87,12 @@ export const handleRushBuyCommandImpl = (context: RuntimeRushBuyCommandContext, 
 
   const pendingSettlement = context.pendingSettlementsByTile.get(targetKey);
   if (pendingSettlement && pendingSettlement.ownerId === command.playerId) {
+    // A captured tile garrisons no earlier than its capture hold ends
+    // (runtime-settlement-start.ts); paying can't skip the hold.
+    if (isCaptureHoldActive(context.tiles.get(targetKey), context.now())) {
+      context.rejectCommand(command, "RUSH_BUY_INVALID", "the capturing troops are still holding this tile");
+      return;
+    }
     const totalMs = Math.max(1, pendingSettlement.resolvesAt - pendingSettlement.startedAt);
     const remainingMs = pendingSettlement.resolvesAt - context.now();
     // §6.3's rush price is anchored on the action's *manpower* cost — SETTLE_COST

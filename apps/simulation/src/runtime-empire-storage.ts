@@ -22,15 +22,11 @@ export const computeEmpireStorageCap = (
 
   return {
     // Replenishment update (docs/replenishment-update-plan.md D4): gold has
-    // no storage cap any more, same reasoning as SHARD below — a 24h-income
+    // no storage cap any more — a 24h-income
     // cap punished players who couldn't spend it fast enough, and rush-buy
     // (gold, not time-based) is meant to be the main gold sink now that
     // build times are longer (B2).
     GOLD: Number.MAX_SAFE_INTEGER,
-    FOOD: Math.max(EMPIRE_STORAGE_FLOOR.FOOD, cappableFoodPerMinute * STORAGE_MINUTES),
-    // SHARD has no storage cap — it's rare enough on its own (event-gated
-    // collection sites) that stockpile limits only punished players who
-    // couldn't spend it fast enough.
-    SHARD: Number.MAX_SAFE_INTEGER
+    FOOD: Math.max(EMPIRE_STORAGE_FLOOR.FOOD, cappableFoodPerMinute * STORAGE_MINUTES)
   };
 };

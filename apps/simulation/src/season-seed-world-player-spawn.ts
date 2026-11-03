@@ -1,4 +1,4 @@
-import type { ClusterDefinition, NaturalWonderSiteState, ShardSiteState, TownDefinition, WatchtowerSiteState, WaystationSiteState } from "@border-empires/game-domain";
+import type { ClusterDefinition, NaturalWonderSiteState, TownDefinition, WatchtowerSiteState, WaystationSiteState } from "@border-empires/game-domain";
 import { DEFAULT_WORLD_HEIGHT, WORLD_HEIGHT as CONFIGURED_WORLD_HEIGHT, isCoastalLandAt, townTerrainProfileForBiome, underlyingLandBiomeAt, type Tile, type TileKey } from "@border-empires/shared";
 import type { FairSpawnSite } from "@border-empires/game-domain";
 
@@ -27,7 +27,6 @@ export type SeasonSeedPlayerSpawnDeps = {
   ownership: Map<TileKey, string>;
   clusterByTile: ReadonlyMap<TileKey, string>;
   clustersById: ReadonlyMap<string, ClusterDefinition>;
-  shardSitesByTile: Map<TileKey, ShardSiteState>;
   watchtowersByTile: Map<TileKey, WatchtowerSiteState>;
   waystationsByTile: Map<TileKey, WaystationSiteState>;
   naturalWondersByTile: Map<TileKey, NaturalWonderSiteState>;
@@ -41,7 +40,7 @@ export type SeasonSeedSpawnPosition = { playerId: string; x: number; y: number; 
 export const createSeasonSeedPlayerSpawner = (
   deps: SeasonSeedPlayerSpawnDeps
 ): { spawnPositions: SeasonSeedSpawnPosition[]; spawnPlayerAt: (playerId: string, isAi: boolean, playerIndex: number) => void } => {
-  const { WORLD_WIDTH, WORLD_HEIGHT, worldSeed, terrainAt, isSpawnableLand, wrapX, wrapY, key, chebyshevDistance, seeded01, fairSpawnSites, townsByTile, docksByTile, ownership, clusterByTile, clustersById, shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile, createSettlementTown, townTypeAt, minTownSpacing } = deps;
+  const { WORLD_WIDTH, WORLD_HEIGHT, worldSeed, terrainAt, isSpawnableLand, wrapX, wrapY, key, chebyshevDistance, seeded01, fairSpawnSites, townsByTile, docksByTile, ownership, clusterByTile, clustersById, watchtowersByTile, waystationsByTile, naturalWondersByTile, createSettlementTown, townTypeAt, minTownSpacing } = deps;
 
   const spawnPositions: SeasonSeedSpawnPosition[] = [];
   // A player's own settlement is planted directly on their spawn tile below,
@@ -153,7 +152,6 @@ export const createSeasonSeedPlayerSpawner = (
     }
     const tk = key(spawn.x, spawn.y);
     ownership.set(tk, playerId);
-    shardSitesByTile.delete(tk);
     watchtowersByTile.delete(tk);
     waystationsByTile.delete(tk);
     naturalWondersByTile.delete(tk);

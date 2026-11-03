@@ -26,7 +26,6 @@
  * costs nothing beyond what a login already costs.
  */
 export type PerConnectHelloRuntime = {
-  emitShardRainHelloFor: (playerId: string) => void;
   resendReachForPlayer: (playerId: string) => void;
   drainDevQueueForPlayer: (playerId: string) => void;
   refreshResourceSlotCachesForPlayer: (playerId: string) => void;
@@ -42,7 +41,6 @@ export const emitPerConnectHellos = (
   log: PerConnectHelloLog
 ): void => {
   const hellos: Array<[string, () => void]> = [
-    ["shard rain hello", () => runtime.emitShardRainHelloFor(playerId)],
     ["reach resend", () => runtime.resendReachForPlayer(playerId)],
     ["dev queue drain", () => runtime.drainDevQueueForPlayer(playerId)],
     ["resource slot cache refresh", () => runtime.refreshResourceSlotCachesForPlayer(playerId)]

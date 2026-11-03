@@ -1,4 +1,4 @@
-import { afcBuildCost } from "@border-empires/shared";
+import { afcBuildCost, isCaptureHoldActive } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { prepareAfcLandingFootprint } from "./afc-landing-footprint/afc-landing-footprint.js";
@@ -18,9 +18,11 @@ export const handleBuildAfcCommand = (context: RuntimeStructureCommandContext, c
   const tile = context.tiles.get(tileKey);
   const ownedAfcCount = [...context.tiles.values()].filter((entry) => entry.ownerId === actor.id && entry.afc?.ownerId === actor.id).length;
   // A player who lost their last AFC rebuilds it for free, on any empty land
-  // tile they own (FRONTIER included -- it is settled on landing).
+  // tile they own (FRONTIER included -- it is settled on landing), except one
+  // their troops are still holding after a capture: that can't be garrisoned
+  // until the hold ends (runtime-settlement-start.ts).
   const isFreeRebuild = ownedAfcCount === 0;
-  const ownershipOk = tile?.ownerId === actor.id && (tile.ownershipState === "SETTLED" || (isFreeRebuild && tile.ownershipState === "FRONTIER"));
+  const ownershipOk = tile?.ownerId === actor.id && (tile.ownershipState === "SETTLED" || (isFreeRebuild && tile.ownershipState === "FRONTIER" && !isCaptureHoldActive(tile, context.now())));
   if (!tile || tile.terrain !== "LAND" || !ownershipOk || !isEmptyAfcSite(tile) || context.locksByTile.has(tileKey)) {
     return rejectCommand(context, command, "BUILD_INVALID", isFreeRebuild ? "Your new AFC needs an unlocked, empty land tile you control" : "AFCs need an unlocked, empty garrisoned land tile you control");
   }

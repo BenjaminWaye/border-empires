@@ -23,7 +23,7 @@ function makeSummary(): PlayerRuntimeSummary {
     townCount: 0,
     ownedTownTierByTile: new Map(),
     goldIncomePerMinute: 0,
-    strategicProductionPerMinute: { TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0, FOOD: 0 },
+    strategicProductionPerMinute: { TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, FOOD: 0 },
     activeDevelopmentProcessCount: 0,
     pendingSettlementsByTile: new Map(),
     fishFoodPerMinute: 0,

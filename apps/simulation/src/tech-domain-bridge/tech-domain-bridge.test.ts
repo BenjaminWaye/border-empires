@@ -117,7 +117,7 @@ describe("tech-domain bridge progression sources", () => {
       techIds: new Set<string>(["toolmaking"]),
       domainIds: new Set<string>(["frontier-doctrine"]),
       allies: new Set<string>(),
-      strategicResources: { FOOD: 10_000, TITANIUM: 10_000, CRYSTAL: 10_000, UMBRITE: 10_000, SHARD: 10_000 }
+      strategicResources: { FOOD: 10_000, TITANIUM: 10_000, CRYSTAL: 10_000, UMBRITE: 10_000 }
     };
 
     const payload = buildDomainUpdatePayload(player, []);
@@ -136,7 +136,7 @@ describe("tech-domain bridge progression sources", () => {
       techIds: new Set<string>(["toolmaking"]),
       domainIds: new Set<string>(["frontier-doctrine"]),
       allies: new Set<string>(),
-      strategicResources: { FOOD: 10_000, TITANIUM: 10_000, CRYSTAL: 10_000, UMBRITE: 10_000, SHARD: 10_000 }
+      strategicResources: { FOOD: 10_000, TITANIUM: 10_000, CRYSTAL: 10_000, UMBRITE: 10_000 }
     };
 
     const outcome = chooseDomainForPlayer(player, "cogwork-foundries", []);
@@ -246,10 +246,10 @@ describe("Clockwork Stipend resource slot grant", () => {
     expect(player.domainIds.has("clockwork-stipend")).toBe(false);
   });
 
-  it("rejects unsupported sub-choices (e.g. SHARD)", () => {
+  it("rejects unsupported sub-choices (e.g. FOOD)", () => {
     const player = baseClockworkPlayer();
     const outcome = chooseDomainForPlayer(player, "clockwork-stipend", [], {
-      chosenTrickleResource: "SHARD" as unknown as "TITANIUM"
+      chosenTrickleResource: "FOOD" as unknown as "TITANIUM"
     });
     expect(outcome.ok).toBe(false);
   });
@@ -292,8 +292,7 @@ describe("AI progression choice prefers affordable options over higher-scored un
   // tech it couldn't pay the strategic-resource cost for. Under the gold
   // rescope every tech
   // below tier 5 costs gold only now — that specific starvation scenario is
-  // structurally impossible below tier 5 (and tier 5+ needs SHARD, a
-  // separately event-gated resource, not a strategy-starvable one). The
+  // structurally impossible below tier 5. The
   // surviving, still-real trigger for "prefers affordable over higher-scored
   // unaffordable" is now plain per-tier GOLD scarcity (tier 1 = 10 gold,
   // tier 2 = 50, ... — §13): a player who can afford tier 1 but not tier 2
@@ -369,8 +368,8 @@ describe("AI progression choice prefers affordable options over higher-scored un
   it("picks the higher-scored tier-1 domain by gold alone now that domains no longer gate on FOOD/TITANIUM/CRYSTAL/UMBRITE quantities", () => {
     // Pre-§19, mercantile-charter's crystal cost made it unaffordable without
     // crystal, so the AI fell back to clockwork-stipend despite its lower
-    // score. §19 dropped every domain's cost to gold + SHARD only — mercantile-charter
-    // and clockwork-stipend are both tier 1 (40 gold, no shard), so neither
+    // score. §19 dropped every domain's cost to gold only — mercantile-charter
+    // and clockwork-stipend are both tier 1 (40 gold), so neither
     // is gated by strategicResources anymore and the AI should just take the
     // higher-scored candidate.
     const choice = chooseAiDomainChoiceForPlayer(

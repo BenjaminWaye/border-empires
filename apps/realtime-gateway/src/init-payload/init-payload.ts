@@ -49,8 +49,8 @@ type GatewayInitPayload = {
     manpowerRegenPerMinute: number;
     manpowerBreakdown?: ManpowerBreakdown;
     incomePerMinute: number;
-    strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>;
-    strategicProductionPerMinute: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>;
+    strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>;
+    strategicProductionPerMinute: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>;
     resourceSlots: {
       supply: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>;
       demand: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>;
@@ -98,7 +98,6 @@ type GatewayInitPayload = {
     townCount: number;
     dockPairs: DockPairView[];
   };
-  shardRainNotice?: Record<string, unknown>;
 };
 
 export const resolveDataPath = (
@@ -412,7 +411,7 @@ export const buildGatewayInitPayload = (
   const availableStrategic =
     liveSnapshotPlayer?.strategicResources ??
     bootstrapProfile?.strategicResources ??
-    { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 };
+    { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 };
 
   const seasonWinner: SeasonWinnerView | undefined =
     initialState?.season?.winner ?? snapshotBootstrap?.seasonWinner;
@@ -443,7 +442,7 @@ export const buildGatewayInitPayload = (
       strategicProductionPerMinute:
         liveSnapshotPlayer?.strategicProductionPerMinute ??
         bootstrapProfile?.strategicProductionPerMinute ??
-        { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+        { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
       // Legacy season-bootstrap profiles predate the slots pillar (§5) and
       // never carry resourceSlots -- only the live snapshot path does.
       resourceSlots:
@@ -528,7 +527,6 @@ export const buildGatewayInitPayload = (
         initialState?.tiles.filter((tile: PlayerSubscriptionSnapshot["tiles"][number]) => tile.townType).length ??
         seedWorld.summary.totalTownTiles,
       dockPairs
-    },
-    ...(liveWorldStatus?.shardRainNotice ? { shardRainNotice: liveWorldStatus.shardRainNotice } : {})
+    }
   };
 };

@@ -15,7 +15,7 @@ const runtimeWith = (domainIds: string[], techIds: string[] = ["masonry"], freeF
     techIds: new Set<string>(techIds), domainIds: new Set<string>(domainIds), ...(freeFortsUsed !== undefined ? { afcCampaign: { freeFortsUsed } } : {}),
     mods: { attack: 1, defense: 1, income: 1, vision: 1 },
     techRootId: "rewrite-local", allies: new Set<string>(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
-    strategicResources: { FOOD: 0, TITANIUM: 200, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+    strategicResources: { FOOD: 0, TITANIUM: 200, CRYSTAL: 0, UMBRITE: 0 },
   }]]),
   initialState: {
     tiles: [

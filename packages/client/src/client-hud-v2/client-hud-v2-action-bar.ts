@@ -22,7 +22,6 @@ type BarView = Pick<TileMenuView, "actions" | "buildings" | "crystal" | "tabs"> 
 const PRIMARY_ORDER: ReadonlyArray<TileActionDef["id"]> = [
   "launch_attack",
   "march_attack_flag",
-  "collect_shard",
   "expand_here",
   "march_to_pick_origin"
 ];

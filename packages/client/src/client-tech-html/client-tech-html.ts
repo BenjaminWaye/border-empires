@@ -302,14 +302,14 @@ const checklistHtml = (items: Array<{ label: string; met: boolean }>, className 
 
 const fallbackRequirementChecklist = (requirements: {
   gold?: number;
-  resources?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
+  resources?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>>;
 }): Array<{ label: string; met: boolean }> => {
   const out: Array<{ label: string; met: boolean }> = [];
   const goldCost = requirements.gold ?? 0;
   if (goldCost > 0) {
     out.push({ label: `Coin ${goldCost.toLocaleString()}`, met: false });
   }
-  for (const resourceKey of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const) {
+  for (const resourceKey of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"] as const) {
     const amount = requirements.resources?.[resourceKey] ?? 0;
     if (amount > 0) {
       out.push({ label: `${resourceKey} ${amount.toLocaleString()}`, met: false });
@@ -320,7 +320,7 @@ const fallbackRequirementChecklist = (requirements: {
 
 const effectiveRequirementChecklist = (requirements: {
   gold?: number;
-  resources?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
+  resources?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>>;
   checklist?: Array<{ label: string; met: boolean }>;
 }): Array<{ label: string; met: boolean }> => {
   const checklist = requirements.checklist ?? [];
@@ -409,12 +409,12 @@ export const renderDomainChoiceGridHtml = (args: {
       ? `<article class="card domain-summary-card">
           <div class="domain-summary-kicker">Domains</div>
           <strong>Choose one domain for Tier ${currentTier}</strong>
-          <p>Each tier allows exactly one doctrine. Explore for shard caches and catch shard rain to fund the next machine-doctrine pick.</p>
+          <p>Each tier allows exactly one doctrine.</p>
         </article>`
       : `<article class="card domain-summary-card">
           <div class="domain-summary-kicker">Domains</div>
           <strong>All current domain tiers are committed</strong>
-          <p>You can only choose one doctrine per tier. Review the path you locked in below and keep feeding it with shards from exploration and shardfalls.</p>
+          <p>You can only choose one doctrine per tier. Review the path you locked in below.</p>
         </article>`;
   const sections = tiers
     .map((tier) => {

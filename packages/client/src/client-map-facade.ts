@@ -1,3 +1,4 @@
+import { standingTreeFilter } from "./client-forest-war/forest-war.js";
 import { WORLD_WIDTH, clearForestAroundAfcTiles, clearForestOnTownAndDockTiles, grassShadeAt, grassToneAt, isForestClearedAt, visualLandBiomeAt, worldgenVersion } from "@border-empires/shared";
 import { prospectClueDrawFor } from "./client-prospect-signature-overlay.js";
 import { createRetiredProspectCluesLookup } from "./client-prospect-clue/client-prospect-clue.js";
@@ -28,7 +29,6 @@ import {
   drawDockMarker as drawDockMarkerOnCanvas,
   drawResourceCornerMarker as drawResourceCornerMarkerOnCanvas,
   drawRoadOverlay as drawRoadOverlayOnCanvas,
-  drawShardFallback as drawShardFallbackOnCanvas,
   drawTerrainTile as drawTerrainTileOnCanvas,
   drawTownOverlay as drawTownOverlayOnCanvas,
   effectiveOverlayColor as effectiveOverlayColorFromModule,
@@ -86,7 +86,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   let miniMapLastTilesRevision = Number.NaN;
   let miniMapLastColorKey = "";
   // Offscreen cache for the minimap's camera-independent content (owner tints, fog, docks,
-  // town/shard/watchtower markers) — the expensive part. Recomputed only on tile/replay churn
+  // town/watchtower markers) — the expensive part. Recomputed only on tile/replay churn
   // (throttled), never on a camera/zoom-only change, so panning/zooming stays cheap.
   const miniMapContentEl = document.createElement("canvas");
   const miniMapContentCtx = miniMapContentEl.getContext("2d");
@@ -287,7 +287,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     return prospectClueDrawFor(tile, tileVisibilityStateAt(wx, wy, tile) === "visible", retiredClues(state.techIds, state.techCatalog));
   };
   const drawForestOverlay = (wx: number, wy: number, px: number, py: number, size: number): void =>
-    drawForestOverlayOnCanvas(ctx, wx, wy, px, py, size, visibleProspectClueAt(wx, wy), (x, y) => isForestTileWithAfcLandingHold(state.afcJoinDrop, x, y));
+    drawForestOverlayOnCanvas(ctx, wx, wy, px, py, size, visibleProspectClueAt(wx, wy), (x, y) => isForestTileWithAfcLandingHold(state.afcJoinDrop, x, y), standingTreeFilter(state.tiles.get(keyFor(wx, wy)), wx, wy));
   const drawHillsOverlay = (wx: number, wy: number, px: number, py: number, size: number): void => {
     drawHillsOverlayOnCanvas(ctx, wx, wy, px, py, size);
   };
@@ -329,7 +329,6 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     kind: FortificationOverlayKind,
     opening: FortificationOpening
   ): HTMLImageElement | undefined => fortificationOverlayImageFromModule(kind, opening);
-  const drawShardFallback = (_tile: Tile, px: number, py: number, size: number): void => drawShardFallbackOnCanvas(ctx, px, py, size);
   const drawOwnershipSignature = (ownerId: string, px: number, py: number, size: number): void =>
     drawOwnershipSignatureOnCanvas(ctx, ownerId, px, py, size, visualStyleForOwner);
 
@@ -482,7 +481,6 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     drawResourceCornerMarker,
     drawRoadOverlay,
     fortificationOverlayImageFor,
-    drawShardFallback,
     drawOwnershipSignature,
     resolveDockSeaRoute,
     markDockDiscovered,

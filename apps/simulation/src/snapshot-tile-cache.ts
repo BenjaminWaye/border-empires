@@ -65,7 +65,7 @@ export type RuntimeState = {
   terrainEpoch?: number;
 };
 
-export type StrategicResourceKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
+export type StrategicResourceKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
 export type EconomyResourceKey = StrategicResourceKey | "GOLD";
 export type EconomyBucket = {
   label: string;

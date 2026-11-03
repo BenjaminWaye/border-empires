@@ -2,7 +2,7 @@ import { isFirstTimeVisitor } from "../client-changelog/client-changelog.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { isMapUnobstructed, type MapUnobstructedState } from "./client-map-unobstructed.js";
 
-// Popups appended to <body> (waystation captured, shard rain alert) share
+// Popups appended to <body> (waystation captured) share
 // or exceed the Activity dashboard's z-index, so showing one while the
 // dashboard is open -- or just before it opens, since the dashboard waits on
 // the personal-activity response -- paints it on top of What's New. Each

@@ -56,7 +56,7 @@ it("negotiates, pays, delivers and cancels consecutive independent trades over r
   expect(await nextTypedMessage(seller, "seller init", "INIT")).toMatchObject({ player: { resourceTradeHoldings: { NEURAL_RESIN: 1 } } });
   for (let round = 0; round < 2; round++) {
     seller.socket.send(JSON.stringify({ type: "RESOURCE_TRADE_REQUEST", targetPlayerName: "buyer", targetPlayerId: "buyer",
-      terms: { give: { gold: 0, shard: 0, resources: { NEURAL_RESIN: 1 } }, ask: { gold: 3, shard: 0 } } }));
+      terms: { give: { gold: 0, resources: { NEURAL_RESIN: 1 } }, ask: { gold: 3 } } }));
     const offered = await nextMatchingMessage(seller, "pending trade", row => row.type === "ERROR" ||
       (row.type === "RESOURCE_TRADE_UPDATE" && Array.isArray(row.offers) && row.offers.some(value => {
         const parsed = ResourceTradeOfferSchema.safeParse(value); return parsed.success && parsed.data.status === "pending";

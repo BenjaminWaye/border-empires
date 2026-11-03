@@ -15,7 +15,7 @@ import type { ModBreakdown, StatMods } from "./tech-domain-bridge-types.js";
 
 export type { DomainCatalogEntry, ManifestCategory, ModBreakdown, TechCatalogEntry } from "./tech-domain-bridge-types.js";
 
-export type StrategicCounts = Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
+export type StrategicCounts = Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>>;
 type TileResource = NonNullable<DomainTileState["resource"]>;
 type RawResourceCounts = Partial<Record<TileResource, number>>;
 
@@ -46,13 +46,12 @@ export type AiProgressionChoice = {
 };
 
 export const toResources = (
-  cost?: Partial<Record<"gold" | "food" | "iron" | "crystal" | "supply" | "shard", number>>
+  cost?: Partial<Record<"gold" | "food" | "iron" | "crystal" | "supply", number>>
 ): StrategicCounts => ({
   ...(typeof cost?.food === "number" && cost.food > 0 ? { FOOD: cost.food } : {}),
   ...(typeof cost?.iron === "number" && cost.iron > 0 ? { TITANIUM: cost.iron } : {}),
   ...(typeof cost?.crystal === "number" && cost.crystal > 0 ? { CRYSTAL: cost.crystal } : {}),
-  ...(typeof cost?.supply === "number" && cost.supply > 0 ? { UMBRITE: cost.supply } : {}),
-  ...(typeof cost?.shard === "number" && cost.shard > 0 ? { SHARD: cost.shard } : {})
+  ...(typeof cost?.supply === "number" && cost.supply > 0 ? { UMBRITE: cost.supply } : {})
 });
 
 export const rawResourceCountsForPlayer = (playerId: string, tiles: Iterable<AiProgressionPlannerTile>): RawResourceCounts => {
@@ -402,8 +401,7 @@ export const buildTechUpdatePayload = (
     FOOD: available.FOOD ?? 0,
     TITANIUM: available.TITANIUM ?? 0,
     CRYSTAL: available.CRYSTAL ?? 0,
-    UMBRITE: available.UMBRITE ?? 0,
-    SHARD: available.SHARD ?? 0
+    UMBRITE: available.UMBRITE ?? 0
   };
   return {
     ...afcPlayerStatePayload(player),

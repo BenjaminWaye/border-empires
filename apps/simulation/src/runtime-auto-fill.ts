@@ -1,4 +1,4 @@
-import { AUTO_FILL_MAX_REGION_SIZE, AUTO_FILL_NATURAL_BARRIER_MAX_REGION_SIZE, WORLD_WIDTH, WORLD_HEIGHT, wrapX, wrapY } from "@border-empires/shared";
+import { AUTO_FILL_MAX_REGION_SIZE, AUTO_FILL_NATURAL_BARRIER_MAX_REGION_SIZE, WORLD_WIDTH, WORLD_HEIGHT, isCaptureHoldActive, wrapX, wrapY } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { simulationTileKey } from "./seed-state/seed-state.js";
@@ -196,6 +196,8 @@ export const applyAutoFill = (input: {
   // leak); this only decides whether the discovered tile gets claimed.
   isInReach: (x: number, y: number) => boolean;
   onAutoFillTiles?: ((count: number) => void) | undefined;
+  /** Current time, for the capture-hold check below. */
+  now?: number;
   scanCooldown?: {
     now: number;
     cooldownMs: number;
@@ -215,6 +217,9 @@ export const applyAutoFill = (input: {
       const isUnowned = !existing.ownerId;
       const isOwnFrontier = existing.ownerId === ownerId && existing.ownershipState === "FRONTIER";
       if (!isUnowned && !isOwnFrontier) continue;
+      // A tile still held after its capture can't garrison until the hold ends (runtime-settlement-start.ts).
+      const holdNow = input.now ?? input.scanCooldown?.now;
+      if (isOwnFrontier && holdNow !== undefined && isCaptureHoldActive(existing, holdNow)) continue;
       // Outside the owner's reach border: leave it as-is rather than claiming
       // it. The rest of the pocket that IS in reach still auto-fills — an
       // out-of-reach tile isn't treated as a leak.
@@ -265,6 +270,7 @@ export const emitAutoFillForSettlement = (
     replaceTileState: input.replaceTileState,
     isInReach: input.isInReach,
     onAutoFillTiles: input.onAutoFillTiles,
+    now: input.now(),
     scanCooldown: { now: input.now(), cooldownMs: AUTO_FILL_SCAN_COOLDOWN_MS, originCooldownUntil: input.autoFillOriginCooldownUntil }
   });
   if (filled.length === 0) return;

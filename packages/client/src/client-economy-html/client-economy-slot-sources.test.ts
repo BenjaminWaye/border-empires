@@ -8,13 +8,13 @@ type PanelArgs = Parameters<typeof renderEconomyPanelHtml>[0];
 
 const titaniumArgs = (supply: number, sources: ResourceSlotSources | undefined, tiles: PanelArgs["tiles"] = []): PanelArgs => ({
   focus: "TITANIUM", gold: 0, me: "me", incomePerMinute: 0,
-  strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 }, storageCap: EMPIRE_STORAGE_FLOOR,
+  strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }, storageCap: EMPIRE_STORAGE_FLOOR,
   resourceSlots: {
     supply: { FOOD: 0, TITANIUM: supply, CRYSTAL: 0, UMBRITE: 0 },
     demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
     ...(sources ? { sources } : {})
   },
-  dormantStructures: [], strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+  dormantStructures: [], strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
   upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 }, upkeepLastTick: { foodCoverage: 1 },
   activeRevealTargetsCount: 0, tiles, economyBreakdown: undefined, isMobile: true,
   prettyToken: (value) => value, resourceIconHtml: (resource) => resource,

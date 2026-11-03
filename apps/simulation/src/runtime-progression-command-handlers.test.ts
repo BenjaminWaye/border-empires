@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { handleChooseDomainCommand, handleChooseTechCommand, handleCollectShardCommand, handleUpgradeTownTierCommand, type RuntimeProgressionCommandContext } from "./runtime-progression-command-handlers.js";
+import { handleChooseDomainCommand, handleChooseTechCommand, handleUpgradeTownTierCommand, type RuntimeProgressionCommandContext } from "./runtime-progression-command-handlers.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 
 const buildPlayer = (id: string, overrides: Partial<DomainPlayer> = {}): DomainPlayer => ({
@@ -29,7 +29,6 @@ const buildContext = (
     tiles,
     emitEvent: (event) => { events.push(event); },
     emitPlayerStateUpdate: () => {},
-    addStrategicResource: () => {},
     tileDeltaFromState: (tile) => ({ x: tile.x, y: tile.y }),
     replaceTileState: () => {},
     autoClaimFrontier: () => {},
@@ -41,10 +40,6 @@ const buildContext = (
     invalidateUpkeepAccrual: () => {},
     resyncVisionRadius: () => {},
     incomePerMinuteForPlayer: () => 0,
-    decrementShardRainSiteCount: () => 0,
-    clearShardRainExpiry: () => {},
-    clearLastShardRainHello: () => {},
-    onShardCollected: undefined,
     resourceSlotSupplyForPlayer: () => ({ FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }),
     resourceSlotDemandForPlayer: () => ({ FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }),
     invalidateResourceSlotDemand: () => {},
@@ -162,47 +157,6 @@ describe("cache invalidation on tech/domain choice", () => {
   });
 });
 
-// Regression coverage: collecting a shard credited the player's
-// strategicResources ledger but never invalidated the cached economy
-// snapshot, so the client-facing shard stock kept showing the pre-collect
-// amount until something unrelated happened to bust the cache later.
-describe("handleCollectShardCommand cache invalidation", () => {
-  it("invalidates the economy-snapshot cache after crediting SHARD", () => {
-    const player = buildPlayer("player-1", { points: 100 });
-    const players = new Map([["player-1", player]]);
-    const tiles = new Map<string, DomainTileState>([
-      [
-        "5,5",
-        {
-          x: 5,
-          y: 5,
-          ownerId: "player-1",
-          ownershipState: "SETTLED",
-          shardSite: { kind: "CACHE", amount: 3 }
-        } as DomainTileState
-      ]
-    ]);
-    const invalidatedEconomySnapshotFor: string[] = [];
-    let credited = 0;
-    const context = buildContext(players, tiles, () => {}, {
-      addStrategicResource: (_player, resource, amount) => {
-        if (resource === "SHARD") credited += amount;
-      },
-      invalidateEconomySnapshot: (playerId) => { invalidatedEconomySnapshotFor.push(playerId); }
-    });
-    const command: CommandEnvelope = {
-      commandId: "cmd-shard-1",
-      playerId: "player-1",
-      commandType: "COLLECT_SHARD",
-      payloadJson: JSON.stringify({ x: 5, y: 5 })
-    } as CommandEnvelope;
-
-    handleCollectShardCommand(context, command);
-
-    expect(credited).toBe(3);
-    expect(invalidatedEconomySnapshotFor).toEqual(["player-1"]);
-  });
-});
 
 // Regression coverage: capturing a town auto-claims its whole support ring
 // as FRONTIER (the reach-anchor pipeline's autoClaimFrontier), but upgrading

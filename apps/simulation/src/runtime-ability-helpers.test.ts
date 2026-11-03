@@ -40,7 +40,7 @@ describe("buildRevealEmpireStatsFromSummary", () => {
       manpower: 21_378,
       manpowerCapSnapshot: 54_000,
       techIds: new Set(),
-      strategicResources: { FOOD: 12, TITANIUM: 0, CRYSTAL: 3, UMBRITE: 0, SHARD: 0 },
+      strategicResources: { FOOD: 12, TITANIUM: 0, CRYSTAL: 3, UMBRITE: 0 },
       ...overrides
     }) as DomainPlayer;
 

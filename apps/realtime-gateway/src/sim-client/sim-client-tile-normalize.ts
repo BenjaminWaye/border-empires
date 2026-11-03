@@ -21,6 +21,8 @@ export type SimClientTileDelta = {
   frontierDecayKind?: FrontierDecayKind | undefined;
   breachShockUntil?: number | undefined;
   captureHoldUntil?: number | undefined;
+  warScarLevel?: number | undefined;
+  warScarUntil?: number | undefined;
   townJson?: string | undefined;
   townType?: "MARKET" | "FARMING";
   townName?: string | undefined;
@@ -56,7 +58,11 @@ export type ProtoTileDelta = {
   breach_shock_until?: number;
   breachShockUntil?: number;
   capture_hold_until?: number;
+  war_scar_level?: number;
+  war_scar_until?: number;
   captureHoldUntil?: number;
+  warScarLevel?: number;
+  warScarUntil?: number;
   town_json?: string;
   townJson?: string;
   town_type?: string;
@@ -106,6 +112,14 @@ export const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<Si
   if ("capture_hold_until" in tile || "captureHoldUntil" in tile) {
     const captureHoldUntil = tile.capture_hold_until ?? tile.captureHoldUntil;
     normalized.captureHoldUntil = typeof captureHoldUntil === "number" && captureHoldUntil > 0 ? captureHoldUntil : undefined;
+  }
+  if ("war_scar_level" in tile || "warScarLevel" in tile) {
+    const warScarLevel = tile.war_scar_level ?? tile.warScarLevel;
+    normalized.warScarLevel = typeof warScarLevel === "number" && warScarLevel > 0 ? warScarLevel : undefined;
+  }
+  if ("war_scar_until" in tile || "warScarUntil" in tile) {
+    const warScarUntil = tile.war_scar_until ?? tile.warScarUntil;
+    normalized.warScarUntil = typeof warScarUntil === "number" && warScarUntil > 0 ? warScarUntil : undefined;
   }
   if ("town_json" in tile || "townJson" in tile) normalized.townJson = tile.town_json || tile.townJson || undefined;
   if (typeof tile.town_type === "string" && (tile.town_type === "MARKET" || tile.town_type === "FARMING")) {

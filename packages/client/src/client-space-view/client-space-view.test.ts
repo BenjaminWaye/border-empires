@@ -248,7 +248,7 @@ describe("mountSpaceView gating", () => {
     expect(stats.textContent).toContain("50");
     expect(stats.textContent).toContain("Production");
     // None of the season's tile-game resources belong in this screen.
-    expect(stats.textContent).not.toMatch(/FOOD|TITANIUM|CRYSTAL|UMBRITE|SHARD/);
+    expect(stats.textContent).not.toMatch(/FOOD|TITANIUM|CRYSTAL|UMBRITE/);
   });
 
   it("opening a different top-right tab closes whichever one was already open", async () => {

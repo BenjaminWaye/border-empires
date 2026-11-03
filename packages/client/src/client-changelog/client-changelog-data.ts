@@ -4,6 +4,7 @@ import { CLIENT_CHANGELOG_ENTRIES_OCT_25 } from "./client-changelog-oct-25.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_26 } from "./client-changelog-oct-26.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_27 } from "./client-changelog-oct-27.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_30_31 } from "./client-changelog-oct-30-31.js";
+import { CLIENT_CHANGELOG_ENTRIES_NOV_01_03 } from "./client-changelog-nov-01-03.js";
 import { RAW_DEPOSIT_UNDER_IMPROVEMENT_CHANGELOG } from "./client-changelog-raw-deposit-under-improvement.js";
 import { RESOURCE_NETWORKS_CHANGELOG } from "./client-changelog-resource-networks.js";
 import { RELIABLE_DIPLOMACY_CHANGELOG } from "./client-changelog-reliable-diplomacy.js";
@@ -54,6 +55,8 @@ import { LANDING_RESERVE_CHANGELOG } from "./client-changelog-landing-reserve.js
 import { FOG_HILL_HAZE_CHANGELOG } from "./client-changelog-fog-hill-haze.js";
 import { STORM_EDGE_BANDING_CHANGELOG } from "./client-changelog-storm-edge-banding.js";
 import { AETHER_TOWER_SHOTS_CHANGELOG } from "./client-changelog-aether-tower-shots.js";
+import { LEGAL_PAGES_CHANGELOG } from "./client-changelog-legal-pages.js";
+import { CAPTURE_AFTERMATH_CHANGELOG } from "./client-changelog-capture-aftermath.js";
 import { AFC_V3_CHANGELOG } from "./client-changelog-afc-v3.js";
 import { MARCH_ACROSS_WATER_CHANGELOG } from "./client-changelog-march-across-water.js";
 import { MARCH_UNEXPLORED_CHANGELOG } from "./client-changelog-march-unexplored.js";
@@ -155,17 +158,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RESTART_MANPOWER_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING,
   ...CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY,
-  {
-    createdAt: 1792009197862, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.14.3",
-    title: "AI empires weigh your truce and alliance offers",
-    why: "AI empires accepted truces almost instantly, and repeat offers could be spammed at any player.",
-    changes: [
-      "AI empires now judge relative strength, shared borders, food, and past broken truces, and tell you why they accepted or declined",
-      "AI empires now answer alliance offers too",
-      "After an offer is declined or cancelled, you can't send that player the same kind of offer for 30 minutes (10 minutes after an unanswered truce offer expires)"
-    ]
-  },
   ...CLIENT_CHANGELOG_ENTRIES_AFC_LANDING,
   ...OUT_OF_REACH_NO_DECAY_CHANGELOG,
   ...FRONTIER_SUPPLY_LINES_CHANGELOG,
@@ -211,16 +203,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Empire Integrity now lives in the Economy panel; the top bar only shows it, with a warning, once it drops below 50% and actually reduces your coin and growth",
       "Fixed integrity sometimes showing lower than it really was (e.g. 80% for a small new empire) after changing your profile or colour, toggling auto-garrison, or using an ability"
-    ]
-  },
-  {
-    createdAt: 1791927499454, // frozen Date.now() value for this release
-    introducedIn: "2026.10.13.1",
-    title: "Top bar icons are labelled",
-    why: "Playtesters couldn't tell what the icons in the top-right corner opened without hovering over each one.",
-    changes: [
-      "Manifest, Allies, Ranks, Activity, Sharding and Settings now show their name under the icon on desktop",
-      "The Alerts (bell) button has been removed from the top bar and the mobile menu while the alerts feed is reworked -- the Activity dashboard is where to see what happened"
     ]
   },
   ...OCTOBER_STRUCTURE_ART_CHANGELOG,
@@ -466,14 +448,40 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Barbarians wandering over empty land no longer push real captures out of the 24-hour activity history"
     ]
   },
+  ...CLIENT_CHANGELOG_ENTRIES_NOV_01_03,
   {
-    createdAt: 1793565464215, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.01",
-    title: "Towns in the new HUD",
-    why: "The new HUD had no way to reach the town list.",
-    changes: ["A Towns button next to Manifest lists your towns, sortable by gold, population or growth", "Press a town to open its town screen"]
+    createdAt: 1793696822571, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.03",
+    title: "Guide: clearer first steps, a Manufactory, and diplomacy",
+    why: "Playtesting the guide showed steps asking for the wrong action (Expand To on land you already held, Build on tiles you couldn't build on yet) and a last step that didn't say what to do.",
+    changes: [
+      "A town or food tile your reach already claimed: the guide says to Garrison it",
+      "One you can see outside your reach: the guide says to Expand To it",
+      "Nothing in sight: the guide marks a tile for a Relay Beacon",
+      "The food steps show the grain and fish icons to look for on the map",
+      "The guide asks you to tap your AFC rather than any tile, since tapping land next to your border claims it",
+      "It recommends the Industrial Tooling Module as your first Manifest, then, once the module has docked at your AFC, asks for a Manufactory on your town",
+      "A new Diplomacy step appears once you meet a rival House: open Diplomacy to offer a truce",
+      "You can finish the guide even if you haven't met Planetary Defense or a rival yet; Finish closes it for good",
+      "The last step now says plainly that manpower refills every 4 hours"
+    ]
+  },
+  {
+    createdAt: 1793655662084, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.02",
+    title: "Shards removed",
+    why: "Shards never had a clear role: they paid for Monuments, refilled manpower and changed hands in deals, but the story never explained them.",
+    changes: [
+      "Shard rain, shard caches and the Shard counter are gone, and any Shards you held are removed",
+      "Monuments now cost manpower and a Crystal slot only, with no Shards",
+      "Doctrine domains from tier 2 up now cost coin only, with no Shards",
+      "Shard Mobilization and the shard rain that favoured empires that had lost land are gone",
+      "Deals and gifts trade Coin and resource supply only; pending offers that included Shards are withdrawn"
+    ]
   },
   ...AETHER_TOWER_SHOTS_CHANGELOG,
+  ...LEGAL_PAGES_CHANGELOG,
+  ...CAPTURE_AFTERMATH_CHANGELOG,
   ...AFC_V3_CHANGELOG
 ];
 

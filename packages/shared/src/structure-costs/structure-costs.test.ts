@@ -70,28 +70,21 @@ describe("structureCostDefinition", () => {
     expect(structureCostDefinition("ANCILLARY_DEPOT").resourceCost).toBeUndefined();
   });
 
-  // Wonders already cost 2 SHARD on final assembly; each of their 3 prerequisite
-  // parts now also costs 1 SHARD, so a completed wonder consumes 5 SHARD total
-  // across the build chain rather than 2.
-  test("charges 1 SHARD for every wonder part, on top of the completed wonder's own SHARD cost", () => {
+  // Shards were removed from the game: monuments cost manpower (plus their
+  // CRYSTAL slot, structure-slots.ts) and no strategic stockpile.
+  test("charges no strategic resource for any wonder part or completed wonder", () => {
     const wonderParts = [
       "IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3",
       "SOVEREIGN_SIEGE_ENGINE_PART_1", "SOVEREIGN_SIEGE_ENGINE_PART_2", "SOVEREIGN_SIEGE_ENGINE_PART_3",
       "AEGIS_DOME_PART_1", "AEGIS_DOME_PART_2", "AEGIS_DOME_PART_3",
       "ASTRAL_DOCK_PART_1", "ASTRAL_DOCK_PART_2", "ASTRAL_DOCK_PART_3",
       "CENSUS_DIRECTORATE_PART_1", "CENSUS_DIRECTORATE_PART_2", "CENSUS_DIRECTORATE_PART_3",
-      "TITANIUM_LEVY_PART_1", "TITANIUM_LEVY_PART_2", "TITANIUM_LEVY_PART_3"
-    ] as const;
-
-    for (const part of wonderParts) {
-      expect(structureCostDefinition(part).resourceCost, part).toEqual({ resource: "SHARD", amount: 1 });
-    }
-
-    const completedWonders = [
+      "TITANIUM_LEVY_PART_1", "TITANIUM_LEVY_PART_2", "TITANIUM_LEVY_PART_3",
       "IMPERIAL_EXCHANGE", "SOVEREIGN_SIEGE_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK", "CENSUS_DIRECTORATE", "TITANIUM_LEVY"
     ] as const;
-    for (const wonder of completedWonders) {
-      expect(structureCostDefinition(wonder).resourceCost, wonder).toEqual({ resource: "SHARD", amount: 2 });
+
+    for (const monument of wonderParts) {
+      expect(structureCostDefinition(monument).resourceCost, monument).toBeUndefined();
     }
   });
 });

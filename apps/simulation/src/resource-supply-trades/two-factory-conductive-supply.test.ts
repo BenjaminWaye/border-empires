@@ -20,12 +20,12 @@ it("splits one foundry's two exclusive slots between two trading Houses without 
   const events = collectEvents(runtime);
   expect(player("seller").resourceTradeHoldings?.CONDUCTIVE_MINERALS).toBe(2);
   for (const [index, targetId] of ["buyer-one", "buyer-two"].entries()) {
-    await runtime.submitCommand({ commandId: `conductive-contract-${index}`, sessionId: "system-runtime:social", playerId: targetId, clientSeq: 0, issuedAt: now, type: "SETTLE_DIPLOMACY_TERMS", payloadJson: JSON.stringify({ proposerId: "seller", targetId, proposerPays: { gold: 0, shard: 0, resources: { CONDUCTIVE_MINERALS: 1 } }, targetPays: { gold: 0, shard: 0 } }) });
+    await runtime.submitCommand({ commandId: `conductive-contract-${index}`, sessionId: "system-runtime:social", playerId: targetId, clientSeq: 0, issuedAt: now, type: "SETTLE_DIPLOMACY_TERMS", payloadJson: JSON.stringify({ proposerId: "seller", targetId, proposerPays: { gold: 0, resources: { CONDUCTIVE_MINERALS: 1 } }, targetPays: { gold: 0 } }) });
     expect((player(targetId).manpowerRegenPerMinute! - before.get(targetId)!) * 240).toBeCloseTo(6);
     expect(player(targetId).resourceTradeHoldings?.CONDUCTIVE_MINERALS).toBeUndefined();
     expect(player("seller").resourceTradeHoldings?.CONDUCTIVE_MINERALS ?? 0).toBe(1 - index);
   }
   expect(events.filter(event => event.eventType === "COMMAND_REJECTED")).toHaveLength(0);
-  await runtime.submitCommand({ commandId: "third-conductive-contract", sessionId: "system-runtime:social", playerId: "buyer-one", clientSeq: 0, issuedAt: now, type: "SETTLE_DIPLOMACY_TERMS", payloadJson: JSON.stringify({ proposerId: "seller", targetId: "buyer-one", proposerPays: { gold: 0, shard: 0, resources: { CONDUCTIVE_MINERALS: 1 } }, targetPays: { gold: 0, shard: 0 } }) });
+  await runtime.submitCommand({ commandId: "third-conductive-contract", sessionId: "system-runtime:social", playerId: "buyer-one", clientSeq: 0, issuedAt: now, type: "SETTLE_DIPLOMACY_TERMS", payloadJson: JSON.stringify({ proposerId: "seller", targetId: "buyer-one", proposerPays: { gold: 0, resources: { CONDUCTIVE_MINERALS: 1 } }, targetPays: { gold: 0 } }) });
   expect(events.some(event => event.eventType === "COMMAND_REJECTED" && event.commandId === "third-conductive-contract")).toBe(true);
 });

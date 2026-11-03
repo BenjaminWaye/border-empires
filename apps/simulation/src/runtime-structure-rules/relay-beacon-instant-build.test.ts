@@ -13,7 +13,7 @@ const buildRuntime = () =>
       techIds: new Set<string>(), domainIds: new Set<string>(),
       mods: { attack: 1, defense: 1, income: 1, vision: 1 },
       techRootId: "rewrite-local", allies: new Set<string>(),
-      strategicResources: { FOOD: 100, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+      strategicResources: { FOOD: 100, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
     }]]),
     initialState: {
       tiles: [

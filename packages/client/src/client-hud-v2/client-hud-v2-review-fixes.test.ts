@@ -79,9 +79,10 @@ describe("review fixes: Ranks, overlay and flag", () => {
     expect([stanceOf("barbarian"), stanceOf("barbarian-1")]).toEqual(["hostile", "hostile"]);
   });
 
-  it("honours ?hud=v2 when storage is unavailable", () => {
+  it("defaults on and honours ?hud=legacy when storage is unavailable", () => {
     const blocked = { getItem: () => { throw new Error("blocked"); }, setItem: () => { throw new Error("blocked"); }, removeItem: () => undefined };
     expect(readHudV2Flag("?hud=v2", blocked)).toBe(true);
-    expect(readHudV2Flag("", blocked)).toBe(false);
+    expect(readHudV2Flag("", blocked)).toBe(true);
+    expect(readHudV2Flag("?hud=legacy", blocked)).toBe(false);
   });
 });
