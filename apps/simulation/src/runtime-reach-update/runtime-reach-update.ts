@@ -56,7 +56,8 @@ export type ReachUpdateState = {
 
 /**
  * `revisionBase` is the revision every player's count starts above. The
- * runtime passes its boot wall-clock time so revisions keep increasing across
+ * runtime passes its boot wall-clock time (Date.now(), never its injected
+ * now(), which tests and replays start near zero) so revisions keep increasing across
  * a simulation restart: a client that stayed open through a deploy still
  * holds the last revision the old process sent, and drops any arrival at or
  * below it (`applyServerReachUpdate`). With a per-process count from 0 the

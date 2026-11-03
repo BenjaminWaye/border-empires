@@ -639,7 +639,7 @@ export class SimulationRuntime {
     isPlayerSubscribed: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false, emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload)
   });
   // Change-driven REACH_UPDATE push bookkeeping — see runtime-reach-update.ts.
-  private readonly reachUpdateState: ReachUpdateState = createReachUpdateState(Date.now()); /* wall clock, not this.now(): revisions must outrun the previous process's, see createReachUpdateState */ private readonly reachContestedDirtyState: ReachChangedTilesDirtyState = createReachChangedTilesDirtyState(); // changed-reach-tile TILE_DELTA_BATCH dirty set, see runtime-reach-contested-tiles.ts
+  private readonly reachUpdateState: ReachUpdateState = createReachUpdateState(Date.now()); private readonly reachContestedDirtyState: ReachChangedTilesDirtyState = createReachChangedTilesDirtyState(); // changed-reach-tile TILE_DELTA_BATCH dirty set, see runtime-reach-contested-tiles.ts
   private frontierAutoHealQueue: FrontierAutoHealQueue = createFrontierAutoHealQueue(); // deadline-ordered; derived state, rebuilt at hydration, never snapshotted -- see runtime-frontier-auto-heal.ts
   private readonly isLandTileQuery = (x: number, y: number): boolean => { const t = this.state.tiles.get(simulationTileKey(x, y)); return t ? t.terrain === "LAND" : true; }; // land-gates reach anchors, see ReachAnchor.crossesWater
   private readonly lastEmittedStorageCapByPlayer = new Map<string, EmpireStorageCap>();
