@@ -25,7 +25,7 @@ const formatClock = (ms: number): string => {
 };
 
 /** Creates the layer; `render` redraws it each frame (bounded by the state lists' own caps). */
-export function createAfcFxLayer(canvas: HTMLCanvasElement, state: FxState): { render: (projection: AfcFxProjection, towers: readonly AfcFxTower[], now?: number) => void } {
+export function createAfcFxLayer(canvas: HTMLCanvasElement, state: FxState): { render: (projection: AfcFxProjection, towers: readonly AfcFxTower[], now?: number, hidden?: boolean) => void } {
   const doc = canvas.ownerDocument;
   const svg = doc.createElementNS(SVG_NS, "svg");
   svg.setAttribute("class", "afc-fx-layer");
@@ -39,8 +39,9 @@ export function createAfcFxLayer(canvas: HTMLCanvasElement, state: FxState): { r
     return node;
   };
   return {
-    render({ size, project }, towers, now = Date.now()) {
+    render({ size, project }, towers, now = Date.now(), hidden = false) {
       svg.replaceChildren();
+      if (hidden) return;
       const bounds = canvas.getBoundingClientRect();
       const scaleX = bounds.width / Math.max(1, canvas.width), scaleY = bounds.height / Math.max(1, canvas.height);
       const at = (x: number, y: number): { x: number; y: number } => {

@@ -4,7 +4,6 @@
 // stamp completesAt (structureBuildSpeedEffectKey / buildDurationWithSpeedMult
 // in shared, multiplicativeEffectForPlayer in apps/simulation).
 import {
-  MONUMENT_UNLOCK_TECH_ID,
   afcInstantBuildFor,
   buildDurationWithSpeedMult,
   economicStructureBuildDurationMs,
@@ -38,7 +37,7 @@ export const buildSpeedMultForState = (state: BuildSpeedState, key: StructureBui
 export const buildMsWithSpeedForState = (state: BuildSpeedState, structureType: string, baseMs: number): number => {
   const key = structureBuildSpeedEffectKey(structureType);
   if (baseMs <= 0) return baseMs;
-  if (afcInstantBuildFor(state.domainIds, structureType, structureType in MONUMENT_UNLOCK_TECH_ID)) return 0;
+  if (afcInstantBuildFor(state.domainIds, structureType)) return 0;
   const specific = key ? buildSpeedMultForState(state, key) : 1;
   return buildDurationWithSpeedMult(baseMs, specific * buildSpeedMultForState(state, "structureBuildSpeedMult"));
 };

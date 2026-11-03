@@ -33,6 +33,12 @@ describe("AFC behavior in the real AI worker path", () => {
     const enemyTower: PlannerTileView = { x: 2, y: 0, terrain: "LAND", ownerId: "enemy", ownershipState: "SETTLED", observatory: { ownerId: "enemy", status: "active", cooldownUntil: 5000 } };
     const command = plan(p, [{ ...own, observatory: { ownerId: "ai-1", status: "active", cooldownUntil: 0 } }, enemyTower], true);
     expect(command).toMatchObject({ type: "HIJACK_AETHER_TOWER", payloadJson: JSON.stringify({ x: 2, y: 0 }) });
+    // Recharging, or a tower already being taken: no doomed proposal that would starve the other Aether actions.
+    p.afcHijackReadyAt = 5000;
+    expect(plan(p, [{ ...own, observatory: { ownerId: "ai-1", status: "active", cooldownUntil: 0 } }, enemyTower], true)?.type).not.toBe("HIJACK_AETHER_TOWER");
+    delete p.afcHijackReadyAt;
+    const taken = { ...enemyTower, observatory: { ...enemyTower.observatory!, hijack: { byPlayerId: "x", casterX: 0, casterY: 0, startedAt: 0, endsAt: 9000 } } };
+    expect(plan(p, [{ ...own, observatory: { ownerId: "ai-1", status: "active", cooldownUntil: 0 } }, taken], true)?.type).not.toBe("HIJACK_AETHER_TOWER");
   });
   it("uses paid recruitment when progress is complete, reserves are low and Coin is available", () => {
     const result = chooseAutomationPreplanCommand({ playerId: "ai-1", afcUpgradeRuleset: "afc-v1", points: 100, manpower: 0, techIds: [...techEntryById.keys()], domainIds: ["afc-exchequer-1", "afc-exchequer-2", "afc-exchequer-3", "afc-exchequer-4", "afc-exchequer-5"], ownedTiles: [own], hasActiveLock: false, clientSeq: 1, issuedAt: 1000, sessionPrefix: "ai-runtime" });

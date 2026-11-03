@@ -396,7 +396,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   // its duration comes from relayBeaconBuildDurationMs, not the cost.
   const structureDurationMs = afcInstantBuild(actor, structureType) ? 0 : structureType === "RELAY_BEACON"
     ? relayBeaconBuildDurationMs(context.ownedStructureCountForPlayer(command.playerId, structureType))
-    : structureBuildDurationMsForManpowerCost(manpowerCost);
+    : structureBuildDurationMsForManpowerCost(fortCharge?.freeFort ? 1 : manpowerCost); // a free Fort still takes the normal build time
   // Shared with the client's build menus (structureBuildSpeedEffectKey) so
   // the time a menu shows is the time this stamps.
   const speedEffectKey = structureBuildSpeedEffectKey(structureType);

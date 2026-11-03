@@ -1,5 +1,5 @@
 import type { DomainPlayer } from "@border-empires/game-domain";
-import { MONUMENT_UNLOCK_TECH_ID, discountedStructureManpowerCost, structureManpowerCostEffectKey } from "@border-empires/shared";
+import { isMonumentStructureOrPart, discountedStructureManpowerCost, structureManpowerCostEffectKey } from "@border-empires/shared";
 import { additiveEffectForPlayer, multiplicativeEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
 
 type EffectPlayer = Pick<DomainPlayer, "techIds" | "domainIds">;
@@ -37,4 +37,4 @@ export const fortTechWaived = (player: EffectPlayer, techId: string): boolean =>
 /** Relay Fabrication Line makes Relays instant; Universal Fabrication Line makes every non-monument build instant. */
 export const afcInstantBuild = (player: EffectPlayer, structureType: string): boolean =>
   (structureType === "RELAY_BEACON" && additiveEffectForPlayer(player, "relayBeaconInstantBuild") > 0) ||
-  (!(structureType in MONUMENT_UNLOCK_TECH_ID) && additiveEffectForPlayer(player, "instantStructureBuild") > 0);
+  (!isMonumentStructureOrPart(structureType) && additiveEffectForPlayer(player, "instantStructureBuild") > 0);

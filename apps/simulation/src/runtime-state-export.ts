@@ -334,6 +334,7 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         installedModuleTechIds: activeAfcModuleTechIds(playerId, summary.ownedAfcTileKeys, input.tiles),
         domainIds: [...(player.domainIds ?? [])].sort(),
         ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
+        ...(player.afcCampaign?.hijackReadyAt ? { afcHijackReadyAt: player.afcCampaign.hijackReadyAt } : {}),
           ...(player.afcCoreTownKeys ? { afcCoreTownKeys: [...player.afcCoreTownKeys] } : {}),
           ...(player.afcScarcityFoodSlots ? { afcScarcityFoodSlots: player.afcScarcityFoodSlots } : {}),
           ...(player.afcCampaign ? { afcCampaign: structuredClone(player.afcCampaign) } : {}),

@@ -1117,8 +1117,11 @@ export class SimulationRuntime {
   private readonly tickAfcGrants = createColonialCharterSweep(() => ({ tiles: this.state.tiles, players: this.state.players, ownedTownKeys: (id) => this.summaryForPlayer(id).ownedTownTierByTile.keys(),
     replaceTileState: (key, tile, commandId) => this.replaceTileState(key, tile, commandId), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command) }));
   private hijackDeps(): AfcHijackDeps {
-    return { tiles: this.state.tiles, players: this.state.players, activeObservatoriesByOwner: () => this.ownerIndexes.activeObservatoriesByOwner, isStructureDormant: (id, key, field) => this.isStructureDormant(id, key, field), replaceTileState: (key, tile, commandId) => this.replaceTileState(key, tile, commandId),
-      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), applyEncirclement: (keys, id, commandId, options) => this.applyEncirclement(keys, id, commandId, options), emitEvent: (event) => this.emitEvent(event), emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload) };
+    return { tiles: this.state.tiles, players: this.state.players, activeObservatoriesByOwner: () => this.ownerIndexes.activeObservatoriesByOwner,
+      isStructureDormant: (id, key, field) => this.isStructureDormant(id, key, field), isTileLocked: (key) => this.state.locksByTile.has(key) || this.pendingSettlementsByTile.has(key),
+      replaceTileState: (key, tile, commandId) => this.replaceTileState(key, tile, commandId), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      applyEncirclement: (keys, id, commandId, options) => this.applyEncirclement(keys, id, commandId, options), emitEvent: (event) => this.emitEvent(event),
+      emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command) };
   }
 
   /** Live-subscribe push of the player's AETHER_SHIELDS list (simulation-service/live-subscribe-reach-push.ts). */

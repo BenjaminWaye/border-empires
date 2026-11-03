@@ -59,8 +59,10 @@ export function applyAfcHijackMessage(state: Partial<AfcClientState>, payload: R
     return true;
   }
   if (payload.type === "AFC_HIJACK_OUTCOME" && int(payload.targetX) && int(payload.targetY) && typeof payload.attackerId === "string" && typeof payload.victimId === "string" && (payload.status === "succeeded" || payload.status === "failed")) {
+    // The outcome carries the caster's position: the AFC_HIJACKS list sent just before it no longer has the finished takeover.
     const running = state.afcHijacks?.find(view => view.targetX === payload.targetX && view.targetY === payload.targetY);
-    state.afcHijackOutcomes = [...recent(state.afcHijackOutcomes, now), { targetX: payload.targetX, targetY: payload.targetY, attackerId: payload.attackerId, victimId: payload.victimId, status: payload.status, at: now, ...(running ? { casterX: running.casterX, casterY: running.casterY } : {}) }];
+    const caster = int(payload.casterX) && int(payload.casterY) ? { casterX: payload.casterX, casterY: payload.casterY } : running ? { casterX: running.casterX, casterY: running.casterY } : {};
+    state.afcHijackOutcomes = [...recent(state.afcHijackOutcomes, now), { targetX: payload.targetX, targetY: payload.targetY, attackerId: payload.attackerId, victimId: payload.victimId, status: payload.status, at: now, ...caster }];
     return true;
   }
   if (payload.type === "AFC_BREAKTHROUGH" && typeof payload.attackerId === "string" && int(payload.fromX) && int(payload.fromY) && Array.isArray(payload.tiles)) {

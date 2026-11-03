@@ -14,7 +14,7 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import {
-  AFC_SPECIALIZATION_BALANCE, aetherTowerHasShot, isAetherTowerSuppressed, isObservatoryHijackActive, isObservatoryInSiphonMode,
+  AFC_SPECIALIZATION_BALANCE, aetherTowerHasShot, isAetherTowerSuppressed, isObservatoryInSiphonMode,
   type ObservatoryHijack
 } from "@border-empires/shared";
 import type { RuntimeAbilityCommandContext } from "../runtime-ability-command-handlers.js";
@@ -29,7 +29,7 @@ export interface AfcHijackView {
   targetX: number; targetY: number; casterX: number; casterY: number;
   attackerId: string; victimId: string; startedAt: number; endsAt: number;
 }
-export type AfcHijackOutcome = { targetX: number; targetY: number; attackerId: string; victimId: string; status: "succeeded" | "failed" };
+export type AfcHijackOutcome = { targetX: number; targetY: number; casterX: number; casterY: number; attackerId: string; victimId: string; status: "succeeded" | "failed" };
 export interface AfcHijackPayload { type: "AFC_HIJACKS"; hijacks: AfcHijackView[] }
 
 export interface AfcHijackDeps {
@@ -42,7 +42,13 @@ export interface AfcHijackDeps {
   applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { bfsCap?: number }) => void;
   emitEvent: (event: SimulationEvent) => void;
   emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: Record<string, unknown>) => void;
+  emitPlayerStateUpdate: (command: Pick<CommandEnvelope, "commandId" | "playerId">) => void;
+  /** An attack or claim is resolving on the tile: a finished takeover waits for it instead of racing the capture. */
+  isTileLocked: (tileKey: string) => boolean;
 }
+
+/** A takeover the tick has not resolved this long after it should have ended is treated as abandoned, never landed late. */
+export const HIJACK_RESOLVE_GRACE_MS = 60_000;
 
 const keyOf = (x: number, y: number): string => `${x},${y}`;
 const viewOf = (tile: DomainTileState, hijack: ObservatoryHijack): AfcHijackView => ({
@@ -93,7 +99,7 @@ export function startResonanceHijack(context: StartHijackContext, command: Comma
   if (!target || !tower || target.terrain !== "LAND" || !target.ownerId || target.ownerId === actor.id || tower.ownerId !== target.ownerId ||
     tower.status !== "active" || isAlliedOrTruced(actor, target.ownerId)) return reject("select a hostile active Aether Tower");
   if (target.town || target.afc) return reject("towers in towns or AFCs cannot be hijacked");
-  if (isObservatoryHijackActive(tower, now)) return reject("that tower is already being hijacked");
+  if (tower.hijack && now <= tower.hijack.endsAt + HIJACK_RESOLVE_GRACE_MS) return reject("that tower is already being hijacked");
   if (!isAetherTowerSuppressed(tower, now) && aetherTowerHasShot(tower, context.maxShotsFor(target.ownerId), now)) {
     return reject("the tower still has a shot left: wait until it is empty, or suppress it with Counterphase");
   }
@@ -107,7 +113,8 @@ export function startResonanceHijack(context: StartHijackContext, command: Comma
   const latest = abilities.tiles.get(key);
   if (!latest?.observatory) return reject("the target tower is no longer available");
   const endsAt = now + AFC_SPECIALIZATION_BALANCE.hijackTakeoverMs;
-  const hijack: ObservatoryHijack = { byPlayerId: actor.id, casterX: caster.x, casterY: caster.y, startedAt: now, endsAt };
+  const prior = latest.observatory.suppressedUntil;
+  const hijack: ObservatoryHijack = { byPlayerId: actor.id, victimId: target.ownerId, casterX: caster.x, casterY: caster.y, startedAt: now, endsAt, ...(prior !== undefined && prior > now ? { priorSuppressedUntil: prior } : {}) };
   const locked: DomainTileState = { ...latest, observatory: { ...latest.observatory, suppressedUntil: Math.max(latest.observatory.suppressedUntil ?? 0, endsAt), hijack } };
   abilities.replaceTileState(key, locked, command.commandId);
   abilities.spendObservatoryShot(casterKey, now, command.commandId, actor.id);
@@ -139,9 +146,13 @@ export function tickResonanceHijacks(deps: AfcHijackDeps, now: number): number {
     const tile = deps.tiles.get(key);
     const hijack = tile?.observatory?.hijack;
     if (!tile || !hijack) continue;
-    const victimGone = !tile.ownerId || tile.ownerId === hijack.byPlayerId;
-    if (victimGone || !casterHolds(deps, hijack, now)) finished.push({ key, tile, hijack, succeeded: false });
-    else if (now >= hijack.endsAt) finished.push({ key, tile, hijack, succeeded: true });
+    // The tower must still belong to the House it was being taken from, and that House must still be hostile.
+    const attacker = deps.players.get(hijack.byPlayerId);
+    const ownerChanged = !tile.ownerId || tile.ownerId === hijack.byPlayerId || (hijack.victimId !== undefined && tile.ownerId !== hijack.victimId);
+    const nowFriendly = Boolean(attacker && tile.ownerId && isAlliedOrTruced(attacker, tile.ownerId));
+    const abandoned = now > hijack.endsAt + HIJACK_RESOLVE_GRACE_MS;
+    if (ownerChanged || nowFriendly || abandoned || !casterHolds(deps, hijack, now)) finished.push({ key, tile, hijack, succeeded: false });
+    else if (now >= hijack.endsAt && !deps.isTileLocked(key)) finished.push({ key, tile, hijack, succeeded: true });
     else running += 1;
   }
   for (const { key, tile, hijack, succeeded } of finished) {
@@ -154,7 +165,9 @@ export function tickResonanceHijacks(deps: AfcHijackDeps, now: number): number {
       const { muster: _muster, fort: _fort, frontierDecayAt: _decay, frontierDecayKind: _kind, captureHoldUntil: _hold, ...base } = tile;
       next = { ...base, ownerId: hijack.byPlayerId, ownershipState: "SETTLED", observatory: { ...rest, ownerId: hijack.byPlayerId, suppressedUntil: undefined } };
     } else {
-      next = { ...tile, observatory: { ...rest, suppressedUntil: (observatory.suppressedUntil ?? 0) > hijack.endsAt ? observatory.suppressedUntil : undefined } };
+      // Hand back any Counterphase suppression that was running before the hijack, if it has not expired since.
+      const restored = (hijack.priorSuppressedUntil ?? 0) > now ? hijack.priorSuppressedUntil : undefined;
+      next = { ...tile, observatory: { ...rest, suppressedUntil: restored } };
     }
     deps.replaceTileState(key, next, commandId);
     const musterCleared = succeeded && Boolean(tile.muster);
@@ -162,7 +175,8 @@ export function tickResonanceHijacks(deps: AfcHijackDeps, now: number): number {
     // A captured muster flag is destroyed with its manpower; every viewer's cached flag must clear (same as Aether Purge).
     if (musterCleared) deps.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `${commandId}:bc`, playerId: "__broadcast__", tileDeltas: [{ x: next.x, y: next.y, ownerId: next.ownerId, ownershipState: next.ownershipState, musterJson: "" }] });
     if (succeeded && victimId) deps.applyEncirclement([key], victimId, commandId, { bfsCap: 2000 });
-    sendAfcHijacks(deps, [hijack.byPlayerId, victimId], now, { targetX: tile.x, targetY: tile.y, attackerId: hijack.byPlayerId, victimId, status: succeeded ? "succeeded" : "failed" });
+    if (succeeded) for (const playerId of [hijack.byPlayerId, victimId]) if (playerId && !deps.players.get(playerId)?.isAi) deps.emitPlayerStateUpdate({ commandId, playerId });
+    sendAfcHijacks(deps, [hijack.byPlayerId, victimId], now, { targetX: tile.x, targetY: tile.y, casterX: hijack.casterX, casterY: hijack.casterY, attackerId: hijack.byPlayerId, victimId, status: succeeded ? "succeeded" : "failed" });
   }
   return running;
 }

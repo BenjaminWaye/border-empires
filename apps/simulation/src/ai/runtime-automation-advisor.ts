@@ -138,6 +138,7 @@ export class RuntimeAutomationAdvisor {
       ...([...player.techIds].length ? { techIds: [...player.techIds] } : {}),
       ...((player.domainIds ? [...player.domainIds] : []).length ? { domainIds: [...(player.domainIds ?? [])] } : {}),
       ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
+      ...(player.afcCampaign?.hijackReadyAt ? { afcHijackReadyAt: player.afcCampaign.hijackReadyAt } : {}),
       ...(Object.keys(player.strategicResources ?? {}).length ? { strategicResources: { ...(player.strategicResources ?? {}) } } : {}),
       settledTileCount: summary.settledTileCount,
       townCount: summary.townCount,

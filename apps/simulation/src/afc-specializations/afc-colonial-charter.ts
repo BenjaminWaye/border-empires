@@ -3,14 +3,17 @@
 // Coin, manpower or Incubation Corps requirement. The engine still occupies its
 // FOOD slot, so a starving empire sees it go dormant like any other consumer.
 //
-// The town remembers the grant (`town.colonialIncubationGranted`), so it is
-// delivered once per town and survives restarts with the tile. A throttled
-// sweep over charter holders' own towns delivers to towns that have since been
-// garrisoned or captured, and retries towns that had no open support tile.
+// The town remembers which House received the grant
+// (`town.colonialIncubationGrantedTo`), so each owner is granted once per town
+// and the record survives restarts with the tile; a captured town is granted
+// again to its new charter-holding owner. Settlements (which cannot support
+// economic structures) and towns that already have an Incubation Engine are
+// skipped. A throttled sweep over charter holders' own towns delivers to new
+// towns and retries towns that had no open support tile.
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import { INCUBATION_ENGINE_INSTANT_POPULATION_BURST } from "@border-empires/shared";
-import { openTownSupportNeighborTiles } from "../town-support-lookup.js";
+import { economicStructureForSupportedTown, openTownSupportNeighborTiles } from "../town-support-lookup.js";
 import { additiveEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
 import type { SimulationTileWireDelta } from "../runtime-types.js";
 
@@ -33,13 +36,15 @@ export function grantColonialIncubationEngines(deps: ColonialCharterDeps, player
   const deltas: SimulationTileWireDelta[] = [];
   for (const townKey of [...deps.ownedTownKeys(player.id)]) {
     const townTile = deps.tiles.get(townKey);
-    if (!townTile?.town || townTile.ownerId !== player.id || townTile.ownershipState !== "SETTLED" || townTile.town.colonialIncubationGranted) continue;
+    if (!townTile?.town || townTile.ownerId !== player.id || townTile.ownershipState !== "SETTLED" || townTile.town.colonialIncubationGrantedTo === player.id) continue;
+    if (townTile.town.populationTier === "SETTLEMENT") continue; // settlements cannot support economic structures; granted once they grow
+    if (economicStructureForSupportedTown(deps.tiles, player.id, townKey, "INCUBATION_ENGINE")) continue; // already has one
     const site = openTownSupportNeighborTiles(deps.tiles, player.id, townKey).sort((a, b) => a.y - b.y || a.x - b.x)[0];
     if (!site) continue; // no open support tile yet: retried on the next sweep
     const engineTile: DomainTileState = { ...site, economicStructure: { ownerId: player.id, type: "INCUBATION_ENGINE", status: "active", activatedAt: now } };
     deps.replaceTileState(`${site.x},${site.y}`, engineTile, commandId);
     const grownTown: DomainTileState = { ...townTile, town: {
-      ...townTile.town, colonialIncubationGranted: true,
+      ...townTile.town, colonialIncubationGrantedTo: player.id,
       population: (townTile.town.population ?? 0) + INCUBATION_ENGINE_INSTANT_POPULATION_BURST,
       maxPopulation: (townTile.town.maxPopulation ?? 0) + INCUBATION_ENGINE_INSTANT_POPULATION_BURST
     } };

@@ -1,3 +1,4 @@
+import { MONUMENTAL_STRUCTURE_TYPES } from "../types.js";
 import { AFC_SPECIALIZATIONS, AFC_SPECIALIZATION_RULESET, type AfcSpecializationEffects, type AfcSpecializationRuleset } from "./afc-specializations-catalog.js";
 export * from "./afc-specializations-catalog.js";
 
@@ -70,10 +71,13 @@ export const economicHegemonyLeadMultFor = (domainIds: Iterable<string> | undefi
   const afcLead = afcMultiplicativeEffect(domainIds, "economicHegemonyLeadMult");
   return afcLead === 1 ? defaultLeadMult : Math.min(defaultLeadMult, afcLead);
 };
+/** Great Projects are built and raced as `<BASE>_PART_<n>` stages; none of them may be built instantly. */
+export const isMonumentStructureOrPart = (structureType: string): boolean =>
+  MONUMENTAL_STRUCTURE_TYPES.some(base => structureType === base || structureType.startsWith(`${base}_PART_`));
 /** Relay Fabrication Line makes Relays instant; Universal Fabrication Line makes every non-monument build instant. */
-export const afcInstantBuildFor = (domainIds: Iterable<string> | undefined, structureType: string, isMonument: boolean): boolean =>
+export const afcInstantBuildFor = (domainIds: Iterable<string> | undefined, structureType: string): boolean =>
   (structureType === "RELAY_BEACON" && afcAdditiveEffect(domainIds, "relayBeaconInstantBuild") > 0) ||
-  (!isMonument && afcAdditiveEffect(domainIds, "instantStructureBuild") > 0);
+  (!isMonumentStructureOrPart(structureType) && afcAdditiveEffect(domainIds, "instantStructureBuild") > 0);
 /** Relays that need no FOOD slot: the built-in allowance plus Relay Fabrication Line's bonus. */
 export const relayBeaconFreeFoodSlotCountFor = (domainIds: Iterable<string> | undefined, baseCount: number): number =>
   baseCount + afcAdditiveEffect(domainIds, "relayBeaconFreeFoodSlotBonus");

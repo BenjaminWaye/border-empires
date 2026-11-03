@@ -214,7 +214,7 @@ export type DomainTileState = {
             | "captureShockUntil"
             | "populationBeforeCapture"
             | "forcedAncillarificationCooldownUntil"
-            | "colonialIncubationGranted"
+            | "colonialIncubationGrantedTo"
             | "nearbyWarPausedUntil"
             | "nearbyWarLastAt"
             | "growthModifiers"

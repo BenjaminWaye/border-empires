@@ -51,8 +51,10 @@ describe("AFC gameplay controls and free progression", () => {
     applyAfcHijackMessage(state, { type: "AFC_HIJACK_OUTCOME", targetX: 7, targetY: 8, attackerId: "me", victimId: "enemy", status: "succeeded" }, 20);
     expect(state.afcHijackOutcomes).toEqual([{ targetX: 7, targetY: 8, casterX: 1, casterY: 2, attackerId: "me", victimId: "enemy", status: "succeeded", at: 20 }]);
     applyAfcHijackMessage(state, { type: "AFC_BREAKTHROUGH", attackerId: "me", fromX: 1, fromY: 1, tiles: [{ x: 2, y: 1 }] }, 20 + AFC_MAP_EFFECT_TTL_MS);
-    applyAfcHijackMessage(state, { type: "AFC_HIJACK_OUTCOME", targetX: 9, targetY: 9, attackerId: "me", victimId: "enemy", status: "failed" }, 20 + AFC_MAP_EFFECT_TTL_MS);
+    applyAfcHijackMessage(state, { type: "AFC_HIJACK_OUTCOME", targetX: 9, targetY: 9, casterX: 4, casterY: 5, attackerId: "me", victimId: "enemy", status: "failed" }, 20 + AFC_MAP_EFFECT_TTL_MS);
     expect(state.afcHijackOutcomes.map(outcome => outcome.targetX)).toEqual([9]);
+    // A failed hijack's snap beam needs the caster, which the outcome itself carries.
+    expect(state.afcHijackOutcomes[0]).toMatchObject({ casterX: 4, casterY: 5, status: "failed" });
     expect(state.afcBreakthroughs).toHaveLength(1);
   });
   it("uses the same fort floor for Sappers and Defensive Depth, and a frontier floor without fort defense", () => {

@@ -45,6 +45,9 @@ describe("AFC v3 rules", () => {
     expect(afcInstantBuild(player("p", ["afc-dominion-1"]), "FORT")).toBe(false);
     expect(afcInstantBuild(player("u", ["afc-dominion-5"]), "OBSERVATORY")).toBe(true);
     expect(afcInstantBuild(player("u", ["afc-dominion-5"]), "AEGIS_DOME")).toBe(false);
+    // Great Projects are raced as part stages; a part must never skip its build time.
+    expect(afcInstantBuild(player("u", ["afc-dominion-5"]), "AEGIS_DOME_PART_1")).toBe(false);
+    expect(afcInstantBuild(player("u", ["afc-dominion-5"]), "TITANIUM_LEVY_PART_3")).toBe(false);
   });
 
   it("Metropolitan Concession lowers the Economic Hegemony lead its holder needs", () => {
@@ -70,10 +73,27 @@ describe("AFC v3 rules", () => {
       emitEvent: () => {}, emitPlayerStateUpdate: () => {} };
     expect(grantColonialIncubationEngines(deps, actor, 5)).toBe(1);
     expect(tiles.get("11,10")?.economicStructure).toMatchObject({ ownerId: "p", type: "INCUBATION_ENGINE", status: "active" });
-    expect(tiles.get("10,10")?.town).toMatchObject({ colonialIncubationGranted: true, population: 1000 + INCUBATION_ENGINE_INSTANT_POPULATION_BURST });
+    expect(tiles.get("10,10")?.town).toMatchObject({ colonialIncubationGrantedTo: "p", population: 1000 + INCUBATION_ENGINE_INSTANT_POPULATION_BURST });
     expect(grantColonialIncubationEngines(deps, actor, 6)).toBe(0);
     expect(grantColonialIncubationEngines(deps, player("q"), 7)).toBe(0);
     expect(writes).toHaveLength(2);
+  });
+
+  it("Colonial Charter skips settlements and towns that already have an engine, and re-grants a captured town to its new owner", () => {
+    const actor = player("p", ["afc-dominion-2"]);
+    const tiles = new Map<string, DomainTileState>();
+    const set = (tile: DomainTileState) => tiles.set(`${tile.x},${tile.y}`, tile);
+    const town = (x: number, populationTier: "SETTLEMENT" | "TOWN", grantedTo?: string): DomainTileState => ({ x, y: 10, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED",
+      town: { type: "MARKET", populationTier, population: 1000, maxPopulation: 5000, ...(grantedTo ? { colonialIncubationGrantedTo: grantedTo } : {}) } });
+    set(town(10, "SETTLEMENT")); set({ x: 11, y: 10, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED" });
+    set(town(30, "TOWN")); set({ x: 31, y: 10, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED", economicStructure: { ownerId: "p", type: "INCUBATION_ENGINE", status: "active" } });
+    set(town(50, "TOWN", "former-owner")); set({ x: 51, y: 10, terrain: "LAND", ownerId: "p", ownershipState: "SETTLED" });
+    const deps: ColonialCharterDeps = { tiles, players: new Map([["p", actor]]), ownedTownKeys: () => ["10,10", "30,10", "50,10"],
+      replaceTileState: (key, tile) => { tiles.set(key, tile); }, tileDeltaFromState: tile => ({ x: tile.x, y: tile.y }), emitEvent: () => {}, emitPlayerStateUpdate: () => {} };
+    expect(grantColonialIncubationEngines(deps, actor, 5)).toBe(1);
+    expect(tiles.get("11,10")?.economicStructure).toBeUndefined();
+    expect(tiles.get("50,10")?.town?.colonialIncubationGrantedTo).toBe("p");
+    expect(tiles.get("51,10")?.economicStructure?.type).toBe("INCUBATION_ENGINE");
   });
 
   it("Citadel Reserves keeps a town growing next to an active fight", () => {

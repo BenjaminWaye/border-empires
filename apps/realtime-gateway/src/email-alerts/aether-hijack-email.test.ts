@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { InMemoryGatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import { createEmailAlertService, readAetherHijackAlert } from "./email-alerts.js";
+import { recoverLivePlayerMessage } from "../live-world-status-recovery.js";
+import { createPlayerProfileOverrides } from "../player-profile-overrides.js";
 
 describe("Resonance Hijack email alert", () => {
   it("emails the defender at once, pointing at the casting tower, even right after an attack email", async () => {
@@ -23,5 +25,12 @@ describe("Resonance Hijack email alert", () => {
     expect(readAetherHijackAlert(payload)).toEqual({ attackerName: "IronFist", x: 3, y: 4, casterX: 1, casterY: 2, endsAt: 99 });
     expect(readAetherHijackAlert({ ...payload, casterX: undefined })).toBeUndefined();
     expect(readAetherHijackAlert({ ...payload, type: "AETHER_PURGE_ALERT" })).toBeUndefined();
+  });
+
+  it("replaces the simulation's placeholder attacker name with the live profile name", () => {
+    const overrides = createPlayerProfileOverrides();
+    overrides.setProfile("p1", "Milo Ash", "#336699");
+    const payload = { type: "AETHER_HIJACK_ALERT", attackerId: "p1", attackerName: "Player 1", x: 1, y: 2, casterX: 3, casterY: 4, endsAt: 5 };
+    expect(recoverLivePlayerMessage(payload, overrides).attackerName).toBe("Milo Ash");
   });
 });

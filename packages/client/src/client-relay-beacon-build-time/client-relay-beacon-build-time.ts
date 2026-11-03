@@ -15,7 +15,7 @@ import { ownedRelayBeaconCount } from "../client-relay-beacon-food-slot/client-r
 import { structureManpowerCostForState } from "../client-structure-manpower-cost/client-structure-manpower-cost.js";
 
 export const relayBeaconBuildDurationMsForState = (state: ClientState): number =>
-  afcInstantBuildFor(state.domainIds, "RELAY_BEACON", false) ? 0 : relayBeaconBuildDurationMs(ownedRelayBeaconCount(state));
+  afcInstantBuildFor(state.domainIds, "RELAY_BEACON") ? 0 : relayBeaconBuildDurationMs(ownedRelayBeaconCount(state));
 
 export const relayBeaconManpowerCostForState = (state: ClientState): number =>
   structureManpowerCostForState(state, "RELAY_BEACON", relayBeaconManpowerCost(ownedRelayBeaconCount(state)));

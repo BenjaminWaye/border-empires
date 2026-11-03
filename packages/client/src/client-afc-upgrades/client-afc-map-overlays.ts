@@ -37,7 +37,9 @@ export function createAfcMapOverlays(canvas: HTMLCanvasElement, state: ClientSta
       const tower = vis === "visible" && t?.observatory?.status === "active" ? t.observatory : undefined;
       const suppressed = (tower?.suppressedUntil ?? 0) > now;
       if (tower) towers.push({ wx, wy, suppressed });
-      const hijackable = canHijack && tower && t?.ownerId && t.ownerId !== state.me && towerOpenToHijack(tower, now);
+      const owner = t?.ownerId;
+      const friendly = Boolean(owner && (state.allies.includes(owner) || state.activeTruces.some(truce => truce.otherPlayerId === owner && truce.endsAt > now)));
+      const hijackable = canHijack && tower && owner && owner !== state.me && !friendly && towerOpenToHijack(tower, now);
       const lastShot = tower && t?.ownerId === state.me && !suppressed && aetherTowerShotsRemaining(tower, maxShots, now) === 1;
       const wardUnpowered = t?.ownerId === state.me && dormant.has(`${wk}:fort`);
       const ward = vis === "visible" && t?.fort?.wardEnabled ? wardUnpowered ? "Ward unpowered" : (t.fort.wardRechargesAt ?? 0) > Date.now() ? `Ward ${Math.ceil(((t.fort.wardRechargesAt ?? 0) - Date.now()) / 3_600_000)}h` : t.ownerId === state.me ? "Ward ready" : "Ward charged" : "";
@@ -67,7 +69,8 @@ export function createAfcMapOverlays(canvas: HTMLCanvasElement, state: ClientSta
       element.style.left = `${x}px`; element.style.top = `${y}px`;
     }
     for (const [key, element] of elements) if (!shown.has(key)) { element.remove(); elements.delete(key); }
-    fx.render({ size, project }, towers, now);
+    // No map behind the season lobby (it passes no tiles): keep takeover beams off that screen.
+    fx.render({ size, project }, towers, now, tiles.length === 0);
     badges.render(positions, ready);
   } };
 }
