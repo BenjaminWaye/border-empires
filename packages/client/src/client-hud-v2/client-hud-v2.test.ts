@@ -280,6 +280,13 @@ describe("manpower orb", () => {
     expect(orbHtml({ manpower: 100, manpowerCap: 100, nextRefillAt: 30 * 60_000, nowMs: 0 })).not.toContain("refill");
   });
 
+  it("shows how much manpower the next batch brings, clamped to the room under the cap", () => {
+    expect(orbHtml({ manpower: 1975, manpowerCap: 5622, nextRefillAt: 45 * 60_000, nextBatchAmount: 1200, nowMs: 0 })).toContain(">+1,200 in 45m<");
+    expect(orbHtml({ manpower: 5000, manpowerCap: 5622, nextRefillAt: 45 * 60_000, nextBatchAmount: 1200, nowMs: 0 })).toContain(">+622 in 45m<");
+    expect(orbHtml({ manpower: 1975, manpowerCap: 5622, nextRefillAt: 45 * 60_000, nextBatchAmount: 1200, nowMs: 0 })).toContain('title="Manpower 1975 of 5622, next batch +1200 in 45m"');
+    expect(orbHtml({ manpower: 1975, manpowerCap: 5622, nextRefillAt: 45 * 60_000, nextBatchAmount: 0, nowMs: 0 })).toContain("refill 45m");
+  });
+
   it("fills the jar with your empire colour, darkened, and keeps gold for anything that is not a plain colour", () => {
     expect(orbHtml({ manpower: 40, manpowerCap: 100, nextRefillAt: undefined, nowMs: 0, color: "#3f7fd0" })).toContain('style="fill: color-mix(in srgb, #3f7fd0 75%, #000)"');
     expect(orbHtml({ manpower: 40, manpowerCap: 100, nextRefillAt: undefined, nowMs: 0, color: 'red" onload="x' })).not.toContain("style=");

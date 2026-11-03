@@ -244,7 +244,7 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
     nowMs
   }));
   renderLens(state);
-  writeRegion("orb-slot", orbHtml({ manpower: state.manpower, manpowerCap: state.manpowerCap, nextRefillAt: nextManpowerRefillForPlayer(state.me, nowMs), nowMs, color: resolveOwnerColor(state.me, state.playerColors, fallbackOwnerColor) })); // Base colour: the Diplomacy view recolours ownerColor.
+  writeRegion("orb-slot", orbHtml({ manpower: state.manpower, manpowerCap: state.manpowerCap, nextRefillAt: nextManpowerRefillForPlayer(state.me, nowMs), nextBatchAmount: state.nextManpowerBatchAmount, nowMs, color: resolveOwnerColor(state.me, state.playerColors, fallbackOwnerColor) })); // Base colour: the Diplomacy view recolours ownerColor.
 };
 
 const renderLens = (state: ClientState): void => writeRegion("overlays", overlaysHtml(state.showDiplomacyOverlay, lensMenu.open));

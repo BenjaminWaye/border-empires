@@ -472,7 +472,14 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Your reach border now updates again right after a reconnect, without reloading the page"
     ]
   },
-  ...NOVEMBER_CHANGELOG
+  ...NOVEMBER_CHANGELOG,
+  {
+    createdAt: 1793743078716, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.03",
+    title: "Manpower orb shows the size of your next batch",
+    why: "The new HUD's manpower orb only said \"refill 45m\", so you couldn't tell how much manpower was coming.",
+    changes: ["The manpower orb now reads \"+N in 45m\" with the amount the next batch adds, capped at the room left under your manpower cap"]
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
