@@ -11,8 +11,17 @@
 import { hydrateDiscoveryTipsFromServer } from "./client-discovery-tips-storage.js";
 import { hydrateOnboardingChecklistFromServer } from "../client-onboarding-checklist/client-onboarding-checklist-storage.js";
 import { hydrateMusterUnlockFromServer } from "../client-muster-unlock/client-muster-unlock-storage.js";
+import { hydrateGuideFromServer } from "../client-tutorial-guide/tutorial-guide-storage.js";
 
-type HintStatePatch = { dismissedHints?: string[]; hintsMuted?: boolean; onboardingChecklistCompleted?: boolean; musterUnlockedSeasonId?: string; dashboardQuietedSeasonId?: string };
+type HintStatePatch = {
+  dismissedHints?: string[];
+  hintsMuted?: boolean;
+  onboardingChecklistCompleted?: boolean;
+  musterUnlockedSeasonId?: string;
+  dashboardQuietedSeasonId?: string;
+  guideStatus?: "active" | "done" | "dismissed";
+  guideSteps?: string[];
+};
 
 let sendHintStateMessage: ((patch: HintStatePatch) => void) | undefined;
 
@@ -37,4 +46,5 @@ export const applyHintStateSetMessage = (
   hydrateDiscoveryTipsFromServer((msg.dismissedHints as string[] | undefined) ?? [], Boolean(msg.hintsMuted), authEmail);
   hydrateOnboardingChecklistFromServer(Boolean(msg.onboardingChecklistCompleted), authEmail);
   hydrateMusterUnlockFromServer((msg.musterUnlockedSeasonId as string | undefined) ?? "", currentSeasonId, authEmail);
+  hydrateGuideFromServer(msg.guideStatus, msg.guideSteps, authEmail);
 };

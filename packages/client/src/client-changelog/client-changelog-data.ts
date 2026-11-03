@@ -154,17 +154,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RESTART_MANPOWER_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING,
   ...CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY,
-  {
-    createdAt: 1792009197862, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.14.3",
-    title: "AI empires weigh your truce and alliance offers",
-    why: "AI empires accepted truces almost instantly, and repeat offers could be spammed at any player.",
-    changes: [
-      "AI empires now judge relative strength, shared borders, food, and past broken truces, and tell you why they accepted or declined",
-      "AI empires now answer alliance offers too",
-      "After an offer is declined or cancelled, you can't send that player the same kind of offer for 30 minutes (10 minutes after an unanswered truce offer expires)"
-    ]
-  },
   ...CLIENT_CHANGELOG_ENTRIES_AFC_LANDING,
   ...OUT_OF_REACH_NO_DECAY_CHANGELOG,
   ...FRONTIER_SUPPLY_LINES_CHANGELOG,
@@ -210,16 +199,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Empire Integrity now lives in the Economy panel; the top bar only shows it, with a warning, once it drops below 50% and actually reduces your coin and growth",
       "Fixed integrity sometimes showing lower than it really was (e.g. 80% for a small new empire) after changing your profile or colour, toggling auto-garrison, or using an ability"
-    ]
-  },
-  {
-    createdAt: 1791927499454, // frozen Date.now() value for this release
-    introducedIn: "2026.10.13.1",
-    title: "Top bar icons are labelled",
-    why: "Playtesters couldn't tell what the icons in the top-right corner opened without hovering over each one.",
-    changes: [
-      "Manifest, Allies, Ranks, Activity, Sharding and Settings now show their name under the icon on desktop",
-      "The Alerts (bell) button has been removed from the top bar and the mobile menu while the alerts feed is reworked -- the Activity dashboard is where to see what happened"
     ]
   },
   ...OCTOBER_STRUCTURE_ART_CHANGELOG,

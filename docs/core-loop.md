@@ -497,7 +497,11 @@ plug in, so the diagram stays readable and the core cycle stays visible.
 As implemented in `client-onboarding-checklist.ts`:
 
 1. There is no intro slideshow: the old 8-step guide modal was removed, so a
-   new player lands straight on the map.
+   new player lands straight on the map. New accounts get the non-blocking
+   [tutorial guide](tutorial-guide-plan.md) in the bottom-left corner, which
+   teaches by doing: look around, the checklist goals below, manpower,
+   commissioning a Manifest (required before building), building, muster
+   flags and the Activity dashboard. Older accounts keep the checklist alone.
 2. The existing checklist has 4 goals: **find a town → Expand To it → find
    food → Expand To 4 food slots**. It highlights town and food objectives
    directly, not intermediate land. Only garrisoned food supplies slots.

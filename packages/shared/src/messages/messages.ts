@@ -93,7 +93,12 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     // the quiet pass -- the Activity dashboard (What's New / Yours) is not
     // auto-opened on a season's first login. See player-profile-store.ts's
     // dashboardQuietedSeasonId.
-    dashboardQuietedSeasonId: z.string().optional()
+    dashboardQuietedSeasonId: z.string().optional(),
+    // New-account tutorial guide (client-tutorial-guide/): whether it is
+    // running, finished or dismissed, plus the bounded list of completed
+    // step ids. See player-profile-store.ts's guideStatus/guideSteps.
+    guideStatus: z.enum(["active", "done", "dismissed"]).optional(),
+    guideSteps: z.array(z.string().max(48)).max(64).optional()
   }),
   // Server-persisted per-category opt-out for gameplay email alerts (see
   // player-profile-store.ts's emailNotificationPrefs and email-alerts.ts's
