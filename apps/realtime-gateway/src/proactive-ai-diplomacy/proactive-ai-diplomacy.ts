@@ -2,6 +2,7 @@ import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 import { type AiDiplomacySnapshot } from "../ai-diplomacy-stance/ai-diplomacy-stance-input.js";
 import { evaluateAiDiplomacy, type AiDiplomacyContextSource } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
+import { ATTITUDE_RANK } from "../ai-diplomacy-stance/ai-diplomacy-opinion.js";
 import type { SocialState } from "../social-state/social-state.js";
 import { extractAllianceRequestFromPayloads, extractTruceRequestFromPayloads, type SeededAiDiplomacyResponder } from "../seeded-ai-diplomacy-responder/seeded-ai-diplomacy-responder.js";
 
@@ -100,7 +101,8 @@ export function createProactiveAiDiplomacy(deps: ProactiveAiDiplomacyDeps): { ti
       const targetLand = target.tiles.filter(tile => tile.ownerId === targetId).length;
       // Alliances need a common enemy and cannot knowingly concede bloc
       // leadership to a larger partner. A threatened AI asks for peace instead.
-      const alliance = !evaluation.allianceRefusal && social.allies.length < 2 && aiLand >= targetLand && targetLand > 0 &&
+      // An AI that would only ally for tribute (below Pleased) doesn't propose one.
+      const alliance = !evaluation.allianceRefusal && ATTITUDE_RANK[evaluation.opinion.attitude] >= ATTITUDE_RANK.PLEASED && social.allies.length < 2 && aiLand >= targetLand && targetLand > 0 &&
         stance.kind !== "SEEKING_PEACE" && stance.kind !== "DISTRUSTFUL" &&
         haveSharedVisibleEnemy(ai.tiles, aiId, targetId, new Set([...friendly, ...targetSocial.allies, ...targetSocial.activeTruces.map(t => t.otherPlayerId)]));
       const peace = !evaluation.truceRefusal && (stance.kind === "SEEKING_PEACE" || stance.kind === "OUTMATCHED");
