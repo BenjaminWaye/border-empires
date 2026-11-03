@@ -1,7 +1,10 @@
-/* Compact (phone) layout of the new HUD: body.hud-v2-compact, opt-in with ?hud=compact.
-   Phase 0 of docs/hud-v2-mobile-plan.md: shared tokens, the sheet primitive and the
-   legacy phone chrome the new HUD replaces. The phone layout of each region lands in
-   later phases; keep phone rules here, never in style.css. */
+/* Compact (phone) layout of the new HUD: body.hud-v2-compact (docs/hud-v2-mobile-plan.md).
+   Map at rest, the tile panel and hosted side panels; the screens are in
+   client-hud-v2-compact-screens.css. Keep phone rules here, never in style.css.
+
+   Portrait:  resource bar (one target: Treasury) + season pill / folded tracker on top,
+              lens button bottom left, manpower orb bottom right, tab bar at the foot.
+   A selected tile's panel replaces the tab bar as a bottom sheet. */
 
 body.hud-v2-compact {
   --v2c-safe-top: env(safe-area-inset-top, 0px);
@@ -10,28 +13,182 @@ body.hud-v2-compact {
   --v2c-safe-left: env(safe-area-inset-left, 0px);
   /* Apple HIG 44pt / Material 48dp minimum touch target. */
   --v2c-touch: 44px;
+  --v2c-gutter: 6px;
+  --v2c-bar-h: 40px;
+  --v2c-tab-h: 58px;
+  /* Where content under the top bar starts, and where content above the tab bar ends. */
+  --v2c-top: calc(var(--v2c-safe-top) + var(--v2c-gutter) + var(--v2c-bar-h) + 6px);
+  --v2c-bottom: calc(var(--v2c-safe-bottom) + var(--v2c-tab-h));
 }
 
 /* The new HUD's own destinations replace the legacy phone tab bar and its core card. */
 body.hud-v2-compact #mobile-nav,
-body.hud-v2-compact #mobile-core { display: none !important; }
+body.hud-v2-compact #mobile-core,
+body.hud-v2-compact #mobile-sheet { display: none !important; }
 
 /* Backdrop blur is expensive on the low-end phones most likely to be on the 2D renderer. */
-body.hud-v2-compact .v2s-backdrop { backdrop-filter: none; }
+body.hud-v2-compact .v2s-backdrop,
+body.hud-v2-compact #side-panel { backdrop-filter: none; }
+
+/* No hover on a phone: hover-only labels are shown or dropped below. */
+
+/* ---- Top: resource bar ---- */
+body.hud-v2-compact .hud-v2-top {
+  top: calc(var(--v2c-safe-top) + var(--v2c-gutter)); left: calc(var(--v2c-safe-left) + var(--v2c-gutter)); right: calc(var(--v2c-safe-right) + var(--v2c-gutter));
+  gap: 6px; justify-items: stretch;
+}
+body.hud-v2-compact .hud-v2-bar {
+  height: var(--v2c-bar-h); gap: 2px; padding: 0 3px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+}
+body.hud-v2-compact .hud-v2-bar::-webkit-scrollbar { display: none; }
+/* Label over value, so every resource fits on a 360px screen; the rate and Shard live in the Treasury. */
+body.hud-v2-compact .hud-v2-bar .hud-v2-chip {
+  flex: 1 0 auto; flex-direction: column; justify-content: center; gap: 0; height: 34px; padding: 0 6px; font-size: 12px; line-height: 1.15;
+}
+body.hud-v2-compact .hud-v2-bar .hud-v2-chip-label { font-size: 9px; letter-spacing: 0.04em; }
+body.hud-v2-compact .hud-v2-bar .hud-v2-chip-rate,
+body.hud-v2-compact .hud-v2-bar .hud-v2-chip-static,
+body.hud-v2-compact .hud-v2-bar .hud-v2-sep { display: none; }
+body.hud-v2-compact .hud-v2-bar .hud-v2-chip > :not(.hud-v2-chip-label) { display: inline; }
+body.hud-v2-compact .hud-v2-gear { flex: none; width: 36px; height: 34px; margin-left: 2px; }
+
+/* ---- Foot: crest + destinations as a tab bar ---- */
+body.hud-v2-compact .hud-v2-nav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 45; display: flex; align-items: stretch; gap: 0;
+  height: var(--v2c-bottom); padding: 0 var(--v2c-safe-right) var(--v2c-safe-bottom) var(--v2c-safe-left);
+  background: var(--v2-ink-solid); border-top: 1px solid var(--v2-edge-strong); box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.45); pointer-events: auto;
+}
+body.hud-v2-compact .hud-v2-bubbles { display: contents; }
+body.hud-v2-compact .hud-v2-crest { flex: none; align-self: center; width: 46px; height: 46px; margin: 0 2px 0 6px; padding: 2px; border-radius: 10px; }
+body.hud-v2-compact .hud-v2-crest-mark { font-size: 19px; border-radius: 7px; }
+body.hud-v2-compact .hud-v2-bubble {
+  flex: 1 1 0; min-width: 0; width: auto; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  border: 0; border-top: 2px solid transparent; border-radius: 0; background: transparent; box-shadow: none;
+}
+body.hud-v2-compact .hud-v2-bubble-active { border: 0; border-top: 2px solid var(--v2-gold); background: #1d1810; }
+body.hud-v2-compact .hud-v2-bubble .tab-icon-img { width: 22px; height: 22px; }
+/* The label is always shown under the icon: there is no hover to reveal it. */
+body.hud-v2-compact .hud-v2-bubble-label {
+  position: static; transform: none; opacity: 1; padding: 0; border: 0; background: none;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: 9px; letter-spacing: 0.03em; color: var(--v2-soft);
+}
+body.hud-v2-compact .hud-v2-bubble-active .hud-v2-bubble-label { color: var(--v2-gold-hi); }
+body.hud-v2-compact .hud-v2-bubble-badge { top: 4px; right: calc(50% - 20px); }
+
+/* ---- Under the bar: folded tracker left, season pill right; rivals live in Diplomacy ---- */
+body.hud-v2-compact .hud-v2-right { top: var(--v2c-top); right: calc(var(--v2c-safe-right) + var(--v2c-gutter)); max-width: 44vw; gap: 0; }
+body.hud-v2-compact .hud-v2-rivals { display: none; }
+body.hud-v2-compact .hud-v2-season { gap: 1px; min-height: 36px; padding: 4px 10px; }
+body.hud-v2-compact .hud-v2-season-title { font-size: 10px; }
+body.hud-v2-compact .hud-v2-season-line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+
+body.hud-v2-compact .hud-v2-tracker {
+  top: var(--v2c-top); left: calc(var(--v2c-safe-left) + var(--v2c-gutter)); width: auto; max-width: calc(56vw - var(--v2c-gutter));
+  max-height: none; padding: 0; overflow: visible;
+}
+body.hud-v2-compact .hud-v2-tracker:has(.v2c-track-line-open) {
+  right: calc(var(--v2c-safe-right) + var(--v2c-gutter)); max-width: none; max-height: calc(100dvh - var(--v2c-top) - var(--v2c-bottom) - 12px); overflow-y: auto; z-index: 46;
+}
+.v2c-track-line {
+  display: flex; align-items: center; gap: 6px; width: 100%; min-height: 36px; padding: 4px 10px; border: 0; background: transparent;
+  font-family: var(--v2-mono); font-size: 11px; color: var(--v2-soft); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.v2c-track-line-open { font-family: var(--v2-display); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; color: var(--v2-gold); border-bottom: 1px solid var(--v2-line); }
+.v2c-track-caret { color: var(--v2-gold); }
+.v2c-track-needs { color: var(--v2-amber); font-weight: 700; }
+body.hud-v2-compact .hud-v2-tracker-row { min-height: var(--v2c-touch); }
+
+/* ---- Bottom corners: lens button left, manpower orb right, above the tab bar ---- */
+body.hud-v2-compact #mini-map-wrap {
+  left: calc(var(--v2c-safe-left) + 10px) !important; bottom: calc(var(--v2c-bottom) + 12px) !important; width: var(--v2c-touch) !important; height: var(--v2c-touch);
+  padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important;
+}
+body.hud-v2-compact #mini-map,
+body.hud-v2-compact #mini-map-label,
+body.hud-v2-compact #mini-map-wrap > :not(.hud-v2-overlays) { display: none !important; }
+body.hud-v2-compact #mini-map-wrap > .hud-v2-overlays { top: 0; height: var(--v2c-touch); }
+body.hud-v2-compact .hud-v2-lens-btn { top: 0; width: var(--v2c-touch); height: var(--v2c-touch); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); }
+/* The list opens upwards from the button. */
+body.hud-v2-compact .hud-v2-lens-menu { left: 0; top: auto; bottom: calc(var(--v2c-touch) + 8px); }
+body.hud-v2-compact .hud-v2-lens-item { min-height: var(--v2c-touch); }
+
+body.hud-v2-compact .hud-v2-orb-slot { right: calc(var(--v2c-safe-right) + 8px); bottom: calc(var(--v2c-bottom) + 8px); }
+body.hud-v2-compact .hud-v2-orb { width: 84px; height: 84px; }
+body.hud-v2-compact .hud-v2-orb-label,
+body.hud-v2-compact .hud-v2-orb-refill { display: none; }
+body.hud-v2-compact .hud-v2-orb-value { font-size: 18px; }
+body.hud-v2-compact .hud-v2-orb-cap { font-size: 10px; }
+
+/* The new-empire checklist launcher sits above the lens button. */
+body.hud-v2-compact .onb-root { bottom: calc(var(--v2c-bottom) + 64px) !important; }
+
+/* ---- Selected tile: a bottom sheet in place of the tab bar ---- */
+body.hud-v2-compact .hud-v2-tile {
+  left: 0; right: 0; bottom: 0; transform: none; width: auto; z-index: 47; max-height: 62dvh; overflow-y: auto; overscroll-behavior: contain;
+  gap: 8px; padding: 16px calc(var(--v2c-safe-right) + 10px) calc(var(--v2c-safe-bottom) + 10px) calc(var(--v2c-safe-left) + 10px);
+  border-width: 1px 0 0; border-radius: 14px 14px 0 0;
+}
+/* Grabber mark: the panel sizes to its content and scrolls past 62% of the screen. */
+body.hud-v2-compact .hud-v2-tile::before {
+  content: ""; position: absolute; top: 6px; left: 50%; width: 40px; height: 4px; margin-left: -20px; border-radius: 2px; background: var(--v2-edge-strong);
+}
+body.hud-v2-compact:has(#hud-v2-tile:not([hidden])) .hud-v2-nav,
+body.hud-v2-compact:has(#hud-v2-tile:not([hidden])) .hud-v2-orb-slot,
+body.hud-v2-compact:has(#hud-v2-tile:not([hidden])) #mini-map-wrap,
+body.hud-v2-compact:has(#hud-v2-tile:not([hidden])) .onb-root { display: none !important; }
+body.hud-v2-compact .hud-v2-tile-close { width: var(--v2c-touch); height: var(--v2c-touch); font-size: 16px; }
+body.hud-v2-compact .hud-v2-tile-sub { white-space: normal; }
+body.hud-v2-compact .hud-v2-act-row { flex-wrap: wrap; }
+body.hud-v2-compact .hud-v2-act { flex: 1 1 calc(50% - 4px); min-height: 50px; }
+body.hud-v2-compact .hud-v2-act-primary { flex: 1 1 100%; order: -1; }
+body.hud-v2-compact .hud-v2-act-build,
+body.hud-v2-compact .hud-v2-act-aether,
+body.hud-v2-compact .hud-v2-act-details { min-width: 0; }
+body.hud-v2-compact .hud-v2-minor-row { gap: 0 16px; }
+body.hud-v2-compact .hud-v2-minor { min-height: 40px; font-size: 14px; }
+body.hud-v2-compact .hud-v2-details { max-height: none; }
+
+/* Build ▸ / Aether ▸ and the expanded tile menu: a full-height sheet under the bar. */
+body.hud-v2-compact .hud-v2-build-side,
+body.hud-v2-compact #tile-action-menu.hud-v2-docked.hud-v2-expanded {
+  left: 0 !important; right: 0 !important; top: var(--v2c-top) !important; bottom: 0 !important; width: auto !important; max-width: none !important;
+  padding-bottom: var(--v2c-safe-bottom); border-radius: 14px 14px 0 0; z-index: 56;
+}
+
+/* Hosted legacy panels (Economy, Integrity, Manpower, AFC, Settings) open as a sheet under the bar. */
+body.hud-v2-compact #side-panel {
+  left: 0 !important; right: 0 !important; top: var(--v2c-top) !important; bottom: 0 !important; width: auto !important; max-width: none !important;
+  transform: none !important; height: auto !important; padding-bottom: var(--v2c-safe-bottom); border-radius: 14px 14px 0 0; z-index: 50;
+}
+body.hud-v2-compact #side-panel.settings-panel-active { top: calc(var(--v2c-safe-top) + 8px) !important; }
+body.hud-v2-compact #side-panel button,
+body.hud-v2-compact #side-panel .panel-btn { min-height: 40px; }
 
 /* ---- Sheet primitive (client-hud-v2-sheet.ts) ---- */
 .hud-v2-sheet {
-  position: fixed; left: var(--v2c-safe-left, 0px); right: var(--v2c-safe-right, 0px); bottom: 0; z-index: 48;
+  position: fixed; left: var(--v2c-safe-left, 0px); right: var(--v2c-safe-right, 0px); bottom: 0; z-index: 52;
   display: flex; flex-direction: column; height: var(--v2-sheet-h, 0px); max-height: 100dvh;
   padding-bottom: var(--v2c-safe-bottom, 0px);
-  background: var(--v2-ink, rgba(15, 13, 10, 0.94)); border: 1px solid var(--v2-edge, #5a4828); border-bottom: 0;
+  background: var(--v2-ink-solid, #0f0d0a); border: 1px solid var(--v2-edge, #5a4828); border-bottom: 0;
   border-radius: 14px 14px 0 0; box-shadow: 0 -10px 28px rgba(0, 0, 0, 0.5);
-  pointer-events: auto; transition: height 0.18s ease-out; touch-action: none;
+  pointer-events: auto; transition: height 0.18s ease-out;
 }
 .hud-v2-sheet[hidden] { display: none; }
 .hud-v2-sheet-dragging { transition: none; }
 .hud-v2-sheet-grabber {
-  flex: none; display: grid; place-items: center; width: 100%; height: 28px; padding: 0; border: 0; background: none; cursor: grab;
+  flex: none; display: grid; place-items: center; width: 100%; height: 28px; padding: 0; border: 0; background: none; cursor: grab; touch-action: none;
 }
 .hud-v2-sheet-grabber::before { content: ""; width: 40px; height: 5px; border-radius: 3px; background: var(--v2-edge-strong, #8a6f35); }
-.hud-v2-sheet-body { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; touch-action: pan-y; }
+.hud-v2-sheet-body { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+
+/* ---- Treasury sheet (client-hud-v2-compact.ts) ---- */
+.v2c-treasury { display: grid; gap: 6px; padding: 0 14px 14px; }
+.v2c-treasury-title { margin: 0; font-family: var(--v2-display); font-size: 16px; font-weight: 700; letter-spacing: 0.12em; color: var(--v2-gold); }
+.v2c-treasury-hint { margin: 0 0 4px; font-size: 13px; color: var(--v2-muted); }
+.v2c-treasury-rows { display: grid; gap: 6px; }
+.v2c-treasury-rows .hud-v2-chip { justify-content: flex-start; gap: 10px; height: auto; min-height: 48px; padding: 6px 12px; font-size: 15px; }
+.v2c-treasury-rows .hud-v2-chip-label { min-width: 84px; font-size: 13px; }
+.v2c-treasury-rows .hud-v2-chip-rate { margin-left: auto; font-size: 13px; }
+.v2c-treasury-rows .hud-v2-sep { display: none; }
+.v2c-treasury-rows .hud-v2-gear { width: 100%; height: 48px; margin: 6px 0 0; font-size: 18px; }
+.v2c-treasury-rows .hud-v2-gear::after { content: " Settings"; font-family: var(--v2-display); font-size: 13px; font-weight: 700; letter-spacing: 0.08em; }

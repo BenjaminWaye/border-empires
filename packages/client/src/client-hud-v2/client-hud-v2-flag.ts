@@ -4,6 +4,7 @@
 // the compact (phone) layout with `?hud=compact` (see client-hud-v2-layout.ts
 // and docs/hud-v2-mobile-plan.md); `?hud=legacy` clears that opt-in too.
 
+import { isPhoneViewport } from "../client-panel-nav/client-phone-viewport.js";
 import { selectHudV2Layout, shortTouchViewport, type HudV2Layout } from "./client-hud-v2-layout.js";
 
 export const HUD_V2_STORAGE_KEY = "be.hudV2";
@@ -64,12 +65,18 @@ export const initHudV2Flag = (search: string): boolean => {
   return enabledForSession;
 };
 
-/** The layout the new HUD should draw this frame, or "off" for the legacy HUD. */
-export const currentHudV2Layout = (isMobile: () => boolean): HudV2Layout =>
-  selectHudV2Layout({ enabled: enabledForSession, compactOptIn: compactOptInForSession, narrow: isMobile(), shortTouch: shortTouchViewport() });
+/**
+ * The layout the new HUD should draw this frame, or "off" for the legacy HUD. Reads the raw phone viewport, not
+ * `isMobile()`: that one turns false while the compact layout drives the phone (client-phone-viewport.ts).
+ */
+export const currentHudV2Layout = (narrow: () => boolean = isPhoneViewport): HudV2Layout =>
+  selectHudV2Layout({ enabled: enabledForSession, compactOptIn: compactOptInForSession, narrow: narrow(), shortTouch: shortTouchViewport() });
 
 /** True when the new HUD should drive this frame, in either layout. */
-export const isHudV2Active = (isMobile: () => boolean): boolean => currentHudV2Layout(isMobile) !== "off";
+export const isHudV2Active = (): boolean => currentHudV2Layout() !== "off";
+
+/** True when the compact (phone) layout drives this frame. */
+export const isHudV2Compact = (): boolean => currentHudV2Layout() === "compact";
 
 let drivingFrame = false;
 

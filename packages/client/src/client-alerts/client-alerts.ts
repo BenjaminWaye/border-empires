@@ -4,6 +4,7 @@ import { formatGoldAmount } from "../client-constants.js";
 import { resourceIconForKey } from "../client-map-display.js";
 import { maybeRegisterShardRainPing } from "../client-shard-rain-pings/client-shard-rain-pings.js";
 import { victoryHoldAlertFor } from "../client-victory-alert/client-victory-alert.js";
+import { compactHudActive } from "../client-panel-nav/client-phone-viewport.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { isPlanetaryDefenseOwnerId } from "../client-planetary-defense-style.js";
 import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
@@ -24,7 +25,8 @@ const mobileFeedPanelVisible = (state: FeedMutableState): boolean =>
   state.mobilePanel === "feed" &&
   typeof window !== "undefined" &&
   typeof window.matchMedia === "function" &&
-  window.matchMedia("(max-width: 900px)").matches;
+  window.matchMedia("(max-width: 900px)").matches &&
+  !compactHudActive();
 
 const markFeedUnread = (state: FeedMutableState, entry: FeedEntry): void => {
   const feedOpen = state.activePanel === "feed" || mobileFeedPanelVisible(state);

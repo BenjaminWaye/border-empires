@@ -12,7 +12,7 @@ import { drawTileIntelOverlays2D } from "./client-map-2d-tile-intel/client-map-2
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import { drawResourceOverlay2D } from "./client-resource-overlay-2d/client-resource-overlay-2d.js";
 import { drawDockEndpoint2D } from "./client-dock-endpoint-2d/client-dock-endpoint-2d.js";
-import { drawLoopMinFrameGapMs } from "./client-runtime-loop-frame-gap.js";
+import { drawLoopMinFrameGapMs, isPhoneViewport } from "./client-runtime-loop-frame-gap.js";
 import { drawVisibleTerrain2D } from "./client-map-render/client-map-render-visible-terrain.js";
 import { drawSelectedDockSeaRoute2D } from "./client-dock-route-draw.js";
 import { drawEconomicStructureOverlay2D } from "./client-resource-overlay-2d/client-economic-overlay-2d.js";
@@ -202,7 +202,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (isSeasonLobbyFullscreenActive(state)) { mapScreenOverlays.render([], { size: 1, project: () => ({ sx: 0, sy: 0 }) }); requestAnimationFrame(draw); return; }
     const nowMs = performance.now();
     recordFpsFrame(nowMs);
-    const minFrameGap = drawLoopMinFrameGapMs(isTrue3DRendererActive(), deps.isMobile());
+    const minFrameGap = drawLoopMinFrameGapMs(isTrue3DRendererActive(), isPhoneViewport());
     if (nowMs - lastDrawAt < minFrameGap) {
       requestAnimationFrame(draw);
       return;
@@ -523,7 +523,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.globalAlpha = 0.16 + progress * 0.36;
         deps.ctx.fillRect(px + 1, py + 1, fillWidth, size - 2);
         deps.ctx.globalAlpha = 1;
-        const pixelCount = deps.isMobile()
+        const pixelCount = isPhoneViewport()
           ? Math.max(10, Math.min(22, Math.floor(size * 0.78)))
           : Math.max(12, Math.min(28, Math.floor(size * 0.94)));
         const activePixels = Math.max(6, Math.round(4 + progress * pixelCount));
@@ -787,7 +787,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.globalAlpha = 0.16 + progress * 0.36;
           deps.ctx.fillRect(px + 1, py + 1, fillWidth, size - 2);
           deps.ctx.globalAlpha = 1;
-          const pixelCount = deps.isMobile()
+          const pixelCount = isPhoneViewport()
             ? Math.max(10, Math.min(22, Math.floor(size * 0.78)))
             : Math.max(12, Math.min(28, Math.floor(size * 0.94)));
           const activePixels = Math.max(6, Math.round(4 + progress * pixelCount));
@@ -1210,7 +1210,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (state.connection !== "initialized") return;
     if (state.actionInFlight || state.capture || state.actionQueue.length > 0) return;
     if (state.firstChunkAt === 0 && Date.now() - state.lastSubAt > 20_000) deps.requestViewRefresh(2, true);
-  }, deps.isMobile() ? 8_000 : 5_000);
+  }, isPhoneViewport() ? 8_000 : 5_000);
 
   // Waypoint heartbeat: re-poke processActionQueue while a waypoint is
   // active and the queue is idle. The message-driven kicks

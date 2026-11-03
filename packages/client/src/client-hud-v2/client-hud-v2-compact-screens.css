@@ -1,0 +1,140 @@
+/* Compact (phone) layout of the new HUD's screens: body.hud-v2-compact
+   (docs/hud-v2-mobile-plan.md, Phases 3-5). Frame screens (Manifest, AFC,
+   Diplomacy, Ranks, Towns) fill the space between the resource bar and the tab
+   bar; Chronicle is a half-height sheet over the live map; town and battle go
+   full screen with their actions at the thumb. */
+
+/* ---- Frame screens ---- */
+body.hud-v2-compact .v2s-head {
+  top: var(--v2c-top); left: calc(var(--v2c-safe-left) + 8px); right: calc(var(--v2c-safe-right) + 8px); gap: 10px; flex-wrap: wrap;
+}
+body.hud-v2-compact .v2s-title { font-size: 17px; letter-spacing: 0.08em; }
+body.hud-v2-compact .v2s-back { height: var(--v2c-touch); }
+/* No Esc key on a phone: back is the button or the back gesture. */
+body.hud-v2-compact .v2s-back kbd { display: none; }
+body.hud-v2-compact .v2s-head-right { margin-left: 0; flex: 1 1 100%; }
+body.hud-v2-compact .v2s-head-right:empty { display: none; }
+body.hud-v2-compact .v2s-body {
+  top: calc(var(--v2c-top) + 52px); left: calc(var(--v2c-safe-left) + 6px); right: calc(var(--v2c-safe-right) + 6px); bottom: calc(var(--v2c-bottom) + 6px);
+}
+body.hud-v2-compact:has(.v2s-head-right:not(:empty)) .v2s-body { top: calc(var(--v2c-top) + 104px); }
+body.hud-v2-compact .v2s-btn { min-height: var(--v2c-touch); }
+body.hud-v2-compact .v2s-btn-sm { height: 36px; }
+body.hud-v2-compact.hud-v2-screen-afc #side-panel {
+  top: calc(var(--v2c-top) + 52px) !important; left: 0 !important; right: 0 !important; bottom: var(--v2c-bottom) !important; border-radius: 0;
+}
+
+/* Manifest: the tree scrolls both ways under a finger; the selected node's detail stacks. */
+body.hud-v2-compact .v2m-scroll { -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+body.hud-v2-compact .v2m-detail { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 10px 12px; max-height: 42dvh; overflow-y: auto; }
+
+/* Ranks: each path's track full width, the side column under the race. */
+body.hud-v2-compact .v2r-layout { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+body.hud-v2-compact .v2r-race { padding: 10px 12px; }
+body.hud-v2-compact .v2r-axis { display: none; }
+body.hud-v2-compact .v2r-row { grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 12px 0; }
+body.hud-v2-compact .v2r-stand { grid-template-columns: 22px 26px minmax(0, 1fr) 48px 52px; min-height: 40px; }
+
+/* Diplomacy: smaller empire cards; requests and terms full width. */
+body.hud-v2-compact .v2d-reqs, body.hud-v2-compact .v2d-grid-wrap { padding: 10px 12px; margin-bottom: 8px; }
+body.hud-v2-compact .v2d-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+body.hud-v2-compact .v2d-req { flex-wrap: wrap; }
+body.hud-v2-compact .v2d-deal-nav { flex-wrap: wrap; gap: 6px 12px; }
+body.hud-v2-compact .v2d-terms { padding: 10px 12px; }
+
+/* Towns: name plus three numbers fit at 360px. */
+body.hud-v2-compact .v2l-table { width: 100%; padding: 8px 10px; }
+body.hud-v2-compact .v2l-head, body.hud-v2-compact .v2l-row { grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(0, 1fr)); gap: 8px; }
+body.hud-v2-compact .v2l-row { min-height: var(--v2c-touch); padding: 6px 6px; }
+
+/* ---- Chronicle: a half-height sheet over the map, above the tab bar ---- */
+body.hud-v2-compact .v2c-drawer {
+  left: 0; right: 0; top: auto; bottom: var(--v2c-bottom); width: auto; height: 56dvh; border-width: 1px 0 0; border-radius: 14px 14px 0 0;
+}
+body.hud-v2-compact .v2c-close { height: 36px; }
+body.hud-v2-compact .v2c-chips { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+body.hud-v2-compact .v2c-tab { height: var(--v2c-touch); }
+body.hud-v2-compact .v2c-filter { height: 34px; }
+body.hud-v2-compact .v2c-row { grid-template-columns: 36px 22px minmax(0, 1fr) auto; min-height: var(--v2c-touch); padding: 6px 10px; }
+body.hud-v2-compact .v2c-show { height: 34px; }
+body.hud-v2-compact .v2u-row { min-height: var(--v2c-touch); }
+
+/* ---- Town: full screen, stats over the build list, actions pinned at the foot ---- */
+body.hud-v2-compact .v2t-left {
+  left: 0; right: 0; top: var(--v2c-top); bottom: auto; width: auto; max-height: 34dvh; overflow-y: auto; border-width: 3px 0 1px;
+}
+body.hud-v2-compact .v2t-name-row { padding: 8px 10px 2px; }
+body.hud-v2-compact .v2t-step { width: var(--v2c-touch); height: var(--v2c-touch); }
+body.hud-v2-compact .v2t-title { max-width: 60vw; font-size: 19px; }
+body.hud-v2-compact .v2t-growth { padding: 6px 12px; }
+body.hud-v2-compact .v2t-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 4px 12px; }
+body.hud-v2-compact .v2t-stat { padding: 6px 8px; }
+body.hud-v2-compact .v2t-stat-v { font-size: 14px; }
+body.hud-v2-compact .v2t-h { padding: 8px 12px 4px; }
+body.hud-v2-compact .v2t-built-list { flex: none; overflow: visible; }
+body.hud-v2-compact .v2t-built { padding: 4px 12px; }
+body.hud-v2-compact .v2t-grow-wrap { padding: 8px 12px 10px; }
+body.hud-v2-compact .v2t-grow { height: 46px; }
+body.hud-v2-compact .v2t-right {
+  left: 0; right: 0; top: calc(var(--v2c-top) + 34dvh + 4px); bottom: calc(var(--v2c-safe-bottom) + var(--v2c-town-bar, 118px)); width: auto; border-width: 1px 0;
+}
+body.hud-v2-compact .v2t-build-head { padding: 8px 12px 6px; }
+body.hud-v2-compact .v2t-tabs { flex-wrap: nowrap; overflow-x: auto; padding: 0 12px 8px; scrollbar-width: none; }
+body.hud-v2-compact .v2t-tab { flex: none; height: 36px; }
+body.hud-v2-compact .v2t-build { min-height: 56px; padding: 6px 12px; }
+body.hud-v2-compact .v2t-build-ico { width: 40px; height: 40px; }
+body.hud-v2-compact .v2t-work { padding: 0 12px 8px; }
+body.hud-v2-compact .v2t-job-acts .v2s-btn { height: 40px; }
+body.hud-v2-compact #v2t-bar.v2t-bar {
+  left: 0; right: 0; bottom: 0; transform: none; width: auto; min-width: 0; max-height: var(--v2c-town-bar, 118px); overflow-y: auto;
+  padding: 8px calc(var(--v2c-safe-right) + 8px) calc(var(--v2c-safe-bottom) + 8px) calc(var(--v2c-safe-left) + 8px); border-width: 1px 0 0;
+}
+body.hud-v2-compact .v2t-act { min-height: 48px; height: auto; }
+body.hud-v2-compact .v2t-minor .hud-v2-minor { min-height: 36px; }
+
+/* ---- Battle: header on top, both sides on one row, outcome and Confirm at the thumb ---- */
+body.hud-v2-compact .v2b-head { top: calc(var(--v2c-safe-top) + 6px); width: calc(100vw - 12px); padding: 6px 12px; gap: 1px; }
+body.hud-v2-compact .v2b-title { font-size: 17px; }
+body.hud-v2-compact .v2b-coords { font-size: 12px; }
+body.hud-v2-compact .v2b-side {
+  top: calc(var(--v2c-safe-top) + 84px); width: calc(50vw - 9px); max-height: calc(100dvh - var(--v2c-safe-top) - 84px - var(--v2c-battle-panel, 290px)); overflow-y: auto;
+}
+body.hud-v2-compact .v2b-side-you { left: 6px; }
+body.hud-v2-compact .v2b-side-them { right: 6px; }
+body.hud-v2-compact .v2b-side-head { gap: 8px; padding: 8px 8px; }
+body.hud-v2-compact .v2b-crest { width: 32px; height: 32px; font-size: 16px; border-radius: 7px; }
+body.hud-v2-compact .v2b-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 28vw; font-size: 14px; }
+body.hud-v2-compact .v2b-role { font-size: 9px; }
+body.hud-v2-compact .v2b-sub { font-size: 11px; }
+body.hud-v2-compact .v2b-row { gap: 6px; padding: 3px 8px; font-size: 12px; }
+body.hud-v2-compact .v2b-h { padding: 8px 8px 2px; }
+body.hud-v2-compact .v2b-eff { margin-top: 6px; padding: 8px; }
+body.hud-v2-compact .v2b-eff b { font-size: 20px; }
+body.hud-v2-compact .v2b-panel { left: 0; right: 0; bottom: 0; transform: none; width: auto; max-height: var(--v2c-battle-panel, 290px); overflow-y: auto; border-width: 1px 0 0; }
+body.hud-v2-compact .v2b-panel-top { gap: 12px; padding: 10px 12px 8px; }
+body.hud-v2-compact .v2b-ring, body.hud-v2-compact .v2b-result-ico { width: 78px; height: 78px; }
+body.hud-v2-compact .v2b-ring-in { inset: 7px; }
+body.hud-v2-compact .v2b-ring-in b { font-size: 22px; }
+body.hud-v2-compact .v2b-result-ico { font-size: 32px; }
+body.hud-v2-compact .v2b-result-title { font-size: 17px; }
+body.hud-v2-compact .v2b-effort { min-height: var(--v2c-touch); }
+body.hud-v2-compact .v2b-facts { flex-wrap: wrap; gap: 4px 12px; font-size: 12px; }
+body.hud-v2-compact .v2b-panel-actions { padding: 8px 12px calc(var(--v2c-safe-bottom) + 10px); }
+body.hud-v2-compact .v2b-panel-actions .v2s-btn { height: 50px; }
+body.hud-v2-compact .v2b-panel-actions .v2s-btn:last-child { width: auto; flex: 0 0 38%; }
+
+/* ---- Landscape phone: the bottom panels dock to the right edge so the map keeps its height ---- */
+@media (orientation: landscape) {
+  body.hud-v2-compact { --v2c-tab-h: 50px; --v2c-side-w: min(380px, 46vw); }
+  body.hud-v2-compact .hud-v2-tile,
+  body.hud-v2-compact .v2c-drawer,
+  body.hud-v2-compact .hud-v2-sheet {
+    left: auto; width: var(--v2c-side-w); top: var(--v2c-top); bottom: 0; height: auto; max-height: none; border-width: 1px 0 0 1px; border-radius: 14px 0 0 0;
+  }
+  body.hud-v2-compact .hud-v2-sheet { height: auto !important; }
+  body.hud-v2-compact .v2c-drawer { bottom: var(--v2c-bottom); }
+  body.hud-v2-compact .v2t-left { right: auto; width: 42vw; bottom: calc(var(--v2c-safe-bottom) + var(--v2c-town-bar, 118px)); max-height: none; }
+  body.hud-v2-compact .v2t-right { left: auto; width: 56vw; top: var(--v2c-top); }
+  body.hud-v2-compact .v2b-side { max-height: calc(100dvh - var(--v2c-safe-top) - 84px - 150px); }
+  body.hud-v2-compact .v2b-panel { left: 25vw; right: 25vw; max-height: 150px; }
+}

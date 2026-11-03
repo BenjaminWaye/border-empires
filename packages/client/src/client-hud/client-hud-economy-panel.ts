@@ -3,6 +3,7 @@
 
 import { renderEconomyPanelHtml } from "../client-economy-html/client-economy-html.js";
 import type { EconomyFocusKey } from "../client-economy-model.js";
+import { isMobile } from "../client-panel-nav/client-panel-nav.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 export type HudEconomyPanelDeps = {
@@ -41,7 +42,7 @@ export const hudEconomyPanelHtml = (state: ClientState, deps: HudEconomyPanelDep
     // Re-iterable view: the panel walks the tiles once per resource card, and a
     // bare values() iterator is spent after the first pass.
     tiles: { [Symbol.iterator]: () => state.tiles.values() },
-    isMobile: window.matchMedia("(max-width: 900px)").matches,
+    isMobile: isMobile(),
     prettyToken: deps.prettyToken,
     resourceIconHtml: deps.resourceIconHtml,
     rateToneClass: deps.rateToneClass,

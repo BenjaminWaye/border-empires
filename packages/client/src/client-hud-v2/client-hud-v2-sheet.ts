@@ -49,8 +49,10 @@ export const snapDetent = (heightPx: number, velocity: number, viewportHeight: n
 /** Whether the map above the sheet still takes taps and pans at this detent. */
 export const sheetLetsMapThrough = (detent: SheetDetent): boolean => detent !== "full";
 
+import { pushBackEntry, type BackHandle } from "./client-hud-v2-back.js";
+
 type SheetHistory = Pick<History, "pushState" | "back">;
-type SheetWindow = Pick<Window, "addEventListener" | "removeEventListener" | "innerHeight">;
+type SheetWindow = Pick<Window, "addEventListener" | "innerHeight">;
 
 export type HudV2SheetOptions = {
   /** Detents this sheet may rest at (default all three). */
@@ -73,20 +75,9 @@ export type HudV2Sheet = {
   close: () => void;
 };
 
-/** Open sheets, newest last; the back gesture closes the newest. */
-const stack: Array<{ close: (fromBack: boolean) => void }> = [];
-let backListening = false;
-let ignoreNextPop = 0;
+let openSheets = 0;
 
-const onPopState = (): void => {
-  if (ignoreNextPop > 0) {
-    ignoreNextPop -= 1;
-    return;
-  }
-  stack[stack.length - 1]?.close(true);
-};
-
-export const openSheetCount = (): number => stack.length;
+export const openSheetCount = (): number => openSheets;
 
 export const createHudV2Sheet = (host: HTMLElement, options: HudV2SheetOptions): HudV2Sheet => {
   const win: SheetWindow = options.win ?? window;
@@ -114,17 +105,14 @@ export const createHudV2Sheet = (host: HTMLElement, options: HudV2SheetOptions):
     el.dataset.detent = current;
   };
 
+  let back: BackHandle | undefined;
   const entry = {
     close: (fromBack: boolean): void => {
       if (current === "closed") return;
       current = "closed";
-      const index = stack.indexOf(entry);
-      if (index >= 0) stack.splice(index, 1);
+      openSheets -= 1;
       // Closed from the UI: drop the history entry the sheet pushed, without that pop closing another sheet.
-      if (!fromBack) {
-        ignoreNextPop += 1;
-        history.back();
-      }
+      if (!fromBack) back?.release();
       el.remove();
       options.onClose?.();
     }
@@ -169,12 +157,8 @@ export const createHudV2Sheet = (host: HTMLElement, options: HudV2SheetOptions):
   grabber.addEventListener("pointerup", release);
   grabber.addEventListener("pointercancel", release);
 
-  if (!backListening) {
-    win.addEventListener("popstate", onPopState);
-    backListening = true;
-  }
-  history.pushState({ hudV2Sheet: options.label }, "");
-  stack.push(entry);
+  back = pushBackEntry(() => entry.close(true), history, win);
+  openSheets += 1;
   apply();
 
   return { el, body, detent: () => current, setDetent, close: () => entry.close(false) };
