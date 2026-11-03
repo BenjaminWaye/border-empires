@@ -151,6 +151,19 @@ describe("rivals strip", () => {
     expect(hidden).toBe(0);
   });
 
+  it("shows minutes left on a truce in its last hour", () => {
+    const { shown } = rivalTokens({
+      me: "me",
+      metPlayerIds: new Set(["h"]),
+      allies: [],
+      activeTruces: [truce("h", 37 * 60_000)],
+      nameOf: () => "Hugo",
+      colorOf: () => "#123456",
+      nowMs: 0
+    });
+    expect(shown[0]?.label).toBe("TRUCE 37m");
+  });
+
   // Regression: meeting one empire showed "+1" instead of its name and colour.
   it("shows a single met empire by name, not as an overflow count", () => {
     const { shown, hidden } = rivalTokens({ me: "me", metPlayerIds: new Set(["me", "p2"]), allies: [], activeTruces: [], nameOf: () => "Vasker", colorOf: () => "#c33", nowMs: 0 });

@@ -5,6 +5,7 @@ import { describeDiplomacyTermsForRecipient } from "@border-empires/shared";
 // deal in the middle, theirs on the right). Picking an empire hides the list.
 
 import type { ActiveTruceView, AllianceRequest, LeaderboardOverallEntry, TruceRequest } from "../client-types.js";
+import { truceTimeLeft } from "./client-hud-v2-truce-time.js";
 
 export type DiplomacyListInput = {
   resourceOffers?: readonly import("@border-empires/shared").ResourceTradeOffer[];
@@ -26,15 +27,10 @@ export type EmpireStance = { kind: "ally" | "truce" | "met"; label: string };
 const esc = (text: string): string =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-const hoursLeft = (endsAt: number, nowMs: number): string => {
-  const h = Math.max(0, Math.ceil((endsAt - nowMs) / 3_600_000));
-  return h >= 1 ? `${h}h` : "<1h";
-};
-
 export const empireStance = (id: string, input: Pick<DiplomacyListInput, "allies" | "activeTruces" | "nowMs">): EmpireStance => {
   if (input.allies.includes(id)) return { kind: "ally", label: "Ally" };
   const truce = input.activeTruces.find((t) => t.otherPlayerId === id);
-  if (truce) return { kind: "truce", label: `Truce ${hoursLeft(truce.endsAt, input.nowMs)}` };
+  if (truce) return { kind: "truce", label: `Truce ${truceTimeLeft(truce.endsAt, input.nowMs)}` };
   return { kind: "met", label: "Met" };
 };
 
