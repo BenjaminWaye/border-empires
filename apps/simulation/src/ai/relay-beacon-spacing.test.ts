@@ -44,6 +44,13 @@ describe("relay beacon spacing", () => {
     expect(plan).toBeUndefined();
   });
 
+  it("counts each candidate the spacing rule turns away", () => {
+    const { tiles, owned } = buildStrip();
+    const skips = { spacing: 0 };
+    chooseBestRelayBeaconBuild(player, owned, tiles, [siteAt(tiles, EXISTING.x + 1), siteAt(tiles, EXISTING.x + 2)], undefined, skips);
+    expect(skips.spacing).toBe(2);
+  });
+
   it("still allows the next beacon one reach radius away, so beacons can chain", () => {
     const { tiles, owned } = buildStrip();
     const plan = chooseBestRelayBeaconBuild(player, owned, tiles, [siteAt(tiles, EXISTING.x + OUTPOST_REACH_RADIUS)]);
@@ -68,12 +75,31 @@ describe("relay beacon spacing", () => {
     expect(plan?.tile).toMatchObject({ x: EXISTING.x + 2, y: 100 });
   });
 
-  it("picks the spaced-out site when both are candidates", () => {
+  it("ignores a FOOD-relief beacon on a FRONTIER tile, which can never be re-enabled", () => {
+    const { tiles, owned } = buildStrip("inactive", "manual");
+    tiles.get(`${EXISTING.x},${EXISTING.y}`)!.ownershipState = "FRONTIER";
+    const plan = chooseBestRelayBeaconBuild(player, owned, tiles, [siteAt(tiles, EXISTING.x + 2)]);
+    expect(plan?.tile).toMatchObject({ x: EXISTING.x + 2, y: 100 });
+  });
+
+  it("exempts a site that brings a prize into reach, however close", () => {
     const { tiles, owned } = buildStrip();
-    const plan = chooseBestRelayBeaconBuild(player, owned, tiles, [
-      siteAt(tiles, EXISTING.x + 2),
-      siteAt(tiles, EXISTING.x + OUTPOST_REACH_RADIUS + 1)
-    ]);
-    expect(plan?.tile.x).toBe(EXISTING.x + OUTPOST_REACH_RADIUS + 1);
+    // One tile past the existing beacon's box, inside the +2 site's box.
+    tiles.set("106,104", { x: 106, y: 104, terrain: "LAND", resource: "FISH" });
+    const plan = chooseBestRelayBeaconBuild(player, owned, tiles, [siteAt(tiles, EXISTING.x + 2)]);
+    expect(plan?.tile).toMatchObject({ x: EXISTING.x + 2, y: 100 });
+  });
+
+  it("keeps ringing beacons from filling the strip", () => {
+    const { tiles, owned } = buildStrip();
+    const built: number[] = [EXISTING.x];
+    for (let step = 0; step < 30; step += 1) {
+      const plan = chooseBestRelayBeaconBuild(player, owned, tiles, owned);
+      if (!plan) break;
+      built.push(plan.tile.x);
+      plan.tile.economicStructure = { ownerId: player.id, type: "RELAY_BEACON", status: "active" };
+    }
+    // 26 tiles wide: one beacon per reach radius covers it.
+    expect(built.length).toBeLessThanOrEqual(Math.ceil(26 / OUTPOST_REACH_RADIUS) + 1);
   });
 });

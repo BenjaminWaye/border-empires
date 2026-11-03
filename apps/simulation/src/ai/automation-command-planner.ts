@@ -23,6 +23,7 @@ import {
   chooseBestSiegeBatteryBuild
 } from "./structure-command-planner.js";
 import { chooseBestRelayBeaconBuild, relayBeaconAffordable } from "./relay-beacon-command-planner.js";
+import type { RelayBeaconSiteSkips } from "./relay-beacon-site-rules.js";
 import { foodSlotReliefFromPlannerInput } from "./food-slot-relief.js";
 import { ownedNetworkInstallationCount } from "./planner-owned-structure-counts.js";
 import { economyWeak, foodCoverageLow } from "./ai-economic-heuristics.js";
@@ -257,6 +258,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   let fortBuild: ReturnType<typeof chooseBestFortBuild> | undefined;
   let siegeBatteryBuild: ReturnType<typeof chooseBestSiegeBatteryBuild> | undefined;
   let relayBeaconBuild: ReturnType<typeof chooseBestRelayBeaconBuild> | undefined;
+  const relayBeaconSiteSkips: RelayBeaconSiteSkips = { spacing: 0 };
   let beaconAffordable = true;
   if (input.sessionPrefix === "ai-runtime" && effectiveDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT) {
     const structurePlayer = {
@@ -320,7 +322,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       input.ownedTiles,
       input.tilesByKey,
       dedupeTiles([...buildCandidates, ...beaconFrontierCandidates, ...beaconSettledCandidates]),
-      input.reachLookup
+      input.reachLookup,
+      relayBeaconSiteSkips
     );
   }
 
@@ -397,6 +400,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           relayBeaconSiteValue: relayBeaconBuild.siteValue
         }
       : {}),
+    ...(relayBeaconSiteSkips.spacing > 0 ? { relayBeaconSiteSkips } : {}),
     ...(typeof input.playerScopeKeyCount === "number" ? { playerScopeKeyCount: input.playerScopeKeyCount } : {}),
     ...(typeof input.playerScopeTileCount === "number" ? { playerScopeTileCount: input.playerScopeTileCount } : {})
   };
