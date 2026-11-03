@@ -61,6 +61,6 @@ PRs #2498 (screens), #2503 and #2504 (two rounds of staging feedback), all
 merged to `develop`. Since #2587 it is the default desktop HUD; the classic
 HUD stays reachable with `?hud=legacy`.
 
-Known gaps at export time: no mobile layout; a profile opened from Ranks closes
+Known gaps at export time: no mobile layout (plan: [`../../hud-v2-mobile-plan.md`](../../hud-v2-mobile-plan.md)); a profile opened from Ranks closes
 to the map; a tile with both a fort and an economic structure only describes
 the economic one; the Economic Hegemony "you" marker sits too far back.

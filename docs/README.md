@@ -33,6 +33,7 @@ remain authoritative for runtime behavior.
 | Reach-vision implementation record | [`reach-border-vision-plan.md`](reach-border-vision-plan.md) |
 | Rivers remake, river heads and river mountains (renderer + worldgen v11/v12) | [`rivers-remake-plan.md`](rivers-remake-plan.md) |
 | Tutorial guide for new accounts: research, chapters, renderer coverage | [`tutorial-guide-plan.md`](tutorial-guide-plan.md) |
+| HUD v2 on mobile: 4X UI research, phone layout and phased rollout (proposed) | [`hud-v2-mobile-plan.md`](hud-v2-mobile-plan.md) |
 | Stacking-building adjacency / industrial districts (proposed) | [`stacking-adjacency-plan.md`](stacking-adjacency-plan.md) |
 | Connected town support buildings: complete remodel and both renderer implementations (planned) | [`town-support-district-plan.md`](town-support-district-plan.md) |
 | Connected town support buildings: renderer, model and anchor contract | [`town-support-districts.md`](town-support-districts.md) |
