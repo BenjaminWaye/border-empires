@@ -242,7 +242,6 @@ type PlannerExportInput = {
   // not optional: without it EXPAND-family planning is reach-blind.
   reachTileKeysForPlayer: (playerId: string) => string[];
   // See PlannerPlayerView.focusFrontTileKeys' doc comment.
-  afcDetectedFlagsForPlayer?: (playerId: string) => readonly { x: number; y: number; ownerId: string }[];
   tacticalViewForPlayer?: (playerId: string, focusKeys: readonly string[]) => AiTacticalView;
   spatialFocusFrontForPlayer: (playerId: string) => string[];
   // Phase 1 of docs/ai-structure-building-rewrite-plan.md (§9): feed the
@@ -332,10 +331,10 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         points: player.points,
         manpower: player.manpower,
         techIds: [...player.techIds].sort(),
-        ...(player.domainIds?.has("afc-oracle-5") && input.afcDetectedFlagsForPlayer ? { afcDetectedFlags: input.afcDetectedFlagsForPlayer(playerId) } : {}),
         installedModuleTechIds: activeAfcModuleTechIds(playerId, summary.ownedAfcTileKeys, input.tiles),
         domainIds: [...(player.domainIds ?? [])].sort(),
         ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
+        ...(player.afcCampaign?.hijackReadyAt ? { afcHijackReadyAt: player.afcCampaign.hijackReadyAt } : {}),
           ...(player.afcCoreTownKeys ? { afcCoreTownKeys: [...player.afcCoreTownKeys] } : {}),
           ...(player.afcScarcityFoodSlots ? { afcScarcityFoodSlots: player.afcScarcityFoodSlots } : {}),
           ...(player.afcCampaign ? { afcCampaign: structuredClone(player.afcCampaign) } : {}),

@@ -55,6 +55,10 @@ export function handleSetObservatoryEnabledCommand(
   if (payload.enabled && target.ownershipState !== "SETTLED") {
     context.rejectCommand(command, "OBSERVATORY_TOGGLE_INVALID", "Aether Tower requires a garrisoned owned tile"); return;
   }
+  // A tower under Resonance Hijack stays in the active-tower index the takeover resolves from.
+  if (observatory.hijack && observatory.hijack.endsAt > context.now()) {
+    context.rejectCommand(command, "OBSERVATORY_TOGGLE_INVALID", "the Aether Tower is being hijacked"); return;
+  }
   if ((observatory.status === "active") === payload.enabled) {
     // Already in the requested state — resolve without emitting a tile delta.
     context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });

@@ -337,12 +337,6 @@ export const applySimulationEventsToRecoveredAccumulator = (
         const defender = accumulator.players.find(player => player.id === defenderId);
         if (defender) ((defender.afcCampaign ??= {}).fortWardRecharges ??= {})[simulationTileKey(event.targetX, event.targetY)] = event.combatResult.wardRechargesAt;
       }
-      if (defenderId && event.combatResult?.hostileCaptureWarUntil) {
-        for (const [id, other] of [[event.playerId, defenderId], [defenderId, event.playerId]]) {
-          const player = accumulator.players.find(candidate => candidate.id === id);
-          if (player && other) ((player.afcCampaign ??= {}).wars ??= {})[other] = event.combatResult.hostileCaptureWarUntil;
-        }
-      }
       if (accumulator.activeLocks.has(event.commandId)) {
         accumulator.activeLocks.delete(event.commandId);
       }

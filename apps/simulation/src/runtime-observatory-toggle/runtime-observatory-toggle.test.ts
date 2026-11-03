@@ -130,4 +130,14 @@ describe("Aether Tower enable/disable", () => {
     });
     expect(observatoryAt(runtime, 16, 17)?.status).toBe("under_construction");
   });
+
+  it("rejects switching off a tower that is being hijacked, so the takeover cannot be frozen", async () => {
+    const hijack = { byPlayerId: "player-2", victimId: "player-1", casterX: 20, casterY: 20, startedAt: 9_000, endsAt: 600_000 };
+    const runtime = buildRuntime([observatoryTile(16, 17, { hijack, suppressedUntil: 600_000 })]);
+    const seen = collectEvents(runtime);
+    submitToggle(runtime, "tower-hijacked", 1, 16, 17, false);
+    await Promise.resolve();
+    expect(seen.find((event) => event.eventType === "COMMAND_REJECTED" && event.commandId === "tower-hijacked")).toMatchObject({ code: "OBSERVATORY_TOGGLE_INVALID" });
+    expect(observatoryAt(runtime, 16, 17)?.status).toBe("active");
+  });
 });

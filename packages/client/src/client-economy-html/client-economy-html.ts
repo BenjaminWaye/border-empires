@@ -34,6 +34,8 @@ export type EconomyPanelArgs = {
   focus: EconomyFocusKey;
   gold: number;
   me: string;
+  /** Relays that need no FOOD slot (Relay Fabrication Line raises the built-in allowance). */
+  freeRelayBeaconCount?: number;
   incomePerMinute: number;
   strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>;
   storageCap: EmpireStorageCap;
@@ -102,10 +104,10 @@ const slotOccupantsForResource = (args: EconomyPanelArgs, resource: SlotResource
     }
     buckets.set(label, { label, amountPerMinute: count, count: 1, ...(dormant ? { dormantCount: 1 } : {}) });
   };
-  // §23.2: the player's first RELAY_BEACON_FREE_FOOD_SLOT_COUNT outposts are
+  // §23.2: the player's first freeRelayBeaconCount outposts are
   // waived server-side (slot-waivers.ts) and never bill a FOOD slot — mirror
   // that here so this breakdown doesn't overcount vs. the demand total above it.
-  let waivedRelayBeaconsRemaining = resource === "FOOD" ? RELAY_BEACON_FREE_FOOD_SLOT_COUNT : 0;
+  let waivedRelayBeaconsRemaining = resource === "FOOD" ? args.freeRelayBeaconCount ?? RELAY_BEACON_FREE_FOOD_SLOT_COUNT : 0;
   for (const tile of args.tiles) {
     if (tile.ownerId !== args.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED") continue;
     if (tile.fogged) continue;

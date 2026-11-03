@@ -34,6 +34,7 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "AETHER_LANCE":
     case "AETHER_EMP":
     case "SUPPRESS_AETHER_TOWER":
+    case "HIJACK_AETHER_TOWER":
     case "RECRUIT_ANCILLARIES":
     case "FORCED_ANCILLARIFICATION":
     case "CAST_AETHER_BRIDGE":

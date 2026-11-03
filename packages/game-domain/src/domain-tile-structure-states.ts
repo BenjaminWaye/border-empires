@@ -6,6 +6,8 @@ import type { Tile } from "@border-empires/shared";
 
 export type DomainFortState = {
   attackCommitmentMult?: number;
+  // Built with one of Fortification Patterns' free Forts (AFC Bastion II): a cancel refunds no manpower and returns the allowance.
+  freeFort?: boolean | undefined;
   wardEnabled?: boolean;
   wardRechargesAt?: number;
   ownerId: string;
@@ -35,6 +37,8 @@ export type DomainObservatoryState = {
   previousStatus?: "active" | "inactive" | undefined;
   // Siphon mode (docs/game-mechanics.md "Siphon"): set while this tower is draining a Siphon target.
   siphon?: import("@border-empires/shared").ObservatorySiphonMode | undefined;
+  // Resonance Hijack (AFC Oracle V) in progress against this tower.
+  hijack?: import("@border-empires/shared").ObservatoryHijack | undefined;
 };
 
 export type DomainSiegeBatteryState = {

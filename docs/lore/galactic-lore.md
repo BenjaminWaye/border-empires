@@ -640,11 +640,22 @@ a compact commercial core (Exchequer), Aether operations (Oracle), and Court
 representation (Chancery). The [upgrade catalogue](../afc-specializations-catalog.md)
 explains each installation's physical or administrative basis.
 
-Court-facing upgrades equip the AFC's chancery with accredited envoys, trade
-registries, coalition dispatch and authority to invoke a campaign armistice.
-Their power comes from a recognized House commission and local agreements,
-administered through the headquarters. Staff, contracts and authority are part
-of the expedition's configuration alongside its physical machinery.
+Court-facing upgrades equip the AFC's chancery with accredited envoys, a standing
+diplomatic corps, levy agreements under which allied Houses lend ancillary
+contingents, and authority to invoke a campaign armistice. Their power comes from
+a recognized House commission and local agreements, administered through the
+headquarters. Staff, contracts and authority are part of the expedition's
+configuration alongside its physical machinery. Envoys earn trade credit from
+standing truces and alliances; they do not take Coin from the partner House.
+
+Aether operations include a **resonance hijack**: a tower whose resonator is
+exhausted (every shot spent) or jammed by counterphase interference can have its
+control lattice overwritten by a nearby hostile resonator. The takeover is slow
+and loud — the casting tower's position is exposed while it runs — and the
+captured tower is a physical installation that changes hands with its ground,
+like any captured building. Dominion's colonial charters ship a starter
+incubation plant with each new settlement; it is ordinary local infrastructure
+that still draws on the settlement's food supply.
 
 These configurations belong to this expedition. Tower tuning depends on the
 planet's Aether conditions; survey networks, garrisons, towns and formations are

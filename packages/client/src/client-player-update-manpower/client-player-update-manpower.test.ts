@@ -8,6 +8,7 @@ const baseState = (): PlayerUpdateManpowerState => ({
   manpowerRegenPerMinute: 0.2,
   logisticsThroughputPerMinute: 0.2,
   expandManpowerCost: 10,
+  settleManpowerCost: 20,
   devQueueManpowerReservedTileKeys: new Set<string>()
 });
 

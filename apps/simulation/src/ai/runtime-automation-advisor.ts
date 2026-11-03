@@ -54,7 +54,6 @@ export interface RuntimeAutomationAdvisorDeps {
   playerManpowerCap(player: RuntimePlayer): number;
   playerManpowerRegenPerMinute(player: RuntimePlayer): number;
   /** Visible aether targets around the focus front; only consulted once the player can cast (crystal-lattices or an Observatory). */
-  afcDetectedFlagsForPlayer?: (playerId: string) => readonly { x: number; y: number; ownerId: string }[];
   tacticalViewForPlayer(playerId: string, focusKeys: readonly string[]): AiTacticalView;
 }
 
@@ -139,6 +138,7 @@ export class RuntimeAutomationAdvisor {
       ...([...player.techIds].length ? { techIds: [...player.techIds] } : {}),
       ...((player.domainIds ? [...player.domainIds] : []).length ? { domainIds: [...(player.domainIds ?? [])] } : {}),
       ...(player.afcUpgradeRuleset ? { afcUpgradeRuleset: player.afcUpgradeRuleset } : {}),
+      ...(player.afcCampaign?.hijackReadyAt ? { afcHijackReadyAt: player.afcCampaign.hijackReadyAt } : {}),
       ...(Object.keys(player.strategicResources ?? {}).length ? { strategicResources: { ...(player.strategicResources ?? {}) } } : {}),
       settledTileCount: summary.settledTileCount,
       townCount: summary.townCount,
@@ -146,7 +146,6 @@ export class RuntimeAutomationAdvisor {
       hasActiveLock,
       activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
       ...(options?.reservedDevelopmentSlots ? { reservedDevelopmentSlots: options.reservedDevelopmentSlots } : {}),
-      ...(deps.afcDetectedFlagsForPlayer ? { afcDetectedFlags: deps.afcDetectedFlagsForPlayer(playerId) } : {}),
       installedModuleTechIds: activeAfcModuleTechIds(playerId, summary.ownedAfcTileKeys, state.tiles),
       tacticalView: (player.techIds.has("crystal-lattices") || (deps.ownedStructureCountsForPlayer(playerId).OBSERVATORY ?? 0) > 0)
         ? deps.tacticalViewForPlayer(playerId, [...(spatialFocus?.primaryFront ?? [])])

@@ -39,6 +39,7 @@ export type RuntimeState = {
     eventLog?: PlayerEventLogEntry[];
     strategicResources: Partial<Record<StrategicResourceKey, number>>;
     allies: string[];
+    truces?: string[];
     vision: number;
     visionRadiusBonus: number;
     ownedTownTileKeys?: string[];

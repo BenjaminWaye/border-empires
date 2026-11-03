@@ -65,6 +65,8 @@ export const aiDiplomacyPricing = (input: {
    * undefined when the goodwill cap stops payments from getting there.
    */
   giftToPleased?: number;
+  /** Diplomatic Corps (AFC Chancery II): multiplier on what the requester pays for a truce. */
+  requesterTruceCostMult?: number;
   now: number;
 }): AiDiplomacyPricingResult => {
   const finite = (value: number): number => (Number.isFinite(value) ? value : 0);
@@ -103,8 +105,9 @@ export const aiDiplomacyPricing = (input: {
       const desperation = input.stanceKind === "SEEKING_PEACE" ? DESPERATE_DISCOUNT : 1;
       const repeat = 1 + REPEAT_TRUCE_SURCHARGE * memory.truceDeals;
       const hours = (baseHours * ATTITUDE_PRICE_MULTIPLIER[opinion.attitude] * desperation + reparationHours) * repeat;
-      truce12 = hoursToCoin(hours, priceIncome);
-      truce24 = hoursToCoin(hours * LONG_TRUCE_MULTIPLIER, priceIncome);
+      const corps = input.requesterTruceCostMult ?? 1;
+      truce12 = hoursToCoin(hours * corps, priceIncome);
+      truce24 = hoursToCoin(hours * LONG_TRUCE_MULTIPLIER * corps, priceIncome);
     }
   }
 

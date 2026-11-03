@@ -112,6 +112,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       truceOffer: z.boolean().optional(),
       attackAlert: z.boolean().optional(),
       aetherPurgeAlert: z.boolean().optional(),
+      aetherHijackAlert: z.boolean().optional(),
       seasonStart: z.boolean().optional()
     })
   }),
@@ -302,6 +303,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // tile — a pure per-player toggle, unlike AEGIS_LOCK.
   z.object({ type: z.literal("ACTIVATE_IMPERIAL_WARD"), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("SUPPRESS_AETHER_TOWER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
+  z.object({ type: z.literal("HIJACK_AETHER_TOWER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("FORCED_ANCILLARIFICATION"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("RECRUIT_ANCILLARIES"), coin: z.number().int().positive().safe(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("AETHER_EMP"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),

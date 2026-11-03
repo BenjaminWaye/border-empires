@@ -4,7 +4,11 @@ import { SETTLE_COST, SETTLE_MANPOWER_COST, grassShadeAt, isHillsTileAt, landBio
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { creditManpower } from "./runtime-manpower-ceiling.js";
 
-export type SettleActorLike = { points: number; manpower: number };
+export type SettleActorLike = { points: number; manpower: number } & Partial<Pick<DomainPlayer, "techIds" | "domainIds">>;
+
+/** Garrison manpower after Expansion Doctrine (AFC Dominion IV); bare actors (tests, previews) pay the base price. */
+export const settleManpowerCostFor = (actor: SettleActorLike): number =>
+  actor.techIds ? Math.ceil(SETTLE_MANPOWER_COST * multiplicativeEffectForPlayer({ techIds: actor.techIds, ...(actor.domainIds ? { domainIds: actor.domainIds } : {}) }, "settleManpowerCostMult")) : SETTLE_MANPOWER_COST;
 export type SettleRejection = { code: "INSUFFICIENT_MANPOWER" | "INSUFFICIENT_GOLD"; message: string };
 
 // Manpower-economy rewrite:
@@ -12,8 +16,9 @@ export type SettleRejection = { code: "INSUFFICIENT_MANPOWER" | "INSUFFICIENT_GO
 // so a manpower-poor player sees INSUFFICIENT_MANPOWER, not a stale gold
 // rejection, even though the (now-nominal) gold cost still applies too.
 export const settleRejectionForActor = (actor: SettleActorLike): SettleRejection | null => {
-  if (actor.manpower < SETTLE_MANPOWER_COST) {
-    return { code: "INSUFFICIENT_MANPOWER", message: `need ${SETTLE_MANPOWER_COST} manpower to garrison` };
+  const manpowerCost = settleManpowerCostFor(actor);
+  if (actor.manpower < manpowerCost) {
+    return { code: "INSUFFICIENT_MANPOWER", message: `need ${manpowerCost} manpower to garrison` };
   }
   if (actor.points < SETTLE_COST) {
     return { code: "INSUFFICIENT_GOLD", message: "insufficient coin to garrison" };
@@ -23,12 +28,12 @@ export const settleRejectionForActor = (actor: SettleActorLike): SettleRejection
 
 export const applySettleCost = (actor: SettleActorLike): void => {
   actor.points -= SETTLE_COST;
-  actor.manpower -= SETTLE_MANPOWER_COST;
+  actor.manpower -= settleManpowerCostFor(actor);
 };
 
 export const refundSettleCost = (actor: SettleActorLike, goldCost: number, manpowerCap: number): void => {
   actor.points += goldCost;
-  creditManpower(actor, SETTLE_MANPOWER_COST, manpowerCap);
+  creditManpower(actor, settleManpowerCostFor(actor), manpowerCap);
 };
 
 export const SETTLE_DURATION_MS = 60_000;

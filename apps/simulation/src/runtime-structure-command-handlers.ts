@@ -30,7 +30,8 @@ import { activeOrInactive, rejectCommand, structureLabel } from "./runtime-struc
 import { resolveTownSupportTarget } from "./runtime-structure-town-support-target.js";
 import { announceMonumentConstructionStarted } from "./runtime-monument-claim.js";
 import { handleBuildAfcCommand } from "./runtime-build-afc-command-handler.js";
-import { structureManpowerCostForPlayer } from "./structure-manpower-cost/structure-manpower-cost.js";
+import { afcPlayerStatePayload } from "./afc-specializations/afc-player-state.js";
+import { afcInstantBuild, fortBuildManpowerCharge, fortTechWaived, structureManpowerCostForPlayer } from "./structure-manpower-cost/structure-manpower-cost.js";
 import { handleRedeployAfcModuleCommand } from "./runtime-redeploy-afc-module-command-handler.js";
 import type { PersonalImpactBuildingCompleted } from "./personal-impact-log/personal-impact-log.js";
 import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
@@ -194,7 +195,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     return;
   }
   for (const techId of spec.techIds) {
-    if (!actor.techIds.has(techId)) {
+    if (!actor.techIds.has(techId) && !(spec.kind === "FORT" && fortTechWaived(actor, techId))) {
       rejectCommand(context, command, "BUILD_INVALID", `unlock ${structureLabel(structureType)} first`);
       return;
     }
@@ -363,7 +364,8 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     // (structure-costs.ts).
     manpowerCost = structureBuildManpowerCostScaled(structureType, context.ownedStructureCountForPlayer(command.playerId, structureType));
   }
-  manpowerCost = structureManpowerCostForPlayer(actor, slotStructureType, manpowerCost);
+  const fortCharge = fortTier ? fortBuildManpowerCharge(actor, fortTier.variant, target.fort?.variant, manpowerCost) : undefined;
+  manpowerCost = fortCharge ? fortCharge.manpower : structureManpowerCostForPlayer(actor, slotStructureType, manpowerCost);
   if (actor.points < goldCost) {
     rejectCommand(context, command, "INSUFFICIENT_GOLD", `insufficient coin for ${structureLabel(structureType)}`);
     return;
@@ -383,14 +385,18 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
 
   actor.points -= goldCost;
   actor.manpower = Math.max(0, actor.manpower - manpowerCost);
+  if (fortCharge?.freeFort) {
+    (actor.afcCampaign ??= {}).freeFortsUsed = (actor.afcCampaign.freeFortsUsed ?? 0) + 1;
+    context.emitEvent({ eventType: "DOMAIN_UPDATE", commandId: command.commandId, playerId: actor.id, payloadJson: JSON.stringify(afcPlayerStatePayload(actor)) });
+  }
 
   // Every structure that costs manpower builds in a flat STRUCTURE_BUILD_MS
   // (structure-costs.ts); a 0-manpower one is instant. RELAY_BEACON's
   // first-tier beacons build instantly (D12) while still paying manpower, so
   // its duration comes from relayBeaconBuildDurationMs, not the cost.
-  const structureDurationMs = structureType === "RELAY_BEACON"
+  const structureDurationMs = afcInstantBuild(actor, structureType) ? 0 : structureType === "RELAY_BEACON"
     ? relayBeaconBuildDurationMs(context.ownedStructureCountForPlayer(command.playerId, structureType))
-    : structureBuildDurationMsForManpowerCost(manpowerCost);
+    : structureBuildDurationMsForManpowerCost(fortCharge?.freeFort ? 1 : manpowerCost); // a free Fort still takes the normal build time
   // Shared with the client's build menus (structureBuildSpeedEffectKey) so
   // the time a menu shows is the time this stamps.
   const speedEffectKey = structureBuildSpeedEffectKey(structureType);
@@ -418,6 +424,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
       status: "under_construction",
       ...(resolvedVariant ? { variant: resolvedVariant } : {}),
       ...(isEcoStruct ? { type: structureType } : {}),
+      ...(fortCharge?.freeFort ? { freeFort: true } : {}),
       ...(standingFort
         ? {
             upgradingFrom: defendingFortVariant(standingFort),

@@ -11,8 +11,8 @@ import { accrueManpower, effectiveManpowerAt as effectiveManpowerAtImpl, playerM
 import { TITANIUM_LEVY_REGEN_FREEZE_KEY } from "../runtime-titanium-levy-command.js";
 import { grantOverflowManpower, manpowerCeiling, settleWaystationManpowerOverflow } from "../runtime-manpower-ceiling.js";
 import * as wonderEffects from "../runtime-natural-wonders.js";
-import { afcEnvoyBenefits, mutualAfcAllies, type AfcEnvoyBenefits } from "../afc-specializations/afc-coalition.js";
-import { multiplicativeEffectForPlayer, additiveEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
+import { AFC_LEVY_SOURCE_LABEL, afcAlliedLevyShare } from "../afc-specializations/afc-coalition.js";
+import { multiplicativeEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
 
 export interface RuntimeManpowerEconomyContext {
   players?: ReadonlyMap<string, RuntimePlayer>;
@@ -51,21 +51,18 @@ function baseManpowerRegenPerMinute(ctx: RuntimeManpowerEconomyContext, player: 
   ) + resourceNetworkRegenPerMinute;
 }
 
-function envoyManpowerBenefits(ctx: RuntimeManpowerEconomyContext, player: RuntimePlayer): AfcEnvoyBenefits {
-  if (!ctx.players) return { allies: 0, goldPerMinute: 0, manpowerCap: 0, manpowerRegenPerMinute: 0 };
-  return afcEnvoyBenefits(player, ctx.players, ally => ({
-    goldPerMinute: 0, manpowerCap: baseManpowerCap(ctx, ally),
-    manpowerRegenPerMinute: baseManpowerRegenPerMinute(ctx, ally)
-  }));
+/** Allied Levies scales the player's own capacity, so it never reads (or recurses into) an ally's bonuses. */
+function alliedLevyShare(ctx: RuntimeManpowerEconomyContext, player: RuntimePlayer): number {
+  return ctx.players ? afcAlliedLevyShare(player, ctx.players).share : 0;
 }
 
 export function playerManpowerCap(ctx: RuntimeManpowerEconomyContext, player: RuntimePlayer): number {
-  return baseManpowerCap(ctx, player) + envoyManpowerBenefits(ctx, player).manpowerCap;
+  return baseManpowerCap(ctx, player) * (1 + alliedLevyShare(ctx, player));
 }
 
 export function playerManpowerRegenPerMinute(ctx: RuntimeManpowerEconomyContext, player: RuntimePlayer): number {
   if (ctx.getAbilityCooldownUntil(player.id, TITANIUM_LEVY_REGEN_FREEZE_KEY) > ctx.now()) return 0;
-  return baseManpowerRegenPerMinute(ctx, player) + envoyManpowerBenefits(ctx, player).manpowerRegenPerMinute;
+  return baseManpowerRegenPerMinute(ctx, player) * (1 + alliedLevyShare(ctx, player));
 }
 
 export function playerLogisticsThroughputPerMinute(ctx: RuntimeManpowerEconomyContext, player: RuntimePlayer): number {
@@ -94,9 +91,11 @@ export function playerManpowerBreakdown(ctx: RuntimeManpowerEconomyContext, play
   );
   const resourceBonus = ctx.cachedManpowerStructureBonusForPlayer(player).resourceNetworkRegenPerMinute ?? 0;
   if (resourceBonus > 0) breakdown.regen.push({ label: "Ancillary resource network", amount: resourceBonus });
-  const envoy = envoyManpowerBenefits(ctx, player);
-  if (envoy?.manpowerCap) breakdown.cap.push({ label: "Envoy Accreditation", amount: envoy.manpowerCap });
-  if (envoy?.manpowerRegenPerMinute) breakdown.regen.push({ label: "Envoy Accreditation", amount: ctx.getAbilityCooldownUntil(player.id, TITANIUM_LEVY_REGEN_FREEZE_KEY) > ctx.now() ? 0 : envoy.manpowerRegenPerMinute });
+  const levy = alliedLevyShare(ctx, player);
+  if (levy > 0) {
+    breakdown.cap.push({ label: AFC_LEVY_SOURCE_LABEL, amount: baseManpowerCap(ctx, player) * levy });
+    breakdown.regen.push({ label: AFC_LEVY_SOURCE_LABEL, amount: ctx.getAbilityCooldownUntil(player.id, TITANIUM_LEVY_REGEN_FREEZE_KEY) > ctx.now() ? 0 : baseManpowerRegenPerMinute(ctx, player) * levy });
+  }
   return breakdown;
 }
 
@@ -191,23 +190,8 @@ export function refreshManpowerOnlyForPlayer(
   player.manpowerCapSnapshot = cap;
 }
 
-/** Settle only direct Envoy dependents at the old rate before domestic capabilities change. */
-export function settleEnvoyDependents(ctx: RuntimeManpowerEconomyContext, ownerIds: Iterable<string | undefined>, nowMs: number): void {
-  if (!ctx.players) return;
-  const settled = new Set<string>();
-  for (const id of ownerIds) {
-    const owner = id ? ctx.players.get(id) : undefined;
-    if (!owner) continue;
-    for (const ally of mutualAfcAllies(owner, ctx.players)) {
-      if (settled.has(ally.id) || additiveEffectForPlayer(ally, "allianceContributionShare") <= 0) continue;
-      if (ally.manpowerUpdatedAt !== undefined && ally.manpowerUpdatedAt >= nowMs) continue;
-      settled.add(ally.id);
-      refreshManpowerOnlyForPlayer(ctx, ally, nowMs);
-    }
-  }
-}
-
-export function settleEnvoyDependentsBeforeTileChange(ctx: RuntimeManpowerEconomyContext, previous: DomainTileState | undefined, next: DomainTileState): void {
+/** Settle resource-network owners at the old rate before a tile write changes their network bonuses. */
+export function settleResourceNetworkOwnersBeforeTileChange(ctx: RuntimeManpowerEconomyContext, previous: DomainTileState | undefined, next: DomainTileState): void {
   if (previous && !economyRelevantTileFieldsChanged(previous, next)) return;
   const now = ctx.now();
   const owners = new Set([previous?.ownerId, next.ownerId]);
@@ -218,5 +202,4 @@ export function settleEnvoyDependentsBeforeTileChange(ctx: RuntimeManpowerEconom
       applyManpowerRegenForPlayer(ctx, owner, now);
     }
   }
-  settleEnvoyDependents(ctx, owners, now);
 }

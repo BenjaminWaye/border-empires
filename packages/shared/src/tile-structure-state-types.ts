@@ -63,6 +63,7 @@ export type TileObservatoryState = {
   // Fire times still inside the 24h refill window (aether-tower-shots.ts).
   shotsUsedAt?: number[];
   siphon?: { targetX: number; targetY: number; tileKeys: string[]; startedAt: number };
+  hijack?: import("./afc-specializations/afc-tower-state.js").ObservatoryHijack;
 };
 
 export type TileAfcState = {

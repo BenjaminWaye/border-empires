@@ -14,7 +14,7 @@ export const tileActionIsCrystal = (id: TileActionDef["id"]): boolean =>
   id === "reveal_empire" ||
   id === "reveal_empire_stats" ||
   id === "survey_sweep" ||
-  id === "aether_lance" || id === "suppress_aether_tower" ||
+  id === "aether_lance" || id === "suppress_aether_tower" || id === "hijack_aether_tower" ||
   id === "retort_recast_food" ||
   id === "retort_recast_titanium" ||
   id === "retort_recast_crystal" ||
