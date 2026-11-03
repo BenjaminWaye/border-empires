@@ -1,14 +1,17 @@
 // Bottom-right manpower orb for the new HUD. The fill is the pool, in your empire colour; the line
 // under the number is the next batch: its size and when it lands. Clicking opens the manpower panel.
 
-import { formatRefillCountdown } from "../client-manpower-gauge/client-manpower-refill.js";
+import type { ClientState } from "../client-state/client-state.js";
+import { formatRefillCountdown, freshNextBatchAmount, nextBatchGain, nextManpowerRefillForPlayer } from "../client-manpower-gauge/client-manpower-refill.js";
 
 export type OrbInput = {
   manpower: number;
   manpowerCap: number;
   nextRefillAt: number | undefined;
-  /** Server-reported size of the next batch; clamped to the room left under the cap. */
+  /** Server-reported size of the next batch (already dropped once stale); clamped to the room left under the cap. */
   nextBatchAmount?: number | undefined;
+  /** Paused (regen 0 and no batch coming) instead of a countdown to nothing. */
+  regenPerMinute?: number | undefined;
   nowMs: number;
   color?: string | undefined;
 };
@@ -46,21 +49,43 @@ export const orbFill = (manpower: number, cap: number): number => (cap > 0 ? Mat
 /** Next batch as it lands in the pool (never more than the room left under the cap), or undefined when unknown or empty. */
 export const orbBatchAmount = (input: OrbInput): number | undefined => {
   if (input.nextBatchAmount === undefined) return undefined;
-  const amount = Math.floor(Math.max(0, Math.min(input.manpowerCap - input.manpower, input.nextBatchAmount)));
+  const amount = Math.floor(nextBatchGain(input.manpower, input.manpowerCap, input.nextBatchAmount));
   return amount > 0 ? amount : undefined;
+};
+
+/** Orb input from client state; the batch amount is dropped once the refill it described has passed. */
+export type OrbState = Pick<
+  ClientState,
+  "me" | "manpower" | "manpowerCap" | "manpowerRegenPerMinute" | "nextManpowerBatchAmount" | "nextManpowerBatchAmountAt"
+>;
+
+export const orbInputForState = (state: OrbState, nowMs: number, color: string | undefined): OrbInput => ({
+  manpower: state.manpower,
+  manpowerCap: state.manpowerCap,
+  nextRefillAt: nextManpowerRefillForPlayer(state.me, nowMs),
+  nextBatchAmount: freshNextBatchAmount(state.me, state.nextManpowerBatchAmount, state.nextManpowerBatchAmountAt, nowMs),
+  regenPerMinute: state.manpowerRegenPerMinute,
+  nowMs,
+  color
+});
+
+const orbRefillLine = (input: OrbInput): { text: string; label: string } => {
+  const { nextRefillAt } = input;
+  if (nextRefillAt === undefined || input.manpower >= input.manpowerCap) return { text: "", label: "" };
+  const batch = orbBatchAmount(input);
+  if (batch === undefined && input.regenPerMinute !== undefined && input.regenPerMinute <= 0) return { text: "paused", label: ", regen paused" };
+  const eta = formatRefillCountdown(nextRefillAt - input.nowMs);
+  if (batch === undefined) return { text: `next batch ${eta}`, label: `, next batch in ${eta}` };
+  const amount = batch.toLocaleString("en-US");
+  return { text: `+${amount} in ${eta}`, label: `, next batch +${amount} in ${eta}` };
 };
 
 export const orbHtml = (input: OrbInput): string => {
   const fill = orbFill(input.manpower, input.manpowerCap);
   const level = Math.round(170 - fill * 150);
-  const showRefill = input.nextRefillAt !== undefined && input.manpower < input.manpowerCap;
-  const eta = showRefill ? formatRefillCountdown((input.nextRefillAt ?? 0) - input.nowMs) : "";
-  const batch = showRefill ? orbBatchAmount(input) : undefined;
-  const refill = !showRefill ? "" : batch !== undefined
-    ? `<span class="hud-v2-orb-refill">+${batch.toLocaleString("en-US")} in ${eta}</span>`
-    : `<span class="hud-v2-orb-refill">refill ${eta}</span>`;
-  const batchLabel = batch !== undefined ? `, next batch +${batch} in ${eta}` : "";
-  const label = `Manpower ${Math.floor(input.manpower)} of ${Math.floor(input.manpowerCap)}${batchLabel}`;
+  const line = orbRefillLine(input);
+  const refill = line.text ? `<span class="hud-v2-orb-refill">${line.text}</span>` : "";
+  const label = `Manpower ${Math.floor(input.manpower)} of ${Math.floor(input.manpowerCap)}${line.label}`;
   return `<button type="button" class="hud-v2-orb${fill <= 0.02 ? " hud-v2-orb-empty" : ""}" data-hud-v2-open="manpower" aria-label="${label}" title="${label}">
     <svg viewBox="0 0 180 180" aria-hidden="true">
       <defs><clipPath id="hud-v2-orb-clip"><circle cx="90" cy="90" r="74"/></clipPath></defs>

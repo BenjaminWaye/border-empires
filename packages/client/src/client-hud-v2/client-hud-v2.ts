@@ -9,7 +9,6 @@ import type { ClientState } from "../client-state/client-state.js";
 import { readyAfcUpgradeCount } from "../client-afc-upgrade-ready/client-afc-upgrade-ready.js";
 import { deriveDevelopmentPanelData } from "../client-development-panel/client-development-html.js";
 import { busyDevelopmentProcessCount } from "../client-development-queue/client-development-queue.js";
-import { nextManpowerRefillForPlayer } from "../client-manpower-gauge/client-manpower-refill.js";
 import { buildManpowerPanelMusterFlags } from "../client-muster-flags-panel/client-muster-flags-panel.js";
 import { battleOnBarAction, battleOnMenuView, battleRowPlan, installBattleWatch, liveBattleTarget, reopenLiveBattle, shownBattleTileKey } from "./client-hud-v2-battle-runtime.js";
 import { focusCamera, screen, SCREEN_HOST_ID, type HudV2Deps, type HudV2ScreenId } from "./client-hud-v2-context.js";
@@ -18,7 +17,7 @@ import { hudV2GameOnScreen } from "./client-hud-v2-ready.js";
 import { initHudV2Flag, isHudV2Active, setHudV2Driving } from "./client-hud-v2-flag.js";
 import { navHtml } from "./client-hud-v2-nav.js";
 import { fallbackOwnerColor, resolveOwnerColor } from "../client-owner-colors/client-owner-colors.js";
-import { orbHtml } from "./client-hud-v2-orb.js";
+import { orbHtml, orbInputForState } from "./client-hud-v2-orb.js";
 import { installLens, lensMenu, overlaysHtml } from "./client-hud-v2-overlays.js";
 import { resourceBarHtml } from "./client-hud-v2-resource-bar.js";
 import { hasRevealedResourceCategory } from "../client-tech-html/client-tech-html.js";
@@ -244,7 +243,7 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
     nowMs
   }));
   renderLens(state);
-  writeRegion("orb-slot", orbHtml({ manpower: state.manpower, manpowerCap: state.manpowerCap, nextRefillAt: nextManpowerRefillForPlayer(state.me, nowMs), nextBatchAmount: state.nextManpowerBatchAmount, nowMs, color: resolveOwnerColor(state.me, state.playerColors, fallbackOwnerColor) })); // Base colour: the Diplomacy view recolours ownerColor.
+  writeRegion("orb-slot", orbHtml(orbInputForState(state, nowMs, resolveOwnerColor(state.me, state.playerColors, fallbackOwnerColor)))); // Base colour: the Diplomacy view recolours ownerColor.
 };
 
 const renderLens = (state: ClientState): void => writeRegion("overlays", overlaysHtml(state.showDiplomacyOverlay, lensMenu.open));

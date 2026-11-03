@@ -273,18 +273,11 @@ describe("action bar", () => {
 });
 
 describe("manpower orb", () => {
-  it("clamps the fill and shows the refill only while below cap", () => {
+  it("clamps the fill and shows the next batch only while below cap", () => {
     expect(orbFill(150, 100)).toBe(1);
     expect(orbFill(-5, 100)).toBe(0);
-    expect(orbHtml({ manpower: 40, manpowerCap: 100, nextRefillAt: 30 * 60_000, nowMs: 0 })).toContain("refill 30m");
-    expect(orbHtml({ manpower: 100, manpowerCap: 100, nextRefillAt: 30 * 60_000, nowMs: 0 })).not.toContain("refill");
-  });
-
-  it("shows how much manpower the next batch brings, clamped to the room under the cap", () => {
-    expect(orbHtml({ manpower: 1975, manpowerCap: 5622, nextRefillAt: 45 * 60_000, nextBatchAmount: 1200, nowMs: 0 })).toContain(">+1,200 in 45m<");
-    expect(orbHtml({ manpower: 5000, manpowerCap: 5622, nextRefillAt: 45 * 60_000, nextBatchAmount: 1200, nowMs: 0 })).toContain(">+622 in 45m<");
-    expect(orbHtml({ manpower: 1975, manpowerCap: 5622, nextRefillAt: 45 * 60_000, nextBatchAmount: 1200, nowMs: 0 })).toContain('title="Manpower 1975 of 5622, next batch +1200 in 45m"');
-    expect(orbHtml({ manpower: 1975, manpowerCap: 5622, nextRefillAt: 45 * 60_000, nextBatchAmount: 0, nowMs: 0 })).toContain("refill 45m");
+    expect(orbHtml({ manpower: 40, manpowerCap: 100, nextRefillAt: 30 * 60_000, nowMs: 0 })).toContain(">next batch 30m<");
+    expect(orbHtml({ manpower: 100, manpowerCap: 100, nextRefillAt: 30 * 60_000, nowMs: 0 })).not.toContain("hud-v2-orb-refill");
   });
 
   it("fills the jar with your empire colour, darkened, and keeps gold for anything that is not a plain colour", () => {

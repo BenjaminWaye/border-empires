@@ -477,8 +477,12 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     createdAt: 1793743078716, // Date.now() captured once for this entry.
     introducedIn: "2026.11.03",
     title: "Manpower orb shows the size of your next batch",
-    why: "The new HUD's manpower orb only said \"refill 45m\", so you couldn't tell how much manpower was coming.",
-    changes: ["The manpower orb now reads \"+N in 45m\" with the amount the next batch adds, capped at the room left under your manpower cap"]
+    why: "The new HUD's manpower orb only showed a countdown, so you couldn't tell how much manpower was coming.",
+    changes: [
+      "The manpower orb now reads \"+N in 45m\": how much your next batch adds and when it lands",
+      "It says \"paused\" when no manpower is coming, and \"next batch\" instead of \"refill\"",
+      "The orb and the manpower chip stop showing a batch amount that has already landed"
+    ]
   }
 ];
 
