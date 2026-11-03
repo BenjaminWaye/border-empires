@@ -91,12 +91,29 @@ is unavailable until a Manifest exists.
 | # | Chapter | Step (completes when…) | Target |
 |---|---|---|---|
 | 1 | Look around | drag the map; zoom; tap a tile (player input, via `client-map-input.ts`, shared by both renderers) | — |
-| 2 | A foothold | the four checklist goals: find a town, Expand To it, find food, Expand To 4 food slots (`onboardingChecklistState`) | checklist highlights, Relay Beacon site when nothing is in reach |
+| 2 | A foothold | the four checklist goals (`onboardingChecklistState`): find a town; take it; find food; take 4 food slots | see below |
 | 3 | Manpower | the manpower panel is open | manpower gauge |
 | 4 | Manifests | the Manifest panel is open; first Manifest commissioned (`techIds`) | Manifest button |
 | 5 | Build | owns a structure other than a Relay Beacon (available only after a Manifest) | nearest own garrisoned empty resource tiles |
 | 6 | Contest | owns a muster flag (available once mustering unlocks on first contact with Planetary Defense or a rival House) | own garrisoned tiles touching another owner |
 | 7 | Your turn | the Activity dashboard (or Chronicle) is open; **Finish** | Activity button |
+
+**Taking the town and the food** (`tutorial-guide-foothold-targets.ts`): reach
+auto-claims every neutral tile inside it as the player's FRONTIER, so the
+wording follows the target's state. Towns and food tiles (grain and fish) use
+the same rule.
+
+- A target that is already the player's frontier: "Garrison it". Its tile
+  menu offers Garrison, not Expand To.
+- Otherwise, a neutral target in vision (not fogged), in practice one outside
+  reach: "Expand To it". Expand To walks the border across through a waypoint
+  chain.
+- Otherwise, nothing in vision: "Build a Relay Beacon" on the checklist's
+  recommended site.
+
+The ringed tiles are the nearest matching targets (up to three), or the beacon
+site. Both food steps show "Look for" with the game's own grain and fish
+resource icons, so the player knows what to spot on the map.
 
 If the only steps left are waiting (for example no contact yet), the card shows
 the first waiting step's note.
@@ -114,6 +131,7 @@ payouts".
 | `…/tutorial-guide.ts` | Per-frame controller: persists completions, renders the card and outline, returns map highlights |
 | `…/tutorial-guide-card.ts`, `…/tutorial-guide-anchor.ts` | Card DOM; HUD-button outline |
 | `…/tutorial-guide-storage.ts` | Enrollment, progress, server sync |
+| `…/tutorial-guide-foothold-targets.ts` | Garrison / Expand To / beacon choice for the town and food steps |
 | `client-onboarding-ui-gate/client-onboarding-ui-overlays.ts` | Chooses guide versus checklist; per-frame tick |
 | `apps/realtime-gateway/src/gateway-app/handle-set-hint-state-message.ts`, `sqlite-player-profile-store.ts` | Server persistence (`guide_status`, `guide_steps` columns) |
 

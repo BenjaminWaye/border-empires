@@ -55,3 +55,27 @@ describe("buildGuideInput", () => {
     expect(buildGuideInput(state).checklist.townFound).toBe(true);
   });
 });
+
+describe("scanGuideFootholdTargets", () => {
+  it("splits own frontier towns and food (Garrison) from neutral ones in vision (Expand To), ignoring fogged, enemy, garrisoned and spawn-settlement tiles", async () => {
+    const { scanGuideFootholdTargets } = await import("./tutorial-guide-foothold-targets.js");
+    const town = (populationTier: string) => ({ town: { type: "MARKET", populationTier } as never });
+    const tiles = map([
+      { x: 0, y: 0, ownerId: ME, ownershipState: "SETTLED", ...town("SETTLEMENT") },
+      { x: 2, y: 0, ownerId: ME, ownershipState: "FRONTIER", ...town("TOWN") },
+      { x: 9, y: 0, ...town("TOWN") },
+      { x: 12, y: 0, fogged: true, ...town("TOWN") },
+      { x: 14, y: 0, ownerId: "rival", ownershipState: "SETTLED", ...town("TOWN") },
+      { x: 16, y: 0, ownerId: ME, ownershipState: "SETTLED", ...town("CITY") },
+      { x: 1, y: 1, ownerId: ME, ownershipState: "FRONTIER", resource: "FISH" },
+      { x: 3, y: 3, resource: "FARM" },
+      { x: 4, y: 4, resource: "FARM", fogged: true },
+      { x: 5, y: 5, ownerId: ME, ownershipState: "SETTLED", resource: "FARM" },
+      { x: 6, y: 6, resource: "TITANIUM" }
+    ]);
+    expect(scanGuideFootholdTargets(tiles.values(), ME, () => 0)).toEqual({
+      town: { garrison: [{ x: 2, y: 0 }], expand: [{ x: 9, y: 0 }] },
+      food: { garrison: [{ x: 1, y: 1 }], expand: [{ x: 3, y: 3 }] }
+    });
+  });
+});

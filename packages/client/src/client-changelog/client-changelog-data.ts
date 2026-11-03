@@ -194,16 +194,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION,
   ...CLIENT_CHANGELOG_ENTRIES_OCT_12,
   ...CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT,
-  {
-    createdAt: 1791921253260, // frozen Date.now() value for this release
-    introducedIn: "2026.10.13.1",
-    title: "Empire Integrity moves to the Economy panel",
-    why: "Playtesters watched Empire Integrity fall as they expanded and read it as being punished. In fact it was still a bonus, and some updates briefly showed it lower than it really was.",
-    changes: [
-      "Empire Integrity now lives in the Economy panel; the top bar only shows it, with a warning, once it drops below 50% and actually reduces your coin and growth",
-      "Fixed integrity sometimes showing lower than it really was (e.g. 80% for a small new empire) after changing your profile or colour, toggling auto-garrison, or using an ability"
-    ]
-  },
   ...OCTOBER_STRUCTURE_ART_CHANGELOG,
   ...TILE_YIELD_REMOVAL_CHANGELOG,
   ...AI_PROGRESSION_AETHER_CHANGELOG,
@@ -218,16 +208,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...MUSTER_BANNER_CHANGELOG,
   ...ADVANCE_VISIBLE_ONLY_CHANGELOG,
   ...AI_DEAL_SUGGEST_CHANGELOG,
-  {
-    createdAt: 1792442407428, // Date.now() captured for this entry.
-    introducedIn: "2026.10.19.4",
-    title: "Free AFC upgrades appear correctly after login",
-    why: "New-campaign players could see the old paid catalogue before choosing their first upgrade.",
-    changes: [
-      "Login and reconnect show free AFC choices unlocked by your Manifest tiers",
-      "All 30 upgrade cards use short effect lines with percentages; expanded details explain conditions"
-    ]
-  },
   ...CLIENT_CHANGELOG_ENTRIES_OCT_19_20,
   ...HETZNER_CLIENT_HOSTING_CHANGELOG,
   ...CAPTURE_HOLD_EFFORT_CHANGELOG,
@@ -448,6 +428,23 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   ...CLIENT_CHANGELOG_ENTRIES_NOV_01_03,
+  {
+    createdAt: 1793696822571, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.03",
+    title: "Guide: clearer first steps, a Manufactory, and diplomacy",
+    why: "Playtesting the guide showed steps asking for the wrong action (Expand To on land you already held, Build on tiles you couldn't build on yet) and a last step that didn't say what to do.",
+    changes: [
+      "A town or food tile your reach already claimed: the guide says to Garrison it",
+      "One you can see outside your reach: the guide says to Expand To it",
+      "Nothing in sight: the guide marks a tile for a Relay Beacon",
+      "The food steps show the grain and fish icons to look for on the map",
+      "The guide asks you to tap your AFC rather than any tile, since tapping land next to your border claims it",
+      "It recommends the Industrial Tooling Module as your first Manifest, then, once the module has docked at your AFC, asks for a Manufactory on your town",
+      "A new Diplomacy step appears once you meet a rival House: open Diplomacy to offer a truce",
+      "You can finish the guide even if you haven't met Planetary Defense or a rival yet; Finish closes it for good",
+      "The last step now says plainly that manpower refills every 4 hours"
+    ]
+  },
   ...AETHER_TOWER_SHOTS_CHANGELOG,
   ...LEGAL_PAGES_CHANGELOG,
   ...CAPTURE_AFTERMATH_CHANGELOG

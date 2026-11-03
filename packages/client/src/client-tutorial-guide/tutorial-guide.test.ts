@@ -103,6 +103,34 @@ describe("tutorial guide in the onboarding corner", () => {
     expect(card()?.querySelector('[data-guide-action="show-me"]')).not.toBeNull();
   });
 
+  it("tells the player to Garrison a town their reach already claimed, ringing that town", () => {
+    setGuideStatus("active", EMAIL);
+    const state = newPlayerState();
+    setTiles(state, [{ x: 2, y: 0, ownerId: ME, ownershipState: "FRONTIER", town: { type: "MARKET", populationTier: "TOWN" } as never }]);
+    refreshOnboardingChecklistHighlight(state);
+    click("skip");
+    click("skip");
+    click("skip");
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(cardTitle()).toBe("Tap the marked town and Garrison it");
+    expect(state.onboardingHighlightTiles).toEqual([{ x: 2, y: 0 }]);
+  });
+
+  it("shows the grain and fish icons to look for on the food steps", () => {
+    setGuideStatus("active", EMAIL);
+    const state = newPlayerState();
+    setTiles(state, [{ x: 2, y: 0, ownerId: ME, ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } as never }]);
+    noteGuideMapPanned();
+    refreshOnboardingChecklistHighlight(state);
+    click("skip"); // zoom
+    click("skip"); // select
+    tickOnboardingUiGateForFrame(state, vi.fn());
+    expect(cardTitle()).toMatch(/^Find food: grain or fish/);
+    const icons = Array.from(card()?.querySelectorAll(".tg-lookfor img") ?? []).map((img) => img.getAttribute("alt"));
+    expect(icons).toEqual(["Food", "Fish · Food source"]);
+    expect(card()?.querySelector(".tg-lookfor")?.textContent).toContain("Grain");
+  });
+
   it("hides while a dialog covers the map, then comes back", () => {
     setGuideStatus("active", EMAIL);
     const state = newPlayerState();

@@ -14,14 +14,21 @@
 // *commissioned*, barbarians are *Planetary Defense*, empires are *Houses*.
 
 import type { OnboardingChecklistState } from "../client-onboarding-checklist/client-onboarding-checklist.js";
+import { guideTargetAction, type GuideFootholdTargets, type GuideTargetAction } from "./tutorial-guide-foothold-targets.js";
 
 export type GuideAnchorId = "manpower" | "manifest" | "activity";
+
+/** Grain (the FOOD icon, used on FARM tiles) and fish: the two food sources. */
+export type GuideLookForIcon = "FOOD" | "FISH";
+const FOOD_ICONS: ReadonlyArray<GuideLookForIcon> = ["FOOD", "FISH"];
 
 export type GuideInput = {
   checklist: Pick<
     OnboardingChecklistState,
     "step" | "townFound" | "townExpanded" | "foodFound" | "foodExpanded" | "foodSlotsFound" | "foodSlotsClaimed" | "foodSlotsTarget" | "highlightTiles" | "relayBeaconSite"
   >;
+  /** Towns and food tiles to Garrison (own frontier) or Expand To (neutral, in vision): tutorial-guide-foothold-targets.ts. */
+  footholdTargets: GuideFootholdTargets;
   /** Input signals (client-map-input.ts): the player dragged / zoomed / selected a tile themselves. */
   panned: boolean;
   zoomed: boolean;
@@ -47,7 +54,7 @@ export type GuideStepDef = {
   id: string;
   chapter: GuideChapterId;
   title: (input: GuideInput) => string;
-  why: string;
+  why: string | ((input: GuideInput) => string);
   isDone: (input: GuideInput) => boolean;
   /** Not yet possible (a prerequisite elsewhere in the game). Defaults to always available. */
   isAvailable?: (input: GuideInput) => boolean;
@@ -55,6 +62,8 @@ export type GuideStepDef = {
   waitingNote?: string;
   highlight?: (input: GuideInput) => ReadonlyArray<{ x: number; y: number }>;
   anchor?: GuideAnchorId;
+  /** Resource icons the card shows as "Look for", so the player knows what the target looks like on the map. */
+  lookFor?: ReadonlyArray<GuideLookForIcon>;
   /** Completed by pressing the card's Finish button instead of by game state. */
   acknowledge?: boolean;
 };
@@ -69,32 +78,68 @@ export const GUIDE_CHAPTER_TITLES: Record<GuideChapterId, string> = {
   turn: "Your turn"
 };
 
-const checklistHighlights = (input: GuideInput): ReadonlyArray<{ x: number; y: number }> => input.checklist.highlightTiles;
+const TOWN_STEP: Record<GuideTargetAction, { title: string; why: string }> = {
+  garrison: { title: "Tap the marked town and Garrison it", why: "Your reach already claimed it as frontier; a garrison makes it count and grow." },
+  expand: { title: "Tap the marked town and Expand To it", why: "It's outside your reach: Expand To claims the land across to it." },
+  beacon: { title: "No town in sight: build a Relay Beacon on the marked tile", why: "A beacon pushes your reach and vision outward until a town comes into view." }
+};
 
-const townTitle = (input: GuideInput): string =>
-  input.checklist.step === "EXPAND_RELAY_BEACON" && !input.checklist.townExpanded
-    ? "Nothing in reach: build a Relay Beacon on the marked tile"
-    : "Tap the marked town and Expand To it";
+const FOOD_STEP: Record<GuideTargetAction, { title: string; why: string }> = {
+  garrison: { title: "Tap a marked food tile and Garrison it", why: "Your reach already claimed it; only garrisoned food counts, and fish is worth two slots." },
+  expand: { title: "Tap a marked food tile and Expand To it", why: "It's outside your reach: Expand To claims the land across to it." },
+  beacon: { title: "No food in sight: build a Relay Beacon on the marked tile", why: "A beacon pushes your reach and vision out to more food." }
+};
 
-const foodTitle = (input: GuideInput): string =>
-  input.checklist.step === "EXPAND_RELAY_BEACON" && input.checklist.townExpanded
-    ? "No food in reach: build a Relay Beacon on the marked tile"
-    : `Expand To food tiles (${input.checklist.foodSlotsClaimed}/${input.checklist.foodSlotsTarget} slots)`;
+const townAction = (input: GuideInput): GuideTargetAction => guideTargetAction(input.footholdTargets.town);
+const foodAction = (input: GuideInput): GuideTargetAction => guideTargetAction(input.footholdTargets.food);
+
+const targetHighlights =
+  (kind: "town" | "food") =>
+  (input: GuideInput): ReadonlyArray<{ x: number; y: number }> => {
+    const action = guideTargetAction(input.footholdTargets[kind]);
+    return action === "beacon" ? input.checklist.highlightTiles : input.footholdTargets[kind][action];
+  };
+
+/** True while the current foothold step tells the player to build a Relay Beacon (drives the build menu's Recommended badge). */
+export const footholdBeaconShowing = (stepId: string, input: GuideInput): boolean =>
+  (stepId === "foothold-take-town" && townAction(input) === "beacon") || (stepId === "foothold-take-food" && foodAction(input) === "beacon");
+
+const foodTitle = (input: GuideInput): string => {
+  const action = foodAction(input);
+  const progress = ` (${input.checklist.foodSlotsClaimed}/${input.checklist.foodSlotsTarget} slots)`;
+  return FOOD_STEP[action].title + (action === "beacon" ? "" : progress);
+};
 
 export const GUIDE_STEPS: readonly GuideStepDef[] = [
   { id: "look-pan", chapter: "look", title: () => "Drag the map to look around", why: "Scout before you commit: towns, food and rivals are out there.", isDone: (i) => i.panned },
   { id: "look-zoom", chapter: "look", title: () => "Zoom in and out (scroll or pinch)", why: "Zoom out to plan, zoom in to act.", isDone: (i) => i.zoomed },
   { id: "look-select", chapter: "look", title: () => "Tap a tile to inspect it", why: "Every tile shows its owner, resources and what you can do there.", isDone: (i) => i.tileSelected },
-  { id: "foothold-find-town", chapter: "foothold", title: () => "Find a neutral town", why: "Towns earn Coin and raise your manpower.", isDone: (i) => i.checklist.townFound },
-  { id: "foothold-take-town", chapter: "foothold", title: townTitle, why: "Expand To claims a tile and garrisons it for you.", isDone: (i) => i.checklist.townExpanded, highlight: checklistHighlights },
+  { id: "foothold-find-town", chapter: "foothold", title: () => "Find a town", why: "Towns earn Coin and raise your manpower.", isDone: (i) => i.checklist.townFound },
+  {
+    id: "foothold-take-town",
+    chapter: "foothold",
+    title: (i) => TOWN_STEP[townAction(i)].title,
+    why: (i) => TOWN_STEP[townAction(i)].why,
+    isDone: (i) => i.checklist.townExpanded,
+    highlight: targetHighlights("town")
+  },
   {
     id: "foothold-find-food",
     chapter: "foothold",
     title: (i) => `Find food: grain or fish (${i.checklist.foodSlotsFound}/${i.checklist.foodSlotsTarget})`,
     why: "Food keeps your towns growing.",
-    isDone: (i) => i.checklist.foodFound
+    isDone: (i) => i.checklist.foodFound,
+    lookFor: FOOD_ICONS
   },
-  { id: "foothold-take-food", chapter: "foothold", title: foodTitle, why: "Only garrisoned food counts; fish is worth two slots.", isDone: (i) => i.checklist.foodExpanded, highlight: checklistHighlights },
+  {
+    id: "foothold-take-food",
+    chapter: "foothold",
+    title: foodTitle,
+    why: (i) => FOOD_STEP[foodAction(i)].why,
+    isDone: (i) => i.checklist.foodExpanded,
+    highlight: targetHighlights("food"),
+    lookFor: FOOD_ICONS
+  },
   {
     id: "manpower-open",
     chapter: "manpower",
@@ -163,6 +208,7 @@ export type GuideView =
       kind: "step";
       step: GuideStepDef;
       title: string;
+      why: string;
       chapterTitle: string;
       chapterIndex: number;
       chapterCount: number;
@@ -172,6 +218,7 @@ export type GuideView =
       newlyCompleted: string[];
       highlightTiles: ReadonlyArray<{ x: number; y: number }>;
       anchor?: GuideAnchorId;
+      lookFor?: ReadonlyArray<GuideLookForIcon>;
       /** True when every remaining step is waiting on something; the card shows the waiting note. */
       waiting: boolean;
     };
@@ -199,6 +246,7 @@ export const evaluateGuide = (input: GuideInput, completed: ReadonlySet<string>)
     kind: "step",
     step,
     title: waiting ? (step.waitingNote ?? step.title(input)) : step.title(input),
+    why: typeof step.why === "string" ? step.why : step.why(input),
     chapterTitle: GUIDE_CHAPTER_TITLES[step.chapter],
     chapterIndex: CHAPTER_ORDER.indexOf(step.chapter),
     chapterCount: CHAPTER_ORDER.length,
@@ -207,6 +255,7 @@ export const evaluateGuide = (input: GuideInput, completed: ReadonlySet<string>)
     newlyCompleted,
     waiting,
     highlightTiles: waiting ? [] : (step.highlight?.(input) ?? []),
-    ...(step.anchor && !waiting ? { anchor: step.anchor } : {})
+    ...(step.anchor && !waiting ? { anchor: step.anchor } : {}),
+    ...(step.lookFor && !waiting ? { lookFor: step.lookFor } : {})
   };
 };

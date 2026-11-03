@@ -11,6 +11,7 @@ import { onboardingChecklistState, type OnboardingChecklistState } from "../clie
 import { isMusterUnlocked } from "../client-muster-unlock/client-muster-unlock-storage.js";
 import { guideInputSignals } from "./tutorial-guide-input-signals.js";
 import type { GuideInput } from "./tutorial-guide-steps.js";
+import { scanGuideFootholdTargets, type GuideFootholdTargets } from "./tutorial-guide-foothold-targets.js";
 
 export type GuideInputState = Pick<
   ClientState,
@@ -78,8 +79,10 @@ export const scanGuideTiles = (tiles: ReadonlyMap<string, Tile>, me: string, hom
 // belongs to someone else, i.e. on a tile change, so it is cached alongside the scan.
 // Keyed on chunkFullCount as well as tilesRevision: chunk loads (CHUNK_FULL /
 // CHUNK_BATCH) write state.tiles without bumping tilesRevision, and a newly
-// loaded chunk is exactly how "Find a neutral town" / "Find food" complete.
-let cached: { revision: number; chunks: number; me: string; checklist: OnboardingChecklistState; scan: TileScan; musterUnlocked: boolean } | undefined;
+// loaded chunk is exactly how "Find a town" / "Find food" complete.
+let cached:
+  | { revision: number; chunks: number; me: string; checklist: OnboardingChecklistState; scan: TileScan; footholdTargets: GuideFootholdTargets; musterUnlocked: boolean }
+  | undefined;
 
 /** The new desktop HUD (HUD v2) marks the body; its full-screen views add `hud-v2-screen-<id>` (client-hud-v2-context.ts). */
 const bodyHasClass = (cls: string): boolean => typeof document !== "undefined" && document.body.classList.contains(cls);
@@ -100,12 +103,14 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
       me: state.me,
       checklist: onboardingChecklistState(state.tiles, state.me, state.authEmail),
       scan: scanGuideTiles(state.tiles, state.me, state.homeTile),
+      footholdTargets: scanGuideFootholdTargets(state.tiles.values(), state.me, distanceFrom(state.homeTile)),
       musterUnlocked: isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId)
     };
   }
   const signals = guideInputSignals();
   return {
     checklist: cached.checklist,
+    footholdTargets: cached.footholdTargets,
     panned: signals.panned,
     zoomed: signals.zoomed,
     tileSelected: signals.tileSelected,
