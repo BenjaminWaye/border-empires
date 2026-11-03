@@ -6,6 +6,7 @@ import {
   reachCacheKey,
   resolveMyReach,
   resolveMyReachCached,
+  resetServerReachForNewConnection,
   type ReachAuthoritativeState,
   type ReachCacheState
 } from "./client-reach-authoritative.js";
@@ -196,5 +197,31 @@ describe("resolveMyReachCached", () => {
     expect(resolveMyReachCached(state)).toEqual(new Set(["1,1"]));
     applyServerReachUpdate(state, { tileKeys: ["2,2"], revision: 1 });
     expect(resolveMyReachCached(state)).toEqual(new Set(["2,2"]));
+  });
+});
+
+describe("resetServerReachForNewConnection", () => {
+  // Regression: a client left open through a simulation restart (deploy) kept
+  // its old high revision, and the restarted sim's count began again from 1.
+  // The first push was lost in the login handshake, so every later update
+  // (2, 3, ...) was dropped as stale and the border froze.
+  it("accepts the new connection's first update even at a lower revision", () => {
+    const state = stateWith();
+    applyServerReachUpdate(state, { tileKeys: ["1,1"], revision: 340 });
+    expect(applyServerReachUpdate(state, { tileKeys: ["1,1", "2,2"], revision: 2 })).toBe(false);
+
+    resetServerReachForNewConnection(state, true);
+    expect(resolveMyReach(state)).toEqual(new Set(["1,1"])); // keeps drawing the last border meanwhile
+    expect(applyServerReachUpdate(state, { tileKeys: ["1,1", "2,2"], revision: 2 })).toBe(true);
+    expect(resolveMyReach(state)).toEqual(new Set(["1,1", "2,2"]));
+    expect(applyServerReachUpdate(state, { tileKeys: ["1,1"], revision: 2 })).toBe(false);
+  });
+
+  it("drops the old border outright for a different player or season", () => {
+    const state = stateWith();
+    applyServerReachUpdate(state, { tileKeys: ["1,1"], revision: 5 });
+    resetServerReachForNewConnection(state, false);
+    expect(state.serverReach).toBeUndefined();
+    expect(state.serverReachRevision).toBe(0);
   });
 });

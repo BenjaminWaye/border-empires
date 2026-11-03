@@ -50,12 +50,25 @@ export type ReachUpdateState = {
   readonly lastEmittedSignatureByPlayer: Map<string, string>;
   /** Monotonic per-player revision, so the client can discard stale arrivals. */
   readonly revisionByPlayer: Map<string, number>;
+  /** Starting point for every player's revision (see createReachUpdateState). */
+  readonly revisionBase: number;
 };
 
-export const createReachUpdateState = (): ReachUpdateState => ({
+/**
+ * `revisionBase` is the revision every player's count starts above. The
+ * runtime passes its boot wall-clock time so revisions keep increasing across
+ * a simulation restart: a client that stayed open through a deploy still
+ * holds the last revision the old process sent, and drops any arrival at or
+ * below it (`applyServerReachUpdate`). With a per-process count from 0 the
+ * restarted sim's revision 1 was swallowed by the login handshake and every
+ * later update (2, 3, ...) sat below the old revision, so the border froze
+ * until the new count happened to overtake it. Tests use the default of 0.
+ */
+export const createReachUpdateState = (revisionBase = 0): ReachUpdateState => ({
   dirtyPlayerIds: new Set<string>(),
   lastEmittedSignatureByPlayer: new Map<string, string>(),
-  revisionByPlayer: new Map<string, number>()
+  revisionByPlayer: new Map<string, number>(),
+  revisionBase
 });
 
 /**
@@ -83,7 +96,7 @@ export const buildReachUpdatePayload = (
   // walks a Map, whose iteration order tracks insertion, so the same border
   // can legitimately enumerate in different orders across two calls.
   const tileKeys = context.reachTileKeysForPlayer(playerId).sort();
-  const revision = (state.revisionByPlayer.get(playerId) ?? 0) + 1;
+  const revision = (state.revisionByPlayer.get(playerId) ?? state.revisionBase) + 1;
   state.revisionByPlayer.set(playerId, revision);
   return {
     payload: { type: "REACH_UPDATE", tileKeys, revision },

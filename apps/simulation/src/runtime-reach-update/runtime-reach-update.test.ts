@@ -119,3 +119,23 @@ describe("reach update push", () => {
     expect(emit).not.toHaveBeenCalled();
   });
 });
+
+describe("reach update revisions across a simulation restart", () => {
+  // Regression: revisions restarted from 1 in a new process, so a client that
+  // stayed open through a deploy (still holding the old process's revision)
+  // dropped every later REACH_UPDATE as stale and its border froze.
+  it("starts every player's revision above the base it was created with", () => {
+    const before = createReachUpdateState(1_000);
+    const { context: oldContext } = contextFor({ "player-1": ["1,1"] });
+    for (let i = 0; i < 5; i += 1) buildReachUpdatePayload(before, oldContext, "player-1");
+    const lastBeforeRestart = before.revisionByPlayer.get("player-1") ?? 0;
+
+    const afterRestart = createReachUpdateState(2_000);
+    const { context, emit } = contextFor({ "player-1": ["1,1", "2,2"] });
+    markReachDirty(afterRestart, "player-1");
+    flushReachUpdates(afterRestart, context, "cmd-1");
+    const revision = (emit.mock.calls[0]?.[1] as { revision: number }).revision;
+    expect(revision).toBe(2_001);
+    expect(revision).toBeGreaterThan(lastBeforeRestart);
+  });
+});
