@@ -2005,7 +2005,7 @@ export class SimulationRuntime {
       resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
       resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId),
       foodDormantEconomicStructureKeysForPlayer: (playerId) => foodDormantEconomicStructureKeysFromDormancy(this.resourceSlotDormancyForPlayer(playerId)),
-      townEconomyViewForPlayer: (playerId) => townEconomyViewForPlayer(this.townNetworkContext(), playerId),
+      townEconomyViewForPlayer: (playerId, options) => townEconomyViewForPlayer(this.townNetworkContext(), playerId, options),
       playerSummaries: this.playerSummaries,
       ...(this.trackSyncMainThreadTask !== undefined ? { trackSync: this.trackSyncMainThreadTask } : {})
     };

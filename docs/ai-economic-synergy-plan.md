@@ -107,11 +107,19 @@ that town's `ConnectedTownNetworkEntry`. Neighbour Manufactory counts are not
 in that entry, so the Clearing House estimate uses the empire average
 Manufactories per town for connected towns.
 
+Connected towns' network entries list only *active* amplifiers, so each entry
+also reports `amplifiersUnderConstruction`; the scorer holds that amplifier
+type back empire-wide until it finishes (≤ 60 s build), which stops two
+connected towns both building a Clearing House or Trade Nexus.
+
 Built on the main thread by `apps/simulation/src/runtime/runtime-town-economy-view.ts`
 from the cached town network (rebuilt uninstrumented on a miss, like the
 manpower bonus path) plus one support-ring scan per town; memoised per network
 object, which `runtime-economy-cache-invalidation.ts` replaces on every
-economy-relevant tile write. Capped at 64 towns (richest first). Exported via
+economy-relevant tile write. A planner-export miss rebuilds the network via the
+instrumented `cachedTownNetworkForPlayer`; the 1 s metrics tick never rebuilds
+(it reuses the player's last view). Towns are ranked and capped at 64 (richest
+first) before the ring scans, so scan cost is bounded by the cap. Exported via
 `PlannerPlayerView.townEconomy` → worker → `AutomationPlannerInput.townEconomy`
 → `StructurePlannerPlayer.townEconomy`, and on the in-process advisor path.
 Tests: `town-economy-view.test.ts` (including a traversal bound and the cap),

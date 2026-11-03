@@ -38,8 +38,8 @@ import {
 import { summarizeTownEconomy } from "../ai/build/economic-synergy-diagnostics.js";
 import type { TownEconomyEntry } from "../ai/build/town-economy-view.js";
 
-// Memoised town-economy view (runtime-town-economy-view.ts), so this adds no
-// scan to the 1s metrics tick beyond what the view cache already holds.
+// rebuildOnMiss: false — the 1s metrics tick reuses the last view rather than
+// forcing a town-network rebuild (runtime-town-economy-view.ts).
 const economicSynergyRow = (view: readonly TownEconomyEntry[] | undefined): Pick<RuntimeAiPlayerMetricsRow, "economicSynergy"> =>
   view && view.length > 0 ? { economicSynergy: summarizeTownEconomy(view) } : {};
 
@@ -139,7 +139,7 @@ export function aiPlayerMetricsSnapshotForRuntime(ctx: RuntimeExportContext): Ru
         manpowerCap,
         manpowerRegenPerMinute: ctx.playerManpowerRegenPerMinute(p),
         ...musterFlagTotalsForPlayer(p.id, ctx.musterTilesByOwner.get(p.id), ctx.tiles, manpowerCap),
-        ...economicSynergyRow(ctx.townEconomyViewForPlayer?.(p.id))
+        ...economicSynergyRow(ctx.townEconomyViewForPlayer?.(p.id, { rebuildOnMiss: false }))
       };
     });
 }

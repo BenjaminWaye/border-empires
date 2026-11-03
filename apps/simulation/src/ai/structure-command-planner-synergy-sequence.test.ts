@@ -56,7 +56,8 @@ const initialView = (): TownEconomyEntry[] =>
     neuralWorksInReach: false,
     reserveLatticeInReach: false,
     ancillaryFactoriesInReach: 0,
-    depotTownsInReach: 0
+    depotTownsInReach: 0,
+    amplifiersUnderConstruction: []
   }));
 
 // Places the structure on the town's first open ring tile, like the runtime's

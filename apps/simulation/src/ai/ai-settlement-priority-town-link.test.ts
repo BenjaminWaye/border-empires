@@ -41,6 +41,7 @@ const entry = (townKey: string, overrides: Partial<TownEconomyEntry> = {}): Town
   reserveLatticeInReach: false,
   ancillaryFactoriesInReach: 0,
   depotTownsInReach: 0,
+  amplifiersUnderConstruction: [],
   ...overrides
 });
 

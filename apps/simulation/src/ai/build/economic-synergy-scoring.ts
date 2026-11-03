@@ -46,7 +46,19 @@ export type SynergyContext = {
   needVector: NeedVector | undefined;
   /** Empire-wide mean Manufactories per town (see averageManufactoriesPerTown). */
   averageManufactoriesPerTown: number;
+  /** Amplifier types already under construction somewhere (see pendingAmplifierTypes). */
+  pendingAmplifiers?: ReadonlySet<EconomicStructureType>;
 };
+
+/**
+ * Amplifier types under construction anywhere in the view. A connected town's
+ * network entry only lists *active* Clearing Houses / Trade Nexuses, so
+ * without this a town next to one that is still going up would propose a
+ * redundant second one. Builds take 60 s, so holding the type back
+ * empire-wide until it finishes costs at most that long elsewhere.
+ */
+export const pendingAmplifierTypes = (view: readonly TownEconomyEntry[]): ReadonlySet<EconomicStructureType> =>
+  new Set(view.flatMap((town) => town.amplifiersUnderConstruction));
 
 // Coin: the floor matches the old flat Manufactory score (54) so a first
 // Manufactory competes exactly as before; the ceiling (150) stays under the
@@ -147,7 +159,7 @@ const manpowerCandidates = (town: TownEconomyEntry, needVector: NeedVector): Syn
 export const synergyCandidatesForTown = (town: TownEconomyEntry, ctx: SynergyContext): SynergyCandidate[] => [
   ...coinCandidates(town, ctx),
   ...(ctx.needVector ? manpowerCandidates(town, ctx.needVector) : [])
-].filter((candidate) => candidate.score > 0);
+].filter((candidate) => candidate.score > 0 && !ctx.pendingAmplifiers?.has(candidate.type));
 
 /**
  * Phase 5: towns that would earn more from one more connected town — they

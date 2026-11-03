@@ -38,6 +38,7 @@ const town = (overrides: Partial<TownEconomyEntry> = {}): TownEconomyEntry => ({
   reserveLatticeInReach: false,
   ancillaryFactoriesInReach: 0,
   depotTownsInReach: 0,
+  amplifiersUnderConstruction: [],
   ...overrides
 });
 

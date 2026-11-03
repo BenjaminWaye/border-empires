@@ -27,7 +27,7 @@ import {
 import { structureManpowerCostForPlayer } from "../structure-manpower-cost/structure-manpower-cost.js";
 import { economyWeak } from "./ai-economic-heuristics.js";
 import { ECONOMIC_STRUCTURE_CATALOG, economicCatalogScore } from "./build/economic-structure-catalog.js";
-import { averageManufactoriesPerTown } from "./build/economic-synergy-scoring.js";
+import { averageManufactoriesPerTown, pendingAmplifierTypes } from "./build/economic-synergy-scoring.js";
 import { townSupportCandidates } from "./build/town-support-candidates.js";
 import type { NeedVector } from "./build/build-need-vector.js";
 import type { TownEconomyEntry } from "./build/town-economy-view.js";
@@ -259,7 +259,11 @@ export const chooseBestEconomicBuild = (
   // Synergy scoring inputs (docs/ai-economic-synergy-plan.md), built once per
   // call: O(towns), bounded by the view's own cap.
   const townEconomyByKey = player.townEconomy ? new Map(player.townEconomy.map((entry) => [entry.townKey, entry] as const)) : undefined;
-  const synergy = { needVector, averageManufactoriesPerTown: averageManufactoriesPerTown(player.townEconomy ?? []) };
+  const synergy = {
+    needVector,
+    averageManufactoriesPerTown: averageManufactoriesPerTown(player.townEconomy ?? []),
+    pendingAmplifiers: pendingAmplifierTypes(player.townEconomy ?? [])
+  };
   for (const tile of candidateTiles) {
     if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
     if (!tileOpenForStructure(tile)) continue;

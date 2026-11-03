@@ -47,6 +47,7 @@ const entry = (townKey: string, overrides: Partial<TownEconomyEntry> = {}): Town
   reserveLatticeInReach: false,
   ancillaryFactoriesInReach: 0,
   depotTownsInReach: 0,
+  amplifiersUnderConstruction: [],
   ...overrides
 });
 
@@ -112,6 +113,17 @@ describe("chooseBestEconomicBuild — economic synergy", () => {
     const result = plan(player([entry("10,10"), entry("30,30", { baseGoldWeight: 2.1 })]), tiles);
     expect(result?.structureType).toBe("MANUFACTORY");
     expect(`${result?.tile.x},${result?.tile.y}`).toBe("30,30");
+  });
+
+  it("holds back a Clearing House while one is still under construction in another town", () => {
+    // The connected town's network entry only lists active Clearing Houses,
+    // so without the empire-wide hold both towns would build one.
+    const tiles = [...townSite(10, 10), ...townSite(30, 30)];
+    const result = plan(
+      player([entry("10,10", { manufactories: 2 }), entry("30,30", { amplifiersUnderConstruction: ["CLEARING_HOUSE"] })]),
+      tiles
+    );
+    expect(result?.structureType).not.toBe("CLEARING_HOUSE");
   });
 
   it("reports the winning score for diagnostics", () => {

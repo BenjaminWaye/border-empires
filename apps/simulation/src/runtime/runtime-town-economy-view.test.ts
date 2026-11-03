@@ -7,16 +7,18 @@ import type { RuntimePlayer } from "../runtime-types.js";
 import { townEconomyViewForPlayer } from "./runtime-town-economy-view.js";
 import type { RuntimeTownNetworkContext } from "./runtime-town-network.js";
 
-const townTile: DomainTileState = {
+const townTileFor = (playerId: string): DomainTileState => ({
   x: 4,
   y: 4,
   terrain: "LAND",
-  ownerId: "ai-1",
+  ownerId: playerId,
   ownershipState: "SETTLED",
   town: { name: "Alpha", type: "FARMING", populationTier: "TOWN" }
-};
+});
 
-const context = (): RuntimeTownNetworkContext => {
+// Each test uses its own player id: the module keeps a last-view-per-player map.
+const context = (playerId = "ai-1"): RuntimeTownNetworkContext => {
+  const townTile = townTileFor(playerId);
   const summary = createEmptyPlayerRuntimeSummary();
   summary.ownedTownTierByTile.set("4,4", "TOWN");
   return {
@@ -24,7 +26,7 @@ const context = (): RuntimeTownNetworkContext => {
     townNetworkCacheByPlayer: new Map(),
     townConnectivityStateByPlayer: new Map(),
     tileYieldContextCacheByPlayer: new Map(),
-    players: new Map([["ai-1", { id: "ai-1", isAi: true, techIds: new Set(), domainIds: new Set() } as unknown as RuntimePlayer]]),
+    players: new Map([[playerId, { id: playerId, isAi: true, techIds: new Set(), domainIds: new Set() } as unknown as RuntimePlayer]]),
     summaryForPlayer: () => summary,
     settledTilesForPlayer: () => [townTile],
     foodDormantTownKeysForPlayer: () => new Set(),
@@ -45,6 +47,16 @@ describe("townEconomyViewForPlayer", () => {
     const second = townEconomyViewForPlayer(ctx, "ai-1");
     expect(second).not.toBe(first);
     expect(second).toEqual(first);
+  });
+
+  it("never rebuilds the network when asked not to, and serves the player's last view instead", () => {
+    const ctx = context("ai-2");
+    expect(townEconomyViewForPlayer(ctx, "ai-2", { rebuildOnMiss: false })).toBeUndefined();
+    expect(ctx.townNetworkCacheByPlayer.has("ai-2")).toBe(false);
+    const built = townEconomyViewForPlayer(ctx, "ai-2");
+    ctx.townNetworkCacheByPlayer.delete("ai-2");
+    expect(townEconomyViewForPlayer(ctx, "ai-2", { rebuildOnMiss: false })).toBe(built);
+    expect(ctx.townNetworkCacheByPlayer.has("ai-2")).toBe(false);
   });
 
   it("returns undefined for an unknown player", () => {

@@ -258,7 +258,7 @@ type PlannerExportInput = {
   playerManpowerCap?: (playerId: string) => number;
   playerManpowerRegenPerMinute?: (playerId: string) => number;
   resourceSlotSupplyForPlayer?: (playerId: string) => Partial<Record<SlotResource, number>>;
-  townEconomyViewForPlayer?: (playerId: string) => readonly TownEconomyEntry[] | undefined;
+  townEconomyViewForPlayer?: (playerId: string, options?: { rebuildOnMiss?: boolean }) => readonly TownEconomyEntry[] | undefined;
   resourceSlotDemandForPlayer?: (playerId: string) => Partial<Record<SlotResource, number>>;
   // Feeds food-slot-relief.ts's chooseFoodConsumingStructureToDisable — same
   // optional-degrades-gracefully pattern as the four fields above.

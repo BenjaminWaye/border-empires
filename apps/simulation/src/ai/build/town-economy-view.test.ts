@@ -49,7 +49,8 @@ describe("buildTownEconomyView", () => {
       tradeNexusInReach: false,
       ancillaryFactoriesInReach: 1,
       depotTownsInReach: 1,
-      baseManpowerCap: 300
+      baseManpowerCap: 300,
+      amplifiersUnderConstruction: ["CLEARING_HOUSE"]
     });
   });
 
