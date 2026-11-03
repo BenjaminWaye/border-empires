@@ -41,7 +41,7 @@ const snapshotFor = (playerId: string, gold: number, incomePerMinute: number): P
   }) as unknown as PlayerSubscriptionSnapshot;
 
 // The AI's 12h truce counter: the player pays 12h x 2 coin/min = 1440 coin (Cautious neighbours at peace).
-const counterFromAi = { give: { gold: 0, shard: 0 }, ask: { gold: 1440, shard: 0 } };
+const counterFromAi = { give: { gold: 0 }, ask: { gold: 1440 } };
 
 const recheck = (memory: Partial<AiDiplomacyContext["memory"]>, aiSnapshot: PlayerSubscriptionSnapshot | null = snapshotFor(AI_ID, 0, 2)) =>
   recheckAiOffer(
@@ -80,7 +80,7 @@ describe("recheckAiOffer", () => {
 
 describe("recheckAiOffer on a truce extension", () => {
   // A losing AI (3 tiles down, fighting a minute ago) offered to pay 50 coin for peace.
-  const aiPays = { give: { gold: 50, shard: 0 }, ask: { gold: 0, shard: 0 } };
+  const aiPays = { give: { gold: 50 }, ask: { gold: 0 } };
   const recheckPaid = (extendsTruce: boolean) =>
     recheckAiOffer(
       {

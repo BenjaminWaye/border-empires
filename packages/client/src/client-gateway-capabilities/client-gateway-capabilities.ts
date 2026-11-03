@@ -16,7 +16,6 @@ const REWRITE_MESSAGE_LABELS: Record<string, string> = {
   AETHER_LANCE: "Aether Purge",
   CHOOSE_DOMAIN: "Domain choices",
   CHOOSE_TECH: "Technology unlocks",
-  COLLECT_SHARD: "Shard collection",
   CREATE_MOUNTAIN: "Mountain creation",
   PURGE_SIPHON: "Siphon purge",
   CANCEL_SIPHON: "Cancel siphon",

@@ -9,7 +9,6 @@ import { TILE_OVERLAY_KEYS, overlayJsonFieldsFromTile, overlaySubstructuresFrom,
 // Hardcoded on purpose, independent of TILE_OVERLAY_KEYS: dropping a key from
 // the shared list must fail here rather than silently shrink every projection.
 const EXPECTED_KEYS = [
-  "shardSite",
   "naturalWonder",
   "fort",
   "observatory",
@@ -23,7 +22,6 @@ const EXPECTED_KEYS = [
 ];
 
 const EXPECTED_PROTO_FIELDS = [
-  "shard_site_json",
   "natural_wonder_json",
   "fort_json",
   "observatory_json",
@@ -43,7 +41,6 @@ const fullyLoadedTile: DomainTileState = {
   ownerId: "p1",
   ownershipState: "SETTLED",
   town: { type: "MARKET", name: "Oakford", populationTier: "TOWN" },
-  shardSite: { kind: "CACHE", amount: 5 },
   naturalWonder: { type: "DEEPWATER_ENGINE" },
   fort: { ownerId: "p1", status: "active" },
   observatory: { ownerId: "p1", status: "active" },

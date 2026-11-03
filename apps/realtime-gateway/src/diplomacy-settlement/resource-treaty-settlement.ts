@@ -26,7 +26,7 @@ export async function settleResourceTreaty(
       issuedAt: request.createdAt, refundIfLate: false, refundOf: commandId
     });
     // A rejected refund has released its supply contract, even when already
-    // spent Coin/Shards need separate recovery (the simulation logs the failure).
+    // spent Coin need separate recovery (the simulation logs the failure).
     if (result.ok || result.rejected) closeOffer();
     deps.recordGatewayEvent(result.ok ? "warn" : "error", "gateway_diplomacy_settlement_refunded", {
       requestId: request.id, kind, refunded: result.ok, pending: !result.ok && (result.pending ?? false)

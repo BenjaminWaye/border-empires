@@ -23,7 +23,7 @@ const escapeHtml = (input: string): string =>
 const resourceFlavor: Record<string, string> = {
   TITANIUM: "Forge & fort upkeep",
   UMBRITE: "Outpost upkeep & army logistics",
-  CRYSTAL: "Research, Aether Towers, shards"
+  CRYSTAL: "Research, Aether Towers"
 };
 
 // Per-instance suffix so element IDs (aria-labelledby targets, cancel button)

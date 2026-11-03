@@ -26,8 +26,8 @@ export type PlayerSubscriptionSnapshot = {
     logisticsThroughputPerMinute?: number;
     manpowerBreakdown?: ManpowerBreakdown;
     incomePerMinute: number;
-    strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>;
-    strategicProductionPerMinute: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>;
+    strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>;
+    strategicProductionPerMinute: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>;
     // Resource slots: global
     // per-resource supply/demand pool (§5.6 v1 scope) — the same numbers
     // hasFreeResourceSlots gates BUILD_STRUCTURE on server-side. Lets the

@@ -123,16 +123,14 @@ const emptyStrategic = (): Record<DomainStrategicResourceKey, number> => ({
   FOOD: 0,
   TITANIUM: 0,
   CRYSTAL: 0,
-  UMBRITE: 0,
-  SHARD: 0
+  UMBRITE: 0
 });
 
 const cloneStrategic = (value?: Partial<Record<DomainStrategicResourceKey, number>>): Record<DomainStrategicResourceKey, number> => ({
   FOOD: value?.FOOD ?? 0,
   TITANIUM: value?.TITANIUM ?? 0,
   CRYSTAL: value?.CRYSTAL ?? 0,
-  UMBRITE: value?.UMBRITE ?? 0,
-  SHARD: value?.SHARD ?? 0
+  UMBRITE: value?.UMBRITE ?? 0
 });
 
 export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshotBootstrap => {
@@ -358,8 +356,7 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
         FOOD: { sources: [], sinks: [] },
         TITANIUM: { sources: [], sinks: [] },
         CRYSTAL: { sources: [], sinks: [] },
-        UMBRITE: { sources: [], sinks: [] },
-        SHARD: { sources: [], sinks: [] }
+        UMBRITE: { sources: [], sinks: [] }
       },
       techIds,
       domainIds,

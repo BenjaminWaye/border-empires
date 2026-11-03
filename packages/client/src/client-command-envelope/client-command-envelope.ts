@@ -21,7 +21,6 @@ const rewriteEnvelopeTypes = new Set([
   "CREATE_MOUNTAIN",
   "REMOVE_MOUNTAIN",
   "SKY_DOCK_BOMBARD",
-  "COLLECT_SHARD",
   "FORCED_ANCILLARIFICATION"
 ]);
 

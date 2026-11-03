@@ -1,7 +1,7 @@
 import type { ClientState } from "../client-state/client-state.js";
 
-type ResourceKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
-const RESOURCE_KEYS: readonly ResourceKey[] = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"];
+type ResourceKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
+const RESOURCE_KEYS: readonly ResourceKey[] = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"];
 
 type Requirements = {
   gold: number;

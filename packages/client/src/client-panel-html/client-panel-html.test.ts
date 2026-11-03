@@ -2,13 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { allianceRequestsHtml, alliesHtml, feedAgeLabel, feedHtml, leaderboardHtml, strategicRibbonHtml, truceRequestsHtml } from "./client-panel-html.js";
 
-const emptyStrategic = { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 };
+const emptyStrategic = { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 };
 const emptyAnim = {
   FOOD: { until: 0, dir: 0 as const },
   TITANIUM: { until: 0, dir: 0 as const },
   CRYSTAL: { until: 0, dir: 0 as const },
-  UMBRITE: { until: 0, dir: 0 as const },
-  SHARD: { until: 0, dir: 0 as const }
+  UMBRITE: { until: 0, dir: 0 as const }
 };
 
 describe("strategicRibbonHtml", () => {

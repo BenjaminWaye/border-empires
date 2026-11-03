@@ -36,7 +36,6 @@ const payloadForReconnectCommand = (type: (typeof RECONNECT_COMMAND_TYPES)[numbe
     case "PURGE_SIPHON":
     case "CREATE_MOUNTAIN":
     case "REMOVE_MOUNTAIN":
-    case "COLLECT_SHARD":
       return { x: 10, y: 10 };
     case "CHOOSE_TECH":
       return { techId: "agriculture" };
@@ -159,9 +158,9 @@ describe("buildInitMessage", () => {
           manpower: 120,
           manpowerCap: 150,
           incomePerMinute: 4.8,
-          strategicResources: { FOOD: 3, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
-          strategicProductionPerMinute: { FOOD: 3, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
-          economyBreakdown: { GOLD: { sources: [{ label: "Towns", amountPerMinute: 4.8, count: 2 }], sinks: [] }, FOOD: { sources: [{ label: "Grain", amountPerMinute: 3, count: 3 }], sinks: [] }, TITANIUM: { sources: [], sinks: [] }, CRYSTAL: { sources: [], sinks: [] }, UMBRITE: { sources: [], sinks: [] }, SHARD: { sources: [], sinks: [] } },
+          strategicResources: { FOOD: 3, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+          strategicProductionPerMinute: { FOOD: 3, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+          economyBreakdown: { GOLD: { sources: [{ label: "Towns", amountPerMinute: 4.8, count: 2 }], sinks: [] }, FOOD: { sources: [{ label: "Grain", amountPerMinute: 3, count: 3 }], sinks: [] }, TITANIUM: { sources: [], sinks: [] }, CRYSTAL: { sources: [], sinks: [] }, UMBRITE: { sources: [], sinks: [] } },
           upkeepPerMinute: { food: 0.1, titanium: 0, umbrite: 0, crystal: 0, gold: 0.2 },
           upkeepLastTick: { foodCoverage: 1, gold: { contributors: [] }, food: { contributors: [{ label: "Town", amountPerMinute: 0.1, count: 1 }] }, iron: { contributors: [] }, crystal: { contributors: [] }, supply: { contributors: [] } },
           developmentProcessLimit: 3,
@@ -332,11 +331,11 @@ describe("buildInitMessage", () => {
             points: 100,
             manpower: 100,
             incomePerMinute: 150,
-            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
-            strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+            strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
             upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0,  gold: 0 },
             upkeepLastTick: { foodCoverage: 1 },
-            economyBreakdown: { GOLD: { sources: [], sinks: [] }, FOOD: { sources: [], sinks: [] }, TITANIUM: { sources: [], sinks: [] }, CRYSTAL: { sources: [], sinks: [] }, UMBRITE: { sources: [], sinks: [] }, SHARD: { sources: [], sinks: [] } },
+            economyBreakdown: { GOLD: { sources: [], sinks: [] }, FOOD: { sources: [], sinks: [] }, TITANIUM: { sources: [], sinks: [] }, CRYSTAL: { sources: [], sinks: [] }, UMBRITE: { sources: [], sinks: [] } },
             techIds: [],
             domainIds: [],
             isAi: false,
@@ -351,11 +350,11 @@ describe("buildInitMessage", () => {
             points: 120,
             manpower: 100,
             incomePerMinute: 250,
-            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
-            strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+            strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
             upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0,  gold: 0 },
             upkeepLastTick: { foodCoverage: 1 },
-            economyBreakdown: { GOLD: { sources: [], sinks: [] }, FOOD: { sources: [], sinks: [] }, TITANIUM: { sources: [], sinks: [] }, CRYSTAL: { sources: [], sinks: [] }, UMBRITE: { sources: [], sinks: [] }, SHARD: { sources: [], sinks: [] } },
+            economyBreakdown: { GOLD: { sources: [], sinks: [] }, FOOD: { sources: [], sinks: [] }, TITANIUM: { sources: [], sinks: [] }, CRYSTAL: { sources: [], sinks: [] }, UMBRITE: { sources: [], sinks: [] } },
             techIds: [],
             domainIds: [],
             isAi: true,
@@ -460,8 +459,8 @@ describe("buildInitMessage", () => {
           manpower: 120,
           manpowerCap: 150,
           incomePerMinute: 1.2,
-          strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
-          strategicProductionPerMinute: { FOOD: 2, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+          strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+          strategicProductionPerMinute: { FOOD: 2, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
           developmentProcessLimit: 3,
           activeDevelopmentProcessCount: 0,
           pendingSettlements: [],
@@ -560,8 +559,8 @@ describe("buildInitMessage", () => {
             points: 100,
             manpower: 100,
             incomePerMinute: 0,
-            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
-            strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+            strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
             upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0,  gold: 0 },
             upkeepLastTick: { foodCoverage: 1 },
             economyBreakdown: {
@@ -569,8 +568,7 @@ describe("buildInitMessage", () => {
               FOOD: { sources: [], sinks: [] },
               TITANIUM: { sources: [], sinks: [] },
               CRYSTAL: { sources: [], sinks: [] },
-              UMBRITE: { sources: [], sinks: [] },
-              SHARD: { sources: [], sinks: [] }
+              UMBRITE: { sources: [], sinks: [] }
             },
             techIds: [],
             domainIds: [],
@@ -705,8 +703,8 @@ describe("buildInitMessage", () => {
             points: 100,
             manpower: 100,
             incomePerMinute: 1,
-            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
-            strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+            strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
             upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0,  gold: 0 },
             upkeepLastTick: { foodCoverage: 1 },
             economyBreakdown: {
@@ -714,8 +712,7 @@ describe("buildInitMessage", () => {
               FOOD: { sources: [], sinks: [] },
               TITANIUM: { sources: [], sinks: [] },
               CRYSTAL: { sources: [], sinks: [] },
-              UMBRITE: { sources: [], sinks: [] },
-              SHARD: { sources: [], sinks: [] }
+              UMBRITE: { sources: [], sinks: [] }
             },
             techIds: [],
             domainIds: [],
@@ -731,8 +728,8 @@ describe("buildInitMessage", () => {
             points: 100,
             manpower: 100,
             incomePerMinute: 1,
-            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
-            strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+            strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
             upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0,  gold: 0 },
             upkeepLastTick: { foodCoverage: 1 },
             economyBreakdown: {
@@ -740,8 +737,7 @@ describe("buildInitMessage", () => {
               FOOD: { sources: [], sinks: [] },
               TITANIUM: { sources: [], sinks: [] },
               CRYSTAL: { sources: [], sinks: [] },
-              UMBRITE: { sources: [], sinks: [] },
-              SHARD: { sources: [], sinks: [] }
+              UMBRITE: { sources: [], sinks: [] }
             },
             techIds: [],
             domainIds: [],
@@ -757,8 +753,8 @@ describe("buildInitMessage", () => {
             points: 100,
             manpower: 100,
             incomePerMinute: 4.2,
-            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
-            strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+            strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
             upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0,  gold: 0 },
             upkeepLastTick: { foodCoverage: 1 },
             economyBreakdown: {
@@ -766,8 +762,7 @@ describe("buildInitMessage", () => {
               FOOD: { sources: [], sinks: [] },
               TITANIUM: { sources: [], sinks: [] },
               CRYSTAL: { sources: [], sinks: [] },
-              UMBRITE: { sources: [], sinks: [] },
-              SHARD: { sources: [], sinks: [] }
+              UMBRITE: { sources: [], sinks: [] }
             },
             techIds: [],
             domainIds: [],

@@ -688,7 +688,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       .then((result) => {
         let updatedSnapshot: PlayerSubscriptionSnapshot | undefined;
         playerSubscriptions.updateSnapshot(playerId, (snapshot) => {
-          const merged = mergeTileDetailIntoSnapshot(snapshot, result.tiles, result.upkeepLastTick, playerId);
+          const merged = mergeTileDetailIntoSnapshot(snapshot, result.tiles, result.upkeepLastTick);
           updatedSnapshot = merged;
           return merged;
         });
@@ -2571,11 +2571,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await dispatchDurableCommand("AEGIS_LOCK", { fromX: message.fromX, fromY: message.fromY }, true);
           } else if (message.type === "ASTRAL_DOCK_LAUNCH") {
             await dispatchDurableCommand("ASTRAL_DOCK_LAUNCH", { fromX: message.fromX, fromY: message.fromY }, true);
-          } else if (message.type === "ACTIVATE_IMPERIAL_WARD" || message.type === "SHARD_MOBILIZE") {
-            // Per-player abilities with no anchor tile (Imperial Ward, Shard
-            // Mobilization) — zero-field payload, unlike AEGIS_LOCK.
+          } else if (message.type === "ACTIVATE_IMPERIAL_WARD") {
+            // Per-player ability with no anchor tile — zero-field payload, unlike AEGIS_LOCK.
             await dispatchDurableCommand(message.type, {}, true);
-          } else if (message.type === "UPGRADE_TOWN_TIER" || message.type === "COLLECT_SHARD" || message.type === "NAME_ISLAND") {
+          } else if (message.type === "UPGRADE_TOWN_TIER" || message.type === "NAME_ISLAND") {
             await dispatchDurableCommand(message.type, { x: message.x, y: message.y, ...(message.type === "NAME_ISLAND" ? { name: message.name } : {}) }, true);
           } else if (message.type === "SET_AUTO_SETTLE_PREFS") {
             await dispatchDurableCommand("SET_AUTO_SETTLE_PREFS", { towns: message.towns, food: message.food, strategic: message.strategic, luxury: message.luxury, resources: message.resources });

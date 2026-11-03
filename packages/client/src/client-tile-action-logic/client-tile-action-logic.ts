@@ -415,26 +415,6 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
 
     return out;
   };
-  if (tile.shardSite) {
-    const ownsShardTile =
-      tile.ownerId === state.me &&
-      (tile.ownershipState === "FRONTIER" || tile.ownershipState === "SETTLED");
-    if (ownsShardTile) {
-      return [
-        {
-          id: "collect_shard",
-          label: tile.shardSite.kind === "FALL" ? "Collect Shardfall" : "Collect Shards",
-          detail:
-            tile.shardSite.kind === "FALL"
-              ? `${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} from active shard rain`
-              : `${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} recovered from this cache`
-        },
-        ...retortRecastActions(),
-        ...crystalCoreActions(),
-        createMountainAction()
-      ];
-    }
-  }
   if (!tile.ownerId) {
     return neutralTileActions(state, tile, deps, { retortRecastActions, crystalCoreActions, createMountainAction });
   }
@@ -847,7 +827,6 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 !imperialExchangeBuilt &&
                 !tile.siegeBattery &&
                 !tile.observatory &&
-                (state.strategicResources.SHARD ?? 0) >= 2 &&
                 hasFreeResourceSlots(state, "IMPERIAL_EXCHANGE"),
               !state.techIds.includes("urban-mintworks")
                 ? "Requires Imperial Exchange"
@@ -857,9 +836,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                     ? "Build 3 Imperial Exchange parts first"
                     : tile.siegeBattery || tile.observatory
                       ? "Tile already has structure"
-                      : (state.strategicResources.SHARD ?? 0) < 2
-                        ? "Need 2 SHARD"
-                        : missingResourceSlotReason(state, "IMPERIAL_EXCHANGE") ?? "Unavailable",
+                      : missingResourceSlotReason(state, "IMPERIAL_EXCHANGE") ?? "Unavailable",
               `${deps.structureCostText("IMPERIAL_EXCHANGE")} • ${buildTimeLabel(economicBuildMsForState(state, "IMPERIAL_EXCHANGE"))} • build 3 parts first${upkeepSuffixFor("IMPERIAL_EXCHANGE")}`,
               0
             )
@@ -879,7 +856,6 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 !sovereignSiegeEngineBuilt &&
                 !tile.siegeBattery &&
                 !tile.observatory &&
-                (state.strategicResources.SHARD ?? 0) >= 2 &&
                 hasFreeResourceSlots(state, "SOVEREIGN_SIEGE_ENGINE"),
               !state.techIds.includes("world-engine")
                 ? "Requires Sovereign Siege Engine"
@@ -889,9 +865,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                     ? "Build 3 Sovereign Siege Engine parts first"
                     : tile.siegeBattery || tile.observatory
                       ? "Tile already has structure"
-                      : (state.strategicResources.SHARD ?? 0) < 2
-                        ? "Need 2 SHARD"
-                        : missingResourceSlotReason(state, "SOVEREIGN_SIEGE_ENGINE") ?? "Unavailable",
+                      : missingResourceSlotReason(state, "SOVEREIGN_SIEGE_ENGINE") ?? "Unavailable",
               `${deps.structureCostText("SOVEREIGN_SIEGE_ENGINE")} • ${buildTimeLabel(economicBuildMsForState(state, "SOVEREIGN_SIEGE_ENGINE"))} • build 3 parts first${upkeepSuffixFor("SOVEREIGN_SIEGE_ENGINE")}`,
               0
             )
@@ -911,7 +885,6 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 !aegisDomeBuilt &&
                 !tile.siegeBattery &&
                 !tile.observatory &&
-                (state.strategicResources.SHARD ?? 0) >= 2 &&
                 hasFreeResourceSlots(state, "AEGIS_DOME"),
               !state.techIds.includes("aegis-dome")
                 ? "Requires Aegis Dome"
@@ -921,9 +894,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                     ? "Build 3 Aegis Dome parts first"
                     : tile.siegeBattery || tile.observatory
                       ? "Tile already has structure"
-                      : (state.strategicResources.SHARD ?? 0) < 2
-                        ? "Need 2 SHARD"
-                        : missingResourceSlotReason(state, "AEGIS_DOME") ?? "Unavailable",
+                      : missingResourceSlotReason(state, "AEGIS_DOME") ?? "Unavailable",
               `${deps.structureCostText("AEGIS_DOME")} • ${buildTimeLabel(economicBuildMsForState(state, "AEGIS_DOME"))} • build 3 parts first${upkeepSuffixFor("AEGIS_DOME")}`,
               0
             )
@@ -943,7 +914,6 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 !astralDockBuilt &&
                 !tile.siegeBattery &&
                 !tile.observatory &&
-                (state.strategicResources.SHARD ?? 0) >= 2 &&
                 hasFreeResourceSlots(state, "ASTRAL_DOCK"),
               !state.techIds.includes("astral-dock")
                 ? "Requires Astral Dock"
@@ -953,9 +923,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                     ? "Build 3 Astral Dock parts first"
                     : tile.siegeBattery || tile.observatory
                       ? "Tile already has structure"
-                      : (state.strategicResources.SHARD ?? 0) < 2
-                        ? "Need 2 SHARD"
-                        : missingResourceSlotReason(state, "ASTRAL_DOCK") ?? "Unavailable",
+                      : missingResourceSlotReason(state, "ASTRAL_DOCK") ?? "Unavailable",
               `${deps.structureCostText("ASTRAL_DOCK")} • ${buildTimeLabel(economicBuildMsForState(state, "ASTRAL_DOCK"))} • build 3 parts first${upkeepSuffixFor("ASTRAL_DOCK")}`,
               0
             )
@@ -975,7 +943,6 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 !censusDirectorateBuilt &&
                 !tile.siegeBattery &&
                 !tile.observatory &&
-                (state.strategicResources.SHARD ?? 0) >= 2 &&
                 hasFreeResourceSlots(state, "CENSUS_DIRECTORATE"),
               !state.techIds.includes("demographic-registry")
                 ? "Requires Demographic Registry"
@@ -985,9 +952,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                     ? "Build 3 Census Directorate parts first"
                     : tile.siegeBattery || tile.observatory
                       ? "Tile already has structure"
-                      : (state.strategicResources.SHARD ?? 0) < 2
-                        ? "Need 2 SHARD"
-                        : missingResourceSlotReason(state, "CENSUS_DIRECTORATE") ?? "Unavailable",
+                      : missingResourceSlotReason(state, "CENSUS_DIRECTORATE") ?? "Unavailable",
               `${deps.structureCostText("CENSUS_DIRECTORATE")} • ${buildTimeLabel(economicBuildMsForState(state, "CENSUS_DIRECTORATE"))} • build 3 parts first${upkeepSuffixFor("CENSUS_DIRECTORATE")}`,
               0
             )
@@ -1007,7 +972,6 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 !titaniumLevyBuilt &&
                 !tile.siegeBattery &&
                 !tile.observatory &&
-                (state.strategicResources.SHARD ?? 0) >= 2 &&
                 hasFreeResourceSlots(state, "TITANIUM_LEVY"),
               !state.techIds.includes("grand-levy-doctrine")
                 ? "Requires Grand Levy Doctrine"
@@ -1017,9 +981,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                     ? "Build 3 Titanium Levy parts first"
                     : tile.siegeBattery || tile.observatory
                       ? "Tile already has structure"
-                      : (state.strategicResources.SHARD ?? 0) < 2
-                        ? "Need 2 SHARD"
-                        : missingResourceSlotReason(state, "TITANIUM_LEVY") ?? "Unavailable",
+                      : missingResourceSlotReason(state, "TITANIUM_LEVY") ?? "Unavailable",
               `${deps.structureCostText("TITANIUM_LEVY")} • ${buildTimeLabel(economicBuildMsForState(state, "TITANIUM_LEVY"))} • build 3 parts first${upkeepSuffixFor("TITANIUM_LEVY")}`,
               0
             )

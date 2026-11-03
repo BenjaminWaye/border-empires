@@ -102,7 +102,6 @@ export const MAIN_THREAD_TASK_PHASES = [
   "system_get_barb_activation_vision_signature",
   "tick_orphan_lock_sweep",
   "tick_population_growth",
-  "tick_shard_rain",
   "tile_delta_fanout",
   "tile_yield_economy_context_rebuild",
   "town_network_rebuild"

@@ -16,7 +16,7 @@ import type { Tile, TileMenuView } from "../client-types.js";
  * Also refresh battle countdowns and clear their text after the map animation ends.
  * Re-render once a second, but only while a decaying or battling tile's menu is
  * actually open, so this stays as cheap as the other per-second HUD tickers
- * (renderShardAlert, renderVictoryHoldAlert) it sits alongside. This calls
+ * (renderVictoryHoldAlert) it sits alongside. This calls
  * renderTileActionMenu directly (the same call renderHud makes internally
  * for an open single-tile menu) rather than the full renderHud -- a plain
  * renderHud() would also redo the economy/domains panels, minimap, and

@@ -62,7 +62,7 @@ type TileFieldSpec = {
   camelField: string;
   normalized: unknown;
   // True for proto3 `optional string` fields carrying clear-vs-unchanged
-  // semantics (fort/observatory/siege/economic/sabotage/shard/muster/town
+  // semantics (fort/observatory/siege/economic/sabotage/muster/town
   // JSON blobs). These must round-trip "field omitted" as genuinely absent
   // (sparse delta = "unchanged") while still preserving an explicit "" as a
   // real clear signal -- see presenceSensitiveFields tests below.
@@ -88,7 +88,6 @@ const TILE_FIELD_SPECS: TileFieldSpec[] = [
   { protoField: "siege_battery_json", wireValue: "{\"siege\":1}", camelField: "siegeBatteryJson", normalized: "{\"siege\":1}", presenceSensitive: true },
   { protoField: "economic_structure_json", wireValue: "{\"econ\":1}", camelField: "economicStructureJson", normalized: "{\"econ\":1}", presenceSensitive: true },
   { protoField: "sabotage_json", wireValue: "{\"sab\":1}", camelField: "sabotageJson", normalized: "{\"sab\":1}", presenceSensitive: true },
-  { protoField: "shard_site_json", wireValue: "{\"shard\":1}", camelField: "shardSiteJson", normalized: "{\"shard\":1}", presenceSensitive: true },
   { protoField: "natural_wonder_json", wireValue: "{\"type\":\"FOUNDRY_HEART\"}", camelField: "naturalWonderJson", normalized: "{\"type\":\"FOUNDRY_HEART\"}", presenceSensitive: true },
   { protoField: "watchtower_json", wireValue: "{\"activated\":true}", camelField: "watchtowerJson", normalized: "{\"activated\":true}", presenceSensitive: true },
   { protoField: "waystation_json", wireValue: "{\"activated\":true}", camelField: "waystationJson", normalized: "{\"activated\":true}", presenceSensitive: true },

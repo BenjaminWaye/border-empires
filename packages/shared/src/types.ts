@@ -98,7 +98,6 @@ export const MONUMENTAL_STRUCTURE_TYPES = ["IMPERIAL_EXCHANGE", "SOVEREIGN_SIEGE
 export type MonumentalStructureType = (typeof MONUMENTAL_STRUCTURE_TYPES)[number];
 export type PopulationTier = "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
 export type TownGrowthUpgradeTier = "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-export type ShardSiteKind = "CACHE" | "FALL";
 export type SeasonVictoryPathId =
   | "TOWN_CONTROL"
   | "ECONOMIC_HEGEMONY"
@@ -264,11 +263,6 @@ export interface Tile {
     connectedDockCount: number;
     modifiers?: Array<{ label: string; percent: number; deltaGoldPerMinute: number }>;
   };
-  shardSite?: {
-    kind: ShardSiteKind;
-    amount: number;
-    expiresAt?: number;
-  } | null;
   naturalWonder?: import("./natural-wonder-types.js").NaturalWonderState | null;
   // Watchtower site: world-generated scouting structure. Dormant until a player expands onto its tile, then a one-time 10s vision pulse (revealUntil). Waystation site: denser frontier outpost (~1 per 400 tiles) granting ONE randomly-chosen PERMANENT effect on activation -- see runtime-waystation-activation.ts and WaystationTileState (waystation-types.ts) for the grantedEffect/detail fields the client's activation popup reads.
   watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null; waystation?: WaystationTileState | null;
@@ -474,7 +468,7 @@ export interface RevealEmpireStatsView {
   gold: number;
   manpower: number;
   manpowerCap: number;
-  strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>;
+  strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>;
 }
 
 export interface ActiveSabotage {

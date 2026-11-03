@@ -5,7 +5,7 @@ import { createProactiveAiDiplomacy } from "../proactive-ai-diplomacy/proactive-
 // query, deal settlement, and the seeded-AI diplomacy responder, extracted out of gateway-app.ts (well over the repo's
 // 500-line file-size gate and may not grow further -- see AGENTS.md's
 // file-and-type-discipline rule).
-import { netValueToAi, SHARD_COIN_VALUE, type ClientMessage } from "@border-empires/shared";
+import { netValueToAi, type ClientMessage } from "@border-empires/shared";
 import type { CommandEnvelope, PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import type { WebSocket } from "ws";
 
@@ -99,7 +99,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
       const otherId = aiId === request.toPlayerId ? request.fromPlayerId : request.toPlayerId;
       if (kind === "truce") memory.recordTruceDeal(aiId, otherId);
       if (request.terms) {
-        const toTarget = netValueToAi(request.terms, SHARD_COIN_VALUE);
+        const toTarget = netValueToAi(request.terms);
         memory.recordPayment(aiId, otherId, aiId === request.toPlayerId ? toTarget : -toTarget);
       }
     },
@@ -198,7 +198,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
 
   const resourceTrades = createResourceTradeService({ social:socialState,settlement,now:()=>Date.now(),
     isAutoRespondingAi:id=>isAi(id)&&!deps.hasLiveSocket(id),
-    aiHoldings:async id=>{const player=(await deps.ensureSubscribed(id)).player;return player?{gold:Math.floor(player.gold),shard:Math.floor(player.strategicResources.SHARD??0),...(player.resourceTradeHoldings?{resources:player.resourceTradeHoldings}:{})}:undefined;},
+    aiHoldings:async id=>{const player=(await deps.ensureSubscribed(id)).player;return player?{gold:Math.floor(player.gold),...(player.resourceTradeHoldings?{resources:player.resourceTradeHoldings}:{})}:undefined;},
     send:deps.sendJson,fanout:deps.fanoutPlayerPayloads,record:deps.recordGatewayEvent });
   const isAutoRespondingAi = (targetId: string): boolean => deps.seededAiPlayerIds.has(targetId) && !deps.hasLiveSocket(targetId);
   const giftsInFlight = new Set<string>();

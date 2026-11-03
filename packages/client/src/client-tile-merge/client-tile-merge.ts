@@ -51,7 +51,6 @@ export type CommonTileFieldsUpdate = {
   captureHoldUntil?: number | null | undefined;
   warScarLevel?: number | null | undefined;
   warScarUntil?: number | null | undefined;
-  shardSite?: Tile["shardSite"];
   naturalWonder?: Tile["naturalWonder"];
   watchtower?: Tile["watchtower"];
   waystation?: Tile["waystation"];
@@ -119,14 +118,6 @@ export const applyCommonTileFields = (
   if ("reachOwnerId" in normalizedUpdate) {
     if (normalizedUpdate.reachOwnerId) merged.reachOwnerId = normalizedUpdate.reachOwnerId;
     else delete merged.reachOwnerId;
-  }
-
-  const claimedShardSite = !existing?.ownerId && existing?.shardSite ? existing.shardSite : undefined;
-  if ("shardSite" in normalizedUpdate) {
-    if (normalizedUpdate.shardSite) merged.shardSite = normalizedUpdate.shardSite;
-    else if (claimedShardSite && normalizedUpdate.ownerId === ctx.me && normalizedUpdate.ownershipState === "FRONTIER") {
-      merged.shardSite = claimedShardSite;
-    } else delete merged.shardSite;
   }
 
   if ("naturalWonder" in normalizedUpdate) {

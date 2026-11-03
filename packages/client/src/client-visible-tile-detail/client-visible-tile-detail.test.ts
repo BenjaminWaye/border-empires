@@ -107,7 +107,7 @@ describe("createVisibleTileDetailRequester", () => {
         { wx: 2, wy: 1, vis: "visible", t: makeTile(2, 1, { ownerId: "me", ownershipState: "SETTLED", resource: "FARM" }) },
         { wx: 3, wy: 1, vis: "visible", t: makeTile(3, 1, { ownerId: "me", ownershipState: "SETTLED", dockId: "dock-1" }) },
         { wx: 4, wy: 1, vis: "visible", t: makeTile(4, 1, { ownerId: "me", ownershipState: "SETTLED", fort: { ownerId: "me", status: "active" } }) },
-        { wx: 5, wy: 1, vis: "visible", t: makeTile(5, 1, { ownerId: "me", ownershipState: "SETTLED", shardSite: { kind: "FALL", amount: 1, expiresAt: 9_999 } }) }
+        { wx: 5, wy: 1, vis: "visible", t: makeTile(5, 1, { ownerId: "me", ownershipState: "SETTLED" }) }
       ],
       1,
       1

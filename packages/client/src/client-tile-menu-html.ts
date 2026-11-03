@@ -166,7 +166,6 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "settle_many") return "⌂+";
   if (id === "launch_attack") return "⚔";
   if (id === "diplomacy") return "⚖\uFE0E";
-  if (id === "collect_shard") return "✦";
   if (id === "build_fortification") return "⛨";
   if (id === "build_palisade") return "⫼";
   if (id === "build_siege_camp") return "⚔";

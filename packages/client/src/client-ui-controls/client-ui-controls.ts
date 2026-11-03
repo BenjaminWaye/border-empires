@@ -28,7 +28,6 @@ type UiControlsDeps = {
   captureTimeEl: ClientDom["captureTimeEl"];
   placementCancelBtn: ClientDom["placementCancelBtn"];
   placementConfirmBtn: ClientDom["placementConfirmBtn"];
-  shardAlertCloseBtn: ClientDom["shardAlertCloseBtn"];
   victoryAlertCollapseBtn: ClientDom["victoryAlertCollapseBtn"];
   victoryAlertBannerBtn: ClientDom["victoryAlertBannerBtn"];
   panelCloseBtn: ClientDom["panelCloseBtn"];
@@ -43,8 +42,6 @@ type UiControlsDeps = {
   renderHud: () => void;
   centerOnOwnedTile: () => void;
   requestViewRefresh: (priorityBoost?: number, immediate?: boolean) => void;
-  hideShardAlert: () => void;
-  renderShardAlert: () => void;
   acknowledgeVictoryHoldAlert: () => void;
   renderVictoryHoldAlert: () => void;
   renderCaptureProgress: () => void;
@@ -69,7 +66,6 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     captureTimeEl,
     placementCancelBtn,
     placementConfirmBtn,
-    shardAlertCloseBtn,
     victoryAlertCollapseBtn,
     victoryAlertBannerBtn,
     panelCloseBtn,
@@ -84,8 +80,6 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     renderHud,
     centerOnOwnedTile,
     requestViewRefresh,
-    hideShardAlert,
-    renderShardAlert,
     acknowledgeVictoryHoldAlert,
     renderVictoryHoldAlert,
     renderCaptureProgress,
@@ -134,10 +128,6 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     renderCaptureProgress();
   };
   captureReportBugBtn.onclick = () => openBugReportFromCaptureAlert(state, { renderCaptureProgress, renderHud });
-  shardAlertCloseBtn.onclick = () => {
-    hideShardAlert();
-    renderShardAlert();
-  };
   victoryAlertCollapseBtn.onclick = () => {
     acknowledgeVictoryHoldAlert();
     renderVictoryHoldAlert();

@@ -6,7 +6,6 @@ import { CLIENT_CHANGELOG_STORAGE_KEY } from "../client-changelog/client-changel
 import { createInitialUpkeepLastTick } from "./client-state-upkeep-defaults.js";
 import { createInitialStrategicAnim } from "./client-state-strategic-anim-defaults.js";
 import { createInitialSpaceViewState } from "./client-space-view-state-defaults.js";
-import { createInitialShardRainState } from "./client-state-shard-rain-defaults.js";
 import { createInitialAuthBusyState } from "./client-state-auth-busy-defaults.js";
 import { createBridgeDebugInitialState } from "./client-state-bridge-debug.js";
 import { RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
@@ -88,9 +87,9 @@ export const createInitialState = () => ({
   } as Record<"attack" | "defense" | "income" | "vision", Array<{ label: string; mult: number }>>,
   expandedModKey: null as "attack" | "defense" | "income" | "vision" | null,
   incomePerMinute: 0,
-  strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } as Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>,
+  strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } as Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>,
   storageCap: { ...EMPIRE_STORAGE_FLOOR },
-  strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } as Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>,
+  strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } as Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>,
   ...createInitialResourceEconomyState(),
   eventLog: [] as ClientEventLogEntry[], // §20: durable event log, most-recent-last
   eventLogFeedSeenIds: undefined as Set<string> | undefined, // ids already echoed into the Activity Feed; undefined until first sync (avoids backfilling history as new)
@@ -217,7 +216,7 @@ export const createInitialState = () => ({
   feedAttentionUntil: 0,
   persistentAlertLocators: [] as Array<{
     id: string;
-    kind: "town_unfed" | "muster_active" | "hostile_muster" | "waypoint_manpower_paused" | "shard_rain";
+    kind: "town_unfed" | "muster_active" | "hostile_muster" | "waypoint_manpower_paused";
     x: number;
     y: number;
     screenX: number;
@@ -255,7 +254,6 @@ export const createInitialState = () => ({
   optimisticTileSnapshots: new Map<string, Tile | undefined>(),
   captureAlert: undefined as { title: string; detail: string; until: number; tone: "success" | "error" | "warn"; manpowerLoss?: number; focusX?: number; focusY?: number; actionLabel?: string; timeout?: boolean } | undefined,
   settlementRepairDiagnosticKey: "" as string,
-  pendingShardCollect: undefined as { tileKey: string; shardSite: NonNullable<Tile["shardSite"]> } | undefined,
   leaderboard: {
     overall: [] as LeaderboardOverallEntry[],
     selfOverall: undefined as LeaderboardOverallEntry | undefined,
@@ -281,13 +279,11 @@ export const createInitialState = () => ({
   showWeakDefensibility: false,
   ...createInitialReachState(),
   ...createInitialAetherShieldState(), ...createInitialIslandNamesState(), // ISLAND_NAMES push, see client-map-name-labels/
-  ...createInitialShardRainState(),
   victoryHoldAlert: undefined as VictoryHoldAlert | undefined, victoryHoldAlertCollapsed: false, acknowledgedVictoryHoldAlertKeys: new Set<string>(), // never fully hides while a hold is active — see client-victory-alert.ts
   respawnNotice: undefined as PlayerRespawnNotice | undefined,
   respawnOverlayOpen: false,
   needsSeasonJoin: false, joinSeasonOverlayOpen: false, joinSeasonId: "" as string, joinSeasonPending: false, seasonPending: false, seasonPendingScheduledStartAt: 0, seasonLobbyWaitingCount: 0, seasonLobbyMaxPlayers: 0, seasonLobbyRoster: [] as { playerId: string; name: string }[], // join-season overlay + SEASON_PENDING countdown + lobby roster: see client-join-season-overlay.ts / client-season-lobby-panel.ts
   lastSeenRespawnNoticeId: "",
-  dismissedShardAlertKeys: new Set<string>(),
   structureInfoKey: "" as string, crystalAbilityInfoKey: "" as string,
   economyFocus: "ALL" as "ALL" | "GOLD" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE",
   unreadAttackAlerts: 0,

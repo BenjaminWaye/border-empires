@@ -274,7 +274,6 @@ export const buildPlayerUpdateEconomySnapshot = (
   const crystalSinks = new Map<string, EconomyBucket>();
   const umbriteSources = new Map<string, EconomyBucket>();
   const umbriteSinks = new Map<string, EconomyBucket>();
-  const shardSources = new Map<string, EconomyBucket>();
   const addUpkeepSinks = (label: string, upkeep: Partial<Record<EconomyResourceKey, number>>): void => {
     if (upkeep.GOLD) addBucket(goldSinks, label, upkeep.GOLD, { count: 1 });
     if (upkeep.FOOD) addBucket(foodSinks, label, upkeep.FOOD, { count: 1 });
@@ -429,8 +428,7 @@ export const buildPlayerUpdateEconomySnapshot = (
       FOOD: Number((strategicProductionPerMinute.FOOD * integrityEconMult).toFixed(6)),
       TITANIUM: Number((strategicProductionPerMinute.TITANIUM * integrityEconMult).toFixed(6)),
       CRYSTAL: Number((strategicProductionPerMinute.CRYSTAL * integrityEconMult).toFixed(6)),
-      UMBRITE: Number((strategicProductionPerMinute.UMBRITE * integrityEconMult).toFixed(6)),
-      SHARD: Number((strategicProductionPerMinute.SHARD * integrityEconMult).toFixed(6))
+      UMBRITE: Number((strategicProductionPerMinute.UMBRITE * integrityEconMult).toFixed(6))
     },
     upkeepPerMinute,
     upkeepLastTick: {
@@ -446,8 +444,7 @@ export const buildPlayerUpdateEconomySnapshot = (
       FOOD: { sources: sortedBuckets(foodSources), sinks: sortedBuckets(foodSinks) },
       TITANIUM: { sources: sortedBuckets(titaniumSources), sinks: sortedBuckets(titaniumSinks) },
       CRYSTAL: { sources: sortedBuckets(crystalSources), sinks: sortedBuckets(crystalSinks) },
-      UMBRITE: { sources: sortedBuckets(umbriteSources), sinks: sortedBuckets(umbriteSinks) },
-      SHARD: { sources: sortedBuckets(shardSources), sinks: [] }
+      UMBRITE: { sources: sortedBuckets(umbriteSources), sinks: sortedBuckets(umbriteSinks) }
     }
   };
 };

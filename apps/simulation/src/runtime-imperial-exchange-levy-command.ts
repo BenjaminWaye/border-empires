@@ -11,7 +11,7 @@ import { rejectCommand, type RuntimeMapCommandContext } from "./runtime-map-comm
 // spendable quantities under the resource-slots pillar, §5), 24hr cooldown,
 // free activation (§17 — no CRYSTAL cost). The offline notification is the
 // important part: the target sees what happened next time they log in via
-// the same PLAYER_MESSAGE plumbing shard rain already uses, just addressed
+// the same PLAYER_MESSAGE plumbing other world events already use, just addressed
 // to the target's playerId instead of the caster's.
 //
 // Split out of runtime-map-command-handlers.ts (already over the repo's

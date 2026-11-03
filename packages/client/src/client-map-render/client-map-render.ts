@@ -21,7 +21,6 @@ import type { EmpireVisualStyle, Tile } from "../client-types.js";
 export { dockOverlayVariants, structureOverlayImages } from "./client-map-overlay-images.js";
 
 export { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render-terrain-relief.js";
-export { drawShardFallback } from "./client-map-render-shard-fallback.js";
 import { drawSeaCoast2D } from "./client-map-render-shore-foam.js";
 import { useTerrainReliefRenderer } from "./client-map-render-terrain-relief.js";
 export { drawResourceCornerMarker } from "./client-map-render-resource-marker.js";
@@ -579,7 +578,6 @@ export {
   overlayVariantIndexAt,
   resourceOverlayForTile,
   builtResourceOverlayForTile,
-  shardOverlayForTile,
   resourceOverlayScaleForTile
 } from "./client-map-render-resource-overlays.js";
 

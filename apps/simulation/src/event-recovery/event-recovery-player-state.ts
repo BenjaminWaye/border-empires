@@ -32,7 +32,7 @@ export type RecoveredPlayerState = {
   afcCoreTownKeys?: string[];
   afcScarcityFoodSlots?: number;
   afcCampaign?: import("@border-empires/shared").AfcCampaignState;
-  strategicResources?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
+  strategicResources?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>>;
   chosenTrickleResource?: ChosenTrickleResource;
   imperialWardCharges?: number;
   islandNames?: IslandNameClaim[];

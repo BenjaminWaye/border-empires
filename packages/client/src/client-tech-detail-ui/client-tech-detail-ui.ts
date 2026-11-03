@@ -10,13 +10,13 @@ import type { DomainInfo, TechInfo } from "../client-types.js";
 
 export const formatTechCost = (tech: TechInfo): string => {
   const checklist = tech.requirements.checklist ?? [];
-  const costBits = checklist.filter((item) => /coin|gold|food|titanium|crystal|umbrite|shard/i.test(item.label)).map((item) => item.label);
+  const costBits = checklist.filter((item) => /coin|gold|food|titanium|crystal|umbrite/i.test(item.label)).map((item) => item.label);
   if (costBits.length > 0) return costBits.join(" · ");
   const fallbackCostBits: string[] = [];
   if ((tech.requirements.gold ?? 0) > 0) {
     fallbackCostBits.push(`${tech.requirements.gold.toLocaleString()} coin`);
   }
-  for (const resourceKey of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const) {
+  for (const resourceKey of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"] as const) {
     const amount = tech.requirements.resources?.[resourceKey] ?? 0;
     if (amount > 0) fallbackCostBits.push(`${amount.toLocaleString()} ${resourceKey.toLowerCase()}`);
   }

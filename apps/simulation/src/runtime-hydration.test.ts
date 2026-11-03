@@ -84,7 +84,7 @@ describe("createTilesFromInitialState", () => {
   // event-recovery boot/checkpoint restore and by any caller that seeds a
   // runtime with initialState.tiles). watchtower/waystation were both
   // missing from that whitelist -- unlike every sibling site field
-  // (shardSite, naturalWonder, fort, etc.) -- so a Watchtower/Waystation
+  // (naturalWonder, fort, etc.) -- so a Watchtower/Waystation
   // site present in a persisted snapshot was silently dropped on every sim
   // restart, even after the season-worldgen persistence bug that dropped
   // the same two fields at generation time (PR #2005) was fixed.
@@ -102,6 +102,16 @@ describe("createTilesFromInitialState", () => {
     const result = createTilesFromInitialState(state, new Map(), false);
     const tile = result.get("1,2");
     expect(tile?.waystation).toEqual(waystation);
+  });
+
+  // Shards were removed from the game: a snapshot written before that still
+  // carries shardSite on tiles, which must not survive hydration.
+  it("drops a retired shardSite from a recovered snapshot tile", () => {
+    const legacyTile = { ...baseTile, ownerId: "p1", ownershipState: "SETTLED" as const, shardSite: { kind: "CACHE", amount: 2 } };
+    const state = minimalState([legacyTile as typeof baseTile]);
+    const tile = createTilesFromInitialState(state, new Map(), false).get("1,2");
+    expect(tile?.ownerId).toBe("p1");
+    expect(tile).not.toHaveProperty("shardSite");
   });
 
   it("ignores unknown structure field (Phase 3 dormant — Phase 4 unified shape)", () => {

@@ -5,7 +5,7 @@ import {
 } from "@border-empires/sim-protocol";
 
 /**
- * The tile "overlay" JSON fields (fort, natural wonder, shard site, ...)
+ * The tile "overlay" JSON fields (fort, natural wonder, observatory, ...)
  * that proto-serialization.ts has to carry across
  * the sim -> gateway gRPC boundary, in every shape that boundary needs:
  * the snake_case proto array (tile_deltas, clear-signaling via `?? ""`),

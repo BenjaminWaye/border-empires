@@ -45,18 +45,17 @@ const townIncomePerMinute = ({
 };
 
 const totalTechCosts = (techs) => {
-  const totals = { gold: 0, FOOD: 0, TITANIUM: 0, UMBRITE: 0, CRYSTAL: 0, SHARD: 0, researchSeconds: 0 };
+  const totals = { gold: 0, FOOD: 0, TITANIUM: 0, UMBRITE: 0, CRYSTAL: 0, researchSeconds: 0 };
   const byTier = new Map();
   for (const tech of techs) {
     const tier = tech.tier ?? 0;
-    const tierTotals = byTier.get(tier) ?? { gold: 0, FOOD: 0, TITANIUM: 0, UMBRITE: 0, CRYSTAL: 0, SHARD: 0, researchSeconds: 0, count: 0 };
+    const tierTotals = byTier.get(tier) ?? { gold: 0, FOOD: 0, TITANIUM: 0, UMBRITE: 0, CRYSTAL: 0, researchSeconds: 0, count: 0 };
     tierTotals.count += 1;
     tierTotals.gold += tech.cost?.gold ?? 0;
     tierTotals.FOOD += tech.cost?.food ?? 0;
     tierTotals.TITANIUM += tech.cost?.titanium ?? 0;
     tierTotals.UMBRITE += tech.cost?.umbrite ?? 0;
     tierTotals.CRYSTAL += tech.cost?.crystal ?? 0;
-    tierTotals.SHARD += tech.cost?.shard ?? 0;
     tierTotals.researchSeconds += tech.researchTimeSeconds ?? 0;
     byTier.set(tier, tierTotals);
 
@@ -65,7 +64,6 @@ const totalTechCosts = (techs) => {
     totals.TITANIUM += tech.cost?.titanium ?? 0;
     totals.UMBRITE += tech.cost?.umbrite ?? 0;
     totals.CRYSTAL += tech.cost?.crystal ?? 0;
-    totals.SHARD += tech.cost?.shard ?? 0;
     totals.researchSeconds += tech.researchTimeSeconds ?? 0;
   }
   return { totals, byTier };
@@ -107,8 +105,7 @@ const currentScenarios = {
       FOOD: 4 * 72 * 1.5,
       TITANIUM: 2 * 60 * 1.5,
       UMBRITE: 2 * 60 * 1.5,
-      CRYSTAL: 2 * 36 * 1.5,
-      SHARD: 0
+      CRYSTAL: 2 * 36 * 1.5
     }
   },
   wide: {
@@ -121,8 +118,7 @@ const currentScenarios = {
       FOOD: 8 * 72 * 1.5,
       TITANIUM: 5 * 60 * 1.5,
       UMBRITE: 5 * 60 * 1.5,
-      CRYSTAL: 4 * 36 * 1.5,
-      SHARD: 1
+      CRYSTAL: 4 * 36 * 1.5
     }
   }
 };

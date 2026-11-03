@@ -162,8 +162,8 @@ describe("rewrite social integration", () => {
               gold: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
               foodCoverage: 1
             },
-            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
-            strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+            strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
             stamina: 0,
             manpower: 0,
             manpowerCap: 0,
