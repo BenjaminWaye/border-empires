@@ -18,7 +18,9 @@ import type { Tile } from "../client-types.js";
 import { townIdentityForTile } from "../client-town-identity.js";
 
 export type GuideTargetSet = {
-  /** The player's own FRONTIER tiles of this kind (including ones with a garrison already pending). */
+  /** Tiles of this kind with the player's claim or garrison already underway (optimisticPending): nothing to ask for, just wait. */
+  pending: Array<{ x: number; y: number }>;
+  /** The player's own FRONTIER tiles of this kind, with nothing underway on them. */
   garrison: Array<{ x: number; y: number }>;
   /** Neutral tiles of this kind currently in vision. */
   expand: Array<{ x: number; y: number }>;
@@ -26,7 +28,7 @@ export type GuideTargetSet = {
 
 export type GuideFootholdTargets = { town: GuideTargetSet; food: GuideTargetSet };
 
-export type GuideTargetAction = "garrison" | "expand" | "beacon";
+export type GuideTargetAction = "pending" | "garrison" | "expand" | "beacon";
 
 const MAX_TARGETS = 3;
 const FOOD_RESOURCES: ReadonlySet<string> = new Set(["FARM", "FISH"]);
@@ -44,15 +46,19 @@ export const scanGuideFootholdTargets = (
   me: string,
   byDistance: (t: { x: number; y: number }) => number
 ): GuideFootholdTargets => {
-  const result: GuideFootholdTargets = { town: { garrison: [], expand: [] }, food: { garrison: [], expand: [] } };
+  const result: GuideFootholdTargets = { town: { pending: [], garrison: [], expand: [] }, food: { pending: [], garrison: [], expand: [] } };
   for (const tile of tiles) {
     const kind = isTownTarget(tile) ? result.town : isFoodTarget(tile) ? result.food : undefined;
     if (!kind) continue;
-    if (tile.ownerId === me && tile.ownershipState === "FRONTIER") kind.garrison.push({ x: tile.x, y: tile.y });
+    // Expand To marks its target as our pending FRONTIER and garrisons it once the
+    // claim lands; asking for a Garrison then would be asking for what is already happening.
+    if (tile.ownerId === me && tile.optimisticPending) kind.pending.push({ x: tile.x, y: tile.y });
+    else if (tile.ownerId === me && tile.ownershipState === "FRONTIER") kind.garrison.push({ x: tile.x, y: tile.y });
     else if (!tile.ownerId && !tile.fogged) kind.expand.push({ x: tile.x, y: tile.y });
   }
   const nearest = (list: Array<{ x: number; y: number }>) => list.sort((a, b) => byDistance(a) - byDistance(b)).slice(0, MAX_TARGETS);
   for (const set of [result.town, result.food]) {
+    set.pending = nearest(set.pending);
     set.garrison = nearest(set.garrison);
     set.expand = nearest(set.expand);
   }
@@ -60,4 +66,4 @@ export const scanGuideFootholdTargets = (
 };
 
 export const guideTargetAction = (targets: GuideTargetSet): GuideTargetAction =>
-  targets.garrison.length > 0 ? "garrison" : targets.expand.length > 0 ? "expand" : "beacon";
+  targets.pending.length > 0 ? "pending" : targets.garrison.length > 0 ? "garrison" : targets.expand.length > 0 ? "expand" : "beacon";

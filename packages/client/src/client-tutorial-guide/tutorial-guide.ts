@@ -51,9 +51,13 @@ const handlers: GuideCardHandlers = {
     if (lastView) markGuideStepsCompleted([lastView.step.id], lastAuthEmail);
     forceRerender();
   },
+  // Finish ends the guide even when Contest / Diplomacy are still waiting for a
+  // first contact: the First Contact discovery tip covers muster flags later.
   onFinish: () => {
     if (lastView) markGuideStepsCompleted([lastView.step.id], lastAuthEmail);
-    forceRerender();
+    setGuideStatus("done", lastAuthEmail);
+    setOnboardingRelayBeaconSite(undefined);
+    removeTutorialGuideUi();
   },
   onHide: () => {
     setGuideStatus("dismissed", lastAuthEmail);

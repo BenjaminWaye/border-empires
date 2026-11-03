@@ -18,7 +18,7 @@ export const GUIDE_ANCHOR_SELECTORS: Record<GuideAnchorId, string> = {
   manpower: '.stat-chip-manpower, [data-hud-v2-open="manpower"]',
   manifest: '[data-panel="tech"], [data-mobile-panel="tech"], [data-hud-v2-open="manifest"]',
   activity: '[data-open-activity-dashboard], [data-hud-v2-open="chronicle"]',
-  diplomacy: '[data-panel="alliance"], [data-mobile-panel="social"], [data-hud-v2-open="diplomacy"]'
+  diplomacy: '[data-panel="alliance"], [data-mobile-panel="social"], .hud-v2-bubble[data-hud-v2-open="diplomacy"]'
 };
 
 /** The first matching element that is actually laid out on screen. */

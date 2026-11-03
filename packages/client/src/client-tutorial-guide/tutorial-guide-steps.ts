@@ -43,7 +43,9 @@ export type GuideInput = {
   hudV2: boolean;
   /** Manifests the player has commissioned (state.techIds, excluding the tree root). */
   manifestCount: number;
-  /** The Industrial Tooling Module is commissioned, so a Manufactory can be built. */
+  /** The Industrial Tooling Module has been commissioned (it may still be on its way to the AFC). */
+  manufactoryResearched: boolean;
+  /** The Industrial Tooling Module is installed on an active AFC, so a Manufactory can be built (hideTechLockedTileAction). */
   manufactoryUnlocked: boolean;
   ownsBuiltStructure: boolean;
   /** The player's garrisoned town tiles: where a Manufactory goes. */
@@ -92,15 +94,17 @@ export const GUIDE_CHAPTER_TITLES: Record<GuideChapterId, string> = {
 };
 
 const TOWN_STEP: Record<GuideTargetAction, { title: string; why: string }> = {
+  pending: { title: "Your claim on the marked town is underway", why: "Once your claim lands, it garrisons itself." },
   garrison: { title: "Tap the marked town and Garrison it", why: "Your reach already claimed it as frontier; a garrison makes it count and grow." },
   expand: { title: "Tap the marked town and Expand To it", why: "It's outside your reach: Expand To claims the land across to it." },
-  beacon: { title: "No town in sight: build a Relay Beacon on the marked tile", why: "A beacon pushes your reach and vision outward until a town comes into view." }
+  beacon: { title: "No town in sight: build a Relay Beacon at the edge of your land", why: "A beacon pushes your reach and vision outward until a town comes into view." }
 };
 
 const FOOD_STEP: Record<GuideTargetAction, { title: string; why: string }> = {
+  pending: { title: "Your claim on the marked food tile is underway", why: "Once your claim lands, it garrisons itself." },
   garrison: { title: "Tap a marked food tile and Garrison it", why: "Your reach already claimed it; only garrisoned food counts, and fish is worth two slots." },
   expand: { title: "Tap a marked food tile and Expand To it", why: "It's outside your reach: Expand To claims the land across to it." },
-  beacon: { title: "No food in sight: build a Relay Beacon on the marked tile", why: "A beacon pushes your reach and vision out to more food." }
+  beacon: { title: "No food in sight: build a Relay Beacon at the edge of your land", why: "A beacon pushes your reach and vision out to more food." }
 };
 
 const townAction = (input: GuideInput): GuideTargetAction => guideTargetAction(input.footholdTargets.town);
@@ -110,7 +114,10 @@ const targetHighlights =
   (kind: "town" | "food") =>
   (input: GuideInput): ReadonlyArray<{ x: number; y: number }> => {
     const action = guideTargetAction(input.footholdTargets[kind]);
-    return action === "beacon" ? input.checklist.highlightTiles : input.footholdTargets[kind][action];
+    // Only the recommended beacon site: the checklist's other highlights follow
+    // its own reach-based goal and could point at a town or food tile instead.
+    if (action === "beacon") return input.checklist.relayBeaconSite ? [input.checklist.relayBeaconSite] : [];
+    return input.footholdTargets[kind][action];
   };
 
 /** True while the current foothold step tells the player to build a Relay Beacon (drives the build menu's Recommended badge). */
@@ -184,16 +191,21 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
     chapter: "manifest",
     title: () => "Commission the Industrial Tooling Module",
     why: "It unlocks the Manufactory, which turns your town's industry into Coin.",
-    isDone: (i) => i.manifestCount > 0,
+    // Only the recommended Manifest (or already having built something) completes it: another
+    // Manifest doesn't unlock the Manufactory the next step asks for.
+    isDone: (i) => i.manufactoryResearched || i.ownsBuiltStructure,
     anchor: "manifest"
   },
   {
     id: "build-first",
     chapter: "build",
-    title: () => "Tap your marked town and build a Manufactory",
+    title: (i) =>
+      i.manufactoryUnlocked
+        ? "Tap your marked town and build a Manufactory"
+        : "Your Industrial Tooling Module is docking at your AFC: then build a Manufactory on your marked town",
     why: "A Manufactory goes on a garrisoned town or the tiles around it and adds Coin from the town's industry.",
     isDone: (i) => i.ownsBuiltStructure,
-    isAvailable: (i) => i.manufactoryUnlocked,
+    isAvailable: (i) => i.manufactoryResearched,
     waitingNote: "Commission the Industrial Tooling Module to unlock the Manufactory.",
     highlight: (i) => i.buildTargetTiles
   },
@@ -210,9 +222,10 @@ export const GUIDE_STEPS: readonly GuideStepDef[] = [
   {
     id: "diplomacy-truce",
     chapter: "diplomacy",
-    title: () => "A rival House is near: open Diplomacy to offer a truce",
+    title: (i) => `A rival House is near: open ${i.hudV2 ? "Diplomacy" : "Allies"} to offer a truce`,
     why: "A truce keeps a neighbour from attacking you while you grow. AI Houses tell you their price.",
-    isDone: (i) => i.diplomacyUsed,
+    // Opening the panel before meeting anyone doesn't count: there was no one to offer a truce to.
+    isDone: (i) => i.rivalHouseMet && i.diplomacyUsed,
     isAvailable: (i) => i.rivalHouseMet,
     waitingNote: "This starts when you meet a rival House.",
     anchor: "diplomacy"

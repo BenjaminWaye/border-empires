@@ -30,7 +30,7 @@ const LOOK_FOR_LABEL: Record<GuideLookForIcon, string> = { FOOD: "Grain", FISH: 
 /** "Look for [grain] Grain [fish] Fish": the same resource art the map and menus use, so the player knows what to spot. */
 const lookForHtml = (icons: ReadonlyArray<GuideLookForIcon> | undefined): string =>
   icons && icons.length > 0
-    ? `<div class="tg-lookfor">Look for ${icons.map((icon) => `<span class="tg-lookfor-item">${resourceIconHtml(icon)}${LOOK_FOR_LABEL[icon]}</span>`).join("")}</div>`
+    ? `<div class="tg-lookfor">Look for ${icons.map((icon) => `<span class="tg-lookfor-item"><span aria-hidden="true">${resourceIconHtml(icon)}</span>${LOOK_FOR_LABEL[icon]}</span>`).join("")}</div>`
     : "";
 
 const escapeHtml = (value: string): string =>

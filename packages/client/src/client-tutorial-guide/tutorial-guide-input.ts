@@ -12,7 +12,8 @@ import { isMusterUnlocked } from "../client-muster-unlock/client-muster-unlock-s
 import { guideInputSignals } from "./tutorial-guide-input-signals.js";
 import { RECOMMENDED_FIRST_MANIFEST_ID, type GuideInput } from "./tutorial-guide-steps.js";
 import { findHomeAfcTile } from "../client-afc-locate/client-afc-locate.js";
-import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
+import { isMeetablePlayerId } from "../client-alliance/client-met-players.js";
+import { townIdentityForTile } from "../client-town-identity.js";
 import { scanGuideFootholdTargets, type GuideFootholdTargets } from "./tutorial-guide-foothold-targets.js";
 
 export type GuideInputState = Pick<
@@ -29,8 +30,6 @@ export type GuideInputState = Pick<
   | "techRootId"
   | "bridgeDebugSeasonId"
   | "homeTile"
-  | "metPlayerIds"
-  | "metPlayersScannedRevision"
   | "outgoingTruceRequests"
   | "activeTruces"
   | "allies"
@@ -40,6 +39,10 @@ const MAX_BUILD_TARGETS = 6;
 const MAX_MUSTER_TARGETS = 6;
 
 type TileScan = {
+  /** The recommended Manifest's module is docked on an active AFC the player owns (what the tile menu requires). */
+  manufactoryInstalled: boolean;
+  /** Another House's land (not Planetary Defense) is among the known tiles. */
+  rivalHouseMet: boolean;
   ownsBuiltStructure: boolean;
   ownsMusterFlag: boolean;
   buildTargetTiles: Array<{ x: number; y: number }>;
@@ -73,20 +76,28 @@ const distanceFrom = (home: { x: number; y: number } | undefined) => (t: { x: nu
 export const scanGuideTiles = (tiles: ReadonlyMap<string, Tile>, me: string, home: { x: number; y: number } | undefined): TileScan => {
   let ownsBuiltStructure = false;
   let ownsMusterFlag = false;
+  let manufactoryInstalled = false;
+  let rivalHouseMet = false;
   const buildCandidates: Array<{ x: number; y: number }> = [];
   const musterCandidates: Array<{ x: number; y: number }> = [];
   for (const tile of tiles.values()) {
+    if (isMeetablePlayerId(tile.ownerId, me)) rivalHouseMet = true;
     if (tile.ownerId !== me) continue;
     if (isOwnBuiltStructure(tile, me)) ownsBuiltStructure = true;
     if (tile.muster?.ownerId === me) ownsMusterFlag = true;
     if (!isOwnSettled(tile, me)) continue;
+    if (tile.afc?.status === "active" && tile.afc.modules?.includes(RECOMMENDED_FIRST_MANIFEST_ID)) manufactoryInstalled = true;
     // A Manufactory goes on a garrisoned town tile or its support ring; the town itself is the clearest target.
-    if (tile.town) buildCandidates.push({ x: tile.x, y: tile.y });
+    // Not the spawn SETTLEMENT: settlements can't support economic structures (runtime-structure-town-support-target.ts).
+    const town = townIdentityForTile(tile);
+    if (town && town.populationTier !== "SETTLEMENT") buildCandidates.push({ x: tile.x, y: tile.y });
     if (!tile.muster && touchesOtherOwner(tiles, tile, me)) musterCandidates.push({ x: tile.x, y: tile.y });
   }
   const byDistance = distanceFrom(home);
   const nearest = (list: Array<{ x: number; y: number }>, limit: number) => list.sort((a, b) => byDistance(a) - byDistance(b)).slice(0, limit);
   return {
+    manufactoryInstalled,
+    rivalHouseMet,
     ownsBuiltStructure,
     ownsMusterFlag,
     buildTargetTiles: nearest(buildCandidates, MAX_BUILD_TARGETS),
@@ -160,9 +171,10 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
     hudV2: bodyHasClass("hud-v2"),
     activityDashboardOpen: state.activityDashboard.open || state.activityDashboard.chronicleOpen,
     manifestCount: state.techIds.filter((id) => id !== state.techRootId).length,
-    manufactoryUnlocked: state.techIds.includes(RECOMMENDED_FIRST_MANIFEST_ID),
+    manufactoryResearched: state.techIds.includes(RECOMMENDED_FIRST_MANIFEST_ID),
+    manufactoryUnlocked: cached.scan.manufactoryInstalled,
     afcTile: cached.afcTile,
-    rivalHouseMet: refreshMetPlayerIds(state).size > 0,
+    rivalHouseMet: cached.scan.rivalHouseMet,
     diplomacyUsed: openPanel === "alliance" || openPanel === "social" || state.outgoingTruceRequests.length > 0 || state.activeTruces.length > 0 || state.allies.length > 0,
     ownsBuiltStructure: cached.scan.ownsBuiltStructure,
     buildTargetTiles: cached.scan.buildTargetTiles,
