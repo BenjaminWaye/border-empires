@@ -347,6 +347,25 @@ describe("createSeededAiDiplomacyResponder alliance offers", () => {
     }));
   });
 
+  // A Cautious AI used to refuse outright; now it counters with the tribute that
+  // wins it over (46 coin to Pleased at 10 coin a point) plus its 24h Pleased price.
+  it("counters a Cautious AI's alliance with the tribute it asks", async () => {
+    const { deps, acceptAlliance, rejectAlliance, requestAlliance } = makeDeps(
+      snapshotFor(AI_ID, { manpower: 800, manpowerCap: 1000, score: 100, leaderboardTiles: { [AI_ID]: 100, [HUMAN_ID]: 50 } }),
+      snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 100, gold: 5_000 })
+    );
+
+    await createSeededAiDiplomacyResponder(deps).maybeAutoRespondToSeededAiAlliance(allianceRequest);
+
+    expect(acceptAlliance).not.toHaveBeenCalled();
+    // The original offer is answered, and the counter goes back as the AI's own offer.
+    expect(rejectAlliance).toHaveBeenCalledOnce();
+    expect(requestAlliance).toHaveBeenCalledWith(AI_ID, "Human", {
+      targetPlayerId: HUMAN_ID,
+      terms: { give: { gold: 0, shard: 0 }, ask: { gold: 46 + 24 * 60, shard: 0 } }
+    });
+  });
+
   it("won't ally with a merely Cautious AI's neighbour", async () => {
     const { deps, acceptAlliance, rejectAlliance } = makeDeps(
       snapshotFor(AI_ID, { manpower: 800, manpowerCap: 1000, score: 100 }),

@@ -4,6 +4,7 @@ import { CLIENT_CHANGELOG_ENTRIES_OCT_25 } from "./client-changelog-oct-25.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_26 } from "./client-changelog-oct-26.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_27 } from "./client-changelog-oct-27.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_30_31 } from "./client-changelog-oct-30-31.js";
+import { CLIENT_CHANGELOG_ENTRIES_NOV_01_03 } from "./client-changelog-nov-01-03.js";
 import { RAW_DEPOSIT_UNDER_IMPROVEMENT_CHANGELOG } from "./client-changelog-raw-deposit-under-improvement.js";
 import { RESOURCE_NETWORKS_CHANGELOG } from "./client-changelog-resource-networks.js";
 import { RELIABLE_DIPLOMACY_CHANGELOG } from "./client-changelog-reliable-diplomacy.js";
@@ -446,38 +447,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Barbarians wandering over empty land no longer push real captures out of the 24-hour activity history"
     ]
   },
-  {
-    createdAt: 1793565464215, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.01",
-    title: "Towns in the new HUD",
-    why: "The new HUD had no way to reach the town list.",
-    changes: ["A Towns button next to Manifest lists your towns, sortable by gold, population or growth", "Press a town to open its town screen"]
-  },
-  {
-    createdAt: 1793605577111, // Date.now() captured when this entry was written.
-    introducedIn: "2026.11.02",
-    title: "Queued garrisons wait for manpower",
-    why: "A queued garrison that came up while your manpower pool was short was dropped from the queue instead of waiting.",
-    changes: [
-      "Garrisoning without enough manpower now queues the garrison instead of refusing it",
-      "A queued garrison waits for the next manpower batch, reserves its manpower, then starts on its own, even while you're offline",
-      "Its queue card shows \"Needs manpower\" while it waits",
-      "Builds queued behind a waiting garrison no longer wait with it"
-    ]
-  },
-  {
-    createdAt: 1793655195560, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.02",
-    title: "A guide that doesn't block the map",
-    why: "New players asked for a tutorial again after the old intro slides were removed, but those slides covered the map.",
-    changes: [
-      "New accounts get a small guide card in the bottom-left corner that walks through the basics one step at a time: looking around, your first town and food, manpower, commissioning a Manifest, building, muster flags and the Activity dashboard",
-      "Each step ticks off when you actually do it, in any order. The map stays free to pan and zoom the whole time",
-      "Map targets are ringed on the map and Show me centres the camera on them; buttons you need to press get a glowing outline",
-      "Skip any step, minimise the card, or hide the guide. Settings > Restart guide brings it back",
-      "Existing accounts keep the New empire checklist"
-    ]
-  },
+  ...CLIENT_CHANGELOG_ENTRIES_NOV_01_03,
   ...AETHER_TOWER_SHOTS_CHANGELOG,
   ...LEGAL_PAGES_CHANGELOG,
   ...CAPTURE_AFTERMATH_CHANGELOG

@@ -18,7 +18,7 @@ import {
 } from "@border-empires/sim-protocol";
 import { INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed } from "@border-empires/shared";
 
-import { type ProtoSimulationEvent, type TileDeltaBatchTile, toProtoEvent, isWireInternalEvent, toFullSnapshotProtoTile } from "./proto-serialization.js";
+import { type ProtoSimulationEvent, type TileDeltaBatchTile, toProtoEvent, isWireInternalEvent, streamsWithoutSubscriber, toFullSnapshotProtoTile } from "./proto-serialization.js";
 import { toCommandEnvelope, type ProtoCommandEnvelope } from "./proto-command-envelope.js";
 import { buildTileDeltaGroupKey } from "./tile-delta-group-key.js";
 import { createOwnershipChangeHandler } from "./ownership-change-alert.js";
@@ -1639,7 +1639,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         }); return;
       }
       if (isWireInternalEvent(event)) return;
-      if (!subscriptionRegistry.isSubscribed(event.playerId)) return;
+      if (!subscriptionRegistry.isSubscribed(event.playerId) && !streamsWithoutSubscriber(event)) return;
       const protoEvent = toProtoEvent(event);
       for (const stream of eventStreams) stream.write(protoEvent);
     });

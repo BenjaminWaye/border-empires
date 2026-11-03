@@ -80,6 +80,8 @@ const aiLeads = (input: {
   return tilesOf ? aiWouldLeadAlliance(input.aiPlayerId, input.requesterId, input.alliesOf, tilesOf) : undefined;
 };
 
+const giftToPleasedField = (coin: number | undefined): { giftToPleased?: number } => (coin === undefined ? {} : { giftToPleased: coin });
+
 /** undefined when the AI snapshot is missing: nothing to judge, so callers decline rather than guess. */
 export const evaluateAiDiplomacy = (input: {
   aiPlayerId: string;
@@ -117,7 +119,7 @@ export const evaluateAiDiplomacy = (input: {
     aiHoldings: holdingsOf(input.aiSnapshot),
     requesterBrokeTruceWithAi: input.requesterBrokeTruceWithAi,
     aiWouldLeadAlliance: aiLeads(input),
-    giftCanWinOver: giftToReach(gift, opinion.score, ATTITUDE_MIN_SCORE.PLEASED) !== undefined,
+    ...giftToPleasedField(giftToReach(gift, opinion.score, ATTITUDE_MIN_SCORE.PLEASED)),
     now: input.now
   });
   return {
