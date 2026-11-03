@@ -35,6 +35,19 @@ export const DiplomacyTermsSchema = z.object({
 export type DiplomacyCounterRef = { kind: DiplomacyOfferKind; requestId: string };
 export const DiplomacyCounterRefSchema = z.object({ kind: z.enum(["truce", "alliance"]), requestId: z.string().min(1) });
 
+/**
+ * True when raw persisted terms (pre-parse JSON) still carry a Shard amount.
+ * Shards were removed from the game; parsing would silently drop the amount
+ * and turn a Shard-paid offer into a cheaper or free one, so stores drop such
+ * offers instead.
+ */
+export const diplomacyTermsCarryRetiredShards = (raw: unknown): boolean => {
+  if (!raw || typeof raw !== "object") return false;
+  const sides = raw as { give?: { shard?: unknown }; ask?: { shard?: unknown } };
+  const amount = (value: unknown): number => (typeof value === "number" && Number.isFinite(value) ? value : 0);
+  return amount(sides.give?.shard) > 0 || amount(sides.ask?.shard) > 0;
+};
+
 export const EMPTY_DIPLOMACY_GOODS: DiplomacyGoods = { gold: 0 };
 export const emptyDiplomacyTerms = (): DiplomacyTerms => ({ give: { ...EMPTY_DIPLOMACY_GOODS }, ask: { ...EMPTY_DIPLOMACY_GOODS } });
 

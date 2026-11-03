@@ -486,7 +486,7 @@ describe("worker AI command producer pause/resume", () => {
       eventType: "COMMAND_REJECTED",
       playerId: "ai-1",
       commandId: "ai-runtime-ai-1-1-1000",
-      code: "TOWN_TIER_INVALID"
+      code: "UPGRADE_TOWN_TIER_INVALID"
     });
     await firstTick;
     nowMs = 1_001;
@@ -499,7 +499,7 @@ describe("worker AI command producer pause/resume", () => {
       eventType: "COMMAND_REJECTED",
       playerId: "ai-1",
       commandId: "ai-runtime-ai-1-2-21001",
-      code: "TOWN_TIER_INVALID"
+      code: "UPGRADE_TOWN_TIER_INVALID"
     });
     await thirdTick;
 

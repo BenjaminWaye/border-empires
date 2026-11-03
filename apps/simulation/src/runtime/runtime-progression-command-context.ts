@@ -27,7 +27,6 @@ export interface ProgressionCommandContextDeps {
   readonly tiles: Map<string, DomainTileState>;
   readonly emitEvent: RuntimeProgressionCommandContext["emitEvent"];
   readonly emitPlayerStateUpdate: RuntimeProgressionCommandContext["emitPlayerStateUpdate"];
-  readonly addStrategicResource: RuntimeProgressionCommandContext["addStrategicResource"];
   readonly tileDeltaFromState: RuntimeProgressionCommandContext["tileDeltaFromState"];
   readonly replaceTileState: RuntimeProgressionCommandContext["replaceTileState"];
   readonly autoClaimFrontier: RuntimeProgressionCommandContext["autoClaimFrontier"];
@@ -77,7 +76,6 @@ export function buildProgressionCommandContext(deps: ProgressionCommandContextDe
     tiles: deps.tiles,
     emitEvent: (event) => deps.emitEvent(event),
     emitPlayerStateUpdate: (command, playerId) => deps.emitPlayerStateUpdate(command, playerId),
-    addStrategicResource: (player, resource, amount) => deps.addStrategicResource(player, resource, amount),
     tileDeltaFromState: (tile) => deps.tileDeltaFromState(tile),
     replaceTileState: (tileKey, tile, commandId) => deps.replaceTileState(tileKey, tile, commandId),
     autoClaimFrontier: (tileKeys, ownerId, causeCommandId) => deps.autoClaimFrontier(tileKeys, ownerId, causeCommandId),

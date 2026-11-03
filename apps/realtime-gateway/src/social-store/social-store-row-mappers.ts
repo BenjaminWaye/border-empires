@@ -10,14 +10,18 @@ import type {
   SocialCompletedAllianceBreak,
   SocialTruceRequest
 } from "../social-state/social-state.js";
-import { DiplomacyTermsSchema, type DiplomacyTerms } from "@border-empires/shared";
+import { DiplomacyTermsSchema, diplomacyTermsCarryRetiredShards, type DiplomacyTerms } from "@border-empires/shared";
 
 // undefined = a corrupt terms blob. The whole offer is then dropped: keeping
 // it without its terms would let the target accept a paid deal for free.
+// Terms written before Shards were removed that still carry a Shard amount
+// are dropped the same way: parsing would silently discard the Shards.
 const termsFromJson = (json: string | null | undefined): { terms?: DiplomacyTerms } | undefined => {
   if (!json) return {};
   try {
-    const parsed = DiplomacyTermsSchema.safeParse(JSON.parse(json));
+    const raw: unknown = JSON.parse(json);
+    if (diplomacyTermsCarryRetiredShards(raw)) return undefined;
+    const parsed = DiplomacyTermsSchema.safeParse(raw);
     return parsed.success ? { terms: parsed.data } : undefined;
   } catch {
     return undefined;

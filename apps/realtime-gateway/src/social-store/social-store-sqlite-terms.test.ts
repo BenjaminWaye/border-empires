@@ -48,4 +48,19 @@ describe("SqliteGatewaySocialStore offer terms", () => {
     db.prepare(`UPDATE social_truce_requests SET terms_json = ? WHERE id = ?`).run('{"give":{"gold":-5}}', "t1");
     expect(store.loadSnapshot().truceRequests).toEqual([]);
   });
+
+  // Regression: Shards were removed. An offer saved before that still asks
+  // for (or pays) Shards would otherwise reload with the Shards silently
+  // dropped, letting the target accept a Shard-paid truce for free.
+  it("drops an offer whose stored terms still carry Shards", () => {
+    const { store, db } = freshStore();
+    store.saveTruceRequest({ id: "t1", fromPlayerId: "p1", toPlayerId: "p2", createdAt: 1, expiresAt: 99_999, durationHours: 12, terms });
+    store.saveAllianceRequest({ id: "a1", fromPlayerId: "p1", toPlayerId: "p2", createdAt: 1, terms });
+    db.prepare(`UPDATE social_truce_requests SET terms_json = ? WHERE id = ?`).run('{"give":{"gold":0,"shard":0},"ask":{"gold":0,"shard":5}}', "t1");
+    db.prepare(`UPDATE social_alliance_requests SET terms_json = ? WHERE id = ?`).run('{"give":{"gold":0,"shard":0},"ask":{"gold":0,"shard":0}}', "a1");
+    const snapshot = store.loadSnapshot();
+    expect(snapshot.truceRequests).toEqual([]);
+    // A zero Shard amount is harmless legacy shape and keeps the offer.
+    expect(snapshot.allianceRequests).toEqual([expect.objectContaining({ id: "a1", terms: { give: { gold: 0 }, ask: { gold: 0 } } })]);
+  });
 });

@@ -320,7 +320,6 @@ export const createSeasonSeedWorldAsync = async (
     ownership,
     townsByTile,
     docksByTile,
-   
     worldSeed,
     terrainAt,
     seeded01: terrainRuntime.seeded01

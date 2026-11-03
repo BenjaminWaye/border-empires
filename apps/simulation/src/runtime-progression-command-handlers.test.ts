@@ -29,7 +29,6 @@ const buildContext = (
     tiles,
     emitEvent: (event) => { events.push(event); },
     emitPlayerStateUpdate: () => {},
-    addStrategicResource: () => {},
     tileDeltaFromState: (tile) => ({ x: tile.x, y: tile.y }),
     replaceTileState: () => {},
     autoClaimFrontier: () => {},

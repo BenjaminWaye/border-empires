@@ -471,10 +471,11 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Shards removed",
     why: "Shards never had a clear role: they paid for Monuments, refilled manpower and changed hands in deals, but the story never explained them.",
     changes: [
-      "Shard rain, shard caches and the Shard counter are gone",
+      "Shard rain, shard caches and the Shard counter are gone, and any Shards you held are removed",
       "Monuments now cost manpower and a Crystal slot only, with no Shards",
-      "Shard Mobilization is removed from the Manpower panel",
-      "Deals and gifts trade Coin and resource supply only"
+      "Doctrine domains from tier 2 up now cost coin only, with no Shards",
+      "Shard Mobilization and the shard rain that favoured empires that had lost land are gone",
+      "Deals and gifts trade Coin and resource supply only; pending offers that included Shards are withdrawn"
     ]
   },
   ...AETHER_TOWER_SHOTS_CHANGELOG,

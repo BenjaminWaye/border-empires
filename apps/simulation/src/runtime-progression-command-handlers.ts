@@ -16,7 +16,7 @@ import { hasSupportedStructure } from "./economy-network/economy-network.js";
 import { parseTilePayload } from "./runtime-command-parsers.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
-import type { SimulationTileWireDelta, StrategicResourceKey } from "./runtime-types.js";
+import type { SimulationTileWireDelta } from "./runtime-types.js";
 
 type TownPopulationTier = NonNullable<DomainTileState["town"]>["populationTier"];
 type UpgradeTownTier = Exclude<TownPopulationTier, "SETTLEMENT">;
@@ -32,7 +32,6 @@ export type RuntimeProgressionCommandContext = {
   tiles: Map<string, DomainTileState>;
   emitEvent: (event: SimulationEvent) => void;
   emitPlayerStateUpdate: (command: Pick<CommandEnvelope, "commandId" | "playerId">, playerId?: string) => void;
-  addStrategicResource: (player: DomainPlayer, resource: StrategicResourceKey, amount: number) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   setTileState: (tileKey: string, tile: DomainTileState) => void;

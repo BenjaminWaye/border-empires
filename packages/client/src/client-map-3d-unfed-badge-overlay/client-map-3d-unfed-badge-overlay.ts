@@ -96,7 +96,7 @@ const drawBadgeCanvas = (
 
   // Icon centred — either the game's per-resource emoji glyph set
   // (client-panel-html.ts's icon row) or, when the caller needs a shape no
-  // emoji covers (e.g. the white shard-rain icon), a custom vector drawer
+  // emoji covers, a custom vector drawer
   // invoked at the same center point instead.
   if (customIconDraw) {
     ctx.save();
