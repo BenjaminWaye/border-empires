@@ -20,6 +20,10 @@ import { createAutomationNoopDiagnostic, planAutomationCommand, type AutomationP
 import type { AutomationVictoryPath } from "./automation-strategic-snapshot.js";
 import { hasPlannerGatingLock } from "./planner-gating-lock.js";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
+import type { TownEconomyEntry } from "./build/town-economy-view.js";
+
+const townEconomyInput = (view: readonly TownEconomyEntry[] | undefined): { townEconomy?: readonly TownEconomyEntry[] } =>
+  view && view.length > 0 ? { townEconomy: view } : {};
 
 // Throttle per-tick respawn attempts for eliminated AI players. Spawn
 // placement is an O(n-tile) scan; 30 s cooldown keeps it from running
@@ -51,6 +55,7 @@ export interface RuntimeAutomationAdvisorDeps {
   resourceSlotSupplyForPlayer(playerId: string): ResourceSlotTotals;
   resourceSlotDemandForPlayer(playerId: string): ResourceSlotTotals;
   resourceSlotDormancyForPlayer(playerId: string): ResourceSlotDormancy;
+  townEconomyViewForPlayer?(playerId: string): readonly TownEconomyEntry[] | undefined;
   playerManpowerCap(player: RuntimePlayer): number;
   playerManpowerRegenPerMinute(player: RuntimePlayer): number;
   /** Visible aether targets around the focus front; only consulted once the player can cast (crystal-lattices or an Observatory). */
@@ -165,6 +170,7 @@ export class RuntimeAutomationAdvisor {
       slotSupplyByResource: deps.resourceSlotSupplyForPlayer(playerId),
       slotDemandByResource: deps.resourceSlotDemandForPlayer(playerId),
       foodDormantEconomicStructureKeys: foodDormantEconomicStructureKeysFromDormancy(deps.resourceSlotDormancyForPlayer(playerId)),
+      ...townEconomyInput(deps.townEconomyViewForPlayer?.(playerId)),
       manpowerCapacity: deps.playerManpowerCap(player),
       manpowerRegenPerMinute: deps.playerManpowerRegenPerMinute(player),
       playerScopeKeyCount,

@@ -35,7 +35,7 @@ export const structurePlacementMetadata = (type: StructurePlacementType): Struct
 // UMBRITE_WEAPONS_FACTORY are placementMode "same_tile" specifically so they
 // can stack multiple copies per town (see
 // apps/simulation/src/runtime-structure-town-support-target.ts,
-// STACKING_SUPPORT_STRUCTURE_TILE_REDIRECT_TYPES) -- but they still only
+// STACKING_SAME_TILE_SUPPORT_STRUCTURE_TYPES in structure-stacking.ts) -- but they still only
 // show on town/support tiles, exactly like the capped town_support
 // structures. Don't use isTownSupportPlacementStructure (or placementMode
 // generally) to answer "is this tile-location-restricted to a town's

@@ -54,10 +54,7 @@ import { TERRITORY_EDGE_GLOW_CHANGELOG } from "./client-changelog-territory-edge
 import { LANDING_RESERVE_CHANGELOG } from "./client-changelog-landing-reserve.js";
 import { FOG_HILL_HAZE_CHANGELOG } from "./client-changelog-fog-hill-haze.js";
 import { STORM_EDGE_BANDING_CHANGELOG } from "./client-changelog-storm-edge-banding.js";
-import { AETHER_TOWER_SHOTS_CHANGELOG } from "./client-changelog-aether-tower-shots.js";
-import { LEGAL_PAGES_CHANGELOG } from "./client-changelog-legal-pages.js";
-import { CAPTURE_AFTERMATH_CHANGELOG } from "./client-changelog-capture-aftermath.js";
-import { AFC_V3_CHANGELOG } from "./client-changelog-afc-v3.js";
+import { NOVEMBER_CHANGELOG } from "./client-changelog-data-november.js";
 import { MARCH_ACROSS_WATER_CHANGELOG } from "./client-changelog-march-across-water.js";
 import { MARCH_UNEXPLORED_CHANGELOG } from "./client-changelog-march-unexplored.js";
 import { MARCH_STOP_SHORT_CHANGELOG } from "./client-changelog-march-stop-short.js";
@@ -466,23 +463,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The last step now says plainly that manpower refills every 4 hours"
     ]
   },
-  {
-    createdAt: 1793655662084, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.02",
-    title: "Shards removed",
-    why: "Shards never had a clear role: they paid for Monuments, refilled manpower and changed hands in deals, but the story never explained them.",
-    changes: [
-      "Shard rain, shard caches and the Shard counter are gone, and any Shards you held are removed",
-      "Monuments now cost manpower and a Crystal slot only, with no Shards",
-      "Doctrine domains from tier 2 up now cost coin only, with no Shards",
-      "Shard Mobilization and the shard rain that favoured empires that had lost land are gone",
-      "Deals and gifts trade Coin and resource supply only; pending offers that included Shards are withdrawn"
-    ]
-  },
-  ...AETHER_TOWER_SHOTS_CHANGELOG,
-  ...LEGAL_PAGES_CHANGELOG,
-  ...CAPTURE_AFTERMATH_CHANGELOG,
-  ...AFC_V3_CHANGELOG
+  ...NOVEMBER_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
