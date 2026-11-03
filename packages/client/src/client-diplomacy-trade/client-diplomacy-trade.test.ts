@@ -87,6 +87,40 @@ describe("suggestedDeal", () => {
   });
 });
 
+// Suggest deal had nothing to show for an AI below Pleased: it named no price for an alliance.
+describe("alliance tribute", () => {
+  const empty = { give: { gold: 0, shard: 0 }, ask: { gold: 0, shard: 0 } };
+  // A Cautious AI (score 5) asks the 92 coin that lifts it to Pleased, plus its 2880-coin alliance price.
+  const cautious: DiplomacyStanceReply = {
+    found: true,
+    targetPlayerName: "Milo",
+    targetPlayerId: "ai-1",
+    ai: true,
+    attitude: { level: "CAUTIOUS", score: 5, modifiers: [{ label: "Our borders don't meet", value: 5 }] },
+    pricing: { ...pricing, required: { ...pricing.required, alliance: 92 + 2880 } },
+    gift: { coinPerPoint: 20, goodwillPoints: 0, maxPoints: 25 }
+  };
+
+  it("suggests the tribute and says how it splits", () => {
+    const deal = suggestedDeal(cautious, selection(0, "alliance"), { gold: 5_000, shard: 0 });
+    expect(deal).toEqual({ ...empty, give: { gold: 2972, shard: 0 } });
+    expect(verdict({ reply: cautious, selection: { ...selection(0, "alliance"), terms: deal! }, own: { gold: 5_000, shard: 0 } })).toEqual(
+      expect.objectContaining({
+        tone: "good",
+        text: "Milo would accept an alliance on these terms. Its price is tribute: about 92 coin to win it over, plus 2880 for the alliance."
+      })
+    );
+    expect(verdict({ reply: cautious, selection: selection(0, "alliance"), own: { gold: 100, shard: 0 } }).text).toBe(
+      "Milo wants about 2972 coin for this, more than you can offer. Its price is tribute: about 92 coin to win it over, plus 2880 for the alliance."
+    );
+  });
+
+  it("names no tribute once the AI is Pleased", () => {
+    const pleased = { ...cautious, attitude: { level: "PLEASED" as const, score: 12, modifiers: [] }, pricing: { ...pricing, required: { ...pricing.required, alliance: 2880 } } };
+    expect(verdict({ reply: pleased, selection: selection(2880, "alliance"), own: { gold: 5_000, shard: 0 } }).text).toBe("Milo would accept an alliance on these terms.");
+  });
+});
+
 describe("warTally", () => {
   it("shows the tiles each side took while at war, as the AI counts them", () => {
     expect(warTally(aiReply)).toEqual({ youTook: 2, theyTook: 5 });

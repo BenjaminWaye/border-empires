@@ -13,7 +13,7 @@
 // not enrolled -- every account older than the guide -- keep the checklist.
 
 import { buildGuideInput, type GuideInputState } from "./tutorial-guide-input.js";
-import { evaluateGuide, type GuideView } from "./tutorial-guide-steps.js";
+import { evaluateGuide, footholdBeaconShowing, type GuideView } from "./tutorial-guide-steps.js";
 import { isGuideActive, markGuideStepsCompleted, readGuideProgress, setGuideStatus } from "./tutorial-guide-storage.js";
 import { removeGuideCard, renderGuideCard, type GuideCardHandlers } from "./tutorial-guide-card.js";
 import { removeGuideAnchorOutline, syncGuideAnchorOutline } from "./tutorial-guide-anchor.js";
@@ -51,9 +51,13 @@ const handlers: GuideCardHandlers = {
     if (lastView) markGuideStepsCompleted([lastView.step.id], lastAuthEmail);
     forceRerender();
   },
+  // Finish ends the guide even when Contest / Diplomacy are still waiting for a
+  // first contact: the First Contact discovery tip covers muster flags later.
   onFinish: () => {
     if (lastView) markGuideStepsCompleted([lastView.step.id], lastAuthEmail);
-    forceRerender();
+    setGuideStatus("done", lastAuthEmail);
+    setOnboardingRelayBeaconSite(undefined);
+    removeTutorialGuideUi();
   },
   onHide: () => {
     setGuideStatus("dismissed", lastAuthEmail);
@@ -84,7 +88,7 @@ export const isTutorialGuideRunning = (authEmail: string | null | undefined): bo
 export const isEnrolledInTutorialGuide = (authEmail: string | null | undefined): boolean => readGuideProgress(authEmail).status !== "";
 
 const signatureOf = (view: StepView): string =>
-  [view.step.id, view.title, view.completedCount, view.waiting, view.highlightTiles.length > 0, expanded].join("|");
+  [view.step.id, view.title, view.why, view.lookFor?.join(",") ?? "", view.completedCount, view.waiting, view.highlightTiles.length > 0, expanded].join("|");
 
 /**
  * Evaluates and renders the guide. Returns the map tiles to highlight (empty
@@ -124,7 +128,7 @@ export const renderTutorialGuide = (state: GuideInputState, deferred: boolean): 
     removeTutorialGuideUi();
     return [];
   }
-  const beaconStepShowing = !deferred && !view.waiting && view.step.chapter === "foothold" && input.checklist.step === "EXPAND_RELAY_BEACON";
+  const beaconStepShowing = !deferred && !view.waiting && footholdBeaconShowing(view.step.id, input);
   setOnboardingRelayBeaconSite(beaconStepShowing ? input.checklist.relayBeaconSite : undefined);
   if (deferred) {
     if (lastView) removeTutorialGuideUi();

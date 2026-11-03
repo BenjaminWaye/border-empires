@@ -4,7 +4,9 @@ import { TRADABLE_SUPPLY_RESOURCES, supplyResourceLabel, evaluateResourceTradeOf
 // gateway decides with, so "would accept" here means the AI really accepts.
 import {
   aiCounterOffer,
+  ATTITUDE_MIN_SCORE,
   emptyDiplomacyTerms,
+  giftToReach,
   evaluateAiOffer,
   extensionPricing,
   requiredForOffer,
@@ -92,6 +94,21 @@ export type TradeVerdict = {
 const offerLabel = (selection: TradeSelection): string =>
   selection.kind === "trade" ? "a resource trade" : selection.kind === "alliance" ? "an alliance" : `a ${selection.durationHours}h truce${extendsTruce(selection) ? " extension" : ""}`;
 
+/**
+ * An AI below Pleased asks tribute for an alliance (the gateway's
+ * ai-diplomacy-pricing.ts): coin that wins it over -- deal payments count as
+ * goodwill -- plus its alliance price. Says how the price splits, or "" when
+ * no tribute is involved.
+ */
+export const allianceTributeNote = (reply: DiplomacyStanceReply | undefined, selection: TradeSelection): string => {
+  if (selection.kind !== "alliance" || !reply?.found || !reply.ai || !reply.attitude || !reply.gift) return "";
+  const required = reply.pricing ? requiredForOffer(reply.pricing, "alliance", selection.durationHours) : null;
+  if (required === null || reply.attitude.score >= ATTITUDE_MIN_SCORE.PLEASED) return "";
+  const winOver = giftToReach(reply.gift, reply.attitude.score, ATTITUDE_MIN_SCORE.PLEASED);
+  if (winOver === undefined) return "";
+  return ` Its price is tribute: about ${winOver} coin to win it over, plus ${Math.max(0, required - winOver)} for the alliance.`;
+};
+
 export const formatOfferCooldown = (remainingMs: number): string => `${Math.max(1, Math.ceil(remainingMs / 60_000))}m`;
 
 export const tradeVerdict = (input: {
@@ -132,7 +149,8 @@ export const tradeVerdict = (input: {
 
   const pricing = pricingFor(reply.pricing, selection);
   const verdict = evaluateAiOffer(pricing, kind, selection.durationHours, selection.terms);
-  if (verdict.accepts) return { tone: "good", text: `${targetName} would accept ${offerLabel(selection)} on these terms.`, canSend: true, sendLabel };
+  const tribute = allianceTributeNote(reply, selection);
+  if (verdict.accepts) return { tone: "good", text: `${targetName} would accept ${offerLabel(selection)} on these terms.${tribute}`, canSend: true, sendLabel };
   if (verdict.reason === "refuses") {
     const refusal = kind === "alliance" ? reply.allianceRefusal : reply.truceRefusal;
     return { tone: "bad", text: refusal ?? `${targetName} won't agree to ${offerLabel(selection)} at any price right now.`, canSend: true, sendLabel };
@@ -147,9 +165,9 @@ export const tradeVerdict = (input: {
   const offered = netValueToAi(selection.terms, reply.pricing.shardCoinValue);
   return {
     tone: "bad",
-    text: affordable
+    text: (affordable
       ? `${targetName} would refuse: wants about ${verdict.shortfall} more coin.`
-      : `${targetName} wants about ${Math.max(0, Math.ceil(required - offered))} coin for this, more than you can offer.`,
+      : `${targetName} wants about ${Math.max(0, Math.ceil(required - offered))} coin for this, more than you can offer.`) + tribute,
     canSend: true,
     sendLabel
   };

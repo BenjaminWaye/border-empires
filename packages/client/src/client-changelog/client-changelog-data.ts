@@ -4,6 +4,7 @@ import { CLIENT_CHANGELOG_ENTRIES_OCT_25 } from "./client-changelog-oct-25.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_26 } from "./client-changelog-oct-26.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_27 } from "./client-changelog-oct-27.js";
 import { CLIENT_CHANGELOG_ENTRIES_OCT_30_31 } from "./client-changelog-oct-30-31.js";
+import { CLIENT_CHANGELOG_ENTRIES_NOV_01_03 } from "./client-changelog-nov-01-03.js";
 import { RAW_DEPOSIT_UNDER_IMPROVEMENT_CHANGELOG } from "./client-changelog-raw-deposit-under-improvement.js";
 import { RESOURCE_NETWORKS_CHANGELOG } from "./client-changelog-resource-networks.js";
 import { RELIABLE_DIPLOMACY_CHANGELOG } from "./client-changelog-reliable-diplomacy.js";
@@ -444,23 +445,22 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Barbarians wandering over empty land no longer push real captures out of the 24-hour activity history"
     ]
   },
+  ...CLIENT_CHANGELOG_ENTRIES_NOV_01_03,
   {
-    createdAt: 1793565464215, // Date.now() captured once for this entry.
-    introducedIn: "2026.11.01",
-    title: "Towns in the new HUD",
-    why: "The new HUD had no way to reach the town list.",
-    changes: ["A Towns button next to Manifest lists your towns, sortable by gold, population or growth", "Press a town to open its town screen"]
-  },
-  {
-    createdAt: 1793605577111, // Date.now() captured when this entry was written.
-    introducedIn: "2026.11.02",
-    title: "Queued garrisons wait for manpower",
-    why: "A queued garrison that came up while your manpower pool was short was dropped from the queue instead of waiting.",
+    createdAt: 1793696822571, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.03",
+    title: "Guide: clearer first steps, a Manufactory, and diplomacy",
+    why: "Playtesting the guide showed steps asking for the wrong action (Expand To on land you already held, Build on tiles you couldn't build on yet) and a last step that didn't say what to do.",
     changes: [
-      "Garrisoning without enough manpower now queues the garrison instead of refusing it",
-      "A queued garrison waits for the next manpower batch, reserves its manpower, then starts on its own, even while you're offline",
-      "Its queue card shows \"Needs manpower\" while it waits",
-      "Builds queued behind a waiting garrison no longer wait with it"
+      "A town or food tile your reach already claimed: the guide says to Garrison it",
+      "One you can see outside your reach: the guide says to Expand To it",
+      "Nothing in sight: the guide marks a tile for a Relay Beacon",
+      "The food steps show the grain and fish icons to look for on the map",
+      "The guide asks you to tap your AFC rather than any tile, since tapping land next to your border claims it",
+      "It recommends the Industrial Tooling Module as your first Manifest, then, once the module has docked at your AFC, asks for a Manufactory on your town",
+      "A new Diplomacy step appears once you meet a rival House: open Diplomacy to offer a truce",
+      "You can finish the guide even if you haven't met Planetary Defense or a rival yet; Finish closes it for good",
+      "The last step now says plainly that manpower refills every 4 hours"
     ]
   },
   ...NOVEMBER_CHANGELOG
