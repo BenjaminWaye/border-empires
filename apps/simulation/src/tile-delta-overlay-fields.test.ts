@@ -10,7 +10,6 @@ import { TileDeltaStringifyCache } from "./tile-delta-stringify-cache/tile-delta
 // (dropping a field from that array would silently pass a test that reads
 // its expectations from the same array).
 const EXPECTED_OVERLAY_JSON_FIELDS = [
-  "shardSiteJson",
   "naturalWonderJson",
   "fortJson",
   "observatoryJson",
@@ -39,7 +38,6 @@ const fullyLoadedTile: DomainTileState = {
   terrain: "LAND",
   ownerId: "p1",
   ownershipState: "SETTLED",
-  shardSite: { kind: "CACHE", amount: 5 },
   naturalWonder: { type: "DEEPWATER_ENGINE" },
   fort: { ownerId: "p1", status: "active" },
   observatory: { ownerId: "p1", status: "active" },
@@ -82,15 +80,14 @@ describe("overlay JSON field parity across tile delta builders", () => {
   });
 
   it("tileDeltaFromState still surfaces a cleared overlay field as an explicit key (not omitted)", () => {
-    // A field going from set -> cleared (e.g. a collected shard site) must
+    // A field going from set -> cleared (e.g. a removed fort) must
     // remain a present key with an undefined/falsy value so subscribers can
     // tell "cleared" apart from "never mentioned" via `"xJson" in delta`.
     const deps = makeTileDeltaFromStateDeps();
-    const withShard = { ...fullyLoadedTile, shardSite: { kind: "CACHE" as const, amount: 5 } };
-    tileDeltaFromState(deps, withShard);
-    const cleared = { ...fullyLoadedTile, shardSite: undefined };
+    tileDeltaFromState(deps, { ...fullyLoadedTile });
+    const { fort: _removedFort, ...cleared } = fullyLoadedTile;
     const delta = tileDeltaFromState(deps, cleared);
-    expect("shardSiteJson" in delta).toBe(true);
-    expect(delta.shardSiteJson).toBeFalsy();
+    expect("fortJson" in delta).toBe(true);
+    expect(delta.fortJson).toBeFalsy();
   });
 });

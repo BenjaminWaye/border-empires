@@ -69,7 +69,6 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     clearRenderCaches,
     buildMiniMapBase,
     showCaptureAlert,
-    applyShardRainNotice,
     logTileSync,
     logIncomingTechPayload,
     showCaptureAlertSafely,
@@ -417,10 +416,6 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     buildMiniMapBase();
   }
   const mapMeta = (msg.mapMeta as { dockCount?: number; dockPairCount?: number; clusterCount?: number; townCount?: number; dockPairs?: any[] } | undefined) ?? {};
-  const shardRainNotice =
-    (msg.shardRainNotice as
-      | { phase?: "upcoming" | "started"; startsAt?: number; expiresAt?: number; siteCount?: number; sites?: { x: number; y: number }[] }
-      | undefined) ?? undefined;
   const offlineActivity =
     (msg.offlineActivity as
       | Array<{ title?: string; detail?: string; type?: string; severity?: string; at?: number; tileKey?: string; actionLabel?: string }>
@@ -479,7 +474,6 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     pushFeed,
     showCaptureAlert: showCaptureAlertSafely
   });
-  applyShardRainNotice(shardRainNotice);
   applySettlementRepairDiagnostic(msg as Record<string, unknown>);
   syncAuthOverlay();
   renderHud();

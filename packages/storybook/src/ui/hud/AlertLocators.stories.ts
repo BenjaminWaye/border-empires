@@ -4,8 +4,8 @@ import type { Tile } from "@client/client-types.js";
 
 /**
  * Renders the *real* implementation from client-persistent-alerts.ts — every
- * off-screen locator kind, all well outside the camera view: a shard rain
- * site (💎), an active muster flag (crossed swords), and an unfed town (!).
+ * off-screen locator kind, all well outside the camera view: an active
+ * muster flag (crossed swords) and an unfed town (!).
  * Each is the same round pin body with a single tapered tip pointing at its
  * target (drawLocatorPinBody), just a different glyph inside.
  */
@@ -61,23 +61,13 @@ const buildState = () => ({
   ]),
   persistentAlertLocators: [] as Array<{
     id: string;
-    kind: "town_unfed" | "muster_active" | "waypoint_manpower_paused" | "shard_rain";
+    kind: "town_unfed" | "muster_active" | "waypoint_manpower_paused";
     x: number;
     y: number;
     screenX: number;
     screenY: number;
     radius: number;
-  }>,
-  // Far outside the visible window in three different directions, so all
-  // three locators render at once without overlapping.
-  shardRainStatus: {
-    key: "storybook-rain",
-    phase: "started" as const,
-    startsAt: Date.now() - 60_000,
-    expiresAt: Date.now() + 25 * 60_000,
-    siteCount: 1,
-    sites: [{ x: 340, y: 260 }]
-  }
+  }>
 });
 
 const render = (): HTMLElement => {
@@ -136,7 +126,7 @@ const render = (): HTMLElement => {
   legend.style.lineHeight = "1.7";
   legend.innerHTML = `
     <h3 style="margin: 0 0 0.5rem 0; font-size: 1rem;">Off-Screen Alert Pins</h3>
-    <p style="margin: 0;">Three alerts, all off-screen: a shard rain site (💎) to the southeast, an active muster flag (crossed swords) to the east, and an unfed town (!) to the west. Every kind uses the same round pin body — an icon slot with a single tapered tip pointing at the target, like the off-screen ping markers in Apex Legends, Destiny 2, or Fortnite.</p>
+    <p style="margin: 0;">Two alerts, both off-screen: an active muster flag (crossed swords) to the east, and an unfed town (!) to the west. Every kind uses the same round pin body — an icon slot with a single tapered tip pointing at the target, like the off-screen ping markers in Apex Legends, Destiny 2, or Fortnite.</p>
   `;
 
   container.appendChild(canvas);

@@ -11,7 +11,6 @@ export type TileActionDef = {
     | "reveal_empire"
     | "reveal_empire_stats"
     | "survey_sweep"
-    | "collect_shard"
     | "build_fortification"
     | "build_palisade"
     | "build_observatory"

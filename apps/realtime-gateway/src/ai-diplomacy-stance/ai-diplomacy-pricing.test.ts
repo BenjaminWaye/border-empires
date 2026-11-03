@@ -61,7 +61,7 @@ const price = (options: {
       bordersTouch,
       aiIncomePerMinute: aiIncome,
       requesterIncomePerMinute: requesterIncome,
-      aiHoldings: { gold: options.aiGold ?? 0, shard: 0 },
+      aiHoldings: { gold: options.aiGold ?? 0 },
       requesterBrokeTruceWithAi: options.brokeTruce ?? false,
       aiWouldLeadAlliance: "aiWouldLeadAlliance" in options ? options.aiWouldLeadAlliance : true,
       ...(options.giftToPleased !== undefined ? { giftToPleased: options.giftToPleased } : {}),
@@ -247,7 +247,7 @@ describe("answerDiplomacyStanceQuery", () => {
   const aiSnapshot = {
     playerId: "ai-1",
     tiles: [],
-    player: { manpower: 800, manpowerCap: 1000, gold: 40, incomePerMinute: 2, strategicResources: { SHARD: 1 } },
+    player: { manpower: 800, manpowerCap: 1000, gold: 40, incomePerMinute: 2, strategicResources: {} },
     worldStatus: { leaderboard: { overall: [{ id: "ai-1", tiles: 100 }] } }
   } as unknown as PlayerSubscriptionSnapshot;
   const deps = {
@@ -268,7 +268,7 @@ describe("answerDiplomacyStanceQuery", () => {
       stance: { kind: "INDIFFERENT", reason: "Milo has no quarrel with you: your borders don't meet." },
       attitude: { level: "CAUTIOUS", score: 5, modifiers: [{ label: "Our borders don't meet", value: 5 }] },
       war: { atWar: false, aiWinning: false, aiLosing: false, tilesTakenFromAi: 0, tilesTakenByAi: 0 },
-      pricing: { required: { truce12: 0, truce24: 0, alliance: 92 + 24 * 60 * 2 }, shardCoinValue: 25, aiHoldings: { gold: 40, shard: 1 } },
+      pricing: { required: { truce12: 0, truce24: 0, alliance: 92 + 24 * 60 * 2 }, aiHoldings: { gold: 40 } },
       gift: { coinPerPoint: 20, goodwillPoints: 0, maxPoints: 25 }
     });
   });

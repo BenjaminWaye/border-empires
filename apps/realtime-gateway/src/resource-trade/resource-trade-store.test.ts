@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import type { ResourceTradeOffer } from "@border-empires/shared";
 import { InMemoryResourceTradeOfferStore, SqliteResourceTradeOfferStore } from "./resource-trade-store.js";
 const offer=(id="offer",from="a",to="b"):ResourceTradeOffer=>({id,fromPlayerId:from,toPlayerId:to,fromPlayerName:from,toPlayerName:to,
-  terms:{give:{gold:0,shard:0,resources:{NEURAL_RESIN:1}},ask:{gold:2,shard:0}},createdAt:1,expiresAt:100,status:"pending"});
+  terms:{give:{gold:0,resources:{NEURAL_RESIN:1}},ask:{gold:2}},createdAt:1,expiresAt:100,status:"pending"});
 describe.each([false,true])("bounded resource trade offers (SQLite=%s)",sqlite=>{
   it("expires pending offers, preserves uncertain settlements and clears campaign state",()=>{
     const db=sqlite?new DatabaseSync(":memory:"):undefined;

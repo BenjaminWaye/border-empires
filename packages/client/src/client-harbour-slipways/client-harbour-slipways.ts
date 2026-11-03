@@ -67,7 +67,7 @@ export const rotationForFacing = (facing: Facing): number => Math.atan2(facing.d
 export const slipwayFitForTile = (tile: Tile | undefined): SlipwayFit | undefined => {
   if (!tile || tile.terrain !== "LAND") return undefined;
   if (tile.town || tile.naturalWonder || tile.afc || tile.dockId) return undefined;
-  if (tile.fort || tile.observatory || tile.siegeBattery || tile.economicStructure || tile.watchtower || tile.waystation || tile.shardSite || tile.resource) {
+  if (tile.fort || tile.observatory || tile.siegeBattery || tile.economicStructure || tile.watchtower || tile.waystation || tile.resource) {
     return "shrunk";
   }
   return "full";

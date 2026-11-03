@@ -18,7 +18,6 @@ const row = (overrides: Partial<DebugRow>): DebugRow =>
     domainIds: [],
     resourceSlotSupply: { FOOD: 1, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
     resourceSlotDemand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
-    shardStockpile: 0,
     settledTileCount: 5,
     ownedTileCount: 9,
     incomePerMinute: 2,

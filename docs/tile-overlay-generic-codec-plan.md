@@ -16,7 +16,7 @@ Status: active proposal
 
 Adding "natural wonders" to the game (Aug 2026) required fixing the same bug
 twice, in two different files (#1160, #1162), because a tile's overlay data
-(fort, shard site, natural wonder, muster, ...) has to survive **three
+(fort, natural wonder, muster, ...) has to survive **three
 independent hand-written codecs** across two process boundaries:
 
 ```
@@ -36,8 +36,8 @@ client-side tile store
 ```
 
 Every overlay field name appears, hand-typed, in roughly **20 files**
-(`shardSiteJson` alone: `grep -rl shardSiteJson apps/ packages/` returns 21
-matches as of 2026-08-03). A new overlay field requires editing most of them.
+(the since-removed `shardSiteJson` alone appeared in 21 files as of
+2026-08-03). A new overlay field requires editing most of them.
 Two of the four proto-serialization.ts spots were fixed in this pass
 (#1162 + a follow-up table-driven refactor); the underlying multi-codec
 shape is unchanged.
@@ -48,7 +48,7 @@ Replace "one named field per overlay kind, hand-listed at every layer" with
 **one generic map field**, keyed by overlay name, threaded through all three
 codecs unchanged. Concretely:
 
-- `.proto`: replace `fort_json`, `observatory_json`, `shard_site_json`,
+- `.proto`: replace `fort_json`, `observatory_json`,
   `natural_wonder_json`, ... (currently ~9 separate `optional string` fields)
   with a single `map<string, string> overlay_json = N;` field.
 - `SimulationTileWireDelta` (sim-side wire shape): same idea --

@@ -55,7 +55,7 @@ export interface StructureSpec {
     gold: number;
     manpower: number;
     strategic?: Partial<
-      Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>
+      Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>
     >;
   };
   /** Build duration in milliseconds (pre-tech-mults). */

@@ -44,7 +44,6 @@ import { createAuthReconnectScheduler } from "../client-auth-reconnect/client-au
 import { bindClientSocketLifecycle } from "./client-network-socket-lifecycle.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import { notificationCategoryForServerError, serverStartingBusyMessages } from "../client-persistent-alerts/client-persistent-alerts.js";
-import { createShardRainNoticeHandlers } from "../client-shard-rain-notice-apply.js";
 import { maybeShowRuinsPrompt } from "../client-ruins-prompt.js";
 import { handleTileDeltaBatchMessage, refreshOnboardingChecklistHighlight } from "../client-tile-delta-batch-handler/client-tile-delta-batch-handler.js";
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
@@ -87,7 +86,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     applyPendingSettlementsFromServer,
     mergeIncomingTileDetail,
     mergeServerTileWithOptimisticState,
-    maybeAnnounceShardSite,
     markDockDiscovered,
     centerOnOwnedTile,
     authProfileNameEl,
@@ -97,8 +95,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     setWorldSeed,
     clearRenderCaches,
     buildMiniMapBase,
-    shardAlertKeyForPayload,
-    showShardAlert,
     combatResolutionAlert,
     wasPredictedCombatAlreadyShown,
     showCaptureAlert,
@@ -118,7 +114,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     applyOptimisticTileState
   } = deps;
   let emptyServerErrorWarned = false;
-  const { applyShardRainNotice, applyShardRainNoticeQuiet } = createShardRainNoticeHandlers(state, shardAlertKeyForPayload, showShardAlert);
   const logTileSync = (event: string, payload: Record<string, unknown>): void => {
     if (!tileSyncDebugEnabled()) return;
     console.info(`[tile-sync] ${event}`, payload);
@@ -747,7 +742,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           }
         });
       }
-      maybeAnnounceShardSite(existing, mergedTile);
       if (!mergedTile.optimisticPending) clearOptimisticTileState(keyFor(mergedTile.x, mergedTile.y));
       markDockDiscovered(mergedTile);
       state.discoveredTiles.add(keyFor(mergedTile.x, mergedTile.y));
@@ -972,7 +966,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       clearAuthInFlight?.(); applyInitMessage(msg, {
         ...deps,
         setAuthBusy,
-        applyShardRainNotice: applyShardRainNoticeQuiet,
         logTileSync,
         logIncomingTechPayload,
         showCaptureAlertSafely,
@@ -1079,7 +1072,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       } else {
         state.goldAnimDir = 0;
       }
-      for (const resource of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const) {
+      for (const resource of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"] as const) {
         const prev = prevStrategic[resource] ?? 0;
         const next = state.strategicResources[resource] ?? 0;
         if (next > prev) {
@@ -1804,7 +1797,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             }
           });
         }
-        maybeAnnounceShardSite(existing, resolved);
         if (!resolved.optimisticPending) clearOptimisticTileState(updateKey);
         markDockDiscovered(resolved);
         state.discoveredTiles.add(updateKey);
@@ -1980,15 +1972,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         return;
       }
       clearAuthInFlight?.(); if (rawCode === "JOIN_SEASON_FAILED") state.joinSeasonPending = false;
-      if ((msg.code as string | undefined)?.startsWith("COLLECT")) {
-        const pending = state.pendingShardCollect;
-        if (pending && msg.code === "COLLECT_NOT_OWNED") {
-          const tile = state.tiles.get(pending.tileKey);
-          if (tile) state.tiles.set(pending.tileKey, { ...tile, shardSite: pending.shardSite });
-          renderHud();
-        }
-        state.pendingShardCollect = undefined;
-      }
       const failedTargetKey = state.actionTargetKey;
       const failedTargetTile = failedTargetKey ? state.tiles.get(failedTargetKey) : undefined;
       const errorCode = String(msg.code ?? "");
@@ -2436,7 +2419,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
     if (msg.type === "HINT_STATE_SET") { applyHintStateSetMessage(msg, state.authEmail, state.bridgeDebugSeasonId); return; } if (msg.type === "EMAIL_NOTIFICATION_PREFS_SET") { applyEmailNotificationPrefsFromServer(msg.prefs as Record<string, unknown> | undefined); return; }
 
-    if (msg.type === "COLLECT_RESULT") { handleCollectResultMessage(msg, { state, pushFeed, renderHud }); return; }
+    if (msg.type === "COLLECT_RESULT") { handleCollectResultMessage(msg, { pushFeed, renderHud }); return; }
 
     if (msg.type === "SEASON_ROLLOVER" || msg.type === "WORLD_REGENERATED") {
       clearDeferredBootstrapRefreshTimer();
@@ -2447,7 +2430,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         clearRenderCaches();
         buildMiniMapBase();
       }
-      state.pendingShardCollect = undefined;
       state.mapLoadStartedAt = Date.now();
       state.firstChunkAt = 0;
       state.chunkFullCount = 0;
@@ -2464,23 +2446,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
 
-    if (msg.type === "SHARD_RAIN_EVENT") {
-      if (
-        (msg.phase as string | undefined) === "started" &&
-        typeof (msg.startsAt as number | undefined) === "number" &&
-        typeof (msg.expiresAt as number | undefined) === "number"
-      ) {
-        state.shardRainFxUntil = Date.now() + 8_000;
-      }
-      applyShardRainNotice({
-        phase: msg.phase as string | undefined,
-        startsAt: msg.startsAt as number | undefined,
-        expiresAt: msg.expiresAt as number | undefined,
-        siteCount: msg.siteCount as number | undefined,
-        sites: Array.isArray(msg.sites) ? (msg.sites as { x: number; y: number }[]) : undefined
-      });
-      renderHud();
-    }
     if (typeof msg.type === "string" && ABILITY_RESULT_MESSAGE_TYPES.has(msg.type)) {
       applyAbilityResultMessage(state, msg);
       renderHud();

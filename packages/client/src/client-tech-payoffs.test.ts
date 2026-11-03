@@ -63,7 +63,7 @@ describe("revealResource highlight tag", () => {
   });
 
   it("is skipped for an unrecognized reveal category rather than rendering a blank tag", () => {
-    const tags = techHighlightTags({ effects: { revealResource: "shard" } });
+    const tags = techHighlightTags({ effects: { revealResource: "unobtainium" } });
     expect(tags).toEqual([]);
   });
 });

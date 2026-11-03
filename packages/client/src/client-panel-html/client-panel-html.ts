@@ -311,10 +311,10 @@ export const truceRequestsHtml = (
 };
 
 export const strategicRibbonHtml = (
-  strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>,
-  strategicProductionPerMinute: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>,
+  strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>,
+  strategicProductionPerMinute: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>,
   upkeepPerMinute: { food: number; titanium: number; umbrite: number; crystal: number; gold: number },
-  strategicAnim: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", { until: number; dir: -1 | 0 | 1 }>,
+  strategicAnim: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", { until: number; dir: -1 | 0 | 1 }>,
   rateToneClass: (rate: number) => string,
   resourceSlots?: { supply: Record<string, number>; demand: Record<string, number> },
   isRevealed?: (key: "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE") => boolean

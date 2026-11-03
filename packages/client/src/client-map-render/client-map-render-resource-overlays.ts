@@ -29,10 +29,6 @@ const resourceOverlayVariants = {
   TITANIUM: createOverlayVariantSet(["titanium-overlay-1.svg", "titanium-overlay-2.svg", "titanium-overlay-3.svg"]),
   GEMS: createOverlayVariantSet(["gems-overlay-1.svg", "gems-overlay-2.svg", "gems-overlay-3.svg", "gems-overlay-4.svg"])
 } as const;
-const shardOverlayVariants = {
-  CACHE: createOverlayVariantSet(["shardfall-overlay-1.svg", "shardfall-overlay-2.svg"]),
-  FALL: createOverlayVariantSet(["shardfall-overlay-1.svg", "shardfall-overlay-2.svg"])
-} as const;
 
 export const overlayVariantIndexAt = (x: number, y: number, count: number): number => {
   const hash = (((x + 1) * 374761393) ^ ((y + 1) * 668265263)) >>> 0;
@@ -59,12 +55,6 @@ export const builtResourceOverlayForTile = (tile: Tile): HTMLImageElement | unde
     : undefined;
   if (!key) return undefined;
   const variants = builtResourceOverlayVariants[key];
-  return variants[overlayVariantIndexAt(tile.x, tile.y, variants.length)];
-};
-
-export const shardOverlayForTile = (tile: Tile): HTMLImageElement | undefined => {
-  if (!tile.shardSite) return undefined;
-  const variants = shardOverlayVariants[tile.shardSite.kind];
   return variants[overlayVariantIndexAt(tile.x, tile.y, variants.length)];
 };
 

@@ -9,7 +9,7 @@ import { SqliteGatewaySocialStore } from "./social-store-sqlite.js";
 // sqlite-player-growth-baseline-store.test.ts), so load it at runtime.
 const { DatabaseSync } = createRequire(import.meta.url)("node:sqlite") as { DatabaseSync: typeof DatabaseSyncType };
 
-const terms = { give: { gold: 50, shard: 0 }, ask: { gold: 0, shard: 2 } };
+const terms = { give: { gold: 50 }, ask: { gold: 0 } };
 
 const freshStore = (): { store: SqliteGatewaySocialStore; db: DatabaseSyncType } => {
   const db = new DatabaseSync(":memory:");

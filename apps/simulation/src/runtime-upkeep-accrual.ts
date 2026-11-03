@@ -109,8 +109,7 @@ export const applyEconomyAccrual = (ctx: RuntimeUpkeepAccrualContext, player: Ru
       FOOD: player.strategicResources?.FOOD ?? 0,
       TITANIUM: player.strategicResources?.TITANIUM ?? 0,
       CRYSTAL: player.strategicResources?.CRYSTAL ?? 0,
-      UMBRITE: player.strategicResources?.UMBRITE ?? 0,
-      SHARD: player.strategicResources?.SHARD ?? 0
+      UMBRITE: player.strategicResources?.UMBRITE ?? 0
     };
     let mutated = false;
     for (const res of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"] as const) {

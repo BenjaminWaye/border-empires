@@ -93,8 +93,7 @@ export const emptyStrategic = (): Record<StrategicResourceKey, number> => ({
   FOOD: 0,
   TITANIUM: 0,
   CRYSTAL: 0,
-  UMBRITE: 0,
-  SHARD: 0
+  UMBRITE: 0
 });
 
 export const addBucket = (

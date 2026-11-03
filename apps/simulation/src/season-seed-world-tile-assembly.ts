@@ -1,6 +1,6 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { Tile, TileKey } from "@border-empires/shared";
-import { prospectSignatureAt, type ClusterDefinition, type NaturalWonderSiteState, type ShardSiteState, type TownDefinition, type WatchtowerSiteState, type WaystationSiteState } from "@border-empires/game-domain";
+import { prospectSignatureAt, type ClusterDefinition, type NaturalWonderSiteState, type TownDefinition, type WatchtowerSiteState, type WaystationSiteState } from "@border-empires/game-domain";
 import type { GeneratedDockState } from "./season-seed-world.js";
 
 /**
@@ -16,7 +16,6 @@ export type SeasonSeedTileAssemblyDeps = {
   docksByTile: ReadonlyMap<TileKey, GeneratedDockState>;
   townsByTile: ReadonlyMap<TileKey, TownDefinition>;
   ownership: ReadonlyMap<TileKey, string>;
-  shardSitesByTile: ReadonlyMap<TileKey, ShardSiteState>;
   watchtowersByTile: ReadonlyMap<TileKey, WatchtowerSiteState>;
   waystationsByTile: ReadonlyMap<TileKey, WaystationSiteState>;
   naturalWondersByTile: ReadonlyMap<TileKey, NaturalWonderSiteState>;
@@ -38,7 +37,6 @@ export const buildSeasonSeedTile = (
   const dock = deps.docksByTile.get(tk);
   const town = deps.townsByTile.get(tk);
   const ownerId = deps.ownership.get(tk);
-  const shardSite = deps.shardSitesByTile.get(tk);
   const watchtower = deps.watchtowersByTile.get(tk);
   const waystation = deps.waystationsByTile.get(tk);
   const site = deps.naturalWondersByTile.get(tk);
@@ -53,7 +51,6 @@ export const buildSeasonSeedTile = (
       ? { prospectSignature: prospectSignatureAt(x, y, deps.clustersById.values(), deps.worldWidth, deps.worldHeight) }
       : {}),
     ...(dock ? { dockId: dock.dockId } : {}),
-    ...(shardSite ? { shardSite: { kind: shardSite.kind, amount: shardSite.amount, ...(shardSite.expiresAt ? { expiresAt: shardSite.expiresAt } : {}) } } : {}),
     ...(watchtower ? { watchtower: { activated: watchtower.activated, ...(watchtower.activatedByPlayerId ? { activatedByPlayerId: watchtower.activatedByPlayerId } : {}) } } : {}),
     ...(waystation ? { waystation: { activated: waystation.activated, ...(waystation.activatedByPlayerId ? { activatedByPlayerId: waystation.activatedByPlayerId } : {}) } } : {}),
     ...(naturalWonder ? { naturalWonder: { ...naturalWonder } } : {}),

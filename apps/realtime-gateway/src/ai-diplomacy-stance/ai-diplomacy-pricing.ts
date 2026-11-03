@@ -17,7 +17,7 @@
 // goodwill cap allows it) asks tribute instead of refusing: the coin that
 // lifts it to Pleased -- deal payments count as goodwill once accepted --
 // plus its Pleased alliance price.
-import { SHARD_COIN_VALUE, type AiDiplomacyPricing, type DiplomacyGoods } from "@border-empires/shared";
+import { type AiDiplomacyPricing, type DiplomacyGoods } from "@border-empires/shared";
 
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
 import { ATTITUDE_RANK, type AiAttitude, type AiOpinion } from "./ai-diplomacy-opinion.js";
@@ -73,7 +73,7 @@ export const aiDiplomacyPricing = (input: {
   const hoursToCoin = (hours: number, perMinute: number): number => Math.round(hours * 60 * perMinute);
   const { opinion, memory, aiName } = input;
   const { war } = opinion;
-  const aiHoldings = { ...(input.aiHoldings.resources ? { resources: input.aiHoldings.resources } : {}), gold: Math.max(0, Math.floor(input.aiHoldings.gold)), shard: Math.max(0, Math.floor(input.aiHoldings.shard)) };
+  const aiHoldings = { ...(input.aiHoldings.resources ? { resources: input.aiHoldings.resources } : {}), gold: Math.max(0, Math.floor(input.aiHoldings.gold)) };
 
   // --- truce ---
   let truceRefusal: string | undefined;
@@ -124,7 +124,7 @@ export const aiDiplomacyPricing = (input: {
   const alliance = allianceHours === undefined ? null : hoursToCoin(allianceHours, priceIncome) + (tribute ?? 0);
 
   return {
-    pricing: { required: { truce12, truce24, alliance }, shardCoinValue: SHARD_COIN_VALUE, aiHoldings },
+    pricing: { required: { truce12, truce24, alliance }, aiHoldings },
     ...(truceRefusal ? { truceRefusal } : {}),
     ...(allianceRefusal ? { allianceRefusal } : {})
   };

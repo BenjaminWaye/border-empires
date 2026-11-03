@@ -465,6 +465,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The last step now says plainly that manpower refills every 4 hours"
     ]
   },
+  {
+    createdAt: 1793655662084, // Date.now() captured once for this entry.
+    introducedIn: "2026.11.02",
+    title: "Shards removed",
+    why: "Shards never had a clear role: they paid for Monuments, refilled manpower and changed hands in deals, but the story never explained them.",
+    changes: [
+      "Shard rain, shard caches and the Shard counter are gone",
+      "Monuments now cost manpower and a Crystal slot only, with no Shards",
+      "Shard Mobilization is removed from the Manpower panel",
+      "Deals and gifts trade Coin and resource supply only"
+    ]
+  },
   ...AETHER_TOWER_SHOTS_CHANGELOG,
   ...LEGAL_PAGES_CHANGELOG,
   ...CAPTURE_AFTERMATH_CHANGELOG

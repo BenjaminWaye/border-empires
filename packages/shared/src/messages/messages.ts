@@ -65,7 +65,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type:z.literal("RESOURCE_TRADE_END"),agreementId:z.string().min(1).max(160) }),
   z.object({ type:z.literal("RESOURCE_TRADE_SYNC") }),
   z.object({ type: z.literal("DIPLOMACY_STANCE_REQUEST"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional() }),
-  // Trade screen: coin/Shards given to an AI for its goodwill alone (raises its opinion of you; diplomacy-gift.ts). No resource supply: a gift is paid once.
+  // Trade screen: coin given to an AI for its goodwill alone (raises its opinion of you; diplomacy-gift.ts). No resource supply: a gift is paid once.
   z.object({ type: z.literal("DIPLOMACY_GIFT"), targetPlayerName: z.string().min(1), targetPlayerId: z.string().min(1).optional(), gift: DiplomacyGoodsSchema.omit({ resources: true }) }),
   z.object({ type: z.literal("TRUCE_ACCEPT"), requestId: z.string().min(1), confirmedResourceSupply: z.boolean().optional() }),
   z.object({ type: z.literal("TRUCE_REJECT"), requestId: z.string().min(1) }),
@@ -301,9 +301,6 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // player 10 minutes of total invulnerability on all owned tiles. No anchor
   // tile — a pure per-player toggle, unlike AEGIS_LOCK.
   z.object({ type: z.literal("ACTIVATE_IMPERIAL_WARD"), ...FrontierCommandMetadataSchema }),
-  // Comeback lever: burns one Shard to refill manpower to the cap instantly.
-  // No anchor tile — a per-player action like ACTIVATE_IMPERIAL_WARD.
-  z.object({ type: z.literal("SHARD_MOBILIZE"), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("SUPPRESS_AETHER_TOWER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("FORCED_ANCILLARIFICATION"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("RECRUIT_ANCILLARIES"), coin: z.number().int().positive().safe(), ...FrontierCommandMetadataSchema }),
@@ -312,7 +309,6 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("CANCEL_SIEGE_BATTERY_BUILD"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("CANCEL_CAPTURE" ) }),
   z.object({ type: z.literal("UNCAPTURE_TILE"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
-  z.object({ type: z.literal("COLLECT_SHARD"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("WATCH_MUSTER"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("UNWATCH_MUSTER") }),
   // Server-durable dev/expand queue tail (see

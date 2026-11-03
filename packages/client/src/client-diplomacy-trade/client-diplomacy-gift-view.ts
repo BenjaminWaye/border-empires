@@ -1,4 +1,4 @@
-// Pure view logic for a gift on the diplomacy trade screen: coin/Shards given
+// Pure view logic for a gift on the diplomacy trade screen: coin given
 // to an AI for goodwill alone. Says what the gift does before it is sent
 // ("+20 opinion · Cautious → Pleased"), using the same shared arithmetic the
 // gateway's opinion uses (@border-empires/shared diplomacy-gift.ts).
@@ -9,7 +9,6 @@ import {
   giftOpinionGain,
   giftToReach,
   netValueToAi,
-  SHARD_COIN_VALUE,
   type DiplomacyGoods,
   type DiplomacyTerms
 } from "@border-empires/shared";
@@ -26,12 +25,12 @@ const nextTargetScore = (score: number): number | undefined =>
 export const giftVerdict = (input: { targetName: string; reply: DiplomacyStanceReply | undefined; selection: TradeSelection; own: DiplomacyGoods }): TradeVerdict => {
   const { targetName, reply, own } = input;
   const give = input.selection.terms.give;
-  if (give.gold > own.gold || give.shard > own.shard) {
-    return { tone: "bad", text: `You only have ${own.gold} coin and ${own.shard} Shards.`, canSend: false, sendLabel: SEND_LABEL };
+  if (give.gold > own.gold) {
+    return { tone: "bad", text: `You only have ${own.gold} coin.`, canSend: false, sendLabel: SEND_LABEL };
   }
   if (reply && !reply.found) return { tone: "bad", text: `No empire named ${targetName}.`, canSend: false, sendLabel: SEND_LABEL };
   if (reply?.found && !reply.ai) return { tone: "bad", text: "Only AI empires take gifts.", canSend: false, sendLabel: SEND_LABEL };
-  const value = netValueToAi({ give, ask: { gold: 0, shard: 0 } }, reply?.found && reply.ai ? (reply.pricing?.shardCoinValue ?? SHARD_COIN_VALUE) : SHARD_COIN_VALUE);
+  const value = netValueToAi({ give, ask: { gold: 0 } });
   if (value <= 0) {
     return { tone: "neutral", text: `Set what you give. A gift raises ${targetName}'s opinion of you. ${FADE_NOTE}`, canSend: false, sendLabel: SEND_LABEL };
   }
@@ -82,5 +81,5 @@ export const suggestedGift = (reply: DiplomacyStanceReply | undefined, own: Dipl
   const target = nextTargetScore(reply.attitude.score);
   const coin = target === undefined ? undefined : giftToReach(reply.gift, reply.attitude.score, target);
   if (coin === undefined || coin <= 0 || coin > own.gold) return undefined;
-  return { give: { gold: coin, shard: 0 }, ask: { gold: 0, shard: 0 } };
+  return { give: { gold: coin }, ask: { gold: 0 } };
 };

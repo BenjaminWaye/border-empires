@@ -350,11 +350,9 @@ import { buildMapCommandContext } from "./runtime-map-command-context.js";
 import {
   handleChooseDomainCommand as handleChooseDomainCommandImpl,
   handleChooseTechCommand as handleChooseTechCommandImpl,
-  handleCollectShardCommand as handleCollectShardCommandImpl,
   handleUpgradeTownTierCommand as handleUpgradeTownTierCommandImpl,
   type RuntimeProgressionCommandContext
 } from "../runtime-progression-command-handlers.js";
-import { buildShardMobilizeCommandContext, handleShardMobilizeCommand as handleShardMobilizeCommandImpl, type ShardMobilizeCommandContext } from "../shard-mobilize/shard-mobilize-command-handler.js";
 import { buildProgressionCommandContext } from "./runtime-progression-command-context.js";
 import { adjacentTileStates as adjacentTileStatesImpl, existingTilesForKeys } from "./runtime-tile-lookups.js";
 import {
@@ -385,7 +383,6 @@ import {
   registerFortSupportAnchor as registerFortSupportAnchorImpl
 } from "../runtime-tile-index-maintenance.js";
 import { RuntimeOwnerTileIndexes } from "../runtime-owner-tile-indexes/runtime-owner-tile-indexes.js";
-import { RuntimeShardRain } from "../runtime-shard-rain-state.js";
 import {
   activateWatchtowerAt as activateWatchtowerAtImpl,
   tickWatchtowerReveals as tickWatchtowerRevealsImpl,
@@ -701,17 +698,6 @@ export class SimulationRuntime {
   private readonly pendingSettlementsByTile = new Map<string, PendingSettlementRecord>();
   private readonly jobQueue: RuntimeJobQueue;
   private readonly replayCache: RuntimeReplayCache;
-  private readonly shardRain: RuntimeShardRain = (() => {
-    const runtime = this;
-    return new RuntimeShardRain({
-      get state() { return runtime.state; },
-      now: () => runtime.now(),
-      replaceTileState: (tileKey, tile) => runtime.replaceTileState(tileKey, tile),
-      emitEvent: (event) => runtime.emitEvent(event),
-      tileDeltaFromState: (tile) => runtime.tileDeltaFromState(tile),
-      territoryTileKeysForPlayer: (playerId) => runtime.summaryForPlayer(playerId).territoryTileKeys
-    });
-  })();
   private readonly nextTerritoryAutomationCommandId = createTerritoryAutomationCommandIdGenerator();
   private dormantClaimSweepDone = false;
   private readonly waypointDrainScheduler = new WaypointDrainScheduler({ isPlayerSubscribed: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false, now: () => this.now() });
@@ -725,7 +711,6 @@ export class SimulationRuntime {
   private readonly onCaptureRevealBuilt:
     | ((sample: { commandId: string; playerId: string; tileCount: number; durationMs: number }) => void)
     | undefined;
-  private readonly onShardCollected: (() => void) | undefined;
   private readonly tileDeltaStringifyCache = new TileDeltaStringifyCache();
   private readonly playerCandidateIndex = new PlayerCandidateIndex();
 
@@ -783,7 +768,6 @@ export class SimulationRuntime {
     this.onVisibilityAudit = options.onVisibilityAudit;
     this.trackSyncMainThreadTask = options.trackSyncMainThreadTask;
     this.onCaptureRevealBuilt = options.onCaptureRevealBuilt;
-    this.onShardCollected = options.onShardCollected;
     this.pendingSpawnBonuses = new PendingSpawnBonuses({ imperialWard: options.pendingImperialWard, galacticWonder: options.pendingGalacticWonderBonus });
     const initDocks = createDocksFromInitialState(options.initialState, options.seedDocks ?? seedWorld?.docks ?? [], options.dockRouteBackfillReader);
     const initDockLinksByDockTileKey = buildDockLinksByDockTileKey(initDocks);
@@ -879,7 +863,7 @@ export class SimulationRuntime {
       // Before the boot manpower settle below: dormancy (and so the cap) dates towns by these stamps.
       restoreTownSettledAt(this.tileSettledAtByKey, this.state.tiles, playerId, recoveredPlayersById.get(playerId)?.townSettledAt);
     }
-    // First pass: apply tile summaries and shard-site tracking.
+    // First pass: apply tile summaries.
     // All tiles are already in this.state.tiles (createTilesFromInitialState produced a
     // complete Map), so anchor registration in the second pass below will find every
     // neighbour regardless of iteration order.
@@ -894,10 +878,6 @@ export class SimulationRuntime {
       seedTownVisionBonus({ players: this.state.players, coverage: this.state.visibilityCoverage }, tile);
       // Boot-time seed for grownTownSupportRingByOwner (cold-rebuilt, not snapshotted -- see field's doc comment).
       seedGrownTownSupportRingForTownTileImpl(this.grownTownSupportRingByOwner, tile, this.state.tiles);
-      const site = tile.shardSite;
-      if (site && site.kind === "FALL" && typeof site.expiresAt === "number" && site.expiresAt > this.now()) {
-        this.shardRain.recordRecoveredFallSite(tileKey, site.expiresAt);
-      }
       this.ownerIndexes.seedFromBootTile(tileKey, tile);
       this.relicMapHintIndex.refresh(tileKey, tile);
       // Populate neutralBeaconTileKeys index (unowned towns/docks/resources).
@@ -1115,10 +1095,6 @@ export class SimulationRuntime {
     });
   }
 
-  tickShardRain(nowMs: number = this.now()): void {
-    this.shardRain.tick(nowMs);
-  }
-
   private watchtowerRevealContext(): WatchtowerRevealRuntimeInput {
     return {
       now: this.now,
@@ -1231,14 +1207,6 @@ export class SimulationRuntime {
 
   tickWatchedMusterTiles(nowMs: number = this.now()): void {
     this.musterTicker.tickWatchedMusterTiles(nowMs);
-  }
-
-  emitShardRainHelloFor(playerId: string, nowMs: number = this.now()): void {
-    this.shardRain.emitHelloFor(playerId, nowMs);
-  }
-
-  currentShardRainWelcomeNotice(nowMs: number = this.now()): Record<string, unknown> {
-    return this.shardRain.welcomeNotice(nowMs);
   }
 
   private respawnContext(): RuntimeRespawnContext {
@@ -2880,15 +2848,6 @@ export class SimulationRuntime {
 
   private isTileShieldedByAegisLock(actorId: string, targetX: number, targetY: number): boolean { return isTileShieldedByAegisLockImpl(this.state.tiles, this.abilityCooldowns, this.now(), actorId, targetX, targetY); }
 
-  private shardMobilizeCommandContext(): ShardMobilizeCommandContext {
-    return buildShardMobilizeCommandContext(this.progressionCommandContext(), {
-      playerManpowerCap: (player) => this.playerManpowerCap(player),
-      getAbilityCooldownUntil: (playerId, abilityKey) => this.getAbilityCooldownUntil(playerId, abilityKey),
-      spendStrategicResource: (player, resource, amount) => this.spendStrategicResource(player, resource, amount),
-      emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload)
-    });
-  }
-
   private progressionCommandContext(): RuntimeProgressionCommandContext {
     return buildProgressionCommandContext({
       beforeResourceSupplyChange: id => this.resourceSupply?.playerWillChange(id),
@@ -2922,10 +2881,6 @@ export class SimulationRuntime {
       upkeepAccrualCacheByPlayer: this.economyCaches.upkeepAccrualCacheByPlayer,
       ownedOutpostTilesForPlayer: (playerId) => this.structureVision.ownedOutpostTilesForPlayer(playerId),
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
-      decrementShardRainSiteCount: () => this.shardRain.decrementSiteCount(),
-      clearShardRainExpiry: () => this.shardRain.clearExpiry(),
-      clearLastShardRainHello: () => this.shardRain.clearHellos(),
-      onShardCollected: this.onShardCollected,
       resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
       resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId), tileDeltaRevealOnly: (tile, playerId) => this.tileDeltaRevealOnly(tile, playerId),
       maintainAutoSettleEligibility: (tileKey, previous, next) => this.maintainAutoSettleEligibilityForTileChange(tileKey, previous, next),
@@ -3305,7 +3260,7 @@ export class SimulationRuntime {
       handleRemoveStructureCommand: (command) => handleRemoveStructureCommandImpl(this.structureCommandContext(), command),
       handleCancelSiegeBatteryBuildCommand: (command) => handleCancelSiegeBatteryBuildCommandImpl(this.structureCommandContext(), command),
       handleCheckStrandedRegionCommand: (command) => handleCheckStrandedRegionCommandImpl(this.strandedFrontier, command),
-      handleUncaptureTileCommand: (command) => this.shardRain.runVoluntaryLoss(command.playerId, () => handleUncaptureTileCommandImpl(this.economicStructureCommandContext(), command)),
+      handleUncaptureTileCommand: (command) => handleUncaptureTileCommandImpl(this.economicStructureCommandContext(), command),
       handleChooseTechCommand: (command) => handleChooseTechCommandImpl(this.progressionCommandContext(), command),
       handleChooseDomainCommand: (command) => handleChooseDomainCommandImpl(this.progressionCommandContext(), command),
       handleSetConverterStructureEnabledCommand: (command) => handleSetConverterStructureEnabledCommandImpl(this.economicStructureCommandContext(), command),
@@ -3322,8 +3277,6 @@ export class SimulationRuntime {
       handleCancelSiphonCommand: (command) => handleCancelSiphonCommandImpl(this.abilityCommandContext(), command),
       ...buildMapCommandDispatchHandlers(() => this.mapCommandContext()),
       handleUpgradeTownTierCommand: (command) => handleUpgradeTownTierCommandImpl(this.progressionCommandContext(), command),
-      handleCollectShardCommand: (command) => handleCollectShardCommandImpl(this.progressionCommandContext(), command),
-      handleShardMobilizeCommand: (command) => handleShardMobilizeCommandImpl(this.shardMobilizeCommandContext(), command),
       handleSyncAllianceCommand: (command) => this.handleSyncAllianceCommand(command),
       handleFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType),
       handleDevQueueEnqueueCommand: (command) => handleDevQueueEnqueueCommandImpl(this.devQueueCommandContext(), command),

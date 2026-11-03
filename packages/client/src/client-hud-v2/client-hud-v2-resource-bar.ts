@@ -1,5 +1,5 @@
 // Top resource bar for the new HUD: Coin with its net daily rate, the four slot
-// resources as used / total, Shard and Integrity, plus the settings gear.
+// resources as used / total and Integrity, plus the settings gear.
 // Manpower lives in the orb, not here.
 
 import type { SlotResource } from "@border-empires/shared";
@@ -10,7 +10,6 @@ export type ResourceBarInput = {
   netPerMinute: number;
   slotSupply: Readonly<Record<SlotResource, number>>;
   slotDemand: Readonly<Record<SlotResource, number>>;
-  shard: number;
   integrityPct: number | undefined;
   /** Titanium/Crystal/Umbrite stay off the bar until researched (or until they have slots or users); Food always shows. */
   isRevealed?: (resource: SlotResource) => boolean;
@@ -50,11 +49,9 @@ export const resourceBarHtml = (input: ResourceBarInput): string => {
     const usedHtml = over ? `<b class="hud-v2-over">${fmt(used)}</b>` : `<span class="hud-v2-chip-value">${fmt(used)}</span>`;
     return chip(key.toLowerCase(), label, `${usedHtml}<span class="hud-v2-chip-of">/${fmt(total)}</span>`);
   }).join("");
-  // Shards are not a slot resource and have no breakdown, so the chip is a read-out, not a button.
-  const shard = `<span class="hud-v2-chip hud-v2-chip-static" title="Shards"><span class="hud-v2-chip-label">Shard</span><span class="hud-v2-chip-value">${fmt(input.shard)}</span></span>`;
   const integrity = input.integrityPct === undefined
     ? ""
     : chip("integrity", "Integrity", `<span class="hud-v2-chip-value">${Math.round(input.integrityPct)}%</span>`);
   const gear = `<button type="button" class="hud-v2-gear" data-hud-v2-open="settings" aria-label="Settings" title="Settings · Esc">⚙</button>`;
-  return `${coin}${slots}<span class="hud-v2-sep" aria-hidden="true"></span>${shard}${integrity}${gear}`;
+  return `${coin}${slots}<span class="hud-v2-sep" aria-hidden="true"></span>${integrity}${gear}`;
 };

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { installDiplomacyOfferDock, OFFER_DOCK_CONFIRM_MS, OFFER_DOCK_PENDING_MS } from "./client-diplomacy-offer-dock.js";
 
-const truce = (id: string, ask = { gold: 0, shard: 0 }) => ({
+const truce = (id: string, ask = { gold: 0 }) => ({
   id,
   fromPlayerId: `from-${id}`,
   toPlayerId: "me",
@@ -11,7 +11,7 @@ const truce = (id: string, ask = { gold: 0, shard: 0 }) => ({
   expiresAt: 300_000,
   durationHours: 12 as const,
   fromName: "Tove",
-  terms: { give: { gold: 0, shard: 0 }, ask }
+  terms: { give: { gold: 0 }, ask }
 });
 
 const mount = (truces: ReturnType<typeof truce>[]) => {
@@ -41,7 +41,7 @@ describe("installed offer dock", () => {
   });
 
   it("asks for a second tap before spending your coin, and disarms if you don't", () => {
-    const { sendGameMessage, button } = mount([truce("t1", { gold: 60, shard: 0 })]);
+    const { sendGameMessage, button } = mount([truce("t1", { gold: 60 })]);
     button("accept", "t1").click();
     expect(sendGameMessage).not.toHaveBeenCalled();
     expect(button("accept", "t1").textContent).toBe("Confirm");

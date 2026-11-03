@@ -134,9 +134,7 @@ function strategicCostForStructure(
 
 // Step 5 item 3 (Slice A): FOOD/TITANIUM/CRYSTAL/UMBRITE are retired as a
 // spendable build-time stockpile -- hasFreeResourceSlots (§5.1) is the real
-// gate for those four keys now. SHARD stays a real spend (monument
-// assembly, §5.5 -- event-gated, not slot-shaped, never a stockpile in the
-// first place). Exported so applyStructureCancelRefund's refund builders
+// gate for those four keys now. Exported so applyStructureCancelRefund's refund builders
 // (runtime-structure-lifecycle-command-handlers.ts) apply the identical
 // filter and can never refund a key that build time never actually spent.
 const RETIRED_STOCKPILE_RESOURCE_KEYS: ReadonlySet<StrategicResourceKey> = new Set(["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"]);
@@ -378,8 +376,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   // Step 5 item 3 (Slice A): hasFreeResourceSlots above is now the ONLY gate
   // for FOOD/TITANIUM/CRYSTAL/UMBRITE at build time -- stripRetiredStockpileCost
   // strips those keys out before spendStrategicCost ever sees them, so the
-  // build-time stockpile check/spend is fully retired for them. SHARD still
-  // spends normally (monument assembly). The stockpile *fields themselves*
+  // build-time stockpile check/spend is fully retired for them. The stockpile *fields themselves*
   // (production, storage caps, ability/tech spend paths) are untouched here
   // — that's the larger, separate remainder of plan item 4.
   if (!spendStrategicCost(context, actor, command, structureType, stripRetiredStockpileCost(strategicCostForStructure(structureType, strategicCost)))) return;

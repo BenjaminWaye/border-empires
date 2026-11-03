@@ -154,7 +154,7 @@ describe("alliancePanelHtml", () => {
 
 describe("bindProposeButtons", () => {
   afterEach(() => closeDiplomacyTradeScreen());
-  const state = { gold: 500, strategicResources: { SHARD: 2 }, incomingTruceRequests: [], incomingAllianceRequests: [], activeTruces: [] };
+  const state = { gold: 500, incomingTruceRequests: [], incomingAllianceRequests: [], activeTruces: [] };
   const tradeTitle = (): string | null | undefined => document.querySelector(".diplomacy-trade-overlay h2")?.textContent;
   const pressedKind = (): string | undefined =>
     document.querySelector<HTMLButtonElement>(".diplomacy-trade-overlay [data-trade-kind][aria-pressed='true']")?.dataset.tradeKind;
@@ -172,7 +172,6 @@ describe("bindProposeButtons", () => {
     expect(pressedKind()).toBe("alliance:0");
     expect(sendGameMessage).toHaveBeenLastCalledWith({ type: "DIPLOMACY_STANCE_REQUEST", targetPlayerName: "SteamLord", targetPlayerId: "p-1" }, expect.any(String));
     expect(document.querySelector("[data-trade-have='give-gold']")?.textContent).toBe("You have 500");
-    expect(document.querySelector("[data-trade-have='give-shard']")?.textContent).toBe("You have 2");
 
     root.querySelectorAll<HTMLButtonElement>(".propose-truce")[1]!.click();
     expect(pressedKind()).toBe("truce:24");

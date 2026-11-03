@@ -4,7 +4,7 @@ import type { SupplyLedgerResult } from "./resource-supply-trades/resource-suppl
 import type { DomainPlayer } from "@border-empires/game-domain";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 
-// SETTLE_DIPLOMACY_TERMS: moves the coin/Shards a truce or alliance deal
+// SETTLE_DIPLOMACY_TERMS: moves the coin a truce or alliance deal
 // promised, in one step, before the gateway records the agreement. The
 // gateway waits for this command's COMMAND_RESOLVED / COMMAND_REJECTED, so
 // the simulation stays the authority on whether both sides could pay.
@@ -31,22 +31,15 @@ export const parseDiplomacySettlementPayload = (payloadJson: string): DiplomacyS
   } catch { return undefined; }
 };
 
-const shardsOf = (player: DomainPlayer): number => player.strategicResources?.SHARD ?? 0;
-
 const missingFor = (player: DomainPlayer, pays: Goods): string | undefined => {
   const parts: string[] = [];
   if (player.points < pays.gold) parts.push(`${pays.gold} coin`);
-  if (shardsOf(player) < pays.shard) parts.push(`${pays.shard} Shards`);
   return parts.length > 0 ? `${player.name ?? player.id} no longer has ${parts.join(" and ")}` : undefined;
 };
 
 const transfer = (from: DomainPlayer, to: DomainPlayer, goods: Goods): void => {
   from.points -= goods.gold;
   to.points += goods.gold;
-  if (goods.shard > 0) {
-    from.strategicResources = { ...(from.strategicResources ?? {}), SHARD: shardsOf(from) - goods.shard };
-    to.strategicResources = { ...(to.strategicResources ?? {}), SHARD: shardsOf(to) + goods.shard };
-  }
 };
 
 export function handleDiplomacySettlementCommand(context: RuntimeDiplomacySettlementContext, command: CommandEnvelope): void {

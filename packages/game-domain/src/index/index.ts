@@ -14,7 +14,6 @@ export * from "../server-worldgen-fair-spawn-sites.js";
 export * from "../starter-site-quality.js";
 export * from "../server-worldgen-island-connectivity.js";
 export * from "../server-worldgen-natural-wonders.js";
-export * from "../server-worldgen-shards.js";
 export * from "../server-worldgen-terrain.js";
 export * from "../server-worldgen-towns.js";
 export * from "../server-worldgen-watchtowers.js";
@@ -56,7 +55,7 @@ export const fortAttackManpowerMultiplier = (tile: Pick<DomainTileState, "fort">
 };
 
 export type FrontierCommandType = "ATTACK" | "EXPAND";
-export type DomainStrategicResourceKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
+export type DomainStrategicResourceKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
 
 export type DomainPlayer = {
   id: string;
@@ -115,8 +114,8 @@ export type DomainPlayer = {
   strategicProductionPerMinute?: Partial<Record<DomainStrategicResourceKey, number>>;
   // Persistent sub-choice for domains that ask the player to pick a resource
   // (Clockwork Stipend). Locked on pick; null/undefined means no choice yet.
-  // Narrowed to the trickle subset (TITANIUM / UMBRITE / CRYSTAL) — FOOD and SHARD
-  // are intentionally excluded because no trickle domain offers them.
+  // Narrowed to the trickle subset (TITANIUM / UMBRITE / CRYSTAL) — FOOD is
+  // intentionally excluded because no trickle domain offers them.
   chosenTrickleResource?: ChosenTrickleResource | undefined;
   // Emperor-endorsement bonus (galaxy meta-layer Phase 1): remaining Imperial
   // Ward activations. Granted once when an endorsed player first spawns
@@ -165,7 +164,6 @@ export type DomainTileState = {
   resource?: Tile["resource"] | undefined;
   prospectSignature?: ProspectSignature | undefined;
   dockId?: string | undefined;
-  shardSite?: { kind: "CACHE" | "FALL"; amount: number; expiresAt?: number | undefined } | undefined;
   watchtower?: { activated: boolean; activatedByPlayerId?: string | undefined; revealUntil?: number | undefined } | undefined;
   waystation?: WaystationTileState | undefined;
   ownerId?: string | undefined;

@@ -26,7 +26,7 @@ describe("truce extension", () => {
   });
 
   it("never has the AI pay for an extension, but keeps its asking price and refusals", () => {
-    const pricing = { required: { truce12: -200, truce24: 300, alliance: null }, shardCoinValue: 25, aiHoldings: { gold: 1000, shard: 0 } };
+    const pricing = { required: { truce12: -200, truce24: 300, alliance: null }, aiHoldings: { gold: 1000 } };
     expect(extensionPricing(pricing).required).toEqual({ truce12: 0, truce24: 300, alliance: null });
     expect(extensionPricing({ ...pricing, required: { truce12: null, truce24: null, alliance: 5 } }).required).toEqual({ truce12: null, truce24: null, alliance: 5 });
   });

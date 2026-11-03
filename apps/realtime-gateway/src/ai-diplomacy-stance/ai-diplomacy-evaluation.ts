@@ -49,8 +49,7 @@ export const tileLookupFromSnapshot = (snapshot: AiDiplomacySnapshot | undefined
 
 const holdingsOf = (snapshot: AiDiplomacySnapshot | undefined): DiplomacyGoods => ({
   ...(snapshot?.player?.resourceTradeHoldings ? { resources: snapshot.player.resourceTradeHoldings } : {}),
-  gold: Math.max(0, Math.floor(snapshot?.player?.gold ?? 0)),
-  shard: Math.max(0, Math.floor(snapshot?.player?.strategicResources?.SHARD ?? 0))
+  gold: Math.max(0, Math.floor(snapshot?.player?.gold ?? 0))
 });
 
 const warReason = (aiName: string, opinion: AiOpinion, fallback: string): string => {

@@ -13,7 +13,7 @@ import {
 import { diplomacyTermsLineHtml } from "./client-diplomacy-terms-html.js";
 import { suggestedDeal, tradeVerdict, warTally, type DiplomacyStanceReply, type TradeSelection } from "./client-diplomacy-trade-view.js";
 
-const pricing: AiDiplomacyPricing = { required: { truce12: 40, truce24: 60, alliance: null }, shardCoinValue: 25, aiHoldings: { gold: 30, shard: 0 } };
+const pricing: AiDiplomacyPricing = { required: { truce12: 40, truce24: 60, alliance: null }, aiHoldings: { gold: 30 } };
 const aiReply: DiplomacyStanceReply = {
   found: true,
   targetPlayerName: "Milo",
@@ -28,27 +28,27 @@ const aiReply: DiplomacyStanceReply = {
 const selection = (giveGold = 0, kind: TradeSelection["kind"] = "truce", durationHours: 12 | 24 = 12): TradeSelection => ({
   kind,
   durationHours,
-  terms: { give: { gold: giveGold, shard: 0 }, ask: { gold: 0, shard: 0 } }
+  terms: { give: { gold: giveGold }, ask: { gold: 0 } }
 });
 const verdict = (overrides: Partial<Parameters<typeof tradeVerdict>[0]>) =>
-  tradeVerdict({ targetName: "Milo", reply: aiReply, selection: selection(), own: { gold: 100, shard: 0 }, cooldownRemainingMs: 0, ...overrides });
+  tradeVerdict({ targetName: "Milo", reply: aiReply, selection: selection(), own: { gold: 100 }, cooldownRemainingMs: 0, ...overrides });
 
 describe("tradeVerdict", () => {
   it("previews an AI's answer with the shared pricing rules", () => {
     expect(verdict({ selection: selection(40) })).toEqual(expect.objectContaining({ tone: "good", text: "Milo would accept a 12h truce on these terms." }));
     expect(verdict({})).toEqual(expect.objectContaining({ tone: "bad", text: "Milo would refuse: wants about 40 more coin." }));
     expect(verdict({ selection: selection(0, "alliance") }).text).toBe("Milo doesn't think well enough of you for an alliance.");
-    const askingForCoin = { kind: "alliance" as const, durationHours: 12 as const, terms: { give: { gold: 0, shard: 0 }, ask: { gold: 5, shard: 0 } } };
+    const askingForCoin = { kind: "alliance" as const, durationHours: 12 as const, terms: { give: { gold: 0 }, ask: { gold: 5 } } };
     const friendly = { ...aiReply, pricing: { ...pricing, required: { ...pricing.required, alliance: 0 } } };
     expect(verdict({ reply: friendly, selection: askingForCoin }).text).toBe("Milo won't give anything to join an alliance.");
   });
 
   // A player with 10 coin is told the price is out of reach, not suggested a deal they can't pay.
   it("says when the price is more than the player can offer", () => {
-    expect(verdict({ own: { gold: 10, shard: 0 } })).toEqual(
+    expect(verdict({ own: { gold: 10 } })).toEqual(
       expect.objectContaining({ text: "Milo wants about 40 coin for this, more than you can offer.", canSend: true })
     );
-    expect(suggestedDeal(aiReply, selection(), { gold: 10, shard: 0 })).toBeUndefined();
+    expect(suggestedDeal(aiReply, selection(), { gold: 10 })).toBeUndefined();
   });
 
   it("blocks sending during the re-offer cooldown and when giving more than you hold", () => {
@@ -65,25 +65,25 @@ describe("tradeVerdict", () => {
 });
 
 describe("suggestedDeal", () => {
-  const empty = { give: { gold: 0, shard: 0 }, ask: { gold: 0, shard: 0 } };
+  const empty = { give: { gold: 0 }, ask: { gold: 0 } };
 
-  it("offers the least of the player's coin, then Shards, that meets the AI's price", () => {
-    expect(suggestedDeal(aiReply, selection(), { gold: 100, shard: 0 })).toEqual({ ...empty, give: { gold: 40, shard: 0 } });
-    expect(suggestedDeal(aiReply, selection(0, "truce", 24), { gold: 10, shard: 4 })).toEqual({ ...empty, give: { gold: 10, shard: 2 } });
+  it("offers the least of the player's coin that meets the AI's price", () => {
+    expect(suggestedDeal(aiReply, selection(), { gold: 100 })).toEqual({ ...empty, give: { gold: 40 } });
+    expect(suggestedDeal(aiReply, selection(0, "truce", 24), { gold: 100 })).toEqual({ ...empty, give: { gold: 60 } });
   });
 
   // The loser pays: an AI that would pay for peace is asked for all it offers.
   it("asks a losing AI for the payment it would make", () => {
     const losing = { ...aiReply, pricing: { ...pricing, required: { truce12: -25, truce24: -25, alliance: null } } };
-    const deal = suggestedDeal(losing, selection(), { gold: 0, shard: 0 });
-    expect(deal).toEqual({ ...empty, ask: { gold: 25, shard: 0 } });
+    const deal = suggestedDeal(losing, selection(), { gold: 0 });
+    expect(deal).toEqual({ ...empty, ask: { gold: 25 } });
     expect(verdict({ reply: losing, selection: { ...selection(), terms: deal! } }).tone).toBe("good");
   });
 
   it("has nothing to suggest when the AI refuses, can't be read, or is a human", () => {
-    expect(suggestedDeal(aiReply, selection(0, "alliance"), { gold: 1_000, shard: 0 })).toBeUndefined();
-    expect(suggestedDeal({ ...aiReply, pricing: undefined } as never, selection(), { gold: 1_000, shard: 0 })).toBeUndefined();
-    expect(suggestedDeal({ found: true, targetPlayerName: "Valka", targetPlayerId: "p2", ai: false }, selection(), { gold: 1_000, shard: 0 })).toBeUndefined();
+    expect(suggestedDeal(aiReply, selection(0, "alliance"), { gold: 1_000 })).toBeUndefined();
+    expect(suggestedDeal({ ...aiReply, pricing: undefined } as never, selection(), { gold: 1_000 })).toBeUndefined();
+    expect(suggestedDeal({ found: true, targetPlayerName: "Valka", targetPlayerId: "p2", ai: false }, selection(), { gold: 1_000 })).toBeUndefined();
   });
 });
 
@@ -138,7 +138,7 @@ describe("diplomacy trade screen", () => {
 
   const openScreen = (gold = 100) => {
     const send = vi.fn().mockReturnValue(true);
-    openDiplomacyTradeScreen({ targetName: "Milo", kind: "truce", durationHours: 12 }, { send, ownHoldings: () => ({ gold, shard: 0 }) });
+    openDiplomacyTradeScreen({ targetName: "Milo", kind: "truce", durationHours: 12 }, { send, ownHoldings: () => ({ gold }) });
     const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
     return { send, overlay };
   };
@@ -187,7 +187,6 @@ describe("diplomacy trade screen", () => {
     const coinTile = overlay.querySelector<HTMLButtonElement>("[data-trade-good='give-gold']")!;
     const slider = overlay.querySelector<HTMLElement>("[data-trade-slider='give-gold']")!;
     expect(slider.hidden).toBe(true);
-    expect(overlay.querySelector<HTMLButtonElement>("[data-trade-good='give-shard']")!.disabled).toBe(true);
 
     coinTile.click();
     expect(slider.hidden).toBe(false);
@@ -204,15 +203,14 @@ describe("diplomacy trade screen", () => {
     overlay.querySelector<HTMLButtonElement>("[data-trade-good='ask-gold']")!.click();
     expect(slider.hidden).toBe(true);
     expect(overlay.querySelector<HTMLInputElement>("[data-trade-ask-gold]")!.max).toBe("30");
-    expect(overlay.querySelector<HTMLButtonElement>("[data-trade-good='ask-shard']")!.disabled).toBe(true);
   });
 
   // Regression (review): the slider's top end followed the chosen amount, so dragging a counter's 500 down shrank the scale under the pointer.
   it("keeps a slider's top end fixed while it is dragged, and lets an exact amount go past it", () => {
     const send = vi.fn().mockReturnValue(true);
     openDiplomacyTradeScreen(
-      { targetName: "Valka", kind: "truce", durationHours: 12, terms: { give: { gold: 500, shard: 0 }, ask: { gold: 0, shard: 0 } } },
-      { send, ownHoldings: () => ({ gold: 100, shard: 0 }) }
+      { targetName: "Valka", kind: "truce", durationHours: 12, terms: { give: { gold: 500 }, ask: { gold: 0 } } },
+      { send, ownHoldings: () => ({ gold: 100 }) }
     );
     const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
     const giveGold = overlay.querySelector<HTMLInputElement>("[data-trade-give-gold]")!;
@@ -234,12 +232,12 @@ describe("diplomacy trade screen", () => {
 
   it("closes an open slider whose tile runs out of anything to trade", () => {
     const { overlay } = openScreen();
-    overlay.querySelector<HTMLButtonElement>("[data-trade-good='ask-shard']")!.click();
-    expect(overlay.querySelector<HTMLElement>("[data-trade-slider='ask-shard']")!.hidden).toBe(false);
-    // The AI's reply says it holds no Shards.
-    receiveDiplomacyStance(aiReply);
-    expect(overlay.querySelector<HTMLElement>("[data-trade-slider='ask-shard']")!.hidden).toBe(true);
-    expect(overlay.querySelector("[data-trade-good='ask-shard']")?.getAttribute("aria-expanded")).toBe("false");
+    overlay.querySelector<HTMLButtonElement>("[data-trade-good='ask-gold']")!.click();
+    expect(overlay.querySelector<HTMLElement>("[data-trade-slider='ask-gold']")!.hidden).toBe(false);
+    // The AI's reply says it holds no coin.
+    receiveDiplomacyStance({ ...aiReply, pricing: { ...pricing, aiHoldings: { gold: 0 } } });
+    expect(overlay.querySelector<HTMLElement>("[data-trade-slider='ask-gold']")!.hidden).toBe(true);
+    expect(overlay.querySelector("[data-trade-good='ask-gold']")?.getAttribute("aria-expanded")).toBe("false");
   });
 
   it("sends the offer with its terms and closes", () => {
@@ -251,7 +249,7 @@ describe("diplomacy trade screen", () => {
     overlay.querySelector<HTMLButtonElement>("[data-trade-send]")!.click();
 
     expect(send).toHaveBeenLastCalledWith(
-      { type: "TRUCE_REQUEST", targetPlayerName: "Milo", durationHours: 24, terms: { give: { gold: 25, shard: 0 }, ask: { gold: 0, shard: 0 } } },
+      { type: "TRUCE_REQUEST", targetPlayerName: "Milo", durationHours: 24, terms: { give: { gold: 25 }, ask: { gold: 0 } } },
       expect.any(String)
     );
     expect(document.querySelector(".diplomacy-trade-overlay")).toBeNull();
@@ -260,7 +258,7 @@ describe("diplomacy trade screen", () => {
   // Regression: a human who kept an AI's name got offers meant for the AI; the id travels with every request.
   it("addresses the target by id when it knows one", () => {
     const send = vi.fn().mockReturnValue(true);
-    openDiplomacyTradeScreen({ targetName: "Milo", targetPlayerId: "ai-1", kind: "truce", durationHours: 12 }, { send, ownHoldings: () => ({ gold: 100, shard: 0 }) });
+    openDiplomacyTradeScreen({ targetName: "Milo", targetPlayerId: "ai-1", kind: "truce", durationHours: 12 }, { send, ownHoldings: () => ({ gold: 100 }) });
     expect(send).toHaveBeenCalledWith({ type: "DIPLOMACY_STANCE_REQUEST", targetPlayerName: "Milo", targetPlayerId: "ai-1" }, expect.any(String));
     // A reply about another empire that happens to share the name is ignored.
     receiveDiplomacyStance({ ...aiReply, targetPlayerId: "p-human" });
@@ -274,7 +272,7 @@ describe("diplomacy trade screen", () => {
   it("keeps independent resource trades selected during an existing truce", () => {
     openDiplomacyTradeScreen(
       { targetName: "Elin", targetPlayerId: "ai-2", kind: "trade", durationHours: 12 },
-      { send: vi.fn().mockReturnValue(true), ownHoldings: () => ({ gold: 100, shard: 0, resources: { FOOD: 2 } }), runningTruce: () => ({ startedAt: Date.now(), endsAt: Date.now() + 3_600_000 }) }
+      { send: vi.fn().mockReturnValue(true), ownHoldings: () => ({ gold: 100, resources: { FOOD: 2 } }), runningTruce: () => ({ startedAt: Date.now(), endsAt: Date.now() + 3_600_000 }) }
     );
     const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
     // No treaty is picked: the deal is a resource trade until a truce or alliance is added.
@@ -302,7 +300,7 @@ describe("diplomacy trade screen", () => {
   it("re-renders when the player's coin changes, and stops watching once closed", () => {
     vi.useFakeTimers();
     try {
-      const holdings = { gold: 10, shard: 0 };
+      const holdings = { gold: 10 };
       const ownHoldings = vi.fn(() => ({ ...holdings }));
       openDiplomacyTradeScreen({ targetName: "Milo", kind: "truce", durationHours: 12 }, { send: vi.fn().mockReturnValue(true), ownHoldings });
       const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
@@ -332,10 +330,10 @@ describe("diplomacy trade screen", () => {
 });
 
 describe("diplomacyTermsLineHtml", () => {
-  const terms = { give: { gold: 50, shard: 0 }, ask: { gold: 0, shard: 2 } };
+  const terms = { give: { gold: 50 }, ask: { gold: 20 } };
   it("words terms from the viewer's side and escapes names", () => {
-    expect(diplomacyTermsLineHtml(terms, "incoming", "Milo")).toContain("Milo pays 50 coin; you pay 2 Shards");
-    expect(diplomacyTermsLineHtml(terms, "outgoing", "<b>")).toContain("you pay 50 coin; &lt;b&gt; pays 2 Shards");
+    expect(diplomacyTermsLineHtml(terms, "incoming", "Milo")).toContain("Milo pays 50 coin; you pay 20 coin");
+    expect(diplomacyTermsLineHtml(terms, "outgoing", "<b>")).toContain("you pay 50 coin; &lt;b&gt; pays 20 coin");
     expect(diplomacyTermsLineHtml(undefined, "incoming", "Milo")).toBe("");
   });
 });

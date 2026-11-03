@@ -380,7 +380,6 @@ export const applySimulationEventsToRecoveredAccumulator = (
               terrain: previousOrigin.terrain,
               ...(previousOrigin.resource ? { resource: previousOrigin.resource } : {}),
               ...(previousOrigin.dockId ? { dockId: previousOrigin.dockId } : {}),
-              ...(previousOrigin.shardSite ? { shardSite: previousOrigin.shardSite } : {}),
               ...(previousOrigin.naturalWonder ? { naturalWonder: previousOrigin.naturalWonder } : {}),
               ...(previousOrigin.sabotage ? { sabotage: previousOrigin.sabotage } : {}),
               // Town survives the flip — mirrors the attacker-wins branch above and the runtime resolveLock path.

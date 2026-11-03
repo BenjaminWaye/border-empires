@@ -65,8 +65,7 @@ export function emitPlayerStateUpdate(
   const capChanged =
     !lastCap ||
     lastCap.GOLD !== storageCap.GOLD ||
-    lastCap.FOOD !== storageCap.FOOD ||
-    lastCap.SHARD !== storageCap.SHARD;
+    lastCap.FOOD !== storageCap.FOOD;
   if (capChanged) context.lastEmittedStorageCapByPlayer.set(playerId, storageCap);
   const supplyState = context.supplyStateForPlayer?.(playerId);
   context.emitPlayerMessage(
@@ -92,8 +91,7 @@ export function emitPlayerStateUpdate(
         FOOD: player.strategicResources?.FOOD ?? 0,
         TITANIUM: player.strategicResources?.TITANIUM ?? 0,
         CRYSTAL: player.strategicResources?.CRYSTAL ?? 0,
-        UMBRITE: player.strategicResources?.UMBRITE ?? 0,
-        SHARD: player.strategicResources?.SHARD ?? 0
+        UMBRITE: player.strategicResources?.UMBRITE ?? 0
       },
       strategicProductionPerMinute: economy.strategicProductionPerMinute,
       resourceTradeHoldings: supplyState?.resourceTradeHoldings,

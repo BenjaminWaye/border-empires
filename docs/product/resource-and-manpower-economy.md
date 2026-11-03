@@ -46,16 +46,6 @@ defines what these systems mean in the fiction; follow the
   no ceiling on the catch-up. Like a Waystation grant it may sit above
   the cap (tracked as `waystationManpowerOverflow`), and regen pauses until it
   is spent back under the cap.
-- **Shard Mobilization** (`SHARD_MOBILIZE`, `SHARD_MOBILIZE_SHARD_COST` = **1
-  Shard**, donated to the Court for an Imperial delivery of ancillaries) refills
-  manpower to the cap at once, from the Manpower panel. It
-  settles manpower first, never goes above the cap (it is rejected when the
-  pool is already at or over the cap, so overflow from the landing reserve or a
-  Waystation is never trimmed), clears `manpowerBanked`, and is rejected while
-  the Titanium Levy's regen freeze is active. It is the comeback lever for an
-  empire that lost its pool while offline; see the comeback-weighted shard rain
-  in [game mechanics §9](../game-mechanics.md#9-seasons-and-world-events).
-  `apps/simulation/src/shard-mobilize/`
 - **Regeneration is paid out in refills, not continuously.** Regen accrues at
   the per-minute rates below into a bank (`manpowerBanked`) that is settled at
   the current rate on every settle (every command and the 15s player-update
@@ -139,7 +129,7 @@ same contribution as accrual, rather than estimating an ally’s hidden economy.
 
 FOOD, TITANIUM, CRYSTAL, and UMBRITE are **slot pools**, not stockpiled
 currencies. Supply is global across a player's owned, settled resource tiles;
-demand is across its consumers. Gold and Shard do not use this system.
+demand is across its consumers. Gold does not use this system.
 
 | Settled tile resource | Base supply |
 |---|---:|
@@ -259,7 +249,7 @@ Sources: `packages/shared/src/resource-networks/`,
 
 All four upkeep resources and all five frontier resources can be negotiated in
 independent Resource trade offers or alongside a truce/alliance. These are
-exclusive renewable slots, not a new inventory of mined stockpiles. Shards remain
+exclusive renewable slots, not a new inventory of mined stockpiles. Coin remains
 a one-time transfer. Only surplus beyond current domestic use and existing export
 commitments may be newly promised. Received slots cannot back another export. Accepted exports
 take priority over later domestic building demand.
@@ -267,7 +257,7 @@ take priority over later domestic building demand.
 Supply continues until either participating House ends the agreement. Both
 resource deliveries pause when either supplier loses required output and resume
 when output recovers. Ending supply releases both directions immediately after
-old-rate income/manpower settlement. One-time Coin and Shard payments are not
+old-rate income/manpower settlement. One-time Coin payments are not
 refunded for a later shortage or cancellation. Supply contracts survive the
 accompanying treaty ending. Active agreements persist through recovery; new
 agreements have no expiry. Historical saved agreements may still contain an expiry

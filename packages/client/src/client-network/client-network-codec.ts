@@ -12,7 +12,7 @@ const revealStatsNumberKeys = [
   "manpower",
   "manpowerCap"
 ] as const;
-const revealStatsResourceKeys = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const;
+const revealStatsResourceKeys = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"] as const;
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === "object");
 

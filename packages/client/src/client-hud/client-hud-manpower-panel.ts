@@ -2,7 +2,6 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { renderManpowerPanelHtml } from "../client-side-panel-html/client-side-panel-html.js";
 import { buildManpowerPanelMusterFlags, wireManpowerPanel } from "../client-muster-flags-panel/client-muster-flags-panel.js";
 import { nextManpowerRefillForPlayer } from "../client-manpower-gauge/client-manpower-refill.js";
-import { bindShardMobilizeButtons } from "../client-shard-mobilize/client-shard-mobilize.js";
 
 export type HudManpowerPanelDeps = {
   state: ClientState;
@@ -33,12 +32,9 @@ export const renderHudManpowerPanel = (deps: HudManpowerPanelDeps): void => {
       musterFlags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me, state.manpowerCap, state.manpower, state.musterAmountRateByTile),
       formatManpowerAmount: deps.formatManpowerAmount,
       rateToneClass: deps.rateToneClass,
-      nextRefillAtMs: nextManpowerRefillForPlayer(state.me, Date.now()),
-      shards: state.strategicResources.SHARD ?? 0
+      nextRefillAtMs: nextManpowerRefillForPlayer(state.me, Date.now())
     })
   );
   dom.panelManpowerEl.innerHTML = dom.mobilePanelManpowerEl.innerHTML = html;
   wireManpowerPanel(dom.hud, state, { wrapX: deps.wrapX, wrapY: deps.wrapY, requestViewRefresh: deps.requestViewRefresh, rerender: deps.rerender });
-  bindShardMobilizeButtons(dom.panelManpowerEl, deps.sendGameMessage);
-  bindShardMobilizeButtons(dom.mobilePanelManpowerEl, deps.sendGameMessage);
 };

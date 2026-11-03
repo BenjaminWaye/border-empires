@@ -84,7 +84,7 @@ describe("createTilesFromInitialState", () => {
   // event-recovery boot/checkpoint restore and by any caller that seeds a
   // runtime with initialState.tiles). watchtower/waystation were both
   // missing from that whitelist -- unlike every sibling site field
-  // (shardSite, naturalWonder, fort, etc.) -- so a Watchtower/Waystation
+  // (naturalWonder, fort, etc.) -- so a Watchtower/Waystation
   // site present in a persisted snapshot was silently dropped on every sim
   // restart, even after the season-worldgen persistence bug that dropped
   // the same two fields at generation time (PR #2005) was fixed.

@@ -46,11 +46,9 @@ export type RuntimeCommandDispatchHandlers = {
   handleAstralDockLaunchCommand: (command: CommandEnvelope) => void;
   handleTitaniumLevyMusterCommand: (command: CommandEnvelope) => void;
   handleActivateImperialWardCommand: (command: CommandEnvelope) => void;
-  handleShardMobilizeCommand: (command: CommandEnvelope) => void;
   handleSetAutoSettlePrefsCommand: (command: CommandEnvelope) => void;
   handleNameIslandCommand: (command: CommandEnvelope) => void;
   handleUpgradeTownTierCommand: (command: CommandEnvelope) => void;
-  handleCollectShardCommand: (command: CommandEnvelope) => void;
   handleSyncAllianceCommand: (command: CommandEnvelope) => void;
   handleSyncTruceCommand: (command: CommandEnvelope) => void;
   handleCancelResourceSupplyCommand: (command: CommandEnvelope) => void;
@@ -123,11 +121,9 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "ASTRAL_DOCK_LAUNCH") return handlers.handleAstralDockLaunchCommand(command);
   if (command.type === "TITANIUM_LEVY_MUSTER") return handlers.handleTitaniumLevyMusterCommand(command);
   if (command.type === "ACTIVATE_IMPERIAL_WARD") return handlers.handleActivateImperialWardCommand(command);
-  if (command.type === "SHARD_MOBILIZE") return handlers.handleShardMobilizeCommand(command);
   if (command.type === "SET_AUTO_SETTLE_PREFS") return handlers.handleSetAutoSettlePrefsCommand(command);
   if (command.type === "NAME_ISLAND") return handlers.handleNameIslandCommand(command);
   if (command.type === "UPGRADE_TOWN_TIER") return handlers.handleUpgradeTownTierCommand(command);
-  if (command.type === "COLLECT_SHARD") return handlers.handleCollectShardCommand(command);
   if (command.type === "SYNC_ALLIANCE") return handlers.handleSyncAllianceCommand(command);
   if (command.type === "SYNC_TRUCE") return handlers.handleSyncTruceCommand(command);
   if (command.type === "CANCEL_RESOURCE_SUPPLY") return handlers.handleCancelResourceSupplyCommand(command);
@@ -201,11 +197,9 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "ASTRAL_DOCK_LAUNCH" ||
   command.type === "TITANIUM_LEVY_MUSTER" ||
   command.type === "ACTIVATE_IMPERIAL_WARD" ||
-  command.type === "SHARD_MOBILIZE" ||
   command.type === "SET_AUTO_SETTLE_PREFS" ||
   command.type === "NAME_ISLAND" ||
   command.type === "UPGRADE_TOWN_TIER" ||
-  command.type === "COLLECT_SHARD" ||
   command.type === "SYNC_ALLIANCE" ||
   command.type === "SYNC_TRUCE" ||
   command.type === "SETTLE_DIPLOMACY_TERMS" ||

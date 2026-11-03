@@ -25,8 +25,7 @@ type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
 // UMBRITE stopped being stockpiled flows once Step 5 shipped — they're now
 // discrete slot capacity, so this panel renders them with a slots-used mode
 // instead of the stock/cap/income/upkeep flow mode. GOLD is the only resource
-// left on the flow mode (§14.1 item 2 / §5.5) — SHARD is event-gated and isn't
-// part of this panel's resource list at all.
+// left on the flow mode (§14.1 item 2 / §5.5).
 const isSlotResource = (resource: EconomyResource): resource is SlotResource => resource !== "GOLD";
 
 export type EconomyPanelArgs = {
@@ -36,9 +35,9 @@ export type EconomyPanelArgs = {
   gold: number;
   me: string;
   incomePerMinute: number;
-  strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>;
+  strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>;
   storageCap: EmpireStorageCap;
-  strategicProductionPerMinute: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>;
+  strategicProductionPerMinute: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>;
   upkeepPerMinute: { food: number; titanium: number; umbrite: number; crystal: number; gold: number };
   upkeepLastTick: {
     foodCoverage?: number;

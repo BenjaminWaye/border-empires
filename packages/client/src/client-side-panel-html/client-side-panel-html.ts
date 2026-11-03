@@ -1,7 +1,6 @@
 import { MANPOWER_REFILL_WINDOW_MS } from "@border-empires/shared";
 import { formatHoursMinutes, msUntilManpowerFull } from "../client-manpower-gauge/client-manpower-refill.js";
 import { manpowerInfoHtml, manpowerNextBatchHtml } from "../client-manpower-panel-info/client-manpower-panel-info.js";
-import { shardMobilizeCardHtml } from "../client-shard-mobilize/client-shard-mobilize.js";
 import type { LeaderboardOverallEntry } from "../client-types.js";
 
 export type ManpowerPanelMusterFlag = {
@@ -135,8 +134,6 @@ export const renderManpowerPanelHtml = (args: {
   /** Epoch ms of the player's next refill (client-manpower-refill.ts); undefined before the player id is known. */
   nextRefillAtMs?: number | undefined;
   nextBatchAmount?: number | undefined;
-  /** Shards held; when given, the panel offers Shard Mobilization (client-shard-mobilize.ts). */
-  shards?: number | undefined;
 }): string => {
   const current = args.formatManpowerAmount(args.manpower);
   const cap = args.formatManpowerAmount(args.manpowerCap);
@@ -177,7 +174,6 @@ export const renderManpowerPanelHtml = (args: {
         ${fullEtaText ? `<div class="economy-footnote manpower-full-eta">${fullEtaText}</div>` : ""}
         ${manpowerInfoHtml()}
       </section>
-      ${args.shards !== undefined ? shardMobilizeCardHtml({ shards: args.shards, manpower: args.manpower, manpowerCap: args.manpowerCap, manpowerRegenPerMinute: regen }) : ""}
       ${sectionHtml("Cap modifiers", args.manpowerBreakdown.cap)}
       ${sectionHtml("Regen modifiers (per batch)", args.manpowerBreakdown.regen.map((line) => ({ ...line, amount: line.amount * (MANPOWER_REFILL_WINDOW_MS / 60_000) })))}
       ${musterFlagsSectionHtml(args.musterFlags)}

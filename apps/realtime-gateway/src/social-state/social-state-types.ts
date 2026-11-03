@@ -17,7 +17,7 @@ export type SocialAllianceRequest = {
   createdAt: number;
   fromName?: string;
   toName?: string;
-  /** Coin/Shards the deal moves, from the proposer's side; settled in the simulation on accept. */
+  /** Coin the deal moves, from the proposer's side; settled in the simulation on accept. */
   terms?: DiplomacyTerms;
   settlementPhase?: TreatySettlementPhase;
 };
@@ -205,7 +205,7 @@ export type SocialState = {
   requestTruce: (fromPlayerId: string, targetPlayerName: string, durationHours: 12 | 24, options?: SocialOfferOptions) => SocialActionResult;
   /**
    * Locks an incoming offer that carries terms while the simulation moves
-   * the coin/Shards: cancel/reject/expiry leave it alone until endSettlement,
+   * the coin: cancel/reject/expiry leave it alone until endSettlement,
    * so the payment can never land without the agreement it paid for.
    */
   beginSettlement: (

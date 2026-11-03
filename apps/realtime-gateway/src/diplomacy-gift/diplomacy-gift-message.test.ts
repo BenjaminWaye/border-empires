@@ -18,15 +18,15 @@ const makeDeps = (overrides: Partial<DiplomacyGiftDeps> = {}): DiplomacyGiftDeps
   ...overrides
 });
 
-const gift = (gold: number, shard = 0) => ({ targetPlayerName: "Elin", targetPlayerId: "ai-1", gift: { gold, shard } });
+const gift = (gold: number) => ({ targetPlayerName: "Elin", targetPlayerId: "ai-1", gift: { gold } });
 
 describe("offerDiplomacyGift", () => {
   it("pays the AI and remembers the gift as goodwill", async () => {
     const deps = makeDeps();
-    const result = await offerDiplomacyGift(deps, "me", gift(40, 2), { isGuest: false });
-    expect(deps.settle).toHaveBeenCalledWith({ proposerId: "me", targetId: "ai-1", terms: { give: { gold: 40, shard: 2 }, ask: { gold: 0, shard: 0 } } });
-    expect(deps.recordPayment).toHaveBeenCalledWith("ai-1", "me", 90);
-    expect(result).toMatchObject({ type: "DIPLOMACY_GIFT_RESULT", ok: true, targetPlayerId: "ai-1", message: "You gave Elin 40 coin and 2 Shards as a gift." });
+    const result = await offerDiplomacyGift(deps, "me", gift(40), { isGuest: false });
+    expect(deps.settle).toHaveBeenCalledWith({ proposerId: "me", targetId: "ai-1", terms: { give: { gold: 40 }, ask: { gold: 0 } } });
+    expect(deps.recordPayment).toHaveBeenCalledWith("ai-1", "me", 40);
+    expect(result).toMatchObject({ type: "DIPLOMACY_GIFT_RESULT", ok: true, targetPlayerId: "ai-1", message: "You gave Elin 40 coin as a gift." });
   });
 
   it("records no goodwill when the payment fails", async () => {
@@ -40,7 +40,7 @@ describe("offerDiplomacyGift", () => {
   it("refuses guests, human targets, yourself and empty gifts without paying", async () => {
     const deps = makeDeps();
     expect((await offerDiplomacyGift(deps, "me", gift(40), { isGuest: true })).ok).toBe(false);
-    expect((await offerDiplomacyGift(deps, "me", { targetPlayerName: "Ada", gift: { gold: 40, shard: 0 } }, { isGuest: false })).message).toBe(
+    expect((await offerDiplomacyGift(deps, "me", { targetPlayerName: "Ada", gift: { gold: 40 } }, { isGuest: false })).message).toBe(
       "Ada keeps no opinion of you to win over. Only AI empires take gifts."
     );
     expect((await offerDiplomacyGift(deps, "ai-1", gift(40), { isGuest: false })).ok).toBe(false);

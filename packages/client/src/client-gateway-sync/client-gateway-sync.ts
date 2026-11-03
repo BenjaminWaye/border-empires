@@ -41,7 +41,7 @@ type NormalizedGatewayTileUpdate = {
   siegeBattery?: Tile["siegeBattery"] | undefined;
   economicStructure?: Tile["economicStructure"] | undefined;
   sabotage?: Tile["sabotage"] | undefined;
-  shardSite?: Tile["shardSite"] | undefined; naturalWonder?: Tile["naturalWonder"] | undefined;
+  naturalWonder?: Tile["naturalWonder"] | undefined;
   watchtower?: Tile["watchtower"] | undefined;
   waystation?: Tile["waystation"] | undefined;
   muster?: Tile["muster"] | undefined;
@@ -68,7 +68,6 @@ type NormalizedGatewayTileUpdate = {
 // import sim-protocol at build time, so client-gateway-overlay-fields.test.ts
 // enforces that instead -- a new overlay fails that test until it is added here.
 const GATEWAY_OVERLAY_PARSERS = {
-  shardSiteJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ shardSite: parseGatewayStructureJson<NonNullable<Tile["shardSite"]>>(json) }),
   naturalWonderJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ naturalWonder: parseGatewayStructureJson<NonNullable<Tile["naturalWonder"]>>(json) }),
   fortJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ fort: parseGatewayStructureJson<Tile["fort"]>(json) }),
   observatoryJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ observatory: parseGatewayStructureJson<Tile["observatory"]>(json) }),
@@ -283,7 +282,7 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
     else delete merged.dockId;
   }
   // Confirmed-identical fields (ownerId/ownershipState/frontierDecayAt/
-  // frontierDecayKind/shardSite/town/fort/observatory/economicStructure/
+  // frontierDecayKind/town/fort/observatory/economicStructure/
   // siegeBattery/sabotage/muster/yieldRate/upkeepEntries/
   // history) merged via the shared helper -- see client-tile-merge.ts.
   applyCommonTileFields(existing, merged, normalizedGateway, { me: deps.state.me });
