@@ -148,6 +148,12 @@ export type CurrentSeasonSummary = {
   townCount: number;
   /** LAND tiles in the world (the Diplomatic Dominance denominator); absent from summaries saved before it existed. */
   landTileCount?: number;
+  /**
+   * Each competitive player's Diplomatic Dominance tiles: controlled (SETTLED +
+   * FRONTIER) tiles times its diplomatic weight, as the victory check counts
+   * them. Absent from summaries saved before it existed.
+   */
+  dominanceTilesByPlayerId?: Record<string, number>;
   updatedAt: number;
   seasonStats?: SeasonStats;
   // Live in-memory score-history samples for the current season (see

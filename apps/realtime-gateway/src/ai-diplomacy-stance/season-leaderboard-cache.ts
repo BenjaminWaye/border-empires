@@ -3,10 +3,19 @@
 // while; the wait is bounded, so a stalled simulation can't hang truce or
 // alliance answers; and a failure is never cached, so one bad fetch doesn't
 // make every AI "unable to weigh up an alliance" for the whole window.
+import type { CurrentSeasonSummary } from "@border-empires/sim-protocol";
+
 import type { SeasonSizes } from "./ai-alliance-bloc.js";
 
 export const SEASON_LEADERBOARD_TTL_MS = 30_000;
 export const SEASON_LEADERBOARD_TIMEOUT_MS = 2_000;
+
+/** The parts of the simulation's season summary the bloc check reads. */
+export const seasonSizesFromSummary = (summary: Pick<CurrentSeasonSummary, "overall" | "landTileCount" | "dominanceTilesByPlayerId">): SeasonSizes => ({
+  tiles: summary.overall,
+  ...(summary.landTileCount !== undefined ? { landTileCount: summary.landTileCount } : {}),
+  ...(summary.dominanceTilesByPlayerId ? { dominanceTilesByPlayerId: summary.dominanceTilesByPlayerId } : {})
+});
 
 export type SeasonLeaderboardCache = () => Promise<SeasonSizes | undefined>;
 

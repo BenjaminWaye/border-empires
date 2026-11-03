@@ -1,4 +1,5 @@
 import type { SimulationRuntime } from "../runtime/runtime.js";
+import { diplomaticDominanceWeight } from "../season-summary/season-summary-dominance-sizes.js";
 import { economicHegemonyLeadMultFor, type ResourceType, type SeasonVictoryPathId } from "@border-empires/shared";
 import {
   SEASON_VICTORY_DIPLOMATIC_CONTROL_SHARE,
@@ -238,7 +239,7 @@ const buildSeasonVictoryContext = (
   const controlledCountByPlayerId = new Map<string, number>();
   const dockCountByPlayerId = new Map<string, number>();
   const metricsByPlayerId = new Map<string, VictoryMetrics>();
-  const diplomaticWeightByPlayerId = new Map(players.map(player => [player.id, player.domainIds?.includes("afc-chancery-5") ? 2 : 1]));
+  const diplomaticWeightByPlayerId = new Map(players.map(player => [player.id, diplomaticDominanceWeight(player.domainIds)]));
   const resourceTally = createVictoryResourceTally();
 
   for (const tile of worldTiles) {

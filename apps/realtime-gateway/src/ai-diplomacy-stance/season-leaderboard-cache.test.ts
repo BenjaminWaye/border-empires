@@ -1,8 +1,21 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createSeasonLeaderboardCache } from "./season-leaderboard-cache.js";
+import { createSeasonLeaderboardCache, seasonSizesFromSummary } from "./season-leaderboard-cache.js";
 
 const board = (tiles: number) => ({ tiles: [{ id: "ai-1", tiles }], landTileCount: 1_000 });
+
+// Regression: without the summary's Dominance numbers every bloc is judged strictly, bringing back the original bug.
+describe("seasonSizesFromSummary", () => {
+  it("passes the Dominance numbers through with the leaderboard", () => {
+    const overall = [{ id: "ai-1", tiles: 5 }] as Parameters<typeof seasonSizesFromSummary>[0]["overall"];
+    expect(seasonSizesFromSummary({ overall, landTileCount: 900, dominanceTilesByPlayerId: { "ai-1": 8 } })).toEqual({
+      tiles: overall,
+      landTileCount: 900,
+      dominanceTilesByPlayerId: { "ai-1": 8 }
+    });
+    expect(seasonSizesFromSummary({ overall })).toEqual({ tiles: overall });
+  });
+});
 
 describe("createSeasonLeaderboardCache", () => {
   afterEach(() => vi.useRealTimers());

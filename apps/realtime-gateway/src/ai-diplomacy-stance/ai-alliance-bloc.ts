@@ -6,9 +6,10 @@
 // once that bloc reaches ALLIANCE_LEAVE_LAND_SHARE. Smaller blocs are far from
 // any win, so an AI joins those as a junior partner too.
 //
-// Size is the leaderboard tile count, the gateway's closest view of the
-// controlled-tile count the victory check uses. When the world's land count is
-// unknown (an older simulation summary) the AI always demands to lead.
+// "Leads" compares leaderboard tile counts. "How close to winning" uses the
+// victory check's own numbers from the season summary: each member's weighted
+// controlled tiles against the world's LAND tiles. When those are missing (a
+// summary saved before they existed) the AI always demands to lead.
 
 /** Joining needs a clear lead, so alliances don't flip back and forth on small swings. */
 export const ALLIANCE_LEAD_MARGIN = 1.1;
@@ -20,18 +21,28 @@ export const ALLIANCE_LEAVE_LAND_SHARE = 0.45;
 export type AllyLookup = (playerId: string) => readonly string[];
 export type TileLookup = (playerId: string) => number;
 export type LeaderboardTiles = ReadonlyArray<{ id: string; tiles: number }>;
-/** Leaderboard sizes plus the world's land tile count (undefined: unknown, so blocs are always judged strictly). */
-export type SeasonSizes = { tiles: LeaderboardTiles; landTileCount?: number };
+/** The season summary's Dominance numbers (see CurrentSeasonSummary.landTileCount / dominanceTilesByPlayerId). */
+export type DominanceTotals = { landTileCount?: number; dominanceTilesByPlayerId?: Readonly<Record<string, number>> };
+/** Leaderboard sizes plus the Dominance numbers (absent: unknown, so blocs are always judged strictly). */
+export type SeasonSizes = DominanceTotals & { tiles: LeaderboardTiles };
+/** How the victory check sizes a bloc: members' weighted controlled tiles against the world's land. */
+export type DominanceSizing = { landTileCount: number; dominanceTilesOf: TileLookup };
 
-const blocTiles = (members: Iterable<string>, tilesOf: TileLookup): number => {
-  let total = 0;
-  for (const playerId of members) total += tilesOf(playerId);
-  return total;
+/** undefined when the summary lacks either number: callers then judge every bloc strictly. */
+export const dominanceSizingFor = (totals: DominanceTotals | undefined): DominanceSizing | undefined => {
+  const landTileCount = totals?.landTileCount;
+  const byPlayer = totals?.dominanceTilesByPlayerId;
+  if (!byPlayer || landTileCount === undefined || !(landTileCount > 0)) return undefined;
+  return { landTileCount, dominanceTilesOf: (playerId) => byPlayer[playerId] ?? 0 };
 };
 
-/** True when a bloc this size holds at least `share` of the world's land, or the land count is unknown. */
-const nearDominance = (tiles: number, landTileCount: number | undefined, share: number): boolean =>
-  landTileCount === undefined || !(landTileCount > 0) || tiles >= landTileCount * share;
+/** True when the bloc holds at least `share` of the world's land, or its size can't be judged. */
+const nearDominance = (members: Iterable<string>, dominance: DominanceSizing | undefined, share: number): boolean => {
+  if (!dominance) return true;
+  let total = 0;
+  for (const playerId of members) total += dominance.dominanceTilesOf(playerId);
+  return total >= dominance.landTileCount * share;
+};
 
 /**
  * Tile counts from the leaderboard, or undefined when it can't vouch for the
@@ -84,10 +95,10 @@ export const aiWouldLeadAlliance = (
   requesterId: string,
   alliesOf: AllyLookup,
   tilesOf: TileLookup,
-  landTileCount?: number
+  dominance?: DominanceSizing
 ): boolean => {
   const merged = new Set([...allianceBloc(requesterId, alliesOf, aiPlayerId), ...allianceBloc(aiPlayerId, alliesOf)]);
-  if (!nearDominance(blocTiles(merged, tilesOf), landTileCount, ALLIANCE_LEAD_REQUIRED_LAND_SHARE)) return true;
+  if (!nearDominance(merged, dominance, ALLIANCE_LEAD_REQUIRED_LAND_SHARE)) return true;
   const largest = largestOtherMember(aiPlayerId, requesterId, alliesOf, tilesOf);
   // Small epsilon: 100 x 1.1 is 110.00000000000001 in floating point.
   return !largest || tilesOf(aiPlayerId) >= largest.tiles * ALLIANCE_LEAD_MARGIN - 1e-9;
@@ -98,8 +109,8 @@ export const aiWouldLeadAlliance = (
  * through them, contains someone at least as large as the AI. Leaving them is
  * enough to make the AI the largest member of whatever remains.
  */
-export const alliancesAiShouldLeave = (aiPlayerId: string, alliesOf: AllyLookup, tilesOf: TileLookup, landTileCount?: number): string[] => {
-  if (!nearDominance(blocTiles(allianceBloc(aiPlayerId, alliesOf), tilesOf), landTileCount, ALLIANCE_LEAVE_LAND_SHARE)) return [];
+export const alliancesAiShouldLeave = (aiPlayerId: string, alliesOf: AllyLookup, tilesOf: TileLookup, dominance?: DominanceSizing): string[] => {
+  if (!nearDominance(allianceBloc(aiPlayerId, alliesOf), dominance, ALLIANCE_LEAVE_LAND_SHARE)) return [];
   const aiTiles = tilesOf(aiPlayerId);
   return alliesOf(aiPlayerId).filter((allyId) => {
     for (const memberId of allianceBloc(allyId, alliesOf, aiPlayerId)) {

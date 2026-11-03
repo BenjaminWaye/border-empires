@@ -180,7 +180,7 @@ describe("AI alliance pricing", () => {
     expect(cautious.pricing.required.alliance).toBe(92 + 24 * 60);
     // Other refusals still hold.
     expect(price({ giftToPleased: 92, memory: memory({ lastCombatAt: NOW - HOUR }) }).pricing.required.alliance).toBeNull();
-    expect(price({ giftToPleased: 92, aiWouldLeadAlliance: false }).allianceRefusal).toBe("Milo won't help a larger empire toward Diplomatic Dominance: together you'd hold too much land for it to join without leading.");
+    expect(price({ giftToPleased: 92, aiWouldLeadAlliance: false }).allianceRefusal).toBe("Milo won't join an alliance this large unless it clearly leads it: it won't help anyone else toward Diplomatic Dominance.");
   });
 
   it("needs at least Pleased, and the AI never pays", () => {
@@ -216,7 +216,7 @@ describe("AI alliance pricing", () => {
     const result = price({ stanceKind: "OUTMATCHED", bordersTouch: false, memory: memory({ goodwillCoin: 600 }), aiWouldLeadAlliance: false });
     expect(result.opinion.attitude).toBe("FRIENDLY");
     expect(result.pricing.required.alliance).toBeNull();
-    expect(result.allianceRefusal).toBe("Milo won't help a larger empire toward Diplomatic Dominance: together you'd hold too much land for it to join without leading.");
+    expect(result.allianceRefusal).toBe("Milo won't join an alliance this large unless it clearly leads it: it won't help anyone else toward Diplomatic Dominance.");
   });
 
   // Goodwill is capped: coin alone can't buy friendship.

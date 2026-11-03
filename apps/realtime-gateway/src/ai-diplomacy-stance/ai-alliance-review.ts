@@ -7,7 +7,7 @@
 // Sizes come from the simulation's cached season leaderboard, fetched once
 // per run -- not from a subscription as each AI, which would hold a full
 // player snapshot per allied AI for the rest of the season.
-import { alliancesAiShouldLeave, tileLookupFor, type AllyLookup, type SeasonSizes } from "./ai-alliance-bloc.js";
+import { alliancesAiShouldLeave, dominanceSizingFor, tileLookupFor, type AllyLookup, type SeasonSizes } from "./ai-alliance-bloc.js";
 
 /** How often the review actually runs (it is called from the gateway's 60s alliance-break task). */
 export const AI_ALLIANCE_REVIEW_INTERVAL_MS = 5 * 60_000;
@@ -47,11 +47,11 @@ export const createAiAllianceReview = (deps: AiAllianceReviewDeps): (() => Promi
         // No size for the AI: don't leave an alliance on a guess.
         const tilesOf = tileLookupFor(sizes.tiles, aiId);
         if (!tilesOf) continue;
-        for (const allyId of alliancesAiShouldLeave(aiId, deps.alliesOf, tilesOf, sizes.landTileCount)) {
+        for (const allyId of alliancesAiShouldLeave(aiId, deps.alliesOf, tilesOf, dominanceSizingFor(sizes))) {
           if (pending.has(allyId)) continue;
           const aiName = deps.playerName(aiId);
           const result = deps.breakAlliance(aiId, allyId, {
-            [allyId]: `${aiName} started a 24h notice to leave your alliance: the alliance is nearing Diplomatic Dominance and it is no longer the largest empire in it, so it won't help a larger partner win.`,
+            [allyId]: `${aiName} started a 24h notice to leave your alliance: it no longer leads an alliance this large, and won't help anyone else toward Diplomatic Dominance.`,
             [aiId]: `You started a 24h notice to leave your alliance with ${deps.playerName(allyId)}.`
           });
           deps.recordGatewayEvent(result.ok ? "info" : "warn", "gateway_ai_alliance_left", {

@@ -123,7 +123,7 @@ export const aiDiplomacyPricing = (input: {
   else if (foughtRecently) allianceRefusal = `${aiName} won't ally with an empire it fought within the last day.`;
   else if (belowPleased && tribute === undefined) allianceRefusal = `${aiName} doesn't think well enough of you for an alliance.`;
   else if (input.aiWouldLeadAlliance === undefined) allianceRefusal = `${aiName} can't weigh up an alliance right now. Try again shortly.`;
-  else if (!input.aiWouldLeadAlliance) allianceRefusal = `${aiName} won't help a larger empire toward Diplomatic Dominance: together you'd hold too much land for it to join without leading.`;
+  else if (!input.aiWouldLeadAlliance) allianceRefusal = `${aiName} won't join an alliance this large unless it clearly leads it: it won't help anyone else toward Diplomatic Dominance.`;
   const allianceHours = allianceRefusal ? undefined : tribute !== undefined ? ALLIANCE_HOURS.PLEASED : ALLIANCE_HOURS[opinion.attitude];
   const alliance = allianceHours === undefined ? null : hoursToCoin(allianceHours, priceIncome) + (tribute ?? 0);
 

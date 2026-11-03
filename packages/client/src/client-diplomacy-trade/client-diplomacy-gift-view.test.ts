@@ -38,7 +38,7 @@ describe("giftVerdict", () => {
 
   // Regression: a gift was sold as "enough for an alliance" while the AI already refused one on bloc size.
   it("doesn't promise an alliance the AI refuses for reasons opinion can't change", () => {
-    const refusal = "Elin won't help a larger empire toward Diplomatic Dominance: together you'd hold too much land for it to join without leading.";
+    const refusal = "Elin won't join an alliance this large unless it clearly leads it: it won't help anyone else toward Diplomatic Dominance.";
     const refusing = { ...elin, allianceRefusal: refusal };
     expect(verdict(giving(195), undefined, refusing).text).toBe(
       `Elin's opinion of you: +20 (Cautious → Pleased). Gifts won't win an alliance right now: ${refusal} Gifts count for up to +25 in all and lose half their effect each day.`

@@ -10,13 +10,13 @@ import type { CommandEnvelope, CurrentSeasonSummary, PlayerSubscriptionSnapshot 
 import type { WebSocket } from "ws";
 
 import { combatFromSimulationEvent, createAiDiplomacyMemory } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
-import type { SeasonSizes } from "../ai-diplomacy-stance/ai-alliance-bloc.js";
+import { dominanceSizingFor, type SeasonSizes } from "../ai-diplomacy-stance/ai-alliance-bloc.js";
 import { createAiAllianceReview } from "../ai-diplomacy-stance/ai-alliance-review.js";
 import { recheckAiOffer } from "../ai-diplomacy-stance/ai-offer-recheck.js";
 import type { AiDiplomacyContext } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
 import { aiDiplomacyGrudges } from "../ai-diplomacy-stance/ai-diplomacy-grudges.js";
 import { answerDiplomacyStanceQuery } from "../ai-diplomacy-stance/diplomacy-stance-query.js";
-import { createSeasonLeaderboardCache } from "../ai-diplomacy-stance/season-leaderboard-cache.js";
+import { createSeasonLeaderboardCache, seasonSizesFromSummary } from "../ai-diplomacy-stance/season-leaderboard-cache.js";
 import { createAllianceBreakFinalizer } from "../alliance-break-finalizer/alliance-break-finalizer.js";
 import { handleAllianceSocketMessage, type AllianceSocketMessageDeps } from "../alliance-socket-messages/alliance-socket-messages.js";
 import { rejectCounteredOffer } from "../diplomacy-counter-offer/diplomacy-counter-offer.js";
@@ -51,7 +51,7 @@ export type DiplomacySocketHandlerDeps = {
   isSimulationConnected: () => boolean;
   /** Every competitive player's tile count, from the simulation's cached season summary. */
   /** The simulation's season summary: leaderboard sizes and the world's land count, for the AI alliance-bloc check. */
-  fetchSeasonSummary: () => Promise<Pick<CurrentSeasonSummary, "overall" | "landTileCount">>;
+  fetchSeasonSummary: () => Promise<Pick<CurrentSeasonSummary, "overall" | "landTileCount" | "dominanceTilesByPlayerId">>;
 };
 
 export type DiplomacySocketHandler = {
@@ -132,13 +132,11 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
   const alliesOf = (playerId: string): readonly string[] => socialState.snapshotForPlayer(playerId).allies;
   // AI snapshots come from a live subscribe without world status, so the bloc
   // check's sizes come from the season leaderboard (cached, bounded wait).
-  const fetchSeasonSizes = async (): Promise<SeasonSizes> => {
-    const summary = await deps.fetchSeasonSummary();
-    return { tiles: summary.overall, ...(summary.landTileCount !== undefined ? { landTileCount: summary.landTileCount } : {}) };
-  };
+  const fetchSeasonSizes = async (): Promise<SeasonSizes> => seasonSizesFromSummary(await deps.fetchSeasonSummary());
   const seasonLeaderboard = createSeasonLeaderboardCache({ fetch: fetchSeasonSizes, now: () => Date.now() });
   const diplomacyContext = async (requesterId: string, aiPlayerId: string): Promise<AiDiplomacyContext> => {
     const sizes = await seasonLeaderboard();
+    const dominance = dominanceSizingFor(sizes);
     const now = Date.now();
     return {
       ...aiDiplomacyGrudges(socialState.snapshotForPlayer(requesterId), requesterId, aiPlayerId, now),
@@ -146,7 +144,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
       now,
       alliesOf,
       ...(sizes ? { seasonLeaderboard: sizes.tiles } : {}),
-      ...(sizes?.landTileCount !== undefined ? { landTileCount: sizes.landTileCount } : {})
+      ...(dominance ? { dominance } : {})
     };
   };
   const reviewAiAlliances = createAiAllianceReview({
